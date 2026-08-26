@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 Mini 导出 Web→Mini 适配（已完成自动验证，待体验版/用户复核）
+
+- 范围与冻结：只把未修改 Web `ExportDialog.vue` 的导出规则、筛选、状态和安全下载适配到 Mini；`apps/web` tracked diff 仍为 0。生产 `insights=false`、`externalMessages=false` 保持，访客访问留给下一独立任务。最新已上传体验版仍为 `.26@4de2cd91`，本批 `.27` 尚未上传。
+- 审计来源：Web 导出黄金来自 `15729f8e/38611902/6ec287da`，Mini 旧导出来自 `de710eaf/87055d19`，安全下载来自 `de710eaf`；已执行 `git log -S`/`git blame`。旧实现缺月/年、岗位/成员筛选、90 秒轮询/继续同一任务，并把原生 picker 索引误当业务字符串。
+- 实现：新增隔离 `@schedule/presentation-core/export`（Web 同款文件名、周期标签、选择摘要、90 秒轮询），接入 package export、Vitest alias、Mini build alias 和 runtime boundary；controller 增加 capability 先行、组织选项、月/年与岗位/成员筛选、同一任务继续检查、失败重试、过期请求防护和 Web 文件名；WXML/WXSS 对齐 Web 层级并覆盖 loading/disabled/error/idle/waiting/timed_out/ready/下载失败/打开失败，保留 44px 触达区、320px 紧凑规则和大字号可滚动布局；`secure-download.ts` 使用 Bearer header、无 URL token、单次结算和 30 秒 JS 超时，不写持久化文件/相册。
+- 测试先行：旧 WXML 红灯暴露缺少“正在创建导出任务/继续检查/下载 CSV”，旧 secure-download 红灯暴露微信不回调时 Promise 永不结算；实现后均转绿。导出定向 4 files/12 tests，Mini 全量 81 files/359 tests，Mini source audit、typecheck、production verify、包体 audit、determinism、CI dry-run 均通过。
+- 根仓库验证：任务文件 Prettier/ESLint 通过；根 build 与四端 typecheck 通过；`smoke:check-core` 判定本批未涉及核心链路，无需浏览器冒烟记录。根定向 Vitest（排除 `runtime/**`、`src/**`、不从根 cwd 执行 Mini 脚本）为 217 files/1021 tests 通过、35 files/346 tests 跳过，另有 `packages/ui-tokens/src/tokens-css.test.ts` 2 项既有 CRLF/LF 差异；根全量 format 仍报告既有 412 个文件差异，root lint 仍只有既有 5 个未落地 Mini 文件的 7 项错误。本批任务文件无新增根门禁错误。
+- Mini 产物：production verify manifest `f7d1e989f2b187212b6658613723c05197f2c21845112a281a0f6a51d1afa0bf`，总包 `5,729,604` bytes，insights 分包 `1,302,744` bytes，source/output worklet 均为 2；organization 分包既有 1.5M warning，未触及本批功能限制。自动验证已完成，320/390/大字号实体微信渲染仍由用户体验版/实体 Android 复核关闭。
+- 本批任务文件（用户自有文件除外）：`apps/miniprogram/scripts/build-tools.mjs`、`p9-export-download.test.mjs`、新 `export-web-rule-parity.test.mjs`、新 `exports-controller.test.mjs`、新 `secure-download.test.mjs`、`src/platform/secure-download.ts`、`exports-panel/controller.ts`、`exports-panel/index.json`/`index.wxml`/`index.wxss`、`packages/presentation-core/package.json`、新 `src/export.ts`/`export.spec.ts`、`tests/runtime-boundary.spec.ts`、根 `vitest.config.ts`。`project.config.json`、`pnpm-workspace.yaml`、`group-settings-page.test.mjs`、组织管理 WXML、UI2 stories、`src/`、工作簿和未落地 P10 worktree 继续按用户所有保护。
+- checkpoint：代码提交消息拟为 `feat(miniprogram): align Web export and secure download`；提交前必须再次确认 `apps/web` diff 为 0、审阅显式暂存清单。提交后按新增规则先主动说明 `.27` 版本、更新内容、影响范围、能力开关和验收重点，再执行体验上传；不提审、不正式发布、不打开 P9 capability。
+- 下一活动批次与停止条件：完成代码 checkpoint 后上传 `.27`，再按根规则创建生产备份、部署同一 Git release、运行 `ecs-verify.sh`/health/full verify，并在状态文档记录 backup identifier、release、体验版 manifest 与验证结果；随后停止等待用户体验版和 320/390/大字号实体复核。导出用户复核关闭后，下一实现批次才进入访客访问 Web→Mini 适配。
+
 ## 2026-08-26 Mini 事件与统计复刻 Web 规则（已完成，待 insights 开放后真机复核）
 
 - 范围：Web 生产代码和功能保持完全不变；以只读 Web helper 为黄金，把完整事件类型标签、状态、色调、中国时间、日期分组、变更提取/叙述/关联链，以及统计月份/周期、10 项汇总、成员排序、原实对照计数、加扣班净值和滚动口径复制到隔离的 `@schedule/presentation-core/event`、`@schedule/presentation-core/statistics` 子路径，只供 Mini 适配层新增使用；根导出图不包含这两个模块。

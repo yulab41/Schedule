@@ -52,6 +52,13 @@ const PRESENTATION_CORE_EVENT_ENTRY = path.join(
   'src',
   'event.ts',
 );
+const PRESENTATION_CORE_EXPORT_ENTRY = path.join(
+  REPOSITORY_ROOT,
+  'packages',
+  'presentation-core',
+  'src',
+  'export.ts',
+);
 const PRESENTATION_CORE_STATISTICS_ENTRY = path.join(
   REPOSITORY_ROOT,
   'packages',
@@ -301,6 +308,7 @@ export async function buildMiniProgram({
       '@schedule/contracts/manual-schedule-limits': CONTRACTS_MANUAL_SCHEDULE_LIMITS_ENTRY,
       '@schedule/contracts/past-schedule-limits': CONTRACTS_PAST_SCHEDULE_LIMITS_ENTRY,
       '@schedule/presentation-core/event': PRESENTATION_CORE_EVENT_ENTRY,
+      '@schedule/presentation-core/export': PRESENTATION_CORE_EXPORT_ENTRY,
       '@schedule/presentation-core/statistics': PRESENTATION_CORE_STATISTICS_ENTRY,
       '@schedule/presentation-core': PRESENTATION_CORE_ENTRY,
     },

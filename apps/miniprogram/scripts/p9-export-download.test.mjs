@@ -46,10 +46,15 @@ describe('P9 native export download boundary', () => {
 
   it('covers idle, waiting, ready, failed, and capability-disabled copy', () => {
     const template = read('src/subpackages/insights/components/exports-panel/index.wxml');
+    const controller = read('src/subpackages/insights/components/exports-panel/controller.ts');
     expect(template).toContain('导出任务');
-    expect(template).toContain('正在准备导出');
-    expect(template).toContain('下载文件');
+    expect(template).toContain('正在创建导出任务');
+    expect(template).toContain('继续检查');
+    expect(template).toContain('下载 CSV');
     expect(template).toContain('insights');
     expect(template).toContain('重新开始');
+    expect(controller).toContain("from '@schedule/presentation-core/export'");
+    expect(controller).not.toContain('function pollJob');
+    expect(controller).not.toContain('function currentBusinessMonth');
   });
 });

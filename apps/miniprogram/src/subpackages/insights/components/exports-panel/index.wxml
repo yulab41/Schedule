@@ -1,1 +1,232 @@
-<view class="exports-page {{viewportClass}}"><view class="mini-header" style="{{shellHeaderStyle}}"><view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回更多工具" bindtap="handleBack"><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view><view class="header-title"><text class="header-title-main">导出排班与统计</text><text class="header-title-sub">登录态下载 · 仅当前群组</text></view><text class="phase-chip">P9</text></view><scroll-view class="exports-scroll" style="{{pageScrollStyle}}" scroll-y enhanced show-scrollbar="{{false}}"><view class="page-content"><view wx:if="{{state === 'disabled'}}" class="page-state-card insights-disabled"><view class="state-mark">—</view><text class="state-title">导出暂未开放</text><text class="state-copy">当前版本未开启 insights 能力，不会创建导出任务或下载文件。</text></view><view wx:else class="exports-content"><view class="page-heading"><text class="section-eyebrow">离线文件 / 安全导出</text><text class="page-title">导出排班与统计</text><text class="page-description">文件通过登录态下载，不在 URL 中携带 token；生成期间可以安全离开页面。</text></view><view class="surface-card"><view class="card-header"><view><text class="card-title">导出内容</text><text class="card-subtitle">当前月份 · {{exportType === 'statistics' ? '统计' : '排班'}}</text></view><text class="phase-chip">CSV</text></view><view class="field-block"><text class="field-label">文件类型</text><picker mode="selector" range="{{['排班', '统计']}}" value="{{exportType === 'statistics' ? 1 : 0}}" bindchange="handleTypeChange"><view class="native-picker">{{exportType === 'statistics' ? '统计' : '排班'}}</view></picker></view><view class="export-summary"><text class="summary-label">当前月份</text><text class="summary-value">{{currentMonthLabel}}</text><text class="summary-note">按当前群组权限生成，过期文件由服务端清理。</text></view><ui-button wx:if="{{state === 'idle' || state === 'error'}}" variant="primary" label="创建导出任务" bindpress="handleCreate"></ui-button><ui-button wx:elif="{{state === 'waiting'}}" variant="secondary" label="正在准备导出" loading="{{true}}" disabled="{{true}}"></ui-button><view wx:elif="{{state === 'ready'}}" class="ready-result"><text class="ready-title">导出已完成</text><text class="ready-file">{{fileLabel}}</text><ui-button variant="primary" label="下载文件" bindpress="handleDownload"></ui-button><ui-button variant="secondary" label="重新开始" bindpress="handleReset"></ui-button></view></view><view wx:if="{{errorMessage}}"><ui-alert tone="danger" title="导出任务未完成" message="{{errorMessage}}"></ui-alert></view><view class="security-note"><text class="security-title">下载安全</text><text>临时文件只交给当前页面打开，不保存到相册、不写入业务缓存。</text></view><view class="bottom-spacer"></view></view></view></scroll-view></view>
+<view class="exports-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+    /></view>
+    <view class="header-title"
+      ><text class="header-title-main">导出排班与统计</text
+      ><text class="header-title-sub">登录态下载 · 仅当前群组</text></view
+    >
+    <text class="phase-chip">P9</text>
+  </view>
+  <scroll-view
+    class="exports-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    ><view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card"
+        ><ui-loading label="正在加载导出选项"></ui-loading
+      ></view>
+      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
+        ><view class="state-mark">—</view
+        ><text class="state-title">导出暂未开放</text
+        ><text class="state-copy"
+          >当前版本未开启 insights 能力，不会创建导出任务或下载文件。</text
+      ></view>
+      <view wx:elif="{{state === 'error'}}" class="page-state-card"
+        ><ui-alert
+          tone="danger"
+          title="导出选项暂时无法加载"
+          message="{{errorMessage}}"
+        ></ui-alert
+        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+      ></view>
+      <view wx:else class="exports-content">
+        <view class="page-heading"
+          ><text class="section-eyebrow">离线文件 / 安全导出</text
+          ><text class="page-title">导出排班与统计</text
+          ><text class="page-description"
+            >文件通过登录态下载，不在 URL 中携带 token；生成期间可以安全离开页面。</text
+        ></view>
+
+        <view class="export-selection-summary" aria-label="导出选择摘要" aria-live="polite"
+          ><text class="summary-label">将要导出</text
+          ><text class="summary-value">{{selectionSummary}}</text
+        ></view>
+
+        <view class="surface-card export-form-card">
+          <view class="card-header"
+            ><view
+              ><text class="card-title">导出内容</text
+              ><text class="card-subtitle">当前群组 · CSV 文件</text></view
+            ><text class="phase-chip">CSV</text></view
+          >
+
+          <view class="field-block">
+            <text class="field-label">文件类型</text>
+            <picker
+              mode="selector"
+              range="{{['排班', '统计']}}"
+              value="{{exportType === 'statistics' ? 1 : 0}}"
+              bindchange="handleTypeChange"
+            >
+              <view
+                class="native-picker"
+                aria-role="button"
+                aria-label="文件类型，{{exportType === 'statistics' ? '统计' : '排班'}}"
+                ><text>{{exportType === 'statistics' ? '统计' : '排班'}}</text
+                ><text class="picker-chevron" aria-hidden="true">›</text></view
+            ></picker>
+          </view>
+
+          <view class="field-block period-field">
+            <text class="field-label">时间范围</text>
+            <view class="choice-group" role="tablist" aria-label="导出时间范围"
+              ><view
+                class="choice-option {{periodType === 'month' ? 'is-active' : ''}}"
+                aria-role="button"
+                aria-label="按月"
+                aria-selected="{{periodType === 'month'}}"
+                data-period-type="month"
+                bindtap="handlePeriodType"
+                >按月</view
+              ><view
+                class="choice-option {{periodType === 'year' ? 'is-active' : ''}}"
+                aria-role="button"
+                aria-label="按年"
+                aria-selected="{{periodType === 'year'}}"
+                data-period-type="year"
+                bindtap="handlePeriodType"
+                >按年</view
+            ></view>
+            <view class="period-stepper" aria-label="导出周期">
+              <view
+                class="period-step"
+                aria-role="button"
+                aria-label="上一导出周期"
+                bindtap="handlePreviousPeriod"
+                ><text aria-hidden="true">‹</text></view
+              >
+              <view class="period-readout"
+                ><text class="period-value">{{periodLabel}}</text
+                ><text class="period-caption"
+                  >{{periodType === 'month' ? '按月生成' : '按年生成'}}</text
+              ></view>
+              <view
+                class="period-step"
+                aria-role="button"
+                aria-label="下一导出周期"
+                bindtap="handleNextPeriod"
+                ><text aria-hidden="true">›</text></view
+              >
+            </view>
+          </view>
+
+          <view class="field-block">
+            <text class="field-label">排班岗位</text>
+            <picker
+              mode="selector"
+              range="{{roleOptions}}"
+              range-key="label"
+              value="{{roleIndex}}"
+              bindchange="handleRoleChange"
+            >
+              <view
+                class="native-picker"
+                aria-role="button"
+                aria-label="排班岗位，{{roleOptions[roleIndex].label}}"
+                ><text>{{roleOptions[roleIndex].label}}</text
+                ><text class="picker-chevron" aria-hidden="true">›</text></view
+            ></picker>
+          </view>
+
+          <view class="field-block">
+            <text class="field-label">成员</text>
+            <picker
+              mode="selector"
+              range="{{memberOptions}}"
+              range-key="label"
+              value="{{memberIndex}}"
+              bindchange="handleMemberChange"
+            >
+              <view
+                class="native-picker"
+                aria-role="button"
+                aria-label="成员，{{memberOptions[memberIndex].label}}"
+                ><text>{{memberOptions[memberIndex].label}}</text
+                ><text class="picker-chevron" aria-hidden="true">›</text></view
+            ></picker>
+          </view>
+
+          <view class="export-hint"
+            ><text class="hint-mark" aria-hidden="true">i</text
+            ><text>文件默认不包含电话号码和内部审计内容；每次导出都会记录安全审计。</text></view
+          >
+
+          <ui-alert
+            wx:if="{{errorMessage}}"
+            tone="danger"
+            title="导出任务未完成"
+            message="{{errorMessage}}"
+          ></ui-alert>
+
+          <view wx:if="{{state === 'waiting'}}" class="export-progress" role="status"
+            ><ui-loading compact></ui-loading
+            ><view class="progress-copy"
+              ><text class="progress-title"
+                >{{statusLabel === '正在创建导出任务' ? '正在创建导出任务' : statusLabel}}</text
+              ><text class="progress-note">通常 1 分钟内完成，请保持此页面打开。</text></view
+          ></view>
+          <view wx:elif="{{state === 'timed_out'}}" class="export-timeout" role="status"
+            ><view class="timeout-copy"
+              ><text class="progress-title">任务仍在服务器生成</text
+              ><text class="progress-note">可继续检查同一任务，不会重复创建。</text></view
+            ><ui-button
+              variant="secondary"
+              label="继续检查"
+              bindpress="handleContinue"
+            ></ui-button
+          ></view>
+          <view wx:elif="{{state === 'ready'}}" class="ready-result"
+            ><view class="ready-heading"
+              ><text class="ready-title">导出已完成</text
+              ><text class="ready-file">{{fileLabel}}</text></view
+            ><ui-button
+              variant="primary"
+              label="下载 CSV"
+              aria-label="下载文件"
+              loading="{{downloadBusy}}"
+              disabled="{{downloadBusy}}"
+              bindpress="handleDownload"
+            ></ui-button
+            ><ui-button
+              variant="secondary"
+              label="重新开始"
+              disabled="{{downloadBusy}}"
+              bindpress="handleReset"
+            ></ui-button
+          ></view>
+
+          <view wx:if="{{state !== 'ready'}}" class="export-actions"
+            ><ui-button
+              variant="secondary"
+              label="取消"
+              disabled="{{state === 'waiting'}}"
+              bindpress="handleBack"
+            ></ui-button
+            ><ui-button
+              variant="primary"
+              label="{{state === 'waiting' ? '正在生成' : '导出 CSV'}}"
+              loading="{{state === 'waiting'}}"
+              disabled="{{state === 'waiting'}}"
+              bindpress="handleCreate"
+            ></ui-button
+          ></view>
+        </view>
+
+        <view class="security-note"
+          ><text class="security-title">下载安全</text
+          ><text>临时文件只交给当前页面打开，不保存到相册、不写入业务缓存。</text></view
+        >
+        <view class="bottom-spacer"></view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -14,6 +14,10 @@
       "types": "./dist/event.d.ts",
       "import": "./dist/event.js"
     },
+    "./export": {
+      "types": "./dist/export.d.ts",
+      "import": "./dist/export.js"
+    },
     "./statistics": {
       "types": "./dist/statistics.d.ts",
       "import": "./dist/statistics.js"

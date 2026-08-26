@@ -9,6 +9,7 @@ const productionSources = [
   new URL('../src/calendar.ts', import.meta.url),
   new URL('../src/directory.ts', import.meta.url),
   new URL('../src/event.ts', import.meta.url),
+  new URL('../src/export.ts', import.meta.url),
   new URL('../src/manual-schedule.ts', import.meta.url),
   new URL('../src/mobile-phone-consent.ts', import.meta.url),
   new URL('../src/notification.ts', import.meta.url),
@@ -70,7 +71,7 @@ describe('presentation-core runtime boundary', () => {
   });
 
   it('exposes isolated event and statistics subpaths without changing the root graph', async () => {
-    for (const source of ['event.ts', 'statistics.ts']) {
+    for (const source of ['event.ts', 'export.ts', 'statistics.ts']) {
       const result = await build({
         bundle: true,
         entryPoints: [fileURLToPath(new URL(`../src/${source}`, import.meta.url))],

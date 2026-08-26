@@ -46,6 +46,12 @@ export default defineConfig({
         ),
       },
       {
+        find: '@schedule/presentation-core/export',
+        replacement: fileURLToPath(
+          new URL('./packages/presentation-core/src/export.ts', import.meta.url),
+        ),
+      },
+      {
         find: '@schedule/presentation-core/statistics',
         replacement: fileURLToPath(
           new URL('./packages/presentation-core/src/statistics.ts', import.meta.url),
