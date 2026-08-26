@@ -8,7 +8,9 @@
 - 修复：受影响的 P8/P9/P10 controller 在首次 attached、属性变更和重试前显式初始化运行时 API client、请求序号、群组和草稿状态；既有权限、capability、请求、错误与写入语义不变。
 - 测试先行：移除 P8/P10 动态测试中的私有字段预注入后，旧实现先红（11/11）；实现后 P8/P10 定向 11/11、P9 运行时 capability 关闭态 4/4、Mini 全量 72 files/329 tests 通过。`pnpm run verify`、source/package/determinism/CI dry-run 和 `git diff --check` 通过；包体 `5,567,529` bytes，组织分包 `1,682,948` bytes（仅超过内部 1.5M 提示，仍低于正式限制）。
 - 语义审计：只补齐微信 Component 实例初始化；请求接收者、Promise 错误路径、序列化/空值、重试与幂等调用次数、权限和 capability 关闭策略保持不变。未修改生产 `insights=false`、`externalMessages=false`。
-- checkpoint：待提交消息为 `fix(miniprogram): initialize component runtime state`；提交后上传候选体验版 `.20`，生产能力开关保持现状。
+- checkpoint：代码提交 `5e9bdb79`（`fix(miniprogram): initialize component runtime state`）已推送；体验版 `0.1.0-p9.20260826.20` 已上传成功，150 个代码文件、zip `1,339,412` bytes、Mini manifest `2507e4b6492f604197fd1ef88ba907597b2eb01a993d3ed32bba4e6af0dfd8d0`。
+- 生产发布：备份 archive `de4db70c-1f4d-47e0-b9e8-978947ee5696`（54 表/173,897 行/80,716,024 bytes/SHA `5d603a49e2a99bb65f466dd2eda5b84b673af39b5bcb8e0a5f0da9e34c18e9ee`）后部署 release `5e9bdb795b400b4fefe9590411694c2424f8390f`；ECS full verifier、health、产物/控制平面/迁移/未知 Host 校验通过，远端临时目录已清理。`.20` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`；生产能力值未新增开放。
+- 部署偏差记录：版本白名单首次原子写入出现引号格式错误，API 启动被配置校验拒绝；已在同一备份保护下立即清理异常 token、重建 API 并重新完成 health/capability/full verifier，业务数据与 capability 开关未受影响。
 - 下一活动批次与停止条件：用户切换体验版 `.20` 并逐页确认上述 8 个入口均能落到内容/空态/禁用/可重试错误；收到“P8/P9/P10 真机 loading 修复通过”后再进入下一阶段，不提前开启 P9 capability 或提审。
 
 ## 2026-08-26 P8/P10 实体验收通过（organization 已开启，P9 待验收）
