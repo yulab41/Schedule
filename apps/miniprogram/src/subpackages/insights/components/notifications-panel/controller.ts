@@ -90,8 +90,10 @@ const preferencesClient = createRuntimeNotificationPreferencesClient(
   getWechatRequestAuthentication(),
 );
 const workbenchClient = createWorkbenchReadClient();
-// Template IDs are supplied only after the WeChat account template is approved.
-const SUBSCRIPTION_TEMPLATE_IDS: readonly string[] = [];
+// This template is approved and configured in the production WeChat account.
+const SUBSCRIPTION_TEMPLATE_IDS: readonly string[] = [
+  'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+];
 
 export function createNotificationsPanelControllerDefinition() {
   return {

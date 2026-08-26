@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 能力开启与订阅模板接入（进行中）
+
+- 授权/范围：用户已明确授权继续完成剩余阶段；本批开启生产 `insights` 与 `externalMessages`，接入已配置的值班提醒订阅模板，并准备最终小程序候选、审核与正式发布。用户此前已明确无需人工复核，验收以自动回归、生产探针和 verifier 为准。
+- 实现：`notifications-panel` 现在使用生产微信账号已配置的合规值班提醒模板；仍只在用户明确点击开启时调用 `wx.requestSubscribeMessage`，授权结果只留在内存，未改变 Bearer、偏好写入或通知正文边界。引入点为 `766ec6ac` 的空模板保护，已执行 `git log -S`/`git blame`。
+- 红绿/验证：旧实现新增模板接入断言先失败 1 项；接入后通知 controller 6/6、订阅边界 4/4、原生通知设置 3/3、最终 P9/P10 矩阵 3/3（合计 16/16）通过；Mini 全量 84 files/388 tests、production typecheck/verify、source/package/performance/determinism、CI dry-run 均通过。当前 verify manifest `ee7a88d51c809688e04cec81e44b92cbb2cc32e83380a8d5e43a3e8a99f5079a`，总包 `5,758,943` bytes；仅既有组织分包 1.5M 预警和 600 格节点 best-effort 警告。生产代码当前仍为 `af82c535`，本批代码尚未提交。
+- 生产能力：部署前备份 archive `b78654b6-f599-4dd7-8619-919e96d9d57b`（54 表、176,868 行、81,712,736 bytes、SHA-256 `28a45630ab7dcf23fb48e52075c62f4a3bded08b69ea205a8bfdf67d141953eb`）已完成；`insights=true`、`externalMessages=true` 已经由双锁切换并通过策略探针，首次健康请求短暂 502 后恢复，未修改业务数据。
+- 下一步/停止条件：先完成本批代码与文档 checkpoint 的验证、提交、推送、ECS 备份/部署和 `.38` 体验上传及版本白名单；随后用同一已授权候选执行正式审核/发布，完成微信平台状态与生产能力最终核验后收口全部阶段。
+
 ## 2026-08-27 P9/P10 最终自动状态矩阵与清单收口（已完成自动验证，继续推进）
 
 - 范围：对 P9 访客访问/事件统计/通知/导出及 P10 通讯录/个人中心/工作台角色入口逐项核对 capability、disabled 清理、生命周期、错误/空/加载、大字号、权限与安全下载；不打开 `insights`/`externalMessages`，不提交审核或正式发布。

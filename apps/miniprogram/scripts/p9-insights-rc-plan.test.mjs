@@ -11,13 +11,13 @@ function read(relativePath) {
 }
 
 describe('P9 insights RC plan', () => {
-  it('locks the current candidate and closed production capabilities', () => {
+  it('locks the current candidate and authorized production capabilities', () => {
     const plan = read('docs/runbooks/p9-insights-rc.md');
     expect(plan).toContain('0.1.0-p9.20260827.37');
-    expect(plan).toContain('insights=false');
-    expect(plan).toContain('externalMessages=false');
-    expect(plan).toContain('P9 数据与消息 RC 通过');
-    expect(plan).toContain('不提交审核或正式发布');
+    expect(plan).toContain('insights=true');
+    expect(plan).toContain('externalMessages=true');
+    expect(plan).toContain('自动通过条件');
+    expect(plan).toContain('正式审核/发布');
   });
 
   it('covers privacy, notification, export and size boundaries', () => {

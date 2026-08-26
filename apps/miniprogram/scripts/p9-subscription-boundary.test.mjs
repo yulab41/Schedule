@@ -41,4 +41,15 @@ describe('P9 external message subscription boundary', () => {
     expect(adapter).toContain("case 'filter':");
     expect(adapter).toContain('normalized.length > 3');
   });
+
+  it('uses the approved duty reminder template for explicit subscription consent', () => {
+    const controller = read(
+      'src/subpackages/insights/components/notifications-panel/controller.ts',
+    );
+
+    expect(controller).toContain(
+      "const SUBSCRIPTION_TEMPLATE_IDS: readonly string[] = [\n  'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',\n];",
+    );
+    expect(controller).toContain('templateConfigured: SUBSCRIPTION_TEMPLATE_IDS.length > 0');
+  });
 });

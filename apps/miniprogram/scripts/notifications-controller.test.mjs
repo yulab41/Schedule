@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getMine: vi.fn(),
   listGroups: vi.fn(),
   listNotifications: vi.fn(),
+  requestSubscriptions: vi.fn(),
   updateGroup: vi.fn(),
   updateMine: vi.fn(),
   requireClientCapability: vi.fn(),
@@ -42,7 +43,7 @@ vi.mock('../src/platform/wechat-identity.ts', () => ({
 }));
 
 vi.mock('../src/platform/wechat-subscription.ts', () => ({
-  requestWechatSubscriptions: vi.fn(async () => []),
+  requestWechatSubscriptions: mocks.requestSubscriptions,
 }));
 
 describe('notification parity controller', () => {
@@ -71,6 +72,7 @@ describe('notification parity controller', () => {
       membershipId: 'member-1',
       wechatNotificationsEnabled: false,
     }));
+    mocks.requestSubscriptions.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -189,6 +191,32 @@ describe('notification parity controller', () => {
     await flushPromises();
 
     expect(page.data.notifications.map((item) => item.id)).not.toContain('stale');
+  });
+
+  it('requests the approved duty reminder subscription only after an explicit toggle', async () => {
+    mocks.requestSubscriptions.mockResolvedValue([
+      {
+        granted: true,
+        status: 'accepted',
+        templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+      },
+    ]);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+
+    definition.methods.handleToggle.call(page, { detail: { checked: true } });
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+
+    expect(mocks.requestSubscriptions).toHaveBeenCalledWith([
+      'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+    ]);
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
+      wechatNotificationsEnabled: true,
+    });
   });
 
   it('marks the page as large text when the system font setting requests it', async () => {
