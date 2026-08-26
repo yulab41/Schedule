@@ -8,7 +8,8 @@
 - 根因：生产发布目录并不缺数据——院内目录 341 条/359 个联系方式、截图院区 210 条/214 个联系方式；`git log -S`/`git blame` 定位 `06a34bab` 新增嵌套 contacts 循环时模板引用 `contact.*`，却未声明 `wx:for-item="contact"`，导致联系方式行存在但文本/拨号参数绑定为空。
 - 修复/验证：显式绑定 nested loop item，号码文本、标签、拨号参数和可拨状态恢复；回归旧实现先失败，修复后通讯录定向 8/8、Mini 全量 72 files/334 tests、production verify/source/package/determinism/CI dry-run 通过。包体 `5,569,391` bytes，组织分包 `1,682,970` bytes，manifest `785839e2170c346e865859bb3733fc9d87859cf33b45db87c9b09b70b024c125`。
 - 设计对等审计：按 `frontend-design` 严格服从既有 Web 视觉，不另起设计；已确认 Mini 仍缺 Web 的同号合并、长号/短号双通道、动态层级筛选、240ms 搜索、收藏/常用、筛选自动清理、合并计数与卡片视觉结构。这些保留在完整 1:1 活动批次，不把本次可见号码修复冒充全部完成。
-- checkpoint：待提交消息为 `fix(miniprogram): render directory contacts`；提交后上传体验版 `.22`，生产 capability 保持不变。
+- checkpoint/体验：代码提交 `8cca66c5`（`fix(miniprogram): render directory contacts`）已推送；体验版 `0.1.0-p9.20260826.22` 上传成功，150 个代码文件、zip `1,340,168` bytes、Mini manifest `6a1249962d2242b79139ce223e25b6f5887cc3c62f9fc42efc7e7a84791e141c`。
+- 生产发布：备份 archive `537c29f8-b9dd-44cd-b0f1-cca7bd49154e`（54 表/174,020 行/80,758,024 bytes/SHA `9dbb09208fb5427708717fedba03b47872e1c582db4292b07e0aa0a6168c529b`）后部署 release `8cca66c57e9e33ccb2ddb659adc671b4bd32540e`；`.22` capability HTTP 200，`organization/workflows=true`、`insights/externalMessages=false`，full ECS verifier、health、产物/控制平面/迁移/未知 Host 和远端临时目录清理通过。
 - 下一活动批次与停止条件：继续完成下方记录的通讯录 Web→Mini 1:1 数据/交互/视觉任务，最终以 Web 生产行为矩阵、390/320/大字号和真实号码/拨号证据关闭。
 
 ## 2026-08-26 Mini 平台管理员工作流对等与导出状态修复（已实现，待体验版复核）
