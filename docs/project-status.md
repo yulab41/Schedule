@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9/P10 最终自动状态矩阵与清单收口（已完成自动验证，继续推进）
+
+- 范围：对 P9 访客访问/事件统计/通知/导出及 P10 通讯录/个人中心/工作台角色入口逐项核对 capability、disabled 清理、生命周期、错误/空/加载、大字号、权限与安全下载；不打开 `insights`/`externalMessages`，不提交审核或正式发布。
+- 审计证据：新增 `p9-p10-final-state-audit.test.mjs`，矩阵 3/3、Mini 全量 84 files/386 tests、P9/P10 既有定向契约、任务 Prettier/ESLint、`git diff --check` 均通过；`apps/miniprogram/docs/design/page-golden-manifest.md` 已注明用户“无需人工复核”，P7–P10 已实现切片改记“自动 verifier 已通过”，并保留 P9 能力关闭边界。
+- 自动验证：此前 `.36` 运行时代码的 Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；本 checkpoint 仅新增审计/清单和 RC 版本追踪，运行时源码不变。当前生产 `current-release=7c1f7183`，`.36` capability HTTP 200，`organization=true`、`insights/externalMessages=false`。
+- 当前策略：用户已明确“无需人工复核”，本轮以自动矩阵、生产探针和 verifier 为阶段证据；`.37` 仅作为同运行时代码的审计体验候选，不改变能力开关。
+- checkpoint/下一步：代码/文档审计 checkpoint 拟以 `test(miniprogram): record final p9 p10 state audit` 提交；提交后上传 `0.1.0-p9.20260827.37`、按备份保护加入白名单并完成 docs-only 生产验证。若矩阵无新增缺口，下一活动批次转为阶段状态与剩余 P8/P9 能力审批边界审计，停止条件是所有可自动验证项均有证据且未授权能力仍保持关闭。
+
 ## 2026-08-27 P9 导出能力关闭态自动收口（已完成自动验证，继续推进）
 
 - 范围：只收口导出任务轮询/下载过程中 `insights` 能力关闭的状态分支；能力关闭时清空旧任务与文件名并进入明确 disabled，不改导出 API、Bearer 下载、轮询时序、权限、写入或能力开关。引入点来自 `de710eaf`、`82840db9`，已执行 `git log -S`/`git blame`。
