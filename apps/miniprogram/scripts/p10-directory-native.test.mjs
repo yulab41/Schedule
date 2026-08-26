@@ -80,4 +80,12 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain("sectionFilterLabel: '一级组织'");
     expect(controller).toContain("subunitFilterLabel: '五级组织'");
   });
+
+  it('binds the nested contact loop to the contact variable used by the phone rows', () => {
+    const template = read('src/subpackages/organization/components/directory-panel/index.wxml');
+
+    expect(template).toContain('wx:for-item="contact"');
+    expect(template).toContain('{{contact.number}}');
+    expect(template).toContain('data-number="{{contact.dialNumber}}"');
+  });
 });

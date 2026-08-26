@@ -152,7 +152,7 @@
                 ><text class="entry-title">{{item.title}}</text
                 ><text class="entry-context">{{item.context}}</text></view
               ><text class="entry-kind">{{item.kindLabel}}</text></view
-            ><block wx:for="{{item.contacts}}" wx:key="id"
+            ><block wx:for="{{item.contacts}}" wx:for-item="contact" wx:key="id"
               ><view
                 wx:if="{{contact.dialable}}"
                 class="contact-row is-dialable"
