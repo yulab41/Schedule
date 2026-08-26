@@ -435,7 +435,10 @@ async function loadLeavePageWithCapability(
     if (group === undefined) throw new Error('当前没有可使用请假功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能提交或审批请假。');
     page._currentGroupId = group.id;
-    const canApprove = group.role === 'owner' || group.role === 'administrator';
+    const canApprove =
+      group.isDeveloperAdmin === true ||
+      group.role === 'owner' ||
+      group.role === 'administrator';
     const [mine, approvals, strategy] = await Promise.all([
       workflowClient.listMyLeaveRequests(group.id),
       canApprove ? workflowClient.listLeaveRequestApprovals(group.id) : Promise.resolve([]),

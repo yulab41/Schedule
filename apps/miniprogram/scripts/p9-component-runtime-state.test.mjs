@@ -56,6 +56,10 @@ describe('P9 native component runtime state', () => {
         importPath: '../src/subpackages/insights/components/notifications-panel/controller.ts',
         properties: { groupId, mode: 'settings' },
       },
+      {
+        importPath: '../src/subpackages/insights/components/exports-panel/controller.ts',
+        properties: { groupId },
+      },
     ];
 
     for (const testCase of cases) {
@@ -69,6 +73,39 @@ describe('P9 native component runtime state', () => {
       definition.lifetimes.attached.call(page);
       await vi.waitFor(() => expect(page.data.state).toBe('disabled'));
     }
+  });
+
+  it('clears the export missing-group error when the page property arrives after attachment', async () => {
+    const capabilities = await import('../src/app/client-capability-store.ts');
+    capabilities.configureRuntimeClientCapabilityReader(
+      () =>
+        Promise.resolve({
+          core: true,
+          externalMessages: false,
+          global: true,
+          guest: true,
+          insights: false,
+          organization: true,
+          platform: 'miniprogram',
+          version: 'test',
+          workflows: true,
+        }),
+      'test',
+    );
+    await capabilities.refreshClientCapabilities({ force: true });
+
+    const module =
+      await import('../src/subpackages/insights/components/exports-panel/controller.ts');
+    const definition = module.createExportsPanelControllerDefinition();
+    const page = createPageInstance(definition, { groupId: '' });
+    definition.lifetimes.attached.call(page);
+    expect(page.data.state).toBe('error');
+
+    page.properties = { groupId };
+    definition.observers.groupId.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('disabled'));
+    expect(page.data.groupId).toBe(groupId);
+    expect(page.data.errorMessage).not.toContain('群组信息缺失');
   });
 });
 

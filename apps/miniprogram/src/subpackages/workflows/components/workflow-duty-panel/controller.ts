@@ -435,7 +435,10 @@ async function loadDutyPageWithCapability(
     if (group === undefined) throw new Error('当前没有可使用加扣班功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能发起或处理加扣班。');
     page._currentGroupId = group.id;
-    const canApprove = group.role === 'owner' || group.role === 'administrator';
+    const canApprove =
+      group.isDeveloperAdmin === true ||
+      group.role === 'owner' ||
+      group.role === 'administrator';
     const [calendar, members, groupSettings, mySettings, mine, approvals] = await Promise.all([
       workbenchClient.getCalendar(group.id, page.data.businessMonth),
       workbenchClient.getMembers(group.id),
@@ -449,7 +452,9 @@ async function loadDutyPageWithCapability(
     page._rawMyRequests = mine;
     page._rawApprovals = approvals;
     page._myMembershipId = members.find((member) => member.isCurrentUser)?.id ?? '';
-    if (page._myMembershipId === '') throw new Error('当前账号未关联群组成员。');
+    if (page._myMembershipId === '' && group.isDeveloperAdmin !== true) {
+      throw new Error('当前账号未关联群组成员。');
+    }
     page.setData({
       autoAcceptSwaps: mySettings.autoAcceptSwaps,
       canApprove,

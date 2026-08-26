@@ -11,12 +11,16 @@ describe('P7 native swap workflow controller', () => {
   let createResponses;
   let definition;
   let groupRole;
+  let hasCurrentMembership;
+  let isDeveloperAdmin;
   let requests;
 
   beforeEach(async () => {
     vi.resetModules();
     createResponses = [];
     groupRole = 'member';
+    hasCurrentMembership = true;
+    isDeveloperAdmin = false;
     requests = [];
     vi.stubGlobal('Page', (value) => {
       definition = value;
@@ -135,6 +139,22 @@ describe('P7 native swap workflow controller', () => {
     );
   });
 
+  it('keeps Web-equivalent direct controls available to a platform admin without membership', async () => {
+    groupRole = 'owner';
+    hasCurrentMembership = false;
+    isDeveloperAdmin = true;
+    const instance = await loadReadyInstance();
+
+    expect(instance.data).toMatchObject({
+      canApprove: true,
+      currentGroupName: '急诊一组',
+      myAssignmentOptions: [],
+      state: 'ready',
+    });
+    expect(instance.data.adminInitiatorMemberOptions.length).toBeGreaterThan(0);
+    expect(instance.data.adminTargetMemberOptions.length).toBeGreaterThan(0);
+  });
+
   it('fails a swap deep link closed before network access when workflows is disabled', async () => {
     const capability = await import('../src/app/client-capability-store.ts');
     capability.configureRuntimeClientCapabilityReader(
@@ -168,7 +188,14 @@ describe('P7 native swap workflow controller', () => {
     const path = url.pathname.replace(/^\/api/u, '');
     if (path === '/groups' && options.method === 'GET') {
       respond(options, [
-        { groupCode: '0796', id: groupId, name: '急诊一组', role: groupRole, version: 1 },
+        {
+          groupCode: '0796',
+          id: groupId,
+          ...(isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
+          name: '急诊一组',
+          role: groupRole,
+          version: 1,
+        },
       ]);
       return;
     }
@@ -176,7 +203,7 @@ describe('P7 native swap workflow controller', () => {
       respond(options, [
         {
           id: currentMembershipId,
-          isCurrentUser: true,
+          isCurrentUser: hasCurrentMembership,
           realName: '林医生',
           role: 'member',
           version: 1,

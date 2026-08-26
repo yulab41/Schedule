@@ -29,7 +29,7 @@ interface ExportsPageData {
 interface ExportsPageInstance {
   readonly data: ExportsPageData;
   readonly properties: { readonly groupId: string };
-  readonly _actionsClient: P9InsightsActionsClient;
+  _actionsClient: P9InsightsActionsClient;
   _loadedGroupId: string;
   _jobId: string | undefined;
   _pollCancelled: boolean;
@@ -87,7 +87,9 @@ export function createExportsPanelControllerDefinition() {
         wx.navigateBack({ delta: 1 });
       },
       handleTypeChange(this: ExportsPageInstance, event: PickerEvent): void {
-        this.setData({ exportType: event.detail.value === 'statistics' ? 'statistics' : 'schedule' });
+        this.setData({
+          exportType: event.detail.value === 'statistics' ? 'statistics' : 'schedule',
+        });
       },
       handleCreate(this: ExportsPageInstance): void {
         void createExport(this);
@@ -98,17 +100,26 @@ export function createExportsPanelControllerDefinition() {
       handleReset(this: ExportsPageInstance): void {
         this._jobId = undefined;
         this._pollCancelled = false;
-        this.setData({ errorMessage: '', fileLabel: '', state: 'idle', statusLabel: '选择内容后创建任务' });
+        this.setData({
+          errorMessage: '',
+          fileLabel: '',
+          state: 'idle',
+          statusLabel: '选择内容后创建任务',
+        });
       },
     },
   };
 }
 
-interface PickerEvent { readonly detail: { readonly value?: unknown } }
+interface PickerEvent {
+  readonly detail: { readonly value?: unknown };
+}
 
 function start(page: ExportsPageInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
+    page._loadedGroupId = '';
     page.setData({
       errorMessage: '当前群组信息缺失，请返回工作台后重试。',
       state: 'error',
@@ -117,12 +128,52 @@ function start(page: ExportsPageInstance): void {
     return;
   }
   if (groupId === page._loadedGroupId) return;
+  page._pollCancelled = true;
+  page._jobId = undefined;
   page._loadedGroupId = groupId;
-  page.setData({ groupId });
+  page.setData({
+    errorMessage: '',
+    fileLabel: '',
+    groupId,
+    state: 'idle',
+    statusLabel: '选择内容后创建任务',
+  });
+  void settleCapabilityState(page, groupId);
+}
+
+function initializeRuntimeState(page: ExportsPageInstance): void {
+  page._actionsClient = actionsClient;
+  if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
+  if (typeof page._pollCancelled !== 'boolean') page._pollCancelled = false;
+}
+
+async function settleCapabilityState(page: ExportsPageInstance, groupId: string): Promise<void> {
+  try {
+    await requireClientCapability('insights');
+  } catch (error) {
+    if (page.properties.groupId !== groupId) return;
+    page.setData({
+      errorMessage:
+        error instanceof ClientCapabilityDisabledError
+          ? error.message
+          : toUserMessage(error, '导出能力暂时无法确认，请稍后重试。'),
+      state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
+      statusLabel: '导出暂未开放',
+    });
+  }
 }
 
 async function createExport(page: ExportsPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   if (page.data.state === 'waiting') return;
+  if (page.data.groupId.length === 0) {
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      state: 'error',
+      statusLabel: '当前群组信息缺失，请返回工作台后重试。',
+    });
+    return;
+  }
   page._pollCancelled = false;
   page.setData({ errorMessage: '', state: 'waiting', statusLabel: '正在准备导出' });
   try {
@@ -135,19 +186,32 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
     await pollJob(page, job.id);
   } catch (error) {
     if (page._pollCancelled) return;
-    page.setData({ errorMessage: error instanceof ClientCapabilityDisabledError ? error.message : toUserMessage(error, '导出任务暂时无法创建，请稍后重试。'), state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error', statusLabel: '导出未完成' });
+    page.setData({
+      errorMessage:
+        error instanceof ClientCapabilityDisabledError
+          ? error.message
+          : toUserMessage(error, '导出任务暂时无法创建，请稍后重试。'),
+      state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
+      statusLabel: '导出未完成',
+    });
   }
 }
 
 async function pollJob(page: ExportsPageInstance, jobId: string): Promise<void> {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     if (page._pollCancelled) return;
-    const job = attempt === 0 ? undefined : await page._actionsClient.getExportJob(page.data.groupId, jobId);
+    const job =
+      attempt === 0 ? undefined : await page._actionsClient.getExportJob(page.data.groupId, jobId);
     if (job !== undefined && job.status === 'completed') {
-      page.setData({ fileLabel: `${job.exportType === 'statistics' ? '统计' : '排班'}-${job.period}.csv`, state: 'ready', statusLabel: '导出完成，可下载文件' });
+      page.setData({
+        fileLabel: `${job.exportType === 'statistics' ? '统计' : '排班'}-${job.period}.csv`,
+        state: 'ready',
+        statusLabel: '导出完成，可下载文件',
+      });
       return;
     }
-    if (job !== undefined && job.status === 'failed') throw new Error(job.error ?? '导出任务失败。');
+    if (job !== undefined && job.status === 'failed')
+      throw new Error(job.error ?? '导出任务失败。');
     page.setData({ statusLabel: attempt === 0 ? '正在生成文件' : `正在生成文件（${attempt}/11）` });
     await delay(1000);
   }
@@ -157,10 +221,31 @@ async function pollJob(page: ExportsPageInstance, jobId: string): Promise<void> 
 async function downloadExport(page: ExportsPageInstance): Promise<void> {
   if (page._jobId === undefined || page.data.state !== 'ready') return;
   try {
-    const tempFilePath = await downloadScheduleExport(getStoredWechatToken, authentication, page.data.groupId, page._jobId);
-    (wx as unknown as { openDocument: (options: { filePath: string; showMenu: boolean; fail: () => void }) => unknown }).openDocument({ filePath: tempFilePath, showMenu: true, fail: () => page.setData({ errorMessage: '文件已下载，但当前设备无法打开该文件。', state: 'error' }) });
+    const tempFilePath = await downloadScheduleExport(
+      getStoredWechatToken,
+      authentication,
+      page.data.groupId,
+      page._jobId,
+    );
+    (
+      wx as unknown as {
+        openDocument: (options: {
+          filePath: string;
+          showMenu: boolean;
+          fail: () => void;
+        }) => unknown;
+      }
+    ).openDocument({
+      filePath: tempFilePath,
+      showMenu: true,
+      fail: () =>
+        page.setData({ errorMessage: '文件已下载，但当前设备无法打开该文件。', state: 'error' }),
+    });
   } catch (error) {
-    page.setData({ errorMessage: toUserMessage(error, '文件下载失败，请稍后重试。'), state: 'error' });
+    page.setData({
+      errorMessage: toUserMessage(error, '文件下载失败，请稍后重试。'),
+      state: 'error',
+    });
   }
 }
 

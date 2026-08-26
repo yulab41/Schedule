@@ -2,7 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 Mini 真机 loading 与私有运行时状态修复（已实现，待体验版复核）
+## 2026-08-26 Mini 平台管理员工作流对等与导出状态修复（已实现，待体验版复核）
+
+- 用户确认 `.20` 上所有页面均可打开，并明确“小程序后台管理员的一切规则以 Web 版本为准”。截图进一步显示 admin 在换班/加扣班被本地“未关联群组成员”拦截，导出页在初始空 `groupId` 后仍保留旧错误。
+- 回归来源：导出页初始状态来自 `de710eaf`，缺失群组保护来自 `3af3dd9a`，后续合法属性只写 `groupId`、未清空错误；Mini 换班/加扣班额外成员绑定阻断不等价于 Web 的管理员直办表单。已执行对应 `git log -S` 与 `git blame`。
+- 修复：导出页在合法群组属性到达后清除旧错误、显式初始化运行时 client，并在 `insights=false` 时直接进入禁用态；请假、换班、加扣班把 `isDeveloperAdmin` 纳入 Web 等价的审批/直办权限，平台管理员无需绑定当前成员即可使用管理员区，个人发起/接受列表仍只属于实际群组成员。
+- 权限与语义：普通成员/访客的成员绑定与权限不变；管理员写入仍调用既有 direct/approve API，服务端权限、版本、幂等、冲突和事务校验保持。未把平台管理员伪装成某个成员，也未修改 capability。
+- 测试先行：导出合法属性恢复 2 项、换班/加扣班无成员管理员 2 项、请假 developer admin 审批 1 项均在旧实现先失败；实现后定向 26/26、Mini 全量 72 files/333 tests 通过。production verify/source/package/determinism/CI dry-run 通过；包体 `5,569,369` bytes，组织分包 `1,682,948` bytes，manifest `5b4566a2f220d6f18c0ec0f80eb2b8eb94df847c7bb9e0624e9bc956fb20de26`。
+- 运行/视觉：已按用户授权尝试连接唯一 `WeChatAppEx.exe / 不想值班日历`；Windows 控制桥返回 `GetCursorPos 拒绝访问 (0x80070005)` 且捕获为黑帧，未绕过权限边界。实体截图作为本轮视觉证据。
+- checkpoint：待提交消息为 `fix(miniprogram): align admin workflows and export state`；提交后上传体验版 `.21`，生产 `organization=true`、`insights=false`、`externalMessages=false` 保持。
+- 下一活动批次与停止条件：用户在 `.21` 只复核 admin 的请假审批、换班直办、加扣班直办入口和导出禁用态；通过后进入 P9 数据与消息下一阶段，不提前开启 P9 capability 或提审。
+
+## 2026-08-26 Mini 真机 loading 与私有运行时状态修复（已完成，用户真机通过）
 
 - 用户真机复核显示通讯录、排班配置、通知设置、访客访问、事件/统计和通知中心持续 loading；平台账号与邀请/访客入口暴露 `Cannot read properties of undefined`。回归定位为 `Component` 会丢弃 controller 工厂对象中的私有顶层字段，且缺失的请求序号在异常路径中变成 `NaN`，导致错误被当作过期请求静默丢弃。
 - 修复：受影响的 P8/P9/P10 controller 在首次 attached、属性变更和重试前显式初始化运行时 API client、请求序号、群组和草稿状态；既有权限、capability、请求、错误与写入语义不变。
@@ -11,7 +22,7 @@
 - checkpoint：代码提交 `5e9bdb79`（`fix(miniprogram): initialize component runtime state`）已推送；体验版 `0.1.0-p9.20260826.20` 已上传成功，150 个代码文件、zip `1,339,412` bytes、Mini manifest `2507e4b6492f604197fd1ef88ba907597b2eb01a993d3ed32bba4e6af0dfd8d0`。
 - 生产发布：备份 archive `de4db70c-1f4d-47e0-b9e8-978947ee5696`（54 表/173,897 行/80,716,024 bytes/SHA `5d603a49e2a99bb65f466dd2eda5b84b673af39b5bcb8e0a5f0da9e34c18e9ee`）后部署 release `5e9bdb795b400b4fefe9590411694c2424f8390f`；ECS full verifier、health、产物/控制平面/迁移/未知 Host 校验通过，远端临时目录已清理。`.20` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`；生产能力值未新增开放。
 - 部署偏差记录：版本白名单首次原子写入出现引号格式错误，API 启动被配置校验拒绝；已在同一备份保护下立即清理异常 token、重建 API 并重新完成 health/capability/full verifier，业务数据与 capability 开关未受影响。
-- 下一活动批次与停止条件：用户切换体验版 `.20` 并逐页确认上述 8 个入口均能落到内容/空态/禁用/可重试错误；收到“P8/P9/P10 真机 loading 修复通过”后再进入下一阶段，不提前开启 P9 capability 或提审。
+- 用户复核：`.20` 真机截图确认通讯录、排班配置、平台账号、邀请/访客均进入内容/空态，通知设置、访客访问、事件统计、通知中心均进入 capability 禁用态；持续 loading 与 undefined 错误关闭。后续发现的 admin 工作流对等和导出旧错误转入上方独立批次。
 
 ## 2026-08-26 P8/P10 实体验收通过（organization 已开启，P9 待验收）
 

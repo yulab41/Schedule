@@ -488,7 +488,10 @@ async function loadSwapPageWithCapability(
     if (group === undefined) throw new Error('当前没有可使用换班功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能发起或处理换班。');
     page._currentGroupId = group.id;
-    const canApprove = group.role === 'owner' || group.role === 'administrator';
+    const canApprove =
+      group.isDeveloperAdmin === true ||
+      group.role === 'owner' ||
+      group.role === 'administrator';
     const months = unique([
       page.data.myAssignmentMonth,
       page.data.targetAssignmentMonth,
@@ -508,7 +511,9 @@ async function loadSwapPageWithCapability(
     page._rawMyRequests = mine;
     page._rawApprovals = approvals;
     page._myMembershipId = members.find((member) => member.isCurrentUser)?.id ?? '';
-    if (page._myMembershipId === '') throw new Error('当前账号未关联群组成员。');
+    if (page._myMembershipId === '' && group.isDeveloperAdmin !== true) {
+      throw new Error('当前账号未关联群组成员。');
+    }
     page.setData({
       autoAcceptSwaps: mySettings.autoAcceptSwaps,
       canApprove,

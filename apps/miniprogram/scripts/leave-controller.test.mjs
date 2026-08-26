@@ -10,12 +10,14 @@ describe('P7 native leave workflow controller', () => {
   let controllerModule;
   let definition;
   let groupRole;
+  let isDeveloperAdmin;
   let requests;
 
   beforeEach(async () => {
     vi.resetModules();
     createResponses = [];
     groupRole = 'member';
+    isDeveloperAdmin = false;
     requests = [];
     vi.stubGlobal('Page', (value) => {
       definition = value;
@@ -185,6 +187,15 @@ describe('P7 native leave workflow controller', () => {
     );
   });
 
+  it('keeps Web-equivalent approval access for a platform admin group', async () => {
+    groupRole = 'member';
+    isDeveloperAdmin = true;
+    const instance = await loadReadyInstance();
+
+    expect(instance.data).toMatchObject({ canApprove: true, pendingApprovalCount: 1 });
+    expect(requests.some((request) => request.url.endsWith('/approvals'))).toBe(true);
+  });
+
   it('reuses one frozen create operation after an ambiguous network result', async () => {
     createResponses.push(...Array.from({ length: 6 }, () => new Error('network unknown')));
     const instance = await loadReadyInstance();
@@ -253,7 +264,14 @@ describe('P7 native leave workflow controller', () => {
     const path = url.pathname.replace(/^\/api/u, '');
     if (path === '/groups' && options.method === 'GET') {
       respond(options, [
-        { groupCode: '0796', id: groupId, name: '急诊一组', role: groupRole, version: 1 },
+        {
+          groupCode: '0796',
+          id: groupId,
+          ...(isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
+          name: '急诊一组',
+          role: groupRole,
+          version: 1,
+        },
       ]);
       return;
     }
