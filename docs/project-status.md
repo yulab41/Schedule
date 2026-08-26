@@ -10,8 +10,10 @@
 - 权限与语义：普通成员/访客的成员绑定与权限不变；管理员写入仍调用既有 direct/approve API，服务端权限、版本、幂等、冲突和事务校验保持。未把平台管理员伪装成某个成员，也未修改 capability。
 - 测试先行：导出合法属性恢复 2 项、换班/加扣班无成员管理员 2 项、请假 developer admin 审批 1 项均在旧实现先失败；实现后定向 26/26、Mini 全量 72 files/333 tests 通过。production verify/source/package/determinism/CI dry-run 通过；包体 `5,569,369` bytes，组织分包 `1,682,948` bytes，manifest `5b4566a2f220d6f18c0ec0f80eb2b8eb94df847c7bb9e0624e9bc956fb20de26`。
 - 运行/视觉：已按用户授权尝试连接唯一 `WeChatAppEx.exe / 不想值班日历`；Windows 控制桥返回 `GetCursorPos 拒绝访问 (0x80070005)` 且捕获为黑帧，未绕过权限边界。实体截图作为本轮视觉证据。
-- checkpoint：待提交消息为 `fix(miniprogram): align admin workflows and export state`；提交后上传体验版 `.21`，生产 `organization=true`、`insights=false`、`externalMessages=false` 保持。
-- 下一活动批次与停止条件：用户在 `.21` 只复核 admin 的请假审批、换班直办、加扣班直办入口和导出禁用态；通过后进入 P9 数据与消息下一阶段，不提前开启 P9 capability 或提审。
+- checkpoint/体验：代码提交 `87055d19`（`fix(miniprogram): align admin workflows and export state`）已推送；体验版 `0.1.0-p9.20260826.21` 上传成功，150 个代码文件、zip `1,340,145` bytes、Mini manifest `293ae0b15e934e3068fe4959511edff34b4feefabb00ad871b05e429239f4b20`。
+- 生产发布：备份 archive `d56c04b3-0b64-443e-84da-5d9221532451`（54 表/173,977 行/80,743,048 bytes/SHA `821736b4699807cc8a9a39966064c27b756cd41e0b51cd3d19b119b034dc8d0b`）后部署 release `87055d19f767ea520559528ae88c3c908f1cee9e`；`.21` capability HTTP 200，`organization/workflows=true`、`insights/externalMessages=false`，full ECS verifier、health、产物/控制平面/迁移/未知 Host 和远端临时目录清理通过。
+- 下一活动批次：按用户新增硬性规则执行通讯录 Web→Mini 1:1 对等——(1) 以 `InternalDirectoryView.vue`、`UnifiedDirectoryView.vue` 及 directory helpers 建立数据/交互/视觉差异矩阵和先红测试；(2) 对齐院内与员工数据读取、合并去重、排序、层级筛选、搜索与 cursor；(3) 对齐卡片合并显示、号码权限/拨号、loading/empty/error 和移动交互。
+- 停止条件：通讯录生产 Web 的所有可迁行为均有 Mini 等价实现与回归证据，390/320/大字号实体或可见运行复核通过；不把现有 P10 RC 当作新 1:1 要求的替代。`.21` 的 admin/导出复核可并行反馈，不提前开启 P9 capability 或提审。
 
 ## 2026-08-26 Mini 真机 loading 与私有运行时状态修复（已完成，用户真机通过）
 
