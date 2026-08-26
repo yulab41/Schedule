@@ -2,14 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 事件/统计与通知自动闭环硬化（代码完成，待发布）
+## 2026-08-27 P9 事件/统计与通知自动闭环硬化（已完成自动发布验证，继续推进）
 
 - 范围：只硬化 P9 事件/统计与通知组件的卸载、换群、加载更多和能力关闭竞态，并补齐系统大字号下的可重排类；不新增 API、数据库迁移、权限或能力开放。引入点已审计：事件/统计 `ee6f9cb8`、统计并发 `4de2cd91`、通知 `1a428d73`/`766ec6ac`、运行时私有字段恢复 `5e9bdb79`。
 - 实现：所有只读响应按请求序列与群组 ID双重校验；`detached` 失效化待处理 promise；insights/externalMessages 运行中关闭时清空页面数据并进入 disabled；通知设置/订阅/已读写入也拒绝旧群组或卸载后的 UI 回写；`fontSizeSetting >= 20` 进入大字号重排，标题和正文不截断。receiver、Bearer、请求方法、错误传播、调用次数及业务写入语义保持不变。
 - 测试先行：旧实现上控制器新增回归为 insights 6 项中 3 项失败、notifications 5 项中 3 项失败；候选版本 `.29` 契约测试在旧 runbook 上 3 项失败。实现后相关控制器、原生静态/能力关闭和 RC 契约共 25 项通过，`git diff --check`、任务 Prettier/ESLint 通过。
 - 自动验证：Mini 全量 83 files/373 tests、source audit、typecheck、production verify、package audit、determinism、CI dry-run、根 build/typecheck 通过；产物总包 `5,740,896` bytes，insights 分包 `1,314,035` bytes，manifest `4ddb2006b3e93596804e2793609e4d2e9665ce04a83aae2c05dd95df634e33a7`。根定向 Vitest 218 files/1024 tests 通过、35 files/346 tests 跳过；仅既有 `ui-tokens` CRLF/LF 2 项失败，root lint 仍为既有 5 个未落地 Mini 文件 7 项错误；`smoke:check-core` 确认未触及核心链路。
 - 当前策略：用户已明确“无需人工复核”，本轮不等待微信/Android 人工操作；自动测试、确定性构建、生产探针和只读能力验证作为验收依据。候选 `.29` 仍保持 `global/core/workflows/organization/guest=true`、`insights/externalMessages=false`，不提审、不正式发布、不自行开放能力。
-- checkpoint/下一步：代码与 3 份 `.29` runbook 变更待提交，提交消息拟为 `feat(miniprogram): harden p9 insight lifecycles`；随后从干净 release worktree 打包、主动说明并上传体验 `.29`、备份后加入版本白名单、部署并运行 `ecs-verify.sh`，再提交最终状态 checkpoint，使 Git、origin 和服务器 release 一致。P9/P10 继续按自动验证推进，不因人工清单停步。
+- 线上发布：代码 checkpoint `bb5c88c8d5d9c9496406e8da8112b361c1ed7e4d`（`feat(miniprogram): harden p9 insight lifecycles`）已推送；干净 release worktree 打包完成。体验版 `0.1.0-p9.20260827.29` 上传成功，153 个代码文件、zip `1,400,377` bytes、上传 manifest `7a92fc9268072c295d8620c4da8c276dd0ac2d3f8c36b8f45ea0e71c20362788`。加入白名单前数据库备份 archive `963ac95b-4c90-4fb8-971f-27b6d694c7f8`（54 表、175,788 行、81,342,460 bytes、SHA-256 `ff20eafed9abd7caa9ee600b810e6722a4ac08ca30738b426bd8c6501c9d6284`）；原子追加 `.29` 后能力仍保持关闭 P9。白名单探针曾因对象键序和 PowerShell→Bash 行尾各自动回滚一次，最终按键值比较/LF 管道成功，无残留配置变更。
+- 线上验证：release `bb5c88c8d5d9c9496406e8da8112b361c1ed7e4d` 已部署，预热首个健康请求 502 后恢复；迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均由 `ECS_PUBLIC_IP=120.77.220.79 bash infra/scripts/ecs-verify.sh` 通过。`.29` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；`current-release` 与 Git 一致，远端本轮临时目录已清理。
+- 当前策略：用户已明确“无需人工复核”，本轮不再等待微信/Android 人工操作；自动测试、确定性构建、生产探针和只读能力验证作为验收依据。`.29` 不提审、不正式发布、不自行开放 `insights`/`externalMessages`。
+- checkpoint/下一步：状态文档线上结果待提交，提交消息拟为 `docs(status): record p9 insight lifecycle deployment`；提交后按根规则备份并部署 docs-only release，使 Git、origin 和服务器 release 再次一致。下一活动批次为 P10 通讯录对等审计/实现整合（先读取未落地 `codex/p10-directory-implementation` 与 `codex/p10-parity-preflight` 的活动任务，再只处理 1 项）；停止条件是 P10 当前任务完成自动验证、体验上传、生产部署与 `ecs-verify.sh` 通过。P9/P10 能力继续按关闭策略推进。
 
 ## 2026-08-27 P9/P10 RC 候选版本清单同步（已完成自动验证，待用户执行）
 
