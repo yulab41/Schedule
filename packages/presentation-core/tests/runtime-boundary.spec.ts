@@ -7,11 +7,13 @@ import { describe, expect, it } from 'vitest';
 const productionSources = [
   new URL('../src/index.ts', import.meta.url),
   new URL('../src/calendar.ts', import.meta.url),
+  new URL('../src/directory.ts', import.meta.url),
   new URL('../src/manual-schedule.ts', import.meta.url),
   new URL('../src/mobile-phone-consent.ts', import.meta.url),
   new URL('../src/past-schedule-backfill.ts', import.meta.url),
   new URL('../src/schedule-publication.ts', import.meta.url),
   new URL('../src/workflow-operation.ts', import.meta.url),
+  new URL('../src/workflow.ts', import.meta.url),
 ];
 
 describe('presentation-core runtime boundary', () => {
@@ -51,12 +53,14 @@ describe('presentation-core runtime boundary', () => {
     expect(Object.keys(result.metafile.inputs).sort()).toEqual(
       [
         'packages/presentation-core/src/calendar.ts',
+        'packages/presentation-core/src/directory.ts',
         'packages/presentation-core/src/index.ts',
         'packages/presentation-core/src/manual-schedule.ts',
         'packages/presentation-core/src/mobile-phone-consent.ts',
         'packages/presentation-core/src/past-schedule-backfill.ts',
         'packages/presentation-core/src/schedule-publication.ts',
         'packages/presentation-core/src/workflow-operation.ts',
+        'packages/presentation-core/src/workflow.ts',
       ].sort(),
     );
   });

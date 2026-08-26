@@ -9,7 +9,18 @@ import type {
   LeaveRequestType,
 } from '@schedule/contracts';
 import {
+  buildLeaveFormInterval,
+  formatAffectedAssignment,
+  formatLeaveRange,
+  formatWorkflowDateWithWeekday as formatDateWithWeekday,
+  getLeaveDayCount,
+  getLeaveRejectionConfirmation,
+  getLeaveStatusLabel,
+  getLeaveStatusTone,
+  getLeaveTypeLabel,
+  getTodayCalendarDate,
   resolveWorkflowOperationAttempt,
+  summarizeStatisticsDelta,
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
 
@@ -27,6 +38,8 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
+
+export { getTodayCalendarDate };
 
 type PageState = 'error' | 'loading' | 'ready';
 type WorkflowTab = 'mine' | 'review';
@@ -436,9 +449,7 @@ async function loadLeavePageWithCapability(
     if (group.role === 'guest') throw new Error('访客不能提交或审批请假。');
     page._currentGroupId = group.id;
     const canApprove =
-      group.isDeveloperAdmin === true ||
-      group.role === 'owner' ||
-      group.role === 'administrator';
+      group.isDeveloperAdmin === true || group.role === 'owner' || group.role === 'administrator';
     const [mine, approvals, strategy] = await Promise.all([
       workflowClient.listMyLeaveRequests(group.id),
       canApprove ? workflowClient.listLeaveRequestApprovals(group.id) : Promise.resolve([]),
@@ -476,7 +487,10 @@ async function submitLeave(page: LeavePageInstance): Promise<void> {
   if (page.data.formBusy || page._currentGroupId === '') return;
   let interval: { readonly endsAt: string; readonly startsAt: string };
   try {
-    interval = buildAllDayInterval(page.data.startDate, page.data.endDate);
+    interval = buildLeaveFormInterval({
+      endDate: page.data.endDate,
+      startDate: page.data.startDate,
+    });
   } catch (error) {
     page.setData({ formErrorMessage: toUserMessage(error, '请假日期不正确。') });
     return;
@@ -517,7 +531,10 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
   if (page._currentGroupId === '') return;
   let interval;
   try {
-    interval = buildAllDayInterval(page.data.startDate, page.data.endDate);
+    interval = buildLeaveFormInterval({
+      endDate: page.data.endDate,
+      startDate: page.data.startDate,
+    });
   } catch {
     page.setData({ affectedShiftMessage: '', affectedShifts: [], affectedWarningMessage: '' });
     return;
@@ -653,7 +670,7 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
 async function confirmRejectLeave(page: LeavePageInstance): Promise<void> {
   const target = page._approvalTarget;
   if (target === undefined || page.data.approvalBusy) return;
-  const confirmed = await showConfirm(`确定驳回${target.memberName ?? '该成员'}的请假申请吗？`);
+  const confirmed = await showConfirm(getLeaveRejectionConfirmation(target.memberName));
   if (!confirmed) return;
   const operationKey = `${page._currentGroupId}:leave:reject:${target.id}:${target.version}`;
   const request = resolveOperation(page, operationKey, { expectedVersion: target.version });
@@ -765,20 +782,12 @@ function createApprovalPreviewPatch(
     approvalRequiresAcknowledge: preview.conflicts.length > 0 || preview.vacancies.length > 0,
     approvalShiftCount: preview.affectedShiftCount,
     approvalShifts: preview.affectedAssignments.map((assignment) => ({
-      detail: `${formatBusinessDate(assignment.businessDate)} ${assignment.shiftTypeName}（${assignment.shiftTypeAbbreviation}）：${assignment.previousMemberName ?? '空缺'} → ${assignment.nextMemberName ?? '空缺'}`,
+      detail: formatAffectedAssignment(assignment),
       id: assignment.assignmentId,
       statusLabel: '',
       tone: 'primary',
     })),
-    approvalStatistics:
-      preview.statisticsDelta.byMember.length === 0
-        ? '无值班统计变化'
-        : preview.statisticsDelta.byMember
-            .map(
-              (member) =>
-                `${member.realName} ${member.assignmentDelta > 0 ? '+' : ''}${member.assignmentDelta} 班`,
-            )
-            .join('、'),
+    approvalStatistics: summarizeStatisticsDelta(preview.statisticsDelta),
   };
 }
 
@@ -904,58 +913,6 @@ function createDatePatch(startDate: string, endDate: string): Partial<LeavePageD
   };
 }
 
-function buildAllDayInterval(
-  startDate: string,
-  endDate: string,
-): { readonly endsAt: string; readonly startsAt: string } {
-  if (!isDateValue(startDate) || !isDateValue(endDate)) throw new Error('请选择有效的请假日期。');
-  if (endDate < startDate) throw new Error('结束日期不能早于开始日期。');
-  const startsAt = new Date(`${startDate}T00:00:00+08:00`);
-  const endStart = new Date(`${endDate}T00:00:00+08:00`);
-  if (Number.isNaN(startsAt.valueOf()) || Number.isNaN(endStart.valueOf())) {
-    throw new Error('请假日期格式无效。');
-  }
-  return {
-    endsAt: new Date(endStart.valueOf() + 24 * 60 * 60 * 1000).toISOString(),
-    startsAt: startsAt.toISOString(),
-  };
-}
-
-export function getTodayCalendarDate(): string {
-  const chinaNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  return chinaNow.toISOString().slice(0, 10);
-}
-
-function getLeaveDayCount(startDate: string, endDate: string): number {
-  if (!isDateValue(startDate) || !isDateValue(endDate) || endDate < startDate) return 0;
-  return (
-    Math.round(
-      (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) /
-        (24 * 60 * 60 * 1000),
-    ) + 1
-  );
-}
-
-function formatLeaveRange(startsAt: string, endsAt: string, isAllDay: boolean): string {
-  if (!isAllDay) return `${formatChinaDateTime(startsAt)} 至 ${formatChinaDateTime(endsAt)}`;
-  const start = toChinaDate(startsAt);
-  const endExclusive = toChinaDate(endsAt);
-  const endDate = addDateDays(endExclusive, -1);
-  return `${start.slice(5)} 至 ${endDate.slice(5)}（共 ${getLeaveDayCount(start, endDate)} 天）`;
-}
-
-function getLeaveTypeLabel(type: LeaveRequestType): string {
-  return leaveTypeOptions.find((option) => option.value === type)?.label ?? '其他';
-}
-
-function getLeaveStatusLabel(status: LeaveRequestStatus): string {
-  return status === 'approved' ? '已批准' : status === 'rejected' ? '已驳回' : '待审批';
-}
-
-function getLeaveStatusTone(status: LeaveRequestStatus): 'danger' | 'success' | 'warning' {
-  return status === 'approved' ? 'success' : status === 'rejected' ? 'danger' : 'warning';
-}
-
 function strategyIndex(strategy: LeaveReflowStrategy): number {
   return Math.max(
     0,
@@ -965,44 +922,6 @@ function strategyIndex(strategy: LeaveReflowStrategy): number {
 
 function formatRole(role: GroupSummary['role']): string {
   return role === 'owner' ? '群主' : role === 'administrator' ? '管理员' : '成员';
-}
-
-function formatBusinessDate(value: string): string {
-  return `${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日`;
-}
-
-function formatDateWithWeekday(value: string): string {
-  if (!isDateValue(value)) return value;
-  const weekday = ['日', '一', '二', '三', '四', '五', '六'][
-    new Date(`${value}T00:00:00Z`).getUTCDay()
-  ];
-  return `${value} 周${weekday ?? '日'}`;
-}
-
-function formatChinaDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  const china = new Date(date.valueOf() + 8 * 60 * 60 * 1000);
-  return `${china.toISOString().slice(5, 10)} ${china.toISOString().slice(11, 16)}`;
-}
-
-function toChinaDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return '';
-  return new Date(date.valueOf() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-function addDateDays(value: string, days: number): string {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function isDateValue(value: string): boolean {
-  return (
-    /^\d{4}-\d{2}-\d{2}$/u.test(value) &&
-    new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
-  );
 }
 
 function createShellLayoutPatch(): Pick<

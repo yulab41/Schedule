@@ -5,9 +5,19 @@ import type {
   GroupSummary,
   SwapPreview,
   SwapRequest,
-  SwapRequestStatus,
 } from '@schedule/contracts';
 import {
+  filterOperableAssignments,
+  formatAssignmentSummaryOption as formatAssignmentSummary,
+  formatWorkflowCompactAssignment as formatShift,
+  getCurrentWorkflowBusinessMonth as getCurrentBusinessMonth,
+  getSwapNextStatusDescription as getNextStatusDescription,
+  getSwapStatusLabel,
+  getWorkflowDutyMembershipId as getDutyMembershipId,
+  getWorkflowStatusTone as getStatusTone,
+  isSwapRequestStillFuture,
+  isWorkflowBusinessMonth as isBusinessMonth,
+  isWorkflowWeekendDate,
   resolveWorkflowOperationAttempt,
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
@@ -489,9 +499,7 @@ async function loadSwapPageWithCapability(
     if (group.role === 'guest') throw new Error('访客不能发起或处理换班。');
     page._currentGroupId = group.id;
     const canApprove =
-      group.isDeveloperAdmin === true ||
-      group.role === 'owner' ||
-      group.role === 'administrator';
+      group.isDeveloperAdmin === true || group.role === 'owner' || group.role === 'administrator';
     const months = unique([
       page.data.myAssignmentMonth,
       page.data.targetAssignmentMonth,
@@ -1160,89 +1168,22 @@ function memberOptionsForCalendar(calendar: CalendarReadModel | undefined): Sele
     .map((member) => ({ label: member.realName, value: member.membershipId }));
 }
 
-function operableAssignments(calendar: CalendarReadModel | undefined): CalendarDutyAssignment[] {
-  const today = getTodayBusinessDate();
-  return (calendar?.assignments ?? []).filter((assignment) => assignment.businessDate >= today);
+function operableAssignments(
+  calendar: CalendarReadModel | undefined,
+): readonly CalendarDutyAssignment[] {
+  return filterOperableAssignments(calendar?.assignments ?? []);
 }
 
 function createAssignmentOption(assignment: CalendarDutyAssignment): SelectionOption {
   return {
-    isWeekend: isWeekendDate(assignment.businessDate),
-    label: formatAssignment(assignment),
+    isWeekend: isWorkflowWeekendDate(assignment.businessDate),
+    label: formatAssignmentSummary(assignment),
     value: assignment.id,
   };
 }
 
-function isWeekendDate(value: string): boolean {
-  const day = new Date(`${value}T00:00:00Z`).getUTCDay();
-  return day === 0 || day === 6;
-}
-
-function formatAssignment(assignment: CalendarDutyAssignment): string {
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${weekdayLabel(assignment.businessDate)}）· ${assignment.actualMemberName ?? assignment.plannedMemberName ?? '待定'}`;
-}
-
-function formatAssignmentSummary(assignment: SwapPreview['initiatorAssignment']): string {
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${weekdayLabel(assignment.businessDate)}）· ${assignment.actualMemberName ?? assignment.plannedMemberName ?? '待定'}`;
-}
-
-function formatShift(assignment: SwapRequest['initiatorAssignment']): string {
-  return `${assignment.businessDate.slice(5)} ${assignment.shiftTypeName}`;
-}
-
-function weekdayLabel(value: string): string {
-  const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  return labels[new Date(`${value}T00:00:00Z`).getUTCDay()] ?? '';
-}
-
-function getDutyMembershipId(assignment: CalendarDutyAssignment): string | undefined {
-  return assignment.actualMembershipId ?? assignment.plannedMembershipId;
-}
-
-function isSwapRequestStillFuture(request: SwapRequest): boolean {
-  const today = getTodayBusinessDate();
-  return (
-    request.initiatorAssignment.businessDate >= today &&
-    request.targetAssignment.businessDate >= today
-  );
-}
-
-function getSwapStatusLabel(status: SwapRequestStatus): string {
-  return status === 'pending_target'
-    ? '待对方接受'
-    : status === 'pending_approval'
-      ? '待管理员审批'
-      : status === 'completed'
-        ? '已生效'
-        : status === 'rejected'
-          ? '已驳回'
-          : status === 'cancelled'
-            ? '已取消'
-            : '已撤销';
-}
-
-function getStatusTone(status: SwapRequestStatus): 'danger' | 'neutral' | 'success' | 'warning' {
-  return status === 'pending_target' || status === 'pending_approval'
-    ? 'warning'
-    : status === 'completed'
-      ? 'success'
-      : status === 'rejected'
-        ? 'danger'
-        : 'neutral';
-}
-
 function notifyCalendarChanged(page: SwapPageInstance): void {
   page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
-}
-
-function getNextStatusDescription(status: SwapRequestStatus): string {
-  return status === 'pending_target'
-    ? '提交后将等待目标成员接受。'
-    : status === 'pending_approval'
-      ? '目标成员将自动接受，提交后进入管理员审批。'
-      : status === 'completed'
-        ? '目标成员已开启自动接受且群组无需审批，提交后将立即生效。'
-        : '';
 }
 
 function getMutationSuccessMessage(action: 'accept' | 'approve' | 'cancel' | 'reject'): string {
@@ -1289,20 +1230,6 @@ function resolveTargetGroup(
     groups.find((group) => group.id === storedId && group.role !== 'guest') ??
     groups.find((group) => group.role !== 'guest')
   );
-}
-
-function getCurrentBusinessMonth(): string {
-  return getTodayBusinessDate().slice(0, 7);
-}
-
-function getTodayBusinessDate(): string {
-  const china = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  if (china.getUTCHours() < 8) china.setUTCDate(china.getUTCDate() - 1);
-  return china.toISOString().slice(0, 10);
-}
-
-function isBusinessMonth(value: string): boolean {
-  return /^\d{4}-(0[1-9]|1[0-2])$/u.test(value);
 }
 
 function formatRole(role: GroupSummary['role']): string {

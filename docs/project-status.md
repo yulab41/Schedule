@@ -2,7 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 Web/Mini 通讯录共享规则与视觉对等第一批（已实现，待原生复核）
+## 2026-08-26 Web/Mini 工作流展示规则共享（已实现，待体验版复核）
+
+- 用户已明确确认通讯录 `.23` 安卓真机视觉验收通过，并再次冻结全项目原则：Web 是规则基准；可复用的纯算法必须下沉到 `presentation-core`/`client-core`/`scheduling-domain` 供 Web 与 Mini 同时调用，平台层只保留渲染、网络、存储和原生能力适配。
+- 本批把请假、换班、加扣班的状态标签/色调、下一状态文案、未来班次与候选成员、实际值班成员、班次/日期/星期/时间摘要、请假区间/天数/类型/重排/统计及换班跨月装配统一下沉到 `presentation-core/workflow`。Web 四个既有 helper 改为共享 re-export，Vue assignment option 只保留 VNode 渲染；Mini 三个 controller 删除私有规则副本并直接调用同一实现。
+- 引入点：Web 工作流候选/状态规则来自 `d14a4ffe`，状态色调来自 `2bb9fce1`，请假规则来自 `0d5ec55c`；Mini 三套复制由 `bc32a4f1` 引入。共享模块与 Mini 禁止私有副本回归在旧实现先分别因缺模块和三处复制失败。
+- 行为变化：Mini 未来班次从自然日判断改为 Web 的中国时间 08:00 业务日交接，凌晨 00:00–07:59 不再过早隐藏上一业务日；Mini 非法请假日期采用 Web 的精确错误语义。其余状态、排序、文案和显示格式由现有 Web 回归证明等价。
+- 语义审计：API client 接收者、Promise/catch/finally、请求次数、Bearer、capability、权限、operation id、版本、409/网络模糊重试、写入/刷新和私有存储均未修改；没有新增 API、数据库迁移、离线写队列或 capability 开放。
+- 验证：共享/Web 定向 6 files/36 tests、Mini/共享定向 5 files/30 tests；Web+presentation 主源码 115 files/642 tests、Mini 73 files/338 tests、三端 typecheck、presentation/Web production build、任务 Prettier/ESLint、Mini production verify/source/package/determinism/CI dry-run 通过。Mini `5,614,509` bytes（main `1,121,889`、workflows `1,135,823`、organization `1,722,624`），manifest `d1d19c52ed3a292307bdce33738d679771c8e140af87094e70959d94058e3387`。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 无服务停止；当前源码 API 3000/Web 4173 运行后进入管理员工作台，但被既有“周视图定位按钮按下反馈”断言提前停止，未触及工作流页面。应用内浏览器连续两次无法附着本地 WebView；临时服务已关闭。`pnpm verify` 只在第一步报告 32 个用户自有/既有文件格式差异，任务文件单独通过。
+- checkpoint：识别消息 `feat(workflows): share Web presentation rules`；提交后上传下一体验版并按根规则完成生产备份、部署、allowlist/capability 与 full verifier。P9 `insights/externalMessages=false` 保持。
+- 下一活动批次与停止条件：审计通知中心、事件/统计和通知设置的 Web/Mini 重复展示算法，选择一个完整垂直切片先红后共享；本批 checkpoint 完成体验上传与生产双 release 后停止，不在同一复杂批次提前修改下一模块。
+
+## 2026-08-26 Web/Mini 通讯录共享规则与视觉对等第一批（已完成，用户真机通过）
 
 - 用户把“Web 与小程序共享同一套规则”提升为全项目架构原则，并要求通讯录组织级别、筛选列表、卡片 UI、数据读取/合并和视觉 1:1；不再用 Storybook 交付预览，改为直接核对 Web 与用户提供的 Mini 真机/模拟器截图。
 - 共享核心：新增 `presentation-core/directory`，承接 Web 已验证的号码标签/可拨规则、标题/路径/位置、同完整联系方式集合合并、动态有意义层级、兼容选项计数、父级变化清理后代、查询构造以及收藏/常用偏好算法。Web 原四个 directory helper 改为重新导出同一实现，Mini 直接复用；平台层只保留 Vue/DOM/localStorage 与 WXML/WXSS/wx storage 适配。
@@ -10,10 +22,10 @@
 - Mini 卡片/号码：新增共享 `directory-entry-card`，显示 5px 类型强调线、合并标题/上下文、类型/岗位/工号/同号计数、备注、长号/短号双通道、Web 同源拨号策略和收藏状态；收藏/使用次数只保存 owner/group/kind 下的条目 ID 与计数，不保存号码或搜索结果，退出/换用户/离群沿私有缓存清理。
 - 权限/语义：目录 API、Bearer、organization capability、服务端 visibility/权限、cursor 和错误路径不变；新增偏好 lookup 只读取已授权条目且失败不阻断搜索。Web 运行行为由既有 helper 测试证明等价，未改生产 API/数据库。
 - 测试先行：共享模块旧实现缺失先失败；层级测试一次错误期望按 Web 真实“仍有两个兼容选项则保留”规则修正。最终 Web+presentation 110 files/622 tests、Mini 72 files/335 tests、通讯录/私有存储定向 9 files/48 tests、三端 typecheck、presentation/Web build、Mini production verify/source/package/determinism/CI dry-run 和 `smoke:check-core` 通过。Mini 包体 `5,611,346` bytes，组织分包 `1,722,630` bytes，manifest `7f666e3597916fbdd1f66d00c144d28598488c6c8f232ad0b29bedcc0b43a946`。
-- 视觉策略：`frontend-design` 服从生产 Web 的蓝灰临床工作台，不新增设计语言；稳定几何、文案、密度和状态以 `InternalDirectoryView.vue`/`UnifiedDirectoryView.vue` 为准。IAB 生产页无登录态，只读源代码与用户截图作为当前基准；下一步由用户在安卓模拟器登录微信并打开体验版后提供科室/人员、筛选打开、同号卡片、320/大字号截图。
+- 视觉策略/验收：`frontend-design` 服从生产 Web 的蓝灰临床工作台，不新增设计语言；稳定几何、文案、密度和状态以 `InternalDirectoryView.vue`/`UnifiedDirectoryView.vue` 为准。用户已于 2026-08-26 明确确认 `.23` 安卓真机视觉验收通过，通讯录新的 1:1 门槛关闭。
 - checkpoint/体验：代码提交 `1de042b5`（`feat(miniprogram): share Web directory presentation`）在 GitHub 网络恢复后已 fast-forward 推送；体验版 `0.1.0-p9.20260826.23` 官方编译上传成功，153 个代码文件、zip `1,357,334` bytes、Mini manifest `77d6f593010b28c8194585ec48cc7aba4e5fa97f4196075f24cdc257db8f9fea`。
 - 生产发布：备份 archive `f6fffebc-5107-4bd9-b4f7-92d2e975739f`（54 表/174,225 行/80,825,928 bytes/SHA `4813fa80518d6f2a36a2b1a8ffc74d3968119234ed6d448411a17de09456494e`）后部署 release `1de042b543792ff0a7a2957e400c40aed95a5410`；`.23` capability HTTP 200，`organization/workflows=true`、`insights/externalMessages=false`，full ECS verifier、health、产物/控制平面/迁移/未知 Host 和远端临时目录清理通过。
-- 下一活动批次与停止条件：用户在安卓模拟器登录微信并打开 `.23`，提供科室结果、人员结果、筛选 Sheet、同号/长短号卡片以及 320/大字号截图；按截图修正 ≤2px 差异并取得通讯录新 1:1 明确通过后，再把共享规则原则推广到下一模块。P9 capability 保持关闭。
+- 下一活动批次与停止条件：已转入上方工作流展示规则共享；P9 capability 保持关闭。
 
 ## 2026-08-26 Mini 通讯录联系电话渲染修复（已实现，待体验版复核）
 

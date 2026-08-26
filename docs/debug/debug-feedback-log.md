@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 Web/Mini 工作流展示规则共享
+
+- 范围/引入点：用户确认通讯录 `.23` 真机视觉通过，并把“Web 规则下沉、Web/Mini 同源”冻结为所有页面/功能的项目原则。本批只共享请假、换班、加扣班的展示/候选/日期算法；Web 候选/状态来自 `d14a4ffe`、色调来自 `2bb9fce1`、请假来自 `0d5ec55c`，Mini 三套副本来自 `bc32a4f1`；均已执行 `git log -S`/`git blame`。
+- 红绿/实现：新增 `presentation-core/workflow` 行为契约及 Mini 禁止私有副本契约；旧代码分别因模块不存在和三 controller 保留状态 helper 先红。Web workflow/leave/swap/duty helper 改为共享 re-export，assignment option 只保留 Vue VNode；Mini 直接调用同源状态、色调、下一状态、业务日、候选、成员、星期/班次、请假区间/统计和跨月规则。
+- 行为/语义：Mini 未来班次改用 Web 的中国时间 08:00 业务日交接，非法请假日期采用 Web 精确错误；其他显示行为等价。API client/receiver、Promise/catch/finally、空值、权限/capability、operation id、版本、冲突/网络重试、调用次数、写入、刷新和存储不变；无 API/DB/capability 变化。
+- 验证：共享/Web 定向 6 files/36、Mini/共享定向 5 files/30；Web+presentation 115 files/642、Mini 73 files/338 通过。三端 typecheck、presentation/Web production build、任务 Prettier/ESLint、Mini verify/source/package/determinism/CI dry-run 通过；包体 `5,614,509` bytes、workflows `1,135,823`、manifest `d1d19c52ed3a292307bdce33738d679771c8e140af87094e70959d94058e3387`。宽泛 Vitest 误扫用户 `.artifacts/runtime/src` 历史副本后按正确 cwd/排除重跑全绿；`pnpm verify` 仅被 32 个用户自有/既有文件格式差异阻断，任务文件全绿。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 首次因 5173 无服务停止；当前源码 API 3000/Web 4173 重跑进入管理员工作台后，被既有“周视图定位按钮按下反馈”断言提前阻断，未到工作流。应用内浏览器本地 WebView 两次无法附着；临时服务关闭。提交前运行 `pnpm --config.verifyDepsBeforeRun=false smoke:check-core`。
+- checkpoint：识别消息 `feat(workflows): share Web presentation rules`；推送后上传下一 production-profile 体验版并完成生产备份/部署/verifier。下一批只审计通知/事件/统计展示规则，P9 capability 保持关闭。
+
 ## 2026-08-25 P8-B 组织管理 Web 黄金
 
 - 引入点/测试先行：production 群组/成员/配置/平台页分别来自既有实现；本轮额外定位 `5102950a` 的 320 成员管理隐藏、`02a508dd` 的平台绝对定位屏幕阅读器标签、`bfa07554` 的群组/配置 muted labels、`f723b0db/59300957` 的个人 scope 与 `41d284b3` 的禁用班种 opacity。P8 黄金测试最初因 story/fixture/manifest 缺失先 4 项红；Pinia、320 状态装配、平台溢出和 AA 对比度均先补失败断言后修复。

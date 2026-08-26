@@ -4,10 +4,18 @@ import type {
   CalendarReadModel,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
-  DutyAdjustmentStatus,
   GroupSummary,
 } from '@schedule/contracts';
 import {
+  filterOperableAssignments,
+  formatAssignmentSummaryOption as formatAssignmentSummary,
+  getCurrentWorkflowBusinessMonth as getCurrentBusinessMonth,
+  getDutyAdjustmentNextStatusDescription as getNextStatusDescription,
+  getDutyAdjustmentStatusLabel as getDutyStatusLabel,
+  getWorkflowDutyMembershipId as getDutyMembershipId,
+  getWorkflowStatusTone as getStatusTone,
+  isWorkflowBusinessMonth as isBusinessMonth,
+  isWorkflowWeekendDate,
   resolveWorkflowOperationAttempt,
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
@@ -436,9 +444,7 @@ async function loadDutyPageWithCapability(
     if (group.role === 'guest') throw new Error('访客不能发起或处理加扣班。');
     page._currentGroupId = group.id;
     const canApprove =
-      group.isDeveloperAdmin === true ||
-      group.role === 'owner' ||
-      group.role === 'administrator';
+      group.isDeveloperAdmin === true || group.role === 'owner' || group.role === 'administrator';
     const [calendar, members, groupSettings, mySettings, mine, approvals] = await Promise.all([
       workbenchClient.getCalendar(group.id, page.data.businessMonth),
       workbenchClient.getMembers(group.id),
@@ -979,77 +985,22 @@ function readChecked(event: ValueEvent): boolean | undefined {
   return typeof event.detail.value === 'boolean' ? event.detail.value : undefined;
 }
 
-function operableAssignments(calendar: CalendarReadModel | undefined): CalendarDutyAssignment[] {
-  const today = getTodayBusinessDate();
-  return (calendar?.assignments ?? []).filter((assignment) => assignment.businessDate >= today);
+function operableAssignments(
+  calendar: CalendarReadModel | undefined,
+): readonly CalendarDutyAssignment[] {
+  return filterOperableAssignments(calendar?.assignments ?? []);
 }
 
 function createAssignmentOption(assignment: CalendarDutyAssignment): SelectionOption {
   return {
-    isWeekend: isWeekendDate(assignment.businessDate),
-    label: formatAssignment(assignment),
+    isWeekend: isWorkflowWeekendDate(assignment.businessDate),
+    label: formatAssignmentSummary(assignment),
     value: assignment.id,
   };
 }
 
-function isWeekendDate(value: string): boolean {
-  const day = new Date(`${value}T00:00:00Z`).getUTCDay();
-  return day === 0 || day === 6;
-}
-
-function formatAssignment(assignment: CalendarDutyAssignment): string {
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${weekdayLabel(assignment.businessDate)}）· ${assignment.actualMemberName ?? assignment.plannedMemberName ?? '待定'}`;
-}
-
-function formatAssignmentSummary(assignment: DutyAdjustmentRequest['coveredAssignment']): string {
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${weekdayLabel(assignment.businessDate)}）· ${assignment.actualMemberName ?? assignment.plannedMemberName ?? '待定'}`;
-}
-
-function getDutyMembershipId(assignment: CalendarDutyAssignment): string | undefined {
-  return assignment.actualMembershipId ?? assignment.plannedMembershipId;
-}
-
-function weekdayLabel(value: string): string {
-  const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  return labels[new Date(`${value}T00:00:00Z`).getUTCDay()] ?? '';
-}
-
-function getDutyStatusLabel(status: DutyAdjustmentStatus): string {
-  return status === 'pending_target'
-    ? '待加班成员接受'
-    : status === 'pending_approval'
-      ? '待管理员审批'
-      : status === 'completed'
-        ? '已生效'
-        : status === 'rejected'
-          ? '已驳回'
-          : status === 'cancelled'
-            ? '已取消'
-            : '已撤销';
-}
-
-function getStatusTone(status: DutyAdjustmentStatus): 'danger' | 'neutral' | 'success' | 'warning' {
-  return status === 'pending_target' || status === 'pending_approval'
-    ? 'warning'
-    : status === 'completed'
-      ? 'success'
-      : status === 'rejected'
-        ? 'danger'
-        : 'neutral';
-}
-
 function notifyCalendarChanged(page: DutyPageInstance): void {
   page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
-}
-
-function getNextStatusDescription(status: DutyAdjustmentStatus): string {
-  return status === 'pending_target'
-    ? '提交后将等待加班成员接受。'
-    : status === 'pending_approval'
-      ? '加班成员将自动接受，提交后进入管理员审批。'
-      : status === 'completed'
-        ? '加班成员已开启自动接受且群组无需审批，提交后将立即生效。'
-        : '';
 }
 
 function navigateWorkflowPage(page: DutyPageInstance, target: 'leave' | 'swap'): void {
@@ -1096,20 +1047,6 @@ function resolveTargetGroup(
     groups.find((group) => group.id === storedId && group.role !== 'guest') ??
     groups.find((group) => group.role !== 'guest')
   );
-}
-
-function getCurrentBusinessMonth(): string {
-  return getTodayBusinessDate().slice(0, 7);
-}
-
-function getTodayBusinessDate(): string {
-  const china = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  if (china.getUTCHours() < 8) china.setUTCDate(china.getUTCDate() - 1);
-  return china.toISOString().slice(0, 10);
-}
-
-function isBusinessMonth(value: string): boolean {
-  return /^\d{4}-(0[1-9]|1[0-2])$/u.test(value);
 }
 
 function formatRole(role: GroupSummary['role']): string {
