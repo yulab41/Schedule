@@ -86,6 +86,15 @@ describe('P4 native workbench', () => {
     expect(historyIcon).toContain('M2.552 13C3.0517 17.7767');
   });
 
+  it('explains unavailable group tools instead of failing silently', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+
+    expect(pageSource).toContain('当前群组尚未准备好，请刷新后重试。');
+    expect(pageSource).toContain('当前账号无权访问此工具。');
+    expect(pageSource).toContain('页面暂时无法打开，请稍后重试。');
+    expect(pageSource).toContain('fail: () =>');
+  });
+
   it('uses one Web-matched date label formatter without an intermediate legacy label', () => {
     const pageSource = readSource('pages/workbench/index.ts');
     const modelSource = readSource('features/workbench/workbench-model.ts');

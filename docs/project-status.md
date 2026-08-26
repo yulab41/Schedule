@@ -9,6 +9,13 @@
 - 当前策略：`MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED=true`、`CORE=true`、`WORKFLOWS=true`、`ORGANIZATION=true`、`GUEST=true`；`insights=false`、`externalMessages=false`。
 - 下一活动批次与停止条件：新增 `apps/miniprogram/docs/runbooks/p9-insights-rc.md`，锁定 P9 数据/消息实体 Android 验收；用户回复“P9 数据与消息 RC 通过”后，才分别评估 `insights` 和 `externalMessages`，不自动开启订阅或正式发布。
 
+## 2026-08-26 工作台工具入口失败反馈修复（已实现，待体验版复核）
+
+- 用户反馈小程序相关页面打不开；定位到 `navigateGroupTool` 在群组未准备好、权限不足或 `wx.navigateTo` 失败时静默返回，入口没有任何可见反馈。
+- 修复：工作台现在同时写入无障碍公告和 `wx.showToast`，分别提示群组未准备好、权限不足或页面导航失败；成功导航 URL、权限判定、请求次数和页面路由保持不变。
+- 验证：先红后绿工作台回归 22/22；Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,946,249` bytes，manifest `346a0cd9c077c2d5e6c9f617693d8aa118f2d52c55251c391420051249be6b57`。
+- checkpoint：代码提交消息为 `fix(miniprogram): surface group-tool navigation failures`；提交后上传候选体验版 `.16`，生产 `organization=true` 保持不变。
+
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
 - 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。账号密码管理员不再显示无效的微信解绑按钮，改为明确的“不适用”说明。

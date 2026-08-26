@@ -954,13 +954,27 @@ function navigateGroupTool(
   route: string,
   options: { readonly allowMembers?: boolean } = {},
 ): void {
-  if (
-    (!options.allowMembers && !page.data.canManageScheduleTools) ||
-    page.data.currentGroupId === ''
-  )
+  if (page.data.currentGroupId === '') {
+    announceToolNavigationFailure(page, '当前群组尚未准备好，请刷新后重试。');
     return;
+  }
+  if (!options.allowMembers && !page.data.canManageScheduleTools) {
+    announceToolNavigationFailure(page, '当前账号无权访问此工具。');
+    return;
+  }
   const groupId = encodeURIComponent(page.data.currentGroupId);
-  wx.navigateTo({ url: `${route}?groupId=${groupId}` });
+  wx.navigateTo({
+    fail: () => announceToolNavigationFailure(page, '页面暂时无法打开，请稍后重试。'),
+    url: `${route}?groupId=${groupId}`,
+  });
+}
+
+function announceToolNavigationFailure(page: WorkbenchPageInstance, message: string): void {
+  page.setData({ announcement: message });
+  const showToast = (wx as unknown as {
+    readonly showToast?: (options: { readonly icon: 'none'; readonly title: string }) => void;
+  }).showToast;
+  showToast?.({ icon: 'none', title: message });
 }
 
 async function readMonth(
