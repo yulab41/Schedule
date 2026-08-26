@@ -6,9 +6,12 @@
 
 - 范围：对 P9 访客访问/事件统计/通知/导出及 P10 通讯录/个人中心/工作台角色入口逐项核对 capability、disabled 清理、生命周期、错误/空/加载、大字号、权限与安全下载；不打开 `insights`/`externalMessages`，不提交审核或正式发布。
 - 审计证据：新增 `p9-p10-final-state-audit.test.mjs`，矩阵 3/3、Mini 全量 84 files/386 tests、P9/P10 既有定向契约、任务 Prettier/ESLint、`git diff --check` 均通过；`apps/miniprogram/docs/design/page-golden-manifest.md` 已注明用户“无需人工复核”，P7–P10 已实现切片改记“自动 verifier 已通过”，并保留 P9 能力关闭边界。
-- 自动验证：此前 `.36` 运行时代码的 Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；本 checkpoint 仅新增审计/清单和 RC 版本追踪，运行时源码不变。当前生产 `current-release=7c1f7183`，`.36` capability HTTP 200，`organization=true`、`insights/externalMessages=false`。
-- 当前策略：用户已明确“无需人工复核”，本轮以自动矩阵、生产探针和 verifier 为阶段证据；`.37` 仅作为同运行时代码的审计体验候选，不改变能力开关。
-- checkpoint/下一步：代码/文档审计 checkpoint 拟以 `test(miniprogram): record final p9 p10 state audit` 提交；提交后上传 `0.1.0-p9.20260827.37`、按备份保护加入白名单并完成 docs-only 生产验证。若矩阵无新增缺口，下一活动批次转为阶段状态与剩余 P8/P9 能力审批边界审计，停止条件是所有可自动验证项均有证据且未授权能力仍保持关闭。
+- 自动验证：Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core`、P9/P10 自动矩阵 3/3 和 Mini 全量 84 files/386 tests 均通过；本 checkpoint 运行时源码不变，verify manifest `a7cba730107e2016b24eb8e9c42977e94e59168358ddcbd005762cb91740b83e`，总包 `5,758,853` bytes，insights `1,316,777` bytes。生产支持 `.37`，`organization=true`、`insights/externalMessages=false`。
+- 当前策略：用户已明确“无需人工复核”，本轮以自动矩阵、生产探针和 verifier 为阶段证据；`.37` 仅作为同运行时代码的审计体验候选，不改变能力开关，不提审、不正式发布。
+- 线上发布：审计 checkpoint `640ff2c8d20dea9640688fa54ceef0ddb70552ef`（`test(miniprogram): record final p9 p10 state audit`）已推送；体验版 `0.1.0-p9.20260827.37` 上传成功，153 个代码文件、zip `1,404,301` bytes、上传 manifest `92758d7232892ce5c48a61dbc3a730c6f55ec67251059b1f8fb040cf4390aae0`。加入白名单并部署前数据库备份 archive `2fb330df-1ba9-444b-a1fb-7b545a8240da`（54 表、176,611 行、81,627,296 bytes、SHA-256 `171bd0e6a850fc8d0624bdf1ad56cac5994f40dc328f1b53d9cdb8bba6867258`）；`.37` 已原子加入版本白名单，能力值未新增开放。
+- 线上偏差：`.37` 白名单第一次只重建 API 时因 Nginx 缓存旧 upstream 地址，健康探针超时并自动回滚至 `.36`；随后先验证 API 容器内健康、重建 web 网关，再以 API+web 同时重建的原子流程成功追加并验证 `.37`。业务数据库未修改。
+- 线上验证：代码 release `640ff2c8d20dea9640688fa54ceef0ddb70552ef` 与最终 docs-only release（本提交）均已部署；预热首个健康请求 502 后恢复，迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均通过。`.37` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；当前 `current-release` 与 Git HEAD 一致，`.env.production` 保持 `root:root/0600`，远端本轮临时目录已清理。
+- checkpoint/下一步：代码/文档审计 checkpoint `640ff2c8d20dea9640688fa54ceef0ddb70552ef` 与最终状态 docs 本提交均已提交、推送、体验上传、白名单追加和生产部署/验证；最终同步前数据库备份 archive `faa9680d-1a86-46a9-9f59-ec435af1b6e4`（54 表、176,619 行、81,630,368 bytes、SHA-256 `ba077c09a26ede0d34f645ac0728a95caf687c7ef20c2baffa8686b70910afa8`）。下一活动批次转为阶段状态与剩余 P8/P9 能力审批边界审计，停止条件是所有可自动验证项均有证据且未授权能力仍保持关闭。
 
 ## 2026-08-27 P9 导出能力关闭态自动收口（已完成自动验证，继续推进）
 
