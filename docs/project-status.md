@@ -18,6 +18,13 @@
 - 增量体验/运行：`0.1.0-p9.20260826.16` 已上传成功，147 个代码文件、zip `1,304,107` bytes、manifest `f9846fe9bb4b284a23a76b5b7d820928b59b49443a277428f1d6e3b6fce93a56`。生产备份 archive `3a2b8819-c8ec-40b3-b079-26f99a0801e5` 后追加候选白名单；`.16` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`。
 - 增量发布：代码 checkpoint `9dec3183019a39cd48f8dbb0237d3b6a5fc8d783` 部署 release `9dec3183019a39cd48f8dbb0237d3b6a5fc8d783`；ECS full verifier、health 200、候选版本 capability 和远端临时目录清理通过。
 
+## 2026-08-26 P8 页面白屏与分包体积修复（已实现，待体验版复核）
+
+- 用户反馈排版配置、平台账号、邀请与访客白屏；定位为三个页面挂载的 panel 缺少 `index.ts` `Component(...)` 注册 wrapper。新增 `scheduling-config-panel`、`platform-accounts-panel`、`invite-visitor-panel` 注册文件与 2 项回归测试。
+- 包体修复：启用 Mini esbuild 生产压缩，保留 Worklet 指令并把 `subpackages/organization` 从 `2,281,195` bytes 降至 `1,678,157` bytes；总包 `5,556,271` bytes，manifest `d00f428cb94e2c2a4ed2b5a1dbceba147db6100b2b29d9050afe64882bba7e03`。
+- 验证：P8 wrapper/工作台定向 24/24、正式源码范围 68 files/320 tests、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；旧 `.artifacts` 副本仍排除，未修改用户文件。
+- checkpoint：代码提交消息为 `fix(miniprogram): register organization panels and compress package`；提交后上传候选体验版 `.17`，生产 `organization=true` 保持不变。
+
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
 - 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。账号密码管理员不再显示无效的微信解绑按钮，改为明确的“不适用”说明。

@@ -302,7 +302,7 @@ export async function buildMiniProgram({
     legalComments: 'none',
     logLevel: 'silent',
     metafile: true,
-    minify: false,
+    minify: true,
     outdir: outputDirectory,
     platform: 'browser',
     sourcemap: false,

@@ -95,8 +95,8 @@ describe('Mini Program deterministic toolchain guards', () => {
       const worklets = findWorkletIssues(compiled, 'app.js');
       expect(worklets.issues).toEqual([]);
       expect(worklets.count).toBeGreaterThanOrEqual(1);
-      expect(compiled).toContain('"0.1.0-probe"');
-      expect(compiled).toContain('"abc1234"');
+      expect(compiled).toContain('0.1.0-probe');
+      expect(compiled).toContain('abc1234');
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_VERSION__');
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_COMMIT__');
     } finally {
