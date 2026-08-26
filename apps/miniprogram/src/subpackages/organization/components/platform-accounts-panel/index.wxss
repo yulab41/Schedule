@@ -354,3 +354,52 @@
     grid-row: 1;
   }
 }
+.is-large-text .header-title-main,
+.is-large-text .header-title-sub {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .page-title {
+  font-size: 26px;
+}
+.is-large-text .page-description,
+.is-large-text .permission-note,
+.is-large-text .sheet-copy,
+.is-large-text .binding-result,
+.is-large-text .empty-note {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+.is-large-text .metric-card > text:nth-child(2) {
+  font-size: 26px;
+}
+.is-large-text .account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.is-large-text .account-main {
+  min-width: 0;
+  flex: 1 1 70%;
+}
+.is-large-text .account-id,
+.is-large-text .account-status,
+.is-large-text .account-username,
+.is-large-text .password-status {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  font-size: var(--ui-font-size-md);
+}
+.is-large-text .account-username,
+.is-large-text .password-status {
+  flex: 1 1 100%;
+}
+.is-large-text .account-row ui-button,
+.is-large-text .native-field {
+  min-height: 52px;
+}
+.is-large-text .account-row ui-button {
+  flex: 0 0 auto;
+}

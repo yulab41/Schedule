@@ -623,3 +623,64 @@
     flex: none;
   }
 }
+.is-large-text .header-title-main,
+.is-large-text .header-title-sub {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .page-title {
+  font-size: 26px;
+}
+.is-large-text .page-description,
+.is-large-text .card-subtitle,
+.is-large-text .role-meta,
+.is-large-text .shift-status,
+.is-large-text .empty-note,
+.is-large-text .organization-capability-note,
+.is-large-text .option-item > view > text:last-child {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+.is-large-text .readiness-title,
+.is-large-text .card-title,
+.is-large-text .role-title,
+.is-large-text .editor-title,
+.is-large-text .field-label,
+.is-large-text .shift-name-line > text:first-child,
+.is-large-text .option-item > view > text:first-child {
+  font-size: var(--ui-font-size-md);
+}
+.is-large-text .shift-name-line {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+.is-large-text .shift-name-line > text:first-child {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .native-field,
+.is-large-text .native-picker,
+.is-large-text .option-item,
+.is-large-text .member-choice,
+.is-large-text .order-button,
+.is-large-text .mini-toggle {
+  min-height: 52px;
+}
+.is-large-text .field-grid,
+.is-large-text .new-role-row {
+  grid-template-columns: minmax(0, 1fr);
+  flex-direction: column;
+}
+.is-large-text .new-role-row > ui-button {
+  width: 100%;
+}
+.is-large-text .shift-row {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+.is-large-text .shift-status,
+.is-large-text .row-actions {
+  grid-column: 2;
+}

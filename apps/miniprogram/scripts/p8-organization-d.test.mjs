@@ -14,6 +14,7 @@ describe('P8-D native invite and visitor access', () => {
   it('registers an organization invite/visitor page and More entry', () => {
     const app = JSON.parse(read('src/app.json'));
     const panel = read('src/subpackages/organization/components/invite-visitor-panel/index.wxml');
+    const styles = read('src/subpackages/organization/components/invite-visitor-panel/index.wxss');
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
@@ -29,6 +30,8 @@ describe('P8-D native invite and visitor access', () => {
     expect(panel).toContain('生成邀请');
     expect(panel).toContain('访客码');
     expect(panel).toContain('群组二维码');
+    expect(panel).toContain("largeText ? 'is-large-text' : ''");
+    expect(styles).toContain('.is-large-text');
     expect(workbench).toContain('handleOpenInviteVisitor');
   });
 
@@ -46,6 +49,7 @@ describe('P8-D native invite and visitor access', () => {
     expect(controller).toContain('operationId');
     expect(controller).toContain('expectedTargetVersion');
     expect(controller).toContain('expectedVersion');
+    expect(controller).toContain('fontSizeSetting');
   });
 
   it('keeps invite tokens, visitor keys, and QR bytes in memory only', () => {

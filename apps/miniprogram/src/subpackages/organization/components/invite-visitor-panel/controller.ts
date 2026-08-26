@@ -70,6 +70,7 @@ interface InviteVisitorPageData {
   readonly inviteRealName: string;
   readonly inviteRoleLabel: string;
   readonly inviteExpiresAt: string;
+  readonly largeText: boolean;
   readonly qrImageSrc: string;
   readonly qrVisible: boolean;
   readonly visitorState: 'idle' | 'loading' | 'ready' | 'error';
@@ -131,6 +132,7 @@ export function createInviteVisitorPanelControllerDefinition() {
       inviteRealName: '',
       inviteRoleLabel: '',
       inviteExpiresAt: '',
+      largeText: false,
       qrImageSrc: '',
       qrVisible: false,
       visitorState: 'idle',
@@ -229,6 +231,9 @@ function applyPanelLayout(page: InviteVisitorPageInstance): void {
   page.setData({
     pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
     shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+    largeText:
+      ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
+      20,
     viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
   });
 }

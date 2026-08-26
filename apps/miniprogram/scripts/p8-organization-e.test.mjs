@@ -16,6 +16,9 @@ describe('P8-E native platform account administration', () => {
     const panel = read(
       'src/subpackages/organization/components/platform-accounts-panel/index.wxml',
     );
+    const styles = read(
+      'src/subpackages/organization/components/platform-accounts-panel/index.wxss',
+    );
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
@@ -31,6 +34,8 @@ describe('P8-E native platform account administration', () => {
     expect(panel).toContain('平台账号');
     expect(panel).toContain('分配用户名');
     expect(panel).toContain('绑定链接');
+    expect(panel).toContain("largeText ? 'is-large-text' : ''");
+    expect(styles).toContain('.is-large-text');
     expect(workbench).toContain('handleOpenPlatformAccounts');
   });
 
@@ -48,6 +53,7 @@ describe('P8-E native platform account administration', () => {
     expect(controller).toContain('expectedAuthVersion');
     expect(controller).toContain('operationId');
     expect(controller).toContain('平台管理员');
+    expect(controller).toContain('fontSizeSetting');
   });
 
   it('does not persist names, passwords, binding URLs, tickets, or subjects', () => {

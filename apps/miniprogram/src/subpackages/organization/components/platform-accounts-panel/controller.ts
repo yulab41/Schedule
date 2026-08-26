@@ -54,6 +54,7 @@ interface PlatformAccountsPageData {
   readonly usernameDraft: string;
   readonly bindingUrl: string;
   readonly bindingExpiresAt: string;
+  readonly largeText: boolean;
   readonly pageScrollStyle: string;
   readonly shellHeaderStyle: string;
   readonly viewportClass: string;
@@ -98,6 +99,7 @@ export function createPlatformAccountsPanelControllerDefinition() {
       usernameDraft: '',
       bindingUrl: '',
       bindingExpiresAt: '',
+      largeText: false,
       pageScrollStyle: 'height:calc(100% - 76px);',
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       viewportClass: '',
@@ -175,6 +177,9 @@ function applyPanelLayout(page: PlatformAccountsPageInstance): void {
   page.setData({
     pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
     shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+    largeText:
+      ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
+      20,
     viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
   });
 }

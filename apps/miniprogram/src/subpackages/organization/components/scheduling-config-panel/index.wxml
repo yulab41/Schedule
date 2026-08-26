@@ -1,4 +1,4 @@
-<view class="scheduling-config-page {{viewportClass}}">
+<view class="scheduling-config-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}">
     <view
       class="header-back"

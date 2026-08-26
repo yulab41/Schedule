@@ -14,6 +14,9 @@ describe('P8-C-2 native scheduling configuration', () => {
   it('registers one native scheduling configuration page and More entry', () => {
     const app = JSON.parse(read('src/app.json'));
     const page = read('src/subpackages/organization/components/scheduling-config-panel/index.wxml');
+    const styles = read(
+      'src/subpackages/organization/components/scheduling-config-panel/index.wxss',
+    );
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
@@ -29,6 +32,8 @@ describe('P8-C-2 native scheduling configuration', () => {
     expect(page).toContain('班种');
     expect(page).toContain('岗位成员');
     expect(page).toContain('轮转规则');
+    expect(page).toContain("largeText ? 'is-large-text' : ''");
+    expect(styles).toContain('.is-large-text');
     expect(workbench).toContain('handleOpenSchedulingConfig');
   });
 
@@ -46,6 +51,7 @@ describe('P8-C-2 native scheduling configuration', () => {
     expect(controller).toContain('operationId');
     expect(controller).toContain('expectedRulesVersion');
     expect(controller).toContain('expectedRotationRuleVersion');
+    expect(controller).toContain('fontSizeSetting');
   });
 
   it('does not persist scheduling drafts, credentials, or visitor material', () => {

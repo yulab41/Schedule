@@ -343,3 +343,47 @@
     width: 100%;
   }
 }
+.is-large-text .header-title-main,
+.is-large-text .header-title-sub {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .page-title {
+  font-size: 26px;
+}
+.is-large-text .page-description,
+.is-large-text .visitor-copy,
+.is-large-text .capability-note,
+.is-large-text .result-copy,
+.is-large-text .memory-note,
+.is-large-text .empty-note,
+.is-large-text .state-copy {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+.is-large-text .invite-content {
+  gap: 16px;
+}
+.is-large-text .field-label,
+.is-large-text .card-title,
+.is-large-text .result-heading > text:first-child,
+.is-large-text .capability-title {
+  font-size: var(--ui-font-size-md);
+}
+.is-large-text .native-field,
+.is-large-text .native-picker,
+.is-large-text .visitor-actions ui-button,
+.is-large-text .qr-close {
+  min-height: 52px;
+}
+.is-large-text .share-path {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.is-large-text .visitor-actions {
+  flex-direction: column;
+}
+.is-large-text .visitor-actions ui-button {
+  width: 100%;
+}
