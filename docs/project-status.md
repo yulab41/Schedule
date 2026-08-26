@@ -24,6 +24,8 @@
 - 包体修复：启用 Mini esbuild 生产压缩，保留 Worklet 指令并把 `subpackages/organization` 从 `2,281,195` bytes 降至 `1,678,157` bytes；总包 `5,556,271` bytes，manifest `d00f428cb94e2c2a4ed2b5a1dbceba147db6100b2b29d9050afe64882bba7e03`。
 - 验证：P8 wrapper/工作台定向 24/24、正式源码范围 68 files/320 tests、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；旧 `.artifacts` 副本仍排除，未修改用户文件。
 - checkpoint：代码提交消息为 `fix(miniprogram): register organization panels and compress package`；提交后上传候选体验版 `.17`，生产 `organization=true` 保持不变。
+- 增量体验/运行：`0.1.0-p9.20260826.17` 已上传成功，150 个代码文件、zip `1,332,351` bytes、manifest `02035ff63f85551349b406b5c650291224dc20f8eae29bb7a7b706c8d50f1c1e`。生产备份 archive `891a2e74-40a2-449f-9590-258370543397` 后追加候选白名单；`.17` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`。
+- 增量发布：代码 checkpoint `ccc38ff0ef8a9e910750e78691b6f20918b12aab` 部署 release `ccc38ff0ef8a9e910750e78691b6f20918b12aab`；ECS full verifier、health 200、候选版本 capability 和远端临时目录清理通过。
 
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
