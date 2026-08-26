@@ -128,6 +128,7 @@ interface DirectoryPageData {
   readonly floorLabel: string;
   readonly floorOptions: readonly DirectoryOption[];
   readonly groupId: string;
+  readonly largeText: boolean;
   readonly loadingMore: boolean;
   readonly mergedGroupCount: number;
   readonly modeMotionClass: string;
@@ -227,6 +228,7 @@ export function createDirectoryPanelControllerDefinition() {
     floorLabel: '全部',
     floorOptions: [{ count: 0, label: '全部', value: '' }],
     groupId: '',
+    largeText: false,
     loadingMore: false,
     mergedGroupCount: 0,
     modeMotionClass: '',
@@ -281,6 +283,9 @@ export function createDirectoryPanelControllerDefinition() {
         this.setData({
           pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
           shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+          largeText:
+            ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
+              16) >= 20,
           viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
         });
         startLoad(this);
@@ -288,6 +293,12 @@ export function createDirectoryPanelControllerDefinition() {
       detached(this: DirectoryPageInstance): void {
         clearSearchTimer(this);
         this._requestSerial += 1;
+        this._loadedKey = '';
+        this._facets = undefined;
+        this._filters = {};
+        this._nextCursor = undefined;
+        this._priorityEntries = [];
+        this._rawEntries = [];
       },
     },
     methods: {
@@ -396,15 +407,17 @@ function startLoad(page: DirectoryPageInstance): void {
   const kind = page.properties.directoryKind;
   const key = `${groupId}:${kind}`;
   if (groupId.length === 0) {
-    page.setData({
-      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
-      resultSummary: '当前群组信息缺失，请返回工作台后重试。',
-      state: 'error',
-    });
+    setMissingGroupError(page);
     return;
   }
   if (key === page._loadedKey) return;
   page._loadedKey = key;
+  page._requestSerial += 1;
+  page._nextCursor = undefined;
+  page._facets = undefined;
+  page._filters = {};
+  page._priorityEntries = [];
+  page._rawEntries = [];
   page.setData({ directoryKind: kind, groupId, ...filterLabelsForKind(kind) });
   void loadFacets(page);
 }
@@ -422,6 +435,69 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
   if (!Array.isArray(page._priorityEntries)) page._priorityEntries = [];
   if (!Array.isArray(page._rawEntries)) page._rawEntries = [];
   if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
+  if (typeof page._nextCursor !== 'string') page._nextCursor = undefined;
+}
+
+function isDirectoryRequestCurrent(
+  page: DirectoryPageInstance,
+  serial: number,
+  groupId: string,
+  directoryKind: DirectoryKind,
+): boolean {
+  return (
+    serial === page._requestSerial &&
+    groupId === page.data.groupId &&
+    directoryKind === page.data.directoryKind
+  );
+}
+
+function setMissingGroupError(page: DirectoryPageInstance): void {
+  page._requestSerial += 1;
+  page._loadedKey = '';
+  page._facets = undefined;
+  page._filters = {};
+  page._nextCursor = undefined;
+  page._priorityEntries = [];
+  page._rawEntries = [];
+  page.setData({
+    activeFilterCount: 0,
+    entries: [],
+    errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+    filterAdjustmentMessage: '',
+    filterSections: [],
+    filterSheetOpen: false,
+    loadingMore: false,
+    mergedGroupCount: 0,
+    nextCursor: '',
+    prioritySections: [],
+    resultSummary: '当前群组信息缺失，请返回工作台后重试。',
+    searching: false,
+    state: 'error',
+  });
+}
+
+function setDirectoryDisabled(page: DirectoryPageInstance, message: string): void {
+  page._requestSerial += 1;
+  page._facets = undefined;
+  page._filters = {};
+  page._nextCursor = undefined;
+  page._priorityEntries = [];
+  page._rawEntries = [];
+  page.setData({
+    activeFilterCount: 0,
+    entries: [],
+    errorMessage: message,
+    filterAdjustmentMessage: '',
+    filterSections: [],
+    filterSheetOpen: false,
+    loadingMore: false,
+    mergedGroupCount: 0,
+    nextCursor: '',
+    prioritySections: [],
+    resultSummary: '通讯录暂未开放。',
+    searching: false,
+    state: 'disabled',
+  });
 }
 
 function clearSearchTimer(page: DirectoryPageInstance): void {
@@ -431,8 +507,11 @@ function clearSearchTimer(page: DirectoryPageInstance): void {
 }
 
 async function loadFacets(page: DirectoryPageInstance): Promise<void> {
-  if (page.data.groupId.length === 0) {
-    page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
+  initializeRuntimeState(page);
+  const groupId = page.data.groupId;
+  const directoryKind = page.data.directoryKind;
+  if (groupId.length === 0) {
+    setMissingGroupError(page);
     return;
   }
   const serial = ++page._requestSerial;
@@ -449,6 +528,8 @@ async function loadFacets(page: DirectoryPageInstance): Promise<void> {
     filterAdjustmentMessage: '',
     filterSections: [],
     filterSheetOpen: false,
+    loadingMore: false,
+    searching: false,
     state: 'loading',
     entries: [],
     mergedGroupCount: 0,
@@ -458,22 +539,20 @@ async function loadFacets(page: DirectoryPageInstance): Promise<void> {
   });
   try {
     await requireClientCapability('organization');
-    const facets = await page._directoryClient.getFacets(
-      page.data.groupId,
-      page.data.directoryKind,
-    );
-    if (serial !== page._requestSerial) return;
+    const facets = await page._directoryClient.getFacets(groupId, directoryKind);
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
     applyFacets(page, facets);
     page.setData({ state: 'empty', resultSummary: '输入关键词或选择筛选条件后开始查找。' });
-    void loadPriorityEntries(page, page._loadedKey);
+    void loadPriorityEntries(page, page._loadedKey, serial, groupId, directoryKind);
   } catch (error) {
-    if (serial !== page._requestSerial) return;
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDirectoryDisabled(page, error.message);
+      return;
+    }
     page.setData({
-      errorMessage:
-        error instanceof ClientCapabilityDisabledError
-          ? error.message
-          : toUserMessage(error, '通讯录暂时无法加载，请稍后重试。'),
-      state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
+      errorMessage: toUserMessage(error, '通讯录暂时无法加载，请稍后重试。'),
+      state: 'error',
     });
   }
 }
@@ -501,8 +580,10 @@ function switchMode(page: DirectoryPageInstance, kind: DirectoryKind): void {
   if (page.data.directoryKind === kind) return;
   clearSearchTimer(page);
   page._loadedKey = '';
+  page._requestSerial += 1;
   page._facets = undefined;
   page._filters = {};
+  page._nextCursor = undefined;
   page._priorityEntries = [];
   page._rawEntries = [];
   page.setData({
@@ -514,9 +595,11 @@ function switchMode(page: DirectoryPageInstance, kind: DirectoryKind): void {
     filterAdjustmentMessage: '',
     filterSections: [],
     filterSheetOpen: false,
+    loadingMore: false,
     mergedGroupCount: 0,
     modeMotionClass: kind === 'employee' ? 'is-forward' : 'is-backward',
     prioritySections: [],
+    searching: false,
     ...filterLabelsForKind(kind),
   });
   page._loadedKey = `${page.data.groupId}:${kind}`;
@@ -662,8 +745,12 @@ function scheduleSearch(page: DirectoryPageInstance): void {
 }
 
 async function search(page: DirectoryPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   clearSearchTimer(page);
+  const groupId = page.data.groupId;
+  const directoryKind = page.data.directoryKind;
   if (!hasActiveDirectoryCriteria(page.data.searchQuery, page._filters)) {
+    page._requestSerial += 1;
     page._nextCursor = undefined;
     page._rawEntries = [];
     page.setData({
@@ -687,12 +774,8 @@ async function search(page: DirectoryPageInstance): Promise<void> {
   });
   try {
     await requireClientCapability('organization');
-    const result = await page._directoryClient.list(
-      page.data.groupId,
-      page.data.directoryKind,
-      query,
-    );
-    if (serial !== page._requestSerial) return;
+    const result = await page._directoryClient.list(groupId, directoryKind, query);
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
     page._nextCursor = result.nextCursor;
     page._rawEntries = result.entries;
     const cards = createDirectoryCards(page, page._rawEntries);
@@ -707,7 +790,11 @@ async function search(page: DirectoryPageInstance): Promise<void> {
     });
     syncPrioritySections(page);
   } catch (error) {
-    if (serial !== page._requestSerial) return;
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDirectoryDisabled(page, error.message);
+      return;
+    }
     page.setData({
       errorMessage: toUserMessage(error, '通讯录搜索未完成，请稍后重试。'),
       searching: false,
@@ -717,14 +804,19 @@ async function search(page: DirectoryPageInstance): Promise<void> {
 }
 
 async function loadMore(page: DirectoryPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   const cursor = page._nextCursor;
-  if (cursor === undefined || page.data.loadingMore) return;
-  page.setData({ loadingMore: true });
+  const groupId = page.data.groupId;
+  const directoryKind = page.data.directoryKind;
+  if (cursor === undefined || page.data.loadingMore || groupId.length === 0) return;
+  const serial = page._requestSerial;
+  const query = buildQuery(page, cursor);
+  page.setData({ errorMessage: '', loadingMore: true });
   try {
     await requireClientCapability('organization');
-    const result = await page._directoryClient.list(page.data.groupId, page.data.directoryKind, {
-      ...buildQuery(page, cursor),
-    });
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    const result = await page._directoryClient.list(groupId, directoryKind, query);
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
     page._nextCursor = result.nextCursor;
     page._rawEntries = [...page._rawEntries, ...result.entries];
     const cards = createDirectoryCards(page, page._rawEntries);
@@ -738,6 +830,11 @@ async function loadMore(page: DirectoryPageInstance): Promise<void> {
     });
     syncPrioritySections(page);
   } catch (error) {
+    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDirectoryDisabled(page, error.message);
+      return;
+    }
     page.setData({
       errorMessage: toUserMessage(error, '更多通讯录记录暂时无法加载。'),
       loadingMore: false,
@@ -827,7 +924,13 @@ function resultSummary(totalCount: number, mergedGroupCount: number): string {
   return `找到 ${totalCount} 条通讯录记录${mergedGroupCount > 0 ? ` · 已合并 ${mergedGroupCount} 组同号条目` : ''}`;
 }
 
-async function loadPriorityEntries(page: DirectoryPageInstance, loadedKey: string): Promise<void> {
+async function loadPriorityEntries(
+  page: DirectoryPageInstance,
+  loadedKey: string,
+  serial: number,
+  groupId: string,
+  directoryKind: DirectoryKind,
+): Promise<void> {
   const entryIds = getDirectoryPreferenceEntryIds(page._preferences);
   if (entryIds.length === 0) {
     syncPrioritySections(page);
@@ -842,7 +945,11 @@ async function loadPriorityEntries(page: DirectoryPageInstance, loadedKey: strin
         page._directoryClient.lookup(page.data.groupId, page.data.directoryKind, chunk),
       ),
     );
-    if (page._loadedKey !== loadedKey) return;
+    if (
+      page._loadedKey !== loadedKey ||
+      !isDirectoryRequestCurrent(page, serial, groupId, directoryKind)
+    )
+      return;
     page._priorityEntries = responses.flatMap((response) => response.entries);
     syncPrioritySections(page);
   } catch {

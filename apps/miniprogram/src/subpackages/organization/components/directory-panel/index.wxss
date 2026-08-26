@@ -765,3 +765,62 @@
     transform: translateX(0);
   }
 }
+.is-large-text .header-title-main,
+.is-large-text .header-title-sub {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .wayfinding-title,
+.is-large-text .entry-title,
+.is-large-text .contact-number,
+.is-large-text .entry-meta,
+.is-large-text .entry-notes,
+.is-large-text .state-copy,
+.is-large-text .sheet-copy {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+.is-large-text .entry-title-line {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+.is-large-text .entry-title,
+.is-large-text .entry-meta,
+.is-large-text .entry-notes,
+.is-large-text .contact-number {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .entry-heading {
+  align-items: flex-start;
+}
+.is-large-text .contact-method {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+}
+.is-large-text .contact-number-group {
+  flex-wrap: wrap;
+}
+.is-large-text .directory-number {
+  min-height: 44px;
+}
+.is-large-text .filter-open-action,
+.is-large-text .clear-filter-action,
+.is-large-text .filter-option,
+.is-large-text .sheet-finish,
+.is-large-text .sheet-clear {
+  min-height: 52px;
+}
+@media (max-width: 340px) {
+  .is-large-text .wayfinding-header,
+  .is-large-text .wayfinding-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .is-large-text .wayfinding-actions {
+    gap: 6px;
+  }
+}

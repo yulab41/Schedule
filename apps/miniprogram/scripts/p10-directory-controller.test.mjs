@@ -7,10 +7,14 @@ const groupId = '11111111-1111-4111-8111-111111111111';
 describe('P10 native directory controller', () => {
   let definition;
   let requests;
+  let deferNextListRequest;
+  let deferredListRequest;
 
   beforeEach(async () => {
     vi.resetModules();
     requests = [];
+    deferNextListRequest = false;
+    deferredListRequest = undefined;
     const makePhoneCall = vi.fn();
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
     vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'test');
@@ -32,6 +36,11 @@ describe('P10 native directory controller', () => {
           return;
         }
         if (options.url.includes(`/groups/${groupId}/directory?`)) {
+          if (deferNextListRequest) {
+            deferNextListRequest = false;
+            deferredListRequest = options;
+            return;
+          }
           const cursor = new URL(options.url).searchParams.get('cursor');
           options.success({ data: page(cursor === 'cursor-1'), statusCode: 200 });
           return;
@@ -176,6 +185,89 @@ describe('P10 native directory controller', () => {
     expect(page.data.entries).toEqual([]);
   });
 
+  it('does not commit a pending search response after detaching', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+
+    deferNextListRequest = true;
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
+    definition.lifetimes.detached.call(page);
+    deferredListRequest.success({ data: pageResponse(false), statusCode: 200 });
+    await flushPromises();
+
+    expect(page.data.state).toBe('loading');
+    expect(page.data.entries).toEqual([]);
+  });
+
+  it('ignores a stale load-more response after switching directory modes', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    deferNextListRequest = true;
+    definition.methods.handleLoadMore.call(page);
+    await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
+    definition.methods.handleEmployeeMode.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+    deferredListRequest.success({ data: pageResponse(false), statusCode: 200 });
+    await flushPromises();
+
+    expect(page.data.directoryKind).toBe('employee');
+    expect(page.data.entries).toEqual([]);
+  });
+
+  it('clears directory results when a later read loses the organization capability', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    const capabilityStore = await import('../src/app/client-capability-store.ts');
+    capabilityStore.configureRuntimeClientCapabilityReader(
+      () =>
+        Promise.resolve({
+          core: true,
+          externalMessages: false,
+          global: true,
+          guest: true,
+          insights: false,
+          organization: false,
+          platform: 'miniprogram',
+          version: 'test',
+          workflows: true,
+        }),
+      'test',
+    );
+    await capabilityStore.refreshClientCapabilities({ force: true });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('disabled'));
+
+    expect(page.data.entries).toEqual([]);
+    expect(page.data.prioritySections).toEqual([]);
+  });
+
+  it('marks the directory page as large text when the system font setting requests it', async () => {
+    globalThis.wx.getWindowInfo = () => ({
+      fontSizeSetting: 20,
+      statusBarHeight: 24,
+      windowHeight: 844,
+      windowWidth: 390,
+    });
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+
+    expect(page.data.largeText).toBe(true);
+  });
+
   function lastRequest() {
     return requests.at(-1);
   }
@@ -190,6 +282,10 @@ function createPageInstance(controller, properties) {
     },
   };
   return page;
+}
+
+async function flushPromises() {
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
 }
 
 function session() {
@@ -309,4 +405,8 @@ function page(withoutCursor) {
     ...(withoutCursor ? {} : { nextCursor: 'cursor-1' }),
     totalCount: 3,
   };
+}
+
+function pageResponse(withoutCursor) {
+  return page(withoutCursor);
 }

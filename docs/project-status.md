@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P10 通讯录生命周期与大字号自动硬化（代码完成，待发布）
+
+- 范围：只硬化主线 P10 通讯录的卸载、换群/模式切换、搜索/游标加载和 organization 能力关闭竞态，并补齐系统大字号重排；不新增 API、数据库迁移、权限或生产能力变化。两个未落地 worktree（`codex/p10-directory-implementation`、`codex/p10-parity-preflight`）基于旧分叉继续完整保留，主线采用已落地且后续修正过的 P10 实现，不直接合并旧分支。
+- 引入点与实现：主线目录页来自 `14e9c6cb`，运行时字段恢复来自 `5e9bdb79`；已执行 `git log -S`/`git blame`。目录控制器现在按请求序列、群组 ID 和目录模式三重校验，卸载清理 timer/私有结果，切换模式/群组先清空旧结果，organization 关闭时清空 facets、结果、偏好展示并进入 disabled；`fontSizeSetting >= 20` 接入 WXML/WXSS 大字号不截断重排。认证、请求接收者、URL/方法、搜索/筛选语义、号码隐私、收藏写入和错误传播保持。
+- 测试先行：旧实现上新增 P10 控制器 4 项回归中 3 项失败（旧分页回写、后续 capability 关闭状态、大字号字段），卸载搜索回归通过；`.30` 候选清单先因旧版本/能力文案共 5 项失败。实现后 P10 controller/native 13 项、`.30` RC 契约 6 项、Mini 全量 83 files/377 tests 通过。
+- 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck、任务 Prettier/ESLint、`smoke:check-core` 均通过；总包 `5,745,126` bytes，organization 分包 `1,742,633` bytes（仅既有内部 1.5M 提示），verify manifest `a0cea8ef6422f8a66e37c5d3551f38657750156fe3c24f80356d5b390022d30c`。生产当前仍为 `.29` 白名单、`organization=true`、`insights/externalMessages=false`。
+- 当前策略：用户已明确“无需人工复核”，本项不等待微信/Android 人工操作；自动测试、确定性构建、能力探针和生产 verifier 作为验收依据。关闭能力矩阵继续在隔离测试覆盖，不改生产 `organization` 或打开 P9 能力。
+- checkpoint/下一步：代码与 `.30` runbook 变更待提交，提交消息拟为 `feat(miniprogram): harden p10 directory lifecycle`；随后从干净 worktree 打包并上传体验 `.30`、创建数据库备份后原子加入白名单、部署并运行 ECS verifier，再提交 docs-only 状态 checkpoint。停止条件是 P10 当前任务的体验上传、生产部署、线上 capability/release 验证和远端临时目录清理全部完成。
+
 ## 2026-08-27 P9 事件/统计与通知自动闭环硬化（已完成自动发布验证，继续推进）
 
 - 范围：只硬化 P9 事件/统计与通知组件的卸载、换群、加载更多和能力关闭竞态，并补齐系统大字号下的可重排类；不新增 API、数据库迁移、权限或能力开放。引入点已审计：事件/统计 `ee6f9cb8`、统计并发 `4de2cd91`、通知 `1a428d73`/`766ec6ac`、运行时私有字段恢复 `5e9bdb79`。

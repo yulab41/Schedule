@@ -79,6 +79,8 @@ describe('P10 native directory parity', () => {
     }
     expect(controller).toContain('nextCursor');
     expect(controller).toContain('directoryKind');
+    expect(controller).toContain('detached(this: DirectoryPageInstance)');
+    expect(controller).toContain('fontSizeSetting');
     expect(controller).toContain("campusFilterLabel: '组织根'");
     expect(controller).toContain("sectionFilterLabel: '一级组织'");
     expect(controller).toContain("subunitFilterLabel: '五级组织'");
@@ -86,6 +88,7 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain('getCompatibleDirectoryFacetOptionsByKey');
     expect(controller).toContain('updateDirectoryFilterSelection');
     expect(template).toContain('class="filter-sheet"');
+    expect(template).toContain("largeText ? 'is-large-text' : ''");
     expect(card).toContain('class="entry-merge-count"');
     expect(card).toContain('class="number-kind"');
     expect(template).not.toContain('<picker');
