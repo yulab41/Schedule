@@ -1,5 +1,32 @@
 import { ClientCoreError, type InsightsReadClient } from '@schedule/client-core';
-import type { ScheduleEvent, StatisticsSummary } from '@schedule/contracts';
+import type {
+  ScheduleEvent,
+  StatisticsMemberRow,
+  StatisticsRoleCount,
+  StatisticsShiftTypeCount,
+  StatisticsSummary,
+} from '@schedule/contracts';
+import { addBusinessMonths } from '@schedule/presentation-core';
+import {
+  buildEventDateGroups,
+  formatEventTime,
+  getEventImpactCount,
+  getEventStatusLabel,
+  getEventTone,
+  getEventTypeLabel,
+  type EventTone,
+} from '@schedule/presentation-core/event';
+import {
+  formatNetDutyAdjustment,
+  formatStatisticsPeriodLabel,
+  getCompletionPercentage,
+  getCurrentStatisticsMonth,
+  getMemberActualVsPlannedCount,
+  getStatisticsSummaryItems,
+  sortMembersByActualCount,
+  type StatisticsPeriodMode,
+  type StatisticsSummaryItem,
+} from '@schedule/presentation-core/statistics';
 import {
   ClientCapabilityDisabledError,
   requireClientCapability,
@@ -10,50 +37,80 @@ import {
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 
-type DashboardState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
+type DashboardState = 'disabled' | 'error' | 'loading' | 'ready';
 type DashboardTab = 'events' | 'statistics';
 
 interface EventCard {
   readonly actorLabel: string;
   readonly detailLabel: string;
+  readonly eventStatusLabel: string;
+  readonly eventTone: EventTone;
   readonly eventTypeLabel: string;
   readonly id: string;
+  readonly occurredAt: string;
   readonly occurredAtLabel: string;
 }
 
-interface RoleCard {
+interface EventGroupCard {
+  readonly businessDate: string;
+  readonly countLabel: string;
+  readonly events: readonly EventCard[];
+  readonly label: string;
+}
+
+interface BreakdownCard {
   readonly actualLabel: string;
+  readonly id: string;
   readonly name: string;
   readonly plannedLabel: string;
   readonly ratio: number;
 }
 
-interface StatisticsCard {
-  readonly label: string;
-  readonly note: string;
-  readonly value: string;
+interface MemberStatisticsCard {
+  readonly adjustmentLabel: string;
+  readonly comparisonLabel: string;
+  readonly countLabel: string;
+  readonly id: string;
+  readonly name: string;
+  readonly shiftLabel: string;
+  readonly workflowLabel: string;
 }
 
 interface InsightsDashboardData {
   readonly activeTab: DashboardTab;
+  readonly businessMonth: string;
   readonly errorMessage: string;
   readonly eventCountLabel: string;
-  readonly events: readonly EventCard[];
+  readonly eventDateGroupCountLabel: string;
+  readonly eventGroups: readonly EventGroupCard[];
+  readonly eventsLoadingMore: boolean;
   readonly groupId: string;
+  readonly hasMoreEvents: boolean;
+  readonly memberRows: readonly MemberStatisticsCard[];
   readonly pageScrollStyle: string;
-  readonly roleRows: readonly RoleCard[];
+  readonly primaryStatistics: readonly StatisticsSummaryItem[];
+  readonly roleRows: readonly BreakdownCard[];
+  readonly secondaryStatistics: readonly StatisticsSummaryItem[];
   readonly shellHeaderStyle: string;
+  readonly shiftTypeRows: readonly BreakdownCard[];
   readonly state: DashboardState;
-  readonly statistics: readonly StatisticsCard[];
+  readonly statisticsBusy: boolean;
+  readonly statisticsErrorMessage: string;
+  readonly statisticsMode: StatisticsPeriodMode;
+  readonly statisticsPeriodLabel: string;
+  readonly statisticsYear: number;
   readonly viewportClass: string;
 }
 
 interface InsightsDashboardInstance {
   readonly data: InsightsDashboardData;
   readonly properties: { readonly groupId: string };
+  _eventCards: EventCard[];
+  _eventsNextCursor: string | undefined;
   _insightsReadClient: InsightsReadClient;
   _loadedGroupId: string;
   _requestSerial: number;
+  _statisticsSerial: number;
   setData(patch: Partial<InsightsDashboardData>, callback?: () => void): void;
 }
 
@@ -61,27 +118,48 @@ const insightsReadClient = createRuntimeInsightsReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
+const initialBusinessMonth = getCurrentStatisticsMonth(new Date());
+const initialStatisticsYear = Number(initialBusinessMonth.slice(0, 4));
 
 export function createInsightsDashboardPanelControllerDefinition() {
   return {
     data: {
       activeTab: 'events' as DashboardTab,
+      businessMonth: initialBusinessMonth,
       errorMessage: '',
-      eventCountLabel: '0 条',
-      events: [],
+      eventCountLabel: '0 条事件',
+      eventDateGroupCountLabel: '0 个日期',
+      eventGroups: [],
+      eventsLoadingMore: false,
       groupId: '',
+      hasMoreEvents: false,
+      memberRows: [],
       pageScrollStyle: 'height:calc(100% - 76px);',
+      primaryStatistics: [],
       roleRows: [],
+      secondaryStatistics: [],
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
+      shiftTypeRows: [],
       state: 'loading' as DashboardState,
-      statistics: [],
+      statisticsBusy: false,
+      statisticsErrorMessage: '',
+      statisticsMode: 'month' as StatisticsPeriodMode,
+      statisticsPeriodLabel: formatStatisticsPeriodLabel(
+        'month',
+        initialBusinessMonth,
+        initialStatisticsYear,
+      ),
+      statisticsYear: initialStatisticsYear,
       viewportClass: '',
     } satisfies InsightsDashboardData,
 
     properties: { groupId: { type: String, value: '' } },
+    _eventCards: [] as EventCard[],
+    _eventsNextCursor: undefined as string | undefined,
     _insightsReadClient: insightsReadClient,
     _loadedGroupId: '',
     _requestSerial: 0,
+    _statisticsSerial: 0,
 
     observers: {
       groupId(this: InsightsDashboardInstance): void {
@@ -107,8 +185,31 @@ export function createInsightsDashboardPanelControllerDefinition() {
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },
+      handleLoadMoreEvents(this: InsightsDashboardInstance): void {
+        void loadMoreEvents(this);
+      },
+      handleNextPeriod(this: InsightsDashboardInstance): void {
+        shiftStatisticsPeriod(this, 1);
+      },
+      handlePreviousPeriod(this: InsightsDashboardInstance): void {
+        shiftStatisticsPeriod(this, -1);
+      },
       handleRetry(this: InsightsDashboardInstance): void {
         void loadDashboard(this);
+      },
+      handleStatisticsMode(this: InsightsDashboardInstance, event: TapEvent): void {
+        const mode = event.currentTarget.dataset.mode;
+        if (mode !== 'month' && mode !== 'year') return;
+        if (mode === this.data.statisticsMode) return;
+        this.setData({
+          statisticsMode: mode,
+          statisticsPeriodLabel: formatStatisticsPeriodLabel(
+            mode,
+            this.data.businessMonth,
+            this.data.statisticsYear,
+          ),
+        });
+        void loadStatistics(this);
       },
       handleTabChange(this: InsightsDashboardInstance, event: TapEvent): void {
         const tab = event.currentTarget.dataset.tab;
@@ -131,22 +232,33 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
   }
   const requestSerial = page._requestSerial + 1;
   page._requestSerial = requestSerial;
-  page.setData({ errorMessage: '', state: 'loading' });
+  page._statisticsSerial += 1;
+  page.setData({
+    errorMessage: '',
+    eventsLoadingMore: false,
+    state: 'loading',
+    statisticsBusy: false,
+  });
   try {
     await requireClientCapability('insights');
-    const [eventPage, monthSnapshot] = await Promise.all([
+    const period = {
+      businessMonth: page.data.businessMonth,
+      statisticsMode: page.data.statisticsMode,
+      statisticsYear: page.data.statisticsYear,
+    } as const;
+    const [eventPage, statisticsResponse] = await Promise.all([
       page._insightsReadClient.listEvents(groupId, { pageSize: 50 }),
-      page._insightsReadClient.getMonthStatistics(groupId, currentBusinessMonth()),
+      period.statisticsMode === 'month'
+        ? page._insightsReadClient.getMonthStatistics(groupId, period.businessMonth)
+        : page._insightsReadClient.getYearStatistics(groupId, period.statisticsYear),
     ]);
     if (requestSerial !== page._requestSerial) return;
-    const events = eventPage.events.map(toEventCard);
-    const statistics = toStatisticsCards(monthSnapshot.summary);
+    page._eventCards = eventPage.events.map(toEventCard);
+    page._eventsNextCursor = eventPage.nextCursor;
     page.setData({
-      eventCountLabel: `${events.length} 条`,
-      events,
-      roleRows: toRoleCards(monthSnapshot.summary),
-      statistics,
-      state: events.length === 0 && monthSnapshot.summary.plannedCount === 0 ? 'empty' : 'ready',
+      ...toEventPatch(page._eventCards, eventPage.nextCursor !== undefined),
+      ...toStatisticsPatch(statisticsResponse.summary, period),
+      state: 'ready',
     });
   } catch (error) {
     if (requestSerial !== page._requestSerial) return;
@@ -160,6 +272,101 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
   }
 }
 
+async function loadMoreEvents(page: InsightsDashboardInstance): Promise<void> {
+  initializeRuntimeState(page);
+  const cursor = page._eventsNextCursor;
+  if (
+    cursor === undefined ||
+    page.data.eventsLoadingMore ||
+    page.data.state !== 'ready' ||
+    page.data.groupId.length === 0
+  ) {
+    return;
+  }
+  const requestSerial = page._requestSerial;
+  page.setData({ errorMessage: '', eventsLoadingMore: true });
+  try {
+    await requireClientCapability('insights');
+    const eventPage = await page._insightsReadClient.listEvents(page.data.groupId, {
+      cursor,
+      pageSize: 50,
+    });
+    if (requestSerial !== page._requestSerial) return;
+    page._eventCards = [...page._eventCards, ...eventPage.events.map(toEventCard)];
+    page._eventsNextCursor = eventPage.nextCursor;
+    page.setData({
+      ...toEventPatch(page._eventCards, eventPage.nextCursor !== undefined),
+      eventsLoadingMore: false,
+    });
+  } catch (error) {
+    if (requestSerial !== page._requestSerial) return;
+    page.setData({
+      errorMessage: toUserMessage(error, '事件数据暂时无法加载，请稍后重试。'),
+      eventsLoadingMore: false,
+    });
+  }
+}
+
+async function loadStatistics(page: InsightsDashboardInstance): Promise<void> {
+  initializeRuntimeState(page);
+  if (page.data.groupId.length === 0) return;
+  const statisticsSerial = page._statisticsSerial + 1;
+  page._statisticsSerial = statisticsSerial;
+  const period = {
+    businessMonth: page.data.businessMonth,
+    statisticsMode: page.data.statisticsMode,
+    statisticsYear: page.data.statisticsYear,
+  } as const;
+  page.setData({ statisticsBusy: true, statisticsErrorMessage: '' });
+  try {
+    await requireClientCapability('insights');
+    const response =
+      period.statisticsMode === 'month'
+        ? await page._insightsReadClient.getMonthStatistics(page.data.groupId, period.businessMonth)
+        : await page._insightsReadClient.getYearStatistics(
+            page.data.groupId,
+            period.statisticsYear,
+          );
+    if (statisticsSerial !== page._statisticsSerial) return;
+    page.setData({
+      ...toStatisticsPatch(response.summary, period),
+      statisticsBusy: false,
+    });
+  } catch (error) {
+    if (statisticsSerial !== page._statisticsSerial) return;
+    page.setData({
+      statisticsBusy: false,
+      statisticsErrorMessage: toUserMessage(error, '统计数据暂时无法加载，请稍后重试。'),
+    });
+  }
+}
+
+function shiftStatisticsPeriod(page: InsightsDashboardInstance, delta: -1 | 1): void {
+  if (page.data.statisticsBusy) return;
+  if (page.data.statisticsMode === 'month') {
+    const businessMonth = addBusinessMonths(page.data.businessMonth, delta);
+    page.setData({
+      businessMonth,
+      statisticsPeriodLabel: formatStatisticsPeriodLabel(
+        'month',
+        businessMonth,
+        page.data.statisticsYear,
+      ),
+    });
+  } else {
+    const statisticsYear = page.data.statisticsYear + delta;
+    page.setData({
+      statisticsPeriodLabel: formatStatisticsPeriodLabel(
+        'year',
+        page.data.businessMonth,
+        statisticsYear,
+      ),
+      statisticsYear,
+    });
+  }
+  void loadStatistics(page);
+}
+
 function startLoad(page: InsightsDashboardInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
@@ -169,83 +376,111 @@ function startLoad(page: InsightsDashboardInstance): void {
   }
   if (groupId === page._loadedGroupId) return;
   page._loadedGroupId = groupId;
+  page._eventCards = [];
+  page._eventsNextCursor = undefined;
   page.setData({ groupId });
   void loadDashboard(page);
 }
 
 function initializeRuntimeState(page: InsightsDashboardInstance): void {
-  // Private fields from the controller factory are not part of the live
-  // WeChat Component instance unless initialized after attachment.
   page._insightsReadClient = insightsReadClient;
+  if (!Array.isArray(page._eventCards)) page._eventCards = [];
   if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
   if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
+  if (!Number.isFinite(page._statisticsSerial)) page._statisticsSerial = 0;
 }
 
 function toEventCard(event: ScheduleEvent): EventCard {
-  const affectedCount = event.affectedMembershipIds.length + event.affectedShiftIds.length;
   return {
     actorLabel: '操作者已脱敏',
-    detailLabel: `${event.objectType} · 影响 ${affectedCount} 项`,
-    eventTypeLabel: eventTypeLabel(event.eventType),
+    detailLabel: `${event.objectType} · 影响 ${getEventImpactCount(event)} 项`,
+    eventStatusLabel: getEventStatusLabel(event.eventStatus),
+    eventTone: getEventTone(event.eventType),
+    eventTypeLabel: getEventTypeLabel(event.eventType),
     id: event.id,
-    occurredAtLabel: formatDateTime(event.occurredAt),
+    occurredAt: event.occurredAt,
+    occurredAtLabel: formatEventTime(event.occurredAt).slice(11),
   };
 }
 
-function toStatisticsCards(summary: StatisticsSummary): readonly StatisticsCard[] {
-  const completion =
-    summary.plannedCount === 0 ? 0 : Math.round((summary.actualCount / summary.plannedCount) * 100);
-  return [
-    {
-      label: '实际班次',
-      note: `计划 ${summary.plannedCount} · 完成率 ${completion}%`,
-      value: String(summary.actualCount),
-    },
-    {
-      label: '计值班次',
-      note: `周末 ${summary.weekendCount} · 节假日 ${summary.holidayCount}`,
-      value: String(summary.countedActualCount),
-    },
-    {
-      label: '需要关注',
-      note: `请假替班 ${summary.leaveCoverCount} · 换班 ${summary.swapCount}`,
-      value: String(Math.max(0, summary.plannedCount - summary.actualCount)),
-    },
-  ];
+function toEventPatch(
+  cards: readonly EventCard[],
+  hasMoreEvents: boolean,
+): Pick<
+  InsightsDashboardData,
+  'eventCountLabel' | 'eventDateGroupCountLabel' | 'eventGroups' | 'hasMoreEvents'
+> {
+  const eventGroups = buildEventDateGroups(cards).map((group) => ({
+    businessDate: group.businessDate,
+    countLabel: `${group.events.length} 条`,
+    events: group.events,
+    label: group.label,
+  }));
+  return {
+    eventCountLabel: `${cards.length} 条事件`,
+    eventDateGroupCountLabel: `${eventGroups.length} 个日期`,
+    eventGroups,
+    hasMoreEvents,
+  };
 }
 
-function toRoleCards(summary: StatisticsSummary): readonly RoleCard[] {
-  return summary.byRole.map((role) => ({
+function toStatisticsPatch(
+  summary: StatisticsSummary,
+  data: Pick<InsightsDashboardData, 'businessMonth' | 'statisticsMode' | 'statisticsYear'>,
+): Pick<
+  InsightsDashboardData,
+  | 'memberRows'
+  | 'primaryStatistics'
+  | 'roleRows'
+  | 'secondaryStatistics'
+  | 'shiftTypeRows'
+  | 'statisticsPeriodLabel'
+> {
+  const summaryItems = getStatisticsSummaryItems(summary);
+  return {
+    memberRows: sortMembersByActualCount(summary.members).map(toMemberStatisticsCard),
+    primaryStatistics: summaryItems.filter((item) => item.emphasis === 'primary'),
+    roleRows: summary.byRole.map(toRoleCard),
+    secondaryStatistics: summaryItems.filter((item) => item.emphasis === 'secondary'),
+    shiftTypeRows: summary.byShiftType.map(toShiftTypeCard),
+    statisticsPeriodLabel: formatStatisticsPeriodLabel(
+      data.statisticsMode,
+      data.businessMonth,
+      data.statisticsYear,
+    ),
+  };
+}
+
+function toMemberStatisticsCard(member: StatisticsMemberRow): MemberStatisticsCard {
+  return {
+    adjustmentLabel: `净值 ${formatNetDutyAdjustment(member.netDutyAdjustment)} · 增减 ${formatNetDutyAdjustment(member.deltaCount)}`,
+    comparisonLabel: `原实对照 ${getMemberActualVsPlannedCount(member)}`,
+    countLabel: `计划 ${member.plannedCount} · 实际 ${member.actualCount} · 计值班次 ${member.countedActualCount}`,
+    id: member.membershipId,
+    name: member.realName,
+    shiftLabel: `周末 ${member.weekendCount} · 节假日 ${member.holidayCount}`,
+    workflowLabel: `换班 ${member.swapCount} · 加班 ${member.overtimeCount} · 扣班 ${member.deductionCount}`,
+  };
+}
+
+function toRoleCard(role: StatisticsRoleCount): BreakdownCard {
+  return {
     actualLabel: String(role.actualCount),
+    id: role.scheduleRoleId,
     name: role.scheduleRoleName,
     plannedLabel: String(role.plannedCount),
-    ratio:
-      role.plannedCount === 0
-        ? 0
-        : Math.min(100, Math.round((role.actualCount / role.plannedCount) * 100)),
-  }));
-}
-
-function eventTypeLabel(value: string): string {
-  const labels: Record<string, string> = {
-    leave_approved: '请假申请已批准',
-    schedule_published: '排班已发布',
-    swap_completed: '换班已完成',
+    ratio: getCompletionPercentage(role.actualCount, role.plannedCount),
   };
-  return labels[value] ?? '排班变更记录';
 }
 
-function currentBusinessMonth(): string {
-  const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return '时间未知';
-  const pad = (part: number): string => String(part).padStart(2, '0');
-  const china = new Date(date.valueOf() + 8 * 60 * 60 * 1000);
-  return `${china.getUTCMonth() + 1}月${china.getUTCDate()}日 ${pad(china.getUTCHours())}:${pad(china.getUTCMinutes())}`;
+function toShiftTypeCard(shiftType: StatisticsShiftTypeCount): BreakdownCard {
+  return {
+    actualLabel: String(shiftType.actualCount),
+    id: shiftType.shiftTypeId,
+    name: shiftType.shiftTypeName,
+    plannedLabel: String(shiftType.plannedCount),
+    ratio: getCompletionPercentage(shiftType.actualCount, shiftType.plannedCount),
+  };
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

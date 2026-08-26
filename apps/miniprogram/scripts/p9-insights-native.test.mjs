@@ -54,9 +54,10 @@ describe('P9 native insights events and statistics', () => {
 
     expect(controller).not.toContain('wx.setStorageSync');
     expect(controller).not.toContain('console.log');
-    expect(controller).toContain('eventTypeLabel');
+    expect(controller).toContain("from '@schedule/presentation-core'");
+    expect(controller).not.toContain('function eventTypeLabel');
     expect(template).toContain('正在读取事件与统计');
-    expect(template).toContain('暂无事件记录');
+    expect(template).toContain('没有符合筛选条件的事件');
     expect(template).toContain('重新加载');
   });
 });

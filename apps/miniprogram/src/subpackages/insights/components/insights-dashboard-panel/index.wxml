@@ -1,23 +1,247 @@
 <view class="insights-dashboard-page {{viewportClass}}">
-  <view class="mini-header" style="{{shellHeaderStyle}}">
-    <view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回更多工具" bindtap="handleBack"><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view>
-    <view class="header-title"><text class="header-title-main">事件与统计</text><text class="header-title-sub">值班台账 · 只读审计</text></view>
-    <text class="phase-chip">P9</text>
-  </view>
-  <scroll-view class="insights-dashboard-scroll" style="{{pageScrollStyle}}" scroll-y enhanced show-scrollbar="{{false}}">
-    <view class="page-content">
-      <view wx:if="{{state === 'loading'}}" class="page-state-card"><ui-loading label="正在读取事件与统计"></ui-loading></view>
-      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"><view class="state-mark">—</view><text class="state-title">数据工具暂未开放</text><text class="state-copy">当前版本未开启 insights 能力，不会读取或展示事件与统计数据。</text></view>
-      <view wx:elif="{{state === 'error'}}" class="page-state-card"><ui-alert tone="danger" title="事件与统计暂时无法加载" message="{{errorMessage}}"></ui-alert><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button></view>
-      <view wx:elif="{{state === 'empty'}}" class="page-state-card"><view class="state-mark">○</view><text class="state-title">暂无事件记录</text><text class="state-copy">完成一次排班发布或变更后，这里会留下可读的值班轨迹。</text></view>
-      <view wx:else class="dashboard-content">
-        <view class="page-heading"><text class="section-eyebrow">医疗审计台</text><text class="page-title">把每一次变更留在轨迹里</text><text class="page-description">事件记录不可变；统计从已发布排班与变更记录汇总。当前页面只读，不创建或修改排班。</text></view>
-        <view class="tab-switch" role="tablist"><view class="tab-item {{activeTab === 'events' ? 'is-active' : ''}}" role="tab" aria-selected="{{activeTab === 'events'}}" data-tab="events" bindtap="handleTabChange">事件时间线</view><view class="tab-item {{activeTab === 'statistics' ? 'is-active' : ''}}" role="tab" aria-selected="{{activeTab === 'statistics'}}" data-tab="statistics" bindtap="handleTabChange">排班统计</view></view>
-        <view wx:if="{{activeTab === 'events'}}" class="surface-card"><view class="card-header"><view><text class="card-title">最近事件</text><text class="card-subtitle">不可变记录 · 当前群组</text></view><text class="count-badge">{{eventCountLabel}}</text></view><view wx:if="{{events.length === 0}}" class="card-empty">暂无事件记录。</view><view wx:for="{{events}}" wx:key="id" class="event-row"><view class="event-pin"><view class="event-dot"></view></view><view class="event-main"><text class="event-title">{{item.eventTypeLabel}}</text><text class="event-time">{{item.occurredAtLabel}} · {{item.actorLabel}}</text><text class="event-detail">{{item.detailLabel}}</text></view></view></view>
-        <view wx:else class="statistics-content"><view class="metrics-row"><view wx:for="{{statistics}}" wx:key="label" class="metric-card"><text class="metric-label">{{item.label}}</text><text class="metric-value">{{item.value}}</text><text class="metric-note">{{item.note}}</text></view></view><view class="surface-card"><view class="card-header"><view><text class="card-title">岗位完成度</text><text class="card-subtitle">实际 / 计划</text></view><text class="count-badge">本月</text></view><view wx:if="{{roleRows.length === 0}}" class="card-empty">暂无统计数据。</view><view wx:for="{{roleRows}}" wx:key="name" class="role-row"><view class="role-heading"><text>{{item.name}}</text><text>{{item.actualLabel}} / {{item.plannedLabel}}</text></view><view class="role-track"><view class="role-fill" style="width:{{item.ratio}}%;"></view></view></view></view></view>
-        <view class="privacy-note"><text class="privacy-title">数据口径</text><text>事件仅显示必要的对象类型和影响数量；原始 payload、token 与完整身份标识不会写入页面状态。</text></view>
-        <view class="bottom-spacer"></view>
-      </view>
-    </view>
-  </scroll-view>
+  <view class="mini-header" style="{{shellHeaderStyle}}"
+    ><view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
+    ><view class="header-title"
+      ><text class="header-title-main">事件与统计</text
+      ><text class="header-title-sub">值班台账 · 只读审计</text></view
+    ><text class="phase-chip">P9</text></view
+  >
+  <scroll-view
+    class="insights-dashboard-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    ><view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card"
+        ><ui-loading label="正在读取事件与统计"></ui-loading
+      ></view>
+      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
+        ><view class="state-mark">—</view><text class="state-title">数据工具暂未开放</text
+        ><text class="state-copy"
+          >当前版本未开启 insights 能力，不会读取或展示事件与统计数据。</text
+        ></view
+      >
+      <view wx:elif="{{state === 'error'}}" class="page-state-card"
+        ><ui-alert
+          tone="danger"
+          title="事件与统计暂时无法加载"
+          message="{{errorMessage}}"
+        ></ui-alert
+        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+      ></view>
+      <view wx:else class="dashboard-content"
+        ><view class="page-heading"
+          ><text class="section-eyebrow">值班台账</text
+          ><text class="page-title">事件与统计</text
+          ><text class="page-description"
+            >事件记录不可变；统计从已发布排班与变更记录汇总，保持与 Web 相同口径。</text
+          ></view
+        ><view class="tab-switch" role="tablist"
+          ><view
+            class="tab-item {{activeTab === 'events' ? 'is-active' : ''}}"
+            role="tab"
+            aria-selected="{{activeTab === 'events'}}"
+            data-tab="events"
+            bindtap="handleTabChange"
+            >事件时间线</view
+          ><view
+            class="tab-item {{activeTab === 'statistics' ? 'is-active' : ''}}"
+            role="tab"
+            aria-selected="{{activeTab === 'statistics'}}"
+            data-tab="statistics"
+            bindtap="handleTabChange"
+            >排班统计</view
+          ></view
+        ><view wx:if="{{activeTab === 'events'}}" class="events-content"
+          ><view class="timeline-toolbar"
+            ><view
+              ><text class="card-title">事件时间轴</text
+              ><text class="card-subtitle"
+                >{{eventCountLabel}} · {{eventDateGroupCountLabel}}</text
+              ></view
+            ><text class="count-badge">当前群组</text></view
+          ><view wx:if="{{eventGroups.length === 0}}" class="surface-card card-empty"
+            >没有符合筛选条件的事件。</view
+          ><view
+            wx:for="{{eventGroups}}"
+            wx:for-item="dateGroup"
+            wx:key="businessDate"
+            class="event-date-group"
+            ><view class="date-group-heading"
+              ><text>{{dateGroup.label}}</text><text>{{dateGroup.countLabel}}</text></view
+            ><view
+              wx:for="{{dateGroup.events}}"
+              wx:for-item="eventItem"
+              wx:key="id"
+              class="event-row"
+              ><view class="event-pin"
+                ><view class="event-dot is-{{eventItem.eventTone}}"></view></view
+              ><view class="event-main"
+                ><view class="event-heading"
+                  ><text class="event-type is-{{eventItem.eventTone}}"
+                    >{{eventItem.eventTypeLabel}}</text
+                  ><text class="event-status">{{eventItem.eventStatusLabel}}</text></view
+                ><text class="event-detail">{{eventItem.detailLabel}}</text
+                ><text class="event-time"
+                  >{{eventItem.occurredAtLabel}} · {{eventItem.actorLabel}}</text
+                ></view
+              ></view
+            ></view
+          ><ui-button
+            wx:if="{{hasMoreEvents}}"
+            variant="secondary"
+            label="{{eventsLoadingMore ? '正在加载' : '加载更多事件'}}"
+            loading="{{eventsLoadingMore}}"
+            disabled="{{eventsLoadingMore}}"
+            bindpress="handleLoadMoreEvents"
+          ></ui-button></view
+        ><view wx:else class="statistics-content"
+          ><view class="statistics-toolbar"
+            ><view class="statistics-mode" role="tablist"
+              ><view
+                class="statistics-mode-item {{statisticsMode === 'month' ? 'is-active' : ''}}"
+                role="tab"
+                aria-selected="{{statisticsMode === 'month'}}"
+                data-mode="month"
+                bindtap="handleStatisticsMode"
+                >按月</view
+              ><view
+                class="statistics-mode-item {{statisticsMode === 'year' ? 'is-active' : ''}}"
+                role="tab"
+                aria-selected="{{statisticsMode === 'year'}}"
+                data-mode="year"
+                bindtap="handleStatisticsMode"
+                >按年</view
+              ></view
+            ><view class="period-stepper"
+              ><view
+                class="period-step"
+                aria-role="button"
+                aria-label="上一统计周期"
+                bindtap="handlePreviousPeriod"
+                >‹</view
+              ><text>{{statisticsPeriodLabel}}</text
+              ><view
+                class="period-step"
+                aria-role="button"
+                aria-label="下一统计周期"
+                bindtap="handleNextPeriod"
+                >›</view
+              ></view
+            ></view
+          ><ui-alert
+            wx:if="{{statisticsErrorMessage}}"
+            tone="danger"
+            title="统计数据暂时无法加载"
+            message="{{statisticsErrorMessage}}"
+          ></ui-alert
+          ><view wx:if="{{statisticsBusy}}" class="surface-card statistics-loading"
+            ><ui-loading label="正在加载统计"></ui-loading
+          ></view>
+          <block wx:else
+            ><view class="statistics-ledger"
+              ><view class="ledger-heading"
+                ><text>统计周期</text><text>{{statisticsPeriodLabel}}</text></view
+              ><view class="primary-statistics"
+                ><view
+                  wx:for="{{primaryStatistics}}"
+                  wx:for-item="statItem"
+                  wx:key="key"
+                  class="primary-statistic"
+                  ><text>{{statItem.label}}</text><text>{{statItem.value}}</text></view
+                ></view
+              ><view class="secondary-statistics"
+                ><view
+                  wx:for="{{secondaryStatistics}}"
+                  wx:for-item="statItem"
+                  wx:key="key"
+                  class="secondary-statistic"
+                  ><text>{{statItem.label}}</text><text>{{statItem.value}}</text></view
+                ></view
+              ></view
+            ><view class="surface-card"
+              ><view class="card-header"
+                ><view
+                  ><text class="card-title">成员统计</text
+                  ><text class="card-subtitle">{{memberRows.length}} 位成员，按实际值班数排序</text></view
+                ></view
+              ><view wx:if="{{memberRows.length === 0}}" class="card-empty">暂无成员统计。</view
+              ><view
+                wx:for="{{memberRows}}"
+                wx:for-item="memberItem"
+                wx:key="id"
+                class="member-row"
+                ><text class="member-name">{{memberItem.name}}</text
+                ><text>{{memberItem.countLabel}}</text
+                ><text>{{memberItem.shiftLabel}}</text
+                ><text>{{memberItem.workflowLabel}}</text
+                ><text>{{memberItem.adjustmentLabel}} · {{memberItem.comparisonLabel}}</text></view
+              ></view
+            ><view class="statistics-breakdowns"
+              ><view class="surface-card breakdown-card"
+                ><view class="card-header"
+                  ><view
+                    ><text class="card-title">按排班岗位</text
+                    ><text class="card-subtitle">实际 / 计划</text></view
+                  ></view
+                ><view wx:if="{{roleRows.length === 0}}" class="card-empty">暂无岗位统计。</view
+                ><view
+                  wx:for="{{roleRows}}"
+                  wx:for-item="roleItem"
+                  wx:key="id"
+                  class="breakdown-row"
+                  ><view class="breakdown-heading"
+                    ><text>{{roleItem.name}}</text
+                    ><text>{{roleItem.actualLabel}} / {{roleItem.plannedLabel}}</text></view
+                  ><view class="breakdown-track"
+                    ><view class="breakdown-fill" style="width:{{roleItem.ratio}}%;"></view></view
+                  ></view
+                ></view
+              ><view class="surface-card breakdown-card"
+                ><view class="card-header"
+                  ><view
+                    ><text class="card-title">按班种</text
+                    ><text class="card-subtitle">实际 / 计划</text></view
+                  ></view
+                ><view wx:if="{{shiftTypeRows.length === 0}}" class="card-empty"
+                  >暂无班种统计。</view
+                ><view
+                  wx:for="{{shiftTypeRows}}"
+                  wx:for-item="shiftItem"
+                  wx:key="id"
+                  class="breakdown-row"
+                  ><view class="breakdown-heading"
+                    ><text>{{shiftItem.name}}</text
+                    ><text>{{shiftItem.actualLabel}} / {{shiftItem.plannedLabel}}</text></view
+                  ><view class="breakdown-track"
+                    ><view
+                      class="breakdown-fill"
+                      style="width:{{shiftItem.ratio}}%;"
+                    ></view></view
+                  ></view
+                ></view
+              ></view
+            ></block
+          ></view
+        ><ui-alert
+          wx:if="{{errorMessage}}"
+          tone="danger"
+          title="事件操作未完成"
+          message="{{errorMessage}}"
+        ></ui-alert
+        ><view class="privacy-note"
+          ><text class="privacy-title">数据口径与隐私</text
+          ><text
+            >事件只显示必要的类型、状态、时间、对象和影响数量；原始 payload、操作编号、token 与完整身份标识不会写入页面状态。</text
+          ></view
+        ><view class="bottom-spacer"></view
+      ></view> </view
+  ></scroll-view>
 </view>

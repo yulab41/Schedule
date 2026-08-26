@@ -12,7 +12,11 @@ import {
   yearStatisticsJsonSchema,
 } from './generated/calendar-schemas.js';
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
-import { createCompactDecoder } from './json-decoder.js';
+import {
+  createCompactDecoder,
+  type CompactDecodeResult,
+  type CompactDecoder,
+} from './json-decoder.js';
 
 export interface InsightsEventQueryInput {
   readonly cursor?: string;
@@ -48,11 +52,17 @@ export const scheduleEventPageDecoder = createCompactDecoder<ScheduleEventPage>(
 export const scheduleEventDetailDecoder = createCompactDecoder<ScheduleEventDetail>(
   scheduleEventDetailJsonSchema,
 );
-export const monthStatisticsSnapshotDecoder = createCompactDecoder<MonthStatisticsSnapshot>(
+const strictMonthStatisticsSnapshotDecoder = createCompactDecoder<MonthStatisticsSnapshot>(
   monthStatisticsSnapshotJsonSchema,
 );
-export const yearStatisticsDecoder = createCompactDecoder<YearStatistics>(
-  yearStatisticsJsonSchema,
+const strictYearStatisticsDecoder = createCompactDecoder<YearStatistics>(yearStatisticsJsonSchema);
+export const monthStatisticsSnapshotDecoder = lenientStatisticsDecoder(
+  strictMonthStatisticsSnapshotDecoder,
+  normalizeMonthStatistics,
+);
+export const yearStatisticsDecoder = lenientStatisticsDecoder(
+  strictYearStatisticsDecoder,
+  normalizeYearStatistics,
 );
 
 export const insightsReadEndpoints = {
@@ -75,7 +85,10 @@ export const insightsReadEndpoints = {
     }) =>
       appendQuery(`/groups/${encodeURIComponent(groupId)}/events`, [
         ['cursor', cursor],
-        ['eventTypes', eventTypes === undefined ? undefined : eventTypes.join(',')],
+        [
+          'eventTypes',
+          eventTypes === undefined || eventTypes.length === 0 ? undefined : eventTypes.join(','),
+        ],
         ['from', from],
         ['membershipId', membershipId],
         ['operatorUserId', operatorUserId],
@@ -138,9 +151,61 @@ export function createInsightsReadClient(transport: ClientTransport): InsightsRe
   };
 }
 
-function appendQuery(path: string, entries: readonly (readonly [string, string | undefined])[]): string {
+function appendQuery(
+  path: string,
+  entries: readonly (readonly [string, string | undefined])[],
+): string {
   const query = entries
     .filter((entry): entry is readonly [string, string] => entry[1] !== undefined)
     .map(([key, value]) => `${key}=${encodeURIComponent(value)}`);
   return query.length === 0 ? path : `${path}?${query.join('&')}`;
+}
+
+function lenientStatisticsDecoder<Output>(
+  strictDecoder: CompactDecoder<Output>,
+  normalize: (value: unknown) => unknown,
+): CompactDecoder<Output> {
+  return {
+    safeDecode(value): CompactDecodeResult<Output> {
+      const decoded = strictDecoder.safeDecode(normalize(value));
+      return decoded.success ? { data: value as Output, success: true } : { success: false };
+    },
+  };
+}
+
+function normalizeMonthStatistics(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return { ...value, summary: normalizeStatisticsSummary(value.summary) };
+}
+
+function normalizeYearStatistics(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return {
+    ...value,
+    months: Array.isArray(value.months)
+      ? value.months.map((month) =>
+          isRecord(month)
+            ? { ...month, summary: normalizeStatisticsSummary(month.summary) }
+            : month,
+        )
+      : value.months,
+    summary: normalizeStatisticsSummary(value.summary),
+  };
+}
+
+function normalizeStatisticsSummary(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return {
+    ...value,
+    members: Array.isArray(value.members)
+      ? value.members.map((member) => {
+          if (!isRecord(member) || !Array.isArray(member.actualVsPlanned)) return member;
+          return { ...member, actualVsPlanned: member.actualVsPlanned.map(() => ({})) };
+        })
+      : value.members,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

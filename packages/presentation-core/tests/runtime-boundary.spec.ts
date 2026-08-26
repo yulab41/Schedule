@@ -8,11 +8,13 @@ const productionSources = [
   new URL('../src/index.ts', import.meta.url),
   new URL('../src/calendar.ts', import.meta.url),
   new URL('../src/directory.ts', import.meta.url),
+  new URL('../src/event.ts', import.meta.url),
   new URL('../src/manual-schedule.ts', import.meta.url),
   new URL('../src/mobile-phone-consent.ts', import.meta.url),
   new URL('../src/notification.ts', import.meta.url),
   new URL('../src/past-schedule-backfill.ts', import.meta.url),
   new URL('../src/schedule-publication.ts', import.meta.url),
+  new URL('../src/statistics.ts', import.meta.url),
   new URL('../src/workflow-operation.ts', import.meta.url),
   new URL('../src/workflow.ts', import.meta.url),
 ];
@@ -65,5 +67,22 @@ describe('presentation-core runtime boundary', () => {
         'packages/presentation-core/src/workflow.ts',
       ].sort(),
     );
+  });
+
+  it('exposes isolated event and statistics subpaths without changing the root graph', async () => {
+    for (const source of ['event.ts', 'statistics.ts']) {
+      const result = await build({
+        bundle: true,
+        entryPoints: [fileURLToPath(new URL(`../src/${source}`, import.meta.url))],
+        format: 'esm',
+        metafile: true,
+        platform: 'browser',
+        target: 'es2020',
+        write: false,
+      });
+      expect(Object.keys(result.metafile.inputs)).toEqual([
+        `packages/presentation-core/src/${source}`,
+      ]);
+    }
   });
 });

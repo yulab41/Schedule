@@ -35,6 +35,9 @@ describe('insights read client', () => {
       '/groups/group%20%2F%E4%B8%80/events?cursor=cursor%20%2F%E4%B8%80&eventTypes=schedule_published%2Cleave&pageSize=50',
     );
     expect(
+      insightsReadEndpoints.events.path({ groupId: 'group-1', eventTypes: [], pageSize: 50 }),
+    ).toBe('/groups/group-1/events?pageSize=50');
+    expect(
       insightsReadEndpoints.eventDetail.path({ groupId: 'group /一', eventId: 'event /一' }),
     ).toBe('/groups/group%20%2F%E4%B8%80/events/event%20%2F%E4%B8%80');
     expect(
@@ -60,10 +63,39 @@ describe('insights read client', () => {
     expect(yearStatisticsDecoder.safeDecode(insightsYearStatisticsGoldenResponse).success).toBe(
       true,
     );
-    expect(scheduleEventPageSchema.safeParse({ ...insightsEventGoldenResponse, extra: true }).success).toBe(false);
-    expect(monthStatisticsSnapshotSchema.safeParse({ ...insightsMonthStatisticsGoldenResponse, extra: true }).success).toBe(false);
-    expect(scheduleEventDetailSchema.safeParse({ ...insightsEventDetailGoldenResponse, extra: true }).success).toBe(false);
-    expect(yearStatisticsSchema.safeParse({ ...insightsYearStatisticsGoldenResponse, extra: true }).success).toBe(false);
+    expect(
+      scheduleEventPageSchema.safeParse({ ...insightsEventGoldenResponse, extra: true }).success,
+    ).toBe(false);
+    expect(
+      monthStatisticsSnapshotSchema.safeParse({
+        ...insightsMonthStatisticsGoldenResponse,
+        extra: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      scheduleEventDetailSchema.safeParse({ ...insightsEventDetailGoldenResponse, extra: true })
+        .success,
+    ).toBe(false);
+    expect(
+      yearStatisticsSchema.safeParse({ ...insightsYearStatisticsGoldenResponse, extra: true })
+        .success,
+    ).toBe(false);
+  });
+
+  it('preserves the Web legacy array-only actual-vs-planned boundary', () => {
+    const member = insightsMonthStatisticsGoldenResponse.summary.members[0]!;
+    const response = {
+      ...insightsMonthStatisticsGoldenResponse,
+      summary: {
+        ...insightsMonthStatisticsGoldenResponse.summary,
+        members: [{ ...member, actualVsPlanned: ['legacy-entry'] }],
+      },
+    };
+
+    expect(monthStatisticsSnapshotDecoder.safeDecode(response)).toEqual({
+      data: response,
+      success: true,
+    });
   });
 
   it('delegates list/detail/month/year reads once through the shared transport', async () => {

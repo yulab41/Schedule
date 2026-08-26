@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 Mini 事件与统计复刻 Web 规则（已实现，待 checkpoint 发布）
+
+- 范围：Web 生产代码和功能保持完全不变；以只读 Web helper 为黄金，把完整事件类型标签、状态、色调、中国时间、日期分组、变更提取/叙述/关联链，以及统计月份/周期、10 项汇总、成员排序、原实对照计数、加扣班净值和滚动口径复制到隔离的 `@schedule/presentation-core/event`、`@schedule/presentation-core/statistics` 子路径，只供 Mini 适配层新增使用；根导出图不包含这两个模块。
+- 客户端边界：Mini 继续使用既有 `client-core/insights-read-client`。共享 decoder 恢复 Web 对历史 `actualVsPlanned`“只要求数组”的兼容语义，并保持其他字段严格校验；空事件类型数组继续不发送查询参数。Web 仍保留原 API 调用实现，`apps/web` tracked diff 为 0。
+- 引入点/红绿：Web 事件规则来自 `7ac2a07a`、统计规则来自 `36127b02/6ec287da`，Mini 私有 3 类标签/时间/简化卡来自 `ee6f9cb8`；均已执行 `git log -S`/`git blame`。共享模块、Mini 私有规则、分页、年度统计和完整统计口径在旧实现先失败；实现后跨实现等价测试逐项比较未修改 Web 与 Mini 共享规则。完整 Web/presentation/client-core 138 files/715 tests、Mini 78 files/349 tests 通过。
+- Mini 行为/UI：事件按中国标准时间日期倒序分组，显示 Web 同源类型/状态/色调、对象和影响数量，支持 50 条游标加载更多；统计支持按月/按年、前后周期、10 项汇总、成员排序及岗位/班种完成度。遵循 P9 隐私门槛，不把原始 payload、operation id、token 或完整身份标识写入页面状态；管理员重算/刷新仍是 Web 写能力，Mini 保持只读。
+- 语义审计：Web receiver、Bearer/offline/error/catch、响应对象、调用次数与所有界面保持原样。Mini 查询空数组与历史统计条目按 Web 精确兼容；capability gate、无缓存、group/request serial 和错误关闭保持；新增 statistics serial 保证快速月/年切换和换群时只有最新只读响应可提交。生产 `insights=false` 不变。
+- 验证：presentation/client/Web/Mini typecheck、presentation/client/Web production build、生成 schema freshness、任务 Prettier/ESLint、Mini production verify/source/package/determinism/CI dry-run 通过；Web 只作为未修改黄金运行回归。Mini 包体 `5,707,902` bytes（insights `1,281,343`），manifest `ddd7bd8ae03555bf14bd808ef0d09f85bdff987ace639e53eff6d9e655d0249e`。根 lint 仍仅为既有 5 个未落地 Mini 文件的 7 项错误，本批文件无新增。
+- 运行/浏览器验证：`pnpm smoke:browser` 等价直接入口在当前源码 API 3000/Web 5400 连续三次均被本批未修改的周视图左切换/定位按压瞬时反馈断言提前停止；专项本地浏览器随后实际读取事件中心 50 张事件卡/3 个日期组、统计月/年汇总、成员/岗位/班种数据，月→年切换成功，页面横向溢出 0、console error/warn 0，未执行业务写入。提交前继续运行 `pnpm smoke:check-core`。
+- checkpoint/下一批：待以 `feat(miniprogram): mirror Web event and statistics rules` 提交推送，上传 production-profile `.26` 体验版（不提审/不正式发布），完成生产备份/部署/full verifier。之后进入 P9 导出下载与访客访问 Web→Mini 适配审计；未落地 P10 worktree 继续保留。
+
 ## 2026-08-26 Web/Mini 通知中心与通知设置共享（已完成，待能力开放后真机复核）
 
 - 范围：以 Web 现有通知规则为基准，把通知类型标签/色调、相对时间与绝对时间回退、提醒小时输入、个人默认/自定义/关闭模式和群组管理权限下沉到 `presentation-core/notification`；群组与个人通知设置读写下沉到 `client-core`。Web 改为共享重导出/共享客户端，Mini 直接调用同一实现；微信订阅授权仍只属于 Mini 平台适配。
