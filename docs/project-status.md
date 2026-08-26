@@ -15,6 +15,8 @@
 - 修复：工作台现在同时写入无障碍公告和 `wx.showToast`，分别提示群组未准备好、权限不足或页面导航失败；成功导航 URL、权限判定、请求次数和页面路由保持不变。
 - 验证：先红后绿工作台回归 22/22；Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,946,249` bytes，manifest `346a0cd9c077c2d5e6c9f617693d8aa118f2d52c55251c391420051249be6b57`。
 - checkpoint：代码提交消息为 `fix(miniprogram): surface group-tool navigation failures`；提交后上传候选体验版 `.16`，生产 `organization=true` 保持不变。
+- 增量体验/运行：`0.1.0-p9.20260826.16` 已上传成功，147 个代码文件、zip `1,304,107` bytes、manifest `f9846fe9bb4b284a23a76b5b7d820928b59b49443a277428f1d6e3b6fce93a56`。生产备份 archive `3a2b8819-c8ec-40b3-b079-26f99a0801e5` 后追加候选白名单；`.16` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`。
+- 增量发布：代码 checkpoint `9dec3183019a39cd48f8dbb0237d3b6a5fc8d783` 部署 release `9dec3183019a39cd48f8dbb0237d3b6a5fc8d783`；ECS full verifier、health 200、候选版本 capability 和远端临时目录清理通过。
 
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
