@@ -11,8 +11,9 @@
 - 权限/语义：目录 API、Bearer、organization capability、服务端 visibility/权限、cursor 和错误路径不变；新增偏好 lookup 只读取已授权条目且失败不阻断搜索。Web 运行行为由既有 helper 测试证明等价，未改生产 API/数据库。
 - 测试先行：共享模块旧实现缺失先失败；层级测试一次错误期望按 Web 真实“仍有两个兼容选项则保留”规则修正。最终 Web+presentation 110 files/622 tests、Mini 72 files/335 tests、通讯录/私有存储定向 9 files/48 tests、三端 typecheck、presentation/Web build、Mini production verify/source/package/determinism/CI dry-run 和 `smoke:check-core` 通过。Mini 包体 `5,611,346` bytes，组织分包 `1,722,630` bytes，manifest `7f666e3597916fbdd1f66d00c144d28598488c6c8f232ad0b29bedcc0b43a946`。
 - 视觉策略：`frontend-design` 服从生产 Web 的蓝灰临床工作台，不新增设计语言；稳定几何、文案、密度和状态以 `InternalDirectoryView.vue`/`UnifiedDirectoryView.vue` 为准。IAB 生产页无登录态，只读源代码与用户截图作为当前基准；下一步由用户在安卓模拟器登录微信并打开体验版后提供科室/人员、筛选打开、同号卡片、320/大字号截图。
-- checkpoint：待提交消息为 `feat(miniprogram): share Web directory presentation`；提交后上传 `.23`，production capability 保持 `organization/workflows=true`、`insights/externalMessages=false`。
-- 下一活动批次与停止条件：`.23` 原生编译成功后先根据模拟器截图修正 ≤2px 视觉差异，再继续把同一共享规则原则按页面批次推广到其他功能；通讯录未获新 1:1 明确通过前不恢复 P9 capability 切换。
+- checkpoint/体验：代码提交 `1de042b5`（`feat(miniprogram): share Web directory presentation`）在 GitHub 网络恢复后已 fast-forward 推送；体验版 `0.1.0-p9.20260826.23` 官方编译上传成功，153 个代码文件、zip `1,357,334` bytes、Mini manifest `77d6f593010b28c8194585ec48cc7aba4e5fa97f4196075f24cdc257db8f9fea`。
+- 生产发布：备份 archive `f6fffebc-5107-4bd9-b4f7-92d2e975739f`（54 表/174,225 行/80,825,928 bytes/SHA `4813fa80518d6f2a36a2b1a8ffc74d3968119234ed6d448411a17de09456494e`）后部署 release `1de042b543792ff0a7a2957e400c40aed95a5410`；`.23` capability HTTP 200，`organization/workflows=true`、`insights/externalMessages=false`，full ECS verifier、health、产物/控制平面/迁移/未知 Host 和远端临时目录清理通过。
+- 下一活动批次与停止条件：用户在安卓模拟器登录微信并打开 `.23`，提供科室结果、人员结果、筛选 Sheet、同号/长短号卡片以及 320/大字号截图；按截图修正 ≤2px 差异并取得通讯录新 1:1 明确通过后，再把共享规则原则推广到下一模块。P9 capability 保持关闭。
 
 ## 2026-08-26 Mini 通讯录联系电话渲染修复（已实现，待体验版复核）
 
