@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 Mini 真机 loading 与私有运行时状态修复（已实现，待体验版复核）
+
+- 用户真机复核显示通讯录、排班配置、通知设置、访客访问、事件/统计和通知中心持续 loading；平台账号与邀请/访客入口暴露 `Cannot read properties of undefined`。回归定位为 `Component` 会丢弃 controller 工厂对象中的私有顶层字段，且缺失的请求序号在异常路径中变成 `NaN`，导致错误被当作过期请求静默丢弃。
+- 修复：受影响的 P8/P9/P10 controller 在首次 attached、属性变更和重试前显式初始化运行时 API client、请求序号、群组和草稿状态；既有权限、capability、请求、错误与写入语义不变。
+- 测试先行：移除 P8/P10 动态测试中的私有字段预注入后，旧实现先红（11/11）；实现后 P8/P10 定向 11/11、P9 运行时 capability 关闭态 4/4、Mini 全量 72 files/329 tests 通过。`pnpm run verify`、source/package/determinism/CI dry-run 和 `git diff --check` 通过；包体 `5,567,529` bytes，组织分包 `1,682,948` bytes（仅超过内部 1.5M 提示，仍低于正式限制）。
+- 语义审计：只补齐微信 Component 实例初始化；请求接收者、Promise 错误路径、序列化/空值、重试与幂等调用次数、权限和 capability 关闭策略保持不变。未修改生产 `insights=false`、`externalMessages=false`。
+- checkpoint：待提交消息为 `fix(miniprogram): initialize component runtime state`；提交后上传候选体验版 `.20`，生产能力开关保持现状。
+- 下一活动批次与停止条件：用户切换体验版 `.20` 并逐页确认上述 8 个入口均能落到内容/空态/禁用/可重试错误；收到“P8/P9/P10 真机 loading 修复通过”后再进入下一阶段，不提前开启 P9 capability 或提审。
+
 ## 2026-08-26 P8/P10 实体验收通过（organization 已开启，P9 待验收）
 
 - 用户已明确确认：`P10 通讯录 RC 通过`、`P10 个人中心 RC 通过`、`P8 组织管理 RC 通过`。验收候选为体验版 `0.1.0-p9.20260826.15`。

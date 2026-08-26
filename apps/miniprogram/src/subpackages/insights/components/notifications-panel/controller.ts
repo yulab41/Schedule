@@ -51,8 +51,8 @@ interface NotificationsPageData {
 interface NotificationsPageInstance {
   readonly data: NotificationsPageData;
   readonly properties: { readonly groupId: string; readonly mode: 'notifications' | 'settings' };
-  readonly _actionsClient: P9InsightsActionsClient;
-  readonly _preferencesClient: NotificationPreferencesClient;
+  _actionsClient: P9InsightsActionsClient;
+  _preferencesClient: NotificationPreferencesClient;
   _loadedGroupId: string;
   _nextCursor: string | undefined;
   _requestSerial: number;
@@ -151,6 +151,7 @@ interface TapEvent {
 }
 
 async function loadNotifications(page: NotificationsPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   const groupId = page.data.groupId;
   if (groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
@@ -185,6 +186,7 @@ async function loadNotifications(page: NotificationsPageInstance): Promise<void>
 }
 
 function startLoad(page: NotificationsPageInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
     page.setData({
@@ -201,6 +203,7 @@ function startLoad(page: NotificationsPageInstance): void {
 }
 
 async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   if (page.data.groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
     return;
@@ -223,6 +226,15 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
       state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
     });
   }
+}
+
+function initializeRuntimeState(page: NotificationsPageInstance): void {
+  // WeChat drops undocumented private keys from Component config. Restore the
+  // clients and request guards on the live instance before any async work.
+  page._actionsClient = actionsClient;
+  page._preferencesClient = preferencesClient;
+  if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
+  if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
 }
 
 async function toggleSubscription(

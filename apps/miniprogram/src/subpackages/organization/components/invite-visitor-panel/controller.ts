@@ -82,8 +82,8 @@ interface InviteVisitorPageData {
 interface InviteVisitorPageInstance {
   readonly data: InviteVisitorPageData;
   readonly properties: { readonly groupId: string };
-  readonly _organizationReadClient: OrganizationReadClient;
-  readonly _inviteVisitorWriteClient: InviteVisitorWriteClient;
+  _organizationReadClient: OrganizationReadClient;
+  _inviteVisitorWriteClient: InviteVisitorWriteClient;
   _groupId: string;
   _group: GroupSummary | undefined;
   _members: readonly GroupMember[];
@@ -234,6 +234,7 @@ function applyPanelLayout(page: InviteVisitorPageInstance): void {
 }
 
 function syncGroupId(page: InviteVisitorPageInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId === page._groupId) return;
   page._groupId = groupId;
@@ -250,6 +251,7 @@ function syncGroupId(page: InviteVisitorPageInstance): void {
 }
 
 async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   page.setData({
     state: 'loading',
     errorMessage: '',
@@ -309,6 +311,16 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
       managementError: toUserMessage(error, '邀请和访客入口暂时无法加载，请稍后重试。'),
     });
   }
+}
+
+function initializeRuntimeState(page: InviteVisitorPageInstance): void {
+  // Underscore-prefixed factory fields are not copied by WeChat Component;
+  // restore the clients and mutable operation state on the live instance.
+  page._organizationReadClient = organizationReadClient;
+  page._inviteVisitorWriteClient = inviteVisitorWriteClient;
+  if (typeof page._groupId !== 'string') page._groupId = '';
+  if (!Array.isArray(page._members)) page._members = [];
+  if (!(page._operationIds instanceof Map)) page._operationIds = new Map();
 }
 
 async function createInvite(page: InviteVisitorPageInstance): Promise<void> {

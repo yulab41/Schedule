@@ -61,8 +61,8 @@ interface PlatformAccountsPageData {
 
 interface PlatformAccountsPageInstance {
   readonly data: PlatformAccountsPageData;
-  readonly _organizationReadClient: OrganizationReadClient;
-  readonly _platformIdentityWriteClient: PlatformIdentityWriteClient;
+  _organizationReadClient: OrganizationReadClient;
+  _platformIdentityWriteClient: PlatformIdentityWriteClient;
   _accounts: readonly PlatformAdminUserAccount[];
   _selectedAccount: PlatformAdminUserAccount | undefined;
   _operationIds: Map<string, string>;
@@ -180,6 +180,7 @@ function applyPanelLayout(page: PlatformAccountsPageInstance): void {
 }
 
 async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   page.setData({
     state: 'loading',
     errorMessage: '',
@@ -220,6 +221,15 @@ async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {
       managementError: '仅平台管理员可访问平台账号后台；服务端已拒绝非授权请求。',
     });
   }
+}
+
+function initializeRuntimeState(page: PlatformAccountsPageInstance): void {
+  // Component ignores private factory keys; attach the API clients explicitly
+  // before the first load and every retry.
+  page._organizationReadClient = organizationReadClient;
+  page._platformIdentityWriteClient = platformIdentityWriteClient;
+  if (!Array.isArray(page._accounts)) page._accounts = [];
+  if (!(page._operationIds instanceof Map)) page._operationIds = new Map();
 }
 
 async function saveUsername(page: PlatformAccountsPageInstance): Promise<void> {

@@ -103,8 +103,8 @@ interface SchedulingConfigPageData {
 interface SchedulingConfigPageInstance {
   readonly data: SchedulingConfigPageData;
   readonly properties: { readonly groupId: string };
-  readonly _organizationReadClient: OrganizationReadClient;
-  readonly _schedulingWriteClient: SchedulingConfigWriteClient;
+  _organizationReadClient: OrganizationReadClient;
+  _schedulingWriteClient: SchedulingConfigWriteClient;
   _groupId: string;
   _group: GroupSummary | undefined;
   _config: SchedulingConfig | undefined;
@@ -418,6 +418,7 @@ function applyPanelLayout(page: SchedulingConfigPageInstance): void {
 }
 
 function syncGroupId(page: SchedulingConfigPageInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId === page._groupId) return;
   page._groupId = groupId;
@@ -435,6 +436,7 @@ function syncGroupId(page: SchedulingConfigPageInstance): void {
 }
 
 async function loadConfig(page: SchedulingConfigPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   const serial = ++page._loadSerial;
   page._config = undefined;
   page._group = undefined;
@@ -477,6 +479,19 @@ async function loadConfig(page: SchedulingConfigPageInstance): Promise<void> {
       managementError: toUserMessage(error, '排班配置暂时无法加载，请稍后重试。'),
     });
   }
+}
+
+function initializeRuntimeState(page: SchedulingConfigPageInstance): void {
+  // WeChat does not copy private controller keys from Component config. Make
+  // the clients, serial guard and draft maps explicit on the live instance.
+  page._organizationReadClient = organizationReadClient;
+  page._schedulingWriteClient = schedulingWriteClient;
+  if (!Number.isFinite(page._loadSerial)) page._loadSerial = 0;
+  if (!(page._operationIds instanceof Map)) page._operationIds = new Map();
+  if (!(page._roleMemberIds instanceof Map)) page._roleMemberIds = new Map();
+  if (!(page._roleMemberOrder instanceof Map)) page._roleMemberOrder = new Map();
+  if (!(page._rotationDrafts instanceof Map)) page._rotationDrafts = new Map();
+  if (typeof page._groupId !== 'string') page._groupId = '';
 }
 
 function initializeDrafts(page: SchedulingConfigPageInstance, config: SchedulingConfig): void {

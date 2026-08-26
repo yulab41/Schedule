@@ -86,7 +86,7 @@ interface DirectoryPageData {
 interface DirectoryPageInstance {
   readonly data: DirectoryPageData;
   readonly properties: { readonly directoryKind: DirectoryKind; readonly groupId: string };
-  readonly _directoryClient: DirectoryReadClient;
+  _directoryClient: DirectoryReadClient;
   _loadedKey: string;
   _nextCursor: string | undefined;
   _requestSerial: number;
@@ -257,6 +257,7 @@ interface CallEvent {
 }
 
 function startLoad(page: DirectoryPageInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   const kind = page.properties.directoryKind;
   const key = `${groupId}:${kind}`;
@@ -272,6 +273,14 @@ function startLoad(page: DirectoryPageInstance): void {
   page._loadedKey = key;
   page.setData({ directoryKind: kind, groupId, ...filterLabelsForKind(kind) });
   void loadFacets(page);
+}
+
+function initializeRuntimeState(page: DirectoryPageInstance): void {
+  // WeChat only keeps documented Component config keys; private controller
+  // fields from the factory object are not copied onto the live instance.
+  page._directoryClient = directoryClient;
+  if (typeof page._loadedKey !== 'string') page._loadedKey = '';
+  if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
 }
 
 async function loadFacets(page: DirectoryPageInstance): Promise<void> {

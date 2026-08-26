@@ -147,9 +147,6 @@ function createPageInstance(controller, properties) {
       this.data = { ...this.data, ...patch };
     },
   };
-  for (const [key, value] of Object.entries(controller)) {
-    if (key.startsWith('_')) page[key] = value;
-  }
   return page;
 }
 

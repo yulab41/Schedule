@@ -1,12 +1,10 @@
-import {
-  ClientCoreError,
-  type VisitorAccessReadClient,
-} from '@schedule/client-core';
+import { ClientCoreError, type VisitorAccessReadClient } from '@schedule/client-core';
 import type { VisitorAccessAggregate, VisitorAccessLog } from '@schedule/contracts';
-import { ClientCapabilityDisabledError, requireClientCapability } from '../../../../app/client-capability-store.js';
 import {
-  createRuntimeVisitorAccessReadClient,
-} from '../../../../platform/client-core-calendar.js';
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../../../app/client-capability-store.js';
+import { createRuntimeVisitorAccessReadClient } from '../../../../platform/client-core-calendar.js';
 import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
@@ -48,7 +46,7 @@ interface VisitorAccessPageData {
 interface VisitorAccessPageInstance {
   readonly data: VisitorAccessPageData;
   readonly properties: { readonly groupId: string };
-  readonly _visitorAccessReadClient: VisitorAccessReadClient;
+  _visitorAccessReadClient: VisitorAccessReadClient;
   _loadedGroupId: string;
   _nextCursor: string | undefined;
   _requestSerial: number;
@@ -124,6 +122,7 @@ export function createVisitorAccessPanelControllerDefinition() {
 }
 
 async function loadVisitorAccess(page: VisitorAccessPageInstance): Promise<void> {
+  initializeRuntimeState(page);
   const groupId = page.data.groupId;
   if (groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
@@ -175,6 +174,7 @@ async function loadVisitorAccess(page: VisitorAccessPageInstance): Promise<void>
 }
 
 function startLoad(page: VisitorAccessPageInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
@@ -184,6 +184,14 @@ function startLoad(page: VisitorAccessPageInstance): void {
   page._loadedGroupId = groupId;
   page.setData({ groupId });
   void loadVisitorAccess(page);
+}
+
+function initializeRuntimeState(page: VisitorAccessPageInstance): void {
+  // Private fields in a Component definition are ignored by WeChat. Attach
+  // the runtime client and initialize the request guards on the live object.
+  page._visitorAccessReadClient = visitorAccessReadClient;
+  if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
+  if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
 }
 
 async function loadMoreLogs(page: VisitorAccessPageInstance): Promise<void> {

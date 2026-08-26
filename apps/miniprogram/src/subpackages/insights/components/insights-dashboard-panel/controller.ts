@@ -51,7 +51,7 @@ interface InsightsDashboardData {
 interface InsightsDashboardInstance {
   readonly data: InsightsDashboardData;
   readonly properties: { readonly groupId: string };
-  readonly _insightsReadClient: InsightsReadClient;
+  _insightsReadClient: InsightsReadClient;
   _loadedGroupId: string;
   _requestSerial: number;
   setData(patch: Partial<InsightsDashboardData>, callback?: () => void): void;
@@ -123,6 +123,7 @@ interface TapEvent {
 }
 
 async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
+  initializeRuntimeState(page);
   const groupId = page.data.groupId;
   if (groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
@@ -160,6 +161,7 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
 }
 
 function startLoad(page: InsightsDashboardInstance): void {
+  initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
@@ -169,6 +171,14 @@ function startLoad(page: InsightsDashboardInstance): void {
   page._loadedGroupId = groupId;
   page.setData({ groupId });
   void loadDashboard(page);
+}
+
+function initializeRuntimeState(page: InsightsDashboardInstance): void {
+  // Private fields from the controller factory are not part of the live
+  // WeChat Component instance unless initialized after attachment.
+  page._insightsReadClient = insightsReadClient;
+  if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
+  if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
 }
 
 function toEventCard(event: ScheduleEvent): EventCard {
@@ -183,11 +193,24 @@ function toEventCard(event: ScheduleEvent): EventCard {
 }
 
 function toStatisticsCards(summary: StatisticsSummary): readonly StatisticsCard[] {
-  const completion = summary.plannedCount === 0 ? 0 : Math.round((summary.actualCount / summary.plannedCount) * 100);
+  const completion =
+    summary.plannedCount === 0 ? 0 : Math.round((summary.actualCount / summary.plannedCount) * 100);
   return [
-    { label: '实际班次', note: `计划 ${summary.plannedCount} · 完成率 ${completion}%`, value: String(summary.actualCount) },
-    { label: '计值班次', note: `周末 ${summary.weekendCount} · 节假日 ${summary.holidayCount}`, value: String(summary.countedActualCount) },
-    { label: '需要关注', note: `请假替班 ${summary.leaveCoverCount} · 换班 ${summary.swapCount}`, value: String(Math.max(0, summary.plannedCount - summary.actualCount)) },
+    {
+      label: '实际班次',
+      note: `计划 ${summary.plannedCount} · 完成率 ${completion}%`,
+      value: String(summary.actualCount),
+    },
+    {
+      label: '计值班次',
+      note: `周末 ${summary.weekendCount} · 节假日 ${summary.holidayCount}`,
+      value: String(summary.countedActualCount),
+    },
+    {
+      label: '需要关注',
+      note: `请假替班 ${summary.leaveCoverCount} · 换班 ${summary.swapCount}`,
+      value: String(Math.max(0, summary.plannedCount - summary.actualCount)),
+    },
   ];
 }
 
@@ -196,7 +219,10 @@ function toRoleCards(summary: StatisticsSummary): readonly RoleCard[] {
     actualLabel: String(role.actualCount),
     name: role.scheduleRoleName,
     plannedLabel: String(role.plannedCount),
-    ratio: role.plannedCount === 0 ? 0 : Math.min(100, Math.round((role.actualCount / role.plannedCount) * 100)),
+    ratio:
+      role.plannedCount === 0
+        ? 0
+        : Math.min(100, Math.round((role.actualCount / role.plannedCount) * 100)),
   }));
 }
 
