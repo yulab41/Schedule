@@ -2,14 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P8 组织管理独立 panel 大字号自动硬化（代码完成，待发布）
+## 2026-08-27 P8 组织管理独立 panel 大字号自动硬化（已完成自动发布验证，继续推进）
 
 - 范围：只为排班配置、邀请/访客、平台账号三个未被用户改动的 P8 panel 接入 `fontSizeSetting >= 20` 状态、根节点大字号 class 和窄屏/长文案重排；不改 API、数据库、权限、写入、能力开关或用户正在修改的群组设置 WXML。
 - 引入点与实现：三个 panel 分别来自 `38233039`、`ddd5c107`、`c0ea31e9`，已执行 `git log -S`/`git blame`。保留原 `organization`/`guest` capability、角色、幂等和错误分支；长标题、成员账号、邀请链接、班种/岗位字段在大字号下可换行，按钮保持至少 44px。
 - 测试先行：旧实现上的 P8 C2/D/E 静态契约共 6 项失败；更新后 P8 panel/native 9/9、`.33` RC 契约 6/6、Mini 全量 83 files/377 tests 通过。任务 Prettier、`git diff --check` 通过；ESLint 仅保留邀请 panel 2 项和平台账号 panel 1 项既有未使用声明错误。
-- 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck 已通过；总包 `5,749,868` bytes，organization 分包 `1,746,840` bytes（仅既有内部 1.5M 提示），verify manifest `150913909bf39c0159480b83ce922c5686d73bedb68e9bef0ca23d62ad24cd18`。生产当前 `.32`，`organization=true`、`insights/externalMessages=false`。
+- 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck 已通过；总包 `5,749,868` bytes，organization 分包 `1,746,840` bytes（仅既有内部 1.5M 提示），verify manifest `150913909bf39c0159480b83ce922c5686d73bedb68e9bef0ca23d62ad24cd18`。生产当前 `.33`，`organization=true`、`insights/externalMessages=false`。
 - 当前策略：用户已明确“无需人工复核”，本项以自动状态/静态矩阵和生产 verifier 验收；候选 `.33` 不提审、不正式发布，不自行开启 P9 能力。
-- checkpoint/下一步：三个 panel、RC 清单与状态变更待提交，提交消息拟为 `fix(miniprogram): support p8 panel large text`；随后从干净 worktree 打包、上传体验 `.33`，备份后加入白名单、部署并运行 ECS verifier，再提交 docs-only 状态 checkpoint。群组设置 panel 的大字号与用户当前 WXML 改动留待后续独立任务。
+- 线上发布：代码 checkpoint `e5dac58d03b98d5b1a43e3dc27df6fef83887eed`（`fix(miniprogram): support p8 panel large text`）已推送；体验版 `0.1.0-p9.20260827.33` 上传成功，153 个代码文件、zip `1,402,885` bytes、上传 manifest `d0dd0d8efef2724f001ff3c03bc1bdd20f096bf580adda2a37543d279aa05788`。加入白名单前数据库备份 archive `d4a3acce-ba47-4f25-b6ed-3a2c188d3149`（54 表、176,108 行、81,451,776 bytes、SHA-256 `b432bb1d566f8eae1530705f2e0931843b851e76d979984ca1816c7bda102c18`）；原子追加 `.33`，未改变能力开关。
+- 线上验证：代码 release `e5dac58d03b98d5b1a43e3dc27df6fef83887eed` 已部署，预热首个 TLS 连接重置后恢复；迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均通过。`.33` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；当前 `current-release` 与 Git 一致，远端本轮临时目录已清理。
+- 当前策略：用户已明确“无需人工复核”，本项以自动状态/静态矩阵、构建、能力探针和生产 verifier 完成验收；`.33` 不提审、不正式发布，群组设置 panel 保持后续独立任务边界。
+- checkpoint/下一步：线上结果待状态提交，提交消息拟为 `docs(status): record p8 panel large text deployment`；提交后按根规则备份并部署 docs-only release，使 Git、origin 和服务器 release 再次一致。下一活动批次为群组设置 panel 与 P10/P9 剩余状态分支自动审计（只处理 1 项），停止条件是覆盖矩阵无未覆盖项且验证/发布闭环通过。
 
 ## 2026-08-27 P10 工作台角色入口最终对等硬化（已完成自动发布验证，继续推进）
 
