@@ -66,6 +66,13 @@ const PRESENTATION_CORE_STATISTICS_ENTRY = path.join(
   'src',
   'statistics.ts',
 );
+const PRESENTATION_CORE_VISITOR_ACCESS_ENTRY = path.join(
+  REPOSITORY_ROOT,
+  'packages',
+  'presentation-core',
+  'src',
+  'visitor-access.ts',
+);
 const UI_TOKENS_WXSS = path.resolve(
   APP_ROOT,
   '..',
@@ -310,6 +317,7 @@ export async function buildMiniProgram({
       '@schedule/presentation-core/event': PRESENTATION_CORE_EVENT_ENTRY,
       '@schedule/presentation-core/export': PRESENTATION_CORE_EXPORT_ENTRY,
       '@schedule/presentation-core/statistics': PRESENTATION_CORE_STATISTICS_ENTRY,
+      '@schedule/presentation-core/visitor-access': PRESENTATION_CORE_VISITOR_ACCESS_ENTRY,
       '@schedule/presentation-core': PRESENTATION_CORE_ENTRY,
     },
     bundle: true,

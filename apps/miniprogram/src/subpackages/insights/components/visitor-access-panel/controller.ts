@@ -1,5 +1,14 @@
 import { ClientCoreError, type VisitorAccessReadClient } from '@schedule/client-core';
-import type { VisitorAccessAggregate, VisitorAccessLog } from '@schedule/contracts';
+import type { VisitorAccessLog } from '@schedule/contracts';
+import {
+  buildVisitorAccessAggregateCards,
+  formatVisitorAccessDateTime,
+  formatVisitorAccessMonth,
+  maskVisitorAccessIp,
+  maskVisitorAccessRequestId,
+  sumVisitorAccessCounts,
+  type VisitorAccessAggregateCardLike,
+} from '@schedule/presentation-core/visitor-access';
 import {
   ClientCapabilityDisabledError,
   requireClientCapability,
@@ -12,12 +21,7 @@ import {
 
 type VisitorAccessState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
 
-interface AggregateCard {
-  readonly accessCountLabel: string;
-  readonly accessMonth: string;
-  readonly accessMonthLabel: string;
-  readonly barHeight: number;
-}
+type AggregateCard = VisitorAccessAggregateCardLike;
 
 interface LogCard {
   readonly businessMonthLabel: string;
@@ -32,6 +36,7 @@ interface VisitorAccessPageData {
   readonly aggregates: readonly AggregateCard[];
   readonly errorMessage: string;
   readonly groupId: string;
+  readonly largeText: boolean;
   readonly loadMoreError: string;
   readonly loadingMore: boolean;
   readonly logCountLabel: string;
@@ -61,10 +66,11 @@ const visitorAccessReadClient = createRuntimeVisitorAccessReadClient(
 export function createVisitorAccessPanelControllerDefinition() {
   return {
     data: {
-      aggregateCountLabel: '0 个月',
+      aggregateCountLabel: '0 次',
       aggregates: [],
       errorMessage: '',
       groupId: '',
+      largeText: false,
       loadMoreError: '',
       loadingMore: false,
       logCountLabel: '0 条',
@@ -96,12 +102,20 @@ export function createVisitorAccessPanelControllerDefinition() {
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
+        const fontSizeSetting = (windowInfo as unknown as { readonly fontSizeSetting?: number })
+          .fontSizeSetting;
         this.setData({
           pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
           shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+          largeText: (fontSizeSetting ?? 16) >= 20,
           viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
         });
         startLoad(this);
+      },
+      detached(this: VisitorAccessPageInstance): void {
+        initializeRuntimeState(this);
+        this._requestSerial += 1;
+        this._nextCursor = undefined;
       },
     },
 
@@ -123,16 +137,16 @@ export function createVisitorAccessPanelControllerDefinition() {
 
 async function loadVisitorAccess(page: VisitorAccessPageInstance): Promise<void> {
   initializeRuntimeState(page);
+  const requestSerial = page._requestSerial + 1;
+  page._requestSerial = requestSerial;
   const groupId = page.data.groupId;
   if (groupId.length === 0) {
     page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
     return;
   }
-  const requestSerial = page._requestSerial + 1;
-  page._requestSerial = requestSerial;
   page._nextCursor = undefined;
   page.setData({
-    aggregateCountLabel: '0 个月',
+    aggregateCountLabel: '0 次',
     aggregates: [],
     errorMessage: '',
     loadMoreError: '',
@@ -145,15 +159,15 @@ async function loadVisitorAccess(page: VisitorAccessPageInstance): Promise<void>
   try {
     await requireClientCapability('insights');
     const [aggregatePage, logPage] = await Promise.all([
-      page._visitorAccessReadClient.listAggregates(groupId, { pageSize: 12 }),
-      page._visitorAccessReadClient.listLogs(groupId, { pageSize: 20 }),
+      page._visitorAccessReadClient.listAggregates(groupId),
+      page._visitorAccessReadClient.listLogs(groupId),
     ]);
     if (requestSerial !== page._requestSerial) return;
     page._nextCursor = logPage.nextCursor;
-    const aggregates = toAggregateCards(aggregatePage.aggregates);
+    const aggregates = buildVisitorAccessAggregateCards(aggregatePage.aggregates);
     const logs = logPage.logs.map(toLogCard);
     page.setData({
-      aggregateCountLabel: `${aggregates.length} 个月`,
+      aggregateCountLabel: sumVisitorAccessCounts(aggregatePage.aggregates),
       aggregates,
       logCountLabel: `${logs.length} 条`,
       logs,
@@ -177,7 +191,14 @@ function startLoad(page: VisitorAccessPageInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
-    page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
+    page._loadedGroupId = '';
+    page._nextCursor = undefined;
+    page._requestSerial += 1;
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      groupId: '',
+      state: 'error',
+    });
     return;
   }
   if (groupId === page._loadedGroupId) return;
@@ -197,13 +218,13 @@ function initializeRuntimeState(page: VisitorAccessPageInstance): void {
 async function loadMoreLogs(page: VisitorAccessPageInstance): Promise<void> {
   const cursor = page._nextCursor;
   if (cursor === undefined || page.data.loadingMore || page.data.groupId.length === 0) return;
+  const requestSerial = page._requestSerial;
+  const groupId = page.data.groupId;
   page.setData({ loadMoreError: '', loadingMore: true });
   try {
     await requireClientCapability('insights');
-    const nextPage = await page._visitorAccessReadClient.listLogs(page.data.groupId, {
-      cursor,
-      pageSize: 20,
-    });
+    const nextPage = await page._visitorAccessReadClient.listLogs(groupId, { cursor });
+    if (!isRequestCurrent(page, requestSerial, groupId)) return;
     page._nextCursor = nextPage.nextCursor;
     const logs = [...page.data.logs, ...nextPage.logs.map(toLogCard)];
     page.setData({
@@ -213,6 +234,22 @@ async function loadMoreLogs(page: VisitorAccessPageInstance): Promise<void> {
       loadingMore: false,
     });
   } catch (error) {
+    if (!isRequestCurrent(page, requestSerial, groupId)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      page._nextCursor = undefined;
+      page.setData({
+        aggregateCountLabel: '0 次',
+        aggregates: [],
+        errorMessage: error.message,
+        loadMoreError: '',
+        loadingMore: false,
+        logCountLabel: '0 条',
+        logs: [],
+        nextCursor: '',
+        state: 'disabled',
+      });
+      return;
+    }
     page.setData({
       loadMoreError: toUserMessage(error, '更多访问记录暂时无法加载，请重试。'),
       loadingMore: false,
@@ -220,54 +257,22 @@ async function loadMoreLogs(page: VisitorAccessPageInstance): Promise<void> {
   }
 }
 
-function toAggregateCards(rows: readonly VisitorAccessAggregate[]): readonly AggregateCard[] {
-  const maxCount = Math.max(...rows.map((row) => Number(row.accessCount)), 1);
-  return rows
-    .slice()
-    .reverse()
-    .map((row) => ({
-      accessCountLabel: row.accessCount,
-      accessMonth: row.accessMonth,
-      accessMonthLabel: formatMonth(row.accessMonth),
-      barHeight: Math.max(12, Math.round((Number(row.accessCount) / maxCount) * 100)),
-    }));
-}
-
 function toLogCard(row: VisitorAccessLog): LogCard {
   return {
-    businessMonthLabel: formatMonth(row.businessMonth),
-    createdAtLabel: formatDateTime(row.createdAt),
+    businessMonthLabel: formatVisitorAccessMonth(row.businessMonth),
+    createdAtLabel: formatVisitorAccessDateTime(row.createdAt),
     id: row.id,
-    ipLabel: maskClientIp(row.clientIp),
-    requestIdLabel: maskRequestId(row.requestId),
+    ipLabel: maskVisitorAccessIp(row.clientIp),
+    requestIdLabel: maskVisitorAccessRequestId(row.requestId),
   };
 }
 
-function formatMonth(value: string): string {
-  const match = /^(\d{4})-(\d{2})$/u.exec(value);
-  return match === null ? value : `${match[1]} 年 ${Number(match[2])} 月`;
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return '访问时间未知';
-  const pad = (part: number): string => String(part).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function maskClientIp(value: string | undefined): string {
-  if (value === undefined || value.length === 0) return '来源已脱敏';
-  const parts = value.split('.');
-  if (parts.length === 4 && parts.every((part) => /^\d{1,3}$/u.test(part))) {
-    return `${parts.slice(0, 3).join('.')}.*`;
-  }
-  return '来源已脱敏';
-}
-
-function maskRequestId(value: string | undefined): string {
-  if (value === undefined || value.length === 0) return '请求标识已隐藏';
-  if (value.length <= 10) return `请求 ${value.slice(0, 4)}…`;
-  return `请求 ${value.slice(0, 6)}…${value.slice(-4)}`;
+function isRequestCurrent(
+  page: VisitorAccessPageInstance,
+  requestSerial: number,
+  groupId: string,
+): boolean {
+  return requestSerial === page._requestSerial && groupId === page.data.groupId;
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

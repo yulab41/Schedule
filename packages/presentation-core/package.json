@@ -22,6 +22,10 @@
       "types": "./dist/statistics.d.ts",
       "import": "./dist/statistics.js"
     },
+    "./visitor-access": {
+      "types": "./dist/visitor-access.d.ts",
+      "import": "./dist/visitor-access.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"

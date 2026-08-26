@@ -44,6 +44,7 @@
 .access-row,
 .access-main,
 .access-meta,
+.log-skeletons,
 .page-state-card {
   display: flex;
 }
@@ -53,6 +54,8 @@
 .page-heading,
 .chart-item,
 .access-main,
+.access-meta,
+.log-skeletons,
 .page-state-card {
   flex-direction: column;
 }
@@ -100,11 +103,11 @@
 .visitor-access-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .page-heading {
-  gap: 3px;
+  gap: 5px;
 }
 
 .section-eyebrow,
@@ -115,6 +118,11 @@
 .state-copy {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-xs);
+}
+
+.section-eyebrow {
+  color: var(--ui-color-primary);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .page-title {
@@ -153,6 +161,16 @@
 .privacy-title {
   color: var(--ui-color-primary-dark);
   font-weight: var(--ui-font-weight-semibold);
+}
+
+.aggregate-card,
+.logs-card {
+  overflow: hidden;
+}
+
+.aggregate-card {
+  background: linear-gradient(135deg, var(--ui-color-primary-light), var(--ui-color-surface) 72%);
+  border-color: var(--ui-color-primary-border);
 }
 
 .card-header {
@@ -219,7 +237,7 @@
 .bar-fill {
   width: 100%;
   min-height: 12px;
-  background: var(--ui-color-primary);
+  background: linear-gradient(180deg, var(--ui-color-primary), #77b7f9);
   border-radius: 8px 8px 4px 4px;
 }
 
@@ -228,14 +246,54 @@
   text-align: center;
 }
 
+.log-skeletons {
+  margin: 0 12px 14px;
+  gap: 10px;
+}
+
+.log-skeleton {
+  display: block;
+  height: 58px;
+  background: linear-gradient(90deg, #eef3f8, #fafcfe, #eef3f8);
+  border-radius: 12px;
+}
+
+.log-skeleton.wide {
+  width: 70%;
+  height: 38px;
+  margin-bottom: 4px;
+}
+
+.log-skeleton.short {
+  width: 62%;
+}
+
+.log-list {
+  position: relative;
+}
+
+.log-list::before {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 14px;
+  width: 2px;
+  background: var(--ui-color-primary-border);
+  content: '';
+}
+
 .access-row {
   position: relative;
   min-height: 70px;
-  padding: 12px 12px 12px 28px;
+  padding: 12px 12px 12px 40px;
   box-sizing: border-box;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--ui-color-border);
+}
+
+.access-row:last-child {
+  border-bottom: 0;
 }
 
 .audit-line {
@@ -244,7 +302,7 @@
   bottom: 0;
   left: 14px;
   width: 2px;
-  background: var(--ui-color-primary-border);
+  background: transparent;
 }
 
 .audit-dot {
@@ -269,18 +327,33 @@
   font-weight: var(--ui-font-weight-semibold);
 }
 
+.access-month {
+  line-height: var(--ui-line-height-body);
+}
+
 .access-meta {
   min-width: 92px;
   align-items: flex-end;
   flex-direction: column;
   gap: 4px;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .load-more {
   display: flex;
   padding: 12px;
   justify-content: center;
+}
+
+.visitor-privacy {
+  display: flex;
+  padding: 0 4px;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-body);
+  text-align: center;
 }
 
 .page-state-card {
@@ -291,6 +364,10 @@
   justify-content: center;
   gap: 10px;
   text-align: center;
+}
+
+.page-state-card > ui-alert {
+  width: 100%;
 }
 
 .disabled-mark,
@@ -335,12 +412,65 @@
   padding-left: 6px;
 }
 
+.is-compact .chart-item {
+  min-width: 32px;
+}
+
 .is-compact .bar-track {
   width: 18px;
 }
 
+.is-large-text .page-description,
+.is-large-text .access-month,
+.is-large-text .access-meta,
+.is-large-text .visitor-privacy {
+  font-size: var(--ui-font-size-sm);
+}
+
+.is-large-text .access-row {
+  min-height: 82px;
+  align-items: flex-start;
+}
+
+@media (max-width: 360px) {
+  .page-content {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .aggregate-card,
+  .logs-card {
+    border-radius: var(--ui-radius-small);
+  }
+
+  .card-header {
+    align-items: flex-start;
+  }
+
+  .chart-row {
+    padding-right: 6px;
+    padding-left: 6px;
+    gap: 4px;
+  }
+
+  .access-row {
+    padding-left: 36px;
+  }
+
+  .access-meta {
+    min-width: 76px;
+  }
+
+  .log-list::before,
+  .audit-line {
+    left: 12px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .log-skeleton,
   .bar-fill {
+    animation: none;
     transition: none;
   }
 }

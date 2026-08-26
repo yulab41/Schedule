@@ -43,6 +43,13 @@ describe('P9 native visitor access insights', () => {
     expect(controller).toContain('listAggregates');
     expect(controller).toContain('listLogs');
     expect(controller).toContain("requireClientCapability('insights')");
+    expect(controller).toContain("from '@schedule/presentation-core/visitor-access'");
+    expect(controller).not.toContain('function formatDateTime');
+    expect(controller).not.toContain('function formatMonth');
+    expect(controller).not.toContain('function maskClientIp');
+    expect(controller).not.toContain('function maskRequestId');
+    expect(controller).not.toContain('pageSize: 12');
+    expect(controller).not.toContain('pageSize: 20');
     expect(read('src/subpackages/insights/components/visitor-access-panel/index.wxml')).toContain(
       'insights-disabled',
     );
@@ -53,13 +60,32 @@ describe('P9 native visitor access insights', () => {
       'src/subpackages/insights/components/visitor-access-panel/controller.ts',
     );
 
-    expect(controller).toContain('maskClientIp');
-    expect(controller).toContain('maskRequestId');
+    expect(controller).toContain('maskVisitorAccessIp');
+    expect(controller).toContain('maskVisitorAccessRequestId');
     expect(controller).not.toContain('wx.setStorageSync');
     expect(controller).not.toContain('wx.getStorageSync');
     expect(controller).not.toContain('console.log');
     expect(read('src/subpackages/insights/components/visitor-access-panel/index.wxml')).toContain(
       '90 天',
     );
+  });
+
+  it('keeps the Web audit hierarchy and responsive status surfaces', () => {
+    const controller = read(
+      'src/subpackages/insights/components/visitor-access-panel/controller.ts',
+    );
+    const template = read('src/subpackages/insights/components/visitor-access-panel/index.wxml');
+    const styles = read('src/subpackages/insights/components/visitor-access-panel/index.wxss');
+
+    for (const phrase of ['近四个月访问次数', '最近访问', '正在加载访问记录', '来源已脱敏']) {
+      expect(template).toContain(phrase);
+    }
+    expect(template).toContain('查看月份');
+    expect(template).toContain('加载更多记录');
+    expect(controller).toContain('fontSizeSetting');
+    expect(template).toContain("largeText ? 'is-large-text' : ''");
+    expect(styles).toContain('@media (max-width: 360px)');
+    expect(styles).toContain('.is-large-text');
+    expect(styles).toContain('height: 44px');
   });
 });

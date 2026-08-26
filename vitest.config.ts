@@ -58,6 +58,12 @@ export default defineConfig({
         ),
       },
       {
+        find: '@schedule/presentation-core/visitor-access',
+        replacement: fileURLToPath(
+          new URL('./packages/presentation-core/src/visitor-access.ts', import.meta.url),
+        ),
+      },
+      {
         find: '@schedule/presentation-core',
         replacement: fileURLToPath(
           new URL('./packages/presentation-core/src/index.ts', import.meta.url),
