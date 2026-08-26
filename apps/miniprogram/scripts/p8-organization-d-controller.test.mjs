@@ -62,7 +62,8 @@ describe('P8-D native invite and visitor controller', () => {
 
   it('loads member and role targets without persisting invite material', async () => {
     const page = createPageInstance(definition);
-    definition.onLoad.call(page, { groupId });
+    page.properties = { groupId };
+    definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
 
     expect(page.data).toMatchObject({
@@ -107,7 +108,8 @@ describe('P8-D native invite and visitor controller', () => {
 
 async function loadReadyPage(controller) {
   const page = createPageInstance(controller);
-  controller.onLoad.call(page, { groupId });
+  page.properties = { groupId };
+  controller.lifetimes.attached.call(page);
   await vi.waitFor(() => expect(page.data.state).toBe('ready'));
   return page;
 }

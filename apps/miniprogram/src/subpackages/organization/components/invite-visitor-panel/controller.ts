@@ -4,7 +4,6 @@ import {
   type OrganizationReadClient,
 } from '@schedule/client-core';
 import {
-  ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -82,6 +81,7 @@ interface InviteVisitorPageData {
 
 interface InviteVisitorPageInstance {
   readonly data: InviteVisitorPageData;
+  readonly properties: { readonly groupId: string };
   readonly _organizationReadClient: OrganizationReadClient;
   readonly _inviteVisitorWriteClient: InviteVisitorWriteClient;
   _groupId: string;
@@ -150,28 +150,19 @@ export function createInviteVisitorPanelControllerDefinition() {
     _inviteVersion: 0,
     _operationIds: new Map<string, string>(),
 
-    onLoad(
-      this: InviteVisitorPageInstance,
-      query: Readonly<Record<string, string | undefined>>,
-    ): void {
-      this._groupId = decodeGroupId(query['groupId']);
-      const windowInfo = wx.getWindowInfo();
-      const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
-      const headerHeight = statusBarHeight + 52;
-      this.setData({
-        pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
-        shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-        viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-      });
-      void loadInviteData(this);
+    properties: { groupId: { type: String, value: '' } },
+
+    observers: {
+      groupId(this: InviteVisitorPageInstance): void {
+        syncGroupId(this);
+      },
     },
 
-    onShow(this: InviteVisitorPageInstance): void {
-      void requireClientCapability('core').catch((error: unknown) => {
-        if (error instanceof ClientCapabilityDisabledError) {
-          this.setData({ errorMessage: error.message, state: 'error' });
-        }
-      });
+    lifetimes: {
+      attached(this: InviteVisitorPageInstance): void {
+        applyPanelLayout(this);
+        syncGroupId(this);
+      },
     },
 
     handleBack(): void {
@@ -229,6 +220,33 @@ export function createInviteVisitorPanelControllerDefinition() {
       this.setData({ qrVisible: false });
     },
   };
+}
+
+function applyPanelLayout(page: InviteVisitorPageInstance): void {
+  const windowInfo = wx.getWindowInfo();
+  const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
+  const headerHeight = statusBarHeight + 52;
+  page.setData({
+    pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+    shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+    viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+  });
+}
+
+function syncGroupId(page: InviteVisitorPageInstance): void {
+  const groupId = page.properties.groupId;
+  if (groupId === page._groupId) return;
+  page._groupId = groupId;
+  if (groupId.length === 0) {
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      managementError: '当前群组信息缺失，请返回工作台后重试。',
+      managementState: 'error',
+      state: 'error',
+    });
+    return;
+  }
+  void loadInviteData(page);
 }
 
 async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
@@ -483,15 +501,6 @@ function formatDate(value: string): string {
 
 function formatRole(role: GroupSummary['role']): string {
   return role === 'owner' ? '群主' : role === 'administrator' ? '管理员' : '成员';
-}
-
-function decodeGroupId(value: string | undefined): string {
-  if (value === undefined) return '';
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return '';
-  }
 }
 
 function showConfirm(content: string): Promise<boolean> {

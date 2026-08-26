@@ -161,7 +161,11 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
 
 function startLoad(page: InsightsDashboardInstance): void {
   const groupId = page.properties.groupId;
-  if (groupId.length === 0 || groupId === page._loadedGroupId) return;
+  if (groupId.length === 0) {
+    page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
+    return;
+  }
+  if (groupId === page._loadedGroupId) return;
   page._loadedGroupId = groupId;
   page.setData({ groupId });
   void loadDashboard(page);

@@ -59,7 +59,8 @@ describe('P8-C-2 native scheduling configuration controller', () => {
 
   it('loads scheduling configuration read-only data and readiness state', async () => {
     const page = createPageInstance(definition);
-    definition.onLoad.call(page, { groupId });
+    page.properties = { groupId };
+    definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
 
     expect(page.data).toMatchObject({
@@ -74,7 +75,8 @@ describe('P8-C-2 native scheduling configuration controller', () => {
 
   it('uses one operation id and expected rules version for role creation', async () => {
     const page = createPageInstance(definition);
-    definition.onLoad.call(page, { groupId });
+    page.properties = { groupId };
+    definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     definition.handleNewRoleInput.call(page, { detail: { value: '二线' } });
     definition.handleCreateRole.call(page);

@@ -68,7 +68,7 @@ describe('P8-E native platform accounts controller', () => {
 
   it('loads only the platform account status fields returned by the server', async () => {
     const page = createPageInstance(definition);
-    definition.onLoad.call(page);
+    definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     expect(page.data).toMatchObject({
       accounts: [expect.objectContaining({ idLabel: '00000000…0001', passwordLabel: '待设置' })],
@@ -99,7 +99,7 @@ describe('P8-E native platform accounts controller', () => {
 
 async function loadReadyPage(controller) {
   const page = createPageInstance(controller);
-  controller.onLoad.call(page);
+  controller.lifetimes.attached.call(page);
   await vi.waitFor(() => expect(page.data.state).toBe('ready'));
   return page;
 }

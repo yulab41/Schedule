@@ -4,7 +4,6 @@ import {
   type SchedulingConfigWriteClient,
 } from '@schedule/client-core';
 import {
-  ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -103,6 +102,7 @@ interface SchedulingConfigPageData {
 
 interface SchedulingConfigPageInstance {
   readonly data: SchedulingConfigPageData;
+  readonly properties: { readonly groupId: string };
   readonly _organizationReadClient: OrganizationReadClient;
   readonly _schedulingWriteClient: SchedulingConfigWriteClient;
   _groupId: string;
@@ -174,28 +174,19 @@ export function createSchedulingConfigPanelControllerDefinition() {
     _roleMemberOrder: new Map<string, string[]>(),
     _rotationDrafts: new Map<string, RotationDraft>(),
 
-    onLoad(
-      this: SchedulingConfigPageInstance,
-      query: Readonly<Record<string, string | undefined>>,
-    ): void {
-      this._groupId = decodeGroupId(query['groupId']);
-      const windowInfo = wx.getWindowInfo();
-      const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
-      const headerHeight = statusBarHeight + 52;
-      this.setData({
-        pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
-        shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-        viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-      });
-      void loadConfig(this);
+    properties: { groupId: { type: String, value: '' } },
+
+    observers: {
+      groupId(this: SchedulingConfigPageInstance): void {
+        syncGroupId(this);
+      },
     },
 
-    onShow(this: SchedulingConfigPageInstance): void {
-      void requireClientCapability('core').catch((error: unknown) => {
-        if (error instanceof ClientCapabilityDisabledError) {
-          this.setData({ errorMessage: error.message, state: 'error' });
-        }
-      });
+    lifetimes: {
+      attached(this: SchedulingConfigPageInstance): void {
+        applyPanelLayout(this);
+        syncGroupId(this);
+      },
     },
 
     handleBack(): void {
@@ -413,6 +404,34 @@ export function createSchedulingConfigPanelControllerDefinition() {
       void deleteRole(this, roleId);
     },
   };
+}
+
+function applyPanelLayout(page: SchedulingConfigPageInstance): void {
+  const windowInfo = wx.getWindowInfo();
+  const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
+  const headerHeight = statusBarHeight + 52;
+  page.setData({
+    pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+    shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+    viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+  });
+}
+
+function syncGroupId(page: SchedulingConfigPageInstance): void {
+  const groupId = page.properties.groupId;
+  if (groupId === page._groupId) return;
+  page._groupId = groupId;
+  if (groupId.length === 0) {
+    page._loadSerial += 1;
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      managementError: '当前群组信息缺失，请返回工作台后重试。',
+      managementState: 'error',
+      state: 'error',
+    });
+    return;
+  }
+  void loadConfig(page);
 }
 
 async function loadConfig(page: SchedulingConfigPageInstance): Promise<void> {
@@ -883,15 +902,6 @@ function toPositiveInt(value: string): number {
 function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
-}
-
-function decodeGroupId(value: string | undefined): string {
-  if (value === undefined) return '';
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return '';
-  }
 }
 
 function formatRole(role: GroupSummary['role']): string {

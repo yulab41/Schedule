@@ -108,7 +108,15 @@ interface PickerEvent { readonly detail: { readonly value?: unknown } }
 
 function start(page: ExportsPageInstance): void {
   const groupId = page.properties.groupId;
-  if (groupId.length === 0 || groupId === page._loadedGroupId) return;
+  if (groupId.length === 0) {
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      state: 'error',
+      statusLabel: '当前群组信息缺失，请返回工作台后重试。',
+    });
+    return;
+  }
+  if (groupId === page._loadedGroupId) return;
   page._loadedGroupId = groupId;
   page.setData({ groupId });
 }

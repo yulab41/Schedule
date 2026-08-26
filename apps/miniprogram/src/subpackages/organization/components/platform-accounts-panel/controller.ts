@@ -4,7 +4,6 @@ import {
   type PlatformIdentityWriteClient,
 } from '@schedule/client-core';
 import {
-  ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -110,24 +109,11 @@ export function createPlatformAccountsPanelControllerDefinition() {
     _selectedAccount: undefined,
     _operationIds: new Map<string, string>(),
 
-    onLoad(this: PlatformAccountsPageInstance): void {
-      const windowInfo = wx.getWindowInfo();
-      const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
-      const headerHeight = statusBarHeight + 52;
-      this.setData({
-        pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
-        shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-        viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-      });
-      void loadAccounts(this);
-    },
-
-    onShow(this: PlatformAccountsPageInstance): void {
-      void requireClientCapability('core').catch((error: unknown) => {
-        if (error instanceof ClientCapabilityDisabledError) {
-          this.setData({ errorMessage: error.message, state: 'error' });
-        }
-      });
+    lifetimes: {
+      attached(this: PlatformAccountsPageInstance): void {
+        applyPanelLayout(this);
+        void loadAccounts(this);
+      },
     },
 
     handleBack(): void {
@@ -180,6 +166,17 @@ export function createPlatformAccountsPanelControllerDefinition() {
       void generateBinding(this);
     },
   };
+}
+
+function applyPanelLayout(page: PlatformAccountsPageInstance): void {
+  const windowInfo = wx.getWindowInfo();
+  const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
+  const headerHeight = statusBarHeight + 52;
+  page.setData({
+    pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+    shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+    viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+  });
 }
 
 async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {

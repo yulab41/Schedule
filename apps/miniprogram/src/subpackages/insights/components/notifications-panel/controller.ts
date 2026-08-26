@@ -186,7 +186,15 @@ async function loadNotifications(page: NotificationsPageInstance): Promise<void>
 
 function startLoad(page: NotificationsPageInstance): void {
   const groupId = page.properties.groupId;
-  if (groupId.length === 0 || groupId === page._loadedGroupId) return;
+  if (groupId.length === 0) {
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      mode: page.properties.mode,
+      state: 'error',
+    });
+    return;
+  }
+  if (groupId === page._loadedGroupId) return;
   page._loadedGroupId = groupId;
   page.setData({ groupId, mode: page.properties.mode });
   void (page.properties.mode === 'settings' ? loadPreferences(page) : loadNotifications(page));

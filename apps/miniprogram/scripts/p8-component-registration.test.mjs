@@ -24,6 +24,11 @@ describe('P8 organization component registration', () => {
       const source = read(sourcePath);
       expect(source).toContain(`from './controller.js'`);
       expect(source).toContain(`Component(${factory}())`);
+      const controller = read(`src/subpackages/organization/components/${panel}/controller.ts`);
+      expect(controller).toContain('lifetimes:');
+      expect(controller).toContain('attached(');
+      expect(controller).not.toMatch(/\n    onLoad\(/u);
+      expect(controller).not.toMatch(/\n    onShow\(/u);
     }
   });
 

@@ -260,7 +260,15 @@ function startLoad(page: DirectoryPageInstance): void {
   const groupId = page.properties.groupId;
   const kind = page.properties.directoryKind;
   const key = `${groupId}:${kind}`;
-  if (groupId.length === 0 || key === page._loadedKey) return;
+  if (groupId.length === 0) {
+    page.setData({
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      resultSummary: '当前群组信息缺失，请返回工作台后重试。',
+      state: 'error',
+    });
+    return;
+  }
+  if (key === page._loadedKey) return;
   page._loadedKey = key;
   page.setData({ directoryKind: kind, groupId, ...filterLabelsForKind(kind) });
   void loadFacets(page);

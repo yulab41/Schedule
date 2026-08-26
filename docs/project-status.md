@@ -27,6 +27,13 @@
 - 增量体验/运行：`0.1.0-p9.20260826.17` 已上传成功，150 个代码文件、zip `1,332,351` bytes、manifest `02035ff63f85551349b406b5c650291224dc20f8eae29bb7a7b706c8d50f1c1e`。生产备份 archive `891a2e74-40a2-449f-9590-258370543397` 后追加候选白名单；`.17` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`。
 - 增量发布：代码 checkpoint `ccc38ff0ef8a9e910750e78691b6f20918b12aab` 部署 release `ccc38ff0ef8a9e910750e78691b6f20918b12aab`；ECS full verifier、health 200、候选版本 capability 和远端临时目录清理通过。
 
+## 2026-08-26 组织/P9 panel 生命周期与缺失群组状态修复（已实现，待体验版复核）
+
+- 用户反馈 `.17` 上多个页面持续 loading；定位为排班配置、平台账号、邀请与访客 controller 使用了无效的组件顶层 `onLoad/onShow`，且目录/访客/事件/通知/导出在缺失 `groupId` 时静默保持 loading。
+- 修复：三个组织 panel 改为 `properties/observers/lifetimes.attached`，P9/P10 所有 group-bound panel 在缺失群组时进入明确错误态，不再永久转圈；既有请求、权限和写入语义不变。
+- 验证：相关定向 41/41、正式 Mini 源码范围 70 files/327 tests、Mini typecheck、production verify/source/package/determinism/CI dry-run 全部通过；组织分包 `1,680,966` bytes、总包 `5,564,497` bytes。
+- checkpoint：代码提交消息为 `fix(miniprogram): wire panel lifecycles and missing-group states`；提交后上传候选体验版 `.19`，生产 `organization=true` 保持不变。
+
 ## 2026-08-26 Mini 请求桥持续 loading 修复（已实现，待体验版复核）
 
 - 用户反馈院内通讯录、通知设置、访客访问、事件/统计和通知中心持续 loading；定位到 `wx.request` 在某些失败场景既不回调 `success` 也不回调 `fail`，公共 Promise 永不结束。
