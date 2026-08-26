@@ -2,7 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 项目内生成物约束与历史目录清理（已实现，待 checkpoint 发布）
+## 2026-08-26 Web/Mini 通知中心与通知设置共享（已实现，待 checkpoint 发布）
+
+- 范围：以 Web 现有通知规则为基准，把通知类型标签/色调、相对时间与绝对时间回退、提醒小时输入、个人默认/自定义/关闭模式和群组管理权限下沉到 `presentation-core/notification`；群组与个人通知设置读写下沉到 `client-core`。Web 改为共享重导出/共享客户端，Mini 直接调用同一实现；微信订阅授权仍只属于 Mini 平台适配。
+- 引入点：Web 通知展示规则来自 `52e9e1f4`、色调来自 `6ec287da`；Mini 模糊标签/时间来自 `1a428d73`，共享客户端边界来自 `cb82cb78`，Mini 订阅与设置入口来自 `766ec6ac`。相关调用点已执行 `git log -S` 与 `git blame`。
+- 测试先行：共享展示模块、群组设置客户端和 Mini 禁止私有通知规则均在旧实现先失败；完整回归又发现旧服务响应缺少微信开关时 Web 的默认开启语义丢失，现由共享 decoder 统一补齐并新增共享层回归，不修改 Web 断言规避问题。
+- 行为变化：Mini 通知页与 Web 统一精确类型标签/色调、相对时间、每页 30 条和未读计数即时更新；设置页增加管理员群组默认提醒及个人默认/自定义/关闭。平台管理员、owner、administrator 可管理群组设置，普通成员仅管理个人设置。`insights`/`externalMessages` 生产 capability 保持关闭，不新增 API、数据库迁移、离线写队列或权限放宽。
+- 语义等价：共享 Web transport 仍通过原 `requestWithOnline`、同一 Bearer/路径/方法与一次 HTTP 请求；decoder 只在成功响应边界执行一次并返回其共享结果。Promise/catch、无效响应、空值、权限、请求次数、微信原生授权与存储语义不变。
+- 验证：Web+presentation+client-core 136 files/709 tests、Mini 75 files/342 tests 通过；四端 typecheck、presentation/client/Web production build、任务 Prettier/ESLint、Mini production verify/source/package/determinism/CI dry-run 和 diff check 通过。Mini 包体 `5,662,838` bytes，manifest `7614a08eda86c7337f20d8dc3c348c2024b65c3cea2e0d8e47d6677f4e57a37e`。
+- 运行/浏览器验证：`pnpm smoke:browser` 等价直接入口在当前源码 API `127.0.0.1:3000`、Web `127.0.0.1:5400` 完整通过登录、管理员、成员、访客 vkey 与访问记录，全流程无浏览器错误；截图只保留项目内 `runtime/smoke/latest`，临时服务已关闭。提交前继续运行 `pnpm smoke:check-core`。
+- checkpoint：待以 `feat(notifications): share Web presentation rules` 创建并推送代码 checkpoint，上传 production-profile `.25` 体验版（不提审/不正式发布），完成生产备份、部署与 full verifier 后再更新本节证据。
+- 下一活动批次与停止条件：本 checkpoint 发布完成后进入事件与统计共享规则垂直切片；未落地 P10 worktree 必须继续保留，只可覆盖 `runtime/smoke/latest` 等最新测试产物。
+
+## 2026-08-26 项目内生成物约束与历史目录清理（已完成）
 
 - 用户新增硬性约束：项目相关 worktree、发布包、smoke 截图、日志、调试与打包临时文件必须位于 `E:\AItools\Schedule` 内；已落地淘汰版本和调试/测试内容可删除，未落地开发内容禁止删除，只保留最新可复用 release worktree。凭据/私钥仍按安全规则保留在仓库外受控目录。
 - 清理审计：初始发现 `E:\AItools` 下 104 个 `Schedule-*` 历史目录、16 个项目外 Git worktree、系统 Temp 1002 个 `schedule-*` 项及项目内多批旧 `.artifacts/runtime` release 副本。脏 worktree 在删除前保存 HEAD/status/patch/runtime；用户随后明确无需回溯调试结果，故已落地旧版本和调试/测试归档全部清空。

@@ -10,7 +10,7 @@
     ><view class="header-title"
       ><text class="header-title-main">{{mode === 'settings' ? '通知设置' : '通知中心'}}</text
       ><text class="header-title-sub"
-        >{{mode === 'settings' ? '本人微信值班提醒' : '排班、请假与换班提醒'}}</text
+        >{{mode === 'settings' ? '群组默认与本人提醒' : '排班、请假与换班提醒'}}</text
       ></view
     ><text class="phase-chip">P9</text></view
   >
@@ -41,11 +41,67 @@
         ></view>
         <view wx:else class="settings-content"
           ><view class="page-heading"
-            ><text class="section-eyebrow">提醒设置 / 微信</text
-            ><text class="page-title">微信值班提醒</text
+            ><text class="section-eyebrow">提醒节奏</text
+            ><text class="page-title">通知设置</text
             ><text class="page-description"
-              >订阅授权只在点击开启时请求；关闭后，应用内通知仍然可用。</text
+              >站内通知始终可用；微信权限只在主动开启时申请，订阅授权只在点击开启时请求。</text
             ></view
+          ><view wx:if="{{canManageGroupSettings}}" class="settings-card"
+            ><text class="settings-title">群组默认提醒时间</text
+            ><text class="settings-description">值班前提醒小时数，最多 5 个，使用逗号分隔。</text
+            ><input
+              class="hours-input"
+              value="{{groupHoursInput}}"
+              placeholder="例如：24, 2"
+              disabled="{{groupSettingsBusy}}"
+              bindinput="handleGroupHoursInput" />
+            <ui-button
+              variant="primary"
+              label="保存群组设置"
+              loading="{{groupSettingsBusy}}"
+              disabled="{{groupSettingsBusy}}"
+              bindpress="handleSaveGroupSettings"
+            ></ui-button></view
+          ><view class="settings-card"
+            ><text class="settings-title">我的提醒</text
+            ><text class="settings-description">选择群组默认、自定义或关闭值班提醒。</text
+            ><view class="reminder-mode" aria-label="值班提醒时间"
+              ><view
+                class="reminder-mode-option {{myHoursMode === 'default' ? 'is-active' : ''}}"
+                aria-role="button"
+                aria-label="使用群组默认"
+                data-mode="default"
+                bindtap="handleReminderMode"
+                >使用群组默认</view
+              ><view
+                class="reminder-mode-option {{myHoursMode === 'custom' ? 'is-active' : ''}}"
+                aria-role="button"
+                aria-label="自定义提醒时间"
+                data-mode="custom"
+                bindtap="handleReminderMode"
+                >自定义</view
+              ><view
+                class="reminder-mode-option {{myHoursMode === 'off' ? 'is-active' : ''}}"
+                aria-role="button"
+                aria-label="关闭值班提醒"
+                data-mode="off"
+                bindtap="handleReminderMode"
+                >关闭值班提醒</view
+              ></view
+            ><input
+              wx:if="{{myHoursMode === 'custom'}}"
+              class="hours-input"
+              value="{{myHoursInput}}"
+              placeholder="例如：48, 12"
+              disabled="{{mySettingsBusy}}"
+              bindinput="handleMyHoursInput" />
+            <ui-button
+              variant="primary"
+              label="保存我的设置"
+              loading="{{mySettingsBusy}}"
+              disabled="{{mySettingsBusy}}"
+              bindpress="handleSaveMyPreferences"
+            ></ui-button></view
           ><view class="settings-card"
             ><view class="settings-row"
               ><view class="settings-copy"
@@ -75,7 +131,7 @@
           ><ui-alert
             wx:if="{{infoMessage}}"
             tone="info"
-            title="授权状态"
+            title="设置状态"
             message="{{infoMessage}}"
           ></ui-alert
           ><view wx:if="{{!templateConfigured}}" class="template-note"
@@ -129,7 +185,9 @@
               ><view class="notification-main"
                 ><view class="notification-heading"
                   ><text class="notification-title">{{item.title}}</text
-                  ><text class="notification-type">{{item.typeLabel}}</text></view
+                  ><text class="notification-type is-{{item.typeTone}}"
+                    >{{item.typeLabel}}</text
+                  ></view
                 ><text class="notification-body">{{item.body}}</text
                 ><text class="notification-time">{{item.createdAtLabel}}</text></view
               ><ui-button

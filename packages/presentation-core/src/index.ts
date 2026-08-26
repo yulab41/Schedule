@@ -114,6 +114,23 @@ export {
   type WorkflowOperationAttempt,
 } from './workflow-operation.js';
 export {
+  canManageNotificationSettings,
+  findNewUnreadNotifications,
+  formatNotificationTime,
+  formatReminderHours,
+  getGenericBrowserNotificationBody,
+  getNotificationLabel,
+  getNotificationTargetUrl,
+  getNotificationTone,
+  getReminderHoursMode,
+  parseReminderHoursInput,
+  resolveReminderHours,
+  type NotificationRecordLike,
+  type NotificationSettingsRoleLike,
+  type NotificationTone,
+  type ReminderHoursMode,
+} from './notification.js';
+export {
   buildDutyAdjustmentCandidates,
   buildLeaveFormInterval,
   buildOperableCandidateAssignments,

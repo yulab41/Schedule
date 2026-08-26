@@ -173,6 +173,22 @@
   border-radius: 5px;
   white-space: nowrap;
 }
+.notification-type.is-danger {
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+}
+.notification-type.is-warning {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+}
+.notification-type.is-success {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+}
+.notification-type.is-default {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+}
 .notification-body {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
@@ -258,6 +274,45 @@
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   line-height: var(--ui-line-height-body);
+}
+.hours-input {
+  width: 100%;
+  height: 44px;
+  margin: 12px 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-md);
+}
+.reminder-mode {
+  display: flex;
+  margin: 12px 0;
+  padding: 3px;
+  gap: 3px;
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-medium);
+}
+.reminder-mode-option {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 8px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-secondary);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  text-align: center;
+}
+.reminder-mode-option.is-active {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-card);
+  font-weight: var(--ui-font-weight-semibold);
 }
 .audit-note {
   display: flex;

@@ -88,6 +88,7 @@ export {
 } from './p9-insights-actions-client.js';
 export {
   createNotificationPreferencesClient,
+  groupNotificationSettingsDecoder,
   memberNotificationPreferencesDecoder,
   notificationPreferencesEndpoints,
   type NotificationPreferencesClient,

@@ -5,6 +5,18 @@ import {
 } from '@schedule/client-core';
 import type { NotificationRecord } from '@schedule/contracts';
 import {
+  canManageNotificationSettings,
+  formatNotificationTime,
+  formatReminderHours,
+  getNotificationLabel,
+  getNotificationTone,
+  getReminderHoursMode,
+  parseReminderHoursInput,
+  resolveReminderHours,
+  type NotificationTone,
+  type ReminderHoursMode,
+} from '@schedule/presentation-core';
+import {
   ClientCapabilityDisabledError,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -17,6 +29,7 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { createWorkbenchReadClient } from '../../../../platform/workbench-read.js';
 
 type NotificationState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
 
@@ -27,23 +40,31 @@ interface NotificationCard {
   readonly isRead: boolean;
   readonly title: string;
   readonly typeLabel: string;
+  readonly typeTone: NotificationTone;
 }
 
 interface NotificationsPageData {
   readonly actionBusyId: string;
   readonly busy: boolean;
+  readonly canManageGroupSettings: boolean;
   readonly enabled: boolean;
   readonly errorMessage: string;
   readonly groupId: string;
+  readonly groupHoursInput: string;
+  readonly groupSettingsBusy: boolean;
   readonly infoMessage: string;
   readonly loadingMore: boolean;
   readonly mode: 'notifications' | 'settings';
+  readonly myHoursInput: string;
+  readonly myHoursMode: ReminderHoursMode;
+  readonly mySettingsBusy: boolean;
   readonly nextCursor: string;
   readonly notifications: readonly NotificationCard[];
   readonly pageScrollStyle: string;
   readonly shellHeaderStyle: string;
   readonly state: NotificationState;
   readonly templateConfigured: boolean;
+  readonly unreadCount: number;
   readonly unreadCountLabel: string;
   readonly viewportClass: string;
 }
@@ -67,6 +88,7 @@ const preferencesClient = createRuntimeNotificationPreferencesClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
+const workbenchClient = createWorkbenchReadClient();
 // Template IDs are supplied only after the WeChat account template is approved.
 const SUBSCRIPTION_TEMPLATE_IDS: readonly string[] = [];
 
@@ -75,18 +97,25 @@ export function createNotificationsPanelControllerDefinition() {
     data: {
       actionBusyId: '',
       busy: false,
+      canManageGroupSettings: false,
       enabled: false,
       errorMessage: '',
       groupId: '',
+      groupHoursInput: '',
+      groupSettingsBusy: false,
       infoMessage: '',
       loadingMore: false,
       mode: 'notifications' as const,
+      myHoursInput: '',
+      myHoursMode: 'default' as ReminderHoursMode,
+      mySettingsBusy: false,
       nextCursor: '',
       notifications: [],
       pageScrollStyle: 'height:calc(100% - 76px);',
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       state: 'loading' as NotificationState,
       templateConfigured: SUBSCRIPTION_TEMPLATE_IDS.length > 0,
+      unreadCount: 0,
       unreadCountLabel: '0 未读',
       viewportClass: '',
     } satisfies NotificationsPageData,
@@ -136,6 +165,24 @@ export function createNotificationsPanelControllerDefinition() {
       handleMarkAllRead(this: NotificationsPageInstance): void {
         void markAllRead(this);
       },
+      handleGroupHoursInput(this: NotificationsPageInstance, event: ValueEvent): void {
+        this.setData({ groupHoursInput: event.detail.value, errorMessage: '' });
+      },
+      handleMyHoursInput(this: NotificationsPageInstance, event: ValueEvent): void {
+        this.setData({ myHoursInput: event.detail.value, errorMessage: '' });
+      },
+      handleReminderMode(this: NotificationsPageInstance, event: TapEvent): void {
+        const mode = event.currentTarget.dataset.mode;
+        if (mode === 'default' || mode === 'custom' || mode === 'off') {
+          this.setData({ myHoursMode: mode, errorMessage: '' });
+        }
+      },
+      handleSaveGroupSettings(this: NotificationsPageInstance): void {
+        void saveGroupSettings(this);
+      },
+      handleSaveMyPreferences(this: NotificationsPageInstance): void {
+        void saveMyPreferences(this);
+      },
       handleToggle(
         this: NotificationsPageInstance,
         event: { readonly detail: { readonly checked: boolean } },
@@ -148,6 +195,10 @@ export function createNotificationsPanelControllerDefinition() {
 
 interface TapEvent {
   readonly currentTarget: { readonly dataset: Record<string, string | undefined> };
+}
+
+interface ValueEvent {
+  readonly detail: { readonly value: string };
 }
 
 async function loadNotifications(page: NotificationsPageInstance): Promise<void> {
@@ -163,7 +214,7 @@ async function loadNotifications(page: NotificationsPageInstance): Promise<void>
   page.setData({ errorMessage: '', loadingMore: false, nextCursor: '', state: 'loading' });
   try {
     await requireClientCapability('insights');
-    const result = await page._actionsClient.listNotifications({ groupId, pageSize: 20 });
+    const result = await page._actionsClient.listNotifications({ groupId, pageSize: 30 });
     if (requestSerial !== page._requestSerial) return;
     page._nextCursor = result.nextCursor;
     const notifications = result.notifications.map(toNotificationCard);
@@ -171,6 +222,7 @@ async function loadNotifications(page: NotificationsPageInstance): Promise<void>
       nextCursor: result.nextCursor ?? '',
       notifications,
       state: notifications.length === 0 ? 'empty' : 'ready',
+      unreadCount: result.unreadCount,
       unreadCountLabel: `${result.unreadCount} 未读`,
     });
   } catch (error) {
@@ -210,12 +262,35 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
   }
   const requestSerial = page._requestSerial + 1;
   page._requestSerial = requestSerial;
-  page.setData({ busy: false, errorMessage: '', infoMessage: '', state: 'loading' });
+  page.setData({
+    busy: false,
+    errorMessage: '',
+    groupSettingsBusy: false,
+    infoMessage: '',
+    mySettingsBusy: false,
+    state: 'loading',
+  });
   try {
     await requireClientCapability('externalMessages');
-    const preferences = await page._preferencesClient.getMine(page.data.groupId);
+    const groups = await workbenchClient.listGroups();
+    const group = groups.find((candidate) => candidate.id === page.data.groupId);
+    if (group === undefined) throw new Error('当前群组信息缺失，请返回工作台后重试。');
+    const canManageGroupSettings = canManageNotificationSettings(group);
+    const [preferences, groupSettings] = await Promise.all([
+      page._preferencesClient.getMine(page.data.groupId),
+      canManageGroupSettings
+        ? page._preferencesClient.getGroup(page.data.groupId)
+        : Promise.resolve(undefined),
+    ]);
     if (requestSerial !== page._requestSerial) return;
-    page.setData({ enabled: preferences.wechatNotificationsEnabled !== false, state: 'ready' });
+    page.setData({
+      canManageGroupSettings,
+      enabled: preferences.wechatNotificationsEnabled !== false,
+      groupHoursInput: formatReminderHours(groupSettings?.dutyReminderHours ?? null),
+      myHoursInput: formatReminderHours(preferences.dutyReminderHours),
+      myHoursMode: getReminderHoursMode(preferences.dutyReminderHours),
+      state: 'ready',
+    });
   } catch (error) {
     if (requestSerial !== page._requestSerial) return;
     page.setData({
@@ -225,6 +300,53 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
           : toUserMessage(error, '通知设置暂时无法加载，请稍后重试。'),
       state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
     });
+  }
+}
+
+async function saveGroupSettings(page: NotificationsPageInstance): Promise<void> {
+  if (
+    !page.data.canManageGroupSettings ||
+    page.data.groupSettingsBusy ||
+    page.data.state !== 'ready'
+  ) {
+    return;
+  }
+  page.setData({ errorMessage: '', groupSettingsBusy: true, infoMessage: '' });
+  try {
+    await requireClientCapability('externalMessages');
+    const dutyReminderHours = parseReminderHoursInput(page.data.groupHoursInput);
+    const settings = await page._preferencesClient.updateGroup(page.data.groupId, {
+      dutyReminderHours,
+    });
+    page.setData({
+      groupHoursInput: formatReminderHours(settings.dutyReminderHours),
+      infoMessage: '群组提醒时间已保存。',
+    });
+  } catch (error) {
+    page.setData({ errorMessage: toUserMessage(error, '通知设置暂时无法保存，请稍后重试。') });
+  } finally {
+    page.setData({ groupSettingsBusy: false });
+  }
+}
+
+async function saveMyPreferences(page: NotificationsPageInstance): Promise<void> {
+  if (page.data.mySettingsBusy || page.data.state !== 'ready') return;
+  page.setData({ errorMessage: '', infoMessage: '', mySettingsBusy: true });
+  try {
+    await requireClientCapability('externalMessages');
+    const dutyReminderHours = resolveReminderHours(page.data.myHoursMode, page.data.myHoursInput);
+    const preferences = await page._preferencesClient.updateMine(page.data.groupId, {
+      dutyReminderHours,
+    });
+    page.setData({
+      infoMessage: '个人提醒设置已保存。',
+      myHoursInput: formatReminderHours(preferences.dutyReminderHours),
+      myHoursMode: getReminderHoursMode(preferences.dutyReminderHours),
+    });
+  } catch (error) {
+    page.setData({ errorMessage: toUserMessage(error, '通知设置暂时无法保存，请稍后重试。') });
+  } finally {
+    page.setData({ mySettingsBusy: false });
   }
 }
 
@@ -290,7 +412,7 @@ async function loadMore(page: NotificationsPageInstance): Promise<void> {
     const result = await page._actionsClient.listNotifications({
       groupId: page.data.groupId,
       cursor,
-      pageSize: 20,
+      pageSize: 30,
     });
     page._nextCursor = result.nextCursor;
     const notifications = [
@@ -301,6 +423,7 @@ async function loadMore(page: NotificationsPageInstance): Promise<void> {
       loadingMore: false,
       nextCursor: result.nextCursor ?? '',
       notifications,
+      unreadCount: result.unreadCount,
       unreadCountLabel: `${result.unreadCount} 未读`,
     });
   } catch (error) {
@@ -317,11 +440,15 @@ async function markRead(page: NotificationsPageInstance, id: string): Promise<vo
   try {
     await requireClientCapability('insights');
     await page._actionsClient.markNotificationRead(id);
+    const wasUnread = page.data.notifications.some((item) => item.id === id && !item.isRead);
+    const unreadCount = wasUnread ? Math.max(0, page.data.unreadCount - 1) : page.data.unreadCount;
     page.setData({
       actionBusyId: '',
       notifications: page.data.notifications.map((item) =>
         item.id === id ? { ...item, isRead: true } : item,
       ),
+      unreadCount,
+      unreadCountLabel: `${unreadCount} 未读`,
     });
   } catch (error) {
     page.setData({
@@ -340,6 +467,7 @@ async function markAllRead(page: NotificationsPageInstance): Promise<void> {
     page.setData({
       actionBusyId: '',
       notifications: page.data.notifications.map((item) => ({ ...item, isRead: true })),
+      unreadCount: 0,
       unreadCountLabel: '0 未读',
     });
   } catch (error) {
@@ -353,28 +481,13 @@ async function markAllRead(page: NotificationsPageInstance): Promise<void> {
 function toNotificationCard(notification: NotificationRecord): NotificationCard {
   return {
     body: notification.body,
-    createdAtLabel: formatDateTime(notification.createdAt),
+    createdAtLabel: formatNotificationTime(notification.createdAt, new Date()),
     id: notification.id,
     isRead: notification.isRead,
     title: notification.title,
-    typeLabel: notificationTypeLabel(notification.notificationType),
+    typeLabel: getNotificationLabel(notification.notificationType),
+    typeTone: getNotificationTone(notification.notificationType),
   };
-}
-
-function notificationTypeLabel(value: string): string {
-  if (value.includes('approval')) return '审批提醒';
-  if (value.includes('swap')) return '换班提醒';
-  if (value.includes('duty')) return '值班提醒';
-  if (value.includes('vacancy')) return '缺口提醒';
-  return '排班提醒';
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return '时间未知';
-  const china = new Date(date.valueOf() + 8 * 60 * 60 * 1000);
-  const pad = (part: number): string => String(part).padStart(2, '0');
-  return `${china.getUTCMonth() + 1}月${china.getUTCDate()}日 ${pad(china.getUTCHours())}:${pad(china.getUTCMinutes())}`;
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

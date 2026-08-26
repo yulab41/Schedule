@@ -11,14 +11,20 @@ import {
   resubscribeToPush,
   subscribeToPush,
 } from '../../register-service-worker.js';
-import { formatReminderHours, parseReminderHoursInput } from './notification-logic.js';
+import {
+  canManageNotificationSettings,
+  formatReminderHours,
+  getReminderHoursMode,
+  parseReminderHoursInput,
+  resolveReminderHours,
+} from './notification-logic.js';
 
 const props = defineProps<{
   group: GroupSummary;
 }>();
 
 const api = createApiClient({ auth: localAuth });
-const canManageSettings = computed(() => props.group.role !== 'member');
+const canManageSettings = computed(() => canManageNotificationSettings(props.group));
 
 const groupHoursInput = ref('');
 const myHoursMode = ref<'custom' | 'default' | 'off'>('default');
@@ -48,12 +54,7 @@ async function load(): Promise<void> {
         : Promise.resolve(undefined),
     ]);
     browserNotificationsEnabled.value = preferences.browserNotificationsEnabled;
-    myHoursMode.value =
-      preferences.dutyReminderHours === null
-        ? 'default'
-        : preferences.dutyReminderHours.length === 0
-          ? 'off'
-          : 'custom';
+    myHoursMode.value = getReminderHoursMode(preferences.dutyReminderHours);
     myHoursInput.value = formatReminderHours(preferences.dutyReminderHours);
     pushAvailable.value = pushConfig.vapidPublicKey !== null;
     needsPushRegistration.value =
@@ -82,12 +83,7 @@ async function saveGroupSettings(): Promise<void> {
 
 async function saveMyPreferences(): Promise<void> {
   try {
-    const dutyReminderHours =
-      myHoursMode.value === 'default'
-        ? null
-        : myHoursMode.value === 'off'
-          ? []
-          : parseReminderHoursInput(myHoursInput.value);
+    const dutyReminderHours = resolveReminderHours(myHoursMode.value, myHoursInput.value);
     await api.updateMyNotificationPreferences(props.group.id, {
       browserNotificationsEnabled: browserNotificationsEnabled.value,
       dutyReminderHours,

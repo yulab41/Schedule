@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 Web/Mini 通知中心与通知设置共享
+
+- 当前结论：通知类型标签/色调/时间、提醒小时与模式、群组管理权限已统一下沉 `presentation-core`，通知设置网络边界已统一下沉 `client-core`；Web 与 Mini 不再各自维护业务规则，微信订阅授权仍为 Mini 平台能力。
+- 回归门禁：旧实现缺共享模块/群组客户端并保留 Mini 私有规则时先红；共享化后 Web/共享包 136 files/709、Mini 75 files/342 全绿，旧响应缺微信开关时默认开启的兼容语义也由共享 decoder 覆盖。
+- 运行/浏览器验证：`pnpm smoke:browser` 等价直接入口在当前源码 API 3000/Web 5400 完整通过管理员、成员、访客 vkey 与访问记录，浏览器错误为 0；证据只保留 `runtime/smoke/latest`，服务已关闭。提交前运行 `pnpm smoke:check-core`。
+- 发布状态：待 `feat(notifications): share Web presentation rules` checkpoint、`.25` 体验上传与生产备份/部署/full verifier；不开放生产 `insights` 或 `externalMessages`。
+
 ## 2026-08-26 项目内生成物约束与历史目录清理
 
 - 范围：用户禁止项目相关 worktree/release/smoke/log/tmp 留在项目外；允许删除已落地淘汰版本和调试/测试内容，但未落地开发必须保留。初始盘点为 `E:\AItools` 104 个 `Schedule-*`、16 个外部 worktree、Temp 1002 个 `schedule-*` 和项目内多批旧 release/test 副本。
