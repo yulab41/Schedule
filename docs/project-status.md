@@ -9,7 +9,10 @@
 - 测试先行：旧实现上的 P9 导出大字号静态契约先失败 1 项；实现后导出原生契约 4/4、controller 6/6、Mini 全量 83 files/379 tests、任务 Prettier/ESLint 和 `git diff --check` 通过。P9 RC runbook 已从 `.33` 同步至候选 `.34`。
 - 自动验证：Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 和导出共享逻辑 30/30 通过；verify manifest `81d0290b5e0427ec0b845cddd25567e859bee2ec76d919a35223b50fff567c78`，总包 `5,752,139` bytes，organization `1,746,840` bytes（仅既有内部 1.5M 预警）。根全量测试按现有配置误扫 `runtime/**`/外部 worktree 与未跟踪 `src/**`，受既有路径/行尾/黄金基线失败影响；未修改这些用户文件。
 - 当前策略：用户已明确“无需人工复核”，本项以自动测试、确定性构建、包边界和生产验证验收；当前生产仍保持 `.33`、`organization=true`、`insights/externalMessages=false`，`.34` 仅作为体验候选，不提审、不正式发布、不自行开启 P9 能力。
-- checkpoint/下一步：代码与 RC 文档 checkpoint 拟以 `fix(miniprogram): support p9 export large text` 提交；提交后从干净 release worktree 上传 `0.1.0-p9.20260827.34`、按备份保护原子加入白名单并完成 ECS 发布/验证。下一活动批次为群组设置 panel 与剩余 P10/P9 状态分支自动审计（只处理 1 项），停止条件是本项体验上传、生产部署、能力探针和 verifier 全部通过。
+- 线上发布：代码 checkpoint `3b32fd0feee51d755ff83f86d757c194662398f1`（`fix(miniprogram): support p9 export large text`）已推送；从精确 release worktree 上传体验版 `0.1.0-p9.20260827.34` 成功，153 个代码文件、zip `1,403,365` bytes、上传 manifest `aa1b280f3611ca98d4d1eb92ab1561e80c6720864165c175ed8107517b7d1ac1`。生产发布前数据库备份 archive `9ed9f47a-f051-44f6-acb2-a789b7b9e2c3`（54 表、176,233 行、81,493,944 bytes、SHA-256 `53be2f046f23a70c6ff7a946909e77489974ce85612fa3cad23204134a076123`）；`.34` 已原子加入版本白名单，能力值未新增开放。
+- 线上偏差与恢复：白名单脚本首次通过 PowerShell 管道时因 CR 行尾触发异常恢复，短暂将 `.env.production` 置为 0 字节并使 API/MySQL 编排不健康；立即从服务器 root:root/0600 的受保护恢复副本恢复配置，重建 API，并以 canonical 版本列表恢复 `.34` 及全部既有候选、`organization=true` 和 P9 关闭值。业务数据库未修改；恢复后的健康、`.34` capability 和配置权限均通过。
+- 线上验证：代码 release `3b32fd0feee51d755ff83f86d757c194662398f1` 已部署，预热首个健康请求 502 后恢复；迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均通过。`.34` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；当前 `current-release` 与 Git 一致，`.env.production` 保持 `root:root/0600`，远端本轮临时目录已清理。
+- checkpoint/下一步：代码与 RC 文档 checkpoint `3b32fd0feee51d755ff83f86d757c194662398f1` 已提交、推送、体验上传并完成生产部署/验证；本轮用户已明确无需人工复核，自动测试、构建、能力探针与 verifier 为验收依据。下一活动批次为群组设置 panel 与剩余 P10/P9 状态分支自动审计（只处理 1 项），停止条件是覆盖矩阵无未覆盖项且验证/发布闭环通过。
 
 ## 2026-08-27 P8 组织管理独立 panel 大字号自动硬化（已完成自动发布验证，继续推进）
 
