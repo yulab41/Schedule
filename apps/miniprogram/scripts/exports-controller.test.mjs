@@ -153,6 +153,37 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(mocks.getExportJob).toHaveBeenLastCalledWith(groupId, 'job-1');
   });
 
+  it('closes a ready job when insights is disabled during status polling', async () => {
+    const definition = await controllerDefinition();
+    const page = await loadedPage(definition);
+    mocks.getExportJob.mockRejectedValueOnce(
+      new mocks.ClientCapabilityDisabledError('insights disabled'),
+    );
+
+    definition.methods.handleContinue.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('disabled'));
+
+    expect(page.data.fileLabel).toBe('');
+    expect(page.data.errorMessage).toBe('insights disabled');
+    expect(page._jobId).toBeUndefined();
+  });
+
+  it('closes the ready file state when insights is disabled during download', async () => {
+    const definition = await controllerDefinition();
+    const page = await loadedPage(definition);
+    mocks.downloadScheduleExport.mockRejectedValueOnce(
+      new mocks.ClientCapabilityDisabledError('insights disabled'),
+    );
+
+    definition.methods.handleDownload.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('disabled'));
+
+    expect(page.data.downloadBusy).toBe(false);
+    expect(page.data.fileLabel).toBe('');
+    expect(page.data.errorMessage).toBe('insights disabled');
+    expect(page._jobId).toBeUndefined();
+  });
+
   it('keeps the ready job retryable after download or document-open failure', async () => {
     const definition = await controllerDefinition();
     const page = await loadedPage(definition);

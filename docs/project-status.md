@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 导出能力关闭态自动收口（已完成自动验证，继续推进）
+
+- 范围：只收口导出任务轮询/下载过程中 `insights` 能力关闭的状态分支；能力关闭时清空旧任务与文件名并进入明确 disabled，不改导出 API、Bearer 下载、轮询时序、权限、写入或能力开关。引入点来自 `de710eaf`、`82840db9`，已执行 `git log -S`/`git blame`。
+- 实现：状态轮询或安全下载遇到 `ClientCapabilityDisabledError` 时统一失效化旧 job、停止后续 UI 回写、清空文件名并显示“导出暂未开放”；普通网络/设备打开失败仍保留原 failed/ready 可重试语义。
+- 测试先行：旧实现的轮询与下载能力关闭回归各失败 1 项；实现后 exports controller 8/8、P9 export 契约 4/4、Mini 全量 83 files/383 tests、任务 Prettier/ESLint 和 `git diff --check` 通过。P9 RC runbook 已同步至候选 `.36`。
+- 自动验证：Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；verify manifest `a7cba730107e2016b24eb8e9c42977e94e59168358ddcbd005762cb91740b83e`，总包 `5,758,853` bytes，insights `1,316,777` bytes（organization `1,753,082` bytes，仅既有内部预警）。根全量测试仍会误扫用户 `runtime/**`/外部 worktree 与未跟踪 `src/**`，不纳入本项。
+- 当前策略：用户已明确“无需人工复核”，本项以自动回归、确定性构建、包边界和生产 verifier 验收；当前生产支持 `.35`、`organization=true`、`insights/externalMessages=false`，候选 `.36` 不提审、不正式发布、不自行开启 P9 能力。
+- checkpoint/下一步：代码 checkpoint 拟以 `fix(miniprogram): close export capability state` 提交；提交后从精确 release worktree 上传 `0.1.0-p9.20260827.36`、按备份保护原子加入白名单并完成 ECS 发布/验证。下一活动批次为 P10/P9 剩余状态分支自动审计（只处理 1 项），停止条件是本项体验上传、生产部署、能力探针、verifier 和状态同步全部通过。
+
 ## 2026-08-27 P8 群组设置 panel 大字号自动对等硬化（已完成自动验证，继续推进）
 
 - 范围：只为群组设置 panel 接入 `fontSizeSetting >= 20` 状态、根节点大字号 class 和长姓名/号码/成员操作重排；不改权限、同意、群组/成员写入、版本/幂等、API 或能力开关。引入点来自 `0d971de17`，组织管理扩展来自 `70f9a98f`，已执行 `git log -S`/`git blame`。

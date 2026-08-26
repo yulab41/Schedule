@@ -356,6 +356,10 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
     });
   } catch (error) {
     if (page._pollCancelled) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setExportDisabled(page, error);
+      return;
+    }
     page.setData({
       errorMessage: toUserMessage(error, '导出暂时无法完成，请稍后重试。'),
       state: 'failed',
@@ -404,6 +408,10 @@ async function downloadExport(page: ExportsPageInstance): Promise<void> {
     });
   } catch (error) {
     if (!isDownloadActive(page, groupId, jobId)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setExportDisabled(page, error);
+      return;
+    }
     page.setData({
       downloadBusy: false,
       errorMessage: toUserMessage(error, '文件下载失败，请稍后重试。'),
@@ -448,6 +456,18 @@ function isWorking(state: ExportState): boolean {
 
 function isDownloadActive(page: ExportsPageInstance, groupId: string, jobId: string): boolean {
   return !page._pollCancelled && page.data.groupId === groupId && page._jobId === jobId;
+}
+
+function setExportDisabled(page: ExportsPageInstance, error: ClientCapabilityDisabledError): void {
+  page._pollCancelled = true;
+  page._jobId = undefined;
+  page.setData({
+    downloadBusy: false,
+    errorMessage: error.message,
+    fileLabel: '',
+    state: 'disabled',
+    statusLabel: '导出暂未开放',
+  });
 }
 
 function toUserMessage(error: unknown, fallback: string): string {
