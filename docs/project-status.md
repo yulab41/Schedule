@@ -2,11 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 P8/P10 实体验收通过（能力开启待明确授权）
+## 2026-08-26 P8/P10 实体验收通过（organization 已开启，P9 待验收）
 
 - 用户已明确确认：`P10 通讯录 RC 通过`、`P10 个人中心 RC 通过`、`P8 组织管理 RC 通过`。验收候选为体验版 `0.1.0-p9.20260826.15`。
-- 生产只读核查：`MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED=true`、`CORE=true`、`WORKFLOWS=true`、`GUEST=true`；`organization=false`、`insights=false`、`externalMessages=false`，`.15` capability HTTP 200，未自动切换开关。
-- 下一活动批次与停止条件：在用户明确授权后才执行 `organization=true` 的原子能力切换、健康/回滚验证；P9 `insights` 与 `externalMessages` 仍需各自的阶段确认和模板资格，不随本次 RC 自动开启。
+- 生产切换前备份 archive `56819019-6bba-46cb-9356-6c87f3717f3c`（54 表/172,393 行/80,217,528 bytes/SHA `c26f3315e6adbfef43044feb81a14e9d23f542cf58cfd45411adf2717d8940d1`）后，用户授权已执行 `organization=true` 原子切换；健康检查、策略探针和 `.15` capability HTTP 200 均通过，`root:root/0600` 保持不变。
+- 当前策略：`MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED=true`、`CORE=true`、`WORKFLOWS=true`、`ORGANIZATION=true`、`GUEST=true`；`insights=false`、`externalMessages=false`。
+- 下一活动批次与停止条件：新增 `apps/miniprogram/docs/runbooks/p9-insights-rc.md`，锁定 P9 数据/消息实体 Android 验收；用户回复“P9 数据与消息 RC 通过”后，才分别评估 `insights` 和 `externalMessages`，不自动开启订阅或正式发布。
 
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
