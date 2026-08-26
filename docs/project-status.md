@@ -7,12 +7,12 @@
 - 范围：只修正工作台对后台/平台管理员（`isDeveloperAdmin`）的工具权限派生与角色文案；不改 API、数据库、会话、请求、工作流服务端权限或能力开关。引入点已审计：Mini 旧派生来自 `bc32a4f1`，Web 黄金 `HomeView.vue` 同时把 `isDeveloperAdmin` 视为管理员，并由 `GroupSwitcher.vue` 显示后台管理员。
 - 实现：工作台 `canManageScheduleTools` 纳入 `isDeveloperAdmin`，群组抬头改用完整 `GroupSummary` 输出“后台管理员”；既有 owner/administrator/member/guest 入口边界和服务端权限继续保留。无平台管理员伪装成员、无新增写入。
 - 测试先行：旧角色契约先失败 1 项；修复后 P7/P10 角色入口门禁 9/9、Mini 全量 83 files/377 tests、`.32` RC 契约 6/6 通过。任务 Prettier/ESLint、`git diff --check` 通过。
-- 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；总包 `5,745,661` bytes，主包 `1,130,736` bytes，organization `1,742,633` bytes（仅既有内部 1.5M 提示），verify manifest `2d2979f7bc87a4159672e77c5840f88e67d6b732d48d0fc62555701bdc9dd170`。生产当前 `.31`，`organization=true`、`insights/externalMessages=false`。
+- 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；总包 `5,745,661` bytes，主包 `1,130,736` bytes，organization `1,742,633` bytes（仅既有内部 1.5M 提示），verify manifest `2d2979f7bc87a4159672e77c5840f88e67d6b732d48d0fc62555701bdc9dd170`。生产当前 `.32`，`organization=true`、`insights/externalMessages=false`。
 - 当前策略：用户已明确“无需人工复核”，本项只以自动角色矩阵、构建和生产 verifier 验收；候选 `.32` 不提审、不正式发布，不自行开启 P9 能力。
 - 线上发布：代码 checkpoint `88863ac20d44e3777951779b4f8ea3d362f9489c`（`fix(miniprogram): align platform admin tool access`）已推送；体验版 `0.1.0-p9.20260827.32` 上传成功，153 个代码文件、zip `1,401,832` bytes、上传 manifest `c9180f376a174ce9597b3bd558534d079e7eb27890e7f1b0b6333a651f5a38fc`。加入白名单前数据库备份 archive `4f37ab36-c98f-47d6-bd05-656fe6629354`（54 表、175,990 行、81,411,196 bytes、SHA-256 `ab0bcd660178ef78c94e39ecbbaabcb2d2dd176e8b834adf6507a40890b5d66c`）；原子追加 `.32`，未改变能力开关。
-- 线上验证：代码 release `88863ac20d44e3777951779b4f8ea3d362f9489c` 与状态 docs release `ba093c5893766893db6e52e204f954b635851456` 均已部署；两次预热首个健康请求 502 后恢复，迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均通过。`.32` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；最终 `current-release` 与 Git 一致，远端本轮临时目录已清理。
+- 线上验证：代码 release `88863ac20d44e3777951779b4f8ea3d362f9489c` 与最终状态 docs release `740bea7ab416c2aed5de4c08d057a8090def9f6f` 均已部署；两次预热首个健康请求 502 后恢复，迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均通过。`.32` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；最终 `current-release` 与 Git 一致，远端本轮临时目录已清理。
 - 当前策略：用户已明确“无需人工复核”，本项以自动角色矩阵、构建、能力探针和生产 verifier 完成验收；`.32` 不提审、不正式发布，P9 能力仍不自行开放。
-- checkpoint/下一步：线上结果待状态提交，提交消息拟为 `docs(status): record platform admin access final deployment`；提交后按根规则备份并部署 docs-only release，使 Git、origin 和服务器 release 再次一致。本轮 P10 角色入口修复完成；下一活动批次为 P10/P8/P9 剩余路由、角色、状态和错误分支的最终自动对等审计（只处理 1 项），停止条件是覆盖矩阵无未覆盖项且验证/发布闭环通过。
+- checkpoint/下一步：状态 docs checkpoint `740bea7a` 已提交并部署，当前 Git、origin 和服务器 `current-release` 一致。本轮 P10 角色入口修复完成；下一活动批次为 P10/P8/P9 剩余路由、角色、状态和错误分支的最终自动对等审计（只处理 1 项），停止条件是覆盖矩阵无未覆盖项且验证/发布闭环通过。
 
 ## 2026-08-27 P10 个人中心大字号自动对等硬化（已完成自动发布验证，继续推进）
 
