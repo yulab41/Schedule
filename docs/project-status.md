@@ -2,14 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P10 通讯录生命周期与大字号自动硬化（代码完成，待发布）
+## 2026-08-27 P10 通讯录生命周期与大字号自动硬化（已完成自动发布验证，继续推进）
 
 - 范围：只硬化主线 P10 通讯录的卸载、换群/模式切换、搜索/游标加载和 organization 能力关闭竞态，并补齐系统大字号重排；不新增 API、数据库迁移、权限或生产能力变化。两个未落地 worktree（`codex/p10-directory-implementation`、`codex/p10-parity-preflight`）基于旧分叉继续完整保留，主线采用已落地且后续修正过的 P10 实现，不直接合并旧分支。
 - 引入点与实现：主线目录页来自 `14e9c6cb`，运行时字段恢复来自 `5e9bdb79`；已执行 `git log -S`/`git blame`。目录控制器现在按请求序列、群组 ID 和目录模式三重校验，卸载清理 timer/私有结果，切换模式/群组先清空旧结果，organization 关闭时清空 facets、结果、偏好展示并进入 disabled；`fontSizeSetting >= 20` 接入 WXML/WXSS 大字号不截断重排。认证、请求接收者、URL/方法、搜索/筛选语义、号码隐私、收藏写入和错误传播保持。
 - 测试先行：旧实现上新增 P10 控制器 4 项回归中 3 项失败（旧分页回写、后续 capability 关闭状态、大字号字段），卸载搜索回归通过；`.30` 候选清单先因旧版本/能力文案共 5 项失败。实现后 P10 controller/native 13 项、`.30` RC 契约 6 项、Mini 全量 83 files/377 tests 通过。
 - 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck、任务 Prettier/ESLint、`smoke:check-core` 均通过；总包 `5,745,126` bytes，organization 分包 `1,742,633` bytes（仅既有内部 1.5M 提示），verify manifest `a0cea8ef6422f8a66e37c5d3551f38657750156fe3c24f80356d5b390022d30c`。生产当前仍为 `.29` 白名单、`organization=true`、`insights/externalMessages=false`。
 - 当前策略：用户已明确“无需人工复核”，本项不等待微信/Android 人工操作；自动测试、确定性构建、能力探针和生产 verifier 作为验收依据。关闭能力矩阵继续在隔离测试覆盖，不改生产 `organization` 或打开 P9 能力。
-- checkpoint/下一步：代码与 `.30` runbook 变更待提交，提交消息拟为 `feat(miniprogram): harden p10 directory lifecycle`；随后从干净 worktree 打包并上传体验 `.30`、创建数据库备份后原子加入白名单、部署并运行 ECS verifier，再提交 docs-only 状态 checkpoint。停止条件是 P10 当前任务的体验上传、生产部署、线上 capability/release 验证和远端临时目录清理全部完成。
+- 线上发布：代码 checkpoint `ef9ffeb048f57c03138a13cd309eaf76393ab772`（`feat(miniprogram): harden p10 directory lifecycle`）已推送；干净 release worktree 打包完成。体验版 `0.1.0-p9.20260827.30` 上传成功，153 个代码文件、zip `1,401,535` bytes、上传 manifest `8dc4d72261c1266fef99abbe52ff7822cc30dc4f8d5c4f0c44217fb9048f71c7`。加入白名单前数据库备份 archive `ee1c865e-8091-4e6c-b930-f59722f90443`（54 表、175,878 行、81,372,708 bytes、SHA-256 `edd73002364e541de80ae64f9904eb222684e69de57f7951e23cba8090d0e3d4`）；原子追加 `.30`，未改变能力开关。
+- 线上验证：release `ef9ffeb048f57c03138a13cd309eaf76393ab772` 已部署，预热首个 TLS EOF 后恢复；迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均由 `ECS_PUBLIC_IP=120.77.220.79 bash infra/scripts/ecs-verify.sh` 通过。`.30` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；`current-release` 与 Git 一致，远端本轮临时目录已清理。
+- 当前策略：用户已明确“无需人工复核”，本项以自动测试、确定性构建、能力探针和生产 verifier 完成验收；`.30` 不提审、不正式发布，P9 能力仍不自行开放。
+- checkpoint/下一步：线上结果待状态提交，提交消息拟为 `docs(status): record p10 directory lifecycle deployment`；提交后按根规则备份并部署 docs-only release，使 Git、origin 和服务器 release 再次一致。下一活动批次为 P10 个人中心与通讯录最终跨端对等自动审计（只处理 1 项）；停止条件是该项定向红绿测试、全量 Mini/根验证、体验上传、生产部署与 `ecs-verify.sh` 全部通过。
 
 ## 2026-08-27 P9 事件/统计与通知自动闭环硬化（已完成自动发布验证，继续推进）
 
