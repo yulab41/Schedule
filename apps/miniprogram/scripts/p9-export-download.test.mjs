@@ -57,4 +57,17 @@ describe('P9 native export download boundary', () => {
     expect(controller).not.toContain('function pollJob');
     expect(controller).not.toContain('function currentBusinessMonth');
   });
+
+  it('reflows the export page for system large text without clipping actions or labels', () => {
+    const controller = read('src/subpackages/insights/components/exports-panel/controller.ts');
+    const template = read('src/subpackages/insights/components/exports-panel/index.wxml');
+    const styles = read('src/subpackages/insights/components/exports-panel/index.wxss');
+
+    expect(controller).toContain('largeText');
+    expect(controller).toContain('fontSizeSetting');
+    expect(template).toContain("largeText ? 'is-large-text' : ''");
+    expect(styles).toContain('.is-large-text .header-title-main');
+    expect(styles).toContain('.is-large-text .export-actions');
+    expect(styles).toContain('white-space: normal');
+  });
 });

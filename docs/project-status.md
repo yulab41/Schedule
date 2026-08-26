@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 导出 panel 大字号自动对等硬化（已完成自动验证，继续推进）
+
+- 范围：只为 P9 导出 panel 接入 `fontSizeSetting >= 20` 状态、根节点大字号 class 和窄屏/长文案重排；不改导出 API、Bearer 下载、`wx.openDocument`、任务轮询、能力开关、持久化或用户正在修改的组织文件。引入点来自 `de710eaf`，后续选项/生命周期来自 `82840db9`，已执行 `git log -S`/`git blame`。
+- 实现：导出页读取系统字号并保留 compact 状态；标题、说明、筛选器、周期、任务状态、文件名和关闭/错误提示在大字号下允许换行，卡片标题/选择器/完成结果与操作区重新排布，长文件名按任意位置断行；请求接收者、认证、错误传播、下载状态和取消旧页面回写语义保持。
+- 测试先行：旧实现上的 P9 导出大字号静态契约先失败 1 项；实现后导出原生契约 4/4、controller 6/6、Mini 全量 83 files/379 tests、任务 Prettier/ESLint 和 `git diff --check` 通过。P9 RC runbook 已从 `.33` 同步至候选 `.34`。
+- 自动验证：Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 和导出共享逻辑 30/30 通过；verify manifest `81d0290b5e0427ec0b845cddd25567e859bee2ec76d919a35223b50fff567c78`，总包 `5,752,139` bytes，organization `1,746,840` bytes（仅既有内部 1.5M 预警）。根全量测试按现有配置误扫 `runtime/**`/外部 worktree 与未跟踪 `src/**`，受既有路径/行尾/黄金基线失败影响；未修改这些用户文件。
+- 当前策略：用户已明确“无需人工复核”，本项以自动测试、确定性构建、包边界和生产验证验收；当前生产仍保持 `.33`、`organization=true`、`insights/externalMessages=false`，`.34` 仅作为体验候选，不提审、不正式发布、不自行开启 P9 能力。
+- checkpoint/下一步：代码与 RC 文档 checkpoint 拟以 `fix(miniprogram): support p9 export large text` 提交；提交后从干净 release worktree 上传 `0.1.0-p9.20260827.34`、按备份保护原子加入白名单并完成 ECS 发布/验证。下一活动批次为群组设置 panel 与剩余 P10/P9 状态分支自动审计（只处理 1 项），停止条件是本项体验上传、生产部署、能力探针和 verifier 全部通过。
+
 ## 2026-08-27 P8 组织管理独立 panel 大字号自动硬化（已完成自动发布验证，继续推进）
 
 - 范围：只为排班配置、邀请/访客、平台账号三个未被用户改动的 P8 panel 接入 `fontSizeSetting >= 20` 状态、根节点大字号 class 和窄屏/长文案重排；不改 API、数据库、权限、写入、能力开关或用户正在修改的群组设置 WXML。

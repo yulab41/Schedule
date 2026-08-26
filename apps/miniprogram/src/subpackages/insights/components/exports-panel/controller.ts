@@ -42,6 +42,7 @@ interface ExportsPageData {
   readonly exportType: ScheduleExportType;
   readonly fileLabel: string;
   readonly groupId: string;
+  readonly largeText: boolean;
   readonly memberIndex: number;
   readonly memberOptions: readonly SelectOption[];
   readonly membershipId: string;
@@ -88,6 +89,7 @@ export function createExportsPanelControllerDefinition() {
       exportType: 'schedule' as ScheduleExportType,
       fileLabel: '',
       groupId: '',
+      largeText: false,
       memberIndex: 0,
       memberOptions: [{ id: '', label: '全部成员' }],
       membershipId: '',
@@ -123,6 +125,9 @@ export function createExportsPanelControllerDefinition() {
         this.setData({
           pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
           shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+          largeText:
+            ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
+              16) >= 20,
           viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
         });
         start(this);

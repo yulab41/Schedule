@@ -1,4 +1,4 @@
-<view class="exports-page {{viewportClass}}">
+<view class="exports-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}">
     <view
       class="header-back"
@@ -25,17 +25,13 @@
         ><ui-loading label="正在加载导出选项"></ui-loading
       ></view>
       <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
-        ><view class="state-mark">—</view
-        ><text class="state-title">导出暂未开放</text
+        ><view class="state-mark">—</view><text class="state-title">导出暂未开放</text
         ><text class="state-copy"
           >当前版本未开启 insights 能力，不会创建导出任务或下载文件。</text
-      ></view>
+        ></view
+      >
       <view wx:elif="{{state === 'error'}}" class="page-state-card"
-        ><ui-alert
-          tone="danger"
-          title="导出选项暂时无法加载"
-          message="{{errorMessage}}"
-        ></ui-alert
+        ><ui-alert tone="danger" title="导出选项暂时无法加载" message="{{errorMessage}}"></ui-alert
         ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
       ></view>
       <view wx:else class="exports-content">
@@ -44,12 +40,13 @@
           ><text class="page-title">导出排班与统计</text
           ><text class="page-description"
             >文件通过登录态下载，不在 URL 中携带 token；生成期间可以安全离开页面。</text
-        ></view>
+          ></view
+        >
 
         <view class="export-selection-summary" aria-label="导出选择摘要" aria-live="polite"
           ><text class="summary-label">将要导出</text
-          ><text class="summary-value">{{selectionSummary}}</text
-        ></view>
+          ><text class="summary-value">{{selectionSummary}}</text></view
+        >
 
         <view class="surface-card export-form-card">
           <view class="card-header"
@@ -73,7 +70,8 @@
                 aria-label="文件类型，{{exportType === 'statistics' ? '统计' : '排班'}}"
                 ><text>{{exportType === 'statistics' ? '统计' : '排班'}}</text
                 ><text class="picker-chevron" aria-hidden="true">›</text></view
-            ></picker>
+              ></picker
+            >
           </view>
 
           <view class="field-block period-field">
@@ -95,7 +93,8 @@
                 data-period-type="year"
                 bindtap="handlePeriodType"
                 >按年</view
-            ></view>
+              ></view
+            >
             <view class="period-stepper" aria-label="导出周期">
               <view
                 class="period-step"
@@ -108,7 +107,8 @@
                 ><text class="period-value">{{periodLabel}}</text
                 ><text class="period-caption"
                   >{{periodType === 'month' ? '按月生成' : '按年生成'}}</text
-              ></view>
+                ></view
+              >
               <view
                 class="period-step"
                 aria-role="button"
@@ -134,7 +134,8 @@
                 aria-label="排班岗位，{{roleOptions[roleIndex].label}}"
                 ><text>{{roleOptions[roleIndex].label}}</text
                 ><text class="picker-chevron" aria-hidden="true">›</text></view
-            ></picker>
+              ></picker
+            >
           </view>
 
           <view class="field-block">
@@ -152,7 +153,8 @@
                 aria-label="成员，{{memberOptions[memberIndex].label}}"
                 ><text>{{memberOptions[memberIndex].label}}</text
                 ><text class="picker-chevron" aria-hidden="true">›</text></view
-            ></picker>
+              ></picker
+            >
           </view>
 
           <view class="export-hint"
@@ -173,16 +175,13 @@
               ><text class="progress-title"
                 >{{statusLabel === '正在创建导出任务' ? '正在创建导出任务' : statusLabel}}</text
               ><text class="progress-note">通常 1 分钟内完成，请保持此页面打开。</text></view
-          ></view>
+            ></view
+          >
           <view wx:elif="{{state === 'timed_out'}}" class="export-timeout" role="status"
             ><view class="timeout-copy"
               ><text class="progress-title">任务仍在服务器生成</text
               ><text class="progress-note">可继续检查同一任务，不会重复创建。</text></view
-            ><ui-button
-              variant="secondary"
-              label="继续检查"
-              bindpress="handleContinue"
-            ></ui-button
+            ><ui-button variant="secondary" label="继续检查" bindpress="handleContinue"></ui-button
           ></view>
           <view wx:elif="{{state === 'ready'}}" class="ready-result"
             ><view class="ready-heading"

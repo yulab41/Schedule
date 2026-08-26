@@ -99,6 +99,22 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     );
   });
 
+  it('tracks system large text independently from the compact viewport', async () => {
+    globalThis.wx.getWindowInfo = () => ({
+      statusBarHeight: 24,
+      windowHeight: 844,
+      windowWidth: 320,
+      fontSizeSetting: 20,
+    });
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+
+    await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+    expect(page.data.largeText).toBe(true);
+    expect(page.data.viewportClass).toBe('is-compact');
+  });
+
   it('checks insights before loading role or member options', async () => {
     mocks.requireClientCapability.mockRejectedValueOnce(
       new mocks.ClientCapabilityDisabledError('insights'),
