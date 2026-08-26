@@ -7,7 +7,8 @@
 - 范围：用户禁止项目相关 worktree/release/smoke/log/tmp 留在项目外；允许删除已落地淘汰版本和调试/测试内容，但未落地开发必须保留。初始盘点为 `E:\AItools` 104 个 `Schedule-*`、16 个外部 worktree、Temp 1002 个 `schedule-*` 和项目内多批旧 release/test 副本。
 - 清理/保留：Temp 与项目外 Schedule 目录最终均为 0；`runtime` 仅保留 `directory-data`、未落地 P10 directory/preflight worktree、最新 `release-worktree@8505d2f1`。P10 两 HEAD 均非 main 祖先，完整保留；删除的旧 worktree 均为已落地 main 祖先或明确调试/测试内容，Git 分支和提交未删除。
 - 恢复：历史依赖归档内链接误指主工作区，导致 409 tracked 文件短暂成为 D；立即按删除路径清单从 HEAD 恢复。最终删除 0、cached diff 0、409 blob hash 与 HEAD 一致，用户原有两项修改不变。root dependencies frozen reinstall 本地复用 1459/download 0，workspace 备份原样恢复。
-- 防复发/红绿：release worktree 默认和自定义路径锁定 `runtime/` 子目录；ECS scratch=`runtime/tmp`，smoke evidence=`runtime/smoke/latest` 且覆盖旧 latest；AGENTS/runbook 同步。旧实现 4 failures；现定向 2 files/12、Node syntax、全仓 typecheck/build、任务 Prettier、core smoke/diff 通过。真实 helper 首装 1459/reuse1459/download0，复跑 1 秒 `dependencies=reused`。正式 lint 只报既有 5 个 Mini 文件 7 项错误；宽泛根 Vitest 错误 cwd 扫入 Mini page tests 后停止，均未改未落地内容。checkpoint：`fix(tooling): keep project artifacts in repository`。
+- 防复发/红绿：release worktree 默认和自定义路径锁定 `runtime/` 子目录；ECS scratch=`runtime/tmp`，smoke evidence=`runtime/smoke/latest` 且覆盖旧 latest；AGENTS/runbook 同步。旧实现 4 failures；现定向 2 files/12、Node syntax、全仓 typecheck/build、任务 Prettier、core smoke/diff 通过。真实 helper 首装 1459/reuse1459/download0，复跑 1 秒 `dependencies=reused`；正式 ECS package 明确使用内部 `runtime/tmp/api-flat-*` 且退出后清空。正式 lint 只报既有 5 个 Mini 文件 7 项错误；宽泛根 Vitest 错误 cwd 扫入 Mini page tests 后停止，均未改未落地内容。
+- checkpoint/发布：`2a9f7dfc`（`fix(tooling): keep project artifacts in repository`）已推送，无 Mini 上传。备份 `a5beb36b-e699-4ad4-8b1a-de52797e5d32`（54 表/174836 行/81026748 bytes/SHA `24694aa8…5900`）后部署 release `2a9f7dfcab2efe68db5abd9e21164e22344df0e8`；预热一次 502 恢复、privacy 0/0、full verifier 与远端 temp 清理通过。
 
 ## 2026-08-26 Web/Mini 工作流展示规则共享
 

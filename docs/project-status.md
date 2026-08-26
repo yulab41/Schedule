@@ -10,8 +10,9 @@
 - 最终目录证据：系统 Temp 的 `schedule-*`/本轮微信 APK/截图为 0，`E:\AItools` 项目外 `Schedule-*` 为 0；项目 `runtime` 顶层只剩 `directory-data`、`external-project-worktrees`、`release-worktree`。旧体验/P4/P5/status/directory worktree 均先证明 HEAD 为 main 祖先后删除。
 - 恢复记录：清理历史依赖归档时一个链接指向主工作区，误删 409 个 tracked 文件；立即停止并只从 `HEAD=8505d2f1` 恢复状态为 D 的路径。恢复后 409 个文件 blob hash 与 HEAD 完全一致、删除剩余 0、cached diff 0，实际工作区 diff 仍只有用户原有 `project.config.json`/`pnpm-workspace.yaml`。受影响的项目内依赖以 frozen install 全部本地复用 1459 包、下载 0，用户 workspace 原文已恢复。
 - 防复发实现：`prepare-release-worktree` 默认及 `--path` 只允许仓库 `runtime/` 子目录，默认 `runtime/release-worktree`；ECS `api-flat` scratch 改到 `runtime/tmp`；browser smoke 默认覆盖 `runtime/smoke/latest`，显式截图目录也必须在 `runtime/`。`AGENTS.md` 与 ECS runbook 同步锁定规则。
-- 测试先行/验证：旧实现因缺内部默认路径、仍引用 `os.tmpdir()` 共 4 项失败；实现后目录/发布工具定向 2 files/12 tests、三脚本 `node --check`、全仓 typecheck/build、任务 Prettier、`smoke:check-core` 和 diff check 通过。真实 helper 首次在内部 worktree 本地复用 1459 包/download 0，第二次 1 秒返回 `dependencies=reused` 且路径精确为 `runtime/release-worktree`。正式 lint 仅被 5 个既有 Mini production/test 文件的 7 项错误阻断，本批未修改这些未落地内容；一次宽泛根 Vitest 因错误 cwd 扫入 Mini page tests 后已停止，正确定向用例全绿。checkpoint 识别消息 `fix(tooling): keep project artifacts in repository`。
-- 下一活动批次与停止条件：完成任务文件 lint/typecheck、真实内部 release worktree 复用验证、状态提交/推送和生产双 release 后，恢复通知中心/通知设置共享规则批次；不得重新创建任何项目外生成目录。
+- 测试先行/验证：旧实现因缺内部默认路径、仍引用 `os.tmpdir()` 共 4 项失败；实现后目录/发布工具定向 2 files/12 tests、三脚本 `node --check`、全仓 typecheck/build、任务 Prettier、`smoke:check-core` 和 diff check 通过。真实 helper 首次在内部 worktree 本地复用 1459 包/download 0，第二次 1 秒返回 `dependencies=reused` 且路径精确为 `runtime/release-worktree`；真实 ECS package 的 scratch 明确落在内部 `runtime/tmp/api-flat-*` 且 finally 后内容 0。正式 lint 仅被 5 个既有 Mini production/test 文件的 7 项错误阻断，本批未修改这些未落地内容；一次宽泛根 Vitest 因错误 cwd 扫入 Mini page tests 后已停止，正确定向用例全绿。
+- checkpoint/生产：代码 `2a9f7dfc`（`fix(tooling): keep project artifacts in repository`）已 fast-forward 推送；无 Mini 源码变化，未重复上传体验版。备份 archive `a5beb36b-e699-4ad4-8b1a-de52797e5d32`（54 表/174,836 行/81,026,748 bytes/SHA `24694aa875a9f86b99d29ff9b3dcc629fbf15ac88ad2963ac175c63e50e35900`）后部署 release `2a9f7dfcab2efe68db5abd9e21164e22344df0e8`；预热一次 502 恢复、privacy 0/0、full verifier、health、产物/控制面/迁移/未知 Host 与远端 temp 清理通过。
+- 下一活动批次与停止条件：最终状态 checkpoint 推送并同步生产 release 后，恢复通知中心/通知设置共享规则批次；不得重新创建任何项目外生成目录，也不得删除未落地 P10 内容。
 
 ## 2026-08-26 Web/Mini 工作流展示规则共享（已实现，待体验版复核）
 
