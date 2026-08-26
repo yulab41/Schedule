@@ -13,7 +13,7 @@ function read(relativePath) {
 describe('P9 insights RC plan', () => {
   it('locks the current candidate and authorized production capabilities', () => {
     const plan = read('docs/runbooks/p9-insights-rc.md');
-    expect(plan).toContain('0.1.0-p9.20260827.37');
+    expect(plan).toContain('0.1.0-p9.20260827.38');
     expect(plan).toContain('insights=true');
     expect(plan).toContain('externalMessages=true');
     expect(plan).toContain('自动通过条件');

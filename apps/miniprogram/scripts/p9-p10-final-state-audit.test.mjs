@@ -94,6 +94,7 @@ describe('P9/P10 final automatic state audit', () => {
   it('records the user-approved automatic acceptance policy for implemented P7-P10 slices', () => {
     const manifest = read('docs/design/page-golden-manifest.md');
     expect(manifest).toContain('本轮人工复核豁免');
+    expect(manifest).toContain('P9 `insights`/`externalMessages` 已按授权开启');
     for (const phase of [
       'P7',
       'P8-B',

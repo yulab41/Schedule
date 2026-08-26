@@ -42,7 +42,7 @@ describe('P8/P9/P10 golden manifest coherence', () => {
   it('does not report implemented P9 shared boundaries as missing native pages', () => {
     const manifest = read('docs/design/page-golden-manifest.md');
     for (const phase of ['P9-A4', 'P9-A5', 'P9-A6', 'P9-A8', 'P9-A9']) {
-      const row = manifest.split('\n').find((line) => line.startsWith(`| ${phase} |`));
+      const row = manifest.split('\n').find((line) => line.trimStart().startsWith(`| ${phase}`));
       expect(row).toBeDefined();
       expect(row).not.toContain('原生页面待实现');
     }
@@ -50,7 +50,7 @@ describe('P8/P9/P10 golden manifest coherence', () => {
 
   it('does not report the implemented P8 organization pages as a future step', () => {
     const manifest = read('docs/design/page-golden-manifest.md');
-    const row = manifest.split('\n').find((line) => line.startsWith('| P8-B |'));
+    const row = manifest.split('\n').find((line) => line.trimStart().startsWith('| P8-B'));
     expect(row).toBeDefined();
     expect(row).toContain('原生页面已实现');
     expect(row).not.toContain('待用户确认后进入原生页面');
