@@ -2,14 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P10 个人中心大字号自动对等硬化（代码完成，待发布）
+## 2026-08-27 P10 个人中心大字号自动对等硬化（已完成自动发布验证，继续推进）
 
 - 范围：只修复个人中心大字号下长姓名可能被 `nowrap/ellipsis` 截断的问题；不改认证、解绑、退出、切换登录、网络请求或会话存储。引入点已审计：个人中心页面与原始姓名样式来自 `6639ece2`，认证方式安全边界来自 `a9966222`。
 - 实现：大字号身份卡改为顶部对齐，姓名允许自然换行并按词断行，身份/版本/状态与设置行同步扩大并保留 44px 以上触达区；现有 `largeText` 检测、缺失会话、账号密码不可解绑和微信会话解绑语义保持。
 - 测试先行：旧样式上的大字号 profile 门禁因缺 `white-space: normal` 先失败 1 项；修复后 profile 原生 3/3、`.31` P9/P10 RC 契约 6/6 通过。任务 TS/MJS Prettier/ESLint 与 `git diff --check` 通过；runbook Markdown 保持既有长行格式，未纳入根 format glob。
-- 自动验证：前置 Mini 全量 83 files/377 tests、typecheck、production verify、source/package/determinism/CI dry-run、根 build/typecheck 已通过；本次只增加 profile WXSS 与静态契约断言，待提交后重新执行 verify。生产当前 `.30` 白名单，`organization=true`、`insights/externalMessages=false`。
+- 自动验证：Mini 全量 83 files/377 tests、typecheck、production verify、source/package/determinism/CI dry-run、根 build/typecheck 已通过；最终 verify manifest `007b88f71ee90f8f23bd95aa166671c762dd34f48b1e9e94b4323328fb091101`，总包 `5,745,584` bytes，organization 分包 `1,742,633` bytes（仅既有内部 1.5M 提示）。生产当前 `.30` 白名单，`organization=true`、`insights/externalMessages=false`。
 - 当前策略：用户已明确“无需人工复核”，不等待微信/Android 操作；`.31` 仅修正 P10 profile 大字号可读性，不提审、不正式发布、不改变能力。
-- checkpoint/下一步：代码与 `.31` runbook 变更待提交，提交消息拟为 `fix(miniprogram): keep profile large text readable`；随后从干净 worktree 重建/上传体验 `.31`，备份后加入白名单，部署并运行 ECS verifier，再提交 docs-only 状态 checkpoint。停止条件是 `.31` 体验上传、生产部署、线上 capability/release 验证和远端临时目录清理完成。
+- 线上发布：代码 checkpoint `e2cdf561c0b2d459fe24afcf7023d0c47330de22`（`fix(miniprogram): keep profile large text readable`）已推送；体验版 `0.1.0-p9.20260827.31` 上传成功，153 个代码文件、zip `1,401,670` bytes、上传 manifest `4f5d67dd7cdb756dfb038a87e2a2dce70fc0adce71da2a7841c57a08d206fbdf`。加入白名单前数据库备份 archive `8cab0ece-1a3a-4594-a98c-836cfa2a11fc`（54 表、175,922 行、81,388,008 bytes、SHA-256 `6f9f1143b02bffd5a38af9af9173edb0fd1c2e3bc449cbdc233ec6256b9dd457`）；原子追加 `.31`，未改变能力开关。
+- 线上验证：release `e2cdf561c0b2d459fe24afcf7023d0c47330de22` 已部署，预热首个健康请求 502 后恢复；迁移、privacy-retention（deletedRows=0/remainingRows=0）、健康、产物/控制面哈希、域名/IP 隔离、容器和依赖检查均由 `ECS_PUBLIC_IP=120.77.220.79 bash infra/scripts/ecs-verify.sh` 通过。`.31` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；`current-release` 与 Git 一致，远端本轮临时目录已清理。
+- 当前策略：用户已明确“无需人工复核”，本项以自动测试、确定性构建、能力探针和生产 verifier 完成验收；`.31` 不提审、不正式发布，P9 能力仍不自行开放。
+- checkpoint/下一步：线上结果待状态提交，提交消息拟为 `docs(status): record p10 profile readability deployment`；提交后按根规则备份并部署 docs-only release，使 Git、origin 和服务器 release 再次一致。本对话已完成 3 个实现批次；下一活动批次为 P10 最终路由/角色/状态/错误分支自动对等收口（只处理 1 项），停止条件是全量矩阵无未覆盖分支、验证/生产发布/能力探针全部通过。
 
 ## 2026-08-27 P10 通讯录生命周期与大字号自动硬化（已完成自动发布验证，继续推进）
 
