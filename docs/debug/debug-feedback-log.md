@@ -7,7 +7,7 @@
 - 当前结论：Web 生产代码/功能冻结且 tracked diff 为 0。事件标签/状态/色调/时间/分组与统计 10 项汇总、排序、周期口径按 Web 黄金复制到隔离的 presentation-core 子路径，只由 Mini 新接入且不进入根导出图；Mini 增加日期分组、游标分页、月/年周期、成员/岗位/班种统计，同时保持 P9 原始 payload/operation id/完整身份不入页面状态。
 - 回归门禁：共享模块和 Mini 对等契约旧实现先红；跨实现等价测试持续比较未修改 Web 与 Mini 使用的共享规则。Web/共享 138 files/715、Mini 78 files/349 通过；四端 typecheck、build、generated、Mini production 门禁和任务 lint/format 通过。Mini `5,707,902` bytes，manifest `ddd7bd8a…0249e`。
 - 运行/浏览器验证：`pnpm smoke:browser` 等价入口连续三次被既有周视图按压反馈断言提前阻断；当前源码专项浏览器实际验证事件/统计真实只读数据、月年切换、横向溢出 0、console error/warn 0，未提交业务写入。提交前运行 `pnpm smoke:check-core`。
-- 发布状态：待 `feat(miniprogram): mirror Web event and statistics rules`、production-profile `.26` 上传与生产备份/部署/full verifier；生产 `insights=false` 保持。
+- 发布状态：`4de2cd91` 已推送；production-profile `.26` 官方上传 153 files/zip `1,388,999`/manifest `30f80419…5ba5b`，未提审/正式发布。备份 `e9a8c72a-348e-40d0-9d78-05d4d21d2bf8`（54 表/175,174 行/81,138,876 bytes/SHA `a6f1dc8f…3bc7`）后部署同一 release，full verifier 通过；`.26` capability 200 且 `insights/externalMessages=false`，远端临时目录已删除。以后每个 Mini 版本必须主动提供更新说明。
 
 ## 2026-08-26 Web/Mini 通知中心与通知设置共享
 

@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 Mini 事件与统计复刻 Web 规则（已实现，待 checkpoint 发布）
+## 2026-08-26 Mini 事件与统计复刻 Web 规则（已完成，待 insights 开放后真机复核）
 
 - 范围：Web 生产代码和功能保持完全不变；以只读 Web helper 为黄金，把完整事件类型标签、状态、色调、中国时间、日期分组、变更提取/叙述/关联链，以及统计月份/周期、10 项汇总、成员排序、原实对照计数、加扣班净值和滚动口径复制到隔离的 `@schedule/presentation-core/event`、`@schedule/presentation-core/statistics` 子路径，只供 Mini 适配层新增使用；根导出图不包含这两个模块。
 - 客户端边界：Mini 继续使用既有 `client-core/insights-read-client`。共享 decoder 恢复 Web 对历史 `actualVsPlanned`“只要求数组”的兼容语义，并保持其他字段严格校验；空事件类型数组继续不发送查询参数。Web 仍保留原 API 调用实现，`apps/web` tracked diff 为 0。
@@ -11,7 +11,9 @@
 - 语义审计：Web receiver、Bearer/offline/error/catch、响应对象、调用次数与所有界面保持原样。Mini 查询空数组与历史统计条目按 Web 精确兼容；capability gate、无缓存、group/request serial 和错误关闭保持；新增 statistics serial 保证快速月/年切换和换群时只有最新只读响应可提交。生产 `insights=false` 不变。
 - 验证：presentation/client/Web/Mini typecheck、presentation/client/Web production build、生成 schema freshness、任务 Prettier/ESLint、Mini production verify/source/package/determinism/CI dry-run 通过；Web 只作为未修改黄金运行回归。Mini 包体 `5,707,902` bytes（insights `1,281,343`），manifest `ddd7bd8ae03555bf14bd808ef0d09f85bdff987ace639e53eff6d9e655d0249e`。根 lint 仍仅为既有 5 个未落地 Mini 文件的 7 项错误，本批文件无新增。
 - 运行/浏览器验证：`pnpm smoke:browser` 等价直接入口在当前源码 API 3000/Web 5400 连续三次均被本批未修改的周视图左切换/定位按压瞬时反馈断言提前停止；专项本地浏览器随后实际读取事件中心 50 张事件卡/3 个日期组、统计月/年汇总、成员/岗位/班种数据，月→年切换成功，页面横向溢出 0、console error/warn 0，未执行业务写入。提交前继续运行 `pnpm smoke:check-core`。
-- checkpoint/下一批：待以 `feat(miniprogram): mirror Web event and statistics rules` 提交推送，上传 production-profile `.26` 体验版（不提审/不正式发布），完成生产备份/部署/full verifier。之后进入 P9 导出下载与访客访问 Web→Mini 适配审计；未落地 P10 worktree 继续保留。
+- checkpoint/体验：代码 `4de2cd91`（`feat(miniprogram): mirror Web event and statistics rules`）已 fast-forward 推送；production-profile `0.1.0-p9.20260826.26` 官方上传成功，153 个代码文件、zip `1,388,999` bytes、上传 manifest `30f80419c51a22b98f8e75d4d1a53cd0e1c6b31953f96edf6432ef3b1b95ba5b`，未提审/未正式发布。用户新增规则：今后每次体验版迭代必须主动说明版本、更新内容、影响范围、能力开关和验收重点。
+- 生产发布：部署前加密备份 archive `e9a8c72a-348e-40d0-9d78-05d4d21d2bf8`（54 表/175,174 行/81,138,876 bytes/SHA `a6f1dc8f35d2877d47acf127ea07620ee57d17ed4513764228368e5efb643bc7`）后部署 release `4de2cd9179f45eb44c934685f23ea8518e900b4d`；预热两次 502 后恢复、privacy 0/0、`ECS_PUBLIC_IP` full verifier、产物/控制面/迁移/未知 Host 均通过。`.26` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`，env `root:root/0600`，远端临时目录已删除。
+- 下一批：状态文档 checkpoint 同步生产后进入 P9 导出下载与访客访问 Web→Mini 适配审计；Web 继续冻结，未落地 P10 worktree 继续保留。事件/统计真实数据页等待未来明确开放 `insights` 后再进行实体功能验收。
 
 ## 2026-08-26 Web/Mini 通知中心与通知设置共享（已完成，待能力开放后真机复核）
 
