@@ -28,12 +28,12 @@ describe('P10 native directory parity', () => {
       ],
     });
     expect(page).toContain('directory-panel');
-    expect(panel).toContain('院内通讯录');
-    expect(panel).toContain('员工通讯录');
+    expect(panel).toContain('科室通讯录');
+    expect(panel).toContain('人员通讯录');
     expect(workbench).toContain('handleOpenDirectory');
   });
 
-  it('uses the organization-gated shared reader and keeps all directory data in memory', () => {
+  it('uses the shared reader and stores only owner-scoped favorite/usage preferences', () => {
     const runtime = read('src/platform/client-core-calendar.ts');
     const controller = read(
       'src/subpackages/organization/components/directory-panel/controller.ts',
@@ -43,13 +43,16 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain('getFacets');
     expect(controller).toContain('directoryClient.list');
     expect(controller).toContain("requireClientCapability('organization')");
-    expect(controller).not.toContain('wx.setStorageSync');
+    expect(controller).toContain('DIRECTORY_PREFERENCES_PREFIX');
+    expect(controller).toContain('wx.setStorageSync(key, JSON.stringify(page._preferences))');
+    expect(controller.match(/wx\.setStorageSync/gu)).toHaveLength(1);
     expect(controller).not.toContain('console.log');
     expect(controller).not.toContain('visitorKey');
   });
 
   it('covers loading, empty, error, disabled, search, seven filters and cursor loading', () => {
     const template = read('src/subpackages/organization/components/directory-panel/index.wxml');
+    const card = read('src/subpackages/organization/components/directory-entry-card/index.wxml');
     const controller = read(
       'src/subpackages/organization/components/directory-panel/controller.ts',
     );
@@ -57,7 +60,7 @@ describe('P10 native directory parity', () => {
     for (const label of [
       '正在读取通讯录',
       '通讯录暂未开放',
-      '暂无匹配条目',
+      '没有找到匹配号码',
       '通讯录暂时无法更新',
       '加载更多',
     ]) {
@@ -79,13 +82,23 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain("campusFilterLabel: '组织根'");
     expect(controller).toContain("sectionFilterLabel: '一级组织'");
     expect(controller).toContain("subunitFilterLabel: '五级组织'");
+    expect(controller).toContain('groupDirectoryEntriesByContact');
+    expect(controller).toContain('getCompatibleDirectoryFacetOptionsByKey');
+    expect(controller).toContain('updateDirectoryFilterSelection');
+    expect(template).toContain('class="filter-sheet"');
+    expect(card).toContain('class="entry-merge-count"');
+    expect(card).toContain('class="number-kind"');
+    expect(template).not.toContain('<picker');
   });
 
   it('binds the nested contact loop to the contact variable used by the phone rows', () => {
-    const template = read('src/subpackages/organization/components/directory-panel/index.wxml');
+    const template = read(
+      'src/subpackages/organization/components/directory-entry-card/index.wxml',
+    );
 
     expect(template).toContain('wx:for-item="contact"');
-    expect(template).toContain('{{contact.number}}');
-    expect(template).toContain('data-number="{{contact.dialNumber}}"');
+    expect(template).toContain('wx:for-item="number"');
+    expect(template).toContain('{{number.number}}');
+    expect(template).toContain('data-number="{{number.dialNumber}}"');
   });
 });

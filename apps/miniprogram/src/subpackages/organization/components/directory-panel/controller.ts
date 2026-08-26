@@ -8,38 +8,100 @@ import type {
 } from '@schedule/contracts';
 import { ClientCoreError } from '@schedule/client-core';
 import {
+  canDialDirectoryNumber,
+  getCompatibleDirectoryFacetOptionsByKey,
+  getDirectoryGroupContexts,
+  getDirectoryGroupEmployeeCodes,
+  getDirectoryGroupJobTitles,
+  getDirectoryGroupKindLabel,
+  getDirectoryGroupNotes,
+  getDirectoryGroupTitle,
+  getDirectoryNumberLabel,
+  getDirectoryPreferenceEntryIds,
+  getDirectoryPriorityGroups,
+  getMeaningfulDirectoryFilterKeys,
+  getSafeInternalExtension,
+  groupDirectoryEntriesByContact,
+  hasActiveDirectoryCriteria,
+  isDirectoryGroupFavorite,
+  normalizeDirectoryDialNumber,
+  parseDirectoryPreferences,
+  recordDirectoryUse,
+  toDirectoryQuery,
+  toggleDirectoryFavorite,
+  updateDirectoryFilterSelection,
+  type DirectoryEntryDisplayGroup,
+  type DirectoryFilterKey,
+  type DirectoryFilters,
+  type DirectoryPreferences,
+} from '@schedule/presentation-core';
+import {
   ClientCapabilityDisabledError,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
 import { createRuntimeDirectoryReadClient } from '../../../../platform/client-core-calendar.js';
+import { DIRECTORY_PREFERENCES_PREFIX } from '../../../../platform/private-storage.js';
 import {
+  getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 
 type DirectoryState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
-type FilterKey =
-  'building' | 'campusCode' | 'department' | 'entryKind' | 'floor' | 'section' | 'subunit';
 
-interface DirectoryContactCard {
+interface DirectoryNumberCard {
   readonly dialable: boolean;
   readonly dialNumber: string | undefined;
   readonly id: string;
   readonly label: string;
   readonly number: string;
 }
+
+interface DirectoryContactCard {
+  readonly id: string;
+  readonly label: string;
+  readonly numbers: readonly DirectoryNumberCard[];
+  readonly showLabel: boolean;
+}
+
 interface DirectoryCard {
   readonly contacts: readonly DirectoryContactCard[];
-  readonly context: string;
+  readonly contexts: readonly string[];
+  readonly employeeCodeLabel: string;
+  readonly employeeCodes: readonly string[];
+  readonly favorite: boolean;
   readonly id: string;
+  readonly jobTitles: readonly string[];
   readonly kindLabel: string;
+  readonly mergeCountLabel: string;
+  readonly merged: boolean;
+  readonly notes: string;
   readonly title: string;
 }
+
+interface DirectoryPrioritySectionView {
+  readonly entries: readonly DirectoryCard[];
+  readonly key: 'favorites' | 'frequent';
+  readonly title: string;
+}
+
 interface DirectoryOption extends DirectoryFacetOption {
   readonly value: string;
 }
 
+interface DirectoryFilterOptionView extends DirectoryOption {
+  readonly selected: boolean;
+}
+
+interface DirectoryFilterSectionView {
+  readonly key: DirectoryFilterKey;
+  readonly label: string;
+  readonly options: readonly DirectoryFilterOptionView[];
+  readonly selectedLabel: string;
+}
+
 interface DirectoryPageData {
+  readonly activeFilterCount: number;
   readonly buildingIndex: number;
   readonly buildingLabel: string;
   readonly buildingOptions: readonly DirectoryOption[];
@@ -58,14 +120,20 @@ interface DirectoryPageData {
   readonly entryKindLabel: string;
   readonly entryKindOptions: readonly DirectoryOption[];
   readonly errorMessage: string;
+  readonly filterAdjustmentMessage: string;
+  readonly filterSections: readonly DirectoryFilterSectionView[];
+  readonly filterSheetOpen: boolean;
   readonly floorIndex: number;
   readonly floorFilterLabel: string;
   readonly floorLabel: string;
   readonly floorOptions: readonly DirectoryOption[];
   readonly groupId: string;
   readonly loadingMore: boolean;
+  readonly mergedGroupCount: number;
+  readonly modeMotionClass: string;
   readonly nextCursor: string;
   readonly pageScrollStyle: string;
+  readonly prioritySections: readonly DirectoryPrioritySectionView[];
   readonly searching: boolean;
   readonly searchQuery: string;
   readonly sectionIndex: number;
@@ -87,9 +155,15 @@ interface DirectoryPageInstance {
   readonly data: DirectoryPageData;
   readonly properties: { readonly directoryKind: DirectoryKind; readonly groupId: string };
   _directoryClient: DirectoryReadClient;
+  _facets: DirectoryFacetSnapshot | undefined;
+  _filters: DirectoryFilters;
   _loadedKey: string;
   _nextCursor: string | undefined;
+  _preferences: DirectoryPreferences;
+  _priorityEntries: readonly DirectoryEntry[];
+  _rawEntries: readonly DirectoryEntry[];
   _requestSerial: number;
+  _searchTimer: unknown;
   setData(patch: Partial<DirectoryPageData>): void;
 }
 
@@ -97,7 +171,7 @@ const directoryClient = createRuntimeDirectoryReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
-const filterKeys: readonly FilterKey[] = [
+const filterKeys: readonly DirectoryFilterKey[] = [
   'campusCode',
   'section',
   'building',
@@ -106,7 +180,7 @@ const filterKeys: readonly FilterKey[] = [
   'subunit',
   'entryKind',
 ];
-const filterFieldNames: Readonly<Record<FilterKey, string>> = {
+const filterFieldNames: Readonly<Record<DirectoryFilterKey, string>> = {
   building: 'building',
   campusCode: 'campus',
   department: 'department',
@@ -115,7 +189,7 @@ const filterFieldNames: Readonly<Record<FilterKey, string>> = {
   section: 'section',
   subunit: 'subunit',
 };
-const filterLabels: Readonly<Record<FilterKey, string>> = {
+const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
   building: '楼宇',
   campusCode: '院区',
   department: '科室',
@@ -124,19 +198,9 @@ const filterLabels: Readonly<Record<FilterKey, string>> = {
   section: '片区',
   subunit: '单元',
 };
-const entryKindLabels: Readonly<Record<string, string>> = {
-  department: '科室',
-  emergency: '急救',
-  facility: '设施',
-  other: '其他',
-  person: '人员',
-  service: '服务点',
-  switchboard: '总机',
-  vendor: '外部服务',
-};
-
 export function createDirectoryPanelControllerDefinition() {
   const data: DirectoryPageData = {
+    activeFilterCount: 0,
     buildingIndex: 0,
     buildingLabel: '全部',
     buildingOptions: [{ count: 0, label: '全部', value: '' }],
@@ -155,14 +219,20 @@ export function createDirectoryPanelControllerDefinition() {
     entryKindLabel: '全部',
     entryKindOptions: [{ count: 0, label: '全部', value: '' }],
     errorMessage: '',
+    filterAdjustmentMessage: '',
+    filterSections: [],
+    filterSheetOpen: false,
     floorIndex: 0,
     floorFilterLabel: '楼层',
     floorLabel: '全部',
     floorOptions: [{ count: 0, label: '全部', value: '' }],
     groupId: '',
     loadingMore: false,
+    mergedGroupCount: 0,
+    modeMotionClass: '',
     nextCursor: '',
     pageScrollStyle: 'height:calc(100% - 76px);',
+    prioritySections: [],
     searching: false,
     searchQuery: '',
     sectionIndex: 0,
@@ -186,9 +256,15 @@ export function createDirectoryPanelControllerDefinition() {
       groupId: { type: String, value: '' },
     },
     _directoryClient: directoryClient,
+    _facets: undefined,
+    _filters: {},
     _loadedKey: '',
     _nextCursor: undefined,
+    _preferences: parseDirectoryPreferences(undefined),
+    _priorityEntries: [],
+    _rawEntries: [],
     _requestSerial: 0,
+    _searchTimer: undefined,
     observers: {
       groupId(this: DirectoryPageInstance): void {
         startLoad(this);
@@ -209,8 +285,13 @@ export function createDirectoryPanelControllerDefinition() {
         });
         startLoad(this);
       },
+      detached(this: DirectoryPageInstance): void {
+        clearSearchTimer(this);
+        this._requestSerial += 1;
+      },
     },
     methods: {
+      preventTouchMove(): void {},
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },
@@ -225,19 +306,59 @@ export function createDirectoryPanelControllerDefinition() {
       },
       handleSearchInput(this: DirectoryPageInstance, event: InputEvent): void {
         this.setData({ searchQuery: event.detail.value });
+        scheduleSearch(this);
       },
       handleSearch(this: DirectoryPageInstance): void {
         void search(this);
       },
-      handleFilterChange(this: DirectoryPageInstance, event: PickerEvent): void {
+      handleOpenFilters(this: DirectoryPageInstance): void {
+        this.setData({ filterSheetOpen: true });
+      },
+      handleCloseFilters(this: DirectoryPageInstance): void {
+        this.setData({ filterSheetOpen: false });
+      },
+      handleFilterOption(this: DirectoryPageInstance, event: FilterOptionEvent): void {
         void selectFilter(this, event);
+      },
+      handleFilterChange(this: DirectoryPageInstance, event: LegacyPickerEvent): void {
+        const key = event.currentTarget.dataset.filter;
+        const fieldName = filterFieldNames[key];
+        const options = this.data[
+          `${fieldName}Options` as keyof DirectoryPageData
+        ] as readonly DirectoryOption[];
+        const selected = options[event.detail.value];
+        if (selected !== undefined) {
+          void selectFilter(this, {
+            currentTarget: { dataset: { filter: key, value: selected.value } },
+          });
+        }
+      },
+      handleClearFilters(this: DirectoryPageInstance): void {
+        clearAllFilters(this);
+      },
+      handleResetSearch(this: DirectoryPageInstance): void {
+        resetDirectorySearch(this);
       },
       handleLoadMore(this: DirectoryPageInstance): void {
         void loadMore(this);
       },
+      handleToggleFavorite(this: DirectoryPageInstance, event: FavoriteEvent): void {
+        toggleFavorite(this, event.currentTarget.dataset.groupId);
+      },
+      handleDirectoryCardFavorite(this: DirectoryPageInstance, event: DirectoryCardEvent): void {
+        toggleFavorite(this, event.detail.groupId);
+      },
+      handleDirectoryCardCall(this: DirectoryPageInstance, event: DirectoryCardEvent): void {
+        const number = event.detail.number;
+        if (number !== undefined && /^\+?\d{3,20}$/u.test(number)) {
+          recordUse(this, event.detail.groupId);
+          wx.makePhoneCall({ phoneNumber: number });
+        }
+      },
       handleCall(this: DirectoryPageInstance, event: CallEvent): void {
         const number = event.currentTarget.dataset.number;
-        if (number !== undefined && isDialableNumber(number)) {
+        if (number !== undefined && /^\+?\d{3,20}$/u.test(number)) {
+          recordUse(this, event.currentTarget.dataset.groupId);
           wx.makePhoneCall({ phoneNumber: number });
         }
       },
@@ -248,12 +369,25 @@ export function createDirectoryPanelControllerDefinition() {
 interface InputEvent {
   readonly detail: { readonly value: string };
 }
-interface PickerEvent {
-  readonly currentTarget: { readonly dataset: { readonly filter: FilterKey } };
+interface FilterOptionEvent {
+  readonly currentTarget: {
+    readonly dataset: { readonly filter?: DirectoryFilterKey; readonly value?: string };
+  };
+}
+interface LegacyPickerEvent {
+  readonly currentTarget: { readonly dataset: { readonly filter: DirectoryFilterKey } };
   readonly detail: { readonly value: number };
 }
 interface CallEvent {
-  readonly currentTarget: { readonly dataset: { readonly number?: string } };
+  readonly currentTarget: {
+    readonly dataset: { readonly groupId?: string; readonly number?: string };
+  };
+}
+interface FavoriteEvent {
+  readonly currentTarget: { readonly dataset: { readonly groupId?: string } };
+}
+interface DirectoryCardEvent {
+  readonly detail: { readonly groupId?: string; readonly number?: string };
 }
 
 function startLoad(page: DirectoryPageInstance): void {
@@ -279,8 +413,21 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
   // WeChat only keeps documented Component config keys; private controller
   // fields from the factory object are not copied onto the live instance.
   page._directoryClient = directoryClient;
+  if (page._facets !== undefined && typeof page._facets !== 'object') page._facets = undefined;
+  if (page._filters === undefined || typeof page._filters !== 'object') page._filters = {};
   if (typeof page._loadedKey !== 'string') page._loadedKey = '';
+  if (page._preferences === undefined || typeof page._preferences !== 'object') {
+    page._preferences = parseDirectoryPreferences(undefined);
+  }
+  if (!Array.isArray(page._priorityEntries)) page._priorityEntries = [];
+  if (!Array.isArray(page._rawEntries)) page._rawEntries = [];
   if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
+}
+
+function clearSearchTimer(page: DirectoryPageInstance): void {
+  if (page._searchTimer === undefined) return;
+  clearTimeout(page._searchTimer);
+  page._searchTimer = undefined;
 }
 
 async function loadFacets(page: DirectoryPageInstance): Promise<void> {
@@ -289,12 +436,24 @@ async function loadFacets(page: DirectoryPageInstance): Promise<void> {
     return;
   }
   const serial = ++page._requestSerial;
+  clearSearchTimer(page);
+  page._facets = undefined;
+  page._filters = {};
   page._nextCursor = undefined;
+  page._preferences = readDirectoryPreferences(page);
+  page._priorityEntries = [];
+  page._rawEntries = [];
   page.setData({
+    activeFilterCount: 0,
     errorMessage: '',
+    filterAdjustmentMessage: '',
+    filterSections: [],
+    filterSheetOpen: false,
     state: 'loading',
     entries: [],
+    mergedGroupCount: 0,
     nextCursor: '',
+    prioritySections: [],
     resultSummary: '正在读取通讯录筛选项。',
   });
   try {
@@ -306,6 +465,7 @@ async function loadFacets(page: DirectoryPageInstance): Promise<void> {
     if (serial !== page._requestSerial) return;
     applyFacets(page, facets);
     page.setData({ state: 'empty', resultSummary: '输入关键词或选择筛选条件后开始查找。' });
+    void loadPriorityEntries(page, page._loadedKey);
   } catch (error) {
     if (serial !== page._requestSerial) return;
     page.setData({
@@ -319,6 +479,8 @@ async function loadFacets(page: DirectoryPageInstance): Promise<void> {
 }
 
 function applyFacets(page: DirectoryPageInstance, facets: DirectoryFacetSnapshot): void {
+  page._facets = facets;
+  page._filters = {};
   const makeOptions = (options: readonly DirectoryFacetOption[]) => [
     { count: 0, label: '全部', value: '' },
     ...options,
@@ -332,16 +494,29 @@ function applyFacets(page: DirectoryPageInstance, facets: DirectoryFacetSnapshot
     sectionOptions: makeOptions(facets.sections),
     subunitOptions: makeOptions(facets.subunits),
   });
+  syncFilterSections(page);
 }
 
 function switchMode(page: DirectoryPageInstance, kind: DirectoryKind): void {
   if (page.data.directoryKind === kind) return;
+  clearSearchTimer(page);
   page._loadedKey = '';
+  page._facets = undefined;
+  page._filters = {};
+  page._priorityEntries = [];
+  page._rawEntries = [];
   page.setData({
+    activeFilterCount: 0,
     directoryKind: kind,
     searchQuery: '',
     entries: [],
     errorMessage: '',
+    filterAdjustmentMessage: '',
+    filterSections: [],
+    filterSheetOpen: false,
+    mergedGroupCount: 0,
+    modeMotionClass: kind === 'employee' ? 'is-forward' : 'is-backward',
+    prioritySections: [],
     ...filterLabelsForKind(kind),
   });
   page._loadedKey = `${page.data.groupId}:${kind}`;
@@ -370,35 +545,138 @@ function filterLabelsForKind(kind: DirectoryKind): Partial<DirectoryPageData> {
       };
 }
 
-async function selectFilter(page: DirectoryPageInstance, event: PickerEvent): Promise<void> {
-  const key = event.currentTarget.dataset.filter;
-  const fieldName = filterFieldNames[key];
-  const options = page.data[
-    `${fieldName}Options` as keyof DirectoryPageData
-  ] as readonly DirectoryOption[];
-  const selected = options[event.detail.value];
-  if (selected === undefined) return;
-  const indexKey = `${fieldName}Index` as keyof DirectoryPageData;
-  const labelKey = `${fieldName}Label` as keyof DirectoryPageData;
+function filterLabel(kind: DirectoryKind, key: DirectoryFilterKey): string {
+  if (kind === 'employee') {
+    return (
+      {
+        building: '二级组织',
+        campusCode: '组织根',
+        department: '四级组织',
+        entryKind: '类型',
+        floor: '三级组织',
+        section: '一级组织',
+        subunit: '五级组织',
+      } satisfies Readonly<Record<DirectoryFilterKey, string>>
+    )[key];
+  }
+  return filterLabels[key];
+}
+
+function syncFilterSections(page: DirectoryPageInstance): void {
+  const snapshot = page._facets;
+  if (snapshot === undefined) {
+    page.setData({ activeFilterCount: 0, filterSections: [] });
+    return;
+  }
+  const compatible = getCompatibleDirectoryFacetOptionsByKey(snapshot, page._filters);
+  const meaningful = getMeaningfulDirectoryFilterKeys(snapshot, page._filters, compatible);
+  const sections = meaningful.map((key): DirectoryFilterSectionView => {
+    const selectedValue = page._filters[key] ?? '';
+    const options: readonly DirectoryFilterOptionView[] = [
+      { count: snapshot.totalCount, label: '全部', selected: selectedValue === '', value: '' },
+      ...(compatible.get(key) ?? []).map((option) => ({
+        ...option,
+        selected: option.value === selectedValue,
+      })),
+    ];
+    return {
+      key,
+      label: filterLabel(page.data.directoryKind, key),
+      options,
+      selectedLabel: options.find((option) => option.selected)?.label ?? '全部',
+    };
+  });
+  const legacyPatch: Record<string, unknown> = {};
+  for (const key of filterKeys) {
+    const fieldName = filterFieldNames[key];
+    const selectedValue = page._filters[key] ?? '';
+    const options: readonly DirectoryOption[] = [
+      { count: snapshot.totalCount, label: '全部', value: '' },
+      ...(compatible.get(key) ?? []),
+    ];
+    const index = Math.max(
+      0,
+      options.findIndex((option) => option.value === selectedValue),
+    );
+    legacyPatch[`${fieldName}Options`] = options;
+    legacyPatch[`${fieldName}Index`] = index;
+    legacyPatch[`${fieldName}Label`] = options[index]?.label ?? '全部';
+  }
   page.setData({
-    [indexKey]: event.detail.value,
-    [labelKey]: selected.label,
-  } as Partial<DirectoryPageData>);
+    ...(legacyPatch as Partial<DirectoryPageData>),
+    activeFilterCount: Object.keys(page._filters).length,
+    filterSections: sections,
+  });
+}
+
+async function selectFilter(page: DirectoryPageInstance, event: FilterOptionEvent): Promise<void> {
+  const key = event.currentTarget.dataset.filter;
+  const snapshot = page._facets;
+  if (key === undefined || snapshot === undefined) return;
+  const value = event.currentTarget.dataset.value;
+  if (page._filters[key] === value || (value === '' && page._filters[key] === undefined)) return;
+  const result = updateDirectoryFilterSelection(
+    snapshot,
+    page._filters,
+    key,
+    value === undefined || value === '' ? undefined : value,
+  );
+  page._filters = result.filters;
+  page.setData({
+    filterAdjustmentMessage:
+      result.clearedKeys.length === 0
+        ? ''
+        : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabel(page.data.directoryKind, clearedKey)).join('、')}筛选。`,
+  });
+  syncFilterSections(page);
   await search(page);
 }
 
+function clearAllFilters(page: DirectoryPageInstance): void {
+  if (Object.keys(page._filters).length === 0) return;
+  page._filters = {};
+  page.setData({ filterAdjustmentMessage: '' });
+  syncFilterSections(page);
+  void search(page);
+}
+
+function resetDirectorySearch(page: DirectoryPageInstance): void {
+  clearSearchTimer(page);
+  page._filters = {};
+  page.setData({ filterAdjustmentMessage: '', searchQuery: '' });
+  syncFilterSections(page);
+  void search(page);
+}
+
+function scheduleSearch(page: DirectoryPageInstance): void {
+  clearSearchTimer(page);
+  if (page.data.searchQuery.trim().length === 0 && Object.keys(page._filters).length === 0) {
+    void search(page);
+    return;
+  }
+  page.setData({ searching: true });
+  page._searchTimer = setTimeout(() => {
+    page._searchTimer = undefined;
+    void search(page);
+  }, 240);
+}
+
 async function search(page: DirectoryPageInstance): Promise<void> {
-  const query = buildQuery(page);
-  if (Object.keys(query).length === 0) {
+  clearSearchTimer(page);
+  if (!hasActiveDirectoryCriteria(page.data.searchQuery, page._filters)) {
     page._nextCursor = undefined;
+    page._rawEntries = [];
     page.setData({
       entries: [],
+      mergedGroupCount: 0,
       nextCursor: '',
       resultSummary: '输入关键词或选择筛选条件后开始查找。',
+      searching: false,
       state: 'empty',
     });
     return;
   }
+  const query = buildQuery(page);
   const serial = ++page._requestSerial;
   page._nextCursor = undefined;
   page.setData({
@@ -416,13 +694,18 @@ async function search(page: DirectoryPageInstance): Promise<void> {
     );
     if (serial !== page._requestSerial) return;
     page._nextCursor = result.nextCursor;
+    page._rawEntries = result.entries;
+    const cards = createDirectoryCards(page, page._rawEntries);
+    const mergedGroupCount = cards.filter((card) => card.merged).length;
     page.setData({
-      entries: result.entries.map(toCard),
+      entries: cards,
+      mergedGroupCount,
       nextCursor: result.nextCursor ?? '',
-      resultSummary: `找到 ${result.totalCount} 条通讯录记录。`,
+      resultSummary: resultSummary(result.totalCount, mergedGroupCount),
       searching: false,
-      state: result.entries.length === 0 ? 'empty' : 'ready',
+      state: cards.length === 0 ? 'empty' : 'ready',
     });
+    syncPrioritySections(page);
   } catch (error) {
     if (serial !== page._requestSerial) return;
     page.setData({
@@ -440,16 +723,20 @@ async function loadMore(page: DirectoryPageInstance): Promise<void> {
   try {
     await requireClientCapability('organization');
     const result = await page._directoryClient.list(page.data.groupId, page.data.directoryKind, {
-      ...buildQuery(page),
-      cursor,
+      ...buildQuery(page, cursor),
     });
     page._nextCursor = result.nextCursor;
+    page._rawEntries = [...page._rawEntries, ...result.entries];
+    const cards = createDirectoryCards(page, page._rawEntries);
+    const mergedGroupCount = cards.filter((card) => card.merged).length;
     page.setData({
-      entries: [...page.data.entries, ...result.entries.map(toCard)],
+      entries: cards,
       loadingMore: false,
+      mergedGroupCount,
       nextCursor: result.nextCursor ?? '',
-      resultSummary: `找到 ${result.totalCount} 条通讯录记录。`,
+      resultSummary: resultSummary(result.totalCount, mergedGroupCount),
     });
+    syncPrioritySections(page);
   } catch (error) {
     page.setData({
       errorMessage: toUserMessage(error, '更多通讯录记录暂时无法加载。'),
@@ -458,47 +745,206 @@ async function loadMore(page: DirectoryPageInstance): Promise<void> {
   }
 }
 
-function buildQuery(page: DirectoryPageInstance): DirectoryQuery {
-  const query: Record<string, string> = {};
-  if (page.data.searchQuery.trim()) query.q = page.data.searchQuery.trim();
-  for (const key of filterKeys) {
-    const fieldName = filterFieldNames[key];
-    const value = (
-      page.data[`${fieldName}Options` as keyof DirectoryPageData] as readonly DirectoryOption[]
-    )[page.data[`${fieldName}Index` as keyof DirectoryPageData] as number]?.value;
-    if (value) query[key] = value;
-  }
-  return query as DirectoryQuery;
+function buildQuery(page: DirectoryPageInstance, cursor?: string): DirectoryQuery {
+  return toDirectoryQuery(page.data.searchQuery, page._filters, cursor) as DirectoryQuery;
 }
 
-function toCard(entry: DirectoryEntry): DirectoryCard {
+function createDirectoryCards(
+  page: DirectoryPageInstance,
+  entries: readonly DirectoryEntry[],
+): readonly DirectoryCard[] {
+  return groupDirectoryEntriesByContact(entries).map((group) =>
+    toCard(group, page.data.directoryKind, page._preferences),
+  );
+}
+
+function toCard(
+  group: DirectoryEntryDisplayGroup,
+  directoryKind: DirectoryKind,
+  preferences: DirectoryPreferences,
+): DirectoryCard {
+  const merged = group.entries.length > 1;
+  const employeeCodes = getDirectoryGroupEmployeeCodes(group);
   return {
-    contacts: entry.contacts.map((contact) => ({
-      dialable: contact.fullNumber !== undefined && isDialableNumber(contact.fullNumber),
-      dialNumber:
-        contact.fullNumber !== undefined && isDialableNumber(contact.fullNumber)
-          ? normalizeDialNumber(contact.fullNumber)
-          : undefined,
-      id: contact.id,
-      label: contact.label ?? (contact.type === 'mobile' ? '手机' : '电话'),
-      number: contact.fullNumber ?? `分机 ${contact.internalExtension ?? '未提供'}`,
-    })),
-    context: [entry.campus.name, entry.section, entry.department, entry.subunit, entry.room]
-      .filter((value): value is string => value !== undefined)
-      .join(' · '),
-    id: entry.id,
-    kindLabel: entryKindLabels[entry.entryKind] ?? '其他',
-    title: entry.contactName ?? entry.department ?? entry.subunit ?? '未命名条目',
+    contacts: group.contacts.map((contact) => toContactCard(contact, directoryKind, merged)),
+    contexts: getDirectoryGroupContexts(group),
+    employeeCodeLabel: employeeCodes.join(' / '),
+    employeeCodes,
+    favorite: isDirectoryGroupFavorite(preferences, group),
+    id: group.id,
+    jobTitles: getDirectoryGroupJobTitles(group),
+    kindLabel: getDirectoryGroupKindLabel(group),
+    mergeCountLabel: merged ? `${group.entries.length} 项同号` : '',
+    merged,
+    notes: getDirectoryGroupNotes(group) ?? '',
+    title: getDirectoryGroupTitle(group),
   };
 }
 
-function isDialableNumber(value: string): boolean {
-  const digits = value.replaceAll(/\D/gu, '');
-  return digits.length >= 3 && digits.length <= 20;
+function toContactCard(
+  contact: DirectoryEntry['contacts'][number],
+  directoryKind: DirectoryKind,
+  merged: boolean,
+): DirectoryContactCard {
+  const heading =
+    (merged ? undefined : contact.label) ?? getDirectoryNumberLabel(contact.type, 'full');
+  const extension = getSafeInternalExtension(contact);
+  const numbers: DirectoryNumberCard[] = [];
+  if (contact.fullNumber !== undefined) {
+    const dialable = canDialDirectoryNumber(contact.type, 'full');
+    numbers.push({
+      dialable,
+      dialNumber: dialable ? normalizeDirectoryDialNumber(contact.fullNumber) : undefined,
+      id: `${contact.id}:full`,
+      label: extension === undefined ? '' : '长号',
+      number: contact.fullNumber,
+    });
+  }
+  if (extension !== undefined) {
+    const dialable = canDialDirectoryNumber(contact.type, 'extension');
+    numbers.push({
+      dialable,
+      dialNumber: dialable ? normalizeDirectoryDialNumber(extension) : undefined,
+      id: `${contact.id}:extension`,
+      label: '短号',
+      number: extension,
+    });
+  }
+  return {
+    id: contact.id,
+    label: heading,
+    numbers,
+    showLabel:
+      directoryKind !== 'internal' &&
+      !(
+        directoryKind === 'employee' &&
+        (contact.type === 'mobile' || heading.startsWith('移动电话'))
+      ),
+  };
 }
 
-function normalizeDialNumber(value: string): string {
-  return value.replaceAll(/\D/gu, '');
+function resultSummary(totalCount: number, mergedGroupCount: number): string {
+  return `找到 ${totalCount} 条通讯录记录${mergedGroupCount > 0 ? ` · 已合并 ${mergedGroupCount} 组同号条目` : ''}`;
+}
+
+async function loadPriorityEntries(page: DirectoryPageInstance, loadedKey: string): Promise<void> {
+  const entryIds = getDirectoryPreferenceEntryIds(page._preferences);
+  if (entryIds.length === 0) {
+    syncPrioritySections(page);
+    return;
+  }
+  const chunks = Array.from({ length: Math.ceil(entryIds.length / 100) }, (_, index) =>
+    entryIds.slice(index * 100, index * 100 + 100),
+  );
+  try {
+    const responses = await Promise.all(
+      chunks.map((chunk) =>
+        page._directoryClient.lookup(page.data.groupId, page.data.directoryKind, chunk),
+      ),
+    );
+    if (page._loadedKey !== loadedKey) return;
+    page._priorityEntries = responses.flatMap((response) => response.entries);
+    syncPrioritySections(page);
+  } catch {
+    // Preferred entries are an enhancement; search and filtering remain available.
+  }
+}
+
+function knownEntryGroups(page: DirectoryPageInstance): readonly DirectoryEntryDisplayGroup[] {
+  const entriesById = new Map<string, DirectoryEntry>();
+  for (const entry of [...page._priorityEntries, ...page._rawEntries]) {
+    entriesById.set(entry.id, entry);
+  }
+  return groupDirectoryEntriesByContact([...entriesById.values()]);
+}
+
+function syncPrioritySections(page: DirectoryPageInstance): void {
+  const priority = getDirectoryPriorityGroups(page._preferences, knownEntryGroups(page));
+  const sections: DirectoryPrioritySectionView[] = [];
+  if (priority.favorites.length > 0) {
+    sections.push({
+      entries: priority.favorites.map((group) =>
+        toCard(group, page.data.directoryKind, page._preferences),
+      ),
+      key: 'favorites',
+      title: '收藏通讯录',
+    });
+  }
+  if (priority.frequent.length > 0) {
+    sections.push({
+      entries: priority.frequent.map((group) =>
+        toCard(group, page.data.directoryKind, page._preferences),
+      ),
+      key: 'frequent',
+      title: '常用通讯录',
+    });
+  }
+  page.setData({ prioritySections: sections });
+}
+
+function findDirectoryGroup(
+  page: DirectoryPageInstance,
+  groupId: string | undefined,
+): DirectoryEntryDisplayGroup | undefined {
+  return groupId === undefined
+    ? undefined
+    : knownEntryGroups(page).find((group) => group.id === groupId);
+}
+
+function rememberPriorityEntries(
+  page: DirectoryPageInstance,
+  group: DirectoryEntryDisplayGroup,
+): void {
+  const entriesById = new Map(page._priorityEntries.map((entry) => [entry.id, entry]));
+  for (const entry of group.entries as readonly DirectoryEntry[]) entriesById.set(entry.id, entry);
+  page._priorityEntries = [...entriesById.values()];
+}
+
+function toggleFavorite(page: DirectoryPageInstance, groupId: string | undefined): void {
+  const group = findDirectoryGroup(page, groupId);
+  if (group === undefined) return;
+  rememberPriorityEntries(page, group);
+  page._preferences = toggleDirectoryFavorite(page._preferences, group);
+  persistDirectoryPreferences(page);
+  page.setData({ entries: createDirectoryCards(page, page._rawEntries) });
+  syncPrioritySections(page);
+}
+
+function recordUse(page: DirectoryPageInstance, groupId: string | undefined): void {
+  const group = findDirectoryGroup(page, groupId);
+  if (group === undefined) return;
+  rememberPriorityEntries(page, group);
+  page._preferences = recordDirectoryUse(page._preferences, group);
+  persistDirectoryPreferences(page);
+  syncPrioritySections(page);
+}
+
+function directoryPreferenceStorageKey(page: DirectoryPageInstance): string | undefined {
+  const ownerId = getStoredWechatProfile()?.id;
+  return ownerId === undefined
+    ? undefined
+    : `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${page.data.groupId}:${page.data.directoryKind}`;
+}
+
+function readDirectoryPreferences(page: DirectoryPageInstance): DirectoryPreferences {
+  const key = directoryPreferenceStorageKey(page);
+  if (key === undefined) return parseDirectoryPreferences(undefined);
+  try {
+    const value = wx.getStorageSync(key);
+    return parseDirectoryPreferences(typeof value === 'string' ? value : undefined);
+  } catch {
+    return parseDirectoryPreferences(undefined);
+  }
+}
+
+function persistDirectoryPreferences(page: DirectoryPageInstance): void {
+  const key = directoryPreferenceStorageKey(page);
+  if (key === undefined) return;
+  try {
+    wx.setStorageSync(key, JSON.stringify(page._preferences));
+  } catch {
+    // Favorites remain effective in memory when storage is unavailable.
+  }
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

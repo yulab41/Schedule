@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 Web/Mini 通讯录共享规则与视觉对等第一批（已实现，待原生复核）
+
+- 用户把“Web 与小程序共享同一套规则”提升为全项目架构原则，并要求通讯录组织级别、筛选列表、卡片 UI、数据读取/合并和视觉 1:1；不再用 Storybook 交付预览，改为直接核对 Web 与用户提供的 Mini 真机/模拟器截图。
+- 共享核心：新增 `presentation-core/directory`，承接 Web 已验证的号码标签/可拨规则、标题/路径/位置、同完整联系方式集合合并、动态有意义层级、兼容选项计数、父级变化清理后代、查询构造以及收藏/常用偏好算法。Web 原四个 directory helper 改为重新导出同一实现，Mini 直接复用；平台层只保留 Vue/DOM/localStorage 与 WXML/WXSS/wx storage 适配。
+- Mini 数据/交互：科室/人员模式采用 Web 名称；搜索 240ms 防抖且 query `pageSize=30`；分页追加后重新跨页同号合并；筛选只显示当前数据中大于一个兼容选项的层级，父层变化自动清理无效/冗余后代；原生 picker 改为 Web 等价的层级导览与自定义底部筛选面板。
+- Mini 卡片/号码：新增共享 `directory-entry-card`，显示 5px 类型强调线、合并标题/上下文、类型/岗位/工号/同号计数、备注、长号/短号双通道、Web 同源拨号策略和收藏状态；收藏/使用次数只保存 owner/group/kind 下的条目 ID 与计数，不保存号码或搜索结果，退出/换用户/离群沿私有缓存清理。
+- 权限/语义：目录 API、Bearer、organization capability、服务端 visibility/权限、cursor 和错误路径不变；新增偏好 lookup 只读取已授权条目且失败不阻断搜索。Web 运行行为由既有 helper 测试证明等价，未改生产 API/数据库。
+- 测试先行：共享模块旧实现缺失先失败；层级测试一次错误期望按 Web 真实“仍有两个兼容选项则保留”规则修正。最终 Web+presentation 110 files/622 tests、Mini 72 files/335 tests、通讯录/私有存储定向 9 files/48 tests、三端 typecheck、presentation/Web build、Mini production verify/source/package/determinism/CI dry-run 和 `smoke:check-core` 通过。Mini 包体 `5,611,346` bytes，组织分包 `1,722,630` bytes，manifest `7f666e3597916fbdd1f66d00c144d28598488c6c8f232ad0b29bedcc0b43a946`。
+- 视觉策略：`frontend-design` 服从生产 Web 的蓝灰临床工作台，不新增设计语言；稳定几何、文案、密度和状态以 `InternalDirectoryView.vue`/`UnifiedDirectoryView.vue` 为准。IAB 生产页无登录态，只读源代码与用户截图作为当前基准；下一步由用户在安卓模拟器登录微信并打开体验版后提供科室/人员、筛选打开、同号卡片、320/大字号截图。
+- checkpoint：待提交消息为 `feat(miniprogram): share Web directory presentation`；提交后上传 `.23`，production capability 保持 `organization/workflows=true`、`insights/externalMessages=false`。
+- 下一活动批次与停止条件：`.23` 原生编译成功后先根据模拟器截图修正 ≤2px 视觉差异，再继续把同一共享规则原则按页面批次推广到其他功能；通讯录未获新 1:1 明确通过前不恢复 P9 capability 切换。
+
 ## 2026-08-26 Mini 通讯录联系电话渲染修复（已实现，待体验版复核）
 
 - 用户要求通讯录数据、合并、交互及 UI 视觉全部以当前 Web 1:1 复现，并截图确认 Mini 搜索返回 210 条记录但卡片号码区为空。

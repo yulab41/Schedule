@@ -1,189 +1,247 @@
 <view class="directory-page {{viewportClass}}">
-  <view class="mini-header" style="{{shellHeaderStyle}}"
-    ><view
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
       class="header-back"
       hover-class="is-pressed"
       aria-role="button"
       aria-label="返回更多工具"
       bindtap="handleBack"
-      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
-    ><view class="header-title"
-      ><text class="header-title-main"
-        >{{directoryKind === 'employee' ? '员工通讯录' : '院内通讯录'}}</text
-      ><text class="header-title-sub">搜索工作号码与组织位置</text></view
-    ><text class="phase-chip">P10</text></view
-  >
+    >
+      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+    </view>
+    <view class="header-title">
+      <text class="header-title-main"
+        >{{directoryKind === 'employee' ? '人员通讯录' : '科室通讯录'}}</text
+      >
+      <text class="header-title-sub">搜索工作号码与组织位置</text>
+    </view>
+  </view>
+
   <scroll-view
     class="directory-scroll"
     style="{{pageScrollStyle}}"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
-    ><view class="page-content">
-      <view wx:if="{{state === 'loading'}}" class="page-state-card"
-        ><ui-loading label="正在读取通讯录"></ui-loading
-      ></view>
-      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
-        ><view class="state-mark">—</view><text class="state-title">通讯录暂未开放</text
-        ><text class="state-copy"
-          >当前版本未开启 organization 能力，不会读取目录或号码。</text
-        ></view
-      >
-      <view wx:elif="{{state === 'error'}}" class="page-state-card"
-        ><ui-alert tone="danger" title="通讯录暂时无法更新" message="{{errorMessage}}"></ui-alert
-        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
-      ></view>
-      <view wx:else class="directory-content">
-        <view class="page-heading"
-          ><text class="section-eyebrow">组织目录 / 只读</text
-          ><text class="page-title"
-            >{{directoryKind === 'employee' ? '员工通讯录' : '院内通讯录'}}</text
-          ><text class="page-description"
-            >号码只按当前成员权限展示，搜索结果不会写入本地缓存。</text
-          ></view
-        >
-        <view class="mode-tabs" aria-role="tablist" aria-label="通讯录模式"
-          ><view
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading' && entries.length === 0}}" class="page-state-card">
+        <ui-loading label="正在读取通讯录"></ui-loading>
+      </view>
+      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled">
+        <view class="state-mark">—</view>
+        <text class="state-title">通讯录暂未开放</text>
+        <text class="state-copy">当前版本未开启 organization 能力，不会读取目录或号码。</text>
+      </view>
+      <view wx:elif="{{state === 'error' && entries.length === 0}}" class="page-state-card">
+        <ui-alert tone="danger" title="通讯录暂时无法更新" message="{{errorMessage}}"></ui-alert>
+        <ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button>
+      </view>
+      <view wx:else class="directory-content {{modeMotionClass}}">
+        <view class="mode-rail" aria-role="tablist" aria-label="通讯录范围">
+          <view class="mode-indicator {{directoryKind === 'employee' ? 'is-employee' : ''}}"></view>
+          <view
             class="mode-tab {{directoryKind === 'internal' ? 'is-active' : ''}}"
             aria-role="tab"
             aria-selected="{{directoryKind === 'internal'}}"
             bindtap="handleInternalMode"
-            >院内</view
-          ><view
+            >科室</view
+          >
+          <view
             class="mode-tab {{directoryKind === 'employee' ? 'is-active' : ''}}"
             aria-role="tab"
             aria-selected="{{directoryKind === 'employee'}}"
             bindtap="handleEmployeeMode"
-            >员工</view
-          ></view
-        >
-        <view class="search-row"
-          ><input
+            >人员</view
+          >
+        </view>
+
+        <view class="wayfinding">
+          <view class="wayfinding-header">
+            <text class="wayfinding-title">院区导览</text>
+            <view class="wayfinding-actions">
+              <view
+                wx:if="{{activeFilterCount > 0}}"
+                class="clear-filter-action"
+                aria-role="button"
+                bindtap="handleClearFilters"
+                >清除全部</view
+              >
+              <view
+                class="filter-open-action"
+                aria-role="button"
+                aria-label="打开筛选，已选{{activeFilterCount}}项"
+                bindtap="handleOpenFilters"
+              >
+                <text>全部筛选</text>
+                <text wx:if="{{activeFilterCount > 0}}" class="filter-count"
+                  >{{activeFilterCount}}</text
+                >
+              </view>
+            </view>
+          </view>
+          <scroll-view
+            wx:if="{{filterSections.length > 0}}"
+            class="wayfinding-ribbon"
+            scroll-x
+            enhanced
+            show-scrollbar="{{false}}"
+          >
+            <view class="wayfinding-track">
+              <view
+                wx:for="{{filterSections}}"
+                wx:for-item="section"
+                wx:for-index="sectionIndex"
+                wx:key="key"
+                class="wayfinding-stop {{section.selectedLabel !== '全部' ? 'is-selected' : ''}}"
+                aria-role="button"
+                bindtap="handleOpenFilters"
+              >
+                <text class="stop-index">{{sectionIndex + 1}}</text>
+                <view class="stop-copy">
+                  <text>{{section.label}}</text>
+                  <text>{{section.selectedLabel}}</text>
+                </view>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+
+        <view class="directory-search" aria-role="search">
+          <text class="search-icon">⌕</text>
+          <input
             class="search-input"
             value="{{searchQuery}}"
             maxlength="100"
             confirm-type="search"
-            placeholder="搜索科室、姓名或号码"
+            placeholder="{{directoryKind === 'employee' ? '搜索姓名、级别、工号、拼音、首字母或号码' : '搜索科室、姓名、拼音或号码'}}"
             bindinput="handleSearchInput"
-            bindconfirm="handleSearch" /><ui-button
-            variant="primary"
-            label="搜索"
-            loading="{{searching}}"
-            disabled="{{searching}}"
-            bindpress="handleSearch"
-          ></ui-button
-        ></view>
-        <view class="filter-grid">
-          <picker
-            mode="selector"
-            range="{{campusOptions}}"
-            range-key="label"
-            value="{{campusIndex}}"
-            data-filter="campusCode"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker">{{campusFilterLabel}}：{{campusLabel}}</view></picker
-          >
-          <picker
-            mode="selector"
-            range="{{sectionOptions}}"
-            range-key="label"
-            value="{{sectionIndex}}"
-            data-filter="section"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker">{{sectionFilterLabel}}：{{sectionLabel}}</view></picker
-          >
-          <picker
-            mode="selector"
-            range="{{buildingOptions}}"
-            range-key="label"
-            value="{{buildingIndex}}"
-            data-filter="building"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker">{{buildingFilterLabel}}：{{buildingLabel}}</view></picker
-          >
-          <picker
-            mode="selector"
-            range="{{floorOptions}}"
-            range-key="label"
-            value="{{floorIndex}}"
-            data-filter="floor"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker">{{floorFilterLabel}}：{{floorLabel}}</view></picker
-          >
-          <picker
-            mode="selector"
-            range="{{departmentOptions}}"
-            range-key="label"
-            value="{{departmentIndex}}"
-            data-filter="department"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker"
-              >{{departmentFilterLabel}}：{{departmentLabel}}</view
-            ></picker
-          >
-          <picker
-            mode="selector"
-            range="{{subunitOptions}}"
-            range-key="label"
-            value="{{subunitIndex}}"
-            data-filter="subunit"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker">{{subunitFilterLabel}}：{{subunitLabel}}</view></picker
-          >
-          <picker
-            mode="selector"
-            range="{{entryKindOptions}}"
-            range-key="label"
-            value="{{entryKindIndex}}"
-            data-filter="entryKind"
-            bindchange="handleFilterChange"
-            ><view class="filter-picker">{{entryKindFilterLabel}}：{{entryKindLabel}}</view></picker
+            bindconfirm="handleSearch"
+          />
+          <ui-loading wx:if="{{searching}}" label=""></ui-loading>
+        </view>
+
+        <text wx:if="{{filterAdjustmentMessage}}" class="filter-adjustment"
+          >{{filterAdjustmentMessage}}</text
+        >
+        <view
+          wx:for="{{prioritySections}}"
+          wx:for-item="prioritySection"
+          wx:key="key"
+          class="priority-section"
+        >
+          <view class="priority-heading">
+            <text>{{prioritySection.title}}</text>
+            <text>{{prioritySection.entries.length}} 组</text>
+          </view>
+          <view class="directory-results">
+            <directory-entry-card
+              wx:for="{{prioritySection.entries}}"
+              wx:for-item="entry"
+              wx:key="id"
+              entry="{{entry}}"
+              bindfavoritechange="handleDirectoryCardFavorite"
+              binddirectorycall="handleDirectoryCardCall"
+            ></directory-entry-card>
+          </view>
+        </view>
+        <view class="result-summary" aria-live="polite">{{resultSummary}}</view>
+
+        <view wx:if="{{state === 'empty'}}" class="empty-card">
+          <view class="state-mark">⌕</view>
+          <text class="state-title">没有找到匹配号码</text>
+          <text class="state-copy">可缩短搜索词，或清除部分层级筛选后重试。</text>
+          <view
+            wx:if="{{searchQuery || activeFilterCount > 0}}"
+            class="empty-reset"
+            aria-role="button"
+            bindtap="handleResetSearch"
+            >清空筛选</view
           >
         </view>
-        <view class="result-summary">{{resultSummary}}</view>
-        <view wx:if="{{state === 'empty'}}" class="empty-card"
-          ><view class="state-mark">○</view><text class="state-title">暂无匹配条目</text
-          ><text class="state-copy">输入关键词或选择筛选条件后开始查找。</text></view
-        >
-        <view wx:elif="{{state === 'ready'}}" class="directory-list"
-          ><view wx:for="{{entries}}" wx:key="id" class="directory-card"
-            ><view class="entry-heading"
-              ><view class="entry-copy"
-                ><text class="entry-title">{{item.title}}</text
-                ><text class="entry-context">{{item.context}}</text></view
-              ><text class="entry-kind">{{item.kindLabel}}</text></view
-            ><block wx:for="{{item.contacts}}" wx:for-item="contact" wx:key="id"
-              ><view
-                wx:if="{{contact.dialable}}"
-                class="contact-row is-dialable"
-                hover-class="is-pressed"
-                data-number="{{contact.dialNumber}}"
-                aria-role="button"
-                aria-label="拨打{{contact.label}} {{contact.number}}"
-                bindtap="handleCall"
-                ><text class="contact-label">{{contact.label}}</text
-                ><text class="contact-number">{{contact.number}}</text></view
-              ><view wx:else class="contact-row"
-                ><text class="contact-label">{{contact.label}}</text
-                ><text class="contact-number">{{contact.number}}</text></view
-              ></block
-            ></view
-          ><view wx:if="{{nextCursor}}" class="load-more"
-            ><ui-button
-              variant="secondary"
-              label="{{loadingMore ? '正在加载' : '加载更多'}}"
-              loading="{{loadingMore}}"
-              disabled="{{loadingMore}}"
-              bindpress="handleLoadMore"
-            ></ui-button></view
-        ></view>
-        <view wx:if="{{errorMessage}}" class="inline-error"
-          ><ui-alert tone="danger" title="搜索未完成" message="{{errorMessage}}"></ui-alert
-        ></view>
-        <view class="privacy-note"
-          >号码仅供当前群组工作使用；员工与院内目录按角色隔离，访客不提供入口。</view
+
+        <view wx:elif="{{entries.length > 0}}" class="directory-results">
+          <directory-entry-card
+            wx:for="{{entries}}"
+            wx:for-item="entry"
+            wx:key="id"
+            entry="{{entry}}"
+            bindfavoritechange="handleDirectoryCardFavorite"
+            binddirectorycall="handleDirectoryCardCall"
+          ></directory-entry-card>
+        </view>
+
+        <view wx:if="{{nextCursor}}" class="load-more">
+          <ui-button
+            variant="secondary"
+            label="{{loadingMore ? '正在加载' : '加载更多'}}"
+            loading="{{loadingMore}}"
+            disabled="{{loadingMore}}"
+            bindpress="handleLoadMore"
+          ></ui-button>
+        </view>
+        <view wx:if="{{errorMessage && entries.length > 0}}" class="inline-error">
+          <ui-alert tone="danger" title="搜索未完成" message="{{errorMessage}}"></ui-alert>
+        </view>
+        <text class="privacy-note"
+          >{{directoryKind === 'employee' ? '人员通讯录仅供院内工作联系，请勿对外转发。' :
+          '院内联系方式仅供工作使用，请勿向院外转发。'}}</text
         >
       </view>
-    </view></scroll-view
-  >
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{filterSheetOpen}}" class="sheet-layer" catchtouchmove="preventTouchMove">
+    <view class="sheet-scrim" aria-role="button" bindtap="handleCloseFilters"></view>
+    <view class="filter-sheet" aria-role="dialog" aria-label="通讯录筛选">
+      <view class="sheet-handle"></view>
+      <view class="sheet-heading">
+        <view>
+          <text class="sheet-title"
+            >筛选{{directoryKind === 'employee' ? '人员' : '科室'}}通讯录</text
+          >
+          <text class="sheet-copy">只显示当前组织路径下仍可用的层级选项。</text>
+        </view>
+        <view class="sheet-finish" aria-role="button" bindtap="handleCloseFilters">完成</view>
+      </view>
+      <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="sheet-body">
+          <view
+            wx:for="{{filterSections}}"
+            wx:for-item="section"
+            wx:key="key"
+            class="filter-section"
+          >
+            <view class="filter-section-heading">
+              <text>{{section.label}}</text>
+              <text>{{section.selectedLabel}}</text>
+            </view>
+            <view class="filter-options">
+              <view
+                wx:for="{{section.options}}"
+                wx:for-item="option"
+                wx:key="value"
+                class="filter-option {{option.selected ? 'is-selected' : ''}}"
+                aria-role="button"
+                aria-pressed="{{option.selected}}"
+                data-filter="{{section.key}}"
+                data-value="{{option.value}}"
+                bindtap="handleFilterOption"
+              >
+                <text>{{option.label}}</text>
+                <text class="option-count">{{option.count}}</text>
+              </view>
+            </view>
+          </view>
+          <view
+            wx:if="{{activeFilterCount > 0}}"
+            class="sheet-clear"
+            aria-role="button"
+            bindtap="handleClearFilters"
+            >清除全部筛选</view
+          >
+        </view>
+      </scroll-view>
+    </view>
+  </view>
 </view>

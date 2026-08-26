@@ -1,0 +1,73 @@
+<view class="directory-entry {{entry.merged ? 'is-merged' : ''}}">
+  <view class="entry-accent"></view>
+  <view class="entry-content">
+    <view class="entry-heading">
+      <view class="entry-heading-copy">
+        <view class="entry-title-line">
+          <text class="entry-title">{{entry.title}}</text>
+          <text class="entry-kind">{{entry.kindLabel}}</text>
+          <text
+            wx:for="{{entry.jobTitles}}"
+            wx:for-item="jobTitle"
+            wx:key="*this"
+            class="entry-job-title"
+            >{{jobTitle}}</text
+          >
+          <text wx:if="{{entry.employeeCodes.length > 0}}" class="entry-employee-code"
+            >工号 {{entry.employeeCodeLabel}}</text
+          >
+          <text wx:if="{{entry.mergeCountLabel}}" class="entry-merge-count"
+            >{{entry.mergeCountLabel}}</text
+          >
+        </view>
+        <view wx:if="{{entry.contexts.length > 0}}" class="entry-contexts">
+          <text wx:for="{{entry.contexts}}" wx:for-item="context" wx:key="*this" class="entry-meta"
+            >{{context}}</text
+          >
+        </view>
+      </view>
+      <view
+        class="favorite-action {{entry.favorite ? 'is-favorite' : ''}}"
+        aria-role="button"
+        aria-label="{{entry.favorite ? '取消收藏' : '收藏'}}{{entry.title}}"
+        aria-pressed="{{entry.favorite}}"
+        hover-class="is-pressed"
+        bindtap="handleFavorite"
+        >{{entry.favorite ? '★' : '☆'}}</view
+      >
+    </view>
+
+    <view class="contact-methods">
+      <view
+        wx:for="{{entry.contacts}}"
+        wx:for-item="contact"
+        wx:key="id"
+        class="contact-method {{contact.showLabel ? 'has-contact-label' : ''}}"
+      >
+        <text wx:if="{{contact.showLabel}}" class="contact-label">{{contact.label}}</text>
+        <view class="contact-number-group">
+          <block wx:for="{{contact.numbers}}" wx:for-item="number" wx:key="id">
+            <view
+              wx:if="{{number.dialable}}"
+              class="directory-number is-dialable"
+              hover-class="is-pressed"
+              data-number="{{number.dialNumber}}"
+              aria-role="button"
+              aria-label="拨打{{entry.title}}的{{contact.label}} {{number.number}}"
+              bindtap="handleCall"
+            >
+              <text wx:if="{{number.label}}" class="number-kind">{{number.label}}</text>
+              <text class="contact-number">{{number.number}}</text>
+              <image class="phone-icon" src="/assets/icons/web-phone.svg" mode="aspectFit" />
+            </view>
+            <view wx:else class="directory-number">
+              <text wx:if="{{number.label}}" class="number-kind">{{number.label}}</text>
+              <text class="contact-number">{{number.number}}</text>
+            </view>
+          </block>
+        </view>
+      </view>
+    </view>
+    <text wx:if="{{entry.notes}}" class="entry-notes">{{entry.notes}}</text>
+  </view>
+</view>

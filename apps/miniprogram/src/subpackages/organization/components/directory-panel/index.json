@@ -2,6 +2,7 @@
   "component": true,
   "styleIsolation": "apply-shared",
   "usingComponents": {
+    "directory-entry-card": "/subpackages/organization/components/directory-entry-card/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-button": "/components/ui/ui-button/index",
     "ui-loading": "/components/ui/ui-loading/index"

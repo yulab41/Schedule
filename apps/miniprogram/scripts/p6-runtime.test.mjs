@@ -54,6 +54,7 @@ describe('P6-A session, transport and private cache runtime', () => {
     for (const value of cases) {
       const storageWx = createStorageWx({
         'schedule.wechat.session': value,
+        'schedule.directory.preferences.v1:user-1:group-1:internal': '{"version":1}',
         'schedule.wechat.workbench.cache.v2:user-1:group-1:2026-08': { private: true },
         'schedule.wechat.workbench.current-group': { groupId: 'group-1', ownerId: 'user-1' },
       });
@@ -65,6 +66,9 @@ describe('P6-A session, transport and private cache runtime', () => {
       expect(
         [...storageWx.storage.keys()].some((key) => key.includes('schedule.wechat.workbench')),
       ).toBe(false);
+      expect(
+        [...storageWx.storage.keys()].some((key) => key.includes('schedule.directory.preferences')),
+      ).toBe(false);
       vi.resetModules();
     }
   });
@@ -73,6 +77,7 @@ describe('P6-A session, transport and private cache runtime', () => {
     const now = Date.now();
     const storageWx = createStorageWx({
       'schedule.wechat.session': session('user-1', now),
+      'schedule.directory.preferences.v1:user-1:group-1:internal': '{"version":1}',
       'schedule.wechat.workbench.cache.v2:user-1:group-1:2026-08': { private: true },
       'schedule.wechat.workbench.current-group': { groupId: 'group-1', ownerId: 'user-1' },
     });
@@ -83,10 +88,16 @@ describe('P6-A session, transport and private cache runtime', () => {
     expect(storageWx.storage.has('schedule.wechat.workbench.cache.v2:user-1:group-1:2026-08')).toBe(
       true,
     );
+    expect(storageWx.storage.has('schedule.directory.preferences.v1:user-1:group-1:internal')).toBe(
+      true,
+    );
 
     identity.persistWechatSession(authenticated('user-2', now));
     expect(
       [...storageWx.storage.keys()].filter((key) => key.includes('schedule.wechat.workbench')),
+    ).toEqual([]);
+    expect(
+      [...storageWx.storage.keys()].filter((key) => key.includes('schedule.directory.preferences')),
     ).toEqual([]);
     expect(identity.getStoredWechatProfile(now)?.id).toBe('user-2');
   });

@@ -1,0 +1,172 @@
+.directory-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr);
+}
+.entry-accent {
+  margin: 9px 0;
+  background: #0a66d5;
+  border-radius: 0 4px 4px 0;
+  opacity: 0.76;
+}
+.directory-entry.is-merged .entry-accent {
+  background: #3a9e7a;
+}
+.entry-content {
+  min-width: 0;
+  padding: 10px 14px 9px;
+}
+.entry-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 2px;
+}
+.entry-heading-copy,
+.entry-contexts,
+.contact-methods {
+  display: grid;
+  min-width: 0;
+}
+.entry-heading-copy {
+  gap: 2px;
+}
+.entry-title-line,
+.contact-number-group,
+.directory-number {
+  display: flex;
+}
+.entry-title-line {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.entry-title {
+  color: #17202a;
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 1.25;
+}
+.entry-kind,
+.entry-job-title {
+  padding: 2px 6px;
+  border-radius: var(--ui-radius-pill);
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+.entry-kind {
+  color: #0a66d5;
+  background: #eaf3ff;
+}
+.entry-job-title {
+  color: #17202a;
+  background: #f3f5f8;
+  border: 1px solid #dce3eb;
+}
+.entry-employee-code,
+.entry-merge-count {
+  font-size: 11px;
+}
+.entry-employee-code {
+  color: #667386;
+  font-variant-numeric: tabular-nums;
+}
+.entry-merge-count {
+  color: #39745d;
+  font-weight: var(--ui-font-weight-semibold);
+}
+.entry-contexts {
+  gap: 1px;
+}
+.entry-meta,
+.entry-notes {
+  color: #667386;
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-body);
+}
+.entry-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.favorite-action {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  color: #9aa5b3;
+  border-radius: var(--ui-radius-small);
+  font-size: 24px;
+}
+.favorite-action.is-favorite {
+  color: #d49300;
+}
+.favorite-action.is-pressed {
+  background: #fff6d8;
+}
+.contact-methods {
+  margin-top: 5px;
+  gap: 2px;
+}
+.contact-method {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #dce3eb;
+}
+.contact-method.has-contact-label {
+  grid-template-columns: minmax(62px, auto) minmax(0, 1fr);
+}
+.contact-label {
+  overflow: hidden;
+  color: #667386;
+  font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contact-number-group {
+  min-width: 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.directory-number {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 5px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: #17202a;
+  border-radius: var(--ui-radius-small);
+  font-variant-numeric: tabular-nums;
+}
+.directory-number.is-dialable {
+  color: #0a66d5;
+}
+.directory-number.is-dialable.is-pressed {
+  background: #eaf3ff;
+}
+.number-kind {
+  color: #8a95a3;
+  font-size: 10px;
+}
+.contact-number {
+  overflow-wrap: normal;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  white-space: nowrap;
+}
+.phone-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+.entry-notes {
+  display: block;
+  margin-top: 4px;
+}

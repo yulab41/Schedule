@@ -3,11 +3,13 @@ export const WORKBENCH_GROUP_STORAGE_KEY = 'schedule.wechat.workbench.current-gr
 export const WORKBENCH_CACHE_V1_PREFIX = 'schedule.wechat.workbench.cache.v1:';
 export const WORKBENCH_CACHE_V2_PREFIX = 'schedule.wechat.workbench.cache.v2:';
 export const WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX = 'schedule.wechat.workbench.groups.v2:';
+export const DIRECTORY_PREFERENCES_PREFIX = 'schedule.directory.preferences.v1:';
 
 const privateBusinessPrefixes = [
   WORKBENCH_CACHE_V1_PREFIX,
   WORKBENCH_CACHE_V2_PREFIX,
   WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX,
+  DIRECTORY_PREFERENCES_PREFIX,
 ] as const;
 
 export function clearWechatSessionStorage(): void {
@@ -23,8 +25,9 @@ export function clearPrivateBusinessStorage(): void {
 
 export function clearPrivateBusinessStorageForGroup(ownerId: string, groupId: string): void {
   const prefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:`;
+  const directoryPrefix = `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${groupId}:`;
   for (const key of readStorageKeys()) {
-    if (key.startsWith(prefix)) removeStorage(key);
+    if (key.startsWith(prefix) || key.startsWith(directoryPrefix)) removeStorage(key);
   }
   const selected = readStorage(WORKBENCH_GROUP_STORAGE_KEY);
   if (isRecord(selected) && selected['ownerId'] === ownerId && selected['groupId'] === groupId) {
