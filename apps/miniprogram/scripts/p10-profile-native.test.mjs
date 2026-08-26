@@ -45,5 +45,7 @@ describe('P10 native profile parity', () => {
     expect(controller).toContain("mode: 'missing'");
     expect(styles).toContain('min-height: 44px');
     expect(styles).toContain('.is-large-text');
+    expect(styles).toContain('.is-large-text .identity-name');
+    expect(styles).toContain('white-space: normal');
   });
 });

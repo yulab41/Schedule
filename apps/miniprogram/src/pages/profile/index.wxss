@@ -233,3 +233,25 @@
 .is-large-text .privacy-note {
   font-size: 16px;
 }
+.is-large-text .identity-card {
+  align-items: flex-start;
+}
+.is-large-text .identity-name {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-all;
+}
+.is-large-text .identity-role,
+.is-large-text .identity-version,
+.is-large-text .status-pill {
+  font-size: 16px;
+}
+.is-large-text .setting-row {
+  align-items: flex-start;
+  padding: 8px 0;
+}
+.is-large-text .setting-row > view:first-child {
+  min-width: 0;
+  flex: 1;
+}
