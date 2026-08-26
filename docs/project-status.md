@@ -33,6 +33,9 @@
 - 修复：`requestOnce` 增加与 WX timeout 同步的 JS 兜底定时器，成功/失败/同步异常统一只结算一次并清理 timer；`createWxJsonTransport` 支持透传 timeout，页面最终进入可重试错误/关闭态而不会永久转圈。
 - 验证：新增超时回归先红后绿；Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `5,562,361` bytes，`subpackages/organization` `1,679,900` bytes，manifest `c9eda404b7da6fe18b3f33180cb62d531a8e9c4f10074fcd6e2049694f413902`。
 - checkpoint：代码提交消息为 `fix(miniprogram): settle wx request bridges`；提交后上传候选体验版 `.18`，生产 `organization=true` 保持不变。
+- 增量体验/运行：`0.1.0-p9.20260826.18` 已上传成功，150 个代码文件、zip `1,337,695` bytes、manifest `d6e37344c2b96e4084b4981fb74724f99a286f30132f09e272f1c989c3967363`。生产备份 archive `dce34af1-7b3f-44ba-852c-b667f3f88138` 后追加候选白名单；`.18` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`。
+- 增量发布：代码 checkpoint `5c92b6413e512e810deef8c43a547eb1733f47a4` 部署 release `5c92b6413e512e810deef8c43a547eb1733f47a4`；ECS full verifier、health 200、候选版本 capability 和远端临时目录清理通过。
+- 全量回归：正式 Mini 源码范围 70 files/327 tests 全部通过，包含 `wx.request` 永不回调的超时回归；用户自有 `.artifacts` 副本继续排除。
 
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
