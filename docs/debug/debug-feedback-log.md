@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 项目内生成物约束与历史目录清理
+
+- 范围：用户禁止项目相关 worktree/release/smoke/log/tmp 留在项目外；允许删除已落地淘汰版本和调试/测试内容，但未落地开发必须保留。初始盘点为 `E:\AItools` 104 个 `Schedule-*`、16 个外部 worktree、Temp 1002 个 `schedule-*` 和项目内多批旧 release/test 副本。
+- 清理/保留：Temp 与项目外 Schedule 目录最终均为 0；`runtime` 仅保留 `directory-data`、未落地 P10 directory/preflight worktree、最新 `release-worktree@8505d2f1`。P10 两 HEAD 均非 main 祖先，完整保留；删除的旧 worktree 均为已落地 main 祖先或明确调试/测试内容，Git 分支和提交未删除。
+- 恢复：历史依赖归档内链接误指主工作区，导致 409 tracked 文件短暂成为 D；立即按删除路径清单从 HEAD 恢复。最终删除 0、cached diff 0、409 blob hash 与 HEAD 一致，用户原有两项修改不变。root dependencies frozen reinstall 本地复用 1459/download 0，workspace 备份原样恢复。
+- 防复发/红绿：release worktree 默认和自定义路径锁定 `runtime/` 子目录；ECS scratch=`runtime/tmp`，smoke evidence=`runtime/smoke/latest` 且覆盖旧 latest；AGENTS/runbook 同步。旧实现 4 failures；现定向 2 files/12、Node syntax、全仓 typecheck/build、任务 Prettier、core smoke/diff 通过。真实 helper 首装 1459/reuse1459/download0，复跑 1 秒 `dependencies=reused`。正式 lint 只报既有 5 个 Mini 文件 7 项错误；宽泛根 Vitest 错误 cwd 扫入 Mini page tests 后停止，均未改未落地内容。checkpoint：`fix(tooling): keep project artifacts in repository`。
+
 ## 2026-08-26 Web/Mini 工作流展示规则共享
 
 - 范围/引入点：用户确认通讯录 `.23` 真机视觉通过，并把“Web 规则下沉、Web/Mini 同源”冻结为所有页面/功能的项目原则。本批只共享请假、换班、加扣班的展示/候选/日期算法；Web 候选/状态来自 `d14a4ffe`、色调来自 `2bb9fce1`、请假来自 `0d5ec55c`，Mini 三套副本来自 `bc32a4f1`；均已执行 `git log -S`/`git blame`。

@@ -70,6 +70,10 @@ Production deployment synchronizes application code and committed migrations onl
 
 Documentation-only checkpoint commits must also become the production release so that the deployed release identifier matches Git `HEAD`, even when application artifacts are otherwise unchanged.
 
+## Project-Local Generated Artifacts
+
+All project-related worktrees, release packages, smoke screenshots, logs, debug output, and build scratch data must stay under this repository, normally in the ignored `runtime/` tree. Do not create sibling `Schedule-*` directories or persistent `schedule-*` items in the operating-system temporary directory. Keep only the latest reusable release worktree at `runtime/release-worktree`; remove superseded release/test/debug copies after confirming they are landed or disposable. Unlanded development worktrees must remain intact under `runtime/external-project-worktrees/`. Credentials, upload private keys, and production secrets are the only required exception and must remain outside the repository.
+
 ## 防回归与运行验证（所有修复/重构轮次必须遵守）
 
 1. 定位引入点：回归修复前，对被改动调用点执行 `git log -S '<关键表达式>' -- <文件>` 与 `git blame`，确认该行为从哪个提交/轮次开始，并把引入点写入轮次记录与调试日志。

@@ -5,7 +5,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_RELEASE_WORKTREE_PATH,
   PNPM_INSTALL_ARGUMENTS,
+  assertSafeTarget,
   collectDependencyInputs,
   computeDependencyFingerprint,
   parseArguments,
@@ -30,6 +32,22 @@ function createTemporaryDirectory() {
 }
 
 describe('reusable isolated release worktree', () => {
+  it('keeps every release worktree inside the repository runtime directory', () => {
+    const runtimeRoot = path.dirname(DEFAULT_RELEASE_WORKTREE_PATH);
+    const repositoryRoot = path.dirname(runtimeRoot);
+
+    expect(DEFAULT_RELEASE_WORKTREE_PATH).toBe(path.join(runtimeRoot, 'release-worktree'));
+    expect(() => assertSafeTarget(DEFAULT_RELEASE_WORKTREE_PATH)).not.toThrow();
+    expect(() =>
+      assertSafeTarget(path.join(runtimeRoot, 'release-worktree-secondary')),
+    ).not.toThrow();
+    expect(() => assertSafeTarget(runtimeRoot)).toThrow(/runtime 子目录/u);
+    expect(() => assertSafeTarget(repositoryRoot)).toThrow(/runtime 子目录/u);
+    expect(() =>
+      assertSafeTarget(path.join(path.dirname(repositoryRoot), 'Schedule-release')),
+    ).toThrow(/runtime 子目录/u);
+  });
+
   it('defaults to HEAD and accepts an explicit commit and absolute worktree path', () => {
     expect(parseArguments([])).toEqual({ commit: 'HEAD', json: false, worktreePath: undefined });
 

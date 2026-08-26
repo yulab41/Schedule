@@ -10,14 +10,13 @@
  * 环境变量：
  *   SMOKE_BASE_URL        Web 地址，默认 http://localhost:5173
  *   SMOKE_BROWSER_PATH    浏览器可执行文件路径；缺省自动探测 Edge/Chrome
- *   SMOKE_SCREENSHOT_DIR  截图目录；缺省使用系统临时目录
+ *   SMOKE_SCREENSHOT_DIR  截图目录；必须位于项目 runtime/ 下，缺省覆盖 runtime/smoke/latest
  *
  * 退出码：0 成功；1 冒烟失败；2 核心链路校验未通过；3 环境/用法错误
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,8 +24,34 @@ import { chromium } from 'playwright-core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = (process.env.SMOKE_BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
-const SCREENSHOT_DIR =
-  process.env.SMOKE_SCREENSHOT_DIR ?? fs.mkdtempSync(path.join(os.tmpdir(), 'schedule-smoke-'));
+const DEFAULT_SCREENSHOT_DIR = path.join(ROOT, 'runtime', 'smoke', 'latest');
+const SCREENSHOT_DIR = path.resolve(process.env.SMOKE_SCREENSHOT_DIR ?? DEFAULT_SCREENSHOT_DIR);
+
+function assertRuntimeArtifactPath(target) {
+  const runtimeRoot = path.join(ROOT, 'runtime');
+  fs.mkdirSync(runtimeRoot, { recursive: true });
+  if (fs.lstatSync(runtimeRoot).isSymbolicLink()) {
+    fail('runtime/ 不得是符号链接或目录联接。', 3);
+  }
+  const relative = path.relative(runtimeRoot, target);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    fail(`SMOKE_SCREENSHOT_DIR 必须位于项目 runtime/ 子目录：${target}`, 3);
+  }
+  let current = runtimeRoot;
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) {
+      fail(`SMOKE_SCREENSHOT_DIR 不得穿过符号链接或目录联接：${current}`, 3);
+    }
+  }
+}
+
+assertRuntimeArtifactPath(SCREENSHOT_DIR);
+
+function prepareScreenshotDirectory() {
+  fs.rmSync(SCREENSHOT_DIR, { force: true, recursive: true });
+  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+}
 
 const CORE_PATTERNS = [
   /^apps\/web\/src\/api\//,
@@ -2806,6 +2831,7 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
 }
 
 async function runSmoke() {
+  prepareScreenshotDirectory();
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
   step(`目标：${BASE_URL}`);
@@ -3068,7 +3094,7 @@ if (args.includes('--help') || args.includes('-h')) {
 环境变量：
   SMOKE_BASE_URL        Web 地址，默认 http://localhost:5173
   SMOKE_BROWSER_PATH    浏览器可执行文件路径；缺省自动探测 Edge/Chrome
-  SMOKE_SCREENSHOT_DIR  截图目录；缺省使用系统临时目录
+  SMOKE_SCREENSHOT_DIR  截图目录；必须位于项目 runtime/ 下，缺省覆盖 runtime/smoke/latest
 
 退出码：0 成功；1 冒烟失败；2 核心链路校验未通过；3 环境/用法错误`);
   process.exit(0);

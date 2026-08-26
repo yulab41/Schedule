@@ -1,7 +1,7 @@
 /**
  * Prepare one persistent detached worktree for exact-commit release builds.
  *
- * The worktree is isolated from the developer checkout, while its ignored
+ * The worktree is isolated under runtime/ inside the repository, while its ignored
  * node_modules directory survives commit changes. Dependencies are installed
  * only when their tracked inputs change.
  *
@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
+export const RELEASE_RUNTIME_ROOT = path.join(ROOT, 'runtime');
+export const DEFAULT_RELEASE_WORKTREE_PATH = path.join(ROOT, 'runtime', 'release-worktree');
 export const PNPM_INSTALL_ARGUMENTS = [
   'install',
   '--frozen-lockfile',
@@ -144,18 +146,28 @@ function canonicalPath(value) {
   return process.platform === 'win32' ? resolved.toLocaleLowerCase('en-US') : resolved;
 }
 
-function assertSafeTarget(target) {
-  const root = canonicalPath(ROOT);
+export function assertSafeTarget(target) {
+  const runtimeRoot = canonicalPath(RELEASE_RUNTIME_ROOT);
   const candidate = canonicalPath(target);
-  const relativeFromRoot = path.relative(root, candidate);
-  const relativeToRoot = path.relative(candidate, root);
+  const relativeFromRuntime = path.relative(runtimeRoot, candidate);
 
   if (
-    candidate === root ||
-    (!relativeFromRoot.startsWith('..') && !path.isAbsolute(relativeFromRoot)) ||
-    (!relativeToRoot.startsWith('..') && !path.isAbsolute(relativeToRoot))
+    candidate === runtimeRoot ||
+    relativeFromRuntime.startsWith('..') ||
+    path.isAbsolute(relativeFromRuntime)
   ) {
-    fail('发布 worktree 必须是仓库外的独立兄弟目录，不能是仓库本身、其子目录或父目录。');
+    fail('发布 worktree 必须位于仓库 runtime 子目录内，不能使用项目外路径。');
+  }
+
+  if (fs.existsSync(RELEASE_RUNTIME_ROOT) && fs.lstatSync(RELEASE_RUNTIME_ROOT).isSymbolicLink()) {
+    fail('仓库 runtime/ 不得是符号链接或目录联接。');
+  }
+  let current = RELEASE_RUNTIME_ROOT;
+  for (const segment of relativeFromRuntime.split(path.sep)) {
+    current = path.join(current, segment);
+    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) {
+      fail(`发布 worktree 路径不得穿过符号链接或目录联接：${current}`);
+    }
   }
 }
 
@@ -290,9 +302,7 @@ function writeDependencyMarker(gitDirectory, fingerprint, commit) {
 
 export function main(arguments_ = process.argv.slice(2)) {
   const options = parseArguments(arguments_);
-  const target =
-    options.worktreePath ??
-    path.join(path.dirname(ROOT), `${path.basename(ROOT)}-release-worktree`);
+  const target = options.worktreePath ?? DEFAULT_RELEASE_WORKTREE_PATH;
   assertSafeTarget(target);
 
   const commit = resolveCommit(options.commit);

@@ -9,13 +9,13 @@
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RELEASE_ROOT = path.resolve(ROOT, process.argv[2] ?? 'runtime/ecs-release');
 const RELEASE_PATH_PREFIX = path.join(ROOT, 'runtime') + path.sep;
+const TEMP_ROOT = path.join(ROOT, 'runtime', 'tmp');
 const RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1';
 
 const DIST_PATHS = [
@@ -254,33 +254,40 @@ fs.mkdirSync(RELEASE_ROOT, { recursive: true });
 
 const distArchivePath = path.join(RELEASE_ROOT, 'schedule-dist.tar.gz');
 const apiFlatArchivePath = path.join(RELEASE_ROOT, 'api-flat.tar.zst');
-const apiFlatPath = fs.mkdtempSync(path.join(os.tmpdir(), 'schedule-api-flat-'));
-
-run(
-  pnpmCommand,
-  [
-    'deploy',
-    '--legacy',
-    '--config.node-linker=hoisted',
-    '--config.shamefully-hoist=true',
-    '--filter',
-    '@schedule/holiday-import-script',
-    '--prod',
-    apiFlatPath,
-  ],
-  { shell: process.platform === 'win32' },
-);
-
-if (!fs.existsSync(path.join(apiFlatPath, 'node_modules'))) {
-  fail('pnpm deploy 未生成 api-flat/node_modules。');
+fs.mkdirSync(TEMP_ROOT, { recursive: true });
+if (fs.lstatSync(TEMP_ROOT).isSymbolicLink()) {
+  fail('runtime/tmp 不得是符号链接或目录联接。');
 }
-fs.cpSync(path.join(ROOT, 'migrations'), path.join(apiFlatPath, 'node_modules', 'migrations'), {
-  recursive: true,
-});
+const apiFlatPath = fs.mkdtempSync(path.join(ROOT, 'runtime', 'tmp', 'api-flat-'));
 
-run(tarPath(), ['-czf', distArchivePath, '-C', ROOT, ...DIST_PATHS]);
-run(tarPath(), ['--zstd', '-cf', apiFlatArchivePath, '-C', apiFlatPath, 'node_modules']);
-fs.rmSync(apiFlatPath, { force: true, recursive: true });
+try {
+  run(
+    pnpmCommand,
+    [
+      'deploy',
+      '--legacy',
+      '--config.node-linker=hoisted',
+      '--config.shamefully-hoist=true',
+      '--filter',
+      '@schedule/holiday-import-script',
+      '--prod',
+      apiFlatPath,
+    ],
+    { shell: process.platform === 'win32' },
+  );
+
+  if (!fs.existsSync(path.join(apiFlatPath, 'node_modules'))) {
+    fail('pnpm deploy 未生成 api-flat/node_modules。');
+  }
+  fs.cpSync(path.join(ROOT, 'migrations'), path.join(apiFlatPath, 'node_modules', 'migrations'), {
+    recursive: true,
+  });
+
+  run(tarPath(), ['-czf', distArchivePath, '-C', ROOT, ...DIST_PATHS]);
+  run(tarPath(), ['--zstd', '-cf', apiFlatArchivePath, '-C', apiFlatPath, 'node_modules']);
+} finally {
+  fs.rmSync(apiFlatPath, { force: true, recursive: true });
+}
 
 const manifest = {
   schemaVersion: 1,

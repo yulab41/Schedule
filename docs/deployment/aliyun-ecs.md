@@ -4,11 +4,11 @@
 
 ## 本地生成 release
 
-服务器不负责安装依赖或编译。Windows 本地发布固定复用仓库外的隔离 detached worktree；首次创建时才完整落地依赖，后续切换 commit 时保留该目录的 `node_modules`，仅当受 Git 跟踪的 lockfile、workspace 配置、patch 或任一 `package.json` 变化时执行增量 `pnpm install --frozen-lockfile`：
+服务器不负责安装依赖或编译。Windows 本地发布固定复用项目内 `runtime/release-worktree` 的隔离 detached worktree；首次创建时才完整落地依赖，后续切换 commit 时保留该目录的 `node_modules`，仅当受 Git 跟踪的 lockfile、workspace 配置、patch 或任一 `package.json` 变化时执行增量 `pnpm install --frozen-lockfile`。项目相关 worktree、release、smoke、日志和临时打包目录禁止写到项目目录之外；凭据/私钥仍必须保留在仓库外受控目录：
 
 ```powershell
 node scripts/prepare-release-worktree.mjs --commit HEAD
-Set-Location ..\Schedule-release-worktree
+Set-Location .\runtime\release-worktree
 ```
 
 直接使用 Node 入口可以避免开发工作区尚未提交的 pnpm 配置触发包管理器自身的依赖预检；`pnpm release:worktree -- --commit HEAD` 是工作区配置已经稳定时的等价别名。

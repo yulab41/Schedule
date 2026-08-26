@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 项目内生成物约束与历史目录清理（已实现，待 checkpoint 发布）
+
+- 用户新增硬性约束：项目相关 worktree、发布包、smoke 截图、日志、调试与打包临时文件必须位于 `E:\AItools\Schedule` 内；已落地淘汰版本和调试/测试内容可删除，未落地开发内容禁止删除，只保留最新可复用 release worktree。凭据/私钥仍按安全规则保留在仓库外受控目录。
+- 清理审计：初始发现 `E:\AItools` 下 104 个 `Schedule-*` 历史目录、16 个项目外 Git worktree、系统 Temp 1002 个 `schedule-*` 项及项目内多批旧 `.artifacts/runtime` release 副本。脏 worktree 在删除前保存 HEAD/status/patch/runtime；用户随后明确无需回溯调试结果，故已落地旧版本和调试/测试归档全部清空。
+- 未落地保护：`codex/p10-directory-implementation@389be7b8` 与 `codex/p10-parity-preflight@4ed5085c` 均不是 main 祖先，现完整保留在 `runtime/external-project-worktrees/`；最新 detached release worktree 保留在 `runtime/release-worktree@8505d2f1`。Git 分支/提交历史未删除。
+- 最终目录证据：系统 Temp 的 `schedule-*`/本轮微信 APK/截图为 0，`E:\AItools` 项目外 `Schedule-*` 为 0；项目 `runtime` 顶层只剩 `directory-data`、`external-project-worktrees`、`release-worktree`。旧体验/P4/P5/status/directory worktree 均先证明 HEAD 为 main 祖先后删除。
+- 恢复记录：清理历史依赖归档时一个链接指向主工作区，误删 409 个 tracked 文件；立即停止并只从 `HEAD=8505d2f1` 恢复状态为 D 的路径。恢复后 409 个文件 blob hash 与 HEAD 完全一致、删除剩余 0、cached diff 0，实际工作区 diff 仍只有用户原有 `project.config.json`/`pnpm-workspace.yaml`。受影响的项目内依赖以 frozen install 全部本地复用 1459 包、下载 0，用户 workspace 原文已恢复。
+- 防复发实现：`prepare-release-worktree` 默认及 `--path` 只允许仓库 `runtime/` 子目录，默认 `runtime/release-worktree`；ECS `api-flat` scratch 改到 `runtime/tmp`；browser smoke 默认覆盖 `runtime/smoke/latest`，显式截图目录也必须在 `runtime/`。`AGENTS.md` 与 ECS runbook 同步锁定规则。
+- 测试先行/验证：旧实现因缺内部默认路径、仍引用 `os.tmpdir()` 共 4 项失败；实现后目录/发布工具定向 2 files/12 tests、三脚本 `node --check`、全仓 typecheck/build、任务 Prettier、`smoke:check-core` 和 diff check 通过。真实 helper 首次在内部 worktree 本地复用 1459 包/download 0，第二次 1 秒返回 `dependencies=reused` 且路径精确为 `runtime/release-worktree`。正式 lint 仅被 5 个既有 Mini production/test 文件的 7 项错误阻断，本批未修改这些未落地内容；一次宽泛根 Vitest 因错误 cwd 扫入 Mini page tests 后已停止，正确定向用例全绿。checkpoint 识别消息 `fix(tooling): keep project artifacts in repository`。
+- 下一活动批次与停止条件：完成任务文件 lint/typecheck、真实内部 release worktree 复用验证、状态提交/推送和生产双 release 后，恢复通知中心/通知设置共享规则批次；不得重新创建任何项目外生成目录。
+
 ## 2026-08-26 Web/Mini 工作流展示规则共享（已实现，待体验版复核）
 
 - 用户已明确确认通讯录 `.23` 安卓真机视觉验收通过，并再次冻结全项目原则：Web 是规则基准；可复用的纯算法必须下沉到 `presentation-core`/`client-core`/`scheduling-domain` 供 Web 与 Mini 同时调用，平台层只保留渲染、网络、存储和原生能力适配。
