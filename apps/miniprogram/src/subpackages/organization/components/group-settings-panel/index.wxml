@@ -1,4 +1,6 @@
-<view class="group-settings-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}">
+<view
+  class="group-settings-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}} {{largeText ? 'is-large-text' : ''}}"
+>
   <view wx:if="{{!embedded}}" class="mini-header" style="{{shellHeaderStyle}}">
     <view
       class="header-back"

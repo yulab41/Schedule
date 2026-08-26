@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P8 群组设置 panel 大字号自动对等硬化（已完成自动验证，继续推进）
+
+- 范围：只为群组设置 panel 接入 `fontSizeSetting >= 20` 状态、根节点大字号 class 和长姓名/号码/成员操作重排；不改权限、同意、群组/成员写入、版本/幂等、API 或能力开关。引入点来自 `0d971de17`，组织管理扩展来自 `70f9a98f`，已执行 `git log -S`/`git blame`。
+- 实现：群组名、成员姓名/联系方式、认领与角色操作、联系方式同意区、群组资料/加入/恢复/编辑表单在大字号下允许换行并扩大触达区；成员操作改为纵向完整宽度，继续遵守原有无 `grid`、无 `clamp`、无 `@media` 约束。用户正在修改的成员列表 `wx:if` hunk 保持原样，未纳入本任务提交。
+- 测试先行：旧实现上的 P8-C1 大字号契约与 controller 字号状态共 2 项失败；实现后 P8-C1 4/4、group-settings controller 10/10、页面契约 7/7、Mini 全量 83 files/381 tests、任务 Prettier/ESLint 和 `git diff --check` 通过。
+- 自动验证：Mini typecheck、production verify、source/package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；verify manifest `9cc9c15836427381635d10119d97c86d91577f77dd0f56e06158038ac304c4ee`，总包 `5,758,381` bytes，organization `1,753,082` bytes（仅既有内部 1.5M 预警）。包审计曾因并行读取/重建 dist 出现一次竞态缺文件，串行重建后已通过；根全量测试仍受用户 `runtime/**`/`src/**` 与既有行尾/黄金基线影响，未修改这些文件。
+- 当前策略：用户已明确“无需人工复核”，本项以自动测试、确定性构建、包边界和生产验证验收；当前生产支持 `.34`、`organization=true`、`insights/externalMessages=false`，候选 `.35` 不提审、不正式发布、不自行改变能力。
+- checkpoint/下一步：代码 checkpoint 拟以 `fix(miniprogram): support group settings large text` 提交；提交后从精确 release worktree 上传 `0.1.0-p9.20260827.35`、按备份保护原子加入白名单并完成 ECS 发布/验证。下一活动批次为 P10/P9 剩余状态分支自动审计（只处理 1 项），停止条件是本项体验上传、生产部署、能力探针、verifier 和状态同步全部通过。
+
 ## 2026-08-27 P9 导出 panel 大字号自动对等硬化（已完成自动验证，继续推进）
 
 - 范围：只为 P9 导出 panel 接入 `fontSizeSetting >= 20` 状态、根节点大字号 class 和窄屏/长文案重排；不改导出 API、Bearer 下载、`wx.openDocument`、任务轮询、能力开关、持久化或用户正在修改的组织文件。引入点来自 `de710eaf`，后续选项/生命周期来自 `82840db9`，已执行 `git log -S`/`git blame`。

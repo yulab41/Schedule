@@ -104,6 +104,7 @@ interface GroupSettingsPageData {
   readonly groupCodeDraft: string;
   readonly groupNameDraft: string;
   readonly groupVersion: number;
+  readonly largeText: boolean;
   readonly organizationEnabled: boolean;
   readonly canManageGroup: boolean;
   readonly canManageMembers: boolean;
@@ -195,6 +196,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       groupCodeDraft: '',
       groupNameDraft: '',
       groupVersion: 0,
+      largeText: false,
       organizationEnabled: false,
       canManageGroup: false,
       canManageMembers: false,
@@ -1382,11 +1384,17 @@ function createProfilePatch(): Pick<GroupSettingsPageData, 'profileInitial' | 'p
 
 function createShellLayoutPatch(
   embedded: boolean,
-): Pick<GroupSettingsPageData, 'pageScrollStyle' | 'shellHeaderStyle' | 'viewportClass'> {
+): Pick<
+  GroupSettingsPageData,
+  'largeText' | 'pageScrollStyle' | 'shellHeaderStyle' | 'viewportClass'
+> {
   const windowInfo = wx.getWindowInfo();
   const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
   const headerHeight = statusBarHeight + 52;
   return {
+    largeText:
+      ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
+      20,
     pageScrollStyle: embedded ? 'height:100%;' : `height:calc(100% - ${headerHeight}px);`,
     shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
     viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',

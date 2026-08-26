@@ -750,3 +750,200 @@ page {
   max-width: 100%;
   justify-content: flex-start;
 }
+
+.group-settings-page.is-large-text .header-title-sub,
+.group-settings-page.is-large-text .page-description,
+.group-settings-page.is-large-text .group-name,
+.group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name),
+.group-settings-page.is-large-text .member-row-name,
+.group-settings-page.is-large-text .claim-row-copy > text:first-child,
+.group-settings-page.is-large-text .member-row-meta,
+.group-settings-page.is-large-text .member-contact-line,
+.group-settings-page.is-large-text .privacy-boundary,
+.group-settings-page.is-large-text .organization-capability-note,
+.group-settings-page.is-large-text .inline-editor-copy,
+.group-settings-page.is-large-text .native-picker,
+.group-settings-page.is-large-text .phone-confirm-toggle {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.group-settings-page.is-large-text .section-eyebrow,
+.group-settings-page.is-large-text .group-identity-copy > text:first-child,
+.group-settings-page.is-large-text .group-code-block > text:first-child,
+.group-settings-page.is-large-text .group-card-header > text:first-child,
+.group-settings-page.is-large-text .card-scope,
+.group-settings-page.is-large-text .card-subtitle,
+.group-settings-page.is-large-text .field-label,
+.group-settings-page.is-large-text .consent-title,
+.group-settings-page.is-large-text .profile-name,
+.group-settings-page.is-large-text .phone-consent-copy > text:first-child,
+.group-settings-page.is-large-text .privacy-boundary,
+.group-settings-page.is-large-text .capability-note-title,
+.group-settings-page.is-large-text .inline-editor-heading,
+.group-settings-page.is-large-text .phone-confirm-toggle,
+.group-settings-page.is-large-text .inline-editor-copy,
+.group-settings-page.is-large-text .web-button {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+
+.group-settings-page.is-large-text .page-title,
+.group-settings-page.is-large-text .group-name {
+  font-size: 26px;
+}
+
+.group-settings-page.is-large-text .page-description,
+.group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name),
+.group-settings-page.is-large-text .phone-consent-copy > text:last-child,
+.group-settings-page.is-large-text .member-row-meta,
+.group-settings-page.is-large-text .member-contact-line,
+.group-settings-page.is-large-text .organization-capability-note,
+.group-settings-page.is-large-text .privacy-boundary,
+.group-settings-page.is-large-text .inline-editor-copy {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+
+.group-settings-page.is-large-text .group-card-header,
+.group-settings-page.is-large-text .member-card-header {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-settings-page.is-large-text .card-scope {
+  margin-left: 0;
+}
+
+.group-settings-page.is-large-text .member-card-header > view:first-child {
+  width: 100%;
+}
+
+.group-settings-page.is-large-text .member-card-header > .web-button {
+  width: 100%;
+}
+
+.group-settings-page.is-large-text .consent-heading {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.group-settings-page.is-large-text .preference-scope {
+  align-self: flex-start;
+  min-height: 32px;
+  line-height: 32px;
+}
+
+.group-settings-page.is-large-text .contact-member-row,
+.group-settings-page.is-large-text .phone-consent-control {
+  align-items: flex-start;
+}
+
+.group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name) {
+  overflow-wrap: anywhere;
+}
+
+.group-settings-page.is-large-text .phone-consent-control {
+  min-height: 76px;
+}
+
+.group-settings-page.is-large-text .phone-consent-copy > text:first-child,
+.group-settings-page.is-large-text .phone-consent-copy > text:last-child {
+  white-space: normal;
+}
+
+.group-settings-page.is-large-text .native-field,
+.group-settings-page.is-large-text .native-picker,
+.group-settings-page.is-large-text .web-button {
+  min-height: 52px;
+}
+
+.group-settings-page.is-large-text .native-field {
+  height: 52px;
+  line-height: 52px;
+  font-size: var(--ui-font-size-md);
+}
+
+.group-settings-page.is-large-text .native-picker {
+  align-items: flex-start;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+
+.group-settings-page.is-large-text .native-textarea {
+  min-height: 124px;
+  font-size: var(--ui-font-size-md);
+}
+
+.group-settings-page.is-large-text .member-management-row,
+.group-settings-page.is-large-text .claim-row {
+  flex-wrap: wrap;
+}
+
+.group-settings-page.is-large-text .member-row-main,
+.group-settings-page.is-large-text .claim-row-copy {
+  flex: 1 1 100%;
+}
+
+.group-settings-page.is-large-text .member-row-name,
+.group-settings-page.is-large-text .claim-row-copy > text:first-child {
+  overflow-wrap: anywhere;
+}
+
+.group-settings-page.is-large-text .member-row-actions,
+.group-settings-page.is-large-text .claim-row-actions {
+  width: 100%;
+  max-width: 100%;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.group-settings-page.is-large-text .member-row-actions .web-button,
+.group-settings-page.is-large-text .claim-row-actions .web-button,
+.group-settings-page.is-large-text .group-action-row .web-button {
+  width: 100%;
+}
+
+.group-settings-page.is-large-text .group-action-row {
+  flex-direction: column;
+}
+
+.group-settings-page.is-large-text .compact-button {
+  min-height: 52px;
+  font-size: var(--ui-font-size-md);
+}
+
+.group-settings-page.is-large-text .inline-editor-heading {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-settings-page.is-large-text .editor-close {
+  align-self: flex-end;
+}
+
+.group-settings-page.is-large-text .phone-confirm-toggle {
+  align-items: flex-start;
+  min-height: 52px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.group-settings-page.is-compact.is-large-text .group-identity-band,
+.group-settings-page.is-compact.is-large-text .contact-consent-section {
+  padding: 12px;
+}
+
+.group-settings-page.is-compact.is-large-text .group-code-digits {
+  gap: 6px;
+}
+
+.group-settings-page.is-compact.is-large-text .group-code-digits text {
+  width: 40px;
+  height: 48px;
+}

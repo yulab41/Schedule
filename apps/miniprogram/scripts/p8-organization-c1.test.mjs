@@ -61,4 +61,19 @@ describe('P8-C-1 native organization management', () => {
     expect(controller).toContain('memberCards');
     expect(controller).not.toContain('wx.setStorageSync');
   });
+
+  it('reflows group settings for system large text without clipping member actions', () => {
+    const controller = read(
+      'src/subpackages/organization/components/group-settings-panel/controller.ts',
+    );
+    const panel = read('src/subpackages/organization/components/group-settings-panel/index.wxml');
+    const styles = read('src/subpackages/organization/components/group-settings-panel/index.wxss');
+
+    expect(controller).toContain('largeText');
+    expect(controller).toContain('fontSizeSetting');
+    expect(panel).toContain("largeText ? 'is-large-text' : ''");
+    expect(styles).toContain('.group-settings-page.is-large-text .group-name');
+    expect(styles).toContain('.group-settings-page.is-large-text .member-row-name');
+    expect(styles).toContain('white-space: normal');
+  });
 });

@@ -10,6 +10,7 @@ describe('P5 native group mobile-phone consent controller', () => {
   let statusResponses;
   let updateResponses;
   let windowWidth;
+  let fontSizeSetting;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -17,6 +18,7 @@ describe('P5 native group mobile-phone consent controller', () => {
     statusResponses = [status({ state: 'not-consented' })];
     updateResponses = [];
     windowWidth = 390;
+    fontSizeSetting = 16;
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
     vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'test');
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
@@ -25,7 +27,12 @@ describe('P5 native group mobile-phone consent controller', () => {
       getStorageSync: vi.fn((key) =>
         key === 'schedule.wechat.session' ? validSession('林恩宇') : groupId,
       ),
-      getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth }),
+      getWindowInfo: () => ({
+        statusBarHeight: 24,
+        windowHeight: 844,
+        windowWidth,
+        fontSizeSetting,
+      }),
       navigateBack: vi.fn(),
       navigateTo: vi.fn(),
       request: vi.fn((options) => {
@@ -146,6 +153,13 @@ describe('P5 native group mobile-phone consent controller', () => {
     windowWidth = 320;
     const instance = await loadReadyInstance(definition);
     expect(instance.data.viewportClass).toBe('is-compact');
+  });
+
+  it('tracks system large text independently from the compact viewport', async () => {
+    fontSizeSetting = 20;
+    const instance = await loadReadyInstance(definition);
+    expect(instance.data.largeText).toBe(true);
+    expect(instance.data.viewportClass).toBe('');
   });
 
   it('recovers an initial status failure through the explicit retry action', async () => {
