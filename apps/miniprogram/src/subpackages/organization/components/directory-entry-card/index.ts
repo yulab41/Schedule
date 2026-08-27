@@ -5,13 +5,33 @@ interface DirectoryEntryCardValue {
 }
 
 interface DirectoryEntryCardInstance {
-  readonly properties: { readonly entry: DirectoryEntryCardValue | null };
+  _phoneMotionTimer: unknown;
+  readonly properties: {
+    readonly entry: DirectoryEntryCardValue | null;
+    readonly largeText: boolean;
+    readonly showDivider: boolean;
+  };
+  setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
   triggerEvent(name: string, detail: Readonly<Record<string, string>>): void;
 }
 
 Component({
   properties: {
     entry: { type: Object, value: null },
+    largeText: { type: Boolean, value: false },
+    showDivider: { type: Boolean, value: false },
+  },
+  data: {
+    animatingNumberId: '',
+  },
+  lifetimes: {
+    attached(this: DirectoryEntryCardInstance): void {
+      this._phoneMotionTimer = undefined;
+    },
+    detached(this: DirectoryEntryCardInstance): void {
+      if (this._phoneMotionTimer !== undefined) clearTimeout(this._phoneMotionTimer);
+      this._phoneMotionTimer = undefined;
+    },
   },
   methods: {
     handleFavorite(this: DirectoryEntryCardInstance): void {
@@ -21,12 +41,23 @@ Component({
     handleCall(
       this: DirectoryEntryCardInstance,
       event: {
-        readonly currentTarget: { readonly dataset: { readonly number?: string } };
+        readonly currentTarget: {
+          readonly dataset: { readonly number?: string; readonly numberId?: string };
+        };
       },
     ): void {
       const entry = this.properties.entry;
       const number = event.currentTarget.dataset.number;
       if (entry !== null && number !== undefined) {
+        const numberId = event.currentTarget.dataset.numberId ?? '';
+        if (this._phoneMotionTimer !== undefined) clearTimeout(this._phoneMotionTimer);
+        this.setData({ animatingNumberId: '' }, () => {
+          this.setData({ animatingNumberId: numberId });
+          this._phoneMotionTimer = setTimeout(() => {
+            this._phoneMotionTimer = undefined;
+            this.setData({ animatingNumberId: '' });
+          }, 620);
+        });
         this.triggerEvent('directorycall', { groupId: entry.id, number });
       }
     },

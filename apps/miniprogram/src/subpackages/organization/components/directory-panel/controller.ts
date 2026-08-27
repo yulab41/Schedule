@@ -1,4 +1,5 @@
 import type { DirectoryReadClient } from '@schedule/client-core';
+import { ClientCoreError } from '@schedule/client-core';
 import type {
   DirectoryEntry,
   DirectoryFacetOption,
@@ -6,7 +7,6 @@ import type {
   DirectoryKind,
   DirectoryQuery,
 } from '@schedule/contracts';
-import { ClientCoreError } from '@schedule/client-core';
 import {
   canDialDirectoryNumber,
   getCompatibleDirectoryFacetOptionsByKey,
@@ -41,14 +41,15 @@ import {
 } from '../../../../app/client-capability-store.js';
 import { createRuntimeDirectoryReadClient } from '../../../../platform/client-core-calendar.js';
 import { DIRECTORY_PREFERENCES_PREFIX } from '../../../../platform/private-storage.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import {
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
-import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
-type DirectoryState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
+type DirectoryState = 'disabled' | 'empty' | 'error' | 'idle' | 'loading' | 'ready';
+type DirectoryModeIndex = 0 | 1;
 
 interface DirectoryNumberCard {
   readonly dialable: boolean;
@@ -86,72 +87,71 @@ interface DirectoryPrioritySectionView {
   readonly title: string;
 }
 
-interface DirectoryOption extends DirectoryFacetOption {
+interface DirectoryFilterOptionView extends DirectoryFacetOption {
+  readonly selected: boolean;
   readonly value: string;
 }
 
-interface DirectoryFilterOptionView extends DirectoryOption {
-  readonly selected: boolean;
-}
-
 interface DirectoryFilterSectionView {
+  readonly expanded: boolean;
   readonly key: DirectoryFilterKey;
   readonly label: string;
+  readonly optionCount: number;
   readonly options: readonly DirectoryFilterOptionView[];
   readonly selectedLabel: string;
 }
 
-interface DirectoryPageData {
+interface DirectoryPaneData {
   readonly activeFilterCount: number;
-  readonly buildingIndex: number;
-  readonly buildingLabel: string;
-  readonly buildingOptions: readonly DirectoryOption[];
-  readonly campusIndex: number;
-  readonly campusFilterLabel: string;
-  readonly campusLabel: string;
-  readonly campusOptions: readonly DirectoryOption[];
-  readonly departmentIndex: number;
-  readonly departmentFilterLabel: string;
-  readonly departmentLabel: string;
-  readonly departmentOptions: readonly DirectoryOption[];
   readonly directoryKind: DirectoryKind;
-  readonly embedded: boolean;
   readonly entries: readonly DirectoryCard[];
-  readonly entryKindIndex: number;
-  readonly entryKindFilterLabel: string;
-  readonly entryKindLabel: string;
-  readonly entryKindOptions: readonly DirectoryOption[];
   readonly errorMessage: string;
+  readonly facetsLoading: boolean;
   readonly filterAdjustmentMessage: string;
+  readonly filterScrollTarget: string;
   readonly filterSections: readonly DirectoryFilterSectionView[];
   readonly filterSheetOpen: boolean;
-  readonly floorIndex: number;
-  readonly floorFilterLabel: string;
-  readonly floorLabel: string;
-  readonly floorOptions: readonly DirectoryOption[];
-  readonly groupId: string;
-  readonly largeText: boolean;
+  readonly hasCriteria: boolean;
   readonly loadingMore: boolean;
   readonly mergedGroupCount: number;
-  readonly modeMotionClass: string;
   readonly nextCursor: string;
-  readonly pageScrollStyle: string;
   readonly prioritySections: readonly DirectoryPrioritySectionView[];
-  readonly searching: boolean;
-  readonly searchQuery: string;
-  readonly sectionIndex: number;
-  readonly sectionFilterLabel: string;
-  readonly sectionLabel: string;
-  readonly sectionOptions: readonly DirectoryOption[];
-  readonly shellHeaderStyle: string;
-  readonly state: DirectoryState;
-  readonly subunitIndex: number;
-  readonly subunitFilterLabel: string;
-  readonly buildingFilterLabel: string;
-  readonly subunitLabel: string;
-  readonly subunitOptions: readonly DirectoryOption[];
   readonly resultSummary: string;
+  readonly searchQuery: string;
+  readonly searching: boolean;
+  readonly state: DirectoryState;
+  readonly title: string;
+}
+
+interface DirectoryPageData {
+  readonly activeModeIndex: DirectoryModeIndex;
+  readonly departmentAnimating: boolean;
+  readonly directoryKind: DirectoryKind;
+  readonly employeePane: DirectoryPaneData;
+  readonly embedded: boolean;
+  readonly filterSheetOpen: boolean;
+  readonly groupId: string;
+  readonly internalPane: DirectoryPaneData;
+  readonly largeText: boolean;
+  readonly peopleAnimating: boolean;
+  readonly shellContentStyle: string;
+  readonly shellHeaderStyle: string;
+  readonly swiperDuration: number;
   readonly viewportClass: string;
+}
+
+interface DirectoryModeRuntime {
+  readonly collapsedFilterKeys: Set<DirectoryFilterKey>;
+  contextSerial: number;
+  facets: DirectoryFacetSnapshot | undefined;
+  filters: DirectoryFilters;
+  groupId: string;
+  nextCursor: string | undefined;
+  preferences: DirectoryPreferences;
+  priorityEntries: readonly DirectoryEntry[];
+  rawEntries: readonly DirectoryEntry[];
+  requestSerial: number;
+  searchTimer: unknown;
 }
 
 interface DirectoryPageInstance {
@@ -161,41 +161,48 @@ interface DirectoryPageInstance {
     readonly embedded: boolean;
     readonly groupId: string;
   };
+  _detached: boolean;
   _directoryClient: DirectoryReadClient;
-  _facets: DirectoryFacetSnapshot | undefined;
-  _filters: DirectoryFilters;
-  _loadedKey: string;
-  _nextCursor: string | undefined;
-  _preferences: DirectoryPreferences;
-  _priorityEntries: readonly DirectoryEntry[];
-  _rawEntries: readonly DirectoryEntry[];
-  _requestSerial: number;
-  _searchTimer: unknown;
-  setData(patch: Partial<DirectoryPageData>): void;
+  _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
+  _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
+  setData(patch: Record<string, unknown>, callback?: () => void): void;
+}
+
+interface ModeDataset {
+  readonly directoryKind?: DirectoryKind;
+  readonly filter?: DirectoryFilterKey;
+  readonly groupId?: string;
+  readonly number?: string;
+  readonly value?: string;
+}
+
+interface ModeTargetEvent {
+  readonly currentTarget?: { readonly dataset: ModeDataset };
+}
+
+interface InputEvent extends ModeTargetEvent {
+  readonly detail: { readonly value: string };
+}
+
+interface FilterOptionEvent extends ModeTargetEvent {
+  readonly currentTarget: {
+    readonly dataset: ModeDataset & { readonly filter?: DirectoryFilterKey };
+  };
+}
+
+interface DirectoryCardEvent extends ModeTargetEvent {
+  readonly detail: { readonly groupId?: string; readonly number?: string };
+}
+
+interface ModeSwiperEvent {
+  readonly detail: { readonly current: number };
 }
 
 const directoryClient = createRuntimeDirectoryReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
-const filterKeys: readonly DirectoryFilterKey[] = [
-  'campusCode',
-  'section',
-  'building',
-  'floor',
-  'department',
-  'subunit',
-  'entryKind',
-];
-const filterFieldNames: Readonly<Record<DirectoryFilterKey, string>> = {
-  building: 'building',
-  campusCode: 'campus',
-  department: 'department',
-  entryKind: 'entryKind',
-  floor: 'floor',
-  section: 'section',
-  subunit: 'subunit',
-};
+const directoryKinds: readonly DirectoryKind[] = ['internal', 'employee'];
 const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
   building: '楼宇',
   campusCode: '院区',
@@ -205,59 +212,25 @@ const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
   section: '片区',
   subunit: '单元',
 };
+
 export function createDirectoryPanelControllerDefinition() {
   const data: DirectoryPageData = {
-    activeFilterCount: 0,
-    buildingIndex: 0,
-    buildingLabel: '全部',
-    buildingOptions: [{ count: 0, label: '全部', value: '' }],
-    campusIndex: 0,
-    campusFilterLabel: '院区',
-    campusLabel: '全部',
-    campusOptions: [{ count: 0, label: '全部', value: '' }],
-    departmentIndex: 0,
-    departmentFilterLabel: '科室',
-    departmentLabel: '全部',
-    departmentOptions: [{ count: 0, label: '全部', value: '' }],
+    activeModeIndex: 0,
+    departmentAnimating: false,
     directoryKind: 'internal',
+    employeePane: createPaneData('employee'),
     embedded: false,
-    entries: [],
-    entryKindIndex: 0,
-    entryKindFilterLabel: '类型',
-    entryKindLabel: '全部',
-    entryKindOptions: [{ count: 0, label: '全部', value: '' }],
-    errorMessage: '',
-    filterAdjustmentMessage: '',
-    filterSections: [],
     filterSheetOpen: false,
-    floorIndex: 0,
-    floorFilterLabel: '楼层',
-    floorLabel: '全部',
-    floorOptions: [{ count: 0, label: '全部', value: '' }],
     groupId: '',
+    internalPane: createPaneData('internal'),
     largeText: false,
-    loadingMore: false,
-    mergedGroupCount: 0,
-    modeMotionClass: '',
-    nextCursor: '',
-    pageScrollStyle: 'height:calc(100% - 76px);',
-    prioritySections: [],
-    searching: false,
-    searchQuery: '',
-    sectionIndex: 0,
-    sectionFilterLabel: '片区',
-    sectionLabel: '全部',
-    sectionOptions: [{ count: 0, label: '全部', value: '' }],
+    peopleAnimating: false,
+    shellContentStyle: 'height:calc(100% - 76px);',
     shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
-    state: 'loading',
-    subunitIndex: 0,
-    subunitFilterLabel: '单元',
-    buildingFilterLabel: '楼宇',
-    subunitLabel: '全部',
-    subunitOptions: [{ count: 0, label: '全部', value: '' }],
-    resultSummary: '输入关键词或选择筛选条件后开始查找。',
+    swiperDuration: 240,
     viewportClass: '',
   };
+
   return {
     data,
     properties: {
@@ -265,51 +238,39 @@ export function createDirectoryPanelControllerDefinition() {
       embedded: { type: Boolean, value: false },
       groupId: { type: String, value: '' },
     },
-    _directoryClient: directoryClient,
-    _facets: undefined,
-    _filters: {},
-    _loadedKey: '',
-    _nextCursor: undefined,
-    _preferences: parseDirectoryPreferences(undefined),
-    _priorityEntries: [],
-    _rawEntries: [],
-    _requestSerial: 0,
-    _searchTimer: undefined,
     observers: {
       groupId(this: DirectoryPageInstance): void {
         startLoad(this);
       },
       directoryKind(this: DirectoryPageInstance): void {
-        startLoad(this);
+        activateMode(this, normalizeDirectoryKind(this.properties.directoryKind), false);
       },
     },
     lifetimes: {
       attached(this: DirectoryPageInstance): void {
         recordMiniTelemetryBoundary('directory:controller-attached');
+        initializeRuntimeState(this);
+        this._detached = false;
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
         const embedded = this.properties.embedded;
         this.setData({
           embedded,
-          pageScrollStyle: embedded ? 'height:100%;' : `height:calc(100% - ${headerHeight}px);`,
-          shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
           largeText:
             ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
               16) >= 20,
+          shellContentStyle: embedded ? 'height:100%;' : `height:calc(100% - ${headerHeight}px);`,
+          shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
           viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
         });
         startLoad(this);
       },
       detached(this: DirectoryPageInstance): void {
-        clearSearchTimer(this);
-        this._requestSerial += 1;
-        this._loadedKey = '';
-        this._facets = undefined;
-        this._filters = {};
-        this._nextCursor = undefined;
-        this._priorityEntries = [];
-        this._rawEntries = [];
+        initializeRuntimeState(this);
+        this._detached = true;
+        for (const kind of directoryKinds) invalidateRuntime(this._modeRuntimes[kind]);
+        clearModeIconTimers(this);
       },
     },
     methods: {
@@ -317,70 +278,85 @@ export function createDirectoryPanelControllerDefinition() {
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },
-      handleRetry(this: DirectoryPageInstance): void {
-        void loadFacets(this);
-      },
       handleInternalMode(this: DirectoryPageInstance): void {
-        switchMode(this, 'internal');
+        activateMode(this, 'internal', true);
       },
       handleEmployeeMode(this: DirectoryPageInstance): void {
-        switchMode(this, 'employee');
+        activateMode(this, 'employee', true);
       },
-      handleSearchInput(this: DirectoryPageInstance, event: InputEvent): void {
-        this.setData({ searchQuery: event.detail.value });
-        scheduleSearch(this);
-      },
-      handleSearch(this: DirectoryPageInstance): void {
-        void search(this);
-      },
-      handleOpenFilters(this: DirectoryPageInstance): void {
-        this.setData({ filterSheetOpen: true });
-      },
-      handleCloseFilters(this: DirectoryPageInstance): void {
-        this.setData({ filterSheetOpen: false });
-      },
-      handleFilterOption(this: DirectoryPageInstance, event: FilterOptionEvent): void {
-        void selectFilter(this, event);
-      },
-      handleFilterChange(this: DirectoryPageInstance, event: LegacyPickerEvent): void {
-        const key = event.currentTarget.dataset.filter;
-        const fieldName = filterFieldNames[key];
-        const options = this.data[
-          `${fieldName}Options` as keyof DirectoryPageData
-        ] as readonly DirectoryOption[];
-        const selected = options[event.detail.value];
-        if (selected !== undefined) {
-          void selectFilter(this, {
-            currentTarget: { dataset: { filter: key, value: selected.value } },
-          });
+      handleModeSwiperChange(this: DirectoryPageInstance, event: ModeSwiperEvent): void {
+        if (event.detail.current === 0 || event.detail.current === 1) {
+          activateMode(this, event.detail.current === 0 ? 'internal' : 'employee', true);
         }
       },
-      handleClearFilters(this: DirectoryPageInstance): void {
-        clearAllFilters(this);
+      handleRetry(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        const kind = eventKind(this, event);
+        const pane = getPaneData(this, kind);
+        if (pane.state === 'disabled') {
+          for (const directoryKind of directoryKinds) void loadFacets(this, directoryKind);
+          return;
+        }
+        const runtime = getRuntime(this, kind);
+        if (runtime.facets === undefined) void loadFacets(this, kind);
+        else void search(this, kind);
       },
-      handleResetSearch(this: DirectoryPageInstance): void {
-        resetDirectorySearch(this);
+      handleSearchInput(this: DirectoryPageInstance, event: InputEvent): void {
+        const kind = eventKind(this, event);
+        setPaneData(this, kind, { searchQuery: event.detail.value });
+        scheduleSearch(this, kind);
       },
-      handleLoadMore(this: DirectoryPageInstance): void {
-        void loadMore(this);
+      handleSearch(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        void search(this, eventKind(this, event));
       },
-      handleToggleFavorite(this: DirectoryPageInstance, event: FavoriteEvent): void {
-        toggleFavorite(this, event.currentTarget.dataset.groupId);
+      handleClearSearch(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        clearSearch(this, eventKind(this, event));
+      },
+      handleOpenFilters(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        openFilters(this, eventKind(this, event));
+      },
+      handleOpenFilterAt(this: DirectoryPageInstance, event: FilterOptionEvent): void {
+        const kind = eventKind(this, event);
+        const key = event.currentTarget.dataset.filter;
+        if (key !== undefined) openFilters(this, kind, key);
+      },
+      handleCloseFilters(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        closeFilters(this, eventKind(this, event));
+      },
+      handleToggleFilterSection(this: DirectoryPageInstance, event: FilterOptionEvent): void {
+        const kind = eventKind(this, event);
+        const key = event.currentTarget.dataset.filter;
+        if (key !== undefined) toggleFilterSection(this, kind, key);
+      },
+      handleFilterOption(this: DirectoryPageInstance, event: FilterOptionEvent): void {
+        void selectFilter(this, eventKind(this, event), event);
+      },
+      handleClearFilters(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        clearAllFilters(this, eventKind(this, event));
+      },
+      handleResetSearch(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        resetDirectorySearch(this, eventKind(this, event));
+      },
+      handleLoadMore(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        void loadMore(this, eventKind(this, event));
+      },
+      handleToggleFavorite(this: DirectoryPageInstance, event: ModeTargetEvent): void {
+        const kind = eventKind(this, event);
+        toggleFavorite(this, kind, event.currentTarget?.dataset.groupId);
       },
       handleDirectoryCardFavorite(this: DirectoryPageInstance, event: DirectoryCardEvent): void {
-        toggleFavorite(this, event.detail.groupId);
+        toggleFavorite(this, eventKind(this, event), event.detail.groupId);
       },
       handleDirectoryCardCall(this: DirectoryPageInstance, event: DirectoryCardEvent): void {
         const number = event.detail.number;
         if (number !== undefined && /^\+?\d{3,20}$/u.test(number)) {
-          recordUse(this, event.detail.groupId);
+          recordUse(this, eventKind(this, event), event.detail.groupId);
           wx.makePhoneCall({ phoneNumber: number });
         }
       },
-      handleCall(this: DirectoryPageInstance, event: CallEvent): void {
-        const number = event.currentTarget.dataset.number;
+      handleCall(this: DirectoryPageInstance, event: ModeTargetEvent): void {
+        const number = event.currentTarget?.dataset.number;
         if (number !== undefined && /^\+?\d{3,20}$/u.test(number)) {
-          recordUse(this, event.currentTarget.dataset.groupId);
+          recordUse(this, eventKind(this, event), event.currentTarget?.dataset.groupId);
           wx.makePhoneCall({ phoneNumber: number });
         }
       },
@@ -388,255 +364,364 @@ export function createDirectoryPanelControllerDefinition() {
   };
 }
 
-interface InputEvent {
-  readonly detail: { readonly value: string };
-}
-interface FilterOptionEvent {
-  readonly currentTarget: {
-    readonly dataset: { readonly filter?: DirectoryFilterKey; readonly value?: string };
+function createPaneData(kind: DirectoryKind): DirectoryPaneData {
+  return {
+    activeFilterCount: 0,
+    directoryKind: kind,
+    entries: [],
+    errorMessage: '',
+    facetsLoading: true,
+    filterAdjustmentMessage: '',
+    filterScrollTarget: '',
+    filterSections: [],
+    filterSheetOpen: false,
+    hasCriteria: false,
+    loadingMore: false,
+    mergedGroupCount: 0,
+    nextCursor: '',
+    prioritySections: [],
+    resultSummary: '',
+    searchQuery: '',
+    searching: false,
+    state: 'loading',
+    title: kind === 'employee' ? '人员通讯录' : '科室通讯录',
   };
 }
-interface LegacyPickerEvent {
-  readonly currentTarget: { readonly dataset: { readonly filter: DirectoryFilterKey } };
-  readonly detail: { readonly value: number };
-}
-interface CallEvent {
-  readonly currentTarget: {
-    readonly dataset: { readonly groupId?: string; readonly number?: string };
+
+function createModeRuntime(groupId = ''): DirectoryModeRuntime {
+  return {
+    collapsedFilterKeys: new Set(),
+    contextSerial: 0,
+    facets: undefined,
+    filters: {},
+    groupId,
+    nextCursor: undefined,
+    preferences: parseDirectoryPreferences(undefined),
+    priorityEntries: [],
+    rawEntries: [],
+    requestSerial: 0,
+    searchTimer: undefined,
   };
 }
-interface FavoriteEvent {
-  readonly currentTarget: { readonly dataset: { readonly groupId?: string } };
-}
-interface DirectoryCardEvent {
-  readonly detail: { readonly groupId?: string; readonly number?: string };
+
+function initializeRuntimeState(page: DirectoryPageInstance): void {
+  page._directoryClient = directoryClient;
+  if (
+    page._modeRuntimes === undefined ||
+    page._modeRuntimes.internal === undefined ||
+    page._modeRuntimes.employee === undefined
+  ) {
+    page._modeRuntimes = {
+      employee: createModeRuntime(page.data.groupId),
+      internal: createModeRuntime(page.data.groupId),
+    };
+  }
+  if (page._modeIconTimers === undefined || typeof page._modeIconTimers !== 'object') {
+    page._modeIconTimers = {};
+  }
+  if (typeof page._detached !== 'boolean') page._detached = false;
 }
 
 function startLoad(page: DirectoryPageInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
-  const kind = page.properties.directoryKind;
-  const key = `${groupId}:${kind}`;
+  const initialKind = normalizeDirectoryKind(page.properties.directoryKind);
   if (groupId.length === 0) {
-    setMissingGroupError(page);
+    setMissingGroupError(page, initialKind);
     return;
   }
-  if (key === page._loadedKey) return;
-  page._loadedKey = key;
-  page._requestSerial += 1;
-  page._nextCursor = undefined;
-  page._facets = undefined;
-  page._filters = {};
-  page._priorityEntries = [];
-  page._rawEntries = [];
-  page.setData({ directoryKind: kind, groupId, ...filterLabelsForKind(kind) });
-  void loadFacets(page);
-}
-
-function initializeRuntimeState(page: DirectoryPageInstance): void {
-  // WeChat only keeps documented Component config keys; private controller
-  // fields from the factory object are not copied onto the live instance.
-  page._directoryClient = directoryClient;
-  if (page._facets !== undefined && typeof page._facets !== 'object') page._facets = undefined;
-  if (page._filters === undefined || typeof page._filters !== 'object') page._filters = {};
-  if (typeof page._loadedKey !== 'string') page._loadedKey = '';
-  if (page._preferences === undefined || typeof page._preferences !== 'object') {
-    page._preferences = parseDirectoryPreferences(undefined);
+  if (
+    page.data.groupId === groupId &&
+    directoryKinds.every((kind) => page._modeRuntimes[kind].groupId === groupId)
+  ) {
+    activateMode(page, initialKind, false);
+    return;
   }
-  if (!Array.isArray(page._priorityEntries)) page._priorityEntries = [];
-  if (!Array.isArray(page._rawEntries)) page._rawEntries = [];
-  if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
-  if (typeof page._nextCursor !== 'string') page._nextCursor = undefined;
+  for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
+  page._modeRuntimes = {
+    employee: createModeRuntime(groupId),
+    internal: createModeRuntime(groupId),
+  };
+  page._detached = false;
+  page.setData({
+    activeModeIndex: modeIndex(initialKind),
+    directoryKind: initialKind,
+    employeePane: createPaneData('employee'),
+    filterSheetOpen: false,
+    groupId,
+    internalPane: createPaneData('internal'),
+  });
+  for (const kind of directoryKinds) void loadFacets(page, kind);
 }
 
-function isDirectoryRequestCurrent(
+function normalizeDirectoryKind(value: DirectoryKind): DirectoryKind {
+  return value === 'employee' ? 'employee' : 'internal';
+}
+
+function modeIndex(kind: DirectoryKind): DirectoryModeIndex {
+  return kind === 'employee' ? 1 : 0;
+}
+
+function paneField(kind: DirectoryKind): 'employeePane' | 'internalPane' {
+  return kind === 'employee' ? 'employeePane' : 'internalPane';
+}
+
+function getPaneData(page: DirectoryPageInstance, kind: DirectoryKind): DirectoryPaneData {
+  return page.data[paneField(kind)];
+}
+
+function getRuntime(page: DirectoryPageInstance, kind: DirectoryKind): DirectoryModeRuntime {
+  initializeRuntimeState(page);
+  return page._modeRuntimes[kind];
+}
+
+function setPaneData(
   page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  patch: Partial<DirectoryPaneData>,
+  callback?: () => void,
+): void {
+  const field = paneField(kind);
+  const dataPatch: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) dataPatch[`${field}.${key}`] = value;
+  page.setData(dataPatch, callback);
+}
+
+function eventKind(page: DirectoryPageInstance, event?: ModeTargetEvent): DirectoryKind {
+  const value = event?.currentTarget?.dataset.directoryKind;
+  return value === 'employee' || value === 'internal' ? value : page.data.directoryKind;
+}
+
+function activateMode(page: DirectoryPageInstance, kind: DirectoryKind, animate: boolean): void {
+  initializeRuntimeState(page);
+  const normalized = normalizeDirectoryKind(kind);
+  const index = modeIndex(normalized);
+  if (page.data.directoryKind === normalized && page.data.activeModeIndex === index) return;
+  page.setData({ activeModeIndex: index, directoryKind: normalized });
+  if (animate) playModeIcon(page, normalized);
+}
+
+function playModeIcon(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const field = kind === 'employee' ? 'peopleAnimating' : 'departmentAnimating';
+  const timer = page._modeIconTimers[kind];
+  if (timer !== undefined) clearTimeout(timer);
+  page.setData({ [field]: false }, () => {
+    page.setData({ [field]: true });
+    page._modeIconTimers[kind] = setTimeout(
+      () => {
+        page._modeIconTimers[kind] = undefined;
+        if (!page._detached) page.setData({ [field]: false });
+      },
+      kind === 'employee' ? 520 : 500,
+    );
+  });
+}
+
+function clearModeIconTimers(page: DirectoryPageInstance): void {
+  for (const kind of directoryKinds) {
+    const timer = page._modeIconTimers[kind];
+    if (timer !== undefined) clearTimeout(timer);
+    page._modeIconTimers[kind] = undefined;
+  }
+}
+
+function invalidateRuntime(runtime: DirectoryModeRuntime): void {
+  clearSearchTimer(runtime);
+  runtime.contextSerial += 1;
+  runtime.requestSerial += 1;
+  runtime.facets = undefined;
+  runtime.filters = {};
+  runtime.nextCursor = undefined;
+  runtime.priorityEntries = [];
+  runtime.rawEntries = [];
+  runtime.collapsedFilterKeys.clear();
+}
+
+function clearSearchTimer(runtime: DirectoryModeRuntime): void {
+  if (runtime.searchTimer === undefined) return;
+  clearTimeout(runtime.searchTimer);
+  runtime.searchTimer = undefined;
+}
+
+function isContextCurrent(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  runtime: DirectoryModeRuntime,
   serial: number,
   groupId: string,
-  directoryKind: DirectoryKind,
 ): boolean {
   return (
-    serial === page._requestSerial &&
-    groupId === page.data.groupId &&
-    directoryKind === page.data.directoryKind
+    !page._detached &&
+    page._modeRuntimes[kind] === runtime &&
+    runtime.contextSerial === serial &&
+    runtime.groupId === groupId &&
+    page.data.groupId === groupId
   );
 }
 
-function setMissingGroupError(page: DirectoryPageInstance): void {
-  page._requestSerial += 1;
-  page._loadedKey = '';
-  page._facets = undefined;
-  page._filters = {};
-  page._nextCursor = undefined;
-  page._priorityEntries = [];
-  page._rawEntries = [];
+function isRequestCurrent(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  runtime: DirectoryModeRuntime,
+  serial: number,
+  groupId: string,
+): boolean {
+  return (
+    !page._detached &&
+    page._modeRuntimes[kind] === runtime &&
+    runtime.requestSerial === serial &&
+    runtime.groupId === groupId &&
+    page.data.groupId === groupId
+  );
+}
+
+function setMissingGroupError(page: DirectoryPageInstance, initialKind: DirectoryKind): void {
+  initializeRuntimeState(page);
+  for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
+  const message = '当前群组信息缺失，请返回工作台后重试。';
   page.setData({
-    activeFilterCount: 0,
-    entries: [],
-    errorMessage: '当前群组信息缺失，请返回工作台后重试。',
-    filterAdjustmentMessage: '',
-    filterSections: [],
+    activeModeIndex: modeIndex(initialKind),
+    directoryKind: initialKind,
+    employeePane: {
+      ...createPaneData('employee'),
+      errorMessage: message,
+      facetsLoading: false,
+      state: 'error',
+    },
     filterSheetOpen: false,
-    loadingMore: false,
-    mergedGroupCount: 0,
-    nextCursor: '',
-    prioritySections: [],
-    resultSummary: '当前群组信息缺失，请返回工作台后重试。',
-    searching: false,
-    state: 'error',
+    groupId: '',
+    internalPane: {
+      ...createPaneData('internal'),
+      errorMessage: message,
+      facetsLoading: false,
+      state: 'error',
+    },
   });
 }
 
 function setDirectoryDisabled(page: DirectoryPageInstance, message: string): void {
-  page._requestSerial += 1;
-  page._facets = undefined;
-  page._filters = {};
-  page._nextCursor = undefined;
-  page._priorityEntries = [];
-  page._rawEntries = [];
-  page.setData({
-    activeFilterCount: 0,
-    entries: [],
-    errorMessage: message,
-    filterAdjustmentMessage: '',
-    filterSections: [],
-    filterSheetOpen: false,
-    loadingMore: false,
-    mergedGroupCount: 0,
-    nextCursor: '',
-    prioritySections: [],
-    resultSummary: '通讯录暂未开放。',
-    searching: false,
-    state: 'disabled',
-  });
-}
-
-function clearSearchTimer(page: DirectoryPageInstance): void {
-  if (page._searchTimer === undefined) return;
-  clearTimeout(page._searchTimer);
-  page._searchTimer = undefined;
-}
-
-async function loadFacets(page: DirectoryPageInstance): Promise<void> {
   initializeRuntimeState(page);
-  const groupId = page.data.groupId;
-  const directoryKind = page.data.directoryKind;
+  for (const kind of directoryKinds) {
+    const runtime = page._modeRuntimes[kind];
+    invalidateRuntime(runtime);
+    setPaneData(page, kind, {
+      activeFilterCount: 0,
+      entries: [],
+      errorMessage: message,
+      facetsLoading: false,
+      filterAdjustmentMessage: '',
+      filterScrollTarget: '',
+      filterSections: [],
+      filterSheetOpen: false,
+      hasCriteria: false,
+      loadingMore: false,
+      mergedGroupCount: 0,
+      nextCursor: '',
+      prioritySections: [],
+      resultSummary: '',
+      searchQuery: '',
+      searching: false,
+      state: 'disabled',
+    });
+  }
+  page.setData({ filterSheetOpen: false });
+}
+
+async function loadFacets(page: DirectoryPageInstance, kind: DirectoryKind): Promise<void> {
+  initializeRuntimeState(page);
+  const runtime = getRuntime(page, kind);
+  const groupId = runtime.groupId || page.data.groupId;
   if (groupId.length === 0) {
-    setMissingGroupError(page);
+    setMissingGroupError(page, page.data.directoryKind);
     return;
   }
-  const serial = ++page._requestSerial;
-  clearSearchTimer(page);
-  page._facets = undefined;
-  page._filters = {};
-  page._nextCursor = undefined;
-  page._preferences = readDirectoryPreferences(page);
-  page._priorityEntries = [];
-  page._rawEntries = [];
-  page.setData({
+  clearSearchTimer(runtime);
+  const serial = ++runtime.contextSerial;
+  runtime.requestSerial += 1;
+  runtime.facets = undefined;
+  runtime.filters = {};
+  runtime.nextCursor = undefined;
+  runtime.preferences = readDirectoryPreferences(page, kind);
+  runtime.priorityEntries = [];
+  runtime.rawEntries = [];
+  runtime.collapsedFilterKeys.clear();
+  setPaneData(page, kind, {
     activeFilterCount: 0,
+    entries: [],
     errorMessage: '',
+    facetsLoading: true,
     filterAdjustmentMessage: '',
+    filterScrollTarget: '',
     filterSections: [],
     filterSheetOpen: false,
+    hasCriteria: false,
     loadingMore: false,
-    searching: false,
-    state: 'loading',
-    entries: [],
     mergedGroupCount: 0,
     nextCursor: '',
     prioritySections: [],
-    resultSummary: '正在读取通讯录筛选项。',
+    resultSummary: '',
+    searchQuery: '',
+    searching: false,
+    state: 'loading',
   });
   try {
     await requireClientCapability('organization');
-    const facets = await page._directoryClient.getFacets(groupId, directoryKind);
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
-    applyFacets(page, facets);
-    page.setData({ state: 'empty', resultSummary: '输入关键词或选择筛选条件后开始查找。' });
-    void loadPriorityEntries(page, page._loadedKey, serial, groupId, directoryKind);
+    const facets = await page._directoryClient.getFacets(groupId, kind);
+    if (!isContextCurrent(page, kind, runtime, serial, groupId)) return;
+    runtime.facets = facets;
+    runtime.filters = {};
+    setPaneData(page, kind, { facetsLoading: false, state: 'idle' });
+    syncFilterSections(page, kind);
+    void loadPriorityEntries(page, kind, runtime, serial, groupId);
   } catch (error) {
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    if (!isContextCurrent(page, kind, runtime, serial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
       setDirectoryDisabled(page, error.message);
       return;
     }
-    page.setData({
-      errorMessage: toUserMessage(error, '通讯录暂时无法加载，请稍后重试。'),
+    setPaneData(page, kind, {
+      errorMessage: toUserMessage(
+        error,
+        `${getPaneData(page, kind).title}筛选项暂时无法加载，请稍后重试。`,
+      ),
+      facetsLoading: false,
       state: 'error',
     });
   }
 }
 
-function applyFacets(page: DirectoryPageInstance, facets: DirectoryFacetSnapshot): void {
-  page._facets = facets;
-  page._filters = {};
-  const makeOptions = (options: readonly DirectoryFacetOption[]) => [
-    { count: 0, label: '全部', value: '' },
-    ...options,
-  ];
-  page.setData({
-    buildingOptions: makeOptions(facets.buildings),
-    campusOptions: makeOptions(facets.campuses),
-    departmentOptions: makeOptions(facets.departments),
-    entryKindOptions: makeOptions(facets.entryKinds),
-    floorOptions: makeOptions(facets.floors),
-    sectionOptions: makeOptions(facets.sections),
-    subunitOptions: makeOptions(facets.subunits),
+function syncFilterSections(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const runtime = getRuntime(page, kind);
+  const snapshot = runtime.facets;
+  if (snapshot === undefined) {
+    setPaneData(page, kind, { activeFilterCount: 0, filterSections: [] });
+    return;
+  }
+  const compatible = getCompatibleDirectoryFacetOptionsByKey(snapshot, runtime.filters);
+  const meaningful = getMeaningfulDirectoryFilterKeys(snapshot, runtime.filters, compatible);
+  const sections = meaningful.map((key): DirectoryFilterSectionView => {
+    const selectedValue = runtime.filters[key] ?? '';
+    const compatibleOptions = compatible.get(key) ?? [];
+    const options: readonly DirectoryFilterOptionView[] = [
+      { count: snapshot.totalCount, label: '全部', selected: selectedValue === '', value: '' },
+      ...compatibleOptions.map((option) => ({
+        ...option,
+        selected: option.value === selectedValue,
+      })),
+    ];
+    return {
+      expanded: !runtime.collapsedFilterKeys.has(key),
+      key,
+      label: filterLabel(kind, key),
+      optionCount: compatibleOptions.length,
+      options,
+      selectedLabel: options.find((option) => option.selected)?.label ?? '全部',
+    };
   });
-  syncFilterSections(page);
-}
-
-function switchMode(page: DirectoryPageInstance, kind: DirectoryKind): void {
-  if (page.data.directoryKind === kind) return;
-  clearSearchTimer(page);
-  page._loadedKey = '';
-  page._requestSerial += 1;
-  page._facets = undefined;
-  page._filters = {};
-  page._nextCursor = undefined;
-  page._priorityEntries = [];
-  page._rawEntries = [];
-  page.setData({
-    activeFilterCount: 0,
-    directoryKind: kind,
-    searchQuery: '',
-    entries: [],
-    errorMessage: '',
-    filterAdjustmentMessage: '',
-    filterSections: [],
-    filterSheetOpen: false,
-    loadingMore: false,
-    mergedGroupCount: 0,
-    modeMotionClass: kind === 'employee' ? 'is-forward' : 'is-backward',
-    prioritySections: [],
-    searching: false,
-    ...filterLabelsForKind(kind),
+  setPaneData(page, kind, {
+    activeFilterCount: Object.keys(runtime.filters).length,
+    filterSections: sections,
   });
-  page._loadedKey = `${page.data.groupId}:${kind}`;
-  void loadFacets(page);
-}
-
-function filterLabelsForKind(kind: DirectoryKind): Partial<DirectoryPageData> {
-  return kind === 'employee'
-    ? {
-        buildingFilterLabel: '二级组织',
-        campusFilterLabel: '组织根',
-        departmentFilterLabel: '四级组织',
-        entryKindFilterLabel: '类型',
-        floorFilterLabel: '三级组织',
-        sectionFilterLabel: '一级组织',
-        subunitFilterLabel: '五级组织',
-      }
-    : {
-        buildingFilterLabel: '楼宇',
-        campusFilterLabel: '院区',
-        departmentFilterLabel: '科室',
-        entryKindFilterLabel: '类型',
-        floorFilterLabel: '楼层',
-        sectionFilterLabel: '片区',
-        subunitFilterLabel: '单元',
-      };
 }
 
 function filterLabel(kind: DirectoryKind, key: DirectoryFilterKey): string {
@@ -656,142 +741,162 @@ function filterLabel(kind: DirectoryKind, key: DirectoryFilterKey): string {
   return filterLabels[key];
 }
 
-function syncFilterSections(page: DirectoryPageInstance): void {
-  const snapshot = page._facets;
-  if (snapshot === undefined) {
-    page.setData({ activeFilterCount: 0, filterSections: [] });
-    return;
-  }
-  const compatible = getCompatibleDirectoryFacetOptionsByKey(snapshot, page._filters);
-  const meaningful = getMeaningfulDirectoryFilterKeys(snapshot, page._filters, compatible);
-  const sections = meaningful.map((key): DirectoryFilterSectionView => {
-    const selectedValue = page._filters[key] ?? '';
-    const options: readonly DirectoryFilterOptionView[] = [
-      { count: snapshot.totalCount, label: '全部', selected: selectedValue === '', value: '' },
-      ...(compatible.get(key) ?? []).map((option) => ({
-        ...option,
-        selected: option.value === selectedValue,
-      })),
-    ];
-    return {
-      key,
-      label: filterLabel(page.data.directoryKind, key),
-      options,
-      selectedLabel: options.find((option) => option.selected)?.label ?? '全部',
-    };
+function openFilters(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  targetKey?: DirectoryFilterKey,
+): void {
+  const runtime = getRuntime(page, kind);
+  if (targetKey !== undefined) runtime.collapsedFilterKeys.delete(targetKey);
+  syncFilterSections(page, kind);
+  setPaneData(page, kind, {
+    filterScrollTarget: targetKey === undefined ? '' : `directory-filter-${kind}-${targetKey}`,
+    filterSheetOpen: true,
   });
-  const legacyPatch: Record<string, unknown> = {};
-  for (const key of filterKeys) {
-    const fieldName = filterFieldNames[key];
-    const selectedValue = page._filters[key] ?? '';
-    const options: readonly DirectoryOption[] = [
-      { count: snapshot.totalCount, label: '全部', value: '' },
-      ...(compatible.get(key) ?? []),
-    ];
-    const index = Math.max(
-      0,
-      options.findIndex((option) => option.value === selectedValue),
-    );
-    legacyPatch[`${fieldName}Options`] = options;
-    legacyPatch[`${fieldName}Index`] = index;
-    legacyPatch[`${fieldName}Label`] = options[index]?.label ?? '全部';
-  }
-  page.setData({
-    ...(legacyPatch as Partial<DirectoryPageData>),
-    activeFilterCount: Object.keys(page._filters).length,
-    filterSections: sections,
-  });
+  page.setData({ filterSheetOpen: true });
 }
 
-async function selectFilter(page: DirectoryPageInstance, event: FilterOptionEvent): Promise<void> {
+function closeFilters(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  setPaneData(page, kind, { filterScrollTarget: '', filterSheetOpen: false });
+  page.setData({ filterSheetOpen: false });
+}
+
+function toggleFilterSection(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  key: DirectoryFilterKey,
+): void {
+  const runtime = getRuntime(page, kind);
+  if (runtime.collapsedFilterKeys.has(key)) runtime.collapsedFilterKeys.delete(key);
+  else runtime.collapsedFilterKeys.add(key);
+  syncFilterSections(page, kind);
+}
+
+async function selectFilter(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  event: FilterOptionEvent,
+): Promise<void> {
   const key = event.currentTarget.dataset.filter;
-  const snapshot = page._facets;
+  const runtime = getRuntime(page, kind);
+  const snapshot = runtime.facets;
   if (key === undefined || snapshot === undefined) return;
-  const value = event.currentTarget.dataset.value;
-  if (page._filters[key] === value || (value === '' && page._filters[key] === undefined)) return;
-  const result = updateDirectoryFilterSelection(
-    snapshot,
-    page._filters,
-    key,
-    value === undefined || value === '' ? undefined : value,
-  );
-  page._filters = result.filters;
-  page.setData({
+  const rawValue = event.currentTarget.dataset.value;
+  const value = rawValue === undefined || rawValue === '' ? undefined : rawValue;
+  if (
+    runtime.filters[key] === value ||
+    (value === undefined && runtime.filters[key] === undefined)
+  ) {
+    return;
+  }
+  const result = updateDirectoryFilterSelection(snapshot, runtime.filters, key, value);
+  runtime.filters = result.filters;
+  setPaneData(page, kind, {
     filterAdjustmentMessage:
       result.clearedKeys.length === 0
         ? ''
-        : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabel(page.data.directoryKind, clearedKey)).join('、')}筛选。`,
+        : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabel(kind, clearedKey)).join('、')}筛选。`,
   });
-  syncFilterSections(page);
-  await search(page);
+  syncFilterSections(page, kind);
+  await search(page, kind);
 }
 
-function clearAllFilters(page: DirectoryPageInstance): void {
-  if (Object.keys(page._filters).length === 0) return;
-  page._filters = {};
-  page.setData({ filterAdjustmentMessage: '' });
-  syncFilterSections(page);
-  void search(page);
+function clearAllFilters(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const runtime = getRuntime(page, kind);
+  if (Object.keys(runtime.filters).length === 0) return;
+  runtime.filters = {};
+  setPaneData(page, kind, { filterAdjustmentMessage: '' });
+  syncFilterSections(page, kind);
+  void search(page, kind);
 }
 
-function resetDirectorySearch(page: DirectoryPageInstance): void {
-  clearSearchTimer(page);
-  page._filters = {};
-  page.setData({ filterAdjustmentMessage: '', searchQuery: '' });
-  syncFilterSections(page);
-  void search(page);
+function clearSearch(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  if (getPaneData(page, kind).searchQuery.length === 0) return;
+  setPaneData(page, kind, { searchQuery: '' });
+  void search(page, kind);
 }
 
-function scheduleSearch(page: DirectoryPageInstance): void {
-  clearSearchTimer(page);
-  if (page.data.searchQuery.trim().length === 0 && Object.keys(page._filters).length === 0) {
-    void search(page);
+function resetDirectorySearch(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const runtime = getRuntime(page, kind);
+  clearSearchTimer(runtime);
+  runtime.filters = {};
+  setPaneData(page, kind, { filterAdjustmentMessage: '', searchQuery: '' });
+  syncFilterSections(page, kind);
+  resetSearchResults(page, kind);
+}
+
+function resetSearchResults(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const runtime = getRuntime(page, kind);
+  runtime.requestSerial += 1;
+  runtime.nextCursor = undefined;
+  runtime.rawEntries = [];
+  setPaneData(page, kind, {
+    entries: [],
+    errorMessage: '',
+    hasCriteria: false,
+    loadingMore: false,
+    mergedGroupCount: 0,
+    nextCursor: '',
+    resultSummary: '',
+    searching: false,
+    state: 'idle',
+  });
+  syncPrioritySections(page, kind);
+}
+
+function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const runtime = getRuntime(page, kind);
+  clearSearchTimer(runtime);
+  const pane = getPaneData(page, kind);
+  if (!hasActiveDirectoryCriteria(pane.searchQuery, runtime.filters)) {
+    resetSearchResults(page, kind);
     return;
   }
-  page.setData({ searching: true });
-  page._searchTimer = setTimeout(() => {
-    page._searchTimer = undefined;
-    void search(page);
+  setPaneData(page, kind, {
+    hasCriteria: true,
+    resultSummary: pane.entries.length === 0 ? `正在查找${pane.title}号码` : pane.resultSummary,
+    searching: true,
+    state: 'loading',
+  });
+  runtime.searchTimer = setTimeout(() => {
+    runtime.searchTimer = undefined;
+    void search(page, kind);
   }, 240);
 }
 
-async function search(page: DirectoryPageInstance): Promise<void> {
-  initializeRuntimeState(page);
-  clearSearchTimer(page);
-  const groupId = page.data.groupId;
-  const directoryKind = page.data.directoryKind;
-  if (!hasActiveDirectoryCriteria(page.data.searchQuery, page._filters)) {
-    page._requestSerial += 1;
-    page._nextCursor = undefined;
-    page._rawEntries = [];
-    page.setData({
-      entries: [],
-      mergedGroupCount: 0,
-      nextCursor: '',
-      resultSummary: '输入关键词或选择筛选条件后开始查找。',
-      searching: false,
-      state: 'empty',
-    });
+async function search(page: DirectoryPageInstance, kind: DirectoryKind): Promise<void> {
+  const runtime = getRuntime(page, kind);
+  clearSearchTimer(runtime);
+  const pane = getPaneData(page, kind);
+  if (!hasActiveDirectoryCriteria(pane.searchQuery, runtime.filters)) {
+    resetSearchResults(page, kind);
     return;
   }
-  const query = buildQuery(page);
-  const serial = ++page._requestSerial;
-  page._nextCursor = undefined;
-  page.setData({
+  const groupId = runtime.groupId;
+  const serial = ++runtime.requestSerial;
+  runtime.nextCursor = undefined;
+  setPaneData(page, kind, {
     errorMessage: '',
+    hasCriteria: true,
+    loadingMore: false,
+    nextCursor: '',
+    resultSummary: pane.entries.length === 0 ? `正在查找${pane.title}号码` : pane.resultSummary,
     searching: true,
     state: 'loading',
-    resultSummary: '正在查找通讯录号码。',
   });
   try {
     await requireClientCapability('organization');
-    const result = await page._directoryClient.list(groupId, directoryKind, query);
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
-    page._nextCursor = result.nextCursor;
-    page._rawEntries = result.entries;
-    const cards = createDirectoryCards(page, page._rawEntries);
+    const result = await page._directoryClient.list(
+      groupId,
+      kind,
+      toDirectoryQuery(getPaneData(page, kind).searchQuery, runtime.filters) as DirectoryQuery,
+    );
+    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
+    runtime.nextCursor = result.nextCursor;
+    runtime.rawEntries = result.entries;
+    const cards = createDirectoryCards(runtime, kind);
     const mergedGroupCount = cards.filter((card) => card.merged).length;
-    page.setData({
+    setPaneData(page, kind, {
       entries: cards,
       mergedGroupCount,
       nextCursor: result.nextCursor ?? '',
@@ -799,70 +904,69 @@ async function search(page: DirectoryPageInstance): Promise<void> {
       searching: false,
       state: cards.length === 0 ? 'empty' : 'ready',
     });
-    syncPrioritySections(page);
+    syncPrioritySections(page, kind);
   } catch (error) {
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
       setDirectoryDisabled(page, error.message);
       return;
     }
-    page.setData({
-      errorMessage: toUserMessage(error, '通讯录搜索未完成，请稍后重试。'),
+    setPaneData(page, kind, {
+      errorMessage: toUserMessage(error, '搜索没有完成，请检查网络后重试。'),
       searching: false,
       state: 'error',
     });
   }
 }
 
-async function loadMore(page: DirectoryPageInstance): Promise<void> {
-  initializeRuntimeState(page);
-  const cursor = page._nextCursor;
-  const groupId = page.data.groupId;
-  const directoryKind = page.data.directoryKind;
-  if (cursor === undefined || page.data.loadingMore || groupId.length === 0) return;
-  const serial = page._requestSerial;
-  const query = buildQuery(page, cursor);
-  page.setData({ errorMessage: '', loadingMore: true });
+async function loadMore(page: DirectoryPageInstance, kind: DirectoryKind): Promise<void> {
+  const runtime = getRuntime(page, kind);
+  const pane = getPaneData(page, kind);
+  const cursor = runtime.nextCursor;
+  const groupId = runtime.groupId;
+  if (cursor === undefined || pane.loadingMore || groupId.length === 0) return;
+  const serial = runtime.requestSerial;
+  setPaneData(page, kind, { errorMessage: '', loadingMore: true });
   try {
     await requireClientCapability('organization');
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
-    const result = await page._directoryClient.list(groupId, directoryKind, query);
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
-    page._nextCursor = result.nextCursor;
-    page._rawEntries = [...page._rawEntries, ...result.entries];
-    const cards = createDirectoryCards(page, page._rawEntries);
+    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
+    const result = await page._directoryClient.list(
+      groupId,
+      kind,
+      toDirectoryQuery(pane.searchQuery, runtime.filters, cursor) as DirectoryQuery,
+    );
+    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
+    runtime.nextCursor = result.nextCursor;
+    runtime.rawEntries = [...runtime.rawEntries, ...result.entries];
+    const cards = createDirectoryCards(runtime, kind);
     const mergedGroupCount = cards.filter((card) => card.merged).length;
-    page.setData({
+    setPaneData(page, kind, {
       entries: cards,
       loadingMore: false,
       mergedGroupCount,
       nextCursor: result.nextCursor ?? '',
       resultSummary: resultSummary(result.totalCount, mergedGroupCount),
     });
-    syncPrioritySections(page);
+    syncPrioritySections(page, kind);
   } catch (error) {
-    if (!isDirectoryRequestCurrent(page, serial, groupId, directoryKind)) return;
+    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
       setDirectoryDisabled(page, error.message);
       return;
     }
-    page.setData({
+    setPaneData(page, kind, {
       errorMessage: toUserMessage(error, '更多通讯录记录暂时无法加载。'),
       loadingMore: false,
     });
   }
 }
 
-function buildQuery(page: DirectoryPageInstance, cursor?: string): DirectoryQuery {
-  return toDirectoryQuery(page.data.searchQuery, page._filters, cursor) as DirectoryQuery;
-}
-
 function createDirectoryCards(
-  page: DirectoryPageInstance,
-  entries: readonly DirectoryEntry[],
+  runtime: DirectoryModeRuntime,
+  kind: DirectoryKind,
 ): readonly DirectoryCard[] {
-  return groupDirectoryEntriesByContact(entries).map((group) =>
-    toCard(group, page.data.directoryKind, page._preferences),
+  return groupDirectoryEntriesByContact(runtime.rawEntries).map((group) =>
+    toCard(group, kind, runtime.preferences),
   );
 }
 
@@ -937,14 +1041,14 @@ function resultSummary(totalCount: number, mergedGroupCount: number): string {
 
 async function loadPriorityEntries(
   page: DirectoryPageInstance,
-  loadedKey: string,
+  kind: DirectoryKind,
+  runtime: DirectoryModeRuntime,
   serial: number,
   groupId: string,
-  directoryKind: DirectoryKind,
 ): Promise<void> {
-  const entryIds = getDirectoryPreferenceEntryIds(page._preferences);
+  const entryIds = getDirectoryPreferenceEntryIds(runtime.preferences);
   if (entryIds.length === 0) {
-    syncPrioritySections(page);
+    syncPrioritySections(page, kind);
     return;
   }
   const chunks = Array.from({ length: Math.ceil(entryIds.length / 100) }, (_, index) =>
@@ -952,100 +1056,107 @@ async function loadPriorityEntries(
   );
   try {
     const responses = await Promise.all(
-      chunks.map((chunk) =>
-        page._directoryClient.lookup(page.data.groupId, page.data.directoryKind, chunk),
-      ),
+      chunks.map((chunk) => page._directoryClient.lookup(groupId, kind, chunk)),
     );
-    if (
-      page._loadedKey !== loadedKey ||
-      !isDirectoryRequestCurrent(page, serial, groupId, directoryKind)
-    )
-      return;
-    page._priorityEntries = responses.flatMap((response) => response.entries);
-    syncPrioritySections(page);
+    if (!isContextCurrent(page, kind, runtime, serial, groupId)) return;
+    runtime.priorityEntries = responses.flatMap((response) => response.entries);
+    syncPrioritySections(page, kind);
   } catch {
     // Preferred entries are an enhancement; search and filtering remain available.
   }
 }
 
-function knownEntryGroups(page: DirectoryPageInstance): readonly DirectoryEntryDisplayGroup[] {
+function knownEntryGroups(runtime: DirectoryModeRuntime): readonly DirectoryEntryDisplayGroup[] {
   const entriesById = new Map<string, DirectoryEntry>();
-  for (const entry of [...page._priorityEntries, ...page._rawEntries]) {
+  for (const entry of [...runtime.priorityEntries, ...runtime.rawEntries]) {
     entriesById.set(entry.id, entry);
   }
   return groupDirectoryEntriesByContact([...entriesById.values()]);
 }
 
-function syncPrioritySections(page: DirectoryPageInstance): void {
-  const priority = getDirectoryPriorityGroups(page._preferences, knownEntryGroups(page));
+function syncPrioritySections(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  const runtime = getRuntime(page, kind);
+  const priority = getDirectoryPriorityGroups(runtime.preferences, knownEntryGroups(runtime));
   const sections: DirectoryPrioritySectionView[] = [];
   if (priority.favorites.length > 0) {
     sections.push({
-      entries: priority.favorites.map((group) =>
-        toCard(group, page.data.directoryKind, page._preferences),
-      ),
+      entries: priority.favorites.map((group) => toCard(group, kind, runtime.preferences)),
       key: 'favorites',
       title: '收藏通讯录',
     });
   }
   if (priority.frequent.length > 0) {
     sections.push({
-      entries: priority.frequent.map((group) =>
-        toCard(group, page.data.directoryKind, page._preferences),
-      ),
+      entries: priority.frequent.map((group) => toCard(group, kind, runtime.preferences)),
       key: 'frequent',
       title: '常用通讯录',
     });
   }
-  page.setData({ prioritySections: sections });
+  setPaneData(page, kind, { prioritySections: sections });
 }
 
 function findDirectoryGroup(
-  page: DirectoryPageInstance,
+  runtime: DirectoryModeRuntime,
   groupId: string | undefined,
 ): DirectoryEntryDisplayGroup | undefined {
   return groupId === undefined
     ? undefined
-    : knownEntryGroups(page).find((group) => group.id === groupId);
+    : knownEntryGroups(runtime).find((group) => group.id === groupId);
 }
 
 function rememberPriorityEntries(
-  page: DirectoryPageInstance,
+  runtime: DirectoryModeRuntime,
   group: DirectoryEntryDisplayGroup,
 ): void {
-  const entriesById = new Map(page._priorityEntries.map((entry) => [entry.id, entry]));
+  const entriesById = new Map(runtime.priorityEntries.map((entry) => [entry.id, entry]));
   for (const entry of group.entries as readonly DirectoryEntry[]) entriesById.set(entry.id, entry);
-  page._priorityEntries = [...entriesById.values()];
+  runtime.priorityEntries = [...entriesById.values()];
 }
 
-function toggleFavorite(page: DirectoryPageInstance, groupId: string | undefined): void {
-  const group = findDirectoryGroup(page, groupId);
+function toggleFavorite(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  groupId: string | undefined,
+): void {
+  const runtime = getRuntime(page, kind);
+  const group = findDirectoryGroup(runtime, groupId);
   if (group === undefined) return;
-  rememberPriorityEntries(page, group);
-  page._preferences = toggleDirectoryFavorite(page._preferences, group);
-  persistDirectoryPreferences(page);
-  page.setData({ entries: createDirectoryCards(page, page._rawEntries) });
-  syncPrioritySections(page);
+  rememberPriorityEntries(runtime, group);
+  runtime.preferences = toggleDirectoryFavorite(runtime.preferences, group);
+  persistDirectoryPreferences(page, kind, runtime.preferences);
+  setPaneData(page, kind, { entries: createDirectoryCards(runtime, kind) });
+  syncPrioritySections(page, kind);
 }
 
-function recordUse(page: DirectoryPageInstance, groupId: string | undefined): void {
-  const group = findDirectoryGroup(page, groupId);
+function recordUse(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  groupId: string | undefined,
+): void {
+  const runtime = getRuntime(page, kind);
+  const group = findDirectoryGroup(runtime, groupId);
   if (group === undefined) return;
-  rememberPriorityEntries(page, group);
-  page._preferences = recordDirectoryUse(page._preferences, group);
-  persistDirectoryPreferences(page);
-  syncPrioritySections(page);
+  rememberPriorityEntries(runtime, group);
+  runtime.preferences = recordDirectoryUse(runtime.preferences, group);
+  persistDirectoryPreferences(page, kind, runtime.preferences);
+  syncPrioritySections(page, kind);
 }
 
-function directoryPreferenceStorageKey(page: DirectoryPageInstance): string | undefined {
+function directoryPreferenceStorageKey(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+): string | undefined {
   const ownerId = getStoredWechatProfile()?.id;
   return ownerId === undefined
     ? undefined
-    : `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${page.data.groupId}:${page.data.directoryKind}`;
+    : `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${page.data.groupId}:${kind}`;
 }
 
-function readDirectoryPreferences(page: DirectoryPageInstance): DirectoryPreferences {
-  const key = directoryPreferenceStorageKey(page);
+function readDirectoryPreferences(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+): DirectoryPreferences {
+  const key = directoryPreferenceStorageKey(page, kind);
   if (key === undefined) return parseDirectoryPreferences(undefined);
   try {
     const value = wx.getStorageSync(key);
@@ -1055,11 +1166,15 @@ function readDirectoryPreferences(page: DirectoryPageInstance): DirectoryPrefere
   }
 }
 
-function persistDirectoryPreferences(page: DirectoryPageInstance): void {
-  const key = directoryPreferenceStorageKey(page);
+function persistDirectoryPreferences(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  preferences: DirectoryPreferences,
+): void {
+  const key = directoryPreferenceStorageKey(page, kind);
   if (key === undefined) return;
   try {
-    wx.setStorageSync(key, JSON.stringify(page._preferences));
+    wx.setStorageSync(key, JSON.stringify(preferences));
   } catch {
     // Favorites remain effective in memory when storage is unavailable.
   }

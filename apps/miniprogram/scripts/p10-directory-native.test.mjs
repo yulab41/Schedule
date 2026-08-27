@@ -28,8 +28,9 @@ describe('P10 native directory parity', () => {
       ],
     });
     expect(page.trim()).toBe('<include src="../../components/directory-panel/index.wxml" />');
-    expect(panel).toContain('科室通讯录');
-    expect(panel).toContain('人员通讯录');
+    expect(panel).toContain('<text>科室</text>');
+    expect(panel).toContain('<text>人员</text>');
+    expect(panel).toContain('<text class="header-title-main">通讯录</text>');
     expect(panel).toContain('wx:if="{{!embedded}}"');
     expect(workbench).toContain('handleDirectoryNav');
     expect(workbench).toContain('<directory-panel');
@@ -47,7 +48,7 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain('directoryClient.list');
     expect(controller).toContain("requireClientCapability('organization')");
     expect(controller).toContain('DIRECTORY_PREFERENCES_PREFIX');
-    expect(controller).toContain('wx.setStorageSync(key, JSON.stringify(page._preferences))');
+    expect(controller).toContain('wx.setStorageSync(key, JSON.stringify(preferences))');
     expect(controller.match(/wx\.setStorageSync/gu)).toHaveLength(1);
     expect(controller).not.toContain('console.log');
     expect(controller).not.toContain('visitorKey');
@@ -64,7 +65,7 @@ describe('P10 native directory parity', () => {
       '正在读取通讯录',
       '通讯录暂未开放',
       '没有找到匹配号码',
-      '通讯录暂时无法更新',
+      '未能更新',
       '加载更多',
     ]) {
       expect(template).toContain(label);
@@ -78,15 +79,15 @@ describe('P10 native directory parity', () => {
       'subunit',
       'entryKind',
     ]) {
-      expect(controller).toContain(`'${key}'`);
+      expect(controller).toContain(`${key}:`);
     }
     expect(controller).toContain('nextCursor');
     expect(controller).toContain('directoryKind');
     expect(controller).toContain('detached(this: DirectoryPageInstance)');
     expect(controller).toContain('fontSizeSetting');
-    expect(controller).toContain("campusFilterLabel: '组织根'");
-    expect(controller).toContain("sectionFilterLabel: '一级组织'");
-    expect(controller).toContain("subunitFilterLabel: '五级组织'");
+    expect(controller).toContain("campusCode: '组织根'");
+    expect(controller).toContain("section: '一级组织'");
+    expect(controller).toContain("subunit: '五级组织'");
     expect(controller).toContain('groupDirectoryEntriesByContact');
     expect(controller).toContain('getCompatibleDirectoryFacetOptionsByKey');
     expect(controller).toContain('updateDirectoryFilterSelection');
@@ -106,5 +107,55 @@ describe('P10 native directory parity', () => {
     expect(template).toContain('wx:for-item="number"');
     expect(template).toContain('{{number.number}}');
     expect(template).toContain('data-number="{{number.dialNumber}}"');
+  });
+
+  it('keeps two native panes mounted and mirrors the Web result and filter presentation', () => {
+    const template = read('src/subpackages/organization/components/directory-panel/index.wxml');
+    const styles = read('src/subpackages/organization/components/directory-panel/index.wxss');
+    const card = read('src/subpackages/organization/components/directory-entry-card/index.wxml');
+    const cardStyles = read(
+      'src/subpackages/organization/components/directory-entry-card/index.wxss',
+    );
+
+    expect(template).toContain('<swiper');
+    expect(template.match(/<swiper-item/gu)).toHaveLength(2);
+    expect(template).toContain('bindchange="handleModeSwiperChange"');
+    expect(template).toContain('class="mode-icon department-icon');
+    expect(template).toContain('class="mode-icon people-icon');
+    expect(template).toContain('class="search-clear"');
+    expect(template).toContain('class="sheet-reset-action');
+    expect(template).toContain('class="filter-section-toggle');
+    expect(template).not.toContain('<text class="search-icon">⌕</text>');
+
+    expect(styles).toMatch(/\.wayfinding-ribbon\s*{[^}]*grid-template-columns:\s*repeat\(2,/s);
+    expect(styles).toContain('line-height: var(--ui-line-height-normal)');
+    expect(styles).not.toContain('--ui-line-height-body');
+    expect(styles).toMatch(
+      /\.mode-tab\s*{[^}]*font-size:\s*14px;[^}]*line-height:\s*var\(--ui-line-height-normal\)/s,
+    );
+    expect(styles).toMatch(
+      /\.search-input\s*{[^}]*font-size:\s*16px;[^}]*line-height:\s*var\(--ui-line-height-normal\)/s,
+    );
+    expect(styles).toMatch(
+      /\.result-summary\s*{[^}]*font-size:\s*var\(--ui-font-size-sm\);[^}]*line-height:\s*var\(--ui-line-height-normal\)/s,
+    );
+    expect(styles).toMatch(
+      /\.sheet-title\s*{[^}]*font-size:\s*var\(--ui-font-size-xl\);[^}]*line-height:\s*var\(--ui-line-height-tight\)/s,
+    );
+    expect(template).toContain('show-divider="{{entryIndex > 0}}"');
+    expect(card).toContain('showDivider');
+    expect(template).toContain('large-text="{{largeText}}"');
+    expect(card).toContain("largeText ? 'is-large-text' : ''");
+    expect(card).toContain('web-directory-star');
+    expect(cardStyles).toContain('.directory-entry.has-divider');
+    expect(cardStyles).toContain('.directory-entry.is-large-text .contact-number-group');
+    expect(cardStyles).toContain('line-height: var(--ui-line-height-normal)');
+    expect(cardStyles).toMatch(
+      /\.entry-title\s*{[^}]*font-size:\s*var\(--ui-font-size-md\);[^}]*line-height:\s*1\.25/s,
+    );
+    expect(cardStyles).toMatch(
+      /\.contact-number\s*{[^}]*font-size:\s*var\(--ui-font-size-md\);[^}]*line-height:\s*var\(--ui-line-height-normal\)/s,
+    );
+    expect(cardStyles).not.toContain('--ui-line-height-body');
   });
 });

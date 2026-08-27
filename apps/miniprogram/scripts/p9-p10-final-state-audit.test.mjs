@@ -76,9 +76,10 @@ describe('P9/P10 final automatic state audit', () => {
     ]);
     expectAll(directoryTemplate, [
       "largeText ? 'is-large-text' : ''",
-      "state === 'disabled'",
-      "state === 'error'",
-      "state === 'loading'",
+      "pane.state === 'disabled'",
+      'pane.errorMessage',
+      'pane.facetsLoading',
+      'pane.searching',
     ]);
     expectAll(profileController, ["mode: 'missing'", "mode: 'ready'"]);
     expectAll(profileTemplate, ['个人中心', 'canUnbindWechat']);

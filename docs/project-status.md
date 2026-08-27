@@ -26,8 +26,8 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
-- 登录会话连续性、通讯录/群组权限的 runtime、测试和视觉稿正由并行任务维护；
-  涉及 identity/session/directory 的脏文件均不得整文件暂存。
+- 登录会话连续性与群组权限 runtime、测试和视觉稿正由并行任务维护；identity/session/permission
+  脏文件不得整文件暂存。通讯录 panel/card、P10 定向测试、黄金与 RC 文档由本批独占，可显式整路径暂存。
 - 通知 Sheet 为本轮明确批次；只能显式暂存通知/API/UiSheet/工作台自身文件，
   不得夹带同一工作树的登录、通讯录、Profile 或其他用户内容。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
@@ -41,7 +41,9 @@
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
   已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
-- 通讯录切换和群组普通成员权限仍是并行用户工作；本批不接管其 directory 源码或测试。
+- 通讯录双页常驻与 Web 视觉对齐由本并行批次负责：科室/人员原生 swiper、独立状态、双 facets
+  轻量预热、折叠筛选层、结果卡分割线和有效行高已实现。checkpoint 识别消息为
+  `feat(miniprogram): preserve directory modes and match web`；`.55` 待提交/推送/生产同步与实体复核。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
   当前只落文档 checkpoint，随后以独立测试文件先冻结权限矩阵，不接管登录或通讯录测试 hunk。
@@ -157,6 +159,9 @@
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
 - `.50` UI-thread 滚轮自动回归曾 3 files / 25 tests 通过，但真机三项核心行为全部缺失，结果无效并已回滚。
+- 通讯录旧实现的双页持久化/异步隔离/视觉契约 3 项先红；实现后 controller 14/14、视觉 5/5、
+  卡片 simulate 1/1、Mini 95 files/460 tests、Web 目录黄金 3 files/19 tests 通过；当前 dirty tree
+  root Vitest 236 files/1,118 tests 通过（37 files/353 tests 按环境跳过）。
 - clean rollback Mini 全量：92 files / 439 tests 通过；picker 定向 2 files / 22 tests 通过。
 - clean rollback root Vitest：230 files / 1,103 tests 通过；37 files / 352 tests 按环境跳过。
 - rollback Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,343,790 bytes，
@@ -225,12 +230,16 @@
 - chooseAvatar 普通 tap 只清旧 pending 并立即发出一次登录事件；成功选择只写进程内路径。密码登录在
   发请求前清空；微信已绑定、密码绑定和首次建档都由已持久化会话后的工作台/Profile onShow 取走一次。
   同账号成功只更新本地 profile.avatarVersion；失败 toast 一次，不改变会话、旧缓存或导航。
+- 通讯录本批唯一请求变化为进入时科室/人员各一次 facets 与收藏索引轻量预热；未搜索/筛选不读取
+  列表，模式切换零请求。每模式异步序号、偏好 owner/group/kind key、分页、号码可拨规则、收藏
+  一次存储和拨号一次副作用不变；群组变化、卸载或 organization 失效同时作废两页。
 
 ## 下一步与停止条件
 
-1. 测试先行实现 Task 4 共享聚合 controller、群组/陈旧/部分失败、账户/绑定/密码与导航矩阵。
-2. 按已确认 Web 黄金重绘 390/320/大字号 WXML/WXSS，并更新 P10 Profile 黄金与 RC 清单。
-3. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
+1. 通讯录批次显式暂存自身文件并提交推送；备份后部署同一 checkpoint，上传
+   `0.1.0-p9.20260828.55`、ensure/verify allowlist 与 full verifier，随后等待实体 Android 复核。
+2. 测试先行实现 Task 4 共享聚合 controller、群组/陈旧/部分失败、账户/绑定/密码与导航矩阵。
+3. 按已确认 Web 黄金重绘 390/320/大字号 WXML/WXSS，并更新 P10 Profile 黄金与 RC 清单。
 
 停止条件：Task 4 功能、交互与视觉自动矩阵完成并形成可独立验证 checkpoint，其他并行用户内容保持
 未提交；未完成 clean/dirty 双验证前不进入最终发布，不提交审核或正式发布。

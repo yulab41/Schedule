@@ -113,7 +113,8 @@ describe('Mini workbench Web-parity navigation', () => {
 
     expect(directoryTemplate).toContain('wx:if="{{!embedded}}"');
     expect(directoryController).toContain('embedded: { type: Boolean, value: false }');
-    expect(directoryController).toContain("embedded ? 'height:100%;'");
+    expect(directoryController).toContain('shellContentStyle: embedded');
+    expect(directoryController).toContain("? 'height:100%;'");
     expect(existsSync(path.join(profileComponentRoot, 'controller.ts'))).toBe(true);
     expect(existsSync(path.join(profileComponentRoot, 'index.ts'))).toBe(true);
     expect(read('src/pages/profile/index.wxml').trim()).toBe(

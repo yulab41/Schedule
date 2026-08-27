@@ -1407,3 +1407,29 @@
 - 语义审计：目录查询/分页/偏好写入、Profile 会话读取/清理、工作流权限/capability、receiver、Promise/catch、空值、API 和危险写次数不变；成员仍可进入请假/加扣班，访客仍被拒绝。唯一行为变化是一级导航与二级 Page 层级、群组切换到访客时从目录/换班安全回到日历，以及移除不可达 Component 输出。
 - 运行验证：Mini production verify 通过（2/2 Worklet、4,343,850 bytes、manifest `83591d359ebf44b553796f07fb8a2d5b08854c2e0610d155cf07fb2019a2dad6`），CI dry-run、包审计、任务 Prettier/ESLint、根 build/typecheck、根 Vitest 233 files/1,113 tests（37 files/352 tests 按环境跳过）、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需 `pnpm smoke:browser`。
 - checkpoint/体验/生产：代码 `79a0ae90` 已推送；`.49` 官方上传 165 code files/1,935,627 bytes/manifest `5f14df24870fd209252f5d0a6bc1efbbc34ccac7405e09d2e89548d8dd0b2f74`，未提审/正式发布。代码发布备份 `b7794f7f-4b4a-42c9-a7c8-cf4b01b9a92c` 后 hash-identical reuse 无停机切换；正式 ensure/verify `.49`、七维能力、未知版本 426 和带公网 IP full verifier 通过。最终状态发布备份为 `29442285-9d6e-446c-8b1c-5c4d20f46192`，checkpoint 识别消息为 `docs(status): record workbench navigation deployment`。
+
+## 2026-08-28 小程序通讯录双页常驻与 Web 视觉对齐
+
+- 反馈与引入点：用户确认科室/人员切换会重载，导览、搜索、筛选层、结果卡、分割线和文字行距均未
+  对齐 Web。`git log -S`/`git blame` 定位单运行态 `switchMode` 清空并重新读取 facets 由
+  `14e9c6cb` 引入；跨组件失效的 `.directory-entry + .directory-entry` 与不存在的
+  `--ui-line-height-body` 由 `1de042b5` 引入。
+- 测试先行：新增双页预热/持久化、非活动页异步回写隔离和 Web 视觉静态契约，旧实现分别因没有
+  `internalPane/employeePane`、切换使响应失效、没有 swiper/分割线/有效行高而 3 项先红；实现后
+  controller 14/14、目录视觉 5/5、卡片 simulate 1/1、Page/工作台边界与全 Mini 95 files/460
+  tests 通过。
+- 实现与视觉：同一直连 Page/controller 维护科室/人员两套运行态，并行只预热 facets 与收藏索引；
+  固定切换器下使用两项原生 swiper，点击/横划不清空或重取，分别保留搜索、筛选、结果、分页和
+  原生滚动位置。按 Web 重绘动效图标、两列导览、搜索清空、闲置/骨架/空态、92vh 折叠筛选层、
+  矢量星标/拨号及结果卡；卡片根节点显式绘制 1px 分割线，模块正文统一有效 1.55 行高，标题例外
+  使用 Web 的 1.25/1.3。
+- 语义审计：唯一请求变化为进入通讯录时科室/人员各一次 facets 轻量预热；未搜索/筛选不读取列表，
+  模式切换零请求。每模式独立 request/context serial，非活动响应只写自身；群组变化、卸载和
+  organization 失效同时作废两页。Bearer、端点、分页、号码可拨规则、偏好 owner/group/kind key、
+  每次收藏一次存储、每次拨号一次 `wx.makePhoneCall`、Promise/catch、空值和号码不落盘保持不变。
+- 运行验证：Mini production verify、determinism、source/package/performance audit、CI dry-run、
+  全端 build/typecheck、Web 目录黄金 3 files/19 tests、任务 Prettier/ESLint、`git diff --check` 与
+  `pnpm smoke:check-core` 通过。root Vitest 最终 236 files/1,118 tests 通过（37 files/353 tests 按
+  环境跳过）；首轮在并行 profile 文件落盘时出现一次输入图竞态已随稳定重跑消失。未修改 Web 核心
+  链路，无需完整 browser smoke。
+  当前状态：`已实现并完成自动验证 → 待 checkpoint/.55 上传/生产同步/实体 Android 复核`。

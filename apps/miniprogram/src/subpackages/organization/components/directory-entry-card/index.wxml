@@ -1,4 +1,6 @@
-<view class="directory-entry {{entry.merged ? 'is-merged' : ''}}">
+<view
+  class="directory-entry {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}}"
+>
   <view class="entry-accent"></view>
   <view class="entry-content">
     <view class="entry-heading">
@@ -33,8 +35,13 @@
         aria-pressed="{{entry.favorite}}"
         hover-class="is-pressed"
         bindtap="handleFavorite"
-        >{{entry.favorite ? '★' : '☆'}}</view
       >
+        <image
+          class="favorite-icon"
+          src="{{entry.favorite ? '/assets/icons/web-directory-star-filled.svg' : '/assets/icons/web-directory-star.svg'}}"
+          mode="aspectFit"
+        />
+      </view>
     </view>
 
     <view class="contact-methods">
@@ -52,13 +59,18 @@
               class="directory-number is-dialable"
               hover-class="is-pressed"
               data-number="{{number.dialNumber}}"
+              data-number-id="{{number.id}}"
               aria-role="button"
               aria-label="拨打{{entry.title}}的{{contact.label}} {{number.number}}"
               bindtap="handleCall"
             >
               <text wx:if="{{number.label}}" class="number-kind">{{number.label}}</text>
               <text class="contact-number">{{number.number}}</text>
-              <image class="phone-icon" src="/assets/icons/web-phone.svg" mode="aspectFit" />
+              <image
+                class="phone-icon {{animatingNumberId === number.id ? 'is-animating' : ''}}"
+                src="/assets/icons/web-directory-phone.svg"
+                mode="aspectFit"
+              />
             </view>
             <view wx:else class="directory-number">
               <text wx:if="{{number.label}}" class="number-kind">{{number.label}}</text>
