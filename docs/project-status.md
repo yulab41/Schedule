@@ -42,6 +42,9 @@
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
   已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
 - 通讯录切换和群组普通成员权限仍是并行用户工作；本批不接管其 directory 源码或测试。
+- 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
+  `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
+  当前只落文档 checkpoint，随后以独立测试文件先冻结权限矩阵，不接管登录或通讯录测试 hunk。
 - `.51@99006ba` 已完成 `.50` 前向回滚、自动验证、体验上传、生产同步和 allowlist；实体 Android
   “恢复 `.49` 表现”的确认可独立进行，不阻塞非滚轮代码设计。
 
@@ -202,6 +205,7 @@
    实体 Android 复核红点、滚动、回弹、下滑、“完成”、遮罩关闭和跨群组隔离。
 3. 测试先行迁入共享 `MyProfileOverview`，增加兼容但暂不返回的 `avatarVersion` 契约。
 4. 并行登录/通讯录 checkpoint 落地后，才进入头像 API 与最终 Mini Profile runtime。
+5. 群组权限文档 checkpoint 对齐后，新增独立权限/client-core 红灯，再修改工作台与群组页 runtime。
 
 停止条件：Profile 文档与通知代码/最终状态 checkpoint 均实现 Git/origin/production release 对齐，
 通知体验版 allowlist/full verifier 通过，其他并行用户工作树内容保持未提交；不提交审核或正式发布。
