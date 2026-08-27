@@ -26,38 +26,30 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
+- 登录会话连续性、通知 Sheet、通讯录/群组权限的 runtime、测试、视觉稿与 UiSheet 正由并行任务
+  维护；涉及 identity/workbench/session/directory/notifications 的脏文件均不得整文件暂存。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
 - `runtime/external-project-worktrees/` 中未落地 P10 worktree 必须保留。
 
-## 登录会话与入口设计（排队批次）
+## 并行用户批次
 
-- 用户确认复现：在“我的”执行切换/退出后不重启小程序，再以 D0468 登录，“我的”仍显示
-  “尚未登录”；冷启动使用 `admin` 不复现。
-- 生产只读证据排除账号/API 失败：D0468 与 `admin` 的账号、profile、有效成员关系均正常；两轮
-  password login 与随后 `/groups` 均为 HTTP 200。未读取密码、token、联系方式或排班正文。
-- 根因为每入口 `bundle: true` 复制 `wechat-identity.ts` 模块状态：profile bundle 清会话后保留
-  `sessionInvalidated=true`，identity bundle 的新登录只能复位自己的副本。当前可见引入点为
-  `79a0ae90 feat(miniprogram): align workbench navigation with web`。
-- 用户已确认 App 级共享会话运行时、成功后 `wx.reLaunch` 直达主页及 Web 对齐登录页；登录页不放
-  “访客查看排班”，扫码访客仅进入独立日历页且本批不改。书面规格为
-  `docs/superpowers/specs/2026-08-27-miniprogram-login-session-continuity-design.md`。
-- 登录设计 checkpoint 只提交书面规格与本节的一致性修正，识别消息为
-  `docs(design): specify miniprogram login continuity`；验证为任务文档 Prettier、占位符/歧义自检、
-  `git diff --check` 与 agent-context policy。下一步是用户书面复核，通过前不修改 runtime。
-- Worklet runtime 已由并行 checkpoint `5bed6d34` 提交；当前通知 runtime、测试与视觉稿仍是并行用户
-  工作树内容。登录批次不得暂存、重写或混入；停止条件是 Git/origin/production release 对齐并
-  保持全部并行内容未提交。
+- 登录会话连续性设计 checkpoint `3eae93c2` 已推送并部署；用户已批准实施，当前 App singleton、
+  直达工作台和 Web 登录视觉仍为并行未提交内容，本批等待其 checkpoint 后才做头像登录集成。
+- 通知 Sheet/群组未读、通讯录切换和群组普通成员权限也在并行工作树实施；本批不接管其 API、
+  client-core、UiSheet、workbench、directory、Storybook 或测试文件。
+- `.51@99006ba` 已完成 `.50` 前向回滚、自动验证、体验上传、生产同步和 allowlist；实体 Android
+  “恢复 `.49` 表现”的确认可独立进行，不阻塞非滚轮代码设计。
 
 ## 当前活动批次
 
-- 用户否决 `.50`：真机没有自动吸附、字号缩放或透明度变化，并明确要求回滚。
-- `.50` Summer 编译/6 Worklet audit 不能证明目标 Android 上动态 Worklet/style binding 执行；删除
-  JS snap 后 CSS snap 也未提供所需行为。该架构停止，不继续叠补丁。
-- picker runtime 与两套既有测试已精确恢复 `c8479359`（`.49` 源码），五路径 diff 为 0；删除
-  `.50` 专用 Worklet test，失败设计/计划保留为证据。
-- 状态：`已完成（clean 自动验证、体验上传与生产发布）→ 待用户确认恢复`。rollback checkpoint
-  `99006bad` 已推送；最终状态 checkpoint 识别消息为
-  `docs(status): record workflow wheel rollback`。
+- 用户已批准把小程序“我的”页按 Web Production 1:1 重建，并增加真实的小程序身份状态与账号级
+  微信头像；不显示真实微信号，头像只在微信快捷登录时可选刷新。
+- 书面规格与计划为 `docs/superpowers/specs/2026-08-27-miniprogram-my-profile-web-parity-design.md`
+  和对应 `plans/` 文件；当前 checkpoint 只落文档、引入点与安全边界，不修改 runtime。
+- 引入点：Web 个人值班聚合来自 `ebd1b19f`，Mini 常驻 Profile controller/workbench 入口来自
+  `79a0ae90`，微信快捷登录来自 `e69cfb76`，密码登录禁解绑来自 `75ec2c1d`。
+- 文档 checkpoint 识别消息为 `docs(design): specify miniprogram profile parity`；通过并部署后进入
+  Task 1“共享个人值班模型与可选 avatarVersion 兼容契约”，并继续避开所有并行脏文件。
 
 ## 已完成的发布基线与当前修复
 
@@ -185,8 +177,9 @@
 
 ## 下一步与停止条件
 
-1. 提交最终状态 checkpoint 并以已完成备份同步 production release。
-2. 用户只需确认 `.51` 已恢复 `.49` 的吸附、字号和透明度表现；不继续验收 `.50`。
+1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
+2. 测试先行迁入共享 `MyProfileOverview`，增加兼容但暂不返回的 `avatarVersion` 契约。
+3. 并行登录/通知/通讯录 checkpoint 落地后，才进入头像 API 与最终 Mini Profile runtime。
 
-停止条件：`.51` 上传、Git/origin/production release、allowlist/full verifier 全部对齐，所有用户
-工作树内容保持未提交；随后等待回滚复核，不提交审核或正式发布。
+停止条件：Profile 文档 checkpoint 的 Git/origin/production release 对齐，全部并行用户工作树
+内容保持未提交；随后只进入实施计划 Task 1，不提交审核或正式发布。

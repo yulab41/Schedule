@@ -2,6 +2,25 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 Mini“我的”页 Web 对等与微信头像
+
+- 需求/边界：用户批准以生产 Web `MyProfileView` 为唯一黄金源，原生内容顺序固定为标题、身份卡、
+  值班概览、四月趋势、下一班、账户设置、退出；Mini 只追加“小程序身份/微信头像”两行。真实
+  微信号不可取得且不展示；头像只在微信快捷登录时由 `chooseAvatar` 可选刷新，账号级存入 MySQL，
+  取消或上传失败不阻断登录，密码登录不刷新。
+- 引入点：`git log -S`/`git blame` 确认 Web 概览请求和聚合由 `ebd1b19f` 引入，后续请求顺序由
+  `664bc1f8` 收紧；Mini 共享 Profile controller 与常驻工作台入口由 `79a0ae90` 引入；微信快捷
+  登录来自 `e69cfb76`；密码会话禁止解绑来自 `75ec2c1d`；严格 UserProfile schema 来自
+  `d606cfd8`。这些旧行为先以红灯冻结，再拆成共享等价 refactor、后端新增能力与 Mini 行为提交。
+- 并行边界：登录连续性、通知 Sheet、通讯录/群组权限当前占用 identity/workbench/session/UiSheet
+  等文件；本批先做新文档、共享模型与后端新模块，等待其 checkpoint 后才基于最终 HEAD 做最小
+  Mini 集成，不整文件暂存或依赖并行未提交实现。
+- 视觉意图：不另造模板化 Mini 风格；白卡与 Web token 保持安静，深蓝“下一班”是唯一视觉签名。
+  微信扩展只进入明细行；触控区至少 44px、相邻操作至少 8px，390/320/大字号和读屏状态均入矩阵。
+- 当前状态：已批准设计写入独立 spec/plan，运行时代码尚未修改。文档验证为 Prettier、占位符/
+  歧义自检、`git diff --check` 与 agent-context policy；checkpoint 识别消息
+  `docs(design): specify miniprogram profile parity`。
+
 ## 2026-08-27 Mini 工作台顶部通知 Sheet 与群组未读数
 
 - 反馈/引入点：顶部铃铛点击只摇动并提示“后续开放”。`git log -S`/`git blame` 确认占位 handler 由 `733e3af6` 引入；P9 通知中心 `1a428d73` 只接入“更多”独立页，未回接顶部入口。`52e9e1f4` 初始通知查询虽筛选 `groupId`，`unreadCount` 却始终计算全账号。
