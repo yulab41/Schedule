@@ -1,1 +1,1 @@
-<platform-accounts-panel></platform-accounts-panel>
+<include src="../../components/platform-accounts-panel/index.wxml" />

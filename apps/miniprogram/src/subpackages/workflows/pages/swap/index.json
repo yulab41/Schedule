@@ -4,6 +4,6 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
-    "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index"
+    "workflow-picker": "/subpackages/workflows/components/workflow-picker/index"
   }
 }

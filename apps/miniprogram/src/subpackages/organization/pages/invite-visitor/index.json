@@ -3,6 +3,8 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
-    "invite-visitor-panel": "/subpackages/organization/components/invite-visitor-panel/index"
+    "ui-alert": "/components/ui/ui-alert/index",
+    "ui-button": "/components/ui/ui-button/index",
+    "ui-loading": "/components/ui/ui-loading/index"
   }
 }

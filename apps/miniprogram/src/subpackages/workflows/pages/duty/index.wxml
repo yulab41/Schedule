@@ -1,1 +1,1 @@
-<workflow-duty-panel group-id="{{groupId}}" embedded="{{false}}"></workflow-duty-panel>
+<include src="../../components/workflow-duty-panel/index.wxml" />

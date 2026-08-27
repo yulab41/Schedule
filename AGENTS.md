@@ -9,12 +9,17 @@ Do not rely on prior chat history when starting or resuming implementation.
 At the beginning of every implementation conversation:
 
 1. Read `docs/project-status.md` completely.
-2. Inspect the Git state and recent history as required below.
-3. Read the exact active task sections in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`.
-4. Read the design sections linked or implicated by those tasks in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
-5. Confirm that the active batch in `docs/project-status.md` matches the code and Git history before editing.
+2. Read `docs/agent-context/pitfall-index.json`, match the request/planned commands/expected paths, and read only the matching pitfall detail files. Re-run matching if the diff expands.
+3. Inspect the Git state and recent history as required below.
+4. Read the exact active task sections in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`.
+5. Read the design sections linked or implicated by those tasks in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+6. Confirm that the active batch in `docs/project-status.md` matches the code and Git history before editing.
 
-Complete only 1 to 3 implementation tasks per conversation. Prefer 1 task for complex domain, concurrency, deployment, or security work and 2 tasks for ordinary dependent work. Never begin a task outside the active batch merely because context remains available.
+Read only the matching pitfall detail files, not every detail “for awareness.” If a guard fails or a `staleWhen` condition matches, treat the recorded fix as a hypothesis and re-investigate. Do not read `docs/debug/debug-feedback-log.md` completely; use `rg` with an exact pitfall ID, commit, route, or error and read only the necessary bounded section.
+
+Use coherent, independently verifiable checkpoints, but do not impose a fixed task-count limit per conversation. Keep the active batch explicit in `docs/project-status.md`; do not begin unrelated work merely because context remains available.
+
+When PowerShell runs more than one native command in sequence, set both `$ErrorActionPreference = 'Stop'` and `$PSNativeCommandUseErrorActionPreference = $true`, or split the commands into separate tool calls. Never rely on `$ErrorActionPreference` alone to propagate non-zero exits from `node`, `pnpm`, `git`, or other native programs.
 
 Before each task checkpoint commit, update `docs/project-status.md` with:
 
@@ -22,7 +27,7 @@ Before each task checkpoint commit, update `docs/project-status.md` with:
 - Validation commands and results.
 - Commit hash if already known from the preceding checkpoint, otherwise the commit message that will identify the checkpoint.
 - Decisions, deviations, blockers, and external console state needed by the next conversation.
-- The exact next active batch of 1 to 3 tasks and its stop condition.
+- The exact next active batch and its stop condition.
 
 Keep `docs/project-status.md` concise and current rather than turning it into a full historical log. Git history is the durable history. A new conversation should be able to resume safely from the repository alone.
 

@@ -11,7 +11,7 @@ function read(relativePath) {
 }
 
 describe('P8 organization component registration', () => {
-  it('registers every page-mounted organization panel as a native Component', () => {
+  it('keeps the reusable organization panel sources buildable after direct Page migration', () => {
     const panels = [
       ['scheduling-config-panel', 'createSchedulingConfigPanelControllerDefinition'],
       ['platform-accounts-panel', 'createPlatformAccountsPanelControllerDefinition'],
@@ -27,16 +27,16 @@ describe('P8 organization component registration', () => {
       const controller = read(`src/subpackages/organization/components/${panel}/controller.ts`);
       expect(controller).toContain('lifetimes:');
       expect(controller).toContain('attached(');
-      expect(controller).not.toMatch(/\n    onLoad\(/u);
-      expect(controller).not.toMatch(/\n    onShow\(/u);
+      expect(controller).not.toMatch(/\n {4}onLoad\(/u);
+      expect(controller).not.toMatch(/\n {4}onShow\(/u);
     }
   });
 
-  it('keeps the page JSON component names aligned with the registered files', () => {
+  it('does not inject migrated organization panels through page JSON', () => {
     for (const page of ['scheduling-config', 'platform-accounts', 'invite-visitor']) {
       const pageJson = JSON.parse(read(`src/subpackages/organization/pages/${page}/index.json`));
       const componentNames = Object.keys(pageJson.usingComponents ?? {});
-      expect(componentNames).toContain(`${page}-panel`);
+      expect(componentNames).not.toContain(`${page}-panel`);
     }
   });
 });

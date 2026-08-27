@@ -1,1 +1,1 @@
-<group-settings-panel group-id="{{groupId}}" embedded="{{false}}"></group-settings-panel>
+<include src="../../components/group-settings-panel/index.wxml" />

@@ -1,1 +1,1 @@
-<directory-panel group-id="{{groupId}}" directory-kind="{{directoryKind}}"></directory-panel>
+<include src="../../components/directory-panel/index.wxml" />

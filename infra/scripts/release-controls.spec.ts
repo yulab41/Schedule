@@ -24,7 +24,12 @@ describe('production Mini Program capability control', () => {
 
   it('uses the same strict semver-like validator in switch, deploy, and verify controls', async () => {
     const sources = await Promise.all(
-      ['client-capability-switch.sh', 'ecs-update.sh', 'ecs-verify.sh'].map(readScript),
+      [
+        'client-capability-switch.sh',
+        'client-version-allowlist.sh',
+        'ecs-update.sh',
+        'ecs-verify.sh',
+      ].map(readScript),
     );
     const validators = sources.map((source) =>
       source.slice(
@@ -169,6 +174,7 @@ describe('release control installation and backward compatibility', () => {
     expect(updateSource).toContain('/usr/local/lib/schedule/ecs-verify.sh');
     expect(updateSource).toContain('/usr/local/bin/schedule-ecs-rollback');
     expect(updateSource).toContain('/usr/local/bin/schedule-client-capability');
+    expect(updateSource).toContain('/usr/local/bin/schedule-client-version-allowlist');
     expect(verifySource).toContain('if [ "$RELEASE_FEATURE_LEVEL" = "$P6_RELEASE_FEATURE_LEVEL" ]');
     expect(verifySource).toContain('pre-P6 release: capability endpoint probe skipped');
   });
@@ -205,5 +211,23 @@ describe('release control installation and backward compatibility', () => {
     expect(verifySource).toContain('releaseFeatureLevel');
     expect(updateSource).toContain('trap rollback_on_signal HUP INT TERM');
     expect(updateSource).toContain('cleanup_on_exit');
+  });
+});
+
+describe('hash-identical release reuse', () => {
+  it('updates only release metadata after verifying all retained artifact hashes', async () => {
+    const source = await readScript('ecs-reuse-release.sh');
+
+    expect(source).toContain('/var/lock/schedule-release.lock');
+    expect(source).toContain('rollbackCandidate');
+    expect(source).toContain('gitCommit');
+    expect(source).toContain('distArchiveSha256');
+    expect(source).toContain('apiRuntimeArchiveSha256');
+    expect(source).toContain('cp --reflink=auto');
+    expect(source).toContain('restore_previous_metadata');
+    expect(source).toContain('ecs-verify.sh');
+    expect(source).not.toContain('compose stop');
+    expect(source).not.toContain('migrate.js');
+    expect(source).not.toContain('force-recreate');
   });
 });

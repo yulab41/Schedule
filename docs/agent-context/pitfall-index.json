@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "pitfalls": [
+    {
+      "id": "mini-page-boundary",
+      "state": "fixed-pending-external",
+      "signals": ["Android white screen", "Skyline", "requiredComponents", "Page", "panel"],
+      "paths": [
+        "apps/miniprogram/src/**/pages/**",
+        "apps/miniprogram/src/**/components/**/*-panel/**"
+      ],
+      "detail": "docs/agent-context/pitfalls/mini-page-boundary.md",
+      "guard": "apps/miniprogram/scripts/thin-page-boundary.test.mjs",
+      "validation": "pnpm miniprogram:test",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": [
+        "app.json renderer or lazyCodeLoading changes",
+        "the thin-page guard is removed or fails"
+      ]
+    },
+    {
+      "id": "mini-test-discovery-clock",
+      "state": "fixed-guarded",
+      "signals": ["Vitest", "wrong cwd", "runtime duplicate", "date-sensitive", "duty", "swap"],
+      "paths": ["apps/miniprogram/scripts/**", "vitest.config.ts", "package.json"],
+      "detail": "docs/agent-context/pitfalls/mini-test-discovery-clock.md",
+      "guard": "scripts/test-discovery-policy.test.mjs",
+      "validation": "pnpm miniprogram:test && pnpm test",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": [
+        "Vitest major version changes",
+        "fixture business dates or package test scripts change"
+      ]
+    },
+    {
+      "id": "pnpm-preflight-build-policy",
+      "state": "fixed-guarded",
+      "signals": ["ERR_PNPM_IGNORED_BUILDS", "implicit install", "allowBuilds", "pnpm"],
+      "paths": ["pnpm-workspace.yaml", "pnpm-lock.yaml", "scripts/prepare-release-worktree.mjs"],
+      "detail": "docs/agent-context/pitfalls/pnpm-preflight-build-policy.md",
+      "guard": "scripts/prepare-release-worktree.test.mjs",
+      "validation": "pnpm install --frozen-lockfile && pnpm build",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": ["pnpm major version changes", "allowBuilds or verifyDepsBeforeRun changes"]
+    },
+    {
+      "id": "windows-shell-fail-fast",
+      "state": "fixed-guarded",
+      "signals": ["PowerShell", "native exit code", "command chain", "false green"],
+      "paths": ["**/*.ps1", "docs/testing/**", "AGENTS.md"],
+      "detail": "docs/agent-context/pitfalls/windows-shell-fail-fast.md",
+      "guard": "scripts/test-discovery-policy.test.mjs",
+      "validation": "pnpm exec vitest run scripts/test-discovery-policy.test.mjs",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": [
+        "PowerShell native error preference defaults change",
+        "a new PowerShell runner is added"
+      ]
+    },
+    {
+      "id": "line-ending-portability",
+      "state": "fixed-guarded",
+      "signals": ["CRLF", "LF", "bash -n", "Prettier clean worktree", "tokens.css"],
+      "paths": [".gitattributes", ".editorconfig", ".prettierrc.json", "**/*.sh"],
+      "detail": "docs/agent-context/pitfalls/line-ending-portability.md",
+      "guard": "scripts/test-discovery-policy.test.mjs",
+      "validation": "pnpm tokens:generate && pnpm test",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": ["Git autocrlf policy changes", "generated token or shell paths change"]
+    },
+    {
+      "id": "release-cache-and-reuse",
+      "state": "active",
+      "signals": ["ECS package", "docs-only deploy", "api-flat", "repeat build", "release cache"],
+      "paths": [
+        "scripts/package-ecs-release.mjs",
+        "scripts/release-cache.mjs",
+        "infra/scripts/ecs-*.sh"
+      ],
+      "detail": "docs/agent-context/pitfalls/release-cache-and-reuse.md",
+      "guard": "scripts/release-cache.test.mjs",
+      "validation": "pnpm ecs:package twice from one clean release worktree",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": [
+        "release artifact paths or deploy arguments change",
+        "Node, pnpm, tar, or cache schema changes"
+      ]
+    },
+    {
+      "id": "client-version-allowlist",
+      "state": "active",
+      "signals": [
+        "experience version",
+        "allowlist",
+        "HTTP 426",
+        "capability JSON",
+        "env production"
+      ],
+      "paths": [
+        "infra/scripts/client-version-allowlist.sh",
+        "infra/scripts/client-capability-switch.sh",
+        "infra/scripts/ecs-*.sh"
+      ],
+      "detail": "docs/agent-context/pitfalls/client-version-allowlist.md",
+      "guard": "infra/scripts/client-version-allowlist.spec.ts",
+      "validation": "sudo schedule-client-version-allowlist verify",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": [
+        "capability response schema changes",
+        "version grammar or production env keys change"
+      ]
+    },
+    {
+      "id": "anonymous-boundary-telemetry",
+      "state": "active",
+      "signals": [
+        "boundary telemetry",
+        "Page onLoad missing",
+        "controller attached",
+        "fingerprint"
+      ],
+      "paths": ["apps/miniprogram/src/platform/telemetry.ts", "apps/miniprogram/src/**/pages/**"],
+      "detail": "docs/agent-context/pitfalls/anonymous-boundary-telemetry.md",
+      "guard": "apps/miniprogram/scripts/p6-telemetry.test.mjs",
+      "validation": "pnpm miniprogram:test",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": ["telemetry contract, retention, capability gating, or marker registry changes"]
+    }
+  ]
+}

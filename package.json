@@ -30,6 +30,7 @@
     "miniprogram:ci:dry-run": "pnpm --filter @schedule/miniprogram ci:dry-run",
     "miniprogram:package-audit": "pnpm --filter @schedule/miniprogram check:package",
     "miniprogram:preview": "pnpm --filter @schedule/miniprogram preview",
+    "miniprogram:test": "pnpm --filter @schedule/miniprogram test",
     "miniprogram:upload-experience": "pnpm --filter @schedule/miniprogram upload:experience",
     "miniprogram:verify": "pnpm --filter @schedule/miniprogram verify",
     "miniprogram:visual-compare": "pnpm --filter @schedule/miniprogram visual:compare",
@@ -39,7 +40,7 @@
     "test:api-integration:task10": "node --env-file=.env scripts/run-api-integration-task10.mjs",
     "tokens:generate": "pnpm --filter @schedule/ui-tokens generate",
     "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run typecheck",
-    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
+    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm miniprogram:test && pnpm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",

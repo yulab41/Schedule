@@ -246,6 +246,14 @@ if archive_has_path infra/scripts/client-capability-switch.sh; then
     CONTROL_PATHS+=(infra/scripts/schedule-privacy-retention.sh)
     CONTROL_HASH_KEYS+=(privacyRetentionSchedulerSha256)
   fi
+  if archive_has_path infra/scripts/client-version-allowlist.sh; then
+    CONTROL_PATHS+=(infra/scripts/client-version-allowlist.sh)
+    CONTROL_HASH_KEYS+=(clientVersionAllowlistSha256)
+  fi
+  if archive_has_path infra/scripts/ecs-reuse-release.sh; then
+    CONTROL_PATHS+=(infra/scripts/ecs-reuse-release.sh)
+    CONTROL_HASH_KEYS+=(ecsReuseReleaseSha256)
+  fi
   for index in "${!CONTROL_PATHS[@]}"; do
     expected_control_sha="$(manifest_value "${CONTROL_HASH_KEYS[$index]}")"
     if [[ ! "$expected_control_sha" =~ ^[0-9a-f]{64}$ ]] ||
@@ -289,7 +297,9 @@ for relative_path in \
   infra/scripts/ecs-update.sh \
   infra/scripts/ecs-verify.sh \
   infra/scripts/ecs-rollback.sh \
+  infra/scripts/ecs-reuse-release.sh \
   infra/scripts/client-capability-switch.sh \
+  infra/scripts/client-version-allowlist.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-notifications.sh \
   infra/scripts/schedule-privacy-retention.sh \
@@ -311,7 +321,9 @@ if [ "$PRESERVE_CONTROL_PLANE" = "false" ]; then
   SYSTEM_CONTROL_PATHS+=(
     /usr/local/bin/schedule-notifications
     /usr/local/bin/schedule-ecs-rollback
+    /usr/local/bin/schedule-ecs-reuse-release
     /usr/local/bin/schedule-client-capability
+    /usr/local/bin/schedule-client-version-allowlist
     /usr/local/lib/schedule
     /etc/cron.d/schedule-notifications
     /etc/cron.d/schedule-backup
@@ -350,7 +362,9 @@ restore_previous() {
     infra/scripts/ecs-update.sh \
     infra/scripts/ecs-verify.sh \
     infra/scripts/ecs-rollback.sh \
+    infra/scripts/ecs-reuse-release.sh \
     infra/scripts/client-capability-switch.sh \
+    infra/scripts/client-version-allowlist.sh \
     infra/scripts/schedule-backup.sh \
     infra/scripts/schedule-notifications.sh \
     infra/scripts/schedule-privacy-retention.sh \
@@ -440,7 +454,9 @@ for relative_path in \
   infra/scripts/ecs-update.sh \
   infra/scripts/ecs-verify.sh \
   infra/scripts/ecs-rollback.sh \
+  infra/scripts/ecs-reuse-release.sh \
   infra/scripts/client-capability-switch.sh \
+  infra/scripts/client-version-allowlist.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-notifications.sh \
   infra/scripts/schedule-privacy-retention.sh \
@@ -466,7 +482,9 @@ for optional_path in \
   infra/scripts/ecs-update.sh \
   infra/scripts/ecs-verify.sh \
   infra/scripts/ecs-rollback.sh \
+  infra/scripts/ecs-reuse-release.sh \
   infra/scripts/client-capability-switch.sh \
+  infra/scripts/client-version-allowlist.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-privacy-retention.sh; do
   if archive_has_path "$optional_path"; then
@@ -523,8 +541,16 @@ EOF
   if [ -f infra/scripts/ecs-rollback.sh ]; then
     install -m 0755 infra/scripts/ecs-rollback.sh /usr/local/bin/schedule-ecs-rollback
   fi
+  if [ -f infra/scripts/ecs-reuse-release.sh ]; then
+    install -m 0755 infra/scripts/ecs-reuse-release.sh \
+      /usr/local/bin/schedule-ecs-reuse-release
+  fi
   if [ -f infra/scripts/client-capability-switch.sh ]; then
     install -m 0755 infra/scripts/client-capability-switch.sh /usr/local/bin/schedule-client-capability
+  fi
+  if [ -f infra/scripts/client-version-allowlist.sh ]; then
+    install -m 0755 infra/scripts/client-version-allowlist.sh \
+      /usr/local/bin/schedule-client-version-allowlist
   fi
   if [ -f infra/scripts/schedule-backup.sh ]; then
     install -d -m 0755 /usr/local/lib/schedule

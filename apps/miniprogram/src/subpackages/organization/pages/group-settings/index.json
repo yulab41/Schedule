@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
-    "group-settings-panel": "/subpackages/organization/components/group-settings-panel/index"
+    "ui-alert": "/components/ui/ui-alert/index",
+    "ui-loading": "/components/ui/ui-loading/index"
   }
 }

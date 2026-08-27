@@ -1,3 +1,4 @@
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { createNotificationsPanelControllerDefinition } from '../../components/notifications-panel/controller.js';
 
 const controller = createNotificationsPanelControllerDefinition();
@@ -10,6 +11,7 @@ Page({
     this: NotificationsPageInstance,
     query: Readonly<Record<string, string | undefined>>,
   ): void {
+    recordMiniTelemetryBoundary('notifications:page-onload');
     (this as unknown as { properties: { groupId: string; mode: 'notifications' } }).properties = {
       groupId: decodeGroupId(query['groupId']),
       mode: 'notifications',

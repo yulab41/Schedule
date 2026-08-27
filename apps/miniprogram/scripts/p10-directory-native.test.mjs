@@ -27,7 +27,7 @@ describe('P10 native directory parity', () => {
         'pages/directory/index',
       ],
     });
-    expect(page).toContain('directory-panel');
+    expect(page.trim()).toBe('<include src="../../components/directory-panel/index.wxml" />');
     expect(panel).toContain('科室通讯录');
     expect(panel).toContain('人员通讯录');
     expect(workbench).toContain('handleOpenDirectory');

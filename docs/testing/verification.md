@@ -3,10 +3,14 @@
 ## 自动化验证
 
 ```powershell
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 pnpm verify
 pnpm smoke:browser
 pnpm smoke:check-core
 ```
+
+PowerShell 中串行执行多个原生命令时必须设置上述两个变量，或把每个命令拆成独立调用；仅设置 `$ErrorActionPreference` 不会可靠传播 `node`、`pnpm`、`git` 等原生命令的非零退出码。
 
 覆盖单元、集成、并发、安全、性能、Web build 和浏览器流程；性能测试使用隔离 MySQL，不含公网网络延迟。
 

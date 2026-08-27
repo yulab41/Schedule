@@ -16,6 +16,64 @@ interface WorkflowPanelHost {
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
 }
 
+interface WorkflowPageHost extends WorkflowPanelHost {
+  __workflowPageOriginalSetData?: WorkflowPanelHost['setData'];
+}
+
+export function createWorkflowPageDefinition(
+  createDefinition: (embedded: boolean) => unknown,
+): ControllerDefinition {
+  const prototype = normalizeDefinition(createDefinition(false));
+  const delegatedMethods = Object.fromEntries(
+    Object.entries(prototype).flatMap(([key, value]) =>
+      isControllerMethod(key, value)
+        ? [
+            [
+              key,
+              function (this: WorkflowPageHost, ...arguments_: unknown[]) {
+                const method = this.__controller?.[key];
+                return typeof method === 'function'
+                  ? (method as ControllerMethod).apply(this, arguments_)
+                  : undefined;
+              },
+            ],
+          ]
+        : [],
+    ),
+  );
+
+  return {
+    data: { ...prototype.data, embedded: false },
+    ...delegatedMethods,
+    onLoad(this: WorkflowPageHost, query: Readonly<Record<string, string | undefined>>): void {
+      attachWorkflowPageHost(this);
+      startWorkflowPageController(this, createDefinition, query);
+    },
+    onShow(this: WorkflowPageHost): void {
+      const onShow = this.__controller?.['onShow'];
+      if (typeof onShow === 'function') (onShow as ControllerMethod).call(this);
+    },
+    onHide(this: WorkflowPageHost): void {
+      const onHide = this.__controller?.['onHide'];
+      if (typeof onHide === 'function') (onHide as ControllerMethod).call(this);
+    },
+    onUnload(this: WorkflowPageHost): void {
+      try {
+        const onUnload = this.__controller?.['onUnload'];
+        if (typeof onUnload === 'function') (onUnload as ControllerMethod).call(this);
+      } finally {
+        detachWorkflowPageHost(this);
+      }
+    },
+    handlePickerRequestOpen(this: WorkflowPageHost): void {
+      closeWorkflowPickers(this);
+    },
+    handlePanelBackgroundTap(this: WorkflowPageHost): void {
+      closeWorkflowPickers(this);
+    },
+  };
+}
+
 export function registerWorkflowPanel(createDefinition: (embedded: boolean) => unknown): void {
   const prototype = normalizeDefinition(createDefinition(true));
   const delegatedMethods = Object.fromEntries(
@@ -59,15 +117,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
         if (this.__attached === true) startController(this, createDefinition);
       },
       infoMessage(this: WorkflowPanelHost, value: unknown): void {
-        clearInfoMessageTimer(this);
-        if (typeof value !== 'string' || value === '') return;
-        const expected = value;
-        this.__infoMessageTimer = setTimeout(() => {
-          this.__infoMessageTimer = undefined;
-          if (this.__attached === true && this.data['infoMessage'] === expected) {
-            this.setData({ infoMessage: '' });
-          }
-        }, 2_000);
+        updateInfoMessageTimer(this, value);
       },
     },
     pageLifetimes: {
@@ -88,6 +138,47 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
   });
 }
 
+function attachWorkflowPageHost(host: WorkflowPageHost): void {
+  host.__attached = true;
+  if (host.__workflowPageOriginalSetData !== undefined) return;
+  const originalSetData = host.setData;
+  host.__workflowPageOriginalSetData = originalSetData;
+  host.setData = function (
+    this: WorkflowPageHost,
+    patch: Readonly<Record<string, unknown>>,
+    callback?: () => void,
+  ): void {
+    if (Object.prototype.hasOwnProperty.call(patch, 'infoMessage')) {
+      updateInfoMessageTimer(this, patch['infoMessage']);
+    }
+    originalSetData.call(this, patch, callback);
+  };
+}
+
+function detachWorkflowPageHost(host: WorkflowPageHost): void {
+  clearInfoMessageTimer(host);
+  host.__attached = false;
+  host.__controller = undefined;
+  const originalSetData = host.__workflowPageOriginalSetData;
+  if (originalSetData !== undefined) host.setData = originalSetData;
+  delete host.__workflowPageOriginalSetData;
+}
+
+function startWorkflowPageController(
+  host: WorkflowPageHost,
+  createDefinition: (embedded: boolean) => unknown,
+  query: Readonly<Record<string, string | undefined>>,
+): void {
+  const controller = normalizeDefinition(createDefinition(false));
+  host.__controller = controller;
+  for (const [key, value] of Object.entries(controller)) {
+    if (key.startsWith('_')) (host as unknown as Record<string, unknown>)[key] = value;
+  }
+  host.setData(controller.data);
+  const onLoad = controller['onLoad'];
+  if (typeof onLoad === 'function') (onLoad as ControllerMethod).call(host, query);
+}
+
 function closeWorkflowPickers(host: WorkflowPanelHost): void {
   for (const picker of host.selectAllComponents?.('workflow-picker') ?? []) {
     picker.closeFromParent?.();
@@ -98,6 +189,18 @@ function clearInfoMessageTimer(host: WorkflowPanelHost): void {
   if (host.__infoMessageTimer === undefined) return;
   clearTimeout(host.__infoMessageTimer);
   host.__infoMessageTimer = undefined;
+}
+
+function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
+  clearInfoMessageTimer(host);
+  if (typeof value !== 'string' || value === '') return;
+  const expected = value;
+  host.__infoMessageTimer = setTimeout(() => {
+    host.__infoMessageTimer = undefined;
+    if (host.__attached === true && host.data['infoMessage'] === expected) {
+      host.setData({ infoMessage: '' });
+    }
+  }, 2_000);
 }
 
 function startController(

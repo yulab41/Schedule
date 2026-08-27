@@ -1,1 +1,1 @@
-<scheduling-config-panel group-id="{{groupId}}"></scheduling-config-panel>
+<include src="../../components/scheduling-config-panel/index.wxml" />

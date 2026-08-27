@@ -23,6 +23,10 @@ const capabilitySwitchSource = readFileSync(
   fileURLToPath(new URL('../infra/scripts/client-capability-switch.sh', import.meta.url)),
   'utf8',
 );
+const versionAllowlistSource = readFileSync(
+  fileURLToPath(new URL('../infra/scripts/client-version-allowlist.sh', import.meta.url)),
+  'utf8',
+);
 const attributesSource = readFileSync(
   fileURLToPath(new URL('../.gitattributes', import.meta.url)),
   'utf8',
@@ -68,7 +72,9 @@ describe('ECS directory import runtime packaging', () => {
       'infra/scripts/ecs-update.sh',
       'infra/scripts/ecs-verify.sh',
       'infra/scripts/ecs-rollback.sh',
+      'infra/scripts/ecs-reuse-release.sh',
       'infra/scripts/client-capability-switch.sh',
+      'infra/scripts/client-version-allowlist.sh',
       'infra/scripts/schedule-backup.sh',
       'infra/scripts/schedule-privacy-retention.sh',
     ]) {
@@ -79,7 +85,9 @@ describe('ECS directory import runtime packaging', () => {
       'ecsUpdateSha256',
       'ecsVerifySha256',
       'ecsRollbackSha256',
+      'ecsReuseReleaseSha256',
       'clientCapabilitySwitchSha256',
+      'clientVersionAllowlistSha256',
       'backupSchedulerSha256',
       'privacyRetentionSchedulerSha256',
     ]) {
@@ -91,6 +99,7 @@ describe('ECS directory import runtime packaging', () => {
     expect(rollbackSource).toContain('/usr/local/lib/schedule/ecs-update.sh');
     expect(capabilitySwitchSource).toContain('DEPLOY_DIR="/opt/schedule"');
     expect(capabilitySwitchSource).toContain('ENV_FILE="$DEPLOY_DIR/.env.production"');
+    expect(versionAllowlistSource).toContain('up -d --force-recreate api web');
   });
 
   it('refuses mislabeled or non-portable release artifacts before packaging', () => {
@@ -110,7 +119,12 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource.indexOf("'build'")).toBeLessThan(
       packageSource.indexOf("run(tarPath(), ['-czf'"),
     );
-    expect(packageSource).toContain("['--config.verifyDepsBeforeRun=false', 'build']");
+    expect(packageSource).toContain("path.join(ROOT, 'runtime', 'release-cache', 'v1')");
+    expect(packageSource).toContain("readCacheEntry(CACHE_ROOT, 'build', buildKey)");
+    expect(packageSource).toContain("readCacheEntry(CACHE_ROOT, 'dist', distKey)");
+    expect(packageSource).toContain("readCacheEntry(CACHE_ROOT, 'api-flat', flatKey)");
+    expect(packageSource).toContain('ECS_BUILD_COMMANDS');
+    expect(packageSource).not.toContain("['--config.verifyDepsBeforeRun=false', 'build']");
   });
 
   it('verifies schema 51 telemetry retention and backup exclusion in production', () => {

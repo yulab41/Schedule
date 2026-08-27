@@ -37,6 +37,9 @@ pnpm-debug.log*
 runtime/*.tar.gz
 runtime/*.tar.zst
 runtime/ecs-release/
+/runtime/release-cache/
+/runtime/tmp/
+/runtime/test-*/
 runtime/api-sim-*/
 runtime/api-flat.old-*/
 

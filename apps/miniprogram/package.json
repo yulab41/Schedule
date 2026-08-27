@@ -18,7 +18,7 @@
     "check:source": "node scripts/source-audit.mjs",
     "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=production --dry-run",
     "preview": "node scripts/miniprogram-ci.mjs preview --profile=production",
-    "test": "vitest run scripts --fileParallelism=false",
+    "test": "vitest run --dir scripts --fileParallelism=false",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "upload:experience": "node scripts/miniprogram-ci.mjs upload-experience --profile=production",
     "visual:compare": "node scripts/visual-compare.mjs",

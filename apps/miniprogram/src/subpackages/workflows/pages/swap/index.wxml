@@ -1,1 +1,1 @@
-<workflow-swap-panel group-id="{{groupId}}" embedded="{{false}}"></workflow-swap-panel>
+<include src="../../components/workflow-swap-panel/index.wxml" />

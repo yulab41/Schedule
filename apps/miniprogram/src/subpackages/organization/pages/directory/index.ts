@@ -1,16 +1,26 @@
-export {};
+import { createDirectoryPanelControllerDefinition } from '../../components/directory-panel/controller.js';
+
+const controller = createDirectoryPanelControllerDefinition();
+type DirectoryPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
 
 Page({
-  data: { directoryKind: 'internal' as const, groupId: '' },
-  onLoad(
-    this: {
-      setData(patch: { readonly directoryKind: 'internal'; readonly groupId: string }): void;
-    },
-    query: Readonly<Record<string, string | undefined>>,
-  ): void {
-    this.setData({ groupId: decodeGroupId(query['groupId']), directoryKind: 'internal' });
+  data: controller.data,
+  ...controller.methods,
+  onLoad(this: DirectoryPageInstance, query: Readonly<Record<string, string | undefined>>): void {
+    (
+      this as unknown as {
+        properties: { directoryKind: 'internal'; groupId: string };
+      }
+    ).properties = {
+      directoryKind: 'internal',
+      groupId: decodeGroupId(query['groupId']),
+    };
+    controller.lifetimes.attached.call(this);
   },
-});
+  onUnload(this: DirectoryPageInstance): void {
+    controller.lifetimes.detached.call(this);
+  },
+} as never);
 
 function decodeGroupId(value: string | undefined): string {
   if (value === undefined) return '';

@@ -49,6 +49,31 @@ describe('Mini Program deterministic toolchain guards', () => {
     expect(buildTools).toContain('BUNDLED_ONLY_TYPESCRIPT_MODULES');
     expect(buildTools).toContain('`subpackages/insights/components/${panel}/controller.ts`');
     expect(buildTools).toContain('`subpackages/insights/components/${panel}/index.ts`');
+    for (const modulePath of [
+      'subpackages/organization/components/directory-panel/controller.ts',
+      'subpackages/organization/components/directory-panel/index.ts',
+      'subpackages/organization/components/group-settings-panel/controller.ts',
+      'subpackages/organization/components/scheduling-config-panel/controller.ts',
+      'subpackages/organization/components/scheduling-config-panel/index.ts',
+      'subpackages/organization/components/invite-visitor-panel/controller.ts',
+      'subpackages/organization/components/invite-visitor-panel/index.ts',
+      'subpackages/organization/components/platform-accounts-panel/controller.ts',
+      'subpackages/organization/components/platform-accounts-panel/index.ts',
+      'subpackages/workflows/components/workflow-duty-panel/controller.ts',
+      'subpackages/workflows/components/workflow-leave-panel/controller.ts',
+      'subpackages/workflows/components/workflow-swap-panel/controller.ts',
+      'subpackages/workflows/components/controller-host.ts',
+    ]) {
+      expect(buildTools).toContain(`'${modulePath}'`);
+    }
+    expect(buildTools).not.toContain(
+      "'subpackages/organization/components/group-settings-panel/index.ts'",
+    );
+    for (const workflow of ['duty', 'leave', 'swap']) {
+      expect(buildTools).not.toContain(
+        `'subpackages/workflows/components/workflow-${workflow}-panel/index.ts'`,
+      );
+    }
   });
 
   it('rejects DOM, Node, database, and Zod dependencies', () => {

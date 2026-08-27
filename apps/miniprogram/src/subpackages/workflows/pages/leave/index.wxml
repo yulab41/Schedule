@@ -1,1 +1,1 @@
-<workflow-leave-panel group-id="{{groupId}}" embedded="{{false}}"></workflow-leave-panel>
+<include src="../../components/workflow-leave-panel/index.wxml" />

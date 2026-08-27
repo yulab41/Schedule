@@ -161,7 +161,7 @@ assert_rejected() {
 }
 
 verify_miniprogram_capabilities() {
-  local version response global core workflows organization insights external_messages guest unknown_status
+  local version response global core workflows organization insights external_messages guest unknown_status supported unknown suffix
   version="$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
   global="$(env_value MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED)"
   core="$(env_value MINIPROGRAM_CAPABILITY_CORE_ENABLED)"
@@ -203,9 +203,18 @@ verify_miniprogram_capabilities() {
   ' "$version" "$global" "$core" "$workflows" "$organization" "$insights" \
     "$external_messages" "$guest"
 
+  supported="$(env_value MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS)"
+  suffix=0
+  while true; do
+    unknown="0.0.0-unsupported.$(date +%s).$$.${suffix}"
+    case ",$supported," in
+      *",$unknown,"*) suffix=$((suffix + 1)) ;;
+      *) break ;;
+    esac
+  done
   unknown_status="$(curl -ksS --max-time 5 --get -o /dev/null -w '%{http_code}' \
     --resolve "${DOMAIN}:443:127.0.0.1" --data-urlencode 'platform=miniprogram' \
-    --data-urlencode 'version=9.9.9-p6.unsupported' \
+    --data-urlencode "version=$unknown" \
     "https://${DOMAIN}/api/client-capabilities" || true)"
   if [ "$unknown_status" != "426" ]; then
     echo "[verify] 错误：未知小程序版本应返回 HTTP 426，实际为 ${unknown_status:-000}。" >&2
@@ -218,12 +227,14 @@ verify_installed_control_plane() {
   if [ ! -f "$CONTROL_PLANE_MANIFEST" ]; then
     return 1
   fi
-  local backup_sha update_sha verify_sha rollback_sha capability_sha privacy_sha
+  local backup_sha update_sha verify_sha rollback_sha reuse_sha capability_sha version_sha privacy_sha
   backup_sha="$(control_manifest_value backupSchedulerSha256)"
   update_sha="$(control_manifest_value ecsUpdateSha256)"
   verify_sha="$(control_manifest_value ecsVerifySha256)"
   rollback_sha="$(control_manifest_value ecsRollbackSha256)"
+  reuse_sha="$(control_manifest_value ecsReuseReleaseSha256)"
   capability_sha="$(control_manifest_value clientCapabilitySwitchSha256)"
+  version_sha="$(control_manifest_value clientVersionAllowlistSha256)"
   privacy_sha="$(control_manifest_value privacyRetentionSchedulerSha256)"
   for expected_hash in "$backup_sha" "$update_sha" "$verify_sha" "$rollback_sha" "$capability_sha"; do
     [[ "$expected_hash" =~ ^[0-9a-f]{64}$ ]] || return 1
@@ -232,7 +243,21 @@ verify_installed_control_plane() {
   [ "$(sha256sum /usr/local/lib/schedule/ecs-update.sh | awk '{print $1}')" = "$update_sha" ] || return 1
   [ "$(sha256sum /usr/local/lib/schedule/ecs-verify.sh | awk '{print $1}')" = "$verify_sha" ] || return 1
   [ "$(sha256sum /usr/local/bin/schedule-ecs-rollback | awk '{print $1}')" = "$rollback_sha" ] || return 1
+  if [ -n "$reuse_sha" ]; then
+    [[ "$reuse_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+    [ "$(sha256sum /usr/local/bin/schedule-ecs-reuse-release | awk '{print $1}')" = "$reuse_sha" ] || return 1
+  fi
   [ "$(sha256sum /usr/local/bin/schedule-client-capability | awk '{print $1}')" = "$capability_sha" ] || return 1
+  if [ -n "$version_sha" ]; then
+    [[ "$version_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+    [ "$(sha256sum /usr/local/bin/schedule-client-version-allowlist | awk '{print $1}')" = "$version_sha" ] || return 1
+  fi
+  if [ -n "$reuse_sha" ]; then
+    installed_path=/usr/local/bin/schedule-ecs-reuse-release
+    [ -f "$installed_path" ] || return 1
+    [ "$(stat -c '%u:%g' "$installed_path")" = "0:0" ] || return 1
+    if find "$installed_path" -perm /022 -print -quit | grep -q .; then return 1; fi
+  fi
   if [ -n "$privacy_sha" ]; then
     [[ "$privacy_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
     [ "$(sha256sum /usr/local/lib/schedule/schedule-privacy-retention.sh | awk '{print $1}')" = "$privacy_sha" ] || return 1
@@ -246,11 +271,17 @@ verify_installed_control_plane() {
     /usr/local/bin/schedule-client-capability \
     "$CONTROL_PLANE_MANIFEST"; do
     [ -f "$installed_path" ] || return 1
-    [ "$(stat -c '%u' "$installed_path")" = "0" ] || return 1
+    [ "$(stat -c '%u:%g' "$installed_path")" = "0:0" ] || return 1
     if find "$installed_path" -perm /022 -print -quit | grep -q .; then
       return 1
     fi
   done
+  if [ -n "$version_sha" ]; then
+    installed_path=/usr/local/bin/schedule-client-version-allowlist
+    [ -f "$installed_path" ] || return 1
+    [ "$(stat -c '%u:%g' "$installed_path")" = "0:0" ] || return 1
+    if find "$installed_path" -perm /022 -print -quit | grep -q .; then return 1; fi
+  fi
   if [ -n "$privacy_sha" ]; then
     [ -f /usr/local/lib/schedule/schedule-privacy-retention.sh ] || return 1
     [ "$(stat -c '%u' /usr/local/lib/schedule/schedule-privacy-retention.sh)" = "0" ] || return 1
@@ -339,7 +370,9 @@ EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA="$(manifest_value privacyRetentionSched
 EXPECTED_ECS_UPDATE_SHA="$(manifest_value ecsUpdateSha256)"
 EXPECTED_ECS_VERIFY_SHA="$(manifest_value ecsVerifySha256)"
 EXPECTED_ECS_ROLLBACK_SHA="$(manifest_value ecsRollbackSha256)"
+EXPECTED_ECS_REUSE_RELEASE_SHA="$(manifest_value ecsReuseReleaseSha256)"
 EXPECTED_CAPABILITY_SWITCH_SHA="$(manifest_value clientCapabilitySwitchSha256)"
+EXPECTED_CLIENT_VERSION_ALLOWLIST_SHA="$(manifest_value clientVersionAllowlistSha256)"
 CURRENT_RELEASE="$(cat "$DEPLOY_DIR/current-release" 2>/dev/null || true)"
 if [ -z "$EXPECTED_DATABASE_SCHEMA_MIN" ] && [ -z "$EXPECTED_DATABASE_SCHEMA_MAX" ]; then
   EXPECTED_DATABASE_SCHEMA_MIN="0"
@@ -387,6 +420,10 @@ DEPLOY_HAS_CAPABILITY_CONTROL="false"
 if [ -f "$DEPLOY_DIR/infra/scripts/client-capability-switch.sh" ]; then
   DEPLOY_HAS_CAPABILITY_CONTROL="true"
 fi
+DEPLOY_HAS_VERSION_ALLOWLIST="false"
+if [ -f "$DEPLOY_DIR/infra/scripts/client-version-allowlist.sh" ]; then
+  DEPLOY_HAS_VERSION_ALLOWLIST="true"
+fi
 if [ "$RELEASE_FEATURE_LEVEL" = "$P6_RELEASE_FEATURE_LEVEL" ]; then
   [ "$DEPLOY_HAS_CAPABILITY_CONTROL" = "true" ]
   validate_miniprogram_capability_config
@@ -402,7 +439,15 @@ if [ "$RELEASE_FEATURE_LEVEL" = "$P6_RELEASE_FEATURE_LEVEL" ]; then
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/ecs-update.sh" | awk '{print $1}')" = "$EXPECTED_ECS_UPDATE_SHA" ]
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/ecs-verify.sh" | awk '{print $1}')" = "$EXPECTED_ECS_VERIFY_SHA" ]
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/ecs-rollback.sh" | awk '{print $1}')" = "$EXPECTED_ECS_ROLLBACK_SHA" ]
+  if [ -f "$DEPLOY_DIR/infra/scripts/ecs-reuse-release.sh" ]; then
+    [[ "$EXPECTED_ECS_REUSE_RELEASE_SHA" =~ ^[0-9a-f]{64}$ ]]
+    [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/ecs-reuse-release.sh" | awk '{print $1}')" = "$EXPECTED_ECS_REUSE_RELEASE_SHA" ]
+  fi
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/client-capability-switch.sh" | awk '{print $1}')" = "$EXPECTED_CAPABILITY_SWITCH_SHA" ]
+  if [ "$DEPLOY_HAS_VERSION_ALLOWLIST" = "true" ]; then
+    [[ "$EXPECTED_CLIENT_VERSION_ALLOWLIST_SHA" =~ ^[0-9a-f]{64}$ ]]
+    [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/client-version-allowlist.sh" | awk '{print $1}')" = "$EXPECTED_CLIENT_VERSION_ALLOWLIST_SHA" ]
+  fi
   if [ -n "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" ]; then
     [[ "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" =~ ^[0-9a-f]{64}$ ]]
     [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/schedule-privacy-retention.sh" | awk '{print $1}')" = "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" ]

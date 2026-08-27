@@ -98,7 +98,9 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(componentJson.styleIsolation).toBe('apply-shared');
     expect(componentTemplate).toContain('wx:if="{{!embedded}}"');
     expect(componentStyles).toContain('.group-settings-page.is-embedded');
-    expect(readPageFile('wxml')).toContain('<group-settings-panel');
+    expect(readPageFile('wxml').trim()).toBe(
+      '<include src="../../components/group-settings-panel/index.wxml" />',
+    );
   });
 
   it('uses Skyline-safe flex layout, the 22 by 22 golden checkbox, compact class, and 44px actions', () => {

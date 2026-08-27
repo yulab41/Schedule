@@ -25,6 +25,7 @@ import {
   createRuntimeP9InsightsActionsClient,
 } from '../../../../platform/client-core-calendar.js';
 import { requestWechatSubscriptions } from '../../../../platform/wechat-subscription.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
@@ -139,6 +140,11 @@ export function createNotificationsPanelControllerDefinition() {
     },
     lifetimes: {
       attached(this: NotificationsPageInstance): void {
+        recordMiniTelemetryBoundary(
+          this.properties.mode === 'settings'
+            ? 'notification-settings:controller-attached'
+            : 'notifications:controller-attached',
+        );
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;

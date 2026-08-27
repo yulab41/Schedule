@@ -28,6 +28,19 @@ export type MiniTelemetryErrorCode =
   | 'UNKNOWN';
 export type MiniTelemetryPerformanceMetric =
   'core-ready' | 'foreground-ready' | 'maximum-matrix-render' | 'tap-feedback';
+export const MINI_TELEMETRY_BOUNDARY_MARKERS = [
+  'exports:component-attached',
+  'exports:page-onload',
+  'insights:component-attached',
+  'insights:page-onload',
+  'notification-settings:controller-attached',
+  'notification-settings:page-onload',
+  'notifications:controller-attached',
+  'notifications:page-onload',
+  'visitor-access:component-attached',
+  'visitor-access:page-onload',
+] as const;
+export type MiniTelemetryBoundaryMarker = (typeof MINI_TELEMETRY_BOUNDARY_MARKERS)[number];
 
 interface QueuedTelemetryEvent {
   readonly dedupeKey: string;
@@ -78,6 +91,8 @@ const networkTypes = new Set<MiniTelemetryNetworkType>([
   '5g',
   'unknown',
 ]);
+const allowedBoundaryMarkers = new Set<string>(MINI_TELEMETRY_BOUNDARY_MARKERS);
+const sentBoundaryMarkers = new Set<MiniTelemetryBoundaryMarker>();
 
 export function createMiniTelemetryEmitter(
   options: MiniTelemetryEmitterOptions,
@@ -118,10 +133,10 @@ export function createMiniTelemetryEmitter(
       await executeWxJsonRequest({
         capability: 'core',
         data: {
-          events: batch.map(({ dedupeKey: _dedupeKey, ...event }) => ({
-            ...event,
-            networkType,
-          })),
+          events: batch.map(({ dedupeKey, ...event }) => {
+            void dedupeKey;
+            return { ...event, networkType };
+          }),
         },
         method: 'POST',
         request: (requestOptions: WxJsonRequestOptions) => options.request(requestOptions),
@@ -201,8 +216,12 @@ export function recordMiniTelemetryPerformance(
   resolveRuntimeEmitter()?.recordPerformance(page, metric, durationMs);
 }
 
-export function recordMiniTelemetryBoundary(marker: string): void {
-  resolveRuntimeEmitter()?.recordError('unknown', 'UNKNOWN', marker);
+export function recordMiniTelemetryBoundary(marker: MiniTelemetryBoundaryMarker): void {
+  if (!allowedBoundaryMarkers.has(marker) || sentBoundaryMarkers.has(marker)) return;
+  const runtime = resolveRuntimeTelemetry();
+  if (runtime === undefined || !runtime.capabilityStore.isEnabled('core')) return;
+  runtime.emitter.recordError('unknown', 'UNKNOWN', marker);
+  sentBoundaryMarkers.add(marker);
 }
 
 export function resolveTelemetryPage(route: string): MiniTelemetryPage {
@@ -307,15 +326,37 @@ export function sha256Hex(value: string): string {
   return hash.map((word) => (word >>> 0).toString(16).padStart(8, '0')).join('');
 }
 
-function resolveRuntimeEmitter(): MiniTelemetryEmitter | undefined {
+function resolveRuntimeTelemetry():
+  | {
+      readonly capabilityStore: Pick<ClientCapabilityStore, 'isEnabled'>;
+      readonly emitter: MiniTelemetryEmitter;
+    }
+  | undefined {
   if (typeof getApp !== 'function') return undefined;
   try {
-    return getApp<{
-      readonly globalData?: { readonly telemetryEmitter?: MiniTelemetryEmitter | undefined };
-    }>().globalData?.telemetryEmitter;
+    const globalData = getApp<{
+      readonly globalData?: {
+        readonly clientCapabilityStore?: Pick<ClientCapabilityStore, 'isEnabled'> | undefined;
+        readonly telemetryEmitter?: MiniTelemetryEmitter | undefined;
+      };
+    }>().globalData;
+    if (
+      globalData?.clientCapabilityStore === undefined ||
+      globalData.telemetryEmitter === undefined
+    ) {
+      return undefined;
+    }
+    return {
+      capabilityStore: globalData.clientCapabilityStore,
+      emitter: globalData.telemetryEmitter,
+    };
   } catch {
     return undefined;
   }
+}
+
+function resolveRuntimeEmitter(): MiniTelemetryEmitter | undefined {
+  return resolveRuntimeTelemetry()?.emitter;
 }
 
 function readApiBaseUrl(): string {

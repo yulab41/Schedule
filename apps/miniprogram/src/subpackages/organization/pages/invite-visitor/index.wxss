@@ -1,12 +1,8 @@
+@import '../../components/invite-visitor-panel/index.wxss';
+
 page {
   width: 100%;
   height: 100%;
   overflow: hidden;
   background: var(--ui-color-background);
-}
-
-invite-visitor-panel {
-  display: block;
-  width: 100%;
-  height: 100%;
 }

@@ -31,6 +31,16 @@ pnpm ecs:package
 
 打包器会先重建工作区，并要求 Git tracked/untracked 均干净、commit 与显式变量一致、rollback candidate 是当前 commit 的祖先；六个发布 shell 必须为 LF 且逐文件通过 `bash -n`。将 `runtime/ecs-release/` 中的三个产物，以及同一 commit 的 `infra/scripts/ecs-update.sh`、`infra/scripts/ecs-verify.sh`，上传到服务器独立临时目录。不要复用来源不明的旧 `/tmp/ecs-*.sh`。
 
+打包器在 `runtime/release-cache/v1` 使用内容哈希缓存 ECS build、dist archive 和 API flat archive。缓存键不含 Git commit，因此 docs/Mini-only checkpoint 可复用相同应用产物；命中前仍校验输入、payload SHA、构建树和干净 commit。缓存损坏只会失效并重建，不能作为带警告继续发布的依据。
+
+当新 manifest 的全部应用、控制面、schema 与 retained archive 哈希都和当前生产一致时，可以只上传新 manifest，并在完成数据库备份后执行：
+
+```bash
+sudo schedule-ecs-reuse-release /tmp/deploy-manifest.json
+```
+
+可信工具会先后运行 verifier，只更新 immutable release archives 的引用、manifest 和 `current-release`，不停止 API、不迁移、不重建容器；任一哈希不一致会拒绝并要求走完整 `ecs-update.sh`。不能根据 commit message 或人工声明 `docs-only` 绕过哈希门禁。
+
 成功部署后，归档内的 updater、verifier、rollback、capability switch 和数据库备份脚本会以 root 所有、不可被组/其他用户写入的形式安装到 `/usr/local/lib/schedule` 或 `/usr/local/bin`，并由独立 control-plane manifest 校验。应用回滚只回退 `/opt/schedule` 应用产物，控制面保持前向版本。
 
 从 Windows 上传后仍在服务器复核 LF 与 `bash -n`。示例：
@@ -77,6 +87,15 @@ MINIPROGRAM_CAPABILITY_GUEST_ENABLED=true
 ```
 
 `.env.production` 必须由 root 所有且权限为 `0600`。`WECHAT_SESSION_SECRET` 由部署流程生成并只保留在服务器。七维能力开关必须逐项显式配置；使用 `sudo schedule-client-capability <global|core|workflows|organization|insights|externalMessages|guest> <true|false>` 原子切换并自动探测，禁止手工输出整份环境文件。账号密码接口是：
+
+小程序版本白名单禁止手工编辑 `.env.production`。可信控制面部署后使用：
+
+```bash
+sudo schedule-client-version-allowlist ensure 0.1.0-p9.20260827.46
+sudo schedule-client-version-allowlist verify
+```
+
+`ensure` 只增不删；它在 release/capability 双锁下原子追加，重建 API+Web，并验证目标版本的七维响应及动态未知版本 HTTP 426。任一步失败或收到终止信号都会恢复旧列表并重新探测。版本退役必须另走明确审批流程。
 
 - `POST /api/auth/password/register`
 - `POST /api/auth/password/login`

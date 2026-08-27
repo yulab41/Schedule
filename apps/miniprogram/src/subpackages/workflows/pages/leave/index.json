@@ -4,6 +4,6 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
-    "workflow-leave-panel": "/subpackages/workflows/components/workflow-leave-panel/index"
+    "workflow-picker": "/subpackages/workflows/components/workflow-picker/index"
   }
 }

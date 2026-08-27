@@ -26,7 +26,7 @@ describe('P8-C-1 native organization management', () => {
         'pages/directory/index',
       ],
     });
-    expect(groupSettingsPage).toContain('groupId');
+    expect(groupSettingsPage).toContain('createGroupSettingsPanelControllerDefinition(false)');
     expect(panel).toContain('成员与预设');
     expect(panel).toContain('认领请求');
     expect(panel).toContain('联系方式');

@@ -5,6 +5,8 @@
 1. Git/ECS：每个完整仓库 checkpoint 按根规则提交、推送、创建生产加密数据库备份、部署并执行 `ecs-verify.sh`，保证服务器 release 与 Git HEAD 一致。
 2. 微信：预览/开发/体验上传独立进行；普通 Git/ECS checkpoint 不自动触发审核或正式发布。
 
+Git/ECS 打包允许复用 `runtime/release-cache/v1` 的哈希校验 build/dist/API-flat 产物。若新旧 manifest 的全部 artifact/control/schema 哈希一致，备份后可使用可信 `schedule-ecs-reuse-release` 无停机同步新的 Git release；任何哈希差异必须走完整部署。
+
 ## 正式发布前硬门槛
 
 - 暴露过的 AppSecret 已轮换并验证旧值失效。
@@ -19,6 +21,13 @@
 ## Skyline 全量
 
 正式包保留 `disableABTest: true` 和 `sdkVersionBegin: 3.3.0`/`sdkVersionEnd: 15.255.255`，避免 Skyline/WebView AB 分流。体验版先验证实际 renderer、`worklet.scrollViewContext` 和客户端范围。
+
+## 体验版本白名单
+
+- 体验上传成功且 Git/ECS checkpoint 已部署后，只能通过 `sudo schedule-client-version-allowlist ensure <version>` 追加生产支持版本。
+- 禁止 PowerShell 管道或临时远端脚本改写 `.env.production`；禁止依赖 JSON 字段顺序比较能力响应。
+- `ensure` 必须验证目标版本、动态未知版本 426、配置 `root:root/0600` 和 API/Web 健康；随后再次运行 `sudo schedule-client-version-allowlist verify` 与完整 `ecs-verify.sh`。
+- 该命令只增不删。版本退役、审核与正式发布仍需要用户明确批准。
 
 ## 回滚
 

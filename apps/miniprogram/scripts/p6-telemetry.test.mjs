@@ -27,6 +27,33 @@ beforeEach(() => {
 });
 
 describe('P6 anonymous Mini telemetry', () => {
+  it('accepts only fixed once-per-session boundary markers without leaking marker text', async () => {
+    let coreEnabled = false;
+    const store = { isEnabled: vi.fn(() => coreEnabled) };
+    const recordError = vi.fn();
+    const telemetry = await import('../src/platform/telemetry.ts');
+    vi.stubGlobal('getApp', () => ({
+      globalData: {
+        clientCapabilityStore: store,
+        telemetryEmitter: { flush: vi.fn(), recordError, recordPerformance: vi.fn() },
+      },
+    }));
+
+    telemetry.recordMiniTelemetryBoundary('visitor-access:page-onload');
+    coreEnabled = true;
+    telemetry.recordMiniTelemetryBoundary('visitor-access:page-onload');
+    telemetry.recordMiniTelemetryBoundary('visitor-access:page-onload');
+    telemetry.recordMiniTelemetryBoundary('secret-user-123');
+
+    expect(telemetry.MINI_TELEMETRY_BOUNDARY_MARKERS).toContain('visitor-access:page-onload');
+    expect(recordError).toHaveBeenCalledTimes(1);
+    expect(recordError).toHaveBeenCalledWith('unknown', 'UNKNOWN', 'visitor-access:page-onload');
+    const serializedEvent = JSON.stringify({
+      stackFingerprint: telemetry.createTelemetryStackFingerprint('visitor-access:page-onload'),
+    });
+    expect(serializedEvent).not.toMatch(/visitor-access|secret-user/u);
+  });
+
   it('batches fixed anonymous fields, deduplicates, and never retries or authenticates failures', async () => {
     const request = vi.fn((options) => options.fail({ errMsg: 'network unavailable' }));
     const storage = createStorageSpies();

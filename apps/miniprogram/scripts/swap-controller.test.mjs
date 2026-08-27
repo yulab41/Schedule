@@ -17,6 +17,7 @@ describe('P7 native swap workflow controller', () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    vi.setSystemTime(new Date('2026-08-25T04:00:00.000Z'));
     createResponses = [];
     groupRole = 'member';
     hasCurrentMembership = true;
@@ -49,7 +50,10 @@ describe('P7 native swap workflow controller', () => {
     await enableTestClientCapabilities();
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   it('loads all six Web statuses for a member without reading admin approvals', async () => {
     const instance = await loadReadyInstance();

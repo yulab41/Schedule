@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P0/P1 页面、测试、发布缓存与按需上下文硬化
+
+- 根因批量收口：`.42/.43` 已证明 Skyline requiredComponents 下大型业务 panel 预注入可在 Page.onLoad 前失败；本轮把 organization 五页和 workflow 三页全部改为直接 Page + static include/import，并以通用 thin-page guard 禁止回归。工作流初版简单直连被 sub-agent 审计发现遗漏 picker/timer/实例隔离后撤回，最终 fresh-controller Page host 保留全部 receiver、生命周期、2 秒提示、callback 和 per-instance Map/array。
+- 测试/平台：Mini 唯一 `--dir scripts` 入口，root Vitest 永久排除 runtime/src/artifacts/Mini scripts；duty/swap 冻结业务日期；PowerShell native fail-fast 与全 tracked text LF 固化。Mini 91 files/432、root 233 files/1113（37/352 skip）已通过；包体 4,669,357 bytes，organization 1,120,658。
+- 控制面/性能：新增 add-only client version allowlist 双锁事务、三层 hash release cache 和 hash-identical metadata-only release；缓存/控制静态 32 项与 Bash syntax 通过，仍待 clean release worktree cache miss→hit 和生产真实控制验证。
+- 上下文：project-status 从 759KB/2533 行压缩为当前事实；每轮只读 ≤12KB pitfall index，再按 paths/signals 读取匹配详情；禁止全文读取 debug log。boundary telemetry 改为闭合 marker registry、运行时拒绝、core 关闭可重试、每会话一次，并补通知双页固定 Page/controller 标记。
+- 当前 checkpoint 识别消息：`fix(platform): harden mini and release boundaries`。提交前还需最终 format/lint/root+Mini full/cache 实测/core smoke/diff；推送后上传 `.46`、完整部署新控制面、正式 ensure 白名单，再以 docs-only checkpoint 实测无停机 reuse。
+
 ## 2026-08-27 pnpm 构建脚本策略固定
 
 - 根因：pnpm 11 自动写入四个 `set this to true or false` 未决值；workspace 状态因而持续不匹配，每个 pnpm 命令先隐式 install，再以 `ERR_PNPM_IGNORED_BUILDS` 失败。首个显式策略 checkpoint 的隔离打包又暴露第二层：helper 临时 strict 配置与普通命令指纹不同，普通 pnpm 仍补跑 install。`allowBuilds` 来自 `ae649b32`，已做 `git log -S`/blame。
