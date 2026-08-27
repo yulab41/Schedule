@@ -13,6 +13,7 @@
 - 无停机实测：`f7557992` docs-only 打包 2.9 秒三层 hit；备份 `c6e7abd2-d74e-49a1-a6ee-6d64e12dd7d0` 后只上传 manifest。reuse 前后 API/Web container ID 与 created timestamp 完全相同，工具内前后 verifier 及公网 full verifier 通过。最终状态 checkpoint 识别消息 `docs(status): close p0 p1 hardening`，继续用同路径同步本文件所在 HEAD。
 - 完整 boundary 补齐：最终核对 P1 后，为 directory/group-settings/scheduling-config/invite-visitor/platform-accounts/duty/leave/swap 增加 16 个闭合 Page/controller marker；workflow marker 由 fresh-controller host 在实际 controller 进入前记录。未知值仍运行时拒绝、core 关闭可重试、每会话一次。Mini 91/433、verify 4,688,851 bytes、source/package/determinism/dry-run/core smoke/diff 通过；checkpoint 识别消息 `feat(miniprogram): trace all migrated page boundaries`，下一体验版 `.47`。
 - release worktree EOL 阻断：f715 checkout 时五个实际 blob hash等于 HEAD、`git diff --quiet=0`，但旧 stat-only CRLF→LF 状态仍使普通 checkout 拒绝。新增 helper 回归要求在 content/cached/untracked 全 clean 后使用 forced detached tracked checkout，保留 ignored dependency/cache；checkpoint 识别消息 `fix(tooling): refresh clean release worktree`。
+- 最终候选：`7de1bee1` prepare 强制 tracked checkout 在三重 clean 后成功、dependencies reused、ECS 三层 hit；`.47` 上传 164 files/zip 2,108,831/manifest `a8cd9ec1…c2f323`。备份 `6651884f-3c07-4ecc-87af-e1d8e85beb1e` 后 manifest-only reuse，正式 ensure 追加 `.47`、重复 ensure 无重建、trusted verify/公网 full verifier 通过。最终状态 checkpoint 识别消息 `docs(status): record final p0 p1 release`。
 
 ## 2026-08-27 pnpm 构建脚本策略固定
 

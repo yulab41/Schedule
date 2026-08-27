@@ -8,14 +8,14 @@
 - 分支：`main`；运行时代码 checkpoint 为
   `50c696ab7d271d62d01984d90acbf3c408b22e6f`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序已验证基线：`0.1.0-p9.20260827.46`，164 code files，zip
-  `2,088,212` bytes，upload manifest `6cbbb9075a82f577d71b8cb77ae56a14147bd68b38b5de82cfe12afe3e19e59e`。
-- `.46` 已通过正式 `schedule-client-version-allowlist ensure` 加入白名单；重复 ensure
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.47`，164 code files，zip
+  `2,108,831` bytes，upload manifest `a8cd9ec1916ac29c89077f50ad63aa987cd7e519c6f8550c192cfab1cec2f323`。
+- `.47` 已通过正式 `schedule-client-version-allowlist ensure` 加入白名单；重复 ensure
   验证了幂等且没有重建容器。global/core/workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `c6e7abd2-d74e-49a1-a6ee-6d64e12dd7d0`（54 表、178,978 行、82,416,400 bytes、
-  SHA-256 `0a7890a8a5719560a7c6a15abbcadd0ae192a9228a52b222526c30fa49d594aa`）。
+  `6651884f-3c07-4ecc-87af-e1d8e85beb1e`（54 表、179,030 行、82,436,332 bytes、
+  SHA-256 `ed7cda445ae0392a00ad41615237c52455e2fe080470548450a1ceeedc53de20`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -108,6 +108,10 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
   `5b8ed6e6…45cd74`/created `2026-08-27T10:37:11.855693624Z` 与 Web ID
   `ba7b789a…672362`/created `2026-08-27T10:37:22.371720913Z` 完全不变；工具内双 verifier
   与随后带公网 IP full verifier 均通过。
+- 完整 boundary checkpoint `f71540d8` 与 release-worktree 修复 `7de1bee1` 均已推送；forced
+  detached checkout 在三重 clean 后成功且 dependencies reused，ECS 再次三层 hit。
+  `.47` 上传、manifest-only reuse、正式 allowlist ensure/幂等 ensure/verify 与公网 full verifier
+  全部通过；生产 release 在最终状态同步前为 `7de1bee1378fe5ac415f95a0865c9b8683049bc0`。
 
 ## 语义与偏差记录
 
@@ -121,16 +125,10 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
 ## 下一步与停止条件
 
-1. 提交并推送 `feat(miniprogram): trace all migrated page boundaries`；ECS 应三层 cache hit
-   并以 manifest-only reuse 同步该 Mini-only HEAD。
-2. 上传最终体验候选 `.47`，用正式 allowlist ensure/verify 后再跑 full verifier。
-3. 用户在 `.47` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
+1. 提交最终状态 checkpoint `docs(status): record final p0 p1 release`，以三层 cache hit +
+   manifest-only reuse 同步本文件所在 HEAD。
+2. 用户在 `.47` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
    `已实现并自动验证 → 待用户复核`，不提交审核/正式发布。
 
-停止条件：`.47` checkpoint/cache/reuse/allowlist/full verifier 通过，Git/origin/production release
-再次一致；所有用户工作树内容未进入提交。随后只等待 `.47`
-实体复核。
-
-补充阻断：持久 release worktree 的 blob hash/content diff 均干净，但 Git checkout 被旧 CRLF→LF
-stat noise 阻断。最终工具 checkpoint 将在 content/cached/untracked 三重 clean 后使用 forced
-detached tracked checkout；ignored node_modules/cache 保留，普通用户 worktree 禁止复用该 force。
+停止条件：最终状态 HEAD 的 cache/reuse/full verifier 通过，Git/origin/production release 再次
+一致；所有用户工作树内容未进入提交。随后只等待 `.47` 实体复核。
