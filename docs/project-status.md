@@ -2,13 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 安卓选择性组件注入白屏修复（已实现待体验上传）
+## 2026-08-27 P9 官方上传完整性白屏修复（已实现待体验上传）
 
-- 复测/证据：用户确认 `.39` 仍然白屏卡死。生产匿名遥测在 11:35–11:52 持续收到 `.39` workbench 性能样本且无 `MINI_RUNTIME_ERROR`；API 仍未收到访客、事件/统计、通知偏好或导出请求。由此否定下方“页面高度是主因”的第一轮判断，确认失败仍发生在 P9 自定义组件 controller 执行之前。
-- 引入点/诊断：`lazyCodeLoading: requiredComponents` 自迁移脚手架 `3884713b` 起全局启用；P9 五页恰好都通过页面 JSON 动态注入分包自定义组件。该模式已有“导航成功但自定义组件未注入、页面白屏，移除 requiredComponents 后恢复”的同类原生运行时复现；当前 Android 证据也与选择性注入失败一致。已执行 `git log -S`/`git blame`。
-- 实现/边界：只移除 `app.json` 的 `lazyCodeLoading`，让进入普通分包时按标准方式注入所需页面/组件代码；保留 Skyline、glass-easel、分包结构、`ignoreUploadUnusedFiles`、所有页面/组件/controller、API、权限、capability、缓存和业务数据不变。第一轮确定页面高度与正确宿主选择器的无害硬化继续保留。
-- 红绿/验证：新增选择性注入回归在旧配置 1/6 失败，移除后页面壳 6/6；P9/构建定向 12 files/57 tests、排除既有日期敏感 P7 swap/duty 后其余 Mini 83 files/384 tests 全部通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务 Prettier/ESLint 与 `smoke:check-core` 通过；manifest `54a89db678dd2d0f977cf93d3069fad186d8f3caff6647a4165b463e84cdb437`，总包 `5,759,493` bytes，insights `1,317,455` bytes。
-- checkpoint/下一步：代码 checkpoint 识别消息为 `fix(miniprogram): disable selective component injection`。提交、推送后上传 production-profile `.40`，备份、部署、原子加入白名单并完成 verifier；随后用户安卓真机复核五个 P9 页面。停止条件是 `.40` 发布闭环完成后等待实体结果，不并行修改上传裁剪或业务 controller，不提交审核/正式发布。
+- 复测/证据：用户确认 `.39` 仍然白屏卡死。生产匿名遥测在 11:35–11:52 持续收到 `.39` workbench 性能样本且无 `MINI_RUNTIME_ERROR`；API 仍未收到访客、事件/统计、通知偏好或导出请求，确认 P9 自定义组件 controller 没有执行。
+- 失败实验：checkpoint `728ecaf0` 曾移除 `lazyCodeLoading` 以排除选择性注入，但官方 Summer 编译器在形成 `.40` 前以 code `10009` 明确拒绝：全局 Skyline 必须配置 `lazyCodeLoading: requiredComponents`。该版本未生成、未上传、未进白名单、未部署；随后已恢复编译器必需配置。
+- 引入点/当前诊断：`ignoreUploadUnusedFiles=true` 自迁移脚手架 `3884713b` 起启用；本地确定性产物为 255 files，但 `.38/.39` 官方上传日志都只打入 153 个代码文件。结合页面导航成功而 P9 component/controller 完全不执行，当前单一变量转为官方“未使用文件”裁剪误判。已执行 `git log -S`/`git blame`。
+- 实现/边界：保持用户正在修改的 `project.config.json` 原样，改由 Node `miniprogram-ci` 的 preview/upload setting 显式传入 `ignoreUploadUnusedFiles=false`，要求官方包包含完整组件依赖；同时保留 Skyline requiredComponents、glass-easel、分包、页面/controller、API、权限、capability、缓存和业务数据不变。
+- 红绿/验证：恢复 Skyline 必需配置与完整上传设置的两项契约在旧实现 2/12 失败，修复后 12/12；P9/CI/构建定向 13 files/63 tests，先前同轮其余 Mini 83 files/384 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint 与 `smoke:check-core` 通过；manifest `985a8f6c50ce274e1ca56fd6a3bb7f0e36ade2a9b82ad5172b81af42891eb2f0`，总包 `5,759,536` bytes，insights `1,317,455` bytes。
+- checkpoint/下一步：纠正 checkpoint 识别消息为 `fix(miniprogram): upload complete component package`。提交、推送后重新上传 production-profile `.40`；上传日志必须显示完整文件数增加，随后备份、部署、原子加入白名单和 verifier，再由用户安卓真机复核五个 P9 页面。停止条件是 `.40` 闭环后等待实体结果，不再修改页面布局或业务 controller，不提交审核/正式发布。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏修复（已发布但未解决）
 

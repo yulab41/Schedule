@@ -14,10 +14,10 @@ const pageShells = [
 ];
 
 describe('P9 native page shells', () => {
-  it('keeps Android P9 custom components out of required-components selective injection', () => {
+  it('keeps the compiler-required Skyline component injection mode explicit', () => {
     const appConfig = JSON.parse(readFileSync(path.join(appRoot, 'src', 'app.json'), 'utf8'));
 
-    expect(appConfig).not.toHaveProperty('lazyCodeLoading');
+    expect(appConfig.lazyCodeLoading).toBe('requiredComponents');
   });
 
   it.each(pageShells)(

@@ -2,11 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 requiredComponents 选择性注入白屏
+## 2026-08-27 P9 官方上传完整性白屏
 
-- 复测/定位：用户确认 `.39` 页面高度修复后仍白屏。11:35–11:52 的 `.39` 匿名 workbench 样本正常、无 runtime error，API 仍没有 P9 页面请求；因此撤回页面高度主因判断，失败点继续位于自定义组件 controller 之前。
-- 引入点/实现：`lazyCodeLoading: requiredComponents` 来自迁移脚手架 `3884713b`。五个 P9 页面均依赖分包自定义组件，症状与已知的 requiredComponents 自定义组件白屏复现一致；本轮只删除该全局选择性注入开关，保留 Skyline/glass-easel/分包、上传裁剪、页面/controller、能力和业务数据不变。
-- 红绿/验证：旧配置新增注入契约 1/6 失败，移除后页面壳 6/6；P9/构建 12 files/57、排除既有日期敏感 P7 swap/duty 后 Mini 83 files/384 通过。Mini verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint/core smoke 通过；manifest `54a89db6…b437`，总包 `5,759,493` bytes、insights `1,317,455` bytes。
+- 复测/定位：用户确认 `.39` 页面高度修复后仍白屏。11:35–11:52 的 `.39` 匿名 workbench 样本正常、无 runtime error，API 仍没有 P9 页面请求，失败点继续位于自定义组件 controller 之前。
+- 失败实验：`728ecaf0` 移除 requiredComponents 后，官方 Summer 编译器以 code 10009 在上传前拒绝“Skyline 必须配置 requiredComponents”；`.40` 没有形成，外部版本/白名单/生产均未变化，配置已恢复。
+- 当前诊断/实现：本地构建 255 files，而 `.38/.39` 官方上传只包含 153 个代码文件；`ignoreUploadUnusedFiles=true` 来自 `3884713b`。不碰用户正在修改的 project config，改由 miniprogram-ci upload setting 强制 `ignoreUploadUnusedFiles=false`，其余 Skyline/页面/controller/能力/业务不变。
+- 红绿/验证：Skyline 必需配置和完整上传设置旧实现 2/12 失败，修复后 12/12；P9/CI/构建 13 files/63，先前其余 Mini 83 files/384 通过。Mini verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint/core smoke 通过；manifest `985a8f6c…b2f0`，总包 `5,759,536` bytes、insights `1,317,455` bytes。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏
 

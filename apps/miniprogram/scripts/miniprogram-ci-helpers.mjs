@@ -18,6 +18,7 @@ const require = createRequire(import.meta.url);
 export const MINIPROGRAM_CI_SETTINGS = Object.freeze({
   compileWorklet: true,
   es6: true,
+  ignoreUploadUnusedFiles: false,
   minify: true,
   minifyWXML: true,
   minifyWXSS: true,

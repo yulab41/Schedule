@@ -17,7 +17,10 @@ import {
 
 describe('miniprogram-ci helpers', () => {
   it('always compiles Worklet functions in official preview and upload builds', () => {
-    expect(MINIPROGRAM_CI_SETTINGS).toMatchObject({ compileWorklet: true });
+    expect(MINIPROGRAM_CI_SETTINGS).toMatchObject({
+      compileWorklet: true,
+      ignoreUploadUnusedFiles: false,
+    });
   });
 
   it('supports only preview and experience upload actions', () => {
