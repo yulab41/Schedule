@@ -320,18 +320,28 @@
   justify-content: center;
   gap: 6px;
   color: #9aa4ae;
-  font-size: 19px;
+  font-size: 24px;
   font-variant-numeric: tabular-nums;
   opacity: 0.58;
   scroll-snap-align: center;
   transform: scale(0.94);
 }
 
+.workflow-picker-wheel-number {
+  display: inline-block;
+  font-size: 24px;
+  transform: scale(0.7916667);
+  transform-origin: center;
+}
+
 .workflow-picker-wheel-item.is-selected {
   color: var(--ui-color-text-primary);
-  font-size: 24px;
   font-weight: var(--ui-font-weight-semibold);
   opacity: 1;
+  transform: scale(1);
+}
+
+.workflow-picker-wheel-item.is-selected .workflow-picker-wheel-number {
   transform: scale(1);
 }
 

@@ -29,18 +29,34 @@
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
 - `runtime/external-project-worktrees/` 中未落地 P10 worktree 必须保留。
 
+## 登录会话与入口设计（排队批次）
+
+- 用户确认复现：在“我的”执行切换/退出后不重启小程序，再以 D0468 登录，“我的”仍显示
+  “尚未登录”；冷启动使用 `admin` 不复现。
+- 生产只读证据排除账号/API 失败：D0468 与 `admin` 的账号、profile、有效成员关系均正常；两轮
+  password login 与随后 `/groups` 均为 HTTP 200。未读取密码、token、联系方式或排班正文。
+- 根因为每入口 `bundle: true` 复制 `wechat-identity.ts` 模块状态：profile bundle 清会话后保留
+  `sessionInvalidated=true`，identity bundle 的新登录只能复位自己的副本。当前可见引入点为
+  `79a0ae90 feat(miniprogram): align workbench navigation with web`。
+- 用户已确认 App 级共享会话运行时、成功后 `wx.reLaunch` 直达主页及 Web 对齐登录页；登录页不放
+  “访客查看排班”，扫码访客仅进入独立日历页且本批不改。书面规格为
+  `docs/superpowers/specs/2026-08-27-miniprogram-login-session-continuity-design.md`。
+- 本 checkpoint 只提交规格与本节，识别消息为
+  `docs(design): specify miniprogram login continuity`；验证为任务文档 Prettier、占位符/歧义自检、
+  `git diff --check` 与 agent-context policy。下一步是用户书面复核，通过前不修改 runtime。
+- 当前 Worklet/通知 runtime、测试与实施计划为并行用户工作树内容；登录批次不得暂存、重写或混入。
+  登录设计 checkpoint 的停止条件是 Git/origin/production release 对齐并保持全部并行内容未提交。
+
 ## 当前活动批次
 
-- `.49@79a0ae9` 已包含 `.48` 滚轮修复和新工作台导航；导航批次已完成发布，仍待实体 Android 复核。
-- 用户追加反馈：慢速逐格反向仍偶发不跟手，自动吸附跳帧；旧滚轮 pitfall 的 `staleWhen` 命中，
-  现有 timer 修复只视为局部有效假设。
-- 用户已确认改为 UI-thread Worklet：原生 scroll-view 独占位置，SharedValue/animated style 保留
-  逐像素字号、缩放与透明度，逻辑层只按行/最终停止同步。
-- 设计规格为
-  `docs/superpowers/specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`；当前仅设计，
-  未修改 runtime。设计 checkpoint `62ee23a9` 已推送并通过 hash-identical reuse 同步生产；
-  `.49` allowlist/full verifier 复核通过。最终状态 checkpoint 识别消息为
-  `docs(status): record worklet picker design deployment`，待用户书面复核后才进入实施计划。
+- `.49@79a0ae9` 已包含旧滚轮修复和新工作台导航；用户确认继续执行至慢速逐格反向跟手、吸附
+  无明显跳帧。
+- UI-thread Worklet 已实现：原生 scroll-view 独占位置；6/6 Worklet、每实例 SharedValue、46 个
+  stable animated-style updater 保留逐像素字号/缩放/透明度；逻辑层只按行/最终停止同步。
+- JS 二次吸附、320ms timer、共享 animation owner 和逐帧 `setData` 已删除；generation/sequence
+  拒绝关闭重开及乱序旧事件，scroll anchoring 显式关闭。
+- 状态：`已实现并自动验证 → 待 checkpoint/体验上传/实体 Android 复核`。runtime checkpoint
+  识别消息为 `fix(miniprogram): move workflow wheel motion to ui thread`，下一候选为 `.50`。
 
 ## 已完成的发布基线与当前修复
 
@@ -109,10 +125,11 @@
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
-- Mini 全量：92 files / 440 tests 通过；导航定向 12 files / 77 tests 通过。
+- UI-thread 滚轮定向：3 files / 25 tests 通过；旧架构新增回归 3 项先红。
+- Mini 全量：93 files / 443 tests 通过；导航定向 12 files / 77 tests 通过。
 - root Vitest：233 files / 1,113 tests 通过；37 files / 352 tests 按无数据库环境跳过。
-- Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,343,850 bytes，
-  manifest `83591d359ebf44b553796f07fb8a2d5b08854c2e0610d155cf07fb2019a2dad6`。
+- Mini typecheck/production verify/determinism/package/CI dry-run 通过；6/6 Worklet，4,345,198 bytes，
+  manifest `8c6b62e9a10cb4d0d58aa83e949f0af8237f2e11eaa7f5466cadf0b51f3c5be8`。
 - 任务文件 Prettier/ESLint、root build/typecheck 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，
   无需 Web browser smoke。
 - 完整 `pnpm verify` 被 411 个既有文件的全仓 format 阻断；独立 root lint 被未修改
@@ -151,15 +168,20 @@
 - 根测试首次仅排除 runtime 后仍以错误 cwd 执行 Mini；现由 root exclusion + 显式 Mini 入口修复。
 - 年月滚轮修复只改变竞争窗口的 UI timer 生命周期；receiver、Promise/catch、空值、年月格式、
   完成一次 emit、取消零次 emit、API/权限/幂等和业务写次数不变。
+- UI-thread 重构删除全部 wheel timer/逐帧 setData；打开/点行仍一次 programmatic top，原生拖动不受
+  逻辑 gating。字体视觉公式端点与连续值等价；row-boundary/final commit 以 generation/sequence
+  保持 receiver、顺序与每行最多一次副作用，完成/取消、API 和业务写次数不变。
 - 导航重组不改 API、Bearer、capability、角色权限、空值或业务写入。通讯录查询/分页/偏好、
   Profile 会话清理、工作流操作 receiver 与副作用次数不变；群组切到访客时若正在目录/换班，
   安全回到日历。独立 Page 依赖微信 Page 栈，自带返回按钮并保留系统侧滑返回。
 
 ## 下一步与停止条件
 
-1. 提交、推送并以已完成备份同步最终状态 checkpoint；不得夹带 runtime 或用户脏树。
-2. 用户书面复核设计规格；通过后再建立独立实施计划，测试先行后修改 picker runtime。
-3. `.49` 新导航的实体 Android 复核可独立进行；不把它误当作 Worklet 滚轮验收。
+1. 逐行审阅 diff，只显式暂存 Worklet picker、测试、计划与连续性记录；提交推送 runtime checkpoint。
+2. 上传 production-profile `.50`，创建生产备份并同步 Git release，正式 allowlist/full verifier。
+3. 提交最终状态 checkpoint 并再次同步 production release。
+4. 用户在 `.50` 实体 Android 执行 20 次慢速逐格下→上、半格反向、吸附中反向与年/月交替；
+   此前状态只能是待用户复核。
 
-停止条件：设计 checkpoint 的 Git/origin/production release 对齐，所有用户工作树内容保持未提交；
-随后等待设计书面复核，不提交审核或正式发布。
+停止条件：`.50` 上传、Git/origin/production release、allowlist/full verifier 全部对齐，所有用户
+工作树内容保持未提交；随后等待实体滚轮复核，不提交审核或正式发布。

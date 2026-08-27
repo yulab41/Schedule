@@ -2,7 +2,7 @@
 
 - 日期：2026-08-27
 - 基线：`main@1cbcf755`
-- 状态：待用户书面复核
+- 状态：用户已授权执行；实现自动验证通过，待发布与实体复核
 - 范围：`apps/miniprogram/src/subpackages/workflows/components/workflow-picker`
 
 ## 背景与结论
