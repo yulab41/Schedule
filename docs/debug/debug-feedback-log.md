@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 requiredComponents 选择性注入白屏
+
+- 复测/定位：用户确认 `.39` 页面高度修复后仍白屏。11:35–11:52 的 `.39` 匿名 workbench 样本正常、无 runtime error，API 仍没有 P9 页面请求；因此撤回页面高度主因判断，失败点继续位于自定义组件 controller 之前。
+- 引入点/实现：`lazyCodeLoading: requiredComponents` 来自迁移脚手架 `3884713b`。五个 P9 页面均依赖分包自定义组件，症状与已知的 requiredComponents 自定义组件白屏复现一致；本轮只删除该全局选择性注入开关，保留 Skyline/glass-easel/分包、上传裁剪、页面/controller、能力和业务数据不变。
+- 红绿/验证：旧配置新增注入契约 1/6 失败，移除后页面壳 6/6；P9/构建 12 files/57、排除既有日期敏感 P7 swap/duty 后 Mini 83 files/384 通过。Mini verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint/core smoke 通过；manifest `54a89db6…b437`，总包 `5,759,493` bytes、insights `1,317,455` bytes。
+
 ## 2026-08-27 P9 安卓真机页面壳白屏
 
 - 反馈/定位：`.38` 安卓真机在通知设置、访客访问、事件与统计、导出排班进入白屏卡死。11:06–11:10 的匿名遥测有正常 `.38` workbench 性能样本且无运行时错误；生产 API 同窗没有收到任何 P9 业务请求，故定位在页面壳/组件挂载之前。`git log -S`/`git blame` 确认 P9 页面壳来自 `ca7d92ee`、`ee6f9cb8`、`1a428d73`、`de710eaf`、`766ec6ac`。

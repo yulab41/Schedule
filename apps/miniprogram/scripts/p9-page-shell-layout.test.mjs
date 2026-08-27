@@ -14,6 +14,12 @@ const pageShells = [
 ];
 
 describe('P9 native page shells', () => {
+  it('keeps Android P9 custom components out of required-components selective injection', () => {
+    const appConfig = JSON.parse(readFileSync(path.join(appRoot, 'src', 'app.json'), 'utf8'));
+
+    expect(appConfig).not.toHaveProperty('lazyCodeLoading');
+  });
+
   it.each(pageShells)(
     'gives %s a definite Skyline viewport and sizes its mounted %s host',
     (pageName, componentName) => {
