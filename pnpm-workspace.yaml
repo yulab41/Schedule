@@ -13,6 +13,8 @@ allowBuilds:
   protobufjs: false
   vue-demi: false
 
+verifyDepsBeforeRun: false
+
 minimumReleaseAgeExclude:
   - '@storybook/addon-docs@10.5.8'
   - '@storybook/builder-vite@10.5.8'

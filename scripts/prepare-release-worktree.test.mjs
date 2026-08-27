@@ -159,6 +159,7 @@ describe('reusable isolated release worktree', () => {
       expect(workspace).toMatch(new RegExp(`^  ['"]?${dependency}['"]?: false$`, 'mu'));
     }
     expect(workspace).not.toContain('set this to true or false');
+    expect(workspace).toMatch(/^verifyDepsBeforeRun: false$/mu);
   });
 
   it('recognizes only pnpm generated build-review placeholders for restoration', () => {

@@ -4,9 +4,9 @@
 
 ## 2026-08-27 pnpm 构建脚本策略固定
 
-- 根因：pnpm 11 自动写入四个 `set this to true or false` 未决值；workspace 状态因而持续不匹配，每个 pnpm 命令先隐式 install，再以 `ERR_PNPM_IGNORED_BUILDS` 失败。`allowBuilds` 来自 `ae649b32`，已做 `git log -S`/blame。
-- 红绿/安全：显式决策测试在占位配置上先红；四包在 build scripts 被阻止的现有安装中都能加载，且 Mini Summer/root build 已通过，故 `@parcel/watcher/@swc/core/less/protobufjs=false`，不把任何未审脚本改成 true。测试 10/10，frozen install 1.1 秒完成，后续无 override 的 repeated pnpm exec/Mini verify/root build/typecheck 不再隐式安装；format/lint/core smoke/diff 通过。
-- checkpoint：识别消息 `fix(tooling): stabilize pnpm build policy`；无 Mini runtime 变化，不另传版本。部署完成后转入三个 organization 同风险薄壳的下一批。
+- 根因：pnpm 11 自动写入四个 `set this to true or false` 未决值；workspace 状态因而持续不匹配，每个 pnpm 命令先隐式 install，再以 `ERR_PNPM_IGNORED_BUILDS` 失败。首个显式策略 checkpoint 的隔离打包又暴露第二层：helper 临时 strict 配置与普通命令指纹不同，普通 pnpm 仍补跑 install。`allowBuilds` 来自 `ae649b32`，已做 `git log -S`/blame。
+- 红绿/安全：策略测试先后在占位配置、缺少 `verifyDepsBeforeRun=false` 时各自红；四包在 build scripts 被阻止的现有安装中都能加载，故四项明确 false，esbuild true 保持。项目级关闭脚本前自动依赖预检，但显式 frozen install、release fingerprint/helper install 全部保留；测试 10/10，无 override 的 Mini verify/root build/typecheck/format/lint/core smoke/diff 通过。
+- checkpoint：`aa2380a0` 已推送但因打包暴露第二层重复 install 未部署；最终识别消息 `fix(tooling): disable implicit dependency preflight`。无 Mini runtime 变化，不另传版本；只部署最终 checkpoint，随后转入三个 organization 同风险薄壳。
 
 ## 2026-08-27 P9 通知双页直接注册与同类页面审计
 
