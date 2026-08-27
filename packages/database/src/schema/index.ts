@@ -5,6 +5,7 @@ import {
   bigint,
   char,
   check,
+  customType,
   index,
   int,
   json,
@@ -34,6 +35,10 @@ export * from './telemetry.js';
 export * from './directory.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
+
+const mediumblob = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => 'mediumblob',
+});
 
 const auditableColumns = () => ({
   createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
@@ -80,6 +85,29 @@ export const userProfiles = mysqlTable('user_profiles', {
   realName: varchar('real_name', { length: 100 }).notNull(),
   ...auditableColumns(),
 });
+
+export const userProfileAvatars = mysqlTable(
+  'user_profile_avatars',
+  {
+    userId: char('user_id', { length: 36 })
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: mediumblob('content').notNull(),
+    contentType: varchar('content_type', { length: 32 }).notNull(),
+    byteLength: int('byte_length', { unsigned: true }).notNull(),
+    sha256: char('sha256', { length: 64 }).notNull(),
+    version: int('version', { unsigned: true }).default(1).notNull(),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    check('user_profile_avatars_byte_length_check', sql`${table.byteLength} BETWEEN 1 AND 1048576`),
+    check(
+      'user_profile_avatars_content_type_check',
+      sql`${table.contentType} IN ('image/jpeg', 'image/png', 'image/webp')`,
+    ),
+  ],
+);
 
 export const groups = mysqlTable(
   'groups',

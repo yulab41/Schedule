@@ -12,6 +12,7 @@ import {
   type DatabaseTransaction,
   userPasswordCredentials,
   userAuthIdentities,
+  userProfileAvatars,
   userProfiles,
   users,
   withTransaction,
@@ -24,6 +25,7 @@ import { AuditWriter } from '../audit/audit-writer.js';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { WechatGatewayError, type WechatGateway } from '../wechat/wechat-gateway.js';
 import { toWechatGatewayApiError } from '../wechat/wechat-errors.js';
+import { toUserProfile } from '../users/user-profile.js';
 
 const PASSWORD_HASH_ALGORITHM = 'scrypt';
 const SCRYPT_COST = 16_384;
@@ -305,17 +307,17 @@ export class PasswordAuthService {
   private async findProfile(userId: string): Promise<PasswordAuthResponse['profile']> {
     const [profile] = await this.databaseClient.database
       .select({
+        avatarVersion: userProfileAvatars.version,
         id: userProfiles.userId,
         realName: userProfiles.realName,
         version: userProfiles.version,
       })
       .from(userProfiles)
+      .leftJoin(userProfileAvatars, eq(userProfileAvatars.userId, userProfiles.userId))
       .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
       .limit(1);
 
-    return profile === undefined
-      ? undefined
-      : { id: profile.id, realName: profile.realName, version: profile.version };
+    return profile === undefined ? undefined : toUserProfile(profile);
   }
 }
 

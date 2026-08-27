@@ -13,6 +13,7 @@ import {
   wechatLinkPasswordRequestSchema,
   wechatLinkPasswordResponseSchema,
   wechatLoginResponseSchema,
+  wechatMiniProgramBindingStatusSchema,
   wechatMiniProgramUnbindRequestSchema,
   wechatMiniProgramUnbindResponseSchema,
   wechatAdminBindingConfirmRequestSchema,
@@ -117,6 +118,19 @@ describe('wechat mini program contracts', () => {
     ).toBe(false);
     expect(wechatMiniProgramUnbindResponseSchema.safeParse({ unbound: true }).success).toBe(true);
     expect(wechatMiniProgramUnbindResponseSchema.safeParse({ deleted: true }).success).toBe(false);
+  });
+
+  it('exposes only the current Mini binding and unbind eligibility', () => {
+    expect(
+      wechatMiniProgramBindingStatusSchema.safeParse({ bound: true, canUnbind: true }).success,
+    ).toBe(true);
+    expect(
+      wechatMiniProgramBindingStatusSchema.safeParse({
+        bound: true,
+        canUnbind: true,
+        openid: 'must-not-leak',
+      }).success,
+    ).toBe(false);
   });
 
   it('defines a masked preview and authenticated admin-binding confirmation', () => {

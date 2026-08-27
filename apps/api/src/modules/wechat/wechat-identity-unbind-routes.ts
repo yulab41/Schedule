@@ -15,6 +15,10 @@ export function registerWechatIdentityUnbindRoutes(
   app: FastifyInstance,
   service: WechatIdentityUnbindService,
 ): void {
+  app.get('/me/wechat/miniprogram/binding', { preHandler: app.authenticate }, async (request) =>
+    service.getSelfBindingStatus(getAuthenticatedIdentity(request)),
+  );
+
   app.post('/me/wechat/miniprogram/unbind', { preHandler: app.authenticate }, async (request) => {
     return service.unbindSelf(
       getAuthenticatedIdentity(request),

@@ -16,6 +16,7 @@ import {
   type DatabaseTransaction,
   userPasswordCredentials,
   userAuthIdentities,
+  userProfileAvatars,
   userProfiles,
   users,
   wechatIdentityDetachments,
@@ -30,6 +31,7 @@ import {
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { normalizeUsername, verifyPassword } from '../auth/password-auth-service.js';
+import { findUserAvatarVersion, toUserProfile } from '../users/user-profile.js';
 import { WechatIdentityResolver } from './wechat-identity-resolver.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
 import {
@@ -328,13 +330,15 @@ export class WechatAuthService {
     ) {
       throw invalidCredentialsError();
     }
+    const avatarVersion = await findUserAvatarVersion(transaction, account.userId);
     return {
       authVersion: account.authVersion,
-      profile: {
+      profile: toUserProfile({
+        avatarVersion,
         id: account.userId,
         realName: account.realName,
         version: account.profileVersion,
-      },
+      }),
       wechatOpenid: account.wechatOpenid,
       userId: account.userId,
     };
@@ -548,18 +552,20 @@ export class WechatAuthService {
   private async findProfile(userId: string): Promise<UserProfile | undefined> {
     const [profile] = await this.databaseClient.database
       .select({
+        avatarVersion: userProfileAvatars.version,
         id: userProfiles.userId,
         realName: userProfiles.realName,
         version: userProfiles.version,
       })
       .from(userProfiles)
+      .leftJoin(userProfileAvatars, eq(userProfileAvatars.userId, userProfiles.userId))
       .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
       .limit(1);
 
     if (profile === undefined) {
       return undefined;
     }
-    return { id: profile.id, realName: profile.realName, version: profile.version };
+    return toUserProfile(profile);
   }
 }
 

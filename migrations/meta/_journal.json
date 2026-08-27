@@ -358,6 +358,13 @@
       "when": 1785542400051,
       "tag": "0051_miniprogram_telemetry",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785542400052,
+      "tag": "0052_user_profile_avatars",
+      "breakpoints": true
     }
   ]
 }

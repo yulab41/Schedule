@@ -200,6 +200,27 @@ describeWithDatabase('current Mini AppID identity unbind', () => {
     expect(identityRows).toEqual([{ count: 2 }]);
   });
 
+  it('reports current AppID binding without exposing identity subjects', async () => {
+    const bound = await seedBoundUser('status-bound');
+    const passwordless = await seedBoundUser('status-passwordless', { withPassword: false });
+    const otherApp = await seedBoundUser('status-other-app', { appId: 'another-mini-app' });
+
+    for (const [token, expected] of [
+      [bound.token, { bound: true, canUnbind: true }],
+      [passwordless.token, { bound: true, canUnbind: false }],
+      [otherApp.token, { bound: false, canUnbind: false }],
+    ] as const) {
+      const response = await app.inject({
+        headers: { authorization: `Bearer ${token}` },
+        method: 'GET',
+        url: '/me/wechat/miniprogram/binding',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual(expected);
+      expect(response.body).not.toMatch(/openid|subject|union/iu);
+    }
+  });
+
   it('treats a second proven self-unbind as a no-op without another version or audit', async () => {
     const user = await seedBoundUser('self-retry');
     const first = await selfUnbind(user.token, randomUUID(), 'proof-self-retry');

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type {
   PlatformAdminWechatMiniProgramUnbindRequest,
+  WechatMiniProgramBindingStatus,
   WechatMiniProgramUnbindRequest,
   WechatMiniProgramUnbindResponse,
 } from '@schedule/contracts';
@@ -117,6 +118,35 @@ export class WechatIdentityUnbindService {
         },
       ),
     );
+  }
+
+  public async getSelfBindingStatus(
+    identity: AuthenticatedIdentity,
+  ): Promise<WechatMiniProgramBindingStatus> {
+    const appId = this.getAppId();
+    const actor = await this.findActor(identity);
+    const [state] = await this.databaseClient.database
+      .select({
+        identityId: userAuthIdentities.id,
+        passwordHash: userPasswordCredentials.passwordHash,
+      })
+      .from(users)
+      .leftJoin(
+        userAuthIdentities,
+        and(
+          eq(userAuthIdentities.userId, users.id),
+          eq(userAuthIdentities.provider, 'wechat_mini_program'),
+          eq(userAuthIdentities.appId, appId),
+        ),
+      )
+      .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
+      .where(eq(users.id, actor))
+      .limit(1);
+    const bound = state?.identityId !== null && state?.identityId !== undefined;
+    return {
+      bound,
+      canUnbind: bound && state?.passwordHash !== null && state?.passwordHash !== undefined,
+    };
   }
 
   public async unbindAsPlatformAdmin(

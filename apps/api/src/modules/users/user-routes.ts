@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { MAX_USER_PROFILE_AVATAR_BYTES } from './user-avatar.js';
 import { UserService } from './user-service.js';
 
 const realNameSchema = z.string().trim().min(1).max(100);
@@ -21,6 +22,12 @@ const updateProfileInputSchema = z
   .strict();
 
 export function registerUserRoutes(app: FastifyInstance, userService: UserService): void {
+  app.addContentTypeParser(
+    ['image/jpeg', 'image/png', 'image/webp'],
+    { bodyLimit: MAX_USER_PROFILE_AVATAR_BYTES, parseAs: 'buffer' },
+    (_request, body, done) => done(null, body),
+  );
+
   app.post('/users', { preHandler: app.authenticate }, async (request, reply) => {
     const profile = await userService.register(
       getAuthenticatedIdentity(request),
@@ -40,6 +47,34 @@ export function registerUserRoutes(app: FastifyInstance, userService: UserServic
       parseUpdateProfileInput(request.body),
     ),
   );
+
+  app.put('/users/me/avatar', { preHandler: app.authenticate }, async (request) =>
+    userService.replaceCurrentAvatar(
+      getAuthenticatedIdentity(request),
+      parseAvatarBody(request.body),
+      request.headers['content-type'] ?? '',
+    ),
+  );
+
+  app.get('/users/me/avatar', { preHandler: app.authenticate }, async (request, reply) => {
+    const avatar = await userService.getCurrentAvatar(getAuthenticatedIdentity(request));
+    const etag = `"avatar-${avatar.version}-${avatar.sha256}"`;
+    reply
+      .header('Cache-Control', 'private, no-cache')
+      .header('ETag', etag)
+      .header('X-Content-Type-Options', 'nosniff');
+    if (request.headers['if-none-match'] === etag) return reply.code(304).send();
+    return reply.type(avatar.contentType).send(avatar.content);
+  });
+
+  app.delete('/users/me/avatar', { preHandler: app.authenticate }, async (request) =>
+    userService.deleteCurrentAvatar(getAuthenticatedIdentity(request)),
+  );
+}
+
+function parseAvatarBody(value: unknown): Buffer {
+  if (!Buffer.isBuffer(value)) throwValidationError();
+  return value;
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

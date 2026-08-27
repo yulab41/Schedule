@@ -87,6 +87,11 @@ export const wechatMiniProgramUnbindResponseSchema = z
   .strict();
 export type WechatMiniProgramUnbindResponse = z.infer<typeof wechatMiniProgramUnbindResponseSchema>;
 
+export const wechatMiniProgramBindingStatusSchema = z
+  .object({ bound: z.boolean(), canUnbind: z.boolean() })
+  .strict();
+export type WechatMiniProgramBindingStatus = z.infer<typeof wechatMiniProgramBindingStatusSchema>;
+
 export const createWechatAdminBindingLinkRequestSchema = z
   .object({
     expectedAuthVersion: z.number().int().min(1),

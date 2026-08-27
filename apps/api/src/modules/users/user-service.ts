@@ -4,12 +4,26 @@ import type {
   CreateUserProfileRequest,
   UpdateUserProfileRequest,
   UserProfile,
+  UserProfileAvatarDeleteResponse,
+  UserProfileAvatarMutationResponse,
 } from '@schedule/contracts';
-import { type DatabaseClient, userProfiles, users, withTransaction } from '@schedule/database';
-import { and, eq, isNull } from 'drizzle-orm';
+import {
+  type DatabaseClient,
+  userProfileAvatars,
+  userProfiles,
+  users,
+  withTransaction,
+} from '@schedule/database';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import {
+  inspectUserProfileAvatar,
+  type StoredUserProfileAvatar,
+  type UserProfileAvatarContentType,
+} from './user-avatar.js';
+import { toUserProfile } from './user-profile.js';
 
 export class UserService {
   public constructor(private readonly databaseClient: DatabaseClient) {}
@@ -79,6 +93,70 @@ export class UserService {
     return this.getActiveProfile(identity.cloudbaseUid);
   }
 
+  public async getCurrentAvatar(identity: AuthenticatedIdentity): Promise<StoredUserProfileAvatar> {
+    const profile = await this.getActiveProfile(identity.cloudbaseUid);
+    const [avatar] = await this.databaseClient.database
+      .select({
+        content: userProfileAvatars.content,
+        contentType: userProfileAvatars.contentType,
+        sha256: userProfileAvatars.sha256,
+        version: userProfileAvatars.version,
+      })
+      .from(userProfileAvatars)
+      .where(eq(userProfileAvatars.userId, profile.id))
+      .limit(1);
+    if (avatar === undefined) throw avatarNotFoundError();
+    return {
+      content: avatar.content,
+      contentType: avatar.contentType as UserProfileAvatarContentType,
+      sha256: avatar.sha256,
+      version: avatar.version,
+    };
+  }
+
+  public async replaceCurrentAvatar(
+    identity: AuthenticatedIdentity,
+    content: Buffer,
+    contentType: string,
+  ): Promise<UserProfileAvatarMutationResponse> {
+    const profile = await this.getActiveProfile(identity.cloudbaseUid);
+    const inspected = inspectUserProfileAvatar(content, contentType);
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await transaction
+        .insert(userProfileAvatars)
+        .values({
+          ...inspected,
+          content,
+          userId: profile.id,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            ...inspected,
+            content,
+            version: sql`${userProfileAvatars.version} + 1`,
+          },
+        });
+      const [stored] = await transaction
+        .select({ avatarVersion: userProfileAvatars.version })
+        .from(userProfileAvatars)
+        .where(eq(userProfileAvatars.userId, profile.id))
+        .limit(1)
+        .for('update');
+      if (stored === undefined) throw avatarWriteFailedError();
+      return stored;
+    });
+  }
+
+  public async deleteCurrentAvatar(
+    identity: AuthenticatedIdentity,
+  ): Promise<UserProfileAvatarDeleteResponse> {
+    const profile = await this.getActiveProfile(identity.cloudbaseUid);
+    const [result] = await this.databaseClient.database
+      .delete(userProfileAvatars)
+      .where(eq(userProfileAvatars.userId, profile.id));
+    return { removed: result.affectedRows > 0 };
+  }
+
   public async updateCurrentProfile(
     identity: AuthenticatedIdentity,
     input: UpdateUserProfileRequest,
@@ -95,6 +173,7 @@ export class UserService {
   private async getActiveProfile(cloudbaseUid: string): Promise<UserProfile> {
     const [profile] = await this.databaseClient.database
       .select({
+        avatarVersion: userProfileAvatars.version,
         id: users.id,
         realName: userProfiles.realName,
         status: users.status,
@@ -102,6 +181,7 @@ export class UserService {
       })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .leftJoin(userProfileAvatars, eq(userProfileAvatars.userId, users.id))
       .where(
         and(
           eq(users.cloudbaseUid, cloudbaseUid),
@@ -127,8 +207,24 @@ export class UserService {
       });
     }
 
-    return { id: profile.id, realName: profile.realName, version: profile.version };
+    return toUserProfile(profile);
   }
+}
+
+function avatarNotFoundError(): ApiError {
+  return new ApiError({
+    code: 'NOT_FOUND',
+    statusCode: 404,
+    userMessage: '当前账号尚未设置头像。',
+  });
+}
+
+function avatarWriteFailedError(): ApiError {
+  return new ApiError({
+    code: 'INTERNAL_ERROR',
+    statusCode: 500,
+    userMessage: '头像暂时无法保存，请稍后重试。',
+  });
 }
 
 function isDuplicateKeyError(error: unknown): boolean {

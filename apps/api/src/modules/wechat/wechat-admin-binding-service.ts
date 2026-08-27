@@ -23,6 +23,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { findUserAvatarVersion, toUserProfile } from '../users/user-profile.js';
 import {
   assertExpectedAuthVersion,
   createPlatformAdminFingerprint,
@@ -242,11 +243,12 @@ export class WechatAdminBindingService {
       if (resolved === undefined || resolved.userId !== target.userId) {
         throw identityConflictError();
       }
-      const profile = {
+      const profile = toUserProfile({
+        avatarVersion: await findUserAvatarVersion(transaction, target.userId),
         id: target.userId,
         realName: target.realName,
         version: target.profileVersion,
-      };
+      });
       const response: WechatAdminBindingConfirmResponse = {
         expiresAt: new Date(Date.now() + WECHAT_SESSION_TTL_SECONDS * 1000).toISOString(),
         profile,

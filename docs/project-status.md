@@ -6,7 +6,7 @@
 ## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `304d742f5f5deaa8678a1ade46ac88ce97c6f95d`。最终状态以“包含本文件的 Git HEAD”为
+  `9e42057c252a22641bd7d9b50d7fe6bc40e10732`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
 - 当前生产小程序最终体验候选：`0.1.0-p9.20260828.52@304d742`，170 code files，zip
   `2,017,665` bytes，upload manifest `c2f45e08c2316648e60c61a20ee09967e27569602b2f709b4d9caee64dd10110`。
@@ -14,8 +14,8 @@
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `3ca01d81-eac7-4c51-9857-8fd478dba675`（54 表、180,183 行、82,825,964 bytes、
-  SHA-256 `5748c0a504cdb087d0ed54801b831f6436b16618d1c99d96a92201522f8f80df`）。
+  `baa3bb31-267c-4b1a-b11f-c754612432d8`（54 表、180,224 行、82,839,640 bytes、
+  SHA-256 `84798bb7cb222983625034b8be9d55ddbb356eaa4473fcd84d0cb465d40a83a8`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -59,7 +59,11 @@
 - Task 1 已把 Web `MyProfileOverview` 等价迁入无外部依赖的 `@schedule/presentation-core`，Web 只
   更换导入；`UserProfile` 增加暂不由 API 返回的可选 `avatarVersion` 兼容字段。
 - Task 1 checkpoint 识别消息为 `refactor(profile): share duty overview model`；提交、推送并完成生产
-  验证后进入 Task 2“头像数据库/API 与当前小程序绑定状态”，不提前修改并行 Mini runtime。
+  验证后已进入 Task 2。
+- Task 2 已实现 schema 52 头像专表、认证图片 CRUD、所有登录 profile 的可选 avatarVersion 与当前
+  AppID 绑定状态；checkpoint 识别消息为 `feat(profile): add avatar and binding APIs`。
+- Task 2 提交、推送、生产备份/迁移/full verifier 后进入 Task 3；Task 3 只先做独立 Mini media
+  client/pending cache，仍等待并行登录/通讯录 checkpoint 后才修改重叠页面与会话文件。
 
 ## 已完成的发布基线与当前修复
 
@@ -125,6 +129,11 @@
 
 ## 已完成验证
 
+- Profile Task 2：旧实现 contracts/schema/validator/routes 4 files/8 项先红；实现后安全/路由
+  8 files/34 tests、database/API 定向 15 files/42 tests、root 241 files/1,131 tests、Mini
+  95 files/461 tests 通过，37 files/355 tests 按无数据库环境跳过；全端 build/typecheck、Mini
+  production verify（2/2 Worklet、4,559,047 bytes、manifest `5190352e…6d553`）、任务 ESLint/diff
+  与 core smoke 通过。完整 browser smoke 因本机无 5173/Docker/MySQL 环境停止并已记录。
 - Profile Task 1：旧实现共享模块缺失、strict schema 拒绝 avatarVersion 的红灯已确认；迁移后定向
   5 files/28 tests、边界 4 files/13 tests、root 236 files/1,118 tests、Mini 95 files/460 tests 通过，
   37 files/353 tests 按无数据库环境跳过；全端 build/typecheck、Mini production verify（2/2
@@ -210,16 +219,20 @@
   `*Like` 边界并由 Web 以完整 CalendarDutyAssignment 参数化。请求顺序/次数、receiver、
   Promise/catch、`??`/可选字段、日期排序、空态和业务副作用均不变；新增 avatarVersion 仅为可选
   读取兼容字段，API 此 checkpoint 不返回。
+- Profile Task 2 新增副作用仅为当前用户头像 PUT/DELETE 与绑定状态 GET；头像写入单事务，每次成功
+  PUT 版本加一、DELETE 至多删一行。既有姓名版本、authVersion、密码/解绑幂等、群组/API 权限、
+  token、Promise/catch 和业务排班写次数不变；所有图片响应为认证私有缓存且不含 URL token。
 
 ## 下一步与停止条件
 
 1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
 2. 提交、推送并以可信 reuse 同步通知最终状态 checkpoint，随后只等待 `.52`
    实体 Android 复核红点、滚动、回弹、下滑、“完成”、遮罩关闭和跨群组隔离。
-3. 提交、推送并完整部署 Profile Task 1；生产应用 hash 变化，必须先备份并走完整 updater/verifier。
-4. 测试先行实现 schema 52 头像专表、认证图片 CRUD、可选 avatarVersion 和当前 AppID 绑定状态。
+3. 提交、推送并完整部署 Profile Task 2；先备份，应用 0052，再验证 schema/头像未授权边界与公网。
+4. 基于已部署 API 测试先行实现 Mini profile-media、认证二进制传输与 owner/version 本地缓存。
 5. 并行登录/通讯录 checkpoint 落地后，才进入头像登录桥接与最终 Mini Profile runtime。
-6. 群组权限文档 checkpoint 对齐后，新增独立权限/client-core 红灯，再修改工作台与群组页 runtime。
+6. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
 
-停止条件：Profile Task 1 的 Git/origin/production release 对齐，通知 `.52` allowlist/full verifier
-继续通过，其他并行用户工作树内容保持未提交；随后只进入 Task 2，不提交审核或正式发布。
+停止条件：Profile Task 2 的 Git/origin/production release 对齐，生产 schema 52、头像/绑定未授权
+探针和通知 `.52` capability/full verifier 通过，其他并行用户工作树内容保持未提交；随后只进入
+Task 3 非重叠部分，不提交审核或正式发布。

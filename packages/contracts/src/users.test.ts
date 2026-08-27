@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { userProfileSchema } from './users.js';
+import {
+  userProfileAvatarDeleteResponseSchema,
+  userProfileAvatarMutationResponseSchema,
+  userProfileSchema,
+} from './users.js';
 
 describe('user profile contract', () => {
   it('accepts an optional independent avatar version', () => {
@@ -30,6 +34,23 @@ describe('user profile contract', () => {
         realName: '示例用户',
         version: 2,
       }).success,
+    ).toBe(false);
+  });
+
+  it('defines strict avatar mutation and deletion responses', () => {
+    expect(userProfileAvatarMutationResponseSchema.safeParse({ avatarVersion: 4 }).success).toBe(
+      true,
+    );
+    expect(userProfileAvatarMutationResponseSchema.safeParse({ avatarVersion: 0 }).success).toBe(
+      false,
+    );
+    expect(
+      userProfileAvatarMutationResponseSchema.safeParse({ avatarUrl: 'https://example.invalid' })
+        .success,
+    ).toBe(false);
+    expect(userProfileAvatarDeleteResponseSchema.safeParse({ removed: true }).success).toBe(true);
+    expect(
+      userProfileAvatarDeleteResponseSchema.safeParse({ removed: false, userId: 'user-1' }).success,
     ).toBe(false);
   });
 });

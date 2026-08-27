@@ -8,6 +8,7 @@ import type {
 import {
   type DatabaseClient,
   type DatabaseTransaction,
+  userProfileAvatars,
   userProfiles,
   users,
 } from '@schedule/database';
@@ -15,6 +16,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import { createWechatSessionToken } from '../../adapters/auth/wechat-auth.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { toUserProfile } from '../users/user-profile.js';
 import {
   WechatGatewayError,
   type WechatExchangeCodeResult,
@@ -153,17 +155,17 @@ export class WechatWebAuthService {
   private async findProfile(userId: string): Promise<UserProfile | undefined> {
     const [profile] = await this.databaseClient.database
       .select({
+        avatarVersion: userProfileAvatars.version,
         id: userProfiles.userId,
         realName: userProfiles.realName,
         version: userProfiles.version,
       })
       .from(userProfiles)
+      .leftJoin(userProfileAvatars, eq(userProfileAvatars.userId, userProfiles.userId))
       .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
       .limit(1);
 
-    return profile === undefined
-      ? undefined
-      : { id: profile.id, realName: profile.realName, version: profile.version };
+    return profile === undefined ? undefined : toUserProfile(profile);
   }
 }
 

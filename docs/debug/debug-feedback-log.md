@@ -32,6 +32,23 @@
   verify（2/2 Worklet、4,559,047 bytes、manifest `da88b470…03e8d`）、任务 Prettier/ESLint/diff 均
   通过；37 files/353 tests 按无数据库环境跳过。checkpoint 识别消息
   `refactor(profile): share duty overview model`。
+- Task 1 checkpoint/生产：`9e42057c` 已推送；备份
+  `baa3bb31-267c-4b1a-b11f-c754612432d8`（54 表/180,224 行/82,839,640 bytes/SHA
+  `84798bb7…3a8`）后完整部署，预热首个 502 后恢复，schema 51、通知 `.52` capability、未知版本
+  426 与带公网 IP full verifier 通过，远端临时目录已删除。
+- Task 2 红绿/实现：旧实现 strict avatar/binding contracts、`user_profile_avatars` schema/0052、图片
+  校验器和四条路由均不存在，4 files/8 项稳定红；实现后 contracts/schema/parser/route/profile mapper
+  8 files/34 tests 与 database/API 定向 15 files/42 tests 通过。头像只接受魔数匹配且不超过 1 MiB
+  的 JPEG/PNG/WebP，MySQL 每用户一行、版本递增、认证私有 ETag 读取与幂等删除；绑定状态只返回
+  bound/canUnbind。所有认证 profile 构建复用同一 mapper；带 `FOR UPDATE` 的密码/管理员绑定查询不
+  扩大 join 锁集合，头像版本在锁后同事务独立读取；upsert+版本读取在单事务完成。
+- Task 2 完整验证：root build/typecheck、root 241 files/1,131 tests、Mini 95 files/461 tests、
+  Mini production verify（2/2 Worklet、4,559,047 bytes、manifest `5190352e…6d553`）、任务 ESLint/
+  primary-file Prettier/diff 均通过；37 files/355 tests 按无数据库环境跳过。迁移 reset 的 24 个既有
+  integration 文件仍被各自全文件历史格式基线报告，本批新增 hunk 格式正确且不接管其余行。
+- 运行/浏览器验证：`pnpm smoke:browser` 再次因本机 5173 未启动在第 1/6 步
+  `ERR_CONNECTION_REFUSED`，未进入产品断言；既有 Docker/MySQL 环境阻塞不变。提交前运行
+  `pnpm smoke:check-core` 复核记录门禁。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
