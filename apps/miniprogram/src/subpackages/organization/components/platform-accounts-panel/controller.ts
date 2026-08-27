@@ -16,6 +16,7 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -113,6 +114,7 @@ export function createPlatformAccountsPanelControllerDefinition() {
 
     lifetimes: {
       attached(this: PlatformAccountsPageInstance): void {
+        recordMiniTelemetryBoundary('platform-accounts:controller-attached');
         applyPanelLayout(this);
         void loadAccounts(this);
       },
@@ -355,10 +357,6 @@ function resolveOperationId(page: PlatformAccountsPageInstance, key: string): st
   const operationId = createOperationId();
   page._operationIds.set(key, operationId);
   return operationId;
-}
-
-function decodeGroupId(value: string | undefined): string {
-  return value ?? '';
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

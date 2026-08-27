@@ -8,7 +8,7 @@
 - 分支：`main`；运行时代码 checkpoint 为
   `50c696ab7d271d62d01984d90acbf3c408b22e6f`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序体验候选：`0.1.0-p9.20260827.46`，164 code files，zip
+- 当前生产小程序已验证基线：`0.1.0-p9.20260827.46`，164 code files，zip
   `2,088,212` bytes，upload manifest `6cbbb9075a82f577d71b8cb77ae56a14147bd68b38b5de82cfe12afe3e19e59e`。
 - `.46` 已通过正式 `schedule-client-version-allowlist ensure` 加入白名单；重复 ensure
   验证了幂等且没有重建容器。global/core/workflows/organization/insights/
@@ -52,8 +52,9 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 - workflow direct Page 通过共享 host adapter 保留 picker 协调、infoMessage 2 秒 timer、
   setData callback、onShow/onHide/onUnload 和每实例独立 Map/数组；不能简化为 `Page(factory())`。
 - 通用 `thin-page-boundary.test.mjs` 禁止重新引入“Page 全模板只有一个业务 panel”。
-- production verify 当前总包 `4,669,357` bytes：main `1,128,543`，scheduling
-  `412,996`，organization `1,120,658`，workflows `1,145,712`，insights `861,448`。
+- 补齐全部迁移页的闭合 Page/controller runtime marker 后，下一候选 production verify 总包
+  `4,688,851` bytes：main `1,130,399`，scheduling `412,996`，organization `1,128,976`，
+  workflows `1,152,712`，insights `863,768`。
 
 ### 测试与跨平台工具链
 
@@ -95,7 +96,7 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
-- Mini 全量：91 files / 432 tests 通过。
+- Mini 全量：91 files / 433 tests 通过。
 - root Vitest：233 files / 1,113 tests 通过；37 files / 352 tests 按无数据库环境跳过。
 - Mini typecheck/production verify/source/package/determinism/CI dry-run 通过；2/2 Worklet。
 - root build/typecheck 通过。
@@ -120,11 +121,12 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
 ## 下一步与停止条件
 
-1. 创建最终状态 checkpoint `docs(status): close p0 p1 hardening`，再次以 cache hit +
-   manifest-only reuse 同步“本文件所在 HEAD”。
-2. 用户在 `.46` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
+1. 提交并推送 `feat(miniprogram): trace all migrated page boundaries`；ECS 应三层 cache hit
+   并以 manifest-only reuse 同步该 Mini-only HEAD。
+2. 上传最终体验候选 `.47`，用正式 allowlist ensure/verify 后再跑 full verifier。
+3. 用户在 `.47` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
    `已实现并自动验证 → 待用户复核`，不提交审核/正式发布。
 
-停止条件：最终 docs checkpoint 的 cache 三层 hit 与生产 hash-identical reuse 通过，
-Git/origin/production release 再次一致；所有用户工作树内容未进入提交。随后只等待 `.46`
+停止条件：`.47` checkpoint/cache/reuse/allowlist/full verifier 通过，Git/origin/production release
+再次一致；所有用户工作树内容未进入提交。随后只等待 `.47`
 实体复核。

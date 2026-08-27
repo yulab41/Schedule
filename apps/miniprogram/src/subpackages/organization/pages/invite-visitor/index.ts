@@ -1,3 +1,4 @@
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { createInviteVisitorPanelControllerDefinition } from '../../components/invite-visitor-panel/controller.js';
 
 const controller = createInviteVisitorPanelControllerDefinition();
@@ -15,6 +16,7 @@ Page({
     this: InviteVisitorPageInstance,
     query: Readonly<Record<string, string | undefined>>,
   ): void {
+    recordMiniTelemetryBoundary('invite-visitor:page-onload');
     (this as unknown as { properties: { groupId: string } }).properties = {
       groupId: decodeGroupId(query['groupId']),
     };

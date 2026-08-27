@@ -1,3 +1,4 @@
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { createPlatformAccountsPanelControllerDefinition } from '../../components/platform-accounts-panel/controller.js';
 
 const controller = createPlatformAccountsPanelControllerDefinition();
@@ -16,6 +17,7 @@ Page({
     this: PlatformAccountsPageInstance,
     query: Readonly<Record<string, string | undefined>>,
   ): void {
+    recordMiniTelemetryBoundary('platform-accounts:page-onload');
     this.setData({ groupId: query['groupId'] ?? '' } as never);
     controller.lifetimes.attached.call(this);
   },

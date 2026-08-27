@@ -1,3 +1,4 @@
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { createSchedulingConfigPanelControllerDefinition } from '../../components/scheduling-config-panel/controller.js';
 
 const controller = createSchedulingConfigPanelControllerDefinition();
@@ -15,6 +16,7 @@ Page({
     this: SchedulingConfigPageInstance,
     query: Readonly<Record<string, string | undefined>>,
   ): void {
+    recordMiniTelemetryBoundary('scheduling-config:page-onload');
     (this as unknown as { properties: { groupId: string } }).properties = {
       groupId: decodeGroupId(query['groupId']),
     };

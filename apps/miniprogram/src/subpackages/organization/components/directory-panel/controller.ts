@@ -46,6 +46,7 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 type DirectoryState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
 
@@ -277,6 +278,7 @@ export function createDirectoryPanelControllerDefinition() {
     },
     lifetimes: {
       attached(this: DirectoryPageInstance): void {
+        recordMiniTelemetryBoundary('directory:controller-attached');
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;

@@ -129,7 +129,7 @@ describe('organization direct Page registration', () => {
 
     expect(mocks.groupFactory).toHaveBeenCalledWith(false);
     const definition = globalThis.Page.mock.calls[0][0];
-    expect(definition).toBe(mocks.groupFactory.mock.results[0].value);
+    expect(definition).not.toBe(mocks.groupFactory.mock.results[0].value);
     const instance = { data: { ...definition.data }, setData: vi.fn() };
     const query = { groupId: encodeURIComponent(groupId) };
     definition.onLoad.call(instance, query);

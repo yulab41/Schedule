@@ -1,3 +1,8 @@
+import {
+  recordMiniTelemetryBoundary,
+  type MiniTelemetryBoundaryMarker,
+} from '../../../platform/telemetry.js';
+
 type ControllerMethod = (this: WorkflowPanelHost, ...arguments_: unknown[]) => unknown;
 
 interface ControllerDefinition {
@@ -20,8 +25,14 @@ interface WorkflowPageHost extends WorkflowPanelHost {
   __workflowPageOriginalSetData?: WorkflowPanelHost['setData'];
 }
 
+interface WorkflowPageBoundaries {
+  readonly controller: MiniTelemetryBoundaryMarker;
+  readonly page: MiniTelemetryBoundaryMarker;
+}
+
 export function createWorkflowPageDefinition(
   createDefinition: (embedded: boolean) => unknown,
+  boundaries?: WorkflowPageBoundaries,
 ): ControllerDefinition {
   const prototype = normalizeDefinition(createDefinition(false));
   const delegatedMethods = Object.fromEntries(
@@ -46,8 +57,9 @@ export function createWorkflowPageDefinition(
     data: { ...prototype.data, embedded: false },
     ...delegatedMethods,
     onLoad(this: WorkflowPageHost, query: Readonly<Record<string, string | undefined>>): void {
+      if (boundaries !== undefined) recordMiniTelemetryBoundary(boundaries.page);
       attachWorkflowPageHost(this);
-      startWorkflowPageController(this, createDefinition, query);
+      startWorkflowPageController(this, createDefinition, query, boundaries?.controller);
     },
     onShow(this: WorkflowPageHost): void {
       const onShow = this.__controller?.['onShow'];
@@ -168,7 +180,9 @@ function startWorkflowPageController(
   host: WorkflowPageHost,
   createDefinition: (embedded: boolean) => unknown,
   query: Readonly<Record<string, string | undefined>>,
+  boundary?: MiniTelemetryBoundaryMarker,
 ): void {
+  if (boundary !== undefined) recordMiniTelemetryBoundary(boundary);
   const controller = normalizeDefinition(createDefinition(false));
   host.__controller = controller;
   for (const [key, value] of Object.entries(controller)) {

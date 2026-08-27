@@ -33,4 +33,48 @@ describe('Mini Page registration boundary', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('keeps fixed Page/controller telemetry pairs for every migrated risk boundary', () => {
+    const boundaries = [
+      ['organization', 'directory', 'directory-panel/controller.ts', 'controller-attached'],
+      ['organization', 'group-settings', 'group-settings-panel/controller.ts', 'controller-onload'],
+      [
+        'organization',
+        'scheduling-config',
+        'scheduling-config-panel/controller.ts',
+        'controller-attached',
+      ],
+      [
+        'organization',
+        'invite-visitor',
+        'invite-visitor-panel/controller.ts',
+        'controller-attached',
+      ],
+      [
+        'organization',
+        'platform-accounts',
+        'platform-accounts-panel/controller.ts',
+        'controller-attached',
+      ],
+      ['workflows', 'duty', 'controller-host.ts', 'controller-onload'],
+      ['workflows', 'leave', 'controller-host.ts', 'controller-onload'],
+      ['workflows', 'swap', 'controller-host.ts', 'controller-onload'],
+    ];
+
+    for (const [subpackage, page, controllerPath, controllerStage] of boundaries) {
+      const pageSource = read(`subpackages/${subpackage}/pages/${page}/index.ts`);
+      const controllerSource = read(`subpackages/${subpackage}/components/${controllerPath}`);
+      expect(pageSource).toContain(`'${page}:page-onload'`);
+      if (subpackage === 'workflows') {
+        expect(pageSource).toContain(`'${page}:${controllerStage}'`);
+        expect(controllerSource).toContain('recordMiniTelemetryBoundary(boundary)');
+      } else {
+        expect(controllerSource).toContain(`'${page}:${controllerStage}'`);
+      }
+    }
+  });
 });
+
+function read(relativePath) {
+  return readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+}

@@ -16,6 +16,7 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -186,6 +187,7 @@ export function createSchedulingConfigPanelControllerDefinition() {
 
     lifetimes: {
       attached(this: SchedulingConfigPageInstance): void {
+        recordMiniTelemetryBoundary('scheduling-config:controller-attached');
         applyPanelLayout(this);
         syncGroupId(this);
       },

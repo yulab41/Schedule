@@ -7,12 +7,7 @@ import {
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
-import type {
-  CreateInviteLinkResponse,
-  GroupMember,
-  GroupSummary,
-  SchedulingConfig,
-} from '@schedule/contracts';
+import type { GroupMember, GroupSummary, SchedulingConfig } from '@schedule/contracts';
 import {
   createRuntimeInviteVisitorWriteClient,
   createRuntimeOrganizationReadClient,
@@ -21,13 +16,10 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
-}
-
-interface TapEvent {
-  readonly currentTarget: { readonly dataset: Record<string, string | undefined> };
 }
 
 interface TargetView {
@@ -162,6 +154,7 @@ export function createInviteVisitorPanelControllerDefinition() {
 
     lifetimes: {
       attached(this: InviteVisitorPageInstance): void {
+        recordMiniTelemetryBoundary('invite-visitor:controller-attached');
         applyPanelLayout(this);
         syncGroupId(this);
       },

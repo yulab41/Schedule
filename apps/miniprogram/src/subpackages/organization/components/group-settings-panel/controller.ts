@@ -36,6 +36,7 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
@@ -261,6 +262,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       this: GroupSettingsPageInstance,
       query: Readonly<Record<string, string | undefined>>,
     ): void {
+      recordMiniTelemetryBoundary('group-settings:controller-onload');
       this._requestedGroupId = decodeQueryValue(query['groupId']);
       this.setData({ ...createShellLayoutPatch(this.data.embedded), ...createProfilePatch() });
       void loadGroupSettingsWithCapability(this);

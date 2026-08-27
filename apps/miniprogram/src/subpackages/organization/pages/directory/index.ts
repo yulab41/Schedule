@@ -1,3 +1,4 @@
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { createDirectoryPanelControllerDefinition } from '../../components/directory-panel/controller.js';
 
 const controller = createDirectoryPanelControllerDefinition();
@@ -7,6 +8,7 @@ Page({
   data: controller.data,
   ...controller.methods,
   onLoad(this: DirectoryPageInstance, query: Readonly<Record<string, string | undefined>>): void {
+    recordMiniTelemetryBoundary('directory:page-onload');
     (
       this as unknown as {
         properties: { directoryKind: 'internal'; groupId: string };
