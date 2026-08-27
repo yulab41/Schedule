@@ -271,6 +271,38 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.lifetimes.detached.call(instance);
   });
 
+  it('lets a reverse drag interrupt an in-flight month snap', async () => {
+    vi.useFakeTimers();
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleMonthWheelTouchStart.call(instance);
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 9 * 44 + 8 },
+    });
+    definition.methods.handleMonthWheelTouchEnd.call(instance);
+    definition.methods.handleMonthWheelScrollEnd.call(instance);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    expect(instance._wheelAnimationKind).toBe('month');
+
+    definition.methods.handleMonthWheelTouchStart.call(instance);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance._wheelAnimationKind).toBeUndefined();
+    definition.methods.handleMonthWheelScrollEnd.call(instance);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance._wheelAnimationKind).toBeUndefined();
+    definition.methods.handleMonthWheelScroll.call(instance, { detail: { scrollTop: 8 * 44 } });
+
+    expect(instance.data.draftIndices[1]).toBe(8);
+    expect(instance.data.draftDisplayValue).toBe('2026年9月');
+    vi.advanceTimersByTime(320);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance.data.draftIndices[1]).toBe(8);
+    definition.lifetimes.detached.call(instance);
+  });
+
   it('builds the Web calendar date grid and confirms the selected day', async () => {
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });

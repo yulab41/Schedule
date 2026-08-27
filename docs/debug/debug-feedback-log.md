@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 Mini 年月滚轮反向接管卡死
+
+- 反馈/引入点：用户在 `.47` 实体 Android 复现“同向滚动停止后立即反向拖动会卡住”。`git log -S`/`git blame` 确认 `80ddadf0` 引入 touch/idle snap，`c1b9536a` 引入连续字体进度和受控动画，`0975b2d1` 又把动画延长到 320ms 并由 `scrollend` 完成；新触摸只清 idle timer，不清正在执行的 animation timer/owner，且旧 `scrollend` 可在新触摸期间重新启动吸附。
+- 平台审计：[微信 `scroll-view`](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html) 明确把用户 drag、滚动结束和“设置滚动位置时的动画”区分为不同生命周期；[Android DatePicker](https://developer.android.com/develop/ui/compose/components/datepickers) 对完整日期优先提供日历/输入；[Apple Pickers HIG](https://developer.apple.com/design/human-interface-guidelines/pickers) 允许 wheel date picker。现有日期日历 + 年月双滚轮继续符合已冻结 Web parity，不回退已被实体反馈替换的 `picker-view`；修复原则是原生滚动优先，任何新触摸立即取得控制权。
+- 红绿/实现：新增“向下滚动 → 进入吸附 → 反向触摸 → 旧 `scrollend` → 向上滚动”回归，旧实现稳定失败为 `wheelSnapAnimating=true`。实现只在同一滚轮新触摸时清 animation timer/owner、关闭动画，并禁止触摸尚未结束时由陈旧 `scrollend` 重启吸附；回归转绿。
+- 语义审计：成员调用 receiver/`this` 不变；只清 UI timer，不新增 Promise/catch；索引、空值、年月格式、完成一次 emit、取消零次 emit、业务 API/权限/幂等/写次数均不变。新增副作用仅为竞争窗口内一次 `setData({wheelSnapAnimating:false})`。
+- 验证：picker + P7 feedback 2 files/22、Mini 91 files/434、Mini typecheck/production verify/determinism/package/CI dry-run（2/2 Worklet、4,689,130 bytes、manifest `20c89aa3…a7ea`）、任务 Prettier/ESLint、root build/typecheck、root 233 files/1,113 tests（37 files/352 tests 按无数据库环境跳过）及 `pnpm smoke:check-core` 通过。完整 `pnpm verify` 的任务文件无问题，但全仓 format 被 411 个既有文件阻断；全仓 lint 另被未修改 `apps/miniprogram/src/platform/wx-request-executor.ts:141` 的既有 `prefer-const` 阻断，未接管这些无关内容。
+- 当前状态：checkpoint 识别消息 `fix(miniprogram): let wheel drags interrupt snap`；待显式暂存、推送、`.48` 体验上传、生产备份/release 对齐与实体 Android 复核。未提审、未正式发布。
+
 ## 2026-08-27 P0/P1 页面、测试、发布缓存与按需上下文硬化
 
 - 根因批量收口：`.42/.43` 已证明 Skyline requiredComponents 下大型业务 panel 预注入可在 Page.onLoad 前失败；本轮把 organization 五页和 workflow 三页全部改为直接 Page + static include/import，并以通用 thin-page guard 禁止回归。工作流初版简单直连被 sub-agent 审计发现遗漏 picker/timer/实例隔离后撤回，最终 fresh-controller Page host 保留全部 receiver、生命周期、2 秒提示、callback 和 per-instance Map/array。

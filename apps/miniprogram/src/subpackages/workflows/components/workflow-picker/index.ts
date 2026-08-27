@@ -473,10 +473,19 @@ function startDateLocateMotion(instance: WorkflowPickerInstance): void {
 function startWheelTouch(instance: WorkflowPickerInstance, kind: 'month' | 'year'): void {
   const touchingKey = kind === 'year' ? '_yearWheelTouching' : '_monthWheelTouching';
   const timerKey = kind === 'year' ? '_yearWheelSnapTimer' : '_monthWheelSnapTimer';
+  interruptWheelSnap(instance, kind);
   instance[touchingKey] = true;
   const timer = instance[timerKey];
   if (timer !== undefined) clearTimeout(timer);
   instance[timerKey] = undefined;
+}
+
+function interruptWheelSnap(instance: WorkflowPickerInstance, kind: 'month' | 'year'): void {
+  if (instance._wheelAnimationKind !== kind) return;
+  if (instance._wheelAnimationTimer !== undefined) clearTimeout(instance._wheelAnimationTimer);
+  instance._wheelAnimationTimer = undefined;
+  delete instance._wheelAnimationKind;
+  instance.setData({ wheelSnapAnimating: false });
 }
 
 function endWheelTouch(instance: WorkflowPickerInstance, kind: 'month' | 'year'): void {
@@ -487,6 +496,8 @@ function endWheelTouch(instance: WorkflowPickerInstance, kind: 'month' | 'year')
 
 function snapWheel(instance: WorkflowPickerInstance, kind: 'month' | 'year'): void {
   if (instance.data.wheelSnapAnimating) return;
+  const touchingKey = kind === 'year' ? '_yearWheelTouching' : '_monthWheelTouching';
+  if (instance[touchingKey] === true) return;
   const timerKey = kind === 'year' ? '_yearWheelSnapTimer' : '_monthWheelSnapTimer';
   const existing = instance[timerKey];
   if (existing !== undefined) clearTimeout(existing);

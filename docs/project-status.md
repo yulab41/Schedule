@@ -23,25 +23,30 @@
 以下内容在本轮开始前已存在或由用户并行维护；不得删除、覆盖或整文件暂存：
 
 - `apps/miniprogram/project.config.json`：用户 compiler/libVersion 设置。
-- `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；本轮只窄改旧薄壳断言，提交时必须分 hunk。
+- `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；当前批次不暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
 - `runtime/external-project-worktrees/` 中未落地 P10 worktree 必须保留。
 
-## 当前用户授权范围
+## 当前活动批次
 
-用户明确要求连续完成全部 P0/P1，不设每轮任务数量上限，并允许循环使用多个 sub-agent：
+- 用户在 `.47` 实体 Android 反馈年月滚轮同向停止后立即反向拖动会卡住，并要求使用
+  systematic debugging 及微信、Android、Apple 官方文档排查。
+- 根因已定位为 320ms 受控吸附没有被新触摸中断，且陈旧 `scrollend` 可在新触摸期间重启吸附；
+  引入链为 `80ddadf0` → `c1b9536a` → `0975b2d1`。
+- 旧实现回归已先红；当前单一修复清理同滚轮 animation timer/owner，并在触摸期间拒绝重启吸附。
+  不改 WXML/WXSS、日期日历、年月值、完成/取消事件或业务请求。
+- 状态：`已实现并自动验证 → 待 checkpoint/体验上传/实体 Android 复核`。checkpoint 识别消息为
+  `fix(miniprogram): let wheel drags interrupt snap`，下一体验候选为 `.48`。
 
-1. 消除全部大型 panel 薄 Page 注入边界并迁移 8 页。
-2. 固化 Mini/root 测试发现、日期、PowerShell fail-fast 与 LF。
-3. 建立正式版本白名单控制。
-4. 建立 build/dist/API-flat 哈希缓存与 hash-identical 无停机 release。
-5. 建立按需坑位索引、压缩状态和隐私安全 boundary telemetry。
+## 已完成的发布基线与当前修复
 
-仍须按独立可验证 checkpoint、显式暂存、Git push、Mini 体验上传、生产备份、部署和
-verifier 执行；不得把多任务授权解释为放宽安全门禁。
+### 年月滚轮反向接管
 
-## 本轮已完成并发布的代码
+- 新触摸命中同一滚轮正在执行的吸附时，先清 320ms timer 和 animation owner，再关闭动画；
+  后续反向 `scroll` 可立即更新草稿。
+- `snapWheel` 在该滚轮仍处于触摸期间直接返回，防止取消旧动画产生的陈旧 `scrollend` 重启吸附。
+- 平台结论：日期继续使用日历；年月保留已确认的双滚轮，但让原生滚动/用户触摸优先于程序动画。
 
 ### Mini Page 架构
 
@@ -88,6 +93,8 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 ### 按需 Agent 上下文
 
 - `docs/agent-context/pitfall-index.json` 为每轮必读小索引；按 signals/paths 只读匹配详情。
+- 年月滚轮反向接管登记为 `mini-workflow-wheel-snap-interruption`，实体复核前状态为
+  `fixed-pending-external`。
 - guard 失败或 staleWhen 命中时，旧结论降级为假设并重新 systemically debug。
 - 禁止全文读取 `docs/debug/debug-feedback-log.md`；历史只用精确 `rg` + 有界行段。
 - 本状态受 `scripts/agent-context-policy.test.mjs` 限制为 ≤40KB/250 行；索引 ≤12KB。
@@ -96,10 +103,16 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
-- Mini 全量：91 files / 433 tests 通过。
+- 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
+- Mini 全量：91 files / 434 tests 通过。
 - root Vitest：233 files / 1,113 tests 通过；37 files / 352 tests 按无数据库环境跳过。
-- Mini typecheck/production verify/source/package/determinism/CI dry-run 通过；2/2 Worklet。
-- root build/typecheck 通过。
+- Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,689,130 bytes，manifest
+  `20c89aa38e29f529b5812a5943b4b4e4ab1fdfa64fc2ae35578f7bb5495fa7ea`。
+- 任务文件 Prettier/ESLint、root build/typecheck 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，
+  无需 Web browser smoke。
+- 完整 `pnpm verify` 被 411 个既有文件的全仓 format 阻断；独立 root lint 被未修改
+  `apps/miniprogram/src/platform/wx-request-executor.ts:141` 的既有 `prefer-const` 阻断。
+  任务文件不在失败集内，未接管或格式化无关用户内容。
 - allowlist/release/cache 控制面：4 files / 32 tests 通过；新增 Bash 均通过 Git Bash `bash -n`。
 - 主 checkpoint `50c696ab` 已推送；Mini `.46` 官方上传、完整生产部署、正式 allowlist
   ensure/verify、重复幂等 ensure、两次 full verifier 与远端临时目录清理均通过。
@@ -122,13 +135,17 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 - platform page 保留旧壳未使用的 groupId data/setData，避免迁移混入死状态清理。
 - 工作流 host 曾被初版简单直连遗漏 picker/timer，红灯后已撤回并改为 fresh-controller adapter。
 - 根测试首次仅排除 runtime 后仍以错误 cwd 执行 Mini；现由 root exclusion + 显式 Mini 入口修复。
+- 年月滚轮修复只改变竞争窗口的 UI timer 生命周期；receiver、Promise/catch、空值、年月格式、
+  完成一次 emit、取消零次 emit、API/权限/幂等和业务写次数不变。
 
 ## 下一步与停止条件
 
-1. 提交最终状态 checkpoint `docs(status): record final p0 p1 release`，以三层 cache hit +
-   manifest-only reuse 同步本文件所在 HEAD。
-2. 用户在 `.47` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
-   `已实现并自动验证 → 待用户复核`，不提交审核/正式发布。
+1. 逐行审阅任务 diff，只显式暂存 picker controller/test 与本轮状态/调试记录，提交并推送
+   `fix(miniprogram): let wheel drags interrupt snap`。
+2. 用仓库外私钥上传 production-profile `.48` 体验版；创建生产备份，部署/复用同一 Git release，
+   运行 full verifier，并按正式控制流程 ensure/verify `.48`。
+3. 用户在 `.48` 实体 Android 分别对年份/月滚轮执行“同向滑动停止后立即反向”至少 10 次；
+   必须持续跟手、最终单行吸附，完成只提交当前值一次。此前状态保持待用户复核。
 
-停止条件：最终状态 HEAD 的 cache/reuse/full verifier 通过，Git/origin/production release 再次
-一致；所有用户工作树内容未进入提交。随后只等待 `.47` 实体复核。
+停止条件：Git/origin/production release 对齐、`.48` 上传及 allowlist/full verifier 通过，所有用户
+工作树内容未进入提交；随后等待 `.48` 实体反向滚动复核，不提交审核/正式发布。

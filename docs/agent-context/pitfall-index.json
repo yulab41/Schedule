@@ -125,6 +125,29 @@
       "validation": "pnpm miniprogram:test",
       "lastVerifiedAt": "2026-08-27",
       "staleWhen": ["telemetry contract, retention, capability gating, or marker registry changes"]
+    },
+    {
+      "id": "mini-workflow-wheel-snap-interruption",
+      "state": "fixed-pending-external",
+      "signals": [
+        "年月滚轮",
+        "reverse drag",
+        "scrollend",
+        "wheelSnapAnimating",
+        "workflow-picker"
+      ],
+      "paths": [
+        "apps/miniprogram/src/subpackages/workflows/components/workflow-picker/**",
+        "apps/miniprogram/scripts/workflow-picker-controller.test.mjs"
+      ],
+      "detail": "docs/agent-context/pitfalls/mini-workflow-wheel-snap-interruption.md",
+      "guard": "apps/miniprogram/scripts/workflow-picker-controller.test.mjs",
+      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/workflow-picker-controller.test.mjs",
+      "lastVerifiedAt": "2026-08-27",
+      "staleWhen": [
+        "wheel snap timing, scroll-view event bindings, or picker architecture changes",
+        "the reverse-drag regression fails or is removed"
+      ]
     }
   ]
 }
