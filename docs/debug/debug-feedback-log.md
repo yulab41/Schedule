@@ -2,12 +2,19 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 pnpm 构建脚本策略固定
+
+- 根因：pnpm 11 自动写入四个 `set this to true or false` 未决值；workspace 状态因而持续不匹配，每个 pnpm 命令先隐式 install，再以 `ERR_PNPM_IGNORED_BUILDS` 失败。`allowBuilds` 来自 `ae649b32`，已做 `git log -S`/blame。
+- 红绿/安全：显式决策测试在占位配置上先红；四包在 build scripts 被阻止的现有安装中都能加载，且 Mini Summer/root build 已通过，故 `@parcel/watcher/@swc/core/less/protobufjs=false`，不把任何未审脚本改成 true。测试 10/10，frozen install 1.1 秒完成，后续无 override 的 repeated pnpm exec/Mini verify/root build/typecheck 不再隐式安装；format/lint/core smoke/diff 通过。
+- checkpoint：识别消息 `fix(tooling): stabilize pnpm build policy`；无 Mini runtime 变化，不另传版本。部署完成后转入三个 organization 同风险薄壳的下一批。
+
 ## 2026-08-27 P9 通知双页直接注册与同类页面审计
 
 - 反馈/证据：通知设置继续白屏，生产无通知列表/偏好请求；通知中心与设置自 `1a428d73`/`766ec6ac` 起均为同一个大型 `notifications-panel` 的薄 Page 壳。沿用 `.42` Page 前失败与 `.43` 直接 Page 成功的根因，不另造假设。
 - 红绿/实现：旧薄壳 direct runtime/static 4 项先红；两页以不同 mode 直接挂同一 controller，并静态复用 WXML/WXSS 后转绿。构建器新增回归先证明八个已不可达 P9 panel/controller JS 入口仍重复输出，再改为只参与 Page bundle；insights 分包约 `2,095,118`→`857,676` bytes。业务 API、权限、订阅授权、错误/空值、调用次数和视觉内容不变。
-- 验证：通知 direct/page/controller/build-tools 定向通过；排除既有日期敏感 P7 duty/swap controller 后 Mini 86 files/393 tests 全绿。Mini production/source/package/determinism/CI dry-run、根 build/typecheck、任务 format、core smoke/diff 通过；manifest `f0b27cc9…61f92`，总包 `5,298,266`，organization `1,753,082` 仅 warning。用户工作区 `pnpm-workspace.yaml` 的占位 allowBuilds 值会触发 pnpm 自动安装门禁，本轮不改用户文件，验证统一用 `--config.verify-deps-before-run=false` 绕过自动安装且复用现有依赖。
-- 全页审计：同风险薄壳还剩 organization 的 directory/group-settings/invite-visitor/platform-accounts/scheduling-config 和 workflows 的 duty/leave/swap，共 8 页；只标为风险、未把未复现页面宣称为故障。按仓库批次约束，`.45` 发布后下一批先迁移 directory/group-settings/scheduling-config 三页，再分批处理其余五页。
+- 验证：通知 direct/page/controller/build-tools 定向通过；排除既有日期敏感 P7 duty/swap controller 后 Mini 86 files/393 tests 全绿。Mini production/source/package/determinism/CI dry-run、根 build/typecheck、任务 format、core smoke/diff 通过；manifest `f0b27cc9…61f92`，总包 `5,298,266`，organization `1,753,082` 仅 warning。首次验证因 workspace 占位 allowBuilds 值临时用 `--config.verify-deps-before-run=false`；用户随后要求永久处理，已由上方独立工具链 checkpoint 收口。
+- 全页审计：同风险薄壳还剩 organization 的 directory/group-settings/invite-visitor/platform-accounts/scheduling-config 和 workflows 的 duty/leave/swap，共 8 页；只标为风险、未把未复现页面宣称为故障。按仓库批次约束，下一页面批次先迁移 directory/group-settings/scheduling-config 三页，再分批处理其余五页。
+- checkpoint/发布：`4d8a38e9` 已推送；`.45` 官方上传 177 files/zip `2,361,119`/manifest `79ad5571…16189`。备份 `b76e3e04-3d73-486c-ab42-7a1cecb1a55b`（54 表/178600 行/82291256 bytes/SHA `06b7f88b…c3ec5`）后部署同 release，privacy 0/0。首次白名单探针因 JSON 字段顺序比较过严失败并完整回滚；无序字段逐值探针重试后 `.45` 七维 true、未知版本 426、env root/600、full verifier 通过，远端 temp 已删；等待通知双页实体复核。
 
 ## 2026-08-27 P9 统计与导出直接注册根因修复
 

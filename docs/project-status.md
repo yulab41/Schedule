@@ -2,13 +2,21 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 通知双页直接注册与同类页面审计（已实现待体验上传）
+## 2026-08-27 pnpm 构建脚本策略固定（已实现待 checkpoint）
+
+- 触发链/引入点：pnpm 11 在首次依赖审查时把 `@parcel/watcher`、`@swc/core`、`less`、`protobufjs` 自动写成 `set this to true or false`；该未决 workspace 配置与现有依赖状态不一致，使每个后续 pnpm 命令先尝试安装，再以 `ERR_PNPM_IGNORED_BUILDS` 退出。`allowBuilds` 初始配置来自 `ae649b32`，已执行 `git log -S`/`git blame`。
+- 证据/安全决策：四包在脚本未执行的当前安装中均可直接加载；Parcel Watcher/SWC 由已安装的平台可选二进制提供，Less/ProtobufJS 的 postinstall 不是本项目构建产物来源；Mini 官方 Summer 编译、根 build/typecheck 均已在其脚本被阻止时通过。因此四项明确设为 `false`，不放行新的供应链脚本；既有 `esbuild=true` 不变。
+- 红绿/验证：新增 workspace policy 契约在四个占位值上 1 项失败，固定后 10/10；显式 `pnpm install --frozen-lockfile` 1.1 秒完成，随后多次不带 override 的 `pnpm exec`、Mini verify、根 build/typecheck 直接运行且不再隐式安装。任务 Prettier/ESLint、`smoke:check-core`、diff check 通过；四个包的现有模块入口均加载成功。
+- checkpoint/下一批：当前 checkpoint 识别消息为 `fix(tooling): stabilize pnpm build policy`；该批不改变 Mini runtime，因此不另传体验版。推送并完成生产备份/部署后，下一活跃批次仍只迁移 organization 的 directory、group-settings、scheduling-config 三页并停止。
+
+## 2026-08-27 P9 通知双页直接注册与同类页面审计（已发布待通知双页复核）
 
 - 用户反馈/根因：通知设置继续白屏；复测窗口内生产没有通知列表或偏好请求。通知中心和通知设置分别自 `1a428d73`、`766ec6ac` 起都只是 `notifications-panel` 的薄 Page 壳，与已由 `.42`/`.43` 严格对照证实的 P9 大型 panel `requiredComponents` 预注入故障相同。已按 `systematic-debugging` Phase 4 扩展已验证模式，而非引入新假设。
 - 实现/语义：两个页面分别以 `notifications`/`settings` mode 直接注册既有 controller data/methods/attached/detached，静态 include/import 原 panel WXML/WXSS，页面 JSON 只声明稳定 UI components；列表读取、偏好读取/写入、微信订阅授权、权限/capability、receiver、Promise/catch、空值、副作用与调用次数不变。构建器把四套已直接注册的 P9 panel `controller.ts/index.ts` 标记为只参与页面 bundle、不再输出八个不可达重复 JS 入口；该收集器来自 `3884713b`，已执行 `git log -S`/`git blame`。
 - 红绿/验证：旧通知薄壳上的 direct runtime/static 契约 4 项先失败，实施后通知 direct/page/controller 通过；构建器未排除重复入口的新增断言先失败，过滤后通过。排除既有日期敏感 P7 duty/swap controller 后 Mini 86 files/393 tests 全绿；Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务 Prettier、`smoke:check-core` 和 diff check 通过。verify manifest `f0b27cc9b01d966c9ac0269d9d7af48af6c4f05c6d819f8bb37df250a1661f92`，总包 `5,298,266` bytes，insights 从约 `2,095,118` 降为 `857,676` bytes；organization `1,753,082` 仅触发内部 1.5M warning。
 - 同类架构审计：静态扫描所有 Page JSON/WXML/TS 后，仍有 8 个“Page 仅挂一个大型业务组件”的同风险入口：organization 的 directory、group-settings、invite-visitor、platform-accounts、scheduling-config，以及 workflows 的 duty、leave、swap。它们尚未全部在实体 Android 复现，不能写成已发生故障；但架构边界与已确认根因一致，需要按分包分批直接注册并同步回收重复 bundle。
-- checkpoint/下一批：当前 checkpoint 识别消息为 `fix(miniprogram): register notification pages directly`；完成推送、production-profile `.45` 上传、白名单与生产部署后，等待实体复核通知中心/通知设置。依每轮最多 1–3 项约束，下一活跃批次只迁移 organization 的 directory、group-settings、scheduling-config 三页并停止；之后再处理 invite-visitor/platform-accounts，最后处理 workflows 三页。
+- checkpoint/体验：`4d8a38e9d97d342dc6586a0339c286d6e4dcb16a`（`fix(miniprogram): register notification pages directly`）已推送；production-profile `.45` 官方上传成功，177 code files、zip `2,361,119` bytes、manifest `79ad5571d5d9c03d1030db84ac44ac4b02f32c19250d9268b835b8f479216189`，未提审、未正式发布。部署前备份 `b76e3e04-3d73-486c-ab42-7a1cecb1a55b`（54 表、178,600 行、82,291,256 bytes、SHA-256 `06b7f88b89b129378362bd4d78bf0898f9500e36e0515ab6e569e541359c3ec5`）后部署同 release；预热一次 502 后恢复、privacy 0/0。首次 `.45` 白名单探针因 JSON 字段顺序比较过严失败并自动恢复到 `.45=426/.44=200`；改为字段集合逐值比较后双锁追加成功，七维能力 true、未知版本 426、env `root:root/0600`、完整 verifier 通过，远端临时目录已删除。
+- 下一批：等待实体复核通知中心/通知设置；依每轮最多 1–3 项约束，下一页面批次只迁移 organization 的 directory、group-settings、scheduling-config 三页并停止；之后再处理 invite-visitor/platform-accounts，最后处理 workflows 三页。
 
 ## 2026-08-27 P9 统计与导出直接注册根因修复（已发布待两页复核）
 

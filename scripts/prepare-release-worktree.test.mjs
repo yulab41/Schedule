@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { URL } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -149,6 +150,15 @@ describe('reusable isolated release worktree', () => {
       '--frozen-lockfile',
       '--config.strictDepBuilds=false',
     ]);
+  });
+
+  it('records explicit non-build decisions for optional dependency install scripts', () => {
+    const workspace = fs.readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8');
+
+    for (const dependency of ['@parcel/watcher', '@swc/core', 'less', 'protobufjs']) {
+      expect(workspace).toMatch(new RegExp(`^  ['"]?${dependency}['"]?: false$`, 'mu'));
+    }
+    expect(workspace).not.toContain('set this to true or false');
   });
 
   it('recognizes only pnpm generated build-review placeholders for restoration', () => {

@@ -5,8 +5,12 @@ packages:
   - tests/*
 
 allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false
   core-js-pure: false
   esbuild: true
+  less: false
+  protobufjs: false
   vue-demi: false
 
 minimumReleaseAgeExclude:
