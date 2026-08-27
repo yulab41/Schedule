@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `f858ae6d11417a098dfebbc622fbf50083671767`。最终状态以“包含本文件的 Git HEAD”为
+  `9ac508ba84ad8abee9604e5991c46fcc6847e508`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.53@f858ae6`，171 code files，zip
-  `2,088,682` bytes，upload manifest `58a982f1b6e04d9ef1d4a7325a2f7dcbe6966696b1f84b6f943745bca7ca17a7`。
-- `.53` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.54@9ac508b`，175 code files，zip
+  `2,175,646` bytes，upload manifest `46a7e8639e47269203361cec2c4c756323612e730fa24b83085ff3694df2d83b`。
+- `.54` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `6e640d7d-78d7-4d44-9c80-eff66ab8ff1f`（55 表、180,484 行、82,925,996 bytes、
-  SHA-256 `7c1e4d3ef457698e65144e503ea28b37c5ad2c4b30d8c7b931bfe83e651f7f5e`）。
+  `713c9bed-5975-493e-b27e-91ae772f3662`（55 表、180,581 行、82,958,168 bytes、
+  SHA-256 `c93e75d17b258e0dc2cf1d967332a7169f091fb6a160e2518e94af1a97e82459`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -66,6 +66,8 @@
 - Task 3 登录集成已实现：原生 chooseAvatar 叶组件、密码清 pending、三条微信成功路径生命周期 flush、
   avatarVersion 会话刷新与一次非阻塞反馈完成；checkpoint 识别消息为
   `feat(miniprogram): sync chosen profile avatars`。重叠 identity/wechat 文件只暂存 HEAD 等价 hunk。
+- Task 3 checkpoint `9ac508ba` 已推送、上传 `.54`、加入 allowlist，并以备份后可信 reuse 同步生产；
+  当前 Profile 活跃批次为 Task 4 controller、Web 1:1 页面、密码/绑定/导航与视觉状态矩阵。
 
 ## 已完成的发布基线与当前修复
 
@@ -135,7 +137,8 @@
   root 238 files/1,122 tests、全端 build/typecheck、production verify/determinism/package/CI dry-run、
   core smoke、`.53` upload/allowlist 与生产 full verifier 通过；37 files/355 tests 按环境跳过。
 - Profile Task 3 login：旧树缺叶组件/runtime/WXML 的 3 项先红；实现后 chooseAvatar/login 4/4、身份/
-  media/workbench/Profile 定向 5 files/43 tests、Mini typecheck/production verify/source/package 通过。
+  media/workbench/Profile clean 5 files/39、Mini 95 files/460、root 238 files/1,122 tests 通过；全端
+  build/typecheck、verify/determinism/package/CI dry-run、`.54` upload/allowlist/full verifier 通过。
 - Profile Tasks 1–2 的共享等价、严格契约、头像安全/隔离/版本、schema52 发布控制和生产探针均通过；
   详细红绿、全仓计数、browser 环境阻塞、备份与 release 证据保留在 debug 日志及对应 Git checkpoint。
 - Profile browser smoke 已实际运行：首次因 5173 未启动停止；启动源码服务后因未启用 dev auth、
@@ -225,9 +228,9 @@
 
 ## 下一步与停止条件
 
-1. clean worktree 复验 Task 3 集成，提交推送、上传 `.54`、allowlist、生产备份/ECS 同步与 full verifier。
-2. 随后进入 Task 4 controller、Web 1:1 WXML/WXSS、密码/绑定/导航矩阵。
+1. 测试先行实现 Task 4 共享聚合 controller、群组/陈旧/部分失败、账户/绑定/密码与导航矩阵。
+2. 按已确认 Web 黄金重绘 390/320/大字号 WXML/WXSS，并更新 P10 Profile 黄金与 RC 清单。
 3. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
 
-停止条件：Task 3 登录头像集成完成 clean/dirty 双验证、checkpoint 与两条发布轨道，其他并行用户
-内容保持未提交；随后只进入 Task 4，不提交审核或正式发布。
+停止条件：Task 4 功能、交互与视觉自动矩阵完成并形成可独立验证 checkpoint，其他并行用户内容保持
+未提交；未完成 clean/dirty 双验证前不进入最终发布，不提交审核或正式发布。

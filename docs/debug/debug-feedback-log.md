@@ -83,6 +83,12 @@
   成功只补本地 session `avatarVersion`，失败 toast 一次且不阻断 reLaunch/旧头像。工作树定向 5 files/
   43 tests、typecheck、production verify/source/package 通过；identity/wechat 重叠内容另以基于 HEAD 的
   cached hunk 暂存，checkpoint 识别消息 `feat(miniprogram): sync chosen profile avatars`。
+- Task 3 login checkpoint/发布：`9ac508ba` 已推送；clean Mini 95 files/460 tests、root 238 files/
+  1,122 tests（37 files/355 tests 环境跳过）、全端 build/typecheck、production verify（2/2 Worklet、
+  4,647,948 bytes、manifest `5478a29b…c535`）、determinism/package/core 通过。production-profile `.54`
+  上传 175 code files/zip 2,175,646/manifest `46a7e863…d83b`，未提审/发布；allowlist 通过。备份
+  `713c9bed-5975-493e-b27e-91ae772f3662`（55 表/180,581 行/82,958,168 bytes/SHA `c93e75d1…2459`）
+  后 hash-identical reuse 到 `9ac508ba`，公网 full verifier 与远端临时 manifest 清理通过。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
