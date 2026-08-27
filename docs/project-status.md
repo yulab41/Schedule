@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-27）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `f6be9cdb762ab2321f4f2bddcb0f1e7dd17ba73b`。最终状态以“包含本文件的 Git HEAD”为
+  `79a0ae90e883509ee7cb1a2ede48178890a65915`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.48@f6be9cd`，164 code files，zip
-  `2,109,019` bytes，upload manifest `4d92065bd9565a1838a4f46295bb4d271ba4cb972e6fddf2c57376b77511ca42`。
-- `.48` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.49@79a0ae9`，165 code files，zip
+  `1,935,627` bytes，upload manifest `5f14df24870fd209252f5d0a6bc1efbbc34ccac7405e09d2e89548d8dd0b2f74`。
+- `.49` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `29266719-280d-4a8b-b617-2654a367d36e`（54 表、179,421 行、82,573,904 bytes、
-  SHA-256 `869954743ddca6479431fb0968bd33100d9f0d53c7f4dcf33fd9d0a9c2f13e6d`）。
+  `29442285-9d6e-446c-8b1c-5c4d20f46192`（54 表、179,650 行、82,649,700 bytes、
+  SHA-256 `667f7005cd046895931044d8801b0e05baaa77f6276aec9d4efcd0e4c4e133cb`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -31,13 +31,14 @@
 
 ## 当前活动批次
 
-- `.48@f6be9cd` 年月滚轮反向接管保持 `已完成并发布 → 待实体 Android 复核`；本轮不改
+- `.48@f6be9cd` 年月滚轮反向接管保持 `已完成并发布 → 待实体 Android 复核`；导航批次未改
   workflow picker 或其回归。
 - 用户已确认工作台底栏改为“日历、通讯录、换班、我的、更多”；前四项在工作台内切换，
   “更多”三组展示，群组管理/请假/加扣班等使用独立 Page 返回栈。
-- 新导航旧实现回归 5/5 先红；当前代码与自动验证已完成，checkpoint 识别消息为
-  `feat(miniprogram): align workbench navigation with web`。尚待显式暂存、推送、下一体验上传、
-  生产备份/reuse/full verifier 与实体 Android 复核。
+- 新导航旧实现回归 5/5 先红；代码 checkpoint `79a0ae90` 已推送，`.49` 官方上传、生产
+  hash-identical reuse、allowlist 与 full verifier 均通过。状态为
+  `已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`；最终状态 checkpoint
+  识别消息为 `docs(status): record workbench navigation deployment`。
 
 ## 已完成的发布基线与当前修复
 
@@ -131,6 +132,11 @@
   cache，备份 `29266719-280d-4a8b-b617-2654a367d36e` 后可信 hash-identical reuse 通过；切换前后
   API/Web container ID 与 created timestamp 不变。随后正式 ensure/verify `.48`、七维 capability、
   未知版本 426 和带公网 IP full verifier 全部通过，远端临时目录已删除。
+- 导航代码 checkpoint `79a0ae90` 已推送；clean release worktree 三层 cache hit。备份
+  `b7794f7f-4b4a-42c9-a7c8-cf4b01b9a92c` 后可信 hash-identical reuse 无停机切换，随后
+  `.49` 官方上传并正式 ensure/verify；allowlist 重建容器首次 TLS EOF 后自动恢复。七维能力、
+  未知版本 426、带公网 IP full verifier 与远端临时目录清理均通过。最终状态发布备份为
+  `29442285-9d6e-446c-8b1c-5c4d20f46192`。
 
 ## 语义与偏差记录
 
@@ -149,12 +155,9 @@
 
 ## 下一步与停止条件
 
-1. 显式暂存导航批次文件/测试 hunk，确认用户成员行修复和其他脏树不进提交；提交并推送
-   `feat(miniprogram): align workbench navigation with web`。
-2. 从 clean release worktree 打包并同步生产 checkpoint，上传下一单调体验候选（当前预计 `.49`），
-   正式 allowlist ensure/verify、full verifier 后再提交最终状态 checkpoint。
-3. 用户实体 Android 同时复核 `.48` 滚轮反向接管，以及新候选五项切换、更多分组、群组管理
+1. 提交并推送最终状态 checkpoint，以已完成备份同步 Git/origin/production release。
+2. 用户实体 Android 同时复核 `.48` 滚轮反向接管，以及 `.49` 五项切换、更多分组、群组管理
    返回按钮/系统侧滑；不提交审核或正式发布。
 
-停止条件：代码与最终状态 HEAD 均推送并同步 production release，下一体验候选 allowlist/full
-verifier 通过，所有用户工作树内容保持未提交；随后只等待实体复核。
+停止条件：最终状态 HEAD 推送并同步 production release，所有用户工作树内容保持未提交；随后
+只等待实体复核。
