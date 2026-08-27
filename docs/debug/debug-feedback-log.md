@@ -8,6 +8,7 @@
 - 根因/修复：五个页面使用 100% 高组件宿主但 `page` 只有全局 `min-height`，没有 Skyline 所需的确定视口；通知设置的宿主选择器还写成未挂载的 `notification-settings-panel`，并遗漏同分包页面配置。现在全部 P9 页面显式建立 100% `page` 高度/裁切/背景，通知设置改为真实 `notifications-panel` 并补齐 Skyline、自定义导航和禁滚配置。
 - 红绿/语义：页面壳契约旧实现 5/5 失败，修复后 5/5；P9 controller/native 11 files/50 tests 通过。仅改变页面挂载几何和配置，不改 controller、请求、权限、capability、异步错误、通知授权、导出或业务数据。
 - 运行/浏览器验证：Mini production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint/diff 通过；manifest `8c9160bb…42d`，总包 `5,759,536` bytes、insights `1,317,455` bytes。`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 确认未触及 Web 核心链路，无需 Web 浏览器冒烟；Mini 全量仅保留未修改 P7 swap/duty 的 5 项日期敏感失败。安卓原生结果必须由 `.39` 实体复核关闭。
+- checkpoint/发布：`db45b719` 已推送；`.39` 官方上传 153 files/zip `1,404,421`/manifest `19a6bf1f…1fe8`。备份 `d201910a-f10f-4114-84fc-fb3fc0530587`（54 表/177629 行/81965592 bytes/SHA `b6d1e866…07a2`）后部署同 release；预热一次 502 后恢复、privacy 0/0、full verifier 通过。双锁原子追加 `.39` 并同时重建 API/web，`.39` 七维 capability 全为 true、未知版本 426、env root/0600。未提审/正式发布，等待用户实体 Android 复核五个 P9 页面。
 
 ## 2026-08-26 Mini 事件与统计复刻 Web 规则
 

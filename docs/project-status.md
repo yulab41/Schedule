@@ -2,13 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 安卓真机页面壳白屏修复（已实现待体验上传）
+## 2026-08-27 P9 安卓真机页面壳白屏修复（已发布待安卓复核）
 
 - 用户反馈/生产证据：体验版 `.38` 安卓真机打开通知设置、访客访问、事件与统计、导出排班后白屏卡死。生产匿名遥测显示 `.38` 工作台在 11:06–11:10 正常运行且无 `MINI_RUNTIME_ERROR`；同时间 API 日志只有 capability/workbench 请求，没有任何访客、事件/统计、通知偏好或导出请求，因此故障位于 P9 页面壳挂载之前，不是 API、权限或数据量。
 - 引入点/根因：五个 P9 页面壳分别由 `ca7d92ee`、`ee6f9cb8`、`1a428d73`、`de710eaf`、`766ec6ac` 引入，均只有百分比高度组件宿主、没有确定的 Skyline `page` 高度；通知设置还把实际 `notifications-panel` 错写成不存在的 `notification-settings-panel`，且缺少与同分包一致的 Skyline/自定义导航/禁滚配置。已执行 `git log -S` 与 `git blame`。
 - 实现/语义：全部 P9 页面显式建立 `page` 100% 高度、裁切和背景，并保持真实组件宿主 100% 高度；通知设置修正宿主选择器及页面配置。controller、请求接收者、Promise/catch、权限、capability、空值、调用次数、通知授权、导出和业务数据均未改；同分包通知中心一并覆盖相同页面壳边界。
 - 红绿/验证：新增 `p9-page-shell-layout.test.mjs`，旧实现 5/5 失败，修复后 5/5；P9 controller/native 定向 11 files/50 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务 Prettier/ESLint/diff 和 `smoke:check-core` 通过；manifest `8c9160bb317ff9036cf1fd9322efe17489c3a265d688be8cfa51d0599d15a42d`，总包 `5,759,536` bytes，insights `1,317,455` bytes。Mini 全量仅有本批未修改的 P7 swap/duty 5 项日期敏感失败，独立复跑相同，不属于本修复。
-- checkpoint/下一步：任务 checkpoint 识别消息为 `fix(miniprogram): stabilize p9 page shells`。提交、推送后上传 production-profile `.39`，在数据库备份保护下加入生产版本白名单并部署/验证同一 checkpoint；随后由用户在安卓真机复核通知设置、访客访问、事件与统计、通知中心和导出排班是否立即出现页面壳并发起对应请求。停止条件是 `.39` 上传、白名单、生产部署/verifier 完成后等待该实体复核，不提前提交审核或正式发布。
+- checkpoint/体验：代码 checkpoint `db45b719f8f70c8ee1abd61df15178f744893f20`（`fix(miniprogram): stabilize p9 page shells`）已推送；production-profile `0.1.0-p9.20260827.39` 官方上传成功，153 个代码文件、zip `1,404,421` bytes、上传 manifest `19a6bf1fd79b038ffad0acd484d97e858b5e03c56539b433de8fce5c04151fe8`，未提交审核、未正式发布。
+- 生产发布：部署前加密数据库备份 archive `d201910a-f10f-4114-84fc-fb3fc0530587`（54 表、177,629 行、81,965,592 bytes、SHA-256 `b6d1e8664f0daab0249f90f1b153142fe766e52ee19e61feb86bd40824b907a2`）后部署 release `db45b719f8f70c8ee1abd61df15178f744893f20`；预热一次 502 后恢复，privacy visitor/telemetry 均 0/0，完整 `ecs-verify.sh` 通过。`.39` 已在 release/capability 双锁下原子追加，API+web 同时重建；capability HTTP 200 且七维全部保持 `true`，未知版本 426，`.env.production` 为 `root:root/0600`。
+- 下一步/停止条件：用户在 `.39` 安卓真机依次复核通知设置、访客访问、事件与统计、通知中心、导出排班；预期立即显示页面壳并发起对应请求，不再白屏或困在无返回入口。当前停止等待该实体结果；失败时记录具体入口、停留时长和截图继续单项修复，不提前提交审核或正式发布。
 
 ## 2026-08-27 P9 能力开启与订阅模板接入（已完成，待微信平台审核）
 
