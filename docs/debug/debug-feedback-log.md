@@ -7,6 +7,7 @@
 - Phase 1：`.42` 三页触发后六个指纹均缺失，四次 telemetry POST 均 204 且只落 workbench 样本，证明失败在 Page `onLoad` 之前。用户按 systematic-debugging 的架构讨论要求，明确批准只对访客页做直接注册实验。
 - 单一改动：访客页直接挂既有 controller data/methods/lifetimes，静态 include/import 原 WXML/WXSS，只保留稳定 UI components；事件统计/导出完全不动。旧实现 direct/static 2 项失败，实施后访客 3 files/16、其余 Mini 84 files/388 通过。
 - 验证：Mini production/source/package/determinism、根 build/typecheck、任务 format/lint/core smoke/diff 通过；manifest `cd14fd76…c1e95`，总包 `5,912,836`、insights `1,470,660`。下一候选 `.43` 只验证访客页；成功才迁移其余两页，失败立即停止该架构方向。
+- checkpoint/发布：`5993aabf` 已推送；`.43` 官方上传 185 files/zip `2,619,012`/manifest `30e4e781…1809`。备份 `51abee04-6234-4fc6-80fc-f3390591496b`（54 表/178115 行/82126764 bytes/SHA `fd68b6bd…f9e1`）后部署同 release；预热一次 502 后恢复、privacy 0/0、full verifier 通过。`.43` 双锁加入白名单，七维 capability true、未知版本 426、env root/0600；等待访客页单一对照结果。
 
 ## 2026-08-27 P9 systematic-debugging 边界诊断
 

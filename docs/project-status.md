@@ -2,13 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 访客页直接注册架构验证（已实现待体验上传）
+## 2026-08-27 P9 访客页直接注册架构验证（已发布待单页复核）
 
 - Phase 1 结论：用户在 `.42` 依次触发三页后，六个 Page/component 指纹全部缺失；四次 `/client-telemetry` 均 HTTP 204，但数据库只写入四个 workbench 性能样本。故障精确位于 P9 Page `onLoad` 之前，已排除 API、controller、页面布局、能力开关、上传缺文件和 telemetry 发送失败。
 - Phase 2–3/授权：`systematic-debugging` 要求三次失败后质疑架构并与用户讨论；用户已明确同意先只改访客访问作为单页验证，事件统计与导出保持 `.42` 自定义组件路径作为对照。单一假设为：页面 JSON 的大型 panel `usingComponents` 在 Page 注册前注入失败，直接 Page 注册可绕过该边界。
 - 实现：访客页直接复用既有 visitor controller 的 data/methods/attached/detached，把 groupId 作为兼容 properties 注入；WXML 用静态 `include`、WXSS 用静态 `@import` 复用原 panel，页面 JSON 只声明三个已稳定 UI 组件。访客业务请求、权限、capability、分页、脱敏、异步序列和 UI 内容不变；事件统计/导出源码不改。
 - 红绿/验证：旧实现上的直接 Page 运行时与静态契约 2 项失败，实施后访客 direct/page/controller 3 files/16 tests；排除既有日期敏感 P7 swap/duty 后 Mini 84 files/388 tests 通过。Mini typecheck/production verify/source/package/determinism、根 build/typecheck、任务 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；manifest `cd14fd76a7a749a61aed605b3eed4c5f3172e5587fbab743827217a96cec1e95`，总包 `5,912,836` bytes、insights `1,470,660` bytes，仍低于 1.5M 预警线。
-- checkpoint/下一步：实验 checkpoint 识别消息为 `fix(miniprogram): register visitor page directly`。提交、推送后上传 `.43`、加入白名单并部署；用户只复核访客访问。若访客页恢复且统计/导出仍失败，即确认架构根因并在下一独立批次迁移另外两页；若访客仍失败，立即停止直接注册方向并回到 Phase 1，不提交审核/正式发布。
+- checkpoint/体验：实验 checkpoint `5993aabf90a6433e51f56b5eb25efaa7bb2eb976`（`fix(miniprogram): register visitor page directly`）已推送；production-profile `.43` 官方上传成功，185 code files、zip `2,619,012` bytes、manifest `30e4e781cbeea3a638bee65b2a6b6c3eb55b5bc1538af80dc47cf4fd75331809`，未提交审核、未正式发布。
+- 生产发布：部署前加密数据库备份 archive `51abee04-6234-4fc6-80fc-f3390591496b`（54 表、178,115 行、82,126,764 bytes、SHA-256 `fd68b6bdf4ce323c8f1cce0d501f9c81c64bd626cf409fd157c841b91e91f9e1`）后部署 release `5993aabf90a6433e51f56b5eb25efaa7bb2eb976`；预热一次 502 后恢复、privacy 0/0。`.43` 已双锁加入白名单并同时重建 API/web，完整 verifier、七维 capability true、未知版本 426、env `root:root/0600` 通过。
+- 下一步/停止条件：用户在 `.43` 只复核访客访问。若访客页恢复而 `.42` 统计/导出对照仍失败，即确认自定义 panel 预注入架构根因并在下一独立批次迁移另外两页；若访客仍失败，立即停止直接注册方向并回到 Phase 1。不提交审核/正式发布。
 
 ## 2026-08-27 P9 安卓白屏系统化边界诊断（已发布待触发）
 
