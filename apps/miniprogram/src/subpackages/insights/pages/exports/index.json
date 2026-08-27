@@ -3,6 +3,8 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
-    "exports-panel": "/subpackages/insights/components/exports-panel/index"
+    "ui-alert": "/components/ui/ui-alert/index",
+    "ui-button": "/components/ui/ui-button/index",
+    "ui-loading": "/components/ui/ui-loading/index"
   }
 }

@@ -1,15 +1,23 @@
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import { createExportsPanelControllerDefinition } from '../../components/exports-panel/controller.js';
+
+const controller = createExportsPanelControllerDefinition();
+type ExportsPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
 
 Page({
-  data: { groupId: '' },
-  onLoad(
-    this: { setData(patch: { readonly groupId: string }): void },
-    query: Readonly<Record<string, string | undefined>>,
-  ): void {
+  data: controller.data,
+  ...controller.methods,
+  onLoad(this: ExportsPageInstance, query: Readonly<Record<string, string | undefined>>): void {
     recordMiniTelemetryBoundary('exports:page-onload');
-    this.setData({ groupId: decodeGroupId(query['groupId']) });
+    (this as unknown as { properties: { groupId: string } }).properties = {
+      groupId: decodeGroupId(query['groupId']),
+    };
+    controller.lifetimes.attached.call(this);
   },
-});
+  onUnload(this: ExportsPageInstance): void {
+    controller.lifetimes.detached.call(this);
+  },
+} as never);
 
 function decodeGroupId(value: string | undefined): string {
   if (value === undefined) return '';

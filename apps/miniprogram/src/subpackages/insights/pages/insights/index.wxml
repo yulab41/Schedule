@@ -1,1 +1,1 @@
-<insights-dashboard-panel group-id="{{groupId}}"></insights-dashboard-panel>
+<include src="../../components/insights-dashboard-panel/index.wxml" />

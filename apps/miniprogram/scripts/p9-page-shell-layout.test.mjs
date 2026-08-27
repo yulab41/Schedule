@@ -6,15 +6,18 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pageShells = [
-  ['insights', 'insights-dashboard-panel'],
   ['notifications', 'notifications-panel'],
-  ['exports', 'exports-panel'],
   ['notification-settings', 'notifications-panel'],
 ];
 const diagnosticBoundaries = [
   ['visitor-access', 'visitor-access-panel'],
   ['insights', 'insights-dashboard-panel'],
   ['exports', 'exports-panel'],
+];
+const directPageShells = [
+  ['visitor-access', 'visitor-access-panel', 'createVisitorAccessPanelControllerDefinition'],
+  ['insights', 'insights-dashboard-panel', 'createInsightsDashboardPanelControllerDefinition'],
+  ['exports', 'exports-panel', 'createExportsPanelControllerDefinition'],
 ];
 
 describe('P9 native page shells', () => {
@@ -75,33 +78,32 @@ describe('P9 native page shells', () => {
     },
   );
 
-  it('mounts visitor access through a direct Page include while keeping the other controls intact', () => {
-    const pageRoot = path.join(
-      appRoot,
-      'src',
-      'subpackages',
-      'insights',
-      'pages',
-      'visitor-access',
-    );
-    const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
-    const source = readFileSync(path.join(pageRoot, 'index.ts'), 'utf8');
-    const template = readFileSync(path.join(pageRoot, 'index.wxml'), 'utf8');
-    const styles = readFileSync(path.join(pageRoot, 'index.wxss'), 'utf8');
+  it.each(directPageShells)(
+    'mounts %s through a direct Page include instead of %s injection',
+    (pageName, componentName, controllerFactory) => {
+      const pageRoot = path.join(appRoot, 'src', 'subpackages', 'insights', 'pages', pageName);
+      const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
+      const source = readFileSync(path.join(pageRoot, 'index.ts'), 'utf8');
+      const template = readFileSync(path.join(pageRoot, 'index.wxml'), 'utf8');
+      const styles = readFileSync(path.join(pageRoot, 'index.wxss'), 'utf8');
 
-    expect(source).toContain('createVisitorAccessPanelControllerDefinition');
-    expect(source).toContain('controller.lifetimes.attached.call(this)');
-    expect(config.usingComponents).not.toHaveProperty('visitor-access-panel');
-    expect(config.usingComponents).toMatchObject({
-      'ui-alert': '/components/ui/ui-alert/index',
-      'ui-button': '/components/ui/ui-button/index',
-      'ui-loading': '/components/ui/ui-loading/index',
-    });
-    expect(template.trim()).toBe(
-      '<include src="../../components/visitor-access-panel/index.wxml" />',
-    );
-    expect(styles).toMatch(
-      /@import\s+['"]\.\.\/\.\.\/components\/visitor-access-panel\/index\.wxss['"];/u,
-    );
-  });
+      expect(source).toContain(controllerFactory);
+      expect(source).toContain('controller.lifetimes.attached.call(this)');
+      expect(config.usingComponents).not.toHaveProperty(componentName);
+      expect(config.usingComponents).toMatchObject({
+        'ui-alert': '/components/ui/ui-alert/index',
+        'ui-button': '/components/ui/ui-button/index',
+        'ui-loading': '/components/ui/ui-loading/index',
+      });
+      expect(template.trim()).toBe(
+        `<include src="../../components/${componentName}/index.wxml" />`,
+      );
+      expect(styles).toMatch(
+        new RegExp(
+          `@import\\s+['"]\\.\\.\\/\\.\\.\\/components\\/${componentName}\\/index\\.wxss['"];`,
+          'u',
+        ),
+      );
+    },
+  );
 });

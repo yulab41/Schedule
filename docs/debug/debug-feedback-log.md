@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 统计与导出直接注册根因修复
+
+- 根因闭环：`.43` 访客实体恢复；生产出现 Page `49b3e23b…765f`、controller `e81c5ca2…4e64` 和 visitor aggregates/logs API。`.42` Page 前失败与 `.43` 直接 Page 成功严格对照，确认 requiredComponents 大型 panel 预注入架构是根因。
+- Phase 4：统计与导出精确复用同一直接 Page 模式，业务 controller/WXML/WXSS/API/权限/状态不变，通知不动。旧实现 direct/static 4 项失败，实施后 4 files/25、其余 Mini 85 files/390 通过。
+- 验证：Mini production/source/package/determinism/CI dry-run、根 build/typecheck、任务 format/lint/core smoke/diff 通过；manifest `f0ee2f88…021e`，总包 `6,219,241`、insights `1,777,061`（1.5M warning、低于 1.8M block）。下一候选 `.44` 只收口统计/导出实体结果，包体重复项另开任务。
+
 ## 2026-08-27 P9 访客页直接注册架构验证
 
 - Phase 1：`.42` 三页触发后六个指纹均缺失，四次 telemetry POST 均 204 且只落 workbench 样本，证明失败在 Page `onLoad` 之前。用户按 systematic-debugging 的架构讨论要求，明确批准只对访客页做直接注册实验。
