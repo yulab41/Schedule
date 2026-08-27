@@ -5,15 +5,16 @@
 
 ## 仓库与生产基线（2026-08-27）
 
-- 分支：`main`；本轮开始时 Git/origin/production release 均为
-  `314b21dbfb57299ae9baaab8895d82678bfd50c5`。
-- 当前生产小程序体验候选：`0.1.0-p9.20260827.45`，177 code files，zip
-  `2,361,119` bytes，upload manifest `79ad5571d5d9c03d1030db84ac44ac4b02f32c19250d9268b835b8f479216189`。
-- `.45` 已加入生产版本白名单；global/core/workflows/organization/insights/
+- 分支：`main`；代码 checkpoint、origin 与 production release 均为
+  `50c696ab7d271d62d01984d90acbf3c408b22e6f`。
+- 当前生产小程序体验候选：`0.1.0-p9.20260827.46`，164 code files，zip
+  `2,088,212` bytes，upload manifest `6cbbb9075a82f577d71b8cb77ae56a14147bd68b38b5de82cfe12afe3e19e59e`。
+- `.46` 已通过正式 `schedule-client-version-allowlist ensure` 加入白名单；重复 ensure
+  验证了幂等且没有重建容器。global/core/workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `cd179adc-a650-4f41-836d-2b1329e0c844`（54 表、178,669 行、82,314,752 bytes、
-  SHA-256 `a19705a11462a91bab8adce8a6b811f5403195e0cd2dfd00788bc13ad2aed7ef`）。
+  `1b2d0b06-b291-4143-8050-687325875be9`（54 表、178,964 行、82,411,400 bytes、
+  SHA-256 `2a237225f13d6a49c385d701f42a0f350421ff7ee9279c3b1b9445d615deeb76`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -39,7 +40,7 @@
 仍须按独立可验证 checkpoint、显式暂存、Git push、Mini 体验上传、生产备份、部署和
 verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
-## 本轮已实现待最终验证的代码
+## 本轮已完成并发布的代码
 
 ### Mini Page 架构
 
@@ -77,6 +78,10 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 - 新增可信 `schedule-ecs-reuse-release`：仅当新旧 application/control/schema/archive 哈希
   全同且 rollbackCandidate=当前 release 时，无停机切换 manifest/current-release；否则拒绝
   并要求完整部署。生产备份与完整 verifier 仍强制。
+- clean release worktree 首次真实打包三层 miss；第二次 2.8 秒完成并显示 build
+  `hit (existing)`、dist hit、api-flat hit。cache keys 分别为
+  `af117a98…e4ca3`、`6b3fb887…63460`、`cc01f17f…ab5c5`；第二次没有编译、清理 build
+  输出或执行 pnpm deploy。
 
 ### 按需 Agent 上下文
 
@@ -94,8 +99,8 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 - Mini typecheck/production verify/source/package/determinism/CI dry-run 通过；2/2 Worklet。
 - root build/typecheck 通过。
 - allowlist/release/cache 控制面：4 files / 32 tests 通过；新增 Bash 均通过 Git Bash `bash -n`。
-- 仍需在最终源码上复跑格式、ESLint、root/Mini 全量、package cache miss→hit、
-  `smoke:check-core` 与 `git diff --check`。
+- 主 checkpoint `50c696ab` 已推送；Mini `.46` 官方上传、完整生产部署、正式 allowlist
+  ensure/verify、重复幂等 ensure、两次 full verifier 与远端临时目录清理均通过。
 
 ## 语义与偏差记录
 
@@ -109,17 +114,12 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
 ## 下一步与停止条件
 
-1. 收紧 `recordMiniTelemetryBoundary` 为闭合 marker registry、运行时拒绝和每会话一次；补隐私回归。
-2. 完成 agent-context 索引/status 大小测试、allowlist/cache/updater/verifier 全量回归与格式检查。
-3. 创建并推送 checkpoint `fix(platform): harden mini and release boundaries`（暂定识别消息）。
-4. 从干净 release worktree验证 cache miss→hit；production-profile 上传下一体验版本 `.46`。
-5. 生产数据库备份；第一次完整部署新控制面并运行 full verifier。
-6. 使用正式 `schedule-client-version-allowlist ensure 0.1.0-p9.20260827.46`，再次 full verify。
-7. 创建状态 docs checkpoint；若 artifact hashes 全同，使用 `schedule-ecs-reuse-release` 实际演练
+1. 创建状态 docs checkpoint `docs(status): record p0 p1 hardening deployment`。
+2. 干净 release worktree验证 docs-only build/dist/API-flat 继续全 hit。
+3. 创建新的生产数据库备份，只上传新 manifest，并使用 `schedule-ecs-reuse-release` 实际演练
    无停机同步并再跑 verifier。
-8. 用户在 `.46` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
+4. 用户在 `.46` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
    `已实现并自动验证 → 待用户复核`，不提交审核/正式发布。
 
-停止条件：Git/origin/production release 一致；Mini `.46` 已上传和加入白名单；缓存两次打包显示
-第二次 build/dist/api-flat 全 hit；正式 allowlist、full deploy、hash-identical reuse 和自动回滚门禁均
-通过；所有用户工作树内容未进入提交。
+停止条件：docs checkpoint 的 cache 三层 hit 与生产 hash-identical reuse 通过，Git/origin/production
+release 再次一致；所有用户工作树内容未进入提交。随后只等待 `.46` 实体复核。

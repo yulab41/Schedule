@@ -70,7 +70,7 @@
     },
     {
       "id": "release-cache-and-reuse",
-      "state": "active",
+      "state": "fixed-guarded",
       "signals": ["ECS package", "docs-only deploy", "api-flat", "repeat build", "release cache"],
       "paths": [
         "scripts/package-ecs-release.mjs",
@@ -88,7 +88,7 @@
     },
     {
       "id": "client-version-allowlist",
-      "state": "active",
+      "state": "fixed-guarded",
       "signals": [
         "experience version",
         "allowlist",
@@ -112,7 +112,7 @@
     },
     {
       "id": "anonymous-boundary-telemetry",
-      "state": "active",
+      "state": "fixed-guarded",
       "signals": [
         "boundary telemetry",
         "Page onLoad missing",
