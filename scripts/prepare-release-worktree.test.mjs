@@ -185,5 +185,6 @@ describe('reusable isolated release worktree', () => {
     expect(source).toContain("['diff', '--quiet', '--exit-code']");
     expect(source).toContain("['diff', '--cached', '--quiet', '--exit-code']");
     expect(source).toContain("['ls-files', '--others', '--exclude-standard']");
+    expect(source).toContain("['checkout', '--force', '--detach', commit]");
   });
 });

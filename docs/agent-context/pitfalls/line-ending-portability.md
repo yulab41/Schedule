@@ -8,3 +8,8 @@ Do not weaken token equality tests by normalizing strings. Regenerate tokens whe
 working tree needs one-time LF materialization. Never run broad `git add --renormalize .` in a dirty
 user worktree; new/managed worktrees should rematerialize only tracked files while preserving
 ignored dependencies and caches.
+
+The managed release helper first proves content diff, cached diff, and untracked state are clean,
+then uses a forced detached tracked checkout. This is required because Git may otherwise reject
+stat-only CRLF→LF noise even when blob hashes are identical; never copy that force behavior to an
+ordinary user worktree.

@@ -130,3 +130,7 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 停止条件：`.47` checkpoint/cache/reuse/allowlist/full verifier 通过，Git/origin/production release
 再次一致；所有用户工作树内容未进入提交。随后只等待 `.47`
 实体复核。
+
+补充阻断：持久 release worktree 的 blob hash/content diff 均干净，但 Git checkout 被旧 CRLF→LF
+stat noise 阻断。最终工具 checkpoint 将在 content/cached/untracked 三重 clean 后使用 forced
+detached tracked checkout；ignored node_modules/cache 保留，普通用户 worktree 禁止复用该 force。

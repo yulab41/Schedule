@@ -12,6 +12,7 @@
 - 实际发布：代码 checkpoint `50c696ab` 已推送；clean release 第一次 cache 三层 miss、第二次 2.8 秒 build existing/dist/flat 全 hit。`.46` 官方上传 164 files/zip 2,088,212/manifest `6cbbb907…e19e59e`。备份 `1b2d0b06-b291-4143-8050-687325875be9`（54 表/178964 行/82411400 bytes/SHA `2a237225…eeb76`）后完整部署；正式 allowlist ensure 追加 `.46`，重复 ensure 无重建，trusted verify/full verifier 通过。下一 docs checkpoint 实测 hash-identical 无停机 release。
 - 无停机实测：`f7557992` docs-only 打包 2.9 秒三层 hit；备份 `c6e7abd2-d74e-49a1-a6ee-6d64e12dd7d0` 后只上传 manifest。reuse 前后 API/Web container ID 与 created timestamp 完全相同，工具内前后 verifier 及公网 full verifier 通过。最终状态 checkpoint 识别消息 `docs(status): close p0 p1 hardening`，继续用同路径同步本文件所在 HEAD。
 - 完整 boundary 补齐：最终核对 P1 后，为 directory/group-settings/scheduling-config/invite-visitor/platform-accounts/duty/leave/swap 增加 16 个闭合 Page/controller marker；workflow marker 由 fresh-controller host 在实际 controller 进入前记录。未知值仍运行时拒绝、core 关闭可重试、每会话一次。Mini 91/433、verify 4,688,851 bytes、source/package/determinism/dry-run/core smoke/diff 通过；checkpoint 识别消息 `feat(miniprogram): trace all migrated page boundaries`，下一体验版 `.47`。
+- release worktree EOL 阻断：f715 checkout 时五个实际 blob hash等于 HEAD、`git diff --quiet=0`，但旧 stat-only CRLF→LF 状态仍使普通 checkout 拒绝。新增 helper 回归要求在 content/cached/untracked 全 clean 后使用 forced detached tracked checkout，保留 ignored dependency/cache；checkpoint 识别消息 `fix(tooling): refresh clean release worktree`。
 
 ## 2026-08-27 pnpm 构建脚本策略固定
 

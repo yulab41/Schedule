@@ -10,6 +10,8 @@
  *   node scripts/prepare-release-worktree.mjs --commit <ref> --path <absolute-path>
  */
 
+/* global console, process */
+
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -215,7 +217,10 @@ function prepareRegisteredWorktree(target, commit) {
   }
 
   assertCleanWorktree(target);
-  git(['checkout', '--detach', commit], { cwd: target });
+  // Content/index/untracked checks above prove there is no user work to lose. Force only the
+  // tracked checkout so stat-only CRLF→LF noise cannot block the managed worktree; ignored
+  // node_modules and release caches remain intact.
+  git(['checkout', '--force', '--detach', commit], { cwd: target });
   assertCleanWorktree(target);
   return false;
 }
