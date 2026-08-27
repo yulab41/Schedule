@@ -5,16 +5,17 @@
 
 ## 仓库与生产基线（2026-08-27）
 
-- 分支：`main`；代码 checkpoint、origin 与 production release 均为
-  `50c696ab7d271d62d01984d90acbf3c408b22e6f`。
+- 分支：`main`；运行时代码 checkpoint 为
+  `50c696ab7d271d62d01984d90acbf3c408b22e6f`。最终状态以“包含本文件的 Git HEAD”为
+  Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
 - 当前生产小程序体验候选：`0.1.0-p9.20260827.46`，164 code files，zip
   `2,088,212` bytes，upload manifest `6cbbb9075a82f577d71b8cb77ae56a14147bd68b38b5de82cfe12afe3e19e59e`。
 - `.46` 已通过正式 `schedule-client-version-allowlist ensure` 加入白名单；重复 ensure
   验证了幂等且没有重建容器。global/core/workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `1b2d0b06-b291-4143-8050-687325875be9`（54 表、178,964 行、82,411,400 bytes、
-  SHA-256 `2a237225f13d6a49c385d701f42a0f350421ff7ee9279c3b1b9445d615deeb76`）。
+  `c6e7abd2-d74e-49a1-a6ee-6d64e12dd7d0`（54 表、178,978 行、82,416,400 bytes、
+  SHA-256 `0a7890a8a5719560a7c6a15abbcadd0ae192a9228a52b222526c30fa49d594aa`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -101,6 +102,11 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 - allowlist/release/cache 控制面：4 files / 32 tests 通过；新增 Bash 均通过 Git Bash `bash -n`。
 - 主 checkpoint `50c696ab` 已推送；Mini `.46` 官方上传、完整生产部署、正式 allowlist
   ensure/verify、重复幂等 ensure、两次 full verifier 与远端临时目录清理均通过。
+- 状态 checkpoint `f7557992` 的本地打包继续 2.9 秒三层 hit。生产只上传 manifest 后，
+  `schedule-ecs-reuse-release` 前后 API container ID
+  `5b8ed6e6…45cd74`/created `2026-08-27T10:37:11.855693624Z` 与 Web ID
+  `ba7b789a…672362`/created `2026-08-27T10:37:22.371720913Z` 完全不变；工具内双 verifier
+  与随后带公网 IP full verifier 均通过。
 
 ## 语义与偏差记录
 
@@ -114,12 +120,11 @@ verifier 执行；不得把多任务授权解释为放宽安全门禁。
 
 ## 下一步与停止条件
 
-1. 创建状态 docs checkpoint `docs(status): record p0 p1 hardening deployment`。
-2. 干净 release worktree验证 docs-only build/dist/API-flat 继续全 hit。
-3. 创建新的生产数据库备份，只上传新 manifest，并使用 `schedule-ecs-reuse-release` 实际演练
-   无停机同步并再跑 verifier。
-4. 用户在 `.46` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
+1. 创建最终状态 checkpoint `docs(status): close p0 p1 hardening`，再次以 cache hit +
+   manifest-only reuse 同步“本文件所在 HEAD”。
+2. 用户在 `.46` 实体 Android 复核通知双页及八个预防性迁移页面；此前状态为
    `已实现并自动验证 → 待用户复核`，不提交审核/正式发布。
 
-停止条件：docs checkpoint 的 cache 三层 hit 与生产 hash-identical reuse 通过，Git/origin/production
-release 再次一致；所有用户工作树内容未进入提交。随后只等待 `.46` 实体复核。
+停止条件：最终 docs checkpoint 的 cache 三层 hit 与生产 hash-identical reuse 通过，
+Git/origin/production release 再次一致；所有用户工作树内容未进入提交。随后只等待 `.46`
+实体复核。
