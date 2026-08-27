@@ -21,14 +21,16 @@
   歧义自检、`git diff --check` 与 agent-context policy；checkpoint 识别消息
   `docs(design): specify miniprogram profile parity`。
 
-## 2026-08-27 Mini 工作台顶部通知 Sheet 与群组未读数
+## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
 - 反馈/引入点：顶部铃铛点击只摇动并提示“后续开放”。`git log -S`/`git blame` 确认占位 handler 由 `733e3af6` 引入；P9 通知中心 `1a428d73` 只接入“更多”独立页，未回接顶部入口。`52e9e1f4` 初始通知查询虽筛选 `groupId`，`unreadCount` 却始终计算全账号。
 - 红绿/实现：Client Core/Storybook 旧实现 4 项失败；Mini 工作台/通知/直接 Page/UiSheet 旧实现 11 项失败。现为未读计数和列表返回增加可选群组范围，无参 Web 语义不变；新 `UiSheet` 使用标题区 WXS `setStyle` 跟手、96px/快速下甩门槛和完成/遮罩替代；通知面板复用原控制器并通过 `unreadchanged` 同步当前群组红点。
 - 构建边界：首次 verify 暴露 `notifications-panel/index.wxml` 已复制但 `index.js` 仍被“直接 Page 后不可达”过滤，工作台会只剩 placeholder。新构建回归先红，然后只恢复重新可达的通知组件 entry，controller 仍 bundle-only；产物现同时包含 `index.js/WXML/WXSS`。
 - 视觉：Storybook 直接装配生产 `HomeView/NotificationBell/ResponsiveSheet`；390×844、320×844 和大字号均 ready，无水平溢出，大字号首卡增高后仍由 Sheet 内层滚动。Mini 视觉仍待实体 Android 复核，不以 Storybook 宣称原生通过。
 - 语义审计：通知正文仍只在面板存活期驻留内存，不写缓存/日志；单条和全部已读各保留一次原写请求、Bearer、capability 与陈旧响应保护。工作台先完成核心 ready 再首读未读数，不把通知请求纳入核心 TTI。
-- 验证：API SQL/Client Core/Storybook 3 files/6，Mini build-tools/UiSheet/通知/工作台 7 files/33 通过；Web/Client/API/Mini typecheck，Web/API/Client build，Storybook build，Mini production verify/determinism/package/CI dry-run 通过。Mini 产物 4,558,909 bytes、insights 1,036,350 bytes、manifest `d9abc5a0…d3007a`。根首轮 4 项 5s 超时在资源竞争消失后定向 4 files/13 全绿；当前 Mini 全量仅被并行登录/通讯录 5 项阻断，干净 checkpoint 仍待复跑。本机 Docker daemon/3307 未运行，真实 MySQL 通知用例未运行；SQL condition 无 DB 回归已转绿。完整 browser smoke 因 5173 无服务在 1/6 失败，core smoke 通过。
+- 验证：API SQL/Client Core/Storybook 3 files/6，Mini build-tools/UiSheet/通知/工作台 7 files/33 通过；干净 checkpoint Mini 93 files/448、root 串行 232 files/1,106 通过（37 files/353 tests 按无数据库环境跳过）。全端 typecheck/build、Storybook build、Mini production verify/determinism/package/CI dry-run 通过；2/2 Worklet、4,527,949 bytes、insights 1,033,326 bytes、manifest `66b531c6…17158e2`。本机 Docker daemon/3307 未运行，真实 MySQL 通知用例未运行；SQL condition 无 DB 回归已转绿。完整 browser smoke 因 5173 无服务在 1/6 失败，core smoke 通过。全仓 format 仅剩 13 个既有文件，lint 仅剩未修改 `wx-request-executor.ts:141` 的 `prefer-const`。
+- checkpoint/体验/生产：代码 `304d742f` 已推送。备份 `9c9f2551-965f-4293-91f2-269271e06ba0`（54 表/180,036 行/82,777,068 bytes/SHA `c7b5fb78…9c28`）后完整部署 API/Web，预热首个 502 后恢复。`.52@304d742` 官方上传 170 code files/zip 2,017,665/manifest `c2f45e08…0110`；正式 ensure/verify `.52`、七维 capability、未知版本 426、带公网 IP full verifier 与远端临时目录清理通过。未提审、未正式发布。
+- 当前状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`；最终状态 checkpoint 识别消息 `docs(status): record notification sheet deployment`。
 
 ## 2026-08-27 Mini 年月滚轮 UI 线程架构实现
 

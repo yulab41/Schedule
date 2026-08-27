@@ -3,19 +3,19 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取
 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
-## 仓库与生产基线（2026-08-27）
+## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `99006bad3f723e18c35626b5036aa97f5d79b9df`。最终状态以“包含本文件的 Git HEAD”为
+  `304d742f5f5deaa8678a1ade46ac88ce97c6f95d`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.51@99006ba`，165 code files，zip
-  `1,935,669` bytes，upload manifest `30271052acdcd421cd3145150c0644b5a1db624ca89101e1f9f97322d425b0e3`。
-- `.51` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.52@304d742`，170 code files，zip
+  `2,017,665` bytes，upload manifest `c2f45e08c2316648e60c61a20ee09967e27569602b2f709b4d9caee64dd10110`。
+- `.52` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `0025dcf8-6495-428e-9c4a-6da457e2f680`（54 表、179,887 行、82,728,024 bytes、
-  SHA-256 `e9734a5c4af114c1e97b4e0761e08754fa7f85f517fe1a9e1e2daeb754f4708d`）。
+  `9c9f2551-965f-4293-91f2-269271e06ba0`（54 表、180,036 行、82,777,068 bytes、
+  SHA-256 `c7b5fb785203f8c3ff02a934a6255290e7220f82bff0f2e565407cbe755e9c28`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -39,8 +39,8 @@
   直达工作台和 Web 登录视觉仍为并行未提交内容，本批等待其 checkpoint 后才做头像登录集成。
 - 通知 Sheet/群组未读已实现：API 可选 `groupId`、Client Core、无业务依赖 `UiSheet`、
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
-  构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint 识别消息为
-  `fix(miniprogram): open group notification sheet`，待显式提交/推送/完整部署和下一单调体验上传。
+  构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
+  已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
 - 通讯录切换和群组普通成员权限仍是并行用户工作；本批不接管其 directory 源码或测试。
 - `.51@99006ba` 已完成 `.50` 前向回滚、自动验证、体验上传、生产同步和 allowlist；实体 Android
   “恢复 `.49` 表现”的确认可独立进行，不阻塞非滚轮代码设计。
@@ -122,11 +122,10 @@
 
 - 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
   7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
-- 通知当前树 Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
-  4,558,909 bytes，insights 1,036,350 bytes，manifest `d9abc5a0…d3007a`，产物已包含通知组件 JS。
-- 根测试 231 files/1,112 tests 首轮通过，4 项因并行资源竞争超过 5s；之后定向串行
-  4 files/13 tests 全绿。当前树 Mini 全量的 5 项失败均来自未提交登录/通讯录并行批次；
-  通知测试全绿，干净 checkpoint 全量仍为推送门禁。
+- 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
+  4,527,949 bytes，insights 1,033,326 bytes，manifest `66b531c6…17158e2`，产物已包含通知组件 JS。
+- 通知干净 checkpoint Mini 全量 93 files/448 tests，root 串行 232 files/1,106 tests 通过；
+  37 files/353 tests 按无数据库环境跳过。全端 typecheck/build、Storybook build 和 core smoke 通过。
 - 本机通知 MySQL 集成用例因 Docker daemon/127.0.0.1:3307 未运行而阻塞；已增加无数据库
   SQL condition 回归并通过，双群组真实 MySQL 用例保留给可用 DB 环境。`pnpm smoke:browser`
   因 5173 无服务在第 1/6 步拒绝连接；`pnpm smoke:check-core` 通过。
@@ -171,6 +170,10 @@
 - rollback checkpoint `99006bad` 已推送；`.51` 官方上传 165 files/zip 1,935,669/manifest
   `30271052…b0e3`。备份 `0025dcf8-6495-428e-9c4a-6da457e2f680` 后 trusted reuse，正式
   ensure/verify `.51`、七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
+- 通知 checkpoint `304d742f` 已推送；发布备份
+  `9c9f2551-965f-4293-91f2-269271e06ba0` 后完整部署 API/Web，预热首个 502 后恢复。`.52`
+  官方上传 170 code files/zip 2,017,665/manifest `c2f45e08…0110`；正式 ensure/verify、
+  七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
 
 ## 语义与偏差记录
 
@@ -189,12 +192,14 @@
 - 导航重组不改 API、Bearer、capability、角色权限、空值或业务写入。通讯录查询/分页/偏好、
   Profile 会话清理、工作流操作 receiver 与副作用次数不变；群组切到访客时若正在目录/换班，
   安全回到日历。独立 Page 依赖微信 Page 栈，自带返回按钮并保留系统侧滑返回。
+- 通知只新增当前群组未读 GET 轮询和嵌入展示；无参 Web 未读语义不变。单条/全部已读仍各一次
+  原写请求，Bearer、capability、Promise/catch、陈旧响应保护和通知正文不落盘不变。
 
 ## 下一步与停止条件
 
 1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
-2. 通知批次在干净 checkpoint 重跑 Mini/root 全量后显式提交推送；API 变更必须先备份并完整
-   部署 ECS，再上传下一单调微信体验版、ensure/verify allowlist 并运行 full verifier。
+2. 提交、推送并以可信 reuse 同步通知最终状态 checkpoint，随后只等待 `.52`
+   实体 Android 复核红点、滚动、回弹、下滑、“完成”、遮罩关闭和跨群组隔离。
 3. 测试先行迁入共享 `MyProfileOverview`，增加兼容但暂不返回的 `avatarVersion` 契约。
 4. 并行登录/通讯录 checkpoint 落地后，才进入头像 API 与最终 Mini Profile runtime。
 
