@@ -2,12 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 pnpm 构建脚本策略固定（已实现待 checkpoint）
+## 2026-08-27 pnpm 构建脚本策略固定（已完成并部署）
 
 - 触发链/引入点：pnpm 11 在首次依赖审查时把 `@parcel/watcher`、`@swc/core`、`less`、`protobufjs` 自动写成 `set this to true or false`；该未决 workspace 配置与现有依赖状态不一致，使每个后续 pnpm 命令先尝试安装，再以 `ERR_PNPM_IGNORED_BUILDS` 退出。四项显式决定后，隔离发布 worktree 又证明 helper 的临时 `strictDepBuilds=false` 与普通命令配置指纹不同，仍会多跑一次 install；`allowBuilds` 初始配置来自 `ae649b32`，已执行 `git log -S`/`git blame`。
 - 证据/安全决策：四包在脚本未执行的当前安装中均可直接加载；Parcel Watcher/SWC 由已安装的平台可选二进制提供，Less/ProtobufJS 的 postinstall 不是本项目构建产物来源；Mini 官方 Summer 编译、根 build/typecheck 均已在其脚本被阻止时通过。因此四项明确设为 `false`，不放行新的供应链脚本；既有 `esbuild=true` 不变。
 - 红绿/验证：workspace policy 契约先后在四个占位值及缺少 `verifyDepsBeforeRun=false` 时失败；最终 10/10。显式 `pnpm install --frozen-lockfile` 1.1 秒完成，项目级关闭脚本前自动依赖预检后，多次无 override 的 pnpm exec/Mini verify/root build/typecheck 直接运行；显式 frozen install、发布依赖指纹和 helper install 不变。任务 Prettier/ESLint、`smoke:check-core`、diff check 通过；四个包的现有模块入口均加载成功。
-- checkpoint/下一批：首个 `aa2380a0`（`fix(tooling): stabilize pnpm build policy`）已推送，但在打包验证暴露第二层重复 install 后没有部署；最终 checkpoint 识别消息为 `fix(tooling): disable implicit dependency preflight`。该批不改变 Mini runtime，因此不另传体验版；只部署最终 checkpoint。下一活跃批次仍只迁移 organization 的 directory、group-settings、scheduling-config 三页并停止。
+- checkpoint/发布：首个 `aa2380a0`（`fix(tooling): stabilize pnpm build policy`）已推送，但在打包验证暴露第二层重复 install 后没有单独部署；最终 `51d74dcd7b33d1ac47788327498b7aa54d0c3a4d`（`fix(tooling): disable implicit dependency preflight`）已推送。该批不改变 Mini runtime，未另传体验版。部署前备份 `cee7a5a6-88ee-4ebf-ad9f-1a28e4ffe0af`（54 表、178,654 行、82,309,268 bytes、SHA-256 `d29b64bc0a9995a00e973d999c0675858433775232c814aceef4cfe8c7b3de13`）后部署最终 release；预热一次 502 后恢复、privacy 0/0，完整 verifier、`.45` capability、未知版本拒绝、env/产物/控制面/迁移/Host 隔离均通过，远端临时目录已删除。下一活跃批次仍只迁移 organization 的 directory、group-settings、scheduling-config 三页并停止。
 
 ## 2026-08-27 P9 通知双页直接注册与同类页面审计（已发布待通知双页复核）
 
