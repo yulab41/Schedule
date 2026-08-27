@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -16,11 +17,14 @@ import {
 } from './miniprogram-ci-helpers.mjs';
 
 describe('miniprogram-ci helpers', () => {
-  it('always compiles Worklet functions in official preview and upload builds', () => {
-    expect(MINIPROGRAM_CI_SETTINGS).toMatchObject({
-      compileWorklet: true,
-      ignoreUploadUnusedFiles: false,
-    });
+  it('always compiles Worklets and retains every built component in official uploads', () => {
+    const projectConfig = JSON.parse(
+      readFileSync(path.join(APP_ROOT, 'project.config.json'), 'utf8'),
+    );
+
+    expect(MINIPROGRAM_CI_SETTINGS).toMatchObject({ compileWorklet: true });
+    expect(MINIPROGRAM_CI_SETTINGS).not.toHaveProperty('ignoreUploadUnusedFiles');
+    expect(projectConfig.setting?.ignoreUploadUnusedFiles).toBe(false);
   });
 
   it('supports only preview and experience upload actions', () => {

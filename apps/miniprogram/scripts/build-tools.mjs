@@ -628,7 +628,6 @@ export function auditSourceTree() {
     const requiredTrueSettings = [
       'compileWorklet',
       'es6',
-      'ignoreUploadUnusedFiles',
       'minified',
       'minifyWXML',
       'minifyWXSS',
@@ -642,6 +641,9 @@ export function auditSourceTree() {
     }
     if (projectConfig.setting?.uploadWithSourceMap !== false) {
       issues.push('project.config.json setting.uploadWithSourceMap must be false');
+    }
+    if (projectConfig.setting?.ignoreUploadUnusedFiles !== false) {
+      issues.push('project.config.json setting.ignoreUploadUnusedFiles must be false');
     }
   }
 

@@ -6,8 +6,8 @@
 
 - 复测/定位：用户确认 `.39` 页面高度修复后仍白屏。11:35–11:52 的 `.39` 匿名 workbench 样本正常、无 runtime error，API 仍没有 P9 页面请求，失败点继续位于自定义组件 controller 之前。
 - 失败实验：`728ecaf0` 移除 requiredComponents 后，官方 Summer 编译器以 code 10009 在上传前拒绝“Skyline 必须配置 requiredComponents”；`.40` 没有形成，外部版本/白名单/生产均未变化，配置已恢复。
-- 当前诊断/实现：本地构建 255 files，而 `.38/.39` 官方上传只包含 153 个代码文件；`ignoreUploadUnusedFiles=true` 来自 `3884713b`。不碰用户正在修改的 project config，改由 miniprogram-ci upload setting 强制 `ignoreUploadUnusedFiles=false`，其余 Skyline/页面/controller/能力/业务不变。
-- 红绿/验证：Skyline 必需配置和完整上传设置旧实现 2/12 失败，修复后 12/12；P9/CI/构建 13 files/63，先前其余 Mini 83 files/384 通过。Mini verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint/core smoke 通过；manifest `985a8f6c…b2f0`，总包 `5,759,536` bytes、insights `1,317,455` bytes。
+- 上传实验：本地构建 255 files，而 `.38/.39` 官方上传只包含 153 个代码文件；`ignoreUploadUnusedFiles=true` 来自 `3884713b`。`30b967eb` 通过 CI setting 传 false 后 `.40` 仍为 153 files/zip `1,404,416`/manifest `2e4105b0…9a15`，因此未加白名单、未部署、不要求用户复测。
+- 最终实现/验证：在 project config 把裁剪开关改为 false，移除无效 CI override，并更新 source audit；同文件用户其他改动原样保留且只部分暂存目标行。工程配置/CI/页面壳 3 files/18、P9/CI/构建 13 files/63、先前其余 Mini 83 files/384 通过；Mini verify manifest `ff288b71…7664`、总包 `5,759,536` bytes、insights `1,317,455` bytes。最终候选改为 `.41`，只有官方文件数增加才继续部署。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏
 

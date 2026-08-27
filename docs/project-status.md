@@ -7,9 +7,10 @@
 - 复测/证据：用户确认 `.39` 仍然白屏卡死。生产匿名遥测在 11:35–11:52 持续收到 `.39` workbench 性能样本且无 `MINI_RUNTIME_ERROR`；API 仍未收到访客、事件/统计、通知偏好或导出请求，确认 P9 自定义组件 controller 没有执行。
 - 失败实验：checkpoint `728ecaf0` 曾移除 `lazyCodeLoading` 以排除选择性注入，但官方 Summer 编译器在形成 `.40` 前以 code `10009` 明确拒绝：全局 Skyline 必须配置 `lazyCodeLoading: requiredComponents`。该版本未生成、未上传、未进白名单、未部署；随后已恢复编译器必需配置。
 - 引入点/当前诊断：`ignoreUploadUnusedFiles=true` 自迁移脚手架 `3884713b` 起启用；本地确定性产物为 255 files，但 `.38/.39` 官方上传日志都只打入 153 个代码文件。结合页面导航成功而 P9 component/controller 完全不执行，当前单一变量转为官方“未使用文件”裁剪误判。已执行 `git log -S`/`git blame`。
-- 实现/边界：保持用户正在修改的 `project.config.json` 原样，改由 Node `miniprogram-ci` 的 preview/upload setting 显式传入 `ignoreUploadUnusedFiles=false`，要求官方包包含完整组件依赖；同时保留 Skyline requiredComponents、glass-easel、分包、页面/controller、API、权限、capability、缓存和业务数据不变。
-- 红绿/验证：恢复 Skyline 必需配置与完整上传设置的两项契约在旧实现 2/12 失败，修复后 12/12；P9/CI/构建定向 13 files/63 tests，先前同轮其余 Mini 83 files/384 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint 与 `smoke:check-core` 通过；manifest `985a8f6c50ce274e1ca56fd6a3bb7f0e36ade2a9b82ad5172b81af42891eb2f0`，总包 `5,759,536` bytes，insights `1,317,455` bytes。
-- checkpoint/下一步：纠正 checkpoint 识别消息为 `fix(miniprogram): upload complete component package`。提交、推送后重新上传 production-profile `.40`；上传日志必须显示完整文件数增加，随后备份、部署、原子加入白名单和 verifier，再由用户安卓真机复核五个 P9 页面。停止条件是 `.40` 闭环后等待实体结果，不再修改页面布局或业务 controller，不提交审核/正式发布。
+- 上传实验：checkpoint `30b967eb` 通过 miniprogram-ci `setting` 传入 false 后上传 `.40`，但官方日志仍为 153 files/zip `1,404,416` bytes/manifest `2e4105b0a9700abc49ed9f36f9bac9bb580da7a663c92e3f6da1037c09759a15`，证明该参数没有覆盖工程配置。`.40` 已形成体验候选，但因包文件数未变化而没有加入白名单、没有部署、无需用户复测。
+- 实现/边界：最终在 `project.config.json` 把 `ignoreUploadUnusedFiles` 改为 false，并同步 source audit 门禁；用户在同文件新增的其他编译器/基础库设置完整保留，checkpoint 只部分暂存这一行。移除无效的 CI 参数覆盖，保留 Skyline requiredComponents、glass-easel、分包、页面/controller、API、权限、capability、缓存和业务数据不变。
+- 红绿/验证：工程配置/CI/页面壳三文件 3 files/18 tests 通过；P9/CI/构建定向 13 files/63 tests，先前同轮其余 Mini 83 files/384 tests 通过。Mini typecheck/production verify 通过；manifest `ff288b714feecdd497063895fd236e0f0d2f136c3c318bf1bd5397d5eb437664`，总包 `5,759,536` bytes，insights `1,317,455` bytes。其余 source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint 与 `smoke:check-core` 在同轮通过，提交前按最终配置复核。
+- checkpoint/下一步：最终纠正 checkpoint 识别消息为 `fix(miniprogram): retain complete upload files`。提交、推送后上传 production-profile `.41`；只有官方文件数明确高于 153 才继续备份、部署、白名单和用户安卓复核，否则停止外部变更并回到页面直接注册方案。不提交审核/正式发布。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏修复（已发布但未解决）
 

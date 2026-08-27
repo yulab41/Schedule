@@ -2,7 +2,7 @@
   "setting": {
     "compileWorklet": true,
     "es6": true,
-    "ignoreUploadUnusedFiles": true,
+    "ignoreUploadUnusedFiles": false,
     "postcss": true,
     "minified": true,
     "minifyWXML": true,
