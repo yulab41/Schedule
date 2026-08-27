@@ -54,9 +54,9 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(template).toMatch(/activeWorkspace === 'more'[\s\S]*?群组管理/u);
     expect(template).toContain('手动排班');
     expect(template).toContain('排班补录');
-    expect(source).not.toContain('/subpackages/organization/pages/group-settings/index?groupId=');
-    expect(template).toContain('<group-settings-panel');
-    expect(template).toContain("activeWorkspace !== 'group'");
+    expect(source).toContain("'/subpackages/organization/pages/group-settings/index'");
+    expect(template).not.toContain('<group-settings-panel');
+    expect(template).not.toContain("activeWorkspace !== 'group'");
     expect(source).toContain("selectedGroup.role !== 'guest'");
     expect(template).toMatch(/data-label="更多"[\s\S]*?bindtap="handleMoreNav"/u);
   });
@@ -89,17 +89,20 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(readFileSync(path.join(componentRoot, 'controller.ts'), 'utf8')).toContain("'撤回同意'");
   });
 
-  it('reuses the group settings controller as an embedded workbench panel', () => {
-    const componentJson = JSON.parse(readFileSync(path.join(componentRoot, 'index.json'), 'utf8'));
-    const componentTemplate = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
-    const componentStyles = readFileSync(path.join(componentRoot, 'index.wxss'), 'utf8');
+  it('reuses the group settings controller in a standalone direct Page', () => {
+    const buildTools = readFileSync(path.join(miniRoot, 'scripts', 'build-tools.mjs'), 'utf8');
+    const pageSource = readPageFile('ts');
+    const workbenchJson = JSON.parse(
+      readFileSync(path.join(sourceRoot, 'pages', 'workbench', 'index.json'), 'utf8'),
+    );
 
-    expect(componentJson.component).toBe(true);
-    expect(componentJson.styleIsolation).toBe('apply-shared');
-    expect(componentTemplate).toContain('wx:if="{{!embedded}}"');
-    expect(componentStyles).toContain('.group-settings-page.is-embedded');
     expect(readPageFile('wxml').trim()).toBe(
       '<include src="../../components/group-settings-panel/index.wxml" />',
+    );
+    expect(pageSource).toContain('createGroupSettingsPanelControllerDefinition(false)');
+    expect(workbenchJson.usingComponents['group-settings-panel']).toBeUndefined();
+    expect(buildTools).toContain(
+      "'subpackages/organization/components/group-settings-panel/index.ts'",
     );
   });
 

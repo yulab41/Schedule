@@ -1,0 +1,257 @@
+.profile-scroll {
+  width: 100%;
+  height: 100%;
+  background: var(--ui-color-background);
+}
+.profile-page {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px 28px;
+  color: var(--ui-color-text-primary);
+}
+.profile-header,
+.identity-card,
+.setting-row {
+  display: flex;
+}
+.profile-header {
+  min-height: 52px;
+  align-items: center;
+  gap: 8px;
+}
+.header-back {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+}
+.header-back.is-pressed {
+  background: var(--ui-color-surface-muted);
+}
+.header-back image {
+  width: 20px;
+  height: 20px;
+}
+.header-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.header-eyebrow,
+.section-kicker {
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.header-title {
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 1.1;
+}
+.build-label {
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+}
+.identity-card,
+.section-card,
+.profile-state {
+  box-sizing: border-box;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
+}
+.identity-card {
+  align-items: center;
+  gap: 12px;
+}
+.profile-avatar {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  place-items: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: 18px;
+  font-size: 25px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+.identity-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+.identity-name {
+  overflow: hidden;
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.identity-role,
+.identity-version,
+.setting-copy,
+.session-copy,
+.privacy-note,
+.state-copy {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-body);
+}
+.status-pill {
+  padding: 4px 8px;
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+}
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.section-title {
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.setting-row {
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.setting-row:last-child {
+  border-bottom: 0;
+}
+.setting-title {
+  display: block;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.setting-value,
+.row-action {
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-xs);
+}
+.row-action,
+.secondary-action,
+.signout-action,
+.primary-action {
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 12px;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.row-action {
+  padding: 0 10px;
+  background: transparent;
+}
+.session-copy {
+  display: block;
+  padding: 12px 0;
+}
+.secondary-action,
+.primary-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  text-decoration: none;
+}
+.signout-action {
+  width: 100%;
+  margin-top: 12px;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+}
+.profile-state {
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  text-align: center;
+}
+.state-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: 50%;
+  font-size: 24px;
+}
+.state-title {
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.state-copy {
+  max-width: 300px;
+}
+.primary-action {
+  width: 160px;
+  margin-top: 6px;
+  background: var(--ui-color-primary);
+  color: #fff;
+}
+.privacy-note {
+  display: block;
+  margin-top: 18px;
+  padding: 0 2px;
+  text-align: center;
+}
+.is-large-text .header-title {
+  font-size: 30px;
+}
+.is-large-text .identity-name,
+.is-large-text .section-title {
+  font-size: 21px;
+}
+.is-large-text .setting-title,
+.is-large-text .row-action,
+.is-large-text .secondary-action,
+.is-large-text .signout-action {
+  font-size: 18px;
+}
+.is-large-text .setting-copy,
+.is-large-text .session-copy,
+.is-large-text .privacy-note {
+  font-size: 16px;
+}
+.is-large-text .identity-card {
+  align-items: flex-start;
+}
+.is-large-text .identity-name {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-all;
+}
+.is-large-text .identity-role,
+.is-large-text .identity-version,
+.is-large-text .status-pill {
+  font-size: 16px;
+}
+.is-large-text .setting-row {
+  align-items: flex-start;
+  padding: 8px 0;
+}
+.is-large-text .setting-row > view:first-child {
+  min-width: 0;
+  flex: 1;
+}

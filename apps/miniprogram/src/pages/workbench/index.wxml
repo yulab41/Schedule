@@ -39,9 +39,9 @@
         </view>
       </view>
       <text class="shell-page-title"
-        >{{activeWorkspace === 'calendar' ? '日历' : activeWorkspace === 'leave' ? '请假' :
-        activeWorkspace === 'swap' ? '换班' : activeWorkspace === 'duty' ? '加扣班' :
-        activeWorkspace === 'group' ? '群组管理' : '更多'}}</text
+        >{{activeWorkspace === 'calendar' ? '日历' : activeWorkspace === 'directory' ? '通讯录' :
+        activeWorkspace === 'swap' ? '换班' : activeWorkspace === 'profile' ? '我的' :
+        '更多'}}</text
       >
     </view>
     <view class="shell-actions" style="{{shellActionsStyle}}">
@@ -61,7 +61,7 @@
         hover-class="is-pressed"
         aria-role="button"
         aria-label="打开我的"
-        bindtap="handleProfile"
+        bindtap="handleProfileNav"
       >
         <view class="top-icon profile-icon {{profileAnimating ? 'is-animating' : ''}}">
           <image class="top-icon-image" src="/assets/icons/web-profile.svg" mode="aspectFit" />
@@ -656,16 +656,16 @@
   </scroll-view>
 
   <view
-    wx:if="{{workflowPanelsMounted}}"
+    wx:if="{{directoryMounted}}"
     class="embedded-workspace"
     style="--workspace-top:{{shellHeaderHeight}}px"
-    hidden="{{activeWorkspace !== 'leave'}}"
+    hidden="{{activeWorkspace !== 'directory'}}"
   >
-    <workflow-leave-panel
+    <directory-panel
+      directory-kind="internal"
       group-id="{{currentGroupId}}"
       embedded="{{true}}"
-      bind:calendarchanged="handleWorkflowCalendarChanged"
-    ></workflow-leave-panel>
+    ></directory-panel>
   </view>
   <view
     wx:if="{{workflowPanelsMounted}}"
@@ -680,24 +680,12 @@
     ></workflow-swap-panel>
   </view>
   <view
-    wx:if="{{workflowPanelsMounted}}"
+    wx:if="{{profileMounted}}"
     class="embedded-workspace"
     style="--workspace-top:{{shellHeaderHeight}}px"
-    hidden="{{activeWorkspace !== 'duty'}}"
+    hidden="{{activeWorkspace !== 'profile'}}"
   >
-    <workflow-duty-panel
-      group-id="{{currentGroupId}}"
-      embedded="{{true}}"
-      bind:calendarchanged="handleWorkflowCalendarChanged"
-    ></workflow-duty-panel>
-  </view>
-  <view
-    wx:if="{{groupSettingsMounted}}"
-    class="embedded-workspace"
-    style="--workspace-top:{{shellHeaderHeight}}px"
-    hidden="{{activeWorkspace !== 'group'}}"
-  >
-    <group-settings-panel group-id="{{currentGroupId}}" embedded="{{true}}"></group-settings-panel>
+    <profile-panel embedded="{{true}}"></profile-panel>
   </view>
   <scroll-view
     wx:if="{{activeWorkspace === 'more'}}"
@@ -710,128 +698,166 @@
     <view class="more-workspace-content">
       <view class="more-heading">
         <text>更多工具</text>
-        <text>管理群组与排班编辑工具。</text>
+        <text>管理群组、排班、通知与访问工具。</text>
       </view>
-      <view class="more-card">
-        <view
-          class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canOpenGroupSettings}}"
-          bindtap="handleOpenGroupSettings"
-        >
-          <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
-          <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+      <view class="more-section">
+        <text class="more-section-title">群组与排班</text>
+        <view class="more-card">
+          <view
+            class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canOpenGroupSettings}}"
+            bindtap="handleOpenGroupSettings"
+          >
+            <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+            <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenManualSchedule"
+          >
+            <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+            <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenBackfill"
+          >
+            <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+            <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{workflowPanelsMounted ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!workflowPanelsMounted}}"
+            bindtap="handleOpenLeave"
+          >
+            <image src="/assets/icons/web-leave.svg" mode="aspectFit" />
+            <view><text>请假</text><text>提交请假并处理待审批申请</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{workflowPanelsMounted ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!workflowPanelsMounted}}"
+            bindtap="handleOpenDuty"
+          >
+            <image src="/assets/icons/web-duty.svg" mode="aspectFit" />
+            <view><text>加扣班</text><text>发起代值、加班或扣班调整</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenSchedulingConfig"
+          >
+            <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+            <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
         </view>
-        <view
-          class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canOpenGroupSettings}}"
-          bindtap="handleOpenDirectory"
-        >
-          <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
-          <view><text>院内通讯录</text><text>搜索院区、科室和工作号码</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+      </view>
+
+      <view class="more-section">
+        <text class="more-section-title">信息与通知</text>
+        <view class="more-card">
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenInsights"
+          >
+            <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+            <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canOpenGroupSettings}}"
+            bindtap="handleOpenNotificationSettings"
+          >
+            <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+            <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenNotifications"
+          >
+            <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+            <view><text>通知中心</text><text>查看排班、请假与换班提醒</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenExports"
+          >
+            <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+            <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
         </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenSchedulingConfig"
-        >
-          <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
-          <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canOpenGroupSettings}}"
-          bindtap="handleOpenNotificationSettings"
-        >
-          <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
-          <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenPlatformAccounts"
-        >
-          <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
-          <view><text>平台账号</text><text>仅平台管理员可分配用户名与绑定链接</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenInviteVisitor"
-        >
-          <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
-          <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenVisitorAccess"
-        >
-          <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
-          <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenInsights"
-        >
-          <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
-          <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenNotifications"
-        >
-          <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
-          <view><text>通知中心</text><text>查看排班、请假与换班提醒</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenExports"
-        >
-          <image src="/assets/icons/web-history.svg" mode="aspectFit" />
-          <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenManualSchedule"
-        >
-          <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
-          <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
-        </view>
-        <view
-          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
-          aria-role="button"
-          aria-disabled="{{!canManageScheduleTools}}"
-          bindtap="handleOpenBackfill"
-        >
-          <image src="/assets/icons/web-history.svg" mode="aspectFit" />
-          <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
-          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+      </view>
+
+      <view class="more-section">
+        <text class="more-section-title">访问与平台</text>
+        <view class="more-card">
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenInviteVisitor"
+          >
+            <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+            <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenVisitorAccess"
+          >
+            <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
+            <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
+          <view
+            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{!canManageScheduleTools}}"
+            bindtap="handleOpenPlatformAccounts"
+          >
+            <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+            <view><text>平台账号</text><text>仅平台管理员可分配用户名与绑定链接</text></view>
+            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+          </view>
         </view>
       </view>
     </view>
@@ -1002,25 +1028,25 @@
       ><text>日历</text></view
     >
     <view
-      class="bottom-nav-item {{activeWorkspace === 'leave' ? 'is-active' : ''}} {{workflowsEnabled ? '' : 'is-disabled'}}"
-      data-label="请假"
-      data-motion="leave"
-      aria-disabled="{{!workflowsEnabled}}"
+      class="bottom-nav-item {{activeWorkspace === 'directory' ? 'is-active' : ''}} {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+      data-label="通讯录"
+      data-motion="directory"
+      hover-class="is-pressed"
+      aria-current="{{activeWorkspace === 'directory' ? 'page' : ''}}"
+      aria-disabled="{{!canOpenGroupSettings}}"
       aria-role="button"
-      bindtap="handleLeaveNav"
-      ><view class="nav-icon nav-leave {{navMotion === 'leave' ? 'is-animating' : ''}}"
-        ><image class="nav-icon-image" src="/assets/icons/web-leave.svg" mode="aspectFit" />
-        <image
-          class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/web-leave-minus.svg"
-          mode="aspectFit" /></view
-      ><text>请假</text></view
+      bindtap="handleDirectoryNav"
+      ><view class="nav-icon nav-directory"
+        ><image class="nav-icon-image" src="/assets/icons/web-directory.svg" mode="aspectFit" /></view
+      ><text>通讯录</text></view
     >
     <view
-      class="bottom-nav-item {{activeWorkspace === 'swap' ? 'is-active' : ''}} {{workflowsEnabled ? '' : 'is-disabled'}}"
+      class="bottom-nav-item {{activeWorkspace === 'swap' ? 'is-active' : ''}} {{workflowPanelsMounted ? '' : 'is-disabled'}}"
       data-label="换班"
       data-motion="swap"
-      aria-disabled="{{!workflowsEnabled}}"
+      hover-class="is-pressed"
+      aria-current="{{activeWorkspace === 'swap' ? 'page' : ''}}"
+      aria-disabled="{{!workflowPanelsMounted}}"
       aria-role="button"
       bindtap="handleSwapNav"
       ><view class="nav-icon nav-swap {{navMotion === 'swap' ? 'is-animating' : ''}}"
@@ -1035,20 +1061,24 @@
       ><text>换班</text></view
     >
     <view
-      class="bottom-nav-item {{activeWorkspace === 'duty' ? 'is-active' : ''}} {{workflowsEnabled ? '' : 'is-disabled'}}"
-      data-label="加扣班"
-      data-motion="duty"
-      aria-disabled="{{!workflowsEnabled}}"
+      class="bottom-nav-item {{activeWorkspace === 'profile' ? 'is-active' : ''}}"
+      data-label="我的"
+      data-motion="profile"
+      hover-class="is-pressed"
+      aria-current="{{activeWorkspace === 'profile' ? 'page' : ''}}"
+      aria-disabled="false"
       aria-role="button"
-      bindtap="handleDutyNav"
-      ><view class="nav-icon nav-adjustment {{navMotion === 'duty' ? 'is-animating' : ''}}"
-        ><image class="nav-icon-image" src="/assets/icons/web-duty.svg" mode="aspectFit" /></view
-      ><text>加扣班</text></view
+      bindtap="handleProfileNav"
+      ><view class="nav-icon nav-profile {{profileAnimating ? 'is-animating' : ''}}"
+        ><image class="nav-icon-image" src="/assets/icons/web-profile.svg" mode="aspectFit" /></view
+      ><text>我的</text></view
     >
     <view
-      class="bottom-nav-item {{activeWorkspace === 'more' || activeWorkspace === 'group' ? 'is-active' : ''}}"
+      class="bottom-nav-item {{activeWorkspace === 'more' ? 'is-active' : ''}}"
       data-label="更多"
       data-motion="more"
+      hover-class="is-pressed"
+      aria-current="{{activeWorkspace === 'more' ? 'page' : ''}}"
       aria-disabled="false"
       aria-role="button"
       bindtap="handleMoreNav"

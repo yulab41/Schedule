@@ -46,7 +46,7 @@ import {
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
-type ActiveWorkspace = 'calendar' | 'duty' | 'group' | 'leave' | 'more' | 'swap';
+type ActiveWorkspace = 'calendar' | 'directory' | 'more' | 'profile' | 'swap';
 type FilterField = '' | 'member' | 'role' | 'shift';
 type FilterDropdownDirection = 'down' | 'up';
 
@@ -95,6 +95,7 @@ interface WorkbenchPageData {
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
   readonly canReLogin: boolean;
+  readonly directoryMounted: boolean;
   readonly errorMessage: string;
   readonly expandedDetailKey: string;
   readonly filterIconAnimating: boolean;
@@ -112,7 +113,6 @@ interface WorkbenchPageData {
   readonly filterShiftTypeSummary: string;
   readonly filterMemberSummary: string;
   readonly groupOpen: boolean;
-  readonly groupSettingsMounted: boolean;
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
   readonly listPanels: WorkbenchViewModel['listPanels'];
@@ -128,6 +128,7 @@ interface WorkbenchPageData {
   readonly periodSwiperDuration: number;
   readonly performanceEvidence: string;
   readonly profileAnimating: boolean;
+  readonly profileMounted: boolean;
   readonly scrollTarget: string;
   readonly shellActionsStyle: string;
   readonly shellHeaderHeight: number;
@@ -192,6 +193,7 @@ Page({
     currentGroupName: '正在读取群组',
     currentGroupRole: '',
     canReLogin: false,
+    directoryMounted: false,
     errorMessage: '',
     expandedDetailKey: '',
     filterIconAnimating: false,
@@ -209,7 +211,6 @@ Page({
     filterShiftTypeSummary: '全部班种',
     filterMemberSummary: '全部成员',
     groupOpen: false,
-    groupSettingsMounted: false,
     groups: [],
     gridHeight: 270,
     listPanels: [],
@@ -225,6 +226,7 @@ Page({
     periodSwiperDuration: 260,
     performanceEvidence: '',
     profileAnimating: false,
+    profileMounted: false,
     scrollTarget: '',
     shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
     shellHeaderHeight: 64,
@@ -307,13 +309,19 @@ Page({
     }
     const ownerId = getStoredWechatProfile()?.id;
     if (ownerId === undefined) return;
+    const selectedGroup = this.data.groups.find((group) => group.id === groupId);
+    const activeWorkspace =
+      selectedGroup?.role === 'guest' &&
+      (this.data.activeWorkspace === 'directory' || this.data.activeWorkspace === 'swap')
+        ? 'calendar'
+        : this.data.activeWorkspace;
     writeStoredWorkbenchGroupId(ownerId, groupId);
     this.calendar = undefined;
     this.holidays = undefined;
     this.monthRingSlot = 1;
     this.monthResources.clear();
     this.setData({
-      activeWorkspace: this.data.activeWorkspace === 'group' ? 'more' : this.data.activeWorkspace,
+      activeWorkspace,
       activeFilterCount: 0,
       businessMonth: initialMonth,
       currentGroupId: groupId,
@@ -326,7 +334,6 @@ Page({
       filterShiftTypeIds: [],
       filterShiftTypeSummary: '全部班种',
       groupOpen: false,
-      groupSettingsMounted: false,
       selectedDate: today,
       selectedLabel: formatDateLabel(today),
       weekStart: getWeekStartDate(today),
@@ -335,8 +342,13 @@ Page({
   },
 
   handleOpenGroupSettings(this: WorkbenchPageInstance): void {
-    if (!this.data.canOpenGroupSettings || this.data.currentGroupId === '') return;
-    this.setData({ activeWorkspace: 'group', groupOpen: false, groupSettingsMounted: true });
+    if (!this.data.canOpenGroupSettings) {
+      announceToolNavigationFailure(this, '当前群组无权打开群组管理。');
+      return;
+    }
+    navigateGroupTool(this, '/subpackages/organization/pages/group-settings/index', {
+      allowMembers: true,
+    });
   },
 
   handleViewChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -618,9 +630,18 @@ Page({
     });
   },
 
-  handleLeaveNav(this: WorkbenchPageInstance): void {
-    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'leave' }));
-    void openWorkflowWorkspace(this, 'leave');
+  handleDirectoryNav(this: WorkbenchPageInstance): void {
+    if (!this.data.canOpenGroupSettings || this.data.currentGroupId === '') {
+      announceToolNavigationFailure(this, '当前群组不能使用通讯录。');
+      return;
+    }
+    this.setData({
+      activeWorkspace: 'directory',
+      directoryMounted: true,
+      filterOpen: false,
+      groupOpen: false,
+      navMotion: '',
+    });
   },
 
   handleSwapNav(this: WorkbenchPageInstance): void {
@@ -628,9 +649,17 @@ Page({
     void openWorkflowWorkspace(this, 'swap');
   },
 
-  handleDutyNav(this: WorkbenchPageInstance): void {
-    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'duty' }));
-    void openWorkflowWorkspace(this, 'duty');
+  handleProfileNav(this: WorkbenchPageInstance): void {
+    this.setData(
+      {
+        activeWorkspace: 'profile',
+        filterOpen: false,
+        groupOpen: false,
+        profileAnimating: false,
+        profileMounted: true,
+      },
+      () => this.setData({ profileAnimating: true }),
+    );
   },
 
   handleWorkflowCalendarChanged(
@@ -661,6 +690,14 @@ Page({
 
   handleOpenBackfill(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, '/subpackages/scheduling/pages/backfill/index');
+  },
+
+  handleOpenLeave(this: WorkbenchPageInstance): void {
+    void navigateWorkflowTool(this, '/subpackages/workflows/pages/leave/index');
+  },
+
+  handleOpenDuty(this: WorkbenchPageInstance): void {
+    void navigateWorkflowTool(this, '/subpackages/workflows/pages/duty/index');
   },
 
   handleOpenSchedulingConfig(this: WorkbenchPageInstance): void {
@@ -694,13 +731,6 @@ Page({
     });
   },
 
-  handleOpenDirectory(this: WorkbenchPageInstance): void {
-    if (!this.data.canOpenGroupSettings) return;
-    navigateGroupTool(this, '/subpackages/organization/pages/directory/index', {
-      allowMembers: true,
-    });
-  },
-
   handleOpenExports(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, '/subpackages/insights/pages/exports/index');
   },
@@ -708,13 +738,6 @@ Page({
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });
-    });
-  },
-
-  handleProfile(this: WorkbenchPageInstance): void {
-    this.setData({ profileAnimating: false }, () => {
-      this.setData({ profileAnimating: true });
-      wx.navigateTo({ url: '/pages/profile/index' });
     });
   },
 
@@ -848,7 +871,6 @@ async function loadWorkbench(
             ? '离线只读 · 显示最近一次成功读取的排班'
             : '',
         state: groupSnapshotOffline || activeResult.offline ? 'offline' : 'ready',
-        groupSettingsMounted: selectedGroup.role !== 'guest',
       },
       () => {
         completeCoreReadyProbe(page);
@@ -929,7 +951,7 @@ function syncWorkflowsCapability(page: WorkbenchPageInstance): void {
 
 async function openWorkflowWorkspace(
   page: WorkbenchPageInstance,
-  workspace: 'duty' | 'leave' | 'swap',
+  workspace: 'swap',
 ): Promise<void> {
   try {
     await requireClientCapability('workflows');
@@ -948,6 +970,27 @@ async function openWorkflowWorkspace(
           ? error.message
           : '工作流页面暂时无法打开，请稍后重试。',
     });
+  }
+}
+
+async function navigateWorkflowTool(page: WorkbenchPageInstance, route: string): Promise<void> {
+  try {
+    await requireClientCapability('workflows');
+    syncWorkflowsCapability(page);
+    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
+    if (group === undefined || group.role === 'guest') {
+      announceToolNavigationFailure(page, '当前群组不能使用工作流功能。');
+      return;
+    }
+    navigateGroupTool(page, route, { allowMembers: true });
+  } catch (error) {
+    syncWorkflowsCapability(page);
+    announceToolNavigationFailure(
+      page,
+      error instanceof ClientCapabilityDisabledError
+        ? error.message
+        : '工作流页面暂时无法打开，请稍后重试。',
+    );
   }
 }
 
@@ -973,9 +1016,11 @@ function navigateGroupTool(
 
 function announceToolNavigationFailure(page: WorkbenchPageInstance, message: string): void {
   page.setData({ announcement: message });
-  const showToast = (wx as unknown as {
-    readonly showToast?: (options: { readonly icon: 'none'; readonly title: string }) => void;
-  }).showToast;
+  const showToast = (
+    wx as unknown as {
+      readonly showToast?: (options: { readonly icon: 'none'; readonly title: string }) => void;
+    }
+  ).showToast;
   showToast?.({ icon: 'none', title: message });
 }
 

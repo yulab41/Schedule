@@ -23,22 +23,21 @@
 以下内容在本轮开始前已存在或由用户并行维护；不得删除、覆盖或整文件暂存：
 
 - `apps/miniprogram/project.config.json`：用户 compiler/libVersion 设置。
-- `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；当前批次不暂存。
+- `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
+  暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
 - `runtime/external-project-worktrees/` 中未落地 P10 worktree 必须保留。
 
 ## 当前活动批次
 
-- 用户在 `.47` 实体 Android 反馈年月滚轮同向停止后立即反向拖动会卡住，并要求使用
-  systematic debugging 及微信、Android、Apple 官方文档排查。
-- 根因已定位为 320ms 受控吸附没有被新触摸中断，且陈旧 `scrollend` 可在新触摸期间重启吸附；
-  引入链为 `80ddadf0` → `c1b9536a` → `0975b2d1`。
-- 旧实现回归已先红；当前单一修复清理同滚轮 animation timer/owner，并在触摸期间拒绝重启吸附。
-  不改 WXML/WXSS、日期日历、年月值、完成/取消事件或业务请求。
-- 状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`。代码 checkpoint
-  `f6be9cdb` 已推送；最终状态 checkpoint 识别消息为
-  `docs(status): record wheel snap deployment`。
+- `.48@f6be9cd` 年月滚轮反向接管保持 `已完成并发布 → 待实体 Android 复核`；本轮不改
+  workflow picker 或其回归。
+- 用户已确认工作台底栏改为“日历、通讯录、换班、我的、更多”；前四项在工作台内切换，
+  “更多”三组展示，群组管理/请假/加扣班等使用独立 Page 返回栈。
+- 新导航旧实现回归 5/5 先红；当前代码与自动验证已完成，checkpoint 识别消息为
+  `feat(miniprogram): align workbench navigation with web`。尚待显式暂存、推送、下一体验上传、
+  生产备份/reuse/full verifier 与实体 Android 复核。
 
 ## 已完成的发布基线与当前修复
 
@@ -53,8 +52,10 @@
 
 - 已把 directory、group-settings、scheduling-config、invite-visitor、platform-accounts、
   duty、leave、swap 八个薄壳改为直接 Page 注册并静态 include/import 原 WXML/WXSS。
-- group-settings 与三套 workflow component 仍被工作台嵌入，必须保留 component `index.js`；
-  只回收不可达 controller 输出。其余四套 organization wrapper/controller 均回收。
+- 工作台现只嵌入 directory、profile 与 swap：directory/profile 首次进入后常驻 hidden；
+  group-settings、leave、duty 改用独立 Page，相关不可达 component `index.js` 被回收。
+- profile Page 与 workbench component 共用 controller/WXML/WXSS，Page 仍为静态 include/import；
+  directory Page 明确 `embedded=false`，工作台 component 为 `embedded=true`。
 - workflow direct Page 通过共享 host adapter 保留 picker 协调、infoMessage 2 秒 timer、
   setData callback、onShow/onHide/onUnload 和每实例独立 Map/数组；不能简化为 `Page(factory())`。
 - 通用 `thin-page-boundary.test.mjs` 禁止重新引入“Page 全模板只有一个业务 panel”。
@@ -105,10 +106,10 @@
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
-- Mini 全量：91 files / 434 tests 通过。
+- Mini 全量：92 files / 440 tests 通过；导航定向 12 files / 77 tests 通过。
 - root Vitest：233 files / 1,113 tests 通过；37 files / 352 tests 按无数据库环境跳过。
-- Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,689,130 bytes，manifest
-  `20c89aa38e29f529b5812a5943b4b4e4ab1fdfa64fc2ae35578f7bb5495fa7ea`。
+- Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,343,850 bytes，
+  manifest `83591d359ebf44b553796f07fb8a2d5b08854c2e0610d155cf07fb2019a2dad6`。
 - 任务文件 Prettier/ESLint、root build/typecheck 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，
   无需 Web browser smoke。
 - 完整 `pnpm verify` 被 411 个既有文件的全仓 format 阻断；独立 root lint 被未修改
@@ -142,11 +143,18 @@
 - 根测试首次仅排除 runtime 后仍以错误 cwd 执行 Mini；现由 root exclusion + 显式 Mini 入口修复。
 - 年月滚轮修复只改变竞争窗口的 UI timer 生命周期；receiver、Promise/catch、空值、年月格式、
   完成一次 emit、取消零次 emit、API/权限/幂等和业务写次数不变。
+- 导航重组不改 API、Bearer、capability、角色权限、空值或业务写入。通讯录查询/分页/偏好、
+  Profile 会话清理、工作流操作 receiver 与副作用次数不变；群组切到访客时若正在目录/换班，
+  安全回到日历。独立 Page 依赖微信 Page 栈，自带返回按钮并保留系统侧滑返回。
 
 ## 下一步与停止条件
 
-1. 用户在 `.48` 实体 Android 分别对年份/月滚轮执行“同向滑动停止后立即反向”至少 10 次；
-   必须持续跟手、最终单行吸附，完成只提交当前值一次。此前状态保持待用户复核。
+1. 显式暂存导航批次文件/测试 hunk，确认用户成员行修复和其他脏树不进提交；提交并推送
+   `feat(miniprogram): align workbench navigation with web`。
+2. 从 clean release worktree 打包并同步生产 checkpoint，上传下一单调体验候选（当前预计 `.49`），
+   正式 allowlist ensure/verify、full verifier 后再提交最终状态 checkpoint。
+3. 用户实体 Android 同时复核 `.48` 滚轮反向接管，以及新候选五项切换、更多分组、群组管理
+   返回按钮/系统侧滑；不提交审核或正式发布。
 
-停止条件：基础设施发布门槛已满足，所有用户工作树内容未进入提交；现在停止实施并等待 `.48`
-实体反向滚动复核，不提交审核/正式发布。
+停止条件：代码与最终状态 HEAD 均推送并同步 production release，下一体验候选 allowlist/full
+verifier 通过，所有用户工作树内容保持未提交；随后只等待实体复核。

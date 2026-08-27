@@ -116,7 +116,7 @@ describe('organization direct Page registration', () => {
     const instance = { data: { ...definition.data }, setData: vi.fn() };
     definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
 
-    expect(instance.properties).toEqual({ directoryKind: 'internal', groupId });
+    expect(instance.properties).toEqual({ directoryKind: 'internal', embedded: false, groupId });
     expect(mocks.directoryAttached.mock.instances[0]).toBe(instance);
     definition.handleBack.call(instance);
     expect(mocks.directoryHandleBack.mock.instances[0]).toBe(instance);
@@ -259,14 +259,16 @@ describe('organization direct Page registration', () => {
     },
   );
 
-  it('retains the embedded group settings component required by the workbench', () => {
+  it('filters the group settings Component host after moving management to a child Page', () => {
     const workbenchConfig = JSON.parse(read('src/pages/workbench/index.json'));
     const workbenchTemplate = read('src/pages/workbench/index.wxml');
+    const buildTools = read('scripts/build-tools.mjs');
 
-    expect(workbenchConfig.usingComponents['group-settings-panel']).toBe(
-      '/subpackages/organization/components/group-settings-panel/index',
+    expect(workbenchConfig.usingComponents['group-settings-panel']).toBeUndefined();
+    expect(workbenchTemplate).not.toContain('<group-settings-panel');
+    expect(buildTools).toContain(
+      "'subpackages/organization/components/group-settings-panel/index.ts'",
     );
-    expect(workbenchTemplate).toContain('<group-settings-panel');
   });
 
   it.each([

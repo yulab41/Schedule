@@ -298,6 +298,7 @@ describe('P4 native workbench', () => {
     expect(template).toContain('/assets/icons/web-bell.svg');
     expect(template).toContain('/assets/icons/web-profile.svg');
     expect(template).toContain('/assets/icons/web-calendar.svg');
+    expect(template).toContain('/assets/icons/web-directory.svg');
     expect(template).toContain('/assets/icons/web-leave.svg');
     expect(template).toContain('/assets/icons/web-swap.svg');
     expect(template).toContain('/assets/icons/web-duty.svg');
@@ -317,11 +318,11 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="phone-split-actions"');
     expect(template).toContain('class="event-action"');
     expect(template).toContain('当日暂无符合当前筛选条件的排班。');
-    expect(template).toContain('aria-disabled="{{!workflowsEnabled}}"');
+    expect(template).toContain('aria-disabled="{{!workflowPanelsMounted}}"');
     expect(template).toContain('bindtap="handleMoreNav"');
-    expect(template).toContain('nav-icon nav-leave');
+    expect(template).toContain('nav-icon nav-directory');
     expect(template).toContain('nav-icon nav-swap');
-    expect(template).toContain('nav-icon nav-adjustment');
+    expect(template).toContain('nav-icon nav-profile');
     expect(template).toContain('nav-icon nav-more');
     expect(monthTemplate).toContain('is-bottom-row');
     expect(monthTemplate).not.toContain('bindtransition=');

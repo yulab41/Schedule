@@ -115,6 +115,7 @@ interface DirectoryPageData {
   readonly departmentLabel: string;
   readonly departmentOptions: readonly DirectoryOption[];
   readonly directoryKind: DirectoryKind;
+  readonly embedded: boolean;
   readonly entries: readonly DirectoryCard[];
   readonly entryKindIndex: number;
   readonly entryKindFilterLabel: string;
@@ -155,7 +156,11 @@ interface DirectoryPageData {
 
 interface DirectoryPageInstance {
   readonly data: DirectoryPageData;
-  readonly properties: { readonly directoryKind: DirectoryKind; readonly groupId: string };
+  readonly properties: {
+    readonly directoryKind: DirectoryKind;
+    readonly embedded: boolean;
+    readonly groupId: string;
+  };
   _directoryClient: DirectoryReadClient;
   _facets: DirectoryFacetSnapshot | undefined;
   _filters: DirectoryFilters;
@@ -215,6 +220,7 @@ export function createDirectoryPanelControllerDefinition() {
     departmentLabel: '全部',
     departmentOptions: [{ count: 0, label: '全部', value: '' }],
     directoryKind: 'internal',
+    embedded: false,
     entries: [],
     entryKindIndex: 0,
     entryKindFilterLabel: '类型',
@@ -256,6 +262,7 @@ export function createDirectoryPanelControllerDefinition() {
     data,
     properties: {
       directoryKind: { type: String, value: 'internal' },
+      embedded: { type: Boolean, value: false },
       groupId: { type: String, value: '' },
     },
     _directoryClient: directoryClient,
@@ -282,8 +289,10 @@ export function createDirectoryPanelControllerDefinition() {
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
+        const embedded = this.properties.embedded;
         this.setData({
-          pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+          embedded,
+          pageScrollStyle: embedded ? 'height:100%;' : `height:calc(100% - ${headerHeight}px);`,
           shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
           largeText:
             ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??

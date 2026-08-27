@@ -11,29 +11,31 @@ function read(relativePath) {
 }
 
 describe('P7 physical-device feedback regressions', () => {
-  it('keeps the workbench shell mounted while switching calendar, leave, swap, duty, and more', () => {
+  it('keeps the workbench shell mounted while switching calendar, directory, swap, profile, and more', () => {
     const controller = read('pages/workbench/index.ts');
     const template = read('pages/workbench/index.wxml');
     const styles = read('pages/workbench/index.wxss');
     const pageJson = JSON.parse(read('pages/workbench/index.json'));
 
     expect(controller).toContain("activeWorkspace: 'calendar'");
-    expect(controller).toContain("openWorkflowWorkspace(this, 'leave')");
+    expect(controller).toContain("activeWorkspace: 'directory'");
     expect(controller).toContain("openWorkflowWorkspace(this, 'swap')");
-    expect(controller).toContain("openWorkflowWorkspace(this, 'duty')");
+    expect(controller).toContain("activeWorkspace: 'profile'");
     expect(controller).toContain("activeWorkspace: 'more'");
-    expect(controller).not.toContain('/subpackages/workflows/pages/leave/index?groupId=');
+    expect(controller).toContain("'/subpackages/workflows/pages/leave/index'");
     expect(controller).not.toContain('/subpackages/workflows/pages/swap/index?groupId=');
-    expect(controller).not.toContain('/subpackages/workflows/pages/duty/index?groupId=');
-    expect(template).toContain('<workflow-leave-panel');
+    expect(controller).toContain("'/subpackages/workflows/pages/duty/index'");
+    expect(template).toContain('<directory-panel');
     expect(template).toContain('<workflow-swap-panel');
-    expect(template).toContain('<workflow-duty-panel');
+    expect(template).toContain('<profile-panel');
     expect(template).toContain('hidden="{{activeWorkspace !== \'calendar\'}}"');
-    expect(template).toContain('wx:if="{{workflowPanelsMounted}}"');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'leave\'}}"');
+    expect(template).toContain('hidden="{{activeWorkspace !== \'directory\'}}"');
     expect(template).toContain('hidden="{{activeWorkspace !== \'swap\'}}"');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'duty\'}}"');
-    expect(template).not.toContain('wx:elif="{{activeWorkspace === \'leave\'}}"');
+    expect(template).toContain('hidden="{{activeWorkspace !== \'profile\'}}"');
+    expect(template).not.toContain('<workflow-leave-panel');
+    expect(template).not.toContain('<workflow-duty-panel');
+    expect(controller).toContain('directoryMounted: false');
+    expect(controller).toContain('profileMounted: false');
     expect(controller).toContain('workflowPanelsMounted: false');
     expect(controller).toContain('workflowPanelsMounted: shouldMountWorkflowPanels');
     expect(controller).toMatch(
@@ -43,8 +45,8 @@ describe('P7 physical-device feedback regressions', () => {
     expect(styles).toMatch(/\.bottom-nav\s*\{[^}]*height:\s*calc\(/su);
     expect(styles).toMatch(/\.embedded-workspace\s*\{[^}]*overflow:\s*visible/su);
     expect(pageJson.usingComponents).toMatchObject({
-      'workflow-duty-panel': '/subpackages/workflows/components/workflow-duty-panel/index',
-      'workflow-leave-panel': '/subpackages/workflows/components/workflow-leave-panel/index',
+      'directory-panel': '/subpackages/organization/components/directory-panel/index',
+      'profile-panel': '/components/profile-panel/index',
       'workflow-swap-panel': '/subpackages/workflows/components/workflow-swap-panel/index',
     });
   });
@@ -66,15 +68,10 @@ describe('P7 physical-device feedback regressions', () => {
     expect(template).toContain('bindtap="handleOpenManualSchedule"');
     expect(template).toContain('bindtap="handleOpenBackfill"');
     expect(template).toContain("more-item {{canManageScheduleTools ? '' : 'is-disabled'}}");
-    expect(template).toContain('<group-settings-panel');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'group\'}}"');
-    expect(controller).toContain("activeWorkspace: 'group'");
-    expect(controller).not.toContain(
-      '/subpackages/organization/pages/group-settings/index?groupId=',
-    );
-    expect(pageJson.usingComponents).toMatchObject({
-      'group-settings-panel': '/subpackages/organization/components/group-settings-panel/index',
-    });
+    expect(template).not.toContain('<group-settings-panel');
+    expect(template).not.toContain('hidden="{{activeWorkspace !== \'group\'}}"');
+    expect(controller).toContain("'/subpackages/organization/pages/group-settings/index'");
+    expect(pageJson.usingComponents['group-settings-panel']).toBeUndefined();
     expect(controller).toMatch(
       /canManageScheduleTools:\s*selectedGroup\.isDeveloperAdmin === true\s*\|\|\s*selectedGroup\.role === 'owner'\s*\|\|\s*selectedGroup\.role === 'administrator'/u,
     );
@@ -86,7 +83,7 @@ describe('P7 physical-device feedback regressions', () => {
     const template = read('pages/workbench/index.wxml');
 
     expect(template.match(/bind:calendarchanged="handleWorkflowCalendarChanged"/gu)).toHaveLength(
-      3,
+      1,
     );
     expect(controller).toMatch(
       /handleWorkflowCalendarChanged[\s\S]*monthResources\.clear\(\)[\s\S]*forceRefresh:\s*true/u,
@@ -213,7 +210,7 @@ describe('P7 physical-device feedback regressions', () => {
       /handleFilterSheetBackgroundTap[\s\S]*filterOpenField:\s*''/u,
     );
     expect(workbenchController).toMatch(
-      /state:\s*groupSnapshotOffline[\s\S]*groupSettingsMounted:\s*selectedGroup\.role !== 'guest'/u,
+      /state:\s*groupSnapshotOffline[\s\S]*completeCoreReadyProbe\(page\)/u,
     );
   });
 

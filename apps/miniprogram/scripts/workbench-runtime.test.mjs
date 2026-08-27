@@ -24,6 +24,51 @@ describe('P6-A workbench runtime coordination', () => {
     vi.unstubAllGlobals();
   });
 
+  it('switches primary destinations in place and pushes secondary tools onto the Page stack', async () => {
+    const storage = createStorage();
+    const navigateTo = vi.fn();
+    const runtime = createWx(storage, vi.fn());
+    runtime.navigateTo = navigateTo;
+    runtime.showToast = vi.fn();
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    Object.assign(instance.data, {
+      canManageScheduleTools: true,
+      canOpenGroupSettings: true,
+      currentGroupId: 'group-1',
+      groups: [groupSummary()],
+      workflowPanelsMounted: true,
+      workflowsEnabled: true,
+    });
+
+    definition.handleDirectoryNav.call(instance);
+    expect(instance.data).toMatchObject({ activeWorkspace: 'directory', directoryMounted: true });
+    definition.handleProfileNav.call(instance);
+    expect(instance.data).toMatchObject({ activeWorkspace: 'profile', profileMounted: true });
+    definition.handleMoreNav.call(instance);
+    expect(instance.data.activeWorkspace).toBe('more');
+
+    definition.handleOpenGroupSettings.call(instance);
+    expect(navigateTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        url: '/subpackages/organization/pages/group-settings/index?groupId=group-1',
+      }),
+    );
+    expect(instance.data.activeWorkspace).toBe('more');
+
+    definition.handleOpenLeave.call(instance);
+    await vi.waitFor(() =>
+      expect(navigateTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          url: '/subpackages/workflows/pages/leave/index?groupId=group-1',
+        }),
+      ),
+    );
+    expect(instance.data.activeWorkspace).toBe('more');
+  });
+
   it('commits the active month before starting best-effort adjacent reads and refreshes on resume', async () => {
     const storage = createStorage();
     let activeCalendarRequest;

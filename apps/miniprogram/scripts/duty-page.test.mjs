@@ -59,10 +59,13 @@ describe('P7 native duty-adjustment workflow page', () => {
       'pages/swap/index',
       'pages/duty/index',
     ]);
-    expect(workbench).toContain('bindtap="handleDutyNav"');
-    expect(workbench).toContain('data-label="加扣班"');
-    expect(workbench.match(/\{\{workflowsEnabled \? '' : 'is-disabled'\}\}/gu)).toHaveLength(3);
-    expect(workbenchController).toContain("openWorkflowWorkspace(this, 'duty')");
+    expect(workbench).toContain('bindtap="handleOpenDuty"');
+    expect(workbench).toContain('<text>加扣班</text>');
+    expect(workbench.match(/\{\{workflowPanelsMounted \? '' : 'is-disabled'\}\}/gu)).toHaveLength(
+      3,
+    );
+    expect(workbenchController).toContain("'/subpackages/workflows/pages/duty/index'");
+    expect(workbenchController).toContain('navigateWorkflowTool');
     expect(leaveTemplate).toContain('bindtap="handleDutyNav"');
     expect(swapTemplate).toContain('bindtap="handleDutyNav"');
   });

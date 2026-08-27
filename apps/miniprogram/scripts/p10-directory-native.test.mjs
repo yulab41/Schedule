@@ -11,7 +11,7 @@ function read(relativePath) {
 }
 
 describe('P10 native directory parity', () => {
-  it('registers the directory route and member-accessible More entry', () => {
+  it('registers the directory route and member-accessible workbench destination', () => {
     const app = JSON.parse(read('src/app.json'));
     const page = read('src/subpackages/organization/pages/directory/index.wxml');
     const panel = read('src/subpackages/organization/components/directory-panel/index.wxml');
@@ -30,7 +30,10 @@ describe('P10 native directory parity', () => {
     expect(page.trim()).toBe('<include src="../../components/directory-panel/index.wxml" />');
     expect(panel).toContain('科室通讯录');
     expect(panel).toContain('人员通讯录');
-    expect(workbench).toContain('handleOpenDirectory');
+    expect(panel).toContain('wx:if="{{!embedded}}"');
+    expect(workbench).toContain('handleDirectoryNav');
+    expect(workbench).toContain('<directory-panel');
+    expect(workbench).not.toContain('院内通讯录');
   });
 
   it('uses the shared reader and stores only owner-scoped favorite/usage preferences', () => {

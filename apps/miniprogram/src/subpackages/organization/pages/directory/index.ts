@@ -11,10 +11,11 @@ Page({
     recordMiniTelemetryBoundary('directory:page-onload');
     (
       this as unknown as {
-        properties: { directoryKind: 'internal'; groupId: string };
+        properties: { directoryKind: 'internal'; embedded: false; groupId: string };
       }
     ).properties = {
       directoryKind: 'internal',
+      embedded: false,
       groupId: decodeGroupId(query['groupId']),
     };
     controller.lifetimes.attached.call(this);

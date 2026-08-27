@@ -164,9 +164,10 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
     `subpackages/insights/components/${panel}/controller.ts`,
     `subpackages/insights/components/${panel}/index.ts`,
   ]),
+  'components/profile-panel/controller.ts',
   'subpackages/organization/components/directory-panel/controller.ts',
-  'subpackages/organization/components/directory-panel/index.ts',
   'subpackages/organization/components/group-settings-panel/controller.ts',
+  'subpackages/organization/components/group-settings-panel/index.ts',
   'subpackages/organization/components/invite-visitor-panel/controller.ts',
   'subpackages/organization/components/invite-visitor-panel/index.ts',
   'subpackages/organization/components/platform-accounts-panel/controller.ts',
@@ -175,7 +176,9 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
   'subpackages/organization/components/scheduling-config-panel/index.ts',
   'subpackages/workflows/components/controller-host.ts',
   'subpackages/workflows/components/workflow-duty-panel/controller.ts',
+  'subpackages/workflows/components/workflow-duty-panel/index.ts',
   'subpackages/workflows/components/workflow-leave-panel/controller.ts',
+  'subpackages/workflows/components/workflow-leave-panel/index.ts',
   'subpackages/workflows/components/workflow-swap-panel/controller.ts',
 ]);
 

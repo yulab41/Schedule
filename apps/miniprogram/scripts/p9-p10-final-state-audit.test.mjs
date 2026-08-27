@@ -63,9 +63,9 @@ describe('P9/P10 final automatic state audit', () => {
     const directoryTemplate = read(
       'src/subpackages/organization/components/directory-panel/index.wxml',
     );
-    const profileController = read('src/pages/profile/index.ts');
-    const profileTemplate = read('src/pages/profile/index.wxml');
-    const profileStyles = read('src/pages/profile/index.wxss');
+    const profileController = read('src/components/profile-panel/controller.ts');
+    const profileTemplate = read('src/components/profile-panel/index.wxml');
+    const profileStyles = read('src/components/profile-panel/index.wxss');
     const workbench = read('src/pages/workbench/index.ts');
 
     expectAll(directoryController, [

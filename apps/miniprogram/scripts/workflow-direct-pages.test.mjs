@@ -112,16 +112,20 @@ describe('workflow direct Page registration', () => {
     },
   );
 
-  it('retains all three embedded workflow components required by the workbench', () => {
+  it('retains only the embedded swap component required by the workbench', () => {
     const config = JSON.parse(read('src/pages/workbench/index.json'));
     const template = read('src/pages/workbench/index.wxml');
-    for (const workflow of ['duty', 'leave', 'swap']) {
+    const buildTools = read('scripts/build-tools.mjs');
+    for (const workflow of ['duty', 'leave']) {
       const panel = `workflow-${workflow}-panel`;
-      expect(config.usingComponents[panel]).toBe(
-        `/subpackages/workflows/components/${panel}/index`,
-      );
-      expect(template).toContain(`<${panel}`);
+      expect(config.usingComponents[panel]).toBeUndefined();
+      expect(template).not.toContain(`<${panel}`);
+      expect(buildTools).toContain(`'subpackages/workflows/components/${panel}/index.ts'`);
     }
+    expect(config.usingComponents['workflow-swap-panel']).toBe(
+      '/subpackages/workflows/components/workflow-swap-panel/index',
+    );
+    expect(template).toContain('<workflow-swap-panel');
   });
 });
 

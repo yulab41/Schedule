@@ -1,5 +1,7 @@
-<view class="directory-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
-  <view class="mini-header" style="{{shellHeaderStyle}}">
+<view
+  class="directory-page {{embedded ? 'is-embedded' : ''}} {{viewportClass}} {{largeText ? 'is-large-text' : ''}}"
+>
+  <view wx:if="{{!embedded}}" class="mini-header" style="{{shellHeaderStyle}}">
     <view
       class="header-back"
       hover-class="is-pressed"

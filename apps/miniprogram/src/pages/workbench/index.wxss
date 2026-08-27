@@ -48,10 +48,9 @@ page {
   overflow: hidden;
 }
 
-.embedded-workspace workflow-leave-panel,
+.embedded-workspace directory-panel,
 .embedded-workspace workflow-swap-panel,
-.embedded-workspace workflow-duty-panel,
-.embedded-workspace group-settings-panel {
+.embedded-workspace profile-panel {
   display: block;
   width: 100%;
   height: 100%;
@@ -59,6 +58,7 @@ page {
 
 .more-workspace-content,
 .more-heading,
+.more-section,
 .more-card,
 .more-item > view {
   display: flex;
@@ -85,6 +85,17 @@ page {
   font-size: var(--ui-font-size-sm);
 }
 
+.more-section {
+  gap: 6px;
+}
+
+.more-section-title {
+  padding: 0 4px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
 .more-card {
   overflow: hidden;
   background: var(--ui-color-surface);
@@ -105,6 +116,10 @@ page {
 
 .more-item:last-child {
   border-bottom: 0;
+}
+
+.more-item.is-pressed {
+  background: var(--ui-color-primary-light);
 }
 
 .more-item > image:first-child {

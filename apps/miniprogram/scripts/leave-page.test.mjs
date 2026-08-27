@@ -33,11 +33,12 @@ describe('P7 native leave workflow page', () => {
       pages: ['pages/leave/index', 'pages/swap/index', 'pages/duty/index'],
       root: 'subpackages/workflows',
     });
-    expect(workbench).toContain('bindtap="handleLeaveNav"');
-    expect(workbench).toContain("{{workflowsEnabled ? '' : 'is-disabled'}}");
-    expect(workbench).toContain('aria-disabled="{{!workflowsEnabled}}"');
+    expect(workbench).toContain('bindtap="handleOpenLeave"');
+    expect(workbench).toContain("{{workflowPanelsMounted ? '' : 'is-disabled'}}");
+    expect(workbench).toContain('aria-disabled="{{!workflowPanelsMounted}}"');
     expect(workbenchController).toContain("requireClientCapability('workflows')");
-    expect(workbenchController).toContain("openWorkflowWorkspace(this, 'leave')");
+    expect(workbenchController).toContain("'/subpackages/workflows/pages/leave/index'");
+    expect(workbenchController).toContain('navigateWorkflowTool');
   });
 
   it('mirrors the frozen Web leave list, form, approval, conflict, and empty/error/loading states', () => {
