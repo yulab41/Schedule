@@ -71,6 +71,12 @@
   物理删除且不触发服务端 DELETE。会话/下载定向 3 files/21 tests、Mini typecheck、任务格式/lint/diff
   及当前 dirty tree Mini 96 files/469 tests 通过；checkpoint 识别消息为
   `feat(miniprogram): cache private profile avatars`。
+- Task 3 media checkpoint/发布：`f858ae6d` 已推送；clean Mini 94 files/456 tests、root 238 files/
+  1,122 tests（37 files/355 tests 环境跳过）、全端 build/typecheck、production verify（2/2 Worklet、
+  4,582,332 bytes、manifest `79acc8ab…f2e2b`）、determinism/package/core 通过。production-profile `.53`
+  上传 171 code files/zip 2,088,682/manifest `58a982f1…17a7`，未提审/发布；正式 allowlist 通过。备份
+  `6e640d7d-78d7-4d44-9c80-eff66ab8ff1f`（55 表/180,484 行/82,925,996 bytes/SHA `7c1e4d3e…7f5e`）
+  后 hash-identical reuse 到 `f858ae6d`，公网 full verifier 与远端临时 manifest 清理通过。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 

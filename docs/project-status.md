@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `6cf71152006728a26dd99c1eb766dfe8febeaf14`。最终状态以“包含本文件的 Git HEAD”为
+  `f858ae6d11417a098dfebbc622fbf50083671767`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.52@304d742`，170 code files，zip
-  `2,017,665` bytes，upload manifest `c2f45e08c2316648e60c61a20ee09967e27569602b2f709b4d9caee64dd10110`。
-- `.52` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.53@f858ae6`，171 code files，zip
+  `2,088,682` bytes，upload manifest `58a982f1b6e04d9ef1d4a7325a2f7dcbe6966696b1f84b6f943745bca7ca17a7`。
+- `.53` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `cb88870f-e685-4609-bcef-5f39bcc7ec8b`（55 表、180,371 行、82,888,368 bytes、
-  SHA-256 `ab960b5b90219f0627d7b50eb60b648e274b34210a5497d21b9bd1710412a3b6`）。
+  `6e640d7d-78d7-4d44-9c80-eff66ab8ff1f`（55 表、180,484 行、82,925,996 bytes、
+  SHA-256 `7c1e4d3ef457698e65144e503ea28b37c5ad2c4b30d8c7b931bfe83e651f7f5e`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -61,8 +61,10 @@
 - Task 3 非重叠部分已测试先行实现独立 Mini profile-media：进程内 pending、认证原始图片上传/
   下载、owner/version 私有文件缓存、401 单次恢复、串行最后选择、幂等删除与退出物理清理均完成；
   checkpoint 识别消息为 `feat(miniprogram): cache private profile avatars`。
-- 当前 Profile 活跃批次为 Task 3 checkpoint/发布；不接管并行登录/通讯录脏文件，精确 clean
-  checkpoint 验证、体验上传和生产同步完成即停，再复核重叠集成边界。
+- Task 3 media checkpoint `f858ae6d` 已推送、上传 `.53`、加入 allowlist，并以备份后可信 reuse
+  同步生产；clean Mini 94 files/456 tests、root 238 files/1,122 tests 与 full verifier 通过。
+- 当前 Profile 活跃批次为 Task 3 登录集成：先用独立 chooseAvatar 叶组件与测试冻结事件竞态；重叠
+  identity/workbench 只能以基于 HEAD 可独立构建的 cached hunk 集成，不暂存并行会话/通讯录内容。
 
 ## 已完成的发布基线与当前修复
 
@@ -128,9 +130,9 @@
 
 ## 已完成验证
 
-- Profile Task 3 media：旧实现因模块不存在 7 项先红；补充 401 恢复 generation 与退出清 pending 后
-  2 项再次先红。最终 profile-media 8/8、会话/下载定向 3 files/21 tests、Mini typecheck、任务
-  Prettier/ESLint/diff 通过；当前 dirty tree Mini 96 files/469 tests 通过。
+- Profile Task 3 media：两轮 9 项先红；最终定向 3 files/22 tests、clean Mini 94 files/456 tests、
+  root 238 files/1,122 tests、全端 build/typecheck、production verify/determinism/package/CI dry-run、
+  core smoke、`.53` upload/allowlist 与生产 full verifier 通过；37 files/355 tests 按环境跳过。
 - Profile Tasks 1–2 的共享等价、严格契约、头像安全/隔离/版本、schema52 发布控制和生产探针均通过；
   详细红绿、全仓计数、browser 环境阻塞、备份与 release 证据保留在 debug 日志及对应 Git checkpoint。
 - Profile browser smoke 已实际运行：首次因 5173 未启动停止；启动源码服务后因未启用 dev auth、
@@ -217,12 +219,10 @@
 
 ## 下一步与停止条件
 
-1. 显式暂存并提交 Task 3 非重叠 media checkpoint，clean 复验后推送、上传下一单调 `.53` 体验版，
-   执行正式 allowlist、生产备份/ECS 同步与 full verifier。
-2. checkpoint 发布完成后复核并行登录/通讯录状态；只有其内容已落地或能以独立 cached hunk 构建时，
-   才进入 chooseAvatar 叶组件、登录 flush 与最终 Mini Profile runtime。
+1. 测试先行实现 chooseAvatar 叶组件、密码登录清 pending、微信三条成功路径 flush 与一次非阻塞反馈；
+   对重叠文件同时维护工作树版和 HEAD cached hunk，并在 clean worktree 证明独立构建。
+2. 完成 Task 3 集成 checkpoint 后进入 Task 4 controller、Web 1:1 WXML/WXSS、密码/绑定/导航矩阵。
 3. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
 
-停止条件：Task 3 非重叠 profile-media/cache 完成测试、checkpoint、推送和生产同步，其他并行用户
-工作树内容保持未提交；随后等待重叠登录/通讯录 checkpoint，未经新的安全边界复核不修改其文件，
-不提交审核或正式发布。
+停止条件：Task 3 登录头像集成通过 clean checkpoint 与 dirty-tree 兼容验证，其他并行用户内容保持
+未提交；若无法构造独立 cached hunk 则停止并请求边界协调，不提交审核或正式发布。
