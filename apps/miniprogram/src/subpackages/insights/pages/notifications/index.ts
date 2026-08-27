@@ -1,14 +1,25 @@
-export {};
+import { createNotificationsPanelControllerDefinition } from '../../components/notifications-panel/controller.js';
+
+const controller = createNotificationsPanelControllerDefinition();
+type NotificationsPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
 
 Page({
-  data: { groupId: '' },
+  data: controller.data,
+  ...controller.methods,
   onLoad(
-    this: { setData(patch: { readonly groupId: string }): void },
+    this: NotificationsPageInstance,
     query: Readonly<Record<string, string | undefined>>,
   ): void {
-    this.setData({ groupId: decodeGroupId(query['groupId']) });
+    (this as unknown as { properties: { groupId: string; mode: 'notifications' } }).properties = {
+      groupId: decodeGroupId(query['groupId']),
+      mode: 'notifications',
+    };
+    controller.lifetimes.attached.call(this);
   },
-});
+  onUnload(this: NotificationsPageInstance): void {
+    controller.lifetimes.detached.call(this);
+  },
+} as never);
 
 function decodeGroupId(value: string | undefined): string {
   if (value === undefined) return '';

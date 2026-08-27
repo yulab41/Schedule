@@ -3,6 +3,9 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
-    "notifications-panel": "/subpackages/insights/components/notifications-panel/index"
+    "ui-alert": "/components/ui/ui-alert/index",
+    "ui-button": "/components/ui/ui-button/index",
+    "ui-loading": "/components/ui/ui-loading/index",
+    "ui-switch": "/components/ui/ui-switch/index"
   }
 }

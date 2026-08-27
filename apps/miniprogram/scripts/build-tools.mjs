@@ -154,6 +154,18 @@ const staticExtensions = new Set([
   '.wxss',
 ]);
 
+const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set(
+  [
+    'exports-panel',
+    'insights-dashboard-panel',
+    'notifications-panel',
+    'visitor-access-panel',
+  ].flatMap((panel) => [
+    `subpackages/insights/components/${panel}/controller.ts`,
+    `subpackages/insights/components/${panel}/index.ts`,
+  ]),
+);
+
 const voidWxmlTags = new Set(['image', 'input', 'textarea']);
 
 export function normalizeRelativePath(value) {
@@ -283,8 +295,10 @@ function collectTypeScriptEntryPoints(sourceDirectory) {
       .filter((filePath) => filePath.endsWith('.ts') && !filePath.endsWith('.d.ts'))
       .map((filePath) => {
         const relativePath = normalizeRelativePath(path.relative(sourceDirectory, filePath));
-        return [relativePath.slice(0, -'.ts'.length), filePath];
-      }),
+        return [relativePath, filePath];
+      })
+      .filter(([relativePath]) => !BUNDLED_ONLY_TYPESCRIPT_MODULES.has(relativePath))
+      .map(([relativePath, filePath]) => [relativePath.slice(0, -'.ts'.length), filePath]),
   );
 }
 

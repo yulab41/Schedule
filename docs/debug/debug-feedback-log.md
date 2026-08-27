@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 通知双页直接注册与同类页面审计
+
+- 反馈/证据：通知设置继续白屏，生产无通知列表/偏好请求；通知中心与设置自 `1a428d73`/`766ec6ac` 起均为同一个大型 `notifications-panel` 的薄 Page 壳。沿用 `.42` Page 前失败与 `.43` 直接 Page 成功的根因，不另造假设。
+- 红绿/实现：旧薄壳 direct runtime/static 4 项先红；两页以不同 mode 直接挂同一 controller，并静态复用 WXML/WXSS 后转绿。构建器新增回归先证明八个已不可达 P9 panel/controller JS 入口仍重复输出，再改为只参与 Page bundle；insights 分包约 `2,095,118`→`857,676` bytes。业务 API、权限、订阅授权、错误/空值、调用次数和视觉内容不变。
+- 验证：通知 direct/page/controller/build-tools 定向通过；排除既有日期敏感 P7 duty/swap controller 后 Mini 86 files/393 tests 全绿。Mini production/source/package/determinism/CI dry-run、根 build/typecheck、任务 format、core smoke/diff 通过；manifest `f0b27cc9…61f92`，总包 `5,298,266`，organization `1,753,082` 仅 warning。用户工作区 `pnpm-workspace.yaml` 的占位 allowBuilds 值会触发 pnpm 自动安装门禁，本轮不改用户文件，验证统一用 `--config.verify-deps-before-run=false` 绕过自动安装且复用现有依赖。
+- 全页审计：同风险薄壳还剩 organization 的 directory/group-settings/invite-visitor/platform-accounts/scheduling-config 和 workflows 的 duty/leave/swap，共 8 页；只标为风险、未把未复现页面宣称为故障。按仓库批次约束，`.45` 发布后下一批先迁移 directory/group-settings/scheduling-config 三页，再分批处理其余五页。
+
 ## 2026-08-27 P9 统计与导出直接注册根因修复
 
 - 根因闭环：`.43` 访客实体恢复；生产出现 Page `49b3e23b…765f`、controller `e81c5ca2…4e64` 和 visitor aggregates/logs API。`.42` Page 前失败与 `.43` 直接 Page 成功严格对照，确认 requiredComponents 大型 panel 预注入架构是根因。

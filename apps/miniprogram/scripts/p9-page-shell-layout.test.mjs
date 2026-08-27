@@ -5,10 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const pageShells = [
-  ['notifications', 'notifications-panel'],
-  ['notification-settings', 'notifications-panel'],
-];
 const diagnosticBoundaries = [
   ['visitor-access', 'visitor-access-panel'],
   ['insights', 'insights-dashboard-panel'],
@@ -18,6 +14,8 @@ const directPageShells = [
   ['visitor-access', 'visitor-access-panel', 'createVisitorAccessPanelControllerDefinition'],
   ['insights', 'insights-dashboard-panel', 'createInsightsDashboardPanelControllerDefinition'],
   ['exports', 'exports-panel', 'createExportsPanelControllerDefinition'],
+  ['notifications', 'notifications-panel', 'createNotificationsPanelControllerDefinition'],
+  ['notification-settings', 'notifications-panel', 'createNotificationsPanelControllerDefinition'],
 ];
 
 describe('P9 native page shells', () => {
@@ -26,30 +24,6 @@ describe('P9 native page shells', () => {
 
     expect(appConfig.lazyCodeLoading).toBe('requiredComponents');
   });
-
-  it.each(pageShells)(
-    'gives %s a definite Skyline viewport and sizes its mounted %s host',
-    (pageName, componentName) => {
-      const pageRoot = path.join(appRoot, 'src', 'subpackages', 'insights', 'pages', pageName);
-      const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
-      const template = readFileSync(path.join(pageRoot, 'index.wxml'), 'utf8');
-      const styles = readFileSync(path.join(pageRoot, 'index.wxss'), 'utf8');
-
-      expect(config).toMatchObject({
-        disableScroll: true,
-        navigationStyle: 'custom',
-        renderer: 'skyline',
-      });
-      expect(config.usingComponents?.[componentName]).toBe(
-        `/subpackages/insights/components/${componentName}/index`,
-      );
-      expect(template).toContain(`<${componentName}`);
-      expect(styles).toMatch(/page\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/su);
-      expect(styles).toMatch(
-        new RegExp(`${componentName}\\s*\\{[^}]*display:\\s*block;[^}]*height:\\s*100%;`, 'su'),
-      );
-    },
-  );
 
   it.each(diagnosticBoundaries)(
     'records anonymous %s page and %s component boundaries before another fix',
@@ -95,6 +69,11 @@ describe('P9 native page shells', () => {
         'ui-button': '/components/ui/ui-button/index',
         'ui-loading': '/components/ui/ui-loading/index',
       });
+      if (componentName === 'notifications-panel') {
+        expect(config.usingComponents).toMatchObject({
+          'ui-switch': '/components/ui/ui-switch/index',
+        });
+      }
       expect(template.trim()).toBe(
         `<include src="../../components/${componentName}/index.wxml" />`,
       );

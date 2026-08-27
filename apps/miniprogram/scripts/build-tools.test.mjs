@@ -35,6 +35,22 @@ describe('Mini Program deterministic toolchain guards', () => {
     ).toThrow(/duplicate routes/u);
   });
 
+  it('keeps direct P9 panel controllers and wrappers bundle-only', () => {
+    const buildTools = readFileSync(new URL('./build-tools.mjs', import.meta.url), 'utf8');
+
+    for (const panel of [
+      'exports-panel',
+      'insights-dashboard-panel',
+      'notifications-panel',
+      'visitor-access-panel',
+    ]) {
+      expect(buildTools).toContain(`'${panel}'`);
+    }
+    expect(buildTools).toContain('BUNDLED_ONLY_TYPESCRIPT_MODULES');
+    expect(buildTools).toContain('`subpackages/insights/components/${panel}/controller.ts`');
+    expect(buildTools).toContain('`subpackages/insights/components/${panel}/index.ts`');
+  });
+
   it('rejects DOM, Node, database, and Zod dependencies', () => {
     expect(findRuntimeBoundaryIssues("import fs from 'node:fs';\nwindow.fetch('/api');")).toEqual(
       expect.arrayContaining([

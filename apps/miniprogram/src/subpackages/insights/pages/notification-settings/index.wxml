@@ -1,1 +1,1 @@
-<notifications-panel group-id="{{groupId}}" mode="settings"></notifications-panel>
+<include src="../../components/notifications-panel/index.wxml" />

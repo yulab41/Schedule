@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 通知双页直接注册与同类页面审计（已实现待体验上传）
+
+- 用户反馈/根因：通知设置继续白屏；复测窗口内生产没有通知列表或偏好请求。通知中心和通知设置分别自 `1a428d73`、`766ec6ac` 起都只是 `notifications-panel` 的薄 Page 壳，与已由 `.42`/`.43` 严格对照证实的 P9 大型 panel `requiredComponents` 预注入故障相同。已按 `systematic-debugging` Phase 4 扩展已验证模式，而非引入新假设。
+- 实现/语义：两个页面分别以 `notifications`/`settings` mode 直接注册既有 controller data/methods/attached/detached，静态 include/import 原 panel WXML/WXSS，页面 JSON 只声明稳定 UI components；列表读取、偏好读取/写入、微信订阅授权、权限/capability、receiver、Promise/catch、空值、副作用与调用次数不变。构建器把四套已直接注册的 P9 panel `controller.ts/index.ts` 标记为只参与页面 bundle、不再输出八个不可达重复 JS 入口；该收集器来自 `3884713b`，已执行 `git log -S`/`git blame`。
+- 红绿/验证：旧通知薄壳上的 direct runtime/static 契约 4 项先失败，实施后通知 direct/page/controller 通过；构建器未排除重复入口的新增断言先失败，过滤后通过。排除既有日期敏感 P7 duty/swap controller 后 Mini 86 files/393 tests 全绿；Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务 Prettier、`smoke:check-core` 和 diff check 通过。verify manifest `f0b27cc9b01d966c9ac0269d9d7af48af6c4f05c6d819f8bb37df250a1661f92`，总包 `5,298,266` bytes，insights 从约 `2,095,118` 降为 `857,676` bytes；organization `1,753,082` 仅触发内部 1.5M warning。
+- 同类架构审计：静态扫描所有 Page JSON/WXML/TS 后，仍有 8 个“Page 仅挂一个大型业务组件”的同风险入口：organization 的 directory、group-settings、invite-visitor、platform-accounts、scheduling-config，以及 workflows 的 duty、leave、swap。它们尚未全部在实体 Android 复现，不能写成已发生故障；但架构边界与已确认根因一致，需要按分包分批直接注册并同步回收重复 bundle。
+- checkpoint/下一批：当前 checkpoint 识别消息为 `fix(miniprogram): register notification pages directly`；完成推送、production-profile `.45` 上传、白名单与生产部署后，等待实体复核通知中心/通知设置。依每轮最多 1–3 项约束，下一活跃批次只迁移 organization 的 directory、group-settings、scheduling-config 三页并停止；之后再处理 invite-visitor/platform-accounts，最后处理 workflows 三页。
+
 ## 2026-08-27 P9 统计与导出直接注册根因修复（已发布待两页复核）
 
 - 根因确认：用户明确回复 `.43`“访客已打开”；生产同时记录 visitor Page `49b3e23b…765f`、controller `e81c5ca2…4e64` 两个指纹，随后收到 `/visitor-access-aggregates` 与 `/visitor-access-logs` 请求。与 `.42` Page 前即失败的严格对照证明：大型 P9 panel 作为 `requiredComponents` 自定义组件预注入会阻止 Page 注册；把 controller/WXML/WXSS 直接挂到 Page 可恢复完整链路。
