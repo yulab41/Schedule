@@ -3,7 +3,7 @@
   "pitfalls": [
     {
       "id": "mini-page-boundary",
-      "state": "fixed-pending-external",
+      "state": "active",
       "signals": ["Android white screen", "Skyline", "requiredComponents", "Page", "panel"],
       "paths": [
         "apps/miniprogram/src/**/pages/**",
@@ -141,11 +141,11 @@
         "apps/miniprogram/scripts/workflow-picker-controller.test.mjs"
       ],
       "detail": "docs/agent-context/pitfalls/mini-workflow-wheel-snap-interruption.md",
-      "guard": "apps/miniprogram/scripts/workflow-picker-worklet.test.mjs",
-      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/workflow-picker-worklet.test.mjs scripts/workflow-picker-controller.test.mjs",
+      "guard": "apps/miniprogram/scripts/workflow-picker-controller.test.mjs",
+      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/workflow-picker-controller.test.mjs scripts/p7-native-feedback.test.mjs",
       "lastVerifiedAt": "2026-08-27",
       "staleWhen": [
-        "Worklet bindings, SharedValue interpolation, scroll snap ownership, or picker mounting changes",
+        "wheel event bindings, snap timing, scroll ownership, or picker mounting changes",
         "the reverse-drag regression fails or is removed"
       ]
     }

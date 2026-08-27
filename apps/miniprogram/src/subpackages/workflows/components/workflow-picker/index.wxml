@@ -49,12 +49,7 @@
   </scroll-view>
 </view>
 
-<view
-  wx:if="{{(mode === 'month' && wheelMounted) || (mode === 'date' && open)}}"
-  hidden="{{!open}}"
-  aria-hidden="{{!open}}"
-  class="workflow-picker-layer"
->
+<view wx:if="{{open && mode !== 'selector'}}" class="workflow-picker-layer">
   <view class="workflow-picker-scrim" aria-role="button" bindtap="handleClose"></view>
   <view class="workflow-picker-sheet" aria-role="dialog" aria-label="{{title}}">
     <view class="workflow-picker-handle"></view>
@@ -86,25 +81,22 @@
         enhanced
         show-scrollbar="{{false}}"
         scroll-top="{{yearWheelTop}}"
-        scroll-with-animation="{{wheelProgrammaticAnimation}}"
-        scroll-anchoring="{{false}}"
-        worklet:onscrollupdate="handleYearWheelScrollUpdate"
+        scroll-with-animation="{{wheelSnapAnimating}}"
+        bindtouchstart="handleYearWheelTouchStart"
+        bindtouchend="handleYearWheelTouchEnd"
+        bindtouchcancel="handleYearWheelTouchEnd"
+        bindscroll="handleYearWheelScroll"
         bindscrollend="handleYearWheelScrollEnd"
       >
         <view class="workflow-picker-wheel-spacer"></view>
         <view
           wx:for="{{yearWheelItems}}"
           wx:key="label"
-          id="workflow-picker-year-item-{{index}}"
           class="workflow-picker-wheel-item {{index === draftIndices[0] ? 'is-selected' : ''}}"
           data-index="{{index}}"
-          aria-selected="{{index === draftIndices[0]}}"
           catchtap="handleYearWheelTap"
-          ><text
-            id="workflow-picker-year-number-{{index}}"
-            class="workflow-picker-wheel-number"
-            >{{item.label}}</text
-          ><text class="workflow-picker-unit">{{item.unit}}</text></view
+          style="font-size:{{item.fontSize}}px;opacity:{{item.opacity}};transform:scale({{item.scale}})"
+          ><text>{{item.label}}</text><text class="workflow-picker-unit">{{item.unit}}</text></view
         >
         <view class="workflow-picker-wheel-spacer"></view>
       </scroll-view>
@@ -114,25 +106,22 @@
         enhanced
         show-scrollbar="{{false}}"
         scroll-top="{{monthWheelTop}}"
-        scroll-with-animation="{{wheelProgrammaticAnimation}}"
-        scroll-anchoring="{{false}}"
-        worklet:onscrollupdate="handleMonthWheelScrollUpdate"
+        scroll-with-animation="{{wheelSnapAnimating}}"
+        bindtouchstart="handleMonthWheelTouchStart"
+        bindtouchend="handleMonthWheelTouchEnd"
+        bindtouchcancel="handleMonthWheelTouchEnd"
+        bindscroll="handleMonthWheelScroll"
         bindscrollend="handleMonthWheelScrollEnd"
       >
         <view class="workflow-picker-wheel-spacer"></view>
         <view
           wx:for="{{monthWheelItems}}"
           wx:key="label"
-          id="workflow-picker-month-item-{{index}}"
           class="workflow-picker-wheel-item {{index === draftIndices[1] ? 'is-selected' : ''}}"
           data-index="{{index}}"
-          aria-selected="{{index === draftIndices[1]}}"
           catchtap="handleMonthWheelTap"
-          ><text
-            id="workflow-picker-month-number-{{index}}"
-            class="workflow-picker-wheel-number"
-            >{{item.label}}</text
-          ><text class="workflow-picker-unit">{{item.unit}}</text></view
+          style="font-size:{{item.fontSize}}px;opacity:{{item.opacity}};transform:scale({{item.scale}})"
+          ><text>{{item.label}}</text><text class="workflow-picker-unit">{{item.unit}}</text></view
         >
         <view class="workflow-picker-wheel-spacer"></view>
       </scroll-view>

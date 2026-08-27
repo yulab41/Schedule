@@ -2,7 +2,7 @@
 
 - 日期：2026-08-27
 - 基线：`main@1cbcf755`
-- 状态：已实现、上传并发布，待实体 Android 复核
+- 状态：真机否决并回滚；保留为失败架构证据
 - 范围：`apps/miniprogram/src/subpackages/workflows/components/workflow-picker`
 
 ## 背景与结论

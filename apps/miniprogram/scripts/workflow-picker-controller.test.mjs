@@ -2,15 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 async function loadPickerDefinition() {
   let definition;
-  const existingWx = globalThis.wx ?? {};
-  vi.stubGlobal('wx', {
-    ...existingWx,
-    worklet: {
-      runOnJS: (callback) => callback,
-      shared: (value) => ({ value }),
-      ...(existingWx.worklet ?? {}),
-    },
-  });
   vi.stubGlobal('Component', (value) => {
     definition = value;
   });
@@ -29,7 +20,6 @@ function createPickerInstance(definition, properties) {
       value: '',
       ...properties,
     },
-    applyAnimatedStyle: vi.fn(),
     setData(patch, callback) {
       Object.assign(this.data, patch);
       callback?.();
@@ -182,16 +172,12 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.yearWheelTop).toBe(5 * 44);
     expect(instance.data.monthWheelTop).toBe(7 * 44);
     instance.triggerEvent.mockClear();
-    definition.methods.handleMonthWheelScrollUpdate.call(instance, {
-      detail: { scrollTop: 8 * 44 },
-    });
+    definition.methods.handleMonthWheelScroll.call(instance, { detail: { scrollTop: 8 * 44 } });
     expect(instance.data.draftDisplayValue).toBe('2026年9月');
     expect(instance.data.draftIndices).toEqual([5, 8, 0]);
     expect(instance.triggerEvent).not.toHaveBeenCalled();
 
-    definition.methods.handleYearWheelScrollUpdate.call(instance, {
-      detail: { scrollTop: 6 * 44 },
-    });
+    definition.methods.handleYearWheelScroll.call(instance, { detail: { scrollTop: 6 * 44 } });
     expect(instance.data.draftDisplayValue).toBe('2027年9月');
     expect(instance.data.draftIndices).toEqual([6, 8, 0]);
 
@@ -200,141 +186,120 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.open).toBe(false);
   });
 
-  it('settles the native final offset without starting a second animation owner', async () => {
+  it('keeps inertia running, then snaps an idle wheel to the nearest 44px row', async () => {
+    vi.useFakeTimers();
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
     definition.lifetimes.attached.call(instance);
     definition.methods.handleOpen.call(instance);
 
-    definition.methods.handleMonthWheelScrollUpdate.call(instance, {
+    definition.methods.handleMonthWheelScroll.call(instance, {
       detail: { scrollTop: 8 * 44 + 17 },
     });
+    expect(instance._monthWheelLatestTop).toBe(8 * 44 + 17);
     expect(instance.data.monthWheelTop).toBe(7 * 44);
     expect(instance.data.draftIndices[1]).toBe(8);
-    definition.methods.handleMonthWheelScrollEnd.call(instance, {
-      detail: { scrollTop: 8 * 44 + 17 },
-    });
-    expect(instance.data.monthWheelTop).toBe(8 * 44 + 17);
+    vi.advanceTimersByTime(99);
+    expect(instance.data.monthWheelTop).toBe(7 * 44);
+    vi.advanceTimersByTime(1);
+    expect(instance.data.monthWheelTop).toBe(8 * 44);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
     expect(instance.data.monthWheelPosition).toBeCloseTo(8 + 17 / 44);
-    expect(instance._monthWheelSnapTimer).toBeUndefined();
-    expect(instance._wheelAnimationTimer).toBeUndefined();
-    definition.methods.handleMonthWheelScrollEnd.call(instance, {
-      detail: { scrollTop: Number.NaN },
-    });
-    expect(instance.data.monthWheelTop).toBe(0);
-    expect(instance.data.monthWheelPosition).toBe(0);
+    vi.advanceTimersByTime(319);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance.data.monthWheelPosition).toBe(8);
     definition.lifetimes.detached.call(instance);
   });
 
-  it('interpolates wheel typography on SharedValue-driven animated styles', async () => {
+  it('interpolates wheel typography while the scroll position crosses the selection rail', async () => {
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
     definition.lifetimes.attached.call(instance);
     definition.methods.handleOpen.call(instance);
-    definition.methods.handleMonthWheelScrollUpdate.call(instance, {
+    definition.methods.handleMonthWheelScroll.call(instance, {
       detail: { scrollTop: 7 * 44 + 11 },
     });
 
-    const itemUpdater = instance.applyAnimatedStyle.mock.calls.find(
-      ([selector]) => selector === '#workflow-picker-month-item-7',
-    )[1];
-    const numberUpdater = instance.applyAnimatedStyle.mock.calls.find(
-      ([selector]) => selector === '#workflow-picker-month-number-7',
-    )[1];
-    const itemStyle = itemUpdater();
-    const numberStyle = numberUpdater();
-    expect(Number(itemStyle.opacity)).toBeGreaterThan(0.58);
-    expect(Number(itemStyle.opacity)).toBeLessThan(1);
-    expect(Number(/scale\(([^)]+)\)/u.exec(itemStyle.transform)[1])).toBeGreaterThan(0.94);
-    expect(Number(/scale\(([^)]+)\)/u.exec(numberStyle.transform)[1])).toBeGreaterThan(19 / 24);
-    instance._monthWheelPositionValue.value = Number.NaN;
-    expect(itemUpdater().transform).not.toContain('NaN');
-    expect(numberUpdater().transform).not.toContain('NaN');
+    const current = instance.data.monthWheelItems[7];
+    expect(current.fontSize).toBeGreaterThan(19);
+    expect(current.fontSize).toBeLessThan(24);
+    expect(current.opacity).toBeGreaterThan(0.58);
+    expect(current.opacity).toBeLessThan(1);
     definition.lifetimes.detached.call(instance);
   });
 
-  it('rejects a delayed row commit from a picker generation that has been reopened', async () => {
+  it('finishes a programmatic snap on scrollend instead of waiting for a mismatched timer', async () => {
+    vi.useFakeTimers();
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
     definition.lifetimes.attached.call(instance);
     definition.methods.handleOpen.call(instance);
-    const staleGeneration = instance._monthWheelGeneration.value;
-    definition.methods.handleClose.call(instance);
-    instance._commitWheelIndexOnJS('month', 9, instance._monthWheelGeneration.value, 1);
-    expect(instance.data.draftIndices[1]).toBe(7);
-    definition.methods.handleOpen.call(instance);
-    instance._commitWheelIndexOnJS('month', 9, staleGeneration, 999);
-
-    expect(instance.data.draftIndices[1]).toBe(7);
-    expect(instance.data.draftDisplayValue).toBe('2026年8月');
-    definition.lifetimes.detached.call(instance);
-  });
-
-  it('lets a native drag take over immediately after a programmatic row tap', async () => {
-    const definition = await loadPickerDefinition();
-    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
-    definition.lifetimes.attached.call(instance);
-    definition.methods.handleOpen.call(instance);
-    definition.methods.handleMonthWheelTap.call(instance, {
-      currentTarget: { dataset: { index: 9 } },
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 8 * 44 + 17 },
     });
+    vi.advanceTimersByTime(100);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+
+    definition.methods.handleMonthWheelScroll.call(instance, { detail: { scrollTop: 8 * 44 } });
+    definition.methods.handleMonthWheelScrollEnd.call(instance);
+
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance.data.monthWheelPosition).toBe(8);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('never starts the idle snap while the user is still holding the wheel', async () => {
+    vi.useFakeTimers();
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleMonthWheelTouchStart.call(instance);
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 9 * 44 + 8 },
+    });
+
+    vi.advanceTimersByTime(250);
+    expect(instance.data.monthWheelTop).toBe(7 * 44);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    definition.methods.handleMonthWheelTouchEnd.call(instance);
+    vi.advanceTimersByTime(100);
     expect(instance.data.monthWheelTop).toBe(9 * 44);
-    expect(instance.data.draftIndices[1]).toBe(9);
-    definition.methods.handleMonthWheelScrollUpdate.call(instance, {
-      detail: { scrollTop: 8 * 44 },
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('lets a reverse drag interrupt an in-flight month snap', async () => {
+    vi.useFakeTimers();
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleMonthWheelTouchStart.call(instance);
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 9 * 44 + 8 },
     });
+    definition.methods.handleMonthWheelTouchEnd.call(instance);
+    definition.methods.handleMonthWheelScrollEnd.call(instance);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    expect(instance._wheelAnimationKind).toBe('month');
+
+    definition.methods.handleMonthWheelTouchStart.call(instance);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance._wheelAnimationKind).toBeUndefined();
+    definition.methods.handleMonthWheelScrollEnd.call(instance);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance._wheelAnimationKind).toBeUndefined();
+    definition.methods.handleMonthWheelScroll.call(instance, { detail: { scrollTop: 8 * 44 } });
+
     expect(instance.data.draftIndices[1]).toBe(8);
     expect(instance.data.draftDisplayValue).toBe('2026年9月');
-    definition.lifetimes.detached.call(instance);
-  });
-
-  it('keeps pixel updates on the UI thread and commits slow row reversals only at thresholds', async () => {
-    const definition = await loadPickerDefinition();
-    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
-    definition.lifetimes.attached.call(instance);
-    definition.methods.handleOpen.call(instance);
-
-    expect(instance.applyAnimatedStyle).toHaveBeenCalledTimes(46);
-    instance.setData = vi.fn(instance.setData.bind(instance));
-
-    for (let step = 0; step < 100; step += 1) {
-      definition.methods.handleMonthWheelScrollUpdate.call(instance, {
-        detail: { scrollTop: 7 * 44 + (21 * step) / 99 },
-      });
-    }
-    expect(instance.setData).not.toHaveBeenCalled();
-
-    for (const position of [7, 7.25, 7.51, 7.49, 7]) {
-      definition.methods.handleMonthWheelScrollUpdate.call(instance, {
-        detail: { scrollTop: position * 44 },
-      });
-    }
-    expect(instance.data.draftIndices[1]).toBe(7);
-    expect(instance.data.draftDisplayValue).toBe('2026年8月');
-    expect(instance.setData).toHaveBeenCalledTimes(2);
-
-    definition.methods.handleClose.call(instance);
-    definition.methods.handleOpen.call(instance);
-    expect(instance.applyAnimatedStyle).toHaveBeenCalledTimes(46);
-    definition.lifetimes.detached.call(instance);
-  });
-
-  it('rejects out-of-order row commits and confirms the latest visible SharedValue', async () => {
-    const definition = await loadPickerDefinition();
-    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
-    definition.lifetimes.attached.call(instance);
-    definition.methods.handleOpen.call(instance);
-    const generation = instance._monthWheelGeneration.value;
-
-    instance._commitWheelIndexOnJS('month', 8, generation, 2);
-    instance._commitWheelIndexOnJS('month', 9, generation, 1);
+    vi.advanceTimersByTime(320);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
     expect(instance.data.draftIndices[1]).toBe(8);
-
-    instance._monthWheelPositionValue.value = 9.2;
-    instance.triggerEvent.mockClear();
-    definition.methods.handleConfirm.call(instance);
-    expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2026-10' });
-    expect(instance.data.open).toBe(false);
     definition.lifetimes.detached.call(instance);
   });
 

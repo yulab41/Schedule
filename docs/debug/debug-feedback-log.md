@@ -2,15 +2,24 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 Mini 工作台顶部通知 Sheet 与群组未读数
+
+- 反馈/引入点：顶部铃铛点击只摇动并提示“后续开放”。`git log -S`/`git blame` 确认占位 handler 由 `733e3af6` 引入；P9 通知中心 `1a428d73` 只接入“更多”独立页，未回接顶部入口。`52e9e1f4` 初始通知查询虽筛选 `groupId`，`unreadCount` 却始终计算全账号。
+- 红绿/实现：Client Core/Storybook 旧实现 4 项失败；Mini 工作台/通知/直接 Page/UiSheet 旧实现 11 项失败。现为未读计数和列表返回增加可选群组范围，无参 Web 语义不变；新 `UiSheet` 使用标题区 WXS `setStyle` 跟手、96px/快速下甩门槛和完成/遮罩替代；通知面板复用原控制器并通过 `unreadchanged` 同步当前群组红点。
+- 视觉：Storybook 直接装配生产 `HomeView/NotificationBell/ResponsiveSheet`；390×844、320×844 和大字号均 ready，无水平溢出，大字号首卡增高后仍由 Sheet 内层滚动。Mini 视觉仍待实体 Android 复核，不以 Storybook 宣称原生通过。
+- 语义审计：通知正文仍只在面板存活期驻留内存，不写缓存/日志；单条和全部已读各保留一次原写请求、Bearer、capability 与陈旧响应保护。工作台先完成核心 ready 再首读未读数，不把通知请求纳入核心 TTI。
+
 ## 2026-08-27 Mini 年月滚轮 UI 线程架构实现
 
+- 真机否决/回滚：用户确认 `.50` “非常糟糕”，没有自动吸附、字号缩放或透明度变化并要求回滚。官方 Summer 编译和 6/6 Worklet audit 只证明产物生成，未证明目标 Android 动态绑定执行；CSS snap 单独也没有提供所需吸附。停止该架构，不做第六轮补丁。
+- 回滚实现：picker TS/WXML/WXSS、controller/physical tests 精确恢复到 `c8479359`（`.49` runtime）且 `git diff c8479359 -- <五路径>` 为 0；删除 `.50` 专用 Worklet test，保留失败设计/计划作为证据。定向 2 files/22 tests 通过；runtime checkpoint 识别消息 `revert(miniprogram): restore workflow wheel runtime`，下一候选 `.51`。
 - 追加反馈：`.48` 已明显改善快速反向接管，但慢速逐格下移后立即逐格上移仍偶发不跟手，自动吸附有可见跳帧；`.49` 包含同一滚轮代码。`staleWhen` 已命中，`.48` timer 修复降级为局部有效假设。
 - 架构根因：同一滚轮同时由 CSS snap 和 JS `scroll-top + 320ms timer` 控制；每个原生/程序化 `scroll` 又整组 `setData` 11/12 行字号、透明度与缩放。Web 参考只保留一个 snap owner；Mini 当前跨 UI/逻辑/渲染线程竞争。
 - 用户已确认 UI-thread Worklet 方向：原生 scroll-view 独占位置，SharedValue + animated style 保留逐像素 19→24px 视觉、0.94→1 缩放与 0.58→1 透明度；逻辑层每跨一行/最终停止才同步一次，禁止逐帧 `setData` 和第二套 timer 吸附。
 - 红绿/实现：新 architecture/controller 回归在旧实现稳定 3 项失败；现有 11 年 + 12 月节点首次打开只绑定 46 个 updater，像素 update 只写 SharedValue，跨半行才用 generation/sequence guarded `runOnJS` 更新草稿，最终 `scrollend` 只记录实际 top。删除 wheel timer/animation owner/逐帧 item 重建，关闭 scroll anchoring；固定 24px 字形加双层 transform 精确等价原 19→24px 视觉。
 - 验证：picker/physical feedback 3 files/25、Mini 93 files/443、production verify/determinism/package/CI dry-run（6/6 Worklet、4,345,198 bytes、manifest `8c6b62e9…c5be8`）、任务 Prettier/ESLint、root build/typecheck、root 233 files/1,113 tests（37/352 skip）与 core smoke 通过。全仓 format 仍被 410 个既有文件阻断，root lint 仍仅有未修改 `wx-request-executor.ts:141` 的 `prefer-const`；未接管无关内容。
 - 发布：runtime checkpoint `5bed6d34` 已推送；clean release worktree 官方上传 `.50@5bed6d3`（165 code files/zip 1,937,770/manifest `aa2867ca…0d73`）。ECS 三层 cache hit，备份 `ea1e3ea9-8c03-49e3-a405-0315fc64a34f`（54 表/179793 行/82696816 bytes/SHA `43ee98b9…af81`）后 trusted reuse 无停机同步且容器 ID/created 不变；正式 ensure/verify `.50`，预热一次 connection reset/一次 502 后恢复，七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
-- 当前状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`；最终状态 checkpoint 识别消息 `docs(status): record worklet wheel deployment`。未提审、未正式发布。
+- 当前状态：`.50` 已被否决，回滚已实现待 clean full validation/checkpoint/`.51` 上传与生产同步。未提审、未正式发布。
 
 ## 2026-08-27 Mini 年月滚轮反向接管卡死
 

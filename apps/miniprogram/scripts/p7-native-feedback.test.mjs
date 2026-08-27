@@ -124,14 +124,13 @@ describe('P7 physical-device feedback regressions', () => {
     const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
     expect(pickerTemplate).toContain('class="workflow-picker-sheet"');
     expect(pickerTemplate).toContain('workflow-picker-selector-popover');
-    expect(pickerTemplate).toContain("mode === 'month' && wheelMounted");
-    expect(pickerTemplate).toContain('hidden="{{!open}}"');
+    expect(pickerTemplate).toContain("open && mode !== 'selector'");
     expect(pickerTemplate).toContain('class="workflow-picker-summary"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-grid"');
     expect(pickerTemplate).not.toContain('<picker-view');
-    expect(pickerTemplate).toContain('worklet:onscrollupdate="handleYearWheelScrollUpdate"');
-    expect(pickerTemplate).toContain('worklet:onscrollupdate="handleMonthWheelScrollUpdate"');
+    expect(pickerTemplate).toContain('bindscroll="handleYearWheelScroll"');
+    expect(pickerTemplate).toContain('bindscroll="handleMonthWheelScroll"');
     expect(pickerTemplate).toContain('class="workflow-picker-wheel-rails"');
     expect(pickerTemplate).toContain('class="workflow-picker-wheel-mask"');
     expect(pickerTemplate).toContain("item.isWeekend ? 'is-weekend' : ''");
@@ -168,16 +167,10 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerTemplate).toContain("index === draftIndices[0] ? 'is-selected' : ''");
     expect(pickerTemplate).toContain("index === draftIndices[1] ? 'is-selected' : ''");
     expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-item\s*\{[^}]*font-size:\s*24px;[^}]*opacity:\s*0\.58/su,
+      /\.workflow-picker-wheel-item\s*\{[^}]*font-size:\s*19px;[^}]*opacity:\s*0\.58/su,
     );
     expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-number\s*\{[^}]*font-size:\s*24px;[^}]*transform:\s*scale\(0\.7916667\)/su,
-    );
-    expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-item\.is-selected\s*\{[^}]*opacity:\s*1;[^}]*transform:\s*scale\(1\)/su,
-    );
-    expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-item\.is-selected \.workflow-picker-wheel-number\s*\{[^}]*transform:\s*scale\(1\)/su,
+      /\.workflow-picker-wheel-item\.is-selected\s*\{[^}]*font-size:\s*24px;[^}]*opacity:\s*1/su,
     );
     expect(pickerStyles).toMatch(
       /\.workflow-picker-scrim\s*\{[^}]*background:\s*rgba\(22, 32, 42, 0\.18\)/su,

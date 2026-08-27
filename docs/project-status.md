@@ -50,15 +50,13 @@
 
 ## 当前活动批次
 
-- `.50@5bed6d3` 已包含 UI-thread 滚轮和 `.49` 导航；用户目标为慢速逐格反向持续跟手、吸附
-  无明显跳帧。
-- UI-thread Worklet 已实现：原生 scroll-view 独占位置；6/6 Worklet、每实例 SharedValue、46 个
-  stable animated-style updater 保留逐像素字号/缩放/透明度；逻辑层只按行/最终停止同步。
-- JS 二次吸附、320ms timer、共享 animation owner 和逐帧 `setData` 已删除；generation/sequence
-  拒绝关闭重开及乱序旧事件，scroll anchoring 显式关闭。
-- 状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`。runtime checkpoint
-  `5bed6d34` 已推送；最终状态 checkpoint 识别消息为
-  `docs(status): record worklet wheel deployment`。
+- 用户否决 `.50`：真机没有自动吸附、字号缩放或透明度变化，并明确要求回滚。
+- `.50` Summer 编译/6 Worklet audit 不能证明目标 Android 上动态 Worklet/style binding 执行；删除
+  JS snap 后 CSS snap 也未提供所需行为。该架构停止，不继续叠补丁。
+- picker runtime 与两套既有测试已精确恢复 `c8479359`（`.49` 源码），五路径 diff 为 0；删除
+  `.50` 专用 Worklet test，失败设计/计划保留为证据。
+- 状态：`回滚已实现 → 待 clean full validation/checkpoint/体验上传/生产同步`。runtime checkpoint
+  识别消息 `revert(miniprogram): restore workflow wheel runtime`，下一候选为 `.51`。
 
 ## 已完成的发布基线与当前修复
 
@@ -183,9 +181,10 @@
 
 ## 下一步与停止条件
 
-1. 提交最终状态 checkpoint 并以已完成备份再次同步 production release。
-2. 用户在 `.50` 实体 Android 执行 20 次慢速逐格下→上、半格反向、吸附中反向与年/月交替；
-   此前状态只能是待用户复核。
+1. 提交并推送 runtime rollback checkpoint，排除所有并行用户改动。
+2. 从 clean rollback checkpoint 运行 Mini/root gates，上传 `.51` 并完成备份/release/allowlist/full verifier。
+3. 提交最终状态 checkpoint 并同步 production release。
+4. 用户只需确认 `.51` 已恢复 `.49` 的吸附、字号和透明度表现；不继续验收 `.50`。
 
-停止条件：`.50` 上传、Git/origin/production release、allowlist/full verifier 全部对齐，所有用户
-工作树内容保持未提交；随后等待实体滚轮复核，不提交审核或正式发布。
+停止条件：`.51` 上传、Git/origin/production release、allowlist/full verifier 全部对齐，所有用户
+工作树内容保持未提交；随后等待回滚复核，不提交审核或正式发布。

@@ -5,21 +5,21 @@ combined CSS snap with a second JS `scroll-top` animation and rebuilt all wheel 
 `setData` on every native/programmatic scroll frame. Fast reverse takeover improved after canceling
 the JS timer, but slow one-row reversal and animation frame drops remained.
 
-The accepted architecture keeps native CSS snap as the only automatic position owner. Each column
-writes pixel position to its own SharedValue from `worklet:onscrollupdate`; 46 stable animated-style
-bindings reproduce the prior 19→24px visual through compositor transforms without changing real
-font metrics. Logic receives only row-boundary/final indexes through generation/sequence-guarded
-`runOnJS` calls.
+The `.50` UI-thread architecture compiled and uploaded successfully but failed on the target
+Android: there was no automatic snap, no size interpolation, and no opacity interpolation. This
+means the Summer compile/source audit did not prove the dynamic `worklet:onscrollupdate` plus
+`applyAnimatedStyle` bindings actually executed on that runtime. Removing the JS snap also exposed
+that CSS snap alone did not provide the required behavior there.
+
+`.50` was rejected by the user and the runtime was restored exactly to the `.49` picker source in a
+new forward commit. Keep the failed design/plan as evidence; do not reintroduce it or patch it in
+place without a new device-level capability experiment and explicit architecture discussion.
 
 Keep these invariants:
 
-- No wheel timer, shared animation owner, or per-pixel `bindscroll → setData` path.
-- One hundred updates inside one row produce zero `setData` calls.
-- Slow `7 → 7.25 → 7.51 → 7.49 → 7` commits down and up exactly once each.
-- Delayed generations and out-of-order sequences cannot overwrite the latest gesture.
-- Month nodes bind animated styles once after first open and remain hidden/mounted across reopen.
-- Native scrolling always wins; `scrollend` records the actual position and never starts another snap.
+- The shipped rollback must stay byte-equivalent to the `.49` picker runtime until a new approach is approved.
+- The `.48` touch-interrupt regression remains guarded; `.50` Worklet/static tests are removed with the rollback.
 - Month/date values emit only from explicit completion; cancel emits nothing.
 
-Treat this fix as a hypothesis again if Worklet bindings, SharedValue interpolation, CSS snap
-ownership, persistent node mounting, or the guard tests change. Native acceptance remains external.
+Treat all future wheel fixes as architectural work. Automated Worklet compilation cannot substitute
+for native execution evidence.
