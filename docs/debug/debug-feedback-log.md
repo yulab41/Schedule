@@ -19,7 +19,8 @@
 - 红绿/实现：新 architecture/controller 回归在旧实现稳定 3 项失败；现有 11 年 + 12 月节点首次打开只绑定 46 个 updater，像素 update 只写 SharedValue，跨半行才用 generation/sequence guarded `runOnJS` 更新草稿，最终 `scrollend` 只记录实际 top。删除 wheel timer/animation owner/逐帧 item 重建，关闭 scroll anchoring；固定 24px 字形加双层 transform 精确等价原 19→24px 视觉。
 - 验证：picker/physical feedback 3 files/25、Mini 93 files/443、production verify/determinism/package/CI dry-run（6/6 Worklet、4,345,198 bytes、manifest `8c6b62e9…c5be8`）、任务 Prettier/ESLint、root build/typecheck、root 233 files/1,113 tests（37/352 skip）与 core smoke 通过。全仓 format 仍被 410 个既有文件阻断，root lint 仍仅有未修改 `wx-request-executor.ts:141` 的 `prefer-const`；未接管无关内容。
 - 发布：runtime checkpoint `5bed6d34` 已推送；clean release worktree 官方上传 `.50@5bed6d3`（165 code files/zip 1,937,770/manifest `aa2867ca…0d73`）。ECS 三层 cache hit，备份 `ea1e3ea9-8c03-49e3-a405-0315fc64a34f`（54 表/179793 行/82696816 bytes/SHA `43ee98b9…af81`）后 trusted reuse 无停机同步且容器 ID/created 不变；正式 ensure/verify `.50`，预热一次 connection reset/一次 502 后恢复，七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
-- 当前状态：`.50` 已被否决，回滚已实现待 clean full validation/checkpoint/`.51` 上传与生产同步。未提审、未正式发布。
+- 回滚发布：runtime checkpoint `99006bad` 已推送；clean worktree Mini 92 files/439、root 230 files/1,103（37/352 skip）、build/typecheck、2/2 Worklet verify/determinism/package/CI dry-run 通过，manifest `6a897143…6b85`。`.51@99006ba` 官方上传 165 code files/zip 1,935,669/manifest `30271052…b0e3`；备份 `0025dcf8-6495-428e-9c4a-6da457e2f680`（54 表/179887 行/82728024 bytes/SHA `e9734a5c…708d`）后 trusted reuse、正式 ensure/verify `.51`、七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
+- 当前状态：`.50` 已否决并由 `.51` 前向回滚，状态为 `已完成（clean 自动验证、体验上传与生产发布）→ 待用户确认恢复`；最终状态 checkpoint 识别消息 `docs(status): record workflow wheel rollback`。未提审、未正式发布。
 
 ## 2026-08-27 Mini 年月滚轮反向接管卡死
 

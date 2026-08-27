@@ -2,7 +2,7 @@
 
 - 日期：2026-08-27
 - 基线：`main@1cbcf755`
-- 状态：真机否决并回滚；保留为失败架构证据
+- 状态：真机否决；`.51` 已完成前向回滚，保留为失败架构证据
 - 范围：`apps/miniprogram/src/subpackages/workflows/components/workflow-picker`
 
 ## 背景与结论

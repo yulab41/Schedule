@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-27）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `5bed6d34196fb0443506cfa637ff239110f7dbed`。最终状态以“包含本文件的 Git HEAD”为
+  `99006bad3f723e18c35626b5036aa97f5d79b9df`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.50@5bed6d3`，165 code files，zip
-  `1,937,770` bytes，upload manifest `aa2867ca73067ef2dfcf3189a6dfe5e66c821d885b31249fcaeabfeb60380d73`。
-- `.50` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.51@99006ba`，165 code files，zip
+  `1,935,669` bytes，upload manifest `30271052acdcd421cd3145150c0644b5a1db624ca89101e1f9f97322d425b0e3`。
+- `.51` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `ea1e3ea9-8c03-49e3-a405-0315fc64a34f`（54 表、179,793 行、82,696,816 bytes、
-  SHA-256 `43ee98b92681a92d8183598be6880788e302c6c4ade7d5f8efacb2fbc575af81`）。
+  `0025dcf8-6495-428e-9c4a-6da457e2f680`（54 表、179,887 行、82,728,024 bytes、
+  SHA-256 `e9734a5c4af114c1e97b4e0761e08754fa7f85f517fe1a9e1e2daeb754f4708d`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -55,8 +55,9 @@
   JS snap 后 CSS snap 也未提供所需行为。该架构停止，不继续叠补丁。
 - picker runtime 与两套既有测试已精确恢复 `c8479359`（`.49` 源码），五路径 diff 为 0；删除
   `.50` 专用 Worklet test，失败设计/计划保留为证据。
-- 状态：`回滚已实现 → 待 clean full validation/checkpoint/体验上传/生产同步`。runtime checkpoint
-  识别消息 `revert(miniprogram): restore workflow wheel runtime`，下一候选为 `.51`。
+- 状态：`已完成（clean 自动验证、体验上传与生产发布）→ 待用户确认恢复`。rollback checkpoint
+  `99006bad` 已推送；最终状态 checkpoint 识别消息为
+  `docs(status): record workflow wheel rollback`。
 
 ## 已完成的发布基线与当前修复
 
@@ -125,11 +126,11 @@
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
-- UI-thread 滚轮定向：3 files / 25 tests 通过；旧架构新增回归 3 项先红。
-- Mini 全量：93 files / 443 tests 通过；导航定向 12 files / 77 tests 通过。
-- root Vitest：233 files / 1,113 tests 通过；37 files / 352 tests 按无数据库环境跳过。
-- Mini typecheck/production verify/determinism/package/CI dry-run 通过；6/6 Worklet，4,345,198 bytes，
-  manifest `8c6b62e9a10cb4d0d58aa83e949f0af8237f2e11eaa7f5466cadf0b51f3c5be8`。
+- `.50` UI-thread 滚轮自动回归曾 3 files / 25 tests 通过，但真机三项核心行为全部缺失，结果无效并已回滚。
+- clean rollback Mini 全量：92 files / 439 tests 通过；picker 定向 2 files / 22 tests 通过。
+- clean rollback root Vitest：230 files / 1,103 tests 通过；37 files / 352 tests 按环境跳过。
+- rollback Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,343,790 bytes，
+  manifest `6a8971435a7947e40cb8207f6cc8bbb0833b31e0eff10c116439d31748906b85`。
 - 任务文件 Prettier/ESLint、root build/typecheck 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，
   无需 Web browser smoke。
 - 完整 `pnpm verify` 被 411 个既有文件的全仓 format 阻断；独立 root lint 被未修改
@@ -160,6 +161,9 @@
   manifest `aa2867ca…0d73`。备份 `ea1e3ea9-8c03-49e3-a405-0315fc64a34f` 后可信 reuse
   无停机同步且容器不变；正式 ensure/verify `.50`、七维 capability、未知版本 426、带公网 IP
   full verifier 与远端 temp 清理通过。
+- rollback checkpoint `99006bad` 已推送；`.51` 官方上传 165 files/zip 1,935,669/manifest
+  `30271052…b0e3`。备份 `0025dcf8-6495-428e-9c4a-6da457e2f680` 后 trusted reuse，正式
+  ensure/verify `.51`、七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
 
 ## 语义与偏差记录
 
@@ -181,10 +185,8 @@
 
 ## 下一步与停止条件
 
-1. 提交并推送 runtime rollback checkpoint，排除所有并行用户改动。
-2. 从 clean rollback checkpoint 运行 Mini/root gates，上传 `.51` 并完成备份/release/allowlist/full verifier。
-3. 提交最终状态 checkpoint 并同步 production release。
-4. 用户只需确认 `.51` 已恢复 `.49` 的吸附、字号和透明度表现；不继续验收 `.50`。
+1. 提交最终状态 checkpoint 并以已完成备份同步 production release。
+2. 用户只需确认 `.51` 已恢复 `.49` 的吸附、字号和透明度表现；不继续验收 `.50`。
 
 停止条件：`.51` 上传、Git/origin/production release、allowlist/full verifier 全部对齐，所有用户
 工作树内容保持未提交；随后等待回滚复核，不提交审核或正式发布。
