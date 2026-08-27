@@ -244,3 +244,18 @@ export {
   type DirectoryQueryLike,
   type DirectoryUsage,
 } from './directory.js';
+export {
+  buildMyProfileOverview,
+  emptyMyProfileOverview,
+  type BuildMyProfileOverviewInput,
+  type MyProfileCalendarLike,
+  type MyProfileContactLike,
+  type MyProfileDutyAssignmentLike,
+  type MyProfileMemberLike,
+  type MyProfileMonthStatisticsLike,
+  type MyProfileOverview,
+  type MyProfileStatisticsMemberLike,
+  type MyProfileStatisticsSummaryLike,
+  type MyProfileTrendPoint,
+  type MyProfileYearStatisticsLike,
+} from './profile.js';

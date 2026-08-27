@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { GroupSummary, UserProfile } from '@schedule/contracts';
+import type { CalendarDutyAssignment, GroupSummary, UserProfile } from '@schedule/contracts';
+import {
+  buildMyProfileOverview,
+  emptyMyProfileOverview,
+  type MyProfileOverview,
+} from '@schedule/presentation-core';
 import { LogoutIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 
@@ -15,15 +20,9 @@ import { formatSelectedDateLabel } from '../../features/calendar/selected-date-d
 import { useSessionStore } from '../../stores/session.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import type { WorkbenchTabId } from '../../features/layout/workbench-nav.js';
-import {
-  buildMyProfileOverview,
-  emptyMyProfileOverview,
-  type MyProfileOverview,
-} from './my-profile-overview.js';
-
 const props = defineProps<{
   readonly group: GroupSummary;
-  readonly overview?: MyProfileOverview;
+  readonly overview?: MyProfileOverview<CalendarDutyAssignment>;
   readonly profile?: UserProfile;
 }>();
 
@@ -35,7 +34,8 @@ const emit = defineEmits<{
 
 const session = props.profile === undefined ? useSessionStore() : undefined;
 const api = createApiClient({ auth: localAuth });
-const loadedOverview = ref<MyProfileOverview>(emptyMyProfileOverview());
+const loadedOverview =
+  ref<MyProfileOverview<CalendarDutyAssignment>>(emptyMyProfileOverview<CalendarDutyAssignment>());
 const overviewError = ref<string>();
 const overviewLoading = ref(false);
 let overviewRequestId = 0;
@@ -82,7 +82,7 @@ async function loadOverview(): Promise<void> {
   const requestId = ++overviewRequestId;
   overviewError.value = undefined;
   if (props.overview !== undefined || props.group.role === 'guest') {
-    loadedOverview.value = emptyMyProfileOverview();
+    loadedOverview.value = emptyMyProfileOverview<CalendarDutyAssignment>();
     overviewLoading.value = false;
     return;
   }
@@ -123,7 +123,7 @@ async function loadOverview(): Promise<void> {
     }
   } catch (error) {
     if (requestId !== overviewRequestId) return;
-    loadedOverview.value = emptyMyProfileOverview();
+    loadedOverview.value = emptyMyProfileOverview<CalendarDutyAssignment>();
     overviewError.value = toUserMessage(error, '个人值班数据暂时无法加载，请稍后重试。');
   } finally {
     if (requestId === overviewRequestId) overviewLoading.value = false;

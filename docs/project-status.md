@@ -14,8 +14,8 @@
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `9c9f2551-965f-4293-91f2-269271e06ba0`（54 表、180,036 行、82,777,068 bytes、
-  SHA-256 `c7b5fb785203f8c3ff02a934a6255290e7220f82bff0f2e565407cbe755e9c28`）。
+  `3ca01d81-eac7-4c51-9857-8fd478dba675`（54 表、180,183 行、82,825,964 bytes、
+  SHA-256 `5748c0a504cdb087d0ed54801b831f6436b16618d1c99d96a92201522f8f80df`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -53,11 +53,13 @@
 - 用户已批准把小程序“我的”页按 Web Production 1:1 重建，并增加真实的小程序身份状态与账号级
   微信头像；不显示真实微信号，头像只在微信快捷登录时可选刷新。
 - 书面规格与计划为 `docs/superpowers/specs/2026-08-27-miniprogram-my-profile-web-parity-design.md`
-  和对应 `plans/` 文件；当前 checkpoint 只落文档、引入点与安全边界，不修改 runtime。
+  和对应 `plans/` 文件；文档 checkpoint `bb52e47b` 已推送并部署。
 - 引入点：Web 个人值班聚合来自 `ebd1b19f`，Mini 常驻 Profile controller/workbench 入口来自
   `79a0ae90`，微信快捷登录来自 `e69cfb76`，密码登录禁解绑来自 `75ec2c1d`。
-- 文档 checkpoint 识别消息为 `docs(design): specify miniprogram profile parity`；通过并部署后进入
-  Task 1“共享个人值班模型与可选 avatarVersion 兼容契约”，并继续避开所有并行脏文件。
+- Task 1 已把 Web `MyProfileOverview` 等价迁入无外部依赖的 `@schedule/presentation-core`，Web 只
+  更换导入；`UserProfile` 增加暂不由 API 返回的可选 `avatarVersion` 兼容字段。
+- Task 1 checkpoint 识别消息为 `refactor(profile): share duty overview model`；提交、推送并完成生产
+  验证后进入 Task 2“头像数据库/API 与当前小程序绑定状态”，不提前修改并行 Mini runtime。
 
 ## 已完成的发布基线与当前修复
 
@@ -123,6 +125,13 @@
 
 ## 已完成验证
 
+- Profile Task 1：旧实现共享模块缺失、strict schema 拒绝 avatarVersion 的红灯已确认；迁移后定向
+  5 files/28 tests、边界 4 files/13 tests、root 236 files/1,118 tests、Mini 95 files/460 tests 通过，
+  37 files/353 tests 按无数据库环境跳过；全端 build/typecheck、Mini production verify（2/2
+  Worklet、4,559,047 bytes、manifest `da88b470…03e8d`）、任务 Prettier/ESLint/diff 和 core smoke 通过。
+- Profile browser smoke 已实际运行：首次因 5173 未启动停止；启动源码服务后因未启用 dev auth、
+  Docker daemon/本机 MySQL 均不存在而在登录门禁停止，未进入产品断言；临时服务已停止并在
+  debug round 精确记录。本 Task 不改 Web 视觉或请求行为。
 - 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
   7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
 - 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
@@ -197,15 +206,20 @@
   安全回到日历。独立 Page 依赖微信 Page 栈，自带返回按钮并保留系统侧滑返回。
 - 通知只新增当前群组未读 GET 轮询和嵌入展示；无参 Web 未读语义不变。单条/全部已读仍各一次
   原写请求，Bearer、capability、Promise/catch、陈旧响应保护和通知正文不落盘不变。
+- Profile Task 1 的运行函数源码与 Web 原实现相同；只把 contracts 类型改为共享包既有的结构化
+  `*Like` 边界并由 Web 以完整 CalendarDutyAssignment 参数化。请求顺序/次数、receiver、
+  Promise/catch、`??`/可选字段、日期排序、空态和业务副作用均不变；新增 avatarVersion 仅为可选
+  读取兼容字段，API 此 checkpoint 不返回。
 
 ## 下一步与停止条件
 
 1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
 2. 提交、推送并以可信 reuse 同步通知最终状态 checkpoint，随后只等待 `.52`
    实体 Android 复核红点、滚动、回弹、下滑、“完成”、遮罩关闭和跨群组隔离。
-3. 测试先行迁入共享 `MyProfileOverview`，增加兼容但暂不返回的 `avatarVersion` 契约。
-4. 并行登录/通讯录 checkpoint 落地后，才进入头像 API 与最终 Mini Profile runtime。
-5. 群组权限文档 checkpoint 对齐后，新增独立权限/client-core 红灯，再修改工作台与群组页 runtime。
+3. 提交、推送并完整部署 Profile Task 1；生产应用 hash 变化，必须先备份并走完整 updater/verifier。
+4. 测试先行实现 schema 52 头像专表、认证图片 CRUD、可选 avatarVersion 和当前 AppID 绑定状态。
+5. 并行登录/通讯录 checkpoint 落地后，才进入头像登录桥接与最终 Mini Profile runtime。
+6. 群组权限文档 checkpoint 对齐后，新增独立权限/client-core 红灯，再修改工作台与群组页 runtime。
 
-停止条件：Profile 文档与通知代码/最终状态 checkpoint 均实现 Git/origin/production release 对齐，
-通知体验版 allowlist/full verifier 通过，其他并行用户工作树内容保持未提交；不提交审核或正式发布。
+停止条件：Profile Task 1 的 Git/origin/production release 对齐，通知 `.52` allowlist/full verifier
+继续通过，其他并行用户工作树内容保持未提交；随后只进入 Task 2，不提交审核或正式发布。

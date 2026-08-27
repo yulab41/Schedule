@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
+import type { CalendarDutyAssignment } from '@schedule/contracts';
+import type { MyProfileOverview } from '@schedule/presentation-core';
 
 import MyProfileView from '../../views/my-profile/MyProfileView.vue';
-import type { MyProfileOverview } from '../../views/my-profile/my-profile-overview.js';
 
 const demoProfile = {
   id: 'storybook-profile',
@@ -52,7 +53,7 @@ const demoOverview = {
     { businessMonth: '2026-08', count: 8, label: '8月' },
   ],
   yearCount: 76,
-} satisfies MyProfileOverview;
+} satisfies MyProfileOverview<CalendarDutyAssignment>;
 
 const meta = {
   title: 'Web UI 2.0/Production · 我的',

@@ -1,18 +1,18 @@
-import type {
-  CalendarDutyAssignment,
-  CalendarReadModel,
-  GroupMember,
-  GroupMemberContact,
-  MonthStatisticsSnapshot,
-  StatisticsMemberRow,
-  StatisticsSummary,
-  YearStatistics,
-} from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { buildMyProfileOverview } from './my-profile-overview.js';
+import {
+  buildMyProfileOverview,
+  type MyProfileCalendarLike,
+  type MyProfileContactLike,
+  type MyProfileDutyAssignmentLike,
+  type MyProfileMemberLike,
+  type MyProfileMonthStatisticsLike,
+  type MyProfileStatisticsMemberLike,
+  type MyProfileStatisticsSummaryLike,
+  type MyProfileYearStatisticsLike,
+} from './profile.js';
 
-describe('my profile overview', () => {
+describe('shared my profile overview', () => {
   it('joins statistics, contact details, and trends through the current membership id', () => {
     const overview = buildMyProfileOverview({
       businessDate: '2026-08-20',
@@ -90,7 +90,14 @@ describe('my profile overview', () => {
   });
 });
 
-function member(id: string, isCurrentUser: boolean): GroupMember {
+function member(
+  id: string,
+  isCurrentUser: boolean,
+): MyProfileMemberLike & {
+  readonly realName: string;
+  readonly role: 'member';
+  readonly version: number;
+} {
   return {
     id,
     isCurrentUser,
@@ -100,7 +107,10 @@ function member(id: string, isCurrentUser: boolean): GroupMember {
   };
 }
 
-function contact(membershipId: string, mobilePhone?: string): GroupMemberContact {
+function contact(
+  membershipId: string,
+  mobilePhone?: string,
+): MyProfileContactLike & { readonly isConfirmed: boolean; readonly version: number } {
   return {
     isConfirmed: true,
     membershipId,
@@ -114,7 +124,22 @@ function memberRow(
   actualCount: number,
   weekendCount = 0,
   holidayCount = 0,
-): StatisticsMemberRow {
+): MyProfileStatisticsMemberLike & {
+  readonly actualVsPlanned: readonly unknown[];
+  readonly byRole: readonly unknown[];
+  readonly byShiftType: readonly unknown[];
+  readonly countedActualCount: number;
+  readonly countedPlannedCount: number;
+  readonly deductionCount: number;
+  readonly deltaCount: number;
+  readonly leaveCoverCount: number;
+  readonly manualAdjustmentCount: number;
+  readonly netDutyAdjustment: number;
+  readonly overtimeCount: number;
+  readonly plannedCount: number;
+  readonly realName: string;
+  readonly swapCount: number;
+} {
   return {
     actualCount,
     actualVsPlanned: [],
@@ -137,7 +162,22 @@ function memberRow(
   };
 }
 
-function summary(rows: readonly StatisticsMemberRow[]): StatisticsSummary {
+function summary(rows: readonly MyProfileStatisticsMemberLike[]): MyProfileStatisticsSummaryLike & {
+  readonly actualCount: number;
+  readonly byRole: readonly unknown[];
+  readonly byShiftType: readonly unknown[];
+  readonly countedActualCount: number;
+  readonly countedPlannedCount: number;
+  readonly deductionCount: number;
+  readonly holidayCount: number;
+  readonly leaveCoverCount: number;
+  readonly manualAdjustmentCount: number;
+  readonly netDutyAdjustment: number;
+  readonly overtimeCount: number;
+  readonly plannedCount: number;
+  readonly swapCount: number;
+  readonly weekendCount: number;
+} {
   return {
     actualCount: rows.reduce((total, row) => total + row.actualCount, 0),
     byRole: [],
@@ -157,7 +197,12 @@ function summary(rows: readonly StatisticsMemberRow[]): StatisticsSummary {
   };
 }
 
-function monthStatistics(row: StatisticsMemberRow): MonthStatisticsSnapshot {
+function monthStatistics(row: MyProfileStatisticsMemberLike): MyProfileMonthStatisticsLike & {
+  readonly businessMonth: string;
+  readonly computedAt: string;
+  readonly groupId: string;
+  readonly version: number;
+} {
   return {
     businessMonth: '2026-08',
     computedAt: '2026-08-20T00:00:00.000Z',
@@ -167,7 +212,9 @@ function monthStatistics(row: StatisticsMemberRow): MonthStatisticsSnapshot {
   };
 }
 
-function yearStatistics(months: readonly (readonly [string, number])[]): YearStatistics {
+function yearStatistics(
+  months: readonly (readonly [string, number])[],
+): MyProfileYearStatisticsLike & { readonly year: number } {
   const monthRows = months.map(([businessMonth, count]) => ({
     businessMonth,
     summary: summary([memberRow('member-current', count)]),
@@ -184,7 +231,18 @@ function yearStatistics(months: readonly (readonly [string, number])[]): YearSta
   };
 }
 
-function assignment(overrides: Partial<CalendarDutyAssignment> = {}): CalendarDutyAssignment {
+function assignment(
+  overrides: Partial<MyProfileDutyAssignmentLike> = {},
+): MyProfileDutyAssignmentLike & {
+  readonly changeMarkers: readonly unknown[];
+  readonly schedulePeriodId: string;
+  readonly scheduleRoleId: string;
+  readonly shiftTypeAbbreviation: string;
+  readonly shiftTypeColor: string;
+  readonly shiftTypeId: string;
+  readonly shiftTypeTextColor: string;
+  readonly slotPosition: number;
+} {
   return {
     businessDate: '2026-08-20',
     changeMarkers: [],
@@ -204,7 +262,13 @@ function assignment(overrides: Partial<CalendarDutyAssignment> = {}): CalendarDu
   };
 }
 
-function calendar(assignments: readonly CalendarDutyAssignment[]): CalendarReadModel {
+function calendar(assignments: readonly MyProfileDutyAssignmentLike[]): MyProfileCalendarLike & {
+  readonly businessMonth: string;
+  readonly groupId: string;
+  readonly members: readonly unknown[];
+  readonly roles: readonly unknown[];
+  readonly shiftTypes: readonly unknown[];
+} {
   return {
     assignments,
     businessMonth: '2026-08',

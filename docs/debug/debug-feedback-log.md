@@ -17,9 +17,21 @@
   Mini 集成，不整文件暂存或依赖并行未提交实现。
 - 视觉意图：不另造模板化 Mini 风格；白卡与 Web token 保持安静，深蓝“下一班”是唯一视觉签名。
   微信扩展只进入明细行；触控区至少 44px、相邻操作至少 8px，390/320/大字号和读屏状态均入矩阵。
-- 当前状态：已批准设计写入独立 spec/plan，运行时代码尚未修改。文档验证为 Prettier、占位符/
-  歧义自检、`git diff --check` 与 agent-context policy；checkpoint 识别消息
-  `docs(design): specify miniprogram profile parity`。
+- 文档 checkpoint：已批准设计写入独立 spec/plan；`bb52e47b` 已推送，备份
+  `b531a3c7-52a8-4858-8d5b-acfccb42cfb4` 后可信 reuse 与公网 full verifier 通过。
+- Task 1 红绿/边界：共享 Profile 与 avatarVersion 兼容断言在旧实现分别因模块缺失/strict schema
+  稳定失败；迁移后定向 5 files/28 tests、边界 4 files/13 tests 通过。初版 contracts 类型导入触发 presentation-core rootDir
+  红灯，按该包既有结构化 `*Like` 模式移除跨包源码依赖后 typecheck/build 通过；Web 明确以完整
+  CalendarDutyAssignment 参数化。运行逻辑源码保持相同，Web 请求、receiver、Promise/catch、空值和
+  副作用次数不变；avatarVersion 本 checkpoint 仅为 optional 读取兼容，API 暂不返回。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动以 `ERR_CONNECTION_REFUSED` 停止；按仓库
+  文档启动当前源码 API/Web 后进入登录页，但 Web 未启用进程级 dev auth，且 API 明确报告本地 MySQL
+  127.0.0.1:3306 拒绝连接。Docker daemon、本机 mysqld/service 均不存在，因此完整业务 smoke 被
+  本地依赖环境阻断，未进入产品断言；临时服务已精确停止。`pnpm smoke:check-core` 已找到本节记录
+  并通过。root build/typecheck、root 236 files/1,118 tests、Mini 95 files/460 tests、Mini production
+  verify（2/2 Worklet、4,559,047 bytes、manifest `da88b470…03e8d`）、任务 Prettier/ESLint/diff 均
+  通过；37 files/353 tests 按无数据库环境跳过。checkpoint 识别消息
+  `refactor(profile): share duty overview model`。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
