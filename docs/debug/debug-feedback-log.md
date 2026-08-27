@@ -9,7 +9,8 @@
 - 红绿/实现：新增“向下滚动 → 进入吸附 → 反向触摸 → 旧 `scrollend` → 向上滚动”回归，旧实现稳定失败为 `wheelSnapAnimating=true`。实现只在同一滚轮新触摸时清 animation timer/owner、关闭动画，并禁止触摸尚未结束时由陈旧 `scrollend` 重启吸附；回归转绿。
 - 语义审计：成员调用 receiver/`this` 不变；只清 UI timer，不新增 Promise/catch；索引、空值、年月格式、完成一次 emit、取消零次 emit、业务 API/权限/幂等/写次数均不变。新增副作用仅为竞争窗口内一次 `setData({wheelSnapAnimating:false})`。
 - 验证：picker + P7 feedback 2 files/22、Mini 91 files/434、Mini typecheck/production verify/determinism/package/CI dry-run（2/2 Worklet、4,689,130 bytes、manifest `20c89aa3…a7ea`）、任务 Prettier/ESLint、root build/typecheck、root 233 files/1,113 tests（37 files/352 tests 按无数据库环境跳过）及 `pnpm smoke:check-core` 通过。完整 `pnpm verify` 的任务文件无问题，但全仓 format 被 411 个既有文件阻断；全仓 lint 另被未修改 `apps/miniprogram/src/platform/wx-request-executor.ts:141` 的既有 `prefer-const` 阻断，未接管这些无关内容。
-- 当前状态：checkpoint 识别消息 `fix(miniprogram): let wheel drags interrupt snap`；待显式暂存、推送、`.48` 体验上传、生产备份/release 对齐与实体 Android 复核。未提审、未正式发布。
+- 发布：代码 checkpoint `f6be9cdb` 已推送；production-profile `.48@f6be9cd` 官方上传 164 code files/zip 2,109,019/manifest `4d92065b…ca42`。clean release worktree 三层 cache 全 hit；备份 `29266719-280d-4a8b-b617-2654a367d36e`（54 表/179421 行/82573904 bytes/SHA `86995474…3e6d`）后，trusted hash-identical reuse 前后 API/Web container ID/created 完全不变。正式 ensure/verify `.48`、七维 capability、动态未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
+- 当前状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`；最终状态 checkpoint 识别消息 `docs(status): record wheel snap deployment`。未提审、未正式发布。
 
 ## 2026-08-27 P0/P1 页面、测试、发布缓存与按需上下文硬化
 

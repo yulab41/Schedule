@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-27）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `50c696ab7d271d62d01984d90acbf3c408b22e6f`。最终状态以“包含本文件的 Git HEAD”为
+  `f6be9cdb762ab2321f4f2bddcb0f1e7dd17ba73b`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.47`，164 code files，zip
-  `2,108,831` bytes，upload manifest `a8cd9ec1916ac29c89077f50ad63aa987cd7e519c6f8550c192cfab1cec2f323`。
-- `.47` 已通过正式 `schedule-client-version-allowlist ensure` 加入白名单；重复 ensure
-  验证了幂等且没有重建容器。global/core/workflows/organization/insights/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.48@f6be9cd`，164 code files，zip
+  `2,109,019` bytes，upload manifest `4d92065bd9565a1838a4f46295bb4d271ba4cb972e6fddf2c57376b77511ca42`。
+- `.48` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+  workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `6651884f-3c07-4ecc-87af-e1d8e85beb1e`（54 表、179,030 行、82,436,332 bytes、
-  SHA-256 `ed7cda445ae0392a00ad41615237c52455e2fe080470548450a1ceeedc53de20`）。
+  `29266719-280d-4a8b-b617-2654a367d36e`（54 表、179,421 行、82,573,904 bytes、
+  SHA-256 `869954743ddca6479431fb0968bd33100d9f0d53c7f4dcf33fd9d0a9c2f13e6d`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -36,8 +36,9 @@
   引入链为 `80ddadf0` → `c1b9536a` → `0975b2d1`。
 - 旧实现回归已先红；当前单一修复清理同滚轮 animation timer/owner，并在触摸期间拒绝重启吸附。
   不改 WXML/WXSS、日期日历、年月值、完成/取消事件或业务请求。
-- 状态：`已实现并自动验证 → 待 checkpoint/体验上传/实体 Android 复核`。checkpoint 识别消息为
-  `fix(miniprogram): let wheel drags interrupt snap`，下一体验候选为 `.48`。
+- 状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`。代码 checkpoint
+  `f6be9cdb` 已推送；最终状态 checkpoint 识别消息为
+  `docs(status): record wheel snap deployment`。
 
 ## 已完成的发布基线与当前修复
 
@@ -125,6 +126,10 @@
   detached checkout 在三重 clean 后成功且 dependencies reused，ECS 再次三层 hit。
   `.47` 上传、manifest-only reuse、正式 allowlist ensure/幂等 ensure/verify 与公网 full verifier
   全部通过；生产 release 在最终状态同步前为 `7de1bee1378fe5ac415f95a0865c9b8683049bc0`。
+- 滚轮代码 checkpoint `f6be9cdb` 已推送；`.48` 官方上传成功。clean release worktree 复用三层
+  cache，备份 `29266719-280d-4a8b-b617-2654a367d36e` 后可信 hash-identical reuse 通过；切换前后
+  API/Web container ID 与 created timestamp 不变。随后正式 ensure/verify `.48`、七维 capability、
+  未知版本 426 和带公网 IP full verifier 全部通过，远端临时目录已删除。
 
 ## 语义与偏差记录
 
@@ -140,12 +145,8 @@
 
 ## 下一步与停止条件
 
-1. 逐行审阅任务 diff，只显式暂存 picker controller/test 与本轮状态/调试记录，提交并推送
-   `fix(miniprogram): let wheel drags interrupt snap`。
-2. 用仓库外私钥上传 production-profile `.48` 体验版；创建生产备份，部署/复用同一 Git release，
-   运行 full verifier，并按正式控制流程 ensure/verify `.48`。
-3. 用户在 `.48` 实体 Android 分别对年份/月滚轮执行“同向滑动停止后立即反向”至少 10 次；
+1. 用户在 `.48` 实体 Android 分别对年份/月滚轮执行“同向滑动停止后立即反向”至少 10 次；
    必须持续跟手、最终单行吸附，完成只提交当前值一次。此前状态保持待用户复核。
 
-停止条件：Git/origin/production release 对齐、`.48` 上传及 allowlist/full verifier 通过，所有用户
-工作树内容未进入提交；随后等待 `.48` 实体反向滚动复核，不提交审核/正式发布。
+停止条件：基础设施发布门槛已满足，所有用户工作树内容未进入提交；现在停止实施并等待 `.48`
+实体反向滚动复核，不提交审核/正式发布。
