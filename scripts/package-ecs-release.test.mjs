@@ -112,8 +112,8 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource).toContain('assertPortableShellSyntax');
     expect(packageSource).toContain("RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1'");
     expect(packageSource).toContain('releaseFeatureLevel: RELEASE_FEATURE_LEVEL');
-    expect(packageSource).toContain("databaseSchemaMin: '51'");
-    expect(packageSource).toContain("databaseSchemaMax: '51'");
+    expect(packageSource).toContain("databaseSchemaMin: '52'");
+    expect(packageSource).toContain("databaseSchemaMax: '52'");
     expect(packageSource).toContain('ECS_ROLLBACK_CANDIDATE');
     expect(packageSource).toContain('rollbackCandidate: rollbackCandidate()');
     expect(packageSource.indexOf("'build'")).toBeLessThan(
@@ -133,5 +133,14 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('miniprogram_telemetry_error_or_performance_check');
     expect(verifySource).toContain('TIMESTAMPADD(DAY, -30, CURRENT_TIMESTAMP(3))');
     expect(verifySource).toContain('latest_backup_table_count');
+  });
+
+  it('verifies schema 52 avatar storage shape and accepts pre/post migration backups', () => {
+    expect(verifySource).toContain('user_profile_avatars');
+    expect(verifySource).toContain('avatar_columns');
+    expect(verifySource).toContain('avatar_checks');
+    expect(verifySource).toContain('avatar_cascade_fk');
+    expect(verifySource).toContain('invalid_avatar_rows');
+    expect(verifySource).toContain('"54" ] && [ "$latest_backup_table_count" != "55"');
   });
 });

@@ -548,10 +548,42 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 51 ]; then
         (SELECT COUNT(*) FROM platform_job_runs WHERE job_name = \"privacy-retention\" AND status = \"completed\"),
         COALESCE((SELECT table_count FROM backup_archives WHERE deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1), -1)"')"
   IFS=$'\t' read -r telemetry_table telemetry_indexes telemetry_checks expired_telemetry_rows telemetry_retention_runs latest_backup_table_count <<< "$TELEMETRY_PRIVACY_SCHEMA"
+  if [ "$CURRENT_DATABASE_SCHEMA" -ge 52 ] && [ "$latest_backup_table_count" != "54" ] && [ "$latest_backup_table_count" != "55" ]; then
+    echo "[verify] 错误：schema 52 的最新备份表计数必须来自迁移前 54 表或迁移后 55 表。" >&2
+    exit 1
+  fi
+  if [ "$CURRENT_DATABASE_SCHEMA" -lt 52 ] && [ "$latest_backup_table_count" != "54" ]; then
+    echo "[verify] 错误：schema 51 的最新备份表计数无效。" >&2
+    exit 1
+  fi
   [ "$telemetry_table" = "1" ] && [ "$telemetry_indexes" = "3" ] &&
     [ "$telemetry_checks" = "3" ] && [ "$expired_telemetry_rows" = "0" ] &&
-    [ "$telemetry_retention_runs" -ge 1 ] && [ "$latest_backup_table_count" = "54" ] || {
+    [ "$telemetry_retention_runs" -ge 1 ] || {
     echo "[verify] 错误：遥测表、索引、CHECK、30天边界、retention job 或备份排除无效。" >&2
+    exit 1
+  }
+fi
+
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 52 ]; then
+  AVATAR_PROFILE_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+      -e "SELECT
+        (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = \"user_profile_avatars\"),
+        (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = \"user_profile_avatars\" AND (
+          (column_name = \"user_id\" AND data_type = \"char\" AND character_maximum_length = 36) OR
+          (column_name = \"content\" AND data_type = \"mediumblob\") OR
+          (column_name = \"content_type\" AND data_type = \"varchar\" AND character_maximum_length = 32) OR
+          (column_name = \"byte_length\" AND column_type = \"int unsigned\") OR
+          (column_name = \"sha256\" AND data_type = \"char\" AND character_maximum_length = 64) OR
+          (column_name = \"version\" AND column_type = \"int unsigned\")
+        )),
+        (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = \"user_profile_avatars\" AND constraint_type = \"CHECK\" AND constraint_name IN (\"user_profile_avatars_byte_length_check\", \"user_profile_avatars_content_type_check\")),
+        (SELECT COUNT(*) FROM information_schema.referential_constraints WHERE constraint_schema = DATABASE() AND table_name = \"user_profile_avatars\" AND constraint_name = \"user_profile_avatars_user_fk\" AND delete_rule = \"CASCADE\"),
+        (SELECT COUNT(*) FROM user_profile_avatars WHERE byte_length <> OCTET_LENGTH(content) OR byte_length NOT BETWEEN 1 AND 1048576 OR content_type NOT IN (\"image/jpeg\", \"image/png\", \"image/webp\") OR sha256 NOT REGEXP \"^[0-9a-f]{64}$\" OR version < 1)"')"
+  IFS=$'\t' read -r avatar_table avatar_columns avatar_checks avatar_cascade_fk invalid_avatar_rows <<< "$AVATAR_PROFILE_SCHEMA"
+  [ "$avatar_table" = "1" ] && [ "$avatar_columns" = "6" ] && [ "$avatar_checks" = "2" ] &&
+    [ "$avatar_cascade_fk" = "1" ] && [ "$invalid_avatar_rows" = "0" ] || {
+    echo "[verify] 错误：用户头像表、列、CHECK、级联外键或存量内容无效。" >&2
     exit 1
   }
 fi

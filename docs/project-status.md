@@ -13,9 +13,9 @@
 - `.52` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
-- 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `baa3bb31-267c-4b1a-b11f-c754612432d8`（54 表、180,224 行、82,839,640 bytes、
-  SHA-256 `84798bb7cb222983625034b8be9d55ddbb356eaa4473fcd84d0cb465d40a83a8`）。
+- 当前生产数据库 schema 52；最近一次已完成发布备份为
+  `4825f6c2-3df5-4ff2-9901-42470c2ac130`（54 表、180,333 行、82,875,488 bytes、
+  SHA-256 `2448d6e70c5fee7f68e222ff9f7efc0e55f14498e8eb37c477ede35fa7de2259`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -62,8 +62,11 @@
   验证后已进入 Task 2。
 - Task 2 已实现 schema 52 头像专表、认证图片 CRUD、所有登录 profile 的可选 avatarVersion 与当前
   AppID 绑定状态；checkpoint 识别消息为 `feat(profile): add avatar and binding APIs`。
-- Task 2 提交、推送、生产备份/迁移/full verifier 后进入 Task 3；Task 3 只先做独立 Mini media
-  client/pending cache，仍等待并行登录/通讯录 checkpoint 后才修改重叠页面与会话文件。
+- 代码 checkpoint `3c1b131a` 已推送；首次 updater 成功应用 0052 后发现 packager manifest 仍硬编码
+  51..51，门禁拒绝并自动恢复 `9e42057c` 应用。当前 API 健康、DB schema 52，但旧 release verifier
+  因兼容范围正确失败，状态为“迁移已前滚 → 发布控制待前滚修复”。
+- 控制修复把 manifest 改为 52..52 并增加头像 schema/备份探针；checkpoint 识别消息为
+  `fix(release): admit profile avatar schema`。完成备份/完整部署/full verifier 前不进入 Task 3。
 
 ## 已完成的发布基线与当前修复
 
@@ -129,6 +132,9 @@
 
 ## 已完成验证
 
+- Profile Task 2 发布控制：旧 packager/verifier 对 schema52 的 2 项回归先红；实现后 package/
+  release controls/cache 3 files/28 tests、Bash syntax、任务 Prettier/ESLint/diff 通过。生产首次更新已
+  自动恢复应用，API health 200；旧 verifier 唯一失败为 DB52 不在旧 manifest 51..51。
 - Profile Task 2：旧实现 contracts/schema/validator/routes 4 files/8 项先红；实现后安全/路由
   8 files/34 tests、database/API 定向 15 files/42 tests、root 241 files/1,131 tests、Mini
   95 files/461 tests 通过，37 files/355 tests 按无数据库环境跳过；全端 build/typecheck、Mini
@@ -228,11 +234,12 @@
 1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
 2. 提交、推送并以可信 reuse 同步通知最终状态 checkpoint，随后只等待 `.52`
    实体 Android 复核红点、滚动、回弹、下滑、“完成”、遮罩关闭和跨群组隔离。
-3. 提交、推送并完整部署 Profile Task 2；先备份，应用 0052，再验证 schema/头像未授权边界与公网。
-4. 基于已部署 API 测试先行实现 Mini profile-media、认证二进制传输与 owner/version 本地缓存。
-5. 并行登录/通讯录 checkpoint 落地后，才进入头像登录桥接与最终 Mini Profile runtime。
-6. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
+3. 提交并推送 schema52 发布控制修复；从 DB52 当前状态重新打包，先备份后完整前滚 Task 2 应用。
+4. 验证生产 schema52 头像表、未授权 CRUD/绑定、`.52` capability、未知版本 426 与公网 full verifier。
+5. 基于已部署 API 测试先行实现 Mini profile-media、认证二进制传输与 owner/version 本地缓存。
+6. 并行登录/通讯录 checkpoint 落地后，才进入头像登录桥接与最终 Mini Profile runtime。
+7. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
 
-停止条件：Profile Task 2 的 Git/origin/production release 对齐，生产 schema 52、头像/绑定未授权
-探针和通知 `.52` capability/full verifier 通过，其他并行用户工作树内容保持未提交；随后只进入
-Task 3 非重叠部分，不提交审核或正式发布。
+停止条件：schema52 控制修复的 Git/origin/production release 对齐，生产头像表/未授权探针和通知
+`.52` capability/full verifier 通过，其他并行用户工作树内容保持未提交；随后只进入 Task 3
+非重叠部分，不提交审核或正式发布。

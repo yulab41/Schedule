@@ -49,6 +49,16 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 再次因本机 5173 未启动在第 1/6 步
   `ERR_CONNECTION_REFUSED`，未进入产品断言；既有 Docker/MySQL 环境阻塞不变。提交前运行
   `pnpm smoke:check-core` 复核记录门禁。
+- Task 2 首次发布与回滚：代码 `3c1b131a` 已推送；clean root 238 files/1,121 tests、Mini 93/448、
+  全端 typecheck 与打包通过。备份 `4825f6c2-3df5-4ff2-9901-42470c2ac130`（54 表/180,333 行/
+  82,875,488 bytes/SHA `2448d6e7…2259`）后 updater 已成功执行 0052，但 manifest 仍由 packager
+  硬编码为 51..51，post-migration 门禁拒绝并自动恢复 `9e42057c` 应用。生产 API 健康、DB 为 52，
+  旧 verifier 按设计报告 DB52 超出 release51；未绕过门禁或回退数据库。
+- Task 2 发布控制根因/红绿：`scripts/package-ecs-release.mjs` 自 0051 后固定 min/max=51，新增迁移时
+  未同步更新；新回归在旧源码对 52 范围与头像表探针稳定 2 项失败。实现改为 52..52，并在 verifier
+  检查头像表六列、两项 CHECK、CASCADE 外键、存量内容和迁移前 54/迁移后 55 表备份；package/
+  release controls/cache 3 files/28 tests、Bash syntax、任务 Prettier/ESLint/diff 通过。前滚 checkpoint
+  识别消息 `fix(release): admit profile avatar schema`，用于恢复 Git/application/schema/control 对齐。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 

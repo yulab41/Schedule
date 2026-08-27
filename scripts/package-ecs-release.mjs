@@ -508,8 +508,8 @@ if (flatEntry === undefined) {
 const manifest = {
   schemaVersion: 1,
   releaseFeatureLevel: RELEASE_FEATURE_LEVEL,
-  databaseSchemaMin: '51',
-  databaseSchemaMax: '51',
+  databaseSchemaMin: '52',
+  databaseSchemaMax: '52',
   rollbackCandidate: rollbackCandidate(),
   releaseId: commit,
   gitCommit: commit,
