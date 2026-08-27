@@ -7,7 +7,7 @@
 - 追加反馈：`.48` 已明显改善快速反向接管，但慢速逐格下移后立即逐格上移仍偶发不跟手，自动吸附有可见跳帧；`.49` 包含同一滚轮代码。`staleWhen` 已命中，`.48` timer 修复降级为局部有效假设。
 - 架构根因：同一滚轮同时由 CSS snap 和 JS `scroll-top + 320ms timer` 控制；每个原生/程序化 `scroll` 又整组 `setData` 11/12 行字号、透明度与缩放。Web 参考只保留一个 snap owner；Mini 当前跨 UI/逻辑/渲染线程竞争。
 - 用户已确认 UI-thread Worklet 方向：原生 scroll-view 独占位置，SharedValue + animated style 保留逐像素 19→24px 视觉、0.94→1 缩放与 0.58→1 透明度；逻辑层每跨一行/最终停止才同步一次，禁止逐帧 `setData` 和第二套 timer 吸附。
-- 设计规格：`docs/superpowers/specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`。当前只完成设计与自审，未修改 runtime；checkpoint 识别消息 `docs(design): specify worklet workflow picker`，待用户书面复核后才写实施计划。
+- 设计规格：`docs/superpowers/specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`。设计 checkpoint `62ee23a9` 已推送；clean release 三层 cache hit，备份 `687927ed-960c-4d44-8641-2069b454ab37`（54 表/179691 行/82663376 bytes/SHA `3b1841ba…4671`）后 trusted reuse 无停机同步，容器 ID/created 不变，`.49` allowlist verify、带公网 IP full verifier 与远端 temp 清理通过。未修改/上传 Mini runtime；最终状态 checkpoint 识别消息 `docs(status): record worklet picker design deployment`，待用户书面复核后才写实施计划。
 
 ## 2026-08-27 Mini 年月滚轮反向接管卡死
 

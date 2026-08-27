@@ -14,8 +14,8 @@
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `29442285-9d6e-446c-8b1c-5c4d20f46192`（54 表、179,650 行、82,649,700 bytes、
-  SHA-256 `667f7005cd046895931044d8801b0e05baaa77f6276aec9d4efcd0e4c4e133cb`）。
+  `687927ed-960c-4d44-8641-2069b454ab37`（54 表、179,691 行、82,663,376 bytes、
+  SHA-256 `3b1841babc7dc4c4067f1b84031100aa0d23c61b31802429df09ba73040e4671`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -38,8 +38,9 @@
   逐像素字号、缩放与透明度，逻辑层只按行/最终停止同步。
 - 设计规格为
   `docs/superpowers/specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`；当前仅设计，
-  未修改 runtime。checkpoint 识别消息为 `docs(design): specify worklet workflow picker`，
-  待用户书面复核后才进入实施计划。
+  未修改 runtime。设计 checkpoint `62ee23a9` 已推送并通过 hash-identical reuse 同步生产；
+  `.49` allowlist/full verifier 复核通过。最终状态 checkpoint 识别消息为
+  `docs(status): record worklet picker design deployment`，待用户书面复核后才进入实施计划。
 
 ## 已完成的发布基线与当前修复
 
@@ -156,7 +157,7 @@
 
 ## 下一步与停止条件
 
-1. 提交、推送并同步 Worklet 设计 checkpoint；不得夹带 runtime 或用户脏树。
+1. 提交、推送并以已完成备份同步最终状态 checkpoint；不得夹带 runtime 或用户脏树。
 2. 用户书面复核设计规格；通过后再建立独立实施计划，测试先行后修改 picker runtime。
 3. `.49` 新导航的实体 Android 复核可独立进行；不把它误当作 Worklet 滚轮验收。
 
