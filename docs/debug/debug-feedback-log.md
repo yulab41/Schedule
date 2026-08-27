@@ -8,6 +8,7 @@
 - 失败实验：`728ecaf0` 移除 requiredComponents 后，官方 Summer 编译器以 code 10009 在上传前拒绝“Skyline 必须配置 requiredComponents”；`.40` 没有形成，外部版本/白名单/生产均未变化，配置已恢复。
 - 上传实验：本地构建 255 files，而 `.38/.39` 官方上传只包含 153 个代码文件；`ignoreUploadUnusedFiles=true` 来自 `3884713b`。`30b967eb` 通过 CI setting 传 false 后 `.40` 仍为 153 files/zip `1,404,416`/manifest `2e4105b0…9a15`，因此未加白名单、未部署、不要求用户复测。
 - 最终实现/验证：在 project config 把裁剪开关改为 false，移除无效 CI override，并更新 source audit；同文件用户其他改动原样保留且只部分暂存目标行。工程配置/CI/页面壳 3 files/18、P9/CI/构建 13 files/63、先前其余 Mini 83 files/384 通过；Mini verify manifest `ff288b71…7664`、总包 `5,759,536` bytes、insights `1,317,455` bytes。最终候选改为 `.41`，只有官方文件数增加才继续部署。
+- checkpoint/发布：`106d6c3e` 已推送；`.41` 官方上传从 153 增至 185 files，zip `2,553,561`、manifest `a79b96b7…fba1`。备份 `51b066e9-f254-4d77-a479-2bf6480d4319`（54 表/177757 行/82008060 bytes/SHA `d8943bfc…83f7`）后部署同 release；预热一次 502 后恢复、privacy 0/0、full verifier 通过。`.41` 双锁加入白名单，七维 capability 全 true、未知版本 426、env root/0600；等待实体 Android 复核。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏
 

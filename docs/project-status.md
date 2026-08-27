@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 官方上传完整性白屏修复（已实现待体验上传）
+## 2026-08-27 P9 官方上传完整性白屏修复（已发布待安卓复核）
 
 - 复测/证据：用户确认 `.39` 仍然白屏卡死。生产匿名遥测在 11:35–11:52 持续收到 `.39` workbench 性能样本且无 `MINI_RUNTIME_ERROR`；API 仍未收到访客、事件/统计、通知偏好或导出请求，确认 P9 自定义组件 controller 没有执行。
 - 失败实验：checkpoint `728ecaf0` 曾移除 `lazyCodeLoading` 以排除选择性注入，但官方 Summer 编译器在形成 `.40` 前以 code `10009` 明确拒绝：全局 Skyline 必须配置 `lazyCodeLoading: requiredComponents`。该版本未生成、未上传、未进白名单、未部署；随后已恢复编译器必需配置。
@@ -10,7 +10,9 @@
 - 上传实验：checkpoint `30b967eb` 通过 miniprogram-ci `setting` 传入 false 后上传 `.40`，但官方日志仍为 153 files/zip `1,404,416` bytes/manifest `2e4105b0a9700abc49ed9f36f9bac9bb580da7a663c92e3f6da1037c09759a15`，证明该参数没有覆盖工程配置。`.40` 已形成体验候选，但因包文件数未变化而没有加入白名单、没有部署、无需用户复测。
 - 实现/边界：最终在 `project.config.json` 把 `ignoreUploadUnusedFiles` 改为 false，并同步 source audit 门禁；用户在同文件新增的其他编译器/基础库设置完整保留，checkpoint 只部分暂存这一行。移除无效的 CI 参数覆盖，保留 Skyline requiredComponents、glass-easel、分包、页面/controller、API、权限、capability、缓存和业务数据不变。
 - 红绿/验证：工程配置/CI/页面壳三文件 3 files/18 tests 通过；P9/CI/构建定向 13 files/63 tests，先前同轮其余 Mini 83 files/384 tests 通过。Mini typecheck/production verify 通过；manifest `ff288b714feecdd497063895fd236e0f0d2f136c3c318bf1bd5397d5eb437664`，总包 `5,759,536` bytes，insights `1,317,455` bytes。其余 source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint 与 `smoke:check-core` 在同轮通过，提交前按最终配置复核。
-- checkpoint/下一步：最终纠正 checkpoint 识别消息为 `fix(miniprogram): retain complete upload files`。提交、推送后上传 production-profile `.41`；只有官方文件数明确高于 153 才继续备份、部署、白名单和用户安卓复核，否则停止外部变更并回到页面直接注册方案。不提交审核/正式发布。
+- checkpoint/体验：最终代码 checkpoint `106d6c3e5f8b23855a2ffd9752dbbf1d64a54c3d`（`fix(miniprogram): retain complete upload files`）已推送。production-profile `0.1.0-p9.20260827.41` 官方上传成功，代码文件从 153 增至 185、zip 从约 1.40M 增至 `2,553,561` bytes，上传 manifest `a79b96b76ac113256873e1f6936373e95cd258979bf85835d54192eb250dfba1`，证明工程配置确实改变上传包；未提交审核、未正式发布。
+- 生产发布：部署前加密数据库备份 archive `51b066e9-f254-4d77-a479-2bf6480d4319`（54 表、177,757 行、82,008,060 bytes、SHA-256 `d8943bfc5b641d486871a17bb1c80ae8d7a1064a897b1ec780b8a2e6485983f7`）后部署 release `106d6c3e5f8b23855a2ffd9752dbbf1d64a54c3d`；预热一次 502 后恢复、privacy visitor/telemetry 0/0。`.41` 已双锁原子加入白名单并同时重建 API/web，完整 verifier 通过，capability HTTP 200 且七维全部 true、未知版本 426、env `root:root/0600`。
+- 下一步/停止条件：用户在 `.41` 安卓真机复核通知设置、访客访问、事件与统计、通知中心、导出排班。若任一仍白屏，记录入口和停留时长后转入“页面直接注册、不依赖自定义组件注入”方案；在实体结果前不提交审核/正式发布。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏修复（已发布但未解决）
 
