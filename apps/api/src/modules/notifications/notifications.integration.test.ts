@@ -6,6 +6,7 @@ import {
   createTestDatabaseClient,
   migrateDatabase,
   notificationDeliveries,
+  notifications,
   users,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -103,6 +104,60 @@ describeWithDatabase('notification workflows', () => {
     expect(rejectResponse.statusCode).toBe(200);
     const rejectedForMember = (await listNotifications('a-token', {})).json() as NotificationPage;
     expect(rejectedForMember.notifications[0]?.notificationType).toBe('leave_request_rejected');
+  });
+
+  it('scopes list, unread count, and read-all results to the requested group', async () => {
+    const [owner] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-owner'))
+      .limit(1);
+    if (owner === undefined) throw new Error('Expected the owner fixture user.');
+
+    const firstGroupId = randomUUID();
+    const secondGroupId = randomUUID();
+    await client.database.insert(notifications).values([
+      {
+        body: '第一群组提醒',
+        groupId: firstGroupId,
+        id: randomUUID(),
+        notificationType: 'duty_reminder',
+        recipientUserId: owner.id,
+        title: '第一群组',
+      },
+      {
+        body: '第二群组提醒',
+        groupId: secondGroupId,
+        id: randomUUID(),
+        notificationType: 'schedule_changed',
+        recipientUserId: owner.id,
+        title: '第二群组',
+      },
+    ]);
+
+    expect((await listNotifications('owner-token', {})).json()).toMatchObject({
+      unreadCount: 2,
+    });
+    expect(
+      (await listNotifications('owner-token', { groupId: firstGroupId })).json(),
+    ).toMatchObject({
+      notifications: [expect.objectContaining({ groupId: firstGroupId })],
+      unreadCount: 1,
+    });
+    expect((await getUnreadCount('owner-token', firstGroupId)).json()).toEqual({
+      unreadCount: 1,
+    });
+
+    expect((await markAllNotificationsRead('owner-token', firstGroupId)).json()).toEqual({
+      count: 1,
+    });
+    expect((await getUnreadCount('owner-token', firstGroupId)).json()).toEqual({
+      unreadCount: 0,
+    });
+    expect((await getUnreadCount('owner-token', secondGroupId)).json()).toEqual({
+      unreadCount: 1,
+    });
+    expect((await getUnreadCount('owner-token')).json()).toEqual({ unreadCount: 1 });
   });
 
   it('writes swap workflow notifications only to affected members and admins', async () => {
@@ -804,8 +859,14 @@ describeWithDatabase('notification workflows', () => {
     });
   }
 
-  async function listNotifications(token: string, query: { readonly unreadOnly?: string }) {
+  async function listNotifications(
+    token: string,
+    query: { readonly groupId?: string; readonly unreadOnly?: string },
+  ) {
     const params = new URLSearchParams();
+    if (query.groupId !== undefined) {
+      params.set('groupId', query.groupId);
+    }
     if (query.unreadOnly !== undefined) {
       params.set('unreadOnly', query.unreadOnly);
     }
@@ -817,11 +878,21 @@ describeWithDatabase('notification workflows', () => {
     });
   }
 
-  async function getUnreadCount(token: string) {
+  async function getUnreadCount(token: string, groupId?: string) {
+    const query = groupId === undefined ? '' : `?groupId=${encodeURIComponent(groupId)}`;
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'GET',
-      url: '/notifications/unread-count',
+      url: `/notifications/unread-count${query}`,
+    });
+  }
+
+  async function markAllNotificationsRead(token: string, groupId?: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: groupId === undefined ? {} : { groupId },
+      url: '/notifications/read-all',
     });
   }
 

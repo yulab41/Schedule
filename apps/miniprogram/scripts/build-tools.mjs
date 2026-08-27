@@ -155,15 +155,11 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
-  ...[
-    'exports-panel',
-    'insights-dashboard-panel',
-    'notifications-panel',
-    'visitor-access-panel',
-  ].flatMap((panel) => [
+  ...['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel'].flatMap((panel) => [
     `subpackages/insights/components/${panel}/controller.ts`,
     `subpackages/insights/components/${panel}/index.ts`,
   ]),
+  'subpackages/insights/components/notifications-panel/controller.ts',
   'components/profile-panel/controller.ts',
   'subpackages/organization/components/directory-panel/controller.ts',
   'subpackages/organization/components/group-settings-panel/controller.ts',

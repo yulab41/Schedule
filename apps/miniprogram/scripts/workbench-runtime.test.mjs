@@ -21,6 +21,7 @@ describe('P6-A workbench runtime coordination', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -67,6 +68,83 @@ describe('P6-A workbench runtime coordination', () => {
       ),
     );
     expect(instance.data.activeWorkspace).toBe('more');
+  });
+
+  it('opens the notification Sheet only for a current group and accepts unread updates', async () => {
+    const storage = createStorage();
+    const runtime = createWx(storage, vi.fn());
+    runtime.showToast = vi.fn();
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    Object.assign(instance.data, {
+      currentGroupId: 'group-1',
+      filterOpen: true,
+      groupOpen: true,
+    });
+
+    definition.handleNotification.call(instance);
+    expect(instance.data).toMatchObject({
+      filterOpen: false,
+      groupOpen: false,
+      notificationAnimating: true,
+      notificationSheetOpen: true,
+    });
+
+    definition.handleNotificationUnreadChanged.call(instance, {
+      detail: { unreadCount: 4 },
+    });
+    expect(instance.data.notificationUnreadCount).toBe(4);
+    definition.handleNotificationClose.call(instance);
+    expect(instance.data.notificationSheetOpen).toBe(false);
+
+    instance.data.currentGroupId = '';
+    definition.handleNotification.call(instance);
+    expect(instance.data.notificationSheetOpen).toBe(false);
+    expect(runtime.showToast).toHaveBeenLastCalledWith({
+      icon: 'none',
+      title: '当前群组尚未准备好，请刷新后重试。',
+    });
+  });
+
+  it('loads and clears the current-group unread badge with the workbench lifecycle', async () => {
+    const storage = createStorage();
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/groups')) {
+        options.success({ data: [groupSummary()], statusCode: 200 });
+        return;
+      }
+      if (options.url.includes('/notifications/unread-count')) {
+        options.success({ data: { unreadCount: 3 }, statusCode: 200 });
+        return;
+      }
+      const month = readBusinessMonth(options.url);
+      options.success({
+        data: month === undefined ? holidayApiGoldenResponse : calendar(month),
+        statusCode: 200,
+      });
+    });
+    vi.stubGlobal('wx', createWx(storage, request));
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+
+    definition.onLoad.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.notificationUnreadCount).toBe(3));
+    expect(
+      request.mock.calls.some(([options]) =>
+        options.url.endsWith('/notifications/unread-count?groupId=group-1'),
+      ),
+    ).toBe(true);
+    expect(setTimeoutSpy.mock.calls.some(([, milliseconds]) => milliseconds === 60_000)).toBe(true);
+
+    instance.data.notificationSheetOpen = true;
+    definition.onHide.call(instance);
+    expect(instance.data.notificationSheetOpen).toBe(false);
+    expect(clearTimeoutSpy).toHaveBeenCalled();
   });
 
   it('commits the active month before starting best-effort adjacent reads and refreshes on resume', async () => {

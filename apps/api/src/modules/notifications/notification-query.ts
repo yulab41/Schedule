@@ -69,17 +69,17 @@ export class NotificationQueryService {
 
     return {
       notifications: pageRows.map(toNotificationRecord),
-      unreadCount: await getUnreadCount(transaction, userId),
+      unreadCount: await getUnreadCount(transaction, userId, query.groupId),
       ...(rows.length > pageSize && lastNotification !== undefined
         ? { nextCursor: encodeCursor(lastNotification.createdAt, lastNotification.id) }
         : {}),
     };
   }
 
-  public async unreadCount(identity: AuthenticatedIdentity): Promise<number> {
+  public async unreadCount(identity: AuthenticatedIdentity, groupId?: string): Promise<number> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const userId = await requireActiveUser(transaction, identity);
-      return getUnreadCount(transaction, userId);
+      return getUnreadCount(transaction, userId, groupId);
     });
   }
 
@@ -141,12 +141,22 @@ export class NotificationQueryService {
   }
 }
 
-function getUnreadCount(transaction: DatabaseTransaction, userId: string): Promise<number> {
+function getUnreadCount(
+  transaction: DatabaseTransaction,
+  userId: string,
+  groupId?: string,
+): Promise<number> {
   return transaction
     .select({ count: sql<number>`count(*)` })
     .from(notifications)
-    .where(and(eq(notifications.recipientUserId, userId), eq(notifications.isRead, 0)))
+    .where(buildUnreadCountCondition(userId, groupId))
     .then((rows) => rows[0]?.count ?? 0);
+}
+
+export function buildUnreadCountCondition(userId: string, groupId?: string) {
+  const conditions = [eq(notifications.recipientUserId, userId), eq(notifications.isRead, 0)];
+  if (groupId !== undefined) conditions.push(eq(notifications.groupId, groupId));
+  return and(...conditions) as Exclude<ReturnType<typeof and>, undefined>;
 }
 
 function getPageSize(pageSize: number | undefined): number {

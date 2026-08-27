@@ -1,0 +1,42 @@
+<wxs module="sheetGesture" src="./drag-dismiss.wxs"></wxs>
+
+<view wx:if="{{visible}}" class="ui-sheet__layer">
+  <view
+    id="ui-sheet-scrim"
+    class="ui-sheet__scrim"
+    aria-role="button"
+    aria-label="关闭{{title}}"
+    bindtap="handleBackdropClose"
+    catchtouchmove="preventTouchMove"
+  ></view>
+  <view
+    id="ui-sheet-panel"
+    class="ui-sheet__panel"
+    aria-role="dialog"
+    aria-label="{{title}}"
+    catchtap="preventTouchMove"
+  >
+    <view
+      class="ui-sheet__drag-region"
+      data-swipe-dismiss="{{swipeDismiss}}"
+      bindtouchstart="{{sheetGesture.touchStart}}"
+      bindtouchmove="{{sheetGesture.touchMove}}"
+      bindtouchend="{{sheetGesture.touchEnd}}"
+      bindtouchcancel="{{sheetGesture.touchCancel}}"
+    >
+      <view class="ui-sheet__handle" aria-hidden="true"></view>
+      <view class="ui-sheet__header">
+        <text class="ui-sheet__title">{{title}}</text>
+        <view
+          class="ui-sheet__close"
+          hover-class="is-pressed"
+          aria-role="button"
+          aria-label="{{closeLabel}}"
+          bindtap="handleButtonClose"
+          >{{closeLabel}}</view
+        >
+      </view>
+    </view>
+    <view class="ui-sheet__content"><slot></slot></view>
+  </view>
+</view>

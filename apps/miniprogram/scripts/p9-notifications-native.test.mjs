@@ -57,4 +57,22 @@ describe('P9 native notifications', () => {
     expect(template).toContain('通知中心暂未开放');
     expect(template).toContain("largeText ? 'is-large-text' : ''");
   });
+
+  it('offers the Web notification-card hierarchy as an embedded workbench surface', () => {
+    const template = read('src/subpackages/insights/components/notifications-panel/index.wxml');
+    const styles = read('src/subpackages/insights/components/notifications-panel/index.wxss');
+    const controller = read(
+      'src/subpackages/insights/components/notifications-panel/controller.ts',
+    );
+
+    expect(template).toContain('wx:if="{{embedded && mode === \'notifications\'}}"');
+    expect(template).toContain('class="notification-sheet-content');
+    expect(template).toContain('{{unreadCount}} 条未读');
+    expect(template).toContain('点按一条通知即可标记为已读');
+    expect(template).toContain('>全部已读</view');
+    expect(template).toContain('bindtap="handleMarkRead"');
+    expect(styles).toContain('.notification-sheet-item.is-unread');
+    expect(styles).toMatch(/\.notification-sheet-item\.is-unread::before\s*\{/u);
+    expect(controller).toContain("triggerEvent?.('unreadchanged'");
+  });
 });

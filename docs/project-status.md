@@ -26,8 +26,10 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
-- 登录会话连续性、通知 Sheet、通讯录/群组权限的 runtime、测试、视觉稿与 UiSheet 正由并行任务
-  维护；涉及 identity/workbench/session/directory/notifications 的脏文件均不得整文件暂存。
+- 登录会话连续性、通讯录/群组权限的 runtime、测试和视觉稿正由并行任务维护；
+  涉及 identity/session/directory 的脏文件均不得整文件暂存。
+- 通知 Sheet 为本轮明确批次；只能显式暂存通知/API/UiSheet/工作台自身文件，
+  不得夹带同一工作树的登录、通讯录、Profile 或其他用户内容。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
 - `runtime/external-project-worktrees/` 中未落地 P10 worktree 必须保留。
 
@@ -35,8 +37,11 @@
 
 - 登录会话连续性设计 checkpoint `3eae93c2` 已推送并部署；用户已批准实施，当前 App singleton、
   直达工作台和 Web 登录视觉仍为并行未提交内容，本批等待其 checkpoint 后才做头像登录集成。
-- 通知 Sheet/群组未读、通讯录切换和群组普通成员权限也在并行工作树实施；本批不接管其 API、
-  client-core、UiSheet、workbench、directory、Storybook 或测试文件。
+- 通知 Sheet/群组未读已实现：API 可选 `groupId`、Client Core、无业务依赖 `UiSheet`、
+  嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
+  构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint 识别消息为
+  `fix(miniprogram): open group notification sheet`，待显式提交/推送/完整部署和下一单调体验上传。
+- 通讯录切换和群组普通成员权限仍是并行用户工作；本批不接管其 directory 源码或测试。
 - `.51@99006ba` 已完成 `.50` 前向回滚、自动验证、体验上传、生产同步和 allowlist；实体 Android
   “恢复 `.49` 表现”的确认可独立进行，不阻塞非滚轮代码设计。
 
@@ -115,6 +120,16 @@
 
 ## 已完成验证
 
+- 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
+  7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
+- 通知当前树 Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
+  4,558,909 bytes，insights 1,036,350 bytes，manifest `d9abc5a0…d3007a`，产物已包含通知组件 JS。
+- 根测试 231 files/1,112 tests 首轮通过，4 项因并行资源竞争超过 5s；之后定向串行
+  4 files/13 tests 全绿。当前树 Mini 全量的 5 项失败均来自未提交登录/通讯录并行批次；
+  通知测试全绿，干净 checkpoint 全量仍为推送门禁。
+- 本机通知 MySQL 集成用例因 Docker daemon/127.0.0.1:3307 未运行而阻塞；已增加无数据库
+  SQL condition 回归并通过，双群组真实 MySQL 用例保留给可用 DB 环境。`pnpm smoke:browser`
+  因 5173 无服务在第 1/6 步拒绝连接；`pnpm smoke:check-core` 通过。
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
@@ -178,8 +193,10 @@
 ## 下一步与停止条件
 
 1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
-2. 测试先行迁入共享 `MyProfileOverview`，增加兼容但暂不返回的 `avatarVersion` 契约。
-3. 并行登录/通知/通讯录 checkpoint 落地后，才进入头像 API 与最终 Mini Profile runtime。
+2. 通知批次在干净 checkpoint 重跑 Mini/root 全量后显式提交推送；API 变更必须先备份并完整
+   部署 ECS，再上传下一单调微信体验版、ensure/verify allowlist 并运行 full verifier。
+3. 测试先行迁入共享 `MyProfileOverview`，增加兼容但暂不返回的 `avatarVersion` 契约。
+4. 并行登录/通讯录 checkpoint 落地后，才进入头像 API 与最终 Mini Profile runtime。
 
-停止条件：Profile 文档 checkpoint 的 Git/origin/production release 对齐，全部并行用户工作树
-内容保持未提交；随后只进入实施计划 Task 1，不提交审核或正式发布。
+停止条件：Profile 文档与通知代码/最终状态 checkpoint 均实现 Git/origin/production release 对齐，
+通知体验版 allowlist/full verifier 通过，其他并行用户工作树内容保持未提交；不提交审核或正式发布。

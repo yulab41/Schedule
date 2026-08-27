@@ -169,7 +169,7 @@ describe('P4 native workbench', () => {
     ]) {
       expect(pageStyles).not.toContain(`.${legacyClass}`);
     }
-    expect(Buffer.byteLength(pageStyles.replaceAll('\r\n', '\n'), 'utf8')).toBeLessThan(43_000);
+    expect(Buffer.byteLength(pageStyles.replaceAll('\r\n', '\n'), 'utf8')).toBeLessThan(44_000);
   });
 
   it('commits loaded data and view changes with one presentation patch', () => {
@@ -383,6 +383,35 @@ describe('P4 native workbench', () => {
     expect(template).not.toContain('class="refresh-indicator"');
     expect(template).not.toContain('正在读取排班…');
     expect(template).not.toMatch(/bindtap="(save|publish|submit|create|delete|approve)/u);
+  });
+
+  it('mounts the current-group notification center in the shared swipe-dismiss Sheet', () => {
+    const pageConfig = JSON.parse(readSource('pages/workbench/index.json'));
+    const template = readSource('pages/workbench/index.wxml');
+    const pageSource = readSource('pages/workbench/index.ts');
+    const pageStyles = readSource('pages/workbench/index.wxss');
+
+    expect(pageConfig.usingComponents).toMatchObject({
+      'notifications-panel': '/subpackages/insights/components/notifications-panel/index',
+      'ui-sheet': '/components/ui/ui-sheet/index',
+    });
+    expect(pageConfig.componentPlaceholder).toMatchObject({
+      'notifications-panel': 'view',
+    });
+    expect(template).toContain('class="notification-dot"');
+    expect(template).toContain('notificationUnreadCount > 0');
+    expect(template).toContain('visible="{{notificationSheetOpen}}"');
+    expect(template).toContain('title="通知中心"');
+    expect(template).toContain('swipe-dismiss="{{true}}"');
+    expect(template).toContain('embedded="{{true}}"');
+    expect(template).toContain('group-id="{{currentGroupId}}"');
+    expect(template).toContain('bind:unreadchanged="handleNotificationUnreadChanged"');
+    expect(pageSource).not.toContain('通知功能将在后续阶段开放。');
+    expect(pageSource).toContain('NOTIFICATION_POLL_INTERVAL_MS = 60_000');
+    expect(pageSource).toContain('notificationClient.unreadCount(groupId)');
+    expect(pageStyles).toMatch(
+      /\.notification-dot\s*\{[^}]*background:\s*var\(--ui-color-danger\);/su,
+    );
   });
 
   it('maps the real calendar read model into month, week and list data', () => {

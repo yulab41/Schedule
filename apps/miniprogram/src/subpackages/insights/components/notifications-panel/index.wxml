@@ -1,4 +1,86 @@
-<view class="notifications-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
+<block wx:if="{{embedded && mode === 'notifications'}}">
+  <view
+    class="notification-sheet-content {{viewportClass}} {{largeText ? 'is-large-text' : ''}}"
+  >
+    <view wx:if="{{state === 'loading'}}" class="notification-sheet-state">
+      <ui-loading label="正在读取通知"></ui-loading>
+    </view>
+    <view wx:elif="{{state === 'disabled'}}" class="notification-sheet-state">
+      <view class="state-mark">—</view>
+      <text class="state-title">通知中心暂未开放</text>
+      <text class="state-copy">当前版本未开启通知能力，不会读取或展示通知内容。</text>
+    </view>
+    <view wx:elif="{{state === 'error'}}" class="notification-sheet-state">
+      <ui-alert tone="danger" title="通知暂时无法加载" message="{{errorMessage}}"></ui-alert>
+      <ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button>
+    </view>
+    <view wx:elif="{{state === 'empty'}}" class="notification-sheet-state">
+      <view class="state-mark">○</view>
+      <text class="state-title">暂无通知</text>
+      <text class="state-copy">排班发布、请假和换班产生的提醒会显示在这里。</text>
+    </view>
+    <view wx:else class="notification-sheet-ready">
+      <view class="notification-sheet-summary">
+        <view class="notification-sheet-summary-copy">
+          <text class="notification-sheet-unread">{{unreadCount}} 条未读</text>
+          <text class="notification-sheet-hint">点按一条通知即可标记为已读</text>
+        </view>
+        <view
+          class="notification-sheet-read-all {{actionBusyId !== '' ? 'is-disabled' : ''}}"
+          hover-class="{{actionBusyId !== '' ? 'none' : 'is-pressed'}}"
+          aria-role="button"
+          aria-label="全部标记为已读"
+          aria-disabled="{{actionBusyId !== ''}}"
+          bindtap="handleMarkAllRead"
+          >全部已读</view
+        >
+      </view>
+      <scroll-view
+        class="notification-sheet-scroll"
+        scroll-y
+        enhanced
+        show-scrollbar="{{false}}"
+      >
+        <view class="notification-sheet-list">
+          <view
+            wx:for="{{notifications}}"
+            wx:key="id"
+            class="notification-sheet-item {{item.isRead ? 'is-read' : 'is-unread'}}"
+            hover-class="{{actionBusyId === '' ? 'is-pressed' : 'none'}}"
+            data-id="{{item.id}}"
+            aria-role="button"
+            aria-label="{{item.isRead ? '已读' : '未读'}}：{{item.title}}"
+            bindtap="handleMarkRead"
+          >
+            <view class="notification-sheet-item-header">
+              <text class="notification-type is-{{item.typeTone}}">{{item.typeLabel}}</text>
+              <text class="notification-sheet-time">{{item.createdAtLabel}}</text>
+            </view>
+            <text class="notification-sheet-title">{{item.title}}</text>
+            <text class="notification-sheet-body">{{item.body}}</text>
+          </view>
+          <view wx:if="{{nextCursor}}" class="notification-sheet-more">
+            <ui-button
+              variant="secondary"
+              label="{{loadingMore ? '正在加载' : '加载更多'}}"
+              loading="{{loadingMore}}"
+              disabled="{{loadingMore}}"
+              bindpress="handleLoadMore"
+            ></ui-button>
+          </view>
+        </view>
+      </scroll-view>
+      <ui-alert
+        wx:if="{{errorMessage}}"
+        tone="danger"
+        title="通知操作未完成"
+        message="{{errorMessage}}"
+      ></ui-alert>
+    </view>
+  </view>
+</block>
+
+<view wx:else class="notifications-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}"
     ><view
       class="header-back"

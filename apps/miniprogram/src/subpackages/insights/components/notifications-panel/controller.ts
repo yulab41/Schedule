@@ -48,6 +48,7 @@ interface NotificationsPageData {
   readonly actionBusyId: string;
   readonly busy: boolean;
   readonly canManageGroupSettings: boolean;
+  readonly embedded: boolean;
   readonly enabled: boolean;
   readonly errorMessage: string;
   readonly groupId: string;
@@ -73,13 +74,18 @@ interface NotificationsPageData {
 
 interface NotificationsPageInstance {
   readonly data: NotificationsPageData;
-  readonly properties: { readonly groupId: string; readonly mode: 'notifications' | 'settings' };
+  readonly properties: {
+    readonly embedded: boolean;
+    readonly groupId: string;
+    readonly mode: 'notifications' | 'settings';
+  };
   _actionsClient: P9InsightsActionsClient;
   _preferencesClient: NotificationPreferencesClient;
   _loadedGroupId: string;
   _nextCursor: string | undefined;
   _requestSerial: number;
   setData(patch: Partial<NotificationsPageData>, callback?: () => void): void;
+  triggerEvent?(name: string, detail?: unknown): void;
 }
 
 const actionsClient = createRuntimeP9InsightsActionsClient(
@@ -102,6 +108,7 @@ export function createNotificationsPanelControllerDefinition() {
       actionBusyId: '',
       busy: false,
       canManageGroupSettings: false,
+      embedded: false,
       enabled: false,
       errorMessage: '',
       groupId: '',
@@ -125,6 +132,7 @@ export function createNotificationsPanelControllerDefinition() {
       viewportClass: '',
     } satisfies NotificationsPageData,
     properties: {
+      embedded: { type: Boolean, value: false },
       groupId: { type: String, value: '' },
       mode: { type: String, value: 'notifications' },
     },
@@ -241,13 +249,16 @@ async function loadNotifications(page: NotificationsPageInstance): Promise<void>
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     page._nextCursor = result.nextCursor;
     const notifications = result.notifications.map(toNotificationCard);
-    page.setData({
-      nextCursor: result.nextCursor ?? '',
-      notifications,
-      state: notifications.length === 0 ? 'empty' : 'ready',
-      unreadCount: result.unreadCount,
-      unreadCountLabel: `${result.unreadCount} 未读`,
-    });
+    page.setData(
+      {
+        nextCursor: result.nextCursor ?? '',
+        notifications,
+        state: notifications.length === 0 ? 'empty' : 'ready',
+        unreadCount: result.unreadCount,
+        unreadCountLabel: `${result.unreadCount} 未读`,
+      },
+      () => emitUnreadChanged(page, result.unreadCount),
+    );
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -274,6 +285,7 @@ function startLoad(page: NotificationsPageInstance): void {
   page._nextCursor = undefined;
   page.setData({
     ...emptyNotificationsDataPatch(),
+    embedded: page.properties.embedded,
     errorMessage: '',
     groupId,
     mode: page.properties.mode,
@@ -561,13 +573,16 @@ async function loadMore(page: NotificationsPageInstance): Promise<void> {
       ...page.data.notifications,
       ...result.notifications.map(toNotificationCard),
     ];
-    page.setData({
-      loadingMore: false,
-      nextCursor: result.nextCursor ?? '',
-      notifications,
-      unreadCount: result.unreadCount,
-      unreadCountLabel: `${result.unreadCount} 未读`,
-    });
+    page.setData(
+      {
+        loadingMore: false,
+        nextCursor: result.nextCursor ?? '',
+        notifications,
+        unreadCount: result.unreadCount,
+        unreadCountLabel: `${result.unreadCount} 未读`,
+      },
+      () => emitUnreadChanged(page, result.unreadCount),
+    );
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -593,14 +608,17 @@ async function markRead(page: NotificationsPageInstance, id: string): Promise<vo
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     const wasUnread = page.data.notifications.some((item) => item.id === id && !item.isRead);
     const unreadCount = wasUnread ? Math.max(0, page.data.unreadCount - 1) : page.data.unreadCount;
-    page.setData({
-      actionBusyId: '',
-      notifications: page.data.notifications.map((item) =>
-        item.id === id ? { ...item, isRead: true } : item,
-      ),
-      unreadCount,
-      unreadCountLabel: `${unreadCount} 未读`,
-    });
+    page.setData(
+      {
+        actionBusyId: '',
+        notifications: page.data.notifications.map((item) =>
+          item.id === id ? { ...item, isRead: true } : item,
+        ),
+        unreadCount,
+        unreadCountLabel: `${unreadCount} 未读`,
+      },
+      () => emitUnreadChanged(page, unreadCount),
+    );
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -615,7 +633,7 @@ async function markRead(page: NotificationsPageInstance, id: string): Promise<vo
 }
 
 async function markAllRead(page: NotificationsPageInstance): Promise<void> {
-  if (page.data.actionBusyId === 'all') return;
+  if (page.data.actionBusyId.length > 0) return;
   initializeRuntimeState(page);
   const requestSerial = page._requestSerial;
   const groupId = page.data.groupId;
@@ -624,12 +642,15 @@ async function markAllRead(page: NotificationsPageInstance): Promise<void> {
     await requireClientCapability('insights');
     await page._actionsClient.markAllNotificationsRead(groupId);
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
-    page.setData({
-      actionBusyId: '',
-      notifications: page.data.notifications.map((item) => ({ ...item, isRead: true })),
-      unreadCount: 0,
-      unreadCountLabel: '0 未读',
-    });
+    page.setData(
+      {
+        actionBusyId: '',
+        notifications: page.data.notifications.map((item) => ({ ...item, isRead: true })),
+        unreadCount: 0,
+        unreadCountLabel: '0 未读',
+      },
+      () => emitUnreadChanged(page, 0),
+    );
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -653,6 +674,10 @@ function toNotificationCard(notification: NotificationRecord): NotificationCard 
     typeLabel: getNotificationLabel(notification.notificationType),
     typeTone: getNotificationTone(notification.notificationType),
   };
+}
+
+function emitUnreadChanged(page: NotificationsPageInstance, unreadCount: number): void {
+  page.triggerEvent?.('unreadchanged', { unreadCount });
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

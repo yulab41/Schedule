@@ -14,6 +14,7 @@ import {
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../app/client-capability-store.js';
+import { createRuntimeP9InsightsActionsClient } from '../../platform/client-core-calendar.js';
 import {
   canUseWorkbenchOfflineFallback,
   clearWorkbenchGroupCaches,
@@ -25,7 +26,11 @@ import {
   writeStoredWorkbenchGroupId,
   writeWorkbenchCache,
 } from '../../platform/workbench-read.js';
-import { getStoredWechatProfile } from '../../platform/wechat-identity.js';
+import {
+  getStoredWechatProfile,
+  getStoredWechatToken,
+  getWechatRequestAuthentication,
+} from '../../platform/wechat-identity.js';
 import {
   createNativePerformanceProbe,
   formatNativePerformanceEvidence,
@@ -65,6 +70,10 @@ interface MonthSettledEvent {
 
 interface WorkflowCalendarChangedEvent {
   readonly detail: { readonly groupId?: string };
+}
+
+interface NotificationUnreadChangedEvent {
+  readonly detail: { readonly unreadCount: number };
 }
 
 interface SwiperFinishEvent {
@@ -124,6 +133,8 @@ interface WorkbenchPageData {
   readonly monthPanels: WorkbenchViewModel['monthPanels'];
   readonly navMotion: string;
   readonly notificationAnimating: boolean;
+  readonly notificationSheetOpen: boolean;
+  readonly notificationUnreadCount: number;
   readonly offlineNotice: string;
   readonly periodSwiperDuration: number;
   readonly performanceEvidence: string;
@@ -149,6 +160,7 @@ interface WorkbenchPageData {
 }
 
 interface WorkbenchPageInstance {
+  _notificationPollTimer: unknown;
   _performanceDiagnosticsEnabled: boolean;
   _performanceProbe: NativePerformanceProbe | undefined;
   data: WorkbenchPageData;
@@ -165,6 +177,7 @@ interface WorkbenchPageInstance {
   periodShiftActive: 'list' | 'week' | undefined;
   periodShiftCommitPending: boolean;
   periodShiftQueue: number;
+  notificationRequestSerial: number;
   requestSerial: number;
   selectComponent(selector: string):
     | {
@@ -177,6 +190,11 @@ interface WorkbenchPageInstance {
 }
 
 const client = createWorkbenchReadClient();
+const notificationClient = createRuntimeP9InsightsActionsClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
+const NOTIFICATION_POLL_INTERVAL_MS = 60_000;
 const today = getTodayBusinessDate();
 const initialMonth = today.slice(0, 7);
 
@@ -222,6 +240,8 @@ Page({
     monthPanels: [],
     navMotion: '',
     notificationAnimating: false,
+    notificationSheetOpen: false,
+    notificationUnreadCount: 0,
     offlineNotice: '',
     periodSwiperDuration: 260,
     performanceEvidence: '',
@@ -260,6 +280,8 @@ Page({
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
   requestSerial: 0,
+  notificationRequestSerial: 0,
+  _notificationPollTimer: undefined,
   _performanceDiagnosticsEnabled: false,
   _performanceProbe: undefined,
 
@@ -274,6 +296,7 @@ Page({
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
+    startNotificationPolling(this);
     const isInitialShow = !this.hasShown;
     this.hasShown = true;
     if (!isInitialShow) this._performanceProbe?.start('foreground-ready');
@@ -288,12 +311,21 @@ Page({
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    stopNotificationPolling(this);
+    this.notificationRequestSerial += 1;
     this.requestSerial += 1;
-    this.setData({ expandedDetailKey: '', filterOpen: false, groupOpen: false });
+    this.setData({
+      expandedDetailKey: '',
+      filterOpen: false,
+      groupOpen: false,
+      notificationSheetOpen: false,
+    });
   },
 
   onUnload(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    stopNotificationPolling(this);
+    this.notificationRequestSerial += 1;
     this.requestSerial += 1;
   },
 
@@ -320,6 +352,7 @@ Page({
     this.holidays = undefined;
     this.monthRingSlot = 1;
     this.monthResources.clear();
+    this.notificationRequestSerial += 1;
     this.setData({
       activeWorkspace,
       activeFilterCount: 0,
@@ -334,10 +367,13 @@ Page({
       filterShiftTypeIds: [],
       filterShiftTypeSummary: '全部班种',
       groupOpen: false,
+      notificationSheetOpen: false,
+      notificationUnreadCount: 0,
       selectedDate: today,
       selectedLabel: formatDateLabel(today),
       weekStart: getWeekStartDate(today),
     });
+    void refreshNotificationUnreadCount(this, groupId);
     void loadWorkbenchWithCapability(this);
   },
 
@@ -736,9 +772,32 @@ Page({
   },
 
   handleNotification(this: WorkbenchPageInstance): void {
-    this.setData({ notificationAnimating: false }, () => {
-      this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });
-    });
+    if (this.data.currentGroupId === '') {
+      announceToolNavigationFailure(this, '当前群组尚未准备好，请刷新后重试。');
+      return;
+    }
+    this.setData(
+      {
+        filterOpen: false,
+        filterOpenField: '',
+        groupOpen: false,
+        notificationAnimating: false,
+        notificationSheetOpen: true,
+      },
+      () => this.setData({ notificationAnimating: true }),
+    );
+  },
+
+  handleNotificationClose(this: WorkbenchPageInstance): void {
+    this.setData({ notificationSheetOpen: false });
+  },
+
+  handleNotificationUnreadChanged(
+    this: WorkbenchPageInstance,
+    event: NotificationUnreadChangedEvent,
+  ): void {
+    if (!Number.isInteger(event.detail.unreadCount) || event.detail.unreadCount < 0) return;
+    this.setData({ notificationUnreadCount: event.detail.unreadCount });
   },
 
   preventSheetTouchMove(): void {},
@@ -751,6 +810,62 @@ Page({
     wx.navigateTo({ url: '/pages/identity/index' });
   },
 });
+
+function startNotificationPolling(page: WorkbenchPageInstance): void {
+  stopNotificationPolling(page);
+  void refreshNotificationUnreadCount(page);
+  scheduleNotificationPoll(page);
+}
+
+function scheduleNotificationPoll(page: WorkbenchPageInstance): void {
+  if (!page.isVisible) return;
+  page._notificationPollTimer = setTimeout(() => {
+    page._notificationPollTimer = undefined;
+    void refreshNotificationUnreadCount(page).finally(() => scheduleNotificationPoll(page));
+  }, NOTIFICATION_POLL_INTERVAL_MS);
+}
+
+function stopNotificationPolling(page: WorkbenchPageInstance): void {
+  if (page._notificationPollTimer === undefined) return;
+  clearTimeout(page._notificationPollTimer);
+  page._notificationPollTimer = undefined;
+}
+
+async function refreshNotificationUnreadCount(
+  page: WorkbenchPageInstance,
+  groupId = page.data.currentGroupId,
+): Promise<void> {
+  const requestSerial = page.notificationRequestSerial + 1;
+  page.notificationRequestSerial = requestSerial;
+  if (groupId === '') {
+    if (page.data.notificationUnreadCount !== 0) page.setData({ notificationUnreadCount: 0 });
+    return;
+  }
+  try {
+    await requireClientCapability('insights');
+    const result = await notificationClient.unreadCount(groupId);
+    if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+    page.setData({ notificationUnreadCount: result.unreadCount });
+  } catch (error) {
+    if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      page.setData({ notificationUnreadCount: 0 });
+    }
+    // Transient network failures keep the last known count until the next poll.
+  }
+}
+
+function isNotificationRequestCurrent(
+  page: WorkbenchPageInstance,
+  requestSerial: number,
+  groupId: string,
+): boolean {
+  return (
+    page.isVisible &&
+    requestSerial === page.notificationRequestSerial &&
+    groupId === page.data.currentGroupId
+  );
+}
 
 async function loadWorkbench(
   page: WorkbenchPageInstance,
@@ -782,12 +897,15 @@ async function loadWorkbench(
     }
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
+      page.notificationRequestSerial += 1;
       page.setData({
         canManageScheduleTools: false,
         canOpenGroupSettings: false,
         currentGroupId: '',
         currentGroupName: '暂无可查看的群组',
         groups,
+        notificationSheetOpen: false,
+        notificationUnreadCount: 0,
         state: 'empty',
         workflowPanelsMounted: false,
       });
@@ -800,10 +918,13 @@ async function loadWorkbench(
     const shouldMountWorkflowPanels = page.data.workflowsEnabled && selectedGroup.role !== 'guest';
     if (groupChanged) {
       if (page.data.currentGroupId !== '') page.monthResources.clear();
+      page.notificationRequestSerial += 1;
       page.setData({
         currentGroupId: selectedGroup.id,
         currentGroupName: selectedGroup.name,
         currentGroupRole: formatRole(selectedGroup),
+        notificationSheetOpen: false,
+        notificationUnreadCount: 0,
       });
       writeStoredWorkbenchGroupId(ownerId, selectedGroup.id);
     }
@@ -875,6 +996,9 @@ async function loadWorkbench(
       () => {
         completeCoreReadyProbe(page);
         flushPendingScrollTarget(page);
+        if (groupChanged && page.isVisible) {
+          void refreshNotificationUnreadCount(page, selectedGroup.id);
+        }
       },
     );
     void staged.adjacent
@@ -926,10 +1050,13 @@ async function loadWorkbenchWithCapability(
 
 function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown): void {
   if (!(error instanceof ClientCapabilityDisabledError)) return;
+  page.notificationRequestSerial += 1;
   page.requestSerial += 1;
   page.setData({
     canReLogin: false,
     errorMessage: error.message,
+    notificationSheetOpen: false,
+    notificationUnreadCount: 0,
     offlineNotice: '',
     state: 'error',
     workflowsEnabled: false,

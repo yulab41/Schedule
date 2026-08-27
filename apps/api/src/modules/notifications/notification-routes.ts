@@ -62,7 +62,7 @@ export function registerNotificationRoutes(
 
   app.get('/notifications/unread-count', { preHandler: app.authenticate }, (request) =>
     notificationQuery
-      .unreadCount(getAuthenticatedIdentity(request))
+      .unreadCount(getAuthenticatedIdentity(request), parseUnreadCountGroupId(request))
       .then((unreadCount) => ({ unreadCount })),
   );
 
@@ -169,6 +169,11 @@ function parseListQuery(request: FastifyRequest): NotificationQuery {
     ...(pageSize === undefined ? {} : { pageSize }),
     ...(unreadOnly === undefined ? {} : { unreadOnly }),
   };
+}
+
+function parseUnreadCountGroupId(request: FastifyRequest): string | undefined {
+  const query = request.query as { groupId?: unknown };
+  return query.groupId === undefined ? undefined : parseOrThrow(uuidSchema, query.groupId);
 }
 
 const cursorSchema = z.string().min(1);

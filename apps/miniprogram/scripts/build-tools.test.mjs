@@ -35,20 +35,21 @@ describe('Mini Program deterministic toolchain guards', () => {
     ).toThrow(/duplicate routes/u);
   });
 
-  it('keeps direct P9 panel controllers and wrappers bundle-only', () => {
+  it('keeps direct P9-only wrappers bundle-only while emitting the embedded notification component', () => {
     const buildTools = readFileSync(new URL('./build-tools.mjs', import.meta.url), 'utf8');
 
-    for (const panel of [
-      'exports-panel',
-      'insights-dashboard-panel',
-      'notifications-panel',
-      'visitor-access-panel',
-    ]) {
+    for (const panel of ['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel']) {
       expect(buildTools).toContain(`'${panel}'`);
     }
     expect(buildTools).toContain('BUNDLED_ONLY_TYPESCRIPT_MODULES');
     expect(buildTools).toContain('`subpackages/insights/components/${panel}/controller.ts`');
     expect(buildTools).toContain('`subpackages/insights/components/${panel}/index.ts`');
+    expect(buildTools).toContain(
+      "'subpackages/insights/components/notifications-panel/controller.ts'",
+    );
+    expect(buildTools).not.toContain(
+      "'subpackages/insights/components/notifications-panel/index.ts'",
+    );
     for (const modulePath of [
       'components/profile-panel/controller.ts',
       'subpackages/organization/components/directory-panel/controller.ts',

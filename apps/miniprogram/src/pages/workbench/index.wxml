@@ -49,11 +49,16 @@
         class="notification-action"
         hover-class="is-pressed"
         aria-role="button"
-        aria-label="打开通知"
+        aria-label="{{notificationUnreadCount > 0 ? '通知中心，' + notificationUnreadCount + '条未读' : '通知中心'}}"
         bindtap="handleNotification"
       >
         <view class="top-icon bell-icon {{notificationAnimating ? 'is-animating' : ''}}">
           <image class="top-icon-image" src="/assets/icons/web-bell.svg" mode="aspectFit" />
+          <view
+            wx:if="{{notificationUnreadCount > 0}}"
+            class="notification-dot"
+            aria-hidden="true"
+          ></view>
         </view>
       </view>
       <view
@@ -1011,6 +1016,23 @@
       </view>
     </view>
   </view>
+
+  <ui-sheet
+    visible="{{notificationSheetOpen}}"
+    title="通知中心"
+    close-label="完成"
+    swipe-dismiss="{{true}}"
+    bind:close="handleNotificationClose"
+  >
+    <notifications-panel
+      wx:if="{{notificationSheetOpen}}"
+      class="workbench-notifications-panel"
+      embedded="{{true}}"
+      mode="notifications"
+      group-id="{{currentGroupId}}"
+      bind:unreadchanged="handleNotificationUnreadChanged"
+    ></notifications-panel>
+  </ui-sheet>
 
   <view class="bottom-nav" aria-label="工作台导航">
     <view

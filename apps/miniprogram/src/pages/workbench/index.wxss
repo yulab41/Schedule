@@ -56,6 +56,13 @@ page {
   height: 100%;
 }
 
+.workbench-notifications-panel {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
 .more-workspace-content,
 .more-heading,
 .more-section,
@@ -1389,6 +1396,18 @@ page {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.notification-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  background: var(--ui-color-danger);
+  border: 2px solid var(--ui-color-surface);
+  border-radius: 50%;
 }
 
 .nav-icon-image {

@@ -1,0 +1,117 @@
+.ui-sheet__layer {
+  position: fixed;
+  z-index: 400;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+}
+
+.ui-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(22, 32, 42, 0.32);
+  backdrop-filter: blur(2px);
+  animation: ui-sheet-scrim-enter var(--ui-duration-normal) ease-out both;
+}
+
+.ui-sheet__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  height: 78vh;
+  max-height: 660px;
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-direction: column;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -14px 40px rgba(22, 32, 42, 0.2);
+  animation: ui-sheet-panel-enter var(--ui-duration-normal) ease-out both;
+}
+
+.ui-sheet__drag-region {
+  flex: none;
+  touch-action: none;
+}
+
+.ui-sheet__handle {
+  width: 38px;
+  height: 5px;
+  margin: 8px auto 0;
+  background: var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-pill);
+}
+
+.ui-sheet__header {
+  display: flex;
+  min-height: 56px;
+  padding: 4px 16px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ui-sheet__title {
+  min-width: 0;
+  flex: 1;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.ui-sheet__close {
+  display: flex;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.ui-sheet__close.is-pressed {
+  background: var(--ui-color-primary-light);
+}
+
+.ui-sheet__content {
+  display: flex;
+  min-height: 0;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  box-sizing: border-box;
+  flex: 1;
+  flex-direction: column;
+}
+
+@keyframes ui-sheet-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes ui-sheet-scrim-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-sheet__scrim,
+  .ui-sheet__panel {
+    transition: none !important;
+    animation: none !important;
+  }
+}

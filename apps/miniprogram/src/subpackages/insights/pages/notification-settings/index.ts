@@ -12,7 +12,12 @@ Page({
     query: Readonly<Record<string, string | undefined>>,
   ): void {
     recordMiniTelemetryBoundary('notification-settings:page-onload');
-    (this as unknown as { properties: { groupId: string; mode: 'settings' } }).properties = {
+    (
+      this as unknown as {
+        properties: { embedded: false; groupId: string; mode: 'settings' };
+      }
+    ).properties = {
+      embedded: false,
       groupId: decodeGroupId(query['groupId']),
       mode: 'settings',
     };

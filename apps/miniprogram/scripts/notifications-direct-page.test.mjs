@@ -52,7 +52,7 @@ describe('notification direct Page registration', () => {
 
     definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
 
-    expect(instance.properties).toEqual({ groupId, mode: testCase.mode });
+    expect(instance.properties).toEqual({ embedded: false, groupId, mode: testCase.mode });
     expect(mocks.attached.mock.instances[0]).toBe(instance);
     definition.handleBack.call(instance);
     expect(mocks.handleBack.mock.instances[0]).toBe(instance);

@@ -25,8 +25,10 @@
 
 - 反馈/引入点：顶部铃铛点击只摇动并提示“后续开放”。`git log -S`/`git blame` 确认占位 handler 由 `733e3af6` 引入；P9 通知中心 `1a428d73` 只接入“更多”独立页，未回接顶部入口。`52e9e1f4` 初始通知查询虽筛选 `groupId`，`unreadCount` 却始终计算全账号。
 - 红绿/实现：Client Core/Storybook 旧实现 4 项失败；Mini 工作台/通知/直接 Page/UiSheet 旧实现 11 项失败。现为未读计数和列表返回增加可选群组范围，无参 Web 语义不变；新 `UiSheet` 使用标题区 WXS `setStyle` 跟手、96px/快速下甩门槛和完成/遮罩替代；通知面板复用原控制器并通过 `unreadchanged` 同步当前群组红点。
+- 构建边界：首次 verify 暴露 `notifications-panel/index.wxml` 已复制但 `index.js` 仍被“直接 Page 后不可达”过滤，工作台会只剩 placeholder。新构建回归先红，然后只恢复重新可达的通知组件 entry，controller 仍 bundle-only；产物现同时包含 `index.js/WXML/WXSS`。
 - 视觉：Storybook 直接装配生产 `HomeView/NotificationBell/ResponsiveSheet`；390×844、320×844 和大字号均 ready，无水平溢出，大字号首卡增高后仍由 Sheet 内层滚动。Mini 视觉仍待实体 Android 复核，不以 Storybook 宣称原生通过。
 - 语义审计：通知正文仍只在面板存活期驻留内存，不写缓存/日志；单条和全部已读各保留一次原写请求、Bearer、capability 与陈旧响应保护。工作台先完成核心 ready 再首读未读数，不把通知请求纳入核心 TTI。
+- 验证：API SQL/Client Core/Storybook 3 files/6，Mini build-tools/UiSheet/通知/工作台 7 files/33 通过；Web/Client/API/Mini typecheck，Web/API/Client build，Storybook build，Mini production verify/determinism/package/CI dry-run 通过。Mini 产物 4,558,909 bytes、insights 1,036,350 bytes、manifest `d9abc5a0…d3007a`。根首轮 4 项 5s 超时在资源竞争消失后定向 4 files/13 全绿；当前 Mini 全量仅被并行登录/通讯录 5 项阻断，干净 checkpoint 仍待复跑。本机 Docker daemon/3307 未运行，真实 MySQL 通知用例未运行；SQL condition 无 DB 回归已转绿。完整 browser smoke 因 5173 无服务在 1/6 失败，core smoke 通过。
 
 ## 2026-08-27 Mini 年月滚轮 UI 线程架构实现
 

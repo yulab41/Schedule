@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   getMine: vi.fn(),
   listGroups: vi.fn(),
   listNotifications: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
+  markNotificationRead: vi.fn(),
   requestSubscriptions: vi.fn(),
   updateGroup: vi.fn(),
   updateMine: vi.fn(),
@@ -28,8 +30,8 @@ vi.mock('../src/platform/client-core-calendar.ts', () => ({
   }),
   createRuntimeP9InsightsActionsClient: () => ({
     listNotifications: mocks.listNotifications,
-    markAllNotificationsRead: vi.fn(),
-    markNotificationRead: vi.fn(),
+    markAllNotificationsRead: mocks.markAllNotificationsRead,
+    markNotificationRead: mocks.markNotificationRead,
   }),
 }));
 
@@ -71,6 +73,11 @@ describe('notification parity controller', () => {
       dutyReminderHours: input.dutyReminderHours ?? null,
       membershipId: 'member-1',
       wechatNotificationsEnabled: false,
+    }));
+    mocks.markAllNotificationsRead.mockResolvedValue({ count: 1 });
+    mocks.markNotificationRead.mockImplementation(async (id) => ({
+      ...notification(id, false),
+      isRead: true,
     }));
     mocks.requestSubscriptions.mockResolvedValue([]);
   });
@@ -133,6 +140,33 @@ describe('notification parity controller', () => {
       typeLabel: '加扣班已驳回',
       typeTone: 'danger',
     });
+  });
+
+  it('emits current-group unread changes from the embedded sheet presentation', async () => {
+    mocks.listNotifications.mockResolvedValue({
+      nextCursor: undefined,
+      notifications: [notification('notice-1', false), notification('notice-2', false)],
+      unreadCount: 2,
+    });
+    const definition = await definitionFor('notifications');
+    const page = pageFor(definition, 'notifications', true);
+
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    expect(page.data.embedded).toBe(true);
+    expect(page.triggerEvent).toHaveBeenLastCalledWith('unreadchanged', { unreadCount: 2 });
+
+    definition.methods.handleMarkRead.call(page, {
+      currentTarget: { dataset: { id: 'notice-1' } },
+    });
+    await vi.waitFor(() => expect(page.data.actionBusyId).toBe(''));
+    expect(mocks.markNotificationRead).toHaveBeenCalledWith('notice-1');
+    expect(page.triggerEvent).toHaveBeenLastCalledWith('unreadchanged', { unreadCount: 1 });
+
+    definition.methods.handleMarkAllRead.call(page);
+    await vi.waitFor(() => expect(page.data.actionBusyId).toBe(''));
+    expect(mocks.markAllNotificationsRead).toHaveBeenCalledWith(groupId);
+    expect(page.triggerEvent).toHaveBeenLastCalledWith('unreadchanged', { unreadCount: 0 });
   });
 
   it('does not commit a pending notification response after detaching', async () => {
@@ -246,13 +280,15 @@ async function definitionFor(mode) {
   return module.createNotificationsPanelControllerDefinition(mode === 'settings');
 }
 
-function pageFor(definition, mode) {
+function pageFor(definition, mode, embedded = false) {
   return {
     data: { ...definition.data },
-    properties: { groupId, mode },
-    setData(patch) {
+    properties: { embedded, groupId, mode },
+    setData(patch, callback) {
       this.data = { ...this.data, ...patch };
+      callback?.();
     },
+    triggerEvent: vi.fn(),
   };
 }
 

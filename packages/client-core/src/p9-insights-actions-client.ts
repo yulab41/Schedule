@@ -38,6 +38,10 @@ interface MarkAllReadInput {
   readonly groupId?: string;
 }
 
+interface NotificationScopeInput {
+  readonly groupId?: string;
+}
+
 interface ExportGroupInput {
   readonly groupId: string;
 }
@@ -56,7 +60,9 @@ export const notificationPageDecoder = createCompactDecoder<NotificationPage>(
 export const notificationRecordDecoder = createCompactDecoder<NotificationRecord>(
   notificationRecordJsonSchema,
 );
-export const unreadCountDecoder = createCompactDecoder<UnreadCountResult>(unreadCountResultJsonSchema);
+export const unreadCountDecoder = createCompactDecoder<UnreadCountResult>(
+  unreadCountResultJsonSchema,
+);
 export const readAllResultDecoder = createCompactDecoder<ReadAllResult>(readAllResultJsonSchema);
 export const scheduleExportJobDecoder = createCompactDecoder<ScheduleExportJob>(
   scheduleExportJobJsonSchema,
@@ -107,12 +113,12 @@ export const p9InsightsActionsEndpoints = {
     method: 'POST',
     path: ({ notificationId }) => `/notifications/${encodeURIComponent(notificationId)}/read`,
   }),
-  unreadCount: defineClientEndpoint<Record<string, never>, UnreadCountResult>({
+  unreadCount: defineClientEndpoint<NotificationScopeInput, UnreadCountResult>({
     auth: 'bearer',
     decoder: unreadCountDecoder,
     id: 'insights.notifications-unread-count',
     method: 'GET',
-    path: () => '/notifications/unread-count',
+    path: ({ groupId }) => appendQuery('/notifications/unread-count', [['groupId', groupId]]),
   }),
 } as const;
 
@@ -122,7 +128,7 @@ export interface P9InsightsActionsClient {
   listNotifications(options?: NotificationListInput): Promise<NotificationPage>;
   markAllNotificationsRead(groupId?: string): Promise<ReadAllResult>;
   markNotificationRead(notificationId: string): Promise<NotificationRecord>;
-  unreadCount(): Promise<UnreadCountResult>;
+  unreadCount(groupId?: string): Promise<UnreadCountResult>;
 }
 
 export function createP9InsightsActionsClient(transport: ClientTransport): P9InsightsActionsClient {
@@ -145,8 +151,11 @@ export function createP9InsightsActionsClient(transport: ClientTransport): P9Ins
     markNotificationRead(notificationId) {
       return transport.request(p9InsightsActionsEndpoints.markNotificationRead, { notificationId });
     },
-    unreadCount() {
-      return transport.request(p9InsightsActionsEndpoints.unreadCount, {});
+    unreadCount(groupId) {
+      return transport.request(
+        p9InsightsActionsEndpoints.unreadCount,
+        groupId === undefined ? {} : { groupId },
+      );
     },
   };
 }

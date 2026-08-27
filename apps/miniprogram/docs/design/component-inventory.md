@@ -31,4 +31,5 @@
 - 已实现 `ManualScheduleCell` 与矩阵 PoC：可复用组件保留完整单测/simulate；`pages/manual-matrix-poc/index?mode=daily|maximum` 为首屏性能不实例化 49/600 个组件，而以七组样式声明逐项一致的内置 `view` 渲染格子。两种模式共用 390px 四层 WXS 视图层引擎：左上角固定，日期只随 X，人员只随 Y，班次随 X/Y，进度条复用 X；矩阵内部没有原生滚动容器或 gesture-handler，横纵轴锁与有界惯性不经过高频 `setData`。
 - 班种选择只更新前一选中格和目标格的数据路径；撤销栈只保存 `{key,before,after}` 增量。矩阵主体保持最多 20 行、600 个浅层逻辑格并由固定 7 行视口裁切；不依赖只支持纵向回收的 `list-builder`。
 - 已通过属性/事件单测、`miniprogram-simulate` 组件树与事件烟测、源码边界、包体和确定性构建。Storybook/simulate 仍不等价于微信运行时，基础控件、月历和矩阵的原生视觉状态均保持“已实现待用户实体 Android 人工复核”。
-- `UiSheet`、`UiDialog`、`UiConfirm`、导航与业务组件尚未实现；必须等待其对应黄金状态确认，不从本批次外推样式。
+- `UiSheet` 已由工作台通知黄金状态驱动实现：受控可见性、默认 slot、safe area、标题/遮罩/下滑关闭来源和 WXS 跟手回弹；组件不依赖业务 API。
+- `UiDialog`、`UiConfirm`、导航与其他业务组件尚未实现；必须等待其对应黄金状态确认，不从本批次外推样式。
