@@ -59,6 +59,11 @@
   检查头像表六列、两项 CHECK、CASCADE 外键、存量内容和迁移前 54/迁移后 55 表备份；package/
   release controls/cache 3 files/28 tests、Bash syntax、任务 Prettier/ESLint/diff 通过。前滚 checkpoint
   识别消息 `fix(release): admit profile avatar schema`，用于恢复 Git/application/schema/control 对齐。
+- Task 2 前滚完成：控制 checkpoint `6cf71152` 已推送；干净 worktree 定向 2 files/24 tests 与全端
+  typecheck 通过，manifest 为 schema 52..52。新备份 `cb88870f-e685-4609-bcef-5f39bcc7ec8b`
+  （55 表/180,371 行/82,888,368 bytes/SHA `ab960b5b…a3b6`）后完整部署成功；生产 release、API、
+  DB52 与控制面一致，头像表结构/约束/存量、公网 ingress、`.52` capability、未知版本和 full verifier
+  通过，四个新增接口未认证均为 401。失败/成功远端临时目录均按验证后的精确路径删除。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
