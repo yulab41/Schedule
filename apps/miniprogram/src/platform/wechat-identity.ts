@@ -32,6 +32,7 @@ let sessionGeneration = 0;
 let sessionInvalidated = false;
 
 export interface WechatAuthenticatedProfile {
+  readonly avatarVersion?: number;
   readonly id: string;
   readonly realName: string;
   readonly version: number;
@@ -81,17 +82,21 @@ function readString(value: unknown): string | undefined {
 }
 
 function decodeProfile(value: unknown): WechatAuthenticatedProfile {
+  const avatarVersion = isRecord(value) ? value.avatarVersion : undefined;
   if (
     !isRecord(value) ||
     readString(value.id) === undefined ||
     readString(value.realName) === undefined ||
     typeof value.version !== 'number' ||
     !Number.isInteger(value.version) ||
-    value.version < 1
+    value.version < 1 ||
+    (avatarVersion !== undefined &&
+      (typeof avatarVersion !== 'number' || !Number.isInteger(avatarVersion) || avatarVersion < 1))
   ) {
     throw new WechatIdentityClientError('登录响应无效。');
   }
   return {
+    ...(avatarVersion === undefined ? {} : { avatarVersion }),
     id: value.id as string,
     realName: value.realName as string,
     version: value.version,
@@ -368,6 +373,32 @@ export function getStoredWechatAuthMethod(now = Date.now()): IdentityAuthMethod 
   return readStoredWechatSession(now)?.authMethod;
 }
 
+export function updateStoredWechatAvatarVersion(
+  ownerId: string,
+  avatarVersion: number | undefined,
+): boolean {
+  if (avatarVersion !== undefined && (!Number.isInteger(avatarVersion) || avatarVersion < 1)) {
+    return false;
+  }
+  const current = readStoredWechatSession(Date.now(), false);
+  if (current === undefined || current.profile.id !== ownerId) return false;
+  const profile: WechatAuthenticatedProfile = {
+    id: current.profile.id,
+    realName: current.profile.realName,
+    version: current.profile.version,
+    ...(avatarVersion === undefined ? {} : { avatarVersion }),
+  };
+  try {
+    wx.setStorageSync(WECHAT_SESSION_STORAGE_KEY, {
+      ...current,
+      profile,
+    } satisfies StoredWechatSession);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearWechatSession(includePrivateBusinessStorage = false): void {
   sessionInvalidated = true;
   clearWechatSessionStorage();
@@ -464,6 +495,7 @@ function readStoredWechatSession(
   const id = readString(stored.profile.id);
   const realName = readString(stored.profile.realName);
   const version = stored.profile.version;
+  const avatarVersion = stored.profile.avatarVersion;
   if (
     token === undefined ||
     expiresAt === undefined ||
@@ -472,6 +504,10 @@ function readStoredWechatSession(
     typeof version !== 'number' ||
     !Number.isInteger(version) ||
     version < 1 ||
+    (avatarVersion !== undefined &&
+      (typeof avatarVersion !== 'number' ||
+        !Number.isInteger(avatarVersion) ||
+        avatarVersion < 1)) ||
     !isAcceptableSessionExpiry(expiresAt, now)
   ) {
     if (clearInvalid) clearWechatSession(true);
@@ -480,7 +516,12 @@ function readStoredWechatSession(
   return {
     authMethod: stored.authMethod === 'password' ? 'password' : 'wechat',
     expiresAt,
-    profile: { id, realName, version },
+    profile: {
+      ...(avatarVersion === undefined ? {} : { avatarVersion }),
+      id,
+      realName,
+      version,
+    },
     token,
   };
 }

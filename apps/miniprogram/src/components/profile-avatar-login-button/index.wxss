@@ -1,0 +1,38 @@
+.profile-avatar-login-button {
+  width: 100%;
+  min-height: var(--ui-touch-target-minimum);
+  box-sizing: border-box;
+  display: flex;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-normal);
+  transition: opacity var(--ui-duration-fast) ease;
+}
+
+.profile-avatar-login-button::after,
+button::after {
+  border: 0;
+}
+
+.profile-avatar-login-button.is-inactive {
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+  border-color: var(--ui-color-border);
+  opacity: 0.72;
+}
+
+.profile-avatar-login-button.is-pressed {
+  opacity: 0.72;
+}
+
+.profile-avatar-login-button__loading {
+  display: flex;
+  margin-right: 7px;
+}

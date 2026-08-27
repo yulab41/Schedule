@@ -37,6 +37,7 @@ import {
   type NativePerformanceProbe,
 } from '../../platform/performance-probe.js';
 import { recordMiniTelemetryPerformance } from '../../platform/telemetry.js';
+import { flushPendingProfileAvatarForStoredSession } from '../../platform/profile-avatar-runtime.js';
 import {
   createMonthRing,
   createWorkbenchViewModel,
@@ -296,6 +297,7 @@ Page({
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
+    void flushPendingProfileAvatarForStoredSession();
     startNotificationPolling(this);
     const isInitialShow = !this.hasShown;
     this.hasShown = true;

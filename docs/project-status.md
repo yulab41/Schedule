@@ -63,8 +63,9 @@
   checkpoint 识别消息为 `feat(miniprogram): cache private profile avatars`。
 - Task 3 media checkpoint `f858ae6d` 已推送、上传 `.53`、加入 allowlist，并以备份后可信 reuse
   同步生产；clean Mini 94 files/456 tests、root 238 files/1,122 tests 与 full verifier 通过。
-- 当前 Profile 活跃批次为 Task 3 登录集成：先用独立 chooseAvatar 叶组件与测试冻结事件竞态；重叠
-  identity/workbench 只能以基于 HEAD 可独立构建的 cached hunk 集成，不暂存并行会话/通讯录内容。
+- Task 3 登录集成已实现：原生 chooseAvatar 叶组件、密码清 pending、三条微信成功路径生命周期 flush、
+  avatarVersion 会话刷新与一次非阻塞反馈完成；checkpoint 识别消息为
+  `feat(miniprogram): sync chosen profile avatars`。重叠 identity/wechat 文件只暂存 HEAD 等价 hunk。
 
 ## 已完成的发布基线与当前修复
 
@@ -133,6 +134,8 @@
 - Profile Task 3 media：两轮 9 项先红；最终定向 3 files/22 tests、clean Mini 94 files/456 tests、
   root 238 files/1,122 tests、全端 build/typecheck、production verify/determinism/package/CI dry-run、
   core smoke、`.53` upload/allowlist 与生产 full verifier 通过；37 files/355 tests 按环境跳过。
+- Profile Task 3 login：旧树缺叶组件/runtime/WXML 的 3 项先红；实现后 chooseAvatar/login 4/4、身份/
+  media/workbench/Profile 定向 5 files/43 tests、Mini typecheck/production verify/source/package 通过。
 - Profile Tasks 1–2 的共享等价、严格契约、头像安全/隔离/版本、schema52 发布控制和生产探针均通过；
   详细红绿、全仓计数、browser 环境阻塞、备份与 release 证据保留在 debug 日志及对应 Git checkpoint。
 - Profile browser smoke 已实际运行：首次因 5173 未启动停止；启动源码服务后因未启用 dev auth、
@@ -216,13 +219,15 @@
   新选择不会被旧上传清除。上传使用一次 raw ArrayBuffer PUT；下载只用 Bearer header，401 至多恢复一次
   并以新 generation 为准。缓存键/文件同时绑定 owner/version，退出只删除本地文件/元数据，不调用
   DELETE；恢复首字仅显式 DELETE 成功后清本地。图片、token、临时路径均不进入日志、遥测或 storage。
+- chooseAvatar 普通 tap 只清旧 pending 并立即发出一次登录事件；成功选择只写进程内路径。密码登录在
+  发请求前清空；微信已绑定、密码绑定和首次建档都由已持久化会话后的工作台/Profile onShow 取走一次。
+  同账号成功只更新本地 profile.avatarVersion；失败 toast 一次，不改变会话、旧缓存或导航。
 
 ## 下一步与停止条件
 
-1. 测试先行实现 chooseAvatar 叶组件、密码登录清 pending、微信三条成功路径 flush 与一次非阻塞反馈；
-   对重叠文件同时维护工作树版和 HEAD cached hunk，并在 clean worktree 证明独立构建。
-2. 完成 Task 3 集成 checkpoint 后进入 Task 4 controller、Web 1:1 WXML/WXSS、密码/绑定/导航矩阵。
+1. clean worktree 复验 Task 3 集成，提交推送、上传 `.54`、allowlist、生产备份/ECS 同步与 full verifier。
+2. 随后进入 Task 4 controller、Web 1:1 WXML/WXSS、密码/绑定/导航矩阵。
 3. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
 
-停止条件：Task 3 登录头像集成通过 clean checkpoint 与 dirty-tree 兼容验证，其他并行用户内容保持
-未提交；若无法构造独立 cached hunk 则停止并请求边界协调，不提交审核或正式发布。
+停止条件：Task 3 登录头像集成完成 clean/dirty 双验证、checkpoint 与两条发布轨道，其他并行用户
+内容保持未提交；随后只进入 Task 4，不提交审核或正式发布。

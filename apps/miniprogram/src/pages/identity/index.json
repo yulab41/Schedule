@@ -1,6 +1,7 @@
 {
   "navigationStyle": "custom",
   "usingComponents": {
+    "profile-avatar-login-button": "/components/profile-avatar-login-button/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-button": "/components/ui/ui-button/index",
     "ui-input-shell": "/components/ui/ui-input-shell/index",

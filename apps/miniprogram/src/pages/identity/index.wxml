@@ -76,13 +76,12 @@
           bind:press="handlePasswordLogin"
         ></ui-button>
         <view class="identity-divider" aria-hidden="true"><view></view><text>或</text><view></view></view>
-        <ui-button
+        <profile-avatar-login-button
           class="identity-card__button identity-card__button--secondary identity-card__button--wechat"
           label="微信快捷登录"
-          variant="secondary"
           loading="{{loading}}"
           bind:press="handleWechatLogin"
-        ></ui-button>
+        ></profile-avatar-login-button>
         <text class="identity-card__note">已绑定微信的普通成员可直接快速登录；首次微信登录不会自动创建业务账号。</text>
       </block>
 

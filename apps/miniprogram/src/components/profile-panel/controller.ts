@@ -4,6 +4,7 @@ import {
   getStoredWechatAuthMethod,
   getStoredWechatProfile,
 } from '../../platform/wechat-identity.js';
+import { flushPendingProfileAvatarForStoredSession } from '../../platform/profile-avatar-runtime.js';
 
 type ProfileMode = 'missing' | 'ready';
 
@@ -48,6 +49,7 @@ export function createProfilePanelControllerDefinition(embedded = false) {
 
     onShow(this: ProfilePanelInstance): void {
       loadProfile(this);
+      void flushPendingProfileAvatarForStoredSession().then(() => loadProfile(this));
     },
 
     handleBack(): void {

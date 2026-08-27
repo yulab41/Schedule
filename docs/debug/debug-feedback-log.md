@@ -77,6 +77,12 @@
   上传 171 code files/zip 2,088,682/manifest `58a982f1…17a7`，未提审/发布；正式 allowlist 通过。备份
   `6e640d7d-78d7-4d44-9c80-eff66ab8ff1f`（55 表/180,484 行/82,925,996 bytes/SHA `7c1e4d3e…7f5e`）
   后 hash-identical reuse 到 `f858ae6d`，公网 full verifier 与远端临时 manifest 清理通过。
+- Task 3 login 红绿/边界：旧树因 chooseAvatar 叶组件、会话后 flush runtime 和 WXML 缺失而 3 项先红。
+  实现用原生 button 同时发普通 press 与 `chooseavatar`，tap 清旧 pending、取消无写入；密码登录发请求前
+  清 pending，微信已绑定/密码绑定/首次建档由工作台/Profile onShow 在会话落盘后统一串行 flush。
+  成功只补本地 session `avatarVersion`，失败 toast 一次且不阻断 reLaunch/旧头像。工作树定向 5 files/
+  43 tests、typecheck、production verify/source/package 通过；identity/wechat 重叠内容另以基于 HEAD 的
+  cached hunk 暂存，checkpoint 识别消息 `feat(miniprogram): sync chosen profile avatars`。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
