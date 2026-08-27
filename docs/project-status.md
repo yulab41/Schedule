@@ -31,14 +31,15 @@
 
 ## 当前活动批次
 
-- `.48@f6be9cd` 年月滚轮反向接管保持 `已完成并发布 → 待实体 Android 复核`；导航批次未改
-  workflow picker 或其回归。
-- 用户已确认工作台底栏改为“日历、通讯录、换班、我的、更多”；前四项在工作台内切换，
-  “更多”三组展示，群组管理/请假/加扣班等使用独立 Page 返回栈。
-- 新导航旧实现回归 5/5 先红；代码 checkpoint `79a0ae90` 已推送，`.49` 官方上传、生产
-  hash-identical reuse、allowlist 与 full verifier 均通过。状态为
-  `已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`；最终状态 checkpoint
-  识别消息为 `docs(status): record workbench navigation deployment`。
+- `.49@79a0ae9` 已包含 `.48` 滚轮修复和新工作台导航；导航批次已完成发布，仍待实体 Android 复核。
+- 用户追加反馈：慢速逐格反向仍偶发不跟手，自动吸附跳帧；旧滚轮 pitfall 的 `staleWhen` 命中，
+  现有 timer 修复只视为局部有效假设。
+- 用户已确认改为 UI-thread Worklet：原生 scroll-view 独占位置，SharedValue/animated style 保留
+  逐像素字号、缩放与透明度，逻辑层只按行/最终停止同步。
+- 设计规格为
+  `docs/superpowers/specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`；当前仅设计，
+  未修改 runtime。checkpoint 识别消息为 `docs(design): specify worklet workflow picker`，
+  待用户书面复核后才进入实施计划。
 
 ## 已完成的发布基线与当前修复
 
@@ -155,9 +156,9 @@
 
 ## 下一步与停止条件
 
-1. 提交并推送最终状态 checkpoint，以已完成备份同步 Git/origin/production release。
-2. 用户实体 Android 同时复核 `.48` 滚轮反向接管，以及 `.49` 五项切换、更多分组、群组管理
-   返回按钮/系统侧滑；不提交审核或正式发布。
+1. 提交、推送并同步 Worklet 设计 checkpoint；不得夹带 runtime 或用户脏树。
+2. 用户书面复核设计规格；通过后再建立独立实施计划，测试先行后修改 picker runtime。
+3. `.49` 新导航的实体 Android 复核可独立进行；不把它误当作 Worklet 滚轮验收。
 
-停止条件：最终状态 HEAD 推送并同步 production release，所有用户工作树内容保持未提交；随后
-只等待实体复核。
+停止条件：设计 checkpoint 的 Git/origin/production release 对齐，所有用户工作树内容保持未提交；
+随后等待设计书面复核，不提交审核或正式发布。

@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 Mini 年月滚轮 UI 线程架构设计
+
+- 追加反馈：`.48` 已明显改善快速反向接管，但慢速逐格下移后立即逐格上移仍偶发不跟手，自动吸附有可见跳帧；`.49` 包含同一滚轮代码。`staleWhen` 已命中，`.48` timer 修复降级为局部有效假设。
+- 架构根因：同一滚轮同时由 CSS snap 和 JS `scroll-top + 320ms timer` 控制；每个原生/程序化 `scroll` 又整组 `setData` 11/12 行字号、透明度与缩放。Web 参考只保留一个 snap owner；Mini 当前跨 UI/逻辑/渲染线程竞争。
+- 用户已确认 UI-thread Worklet 方向：原生 scroll-view 独占位置，SharedValue + animated style 保留逐像素 19→24px 视觉、0.94→1 缩放与 0.58→1 透明度；逻辑层每跨一行/最终停止才同步一次，禁止逐帧 `setData` 和第二套 timer 吸附。
+- 设计规格：`docs/superpowers/specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`。当前只完成设计与自审，未修改 runtime；checkpoint 识别消息 `docs(design): specify worklet workflow picker`，待用户书面复核后才写实施计划。
+
 ## 2026-08-27 Mini 年月滚轮反向接管卡死
 
 - 反馈/引入点：用户在 `.47` 实体 Android 复现“同向滚动停止后立即反向拖动会卡住”。`git log -S`/`git blame` 确认 `80ddadf0` 引入 touch/idle snap，`c1b9536a` 引入连续字体进度和受控动画，`0975b2d1` 又把动画延长到 320ms 并由 `scrollend` 完成；新触摸只清 idle timer，不清正在执行的 animation timer/owner，且旧 `scrollend` 可在新触摸期间重新启动吸附。
