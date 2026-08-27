@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 安卓真机页面壳白屏
+
+- 反馈/定位：`.38` 安卓真机在通知设置、访客访问、事件与统计、导出排班进入白屏卡死。11:06–11:10 的匿名遥测有正常 `.38` workbench 性能样本且无运行时错误；生产 API 同窗没有收到任何 P9 业务请求，故定位在页面壳/组件挂载之前。`git log -S`/`git blame` 确认 P9 页面壳来自 `ca7d92ee`、`ee6f9cb8`、`1a428d73`、`de710eaf`、`766ec6ac`。
+- 根因/修复：五个页面使用 100% 高组件宿主但 `page` 只有全局 `min-height`，没有 Skyline 所需的确定视口；通知设置的宿主选择器还写成未挂载的 `notification-settings-panel`，并遗漏同分包页面配置。现在全部 P9 页面显式建立 100% `page` 高度/裁切/背景，通知设置改为真实 `notifications-panel` 并补齐 Skyline、自定义导航和禁滚配置。
+- 红绿/语义：页面壳契约旧实现 5/5 失败，修复后 5/5；P9 controller/native 11 files/50 tests 通过。仅改变页面挂载几何和配置，不改 controller、请求、权限、capability、异步错误、通知授权、导出或业务数据。
+- 运行/浏览器验证：Mini production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint/diff 通过；manifest `8c9160bb…42d`，总包 `5,759,536` bytes、insights `1,317,455` bytes。`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 确认未触及 Web 核心链路，无需 Web 浏览器冒烟；Mini 全量仅保留未修改 P7 swap/duty 的 5 项日期敏感失败。安卓原生结果必须由 `.39` 实体复核关闭。
+
 ## 2026-08-26 Mini 事件与统计复刻 Web 规则
 
 - 当前结论：Web 生产代码/功能冻结且 tracked diff 为 0。事件标签/状态/色调/时间/分组与统计 10 项汇总、排序、周期口径按 Web 黄金复制到隔离的 presentation-core 子路径，只由 Mini 新接入且不进入根导出图；Mini 增加日期分组、游标分页、月/年周期、成员/岗位/班种统计，同时保持 P9 原始 payload/operation id/完整身份不入页面状态。

@@ -1,4 +1,7 @@
 {
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
   "usingComponents": {
     "notifications-panel": "/subpackages/insights/components/notifications-panel/index"
   }
