@@ -2,7 +2,7 @@
 
 - 日期：2026-08-27
 - 基线：`main@c8479359`
-- 状态：Task 1–4 已完成，Task 5 待 checkpoint/体验上传/生产同步
+- 状态：Task 1–5 已完成，待实体 Android 复核
 - 设计：[`../specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md`](../specs/2026-08-27-miniprogram-workflow-picker-worklet-design.md)
 - 范围：一项复杂手势/性能任务
 

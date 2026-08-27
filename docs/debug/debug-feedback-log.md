@@ -9,7 +9,8 @@
 - 用户已确认 UI-thread Worklet 方向：原生 scroll-view 独占位置，SharedValue + animated style 保留逐像素 19→24px 视觉、0.94→1 缩放与 0.58→1 透明度；逻辑层每跨一行/最终停止才同步一次，禁止逐帧 `setData` 和第二套 timer 吸附。
 - 红绿/实现：新 architecture/controller 回归在旧实现稳定 3 项失败；现有 11 年 + 12 月节点首次打开只绑定 46 个 updater，像素 update 只写 SharedValue，跨半行才用 generation/sequence guarded `runOnJS` 更新草稿，最终 `scrollend` 只记录实际 top。删除 wheel timer/animation owner/逐帧 item 重建，关闭 scroll anchoring；固定 24px 字形加双层 transform 精确等价原 19→24px 视觉。
 - 验证：picker/physical feedback 3 files/25、Mini 93 files/443、production verify/determinism/package/CI dry-run（6/6 Worklet、4,345,198 bytes、manifest `8c6b62e9…c5be8`）、任务 Prettier/ESLint、root build/typecheck、root 233 files/1,113 tests（37/352 skip）与 core smoke 通过。全仓 format 仍被 410 个既有文件阻断，root lint 仍仅有未修改 `wx-request-executor.ts:141` 的 `prefer-const`；未接管无关内容。
-- 当前状态：设计规格与实施计划均已落库，runtime checkpoint 识别消息 `fix(miniprogram): move workflow wheel motion to ui thread`；待显式暂存、推送、`.50` 体验上传、生产备份/release/allowlist/full verifier 和实体 Android 复核。未提审、未正式发布。
+- 发布：runtime checkpoint `5bed6d34` 已推送；clean release worktree 官方上传 `.50@5bed6d3`（165 code files/zip 1,937,770/manifest `aa2867ca…0d73`）。ECS 三层 cache hit，备份 `ea1e3ea9-8c03-49e3-a405-0315fc64a34f`（54 表/179793 行/82696816 bytes/SHA `43ee98b9…af81`）后 trusted reuse 无停机同步且容器 ID/created 不变；正式 ensure/verify `.50`，预热一次 connection reset/一次 502 后恢复，七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
+- 当前状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`；最终状态 checkpoint 识别消息 `docs(status): record worklet wheel deployment`。未提审、未正式发布。
 
 ## 2026-08-27 Mini 年月滚轮反向接管卡死
 

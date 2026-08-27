@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-27）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `79a0ae90e883509ee7cb1a2ede48178890a65915`。最终状态以“包含本文件的 Git HEAD”为
+  `5bed6d34196fb0443506cfa637ff239110f7dbed`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.49@79a0ae9`，165 code files，zip
-  `1,935,627` bytes，upload manifest `5f14df24870fd209252f5d0a6bc1efbbc34ccac7405e09d2e89548d8dd0b2f74`。
-- `.49` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260827.50@5bed6d3`，165 code files，zip
+  `1,937,770` bytes，upload manifest `aa2867ca73067ef2dfcf3189a6dfe5e66c821d885b31249fcaeabfeb60380d73`。
+- `.50` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 51；最近一次已完成发布备份为
-  `687927ed-960c-4d44-8641-2069b454ab37`（54 表、179,691 行、82,663,376 bytes、
-  SHA-256 `3b1841babc7dc4c4067f1b84031100aa0d23c61b31802429df09ba73040e4671`）。
+  `ea1e3ea9-8c03-49e3-a405-0315fc64a34f`（54 表、179,793 行、82,696,816 bytes、
+  SHA-256 `43ee98b92681a92d8183598be6880788e302c6c4ade7d5f8efacb2fbc575af81`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -50,14 +50,15 @@
 
 ## 当前活动批次
 
-- `.49@79a0ae9` 已包含旧滚轮修复和新工作台导航；用户确认继续执行至慢速逐格反向跟手、吸附
+- `.50@5bed6d3` 已包含 UI-thread 滚轮和 `.49` 导航；用户目标为慢速逐格反向持续跟手、吸附
   无明显跳帧。
 - UI-thread Worklet 已实现：原生 scroll-view 独占位置；6/6 Worklet、每实例 SharedValue、46 个
   stable animated-style updater 保留逐像素字号/缩放/透明度；逻辑层只按行/最终停止同步。
 - JS 二次吸附、320ms timer、共享 animation owner 和逐帧 `setData` 已删除；generation/sequence
   拒绝关闭重开及乱序旧事件，scroll anchoring 显式关闭。
-- 状态：`已实现并自动验证 → 待 checkpoint/体验上传/实体 Android 复核`。runtime checkpoint
-  识别消息为 `fix(miniprogram): move workflow wheel motion to ui thread`，下一候选为 `.50`。
+- 状态：`已完成（自动验证、体验上传与生产发布）→ 待实体 Android 复核`。runtime checkpoint
+  `5bed6d34` 已推送；最终状态 checkpoint 识别消息为
+  `docs(status): record worklet wheel deployment`。
 
 ## 已完成的发布基线与当前修复
 
@@ -157,6 +158,10 @@
   `.49` 官方上传并正式 ensure/verify；allowlist 重建容器首次 TLS EOF 后自动恢复。七维能力、
   未知版本 426、带公网 IP full verifier 与远端临时目录清理均通过。最终状态发布备份为
   `29442285-9d6e-446c-8b1c-5c4d20f46192`。
+- UI-thread 滚轮 checkpoint `5bed6d34` 已推送；`.50` 官方 Summer 上传 165 files/zip 1,937,770/
+  manifest `aa2867ca…0d73`。备份 `ea1e3ea9-8c03-49e3-a405-0315fc64a34f` 后可信 reuse
+  无停机同步且容器不变；正式 ensure/verify `.50`、七维 capability、未知版本 426、带公网 IP
+  full verifier 与远端 temp 清理通过。
 
 ## 语义与偏差记录
 
@@ -178,10 +183,8 @@
 
 ## 下一步与停止条件
 
-1. 逐行审阅 diff，只显式暂存 Worklet picker、测试、计划与连续性记录；提交推送 runtime checkpoint。
-2. 上传 production-profile `.50`，创建生产备份并同步 Git release，正式 allowlist/full verifier。
-3. 提交最终状态 checkpoint 并再次同步 production release。
-4. 用户在 `.50` 实体 Android 执行 20 次慢速逐格下→上、半格反向、吸附中反向与年/月交替；
+1. 提交最终状态 checkpoint 并以已完成备份再次同步 production release。
+2. 用户在 `.50` 实体 Android 执行 20 次慢速逐格下→上、半格反向、吸附中反向与年/月交替；
    此前状态只能是待用户复核。
 
 停止条件：`.50` 上传、Git/origin/production release、allowlist/full verifier 全部对齐，所有用户
