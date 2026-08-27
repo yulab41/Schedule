@@ -2,13 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 安卓白屏系统化边界诊断（已实现待诊断版）
+## 2026-08-27 P9 安卓白屏系统化边界诊断（已发布待触发）
 
 - 用户反馈/流程：用户确认 `.41` 的访客访问、事件统计、导出排班仍白屏，并明确要求安装、使用 `systematic-debugging`。技能已安装到 Codex；按其“三次修复失败后停止第 4 个补丁、先质疑架构并增加边界证据”规则，已撤回未完成的页面直接注册草稿，本批只做诊断，不宣称修复。
 - 新证据：`.41` 官方 `getCodeFiles=185`，精确等于当前 dist 的 80 JS + 53 JSON + 50 WXML + 2 WXS；53 WXSS 与 17 SVG 属资源文件。因此 `.41` 已包含全部代码文件，上传完整性不是剩余三页白屏根因。生产复测窗口仍只有 workbench telemetry/capability 请求，没有三页业务请求。
 - 诊断实现：复用现有匿名 Mini telemetry，在三个 Page `onLoad` 与对应 panel `attached` 各记录固定 `unknown/UNKNOWN` 指纹；不记录身份、群组、路由参数、业务正文或原始堆栈。六个预期 SHA-256 分别为 visitor page `49b3e23b…765f` / component `e81c5ca2…4e64`，insights page `2f1e5c0e…a862` / component `fb1c651e…4afd`，exports page `42e9e078…4303` / component `8717404a…76b6`。
 - 红绿/验证：边界契约旧实现 3/9 失败，加入标记后页面壳 9/9；P9 controller/runtime 与 telemetry 定向 6 files/41 tests、排除既有日期敏感 P7 swap/duty 后 Mini 83 files/387 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务文件 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；manifest `3def817a8f431533ebaa7e54bfe36e8d56bd6d02cd795c94ae32bab922b98dcf`，总包 `5,766,384` bytes、insights `1,324,210` bytes。`telemetry.ts` 全文件 ESLint 仍命中 `c5322516` 引入的既有 `_dedupeKey` 未使用 1 项，本批不顺手重构。
-- checkpoint/下一步：诊断 checkpoint 识别消息为 `test(miniprogram): trace p9 page component boundaries`。完成 Mini/根门禁后提交、推送、上传 `.42`、加入白名单并部署；用户只需各打开三个页面一次，随后查询六个固定指纹即可确定断点。未取得边界结果前不实施页面直接注册、不提交审核/正式发布。
+- checkpoint/体验：诊断 checkpoint `eecc46f40b0835b8e4ff34b070fe753f990e9865`（`test(miniprogram): trace p9 page component boundaries`）已推送；production-profile `.42` 官方上传成功，185 code files、zip `2,559,893` bytes、manifest `e64f68f86f380ba2a443424a2ead41a2a6c37ddcee7f33f1b8b3e1b87bdbfbfc`，未提交审核、未正式发布。
+- 生产发布：部署前加密数据库备份 archive `2c8df6b0-2fa4-4460-9f38-2a041f57ef0f`（54 表、178,009 行、82,091,384 bytes、SHA-256 `8f92c07d03464ebba4f1e9c8c0ea03f51c8faa04870a12c8595ea24e46452c38`）后部署 release `eecc46f40b0835b8e4ff34b070fe753f990e9865`；预热一次 502 后恢复、privacy 0/0。`.42` 已双锁加入白名单并同时重建 API/web，完整 verifier、七维 capability true、未知版本 426 和 env `root:root/0600` 通过。
+- 下一步/停止条件：用户在 `.42` 各打开访客访问、事件统计、导出排班一次即可；随后立即查询六个固定指纹并完成 systematic-debugging Phase 1。未取得边界结果前不实施页面直接注册、不提交审核/正式发布。
 
 ## 2026-08-27 P9 官方上传完整性白屏修复（已发布待安卓复核）
 

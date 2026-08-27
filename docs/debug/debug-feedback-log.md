@@ -7,6 +7,7 @@
 - 用户反馈/规则：`.41` 访客访问、事件统计、导出排班仍白屏。用户要求安装并使用 `systematic-debugging`；技能已安装。按“三次修复失败后停止第 4 个补丁”规则，撤回直接注册草稿，本批只增加匿名边界证据。
 - 根因阶段证据：官方 `.41` 185 code files 精确等于 dist 的 JS+JSON+WXML+WXS 全集，上传裁剪已排除；生产仍没有三页业务请求。当前未知点只剩 Page `onLoad` 是否执行、panel `attached` 是否执行。
 - 诊断/隐私：三个 Page 与对应 panel 各写一个固定 `unknown/UNKNOWN` telemetry 指纹，不含身份、群组、参数、正文或原始 stack。六个指纹映射已写入状态文档；旧实现 3/9 失败，加入后页面壳 9/9，P9/runtime/telemetry 6 files/41、其余 Mini 83 files/387 通过。Mini production/根门禁通过，manifest `3def817a…98dcf`、总包 `5,766,384`、insights `1,324,210`；`telemetry.ts` 全文件 lint 仅保留 `c5322516` 的既有 `_dedupeKey` 1 项，本批不混入清理。
+- checkpoint/发布：`eecc46f4` 已推送；`.42` 官方上传 185 files/zip `2,559,893`/manifest `e64f68f8…fbfc`。备份 `2c8df6b0-2fa4-4460-9f38-2a041f57ef0f`（54 表/178009 行/82091384 bytes/SHA `8f92c07d…2c38`）后部署同 release；预热一次 502 后恢复、privacy 0/0、full verifier 通过。`.42` 双锁加入白名单，七维 capability true、未知版本 426、env root/0600；等待用户各触发三页一次。
 
 ## 2026-08-27 P9 官方上传完整性白屏
 
