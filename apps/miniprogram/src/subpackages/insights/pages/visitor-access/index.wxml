@@ -1,1 +1,1 @@
-<visitor-access-panel group-id="{{groupId}}"></visitor-access-panel>
+<include src="../../components/visitor-access-panel/index.wxml" />

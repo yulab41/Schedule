@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 访客页直接注册架构验证（已实现待体验上传）
+
+- Phase 1 结论：用户在 `.42` 依次触发三页后，六个 Page/component 指纹全部缺失；四次 `/client-telemetry` 均 HTTP 204，但数据库只写入四个 workbench 性能样本。故障精确位于 P9 Page `onLoad` 之前，已排除 API、controller、页面布局、能力开关、上传缺文件和 telemetry 发送失败。
+- Phase 2–3/授权：`systematic-debugging` 要求三次失败后质疑架构并与用户讨论；用户已明确同意先只改访客访问作为单页验证，事件统计与导出保持 `.42` 自定义组件路径作为对照。单一假设为：页面 JSON 的大型 panel `usingComponents` 在 Page 注册前注入失败，直接 Page 注册可绕过该边界。
+- 实现：访客页直接复用既有 visitor controller 的 data/methods/attached/detached，把 groupId 作为兼容 properties 注入；WXML 用静态 `include`、WXSS 用静态 `@import` 复用原 panel，页面 JSON 只声明三个已稳定 UI 组件。访客业务请求、权限、capability、分页、脱敏、异步序列和 UI 内容不变；事件统计/导出源码不改。
+- 红绿/验证：旧实现上的直接 Page 运行时与静态契约 2 项失败，实施后访客 direct/page/controller 3 files/16 tests；排除既有日期敏感 P7 swap/duty 后 Mini 84 files/388 tests 通过。Mini typecheck/production verify/source/package/determinism、根 build/typecheck、任务 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；manifest `cd14fd76a7a749a61aed605b3eed4c5f3172e5587fbab743827217a96cec1e95`，总包 `5,912,836` bytes、insights `1,470,660` bytes，仍低于 1.5M 预警线。
+- checkpoint/下一步：实验 checkpoint 识别消息为 `fix(miniprogram): register visitor page directly`。提交、推送后上传 `.43`、加入白名单并部署；用户只复核访客访问。若访客页恢复且统计/导出仍失败，即确认架构根因并在下一独立批次迁移另外两页；若访客仍失败，立即停止直接注册方向并回到 Phase 1，不提交审核/正式发布。
+
 ## 2026-08-27 P9 安卓白屏系统化边界诊断（已发布待触发）
 
 - 用户反馈/流程：用户确认 `.41` 的访客访问、事件统计、导出排班仍白屏，并明确要求安装、使用 `systematic-debugging`。技能已安装到 Codex；按其“三次修复失败后停止第 4 个补丁、先质疑架构并增加边界证据”规则，已撤回未完成的页面直接注册草稿，本批只做诊断，不宣称修复。
@@ -10,7 +18,7 @@
 - 红绿/验证：边界契约旧实现 3/9 失败，加入标记后页面壳 9/9；P9 controller/runtime 与 telemetry 定向 6 files/41 tests、排除既有日期敏感 P7 swap/duty 后 Mini 83 files/387 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务文件 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；manifest `3def817a8f431533ebaa7e54bfe36e8d56bd6d02cd795c94ae32bab922b98dcf`，总包 `5,766,384` bytes、insights `1,324,210` bytes。`telemetry.ts` 全文件 ESLint 仍命中 `c5322516` 引入的既有 `_dedupeKey` 未使用 1 项，本批不顺手重构。
 - checkpoint/体验：诊断 checkpoint `eecc46f40b0835b8e4ff34b070fe753f990e9865`（`test(miniprogram): trace p9 page component boundaries`）已推送；production-profile `.42` 官方上传成功，185 code files、zip `2,559,893` bytes、manifest `e64f68f86f380ba2a443424a2ead41a2a6c37ddcee7f33f1b8b3e1b87bdbfbfc`，未提交审核、未正式发布。
 - 生产发布：部署前加密数据库备份 archive `2c8df6b0-2fa4-4460-9f38-2a041f57ef0f`（54 表、178,009 行、82,091,384 bytes、SHA-256 `8f92c07d03464ebba4f1e9c8c0ea03f51c8faa04870a12c8595ea24e46452c38`）后部署 release `eecc46f40b0835b8e4ff34b070fe753f990e9865`；预热一次 502 后恢复、privacy 0/0。`.42` 已双锁加入白名单并同时重建 API/web，完整 verifier、七维 capability true、未知版本 426 和 env `root:root/0600` 通过。
-- 下一步/停止条件：用户在 `.42` 各打开访客访问、事件统计、导出排班一次即可；随后立即查询六个固定指纹并完成 systematic-debugging Phase 1。未取得边界结果前不实施页面直接注册、不提交审核/正式发布。
+- 实体结果：用户依次触发三页，六个边界指纹均未出现，四次 telemetry POST 均为 workbench 样本；Phase 1 已完成并转入上方经用户批准的访客单页架构验证。
 
 ## 2026-08-27 P9 官方上传完整性白屏修复（已发布待安卓复核）
 

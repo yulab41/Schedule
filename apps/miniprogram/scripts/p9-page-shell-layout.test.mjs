@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pageShells = [
-  ['visitor-access', 'visitor-access-panel'],
   ['insights', 'insights-dashboard-panel'],
   ['notifications', 'notifications-panel'],
   ['exports', 'exports-panel'],
@@ -75,4 +74,34 @@ describe('P9 native page shells', () => {
       );
     },
   );
+
+  it('mounts visitor access through a direct Page include while keeping the other controls intact', () => {
+    const pageRoot = path.join(
+      appRoot,
+      'src',
+      'subpackages',
+      'insights',
+      'pages',
+      'visitor-access',
+    );
+    const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
+    const source = readFileSync(path.join(pageRoot, 'index.ts'), 'utf8');
+    const template = readFileSync(path.join(pageRoot, 'index.wxml'), 'utf8');
+    const styles = readFileSync(path.join(pageRoot, 'index.wxss'), 'utf8');
+
+    expect(source).toContain('createVisitorAccessPanelControllerDefinition');
+    expect(source).toContain('controller.lifetimes.attached.call(this)');
+    expect(config.usingComponents).not.toHaveProperty('visitor-access-panel');
+    expect(config.usingComponents).toMatchObject({
+      'ui-alert': '/components/ui/ui-alert/index',
+      'ui-button': '/components/ui/ui-button/index',
+      'ui-loading': '/components/ui/ui-loading/index',
+    });
+    expect(template.trim()).toBe(
+      '<include src="../../components/visitor-access-panel/index.wxml" />',
+    );
+    expect(styles).toMatch(
+      /@import\s+['"]\.\.\/\.\.\/components\/visitor-access-panel\/index\.wxss['"];/u,
+    );
+  });
 });

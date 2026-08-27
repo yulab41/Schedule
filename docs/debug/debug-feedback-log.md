@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 访客页直接注册架构验证
+
+- Phase 1：`.42` 三页触发后六个指纹均缺失，四次 telemetry POST 均 204 且只落 workbench 样本，证明失败在 Page `onLoad` 之前。用户按 systematic-debugging 的架构讨论要求，明确批准只对访客页做直接注册实验。
+- 单一改动：访客页直接挂既有 controller data/methods/lifetimes，静态 include/import 原 WXML/WXSS，只保留稳定 UI components；事件统计/导出完全不动。旧实现 direct/static 2 项失败，实施后访客 3 files/16、其余 Mini 84 files/388 通过。
+- 验证：Mini production/source/package/determinism、根 build/typecheck、任务 format/lint/core smoke/diff 通过；manifest `cd14fd76…c1e95`，总包 `5,912,836`、insights `1,470,660`。下一候选 `.43` 只验证访客页；成功才迁移其余两页，失败立即停止该架构方向。
+
 ## 2026-08-27 P9 systematic-debugging 边界诊断
 
 - 用户反馈/规则：`.41` 访客访问、事件统计、导出排班仍白屏。用户要求安装并使用 `systematic-debugging`；技能已安装。按“三次修复失败后停止第 4 个补丁”规则，撤回直接注册草稿，本批只增加匿名边界证据。
