@@ -1,3 +1,5 @@
+import { clearAllLocalProfileAvatars } from './profile-media.js';
+
 export const WECHAT_SESSION_STORAGE_KEY = 'schedule.wechat.session';
 export const WORKBENCH_GROUP_STORAGE_KEY = 'schedule.wechat.workbench.current-group';
 export const WORKBENCH_CACHE_V1_PREFIX = 'schedule.wechat.workbench.cache.v1:';
@@ -17,6 +19,7 @@ export function clearWechatSessionStorage(): void {
 }
 
 export function clearPrivateBusinessStorage(): void {
+  clearAllLocalProfileAvatars();
   removeStorage(WORKBENCH_GROUP_STORAGE_KEY);
   for (const key of readStorageKeys()) {
     if (privateBusinessPrefixes.some((prefix) => key.startsWith(prefix))) removeStorage(key);

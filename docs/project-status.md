@@ -56,17 +56,13 @@
   和对应 `plans/` 文件；文档 checkpoint `bb52e47b` 已推送并部署。
 - 引入点：Web 个人值班聚合来自 `ebd1b19f`，Mini 常驻 Profile controller/workbench 入口来自
   `79a0ae90`，微信快捷登录来自 `e69cfb76`，密码登录禁解绑来自 `75ec2c1d`。
-- Task 1 已把 Web `MyProfileOverview` 等价迁入无外部依赖的 `@schedule/presentation-core`，Web 只
-  更换导入；`UserProfile` 增加暂不由 API 返回的可选 `avatarVersion` 兼容字段。
-- Task 1 checkpoint 识别消息为 `refactor(profile): share duty overview model`；提交、推送并完成生产
-  验证后已进入 Task 2。
-- Task 2 已实现 schema 52 头像专表、认证图片 CRUD、所有登录 profile 的可选 avatarVersion 与当前
-  AppID 绑定状态；checkpoint 识别消息为 `feat(profile): add avatar and binding APIs`。
-- 代码 checkpoint `3c1b131a` 与发布控制 checkpoint `6cf71152` 均已推送；后者将 manifest
-  前滚为 52..52 并增加头像 schema/备份探针。备份 `cb88870f-e685-4609-bcef-5f39bcc7ec8b`
-  后已完整部署 `6cf71152`，生产 API、应用、DB schema 52 与控制面重新一致，Task 2 完成。
-- 当前 Profile 活跃批次为 Task 3：先实现独立 Mini profile-media、认证下载与 owner/version 缓存；
-  不接管并行登录/通讯录脏文件，完成该独立部分即停在可验证 checkpoint。
+- Task 1 `9e42057c` 已共享 Web 值班模型与 avatarVersion 兼容契约；Task 2 `3c1b131a` 和控制修复
+  `6cf71152` 已部署头像/绑定 API 与 schema 52，生产应用/DB/控制面一致；最近备份见本页基线。
+- Task 3 非重叠部分已测试先行实现独立 Mini profile-media：进程内 pending、认证原始图片上传/
+  下载、owner/version 私有文件缓存、401 单次恢复、串行最后选择、幂等删除与退出物理清理均完成；
+  checkpoint 识别消息为 `feat(miniprogram): cache private profile avatars`。
+- 当前 Profile 活跃批次为 Task 3 checkpoint/发布；不接管并行登录/通讯录脏文件，精确 clean
+  checkpoint 验证、体验上传和生产同步完成即停，再复核重叠集成边界。
 
 ## 已完成的发布基线与当前修复
 
@@ -132,19 +128,11 @@
 
 ## 已完成验证
 
-- Profile Task 2 发布控制：旧 packager/verifier 对 schema52 的 2 项回归先红；实现后 package/
-  release controls/cache 3 files/28 tests、Bash syntax、任务 Prettier/ESLint/diff 通过。生产首次更新已
-  自动恢复应用；前滚发布后 schema52 头像六列、两项 CHECK、CASCADE 外键、备份 55 表、公网 ingress、
-  capability/未知版本与 full verifier 全部通过，头像 GET/PUT/DELETE 和绑定 GET 未认证均为 401。
-- Profile Task 2：旧实现 contracts/schema/validator/routes 4 files/8 项先红；实现后安全/路由
-  8 files/34 tests、database/API 定向 15 files/42 tests、root 241 files/1,131 tests、Mini
-  95 files/461 tests 通过，37 files/355 tests 按无数据库环境跳过；全端 build/typecheck、Mini
-  production verify（2/2 Worklet、4,559,047 bytes、manifest `5190352e…6d553`）、任务 ESLint/diff
-  与 core smoke 通过。完整 browser smoke 因本机无 5173/Docker/MySQL 环境停止并已记录。
-- Profile Task 1：旧实现共享模块缺失、strict schema 拒绝 avatarVersion 的红灯已确认；迁移后定向
-  5 files/28 tests、边界 4 files/13 tests、root 236 files/1,118 tests、Mini 95 files/460 tests 通过，
-  37 files/353 tests 按无数据库环境跳过；全端 build/typecheck、Mini production verify（2/2
-  Worklet、4,559,047 bytes、manifest `da88b470…03e8d`）、任务 Prettier/ESLint/diff 和 core smoke 通过。
+- Profile Task 3 media：旧实现因模块不存在 7 项先红；补充 401 恢复 generation 与退出清 pending 后
+  2 项再次先红。最终 profile-media 8/8、会话/下载定向 3 files/21 tests、Mini typecheck、任务
+  Prettier/ESLint/diff 通过；当前 dirty tree Mini 96 files/469 tests 通过。
+- Profile Tasks 1–2 的共享等价、严格契约、头像安全/隔离/版本、schema52 发布控制和生产探针均通过；
+  详细红绿、全仓计数、browser 环境阻塞、备份与 release 证据保留在 debug 日志及对应 Git checkpoint。
 - Profile browser smoke 已实际运行：首次因 5173 未启动停止；启动源码服务后因未启用 dev auth、
   Docker daemon/本机 MySQL 均不存在而在登录门禁停止，未进入产品断言；临时服务已停止并在
   debug round 精确记录。本 Task 不改 Web 视觉或请求行为。
@@ -222,22 +210,18 @@
   安全回到日历。独立 Page 依赖微信 Page 栈，自带返回按钮并保留系统侧滑返回。
 - 通知只新增当前群组未读 GET 轮询和嵌入展示；无参 Web 未读语义不变。单条/全部已读仍各一次
   原写请求，Bearer、capability、Promise/catch、陈旧响应保护和通知正文不落盘不变。
-- Profile Task 1 的运行函数源码与 Web 原实现相同；只把 contracts 类型改为共享包既有的结构化
-  `*Like` 边界并由 Web 以完整 CalendarDutyAssignment 参数化。请求顺序/次数、receiver、
-  Promise/catch、`??`/可选字段、日期排序、空态和业务副作用均不变；新增 avatarVersion 仅为可选
-  读取兼容字段，API 此 checkpoint 不返回。
-- Profile Task 2 新增副作用仅为当前用户头像 PUT/DELETE 与绑定状态 GET；头像写入单事务，每次成功
-  PUT 版本加一、DELETE 至多删一行。既有姓名版本、authVersion、密码/解绑幂等、群组/API 权限、
-  token、Promise/catch 和业务排班写次数不变；所有图片响应为认证私有缓存且不含 URL token。
+- Profile Task 3 media 的 pending 只存 App 进程内；每次 flush 同步取走并按全局 tail 串行，失败不重试，
+  新选择不会被旧上传清除。上传使用一次 raw ArrayBuffer PUT；下载只用 Bearer header，401 至多恢复一次
+  并以新 generation 为准。缓存键/文件同时绑定 owner/version，退出只删除本地文件/元数据，不调用
+  DELETE；恢复首字仅显式 DELETE 成功后清本地。图片、token、临时路径均不进入日志、遥测或 storage。
 
 ## 下一步与停止条件
 
-1. 审阅并提交 Profile 设计/计划/status/debug 文档 checkpoint，推送并用生产备份完成可信 reuse。
-2. 提交、推送并以可信 reuse 同步通知最终状态 checkpoint，随后只等待 `.52`
-   实体 Android 复核红点、滚动、回弹、下滑、“完成”、遮罩关闭和跨群组隔离。
-3. 基于已部署 API 测试先行实现 Mini profile-media、认证二进制传输与 owner/version 本地缓存。
-4. 并行登录/通讯录 checkpoint 落地后，才进入头像登录桥接与最终 Mini Profile runtime。
-5. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
+1. 显式暂存并提交 Task 3 非重叠 media checkpoint，clean 复验后推送、上传下一单调 `.53` 体验版，
+   执行正式 allowlist、生产备份/ECS 同步与 full verifier。
+2. checkpoint 发布完成后复核并行登录/通讯录状态；只有其内容已落地或能以独立 cached hunk 构建时，
+   才进入 chooseAvatar 叶组件、登录 flush 与最终 Mini Profile runtime。
+3. 群组权限 runtime 仍保持独立，不夹带其计划或工作树内容。
 
 停止条件：Task 3 非重叠 profile-media/cache 完成测试、checkpoint、推送和生产同步，其他并行用户
 工作树内容保持未提交；随后等待重叠登录/通讯录 checkpoint，未经新的安全边界复核不修改其文件，

@@ -64,6 +64,13 @@
   （55 表/180,371 行/82,888,368 bytes/SHA `ab960b5b…a3b6`）后完整部署成功；生产 release、API、
   DB52 与控制面一致，头像表结构/约束/存量、公网 ingress、`.52` capability、未知版本和 full verifier
   通过，四个新增接口未认证均为 401。失败/成功远端临时目录均按验证后的精确路径删除。
+- Task 3 media 红绿/边界：旧树没有 `profile-media.ts`，pending/上传/串行/缓存/隔离/删除/退出 7 项先红；
+  初版后新增 401 恢复 generation 与退出清 pending 两项再次先红。最终 8/8 通过：chooseAvatar 临时路径
+  仅在 App `globalData` 进程内；raw ArrayBuffer 以魔数/1 MiB 预检后单次 PUT，失败取走且不重试；下载
+  仅在 header 带 Bearer，401 至多恢复一次；本地文件和 metadata 同时按 owner/version 隔离，退出同步
+  物理删除且不触发服务端 DELETE。会话/下载定向 3 files/21 tests、Mini typecheck、任务格式/lint/diff
+  及当前 dirty tree Mini 96 files/469 tests 通过；checkpoint 识别消息为
+  `feat(miniprogram): cache private profile avatars`。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 
