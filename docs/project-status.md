@@ -2,12 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 统计与导出直接注册根因修复（已实现待体验上传）
+## 2026-08-27 P9 统计与导出直接注册根因修复（已发布待两页复核）
 
 - 根因确认：用户明确回复 `.43`“访客已打开”；生产同时记录 visitor Page `49b3e23b…765f`、controller `e81c5ca2…4e64` 两个指纹，随后收到 `/visitor-access-aggregates` 与 `/visitor-access-logs` 请求。与 `.42` Page 前即失败的严格对照证明：大型 P9 panel 作为 `requiredComponents` 自定义组件预注入会阻止 Page 注册；把 controller/WXML/WXSS 直接挂到 Page 可恢复完整链路。
 - Phase 4 实现：按已验证访客模式迁移事件统计和导出排班——页面直接挂既有 controller data/methods/attached/detached，静态 include/import 原 panel WXML/WXSS，页面 JSON 只声明稳定 UI components。所有业务 API、权限、capability、分页/周期、统计口径、导出轮询/下载、异步序列和 UI 内容不变；通知页面继续保持原架构。
 - 红绿/验证：旧实现上的 insights/exports direct runtime 与静态契约 4 项失败，实施后 direct/page/controller 4 files/25 tests；排除既有日期敏感 P7 swap/duty 后 Mini 85 files/390 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；manifest `f0ee2f8852d0ac404eaeafac2b43b6c50c5ce75d51b3939c0500fe332b04021e`，总包 `6,219,241` bytes，insights `1,777,061` bytes（超过 1.5M 预警但低于 1.8M 阻断）。
-- checkpoint/下一步：修复 checkpoint 识别消息为 `fix(miniprogram): register remaining p9 pages directly`。提交、推送后上传 `.44`、加入白名单并部署；用户复核事件统计与导出排班。两页都恢复后再独立移除已不使用的三套 Component wrapper/重复 bundle 以回收包体，不在本修复混入清理；不提交审核/正式发布。
+- checkpoint/体验：修复 checkpoint `49b6841e9cc1b9addd9bfc413d6976bb32bcef20`（`fix(miniprogram): register remaining p9 pages directly`）已推送；production-profile `.44` 官方上传成功，185 code files、zip `2,748,070` bytes、manifest `5022c068002d2786fd44c2e29aae086755732cc774bfba1b8b7b510ee431693c`，未提交审核、未正式发布。
+- 生产发布：部署前加密数据库备份 archive `3183f4dc-3015-48aa-b0e6-17fad4cc9798`（54 表、178,441 行、82,234,428 bytes、SHA-256 `c975ed1f1ec94ce03722a6b9ba84a07b7cce737bf2e2b97bf5332c138987e367`）后部署 release `49b6841e9cc1b9addd9bfc413d6976bb32bcef20`；预热一次 502 后恢复、privacy 0/0。`.44` 已双锁加入白名单并同时重建 API/web，完整 verifier、七维 capability true、未知版本 426、env `root:root/0600` 通过。
+- 下一步/停止条件：用户在 `.44` 复核事件统计与导出排班。两页都恢复后再独立移除已不使用的三套 Component wrapper/重复 bundle 以回收包体，不在本修复混入清理；任一失败则按 systematic-debugging 回到该页边界证据，不提交审核/正式发布。
 
 ## 2026-08-27 P9 访客页直接注册架构验证（已发布待单页复核）
 

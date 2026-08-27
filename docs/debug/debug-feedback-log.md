@@ -7,6 +7,7 @@
 - 根因闭环：`.43` 访客实体恢复；生产出现 Page `49b3e23b…765f`、controller `e81c5ca2…4e64` 和 visitor aggregates/logs API。`.42` Page 前失败与 `.43` 直接 Page 成功严格对照，确认 requiredComponents 大型 panel 预注入架构是根因。
 - Phase 4：统计与导出精确复用同一直接 Page 模式，业务 controller/WXML/WXSS/API/权限/状态不变，通知不动。旧实现 direct/static 4 项失败，实施后 4 files/25、其余 Mini 85 files/390 通过。
 - 验证：Mini production/source/package/determinism/CI dry-run、根 build/typecheck、任务 format/lint/core smoke/diff 通过；manifest `f0ee2f88…021e`，总包 `6,219,241`、insights `1,777,061`（1.5M warning、低于 1.8M block）。下一候选 `.44` 只收口统计/导出实体结果，包体重复项另开任务。
+- checkpoint/发布：`49b6841e` 已推送；`.44` 官方上传 185 files/zip `2,748,070`/manifest `5022c068…693c`。备份 `3183f4dc-3015-48aa-b0e6-17fad4cc9798`（54 表/178441 行/82234428 bytes/SHA `c975ed1f…e367`）后部署同 release；预热一次 502 后恢复、privacy 0/0、full verifier 通过。`.44` 双锁加入白名单，七维 capability true、未知版本 426、env root/0600；等待统计/导出实体复核。
 
 ## 2026-08-27 P9 访客页直接注册架构验证
 
