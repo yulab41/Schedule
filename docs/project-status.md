@@ -41,11 +41,12 @@
 - 用户已确认 App 级共享会话运行时、成功后 `wx.reLaunch` 直达主页及 Web 对齐登录页；登录页不放
   “访客查看排班”，扫码访客仅进入独立日历页且本批不改。书面规格为
   `docs/superpowers/specs/2026-08-27-miniprogram-login-session-continuity-design.md`。
-- 本 checkpoint 只提交规格与本节，识别消息为
+- 登录设计 checkpoint 只提交书面规格与本节的一致性修正，识别消息为
   `docs(design): specify miniprogram login continuity`；验证为任务文档 Prettier、占位符/歧义自检、
   `git diff --check` 与 agent-context policy。下一步是用户书面复核，通过前不修改 runtime。
-- 当前 Worklet/通知 runtime、测试与实施计划为并行用户工作树内容；登录批次不得暂存、重写或混入。
-  登录设计 checkpoint 的停止条件是 Git/origin/production release 对齐并保持全部并行内容未提交。
+- Worklet runtime 已由并行 checkpoint `5bed6d34` 提交；当前通知 runtime、测试与视觉稿仍是并行用户
+  工作树内容。登录批次不得暂存、重写或混入；停止条件是 Git/origin/production release 对齐并
+  保持全部并行内容未提交。
 
 ## 当前活动批次
 
