@@ -36,6 +36,7 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 type DashboardState = 'disabled' | 'error' | 'loading' | 'ready';
 type DashboardTab = 'events' | 'statistics';
@@ -171,6 +172,7 @@ export function createInsightsDashboardPanelControllerDefinition() {
 
     lifetimes: {
       attached(this: InsightsDashboardInstance): void {
+        recordMiniTelemetryBoundary('insights:component-attached');
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;

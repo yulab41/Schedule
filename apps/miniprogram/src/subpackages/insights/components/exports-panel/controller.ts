@@ -25,6 +25,7 @@ import {
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 import { downloadScheduleExport } from '../../../../platform/secure-download.js';
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 type ExportPeriodType = 'month' | 'year';
 type ExportState =
@@ -119,6 +120,7 @@ export function createExportsPanelControllerDefinition() {
     },
     lifetimes: {
       attached(this: ExportsPageInstance): void {
+        recordMiniTelemetryBoundary('exports:component-attached');
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;

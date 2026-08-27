@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 安卓白屏系统化边界诊断（已实现待诊断版）
+
+- 用户反馈/流程：用户确认 `.41` 的访客访问、事件统计、导出排班仍白屏，并明确要求安装、使用 `systematic-debugging`。技能已安装到 Codex；按其“三次修复失败后停止第 4 个补丁、先质疑架构并增加边界证据”规则，已撤回未完成的页面直接注册草稿，本批只做诊断，不宣称修复。
+- 新证据：`.41` 官方 `getCodeFiles=185`，精确等于当前 dist 的 80 JS + 53 JSON + 50 WXML + 2 WXS；53 WXSS 与 17 SVG 属资源文件。因此 `.41` 已包含全部代码文件，上传完整性不是剩余三页白屏根因。生产复测窗口仍只有 workbench telemetry/capability 请求，没有三页业务请求。
+- 诊断实现：复用现有匿名 Mini telemetry，在三个 Page `onLoad` 与对应 panel `attached` 各记录固定 `unknown/UNKNOWN` 指纹；不记录身份、群组、路由参数、业务正文或原始堆栈。六个预期 SHA-256 分别为 visitor page `49b3e23b…765f` / component `e81c5ca2…4e64`，insights page `2f1e5c0e…a862` / component `fb1c651e…4afd`，exports page `42e9e078…4303` / component `8717404a…76b6`。
+- 红绿/验证：边界契约旧实现 3/9 失败，加入标记后页面壳 9/9；P9 controller/runtime 与 telemetry 定向 6 files/41 tests、排除既有日期敏感 P7 swap/duty 后 Mini 83 files/387 tests 通过。Mini typecheck/production verify/source/package/determinism/CI dry-run、根 build/typecheck、任务文件 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；manifest `3def817a8f431533ebaa7e54bfe36e8d56bd6d02cd795c94ae32bab922b98dcf`，总包 `5,766,384` bytes、insights `1,324,210` bytes。`telemetry.ts` 全文件 ESLint 仍命中 `c5322516` 引入的既有 `_dedupeKey` 未使用 1 项，本批不顺手重构。
+- checkpoint/下一步：诊断 checkpoint 识别消息为 `test(miniprogram): trace p9 page component boundaries`。完成 Mini/根门禁后提交、推送、上传 `.42`、加入白名单并部署；用户只需各打开三个页面一次，随后查询六个固定指纹即可确定断点。未取得边界结果前不实施页面直接注册、不提交审核/正式发布。
+
 ## 2026-08-27 P9 官方上传完整性白屏修复（已发布待安卓复核）
 
 - 复测/证据：用户确认 `.39` 仍然白屏卡死。生产匿名遥测在 11:35–11:52 持续收到 `.39` workbench 性能样本且无 `MINI_RUNTIME_ERROR`；API 仍未收到访客、事件/统计、通知偏好或导出请求，确认 P9 自定义组件 controller 没有执行。
@@ -12,7 +20,7 @@
 - 红绿/验证：工程配置/CI/页面壳三文件 3 files/18 tests 通过；P9/CI/构建定向 13 files/63 tests，先前同轮其余 Mini 83 files/384 tests 通过。Mini typecheck/production verify 通过；manifest `ff288b714feecdd497063895fd236e0f0d2f136c3c318bf1bd5397d5eb437664`，总包 `5,759,536` bytes，insights `1,317,455` bytes。其余 source/package/determinism/CI dry-run、根 build/typecheck、任务格式/lint 与 `smoke:check-core` 在同轮通过，提交前按最终配置复核。
 - checkpoint/体验：最终代码 checkpoint `106d6c3e5f8b23855a2ffd9752dbbf1d64a54c3d`（`fix(miniprogram): retain complete upload files`）已推送。production-profile `0.1.0-p9.20260827.41` 官方上传成功，代码文件从 153 增至 185、zip 从约 1.40M 增至 `2,553,561` bytes，上传 manifest `a79b96b76ac113256873e1f6936373e95cd258979bf85835d54192eb250dfba1`，证明工程配置确实改变上传包；未提交审核、未正式发布。
 - 生产发布：部署前加密数据库备份 archive `51b066e9-f254-4d77-a479-2bf6480d4319`（54 表、177,757 行、82,008,060 bytes、SHA-256 `d8943bfc5b641d486871a17bb1c80ae8d7a1064a897b1ec780b8a2e6485983f7`）后部署 release `106d6c3e5f8b23855a2ffd9752dbbf1d64a54c3d`；预热一次 502 后恢复、privacy visitor/telemetry 0/0。`.41` 已双锁原子加入白名单并同时重建 API/web，完整 verifier 通过，capability HTTP 200 且七维全部 true、未知版本 426、env `root:root/0600`。
-- 下一步/停止条件：用户在 `.41` 安卓真机复核通知设置、访客访问、事件与统计、通知中心、导出排班。若任一仍白屏，记录入口和停留时长后转入“页面直接注册、不依赖自定义组件注入”方案；在实体结果前不提交审核/正式发布。
+- 实体结果：用户确认 `.41` 的访客访问、事件统计、导出排班仍白屏；完整上传不是根因，转入上方 systematic-debugging 边界诊断。未取得 Page/Component 精确边界前不再直接修改架构。
 
 ## 2026-08-27 P9 安卓真机页面壳白屏修复（已发布但未解决）
 

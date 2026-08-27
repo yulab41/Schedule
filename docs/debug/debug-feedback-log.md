@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 systematic-debugging 边界诊断
+
+- 用户反馈/规则：`.41` 访客访问、事件统计、导出排班仍白屏。用户要求安装并使用 `systematic-debugging`；技能已安装。按“三次修复失败后停止第 4 个补丁”规则，撤回直接注册草稿，本批只增加匿名边界证据。
+- 根因阶段证据：官方 `.41` 185 code files 精确等于 dist 的 JS+JSON+WXML+WXS 全集，上传裁剪已排除；生产仍没有三页业务请求。当前未知点只剩 Page `onLoad` 是否执行、panel `attached` 是否执行。
+- 诊断/隐私：三个 Page 与对应 panel 各写一个固定 `unknown/UNKNOWN` telemetry 指纹，不含身份、群组、参数、正文或原始 stack。六个指纹映射已写入状态文档；旧实现 3/9 失败，加入后页面壳 9/9，P9/runtime/telemetry 6 files/41、其余 Mini 83 files/387 通过。Mini production/根门禁通过，manifest `3def817a…98dcf`、总包 `5,766,384`、insights `1,324,210`；`telemetry.ts` 全文件 lint 仅保留 `c5322516` 的既有 `_dedupeKey` 1 项，本批不混入清理。
+
 ## 2026-08-27 P9 官方上传完整性白屏
 
 - 复测/定位：用户确认 `.39` 页面高度修复后仍白屏。11:35–11:52 的 `.39` 匿名 workbench 样本正常、无 runtime error，API 仍没有 P9 页面请求，失败点继续位于自定义组件 controller 之前。

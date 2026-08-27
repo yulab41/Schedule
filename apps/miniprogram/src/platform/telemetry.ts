@@ -201,6 +201,10 @@ export function recordMiniTelemetryPerformance(
   resolveRuntimeEmitter()?.recordPerformance(page, metric, durationMs);
 }
 
+export function recordMiniTelemetryBoundary(marker: string): void {
+  resolveRuntimeEmitter()?.recordError('unknown', 'UNKNOWN', marker);
+}
+
 export function resolveTelemetryPage(route: string): MiniTelemetryPage {
   if (route.startsWith('pages/identity/') || route.startsWith('pages/admin-bind/')) {
     return 'identity';

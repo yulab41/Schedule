@@ -1,4 +1,4 @@
-export {};
+import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 Page({
   data: { groupId: '' },
@@ -6,6 +6,7 @@ Page({
     this: { setData(patch: { readonly groupId: string }): void },
     query: Readonly<Record<string, string | undefined>>,
   ): void {
+    recordMiniTelemetryBoundary('exports:page-onload');
     this.setData({ groupId: decodeGroupId(query['groupId']) });
   },
 });

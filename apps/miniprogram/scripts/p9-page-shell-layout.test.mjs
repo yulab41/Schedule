@@ -12,6 +12,11 @@ const pageShells = [
   ['exports', 'exports-panel'],
   ['notification-settings', 'notifications-panel'],
 ];
+const diagnosticBoundaries = [
+  ['visitor-access', 'visitor-access-panel'],
+  ['insights', 'insights-dashboard-panel'],
+  ['exports', 'exports-panel'],
+];
 
 describe('P9 native page shells', () => {
   it('keeps the compiler-required Skyline component injection mode explicit', () => {
@@ -40,6 +45,33 @@ describe('P9 native page shells', () => {
       expect(styles).toMatch(/page\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/su);
       expect(styles).toMatch(
         new RegExp(`${componentName}\\s*\\{[^}]*display:\\s*block;[^}]*height:\\s*100%;`, 'su'),
+      );
+    },
+  );
+
+  it.each(diagnosticBoundaries)(
+    'records anonymous %s page and %s component boundaries before another fix',
+    (pageName, componentName) => {
+      const pageSource = readFileSync(
+        path.join(appRoot, 'src', 'subpackages', 'insights', 'pages', pageName, 'index.ts'),
+        'utf8',
+      );
+      const controllerSource = readFileSync(
+        path.join(
+          appRoot,
+          'src',
+          'subpackages',
+          'insights',
+          'components',
+          componentName,
+          'controller.ts',
+        ),
+        'utf8',
+      );
+
+      expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
+      expect(controllerSource).toContain(
+        `recordMiniTelemetryBoundary('${pageName}:component-attached')`,
       );
     },
   );
