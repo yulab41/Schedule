@@ -2,6 +2,23 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-28 Mini 年月滚轮 WXS 单引擎设计
+
+- 反馈/根因：`.51` 恢复可用但仍由原生滚动、CSS snap、100ms/320ms JS 吸附和逐帧整组
+  `setData` 共同控制；慢速逐格反向与吸附跳帧属于多位置所有者架构问题。`.50`
+  `worklet:onscrollupdate/applyAnimatedStyle` 在目标 Android 三项核心行为全部缺失；更早矩阵蓝点
+  Worklet 同样不执行，而黄色点 WXS 与 7×7/20×30 四层矩阵已获同设备通过。
+- 平台/方案：微信 `picker-view` 公开离散 change/start/end、没有连续像素偏移，只能作稳定回退；
+  Android SnapHelper/iOS targetContentOffset 的共同点是滚动偏移和停止目标归同一引擎。用户已批准
+  先用同一可复用 `UiWheelColumn` 做 WXS 真机探针，通过后再接入年月双列；失败则回退官方
+  picker-view，不再叠 Worklet/CSS/JS 多引擎。
+- 规格：`docs/superpowers/specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md` 写死单段投影
+  吸附、可中断 token、固定 24px + transform/opacity 插值、generation/sequence、多实例隔离、
+  自动红绿与 Android/iOS 门禁。`ui-ux-pro-max` 复核后补入拖动的点行替代、transform/opacity 热路径、
+  手势冲突和动画可中断约束。
+- 当前状态：`方向已批准 → 书面规格待用户复核`；`.51` 运行代码不变。checkpoint 识别消息为
+  `docs(design): specify WXS workflow wheel`，用户复核规格前不实施探针或生产滚轮。
+
 ## 2026-08-27 Mini“我的”页 Web 对等与微信头像
 
 - 需求/边界：用户批准以生产 Web `MyProfileView` 为唯一黄金源，原生内容顺序固定为标题、身份卡、
