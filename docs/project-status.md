@@ -6,16 +6,18 @@
 ## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `dffef1f2ef7640110bb390c97810fe4394d01d08`。最终状态以“包含本文件的 Git HEAD”为
+  `57e10cdceffe05699457e4776bb823f4f7835432`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
 - 当前生产小程序最终体验候选：`0.1.0-p9.20260828.62@dffef1f`，178 code files，zip
   `2,333,143` bytes，upload manifest `f6cd22018b046c8f015533fca3030f81b9d87aa23cbf1d5ff3bff2534cd843b0`。
 - `.59/.60/.61/.62` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
+- `.63@57e10cd` 两次 Summer 编译通过但均被微信代码上传 IPv4 白名单拒绝，未成版、未 allowlist；
+  必须在用户新增当前出口后重试同一 checkpoint。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `a4b88d00-1b3b-4fec-aec3-784c9af53f52`（55 表、182,197 行、83,492,440 bytes、
-  SHA-256 `9ac2b1d0b61a2a0acdf12a756f3ec832c2646ddb1b5f5f4f2724868513e7f2cd`）。
+  `1104ef32-0ad6-4b16-84e6-4341816826f1`（55 表、182,235 行、83,505,136 bytes、
+  SHA-256 `330e5cc925d325f05cd9bfae4aed720d1d93182cccdad82465826dbb054942a4`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -63,7 +65,7 @@
 - 用户已确认 WXS 单引擎规格；`writing-plans` 不可用，已用仓库计划替代。本轮只做阶段 A。
 - 引入点为 WXS 黄点 `2b5f536c`、矩阵 WXS `c35b35b8`；新 `UiWheelColumn` 只用普通 view/WXS、
   runtimeKey/generation/sequence、单段吸附和 transform/opacity，probe E 直接复用真实候选。
-- 状态：`已实现并完成自动验证 → 待 checkpoint/.63 上传/实体 Android 探针复核`。
+- 状态：`已实现、Git/origin/production 对齐 → 微信 .63 上传阻塞`；未 allowlist，待用户新增 IPv4。
 
 ## 已完成的发布基线与当前修复
 
@@ -153,9 +155,9 @@
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
 - `.50` UI-thread 滚轮自动回归曾 3 files / 25 tests 通过，但真机三项核心行为全部缺失，结果无效并已回滚。
-- WXS 探针先红 6+3 项；最终定向 5 files/31、Mini 105/509、root 242/1,135 通过，37/355 跳过。
+- WXS 探针先红 6+3 项；clean 定向 5 files/31、Mini 105/508、root 239/1,125 通过，37/355 跳过。
 - 全端 build/typecheck、verify/determinism/source/package/performance/CI/core smoke 通过；2/2 Worklet、
-  5,089,590 bytes、main 1,615,311、manifest `4c8237a7…b7cf9`。
+  5,088,998 bytes、main 1,615,149、manifest `9f7e174b…c14d`。
 - 通讯录旧实现的双页持久化/异步隔离/视觉契约 3 项先红；实现后 controller 14/14、视觉 5/5、
   卡片 simulate 1/1、Mini 95 files/460 tests、Web 目录黄金 3 files/19 tests 通过；当前 dirty tree
   root Vitest 236 files/1,118 tests 通过（37 files/353 tests 按环境跳过）。
@@ -237,9 +239,9 @@
 
 ## 下一步与停止条件
 
-1. 提交/推送探针 checkpoint，从 clean 快照上传 `.63`；备份同步后完成 allowlist 与 full verifier。
-2. 用户在 probe E 完成慢速下→上、半格/吸附中反向、flick、点行、边界和重置清单。
+1. 用户在微信公众平台代码上传 IP 白名单加入本轮返回的 IPv4，随后重试精确 `.63@57e10cd`。
+2. 上传成功后才 ensure/verify allowlist；再由用户执行 probe E 实体清单。
 3. 用户明确通过前，不修改生产 `workflow-picker`，不进入阶段 B；不提审或正式发布。
 
-停止条件：Git/origin/production/`.63` 自动证据对齐，状态转为“待实体 Android 探针复核”；生产
-年月滚轮仍为 `.51` 语义，用户 dirty 文件保持未提交。
+停止条件：当前 Git/origin/production 已对齐，`.63` 因外部 IP 白名单阻塞且保持 426；记录阻塞并
+等待用户操作，生产年月滚轮仍为 `.51` 语义，用户 dirty 文件保持未提交。

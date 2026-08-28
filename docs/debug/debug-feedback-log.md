@@ -23,13 +23,17 @@
   cubic-out 吸附及相邻行 transform/opacity 的唯一所有者；新触摸 token 立即取消旧 RAF，配置按
   runtimeKey/generation/sequence 隔离。probe E 直接复用真实组件并显示 preview/settle/generation；
   点行走同一 command。生产 workflow picker、完成/取消 emit、API/权限/幂等与业务写次数均未修改。
-- 验证：Mini 105 files/509、root 242 files/1,135 通过（37/355 按无数据库环境跳过）；全端
+- 验证：精确 clean Mini 105 files/508、root 239 files/1,125 通过（37/355 按无数据库环境跳过）；全端
   build/typecheck、verify/determinism/source/package/performance/CI dry-run、任务 Prettier/ESLint、
-  `git diff --check` 与 core smoke 通过。2/2 Worklet、总包 5,089,590、main 1,615,311，manifest
-  `4c8237a7247834cc1295cb70d232aeabe61dca5375b4571780de7bf1029b7cf9`；WXS source/output SHA
+  `git diff --check` 与 core smoke 通过。2/2 Worklet、总包 5,088,998、main 1,615,149，manifest
+  `9f7e174bbaa1812bfe7426e8149a2859e12d7409764850db5d6d9ea30968c14d`；WXS source/output SHA
   `f5fa4eaa…2e7c` 相同。
-- 当前状态：`已实现并完成自动验证 → 待 checkpoint/.63 上传/实体 Android 探针复核`；代码
-  checkpoint 识别消息 `test(miniprogram): add WXS wheel capability probe`。实体通过前不接入生产滚轮。
+- checkpoint/生产：`57e10cdc` 已推送；备份 `1104ef32-0ad6-4b16-84e6-4341816826f1`（55 表/
+  182,235 行/83,505,136 bytes/SHA `330e5cc9…42a4`）后 trusted reuse 无停机同步，allowlist verify、
+  带公网 IP full verifier 与远端 temp 清理通过，production release 为 `57e10cdc`。
+- 体验阻塞：`.63@57e10cd` 两次完成 Summer 编译（182 code files、zip 约 2,340,875 bytes）后均被
+  微信 `-10008 invalid ip` 拒绝，未成版、未 allowlist，探针 API 保持 426。当前状态：`微信上传
+  阻塞 → 待用户新增代码上传 IPv4 后重试同一 checkpoint`；实体通过前不接入生产滚轮。
 
 ## 2026-08-27 Mini“我的”页 Web 对等与微信头像
 
@@ -1577,4 +1581,4 @@
   复核”。
 - 最终状态同步前另创建备份 `a4b88d00-1b3b-4fec-aec3-784c9af53f52`（55 表/182,197 行/
   83,492,440 bytes/SHA-256 `9ac2b1d0b61a2a0acdf12a756f3ec832c2646ddb1b5f5f4f2724868513e7f2cd`）；
-  checkpoint 识别消息为 `docs(status): finalize member permission release`。
+  权限最终状态由后继 `57e10cdc` 承载，未单独生成原计划的 final status 识别消息。
