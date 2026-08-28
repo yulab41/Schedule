@@ -1547,9 +1547,19 @@
   缓存/重试/离线排队。页面并行读取 preferences 与现有 scheduling config，失败只落偏好卡；个人与
   群组保存各一次 PUT，失败保留草稿，成功以响应整体刷新，`null` 跟随/自动选择不变。导航 receiver、
   Promise/catch、空值、工作流写入次数和底部五项结构不变；新增副作用仅为偏好 GET/显式 PUT。
-- 验证与 checkpoint：基于 `1dee8a34` 的隔离工作树通过 Mini 103/499、root 239/1,125（37 files/
-  355 tests 无数据库跳过）、全端 build/typecheck、production verify/确定性/source/package/performance、
-  CI dry-run、任务代码 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core`；未触及 Web 核心链路，
-  无需 browser smoke。包体 5,067,668 bytes、main 1,593,819 bytes、2/2 Worklet，manifest
-  `ad3fd83686169748705b70faa690e420242cc47226b9ac93f56366390c593777`。checkpoint 识别消息为
-  `feat(miniprogram): enforce member tool permissions`，发布前保持“已实现并自动验证”。
+- 验证与 checkpoint：隔离工作树通过 Mini 103/499、root 239/1,125（37 files/355 tests 无数据库
+  跳过）、全端 build/typecheck、production verify/确定性/source/package/performance、CI dry-run、任务
+  代码 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core`；未触及 Web 核心链路，无需 browser
+  smoke。代码 `dffef1f2` 已推送；clean checkpoint 为 5,067,668 bytes、main 1,593,819 bytes、2/2
+  Worklet，verify manifest `8d1dbdfe9df8585355815fc351d43a03b72e7715cd4b28809b074a0165b2123c`。
+- 上传调试：前两次 `.62` 在 Summer 编译后均被微信按 IPv6
+  `2409:8a55:4012:1470:70d6:95e:5d85:8f5a` 拒绝且未形成版本；单独清代理仍受 `lmclient` TUN
+  地址族影响。复用已审计的进程级 DNS hook，仅将 `servicewechat.com` 固定到 IPv4
+  `129.226.106.233`，其他域名委托原 lookup；预检直连出口 `154.64.226.11` 后同版本重传成功。
+- 体验/生产：`.62@dffef1f` 官方上传 178 code files/zip 2,333,143/upload manifest
+  `f6cd22018b046c8f015533fca3030f81b9d87aa23cbf1d5ff3bff2534cd843b0`，未提审/正式发布。生产备份
+  `451bff17-6ded-41a6-950f-808e93046a0a`（55 表/182,162 行/83,480,708 bytes/SHA-256
+  `d1ccaf6b1d75f7a635c55e7e9b83a8737882046037115e303af50c1b428d4b8c`）后，应用/控制/schema/归档
+  全哈希相同，trusted reuse 无停机同步到 `dffef1f2`。正式 ensure/verify、七维 capability、未知版本
+  426、带公网 IP full verifier 与远端 temp 清理通过；状态为“已完成（含运行验证）→待实体 Android
+  复核”。
