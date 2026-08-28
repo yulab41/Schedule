@@ -5,18 +5,18 @@
 
 ## 仓库与生产基线（2026-08-28）
 
-- 分支：`main`；已部署应用前驱为
-  `712aa4ee2cb8fedec68593ba973dbf76a56df46b`。最终状态以“包含本文件的 Git HEAD”为
+- 分支：`main`；运行时代码 checkpoint 为
+  `6695280305773de643496767789c104a8c19ca6d`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.64@712aa4e`，182 code files，zip
-  `2,342,873` bytes，upload manifest `877a4820f865aedf34a0fe91bf1662d1e94ba1a9a26474faa770ee2a9bd6f3c2`。
-- `.59/.60/.61/.62/.63/.64` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.65@6695280`，182 code files，zip
+  `2,340,357` bytes，upload manifest `c3fe79bf9ec1fa89311d65e06a71dd54633b77223e120e25f7eab2544604d0e1`。
+- `.59/.60/.61/.62/.63/.64/.65` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.63` 首两次上传因 IPv4 白名单拒绝；用户新增当前出口后，同一 `57e10cd` 快照重试成功。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `1533ac3a-10ab-41c8-85b6-f342beae9752`（55 表、183,003 行、83,756,192 bytes、
-  SHA-256 `4e4a6c9e1ee59bf937342939b96b9a3a0ccebb297c881bcdad5bcbb1b73970c0`）。
+  `d9c65222-21db-42b0-b66c-6198e5bdf9b7`（55 表、183,204 行、83,821,924 bytes、
+  SHA-256 `8a87b38c3bb9b67d64590860f0f68d8d0826828073b0b78872d8f0b84e2365d2`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -57,11 +57,11 @@
 
 ## 当前活动批次
 
-- Checkpoint B 已测试先行实现：production month picker 只组合两个已真机通过的
-  `UiWheelColumn`，旧 scroll/snap/timer/逐帧 setData owner 全删除；父层用 runtime/generation/
-  sequence 接受低频 preview/settle。定向 5 files/30、Mini 106/510、root 242/1,135 与全端门禁通过。
-- checkpoint 识别消息为 `fix(miniprogram): ship single-owner WXS month wheel`，目标体验版 `.65`，
-  待提交/推送/备份/部署/upload/allowlist/full verify。
+- Checkpoint A `712aa4ee` 与 Checkpoint B `66952803` 均已推送、备份、trusted reuse 部署并完成
+  `.64/.65` 官方上传、allowlist ensure/verify、七维 capability、unknown=426、带公网 IP full verifier
+  和远端清理。WXS source/output SHA 保持 `f5fa4eaa…2e7c`。
+- 状态：`已完成自动验证与体验发布 → 待用户实体 Android 业务页复核`；最终状态 checkpoint 识别
+  消息为 `docs(status): record primary workspace and WXS wheel release`。
 
 ## 已完成的发布基线与当前修复
 
@@ -235,7 +235,8 @@
 
 ## 下一步与停止条件
 
-1. 显式提交/推送 Checkpoint B，从精确 clean commit 重验并上传 `.65`。
-2. 创建生产备份、部署、allowlist/full verify 后停止，等待 `.64` 页面与 `.65` 业务滚轮实体复核。
+1. 用户在 `.65` 冷启动/重复进入通讯录与我的，确认无白屏并可从“更多”打开测试中心。
+2. 用户按 P7 runbook 复核业务年/月双列慢速反向、吸附中反向、flick、点行、边界、完成/取消。
 
-Checkpoint B 停止于发布同步；用户 dirty 文件保持未提交，不提审或正式发布。
+停止条件已满足：Git/origin/production/`.65`/allowlist/full verifier 对齐；用户 dirty 文件保持未提交，
+不提审或正式发布。

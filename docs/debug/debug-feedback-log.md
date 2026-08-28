@@ -59,6 +59,13 @@
   `093b6c2759590aef1220746dc040b8a1185dd3d8130499ac1cb5e8fd55f5b410`；WXS source/output SHA
   均为 `f5fa4eaa…2e7c`。checkpoint 识别消息为
   `fix(miniprogram): ship single-owner WXS month wheel`。
+- Checkpoint B 发布：`66952803` 已推送；clean Mini 106/509、package 5,088,856、manifest
+  `64e1cf40…c5f9` 与 WXS source/output SHA 同值验证通过。`.65@6695280` 官方上传 182 code
+  files/zip 2,340,357/upload manifest `c3fe79bf…d0e1`。生产备份
+  `d9c65222-21db-42b0-b66c-6198e5bdf9b7`（55 表/183,204 行/83,821,924 bytes/SHA
+  `8a87b38c…65d2`）后三层 cache hit/trusted reuse 到 `66952803`；allowlist ensure/verify、七维
+  capability、unknown=426、带公网 IP full verifier 与远端清理通过。最终状态 checkpoint 识别消息
+  为 `docs(status): record primary workspace and WXS wheel release`。
 
 ## 2026-08-28 Mini 年月滚轮 WXS 单引擎设计
 
