@@ -8,14 +8,14 @@
 - 分支：`main`；运行时代码 checkpoint 为
   `353ec1b927df25ac00ee3b9b81c9a327e4b1ef97`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.59@6b5b30f`，175 code files，zip
-  `2,181,605` bytes，upload manifest `0bca1ef10f372696ecbcdfaeb77b6361737659cfc579a99f28df4d4f7e65cc1e`。
-- `.59` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.60@353ec1b`，177 code files，zip
+  `2,315,337` bytes，upload manifest `14c1f2982b6ad700d513c200096bff2a8b021aa4c9235437492b05541ec40bd9`。
+- `.59/.60` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `167e3f10-a30b-433a-8e9f-932b877c9a17`（55 表、181,737 行、83,341,172 bytes、
-  SHA-256 `486a17da14668fec76c71d8c20e1f0c2b2481707539e56072cdf124893834082`）。
+  `ed1d8535-810c-470b-b790-8d2e207cc1bc`（55 表、182,020 行、83,433,628 bytes、
+  SHA-256 `a65645d5489576730b311b75abd77ecf85d750565a8d94adbac65750858b5c60`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -39,7 +39,7 @@
   路径 `reLaunch` 直达工作台，Web 对齐登录页保留微信快捷登录且不放访客入口。红绿定向、隔离
   Mini 93/444、root 230/1,103、全端 build/typecheck、production verify/determinism/package/CI dry-run、
   390/320 Storybook 与 core smoke 通过；代码 `62e45eb7`、契约补丁 `353ec1b9` 已推送并以备份后
-  hash-identical reuse/公网 full verifier 同步生产。体验上传等待微信 CI IP 白名单。
+  hash-identical reuse/公网 full verifier 同步生产。微信 CI IP 已加白，登录体验版按串行顺序使用 `.61`。
 - 通知 Sheet/群组未读已实现：API 可选 `groupId`、Client Core、无业务依赖 `UiSheet`、
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
@@ -70,7 +70,8 @@
   Task 3 `f858ae6d`/`9ac508ba` 已发布 `.53/.54`，完成私有头像缓存与 chooseAvatar 登录刷新。
 - Task 4 已测试先行完成 Web 1:1 controller/WXML/WXSS、成员请求降级、群组陈旧隔离、访客/无群组、
   绑定/解绑、头像恢复、密码 proof 与统计/日历导航；checkpoint 识别消息为
-  `feat(miniprogram): match web profile experience`，目标体验版顺延为 `.60`。
+  `feat(miniprogram): match web profile experience`。`.60@353ec1b` 已从锁定快照上传，正式 allowlist、七维能力、
+  未知版本 426 与带公网 IP full verifier 通过，当前只待实体 Android 复核。
 
 ## 已完成的发布基线与当前修复
 
@@ -138,9 +139,11 @@
 
 - Profile Tasks 1–3 的共享/后端/媒体/登录红绿、全仓计数、browser 环境阻塞和发布证据保留在 debug
   日志及对应 Git checkpoint；`.53/.54` upload、allowlist 与生产 full verifier 均已通过。
-- Profile Task 4：旧 controller/account/native 15 项先红；实现后新旧 P10/身份/工作台定向 11 files/
-  70 tests、Mini typecheck、production verify/determinism/source/package/CI dry-run 通过；标准 Mini
-  100 files/487 tests 最终通过。主包 1,579,433 bytes 仅触发 1.5M 预警，低于 1.8M 阻断线。
+- Profile Task 4：旧 controller/account/native 15 项先红；锁定 `353ec1b9` 最终定向 11 files/
+  67 tests、Mini 100 files/486 tests、root 238 files/1,122 tests 通过（37 files/355 tests 按无数据库
+  环境跳过）。全端 build/typecheck、production verify/determinism/source/package/performance/CI dry-run 与 core
+  smoke 通过；总包 5,006,692 bytes、主包 1,579,433 bytes 仅触发 1.5M 预警且低于 1.8M 阻断线，
+  manifest `45c97151fc82910951b44ecbb6aa7a0544f8b9f76b1b00a38336016ce188069e`。
 - 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
   7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
 - 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
@@ -198,6 +201,10 @@
   `9c9f2551-965f-4293-91f2-269271e06ba0` 后完整部署 API/Web，预热首个 502 后恢复。`.52`
   官方上传 170 code files/zip 2,017,665/manifest `c2f45e08…0110`；正式 ensure/verify、
   七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
+- Profile Task 4 代码 `a50b423b` 及组合契约 `353ec1b9` 已推送；`.60` 官方上传 177 code
+  files/zip 2,315,337/upload manifest `14c1f298…0bd9`，正式 ensure/verify、七维 capability、未知版本
+  426 与带公网 IP full verifier 通过。最终状态 checkpoint 识别消息为
+  `docs(status): record profile web parity deployment`，发布备份为 `ed1d8535-810c-470b-b790-8d2e207cc1bc`。
 
 ## 语义与偏差记录
 
@@ -227,12 +234,11 @@
 
 ## 下一步与停止条件
 
-1. 通讯录 `.59@6b5b30f` 等待实体 Android 复核双页首划无闪屏、滚动位置、快速反向切换、筛选层、
-   结果卡分割线与文字行距；不提交审核或正式发布。
-2. Profile 从独立快照上传 `.60`；登录从精确 `353ec1b9` 快照上传 `.61`，两者依次完成正式
-   allowlist/full verifier，不共享可变 release worktree。
-3. 登录 `.61` 完成后等待实体 Android
-   复核 D0468/admin、登录直达主页、“我的”资料和 390/320 布局。
+1. Profile `.60@353ec1b` 等待实体 Android 按 P10 RC 复核 Web 七段顺序、头像/绑定、修改密码、
+   统计/日历导航与 390/320/大字号/减少动态；不提交审核或正式发布。
+2. 登录从精确快照上传 `.61`，完成正式 allowlist/full verifier 后等待实体 Android 复核
+   D0468/admin、登录直达主页与 390/320 布局。
+3. 权限批次在 Profile 最终状态 checkpoint 推送并生产同步、共享索引释放后，才可取下一单调版本。
 
-停止条件：通讯录 Git/origin/production/`.59` 已完成并只待实体 Android 复核；其他并行批次继续使用
-独立快照和后续单调版本。不得提交审核或正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。
+停止条件：Profile Git/origin/production/`.60` 已完成自动验收并转为“待实体 Android 复核”；登录/
+权限批次使用后续单调版本。不得提交审核或正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。

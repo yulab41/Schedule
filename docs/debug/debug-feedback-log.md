@@ -114,6 +114,21 @@
   bytes、manifest `01ce53f9…25b5`）、determinism/source/package/CI dry-run 通过；标准 Mini 100 files/
   487 tests 通过。首轮共享工作区并行 offline install 使 4 个既有构建用例超 5s；资源恢复后原样定向
   31/31 与标准全量通过。主包 1,579,433 bytes 为预警、低于 1.8M 阻断。
+- Task 4 锁定快照/发布：代码 `a50b423b` 已推送；为同时保留已推送的跨 bundle 会话修复，最终体验
+  锁定 `353ec1b927df25ac00ee3b9b81c9a327e4b1ef97`。该快照定向 11 files/67 tests、Mini
+  100 files/486 tests、root 238 files/1,122 tests 通过（37 files/355 tests 按无数据库环境跳过）；全端
+  build/typecheck、production verify/determinism/source/package/performance/CI dry-run、`git diff --check`
+  与 `pnpm smoke:check-core` 通过。verify 为 2/2 Worklet、5,006,692 bytes、main 1,579,433 bytes、
+  manifest `45c97151fc82910951b44ecbb6aa7a0544f8b9f76b1b00a38336016ce188069e`。
+- Task 4 体验/allowlist/生产：微信 CI IP 加白后，production-profile
+  `0.1.0-p9.20260828.60@353ec1b` 官方上传成功（177 code files、zip 2,315,337 bytes、
+  upload manifest `14c1f2982b6ad700d513c200096bff2a8b021aa4c9235437492b05541ec40bd9`）。正式
+  `schedule-client-version-allowlist ensure/verify`、七维 capability、未知版本 426 与带公网 IP full
+  verifier 通过。最终状态 release 备份 `ed1d8535-810c-470b-b790-8d2e207cc1bc`（55 表/
+  182,020 行/83,433,628 bytes/SHA-256
+  `a65645d5489576730b311b75abd77ecf85d750565a8d94adbac65750858b5c60`）已创建；checkpoint 识别消息为
+  `docs(status): record profile web parity deployment`。当前已完成自动验证、体验上传与正式白名单，
+  转为“待用户实体 Android 复核”；未提审、未正式发布。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 

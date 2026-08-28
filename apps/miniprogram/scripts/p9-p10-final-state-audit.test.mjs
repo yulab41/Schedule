@@ -117,6 +117,6 @@ describe('P9/P10 final automatic state audit', () => {
     }
     const profileRow = manifest.split('\n').find((line) => line.startsWith('| P10-A4 '));
     expect(profileRow).toContain('待实体 Android 复核');
-    expect(profileRow).toContain('`.56`');
+    expect(profileRow).toContain('`.60`');
   });
 });
