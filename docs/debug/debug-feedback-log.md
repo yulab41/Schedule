@@ -16,8 +16,20 @@
   吸附、可中断 token、固定 24px + transform/opacity 插值、generation/sequence、多实例隔离、
   自动红绿与 Android/iOS 门禁。`ui-ux-pro-max` 复核后补入拖动的点行替代、transform/opacity 热路径、
   手势冲突和动画可中断约束。
-- 当前状态：`方向已批准 → 书面规格待用户复核`；`.51` 运行代码不变。checkpoint 识别消息为
-  `docs(design): specify WXS workflow wheel`，用户复核规格前不实施探针或生产滚轮。
+- 引入点/红绿：WXS 黄点由 `2b5f536c` 引入，已获 Android 通过的矩阵引擎由 `c35b35b8`
+  引入。旧树因缺组件/E 区稳定 6 红；初版转绿后继续审计，revision 回退、generation 旧内联样式和
+  轻触中断停半格再 3 红，修复后定向 WXS/probe/matrix/performance/simulate 5 files/31 全绿。
+- 实现与语义：新增主包 `UiWheelColumn`，普通 view/WXS 是 drag、160ms 投影、8–18 帧单段
+  cubic-out 吸附及相邻行 transform/opacity 的唯一所有者；新触摸 token 立即取消旧 RAF，配置按
+  runtimeKey/generation/sequence 隔离。probe E 直接复用真实组件并显示 preview/settle/generation；
+  点行走同一 command。生产 workflow picker、完成/取消 emit、API/权限/幂等与业务写次数均未修改。
+- 验证：Mini 105 files/509、root 242 files/1,135 通过（37/355 按无数据库环境跳过）；全端
+  build/typecheck、verify/determinism/source/package/performance/CI dry-run、任务 Prettier/ESLint、
+  `git diff --check` 与 core smoke 通过。2/2 Worklet、总包 5,089,590、main 1,615,311，manifest
+  `4c8237a7247834cc1295cb70d232aeabe61dca5375b4571780de7bf1029b7cf9`；WXS source/output SHA
+  `f5fa4eaa…2e7c` 相同。
+- 当前状态：`已实现并完成自动验证 → 待 checkpoint/.63 上传/实体 Android 探针复核`；代码
+  checkpoint 识别消息 `test(miniprogram): add WXS wheel capability probe`。实体通过前不接入生产滚轮。
 
 ## 2026-08-27 Mini“我的”页 Web 对等与微信头像
 
@@ -1479,7 +1491,7 @@
   determinism、source/package audit、CI dry-run、Storybook build、任务 Prettier/ESLint/XML、
   `git diff --check` 与 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，无需完整
   `pnpm smoke:browser`；未启动或控制微信开发者工具。当前状态：`已实现并完成 Web 黄金复核 →
-  待 checkpoint/体验上传/实体 Android 复核`。
+待 checkpoint/体验上传/实体 Android 复核`。
 - checkpoint/生产/体验：代码 `62e45eb7` 与 clean Mini 契约补丁 `353ec1b9` 已推送。生产备份
   `167e3f10-a30b-433a-8e9f-932b877c9a17`（55 表、181,737 行、83,341,172 bytes、SHA-256
   `486a17da14668fec76c71d8c20e1f0c2b2481707539e56072cdf124893834082`）后，API/Web/控制面/迁移哈希
@@ -1563,3 +1575,6 @@
   全哈希相同，trusted reuse 无停机同步到 `dffef1f2`。正式 ensure/verify、七维 capability、未知版本
   426、带公网 IP full verifier 与远端 temp 清理通过；状态为“已完成（含运行验证）→待实体 Android
   复核”。
+- 最终状态同步前另创建备份 `a4b88d00-1b3b-4fec-aec3-784c9af53f52`（55 表/182,197 行/
+  83,492,440 bytes/SHA-256 `9ac2b1d0b61a2a0acdf12a756f3ec832c2646ddb1b5f5f4f2724868513e7f2cd`）；
+  checkpoint 识别消息为 `docs(status): finalize member permission release`。

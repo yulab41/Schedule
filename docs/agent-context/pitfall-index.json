@@ -129,24 +129,21 @@
     {
       "id": "mini-workflow-wheel-snap-interruption",
       "state": "fixed-pending-external",
-      "signals": [
-        "年月滚轮",
-        "reverse drag",
-        "scrollend",
-        "wheelSnapAnimating",
-        "workflow-picker"
-      ],
+      "signals": ["年月滚轮", "reverse drag", "scrollend", "wheelSnapAnimating", "workflow-picker"],
       "paths": [
+        "apps/miniprogram/src/components/ui/ui-wheel-column/**",
+        "apps/miniprogram/src/pages/gesture-probe/**",
+        "apps/miniprogram/scripts/ui-wheel-column*.test.mjs",
         "apps/miniprogram/src/subpackages/workflows/components/workflow-picker/**",
         "apps/miniprogram/scripts/workflow-picker-controller.test.mjs"
       ],
       "detail": "docs/agent-context/pitfalls/mini-workflow-wheel-snap-interruption.md",
-      "guard": "apps/miniprogram/scripts/workflow-picker-controller.test.mjs",
-      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/workflow-picker-controller.test.mjs scripts/p7-native-feedback.test.mjs",
-      "lastVerifiedAt": "2026-08-27",
+      "guard": "apps/miniprogram/scripts/ui-wheel-column.test.mjs",
+      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/ui-wheel-column.test.mjs scripts/ui-wheel-column-simulate.test.mjs scripts/gesture-probe.test.mjs scripts/workflow-picker-controller.test.mjs",
+      "lastVerifiedAt": "2026-08-28",
       "staleWhen": [
-        "wheel event bindings, snap timing, scroll ownership, or picker mounting changes",
-        "the reverse-drag regression fails or is removed"
+        "WXS wheel ownership, projection, snap timing, runtime isolation, or picker mounting changes",
+        "the WXS reverse-drag or existing workflow-picker regression fails or is removed"
       ]
     }
   ]

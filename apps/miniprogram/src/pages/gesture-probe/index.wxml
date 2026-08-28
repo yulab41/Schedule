@@ -4,7 +4,7 @@
   <view class="probe-heading">
     <text class="probe-kicker">P1 · Android 诊断专用</text>
     <text class="probe-title">手势能力探针</text>
-    <text class="probe-description">本页不包含矩阵、滚动容器或自定义单元格。</text>
+    <text class="probe-description">每个区域只验证一种真机输入能力，不接入业务页面。</text>
   </view>
 
   <view class="probe-card runtime-card">
@@ -18,6 +18,44 @@
     <view class="runtime-row"><text>平台</text><text>{{platform}}</text></view>
     <view class="runtime-row"><text>设备</text><text>{{model}}</text></view>
     <view class="runtime-row"><text>系统</text><text>{{system}}</text></view>
+  </view>
+
+  <view class="probe-card wheel-probe-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">E · WXS 年月滚轮候选</text>
+      <text class="probe-card-note">慢滑、反向、吸附</text>
+    </view>
+    <view class="wheel-probe-frame">
+      <ui-wheel-column
+        aria-label="WXS 年份滚轮测试"
+        items="{{wheelItems}}"
+        unit="年"
+        selected-index="{{wheelSelectedIndex}}"
+        runtime-key="gesture-probe-year"
+        generation="{{wheelGeneration}}"
+        command-revision="{{wheelCommandRevision}}"
+        bindpreviewchange="handleWheelPreview"
+        bindsettle="handleWheelSettled"
+      ></ui-wheel-column>
+      <view class="wheel-probe-rails"></view>
+      <view class="wheel-probe-mask"></view>
+    </view>
+    <view class="wheel-probe-evidence">
+      <view><text>实时目标</text><text>{{wheelPreviewLabel}}</text></view>
+      <view><text>最终静止</text><text>{{wheelSettledLabel}}</text></view>
+      <view><text>生命周期</text><text>generation {{wheelGeneration}}</text></view>
+    </view>
+    <view
+      class="wheel-probe-reset"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="重置 WXS 年份滚轮到 2026 年"
+      bindtap="handleWheelReset"
+      >重置滚轮</view
+    >
+    <text class="probe-instruction"
+      >数字必须逐像素缩放和淡入；松手只吸附一次，吸附中反向应立即接管。</text
+    >
   </view>
 
   <view class="probe-card">

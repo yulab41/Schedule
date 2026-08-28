@@ -22,6 +22,12 @@ engine, so the next experiment is a reusable single-column WXS wheel on the diag
 production picker must remain at `.51` semantics until that exact component passes the physical
 Android probe. A failed WXS probe falls back to official `picker-view`; it does not reopen `.50`.
 
+Phase A is now implemented without touching the production workflow picker. The reusable
+`UiWheelColumn` and gesture-probe E share the same WXS file. Automated VM, structure, controller,
+simulate, full Mini, root build/test, source/output, determinism, package and CI gates pass. The
+candidate remains experimental until the user completes the physical Android checklist; automated
+evidence cannot advance it into the production picker.
+
 Keep these invariants:
 
 - The shipped rollback must stay byte-equivalent to the `.49` picker runtime until a new approach is approved.

@@ -14,8 +14,8 @@
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `451bff17-6ded-41a6-950f-808e93046a0a`（55 表、182,162 行、83,480,708 bytes、
-  SHA-256 `d1ccaf6b1d75f7a635c55e7e9b83a8737882046037115e303af50c1b428d4b8c`）。
+  `a4b88d00-1b3b-4fec-aec3-784c9af53f52`（55 表、182,197 行、83,492,440 bytes、
+  SHA-256 `9ac2b1d0b61a2a0acdf12a756f3ec832c2646ddb1b5f5f4f2724868513e7f2cd`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -53,17 +53,17 @@
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
   代码 `dffef1f2` 已推送并以备份后 trusted reuse 部署；`.62@dffef1f` 已上传、allowlist/full verifier
   通过，当前只待实体 Android 复核。
-- 用户已批准年月滚轮改走“WXS 单一视图层引擎 → 独立真机探针 → 通过后生产接入”的新方向；
-  书面规格为 `docs/superpowers/specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md`。
-  已有两次目标 Android Worklet 失败与 WXS 矩阵通过证据，因此不再重复 `.50` 架构；`.51` 运行
-  语义保持不动。下一动作仅为用户复核书面规格，复核前停止运行代码、探针和体验版变更。
+- 年月滚轮 WXS 规格已获用户书面确认；阶段 A 计划为
+  `docs/superpowers/plans/2026-08-28-miniprogram-workflow-picker-wxs-probe-implementation-plan.md`。
+  `UiWheelColumn + gesture-probe E` 已实现并完成自动验证，生产 `workflow-picker` 保持 `.51` 语义；
+  checkpoint 识别消息为 `test(miniprogram): add WXS wheel capability probe`，目标体验版为 `.63`。
 
 ## 当前活动批次
 
-- 权限批次自动验收已完成：成员“更多”精确保留六项，群组页保留只读资料、退出、手机号公开与
-  个人日历偏好；群主/管理员保留管理工具和群组默认，平台账号仅后台管理员。
-- 当前状态为“已完成（含运行验证）→待用户实体 Android 复核”。并行 WXS 滚轮探针保持用户所有且
-  与权限 checkpoint 隔离；不提审、不正式发布。
+- 用户已确认 WXS 单引擎规格；`writing-plans` 不可用，已用仓库计划替代。本轮只做阶段 A。
+- 引入点为 WXS 黄点 `2b5f536c`、矩阵 WXS `c35b35b8`；新 `UiWheelColumn` 只用普通 view/WXS、
+  runtimeKey/generation/sequence、单段吸附和 transform/opacity，probe E 直接复用真实候选。
+- 状态：`已实现并完成自动验证 → 待 checkpoint/.63 上传/实体 Android 探针复核`。
 
 ## 已完成的发布基线与当前修复
 
@@ -153,13 +153,12 @@
   workflow host 强化 7/7，organization WXML handler 全注册 16/16。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
 - `.50` UI-thread 滚轮自动回归曾 3 files / 25 tests 通过，但真机三项核心行为全部缺失，结果无效并已回滚。
+- WXS 探针先红 6+3 项；最终定向 5 files/31、Mini 105/509、root 242/1,135 通过，37/355 跳过。
+- 全端 build/typecheck、verify/determinism/source/package/performance/CI/core smoke 通过；2/2 Worklet、
+  5,089,590 bytes、main 1,615,311、manifest `4c8237a7…b7cf9`。
 - 通讯录旧实现的双页持久化/异步隔离/视觉契约 3 项先红；实现后 controller 14/14、视觉 5/5、
   卡片 simulate 1/1、Mini 95 files/460 tests、Web 目录黄金 3 files/19 tests 通过；当前 dirty tree
   root Vitest 236 files/1,118 tests 通过（37 files/353 tests 按环境跳过）。
-- clean rollback Mini 全量：92 files / 439 tests 通过；picker 定向 2 files / 22 tests 通过。
-- clean rollback root Vitest：230 files / 1,103 tests 通过；37 files / 352 tests 按环境跳过。
-- rollback Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，4,343,790 bytes，
-  manifest `6a8971435a7947e40cb8207f6cc8bbb0833b31e0eff10c116439d31748906b85`。
 - 任务文件 Prettier/ESLint、root build/typecheck 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，
   无需 Web browser smoke。
 - 完整 `pnpm verify` 被 411 个既有文件的全仓 format 阻断；独立 root lint 被未修改
@@ -238,9 +237,9 @@
 
 ## 下一步与停止条件
 
-1. 用户用实体 Android 复核普通成员六项“更多”、群组只读边界、退出/手机号公开和个人偏好；
-   群主/管理员复核群组默认偏好，后台管理员复核平台账号。
-2. 并行 WXS 滚轮探针按其独立计划继续，不修改或回退权限 checkpoint。
+1. 提交/推送探针 checkpoint，从 clean 快照上传 `.63`；备份同步后完成 allowlist 与 full verifier。
+2. 用户在 probe E 完成慢速下→上、半格/吸附中反向、flick、点行、边界和重置清单。
+3. 用户明确通过前，不修改生产 `workflow-picker`，不进入阶段 B；不提审或正式发布。
 
-停止条件已满足：权限 Git/origin/production/`.62`/allowlist 对齐，等待实体 Android；不得提审、
-正式发布或将失败/来源不明的 `.55-.58` 加入 allowlist。
+停止条件：Git/origin/production/`.63` 自动证据对齐，状态转为“待实体 Android 探针复核”；生产
+年月滚轮仍为 `.51` 语义，用户 dirty 文件保持未提交。

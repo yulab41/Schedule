@@ -129,4 +129,58 @@ describe('P1 Android gesture capability probe', () => {
     handlers.touchMove({ touches: [{ clientX: 120, clientY: 120 }] }, ownerInstance);
     expect(setStyle).toHaveBeenCalledTimes(2);
   });
+
+  it('mounts the real WXS wheel candidate as probe E and records preview, settle, and resets', async () => {
+    const pageConfig = JSON.parse(readSource('pages/gesture-probe/index.json'));
+    const template = readSource('pages/gesture-probe/index.wxml');
+    const styles = readSource('pages/gesture-probe/index.wxss');
+    const rc = readFileSync(new URL('../docs/runbooks/p7-workflow-rc.md', import.meta.url), 'utf8');
+
+    expect(pageConfig.usingComponents).toEqual({
+      'ui-wheel-column': '../../components/ui/ui-wheel-column/index',
+    });
+    expect(template).toContain('E · WXS 年月滚轮候选');
+    expect(template).toContain('<ui-wheel-column');
+    expect(template).toContain('items="{{wheelItems}}"');
+    expect(template).toContain('runtime-key="gesture-probe-year"');
+    expect(template).toContain('bindpreviewchange="handleWheelPreview"');
+    expect(template).toContain('bindsettle="handleWheelSettled"');
+    expect(template).toContain('bindtap="handleWheelReset"');
+    expect(template).toContain('{{wheelPreviewLabel}}');
+    expect(template).toContain('{{wheelSettledLabel}}');
+    expect(template).toContain('{{wheelGeneration}}');
+    expect(styles).toMatch(/\.wheel-probe-frame\s*\{[^}]*height:\s*188px;/su);
+    expect(styles).toContain('.wheel-probe-rails');
+    expect(styles).toContain('.wheel-probe-mask');
+    expect(styles).toMatch(/\.wheel-probe-reset\s*\{[^}]*min-height:\s*44px;/su);
+    expect(rc).toContain('0.1.0-p9.20260828.63');
+    expect(rc).toContain('case: slow-reverse | half-reverse | snap-interrupt');
+    expect(rc).toContain('不得把 WXS 组件接入生产 workflow picker');
+
+    let definition;
+    vi.stubGlobal('wx', {
+      getAppBaseInfo: () => ({ SDKVersion: '3.17.1', version: '8.0.60' }),
+      getDeviceInfo: () => ({ model: 'Android probe', platform: 'android' }),
+      worklet: { shared: (value) => ({ value }) },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/pages/gesture-probe/index.ts');
+    const instance = {
+      data: structuredClone(definition.data),
+      setData(patch) {
+        Object.assign(this.data, patch);
+      },
+    };
+    definition.handleWheelPreview.call(instance, { detail: { generation: 1, index: 6 } });
+    definition.handleWheelSettled.call(instance, { detail: { generation: 1, index: 6 } });
+    expect(instance.data.wheelPreviewLabel).toBe('2027年');
+    expect(instance.data.wheelSettledLabel).toBe('2027年');
+    definition.handleWheelReset.call(instance);
+    expect(instance.data.wheelGeneration).toBe(2);
+    expect(instance.data.wheelSelectedIndex).toBe(5);
+    expect(instance.data.wheelPreviewLabel).toBe('2026年');
+    expect(instance.data.wheelSettledLabel).toBe('2026年');
+  });
 });

@@ -16,9 +16,25 @@ interface GestureProbePageInstance {
     userConfig?: { readonly flush?: 'async' | 'sync' },
   ): void;
   setData(patch: Record<string, unknown>): void;
+  readonly data: {
+    readonly wheelCommandRevision: number;
+    readonly wheelGeneration: number;
+    readonly wheelItems: readonly GestureProbeWheelItem[];
+  };
+}
+
+interface GestureProbeWheelItem {
+  readonly ariaLabel: string;
+  readonly label: string;
+}
+
+interface GestureProbeWheelEvent {
+  readonly detail: { readonly generation: number; readonly index: number };
 }
 
 const { shared } = wx.worklet;
+const probeYears = Array.from({ length: 11 }, (_, index) => 2021 + index);
+const initialProbeYearIndex = probeYears.indexOf(2026);
 
 Page({
   data: {
@@ -30,6 +46,12 @@ Page({
     system: '未知',
     touchMoveCount: 0,
     touchStatus: '尚未触发普通触摸',
+    wheelCommandRevision: 1,
+    wheelGeneration: 1,
+    wheelItems: probeYears.map((year) => ({ ariaLabel: `${year}年`, label: String(year) })),
+    wheelPreviewLabel: '2026年',
+    wheelSelectedIndex: initialProbeYearIndex,
+    wheelSettledLabel: '2026年',
   },
   onLoad(this: GestureProbePageInstance): void {
     this._probeX = shared(0);
@@ -76,4 +98,34 @@ Page({
   handleTouchEnd(this: GestureProbePageInstance): void {
     this.setData({ touchMoveCount: this._touchMoveCount, touchStatus: '普通触摸已结束' });
   },
+  handleWheelPreview(this: GestureProbePageInstance, event: GestureProbeWheelEvent): void {
+    if (event.detail.generation !== this.data.wheelGeneration) return;
+    const index = boundedProbeYearIndex(event.detail.index);
+    this.setData({
+      wheelPreviewLabel: `${probeYears[index]}年`,
+      wheelSelectedIndex: index,
+    });
+  },
+  handleWheelReset(this: GestureProbePageInstance): void {
+    this.setData({
+      wheelCommandRevision: this.data.wheelCommandRevision + 1,
+      wheelGeneration: this.data.wheelGeneration + 1,
+      wheelPreviewLabel: '2026年',
+      wheelSelectedIndex: initialProbeYearIndex,
+      wheelSettledLabel: '2026年',
+    });
+  },
+  handleWheelSettled(this: GestureProbePageInstance, event: GestureProbeWheelEvent): void {
+    if (event.detail.generation !== this.data.wheelGeneration) return;
+    const index = boundedProbeYearIndex(event.detail.index);
+    this.setData({
+      wheelSelectedIndex: index,
+      wheelSettledLabel: `${probeYears[index]}年`,
+    });
+  },
 });
+
+function boundedProbeYearIndex(value: number): number {
+  if (!Number.isFinite(value)) return initialProbeYearIndex;
+  return Math.min(probeYears.length - 1, Math.max(0, Math.round(value)));
+}

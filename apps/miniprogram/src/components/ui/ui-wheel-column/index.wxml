@@ -1,0 +1,41 @@
+<wxs module="wheelGesture" src="./wheel-gesture.wxs"></wxs>
+
+<view
+  class="ui-wheel-column"
+  aria-role="listbox"
+  aria-label="{{ariaLabel}}"
+  data-runtime-key="{{wheelConfig.runtimeKey}}"
+  data-generation="{{wheelConfig.generation}}"
+  wheel-config="{{wheelConfig}}"
+  change:wheel-config="{{wheelGesture.configure}}"
+  bindtouchstart="{{wheelGesture.touchStart}}"
+  bindtouchmove="{{wheelGesture.touchMove}}"
+  bindtouchend="{{wheelGesture.touchEnd}}"
+  bindtouchcancel="{{wheelGesture.touchCancel}}"
+>
+  <view
+    id="ui-wheel-track"
+    class="ui-wheel-track"
+    style="transform:translateY({{wheelInitialOffset}}px)"
+  >
+    <view class="ui-wheel-spacer"></view>
+    <view
+      wx:for="{{items}}"
+      wx:key="label"
+      id="ui-wheel-item-{{index}}"
+      class="ui-wheel-item {{index === internalSelectedIndex ? 'is-selected' : ''}}"
+      data-index="{{index}}"
+      aria-role="option"
+      aria-label="{{item.ariaLabel || item.label}}"
+      aria-selected="{{index === internalSelectedIndex}}"
+      hover-class="is-pressed"
+      hover-start-time="0"
+      hover-stay-time="60"
+      bindtap="handleItemTap"
+    >
+      <text id="ui-wheel-number-{{index}}" class="ui-wheel-number">{{item.label}}</text>
+      <text wx:if="{{unit}}" class="ui-wheel-unit">{{unit}}</text>
+    </view>
+    <view class="ui-wheel-spacer"></view>
+  </view>
+</view>

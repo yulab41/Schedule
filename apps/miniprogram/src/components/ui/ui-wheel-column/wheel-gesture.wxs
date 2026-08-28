@@ -1,0 +1,365 @@
+var AXIS_UNDECIDED = 0;
+var AXIS_VERTICAL = 1;
+var AXIS_REJECTED = 2;
+var AXIS_RATIO = 1.2;
+var START_THRESHOLD = 2;
+var ITEM_HEIGHT = 44;
+var PROJECTION_DURATION = 160;
+var MAXIMUM_VELOCITY = 3;
+var MINIMUM_FRAME_COUNT = 8;
+var MAXIMUM_FRAME_COUNT = 18;
+
+var states = {};
+
+function finiteNumber(value) {
+  var number = value * 1;
+  return number === number ? number : 0;
+}
+
+function clamp(value, minimum, maximum) {
+  var finite = finiteNumber(value);
+  if (finite < minimum) return minimum;
+  if (finite > maximum) return maximum;
+  return finite;
+}
+
+function firstTouch(event) {
+  if (event.touches && event.touches.length > 0) return event.touches[0];
+  if (event.changedTouches && event.changedTouches.length > 0) return event.changedTouches[0];
+  return null;
+}
+
+function runtimeKey(value) {
+  return '' + (value || 'ui-wheel');
+}
+
+function createState(key) {
+  return {
+    animationToken: 0,
+    axis: AXIS_UNDECIDED,
+    commandRevision: -1,
+    generation: -1,
+    itemCount: 0,
+    key: key,
+    lastPreviewIndex: -1,
+    lastStyledIndices: [],
+    lastTime: 0,
+    lastY: 0,
+    moved: false,
+    offset: 0,
+    originOffset: 0,
+    sequence: 0,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    velocityY: 0
+  };
+}
+
+function stateForKey(key) {
+  var normalizedKey = runtimeKey(key);
+  var state = states[normalizedKey];
+  if (!state) {
+    state = createState(normalizedKey);
+    states[normalizedKey] = state;
+  }
+  return state;
+}
+
+function eventState(event) {
+  var dataset = event.currentTarget && event.currentTarget.dataset
+    ? event.currentTarget.dataset
+    : {};
+  var state = states[runtimeKey(dataset.runtimeKey)];
+  if (!state || state.generation !== finiteNumber(dataset.generation)) return null;
+  return state;
+}
+
+function maximumIndex(state) {
+  return Math.max(0, state.itemCount - 1);
+}
+
+function minimumOffset(state) {
+  return -maximumIndex(state) * ITEM_HEIGHT;
+}
+
+function boundedIndex(state, value) {
+  return Math.round(clamp(value, 0, maximumIndex(state)));
+}
+
+function containsIndex(indices, value) {
+  for (var index = 0; index < indices.length; index += 1) {
+    if (indices[index] === value) return true;
+  }
+  return false;
+}
+
+function resetRow(ownerInstance, index) {
+  var row = ownerInstance.selectComponent('#ui-wheel-item-' + index);
+  var number = ownerInstance.selectComponent('#ui-wheel-number-' + index);
+  if (row) {
+    row.setStyle({
+      opacity: '0.58',
+      transform: 'scale(0.94)'
+    });
+  }
+  if (number) number.setStyle({ transform: 'scale(0.7916666667)' });
+}
+
+function resetAllRows(ownerInstance, itemCount) {
+  for (var index = 0; index < itemCount; index += 1) resetRow(ownerInstance, index);
+}
+
+function styleRow(ownerInstance, index, selection) {
+  var row = ownerInstance.selectComponent('#ui-wheel-item-' + index);
+  var number = ownerInstance.selectComponent('#ui-wheel-number-' + index);
+  var rowScale = 0.94 + 0.06 * selection;
+  var opacity = 0.58 + 0.42 * selection;
+  var numberScale = (19 + 5 * selection) / 24;
+  if (row) {
+    row.setStyle({
+      opacity: '' + opacity,
+      transform: 'scale(' + rowScale + ')'
+    });
+  }
+  if (number) number.setStyle({ transform: 'scale(' + numberScale + ')' });
+}
+
+function applyStyles(ownerInstance, state) {
+  var track = ownerInstance.selectComponent('#ui-wheel-track');
+  if (track) track.setStyle({ transform: 'translateY(' + state.offset + 'px)' });
+  if (state.itemCount <= 0) return;
+  var position = clamp(-state.offset / ITEM_HEIGHT, 0, maximumIndex(state));
+  var baseIndex = Math.floor(position);
+  var nextStyledIndices = [];
+  for (var offset = -1; offset <= 2; offset += 1) {
+    var itemIndex = baseIndex + offset;
+    if (itemIndex < 0 || itemIndex >= state.itemCount) continue;
+    var selection = clamp(1 - Math.abs(itemIndex - position), 0, 1);
+    if (selection <= 0) continue;
+    nextStyledIndices.push(itemIndex);
+    styleRow(ownerInstance, itemIndex, selection);
+  }
+  for (var previous = 0; previous < state.lastStyledIndices.length; previous += 1) {
+    var previousIndex = state.lastStyledIndices[previous];
+    if (!containsIndex(nextStyledIndices, previousIndex)) resetRow(ownerInstance, previousIndex);
+  }
+  state.lastStyledIndices = nextStyledIndices;
+}
+
+function reportPreview(ownerInstance, state, index) {
+  var bounded = boundedIndex(state, index);
+  if (state.lastPreviewIndex === bounded) return;
+  state.lastPreviewIndex = bounded;
+  state.sequence += 1;
+  ownerInstance.callMethod('handleWheelPreview', {
+    generation: state.generation,
+    index: bounded,
+    offset: state.offset,
+    runtimeKey: state.key,
+    sequence: state.sequence
+  });
+}
+
+function reportSettled(ownerInstance, state, index) {
+  var bounded = boundedIndex(state, index);
+  state.lastPreviewIndex = bounded;
+  state.sequence += 1;
+  ownerInstance.callMethod('handleWheelSettled', {
+    generation: state.generation,
+    index: bounded,
+    offset: state.offset,
+    runtimeKey: state.key,
+    sequence: state.sequence
+  });
+}
+
+function animationFrameCount(distance) {
+  return Math.round(clamp(Math.round(Math.abs(distance) / 8) + 8, MINIMUM_FRAME_COUNT, MAXIMUM_FRAME_COUNT));
+}
+
+function animateTo(ownerInstance, state, targetIndex) {
+  var boundedTarget = boundedIndex(state, targetIndex);
+  var targetOffset = -boundedTarget * ITEM_HEIGHT;
+  var startOffset = state.offset;
+  var distance = targetOffset - startOffset;
+  state.animationToken += 1;
+  var animationToken = state.animationToken;
+  state.tracking = false;
+  state.axis = AXIS_UNDECIDED;
+  state.velocityY = 0;
+  if (Math.abs(distance) < 0.01) {
+    state.offset = targetOffset;
+    applyStyles(ownerInstance, state);
+    reportSettled(ownerInstance, state, boundedTarget);
+    return;
+  }
+  var frameCount = animationFrameCount(distance);
+  var frame = 0;
+
+  function step() {
+    if (state.animationToken !== animationToken) return;
+    frame += 1;
+    var progress = frame / frameCount;
+    var remaining = 1 - progress;
+    var eased = 1 - remaining * remaining * remaining;
+    state.offset = startOffset + distance * eased;
+    if (frame >= frameCount) state.offset = targetOffset;
+    applyStyles(ownerInstance, state);
+    if (frame >= frameCount) {
+      reportSettled(ownerInstance, state, boundedTarget);
+      return;
+    }
+    ownerInstance.requestAnimationFrame(step);
+  }
+
+  ownerInstance.requestAnimationFrame(step);
+}
+
+function configure(value, oldValue, ownerInstance) {
+  var config = value || {};
+  var key = runtimeKey(config.runtimeKey);
+  var state = stateForKey(key);
+  var nextGeneration = Math.max(0, Math.round(finiteNumber(config.generation)));
+  var nextCommandRevision = Math.max(0, Math.round(finiteNumber(config.commandRevision)));
+  var nextItemCount = Math.max(0, Math.round(finiteNumber(config.itemCount)));
+  var selectedIndex = Math.round(clamp(config.selectedIndex, 0, Math.max(0, nextItemCount - 1)));
+  var generationChanged = state.generation !== nextGeneration;
+  var commandChanged = nextCommandRevision > state.commandRevision;
+  var previousItemCount = state.itemCount;
+
+  if (generationChanged) {
+    resetAllRows(ownerInstance, previousItemCount);
+    state.animationToken += 1;
+    state.axis = AXIS_UNDECIDED;
+    state.commandRevision = nextCommandRevision;
+    state.generation = nextGeneration;
+    state.itemCount = nextItemCount;
+    state.lastPreviewIndex = selectedIndex;
+    state.lastStyledIndices = [];
+    state.moved = false;
+    state.offset = -selectedIndex * ITEM_HEIGHT;
+    state.sequence = 0;
+    state.tracking = false;
+    state.velocityY = 0;
+    applyStyles(ownerInstance, state);
+    return;
+  }
+
+  state.itemCount = nextItemCount;
+  state.offset = clamp(state.offset, minimumOffset(state), 0);
+  if (commandChanged && !state.tracking) {
+    state.commandRevision = nextCommandRevision;
+    if (config.animateCommand) {
+      reportPreview(ownerInstance, state, selectedIndex);
+      animateTo(ownerInstance, state, selectedIndex);
+      return;
+    }
+    state.animationToken += 1;
+    state.offset = -selectedIndex * ITEM_HEIGHT;
+    state.lastPreviewIndex = selectedIndex;
+  }
+  applyStyles(ownerInstance, state);
+}
+
+function updateVelocity(event, touch, state) {
+  var nextTime = finiteNumber(event.timeStamp);
+  var elapsed = nextTime - state.lastTime;
+  var nextY = finiteNumber(touch.clientY);
+  var deltaY = nextY - state.lastY;
+  if (elapsed > 0 && elapsed <= 80 && deltaY !== 0) {
+    state.velocityY = clamp(deltaY / elapsed, -MAXIMUM_VELOCITY, MAXIMUM_VELOCITY);
+  }
+  state.lastY = nextY;
+  state.lastTime = nextTime;
+}
+
+function chooseAxis(totalX, totalY) {
+  var horizontal = Math.abs(totalX);
+  var vertical = Math.abs(totalY);
+  if (Math.max(horizontal, vertical) < START_THRESHOLD) return AXIS_UNDECIDED;
+  if (vertical > horizontal * AXIS_RATIO) return AXIS_VERTICAL;
+  if (horizontal > vertical * AXIS_RATIO) return AXIS_REJECTED;
+  return AXIS_UNDECIDED;
+}
+
+function touchStart(event) {
+  var touch = firstTouch(event);
+  var state = eventState(event);
+  if (!touch || !state) return;
+  state.animationToken += 1;
+  state.axis = AXIS_UNDECIDED;
+  state.moved = false;
+  state.originOffset = state.offset;
+  state.startX = finiteNumber(touch.clientX);
+  state.startY = finiteNumber(touch.clientY);
+  state.lastY = state.startY;
+  state.lastTime = finiteNumber(event.timeStamp);
+  state.tracking = true;
+  state.velocityY = 0;
+}
+
+function touchMove(event, ownerInstance) {
+  var touch = firstTouch(event);
+  var state = eventState(event);
+  if (!touch || !state || !state.tracking) return;
+  var totalX = finiteNumber(touch.clientX) - state.startX;
+  var totalY = finiteNumber(touch.clientY) - state.startY;
+  updateVelocity(event, touch, state);
+  if (state.axis === AXIS_UNDECIDED) state.axis = chooseAxis(totalX, totalY);
+  if (state.axis === AXIS_REJECTED) return;
+  if (state.axis !== AXIS_VERTICAL) return;
+  state.moved = true;
+  state.offset = clamp(state.originOffset + totalY, minimumOffset(state), 0);
+  applyStyles(ownerInstance, state);
+  reportPreview(ownerInstance, state, -state.offset / ITEM_HEIGHT);
+  return false;
+}
+
+function settleFromRelease(ownerInstance, state, projectVelocity) {
+  var projectedOffset = clamp(
+    state.offset + projectVelocity * PROJECTION_DURATION,
+    minimumOffset(state),
+    0
+  );
+  var targetIndex = boundedIndex(state, -projectedOffset / ITEM_HEIGHT);
+  reportPreview(ownerInstance, state, targetIndex);
+  animateTo(ownerInstance, state, targetIndex);
+}
+
+function touchEnd(event, ownerInstance) {
+  var touch = firstTouch(event);
+  var state = eventState(event);
+  if (!state || !state.tracking) return;
+  if (touch) updateVelocity(event, touch, state);
+  state.tracking = false;
+  if (!state.moved || state.axis !== AXIS_VERTICAL) {
+    state.velocityY = 0;
+    settleFromRelease(ownerInstance, state, 0);
+    return;
+  }
+  settleFromRelease(ownerInstance, state, state.velocityY);
+  return false;
+}
+
+function touchCancel(event, ownerInstance) {
+  var state = eventState(event);
+  if (!state || !state.tracking) return;
+  var moved = state.moved && state.axis === AXIS_VERTICAL;
+  state.tracking = false;
+  state.velocityY = 0;
+  if (!moved) {
+    state.axis = AXIS_UNDECIDED;
+    return;
+  }
+  settleFromRelease(ownerInstance, state, 0);
+  return false;
+}
+
+module.exports = {
+  configure: configure,
+  touchCancel: touchCancel,
+  touchEnd: touchEnd,
+  touchMove: touchMove,
+  touchStart: touchStart
+};

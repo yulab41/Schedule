@@ -1,5 +1,7 @@
 {
   "disableScroll": false,
   "navigationStyle": "custom",
-  "usingComponents": {}
+  "usingComponents": {
+    "ui-wheel-column": "../../components/ui/ui-wheel-column/index"
+  }
 }
