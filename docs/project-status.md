@@ -58,18 +58,11 @@
   和对应 `plans/` 文件；文档 checkpoint `bb52e47b` 已推送并部署。
 - 引入点：Web 个人值班聚合来自 `ebd1b19f`，Mini 常驻 Profile controller/workbench 入口来自
   `79a0ae90`，微信快捷登录来自 `e69cfb76`，密码登录禁解绑来自 `75ec2c1d`。
-- Task 1 `9e42057c` 已共享 Web 值班模型与 avatarVersion 兼容契约；Task 2 `3c1b131a` 和控制修复
-  `6cf71152` 已部署头像/绑定 API 与 schema 52，生产应用/DB/控制面一致；最近备份见本页基线。
-- Task 3 非重叠部分已测试先行实现独立 Mini profile-media：进程内 pending、认证原始图片上传/
-  下载、owner/version 私有文件缓存、401 单次恢复、串行最后选择、幂等删除与退出物理清理均完成；
-  checkpoint 识别消息为 `feat(miniprogram): cache private profile avatars`。
-- Task 3 media checkpoint `f858ae6d` 已推送、上传 `.53`、加入 allowlist，并以备份后可信 reuse
-  同步生产；clean Mini 94 files/456 tests、root 238 files/1,122 tests 与 full verifier 通过。
-- Task 3 登录集成已实现：原生 chooseAvatar 叶组件、密码清 pending、三条微信成功路径生命周期 flush、
-  avatarVersion 会话刷新与一次非阻塞反馈完成；checkpoint 识别消息为
-  `feat(miniprogram): sync chosen profile avatars`。重叠 identity/wechat 文件只暂存 HEAD 等价 hunk。
-- Task 3 checkpoint `9ac508ba` 已推送、上传 `.54`、加入 allowlist，并以备份后可信 reuse 同步生产；
-  当前 Profile 活跃批次为 Task 4 controller、Web 1:1 页面、密码/绑定/导航与视觉状态矩阵。
+- Tasks 1–2 已以 `9e42057c`、`3c1b131a`、`6cf71152` 完成共享模型、头像/绑定 API 与 schema 52；
+  Task 3 `f858ae6d`/`9ac508ba` 已发布 `.53/.54`，完成私有头像缓存与 chooseAvatar 登录刷新。
+- Task 4 已测试先行完成 Web 1:1 controller/WXML/WXSS、成员请求降级、群组陈旧隔离、访客/无群组、
+  绑定/解绑、头像恢复、密码 proof 与统计/日历导航；checkpoint 识别消息为
+  `feat(miniprogram): match web profile experience`，目标体验版为 `.56`。
 
 ## 已完成的发布基线与当前修复
 
@@ -135,17 +128,11 @@
 
 ## 已完成验证
 
-- Profile Task 3 media：两轮 9 项先红；最终定向 3 files/22 tests、clean Mini 94 files/456 tests、
-  root 238 files/1,122 tests、全端 build/typecheck、production verify/determinism/package/CI dry-run、
-  core smoke、`.53` upload/allowlist 与生产 full verifier 通过；37 files/355 tests 按环境跳过。
-- Profile Task 3 login：旧树缺叶组件/runtime/WXML 的 3 项先红；实现后 chooseAvatar/login 4/4、身份/
-  media/workbench/Profile clean 5 files/39、Mini 95 files/460、root 238 files/1,122 tests 通过；全端
-  build/typecheck、verify/determinism/package/CI dry-run、`.54` upload/allowlist/full verifier 通过。
-- Profile Tasks 1–2 的共享等价、严格契约、头像安全/隔离/版本、schema52 发布控制和生产探针均通过；
-  详细红绿、全仓计数、browser 环境阻塞、备份与 release 证据保留在 debug 日志及对应 Git checkpoint。
-- Profile browser smoke 已实际运行：首次因 5173 未启动停止；启动源码服务后因未启用 dev auth、
-  Docker daemon/本机 MySQL 均不存在而在登录门禁停止，未进入产品断言；临时服务已停止并在
-  debug round 精确记录。本 Task 不改 Web 视觉或请求行为。
+- Profile Tasks 1–3 的共享/后端/媒体/登录红绿、全仓计数、browser 环境阻塞和发布证据保留在 debug
+  日志及对应 Git checkpoint；`.53/.54` upload、allowlist 与生产 full verifier 均已通过。
+- Profile Task 4：旧 controller/account/native 15 项先红；实现后新旧 P10/身份/工作台定向 11 files/
+  70 tests、Mini typecheck、production verify/determinism/source/package/CI dry-run 通过；标准 Mini
+  100 files/487 tests 最终通过。主包 1,579,433 bytes 仅触发 1.5M 预警，低于 1.8M 阻断线。
 - 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
   7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
 - 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
@@ -223,13 +210,9 @@
   安全回到日历。独立 Page 依赖微信 Page 栈，自带返回按钮并保留系统侧滑返回。
 - 通知只新增当前群组未读 GET 轮询和嵌入展示；无参 Web 未读语义不变。单条/全部已读仍各一次
   原写请求，Bearer、capability、Promise/catch、陈旧响应保护和通知正文不落盘不变。
-- Profile Task 3 media 的 pending 只存 App 进程内；每次 flush 同步取走并按全局 tail 串行，失败不重试，
-  新选择不会被旧上传清除。上传使用一次 raw ArrayBuffer PUT；下载只用 Bearer header，401 至多恢复一次
-  并以新 generation 为准。缓存键/文件同时绑定 owner/version，退出只删除本地文件/元数据，不调用
-  DELETE；恢复首字仅显式 DELETE 成功后清本地。图片、token、临时路径均不进入日志、遥测或 storage。
-- chooseAvatar 普通 tap 只清旧 pending 并立即发出一次登录事件；成功选择只写进程内路径。密码登录在
-  发请求前清空；微信已绑定、密码绑定和首次建档都由已持久化会话后的工作台/Profile onShow 取走一次。
-  同账号成功只更新本地 profile.avatarVersion；失败 toast 一次，不改变会话、旧缓存或导航。
+- Profile Task 4 只新增当前群组成员主 GET、五项 allSettled GET、绑定 GET 与显式密码/头像写操作；
+  group/request serial 隔离陈旧响应，访客/无群组零值班请求。密码 PUT 不重试且成功后清旧会话；头像
+  DELETE 必须确认。Bearer、receiver、Promise/catch、可选空值、业务排班写次数和隐私边界不变。
 - 通讯录本批唯一请求变化为进入时科室/人员各一次 facets 与收藏索引轻量预热；未搜索/筛选不读取
   列表，模式切换零请求。每模式异步序号、偏好 owner/group/kind key、分页、号码可拨规则、收藏
   一次存储和拨号一次副作用不变；群组变化、卸载或 organization 失效同时作废两页。
@@ -238,8 +221,8 @@
 
 1. 通讯录批次显式暂存自身文件并提交推送；备份后部署同一 checkpoint，上传
    `0.1.0-p9.20260828.55`、ensure/verify allowlist 与 full verifier，随后等待实体 Android 复核。
-2. 测试先行实现 Task 4 共享聚合 controller、群组/陈旧/部分失败、账户/绑定/密码与导航矩阵。
-3. 按已确认 Web 黄金重绘 390/320/大字号 WXML/WXSS，并更新 P10 Profile 黄金与 RC 清单。
+2. 显式暂存 Profile Task 4 与自身 status/debug hunk，clean 复验后提交推送；不夹带登录/权限脏树。
+3. 上传 `.56`、正式 allowlist、生产备份/ECS/full verifier 后停在“待实体 Android 复核”。
 
-停止条件：Task 4 功能、交互与视觉自动矩阵完成并形成可独立验证 checkpoint，其他并行用户内容保持
-未提交；未完成 clean/dirty 双验证前不进入最终发布，不提交审核或正式发布。
+停止条件：Profile Task 4 Git/origin/production/`.56` 对齐，其他并行用户内容保持未提交；随后只等待
+实体 Android 按 RC 对照 Web 黄金，不提交审核或正式发布。

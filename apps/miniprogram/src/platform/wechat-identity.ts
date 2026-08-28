@@ -282,9 +282,6 @@ export async function confirmAdminBinding(ticket: string): Promise<WechatAuthent
 }
 
 export async function unbindWechatIdentity(idempotencyKey: string): Promise<WechatUnbindResult> {
-  if (getStoredWechatAuthMethod() === 'password') {
-    throw new WechatIdentityClientError('账号密码登录无需解除微信绑定。');
-  }
   const accessToken = getStoredWechatToken();
   if (accessToken === undefined) {
     throw new WechatIdentityClientError('登录状态已失效，请重新登录。');

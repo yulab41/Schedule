@@ -89,6 +89,14 @@
   上传 175 code files/zip 2,175,646/manifest `46a7e863…d83b`，未提审/发布；allowlist 通过。备份
   `713c9bed-5975-493e-b27e-91ae772f3662`（55 表/180,581 行/82,958,168 bytes/SHA `c93e75d1…2459`）
   后 hash-identical reuse 到 `9ac508ba`，公网 full verifier 与远端临时 manifest 清理通过。
+- Task 4 红绿/实现：旧 controller/account/native 共 15 项先红；新 controller 以成员为主请求、五项
+  allSettled、group/request serial、访客/无群组短路共享 `buildMyProfileOverview`；新增当前 AppID 绑定、
+  password/微信 code proof、头像确认删除、统计/日历事件。WXML/WXSS 固定 Web 七段顺序，唯一深蓝
+  下一班卡，390/320/大字号/减少动态与 `.56` RC/黄金清单完成；旧切换卡/资料版本/隐私尾注删除。
+- Task 4 验证：定向 11 files/70 tests、Mini typecheck、production verify（2/2 Worklet、5,006,752
+  bytes、manifest `01ce53f9…25b5`）、determinism/source/package/CI dry-run 通过；标准 Mini 100 files/
+  487 tests 通过。首轮共享工作区并行 offline install 使 4 个既有构建用例超 5s；资源恢复后原样定向
+  31/31 与标准全量通过。主包 1,579,433 bytes 为预警、低于 1.8M 阻断。
 
 ## 2026-08-28 Mini 工作台顶部通知 Sheet 与群组未读数
 

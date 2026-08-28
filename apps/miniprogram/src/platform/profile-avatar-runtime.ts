@@ -23,6 +23,22 @@ export async function flushPendingProfileAvatarForStoredSession(): Promise<Profi
   return result;
 }
 
+export async function resolveStoredProfileAvatar(): Promise<string | undefined> {
+  const profile = getStoredWechatProfile();
+  if (profile === undefined) return undefined;
+  return profileMediaClient.resolve(profile.id, profile.avatarVersion);
+}
+
+export async function removeStoredProfileAvatar(
+  ownerId: string,
+): Promise<{ readonly removed: boolean }> {
+  const profile = getStoredWechatProfile();
+  if (profile === undefined || profile.id !== ownerId) return { removed: false };
+  const result = await profileMediaClient.remove(ownerId);
+  updateStoredWechatAvatarVersion(ownerId, undefined);
+  return result;
+}
+
 function showAvatarUploadFailure(): void {
   try {
     (

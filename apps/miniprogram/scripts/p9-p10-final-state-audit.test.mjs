@@ -92,9 +92,9 @@ describe('P9/P10 final automatic state audit', () => {
     ]);
   });
 
-  it('records the user-approved automatic acceptance policy for implemented P7-P10 slices', () => {
+  it('keeps completed slices automatic while the rebuilt Profile awaits explicit Android review', () => {
     const manifest = read('docs/design/page-golden-manifest.md');
-    expect(manifest).toContain('本轮人工复核豁免');
+    expect(manifest).toContain('人工复核豁免');
     expect(manifest).toContain('P9 `insights`/`externalMessages` 已按授权开启');
     for (const phase of [
       'P7',
@@ -109,12 +109,14 @@ describe('P9/P10 final automatic state audit', () => {
       'P9-A10',
       'P9-A11',
       'P10-A2/A3',
-      'P10-A4',
     ]) {
       const row = manifest.split('\n').find((line) => line.startsWith(`| ${phase} `));
       expect(row).toBeDefined();
       expect(row).toContain('自动 verifier 已通过');
       expect(row).not.toContain('待人工');
     }
+    const profileRow = manifest.split('\n').find((line) => line.startsWith('| P10-A4 '));
+    expect(profileRow).toContain('待实体 Android 复核');
+    expect(profileRow).toContain('`.56`');
   });
 });

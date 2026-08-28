@@ -102,8 +102,10 @@ interface WorkbenchPageData {
   readonly canManageScheduleTools: boolean;
   readonly canOpenGroupSettings: boolean;
   readonly currentGroupId: string;
+  readonly currentGroupIsDeveloperAdmin: boolean;
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
+  readonly currentGroupRoleKind: GroupSummary['role'];
   readonly canReLogin: boolean;
   readonly directoryMounted: boolean;
   readonly errorMessage: string;
@@ -209,8 +211,10 @@ Page({
     canManageScheduleTools: false,
     canOpenGroupSettings: false,
     currentGroupId: '',
+    currentGroupIsDeveloperAdmin: false,
     currentGroupName: '正在读取群组',
     currentGroupRole: '',
+    currentGroupRoleKind: 'member' as GroupSummary['role'],
     canReLogin: false,
     directoryMounted: false,
     errorMessage: '',
@@ -758,6 +762,12 @@ Page({
     navigateGroupTool(this, '/subpackages/insights/pages/insights/index');
   },
 
+  handleProfileOpenStatistics(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, '/subpackages/insights/pages/insights/index', {
+      allowMembers: true,
+    });
+  },
+
   handleOpenNotifications(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, '/subpackages/insights/pages/notifications/index');
   },
@@ -904,7 +914,10 @@ async function loadWorkbench(
         canManageScheduleTools: false,
         canOpenGroupSettings: false,
         currentGroupId: '',
+        currentGroupIsDeveloperAdmin: false,
         currentGroupName: '暂无可查看的群组',
+        currentGroupRole: '',
+        currentGroupRoleKind: 'member',
         groups,
         notificationSheetOpen: false,
         notificationUnreadCount: 0,
@@ -923,8 +936,10 @@ async function loadWorkbench(
       page.notificationRequestSerial += 1;
       page.setData({
         currentGroupId: selectedGroup.id,
+        currentGroupIsDeveloperAdmin: selectedGroup.isDeveloperAdmin === true,
         currentGroupName: selectedGroup.name,
         currentGroupRole: formatRole(selectedGroup),
+        currentGroupRoleKind: selectedGroup.role,
         notificationSheetOpen: false,
         notificationUnreadCount: 0,
       });
@@ -936,6 +951,10 @@ async function loadWorkbench(
         selectedGroup.role === 'owner' ||
         selectedGroup.role === 'administrator',
       canOpenGroupSettings: selectedGroup.role !== 'guest',
+      currentGroupIsDeveloperAdmin: selectedGroup.isDeveloperAdmin === true,
+      currentGroupName: selectedGroup.name,
+      currentGroupRole: formatRole(selectedGroup),
+      currentGroupRoleKind: selectedGroup.role,
       groups,
       workflowPanelsMounted: shouldMountWorkflowPanels,
     });

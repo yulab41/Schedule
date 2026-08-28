@@ -690,7 +690,15 @@
     style="--workspace-top:{{shellHeaderHeight}}px"
     hidden="{{activeWorkspace !== 'profile'}}"
   >
-    <profile-panel embedded="{{true}}"></profile-panel>
+    <profile-panel
+      embedded="{{true}}"
+      group-id="{{currentGroupId}}"
+      group-name="{{currentGroupName}}"
+      group-role="{{currentGroupRoleKind}}"
+      group-is-developer-admin="{{currentGroupIsDeveloperAdmin}}"
+      bind:openstatistics="handleProfileOpenStatistics"
+      bind:opencalendar="handleCalendarNav"
+    ></profile-panel>
   </view>
   <scroll-view
     wx:if="{{activeWorkspace === 'more'}}"
