@@ -2,6 +2,21 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-28 Mini 登录后工作台启动白屏修正设计
+
+- 精确现象：`.65` 登录页正常显示，有效会话快速 reLaunch 后日历首页白屏；App/identity/session/
+  reLaunch 发起正常，失败位于 workbench。
+- 同环境三角 A/B：DevTools `2.02.2608040`、production profile、默认 GPU 下，`.63@57e10cd`
+  登录与 workbench 均可截图；`.64@712aa4e` 和 `.65@6695280` 登录可截图，但直接 workbench 的
+  automator/screenshot 同时超时。此前 `--disable-gpu` 的黑屏样本已判无效并重新运行。
+- 引入点：`git blame`/diff 定位 `712aa4ee` 删除两个 mounted guard、无条件创建 directory/profile；
+  `.64` 已复现，故 `66952803` WXS 不是启动白屏的必要条件，滚轮保持不动。
+- 用户确认采用：初始日历轻量树，Page.onReady 后自动 Profile→directory 条件串行预载；不等点击，
+  ready 前显示 loading，挂载后常驻。click-time 与 initial-tree 两个错误极端都由新测试禁止。
+- 规格：`docs/superpowers/specs/2026-08-28-miniprogram-workbench-post-ready-preload-design.md`。
+  本 checkpoint 只修正设计/pitfall/status；实现待书面规格复核后测试先行。识别消息为
+  `docs(design): correct workbench preload boundary`。
+
 ## 2026-08-28 Mini 一级页面白屏与 WXS 生产接入设计
 
 - 反馈/引入点：目标 Android 从工作台打开“通讯录/我的”只见白屏。`git log -S`/`git blame`

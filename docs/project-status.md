@@ -8,15 +8,15 @@
 - 分支：`main`；运行时代码 checkpoint 为
   `6695280305773de643496767789c104a8c19ca6d`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.65@6695280`，182 code files，zip
-  `2,340,357` bytes，upload manifest `c3fe79bf9ec1fa89311d65e06a71dd54633b77223e120e25f7eab2544604d0e1`。
+- 当前体验候选 `.65@6695280` 登录页正常但 workbench 启动白屏，禁止作为可用候选；WXS 滚轮代码
+  保留为后继修复基线。
 - `.59/.60/.61/.62/.63/.64/.65` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.63` 首两次上传因 IPv4 白名单拒绝；用户新增当前出口后，同一 `57e10cd` 快照重试成功。
-- 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `d9c65222-21db-42b0-b66c-6198e5bdf9b7`（55 表、183,204 行、83,821,924 bytes、
-  SHA-256 `8a87b38c3bb9b67d64590860f0f68d8d0826828073b0b78872d8f0b84e2365d2`）。
+- 当前生产数据库 schema 52；最近一次状态发布备份为
+  `05f66c25-607e-460f-991e-531b3b696c74`（55 表、183,238 行、83,833,192 bytes、
+  SHA-256 `529fe96993d133d1394493893c054d43ed76dce50bdefb060f52c56f33d7bb49`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -45,8 +45,8 @@
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
   已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
-- 通讯录/Profile 白屏修复 `712aa4ee` 已推送、部署并上传 `.64`：启动静态预挂载、ready/loading、
-  权限安全预热与 Skyline flex/typed scroll/非零 swiper 均已完成，待实体 Android 业务页复核。
+- `712aa4ee` 的 Skyline 布局修复仍有效，但初始树同时挂载 directory/profile 已由 `.63/.64/.65`
+  同环境 A/B 证实阻断 workbench；当前改为 Page 首帧后自动串行预载。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
   代码 `dffef1f2` 已推送并以备份后 trusted reuse 部署；`.62@dffef1f` 已上传、allowlist/full verifier
@@ -57,11 +57,11 @@
 
 ## 当前活动批次
 
-- Checkpoint A `712aa4ee` 与 Checkpoint B `66952803` 均已推送、备份、trusted reuse 部署并完成
-  `.64/.65` 官方上传、allowlist ensure/verify、七维 capability、unknown=426、带公网 IP full verifier
-  和远端清理。WXS source/output SHA 保持 `f5fa4eaa…2e7c`。
-- 状态：`已完成自动验证与体验发布 → 待用户实体 Android 业务页复核`；最终状态 checkpoint 识别
-  消息为 `docs(status): record primary workspace and WXS wheel release`。
+- 根因：`.63` workbench 可运行，`.64/.65` 仅 workbench 卡死；`712aa4ee` 的两个大型面板初始树
+  双创建是引入点，`.65` WXS、API、会话与 allowlist 均排除为必要原因。
+- 当前提交/发布后继设计 `miniprogram-workbench-post-ready-preload-design`；随后测试先行实现 onReady
+  后自动 Profile→directory 串行预载并上传 `.66`。设计 checkpoint 识别消息为
+  `docs(design): correct workbench preload boundary`；不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -76,8 +76,8 @@
 
 - 已把 directory、group-settings、scheduling-config、invite-visitor、platform-accounts、
   duty、leave、swap 八个薄壳改为直接 Page 注册并静态 include/import 原 WXML/WXSS。
-- 工作台现只嵌入 directory、profile 与 swap：directory/profile 从 Page 初始树预挂载并常驻 hidden；
-  group-settings、leave、duty 改用独立 Page，相关不可达 component `index.js` 被回收。
+- 工作台只嵌入 directory、profile 与 swap；directory/profile 初始树双挂载已确认回归，修复目标为
+  初始日历轻量树、onReady 后自动串行挂载并常驻 hidden。其他独立 Page 架构不变。
 - profile Page 与 workbench component 共用 controller/WXML/WXSS，Page 仍为静态 include/import；
   directory Page 明确 `embedded=false`，工作台 component 为 `embedded=true`。
 - workflow direct Page 通过共享 host adapter 保留 picker 协调、infoMessage 2 秒 timer、
@@ -235,8 +235,7 @@
 
 ## 下一步与停止条件
 
-1. 用户在 `.65` 冷启动/重复进入通讯录与我的，确认无白屏并可从“更多”打开测试中心。
-2. 用户按 P7 runbook 复核业务年/月双列慢速反向、吸附中反向、flick、点行、边界、完成/取消。
+1. 复核并实施 post-ready 串行预载，红绿/全量/DevTools 验证后提交、部署并上传 `.66`。
+2. 用户在 `.66` 复核登录后日历、通讯录/我的预载与业务年月滚轮。
 
-停止条件已满足：Git/origin/production/`.65`/allowlist/full verifier 对齐；用户 dirty 文件保持未提交，
-不提审或正式发布。
+停止条件未满足：`.65` workbench 启动白屏；用户 dirty 文件保持未提交，不提审或正式发布。

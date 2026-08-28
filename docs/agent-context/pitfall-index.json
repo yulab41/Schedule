@@ -3,7 +3,7 @@
   "pitfalls": [
     {
       "id": "mini-page-boundary",
-      "state": "fixed-pending-external",
+      "state": "active",
       "signals": ["Android white screen", "Skyline", "requiredComponents", "Page", "panel"],
       "paths": [
         "apps/miniprogram/src/**/pages/**",
@@ -12,10 +12,11 @@
       "detail": "docs/agent-context/pitfalls/mini-page-boundary.md",
       "guard": "apps/miniprogram/scripts/thin-page-boundary.test.mjs",
       "validation": "pnpm miniprogram:test",
-      "lastVerifiedAt": "2026-08-27",
+      "lastVerifiedAt": "2026-08-28",
       "staleWhen": [
         "app.json renderer or lazyCodeLoading changes",
-        "the thin-page guard is removed or fails"
+        "the thin-page guard is removed or fails",
+        "workbench initial-tree or post-ready component mounting changes"
       ]
     },
     {
