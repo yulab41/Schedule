@@ -2,6 +2,27 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-28 Mini 一级页面白屏与 WXS 生产接入设计
+
+- 反馈/引入点：目标 Android 从工作台打开“通讯录/我的”只见白屏。`git log -S`/`git blame`
+  定位 click-time `directoryMounted/profileMounted + wx:if + hidden` 由 `79a0ae90` 引入；通讯录
+  `swiper height:0` 与 23 处 Grid 来自 `6b5b30fb`，Profile 7 处 Grid/复杂布局由 `a50b423b`
+  扩大。三提交顺序落地，无 unmerged index、冲突标记或并行文本覆盖；`.63@57e10cd` 只改探针。
+- 运行证据：`.62` 匿名遥测在 workbench core/foreground ready 后收到
+  `directory:controller-attached` 指纹且无 `MINI_RUNTIME_ERROR`，排除组件 JS 缺失、同步 controller
+  崩溃和 API/capability 作为白屏主因。现有 workbench/directory/profile 定向 6 files/44 tests 全绿，
+  证明原静态测试没有覆盖 Skyline 原生布局与用时注入边界。
+- 设计决策：用户批准工作台启动即静态预挂载两个一级面板、ready 前显示明确加载层、点击只切
+  workspace；touched Grid 改 Skyline flex、修正 scroll/swiper 确定高度和独立 Profile Page leaf
+  声明。“更多”新增所有账号可见的统一测试中心，正式审核候选由集中开关隐藏。
+- WXS 门槛：官方 CI `pagePath=pages/gesture-probe/index` 直达码从 clean `.63@57e10cd` 生成；用户
+  明确反馈 E 区自动吸附、字号/透明度渐变与慢速反向均正常且符合预期，批准把同一
+  `UiWheelColumn` 双列接入生产 picker，旧 scroll/CSS snap/timer/逐帧 setData 必须完整删除。
+- 书面规格：
+  `docs/superpowers/specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`；本轮只做
+  design checkpoint，功能实现须在用户复核书面规格后测试先行。checkpoint 识别消息为
+  `docs(design): specify primary workspace preload and WXS release`。
+
 ## 2026-08-28 Mini 年月滚轮 WXS 单引擎设计
 
 - 反馈/根因：`.51` 恢复可用但仍由原生滚动、CSS snap、100ms/320ms JS 吸附和逐帧整组
@@ -34,8 +55,8 @@
 - 体验/allowlist：`.63@57e10cd` 首两次完成 Summer 编译后被微信 `-10008 invalid ip` 拒绝；用户
   新增当前出口白名单后，同一 clean 快照成功上传（182 code files、zip 2,340,879、upload manifest
   `4130d76e…1295`）。正式 ensure/verify、七维 capability 全 true、未知版本 426 与带公网 IP full
-  verifier 通过。当前状态：`已完成（clean 自动验证、体验上传与生产发布）→ 待实体 Android 探针
-复核`；实体通过前不接入生产滚轮。
+  verifier 通过。用户随后通过直达 QR 明确确认 E 区符合预期；阶段 A 已完成，阶段 B 已获批准并
+  转入新的组合发布规格。
 
 ## 2026-08-27 Mini“我的”页 Web 对等与微信头像
 

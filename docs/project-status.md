@@ -27,10 +27,9 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
-- 年月滚轮 WXS 探针正由并行任务维护；其 gesture/ui-wheel、坑位索引、RC 与计划文件不得整文件
-  暂存。通讯录/Profile/登录已完成的 checkpoint 只作为当前发布前驱。
-- 通知 Sheet 为本轮明确批次；只能显式暂存通知/API/UiSheet/工作台自身文件，
-  不得夹带同一工作树的登录、通讯录、Profile 或其他用户内容。
+- 年月滚轮、通讯录与 Profile 已由用户合并进当前修复批次；只允许显式暂存本批精确 hunk，登录及
+  其他既有 checkpoint 仍只作为发布前驱。
+- 通知 Sheet 已完成并只作为发布前驱；当前工作台修改不得夹带其历史外的无关 hunk。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
 - `runtime/external-project-worktrees/` 中未落地 P10 worktree 必须保留。
 
@@ -46,26 +45,24 @@
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
   已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
-- 通讯录双页常驻与 Web 视觉对齐由本并行批次负责：科室/人员原生 swiper、独立状态、双 facets
-  轻量预热、折叠筛选层、结果卡分割线和有效行高已实现。代码 `6b5b30fb` 已推送、备份并以
-  hash-identical reuse 部署；`.59@6b5b30f` 已从独立 immutable 快照上传，正式 allowlist、七维能力、
-  未知版本 426 与带公网 IP full verifier 均通过，当前只待实体 Android 复核。
+- 通讯录/Profile 实体 Android 复核发现工作台点击后白屏；无 Git 冲突且 directory controller 已
+  attached，根因为 click-time 空 placeholder 与 Skyline Grid/scroll/swiper 布局风险。引入点为
+  `79a0ae90/6b5b30fb/a50b423b`，用户已批准静态预挂载和原生布局修复。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
   代码 `dffef1f2` 已推送并以备份后 trusted reuse 部署；`.62@dffef1f` 已上传、allowlist/full verifier
   通过，当前只待实体 Android 复核。
-- 年月滚轮 WXS 规格已获用户书面确认；阶段 A 计划为
-  `docs/superpowers/plans/2026-08-28-miniprogram-workflow-picker-wxs-probe-implementation-plan.md`。
-  `UiWheelColumn + gesture-probe E` 已实现并完成自动验证，生产 `workflow-picker` 保持 `.51` 语义；
-  checkpoint 识别消息为 `test(miniprogram): add WXS wheel capability probe`，目标体验版为 `.63`。
+- `.63` 的 `UiWheelColumn + gesture-probe E` 已完成自动验证；用户通过直达 QR 明确确认目标 Android
+  的吸附、逐像素字号/透明度和慢速反向均符合预期。生产 `workflow-picker` 当前仍为 `.51` 语义，
+  阶段 B 已获批准并纳入当前修复。
 
 ## 当前活动批次
 
-- 用户已确认 WXS 单引擎规格；`writing-plans` 不可用，已用仓库计划替代。本轮只做阶段 A。
-- 引入点为 WXS 黄点 `2b5f536c`、矩阵 WXS `c35b35b8`；新 `UiWheelColumn` 只用普通 view/WXS、
-  runtimeKey/generation/sequence、单段吸附和 transform/opacity，probe E 直接复用真实候选。
-- 状态：`已完成（clean 自动验证、体验上传与生产发布）→ 待实体 Android 探针复核`；最终状态
-  checkpoint 识别消息为 `docs(status): record WXS probe experience deployment`。
+- 用户已批准一级页面启动预挂载、Skyline flex/确定尺寸修复、所有账号可见“更多 → 测试中心”及
+  WXS 双列生产接入；规格为
+  `docs/superpowers/specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`。
+- 当前只做 brainstorming 强制 design checkpoint；checkpoint 识别消息为
+  `docs(design): specify primary workspace preload and WXS release`。用户复核书面规格后才写实施计划和代码。
 
 ## 已完成的发布基线与当前修复
 
@@ -123,8 +120,8 @@
 ### 按需 Agent 上下文
 
 - `docs/agent-context/pitfall-index.json` 为每轮必读小索引；按 signals/paths 只读匹配详情。
-- 年月滚轮反向接管登记为 `mini-workflow-wheel-snap-interruption`，实体复核前状态为
-  `fixed-pending-external`。
+- 年月滚轮反向接管登记为 `mini-workflow-wheel-snap-interruption`；阶段 A 真机门槛已通过，状态
+  回到 `active`，直到阶段 B 生产接入和业务页实体复核完成。
 - guard 失败或 staleWhen 命中时，旧结论降级为假设并重新 systemically debug。
 - 禁止全文读取 `docs/debug/debug-feedback-log.md`；历史只用精确 `rg` + 有界行段。
 - 本状态受 `scripts/agent-context-policy.test.mjs` 限制为 ≤40KB/250 行；索引 ≤12KB。
@@ -239,8 +236,8 @@
 
 ## 下一步与停止条件
 
-1. 用户在 `.63` 的 gesture-probe E 完成慢速下→上、半格/吸附中反向、flick、点行、边界和重置。
-2. 用户明确通过前，不修改生产 `workflow-picker`，不进入阶段 B；不提审或正式发布。
+1. 提交、推送并部署本 design checkpoint，用户复核书面规格。
+2. 复核后先写红灯与实施计划，再分别完成一级页面/Test Center 和 WXS 阶段 B checkpoint。
 
-停止条件已满足：Git/origin/production/`.63`/allowlist/full verifier 对齐，等待实体 Android；生产
-年月滚轮仍为 `.51` 语义，用户 dirty 文件保持未提交。
+当前停止于书面规格复核；不修改功能代码、不提审或正式发布。生产滚轮仍为 `.51` 语义，用户 dirty
+文件保持未提交。

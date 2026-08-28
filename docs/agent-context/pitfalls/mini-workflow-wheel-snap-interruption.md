@@ -25,12 +25,16 @@ Android probe. A failed WXS probe falls back to official `picker-view`; it does 
 Phase A is now implemented without touching the production workflow picker. The reusable
 `UiWheelColumn` and gesture-probe E share the same WXS file. Automated VM, structure, controller,
 simulate, full Mini, root build/test, source/output, determinism, package and CI gates pass. The
-candidate remains experimental until the user completes the physical Android checklist; automated
-evidence cannot advance it into the production picker.
+candidate was opened through a `pagePath=pages/gesture-probe/index` direct QR on 2026-08-28. The
+user explicitly confirmed that automatic snap, pixel-continuous size/opacity and slow reverse
+takeover all work on the target Android and match the intended experience. Phase A's external gate
+is satisfied; production integration is now active under
+`docs/superpowers/specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`.
 
 Keep these invariants:
 
-- The shipped rollback must stay byte-equivalent to the `.49` picker runtime until a new approach is approved.
+- The shipped rollback stays byte-equivalent to the `.49` picker runtime until the tested Phase B
+  integration lands as its own checkpoint.
 - The `.48` touch-interrupt regression remains guarded; `.50` Worklet/static tests are removed with the rollback.
 - Month/date values emit only from explicit completion; cancel emits nothing.
 - The WXS candidate must own drag, projected target, snap and pixel styles alone; no active

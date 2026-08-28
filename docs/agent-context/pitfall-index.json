@@ -128,7 +128,7 @@
     },
     {
       "id": "mini-workflow-wheel-snap-interruption",
-      "state": "fixed-pending-external",
+      "state": "active",
       "signals": ["年月滚轮", "reverse drag", "scrollend", "wheelSnapAnimating", "workflow-picker"],
       "paths": [
         "apps/miniprogram/src/components/ui/ui-wheel-column/**",

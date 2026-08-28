@@ -2,7 +2,7 @@
 
 - 日期：2026-08-28
 - 基线：`main@a50b423b`
-- 状态：方向已获用户批准；书面规格待用户复核
+- 状态：阶段 A 已获目标 Android 明确通过；阶段 B 已批准、待生产接入
 - 范围：年月双滚轮、复用滚轮列原语、诊断探针与对应自动/实体测试
 - 稳定回退点：`.51@99006ba` / `99006bad`
 
@@ -218,6 +218,11 @@ generation。现有蓝点 Worklet、黄色点 WXS 与设备信息继续保留，
 
 只有用户明确回复该候选在目标 Android 通过，才进入生产接入；模拟器、Vitest、simulate、CI 和
 上传成功均不能替代这一门槛。iOS 使用同一清单复核，最迟必须在正式审核前通过。
+
+2026-08-28，用户通过指定 `pagePath` 的直达二维码完成 E 区复核，明确反馈自动吸附、字号/透明度
+渐变与慢速反向均正常，且效果符合预期。阶段 A 的 Android 停止门槛已满足；阶段 B 与一级页面
+修复的组合发布设计见
+[`2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`](./2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md)。
 
 ### 阶段 B：生产接入
 
