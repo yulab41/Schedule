@@ -2,7 +2,7 @@
 
 - 日期：2026-08-27
 - 基线：`main@299aaefd`
-- 状态：Task 1–5 已完成，Task 6 待 checkpoint/体验上传/生产同步
+- 状态：Task 1–5 已完成；Task 6 Git/生产已完成，体验上传被微信 CI IP 白名单阻塞
 - 设计：[`../specs/2026-08-27-miniprogram-login-session-continuity-design.md`](../specs/2026-08-27-miniprogram-login-session-continuity-design.md)
 - 范围：跨 bundle 会话状态、登录后导航、P3 登录视觉黄金与原生页面
 

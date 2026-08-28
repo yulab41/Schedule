@@ -1465,6 +1465,13 @@
   `git diff --check` 与 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，无需完整
   `pnpm smoke:browser`；未启动或控制微信开发者工具。当前状态：`已实现并完成 Web 黄金复核 →
   待 checkpoint/体验上传/实体 Android 复核`。
+- checkpoint/生产/阻塞：代码 `62e45eb7` 与 clean Mini 契约补丁 `353ec1b9` 已推送。生产备份
+  `167e3f10-a30b-433a-8e9f-932b877c9a17`（55 表、181,737 行、83,341,172 bytes、SHA-256
+  `486a17da14668fec76c71d8c20e1f0c2b2481707539e56072cdf124893834082`）后，API/Web/控制面/迁移哈希
+  全同，可信 reuse 无停机同步到 `353ec1b927df25ac00ee3b9b81c9a327e4b1ef97`；公网 IP full verifier、
+  七维能力、未知版本 426、schema 与 Host 拒绝通过，远端 temp 已清理。微信上传因公网 IPv4
+  `154.64.226.11` 未加入代码上传 IP 白名单而被 20003 拒绝；`.55-.58` 均废弃且禁止 allowlist，
+  待用户加白后由通讯录 `.59`、Profile `.60`、登录 `.61` 串行恢复。未提审、未正式发布。
 
 ## 2026-08-28 小程序通讯录双页常驻与 Web 视觉对齐
 

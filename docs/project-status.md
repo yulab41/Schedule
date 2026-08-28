@@ -6,7 +6,7 @@
 ## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `9ac508ba84ad8abee9604e5991c46fcc6847e508`。最终状态以“包含本文件的 Git HEAD”为
+  `353ec1b927df25ac00ee3b9b81c9a327e4b1ef97`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
 - 当前生产小程序最终体验候选：`0.1.0-p9.20260828.54@9ac508b`，175 code files，zip
   `2,175,646` bytes，upload manifest `46a7e8639e47269203361cec2c4c756323612e730fa24b83085ff3694df2d83b`。
@@ -14,8 +14,8 @@
   workflows/organization/insights/
   externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `713c9bed-5975-493e-b27e-91ae772f3662`（55 表、180,581 行、82,958,168 bytes、
-  SHA-256 `c93e75d17b258e0dc2cf1d967332a7169f091fb6a160e2518e94af1a97e82459`）。
+  `167e3f10-a30b-433a-8e9f-932b877c9a17`（55 表、181,737 行、83,341,172 bytes、
+  SHA-256 `486a17da14668fec76c71d8c20e1f0c2b2481707539e56072cdf124893834082`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -38,8 +38,8 @@
 - 登录会话连续性已实现：App singleton 跨 bundle 共享 invalidation/generation/recovery，五条有效会话
   路径 `reLaunch` 直达工作台，Web 对齐登录页保留微信快捷登录且不放访客入口。红绿定向、隔离
   Mini 93/444、root 230/1,103、全端 build/typecheck、production verify/determinism/package/CI dry-run、
-  390/320 Storybook 与 core smoke 通过；代码 `62e45eb7` 已推送，补齐 clean Mini 暴露的 workbench
-  登录路由契约后进入体验上传/生产同步。
+  390/320 Storybook 与 core smoke 通过；代码 `62e45eb7`、契约补丁 `353ec1b9` 已推送并以备份后
+  hash-identical reuse/公网 full verifier 同步生产。体验上传等待微信 CI IP 白名单。
 - 通知 Sheet/群组未读已实现：API 可选 `groupId`、Client Core、无业务依赖 `UiSheet`、
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
@@ -226,10 +226,12 @@
 
 ## 下一步与停止条件
 
-1. 通讯录批次显式暂存自身文件并提交推送；备份后部署同一 checkpoint，上传
-   `0.1.0-p9.20260828.55`、ensure/verify allowlist 与 full verifier，随后等待实体 Android 复核。
-2. 显式暂存 Profile Task 4 与自身 status/debug hunk，clean 复验后提交推送；不夹带登录/权限脏树。
-3. 上传 `.56`、正式 allowlist、生产备份/ECS/full verifier 后停在“待实体 Android 复核”。
+1. 用户在微信公众平台将当前代码上传公网 IPv4 `154.64.226.11` 加入 IP 白名单；`.55-.58` 永不
+   进入 production allowlist。
+2. 通讯录从 immutable `6b5b30fb` 快照上传 `.59` 并完成正式 allowlist/full verifier；Profile 锁定
+   `.60`，登录锁定 `.61`，三者不共享可变 release worktree。
+3. 登录从精确 `353ec1b9` 快照上传 `.61`，ensure/verify allowlist 后等待实体 Android
+   复核 D0468/admin、登录直达主页、“我的”资料和 390/320 布局。
 
-停止条件：Profile Task 4 Git/origin/production/`.56` 对齐，其他并行用户内容保持未提交；随后只等待
-实体 Android 按 RC 对照 Web 黄金，不提交审核或正式发布。
+停止条件：Git/origin/production release 已对齐；微信上传仅受外部 IP 白名单阻塞。不得提交审核或
+正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。
