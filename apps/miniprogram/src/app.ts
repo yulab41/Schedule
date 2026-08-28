@@ -1,11 +1,13 @@
 import { createRuntimeClientCapabilityStore } from './platform/client-capabilities.js';
 import { createRuntimeMiniTelemetryEmitter } from './platform/telemetry.js';
+import { createWechatSessionRuntimeState } from './platform/wechat-session-runtime.js';
 
 const clientCapabilityStore = createRuntimeClientCapabilityStore();
 const telemetryEmitter = createRuntimeMiniTelemetryEmitter(clientCapabilityStore);
+const wechatSessionRuntimeState = createWechatSessionRuntimeState();
 
 App({
-  globalData: { clientCapabilityStore, telemetryEmitter },
+  globalData: { clientCapabilityStore, telemetryEmitter, wechatSessionRuntimeState },
 
   onLaunch(): void {
     void clientCapabilityStore.refresh({ force: true });

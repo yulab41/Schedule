@@ -39,12 +39,20 @@ describe('P3 identity security preview', () => {
 
   it('keeps the Mini login golden aligned with Web password login plus WeChat quick login', () => {
     const source = readSource('./P3IdentitySecurityPreview.vue');
+    const miniLogin = source.slice(
+      source.indexOf(`<div v-if="screen === 'mini-login'" class="mini-login-intro">`),
+      source.indexOf(`<template v-else-if="screen === 'mini-link'">`),
+    );
 
-    expect(source).toContain('账号密码登录');
-    expect(source).toContain('微信快捷登录');
-    expect(source).toContain('autocomplete="username"');
-    expect(source).toContain('autocomplete="current-password"');
-    expect(source).toContain('使用账号密码登录后台，或用微信快速进入已绑定的成员账号。');
+    expect(miniLogin).toContain('清楚掌握每一次值班');
+    expect(miniLogin).toContain('进入工作台');
+    expect(miniLogin).toContain('微信快捷登录');
+    expect(miniLogin).toContain('autocomplete="username"');
+    expect(miniLogin).toContain('autocomplete="current-password"');
+    expect(source).toContain('账号只用于排班身份识别。联系信息仅对有权限的群组成员可见。');
+    expect(miniLogin).not.toContain('访客查看排班');
+    expect(miniLogin).not.toContain('使用账号密码登录后台，或用微信快速进入已绑定的成员账号。');
+    expect(miniLogin).not.toContain('账号由平台管理员预置，密码只用于建立当前登录会话。');
   });
 
   it('keeps the 44px touch target and reduced-motion guard', () => {

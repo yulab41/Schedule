@@ -8,6 +8,7 @@ import {
   clearWechatSessionStorage,
   WECHAT_SESSION_STORAGE_KEY,
 } from './private-storage.js';
+import { getWechatSessionRuntimeState } from './wechat-session-runtime.js';
 import {
   executeWxJsonRequest,
   isBearerAuthenticationRequired,
@@ -26,10 +27,6 @@ interface StoredWechatSession {
   readonly profile: WechatAuthenticatedProfile;
   readonly token: string;
 }
-
-let sessionRecoveryPromise: Promise<string | undefined> | undefined;
-let sessionGeneration = 0;
-let sessionInvalidated = false;
 
 export interface WechatAuthenticatedProfile {
   readonly avatarVersion?: number;
@@ -336,6 +333,7 @@ function persistSession(
   authMethod: IdentityAuthMethod,
   preservedOwnerId?: string,
 ): void {
+  const runtimeState = getWechatSessionRuntimeState();
   if (!isAcceptableSessionExpiry(result.expiresAt)) {
     clearWechatSession(true);
     throw new WechatIdentityClientError('登录响应无效。');
@@ -347,15 +345,15 @@ function persistSession(
   ) {
     clearPrivateBusinessStorage();
   }
-  sessionInvalidated = true;
-  sessionGeneration += 1;
+  runtimeState.invalidated = true;
+  runtimeState.generation += 1;
   wx.setStorageSync(WECHAT_SESSION_STORAGE_KEY, {
     authMethod,
     expiresAt: result.expiresAt,
     profile: result.profile,
     token: result.token,
   } satisfies StoredWechatSession);
-  sessionInvalidated = false;
+  runtimeState.invalidated = false;
 }
 
 export function getStoredWechatToken(now = Date.now()): string | undefined {
@@ -397,14 +395,15 @@ export function updateStoredWechatAvatarVersion(
 }
 
 export function clearWechatSession(includePrivateBusinessStorage = false): void {
-  sessionInvalidated = true;
+  const runtimeState = getWechatSessionRuntimeState();
+  runtimeState.invalidated = true;
   clearWechatSessionStorage();
   if (includePrivateBusinessStorage) clearPrivateBusinessStorage();
-  sessionGeneration += 1;
+  runtimeState.generation += 1;
 }
 
 export function getWechatSessionGeneration(): number {
-  return sessionGeneration;
+  return getWechatSessionRuntimeState().generation;
 }
 
 export function getWechatRequestAuthentication(): {
@@ -422,17 +421,18 @@ export function getWechatRequestAuthentication(): {
 }
 
 export async function awaitWechatSessionRecovery(): Promise<string | undefined> {
-  return sessionRecoveryPromise;
+  return getWechatSessionRuntimeState().recoveryPromise;
 }
 
 export async function recoverWechatSession(failedToken: string): Promise<string | undefined> {
+  const runtimeState = getWechatSessionRuntimeState();
   const current = readStoredWechatSession(Date.now(), false);
   if (current?.authMethod === 'password') {
     clearWechatSession(true);
     return undefined;
   }
   if (current !== undefined && current.token !== failedToken) return current.token;
-  if (sessionRecoveryPromise !== undefined) return sessionRecoveryPromise;
+  if (runtimeState.recoveryPromise !== undefined) return runtimeState.recoveryPromise;
 
   const previousOwnerId = current?.profile.id;
   clearWechatSession(false);
@@ -453,11 +453,11 @@ export async function recoverWechatSession(failedToken: string): Promise<string 
       return undefined;
     }
   })();
-  sessionRecoveryPromise = recovery;
+  runtimeState.recoveryPromise = recovery;
   try {
     return await recovery;
   } finally {
-    if (sessionRecoveryPromise === recovery) sessionRecoveryPromise = undefined;
+    if (runtimeState.recoveryPromise === recovery) runtimeState.recoveryPromise = undefined;
   }
 }
 
@@ -476,7 +476,7 @@ function readStoredWechatSession(
   now: number,
   clearInvalid = true,
 ): StoredWechatSession | undefined {
-  if (sessionInvalidated) return undefined;
+  if (getWechatSessionRuntimeState().invalidated) return undefined;
   let stored: unknown;
   try {
     stored = wx.getStorageSync(WECHAT_SESSION_STORAGE_KEY);

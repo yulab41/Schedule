@@ -4,9 +4,7 @@ import {
   requireClientCapability,
 } from '../../app/client-capability-store.js';
 import {
-  clearWechatSession,
   getIdentityErrorMessage,
-  getStoredWechatAuthMethod,
   getStoredWechatProfile,
   linkWechatPassword,
   loginWithPassword,
@@ -19,14 +17,13 @@ import {
 } from '../../platform/wechat-identity.js';
 import { clearPendingProfileAvatar } from '../../platform/profile-media.js';
 
-type IdentityMode = 'authenticated' | 'choice' | 'login' | 'password' | 'register';
+type IdentityMode = 'choice' | 'login' | 'password' | 'register';
 
 interface InputEvent {
   readonly detail: { readonly value: string };
 }
 
 interface IdentityPageData {
-  readonly authMethod: IdentityAuthMethod;
   readonly buildLabel: string;
   readonly errorMessage: string;
   readonly linkToken: string;
@@ -42,25 +39,24 @@ interface IdentityPageInstance {
   setData(patch: Partial<IdentityPageData>): void;
 }
 
-function authenticatedPatch(
+function completeAuthentication(
+  page: IdentityPageInstance,
   result: WechatAuthenticatedResult,
   authMethod: IdentityAuthMethod,
-): Partial<IdentityPageData> {
+): void {
   if (authMethod === 'password') persistPasswordSession(result);
   else persistWechatSession(result);
-  return {
-    authMethod,
+  page.setData({
     errorMessage: '',
     linkToken: '',
-    loading: false,
-    mode: 'authenticated',
+    loading: true,
     password: '',
-  };
+  });
+  openWorkbench(page);
 }
 
 Page({
   data: {
-    authMethod: 'wechat' as IdentityAuthMethod,
     buildLabel: buildInfo.buildLabel,
     errorMessage: '',
     linkToken: '',
@@ -73,10 +69,9 @@ Page({
 
   onLoad(this: IdentityPageInstance): void {
     if (getStoredWechatProfile() !== undefined) {
-      this.setData({
-        authMethod: getStoredWechatAuthMethod() ?? 'wechat',
-        mode: 'authenticated',
-      });
+      this.setData({ loading: true });
+      openWorkbench(this);
+      return;
     }
     void guardIdentityCapability(this);
   },
@@ -105,7 +100,7 @@ Page({
     }
     this.setData({ errorMessage: '', loading: true });
     void linkWechatPassword(this.data.linkToken, username, this.data.password)
-      .then((result) => this.setData(authenticatedPatch(result, 'wechat')))
+      .then((result) => completeAuthentication(this, result, 'wechat'))
       .catch((error: unknown) =>
         this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
       );
@@ -120,7 +115,7 @@ Page({
     }
     this.setData({ errorMessage: '', loading: true });
     void loginWithPassword(username, this.data.password)
-      .then((result) => this.setData(authenticatedPatch(result, 'password')))
+      .then((result) => completeAuthentication(this, result, 'password'))
       .catch((error: unknown) =>
         this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
       );
@@ -134,20 +129,6 @@ Page({
     this.setData({ realName: event.detail.value });
   },
 
-  handleSwitchLogin(this: IdentityPageInstance): void {
-    clearWechatSession(true);
-    this.setData({
-      authMethod: 'wechat',
-      errorMessage: '',
-      linkToken: '',
-      loading: false,
-      mode: 'login',
-      password: '',
-      realName: '',
-      username: '',
-    });
-  },
-
   handleRegister(this: IdentityPageInstance): void {
     if (this.data.realName.trim().length === 0) {
       this.setData({ errorMessage: '请输入真实姓名。' });
@@ -155,7 +136,7 @@ Page({
     }
     this.setData({ errorMessage: '', loading: true });
     void registerWechat(this.data.linkToken, this.data.realName.trim())
-      .then((result) => this.setData(authenticatedPatch(result, 'wechat')))
+      .then((result) => completeAuthentication(this, result, 'wechat'))
       .catch((error: unknown) =>
         this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
       );
@@ -166,7 +147,7 @@ Page({
     void loginWithWechat()
       .then((result) => {
         if (result.status === 'authenticated') {
-          this.setData(authenticatedPatch(result, 'wechat'));
+          completeAuthentication(this, result, 'wechat');
           return;
         }
         this.setData({
@@ -192,6 +173,17 @@ function normalizeUsername(value: string): string {
 
 function isValidUsername(value: string): boolean {
   return value.length >= 3 && value.length <= 64 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value);
+}
+
+function openWorkbench(page: IdentityPageInstance): void {
+  wx.reLaunch({
+    fail: () =>
+      page.setData({
+        errorMessage: '登录已完成，但主页未能打开，请重新打开小程序。',
+        loading: false,
+      }),
+    url: '/pages/workbench/index',
+  });
 }
 
 async function guardIdentityCapability(page: IdentityPageInstance): Promise<void> {

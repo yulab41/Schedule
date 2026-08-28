@@ -15,6 +15,48 @@ page {
   font-family: var(--ui-font-family-system);
 }
 
+.identity-page.is-login {
+  padding-top: 88px;
+  background:
+    radial-gradient(circle at 86% 8%, rgba(10, 102, 213, 0.12), transparent 29%),
+    var(--ui-color-background);
+}
+
+.identity-login-title {
+  display: block;
+  max-width: 330px;
+  margin-top: 24px;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xxl);
+  font-weight: var(--ui-font-weight-strong);
+  line-height: 1.16;
+  letter-spacing: -0.03em;
+}
+
+.identity-login-brand-mark {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  background: var(--ui-color-primary);
+  border-radius: 17px;
+  box-shadow: 0 12px 30px rgba(10, 102, 213, 0.24);
+}
+
+.identity-login-brand-mark view {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 25px;
+  height: 7px;
+  background: var(--ui-color-white);
+  border-radius: var(--ui-radius-pill);
+  transform: translate(-50%, -50%);
+}
+
+.identity-login-brand-mark view:last-child {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
 .identity-header {
   display: flex;
   min-height: 36px;
@@ -118,6 +160,83 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: 20px;
   box-shadow: var(--ui-shadow-card);
+}
+
+.identity-login-card {
+  margin-top: 28px;
+  padding: 20px;
+  border-radius: var(--ui-radius-large);
+}
+
+.identity-login-field__label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.identity-login-field--following {
+  margin-top: 16px;
+}
+
+.identity-login-field__shell {
+  display: flex;
+  min-height: 50px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  align-items: center;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.identity-login-field__shell:focus-within {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  border-color: var(--ui-color-primary);
+  box-shadow: var(--ui-shadow-focus);
+}
+
+.identity-login-field__icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 9px;
+  flex: none;
+  opacity: 0.72;
+}
+
+.identity-login-field__control {
+  min-width: 0;
+  height: 48px;
+  padding: 0;
+  flex: 1;
+  color: var(--ui-color-text-primary);
+  background: transparent;
+  font-family: var(--ui-font-family-system);
+  font-size: var(--ui-font-size-md);
+}
+
+.identity-login-privacy {
+  display: block;
+  margin: 16px 8px 0;
+  color: var(--ui-color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.identity-login-build {
+  display: block;
+  margin-top: 18px;
+  overflow: hidden;
+  color: var(--ui-color-text-muted);
+  font-family: monospace;
+  font-size: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .identity-card__heading {
@@ -418,6 +537,14 @@ page {
     padding-left: 12px;
   }
 
+  .identity-page.is-login {
+    padding-top: 72px;
+  }
+
+  .identity-login-title {
+    font-size: 27px;
+  }
+
   .identity-title {
     font-size: 27px;
   }
@@ -425,5 +552,10 @@ page {
   .identity-card {
     padding-right: 15px;
     padding-left: 15px;
+  }
+
+  .identity-login-card {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 }

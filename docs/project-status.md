@@ -35,8 +35,10 @@
 
 ## 并行用户批次
 
-- 登录会话连续性设计 checkpoint `3eae93c2` 已推送并部署；用户已批准实施，当前 App singleton、
-  直达工作台和 Web 登录视觉仍为并行未提交内容，本批等待其 checkpoint 后才做头像登录集成。
+- 登录会话连续性已实现：App singleton 跨 bundle 共享 invalidation/generation/recovery，五条有效会话
+  路径 `reLaunch` 直达工作台，Web 对齐登录页保留微信快捷登录且不放访客入口。红绿定向、隔离
+  Mini 93/444、root 230/1,103、全端 build/typecheck、production verify/determinism/package/CI dry-run、
+  390/320 Storybook 与 core smoke 通过；checkpoint `fix(miniprogram): preserve session across login bundles` 待提交/推送/体验上传/生产同步。
 - 通知 Sheet/群组未读已实现：API 可选 `groupId`、Client Core、无业务依赖 `UiSheet`、
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`

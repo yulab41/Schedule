@@ -429,6 +429,7 @@ describe('P6-B Mini capability bootstrap and guards', () => {
       login,
       navigateBack: vi.fn(),
       navigateTo: vi.fn(),
+      reLaunch: vi.fn(),
       request,
     });
     await import('../src/pages/identity/index.ts');
@@ -442,8 +443,11 @@ describe('P6-B Mini capability bootstrap and guards', () => {
     await seedRuntimeCapabilities({ ...enabledCapabilities, core: false, global: false });
 
     const instances = definitions.map(createPageInstance);
+    const storedSession = storage.storage.get('schedule.wechat.session');
+    storage.storage.delete('schedule.wechat.session');
     definitions[0].onLoad.call(instances[0]);
     definitions[0].onShow.call(instances[0]);
+    storage.storage.set('schedule.wechat.session', storedSession);
     definitions[1].onLoad.call(instances[1], { ticket: 'binding-ticket' });
     definitions[1].onShow.call(instances[1]);
     definitions[2].onLoad.call(instances[2]);

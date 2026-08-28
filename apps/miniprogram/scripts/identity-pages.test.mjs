@@ -43,21 +43,31 @@ describe('P3 native identity pages', () => {
     expect(source).toContain('handleChoosePassword');
     expect(source).toContain('handleChooseRegister');
     expect(template).not.toContain('公开注册');
+    expect(template).not.toContain('身份已确认');
+    expect(source).not.toContain("mode: 'authenticated'");
   });
 
-  it('offers Web-equivalent password login beside the WeChat quick-login entry', () => {
+  it('uses the approved Web login structure with WeChat below the divider', () => {
     const template = readSource('pages/identity/index.wxml');
     const source = readSource('pages/identity/index.ts');
     const client = readSource('platform/wechat-identity.ts');
 
-    expect(template).toContain('账号密码登录');
+    expect(template).toContain('清楚掌握每一次值班');
+    expect(template).toContain('进入工作台');
     expect(template).toContain('微信快捷登录');
-    expect(template).toContain('切换登录方式');
+    expect(template).toContain('/assets/icons/web-profile.svg');
+    expect(template).toContain('/assets/icons/web-lock.svg');
+    expect(template).toContain('aria-label="账号"');
+    expect(template).toContain('aria-label="密码"');
+    expect(template).toContain('bindconfirm="handlePasswordLogin"');
     expect(template).toContain('请输入密码');
+    expect(template).not.toContain('访客查看排班');
+    expect(template).not.toContain('账号由平台管理员预置，密码只用于建立当前登录会话。');
+    expect(template).not.toContain('使用账号密码登录后台，或用微信快速进入已绑定的成员账号。');
     expect(source).toContain('handlePasswordLogin');
-    expect(source).toContain('handleSwitchLogin');
-    expect(source).toContain('clearWechatSession(true)');
+    expect(source).not.toContain('handleSwitchLogin');
     expect(source).toContain('loginWithPassword');
+    expect(source).toContain('wx.reLaunch');
     expect(client).toContain("'/auth/password/login'");
     expect(client).toContain('persistPasswordSession');
   });

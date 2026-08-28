@@ -1433,6 +1433,38 @@
 - 运行验证：Mini production verify 通过（2/2 Worklet、4,343,850 bytes、manifest `83591d359ebf44b553796f07fb8a2d5b08854c2e0610d155cf07fb2019a2dad6`），CI dry-run、包审计、任务 Prettier/ESLint、根 build/typecheck、根 Vitest 233 files/1,113 tests（37 files/352 tests 按环境跳过）、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需 `pnpm smoke:browser`。
 - checkpoint/体验/生产：代码 `79a0ae90` 已推送；`.49` 官方上传 165 code files/1,935,627 bytes/manifest `5f14df24870fd209252f5d0a6bc1efbbc34ccac7405e09d2e89548d8dd0b2f74`，未提审/正式发布。代码发布备份 `b7794f7f-4b4a-42c9-a7c8-cf4b01b9a92c` 后 hash-identical reuse 无停机切换；正式 ensure/verify `.49`、七维能力、未知版本 426 和带公网 IP full verifier 通过。最终状态发布备份为 `29442285-9d6e-446c-8b1c-5c4d20f46192`，checkpoint 识别消息为 `docs(status): record workbench navigation deployment`。
 
+## 2026-08-27 小程序跨 bundle 会话连续性与登录直达
+
+- 反馈与根因：用户确认在“我的”切换/退出后不重启，再登录 D0468 会显示“尚未登录”，冷启动
+  `admin` 不复现。生产只读核验确认两账号/profile/成员关系有效，两轮 password login 与随后
+  `/groups` 均为 HTTP 200，排除 API 401。`git log -S`/`git blame` 定位 bundle-local
+  `sessionInvalidated/sessionGeneration/sessionRecoveryPromise` 由 `9e3a966c` 引入，个人中心嵌入主导航
+  的可见回归入口为 `79a0ae90`，普通成功确认态来自 `e69cfb76/9e3a966c`。每入口 `bundle: true`
+  使 profile bundle 清理后的 invalidation 无法被 identity bundle 新登录复位。
+- 测试先行：跨 bundle 用例先明确得到“第二 bundle 已写入 D0468 会话、第一 bundle profile 仍为
+  `undefined`”；密码、微信 authenticated、密码绑定、首次建档及已有会话均因没有 `reLaunch`
+  先红；旧 WXML/Storybook 因确认页和旧登录结构先红。实现后登录定向 7 files/57 tests 全绿，
+  既有 P6 会话 12/12 与 capability 16/16 保持通过；在 Profile Task 4 父提交上组合重跑
+  11 files/81 tests、Mini typecheck 与登录黄金 5/5 继续通过。
+- 实现与语义审计：新增 App `globalData` 会话控制 singleton，只共享 invalidation、generation 和
+  进程内 recovery Promise，不放 token/profile/用户名；所有 bundle 通过 accessor 复用，启动前/测试
+  保留 fail-closed fallback。密码 401 仍不 `wx.login`，微信 401 仍单飞；物理删除失败、陈旧 token/
+  generation、跨 owner 私有缓存清理、Promise reject/catch、receiver 和请求次数不变。普通登录成功、
+  微信已绑定、密码绑定、首次建档与已有会话统一持久化后 `wx.reLaunch` 到工作台；失败保留新会话并
+  显示恢复说明，`link_required` 与管理员 URL Link 流程不变。
+- 视觉：`frontend-design` 依用户 Web 参考落地 52px 医疗蓝加号、标题、图标账号/密码字段、
+  “进入工作台”、“或”与微信快捷登录；删除红线文案、访客按钮、ICP、旧“排”标和身份确认页。
+  `ui-ux-pro-max` 核对可见标签、允许粘贴、loading/错误和触控尺寸；新增线性 lock SVG。Storybook
+  390/320 实测均无横溢，输入 48px、按钮 50px、控制台 warn/error=0；截图在
+  `runtime/smoke/login-session-continuity/login-390.png` 与 `login-320.png`。
+- 运行/浏览器验证：隔离 clean worktree 在构建 workspace packages 后 Mini 93 files/444 tests、root
+  Vitest 230 files/1,103 tests 通过（37 files/352 tests 按无数据库环境跳过）；全端 build/typecheck、
+  Mini production verify（2/2 Worklet、4,359,611 bytes、manifest `5c56902070b495d1e041e57e5ce0ff26a7f2ce76bd5fc90e12a6e89eb49d6cc5`）、
+  determinism、source/package audit、CI dry-run、Storybook build、任务 Prettier/ESLint/XML、
+  `git diff --check` 与 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，无需完整
+  `pnpm smoke:browser`；未启动或控制微信开发者工具。当前状态：`已实现并完成 Web 黄金复核 →
+  待 checkpoint/体验上传/实体 Android 复核`。
+
 ## 2026-08-28 小程序通讯录双页常驻与 Web 视觉对齐
 
 - 反馈与引入点：用户确认科室/人员切换会重载，导览、搜索、筛选层、结果卡、分割线和文字行距均未

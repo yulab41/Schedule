@@ -291,15 +291,25 @@ function advanceMiniFlow(): void {
       </div>
     </section>
 
-    <section v-else class="mini-shell" aria-label="小程序身份黄金稿">
-      <header class="mini-header">
+    <section
+      v-else
+      class="mini-shell"
+      :class="{ 'is-login': screen === 'mini-login' }"
+      aria-label="小程序身份黄金稿"
+    >
+      <div v-if="screen === 'mini-login'" class="mini-login-intro">
+        <div class="mini-login-brand-mark" aria-hidden="true"><span /><span /></div>
+        <h1>清楚掌握每一次值班</h1>
+      </div>
+
+      <header v-else class="mini-header">
         <div class="mini-brand">
           <span class="mini-brand-mark" aria-hidden="true">+</span><span>排班台</span>
         </div>
         <span class="mini-version">P3 身份安全</span>
       </header>
 
-      <div class="mini-progress" aria-label="身份流程进度">
+      <div v-if="screen !== 'mini-login'" class="mini-progress" aria-label="身份流程进度">
         <div class="progress-track">
           <span :style="{ width: `${miniStep === 1 ? 34 : 72}%` }" />
         </div>
@@ -310,45 +320,57 @@ function advanceMiniFlow(): void {
         </div>
       </div>
 
-      <div class="mini-heading">
+      <div v-if="screen !== 'mini-login'" class="mini-heading">
         <p class="eyebrow">
           {{
             screen === 'mini-admin-preview' || screen === 'mini-admin-confirm'
               ? '管理员绑定'
               : screen === 'mini-unbind'
                 ? '账号安全'
-              : '账号登录'
+                : '账号登录'
           }}
         </p>
         <h1>{{ miniTitle }}</h1>
         <p>{{ miniDescription }}</p>
       </div>
 
-      <section class="mini-card">
+      <section class="mini-card" :class="{ 'mini-login-card': screen === 'mini-login' }">
         <template v-if="screen === 'mini-login'">
-          <div class="wechat-orb" aria-hidden="true"><span>排</span></div>
-          <h2>账号密码登录</h2>
-          <p class="mini-card-copy">账号由平台管理员预置，密码只用于建立当前登录会话。</p>
-          <label class="mini-field"
-            ><span>账号</span><input value="d0796" autocomplete="username" readonly
-          /></label>
-          <label class="mini-field"
-            ><span>密码</span
-            ><input
-              value="preview-password"
-              type="password"
-              autocomplete="current-password"
-              readonly
-          /></label>
-          <button class="mini-primary" type="button" @click="showFeedback('预览状态：账号密码登录')">
-            账号密码登录
+          <label class="mini-login-field">
+            <span>账号</span>
+            <span class="mini-login-input-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4.5 21v-2a5 5 0 0 1 5-5h5a5 5 0 0 1 5 5v2" />
+              </svg>
+              <input autocomplete="username" placeholder="3-64 位字母、数字或 ._-" readonly />
+            </span>
+          </label>
+          <label class="mini-login-field">
+            <span>密码</span>
+            <span class="mini-login-input-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <rect x="5" y="10" width="14" height="11" rx="2" />
+                <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+              </svg>
+              <input
+                type="password"
+                autocomplete="current-password"
+                placeholder="请输入密码"
+                readonly
+              />
+            </span>
+          </label>
+          <button
+            class="mini-primary"
+            type="button"
+            @click="showFeedback('预览状态：将直接进入工作台')"
+          >
+            进入工作台
           </button>
           <div class="mini-divider" aria-hidden="true"><span /><b>或</b><span /></div>
           <button class="mini-secondary" type="button" @click="advanceMiniFlow">
             微信快捷登录
-          </button>
-          <button class="mini-secondary" type="button" @click="screen = 'mini-admin-preview'">
-            我有管理员绑定链接
           </button>
           <p v-if="feedback" class="preview-feedback" role="status">{{ feedback }}</p>
         </template>
@@ -469,9 +491,13 @@ function advanceMiniFlow(): void {
         </template>
       </section>
 
-      <p class="mini-privacy">
+      <p v-if="screen === 'mini-login'" class="mini-login-privacy">
+        账号只用于排班身份识别。联系信息仅对有权限的群组成员可见。
+      </p>
+      <p v-else class="mini-privacy">
         <span aria-hidden="true">⌁</span> 你的身份信息只用于进入有权限的排班群组
       </p>
+      <p v-if="screen === 'mini-login'" class="mini-login-version">P3 身份安全</p>
     </section>
   </main>
 </template>
@@ -1171,6 +1197,46 @@ code {
   background: var(--ui-color-background);
 }
 
+.mini-shell.is-login {
+  padding-top: 88px;
+  background:
+    radial-gradient(circle at 86% 8%, rgb(10 102 213 / 12%), transparent 29%),
+    var(--ui-color-background);
+}
+
+.mini-login-intro h1 {
+  max-width: 330px;
+  margin: 24px 0 0;
+  color: var(--p3-ink);
+  font-size: 30px;
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+}
+
+.mini-login-brand-mark {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  background: var(--p3-blue);
+  border-radius: 17px;
+  box-shadow: 0 12px 30px rgb(10 102 213 / 24%);
+}
+
+.mini-login-brand-mark span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 25px;
+  height: 7px;
+  background: var(--ui-color-white);
+  border-radius: var(--ui-radius-pill);
+  transform: translate(-50%, -50%);
+}
+
+.mini-login-brand-mark span:last-child {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
 .mini-header,
 .mini-brand,
 .progress-steps,
@@ -1266,6 +1332,81 @@ code {
   border: 1px solid var(--p3-line);
   border-radius: 20px;
   box-shadow: var(--ui-shadow-card);
+}
+
+.mini-login-card {
+  margin-top: 28px;
+  padding: 20px;
+}
+
+.mini-login-field {
+  display: grid;
+  gap: 7px;
+  color: var(--p3-muted);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.mini-login-field + .mini-login-field {
+  margin-top: 16px;
+}
+
+.mini-login-input-shell {
+  display: grid;
+  min-height: 50px;
+  padding: 0 14px;
+  grid-template-columns: 21px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: var(--p3-muted);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--p3-line);
+  border-radius: var(--ui-radius-medium);
+}
+
+.mini-login-input-shell:focus-within {
+  color: var(--p3-blue);
+  background: var(--ui-color-surface);
+  border-color: var(--p3-blue);
+  box-shadow: var(--ui-shadow-focus);
+}
+
+.mini-login-input-shell svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mini-login-input-shell input {
+  min-width: 0;
+  min-height: 48px;
+  padding: 0;
+  color: var(--p3-ink);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-regular);
+}
+
+.mini-login-privacy {
+  margin: 16px 8px 0;
+  color: var(--p3-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.mini-login-version {
+  margin: 18px 0 0;
+  color: var(--p3-faint);
+  font-family: monospace;
+  font-size: 10px;
+  text-align: center;
 }
 
 .mini-card h2 {
@@ -1533,6 +1674,14 @@ code {
     padding-left: 12px;
   }
 
+  .mini-shell.is-login {
+    padding-top: 72px;
+  }
+
+  .mini-login-intro h1 {
+    font-size: 27px;
+  }
+
   .mini-heading h1 {
     font-size: 27px;
   }
@@ -1540,6 +1689,11 @@ code {
   .mini-card {
     padding-right: 15px;
     padding-left: 15px;
+  }
+
+  .mini-login-card {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 
   .web-auth-card {
