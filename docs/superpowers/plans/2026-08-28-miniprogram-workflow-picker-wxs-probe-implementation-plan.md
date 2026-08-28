@@ -2,7 +2,7 @@
 
 - 日期：2026-08-28
 - 基线：`main@1dee8a34`
-- 状态：阶段 A 已实现并部署；`.63` 因微信代码上传 IPv4 白名单阻塞
+- 状态：阶段 A 已实现、上传并发布；待实体 Android 探针复核
 - 设计：[`../specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md`](../specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md)
 - 范围：仅 `UiWheelColumn + gesture-probe E`；生产 `workflow-picker` 保持 `.51` 语义
 - 复杂度：一项复杂手势任务

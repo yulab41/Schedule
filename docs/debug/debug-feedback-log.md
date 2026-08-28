@@ -31,9 +31,11 @@
 - checkpoint/生产：`57e10cdc` 已推送；备份 `1104ef32-0ad6-4b16-84e6-4341816826f1`（55 表/
   182,235 行/83,505,136 bytes/SHA `330e5cc9…42a4`）后 trusted reuse 无停机同步，allowlist verify、
   带公网 IP full verifier 与远端 temp 清理通过，production release 为 `57e10cdc`。
-- 体验阻塞：`.63@57e10cd` 两次完成 Summer 编译（182 code files、zip 约 2,340,875 bytes）后均被
-  微信 `-10008 invalid ip` 拒绝，未成版、未 allowlist，探针 API 保持 426。当前状态：`微信上传
-  阻塞 → 待用户新增代码上传 IPv4 后重试同一 checkpoint`；实体通过前不接入生产滚轮。
+- 体验/allowlist：`.63@57e10cd` 首两次完成 Summer 编译后被微信 `-10008 invalid ip` 拒绝；用户
+  新增当前出口白名单后，同一 clean 快照成功上传（182 code files、zip 2,340,879、upload manifest
+  `4130d76e…1295`）。正式 ensure/verify、七维 capability 全 true、未知版本 426 与带公网 IP full
+  verifier 通过。当前状态：`已完成（clean 自动验证、体验上传与生产发布）→ 待实体 Android 探针
+复核`；实体通过前不接入生产滚轮。
 
 ## 2026-08-27 Mini“我的”页 Web 对等与微信头像
 

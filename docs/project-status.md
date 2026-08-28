@@ -8,13 +8,12 @@
 - 分支：`main`；运行时代码 checkpoint 为
   `57e10cdceffe05699457e4776bb823f4f7835432`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.62@dffef1f`，178 code files，zip
-  `2,333,143` bytes，upload manifest `f6cd22018b046c8f015533fca3030f81b9d87aa23cbf1d5ff3bff2534cd843b0`。
-- `.59/.60/.61/.62` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.63@57e10cd`，182 code files，zip
+  `2,340,879` bytes，upload manifest `4130d76e2d7b7b5a0842e6e38b39413de741b9844da412a5039baeb48d711295`。
+- `.59/.60/.61/.62/.63` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
-- `.63@57e10cd` 两次 Summer 编译通过但均被微信代码上传 IPv4 白名单拒绝，未成版、未 allowlist；
-  必须在用户新增当前出口后重试同一 checkpoint。
+- `.63` 首两次上传因 IPv4 白名单拒绝；用户新增当前出口后，同一 `57e10cd` 快照重试成功。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
   `1104ef32-0ad6-4b16-84e6-4341816826f1`（55 表、182,235 行、83,505,136 bytes、
   SHA-256 `330e5cc925d325f05cd9bfae4aed720d1d93182cccdad82465826dbb054942a4`）。
@@ -65,7 +64,8 @@
 - 用户已确认 WXS 单引擎规格；`writing-plans` 不可用，已用仓库计划替代。本轮只做阶段 A。
 - 引入点为 WXS 黄点 `2b5f536c`、矩阵 WXS `c35b35b8`；新 `UiWheelColumn` 只用普通 view/WXS、
   runtimeKey/generation/sequence、单段吸附和 transform/opacity，probe E 直接复用真实候选。
-- 状态：`已实现、Git/origin/production 对齐 → 微信 .63 上传阻塞`；未 allowlist，待用户新增 IPv4。
+- 状态：`已完成（clean 自动验证、体验上传与生产发布）→ 待实体 Android 探针复核`；最终状态
+  checkpoint 识别消息为 `docs(status): record WXS probe experience deployment`。
 
 ## 已完成的发布基线与当前修复
 
@@ -239,9 +239,8 @@
 
 ## 下一步与停止条件
 
-1. 用户在微信公众平台代码上传 IP 白名单加入本轮返回的 IPv4，随后重试精确 `.63@57e10cd`。
-2. 上传成功后才 ensure/verify allowlist；再由用户执行 probe E 实体清单。
-3. 用户明确通过前，不修改生产 `workflow-picker`，不进入阶段 B；不提审或正式发布。
+1. 用户在 `.63` 的 gesture-probe E 完成慢速下→上、半格/吸附中反向、flick、点行、边界和重置。
+2. 用户明确通过前，不修改生产 `workflow-picker`，不进入阶段 B；不提审或正式发布。
 
-停止条件：当前 Git/origin/production 已对齐，`.63` 因外部 IP 白名单阻塞且保持 426；记录阻塞并
-等待用户操作，生产年月滚轮仍为 `.51` 语义，用户 dirty 文件保持未提交。
+停止条件已满足：Git/origin/production/`.63`/allowlist/full verifier 对齐，等待实体 Android；生产
+年月滚轮仍为 `.51` 语义，用户 dirty 文件保持未提交。
