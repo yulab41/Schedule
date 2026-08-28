@@ -50,11 +50,26 @@ describe('P6-A workbench runtime coordination', () => {
     });
 
     definition.handleDirectoryNav.call(instance);
-    expect(instance.data).toMatchObject({ activeWorkspace: 'directory', directoryMounted: true });
+    expect(instance.data.activeWorkspace).toBe('directory');
+    expect(instance.data).not.toHaveProperty('directoryMounted');
     definition.handleProfileNav.call(instance);
-    expect(instance.data).toMatchObject({ activeWorkspace: 'profile', profileMounted: true });
+    expect(instance.data.activeWorkspace).toBe('profile');
+    expect(instance.data).not.toHaveProperty('profileMounted');
+    definition.handleDirectoryPanelReady.call(instance);
+    definition.handleProfilePanelReady.call(instance);
+    expect(instance.data).toMatchObject({
+      directoryPanelReady: true,
+      profilePanelReady: true,
+    });
     definition.handleMoreNav.call(instance);
     expect(instance.data.activeWorkspace).toBe('more');
+
+    instance.data.currentGroupId = '';
+    definition.handleOpenTestCenter.call(instance);
+    expect(navigateTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ url: '/pages/gesture-probe/index' }),
+    );
+    instance.data.currentGroupId = 'group-1';
 
     definition.handleOpenGroupSettings.call(instance);
     expect(navigateTo).toHaveBeenLastCalledWith(

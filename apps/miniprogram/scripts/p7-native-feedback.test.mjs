@@ -34,8 +34,14 @@ describe('P7 physical-device feedback regressions', () => {
     expect(template).toContain('hidden="{{activeWorkspace !== \'profile\'}}"');
     expect(template).not.toContain('<workflow-leave-panel');
     expect(template).not.toContain('<workflow-duty-panel');
-    expect(controller).toContain('directoryMounted: false');
-    expect(controller).toContain('profileMounted: false');
+    expect(controller).not.toContain('directoryMounted');
+    expect(controller).not.toContain('profileMounted');
+    expect(controller).toContain('directoryPanelReady: false');
+    expect(controller).toContain('profilePanelReady: false');
+    expect(template).not.toContain('wx:if="{{directoryMounted}}"');
+    expect(template).not.toContain('wx:if="{{profileMounted}}"');
+    expect(template).toContain('bind:panelready="handleDirectoryPanelReady"');
+    expect(template).toContain('bind:panelready="handleProfilePanelReady"');
     expect(controller).toContain('workflowPanelsMounted: false');
     expect(controller).toContain('workflowPanelsMounted: toolAccess.leave');
     expect(controller).toMatch(

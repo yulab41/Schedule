@@ -33,7 +33,11 @@ describe('Mini Profile Web 1:1 native contract', () => {
     expect(styles).toContain('.profile-next-duty');
     expect(styles).toContain('linear-gradient(145deg, #183552, #10263e)');
     expect(styles).toContain('.profile-stat-list');
-    expect(styles).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(styles).toMatch(/\.profile-stat-list\s*\{[^}]*display:\s*flex;/su);
+    expect(styles).toMatch(/\.profile-stat\s*\{[^}]*flex:\s*1;/su);
+    expect(styles).toMatch(
+      /\.is-large-text \.profile-stat-list\s*\{[^}]*flex-direction:\s*column;/su,
+    );
     expect(styles).toContain('.is-large-text');
     expect(styles).toContain('min-height: 44px');
     expect(styles).toContain('calc(96px + env(safe-area-inset-bottom))');

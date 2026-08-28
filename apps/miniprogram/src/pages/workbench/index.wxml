@@ -661,15 +661,19 @@
   </scroll-view>
 
   <view
-    wx:if="{{directoryMounted}}"
     class="embedded-workspace"
     style="--workspace-top:{{shellHeaderHeight}}px"
     hidden="{{activeWorkspace !== 'directory'}}"
   >
+    <view wx:if="{{!directoryPanelReady}}" class="embedded-workspace-loading">
+      <ui-loading label="正在准备通讯录"></ui-loading>
+    </view>
     <directory-panel
       directory-kind="internal"
-      group-id="{{currentGroupId}}"
+      group-id="{{canOpenGroupSettings ? currentGroupId : ''}}"
       embedded="{{true}}"
+      hidden="{{!directoryPanelReady}}"
+      bind:panelready="handleDirectoryPanelReady"
     ></directory-panel>
   </view>
   <view
@@ -685,17 +689,21 @@
     ></workflow-swap-panel>
   </view>
   <view
-    wx:if="{{profileMounted}}"
     class="embedded-workspace"
     style="--workspace-top:{{shellHeaderHeight}}px"
     hidden="{{activeWorkspace !== 'profile'}}"
   >
+    <view wx:if="{{!profilePanelReady}}" class="embedded-workspace-loading">
+      <ui-loading label="正在准备个人中心"></ui-loading>
+    </view>
     <profile-panel
       embedded="{{true}}"
       group-id="{{currentGroupId}}"
       group-name="{{currentGroupName}}"
       group-role="{{currentGroupRoleKind}}"
       group-is-developer-admin="{{currentGroupIsDeveloperAdmin}}"
+      hidden="{{!profilePanelReady}}"
+      bind:panelready="handleProfilePanelReady"
       bind:openstatistics="handleProfileOpenStatistics"
       bind:opencalendar="handleCalendarNav"
     ></profile-panel>
@@ -704,6 +712,7 @@
     wx:if="{{activeWorkspace === 'more'}}"
     class="more-workspace"
     style="--workspace-top:{{shellHeaderHeight}}px"
+    type="list"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
@@ -725,7 +734,11 @@
           >
             <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
             <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.manualSchedule}}"
@@ -736,7 +749,11 @@
           >
             <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
             <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.backfill}}"
@@ -747,7 +764,11 @@
           >
             <image src="/assets/icons/web-history.svg" mode="aspectFit" />
             <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.leave}}"
@@ -758,7 +779,11 @@
           >
             <image src="/assets/icons/web-leave.svg" mode="aspectFit" />
             <view><text>请假</text><text>提交请假并处理待审批申请</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.duty}}"
@@ -769,7 +794,11 @@
           >
             <image src="/assets/icons/web-duty.svg" mode="aspectFit" />
             <view><text>加扣班</text><text>发起代值、加班或扣班调整</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.schedulingConfig}}"
@@ -780,7 +809,11 @@
           >
             <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
             <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
         </view>
       </view>
@@ -797,7 +830,11 @@
           >
             <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
             <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.notificationSettings}}"
@@ -808,7 +845,11 @@
           >
             <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
             <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.notifications}}"
@@ -819,7 +860,11 @@
           >
             <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
             <view><text>通知中心</text><text>查看排班、请假与换班提醒</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.exports}}"
@@ -830,7 +875,11 @@
           >
             <image src="/assets/icons/web-history.svg" mode="aspectFit" />
             <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
         </view>
       </view>
@@ -847,7 +896,11 @@
           >
             <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
             <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.visitorAccess}}"
@@ -858,7 +911,11 @@
           >
             <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
             <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
           <view
             wx:if="{{toolAccess.platformAccounts}}"
@@ -869,11 +926,34 @@
           >
             <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
             <view><text>平台账号</text><text>仅平台管理员可分配用户名与绑定链接</text></view>
-            <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
           </view>
         </view>
       </view>
-      <view wx:if="{{!toolAccess.hasAny}}" class="state-card">
+      <view wx:if="{{testCenterEnabled}}" class="more-section">
+        <text class="more-section-title">测试与诊断</text>
+        <view class="more-card">
+          <view
+            class="more-item"
+            hover-class="is-pressed"
+            aria-role="button"
+            bindtap="handleOpenTestCenter"
+          >
+            <image src="/assets/icons/web-more-secondary.svg" mode="aspectFit" />
+            <view><text>测试中心</text><text>集中验证滚轮、手势与后续真机能力</text></view>
+            <image
+              class="more-chevron"
+              src="/assets/icons/web-chevron-right.svg"
+              mode="aspectFit"
+            />
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{!toolAccess.hasAny && !testCenterEnabled}}" class="state-card">
         <text class="state-title">当前身份暂无可用的更多工具</text>
         <text class="state-description">你仍可继续查看当前群组日历。</text>
         <view
@@ -1078,7 +1158,10 @@
       aria-role="button"
       bindtap="handleDirectoryNav"
       ><view class="nav-icon nav-directory"
-        ><image class="nav-icon-image" src="/assets/icons/web-directory.svg" mode="aspectFit" /></view
+        ><image
+          class="nav-icon-image"
+          src="/assets/icons/web-directory.svg"
+          mode="aspectFit" /></view
       ><text>通讯录</text></view
     >
     <view

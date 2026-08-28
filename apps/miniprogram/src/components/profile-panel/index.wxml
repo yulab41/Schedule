@@ -1,4 +1,4 @@
-<scroll-view class="profile-scroll" scroll-y show-scrollbar="{{false}}">
+<scroll-view class="profile-scroll" type="list" scroll-y show-scrollbar="{{false}}">
   <view class="profile-page {{embedded ? 'is-embedded' : ''}} {{largeText ? 'is-large-text' : ''}}">
     <view class="profile-heading">
       <view class="profile-heading-main">
@@ -65,10 +65,7 @@
           <view wx:if="{{overviewState === 'loading'}}" class="profile-overview-state">
             正在汇总个人值班数据…
           </view>
-          <view
-            wx:elif="{{overviewState === 'error'}}"
-            class="profile-overview-state is-error"
-          >
+          <view wx:elif="{{overviewState === 'error'}}" class="profile-overview-state is-error">
             <text>{{overviewError}}</text>
             <button bindtap="handleOverviewRetry">重新加载</button>
           </view>
@@ -90,7 +87,8 @@
             <view class="profile-stat">
               <text>特殊日期</text>
               <view class="profile-stat-number"
-                ><text>{{specialDateCountLabel}}</text><text class="profile-stat-unit">次</text></view
+                ><text>{{specialDateCountLabel}}</text
+                ><text class="profile-stat-unit">次</text></view
               >
               <text class="profile-stat-note">本月周末与节假日班次</text>
             </view>
@@ -108,11 +106,12 @@
           <view wx:if="{{trend.length}}" class="profile-pulse-chart">
             <view wx:for="{{trend}}" wx:key="label" class="profile-pulse-column">
               <text>{{item.count}}</text>
-              <view
-                class="profile-pulse-bar {{item.current ? 'is-current' : ''}}"
-                style="{{item.heightStyle}}"
-                aria-hidden="true"
-              ></view>
+              <view class="profile-pulse-track" aria-hidden="true">
+                <view
+                  class="profile-pulse-bar {{item.current ? 'is-current' : ''}}"
+                  style="{{item.heightStyle}}"
+                ></view>
+              </view>
               <text>{{item.label}}</text>
             </view>
           </view>
@@ -136,9 +135,7 @@
               打开排班日历 <text aria-hidden="true">›</text>
             </button>
           </block>
-          <text wx:else class="profile-duty-empty">
-            当前月份与下个月没有查询到你的待值班次。
-          </text>
+          <text wx:else class="profile-duty-empty"> 当前月份与下个月没有查询到你的待值班次。 </text>
         </view>
       </block>
 

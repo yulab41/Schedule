@@ -13,5 +13,12 @@ Rules:
   entries.
 - Run the thin-page guard and all WXML-handler registration tests.
 
-Device status remains pending for the consolidated candidate; a local green build is not Android
-proof.
+The workbench's embedded directory/profile panels have a second boundary: mounting them only after
+a tap exposed an empty placeholder while Skyline injected the component. The current fix keeps both
+nodes in the initial Page tree, gates unauthorized directory group IDs to the empty value, reports a
+low-cardinality `panelready` event and shows a loading surface until the host is ready. Profile no
+longer uses a same-package placeholder; the cross-package directory placeholder remains required.
+
+The touched panels also replace unsupported Grid/sticky layout, remove the zero-height swiper, add
+typed scroll views and restore a definite standalone Profile Page height/leaf declaration. Automated
+guards pass; Android verification remains required because a local green build is not native proof.

@@ -7,4 +7,5 @@ export const buildInfo = Object.freeze({
   buildCommit,
   buildLabel: `${buildVersion}@${buildCommit}`,
   buildVersion,
+  testCenterEnabled: true,
 });

@@ -45,12 +45,13 @@
 }
 
 .profile-back {
-  display: grid;
+  display: flex;
   width: 44px;
   height: 44px;
   flex: none;
   margin-right: 4px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   border-radius: 14px;
 }
 
@@ -94,10 +95,11 @@
 
 .profile-heading-avatar,
 .profile-avatar {
-  display: grid;
+  display: flex;
   overflow: hidden;
   flex: none;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   color: var(--ui-color-white);
   background: linear-gradient(145deg, #2d88e4, #0a66d5);
   font-weight: var(--ui-font-weight-bold);
@@ -280,8 +282,7 @@
 }
 
 .profile-stat-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
   gap: 7px;
 }
 
@@ -290,6 +291,7 @@
   min-height: 108px;
   box-sizing: border-box;
   display: flex;
+  flex: 1;
   padding: 12px 9px;
   flex-direction: column;
   justify-content: space-between;
@@ -358,10 +360,9 @@
 .profile-pulse-chart {
   height: 154px;
   box-sizing: border-box;
-  display: grid;
+  display: flex;
   padding: 12px 4px 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: end;
+  align-items: stretch;
   gap: 12px;
   background:
     linear-gradient(var(--ui-color-border), var(--ui-color-border)) 0 35% / 100% 1px no-repeat,
@@ -370,9 +371,11 @@
 
 .profile-pulse-column {
   height: 100%;
-  display: grid;
-  grid-template-rows: 18px minmax(0, 1fr) 18px;
-  justify-items: center;
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
@@ -382,8 +385,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+.profile-pulse-track {
+  min-height: 0;
+  display: flex;
+  width: 100%;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+}
+
 .profile-pulse-bar {
-  width: min(30px, 70%);
+  width: 70%;
+  max-width: 30px;
   max-height: 100%;
   align-self: end;
   background: #c9d6e4;
@@ -397,8 +410,9 @@
 
 .profile-empty-insight {
   min-height: 154px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
   text-align: center;
@@ -581,10 +595,11 @@
 }
 
 .state-mark {
-  display: grid;
+  display: flex;
   width: 46px;
   height: 46px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   color: var(--ui-color-primary-dark);
   background: var(--ui-color-primary-light);
   border-radius: 50%;
@@ -698,10 +713,12 @@
 }
 
 .is-large-text .profile-stat-list {
-  grid-template-columns: 1fr;
+  flex-direction: column;
 }
 
 .is-large-text .profile-stat {
+  width: 100%;
+  flex: none;
   min-height: 118px;
   padding: 14px;
 }

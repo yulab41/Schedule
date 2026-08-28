@@ -22,6 +22,24 @@
   `docs/superpowers/specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`；本轮只做
   design checkpoint，功能实现须在用户复核书面规格后测试先行。checkpoint 识别消息为
   `docs(design): specify primary workspace preload and WXS release`。
+- Checkpoint A 红绿：旧树 workbench/运行/布局因 click-time mounted、无 ready/loading/Test Center、
+  23+7 处 Grid、directory `height:0`、缺 scroll type/Profile Page leaf 等稳定 9 红；实现后定向
+  8 files/55、Profile 等价补丁 3/3、Mini 105 files/509 全绿。旧 WXSS-only include 与 Grid 三列断言
+  分别改为“保留 import + Page 确定高度”和 flex 三列/大字号单列的等价契约，不以测试掩盖行为。
+- Checkpoint A 实现：directory/profile 从 Page 初始树静态挂载，点击只切 workspace；Component
+  `panelready` 后移除可读 loading。directory 对无权限角色传空 groupId，保持零后台请求；Profile
+  same-package placeholder 删除。测试中心由 `buildInfo.testCenterEnabled` 单开关控制，对所有登录账号
+  可见。两面板 Grid/sticky/零高 swiper 改为 Skyline flex/typed scroll/非零尺寸；独立 Profile Page
+  继续 static include/import 并补 leaf/高度。
+- Checkpoint A 语义审计：只把既有只读 Profile/通讯录预热提前到工作台已选群组之后；点击零新增
+  请求，访客 directory 零请求。API、Bearer、权限、缓存、离线、receiver、Promise/catch、空值、
+  业务写和完成/取消次数不变；测试中心只访问本地诊断页。
+- Checkpoint A 验证：任务 Prettier/ESLint、全端 build/typecheck、Mini verify/determinism/package/
+  CI dry-run、root 242 files/1,135 tests 与 core smoke 通过（37/355 按无数据库环境跳过）；Mini
+  production 2/2 Worklet、总包 5,093,596、main 1,618,697，manifest
+  `f88d57c9f079c5a7bd50af55a5405cb4560fc9fb593d8385a90a01c7d2b4b5a9`。主包只触发 1.5M
+  预警，低于 1.8M 阻断。checkpoint 识别消息为
+  `fix(miniprogram): preload primary workspaces on Skyline`。
 
 ## 2026-08-28 Mini 年月滚轮 WXS 单引擎设计
 

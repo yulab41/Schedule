@@ -58,11 +58,11 @@
 
 ## 当前活动批次
 
-- 用户已批准一级页面启动预挂载、Skyline flex/确定尺寸修复、所有账号可见“更多 → 测试中心”及
-  WXS 双列生产接入；规格为
-  `docs/superpowers/specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`。
-- 当前只做 brainstorming 强制 design checkpoint；checkpoint 识别消息为
-  `docs(design): specify primary workspace preload and WXS release`。用户复核书面规格后才写实施计划和代码。
+- Checkpoint A 已测试先行实现：directory/profile 启动静态预挂载、ready/loading、权限安全预热、
+  Skyline flex/typed scroll/非零 swiper、独立 Profile Page leaf/高度及所有账号可见测试中心。
+- 自动门禁：定向 8 files/55、Mini 105/509、root 242/1,135 通过（37/355 跳过）；全端
+  build/typecheck、verify/determinism/package/CI、任务格式/lint 与 core smoke 通过。checkpoint
+  识别消息为 `fix(miniprogram): preload primary workspaces on Skyline`，待提交/上传/部署。
 
 ## 已完成的发布基线与当前修复
 
@@ -77,7 +77,7 @@
 
 - 已把 directory、group-settings、scheduling-config、invite-visitor、platform-accounts、
   duty、leave、swap 八个薄壳改为直接 Page 注册并静态 include/import 原 WXML/WXSS。
-- 工作台现只嵌入 directory、profile 与 swap：directory/profile 首次进入后常驻 hidden；
+- 工作台现只嵌入 directory、profile 与 swap：directory/profile 从 Page 初始树预挂载并常驻 hidden；
   group-settings、leave、duty 改用独立 Page，相关不可达 component `index.js` 被回收。
 - profile Page 与 workbench component 共用 controller/WXML/WXSS，Page 仍为静态 include/import；
   directory Page 明确 `embedded=false`，工作台 component 为 `embedded=true`。
@@ -148,8 +148,8 @@
 - 本机通知 MySQL 集成用例因 Docker daemon/127.0.0.1:3307 未运行而阻塞；已增加无数据库
   SQL condition 回归并通过，双群组真实 MySQL 用例保留给可用 DB 环境。`pnpm smoke:browser`
   因 5173 无服务在第 1/6 步拒绝连接；`pnpm smoke:check-core` 通过。
-- Page/controller/handler/timer/实例隔离/薄壳/build-tools 定向：9 files / 48+ tests 通过；
-  workflow host 强化 7/7，organization WXML handler 全注册 16/16。
+- Page/controller/handler/timer/实例隔离/薄壳/build-tools 与新预挂载定向均通过；workflow host
+  强化 7/7，organization WXML handler 16/16，Checkpoint A 定向 8 files/55。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
 - `.50` UI-thread 滚轮自动回归曾 3 files / 25 tests 通过，但真机三项核心行为全部缺失，结果无效并已回滚。
 - WXS 探针先红 6+3 项；clean 定向 5 files/31、Mini 105/508、root 239/1,125 通过，37/355 跳过。
@@ -236,8 +236,7 @@
 
 ## 下一步与停止条件
 
-1. 提交、推送并部署本 design checkpoint，用户复核书面规格。
-2. 复核后先写红灯与实施计划，再分别完成一级页面/Test Center 和 WXS 阶段 B checkpoint。
+1. 显式提交/推送 Checkpoint A，从精确 clean commit 上传 `.64`，备份、部署、allowlist/full verify。
+2. 基于新 HEAD 写 Checkpoint B 红灯并把已真机通过的 `UiWheelColumn` 双列接入 production picker。
 
-当前停止于书面规格复核；不修改功能代码、不提审或正式发布。生产滚轮仍为 `.51` 语义，用户 dirty
-文件保持未提交。
+Checkpoint A 停止于发布同步；生产滚轮仍为 `.51` 语义。用户 dirty 文件保持未提交，不提审或正式发布。

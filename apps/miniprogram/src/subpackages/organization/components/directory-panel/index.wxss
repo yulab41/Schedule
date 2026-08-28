@@ -30,10 +30,11 @@
 }
 
 .header-back {
-  display: grid;
+  display: flex;
   width: 44px;
   height: 44px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   border-radius: 14px;
 }
 
@@ -55,19 +56,20 @@
 
 .directory-shell {
   display: flex;
+  width: 100%;
   min-height: 0;
+  overflow: hidden;
   flex-direction: column;
 }
 
 .mode-rail {
   position: relative;
   box-sizing: border-box;
-  display: grid;
+  display: flex;
   min-width: 0;
   min-height: 52px;
   margin: 10px 14px 12px;
   padding: 4px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
   background: rgba(224, 229, 236, 0.82);
   border: 1px solid rgba(203, 212, 223, 0.88);
@@ -101,6 +103,7 @@
   position: relative;
   z-index: 1;
   display: flex;
+  flex: 1;
   min-width: 0;
   min-height: 44px;
   padding: 0 16px;
@@ -135,18 +138,21 @@
 }
 
 .department-grid {
-  display: grid;
+  display: flex;
   width: 18px;
   height: 18px;
-  grid-template-columns: repeat(2, 6px);
-  grid-template-rows: repeat(2, 6px);
-  place-content: center;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
   gap: 2px;
   transform-origin: center;
 }
 
 .department-grid > view {
   box-sizing: border-box;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
   border: 1.6px solid currentColor;
   border-radius: 2px;
 }
@@ -210,9 +216,9 @@
 
 .directory-mode-swiper {
   width: 100%;
-  height: 0;
-  min-height: 0;
-  flex: 1;
+  height: auto;
+  min-height: 1px;
+  flex: 1 1 auto;
   overflow: hidden;
 }
 
@@ -229,9 +235,9 @@
 }
 
 .directory-content {
-  display: grid;
+  display: flex;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -310,12 +316,13 @@
 }
 
 .filter-count {
-  display: grid;
+  display: flex;
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
   box-sizing: border-box;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   color: #ffffff;
   background: var(--directory-accent);
   border-radius: 10px;
@@ -324,19 +331,20 @@
 }
 
 .wayfinding-ribbon {
-  display: grid;
+  display: flex;
   width: 100%;
   min-width: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .wayfinding-stop {
   box-sizing: border-box;
-  display: grid;
+  display: flex;
+  width: calc(50% - 3px);
+  flex: 0 0 calc(50% - 3px);
   min-width: 0;
   min-height: 48px;
-  grid-template-columns: 24px minmax(0, 1fr);
   padding: 5px 7px;
   align-items: center;
   gap: 6px;
@@ -353,10 +361,12 @@
 }
 
 .stop-index {
-  display: grid;
+  display: flex;
   width: 22px;
   height: 22px;
-  place-items: center;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
   color: #ffffff;
   background: var(--directory-accent);
   border-radius: 7px;
@@ -392,6 +402,7 @@
 .stop-copy {
   display: block;
   min-width: 0;
+  flex: 1;
 }
 
 .stop-copy text {
@@ -415,9 +426,8 @@
 
 .directory-search {
   box-sizing: border-box;
-  display: grid;
+  display: flex;
   min-height: 50px;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
   padding: 4px 7px 4px 16px;
   align-items: center;
   gap: 8px;
@@ -435,11 +445,13 @@
 .search-icon {
   width: 22px;
   height: 22px;
+  flex: 0 0 22px;
 }
 
 .search-input {
   min-width: 0;
   height: 44px;
+  flex: 1;
   padding: 0;
   color: var(--directory-text);
   font-size: 16px;
@@ -452,9 +464,11 @@
 }
 
 .search-clear {
-  display: grid;
+  display: flex;
   width: 44px;
-  place-items: center;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--ui-radius-small);
 }
 
@@ -464,8 +478,9 @@
 }
 
 .directory-error {
-  display: grid;
+  display: flex;
   padding: 18px;
+  flex-direction: column;
   gap: 12px;
   background: var(--directory-surface);
   border: 1px solid var(--directory-border);
@@ -473,7 +488,8 @@
 }
 
 .directory-error-copy {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 5px;
 }
 
@@ -489,7 +505,7 @@
 .retry-action,
 .empty-reset {
   display: flex;
-  width: max-content;
+  align-self: flex-start;
   padding: 0 16px;
   align-items: center;
   justify-content: center;
@@ -501,8 +517,9 @@
 }
 
 .directory-search-results {
-  display: grid;
+  display: flex;
   min-width: 0;
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -514,8 +531,9 @@
 }
 
 .directory-results {
-  display: grid;
+  display: flex;
   min-width: 0;
+  flex-direction: column;
   overflow: hidden;
   background: var(--directory-surface);
   border: 1px solid var(--directory-border);
@@ -524,12 +542,14 @@
 }
 
 .directory-priority {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .priority-section {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
@@ -552,8 +572,9 @@
 }
 
 .directory-skeleton {
-  display: grid;
+  display: flex;
   overflow: hidden;
+  flex-direction: column;
   gap: 1px;
   background: var(--directory-border);
   border: 1px solid var(--directory-border);
@@ -569,11 +590,12 @@
 .empty-card,
 .page-state-card {
   box-sizing: border-box;
-  display: grid;
+  display: flex;
   min-height: 240px;
   padding: 24px;
-  place-items: center;
-  align-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 9px;
   background: var(--directory-surface);
   border: 1px solid var(--directory-border);
@@ -588,10 +610,11 @@
 }
 
 .state-mark {
-  display: grid;
+  display: flex;
   width: 44px;
   height: 44px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   color: var(--directory-accent);
   background: var(--directory-accent-soft);
   border-radius: 50%;
@@ -613,6 +636,7 @@
 
 .empty-reset {
   margin-top: 5px;
+  align-self: center;
 }
 
 .load-more {
@@ -700,13 +724,12 @@
 }
 
 .sheet-reset-action {
-  position: sticky;
+  position: relative;
   z-index: 2;
   top: 0;
-  display: grid;
+  display: flex;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
   padding: 0 12px;
   align-items: center;
   gap: 8px;
@@ -720,6 +743,12 @@
 .sheet-reset-action image {
   width: 20px;
   height: 20px;
+  flex: 0 0 20px;
+}
+
+.sheet-reset-action > text:first-of-type {
+  min-width: 0;
+  flex: 1;
 }
 
 .sheet-reset-count {
@@ -733,9 +762,9 @@
 }
 
 .directory-filter-grid {
-  display: grid;
+  display: flex;
   margin-top: 8px;
-  grid-template-columns: minmax(0, 1fr);
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -755,8 +784,10 @@
 }
 
 .filter-section-copy {
-  display: grid;
+  display: flex;
   min-width: 0;
+  flex: 1;
+  flex-direction: column;
   gap: 1px;
   text-align: left;
 }
@@ -794,8 +825,9 @@
 }
 
 .filter-options {
-  display: grid;
+  display: flex;
   padding: 0 4px 4px;
+  flex-direction: column;
   gap: 3px;
 }
 
@@ -915,7 +947,12 @@
 }
 
 .is-large-text .wayfinding-ribbon {
-  grid-template-columns: minmax(0, 1fr);
+  flex-direction: column;
+}
+
+.is-large-text .wayfinding-stop {
+  width: 100%;
+  flex-basis: 100%;
 }
 
 .is-large-text .filter-open-action,

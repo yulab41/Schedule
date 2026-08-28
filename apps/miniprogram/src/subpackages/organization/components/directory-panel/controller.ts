@@ -166,6 +166,7 @@ interface DirectoryPageInstance {
   _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
   _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
+  triggerEvent?(name: 'panelready'): void;
 }
 
 interface ModeDataset {
@@ -255,15 +256,18 @@ export function createDirectoryPanelControllerDefinition() {
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
         const embedded = this.properties.embedded;
-        this.setData({
-          embedded,
-          largeText:
-            ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
-              16) >= 20,
-          shellContentStyle: embedded ? 'height:100%;' : `height:calc(100% - ${headerHeight}px);`,
-          shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-          viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-        });
+        this.setData(
+          {
+            embedded,
+            largeText:
+              ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
+                16) >= 20,
+            shellContentStyle: embedded ? 'height:100%;' : `height:calc(100% - ${headerHeight}px);`,
+            shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+            viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+          },
+          () => this.triggerEvent?.('panelready'),
+        );
         startLoad(this);
       },
       detached(this: DirectoryPageInstance): void {

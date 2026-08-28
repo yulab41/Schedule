@@ -1,7 +1,8 @@
 import { createProfilePanelControllerDefinition, type ProfileGroupInput } from './controller.js';
 
 const controller = createProfilePanelControllerDefinition(true);
-type ProfilePanelInstance = ThisParameterType<typeof controller.onLoad> & {
+type ProfilePanelControllerInstance = ThisParameterType<typeof controller.onLoad>;
+type ProfilePanelInstance = Omit<ProfilePanelControllerInstance, 'setData'> & {
   readonly properties: {
     readonly embedded: boolean;
     readonly groupId: string;
@@ -9,6 +10,10 @@ type ProfilePanelInstance = ThisParameterType<typeof controller.onLoad> & {
     readonly groupName: string;
     readonly groupRole: ProfileGroupInput['role'];
   };
+  setData(
+    patch: Parameters<ProfilePanelControllerInstance['setData']>[0],
+    callback?: () => void,
+  ): void;
 };
 
 Component({
@@ -28,7 +33,7 @@ Component({
   },
   lifetimes: {
     attached(this: ProfilePanelInstance): void {
-      this.setData({ embedded: this.properties.embedded });
+      this.setData({ embedded: this.properties.embedded }, () => this.triggerEvent?.('panelready'));
       controller.onLoad.call(this);
       controller.handleGroupChange.call(this, readGroup(this));
     },

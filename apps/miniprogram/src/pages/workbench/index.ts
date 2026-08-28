@@ -112,7 +112,7 @@ interface WorkbenchPageData {
   readonly currentGroupRole: string;
   readonly currentGroupRoleKind: GroupSummary['role'];
   readonly canReLogin: boolean;
-  readonly directoryMounted: boolean;
+  readonly directoryPanelReady: boolean;
   readonly errorMessage: string;
   readonly expandedDetailKey: string;
   readonly filterIconAnimating: boolean;
@@ -147,7 +147,7 @@ interface WorkbenchPageData {
   readonly periodSwiperDuration: number;
   readonly performanceEvidence: string;
   readonly profileAnimating: boolean;
-  readonly profileMounted: boolean;
+  readonly profilePanelReady: boolean;
   readonly scrollTarget: string;
   readonly shellActionsStyle: string;
   readonly shellHeaderHeight: number;
@@ -158,6 +158,7 @@ interface WorkbenchPageData {
   readonly selectedCountLabel: string;
   readonly calendarNavAnimating: boolean;
   readonly state: WorkbenchState;
+  readonly testCenterEnabled: boolean;
   readonly viewMode: WorkbenchView;
   readonly weekPanels: WorkbenchViewModel['weekPanels'];
   readonly weekStart: string;
@@ -222,7 +223,7 @@ Page({
     currentGroupRole: '',
     currentGroupRoleKind: 'member' as GroupSummary['role'],
     canReLogin: false,
-    directoryMounted: false,
+    directoryPanelReady: false,
     errorMessage: '',
     expandedDetailKey: '',
     filterIconAnimating: false,
@@ -257,7 +258,7 @@ Page({
     periodSwiperDuration: 260,
     performanceEvidence: '',
     profileAnimating: false,
-    profileMounted: false,
+    profilePanelReady: false,
     scrollTarget: '',
     shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
     shellHeaderHeight: 64,
@@ -268,6 +269,7 @@ Page({
     selectedCountLabel: '0 个班种',
     calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
+    testCenterEnabled: buildInfo.testCenterEnabled,
     viewMode: 'month' as const,
     weekPanels: [],
     weekStart: getWeekStartDate(today),
@@ -689,7 +691,6 @@ Page({
     }
     this.setData({
       activeWorkspace: 'directory',
-      directoryMounted: true,
       filterOpen: false,
       groupOpen: false,
       navMotion: '',
@@ -708,7 +709,6 @@ Page({
         filterOpen: false,
         groupOpen: false,
         profileAnimating: false,
-        profileMounted: true,
       },
       () => this.setData({ profileAnimating: true }),
     );
@@ -727,6 +727,14 @@ Page({
     }
     this.monthResources.clear();
     void loadWorkbench(this, { forceRefresh: true });
+  },
+
+  handleDirectoryPanelReady(this: WorkbenchPageInstance): void {
+    if (!this.data.directoryPanelReady) this.setData({ directoryPanelReady: true });
+  },
+
+  handleProfilePanelReady(this: WorkbenchPageInstance): void {
+    if (!this.data.profilePanelReady) this.setData({ profilePanelReady: true });
   },
 
   handleMoreNav(this: WorkbenchPageInstance): void {
@@ -802,6 +810,13 @@ Page({
 
   handleOpenExports(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, 'exports', '/subpackages/insights/pages/exports/index');
+  },
+
+  handleOpenTestCenter(this: WorkbenchPageInstance): void {
+    wx.navigateTo({
+      fail: () => announceToolNavigationFailure(this, '测试中心暂时无法打开，请稍后重试。'),
+      url: '/pages/gesture-probe/index',
+    });
   },
 
   handleNotification(this: WorkbenchPageInstance): void {

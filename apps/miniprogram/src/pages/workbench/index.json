@@ -4,13 +4,13 @@
     "directory-panel": "/subpackages/organization/components/directory-panel/index",
     "notifications-panel": "/subpackages/insights/components/notifications-panel/index",
     "profile-panel": "/components/profile-panel/index",
+    "ui-loading": "/components/ui/ui-loading/index",
     "ui-sheet": "/components/ui/ui-sheet/index",
     "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index"
   },
   "componentPlaceholder": {
     "directory-panel": "view",
     "notifications-panel": "view",
-    "profile-panel": "view",
     "workflow-swap-panel": "view"
   }
 }

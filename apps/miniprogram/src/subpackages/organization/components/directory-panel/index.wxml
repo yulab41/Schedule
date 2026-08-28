@@ -1,6 +1,7 @@
 <template name="directory-pane">
   <scroll-view
     class="directory-scroll"
+    type="list"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
@@ -241,6 +242,7 @@
       </view>
       <scroll-view
         class="sheet-scroll"
+        type="list"
         scroll-y
         enhanced
         show-scrollbar="{{false}}"

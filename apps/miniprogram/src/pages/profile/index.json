@@ -1,1 +1,8 @@
-{}
+{
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "ui-sheet": "/components/ui/ui-sheet/index"
+  }
+}

@@ -13,10 +13,11 @@ function read(relativePath) {
 describe('P10 profile RC plan', () => {
   it('locks the candidate and the manual stop condition', () => {
     const plan = read('docs/runbooks/p10-profile-rc.md');
-    expect(plan).toContain('0.1.0-p9.20260828.60');
+    expect(plan).toContain('0.1.0-p9.20260828.64');
     expect(plan).toContain('P10 个人中心 RC 通过');
     expect(plan).toContain('生产 `organization=true`');
     expect(plan).toContain('不提交审核或正式发布');
+    expect(plan).toContain('两次都不得白屏');
   });
 
   it('covers both authentication methods, safe exits and size states', () => {

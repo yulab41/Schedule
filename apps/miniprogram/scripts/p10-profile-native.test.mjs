@@ -14,7 +14,10 @@ describe('P10 native profile parity', () => {
   it('registers a direct profile page and embeds the same content in the workbench', () => {
     const app = JSON.parse(read('src/app.json'));
     const page = read('src/pages/profile/index.wxml');
+    const pageConfig = JSON.parse(read('src/pages/profile/index.json'));
+    const pageStyles = read('src/pages/profile/index.wxss');
     const panel = read('src/components/profile-panel/index.wxml');
+    const panelComponent = read('src/components/profile-panel/index.ts');
     const workbench = read('src/pages/workbench/index.ts');
 
     expect(app.pages).toContain('pages/profile/index');
@@ -24,6 +27,16 @@ describe('P10 native profile parity', () => {
     expect(panel).toContain('wx:if="{{!embedded}}"');
     expect(workbench).toContain('handleProfileNav');
     expect(workbench).toContain("activeWorkspace: 'profile'");
+    expect(pageConfig).toMatchObject({
+      disableScroll: true,
+      navigationStyle: 'custom',
+      renderer: 'skyline',
+      usingComponents: {
+        'ui-sheet': '/components/ui/ui-sheet/index',
+      },
+    });
+    expect(pageStyles).toMatch(/page\s*{[^}]*height:\s*100%;/s);
+    expect(panelComponent).toContain("triggerEvent?.('panelready')");
   });
 
   it('keeps profile data in the existing identity session and exposes safe exits', () => {
@@ -49,6 +62,7 @@ describe('P10 native profile parity', () => {
 
   it('covers authenticated, missing-session and large-text-safe layout copy', () => {
     const controller = read('src/components/profile-panel/controller.ts');
+    const template = read('src/components/profile-panel/index.wxml');
     const styles = read('src/components/profile-panel/index.wxss');
     expect(controller).toContain("mode: 'ready'");
     expect(controller).toContain("mode: 'missing'");
@@ -56,5 +70,9 @@ describe('P10 native profile parity', () => {
     expect(styles).toContain('.is-large-text');
     expect(styles).toContain('.is-large-text .profile-name');
     expect(styles).toContain('white-space: normal');
+    expect(styles).not.toContain('display: grid');
+    for (const scrollView of template.matchAll(/<scroll-view\b[\s\S]*?>/gu)) {
+      expect(scrollView[0]).toContain('type="list"');
+    }
   });
 });

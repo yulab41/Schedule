@@ -9,10 +9,12 @@ const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 describe('P10 directory RC plan', () => {
   it('pins the candidate version, route, capabilities and manual stop condition', () => {
     const plan = readFileSync(path.join(appRoot, 'docs/runbooks/p10-directory-rc.md'), 'utf8');
-    expect(plan).toContain('0.1.0-p9.20260828.55');
+    expect(plan).toContain('0.1.0-p9.20260828.64');
     expect(plan).toContain('organization=true');
     expect(plan).toContain('P10 通讯录实体 Android RC 验收');
     expect(plan).toContain('工作台底栏');
+    expect(plan).toContain('两次都不得出现白屏');
+    expect(plan).toContain('不得在后台发起通讯录请求');
     expect(plan).toContain('P10 通讯录 RC 通过');
   });
 

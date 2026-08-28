@@ -15,6 +15,9 @@ describe('P10 native directory parity', () => {
     const app = JSON.parse(read('src/app.json'));
     const page = read('src/subpackages/organization/pages/directory/index.wxml');
     const panel = read('src/subpackages/organization/components/directory-panel/index.wxml');
+    const panelController = read(
+      'src/subpackages/organization/components/directory-panel/controller.ts',
+    );
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
@@ -35,6 +38,7 @@ describe('P10 native directory parity', () => {
     expect(workbench).toContain('handleDirectoryNav');
     expect(workbench).toContain('<directory-panel');
     expect(workbench).not.toContain('院内通讯录');
+    expect(panelController).toContain("triggerEvent?.('panelready')");
   });
 
   it('uses the shared reader and stores only owner-scoped favorite/usage preferences', () => {
@@ -127,7 +131,13 @@ describe('P10 native directory parity', () => {
     expect(template).toContain('class="filter-section-toggle');
     expect(template).not.toContain('<text class="search-icon">⌕</text>');
 
-    expect(styles).toMatch(/\.wayfinding-ribbon\s*{[^}]*grid-template-columns:\s*repeat\(2,/s);
+    expect(styles).not.toContain('display: grid');
+    expect(styles).not.toMatch(/\.directory-mode-swiper\s*{[^}]*height:\s*0;/s);
+    expect(styles).toMatch(/\.directory-mode-swiper\s*{[^}]*flex:\s*1/s);
+    for (const scrollView of template.matchAll(/<scroll-view\b[\s\S]*?>/gu)) {
+      expect(scrollView[0]).toContain('type="list"');
+    }
+    expect(styles).toMatch(/\.wayfinding-ribbon\s*{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap/s);
     expect(styles).toContain('line-height: var(--ui-line-height-normal)');
     expect(styles).not.toContain('--ui-line-height-body');
     expect(styles).toMatch(
