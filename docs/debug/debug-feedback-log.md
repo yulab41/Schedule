@@ -1445,7 +1445,8 @@
   `undefined`”；密码、微信 authenticated、密码绑定、首次建档及已有会话均因没有 `reLaunch`
   先红；旧 WXML/Storybook 因确认页和旧登录结构先红。实现后登录定向 7 files/57 tests 全绿，
   既有 P6 会话 12/12 与 capability 16/16 保持通过；在 Profile Task 4 父提交上组合重跑
-  11 files/81 tests、Mini typecheck 与登录黄金 5/5 继续通过。
+  11 files/81 tests、Mini typecheck 与登录黄金 5/5 继续通过。`62e45eb7` clean Mini 首轮进一步暴露
+  P4 workbench 仍断言旧确认页；既有未提交测试 hunk 改为 `wx.reLaunch`/“进入工作台”契约后转绿。
 - 实现与语义审计：新增 App `globalData` 会话控制 singleton，只共享 invalidation、generation 和
   进程内 recovery Promise，不放 token/profile/用户名；所有 bundle 通过 accessor 复用，启动前/测试
   保留 fail-closed fallback。密码 401 仍不 `wx.login`，微信 401 仍单飞；物理删除失败、陈旧 token/

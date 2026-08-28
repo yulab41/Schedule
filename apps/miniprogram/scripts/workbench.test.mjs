@@ -22,9 +22,12 @@ describe('P4 native workbench', () => {
     const appJson = JSON.parse(readSource('app.json'));
     expect(appJson.pages).toContain('pages/workbench/index');
 
-    const identityPage = readSource('pages/identity/index.wxml');
-    expect(identityPage).toContain('url="/pages/workbench/index"');
-    expect(identityPage).toContain('进入排班台');
+    const identityPage = readSource('pages/identity/index.ts');
+    const identityTemplate = readSource('pages/identity/index.wxml');
+    expect(identityPage).toContain('wx.reLaunch');
+    expect(identityPage).toContain("url: '/pages/workbench/index'");
+    expect(identityTemplate).toContain('进入工作台');
+    expect(identityTemplate).not.toContain('身份已确认');
   });
 
   it('omits the Mini-only period and cache summary above the Web-matched controls', () => {
