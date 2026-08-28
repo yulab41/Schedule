@@ -62,8 +62,10 @@ describe('P7 native duty-adjustment workflow page', () => {
     expect(workbench).toContain('bindtap="handleOpenDuty"');
     expect(workbench).toContain('<text>加扣班</text>');
     expect(workbench.match(/\{\{workflowPanelsMounted \? '' : 'is-disabled'\}\}/gu)).toHaveLength(
-      3,
+      1,
     );
+    expect(workbench).toContain('wx:if="{{toolAccess.leave}}"');
+    expect(workbench).toContain('wx:if="{{toolAccess.duty}}"');
     expect(workbenchController).toContain("'/subpackages/workflows/pages/duty/index'");
     expect(workbenchController).toContain('navigateWorkflowTool');
     expect(leaveTemplate).toContain('bindtap="handleDutyNav"');

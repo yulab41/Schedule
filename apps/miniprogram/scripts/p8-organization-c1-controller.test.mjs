@@ -4,6 +4,7 @@ import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const membershipId = '22222222-2222-4222-8222-222222222222';
+const shiftTypeId = '33333333-3333-4333-8333-333333333333';
 let groupVersion = 1;
 
 describe('P8-C-1 native organization management controller', () => {
@@ -64,6 +65,14 @@ describe('P8-C-1 native organization management controller', () => {
           options.success({ data: [], statusCode: 200 });
           return;
         }
+        if (url.endsWith(`/groups/${groupId}/calendar-preferences`) && options.method === 'GET') {
+          options.success({ data: calendarPreferences(), statusCode: 200 });
+          return;
+        }
+        if (url.endsWith(`/groups/${groupId}/scheduling-config`) && options.method === 'GET') {
+          options.success({ data: schedulingConfig(), statusCode: 200 });
+          return;
+        }
         if (url.endsWith('/groups/claim') && options.method === 'POST') {
           options.success({
             data: { group: group({ id: 'group-join', name: '可加入群组' }), status: 'claimed' },
@@ -96,7 +105,7 @@ describe('P8-C-1 native organization management controller', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads member/contact/claim reads alongside the P5 consent state', async () => {
+  it('loads developer-admin member/contact/claim reads alongside the P5 consent state', async () => {
     const page = createPageInstance(definition);
     definition.onLoad.call(page, { groupId });
 
@@ -104,7 +113,10 @@ describe('P8-C-1 native organization management controller', () => {
 
     expect(page.data).toMatchObject({
       canManageGroup: true,
+      canManageGroupCalendarDefaults: true,
+      canManageGroupLifecycle: true,
       canManageMembers: true,
+      calendarPreferencesState: 'ready',
       currentGroupName: '头颈外科医生',
       memberCards: [
         expect.objectContaining({
@@ -115,7 +127,7 @@ describe('P8-C-1 native organization management controller', () => {
       ],
       organizationEnabled: true,
     });
-    expect(requests.filter((request) => request.method === 'GET')).toHaveLength(7);
+    expect(requests.filter((request) => request.method === 'GET')).toHaveLength(9);
   });
 
   it('uses one operation id in shared write headers and bodies for group name and roster writes', async () => {
@@ -196,6 +208,7 @@ function group(overrides = {}) {
   return {
     groupCode: '2608',
     id: groupId,
+    isDeveloperAdmin: true,
     name: '头颈外科医生',
     role: 'owner',
     version: groupVersion,
@@ -225,5 +238,44 @@ function consent() {
     membershipId,
     noticeVersion: 'v1',
     state: 'not-consented',
+  };
+}
+
+function calendarPreferences() {
+  return {
+    canManageGroupDefaults: true,
+    effectiveMonthShiftTypeId: shiftTypeId,
+    effectiveView: 'month',
+    groupDefaultMonthShiftTypeId: shiftTypeId,
+    groupDefaultView: 'month',
+    groupId,
+    memberDefaultMonthShiftTypeId: null,
+    memberDefaultView: null,
+    membershipId,
+  };
+}
+
+function schedulingConfig() {
+  return {
+    groupMembers: [{ membershipId, realName: '林医生' }],
+    roles: [],
+    rulesVersion: 1,
+    shiftTypes: [
+      {
+        abbreviation: '全',
+        color: '#1F5AA6',
+        configurationVersion: 1,
+        countsTowardStatistics: true,
+        crossesMidnight: false,
+        displayOrder: 1,
+        id: shiftTypeId,
+        isAllDay: true,
+        isBuiltIn: true,
+        isEnabled: true,
+        name: '全天班',
+        textColor: '#FFFFFF',
+        version: 1,
+      },
+    ],
   };
 }

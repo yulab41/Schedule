@@ -713,14 +713,14 @@
         <text>更多工具</text>
         <text>管理群组、排班、通知与访问工具。</text>
       </view>
-      <view class="more-section">
+      <view wx:if="{{toolAccess.groupSection}}" class="more-section">
         <text class="more-section-title">群组与排班</text>
         <view class="more-card">
           <view
-            class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.groupSettings}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canOpenGroupSettings}}"
             bindtap="handleOpenGroupSettings"
           >
             <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
@@ -728,10 +728,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.manualSchedule}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenManualSchedule"
           >
             <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
@@ -739,10 +739,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.backfill}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenBackfill"
           >
             <image src="/assets/icons/web-history.svg" mode="aspectFit" />
@@ -750,10 +750,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{workflowPanelsMounted ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.leave}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!workflowPanelsMounted}}"
             bindtap="handleOpenLeave"
           >
             <image src="/assets/icons/web-leave.svg" mode="aspectFit" />
@@ -761,10 +761,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{workflowPanelsMounted ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.duty}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!workflowPanelsMounted}}"
             bindtap="handleOpenDuty"
           >
             <image src="/assets/icons/web-duty.svg" mode="aspectFit" />
@@ -772,10 +772,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.schedulingConfig}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenSchedulingConfig"
           >
             <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
@@ -785,14 +785,14 @@
         </view>
       </view>
 
-      <view class="more-section">
+      <view wx:if="{{toolAccess.informationSection}}" class="more-section">
         <text class="more-section-title">信息与通知</text>
         <view class="more-card">
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.insights}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenInsights"
           >
             <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
@@ -800,10 +800,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.notificationSettings}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canOpenGroupSettings}}"
             bindtap="handleOpenNotificationSettings"
           >
             <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
@@ -811,10 +811,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.notifications}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenNotifications"
           >
             <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
@@ -822,10 +822,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.exports}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenExports"
           >
             <image src="/assets/icons/web-history.svg" mode="aspectFit" />
@@ -835,14 +835,14 @@
         </view>
       </view>
 
-      <view class="more-section">
+      <view wx:if="{{toolAccess.accessSection}}" class="more-section">
         <text class="more-section-title">访问与平台</text>
         <view class="more-card">
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.inviteVisitor}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenInviteVisitor"
           >
             <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
@@ -850,10 +850,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.visitorAccess}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenVisitorAccess"
           >
             <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
@@ -861,10 +861,10 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
           <view
-            class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+            wx:if="{{toolAccess.platformAccounts}}"
+            class="more-item"
             hover-class="is-pressed"
             aria-role="button"
-            aria-disabled="{{!canManageScheduleTools}}"
             bindtap="handleOpenPlatformAccounts"
           >
             <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
@@ -872,6 +872,17 @@
             <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
           </view>
         </view>
+      </view>
+      <view wx:if="{{!toolAccess.hasAny}}" class="state-card">
+        <text class="state-title">当前身份暂无可用的更多工具</text>
+        <text class="state-description">你仍可继续查看当前群组日历。</text>
+        <view
+          class="retry-action"
+          hover-class="is-pressed"
+          aria-role="button"
+          bindtap="handleCalendarNav"
+          >返回日历</view
+        >
       </view>
     </view>
   </scroll-view>

@@ -29,7 +29,8 @@ describe('P9 native notification settings', () => {
     expect(page).toContain('微信值班提醒');
     expect(page).toContain('订阅授权只在点击开启时请求');
     expect(workbench).toContain('handleOpenNotificationSettings');
-    expect(read('src/pages/workbench/index.ts')).toContain('allowMembers: true');
+    expect(workbench).toContain('wx:if="{{toolAccess.notificationSettings}}"');
+    expect(read('src/pages/workbench/index.ts')).toContain("'notificationSettings'");
   });
 
   it('uses externalMessages runtime clients and no persistence or automatic request', () => {

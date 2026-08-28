@@ -1527,3 +1527,29 @@
   `0bca1ef10f372696ecbcdfaeb77b6361737659cfc579a99f28df4d4f7e65cc1e`）；正式 ensure/verify、七维
   capability、未知版本 426 和带公网 IP full verifier 通过，本地上传进程及远端目录临时文件均已清。
   当前状态：`Git/origin/production/.59 已完成 → 待实体 Android 复核`；未提审、未正式发布。
+
+## 2026-08-28 小程序普通成员权限收口与日历偏好
+
+- 反馈与引入点：普通成员“更多”仍把事件/通知中心当管理工具禁用，同时渲染手动排班、补录、导出、
+  配置与访问平台等无权按钮；群组页又按 capability 而非角色展示创建/加入。`git log -S`/`git blame`
+  定位导航入口为 `79a0ae90`，宽泛 `canManageScheduleTools` 为 `bc32a4f1`，群组生命周期 UI 为
+  `70f9a98f`。另查明 `/claim-requests` 服务端只允许后台管理员，旧页面对全部角色并发读取会使普通
+  成员基础页整体失败。
+- 测试先行：新 client-core 测试先因 CalendarPreferencesClient 不存在失败；权限矩阵/UI/controller/
+  runtime 红灯分别证明成员六项不成立、disabled 管理项仍在无障碍树、创建/加入可调用、偏好缺失及
+  管理员切到成员后陈旧权限可绕过。实现后严格 decoder 3/3、权限/群组/工作台定向 7 files/31 tests，
+  最终 Mini 103 files/499 tests 全绿。
+- 实现与交互：新增无 UI 依赖逐工具矩阵，WXML 以 `wx:if` 隐藏入口和空分组，访客显示只读空态；
+  每次点击用当前群组与 capability 重算同一矩阵。普通成员精确保留群组管理、请假、加扣班、事件与
+  统计、通知设置、通知中心。群组页隐藏并守卫资料/生命周期/成员写入，保留退出、手机号公开和只读
+  成员联系方式；成员跳过 catalog/dissolved，非后台管理员跳过历史认领读取。
+- 日历偏好与语义审计：公共客户端严格解码既有三个端点，Mini 使用 `core`、Bearer、一次请求且不
+  缓存/重试/离线排队。页面并行读取 preferences 与现有 scheduling config，失败只落偏好卡；个人与
+  群组保存各一次 PUT，失败保留草稿，成功以响应整体刷新，`null` 跟随/自动选择不变。导航 receiver、
+  Promise/catch、空值、工作流写入次数和底部五项结构不变；新增副作用仅为偏好 GET/显式 PUT。
+- 验证与 checkpoint：基于 `1dee8a34` 的隔离工作树通过 Mini 103/499、root 239/1,125（37 files/
+  355 tests 无数据库跳过）、全端 build/typecheck、production verify/确定性/source/package/performance、
+  CI dry-run、任务代码 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core`；未触及 Web 核心链路，
+  无需 browser smoke。包体 5,067,668 bytes、main 1,593,819 bytes、2/2 Worklet，manifest
+  `ad3fd83686169748705b70faa690e420242cc47226b9ac93f56366390c593777`。checkpoint 识别消息为
+  `feat(miniprogram): enforce member tool permissions`，发布前保持“已实现并自动验证”。

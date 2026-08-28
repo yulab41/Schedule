@@ -37,7 +37,7 @@ describe('P7 physical-device feedback regressions', () => {
     expect(controller).toContain('directoryMounted: false');
     expect(controller).toContain('profileMounted: false');
     expect(controller).toContain('workflowPanelsMounted: false');
-    expect(controller).toContain('workflowPanelsMounted: shouldMountWorkflowPanels');
+    expect(controller).toContain('workflowPanelsMounted: toolAccess.leave');
     expect(controller).toMatch(
       /handleCalendarNav[\s\S]*activeWorkspace !== 'calendar'[\s\S]*activeWorkspace: 'calendar'/u,
     );
@@ -67,14 +67,13 @@ describe('P7 physical-device feedback regressions', () => {
     expect(template).toContain('bindtap="handleOpenGroupSettings"');
     expect(template).toContain('bindtap="handleOpenManualSchedule"');
     expect(template).toContain('bindtap="handleOpenBackfill"');
-    expect(template).toContain("more-item {{canManageScheduleTools ? '' : 'is-disabled'}}");
+    expect(template).toContain('wx:if="{{toolAccess.manualSchedule}}"');
+    expect(template).toContain('wx:if="{{toolAccess.groupSettings}}"');
     expect(template).not.toContain('<group-settings-panel');
     expect(template).not.toContain('hidden="{{activeWorkspace !== \'group\'}}"');
     expect(controller).toContain("'/subpackages/organization/pages/group-settings/index'");
     expect(pageJson.usingComponents['group-settings-panel']).toBeUndefined();
-    expect(controller).toMatch(
-      /canManageScheduleTools:\s*selectedGroup\.isDeveloperAdmin === true\s*\|\|\s*selectedGroup\.role === 'owner'\s*\|\|\s*selectedGroup\.role === 'administrator'/u,
-    );
+    expect(controller).toContain('canManageScheduleTools: toolAccess.manualSchedule');
     expect(controller).toContain('currentGroupRole: formatRole(selectedGroup)');
   });
 

@@ -453,12 +453,103 @@ page {
 }
 
 .group-mutation-card,
+.calendar-preferences-card,
 .member-management-card,
 .claim-management-card,
 .group-lifecycle-card,
 .group-exit-card,
 .dissolved-group-card {
   overflow: visible;
+}
+
+.calendar-preference-sections,
+.calendar-preference-section,
+.preference-error,
+.preference-heading > view {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.calendar-preference-sections,
+.preference-error {
+  gap: 12px;
+}
+
+.calendar-preference-section {
+  padding: var(--ui-spacing-md);
+  gap: 12px;
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.calendar-preference-section.is-personal {
+  border-color: var(--ui-color-primary-border);
+}
+
+.preference-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.preference-heading > view {
+  flex: 1;
+  gap: 3px;
+}
+
+.preference-heading > view > text:last-child {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.preference-title {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.preference-scope.is-group {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+}
+
+.calendar-view-segment {
+  display: flex;
+  padding: 4px;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+}
+
+.calendar-view-option {
+  display: flex;
+  min-width: 82px;
+  min-height: 44px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-secondary);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.calendar-view-option.is-active {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+}
+
+.calendar-view-option.is-pressed {
+  opacity: 0.82;
 }
 
 .card-scope,
@@ -777,6 +868,7 @@ page {
 .group-settings-page.is-large-text .card-subtitle,
 .group-settings-page.is-large-text .field-label,
 .group-settings-page.is-large-text .consent-title,
+.group-settings-page.is-large-text .preference-title,
 .group-settings-page.is-large-text .profile-name,
 .group-settings-page.is-large-text .phone-consent-copy > text:first-child,
 .group-settings-page.is-large-text .privacy-boundary,
@@ -784,7 +876,8 @@ page {
 .group-settings-page.is-large-text .inline-editor-heading,
 .group-settings-page.is-large-text .phone-confirm-toggle,
 .group-settings-page.is-large-text .inline-editor-copy,
-.group-settings-page.is-large-text .web-button {
+.group-settings-page.is-large-text .web-button,
+.group-settings-page.is-large-text .calendar-view-option {
   font-size: var(--ui-font-size-md);
   line-height: var(--ui-line-height-body);
 }
@@ -797,6 +890,7 @@ page {
 .group-settings-page.is-large-text .page-description,
 .group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name),
 .group-settings-page.is-large-text .phone-consent-copy > text:last-child,
+.group-settings-page.is-large-text .preference-heading > view > text:last-child,
 .group-settings-page.is-large-text .member-row-meta,
 .group-settings-page.is-large-text .member-contact-line,
 .group-settings-page.is-large-text .organization-capability-note,
@@ -830,6 +924,11 @@ page {
   flex-direction: column;
 }
 
+.group-settings-page.is-large-text .preference-heading {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
 .group-settings-page.is-large-text .preference-scope {
   align-self: flex-start;
   min-height: 32px;
@@ -856,7 +955,8 @@ page {
 
 .group-settings-page.is-large-text .native-field,
 .group-settings-page.is-large-text .native-picker,
-.group-settings-page.is-large-text .web-button {
+.group-settings-page.is-large-text .web-button,
+.group-settings-page.is-large-text .calendar-view-option {
   min-height: 52px;
 }
 

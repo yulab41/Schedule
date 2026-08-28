@@ -49,6 +49,11 @@ import {
   type WorkbenchFilters,
   type WorkbenchViewModel,
 } from '../../features/workbench/workbench-model.js';
+import {
+  createWorkbenchToolAccess,
+  type WorkbenchToolAccess,
+  type WorkbenchToolId,
+} from '../../features/workbench/workbench-tool-access.js';
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
@@ -160,6 +165,7 @@ interface WorkbenchPageData {
   readonly viewOptions: readonly WorkbenchView[];
   readonly workflowPanelsMounted: boolean;
   readonly workflowsEnabled: boolean;
+  readonly toolAccess: WorkbenchToolAccess;
 }
 
 interface WorkbenchPageInstance {
@@ -269,6 +275,7 @@ Page({
     viewOptions: ['month', 'week', 'list'],
     workflowPanelsMounted: false,
     workflowsEnabled: false,
+    toolAccess: createWorkbenchToolAccess(undefined, getClientCapabilitySnapshot()),
   } satisfies WorkbenchPageData,
 
   calendar: undefined,
@@ -308,7 +315,7 @@ Page({
     if (!isInitialShow) this._performanceProbe?.start('foreground-ready');
     void requireClientCapability('core')
       .then(() => {
-        syncWorkflowsCapability(this);
+        syncWorkbenchToolAccess(this);
         if (isInitialShow) return;
         return loadWorkbench(this, { forceRefresh: true });
       })
@@ -348,6 +355,7 @@ Page({
     const ownerId = getStoredWechatProfile()?.id;
     if (ownerId === undefined) return;
     const selectedGroup = this.data.groups.find((group) => group.id === groupId);
+    const toolAccess = createWorkbenchToolAccess(selectedGroup, getClientCapabilitySnapshot());
     const activeWorkspace =
       selectedGroup?.role === 'guest' &&
       (this.data.activeWorkspace === 'directory' || this.data.activeWorkspace === 'swap')
@@ -363,6 +371,8 @@ Page({
       activeWorkspace,
       activeFilterCount: 0,
       businessMonth: initialMonth,
+      canManageScheduleTools: toolAccess.manualSchedule,
+      canOpenGroupSettings: toolAccess.groupSettings,
       currentGroupId: groupId,
       filterMembershipIds: [],
       filterMemberSummary: '全部成员',
@@ -377,20 +387,20 @@ Page({
       notificationUnreadCount: 0,
       selectedDate: today,
       selectedLabel: formatDateLabel(today),
+      toolAccess,
       weekStart: getWeekStartDate(today),
+      workflowPanelsMounted: toolAccess.leave,
     });
     void refreshNotificationUnreadCount(this, groupId);
     void loadWorkbenchWithCapability(this);
   },
 
   handleOpenGroupSettings(this: WorkbenchPageInstance): void {
-    if (!this.data.canOpenGroupSettings) {
-      announceToolNavigationFailure(this, '当前群组无权打开群组管理。');
-      return;
-    }
-    navigateGroupTool(this, '/subpackages/organization/pages/group-settings/index', {
-      allowMembers: true,
-    });
+    navigateGroupTool(
+      this,
+      'groupSettings',
+      '/subpackages/organization/pages/group-settings/index',
+    );
   },
 
   handleViewChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -727,60 +737,71 @@ Page({
   },
 
   handleOpenManualSchedule(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/scheduling/pages/manual/index');
+    navigateGroupTool(this, 'manualSchedule', '/subpackages/scheduling/pages/manual/index');
   },
 
   handleOpenBackfill(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/scheduling/pages/backfill/index');
+    navigateGroupTool(this, 'backfill', '/subpackages/scheduling/pages/backfill/index');
   },
 
   handleOpenLeave(this: WorkbenchPageInstance): void {
-    void navigateWorkflowTool(this, '/subpackages/workflows/pages/leave/index');
+    void navigateWorkflowTool(this, 'leave', '/subpackages/workflows/pages/leave/index');
   },
 
   handleOpenDuty(this: WorkbenchPageInstance): void {
-    void navigateWorkflowTool(this, '/subpackages/workflows/pages/duty/index');
+    void navigateWorkflowTool(this, 'duty', '/subpackages/workflows/pages/duty/index');
   },
 
   handleOpenSchedulingConfig(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/organization/pages/scheduling-config/index');
+    navigateGroupTool(
+      this,
+      'schedulingConfig',
+      '/subpackages/organization/pages/scheduling-config/index',
+    );
   },
 
   handleOpenInviteVisitor(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/organization/pages/invite-visitor/index');
+    navigateGroupTool(
+      this,
+      'inviteVisitor',
+      '/subpackages/organization/pages/invite-visitor/index',
+    );
   },
 
   handleOpenPlatformAccounts(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/organization/pages/platform-accounts/index');
+    navigateGroupTool(
+      this,
+      'platformAccounts',
+      '/subpackages/organization/pages/platform-accounts/index',
+    );
   },
 
   handleOpenVisitorAccess(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/insights/pages/visitor-access/index');
+    navigateGroupTool(this, 'visitorAccess', '/subpackages/insights/pages/visitor-access/index');
   },
 
   handleOpenInsights(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/insights/pages/insights/index');
+    navigateGroupTool(this, 'insights', '/subpackages/insights/pages/insights/index');
   },
 
   handleProfileOpenStatistics(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/insights/pages/insights/index', {
-      allowMembers: true,
-    });
+    navigateGroupTool(this, 'insights', '/subpackages/insights/pages/insights/index');
   },
 
   handleOpenNotifications(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/insights/pages/notifications/index');
+    navigateGroupTool(this, 'notifications', '/subpackages/insights/pages/notifications/index');
   },
 
   handleOpenNotificationSettings(this: WorkbenchPageInstance): void {
-    if (!this.data.canOpenGroupSettings) return;
-    navigateGroupTool(this, '/subpackages/insights/pages/notification-settings/index', {
-      allowMembers: true,
-    });
+    navigateGroupTool(
+      this,
+      'notificationSettings',
+      '/subpackages/insights/pages/notification-settings/index',
+    );
   },
 
   handleOpenExports(this: WorkbenchPageInstance): void {
-    navigateGroupTool(this, '/subpackages/insights/pages/exports/index');
+    navigateGroupTool(this, 'exports', '/subpackages/insights/pages/exports/index');
   },
 
   handleNotification(this: WorkbenchPageInstance): void {
@@ -923,6 +944,7 @@ async function loadWorkbench(
         notificationUnreadCount: 0,
         state: 'empty',
         workflowPanelsMounted: false,
+        toolAccess: createWorkbenchToolAccess(undefined, getClientCapabilitySnapshot()),
       });
       return;
     }
@@ -930,7 +952,7 @@ async function loadWorkbench(
     const selectedGroup = groups.find((group) => group.id === storedGroupId) ?? groups[0];
     if (selectedGroup === undefined) return;
     const groupChanged = page.data.currentGroupId !== selectedGroup.id;
-    const shouldMountWorkflowPanels = page.data.workflowsEnabled && selectedGroup.role !== 'guest';
+    const toolAccess = createWorkbenchToolAccess(selectedGroup, getClientCapabilitySnapshot());
     if (groupChanged) {
       if (page.data.currentGroupId !== '') page.monthResources.clear();
       page.notificationRequestSerial += 1;
@@ -946,17 +968,15 @@ async function loadWorkbench(
       writeStoredWorkbenchGroupId(ownerId, selectedGroup.id);
     }
     page.setData({
-      canManageScheduleTools:
-        selectedGroup.isDeveloperAdmin === true ||
-        selectedGroup.role === 'owner' ||
-        selectedGroup.role === 'administrator',
-      canOpenGroupSettings: selectedGroup.role !== 'guest',
+      canManageScheduleTools: toolAccess.manualSchedule,
+      canOpenGroupSettings: toolAccess.groupSettings,
       currentGroupIsDeveloperAdmin: selectedGroup.isDeveloperAdmin === true,
       currentGroupName: selectedGroup.name,
       currentGroupRole: formatRole(selectedGroup),
       currentGroupRoleKind: selectedGroup.role,
       groups,
-      workflowPanelsMounted: shouldMountWorkflowPanels,
+      toolAccess,
+      workflowPanelsMounted: toolAccess.leave,
     });
 
     const requestedMonths = getRequestedMonths(
@@ -1062,7 +1082,7 @@ async function loadWorkbenchWithCapability(
 ): Promise<void> {
   try {
     await requireClientCapability('core');
-    syncWorkflowsCapability(page);
+    syncWorkbenchToolAccess(page);
     await loadWorkbench(page, options);
   } catch (error) {
     setWorkbenchCapabilityError(page, error);
@@ -1081,20 +1101,26 @@ function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown
     offlineNotice: '',
     state: 'error',
     workflowsEnabled: false,
+    toolAccess: createWorkbenchToolAccess(undefined, getClientCapabilitySnapshot()),
+    workflowPanelsMounted: false,
   });
 }
 
-function syncWorkflowsCapability(page: WorkbenchPageInstance): void {
+function syncWorkbenchToolAccess(page: WorkbenchPageInstance): WorkbenchToolAccess {
   const capability = getClientCapabilitySnapshot();
   const workflowsEnabled = capability.global && capability.workflows;
   const currentGroup = page.data.groups.find(
     (candidate) => candidate.id === page.data.currentGroupId,
   );
+  const toolAccess = createWorkbenchToolAccess(currentGroup, capability);
   page.setData({
-    workflowPanelsMounted:
-      workflowsEnabled && currentGroup !== undefined && currentGroup.role !== 'guest',
+    canManageScheduleTools: toolAccess.manualSchedule,
+    canOpenGroupSettings: toolAccess.groupSettings,
+    toolAccess,
+    workflowPanelsMounted: toolAccess.leave,
     workflowsEnabled,
   });
+  return toolAccess;
 }
 
 async function openWorkflowWorkspace(
@@ -1103,7 +1129,7 @@ async function openWorkflowWorkspace(
 ): Promise<void> {
   try {
     await requireClientCapability('workflows');
-    syncWorkflowsCapability(page);
+    syncWorkbenchToolAccess(page);
     const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
     if (group === undefined || group.role === 'guest') {
       page.setData({ announcement: '当前群组不能使用工作流功能。' });
@@ -1111,7 +1137,7 @@ async function openWorkflowWorkspace(
     }
     page.setData({ activeWorkspace: workspace, filterOpen: false, groupOpen: false });
   } catch (error) {
-    syncWorkflowsCapability(page);
+    syncWorkbenchToolAccess(page);
     page.setData({
       announcement:
         error instanceof ClientCapabilityDisabledError
@@ -1121,18 +1147,21 @@ async function openWorkflowWorkspace(
   }
 }
 
-async function navigateWorkflowTool(page: WorkbenchPageInstance, route: string): Promise<void> {
+async function navigateWorkflowTool(
+  page: WorkbenchPageInstance,
+  toolId: 'duty' | 'leave',
+  route: string,
+): Promise<void> {
   try {
     await requireClientCapability('workflows');
-    syncWorkflowsCapability(page);
-    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
-    if (group === undefined || group.role === 'guest') {
+    syncWorkbenchToolAccess(page);
+    if (!page.data.toolAccess[toolId]) {
       announceToolNavigationFailure(page, '当前群组不能使用工作流功能。');
       return;
     }
-    navigateGroupTool(page, route, { allowMembers: true });
+    navigateGroupTool(page, toolId, route);
   } catch (error) {
-    syncWorkflowsCapability(page);
+    syncWorkbenchToolAccess(page);
     announceToolNavigationFailure(
       page,
       error instanceof ClientCapabilityDisabledError
@@ -1144,14 +1173,15 @@ async function navigateWorkflowTool(page: WorkbenchPageInstance, route: string):
 
 function navigateGroupTool(
   page: WorkbenchPageInstance,
+  toolId: WorkbenchToolId,
   route: string,
-  options: { readonly allowMembers?: boolean } = {},
 ): void {
   if (page.data.currentGroupId === '') {
     announceToolNavigationFailure(page, '当前群组尚未准备好，请刷新后重试。');
     return;
   }
-  if (!options.allowMembers && !page.data.canManageScheduleTools) {
+  const toolAccess = syncWorkbenchToolAccess(page);
+  if (!toolAccess[toolId]) {
     announceToolNavigationFailure(page, '当前账号无权访问此工具。');
     return;
   }

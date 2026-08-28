@@ -51,7 +51,9 @@
   未知版本 426 与带公网 IP full verifier 均通过，当前只待实体 Android 复核。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
-  当前只落文档 checkpoint，随后以独立测试文件先冻结权限矩阵，不接管登录或通讯录测试 hunk。
+  Tasks 1–4 已在隔离工作树完成权限矩阵、双重导航守卫、只读群组页与 CalendarPreferencesClient；
+  不接管用户成员行修复或其他并行 hunk，代码 checkpoint 识别消息为
+  `feat(miniprogram): enforce member tool permissions`。
 - `.51@99006ba` 已完成 `.50` 前向回滚、自动验证、体验上传、生产同步和 allowlist；实体 Android
   “恢复 `.49` 表现”的确认可独立进行，不阻塞非滚轮代码设计。
 - 用户已批准年月滚轮改走“WXS 单一视图层引擎 → 独立真机探针 → 通过后生产接入”的新方向；
@@ -61,18 +63,12 @@
 
 ## 当前活动批次
 
-- 用户已批准把小程序“我的”页按 Web Production 1:1 重建，并增加真实的小程序身份状态与账号级
-  微信头像；不显示真实微信号，头像只在微信快捷登录时可选刷新。
-- 书面规格与计划为 `docs/superpowers/specs/2026-08-27-miniprogram-my-profile-web-parity-design.md`
-  和对应 `plans/` 文件；文档 checkpoint `bb52e47b` 已推送并部署。
-- 引入点：Web 个人值班聚合来自 `ebd1b19f`，Mini 常驻 Profile controller/workbench 入口来自
-  `79a0ae90`，微信快捷登录来自 `e69cfb76`，密码登录禁解绑来自 `75ec2c1d`。
-- Tasks 1–2 已以 `9e42057c`、`3c1b131a`、`6cf71152` 完成共享模型、头像/绑定 API 与 schema 52；
-  Task 3 `f858ae6d`/`9ac508ba` 已发布 `.53/.54`，完成私有头像缓存与 chooseAvatar 登录刷新。
-- Task 4 已测试先行完成 Web 1:1 controller/WXML/WXSS、成员请求降级、群组陈旧隔离、访客/无群组、
-  绑定/解绑、头像恢复、密码 proof 与统计/日历导航；checkpoint 识别消息为
-  `feat(miniprogram): match web profile experience`。`.60@353ec1b` 已从锁定快照上传，正式 allowlist、七维能力、
-  未知版本 426 与带公网 IP full verifier 通过，当前只待实体 Android 复核。
+- 当前批次只修改 Mini 与 `@schedule/client-core`：普通成员“更多”精确保留六项，管理入口从 WXML/
+  无障碍树移除并在点击时重算同一矩阵；群组页保留只读资料、退出、手机号公开和个人日历偏好。
+- 群主/管理员额外保留管理工具与群组默认偏好；平台账号仅后台管理员。成员不再读取 catalog/
+  dissolved，非后台管理员不再触发仅后台可读的历史认领请求。
+- 下一步精确暂存本批 hunk、提交推送并只读确认 `.62` 未占用；随后上传、备份、部署/可信复用、
+  allowlist 与公网 full verifier。停止在“待实体 Android 复核”，不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -145,6 +141,10 @@
   环境跳过）。全端 build/typecheck、production verify/determinism/source/package/performance/CI dry-run 与 core
   smoke 通过；总包 5,006,692 bytes、主包 1,579,433 bytes 仅触发 1.5M 预警且低于 1.8M 阻断线，
   manifest `45c97151fc82910951b44ecbb6aa7a0544f8b9f76b1b00a38336016ce188069e`。
+- 权限批次旧实现红灯覆盖缺失客户端、成员事件/通知误禁、管理项仍渲染、创建/加入可调用及偏好失败
+  隔离；实现后 Mini 103 files/499 tests、root 239 files/1,125 tests 通过（37 files/355 tests 按环境
+  跳过），全端 build/typecheck、任务代码 Prettier/ESLint、production verify/CI dry-run 与 core smoke 通过。
+  最终验证包 5,067,668 bytes、main 1,593,819 bytes、2/2 Worklet，manifest `ad3fd836…3777`。
 - 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
   7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
 - 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
@@ -234,13 +234,15 @@
 - 通讯录本批唯一请求变化为进入时科室/人员各一次 facets 与收藏索引轻量预热；未搜索/筛选不读取
   列表，模式切换零请求。每模式异步序号、偏好 owner/group/kind key、分页、号码可拨规则、收藏
   一次存储和拨号一次副作用不变；群组变化、卸载或 organization 失效同时作废两页。
+- 权限批次将 `canManageScheduleTools/allowMembers` 替换为逐工具纯矩阵；渲染、群组切换和点击均使用
+  当前角色/capability，拒绝路径零导航。新增偏好读取为一次 preferences + 一次现有 config GET，保存
+  各一次 PUT；Bearer、receiver、Promise/catch、严格解码与 `null` 跟随语义不变，无缓存/离线写队列。
 
 ## 下一步与停止条件
 
-1. 登录 `.61@353ec1b` 等待实体 Android 复核 D0468/admin、登录直达主页、“我的”资料和 390/320
-   登录布局；Profile `.60` 与通讯录 `.59` 按各自 RC 独立复核。
-2. 权限批次可在登录最终状态 checkpoint 推送并生产同步、共享索引释放后，取 `.61` 之后的下一
-   单调版本。
+1. 以 `feat(miniprogram): enforce member tool permissions` 精确提交并推送，复核下一未占用体验版本。
+2. 从 clean release worktree 上传该版本；生产备份后按哈希 full deploy 或 trusted reuse，再完成正式
+   allowlist、七维 capability、未知版本 426、公网 full verifier 与最终状态 checkpoint。
 
-停止条件：登录 Git/origin/production/`.61` 自动验收完成并转为“待实体 Android 复核”；权限批次
-使用后续单调版本。不得提交审核或正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。
+停止条件：权限 Git/origin/production/体验版本/allowlist 对齐并转为“待实体 Android 复核”；不得
+提交审核或正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。

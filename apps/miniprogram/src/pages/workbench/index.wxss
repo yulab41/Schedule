@@ -156,10 +156,6 @@ page {
   flex: none;
 }
 
-.more-item.is-disabled {
-  opacity: 0.5;
-}
-
 .workbench-content {
   padding: 18px 14px 92px;
   box-sizing: border-box;
