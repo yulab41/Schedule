@@ -40,6 +40,25 @@
   `f88d57c9f079c5a7bd50af55a5405cb4560fc9fb593d8385a90a01c7d2b4b5a9`。主包只触发 1.5M
   预警，低于 1.8M 阻断。checkpoint 识别消息为
   `fix(miniprogram): preload primary workspaces on Skyline`。
+- Checkpoint A 发布：`712aa4ee` 已推送；clean Mini 105/508、manifest `83539674…065a` 通过。
+  `.64@712aa4e` 官方上传 182 code files/zip 2,342,873/upload manifest `877a4820…f3c2`。生产备份
+  `1533ac3a-10ab-41c8-85b6-f342beae9752`（55 表/183,003 行/83,756,192 bytes/SHA
+  `4e4a6c9e…70c0`）后三层 cache hit/trusted reuse 到 `712aa4ee`；allowlist ensure/verify、七维
+  capability、unknown=426、带公网 IP full verifier 与远端清理通过。
+- Checkpoint B 红绿/实现：旧 production picker 因没有 `ui-wheel-column`、仍含两列 scroll/snap/
+  timer/逐帧 item owner、无 generation/runtime/sequence 边界稳定 8 红。现 month WXML 只组合两个
+  真机通过的 `UiWheelColumn`；父层独立 runtime key、generation 和 year/month sequence 拒绝陈旧
+  report，preview 更新 draft、settle 记摘要，confirm 一次 emit、cancel 零 emit。selector/date 不变；
+  多实例 key 独立，打开另一 picker 会关闭前者并使旧 generation 失效。
+- Checkpoint B 语义审计：旧 scrollTop/CSS snap/100ms+320ms timer/touch/scroll/scrollend/
+  animation owner/字体 item 重建全部删除；WXS 组件及运动参数零修改。receiver、同步/异步路径、
+  Promise/catch、空值、API/权限/幂等和业务写次数不变；业务 change 仍只由明确完成触发。
+- Checkpoint B 验证：WXS/integration/controller 定向 5 files/30、Mini 106/510、root 242/1,135
+  通过（37/355 跳过）；全端 build/typecheck、verify/determinism/package/CI、任务 format/lint 和 core
+  smoke 通过。Mini 总包 5,088,916、main 1,618,725、workflows 821,432，manifest
+  `093b6c2759590aef1220746dc040b8a1185dd3d8130499ac1cb5e8fd55f5b410`；WXS source/output SHA
+  均为 `f5fa4eaa…2e7c`。checkpoint 识别消息为
+  `fix(miniprogram): ship single-owner WXS month wheel`。
 
 ## 2026-08-28 Mini 年月滚轮 WXS 单引擎设计
 

@@ -5,18 +5,18 @@
 
 ## 仓库与生产基线（2026-08-28）
 
-- 分支：`main`；运行时代码 checkpoint 为
-  `57e10cdceffe05699457e4776bb823f4f7835432`。最终状态以“包含本文件的 Git HEAD”为
+- 分支：`main`；已部署应用前驱为
+  `712aa4ee2cb8fedec68593ba973dbf76a56df46b`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.63@57e10cd`，182 code files，zip
-  `2,340,879` bytes，upload manifest `4130d76e2d7b7b5a0842e6e38b39413de741b9844da412a5039baeb48d711295`。
-- `.59/.60/.61/.62/.63` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.64@712aa4e`，182 code files，zip
+  `2,342,873` bytes，upload manifest `877a4820f865aedf34a0fe91bf1662d1e94ba1a9a26474faa770ee2a9bd6f3c2`。
+- `.59/.60/.61/.62/.63/.64` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.63` 首两次上传因 IPv4 白名单拒绝；用户新增当前出口后，同一 `57e10cd` 快照重试成功。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `1104ef32-0ad6-4b16-84e6-4341816826f1`（55 表、182,235 行、83,505,136 bytes、
-  SHA-256 `330e5cc925d325f05cd9bfae4aed720d1d93182cccdad82465826dbb054942a4`）。
+  `1533ac3a-10ab-41c8-85b6-f342beae9752`（55 表、183,003 行、83,756,192 bytes、
+  SHA-256 `4e4a6c9e1ee59bf937342939b96b9a3a0ccebb297c881bcdad5bcbb1b73970c0`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -45,9 +45,8 @@
   嵌入通知面板、60s 当前群组轮询、红点与 390/320/大字号 Web 黄金均已完成。
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
   已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
-- 通讯录/Profile 实体 Android 复核发现工作台点击后白屏；无 Git 冲突且 directory controller 已
-  attached，根因为 click-time 空 placeholder 与 Skyline Grid/scroll/swiper 布局风险。引入点为
-  `79a0ae90/6b5b30fb/a50b423b`，用户已批准静态预挂载和原生布局修复。
+- 通讯录/Profile 白屏修复 `712aa4ee` 已推送、部署并上传 `.64`：启动静态预挂载、ready/loading、
+  权限安全预热与 Skyline flex/typed scroll/非零 swiper 均已完成，待实体 Android 业务页复核。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
   代码 `dffef1f2` 已推送并以备份后 trusted reuse 部署；`.62@dffef1f` 已上传、allowlist/full verifier
@@ -58,11 +57,11 @@
 
 ## 当前活动批次
 
-- Checkpoint A 已测试先行实现：directory/profile 启动静态预挂载、ready/loading、权限安全预热、
-  Skyline flex/typed scroll/非零 swiper、独立 Profile Page leaf/高度及所有账号可见测试中心。
-- 自动门禁：定向 8 files/55、Mini 105/509、root 242/1,135 通过（37/355 跳过）；全端
-  build/typecheck、verify/determinism/package/CI、任务格式/lint 与 core smoke 通过。checkpoint
-  识别消息为 `fix(miniprogram): preload primary workspaces on Skyline`，待提交/上传/部署。
+- Checkpoint B 已测试先行实现：production month picker 只组合两个已真机通过的
+  `UiWheelColumn`，旧 scroll/snap/timer/逐帧 setData owner 全删除；父层用 runtime/generation/
+  sequence 接受低频 preview/settle。定向 5 files/30、Mini 106/510、root 242/1,135 与全端门禁通过。
+- checkpoint 识别消息为 `fix(miniprogram): ship single-owner WXS month wheel`，目标体验版 `.65`，
+  待提交/推送/备份/部署/upload/allowlist/full verify。
 
 ## 已完成的发布基线与当前修复
 
@@ -236,7 +235,7 @@
 
 ## 下一步与停止条件
 
-1. 显式提交/推送 Checkpoint A，从精确 clean commit 上传 `.64`，备份、部署、allowlist/full verify。
-2. 基于新 HEAD 写 Checkpoint B 红灯并把已真机通过的 `UiWheelColumn` 双列接入 production picker。
+1. 显式提交/推送 Checkpoint B，从精确 clean commit 重验并上传 `.65`。
+2. 创建生产备份、部署、allowlist/full verify 后停止，等待 `.64` 页面与 `.65` 业务滚轮实体复核。
 
-Checkpoint A 停止于发布同步；生产滚轮仍为 `.51` 语义。用户 dirty 文件保持未提交，不提审或正式发布。
+Checkpoint B 停止于发布同步；用户 dirty 文件保持未提交，不提审或正式发布。

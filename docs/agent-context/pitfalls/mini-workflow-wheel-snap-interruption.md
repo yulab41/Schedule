@@ -42,3 +42,14 @@ Keep these invariants:
 
 Treat all future wheel fixes as architectural work. Automated Worklet compilation cannot substitute
 for native execution evidence.
+
+Phase B now composes two unchanged `UiWheelColumn` instances in the production month picker. The
+old scroll views, CSS snap, 100/320ms timers, scroll/touch handlers, animation owner and per-frame
+item reconstruction are absent from TS/WXML/WXSS. The parent accepts only the current runtime key,
+generation and increasing sequence, updates the month draft at preview boundaries and emits the
+business value only from explicit confirm; cancel invalidates the generation and emits nothing.
+
+Automated integration/controller/WXS/full Mini/root/build/package gates pass and source/output WXS
+SHA remains `f5fa4eaa14268d4775a811a002313215a92ace5483f0b00d99f85f3caece2e7c`.
+The state remains active until the `.65` business two-column picker passes the Android checklist;
+if it fails, use a forward revert to the `.51` runtime rather than adding another owner.

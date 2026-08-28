@@ -134,8 +134,9 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-grid"');
     expect(pickerTemplate).not.toContain('<picker-view');
-    expect(pickerTemplate).toContain('bindscroll="handleYearWheelScroll"');
-    expect(pickerTemplate).toContain('bindscroll="handleMonthWheelScroll"');
+    expect(pickerTemplate.match(/<ui-wheel-column/gu)).toHaveLength(2);
+    expect(pickerTemplate).not.toContain('bindscroll="handleYearWheelScroll"');
+    expect(pickerTemplate).not.toContain('bindscroll="handleMonthWheelScroll"');
     expect(pickerTemplate).toContain('class="workflow-picker-wheel-rails"');
     expect(pickerTemplate).toContain('class="workflow-picker-wheel-mask"');
     expect(pickerTemplate).toContain("item.isWeekend ? 'is-weekend' : ''");
@@ -158,6 +159,7 @@ describe('P7 physical-device feedback regressions', () => {
   it('removes long blue press fills and pre-mounts the leave form without transient copy', () => {
     const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
     const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const wheelStyles = read('components/ui/ui-wheel-column/index.wxss');
     const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
     const leaveStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
 
@@ -169,14 +171,10 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerStyles).not.toMatch(
       /\.workflow-picker-trigger\.is-pressed\s*\{[^}]*background:\s*var\(--ui-color-primary-light\)/su,
     );
-    expect(pickerTemplate).toContain("index === draftIndices[0] ? 'is-selected' : ''");
-    expect(pickerTemplate).toContain("index === draftIndices[1] ? 'is-selected' : ''");
-    expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-item\s*\{[^}]*font-size:\s*19px;[^}]*opacity:\s*0\.58/su,
-    );
-    expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-item\.is-selected\s*\{[^}]*font-size:\s*24px;[^}]*opacity:\s*1/su,
-    );
+    expect(pickerTemplate).toContain('selected-index="{{draftIndices[0]}}"');
+    expect(pickerTemplate).toContain('selected-index="{{draftIndices[1]}}"');
+    expect(wheelStyles).toMatch(/\.ui-wheel-item\s*\{[^}]*opacity:\s*0\.58;/su);
+    expect(wheelStyles).toMatch(/\.ui-wheel-number\s*\{[^}]*font-size:\s*24px;/su);
     expect(pickerStyles).toMatch(
       /\.workflow-picker-scrim\s*\{[^}]*background:\s*rgba\(22, 32, 42, 0\.18\)/su,
     );

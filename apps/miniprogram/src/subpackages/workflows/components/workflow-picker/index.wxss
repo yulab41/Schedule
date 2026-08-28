@@ -303,43 +303,9 @@
 .workflow-picker-wheel-column {
   position: relative;
   z-index: 2;
+  display: block;
   height: 188px;
   min-width: 0;
-  scroll-snap-type: y mandatory;
-  touch-action: pan-y;
-}
-
-.workflow-picker-wheel-spacer {
-  height: 72px;
-}
-
-.workflow-picker-wheel-item {
-  display: flex;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: #9aa4ae;
-  font-size: 19px;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.58;
-  scroll-snap-align: center;
-  transform: scale(0.94);
-}
-
-.workflow-picker-wheel-item.is-selected {
-  color: var(--ui-color-text-primary);
-  font-size: 24px;
-  font-weight: var(--ui-font-weight-semibold);
-  opacity: 1;
-  transform: scale(1);
-}
-
-.workflow-picker-unit {
-  color: currentColor;
-  font-size: 10px;
-  font-weight: var(--ui-font-weight-medium);
-  opacity: 0.72;
 }
 
 .workflow-picker-year-column {

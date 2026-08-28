@@ -113,4 +113,20 @@ describe('P7 workflow RC and production release contract', () => {
       expect(runbook).toContain(copy);
     }
   });
+
+  it('locks the target-Android-approved WXS engine to the .65 business wheel checklist', async () => {
+    const runbook = await readFile(RUNBOOK_URL, 'utf8');
+    for (const copy of [
+      '0.1.0-p9.20260828.65',
+      'UiWheelColumn + wheel-gesture.wxs',
+      '旧 scroll、CSS snap、逻辑层 timer',
+      '慢速下一格后立即上一格',
+      '吸附中反向',
+      '只产生一次 change',
+      '点击“取消”不得改变业务值',
+      'P7 WXS 业务滚轮通过',
+    ]) {
+      expect(runbook).toContain(copy);
+    }
+  });
 });

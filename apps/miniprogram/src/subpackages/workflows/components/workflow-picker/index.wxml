@@ -25,6 +25,7 @@
   <scroll-view
     wx:if="{{open && mode === 'selector'}}"
     class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}} {{popoverPlacementReady ? 'is-ready' : 'is-measuring'}}"
+    type="list"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
@@ -75,56 +76,32 @@
     </view>
 
     <view wx:if="{{mode === 'month'}}" class="workflow-picker-wheel">
-      <scroll-view
+      <ui-wheel-column
         class="workflow-picker-wheel-column workflow-picker-year-column"
-        scroll-y
-        enhanced
-        show-scrollbar="{{false}}"
-        scroll-top="{{yearWheelTop}}"
-        scroll-with-animation="{{wheelSnapAnimating}}"
-        bindtouchstart="handleYearWheelTouchStart"
-        bindtouchend="handleYearWheelTouchEnd"
-        bindtouchcancel="handleYearWheelTouchEnd"
-        bindscroll="handleYearWheelScroll"
-        bindscrollend="handleYearWheelScrollEnd"
-      >
-        <view class="workflow-picker-wheel-spacer"></view>
-        <view
-          wx:for="{{yearWheelItems}}"
-          wx:key="label"
-          class="workflow-picker-wheel-item {{index === draftIndices[0] ? 'is-selected' : ''}}"
-          data-index="{{index}}"
-          catchtap="handleYearWheelTap"
-          style="font-size:{{item.fontSize}}px;opacity:{{item.opacity}};transform:scale({{item.scale}})"
-          ><text>{{item.label}}</text><text class="workflow-picker-unit">{{item.unit}}</text></view
-        >
-        <view class="workflow-picker-wheel-spacer"></view>
-      </scroll-view>
-      <scroll-view
+        aria-label="年份滚轮"
+        items="{{yearWheelItems}}"
+        unit="年"
+        selected-index="{{draftIndices[0]}}"
+        runtime-key="{{yearWheelRuntimeKey}}"
+        generation="{{wheelGeneration}}"
+        command-revision="{{yearWheelCommandRevision}}"
+        animate-command="{{false}}"
+        bindpreviewchange="handleYearWheelPreview"
+        bindsettle="handleYearWheelSettled"
+      ></ui-wheel-column>
+      <ui-wheel-column
         class="workflow-picker-wheel-column workflow-picker-month-column"
-        scroll-y
-        enhanced
-        show-scrollbar="{{false}}"
-        scroll-top="{{monthWheelTop}}"
-        scroll-with-animation="{{wheelSnapAnimating}}"
-        bindtouchstart="handleMonthWheelTouchStart"
-        bindtouchend="handleMonthWheelTouchEnd"
-        bindtouchcancel="handleMonthWheelTouchEnd"
-        bindscroll="handleMonthWheelScroll"
-        bindscrollend="handleMonthWheelScrollEnd"
-      >
-        <view class="workflow-picker-wheel-spacer"></view>
-        <view
-          wx:for="{{monthWheelItems}}"
-          wx:key="label"
-          class="workflow-picker-wheel-item {{index === draftIndices[1] ? 'is-selected' : ''}}"
-          data-index="{{index}}"
-          catchtap="handleMonthWheelTap"
-          style="font-size:{{item.fontSize}}px;opacity:{{item.opacity}};transform:scale({{item.scale}})"
-          ><text>{{item.label}}</text><text class="workflow-picker-unit">{{item.unit}}</text></view
-        >
-        <view class="workflow-picker-wheel-spacer"></view>
-      </scroll-view>
+        aria-label="月份滚轮"
+        items="{{monthWheelItems}}"
+        unit="月"
+        selected-index="{{draftIndices[1]}}"
+        runtime-key="{{monthWheelRuntimeKey}}"
+        generation="{{wheelGeneration}}"
+        command-revision="{{monthWheelCommandRevision}}"
+        animate-command="{{false}}"
+        bindpreviewchange="handleMonthWheelPreview"
+        bindsettle="handleMonthWheelSettled"
+      ></ui-wheel-column>
       <view class="workflow-picker-wheel-rails"></view>
       <view class="workflow-picker-wheel-mask"></view>
     </view>

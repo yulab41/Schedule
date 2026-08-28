@@ -2,7 +2,7 @@
 
 - 日期：2026-08-28
 - 基线：`main@1cd4dc13`
-- 状态：Checkpoint A 自动门禁已通过；待 checkpoint/体验上传与生产同步
+- 状态：Checkpoint A 已发布；Checkpoint B 自动门禁已通过、待 checkpoint/`.65` 发布
 - 设计：[`../specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md`](../specs/2026-08-28-miniprogram-primary-workspaces-wheel-release-design.md)
 - WXS 依据：[`../specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md`](../specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md)
 - 复杂度：两个可独立回滚的 Mini 代码 checkpoint
