@@ -1481,8 +1481,8 @@
   `--ui-line-height-body` 由 `1de042b5` 引入。
 - 测试先行：新增双页预热/持久化、非活动页异步回写隔离和 Web 视觉静态契约，旧实现分别因没有
   `internalPane/employeePane`、切换使响应失效、没有 swiper/分割线/有效行高而 3 项先红；实现后
-  controller 14/14、目录视觉 5/5、卡片 simulate 1/1、Page/工作台边界与全 Mini 95 files/460
-  tests 通过。
+  controller 14/14、目录视觉 5/5、卡片 simulate 1/1、Page/工作台边界通过；独立 clean 快照提高
+  timeout 后完整 Mini 96 files/467 tests 通过。
 - 实现与视觉：同一直连 Page/controller 维护科室/人员两套运行态，并行只预热 facets 与收藏索引；
   固定切换器下使用两项原生 swiper，点击/横划不清空或重取，分别保留搜索、筛选、结果、分页和
   原生滚动位置。按 Web 重绘动效图标、两列导览、搜索清空、闲置/骨架/空态、92vh 折叠筛选层、
@@ -1494,7 +1494,18 @@
   每次收藏一次存储、每次拨号一次 `wx.makePhoneCall`、Promise/catch、空值和号码不落盘保持不变。
 - 运行验证：Mini production verify、determinism、source/package/performance audit、CI dry-run、
   全端 build/typecheck、Web 目录黄金 3 files/19 tests、任务 Prettier/ESLint、`git diff --check` 与
-  `pnpm smoke:check-core` 通过。root Vitest 最终 236 files/1,118 tests 通过（37 files/353 tests 按
-  环境跳过）；首轮在并行 profile 文件落盘时出现一次输入图竞态已随稳定重跑消失。未修改 Web 核心
-  链路，无需完整 browser smoke。
-  当前状态：`已实现并完成自动验证 → 待 checkpoint/.55 上传/生产同步/实体 Android 复核`。
+  `pnpm smoke:check-core` 通过。独立 clean root Vitest 238 files/1,122 tests 通过（37 files/355 tests
+  按环境跳过）；Mini verify 为 4,663,536 bytes、manifest
+  `0c4d85b90e8a937c5debcea3a4e71f9061dc26fe90034ce2a27641a8a78a87ae`。未修改 Web 核心链路，
+  无需完整 browser smoke。
+- checkpoint/生产：代码 `6b5b30fb` 已推送；备份 `20e69590-8e95-4d39-bec6-4b4dd8973ecf`
+  （55 表/181,534 行/83,275,044 bytes/SHA-256
+  `4e3c19c691cebaa5aa5c1406556eda6612e3396c07f8df1351db37edbbd6d31f`）后可信 reuse 到同一 release，
+  制品哈希相同且 API/Web 容器未重启；带公网 IP full verifier 与远端 temp 清理通过。后续并行状态
+  release 前进到 `23c01cb1`，通讯录制品哈希保持一致，未做回退。
+- 体验/allowlist：`.55-.58` 因共享快照污染、Summer 超时或微信 20003 IP 拒绝全部废弃且未
+  allowlist。用户加入直连 IPv4 后，从独立 clean `6b5b30fb` 快照成功上传
+  `0.1.0-p9.20260828.59`（175 code files/zip 2,181,605 bytes/upload manifest
+  `0bca1ef10f372696ecbcdfaeb77b6361737659cfc579a99f28df4d4f7e65cc1e`）；正式 ensure/verify、七维
+  capability、未知版本 426 和带公网 IP full verifier 通过，本地上传进程及远端目录临时文件均已清。
+  当前状态：`Git/origin/production/.59 已完成 → 待实体 Android 复核`；未提审、未正式发布。

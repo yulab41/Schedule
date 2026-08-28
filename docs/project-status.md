@@ -8,11 +8,11 @@
 - 分支：`main`；运行时代码 checkpoint 为
   `353ec1b927df25ac00ee3b9b81c9a327e4b1ef97`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.54@9ac508b`，175 code files，zip
-  `2,175,646` bytes，upload manifest `46a7e8639e47269203361cec2c4c756323612e730fa24b83085ff3694df2d83b`。
-- `.54` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单。global/core/
-  workflows/organization/insights/
-  externalMessages/guest 七维均为 `true`，未知版本返回 426。
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.59@6b5b30f`，175 code files，zip
+  `2,181,605` bytes，upload manifest `0bca1ef10f372696ecbcdfaeb77b6361737659cfc579a99f28df4d4f7e65cc1e`。
+- `.59` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+  污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
+  insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
   `167e3f10-a30b-433a-8e9f-932b877c9a17`（55 表、181,737 行、83,341,172 bytes、
   SHA-256 `486a17da14668fec76c71d8c20e1f0c2b2481707539e56072cdf124893834082`）。
@@ -45,8 +45,9 @@
   构建器已恢复重新可达的 `notifications-panel/index.js`；checkpoint `304d742f`
   已推送、完整部署，`.52` 体验上传和 allowlist/full verifier 通过，待实体 Android 复核。
 - 通讯录双页常驻与 Web 视觉对齐由本并行批次负责：科室/人员原生 swiper、独立状态、双 facets
-  轻量预热、折叠筛选层、结果卡分割线和有效行高已实现。checkpoint 识别消息为
-  `feat(miniprogram): preserve directory modes and match web`；`.55` 待提交/推送/生产同步与实体复核。
+  轻量预热、折叠筛选层、结果卡分割线和有效行高已实现。代码 `6b5b30fb` 已推送、备份并以
+  hash-identical reuse 部署；`.59@6b5b30f` 已从独立 immutable 快照上传，正式 allowlist、七维能力、
+  未知版本 426 与带公网 IP full verifier 均通过，当前只待实体 Android 复核。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
   当前只落文档 checkpoint，随后以独立测试文件先冻结权限矩阵，不接管登录或通讯录测试 hunk。
@@ -69,7 +70,7 @@
   Task 3 `f858ae6d`/`9ac508ba` 已发布 `.53/.54`，完成私有头像缓存与 chooseAvatar 登录刷新。
 - Task 4 已测试先行完成 Web 1:1 controller/WXML/WXSS、成员请求降级、群组陈旧隔离、访客/无群组、
   绑定/解绑、头像恢复、密码 proof 与统计/日历导航；checkpoint 识别消息为
-  `feat(miniprogram): match web profile experience`，目标体验版为 `.56`。
+  `feat(miniprogram): match web profile experience`，目标体验版顺延为 `.60`。
 
 ## 已完成的发布基线与当前修复
 
@@ -226,12 +227,12 @@
 
 ## 下一步与停止条件
 
-1. 用户在微信公众平台将当前代码上传公网 IPv4 `154.64.226.11` 加入 IP 白名单；`.55-.58` 永不
-   进入 production allowlist。
-2. 通讯录从 immutable `6b5b30fb` 快照上传 `.59` 并完成正式 allowlist/full verifier；Profile 锁定
-   `.60`，登录锁定 `.61`，三者不共享可变 release worktree。
-3. 登录从精确 `353ec1b9` 快照上传 `.61`，ensure/verify allowlist 后等待实体 Android
+1. 通讯录 `.59@6b5b30f` 等待实体 Android 复核双页首划无闪屏、滚动位置、快速反向切换、筛选层、
+   结果卡分割线与文字行距；不提交审核或正式发布。
+2. Profile 从独立快照上传 `.60`；登录从精确 `353ec1b9` 快照上传 `.61`，两者依次完成正式
+   allowlist/full verifier，不共享可变 release worktree。
+3. 登录 `.61` 完成后等待实体 Android
    复核 D0468/admin、登录直达主页、“我的”资料和 390/320 布局。
 
-停止条件：Git/origin/production release 已对齐；微信上传仅受外部 IP 白名单阻塞。不得提交审核或
-正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。
+停止条件：通讯录 Git/origin/production/`.59` 已完成并只待实体 Android 复核；其他并行批次继续使用
+独立快照和后续单调版本。不得提交审核或正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。
