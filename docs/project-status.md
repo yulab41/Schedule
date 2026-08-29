@@ -5,10 +5,9 @@
 
 ## 仓库与生产基线（2026-08-29）
 
-- 分支：`main`；Git/origin/production 代码 release 为
-  `4fe1b5e784e47e86b4b1d82494c20e3d2fcab3bc`。最终状态 checkpoint 以
-  `docs(status): record persistent workspace shell release` 识别并需再次同步 production。
-- 当前体验候选 `.66@4fe1b5e` 已上传并通过 allowlist/full verifier，等待实体复核；`.65`
+- 分支：`main`；Git/origin/production 最终状态 release 为
+  `b032edeee1c3fb8534c61ff2ff019361c469a75b`；`.66` 代码为 `4fe1b5e7`。
+- 当前体验候选 `.66@4fe1b5e` 已上传、通过 allowlist/full verifier 和用户实体复核；`.65`
   workbench 白屏，已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
@@ -57,16 +56,14 @@
 
 ## 当前活动批次
 
-- `.66` 代码已完成：单 Page 常驻 header/swiper/nav、五项固定索引、点击唯一状态源、串行
-  directory→profile→swap 预载、无权限原地说明、完整单生命周期 Profile workspace 与 F 区。
-- 默认 GPU DevTools 直开 workbench/Profile 成功；swiper 390×629。F 区真实 50 次切换：
-  Profile attached=1/request=1/duplicate-ready=0，无权限 directory/swap request=0；横拖注入仍 index 0。
-- Mini 107 files/517 tests、root 242/1,135 tests 通过（37/355 环境跳过）；全端 build/typecheck、
-  Mini verify/determinism/source/package/performance/CI、任务 lint/format、core smoke 通过。
-  总包 5,108,706、main 1,637,511、manifest `afc48b93…ed7d9`；WXS SHA 保持 `f5fa4eaa…2e7c`。
-- 代码 `4fe1b5e7` 已推送；三层 cache hit 后 trusted reuse 无停机部署。官方 `.66` 上传
-  184 files/2,352,364 bytes/manifest `acd1fd0e…b62c`，allowlist、七维能力、unknown=426、
-  公网 full verifier 与远端清理通过；未提审、未正式发布。`.67` 严格等待用户实体复核。
+- 用户已确认 `.66`，当前进入 `.67`：开放 native workspace swiper touch，点击继续即时切换，
+  首尾不循环；calendar month/week/list 与 directory mode 优先。
+- 采用 official handler + simultaneous tags + shared claim；Sheet/picker/menu/editing 使用 scoped lock，
+  程序 change 忽略，只有 source=touch 提交 workspace。核心位移不使用自定义 Worklet。
+- `.67` 规格/实施计划 checkpoint 以
+  `docs(design): specify primary workspace swipe negotiation` 识别；完成后才写红灯和代码。
+- 失败停止条件：任一 inner swiper、WXS picker、系统边缘或 Sheet 锁发生误切即保持 `.66` false，
+  不上传伪 `.67`；不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -240,7 +237,7 @@
 
 ## 下一步与停止条件
 
-1. 提交并推送最终状态 checkpoint，再以 hash-identical reuse 对齐 production release。
-2. 停止于用户实体复核；确认后才开始 `.67` 内层控件优先的横滑阶段。
+1. 提交/部署 `.67` 设计 checkpoint；随后测试先行实现 shared negotiation 与 scoped lock。
+2. 自动门禁通过后上传单调 `.67`，停止于 Android/iOS 实体复核。
 
-停止条件未满足：`.66` 尚未完成实体复核；用户 dirty 文件保持未提交，不提审或正式发布。
+停止条件未满足：`.67` 尚未实现与完成双端复核；用户 dirty 文件保持未提交，不提审或正式发布。

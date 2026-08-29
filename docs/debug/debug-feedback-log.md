@@ -15,6 +15,18 @@
 - 规格/计划：`2026-08-29-miniprogram-primary-workspace-shell-*`。本 checkpoint 仅落设计；代码必须
   测试先行并逐层 DevTools 复核。识别消息 `docs(design): specify persistent workspace shell`。
 
+## 2026-08-29 Mini 五入口 .67 原生横滑设计
+
+- 用户门槛：用户已确认 .66 符合预期并授权进入下一阶段；.67 继续保留五项点击替代、非循环、
+  内层横向控件优先和 Android/iOS 双端门槛。
+- 官方模式：outer/inner native swiper 以 horizontal-drag-gesture-handler、simultaneous tag 与 shared
+  claim 协商；核心位移不自定义。程序 change 只接受 source=touch，点击用 0ms，触摸吸附 240ms。
+- 锁范围：群组菜单、日历筛选、通知、directory filter、Profile 密码 Sheet 和 workflow picker 按
+  source/workspace 注册；非活动 workspace 锁不污染当前页，返回时恢复。
+- UI/UX 复核：内层交互和系统边缘优先；动画可取消，业务正确性不依赖 animationend；底栏始终可见。
+- 规格/计划：2026-08-29-miniprogram-primary-workspace-swipe-*；checkpoint 识别消息
+  docs(design): specify primary workspace swipe negotiation。
+
 ## 2026-08-29 Mini 五入口常驻外壳 .66 实现
 
 - 引入点/根因：git log -S/git blame 将互斥工作区定位到 bc32a4f1，初始双挂载与旧 Profile
