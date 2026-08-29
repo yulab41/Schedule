@@ -7,5 +7,6 @@ export const buildInfo = Object.freeze({
   buildCommit,
   buildLabel: `${buildVersion}@${buildCommit}`,
   buildVersion,
+  primaryWorkspaceSwipeEnabled: false,
   testCenterEnabled: true,
 });

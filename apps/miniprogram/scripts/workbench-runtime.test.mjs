@@ -51,10 +51,18 @@ describe('P6-A workbench runtime coordination', () => {
 
     definition.handleDirectoryNav.call(instance);
     expect(instance.data.activeWorkspace).toBe('directory');
+    expect(instance.data.activeWorkspaceIndex).toBe(1);
+    expect(instance.data.workspaceMounted.directory).toBe(true);
     expect(instance.data).not.toHaveProperty('directoryMounted');
     definition.handleProfileNav.call(instance);
     expect(instance.data.activeWorkspace).toBe('profile');
+    expect(instance.data.activeWorkspaceIndex).toBe(3);
+    expect(instance.data.workspaceMounted.profile).toBe(true);
     expect(instance.data).not.toHaveProperty('profileMounted');
+    definition.handleSwapNav.call(instance);
+    definition.handleWorkspaceSwiperChange.call(instance, { detail: { current: 1 } });
+    expect(instance.data.activeWorkspace).toBe('swap');
+    expect(instance.data.activeWorkspaceIndex).toBe(2);
     definition.handleDirectoryPanelReady.call(instance);
     definition.handleProfilePanelReady.call(instance);
     expect(instance.data).toMatchObject({
@@ -88,6 +96,97 @@ describe('P6-A workbench runtime coordination', () => {
       ),
     );
     expect(instance.data.activeWorkspace).toBe('more');
+  });
+
+  it('continues serial preload after an early-clicked workspace is already ready', async () => {
+    const storage = createStorage();
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/groups')) {
+        options.success({ data: [groupSummary()], statusCode: 200 });
+        return;
+      }
+      const month = readBusinessMonth(options.url);
+      options.success({
+        data: month === undefined ? holidayApiGoldenResponse : calendar(month),
+        statusCode: 200,
+      });
+    });
+    vi.stubGlobal('wx', createWx(storage, request));
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+
+    definition.onLoad.call(instance);
+    definition.onShow.call(instance);
+    definition.handleDirectoryNav.call(instance);
+    definition.handleDirectoryPanelReady.call(instance);
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+
+    expect(instance.data.workspaceReady).toMatchObject({ calendar: true, directory: true });
+    expect(instance.data.workspacePreloadQueue).toEqual(['profile', 'swap']);
+    expect(instance.data.workspaceMounted).toMatchObject({
+      directory: true,
+      profile: true,
+      swap: false,
+    });
+
+    definition.handleProfilePanelReady.call(instance);
+    expect(instance.data.workspacePreloadQueue).toEqual(['swap']);
+    expect(instance.data.workspaceMounted.swap).toBe(true);
+    definition.handleWorkspaceRequest.call(instance, {
+      currentTarget: { dataset: { workspace: 'profile' } },
+    });
+    expect(instance.data.workspaceRequestCounts.profile).toBe(1);
+    definition.handleWorkspaceReady.call(instance, {
+      currentTarget: { dataset: { workspace: 'swap' } },
+    });
+    expect(instance.data.workspacePreloadQueue).toEqual([]);
+    expect(instance.data.workspaceReady).toMatchObject({
+      calendar: true,
+      directory: true,
+      more: true,
+      profile: true,
+      swap: true,
+    });
+    definition.handleWorkspaceReady.call(instance, {
+      currentTarget: { dataset: { workspace: 'swap' } },
+    });
+    expect(instance.data.workspaceAttachedCounts.swap).toBe(2);
+    expect(instance.data.workspaceReadyEventCounts.swap).toBe(2);
+  });
+
+  it('skips unauthorized heavy panels without blocking Profile preload', async () => {
+    const storage = createStorage();
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/groups')) {
+        options.success({
+          data: [{ ...groupSummary(), role: 'guest' }],
+          statusCode: 200,
+        });
+        return;
+      }
+      const month = readBusinessMonth(options.url);
+      options.success({
+        data: month === undefined ? holidayApiGoldenResponse : calendar(month),
+        statusCode: 200,
+      });
+    });
+    vi.stubGlobal('wx', createWx(storage, request));
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+
+    definition.onLoad.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+
+    expect(instance.data.workspacePreloadQueue).toEqual(['profile']);
+    expect(instance.data.workspaceMounted).toMatchObject({
+      directory: false,
+      profile: true,
+      swap: false,
+    });
+    expect(instance.data.workspaceRequestCounts).toMatchObject({ directory: 0, swap: 0 });
   });
 
   it('opens approved member tools and blocks every manager-only route at the handler boundary', async () => {
@@ -251,6 +350,10 @@ describe('P6-A workbench runtime coordination', () => {
     definition.onHide.call(instance);
     expect(instance.data.notificationSheetOpen).toBe(false);
     expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(instance.data.profileRefreshRevision).toBe(0);
+    definition.onShow.call(instance);
+    expect(instance.data.profileRefreshRevision).toBe(1);
+    definition.onHide.call(instance);
   });
 
   it('commits the active month before starting best-effort adjacent reads and refreshes on resume', async () => {

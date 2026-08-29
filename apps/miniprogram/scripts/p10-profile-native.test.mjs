@@ -19,6 +19,8 @@ describe('P10 native profile parity', () => {
     const panel = read('src/components/profile-panel/index.wxml');
     const panelComponent = read('src/components/profile-panel/index.ts');
     const workbench = read('src/pages/workbench/index.ts');
+    const workspace = read('src/components/profile-workspace/index.ts');
+    const workbenchTemplate = read('src/pages/workbench/index.wxml');
 
     expect(app.pages).toContain('pages/profile/index');
     expect(page.trim()).toBe('<include src="../../components/profile-panel/index.wxml" />');
@@ -26,7 +28,10 @@ describe('P10 native profile parity', () => {
     expect(panel).toContain('账号与安全');
     expect(panel).toContain('wx:if="{{!embedded}}"');
     expect(workbench).toContain('handleProfileNav');
-    expect(workbench).toContain("activeWorkspace: 'profile'");
+    expect(workbench).toContain("activatePrimaryWorkspace(this, 'profile'");
+    expect(workbenchTemplate).toContain('<profile-workspace');
+    expect(workspace).toContain('createProfileWorkspaceControllerDefinition');
+    expect(workspace).toContain("triggerEvent?.('workspaceready')");
     expect(pageConfig).toMatchObject({
       disableScroll: true,
       navigationStyle: 'custom',

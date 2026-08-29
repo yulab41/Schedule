@@ -1,0 +1,6 @@
+<view wx:if="{{!contentMounted}}" class="profile-workspace-loading">
+  <ui-loading label="正在准备个人中心"></ui-loading>
+</view>
+<block wx:else>
+  <include src="../profile-panel/index.wxml" />
+</block>

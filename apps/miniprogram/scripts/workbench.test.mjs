@@ -135,9 +135,8 @@ describe('P4 native workbench', () => {
     expect(template).toContain(
       "class=\"workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}\"",
     );
-    expect(pageStyles).toMatch(
-      /\.workbench-scroll\.is-list-mode\s*{[^}]*padding-bottom:\s*calc\(61px \+ env\(safe-area-inset-bottom\)\);/s,
-    );
+    expect(template).toContain('style="{{workspaceViewportStyle}}"');
+    expect(pageStyles).not.toMatch(/\.workbench-scroll\.is-list-mode\s*{[^}]*padding-bottom:/s);
     expect(pageStyles).toMatch(/\.list-calendar\s*{[^}]*overflow:\s*visible;/s);
   });
 

@@ -135,6 +135,41 @@ page {
   align-items: stretch;
 }
 
+.workspace-probe-card {
+  align-items: stretch;
+}
+
+.workspace-probe-switch {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  padding: 4px;
+  box-sizing: border-box;
+  gap: 4px;
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.workspace-probe-item {
+  display: flex;
+  min-width: 0;
+  min-height: 40px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-secondary);
+  border-radius: 8px;
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.workspace-probe-item.is-active {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-card);
+}
+
 .wheel-probe-frame {
   position: relative;
   width: 180px;
@@ -191,6 +226,13 @@ page {
   color: var(--ui-color-text-primary);
   font-variant-numeric: tabular-nums;
   font-weight: var(--ui-font-weight-semibold);
+}
+
+.workspace-probe-card .wheel-probe-evidence > view > text:last-child {
+  max-width: 72%;
+  line-height: 18px;
+  text-align: right;
+  word-break: break-all;
 }
 
 .wheel-probe-reset {

@@ -17,42 +17,44 @@ describe('P7 physical-device feedback regressions', () => {
     const styles = read('pages/workbench/index.wxss');
     const pageJson = JSON.parse(read('pages/workbench/index.json'));
 
-    expect(controller).toContain("activeWorkspace: 'calendar'");
-    expect(controller).toContain("activeWorkspace: 'directory'");
-    expect(controller).toContain("openWorkflowWorkspace(this, 'swap')");
-    expect(controller).toContain("activeWorkspace: 'profile'");
-    expect(controller).toContain("activeWorkspace: 'more'");
+    expect(controller).toContain(
+      "const PRIMARY_WORKSPACES = ['calendar', 'directory', 'swap', 'profile', 'more']",
+    );
+    expect(controller).toContain("activatePrimaryWorkspace(this, 'directory'");
+    expect(controller).toContain("activatePrimaryWorkspace(this, 'swap'");
+    expect(controller).not.toContain('openWorkflowWorkspace(');
+    expect(controller).toContain("activatePrimaryWorkspace(this, 'profile'");
+    expect(controller).toContain("activatePrimaryWorkspace(this, 'more'");
     expect(controller).toContain("'/subpackages/workflows/pages/leave/index'");
     expect(controller).not.toContain('/subpackages/workflows/pages/swap/index?groupId=');
     expect(controller).toContain("'/subpackages/workflows/pages/duty/index'");
     expect(template).toContain('<directory-panel');
     expect(template).toContain('<workflow-swap-panel');
-    expect(template).toContain('<profile-panel');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'calendar\'}}"');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'directory\'}}"');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'swap\'}}"');
-    expect(template).toContain('hidden="{{activeWorkspace !== \'profile\'}}"');
+    expect(template).toContain('<profile-workspace');
+    expect(template.match(/class="workspace-swiper-item"/gu)).toHaveLength(5);
+    expect(template).toContain('current="{{activeWorkspaceIndex}}"');
+    expect(template).toContain('cache-extent="4"');
     expect(template).not.toContain('<workflow-leave-panel');
     expect(template).not.toContain('<workflow-duty-panel');
-    expect(controller).not.toContain('directoryMounted');
-    expect(controller).not.toContain('profileMounted');
+    expect(controller).toContain('workspaceMounted:');
+    expect(controller).toContain('workspaceReady:');
     expect(controller).toContain('directoryPanelReady: false');
     expect(controller).toContain('profilePanelReady: false');
-    expect(template).not.toContain('wx:if="{{directoryMounted}}"');
-    expect(template).not.toContain('wx:if="{{profileMounted}}"');
-    expect(template).toContain('bind:panelready="handleDirectoryPanelReady"');
-    expect(template).toContain('bind:panelready="handleProfilePanelReady"');
+    expect(template).toContain('workspaceMounted.directory');
+    expect(template).toContain('workspaceMounted.profile');
+    expect(template).toContain('bind:panelready="handleWorkspaceReady"');
+    expect(template).toContain('bind:workspaceready="handleWorkspaceReady"');
     expect(controller).toContain('workflowPanelsMounted: false');
     expect(controller).toContain('workflowPanelsMounted: toolAccess.leave');
     expect(controller).toMatch(
-      /handleCalendarNav[\s\S]*activeWorkspace !== 'calendar'[\s\S]*activeWorkspace: 'calendar'/u,
+      /handleCalendarNav[\s\S]*activeWorkspace !== 'calendar'[\s\S]*activatePrimaryWorkspace\(this, 'calendar'/u,
     );
     expect(template).toContain("activeWorkspace === 'more'");
     expect(styles).toMatch(/\.bottom-nav\s*\{[^}]*height:\s*calc\(/su);
-    expect(styles).toMatch(/\.embedded-workspace\s*\{[^}]*overflow:\s*visible/su);
+    expect(styles).toMatch(/\.workspace-swiper\s*\{[^}]*overflow:\s*hidden/su);
     expect(pageJson.usingComponents).toMatchObject({
       'directory-panel': '/subpackages/organization/components/directory-panel/index',
-      'profile-panel': '/components/profile-panel/index',
+      'profile-workspace': '/components/profile-workspace/index',
       'workflow-swap-panel': '/subpackages/workflows/components/workflow-swap-panel/index',
     });
   });
@@ -66,7 +68,7 @@ describe('P7 physical-device feedback regressions', () => {
     const groupMenu = template.slice(groupMenuStart, groupMenuEnd);
 
     expect(groupMenu).not.toContain('群组设置');
-    expect(template).toContain('class="more-workspace"');
+    expect(template).toContain('class="more-workspace ');
     expect(template).toContain('群组管理');
     expect(template).toContain('手动排班');
     expect(template).toContain('排班补录');

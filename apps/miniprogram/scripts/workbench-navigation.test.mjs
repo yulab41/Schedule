@@ -43,29 +43,30 @@ describe('Mini workbench Web-parity navigation', () => {
     const pageJson = JSON.parse(read('src/pages/workbench/index.json'));
 
     expect(source).toContain(
-      "type ActiveWorkspace = 'calendar' | 'directory' | 'more' | 'profile' | 'swap'",
+      "const PRIMARY_WORKSPACES = ['calendar', 'directory', 'swap', 'profile', 'more']",
     );
+    expect(source).toContain('type ActiveWorkspace = (typeof PRIMARY_WORKSPACES)[number]');
     expect(source).toContain('handleDirectoryNav');
-    expect(source).toContain("activeWorkspace: 'directory'");
-    expect(source).not.toContain('directoryMounted');
+    expect(source).toContain("activatePrimaryWorkspace(this, 'directory'");
     expect(source).toContain('handleProfileNav');
-    expect(source).toContain("activeWorkspace: 'profile'");
-    expect(source).not.toContain('profileMounted');
+    expect(source).toContain("activatePrimaryWorkspace(this, 'profile'");
+    expect(source).toContain('workspaceMounted:');
+    expect(source).toContain('workspaceReady:');
     expect(source).toContain('directoryPanelReady: false');
     expect(source).toContain('profilePanelReady: false');
     expect(source).toContain('handleDirectoryPanelReady');
     expect(source).toContain('handleProfilePanelReady');
     expect(template).toContain('<directory-panel');
     expect(template).toContain('embedded="{{true}}"');
-    expect(template).toContain('group-id="{{canOpenGroupSettings ? currentGroupId : \'\'}}"');
-    expect(template).toContain('<profile-panel');
+    expect(template).toContain('group-id="{{currentGroupId}}"');
+    expect(template).toContain('<profile-workspace');
     expect(template).toContain('<workflow-swap-panel');
-    expect(template).not.toContain('wx:if="{{directoryMounted}}"');
-    expect(template).not.toContain('wx:if="{{profileMounted}}"');
-    expect(template).toContain('wx:if="{{!directoryPanelReady}}"');
-    expect(template).toContain('wx:if="{{!profilePanelReady}}"');
-    expect(template).toContain('bind:panelready="handleDirectoryPanelReady"');
-    expect(template).toContain('bind:panelready="handleProfilePanelReady"');
+    expect(template).toContain('workspaceMounted.directory');
+    expect(template).toContain('workspaceMounted.profile');
+    expect(template).toContain('wx:elif="{{!workspaceReady.directory}}"');
+    expect(template).toContain('wx:if="{{!workspaceReady.profile}}"');
+    expect(template).toContain('bind:panelready="handleWorkspaceReady"');
+    expect(template).toContain('bind:workspaceready="handleWorkspaceReady"');
     expect(template).toContain('class="embedded-workspace-loading"');
     expect(template).not.toContain('<group-settings-panel');
     expect(template).not.toContain('<workflow-leave-panel');
@@ -73,7 +74,9 @@ describe('Mini workbench Web-parity navigation', () => {
     expect(pageJson.usingComponents['directory-panel']).toBe(
       '/subpackages/organization/components/directory-panel/index',
     );
-    expect(pageJson.usingComponents['profile-panel']).toBe('/components/profile-panel/index');
+    expect(pageJson.usingComponents['profile-workspace']).toBe(
+      '/components/profile-workspace/index',
+    );
     expect(pageJson.usingComponents['ui-loading']).toBe('/components/ui/ui-loading/index');
     expect(pageJson.usingComponents['workflow-swap-panel']).toBe(
       '/subpackages/workflows/components/workflow-swap-panel/index',
@@ -87,7 +90,7 @@ describe('Mini workbench Web-parity navigation', () => {
     const template = read('src/pages/workbench/index.wxml');
     const source = read('src/pages/workbench/index.ts');
     const more = template.slice(
-      template.indexOf('class="more-workspace"'),
+      template.indexOf('class="more-workspace '),
       template.indexOf("activeWorkspace === 'calendar' && filterOpen"),
     );
 
@@ -129,6 +132,7 @@ describe('Mini workbench Web-parity navigation', () => {
       'src/subpackages/organization/components/directory-panel/controller.ts',
     );
     const profileComponentRoot = path.join(miniRoot, 'src', 'components', 'profile-panel');
+    const profileWorkspaceRoot = path.join(miniRoot, 'src', 'components', 'profile-workspace');
 
     expect(directoryTemplate).toContain('wx:if="{{!embedded}}"');
     expect(directoryController).toContain('embedded: { type: Boolean, value: false }');
@@ -136,6 +140,7 @@ describe('Mini workbench Web-parity navigation', () => {
     expect(directoryController).toContain("? 'height:100%;'");
     expect(existsSync(path.join(profileComponentRoot, 'controller.ts'))).toBe(true);
     expect(existsSync(path.join(profileComponentRoot, 'index.ts'))).toBe(true);
+    expect(existsSync(path.join(profileWorkspaceRoot, 'index.ts'))).toBe(true);
     expect(read('src/pages/profile/index.wxml').trim()).toBe(
       '<include src="../../components/profile-panel/index.wxml" />',
     );
@@ -144,6 +149,9 @@ describe('Mini workbench Web-parity navigation', () => {
     );
     expect(read('src/components/profile-panel/index.wxml')).toContain('wx:if="{{!embedded}}"');
     expect(read('src/components/profile-panel/index.ts')).toContain("triggerEvent?.('panelready')");
+    expect(read('src/components/profile-workspace/index.ts')).toContain(
+      "triggerEvent?.('workspaceready')",
+    );
     expect(directoryController).toContain("triggerEvent?.('panelready')");
   });
 
@@ -163,6 +171,6 @@ describe('Mini workbench Web-parity navigation', () => {
     expect(buildTools).not.toContain(
       "'subpackages/workflows/components/workflow-swap-panel/index.ts'",
     );
-    expect(buildTools).not.toContain("'components/profile-panel/index.ts'");
+    expect(buildTools).toContain("'components/profile-panel/index.ts'");
   });
 });

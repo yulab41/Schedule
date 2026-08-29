@@ -57,7 +57,10 @@ import {
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
-type ActiveWorkspace = 'calendar' | 'directory' | 'more' | 'profile' | 'swap';
+const PRIMARY_WORKSPACES = ['calendar', 'directory', 'swap', 'profile', 'more'] as const;
+type ActiveWorkspace = (typeof PRIMARY_WORKSPACES)[number];
+type WorkspaceState = Readonly<Record<ActiveWorkspace, boolean>>;
+type WorkspaceCountState = Readonly<Record<ActiveWorkspace, number>>;
 type FilterField = '' | 'member' | 'role' | 'shift';
 type FilterDropdownDirection = 'down' | 'up';
 
@@ -82,6 +85,11 @@ interface NotificationUnreadChangedEvent {
   readonly detail: { readonly unreadCount: number };
 }
 
+interface WorkspaceChangeEvent {
+  readonly currentTarget: { readonly dataset: { readonly workspace?: string } };
+  readonly detail?: { readonly current?: number };
+}
+
 interface SwiperFinishEvent {
   readonly detail: { readonly current: number };
 }
@@ -100,6 +108,7 @@ interface MonthReadResult {
 
 interface WorkbenchPageData {
   readonly activeWorkspace: ActiveWorkspace;
+  readonly activeWorkspaceIndex: number;
   readonly activeFilterCount: number;
   readonly announcement: string;
   readonly buildLabel: string;
@@ -146,8 +155,10 @@ interface WorkbenchPageData {
   readonly offlineNotice: string;
   readonly periodSwiperDuration: number;
   readonly performanceEvidence: string;
+  readonly primaryWorkspaceSwipeEnabled: boolean;
   readonly profileAnimating: boolean;
   readonly profilePanelReady: boolean;
+  readonly profileRefreshRevision: number;
   readonly scrollTarget: string;
   readonly shellActionsStyle: string;
   readonly shellHeaderHeight: number;
@@ -166,6 +177,14 @@ interface WorkbenchPageData {
   readonly viewOptions: readonly WorkbenchView[];
   readonly workflowPanelsMounted: boolean;
   readonly workflowsEnabled: boolean;
+  readonly workspaceGestureLocked: boolean;
+  readonly workspaceAttachedCounts: WorkspaceCountState;
+  readonly workspaceMounted: WorkspaceState;
+  readonly workspacePreloadQueue: readonly ActiveWorkspace[];
+  readonly workspaceReady: WorkspaceState;
+  readonly workspaceReadyEventCounts: WorkspaceCountState;
+  readonly workspaceRequestCounts: WorkspaceCountState;
+  readonly workspaceViewportStyle: string;
   readonly toolAccess: WorkbenchToolAccess;
 }
 
@@ -211,6 +230,7 @@ const initialMonth = today.slice(0, 7);
 Page({
   data: {
     activeWorkspace: 'calendar' as ActiveWorkspace,
+    activeWorkspaceIndex: 0,
     activeFilterCount: 0,
     announcement: '',
     buildLabel: buildInfo.buildLabel,
@@ -257,8 +277,10 @@ Page({
     offlineNotice: '',
     periodSwiperDuration: 260,
     performanceEvidence: '',
+    primaryWorkspaceSwipeEnabled: buildInfo.primaryWorkspaceSwipeEnabled,
     profileAnimating: false,
     profilePanelReady: false,
+    profileRefreshRevision: 0,
     scrollTarget: '',
     shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
     shellHeaderHeight: 64,
@@ -277,6 +299,44 @@ Page({
     viewOptions: ['month', 'week', 'list'],
     workflowPanelsMounted: false,
     workflowsEnabled: false,
+    workspaceGestureLocked: false,
+    workspaceAttachedCounts: {
+      calendar: 1,
+      directory: 0,
+      more: 1,
+      profile: 0,
+      swap: 0,
+    },
+    workspaceMounted: {
+      calendar: true,
+      directory: false,
+      more: true,
+      profile: false,
+      swap: false,
+    },
+    workspacePreloadQueue: [],
+    workspaceReady: {
+      calendar: false,
+      directory: false,
+      more: true,
+      profile: false,
+      swap: false,
+    },
+    workspaceReadyEventCounts: {
+      calendar: 1,
+      directory: 0,
+      more: 1,
+      profile: 0,
+      swap: 0,
+    },
+    workspaceRequestCounts: {
+      calendar: 0,
+      directory: 0,
+      more: 0,
+      profile: 0,
+      swap: 0,
+    },
+    workspaceViewportStyle: 'top:64px;height:calc(100vh - 134px);',
     toolAccess: createWorkbenchToolAccess(undefined, getClientCapabilitySnapshot()),
   } satisfies WorkbenchPageData,
 
@@ -308,13 +368,20 @@ Page({
     void loadWorkbenchWithCapability(this);
   },
 
+  onResize(this: WorkbenchPageInstance): void {
+    this.setData(createShellLayoutPatch());
+  },
+
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
     void flushPendingProfileAvatarForStoredSession();
     startNotificationPolling(this);
     const isInitialShow = !this.hasShown;
     this.hasShown = true;
-    if (!isInitialShow) this._performanceProbe?.start('foreground-ready');
+    if (!isInitialShow) {
+      this._performanceProbe?.start('foreground-ready');
+      this.setData({ profileRefreshRevision: this.data.profileRefreshRevision + 1 });
+    }
     void requireClientCapability('core')
       .then(() => {
         syncWorkbenchToolAccess(this);
@@ -358,11 +425,7 @@ Page({
     if (ownerId === undefined) return;
     const selectedGroup = this.data.groups.find((group) => group.id === groupId);
     const toolAccess = createWorkbenchToolAccess(selectedGroup, getClientCapabilitySnapshot());
-    const activeWorkspace =
-      selectedGroup?.role === 'guest' &&
-      (this.data.activeWorkspace === 'directory' || this.data.activeWorkspace === 'swap')
-        ? 'calendar'
-        : this.data.activeWorkspace;
+    const activeWorkspace = this.data.activeWorkspace;
     writeStoredWorkbenchGroupId(ownerId, groupId);
     this.calendar = undefined;
     this.holidays = undefined;
@@ -615,7 +678,7 @@ Page({
 
   handleCalendarNav(this: WorkbenchPageInstance): void {
     if (this.data.activeWorkspace !== 'calendar') {
-      this.setData({ activeWorkspace: 'calendar', calendarNavAnimating: false });
+      activatePrimaryWorkspace(this, 'calendar', { calendarNavAnimating: false });
       return;
     }
     this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
@@ -685,12 +748,7 @@ Page({
   },
 
   handleDirectoryNav(this: WorkbenchPageInstance): void {
-    if (!this.data.canOpenGroupSettings || this.data.currentGroupId === '') {
-      announceToolNavigationFailure(this, '当前群组不能使用通讯录。');
-      return;
-    }
-    this.setData({
-      activeWorkspace: 'directory',
+    activatePrimaryWorkspace(this, 'directory', {
       filterOpen: false,
       groupOpen: false,
       navMotion: '',
@@ -699,19 +757,16 @@ Page({
 
   handleSwapNav(this: WorkbenchPageInstance): void {
     this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'swap' }));
-    void openWorkflowWorkspace(this, 'swap');
+    activatePrimaryWorkspace(this, 'swap', { filterOpen: false, groupOpen: false });
   },
 
   handleProfileNav(this: WorkbenchPageInstance): void {
-    this.setData(
-      {
-        activeWorkspace: 'profile',
-        filterOpen: false,
-        groupOpen: false,
-        profileAnimating: false,
-      },
-      () => this.setData({ profileAnimating: true }),
-    );
+    activatePrimaryWorkspace(this, 'profile', {
+      filterOpen: false,
+      groupOpen: false,
+      profileAnimating: false,
+    });
+    this.setData({ profileAnimating: true });
   },
 
   handleWorkflowCalendarChanged(
@@ -730,18 +785,43 @@ Page({
   },
 
   handleDirectoryPanelReady(this: WorkbenchPageInstance): void {
-    if (!this.data.directoryPanelReady) this.setData({ directoryPanelReady: true });
+    recordWorkspaceReady(this, 'directory');
   },
 
   handleProfilePanelReady(this: WorkbenchPageInstance): void {
-    if (!this.data.profilePanelReady) this.setData({ profilePanelReady: true });
+    recordWorkspaceReady(this, 'profile');
+  },
+
+  handleWorkspaceReady(this: WorkbenchPageInstance, event: WorkspaceChangeEvent): void {
+    const workspace = event.currentTarget.dataset.workspace;
+    if (isActiveWorkspace(workspace)) recordWorkspaceReady(this, workspace);
+  },
+
+  handleWorkspaceRequest(this: WorkbenchPageInstance, event: WorkspaceChangeEvent): void {
+    const workspace = event.currentTarget.dataset.workspace;
+    if (isActiveWorkspace(workspace)) recordWorkspaceRequest(this, workspace);
+  },
+
+  handleWorkspaceSwiperChange(this: WorkbenchPageInstance, event: WorkspaceChangeEvent): void {
+    if (!this.data.primaryWorkspaceSwipeEnabled || this.data.workspaceGestureLocked) return;
+    const current = event.detail?.current;
+    if (!Number.isInteger(current) || current === undefined) return;
+    const workspace = PRIMARY_WORKSPACES[current];
+    if (workspace !== undefined) activatePrimaryWorkspace(this, workspace);
+  },
+
+  shouldPrimaryWorkspaceRespond(): boolean {
+    'worklet';
+    return false;
   },
 
   handleMoreNav(this: WorkbenchPageInstance): void {
-    this.setData(
-      { activeWorkspace: 'more', filterOpen: false, groupOpen: false, navMotion: '' },
-      () => this.setData({ navMotion: 'more' }),
-    );
+    activatePrimaryWorkspace(this, 'more', {
+      filterOpen: false,
+      groupOpen: false,
+      navMotion: '',
+    });
+    this.setData({ navMotion: 'more' });
   },
 
   handleOpenManualSchedule(this: WorkbenchPageInstance): void {
@@ -919,6 +999,7 @@ async function loadWorkbench(
   page: WorkbenchPageInstance,
   options: { readonly forceRefresh?: boolean } = {},
 ): Promise<void> {
+  recordWorkspaceRequest(page, 'calendar');
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
   const ownerId = getStoredWechatProfile()?.id;
@@ -1076,6 +1157,7 @@ async function loadWorkbench(
 }
 
 function completeCoreReadyProbe(page: WorkbenchPageInstance): void {
+  startPrimaryWorkspacePreload(page);
   const coreMeasurement = page._performanceProbe?.complete('core-ready');
   const foregroundMeasurement = page._performanceProbe?.complete('foreground-ready');
   const measurement = coreMeasurement ?? foregroundMeasurement;
@@ -1138,28 +1220,104 @@ function syncWorkbenchToolAccess(page: WorkbenchPageInstance): WorkbenchToolAcce
   return toolAccess;
 }
 
-async function openWorkflowWorkspace(
+function activatePrimaryWorkspace(
   page: WorkbenchPageInstance,
-  workspace: 'swap',
-): Promise<void> {
-  try {
-    await requireClientCapability('workflows');
-    syncWorkbenchToolAccess(page);
-    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
-    if (group === undefined || group.role === 'guest') {
-      page.setData({ announcement: '当前群组不能使用工作流功能。' });
-      return;
-    }
-    page.setData({ activeWorkspace: workspace, filterOpen: false, groupOpen: false });
-  } catch (error) {
-    syncWorkbenchToolAccess(page);
+  workspace: ActiveWorkspace,
+  patch: Partial<WorkbenchPageData> = {},
+): void {
+  const index = PRIMARY_WORKSPACES.indexOf(workspace);
+  const workspaceMounted = page.data.workspaceMounted[workspace]
+    ? page.data.workspaceMounted
+    : { ...page.data.workspaceMounted, [workspace]: true };
+  page.setData({
+    ...patch,
+    activeWorkspace: workspace,
+    activeWorkspaceIndex: index,
+    workspaceMounted,
+    workspacePreloadQueue: page.data.workspacePreloadQueue.filter(
+      (candidate) => candidate !== workspace,
+    ),
+  });
+}
+
+function startPrimaryWorkspacePreload(page: WorkbenchPageInstance): void {
+  if (page.data.workspacePreloadQueue.length > 0) return;
+  const workspacePreloadQueue = (['directory', 'profile', 'swap'] as const).filter(
+    (workspace) => !page.data.workspaceReady[workspace] && canPreloadWorkspace(page, workspace),
+  );
+  page.setData(
+    {
+      workspacePreloadQueue,
+      workspaceReady: { ...page.data.workspaceReady, calendar: true },
+    },
+    () => mountNextWorkspace(page),
+  );
+}
+
+function canPreloadWorkspace(page: WorkbenchPageInstance, workspace: ActiveWorkspace): boolean {
+  if (workspace === 'directory') return page.data.canOpenGroupSettings;
+  if (workspace === 'swap') return page.data.toolAccess.leave;
+  return true;
+}
+
+function mountNextWorkspace(page: WorkbenchPageInstance): void {
+  const workspace = page.data.workspacePreloadQueue[0];
+  if (workspace === undefined) return;
+  if (page.data.workspaceReady[workspace]) {
+    page.setData({ workspacePreloadQueue: page.data.workspacePreloadQueue.slice(1) }, () =>
+      mountNextWorkspace(page),
+    );
+    return;
+  }
+  if (!page.data.workspaceMounted[workspace]) {
     page.setData({
-      announcement:
-        error instanceof ClientCapabilityDisabledError
-          ? error.message
-          : '工作流页面暂时无法打开，请稍后重试。',
+      workspaceMounted: { ...page.data.workspaceMounted, [workspace]: true },
     });
   }
+}
+
+function markWorkspaceReady(page: WorkbenchPageInstance, workspace: ActiveWorkspace): void {
+  if (page.data.workspaceReady[workspace]) return;
+  page.setData(
+    {
+      ...(workspace === 'directory' ? { directoryPanelReady: true } : {}),
+      ...(workspace === 'profile' ? { profilePanelReady: true } : {}),
+      workspacePreloadQueue: page.data.workspacePreloadQueue.filter(
+        (candidate) => candidate !== workspace,
+      ),
+      workspaceReady: { ...page.data.workspaceReady, [workspace]: true },
+    },
+    () => mountNextWorkspace(page),
+  );
+}
+
+function recordWorkspaceReady(page: WorkbenchPageInstance, workspace: ActiveWorkspace): void {
+  page.setData(
+    {
+      workspaceAttachedCounts: {
+        ...page.data.workspaceAttachedCounts,
+        [workspace]: page.data.workspaceAttachedCounts[workspace] + 1,
+      },
+      workspaceReadyEventCounts: {
+        ...page.data.workspaceReadyEventCounts,
+        [workspace]: page.data.workspaceReadyEventCounts[workspace] + 1,
+      },
+    },
+    () => markWorkspaceReady(page, workspace),
+  );
+}
+
+function recordWorkspaceRequest(page: WorkbenchPageInstance, workspace: ActiveWorkspace): void {
+  page.setData({
+    workspaceRequestCounts: {
+      ...page.data.workspaceRequestCounts,
+      [workspace]: page.data.workspaceRequestCounts[workspace] + 1,
+    },
+  });
+}
+
+function isActiveWorkspace(value: string | undefined): value is ActiveWorkspace {
+  return PRIMARY_WORKSPACES.includes(value as ActiveWorkspace);
 }
 
 async function navigateWorkflowTool(
@@ -1623,7 +1781,7 @@ function resolveFilterDropdownDirection(
 
 function createShellLayoutPatch(): Pick<
   WorkbenchPageData,
-  'shellActionsStyle' | 'shellHeaderHeight' | 'shellHeaderStyle'
+  'shellActionsStyle' | 'shellHeaderHeight' | 'shellHeaderStyle' | 'workspaceViewportStyle'
 > {
   const windowInfo = wx.getWindowInfo();
   const capsule = wx.getMenuButtonBoundingClientRect();
@@ -1638,10 +1796,20 @@ function createShellLayoutPatch(): Pick<
   const actionsTop = hasCapsule ? Math.max(statusBarHeight + 4, capsule.top - 4) : contentTop;
   const actionsRight = hasCapsule ? windowInfo.windowWidth - capsule.left + 4 : 10;
   const headerRightPadding = actionsRight + 90;
+  const safeAreaBottom = Math.max(
+    0,
+    windowInfo.windowHeight - (windowInfo.safeArea?.bottom ?? windowInfo.windowHeight),
+  );
+  const bottomNavHeight = 70 + safeAreaBottom;
+  const workspaceViewportHeight = Math.max(
+    1,
+    Math.floor(windowInfo.windowHeight - shellHeaderHeight - bottomNavHeight),
+  );
   return {
     shellActionsStyle: `right:${actionsRight}px;top:${actionsTop}px;bottom:auto;`,
     shellHeaderHeight,
     shellHeaderStyle: `height:${shellHeaderHeight}px;min-height:${shellHeaderHeight}px;padding-top:${contentTop}px;padding-right:${headerRightPadding}px;`,
+    workspaceViewportStyle: `top:${shellHeaderHeight}px;height:${workspaceViewportHeight}px;`,
   };
 }
 

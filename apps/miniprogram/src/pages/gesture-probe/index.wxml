@@ -20,6 +20,43 @@
     <view class="runtime-row"><text>系统</text><text>{{system}}</text></view>
   </view>
 
+  <view class="probe-card workspace-probe-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">F 区 · 五入口工作台</text>
+      <text class="probe-card-note">点击阶段压力验证</text>
+    </view>
+    <view class="workspace-probe-switch" aria-label="工作台入口压力测试">
+      <view
+        wx:for="{{workspaceProbeItems}}"
+        wx:key="key"
+        class="workspace-probe-item {{workspaceProbeIndex === index ? 'is-active' : ''}}"
+        data-index="{{index}}"
+        hover-class="is-pressed"
+        aria-role="button"
+        aria-current="{{workspaceProbeIndex === index ? 'page' : ''}}"
+        bindtap="handleWorkspaceProbeTap"
+        >{{item.label}}</view
+      >
+    </view>
+    <view class="wheel-probe-evidence">
+      <view><text>当前 index</text><text>{{workspaceProbe}}</text></view>
+      <view><text>挂载</text><text>{{workspaceProbeMounted}}</text></view>
+      <view><text>就绪</text><text>{{workspaceProbeReady}}</text></view>
+      <view><text>预载队列</text><text>{{workspaceProbeQueue}}</text></view>
+      <view><text>手势锁</text><text>{{workspaceProbeGestureLock}}</text></view>
+      <view><text>attached 次数</text><text>{{workspaceProbeAttached}}</text></view>
+      <view><text>请求触发</text><text>{{workspaceProbeRequests}}</text></view>
+      <view><text>重复 ready</text><text>{{workspaceProbeDuplicateReady}}</text></view>
+    </view>
+    <view
+      class="wheel-probe-reset"
+      hover-class="is-pressed"
+      aria-role="button"
+      bindtap="handleWorkspaceStress"
+      >{{workspaceStressRunning ? '正在执行' : '连续切换 50 次'}} · {{workspaceStressCount}}</view
+    >
+  </view>
+
   <view class="probe-card wheel-probe-card">
     <view class="probe-card-heading">
       <text class="probe-card-title">E · WXS 年月滚轮候选</text>

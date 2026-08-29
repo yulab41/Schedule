@@ -65,7 +65,8 @@ describe('P7 native swap workflow page', () => {
     );
     expect(workbench).toContain('wx:if="{{toolAccess.leave}}"');
     expect(workbench).toContain('wx:if="{{toolAccess.duty}}"');
-    expect(workbenchController).toContain("openWorkflowWorkspace(this, 'swap')");
+    expect(workbenchController).toContain("activatePrimaryWorkspace(this, 'swap'");
+    expect(workbenchController).not.toContain('openWorkflowWorkspace(');
     expect(leaveTemplate).toContain('bindtap="handleSwapNav"');
     expect(leaveController).toContain('/subpackages/workflows/pages/swap/index?groupId=');
   });

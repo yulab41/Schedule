@@ -75,897 +75,970 @@
     </view>
   </view>
 
-  <scroll-view
-    hidden="{{activeWorkspace !== 'calendar'}}"
-    class="workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}"
-    style="padding-top:{{shellHeaderHeight}}px"
-    scroll-y="{{viewMode !== 'list'}}"
-    scroll-with-animation="{{true}}"
-    scroll-into-view="{{scrollTarget}}"
-    show-scrollbar="{{false}}"
+  <horizontal-drag-gesture-handler
+    class="workspace-gesture-gate"
+    tag="primary-workspace-swiper"
+    native-view="swiper"
+    worklet:should-accept-gesture="shouldPrimaryWorkspaceRespond"
   >
-    <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
-      <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
-      <text wx:if="{{performanceEvidence}}" class="offline-note">{{performanceEvidence}}</text>
-      <view id="workbench-content-top" class="view-controls" aria-label="排班视图">
-        <view class="view-switch" aria-role="tablist">
-          <view
-            wx:for="{{viewOptions}}"
-            wx:key="*this"
-            class="view-tab {{item === viewMode ? 'is-active' : ''}}"
-            data-view="{{item}}"
-            aria-role="tab"
-            aria-selected="{{item === viewMode}}"
-            bindtap="handleViewChange"
-            >{{item === 'month' ? '月' : item === 'week' ? '周' : '列表'}}</view
-          >
-        </view>
-        <view
-          class="filter-button {{activeFilterCount > 0 ? 'has-filter' : ''}}"
-          hover-class="is-pressed"
-          aria-role="button"
-          aria-label="筛选排班"
-          bindtap="handleFilterToggle"
+    <swiper
+      class="workspace-swiper"
+      style="{{workspaceViewportStyle}}"
+      current="{{activeWorkspaceIndex}}"
+      duration="0"
+      cache-extent="4"
+      circular="{{false}}"
+      bindchange="handleWorkspaceSwiperChange"
+    >
+      <swiper-item class="workspace-swiper-item">
+        <scroll-view
+          class="workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}"
+          hidden="{{activeWorkspace !== 'calendar'}}"
+          scroll-y="{{viewMode !== 'list'}}"
+          scroll-with-animation="{{true}}"
+          scroll-into-view="{{scrollTarget}}"
+          show-scrollbar="{{false}}"
         >
-          <view class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}" aria-hidden="true"
-            ><view></view><view></view><view></view
-          ></view>
-          <text>筛选</text>
-          <text wx:if="{{activeFilterCount > 0}}" class="filter-count">{{activeFilterCount}}</text>
-        </view>
-      </view>
-
-      <text wx:if="{{announcement}}" class="sr-announcement" aria-live="polite"
-        >{{announcement}}</text
-      >
-
-      <view
-        id="workbench-view-anchor"
-        class="workbench-view-anchor {{viewMode === 'month' ? 'is-month-mode' : ''}}"
-      >
-        <block wx:if="{{(state === 'ready' || state === 'offline') && viewMode === 'month'}}">
-          <calendar-month
-            id="workbench-month"
-            grid-height="{{gridHeight}}"
-            month-label="{{monthLabel}}"
-            panel-heights="{{monthPanelHeights}}"
-            panels="{{monthPanels}}"
-            bind:locatetoday="handleLocateToday"
-            bind:monthchange="handleMonthChange"
-            bind:monthsettled="handleMonthSettled"
-            bind:select="handleDateSelect"
-          ></calendar-month>
-          <view class="selected-date-details" aria-label="选中日期值班详情">
-            <view class="detail-heading">
-              <view class="detail-date-copy"
-                ><text>选中日期</text><text class="detail-date-value">{{selectedLabel}}</text></view
-              >
-              <text class="duty-count">{{selectedCountLabel}}</text>
-            </view>
-            <view wx:if="{{selectedDetails.length > 0}}" class="duty-group-grid">
-              <view
-                wx:for="{{selectedDetails}}"
-                wx:for-item="group"
-                wx:key="key"
-                class="shift-detail-card"
-              >
-                <view class="shift-detail-accent" style="background:{{group.shiftColor}}"></view>
-                <view class="shift-card-heading">
-                  <text
-                    class="shift-code"
-                    style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
-                    >{{group.shiftAbbreviation}}</text
-                  >
-                  <view
-                    ><text class="shift-name">{{group.shiftName}}</text
-                    ><text class="shift-time">{{group.timeRange}}</text></view
-                  >
-                </view>
-                <view class="grouped-staff-list">
-                  <view
-                    wx:for="{{group.rows}}"
-                    wx:for-item="row"
-                    wx:key="key"
-                    class="staff-duty-row"
-                  >
-                    <view class="staff-duty-heading">
-                      <view
-                        wx:if="{{row.phoneOptions.length > 0}}"
-                        class="staff-name-button"
-                        data-key="{{row.key}}"
-                        hover-class="is-pressed"
-                        aria-role="button"
-                        aria-label="{{row.name}}，展开电话"
-                        aria-expanded="{{expandedDetailKey === row.key}}"
-                        bindtap="handleDetailPhoneToggle"
-                      >
-                        <view class="staff-name-copy"
-                          ><text class="staff-name">{{row.name}}</text
-                          ><text class="staff-role">{{row.role}}</text></view
-                        >
-                        <image
-                          class="detail-phone-icon"
-                          src="/assets/icons/web-phone.svg"
-                          mode="aspectFit"
-                        />
-                        <image
-                          class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
-                          src="/assets/icons/web-chevron-right.svg"
-                          mode="aspectFit"
-                        />
-                      </view>
-                      <view wx:else class="staff-name-static"
-                        ><text class="staff-name">{{row.name}}</text
-                        ><text class="staff-role">{{row.role}}</text></view
-                      >
-                      <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
-                    </view>
-                    <view
-                      wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
-                      class="phone-split-actions"
-                    >
-                      <view
-                        wx:for="{{row.phoneOptions}}"
-                        wx:for-item="phone"
-                        wx:key="number"
-                        class="detail-phone-action"
-                        data-phone="{{phone.number}}"
-                        hover-class="is-pressed"
-                        aria-role="button"
-                        aria-label="拨打{{phone.label}} {{phone.number}}"
-                        catchtap="handleListCall"
-                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
-                        <text>{{phone.label}} {{phone.number}}</text></view
-                      >
-                    </view>
-                    <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
-                      <view
-                        wx:for="{{row.markerDetails}}"
-                        wx:for-item="markerDetail"
-                        wx:key="key"
-                        class="change-summary-item"
-                        ><text class="detail-change-badge">{{markerDetail.badge}}</text
-                        ><text>{{markerDetail.label}}</text></view
-                      >
-                    </view>
-                    <view
-                      class="event-action"
-                      data-label="事件记录"
-                      hover-class="is-pressed"
-                      aria-role="button"
-                      bindtap="handleUnavailable"
-                      ><image
-                        class="event-history-icon"
-                        src="/assets/icons/web-history.svg"
-                        mode="aspectFit"
-                      />
-                      ><text>事件记录</text></view
-                    >
-                  </view>
-                </view>
-              </view>
-            </view>
-            <view wx:else class="selected-date-empty">当日暂无符合当前筛选条件的排班。</view>
-          </view>
-        </block>
-
-        <block wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'week'}}">
-          <view class="week-calendar" aria-label="周视图">
-            <view class="calendar-navigation">
-              <view
-                class="calendar-step"
-                data-delta="-1"
-                hover-class="is-pressed"
-                hover-start-time="0"
-                hover-stay-time="60"
-                aria-role="button"
-                aria-label="上一周"
-                bindtap="handleWeekChange"
-                ><view class="chevron is-left {{weekSwiperCurrent === 0 ? 'is-animating' : ''}}"
-                  ><image
-                    class="chevron-image"
-                    src="/assets/icons/web-chevron-left.svg"
-                    mode="aspectFit" /></view
-              ></view>
-              <view class="calendar-heading"
-                ><text>{{weekPanels[1].weekOrdinalLabel}}</text
-                ><text>{{weekPanels[1].rangeLabel}}</text></view
-              >
-              <view
-                class="calendar-locator"
-                hover-class="is-pressed"
-                hover-start-time="0"
-                hover-stay-time="60"
-                aria-role="button"
-                aria-label="定位到今天"
-                bindtap="handleLocateToday"
-                ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                  ><image
-                    class="locate-image"
-                    src="/assets/icons/web-locate.svg"
-                    mode="aspectFit" /></view
-              ></view>
-              <view
-                class="calendar-step"
-                data-delta="1"
-                hover-class="is-pressed"
-                hover-start-time="0"
-                hover-stay-time="60"
-                aria-role="button"
-                aria-label="下一周"
-                bindtap="handleWeekChange"
-                ><view class="chevron is-right {{weekSwiperCurrent === 2 ? 'is-animating' : ''}}"
-                  ><image
-                    class="chevron-image"
-                    src="/assets/icons/web-chevron-right.svg"
-                    mode="aspectFit" /></view
-              ></view>
-            </view>
-            <view class="week-day-row" aria-hidden="true"
-              ><text
-                wx:for="{{weekPanels[1].days}}"
-                wx:key="businessDate"
-                class="{{item.isWeekend ? 'is-weekend' : ''}}"
-                >{{item.weekday}}</text
-              ></view
+          <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
+            <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
+            <text wx:if="{{performanceEvidence}}" class="offline-note"
+              >{{performanceEvidence}}</text
             >
-            <swiper
-              class="period-swiper week-swiper"
-              current="{{weekSwiperCurrent}}"
-              duration="{{periodSwiperDuration}}"
-              easing-function="easeOutCubic"
-              bindanimationfinish="handleWeekSwiperFinish"
-            >
-              <swiper-item wx:for="{{weekPanels}}" wx:key="key">
-                <view class="week-day-grid">
-                  <view
-                    wx:for="{{item.days}}"
-                    wx:for-item="day"
-                    wx:key="businessDate"
-                    class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
-                    data-business-date="{{day.businessDate}}"
-                    hover-class="is-pressed"
-                    aria-role="button"
-                    bindtap="handleWeekDaySelect"
-                  >
-                    <view class="week-date-line"
-                      ><text class="day-number">{{day.day}}</text
-                      ><text wx:if="{{day.holiday}}" class="week-holiday"
-                        >{{day.holiday}}</text
-                      ></view
-                    >
-                    <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
-                    <view
-                      wx:for="{{day.duties}}"
-                      wx:for-item="duty"
-                      wx:key="key"
-                      class="week-duty-item"
-                    >
-                      <text class="week-duty-name">{{duty.name}}</text>
-                      <view class="week-duty-badges"
-                        ><text
-                          class="week-shift-badge"
-                          style="color:{{duty.shiftTextColor}};background:{{duty.shiftColor}}"
-                          >{{duty.shiftAbbreviation}}</text
-                        ><text
-                          wx:for="{{duty.markers}}"
-                          wx:for-item="marker"
-                          wx:key="*this"
-                          class="week-change-badge"
-                          >{{marker}}</text
-                        ></view
-                      >
-                    </view>
-                  </view>
-                </view>
-              </swiper-item>
-            </swiper>
-          </view>
-          <view class="selected-date-details" aria-label="选中日期值班详情">
-            <view class="detail-heading">
-              <view class="detail-date-copy"
-                ><text>选中日期</text><text class="detail-date-value">{{selectedLabel}}</text></view
-              >
-              <text class="duty-count">{{selectedCountLabel}}</text>
-            </view>
-            <view wx:if="{{selectedDetails.length > 0}}" class="duty-group-grid">
-              <view
-                wx:for="{{selectedDetails}}"
-                wx:for-item="group"
-                wx:key="key"
-                class="shift-detail-card"
-              >
-                <view class="shift-detail-accent" style="background:{{group.shiftColor}}"></view>
-                <view class="shift-card-heading">
-                  <text
-                    class="shift-code"
-                    style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
-                    >{{group.shiftAbbreviation}}</text
-                  >
-                  <view
-                    ><text class="shift-name">{{group.shiftName}}</text
-                    ><text class="shift-time">{{group.timeRange}}</text></view
-                  >
-                </view>
-                <view class="grouped-staff-list">
-                  <view
-                    wx:for="{{group.rows}}"
-                    wx:for-item="row"
-                    wx:key="key"
-                    class="staff-duty-row"
-                  >
-                    <view class="staff-duty-heading">
-                      <view
-                        wx:if="{{row.phoneOptions.length > 0}}"
-                        class="staff-name-button"
-                        data-key="{{row.key}}"
-                        hover-class="is-pressed"
-                        aria-role="button"
-                        aria-label="{{row.name}}，展开电话"
-                        aria-expanded="{{expandedDetailKey === row.key}}"
-                        bindtap="handleDetailPhoneToggle"
-                      >
-                        <view class="staff-name-copy"
-                          ><text class="staff-name">{{row.name}}</text
-                          ><text class="staff-role">{{row.role}}</text></view
-                        >
-                        <image
-                          class="detail-phone-icon"
-                          src="/assets/icons/web-phone.svg"
-                          mode="aspectFit"
-                        />
-                        <image
-                          class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
-                          src="/assets/icons/web-chevron-right.svg"
-                          mode="aspectFit"
-                        />
-                      </view>
-                      <view wx:else class="staff-name-static"
-                        ><text class="staff-name">{{row.name}}</text
-                        ><text class="staff-role">{{row.role}}</text></view
-                      >
-                      <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
-                    </view>
-                    <view
-                      wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
-                      class="phone-split-actions"
-                    >
-                      <view
-                        wx:for="{{row.phoneOptions}}"
-                        wx:for-item="phone"
-                        wx:key="number"
-                        class="detail-phone-action"
-                        data-phone="{{phone.number}}"
-                        hover-class="is-pressed"
-                        aria-role="button"
-                        aria-label="拨打{{phone.label}} {{phone.number}}"
-                        catchtap="handleListCall"
-                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
-                        <text>{{phone.label}} {{phone.number}}</text></view
-                      >
-                    </view>
-                    <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
-                      <view
-                        wx:for="{{row.markerDetails}}"
-                        wx:for-item="markerDetail"
-                        wx:key="key"
-                        class="change-summary-item"
-                        ><text class="detail-change-badge">{{markerDetail.badge}}</text
-                        ><text>{{markerDetail.label}}</text></view
-                      >
-                    </view>
-                    <view
-                      class="event-action"
-                      data-label="事件记录"
-                      hover-class="is-pressed"
-                      aria-role="button"
-                      bindtap="handleUnavailable"
-                      ><image
-                        class="event-history-icon"
-                        src="/assets/icons/web-history.svg"
-                        mode="aspectFit"
-                      />
-                      ><text>事件记录</text></view
-                    >
-                  </view>
-                </view>
-              </view>
-            </view>
-            <view wx:else class="selected-date-empty">当日暂无符合当前筛选条件的排班。</view>
-          </view>
-        </block>
-
-        <block wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'list'}}">
-          <view class="list-calendar" aria-label="列表视图">
-            <view class="list-calendar-heading">
-              <view
-                class="calendar-step"
-                data-delta="-1"
-                hover-class="is-pressed"
-                hover-start-time="0"
-                hover-stay-time="60"
-                aria-role="button"
-                aria-label="上一月"
-                bindtap="handleListMonthChange"
-                ><view class="chevron is-left {{listSwiperCurrent === 0 ? 'is-animating' : ''}}"
-                  ><image
-                    class="chevron-image"
-                    src="/assets/icons/web-chevron-left.svg"
-                    mode="aspectFit" /></view
-              ></view>
-              <view class="calendar-heading"
-                ><text>{{monthLabel}}</text
-                ><text>固定月份 · {{listPanels[1].dutyCount}} 个班次</text></view
-              >
-              <view
-                class="calendar-step"
-                data-delta="1"
-                hover-class="is-pressed"
-                hover-start-time="0"
-                hover-stay-time="60"
-                aria-role="button"
-                aria-label="下一月"
-                bindtap="handleListMonthChange"
-                ><view class="chevron is-right {{listSwiperCurrent === 2 ? 'is-animating' : ''}}"
-                  ><image
-                    class="chevron-image"
-                    src="/assets/icons/web-chevron-right.svg"
-                    mode="aspectFit" /></view
-              ></view>
-              <view
-                class="calendar-locator"
-                hover-class="is-pressed"
-                hover-start-time="0"
-                hover-stay-time="60"
-                aria-role="button"
-                aria-label="定位到今天"
-                bindtap="handleLocateToday"
-                ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                  ><image
-                    class="locate-image"
-                    src="/assets/icons/web-locate.svg"
-                    mode="aspectFit" /></view
-              ></view>
-            </view>
-            <view class="list-scroll-boundary" aria-hidden="true"></view>
-            <swiper
-              class="period-swiper list-swiper"
-              current="{{listSwiperCurrent}}"
-              duration="{{periodSwiperDuration}}"
-              easing-function="easeOutCubic"
-              bindanimationfinish="handleListSwiperFinish"
-            >
-              <swiper-item wx:for="{{listPanels}}" wx:key="key">
-                <scroll-view
-                  class="list-panel-scroll"
-                  scroll-y
-                  scroll-with-animation="{{true}}"
-                  scroll-into-view="{{listScrollTarget}}"
-                  show-scrollbar="{{false}}"
+            <view id="workbench-content-top" class="view-controls" aria-label="排班视图">
+              <view class="view-switch" aria-role="tablist">
+                <view
+                  wx:for="{{viewOptions}}"
+                  wx:key="*this"
+                  class="view-tab {{item === viewMode ? 'is-active' : ''}}"
+                  data-view="{{item}}"
+                  aria-role="tab"
+                  aria-selected="{{item === viewMode}}"
+                  bindtap="handleViewChange"
+                  >{{item === 'month' ? '月' : item === 'week' ? '周' : '列表'}}</view
                 >
-                  <view class="list-panel-content">
-                    <view wx:if="{{item.days.length === 0}}" class="detail-empty list-empty"
-                      >这个月没有已发布排班。</view
+              </view>
+              <view
+                class="filter-button {{activeFilterCount > 0 ? 'has-filter' : ''}}"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="筛选排班"
+                bindtap="handleFilterToggle"
+              >
+                <view
+                  class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}"
+                  aria-hidden="true"
+                  ><view></view><view></view><view></view
+                ></view>
+                <text>筛选</text>
+                <text wx:if="{{activeFilterCount > 0}}" class="filter-count"
+                  >{{activeFilterCount}}</text
+                >
+              </view>
+            </view>
+
+            <text wx:if="{{announcement}}" class="sr-announcement" aria-live="polite"
+              >{{announcement}}</text
+            >
+
+            <view
+              id="workbench-view-anchor"
+              class="workbench-view-anchor {{viewMode === 'month' ? 'is-month-mode' : ''}}"
+            >
+              <block wx:if="{{(state === 'ready' || state === 'offline') && viewMode === 'month'}}">
+                <calendar-month
+                  id="workbench-month"
+                  grid-height="{{gridHeight}}"
+                  month-label="{{monthLabel}}"
+                  panel-heights="{{monthPanelHeights}}"
+                  panels="{{monthPanels}}"
+                  bind:locatetoday="handleLocateToday"
+                  bind:monthchange="handleMonthChange"
+                  bind:monthsettled="handleMonthSettled"
+                  bind:select="handleDateSelect"
+                ></calendar-month>
+                <view class="selected-date-details" aria-label="选中日期值班详情">
+                  <view class="detail-heading">
+                    <view class="detail-date-copy"
+                      ><text>选中日期</text
+                      ><text class="detail-date-value">{{selectedLabel}}</text></view
                     >
+                    <text class="duty-count">{{selectedCountLabel}}</text>
+                  </view>
+                  <view wx:if="{{selectedDetails.length > 0}}" class="duty-group-grid">
                     <view
-                      wx:for="{{item.days}}"
-                      wx:for-item="day"
-                      wx:key="businessDate"
-                      id="list-day-{{day.businessDate}}"
-                      class="list-day-slot"
+                      wx:for="{{selectedDetails}}"
+                      wx:for-item="group"
+                      wx:key="key"
+                      class="shift-detail-card"
                     >
                       <view
-                        class="list-day-card {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
-                      >
+                        class="shift-detail-accent"
+                        style="background:{{group.shiftColor}}"
+                      ></view>
+                      <view class="shift-card-heading">
+                        <text
+                          class="shift-code"
+                          style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
+                          >{{group.shiftAbbreviation}}</text
+                        >
                         <view
-                          class="list-day-heading"
+                          ><text class="shift-name">{{group.shiftName}}</text
+                          ><text class="shift-time">{{group.timeRange}}</text></view
+                        >
+                      </view>
+                      <view class="grouped-staff-list">
+                        <view
+                          wx:for="{{group.rows}}"
+                          wx:for-item="row"
+                          wx:key="key"
+                          class="staff-duty-row"
+                        >
+                          <view class="staff-duty-heading">
+                            <view
+                              wx:if="{{row.phoneOptions.length > 0}}"
+                              class="staff-name-button"
+                              data-key="{{row.key}}"
+                              hover-class="is-pressed"
+                              aria-role="button"
+                              aria-label="{{row.name}}，展开电话"
+                              aria-expanded="{{expandedDetailKey === row.key}}"
+                              bindtap="handleDetailPhoneToggle"
+                            >
+                              <view class="staff-name-copy"
+                                ><text class="staff-name">{{row.name}}</text
+                                ><text class="staff-role">{{row.role}}</text></view
+                              >
+                              <image
+                                class="detail-phone-icon"
+                                src="/assets/icons/web-phone.svg"
+                                mode="aspectFit"
+                              />
+                              <image
+                                class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
+                                src="/assets/icons/web-chevron-right.svg"
+                                mode="aspectFit"
+                              />
+                            </view>
+                            <view wx:else class="staff-name-static"
+                              ><text class="staff-name">{{row.name}}</text
+                              ><text class="staff-role">{{row.role}}</text></view
+                            >
+                            <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
+                          </view>
+                          <view
+                            wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
+                            class="phone-split-actions"
+                          >
+                            <view
+                              wx:for="{{row.phoneOptions}}"
+                              wx:for-item="phone"
+                              wx:key="number"
+                              class="detail-phone-action"
+                              data-phone="{{phone.number}}"
+                              hover-class="is-pressed"
+                              aria-role="button"
+                              aria-label="拨打{{phone.label}} {{phone.number}}"
+                              catchtap="handleListCall"
+                              ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
+                              <text>{{phone.label}} {{phone.number}}</text></view
+                            >
+                          </view>
+                          <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                            <view
+                              wx:for="{{row.markerDetails}}"
+                              wx:for-item="markerDetail"
+                              wx:key="key"
+                              class="change-summary-item"
+                              ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                              ><text>{{markerDetail.label}}</text></view
+                            >
+                          </view>
+                          <view
+                            class="event-action"
+                            data-label="事件记录"
+                            hover-class="is-pressed"
+                            aria-role="button"
+                            bindtap="handleUnavailable"
+                            ><image
+                              class="event-history-icon"
+                              src="/assets/icons/web-history.svg"
+                              mode="aspectFit"
+                            />
+                            ><text>事件记录</text></view
+                          >
+                        </view>
+                      </view>
+                    </view>
+                  </view>
+                  <view wx:else class="selected-date-empty">当日暂无符合当前筛选条件的排班。</view>
+                </view>
+              </block>
+
+              <block
+                wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'week'}}"
+              >
+                <view class="week-calendar" aria-label="周视图">
+                  <view class="calendar-navigation">
+                    <view
+                      class="calendar-step"
+                      data-delta="-1"
+                      hover-class="is-pressed"
+                      hover-start-time="0"
+                      hover-stay-time="60"
+                      aria-role="button"
+                      aria-label="上一周"
+                      bindtap="handleWeekChange"
+                      ><view
+                        class="chevron is-left {{weekSwiperCurrent === 0 ? 'is-animating' : ''}}"
+                        ><image
+                          class="chevron-image"
+                          src="/assets/icons/web-chevron-left.svg"
+                          mode="aspectFit" /></view
+                    ></view>
+                    <view class="calendar-heading"
+                      ><text>{{weekPanels[1].weekOrdinalLabel}}</text
+                      ><text>{{weekPanels[1].rangeLabel}}</text></view
+                    >
+                    <view
+                      class="calendar-locator"
+                      hover-class="is-pressed"
+                      hover-start-time="0"
+                      hover-stay-time="60"
+                      aria-role="button"
+                      aria-label="定位到今天"
+                      bindtap="handleLocateToday"
+                      ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                        ><image
+                          class="locate-image"
+                          src="/assets/icons/web-locate.svg"
+                          mode="aspectFit" /></view
+                    ></view>
+                    <view
+                      class="calendar-step"
+                      data-delta="1"
+                      hover-class="is-pressed"
+                      hover-start-time="0"
+                      hover-stay-time="60"
+                      aria-role="button"
+                      aria-label="下一周"
+                      bindtap="handleWeekChange"
+                      ><view
+                        class="chevron is-right {{weekSwiperCurrent === 2 ? 'is-animating' : ''}}"
+                        ><image
+                          class="chevron-image"
+                          src="/assets/icons/web-chevron-right.svg"
+                          mode="aspectFit" /></view
+                    ></view>
+                  </view>
+                  <view class="week-day-row" aria-hidden="true"
+                    ><text
+                      wx:for="{{weekPanels[1].days}}"
+                      wx:key="businessDate"
+                      class="{{item.isWeekend ? 'is-weekend' : ''}}"
+                      >{{item.weekday}}</text
+                    ></view
+                  >
+                  <swiper
+                    class="period-swiper week-swiper"
+                    current="{{weekSwiperCurrent}}"
+                    duration="{{periodSwiperDuration}}"
+                    easing-function="easeOutCubic"
+                    bindanimationfinish="handleWeekSwiperFinish"
+                  >
+                    <swiper-item wx:for="{{weekPanels}}" wx:key="key">
+                      <view class="week-day-grid">
+                        <view
+                          wx:for="{{item.days}}"
+                          wx:for-item="day"
+                          wx:key="businessDate"
+                          class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
                           data-business-date="{{day.businessDate}}"
                           hover-class="is-pressed"
                           aria-role="button"
-                          bindtap="handleListSelect"
+                          bindtap="handleWeekDaySelect"
                         >
-                          <view class="list-date-copy"
-                            ><text class="list-date-label">{{day.dateLabel}}</text
-                            ><text class="list-weekday {{day.isWeekend ? 'is-weekend' : ''}}"
-                              >{{day.weekday}}</text
-                            ><text wx:if="{{day.holiday}}" class="list-holiday"
+                          <view class="week-date-line"
+                            ><text class="day-number">{{day.day}}</text
+                            ><text wx:if="{{day.holiday}}" class="week-holiday"
                               >{{day.holiday}}</text
-                            ><text wx:if="{{day.isToday}}" class="list-today-badge"
-                              >今天</text
                             ></view
                           >
-                          <text class="list-duty-count">{{day.dutyCountLabel}}</text>
-                        </view>
-                        <view
-                          wx:for="{{day.duties}}"
-                          wx:for-item="duty"
-                          wx:key="key"
-                          class="list-duty-item"
-                        >
+                          <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
                           <view
-                            class="list-duty-accent"
-                            style="background:{{duty.shiftColor}}"
-                          ></view>
-                          <view class="list-duty-copy"
-                            ><view class="list-duty-name-line"
-                              ><text class="list-duty-name">{{duty.name}}</text
+                            wx:for="{{day.duties}}"
+                            wx:for-item="duty"
+                            wx:key="key"
+                            class="week-duty-item"
+                          >
+                            <text class="week-duty-name">{{duty.name}}</text>
+                            <view class="week-duty-badges"
+                              ><text
+                                class="week-shift-badge"
+                                style="color:{{duty.shiftTextColor}};background:{{duty.shiftColor}}"
+                                >{{duty.shiftAbbreviation}}</text
                               ><text
                                 wx:for="{{duty.markers}}"
                                 wx:for-item="marker"
                                 wx:key="*this"
-                                class="list-change-badge"
+                                class="week-change-badge"
                                 >{{marker}}</text
                               ></view
-                            ><text class="list-duty-details">{{duty.details}}</text></view
-                          >
+                            >
+                          </view>
+                        </view>
+                      </view>
+                    </swiper-item>
+                  </swiper>
+                </view>
+                <view class="selected-date-details" aria-label="选中日期值班详情">
+                  <view class="detail-heading">
+                    <view class="detail-date-copy"
+                      ><text>选中日期</text
+                      ><text class="detail-date-value">{{selectedLabel}}</text></view
+                    >
+                    <text class="duty-count">{{selectedCountLabel}}</text>
+                  </view>
+                  <view wx:if="{{selectedDetails.length > 0}}" class="duty-group-grid">
+                    <view
+                      wx:for="{{selectedDetails}}"
+                      wx:for-item="group"
+                      wx:key="key"
+                      class="shift-detail-card"
+                    >
+                      <view
+                        class="shift-detail-accent"
+                        style="background:{{group.shiftColor}}"
+                      ></view>
+                      <view class="shift-card-heading">
+                        <text
+                          class="shift-code"
+                          style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
+                          >{{group.shiftAbbreviation}}</text
+                        >
+                        <view
+                          ><text class="shift-name">{{group.shiftName}}</text
+                          ><text class="shift-time">{{group.timeRange}}</text></view
+                        >
+                      </view>
+                      <view class="grouped-staff-list">
+                        <view
+                          wx:for="{{group.rows}}"
+                          wx:for-item="row"
+                          wx:key="key"
+                          class="staff-duty-row"
+                        >
+                          <view class="staff-duty-heading">
+                            <view
+                              wx:if="{{row.phoneOptions.length > 0}}"
+                              class="staff-name-button"
+                              data-key="{{row.key}}"
+                              hover-class="is-pressed"
+                              aria-role="button"
+                              aria-label="{{row.name}}，展开电话"
+                              aria-expanded="{{expandedDetailKey === row.key}}"
+                              bindtap="handleDetailPhoneToggle"
+                            >
+                              <view class="staff-name-copy"
+                                ><text class="staff-name">{{row.name}}</text
+                                ><text class="staff-role">{{row.role}}</text></view
+                              >
+                              <image
+                                class="detail-phone-icon"
+                                src="/assets/icons/web-phone.svg"
+                                mode="aspectFit"
+                              />
+                              <image
+                                class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
+                                src="/assets/icons/web-chevron-right.svg"
+                                mode="aspectFit"
+                              />
+                            </view>
+                            <view wx:else class="staff-name-static"
+                              ><text class="staff-name">{{row.name}}</text
+                              ><text class="staff-role">{{row.role}}</text></view
+                            >
+                            <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
+                          </view>
                           <view
-                            wx:if="{{duty.phone}}"
-                            class="list-call-action"
-                            data-phone="{{duty.phone}}"
+                            wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
+                            class="phone-split-actions"
+                          >
+                            <view
+                              wx:for="{{row.phoneOptions}}"
+                              wx:for-item="phone"
+                              wx:key="number"
+                              class="detail-phone-action"
+                              data-phone="{{phone.number}}"
+                              hover-class="is-pressed"
+                              aria-role="button"
+                              aria-label="拨打{{phone.label}} {{phone.number}}"
+                              catchtap="handleListCall"
+                              ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
+                              <text>{{phone.label}} {{phone.number}}</text></view
+                            >
+                          </view>
+                          <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                            <view
+                              wx:for="{{row.markerDetails}}"
+                              wx:for-item="markerDetail"
+                              wx:key="key"
+                              class="change-summary-item"
+                              ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                              ><text>{{markerDetail.label}}</text></view
+                            >
+                          </view>
+                          <view
+                            class="event-action"
+                            data-label="事件记录"
                             hover-class="is-pressed"
                             aria-role="button"
-                            aria-label="联系{{duty.name}}"
-                            catchtap="handleListCall"
-                            ><image src="/assets/icons/web-phone.svg" mode="aspectFit"
-                          /></view>
+                            bindtap="handleUnavailable"
+                            ><image
+                              class="event-history-icon"
+                              src="/assets/icons/web-history.svg"
+                              mode="aspectFit"
+                            />
+                            ><text>事件记录</text></view
+                          >
                         </view>
                       </view>
                     </view>
                   </view>
-                </scroll-view>
-              </swiper-item>
-            </swiper>
-          </view>
-        </block>
+                  <view wx:else class="selected-date-empty">当日暂无符合当前筛选条件的排班。</view>
+                </view>
+              </block>
 
-        <view wx:elif="{{state === 'loading'}}" class="state-card state-loading" aria-live="polite"
-          ><view class="state-mark"><view class="state-spinner"></view></view
-          ><text class="state-title">正在读取排班</text
-          ><text class="state-description">正在读取当前群组的月历和班次。</text></view
-        >
-        <view wx:elif="{{state === 'empty'}}" class="state-card state-empty" aria-live="polite"
-          ><view class="state-mark">日</view
-          ><text class="state-title"
-            >{{currentGroupId ? '暂时没有已发布排班' : '暂无可查看的群组'}}</text
-          ><text class="state-description"
-            >{{currentGroupId ? '群主完成发布后，这里会显示当前群组的值班安排。' :
-            '身份确认后，加入有权限的群组即可查看排班。'}}</text
-          ></view
-        >
-        <view wx:elif="{{state === 'offline'}}" class="state-card state-offline" aria-live="polite"
-          ><view class="state-mark">日</view><text class="state-title">当前为离线状态</text
-          ><text class="state-description"
-            >只显示最近一次成功读取的内容，离线时不能提交业务变更。</text
-          ></view
-        >
-        <view wx:elif="{{state === 'error'}}" class="state-card state-error" aria-live="polite"
-          ><view class="state-mark">!</view><text class="state-title">排班暂时无法加载</text
-          ><text class="state-description">{{errorMessage}}</text
-          ><view
-            class="retry-action"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleRetry"
-            >重新加载</view
-          ><view
-            wx:if="{{canReLogin}}"
-            class="login-action"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenIdentity"
-            >重新登录</view
-          ></view
-        >
-      </view>
-    </view>
-  </scroll-view>
+              <block
+                wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'list'}}"
+              >
+                <view class="list-calendar" aria-label="列表视图">
+                  <view class="list-calendar-heading">
+                    <view
+                      class="calendar-step"
+                      data-delta="-1"
+                      hover-class="is-pressed"
+                      hover-start-time="0"
+                      hover-stay-time="60"
+                      aria-role="button"
+                      aria-label="上一月"
+                      bindtap="handleListMonthChange"
+                      ><view
+                        class="chevron is-left {{listSwiperCurrent === 0 ? 'is-animating' : ''}}"
+                        ><image
+                          class="chevron-image"
+                          src="/assets/icons/web-chevron-left.svg"
+                          mode="aspectFit" /></view
+                    ></view>
+                    <view class="calendar-heading"
+                      ><text>{{monthLabel}}</text
+                      ><text>固定月份 · {{listPanels[1].dutyCount}} 个班次</text></view
+                    >
+                    <view
+                      class="calendar-step"
+                      data-delta="1"
+                      hover-class="is-pressed"
+                      hover-start-time="0"
+                      hover-stay-time="60"
+                      aria-role="button"
+                      aria-label="下一月"
+                      bindtap="handleListMonthChange"
+                      ><view
+                        class="chevron is-right {{listSwiperCurrent === 2 ? 'is-animating' : ''}}"
+                        ><image
+                          class="chevron-image"
+                          src="/assets/icons/web-chevron-right.svg"
+                          mode="aspectFit" /></view
+                    ></view>
+                    <view
+                      class="calendar-locator"
+                      hover-class="is-pressed"
+                      hover-start-time="0"
+                      hover-stay-time="60"
+                      aria-role="button"
+                      aria-label="定位到今天"
+                      bindtap="handleLocateToday"
+                      ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                        ><image
+                          class="locate-image"
+                          src="/assets/icons/web-locate.svg"
+                          mode="aspectFit" /></view
+                    ></view>
+                  </view>
+                  <view class="list-scroll-boundary" aria-hidden="true"></view>
+                  <swiper
+                    class="period-swiper list-swiper"
+                    current="{{listSwiperCurrent}}"
+                    duration="{{periodSwiperDuration}}"
+                    easing-function="easeOutCubic"
+                    bindanimationfinish="handleListSwiperFinish"
+                  >
+                    <swiper-item wx:for="{{listPanels}}" wx:key="key">
+                      <scroll-view
+                        class="list-panel-scroll"
+                        scroll-y
+                        scroll-with-animation="{{true}}"
+                        scroll-into-view="{{listScrollTarget}}"
+                        show-scrollbar="{{false}}"
+                      >
+                        <view class="list-panel-content">
+                          <view wx:if="{{item.days.length === 0}}" class="detail-empty list-empty"
+                            >这个月没有已发布排班。</view
+                          >
+                          <view
+                            wx:for="{{item.days}}"
+                            wx:for-item="day"
+                            wx:key="businessDate"
+                            id="list-day-{{day.businessDate}}"
+                            class="list-day-slot"
+                          >
+                            <view
+                              class="list-day-card {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
+                            >
+                              <view
+                                class="list-day-heading"
+                                data-business-date="{{day.businessDate}}"
+                                hover-class="is-pressed"
+                                aria-role="button"
+                                bindtap="handleListSelect"
+                              >
+                                <view class="list-date-copy"
+                                  ><text class="list-date-label">{{day.dateLabel}}</text
+                                  ><text class="list-weekday {{day.isWeekend ? 'is-weekend' : ''}}"
+                                    >{{day.weekday}}</text
+                                  ><text wx:if="{{day.holiday}}" class="list-holiday"
+                                    >{{day.holiday}}</text
+                                  ><text wx:if="{{day.isToday}}" class="list-today-badge"
+                                    >今天</text
+                                  ></view
+                                >
+                                <text class="list-duty-count">{{day.dutyCountLabel}}</text>
+                              </view>
+                              <view
+                                wx:for="{{day.duties}}"
+                                wx:for-item="duty"
+                                wx:key="key"
+                                class="list-duty-item"
+                              >
+                                <view
+                                  class="list-duty-accent"
+                                  style="background:{{duty.shiftColor}}"
+                                ></view>
+                                <view class="list-duty-copy"
+                                  ><view class="list-duty-name-line"
+                                    ><text class="list-duty-name">{{duty.name}}</text
+                                    ><text
+                                      wx:for="{{duty.markers}}"
+                                      wx:for-item="marker"
+                                      wx:key="*this"
+                                      class="list-change-badge"
+                                      >{{marker}}</text
+                                    ></view
+                                  ><text class="list-duty-details">{{duty.details}}</text></view
+                                >
+                                <view
+                                  wx:if="{{duty.phone}}"
+                                  class="list-call-action"
+                                  data-phone="{{duty.phone}}"
+                                  hover-class="is-pressed"
+                                  aria-role="button"
+                                  aria-label="联系{{duty.name}}"
+                                  catchtap="handleListCall"
+                                  ><image src="/assets/icons/web-phone.svg" mode="aspectFit"
+                                /></view>
+                              </view>
+                            </view>
+                          </view>
+                        </view>
+                      </scroll-view>
+                    </swiper-item>
+                  </swiper>
+                </view>
+              </block>
 
-  <view
-    class="embedded-workspace"
-    style="--workspace-top:{{shellHeaderHeight}}px"
-    hidden="{{activeWorkspace !== 'directory'}}"
-  >
-    <view wx:if="{{!directoryPanelReady}}" class="embedded-workspace-loading">
-      <ui-loading label="正在准备通讯录"></ui-loading>
-    </view>
-    <directory-panel
-      directory-kind="internal"
-      group-id="{{canOpenGroupSettings ? currentGroupId : ''}}"
-      embedded="{{true}}"
-      hidden="{{!directoryPanelReady}}"
-      bind:panelready="handleDirectoryPanelReady"
-    ></directory-panel>
-  </view>
-  <view
-    wx:if="{{workflowPanelsMounted}}"
-    class="embedded-workspace"
-    style="--workspace-top:{{shellHeaderHeight}}px"
-    hidden="{{activeWorkspace !== 'swap'}}"
-  >
-    <workflow-swap-panel
-      group-id="{{currentGroupId}}"
-      embedded="{{true}}"
-      bind:calendarchanged="handleWorkflowCalendarChanged"
-    ></workflow-swap-panel>
-  </view>
-  <view
-    class="embedded-workspace"
-    style="--workspace-top:{{shellHeaderHeight}}px"
-    hidden="{{activeWorkspace !== 'profile'}}"
-  >
-    <view wx:if="{{!profilePanelReady}}" class="embedded-workspace-loading">
-      <ui-loading label="正在准备个人中心"></ui-loading>
-    </view>
-    <profile-panel
-      embedded="{{true}}"
-      group-id="{{currentGroupId}}"
-      group-name="{{currentGroupName}}"
-      group-role="{{currentGroupRoleKind}}"
-      group-is-developer-admin="{{currentGroupIsDeveloperAdmin}}"
-      hidden="{{!profilePanelReady}}"
-      bind:panelready="handleProfilePanelReady"
-      bind:openstatistics="handleProfileOpenStatistics"
-      bind:opencalendar="handleCalendarNav"
-    ></profile-panel>
-  </view>
-  <scroll-view
-    wx:if="{{activeWorkspace === 'more'}}"
-    class="more-workspace"
-    style="--workspace-top:{{shellHeaderHeight}}px"
-    type="list"
-    scroll-y
-    enhanced
-    show-scrollbar="{{false}}"
-  >
-    <view class="more-workspace-content">
-      <view class="more-heading">
-        <text>更多工具</text>
-        <text>管理群组、排班、通知与访问工具。</text>
-      </view>
-      <view wx:if="{{toolAccess.groupSection}}" class="more-section">
-        <text class="more-section-title">群组与排班</text>
-        <view class="more-card">
-          <view
-            wx:if="{{toolAccess.groupSettings}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenGroupSettings"
-          >
-            <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
-            <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
+              <view
+                wx:elif="{{state === 'loading'}}"
+                class="state-card state-loading"
+                aria-live="polite"
+                ><view class="state-mark"><view class="state-spinner"></view></view
+                ><text class="state-title">正在读取排班</text
+                ><text class="state-description">正在读取当前群组的月历和班次。</text></view
+              >
+              <view
+                wx:elif="{{state === 'empty'}}"
+                class="state-card state-empty"
+                aria-live="polite"
+                ><view class="state-mark">日</view
+                ><text class="state-title"
+                  >{{currentGroupId ? '暂时没有已发布排班' : '暂无可查看的群组'}}</text
+                ><text class="state-description"
+                  >{{currentGroupId ? '群主完成发布后，这里会显示当前群组的值班安排。' :
+                  '身份确认后，加入有权限的群组即可查看排班。'}}</text
+                ></view
+              >
+              <view
+                wx:elif="{{state === 'offline'}}"
+                class="state-card state-offline"
+                aria-live="polite"
+                ><view class="state-mark">日</view><text class="state-title">当前为离线状态</text
+                ><text class="state-description"
+                  >只显示最近一次成功读取的内容，离线时不能提交业务变更。</text
+                ></view
+              >
+              <view
+                wx:elif="{{state === 'error'}}"
+                class="state-card state-error"
+                aria-live="polite"
+                ><view class="state-mark">!</view><text class="state-title">排班暂时无法加载</text
+                ><text class="state-description">{{errorMessage}}</text
+                ><view
+                  class="retry-action"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleRetry"
+                  >重新加载</view
+                ><view
+                  wx:if="{{canReLogin}}"
+                  class="login-action"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenIdentity"
+                  >重新登录</view
+                ></view
+              >
+            </view>
           </view>
-          <view
-            wx:if="{{toolAccess.manualSchedule}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenManualSchedule"
-          >
-            <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
-            <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
-          <view
-            wx:if="{{toolAccess.backfill}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenBackfill"
-          >
-            <image src="/assets/icons/web-history.svg" mode="aspectFit" />
-            <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
-          <view
-            wx:if="{{toolAccess.leave}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenLeave"
-          >
-            <image src="/assets/icons/web-leave.svg" mode="aspectFit" />
-            <view><text>请假</text><text>提交请假并处理待审批申请</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
-          <view
-            wx:if="{{toolAccess.duty}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenDuty"
-          >
-            <image src="/assets/icons/web-duty.svg" mode="aspectFit" />
-            <view><text>加扣班</text><text>发起代值、加班或扣班调整</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
-          <view
-            wx:if="{{toolAccess.schedulingConfig}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenSchedulingConfig"
-          >
-            <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
-            <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
-        </view>
-      </view>
+        </scroll-view>
+      </swiper-item>
 
-      <view wx:if="{{toolAccess.informationSection}}" class="more-section">
-        <text class="more-section-title">信息与通知</text>
-        <view class="more-card">
-          <view
-            wx:if="{{toolAccess.insights}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenInsights"
-          >
-            <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
-            <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
+      <swiper-item class="workspace-swiper-item">
+        <view class="workspace-pane" hidden="{{activeWorkspace !== 'directory'}}">
+          <view wx:if="{{!canOpenGroupSettings}}" class="workspace-disabled-state">
+            <text class="state-title">当前群组不能使用通讯录</text>
+            <text class="state-description">切换到成员群组后即可查看通讯录。</text>
           </view>
-          <view
-            wx:if="{{toolAccess.notificationSettings}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenNotificationSettings"
-          >
-            <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
-            <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
+          <view wx:elif="{{!workspaceReady.directory}}" class="embedded-workspace-loading">
+            <ui-loading label="正在准备通讯录"></ui-loading>
           </view>
-          <view
-            wx:if="{{toolAccess.notifications}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenNotifications"
-          >
-            <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
-            <view><text>通知中心</text><text>查看排班、请假与换班提醒</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
-          <view
-            wx:if="{{toolAccess.exports}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenExports"
-          >
-            <image src="/assets/icons/web-history.svg" mode="aspectFit" />
-            <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
+          <directory-panel
+            wx:if="{{workspaceMounted.directory}}"
+            directory-kind="internal"
+            group-id="{{canOpenGroupSettings ? currentGroupId : ''}}"
+            embedded="{{true}}"
+            hidden="{{!canOpenGroupSettings || !workspaceReady.directory}}"
+            data-workspace="directory"
+            bind:panelready="handleWorkspaceReady"
+            bind:workspacerequest="handleWorkspaceRequest"
+          ></directory-panel>
         </view>
-      </view>
+      </swiper-item>
 
-      <view wx:if="{{toolAccess.accessSection}}" class="more-section">
-        <text class="more-section-title">访问与平台</text>
-        <view class="more-card">
-          <view
-            wx:if="{{toolAccess.inviteVisitor}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenInviteVisitor"
-          >
-            <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
-            <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
+      <swiper-item class="workspace-swiper-item">
+        <view class="workspace-pane" hidden="{{activeWorkspace !== 'swap'}}">
+          <view wx:if="{{!toolAccess.leave}}" class="workspace-disabled-state">
+            <text class="state-title">当前群组不能使用换班</text>
+            <text class="state-description">切换到成员群组后即可使用换班功能。</text>
           </view>
-          <view
-            wx:if="{{toolAccess.visitorAccess}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenVisitorAccess"
-          >
-            <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
-            <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
+          <view wx:elif="{{!workspaceReady.swap}}" class="embedded-workspace-loading">
+            <ui-loading label="正在准备换班"></ui-loading>
           </view>
-          <view
-            wx:if="{{toolAccess.platformAccounts}}"
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenPlatformAccounts"
-          >
-            <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
-            <view><text>平台账号</text><text>仅平台管理员可分配用户名与绑定链接</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
-          </view>
+          <workflow-swap-panel
+            wx:if="{{workspaceMounted.swap}}"
+            group-id="{{toolAccess.leave ? currentGroupId : ''}}"
+            embedded="{{true}}"
+            active="{{activeWorkspace === 'swap'}}"
+            hidden="{{!toolAccess.leave || !workspaceReady.swap}}"
+            data-workspace="swap"
+            bind:workspaceready="handleWorkspaceReady"
+            bind:workspacerequest="handleWorkspaceRequest"
+            bind:calendarchanged="handleWorkflowCalendarChanged"
+          ></workflow-swap-panel>
         </view>
-      </view>
-      <view wx:if="{{testCenterEnabled}}" class="more-section">
-        <text class="more-section-title">测试与诊断</text>
-        <view class="more-card">
-          <view
-            class="more-item"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleOpenTestCenter"
-          >
-            <image src="/assets/icons/web-more-secondary.svg" mode="aspectFit" />
-            <view><text>测试中心</text><text>集中验证滚轮、手势与后续真机能力</text></view>
-            <image
-              class="more-chevron"
-              src="/assets/icons/web-chevron-right.svg"
-              mode="aspectFit"
-            />
+      </swiper-item>
+
+      <swiper-item class="workspace-swiper-item">
+        <view class="workspace-pane" hidden="{{activeWorkspace !== 'profile'}}">
+          <view wx:if="{{!workspaceReady.profile}}" class="embedded-workspace-loading">
+            <ui-loading label="正在准备个人中心"></ui-loading>
           </view>
+          <profile-workspace
+            wx:if="{{workspaceMounted.profile}}"
+            active="{{activeWorkspace === 'profile'}}"
+            group-id="{{currentGroupId}}"
+            group-name="{{currentGroupName}}"
+            group-role="{{currentGroupRoleKind}}"
+            group-is-developer-admin="{{currentGroupIsDeveloperAdmin}}"
+            refresh-revision="{{profileRefreshRevision}}"
+            hidden="{{!workspaceReady.profile}}"
+            data-workspace="profile"
+            bind:workspaceready="handleWorkspaceReady"
+            bind:workspacerequest="handleWorkspaceRequest"
+            bind:openstatistics="handleProfileOpenStatistics"
+            bind:opencalendar="handleCalendarNav"
+          ></profile-workspace>
         </view>
-      </view>
-      <view wx:if="{{!toolAccess.hasAny && !testCenterEnabled}}" class="state-card">
-        <text class="state-title">当前身份暂无可用的更多工具</text>
-        <text class="state-description">你仍可继续查看当前群组日历。</text>
-        <view
-          class="retry-action"
-          hover-class="is-pressed"
-          aria-role="button"
-          bindtap="handleCalendarNav"
-          >返回日历</view
+      </swiper-item>
+
+      <swiper-item class="workspace-swiper-item">
+        <scroll-view
+          class="more-workspace {{activeWorkspace === 'more' ? 'is-active' : ''}}"
+          hidden="{{activeWorkspace !== 'more'}}"
+          type="list"
+          scroll-y
+          enhanced
+          show-scrollbar="{{false}}"
         >
-      </view>
-    </view>
-  </scroll-view>
+          <view class="more-workspace-content">
+            <view class="more-heading">
+              <text>更多工具</text>
+              <text>管理群组、排班、通知与访问工具。</text>
+            </view>
+            <view wx:if="{{toolAccess.groupSection}}" class="more-section">
+              <text class="more-section-title">群组与排班</text>
+              <view class="more-card">
+                <view
+                  wx:if="{{toolAccess.groupSettings}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenGroupSettings"
+                >
+                  <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+                  <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.manualSchedule}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenManualSchedule"
+                >
+                  <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+                  <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.backfill}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenBackfill"
+                >
+                  <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+                  <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.leave}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenLeave"
+                >
+                  <image src="/assets/icons/web-leave.svg" mode="aspectFit" />
+                  <view><text>请假</text><text>提交请假并处理待审批申请</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.duty}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenDuty"
+                >
+                  <image src="/assets/icons/web-duty.svg" mode="aspectFit" />
+                  <view><text>加扣班</text><text>发起代值、加班或扣班调整</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.schedulingConfig}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenSchedulingConfig"
+                >
+                  <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+                  <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+              </view>
+            </view>
+
+            <view wx:if="{{toolAccess.informationSection}}" class="more-section">
+              <text class="more-section-title">信息与通知</text>
+              <view class="more-card">
+                <view
+                  wx:if="{{toolAccess.insights}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenInsights"
+                >
+                  <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+                  <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.notificationSettings}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenNotificationSettings"
+                >
+                  <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+                  <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.notifications}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenNotifications"
+                >
+                  <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+                  <view><text>通知中心</text><text>查看排班、请假与换班提醒</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.exports}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenExports"
+                >
+                  <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+                  <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+              </view>
+            </view>
+
+            <view wx:if="{{toolAccess.accessSection}}" class="more-section">
+              <text class="more-section-title">访问与平台</text>
+              <view class="more-card">
+                <view
+                  wx:if="{{toolAccess.inviteVisitor}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenInviteVisitor"
+                >
+                  <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+                  <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.visitorAccess}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenVisitorAccess"
+                >
+                  <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
+                  <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+                <view
+                  wx:if="{{toolAccess.platformAccounts}}"
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenPlatformAccounts"
+                >
+                  <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+                  <view><text>平台账号</text><text>仅平台管理员可分配用户名与绑定链接</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+              </view>
+            </view>
+            <view wx:if="{{testCenterEnabled}}" class="more-section">
+              <text class="more-section-title">测试与诊断</text>
+              <view class="more-card">
+                <view
+                  class="more-item"
+                  hover-class="is-pressed"
+                  aria-role="button"
+                  bindtap="handleOpenTestCenter"
+                >
+                  <image src="/assets/icons/web-more-secondary.svg" mode="aspectFit" />
+                  <view><text>测试中心</text><text>集中验证滚轮、手势与后续真机能力</text></view>
+                  <image
+                    class="more-chevron"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit"
+                  />
+                </view>
+              </view>
+            </view>
+            <view wx:if="{{!toolAccess.hasAny && !testCenterEnabled}}" class="state-card">
+              <text class="state-title">当前身份暂无可用的更多工具</text>
+              <text class="state-description">你仍可继续查看当前群组日历。</text>
+              <view
+                class="retry-action"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleCalendarNav"
+                >返回日历</view
+              >
+            </view>
+          </view>
+        </scroll-view>
+      </swiper-item>
+    </swiper>
+  </horizontal-drag-gesture-handler>
 
   <view
     wx:if="{{activeWorkspace === 'calendar' && filterOpen}}"

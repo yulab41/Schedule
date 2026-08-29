@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "ui-loading": "/components/ui/ui-loading/index",
+    "ui-sheet": "/components/ui/ui-sheet/index"
+  }
+}

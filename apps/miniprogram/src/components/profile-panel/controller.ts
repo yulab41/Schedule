@@ -353,6 +353,12 @@ export function createProfilePanelControllerDefinition(
   };
 }
 
+export function createProfileWorkspaceControllerDefinition(
+  dependencyOverrides?: ProfilePanelDependencies,
+) {
+  return createProfilePanelControllerDefinition(true, dependencyOverrides);
+}
+
 function syncProfile(panel: ProfilePanelInstance, dependencies: ProfilePanelDependencies): void {
   const profile = dependencies.getProfile();
   if (profile === undefined) {

@@ -22,7 +22,11 @@ that for Profile: directory post-ready mounting and the static Profile Page rend
 Profile Component adapter freezes even when mounted alone. Do not adjust that adapter's timing again.
 The approved successor is one Page shell with a native Skyline swiper, a rewritten single-lifecycle
 Profile workspace, and serial ready events for directory/profile/swap. Unauthorized workspaces keep a
-fixed disabled explanation and receive an empty group id.
+fixed disabled explanation and do not mount or request their business component. The .66 compiler
+does not honor disable-touch; use the official horizontal drag gesture handler with
+should-accept-gesture=false. Give the native swiper an explicit pixel height: Skyline kept its 150px
+default when only absolute top and bottom were supplied. While swipe is disabled, click is the only
+workspace state owner and delayed programmatic change events must not overwrite a later click.
 
 The touched panels also replace unsupported Grid/sticky layout, remove the zero-height swiper, add
 typed scroll views and restore a definite standalone Profile Page height/leaf declaration. Automated

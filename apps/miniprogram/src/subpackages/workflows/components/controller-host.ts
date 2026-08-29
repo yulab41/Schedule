@@ -16,9 +16,14 @@ interface WorkflowPanelHost {
   __infoMessageTimer?: unknown;
   __loadedGroupId?: string;
   readonly data: Readonly<Record<string, unknown>>;
-  readonly properties: { readonly embedded: boolean; readonly groupId: string };
+  readonly properties: {
+    readonly active: boolean;
+    readonly embedded: boolean;
+    readonly groupId: string;
+  };
   selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
+  triggerEvent?(name: string): void;
 }
 
 interface WorkflowPageHost extends WorkflowPanelHost {
@@ -108,6 +113,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
 
   Component({
     properties: {
+      active: { type: Boolean, value: false },
       embedded: { type: Boolean, value: true },
       groupId: { type: String, value: '' },
     },
@@ -115,6 +121,9 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     lifetimes: {
       attached(this: WorkflowPanelHost): void {
         this.__attached = true;
+        this.setData({ embedded: this.properties.embedded }, () =>
+          this.triggerEvent?.('workspaceready'),
+        );
         startController(this, createDefinition);
       },
       detached(this: WorkflowPanelHost): void {
@@ -134,8 +143,12 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     },
     pageLifetimes: {
       show(this: WorkflowPanelHost): void {
+        if (!this.properties.active) return;
         const onShow = this.__controller?.['onShow'];
-        if (typeof onShow === 'function') onShow.call(this);
+        if (typeof onShow === 'function') {
+          this.triggerEvent?.('workspacerequest');
+          onShow.call(this);
+        }
       },
     },
     methods: {
@@ -222,7 +235,14 @@ function startController(
   createDefinition: (embedded: boolean) => unknown,
 ): void {
   const groupId = host.properties.groupId;
-  if (groupId === '' || host.__loadedGroupId === groupId) return;
+  if (groupId === '') {
+    const onUnload = host.__controller?.['onUnload'];
+    if (typeof onUnload === 'function') onUnload.call(host);
+    host.__controller = undefined;
+    host.__loadedGroupId = '';
+    return;
+  }
+  if (host.__loadedGroupId === groupId) return;
   const controller = normalizeDefinition(createDefinition(host.properties.embedded));
   host.__controller = controller;
   host.__loadedGroupId = groupId;
@@ -231,7 +251,10 @@ function startController(
   }
   host.setData(controller.data);
   const onLoad = controller['onLoad'];
-  if (typeof onLoad === 'function') onLoad.call(host, { groupId });
+  if (typeof onLoad === 'function') {
+    host.triggerEvent?.('workspacerequest');
+    onLoad.call(host, { groupId });
+  }
 }
 
 function normalizeDefinition(value: unknown): ControllerDefinition {

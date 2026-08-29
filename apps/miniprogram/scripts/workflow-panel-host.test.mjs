@@ -53,6 +53,36 @@ describe('workflow panel host transient status', () => {
     expect(instance.data.infoMessage).toBe('加扣班已完成。');
   });
 
+  it('uses active only to gate Page foreground refresh, not bottom-nav toggles', () => {
+    const onShow = vi.fn();
+    registerWorkflowPanel(() => ({ data: { infoMessage: '' }, onLoad() {}, onShow }));
+    const instance = createHostInstance('');
+    instance.properties = { active: false, embedded: true, groupId: 'group-1' };
+
+    definition.lifetimes.attached.call(instance);
+    expect(definition.observers.active).toBeUndefined();
+    definition.pageLifetimes.show.call(instance);
+    expect(onShow).not.toHaveBeenCalled();
+    instance.properties.active = true;
+    definition.pageLifetimes.show.call(instance);
+    expect(onShow).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates a mounted workflow controller when permission clears its group', () => {
+    const onUnload = vi.fn();
+    registerWorkflowPanel(() => ({ data: { infoMessage: '' }, onLoad() {}, onUnload }));
+    const instance = createHostInstance('');
+    instance.properties = { active: true, embedded: true, groupId: 'group-1' };
+
+    definition.lifetimes.attached.call(instance);
+    expect(instance.__controller).toBeDefined();
+    instance.properties.groupId = '';
+    definition.observers.groupId.call(instance);
+    expect(onUnload).toHaveBeenCalledTimes(1);
+    expect(instance.__controller).toBeUndefined();
+    expect(instance.__loadedGroupId).toBe('');
+  });
+
   it('adapts the same controller to Page while preserving receiver, picker, and timer behavior', () => {
     const onLoad = vi.fn();
     const onShow = vi.fn();

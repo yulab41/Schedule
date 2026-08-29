@@ -208,6 +208,7 @@
 </scroll-view>
 
 <ui-sheet
+  wx:if="{{passwordSheetOpen}}"
   visible="{{passwordSheetOpen}}"
   title="修改登录密码"
   close-label="取消"

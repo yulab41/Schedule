@@ -13,7 +13,7 @@ describe('Mini ordinary-member permission UI', () => {
   it('removes unavailable More tools from the render and accessibility trees', () => {
     const template = read('src/pages/workbench/index.wxml');
     const more = template.slice(
-      template.indexOf('class="more-workspace"'),
+      template.indexOf('class="more-workspace '),
       template.indexOf("activeWorkspace === 'calendar' && filterOpen"),
     );
 

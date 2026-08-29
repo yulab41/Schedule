@@ -3,20 +3,20 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取
 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
-## 仓库与生产基线（2026-08-28）
+## 仓库与生产基线（2026-08-29）
 
-- 分支：`main`；运行时代码 checkpoint 为
-  `6695280305773de643496767789c104a8c19ca6d`。最终状态以“包含本文件的 Git HEAD”为
-  Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
+- 分支：`main`；Git/origin/production 设计基线为
+  `a4c4e6519ff3f69fc8dcca0b43c6bf95f10bc49a`，运行时代码前驱为 `66952803`。
+  本批代码 checkpoint 以 `fix(miniprogram): ship persistent primary workspace shell` 识别。
 - 当前体验候选 `.65@6695280` 登录页正常但 workbench 启动白屏，禁止作为可用候选；WXS 滚轮代码
   保留为后继修复基线。
 - `.59/.60/.61/.62/.63/.64/.65` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.63` 首两次上传因 IPv4 白名单拒绝；用户新增当前出口后，同一 `57e10cd` 快照重试成功。
-- 当前生产数据库 schema 52；最近一次状态发布备份为
-  `05f66c25-607e-460f-991e-531b3b696c74`（55 表、183,238 行、83,833,192 bytes、
-  SHA-256 `529fe96993d133d1394493893c054d43ed76dce50bdefb060f52c56f33d7bb49`）。
+- 当前生产数据库 schema 52；最近一次设计发布备份为
+  `527390eb-1b85-4d8c-8cf4-9d6e179ff958`（55 表、186,170 行、84,792,188 bytes、
+  SHA-256 `99df8e53454d9b45858608e02d2da6bae0c09742641a9ac927b5c5e8b4162424`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -57,11 +57,15 @@
 
 ## 当前活动批次
 
-- 新隔离证明 directory post-ready 与 static Profile Page 正常，现有 Profile Component 单独挂载仍
-  冻结；旧 post-ready Profile 方案 stale，不再调整同一 adapter 时机。
-- 已批准单 Page header/swiper/nav 五入口外壳：`.66` 点击即切、串行预载、全部保留与完整重写
-  Profile；`.67` 横滑等待实体复核。设计 checkpoint 为
-  `docs(design): specify persistent workspace shell`；不提审、不正式发布。
+- `.66` 代码已完成：单 Page 常驻 header/swiper/nav、五项固定索引、点击唯一状态源、串行
+  directory→profile→swap 预载、无权限原地说明、完整单生命周期 Profile workspace 与 F 区。
+- 默认 GPU DevTools 直开 workbench/Profile 成功；swiper 390×629。F 区真实 50 次切换：
+  Profile attached=1/request=1/duplicate-ready=0，无权限 directory/swap request=0；横拖注入仍 index 0。
+- Mini 107 files/517 tests、root 242/1,135 tests 通过（37/355 环境跳过）；全端 build/typecheck、
+  Mini verify/determinism/source/package/performance/CI、任务 lint/format、core smoke 通过。
+  总包 5,108,706、main 1,637,511、manifest `afc48b93…ed7d9`；WXS SHA 保持 `f5fa4eaa…2e7c`。
+- 当前待精确暂存、提交、推送、备份/部署、上传 `.66` 与 allowlist/full verifier；不提审、不正式发布。
+  `.67` 横滑严格等待用户实体复核。
 
 ## 已完成的发布基线与当前修复
 
@@ -235,7 +239,7 @@
 
 ## 下一步与停止条件
 
-1. 实施 `.66` 点击阶段的五入口 swiper、Profile workspace 与 Test Center F。
-2. 用户复核 `.66` 后才开始 `.67` 内层控件优先的横滑阶段。
+1. 提交并推送 `.66` 代码 checkpoint，完成生产备份/同步/验证和体验版单调上传。
+2. 停止于用户实体复核；确认后才开始 `.67` 内层控件优先的横滑阶段。
 
-停止条件未满足：`.65` workbench 启动白屏；用户 dirty 文件保持未提交，不提审或正式发布。
+停止条件未满足：`.66` 尚未上传和完成实体复核；用户 dirty 文件保持未提交，不提审或正式发布。

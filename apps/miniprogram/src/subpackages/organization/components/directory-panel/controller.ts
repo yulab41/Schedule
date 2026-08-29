@@ -166,7 +166,7 @@ interface DirectoryPageInstance {
   _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
   _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
-  triggerEvent?(name: 'panelready'): void;
+  triggerEvent?(name: 'panelready' | 'workspacerequest'): void;
 }
 
 interface ModeDataset {
@@ -447,6 +447,7 @@ function startLoad(page: DirectoryPageInstance): void {
     internal: createModeRuntime(groupId),
   };
   page._detached = false;
+  page.triggerEvent?.('workspacerequest');
   page.setData({
     activeModeIndex: modeIndex(initialKind),
     directoryKind: initialKind,

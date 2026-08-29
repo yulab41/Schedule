@@ -15,6 +15,31 @@
 - 规格/计划：`2026-08-29-miniprogram-primary-workspace-shell-*`。本 checkpoint 仅落设计；代码必须
   测试先行并逐层 DevTools 复核。识别消息 `docs(design): specify persistent workspace shell`。
 
+## 2026-08-29 Mini 五入口常驻外壳 .66 实现
+
+- 引入点/根因：git log -S/git blame 将互斥工作区定位到 bc32a4f1，初始双挂载与旧 Profile
+  Page-adapter 后继为 712aa4ee；.64/.65 的白屏不是登录或并行冲突，而是 Profile adapter 与
+  Skyline 初始树边界。开发者工具进一步证实 native swiper 不从 top+bottom 推导高度，默认只得
+  150px；当前编译器忽略 disable-touch，改用官方 horizontal-drag-gesture-handler。
+- 红绿/实现：旧代码先失败于无五项 swiper/统一状态/Workspace F/新 Profile。新增显式 629px
+  viewport 回归、早点击且已 ready 后仍续跑的串行队列、旧 change 回声不得覆盖点击、Profile
+  切换不重复账号请求、无权限零请求。header/nav 在 swiper 外单例；calendar/directory/swap/
+  profile/more 固定索引，duration=0、cache-extent=4、非循环，.66 Worklet 拒绝横拖。
+- 生命周期/语义：Profile workspace 只用 created/attached/observer/detached，共用既有 controller/
+  WXML/WXSS；账号与 overview serial 独立，密码 Sheet 按打开挂载。组件首次挂载后常驻；切换 50 次
+  Profile attached=1、request=1、duplicate ready=0。访客/无权限 directory/swap 不挂组件且请求=0，
+  群组角色变化只原地显示说明。程序点击是 .66 唯一 workspace 状态源，旧 swiper change 回声被忽略。
+- DevTools：默认 GPU 直开 workbench 成功，swiper 390×629；完整 Profile 不再冻结；F 区真实驱动
+  50 次切换完成。270px 横拖注入后仍为 calendar/index 0。截图接口在运行时切换后缓存整帧（DOM、
+  Page data 与截图标题也不一致）；Windows Graphics Capture 重试分别报 0x80070005/0x80070057，
+  因而只将 runtime DOM/data、初始新页截图与事件结果作为证据，不把缓存帧当产品回归。
+- 包体/验证：删除已不可达的旧 profile-panel/index.js 独立入口，controller 仍分别内联到 direct
+  Page 与新 workspace；main 从 1,810,167 降到 1,637,511 bytes。Mini 107 files/517 tests、root
+  242/1,135 通过（37/355 环境跳过）；全端 build/typecheck、任务 ESLint/Prettier、Mini verify/
+  determinism/source/package/performance/CI 与 core smoke 通过。总包 5,108,706、3/3 Worklet、
+  manifest afc48b93…ed7d9；WXS source/output SHA 仍为 f5fa4eaa…2e7c。checkpoint 识别消息
+  fix(miniprogram): ship persistent primary workspace shell。
+
 ## 2026-08-28 Mini 登录后工作台启动白屏修正设计
 
 - 精确现象：`.65` 登录页正常显示，有效会话快速 reLaunch 后日历首页白屏；App/identity/session/

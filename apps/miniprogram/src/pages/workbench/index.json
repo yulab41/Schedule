@@ -3,7 +3,7 @@
     "calendar-month": "/components/calendar/calendar-month/index",
     "directory-panel": "/subpackages/organization/components/directory-panel/index",
     "notifications-panel": "/subpackages/insights/components/notifications-panel/index",
-    "profile-panel": "/components/profile-panel/index",
+    "profile-workspace": "/components/profile-workspace/index",
     "ui-loading": "/components/ui/ui-loading/index",
     "ui-sheet": "/components/ui/ui-sheet/index",
     "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index"
