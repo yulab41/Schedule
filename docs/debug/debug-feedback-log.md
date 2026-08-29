@@ -2,6 +2,19 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-29 Mini 五入口常驻外壳设计
+
+- 补充隔离：`.64` mounted guards 且零自动挂载时 workbench 恢复；directory-only post-ready 可运行；
+  现有 Profile adapter 单独挂载即让 automator 超时，而 static Profile Page 正常。故旧后继设计再次
+  stale，禁止继续调 adapter 挂载时机。
+- 官方结论：Skyline swiper 支持 current/click/touch/cache 与 nested gesture；switchTab 没有 custom
+  route 参数，navigateTo custom route 又不能到 tabBar Page。当前主包 1,618,725 bytes，原生五 Tab
+  迁入主包不可接受。
+- 用户决策：单 Page 常驻 header/swiper/nav；`.66` 点击即切且 touch 关闭，`.67` 后置；全部 workspace
+  常驻；Profile 全功能重写；内层横向控件优先；无权限 item 保留并说明。
+- 规格/计划：`2026-08-29-miniprogram-primary-workspace-shell-*`。本 checkpoint 仅落设计；代码必须
+  测试先行并逐层 DevTools 复核。识别消息 `docs(design): specify persistent workspace shell`。
+
 ## 2026-08-28 Mini 登录后工作台启动白屏修正设计
 
 - 精确现象：`.65` 登录页正常显示，有效会话快速 reLaunch 后日历首页白屏；App/identity/session/

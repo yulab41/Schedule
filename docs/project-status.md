@@ -57,11 +57,11 @@
 
 ## 当前活动批次
 
-- 根因：`.63` workbench 可运行，`.64/.65` 仅 workbench 卡死；`712aa4ee` 的两个大型面板初始树
-  双创建是引入点，`.65` WXS、API、会话与 allowlist 均排除为必要原因。
-- 当前提交/发布后继设计 `miniprogram-workbench-post-ready-preload-design`；随后测试先行实现 onReady
-  后自动 Profile→directory 串行预载并上传 `.66`。设计 checkpoint 识别消息为
-  `docs(design): correct workbench preload boundary`；不提审、不正式发布。
+- 新隔离证明 directory post-ready 与 static Profile Page 正常，现有 Profile Component 单独挂载仍
+  冻结；旧 post-ready Profile 方案 stale，不再调整同一 adapter 时机。
+- 已批准单 Page header/swiper/nav 五入口外壳：`.66` 点击即切、串行预载、全部保留与完整重写
+  Profile；`.67` 横滑等待实体复核。设计 checkpoint 为
+  `docs(design): specify persistent workspace shell`；不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -76,8 +76,8 @@
 
 - 已把 directory、group-settings、scheduling-config、invite-visitor、platform-accounts、
   duty、leave、swap 八个薄壳改为直接 Page 注册并静态 include/import 原 WXML/WXSS。
-- 工作台只嵌入 directory、profile 与 swap；directory/profile 初始树双挂载已确认回归，修复目标为
-  初始日历轻量树、onReady 后自动串行挂载并常驻 hidden。其他独立 Page 架构不变。
+- 工作台将改为同一 header + 五项 Skyline swiper + 同一 bottom nav；directory/profile/swap 由 ready
+  队列串行挂载并常驻。Profile 必须重写单一 Component 生命周期，不能复用失败 adapter。
 - profile Page 与 workbench component 共用 controller/WXML/WXSS，Page 仍为静态 include/import；
   directory Page 明确 `embedded=false`，工作台 component 为 `embedded=true`。
 - workflow direct Page 通过共享 host adapter 保留 picker 协调、infoMessage 2 秒 timer、
@@ -235,7 +235,7 @@
 
 ## 下一步与停止条件
 
-1. 复核并实施 post-ready 串行预载，红绿/全量/DevTools 验证后提交、部署并上传 `.66`。
-2. 用户在 `.66` 复核登录后日历、通讯录/我的预载与业务年月滚轮。
+1. 实施 `.66` 点击阶段的五入口 swiper、Profile workspace 与 Test Center F。
+2. 用户复核 `.66` 后才开始 `.67` 内层控件优先的横滑阶段。
 
 停止条件未满足：`.65` workbench 启动白屏；用户 dirty 文件保持未提交，不提审或正式发布。

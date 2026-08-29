@@ -17,12 +17,14 @@ The workbench's embedded directory/profile panels have a second boundary with tw
 Mounting only after a tap exposed an empty placeholder. Mounting both large panels in the initial
 tree then made workbench startup hang: under the same DevTools/GPU/profile, `.63` workbench rendered
 while `.64/.65` login rendered but direct workbench automation and screenshots timed out. The safe
-hypothesis is a light initial Page followed by automatic, condition-driven serial mounting after
-`Page.onReady`: main-package Profile first, then cross-package directory after `panelready`. Each
-wrapper keeps a readable loading surface; an early tap may prioritize its target only after Page ready.
-Unauthorized directory group IDs remain the empty value.
+hypothesis was a light initial Page followed by automatic serial mounting. Further isolation disproved
+that for Profile: directory post-ready mounting and the static Profile Page render, while the existing
+Profile Component adapter freezes even when mounted alone. Do not adjust that adapter's timing again.
+The approved successor is one Page shell with a native Skyline swiper, a rewritten single-lifecycle
+Profile workspace, and serial ready events for directory/profile/swap. Unauthorized workspaces keep a
+fixed disabled explanation and receive an empty group id.
 
 The touched panels also replace unsupported Grid/sticky layout, remove the zero-height swiper, add
 typed scroll views and restore a definite standalone Profile Page height/leaf declaration. Automated
-guards must reject both click-only mounting and initial-tree dual mounting. Android verification
-remains required because a local green build is not native proof.
+guards must reject click-only loading, initial-tree dual mounting, and reuse of the failed Profile
+Page adapter. Android verification remains required because a local green build is not native proof.
