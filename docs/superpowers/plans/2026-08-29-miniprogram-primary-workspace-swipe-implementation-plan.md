@@ -1,9 +1,13 @@
-# 小程序五入口 `.67` 原生横滑实施计划
+# 小程序五入口 `.67` 原生横滑实施计划（已取消）
 
 - 设计：`../specs/2026-08-29-miniprogram-primary-workspace-swipe-design.md`
 - 基线：`main@b032edee`
-- checkpoint：`feat(miniprogram): enable negotiated workspace swipe`
-- 体验版本：`0.1.0-p9.20260829.67`
+- 原计划 checkpoint：`feat(miniprogram): enable negotiated workspace swipe`（未创建）
+- 原计划体验版本：`0.1.0-p9.20260829.67`（未创建、未上传）
+- 取消决定：2026-08-30，保留 `.66` 点击式全局导航与通讯录内部左右滑动
+
+> 以下任务全部停止执行，仅作为历史方案存档。任何后续实现不得开启外层 workspace 触摸横滑；
+> `primaryWorkspaceSwipeEnabled=false`、外层拒绝横拖和通讯录内部 `directory-mode-swiper` 是当前契约。
 
 ## Task 1：冻结手势所有权红灯
 

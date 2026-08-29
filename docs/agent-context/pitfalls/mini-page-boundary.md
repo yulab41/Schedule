@@ -27,6 +27,11 @@ does not honor disable-touch; use the official horizontal drag gesture handler w
 should-accept-gesture=false. Give the native swiper an explicit pixel height: Skyline kept its 150px
 default when only absolute top and bottom were supplied. While swipe is disabled, click is the only
 workspace state owner and delayed programmatic change events must not overwrite a later click.
+Keep global workspace touch swipe disabled permanently: the directory panel owns horizontal gestures
+for its department/employee mode swiper, and an outer horizontal owner makes slow or boundary drags
+ambiguous. Preserve `primaryWorkspaceSwipeEnabled=false`, the outer reject handler, `duration=0`, and
+the directory's native `directory-mode-swiper`; do not add shared negotiation to re-enable the outer
+swipe unless the product explicitly replaces the directory gesture model.
 
 The touched panels also replace unsupported Grid/sticky layout, remove the zero-height swiper, add
 typed scroll views and restore a definite standalone Profile Page height/leaf declaration. Automated

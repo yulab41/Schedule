@@ -3,19 +3,18 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取
 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
-## 仓库与生产基线（2026-08-29）
+## 仓库与生产基线（2026-08-30）
 
-- 分支：`main`；Git/origin/production 最终状态 release 为
-  `b032edeee1c3fb8534c61ff2ff019361c469a75b`；`.66` 代码为 `4fe1b5e7`。
+- 分支：`main`；`.66` 代码为 `4fe1b5e7`、状态为 `b032edee`；本状态 checkpoint 以
+  `docs(design): cancel global workspace swipe` 识别，production 前驱为 `6f8bfb64`，应用制品与 `.66` 全哈希相同。
 - 当前体验候选 `.66@4fe1b5e` 已上传、通过 allowlist/full verifier 和用户实体复核；`.65`
   workbench 白屏，已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.66` 首次被代理 IPv6 白名单拒绝且未形成版本；同一 clean commit/版本直连 IPv4 重传成功。
-- 当前生产数据库 schema 52；最近一次代码发布备份为
-  `1cdb390c-3c5c-4920-bb71-c89be6d2a41e`（55 表、186,444 行、84,881,544 bytes、
-  SHA-256 `84f4207ede32c914b561da4509a28d836d031ffe122d01bd5d4dcd32ad322952`）。
+- 当前生产数据库 schema 52；最近一次文档发布备份为 `016d679b-3574-4d8e-bfe0-452841b7720f`
+  （55 表、188,633 行、85,595,268 bytes、SHA-256 `176cdd57…c7dd`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -56,14 +55,12 @@
 
 ## 当前活动批次
 
-- 用户已确认 `.66`，当前进入 `.67`：开放 native workspace swiper touch，点击继续即时切换，
-  首尾不循环；calendar month/week/list 与 directory mode 优先。
-- 采用 official handler + simultaneous tags + shared claim；Sheet/picker/menu/editing 使用 scoped lock，
-  程序 change 忽略，只有 source=touch 提交 workspace。核心位移不使用自定义 Worklet。
-- `.67` 规格/实施计划 checkpoint 以
-  `docs(design): specify primary workspace swipe negotiation` 识别；完成后才写红灯和代码。
-- 失败停止条件：任一 inner swiper、WXS picker、系统边缘或 Sheet 锁发生误切即保持 `.66` false，
-  不上传伪 `.67`；不提审、不正式发布。
+- 用户于 2026-08-30 取消 `.67` 全局横滑：通讯录左右手势已用于科室/人员切换，外层不得竞争。
+- `.66` 成为全局导航最终契约：`primaryWorkspaceSwipeEnabled=false`、外层拒绝横拖、底栏点击
+  `duration=0`；通讯录内部 `directory-mode-swiper` 保持原生触摸与状态保留。
+- 未提交的 `.67` 草稿已精确撤销，运行时代码与 `.66` 零差异；没有创建、上传或 allowlist `.67`。
+- 当前仅完成前向纠正文档 checkpoint，识别消息 `docs(design): cancel global workspace swipe`；
+  用户 dirty 文件保持未暂存，不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -237,7 +234,7 @@
 
 ## 下一步与停止条件
 
-1. 提交/部署 `.67` 设计 checkpoint；随后测试先行实现 shared negotiation 与 scoped lock。
-2. 自动门禁通过后上传单调 `.67`，停止于 Android/iOS 实体复核。
+1. 提交、推送并以备份后 trusted reuse 部署“取消全局横滑”文档 checkpoint。
+2. 后续只维护 `.66` 点击式全局导航与各 workspace 内部手势，不创建或上传 `.67`。
 
-停止条件未满足：`.67` 尚未实现与完成双端复核；用户 dirty 文件保持未提交，不提审或正式发布。
+停止条件：纠正文档同步 production 后本批结束；用户 dirty 文件保持未提交，不提审或正式发布。

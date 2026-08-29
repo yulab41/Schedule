@@ -2,8 +2,8 @@
 
 - 日期：2026-08-29
 - 基线：`main@4bc89c59`，运行时代码 `66952803`
-- 状态：用户已确认方案；`.66` 实体复核通过并明确授权进入 `.67`
-- 后继：`2026-08-29-miniprogram-primary-workspace-swipe-design.md`
+- 状态：`.66` 实体复核通过；2026-08-30 用户取消 `.67` 全局横滑
+- 已取消后继：`2026-08-29-miniprogram-primary-workspace-swipe-design.md`
 - 不包含：微信审核、正式发布、Web/API/数据库协议变化
 
 ## 1. 证据与平台结论
@@ -26,7 +26,7 @@ Profile adapter 作为 Component 单独挂载即冻结。因此不能继续调�
 1. 五入口固定顺序：日历、通讯录、换班、我的、更多。
 2. 顶部状态栏与底部导航是 `swiper` 外的同一组常驻节点。
 3. `.66` 只允许底栏点击；点击立即切换，`duration=0`，不播放过渡。
-4. `.67` 才开放横滑；内部日历/日期/通讯录横向控件优先。
+4. 不开放全局横滑；通讯录等内部控件独占自身横向手势，五入口始终通过底栏点击切换。
 5. 五个 workspace 首次挂载后全部保留；不循环首尾。
 6. Profile 全功能内嵌，但必须重写为真正的 workspace，不复用 Page adapter。
 7. 无权限 workspace 保留固定位置并显示说明，零业务请求。
@@ -74,14 +74,13 @@ directory 保留现有 controller，只补 `active/workspaceready` 边界。swap
 directory/swap 无权限时渲染说明卡，不向真实 panel 传 groupId，也不调用 organization/workflows
 API。群组角色变化时当前 item 原地变为说明，不强制切回日历。
 
-## 6. 手势阶段
+## 6. 手势决策
 
-`.66`：`primaryWorkspaceSwipeEnabled=false`；优先使用 `swiper disable-touch`，若当前官方编译器拒绝
+最终保持 `.66`：`primaryWorkspaceSwipeEnabled=false`；优先使用 `swiper disable-touch`，若当前官方编译器拒绝
 则使用 `horizontal-drag-gesture-handler` 的拒绝回调。底栏始终是可见替代操作。
 
-`.67`：开启原生 swiper touch，核心位移不依赖自定义 Worklet。活动 workspace 向父层提供
-`canWorkspaceSwipe` shared value；日历翻月、directory mode、workflow date swiper 与开放中的
-Sheet/picker 锁住外层。目标 Android/iOS 的协商探针未通过时保持 `.66` 点击语义，不牺牲内层手势。
+已取消 `.67` 全局横滑。通讯录的科室/人员模式、日历翻月和 workflow 日期控件继续使用各自内部
+横向手势；外层不参与协商、不从内层边界接管，也不以 shared value 或 Worklet 计算主入口位移。
 
 ## 7. 验收边界
 
@@ -91,4 +90,4 @@ Sheet/picker 锁住外层。目标 Android/iOS 的协商探针未通过时保持
 
 Test Center 新增 Workspace F，展示 index、mounted/ready、队列、锁与 attached/request count。
 `.66` 必须经默认 GPU DevTools 登录/workbench 截图与 runtime、目标 Android 50 次五入口点击、前后台、
-弱网和低内存测试。`.67` 另验慢拖/flick/反向/边界及内层控件优先。
+弱网和低内存测试。全局横滑不再属于验收范围；通讯录内部左右滑动必须持续通过真机复核。

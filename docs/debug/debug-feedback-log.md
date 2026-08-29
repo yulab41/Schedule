@@ -2,6 +2,19 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-30 取消五入口全局横滑
+
+- 用户发现通讯录已用左右滑动切换科室/人员通讯录；外层 workspace 再监听同向拖动会形成两个
+  手势所有者，边界和慢拖时无法稳定表达用户意图。因此取消 `.67`，以 `.66` 点击式全局导航为最终契约。
+- 引入审计：`primaryWorkspaceSwipeEnabled` 由 `4fe1b5e7` 引入且始终为 `false`；通讯录原生
+  `directory-mode-swiper` 由 `6b5b30fb` 引入。`.67` 仅有未提交草稿，已精确撤销，未进入 Git、生产或体验版。
+- 保留行为：五入口底栏 `duration=0` 即时切换，外层 handler 永远拒绝横拖；通讯录内部原生
+  `swiper`、科室/人员状态、筛选 Sheet 锁与请求语义均不变。没有创建或上传 `.67`。
+- 验证：primary shell/workbench/directory/gesture probe 5 files、39 tests 通过；Mini typecheck 与
+  production build 通过（268 files）。既有 `.66` 运行时代码零差异，用户并行 dirty 文件未改动。
+- 前一节的 `.67` 设计以及 `6f8bfb64` 仅作为已否决历史；纠正 checkpoint 识别消息为
+  `docs(design): cancel global workspace swipe`。
+
 ## 2026-08-29 Mini 五入口常驻外壳设计
 
 - 补充隔离：`.64` mounted guards 且零自动挂载时 workbench 恢复；directory-only post-ready 可运行；
