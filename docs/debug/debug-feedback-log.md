@@ -39,6 +39,12 @@
   determinism/source/package/performance/CI 与 core smoke 通过。总包 5,108,706、3/3 Worklet、
   manifest afc48b93…ed7d9；WXS source/output SHA 仍为 f5fa4eaa…2e7c。checkpoint 识别消息
   fix(miniprogram): ship persistent primary workspace shell。
+- 发布：代码 4fe1b5e7 已推送。生产备份 1cdb390c-3c5c-4920-bb71-c89be6d2a41e（55 表/
+  186,444 行/84,881,544 bytes/SHA 84f4207e…22952）后，三层 cache hit 且应用/控制/schema 全哈希
+  相同，trusted reuse 无停机切换到 4fe1b5e7，内置双 verifier 通过。官方 .66 首次被本机代理 IPv6
+  以 -10008 拒绝且未形成版本；禁用代理后同一 clean commit/版本直连 IPv4 成功上传 184 code
+  files、zip 2,352,364、upload manifest acd1fd0e…b62c。正式 allowlist ensure/verify、七维能力、
+  unknown=426、ECS_PUBLIC_IP=120.77.220.79 full verifier 与远端临时目录清理通过；未提审、未发布。
 
 ## 2026-08-28 Mini 登录后工作台启动白屏修正设计
 

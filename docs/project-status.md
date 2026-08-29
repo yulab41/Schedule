@@ -5,18 +5,18 @@
 
 ## 仓库与生产基线（2026-08-29）
 
-- 分支：`main`；Git/origin/production 设计基线为
-  `a4c4e6519ff3f69fc8dcca0b43c6bf95f10bc49a`，运行时代码前驱为 `66952803`。
-  本批代码 checkpoint 以 `fix(miniprogram): ship persistent primary workspace shell` 识别。
-- 当前体验候选 `.65@6695280` 登录页正常但 workbench 启动白屏，禁止作为可用候选；WXS 滚轮代码
-  保留为后继修复基线。
-- `.59/.60/.61/.62/.63/.64/.65` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 分支：`main`；Git/origin/production 代码 release 为
+  `4fe1b5e784e47e86b4b1d82494c20e3d2fcab3bc`。最终状态 checkpoint 以
+  `docs(status): record persistent workspace shell release` 识别并需再次同步 production。
+- 当前体验候选 `.66@4fe1b5e` 已上传并通过 allowlist/full verifier，等待实体复核；`.65`
+  workbench 白屏，已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
-- `.63` 首两次上传因 IPv4 白名单拒绝；用户新增当前出口后，同一 `57e10cd` 快照重试成功。
-- 当前生产数据库 schema 52；最近一次设计发布备份为
-  `527390eb-1b85-4d8c-8cf4-9d6e179ff958`（55 表、186,170 行、84,792,188 bytes、
-  SHA-256 `99df8e53454d9b45858608e02d2da6bae0c09742641a9ac927b5c5e8b4162424`）。
+- `.66` 首次被代理 IPv6 白名单拒绝且未形成版本；同一 clean commit/版本直连 IPv4 重传成功。
+- 当前生产数据库 schema 52；最近一次代码发布备份为
+  `1cdb390c-3c5c-4920-bb71-c89be6d2a41e`（55 表、186,444 行、84,881,544 bytes、
+  SHA-256 `84f4207ede32c914b561da4509a28d836d031ffe122d01bd5d4dcd32ad322952`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -64,8 +64,9 @@
 - Mini 107 files/517 tests、root 242/1,135 tests 通过（37/355 环境跳过）；全端 build/typecheck、
   Mini verify/determinism/source/package/performance/CI、任务 lint/format、core smoke 通过。
   总包 5,108,706、main 1,637,511、manifest `afc48b93…ed7d9`；WXS SHA 保持 `f5fa4eaa…2e7c`。
-- 当前待精确暂存、提交、推送、备份/部署、上传 `.66` 与 allowlist/full verifier；不提审、不正式发布。
-  `.67` 横滑严格等待用户实体复核。
+- 代码 `4fe1b5e7` 已推送；三层 cache hit 后 trusted reuse 无停机部署。官方 `.66` 上传
+  184 files/2,352,364 bytes/manifest `acd1fd0e…b62c`，allowlist、七维能力、unknown=426、
+  公网 full verifier 与远端清理通过；未提审、未正式发布。`.67` 严格等待用户实体复核。
 
 ## 已完成的发布基线与当前修复
 
@@ -239,7 +240,7 @@
 
 ## 下一步与停止条件
 
-1. 提交并推送 `.66` 代码 checkpoint，完成生产备份/同步/验证和体验版单调上传。
+1. 提交并推送最终状态 checkpoint，再以 hash-identical reuse 对齐 production release。
 2. 停止于用户实体复核；确认后才开始 `.67` 内层控件优先的横滑阶段。
 
-停止条件未满足：`.66` 尚未上传和完成实体复核；用户 dirty 文件保持未提交，不提审或正式发布。
+停止条件未满足：`.66` 尚未完成实体复核；用户 dirty 文件保持未提交，不提审或正式发布。
