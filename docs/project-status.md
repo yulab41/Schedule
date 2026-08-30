@@ -5,9 +5,8 @@
 
 ## 仓库与生产基线（2026-08-30）
 
-- 分支：`main`；`.66` 代码为 `4fe1b5e7`、状态为 `b032edee`；取消横滑文档为 `11a5a217`，
-  无外层滑动宿主设计为 `ad0459e5`、代码为 `fe12db53`；最终状态 checkpoint 以
-  `docs(status): record non-swipe workspace deployment` 识别。
+- 分支：`main`；通讯录设计 `a0ba8a97`、代码 `c2a57441` 已推送，最终状态 checkpoint 以
+  `docs(status): record directory runtime deployment` 识别。
 - 当前体验候选 `.68@fe12db5` 已上传并通过 allowlist/full verifier；`.66` 因真机外层位移后白屏被
   取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
@@ -15,10 +14,9 @@
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
   manifest `764b93dc…dd9d`；未使用微信开发者工具。
-- 当前 production 应用制品来自 `fe12db53`、数据库 schema 52；最终 release 标识在状态同步后以
-  前述 checkpoint 识别消息解析。代码发布备份为
-  `7738bd65-6f60-409e-957e-1d7e68e523a6`（55 表、192,287 行、86,791,016 bytes、
-  SHA-256 `3e78c00b…beb55`），hash-identical reuse 与公网 full verifier 已通过。
+- 当前 production release `c2a57441d3a337c512611b82d05740b4064928fa`、数据库 schema 52；备份
+  `0c470222-b4a6-4ce6-b699-7c9df960a0dd`（55 表、193,410 行、87,157,532 bytes、SHA-256
+  `cb75fdba…efe2`）后 hash-identical reuse 与公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -64,7 +62,7 @@
 - fixture 初始 `setData` 13,386→4,053 bytes、最大 5,495→1,206、次数 10→6；关闭驻留 72→0，
   重复请求 1→0，主体 2.61→1.49 ms，首开中位数 0.30→0.31 ms，全部通过批准门槛。
 - 定向 9/87、Mini 108/539、Web 10/51、全端构建和 Mini 门禁通过；manifest `49226902…445c`，包 5,134,389 bytes。
-- 当前任务是代码 checkpoint、推送、备份、部署和公网 verifier；体验上传需另批，小米 14 暂未验证。
+- 代码 `c2a57441` 已推送、备份并部署，公网 verifier 通过；下一步只等待体验版当次批准，小米 14 暂未验证。
 
 ## 已完成的发布基线与当前修复
 

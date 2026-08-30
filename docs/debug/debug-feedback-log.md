@@ -25,8 +25,10 @@
   Prettier/diff 和 `pnpm smoke:check-core` 通过；production manifest `49226902…445c`，总包 5,134,389 B、
   main 1,637,688 B（既有 1.5 MiB 预警）、organization 1,196,419 B。全仓 lint 仍仅有未改
   `wx-request-executor.ts:141 prefer-const`；全仓 format 仍为既有 388 files，未接管。
-- 运行边界：未调用微信开发者工具；Console/Network、原生节点时序、真实帧率和小米 14 当前工具无法测量，
-  暂未验证。代码 checkpoint、生产备份/部署尚待本轮最终提交；体验上传必须另获当次批准。
+- 发布/运行边界：代码 `c2a57441` 已推送；生产备份
+  `0c470222-b4a6-4ce6-b699-7c9df960a0dd`（55 表、193,410 行、87,157,532 bytes、SHA
+  `cb75fdba…efe2`）后 hash-identical reuse，公网 full verifier 与远端清理通过。未调用微信开发者工具；
+  Console/Network、原生节点时序、真实帧率和小米 14 当前工具无法测量，暂未验证。体验上传必须另获当次批准。
 
 ## 2026-08-30 Mini 五入口移除外层原生滑动宿主
 

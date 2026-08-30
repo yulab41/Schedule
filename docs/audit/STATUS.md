@@ -1,73 +1,56 @@
 # 微信小程序审计状态
 
-- 当前阶段：通讯录专项——Task 5 自动验证与代码检查点
-- 状态：已实现待生产发布；原生运行/小米 14 待验证
-- 基线：设计 checkpoint `main@a0ba8a97`（与 `origin/main` 一致）
-- 基线类型：当前工作树；包含已登记的用户未提交配置/测试/WXML，不是 clean release 基线
-- checkpoint 标识：`fix(miniprogram): repair directory filtering runtime`
+- 当前阶段：通讯录专项——代码 checkpoint 已发布
+- 状态：自动验证与生产发布完成；体验版/小米 14 待验证
+- 代码 checkpoint：`c2a57441 fix(miniprogram): repair directory filtering runtime`
+- 生产 release：`c2a57441d3a337c512611b82d05740b4064928fa`
+- 生产备份：`0c470222-b4a6-4ce6-b699-7c9df960a0dd`（55 表、193,410 行、87,157,532 bytes）
+- 基线类型：当前用户脏树上开发、exact clean commit 打包；用户文件未进入提交
+- 最终状态 checkpoint 标识：`docs(status): record directory runtime deployment`
 
-## 本轮已完成
+## 本轮结果
 
-- 空筛选弹层、Web 主体状态、查询/分页复用、权限/版本失效、隐藏模式视图和滚动恢复已实现。
-- 查询/请求/UI/workbench 定向 9 files/87 tests、Mini 全量 108/539、Web 黄金 10/51 通过。
-- fixture 初始总字节/最大单包降至旧版 30.3%/21.9%，重复请求与关闭驻留均为 0。
-- 全端 typecheck/build、Mini 全门禁、任务 ESLint/Prettier/diff 和 core smoke 通过；未调用 DevTools。
-- 用户批准小程序通讯录空弹层修复、Web 主体对齐和性能优化设计；未授权自动上传体验版。
-- 固定 fixture 已记录双 facets、初始/弹层 `setData`、重复请求和关闭驻留基线。
-- `git log -S`/`git blame` 已确认 `1de042b5`/`6b5b30fb` 的回归引入点。
-- production build、Mini typecheck、P10 定向 2 files/19 tests 和 package audit 通过。
-- 已新增通讯录专项设计与实施计划；业务代码尚未修改，微信开发者工具未调用。
-- 完整总规范已结构化保存到 `docs/audit/AUDIT_MASTER_PLAN.md`。
-- 长期规则已加入根 `AGENTS.md`，并明确仓库的 `wechatide`/GUI/CLI 禁令优先。
-- 已创建本状态、初始审计报告和小米 14 体验版验收协议。
-- 已识别原生 TypeScript/WXML/WXSS/WXS、`src → dist`、Skyline、glass-easel、主包、四个普通分包、
-  自绘导航、自建 API、请求/缓存和测试链路。
-- 已完成生产静态构建、Mini/根类型检查、Mini 全量测试、Mini verify、包体、lint 和 format 基线。
-- 未修改业务代码，未创建测试工具页，未修复 lint/format/包体问题，未调用开发者工具，未部署 ECS，
-  未上传体验版。
+- 修复 facets 未就绪仍可打开空筛选弹层；加载/失败时按钮在视觉、ARIA 和 handler 层禁用。
+- 唯一活动 Sheet 打开时生成 options，关闭后释放；零层级明确显示“当前无需筛选”。
+- 隐藏模式只保留逻辑原始结果和轻量 guide，切回时投影当前卡片，不在 data 常驻两套完整树/卡。
+- 使用稳定 JSON 元组 `contextKey/baseQueryKey/pageRequestKey`，固定七级区分 `unset/all/value`。
+- 同页 Promise 共享、完成空结果可复用；多页后重复确认无操作，强制刷新/重试真实发请求。
+- 实例、上下文、主查询/页键、预期游标和已追加页共同隔离晚响应；卸载后不再 `setData`。
+- 工作台传真实角色、开发管理员、群组版本和刷新序号；未知权限/版本时禁用完成复用。
+- 401/403 清双模式；分页失败保留成功页，无效游标提供从头刷新；过渡卡禁止拨号/收藏/翻页。
+- 主列表/弹层滚动按模式保存，弹层绑定 facets 批次；目标层级优先，节点挂载后恢复并夹紧。
+- 未新增 API、contracts、数据库或依赖；服务端继续执行最终权限校验。
 
-## 核心基线
+## 自动验证
 
-| 项目                      | 结果                                             |
-| ------------------------- | ------------------------------------------------ |
-| Mini production build     | 通过；2.60s；268 files                           |
-| Mini TypeScript           | 通过；0 error；3.57s                             |
-| Mini tests                | 107 files / 517 tests 全通过；80.11s             |
-| Mini verify               | 通过；7.10s；3 个预警；Worklet 2/2               |
-| 根 TypeScript             | 10 projects 通过；19.48s                         |
-| ESLint                    | 未通过；1 error/0 warning；未修复                |
-| Format check              | 未通过；387 files；未格式化                      |
-| 主包                      | 1,636,609 bytes；超过内部 1.5 MiB 预警线，未阻断 |
-| 总包                      | 5,107,804 bytes；未阻断                          |
-| DevTools Console/Network  | 当前工具无法测量，暂未验证                       |
-| 小米 14 体验版            | 本轮未上传、未测试、未验收                       |
-| 文档 Prettier / diff      | 通过；无占位符                                   |
-| Agent context / discovery | 2 files / 6 tests 通过                           |
-| `pnpm smoke:check-core`   | 通过；未涉及 Web 核心链路                        |
+| 项目                                                          | 结果                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------- |
+| 旧实现红灯                                                    | 查询模块缺失；controller 5 项预期失败                   |
+| 定向回归                                                      | 9 files / 87 tests 通过                                 |
+| Mini 全量                                                     | 108 files / 539 tests 通过                              |
+| Web 通讯录黄金                                                | 10 files / 51 tests 通过                                |
+| 全端 typecheck/build                                          | 通过                                                    |
+| Mini verify/source/performance/package/determinism/CI dry-run | 通过                                                    |
+| 任务 ESLint/Prettier/diff                                     | 通过                                                    |
+| `pnpm smoke:check-core`                                       | 通过；未涉及 Web 核心链路                               |
+| 全仓 lint                                                     | 既有 1 error：`wx-request-executor.ts:141 prefer-const` |
+| 全仓 format                                                   | 既有 388 files；未接管                                  |
+| 生产                                                          | hash-identical trusted reuse；公网 full verifier 通过   |
 
-通讯录固定 fixture：初始 `setData` 10 次/13,386 B、最大 5,495 B；首次/再次开弹层各 5,560 B；
-关闭后驻留 72 个选项；相同搜索再次确认新增 1 请求。优化硬门槛为初始总字节与最大单包均不高于旧版
-70%、次数不增加、重复请求为零。
+固定 fixture：初始 `setData` 10 次/13,386 B/最大 5,495 B → 6 次/4,053 B/最大
+1,206 B；关闭驻留 72 → 0；重复确认请求 1 → 0；主体 2.61 → 1.49 ms；首次打开中位数
+0.30 → 0.31 ms，满足 10% 波动门槛。最终 production manifest 为
+`492269023bcf3fe6f62986d0d4dd945ef88d08647b1bca8fbce49b3b9ac4445c`，包体 5,134,389 B，
+主包 1,637,688 B，继续只有既有 1.5 MiB 内部预警。
 
-详细命令、分包、最大文件和限制见 `docs/audit/wechat-miniprogram-audit.md`。
+## 工具与未验证项
 
-## 工具状态
+- 已使用 Git、Node、pnpm、TypeScript、Vitest、esbuild、miniprogram-ci dry-run 和既有发布脚本。
+- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮没有调用，也没有上传体验版。
+- Console/Network、原生节点挂载时序、真实帧率、键盘/安全区和小米 14 当前构建表现无法测量，暂未验证。
+- facets 与条目来自原子导入批次，但两个 HTTP 请求可能跨发布；搜索响应无版本，本轮按会话内保守失效。
 
-- 已读取：`miniprogram-development`、`wechatide-skill`、initializer/compiler/debugger 规则。
-- 可发现 `wechatide.cmd`，但仓库明确禁止代理调用 GUI/CLI，因此没有执行就绪检查或任何 DevTools 能力。
-- 当前会话没有可调用的微信小程序/CloudBase MCP；项目也未使用 CloudBase。
-- 已实际使用：Git、Node、pnpm、esbuild、TypeScript、Vitest 和项目包体/静态验证脚本。
+## 唯一下一任务
 
-## 未验证与外部状态
-
-- Console/Network、冷启动、首页首次渲染、真实请求数、页面切换、键盘、安全区和原生 Skyline 表现。
-- 小米 14 以及 iOS/其他 Android。不得写任何真机或全平台通过结论。
-- 仓库既有 `.68@fe12db5` 仍等待用户实体设备复核；它不是本轮新上传的版本。
-- 用户把本轮限制为读取、测量和文档创建；因此生产部署属于未获授权的范围扩展，本 checkpoint 不执行。
-
-## 下一轮唯一建议任务
-
-**完成通讯录最终代码 checkpoint、生产备份/部署和公网 full verifier。**
-
-停止条件：Git/origin/production release 一致并记录备份标识。随后只报告体验版候选信息并等待用户当次
-批准；未批准不上传。小米 14 继续标记待匹配构建实测，不调用 DevTools、不提审、不正式发布。
+向用户报告候选短 SHA `c2a5744`、版本描述、当前用户脏树和测试页面，等待当次明确批准后才可上传体验版。
+未批准则停止；不得提交审核、正式发布或宣称小米 14 已通过。
