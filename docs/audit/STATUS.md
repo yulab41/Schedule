@@ -1,13 +1,18 @@
 # 微信小程序审计状态
 
-- 当前阶段：阶段 0——规则落盘与修改前基线
-- 状态：已完成
-- 基线：`main@59b1f3c5`（与 `origin/main` 一致）
+- 当前阶段：通讯录专项——Task 1 修改前基线与设计检查点
+- 状态：进行中
+- 基线：`main@6e6d8f10`（与 `origin/main` 一致）
 - 基线类型：当前工作树；包含已登记的用户未提交配置/测试/WXML，不是 clean release 基线
-- checkpoint 标识：`docs(audit): establish miniprogram audit baseline`
+- checkpoint 标识：`docs(miniprogram): lock directory runtime optimization`
 
 ## 本轮已完成
 
+- 用户批准小程序通讯录空弹层修复、Web 主体对齐和性能优化设计；未授权自动上传体验版。
+- 固定 fixture 已记录双 facets、初始/弹层 `setData`、重复请求和关闭驻留基线。
+- `git log -S`/`git blame` 已确认 `1de042b5`/`6b5b30fb` 的回归引入点。
+- production build、Mini typecheck、P10 定向 2 files/19 tests 和 package audit 通过。
+- 已新增通讯录专项设计与实施计划；业务代码尚未修改，微信开发者工具未调用。
 - 完整总规范已结构化保存到 `docs/audit/AUDIT_MASTER_PLAN.md`。
 - 长期规则已加入根 `AGENTS.md`，并明确仓库的 `wechatide`/GUI/CLI 禁令优先。
 - 已创建本状态、初始审计报告和小米 14 体验版验收协议。
@@ -36,6 +41,10 @@
 | Agent context / discovery | 2 files / 6 tests 通过                           |
 | `pnpm smoke:check-core`   | 通过；未涉及 Web 核心链路                        |
 
+通讯录固定 fixture：初始 `setData` 10 次/13,386 B、最大 5,495 B；首次/再次开弹层各 5,560 B；
+关闭后驻留 72 个选项；相同搜索再次确认新增 1 请求。优化硬门槛为初始总字节与最大单包均不高于旧版
+70%、次数不增加、重复请求为零。
+
 详细命令、分包、最大文件和限制见 `docs/audit/wechat-miniprogram-audit.md`。
 
 ## 工具状态
@@ -54,10 +63,7 @@
 
 ## 下一轮唯一建议任务
 
-**阶段 1A：只读完成“主包、分包与重复打包”专项审计。**
+**完成通讯录 Task 1 文档 checkpoint 后，执行 Task 2 先红回归。**
 
-理由：当前包体方面的唯一预警是主包 1,636,609 bytes，且 esbuild 显示生成的 calendar schema 在多个入口有较大
-累计贡献。下一轮只追踪依赖图、入口归属、重复贡献和可迁移边界，按 P0～P3 格式形成有证据的问题清单
-与低风险修复建议。
-
-停止条件：更新审计报告后停止；不修改业务代码、不删除依赖、不创建测试工具页、不上传体验版。
+查询键、请求共享/失效和 UI 弹层测试必须在旧实现上得到与设计缺口对应的失败证据；随后才允许修改
+controller/WXML/WXSS。停止条件是失败证据完整且无关既有测试保持通过；不调用 DevTools，不上传体验版。

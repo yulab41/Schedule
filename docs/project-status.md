@@ -59,12 +59,12 @@
 
 ## 当前活动批次
 
-- 审计阶段 0 已落盘规则、总规范、状态/报告和小米 14 协议；未改业务、调用 DevTools 或上传。
-- 当前工作树 production build 2.60s/268 files、Mini TS 0 error、107 files/517 tests、Mini verify/
-  package 通过；总包 5,107,804 bytes、main 1,636,609 bytes（1.5 MiB 预警，未阻断）。
-- 根 TS 10 projects 通过；lint 保留既有 1 error/0 warning，format check 保留 387 files，均未修复；
-  Console/Network/小米 14 当前工具无法测量。checkpoint 以 `docs(audit): establish miniprogram audit baseline` 识别。
-- 文档 Prettier/diff、上下文守卫 6/6、core smoke 通过；阶段 0 未部署 ECS 或重传 Mini；`.68` 待实体测试。
+- 用户已批准通讯录空弹层、Web 主体对齐、视图状态/请求/竞态/滚动优化设计；不改 API/contracts/database。
+- fixture：初始 `setData` 10 次/13,386 bytes、最大 5,495；开弹层 5,560 bytes，关闭驻留 72 选项，
+  重复确认新增 1 请求。build 268 files、Mini TS、P10 19 tests、package 通过；总包 5,107,804 bytes。
+- `git log -S`/`git blame` 将空弹层与完整筛选树常驻定位到 `1de042b5`/`6b5b30fb`；基线证据保存在
+  ignored `runtime/audit/directory-fix-20260830/`。Console/Network/小米 14 当前工具无法测量，暂未验证。
+- 当前 Task 1 只提交专项设计/计划和状态，推送、备份、部署；随后 Task 2 先取得旧实现回归红灯。
 
 ## 已完成的发布基线与当前修复
 
