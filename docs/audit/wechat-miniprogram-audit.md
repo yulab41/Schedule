@@ -1,17 +1,20 @@
 # 微信小程序审计报告
 
-- 审计阶段：通讯录专项体验候选已上传，小米 14 待验收
+- 审计阶段：“更多 → 测试工具”体验候选已上传，原生运行/小米 14 待验收
 - 更新时间：2026-08-31（Asia/Hong_Kong）
-- 代码 checkpoint：`c2a57441`，已推送并同步 production 应用
-- 体验构建标签：`0.1.0-p10.20260831.69@c2a5744`
-- 基线性质：修改前数据来自用户工作树；体验包来自 exact clean commit
+- 代码 checkpoint：`18498a8b6b19991dd27a0590eb97602519725fbb`，已推送并同步 production release
+- 体验构建：`0.1.0-p10.20260831.70@18498a8`，188 files / 2,444,502 bytes
+- 本批性质：修改前后包体来自同一用户工作树；正式构建、部署与上传来自 exact clean commit
 
 ## 普通用户版结论
 
-简单来说：通讯录空筛选弹层、双模式大数据常驻、重复请求和分页竞态已经修复，自动回归与固定性能
-门禁通过；`0.1.0-p10.20260831.69@c2a5744` 也已上传并获生产客户端白名单支持。主包仍在既有预警区，
-全仓规范检查仍保留一个无关旧错误。仓库规则禁止代理读取微信开发者工具 Console/Network，因此当前
-结论仍是“自动验证和体验上传完成、待小米 14 复核”，不能宣称手机验收通过。
+简单来说：“更多”里已经有一套给普通用户看的安全测试工具，可以核对版本、手机与安全区，勾选显示
+问题，查看脱敏的少量网络/错误/性能摘要，并一次复制给 Codex。正式版入口、直接路径和旧手势探针都
+会关闭，正式版也不会创建诊断仓库；诊断不保存、不上传、不读取请求正文或用户资料。
+
+构建、类型、548 项 Mini 测试、1,137 项根测试、安全扫描和 390/320 辅助黄金已经通过，包体没有触发
+新阻断。体验版 `.70@18498a8` 已上传并通过生产客户端白名单；仓库规则禁止代理操作微信开发者工具，
+所以当前仍只能说“自动验证和体验上传完成”，不能说“小米 14 已验收”或“Console 没有错误”。
 
 ## 1. 基线边界与工作树
 
@@ -40,13 +43,18 @@
 Skills。本项目未使用 CloudBase，也没有自动化微信开发者工具或修改公众平台配置；本轮只加载
 `previewer` 的发布规则，并通过仓库 Node `miniprogram-ci` 完成已批准的体验上传。
 
+测试工具批次新增实际读取：`brainstorming`（确认安全方案与影响）、`miniprogram-development` 及变更
+安全/调试参考、`frontend-design`（设备体检单视觉方向）、`systematic-debugging`（定位 Storybook
+隐藏控件、favicon 404 与状态行数门禁）和 `previewer`（上传授权与失败边界）；体验上传执行面按仓库
+规则收敛为 Node `miniprogram-ci`。
+
 ### 微信开发者工具和 MCP
 
 - PATH 中可发现 `wechatide.cmd`，但没有执行它，也没有把“命令存在”写成“工具已就绪”。
 - 当前会话没有暴露可直接调用的微信小程序/CloudBase MCP 工具。
 - `apps/miniprogram/AGENTS.md` 明令 LLM 不得控制微信开发者工具 GUI/CLI，这比通用 Skill 更严格；
-  所以本轮未运行 `check_wechatide_status`、模拟器、Console、Network、截图、预览或上传。
-- 允许且已实际使用的是仓库 Node/TypeScript/Vitest/esbuild/包体脚本。
+  所以本轮未运行 `check_wechatide_status`、模拟器、Console、Network、截图或微信工具上传。
+- 允许且已实际使用的是仓库 Node/TypeScript/Vitest/esbuild/包体脚本和 Node `miniprogram-ci` 上传。
 
 ### 工具限制导致的未验证项
 
@@ -85,7 +93,7 @@ Skyline 布局和小米 14 体验版均为：“当前工具无法测量，暂�
 - calendar PoC、manual-matrix PoC、gesture probe
 - identity/unbind、admin-bind/preview
 
-四个普通分包共 15 页，均未设置 `independent`，因此没有独立分包：
+五个普通分包共 16 页，均未设置 `independent`，因此没有独立分包：
 
 | 分包                       | 页面                                                                            |
 | -------------------------- | ------------------------------------------------------------------------------- |
@@ -93,6 +101,7 @@ Skyline 布局和小米 14 体验版均为：“当前工具无法测量，暂�
 | `subpackages/organization` | group-settings、scheduling-config、invite-visitor、platform-accounts、directory |
 | `subpackages/workflows`    | leave、swap、duty                                                               |
 | `subpackages/insights`     | visitor-access、insights、notifications、exports、notification-settings         |
+| `subpackages/diagnostics`  | test-tools（develop/trial；release 失败关闭）                                   |
 
 ## 5. 修改前编译、错误和警告基线
 
@@ -203,10 +212,80 @@ Console/Network/帧率与小米 14 仍无当前构建证据，不能据此宣称
 
 ## 9. 本轮变更边界
 
-- 已按专项设计修复通讯录筛选弹层、查询/分页运行态、视图数据边界、竞态和滚动恢复；未新增
-  API、contracts、数据库、依赖或测试工具页。
-- 已从 exact clean `c2a57441` 上传体验版 `.69`，并通过正式客户端 allowlist 与公网 full verifier。
-- 未调用微信开发者工具 GUI/CLI；Console/Network、原生节点时序、真实帧率和小米 14 当前构建仍未验证。
-- 未处理既有全仓 lint/format、主包预警和用户未提交文件；未提交审核、未正式发布。
+- 新增测试工具分包、构建元数据、环境门禁、只读内存摘要、报告生成、环境矩阵回归与 Web 辅助黄金。
+- 旧手势探针未删除；从测试工具“交互检查”进入，同时给旧直达路径增加 release 失败关闭。
+- 统一请求函数只增加异常吞掉的摘要调用；重试条件/次数、认证恢复、Header/body、返回、异常和时序不变。
+- 既有 App 错误/Promise 错误入口只在 develop/trial 把固定码和 SHA-256 指纹写入有界内存；未新增监听。
+- 未新增依赖，未修改 API、contracts、数据库、权限、认证、业务 `setData` 或无关业务页面。
+- 未处理既有全仓 lint/format；未调用微信开发者工具；本批体验版已上传，但未提审、未正式发布。
+- 实现 checkpoint `18498a8b` 以显式路径提交并推送；既有无关用户内容保持排除。
+- 生产备份 `68902f0f-a5eb-4a56-963a-e78829862086` 后按哈希可信复用同步同一 release；完整 verifier 通过。
+- `.70` 已原子追加客户端白名单；预热一次 TLS EOF/一次 502 自动恢复，随后 allowlist verify、未知版本 426、七维能力和公网完整 verifier 通过。
+
+## 10. 测试工具批次证据
+
+### 10.1 环境、安全与运行时边界
+
+`git log -S` 和 `git blame` 确认 `712aa4ee` 在 2026-08-28 引入写死的
+`testCenterEnabled: true` 和直达旧手势探针。新回归对旧 HEAD 明确红灯，当前环境矩阵如下：
+
+| 环境    | “更多”入口 | 直接测试工具页 | 旧手势探针 | App 诊断仓库 |
+| ------- | ---------- | -------------- | ---------- | ------------ |
+| develop | 显示       | 允许           | 允许       | 创建         |
+| trial   | 显示       | 允许           | 允许       | 创建         |
+| release | 隐藏       | 返回工作台     | 返回工作台 | 不创建       |
+
+请求摘要最多 20 条、错误 10 条、性能 12 条，只在 App 内存中存在。没有新增
+`onNetworkStatusChange`、`onMemoryWarning` 或其他监听，没有 monkey patch `wx.request`/`setData`。
+请求函数继续按原条件执行 capability、401 恢复、GET/幂等写重试、状态返回和异常传播；现有
+`wx-json-transport`、遥测、工作台和全量回归保持通过。
+
+诊断分包产物经过额外敏感模式扫描：未发现 Bearer、Authorization 赋值、Cookie/openid/session_key
+赋值、11 位手机号、UUID 或凭证模式。页面不读取 storage value；报告仅使用固定构建字段、设备/屏幕、
+脱敏路由、耗时/状态、错误指纹和用户结构化勾选。
+
+### 10.2 修改前后包体
+
+同一用户工作树、production profile、同一包体脚本结果：
+
+| 范围         | 修改前 bytes | 修改后 bytes | 变化 bytes | 结果                          |
+| ------------ | -----------: | -----------: | ---------: | ----------------------------- |
+| 主包         |    1,637,688 |    1,658,098 |    +20,410 | 保留既有 1.5 MiB 预警，未阻断 |
+| scheduling   |      420,884 |      422,480 |     +1,596 | 通过                          |
+| organization |    1,197,103 |    1,201,891 |     +4,788 | 通过                          |
+| workflows    |      821,914 |      825,106 |     +3,192 | 通过                          |
+| insights     |    1,056,800 |    1,061,589 |     +4,789 | 通过                          |
+| diagnostics  |            0 |       35,710 |    +35,710 | 新增非首屏普通分包            |
+| 总包         |    5,134,389 |    5,204,874 |    +70,485 | 通过                          |
+
+主包只保留环境门禁、App 有界仓库和极小调用桥；报告格式化、设备卡片和交互清单在 diagnostics
+分包。没有把旧手势探针迁移或复制进新分包，因此避免重复其 Worklet/WXS 产物。
+最终上传追踪标签写入后的 clean dist 为 main 1,658,565、scheduling 422,516、organization
+1,201,939、workflows 825,178、insights 1,061,697、diagnostics 35,728、total 5,205,623 B；
+相对同口径复测多出的 749 B 仅是版本、提交和上传说明元数据。
+
+### 10.3 自动验证与视觉辅助
+
+| 检查                                                          | 结果                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 定向安全/环境/请求/工作台/手势/构建                           | 8 files / 65 tests 通过                                             |
+| Mini 全量                                                     | 109 files / 548 tests 通过                                          |
+| 根测试                                                        | 243 files / 1,137 tests 通过；37 files / 355 tests 无数据库环境跳过 |
+| 全端 typecheck/build                                          | 通过                                                                |
+| Mini verify/source/performance/package/determinism/CI dry-run | 通过；clean 2/2 Worklet；总包 5,204,815 B                           |
+| Storybook build 与黄金回归                                    | 通过；390/320/大字号无横向溢出，页面内按钮均 ≥44px                  |
+| 任务 ESLint/Prettier                                          | 通过；既有 `prefer-const` 按用户要求不修改                          |
+| `pnpm smoke:check-core`                                       | 通过；未涉及 Web 核心链路                                           |
+
+390/320/大字号截图保存在 ignored `runtime/audit/test-tools-golden/`。首次视觉脚本误把 Storybook
+注入的 0px 隐藏控件当成页面按钮，并记录 Storybook 外壳 `/favicon.ico` 404；限定到页面根节点并保留
+favicon 证据后复测，实际页面 6 个按钮均 ≥44px、页面错误为 0。该黄金只能证明 Web 辅助布局与文案，
+不能证明 WXML/WXSS、Skyline、微信客户端或小米 14 真机表现。
+
+### 10.4 未验证与人工证据
+
+仓库政策禁止代理调用微信开发者工具，因此 DevTools 编译、Console/Network 和原生页面截图仍是
+“当前工具无法测量，暂未验证”。`.70@18498a8` 已上传，但只有用户在小米 14 提供匹配版本的
+版本/设备/安全区/显示/交互证据后，才可把本批状态更新为实体 Android 验收通过。
 
 后续唯一建议任务见 `docs/audit/STATUS.md`。

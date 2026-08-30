@@ -1,15 +1,13 @@
 # Project Status
 
-本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取
-`docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
+本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
 ## 仓库与生产基线（2026-08-31）
 
-- 分支：`main`；通讯录设计 `a0ba8a97`、代码 `c2a57441` 已推送，最终状态 checkpoint 以
-  `docs(status): record directory experience upload` 识别。
-- 当前体验候选 `.69@c2a5744` 已上传并通过 allowlist/full verifier；`.68@fe12db5` 为上一候选，
-  `.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
-- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 分支：`main`；测试工具代码 `18498a8b` 已推送并同步 production，最终状态 checkpoint 以
+  `docs(status): record test tools experience upload` 识别。
+- 当前体验候选 `.70@18498a8` 已上传并通过 allowlist/full verifier；`.69@c2a5744` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
@@ -17,9 +15,9 @@
 - `.69` 从 exact clean `c2a57441` 经用户新登记 IPv4 `154.64.226.11` 上传成功，185 files/
   2,373,410 bytes，upload manifest `0b8c9155…aa38c5`；allowlist 重建预热的一次 reset/一次 502
   在受控等待内恢复，随后 trusted verify 与公网 full verifier 通过。
-- 当前 production 应用 checkpoint `c2a57441`、数据库 schema 52；最终 release 元数据以最新
-  `docs(status): record directory experience upload` checkpoint 识别。代码发布备份
-  `0c470222-b4a6-4ce6-b699-7c9df960a0dd` 后 hash-identical reuse 与公网 full verifier 通过。
+- `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
+- 当前 production release `18498a8b6b19991dd27a0590eb97602519725fbb`、数据库 schema 52；备份
+  `68902f0f-a5eb-4a56-963a-e78829862086` 后 hash-identical reuse、allowlist 和公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -30,9 +28,7 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
-- `apps/miniprogram/scripts/build-tools.mjs`、`apps/miniprogram/src/platform/build-info.ts`、
-  `apps/miniprogram/src/types/build-env.d.ts` 与未跟踪 `apps/miniprogram/src/platform/runtime-environment.ts`：
-  用户并行的运行环境标识批次，本轮未读取、修改或暂存。
+- `build-tools.mjs`、`build-info.ts`、`build-env.d.ts` 与 `runtime-environment.ts` 原登记为并行环境标识；用户已明确授权测试工具仅接入构建元数据和 develop/trial/release 门禁，其他环境切换不扩展。
 - 年月滚轮、通讯录与 Profile 已由用户合并进当前修复批次；只允许显式暂存本批精确 hunk，登录及
   其他既有 checkpoint 仍只作为发布前驱。
 - 通知 Sheet 已完成并只作为发布前驱；当前工作台修改不得夹带其历史外的无关 hunk。
@@ -63,15 +59,13 @@
 
 ## 当前活动批次
 
-- 通讯录 `1de042b5`/`6b5b30fb` 空弹层与双树常驻已修复：分层查询键/Promise 共享、权限/版本失效、
-  唯一活动 Sheet、隐藏模式轻量视图、过渡禁用和版本滚动恢复均完成；未改 API/contracts/database。
-- fixture 初始 `setData` 13,386→4,053 bytes、最大 5,495→1,206、次数 10→6；关闭驻留 72→0，
-  重复请求 1→0，主体 2.61→1.49 ms，首开中位数 0.30→0.31 ms，全部通过批准门槛。
-- 定向 9/87、Mini 108/539、Web 10/51、全端构建和 Mini 门禁通过；manifest `49226902…445c`，包 5,134,389 bytes。
-- 代码 `c2a57441` 已推送、备份并部署；`.69@c2a5744` 已上传并通过 allowlist/full verifier。
-  下一步只做小米 14 匹配体验版复核；当前不得宣称真机通过。
-- 本状态 checkpoint 前，任务文档 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；
-  `smoke:check-core` 确认未涉及 Web 核心链路。
+- 唯一任务为“更多 → 测试工具”：新增 `subpackages/diagnostics`，保留旧手势探针并从交互检查进入；不改 API、数据库、权限、认证或业务页面。
+- develop/trial 显示；release 入口、直接页和旧探针三层失败关闭，App 不创建诊断仓库，也未新增运行时监听或 monkey patch。
+- 诊断只读且内存有界：请求 20、错误 10、性能 12；不持久化/上传，不读取 body/Header/storage value，报告只含脱敏路径和错误指纹。
+- 请求重试、Header/body、Promise/异常、receiver、调用次数及 `setData` 行为保持不变；既有 `prefer-const` 不处理。
+- 修改前主包/总包 1,637,688/5,134,389 B；最终复测 1,658,098/5,204,874 B，新增 diagnostics 35,710 B，未触发新阻断。
+- Mini 109/548、定向 8 files/65、根 243 files/1,137 tests、全端 build/typecheck、production verify/determinism/CI、任务质量与 390/320/大字号黄金通过。
+- 微信开发者工具 Console/Network 与小米 14 体验版仍待用户人工验证；`.70@18498a8` 已上传并放行；不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -249,7 +243,7 @@
 
 ## 下一步与停止条件
 
-1. 当前唯一下一任务：用户在小米 14 微信客户端打开匹配的 `.69@c2a5744` 体验版，核对构建标签、
-   renderer/基础库并复核通讯录科室/人员、筛选弹层、搜索结果、重复确认和分页。
+1. 用户在小米 14 打开 `.70@18498a8`，截图版本条、设备/安全区、显示检查与交互探针，并回传 Codex 简化报告。
+2. 用户在微信开发者工具编译同一 checkpoint 并检查 Console；该辅助证据不能替代手机验收。
 
-停止条件：收到匹配构建的真机证据前保持“待验证”；不提审、不正式发布，用户 dirty 文件保持未提交。
+停止条件：体验上传与生产验证完成后停止；收到匹配构建真机证据前保持“待验证”，不提审、不正式发布。
