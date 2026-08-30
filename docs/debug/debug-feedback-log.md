@@ -21,6 +21,12 @@
 - 用户明确禁止使用微信开发者工具、模拟器、自动化或电脑控制验证，本轮未将其作为门禁。状态为
   `已实现并完成非开发者工具自动验证 → 待 .68 Android/iOS 实体复核`；不创建 `.67`，不提审、
   不正式发布。checkpoint 识别消息为 `fix(miniprogram): remove native workspace swipe host`。
+- 发布：代码 `fe12db53` 已推送；备份 `7738bd65-6f60-409e-957e-1d7e68e523a6`（55 表、192,287 行、
+  86,791,016 bytes、SHA `3e78c00b…beb55`）后 hash-identical reuse 到同一 production release，公网
+  full verifier 通过。exact clean checkpoint 经直连 IPv4 成功上传 `.68`（184 files、zip
+  2,351,718、manifest `764b93dc…dd9d`）；正式 allowlist ensure/verify、七维全 true、unknown=426
+  与重建后的公网 full verifier 通过，未提审/正式发布。最终状态 checkpoint 识别消息为
+  `docs(status): record non-swipe workspace deployment`。
 
 ## 2026-08-30 取消五入口全局横滑
 

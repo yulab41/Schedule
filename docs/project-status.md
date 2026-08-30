@@ -6,17 +6,19 @@
 ## 仓库与生产基线（2026-08-30）
 
 - 分支：`main`；`.66` 代码为 `4fe1b5e7`、状态为 `b032edee`；取消横滑文档为 `11a5a217`，
-  无外层滑动宿主设计为 `ad0459e5`；当前代码 checkpoint 以
-  `fix(miniprogram): remove native workspace swipe host` 识别。
-- 当前体验候选 `.66@4fe1b5e` 已上传并通过 allowlist/full verifier；用户随后在真机发现外层仍可
-  左右位移且滑后白屏，不能作为最终候选。`.65` workbench 白屏已被后继取代且禁止回退。
-- `.59/.60/.61/.62/.63/.64/.65/.66` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+  无外层滑动宿主设计为 `ad0459e5`、代码为 `fe12db53`；最终状态 checkpoint 以
+  `docs(status): record non-swipe workspace deployment` 识别。
+- 当前体验候选 `.68@fe12db5` 已上传并通过 allowlist/full verifier；`.66` 因真机外层位移后白屏被
+  取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
-- `.66` 首次被代理 IPv6 白名单拒绝且未形成版本；同一 clean commit/版本直连 IPv4 重传成功。
-- 当前 production release 为 `ad0459e5`，数据库 schema 52；最近一次设计发布备份为
-  `401e14db-924f-43e9-9f9d-7692e0a99ec9`（55 表、192,158 行、86,748,356 bytes、
-  SHA-256 `c7fd577e…d70`），hash-identical reuse 与公网 full verifier 已通过。
+- `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
+  manifest `764b93dc…dd9d`；未使用微信开发者工具。
+- 当前 production 应用制品来自 `fe12db53`、数据库 schema 52；最终 release 标识在状态同步后以
+  前述 checkpoint 识别消息解析。代码发布备份为
+  `7738bd65-6f60-409e-957e-1d7e68e523a6`（55 表、192,287 行、86,791,016 bytes、
+  SHA-256 `3e78c00b…beb55`），hash-identical reuse 与公网 full verifier 已通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -63,8 +65,8 @@
   常驻兄弟内容槽，仅由底栏点击切换；通讯录内部 `directory-mode-swiper` 保持原生触摸与状态保留。
 - 引入点 `4fe1b5e7`、空白屏数据流和结构红灯已冻结；实现后定向 6 files/47 tests、Mini
   107/517、root 242/1,135 及全端 build/typecheck、Mini 全套发布门禁、core smoke 均通过。
-- 用户禁止微信开发者工具、模拟器、自动化和电脑控制验证；本轮只以自动结构/运行门禁和 `.68`
-  Android/iOS 实体测试为准。`.67` 不创建、不上传；用户 dirty 文件保持未暂存，不提审、不正式发布。
+- `fe12db53` 已推送并同步 production；`.68` 已上传、正式 allowlist/七维/unknown=426 与公网 full
+  verifier 通过。用户禁止微信开发者工具验证，最终状态只待 `.68` Android/iOS 实体测试。
 
 ## 已完成的发布基线与当前修复
 
@@ -242,9 +244,6 @@
 
 ## 下一步与停止条件
 
-1. 逐行审阅并显式暂存本批文件，提交、推送，从 exact clean checkpoint 备份并同步生产。
-2. 从同一 clean checkpoint 上传 `.68`，完成 allowlist ensure/verify、七维 capability、unknown=426
-   与公网 full verifier；不使用微信开发者工具，不创建 `.67`。
-3. 用户在 Android/iOS 验证普通区域无全局横移/白屏、五入口点击和通讯录内部左右滑动。
+1. 用户在 `.68` Android/iOS 验证普通区域无全局横移/白屏、五入口点击和通讯录内部左右滑动。
 
 停止条件：`.68` Android/iOS 实体验收前保持待用户复核；用户 dirty 文件保持未提交，不提审或正式发布。
