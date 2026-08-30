@@ -3,7 +3,7 @@
 - 当前阶段：通讯录专项——代码 checkpoint 已发布
 - 状态：自动验证与生产发布完成；体验版/小米 14 待验证
 - 代码 checkpoint：`c2a57441 fix(miniprogram): repair directory filtering runtime`
-- 生产 release：`c2a57441d3a337c512611b82d05740b4064928fa`
+- 生产应用 checkpoint：`c2a57441`；最终 release 元数据以最新同名状态 checkpoint 识别
 - 生产备份：`0c470222-b4a6-4ce6-b699-7c9df960a0dd`（55 表、193,410 行、87,157,532 bytes）
 - 基线类型：当前用户脏树上开发、exact clean commit 打包；用户文件未进入提交
 - 最终状态 checkpoint 标识：`docs(status): record directory runtime deployment`

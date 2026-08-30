@@ -14,9 +14,9 @@
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
   manifest `764b93dc…dd9d`；未使用微信开发者工具。
-- 当前 production release `c2a57441d3a337c512611b82d05740b4064928fa`、数据库 schema 52；备份
-  `0c470222-b4a6-4ce6-b699-7c9df960a0dd`（55 表、193,410 行、87,157,532 bytes、SHA-256
-  `cb75fdba…efe2`）后 hash-identical reuse 与公网 full verifier 通过。
+- 当前 production 应用 checkpoint `c2a57441`、数据库 schema 52；最终 release 元数据以最新
+  `docs(status): record directory runtime deployment` checkpoint 识别。代码发布备份
+  `0c470222-b4a6-4ce6-b699-7c9df960a0dd` 后 hash-identical reuse 与公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
