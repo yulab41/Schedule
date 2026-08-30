@@ -82,6 +82,7 @@ const UI_TOKENS_WXSS = path.resolve(
   'src',
   'tokens.wxss',
 );
+const PROCESS_BUILD_TIME = new Date().toISOString();
 
 export const BUILD_PROFILES = Object.freeze({
   production: Object.freeze({
@@ -155,6 +156,9 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
+  'platform/runtime-diagnostics-bridge.ts',
+  'platform/runtime-diagnostics.ts',
+  'platform/runtime-environment.ts',
   ...['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel'].flatMap((panel) => [
     `subpackages/insights/components/${panel}/controller.ts`,
     `subpackages/insights/components/${panel}/index.ts`,
@@ -322,14 +326,33 @@ function resolveGitCommit() {
   }).trim();
 }
 
+function resolveGitDirtyState() {
+  return (
+    execFileSync('git', ['status', '--porcelain', '--untracked-files=normal'], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+    }).trim().length > 0
+  );
+}
+
+function resolveSafeBuildDescription(profile) {
+  const candidate = process.env.WECHAT_CI_DESCRIPTION?.trim() || `local-${profile}-build`;
+  if (!/^[0-9A-Za-z._ -]{1,80}$/u.test(candidate)) return 'redacted-build-description';
+  return candidate;
+}
+
 export async function buildMiniProgram({
   buildCommit = resolveGitCommit(),
+  buildDescription,
+  buildDirty = resolveGitDirtyState(),
+  buildTime = PROCESS_BUILD_TIME,
   buildVersion = process.env.WECHAT_CI_VERSION?.trim() || 'local',
   outdir = DIST_ROOT,
   profile,
   sourceRoot = SOURCE_ROOT,
 }) {
   const resolvedProfile = resolveBuildProfile(profile);
+  const resolvedBuildDescription = buildDescription ?? resolveSafeBuildDescription(resolvedProfile);
   const sourceDirectory = assertSafeSourceDirectory(sourceRoot);
   const outputDirectory = resetGeneratedDirectory(outdir);
   const entryPoints = collectTypeScriptEntryPoints(sourceDirectory);
@@ -352,7 +375,10 @@ export async function buildMiniProgram({
     define: {
       __MINIPROGRAM_API_BASE_URL__: JSON.stringify(BUILD_PROFILES[resolvedProfile].apiBaseUrl),
       __MINIPROGRAM_BUILD_COMMIT__: JSON.stringify(buildCommit),
+      __MINIPROGRAM_BUILD_DESCRIPTION__: JSON.stringify(resolvedBuildDescription),
+      __MINIPROGRAM_BUILD_DIRTY__: JSON.stringify(buildDirty),
       __MINIPROGRAM_BUILD_PROFILE__: JSON.stringify(resolvedProfile),
+      __MINIPROGRAM_BUILD_TIME__: JSON.stringify(buildTime),
       __MINIPROGRAM_BUILD_VERSION__: JSON.stringify(buildVersion),
     },
     entryNames: '[dir]/[name]',
@@ -377,6 +403,9 @@ export async function buildMiniProgram({
       {
         apiBaseUrl: BUILD_PROFILES[resolvedProfile].apiBaseUrl,
         buildCommit,
+        buildDescription: resolvedBuildDescription,
+        buildDirty,
+        buildTime,
         buildVersion,
         profile: resolvedProfile,
         schemaVersion: 1,

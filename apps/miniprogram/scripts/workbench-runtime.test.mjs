@@ -76,7 +76,7 @@ describe('P6-A workbench runtime coordination', () => {
     instance.data.currentGroupId = '';
     definition.handleOpenTestCenter.call(instance);
     expect(navigateTo).toHaveBeenLastCalledWith(
-      expect.objectContaining({ url: '/pages/gesture-probe/index' }),
+      expect.objectContaining({ url: '/subpackages/diagnostics/pages/test-tools/index' }),
     );
     instance.data.currentGroupId = 'group-1';
 
@@ -551,6 +551,7 @@ function createStorage(extra = {}) {
 
 function createWx(storage, request) {
   return {
+    getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop', version: 'test' } }),
     getMenuButtonBoundingClientRect: () => ({
       bottom: 56,
       height: 32,

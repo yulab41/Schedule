@@ -1,0 +1,9 @@
+{
+  "disableScroll": false,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "ui-button": "/components/ui/ui-button/index",
+    "ui-checkbox": "/components/ui/ui-checkbox/index"
+  }
+}

@@ -1,4 +1,5 @@
 import { buildInfo } from '../../platform/build-info.js';
+import { isTestToolsRuntimeEnabled } from '../../platform/runtime-environment.js';
 
 interface BooleanChangeEvent {
   readonly detail: { readonly checked: boolean };
@@ -29,6 +30,7 @@ Page({
     contactChecked: true,
     notifications: false,
     templateName: '十月头颈外科值班',
+    testToolsEnabled: isTestToolsRuntimeEnabled(),
   },
   handleCalendarViewChange(this: FoundationPageInstance, event: RadioChangeEvent): void {
     this.setData({ calendarView: event.detail.value });

@@ -1,4 +1,5 @@
 import { buildInfo } from '../../platform/build-info.js';
+import { isTestToolsRuntimeEnabled } from '../../platform/runtime-environment.js';
 
 declare const getCurrentPages: undefined | (() => unknown[]);
 
@@ -60,7 +61,6 @@ interface GestureProbeWheelEvent {
   readonly detail: { readonly generation: number; readonly index: number };
 }
 
-const { shared } = wx.worklet;
 const probeYears = Array.from({ length: 11 }, (_, index) => 2021 + index);
 const initialProbeYearIndex = probeYears.indexOf(2026);
 const workspaceProbeItems = [
@@ -101,6 +101,12 @@ Page({
     wheelSettledLabel: '2026年',
   },
   onLoad(this: GestureProbePageInstance): void {
+    if (!isTestToolsRuntimeEnabled()) {
+      wx.showToast?.({ icon: 'none', title: '该诊断页仅在开发版和体验版开放' });
+      wx.redirectTo({ url: '/pages/workbench/index' });
+      return;
+    }
+    const { shared } = wx.worklet;
     this._probeX = shared(0);
     this._probeY = shared(0);
     this._touchMoveCount = 0;
@@ -239,7 +245,7 @@ function syncWorkspaceDiagnostics(page: GestureProbePageInstance): void {
     const index = page.data?.workspaceProbeIndex ?? 0;
     page.setData({
       workspaceProbe: `index ${index} · 未连接工作台`,
-      workspaceProbeAttached: '请从“更多 → 测试中心”进入',
+      workspaceProbeAttached: '请从“更多 → 测试工具 → 交互检查”进入',
       workspaceProbeDuplicateReady: '—',
       workspaceProbeGestureLock: '未知',
       workspaceProbeMounted: '未连接',

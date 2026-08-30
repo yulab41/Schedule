@@ -112,7 +112,7 @@ describe('Mini workbench Web-parity navigation', () => {
       '访客访问',
       '平台账号',
       '测试与诊断',
-      '测试中心',
+      '测试工具',
     ]);
     expect(more).not.toContain('院内通讯录');
     expect(more).toContain('wx:if="{{testCenterEnabled}}"');
@@ -120,8 +120,9 @@ describe('Mini workbench Web-parity navigation', () => {
     expect(source).toContain("'/subpackages/organization/pages/group-settings/index'");
     expect(source).toContain("'/subpackages/workflows/pages/leave/index'");
     expect(source).toContain("'/subpackages/workflows/pages/duty/index'");
-    expect(source).toContain("'/pages/gesture-probe/index'");
-    expect(source).toContain('testCenterEnabled: buildInfo.testCenterEnabled');
+    expect(source).toContain("'/subpackages/diagnostics/pages/test-tools/index'");
+    expect(source).toContain('testCenterEnabled: false');
+    expect(source).toContain('isTestToolsRuntimeEnabled()');
   });
 
   it('shares directory and profile content between embedded and direct Page hosts', () => {

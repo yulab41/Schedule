@@ -1,6 +1,9 @@
 declare const __MINIPROGRAM_API_BASE_URL__: string;
 declare const __MINIPROGRAM_BUILD_COMMIT__: string;
+declare const __MINIPROGRAM_BUILD_DESCRIPTION__: string;
+declare const __MINIPROGRAM_BUILD_DIRTY__: boolean;
 declare const __MINIPROGRAM_BUILD_PROFILE__: 'staging' | 'production';
+declare const __MINIPROGRAM_BUILD_TIME__: string;
 declare const __MINIPROGRAM_BUILD_VERSION__: string;
 
 declare function App<TOptions extends Record<string, unknown>>(options: TOptions): void;
@@ -51,11 +54,15 @@ interface MiniProgramSelectorQuery {
 
 interface MiniProgramAppBaseInfo {
   readonly SDKVersion: string;
+  readonly fontSizeSetting?: number;
+  readonly language?: string;
+  readonly theme?: string;
   readonly version: string;
 }
 
 interface MiniProgramDeviceInfo {
   readonly benchmarkLevel?: number;
+  readonly brand?: string;
   readonly model: string;
   readonly platform: string;
   readonly system: string;
@@ -81,12 +88,22 @@ interface MiniProgramNetworkTypeOptions {
 }
 
 declare const wx: {
+  getAccountInfoSync?(): {
+    readonly miniProgram?: {
+      readonly envVersion?: string;
+      readonly version?: string;
+    };
+  };
   createSelectorQuery(): MiniProgramSelectorQuery;
   getAppBaseInfo(): MiniProgramAppBaseInfo;
   getDeviceInfo(): MiniProgramDeviceInfo;
   getNetworkType(options: MiniProgramNetworkTypeOptions): unknown;
   getMenuButtonBoundingClientRect(): MiniProgramRect;
-  getStorageInfoSync(): { readonly keys: readonly string[] };
+  getStorageInfoSync(): {
+    readonly currentSize?: number;
+    readonly keys: readonly string[];
+    readonly limitSize?: number;
+  };
   getWindowInfo(): MiniProgramWindowInfo;
   getStorageSync(key: string): unknown;
   login(options: {
@@ -101,6 +118,11 @@ declare const wx: {
   removeStorageSync(key: string): void;
   request(options: MiniProgramRequestOptions): unknown;
   setStorageSync(key: string, value: unknown): void;
+  setClipboardData?(options: {
+    readonly data: string;
+    readonly fail?: (error: unknown) => void;
+    readonly success?: () => void;
+  }): unknown;
   navigateBack(options?: { readonly delta?: number }): void;
   navigateTo(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
   reLaunch(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
@@ -113,6 +135,7 @@ declare const wx: {
     readonly success?: (result: { readonly cancel: boolean; readonly confirm: boolean }) => void;
     readonly title?: string;
   }): void;
+  showToast?(options: { readonly icon: 'none' | 'success'; readonly title: string }): void;
   readonly worklet: {
     readonly Easing: {
       bezier(x1: number, y1: number, x2: number, y2: number): unknown;

@@ -1003,7 +1003,7 @@
                   bindtap="handleOpenTestCenter"
                 >
                   <image src="/assets/icons/web-more-secondary.svg" mode="aspectFit" />
-                  <view><text>测试中心</text><text>集中验证滚轮、手势与后续真机能力</text></view>
+                  <view><text>测试工具</text><text>查看安全诊断并按步骤完成真机检查</text></view>
                   <image
                     class="more-chevron"
                     src="/assets/icons/web-chevron-right.svg"

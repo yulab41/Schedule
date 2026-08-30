@@ -9,6 +9,7 @@ import {
 } from '@schedule/presentation-core';
 
 import { buildInfo } from '../../platform/build-info.js';
+import { isTestToolsRuntimeEnabled } from '../../platform/runtime-environment.js';
 import {
   ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
@@ -294,7 +295,7 @@ Page({
     selectedCountLabel: '0 个班种',
     calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
-    testCenterEnabled: buildInfo.testCenterEnabled,
+    testCenterEnabled: false,
     viewMode: 'month' as const,
     weekPanels: [],
     weekStart: getWeekStartDate(today),
@@ -367,7 +368,7 @@ Page({
     this._performanceDiagnosticsEnabled = options.performance === '1';
     this._performanceProbe = createNativePerformanceProbe();
     this._performanceProbe.start('core-ready');
-    this.setData(createShellLayoutPatch());
+    this.setData({ ...createShellLayoutPatch(), testCenterEnabled: isTestToolsRuntimeEnabled() });
     void loadWorkbenchWithCapability(this);
   },
 
@@ -889,9 +890,13 @@ Page({
   },
 
   handleOpenTestCenter(this: WorkbenchPageInstance): void {
+    if (!isTestToolsRuntimeEnabled()) {
+      announceToolNavigationFailure(this, '测试工具仅在开发版和体验版开放。');
+      return;
+    }
     wx.navigateTo({
-      fail: () => announceToolNavigationFailure(this, '测试中心暂时无法打开，请稍后重试。'),
-      url: '/pages/gesture-probe/index',
+      fail: () => announceToolNavigationFailure(this, '测试工具暂时无法打开，请稍后重试。'),
+      url: '/subpackages/diagnostics/pages/test-tools/index',
     });
   },
 

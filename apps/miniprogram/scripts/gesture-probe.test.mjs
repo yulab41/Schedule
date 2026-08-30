@@ -57,6 +57,7 @@ describe('P1 Android gesture capability probe', () => {
   it('moves the shared dot on ACTIVE while ordinary touch events update only diagnostic state', async () => {
     let definition;
     vi.stubGlobal('wx', {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop', version: 'test' } }),
       getAppBaseInfo: () => ({ SDKVersion: '3.17.1', version: '8.0.60' }),
       getDeviceInfo: () => ({ model: 'Android probe', platform: 'android' }),
       worklet: { shared: (value) => ({ value }) },
@@ -83,6 +84,27 @@ describe('P1 Android gesture capability probe', () => {
     expect(setData).toHaveBeenCalledWith(
       expect.objectContaining({ touchStatus: '普通触摸已结束' }),
     );
+  });
+
+  it('fails closed before initializing probe state in release', async () => {
+    let definition;
+    const redirectTo = vi.fn();
+    const shared = vi.fn((value) => ({ value }));
+    vi.stubGlobal('wx', {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion: 'release', version: '1.0.0' } }),
+      redirectTo,
+      showToast: vi.fn(),
+      worklet: { shared },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/pages/gesture-probe/index.ts');
+
+    definition.onLoad.call({ setData: vi.fn() });
+
+    expect(redirectTo).toHaveBeenCalledWith({ url: '/pages/workbench/index' });
+    expect(shared).not.toHaveBeenCalled();
   });
 
   it('keeps the diagnostic WXS module isolated from the matrix WXS input module', () => {

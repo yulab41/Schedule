@@ -13,9 +13,13 @@ describe('Mini Program visible build identity', () => {
 
     expect(buildInfo).toContain('__MINIPROGRAM_BUILD_VERSION__');
     expect(buildInfo).toContain('__MINIPROGRAM_BUILD_COMMIT__');
+    expect(buildInfo).toContain('__MINIPROGRAM_BUILD_TIME__');
+    expect(buildInfo).toContain('__MINIPROGRAM_BUILD_DESCRIPTION__');
+    expect(buildInfo).toContain('__MINIPROGRAM_BUILD_DIRTY__');
     expect(buildInfo).toContain('buildLabel');
     expect(declarations).toContain('declare const __MINIPROGRAM_BUILD_VERSION__: string;');
     expect(declarations).toContain('declare const __MINIPROGRAM_BUILD_COMMIT__: string;');
+    expect(declarations).toContain('declare const __MINIPROGRAM_BUILD_TIME__: string;');
   });
 
   it('shows the build label on every P1 page used for device testing', () => {

@@ -3,6 +3,7 @@ import {
   type ClientCapabilityRequirement,
 } from '../app/client-capability-store.js';
 import { buildInfo } from './build-info.js';
+import { recordRuntimeDiagnosticRequest } from './runtime-diagnostics-bridge.js';
 
 export interface WxJsonRequestSuccess {
   readonly data: unknown;
@@ -63,6 +64,7 @@ const retryDelays = [200, 400] as const;
 export async function executeWxJsonRequest(
   input: ExecuteWxJsonRequestInput,
 ): Promise<WxJsonRequestSuccess> {
+  const diagnosticStartedAt = Date.now();
   const canRetry =
     input.method === 'GET' ||
     (typeof input.idempotencyKey === 'string' && input.idempotencyKey.length > 0);
@@ -71,57 +73,100 @@ export async function executeWxJsonRequest(
   let authenticationReplayUsed = false;
   let retryCount = 0;
   let sessionGeneration = input.authentication?.sessionGeneration;
+  let diagnosticStatusCode: number | undefined;
 
-  for (;;) {
-    await requireClientCapability(input.capability);
-    let response: WxJsonRequestSuccess;
-    try {
-      response = await requestOnce(input, accessToken);
-    } catch (error) {
-      if (
-        !(error instanceof WxRequestNetworkError) ||
-        !canRetry ||
-        retryCount >= retryDelays.length
-      ) {
-        throw error;
-      }
-      await delay(getRetryDelay(retryCount));
-      retryCount += 1;
-      continue;
-    }
-
-    if (
-      accessToken !== undefined &&
-      (input.authentication?.isAuthenticationRequired ?? isBearerAuthenticationRequired)(response)
-    ) {
-      if (!authenticationReplayUsed && input.authentication?.recoverAccessToken !== undefined) {
-        authenticationReplayUsed = true;
-        const recoveredToken = await input.authentication.recoverAccessToken(accessToken);
-        if (recoveredToken !== undefined && recoveredToken.length > 0) {
-          accessToken = recoveredToken;
-          sessionGeneration = input.authentication.getSessionGeneration?.();
-          continue;
+  try {
+    for (;;) {
+      await requireClientCapability(input.capability);
+      let response: WxJsonRequestSuccess;
+      try {
+        response = await requestOnce(input, accessToken);
+      } catch (error) {
+        if (
+          !(error instanceof WxRequestNetworkError) ||
+          !canRetry ||
+          retryCount >= retryDelays.length
+        ) {
+          throw error;
         }
+        await delay(getRetryDelay(retryCount));
+        retryCount += 1;
+        continue;
       }
-      input.authentication?.finalizeUnauthorized?.(accessToken);
+      diagnosticStatusCode = response.statusCode;
+
+      if (
+        accessToken !== undefined &&
+        (input.authentication?.isAuthenticationRequired ?? isBearerAuthenticationRequired)(response)
+      ) {
+        if (!authenticationReplayUsed && input.authentication?.recoverAccessToken !== undefined) {
+          authenticationReplayUsed = true;
+          const recoveredToken = await input.authentication.recoverAccessToken(accessToken);
+          if (recoveredToken !== undefined && recoveredToken.length > 0) {
+            accessToken = recoveredToken;
+            sessionGeneration = input.authentication.getSessionGeneration?.();
+            continue;
+          }
+        }
+        input.authentication?.finalizeUnauthorized?.(accessToken);
+        recordCompletedDiagnosticRequest(
+          input,
+          diagnosticStartedAt,
+          response.statusCode,
+          retryCount,
+        );
+        return response;
+      }
+
+      if (
+        sessionGeneration !== undefined &&
+        input.authentication?.getSessionGeneration !== undefined &&
+        input.authentication.getSessionGeneration() !== sessionGeneration
+      ) {
+        throw new WxRequestStaleSessionError();
+      }
+
+      if (
+        transientStatuses.has(response.statusCode) &&
+        canRetry &&
+        retryCount < retryDelays.length
+      ) {
+        await delay(getRetryDelay(retryCount));
+        retryCount += 1;
+        continue;
+      }
+      recordCompletedDiagnosticRequest(input, diagnosticStartedAt, response.statusCode, retryCount);
       return response;
     }
-
-    if (
-      sessionGeneration !== undefined &&
-      input.authentication?.getSessionGeneration !== undefined &&
-      input.authentication.getSessionGeneration() !== sessionGeneration
-    ) {
-      throw new WxRequestStaleSessionError();
-    }
-
-    if (transientStatuses.has(response.statusCode) && canRetry && retryCount < retryDelays.length) {
-      await delay(getRetryDelay(retryCount));
-      retryCount += 1;
-      continue;
-    }
-    return response;
+  } catch (error) {
+    recordRuntimeDiagnosticRequest({
+      durationMs: Date.now() - diagnosticStartedAt,
+      endpoint: input.url,
+      method: input.method,
+      outcome: 'failed',
+      retryCount,
+      startedAt: diagnosticStartedAt,
+      ...(diagnosticStatusCode === undefined ? {} : { statusCode: diagnosticStatusCode }),
+    });
+    throw error;
   }
+}
+
+function recordCompletedDiagnosticRequest(
+  input: ExecuteWxJsonRequestInput,
+  startedAt: number,
+  statusCode: number,
+  retryCount: number,
+): void {
+  recordRuntimeDiagnosticRequest({
+    durationMs: Date.now() - startedAt,
+    endpoint: input.url,
+    method: input.method,
+    outcome: statusCode >= 200 && statusCode < 400 ? 'success' : 'http-error',
+    retryCount,
+    startedAt,
+    statusCode,
+  });
 }
 
 export function isBearerAuthenticationRequired(response: WxJsonRequestSuccess): boolean {

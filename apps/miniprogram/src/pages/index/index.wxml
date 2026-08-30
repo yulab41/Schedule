@@ -175,6 +175,7 @@
           <text class="test-route-arrow" aria-hidden="true">›</text>
         </navigator>
         <navigator
+          wx:if="{{testToolsEnabled}}"
           class="test-route"
           url="/pages/gesture-probe/index"
           hover-class="is-pressed"

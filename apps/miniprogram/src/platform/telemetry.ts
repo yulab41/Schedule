@@ -4,6 +4,10 @@ import {
   type WxJsonRequest,
   type WxJsonRequestOptions,
 } from './wx-request-executor.js';
+import {
+  recordRuntimeDiagnosticError,
+  recordRuntimeDiagnosticPerformance,
+} from './runtime-diagnostics-bridge.js';
 
 export type MiniTelemetryPage =
   | 'app'
@@ -181,7 +185,16 @@ export function createMiniTelemetryEmitter(
     flush,
     recordError(page, errorCode, error) {
       try {
-        enqueue({ errorCode, page, stackFingerprint: createTelemetryStackFingerprint(error) });
+        const stackFingerprint = createTelemetryStackFingerprint(error);
+        enqueue({ errorCode, page, stackFingerprint });
+        if (errorCode !== 'UNKNOWN') {
+          recordRuntimeDiagnosticError({
+            code: errorCode,
+            fingerprint: stackFingerprint,
+            page,
+            recordedAt: Date.now(),
+          });
+        }
       } catch {
         // App error handling must never throw or recursively report itself.
       }
@@ -189,6 +202,7 @@ export function createMiniTelemetryEmitter(
     recordPerformance(page, metric, durationMs) {
       try {
         if (!Number.isFinite(durationMs)) return;
+        recordRuntimeDiagnosticPerformance({ durationMs, metric, page, recordedAt: Date.now() });
         enqueue({
           page,
           performance: {

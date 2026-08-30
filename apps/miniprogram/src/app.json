@@ -38,6 +38,10 @@
         "pages/exports/index",
         "pages/notification-settings/index"
       ]
+    },
+    {
+      "root": "subpackages/diagnostics",
+      "pages": ["pages/test-tools/index"]
     }
   ],
   "window": {

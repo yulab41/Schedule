@@ -124,11 +124,14 @@ describe('Mini Program deterministic toolchain guards', () => {
       mkdirSync(sourceRoot, { recursive: true });
       writeFileSync(
         path.join(sourceRoot, 'app.ts'),
-        "export const buildLabel = `${__MINIPROGRAM_BUILD_VERSION__}@${__MINIPROGRAM_BUILD_COMMIT__}`;\nfunction moveHeader() { 'worklet'; return 1; }\nApp({ moveHeader });\n",
+        "export const buildLabel = `${__MINIPROGRAM_BUILD_VERSION__}@${__MINIPROGRAM_BUILD_COMMIT__}:${__MINIPROGRAM_BUILD_TIME__}:${__MINIPROGRAM_BUILD_DESCRIPTION__}:${__MINIPROGRAM_BUILD_DIRTY__}`;\nfunction moveHeader() { 'worklet'; return 1; }\nApp({ moveHeader });\n",
         'utf8',
       );
       await buildMiniProgram({
         buildCommit: 'abc1234',
+        buildDescription: 'test-build',
+        buildDirty: false,
+        buildTime: '2026-08-31T00:00:00.000Z',
         buildVersion: '0.1.0-probe',
         outdir,
         profile: 'staging',
@@ -140,8 +143,11 @@ describe('Mini Program deterministic toolchain guards', () => {
       expect(worklets.count).toBeGreaterThanOrEqual(1);
       expect(compiled).toContain('0.1.0-probe');
       expect(compiled).toContain('abc1234');
+      expect(compiled).toContain('2026-08-31T00:00:00.000Z');
+      expect(compiled).toContain('test-build');
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_VERSION__');
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_COMMIT__');
+      expect(compiled).not.toContain('__MINIPROGRAM_BUILD_TIME__');
     } finally {
       rmSync(fixtureRoot, { force: true, recursive: true });
     }
