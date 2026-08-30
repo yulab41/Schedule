@@ -1,5 +1,6 @@
 <view
-  class="directory-entry {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}}"
+  class="directory-entry {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}} {{disabled ? 'is-disabled' : ''}}"
+  aria-disabled="{{disabled}}"
 >
   <view class="entry-accent"></view>
   <view class="entry-content">
@@ -29,7 +30,7 @@
         </view>
       </view>
       <view
-        class="favorite-action {{entry.favorite ? 'is-favorite' : ''}}"
+        class="favorite-action {{entry.favorite ? 'is-favorite' : ''}} {{disabled ? 'is-disabled' : ''}}"
         aria-role="button"
         aria-label="{{entry.favorite ? '取消收藏' : '收藏'}}{{entry.title}}"
         aria-pressed="{{entry.favorite}}"
@@ -56,7 +57,7 @@
           <block wx:for="{{contact.numbers}}" wx:for-item="number" wx:key="id">
             <view
               wx:if="{{number.dialable}}"
-              class="directory-number is-dialable"
+              class="directory-number is-dialable {{disabled ? 'is-disabled' : ''}}"
               hover-class="is-pressed"
               data-number="{{number.dialNumber}}"
               data-number-id="{{number.id}}"

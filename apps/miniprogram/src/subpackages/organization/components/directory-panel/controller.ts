@@ -36,6 +36,17 @@ import {
   type DirectoryPreferences,
 } from '@schedule/presentation-core';
 import {
+  DIRECTORY_FILTER_KEYS,
+  createBaseQueryKey,
+  createContextKey,
+  createDirectoryFilterStates,
+  createPageRequestKey,
+  resetDirectoryFilterStates,
+  setDirectoryFilterState,
+  stableSerialize,
+  type DirectoryFilterState,
+} from './query-runtime.js';
+import {
   ClientCapabilityDisabledError,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -50,6 +61,7 @@ import {
 
 type DirectoryState = 'disabled' | 'empty' | 'error' | 'idle' | 'loading' | 'ready';
 type DirectoryModeIndex = 0 | 1;
+type DirectoryRetryKind = '' | 'facets' | 'pagination' | 'search';
 
 interface DirectoryNumberCard {
   readonly dialable: boolean;
@@ -88,7 +100,6 @@ interface DirectoryPrioritySectionView {
 }
 
 interface DirectoryFilterOptionView extends DirectoryFacetOption {
-  readonly selected: boolean;
   readonly value: string;
 }
 
@@ -99,24 +110,51 @@ interface DirectoryFilterSectionView {
   readonly optionCount: number;
   readonly options: readonly DirectoryFilterOptionView[];
   readonly selectedLabel: string;
+  readonly selectedValue: string;
+}
+
+interface DirectoryGuideStopView {
+  readonly key: DirectoryFilterKey;
+  readonly label: string;
+  readonly selected: boolean;
+  readonly selectedLabel: string;
+}
+
+interface DirectorySheetData {
+  readonly activeFilterCount: number;
+  readonly directoryKind: DirectoryKind;
+  readonly emptyMessage: string;
+  readonly filterAdjustmentMessage: string;
+  readonly open: boolean;
+  readonly scrollTarget: string;
+  readonly scrollTop: number;
+  readonly sections: readonly DirectoryFilterSectionView[];
+  readonly title: string;
+}
+
+interface DirectoryFilterProjection {
+  readonly compatible: ReadonlyMap<DirectoryFilterKey, readonly DirectoryFacetOption[]>;
+  readonly meaningful: readonly DirectoryFilterKey[];
 }
 
 interface DirectoryPaneData {
   readonly activeFilterCount: number;
+  readonly canRefreshFromStart: boolean;
   readonly directoryKind: DirectoryKind;
   readonly entries: readonly DirectoryCard[];
   readonly errorMessage: string;
+  readonly facetsErrorMessage: string;
   readonly facetsLoading: boolean;
-  readonly filterAdjustmentMessage: string;
-  readonly filterScrollTarget: string;
-  readonly filterSections: readonly DirectoryFilterSectionView[];
-  readonly filterSheetOpen: boolean;
+  readonly guideStops: readonly DirectoryGuideStopView[];
   readonly hasCriteria: boolean;
+  readonly hasMore: boolean;
+  readonly interactionDisabled: boolean;
   readonly loadingMore: boolean;
+  readonly mainScrollTop: number;
   readonly mergedGroupCount: number;
-  readonly nextCursor: string;
   readonly prioritySections: readonly DirectoryPrioritySectionView[];
   readonly resultSummary: string;
+  readonly retryKind: DirectoryRetryKind;
   readonly searchQuery: string;
   readonly searching: boolean;
   readonly state: DirectoryState;
@@ -124,6 +162,7 @@ interface DirectoryPaneData {
 }
 
 interface DirectoryPageData {
+  readonly activeSheet: DirectorySheetData;
   readonly activeModeIndex: DirectoryModeIndex;
   readonly departmentAnimating: boolean;
   readonly directoryKind: DirectoryKind;
@@ -142,16 +181,27 @@ interface DirectoryPageData {
 
 interface DirectoryModeRuntime {
   readonly collapsedFilterKeys: Set<DirectoryFilterKey>;
+  readonly inFlightPages: Map<string, Promise<void>>;
+  readonly loadedPageKeys: Set<string>;
+  completedBaseQueryKey: string | undefined;
   contextSerial: number;
+  currentBaseQueryKey: string | undefined;
   facets: DirectoryFacetSnapshot | undefined;
+  filterAdjustmentMessage: string;
+  filterProjection: DirectoryFilterProjection;
+  filterStates: readonly DirectoryFilterState[];
   filters: DirectoryFilters;
   groupId: string;
+  mainScrollTop: number;
   nextCursor: string | undefined;
   preferences: DirectoryPreferences;
   priorityEntries: readonly DirectoryEntry[];
+  querySerial: number;
   rawEntries: readonly DirectoryEntry[];
-  requestSerial: number;
   searchTimer: unknown;
+  sheetScrollTop: number;
+  sheetScrollVersion: string | undefined;
+  totalCount: number;
 }
 
 interface DirectoryPageInstance {
@@ -159,14 +209,30 @@ interface DirectoryPageInstance {
   readonly properties: {
     readonly directoryKind: DirectoryKind;
     readonly embedded: boolean;
+    readonly contextRefreshRevision?: number;
     readonly groupId: string;
+    readonly groupIsDeveloperAdmin?: boolean;
+    readonly groupRole?: string;
+    readonly groupVersion?: number;
+    readonly permissionContextReady?: boolean;
   };
+  _contextSignature: string;
   _detached: boolean;
   _directoryClient: DirectoryReadClient;
+  _instanceId: number;
   _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
   _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
+  createSelectorQuery?(): DirectorySelectorQuery;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent?(name: 'panelready' | 'workspacerequest'): void;
+}
+
+interface DirectorySelectorQuery {
+  in(instance: DirectoryPageInstance): DirectorySelectorQuery;
+  select(selector: string): {
+    boundingClientRect(): DirectorySelectorQuery;
+  };
+  exec(callback: (results: readonly ({ readonly height?: number } | null)[]) => void): void;
 }
 
 interface ModeDataset {
@@ -199,11 +265,17 @@ interface ModeSwiperEvent {
   readonly detail: { readonly current: number };
 }
 
+interface ScrollEvent extends ModeTargetEvent {
+  readonly detail: { readonly scrollTop?: number };
+}
+
 const directoryClient = createRuntimeDirectoryReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
 const directoryKinds: readonly DirectoryKind[] = ['internal', 'employee'];
+const DIRECTORY_PAGE_SIZE = 30;
+let nextDirectoryInstanceId = 0;
 const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
   building: '楼宇',
   campusCode: '院区',
@@ -216,6 +288,7 @@ const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
 
 export function createDirectoryPanelControllerDefinition() {
   const data: DirectoryPageData = {
+    activeSheet: createSheetData(),
     activeModeIndex: 0,
     departmentAnimating: false,
     directoryKind: 'internal',
@@ -235,12 +308,32 @@ export function createDirectoryPanelControllerDefinition() {
   return {
     data,
     properties: {
+      contextRefreshRevision: { type: Number, value: 0 },
       directoryKind: { type: String, value: 'internal' },
       embedded: { type: Boolean, value: false },
       groupId: { type: String, value: '' },
+      groupIsDeveloperAdmin: { type: Boolean, value: false },
+      groupRole: { type: String, value: '' },
+      groupVersion: { type: Number, value: 0 },
+      permissionContextReady: { type: Boolean, value: false },
     },
     observers: {
+      contextRefreshRevision(this: DirectoryPageInstance): void {
+        startLoad(this);
+      },
       groupId(this: DirectoryPageInstance): void {
+        startLoad(this);
+      },
+      groupIsDeveloperAdmin(this: DirectoryPageInstance): void {
+        startLoad(this);
+      },
+      groupRole(this: DirectoryPageInstance): void {
+        startLoad(this);
+      },
+      groupVersion(this: DirectoryPageInstance): void {
+        startLoad(this);
+      },
+      permissionContextReady(this: DirectoryPageInstance): void {
         startLoad(this);
       },
       directoryKind(this: DirectoryPageInstance): void {
@@ -252,6 +345,7 @@ export function createDirectoryPanelControllerDefinition() {
         recordMiniTelemetryBoundary('directory:controller-attached');
         initializeRuntimeState(this);
         this._detached = false;
+        this._instanceId = ++nextDirectoryInstanceId;
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
@@ -282,6 +376,10 @@ export function createDirectoryPanelControllerDefinition() {
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },
+      handleForegroundRefresh(this: DirectoryPageInstance): void {
+        this._contextSignature = '';
+        startLoad(this);
+      },
       handleInternalMode(this: DirectoryPageInstance): void {
         activateMode(this, 'internal', true);
       },
@@ -301,8 +399,11 @@ export function createDirectoryPanelControllerDefinition() {
           return;
         }
         const runtime = getRuntime(this, kind);
-        if (runtime.facets === undefined) void loadFacets(this, kind);
-        else void search(this, kind);
+        if (pane.retryKind === 'pagination') void loadMore(this, kind, true);
+        else if (pane.retryKind === 'search') void search(this, kind, true);
+        else if (runtime.facets === undefined || pane.retryKind === 'facets') {
+          void loadFacets(this, kind);
+        } else void search(this, kind, true);
       },
       handleSearchInput(this: DirectoryPageInstance, event: InputEvent): void {
         const kind = eventKind(this, event);
@@ -343,24 +444,46 @@ export function createDirectoryPanelControllerDefinition() {
       handleLoadMore(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
         void loadMore(this, eventKind(this, event));
       },
+      handleRefreshFromStart(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
+        void search(this, eventKind(this, event), true);
+      },
+      handleMainScroll(this: DirectoryPageInstance, event: ScrollEvent): void {
+        const value = event.detail.scrollTop;
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          getRuntime(this, eventKind(this, event)).mainScrollTop = Math.max(0, value);
+        }
+      },
+      handleSheetScroll(this: DirectoryPageInstance, event: ScrollEvent): void {
+        const value = event.detail.scrollTop;
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          getRuntime(this, eventKind(this, event)).sheetScrollTop = Math.max(0, value);
+        }
+      },
       handleToggleFavorite(this: DirectoryPageInstance, event: ModeTargetEvent): void {
         const kind = eventKind(this, event);
+        if (getPaneData(this, kind).interactionDisabled) return;
         toggleFavorite(this, kind, event.currentTarget?.dataset.groupId);
       },
       handleDirectoryCardFavorite(this: DirectoryPageInstance, event: DirectoryCardEvent): void {
-        toggleFavorite(this, eventKind(this, event), event.detail.groupId);
+        const kind = eventKind(this, event);
+        if (getPaneData(this, kind).interactionDisabled) return;
+        toggleFavorite(this, kind, event.detail.groupId);
       },
       handleDirectoryCardCall(this: DirectoryPageInstance, event: DirectoryCardEvent): void {
+        const kind = eventKind(this, event);
+        if (getPaneData(this, kind).interactionDisabled) return;
         const number = event.detail.number;
         if (number !== undefined && /^\+?\d{3,20}$/u.test(number)) {
-          recordUse(this, eventKind(this, event), event.detail.groupId);
+          recordUse(this, kind, event.detail.groupId);
           wx.makePhoneCall({ phoneNumber: number });
         }
       },
       handleCall(this: DirectoryPageInstance, event: ModeTargetEvent): void {
+        const kind = eventKind(this, event);
+        if (getPaneData(this, kind).interactionDisabled) return;
         const number = event.currentTarget?.dataset.number;
         if (number !== undefined && /^\+?\d{3,20}$/u.test(number)) {
-          recordUse(this, eventKind(this, event), event.currentTarget?.dataset.groupId);
+          recordUse(this, kind, event.currentTarget?.dataset.groupId);
           wx.makePhoneCall({ phoneNumber: number });
         }
       },
@@ -371,20 +494,22 @@ export function createDirectoryPanelControllerDefinition() {
 function createPaneData(kind: DirectoryKind): DirectoryPaneData {
   return {
     activeFilterCount: 0,
+    canRefreshFromStart: false,
     directoryKind: kind,
     entries: [],
     errorMessage: '',
+    facetsErrorMessage: '',
     facetsLoading: true,
-    filterAdjustmentMessage: '',
-    filterScrollTarget: '',
-    filterSections: [],
-    filterSheetOpen: false,
+    guideStops: [],
     hasCriteria: false,
+    hasMore: false,
+    interactionDisabled: false,
     loadingMore: false,
+    mainScrollTop: 0,
     mergedGroupCount: 0,
-    nextCursor: '',
     prioritySections: [],
     resultSummary: '',
+    retryKind: '',
     searchQuery: '',
     searching: false,
     state: 'loading',
@@ -392,19 +517,44 @@ function createPaneData(kind: DirectoryKind): DirectoryPaneData {
   };
 }
 
+function createSheetData(): DirectorySheetData {
+  return {
+    activeFilterCount: 0,
+    directoryKind: 'internal',
+    emptyMessage: '',
+    filterAdjustmentMessage: '',
+    open: false,
+    scrollTarget: '',
+    scrollTop: 0,
+    sections: [],
+    title: '科室通讯录',
+  };
+}
+
 function createModeRuntime(groupId = ''): DirectoryModeRuntime {
   return {
     collapsedFilterKeys: new Set(),
+    completedBaseQueryKey: undefined,
     contextSerial: 0,
+    currentBaseQueryKey: undefined,
     facets: undefined,
+    filterAdjustmentMessage: '',
+    filterProjection: { compatible: new Map(), meaningful: [] },
+    filterStates: createDirectoryFilterStates(),
     filters: {},
     groupId,
+    inFlightPages: new Map(),
+    loadedPageKeys: new Set(),
+    mainScrollTop: 0,
     nextCursor: undefined,
     preferences: parseDirectoryPreferences(undefined),
     priorityEntries: [],
+    querySerial: 0,
     rawEntries: [],
-    requestSerial: 0,
     searchTimer: undefined,
+    sheetScrollTop: 0,
+    sheetScrollVersion: undefined,
+    totalCount: 0,
   };
 }
 
@@ -424,18 +574,23 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
     page._modeIconTimers = {};
   }
   if (typeof page._detached !== 'boolean') page._detached = false;
+  if (typeof page._contextSignature !== 'string') page._contextSignature = '';
+  if (typeof page._instanceId !== 'number') page._instanceId = 0;
 }
 
 function startLoad(page: DirectoryPageInstance): void {
   initializeRuntimeState(page);
+  if (page._instanceId === 0 || page._detached) return;
   const groupId = page.properties.groupId;
   const initialKind = normalizeDirectoryKind(page.properties.directoryKind);
+  const contextSignature = createClientContextSignature(page);
   if (groupId.length === 0) {
     setMissingGroupError(page, initialKind);
     return;
   }
   if (
     page.data.groupId === groupId &&
+    page._contextSignature === contextSignature &&
     directoryKinds.every((kind) => page._modeRuntimes[kind].groupId === groupId)
   ) {
     activateMode(page, initialKind, false);
@@ -446,9 +601,11 @@ function startLoad(page: DirectoryPageInstance): void {
     employee: createModeRuntime(groupId),
     internal: createModeRuntime(groupId),
   };
+  page._contextSignature = contextSignature;
   page._detached = false;
   page.triggerEvent?.('workspacerequest');
   page.setData({
+    activeSheet: createSheetData(),
     activeModeIndex: modeIndex(initialKind),
     directoryKind: initialKind,
     employeePane: createPaneData('employee'),
@@ -456,7 +613,23 @@ function startLoad(page: DirectoryPageInstance): void {
     groupId,
     internalPane: createPaneData('internal'),
   });
-  for (const kind of directoryKinds) void loadFacets(page, kind);
+  for (const kind of directoryKinds) {
+    const runtime = page._modeRuntimes[kind];
+    void Promise.resolve().then(() => loadFacets(page, kind, runtime));
+  }
+}
+
+function createClientContextSignature(page: DirectoryPageInstance): string {
+  return stableSerialize([
+    'directory-client-context-v1',
+    getStoredWechatProfile()?.id ?? 'account-unknown',
+    page.properties.groupId,
+    page.properties.permissionContextReady === true
+      ? [page.properties.groupRole ?? '', page.properties.groupIsDeveloperAdmin === true]
+      : 'permission-unknown',
+    page.properties.groupVersion ?? 0,
+    page.properties.contextRefreshRevision ?? 0,
+  ]);
 }
 
 function normalizeDirectoryKind(value: DirectoryKind): DirectoryKind {
@@ -502,7 +675,19 @@ function activateMode(page: DirectoryPageInstance, kind: DirectoryKind, animate:
   const normalized = normalizeDirectoryKind(kind);
   const index = modeIndex(normalized);
   if (page.data.directoryKind === normalized && page.data.activeModeIndex === index) return;
-  page.setData({ activeModeIndex: index, directoryKind: normalized });
+  const previous = page.data.directoryKind;
+  const runtime = getRuntime(page, normalized);
+  const cards = createDirectoryCards(runtime, normalized);
+  const patch: Record<string, unknown> = {
+    activeModeIndex: index,
+    directoryKind: normalized,
+    [`${paneField(previous)}.entries`]: [],
+    [`${paneField(previous)}.prioritySections`]: [],
+    [`${paneField(normalized)}.entries`]: cards,
+    [`${paneField(normalized)}.mainScrollTop`]: runtime.mainScrollTop,
+    [`${paneField(normalized)}.prioritySections`]: createPrioritySections(runtime, normalized),
+  };
+  page.setData(patch);
   if (animate) playModeIcon(page, normalized);
 }
 
@@ -533,12 +718,22 @@ function clearModeIconTimers(page: DirectoryPageInstance): void {
 function invalidateRuntime(runtime: DirectoryModeRuntime): void {
   clearSearchTimer(runtime);
   runtime.contextSerial += 1;
-  runtime.requestSerial += 1;
+  runtime.querySerial += 1;
+  runtime.currentBaseQueryKey = undefined;
+  runtime.completedBaseQueryKey = undefined;
   runtime.facets = undefined;
+  runtime.filterAdjustmentMessage = '';
+  runtime.filterProjection = { compatible: new Map(), meaningful: [] };
+  runtime.filterStates = createDirectoryFilterStates();
   runtime.filters = {};
+  runtime.inFlightPages.clear();
+  runtime.loadedPageKeys.clear();
   runtime.nextCursor = undefined;
   runtime.priorityEntries = [];
   runtime.rawEntries = [];
+  runtime.sheetScrollTop = 0;
+  runtime.sheetScrollVersion = undefined;
+  runtime.totalCount = 0;
   runtime.collapsedFilterKeys.clear();
 }
 
@@ -554,9 +749,11 @@ function isContextCurrent(
   runtime: DirectoryModeRuntime,
   serial: number,
   groupId: string,
+  instanceId: number,
 ): boolean {
   return (
     !page._detached &&
+    page._instanceId === instanceId &&
     page._modeRuntimes[kind] === runtime &&
     runtime.contextSerial === serial &&
     runtime.groupId === groupId &&
@@ -564,17 +761,23 @@ function isContextCurrent(
   );
 }
 
-function isRequestCurrent(
+function isQueryCurrent(
   page: DirectoryPageInstance,
   kind: DirectoryKind,
   runtime: DirectoryModeRuntime,
-  serial: number,
+  contextSerial: number,
+  querySerial: number,
   groupId: string,
+  instanceId: number,
+  baseQueryKey: string,
 ): boolean {
   return (
     !page._detached &&
+    page._instanceId === instanceId &&
     page._modeRuntimes[kind] === runtime &&
-    runtime.requestSerial === serial &&
+    runtime.contextSerial === contextSerial &&
+    runtime.querySerial === querySerial &&
+    runtime.currentBaseQueryKey === baseQueryKey &&
     runtime.groupId === groupId &&
     page.data.groupId === groupId
   );
@@ -585,6 +788,7 @@ function setMissingGroupError(page: DirectoryPageInstance, initialKind: Director
   for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
   const message = '当前群组信息缺失，请返回工作台后重试。';
   page.setData({
+    activeSheet: createSheetData(),
     activeModeIndex: modeIndex(initialKind),
     directoryKind: initialKind,
     employeePane: {
@@ -611,30 +815,70 @@ function setDirectoryDisabled(page: DirectoryPageInstance, message: string): voi
     invalidateRuntime(runtime);
     setPaneData(page, kind, {
       activeFilterCount: 0,
+      canRefreshFromStart: false,
       entries: [],
       errorMessage: message,
+      facetsErrorMessage: '',
       facetsLoading: false,
-      filterAdjustmentMessage: '',
-      filterScrollTarget: '',
-      filterSections: [],
-      filterSheetOpen: false,
+      guideStops: [],
       hasCriteria: false,
+      hasMore: false,
+      interactionDisabled: false,
       loadingMore: false,
       mergedGroupCount: 0,
-      nextCursor: '',
       prioritySections: [],
       resultSummary: '',
+      retryKind: '',
       searchQuery: '',
       searching: false,
       state: 'disabled',
     });
   }
-  page.setData({ filterSheetOpen: false });
+  page.setData({ activeSheet: createSheetData(), filterSheetOpen: false });
 }
 
-async function loadFacets(page: DirectoryPageInstance, kind: DirectoryKind): Promise<void> {
+function clearDirectoryForAuthorizationError(page: DirectoryPageInstance, message: string): void {
   initializeRuntimeState(page);
+  for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
+  page.setData({
+    activeSheet: createSheetData(),
+    employeePane: {
+      ...createPaneData('employee'),
+      errorMessage: message,
+      facetsLoading: false,
+      retryKind: '',
+      state: 'error',
+    },
+    filterSheetOpen: false,
+    internalPane: {
+      ...createPaneData('internal'),
+      errorMessage: message,
+      facetsLoading: false,
+      retryKind: '',
+      state: 'error',
+    },
+  });
+}
+
+function isAuthorizationError(error: unknown): boolean {
+  return error instanceof ClientCoreError && (error.status === 401 || error.status === 403);
+}
+
+function isInvalidCursorError(error: unknown): boolean {
+  return (
+    error instanceof ClientCoreError && error.status === 400 && /cursor|游标/iu.test(error.message)
+  );
+}
+
+async function loadFacets(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  expectedRuntime?: DirectoryModeRuntime,
+): Promise<void> {
+  initializeRuntimeState(page);
+  if (page._detached) return;
   const runtime = getRuntime(page, kind);
+  if (expectedRuntime !== undefined && runtime !== expectedRuntime) return;
   const groupId = runtime.groupId || page.data.groupId;
   if (groupId.length === 0) {
     setMissingGroupError(page, page.data.directoryKind);
@@ -642,29 +886,39 @@ async function loadFacets(page: DirectoryPageInstance, kind: DirectoryKind): Pro
   }
   clearSearchTimer(runtime);
   const serial = ++runtime.contextSerial;
-  runtime.requestSerial += 1;
+  const instanceId = page._instanceId;
+  runtime.querySerial += 1;
+  runtime.currentBaseQueryKey = undefined;
+  runtime.completedBaseQueryKey = undefined;
   runtime.facets = undefined;
+  runtime.filterAdjustmentMessage = '';
+  runtime.filterProjection = { compatible: new Map(), meaningful: [] };
+  runtime.filterStates = createDirectoryFilterStates();
   runtime.filters = {};
+  runtime.inFlightPages.clear();
+  runtime.loadedPageKeys.clear();
   runtime.nextCursor = undefined;
   runtime.preferences = readDirectoryPreferences(page, kind);
   runtime.priorityEntries = [];
   runtime.rawEntries = [];
+  runtime.totalCount = 0;
   runtime.collapsedFilterKeys.clear();
   setPaneData(page, kind, {
     activeFilterCount: 0,
+    canRefreshFromStart: false,
     entries: [],
     errorMessage: '',
+    facetsErrorMessage: '',
     facetsLoading: true,
-    filterAdjustmentMessage: '',
-    filterScrollTarget: '',
-    filterSections: [],
-    filterSheetOpen: false,
+    guideStops: [],
     hasCriteria: false,
+    hasMore: false,
+    interactionDisabled: false,
     loadingMore: false,
     mergedGroupCount: 0,
-    nextCursor: '',
     prioritySections: [],
     resultSummary: '',
+    retryKind: '',
     searchQuery: '',
     searching: false,
     state: 'loading',
@@ -672,61 +926,113 @@ async function loadFacets(page: DirectoryPageInstance, kind: DirectoryKind): Pro
   try {
     await requireClientCapability('organization');
     const facets = await page._directoryClient.getFacets(groupId, kind);
-    if (!isContextCurrent(page, kind, runtime, serial, groupId)) return;
+    if (!isContextCurrent(page, kind, runtime, serial, groupId, instanceId)) return;
+    if (runtime.sheetScrollVersion !== facets.publishedImportVersion) runtime.sheetScrollTop = 0;
     runtime.facets = facets;
     runtime.filters = {};
-    setPaneData(page, kind, { facetsLoading: false, state: 'idle' });
-    syncFilterSections(page, kind);
-    void loadPriorityEntries(page, kind, runtime, serial, groupId);
+    refreshFilterProjection(runtime);
+    setPaneData(page, kind, {
+      activeFilterCount: 0,
+      facetsErrorMessage: '',
+      facetsLoading: false,
+      guideStops: buildGuideStops(runtime, kind),
+      retryKind: '',
+      state: 'idle',
+    });
+    void loadPriorityEntries(page, kind, runtime, serial, groupId, instanceId);
   } catch (error) {
-    if (!isContextCurrent(page, kind, runtime, serial, groupId)) return;
+    if (!isContextCurrent(page, kind, runtime, serial, groupId, instanceId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
       setDirectoryDisabled(page, error.message);
       return;
     }
+    if (isAuthorizationError(error)) {
+      clearDirectoryForAuthorizationError(page, toUserMessage(error, '当前账户无权读取通讯录。'));
+      return;
+    }
     setPaneData(page, kind, {
-      errorMessage: toUserMessage(
+      facetsErrorMessage: toUserMessage(
         error,
         `${getPaneData(page, kind).title}筛选项暂时无法加载，请稍后重试。`,
       ),
       facetsLoading: false,
-      state: 'error',
+      retryKind: 'facets',
+      state: 'idle',
     });
   }
 }
 
-function syncFilterSections(page: DirectoryPageInstance, kind: DirectoryKind): void {
+function buildGuideStops(
+  runtime: DirectoryModeRuntime,
+  kind: DirectoryKind,
+): readonly DirectoryGuideStopView[] {
+  const snapshot = runtime.facets;
+  if (snapshot === undefined) return [];
+  return runtime.filterProjection.meaningful.map((key): DirectoryGuideStopView => {
+    const selectedValue = runtime.filters[key] ?? '';
+    const compatibleOptions = runtime.filterProjection.compatible.get(key) ?? [];
+    return {
+      key,
+      label: filterLabel(kind, key),
+      selected: selectedValue !== '',
+      selectedLabel:
+        compatibleOptions.find((option) => option.value === selectedValue)?.label ?? '全部',
+    };
+  });
+}
+
+function syncGuideStops(page: DirectoryPageInstance, kind: DirectoryKind): void {
   const runtime = getRuntime(page, kind);
+  refreshFilterProjection(runtime);
+  setPaneData(page, kind, {
+    activeFilterCount: Object.keys(runtime.filters).length,
+    guideStops: buildGuideStops(runtime, kind),
+  });
+}
+
+function refreshFilterProjection(runtime: DirectoryModeRuntime): void {
   const snapshot = runtime.facets;
   if (snapshot === undefined) {
-    setPaneData(page, kind, { activeFilterCount: 0, filterSections: [] });
+    runtime.filterProjection = { compatible: new Map(), meaningful: [] };
     return;
   }
   const compatible = getCompatibleDirectoryFacetOptionsByKey(snapshot, runtime.filters);
-  const meaningful = getMeaningfulDirectoryFilterKeys(snapshot, runtime.filters, compatible);
-  const sections = meaningful.map((key): DirectoryFilterSectionView => {
+  runtime.filterProjection = {
+    compatible,
+    meaningful: getMeaningfulDirectoryFilterKeys(snapshot, runtime.filters, compatible),
+  };
+}
+
+function buildActiveSheetSections(
+  runtime: DirectoryModeRuntime,
+  guideStops: readonly DirectoryGuideStopView[],
+): readonly DirectoryFilterSectionView[] {
+  const snapshot = runtime.facets;
+  if (snapshot === undefined) return [];
+  const sections = new Array<DirectoryFilterSectionView>(guideStops.length);
+  for (let guideIndex = 0; guideIndex < guideStops.length; guideIndex += 1) {
+    const guide = guideStops[guideIndex];
+    if (guide === undefined) continue;
+    const key = guide.key;
     const selectedValue = runtime.filters[key] ?? '';
-    const compatibleOptions = compatible.get(key) ?? [];
-    const options: readonly DirectoryFilterOptionView[] = [
-      { count: snapshot.totalCount, label: '全部', selected: selectedValue === '', value: '' },
-      ...compatibleOptions.map((option) => ({
-        ...option,
-        selected: option.value === selectedValue,
-      })),
-    ];
-    return {
+    const compatibleOptions = runtime.filterProjection.compatible.get(key) ?? [];
+    const options = new Array<DirectoryFilterOptionView>(compatibleOptions.length + 1);
+    options[0] = { count: snapshot.totalCount, label: '全部', value: '' };
+    for (let optionIndex = 0; optionIndex < compatibleOptions.length; optionIndex += 1) {
+      const option = compatibleOptions[optionIndex];
+      if (option !== undefined) options[optionIndex + 1] = option;
+    }
+    sections[guideIndex] = {
       expanded: !runtime.collapsedFilterKeys.has(key),
       key,
-      label: filterLabel(kind, key),
+      label: guide.label,
       optionCount: compatibleOptions.length,
       options,
-      selectedLabel: options.find((option) => option.selected)?.label ?? '全部',
+      selectedLabel: guide.selectedLabel,
+      selectedValue,
     };
-  });
-  setPaneData(page, kind, {
-    activeFilterCount: Object.keys(runtime.filters).length,
-    filterSections: sections,
-  });
+  }
+  return sections;
 }
 
 function filterLabel(kind: DirectoryKind, key: DirectoryFilterKey): string {
@@ -752,18 +1058,39 @@ function openFilters(
   targetKey?: DirectoryFilterKey,
 ): void {
   const runtime = getRuntime(page, kind);
+  const pane = getPaneData(page, kind);
+  if (runtime.facets === undefined || pane.facetsLoading || pane.state === 'disabled') return;
   if (targetKey !== undefined) runtime.collapsedFilterKeys.delete(targetKey);
-  syncFilterSections(page, kind);
-  setPaneData(page, kind, {
-    filterScrollTarget: targetKey === undefined ? '' : `directory-filter-${kind}-${targetKey}`,
-    filterSheetOpen: true,
-  });
-  page.setData({ filterSheetOpen: true });
+  const sections = buildActiveSheetSections(runtime, pane.guideStops);
+  const scrollTarget = targetKey === undefined ? '' : `directory-filter-${kind}-${targetKey}`;
+  const version = runtime.facets.publishedImportVersion;
+  const savedScrollTop = runtime.sheetScrollVersion === version ? runtime.sheetScrollTop : 0;
+  runtime.sheetScrollVersion = version;
+  page.setData(
+    {
+      activeSheet: {
+        activeFilterCount: Object.keys(runtime.filters).length,
+        directoryKind: kind,
+        emptyMessage: sections.length === 0 ? '当前无需筛选' : '',
+        filterAdjustmentMessage: runtime.filterAdjustmentMessage,
+        open: true,
+        scrollTarget,
+        scrollTop: 0,
+        sections,
+        title: pane.title,
+      },
+      filterSheetOpen: true,
+    },
+    () => restoreSheetScroll(page, kind, targetKey, savedScrollTop),
+  );
 }
 
 function closeFilters(page: DirectoryPageInstance, kind: DirectoryKind): void {
-  setPaneData(page, kind, { filterScrollTarget: '', filterSheetOpen: false });
-  page.setData({ filterSheetOpen: false });
+  const runtime = getRuntime(page, kind);
+  if (runtime.facets !== undefined) {
+    runtime.sheetScrollVersion = runtime.facets.publishedImportVersion;
+  }
+  page.setData({ activeSheet: createSheetData(), filterSheetOpen: false });
 }
 
 function toggleFilterSection(
@@ -774,7 +1101,75 @@ function toggleFilterSection(
   const runtime = getRuntime(page, kind);
   if (runtime.collapsedFilterKeys.has(key)) runtime.collapsedFilterKeys.delete(key);
   else runtime.collapsedFilterKeys.add(key);
-  syncFilterSections(page, kind);
+  syncActiveSheet(page, kind);
+}
+
+function syncActiveSheet(page: DirectoryPageInstance, kind: DirectoryKind): void {
+  if (!page.data.activeSheet.open || page.data.activeSheet.directoryKind !== kind) return;
+  const runtime = getRuntime(page, kind);
+  const sections = buildActiveSheetSections(runtime, getPaneData(page, kind).guideStops);
+  page.setData({
+    'activeSheet.activeFilterCount': Object.keys(runtime.filters).length,
+    'activeSheet.emptyMessage': sections.length === 0 ? '当前无需筛选' : '',
+    'activeSheet.filterAdjustmentMessage': runtime.filterAdjustmentMessage,
+    'activeSheet.sections': sections,
+  });
+}
+
+function restoreSheetScroll(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  targetKey: DirectoryFilterKey | undefined,
+  savedScrollTop: number,
+): void {
+  if (targetKey === undefined && savedScrollTop <= 0) return;
+  const apply = () => {
+    if (
+      page._detached ||
+      !page.data.activeSheet.open ||
+      page.data.activeSheet.directoryKind !== kind
+    ) {
+      return;
+    }
+    if (targetKey !== undefined) {
+      page.setData({ 'activeSheet.scrollTarget': `directory-filter-${kind}-${targetKey}` });
+      return;
+    }
+    clampAndSetSheetScroll(page, kind, savedScrollTop);
+  };
+  const nextTick = (wx as unknown as { readonly nextTick?: (callback: () => void) => void })
+    .nextTick;
+  if (nextTick === undefined) apply();
+  else nextTick(apply);
+}
+
+function clampAndSetSheetScroll(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  savedScrollTop: number,
+): void {
+  const fallback = Math.max(0, savedScrollTop);
+  const query = page.createSelectorQuery?.();
+  if (query === undefined) {
+    page.setData({ 'activeSheet.scrollTop': fallback });
+    return;
+  }
+  query.in(page);
+  query.select('.sheet-body').boundingClientRect();
+  query.select('.sheet-scroll').boundingClientRect();
+  query.exec((results) => {
+    const bodyHeight = results[0]?.height ?? 0;
+    const viewportHeight = results[1]?.height ?? 0;
+    const maximum = Math.max(0, bodyHeight - viewportHeight);
+    const value = bodyHeight > 0 && viewportHeight > 0 ? Math.min(fallback, maximum) : fallback;
+    if (
+      !page._detached &&
+      page.data.activeSheet.open &&
+      page.data.activeSheet.directoryKind === kind
+    ) {
+      page.setData({ 'activeSheet.scrollTop': value });
+    }
+  });
 }
 
 async function selectFilter(
@@ -788,21 +1183,24 @@ async function selectFilter(
   if (key === undefined || snapshot === undefined) return;
   const rawValue = event.currentTarget.dataset.value;
   const value = rawValue === undefined || rawValue === '' ? undefined : rawValue;
-  if (
-    runtime.filters[key] === value ||
-    (value === undefined && runtime.filters[key] === undefined)
-  ) {
-    return;
-  }
+  const currentState = runtime.filterStates.find((state) => state[0] === key);
+  if (value === undefined && currentState?.[1] === 'all') return;
+  if (value !== undefined && currentState?.[1] === 'value' && currentState[2] === value) return;
   const result = updateDirectoryFilterSelection(snapshot, runtime.filters, key, value);
   runtime.filters = result.filters;
-  setPaneData(page, kind, {
-    filterAdjustmentMessage:
-      result.clearedKeys.length === 0
-        ? ''
-        : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabel(kind, clearedKey)).join('、')}筛选。`,
-  });
-  syncFilterSections(page, kind);
+  runtime.filterStates = setDirectoryFilterState(
+    runtime.filterStates,
+    key,
+    value === undefined ? 'all' : 'value',
+    value,
+  );
+  runtime.filterStates = resetDirectoryFilterStates(runtime.filterStates, result.clearedKeys);
+  runtime.filterAdjustmentMessage =
+    result.clearedKeys.length === 0
+      ? ''
+      : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabel(kind, clearedKey)).join('、')}筛选。`;
+  syncGuideStops(page, kind);
+  syncActiveSheet(page, kind);
   await search(page, kind);
 }
 
@@ -810,8 +1208,13 @@ function clearAllFilters(page: DirectoryPageInstance, kind: DirectoryKind): void
   const runtime = getRuntime(page, kind);
   if (Object.keys(runtime.filters).length === 0) return;
   runtime.filters = {};
-  setPaneData(page, kind, { filterAdjustmentMessage: '' });
-  syncFilterSections(page, kind);
+  runtime.filterAdjustmentMessage = '';
+  runtime.filterStates = DIRECTORY_FILTER_KEYS.reduce(
+    (states, key) => setDirectoryFilterState(states, key, 'all'),
+    runtime.filterStates,
+  );
+  syncGuideStops(page, kind);
+  syncActiveSheet(page, kind);
   void search(page, kind);
 }
 
@@ -825,24 +1228,35 @@ function resetDirectorySearch(page: DirectoryPageInstance, kind: DirectoryKind):
   const runtime = getRuntime(page, kind);
   clearSearchTimer(runtime);
   runtime.filters = {};
-  setPaneData(page, kind, { filterAdjustmentMessage: '', searchQuery: '' });
-  syncFilterSections(page, kind);
+  runtime.filterAdjustmentMessage = '';
+  runtime.filterStates = createDirectoryFilterStates();
+  setPaneData(page, kind, { searchQuery: '' });
+  syncGuideStops(page, kind);
+  syncActiveSheet(page, kind);
   resetSearchResults(page, kind);
 }
 
 function resetSearchResults(page: DirectoryPageInstance, kind: DirectoryKind): void {
   const runtime = getRuntime(page, kind);
-  runtime.requestSerial += 1;
+  runtime.querySerial += 1;
+  runtime.currentBaseQueryKey = undefined;
+  runtime.completedBaseQueryKey = undefined;
+  runtime.inFlightPages.clear();
+  runtime.loadedPageKeys.clear();
   runtime.nextCursor = undefined;
   runtime.rawEntries = [];
+  runtime.totalCount = 0;
   setPaneData(page, kind, {
+    canRefreshFromStart: false,
     entries: [],
     errorMessage: '',
     hasCriteria: false,
+    hasMore: false,
+    interactionDisabled: false,
     loadingMore: false,
     mergedGroupCount: 0,
-    nextCursor: '',
     resultSummary: '',
+    retryKind: '',
     searching: false,
     state: 'idle',
   });
@@ -857,6 +1271,9 @@ function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void 
     resetSearchResults(page, kind);
     return;
   }
+  runtime.querySerial += 1;
+  runtime.currentBaseQueryKey = undefined;
+  runtime.completedBaseQueryKey = undefined;
   setPaneData(page, kind, {
     hasCriteria: true,
     resultSummary: pane.entries.length === 0 ? `正在查找${pane.title}号码` : pane.resultSummary,
@@ -869,101 +1286,249 @@ function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void 
   }, 240);
 }
 
-async function search(page: DirectoryPageInstance, kind: DirectoryKind): Promise<void> {
+function search(page: DirectoryPageInstance, kind: DirectoryKind, force = false): Promise<void> {
   const runtime = getRuntime(page, kind);
   clearSearchTimer(runtime);
   const pane = getPaneData(page, kind);
   if (!hasActiveDirectoryCriteria(pane.searchQuery, runtime.filters)) {
     resetSearchResults(page, kind);
-    return;
+    return Promise.resolve();
   }
-  const groupId = runtime.groupId;
-  const serial = ++runtime.requestSerial;
+  const identity = createQueryIdentity(page, kind, runtime, pane.searchQuery);
+  const pageRequestKey = createPageRequestKey(identity.baseQueryKey);
+  if (!force) {
+    const inFlight = runtime.inFlightPages.get(pageRequestKey);
+    if (runtime.currentBaseQueryKey === identity.baseQueryKey && inFlight !== undefined) {
+      return inFlight;
+    }
+    if (
+      identity.canReuseCompleted &&
+      runtime.completedBaseQueryKey === identity.baseQueryKey &&
+      runtime.currentBaseQueryKey === identity.baseQueryKey
+    ) {
+      return Promise.resolve();
+    }
+  } else {
+    runtime.inFlightPages.delete(pageRequestKey);
+  }
+  runtime.querySerial += 1;
+  runtime.currentBaseQueryKey = identity.baseQueryKey;
+  runtime.completedBaseQueryKey = undefined;
+  runtime.inFlightPages.delete(pageRequestKey);
+  runtime.loadedPageKeys.clear();
   runtime.nextCursor = undefined;
+  runtime.rawEntries = [];
+  runtime.totalCount = 0;
   setPaneData(page, kind, {
+    canRefreshFromStart: false,
     errorMessage: '',
     hasCriteria: true,
+    hasMore: false,
+    interactionDisabled: pane.entries.length > 0,
     loadingMore: false,
-    nextCursor: '',
     resultSummary: pane.entries.length === 0 ? `正在查找${pane.title}号码` : pane.resultSummary,
+    retryKind: '',
     searching: true,
     state: 'loading',
   });
-  try {
-    await requireClientCapability('organization');
-    const result = await page._directoryClient.list(
-      groupId,
-      kind,
-      toDirectoryQuery(getPaneData(page, kind).searchQuery, runtime.filters) as DirectoryQuery,
-    );
-    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
-    runtime.nextCursor = result.nextCursor;
-    runtime.rawEntries = result.entries;
-    const cards = createDirectoryCards(runtime, kind);
-    const mergedGroupCount = cards.filter((card) => card.merged).length;
-    setPaneData(page, kind, {
-      entries: cards,
-      mergedGroupCount,
-      nextCursor: result.nextCursor ?? '',
-      resultSummary: resultSummary(result.totalCount, mergedGroupCount),
-      searching: false,
-      state: cards.length === 0 ? 'empty' : 'ready',
-    });
-    syncPrioritySections(page, kind);
-  } catch (error) {
-    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
-    if (error instanceof ClientCapabilityDisabledError) {
-      setDirectoryDisabled(page, error.message);
-      return;
-    }
-    setPaneData(page, kind, {
-      errorMessage: toUserMessage(error, '搜索没有完成，请检查网络后重试。'),
-      searching: false,
-      state: 'error',
-    });
-  }
+  return executeDirectoryPageRequest(page, kind, runtime, identity, undefined, pageRequestKey);
 }
 
-async function loadMore(page: DirectoryPageInstance, kind: DirectoryKind): Promise<void> {
+function loadMore(page: DirectoryPageInstance, kind: DirectoryKind, force = false): Promise<void> {
   const runtime = getRuntime(page, kind);
   const pane = getPaneData(page, kind);
   const cursor = runtime.nextCursor;
-  const groupId = runtime.groupId;
-  if (cursor === undefined || pane.loadingMore || groupId.length === 0) return;
-  const serial = runtime.requestSerial;
-  setPaneData(page, kind, { errorMessage: '', loadingMore: true });
-  try {
-    await requireClientCapability('organization');
-    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
-    const result = await page._directoryClient.list(
-      groupId,
-      kind,
-      toDirectoryQuery(pane.searchQuery, runtime.filters, cursor) as DirectoryQuery,
-    );
-    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
-    runtime.nextCursor = result.nextCursor;
-    runtime.rawEntries = [...runtime.rawEntries, ...result.entries];
-    const cards = createDirectoryCards(runtime, kind);
-    const mergedGroupCount = cards.filter((card) => card.merged).length;
-    setPaneData(page, kind, {
-      entries: cards,
-      loadingMore: false,
-      mergedGroupCount,
-      nextCursor: result.nextCursor ?? '',
-      resultSummary: resultSummary(result.totalCount, mergedGroupCount),
-    });
-    syncPrioritySections(page, kind);
-  } catch (error) {
-    if (!isRequestCurrent(page, kind, runtime, serial, groupId)) return;
-    if (error instanceof ClientCapabilityDisabledError) {
-      setDirectoryDisabled(page, error.message);
-      return;
-    }
-    setPaneData(page, kind, {
-      errorMessage: toUserMessage(error, '更多通讯录记录暂时无法加载。'),
-      loadingMore: false,
-    });
+  const baseQueryKey = runtime.currentBaseQueryKey;
+  if (
+    cursor === undefined ||
+    baseQueryKey === undefined ||
+    pane.interactionDisabled ||
+    runtime.groupId.length === 0
+  ) {
+    return Promise.resolve();
   }
+  const pageRequestKey = createPageRequestKey(baseQueryKey, cursor);
+  if (!force) {
+    const inFlight = runtime.inFlightPages.get(pageRequestKey);
+    if (inFlight !== undefined) return inFlight;
+    if (runtime.loadedPageKeys.has(pageRequestKey)) return Promise.resolve();
+  } else runtime.inFlightPages.delete(pageRequestKey);
+  const identity = createQueryIdentity(page, kind, runtime, pane.searchQuery);
+  if (identity.baseQueryKey !== baseQueryKey) return Promise.resolve();
+  setPaneData(page, kind, {
+    canRefreshFromStart: false,
+    errorMessage: '',
+    loadingMore: true,
+    retryKind: '',
+  });
+  return executeDirectoryPageRequest(page, kind, runtime, identity, cursor, pageRequestKey);
+}
+
+interface DirectoryQueryIdentity {
+  readonly baseQueryKey: string;
+  readonly canReuseCompleted: boolean;
+  readonly filters: DirectoryFilters;
+  readonly searchQuery: string;
+}
+
+function createQueryIdentity(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  runtime: DirectoryModeRuntime,
+  searchQuery: string,
+): DirectoryQueryIdentity {
+  const accountId = getStoredWechatProfile()?.id ?? 'account-unknown';
+  const permissionReady =
+    page.properties.permissionContextReady === true &&
+    typeof page.properties.groupRole === 'string' &&
+    page.properties.groupRole.length > 0;
+  const version = runtime.facets?.publishedImportVersion;
+  const contextKey = createContextKey({
+    accountId,
+    directoryKind: kind,
+    groupId: runtime.groupId,
+    groupVersion: page.properties.groupVersion ?? 0,
+    permission: permissionReady
+      ? {
+          isDeveloperAdmin: page.properties.groupIsDeveloperAdmin === true,
+          role: page.properties.groupRole ?? '',
+        }
+      : { isDeveloperAdmin: false, role: 'permission-unknown' },
+    publishedImportVersion: version ?? 'directory-version-unknown',
+  });
+  return {
+    baseQueryKey: createBaseQueryKey({
+      contextKey,
+      filterStates: runtime.filterStates,
+      pageSize: DIRECTORY_PAGE_SIZE,
+      searchQuery,
+    }),
+    canReuseCompleted: accountId !== 'account-unknown' && permissionReady && version !== undefined,
+    filters: { ...runtime.filters },
+    searchQuery,
+  };
+}
+
+function executeDirectoryPageRequest(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  runtime: DirectoryModeRuntime,
+  identity: DirectoryQueryIdentity,
+  cursor: string | undefined,
+  pageRequestKey: string,
+): Promise<void> {
+  const groupId = runtime.groupId;
+  const contextSerial = runtime.contextSerial;
+  const querySerial = runtime.querySerial;
+  const instanceId = page._instanceId;
+  const expectedCursor = cursor;
+  let tracked: Promise<void> = Promise.resolve();
+  const operation = (async () => {
+    try {
+      await requireClientCapability('organization');
+      const result = await page._directoryClient.list(
+        groupId,
+        kind,
+        toDirectoryQuery(identity.searchQuery, identity.filters, cursor) as DirectoryQuery,
+      );
+      if (
+        !isQueryCurrent(
+          page,
+          kind,
+          runtime,
+          contextSerial,
+          querySerial,
+          groupId,
+          instanceId,
+          identity.baseQueryKey,
+        ) ||
+        runtime.inFlightPages.get(pageRequestKey) !== tracked ||
+        (cursor !== undefined && runtime.nextCursor !== expectedCursor) ||
+        runtime.loadedPageKeys.has(pageRequestKey)
+      ) {
+        return;
+      }
+      runtime.loadedPageKeys.add(pageRequestKey);
+      runtime.rawEntries =
+        cursor === undefined ? result.entries : [...runtime.rawEntries, ...result.entries];
+      runtime.nextCursor = result.nextCursor;
+      runtime.totalCount = result.totalCount;
+      if (identity.canReuseCompleted) runtime.completedBaseQueryKey = identity.baseQueryKey;
+      const cards = createDirectoryCards(runtime, kind);
+      const mergedGroupCount = cards.filter((card) => card.merged).length;
+      const visible = page.data.directoryKind === kind;
+      setPaneData(page, kind, {
+        canRefreshFromStart: false,
+        entries: visible ? cards : [],
+        errorMessage: '',
+        hasMore: result.nextCursor !== undefined,
+        interactionDisabled: false,
+        loadingMore: false,
+        mergedGroupCount,
+        resultSummary: resultSummary(result.totalCount, mergedGroupCount),
+        retryKind: '',
+        searching: false,
+        state: cards.length === 0 ? 'empty' : 'ready',
+      });
+      syncPrioritySections(page, kind);
+    } catch (error) {
+      if (
+        !isQueryCurrent(
+          page,
+          kind,
+          runtime,
+          contextSerial,
+          querySerial,
+          groupId,
+          instanceId,
+          identity.baseQueryKey,
+        ) ||
+        runtime.inFlightPages.get(pageRequestKey) !== tracked
+      ) {
+        return;
+      }
+      if (error instanceof ClientCapabilityDisabledError) {
+        setDirectoryDisabled(page, error.message);
+        return;
+      }
+      if (isAuthorizationError(error)) {
+        clearDirectoryForAuthorizationError(page, toUserMessage(error, '当前账户无权读取通讯录。'));
+        return;
+      }
+      if (cursor !== undefined) {
+        setPaneData(page, kind, {
+          canRefreshFromStart: isInvalidCursorError(error),
+          errorMessage: toUserMessage(error, '更多通讯录记录暂时无法加载。'),
+          loadingMore: false,
+          retryKind: 'pagination',
+        });
+        return;
+      }
+      runtime.rawEntries = [];
+      runtime.nextCursor = undefined;
+      runtime.totalCount = 0;
+      setPaneData(page, kind, {
+        canRefreshFromStart: false,
+        entries: [],
+        errorMessage: toUserMessage(error, '搜索没有完成，请检查网络后重试。'),
+        hasMore: false,
+        interactionDisabled: false,
+        loadingMore: false,
+        mergedGroupCount: 0,
+        resultSummary: '',
+        retryKind: 'search',
+        searching: false,
+        state: 'error',
+      });
+    }
+  })();
+  tracked = operation.finally(() => {
+    if (runtime.inFlightPages.get(pageRequestKey) === tracked) {
+      runtime.inFlightPages.delete(pageRequestKey);
+    }
+  });
+  runtime.inFlightPages.set(pageRequestKey, tracked);
+  return tracked;
 }
 
 function createDirectoryCards(
@@ -1050,12 +1615,10 @@ async function loadPriorityEntries(
   runtime: DirectoryModeRuntime,
   serial: number,
   groupId: string,
+  instanceId: number,
 ): Promise<void> {
   const entryIds = getDirectoryPreferenceEntryIds(runtime.preferences);
-  if (entryIds.length === 0) {
-    syncPrioritySections(page, kind);
-    return;
-  }
+  if (entryIds.length === 0) return;
   const chunks = Array.from({ length: Math.ceil(entryIds.length / 100) }, (_, index) =>
     entryIds.slice(index * 100, index * 100 + 100),
   );
@@ -1063,11 +1626,19 @@ async function loadPriorityEntries(
     const responses = await Promise.all(
       chunks.map((chunk) => page._directoryClient.lookup(groupId, kind, chunk)),
     );
-    if (!isContextCurrent(page, kind, runtime, serial, groupId)) return;
+    if (!isContextCurrent(page, kind, runtime, serial, groupId, instanceId)) return;
     runtime.priorityEntries = responses.flatMap((response) => response.entries);
     syncPrioritySections(page, kind);
-  } catch {
-    // Preferred entries are an enhancement; search and filtering remain available.
+  } catch (error) {
+    if (!isContextCurrent(page, kind, runtime, serial, groupId, instanceId)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDirectoryDisabled(page, error.message);
+      return;
+    }
+    if (isAuthorizationError(error)) {
+      clearDirectoryForAuthorizationError(page, toUserMessage(error, '当前账户无权读取通讯录。'));
+    }
+    // Other preference lookup failures are an enhancement failure; search remains available.
   }
 }
 
@@ -1081,6 +1652,14 @@ function knownEntryGroups(runtime: DirectoryModeRuntime): readonly DirectoryEntr
 
 function syncPrioritySections(page: DirectoryPageInstance, kind: DirectoryKind): void {
   const runtime = getRuntime(page, kind);
+  if (page.data.directoryKind !== kind) return;
+  setPaneData(page, kind, { prioritySections: createPrioritySections(runtime, kind) });
+}
+
+function createPrioritySections(
+  runtime: DirectoryModeRuntime,
+  kind: DirectoryKind,
+): readonly DirectoryPrioritySectionView[] {
   const priority = getDirectoryPriorityGroups(runtime.preferences, knownEntryGroups(runtime));
   const sections: DirectoryPrioritySectionView[] = [];
   if (priority.favorites.length > 0) {
@@ -1097,7 +1676,7 @@ function syncPrioritySections(page: DirectoryPageInstance, kind: DirectoryKind):
       title: '常用通讯录',
     });
   }
-  setPaneData(page, kind, { prioritySections: sections });
+  return sections;
 }
 
 function findDirectoryGroup(

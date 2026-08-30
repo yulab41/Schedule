@@ -3,6 +3,7 @@ import { createDirectoryPanelControllerDefinition } from '../../components/direc
 
 const controller = createDirectoryPanelControllerDefinition();
 type DirectoryPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
+type DirectoryStandalonePageInstance = DirectoryPageInstance & { _directoryHasShown?: boolean };
 
 Page({
   data: controller.data,
@@ -19,6 +20,13 @@ Page({
       groupId: decodeGroupId(query['groupId']),
     };
     controller.lifetimes.attached.call(this);
+  },
+  onShow(this: DirectoryStandalonePageInstance): void {
+    if (this._directoryHasShown !== true) {
+      this._directoryHasShown = true;
+      return;
+    }
+    controller.methods.handleForegroundRefresh.call(this);
   },
   onUnload(this: DirectoryPageInstance): void {
     controller.lifetimes.detached.call(this);

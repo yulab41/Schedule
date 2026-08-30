@@ -119,8 +119,11 @@ interface WorkbenchPageData {
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
   readonly currentGroupRoleKind: GroupSummary['role'];
+  readonly currentGroupVersion: number;
   readonly canReLogin: boolean;
   readonly directoryPanelReady: boolean;
+  readonly directoryContextRevision: number;
+  readonly directoryPermissionContextReady: boolean;
   readonly errorMessage: string;
   readonly expandedDetailKey: string;
   readonly filterIconAnimating: boolean;
@@ -240,8 +243,11 @@ Page({
     currentGroupName: '正在读取群组',
     currentGroupRole: '',
     currentGroupRoleKind: 'member' as GroupSummary['role'],
+    currentGroupVersion: 0,
     canReLogin: false,
     directoryPanelReady: false,
+    directoryContextRevision: 0,
+    directoryPermissionContextReady: false,
     errorMessage: '',
     expandedDetailKey: '',
     filterIconAnimating: false,
@@ -436,6 +442,12 @@ Page({
       canManageScheduleTools: toolAccess.manualSchedule,
       canOpenGroupSettings: toolAccess.groupSettings,
       currentGroupId: groupId,
+      currentGroupIsDeveloperAdmin: selectedGroup?.isDeveloperAdmin === true,
+      currentGroupName: selectedGroup?.name ?? '正在读取群组',
+      currentGroupRole: selectedGroup === undefined ? '' : formatRole(selectedGroup),
+      currentGroupRoleKind: selectedGroup?.role ?? 'member',
+      currentGroupVersion: selectedGroup?.version ?? 0,
+      directoryPermissionContextReady: selectedGroup !== undefined,
       filterMembershipIds: [],
       filterMemberSummary: '全部成员',
       filterOpenField: '',
@@ -1019,6 +1031,8 @@ async function loadWorkbench(
         currentGroupName: '暂无可查看的群组',
         currentGroupRole: '',
         currentGroupRoleKind: 'member',
+        currentGroupVersion: 0,
+        directoryPermissionContextReady: false,
         groups,
         notificationSheetOpen: false,
         notificationUnreadCount: 0,
@@ -1042,6 +1056,7 @@ async function loadWorkbench(
         currentGroupName: selectedGroup.name,
         currentGroupRole: formatRole(selectedGroup),
         currentGroupRoleKind: selectedGroup.role,
+        currentGroupVersion: selectedGroup.version,
         notificationSheetOpen: false,
         notificationUnreadCount: 0,
       });
@@ -1054,6 +1069,10 @@ async function loadWorkbench(
       currentGroupName: selectedGroup.name,
       currentGroupRole: formatRole(selectedGroup),
       currentGroupRoleKind: selectedGroup.role,
+      currentGroupVersion: selectedGroup.version,
+      directoryContextRevision:
+        page.data.directoryContextRevision + (groupSnapshotOffline || groupChanged ? 0 : 1),
+      directoryPermissionContextReady: !groupSnapshotOffline,
       groups,
       toolAccess,
       workflowPanelsMounted: toolAccess.leave,

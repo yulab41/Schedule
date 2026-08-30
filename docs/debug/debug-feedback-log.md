@@ -2,6 +2,32 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-30 Mini 通讯录空筛选与运行态性能修复
+
+- 引入点/根因：`git log -S`/`git blame` 将空弹层和完整筛选树常驻定位到 `1de042b5`/`6b5b30fb`。
+  facets 未就绪时 `handleOpenFilters` 仍打开，WXML 只能遍历空数组；加载后 `syncFilterSections` 又把
+  科室/人员两套完整树长期写入 data，搜索确认和分页也没有主查询/单页请求分层复用。
+- 红绿：纯查询模块先因缺文件失败；controller 旧实现明确 5 红：加载中仍开弹层、无活动弹层/关闭释放、
+  零层级为空、相同进行中请求发两次、多页后确认再请求。实现后查询/请求/UI/workbench 定向 9 files/
+  87 tests，Mini 全量 108 files/539 tests，Web 当前通讯录黄金 10 files/51 tests 全通过。
+- 实现：固定 JSON 元组 `contextKey/baseQueryKey/pageRequestKey`，七级 `unset/all/value` 不省位；每模式一个
+  完成主查询和一个当前聚合结果，同页 Promise 共享，实例+上下文+查询/页键竞态，强刷、失败释放、分页
+  游标、401/403、卸载和权限/群组/版本变化均失败关闭。未知权限或 facets 版本时仍由服务端鉴权，但禁用
+  完成复用；没有新增 API/contracts/database，两个 HTTP 请求跨发布的剩余风险保留。
+- 视图：双模式只保留轻量 guide；隐藏模式不驻留卡片，唯一活动 Sheet 打开时才生成 options，关闭释放。
+  facets 加载/失败按钮在视觉、ARIA 和 handler 层禁用；零层级显示“当前无需筛选”。过渡卡禁用收藏/拨号/
+  翻页；分页失败保留已成功页并区分本页重试/从头刷新。滚动按模式和 facets 批次保存，节点挂载后恢复，
+  目标层级优先，滚动事件不调用 setData。
+- 性能：固定 24-path fixture 初始 `setData` 从 10 次/13,386 B/最大 5,495 B 降至 6 次/4,053 B/最大
+  1,206 B；主体建立 2.61→1.49 ms，首次开层 3 次/5,560 B/0.30 ms→1 次/4,529 B/0.31 ms，复开
+  0.13→0.04 ms；关闭驻留 72→0，重复确认请求 1→0。5 次中位数，全部满足批准门槛。
+- 自动验证：全端 typecheck/build、Mini verify/source/performance/package/determinism/CI dry-run、任务 ESLint/
+  Prettier/diff 和 `pnpm smoke:check-core` 通过；production manifest `49226902…445c`，总包 5,134,389 B、
+  main 1,637,688 B（既有 1.5 MiB 预警）、organization 1,196,419 B。全仓 lint 仍仅有未改
+  `wx-request-executor.ts:141 prefer-const`；全仓 format 仍为既有 388 files，未接管。
+- 运行边界：未调用微信开发者工具；Console/Network、原生节点时序、真实帧率和小米 14 当前工具无法测量，
+  暂未验证。代码 checkpoint、生产备份/部署尚待本轮最终提交；体验上传必须另获当次批准。
+
 ## 2026-08-30 Mini 五入口移除外层原生滑动宿主
 
 - 真机反馈：`.66` 虽永久关闭全局横滑，普通区域仍可拖动外层 native `swiper`，拖后进入空白屏。

@@ -9,13 +9,27 @@ describe('P10 native directory controller', () => {
   let definition;
   let requests;
   let deferNextListRequest;
+  let deferFacetRequests;
   let deferredListRequest;
+  let deferredFacetRequests;
+  let facetsResponse;
+  let failFacetKinds;
+  let failListRequestsRemaining;
+  let invalidCursorNext;
+  let unauthorizedNextList;
 
   beforeEach(async () => {
     vi.resetModules();
     requests = [];
     deferNextListRequest = false;
+    deferFacetRequests = false;
     deferredListRequest = undefined;
+    deferredFacetRequests = [];
+    facetsResponse = facets();
+    failFacetKinds = new Set();
+    failListRequestsRemaining = 0;
+    invalidCursorNext = false;
+    unauthorizedNextList = false;
     const makePhoneCall = vi.fn();
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
     vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'test');
@@ -35,17 +49,66 @@ describe('P10 native directory controller', () => {
           options.url.endsWith(`/groups/${secondGroupId}/directory/facets`) ||
           options.url.endsWith(`/groups/${secondGroupId}/employee-directory/facets`)
         ) {
-          options.success({ data: facets(), statusCode: 200 });
+          const facetKind = options.url.includes('/employee-directory/') ? 'employee' : 'internal';
+          if (failFacetKinds.has(facetKind)) {
+            options.fail({ errMsg: 'request:fail facets offline' });
+            return;
+          }
+          if (deferFacetRequests) {
+            deferredFacetRequests.push(options);
+            return;
+          }
+          options.success({ data: facetsResponse, statusCode: 200 });
           return;
         }
         if (options.url.includes(`/groups/${groupId}/directory?`)) {
+          if (unauthorizedNextList) {
+            unauthorizedNextList = false;
+            options.success({
+              data: {
+                error: {
+                  code: 'FORBIDDEN',
+                  message: '当前账户无权读取通讯录。',
+                  requestId: 'request-forbidden',
+                },
+              },
+              statusCode: 403,
+            });
+            return;
+          }
+          if (invalidCursorNext) {
+            invalidCursorNext = false;
+            options.success({
+              data: {
+                error: {
+                  code: 'VALIDATION_FAILED',
+                  message: 'cursor 游标无效，请从头刷新。',
+                  requestId: 'request-invalid-cursor',
+                },
+              },
+              statusCode: 400,
+            });
+            return;
+          }
+          if (failListRequestsRemaining > 0) {
+            failListRequestsRemaining -= 1;
+            options.fail({ errMsg: 'request:fail list offline' });
+            return;
+          }
           if (deferNextListRequest) {
             deferNextListRequest = false;
             deferredListRequest = options;
             return;
           }
           const cursor = new URL(options.url).searchParams.get('cursor');
-          options.success({ data: page(cursor === 'cursor-1'), statusCode: 200 });
+          const query = new URL(options.url).searchParams.get('q');
+          options.success({
+            data:
+              query === '空结果'
+                ? { entries: [], totalCount: 0 }
+                : page(cursor === 'cursor-1' || query === '新查询'),
+            statusCode: 200,
+          });
           return;
         }
         if (options.url.includes(`/groups/${groupId}/employee-directory?`)) {
@@ -72,15 +135,17 @@ describe('P10 native directory controller', () => {
     expect(
       requests.some((request) => request.url.endsWith(`/groups/${groupId}/directory/facets`)),
     ).toBe(true);
+    definition.methods.handleOpenFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
     expect(
-      page.data.internalPane.filterSections.find((section) => section.key === 'campusCode')
-        ?.options,
+      page.data.activeSheet.sections.find((section) => section.key === 'campusCode')?.options,
     ).toEqual([
-      { count: 2, label: '全部', selected: true, value: '' },
-      { count: 1, label: '本部院区', selected: false, value: 'main' },
-      { count: 1, label: '东院区', selected: false, value: 'east' },
+      { count: 2, label: '全部', value: '' },
+      { count: 1, label: '本部院区', value: 'main' },
+      { count: 1, label: '东院区', value: 'east' },
     ]);
-    expect(page.data.internalPane.filterSections.map((section) => section.key)).toEqual([
+    expect(page.data.internalPane.guideStops.map((section) => section.key)).toEqual([
       'campusCode',
       'section',
       'floor',
@@ -99,7 +164,7 @@ describe('P10 native directory controller', () => {
       merged: true,
     });
     expect(page.data.internalPane.resultSummary).toContain('已合并 1 组同号条目');
-    expect(page.data.internalPane.nextCursor).toBe('cursor-1');
+    expect(page.data.internalPane.hasMore).toBe(true);
 
     definition.methods.handleFilterOption.call(page, {
       currentTarget: {
@@ -109,9 +174,7 @@ describe('P10 native directory controller', () => {
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
     expect(lastRequest().url).toContain('campusCode=main');
     expect(page.data.internalPane.activeFilterCount).toBe(1);
-    expect(page.data.internalPane.filterSections.map((section) => section.key)).toEqual([
-      'campusCode',
-    ]);
+    expect(page.data.internalPane.guideStops.map((section) => section.key)).toEqual(['campusCode']);
 
     definition.methods.handleLoadMore.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.loadingMore).toBe(false));
@@ -180,7 +243,7 @@ describe('P10 native directory controller', () => {
     });
     definition.methods.handleEmployeeMode.call(page);
     expect(page.data.directoryKind).toBe('employee');
-    expect(page.data.employeePane.filterSections.map((section) => section.label)).toEqual([
+    expect(page.data.employeePane.guideStops.map((section) => section.label)).toEqual([
       '组织根',
       '一级组织',
       '三级组织',
@@ -226,12 +289,12 @@ describe('P10 native directory controller', () => {
     definition.methods.handleEmployeeMode.call(page);
     expect(page.data.directoryKind).toBe('employee');
     expect(page.data.internalPane.searchQuery).toBe('病案');
-    expect(page.data.internalPane.entries).toBe(internalEntries);
+    expect(page.data.internalPane.entries).toEqual([]);
 
     definition.methods.handleModeSwiperChange.call(page, { detail: { current: 0 } });
     expect(page.data.directoryKind).toBe('internal');
     expect(page.data.internalPane.searchQuery).toBe('病案');
-    expect(page.data.internalPane.entries).toBe(internalEntries);
+    expect(page.data.internalPane.entries).toEqual(internalEntries);
     expect(requests).toHaveLength(internalRequestCount);
   });
 
@@ -257,6 +320,9 @@ describe('P10 native directory controller', () => {
     expect(page.data.directoryKind).toBe('employee');
     expect(page.data.employeePane.entries).toEqual([]);
     expect(page.data.internalPane.state).toBe('ready');
+    expect(page.data.internalPane.entries).toEqual([]);
+    expect(page._modeRuntimes.internal.rawEntries).toHaveLength(2);
+    definition.methods.handleInternalMode.call(page);
     expect(page.data.internalPane.entries).toHaveLength(1);
   });
 
@@ -307,8 +373,8 @@ describe('P10 native directory controller', () => {
       },
     });
     expect(page.data.filterSheetOpen).toBe(true);
-    expect(page.data.internalPane.filterSheetOpen).toBe(true);
-    expect(page.data.internalPane.filterScrollTarget).toBe('directory-filter-internal-department');
+    expect(page.data.activeSheet.open).toBe(true);
+    expect(page.data.activeSheet.scrollTarget).toBe('directory-filter-internal-department');
 
     definition.methods.handleToggleFilterSection.call(page, {
       currentTarget: {
@@ -316,19 +382,406 @@ describe('P10 native directory controller', () => {
       },
     });
     expect(
-      page.data.internalPane.filterSections.find((section) => section.key === 'department')
-        ?.expanded,
+      page.data.activeSheet.sections.find((section) => section.key === 'department')?.expanded,
     ).toBe(false);
+
+    definition.methods.handleCloseFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
+    definition.methods.handleOpenFilterAt.call(page, {
+      currentTarget: {
+        dataset: { directoryKind: 'employee', filter: 'department' },
+      },
+    });
     expect(
-      page.data.employeePane.filterSections.find((section) => section.key === 'department')
-        ?.expanded,
+      page.data.activeSheet.sections.find((section) => section.key === 'department')?.expanded,
     ).toBe(true);
+
+    definition.methods.handleCloseFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+    });
+    expect(page.data.filterSheetOpen).toBe(false);
+    expect(page.data.activeSheet.open).toBe(false);
+  });
+
+  it('does not open a blank filter sheet while facets are still loading', async () => {
+    deferFacetRequests = true;
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+
+    definition.methods.handleOpenFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
+
+    expect(page.data.filterSheetOpen).toBe(false);
+    expect(page.data.activeSheet.open).toBe(false);
+    expect(page.data.internalPane.facetsLoading).toBe(true);
+  });
+
+  it('builds only the active sheet and releases all option nodes when it closes', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+
+    expect(page.data.internalPane.guideStops.length).toBeGreaterThan(0);
+    expect(page.data.employeePane.guideStops.length).toBeGreaterThan(0);
+    expect(page.data.activeSheet.sections).toEqual([]);
+    definition.methods.handleOpenFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
+    expect(page.data.activeSheet.directoryKind).toBe('internal');
+    expect(page.data.activeSheet.sections.length).toBeGreaterThan(0);
+    expect(page.data.activeSheet.sections.every((section) => section.options.length > 0)).toBe(
+      true,
+    );
 
     definition.methods.handleCloseFilters.call(page, {
       currentTarget: { dataset: { directoryKind: 'internal' } },
     });
     expect(page.data.filterSheetOpen).toBe(false);
-    expect(page.data.internalPane.filterSheetOpen).toBe(false);
+    expect(page.data.activeSheet.open).toBe(false);
+    expect(page.data.activeSheet.sections).toEqual([]);
+  });
+
+  it('shows an explicit no-filter message instead of an empty sheet', async () => {
+    facetsResponse = emptyFacets();
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+
+    definition.methods.handleOpenFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
+
+    expect(page.data.activeSheet.open).toBe(true);
+    expect(page.data.activeSheet.sections).toEqual([]);
+    expect(page.data.activeSheet.emptyMessage).toBe('当前无需筛选');
+  });
+
+  it('shares an identical first-page request and reuses its completed result', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+
+    deferNextListRequest = true;
+    definition.methods.handleSearch.call(page);
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
+    expect(listRequests()).toHaveLength(1);
+    deferredListRequest.success({ data: pageResponse(false), statusCode: 200 });
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+
+    const requestCount = listRequests().length;
+    const setDataCount = page.setDataCalls.length;
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(requestCount);
+    expect(page.setDataCalls).toHaveLength(setDataCount);
+  });
+
+  it('keeps a multi-page result complete when the same search is confirmed again', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    definition.methods.handleLoadMore.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.loadingMore).toBe(false));
+    expect(page.data.internalPane.entries).toHaveLength(2);
+
+    const requestCount = listRequests().length;
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(requestCount);
+    expect(page.data.internalPane.entries).toHaveLength(2);
+  });
+
+  it('shares a double-tapped pagination request without appending the page twice', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+
+    deferNextListRequest = true;
+    definition.methods.handleLoadMore.call(page);
+    definition.methods.handleLoadMore.call(page);
+    await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
+    expect(
+      listRequests().filter((request) => request.url.includes('cursor=cursor-1')),
+    ).toHaveLength(1);
+    deferredListRequest.success({ data: pageResponse(true), statusCode: 200 });
+    await vi.waitFor(() => expect(page.data.internalPane.loadingMore).toBe(false));
+    expect(page.data.internalPane.entries).toHaveLength(2);
+  });
+
+  it('bypasses completed reuse for an explicit from-start refresh', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    const requestCount = listRequests().length;
+
+    definition.methods.handleRefreshFromStart.call(page);
+    await vi.waitFor(() => expect(listRequests()).toHaveLength(requestCount + 1));
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+  });
+
+  it('does not complete-reuse results while permission context is unknown', async () => {
+    const page = createPageInstance(definition, {
+      directoryKind: 'internal',
+      embedded: false,
+      groupId,
+    });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    const requestCount = listRequests().length;
+
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(listRequests()).toHaveLength(requestCount + 1));
+  });
+
+  it('reuses a successful empty result when permission and facets version are known', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '空结果' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('empty'));
+    const requestCount = listRequests().length;
+    const setDataCount = page.setDataCalls.length;
+
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(requestCount);
+    expect(page.setDataCalls).toHaveLength(setDataCount);
+  });
+
+  it('releases a failed request so retry makes a real request', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    failListRequestsRemaining = 3;
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('error'));
+    expect(page.data.internalPane.retryKind).toBe('search');
+    const requestCount = listRequests().length;
+
+    definition.methods.handleRetry.call(page);
+    await vi.waitFor(() => expect(listRequests()).toHaveLength(requestCount + 1));
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+  });
+
+  it('discards an older first-page response after a newer search completes', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '旧查询' } });
+    deferNextListRequest = true;
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '新查询' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(page.data.internalPane.entries[0]?.merged).toBe(false);
+    deferredListRequest.success({ data: pageResponse(false), statusCode: 200 });
+    await flushPromises();
+    expect(page.data.internalPane.entries[0]?.merged).toBe(false);
+  });
+
+  it('invalidates both modes when the permission fingerprint changes', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+
+    page.properties = {
+      ...page.properties,
+      contextRefreshRevision: 2,
+      groupRole: 'administrator',
+    };
+    definition.observers.groupRole.call(page);
+    expect(page.data.internalPane.entries).toEqual([]);
+    expect(page.data.employeePane.entries).toEqual([]);
+    await vi.waitFor(() => {
+      expect(page.data.internalPane.facetsLoading).toBe(false);
+      expect(page.data.employeePane.facetsLoading).toBe(false);
+    });
+    expect(page.data.internalPane.searchQuery).toBe('');
+  });
+
+  it('keeps successful pages and cursor after pagination failure, then retries that page', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    const originalEntries = page.data.internalPane.entries;
+    failListRequestsRemaining = 3;
+    definition.methods.handleLoadMore.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.retryKind).toBe('pagination'));
+    expect(page.data.internalPane.entries).toBe(originalEntries);
+    expect(page.data.internalPane.hasMore).toBe(true);
+
+    const requestCount = listRequests().length;
+    definition.methods.handleRetry.call(page);
+    await vi.waitFor(() => expect(listRequests()).toHaveLength(requestCount + 1));
+    await vi.waitFor(() => expect(page.data.internalPane.loadingMore).toBe(false));
+    expect(page.data.internalPane.entries).toHaveLength(2);
+  });
+
+  it('offers from-start refresh for an invalid pagination cursor', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    invalidCursorNext = true;
+    definition.methods.handleLoadMore.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.canRefreshFromStart).toBe(true));
+    expect(page.data.internalPane.retryKind).toBe('pagination');
+    expect(page.data.internalPane.entries).toHaveLength(1);
+  });
+
+  it('keeps keyword search available after one mode facets fails without reusing it', async () => {
+    failFacetKinds.add('employee');
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => {
+      expect(page.data.internalPane.facetsLoading).toBe(false);
+      expect(page.data.employeePane.facetsLoading).toBe(false);
+    });
+    expect(page.data.internalPane.facetsErrorMessage).toBe('');
+    expect(page.data.employeePane.facetsErrorMessage).not.toBe('');
+    definition.methods.handleSearchInput.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+      detail: { value: '林医生' },
+    });
+    definition.methods.handleSearch.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+    });
+    await vi.waitFor(() => expect(page.data.employeePane.state).toBe('ready'));
+    const requestCount = listRequests().length;
+    definition.methods.handleSearch.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+    });
+    await vi.waitFor(() => expect(listRequests()).toHaveLength(requestCount + 1));
+  });
+
+  it('clears both modes immediately after a 403 response', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    unauthorizedNextList = true;
+    definition.methods.handleRefreshFromStart.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('error'));
+    expect(page.data.internalPane.entries).toEqual([]);
+    expect(page.data.internalPane.guideStops).toEqual([]);
+    expect(page.data.employeePane.entries).toEqual([]);
+    expect(page.data.employeePane.guideStops).toEqual([]);
+  });
+
+  it('restores sheet scroll only for the same facets version and lets a target level win', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleOpenFilters.call(page);
+    const setDataCount = page.setDataCalls.length;
+    definition.methods.handleSheetScroll.call(page, { detail: { scrollTop: 180 } });
+    expect(page.setDataCalls).toHaveLength(setDataCount);
+    definition.methods.handleCloseFilters.call(page);
+    definition.methods.handleOpenFilters.call(page);
+    expect(page.data.activeSheet.scrollTop).toBe(180);
+    definition.methods.handleCloseFilters.call(page);
+    definition.methods.handleOpenFilterAt.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal', filter: 'department' } },
+    });
+    expect(page.data.activeSheet.scrollTarget).toBe('directory-filter-internal-department');
+
+    definition.methods.handleCloseFilters.call(page);
+    facetsResponse = { ...facets(), publishedImportVersion: 'controller-fixture-v2' };
+    page.properties = { ...page.properties, contextRefreshRevision: 2 };
+    definition.observers.contextRefreshRevision.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleOpenFilters.call(page);
+    expect(page.data.activeSheet.scrollTop).toBe(0);
+  });
+
+  it('drops a delayed scroll clamp after the sheet has already closed', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleOpenFilters.call(page);
+    definition.methods.handleSheetScroll.call(page, { detail: { scrollTop: 180 } });
+    definition.methods.handleCloseFilters.call(page);
+
+    let queryCallback;
+    const query = {
+      exec(callback) {
+        queryCallback = callback;
+      },
+      in() {
+        return query;
+      },
+      select() {
+        return { boundingClientRect: () => query };
+      },
+    };
+    page.createSelectorQuery = () => query;
+    definition.methods.handleOpenFilters.call(page);
+    expect(queryCallback).toBeTypeOf('function');
+    definition.methods.handleCloseFilters.call(page);
+    const setDataCount = page.setDataCalls.length;
+    queryCallback([{ height: 600 }, { height: 300 }]);
+
+    expect(page.setDataCalls).toHaveLength(setDataCount);
+    expect(page.data.activeSheet.sections).toEqual([]);
+  });
+
+  it('keeps transition cards visible but disables call and favorite side effects', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    const card = page.data.internalPane.entries[0];
+    const dialNumber = card.contacts
+      .flatMap((contact) => contact.numbers)
+      .find((number) => Boolean(number.dialNumber))?.dialNumber;
+    deferNextListRequest = true;
+    definition.methods.handleSearchInput.call(page, { detail: { value: '新查询' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.interactionDisabled).toBe(true));
+    expect(page.data.internalPane.entries).toHaveLength(1);
+
+    definition.methods.handleToggleFavorite.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal', groupId: card.id } },
+    });
+    definition.methods.handleCall.call(page, {
+      currentTarget: {
+        dataset: { directoryKind: 'internal', groupId: card.id, number: dialNumber },
+      },
+    });
+    expect(globalThis.wx.setStorageSync).not.toHaveBeenCalled();
+    expect(globalThis.wx.makePhoneCall).not.toHaveBeenCalled();
   });
 
   it('returns to the Web idle state without another list request after clearing the last criterion', async () => {
@@ -396,11 +849,13 @@ describe('P10 native directory controller', () => {
     definition.methods.handleSearch.call(page);
     await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
     definition.lifetimes.detached.call(page);
+    const setDataCountAfterDetach = page.setDataCalls.length;
     deferredListRequest.success({ data: pageResponse(false), statusCode: 200 });
     await flushPromises();
 
     expect(page.data.internalPane.state).toBe('loading');
     expect(page.data.internalPane.entries).toEqual([]);
+    expect(page.setDataCalls).toHaveLength(setDataCountAfterDetach);
   });
 
   it('keeps a pending load-more response scoped to its inactive mode', async () => {
@@ -422,6 +877,9 @@ describe('P10 native directory controller', () => {
     expect(page.data.directoryKind).toBe('employee');
     expect(page.data.employeePane.entries).toEqual([]);
     expect(page.data.internalPane.loadingMore).toBe(false);
+    expect(page.data.internalPane.entries).toEqual([]);
+    expect(page._modeRuntimes.internal.rawEntries.length).toBeGreaterThan(0);
+    definition.methods.handleInternalMode.call(page);
     expect(page.data.internalPane.entries.length).toBeGreaterThan(0);
   });
 
@@ -475,18 +933,41 @@ describe('P10 native directory controller', () => {
   function lastRequest() {
     return requests.at(-1);
   }
+
+  function listRequests() {
+    return requests.filter(
+      (request) =>
+        request.url.includes('/directory?') || request.url.includes('/employee-directory?'),
+    );
+  }
 });
 
 function createPageInstance(controller, properties) {
   const page = {
     data: structuredClone(controller.data),
     properties,
+    setDataCalls: [],
     setData(patch, callback) {
+      this.setDataCalls.push(patch);
       for (const [path, value] of Object.entries(patch)) setPath(this.data, path, value);
       callback?.();
     },
   };
   return page;
+}
+
+function runtimeProperties(overrides = {}) {
+  return {
+    contextRefreshRevision: 1,
+    directoryKind: 'internal',
+    embedded: true,
+    groupId,
+    groupIsDeveloperAdmin: false,
+    groupRole: 'member',
+    groupVersion: 3,
+    permissionContextReady: true,
+    ...overrides,
+  };
 }
 
 function setPath(target, path, value) {
@@ -559,6 +1040,22 @@ function facets() {
       { count: 1, label: '预约服务台', value: '预约服务台' },
     ],
     totalCount: 2,
+  };
+}
+
+function emptyFacets() {
+  return {
+    buildings: [],
+    campuses: [],
+    departments: [],
+    entryKinds: [],
+    floors: [],
+    paths: [],
+    publishedEffectiveOn: '2026-08-01',
+    publishedImportVersion: 'controller-empty-v1',
+    sections: [],
+    subunits: [],
+    totalCount: 0,
   };
 }
 

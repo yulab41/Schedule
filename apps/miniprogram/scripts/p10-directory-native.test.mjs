@@ -37,6 +37,11 @@ describe('P10 native directory parity', () => {
     expect(panel).toContain('wx:if="{{!embedded}}"');
     expect(workbench).toContain('handleDirectoryNav');
     expect(workbench).toContain('<directory-panel');
+    expect(workbench).toContain('permission-context-ready="{{directoryPermissionContextReady}}"');
+    expect(workbench).toContain('group-role="{{currentGroupRoleKind}}"');
+    expect(workbench).toContain('group-is-developer-admin="{{currentGroupIsDeveloperAdmin}}"');
+    expect(workbench).toContain('group-version="{{currentGroupVersion}}"');
+    expect(workbench).toContain('context-refresh-revision="{{directoryContextRevision}}"');
     expect(workbench).not.toContain('院内通讯录');
     expect(panelController).toContain("triggerEvent?.('panelready')");
   });
@@ -96,8 +101,16 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain('getCompatibleDirectoryFacetOptionsByKey');
     expect(controller).toContain('updateDirectoryFilterSelection');
     expect(template).toContain('class="filter-sheet"');
+    expect(template).toContain('wx:if="{{!pane.facetsLoading && !pane.facetsErrorMessage}}"');
+    expect(template).toContain('aria-disabled="true"');
+    expect(template).toContain('当前无需筛选');
+    expect(template).toContain('data="{{sheet: activeSheet}}"');
+    expect(template.match(/<template is="directory-filter-sheet"/gu)).toHaveLength(1);
+    expect(template).not.toContain('pane.filterSections');
+    expect(template).not.toContain('pane.nextCursor');
     expect(template).toContain("largeText ? 'is-large-text' : ''");
     expect(card).toContain('class="entry-merge-count"');
+    expect(card).toContain("disabled ? 'is-disabled' : ''");
     expect(card).toContain('class="number-kind"');
     expect(template).not.toContain('<picker');
   });

@@ -59,12 +59,12 @@
 
 ## 当前活动批次
 
-- 用户已批准通讯录空弹层、Web 主体对齐、视图状态/请求/竞态/滚动优化设计；不改 API/contracts/database。
-- fixture：初始 `setData` 10 次/13,386 bytes、最大 5,495；开弹层 5,560 bytes，关闭驻留 72 选项，
-  重复确认新增 1 请求。build 268 files、Mini TS、P10 19 tests、package 通过；总包 5,107,804 bytes。
-- `git log -S`/`git blame` 将空弹层与完整筛选树常驻定位到 `1de042b5`/`6b5b30fb`；基线证据保存在
-  ignored `runtime/audit/directory-fix-20260830/`。Console/Network/小米 14 当前工具无法测量，暂未验证。
-- 当前 Task 1 只提交专项设计/计划和状态，推送、备份、部署；随后 Task 2 先取得旧实现回归红灯。
+- 通讯录 `1de042b5`/`6b5b30fb` 空弹层与双树常驻已修复：分层查询键/Promise 共享、权限/版本失效、
+  唯一活动 Sheet、隐藏模式轻量视图、过渡禁用和版本滚动恢复均完成；未改 API/contracts/database。
+- fixture 初始 `setData` 13,386→4,053 bytes、最大 5,495→1,206、次数 10→6；关闭驻留 72→0，
+  重复请求 1→0，主体 2.61→1.49 ms，首开中位数 0.30→0.31 ms，全部通过批准门槛。
+- 定向 9/87、Mini 108/539、Web 10/51、全端构建和 Mini 门禁通过；manifest `49226902…445c`，包 5,134,389 bytes。
+- 当前任务是代码 checkpoint、推送、备份、部署和公网 verifier；体验上传需另批，小米 14 暂未验证。
 
 ## 已完成的发布基线与当前修复
 

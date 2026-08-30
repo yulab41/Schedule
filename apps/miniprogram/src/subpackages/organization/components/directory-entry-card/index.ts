@@ -8,6 +8,7 @@ interface DirectoryEntryCardInstance {
   _phoneMotionTimer: unknown;
   readonly properties: {
     readonly entry: DirectoryEntryCardValue | null;
+    readonly disabled: boolean;
     readonly largeText: boolean;
     readonly showDivider: boolean;
   };
@@ -17,6 +18,7 @@ interface DirectoryEntryCardInstance {
 
 Component({
   properties: {
+    disabled: { type: Boolean, value: false },
     entry: { type: Object, value: null },
     largeText: { type: Boolean, value: false },
     showDivider: { type: Boolean, value: false },
@@ -35,6 +37,7 @@ Component({
   },
   methods: {
     handleFavorite(this: DirectoryEntryCardInstance): void {
+      if (this.properties.disabled) return;
       const entry = this.properties.entry;
       if (entry !== null) this.triggerEvent('favoritechange', { groupId: entry.id });
     },
@@ -46,6 +49,7 @@ Component({
         };
       },
     ): void {
+      if (this.properties.disabled) return;
       const entry = this.properties.entry;
       const number = event.currentTarget.dataset.number;
       if (entry !== null && number !== undefined) {

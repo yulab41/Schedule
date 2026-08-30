@@ -5,6 +5,9 @@
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
+    scroll-top="{{pane.mainScrollTop}}"
+    data-directory-kind="{{pane.directoryKind}}"
+    bindscroll="handleMainScroll"
     aria-label="{{pane.title}}"
   >
     <view class="page-content">
@@ -32,6 +35,7 @@
                   >清除全部</view
                 >
                 <view
+                  wx:if="{{!pane.facetsLoading && !pane.facetsErrorMessage}}"
                   class="filter-open-action"
                   aria-role="button"
                   aria-label="打开筛选，已选{{pane.activeFilterCount}}项"
@@ -49,17 +53,54 @@
                     >{{pane.activeFilterCount}}</text
                   >
                 </view>
+                <view
+                  wx:else
+                  class="filter-open-action is-disabled"
+                  aria-role="button"
+                  aria-disabled="true"
+                  aria-label="{{pane.facetsLoading ? '筛选条件正在加载' : '筛选条件加载失败'}}"
+                >
+                  <image
+                    class="filter-open-icon"
+                    src="/assets/icons/web-directory-filter.svg"
+                    mode="aspectFit"
+                    aria-hidden="true"
+                  />
+                  <text class="filter-open-copy">全部筛选</text>
+                </view>
               </view>
             </view>
-            <view wx:if="{{pane.filterSections.length > 0}}" class="wayfinding-ribbon">
+            <view
+              wx:if="{{pane.facetsLoading}}"
+              class="wayfinding-ribbon wayfinding-loading"
+              aria-hidden="true"
+            >
+              <view class="wayfinding-stop"></view>
+              <view class="wayfinding-stop"></view>
+              <view class="wayfinding-stop"></view>
+              <view class="wayfinding-stop"></view>
+              <view class="wayfinding-stop"></view>
+              <view class="wayfinding-stop"></view>
+            </view>
+            <view wx:elif="{{pane.facetsErrorMessage}}" class="wayfinding-state" aria-role="alert">
+              <text>{{pane.facetsErrorMessage}}</text>
               <view
-                wx:for="{{pane.filterSections}}"
+                class="retry-action"
+                aria-role="button"
+                data-directory-kind="{{pane.directoryKind}}"
+                bindtap="handleRetry"
+                >重新加载筛选</view
+              >
+            </view>
+            <view wx:elif="{{pane.guideStops.length > 0}}" class="wayfinding-ribbon">
+              <view
+                wx:for="{{pane.guideStops}}"
                 wx:for-item="section"
                 wx:for-index="sectionIndex"
                 wx:key="key"
-                class="wayfinding-stop {{section.selectedLabel !== '全部' ? 'is-selected' : ''}}"
+                class="wayfinding-stop {{section.selected ? 'is-selected' : ''}}"
                 aria-role="button"
-                aria-pressed="{{section.selectedLabel !== '全部'}}"
+                aria-pressed="{{section.selected}}"
                 data-directory-kind="{{pane.directoryKind}}"
                 data-filter="{{section.key}}"
                 bindtap="handleOpenFilterAt"
@@ -71,6 +112,7 @@
                 </view>
               </view>
             </view>
+            <text wx:else class="wayfinding-empty">当前无需筛选</text>
           </view>
 
           <view class="directory-search" aria-role="search">
@@ -113,7 +155,15 @@
               aria-role="button"
               data-directory-kind="{{pane.directoryKind}}"
               bindtap="handleRetry"
-              >重新加载</view
+              >{{pane.retryKind === 'pagination' ? '重试本页' : '重新加载'}}</view
+            >
+            <view
+              wx:if="{{pane.canRefreshFromStart}}"
+              class="retry-action is-secondary"
+              aria-role="button"
+              data-directory-kind="{{pane.directoryKind}}"
+              bindtap="handleRefreshFromStart"
+              >从头刷新</view
             >
           </view>
 
@@ -138,6 +188,7 @@
                 wx:for-index="entryIndex"
                 wx:key="id"
                 entry="{{entry}}"
+                disabled="{{pane.interactionDisabled}}"
                 large-text="{{largeText}}"
                 show-divider="{{entryIndex > 0}}"
                 data-directory-kind="{{pane.directoryKind}}"
@@ -164,12 +215,12 @@
               >
             </view>
 
-            <view wx:if="{{pane.nextCursor}}" class="load-more">
+            <view wx:if="{{pane.hasMore}}" class="load-more">
               <ui-button
                 variant="secondary"
                 label="{{pane.loadingMore ? '正在加载' : '加载更多'}}"
                 loading="{{pane.loadingMore}}"
-                disabled="{{pane.loadingMore}}"
+                disabled="{{pane.loadingMore || pane.interactionDisabled}}"
                 data-directory-kind="{{pane.directoryKind}}"
                 bindpress="handleLoadMore"
               ></ui-button>
@@ -219,23 +270,23 @@
 </template>
 
 <template name="directory-filter-sheet">
-  <view wx:if="{{pane.filterSheetOpen}}" class="sheet-layer" catchtouchmove="preventTouchMove">
+  <view wx:if="{{sheet.open}}" class="sheet-layer" catchtouchmove="preventTouchMove">
     <view
       class="sheet-scrim"
       aria-role="button"
       aria-label="关闭筛选"
-      data-directory-kind="{{pane.directoryKind}}"
+      data-directory-kind="{{sheet.directoryKind}}"
       bindtap="handleCloseFilters"
     ></view>
-    <view class="filter-sheet" aria-role="dialog" aria-label="筛选{{pane.title}}">
+    <view class="filter-sheet" aria-role="dialog" aria-label="筛选{{sheet.title}}">
       <view class="sheet-handle"></view>
       <view class="sheet-heading">
-        <text class="sheet-title">筛选{{pane.title}}</text>
+        <text class="sheet-title">筛选{{sheet.title}}</text>
         <view
           class="sheet-finish"
           aria-role="button"
           aria-label="完成筛选"
-          data-directory-kind="{{pane.directoryKind}}"
+          data-directory-kind="{{sheet.directoryKind}}"
           bindtap="handleCloseFilters"
           >完成</view
         >
@@ -247,39 +298,46 @@
         enhanced
         show-scrollbar="{{false}}"
         scroll-with-animation="{{true}}"
-        scroll-into-view="{{pane.filterScrollTarget}}"
+        scroll-into-view="{{sheet.scrollTarget}}"
+        scroll-top="{{sheet.scrollTop}}"
+        data-directory-kind="{{sheet.directoryKind}}"
+        bindscroll="handleSheetScroll"
       >
         <view class="sheet-body">
           <view
-            class="sheet-reset-action {{pane.activeFilterCount === 0 ? 'is-disabled' : ''}}"
+            class="sheet-reset-action {{sheet.activeFilterCount === 0 ? 'is-disabled' : ''}}"
             aria-role="button"
-            aria-disabled="{{pane.activeFilterCount === 0}}"
-            data-directory-kind="{{pane.directoryKind}}"
+            aria-disabled="{{sheet.activeFilterCount === 0}}"
+            data-directory-kind="{{sheet.directoryKind}}"
             bindtap="handleClearFilters"
           >
             <image src="/assets/icons/web-directory-filter-clear.svg" mode="aspectFit" />
             <text>清除全部筛选</text>
-            <text wx:if="{{pane.activeFilterCount > 0}}" class="sheet-reset-count"
-              >已选 {{pane.activeFilterCount}} 项</text
+            <text wx:if="{{sheet.activeFilterCount > 0}}" class="sheet-reset-count"
+              >已选 {{sheet.activeFilterCount}} 项</text
             >
           </view>
-          <text wx:if="{{pane.filterAdjustmentMessage}}" class="visually-hidden" aria-live="polite"
-            >{{pane.filterAdjustmentMessage}}</text
+          <text wx:if="{{sheet.filterAdjustmentMessage}}" class="visually-hidden" aria-live="polite"
+            >{{sheet.filterAdjustmentMessage}}</text
           >
 
           <view class="directory-filter-grid">
+            <view wx:if="{{sheet.emptyMessage}}" class="sheet-empty-state">
+              <text>{{sheet.emptyMessage}}</text>
+              <text>当前通讯录没有需要进一步缩小的层级。</text>
+            </view>
             <view
-              wx:for="{{pane.filterSections}}"
+              wx:for="{{sheet.sections}}"
               wx:for-item="section"
               wx:key="key"
-              id="directory-filter-{{pane.directoryKind}}-{{section.key}}"
+              id="directory-filter-{{sheet.directoryKind}}-{{section.key}}"
               class="filter-section"
             >
               <view
                 class="filter-section-toggle"
                 aria-role="button"
                 aria-expanded="{{section.expanded}}"
-                data-directory-kind="{{pane.directoryKind}}"
+                data-directory-kind="{{sheet.directoryKind}}"
                 data-filter="{{section.key}}"
                 bindtap="handleToggleFilterSection"
               >
@@ -294,10 +352,10 @@
                   wx:for="{{section.options}}"
                   wx:for-item="option"
                   wx:key="value"
-                  class="filter-option {{option.selected ? 'is-selected' : ''}}"
+                  class="filter-option {{option.value === section.selectedValue ? 'is-selected' : ''}}"
                   aria-role="button"
-                  aria-pressed="{{option.selected}}"
-                  data-directory-kind="{{pane.directoryKind}}"
+                  aria-pressed="{{option.value === section.selectedValue}}"
+                  data-directory-kind="{{sheet.directoryKind}}"
                   data-filter="{{section.key}}"
                   data-value="{{option.value}}"
                   bindtap="handleFilterOption"
@@ -396,6 +454,5 @@
     </swiper>
   </view>
 
-  <template is="directory-filter-sheet" data="{{pane: internalPane}}" />
-  <template is="directory-filter-sheet" data="{{pane: employeePane}}" />
+  <template is="directory-filter-sheet" data="{{sheet: activeSheet}}" />
 </view>

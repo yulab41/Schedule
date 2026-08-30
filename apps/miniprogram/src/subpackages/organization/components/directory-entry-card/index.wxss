@@ -17,6 +17,11 @@
   border-top: 1px solid #dce3eb;
 }
 
+.directory-entry.is-disabled {
+  opacity: 0.62;
+  pointer-events: none;
+}
+
 .entry-accent {
   margin: 9px 0;
   background: #0a66d5;

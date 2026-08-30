@@ -39,3 +39,10 @@ Page adapter. Automated structure guards plus Android/iOS experience verificatio
 because a local green build is not native proof. For this fix the user explicitly prohibited WeChat
 DevTools, simulator, automation, and computer-control verification; interaction evidence must come
 from `.68` on physical devices.
+
+Component property observers may run before `attached`. A data-loading panel must not start requests
+until it owns a live instance id, and any microtask used to shorten the visible-shell path must capture
+the exact runtime object it intends to load. Otherwise several properties updating together can issue
+duplicate requests, or an old queued load can mutate the replacement group/permission runtime. Keep
+the instance + context serial + query/page key checks on every directory response and test detach,
+group/permission changes, in-flight sharing, and old queued work explicitly.

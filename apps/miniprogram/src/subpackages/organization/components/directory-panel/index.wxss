@@ -306,6 +306,13 @@
   border-radius: var(--ui-radius-small);
 }
 
+.filter-open-action.is-disabled {
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+  border-color: var(--directory-border);
+  opacity: 0.72;
+}
+
 .filter-open-icon {
   width: 18px;
   height: 18px;
@@ -358,6 +365,39 @@
   color: var(--directory-accent);
   background: var(--directory-surface);
   border-color: #bed8f5;
+}
+
+.wayfinding-loading .wayfinding-stop {
+  background: var(--ui-color-surface-muted);
+  border-color: var(--directory-border);
+  animation: directory-loading 1.4s ease infinite;
+}
+
+.wayfinding-state {
+  display: flex;
+  min-height: 96px;
+  padding: 10px;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
+}
+
+.wayfinding-empty {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
 }
 
 .stop-index {
@@ -514,6 +554,10 @@
   border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-small);
   font-weight: var(--ui-font-weight-semibold);
+}
+
+.retry-action.is-secondary {
+  color: var(--ui-color-text-secondary);
 }
 
 .directory-search-results {
@@ -766,6 +810,32 @@
   margin-top: 8px;
   flex-direction: column;
   gap: 8px;
+}
+
+.sheet-empty-state {
+  display: flex;
+  min-height: 220px;
+  padding: 24px;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-large);
+  text-align: center;
+}
+
+.sheet-empty-state text:first-child {
+  color: var(--directory-text);
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.sheet-empty-state text:last-child {
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
 }
 
 .filter-section {

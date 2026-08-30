@@ -1,13 +1,17 @@
 # 微信小程序审计状态
 
-- 当前阶段：通讯录专项——Task 1 修改前基线与设计检查点
-- 状态：进行中
-- 基线：`main@6e6d8f10`（与 `origin/main` 一致）
+- 当前阶段：通讯录专项——Task 5 自动验证与代码检查点
+- 状态：已实现待生产发布；原生运行/小米 14 待验证
+- 基线：设计 checkpoint `main@a0ba8a97`（与 `origin/main` 一致）
 - 基线类型：当前工作树；包含已登记的用户未提交配置/测试/WXML，不是 clean release 基线
-- checkpoint 标识：`docs(miniprogram): lock directory runtime optimization`
+- checkpoint 标识：`fix(miniprogram): repair directory filtering runtime`
 
 ## 本轮已完成
 
+- 空筛选弹层、Web 主体状态、查询/分页复用、权限/版本失效、隐藏模式视图和滚动恢复已实现。
+- 查询/请求/UI/workbench 定向 9 files/87 tests、Mini 全量 108/539、Web 黄金 10/51 通过。
+- fixture 初始总字节/最大单包降至旧版 30.3%/21.9%，重复请求与关闭驻留均为 0。
+- 全端 typecheck/build、Mini 全门禁、任务 ESLint/Prettier/diff 和 core smoke 通过；未调用 DevTools。
 - 用户批准小程序通讯录空弹层修复、Web 主体对齐和性能优化设计；未授权自动上传体验版。
 - 固定 fixture 已记录双 facets、初始/弹层 `setData`、重复请求和关闭驻留基线。
 - `git log -S`/`git blame` 已确认 `1de042b5`/`6b5b30fb` 的回归引入点。
@@ -63,7 +67,7 @@
 
 ## 下一轮唯一建议任务
 
-**完成通讯录 Task 1 文档 checkpoint 后，执行 Task 2 先红回归。**
+**完成通讯录最终代码 checkpoint、生产备份/部署和公网 full verifier。**
 
-查询键、请求共享/失效和 UI 弹层测试必须在旧实现上得到与设计缺口对应的失败证据；随后才允许修改
-controller/WXML/WXSS。停止条件是失败证据完整且无关既有测试保持通过；不调用 DevTools，不上传体验版。
+停止条件：Git/origin/production release 一致并记录备份标识。随后只报告体验版候选信息并等待用户当次
+批准；未批准不上传。小米 14 继续标记待匹配构建实测，不调用 DevTools、不提审、不正式发布。
