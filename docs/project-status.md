@@ -5,16 +5,17 @@
 
 ## 仓库与生产基线（2026-08-30）
 
-- 分支：`main`；`.66` 代码为 `4fe1b5e7`、状态为 `b032edee`；本状态 checkpoint 以
-  `docs(design): cancel global workspace swipe` 识别，production 前驱为 `6f8bfb64`，应用制品与 `.66` 全哈希相同。
-- 当前体验候选 `.66@4fe1b5e` 已上传、通过 allowlist/full verifier 和用户实体复核；`.65`
-  workbench 白屏，已被后继取代且禁止回退。
+- 分支：`main`；`.66` 代码为 `4fe1b5e7`、状态为 `b032edee`；取消横滑文档为 `11a5a217`，
+  当前设计 checkpoint 以 `docs(design): remove native workspace swipe host` 识别。
+- 当前体验候选 `.66@4fe1b5e` 已上传并通过 allowlist/full verifier；用户随后在真机发现外层仍可
+  左右位移且滑后白屏，不能作为最终候选。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.66` 首次被代理 IPv6 白名单拒绝且未形成版本；同一 clean commit/版本直连 IPv4 重传成功。
-- 当前生产数据库 schema 52；最近一次文档发布备份为 `016d679b-3574-4d8e-bfe0-452841b7720f`
-  （55 表、188,633 行、85,595,268 bytes、SHA-256 `176cdd57…c7dd`）。
+- 当前 production release 为 `11a5a217`，数据库 schema 52；最近一次文档发布备份为
+  `2df9c45e-3bca-467c-90c4-d1121701a585`（55 表、190,244 行、86,121,764 bytes、
+  SHA-256 `d81d5af0…7e69`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -55,12 +56,14 @@
 
 ## 当前活动批次
 
-- 用户于 2026-08-30 取消 `.67` 全局横滑：通讯录左右手势已用于科室/人员切换，外层不得竞争。
-- `.66` 成为全局导航最终契约：`primaryWorkspaceSwipeEnabled=false`、外层拒绝横拖、底栏点击
-  `duration=0`；通讯录内部 `directory-mode-swiper` 保持原生触摸与状态保留。
-- 未提交的 `.67` 草稿已精确撤销，运行时代码与 `.66` 零差异；没有创建、上传或 allowlist `.67`。
-- 当前仅完成前向纠正文档 checkpoint，识别消息 `docs(design): cancel global workspace swipe`；
-  用户 dirty 文件保持未暂存，不提审、不正式发布。
+- 用户于 2026-08-30 取消全局横滑；真机随后证明 `.66` 外层拒绝 handler 仍可能让 native
+  `swiper` 位移，而关闭的 change handler 不同步 active workspace，最终显示隐藏 item 形成白屏。
+- 根修复采用无外层滑动宿主：移除工作台外层 `swiper`/gesture handler，五个已挂载 workspace 作为
+  常驻兄弟内容槽，仅由底栏点击切换；通讯录内部 `directory-mode-swiper` 保持原生触摸与状态保留。
+- 已完成引入点 `4fe1b5e7`、真机/DevTools 差异、官方 Skyline 手势模式和空白屏数据流取证；设计见
+  `docs/superpowers/specs/2026-08-30-miniprogram-primary-workspace-non-swipe-host-design.md`。
+- 当前只提交书面设计并等待复核，尚未修改运行代码；下一体验候选为 `.68`，`.67` 继续不创建、
+  不上传。用户 dirty 文件保持未暂存，不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -234,7 +237,8 @@
 
 ## 下一步与停止条件
 
-1. 提交、推送并以备份后 trusted reuse 部署“取消全局横滑”文档 checkpoint。
-2. 后续只维护 `.66` 点击式全局导航与各 workspace 内部手势，不创建或上传 `.67`。
+1. 用户复核无外层滑动宿主设计后，补充实施计划并先写旧代码失败的结构/运行回归。
+2. 最小替换工作台外层展示宿主，验证底栏五入口、状态保留和通讯录内部左右滑动。
+3. 全量门禁通过后提交、推送、备份部署并上传 `.68`，完成 allowlist/full verifier。
 
-停止条件：纠正文档同步 production 后本批结束；用户 dirty 文件保持未提交，不提审或正式发布。
+停止条件：`.68` Android/iOS 实体验收前保持待用户复核；用户 dirty 文件保持未提交，不提审或正式发布。
