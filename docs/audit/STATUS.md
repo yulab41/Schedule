@@ -5,7 +5,7 @@
 - 代码 checkpoint：`18498a8b feat(miniprogram): add safe test tools`，已推送
 - 体验候选：`0.1.0-p10.20260831.70@18498a8`
 - 上传结果：188 files / 2,444,502 bytes；manifest `8c4dae56…7287b`
-- 生产 release：`18498a8b6b19991dd27a0590eb97602519725fbb`；hash-identical trusted reuse
+- 生产应用 checkpoint：`18498a8b`；最终 release 元数据以最新同名状态 checkpoint 识别
 - 生产备份：`68902f0f-a5eb-4a56-963a-e78829862086`（55 表、194,887 行、87,642,424 bytes）
 - 基线类型：用户脏树上测量、exact clean commit 构建/上传；无关用户文件未进入 checkpoint
 - 最终状态 checkpoint 标识：`docs(status): record test tools experience upload`

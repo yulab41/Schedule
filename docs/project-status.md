@@ -16,7 +16,7 @@
   2,373,410 bytes，upload manifest `0b8c9155…aa38c5`；allowlist 重建预热的一次 reset/一次 502
   在受控等待内恢复，随后 trusted verify 与公网 full verifier 通过。
 - `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
-- 当前 production release `18498a8b6b19991dd27a0590eb97602519725fbb`、数据库 schema 52；备份
+- 当前 production 应用 checkpoint `18498a8b`、数据库 schema 52；最终 release 元数据以最新 `docs(status): record test tools experience upload` checkpoint 识别。备份
   `68902f0f-a5eb-4a56-963a-e78829862086` 后 hash-identical reuse、allowlist 和公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
