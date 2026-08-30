@@ -28,7 +28,14 @@
 - 发布/运行边界：代码 `c2a57441` 已推送；生产备份
   `0c470222-b4a6-4ce6-b699-7c9df960a0dd`（55 表、193,410 行、87,157,532 bytes、SHA
   `cb75fdba…efe2`）后 hash-identical reuse，公网 full verifier 与远端清理通过。未调用微信开发者工具；
-  Console/Network、原生节点时序、真实帧率和小米 14 当前工具无法测量，暂未验证。体验上传必须另获当次批准。
+  Console/Network、原生节点时序、真实帧率和小米 14 当前工具无法测量，暂未验证。
+- 体验/allowlist：用户当次批准并把当前 IPv4 `154.64.226.11` 加入微信上传白名单后，从 exact clean
+  `c2a57441` 以 production profile 上传 `0.1.0-p10.20260831.69`，说明
+  `directory-filter-runtime-c2a5744`；185 files、zip 2,373,410 bytes、upload manifest
+  `0b8c9155…aa38c5`。正式 `schedule-client-version-allowlist ensure/verify` 通过；重建预热的一次
+  connection reset/一次 502 在内置等待中恢复，随后未知版本 426 和带公网 IP full verifier 通过。
+  未调用微信开发者工具、未提审、未正式发布；下一状态 checkpoint 为
+  `docs(status): record directory experience upload`，小米 14 仍待匹配 `.69` 人工复核。
 
 ## 2026-08-30 Mini 五入口移除外层原生滑动宿主
 

@@ -1,18 +1,17 @@
 # 微信小程序审计报告
 
-- 审计阶段：阶段 0（规则落盘与修改前基线）
-- 采集时间：2026-08-30（Asia/Hong_Kong）
-- 分支/提交：`main@59b1f3c5`，与 `origin/main` 一致
-- 构建标签：`production / local@59b1f3c`
-- 基线性质：当前工作树基线，不是 clean-commit release 基线
+- 审计阶段：通讯录专项体验候选已上传，小米 14 待验收
+- 更新时间：2026-08-31（Asia/Hong_Kong）
+- 代码 checkpoint：`c2a57441`，已推送并同步 production 应用
+- 体验构建标签：`0.1.0-p10.20260831.69@c2a5744`
+- 基线性质：修改前数据来自用户工作树；体验包来自 exact clean commit
 
 ## 普通用户版结论
 
-简单来说：小程序目前可以完成项目自己的构建、类型检查和 517 项自动测试，包体也没有超过阻断线；
-但主包已经进入预警区，代码规范检查还有 1 个明确错误，而且本轮按仓库规则不能读取微信开发者工具
-Console 或替代小米 14 真机检查。因此当前只能说“自动化基础可用”，不能说“手机体验已验收通过”。
-
-本轮只建立规则和基线，没有修改业务代码、没有修复问题、没有新建测试工具页，也没有上传体验版。
+简单来说：通讯录空筛选弹层、双模式大数据常驻、重复请求和分页竞态已经修复，自动回归与固定性能
+门禁通过；`0.1.0-p10.20260831.69@c2a5744` 也已上传并获生产客户端白名单支持。主包仍在既有预警区，
+全仓规范检查仍保留一个无关旧错误。仓库规则禁止代理读取微信开发者工具 Console/Network，因此当前
+结论仍是“自动验证和体验上传完成、待小米 14 复核”，不能宣称手机验收通过。
 
 ## 1. 基线边界与工作树
 
@@ -31,14 +30,15 @@ Console 或替代小米 14 真机检查。因此当前只能说“自动化基�
 
 ### 已成功读取
 
-- `miniprogram-development` 2.32.4：小程序结构、构建、调试/预览和 CloudBase 路由规则。
-- `wechatide-skill` 0.3.9：开发者工具能力路由与真实性要求。
-- `initializer`、`compiler`、`debugger`：环境、编译和 Console/Network 取证边界。
-- `brainstorming`：用于确认本轮只落阶段 0 文档；用户已给出完整、明确且批准的总规范，未扩展功能设计。
+- `miniprogram-development`：小程序结构、构建、调试/预览和发布边界。
+- `previewer`：体验上传前置、结果真实性与失败处理边界；执行面由仓库规则收敛为 Node
+  `miniprogram-ci`，没有调用其微信开发者工具路径。
+- `wechatide-skill`、`initializer`、`compiler`、`debugger`：此前用于确认环境、编译和
+  Console/Network 取证边界；仓库政策继续禁止调用执行面。
 
-当前环境还列出了 `automator`、`previewer`、`project-config`、`cloudbase-operator`、
-`cloudbase-platform` 等相关 Skills。本项目未使用 CloudBase，本阶段也不做自动化、预览、上传或配置修改，
-所以没有加载或调用这些执行场景。
+当前环境还列出了 `automator`、`project-config`、`cloudbase-operator`、`cloudbase-platform` 等相关
+Skills。本项目未使用 CloudBase，也没有自动化微信开发者工具或修改公众平台配置；本轮只加载
+`previewer` 的发布规则，并通过仓库 Node `miniprogram-ci` 完成已批准的体验上传。
 
 ### 微信开发者工具和 MCP
 
@@ -203,12 +203,10 @@ Console/Network/帧率与小米 14 仍无当前构建证据，不能据此宣称
 
 ## 9. 本轮变更边界
 
-- 已创建审计总规范、阶段状态、本报告和小米 14 协议。
-- 已新增通讯录专项设计/实施计划和修改前 fixture；业务实现尚未开始。
-- 已把长期规则加入根 `AGENTS.md`。
-- 未修改 `apps/miniprogram/src/`、API、数据库、路由、视觉、测试或用户配置。
-- 未创建“更多 → 测试工具”。
-- 未修复 lint/format/包体或任何审计问题。
-- 未调用微信开发者工具、未预览、未上传体验版、未提交审核、未正式发布。
+- 已按专项设计修复通讯录筛选弹层、查询/分页运行态、视图数据边界、竞态和滚动恢复；未新增
+  API、contracts、数据库、依赖或测试工具页。
+- 已从 exact clean `c2a57441` 上传体验版 `.69`，并通过正式客户端 allowlist 与公网 full verifier。
+- 未调用微信开发者工具 GUI/CLI；Console/Network、原生节点时序、真实帧率和小米 14 当前构建仍未验证。
+- 未处理既有全仓 lint/format、主包预警和用户未提交文件；未提交审核、未正式发布。
 
 后续唯一建议任务见 `docs/audit/STATUS.md`。

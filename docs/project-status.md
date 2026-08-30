@@ -3,19 +3,22 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取
 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
-## 仓库与生产基线（2026-08-30）
+## 仓库与生产基线（2026-08-31）
 
 - 分支：`main`；通讯录设计 `a0ba8a97`、代码 `c2a57441` 已推送，最终状态 checkpoint 以
-  `docs(status): record directory runtime deployment` 识别。
-- 当前体验候选 `.68@fe12db5` 已上传并通过 allowlist/full verifier；`.66` 因真机外层位移后白屏被
-  取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
-- `.59/.60/.61/.62/.63/.64/.65/.66/.68` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+  `docs(status): record directory experience upload` 识别。
+- 当前体验候选 `.69@c2a5744` 已上传并通过 allowlist/full verifier；`.68@fe12db5` 为上一候选，
+  `.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
   manifest `764b93dc…dd9d`；未使用微信开发者工具。
+- `.69` 从 exact clean `c2a57441` 经用户新登记 IPv4 `154.64.226.11` 上传成功，185 files/
+  2,373,410 bytes，upload manifest `0b8c9155…aa38c5`；allowlist 重建预热的一次 reset/一次 502
+  在受控等待内恢复，随后 trusted verify 与公网 full verifier 通过。
 - 当前 production 应用 checkpoint `c2a57441`、数据库 schema 52；最终 release 元数据以最新
-  `docs(status): record directory runtime deployment` checkpoint 识别。代码发布备份
+  `docs(status): record directory experience upload` checkpoint 识别。代码发布备份
   `0c470222-b4a6-4ce6-b699-7c9df960a0dd` 后 hash-identical reuse 与公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
@@ -27,6 +30,9 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
+- `apps/miniprogram/scripts/build-tools.mjs`、`apps/miniprogram/src/platform/build-info.ts`、
+  `apps/miniprogram/src/types/build-env.d.ts` 与未跟踪 `apps/miniprogram/src/platform/runtime-environment.ts`：
+  用户并行的运行环境标识批次，本轮未读取、修改或暂存。
 - 年月滚轮、通讯录与 Profile 已由用户合并进当前修复批次；只允许显式暂存本批精确 hunk，登录及
   其他既有 checkpoint 仍只作为发布前驱。
 - 通知 Sheet 已完成并只作为发布前驱；当前工作台修改不得夹带其历史外的无关 hunk。
@@ -62,7 +68,10 @@
 - fixture 初始 `setData` 13,386→4,053 bytes、最大 5,495→1,206、次数 10→6；关闭驻留 72→0，
   重复请求 1→0，主体 2.61→1.49 ms，首开中位数 0.30→0.31 ms，全部通过批准门槛。
 - 定向 9/87、Mini 108/539、Web 10/51、全端构建和 Mini 门禁通过；manifest `49226902…445c`，包 5,134,389 bytes。
-- 代码 `c2a57441` 已推送、备份并部署，公网 verifier 通过；下一步只等待体验版当次批准，小米 14 暂未验证。
+- 代码 `c2a57441` 已推送、备份并部署；`.69@c2a5744` 已上传并通过 allowlist/full verifier。
+  下一步只做小米 14 匹配体验版复核；当前不得宣称真机通过。
+- 本状态 checkpoint 前，任务文档 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；
+  `smoke:check-core` 确认未涉及 Web 核心链路。
 
 ## 已完成的发布基线与当前修复
 
@@ -240,8 +249,7 @@
 
 ## 下一步与停止条件
 
-1. 审计下一唯一任务：只读完成主包、分包与重复打包专项审计，形成 P0–P3 证据清单和低风险建议。
+1. 当前唯一下一任务：用户在小米 14 微信客户端打开匹配的 `.69@c2a5744` 体验版，核对构建标签、
+   renderer/基础库并复核通讯录科室/人员、筛选弹层、搜索结果、重复确认和分页。
 
-并行外部等待：用户可随时复核 `.68` Android/iOS；这不是下一审计批次的代理操作。
-
-停止条件：专项报告更新后停止，不改业务代码、不建测试工具页、不上传；用户 dirty 文件保持未提交。
+停止条件：收到匹配构建的真机证据前保持“待验证”；不提审、不正式发布，用户 dirty 文件保持未提交。
