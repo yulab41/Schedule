@@ -75,6 +75,71 @@ Production deployment synchronizes application code and committed migrations onl
 
 Documentation-only checkpoint commits must also become the production release so that the deployed release identifier matches Git `HEAD`, even when application artifacts are otherwise unchanged.
 
+## 微信小程序审计与小米 14 验收
+
+本节适用于 `docs/audit/AUDIT_MASTER_PLAN.md` 管理的微信小程序审计、优化和验收；
+`apps/miniprogram/AGENTS.md` 的代码、运行时和发布边界继续适用。
+
+### 审计状态与轮次范围
+
+- `docs/audit/AUDIT_MASTER_PLAN.md` 保存完整规范；`docs/audit/STATUS.md` 只保存当前阶段、已验证事实、
+  阻塞项、唯一下一任务和停止条件。每轮在仓库连续性检查后读取两者的当前相关章节。
+- `docs/project-status.md` 记录仓库级 Git、部署和活动批次；审计细节留在 `docs/audit/STATUS.md`。
+  两者不得给出互相冲突的下一任务。
+- 只完成当前审计批次，不因上下文仍有余量进入后续阶段。批次大小由风险、状态文件和停止条件决定。
+
+### 工具事实与微信开发者工具边界
+
+- 只把实际成功读取的 Skills 当作知识约束，只把实际成功调用的工具写成“已使用”；不得编造工具、
+  参数、日志或验证结果。
+- 本仓库的规则比通用微信 Skill 更严格：LLM 不得调用 `wechatide`，也不得启动、唤醒、重启、控制
+  或自动化微信开发者工具 GUI/CLI；该禁令包含状态检查、登录、编译、模拟器、Console、Network、
+  截图、预览和上传命令。因此不执行通用 `wechatide-skill` 的 CLI 就绪门禁，只能记录“知识规则已读取，
+  执行面因仓库政策禁用”。
+- 允许使用仓库既有 Node 静态构建、`miniprogram-ci`、`miniprogram-simulate`、测试、包体和视觉比较
+  脚本，但这些结果不能代替微信原生运行时或实体设备验收。
+- 每项证据必须标明来自静态检查、Node 自动化、用户人工开发者工具操作或小米 14 体验版。
+  工具取不到的数据统一写“当前工具无法测量，暂未验证”，不得静默跳过或猜测。
+
+### 先测量、后修改
+
+- 修改业务代码前建立可复现基线，至少记录实际命令、Git SHA/工作树状态、构建状态和耗时、
+  TypeScript/ESLint/测试结果、可获得的错误/警告、主包/分包/总包体积及最大文件。
+- Console、Network、冷启动和页面性能只有取得真实工具输出或真机报告后才能填写；不得编造数量、
+  性能数据或提升百分比。
+- 每批修改后按同一口径复测，记录改善、无变化、退化或未验证；收益不明确且引入退化时回滚。
+- 审计发现按主计划 P0–P3 记录，包含编号、普通解释、技术原因、文件位置、证据、影响、修复建议、
+  风险、置信度、状态和验证方式。
+
+### 修改与诊断安全
+
+- 只自动修复高置信、低风险、可验证、可回滚的问题；没有证据时不为“代码更漂亮”而重构。
+- 不擅自迁移框架或改变业务逻辑、接口、数据结构、路由、已验收视觉和用户操作结果。状态管理、
+  网络层、目录、API、数据库、缓存迁移和大范围 UI 改版只形成计划，除非用户另行批准。
+- 不手改生成目录，不删除用途未确认的代码/资源，不为少量代码引入大型依赖。新增依赖先说明必要性、
+  主包/总包影响和轻量替代。
+- 不执行真实支付、正式发布、生产数据库破坏性写入、删除云资源、真实通知或其他不可逆操作。
+- 诊断、报告和截图不得包含 token、Cookie、Authorization、手机号、身份证号、openid、session_key、
+  完整请求/响应或生产数据。
+
+### 体验版与实体设备验收
+
+- 模拟器只作辅助，不是最终视觉或交互依据。当前主验收环境是小米 14 Android 微信客户端体验版。
+  只有用户提供与当前构建一致的真实证据后，才允许写“小米 14 体验版验收通过”。
+- 分析真机证据前核对 Git 短 SHA、`trial`、renderer、基础库、微信版本和构建时间。版本不一致的证据
+  不能用于判断当前修改。未经验证不得声称 iOS、所有安卓、全平台或跨端兼容通过。
+- 审计计划范围内，体验版上传必须先说明修改内容、短 SHA、版本描述、脏树状态和测试页面，并取得
+  用户当次明确同意；这项门禁优先于其他自动上传规则。提交审核和正式发布始终需要明确批准。
+- 真机截图、二维码和运行日志放在 ignored `runtime/audit/`，不提交 Git；跟踪文档只记录页面、时间、
+  SHA、环境、renderer 和结论。
+
+### 面向初学者的交付
+
+- 先说明发生了什么、是否严重、是否需要处理，再解释技术原因，最后给明确下一步。
+- 首次出现术语时用一句话解释；用户操作每轮尽量 3–5 步，写清点击路径、预期结果、截图或复制内容。
+- 不倾倒大段原始日志；提炼重点，同时保留定位所需的最小原始错误。
+- 每轮结束更新审计报告和 `docs/audit/STATUS.md`，明确验证层级、未验证项、阻塞项和唯一建议下一任务。
+
 ## Project-Local Generated Artifacts
 
 All project-related worktrees, release packages, smoke screenshots, logs, debug output, and build scratch data must stay under this repository, normally in the ignored `runtime/` tree. Do not create sibling `Schedule-*` directories or persistent `schedule-*` items in the operating-system temporary directory. Keep only the latest reusable release worktree at `runtime/release-worktree`; remove superseded release/test/debug copies after confirming they are landed or disposable. Unlanded development worktrees must remain intact under `runtime/external-project-worktrees/`. Credentials, upload private keys, and production secrets are the only required exception and must remain outside the repository.

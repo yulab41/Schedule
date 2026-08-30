@@ -59,14 +59,12 @@
 
 ## 当前活动批次
 
-- 用户于 2026-08-30 取消全局横滑；真机随后证明 `.66` 外层拒绝 handler 仍可能让 native
-  `swiper` 位移，而关闭的 change handler 不同步 active workspace，最终显示隐藏 item 形成白屏。
-- 根修复采用无外层滑动宿主：移除工作台外层 `swiper`/gesture handler，五个已挂载 workspace 作为
-  常驻兄弟内容槽，仅由底栏点击切换；通讯录内部 `directory-mode-swiper` 保持原生触摸与状态保留。
-- 引入点 `4fe1b5e7`、空白屏数据流和结构红灯已冻结；实现后定向 6 files/47 tests、Mini
-  107/517、root 242/1,135 及全端 build/typecheck、Mini 全套发布门禁、core smoke 均通过。
-- `fe12db53` 已推送并同步 production；`.68` 已上传、正式 allowlist/七维/unknown=426 与公网 full
-  verifier 通过。用户禁止微信开发者工具验证，最终状态只待 `.68` Android/iOS 实体测试。
+- 审计阶段 0 已落盘规则、总规范、状态/报告和小米 14 协议；未改业务、调用 DevTools 或上传。
+- 当前工作树 production build 2.60s/268 files、Mini TS 0 error、107 files/517 tests、Mini verify/
+  package 通过；总包 5,107,804 bytes、main 1,636,609 bytes（1.5 MiB 预警，未阻断）。
+- 根 TS 10 projects 通过；lint 保留既有 1 error/0 warning，format check 保留 387 files，均未修复；
+  Console/Network/小米 14 当前工具无法测量。checkpoint 以 `docs(audit): establish miniprogram audit baseline` 识别。
+- 文档 Prettier/diff、上下文守卫 6/6、core smoke 通过；阶段 0 未部署 ECS 或重传 Mini；`.68` 待实体测试。
 
 ## 已完成的发布基线与当前修复
 
@@ -81,8 +79,8 @@
 
 - 已把 directory、group-settings、scheduling-config、invite-visitor、platform-accounts、
   duty、leave、swap 八个薄壳改为直接 Page 注册并静态 include/import 原 WXML/WXSS。
-- 工作台将改为同一 header + 五项 Skyline swiper + 同一 bottom nav；directory/profile/swap 由 ready
-  队列串行挂载并常驻。Profile 必须重写单一 Component 生命周期，不能复用失败 adapter。
+- 工作台使用同一 header、五个常驻无外层滑动内容槽和同一 bottom nav；directory/profile/swap 由
+  ready 队列串行挂载并常驻，通讯录内部 `directory-mode-swiper` 保留。
 - profile Page 与 workbench component 共用 controller/WXML/WXSS，Page 仍为静态 include/import；
   directory Page 明确 `embedded=false`，工作台 component 为 `embedded=true`。
 - workflow direct Page 通过共享 host adapter 保留 picker 协调、infoMessage 2 秒 timer、
@@ -244,6 +242,8 @@
 
 ## 下一步与停止条件
 
-1. 用户在 `.68` Android/iOS 验证普通区域无全局横移/白屏、五入口点击和通讯录内部左右滑动。
+1. 审计下一唯一任务：只读完成主包、分包与重复打包专项审计，形成 P0–P3 证据清单和低风险建议。
 
-停止条件：`.68` Android/iOS 实体验收前保持待用户复核；用户 dirty 文件保持未提交，不提审或正式发布。
+并行外部等待：用户可随时复核 `.68` Android/iOS；这不是下一审计批次的代理操作。
+
+停止条件：专项报告更新后停止，不改业务代码、不建测试工具页、不上传；用户 dirty 文件保持未提交。
