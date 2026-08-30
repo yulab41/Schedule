@@ -75,25 +75,10 @@
     </view>
   </view>
 
-  <horizontal-drag-gesture-handler
-    class="workspace-gesture-gate"
-    tag="primary-workspace-swiper"
-    native-view="swiper"
-    worklet:should-accept-gesture="shouldPrimaryWorkspaceRespond"
-  >
-    <swiper
-      class="workspace-swiper"
-      style="{{workspaceViewportStyle}}"
-      current="{{activeWorkspaceIndex}}"
-      duration="0"
-      cache-extent="4"
-      circular="{{false}}"
-      bindchange="handleWorkspaceSwiperChange"
-    >
-      <swiper-item class="workspace-swiper-item">
+  <view class="workspace-host" style="{{workspaceViewportStyle}}">
+      <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'calendar'}}">
         <scroll-view
           class="workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}"
-          hidden="{{activeWorkspace !== 'calendar'}}"
           scroll-y="{{viewMode !== 'list'}}"
           scroll-with-animation="{{true}}"
           scroll-into-view="{{scrollTarget}}"
@@ -708,10 +693,10 @@
             </view>
           </view>
         </scroll-view>
-      </swiper-item>
+      </view>
 
-      <swiper-item class="workspace-swiper-item">
-        <view class="workspace-pane" hidden="{{activeWorkspace !== 'directory'}}">
+      <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'directory'}}">
+        <view class="workspace-pane">
           <view wx:if="{{!canOpenGroupSettings}}" class="workspace-disabled-state">
             <text class="state-title">当前群组不能使用通讯录</text>
             <text class="state-description">切换到成员群组后即可查看通讯录。</text>
@@ -730,10 +715,10 @@
             bind:workspacerequest="handleWorkspaceRequest"
           ></directory-panel>
         </view>
-      </swiper-item>
+      </view>
 
-      <swiper-item class="workspace-swiper-item">
-        <view class="workspace-pane" hidden="{{activeWorkspace !== 'swap'}}">
+      <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'swap'}}">
+        <view class="workspace-pane">
           <view wx:if="{{!toolAccess.leave}}" class="workspace-disabled-state">
             <text class="state-title">当前群组不能使用换班</text>
             <text class="state-description">切换到成员群组后即可使用换班功能。</text>
@@ -753,10 +738,10 @@
             bind:calendarchanged="handleWorkflowCalendarChanged"
           ></workflow-swap-panel>
         </view>
-      </swiper-item>
+      </view>
 
-      <swiper-item class="workspace-swiper-item">
-        <view class="workspace-pane" hidden="{{activeWorkspace !== 'profile'}}">
+      <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'profile'}}">
+        <view class="workspace-pane">
           <view wx:if="{{!workspaceReady.profile}}" class="embedded-workspace-loading">
             <ui-loading label="正在准备个人中心"></ui-loading>
           </view>
@@ -776,12 +761,11 @@
             bind:opencalendar="handleCalendarNav"
           ></profile-workspace>
         </view>
-      </swiper-item>
+      </view>
 
-      <swiper-item class="workspace-swiper-item">
+      <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'more'}}">
         <scroll-view
           class="more-workspace {{activeWorkspace === 'more' ? 'is-active' : ''}}"
-          hidden="{{activeWorkspace !== 'more'}}"
           type="list"
           scroll-y
           enhanced
@@ -1036,9 +1020,8 @@
             </view>
           </view>
         </scroll-view>
-      </swiper-item>
-    </swiper>
-  </horizontal-drag-gesture-handler>
+      </view>
+  </view>
 
   <view
     wx:if="{{activeWorkspace === 'calendar' && filterOpen}}"

@@ -77,8 +77,9 @@ Sheet、picker 和菜单的现有锁状态可以保留作诊断，但不再承�
 5. `directory-mode-swiper` 仍存在并能在通讯录活动时切换两种模式；
 6. 年月滚轮 source/output SHA 与 `.66` 完全一致。
 
-开发者工具对普通区域执行慢拖、快速拖和反向拖，入口与页面位置必须不变；随后逐项点击五入口并
-在通讯录内部左右滑动。Android 与 iOS 体验版均需确认无全局位移、无白屏、通讯录内滑正常。
+用户明确禁止使用微信开发者工具作本轮验证。自动门禁改为结构/运行回归、生产构建、确定性和包体
+检查；交互结论只由 Android 与 iOS `.68` 体验版确认：普通区域无全局位移或白屏，五入口点击正常，
+通讯录内部左右滑动正常。
 
 实现通过定向、Mini 全量、typecheck、production verify、determinism、source/package/performance/CI、
 根 build/typecheck/test 与 core smoke 后创建新体验候选 `.68`；`.67` 继续作为已取消版本，不创建、

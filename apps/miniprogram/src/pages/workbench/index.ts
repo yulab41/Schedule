@@ -87,7 +87,6 @@ interface NotificationUnreadChangedEvent {
 
 interface WorkspaceChangeEvent {
   readonly currentTarget: { readonly dataset: { readonly workspace?: string } };
-  readonly detail?: { readonly current?: number };
 }
 
 interface SwiperFinishEvent {
@@ -155,7 +154,6 @@ interface WorkbenchPageData {
   readonly offlineNotice: string;
   readonly periodSwiperDuration: number;
   readonly performanceEvidence: string;
-  readonly primaryWorkspaceSwipeEnabled: boolean;
   readonly profileAnimating: boolean;
   readonly profilePanelReady: boolean;
   readonly profileRefreshRevision: number;
@@ -277,7 +275,6 @@ Page({
     offlineNotice: '',
     periodSwiperDuration: 260,
     performanceEvidence: '',
-    primaryWorkspaceSwipeEnabled: buildInfo.primaryWorkspaceSwipeEnabled,
     profileAnimating: false,
     profilePanelReady: false,
     profileRefreshRevision: 0,
@@ -800,19 +797,6 @@ Page({
   handleWorkspaceRequest(this: WorkbenchPageInstance, event: WorkspaceChangeEvent): void {
     const workspace = event.currentTarget.dataset.workspace;
     if (isActiveWorkspace(workspace)) recordWorkspaceRequest(this, workspace);
-  },
-
-  handleWorkspaceSwiperChange(this: WorkbenchPageInstance, event: WorkspaceChangeEvent): void {
-    if (!this.data.primaryWorkspaceSwipeEnabled || this.data.workspaceGestureLocked) return;
-    const current = event.detail?.current;
-    if (!Number.isInteger(current) || current === undefined) return;
-    const workspace = PRIMARY_WORKSPACES[current];
-    if (workspace !== undefined) activatePrimaryWorkspace(this, workspace);
-  },
-
-  shouldPrimaryWorkspaceRespond(): boolean {
-    'worklet';
-    return false;
   },
 
   handleMoreNav(this: WorkbenchPageInstance): void {

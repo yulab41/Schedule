@@ -31,9 +31,11 @@ describe('P7 physical-device feedback regressions', () => {
     expect(template).toContain('<directory-panel');
     expect(template).toContain('<workflow-swap-panel');
     expect(template).toContain('<profile-workspace');
-    expect(template.match(/class="workspace-swiper-item"/gu)).toHaveLength(5);
-    expect(template).toContain('current="{{activeWorkspaceIndex}}"');
-    expect(template).toContain('cache-extent="4"');
+    expect(template.match(/class="workspace-pane-slot"/gu)).toHaveLength(5);
+    expect(template).toContain('class="workspace-host"');
+    expect(template).not.toContain('class="workspace-swiper"');
+    expect(template).not.toContain('tag="primary-workspace-swiper"');
+    expect(controller).toContain('activeWorkspaceIndex: 0');
     expect(template).not.toContain('<workflow-leave-panel');
     expect(template).not.toContain('<workflow-duty-panel');
     expect(controller).toContain('workspaceMounted:');
@@ -51,7 +53,7 @@ describe('P7 physical-device feedback regressions', () => {
     );
     expect(template).toContain("activeWorkspace === 'more'");
     expect(styles).toMatch(/\.bottom-nav\s*\{[^}]*height:\s*calc\(/su);
-    expect(styles).toMatch(/\.workspace-swiper\s*\{[^}]*overflow:\s*hidden/su);
+    expect(styles).toMatch(/\.workspace-host\s*\{[^}]*overflow:\s*hidden/su);
     expect(pageJson.usingComponents).toMatchObject({
       'directory-panel': '/subpackages/organization/components/directory-panel/index',
       'profile-workspace': '/components/profile-workspace/index',

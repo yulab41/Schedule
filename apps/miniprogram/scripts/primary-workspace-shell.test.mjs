@@ -10,34 +10,37 @@ function read(relativePath) {
 }
 
 describe('primary workspace persistent shell', () => {
-  it('keeps one header and one bottom nav outside a five-item tap-only Skyline swiper', () => {
+  it('keeps one header and one bottom nav around five persistent non-swipe panes', () => {
     const template = read('src/pages/workbench/index.wxml');
     const controller = read('src/pages/workbench/index.ts');
     const buildInfo = read('src/platform/build-info.ts');
+    const directoryTemplate = read(
+      'src/subpackages/organization/components/directory-panel/index.wxml',
+    );
     const styles = read('src/pages/workbench/index.wxss');
 
     expect(template.match(/class="workbench-shell-header"/gu)).toHaveLength(1);
     expect(template.match(/class="bottom-nav"/gu)).toHaveLength(1);
-    expect(template.match(/class="workspace-swiper-item"/gu)).toHaveLength(5);
+    expect(template.match(/class="workspace-pane-slot"/gu)).toHaveLength(5);
     expect(template.match(/hidden="\{\{activeWorkspace !== '/gu)).toHaveLength(5);
-    expect(template).toContain('class="workspace-swiper"');
-    expect(template).toContain('current="{{activeWorkspaceIndex}}"');
-    expect(template).toContain('cache-extent="4"');
-    expect(template).toContain('<horizontal-drag-gesture-handler');
-    expect(template).toContain('native-view="swiper"');
-    expect(template).toContain('worklet:should-accept-gesture="shouldPrimaryWorkspaceRespond"');
-    expect(template).not.toContain('scroll-with-animation="{{false}}"');
-    expect(template).toContain('duration="0"');
     expect(template).toMatch(
-      /<swiper\s+class="workspace-swiper"\s+style="\{\{workspaceViewportStyle\}\}"/u,
+      /<view\s+class="workspace-host"\s+style="\{\{workspaceViewportStyle\}\}"/u,
     );
-    expect(styles).toMatch(/\.workspace-swiper\s*\{[^}]*position:\s*absolute;/su);
+    expect(template).not.toContain('class="workspace-swiper"');
+    expect(template).not.toContain('class="workspace-swiper-item"');
+    expect(template).not.toContain('tag="primary-workspace-swiper"');
+    expect(template).not.toContain('bindchange="handleWorkspaceSwiperChange"');
+    expect(template).not.toContain('shouldPrimaryWorkspaceRespond');
+    expect(template).not.toContain('scroll-with-animation="{{false}}"');
+    expect(styles).toMatch(/\.workspace-host\s*\{[^}]*position:\s*absolute;/su);
+    expect(styles).toMatch(/\.workspace-pane-slot\s*,\s*\.workspace-pane\s*\{/su);
     expect(template.indexOf('class="workbench-shell-header"')).toBeLessThan(
-      template.indexOf('class="workspace-swiper"'),
+      template.indexOf('class="workspace-host"'),
     );
-    expect(template.indexOf('class="workspace-swiper"')).toBeLessThan(
+    expect(template.indexOf('class="workspace-host"')).toBeLessThan(
       template.indexOf('class="bottom-nav"'),
     );
+    expect(directoryTemplate).toContain('class="directory-mode-swiper"');
     expect(controller).toContain(
       "const PRIMARY_WORKSPACES = ['calendar', 'directory', 'swap', 'profile', 'more']",
     );
@@ -47,7 +50,8 @@ describe('primary workspace persistent shell', () => {
     expect(controller).toContain('workspacePreloadQueue:');
     expect(controller).toContain('workspaceViewportStyle:');
     expect(controller).toContain('windowInfo.windowHeight - shellHeaderHeight - bottomNavHeight');
-    expect(controller).toContain('shouldPrimaryWorkspaceRespond(');
+    expect(controller).not.toContain('handleWorkspaceSwiperChange(');
+    expect(controller).not.toContain('shouldPrimaryWorkspaceRespond(');
     expect(template).toContain('wx:if="{{workspaceMounted.directory}}"');
     expect(template).toContain('group-id="{{canOpenGroupSettings ? currentGroupId : \'\'}}"');
     expect(template).toContain('wx:if="{{workspaceMounted.swap}}"');

@@ -20,20 +20,22 @@ while `.64/.65` login rendered but direct workbench automation and screenshots t
 hypothesis was a light initial Page followed by automatic serial mounting. Further isolation disproved
 that for Profile: directory post-ready mounting and the static Profile Page render, while the existing
 Profile Component adapter freezes even when mounted alone. Do not adjust that adapter's timing again.
-The approved successor is one Page shell with a native Skyline swiper, a rewritten single-lifecycle
-Profile workspace, and serial ready events for directory/profile/swap. Unauthorized workspaces keep a
-fixed disabled explanation and do not mount or request their business component. The .66 compiler
-does not honor disable-touch; use the official horizontal drag gesture handler with
-should-accept-gesture=false. Give the native swiper an explicit pixel height: Skyline kept its 150px
-default when only absolute top and bottom were supplied. While swipe is disabled, click is the only
-workspace state owner and delayed programmatic change events must not overwrite a later click.
-Keep global workspace touch swipe disabled permanently: the directory panel owns horizontal gestures
-for its department/employee mode swiper, and an outer horizontal owner makes slow or boundary drags
-ambiguous. Preserve `primaryWorkspaceSwipeEnabled=false`, the outer reject handler, `duration=0`, and
-the directory's native `directory-mode-swiper`; do not add shared negotiation to re-enable the outer
-swipe unless the product explicitly replaces the directory gesture model.
+The approved successor is one Page shell with a rewritten single-lifecycle Profile workspace and
+serial ready events for directory/profile/swap. Unauthorized workspaces keep a fixed disabled
+explanation and do not mount or request their business component. The .66 outer native swiper
+experiment proved that `disable-touch` was not honored, and true-device evidence then invalidated the
+fallback reject handler: the native swiper could still move physically while its disabled change
+handler left `activeWorkspace` unchanged, so the moved-to item's hidden content appeared blank.
+Do not keep an outer native swiper or horizontal gesture handler. Use one deterministic-height
+`workspace-host` with five persistent sibling slots, and let bottom-nav clicks be the only owner of
+`activeWorkspace`. Keep `primaryWorkspaceSwipeEnabled=false` as a product/build contract and preserve
+the directory's native `directory-mode-swiper`; do not add shared negotiation or another outer
+horizontal owner unless the product explicitly replaces the directory gesture model.
 
 The touched panels also replace unsupported Grid/sticky layout, remove the zero-height swiper, add
 typed scroll views and restore a definite standalone Profile Page height/leaf declaration. Automated
 guards must reject click-only loading, initial-tree dual mounting, and reuse of the failed Profile
-Page adapter. Android verification remains required because a local green build is not native proof.
+Page adapter. Automated structure guards plus Android/iOS experience verification remain required
+because a local green build is not native proof. For this fix the user explicitly prohibited WeChat
+DevTools, simulator, automation, and computer-control verification; interaction evidence must come
+from `.68` on physical devices.

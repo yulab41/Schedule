@@ -60,7 +60,8 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.workspaceMounted.profile).toBe(true);
     expect(instance.data).not.toHaveProperty('profileMounted');
     definition.handleSwapNav.call(instance);
-    definition.handleWorkspaceSwiperChange.call(instance, { detail: { current: 1 } });
+    expect(definition).not.toHaveProperty('handleWorkspaceSwiperChange');
+    expect(definition).not.toHaveProperty('shouldPrimaryWorkspaceRespond');
     expect(instance.data.activeWorkspace).toBe('swap');
     expect(instance.data.activeWorkspaceIndex).toBe(2);
     definition.handleDirectoryPanelReady.call(instance);

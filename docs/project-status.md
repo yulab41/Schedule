@@ -6,16 +6,17 @@
 ## 仓库与生产基线（2026-08-30）
 
 - 分支：`main`；`.66` 代码为 `4fe1b5e7`、状态为 `b032edee`；取消横滑文档为 `11a5a217`，
-  当前设计 checkpoint 以 `docs(design): remove native workspace swipe host` 识别。
+  无外层滑动宿主设计为 `ad0459e5`；当前代码 checkpoint 以
+  `fix(miniprogram): remove native workspace swipe host` 识别。
 - 当前体验候选 `.66@4fe1b5e` 已上传并通过 allowlist/full verifier；用户随后在真机发现外层仍可
   左右位移且滑后白屏，不能作为最终候选。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.66` 首次被代理 IPv6 白名单拒绝且未形成版本；同一 clean commit/版本直连 IPv4 重传成功。
-- 当前 production release 为 `11a5a217`，数据库 schema 52；最近一次文档发布备份为
-  `2df9c45e-3bca-467c-90c4-d1121701a585`（55 表、190,244 行、86,121,764 bytes、
-  SHA-256 `d81d5af0…7e69`）。
+- 当前 production release 为 `ad0459e5`，数据库 schema 52；最近一次设计发布备份为
+  `401e14db-924f-43e9-9f9d-7692e0a99ec9`（55 表、192,158 行、86,748,356 bytes、
+  SHA-256 `c7fd577e…d70`），hash-identical reuse 与公网 full verifier 已通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -60,10 +61,10 @@
   `swiper` 位移，而关闭的 change handler 不同步 active workspace，最终显示隐藏 item 形成白屏。
 - 根修复采用无外层滑动宿主：移除工作台外层 `swiper`/gesture handler，五个已挂载 workspace 作为
   常驻兄弟内容槽，仅由底栏点击切换；通讯录内部 `directory-mode-swiper` 保持原生触摸与状态保留。
-- 已完成引入点 `4fe1b5e7`、真机/DevTools 差异、官方 Skyline 手势模式和空白屏数据流取证；设计见
-  `docs/superpowers/specs/2026-08-30-miniprogram-primary-workspace-non-swipe-host-design.md`。
-- 当前只提交书面设计并等待复核，尚未修改运行代码；下一体验候选为 `.68`，`.67` 继续不创建、
-  不上传。用户 dirty 文件保持未暂存，不提审、不正式发布。
+- 引入点 `4fe1b5e7`、空白屏数据流和结构红灯已冻结；实现后定向 6 files/47 tests、Mini
+  107/517、root 242/1,135 及全端 build/typecheck、Mini 全套发布门禁、core smoke 均通过。
+- 用户禁止微信开发者工具、模拟器、自动化和电脑控制验证；本轮只以自动结构/运行门禁和 `.68`
+  Android/iOS 实体测试为准。`.67` 不创建、不上传；用户 dirty 文件保持未暂存，不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -129,6 +130,10 @@
 
 ## 已完成验证
 
+- 无外层滑动宿主回归旧代码先红；实现后 6 files/47 tests。Mini 全量 107 files/517 tests、root
+  242 files/1,135 tests 通过（37/355 环境跳过）；全端 build/typecheck、Mini verify/determinism/
+  source/package/performance/CI dry-run、任务 Prettier/ESLint/diff 与 core smoke 通过。总包
+  5,107,804 bytes、main 1,636,609、2/2 Worklet，manifest `7b47bcca…2a40f1d`；未使用开发者工具。
 - Profile Tasks 1–3 的共享/后端/媒体/登录红绿、全仓计数、browser 环境阻塞和发布证据保留在 debug
   日志及对应 Git checkpoint；`.53/.54` upload、allowlist 与生产 full verifier 均已通过。
 - Profile Task 4：旧 controller/account/native 15 项先红；锁定 `353ec1b9` 最终定向 11 files/
@@ -237,8 +242,9 @@
 
 ## 下一步与停止条件
 
-1. 用户复核无外层滑动宿主设计后，补充实施计划并先写旧代码失败的结构/运行回归。
-2. 最小替换工作台外层展示宿主，验证底栏五入口、状态保留和通讯录内部左右滑动。
-3. 全量门禁通过后提交、推送、备份部署并上传 `.68`，完成 allowlist/full verifier。
+1. 逐行审阅并显式暂存本批文件，提交、推送，从 exact clean checkpoint 备份并同步生产。
+2. 从同一 clean checkpoint 上传 `.68`，完成 allowlist ensure/verify、七维 capability、unknown=426
+   与公网 full verifier；不使用微信开发者工具，不创建 `.67`。
+3. 用户在 Android/iOS 验证普通区域无全局横移/白屏、五入口点击和通讯录内部左右滑动。
 
 停止条件：`.68` Android/iOS 实体验收前保持待用户复核；用户 dirty 文件保持未提交，不提审或正式发布。

@@ -2,6 +2,26 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-30 Mini 五入口移除外层原生滑动宿主
+
+- 真机反馈：`.66` 虽永久关闭全局横滑，普通区域仍可拖动外层 native `swiper`，拖后进入空白屏。
+  `git log -S`/`git blame` 定位外层宿主与关闭状态分流均由 `4fe1b5e7` 引入。
+- 根因：实体机可先物理移动 outer swiper；`primaryWorkspaceSwipeEnabled=false` 又让 change handler
+  拒绝同步 `activeWorkspace`，目标 `swiper-item` 内的旧 workspace 仍为 hidden，最终只剩空白容器。
+- 红绿/实现：旧结构在 primary shell/workbench runtime 新用例先红；现已删除外层 swiper、五个
+  swiper-item、gesture handler 与 change/worklet 回调，改为一个定高 `workspace-host` 和五个常驻
+  sibling slot。底栏仍即时切换，mounted/ready/active/group 状态不变；通讯录自己的
+  `directory-mode-swiper` 完整保留。
+- 语义审计：导航 receiver、串行预载、Promise/catch、空值、权限、Bearer、请求次数与业务写入均
+  未改变；唯一行为变化是普通区域不再存在可接受横向位移的 native owner。
+- 自动验证：定向 6 files/47 tests、Mini 107 files/517 tests、root 242 files/1,135 tests 通过；
+  全端 build/typecheck、Mini verify/determinism/source/package/performance/CI dry-run、任务
+  Prettier/ESLint/diff 与 core smoke 通过。包 5,107,804 bytes、main 1,636,609 bytes、2/2 Worklet，
+  manifest `7b47bcca…2a40f1d`；WXS source/output SHA 均为 `f5fa4eaa…2e7c`。
+- 用户明确禁止使用微信开发者工具、模拟器、自动化或电脑控制验证，本轮未将其作为门禁。状态为
+  `已实现并完成非开发者工具自动验证 → 待 .68 Android/iOS 实体复核`；不创建 `.67`，不提审、
+  不正式发布。checkpoint 识别消息为 `fix(miniprogram): remove native workspace swipe host`。
+
 ## 2026-08-30 取消五入口全局横滑
 
 - 用户发现通讯录已用左右滑动切换科室/人员通讯录；外层 workspace 再监听同向拖动会形成两个
