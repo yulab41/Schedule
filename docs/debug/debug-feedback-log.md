@@ -1857,3 +1857,8 @@
   `73811f1f9204b7c482ab07de0287ebea4c57e693`；API/Web container ID 和 StartedAt 前后完全不变，
   公网 IP full verifier 与远端临时目录清理通过。Windows OpenSSH 受 `lmclient` 默认路由影响横幅超时，
   Git OpenSSH 绑定物理网卡 `192.168.31.109` 后稳定完成；未上传体验版。
+- 体验上传 blocker：用户明确批准 `.72` 后，exact clean `5fff288f` 通过 Mini 110 files/560 tests、
+  production verify 5,271,949 B 和 CI dry-run。上传进程清除代理变量并只把 `servicewechat.com` 固定到
+  已审计 IPv4；Summer 生成 190 code files/2,504,522 bytes 后，微信返回 `20003 invalid ip:
+  38.190.176.204`。`.72` 未形成版本，残留 Summer 进程已终止且未重试；唯一下一步为用户登记该公网
+  IPv4 后重试同一版本/SHA/描述。

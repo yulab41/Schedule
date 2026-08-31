@@ -5,7 +5,7 @@
 ## 仓库与生产基线（2026-08-31）
 
 - 分支：`main`；通讯录阶段 A 代码 `73811f1f` 已推送并同步 production，最终状态 checkpoint 以
-  `docs(status): record directory diagnostics deployment` 识别。
+  `docs(status): record directory diagnostics upload blocker` 识别。
 - 当前体验候选 `.71@7952f1d` 已上传并通过 allowlist/full verifier；`.70@18498a8` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
@@ -18,8 +18,9 @@
 - `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
 - `.71` 从 exact clean `7952f1d1` 经已登记 IPv4 `154.64.226.11` 上传成功，189 files/2,449,336 bytes，
   upload manifest `b2090d71…df55`；allowlist 重建预热的一次 TLS EOF/一次 502 在 2/30 内恢复。
+- `.72@5fff288` 已获批准并从 exact clean worktree 发起一次上传；190 files/2,504,522 bytes 后被微信 `20003 invalid ip: 38.190.176.204` 拒绝，未形成版本且未自动重试。
 - 当前 production 应用 checkpoint `73811f1f9204b7c482ab07de0287ebea4c57e693`、数据库 schema 52；
-  最终 release 元数据以 `docs(status): record directory diagnostics deployment` 识别。备份
+  最终 release 元数据以 `docs(status): record directory diagnostics upload blocker` 识别。备份
   `92af6f22-1d9e-47a2-b78d-e1de255c4fd2`（55 表/196,904 行/88,304,584 bytes）后，应用/控制/
   schema 哈希全同，可信 reuse 无停机切换且公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
@@ -79,6 +80,8 @@
   原生手感、Network、服务端分段和小米 14 端到端时间均暂未验证，阶段 B 不得提前开始。
 - 生产备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后 trusted reuse 到 `73811f1f`；API/Web
   container ID/StartedAt 前后不变，公网 IP full verifier 与远端临时目录清理通过。
+- 精确干净 `5fff288f` 上传源 Mini 110 files/560 tests、production verify 5,271,949 B 和 CI dry-run
+  通过；凭据/描述/版本有效。唯一 blocker 为微信代码上传 IP 白名单缺少 `38.190.176.204`。
 
 ## 已完成的测试工具批次
 
@@ -239,8 +242,8 @@
 
 ## 下一步与停止条件
 
-1. 报告新短 SHA、体验版描述、脏树和测试页面；取得用户当次明确同意后才能上传新体验版。
-2. 上传后执行正式版本白名单、七维 capability、unknown=426 与公网 full verifier。
+1. 用户在微信公众平台把 `38.190.176.204` 加入代码上传 IP 白名单，并回复 Codex 重试同一 `.72`。
+2. 成功上传后执行正式版本白名单、七维 capability、unknown=426 与公网 full verifier。
 3. 用户按运行清单在小米 14 复制诊断数据；阶段 B 只处理数据证明的单一主要瓶颈。
 
 停止条件：收到匹配新体验版的真实诊断数据前保持“待验证”，不提审、不正式发布，不修改正式 API contract、数据库索引或生产部署方式。
