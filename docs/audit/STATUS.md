@@ -1,14 +1,14 @@
 # 微信小程序审计状态
 
-- 当前阶段：通讯录半屏筛选与性能诊断阶段 A 已完成，体验上传被微信 IP 白名单阻断
-- 状态：代码、origin 与 production 已同步；`.72` 未形成版本，当前 `.71@7952f1d` 仍不含本轮修改
+- 当前阶段：通讯录半屏筛选与性能诊断阶段 A 已完成，等待小米 14 体验版诊断数据
+- 状态：代码、origin、production 与 `.72@5fff288` 体验候选已同步并通过正式白名单/full verifier
 - 任务起始 checkpoint：`eeba6402`；工作树保留并行用户修改
 - 代码 checkpoint：`73811f1f feat(miniprogram): add directory performance diagnostics`，已推送
 - production 应用 checkpoint：`73811f1f9204b7c482ab07de0287ebea4c57e693`
 - 生产备份：`92af6f22-1d9e-47a2-b78d-e1de255c4fd2`（55 表、196,904 行、88,304,584 bytes）
-- 最终 production release 元数据以 `docs(status): record directory diagnostics upload blocker` 识别
-- 当前体验候选：`0.1.0-p10.20260831.71@7952f1d`，仅为上一轮候选
-- `.72@5fff288` 从精确干净 worktree 发起一次上传；Summer 生成 190 code files/2,504,522 bytes 后被微信 `20003 invalid ip: 38.190.176.204` 拒绝，未形成版本且未重试
+- 最终 production release 元数据以 `docs(status): record directory diagnostics experience upload` 识别
+- 当前体验候选：`0.1.0-p10.20260831.72@5fff288`，190 code files/2,504,558 bytes，manifest `9868c0c7…1a106c`
+- 首次上传被微信 `20003 invalid ip: 38.190.176.204` 拒绝；用户登记该 IP 后，同一版本/SHA/描述重试成功
 - 基线类型：同一用户工作树修改前/后静态构建；原生、Network、端到端 HTTP 未测
 
 ## 阶段 A 已实现
@@ -44,6 +44,6 @@
 
 ## 唯一下一任务
 
-用户把公网 IPv4 `38.190.176.204` 加入微信小程序代码上传 IP 白名单后，回复 Codex 重试 `.72`。现有当次批准只覆盖同一版本、SHA 和描述；成功后再执行正式版本白名单与 full verifier。
+用户在小米 14 打开 `.72@5fff288`，从“更多 → 测试工具 → 通讯录性能诊断”清空并开始记录，按首次、同条件第二次、不同关键词、带筛选、科室及可行时 Wi-Fi/移动网络执行，停止后复制最近 10 次给 Codex。
 
 停止条件：未收到匹配新体验版的“小米 14 通讯录性能诊断”复制文本前，不进入阶段 B，不修改正式 API contract、数据库索引或生产部署方式，不宣称搜索性能改善。

@@ -1,6 +1,6 @@
 # 微信小程序审计报告
 
-- 审计阶段：通讯录半屏筛选与性能诊断阶段 A 已同步 production，体验上传被微信 IP 白名单阻断
+- 审计阶段：通讯录半屏筛选与性能诊断阶段 A 已同步 `.72`，等待小米 14 诊断数据
 - 更新时间：2026-08-31（Asia/Hong_Kong）
 - 代码 checkpoint：`7952f1d106c65a5c3b8815ee0dc52756252f381a`，已推送并同步 production release
 - 体验构建：`0.1.0-p10.20260831.71@7952f1d`，189 files / 2,449,336 bytes
@@ -225,7 +225,7 @@ Console/Network/帧率与小米 14 仍无当前构建证据，不能据此宣称
 - 修复：按真实 `windowHeight/screenHeight/safeArea` 计算约半屏高度并监听横竖屏变化；保留横条、固定头部/清除、单一滚动区和滚动恢复。测试工具新增默认停止、最多 20 条、可复制 1/10 次的隐私安全诊断；profile 仅在记录中开启。只删除 controller 的一层明确重复能力等待，transport/executor 门禁保留。
 - 风险：低到中；诊断只写 App 内存，不改变 API/contracts/数据库/索引/搜索排序/筛选语义。请求 profile 和额外计时在停止记录时关闭。
 - 置信度：半屏与诊断实现高；首次搜索瓶颈低，必须等小米 14 数据。
-- 状态：代码 `73811f1f` 已推送；备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后可信无停机同步 production，公网 full verifier 通过。`.72@5fff288` 一次上传被微信 `20003 invalid ip: 38.190.176.204` 拒绝且未形成版本；待用户登记该 IP 后重试，阶段 B 未开始。
+- 状态：代码 `73811f1f` 已推送；备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后可信无停机同步 production，公网 full verifier 通过。用户登记 `38.190.176.204` 后，同一 `.72@5fff288` 重试成功并通过正式 allowlist、七维 capability、unknown=426 与公网 full verifier；待小米 14 数据，阶段 B 未开始。
 - 验证：Mini 110 files/561 tests；production verify/source/package/performance/determinism/CI dry-run、全端 build/typecheck、Web 辅助黄金和 core smoke 通过。最终包 5,273,141 B，较同口径基线增加 59,504 B；原生手感、端到端阶段数字和性能变化均为“待小米 14 体验版实测”。
 
 ### 阶段 0 保留输入

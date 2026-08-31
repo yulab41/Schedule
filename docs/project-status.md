@@ -5,9 +5,9 @@
 ## 仓库与生产基线（2026-08-31）
 
 - 分支：`main`；通讯录阶段 A 代码 `73811f1f` 已推送并同步 production，最终状态 checkpoint 以
-  `docs(status): record directory diagnostics upload blocker` 识别。
-- 当前体验候选 `.71@7952f1d` 已上传并通过 allowlist/full verifier；`.70@18498a8` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
-- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+  `docs(status): record directory diagnostics experience upload` 识别。
+- 当前体验候选 `.72@5fff288` 已上传并通过 allowlist/full verifier；`.71@7952f1d` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
@@ -18,9 +18,9 @@
 - `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
 - `.71` 从 exact clean `7952f1d1` 经已登记 IPv4 `154.64.226.11` 上传成功，189 files/2,449,336 bytes，
   upload manifest `b2090d71…df55`；allowlist 重建预热的一次 TLS EOF/一次 502 在 2/30 内恢复。
-- `.72@5fff288` 已获批准并从 exact clean worktree 发起一次上传；190 files/2,504,522 bytes 后被微信 `20003 invalid ip: 38.190.176.204` 拒绝，未形成版本且未自动重试。
+- `.72@5fff288` 首次被微信 `20003 invalid ip: 38.190.176.204` 拒绝；用户登记 IP 后同版本重试成功，190 files/2,504,558 bytes，manifest `9868c0c7…1a106c`。
 - 当前 production 应用 checkpoint `73811f1f9204b7c482ab07de0287ebea4c57e693`、数据库 schema 52；
-  最终 release 元数据以 `docs(status): record directory diagnostics upload blocker` 识别。备份
+  最终 release 元数据以 `docs(status): record directory diagnostics experience upload` 识别。备份
   `92af6f22-1d9e-47a2-b78d-e1de255c4fd2`（55 表/196,904 行/88,304,584 bytes）后，应用/控制/
   schema 哈希全同，可信 reuse 无停机切换且公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
@@ -81,7 +81,7 @@
 - 生产备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后 trusted reuse 到 `73811f1f`；API/Web
   container ID/StartedAt 前后不变，公网 IP full verifier 与远端临时目录清理通过。
 - 精确干净 `5fff288f` 上传源 Mini 110 files/560 tests、production verify 5,271,949 B 和 CI dry-run
-  通过；凭据/描述/版本有效。唯一 blocker 为微信代码上传 IP 白名单缺少 `38.190.176.204`。
+  通过；`.72` 七维 capability 全 true、unknown=426，allowlist verify 与公网 full verifier 通过。
 
 ## 已完成的测试工具批次
 
@@ -242,8 +242,7 @@
 
 ## 下一步与停止条件
 
-1. 用户在微信公众平台把 `38.190.176.204` 加入代码上传 IP 白名单，并回复 Codex 重试同一 `.72`。
-2. 成功上传后执行正式版本白名单、七维 capability、unknown=426 与公网 full verifier。
-3. 用户按运行清单在小米 14 复制诊断数据；阶段 B 只处理数据证明的单一主要瓶颈。
+1. 用户按运行清单在小米 14 `.72@5fff288` 清空/开始记录，执行首次、重复、不同词、筛选、科室及可行时 Wi-Fi/移动网络测试并复制最近 10 次。
+2. Codex 收到真实数据后进入阶段 B，只处理数据证明的单一主要瓶颈。
 
 停止条件：收到匹配新体验版的真实诊断数据前保持“待验证”，不提审、不正式发布，不修改正式 API contract、数据库索引或生产部署方式。

@@ -1862,3 +1862,8 @@
   已审计 IPv4；Summer 生成 190 code files/2,504,522 bytes 后，微信返回 `20003 invalid ip:
   38.190.176.204`。`.72` 未形成版本，残留 Summer 进程已终止且未重试；唯一下一步为用户登记该公网
   IPv4 后重试同一版本/SHA/描述。
+- 体验重试完成：用户登记 `38.190.176.204` 后，复核出口、clean SHA、外置 key 和固定 IPv4 TLS，
+  同一 `.72@5fff288`/描述上传成功；190 code files/2,504,558 bytes，upload manifest
+  `9868c0c74ae54f4fc5f186eabe8fd5441df0db59122bdbb8a184d6ec581a106c`。正式 allowlist ensure 重建
+  API/Web，预热一次 TLS reset/一次 502 后在 3/30 恢复；verify、七维 capability 全 true、动态
+  unknown=426 和带公网 IP full verifier 通过。未提审、未正式发布；下一步只收集小米 14 诊断数据。
