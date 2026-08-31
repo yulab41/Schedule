@@ -1860,10 +1860,39 @@
 - 体验上传 blocker：用户明确批准 `.72` 后，exact clean `5fff288f` 通过 Mini 110 files/560 tests、
   production verify 5,271,949 B 和 CI dry-run。上传进程清除代理变量并只把 `servicewechat.com` 固定到
   已审计 IPv4；Summer 生成 190 code files/2,504,522 bytes 后，微信返回 `20003 invalid ip:
-  38.190.176.204`。`.72` 未形成版本，残留 Summer 进程已终止且未重试；唯一下一步为用户登记该公网
+38.190.176.204`。`.72` 未形成版本，残留 Summer 进程已终止且未重试；唯一下一步为用户登记该公网
   IPv4 后重试同一版本/SHA/描述。
 - 体验重试完成：用户登记 `38.190.176.204` 后，复核出口、clean SHA、外置 key 和固定 IPv4 TLS，
   同一 `.72@5fff288`/描述上传成功；190 code files/2,504,558 bytes，upload manifest
   `9868c0c74ae54f4fc5f186eabe8fd5441df0db59122bdbb8a184d6ec581a106c`。正式 allowlist ensure 重建
   API/Web，预热一次 TLS reset/一次 502 后在 3/30 恢复；verify、七维 capability 全 true、动态
   unknown=426 和带公网 IP full verifier 通过。未提审、未正式发布；下一步只收集小米 14 诊断数据。
+
+## 2026-08-31 通讯录性能诊断阶段 B
+
+- 真实证据：`.72@5fff288` 小米 14 两批共 17 条 Wi-Fi 记录均以 request ID 对上 production API
+  completed 日志。9 次完成搜索中位总计 1315ms、请求前 7ms、首字节 1216ms、API 250ms、API 外
+  差值约 992ms、返回后到可见 19ms；转换 0–1ms、卡片 0–2ms。17 次中 8 次被新输入替代。
+- 引入点与根因边界：`git log -S`/`git blame` 确认 240ms 防抖来自 `1de042b5`，当前 controller
+  调度由 `6b5b30fb` 延续；连续输入实测约 265–450ms，足以让旧关键词发出。服务端查询事务来自
+  `e74e5f35`，工号别名扩展来自 `54379957`；现有日志只支持 API 总耗时，暂不判定索引或权限锁。
+- 红绿与实现：旧实现的 500ms 安静窗口、受控请求头/白名单解析/复制文本、API Server-Timing
+  目标用例先红。实现把自动防抖改为 500ms，显式确认仍立即执行；仅记录状态的通讯录列表发送
+  `X-Schedule-Directory-Diagnostics: v1`，API 仅对小程序同头请求返回固定阶段响应头。
+- 分段与隐私：响应头记录鉴权、事务连接等待、权限、发布批次、别名、主查询、联系方式、计数、
+  查询合计、转换、序列化和总耗时；入口排队明确 unsupported，应用层结果缓存明确 none，实例启动
+  后 60 秒只标 cold/warm 并附实例存活毫秒。客户端只保留固定字段，原始 Header 随即丢弃；不含
+  查询词、姓名、号码、工号、账号、群组、权限、筛选值、游标或响应体。
+- 语义等价审计：DirectoryQuery 的 receiver、await/catch 范围、查询顺序、调用次数、事务边界、
+  null/undefined、排序、分页和返回体不变；计时器使用 finally 只写诊断对象。普通请求、facets、lookup、
+  API JSON contract、schema、索引、权限锁、缓存失效和业务写入不变。
+- 自动验证：定向 Mini 3 files/65 tests、API 1/3，Mini 110/563，root 245 files/1,142 tests 全绿；
+  37/355 按无数据库环境跳过。全端 build/typecheck、Mini verify/source/package/performance/determinism/
+  CI dry-run、任务 ESLint/Prettier/diff 与 core smoke 通过。总包 5,279,151 B，较阶段 A +6,010；main
+  1,679,326 B，较阶段 A +3,529；既有 1.5M/矩阵 warning 不变。API 子包 test 入口受现有根 Vitest
+  `src/**` cwd 排除影响无文件，根级全量已实际执行 API 测试。
+- 报告：ignored `runtime/audit/directory-performance-20260831-phone1/report-app/dist/index.html` 由 Data
+  App 预构建运行时验证，SHA-256 `8a5d742b…cf53`；报告只展示脱敏阶段与聚合，不提交 Git。
+- 当前状态：本地实现与自动验证完成，待识别消息
+  `perf(directory): add measured server timing diagnostics` checkpoint、推送与生产备份部署；`.73`
+  上传须另获当次明确同意，真机修改后数据返回前不填写性能改善值。

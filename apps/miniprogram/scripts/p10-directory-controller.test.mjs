@@ -156,7 +156,29 @@ describe('P10 native directory controller', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('waits for 500ms of quiet input and sends only the latest automatic search', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '李' } });
+    await vi.advanceTimersByTimeAsync(265);
+    definition.methods.handleSearchInput.call(page, { detail: { value: '李四' } });
+    await vi.advanceTimersByTimeAsync(450);
+    definition.methods.handleSearchInput.call(page, { detail: { value: '李四五' } });
+    await vi.advanceTimersByTimeAsync(499);
+    expect(listRequests()).toHaveLength(listRequestCount);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('q=%E6%9D%8E%E5%9B%9B%E4%BA%94');
   });
 
   it('loads facets, searches by text, filters independently, and loads a cursor page', async () => {

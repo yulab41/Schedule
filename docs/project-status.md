@@ -64,20 +64,20 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录半屏筛选与性能诊断阶段 A；代码 checkpoint
-  `73811f1f feat(miniprogram): add directory performance diagnostics` 已推送并同步 production。
-- Sheet 按当前 `windowHeight/screenHeight/safeArea.bottom` 计算约半屏并随横竖屏重算；保留横条、
-  固定标题/完成/清除、单一滚动区、底部安全区、筛选状态和滚动位置。
-- 测试工具新增默认停止、最多 20 条的通讯录诊断，可开始/停止/清空/复制最近 1/10 次；只记录阶段
-  毫秒和脱敏上下文，不记录原词、姓名、号码、完整工号、账号/群组/权限、筛选值或游标。
-- 纯关键词搜索已确认不等待完整 facets；只删除 controller 在已受保护 transport 前的一层重复
-  capability 等待。API/contracts/数据库/索引、搜索排序、权限、筛选、分页和缓存隔离不变。
-- Mini 110 files/561 tests、Web 辅助黄金 2 files/4 tests、全端 build/typecheck、Mini verify/source/
-  package/performance/determinism/CI、Storybook build、任务 lint/format/diff 与 core smoke 通过。
-- root 全量并行首轮有 2 个无关的 5s 超时/Windows 文件锁波动；精确 12 tests 复跑通过，随后
-  串行全量 244 files/1,139 tests 全绿，37 files/355 tests 按无数据库环境跳过。
-- production 包 5,213,637→5,273,141 B（+59,504 B）；现有主包 1.5M 和矩阵节点提示保持基线警告。
-  原生手感、Network、服务端分段和小米 14 端到端时间均暂未验证，阶段 B 不得提前开始。
+- 唯一任务为通讯录性能诊断阶段 B，规格/计划为
+  `2026-08-31-miniprogram-directory-performance-phase-b-*`；阶段 A checkpoint `73811f1f`、
+  production 与 `.72@5fff288` 保持基线。
+- 小米 14 两批共 17 条 Wi-Fi 诊断已与 production request ID 日志逐条匹配，均为 HTTP 200。
+  9 次完成搜索中位总耗时 1315ms、请求前 7ms、首字节 1216ms、API 总耗时 250ms、API 外差值
+  约 992ms、返回后到可见 19ms；转换 0–1ms、卡片 0–2ms。
+- 17 次中 8 次被后续输入替代；连续输入间隔约 265–450ms，旧 240ms 防抖会发出中间关键词。
+  本批只把自动防抖按证据调整为 500ms，显式确认仍立即请求。
+- API 内仍有 14–1790ms 波动。本批增加受控 Server-Timing 响应头，下一轮区分鉴权、事务连接
+  等待、权限、发布批次、别名、主查询、联系方式、计数、转换、序列化和总耗时；排队不支持、
+  应用层缓存 none 明确写出，不修改 JSON contract、schema、索引、权限锁或搜索查询结构。
+- 本地实现和门禁已完成：旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿
+  （37/355 环境跳过），全端 build/typecheck、Mini 全门禁、任务质量和报告构建通过。待提交识别消息
+  `perf(directory): add measured server timing diagnostics`；生产部署后才申请 `.73` 单独上传批准。
 - 生产备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后 trusted reuse 到 `73811f1f`；API/Web
   container ID/StartedAt 前后不变，公网 IP full verifier 与远端临时目录清理通过。
 - 精确干净 `5fff288f` 上传源 Mini 110 files/560 tests、production verify 5,271,949 B 和 CI dry-run
@@ -242,7 +242,8 @@
 
 ## 下一步与停止条件
 
-1. 用户按运行清单在小米 14 `.72@5fff288` 清空/开始记录，执行首次、重复、不同词、筛选、科室及可行时 Wi-Fi/移动网络测试并复制最近 10 次。
-2. Codex 收到真实数据后进入阶段 B，只处理数据证明的单一主要瓶颈。
+1. 完成 500ms 自动搜索防抖与受控 Server-Timing 红绿回归、全量验证、checkpoint、推送和生产部署。
+2. 给出 `.73` 的精确 SHA、描述、脏树和测试页，取得本次明确同意后才上传体验版。
 
-停止条件：收到匹配新体验版的真实诊断数据前保持“待验证”，不提审、不正式发布，不修改正式 API contract、数据库索引或生产部署方式。
+停止条件：没有匹配 `.73` 的小米 14 数据前，不实施数据库索引、权限锁、查询结构或部署拓扑修改，
+不填写修改后性能数值，不提审、不正式发布。

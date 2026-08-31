@@ -266,6 +266,9 @@ describe('safe Mini test tools', () => {
     expect(report).toContain('DIR-7');
     expect(report).toContain('阶段ms=');
     expect(report).toContain('profile=DNS 2ms');
+    expect(report).toContain('服务端=总90ms');
+    expect(report).toContain('排队不支持');
+    expect(report).toContain('缓存none');
     expect(report).not.toMatch(
       /林医生|13800138000|employee-secret|account-|group-|permission-|cursor-/iu,
     );
@@ -349,6 +352,25 @@ function directorySearchDiagnostic(index) {
     sdkVersion: '3.17.1',
     searchTermLength: 5,
     searchType: 'employee-code',
+    serverTiming: {
+      aliasMs: 1,
+      authMs: 4,
+      batchMs: 2,
+      cache: 'none',
+      coldStart: false,
+      contactsMs: 3,
+      countMs: 12,
+      databaseWaitMs: 7,
+      instanceAgeMs: 12_345,
+      permissionMs: 8,
+      queryMs: 46,
+      queueSupported: false,
+      rowsMs: 30,
+      serializationMs: 2,
+      supported: true,
+      totalMs: 90,
+      transformMs: 1,
+    },
     setDataCallbackMs: 26,
     setDataCallCount: 2,
     setDataMaxBytes: 500,

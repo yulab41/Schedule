@@ -402,6 +402,66 @@ describe('P2 Mini wx.request JSON transport', () => {
     });
     expect(JSON.stringify(recorded)).not.toMatch(/Authorization|must-not-be-recorded|token/iu);
   });
+
+  it('requests and retains only fixed directory Server-Timing fields while recording', async () => {
+    const diagnostics = await import('../src/platform/runtime-diagnostics.ts');
+    const store = diagnostics.createRuntimeDiagnosticsStore();
+    store.startDirectorySearchRecording();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
+    const endpoint = defineClientEndpoint({
+      auth: 'bearer',
+      decoder: createCompactDecoder({ type: 'string' }),
+      id: 'test.directory-timing',
+      method: 'GET',
+      path: () => '/groups/group-1/employee-directory?q=redacted',
+    });
+    const request = vi.fn((options) => {
+      options.success({
+        data: 'ok',
+        header: {
+          Authorization: 'must-not-be-recorded',
+          'Server-Timing':
+            'queue;desc="unsupported", cold;desc="warm", instance_age;dur=12345, cache;desc="none", auth;dur=4, db_wait;dur=7, permission;dur=8, batch;dur=2, alias;dur=1, rows;dur=30, contacts;dur=3, count;dur=12, query;dur=46, transform;dur=1, serialize;dur=2, total;dur=90, unsafe;dur=999;desc="secret"',
+          'x-request-id': 'directory-request-safe-1',
+        },
+        statusCode: 200,
+      });
+    });
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      getAccessToken: () => 'token',
+      request,
+    });
+
+    await transport.request(endpoint, undefined);
+
+    expect(request.mock.calls[0]?.[0].header).toMatchObject({
+      'X-Schedule-Directory-Diagnostics': 'v1',
+    });
+    const recorded = store.getSnapshot().requests.at(-1);
+    expect(recorded?.serverTiming).toEqual({
+      aliasMs: 1,
+      authMs: 4,
+      batchMs: 2,
+      cache: 'none',
+      coldStart: false,
+      contactsMs: 3,
+      countMs: 12,
+      databaseWaitMs: 7,
+      instanceAgeMs: 12345,
+      permissionMs: 8,
+      queryMs: 46,
+      queueSupported: false,
+      rowsMs: 30,
+      serializationMs: 2,
+      supported: true,
+      totalMs: 90,
+      transformMs: 1,
+    });
+    expect(JSON.stringify(recorded)).not.toMatch(
+      /Authorization|must-not-be-recorded|unsafe|secret|redacted/iu,
+    );
+  });
 });
 
 function readSource(relativePath) {

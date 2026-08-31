@@ -9,6 +9,26 @@ export interface RuntimeDiagnosticNetworkProfile {
   readonly ttfbMs?: number | undefined;
 }
 
+export interface RuntimeDiagnosticServerTiming {
+  readonly aliasMs?: number | undefined;
+  readonly authMs?: number | undefined;
+  readonly batchMs?: number | undefined;
+  readonly cache?: 'hit' | 'miss' | 'none' | 'unsupported' | undefined;
+  readonly coldStart?: boolean | undefined;
+  readonly contactsMs?: number | undefined;
+  readonly countMs?: number | undefined;
+  readonly databaseWaitMs?: number | undefined;
+  readonly instanceAgeMs?: number | undefined;
+  readonly permissionMs?: number | undefined;
+  readonly queryMs?: number | undefined;
+  readonly queueSupported?: boolean | undefined;
+  readonly rowsMs?: number | undefined;
+  readonly serializationMs?: number | undefined;
+  readonly supported: boolean;
+  readonly totalMs?: number | undefined;
+  readonly transformMs?: number | undefined;
+}
+
 export interface RuntimeDiagnosticRequest {
   readonly capabilityWaitMs?: number | undefined;
   readonly completedAt?: number | undefined;
@@ -22,6 +42,7 @@ export interface RuntimeDiagnosticRequest {
   readonly outcome: DiagnosticRequestOutcome;
   readonly requestId?: string | undefined;
   readonly retryCount: number;
+  readonly serverTiming?: RuntimeDiagnosticServerTiming | undefined;
   readonly startedAt: number;
   readonly statusCode?: number | undefined;
 }
@@ -62,6 +83,7 @@ export interface RuntimeDirectorySearchDiagnostic {
   readonly sdkVersion: string;
   readonly searchTermLength: number;
   readonly searchType: RuntimeDirectorySearchType;
+  readonly serverTiming: RuntimeDiagnosticServerTiming;
   readonly setDataCallbackMs: number;
   readonly setDataCallCount: number;
   readonly setDataMaxBytes: number;
@@ -231,6 +253,7 @@ function createSnapshot(store: RuntimeDiagnosticsStore): RuntimeDiagnosticsSnaps
     directorySearches: store.directorySearches.map((entry) => ({
       ...entry,
       networkProfile: { ...entry.networkProfile },
+      serverTiming: { ...entry.serverTiming },
     })),
     directorySearchRecording: store.isDirectorySearchRecording(),
     errors: store.errors.map((entry) => ({ ...entry })),
@@ -240,6 +263,7 @@ function createSnapshot(store: RuntimeDiagnosticsStore): RuntimeDiagnosticsSnaps
       ...(entry.networkProfile === undefined
         ? {}
         : { networkProfile: { ...entry.networkProfile } }),
+      ...(entry.serverTiming === undefined ? {} : { serverTiming: { ...entry.serverTiming } }),
     })),
   };
 }
@@ -256,6 +280,7 @@ function appendRequest(store: RuntimeDiagnosticsStore, entry: RuntimeDiagnosticR
       Math.abs(startedAt - previous.startedAt) <= 1_000;
     const networkProfile = resolveNetworkProfile(entry);
     const requestId = resolveRequestId(entry);
+    const serverTiming = resolveServerTiming(entry);
     pushBounded(
       store.requests,
       {
@@ -278,6 +303,7 @@ function appendRequest(store: RuntimeDiagnosticsStore, entry: RuntimeDiagnosticR
         retryCount: Math.max(0, Math.min(9, Math.round(entry.retryCount))),
         ...(requestId === undefined ? {} : { requestId }),
         startedAt,
+        ...(serverTiming === undefined ? {} : { serverTiming }),
         ...(Number.isInteger(entry.statusCode)
           ? { statusCode: Math.max(0, Math.min(999, entry.statusCode as number)) }
           : {}),
@@ -335,6 +361,7 @@ function appendDirectorySearch(
           entry.searchType === 'phone'
             ? entry.searchType
             : 'other',
+        serverTiming: normalizeServerTiming(entry.serverTiming),
         setDataCallbackMs: normalizeDuration(entry.setDataCallbackMs),
         setDataCallCount: normalizeCount(entry.setDataCallCount, 100),
         setDataMaxBytes: normalizeCount(entry.setDataMaxBytes, 20_000_000),
@@ -439,6 +466,48 @@ function normalizeNetworkProfile(
   };
 }
 
+function normalizeServerTiming(
+  value: RuntimeDiagnosticServerTiming,
+): RuntimeDiagnosticServerTiming {
+  if (value.supported !== true) return { supported: false };
+  return {
+    supported: true,
+    ...(value.aliasMs === undefined ? {} : { aliasMs: normalizeDuration(value.aliasMs) }),
+    ...(value.authMs === undefined ? {} : { authMs: normalizeDuration(value.authMs) }),
+    ...(value.batchMs === undefined ? {} : { batchMs: normalizeDuration(value.batchMs) }),
+    ...(value.cache === 'hit' ||
+    value.cache === 'miss' ||
+    value.cache === 'none' ||
+    value.cache === 'unsupported'
+      ? { cache: value.cache }
+      : {}),
+    ...(value.coldStart === undefined ? {} : { coldStart: value.coldStart === true }),
+    ...(value.contactsMs === undefined ? {} : { contactsMs: normalizeDuration(value.contactsMs) }),
+    ...(value.countMs === undefined ? {} : { countMs: normalizeDuration(value.countMs) }),
+    ...(value.databaseWaitMs === undefined
+      ? {}
+      : { databaseWaitMs: normalizeDuration(value.databaseWaitMs) }),
+    ...(value.instanceAgeMs === undefined
+      ? {}
+      : { instanceAgeMs: normalizeCount(value.instanceAgeMs, 2_592_000_000) }),
+    ...(value.permissionMs === undefined
+      ? {}
+      : { permissionMs: normalizeDuration(value.permissionMs) }),
+    ...(value.queryMs === undefined ? {} : { queryMs: normalizeDuration(value.queryMs) }),
+    ...(value.queueSupported === undefined
+      ? {}
+      : { queueSupported: value.queueSupported === true }),
+    ...(value.rowsMs === undefined ? {} : { rowsMs: normalizeDuration(value.rowsMs) }),
+    ...(value.serializationMs === undefined
+      ? {}
+      : { serializationMs: normalizeDuration(value.serializationMs) }),
+    ...(value.totalMs === undefined ? {} : { totalMs: normalizeDuration(value.totalMs) }),
+    ...(value.transformMs === undefined
+      ? {}
+      : { transformMs: normalizeDuration(value.transformMs) }),
+  };
+}
+
 function resolveNetworkProfile(
   entry: RuntimeDiagnosticRequestInput,
 ): RuntimeDiagnosticNetworkProfile | undefined {
@@ -447,6 +516,63 @@ function resolveNetworkProfile(
     return normalizeNetworkProfile(normalizeRequestProfile(entry.requestProfile));
   }
   return entry.profileRequested === true ? { supported: false } : undefined;
+}
+
+function resolveServerTiming(
+  entry: RuntimeDiagnosticRequestInput,
+): RuntimeDiagnosticServerTiming | undefined {
+  if (entry.serverTiming !== undefined) return normalizeServerTiming(entry.serverTiming);
+  const header = findResponseHeader(entry.responseHeader, 'server-timing');
+  if (header === undefined) return undefined;
+  const metrics = new Map<string, { readonly description?: string; readonly duration?: number }>();
+  for (const item of header.split(',')) {
+    const [rawName, ...rawParameters] = item.trim().split(';');
+    const name = rawName?.trim().toLowerCase();
+    if (name === undefined || name.length === 0) continue;
+    let description: string | undefined;
+    let duration: number | undefined;
+    for (const rawParameter of rawParameters) {
+      const [rawKey, ...rawValue] = rawParameter.trim().split('=');
+      const key = rawKey?.toLowerCase();
+      const value = rawValue.join('=').trim();
+      if (key === 'dur' && /^\d+(?:\.\d+)?$/u.test(value)) duration = Number(value);
+      if (key === 'desc') description = value.replace(/^"|"$/gu, '').toLowerCase();
+    }
+    metrics.set(name, {
+      ...(description === undefined ? {} : { description }),
+      ...(duration === undefined ? {} : { duration }),
+    });
+  }
+  if (
+    metrics.get('queue')?.description !== 'unsupported' ||
+    metrics.get('cache')?.description !== 'none' ||
+    metrics.get('total')?.duration === undefined
+  ) {
+    return { supported: false };
+  }
+  const duration = (name: string): number | undefined => metrics.get(name)?.duration;
+  const coldDescription = metrics.get('cold')?.description;
+  return normalizeServerTiming({
+    supported: true,
+    ...(duration('alias') === undefined ? {} : { aliasMs: duration('alias') }),
+    ...(duration('auth') === undefined ? {} : { authMs: duration('auth') }),
+    ...(duration('batch') === undefined ? {} : { batchMs: duration('batch') }),
+    cache: 'none',
+    ...(coldDescription === 'cold' || coldDescription === 'warm'
+      ? { coldStart: coldDescription === 'cold' }
+      : {}),
+    ...(duration('contacts') === undefined ? {} : { contactsMs: duration('contacts') }),
+    ...(duration('count') === undefined ? {} : { countMs: duration('count') }),
+    ...(duration('db_wait') === undefined ? {} : { databaseWaitMs: duration('db_wait') }),
+    ...(duration('instance_age') === undefined ? {} : { instanceAgeMs: duration('instance_age') }),
+    ...(duration('permission') === undefined ? {} : { permissionMs: duration('permission') }),
+    ...(duration('query') === undefined ? {} : { queryMs: duration('query') }),
+    queueSupported: false,
+    ...(duration('rows') === undefined ? {} : { rowsMs: duration('rows') }),
+    ...(duration('serialize') === undefined ? {} : { serializationMs: duration('serialize') }),
+    totalMs: duration('total'),
+    ...(duration('transform') === undefined ? {} : { transformMs: duration('transform') }),
+  });
 }
 
 function normalizeRequestProfile(value: unknown): RuntimeDiagnosticNetworkProfile {
@@ -487,11 +613,14 @@ function phaseDuration(
 
 function resolveRequestId(entry: RuntimeDiagnosticRequestInput): string | undefined {
   if (entry.requestId !== undefined) return sanitizeRequestId(entry.requestId);
-  if (!isRecord(entry.responseHeader)) return undefined;
-  for (const [key, value] of Object.entries(entry.responseHeader)) {
-    if (key.toLowerCase() === 'x-request-id' && typeof value === 'string') {
-      return sanitizeRequestId(value);
-    }
+  const value = findResponseHeader(entry.responseHeader, 'x-request-id');
+  return value === undefined ? undefined : sanitizeRequestId(value);
+}
+
+function findResponseHeader(value: unknown, expectedName: string): string | undefined {
+  if (!isRecord(value)) return undefined;
+  for (const [key, headerValue] of Object.entries(value)) {
+    if (key.toLowerCase() === expectedName && typeof headerValue === 'string') return headerValue;
   }
   return undefined;
 }

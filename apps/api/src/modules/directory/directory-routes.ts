@@ -9,6 +9,10 @@ import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
 import { DirectoryQuery } from './directory-query.js';
+import {
+  createDirectoryListTimingOptions,
+  getDirectoryServerTimingTrace,
+} from './directory-server-timing.js';
 
 const groupIdSchema = z.string().uuid();
 
@@ -19,11 +23,13 @@ export function registerDirectoryRoutes(
   app.get('/groups/:groupId/directory/facets', { preHandler: app.authenticate }, (request) =>
     directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
-  app.get('/groups/:groupId/directory', { preHandler: app.authenticate }, (request) =>
+  app.get('/groups/:groupId/directory', createDirectoryListTimingOptions(app), (request) =>
     directoryQuery.list(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseDirectoryQuery(request.query),
+      'internal',
+      getDirectoryServerTimingTrace(request),
     ),
   );
   app.post('/groups/:groupId/directory/lookup', { preHandler: app.authenticate }, (request) =>
@@ -40,12 +46,13 @@ export function registerDirectoryRoutes(
     (request) =>
       directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request), 'employee'),
   );
-  app.get('/groups/:groupId/employee-directory', { preHandler: app.authenticate }, (request) =>
+  app.get('/groups/:groupId/employee-directory', createDirectoryListTimingOptions(app), (request) =>
     directoryQuery.list(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseDirectoryQuery(request.query),
       'employee',
+      getDirectoryServerTimingTrace(request),
     ),
   );
   app.post(

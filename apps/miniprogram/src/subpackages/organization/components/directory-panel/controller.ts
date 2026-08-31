@@ -1440,7 +1440,7 @@ function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void 
   runtime.searchTimer = setTimeout(() => {
     runtime.searchTimer = undefined;
     void search(page, kind);
-  }, 240);
+  }, 500);
 }
 
 function search(

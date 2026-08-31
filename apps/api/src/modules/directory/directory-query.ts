@@ -27,6 +27,10 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
 import { DirectoryFacetCache } from './directory-facet-cache.js';
+import {
+  measureDirectoryPhase,
+  type DirectoryServerTimingTrace,
+} from './directory-server-timing.js';
 
 const defaultPageSize = 30;
 const entryKindOrder: readonly DirectoryEntryKind[] = [
@@ -76,20 +80,33 @@ export class DirectoryQuery {
     groupId: string,
     query: DirectoryQueryInput,
     directoryKind: DirectoryKind = 'internal',
+    timing?: DirectoryServerTimingTrace,
   ): Promise<DirectoryPage> {
+    const transactionStartedAt = performance.now();
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'viewDirectory',
+      if (timing !== undefined) {
+        timing.databaseWaitMs = Math.max(
+          0,
+          Math.round((performance.now() - transactionStartedAt) * 10) / 10,
+        );
+      }
+      const authorization = await measureDirectoryPhase(timing, 'permissionMs', () =>
+        this.permissionService.requirePermission(transaction, identity, groupId, 'viewDirectory'),
       );
-      const batch = await getPublishedBatch(transaction, directoryKind);
+      const batch = await measureDirectoryPhase(timing, 'batchMs', () =>
+        getPublishedBatch(transaction, directoryKind),
+      );
       const canViewAdministratorEntries =
         authorization.user.isDeveloperAdmin ||
         authorization.membership.role === 'owner' ||
         authorization.membership.role === 'administrator';
-      return listDirectoryEntries(transaction, batch.id, query, canViewAdministratorEntries);
+      return listDirectoryEntries(
+        transaction,
+        batch.id,
+        query,
+        canViewAdministratorEntries,
+        timing,
+      );
     });
   }
 
@@ -225,10 +242,13 @@ async function listDirectoryEntries(
   batchId: string,
   query: DirectoryQueryInput,
   canViewAdministratorEntries: boolean,
+  timing?: DirectoryServerTimingTrace,
 ): Promise<DirectoryPage> {
   const pageSize = query.pageSize ?? defaultPageSize;
   const cursor = query.cursor === undefined ? undefined : decodeDirectoryCursor(query.cursor);
-  const employeeCodeEntryIds = await resolveEmployeeCodeEntryIds(transaction, batchId, query.q);
+  const employeeCodeEntryIds = await measureDirectoryPhase(timing, 'aliasMs', () =>
+    resolveEmployeeCodeEntryIds(transaction, batchId, query.q),
+  );
   const rank = buildSearchRank(query.q, employeeCodeEntryIds);
   const conditions = buildDirectoryConditions(batchId, query, rank, canViewAdministratorEntries);
   if (cursor !== undefined) conditions.push(buildCursorCondition(rank, cursor));
@@ -239,36 +259,40 @@ async function listDirectoryEntries(
   ];
   const orderBy = query.q === undefined ? stableOrder : [desc(rank), ...stableOrder];
 
-  const rows = await transaction
-    .select({
-      building: directoryEntries.buildingName,
-      campusCode: directoryCampuses.code,
-      campusDialingNote: directoryCampuses.dialingNote,
-      campusDisplayOrder: directoryCampuses.displayOrder,
-      campusName: directoryCampuses.name,
-      contactName: directoryEntries.contactName,
-      jobTitle: directoryEntries.jobTitle,
-      department: directoryEntries.departmentName,
-      displayOrder: directoryEntries.displayOrder,
-      employeeCode: directoryEntries.employeeCode,
-      entryKind: directoryEntries.entryKind,
-      floor: directoryEntries.floorName,
-      id: directoryEntries.id,
-      notes: directoryEntries.notes,
-      rank,
-      room: directoryEntries.roomName,
-      section: directoryEntries.sectionName,
-      subunit: directoryEntries.subunitName,
-    })
-    .from(directoryEntries)
-    .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
-    .where(and(...conditions))
-    .orderBy(...orderBy)
-    .limit(pageSize + 1);
+  const rows = await measureDirectoryPhase(timing, 'rowsMs', () =>
+    transaction
+      .select({
+        building: directoryEntries.buildingName,
+        campusCode: directoryCampuses.code,
+        campusDialingNote: directoryCampuses.dialingNote,
+        campusDisplayOrder: directoryCampuses.displayOrder,
+        campusName: directoryCampuses.name,
+        contactName: directoryEntries.contactName,
+        jobTitle: directoryEntries.jobTitle,
+        department: directoryEntries.departmentName,
+        displayOrder: directoryEntries.displayOrder,
+        employeeCode: directoryEntries.employeeCode,
+        entryKind: directoryEntries.entryKind,
+        floor: directoryEntries.floorName,
+        id: directoryEntries.id,
+        notes: directoryEntries.notes,
+        rank,
+        room: directoryEntries.roomName,
+        section: directoryEntries.sectionName,
+        subunit: directoryEntries.subunitName,
+      })
+      .from(directoryEntries)
+      .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
+      .where(and(...conditions))
+      .orderBy(...orderBy)
+      .limit(pageSize + 1),
+  );
   const pageRows = rows.slice(0, pageSize);
-  const contactMethods = await loadContactMethods(
-    transaction,
-    pageRows.map((row) => row.id),
+  const contactMethods = await measureDirectoryPhase(timing, 'contactsMs', () =>
+    loadContactMethods(
+      transaction,
+      pageRows.map((row) => row.id),
+    ),
   );
   const countConditions = buildDirectoryConditions(
     batchId,
@@ -276,14 +300,23 @@ async function listDirectoryEntries(
     rank,
     canViewAdministratorEntries,
   );
-  const [countRow] = await transaction
-    .select({ count: sql<number>`count(*)` })
-    .from(directoryEntries)
-    .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
-    .where(and(...countConditions));
+  const [countRow] = await measureDirectoryPhase(timing, 'countMs', () =>
+    transaction
+      .select({ count: sql<number>`count(*)` })
+      .from(directoryEntries)
+      .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
+      .where(and(...countConditions)),
+  );
   const last = pageRows.at(-1);
 
-  return {
+  if (timing !== undefined) {
+    timing.queryMs =
+      (timing.aliasMs ?? 0) +
+      (timing.rowsMs ?? 0) +
+      (timing.contactsMs ?? 0) +
+      (timing.countMs ?? 0);
+  }
+  return measureDirectoryPhase(timing, 'transformMs', () => ({
     entries: pageRows.map((row) => toDirectoryEntry(row, contactMethods.get(row.id) ?? [])),
     ...(rows.length > pageSize && last !== undefined
       ? {
@@ -296,7 +329,7 @@ async function listDirectoryEntries(
         }
       : {}),
     totalCount: Number(countRow?.count ?? 0),
-  };
+  }));
 }
 
 function buildDirectoryConditions(

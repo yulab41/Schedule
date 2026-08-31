@@ -122,6 +122,8 @@ export function createWxJsonTransport(options: {
             ? options.capability(endpoint as ClientEndpoint<unknown, unknown>, input)
             : options.capability;
         const directoryDiagnosticRecording = isRuntimeDirectorySearchRecording();
+        const directoryListDiagnosticRecording =
+          directoryDiagnosticRecording && isDirectoryListPath(path);
         const capabilityStartedAt = directoryDiagnosticRecording ? Date.now() : 0;
         await requireClientCapability(capability);
         const capabilityWaitMs = directoryDiagnosticRecording
@@ -168,6 +170,9 @@ export function createWxJsonTransport(options: {
           ...(body === undefined ? {} : { data: body }),
           ...(options.delay === undefined ? {} : { delay: options.delay }),
           ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+          ...(directoryListDiagnosticRecording
+            ? { header: { 'X-Schedule-Directory-Diagnostics': 'v1' } }
+            : {}),
           method: endpoint.method,
           request: options.request,
           ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
@@ -187,6 +192,10 @@ export function createWxJsonTransport(options: {
       }
     },
   };
+}
+
+function isDirectoryListPath(path: string): boolean {
+  return /\/groups\/[^/?]+\/(?:employee-)?directory(?:\?|$)/u.test(path);
 }
 
 function createRuntimeWxJsonTransport(

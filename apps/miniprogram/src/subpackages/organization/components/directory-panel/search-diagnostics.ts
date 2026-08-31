@@ -199,6 +199,7 @@ export function completeDirectorySearchDiagnostic(
       sdkVersion: textValue(app?.SDKVersion),
       searchTermLength: trace.searchTermLength,
       searchType: trace.searchType,
+      serverTiming: request?.serverTiming ?? unsupportedServerTiming,
       setDataCallbackMs:
         input.setDataCallbackAt === undefined
           ? 0
@@ -214,6 +215,7 @@ export function completeDirectorySearchDiagnostic(
 }
 
 const unsupportedNetworkProfile: RuntimeDiagnosticNetworkProfile = { supported: false };
+const unsupportedServerTiming = { supported: false } as const;
 
 function findMatchingDirectoryRequest(trace: DirectorySearchDiagnosticTrace) {
   const expectedEndpoint =

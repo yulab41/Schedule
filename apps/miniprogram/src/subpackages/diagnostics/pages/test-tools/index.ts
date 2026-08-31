@@ -865,6 +865,7 @@ function createDirectorySearchReportLines(rows: readonly DirectorySearchView[]):
     `setData=次数${item.setDataCallCount}，累计估算${item.setDataTotalBytes}B，最大单次${item.setDataMaxBytes}B`,
     `结果=返回${item.resultCount}条，下一页${yesNo(item.hasNextPage)}，响应估算${item.responseBytes}B，facets就绪${yesNo(item.facetsReady)}，发布批次确认${yesNo(item.publishedBatchConfirmed)}`,
     `网络=${item.networkType}，requestId=${item.requestId}，profile=${formatNetworkProfile(item.networkProfile)}`,
+    `服务端=${formatServerTiming(item.serverTiming)}`,
     `环境=${item.deviceModel} | ${item.systemVersion} | 微信${item.wechatVersion} | 基础库${item.sdkVersion} | 小程序${item.miniProgramVersion} | 体验构建${item.experienceVersion}`,
     '',
   ]);
@@ -873,6 +874,30 @@ function createDirectorySearchReportLines(rows: readonly DirectorySearchView[]):
 function formatNetworkProfile(profile: RuntimeDirectorySearchDiagnostic['networkProfile']): string {
   if (!profile.supported) return '不支持';
   return `DNS ${profile.dnsMs ?? '不支持'}ms / 建连 ${profile.connectMs ?? '不支持'}ms / TLS ${profile.tlsMs ?? '不支持'}ms / 首字节 ${profile.ttfbMs ?? '不支持'}ms / 下载 ${profile.downloadMs ?? '不支持'}ms`;
+}
+
+function formatServerTiming(timing: RuntimeDirectorySearchDiagnostic['serverTiming']): string {
+  if (!timing.supported) return '不支持';
+  const duration = (value: number | undefined): string =>
+    value === undefined ? '不支持' : `${value}ms`;
+  return [
+    `总${duration(timing.totalMs)}`,
+    `鉴权${duration(timing.authMs)}`,
+    `数据库连接等待${duration(timing.databaseWaitMs)}`,
+    `权限${duration(timing.permissionMs)}`,
+    `发布批次${duration(timing.batchMs)}`,
+    `工号别名${duration(timing.aliasMs)}`,
+    `主查询${duration(timing.rowsMs)}`,
+    `联系方式${duration(timing.contactsMs)}`,
+    `计数${duration(timing.countMs)}`,
+    `查询合计${duration(timing.queryMs)}`,
+    `结果转换${duration(timing.transformMs)}`,
+    `序列化${duration(timing.serializationMs)}`,
+    `冷启动${timing.coldStart === undefined ? '不支持' : timing.coldStart ? '是' : '否'}`,
+    `实例存活${duration(timing.instanceAgeMs)}`,
+    `排队${timing.queueSupported === false ? '不支持' : '支持'}`,
+    `缓存${timing.cache ?? '不支持'}`,
+  ].join(' / ');
 }
 
 function searchTypeLabel(value: RuntimeDirectorySearchDiagnostic['searchType']): string {
