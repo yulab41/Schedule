@@ -21,15 +21,19 @@
 - 性能/包体：生产只读数据库查询路径三轮中位数的中位数 50.12→48.36ms（-3.5%），P95 中位数
   62.17→57.34ms；这不是端到端 HTTP，后者当前工具无法安全测量。clean HEAD→修改后包体：main
   1,658,099→1,658,307 B，organization 1,201,831→1,210,386 B，总计 5,204,815→5,213,578 B。
-- 自动验证：Mini 110 files/555 tests；root 244 files/1,139 tests（37 files/355 tests 按数据库环境
+- 自动验证：exact-clean Mini 110 files/554 tests；root 244 files/1,139 tests（37 files/355 tests 按数据库环境
   跳过）；全端 typecheck/build、Mini verify/source/package/performance/determinism/CI dry-run、任务
   ESLint/Prettier/diff 和 core smoke 通过。全仓 lint/format 仍只受未改 `wx-request-executor.ts`
   `prefer-const` 与既有约 385 文件格式基线阻断。代码 checkpoint `7952f1d1` 已推送；生产备份
   `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f`（55 表、195,074 行、87,707,540 bytes、SHA-256
   `a51e0d81…f5cc`）后完整部署 release `7952f1d106c65a5c3b8815ee0dc52756252f381a`。预热首次 TLS
   reset 后在 1/30 重试恢复，schema 52、带公网 IP full verifier、正式健康和线上 alias 产物只读检查
-  通过，远端临时目录已删除。体验上传和小米 14 尚未完成，上传仍须当次批准；最终状态 checkpoint
-  以 `docs(status): record directory follow-up deployment` 识别。
+  通过，远端临时目录已删除。用户当次批准后，从 exact clean `7952f1d1` 经已登记 IPv4
+  `154.64.226.11` 上传 `.71`：189 files、zip 2,449,336 bytes、manifest `b2090d71…df55`、描述
+  `directory-gesture-return-alias-7952f1d`。正式 allowlist ensure/verify、未知版本 426 和公网 full
+  verifier 通过；预热一次 TLS EOF/一次 502 在 2/30 内恢复。未调用微信开发者工具、未提审、未正式
+  发布，小米 14 仍待匹配体验版人工复核；最终状态 checkpoint 以
+  `docs(status): record directory follow-up experience upload` 识别。
 
 ## 2026-08-30 Mini 通讯录空筛选与运行态性能修复
 

@@ -6,8 +6,8 @@
 
 - 分支：`main`；测试工具代码 `18498a8b` 已推送并同步 production，最终状态 checkpoint 以
   `docs(status): record test tools experience upload` 识别。
-- 当前体验候选 `.70@18498a8` 已上传并通过 allowlist/full verifier；`.69@c2a5744` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
-- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前体验候选 `.71@7952f1d` 已上传并通过 allowlist/full verifier；`.70@18498a8` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
@@ -16,6 +16,8 @@
   2,373,410 bytes，upload manifest `0b8c9155…aa38c5`；allowlist 重建预热的一次 reset/一次 502
   在受控等待内恢复，随后 trusted verify 与公网 full verifier 通过。
 - `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
+- `.71` 从 exact clean `7952f1d1` 经已登记 IPv4 `154.64.226.11` 上传成功，189 files/2,449,336 bytes，
+  upload manifest `b2090d71…df55`；allowlist 重建预热的一次 TLS EOF/一次 502 在 2/30 内恢复。
 - 当前 production 应用 checkpoint `7952f1d1`、数据库 schema 52；最终 release 元数据以最新
   `docs(status): record directory follow-up deployment` checkpoint 识别。备份
   `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f` 后完整部署，公网 full verifier 通过。
@@ -70,14 +72,13 @@
   `directory_search_aliases(normalized_value,type)` 索引预解析，工号优先于电话但姓名/拼音/电话/筛选/排序/游标不变。
 - 生产发布批次只读验证 `D0468/d0468/0468/468` 均命中目标各 1 条；查询路径三轮中位数的中位数
   50.12→48.36ms（-3.5%），P95 中位数 62.17→57.34ms；该数据不是端到端 HTTP。
-- Mini 110/555、root 244 files/1,139 tests、全端 build/typecheck、Mini verify/source/package/
+- exact-clean Mini 110/554、root 244 files/1,139 tests、全端 build/typecheck、Mini verify/source/package/
   performance/determinism/CI、任务 ESLint/Prettier/diff 和 core smoke 通过；37 files/355 tests 按无数据库
   环境跳过。全仓 lint/format 仅保留未改既有阻断。
 - 生产备份 `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f` 后完整部署 `7952f1d1`；预热首次 TLS reset
   后恢复，schema 52、带公网 IP full verifier、正式健康与 alias 产物检查通过，远端临时目录已清理。
-- 当前 `.70@18498a8` 不含本修复。下一候选拟为 `.71@7952f1d`；先从 exact clean SHA 复核构建并
-  报告版本描述/脏树/测试页，取得当次体验上传批准后才上传。DevTools、端到端 HTTP、原生手势/帧率
-  和小米 14 暂未验证。
+- `.71@7952f1d` 已从 exact clean worktree 上传并加入正式客户端白名单；189 files/2,449,336 bytes，
+  manifest `b2090d71…df55`。未提审、未正式发布；DevTools、端到端 HTTP、原生手势/帧率和小米 14 暂未验证。
 
 ## 已完成的测试工具批次
 
@@ -238,10 +239,8 @@
 
 ## 下一步与停止条件
 
-1. 从 exact clean `7952f1d1` 复核 production Mini 构建、包体、确定性和 CI dry-run。
-2. 单独向用户报告拟上传 `.71` 的短 SHA、版本描述、脏树和测试页面，取得当次明确批准后才上传。
-3. 用户在小米 14 验证横条下滑/列表滚动/回弹/固定清除、拨号返回及四种工号输入；开发者工具
+1. 用户在小米 14 打开 `.71@7952f1d`，先在“更多 → 测试工具”截图版本、设备/安全区和显示检查。
+2. 验证通讯录横条下滑/列表滚动/回弹/固定清除、拨号返回及四种工号输入；开发者工具
    Console 仅作辅助证据。
 
-停止条件：已提交体验上传门禁信息；未获当次批准前不上传。收到匹配构建真机证据前保持“待验证”，
-不提审、不正式发布。
+停止条件：收到匹配 `.71@7952f1d` 的小米 14 证据前保持“待验证”，不提审、不正式发布。

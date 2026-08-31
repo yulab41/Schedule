@@ -1,12 +1,12 @@
 # 微信小程序审计状态
 
-- 当前阶段：通讯录弹层、拨号返回和工号别名修复已完成生产部署
-- 状态：实现、推送、生产备份/部署和只读验证完成；体验上传和小米 14 待完成
+- 当前阶段：通讯录弹层、拨号返回和工号别名修复体验候选已上传
+- 状态：实现、推送、生产部署、体验上传、客户端白名单和自动验证完成；小米 14 待人工复核
 - 任务起始应用 checkpoint：`18498a8b`；并行状态文档后当前基线：`01add026`
 - 代码 checkpoint：`7952f1d1 fix(directory): preserve results and support employee aliases`，已推送
 - 生产 release：`7952f1d106c65a5c3b8815ee0dc52756252f381a`
 - 生产备份：`1a46cf22-4a78-4032-a1fd-5f3fb1583a2f`（55 表、195,074 行、87,707,540 bytes）
-- 当前体验候选仍为：`0.1.0-p10.20260831.70@18498a8`；不包含本次修复
+- 当前体验候选：`0.1.0-p10.20260831.71@7952f1d`；189 files / 2,449,336 bytes，manifest `b2090d71…df55`
 - 基线类型：clean HEAD 包体 + 用户脏树自动测试；无关用户文件保持排除
 
 ## 已实现
@@ -24,7 +24,7 @@
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | 先红         | Mini 5、导入 1、API 2 项旧实现失败                                                                      |
 | 定向         | Mini 3 files/45 tests；导入 13；API unit 2；MySQL integration 5 按环境跳过                              |
-| 全量         | Mini 110 files/555 tests；root 244 files/1,139 tests，37 files/355 tests 按数据库环境跳过               |
+| 全量         | exact-clean Mini 110 files/554 tests；root 244 files/1,139 tests，37 files/355 tests 按数据库环境跳过   |
 | 构建与静态   | 全端 typecheck/build、Mini verify/source/package/performance/determinism/CI dry-run 通过                |
 | 任务质量     | 任务 ESLint/Prettier/diff、`pnpm smoke:check-core` 通过                                                 |
 | 工号实际结果 | production 当前发布批次只读验证 `D0468/d0468/0468/468` 均命中 D0468，各 1 条                            |
@@ -37,12 +37,12 @@
 ## 工具与未验证项
 
 - 已读取并应用：`brainstorming`、`systematic-debugging`、`miniprogram-development`、`ui-design`、`ui-ux-pro-max`、`frontend-design`。
-- 已使用：Git、Node、pnpm、TypeScript、Vitest、生产只读 SQL、SSH/SCP、项目构建/包体/确定性/CI/部署/verifier 脚本。
+- 已使用：Git、Node、pnpm、TypeScript、Vitest、生产只读 SQL、SSH/SCP、Node `miniprogram-ci`、项目构建/包体/确定性/CI/部署/verifier 脚本。
 - 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮未调用。
 - WXS 原生触摸、遮罩/安全区、真实 Console/Network、端到端 HTTP、帧率和小米 14 当前构建均暂未验证。
 
 ## 唯一下一任务
 
-从 exact clean `7952f1d1` 复核 production Mini 构建，单独报告拟上传 `.71` 的短 SHA、版本描述、脏树和测试页；取得当次明确批准后才能上传体验版。未取得匹配小米 14 证据前不得宣称真机通过，不提审、不正式发布。
+用户在小米 14 打开 `.71@7952f1d`，从“更多 → 测试工具”核对版本/设备/安全区后，逐项验证横条下滑、列表滚动、回弹、固定清除、拨号返回和四种工号输入。未取得匹配证据前不得宣称真机通过，不提审、不正式发布。
 
-停止条件：已向用户提交体验上传门禁信息；未获批准前停止在上传之前。
+停止条件：等待用户返回匹配 `.71@7952f1d` 的小米 14 截图或简化报告。
