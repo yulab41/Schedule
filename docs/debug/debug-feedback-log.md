@@ -1893,6 +1893,11 @@
   `src/**` cwd 排除影响无文件，根级全量已实际执行 API 测试。
 - 报告：ignored `runtime/audit/directory-performance-20260831-phone1/report-app/dist/index.html` 由 Data
   App 预构建运行时验证，SHA-256 `8a5d742b…cf53`；报告只展示脱敏阶段与聚合，不提交 Git。
-- 当前状态：本地实现与自动验证完成，待识别消息
-  `perf(directory): add measured server timing diagnostics` checkpoint、推送与生产备份部署；`.73`
-  上传须另获当次明确同意，真机修改后数据返回前不填写性能改善值。
+- checkpoint/生产：代码 `bb97145d` 已推送。clean release 三层 cache 因 API 变化正确 miss；备份
+  `758c1a3b-d444-4bd1-879a-e675ae6276e5`（55 表/197,477 行/88,492,384 bytes/SHA-256
+  `d54453ca…fde7`）后完整部署。首次远端命令因 PowerShell→SSH 引号在 updater 前失败，改用 ignored
+  `runtime/` 固定脚本后成功；API 首次健康探测 502 后恢复，schema 52、privacy 0/0、带公网 IP full
+  verifier 与远端临时目录清理通过，production release 为 `bb97145d`。
+- 当前状态：代码、origin 与 production 已同步；最终状态识别消息为
+  `docs(status): record directory phase b deployment`。`.73` 上传须另获当次明确同意，匹配真机修改后
+  数据返回前不填写性能改善值，不改索引、权限锁或搜索查询结构。

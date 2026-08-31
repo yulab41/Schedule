@@ -4,8 +4,8 @@
 
 ## 仓库与生产基线（2026-08-31）
 
-- 分支：`main`；通讯录阶段 A 代码 `73811f1f` 已推送并同步 production，最终状态 checkpoint 以
-  `docs(status): record directory diagnostics experience upload` 识别。
+- 分支：`main`；通讯录阶段 B 代码 `bb97145d` 已推送并同步 production，最终状态 checkpoint 以
+  `docs(status): record directory phase b deployment` 识别。
 - 当前体验候选 `.72@5fff288` 已上传并通过 allowlist/full verifier；`.71@7952f1d` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
@@ -19,10 +19,10 @@
 - `.71` 从 exact clean `7952f1d1` 经已登记 IPv4 `154.64.226.11` 上传成功，189 files/2,449,336 bytes，
   upload manifest `b2090d71…df55`；allowlist 重建预热的一次 TLS EOF/一次 502 在 2/30 内恢复。
 - `.72@5fff288` 首次被微信 `20003 invalid ip: 38.190.176.204` 拒绝；用户登记 IP 后同版本重试成功，190 files/2,504,558 bytes，manifest `9868c0c7…1a106c`。
-- 当前 production 应用 checkpoint `73811f1f9204b7c482ab07de0287ebea4c57e693`、数据库 schema 52；
-  最终 release 元数据以 `docs(status): record directory diagnostics experience upload` 识别。备份
-  `92af6f22-1d9e-47a2-b78d-e1de255c4fd2`（55 表/196,904 行/88,304,584 bytes）后，应用/控制/
-  schema 哈希全同，可信 reuse 无停机切换且公网 full verifier 通过。
+- 当前 production 应用 checkpoint `bb97145dee8f8ee7a1ec4a57d532c60eb8f63625`、数据库 schema 52；
+  最终 release 元数据将以 `docs(status): record directory phase b deployment` 识别。备份
+  `758c1a3b-d444-4bd1-879a-e675ae6276e5`（55 表/197,477 行/88,492,384 bytes）后完整重建 API/Web，
+  首次健康探测 502 后恢复，privacy 0/0、公网 full verifier 与远端临时目录清理通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -75,9 +75,9 @@
 - API 内仍有 14–1790ms 波动。本批增加受控 Server-Timing 响应头，下一轮区分鉴权、事务连接
   等待、权限、发布批次、别名、主查询、联系方式、计数、转换、序列化和总耗时；排队不支持、
   应用层缓存 none 明确写出，不修改 JSON contract、schema、索引、权限锁或搜索查询结构。
-- 本地实现和门禁已完成：旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿
-  （37/355 环境跳过），全端 build/typecheck、Mini 全门禁、任务质量和报告构建通过。待提交识别消息
-  `perf(directory): add measured server timing diagnostics`；生产部署后才申请 `.73` 单独上传批准。
+- 旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿（37/355 环境跳过），全端
+  build/typecheck、Mini 全门禁、任务质量和报告构建通过。代码 `bb97145d` 已推送并完成生产备份/
+  全量部署/公网验证；`.73` 仍须给出 exact clean 候选信息并另获当次上传批准。
 - 生产备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后 trusted reuse 到 `73811f1f`；API/Web
   container ID/StartedAt 前后不变，公网 IP full verifier 与远端临时目录清理通过。
 - 精确干净 `5fff288f` 上传源 Mini 110 files/560 tests、production verify 5,271,949 B 和 CI dry-run
@@ -242,8 +242,8 @@
 
 ## 下一步与停止条件
 
-1. 完成 500ms 自动搜索防抖与受控 Server-Timing 红绿回归、全量验证、checkpoint、推送和生产部署。
-2. 给出 `.73` 的精确 SHA、描述、脏树和测试页，取得本次明确同意后才上传体验版。
+1. 从 exact clean code checkpoint 构建 `.73` 候选并给出精确 SHA、描述、脏树和测试页。
+2. 取得用户本次明确同意后才上传体验版；随后等待小米 14 新诊断。
 
 停止条件：没有匹配 `.73` 的小米 14 数据前，不实施数据库索引、权限锁、查询结构或部署拓扑修改，
 不填写修改后性能数值，不提审、不正式发布。
