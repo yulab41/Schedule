@@ -1850,3 +1850,10 @@
   未触及 Web 核心链路，无需 `pnpm smoke:browser`。
 - 验证层级：Web 390×844/320×700 辅助黄金分别得到 422/350px 半屏且测试工具无横溢；未调用微信
   开发者工具。原生手感、Console/Network、服务端分段和小米 14 数据均为“当前工具无法测量，暂未验证”。
+- checkpoint/生产：代码 `73811f1f` 已推送。clean release 首轮 build cache miss、dist/API-flat hit，
+  随后全部 hit；首次按应用 checkpoint 填 rollbackCandidate 被可信工具拒绝且未切换，读取服务器
+  当前状态 checkpoint `eeba6402` 后重新打包。备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2`
+  （55 表/196,904 行/88,304,584 bytes/SHA-256 `353ca8df…22362`）后 hash-identical reuse 到
+  `73811f1f9204b7c482ab07de0287ebea4c57e693`；API/Web container ID 和 StartedAt 前后完全不变，
+  公网 IP full verifier 与远端临时目录清理通过。Windows OpenSSH 受 `lmclient` 默认路由影响横幅超时，
+  Git OpenSSH 绑定物理网卡 `192.168.31.109` 后稳定完成；未上传体验版。

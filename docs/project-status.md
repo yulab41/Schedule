@@ -4,8 +4,8 @@
 
 ## 仓库与生产基线（2026-08-31）
 
-- 分支：`main`；测试工具代码 `18498a8b` 已推送并同步 production，最终状态 checkpoint 以
-  `docs(status): record test tools experience upload` 识别。
+- 分支：`main`；通讯录阶段 A 代码 `73811f1f` 已推送并同步 production，最终状态 checkpoint 以
+  `docs(status): record directory diagnostics deployment` 识别。
 - 当前体验候选 `.71@7952f1d` 已上传并通过 allowlist/full verifier；`.70@18498a8` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
@@ -18,9 +18,10 @@
 - `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
 - `.71` 从 exact clean `7952f1d1` 经已登记 IPv4 `154.64.226.11` 上传成功，189 files/2,449,336 bytes，
   upload manifest `b2090d71…df55`；allowlist 重建预热的一次 TLS EOF/一次 502 在 2/30 内恢复。
-- 当前 production 应用 checkpoint `7952f1d1`、数据库 schema 52；最终 release 元数据以最新
-  `docs(status): record directory follow-up deployment` checkpoint 识别。备份
-  `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f` 后完整部署，公网 full verifier 通过。
+- 当前 production 应用 checkpoint `73811f1f9204b7c482ab07de0287ebea4c57e693`、数据库 schema 52；
+  最终 release 元数据以 `docs(status): record directory diagnostics deployment` 识别。备份
+  `92af6f22-1d9e-47a2-b78d-e1de255c4fd2`（55 表/196,904 行/88,304,584 bytes）后，应用/控制/
+  schema 哈希全同，可信 reuse 无停机切换且公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -62,8 +63,8 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录半屏筛选与性能诊断阶段 A；起始 checkpoint `eeba6402`，计划代码 checkpoint
-  以 `feat(miniprogram): add directory performance diagnostics` 识别，尚未提交/部署。
+- 唯一任务为通讯录半屏筛选与性能诊断阶段 A；代码 checkpoint
+  `73811f1f feat(miniprogram): add directory performance diagnostics` 已推送并同步 production。
 - Sheet 按当前 `windowHeight/screenHeight/safeArea.bottom` 计算约半屏并随横竖屏重算；保留横条、
   固定标题/完成/清除、单一滚动区、底部安全区、筛选状态和滚动位置。
 - 测试工具新增默认停止、最多 20 条的通讯录诊断，可开始/停止/清空/复制最近 1/10 次；只记录阶段
@@ -76,6 +77,8 @@
   串行全量 244 files/1,139 tests 全绿，37 files/355 tests 按无数据库环境跳过。
 - production 包 5,213,637→5,273,141 B（+59,504 B）；现有主包 1.5M 和矩阵节点提示保持基线警告。
   原生手感、Network、服务端分段和小米 14 端到端时间均暂未验证，阶段 B 不得提前开始。
+- 生产备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后 trusted reuse 到 `73811f1f`；API/Web
+  container ID/StartedAt 前后不变，公网 IP full verifier 与远端临时目录清理通过。
 
 ## 已完成的测试工具批次
 
@@ -236,8 +239,8 @@
 
 ## 下一步与停止条件
 
-1. 完成显式路径 checkpoint、推送与 production 备份/部署/full verifier。
-2. 报告新短 SHA、体验版描述、脏树和测试页面；取得用户当次明确同意后才能上传新体验版。
+1. 报告新短 SHA、体验版描述、脏树和测试页面；取得用户当次明确同意后才能上传新体验版。
+2. 上传后执行正式版本白名单、七维 capability、unknown=426 与公网 full verifier。
 3. 用户按运行清单在小米 14 复制诊断数据；阶段 B 只处理数据证明的单一主要瓶颈。
 
 停止条件：收到匹配新体验版的真实诊断数据前保持“待验证”，不提审、不正式发布，不修改正式 API contract、数据库索引或生产部署方式。
