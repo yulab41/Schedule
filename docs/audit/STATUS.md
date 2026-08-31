@@ -1,13 +1,13 @@
 # 微信小程序审计状态
 
 - 当前阶段：通讯录性能诊断阶段 B，已取得 `.72@5fff288` 小米 14 数据并完成 API 日志对照
-- 状态：阶段 B 代码、origin 与 production 已同步；等待 `.73` 单独上传批准
+- 状态：阶段 B 代码、origin、production 与 `.73@c7c142e` 体验候选已同步并通过白名单/full verifier
 - 任务起始 checkpoint：`eeba6402`；工作树保留并行用户修改
 - 代码 checkpoint：`bb97145d perf(directory): add measured server timing diagnostics`，已推送
 - production 应用 checkpoint：`bb97145dee8f8ee7a1ec4a57d532c60eb8f63625`
 - 生产备份：`758c1a3b-d444-4bd1-879a-e675ae6276e5`（55 表、197,477 行、88,492,384 bytes）
-- 最终 production release 元数据将以 `docs(status): record directory phase b deployment` 识别
-- 当前体验候选：`0.1.0-p10.20260831.72@5fff288`，190 code files/2,504,558 bytes，manifest `9868c0c7…1a106c`
+- 最终 production release 元数据以 `docs(status): record directory phase b deployment` 识别
+- 当前体验候选：`0.1.0-p10.20260831.73@c7c142e`，190 code files/2,517,609 bytes，manifest `6ed8b196…b89e4`
 - 首次上传被微信 `20003 invalid ip: 38.190.176.204` 拒绝；用户登记该 IP 后，同一版本/SHA/描述重试成功
 - 基线类型：同一用户工作树修改前/后静态构建；原生、Network、端到端 HTTP 未测
 
@@ -45,8 +45,8 @@ Data App 预构建运行时校验，HTML SHA-256 `8a5d742b…cf53`，保存在 i
 
 ## 唯一下一任务
 
-从 exact clean code checkpoint 准备 `.73` 体验候选，给出版本、SHA、描述、脏树和测试页后等待用户
-当次上传批准。
+用户在小米 14 `.73@c7c142e` 按首次、同条件第二次、不同关键词、带筛选、科室及可行时 Wi-Fi/移动
+网络执行诊断，停止后复制最近 10 次给 Codex。
 
 停止条件：匹配 `.73` 的小米 14 数据返回前，不修改数据库索引、权限锁、搜索查询结构或生产部署方式，
 不填写修改后性能数字，不提审、不正式发布。

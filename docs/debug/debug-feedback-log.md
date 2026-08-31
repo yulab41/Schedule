@@ -1901,3 +1901,12 @@
 - 当前状态：代码、origin 与 production 已同步；最终状态识别消息为
   `docs(status): record directory phase b deployment`。`.73` 上传须另获当次明确同意，匹配真机修改后
   数据返回前不填写性能改善值，不改索引、权限锁或搜索查询结构。
+- 体验上传：用户在获知版本、SHA、描述、脏树和测试页后明确同意 `.73`。exact clean
+  `c7c142eb` 通过 Mini 110 files/562 tests、production verify 5,279,092 B、CI dry-run；清除代理并将
+  `servicewechat.com` 固定到已审计 IPv4，直连出口为已登记 `38.190.176.204`。官方上传成功：
+  190 code files、zip 2,517,609 B、manifest `6ed8b19698ecf29b237e0e84c377966235b91c0f42db0f11388959a90a5b89e4`。
+  正式 allowlist ensure 重建 API/Web，首次 TLS EOF、随后一次 502 在 3/30 前恢复；verify、`.73`
+  七维 capability 全 true、unknown=426、带公网 IP full verifier 通过。未提审、未正式发布。
+- 状态转为“已实现待小米 14 复核”；最终上传状态识别消息为
+  `docs(status): record directory phase b experience upload`。下一步只收集 `.73` 首次/重复/不同词/
+  筛选/科室及可行时 Wi-Fi/移动网络诊断，不提前修改数据库或填写性能提升。

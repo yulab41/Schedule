@@ -6,8 +6,8 @@
 
 - 分支：`main`；通讯录阶段 B 代码 `bb97145d` 已推送并同步 production，最终状态 checkpoint 以
   `docs(status): record directory phase b deployment` 识别。
-- 当前体验候选 `.72@5fff288` 已上传并通过 allowlist/full verifier；`.71@7952f1d` 为上一候选；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
-- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前体验候选 `.73@c7c142e` 已上传并通过 allowlist/full verifier；`.72@5fff288` 为诊断基线；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
@@ -78,10 +78,9 @@
 - 旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿（37/355 环境跳过），全端
   build/typecheck、Mini 全门禁、任务质量和报告构建通过。代码 `bb97145d` 已推送并完成生产备份/
   全量部署/公网验证；`.73` 仍须给出 exact clean 候选信息并另获当次上传批准。
-- 生产备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后 trusted reuse 到 `73811f1f`；API/Web
-  container ID/StartedAt 前后不变，公网 IP full verifier 与远端临时目录清理通过。
-- 精确干净 `5fff288f` 上传源 Mini 110 files/560 tests、production verify 5,271,949 B 和 CI dry-run
-  通过；`.72` 七维 capability 全 true、unknown=426，allowlist verify 与公网 full verifier 通过。
+- exact clean `c7c142eb` 上传源 Mini 110 files/562 tests、production verify 5,279,092 B 和 CI dry-run
+  通过；`.73` 上传 190 code files/2,517,609 B、manifest `6ed8b196…b89e4`，七维 capability 全 true、
+  unknown=426，allowlist verify 与公网 full verifier 通过。
 
 ## 已完成的测试工具批次
 
@@ -242,8 +241,8 @@
 
 ## 下一步与停止条件
 
-1. 从 exact clean code checkpoint 构建 `.73` 候选并给出精确 SHA、描述、脏树和测试页。
-2. 取得用户本次明确同意后才上传体验版；随后等待小米 14 新诊断。
+1. 用户在小米 14 `.73@c7c142e` 测试人员首次/重复/不同词/筛选和科室，尽量各 5 次。
+2. 条件允许时分别测试 Wi-Fi/移动网络，停止记录后复制最近 10 次给 Codex。
 
 停止条件：没有匹配 `.73` 的小米 14 数据前，不实施数据库索引、权限锁、查询结构或部署拓扑修改，
 不填写修改后性能数值，不提审、不正式发布。
