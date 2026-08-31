@@ -1908,5 +1908,5 @@
   正式 allowlist ensure 重建 API/Web，首次 TLS EOF、随后一次 502 在 3/30 前恢复；verify、`.73`
   七维 capability 全 true、unknown=426、带公网 IP full verifier 通过。未提审、未正式发布。
 - 状态转为“已实现待小米 14 复核”；最终上传状态识别消息为
-  `docs(status): record directory phase b experience upload`。下一步只收集 `.73` 首次/重复/不同词/
+  `docs(status): finalize directory phase b experience upload`。下一步只收集 `.73` 首次/重复/不同词/
   筛选/科室及可行时 Wi-Fi/移动网络诊断，不提前修改数据库或填写性能提升。

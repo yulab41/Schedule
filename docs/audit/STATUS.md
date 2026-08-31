@@ -6,7 +6,7 @@
 - 代码 checkpoint：`bb97145d perf(directory): add measured server timing diagnostics`，已推送
 - production 应用 checkpoint：`bb97145dee8f8ee7a1ec4a57d532c60eb8f63625`
 - 生产备份：`758c1a3b-d444-4bd1-879a-e675ae6276e5`（55 表、197,477 行、88,492,384 bytes）
-- 最终 production release 元数据以 `docs(status): record directory phase b deployment` 识别
+- 最终 production release 元数据以 `docs(status): finalize directory phase b experience upload` 识别
 - 当前体验候选：`0.1.0-p10.20260831.73@c7c142e`，190 code files/2,517,609 bytes，manifest `6ed8b196…b89e4`
 - 首次上传被微信 `20003 invalid ip: 38.190.176.204` 拒绝；用户登记该 IP 后，同一版本/SHA/描述重试成功
 - 基线类型：同一用户工作树修改前/后静态构建；原生、Network、端到端 HTTP 未测

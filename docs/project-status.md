@@ -5,7 +5,7 @@
 ## 仓库与生产基线（2026-08-31）
 
 - 分支：`main`；通讯录阶段 B 代码 `bb97145d` 已推送并同步 production，最终状态 checkpoint 以
-  `docs(status): record directory phase b deployment` 识别。
+  `docs(status): finalize directory phase b experience upload` 识别。
 - 当前体验候选 `.73@c7c142e` 已上传并通过 allowlist/full verifier；`.72@5fff288` 为诊断基线；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
@@ -77,7 +77,7 @@
   应用层缓存 none 明确写出，不修改 JSON contract、schema、索引、权限锁或搜索查询结构。
 - 旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿（37/355 环境跳过），全端
   build/typecheck、Mini 全门禁、任务质量和报告构建通过。代码 `bb97145d` 已推送并完成生产备份/
-  全量部署/公网验证；`.73` 仍须给出 exact clean 候选信息并另获当次上传批准。
+  全量部署/公网验证；`.73@c7c142e` 已获当次批准、上传并完成正式白名单与公网验证。
 - exact clean `c7c142eb` 上传源 Mini 110 files/562 tests、production verify 5,279,092 B 和 CI dry-run
   通过；`.73` 上传 190 code files/2,517,609 B、manifest `6ed8b196…b89e4`，七维 capability 全 true、
   unknown=426，allowlist verify 与公网 full verifier 通过。
