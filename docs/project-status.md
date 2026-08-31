@@ -16,8 +16,9 @@
   2,373,410 bytes，upload manifest `0b8c9155…aa38c5`；allowlist 重建预热的一次 reset/一次 502
   在受控等待内恢复，随后 trusted verify 与公网 full verifier 通过。
 - `.70` 从 exact clean `18498a8b` 经已登记 IPv4 上传成功，188 files/2,444,502 bytes，upload manifest `8c4dae56…7287b`；allowlist 重建预热的一次 TLS EOF/一次 502 在受控等待内恢复。
-- 当前 production 应用 checkpoint `18498a8b`、数据库 schema 52；最终 release 元数据以最新 `docs(status): record test tools experience upload` checkpoint 识别。备份
-  `68902f0f-a5eb-4a56-963a-e78829862086` 后 hash-identical reuse、allowlist 和公网 full verifier 通过。
+- 当前 production 应用 checkpoint `7952f1d1`、数据库 schema 52；最终 release 元数据以最新
+  `docs(status): record directory follow-up deployment` checkpoint 识别。备份
+  `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f` 后完整部署，公网 full verifier 通过。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -59,8 +60,8 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录弹层手势/固定清除、拨号返回状态保留和工号数字尾部搜索；待创建 checkpoint 以
-  `fix(directory): preserve results and support employee aliases` 识别。
+- 唯一任务为通讯录弹层手势/固定清除、拨号返回状态保留和工号数字尾部搜索；代码 checkpoint
+  `7952f1d1 fix(directory): preserve results and support employee aliases` 已推送并部署。
 - 28px 横条专用 WXS：8px 判轴、纵横比 1.2，96px 或 28px+0.65px/ms 关闭；未达阈值 180ms
   回弹，拖动 `setData=0`，与“完成”共用 `closeFilters`。标题/完成/清除固定，只有层级选项滚动。
 - 前台恢复后台复核双 facets；账号/群组/权限/群组版本/发布批次未变时 list request `+0`、
@@ -72,8 +73,11 @@
 - Mini 110/555、root 244 files/1,139 tests、全端 build/typecheck、Mini verify/source/package/
   performance/determinism/CI、任务 ESLint/Prettier/diff 和 core smoke 通过；37 files/355 tests 按无数据库
   环境跳过。全仓 lint/format 仅保留未改既有阻断。
-- 当前 `.70@18498a8` 不含本修复。先推送/生产备份部署；随后报告新 SHA/版本/脏树/测试页并等待当次
-  体验上传批准。微信开发者工具、端到端 HTTP、原生手势/帧率和小米 14 暂未验证。
+- 生产备份 `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f` 后完整部署 `7952f1d1`；预热首次 TLS reset
+  后恢复，schema 52、带公网 IP full verifier、正式健康与 alias 产物检查通过，远端临时目录已清理。
+- 当前 `.70@18498a8` 不含本修复。下一候选拟为 `.71@7952f1d`；先从 exact clean SHA 复核构建并
+  报告版本描述/脏树/测试页，取得当次体验上传批准后才上传。DevTools、端到端 HTTP、原生手势/帧率
+  和小米 14 暂未验证。
 
 ## 已完成的测试工具批次
 
@@ -234,12 +238,10 @@
 
 ## 下一步与停止条件
 
-1. 显式暂存通讯录/API/导入/相邻测试和本轮状态文档，创建并推送
-   `fix(directory): preserve results and support employee aliases` checkpoint。
-2. 生产备份后部署该 checkpoint 并运行完整 verifier；更新状态记录备份标识、release SHA 和验证结果。
-3. 单独向用户报告新短 SHA、版本描述、脏树和测试页面，取得当次明确批准后才上传新体验版。
-4. 用户在小米 14 验证横条下滑/列表滚动/回弹/固定清除、拨号返回及四种工号输入；开发者工具
+1. 从 exact clean `7952f1d1` 复核 production Mini 构建、包体、确定性和 CI dry-run。
+2. 单独向用户报告拟上传 `.71` 的短 SHA、版本描述、脏树和测试页面，取得当次明确批准后才上传。
+3. 用户在小米 14 验证横条下滑/列表滚动/回弹/固定清除、拨号返回及四种工号输入；开发者工具
    Console 仅作辅助证据。
 
-停止条件：生产 release 与推送 checkpoint 一致，并已提交体验上传门禁信息；未获当次批准前不上传。
-收到匹配构建真机证据前保持“待验证”，不提审、不正式发布。
+停止条件：已提交体验上传门禁信息；未获当次批准前不上传。收到匹配构建真机证据前保持“待验证”，
+不提审、不正式发布。

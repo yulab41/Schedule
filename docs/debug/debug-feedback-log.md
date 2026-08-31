@@ -20,13 +20,16 @@
   精确别名 rank 750，高于电话精确 700/前缀 650；姓名、拼音、电话、筛选、稳定排序和游标不变。
 - 性能/包体：生产只读数据库查询路径三轮中位数的中位数 50.12→48.36ms（-3.5%），P95 中位数
   62.17→57.34ms；这不是端到端 HTTP，后者当前工具无法安全测量。clean HEAD→修改后包体：main
-  1,658,099→1,658,306 B，organization 1,201,831→1,210,446 B，总计 5,204,815→5,213,637 B。
+  1,658,099→1,658,307 B，organization 1,201,831→1,210,386 B，总计 5,204,815→5,213,578 B。
 - 自动验证：Mini 110 files/555 tests；root 244 files/1,139 tests（37 files/355 tests 按数据库环境
   跳过）；全端 typecheck/build、Mini verify/source/package/performance/determinism/CI dry-run、任务
   ESLint/Prettier/diff 和 core smoke 通过。全仓 lint/format 仍只受未改 `wx-request-executor.ts`
-  `prefer-const` 与既有约 385 文件格式基线阻断。本 checkpoint 以
-  `fix(directory): preserve results and support employee aliases` 识别；推送、生产部署、体验上传和
-  小米 14 均尚未完成，体验上传仍须当次批准。
+  `prefer-const` 与既有约 385 文件格式基线阻断。代码 checkpoint `7952f1d1` 已推送；生产备份
+  `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f`（55 表、195,074 行、87,707,540 bytes、SHA-256
+  `a51e0d81…f5cc`）后完整部署 release `7952f1d106c65a5c3b8815ee0dc52756252f381a`。预热首次 TLS
+  reset 后在 1/30 重试恢复，schema 52、带公网 IP full verifier、正式健康和线上 alias 产物只读检查
+  通过，远端临时目录已删除。体验上传和小米 14 尚未完成，上传仍须当次批准；最终状态 checkpoint
+  以 `docs(status): record directory follow-up deployment` 识别。
 
 ## 2026-08-30 Mini 通讯录空筛选与运行态性能修复
 
