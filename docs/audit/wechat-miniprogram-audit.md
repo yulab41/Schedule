@@ -1,10 +1,10 @@
 # 微信小程序审计报告
 
-- 审计阶段：通讯录半屏筛选与性能诊断阶段 A 已同步 `.72`，等待小米 14 诊断数据
+- 审计阶段：diagnostics/test-tools Skyline 兼容 Warning 最小清理已完成自动验证，等待原生人工复核
 - 更新时间：2026-08-31（Asia/Hong_Kong）
-- 代码 checkpoint：`7952f1d106c65a5c3b8815ee0dc52756252f381a`，已推送并同步 production release
-- 体验构建：`0.1.0-p10.20260831.71@7952f1d`，189 files / 2,449,336 bytes
-- 本批性质：修改前后包体来自同一用户工作树；正式构建、部署与上传来自 exact clean commit
+- 代码 checkpoint：以 `fix(miniprogram): clean test tools Skyline warnings` 识别；基线 `32bc0b19`
+- 当前体验构建：`.72@5fff288`，不包含本轮清理
+- 本批性质：独立 worktree 中的页面级兼容最小修复；不上传体验版，不同步 production
 
 ## 普通用户版结论
 
@@ -12,9 +12,9 @@
 问题，查看脱敏的少量网络/错误/性能摘要，并一次复制给 Codex。正式版入口、直接路径和旧手势探针都
 会关闭，正式版也不会创建诊断仓库；诊断不保存、不上传、不读取请求正文或用户资料。
 
-构建、类型、exact-clean 554 项 Mini 测试、1,139 项根测试和安全/包体门禁已经通过，包体没有触发
-新阻断。体验版 `.71@7952f1d` 已上传并通过生产客户端白名单；仓库规则禁止代理操作微信开发者工具，
-所以当前仍只能说“自动验证和体验上传完成”，不能说“小米 14 已验收”或“Console 没有错误”。
+本轮已把 test-tools 页面报警的 Grid、`overflow-wrap:anywhere` 和 `:last-of-type` 换成等价 Flex、
+兼容换行和明确 class。自动测试、三宽度辅助视觉、构建和静态门禁通过；仓库规则禁止代理操作微信
+开发者工具，且本轮不上传体验版，因此仍不能说“Console 9 条已实机归零”或“小米 14 已验收”。
 
 ## 1. 基线边界与工作树
 
@@ -228,6 +228,20 @@ Console/Network/帧率与小米 14 仍无当前构建证据，不能据此宣称
 - 状态：代码 `73811f1f` 已推送；备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后可信无停机同步 production，公网 full verifier 通过。用户登记 `38.190.176.204` 后，同一 `.72@5fff288` 重试成功并通过正式 allowlist、七维 capability、unknown=426 与公网 full verifier；待小米 14 数据，阶段 B 未开始。
 - 验证：Mini 110 files/561 tests；production verify/source/package/performance/determinism/CI dry-run、全端 build/typecheck、Web 辅助黄金和 core smoke 通过。最终包 5,273,141 B，较同口径基线增加 59,504 B；原生手感、端到端阶段数字和性能变化均为“待小米 14 体验版实测”。
 
+### MINI-TEST-001（P2）：test-tools 使用 Skyline 报警的页面级 WXSS 写法
+
+- 普通解释：测试工具当前能显示，但开发者工具会针对九处样式持续报警；这些写法在窄屏或未来 Skyline 版本中存在布局兼容风险，需要小范围清理。
+- 技术原因：页面使用 2 组 Grid，并在基础/320px 规则中形成 4 处 `grid-template-columns`；另有 4 处 `overflow-wrap:anywhere` 和 1 处 `.scenario-card > text:last-of-type`。
+- 位置：`apps/miniprogram/src/subpackages/diagnostics/pages/test-tools/index.wxml`、`index.wxss`。
+- 证据：同版本人工核查确认 `18498a8` 与 `01add02` 小程序源码相同，develop/Skyline/基础库 3.17.1 实际复现上述 9 条页面级 Warning；`git log -S`/`git blame` 指向 `18498a8b`。`version=local` 400、绑定状态 503 和胶囊未复现问题均独立，不重新归因。
+- 影响：目前没有按钮失效、白屏或滚动故障证据，不登记为功能性 P0/P1；主要影响是 Console 噪音和 Skyline 兼容确定性。
+- 根因：测试工具视觉黄金的 Web CSS 写法直接用于原生页，缺少页面级 Skyline 兼容契约。
+- 修复：动作区用等价 Flex；报告按钮各 `flex:1; min-width:0`；场景链接 `flex:1`、状态按钮固定 54px；320px 可纵向/换行；长文本用 `word-break:break-all`；截图文本改明确 `.scenario-screenshot`。
+- 风险：低；不改 handler、Page 配置、滚动宿主、API、数据库、renderer 或基础库。
+- 置信度：高。
+- 状态：已实现并通过自动验证；同基础库 Console 与小米 14 仍待人工复核，本轮不上传体验版。
+- 验证：红绿静态契约、320/390/412 Playwright 辅助几何、Mini 561 项、typecheck/build/verify、源码/产物警告源扫描。
+
 ### 阶段 0 保留输入
 
 阶段 0 只记录基线，不执行完整静态审计，因此尚未把发现扩展为 P0～P3 问题清单。已知的 lint error、
@@ -311,7 +325,24 @@ favicon 证据后复测，实际页面 6 个按钮均 ≥44px、页面错误为 
 ### 10.4 未验证与人工证据
 
 仓库政策禁止代理调用微信开发者工具，因此 DevTools 编译、Console/Network 和原生页面截图仍是
-“当前工具无法测量，暂未验证”。`.70@18498a8` 已上传，但只有用户在小米 14 提供匹配版本的
-版本/设备/安全区/显示/交互证据后，才可把本批状态更新为实体 Android 验收通过。
+“当前工具无法测量，暂未验证”。此前用户在独立 clean `18498a8` worktree、develop、Skyline、
+基础库 3.17.1 下清空 Console 重编译，确认页面顶部可显示并复现 test-tools 的 9 条页面级 Warning；
+该证据不覆盖本轮修改后的结果，也不代表其他业务页或小米 14 通过。
+
+### 10.5 Skyline Warning 最小清理
+
+- 源码基线为 clean `32bc0b19`；主工作区和其他 worktree 的并行未提交内容未读取、未覆盖、未暂存。
+- 新静态契约先在旧样式上失败；实现后 test-tools 11/11，通过并锁定无 Grid/anywhere/last-of-type、
+  四处兼容换行、54px 状态按钮、原点击 handler 与 `disableScroll:false`。
+- Playwright 使用实际 WXSS 的辅助夹具检查 320/390/412：无横向溢出或重叠，长版本号、脱敏请求路径、
+  诊断值和刷新标记均换行；320px 双按钮纵向且场景链接独占一行，390/412 保持双列/同排，页面可纵向滚动。
+- 原 `pnpm miniprogram:test` 首次为 106/110 files、557/561 tests，4 项未修改测试因冷构建超过固定 5 秒；
+  同 HEAD clean release worktree 复现。未改阈值；命令行 30 秒诊断时限复跑 110/110、561/561 全绿。
+- Mini typecheck、275-file production build、verify、任务 ESLint/Prettier、diff check、core smoke 均通过；
+  verify 为 5,272,024 B、2/2 Worklet、manifest `f76c9b9f…168d`。
+- `src` 和 `dist` 中目标 9 条警告源均为 0。verify 仍有主包 1.5 MiB 与 1,445/1,506 矩阵节点三个
+  既有预警；全局 `tagNameStyleIsolation`、灰度/最低基础库提示与本轮页面级 Warning 分开记录。
+- 本轮未调用微信开发者工具、未上传体验版、未改 production。当前 `.72@5fff288` 不含本轮 commit，
+  所以同基础库 Console 归零、原生顶部/点击/滚动和小米 14 视觉仍为“暂未验证”。
 
 后续唯一建议任务见 `docs/audit/STATUS.md`。

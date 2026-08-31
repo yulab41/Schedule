@@ -310,7 +310,50 @@ describe('safe Mini test tools', () => {
     expect(template).toContain('复制最近一次');
     expect(template).toContain('复制最近 10 次');
   });
+
+  it('uses Skyline-safe Flex actions and explicit long-text wrapping without changing page behavior', () => {
+    const template = readSource('subpackages/diagnostics/pages/test-tools/index.wxml');
+    const styles = readSource('subpackages/diagnostics/pages/test-tools/index.wxss');
+    const pageConfig = JSON.parse(
+      readSource('subpackages/diagnostics/pages/test-tools/index.json'),
+    );
+
+    expect(styles).not.toMatch(/display:\s*grid|grid-template-columns/iu);
+    expect(styles).not.toContain('overflow-wrap: anywhere');
+    expect(styles).not.toContain(':last-of-type');
+    expect(styles.match(/word-break:\s*break-all/gu)).toHaveLength(4);
+
+    expect(cssRule(styles, '.two-actions,\n.report-actions')).toMatch(
+      /display:\s*flex[\s\S]*flex-wrap:\s*wrap/iu,
+    );
+    expect(cssRule(styles, '.two-actions > ui-button,\n.report-actions > ui-button')).toMatch(
+      /min-width:\s*0[\s\S]*flex:\s*1/iu,
+    );
+    expect(cssRule(styles, '.scenario-actions')).toMatch(
+      /display:\s*flex[\s\S]*flex-wrap:\s*wrap/iu,
+    );
+    expect(cssRule(styles, '.scenario-link')).toMatch(/min-width:\s*0[\s\S]*flex:\s*1/iu);
+    expect(styles).toMatch(/\.scenario-mark\s*\{\s*width:\s*54px;\s*flex:\s*none;/iu);
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*340px\)[\s\S]*\.scenario-link\s*\{[^}]*flex-basis:\s*100%/iu,
+    );
+
+    expect(template).toContain(
+      '<text class="scenario-screenshot">应截图：{{item.screenshot}}</text>',
+    );
+    expect(template).toContain('data-result="passed" bindtap="handleScenarioResult">正常</view>');
+    expect(template).toContain('data-result="issue" bindtap="handleScenarioResult">异常</view>');
+    expect(pageConfig.disableScroll).toBe(false);
+  });
 });
+
+function cssRule(styles, selector) {
+  const start = styles.indexOf(`${selector} {`);
+  expect(start, `missing CSS rule ${selector}`).toBeGreaterThanOrEqual(0);
+  const end = styles.indexOf('}', start);
+  expect(end, `unterminated CSS rule ${selector}`).toBeGreaterThan(start);
+  return styles.slice(start, end + 1);
+}
 
 function directorySearchDiagnostic(index) {
   return {

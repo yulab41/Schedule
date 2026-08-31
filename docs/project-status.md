@@ -64,28 +64,27 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录性能诊断阶段 B，规格/计划为
-  `2026-08-31-miniprogram-directory-performance-phase-b-*`；阶段 A checkpoint `73811f1f`、
-  production 与 `.72@5fff288` 保持基线。
-- 小米 14 两批共 17 条 Wi-Fi 诊断已与 production request ID 日志逐条匹配，均为 HTTP 200。
-  9 次完成搜索中位总耗时 1315ms、请求前 7ms、首字节 1216ms、API 总耗时 250ms、API 外差值
-  约 992ms、返回后到可见 19ms；转换 0–1ms、卡片 0–2ms。
-- 17 次中 8 次被后续输入替代；连续输入间隔约 265–450ms，旧 240ms 防抖会发出中间关键词。
-  本批只把自动防抖按证据调整为 500ms，显式确认仍立即请求。
-- API 内仍有 14–1790ms 波动。本批增加受控 Server-Timing 响应头，下一轮区分鉴权、事务连接
-  等待、权限、发布批次、别名、主查询、联系方式、计数、转换、序列化和总耗时；排队不支持、
-  应用层缓存 none 明确写出，不修改 JSON contract、schema、索引、权限锁或搜索查询结构。
-- 旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿（37/355 环境跳过），全端
-  build/typecheck、Mini 全门禁、任务质量和报告构建通过。代码 `bb97145d` 已推送并完成生产备份/
-  全量部署/公网验证；`.73@c7c142e` 已获当次批准、上传并完成正式白名单与公网验证。
-- exact clean `c7c142eb` 上传源 Mini 110 files/562 tests、production verify 5,279,092 B 和 CI dry-run
-  通过；`.73` 上传 190 code files/2,517,609 B、manifest `6ed8b196…b89e4`，七维 capability 全 true、
-  unknown=426，allowlist verify 与公网 full verifier 通过。
+- 最新已接受整合基线为 `a2326618`；阶段 B 代码 `bb97145d` 已推送、完整部署并通过公网验证，
+  `.73@c7c142e` 已上传并完成正式白名单与公网验证。
+- 两批 17 条小米 14 Wi-Fi 记录均由 request ID 对上 production HTTP 200；9 次完成中位总耗时
+  1315ms、API 250ms、API 外约 992ms、返回后可见 19ms，客户端转换/卡片不是主要瓶颈。
+- 阶段 B 只把自动搜索防抖调整为 500ms，并为受控诊断增加 Server-Timing；不改 JSON contract、
+  schema、索引、权限锁或查询结构。其 Mini 110/563、root 245/1,142 和全端门禁均通过。
+- 本轮仅把 `1218f9c3` 以单提交 cherry-pick 整合到 `a2326618`；目标源码和测试自动应用，只有
+  `docs/audit/STATUS.md`/`docs/project-status.md` 文档冲突，已保留阶段 B 上传与清理验收双方结论。
+- test-tools 清理仅含 Grid→Flex、四处 `word-break:break-all`、明确 `.scenario-screenshot` 和直接
+  静态契约；handler、Page 滚动、API、数据库、请求执行器与绑定状态 503 不变。
+- integration 基线 test-tools 11/11、Mini 110 files/563 tests、TypeScript、production build、
+  Mini verify 均通过；`src/dist` 九处警告源为 0，固定 5 秒阈值未修改。
+- 首次全量仅因新 worktree 缺少 `apps/web/node_modules` 联接而有 2 个 parity suite 解析失败；补齐
+  ignored 依赖后精确 3/3 与原始全量 563/563 通过，不属于小程序用户性能问题。
+- 从最终整合 SHA 生成 clean `.74` 候选，`buildDirty=false`；本轮按用户要求不上传。
+- 微信开发者工具真实 Console 与匹配最终 SHA 的小米 14 体验版均保持待人工确认。
 
 ## 已完成的测试工具批次
 
-- “更多 → 测试工具”已由 `18498a8b` 实现，production 与 `.70@18498a8` 已同步并放行；release
-  失败关闭、只读有界诊断和隐私边界保持有效，当前只待实体 Android/DevTools 人工复核。
+- “更多 → 测试工具”由 `18498a8b` 实现；Skyline Warning 清理以 `1218f9c3` 单提交整合，release
+  失败关闭、只读有界诊断和隐私边界保持，真实 Console 与匹配体验版仍待人工复核。
 
 ## 已完成的发布基线与当前修复
 
@@ -241,8 +240,8 @@
 
 ## 下一步与停止条件
 
-1. 用户在小米 14 `.73@c7c142e` 测试人员首次/重复/不同词/筛选和科室，尽量各 5 次。
-2. 条件允许时分别测试 Wi-Fi/移动网络，停止记录后复制最近 10 次给 Codex。
+1. 用户在最终 integration worktree 导入 `apps/miniprogram/`（其 `miniprogramRoot` 指向 clean `dist/`），复核 test-tools Console、320/390/412、点击和滚动。
+2. 另获当次明确批准后才可上传同一 `.74`；随后等待匹配 SHA 的小米 14 证据。
 
-停止条件：没有匹配 `.73` 的小米 14 数据前，不实施数据库索引、权限锁、查询结构或部署拓扑修改，
-不填写修改后性能数值，不提审、不正式发布。
+停止条件：Console 与小米 14 分层保持待确认；本轮不上传，不开始静态审计第 1 组，不实施数据库索引、
+权限锁、查询结构、滚动架构或部署拓扑修改，不填写修改后性能数值，不提审、不正式发布。
