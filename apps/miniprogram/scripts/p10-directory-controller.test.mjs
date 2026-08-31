@@ -16,6 +16,7 @@ describe('P10 native directory controller', () => {
   let failFacetKinds;
   let failListRequestsRemaining;
   let invalidCursorNext;
+  let unauthorizedNextFacets;
   let unauthorizedNextList;
 
   beforeEach(async () => {
@@ -29,6 +30,7 @@ describe('P10 native directory controller', () => {
     failFacetKinds = new Set();
     failListRequestsRemaining = 0;
     invalidCursorNext = false;
+    unauthorizedNextFacets = false;
     unauthorizedNextList = false;
     const makePhoneCall = vi.fn();
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
@@ -50,6 +52,20 @@ describe('P10 native directory controller', () => {
           options.url.endsWith(`/groups/${secondGroupId}/employee-directory/facets`)
         ) {
           const facetKind = options.url.includes('/employee-directory/') ? 'employee' : 'internal';
+          if (unauthorizedNextFacets) {
+            unauthorizedNextFacets = false;
+            options.success({
+              data: {
+                error: {
+                  code: 'FORBIDDEN',
+                  message: '当前账户无权读取通讯录。',
+                  requestId: 'request-facets-forbidden',
+                },
+              },
+              statusCode: 403,
+            });
+            return;
+          }
           if (failFacetKinds.has(facetKind)) {
             options.fail({ errMsg: 'request:fail facets offline' });
             return;
@@ -209,6 +225,108 @@ describe('P10 native directory controller', () => {
     const [preferenceKey, preferenceValue] = globalThis.wx.setStorageSync.mock.calls[0];
     expect(preferenceKey).toBe(`schedule.directory.preferences.v1:user-1:${groupId}:internal`);
     expect(preferenceValue).not.toContain('0754-00000000');
+  });
+
+  it('preserves the current result and pagination when foreground context and facets are unchanged', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    definition.methods.handleMainScroll.call(page, { detail: { scrollTop: 236 } });
+
+    const card = page.data.internalPane.entries[0];
+    const dialNumber = card.contacts
+      .flatMap((contact) => contact.numbers)
+      .find((number) => Boolean(number.dialNumber))?.dialNumber;
+    definition.methods.handleCall.call(page, {
+      currentTarget: {
+        dataset: { directoryKind: 'internal', groupId: card.id, number: dialNumber },
+      },
+    });
+    const entries = page.data.internalPane.entries;
+    const listRequestCount = listRequests().length;
+    const setDataCount = page.setDataCalls.length;
+
+    page.properties = { ...page.properties, contextRefreshRevision: 2 };
+    definition.observers.contextRefreshRevision.call(page);
+    await vi.waitFor(() =>
+      expect(
+        requests.filter((request) => request.url.endsWith(`/groups/${groupId}/directory/facets`)),
+      ).toHaveLength(2),
+    );
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+    expect(page.setDataCalls).toHaveLength(setDataCount);
+    expect(page.data.directoryKind).toBe('internal');
+    expect(page.data.internalPane.searchQuery).toBe('病案');
+    expect(page.data.internalPane.entries).toBe(entries);
+    expect(page.data.internalPane.hasMore).toBe(true);
+    expect(page._modeRuntimes.internal.nextCursor).toBe('cursor-1');
+    expect(page._modeRuntimes.internal.mainScrollTop).toBe(236);
+  });
+
+  it('revalidates a standalone foreground return without clearing an unchanged query', async () => {
+    const page = createPageInstance(definition, runtimeProperties({ embedded: false }));
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    const entries = page.data.internalPane.entries;
+    const listRequestCount = listRequests().length;
+
+    definition.methods.handleForegroundRefresh.call(page);
+    await vi.waitFor(() =>
+      expect(
+        requests.filter((request) => request.url.endsWith(`/groups/${groupId}/directory/facets`)),
+      ).toHaveLength(2),
+    );
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+    expect(page.data.internalPane.searchQuery).toBe('病案');
+    expect(page.data.internalPane.entries).toBe(entries);
+  });
+
+  it('keeps one close path for the finish button and handle swipe after a filter applies', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    definition.methods.handleOpenFilters.call(page);
+    definition.methods.handleFilterOption.call(page, {
+      currentTarget: {
+        dataset: { directoryKind: 'internal', filter: 'campusCode', value: 'main' },
+      },
+    });
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+
+    definition.methods.handleFilterSheetSwipeDismiss.call(page);
+
+    expect(page.data.filterSheetOpen).toBe(false);
+    expect(page.data.activeSheet.open).toBe(false);
+    expect(page.data.internalPane.activeFilterCount).toBe(1);
+    expect(lastRequest().url).toContain('campusCode=main');
+  });
+
+  it('clears sensitive results when foreground facets revalidation returns 403', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+
+    unauthorizedNextFacets = true;
+    definition.methods.handleForegroundRefresh.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('error'));
+
+    expect(page.data.internalPane.entries).toEqual([]);
+    expect(page.data.internalPane.guideStops).toEqual([]);
+    expect(page.data.employeePane.entries).toEqual([]);
+    expect(page.data.employeePane.guideStops).toEqual([]);
   });
 
   it('toggles a merged Web-equivalent card favorite without storing phone data', async () => {
@@ -719,6 +837,11 @@ describe('P10 native directory controller', () => {
     facetsResponse = { ...facets(), publishedImportVersion: 'controller-fixture-v2' };
     page.properties = { ...page.properties, contextRefreshRevision: 2 };
     definition.observers.contextRefreshRevision.call(page);
+    await vi.waitFor(() =>
+      expect(
+        requests.filter((request) => request.url.endsWith(`/groups/${groupId}/directory/facets`)),
+      ).toHaveLength(3),
+    );
     await vi.waitFor(() => expect(page.data.internalPane.facetsLoading).toBe(false));
     definition.methods.handleOpenFilters.call(page);
     expect(page.data.activeSheet.scrollTop).toBe(0);

@@ -83,8 +83,23 @@ describeWithDatabase('internal directory routes', () => {
     const pinyin = await getDirectory('member-token', 'q=jzk');
     expect(pinyin.totalCount).toBe(2);
 
-    const employeeCode = await getDirectory('member-token', 'q=d0001');
-    expect(employeeCode.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
+    for (const query of ['D0468', 'd0468']) {
+      const employeeCode = await getDirectory('member-token', `q=${query}`);
+      expect(employeeCode.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
+    }
+
+    const withoutPrefix = await getDirectory('member-token', 'q=0468');
+    expect(withoutPrefix.entries.slice(0, 2).map((entry) => entry.employeeCode)).toEqual([
+      'D0468',
+      'A0468',
+    ]);
+
+    const withoutPrefixOrZero = await getDirectory('member-token', 'q=468');
+    expect(withoutPrefixOrZero.entries.slice(0, 2).map((entry) => entry.employeeCode)).toEqual([
+      'D0468',
+      'A0468',
+    ]);
+    expect(withoutPrefixOrZero.totalCount).toBe(3);
 
     const extension = await getDirectory('member-token', 'q=1234');
     expect(extension.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
@@ -189,7 +204,7 @@ describeWithDatabase('internal directory routes', () => {
     token: string,
     query: string,
   ): Promise<{
-    entries: { contactName?: string; department?: string; id: string }[];
+    entries: { contactName?: string; department?: string; employeeCode?: string; id: string }[];
     nextCursor?: string;
     totalCount: number;
   }> {
@@ -312,7 +327,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       contactName: '急诊分诊台',
       department: '急诊科',
       documentId: centralDocumentId,
-      employeeCode: 'd0001',
+      employeeCode: 'D0468',
       entryKind: 'service',
       extension: '1234',
       floor: '3楼',
@@ -330,7 +345,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       contactName: '值班医生',
       department: '急诊科',
       documentId: centralDocumentId,
-      employeeCode: undefined,
+      employeeCode: 'A0468',
       entryKind: 'person',
       extension: '5678',
       floor: '3楼',
@@ -350,7 +365,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       documentId: northDocumentId,
       employeeCode: undefined,
       entryKind: 'department',
-      extension: '2468',
+      extension: '468',
       floor: '2楼',
       fullNumber: '0000-00000003',
       id: randomUUID(),
@@ -409,6 +424,16 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
         VALUES
           (${randomUUID()}, ${entry.id}, ${type}, ${alias}, ${alias},
            ${`alias-${entry.order}-${index}`.padEnd(64, '0')})
+      `);
+    }
+    if (entry.employeeCode !== undefined) {
+      await client.database.execute(sql`
+        INSERT INTO directory_search_aliases
+          (id, entry_id, type, alias_value, normalized_value, alias_sha256)
+        VALUES
+          (${randomUUID()}, ${entry.id}, 'source', ${entry.employeeCode},
+           ${entry.employeeCode.toLowerCase()},
+           ${`employee-alias-${entry.order}`.padEnd(64, '0')})
       `);
     }
   }

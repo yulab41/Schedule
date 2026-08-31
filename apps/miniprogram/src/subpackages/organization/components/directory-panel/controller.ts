@@ -219,6 +219,8 @@ interface DirectoryPageInstance {
   _contextSignature: string;
   _detached: boolean;
   _directoryClient: DirectoryReadClient;
+  _foregroundRefreshPromise: Promise<void> | undefined;
+  _foregroundRefreshSerial: number;
   _instanceId: number;
   _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
   _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
@@ -319,7 +321,7 @@ export function createDirectoryPanelControllerDefinition() {
     },
     observers: {
       contextRefreshRevision(this: DirectoryPageInstance): void {
-        startLoad(this);
+        void revalidateForegroundContext(this);
       },
       groupId(this: DirectoryPageInstance): void {
         startLoad(this);
@@ -367,6 +369,7 @@ export function createDirectoryPanelControllerDefinition() {
       detached(this: DirectoryPageInstance): void {
         initializeRuntimeState(this);
         this._detached = true;
+        invalidateForegroundRefresh(this);
         for (const kind of directoryKinds) invalidateRuntime(this._modeRuntimes[kind]);
         clearModeIconTimers(this);
       },
@@ -377,8 +380,7 @@ export function createDirectoryPanelControllerDefinition() {
         wx.navigateBack({ delta: 1 });
       },
       handleForegroundRefresh(this: DirectoryPageInstance): void {
-        this._contextSignature = '';
-        startLoad(this);
+        void revalidateForegroundContext(this);
       },
       handleInternalMode(this: DirectoryPageInstance): void {
         activateMode(this, 'internal', true);
@@ -426,6 +428,9 @@ export function createDirectoryPanelControllerDefinition() {
       },
       handleCloseFilters(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
         closeFilters(this, eventKind(this, event));
+      },
+      handleFilterSheetSwipeDismiss(this: DirectoryPageInstance): void {
+        closeFilters(this, this.data.activeSheet.directoryKind);
       },
       handleToggleFilterSection(this: DirectoryPageInstance, event: FilterOptionEvent): void {
         const kind = eventKind(this, event);
@@ -575,6 +580,7 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
   }
   if (typeof page._detached !== 'boolean') page._detached = false;
   if (typeof page._contextSignature !== 'string') page._contextSignature = '';
+  if (typeof page._foregroundRefreshSerial !== 'number') page._foregroundRefreshSerial = 0;
   if (typeof page._instanceId !== 'number') page._instanceId = 0;
 }
 
@@ -596,6 +602,7 @@ function startLoad(page: DirectoryPageInstance): void {
     activateMode(page, initialKind, false);
     return;
   }
+  invalidateForegroundRefresh(page);
   for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
   page._modeRuntimes = {
     employee: createModeRuntime(groupId),
@@ -628,8 +635,89 @@ function createClientContextSignature(page: DirectoryPageInstance): string {
       ? [page.properties.groupRole ?? '', page.properties.groupIsDeveloperAdmin === true]
       : 'permission-unknown',
     page.properties.groupVersion ?? 0,
-    page.properties.contextRefreshRevision ?? 0,
   ]);
+}
+
+function invalidateForegroundRefresh(page: DirectoryPageInstance): void {
+  page._foregroundRefreshSerial += 1;
+  page._foregroundRefreshPromise = undefined;
+}
+
+function revalidateForegroundContext(page: DirectoryPageInstance): Promise<void> {
+  initializeRuntimeState(page);
+  if (page._instanceId === 0 || page._detached) return Promise.resolve();
+  const contextSignature = createClientContextSignature(page);
+  if (page._contextSignature !== contextSignature) {
+    startLoad(page);
+    return Promise.resolve();
+  }
+  const inFlight = page._foregroundRefreshPromise;
+  if (inFlight !== undefined) return inFlight;
+  const groupId = page.data.groupId;
+  const instanceId = page._instanceId;
+  const runtimes = {
+    employee: page._modeRuntimes.employee,
+    internal: page._modeRuntimes.internal,
+  };
+  const serial = ++page._foregroundRefreshSerial;
+  let tracked: Promise<void> = Promise.resolve();
+  const operation = (async () => {
+    try {
+      await requireClientCapability('organization');
+      const snapshots = await Promise.all(
+        directoryKinds.map((kind) => page._directoryClient.getFacets(groupId, kind)),
+      );
+      if (
+        !isForegroundRefreshCurrent(page, runtimes, serial, contextSignature, groupId, instanceId)
+      ) {
+        return;
+      }
+      const versionChanged = directoryKinds.some((kind, index) => {
+        const previous = runtimes[kind].facets?.publishedImportVersion;
+        return previous === undefined || previous !== snapshots[index]?.publishedImportVersion;
+      });
+      if (versionChanged) {
+        page._contextSignature = '';
+        startLoad(page);
+      }
+    } catch (error) {
+      if (
+        !isForegroundRefreshCurrent(page, runtimes, serial, contextSignature, groupId, instanceId)
+      ) {
+        return;
+      }
+      if (error instanceof ClientCapabilityDisabledError) {
+        setDirectoryDisabled(page, error.message);
+      } else if (isAuthorizationError(error)) {
+        clearDirectoryForAuthorizationError(page, toUserMessage(error, '当前账户无权读取通讯录。'));
+      }
+    }
+  })();
+  tracked = operation.finally(() => {
+    if (page._foregroundRefreshPromise === tracked) page._foregroundRefreshPromise = undefined;
+  });
+  page._foregroundRefreshPromise = tracked;
+  return tracked;
+}
+
+function isForegroundRefreshCurrent(
+  page: DirectoryPageInstance,
+  runtimes: Readonly<Record<DirectoryKind, DirectoryModeRuntime>>,
+  serial: number,
+  contextSignature: string,
+  groupId: string,
+  instanceId: number,
+): boolean {
+  return (
+    !page._detached &&
+    page._instanceId === instanceId &&
+    page._foregroundRefreshSerial === serial &&
+    page._contextSignature === contextSignature &&
+    createClientContextSignature(page) === contextSignature &&
+    page.data.groupId === groupId &&
+    page._modeRuntimes.employee === runtimes.employee &&
+    page._modeRuntimes.internal === runtimes.internal
+  );
 }
 
 function normalizeDirectoryKind(value: DirectoryKind): DirectoryKind {

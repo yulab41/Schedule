@@ -62,6 +62,7 @@ function createManifest(): SyntheticManifest {
         department: '测试中心',
         subunit: '综合服务台',
         contactName: '测试总机',
+        employeeCode: 'D0468',
         jobTitle: '主任',
         building: 'A座',
         floor: '1楼',
@@ -104,6 +105,21 @@ describe('directory import manifest', () => {
     expect(entry?.aliases).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'source', normalizedValue: '测试中心' }),
+        expect.objectContaining({
+          aliasValue: 'D0468',
+          type: 'source',
+          normalizedValue: 'd0468',
+        }),
+        expect.objectContaining({
+          aliasValue: 'D0468',
+          type: 'source',
+          normalizedValue: '0468',
+        }),
+        expect.objectContaining({
+          aliasValue: 'D0468',
+          type: 'source',
+          normalizedValue: '468',
+        }),
         expect.objectContaining({ type: 'manual', normalizedValue: '测试服务' }),
         expect.objectContaining({ type: 'pinyin_compact', normalizedValue: 'ceshizhongxin' }),
         expect.objectContaining({ type: 'pinyin_initials', normalizedValue: 'cszx' }),

@@ -1,64 +1,46 @@
 # 微信小程序审计状态
 
-- 当前阶段：“更多 → 测试工具”体验候选已上传
-- 状态：自动验证、生产发布、体验上传和客户端白名单完成；微信开发者工具与小米 14 待人工复核
-- 代码 checkpoint：`18498a8b feat(miniprogram): add safe test tools`，已推送
-- 体验候选：`0.1.0-p10.20260831.70@18498a8`
-- 上传结果：188 files / 2,444,502 bytes；manifest `8c4dae56…7287b`
-- 生产应用 checkpoint：`18498a8b`；最终 release 元数据以最新同名状态 checkpoint 识别
-- 生产备份：`68902f0f-a5eb-4a56-963a-e78829862086`（55 表、194,887 行、87,642,424 bytes）
-- 基线类型：用户脏树上测量、exact clean commit 构建/上传；无关用户文件未进入 checkpoint
-- 最终状态 checkpoint 标识：`docs(status): record test tools experience upload`
+- 当前阶段：通讯录弹层、拨号返回和工号别名修复已完成自动验证
+- 状态：实现与只读生产数据验证完成；代码推送、生产部署、体验上传和小米 14 待完成
+- 任务起始应用 checkpoint：`18498a8b`；并行状态文档后当前基线：`01add026`
+- 待创建 checkpoint：`fix(directory): preserve results and support employee aliases`
+- 当前体验候选仍为：`0.1.0-p10.20260831.70@18498a8`；不包含本次修复
+- 基线类型：clean HEAD 包体 + 用户脏树自动测试；无关用户文件保持排除
 
-## 本轮结果
+## 已实现
 
-- “更多 → 测试工具”入口改为真实诊断页；页面位于非首屏 `subpackages/diagnostics`，旧手势探针保留并从“交互检查”进入。
-- develop/trial 显示且允许访问；release 不显示入口，直接测试工具页和旧手势探针均在采集/手势初始化前返回工作台。
-- App 只在 develop/trial 创建诊断仓库；release 不创建仓库。未新增 `onNetworkStatusChange`、内存或其他运行时监听。
-- 诊断只读、进程内存有界：最近请求 20、错误 10、性能 12；不持久化、不上传、不提供清空业务缓存。
-- 请求仅保留方法、脱敏路径、时间、耗时、状态、重试和近邻重复标记；查询、动态 ID、Header、body 与响应不进入仓库。
-- 错误只保留固定分类和 SHA-256 指纹；完整/Codex 报告不含凭证、身份、联系方式、成员、正文、存储键值或原始堆栈。
-- 版本卡新增 Git SHA、构建时间、安全版本描述、dirty 标记、API profile、微信环境和小程序版本；无 CloudBase/npm 产物时明确说明。
-- 页面提供设备/屏幕/安全区、显示检查、关键场景、性能、网络、错误、存储摘要及一次复制报告；文案逐项说明影响和截图位置。
-- 未新增依赖；未修改 API、数据库、权限、认证、业务请求重试/Header/body/异常、业务 `setData` 或无关业务页面。
+- 筛选弹层顶部 28px 专用横条区域支持下拉跟手、160ms 关闭和 180ms 回弹；8px 判轴、纵横比 1.2，关闭阈值为 96px，或 28px + 0.65px/ms。
+- 手势只绑定横条区域，筛选列表不带动 Sheet；拖动由 WXS 直接改 transform/opacity，逻辑层 `setData=0`。下滑与“完成”共用 `closeFilters`。
+- 横条、标题/完成、清除全部筛选均固定；只有层级和选项进入 flex scroll-view。
+- workbench/独立页前台返回后台复核科室与人员 facets；上下文和发布批次未变时不清视图、不重建卡片、不发列表请求、不调用 `setData`。401/403、账号/群组/权限/版本变化仍立即清除。
+- 导入同一不可变事务为字母前缀工号增加有限数字尾部/去前导零 source alias；API 对 3 位以上纯数字用当前 batch 的 `directory_search_aliases(normalized_value,type)` 索引预解析，工号 rank 750，电话精确/前缀 700/650 保留。
+- 未新增 API 字段、contracts、迁移或依赖；权限、发布批次、姓名/拼音/首字母、电话号码、筛选、稳定排序和分页游标语义不变。
 
-## 环境保护矩阵
+## 证据
 
-| 环境    | “更多”入口 | 直接测试工具页 | 旧手势探针 | App 诊断仓库 |
-| ------- | ---------- | -------------- | ---------- | ------------ |
-| develop | 显示       | 允许           | 允许       | 创建         |
-| trial   | 显示       | 允许           | 允许       | 创建         |
-| release | 隐藏       | 返回工作台     | 返回工作台 | 不创建       |
+| 项目         | 结果                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------- |
+| 先红         | Mini 5、导入 1、API 2 项旧实现失败                                                          |
+| 定向         | Mini 3 files/45 tests；导入 13；API unit 2；MySQL integration 5 按环境跳过                  |
+| 全量         | Mini 110 files/555 tests；root 244 files/1,139 tests，37 files/355 tests 按数据库环境跳过   |
+| 构建与静态   | 全端 typecheck/build、Mini verify/source/package/performance/determinism/CI dry-run 通过    |
+| 任务质量     | 任务 ESLint/Prettier/diff、`pnpm smoke:check-core` 通过                                     |
+| 工号实际结果 | production 当前发布批次只读验证 `D0468/d0468/0468/468` 均命中 D0468，各 1 条                |
+| 拨号返回回归 | 双 facets 后台复核；list request `+0`、`setData +0`，查询/卡片/分页/236px 滚动保持          |
+| 查询路径性能 | 三轮中位数的中位数 50.12→48.36ms（-3.5%）；P95 中位数 62.17→57.34ms                         |
+| 包体         | main 1,658,099→1,658,306 B；organization 1,201,831→1,210,446 B；total 5,204,815→5,213,637 B |
 
-## 自动验证与包体
-
-| 项目                                                          | 结果                                                                |
-| ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 旧实现红灯/引入点                                             | `712aa4ee` 将入口写死为 true；旧 HEAD 门禁按预期失败                |
-| 定向回归                                                      | 8 files / 65 tests；Web 黄金 2 tests 全通过                         |
-| Mini 全量                                                     | 109 files / 548 tests 全通过                                        |
-| 根测试                                                        | 243 files / 1,137 tests 通过；37 files / 355 tests 无数据库环境跳过 |
-| 全端 typecheck/build                                          | 通过                                                                |
-| Mini verify/source/performance/package/determinism/CI dry-run | 通过；clean 2/2 Worklet；manifest `f4ae3085…a5bfd`                  |
-| 任务 ESLint/Prettier                                          | 通过；既有 `wx-request-executor.ts prefer-const` 按要求保持不改     |
-| 诊断分包敏感模式扫描                                          | 通过；无凭证、身份、手机号、UUID 或原始请求模式                     |
-| 390/320/大字号 Web 黄金                                       | 无横向溢出；页面内 6 个按钮均 ≥44px；页面错误 0                     |
-| `pnpm smoke:check-core`                                       | 通过；未涉及 Web 核心链路                                           |
-
-包体同口径：主包 `1,637,688 → 1,658,098` B；scheduling `420,884 → 422,480`；organization
-`1,197,103 → 1,201,891`；workflows `821,914 → 825,106`；insights `1,056,800 → 1,061,589`；
-新增 diagnostics `35,710`；总包 `5,134,389 → 5,204,874` B。主包仍只有既有 1.5 MiB 预警，未到 1.8 MiB 阻断线。
-上传追踪标签写入后的最终 dist 为主包 1,658,565 B、diagnostics 35,728 B、总包 5,205,623 B；差异仅来自可追溯版本元数据。
+全仓 lint 仍只被未修改 `wx-request-executor.ts` 的既有 `prefer-const` 阻断；全仓 format 仍被既有约 385 文件基线阻断，任务文件单独严格通过。生产性能数字仅为只读数据库查询路径，不是端到端 HTTP；后者当前工具无法安全测量。
 
 ## 工具与未验证项
 
-- 已读取：`brainstorming`、`miniprogram-development`、`frontend-design`、`systematic-debugging`、`previewer` 及其安全/发布参考。
-- 已实际使用：Git、Node、pnpm、TypeScript、Vitest、esbuild、Storybook、Playwright、项目包体/静态/安全脚本与 Node `miniprogram-ci`。
-- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮没有调用。体验版从 exact clean commit 经 Node `miniprogram-ci` 上传。
-- DevTools 编译与 Console/Network、Skyline 原生布局、真实首屏/帧率、键盘和小米 14 均暂未验证。
-- 390/320 Web 黄金仅证明辅助布局边界，不能证明微信运行时或手机端验收通过。
-- `.70` 已通过正式 allowlist ensure/verify；重建预热的一次 TLS EOF/一次 502 在受控等待内恢复，公网完整 verifier 随后通过。未提审、未正式发布。
+- 已读取并应用：`brainstorming`、`systematic-debugging`、`miniprogram-development`、`ui-design`、`ui-ux-pro-max`、`frontend-design`。
+- 已使用：Git、Node、pnpm、TypeScript、Vitest、生产只读 SQL、项目构建/包体/确定性/CI 脚本。
+- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮未调用。
+- WXS 原生触摸、遮罩/安全区、真实 Console/Network、端到端 HTTP、帧率和小米 14 当前构建均暂未验证。
 
 ## 唯一下一任务
 
-用户在小米 14 打开 `.70@18498a8`，截图版本条、设备与安全区、显示检查和交互探针，并复制 Codex 简化报告；另由用户在微信开发者工具编译同一 checkpoint 并检查 Console。未取得匹配 SHA 真机证据前不得宣称验收通过；不得提审或正式发布。
+创建并推送显式通讯录 checkpoint，按仓库流程生产备份、部署和完整验证。之后单独报告新短 SHA、版本描述、脏树和测试页，取得当次明确批准后才能上传体验版；未取得匹配小米 14 证据前不得宣称真机通过，不提审、不正式发布。
+
+停止条件：生产 release 与推送 checkpoint 一致，并已向用户提交体验上传门禁信息；未获批准前停止在上传之前。

@@ -16,6 +16,7 @@ import {
   directoryContactMethods,
   directoryEntries,
   directoryImportBatches,
+  directorySearchAliases,
   type DatabaseClient,
   type DatabaseTransaction,
   withTransaction,
@@ -227,7 +228,8 @@ async function listDirectoryEntries(
 ): Promise<DirectoryPage> {
   const pageSize = query.pageSize ?? defaultPageSize;
   const cursor = query.cursor === undefined ? undefined : decodeDirectoryCursor(query.cursor);
-  const rank = buildSearchRank(query.q);
+  const employeeCodeEntryIds = await resolveEmployeeCodeEntryIds(transaction, batchId, query.q);
+  const rank = buildSearchRank(query.q, employeeCodeEntryIds);
   const conditions = buildDirectoryConditions(batchId, query, rank, canViewAdministratorEntries);
   if (cursor !== undefined) conditions.push(buildCursorCondition(rank, cursor));
   const stableOrder = [
@@ -319,14 +321,22 @@ function buildDirectoryConditions(
   return conditions;
 }
 
-function buildSearchRank(value: string | undefined): SQL<number> {
+export function buildSearchRank(
+  value: string | undefined,
+  employeeCodeEntryIds: readonly string[] = [],
+): SQL<number> {
   if (value === undefined) return sql<number>`0`;
   const normalized = normalizeDirectorySearch(value);
   const digitsOnly = /^[\d\s()+\-.]+$/u.test(normalized);
   if (digitsOnly) {
     const digits = normalized.replaceAll(/\D/gu, '');
     if (digits.length === 0) return sql<number>`0`;
+    const employeeCodeAliasRank =
+      employeeCodeEntryIds.length === 0
+        ? sql``
+        : sql`WHEN ${inArray(directoryEntries.id, [...employeeCodeEntryIds])} THEN 750`;
     return sql<number>`CASE
+      ${employeeCodeAliasRank}
       WHEN EXISTS (
         SELECT 1 FROM directory_contact_methods AS directory_phone_exact
         WHERE directory_phone_exact.entry_id = ${directoryEntries.id}
@@ -380,6 +390,47 @@ function buildSearchRank(value: string | undefined): SQL<number> {
     WHEN ${fulltextScore} > 0 THEN 100 + LEAST(99, ROUND(${fulltextScore} * 10))
     ELSE 0
   END`;
+}
+
+export function buildEmployeeCodeCandidates(digits: string): readonly string[] {
+  if (digits.length < 3) return [];
+  const numericVariants = [digits];
+  let padded = digits;
+  while (padded.length < 6) {
+    padded = `0${padded}`;
+    numericVariants.push(padded);
+  }
+  const candidates = new Set(numericVariants);
+  for (const prefix of 'abcdefghijklmnopqrstuvwxyz') {
+    for (const numeric of numericVariants) candidates.add(`${prefix}${numeric}`);
+  }
+  return [...candidates];
+}
+
+async function resolveEmployeeCodeEntryIds(
+  transaction: DatabaseTransaction,
+  batchId: string,
+  value: string | undefined,
+): Promise<readonly string[]> {
+  if (value === undefined) return [];
+  const normalized = normalizeDirectorySearch(value);
+  if (!/^[\d\s()+\-.]+$/u.test(normalized)) return [];
+  const digits = normalized.replaceAll(/\D/gu, '');
+  const candidates = buildEmployeeCodeCandidates(digits);
+  if (candidates.length === 0) return [];
+  const aliasRows = await transaction
+    .select({ id: directorySearchAliases.entryId })
+    .from(directorySearchAliases)
+    .innerJoin(directoryEntries, eq(directoryEntries.id, directorySearchAliases.entryId))
+    .where(
+      and(
+        eq(directoryEntries.batchId, batchId),
+        eq(directorySearchAliases.type, 'source'),
+        inArray(directorySearchAliases.normalizedValue, [...candidates]),
+        eq(directorySearchAliases.aliasValue, directoryEntries.employeeCode),
+      ),
+    );
+  return [...new Set(aliasRows.map((row) => row.id))];
 }
 
 function buildCursorCondition(rank: SQL<number>, cursor: DirectoryCursor): SQL {

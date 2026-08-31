@@ -714,20 +714,33 @@
 .filter-sheet {
   position: relative;
   z-index: 1;
+  display: flex;
   width: 100%;
   height: 92vh;
   max-height: 840px;
   overflow: hidden;
+  box-sizing: border-box;
+  flex-direction: column;
   background: var(--directory-surface);
   border-radius: 22px 22px 0 0;
   box-shadow: var(--ui-shadow-elevated);
   animation: sheet-enter 240ms ease-out;
 }
 
+.sheet-drag-region {
+  display: flex;
+  height: 28px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
 .sheet-handle {
   width: 38px;
   height: 5px;
-  margin: 8px auto 0;
+  margin: 0 auto;
   background: var(--ui-color-border-strong);
   border-radius: var(--ui-radius-pill);
 }
@@ -739,6 +752,7 @@
   box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
+  flex: none;
   gap: 12px;
 }
 
@@ -760,7 +774,8 @@
 }
 
 .sheet-scroll {
-  height: calc(100% - 69px);
+  min-height: 0;
+  flex: 1;
 }
 
 .sheet-body {
@@ -768,13 +783,14 @@
 }
 
 .sheet-reset-action {
-  position: relative;
-  z-index: 2;
-  top: 0;
   display: flex;
-  width: 100%;
+  width: calc(100% - 32px);
+  min-height: 44px;
   min-width: 0;
+  margin: 0 16px 8px;
   padding: 0 12px;
+  box-sizing: border-box;
+  flex: none;
   align-items: center;
   gap: 8px;
   color: var(--directory-accent);
@@ -807,7 +823,6 @@
 
 .directory-filter-grid {
   display: flex;
-  margin-top: 8px;
   flex-direction: column;
   gap: 8px;
 }

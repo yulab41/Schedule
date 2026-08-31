@@ -345,7 +345,7 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       room,
       employeeCode,
     ].filter((item): item is string => item !== undefined);
-    const aliases = buildSearchAliases(sourceAliases, manualAliases);
+    const aliases = buildSearchAliases(sourceAliases, manualAliases, employeeCode);
     const searchText = [...new Set([...sourceAliases, ...manualAliases])].join(' ');
 
     const content = {
@@ -692,6 +692,7 @@ export async function activateDirectorySnapshot(
 function buildSearchAliases(
   sourceAliases: readonly string[],
   manualAliases: readonly string[],
+  employeeCode: string | undefined,
 ): readonly NormalizedDirectoryAlias[] {
   const aliases = new Map<string, NormalizedDirectoryAlias>();
   const addAlias = (
@@ -717,6 +718,16 @@ function buildSearchAliases(
   }
   for (const value of manualAliases) {
     addAlias('manual', value, value);
+  }
+  const normalizedEmployeeCode = employeeCode === undefined ? '' : normalizeAlias(employeeCode);
+  const employeeCodeMatch = /^[a-z]+(\d+)$/u.exec(normalizedEmployeeCode);
+  const employeeCodeDigits = employeeCodeMatch?.[1];
+  if (employeeCode !== undefined && employeeCodeDigits !== undefined) {
+    addAlias('source', employeeCode, employeeCodeDigits);
+    const withoutLeadingZeros = employeeCodeDigits.replace(/^0+(?=\d)/u, '');
+    if (withoutLeadingZeros !== employeeCodeDigits) {
+      addAlias('source', employeeCode, withoutLeadingZeros);
+    }
   }
   for (const value of [...sourceAliases, ...manualAliases]) {
     if (!hanPattern.test(value)) {

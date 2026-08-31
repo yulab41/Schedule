@@ -181,4 +181,43 @@ describe('P10 native directory parity', () => {
     );
     expect(cardStyles).not.toContain('--ui-line-height-body');
   });
+
+  it('keeps the filter reset fixed above one scroll region and limits drag dismissal to the handle', () => {
+    const template = read('src/subpackages/organization/components/directory-panel/index.wxml');
+    const styles = read('src/subpackages/organization/components/directory-panel/index.wxss');
+    const controller = read(
+      'src/subpackages/organization/components/directory-panel/controller.ts',
+    );
+
+    expect(template).toContain(
+      '<wxs module="directorySheetGesture" src="./filter-sheet-drag.wxs"></wxs>',
+    );
+    expect(template).toContain('id="directory-filter-sheet-panel"');
+    expect(template).toContain('id="directory-filter-sheet-scrim"');
+    const dragRegion = template.match(/<view\s+class="sheet-drag-region"[\s\S]*?<\/view>/u)?.[0];
+    expect(dragRegion).toContain('bindtouchstart="{{directorySheetGesture.touchStart}}"');
+    expect(dragRegion).toContain('bindtouchmove="{{directorySheetGesture.touchMove}}"');
+    expect(dragRegion).toContain('bindtouchend="{{directorySheetGesture.touchEnd}}"');
+    expect(dragRegion).toContain('bindtouchcancel="{{directorySheetGesture.touchCancel}}"');
+    expect(dragRegion).toContain('class="sheet-handle"');
+    expect(dragRegion).not.toContain('sheet-heading');
+    expect(dragRegion).not.toContain('sheet-reset-action');
+
+    const resetIndex = template.indexOf('class="sheet-reset-action');
+    const scrollIndex = template.indexOf('class="sheet-scroll"');
+    expect(resetIndex).toBeGreaterThan(0);
+    expect(scrollIndex).toBeGreaterThan(resetIndex);
+    const scrollMarkup = template.slice(
+      scrollIndex,
+      template.indexOf('</scroll-view>', scrollIndex),
+    );
+    expect(scrollMarkup).not.toContain('sheet-reset-action');
+    expect(scrollMarkup).not.toContain('directorySheetGesture.touch');
+
+    expect(styles).toMatch(/\.filter-sheet\s*\{[^}]*display:\s*flex;/su);
+    expect(styles).toMatch(/\.filter-sheet\s*\{[^}]*flex-direction:\s*column;/su);
+    expect(styles).toMatch(/\.sheet-drag-region\s*\{[^}]*height:\s*28px;/su);
+    expect(styles).toMatch(/\.sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su);
+    expect(controller).toContain('handleFilterSheetSwipeDismiss');
+  });
 });

@@ -2,6 +2,32 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-31 Mini 通讯录弹层手势、拨号返回与工号别名
+
+- 反馈/引入点：顶部横条原本仅为装饰，“清除全部筛选”位于 `scroll-view` 内；`git log -S`/`git blame`
+  定位结构根源为 `1de042b5`/`6b5b30fb`。`c2a57441` 将每次 workbench 前台刷新序号写入
+  directory context signature，导致拨号返回即使账号、群组、权限、群组版本和发布批次均未变化，
+  仍调用 `startLoad` 清空搜索视图。完整工号本来走 `employee_code`/source alias，纯数字分支只查电话。
+- 测试先行：旧实现 Mini 新增场景 5 红、导入 alias 1 红、API 查询 2 红；实现后通讯录定向
+  3 files/45 tests、导入 13 tests、API unit 2 tests 全绿。MySQL 集成 5 项因本机 Docker/MySQL
+  不可用跳过；生产当前发布批次只读验证 `D0468/d0468/0468/468` 均命中 D0468，各 1 条。
+- 实现：28px 专用横条区用 WXS 直接驱动 transform/opacity；8px 判轴、纵横比 1.2，96px 位移，
+  或 28px + 0.65px/ms 速度关闭，未达标 180ms 回弹。下滑与“完成”共用 `closeFilters`，拖动中
+  `setData=0`。标题/完成/清除固定，只有层级选项滚动。前台恢复后台复核双 facets；版本未变时
+  list request `+0`、`setData +0`，查询、卡片、分页游标和滚动不变；401/403/上下文或批次变化仍清理。
+- 工号查询：不新增 API/contracts/迁移。导入同一不可变事务为字母前缀工号生成有限数字尾部和去零
+  source alias；3 位以上纯数字先按当前 batch 的 `normalized_value IN` 精确 alias 索引解析条目，工号
+  精确别名 rank 750，高于电话精确 700/前缀 650；姓名、拼音、电话、筛选、稳定排序和游标不变。
+- 性能/包体：生产只读数据库查询路径三轮中位数的中位数 50.12→48.36ms（-3.5%），P95 中位数
+  62.17→57.34ms；这不是端到端 HTTP，后者当前工具无法安全测量。clean HEAD→修改后包体：main
+  1,658,099→1,658,306 B，organization 1,201,831→1,210,446 B，总计 5,204,815→5,213,637 B。
+- 自动验证：Mini 110 files/555 tests；root 244 files/1,139 tests（37 files/355 tests 按数据库环境
+  跳过）；全端 typecheck/build、Mini verify/source/package/performance/determinism/CI dry-run、任务
+  ESLint/Prettier/diff 和 core smoke 通过。全仓 lint/format 仍只受未改 `wx-request-executor.ts`
+  `prefer-const` 与既有约 385 文件格式基线阻断。本 checkpoint 以
+  `fix(directory): preserve results and support employee aliases` 识别；推送、生产部署、体验上传和
+  小米 14 均尚未完成，体验上传仍须当次批准。
+
 ## 2026-08-30 Mini 通讯录空筛选与运行态性能修复
 
 - 引入点/根因：`git log -S`/`git blame` 将空弹层和完整筛选树常驻定位到 `1de042b5`/`6b5b30fb`。

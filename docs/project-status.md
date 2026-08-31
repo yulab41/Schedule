@@ -59,13 +59,26 @@
 
 ## 当前活动批次
 
-- 唯一任务为“更多 → 测试工具”：新增 `subpackages/diagnostics`，保留旧手势探针并从交互检查进入；不改 API、数据库、权限、认证或业务页面。
-- develop/trial 显示；release 入口、直接页和旧探针三层失败关闭，App 不创建诊断仓库，也未新增运行时监听或 monkey patch。
-- 诊断只读且内存有界：请求 20、错误 10、性能 12；不持久化/上传，不读取 body/Header/storage value，报告只含脱敏路径和错误指纹。
-- 请求重试、Header/body、Promise/异常、receiver、调用次数及 `setData` 行为保持不变；既有 `prefer-const` 不处理。
-- 修改前主包/总包 1,637,688/5,134,389 B；最终复测 1,658,098/5,204,874 B，新增 diagnostics 35,710 B，未触发新阻断。
-- Mini 109/548、定向 8 files/65、根 243 files/1,137 tests、全端 build/typecheck、production verify/determinism/CI、任务质量与 390/320/大字号黄金通过。
-- 微信开发者工具 Console/Network 与小米 14 体验版仍待用户人工验证；`.70@18498a8` 已上传并放行；不提审、不正式发布。
+- 唯一任务为通讯录弹层手势/固定清除、拨号返回状态保留和工号数字尾部搜索；待创建 checkpoint 以
+  `fix(directory): preserve results and support employee aliases` 识别。
+- 28px 横条专用 WXS：8px 判轴、纵横比 1.2，96px 或 28px+0.65px/ms 关闭；未达阈值 180ms
+  回弹，拖动 `setData=0`，与“完成”共用 `closeFilters`。标题/完成/清除固定，只有层级选项滚动。
+- 前台恢复后台复核双 facets；账号/群组/权限/群组版本/发布批次未变时 list request `+0`、
+  `setData +0`，查询、卡片、分页和滚动保持。401/403 或真实上下文/批次变化仍立即清除。
+- 不新增 API/contracts/迁移；同一导入事务增加有限工号数字 alias，3 位以上数字查询使用当前 batch 的
+  `directory_search_aliases(normalized_value,type)` 索引预解析，工号优先于电话但姓名/拼音/电话/筛选/排序/游标不变。
+- 生产发布批次只读验证 `D0468/d0468/0468/468` 均命中目标各 1 条；查询路径三轮中位数的中位数
+  50.12→48.36ms（-3.5%），P95 中位数 62.17→57.34ms；该数据不是端到端 HTTP。
+- Mini 110/555、root 244 files/1,139 tests、全端 build/typecheck、Mini verify/source/package/
+  performance/determinism/CI、任务 ESLint/Prettier/diff 和 core smoke 通过；37 files/355 tests 按无数据库
+  环境跳过。全仓 lint/format 仅保留未改既有阻断。
+- 当前 `.70@18498a8` 不含本修复。先推送/生产备份部署；随后报告新 SHA/版本/脏树/测试页并等待当次
+  体验上传批准。微信开发者工具、端到端 HTTP、原生手势/帧率和小米 14 暂未验证。
+
+## 已完成的测试工具批次
+
+- “更多 → 测试工具”已由 `18498a8b` 实现，production 与 `.70@18498a8` 已同步并放行；release
+  失败关闭、只读有界诊断和隐私边界保持有效，当前只待实体 Android/DevTools 人工复核。
 
 ## 已完成的发布基线与当前修复
 
@@ -131,30 +144,8 @@
 
 ## 已完成验证
 
-- 无外层滑动宿主回归旧代码先红；实现后 6 files/47 tests。Mini 全量 107 files/517 tests、root
-  242 files/1,135 tests 通过（37/355 环境跳过）；全端 build/typecheck、Mini verify/determinism/
-  source/package/performance/CI dry-run、任务 Prettier/ESLint/diff 与 core smoke 通过。总包
-  5,107,804 bytes、main 1,636,609、2/2 Worklet，manifest `7b47bcca…2a40f1d`；未使用开发者工具。
-- Profile Tasks 1–3 的共享/后端/媒体/登录红绿、全仓计数、browser 环境阻塞和发布证据保留在 debug
-  日志及对应 Git checkpoint；`.53/.54` upload、allowlist 与生产 full verifier 均已通过。
-- Profile Task 4：旧 controller/account/native 15 项先红；锁定 `353ec1b9` 最终定向 11 files/
-  67 tests、Mini 100 files/486 tests、root 238 files/1,122 tests 通过（37 files/355 tests 按无数据库
-  环境跳过）。全端 build/typecheck、production verify/determinism/source/package/performance/CI dry-run 与 core
-  smoke 通过；总包 5,006,692 bytes、主包 1,579,433 bytes 仅触发 1.5M 预警且低于 1.8M 阻断线，
-  manifest `45c97151fc82910951b44ecbb6aa7a0544f8b9f76b1b00a38336016ce188069e`。
-- 权限批次旧实现红灯覆盖缺失客户端、成员事件/通知误禁、管理项仍渲染、创建/加入可调用及偏好失败
-  隔离；实现后 Mini 103 files/499 tests、root 239 files/1,125 tests 通过（37 files/355 tests 按环境
-  跳过），全端 build/typecheck、任务代码 Prettier/ESLint、production verify/CI dry-run 与 core smoke 通过。
-  clean checkpoint 包 5,067,668 bytes、main 1,593,819 bytes、2/2 Worklet，manifest `8d1dbdfe…2123c`。
-- 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
-  7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
-- 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
-  4,527,949 bytes，insights 1,033,326 bytes，manifest `66b531c6…17158e2`，产物已包含通知组件 JS。
-- 通知干净 checkpoint Mini 全量 93 files/448 tests，root 串行 232 files/1,106 tests 通过；
-  37 files/353 tests 按无数据库环境跳过。全端 typecheck/build、Storybook build 和 core smoke 通过。
-- 本机通知 MySQL 集成用例因 Docker daemon/127.0.0.1:3307 未运行而阻塞；已增加无数据库
-  SQL condition 回归并通过，双群组真实 MySQL 用例保留给可用 DB 环境。`pnpm smoke:browser`
-  因 5173 无服务在第 1/6 步拒绝连接；`pnpm smoke:check-core` 通过。
+- 较早的 Profile、权限、通知和 Page 架构红绿/发布证据已落 Git checkpoint 与 debug 日志；当前状态
+  仅保留仍影响后续发布的最新事实。
 - Page/controller/handler/timer/实例隔离/薄壳/build-tools 与新预挂载定向均通过；workflow host
   强化 7/7，organization WXML handler 16/16，Checkpoint A 定向 8 files/55。
 - 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
@@ -243,7 +234,12 @@
 
 ## 下一步与停止条件
 
-1. 用户在小米 14 打开 `.70@18498a8`，截图版本条、设备/安全区、显示检查与交互探针，并回传 Codex 简化报告。
-2. 用户在微信开发者工具编译同一 checkpoint 并检查 Console；该辅助证据不能替代手机验收。
+1. 显式暂存通讯录/API/导入/相邻测试和本轮状态文档，创建并推送
+   `fix(directory): preserve results and support employee aliases` checkpoint。
+2. 生产备份后部署该 checkpoint 并运行完整 verifier；更新状态记录备份标识、release SHA 和验证结果。
+3. 单独向用户报告新短 SHA、版本描述、脏树和测试页面，取得当次明确批准后才上传新体验版。
+4. 用户在小米 14 验证横条下滑/列表滚动/回弹/固定清除、拨号返回及四种工号输入；开发者工具
+   Console 仅作辅助证据。
 
-停止条件：体验上传与生产验证完成后停止；收到匹配构建真机证据前保持“待验证”，不提审、不正式发布。
+停止条件：生产 release 与推送 checkpoint 一致，并已提交体验上传门禁信息；未获当次批准前不上传。
+收到匹配构建真机证据前保持“待验证”，不提审、不正式发布。

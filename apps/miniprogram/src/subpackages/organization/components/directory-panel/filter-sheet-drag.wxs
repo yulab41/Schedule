@@ -1,0 +1,184 @@
+var AXIS_UNDECIDED = 0;
+var AXIS_VERTICAL = 1;
+var AXIS_REJECTED = 2;
+var AXIS_RATIO = 1.2;
+var START_THRESHOLD = 8;
+var DISMISS_DISTANCE = 96;
+var FLICK_DISTANCE = 28;
+var FLICK_VELOCITY = 0.65;
+var EXIT_FRAME_COUNT = 10;
+
+var state = {
+  animationToken: 0,
+  axis: AXIS_UNDECIDED,
+  lastTime: 0,
+  lastY: 0,
+  offsetY: 0,
+  startX: 0,
+  startY: 0,
+  tracking: false,
+  velocityY: 0
+};
+
+function finiteNumber(value) {
+  return typeof value === 'number' && value === value ? value : 0;
+}
+
+function clamp(value, minimum, maximum) {
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
+  return value;
+}
+
+function firstTouch(event) {
+  if (event.touches && event.touches.length > 0) return event.touches[0];
+  if (event.changedTouches && event.changedTouches.length > 0) return event.changedTouches[0];
+  return null;
+}
+
+function resolveElements(ownerInstance) {
+  return {
+    panel: ownerInstance.selectComponent('#directory-filter-sheet-panel'),
+    scrim: ownerInstance.selectComponent('#directory-filter-sheet-scrim')
+  };
+}
+
+function setDirectMotion(ownerInstance, offsetY) {
+  var elements = resolveElements(ownerInstance);
+  if (elements.panel) {
+    elements.panel.setStyle({
+      transform: 'translateY(' + offsetY + 'px)',
+      transition: 'none'
+    });
+  }
+  if (elements.scrim) {
+    elements.scrim.setStyle({
+      opacity: '' + clamp(1 - offsetY / 320, 0.2, 1),
+      transition: 'none'
+    });
+  }
+}
+
+function rebound(ownerInstance) {
+  state.animationToken += 1;
+  state.offsetY = 0;
+  var elements = resolveElements(ownerInstance);
+  if (elements.panel) {
+    elements.panel.setStyle({
+      transform: 'translateY(0px)',
+      transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+    });
+  }
+  if (elements.scrim) {
+    elements.scrim.setStyle({
+      opacity: '1',
+      transition: 'opacity 180ms ease-out'
+    });
+  }
+}
+
+function finishDismiss(ownerInstance, animationToken, remainingFrames) {
+  if (state.animationToken !== animationToken) return;
+  if (remainingFrames <= 0) {
+    ownerInstance.callMethod('handleFilterSheetSwipeDismiss');
+    return;
+  }
+  ownerInstance.requestAnimationFrame(function () {
+    finishDismiss(ownerInstance, animationToken, remainingFrames - 1);
+  });
+}
+
+function dismiss(ownerInstance) {
+  var animationToken = state.animationToken + 1;
+  state.animationToken = animationToken;
+  var elements = resolveElements(ownerInstance);
+  if (elements.panel) {
+    elements.panel.setStyle({
+      transform: 'translateY(100vh)',
+      transition: 'transform 160ms cubic-bezier(0.4, 0, 1, 1)'
+    });
+  }
+  if (elements.scrim) {
+    elements.scrim.setStyle({
+      opacity: '0',
+      transition: 'opacity 160ms ease-in'
+    });
+  }
+  finishDismiss(ownerInstance, animationToken, EXIT_FRAME_COUNT);
+}
+
+function touchStart(event, ownerInstance) {
+  var touch = firstTouch(event);
+  state.animationToken += 1;
+  state.axis = AXIS_UNDECIDED;
+  state.offsetY = 0;
+  state.tracking = !!touch;
+  state.velocityY = 0;
+  if (!state.tracking) return;
+  state.startX = finiteNumber(touch.clientX);
+  state.startY = finiteNumber(touch.clientY);
+  state.lastY = state.startY;
+  state.lastTime = finiteNumber(event.timeStamp);
+  setDirectMotion(ownerInstance, 0);
+}
+
+function chooseAxis(totalX, totalY) {
+  var horizontal = Math.abs(totalX);
+  var vertical = Math.abs(totalY);
+  if (Math.max(horizontal, vertical) < START_THRESHOLD) return AXIS_UNDECIDED;
+  if (vertical > horizontal * AXIS_RATIO) return AXIS_VERTICAL;
+  if (horizontal > vertical * AXIS_RATIO) return AXIS_REJECTED;
+  return AXIS_UNDECIDED;
+}
+
+function updateVelocity(event, touch) {
+  var nextTime = finiteNumber(event.timeStamp);
+  var elapsed = nextTime - state.lastTime;
+  var deltaY = finiteNumber(touch.clientY) - state.lastY;
+  if (elapsed > 0 && elapsed <= 80 && deltaY !== 0) state.velocityY = deltaY / elapsed;
+  state.lastY = finiteNumber(touch.clientY);
+  state.lastTime = nextTime;
+}
+
+function touchMove(event, ownerInstance) {
+  var touch = firstTouch(event);
+  if (!state.tracking || !touch) return;
+  var totalX = finiteNumber(touch.clientX) - state.startX;
+  var totalY = finiteNumber(touch.clientY) - state.startY;
+  updateVelocity(event, touch);
+  if (state.axis === AXIS_UNDECIDED) state.axis = chooseAxis(totalX, totalY);
+  if (state.axis !== AXIS_VERTICAL) return;
+  state.offsetY = Math.max(0, totalY);
+  setDirectMotion(ownerInstance, state.offsetY);
+  return false;
+}
+
+function touchEnd(event, ownerInstance) {
+  if (!state.tracking) return;
+  var touch = firstTouch(event);
+  if (touch) updateVelocity(event, touch);
+  state.tracking = false;
+  var shouldDismiss =
+    state.axis === AXIS_VERTICAL &&
+    (state.offsetY >= DISMISS_DISTANCE ||
+      (state.offsetY >= FLICK_DISTANCE && state.velocityY >= FLICK_VELOCITY));
+  state.axis = AXIS_UNDECIDED;
+  if (shouldDismiss) dismiss(ownerInstance);
+  else rebound(ownerInstance);
+  return false;
+}
+
+function touchCancel(event, ownerInstance) {
+  if (!state.tracking) return;
+  state.tracking = false;
+  state.axis = AXIS_UNDECIDED;
+  rebound(ownerInstance);
+  return false;
+}
+
+module.exports = {
+  touchCancel: touchCancel,
+  touchEnd: touchEnd,
+  touchMove: touchMove,
+  touchStart: touchStart
+};

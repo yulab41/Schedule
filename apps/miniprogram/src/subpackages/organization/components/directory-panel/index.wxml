@@ -1,3 +1,5 @@
+<wxs module="directorySheetGesture" src="./filter-sheet-drag.wxs"></wxs>
+
 <template name="directory-pane">
   <scroll-view
     class="directory-scroll"
@@ -272,14 +274,28 @@
 <template name="directory-filter-sheet">
   <view wx:if="{{sheet.open}}" class="sheet-layer" catchtouchmove="preventTouchMove">
     <view
+      id="directory-filter-sheet-scrim"
       class="sheet-scrim"
       aria-role="button"
       aria-label="关闭筛选"
       data-directory-kind="{{sheet.directoryKind}}"
       bindtap="handleCloseFilters"
     ></view>
-    <view class="filter-sheet" aria-role="dialog" aria-label="筛选{{sheet.title}}">
-      <view class="sheet-handle"></view>
+    <view
+      id="directory-filter-sheet-panel"
+      class="filter-sheet"
+      aria-role="dialog"
+      aria-label="筛选{{sheet.title}}"
+    >
+      <view
+        class="sheet-drag-region"
+        bindtouchstart="{{directorySheetGesture.touchStart}}"
+        bindtouchmove="{{directorySheetGesture.touchMove}}"
+        bindtouchend="{{directorySheetGesture.touchEnd}}"
+        bindtouchcancel="{{directorySheetGesture.touchCancel}}"
+      >
+        <view class="sheet-handle" aria-hidden="true"></view>
+      </view>
       <view class="sheet-heading">
         <text class="sheet-title">筛选{{sheet.title}}</text>
         <view
@@ -291,6 +307,22 @@
           >完成</view
         >
       </view>
+      <view
+        class="sheet-reset-action {{sheet.activeFilterCount === 0 ? 'is-disabled' : ''}}"
+        aria-role="button"
+        aria-disabled="{{sheet.activeFilterCount === 0}}"
+        data-directory-kind="{{sheet.directoryKind}}"
+        bindtap="handleClearFilters"
+      >
+        <image src="/assets/icons/web-directory-filter-clear.svg" mode="aspectFit" />
+        <text>清除全部筛选</text>
+        <text wx:if="{{sheet.activeFilterCount > 0}}" class="sheet-reset-count"
+          >已选 {{sheet.activeFilterCount}} 项</text
+        >
+      </view>
+      <text wx:if="{{sheet.filterAdjustmentMessage}}" class="visually-hidden" aria-live="polite"
+        >{{sheet.filterAdjustmentMessage}}</text
+      >
       <scroll-view
         class="sheet-scroll"
         type="list"
@@ -304,23 +336,6 @@
         bindscroll="handleSheetScroll"
       >
         <view class="sheet-body">
-          <view
-            class="sheet-reset-action {{sheet.activeFilterCount === 0 ? 'is-disabled' : ''}}"
-            aria-role="button"
-            aria-disabled="{{sheet.activeFilterCount === 0}}"
-            data-directory-kind="{{sheet.directoryKind}}"
-            bindtap="handleClearFilters"
-          >
-            <image src="/assets/icons/web-directory-filter-clear.svg" mode="aspectFit" />
-            <text>清除全部筛选</text>
-            <text wx:if="{{sheet.activeFilterCount > 0}}" class="sheet-reset-count"
-              >已选 {{sheet.activeFilterCount}} 项</text
-            >
-          </view>
-          <text wx:if="{{sheet.filterAdjustmentMessage}}" class="visually-hidden" aria-live="polite"
-            >{{sheet.filterAdjustmentMessage}}</text
-          >
-
           <view class="directory-filter-grid">
             <view wx:if="{{sheet.emptyMessage}}" class="sheet-empty-state">
               <text>{{sheet.emptyMessage}}</text>
