@@ -105,6 +105,42 @@
       <text class="section-note">这些是少量单次辅助值，不是手机端性能验收结论。</text>
     </view>
     <view class="metric-lead"><text>测试工具首屏</text><text>{{pageReadyMs}} ms</text></view>
+    <view class="diagnostic-card directory-diagnostic-card">
+      <view class="directory-diagnostic-heading">
+        <view>
+          <text class="directory-diagnostic-title">通讯录性能诊断</text>
+          <text class="directory-diagnostic-state {{directoryRecording ? 'is-recording' : ''}}">{{directoryRecording ? '正在记录' : '已停止'}}</text>
+        </view>
+        <text>只在开发版和体验版的内存中保存最近 20 次，不写入本地存储。</text>
+      </view>
+      <view class="directory-diagnostic-actions">
+        <view class="diagnostic-action is-primary {{directoryRecording ? 'is-disabled' : ''}}" aria-role="button" aria-disabled="{{directoryRecording}}" bindtap="handleStartDirectoryRecording">开始记录</view>
+        <view class="diagnostic-action {{directoryRecording ? '' : 'is-disabled'}}" aria-role="button" aria-disabled="{{!directoryRecording}}" bindtap="handleStopDirectoryRecording">停止记录</view>
+        <view class="diagnostic-action" aria-role="button" bindtap="handleClearDirectoryRecords">清空记录</view>
+        <view class="diagnostic-action" aria-role="button" bindtap="handleCopyLatestDirectorySearch">复制最近一次</view>
+        <view class="diagnostic-action" aria-role="button" bindtap="handleCopyRecentDirectorySearches">复制最近 10 次</view>
+      </view>
+      <view class="directory-diagnostic-steps">
+        <text>标准步骤</text>
+        <text>1. 点“开始记录”，再点下方“回到工作台测试”。</text>
+        <text>2. 打开通讯录，依次做首次搜索、相同条件第二次、不同关键词、带筛选和科室搜索。</text>
+        <text>3. 条件允许时分别在 Wi-Fi 和移动网络测试；每个主要场景尽量做 5 次。</text>
+        <text>4. 回到“更多 → 测试工具”，点“停止记录”，再复制最近 10 次发给 Codex。</text>
+      </view>
+      <view class="directory-diagnostic-recent">
+        <text class="directory-diagnostic-subtitle">最近搜索（{{directorySearchRows.length}}）</text>
+        <view wx:if="{{directorySearchRows.length === 0}}" class="empty-diagnostic">尚无记录。开始记录后去通讯录完成一次搜索。</view>
+        <view wx:for="{{directorySearchRows}}" wx:key="key" class="directory-search-record">
+          <view>
+            <text>{{item.modeLabel}} · {{item.searchTypeLabel}} · {{item.outcomeLabel}}</text>
+            <text>{{item.totalMs}} ms</text>
+          </view>
+          <text>序号 {{item.diagnosticId}} · 长度 {{item.searchTermLength}} · 返回 {{item.resultCount}} 条 · 筛选 {{item.hasFilters ? '有' : '无'}}</text>
+          <text>请求前 {{item.facetsOrReleaseWaitMs}} ms · 网络响应 {{item.networkResponseMs}} ms · 转换 {{item.responseToConversionMs}} ms · 卡片 {{item.cardBuildMs}} ms · 可见 {{item.resultVisibleMs}} ms</text>
+          <text>setData {{item.setDataCallCount}} 次 / {{item.setDataTotalBytes}} B · profile {{item.profileLabel}} · request ID {{item.requestId}}</text>
+        </view>
+      </view>
+    </view>
     <view class="diagnostic-card compact-list">
       <view wx:if="{{performanceRows.length === 0}}" class="empty-diagnostic">暂时没有性能记录。打开并操作业务页面后再回来刷新。</view>
       <view wx:for="{{performanceRows}}" wx:key="key" class="compact-item">

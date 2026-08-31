@@ -62,23 +62,20 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录弹层手势/固定清除、拨号返回状态保留和工号数字尾部搜索；代码 checkpoint
-  `7952f1d1 fix(directory): preserve results and support employee aliases` 已推送并部署。
-- 28px 横条专用 WXS：8px 判轴、纵横比 1.2，96px 或 28px+0.65px/ms 关闭；未达阈值 180ms
-  回弹，拖动 `setData=0`，与“完成”共用 `closeFilters`。标题/完成/清除固定，只有层级选项滚动。
-- 前台恢复后台复核双 facets；账号/群组/权限/群组版本/发布批次未变时 list request `+0`、
-  `setData +0`，查询、卡片、分页和滚动保持。401/403 或真实上下文/批次变化仍立即清除。
-- 不新增 API/contracts/迁移；同一导入事务增加有限工号数字 alias，3 位以上数字查询使用当前 batch 的
-  `directory_search_aliases(normalized_value,type)` 索引预解析，工号优先于电话但姓名/拼音/电话/筛选/排序/游标不变。
-- 生产发布批次只读验证 `D0468/d0468/0468/468` 均命中目标各 1 条；查询路径三轮中位数的中位数
-  50.12→48.36ms（-3.5%），P95 中位数 62.17→57.34ms；该数据不是端到端 HTTP。
-- exact-clean Mini 110/554、root 244 files/1,139 tests、全端 build/typecheck、Mini verify/source/package/
-  performance/determinism/CI、任务 ESLint/Prettier/diff 和 core smoke 通过；37 files/355 tests 按无数据库
-  环境跳过。全仓 lint/format 仅保留未改既有阻断。
-- 生产备份 `1a46cf22-4a78-4032-a1fd-5f3fb1583a2f` 后完整部署 `7952f1d1`；预热首次 TLS reset
-  后恢复，schema 52、带公网 IP full verifier、正式健康与 alias 产物检查通过，远端临时目录已清理。
-- `.71@7952f1d` 已从 exact clean worktree 上传并加入正式客户端白名单；189 files/2,449,336 bytes，
-  manifest `b2090d71…df55`。未提审、未正式发布；DevTools、端到端 HTTP、原生手势/帧率和小米 14 暂未验证。
+- 唯一任务为通讯录半屏筛选与性能诊断阶段 A；起始 checkpoint `eeba6402`，计划代码 checkpoint
+  以 `feat(miniprogram): add directory performance diagnostics` 识别，尚未提交/部署。
+- Sheet 按当前 `windowHeight/screenHeight/safeArea.bottom` 计算约半屏并随横竖屏重算；保留横条、
+  固定标题/完成/清除、单一滚动区、底部安全区、筛选状态和滚动位置。
+- 测试工具新增默认停止、最多 20 条的通讯录诊断，可开始/停止/清空/复制最近 1/10 次；只记录阶段
+  毫秒和脱敏上下文，不记录原词、姓名、号码、完整工号、账号/群组/权限、筛选值或游标。
+- 纯关键词搜索已确认不等待完整 facets；只删除 controller 在已受保护 transport 前的一层重复
+  capability 等待。API/contracts/数据库/索引、搜索排序、权限、筛选、分页和缓存隔离不变。
+- Mini 110 files/561 tests、Web 辅助黄金 2 files/4 tests、全端 build/typecheck、Mini verify/source/
+  package/performance/determinism/CI、Storybook build、任务 lint/format/diff 与 core smoke 通过。
+- root 全量并行首轮有 2 个无关的 5s 超时/Windows 文件锁波动；精确 12 tests 复跑通过，随后
+  串行全量 244 files/1,139 tests 全绿，37 files/355 tests 按无数据库环境跳过。
+- production 包 5,213,637→5,273,141 B（+59,504 B）；现有主包 1.5M 和矩阵节点提示保持基线警告。
+  原生手感、Network、服务端分段和小米 14 端到端时间均暂未验证，阶段 B 不得提前开始。
 
 ## 已完成的测试工具批次
 
@@ -239,8 +236,8 @@
 
 ## 下一步与停止条件
 
-1. 用户在小米 14 打开 `.71@7952f1d`，先在“更多 → 测试工具”截图版本、设备/安全区和显示检查。
-2. 验证通讯录横条下滑/列表滚动/回弹/固定清除、拨号返回及四种工号输入；开发者工具
-   Console 仅作辅助证据。
+1. 完成显式路径 checkpoint、推送与 production 备份/部署/full verifier。
+2. 报告新短 SHA、体验版描述、脏树和测试页面；取得用户当次明确同意后才能上传新体验版。
+3. 用户按运行清单在小米 14 复制诊断数据；阶段 B 只处理数据证明的单一主要瓶颈。
 
-停止条件：收到匹配 `.71@7952f1d` 的小米 14 证据前保持“待验证”，不提审、不正式发布。
+停止条件：收到匹配新体验版的真实诊断数据前保持“待验证”，不提审、不正式发布，不修改正式 API contract、数据库索引或生产部署方式。

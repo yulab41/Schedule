@@ -1,10 +1,14 @@
 import { buildInfo } from '../../../../platform/build-info.js';
 import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
 import {
+  clearRuntimeDirectorySearches,
   getRuntimeDiagnosticsSnapshot,
+  startRuntimeDirectorySearchRecording,
+  stopRuntimeDirectorySearchRecording,
   type RuntimeDiagnosticError,
   type RuntimeDiagnosticPerformance,
   type RuntimeDiagnosticRequest,
+  type RuntimeDirectorySearchDiagnostic,
 } from '../../../../platform/runtime-diagnostics.js';
 import {
   formatMiniProgramEnvironment,
@@ -68,10 +72,20 @@ interface PerformanceView extends RuntimeDiagnosticPerformance {
   readonly screenshot: string;
 }
 
+interface DirectorySearchView extends RuntimeDirectorySearchDiagnostic {
+  readonly key: string;
+  readonly modeLabel: string;
+  readonly outcomeLabel: string;
+  readonly profileLabel: string;
+  readonly searchTypeLabel: string;
+}
+
 interface TestToolsPageData {
   readonly buildRows: readonly DiagnosticRow[];
   readonly checkSummary: string;
   readonly deviceRows: readonly DiagnosticRow[];
+  readonly directoryRecording: boolean;
+  readonly directorySearchRows: readonly DirectorySearchView[];
   readonly displayChecks: readonly DisplayCheck[];
   readonly environmentLabel: string;
   readonly errorRows: readonly ErrorView[];
@@ -261,6 +275,8 @@ Page({
     buildRows: [],
     checkSummary: '尚未检查',
     deviceRows: [],
+    directoryRecording: false,
+    directorySearchRows: [],
     displayChecks: displayCheckDefaults,
     environmentLabel: '正在确认环境',
     errorRows: [],
@@ -378,6 +394,46 @@ Page({
   handleOpenGestureProbe(): void {
     if (!isTestToolsRuntimeEnabled()) return;
     wx.navigateTo({ url: '/pages/gesture-probe/index' });
+  },
+
+  handleStartDirectoryRecording(this: TestToolsPageInstance): void {
+    if (!this._active) return;
+    if (!startRuntimeDirectorySearchRecording()) {
+      wx.showToast?.({ icon: 'none', title: '当前环境无法开始记录' });
+      return;
+    }
+    refreshRuntimeDiagnostics(this);
+    wx.showToast?.({ icon: 'success', title: '已开始记录通讯录搜索' });
+  },
+
+  handleStopDirectoryRecording(this: TestToolsPageInstance): void {
+    stopRuntimeDirectorySearchRecording();
+    refreshRuntimeDiagnostics(this);
+    wx.showToast?.({ icon: 'success', title: '已停止记录' });
+  },
+
+  handleClearDirectoryRecords(this: TestToolsPageInstance): void {
+    clearRuntimeDirectorySearches();
+    refreshRuntimeDiagnostics(this);
+    wx.showToast?.({ icon: 'success', title: '通讯录记录已清空' });
+  },
+
+  handleCopyLatestDirectorySearch(this: TestToolsPageInstance): void {
+    const latest = this.data.directorySearchRows.slice(0, 1);
+    if (latest.length === 0) {
+      wx.showToast?.({ icon: 'none', title: '暂时没有搜索记录' });
+      return;
+    }
+    copyText(createDirectorySearchReport(latest), '最近一次已复制');
+  },
+
+  handleCopyRecentDirectorySearches(this: TestToolsPageInstance): void {
+    const recent = this.data.directorySearchRows.slice(0, 10);
+    if (recent.length === 0) {
+      wx.showToast?.({ icon: 'none', title: '暂时没有搜索记录' });
+      return;
+    }
+    copyText(createDirectorySearchReport(recent), '最近 10 次已复制');
   },
 
   handleCopyChecks(this: TestToolsPageInstance): void {
@@ -633,11 +689,32 @@ function createStorageRows(runtime: RuntimeSystemApi): readonly DiagnosticRow[] 
 function refreshRuntimeDiagnostics(page: TestToolsPageInstance): void {
   const snapshot = getRuntimeDiagnosticsSnapshot();
   page.setData({
+    directoryRecording: snapshot.directorySearchRecording,
+    directorySearchRows: [...snapshot.directorySearches].reverse().map(toDirectorySearchView),
     errorRows: [...snapshot.errors].reverse().map(toErrorView),
     generatedAt: formatTimestamp(Date.now()),
     performanceRows: [...snapshot.performance].reverse().map(toPerformanceView),
     requestRows: [...snapshot.requests].reverse().map(toRequestView),
   });
+}
+
+function toDirectorySearchView(
+  entry: RuntimeDirectorySearchDiagnostic,
+  index: number,
+): DirectorySearchView {
+  return {
+    ...entry,
+    key: `${entry.diagnosticId}-${index}`,
+    modeLabel: entry.directoryKind === 'employee' ? '人员' : '科室',
+    outcomeLabel:
+      entry.outcome === 'success'
+        ? '完成'
+        : entry.outcome === 'superseded'
+          ? '已被新搜索替代'
+          : '失败',
+    profileLabel: entry.networkProfile.supported ? '支持' : '不支持',
+    searchTypeLabel: searchTypeLabel(entry.searchType),
+  };
 }
 
 function toRequestView(entry: RuntimeDiagnosticRequest, index: number): RequestView {
@@ -719,6 +796,12 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
           .slice(0, simplified ? 6 : 12)
           .map((item) => `${item.metricLabel}=${item.durationMs}ms`)),
     '',
+    '[通讯录性能诊断]',
+    `记录状态=${data.directoryRecording ? '记录中' : '已停止'}`,
+    ...(data.directorySearchRows.length === 0
+      ? ['暂无记录']
+      : createDirectorySearchReportLines(data.directorySearchRows.slice(0, simplified ? 3 : 10))),
+    '',
     '[脱敏网络结果]',
     ...(data.requestRows.length === 0
       ? ['暂无有界内存记录']
@@ -760,6 +843,47 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
     );
   }
   return lines.join('\n');
+}
+
+function createDirectorySearchReport(rows: readonly DirectorySearchView[]): string {
+  return [
+    '[通讯录性能诊断 v1]',
+    '安全说明：只含长度、类型、阶段耗时、计数和设备环境；不含原始搜索词、姓名、号码、工号、账号、群组、权限、筛选值或游标。',
+    `构建=${buildInfo.buildLabel}`,
+    `记录数=${rows.length}`,
+    '',
+    ...createDirectorySearchReportLines(rows),
+  ].join('\n');
+}
+
+function createDirectorySearchReportLines(rows: readonly DirectorySearchView[]): string[] {
+  return rows.flatMap((item, index) => [
+    `#${index + 1} ${item.diagnosticId} | ${formatTimestamp(item.confirmedAt)} | ${item.modeLabel} | ${item.outcomeLabel}`,
+    `搜索=长度${item.searchTermLength}，类型${item.searchTypeLabel}，筛选=${yesNo(item.hasFilters)}，页面会话首次=${yesNo(item.firstSearchInPageSession)}`,
+    `复用=完成结果${yesNo(item.completedResultReuse)}，进行中请求${yesNo(item.inFlightRequestReuse)}，重复拦截${yesNo(item.duplicateRequestIntercepted)}`,
+    `阶段ms=事件开始${item.eventHandlerStartMs}，账号/群组/权限等待${item.contextWaitMs}，facets/发布复核等待${item.facetsOrReleaseWaitMs}，发请求${item.networkRequestStartMs}，收响应${item.networkResponseMs}，响应到转换${item.responseToConversionMs}，卡片${item.cardBuildMs}，setData回调${item.setDataCallbackMs}，下一渲染可见${item.resultVisibleMs}，总计${item.totalMs}`,
+    `setData=次数${item.setDataCallCount}，累计估算${item.setDataTotalBytes}B，最大单次${item.setDataMaxBytes}B`,
+    `结果=返回${item.resultCount}条，下一页${yesNo(item.hasNextPage)}，响应估算${item.responseBytes}B，facets就绪${yesNo(item.facetsReady)}，发布批次确认${yesNo(item.publishedBatchConfirmed)}`,
+    `网络=${item.networkType}，requestId=${item.requestId}，profile=${formatNetworkProfile(item.networkProfile)}`,
+    `环境=${item.deviceModel} | ${item.systemVersion} | 微信${item.wechatVersion} | 基础库${item.sdkVersion} | 小程序${item.miniProgramVersion} | 体验构建${item.experienceVersion}`,
+    '',
+  ]);
+}
+
+function formatNetworkProfile(profile: RuntimeDirectorySearchDiagnostic['networkProfile']): string {
+  if (!profile.supported) return '不支持';
+  return `DNS ${profile.dnsMs ?? '不支持'}ms / 建连 ${profile.connectMs ?? '不支持'}ms / TLS ${profile.tlsMs ?? '不支持'}ms / 首字节 ${profile.ttfbMs ?? '不支持'}ms / 下载 ${profile.downloadMs ?? '不支持'}ms`;
+}
+
+function searchTypeLabel(value: RuntimeDirectorySearchDiagnostic['searchType']): string {
+  if (value === 'employee-code') return '工号';
+  if (value === 'name') return '姓名/拼音';
+  if (value === 'phone') return '电话';
+  return '其他';
+}
+
+function yesNo(value: boolean): string {
+  return value ? '是' : '否';
 }
 
 function reportRows(rows: readonly DiagnosticRow[], limit: number): string[] {

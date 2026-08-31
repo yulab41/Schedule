@@ -384,6 +384,143 @@ page {
   font-weight: 700;
 }
 
+.directory-diagnostic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.directory-diagnostic-heading,
+.directory-diagnostic-heading > view,
+.directory-diagnostic-steps,
+.directory-diagnostic-recent,
+.directory-search-record {
+  display: flex;
+}
+
+.directory-diagnostic-heading,
+.directory-diagnostic-steps,
+.directory-diagnostic-recent,
+.directory-search-record {
+  flex-direction: column;
+}
+
+.directory-diagnostic-heading {
+  gap: 6px;
+}
+
+.directory-diagnostic-heading > view {
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.directory-diagnostic-title {
+  color: var(--ui-color-text-primary);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.directory-diagnostic-state {
+  padding: 4px 8px;
+  color: var(--ui-color-text-secondary);
+  background: #eef3f8;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.directory-diagnostic-state.is-recording {
+  color: #0b6b3a;
+  background: #e5f7ed;
+}
+
+.directory-diagnostic-heading > text,
+.directory-diagnostic-steps > text:not(:first-child),
+.directory-search-record > text {
+  color: var(--ui-color-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.directory-diagnostic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostic-action {
+  display: flex;
+  min-height: 40px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  color: #155d83;
+  background: #eaf5fb;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.diagnostic-action.is-primary {
+  color: #ffffff;
+  background: #0f5b92;
+}
+
+.diagnostic-action.is-disabled {
+  opacity: 0.45;
+}
+
+.directory-diagnostic-steps {
+  padding: 12px;
+  gap: 5px;
+  background: #f7f9fc;
+  border-radius: 12px;
+}
+
+.directory-diagnostic-steps > text:first-child,
+.directory-diagnostic-subtitle {
+  color: var(--ui-color-text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.directory-diagnostic-recent {
+  gap: 8px;
+}
+
+.directory-search-record {
+  padding: 10px 0;
+  gap: 4px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.directory-search-record:last-child {
+  border-bottom: 0;
+}
+
+.directory-search-record > view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.directory-search-record > view > text:first-child {
+  min-width: 0;
+  color: var(--ui-color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.directory-search-record > view > text:last-child {
+  flex: none;
+  color: #1d668d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .compact-list {
   padding: 4px 16px;
 }

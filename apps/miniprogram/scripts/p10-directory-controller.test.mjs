@@ -128,7 +128,22 @@ describe('P10 native directory controller', () => {
           return;
         }
         if (options.url.includes(`/groups/${groupId}/employee-directory?`)) {
-          options.success({ data: page(true), statusCode: 200 });
+          options.success({
+            data: page(true),
+            header: { 'x-request-id': 'directory-request-employee-1' },
+            profile: {
+              SSLconnectionEnd: 8,
+              SSLconnectionStart: 7,
+              connectEnd: 9,
+              connectStart: 4,
+              domainLookUpEnd: 4,
+              domainLookUpStart: 2,
+              requestStart: 9,
+              responseEnd: 24,
+              responseStart: 20,
+            },
+            statusCode: 200,
+          });
           return;
         }
         throw new Error(`unexpected request ${options.method} ${options.url}`);
@@ -1051,6 +1066,100 @@ describe('P10 native directory controller', () => {
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
 
     expect(page.data.largeText).toBe(true);
+  });
+
+  it('records a privacy-safe real-search timeline without waiting for employee facets', async () => {
+    const diagnostics = await import('../src/platform/runtime-diagnostics.ts');
+    const store = diagnostics.createRuntimeDiagnosticsStore();
+    store.startDirectorySearchRecording();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
+    globalThis.wx.getAccountInfoSync = () => ({
+      miniProgram: { envVersion: 'trial', version: '1.2.3' },
+    });
+    globalThis.wx.getAppBaseInfo = () => ({ SDKVersion: '3.17.1', version: '8.0.60' });
+    globalThis.wx.getDeviceInfo = () => ({ model: 'Xiaomi 14', system: 'Android 15' });
+    globalThis.wx.getNetworkType = (options) => options.success({ networkType: 'wifi' });
+    globalThis.wx.nextTick = (callback) => callback();
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.employeePane.facetsLoading).toBe(false));
+    definition.methods.handleEmployeeMode.call(page);
+    definition.methods.handleSearchInput.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+      detail: { value: 'D0468' },
+    });
+    definition.methods.handleSearch.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+    });
+
+    await vi.waitFor(() => expect(store.getSnapshot().directorySearches).toHaveLength(1));
+    const recorded = store.getSnapshot().directorySearches[0];
+    expect(recorded).toMatchObject({
+      directoryKind: 'employee',
+      facetsReady: true,
+      firstSearchInPageSession: true,
+      miniProgramVersion: '1.2.3',
+      networkType: 'wifi',
+      outcome: 'success',
+      publishedBatchConfirmed: true,
+      requestId: 'directory-request-employee-1',
+      searchTermLength: 5,
+      searchType: 'employee-code',
+    });
+    expect(recorded.setDataCallCount).toBeGreaterThanOrEqual(3);
+    expect(recorded.setDataTotalBytes).toBeGreaterThan(0);
+    expect(recorded.networkProfile).toMatchObject({ supported: true, dnsMs: 2, ttfbMs: 11 });
+    expect(JSON.stringify(recorded)).not.toMatch(/D0468|林医生|session-token|11111111/iu);
+
+    const requestCount = listRequests().length;
+    definition.methods.handleSearch.call(page, {
+      currentTarget: { dataset: { directoryKind: 'employee' } },
+    });
+    await vi.waitFor(() => expect(store.getSnapshot().directorySearches).toHaveLength(2));
+    expect(listRequests()).toHaveLength(requestCount);
+    expect(store.getSnapshot().directorySearches[1]).toMatchObject({
+      completedResultReuse: true,
+      duplicateRequestIntercepted: true,
+      firstSearchInPageSession: false,
+      inFlightRequestReuse: false,
+      setDataCallCount: 0,
+    });
+  });
+
+  it('sizes the filter sheet from the live window and safe area, then follows rotation', async () => {
+    let resizeHandler;
+    let windowInfo = {
+      safeArea: { bottom: 840, height: 816, left: 0, right: 390, top: 24, width: 390 },
+      screenHeight: 844,
+      statusBarHeight: 24,
+      windowHeight: 820,
+      windowWidth: 390,
+    };
+    globalThis.wx.getWindowInfo = () => windowInfo;
+    globalThis.wx.onWindowResize = vi.fn((handler) => {
+      resizeHandler = handler;
+    });
+    globalThis.wx.offWindowResize = vi.fn();
+    const page = createPageInstance(definition, runtimeProperties());
+
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+
+    expect(page.data.filterSheetStyle).toBe('height:412px;');
+    expect(globalThis.wx.onWindowResize).toHaveBeenCalledTimes(1);
+
+    windowInfo = {
+      safeArea: { bottom: 390, height: 366, left: 0, right: 844, top: 24, width: 844 },
+      screenHeight: 390,
+      statusBarHeight: 24,
+      windowHeight: 390,
+      windowWidth: 844,
+    };
+    resizeHandler();
+    expect(page.data.filterSheetStyle).toBe('height:195px;');
+
+    definition.lifetimes.detached.call(page);
+    expect(globalThis.wx.offWindowResize).toHaveBeenCalledWith(resizeHandler);
   });
 
   function lastRequest() {

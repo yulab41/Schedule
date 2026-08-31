@@ -47,6 +47,15 @@ import {
   type DirectoryFilterState,
 } from './query-runtime.js';
 import {
+  beginDirectorySearchDiagnostic,
+  completeDirectorySearchDiagnostic,
+  markDirectorySearchRequestStarted,
+  markDirectorySearchResult,
+  markDirectorySearchReuse,
+  trackDirectorySearchSetData,
+  type DirectorySearchDiagnosticTrace,
+} from './search-diagnostics.js';
+import {
   ClientCapabilityDisabledError,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -168,6 +177,7 @@ interface DirectoryPageData {
   readonly directoryKind: DirectoryKind;
   readonly employeePane: DirectoryPaneData;
   readonly embedded: boolean;
+  readonly filterSheetStyle: string;
   readonly filterSheetOpen: boolean;
   readonly groupId: string;
   readonly internalPane: DirectoryPaneData;
@@ -219,11 +229,13 @@ interface DirectoryPageInstance {
   _contextSignature: string;
   _detached: boolean;
   _directoryClient: DirectoryReadClient;
+  _directorySearchCount: number;
   _foregroundRefreshPromise: Promise<void> | undefined;
   _foregroundRefreshSerial: number;
   _instanceId: number;
   _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
   _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
+  _windowResizeHandler: (() => void) | undefined;
   createSelectorQuery?(): DirectorySelectorQuery;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent?(name: 'panelready' | 'workspacerequest'): void;
@@ -271,6 +283,11 @@ interface ScrollEvent extends ModeTargetEvent {
   readonly detail: { readonly scrollTop?: number };
 }
 
+interface DirectorySearchConfirmation {
+  readonly confirmedAt: number;
+  readonly eventHandlerStartedAt: number;
+}
+
 const directoryClient = createRuntimeDirectoryReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
@@ -296,6 +313,7 @@ export function createDirectoryPanelControllerDefinition() {
     directoryKind: 'internal',
     employeePane: createPaneData('employee'),
     embedded: false,
+    filterSheetStyle: 'height:50vh;',
     filterSheetOpen: false,
     groupId: '',
     internalPane: createPaneData('internal'),
@@ -352,9 +370,11 @@ export function createDirectoryPanelControllerDefinition() {
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
         const embedded = this.properties.embedded;
+        const filterSheetStyle = createFilterSheetStyle(windowInfo);
         this.setData(
           {
             embedded,
+            filterSheetStyle,
             largeText:
               ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
                 16) >= 20,
@@ -364,9 +384,11 @@ export function createDirectoryPanelControllerDefinition() {
           },
           () => this.triggerEvent?.('panelready'),
         );
+        registerDirectoryWindowResize(this);
         startLoad(this);
       },
       detached(this: DirectoryPageInstance): void {
+        unregisterDirectoryWindowResize(this);
         initializeRuntimeState(this);
         this._detached = true;
         invalidateForegroundRefresh(this);
@@ -413,7 +435,11 @@ export function createDirectoryPanelControllerDefinition() {
         scheduleSearch(this, kind);
       },
       handleSearch(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
-        void search(this, eventKind(this, event));
+        const eventHandlerStartedAt = Date.now();
+        void search(this, eventKind(this, event), false, {
+          confirmedAt: eventHandlerStartedAt,
+          eventHandlerStartedAt,
+        });
       },
       handleClearSearch(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
         clearSearch(this, eventKind(this, event));
@@ -494,6 +520,46 @@ export function createDirectoryPanelControllerDefinition() {
       },
     },
   };
+}
+
+function createFilterSheetStyle(windowInfo: MiniProgramWindowInfo): string {
+  const windowHeight = Math.max(1, Math.round(windowInfo.windowHeight));
+  const rawSafeBottom = windowInfo.safeArea?.bottom;
+  const screenHeight = Math.max(windowHeight, Math.round(windowInfo.screenHeight ?? windowHeight));
+  const safeCoordinateHeight =
+    typeof rawSafeBottom === 'number' && rawSafeBottom > windowHeight ? screenHeight : windowHeight;
+  const safeAreaBottom =
+    typeof rawSafeBottom === 'number' && Number.isFinite(rawSafeBottom)
+      ? Math.max(0, Math.min(windowHeight, safeCoordinateHeight - rawSafeBottom))
+      : 0;
+  const usableHeight = windowHeight - safeAreaBottom;
+  const sheetHeight = Math.max(1, Math.round(usableHeight * 0.5 + safeAreaBottom));
+  return `height:${sheetHeight}px;`;
+}
+
+function registerDirectoryWindowResize(page: DirectoryPageInstance): void {
+  unregisterDirectoryWindowResize(page);
+  const runtime = wx as unknown as {
+    readonly onWindowResize?: (handler: () => void) => void;
+  };
+  if (runtime.onWindowResize === undefined) return;
+  const handler = (): void => {
+    if (page._detached) return;
+    const filterSheetStyle = createFilterSheetStyle(wx.getWindowInfo());
+    if (page.data.filterSheetStyle !== filterSheetStyle) page.setData({ filterSheetStyle });
+  };
+  page._windowResizeHandler = handler;
+  runtime.onWindowResize(handler);
+}
+
+function unregisterDirectoryWindowResize(page: DirectoryPageInstance): void {
+  const handler = page._windowResizeHandler;
+  page._windowResizeHandler = undefined;
+  if (handler === undefined) return;
+  const runtime = wx as unknown as {
+    readonly offWindowResize?: (callback: () => void) => void;
+  };
+  runtime.offWindowResize?.(handler);
 }
 
 function createPaneData(kind: DirectoryKind): DirectoryPaneData {
@@ -582,6 +648,7 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
   if (typeof page._contextSignature !== 'string') page._contextSignature = '';
   if (typeof page._foregroundRefreshSerial !== 'number') page._foregroundRefreshSerial = 0;
   if (typeof page._instanceId !== 'number') page._instanceId = 0;
+  if (typeof page._directorySearchCount !== 'number') page._directorySearchCount = 0;
 }
 
 function startLoad(page: DirectoryPageInstance): void {
@@ -746,10 +813,12 @@ function setPaneData(
   kind: DirectoryKind,
   patch: Partial<DirectoryPaneData>,
   callback?: () => void,
+  diagnosticTrace?: DirectorySearchDiagnosticTrace,
 ): void {
   const field = paneField(kind);
   const dataPatch: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(patch)) dataPatch[`${field}.${key}`] = value;
+  trackDirectorySearchSetData(diagnosticTrace, dataPatch);
   page.setData(dataPatch, callback);
 }
 
@@ -1374,7 +1443,12 @@ function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void 
   }, 240);
 }
 
-function search(page: DirectoryPageInstance, kind: DirectoryKind, force = false): Promise<void> {
+function search(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  force = false,
+  confirmation?: DirectorySearchConfirmation,
+): Promise<void> {
   const runtime = getRuntime(page, kind);
   clearSearchTimer(runtime);
   const pane = getPaneData(page, kind);
@@ -1382,11 +1456,24 @@ function search(page: DirectoryPageInstance, kind: DirectoryKind, force = false)
     resetSearchResults(page, kind);
     return Promise.resolve();
   }
+  const diagnosticStartedAt = Date.now();
+  const diagnosticTrace = beginDirectorySearchDiagnostic({
+    confirmedAt: confirmation?.confirmedAt ?? diagnosticStartedAt,
+    directoryKind: kind,
+    eventHandlerStartedAt: confirmation?.eventHandlerStartedAt ?? diagnosticStartedAt,
+    facetsReady: runtime.facets !== undefined,
+    firstSearchInPageSession: page._directorySearchCount === 0,
+    hasFilters: Object.keys(runtime.filters).length > 0,
+    publishedBatchConfirmed: runtime.facets?.publishedImportVersion !== undefined,
+    searchQuery: pane.searchQuery,
+  });
+  page._directorySearchCount += 1;
   const identity = createQueryIdentity(page, kind, runtime, pane.searchQuery);
   const pageRequestKey = createPageRequestKey(identity.baseQueryKey);
   if (!force) {
     const inFlight = runtime.inFlightPages.get(pageRequestKey);
     if (runtime.currentBaseQueryKey === identity.baseQueryKey && inFlight !== undefined) {
+      recordReusedDirectorySearch(page, kind, runtime, diagnosticTrace, inFlight);
       return inFlight;
     }
     if (
@@ -1394,6 +1481,15 @@ function search(page: DirectoryPageInstance, kind: DirectoryKind, force = false)
       runtime.completedBaseQueryKey === identity.baseQueryKey &&
       runtime.currentBaseQueryKey === identity.baseQueryKey
     ) {
+      markDirectorySearchReuse(diagnosticTrace, {
+        hasNextPage: runtime.nextCursor !== undefined,
+        resultCount: runtime.rawEntries.length,
+      });
+      finishDirectorySearchAfterRender(page, diagnosticTrace, {
+        completedResultReuse: true,
+        inFlightRequestReuse: false,
+        outcome: 'success',
+      });
       return Promise.resolve();
     }
   } else {
@@ -1407,19 +1503,33 @@ function search(page: DirectoryPageInstance, kind: DirectoryKind, force = false)
   runtime.nextCursor = undefined;
   runtime.rawEntries = [];
   runtime.totalCount = 0;
-  setPaneData(page, kind, {
-    canRefreshFromStart: false,
-    errorMessage: '',
-    hasCriteria: true,
-    hasMore: false,
-    interactionDisabled: pane.entries.length > 0,
-    loadingMore: false,
-    resultSummary: pane.entries.length === 0 ? `正在查找${pane.title}号码` : pane.resultSummary,
-    retryKind: '',
-    searching: true,
-    state: 'loading',
-  });
-  return executeDirectoryPageRequest(page, kind, runtime, identity, undefined, pageRequestKey);
+  setPaneData(
+    page,
+    kind,
+    {
+      canRefreshFromStart: false,
+      errorMessage: '',
+      hasCriteria: true,
+      hasMore: false,
+      interactionDisabled: pane.entries.length > 0,
+      loadingMore: false,
+      resultSummary: pane.entries.length === 0 ? `正在查找${pane.title}号码` : pane.resultSummary,
+      retryKind: '',
+      searching: true,
+      state: 'loading',
+    },
+    undefined,
+    diagnosticTrace,
+  );
+  return executeDirectoryPageRequest(
+    page,
+    kind,
+    runtime,
+    identity,
+    undefined,
+    pageRequestKey,
+    diagnosticTrace,
+  );
 }
 
 function loadMore(page: DirectoryPageInstance, kind: DirectoryKind, force = false): Promise<void> {
@@ -1504,6 +1614,7 @@ function executeDirectoryPageRequest(
   identity: DirectoryQueryIdentity,
   cursor: string | undefined,
   pageRequestKey: string,
+  diagnosticTrace?: DirectorySearchDiagnosticTrace,
 ): Promise<void> {
   const groupId = runtime.groupId;
   const contextSerial = runtime.contextSerial;
@@ -1513,12 +1624,13 @@ function executeDirectoryPageRequest(
   let tracked: Promise<void> = Promise.resolve();
   const operation = (async () => {
     try {
-      await requireClientCapability('organization');
+      markDirectorySearchRequestStarted(diagnosticTrace);
       const result = await page._directoryClient.list(
         groupId,
         kind,
         toDirectoryQuery(identity.searchQuery, identity.filters, cursor) as DirectoryQuery,
       );
+      const responseDecodedAt = Date.now();
       if (
         !isQueryCurrent(
           page,
@@ -1534,6 +1646,11 @@ function executeDirectoryPageRequest(
         (cursor !== undefined && runtime.nextCursor !== expectedCursor) ||
         runtime.loadedPageKeys.has(pageRequestKey)
       ) {
+        finishDirectorySearchAfterRender(page, diagnosticTrace, {
+          completedResultReuse: false,
+          inFlightRequestReuse: false,
+          outcome: 'superseded',
+        });
         return;
       }
       runtime.loadedPageKeys.add(pageRequestKey);
@@ -1542,23 +1659,42 @@ function executeDirectoryPageRequest(
       runtime.nextCursor = result.nextCursor;
       runtime.totalCount = result.totalCount;
       if (identity.canReuseCompleted) runtime.completedBaseQueryKey = identity.baseQueryKey;
+      const cardStartedAt = Date.now();
       const cards = createDirectoryCards(runtime, kind);
+      const cardBuildMs = Date.now() - cardStartedAt;
+      markDirectorySearchResult(diagnosticTrace, {
+        cardBuildMs,
+        hasNextPage: result.nextCursor !== undefined,
+        response: result,
+        responseDecodedAt,
+        resultCount: result.entries.length,
+      });
       const mergedGroupCount = cards.filter((card) => card.merged).length;
       const visible = page.data.directoryKind === kind;
-      setPaneData(page, kind, {
-        canRefreshFromStart: false,
-        entries: visible ? cards : [],
-        errorMessage: '',
-        hasMore: result.nextCursor !== undefined,
-        interactionDisabled: false,
-        loadingMore: false,
-        mergedGroupCount,
-        resultSummary: resultSummary(result.totalCount, mergedGroupCount),
-        retryKind: '',
-        searching: false,
-        state: cards.length === 0 ? 'empty' : 'ready',
-      });
-      syncPrioritySections(page, kind);
+      setPaneData(
+        page,
+        kind,
+        {
+          canRefreshFromStart: false,
+          entries: visible ? cards : [],
+          errorMessage: '',
+          hasMore: result.nextCursor !== undefined,
+          interactionDisabled: false,
+          loadingMore: false,
+          mergedGroupCount,
+          resultSummary: resultSummary(result.totalCount, mergedGroupCount),
+          retryKind: '',
+          searching: false,
+          state: cards.length === 0 ? 'empty' : 'ready',
+        },
+        createDirectorySearchSetDataCallback(page, diagnosticTrace, {
+          completedResultReuse: false,
+          inFlightRequestReuse: false,
+          outcome: 'success',
+        }),
+        diagnosticTrace,
+      );
+      syncPrioritySections(page, kind, diagnosticTrace);
     } catch (error) {
       if (
         !isQueryCurrent(
@@ -1573,14 +1709,29 @@ function executeDirectoryPageRequest(
         ) ||
         runtime.inFlightPages.get(pageRequestKey) !== tracked
       ) {
+        finishDirectorySearchAfterRender(page, diagnosticTrace, {
+          completedResultReuse: false,
+          inFlightRequestReuse: false,
+          outcome: 'superseded',
+        });
         return;
       }
       if (error instanceof ClientCapabilityDisabledError) {
         setDirectoryDisabled(page, error.message);
+        finishDirectorySearchAfterRender(page, diagnosticTrace, {
+          completedResultReuse: false,
+          inFlightRequestReuse: false,
+          outcome: 'failed',
+        });
         return;
       }
       if (isAuthorizationError(error)) {
         clearDirectoryForAuthorizationError(page, toUserMessage(error, '当前账户无权读取通讯录。'));
+        finishDirectorySearchAfterRender(page, diagnosticTrace, {
+          completedResultReuse: false,
+          inFlightRequestReuse: false,
+          outcome: 'failed',
+        });
         return;
       }
       if (cursor !== undefined) {
@@ -1595,19 +1746,29 @@ function executeDirectoryPageRequest(
       runtime.rawEntries = [];
       runtime.nextCursor = undefined;
       runtime.totalCount = 0;
-      setPaneData(page, kind, {
-        canRefreshFromStart: false,
-        entries: [],
-        errorMessage: toUserMessage(error, '搜索没有完成，请检查网络后重试。'),
-        hasMore: false,
-        interactionDisabled: false,
-        loadingMore: false,
-        mergedGroupCount: 0,
-        resultSummary: '',
-        retryKind: 'search',
-        searching: false,
-        state: 'error',
-      });
+      setPaneData(
+        page,
+        kind,
+        {
+          canRefreshFromStart: false,
+          entries: [],
+          errorMessage: toUserMessage(error, '搜索没有完成，请检查网络后重试。'),
+          hasMore: false,
+          interactionDisabled: false,
+          loadingMore: false,
+          mergedGroupCount: 0,
+          resultSummary: '',
+          retryKind: 'search',
+          searching: false,
+          state: 'error',
+        },
+        createDirectorySearchSetDataCallback(page, diagnosticTrace, {
+          completedResultReuse: false,
+          inFlightRequestReuse: false,
+          outcome: 'failed',
+        }),
+        diagnosticTrace,
+      );
     }
   })();
   tracked = operation.finally(() => {
@@ -1617,6 +1778,71 @@ function executeDirectoryPageRequest(
   });
   runtime.inFlightPages.set(pageRequestKey, tracked);
   return tracked;
+}
+
+function recordReusedDirectorySearch(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  runtime: DirectoryModeRuntime,
+  diagnosticTrace: DirectorySearchDiagnosticTrace | undefined,
+  inFlight: Promise<void>,
+): void {
+  if (diagnosticTrace === undefined) return;
+  void inFlight.finally(() => {
+    markDirectorySearchReuse(diagnosticTrace, {
+      hasNextPage: runtime.nextCursor !== undefined,
+      resultCount: runtime.rawEntries.length,
+    });
+    const pane = getPaneData(page, kind);
+    finishDirectorySearchAfterRender(page, diagnosticTrace, {
+      completedResultReuse: false,
+      inFlightRequestReuse: true,
+      outcome: pane.state === 'error' || pane.state === 'disabled' ? 'failed' : 'success',
+    });
+  });
+}
+
+function finishDirectorySearchAfterRender(
+  page: DirectoryPageInstance,
+  diagnosticTrace: DirectorySearchDiagnosticTrace | undefined,
+  input: {
+    readonly completedResultReuse: boolean;
+    readonly inFlightRequestReuse: boolean;
+    readonly outcome: 'failed' | 'success' | 'superseded';
+    readonly setDataCallbackAt?: number | undefined;
+  },
+): void {
+  if (diagnosticTrace === undefined) return;
+  void Promise.resolve().then(() => {
+    const finish = (): void =>
+      completeDirectorySearchDiagnostic(diagnosticTrace, {
+        ...input,
+        visibleAt: Date.now(),
+      });
+    const runtime = wx as unknown as {
+      readonly nextTick?: (callback: () => void) => void;
+    };
+    if (runtime.nextTick === undefined || page._detached) finish();
+    else runtime.nextTick(finish);
+  });
+}
+
+function createDirectorySearchSetDataCallback(
+  page: DirectoryPageInstance,
+  diagnosticTrace: DirectorySearchDiagnosticTrace | undefined,
+  input: {
+    readonly completedResultReuse: boolean;
+    readonly inFlightRequestReuse: boolean;
+    readonly outcome: 'failed' | 'success' | 'superseded';
+  },
+): (() => void) | undefined {
+  return diagnosticTrace === undefined
+    ? undefined
+    : () =>
+        finishDirectorySearchAfterRender(page, diagnosticTrace, {
+          ...input,
+          setDataCallbackAt: Date.now(),
+        });
 }
 
 function createDirectoryCards(
@@ -1738,10 +1964,20 @@ function knownEntryGroups(runtime: DirectoryModeRuntime): readonly DirectoryEntr
   return groupDirectoryEntriesByContact([...entriesById.values()]);
 }
 
-function syncPrioritySections(page: DirectoryPageInstance, kind: DirectoryKind): void {
+function syncPrioritySections(
+  page: DirectoryPageInstance,
+  kind: DirectoryKind,
+  diagnosticTrace?: DirectorySearchDiagnosticTrace,
+): void {
   const runtime = getRuntime(page, kind);
   if (page.data.directoryKind !== kind) return;
-  setPaneData(page, kind, { prioritySections: createPrioritySections(runtime, kind) });
+  setPaneData(
+    page,
+    kind,
+    { prioritySections: createPrioritySections(runtime, kind) },
+    undefined,
+    diagnosticTrace,
+  );
 }
 
 function createPrioritySections(

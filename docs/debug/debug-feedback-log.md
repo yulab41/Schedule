@@ -1827,3 +1827,26 @@
 - 最终状态同步前另创建备份 `a4b88d00-1b3b-4fec-aec3-784c9af53f52`（55 表/182,197 行/
   83,492,440 bytes/SHA-256 `9ac2b1d0b61a2a0acdf12a756f3ec832c2646ddb1b5f5f4f2724868513e7f2cd`）；
   权限最终状态由后继 `57e10cdc` 承载，未单独生成原计划的 final status 识别消息。
+
+## 2026-08-31 通讯录半屏筛选与首次搜索诊断阶段 A
+
+- 反馈与引入点：用户要求把近全屏筛选改为动态半屏，并先测量人员首次搜索再定向优化。`git log -S`/
+  `git blame` 确认 `6b5b30fb` 引入 `92vh/840px`，`c2a57441` 引入当前搜索/controller，`7952f1d1`
+  引入固定头部与横条手势。调用链审计确认纯关键词不等待完整 facets，但 controller 在 Client Core
+  transport/executor 门禁前还重复等待一次 `organization` capability。
+- 测试先行与实现：先增加真实窗口/安全区/横竖屏、监听器清理、固定区/单滚动区、滚动恢复、诊断开关/
+  20 条上限/复制/隐私、profile/request ID 和完成/进行中复用回归。Sheet 现用运行时 px 约半屏；
+  测试工具记录请求前、网络、转换、卡片、`setData`、回调和下一渲染周期，只删除一层明确重复等待。
+- 隐私与语义：报告不保存原词、姓名、号码、完整工号、账号/群组/权限、筛选值或游标；原始 profile/
+  响应头在诊断存储层即时解析后丢弃。停止记录时不请求 profile、不增加诊断 setData callback。API、
+  contracts、数据库、索引、权限、筛选、排序、分页、Promise/catch、空值和缓存失效语义不变。
+- 包体复测：同工作树 production 基线 5,213,637 B；首版 5,297,217 B。把 profile/request-ID 解析从
+  共享执行器移到诊断存储并隔离通讯录匹配 bridge 后，最终 5,273,141 B（main 1,675,797，
+  organization 1,230,777，diagnostics 46,215）；全部 package/performance 门禁通过。
+- 运行/浏览器验证：Mini 定向 6 files/84 tests、全量 110/561、Web 黄金 2/4、全端 build/typecheck、
+  Storybook build、Mini verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier/
+  diff 和 `pnpm smoke:check-core` 通过。root 并行全量有两个无关超时/Windows 文件锁失败，精确
+  12/12 复跑和随后串行全量 244 files/1,139 tests 均通过；37 files/355 tests 按无数据库环境跳过。
+  未触及 Web 核心链路，无需 `pnpm smoke:browser`。
+- 验证层级：Web 390×844/320×700 辅助黄金分别得到 422/350px 半屏且测试工具无横溢；未调用微信
+  开发者工具。原生手感、Console/Network、服务端分段和小米 14 数据均为“当前工具无法测量，暂未验证”。

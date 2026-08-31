@@ -18,6 +18,7 @@ describe('P10 directory parity Storybook golden', () => {
   });
 
   it('covers ready, loading, empty, error, disabled and large-text states', () => {
+    const preview = read('./P10DirectoryParityPreview.vue');
     const stories = read('./P10DirectoryParityPreview.stories.ts');
     for (const name of [
       'InternalReady390',
@@ -28,10 +29,16 @@ describe('P10 directory parity Storybook golden', () => {
       'Empty390',
       'Error320',
       'Disabled390',
+      'HalfFilterSheet390',
+      'HalfFilterSheet320',
     ]) {
       expect(stories).toContain(`export const ${name}`);
     }
     expect(stories).toContain("viewport: 'mobile320'");
     expect(stories).toContain('largeText: true');
+    expect(preview).toContain('class="native-filter-sheet"');
+    expect(preview).toContain('height: 50vh');
+    expect(preview).toContain('min-height: 0');
+    expect(preview).toContain('overflow-y: auto');
   });
 });

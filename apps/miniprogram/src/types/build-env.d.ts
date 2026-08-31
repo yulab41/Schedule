@@ -70,10 +70,16 @@ interface MiniProgramDeviceInfo {
 
 interface MiniProgramRequestOptions {
   readonly data?: unknown;
+  readonly enableProfile?: boolean;
   readonly fail: (error: unknown) => void;
   readonly header: Readonly<Record<string, string>>;
   readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
-  readonly success: (response: { readonly data: unknown; readonly statusCode: number }) => void;
+  readonly success: (response: {
+    readonly data: unknown;
+    readonly header?: Readonly<Record<string, unknown>>;
+    readonly profile?: unknown;
+    readonly statusCode: number;
+  }) => void;
   readonly timeout?: number;
   readonly url: string;
 }

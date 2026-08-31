@@ -284,6 +284,7 @@
     <view
       id="directory-filter-sheet-panel"
       class="filter-sheet"
+      style="{{filterSheetStyle}}"
       aria-role="dialog"
       aria-label="筛选{{sheet.title}}"
     >
@@ -469,5 +470,8 @@
     </swiper>
   </view>
 
-  <template is="directory-filter-sheet" data="{{sheet: activeSheet}}" />
+  <template
+    is="directory-filter-sheet"
+    data="{{sheet: activeSheet, filterSheetStyle: filterSheetStyle}}"
+  />
 </view>

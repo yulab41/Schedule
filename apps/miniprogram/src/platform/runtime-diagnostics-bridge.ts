@@ -35,6 +35,14 @@ export function recordRuntimeDiagnosticPerformance(entry: RuntimeDiagnosticPerfo
   }
 }
 
+export function isRuntimeDirectorySearchRecording(): boolean {
+  try {
+    return resolveRuntimeDiagnosticsStore()?.isDirectorySearchRecording() === true;
+  } catch {
+    return false;
+  }
+}
+
 function resolveRuntimeDiagnosticsStore(): RuntimeDiagnosticsStore | undefined {
   try {
     return getApp<DiagnosticsBridgeApp>().globalData?.runtimeDiagnostics;

@@ -42,6 +42,7 @@ describe('P2 Mini wx.request JSON transport', () => {
       method: 'GET',
       url: 'https://example.test/api/groups/group-1/calendar?businessMonth=2026-08',
     });
+    expect(request.mock.calls[0]?.[0]).not.toHaveProperty('enableProfile');
   });
 
   it('keeps public holiday requests token-free', async () => {
@@ -353,6 +354,53 @@ describe('P2 Mini wx.request JSON transport', () => {
     expect(source).toContain('apiBaseUrl: __MINIPROGRAM_API_BASE_URL__');
     expect(source).toContain('return createCalendarReadClient(');
     expect(source).toContain('executeWxJsonRequest');
+  });
+
+  it('captures supported request profile phases and a sanitized server request id only while recording', async () => {
+    const diagnostics = await import('../src/platform/runtime-diagnostics.ts');
+    const store = diagnostics.createRuntimeDiagnosticsStore();
+    store.startDirectorySearchRecording();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
+    const request = vi.fn((options) => {
+      options.success({
+        data: holidayApiGoldenResponse,
+        header: { 'x-request-id': 'request-safe-1', Authorization: 'must-not-be-recorded' },
+        profile: {
+          SSLconnectionEnd: 9,
+          SSLconnectionStart: 7,
+          connectEnd: 10,
+          connectStart: 4,
+          domainLookUpEnd: 4,
+          domainLookUpStart: 1,
+          requestStart: 10,
+          responseEnd: 26,
+          responseStart: 20,
+        },
+        statusCode: 200,
+      });
+    });
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      getAccessToken: () => 'token',
+      request,
+    });
+
+    await transport.request(calendarReadEndpoints.holidays, { year: 2026 });
+
+    expect(request.mock.calls[0]?.[0].enableProfile).toBe(true);
+    const recorded = store.getSnapshot().requests.at(-1);
+    expect(recorded).toMatchObject({
+      networkProfile: {
+        connectMs: 6,
+        dnsMs: 3,
+        downloadMs: 6,
+        supported: true,
+        tlsMs: 2,
+        ttfbMs: 10,
+      },
+      requestId: 'request-safe-1',
+    });
+    expect(JSON.stringify(recorded)).not.toMatch(/Authorization|must-not-be-recorded|token/iu);
   });
 });
 

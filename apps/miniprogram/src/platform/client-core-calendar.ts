@@ -57,6 +57,7 @@ import {
   type WxJsonRequestOptions,
   type WxJsonRequestSuccess,
 } from './wx-request-executor.js';
+import { isRuntimeDirectorySearchRecording } from './runtime-diagnostics-bridge.js';
 
 export type { WxJsonRequest, WxJsonRequestOptions, WxJsonRequestSuccess };
 
@@ -120,7 +121,13 @@ export function createWxJsonTransport(options: {
           typeof options.capability === 'function'
             ? options.capability(endpoint as ClientEndpoint<unknown, unknown>, input)
             : options.capability;
+        const directoryDiagnosticRecording = isRuntimeDirectorySearchRecording();
+        const capabilityStartedAt = directoryDiagnosticRecording ? Date.now() : 0;
         await requireClientCapability(capability);
+        const capabilityWaitMs = directoryDiagnosticRecording
+          ? Date.now() - capabilityStartedAt
+          : 0;
+        const contextStartedAt = directoryDiagnosticRecording ? Date.now() : 0;
         let accessToken = endpoint.auth === 'bearer' ? options.getAccessToken() : undefined;
         if (
           endpoint.auth === 'bearer' &&
@@ -129,6 +136,7 @@ export function createWxJsonTransport(options: {
         ) {
           accessToken = await options.awaitAccessToken();
         }
+        const contextWaitMs = directoryDiagnosticRecording ? Date.now() - contextStartedAt : 0;
         if (endpoint.auth === 'bearer' && (accessToken === undefined || accessToken.length === 0)) {
           throw createAuthenticationRequiredError();
         }
@@ -153,6 +161,10 @@ export function createWxJsonTransport(options: {
                 },
               }),
           capability,
+          ...(directoryDiagnosticRecording
+            ? { diagnosticPreflight: { capabilityWaitMs, contextWaitMs } }
+            : {}),
+          diagnosticProfileEnabled: directoryDiagnosticRecording,
           ...(body === undefined ? {} : { data: body }),
           ...(options.delay === undefined ? {} : { delay: options.delay }),
           ...(idempotencyKey === undefined ? {} : { idempotencyKey }),

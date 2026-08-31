@@ -7,11 +7,14 @@ import { recordRuntimeDiagnosticRequest } from './runtime-diagnostics-bridge.js'
 
 export interface WxJsonRequestSuccess {
   readonly data: unknown;
+  readonly header?: Readonly<Record<string, unknown>> | undefined;
+  readonly profile?: unknown;
   readonly statusCode: number;
 }
 
 export interface WxJsonRequestOptions {
   readonly data?: unknown;
+  readonly enableProfile?: boolean;
   readonly fail: (error: unknown) => void;
   readonly header: Readonly<Record<string, string>>;
   readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
@@ -49,6 +52,13 @@ export interface ExecuteWxJsonRequestInput {
   readonly authentication?: WxRequestAuthenticationPolicy | undefined;
   readonly capability: ClientCapabilityRequirement;
   readonly data?: unknown;
+  readonly diagnosticPreflight?:
+    | {
+        readonly capabilityWaitMs: number;
+        readonly contextWaitMs: number;
+      }
+    | undefined;
+  readonly diagnosticProfileEnabled?: boolean | undefined;
   readonly delay?: ((milliseconds: number) => Promise<void>) | undefined;
   readonly header?: Readonly<Record<string, string>> | undefined;
   readonly idempotencyKey?: string | undefined;
@@ -74,13 +84,17 @@ export async function executeWxJsonRequest(
   let retryCount = 0;
   let sessionGeneration = input.authentication?.sessionGeneration;
   let diagnosticStatusCode: number | undefined;
+  let diagnosticIssuedAt: number | undefined;
+  const captureNetworkProfile = input.diagnosticProfileEnabled === true;
 
   try {
     for (;;) {
       await requireClientCapability(input.capability);
       let response: WxJsonRequestSuccess;
       try {
-        response = await requestOnce(input, accessToken);
+        response = await requestOnce(input, accessToken, captureNetworkProfile, (issuedAt) => {
+          diagnosticIssuedAt ??= issuedAt;
+        });
       } catch (error) {
         if (
           !(error instanceof WxRequestNetworkError) ||
@@ -112,7 +126,8 @@ export async function executeWxJsonRequest(
         recordCompletedDiagnosticRequest(
           input,
           diagnosticStartedAt,
-          response.statusCode,
+          diagnosticIssuedAt,
+          response,
           retryCount,
         );
         return response;
@@ -135,14 +150,29 @@ export async function executeWxJsonRequest(
         retryCount += 1;
         continue;
       }
-      recordCompletedDiagnosticRequest(input, diagnosticStartedAt, response.statusCode, retryCount);
+      recordCompletedDiagnosticRequest(
+        input,
+        diagnosticStartedAt,
+        diagnosticIssuedAt,
+        response,
+        retryCount,
+      );
       return response;
     }
   } catch (error) {
     recordRuntimeDiagnosticRequest({
+      ...(input.diagnosticPreflight === undefined
+        ? {}
+        : {
+            capabilityWaitMs: input.diagnosticPreflight.capabilityWaitMs,
+            contextWaitMs: input.diagnosticPreflight.contextWaitMs,
+          }),
+      completedAt: Date.now(),
       durationMs: Date.now() - diagnosticStartedAt,
       endpoint: input.url,
       method: input.method,
+      ...(diagnosticIssuedAt === undefined ? {} : { issuedAt: diagnosticIssuedAt }),
+      ...(captureNetworkProfile ? { networkProfile: { supported: false } } : {}),
       outcome: 'failed',
       retryCount,
       startedAt: diagnosticStartedAt,
@@ -155,17 +185,33 @@ export async function executeWxJsonRequest(
 function recordCompletedDiagnosticRequest(
   input: ExecuteWxJsonRequestInput,
   startedAt: number,
-  statusCode: number,
+  issuedAt: number | undefined,
+  response: WxJsonRequestSuccess,
   retryCount: number,
 ): void {
   recordRuntimeDiagnosticRequest({
+    ...(input.diagnosticPreflight === undefined
+      ? {}
+      : {
+          capabilityWaitMs: input.diagnosticPreflight.capabilityWaitMs,
+          contextWaitMs: input.diagnosticPreflight.contextWaitMs,
+        }),
+    completedAt: Date.now(),
     durationMs: Date.now() - startedAt,
     endpoint: input.url,
     method: input.method,
-    outcome: statusCode >= 200 && statusCode < 400 ? 'success' : 'http-error',
+    ...(issuedAt === undefined ? {} : { issuedAt }),
+    ...(input.diagnosticProfileEnabled === true
+      ? {
+          profileRequested: true,
+          requestProfile: response.profile,
+          responseHeader: response.header,
+        }
+      : {}),
+    outcome: response.statusCode >= 200 && response.statusCode < 400 ? 'success' : 'http-error',
     retryCount,
     startedAt,
-    statusCode,
+    statusCode: response.statusCode,
   });
 }
 
@@ -180,10 +226,11 @@ export function isBearerAuthenticationRequired(response: WxJsonRequestSuccess): 
 function requestOnce(
   input: ExecuteWxJsonRequestInput,
   accessToken: string | undefined,
+  captureNetworkProfile: boolean,
+  onIssued: (issuedAt: number) => void,
 ): Promise<WxJsonRequestSuccess> {
   return new Promise((resolve, reject) => {
     let settled = false;
-    let timer: unknown;
     const settleFailure = (): void => {
       if (settled) return;
       settled = true;
@@ -207,6 +254,7 @@ function requestOnce(
     };
     const requestOptions: WxJsonRequestOptions = {
       ...(input.data === undefined ? {} : { data: input.data }),
+      ...(captureNetworkProfile ? { enableProfile: true } : {}),
       fail: settleFailure,
       header,
       method: input.method,
@@ -214,8 +262,9 @@ function requestOnce(
       timeout: input.timeout ?? 12_000,
       url: input.url,
     };
-    timer = setTimeout(settleFailure, input.timeout ?? 12_000);
+    const timer = setTimeout(settleFailure, input.timeout ?? 12_000);
     try {
+      onIssued(Date.now());
       input.request(requestOptions);
     } catch {
       settleFailure();

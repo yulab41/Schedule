@@ -65,6 +65,7 @@ describe('P10 native directory parity', () => {
 
   it('covers loading, empty, error, disabled, search, seven filters and cursor loading', () => {
     const template = read('src/subpackages/organization/components/directory-panel/index.wxml');
+    const styles = read('src/subpackages/organization/components/directory-panel/index.wxss');
     const card = read('src/subpackages/organization/components/directory-entry-card/index.wxml');
     const controller = read(
       'src/subpackages/organization/components/directory-panel/controller.ts',
@@ -100,12 +101,18 @@ describe('P10 native directory parity', () => {
     expect(controller).toContain('groupDirectoryEntriesByContact');
     expect(controller).toContain('getCompatibleDirectoryFacetOptionsByKey');
     expect(controller).toContain('updateDirectoryFilterSelection');
+    const executeSearch = controller.slice(
+      controller.indexOf('function executeDirectoryPageRequest'),
+      controller.indexOf('function recordReusedDirectorySearch'),
+    );
+    expect(executeSearch).not.toContain("await requireClientCapability('organization')");
     expect(template).toContain('class="filter-sheet"');
+    expect(template).toContain('style="{{filterSheetStyle}}"');
     expect(template).toContain('wx:if="{{!pane.facetsLoading && !pane.facetsErrorMessage}}"');
     expect(template).toContain('aria-disabled="true"');
     expect(template).toContain('当前无需筛选');
-    expect(template).toContain('data="{{sheet: activeSheet}}"');
-    expect(template.match(/<template is="directory-filter-sheet"/gu)).toHaveLength(1);
+    expect(template).toContain('data="{{sheet: activeSheet, filterSheetStyle: filterSheetStyle}}"');
+    expect(template.match(/<template\s+is="directory-filter-sheet"/gu)).toHaveLength(1);
     expect(template).not.toContain('pane.filterSections');
     expect(template).not.toContain('pane.nextCursor');
     expect(template).toContain("largeText ? 'is-large-text' : ''");
@@ -113,6 +120,11 @@ describe('P10 native directory parity', () => {
     expect(card).toContain("disabled ? 'is-disabled' : ''");
     expect(card).toContain('class="number-kind"');
     expect(template).not.toContain('<picker');
+    expect(styles).not.toContain('height: 92vh');
+    expect(styles).not.toContain('max-height: 840px');
+    expect(styles).toContain('.sheet-scroll');
+    expect(styles).toContain('min-height: 0');
+    expect(styles).toContain('flex: 1');
   });
 
   it('binds the nested contact loop to the contact variable used by the phone rows', () => {
@@ -219,5 +231,24 @@ describe('P10 native directory parity', () => {
     expect(styles).toMatch(/\.sheet-drag-region\s*\{[^}]*height:\s*28px;/su);
     expect(styles).toMatch(/\.sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su);
     expect(controller).toContain('handleFilterSheetSwipeDismiss');
+  });
+
+  it('documents the Xiaomi 14 half-sheet and repeatable performance procedure', () => {
+    const runbook = read('docs/runbooks/p10-directory-performance-diagnostics-rc.md');
+
+    for (const expected of [
+      '更多 → 测试工具',
+      '页面会话内第一次搜索',
+      '相同条件第二次',
+      '不同关键词',
+      '带筛选搜索',
+      '科室模式',
+      'Wi-Fi',
+      '移动网络',
+      '每个主要场景尽量做 5 次',
+      '复制最近 10 次',
+    ]) {
+      expect(runbook).toContain(expected);
+    }
   });
 });

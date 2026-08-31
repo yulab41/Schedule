@@ -1,6 +1,6 @@
 # 微信小程序审计报告
 
-- 审计阶段：通讯录后续修复体验候选已上传，原生运行/小米 14 待验收
+- 审计阶段：通讯录半屏筛选与性能诊断阶段 A 已自动验证，当前构建待 checkpoint/体验上传
 - 更新时间：2026-08-31（Asia/Hong_Kong）
 - 代码 checkpoint：`7952f1d106c65a5c3b8815ee0dc52756252f381a`，已推送并同步 production release
 - 体验构建：`0.1.0-p10.20260831.71@7952f1d`，189 files / 2,449,336 bytes
@@ -214,6 +214,19 @@ Console/Network/帧率与小米 14 仍无当前构建证据，不能据此宣称
 - 置信度：高。
 - 状态：代码 `7952f1d1` 已推送并完成生产备份/部署；`.71@7952f1d` 已上传并通过 allowlist/full verifier，小米 14 待验证。
 - 验证：exact-clean Mini 110 files/554 tests、root 244 files/1,139 tests；MySQL 集成因本机数据库不可用跳过。数据库查询路径中位数 50.12→48.36ms（-3.5%），P95 62.17→57.34ms；端到端 HTTP、原生动画和小米 14 当前工具无法测量。
+
+### MINI-DIR-003（P1）：筛选接近全屏，首次搜索缺少可复制的端到端分段证据
+
+- 普通解释：筛选弹层太高，不利于单手操作；人员第一次搜索慢，但原先只能看到“慢”，不能判断时间花在请求前、网络、服务端、转换还是显示。
+- 技术原因：`6b5b30fb` 引入 `92vh/840px` 的近全屏 Sheet；搜索链路只有通用请求摘要，没有搜索确认、上下文等待、卡片、`setData` 回调和下一渲染周期的关联记录。代码审计另确认 controller 在调用已受保护的 transport 前重复等待一次 `organization` capability。
+- 位置：Mini `directory-panel` 的 `controller.ts/index.wxml/index.wxss/search-diagnostics.ts`，平台 `client-core-calendar.ts/wx-request-executor.ts/runtime-diagnostics*.ts`，测试工具页与对应 Web 辅助黄金。
+- 证据：修改前 production 包 5,213,637 B；筛选 CSS 固定为 `92vh`、最大 840px。代码确认无筛选纯关键词搜索不等待完整 facets，进行中请求和已完成同查询已有会话复用；服务端、真机网络和渲染占比当前无证据。
+- 影响：筛选单手体验不佳；没有阶段证据时，任何搜索链路大改、服务端预热或索引修改都有误判风险。
+- 修复：按真实 `windowHeight/screenHeight/safeArea` 计算约半屏高度并监听横竖屏变化；保留横条、固定头部/清除、单一滚动区和滚动恢复。测试工具新增默认停止、最多 20 条、可复制 1/10 次的隐私安全诊断；profile 仅在记录中开启。只删除 controller 的一层明确重复能力等待，transport/executor 门禁保留。
+- 风险：低到中；诊断只写 App 内存，不改变 API/contracts/数据库/索引/搜索排序/筛选语义。请求 profile 和额外计时在停止记录时关闭。
+- 置信度：半屏与诊断实现高；首次搜索瓶颈低，必须等小米 14 数据。
+- 状态：阶段 A 已实现并完成自动验证，待代码 checkpoint、production 同步和用户批准体验上传；阶段 B 未开始。
+- 验证：Mini 110 files/561 tests；production verify/source/package/performance/determinism/CI dry-run、全端 build/typecheck、Web 辅助黄金和 core smoke 通过。最终包 5,273,141 B，较同口径基线增加 59,504 B；原生手感、端到端阶段数字和性能变化均为“待小米 14 体验版实测”。
 
 ### 阶段 0 保留输入
 

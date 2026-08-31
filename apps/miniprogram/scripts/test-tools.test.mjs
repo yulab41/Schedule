@@ -81,6 +81,37 @@ describe('safe Mini test tools', () => {
     expect(snapshot.errors.at(-1)?.fingerprint).toBe('a'.repeat(64));
   });
 
+  it('starts, stops, clears, and bounds privacy-safe directory search diagnostics', async () => {
+    const diagnostics = await import('../src/platform/runtime-diagnostics.ts');
+    const store = diagnostics.createRuntimeDiagnosticsStore();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
+
+    expect(store.isDirectorySearchRecording()).toBe(false);
+    store.startDirectorySearchRecording();
+    expect(store.isDirectorySearchRecording()).toBe(true);
+    for (let index = 0; index < 24; index += 1) {
+      store.recordDirectorySearch(directorySearchDiagnostic(index));
+    }
+    store.stopDirectorySearchRecording();
+
+    const snapshot = diagnostics.getRuntimeDiagnosticsSnapshot();
+    expect(snapshot.directorySearchRecording).toBe(false);
+    expect(snapshot.directorySearches).toHaveLength(20);
+    expect(snapshot.directorySearches.at(-1)).toMatchObject({
+      diagnosticId: 'DIR-23',
+      directoryKind: 'employee',
+      requestId: 'request-23',
+      searchTermLength: 5,
+      searchType: 'employee-code',
+    });
+    expect(JSON.stringify(snapshot.directorySearches)).not.toMatch(
+      /林医生|13800138000|employee-secret|account-|group-|permission-|cursor-/iu,
+    );
+
+    store.clearDirectorySearches();
+    expect(store.getSnapshot().directorySearches).toEqual([]);
+  });
+
   it('does not create the diagnostic store during release App initialization', async () => {
     let appDefinition;
     const request = vi.fn();
@@ -205,6 +236,44 @@ describe('safe Mini test tools', () => {
     );
   });
 
+  it('controls directory recording and copies the recent structured search timeline', async () => {
+    let definition;
+    const clipboard = vi.fn((options) => options.success?.());
+    const storeModule = await import('../src/platform/runtime-diagnostics.ts');
+    const runtimeDiagnostics = storeModule.createRuntimeDiagnosticsStore();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics } }));
+    const runtime = createWx('trial', vi.fn());
+    runtime.setClipboardData = clipboard;
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await Promise.resolve();
+
+    definition.handleStartDirectoryRecording.call(instance);
+    expect(runtimeDiagnostics.isDirectorySearchRecording()).toBe(true);
+    runtimeDiagnostics.recordDirectorySearch(directorySearchDiagnostic(7));
+    definition.handleRefresh.call(instance);
+    await Promise.resolve();
+    definition.handleStopDirectoryRecording.call(instance);
+    definition.handleCopyLatestDirectorySearch.call(instance);
+
+    const report = clipboard.mock.calls.at(-1)?.[0].data;
+    expect(report).toContain('[通讯录性能诊断 v1]');
+    expect(report).toContain('DIR-7');
+    expect(report).toContain('阶段ms=');
+    expect(report).toContain('profile=DNS 2ms');
+    expect(report).not.toMatch(
+      /林医生|13800138000|employee-secret|account-|group-|permission-|cursor-/iu,
+    );
+
+    definition.handleClearDirectoryRecords.call(instance);
+    expect(runtimeDiagnostics.getSnapshot().directorySearches).toEqual([]);
+  });
+
   it('keeps the page in a diagnostics subpackage and forbids raw payload or storage-value access', () => {
     const appConfig = JSON.parse(readSource('app.json'));
     const diagnosticsPackage = appConfig.subpackages.find(
@@ -232,8 +301,64 @@ describe('safe Mini test tools', () => {
     expect(template).toContain(
       '不会显示或复制账号、姓名、手机号、群组成员、凭证、请求正文或原始堆栈',
     );
+    expect(template).toContain('通讯录性能诊断');
+    expect(template).toContain('开始记录');
+    expect(template).toContain('停止记录');
+    expect(template).toContain('复制最近一次');
+    expect(template).toContain('复制最近 10 次');
   });
 });
+
+function directorySearchDiagnostic(index) {
+  return {
+    cardBuildMs: 4,
+    completedResultReuse: false,
+    confirmedAt: 1_000 + index,
+    contextWaitMs: 0,
+    diagnosticId: `DIR-${index}`,
+    directoryKind: 'employee',
+    duplicateRequestIntercepted: false,
+    eventHandlerStartMs: 0,
+    experienceVersion: '0.1.0-test@abc1234',
+    facetsOrReleaseWaitMs: 2,
+    facetsReady: true,
+    firstSearchInPageSession: index === 0,
+    hasFilters: false,
+    hasNextPage: false,
+    inFlightRequestReuse: false,
+    miniProgramVersion: '1.2.3',
+    networkProfile: {
+      connectMs: 3,
+      dnsMs: 2,
+      downloadMs: 5,
+      supported: true,
+      tlsMs: 1,
+      ttfbMs: 8,
+    },
+    networkRequestStartMs: 3,
+    networkResponseMs: 18,
+    networkType: 'wifi',
+    outcome: 'success',
+    publishedBatchConfirmed: true,
+    recordedAt: 2_000 + index,
+    requestId: `request-${index}`,
+    responseBytes: 888,
+    responseToConversionMs: 2,
+    resultCount: 3,
+    resultVisibleMs: 28,
+    sdkVersion: '3.17.1',
+    searchTermLength: 5,
+    searchType: 'employee-code',
+    setDataCallbackMs: 26,
+    setDataCallCount: 2,
+    setDataMaxBytes: 500,
+    setDataTotalBytes: 700,
+    systemVersion: 'Android 15 employee-secret account-1 group-1 permission-x cursor-x',
+    totalMs: 28,
+    wechatVersion: '8.0.60',
+    deviceModel: 'Xiaomi 14 林医生 13800138000',
+  };
+}
 
 function createWx(envVersion, request) {
   return {

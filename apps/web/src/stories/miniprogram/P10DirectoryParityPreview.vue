@@ -18,10 +18,11 @@ type DirectoryMode = 'employee' | 'internal';
 const props = withDefaults(
   defineProps<{
     readonly directoryKind?: DirectoryMode;
+    readonly halfSheetOpen?: boolean;
     readonly initialState?: PreviewState;
     readonly largeText?: boolean;
   }>(),
-  { directoryKind: 'internal', initialState: 'ready', largeText: false },
+  { directoryKind: 'internal', halfSheetOpen: false, initialState: 'ready', largeText: false },
 );
 
 const previewGroup: GroupSummary = {
@@ -211,6 +212,36 @@ const stateCopy = computed(() => {
         <button v-if="props.initialState === 'error'" type="button">重新加载</button>
       </div>
     </div>
+    <div v-if="props.halfSheetOpen" class="native-filter-layer" aria-label="半屏通讯录筛选">
+      <div class="native-filter-scrim"></div>
+      <section class="native-filter-sheet">
+        <div class="native-filter-handle"><i></i></div>
+        <header><strong>筛选人员通讯录</strong><button type="button">完成</button></header>
+        <button class="native-filter-clear" type="button">
+          <span>×</span><strong>清除全部筛选</strong><small>已选 1 项</small>
+        </button>
+        <div class="native-filter-scroll">
+          <article
+            v-for="section in [
+              '组织根',
+              '一级组织',
+              '二级组织',
+              '三级组织',
+              '四级组织',
+              '五级组织',
+              '类型',
+            ]"
+            :key="section"
+          >
+            <div>
+              <strong>{{ section }}</strong
+              ><small>全部 · 3 项</small>
+            </div>
+            <span>⌄</span>
+          </article>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -308,6 +339,105 @@ const stateCopy = computed(() => {
 .is-large-text .preview-copy,
 .is-large-text .preview-state > span:not(.state-mark) {
   font-size: 17px;
+}
+.native-filter-layer {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+}
+.native-filter-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(22 32 42 / 32%);
+  backdrop-filter: blur(2px);
+}
+.native-filter-sheet {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  height: 50vh;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border-radius: 22px 22px 0 0;
+  background: #fff;
+  box-shadow: 0 -10px 32px rgb(22 32 42 / 16%);
+}
+.native-filter-handle {
+  display: flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+.native-filter-handle i {
+  width: 38px;
+  height: 5px;
+  border-radius: 999px;
+  background: #aeb9c5;
+}
+.native-filter-sheet header {
+  display: flex;
+  min-height: 56px;
+  padding: 4px 16px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+}
+.native-filter-sheet header strong {
+  font-size: 20px;
+}
+.native-filter-sheet button {
+  min-height: 44px;
+  border: 0;
+  color: #0a66d5;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+}
+.native-filter-clear {
+  display: flex;
+  width: calc(100% - 32px);
+  margin: 0 16px 8px;
+  padding: 0 12px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px !important;
+  background: #eaf3ff !important;
+}
+.native-filter-clear small {
+  margin-left: auto;
+  color: #667386;
+  font-weight: 500;
+}
+.native-filter-scroll {
+  min-height: 0;
+  padding: 0 16px 18px;
+  flex: 1;
+  overflow-y: auto;
+}
+.native-filter-scroll article {
+  display: flex;
+  min-height: 54px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dce3eb;
+}
+.native-filter-scroll article > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.native-filter-scroll article small {
+  color: #667386;
+  font-size: 11px;
 }
 @media (max-width: 520px) {
   .p10-directory-preview {

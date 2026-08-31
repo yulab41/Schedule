@@ -716,8 +716,6 @@
   z-index: 1;
   display: flex;
   width: 100%;
-  height: 92vh;
-  max-height: 840px;
   overflow: hidden;
   box-sizing: border-box;
   flex-direction: column;

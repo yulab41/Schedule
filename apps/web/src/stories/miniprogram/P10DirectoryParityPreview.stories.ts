@@ -6,10 +6,16 @@ const meta = {
   title: 'Miniprogram Parity/P10 Directory Parity',
   component: P10DirectoryParityPreview,
   tags: ['autodocs'],
-  args: { directoryKind: 'internal', initialState: 'ready', largeText: false },
+  args: {
+    directoryKind: 'internal',
+    halfSheetOpen: false,
+    initialState: 'ready',
+    largeText: false,
+  },
   argTypes: {
     directoryKind: { control: 'radio', options: ['internal', 'employee'] },
     initialState: { control: 'radio', options: ['ready', 'loading', 'empty', 'error', 'disabled'] },
+    halfSheetOpen: { control: 'boolean' },
     largeText: { control: 'boolean' },
   },
   globals: { viewport: 'mobile390' },
@@ -47,4 +53,13 @@ export const Error320: Story = {
 export const Disabled390: Story = {
   name: '8 · 能力关闭 · 390',
   args: { initialState: 'disabled' },
+};
+export const HalfFilterSheet390: Story = {
+  name: '9 · 半屏筛选 · 390',
+  args: { directoryKind: 'employee', halfSheetOpen: true },
+};
+export const HalfFilterSheet320: Story = {
+  name: '10 · 半屏筛选 · 320',
+  args: { directoryKind: 'employee', halfSheetOpen: true },
+  globals: { viewport: 'mobile320' },
 };

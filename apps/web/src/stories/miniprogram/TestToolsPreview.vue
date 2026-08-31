@@ -109,6 +109,22 @@ const checks = [
       <div class="section-title"><span>05</span><strong>性能信息</strong></div>
       <p>这些是少量单次辅助值，不是手机端性能验收结论。</p>
       <div class="metric-lead"><span>测试工具首屏</span><strong>186 ms</strong></div>
+      <div class="card directory-diagnostic-preview">
+        <div class="diagnostic-heading"><strong>通讯录性能诊断</strong><b>正在记录</b></div>
+        <p>最近 20 次 · 仅体验版内存 · 不保存搜索原文</p>
+        <div class="diagnostic-actions">
+          <button type="button">开始记录</button><button type="button">停止记录</button
+          ><button type="button">清空记录</button>
+        </div>
+        <div class="search-trace">
+          <div><strong>人员 · 工号 · 完成</strong><b>428 ms</b></div>
+          <p>请求前 4 ms · 收响应 286 ms · 转换 9 ms · 卡片 3 ms · 可见 428 ms</p>
+          <small>setData 3 次 / 4,812 B · profile 支持 · request ID request-demo-1</small>
+        </div>
+        <div class="diagnostic-copy-actions">
+          <button type="button">复制最近一次</button><button type="button">复制最近 10 次</button>
+        </div>
+      </div>
     </section>
 
     <section class="tool-section">
@@ -404,6 +420,64 @@ const checks = [
   font:
     700 22px ui-monospace,
     monospace;
+}
+.directory-diagnostic-preview {
+  margin-top: 10px;
+  padding: 16px;
+}
+.diagnostic-heading,
+.search-trace > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.diagnostic-heading > b {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #0b6b3a;
+  background: #e5f7ed;
+  font-size: 10px;
+}
+.directory-diagnostic-preview > p,
+.search-trace p {
+  margin: 6px 0 0;
+  color: #647884;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.diagnostic-actions,
+.diagnostic-copy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.diagnostic-actions button,
+.diagnostic-copy-actions button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  color: #155d83;
+  background: #eaf5fb;
+  font-weight: 700;
+}
+.search-trace {
+  padding: 12px 0;
+  margin-top: 12px;
+  border-top: 1px solid #e6edf1;
+  border-bottom: 1px solid #e6edf1;
+}
+.search-trace > div > b {
+  color: #176a99;
+}
+.search-trace small {
+  display: block;
+  margin-top: 6px;
+  color: #426e86;
+  font-size: 11px;
+  line-height: 1.55;
 }
 .report-card {
   display: flex;

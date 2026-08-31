@@ -20,6 +20,9 @@ describe('Mini test-tools visual golden', () => {
     expect(preview).toContain('最终以小米 14 体验版为准');
     expect(preview).toContain('@media (max-width: 340px)');
     expect(preview).toContain('overflow-x: hidden');
+    expect(preview).toContain('通讯录性能诊断');
+    expect(preview).toContain('复制最近 10 次');
+    expect(preview).toContain('setData 3 次');
   });
 
   it('uses only synthetic, already-redacted diagnostic content', () => {
