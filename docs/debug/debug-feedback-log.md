@@ -2,6 +2,52 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-02 MINI-G1-001 主线整合与最终收口
+
+- 基线/来源：从 clean `origin/main@eb36d70f` 建立独立 integration worktree，以无提交 cherry-pick
+  整合 `2a856725`，没有再次 cherry-pick 已被其内容继承的 `4ddaa38e`。第 9 个修改文件是本日志，
+  用于保存回归引入点、红绿证据和语义边界，核实为必需连续性文档而非生成物。
+- 变更核查：9 个文件严格为共享 host、leave/swap/duty controller、永久合同和四份文档；四份文档占
+  878 行 churn，永久测试 391 行。G1/001/002/test-tools 章节各一份，主线 XMB 详细结论原样保留；
+  无锁文件、构建产物、无关源码、本机 integration 绝对路径或 `MINI-G1-002`～`004` 修复。
+- 合同补强：原修复 12/12 基础上增加重复 dispose 合同；group 清空、重复 observer、重复 detached 对
+  同一代只 unload 一次，重新 attach 后同步 handler 从干净状态正常执行。整合候选生命周期 13/13，
+  相关 9 files/62 tests；标准 Mini 命令自动发现该文件并以 112 files/593 tests 全绿。
+- 构建/包体：exact clean checkpoint 的 TypeScript 与 276-file production build 通过。`eb36d70f` 基线
+  main/total 为 1,677,803/5,113,474B；整合后为 1,677,803/5,120,950B，workflows 839,488B。
+  总包 +7,476B 只来自 workflows guard，主包无变化；两者 warning 都仅为既有 1.5MiB、1445/1506 三项。
+- 外部边界：不要求小米 14 重新制造竞态；未调用微信开发者工具、未上传体验版、未部署 production。
+  checkpoint 以 `fix(miniprogram): integrate workflow lifecycle invalidation` 识别并记录
+  `2a856725 -> 最终主线` 映射；exact clean checkpoint 的完整清单、Prettier、diff、状态策略 3/3 和
+  core smoke 全部通过。
+
+## 2026-09-01 Mini workflow controller 异步生命周期失效边界
+
+- 反馈/证据：审计 `MINI-G1-001` 的临时 Node/Vitest 探针曾稳定复现 detach 后晚回写和 A→B
+  `_loadSerial` 碰撞，但探针已删除且未入 Git。最新 `origin/main@eb36d70f` 起初没有永久回归，也没有
+  等价修复；微信原生可见故障尚未直接确认。
+- 引入点/根因：`git log -S` 与 blame 将组件 host/controller 定位到 `bc32a4f1`，直达 Page host 定位到
+  `50c696ab`，持久 workspace 的 A→B 替换路径定位到 `4fe1b5e7`。factory 会把 controller 私有
+  serial 从 0 重新复制到同一 host；detach/unload 只丢 controller，没有 host-owned、不可碰撞的
+  attachment/controller identity。A→B 时 host 仍 mounted，所以 mounted 布尔值不能解决上下文失效。
+- 测试先行：新增永久 `workflow-controller-lifecycle.test.mjs`，旧源码 7/7 行为测试失败，覆盖 detach
+  后 resolve/reject、A→B 晚返覆盖、detach→attach 碰撞、多并发乱序、group 置空和 Page unload。
+  修复后扩展为 8 个行为测试并全绿；另有 leave/swap/duty 三个结构合同，固定 32 个 async/83 个 await
+  全部在首个 await 前捕获共享 task guard。最终审阅发现 swap 三个 `.then` 仍有返回到微任务间的切换
+  窗口；新增显式 continuation 合同先 1/12 红，再补三个捕获 task 检查，最终合计 12/12。
+- 实现：共享 host 为每次 attachment 和 controller 安装分配对象 token；Component detach、Page unload、
+  group 置空和 A→B 替换统一 dispose。延迟 `workspaceready` callback、info timer 及三个 controller 的
+  所有 async 续体遵守同一身份契约；过期 resolve/reject 不写 data/私有状态、不触发事件、回调或 UI
+  副作用，不串联新请求，B 的正常结果仍更新。
+- 语义边界：receiver 仍为实际 host；同步 handler、空值、权限、capability、API 参数、幂等、成功路径
+  事件/导航和请求次数不变。已发出的 transport 不 Abort；若失效前已发出写请求，服务端仍可能完成，
+  但旧续体不能再改变当前 UI 或继续后续链路。本轮不处理 `MINI-G1-002`～`004`。
+- 自动验证：生命周期 12/12、相关 9 files/61 tests、Mini 112 files/592 tests、TypeScript 和
+  `miniprogram:verify` 通过；verify 为 main 1,677,802B、total 5,120,949B、Worklet 2/2、matrix
+  1445/1506、manifest `ad7c65bd…1420`。定向 Prettier、状态策略 3/3、core smoke 与 diff check 通过。
+  checkpoint 以 `fix(miniprogram): invalidate stale workflow controllers` 识别；未调用微信开发者工具、
+  未上传、未部署 production。
+
 ## 2026-08-31 Mini 通讯录弹层手势、拨号返回与工号别名
 
 - 反馈/引入点：顶部横条原本仅为装饰，“清除全部筛选”位于 `scroll-view` 内；`git log -S`/`git blame`

@@ -36,6 +36,7 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
+import { captureWorkflowControllerTask } from '../controller-host.js';
 
 type PageState = 'error' | 'loading' | 'ready';
 
@@ -313,6 +314,8 @@ export function createSwapPanelControllerDefinition(embedded = false) {
     },
 
     handleMyMonthChange(this: SwapPageInstance, event: ValueEvent): void {
+      const task = captureWorkflowControllerTask(this);
+      if (!task.isCurrent()) return;
       if (typeof event.detail.value !== 'string' || !isBusinessMonth(event.detail.value)) return;
       this._requestPreview = undefined;
       this.setData({
@@ -323,10 +326,14 @@ export function createSwapPanelControllerDefinition(embedded = false) {
         requestPreviewConflicts: [],
         requestPreviewReady: false,
       });
-      void ensureCalendarMonth(this, event.detail.value).then(() => syncRequestCandidates(this));
+      void ensureCalendarMonth(this, event.detail.value).then((current) => {
+        if (current && task.isCurrent()) syncRequestCandidates(this);
+      });
     },
 
     handleTargetMonthChange(this: SwapPageInstance, event: ValueEvent): void {
+      const task = captureWorkflowControllerTask(this);
+      if (!task.isCurrent()) return;
       if (typeof event.detail.value !== 'string' || !isBusinessMonth(event.detail.value)) return;
       this._requestPreview = undefined;
       this.setData({
@@ -339,7 +346,9 @@ export function createSwapPanelControllerDefinition(embedded = false) {
         targetMemberIndex: -1,
         targetMemberOptions: [],
       });
-      void ensureCalendarMonth(this, event.detail.value).then(() => syncRequestCandidates(this));
+      void ensureCalendarMonth(this, event.detail.value).then((current) => {
+        if (current && task.isCurrent()) syncRequestCandidates(this);
+      });
     },
 
     handleMyAssignmentChange(this: SwapPageInstance, event: ValueEvent): void {
@@ -484,6 +493,8 @@ async function loadSwapPageWithCapability(
   page: SwapPageInstance,
   options: { readonly preserveForms?: boolean } = {},
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const serial = ++page._loadSerial;
   if (options.preserveForms !== true) {
     page._requestPreview = undefined;
@@ -492,8 +503,9 @@ async function loadSwapPageWithCapability(
   page.setData({ errorMessage: '', state: 'loading' });
   try {
     await requireClientCapability('workflows');
+    if (!task.isCurrent()) return;
     const groups = await workbenchClient.listGroups();
-    if (serial !== page._loadSerial) return;
+    if (!task.isCurrent() || serial !== page._loadSerial) return;
     const group = resolveTargetGroup(groups, page._requestedGroupId);
     if (group === undefined) throw new Error('当前没有可使用换班功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能发起或处理换班。');
@@ -514,7 +526,9 @@ async function loadSwapPageWithCapability(
       workflowClient.listMySwapRequests(group.id),
       canApprove ? workflowClient.listSwapApprovals(group.id) : Promise.resolve([]),
     ]);
-    if (serial !== page._loadSerial || page._currentGroupId !== group.id) return;
+    if (!task.isCurrent() || serial !== page._loadSerial || page._currentGroupId !== group.id) {
+      return;
+    }
     page._calendars = new Map(calendars.map((calendar) => [calendar.businessMonth, calendar]));
     page._rawMyRequests = mine;
     page._rawApprovals = approvals;
@@ -534,7 +548,7 @@ async function loadSwapPageWithCapability(
     syncAdminCandidates(page);
     syncSwapLists(page);
   } catch (error) {
-    if (serial !== page._loadSerial) return;
+    if (!task.isCurrent() || serial !== page._loadSerial) return;
     page._currentGroupId = '';
     page.setData({
       canApprove: false,
@@ -544,23 +558,33 @@ async function loadSwapPageWithCapability(
   }
 }
 
-async function ensureCalendarMonth(page: SwapPageInstance, month: string): Promise<void> {
-  if (page._calendars.has(month) || page._currentGroupId === '') return;
+async function ensureCalendarMonth(page: SwapPageInstance, month: string): Promise<boolean> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return false;
+  if (page._calendars.has(month)) return true;
+  if (page._currentGroupId === '') return false;
   const serial = ++page._calendarSerial;
   const groupId = page._currentGroupId;
   page._calendarRequestSerials.set(month, serial);
   try {
     const calendar = await workbenchClient.getCalendar(groupId, month);
-    if (page._currentGroupId !== groupId || page._calendarRequestSerials.get(month) !== serial) {
-      return;
+    if (
+      !task.isCurrent() ||
+      page._currentGroupId !== groupId ||
+      page._calendarRequestSerials.get(month) !== serial
+    ) {
+      return false;
     }
     page._calendars = new Map(page._calendars).set(month, calendar);
+    return true;
   } catch (error) {
+    if (!task.isCurrent()) return false;
     page.setData({
       requestErrorMessage: toUserMessage(error, '换班月份暂时无法加载，请稍后重试。'),
     });
+    return false;
   } finally {
-    if (page._calendarRequestSerials.get(month) === serial) {
+    if (task.isCurrent() && page._calendarRequestSerials.get(month) === serial) {
       page._calendarRequestSerials.delete(month);
     }
   }
@@ -664,6 +688,8 @@ function syncAdminAssignmentOptions(page: SwapPageInstance, side: 'initiator' | 
 }
 
 async function computeRequestPreview(page: SwapPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const input = getRequestPair(page);
   if (input === undefined) {
     page.setData({ requestErrorMessage: '请先选择自己的班次、目标成员和目标班次。' });
@@ -678,16 +704,21 @@ async function computeRequestPreview(page: SwapPageInstance): Promise<void> {
   });
   try {
     const preview = await workflowClient.previewSwap(page._currentGroupId, input);
+    if (!task.isCurrent()) return;
     page._requestPreview = preview;
     page.setData(createPreviewPatch(preview, 'request'));
   } catch (error) {
+    if (!task.isCurrent()) return;
     await handlePreviewError(page, error, 'request');
+    if (!task.isCurrent()) return;
   } finally {
-    page.setData({ requestBusy: false });
+    if (task.isCurrent()) page.setData({ requestBusy: false });
   }
 }
 
 async function submitSwap(page: SwapPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page.data.requestBusy || page._currentGroupId === '') return;
   const input = getRequestPair(page);
   if (input === undefined) {
@@ -696,6 +727,7 @@ async function submitSwap(page: SwapPageInstance): Promise<void> {
   }
   if (!previewMatches(page._requestPreview, input)) {
     await computeRequestPreview(page);
+    if (!task.isCurrent()) return;
     if (!previewMatches(page._requestPreview, input)) return;
   }
   const operationKey = `${page._currentGroupId}:swap:create`;
@@ -703,6 +735,7 @@ async function submitSwap(page: SwapPageInstance): Promise<void> {
   page.setData({ requestBusy: true, requestErrorMessage: '', infoMessage: '' });
   try {
     const created = await workflowClient.createSwapRequest(page._currentGroupId, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
       infoMessage:
@@ -716,19 +749,24 @@ async function submitSwap(page: SwapPageInstance): Promise<void> {
     resetRequestForm(page);
     notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ requestErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       page._requestPreview = undefined;
       await loadSwapPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ requestBusy: false });
+    if (task.isCurrent()) page.setData({ requestBusy: false });
   }
 }
 
 async function computeAdminPreview(page: SwapPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const input = getAdminPair(page);
   if (input === undefined) {
     page.setData({ adminErrorMessage: '请先选择两位不同成员及其班次。' });
@@ -743,16 +781,21 @@ async function computeAdminPreview(page: SwapPageInstance): Promise<void> {
   });
   try {
     const preview = await workflowClient.previewSwap(page._currentGroupId, input);
+    if (!task.isCurrent()) return;
     page._adminPreview = preview;
     page.setData(createPreviewPatch(preview, 'admin'));
   } catch (error) {
+    if (!task.isCurrent()) return;
     await handlePreviewError(page, error, 'admin');
+    if (!task.isCurrent()) return;
   } finally {
-    page.setData({ adminBusy: false });
+    if (task.isCurrent()) page.setData({ adminBusy: false });
   }
 }
 
 async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.adminBusy || page._currentGroupId === '') return;
   const pair = getAdminPair(page);
   if (pair === undefined) {
@@ -761,6 +804,7 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
   }
   if (!previewMatches(page._adminPreview, pair)) {
     await computeAdminPreview(page);
+    if (!task.isCurrent()) return;
     if (!previewMatches(page._adminPreview, pair)) return;
   }
   const input = {
@@ -772,6 +816,7 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
   page.setData({ adminBusy: true, adminErrorMessage: '', infoMessage: '' });
   try {
     const created = await workflowClient.createDirectSwapRequest(page._currentGroupId, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
       adminFormVisible: false,
@@ -780,15 +825,18 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
     resetAdminForm(page);
     notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ adminErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       page._adminPreview = undefined;
       await loadSwapPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ adminBusy: false });
+    if (task.isCurrent()) page.setData({ adminBusy: false });
   }
 }
 
@@ -797,6 +845,8 @@ async function mutateSwap(
   id: string | undefined,
   action: 'accept' | 'approve' | 'cancel' | 'reject',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const swap = findSwapRequest(page, id);
   if (swap === undefined || page.data.mutationBusyIds.includes(swap.id)) return;
   const operationKey = `${page._currentGroupId}:swap:${action}:${swap.id}:${swap.version}`;
@@ -816,18 +866,26 @@ async function mutateSwap(
     } else {
       await workflowClient.rejectSwapRequest(page._currentGroupId, swap.id, input);
     }
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({ infoMessage: getMutationSuccessMessage(action) });
     notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       await loadSwapPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ mutationBusyIds: page.data.mutationBusyIds.filter((item) => item !== swap.id) });
+    if (task.isCurrent()) {
+      page.setData({
+        mutationBusyIds: page.data.mutationBusyIds.filter((item) => item !== swap.id),
+      });
+    }
   }
 }
 
@@ -836,16 +894,23 @@ async function confirmSwapMutation(
   id: string | undefined,
   action: 'cancel' | 'reject',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const swap = findSwapRequest(page, id);
   if (swap === undefined) return;
   const content =
     action === 'cancel'
       ? '确定撤销该换班申请吗？'
       : `确定驳回与 ${swap.initiatorMemberName ?? '对方'} 的换班申请吗？`;
-  if (await showConfirm(content)) await mutateSwap(page, swap.id, action);
+  const confirmed = await showConfirm(content);
+  if (!task.isCurrent() || !confirmed) return;
+  await mutateSwap(page, swap.id, action);
+  if (!task.isCurrent()) return;
 }
 
 async function revokeSwap(page: SwapPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const swap = page._revokeTarget;
   if (swap === undefined || page.data.revokeBusy) return;
   const reason = page.data.revokeReason.trim();
@@ -857,31 +922,38 @@ async function revokeSwap(page: SwapPageInstance): Promise<void> {
   page.setData({ revokeBusy: true, revokeErrorMessage: '' });
   try {
     await workflowClient.revokeSwapRequest(page._currentGroupId, swap.id, input);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page._revokeTarget = undefined;
     page.setData({ infoMessage: '换班已撤销。', revokeVisible: false });
     notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ revokeErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       page._revokeTarget = undefined;
       page.setData({ revokeVisible: false });
       await loadSwapPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ revokeBusy: false });
+    if (task.isCurrent()) page.setData({ revokeBusy: false });
   }
 }
 
 async function updateGroupApproval(page: SwapPageInstance, checked: boolean): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.settingsBusy) return;
   page.setData({ settingsBusy: true, errorMessage: '', infoMessage: '' });
   try {
     const settings = await workflowClient.updateGroupSwapSettings(page._currentGroupId, {
       requiresApproval: checked,
     });
+    if (!task.isCurrent()) return;
     page.setData({
       infoMessage: settings.requiresApproval
         ? '换班已改为需要管理员审批。'
@@ -889,27 +961,32 @@ async function updateGroupApproval(page: SwapPageInstance, checked: boolean): Pr
       requiresApproval: settings.requiresApproval,
     });
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: toUserMessage(error, '换班设置暂时无法更新。') });
   } finally {
-    page.setData({ settingsBusy: false });
+    if (task.isCurrent()) page.setData({ settingsBusy: false });
   }
 }
 
 async function updateAutoAccept(page: SwapPageInstance, checked: boolean): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page.data.settingsBusy) return;
   page.setData({ settingsBusy: true, errorMessage: '', infoMessage: '' });
   try {
     const settings = await workflowClient.updateMySwapSettings(page._currentGroupId, {
       autoAcceptSwaps: checked,
     });
+    if (!task.isCurrent()) return;
     page.setData({
       autoAcceptSwaps: settings.autoAcceptSwaps,
       infoMessage: settings.autoAcceptSwaps ? '已开启自动接受换班。' : '已关闭自动接受换班。',
     });
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: toUserMessage(error, '换班设置暂时无法更新。') });
   } finally {
-    page.setData({ settingsBusy: false });
+    if (task.isCurrent()) page.setData({ settingsBusy: false });
   }
 }
 
@@ -918,13 +995,18 @@ async function handlePreviewError(
   error: unknown,
   form: 'admin' | 'request',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const message = isConflict(error)
     ? '排班数据已被其他操作更新，请重新选择班次并生成预览。'
     : toUserMessage(error, '换班预览暂时无法生成。');
   page.setData(
     form === 'admin' ? { adminErrorMessage: message } : { requestErrorMessage: message },
   );
-  if (isConflict(error)) await loadSwapPageWithCapability(page, { preserveForms: true });
+  if (isConflict(error)) {
+    await loadSwapPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
+  }
 }
 
 function createSwapRequestView(
@@ -1061,6 +1143,8 @@ function handleAdminMonthChange(
   event: ValueEvent,
   side: 'initiator' | 'target',
 ): void {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (typeof event.detail.value !== 'string' || !isBusinessMonth(event.detail.value)) return;
   clearAdminPreview(page);
   page.setData(
@@ -1080,7 +1164,9 @@ function handleAdminMonthChange(
           adminTargetMonth: event.detail.value,
         },
   );
-  void ensureCalendarMonth(page, event.detail.value).then(() => syncAdminCandidates(page));
+  void ensureCalendarMonth(page, event.detail.value).then((current) => {
+    if (current && task.isCurrent()) syncAdminCandidates(page);
+  });
 }
 
 function resetRequestForm(page: SwapPageInstance): void {

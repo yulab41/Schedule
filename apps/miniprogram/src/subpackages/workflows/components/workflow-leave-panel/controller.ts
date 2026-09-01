@@ -38,6 +38,7 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
+import { captureWorkflowControllerTask } from '../controller-host.js';
 
 export { getTodayCalendarDate };
 
@@ -434,6 +435,8 @@ async function loadLeavePageWithCapability(
   page: LeavePageInstance,
   options: { readonly preserveTab?: boolean } = {},
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const serial = ++page._loadSerial;
   page.setData({
     activeTab: options.preserveTab === true ? page.data.activeTab : 'mine',
@@ -442,8 +445,9 @@ async function loadLeavePageWithCapability(
   });
   try {
     await requireClientCapability('workflows');
+    if (!task.isCurrent()) return;
     const groups = await workbenchClient.listGroups();
-    if (serial !== page._loadSerial) return;
+    if (!task.isCurrent() || serial !== page._loadSerial) return;
     const group = resolveTargetGroup(groups, page._requestedGroupId);
     if (group === undefined) throw new Error('当前没有可使用请假功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能提交或审批请假。');
@@ -455,7 +459,9 @@ async function loadLeavePageWithCapability(
       canApprove ? workflowClient.listLeaveRequestApprovals(group.id) : Promise.resolve([]),
       workflowClient.getLeaveReflowStrategy(group.id),
     ]);
-    if (serial !== page._loadSerial || page._currentGroupId !== group.id) return;
+    if (!task.isCurrent() || serial !== page._loadSerial || page._currentGroupId !== group.id) {
+      return;
+    }
     const pending = approvals.filter((request) => request.status === 'pending');
     const decided = approvals.filter((request) => request.status !== 'pending');
     page.setData({
@@ -473,7 +479,7 @@ async function loadLeavePageWithCapability(
       strategyIndex: strategyIndex(strategy.strategy),
     });
   } catch (error) {
-    if (serial !== page._loadSerial) return;
+    if (!task.isCurrent() || serial !== page._loadSerial) return;
     page._currentGroupId = '';
     page.setData({
       canApprove: false,
@@ -484,6 +490,8 @@ async function loadLeavePageWithCapability(
 }
 
 async function submitLeave(page: LeavePageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page.data.formBusy || page._currentGroupId === '') return;
   let interval: { readonly endsAt: string; readonly startsAt: string };
   try {
@@ -508,6 +516,7 @@ async function submitLeave(page: LeavePageInstance): Promise<void> {
   page.setData({ formBusy: true, formErrorMessage: '', infoMessage: '' });
   try {
     await workflowClient.createLeaveRequest(page._currentGroupId, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
       formVisible: false,
@@ -516,18 +525,23 @@ async function submitLeave(page: LeavePageInstance): Promise<void> {
     });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ formErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       await loadLeavePageWithCapability(page, { preserveTab: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ formBusy: false });
+    if (task.isCurrent()) page.setData({ formBusy: false });
   }
 }
 
 async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page._currentGroupId === '') return;
   let interval;
   try {
@@ -550,6 +564,7 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
       isAllDay: true,
       startsAt: interval.startsAt,
     });
+    if (!task.isCurrent()) return;
     page.setData({
       affectedShiftMessage: shifts.length === 0 ? '请假期间没有已发布的未来班次。' : '',
       affectedShifts: shifts.map(createAffectedShiftView),
@@ -558,17 +573,20 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
         : '',
     });
   } catch {
+    if (!task.isCurrent()) return;
     page.setData({
       affectedShiftMessage: '暂时无法读取受影响班次。',
       affectedShifts: [],
       affectedWarningMessage: '',
     });
   } finally {
-    page.setData({ affectedShiftsLoading: false });
+    if (task.isCurrent()) page.setData({ affectedShiftsLoading: false });
   }
 }
 
 async function updateDefaultStrategy(page: LeavePageInstance, index: number): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.strategyBusy || page._currentGroupId === '') return;
   const strategy = strategyOptions[index]?.value;
   if (strategy === undefined) return;
@@ -577,18 +595,22 @@ async function updateDefaultStrategy(page: LeavePageInstance, index: number): Pr
     const result = await workflowClient.updateLeaveReflowStrategy(page._currentGroupId, {
       strategy,
     });
+    if (!task.isCurrent()) return;
     page.setData({
       infoMessage: '群组默认重排策略已更新，新提交的请假将使用该策略。',
       strategyIndex: strategyIndex(result.strategy),
     });
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: toUserMessage(error, '默认重排策略暂时无法更新。') });
   } finally {
-    page.setData({ strategyBusy: false });
+    if (task.isCurrent()) page.setData({ strategyBusy: false });
   }
 }
 
 async function loadApprovalPreview(page: LeavePageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const target = page._approvalTarget;
   if (target === undefined || page._currentGroupId === '') return;
   const strategy = strategyOptions[page.data.approvalStrategyIndex]?.value ?? target.reflowStrategy;
@@ -605,25 +627,29 @@ async function loadApprovalPreview(page: LeavePageInstance): Promise<void> {
       target.id,
       { strategy },
     );
-    if (page._approvalTarget?.id !== target.id) return;
+    if (!task.isCurrent() || page._approvalTarget?.id !== target.id) return;
     page._approvalPreview = preview;
     page.setData(createApprovalPreviewPatch(preview));
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({
       approvalErrorMessage: isConflict(error)
         ? '排班数据已被其他操作更新，请重新生成预览。'
         : toUserMessage(error, '请假审批预览暂时无法生成。'),
     });
   } finally {
-    page.setData({ approvalBusy: false });
+    if (task.isCurrent()) page.setData({ approvalBusy: false });
   }
 }
 
 async function approveLeave(page: LeavePageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const target = page._approvalTarget;
   if (target === undefined || page._currentGroupId === '' || page.data.approvalBusy) return;
   if (!page.data.approvalPreviewReady) {
     await loadApprovalPreview(page);
+    if (!task.isCurrent()) return;
     return;
   }
   if (page.data.approvalRequiresAcknowledge && !page.data.approvalAcknowledged) {
@@ -634,6 +660,7 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
   const preview = page._approvalPreview;
   if (preview === undefined || preview.strategy !== strategy) {
     await loadApprovalPreview(page);
+    if (!task.isCurrent()) return;
     return;
   }
   const operationKey = `${page._currentGroupId}:leave:approve:${target.id}:${target.version}`;
@@ -647,13 +674,16 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
   page.setData({ approvalBusy: true, approvalErrorMessage: '' });
   try {
     await workflowClient.approveLeaveRequest(page._currentGroupId, target.id, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page._approvalPreview = undefined;
     page._approvalTarget = undefined;
     page.setData({ approvalVisible: false, infoMessage: '请假申请已处理。' });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ approvalErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
@@ -661,29 +691,35 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
       page._approvalTarget = undefined;
       page.setData({ approvalVisible: false });
       await loadLeavePageWithCapability(page, { preserveTab: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ approvalBusy: false });
+    if (task.isCurrent()) page.setData({ approvalBusy: false });
   }
 }
 
 async function confirmRejectLeave(page: LeavePageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const target = page._approvalTarget;
   if (target === undefined || page.data.approvalBusy) return;
   const confirmed = await showConfirm(getLeaveRejectionConfirmation(target.memberName));
-  if (!confirmed) return;
+  if (!task.isCurrent() || !confirmed) return;
   const operationKey = `${page._currentGroupId}:leave:reject:${target.id}:${target.version}`;
   const request = resolveOperation(page, operationKey, { expectedVersion: target.version });
   page.setData({ approvalBusy: true, approvalErrorMessage: '' });
   try {
     await workflowClient.rejectLeaveRequest(page._currentGroupId, target.id, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page._approvalPreview = undefined;
     page._approvalTarget = undefined;
     page.setData({ approvalVisible: false, infoMessage: '请假申请已处理。' });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ approvalErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
@@ -691,9 +727,10 @@ async function confirmRejectLeave(page: LeavePageInstance): Promise<void> {
       page._approvalTarget = undefined;
       page.setData({ approvalVisible: false });
       await loadLeavePageWithCapability(page, { preserveTab: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ approvalBusy: false });
+    if (task.isCurrent()) page.setData({ approvalBusy: false });
   }
 }
 
@@ -702,11 +739,14 @@ async function confirmRequestMutation(
   request: LeaveRequest,
   action: 'cancel' | 'revoke',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const message =
     action === 'cancel'
       ? '确定取消该请假申请吗？'
       : '确定撤销该已批准的请假吗？撤销后如需恢复原排班，请重新生成或发布排班。';
-  if (!(await showConfirm(message))) return;
+  const confirmed = await showConfirm(message);
+  if (!task.isCurrent() || !confirmed) return;
   const operationKey = `${page._currentGroupId}:leave:${action}:${request.id}:${request.version}`;
   const input = resolveOperation(page, operationKey, { expectedVersion: request.version });
   page.setData({ errorMessage: '', infoMessage: '' });
@@ -716,6 +756,7 @@ async function confirmRequestMutation(
     } else {
       await workflowClient.revokeLeaveRequest(page._currentGroupId, request.id, input);
     }
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
       infoMessage:
@@ -725,11 +766,14 @@ async function confirmRequestMutation(
     });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       await loadLeavePageWithCapability(page, { preserveTab: true });
+      if (!task.isCurrent()) return;
     }
   }
 }

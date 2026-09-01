@@ -1,15 +1,349 @@
 # 微信小程序审计报告
 
-- 审计阶段：test-tools Skyline 语义回归最终收口；起始主线为 clean `89cafa28ce3b5bc0e3805ac163491738f3d89b49`
-- 更新时间：2026-09-01（Asia/Hong_Kong）
-- 当前源码 checkpoint：`a2cdd0651783538a0aa6a566d30922391752d528`；前驱通讯录纠偏
-  `a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4` 保持在主线
-- 历史体验构建：`.72@5fff288`、`.73@c7c142e`、`.74@d23a78a`、`.75@24a847f`
-- 当前体验构建：`.76@a2cdd06`，描述 `p10-test-tools-skyline-a2cdd06`，已上传并通过 production allowlist
-- 本轮上传源码：`24a847ffdeec5899ab7c9d505c740b715df3ef6e`；`.75@24a847f` 已用仓库标准 CLI
-  重传，开发版即体验版，无额外网页设置
-- 本批性质：独立 worktree 的纯小程序/文档纠偏；代码阶段不操作 API、数据库、production 或用户脏主树；
-  `.75` 与 `.76` 均只在用户分别单独授权后追加 production allowlist
+- 当前阶段：`MINI-G1-001` 异步生命周期失效边界已完成主线整合与 exact clean checkpoint 复验；
+  整合起始主线为 clean
+  `origin/main@eb36d70fa28cf8705b0795a516ea3d4420399efc`
+- 更新时间：2026-09-02（Asia/Hong_Kong）
+- integration 分支/worktree：`codex/integrate-mini-g1-001-main-20260902` /
+  `runtime/external-project-worktrees/mini-g1-001-main-integration-20260902`
+- 来源与 checkpoint：`2a856725e927fcd82cd382b9f63e2681c8dee75d` → 以
+  `fix(miniprogram): integrate workflow lifecycle invalidation` 识别的最终主线提交
+- 证据继承：`4ddaa38e70adbc356e2cc390ea2c3ebe2ad30fd2` 的审计内容已由 `2a856725` 内容合并；
+  本轮没有再次 cherry-pick，也没有从旧审计分支带入源码
+- 本批性质：只修复 `MINI-G1-001`；未修改 `MINI-G1-002`～`004`、API、数据库、缓存策略或页面交互，
+  未调用微信开发者工具、未上传体验版、未部署 production，也未修改或清理其他 worktree
+
+## 2026-09-01 静态审计第 1 组：页面状态、异步链路与列表性能
+
+### 普通用户版结论
+
+当前没有发现会阻止编译、启动或立即破坏数据的 P0 问题，也没有证据支持“通讯录第一次搜索慢是小程序
+本地筛选、拼音计算或列表渲染造成的”。真实小米 14 记录中，正常两次独立首搜约 0.7–0.8 秒，结果返回
+后到下一渲染周期为 21–44ms；曾出现的一次 10 秒异常主要落在服务端主查询，仍按既定阈值观察。
+
+第 1 组审计找到的四项中，本轮只处理了 `MINI-G1-001`。旧实现的逻辑层竞态现已由仓库永久测试确认：
+组件 detach、Page unload、A→B 切换或 detach→attach 后，旧 Promise 可能继续写入；新旧 controller
+各自从 `serial=0` 重启还会形成编号碰撞。修复后，宿主为每次 attachment 和 controller 安装分配对象
+身份 token，统一 dispose，并要求三个工作流 controller 的全部异步续体在每个 `await` 后验证同一任务
+身份。旧任务不能再写状态、触发事件/回调/UI 副作用或覆盖 B；B 的正常结果仍能更新。
+
+这项修复有 Node/静态自动化证据，不需要用户重复真机制造竞态。微信原生层是否曾把该竞态表现为可见
+故障仍未直接确认，因此不能把逻辑复现夸大成“真机 P1 已复现”。其余 `MINI-G1-002`～`004` 的等级、
+证据和建议保持原审计结论，本轮未顺手处理。
+
+### 基线与工具事实
+
+- 主线整合轮次 fetch 后从最新 `origin/main@eb36d70f` 建立独立 clean worktree；依赖按仓库策略安装，
+  1,459 包本地复用、0 下载，7 个 packages 预构建通过，没有借用主工作区 dist 或修改锁文件。
+- integration worktree 为仓库内 `runtime/external-project-worktrees/mini-g1-001-main-integration-20260902`；
+  用户脏主工作树、旧修复/审计/release worktree 和其他并行任务均未修改或清理。
+- `4ddaa38e` 不是当前主线祖先；本轮比较 `docs/audit/STATUS.md`、本报告和
+  `docs/project-status.md` 后只合并其文档事实，没有 cherry-pick 旧审计分支的任何源码。
+- 历史已验收提交 `d23a78a9` 不是当前主线祖先；主线 `a2cdd065` 已等价向前恢复 test-tools 的 Flex、
+  四处 `word-break:break-all` 和明确截图类。当前源码目标 Grid、`overflow-wrap:anywhere`、
+  `:last-of-type` 为 0。非祖先关系本身不是停止条件；相关路径和语义不变量未退化，所以本轮没有重开
+  已关闭的 test-tools 问题。
+- 已读取并应用 `miniprogram-development`；发现具体生命周期异常后才读取并应用
+  `systematic-debugging`。本轮未读取或使用 `brainstorming`。
+- `apps/miniprogram/AGENTS.md` 中的 `docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`
+  按该规则文件所在目录解析后，对应实际受版本控制的
+  `apps/miniprogram/docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`；仓库根没有同名文件。
+  这是规则中的历史路径失效；实际文件内容可用，因此不是本任务 blocker，本轮按实际 Git 文件执行。
+- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮未调用 `wechatide`、模拟器、Console、Network、
+  截图、预览或上传。原审计临时探针已删除、未入 Git；本轮把复现转为永久 Node/Vitest 回归。
+
+### 专业审计总表
+
+| 编号        | 等级 | 状态                   | 文件和位置                                                                                                                                                                                                                                                                                | 核心证据                                                                                                                                                                             | 用户影响                                                                                         | 最小建议                                                                                                       | 还需运行/真机                                                    |
+| ----------- | ---- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| MINI-G1-001 | P1   | 已确认并修复（逻辑层） | `apps/miniprogram/src/subpackages/workflows/components/controller-host.ts:45-104,136-151,267-306`；leave `controller.ts:434-837`；swap `controller.ts:316-350,492-1011,1137-1170`；duty `controller.ts:427-902`；`apps/miniprogram/scripts/workflow-controller-lifecycle.test.mjs:29-357` | 永久测试在未改源码时 7/7 红：detach/unload 后回写、A→B 覆盖、重挂碰撞、并发乱序；统一 token/guard 后 13/13 绿；结构审计覆盖 32 个 async/83 个 await、3 个显式 `.then` 和重复 dispose | 修复前慢网、切群组或快速返回可让旧续体覆盖新状态；修复后旧续体零状态/UI 副作用，B 正常结果仍更新 | 已实施 host attachment/controller 对象 token、统一 dispose 和全异步 continuation task guard；保留 API/幂等语义 | 自动化已证明逻辑契约；微信原生可见故障未确认，当前不要求真机复现 |
+| MINI-G1-002 | P2   | 已确认                 | `pages/workbench/index.ts:1386-1423,1590-1607`；`platform/workbench-read.ts:251-271`                                                                                                                                                                                                      | clean 源码临时 Vitest 实测：首次同年五个月窗口发出 5 个相同 `GET /holidays?year=2026`，唯一 URL 数为 1                                                                               | 多 4 个网络/API 请求；活跃月 ready 后仍占用弱网带宽和服务端资源                                  | 每个 load generation 按 year 共享一个 in-flight/result；跨年最多每年一次                                       | Node 已确认；真实 Network 数量和耗时尚未验证                     |
+| MINI-G1-003 | P2   | 高可信候选             | `scheduling-config-panel/controller.ts:245-267,305-364,533-597`；`index.wxml:341-467`                                                                                                                                                                                                     | `handleRotationInput` 每字符执行全岗位 `createRoleCards`；合成 4 岗位×100 人一次回传 56,171B、每岗位均含 100 人；桌面逻辑 0.48ms                                                     | 大群组编辑轮转数字时可能输入迟滞、整段列表重渲染；当前生产规模和真机帧率未知                     | 草稿独立存逻辑层；只路径更新当前岗位；成员选择按活动岗位/分段呈现                                              | 需小米 14 大 fixture 输入/节点/payload 证据                      |
+| MINI-G1-004 | P3   | 待运行证据             | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | 平台账号和群组成员读取后直接完整 map + `wx:for`，没有 cursor/pageSize 或渲染窗口                                                                                                     | 只在账号/成员很多时可能出现长首屏；当前实际数量未知                                              | 先记录条数、payload、节点和真机耗时；超阈值后再决定分页/分批，不先重构                                         | 必须取得脱敏数量和真机/原生渲染证据                              |
+
+### MINI-G1-001：共享 workflow host 异步续体失效边界（已确认并修复）
+
+#### 调用者、能力与副作用清单
+
+`controller-host.ts` 的生产调用者共 6 个，没有其他调用者：leave、swap、duty 三个组件 `index.ts` 各调用
+`registerWorkflowPanel`，同名三个直达 Page `index.ts` 各调用 `createWorkflowPageDefinition`。三个
+controller factory 本身都没有 `onUnload`/`dispose`；现在由共享 host 在 Component detach、Page unload、
+group 置空和 A→B 替换时统一执行可选 `onUnload`、清 info timer、删除旧 token 并丢弃旧 controller。
+
+三个 controller 共有 32 个 async 函数、83 个 `await`。跨 await 的续体不只 `setData`，还包括私有
+Map/数组、preview 和当前群组状态，`calendarchanged` 事件、确认后的写请求、错误提示以及写后串联刷新。
+因此单独增加 `mounted` 布尔值或只包一个 Promise 不能满足契约；A→B 时 host 仍 mounted，且 factory
+重建会把 controller 私有 serial 重置。
+
+#### 根因与修复前调用链
+
+```text
+Component attached / Page onLoad
+  -> startController / startWorkflowPageController
+  -> factory() 把 _loadSerial:0 等私有状态复制到同一 host
+  -> controller onLoad -> async task(serial=1) -> await
+
+detach/unload: 旧 controller 被丢弃，但没有 host-owned identity 失效
+A -> B: factory() 再次从 serial=0 开始，B task 也得到 serial=1
+  -> B 先返回并写入
+  -> A 晚返回仍通过自身 serial 检查，覆盖 B 或触发后续副作用
+```
+
+`git log -S` 与 blame 把组件 host/controller 引入点定位到 `bc32a4f1`，直达 Page host 定位到
+`50c696ab`，持久工作台 A→B controller 替换路径定位到 `4fe1b5e7`。问题不是单一 controller 的
+业务错误，而是共享 host 缺少不会随 factory 私有字段一起重置的生命周期/上下文身份。
+
+#### 永久红灯与统一修复
+
+永久测试位于 `apps/miniprogram/scripts/workflow-controller-lifecycle.test.mjs`。在最新主线未改业务源码时，
+7 个行为测试全部失败，分别证明：detach 后 resolve 写入、detach 后 reject 写入、A 晚于 B 覆盖、
+detach→attach 的 serial/token 碰撞、多个并发任务乱序后旧 A 写入、group 置空后旧任务写入，以及 Page
+unload 后旧任务写入。原审计 2 项临时探针仅作为历史线索；当前仓库已有永久复现，不再依赖临时文件。
+
+最小统一修复由 `captureWorkflowControllerTask`、`attachWorkflowHost`、`installWorkflowController` 和
+`disposeWorkflowController` 组成：
+
+- 每次 attachment 获得新的对象 token，防止旧 `setData` callback 在 detach→attach 后触发
+  `workspaceready`；
+- 每次 controller 安装获得新的对象 token；task 同时捕获 controller 对象和 token，detach/unload、
+  group 置空、A→B 替换都会使旧 task 永久失效，不存在数字 serial 重置后的碰撞；
+- leave、swap、duty 全部 32 个 async 入口在第一个 await 前捕获同一 task，并在每个 await 后、catch、
+  finally、确认框之后和串联刷新之前校验；旧 reject 被 catch 消化但不改当前错误/loading；
+- info timer 和延迟 `workspaceready` callback 也使用对应身份。旧任务不能 `setData`、改 host/controller
+  状态、触发事件/回调/UI 副作用或覆盖新上下文；B 的正常结果仍可成功更新。
+
+修复后行为测试扩展为 8 项并全部通过；再加三个 controller 的 async/await 结构合同及一个显式 Promise
+continuation 合同，原修复为 12/12。主线整合再增加重复 dispose/重新 attach 同步路径合同，最终 13/13。
+结构合同固定 leave/swap/duty 的 async/await 数量分别为 `8/23`、
+`12/30`、`12/30`，并要求每个 async 函数在首个 await 前捕获共享 guard。最终 diff 审阅又发现 swap
+三个 `.then` 在“被调函数返回→微任务执行”间仍有切换窗口；新增合同先得到 1/12 红灯，再让三个回调
+同时验证捕获 task 后转绿。这一轮红灯证明检查不只依赖 `await` 数量。
+
+#### 影响、误判风险与剩余边界
+
+逻辑层竞态为“已确认并修复”；微信原生生命周期是否曾把它表现为用户可见故障尚未验证。自动化已经能
+确定旧续体零本地/UI 副作用，因此不要求用户在小米 14 上再制造难以稳定命中的网络乱序，也没有增加
+test-tools 诊断。修复不取消已经发出的网络 transport；一个业务写在失效前若已发送，服务端仍可能完成，
+现有权限、版本和幂等继续承担服务端最终保护，但其旧续体不能再提示、导航、触发事件或串联读取。
+
+### MINI-G1-002：五个月窗口按月份重复获取同一年度节假日
+
+- 调用链：`loadWorkbench → getRequestedMonths` 在月/列表视图生成 `[-2,-1,0,1,2]` 五个月 →
+  `loadActiveThenAdjacent` 先读活动月、再并发四个相邻月 → 每个 `readMonth` 都同时调用
+  `getCalendar(group, month)` 与 `getHolidays(year)`。
+- 触发条件：五个月处于同一年时，calendar 参数不同但 holidays 参数完全相同；前台恢复的
+  `loadWorkbench({forceRefresh:true})` 也会绕过已加载 monthResources，重复这组读取。
+- 运行证据：临时 clean-source Vitest 固定 2026-09，等待五个月资源完成后得到
+  `holidayRequestCount=5`、唯一 URL 仅 `https://example.test/api/holidays?year=2026`。初始错误假设为
+  3 个月，被实际 `monthResources.size=5` 红灯纠正后重新调查并通过；探针已删除。
+- 活跃月 calendar+holiday 完成后页面才 ready，四个相邻月在 ready 后 best-effort 加载；所以可以确认
+  多 4 个请求，但不能声称它们把首屏稳定拖慢了某个毫秒数。
+- 误判风险与最小修复建议：真实 Network 层或服务端可能缓存同年结果，接口本身也可能很快，因此用户
+  延迟和资源成本尚未量化；但源码调用次数不受此影响。建议只在同一 load generation 内按 year 复用
+  in-flight/result，保持现有离线 cache、requestSerial 与相邻月 best-effort 边界。
+- 回归建议：同年五个月应为 5 个 calendar GET + 1 个 holiday GET；跨年窗口按唯一 year 数请求；失败
+  仍保持当前离线回退、当前 requestSerial 和相邻月 best-effort 语义。
+
+### MINI-G1-003：排班配置输入重建完整岗位×成员视图
+
+- `handleShiftInput`/`handleShiftColorInput` 在每个输入字符把完整 `shiftDrafts` 数组 map 后回传。
+- `handleRotationInput` 更重：更新一个 role draft 后调用 `createRoleCards`；该函数遍历所有岗位，每个岗位
+  都复制并排序全部 `config.groupMembers`，再生成 `memberNames` 等派生数组。WXML 对每个 role 永久
+  `wx:for="{{role.members}}"`，并非只在“编辑规则”展开时创建成员清单。
+- 数据规模没有明确 contract 上限。受控合成 4 岗位×100 人时，一个字符只调用一次 `setData`，但 payload
+  为 56,171B，并包含 400 个 member view；0.48ms 只是 Node 逻辑计时，未包含微信 bridge、diff 与渲染。
+- 误判风险：真实群组可能远小于 100 人，且桌面逻辑很快；因此不能写“真机已卡顿”。不过全量 payload
+  和重复计算是确定的，满足高可信候选。
+- 最小修复建议：先把轮转草稿留在逻辑层并只路径更新当前岗位字段；成员清单只在活动岗位或展开状态
+  生成。必须先证明保存 payload、picker 索引、排序和成员勾选语义等价，不能直接改数据模型。
+- 回归建议：记录一次输入的 setData key/bytes、当前岗位和其他岗位引用是否变化；固定 4×100 fixture
+  只允许当前草稿路径更新，功能上仍保持成员勾选、排序、picker 索引和保存 payload 不变。
+
+### MINI-G1-004：两个管理页完整加载并渲染无明确上限的数组
+
+- 相关函数与调用链一：platform-accounts Page `index.ts:13-23` → controller `attached:115-120` →
+  `loadAccounts:189-220` → `listPlatformUserAccounts` → 完整 `accounts.map(toAccountCard)` →
+  `index.wxml:59` 的单层 `wx:for`。Client Core `organization-read-client.ts:198-201` 返回完整 `users`，
+  没有 cursor 或 pageSize 参数。
+- 相关函数与调用链二：group-settings `loadGroupSettings:547-648` → `listGroupMembers:610` →
+  `createOrganizationPatch:944-1026` 完整生成 `memberCards` → `index.wxml:489-536` 全量渲染。
+  Client Core `organization-read-client.ts:189-190` 同样没有分页参数。
+- 触发条件：开发者管理员进入平台账号页，或有管理权限的用户进入成员较多的群组设置页；只有真实
+  accounts/members 数量较大时才可能成为 bridge 与节点开销。
+- 静态证据：两个 transport 合同都返回数组，controller 在一次响应中完整 map 并一次 setData，WXML
+  使用稳定 `id` key，但没有分页、分批或窗口化边界。运行证据：尚未验证；本轮没有读取生产人员数据，
+  也没有当前 SHA 的脱敏条数、原生节点、payload 或真机耗时。
+- 用户影响：若后台账号或群组成员达到较大规模，首次进入管理页可能变慢；当前无法证明现有用户已遇到，
+  不影响通讯录搜索，也不据此要求立即引入虚拟列表。
+- 误判风险：服务端或业务规则可能把真实规模约束在很小范围，且两个页面都只面向管理操作；因此保持
+  P3“待运行证据”，不写成已确认卡顿。
+- 最小建议与回归：先用现有脱敏诊断记录条数、响应 bytes、单次 setData bytes、节点和小米 14 首绘；
+  只有超过约定阈值后，另行批准 API 分页或视图分批。回归应覆盖 cursor 合并、稳定 `id` key、选择状态、
+  权限和错误重试，禁止为本轮审计先改接口。
+
+### setData 热点表
+
+静态 AST 扫描识别 745 个 `setData` 调用表达式；未发现嵌套在 `for/for-in/for-of/while/do` 语法中的
+调用。数量不等于频率，以下只列真实热路径或大 payload 边界。
+
+| 路径/函数                                    | 实际频率与规模                                                                                                                    | 结论                                            |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| directory `handleSearchInput/scheduleSearch` | 每字符更新当前 pane 的 `searchQuery` 与少量 loading/摘要字段；500ms 静默后请求；首批 30 条                                        | 没有大数组随字符回传；不是当前首搜瓶颈          |
+| directory 请求成功                           | 当前可见 cards 最多每页 30 条；分页后替换已累计 cards，并另同步 priority sections；小米 14 完成搜索约 3KB setData、响应后 21–44ms | 多页累积需继续观察；当前无需虚拟化或合并优化    |
+| scheduling-config `handleRotationInput`      | 每字符完整 `roleCards`；4×100 合成 payload 56,171B                                                                                | MINI-G1-003                                     |
+| scheduling-config `handleShiftInput`         | 每字符完整 `shiftDrafts` 数组                                                                                                     | 与 MINI-G1-003 同根；班种通常较少，真机影响待测 |
+| manual matrix                                | 20×30 首次一次约 171,340B ViewModel；格点击只更新目标格和最多一个旧选择格；WXS 拖动/惯性 0 `setData`                              | 有界且已有真机通过；节点数不是新故障            |
+| workbench 月/周/列表                         | 面板数组在数据到达或原生 swiper 完成后更新，不在滑动帧逐帧 `setData`                                                              | 排除高频滚动 bridge 热点                        |
+| gesture-probe `handleTouchMove`              | 诊断 B 区每次 touchmove 更新计数；生产矩阵/滚轮使用 WXS 视图层                                                                    | diagnostic-only，排除为业务性能问题             |
+
+按文件静态调用数最高的是 group-settings 88、workbench 77、swap/duty 各 66、leave 51、manual 44、
+scheduling-config 41。逐调用点检查后，没有因“数量多”直接立项；多数是独立表单、状态机和低频操作。
+
+### 生命周期与资源清理表
+
+| 资源/页面                          | 注册或开始                                  | 清理/失效                                                                        | 结论               |
+| ---------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- | ------------------ |
+| workbench 60s 未读轮询             | `index.ts:943-960`                          | onHide/onUnload 调 `stopNotificationPolling`，并提升 notification/request serial | 通过               |
+| directory 搜索防抖、图标 timer     | `controller.ts:434-442,907-956,1496`        | detach/invalidate 清 timer；回调检查 `_detached`                                 | 通过               |
+| directory window resize            | `controller.ts:434-435,575-599`             | detach `offWindowResize`，重复注册前先注销                                       | 通过               |
+| workflow picker 定位 timer         | `workflow-picker/index.ts:163-166,381-391`  | detached 清理                                                                    | 通过               |
+| workflow host infoMessage 2s timer | `controller-host.ts:updateInfoMessageTimer` | task token + detached/Page unload/A→B 统一清理                                   | 已修复并有永久回归 |
+| directory card 拨号动效 timer      | `directory-entry-card/index.ts:33-34,57-64` | detached 与重触发均清理                                                          | 通过               |
+| test-tools 网络类型 500ms timer    | `test-tools/index.ts:300-341,1035-1051`     | promise settle 清 timer；Page `_active` 阻止卸载后 setData                       | 通过               |
+| insights 四面板                    | attached 发请求                             | detached/onUnload 提升 `_requestSerial`                                          | 通过               |
+| profile-workspace                  | attached/observer                           | detached 同时提升 account/overview serial                                        | 通过               |
+| workflow 组件/直达页业务请求       | attached/onLoad 发请求                      | attachment/controller token + 统一 dispose + 每 await task guard                 | MINI-G1-001 已修复 |
+
+未发现业务 `setInterval`、EventChannel、全局事件订阅或重复 observer 注册。App 的 `onError`/
+`onUnhandledRejection` 属 App 生命周期；directory 的 resize 是本轮唯一页面级全局监听并已成对注销。
+
+### 异步请求与竞态调用链
+
+```text
+工作台月窗
+onLoad/onShow -> loadWorkbench -> listGroups
+  -> getRequestedMonths(5)
+  -> active readMonth -> calendar(month) + holidays(year) -> ready setData
+  -> 4 adjacent readMonth -> 4 calendar(month) + 4 identical holidays(year) -> background setData
+
+通讯录搜索
+input -> path setData -> 500ms debounce -> stable query key
+  -> completed/in-flight reuse
+  -> transport capability/session gate -> pageSize 30
+  -> instance + contextSerial + querySerial + baseQueryKey + cursor checks
+  -> card projection -> setData callback -> nextTick diagnostic
+
+工作流生命周期（修复后）
+host attach -> attachment token
+  -> install controller A -> controller token A -> task captures A/token A -> await
+  -> detach/unload/group empty/A->B -> dispose deletes token A
+  -> install controller B -> distinct token B -> task B -> await
+  -> A late resolve/reject: task A invalid, zero state/event/callback/UI side effect
+  -> B normal resolve: task B current, result updates normally
+```
+
+Directory 原有 instance guard 继续由定向测试保护；workflow host 现在通过独立永久回归达到同类失效
+契约。该结论只覆盖共享 host 的 leave/swap/duty 三个组件和三个直达 Page，不外推到其他未审计页面。
+
+### 重复请求与缓存候选表
+
+下表除 MINI-G1-002 外均未达到新增问题立项门槛，只作为后续测量入口，不追加编号或严重度。
+
+| 路径                            | 结果                       | 证据/边界                                                                                                              |
+| ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 同年五个月 holidays             | 已确认重复                 | 5 次请求、1 个唯一 URL；MINI-G1-002                                                                                    |
+| workbench 与预载 swap 的 groups | 观察项（未立项）           | workbench 已 `listGroups`，swap mounted 后独立 controller 再 `listGroups`；参数相同但控制器职责独立，未测真实时序/耗时 |
+| platform-accounts refresh       | 观察项（未立项）           | 无显式 in-flight/serial；首次 setData 会隐藏按钮，真实重复点击窗口未知                                                 |
+| directory search                | 排除                       | base/page query key、Map in-flight、完成结果复用；相同确认 0 新请求                                                    |
+| directory 双模式 facets         | 排除“相同请求”             | internal/employee 参数不同；前台复核有单一 `_foregroundRefreshPromise`                                                 |
+| capability                      | 排除                       | store 复用 `inFlight`，加载后非 force 直接返回 snapshot                                                                |
+| workbench 24h cache             | 未发现跨账号/群组复用      | key=`ownerId:groupId:month`，decoder 校验 group/month；403 清群组缓存；不缓存手机号                                    |
+| directory preferences           | 未发现跨账号/群组/模式复用 | key=`ownerId:groupId:kind`；只保存 entry ID/使用计数，不保存条目正文                                                   |
+| avatar                          | 未发现跨账号/版本复用      | ownerId key + avatarVersion/file path 校验                                                                             |
+
+### 长列表与搜索性能路径
+
+| 页面/列表                         | 初始/分页                                                 | key 与更新                                         | 审计结论                                           |
+| --------------------------------- | --------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| directory                         | 首批 30，显式 load-more；旧卡片在新查询期间只作禁交互快照 | `id` 稳定；服务端搜索，本地只对返回/累计页分组制卡 | 首搜本地瓶颈排除；很多页累计的虚拟化需求待真实数据 |
+| notifications                     | 30/页，cursor 手动追加                                    | `id` 稳定；serial 检查                             | 当前有界首屏；多页长期累积待运行证据               |
+| insights events                   | 50/页，cursor 手动追加                                    | `id/key` 稳定；serial 检查                         | 当前有界首屏；不因无虚拟列表直接立项               |
+| visitor logs                      | cursor 分页                                               | `id` 稳定                                          | 当前未发现重复首屏或 key 问题                      |
+| scheduling roles×members          | 全部岗位各自渲染全部成员，无分页                          | role/member `id` 稳定；每字符全量重建              | MINI-G1-003                                        |
+| platform accounts / group members | 完整数组，无明确 cursor/pageSize                          | `id` 稳定                                          | MINI-G1-004；先测实际规模                          |
+| manual matrix                     | 正常 7×7=49；最大 20×30=600                               | membership/cell key 稳定；点击最多 2 个 cell path  | 有界专用二维矩阵，不按普通长列表处理               |
+
+通讯录没有在小程序主线程对完整人员库做拼音建索引、全量复制或全量排序；关键词和筛选发送服务端。首次
+进入会并行取得 internal/employee facets，并按本地收藏/常用 ID 做有界 lookup 预热，但不下载完整目录。
+小米 14 三次独立 App 首搜 10,016/685/799ms；正常两次响应后 21/44ms，一次异常的服务端主查询约
+9.7 秒。由此排除稳定客户端首搜退化，但服务端长尾仍未解决，继续按既有阈值观察。
+
+### 1,445 / 1,506 节点归属与结论
+
+| 指标         | 1,445                                                                                                                | 1,506                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 页面         | 主包诊断 PoC `pages/manual-matrix-poc/index`                                                                         | scheduling 分包正式手排 `pages/manual/index` 的 editor 状态                   |
+| WXML         | `manual-matrix-poc/index.wxml:69-153`                                                                                | `manual/index.wxml:50,104-115`                                                |
+| 数据源       | `createManualMatrixPocViewModel('maximum')` 固定 fixture                                                             | API scheduling config + 当前模板/成员/日期，经 `syncEditor/createMatrixModel` |
+| 正常/最大    | PoC 正常 7×7=49；最大 20×30=600                                                                                      | 业务可低于上限；硬上限 20 人×30 天=600                                        |
+| 形成原因     | 600 个 cell view 各至少含一个内容 text，已超过 1,200；再加 20 row、30 date、30 holiday、20 member overlay、壳层/徽标 | 同一矩阵结构外再加编辑阶段、选择器、提示和 action dock，故比 PoC 多 61        |
+| 是否首屏     | 不是 App 首屏；只有显式打开 PoC maximum 路由时为该页首绘                                                             | 不是 App 首屏；进入 scheduling 分包并加载/选择最大模板后为该页 editor 首绘    |
+| 是否频繁重建 | 拖动/惯性由 WXS `setStyle`，0 setData；静止只回写坐标摘要；点格最多 2 path                                           | 滚动同样不重建；成员/周期/模板变化会有界重建，点格局部更新                    |
+
+当前 verify 报告 ViewModel 171,340B、desktop model 0.47ms、tap 0.22ms；这些只证明逻辑门禁。历史目标
+Android 已对 20×30 双轴滚动、冻结层、进度条、点格和撤销明确通过，并接受进入后约 500ms 内抢操作的
+短卡。因此节点数保留为 no-growth warning 和审计入口，排除为本轮新的 P1/P2；若将来匹配 SHA 真机
+重新出现 >1s 数据到渲染或持续滚动卡顿，再评估成员行虚拟化，不能只凭 1,445/1,506 下结论。
+
+### 已排除问题与证据
+
+- 通讯录旧请求覆盖新请求、卸载后写入、错误释放新 loading：44 项 controller 定向测试含 detach、
+  capability wait、群组切换、分页和 in-flight/完成复用，全部通过；全量 Mini 也通过。
+- 通讯录首次搜索本地主线程全量拼音/索引/排序：源码没有完整库下载或本地搜索索引；真实正常首搜的
+  返回后阶段为 21–44ms。只排除稳定客户端瓶颈，不声称服务端长尾解决。
+- `setData` 循环热路径：AST 未发现 for/while/do 内 setData；矩阵/滚轮 WXS 热路径 0 setData。
+  diagnostic-only gesture probe 的逻辑层计数不归为业务问题。
+- 矩阵节点数直接等于卡顿：排除；见上表的有界结构、局部更新和历史真机证据。
+- 冷构建固定 5 秒等于用户侧慢：排除。当前 clean worktree 全量 111 files/580 tests 在 70.78s 完成；
+  这是测试套件总时长，不能作为小程序页面 TTI。
+- test-tools 的 Grid/Flex、4 处换行、`:last-of-type`、Skyline Warning、真机验收和 automator null：
+  已关闭，本轮只做基线存在性核对，没有重新展开或建立新发现。
+- 绑定状态 503：本轮没有取得绑定调用链、请求参数或响应，未与页面状态/性能关联。
+- 主包 1.5 MiB：当前 main 1,677,803B，只保留下一轮“包体积与分包边界”引用，不在本轮分析或重复立项。
+
+### 自动证据与工具链偏差
+
+| 命令/探针                          | 结果                                                                                         |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`   | 1,459 包全部本地复用、0 下载；8m07.5s；锁文件未变                                            |
+| packages build                     | 7 个 workspace packages build 通过                                                           |
+| 修复前永久红灯                     | `workflow-controller-lifecycle.test.mjs` 行为测试 7/7 失败；最新主线尚无等价修复             |
+| 修复后生命周期定向                 | 13/13 通过；含 8 个原行为场景、3 个 async/await 合同、显式 `.then` 与重复 dispose 合同       |
+| 相关 host/controller               | 9 files / 62 tests 通过                                                                      |
+| 标准 Mini 全量（clean checkpoint） | 112 files / 593 tests / 0 failure；标准命令自动发现生命周期文件                              |
+| `pnpm miniprogram:verify`（clean） | 通过；2/2 Worklet；总包 5,120,950B；main 1,677,803B；workflows 839,488B；matrix 1445/1506    |
+| 包体基线                           | `eb36d70f` total 5,113,474B、main 1,677,803B；clean 总包 +7,476B，主包无变化                 |
+| 收口门禁                           | TypeScript、任务文件 Prettier、`git diff --check`、状态策略 3/3、`smoke:check-core` 全部通过 |
+| 原临时生命周期探针                 | 2/2 复现 detach late setData 与 serial collision；已删除、未入 Git，已由永久测试替代         |
+| 临时 scheduling payload 探针       | 1/1 通过；4×100 一字符 56,171B、Node 0.48ms；已删除                                          |
+| 临时 holidays 探针                 | 最终 1/1 通过；5 请求/1 URL；初始 3 月假设先红并纠正；已删除                                 |
+
+第一次 `miniprogram:verify` 因 fresh worktree 尚未生成 workspace packages 的 dist/声明而失败，首个错误
+从 `@schedule/presentation-core` 暴露；确认 package exports 指向缺失 dist 后，只构建 workspace packages，
+原命令复跑通过。这是审计环境预构建顺序，不是业务源码错误，也没有为此修改工具或源码。
+
+### 本轮未覆盖与停止条件
+
+- 未新增当前 SHA 的微信开发者工具 Console/Network、原生页面录屏或小米 14 体验版证据；iOS 与其他
+  Android 仍未验证。
+- 未审计主包/分包边界、依赖重复或资源体积；未改 SQL/索引/缓存/查询计划，也未重新调查服务端长尾。
+- 未审计全量视觉/安全区/键盘/Skyline 兼容；已关闭 test-tools 问题不重开。
+- 本轮只修复 `MINI-G1-001`；`MINI-G1-002`～`004` 未修改。未上传体验版、未提审、未正式发布、
+  未改 allowlist/production/数据库。
+
+本轮只在 exact-commit 全部门禁通过后非强制推送 `origin/main` 并确认可追溯/clean，然后停止；不自行
+开始 `MINI-G1-002`～`004`。若继续第 1 组，唯一建议下一轮只处理 `MINI-G1-002`（同年 holidays 请求
+去重），仍需独立先红后绿并保持缓存/API 语义；包体积与分包边界仍是另一审计问题组，不与之混做。
 
 ## 2026-09-01 test-tools Skyline 修复语义核验与最终收口
 
