@@ -79,9 +79,9 @@ main 净减 1,524 B（其中 `app.js` 净减 7,977 B），organization 净减 17
 `.75@24a847f` 的小米 14 上确认半屏高度、关闭/回弹、内部滚动与固定清除入口四项原生交互通过；
 仓库规则禁止代理操作微信开发者工具，因此原生 Console/Network 输出仍未采集。
 
-性能方面，三次独立 App 首搜为 10,016/685/799ms：已排除稳定的客户端首次搜索退化，但确认过一次
-服务端主查询约 9.7 秒的长尾。两次后续启动未复现并不等于问题已解决；采样集中在十几分钟内，未覆盖
-服务端或数据库长时间冷态，因此根因和发生率仍未知，当前只转观察。
+性能方面，后续证据已推翻“单个孤立样本”：`xmb` 页面会话首搜至少两次出现 9–10 秒服务端主查询，
+同一 `xmb` 也曾 331ms 完成，中文姓名和完整拼音保持约 235–240ms。已排除稳定的客户端首次搜索退化，
+但首字母查询结构与数据库/服务冷态或资源等待的组合根因仍未确定，当前进入服务端根因分析。
 
 ### 上传结果（2026-09-01）
 
@@ -159,13 +159,66 @@ main 净减 1,524 B（其中 `app.js` 净减 7,977 B），organization 净减 17
 - 非阻塞待办：诊断中的 `instanceAgeMs` 在 600000ms 封顶时，后续报告应显示 `≥600000ms` 或“已封顶”，
   不能作为精确值；该显示问题不单独发版。
 
+### `.75@24a847f` `xmb` 长尾复现与只读服务端根因分析
+
+- 新证据按用户输入顺序确认：慢 `2b12f7ee…` main/total=9,696/10,016ms；慢
+  `125ca48c…` main/server/total=8,932/9,176/9,276ms；快 `23b3bec8…` main/total=331/734ms。
+  中文姓名与完整拼音 main 分别 240/235ms，工号为 605ms。`xmb` 已至少两慢一快，旧“单个孤立
+  样本、停止调查”结论作废。
+- 当前 API 脱敏日志把新慢请求对应到 13:49:22.245–13:49:31.422 UTC 的单次 HTTP 200，把快请求
+  对应到 13:51:33.479–13:51:34.016 UTC 的单次 HTTP 200；route/group/API 容器一致。API 容器于
+  13:41:30 UTC 重建、MySQL 自 2026-08-26 起持续运行且 restart/OOM 均为 0。旧慢请求也发生在一次
+  API/Web 重建约 28 分钟后；`cold=false` 只表示 API 进程 uptime ≥60s，不代表数据库或索引页已热。
+- 非数字搜索由同一 rank CASE 处理，没有顶层独立 initials executor；但 alias 表确实生成并查询
+  `pinyin_initials`；production 当前发布员工批次存在且仅存在 1 个精确 `xmb` initials alias。精确 alias、
+  姓名前缀、拼音前缀、任意包含和 fulltext 都在同一查询中。精确命中只会对当前外层 entry 短路，不能让
+  整条查询跳过其他 entry 的模糊判断、相关度排序和分页。
+- 本地按生产 builder 生成的非数字 main/count SQL 形状 SHA-256 为 `aac9a31f…a99`/
+  `a66ec024…830`；`xmb` 慢/快值、参数类型、过滤和排序相同。MySQL 使用 mysql2 text query，不存在
+  PostgreSQL 式 custom/general prepared plan 分歧；历史时点未保存 plan snapshot，因此只能证明当前
+  同值计划和归一化 SQL digest 相同，不能声称历史实际计划已逐请求取回。相关列均为
+  `utf8mb4_0900_ai_ci`；rank 后稳定排序键为 campus/entry display order 和 entry id，三次 `xmb` 一致。
+- production `EXPLAIN FORMAT=TREE` 显示主查询先按 batch 索引读约 1,200 个 employee entry，再对可见
+  候选逐行执行 exact/source-prefix/pinyin-prefix/contains 相关子查询并按派生 rank 排序，limit 31。
+  rank 同一 CASE 进入过滤、投影和排序路径；contains 只能按 entry 回读 alias 后执行 `INSTR`。
+- 同一 MySQL 主查询 digest `da4929ad…159` 累计 117 次，平均/最大 746.4/9,877.4ms，检查
+  6,619,675 行、返回 1,045 行、排序扫描 117 次；临时表和磁盘临时表均为 0。聚合 lock time 仅
+  98.6ms（平均约 0.84ms/次），不能解释 9 秒。对应 count digest 平均/最大 223.1/472.6ms，平均检查
+  约 43.1k 行；count 少了 rank 重复计算和排序，且总在 main 之后执行，因此还会受 main 预热影响。
+- MySQL buffer pool 为 128MiB；alias 表数据/索引估计约 41.6/60.9MB，整个数据库工作集更大。全局累计
+  buffer 命中率很高，但 statement/wait history-long 未启用，无法把物理读取、I/O 等待或 CPU 竞争回溯到
+  三个 request ID。两慢一快的时序和相关随机页访问使冷页/资源等待成为高概率因素，但尚未直接证实。
+- 数据库 `max_execution_time=0`、锁等待阈值 50s；客户端成功请求超时 12s，服务端查询层无重试。
+  两个慢请求均为单次 HTTP 200，性能摘要也记录近 9.9s 的数据库语句，不符合 10s 重试/超时边界。
+  `cache=none` 是硬编码的“无应用结果缓存”标识，不排除 InnoDB buffer pool、OS page cache 或索引页预热。
+- 两个慢请求窗口没有 backup 或 directory import；每分钟的 export/duty/notification job 均为空或极短，
+  第二个慢请求没有与其重叠，旧慢请求只与约 0.15s notification job 重叠。没有重启/OOM 证据；历史 CPU/
+  块设备时序当前不可得（host 未安装/保留 `sar` 历史），故资源竞争不能完全排除。
+- 输入侧是 `bindinput` 后静默 500ms 自动搜索，`bindconfirm` 另行确认。未到期 timer 会清理，相同进行中/
+  完成查询会复用；但已发出的 `wx.request` 不保留 abort 句柄，新 serial 只阻止旧响应提交页面。
+  因而长度 6 与长度 1 记录均是实际服务器请求：分别说明输入中停顿至少 500ms，且当前没有 ASCII/数字
+  最小自动搜索长度。第二次 `0468` 若真正进入 search 必定记录为“长度4、工号”，现有证据更像未确认且
+  未静默 500ms 就被下一输入取消；缺少输入事件 trace，仍标记尚未确认。定向 controller 44/44 通过。
+- 本轮只执行代码/Schema 审计、production 脱敏日志与只读 MySQL 状态/`EXPLAIN`；未执行重查询复现、
+  `EXPLAIN ANALYZE`、清缓存、重启、索引/SQL/API/客户端修改、备份、部署或体验版上传。
+- 候选 1（推荐先做）：把 production 等价 schema/数据快照放入受控隔离环境，固定 MySQL 8.4/128MiB
+  buffer 配置，轮换 `xmb`/中文姓名/完整拼音并分别采集冷/热 `EXPLAIN ANALYZE`、页读取和等待事件。
+  风险是快照隐私治理及隔离硬件与 production 不完全等价，但 production 运行风险最低。
+- 候选 2：语义等价地把 exact/prefix/contains/fulltext 改成先产生候选 entry/rank、按 entry 取最大 rank，
+  再与权限/batch 联结并按原稳定键排序分页；精确 alias 作为索引化候选种子，未命中仍回退。不能直接
+  “exact 命中就只返回 exact”，否则会改变当前结果、总数和排序。风险在 rank、去重、count、cursor 语义，
+  必须先用生产等价数据做逐结果对照；是否加复合索引只能由改写后的 plan 决定。
+- 候选 3（与服务端长尾分开）：确认产品策略后，ASCII/数字改为确认后才搜，或至少禁止单字符自动请求并
+  保留单汉字能力；继续严格清理 timer，并评估持有 RequestTask 后的安全 abort。风险是改变实时搜索手感，
+  且只能减少无效负载，不能消除一次合法 `xmb` 查询自身的 9–10 秒长尾。
+
 ### `.75@24a847f` 小米 14 半屏原生验收
 
 - 用户明确回报四项全部通过：弹层高度约半屏；横条下滑达到阈值可关闭且短拖未达阈值会回弹；
   列表内部滚动不会误关闭弹层；“清除全部筛选”保持固定可见。
 - 该结论是当前构建在小米 14 Android 微信体验版上的原生交互证据，不以 Web 黄金图代替，也不外推为
   iOS、全部安卓或全平台兼容。代理受仓库规则限制未采集微信开发者工具 Console/Network 输出。
-- 至此本轮上传前纠偏审计的真机交互项与性能采样均收口；后续仅按既定阈值被动观察长尾，不启动阶段 B
+- 半屏交互验收仍收口；性能结论已由后续 `xmb` 证据重新打开为服务端根因分析，不启动阶段 B 客户端
   优化，不再次上传或操作 allowlist、production、数据库备份与服务器 release。
 
 ## 2026-09-01 体验版上传前纠偏审计

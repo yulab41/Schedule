@@ -95,15 +95,22 @@
   `.76@a2cdd06` 真机通过。当前结论仅为历史不变量已恢复，且当前 SHA 自动化/开发者工具回归通过。
 - 前序通讯录纠偏 `a9021c4e`/上传源码 `24a847f` 保持主线：一次性 App 启动标记、会话内有界诊断、
   transport 最终门禁和隐私上限有效；`.75@24a847f` 已标准 CLI 上传并加入 allowlist。
-- `.75` 三次独立启动首搜为 10,016/685/799ms；已排除稳定的客户端首次搜索退化，但确认一次服务端
-  主查询约 9.7 秒长尾。后两次独立启动未复现；测试集中在十几分钟内，未覆盖服务端或数据库长时间
-  冷态，根因与发生率未知，当前转观察且不标记解决。
+- `.75` 新证据推翻“单个孤立样本”结论：`xmb` 页面会话首搜已至少两次出现主查询
+  9,696/8,932ms，同时另一次相同 `xmb` 仅 331ms；中文姓名和完整拼音主查询分别 240/235ms。
+  已排除稳定客户端首搜退化，但首字母查询与数据库/服务冷态、执行路径或资源等待的组合根因仍在调查。
+- production MySQL 当前 `EXPLAIN` 证实非数字搜索会先扫描当前员工批次约 1,200 行，再逐行执行
+  exact/source-prefix/pinyin-prefix/contains 相关子查询并按派生 rank 排序；同一主查询 digest 117 次平均
+  746ms、最大 9,877ms、平均检查约 56.6k 行。历史 statement/wait 明细未开启，物理 I/O 与当时 CPU
+  仍不能直接归因；聚合锁时间和临时表指标不支持锁等待或磁盘临时表作为主要解释。
 - 正常首搜约 0.7–0.8 秒，本轮不再优化；精确计数约 180–200ms。若未来压缩正常延迟，先单独确认页面
   是否需要精确总数，不与 10 秒长尾混为一谈。
 - 保留 total >2,000ms 或 main query >1,500ms 阈值；自然使用超限时按 request ID 调查查询计划、
   锁等待、I/O、系统负载及备份或导入任务。当前不改客户端、SQL、索引、缓存、API 或预热策略。
 - 非阻塞待办：`instanceAgeMs` 达 600000ms 上限时，报告显示 `≥600000ms` 或“已封顶”，不得作为精确值；
   不为此单独发版。性能最终口径 checkpoint 为 `docs(audit): clarify .75 long-tail observation`。
+- 本次只读根因轮次验证：production 脱敏日志/request ID 关联、MySQL 状态与普通 `EXPLAIN`、controller
+  1 file/44 tests、任务文档 Prettier、agent-context-policy 3/3 和 `git diff --check` 通过。checkpoint 以
+  `docs(audit): investigate reproducible xmb query tail` 识别；不触发 production、备份、上传或业务改动。
 - `.76` allowlist 状态 checkpoint 以 `docs(audit): record .76 allowlist activation` 识别；它只记录已完成的
   production 配置操作，不得写作体验版源码 SHA，也不因文档提交再次操作 production。
 - `.75@24a847f` 小米 14 已确认半屏高度、关闭/回弹、内部列表滚动和固定清除入口四项通过；详细
@@ -225,9 +232,10 @@
    后续 docs-only 收口 SHA 不是体验版源码，不再次上传或操作 production。
 2. 主包 1.5 MiB 提示留给包体积审计；1445/1506 节点提示留给“页面状态、异步链路与列表性能”；
    既有冷构建时限波动不直接视为用户侧性能，绑定状态 503 仅在直接证据再次出现时调查。
-3. `.75` 服务端长尾未解决、转观察；仅在 total >2,000ms 或 main query >1,500ms 时按 request ID
-   调查查询计划、锁等待、I/O、系统负载及备份或导入任务。`instanceAgeMs` 封顶显示不单独发版。
-4. 唯一下一任务：从最终 `origin/main` SHA 开始“静态审计第 1 组：页面状态、异步链路与列表性能”。
+3. `.75` 的 `xmb` 服务端长尾已至少两次复现，不再按孤立样本收口；保留 total >2,000ms 或 main
+   query >1,500ms 阈值。当前只完成只读根因分析，不改客户端、SQL、索引、缓存、API 或预热。
+4. 唯一下一任务：等待用户从隔离冷/热复现、语义等价候选集查询改写、输入请求收敛三个候选方向中
+   确认后再实施；`instanceAgeMs` 封顶显示仍不单独发版。
 
-停止条件：本轮完成 docs-only checkpoint 并推送后停止，不开始静态审计第 1 组；不再次上传、提审、
-发布、修改 allowlist、部署、创建生产备份、同步服务器 release，或改客户端、SQL、索引、缓存、API、预热。
+停止条件：本轮完成只读根因报告和 docs-only checkpoint 并推送后停止；不再次上传、提审、发布、修改
+allowlist、部署、创建生产备份、同步服务器 release，或改客户端、SQL、索引、缓存、API、预热。

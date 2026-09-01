@@ -2058,3 +2058,25 @@
   保持 `a23266182122c6e2fcb5ca5aba5d8857ef781910`。
 - 未再次上传、提审或正式发布，未创建生产备份、同步服务器 release 或修改业务代码。状态文档 checkpoint
   以 `docs(audit): record .76 allowlist activation` 识别，文档提交不得再次触发 production 操作。
+
+## 2026-09-01 `xmb` 服务端主查询长尾复现与只读根因分析
+
+- 新增慢 `125ca48c…`（main/server/total=8,932/9,176/9,276ms）与旧慢 `2b12f7ee…`
+  （9,696/9,942/10,016ms）均为 `xmb` 页面会话首搜；快 `23b3bec8…` 同词为 331/734ms。
+  “单个孤立样本、停止调查”被直接证据否定；稳定客户端首搜退化仍被排除。
+- 引入点：`e74e5f35` 引入非数字 alias/fulltext rank 查询，`6b5b30fb` 引入输入静默后自动搜索；
+  `git log -S` 与对应 `git blame` 已复核。未修改行为，故本轮不写失败先行回归。
+- production 只读 `EXPLAIN` 证实 batch entry 扫描 + 逐 entry exact/prefix/contains 子查询 + 派生 rank 排序。
+  MySQL 主 digest `da4929ad…159` 117 次平均/最大 746.4/9,877.4ms、累计检查 6,619,675 行、
+  117 次排序扫描、0 临时表/0 磁盘临时表；总 lock time 98.6ms。history-long/waits 未启用，无法回溯
+  request 级物理 I/O/CPU；当前把冷页/资源等待列为高概率而非已证实。发布员工批次只存在 1 个精确
+  `xmb` pinyin_initials alias；相关列排序规则均为 `utf8mb4_0900_ai_ci`。
+- `rowsMs` 排除连接池/事务等待、权限、batch、联系方式和 count；虽包含 query builder/驱动结果读取，MySQL
+  自身近 9.9s digest 最大值证明慢段进入数据库。`cold=false` 仅表示 API uptime ≥60s；`cache=none` 仅表示
+  无应用结果缓存。无 10s 数据库阈值或服务端重试；客户端 12s 超时未触发。
+- 两个窗口无 backup/import，周期 job 极短；API 在第二个慢请求前约 8 分钟重建，MySQL 已连续运行约
+  5.8 天，restart/OOM 均为 0；host 无 `sar` 历史，不能回溯 CPU/块设备负载。输入侧 500ms 自动搜索
+  会真实发送长度 6/1 的中间请求；旧响应不提交不等于服务器请求取消。
+  controller 定向 1 file/44 tests 通过。
+- 本轮未改客户端、SQL、索引、缓存、API 或预热，未执行 production 写入/清缓存/重启/备份/部署，
+  未上传体验版。下一步等待用户从最多三个候选方向中确认后再实施。
