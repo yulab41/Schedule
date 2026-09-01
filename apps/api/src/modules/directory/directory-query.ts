@@ -69,11 +69,41 @@ interface DirectoryFacetRow {
   readonly subunit: string | null;
 }
 
+interface CandidateDirectoryRow {
+  readonly building: string | null;
+  readonly campusCode: string;
+  readonly campusDialingNote: string | null;
+  readonly campusDisplayOrder: number;
+  readonly campusName: string;
+  readonly contactName: string | null;
+  readonly jobTitle: string | null;
+  readonly department: string | null;
+  readonly displayOrder: number;
+  readonly employeeCode: string | null;
+  readonly entryKind: DirectoryEntryKind;
+  readonly floor: string | null;
+  readonly id: string;
+  readonly notes: string | null;
+  readonly searchRank: number;
+  readonly room: string | null;
+  readonly section: string | null;
+  readonly subunit: string | null;
+}
+
+export type DirectorySearchStrategy = 'candidate' | 'legacy';
+
+export interface DirectoryQueryOptions {
+  readonly searchStrategy?: DirectorySearchStrategy | undefined;
+}
+
 export class DirectoryQuery {
   private readonly permissionService = new GroupPermissionService();
   private readonly facetCache = new DirectoryFacetCache<DirectoryFacetSnapshot>();
 
-  public constructor(private readonly databaseClient: DatabaseClient) {}
+  public constructor(
+    private readonly databaseClient: DatabaseClient,
+    private readonly options: DirectoryQueryOptions = {},
+  ) {}
 
   public async list(
     identity: AuthenticatedIdentity,
@@ -100,13 +130,11 @@ export class DirectoryQuery {
         authorization.user.isDeveloperAdmin ||
         authorization.membership.role === 'owner' ||
         authorization.membership.role === 'administrator';
-      return listDirectoryEntries(
-        transaction,
-        batch.id,
-        query,
-        canViewAdministratorEntries,
-        timing,
-      );
+      const listEntries =
+        this.options.searchStrategy === 'candidate'
+          ? listDirectoryEntriesCandidate
+          : listDirectoryEntries;
+      return listEntries(transaction, batch.id, query, canViewAdministratorEntries, timing);
     });
   }
 
@@ -330,6 +358,260 @@ async function listDirectoryEntries(
       : {}),
     totalCount: Number(countRow?.count ?? 0),
   }));
+}
+
+async function listDirectoryEntriesCandidate(
+  transaction: DatabaseTransaction,
+  batchId: string,
+  query: DirectoryQueryInput,
+  canViewAdministratorEntries: boolean,
+  timing?: DirectoryServerTimingTrace,
+): Promise<DirectoryPage> {
+  if (query.q === undefined || hasDirectoryFilters(query)) {
+    return listDirectoryEntries(transaction, batchId, query, canViewAdministratorEntries, timing);
+  }
+
+  const pageSize = query.pageSize ?? defaultPageSize;
+  const cursor = query.cursor === undefined ? undefined : decodeDirectoryCursor(query.cursor);
+  const employeeCodeEntryIds = await measureDirectoryPhase(timing, 'aliasMs', () =>
+    resolveEmployeeCodeEntryIds(transaction, batchId, query.q),
+  );
+  const candidates = buildCandidateSearch(
+    batchId,
+    query.q,
+    canViewAdministratorEntries,
+    employeeCodeEntryIds,
+  );
+  const rank = sql<number>`directory_candidates.search_rank`;
+  const conditions = buildDirectoryConditions(batchId, query, rank, canViewAdministratorEntries);
+  if (cursor !== undefined) conditions.push(buildCursorCondition(rank, cursor));
+
+  const [rowsResult] = (await measureDirectoryPhase(timing, 'rowsMs', () =>
+    transaction.execute(sql`
+      SELECT
+        ${directoryEntries.buildingName} AS building,
+        ${directoryCampuses.code} AS campusCode,
+        ${directoryCampuses.dialingNote} AS campusDialingNote,
+        ${directoryCampuses.displayOrder} AS campusDisplayOrder,
+        ${directoryCampuses.name} AS campusName,
+        ${directoryEntries.contactName} AS contactName,
+        ${directoryEntries.jobTitle} AS jobTitle,
+        ${directoryEntries.departmentName} AS department,
+        ${directoryEntries.displayOrder} AS displayOrder,
+        ${directoryEntries.employeeCode} AS employeeCode,
+        ${directoryEntries.entryKind} AS entryKind,
+        ${directoryEntries.floorName} AS floor,
+        ${directoryEntries.id} AS id,
+        ${directoryEntries.notes} AS notes,
+        directory_candidates.search_rank AS searchRank,
+        ${directoryEntries.roomName} AS room,
+        ${directoryEntries.sectionName} AS section,
+        ${directoryEntries.subunitName} AS subunit
+      FROM (${candidates}) AS directory_candidates
+      INNER JOIN ${directoryEntries}
+        ON ${directoryEntries.id} = directory_candidates.entry_id
+      INNER JOIN ${directoryCampuses}
+        ON ${directoryCampuses.id} = ${directoryEntries.campusId}
+      WHERE ${and(...conditions)}
+      ORDER BY directory_candidates.search_rank DESC,
+               ${directoryCampuses.displayOrder} ASC,
+               ${directoryEntries.displayOrder} ASC,
+               ${directoryEntries.id} ASC
+      LIMIT ${pageSize + 1}
+    `),
+  )) as unknown as [CandidateDirectoryRow[], unknown];
+  const pageRows = rowsResult.slice(0, pageSize);
+  const contactMethods = await measureDirectoryPhase(timing, 'contactsMs', () =>
+    loadContactMethods(
+      transaction,
+      pageRows.map((row) => row.id),
+    ),
+  );
+  const countConditions = buildDirectoryConditions(
+    batchId,
+    query,
+    rank,
+    canViewAdministratorEntries,
+  );
+  const [countRows] = (await measureDirectoryPhase(timing, 'countMs', () =>
+    transaction.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM (${candidates}) AS directory_candidates
+      INNER JOIN ${directoryEntries}
+        ON ${directoryEntries.id} = directory_candidates.entry_id
+      INNER JOIN ${directoryCampuses}
+        ON ${directoryCampuses.id} = ${directoryEntries.campusId}
+      WHERE ${and(...countConditions)}
+    `),
+  )) as unknown as [{ count: number | string }[], unknown];
+  const last = pageRows.at(-1);
+
+  if (timing !== undefined) {
+    timing.queryMs =
+      (timing.aliasMs ?? 0) +
+      (timing.rowsMs ?? 0) +
+      (timing.contactsMs ?? 0) +
+      (timing.countMs ?? 0);
+  }
+  return measureDirectoryPhase(timing, 'transformMs', () => ({
+    entries: pageRows.map((row) => toDirectoryEntry(row, contactMethods.get(row.id) ?? [])),
+    ...(rowsResult.length > pageSize && last !== undefined
+      ? {
+          nextCursor: encodeDirectoryCursor({
+            campusDisplayOrder: last.campusDisplayOrder,
+            entryDisplayOrder: last.displayOrder,
+            id: last.id,
+            rank: Number(last.searchRank),
+          }),
+        }
+      : {}),
+    totalCount: Number(countRows[0]?.count ?? 0),
+  }));
+}
+
+function hasDirectoryFilters(query: DirectoryQueryInput): boolean {
+  return (
+    query.building !== undefined ||
+    query.campusCode !== undefined ||
+    query.department !== undefined ||
+    query.entryKind !== undefined ||
+    query.floor !== undefined ||
+    query.section !== undefined ||
+    query.subunit !== undefined
+  );
+}
+
+function buildCandidateSearch(
+  batchId: string,
+  value: string,
+  canViewAdministratorEntries: boolean,
+  employeeCodeEntryIds: readonly string[],
+): SQL {
+  const normalized = normalizeDirectorySearch(value);
+  const scopeConditions = buildCandidateScopeConditions(batchId, canViewAdministratorEntries);
+  const branches: SQL[] = [];
+  if (/^[\d\s()+\-.]+$/u.test(normalized)) {
+    const digits = normalized.replaceAll(/\D/gu, '');
+    if (digits.length === 0) {
+      return sql`
+        SELECT ${directoryEntries.id} AS entry_id, 0 AS search_rank
+        FROM ${directoryEntries}
+        WHERE 1 = 0
+      `;
+    }
+    if (employeeCodeEntryIds.length > 0) {
+      branches.push(sql`
+        SELECT ${directoryEntries.id} AS entry_id, 750 AS search_rank
+        FROM ${directoryEntries}
+        WHERE ${and(...scopeConditions)}
+          AND ${inArray(directoryEntries.id, [...employeeCodeEntryIds])}
+      `);
+    }
+    branches.push(
+      sql`
+        SELECT ${directoryContactMethods.entryId} AS entry_id, 700 AS search_rank
+        FROM ${directoryContactMethods}
+        INNER JOIN ${directoryEntries}
+          ON ${directoryEntries.id} = ${directoryContactMethods.entryId}
+        WHERE ${and(...scopeConditions)}
+          AND (
+            ${directoryContactMethods.normalizedFullNumber} = ${digits}
+            OR ${directoryContactMethods.normalizedInternalExtension} = ${digits}
+          )
+      `,
+      sql`
+        SELECT ${directoryContactMethods.entryId} AS entry_id, 650 AS search_rank
+        FROM ${directoryContactMethods}
+        INNER JOIN ${directoryEntries}
+          ON ${directoryEntries.id} = ${directoryContactMethods.entryId}
+        WHERE ${and(...scopeConditions)}
+          AND (
+            ${directoryContactMethods.normalizedFullNumber} LIKE CONCAT(${digits}, '%')
+            OR ${directoryContactMethods.normalizedInternalExtension} LIKE CONCAT(${digits}, '%')
+          )
+      `,
+    );
+  } else {
+    const fulltextQuery = toBooleanFulltextQuery(normalized);
+    branches.push(
+      sql`
+        SELECT ${directoryEntries.id} AS entry_id, 700 AS search_rank
+        FROM ${directoryEntries}
+        WHERE ${and(...scopeConditions)}
+          AND LOWER(${directoryEntries.employeeCode}) = ${normalized}
+      `,
+      sql`
+        SELECT ${directoryEntries.id} AS entry_id, 650 AS search_rank
+        FROM ${directoryEntries}
+        WHERE ${and(...scopeConditions)}
+          AND LOWER(${directoryEntries.employeeCode}) LIKE CONCAT(${normalized}, '%')
+      `,
+      sql`
+        SELECT ${directorySearchAliases.entryId} AS entry_id, 600 AS search_rank
+        FROM ${directorySearchAliases}
+        INNER JOIN ${directoryEntries}
+          ON ${directoryEntries.id} = ${directorySearchAliases.entryId}
+        WHERE ${and(...scopeConditions)}
+          AND ${directorySearchAliases.normalizedValue} = ${normalized}
+      `,
+      sql`
+        SELECT ${directorySearchAliases.entryId} AS entry_id, 550 AS search_rank
+        FROM ${directorySearchAliases}
+        INNER JOIN ${directoryEntries}
+          ON ${directoryEntries.id} = ${directorySearchAliases.entryId}
+        WHERE ${and(...scopeConditions)}
+          AND ${inArray(directorySearchAliases.type, ['source', 'manual'])}
+          AND ${directorySearchAliases.normalizedValue} LIKE CONCAT(${normalized}, '%')
+      `,
+      sql`
+        SELECT ${directorySearchAliases.entryId} AS entry_id, 525 AS search_rank
+        FROM ${directorySearchAliases}
+        INNER JOIN ${directoryEntries}
+          ON ${directoryEntries.id} = ${directorySearchAliases.entryId}
+        WHERE ${and(...scopeConditions)}
+          AND ${inArray(directorySearchAliases.type, [
+            'pinyin_full',
+            'pinyin_compact',
+            'pinyin_initials',
+          ])}
+          AND ${directorySearchAliases.normalizedValue} LIKE CONCAT(${normalized}, '%')
+      `,
+      sql`
+        SELECT ${directorySearchAliases.entryId} AS entry_id, 450 AS search_rank
+        FROM ${directorySearchAliases}
+        INNER JOIN ${directoryEntries}
+          ON ${directoryEntries.id} = ${directorySearchAliases.entryId}
+        WHERE ${and(...scopeConditions)}
+          AND INSTR(${directorySearchAliases.normalizedValue}, ${normalized}) > 0
+      `,
+    );
+    if (fulltextQuery.length > 0) {
+      const fulltextScore = sql<number>`MATCH(${directoryEntries.searchText}) AGAINST (${fulltextQuery} IN BOOLEAN MODE)`;
+      branches.push(sql`
+        SELECT ${directoryEntries.id} AS entry_id,
+               100 + LEAST(99, ROUND(${fulltextScore} * 10)) AS search_rank
+        FROM ${directoryEntries}
+        WHERE ${and(...scopeConditions)}
+          AND ${fulltextScore} > 0
+      `);
+    }
+  }
+
+  return sql`
+    SELECT directory_candidate_rows.entry_id,
+           MAX(directory_candidate_rows.search_rank) AS search_rank
+    FROM (${sql.join(branches, sql` UNION ALL `)}) AS directory_candidate_rows
+    GROUP BY directory_candidate_rows.entry_id
+  `;
+}
+
+function buildCandidateScopeConditions(
+  batchId: string,
+  canViewAdministratorEntries: boolean,
+): SQL[] {
+  const conditions: SQL[] = [eq(directoryEntries.batchId, batchId)];
+  if (!canViewAdministratorEntries) conditions.push(eq(directoryEntries.visibility, 'member'));
+  return conditions;
 }
 
 function buildDirectoryConditions(

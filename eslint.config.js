@@ -22,7 +22,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/miniprogram/scripts/**/*.mjs'],
+    files: ['apps/miniprogram/scripts/**/*.mjs', 'scripts/directory-query-benchmark/**/*.mjs'],
     languageOptions: {
       globals: globals.node,
     },

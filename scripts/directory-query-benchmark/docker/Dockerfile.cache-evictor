@@ -1,0 +1,9 @@
+FROM mysql@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb AS build
+USER root
+RUN microdnf install -y gcc glibc-devel && microdnf clean all
+COPY drop-file-cache.c /src/drop-file-cache.c
+RUN gcc -O2 -Wall -Wextra -Werror -o /src/drop-file-cache /src/drop-file-cache.c
+
+FROM mysql@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+COPY --from=build --chmod=0755 /src/drop-file-cache /usr/local/bin/drop-file-cache
+ENTRYPOINT ["/usr/local/bin/drop-file-cache"]
