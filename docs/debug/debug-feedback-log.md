@@ -2,6 +2,34 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-02 MINI-G1-002 工作台年度 holidays 请求去重
+
+- 基线/范围：fetch 后从 clean `origin/main@2751f549` 建立独立 worktree；`24fce3bb` 已确认是祖先。
+  只改工作台年度请求计划、永久测试和四份连续性文档；不改 `MINI-G1-003/004`、XMB、test-tools、
+  API/DB/UI/权限/路由，也不动用户主工作区或其他 worktree。
+- 接口与引入点：client `/holidays?year`、API route、`readConfirmedYear` 和 `HolidayReadModel` 均证明按年
+  返回全年数据。`git log -S`/blame 定位到 `9e3a966c`：弱网/离线硬化把原 `readMonths` 唯一年份集合
+  改成逐月 `readMonth → client.getHolidays(year)`；`4300fbe7` 固定五个月窗口，当前相邻月并发使同年
+  同时产生重复 in-flight。
+- 测试先行：新增永久 `apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`。夹具作用域首次错误
+  不计为回归证据；修正夹具且未改业务源码后稳定 3/3 红：同年收到 5 个 2026；跨年收到
+  `[2026,2026,2026,2027,2027]` 且 2027 同时在途 2 个；首次 500 保持原错误态，retry 后累计 6 次。
+- 最小实现：`loadWorkbench`/`refreshWorkbenchWindow` 各自从请求月份先建立唯一年份 Map；
+  generation-local `HolidayReader` 保存每年首个原始 Promise，后续月份共享 in-flight/result。下一次
+  load/retry 新建 Map，所以 rejected Promise 不会永久缓存。
+- 绿灯/行为审计：永久合同 3/3；同年 `5→1`、跨年 `5→2` 且 2027 in-flight `2→1`、失败后 retry
+  `6→2`。`client.getHolidays` 保持成员调用 receiver；calendar 仍五次，活动月先 ready、相邻月
+  best-effort、allSettled 错误分类、403/离线/24h cache、request serial、五个月 Map 顺序、跨年 dates、
+  12 月/1 月 holiday 月格、接口/权限/UI/路由均不变。
+- 验证：workbench 4 files/40 tests、Mini 113 files/608 tests、TypeScript、276-file production build、
+  `miniprogram:verify`、任务 Prettier、diff check、状态策略 3/3 和 core smoke 通过；verify 为 main
+  1,677,999B、total 5,121,436B、Worklet 2/2、matrix 1445/1506，仅既有三项 warning。fresh
+  worktree 首次 TypeScript 因 package dist 尚未构建失败；本地构建 7 packages 后原命令通过，未改锁。
+- 外部边界：真实微信 Network/耗时当前工具无法测量，不声明真机性能提升；未调用微信开发者工具、未
+  上传体验版、未部署 production。checkpoint 以 `fix(miniprogram): dedupe annual workbench holidays`
+  识别；最终再次 fetch、必要时自行整合、非强制推送并核对远端后停止，下一候选仅记录
+  `MINI-G1-003`。
+
 ## 2026-09-02 MINI-G1-001 主线整合与最终收口
 
 - 基线/来源：从 clean `origin/main@eb36d70f` 建立独立 integration worktree，以无提交 cherry-pick

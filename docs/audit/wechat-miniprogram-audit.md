@@ -1,16 +1,15 @@
 # 微信小程序审计报告
 
-- 当前阶段：`MINI-G1-001` 异步生命周期失效边界已完成主线整合与 exact clean checkpoint 复验；
-  整合起始主线为 clean
-  `origin/main@eb36d70fa28cf8705b0795a516ea3d4420399efc`
+- 当前阶段：`MINI-G1-002` 工作台同年度 holidays 请求去重已确认并修复，正在完成 exact clean
+  checkpoint 与最新主线非强制整合；起始主线为
+  `origin/main@2751f549756d890d9bfbe7be14fd4eb905977527`
 - 更新时间：2026-09-02（Asia/Hong_Kong）
-- integration 分支/worktree：`codex/integrate-mini-g1-001-main-20260902` /
-  `runtime/external-project-worktrees/mini-g1-001-main-integration-20260902`
-- 来源与 checkpoint：`2a856725e927fcd82cd382b9f63e2681c8dee75d` → 以
-  `fix(miniprogram): integrate workflow lifecycle invalidation` 识别的最终主线提交
-- 证据继承：`4ddaa38e70adbc356e2cc390ea2c3ebe2ad30fd2` 的审计内容已由 `2a856725` 内容合并；
-  本轮没有再次 cherry-pick，也没有从旧审计分支带入源码
-- 本批性质：只修复 `MINI-G1-001`；未修改 `MINI-G1-002`～`004`、API、数据库、缓存策略或页面交互，
+- 修复分支/worktree：`codex/fix-mini-g1-002-holiday-year-dedupe` /
+  `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`
+- 已闭环参考 `24fce3bb90d5b64b97d57b51bb76c4ed0376e8cd` 是起始主线祖先；最新主线其后的通讯录
+  搜索确认修复全部保留。本 checkpoint 以 `fix(miniprogram): dedupe annual workbench holidays` 识别。
+- 本批性质：只修复 `MINI-G1-002`；未修改 `MINI-G1-003`、`MINI-G1-004`、XMB、test-tools、API、
+  数据库、持久缓存策略或页面交互，
   未调用微信开发者工具、未上传体验版、未部署 production，也未修改或清理其他 worktree
 
 ## 2026-09-01 静态审计第 1 组：页面状态、异步链路与列表性能
@@ -21,30 +20,37 @@
 本地筛选、拼音计算或列表渲染造成的”。真实小米 14 记录中，正常两次独立首搜约 0.7–0.8 秒，结果返回
 后到下一渲染周期为 21–44ms；曾出现的一次 10 秒异常主要落在服务端主查询，仍按既定阈值观察。
 
-第 1 组审计找到的四项中，本轮只处理了 `MINI-G1-001`。旧实现的逻辑层竞态现已由仓库永久测试确认：
+第 1 组审计找到的四项中，`MINI-G1-001` 和 `MINI-G1-002` 现均已修复。`MINI-G1-001` 的旧实现
+逻辑层竞态已由仓库永久测试确认：
 组件 detach、Page unload、A→B 切换或 detach→attach 后，旧 Promise 可能继续写入；新旧 controller
 各自从 `serial=0` 重启还会形成编号碰撞。修复后，宿主为每次 attachment 和 controller 安装分配对象
 身份 token，统一 dispose，并要求三个工作流 controller 的全部异步续体在每个 `await` 后验证同一任务
 身份。旧任务不能再写状态、触发事件/回调/UI 副作用或覆盖 B；B 的正常结果仍能更新。
 
-这项修复有 Node/静态自动化证据，不需要用户重复真机制造竞态。微信原生层是否曾把该竞态表现为可见
-故障仍未直接确认，因此不能把逻辑复现夸大成“真机 P1 已复现”。其余 `MINI-G1-002`～`004` 的等级、
-证据和建议保持原审计结论，本轮未顺手处理。
+`MINI-G1-002` 的根因是五个月资源读取把按年份返回全年数据的 holidays GET 放进了逐月 `readMonth`；
+同年因而请求 5 次，跨年为 2026 三次、2027 两次。现在每个 load generation 先形成唯一年份计划，
+同年共享一个 in-flight/已完成 Promise；同年为 1 次，跨年为 2 次，五个月数据、顺序和节假日展示不变。
+这两项修复都有 Node/静态自动化证据，不要求用户制造竞态或重复请求；不得把请求数下降夸大成真机
+性能提升。`MINI-G1-003`、`MINI-G1-004` 的等级和证据保持原审计结论，本轮未顺手处理。
 
 ### 基线与工具事实
 
-- 主线整合轮次 fetch 后从最新 `origin/main@eb36d70f` 建立独立 clean worktree；依赖按仓库策略安装，
-  1,459 包本地复用、0 下载，7 个 packages 预构建通过，没有借用主工作区 dist 或修改锁文件。
-- integration worktree 为仓库内 `runtime/external-project-worktrees/mini-g1-001-main-integration-20260902`；
+- fetch 后从最新 `origin/main@2751f549` 建立独立 clean worktree；依赖按仓库策略安装，1,459 包本地
+  复用、0 下载、7m43.8s，随后 7 个 workspace packages 在该 worktree 内构建通过；没有借用主工作区
+  dist 或修改锁文件。
+- 修复 worktree 为仓库内
+  `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`；
   用户脏主工作树、旧修复/审计/release worktree 和其他并行任务均未修改或清理。
+- `24fce3bb` 已由 `git merge-base --is-ancestor` 确认为当前起始主线祖先；其后的
+  `9585f9c0`、`9282f838`、`2751f549` 通讯录成果未覆盖或回退。
 - `4ddaa38e` 不是当前主线祖先；本轮比较 `docs/audit/STATUS.md`、本报告和
   `docs/project-status.md` 后只合并其文档事实，没有 cherry-pick 旧审计分支的任何源码。
 - 历史已验收提交 `d23a78a9` 不是当前主线祖先；主线 `a2cdd065` 已等价向前恢复 test-tools 的 Flex、
   四处 `word-break:break-all` 和明确截图类。当前源码目标 Grid、`overflow-wrap:anywhere`、
   `:last-of-type` 为 0。非祖先关系本身不是停止条件；相关路径和语义不变量未退化，所以本轮没有重开
   已关闭的 test-tools 问题。
-- 已读取并应用 `miniprogram-development`；发现具体生命周期异常后才读取并应用
-  `systematic-debugging`。本轮未读取或使用 `brainstorming`。
+- 已在改动前完整读取并应用 `systematic-debugging` 与 `miniprogram-development`；按前者完成引入点、
+  调用链和红灯调查，按后者完成变更安全与 Mini 静态验证。仓库政策优先禁用微信开发者工具执行面。
 - `apps/miniprogram/AGENTS.md` 中的 `docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`
   按该规则文件所在目录解析后，对应实际受版本控制的
   `apps/miniprogram/docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`；仓库根没有同名文件。
@@ -54,12 +60,12 @@
 
 ### 专业审计总表
 
-| 编号        | 等级 | 状态                   | 文件和位置                                                                                                                                                                                                                                                                                | 核心证据                                                                                                                                                                             | 用户影响                                                                                         | 最小建议                                                                                                       | 还需运行/真机                                                    |
-| ----------- | ---- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| MINI-G1-001 | P1   | 已确认并修复（逻辑层） | `apps/miniprogram/src/subpackages/workflows/components/controller-host.ts:45-104,136-151,267-306`；leave `controller.ts:434-837`；swap `controller.ts:316-350,492-1011,1137-1170`；duty `controller.ts:427-902`；`apps/miniprogram/scripts/workflow-controller-lifecycle.test.mjs:29-357` | 永久测试在未改源码时 7/7 红：detach/unload 后回写、A→B 覆盖、重挂碰撞、并发乱序；统一 token/guard 后 13/13 绿；结构审计覆盖 32 个 async/83 个 await、3 个显式 `.then` 和重复 dispose | 修复前慢网、切群组或快速返回可让旧续体覆盖新状态；修复后旧续体零状态/UI 副作用，B 正常结果仍更新 | 已实施 host attachment/controller 对象 token、统一 dispose 和全异步 continuation task guard；保留 API/幂等语义 | 自动化已证明逻辑契约；微信原生可见故障未确认，当前不要求真机复现 |
-| MINI-G1-002 | P2   | 已确认                 | `pages/workbench/index.ts:1386-1423,1590-1607`；`platform/workbench-read.ts:251-271`                                                                                                                                                                                                      | clean 源码临时 Vitest 实测：首次同年五个月窗口发出 5 个相同 `GET /holidays?year=2026`，唯一 URL 数为 1                                                                               | 多 4 个网络/API 请求；活跃月 ready 后仍占用弱网带宽和服务端资源                                  | 每个 load generation 按 year 共享一个 in-flight/result；跨年最多每年一次                                       | Node 已确认；真实 Network 数量和耗时尚未验证                     |
-| MINI-G1-003 | P2   | 高可信候选             | `scheduling-config-panel/controller.ts:245-267,305-364,533-597`；`index.wxml:341-467`                                                                                                                                                                                                     | `handleRotationInput` 每字符执行全岗位 `createRoleCards`；合成 4 岗位×100 人一次回传 56,171B、每岗位均含 100 人；桌面逻辑 0.48ms                                                     | 大群组编辑轮转数字时可能输入迟滞、整段列表重渲染；当前生产规模和真机帧率未知                     | 草稿独立存逻辑层；只路径更新当前岗位；成员选择按活动岗位/分段呈现                                              | 需小米 14 大 fixture 输入/节点/payload 证据                      |
-| MINI-G1-004 | P3   | 待运行证据             | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | 平台账号和群组成员读取后直接完整 map + `wx:for`，没有 cursor/pageSize 或渲染窗口                                                                                                     | 只在账号/成员很多时可能出现长首屏；当前实际数量未知                                              | 先记录条数、payload、节点和真机耗时；超阈值后再决定分页/分批，不先重构                                         | 必须取得脱敏数量和真机/原生渲染证据                              |
+| 编号        | 等级 | 状态                   | 文件和位置                                                                                                                                                                                                                                                                                | 核心证据                                                                                                                                                                                | 用户影响                                                                                         | 最小建议                                                                                                       | 还需运行/真机                                                    |
+| ----------- | ---- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| MINI-G1-001 | P1   | 已确认并修复（逻辑层） | `apps/miniprogram/src/subpackages/workflows/components/controller-host.ts:45-104,136-151,267-306`；leave `controller.ts:434-837`；swap `controller.ts:316-350,492-1011,1137-1170`；duty `controller.ts:427-902`；`apps/miniprogram/scripts/workflow-controller-lifecycle.test.mjs:29-357` | 永久测试在未改源码时 7/7 红：detach/unload 后回写、A→B 覆盖、重挂碰撞、并发乱序；统一 token/guard 后 13/13 绿；结构审计覆盖 32 个 async/83 个 await、3 个显式 `.then` 和重复 dispose    | 修复前慢网、切群组或快速返回可让旧续体覆盖新状态；修复后旧续体零状态/UI 副作用，B 正常结果仍更新 | 已实施 host attachment/controller 对象 token、统一 dispose 和全异步 continuation task guard；保留 API/幂等语义 | 自动化已证明逻辑契约；微信原生可见故障未确认，当前不要求真机复现 |
+| MINI-G1-002 | P2   | 已确认并修复           | `apps/miniprogram/src/pages/workbench/index.ts` 的 load generation、`readMonth` 和 `createHolidayReader`；`apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`                                                                                                                    | 永久测试在未改业务源码时 3/3 红：同年 5 次；跨年 `[2026,2026,2026,2027,2027]` 且 2027 同时在途 2 次；失败后重试累计 6 次。最小修复后同年 1 次、跨年 2 次且每年一个、失败后重试累计 2 次 | 去掉同一五个月窗口中 4 个重复年度 GET；没有据此声称真机耗时改善                                  | 已实施每个 load generation 的唯一年份 Promise 计划；不建立全局或持久缓存                                       | Node 已证明请求/数据/重试合同；真实 Network 耗时暂未验证         |
+| MINI-G1-003 | P2   | 高可信候选             | `scheduling-config-panel/controller.ts:245-267,305-364,533-597`；`index.wxml:341-467`                                                                                                                                                                                                     | `handleRotationInput` 每字符执行全岗位 `createRoleCards`；合成 4 岗位×100 人一次回传 56,171B、每岗位均含 100 人；桌面逻辑 0.48ms                                                        | 大群组编辑轮转数字时可能输入迟滞、整段列表重渲染；当前生产规模和真机帧率未知                     | 草稿独立存逻辑层；只路径更新当前岗位；成员选择按活动岗位/分段呈现                                              | 需小米 14 大 fixture 输入/节点/payload 证据                      |
+| MINI-G1-004 | P3   | 待运行证据             | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | 平台账号和群组成员读取后直接完整 map + `wx:for`，没有 cursor/pageSize 或渲染窗口                                                                                                        | 只在账号/成员很多时可能出现长首屏；当前实际数量未知                                              | 先记录条数、payload、节点和真机耗时；超阈值后再决定分页/分批，不先重构                                         | 必须取得脱敏数量和真机/原生渲染证据                              |
 
 ### MINI-G1-001：共享 workflow host 异步续体失效边界（已确认并修复）
 
@@ -128,21 +134,27 @@ test-tools 诊断。修复不取消已经发出的网络 transport；一个业�
 
 ### MINI-G1-002：五个月窗口按月份重复获取同一年度节假日
 
-- 调用链：`loadWorkbench → getRequestedMonths` 在月/列表视图生成 `[-2,-1,0,1,2]` 五个月 →
-  `loadActiveThenAdjacent` 先读活动月、再并发四个相邻月 → 每个 `readMonth` 都同时调用
-  `getCalendar(group, month)` 与 `getHolidays(year)`。
-- 触发条件：五个月处于同一年时，calendar 参数不同但 holidays 参数完全相同；前台恢复的
-  `loadWorkbench({forceRefresh:true})` 也会绕过已加载 monthResources，重复这组读取。
-- 运行证据：临时 clean-source Vitest 固定 2026-09，等待五个月资源完成后得到
-  `holidayRequestCount=5`、唯一 URL 仅 `https://example.test/api/holidays?year=2026`。初始错误假设为
-  3 个月，被实际 `monthResources.size=5` 红灯纠正后重新调查并通过；探针已删除。
-- 活跃月 calendar+holiday 完成后页面才 ready，四个相邻月在 ready 后 best-effort 加载；所以可以确认
-  多 4 个请求，但不能声称它们把首屏稳定拖慢了某个毫秒数。
-- 误判风险与最小修复建议：真实 Network 层或服务端可能缓存同年结果，接口本身也可能很快，因此用户
-  延迟和资源成本尚未量化；但源码调用次数不受此影响。建议只在同一 load generation 内按 year 复用
-  in-flight/result，保持现有离线 cache、requestSerial 与相邻月 best-effort 边界。
-- 回归建议：同年五个月应为 5 个 calendar GET + 1 个 holiday GET；跨年窗口按唯一 year 数请求；失败
-  仍保持当前离线回退、当前 requestSerial 和相邻月 best-effort 语义。
+- 接口事实：client endpoint 只有 `year` 参数；API `/holidays` 调用 `readConfirmedYear`，返回该年已确认
+  日期并按日期排序，`HolidayReadModel` 也只包含一个 `year` 和全年 `dates`。所以同年请求参数和结果
+  语义确实相同，不是按月接口误判。
+- 引入点与根因：`git log -S`/blame 定位到 `9e3a966c`。该次弱网/离线硬化把原本在 `readMonths` 中的
+  唯一年份集合改成逐月 `readMonth`，每个月都调用 `client.getHolidays(year)`；五个月窗口由
+  `4300fbe7` 固定为 `[-2,-1,0,1,2]`。活动月先完成，四个相邻月随后并发，因此既有结果重复，也存在
+  同年 in-flight 重复。
+- 永久红灯：`apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs` 在未改业务源码时 3/3 失败。
+  固定 2026-09 得到同年 5 次；固定 2026-12 得到
+  `[2026,2026,2026,2027,2027]`、2027 同时在途 2 次；500 失败进入原错误态后点击重试，累计 6 次。
+- 最小修复：`loadWorkbench` 和 `refreshWorkbenchWindow` 各自从五个月先形成唯一年份 Map，并创建一个
+  generation-local `HolidayReader`。首个同年读取保存原 Promise，其他月份共享 in-flight 或已完成
+  结果；新 load/retry 创建新 Map，因此失败 Promise 不会跨 generation 或永久缓存。
+- 修复后合同：同年仍为 5 个 calendar GET，但 holidays 从 5 次降为 1 次；跨年仍读取原五个月，
+  holidays 从 5 次降为 2 次（2026/2027 各一次，2027 同时在途 1 次）。五个月 Map 顺序、每个月对应
+  年份、合并后的跨年 dates、12 月与 1 月 holiday 月格均由永久测试固定。
+- 未改变语义：活动月仍先 ready，相邻月仍 best-effort；`requestSerial`、当前错误态、显式 retry、
+  24h 逐月离线 cache、403 清理、网络降级、calendar 请求、接口/权限/UI/路由均未改变。成员调用保持
+  `client.getHolidays(year)` receiver；Promise reject 仍由每个 `readMonth` 原 `allSettled` 分类。
+- 剩余风险：真实微信 Network 层次数和耗时当前工具未测量，服务端/网络还可能自行缓存；自动化只证明
+  逻辑请求数和展示数据，因此不声明小米 14 或真实首屏性能提升。本问题不要求体验版复现。
 
 ### MINI-G1-003：排班配置输入重建完整岗位×成员视图
 
@@ -309,28 +321,31 @@ Android 已对 20×30 双轴滚动、冻结层、进度条、点格和撤销明�
 - test-tools 的 Grid/Flex、4 处换行、`:last-of-type`、Skyline Warning、真机验收和 automator null：
   已关闭，本轮只做基线存在性核对，没有重新展开或建立新发现。
 - 绑定状态 503：本轮没有取得绑定调用链、请求参数或响应，未与页面状态/性能关联。
-- 主包 1.5 MiB：当前 main 1,677,803B，只保留下一轮“包体积与分包边界”引用，不在本轮分析或重复立项。
+- 主包 1.5 MiB：当前 main 1,677,999B，只保留既有 warning，不在本轮分析或重复立项。
 
 ### 自动证据与工具链偏差
 
 | 命令/探针                          | 结果                                                                                         |
 | ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| `pnpm install --frozen-lockfile`   | 1,459 包全部本地复用、0 下载；8m07.5s；锁文件未变                                            |
+| `pnpm install --frozen-lockfile`   | 1,459 包全部本地复用、0 下载；7m43.8s；锁文件未变                                            |
 | packages build                     | 7 个 workspace packages build 通过                                                           |
 | 修复前永久红灯                     | `workflow-controller-lifecycle.test.mjs` 行为测试 7/7 失败；最新主线尚无等价修复             |
 | 修复后生命周期定向                 | 13/13 通过；含 8 个原行为场景、3 个 async/await 合同、显式 `.then` 与重复 dispose 合同       |
 | 相关 host/controller               | 9 files / 62 tests 通过                                                                      |
-| 标准 Mini 全量（clean checkpoint） | 112 files / 593 tests / 0 failure；标准命令自动发现生命周期文件                              |
-| `pnpm miniprogram:verify`（clean） | 通过；2/2 Worklet；总包 5,120,950B；main 1,677,803B；workflows 839,488B；matrix 1445/1506    |
-| 包体基线                           | `eb36d70f` total 5,113,474B、main 1,677,803B；clean 总包 +7,476B，主包无变化                 |
+| `MINI-G1-002` 永久红→绿            | 未改业务源码 3/3 红；修复后 3/3 绿；同年 `5→1`，跨年 `5→2`，失败后重试 `6→2`                 |
+| workbench 相关                     | 4 files / 40 tests 通过                                                                      |
+| 标准 Mini 全量（clean checkpoint） | 113 files / 608 tests / 0 failure；标准命令自动发现 holidays 永久测试                        |
+| production build                   | 通过；276 files                                                                              |
+| `pnpm miniprogram:verify`（clean） | 通过；2/2 Worklet；总包 5,121,436B；main 1,677,999B；matrix 1445/1506                        |
 | 收口门禁                           | TypeScript、任务文件 Prettier、`git diff --check`、状态策略 3/3、`smoke:check-core` 全部通过 |
 | 原临时生命周期探针                 | 2/2 复现 detach late setData 与 serial collision；已删除、未入 Git，已由永久测试替代         |
 | 临时 scheduling payload 探针       | 1/1 通过；4×100 一字符 56,171B、Node 0.48ms；已删除                                          |
 | 临时 holidays 探针                 | 最终 1/1 通过；5 请求/1 URL；初始 3 月假设先红并纠正；已删除                                 |
 
-第一次 `miniprogram:verify` 因 fresh worktree 尚未生成 workspace packages 的 dist/声明而失败，首个错误
-从 `@schedule/presentation-core` 暴露；确认 package exports 指向缺失 dist 后，只构建 workspace packages，
-原命令复跑通过。这是审计环境预构建顺序，不是业务源码错误，也没有为此修改工具或源码。
+第一次 Mini TypeScript 因 fresh worktree 尚未生成 workspace packages 的 dist/声明而失败，首个错误从
+`@schedule/presentation-core` 暴露；确认 package exports 指向缺失 dist 后，只在当前 worktree 构建
+7 个 workspace packages，原命令复跑通过。这是审计环境预构建顺序，不是业务源码错误，也没有为此
+修改工具或源码。
 
 ### 本轮未覆盖与停止条件
 
@@ -338,12 +353,12 @@ Android 已对 20×30 双轴滚动、冻结层、进度条、点格和撤销明�
   Android 仍未验证。
 - 未审计主包/分包边界、依赖重复或资源体积；未改 SQL/索引/缓存/查询计划，也未重新调查服务端长尾。
 - 未审计全量视觉/安全区/键盘/Skyline 兼容；已关闭 test-tools 问题不重开。
-- 本轮只修复 `MINI-G1-001`；`MINI-G1-002`～`004` 未修改。未上传体验版、未提审、未正式发布、
-  未改 allowlist/production/数据库。
+- 本轮只修复 `MINI-G1-002`；`MINI-G1-003`、`MINI-G1-004`、XMB、test-tools 和包体矩阵 warning 未
+  修改。未上传体验版、未提审、未正式发布，未改 allowlist/production/数据库。
 
 本轮只在 exact-commit 全部门禁通过后非强制推送 `origin/main` 并确认可追溯/clean，然后停止；不自行
-开始 `MINI-G1-002`～`004`。若继续第 1 组，唯一建议下一轮只处理 `MINI-G1-002`（同年 holidays 请求
-去重），仍需独立先红后绿并保持缓存/API 语义；包体积与分包边界仍是另一审计问题组，不与之混做。
+开始其他问题。若继续第 1 组，唯一候选可记录为 `MINI-G1-003`，但本轮不执行；包体积与分包边界仍是
+另一审计问题组，不与之混做。
 
 ## 2026-09-01 test-tools Skyline 修复语义核验与最终收口
 

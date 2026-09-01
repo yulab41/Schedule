@@ -1,66 +1,60 @@
 # 微信小程序审计状态
 
-- 当前阶段：`MINI-G1-001` 主线整合与最终收口已完成；逻辑层 P1 已确认并修复，exact clean checkpoint
-  已按完整清单复验，最终以非强制推送和远端可追溯核对闭环
-- 整合起始主线：`origin/main@eb36d70fa28cf8705b0795a516ea3d4420399efc`
-- 原修复：`origin/codex/fix-mini-g1-001-lifecycle@2a856725e927fcd82cd382b9f63e2681c8dee75d`
-- integration 分支/worktree：`codex/integrate-mini-g1-001-main-20260902` /
-  `runtime/external-project-worktrees/mini-g1-001-main-integration-20260902`
-- 计划 checkpoint：`fix(miniprogram): integrate workflow lifecycle invalidation`；提交信息保留
-  `2a856725` 来源映射
-- 范围：只整合共享 workflow host、leave/swap/duty 三个 controller、永久合同和四份审计连续性文档；
-  `MINI-G1-002`～`004`、API、数据库、缓存、页面交互和其他 worktree 均未修改
-- 外部状态：未调用微信开发者工具 GUI/CLI，未上传体验版、未提审/发布、未改 allowlist，未部署
-  production 或创建生产备份
+- 当前阶段：`MINI-G1-002` P2 已确认并修复；exact clean checkpoint 正在按最终清单复验并非强制
+  整合到执行时最新主线
+- 起始主线：`origin/main@2751f549756d890d9bfbe7be14fd4eb905977527`
+- 已闭环参考：`24fce3bb90d5b64b97d57b51bb76c4ed0376e8cd`，已确认是起始主线祖先
+- 修复分支/worktree：`codex/fix-mini-g1-002-holiday-year-dedupe` /
+  `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`
+- checkpoint：`fix(miniprogram): dedupe annual workbench holidays`
+- 范围：只改工作台同一 load generation 的 holidays 年度请求计划、永久测试和四份连续性文档；
+  `MINI-G1-003`、`MINI-G1-004`、XMB、test-tools、API、数据库、持久缓存、UI、权限和路由未改
+- 外部状态：未调用微信开发者工具 GUI/CLI，未上传体验版、未提审/发布，未部署 production 或创建
+  生产备份，未修改或清理用户主工作区和其他 worktree
 
-## 精确变更与文档继承
+## 根因与永久红灯
 
-- `2a856725` 共 9 个文件：4 个业务源码、1 个永久测试、4 个文档。此前汇总漏列的第 9 个文件是
-  `docs/debug/debug-feedback-log.md`，它按根规则保存引入点、红绿证据、语义边界和验证结果，属于本修复
-  必需的连续性文档，不是生成物或偶然修改。
-- `+1236/-439` 中四份文档占 878 行 churn，主要来自审计内容继承和状态压缩；永久测试新增 391 行；
-  业务源码为统一 token/task guard。没有锁文件、构建产物、无关源码或其他 worktree 内容。
-- `4ddaa38e` 不是主线祖先，其审计内容已由 `2a856725` 语义继承；本轮没有再次 cherry-pick。
-- G1、`MINI-G1-001`、`MINI-G1-002` 和 test-tools 章节各只有一份；主线 XMB 详细调查原样保留。
-  新增文档只使用仓库相对路径，没有 integration worktree 的本机绝对路径。
-- `d23a78a9` 仍是历史验收侧枝；主线 `a2cdd065` 已等价恢复 test-tools 不变量。非祖先关系本身不是
-  停止条件，本轮没有重开已关闭的 Skyline Warning、真机验收或 automator null。
+- `/holidays?year=...` 的 client、route、service 和 `HolidayReadModel` 均确认按年份返回全年数据。
+- `git log -S`/blame 定位回归引入点为 `9e3a966c`：原本 `readMonths` 的唯一年份集合在弱网/离线硬化时
+  被替换为逐月 `readMonth → client.getHolidays(year)`；五个月窗口来自 `4300fbe7`。
+- 永久测试：`apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`。未改业务源码时 3/3 红：
+  - 同年 2026-07～11：holidays 实际 5 次，均为 2026；
+  - 跨年 2026-10～2027-02：实际 `[2026,2026,2026,2027,2027]`，2027 同时在途 2 次；
+  - 首次 500 保持原错误态，点击 retry 后可恢复，但修复前累计 6 次 holidays 请求。
 
-## MINI-G1-001 最终语义
+## 最小修复与语义边界
 
-- 每次 attachment/controller 安装获得不可碰撞的对象 token；Component detach、Page unload、group
-  置空和 A→B 替换统一 dispose，旧 token 永久失效。
-- leave/swap/duty 的三个组件和三个直达 Page 共 6 个生产调用者受同一契约保护。32 个 async 函数、
-  83 个 await、3 个显式 `.then`、info timer 和延迟 `workspaceready` callback 均验证捕获身份。
-- 过期 resolve/reject 不得 `setData`、修改当前 host/controller、覆盖 B、触发事件/回调/toast/导航/
-  UI 副作用或串联请求；当前 B 的正常结果仍能更新。
-- 新增整合合同证明 dispose 可重复调用：同一代 controller 只 unload 一次，重新 attach 后同步 handler
-  从干净状态正常执行。
-- 已发出的 transport 不 Abort；若业务写在失效前已送达服务端仍可能完成，既有权限、版本和幂等继续
-  提供最终保护，但旧续体不能再影响当前 UI 或继续后续链路。
-- 微信原生可见故障未直接确认；永久自动化已覆盖逻辑竞态，因此不再以小米 14 复现作为修复门禁。
+- `loadWorkbench` 与 `refreshWorkbenchWindow` 各自把五个月先映射为唯一年份 Map，创建 generation-local
+  `HolidayReader`；每年首个调用保存原 Promise，其他月份共享 in-flight 或已完成结果。
+- 同年 holidays `5→1`；跨年 `5→2`，2026/2027 各一次且 2027 同时在途 `2→1`；失败后的显式 retry
+  建立新 Map，请求累计 `6→2`，失败 Promise 不跨 generation 或永久保存。
+- 五个月 calendar GET、Map 顺序、每月年度结果、跨年 dates 合并和 12 月/1 月 holiday 月格展示保持；
+  活动月先 ready、相邻月 best-effort、`requestSerial`、错误/离线回退、403 清理、24h 逐月 cache、
+  receiver、接口、权限、路由和 UI 均未改变。
+- 真实微信 Network 次数和耗时当前工具无法测量，暂未验证；不把请求减少写成小米 14 性能提升。
 
-## 最终 clean checkpoint 验证
+## clean checkpoint 验证
 
-| 层级                          | 结果                                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 生命周期永久合同              | 13/13 通过；含 detach/unload、A→B、重挂碰撞、乱序、reject、callback/timer、显式 `.then` 与重复 dispose |
-| 相关 host/controller          | 9 files / 62 tests 通过                                                                                |
-| 标准 Mini 全量                | `pnpm miniprogram:test` 自动发现生命周期文件；112 files / 593 tests / 0 failure                        |
-| TypeScript / production build | 通过；276 files                                                                                        |
-| clean `miniprogram:verify`    | 通过；main 1,677,803B、total 5,120,950B、workflows 839,488B、Worklet 2/2、matrix 1445/1506             |
-| 收口门禁                      | 任务文件 Prettier、`git diff --check`、状态策略 3/3、`smoke:check-core` 全部通过                       |
+| 层级                          | 结果                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| holidays 永久合同             | 3/3 通过；同年、跨年/in-flight、数据/顺序/展示、失败和 retry                 |
+| workbench 相关                | 4 files / 40 tests 通过                                                      |
+| 标准 Mini 全量                | 113 files / 608 tests / 0 failure；标准命令自动发现永久测试                  |
+| TypeScript / production build | 通过；276 files                                                              |
+| clean `miniprogram:verify`    | 通过；main 1,677,999B、total 5,121,436B、Worklet 2/2、matrix 1445/1506       |
+| 收口门禁                      | 任务文件 Prettier、`git diff --check`、状态策略 3/3、`smoke:check-core` 通过 |
 
-未整合 `eb36d70f` 基线为 main 1,677,803B、total 5,113,474B，warning 同样只有既有 1.5MiB 与
-1445/1506 三项。clean 总包 +7,476B，主包无变化；唯一进入构建的源码变化位于 workflows 生命周期
-守卫，因此没有把既有 warning 重新归类为本轮回归，也没有发现新 error/warning。
+fresh worktree 的首次 Mini TypeScript 因 7 个 workspace package dist 尚未生成而失败；在本 worktree
+构建 packages 后原命令通过，锁文件未变，没有借用主工作区 dist。production verify 只有既有主包 1.5MiB
+和 matrix 1445/1506 三项 warning，没有新增 warning 类别。
 
-## 独立状态与停止条件
+## 主线整合、独立状态与停止条件
 
-- `MINI-G1-002` P2 仍只是下一候选：同年五个月产生 5 次 holidays GET；尚未开始、尚未修复。
-- `MINI-G1-003` P2 高可信候选、`MINI-G1-004` P3 待运行证据均保持原状态。
-- XMB 9–10 秒服务端查询长尾、主包体积和矩阵节点仍是独立问题，不在本轮处理。
+- `24fce3bb` 之后的 `MINI-G1-001`、XMB、test-tools 和最新通讯录提交均保留；本轮 diff 不含这些路径。
+- 完成候选提交后再次 fetch；若 `origin/main` 推进，自行语义整合并重跑受影响测试、Mini 全量、verify、
+  状态策略和 core smoke；只做普通非强制推送。
+- 若远端分支保护明确拒绝 main push，保留基于最新主线且验证通过的 merge-ready 修复分支并记录原始
+  错误；普通 SHA 漂移或冲突自行处理。
 
-本轮最终 checkpoint 以 `fix(miniprogram): integrate workflow lifecycle invalidation` 识别，提交正文保留
-`2a856725` 来源；非强制推送 `origin/main` 并确认远端可追溯和 clean 后停止。不上传体验版、不部署
-production，也不开始 `MINI-G1-002`。
+本轮在远端 SHA、修复分支可追溯、工作树 clean 和无未推送提交核对后停止。下一候选可记录为
+`MINI-G1-003`，本轮不执行。

@@ -106,6 +106,8 @@ interface MonthReadResult {
   readonly offline: boolean;
 }
 
+type HolidayReader = (year: number) => Promise<HolidayReadModel>;
+
 interface WorkbenchPageData {
   readonly activeWorkspace: ActiveWorkspace;
   readonly activeWorkspaceIndex: number;
@@ -1088,9 +1090,10 @@ async function loadWorkbench(
       page.data.businessMonth,
       page.data.weekStart,
     );
+    const readHolidays = createHolidayReader(requestedMonths);
     const activeMonth = getActiveBusinessMonth(page);
     const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
-      readMonth(page, ownerId, selectedGroup.id, businessMonth, requestSerial, {
+      readMonth(page, ownerId, selectedGroup.id, businessMonth, requestSerial, readHolidays, {
         forceRefresh: options.forceRefresh === true,
       }),
     );
@@ -1389,6 +1392,7 @@ async function readMonth(
   groupId: string,
   businessMonth: string,
   requestSerial: number,
+  readHolidays: HolidayReader,
   options: { readonly forceRefresh: boolean },
 ): Promise<MonthReadResult> {
   const existing = page.monthResources.get(businessMonth);
@@ -1396,7 +1400,7 @@ async function readMonth(
 
   const [calendarResult, holidayResult] = await Promise.allSettled([
     client.getCalendar(groupId, businessMonth),
-    client.getHolidays(Number(businessMonth.slice(0, 4))),
+    readHolidays(Number(businessMonth.slice(0, 4))),
   ]);
   if (calendarResult.status === 'rejected') {
     if (getErrorStatus(calendarResult.reason) === 403) clearWorkbenchGroupCaches(ownerId, groupId);
@@ -1436,9 +1440,12 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
   try {
+    const readHolidays = createHolidayReader(requestedMonths);
     const activeMonth = getActiveBusinessMonth(page);
     const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
-      readMonth(page, ownerId, groupId, businessMonth, requestSerial, { forceRefresh: false }),
+      readMonth(page, ownerId, groupId, businessMonth, requestSerial, readHolidays, {
+        forceRefresh: false,
+      }),
     );
     const activeResult = await staged.active;
     if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
@@ -1605,6 +1612,21 @@ function getRequestedMonths(
     }
   }
   return [...requestedMonths];
+}
+
+function createHolidayReader(requestedMonths: readonly string[]): HolidayReader {
+  const requestsByYear = new Map<number, Promise<HolidayReadModel> | undefined>(
+    [...new Set(requestedMonths.map((businessMonth) => Number(businessMonth.slice(0, 4))))].map(
+      (year) => [year, undefined],
+    ),
+  );
+  return (year) => {
+    const existing = requestsByYear.get(year);
+    if (existing !== undefined) return existing;
+    const request = client.getHolidays(year);
+    requestsByYear.set(year, request);
+    return request;
+  };
 }
 
 function getSwiperDelta(current: number): -1 | 0 | 1 {
