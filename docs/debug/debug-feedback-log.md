@@ -1939,3 +1939,18 @@
   同口径包体为 total 5,115,045 B、main 1,678,747 B、organization 1,053,980 B；`.74` 已被另一份
   本地原生验收证据占用，首个全局未占用拟上传版本为 `.75`。production verify/determinism 与
   `upload-experience --dry-run` 通过；dry-run 未改变外部状态。
+
+## 2026-09-01 `.75@24a847f` 纠偏体验上传
+
+- 用户当次仅批准 exact clean `24a847ffdeec5899ab7c9d505c740b715df3ef6e`、production、
+  `0.1.0-p10.20260901.75`、`p10-preupload-diagnostics-24a847f` 和 AppID
+  `wx56a7a21f974fd9af`；未授权 production、数据库备份、服务器 release 或阶段 B 优化。
+- 上传前重新生成 `dist` 并核对 profile/API/显示标识、Git 洁净度和无 local 标记；manifest 精确匹配
+  批准的 `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f`，本地包审计
+  5,114,602 B。第一次临时执行器从根目录解析 workspace-only `miniprogram-ci` 失败，发生在 Project/
+  网络调用之前，外部状态未改变；切到 Mini workspace 后复用同一已核验产物上传成功。
+- 微信官方返回 191 code files、上传 ZIP 2,445,675 B、full package 5,100,197 B，完成时间
+  2026-09-01 18:17:57 +08:00；未返回 `strUint64Version`、`devPluginId`，plugin list 为空。
+- 上传后 manifest/profile/包审计仍一致，源码树仍 clean。按用户边界未执行 allowlist，`.75` 公网
+  capability 探针为 426；仓库自动化没有“设为体验版”接口，等待管理员后台选择 `.75`，并在另行
+  授权 allowlist 后再做小米 14 联网诊断。未调用微信开发者工具，未提审、正式发布或操作 production。

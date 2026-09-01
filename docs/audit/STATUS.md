@@ -1,11 +1,16 @@
 # 微信小程序审计状态
 
-- 当前阶段：阶段 B 后“体验版上传前纠偏审计”
+- 当前阶段：阶段 B 后纠偏源码已上传为微信开发版本，待平台设为体验版与小米 14 验收
 - 基线：`a23266182122c6e2fcb5ca5aba5d8857ef781910`（核验后的最新 `origin/main`，包含阶段 B）
 - 工作区：`codex/preupload-diagnostics-correction`，独立 worktree；用户脏主工作树未修改
 - 代码 checkpoint：`a9021c4e fix(miniprogram): correct preupload diagnostics boundaries`，已推送并快进 `origin/main`
-- `.72@5fff288`、`.73@c7c142e`：历史已上传版本；本轮未上传、未提审、未正式发布
+- `.72@5fff288`、`.73@c7c142e`：历史已上传版本
+- `.75@24a847f`：2026-09-01 18:17:57 +08:00 从 exact clean
+  `24a847ffdeec5899ab7c9d505c740b715df3ef6e` 上传成功；191 code files、上传 ZIP 2,445,675 B、
+  官方 full package 5,100,197 B、manifest `be286925…129f`；尚未设为体验版、未提审、未正式发布
+- 上传状态文档 checkpoint 以 `docs(audit): record .75 diagnostics upload` 识别；它不是上传源码 SHA
 - production：本轮未部署、未备份数据库、未同步服务器 release 元数据
+- capability：按本轮边界未修改 production allowlist；`.75` 只读探针当前为 HTTP 426
 
 ## 已修复边界
 
@@ -45,6 +50,9 @@
 ## 未验证与唯一下一任务
 
 - 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮没有微信原生 Console、Network 或拖拽手感证据。
-- Web/Node 证据不作为微信原生验收；小米 14 新体验版仍待用户在未来获批上传后人工验收。
-- `.74` 已被另一份本地原生验收证据占用；首个全局未占用拟上传版本为 `.75`。下一任务是等待用户
-  基于最终结果当次明确批准；仍不得上传或操作 production。
+- Web/Node 证据不作为微信原生验收；小米 14 新体验版仍待平台设定和 capability 放行后人工验收。
+- 仓库现有 `miniprogram-ci` 上传链路没有“设为体验版”能力；管理员需在微信公众平台的版本管理中把
+  开发版本 `0.1.0-p10.20260901.75` 选为体验版。production 当前不接受 `.75`，若要联网测试通讯录，
+  还需另行明确授权 add-only allowlist 操作。
+- 唯一下一任务：完成上述平台一步和独立 production 授权后，只收集匹配 `.75@24a847f` 的小米 14
+  诊断数据；数据返回前不开始阶段 B 优化，不再次上传、部署、备份或同步 release。

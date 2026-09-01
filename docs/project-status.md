@@ -6,10 +6,13 @@
 
 - 纠偏分支：`codex/preupload-diagnostics-correction`，独立 worktree 基线为最新 `origin/main`
   `a23266182122c6e2fcb5ca5aba5d8857ef781910`；阶段 B 保持在前驱中。
-- `.72@5fff288` 与 `.73@c7c142e` 均为历史已上传版本；当前纠偏 checkpoint 尚未上传，不能描述为已部署给体验用户。
+- `.72@5fff288` 与 `.73@c7c142e` 均为历史已上传版本；纠偏源码
+  `24a847ffdeec5899ab7c9d505c740b715df3ef6e` 已于 2026-09-01 18:17:57 +08:00 以
+  `.75@24a847f` 上传为微信开发版本，尚未由平台后台“设为体验版”，也未提审或正式发布。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
-  insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
+  insights/externalMessages/guest 七维均为 `true`，未知版本返回 426；本轮按授权只上传 Mini，未修改
+  production allowlist，因此 `.75` 的只读 capability 探针当前同样返回 426。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
   manifest `764b93dc…dd9d`；未使用微信开发者工具。
 - `.69` 从 exact clean `c2a57441` 经用户新登记 IPv4 `154.64.226.11` 上传成功，185 files/
@@ -82,6 +85,13 @@
   1,231,973→1,053,980 B。
 - 完整 Mini 同一命令连续两次均为 111 files/578 tests/0 skipped。此前 561/560 差异的唯一测试是
   用户脏主树未提交的 `renders member rows without combining wx:else and wx:for on one element`，不属于本批。
+- 用户当次批准的唯一 `.75` 产物已从上述 exact clean SHA 上传：191 code files、官方上传 ZIP
+  2,445,675 B、官方编译后 full package 5,100,197 B；本地包审计 5,114,602 B，上传 manifest
+  `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f` 与批准的 dry-run 完全一致。
+  仓库 `miniprogram-ci` 只提供上传，不提供平台“设为体验版”；该人工一步与 `.75` production allowlist
+  另行授权前，不能开始通讯录联网真机诊断，也不能把本轮描述为已部署给体验用户。
+- 上传状态文档 checkpoint 以 `docs(audit): record .75 diagnostics upload` 识别；该后续文档提交不得
+  写作体验版源码 SHA，也不触发 ECS/production/数据库操作。
 
 ## 已完成的测试工具批次
 

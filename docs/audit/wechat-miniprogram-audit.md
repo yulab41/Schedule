@@ -3,7 +3,9 @@
 - 审计阶段：阶段 B 后体验版上传前纠偏；基线为 clean `a23266182122c6e2fcb5ca5aba5d8857ef781910`
 - 更新时间：2026-09-01（Asia/Hong_Kong）
 - 纠偏代码 checkpoint：`a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4`，已推送并快进 `origin/main`
-- 历史体验构建：`.72@5fff288`、`.73@c7c142e` 均已上传；本轮尚未上传任何新版本
+- 历史体验构建：`.72@5fff288`、`.73@c7c142e` 均已上传
+- 本轮上传源码：`24a847ffdeec5899ab7c9d505c740b715df3ef6e`；`.75@24a847f` 已上传为微信开发版本，
+  尚未由平台后台设为体验版
 - 本批性质：独立 worktree 的纯小程序/文档纠偏；不操作 API、数据库、production 或用户脏主树
 
 ## 普通用户版结论
@@ -16,6 +18,20 @@
 同一 Mini 命令连续两次均为 111 files/578 tests/0 skipped。包体相对 clean 基线总包净减 165,694 B，
 main 净减 1,524 B（其中 `app.js` 净减 7,977 B），organization 净减 177,993 B。仓库规则
 禁止代理操作微信开发者工具，因此 Console、原生拖拽手感和小米 14 新体验版继续待人工验收。
+
+### 上传结果（2026-09-01）
+
+- 用户批准的唯一版本 `0.1.0-p10.20260901.75` 于 18:17:57 +08:00 上传成功；描述
+  `p10-preupload-diagnostics-24a847f`，AppID `wx56a7a21f974fd9af`，production API 为
+  `hosp.schedule.eylinhome.top`。
+- 上传前重新生成 `dist`，HEAD/洁净度、profile、显示标识和本地标记扫描均通过；manifest 精确为
+  `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f`。
+- 微信官方编译返回 191 code files、上传 ZIP 2,445,675 B、full package 5,100,197 B；本地 production
+  包审计为 5,114,602 B。平台未返回 `strUint64Version` 或插件 ID。
+- 本轮没有修改 production allowlist；上传后的 `.75` capability 只读探针为 HTTP 426。仓库自动化
+  不能执行平台“设为体验版”，所以联网真机诊断仍需一个后台人工步骤和另行授权的 allowlist 操作。
+- 全程未调用微信开发者工具、未部署 production、未创建生产备份、未同步服务器 release，也未开始
+  阶段 B 优化。
 
 ## 2026-09-01 体验版上传前纠偏审计
 
