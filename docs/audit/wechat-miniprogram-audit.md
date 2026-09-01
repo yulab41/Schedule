@@ -6,7 +6,8 @@
 - 历史体验构建：`.72@5fff288`、`.73@c7c142e` 均已上传
 - 本轮上传源码：`24a847ffdeec5899ab7c9d505c740b715df3ef6e`；`.75@24a847f` 已上传为微信开发版本，
   尚未由平台后台设为体验版
-- 本批性质：独立 worktree 的纯小程序/文档纠偏；不操作 API、数据库、production 或用户脏主树
+- 本批性质：独立 worktree 的纯小程序/文档纠偏；代码阶段不操作 API、数据库、production 或用户脏主树；
+  上传后仅按用户单独授权追加 `.75` production allowlist
 
 ## 普通用户版结论
 
@@ -28,10 +29,13 @@ main 净减 1,524 B（其中 `app.js` 净减 7,977 B），organization 净减 17
   `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f`。
 - 微信官方编译返回 191 code files、上传 ZIP 2,445,675 B、full package 5,100,197 B；本地 production
   包审计为 5,114,602 B。平台未返回 `strUint64Version` 或插件 ID。
-- 本轮没有修改 production allowlist；上传后的 `.75` capability 只读探针为 HTTP 426。仓库自动化
-  不能执行平台“设为体验版”，所以联网真机诊断仍需一个后台人工步骤和另行授权的 allowlist 操作。
-- 全程未调用微信开发者工具、未部署 production、未创建生产备份、未同步服务器 release，也未开始
-  阶段 B 优化。
+- `.75` 初始 capability 为 HTTP 426；用户随后单独授权可信 add-only allowlist。20:10:36 +08:00
+  追加完成，API/Web 重建，首个 TLS EOF 在内置健康等待中恢复；`.75`/`.73` 公网均为 200 且七维
+  全 true，动态未知版本仍为 426，可信 `verify` 通过。
+- live release 保持 `a23266182122c6e2fcb5ca5aba5d8857ef781910`；未重建 MySQL、未创建生产备份、
+  未同步服务器 release。未调用微信开发者工具、未提审、正式发布或开始阶段 B 优化。
+- 仓库自动化不能执行平台“设为体验版”，浏览器安全策略也禁止代理控制该后台，因此只剩用户在微信
+  公众平台版本管理中把 `.75` 选为体验版这一个人工步骤。
 
 ## 2026-09-01 体验版上传前纠偏审计
 

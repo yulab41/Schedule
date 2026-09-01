@@ -1954,3 +1954,17 @@
 - 上传后 manifest/profile/包审计仍一致，源码树仍 clean。按用户边界未执行 allowlist，`.75` 公网
   capability 探针为 426；仓库自动化没有“设为体验版”接口，等待管理员后台选择 `.75`，并在另行
   授权 allowlist 后再做小米 14 联网诊断。未调用微信开发者工具，未提审、正式发布或操作 production。
+
+## 2026-09-01 `.75` production allowlist 放行
+
+- 用户在复现“正在读取排班/无法重新登录”后单独授权 exact
+  `0.1.0-p10.20260901.75` 的可信 add-only allowlist。变更前 API health=200、`.73`=200/七维全 true，
+  `.75`=426 `CLIENT_VERSION_UNSUPPORTED`；代码确认登录和工作台均在业务请求前 fail-closed。
+- 服务器预检确认 live release `a23266182122c6e2fcb5ca5aba5d8857ef781910`、目标版本不存在、可信
+  `/usr/local/bin/schedule-client-version-allowlist` 的原策略 `verify` 通过。20:10:20 +08:00 执行唯一
+  一次 `ensure`，20:10:36 完成；API/Web 按设计重建，预热首个 TLS EOF 在 1/30 后恢复，MySQL 未重建。
+- ensure 后独立可信 `verify` 与公网复核均通过：`.75`/`.73` HTTP 200、global/core/workflows/
+  organization/insights/externalMessages/guest 全 true，动态未知版本 HTTP 426，health 200；live release
+  未变化。未创建生产备份、未同步 release、未上传、未提审或正式发布。
+- 用户已授权平台“设为体验版”，但 Chrome 对微信公众平台后台实施站点安全阻断；没有绕过或改用其他
+  控制面。当前只剩用户在版本管理把开发版本 `.75` 选为体验版，随后回传小米 14 诊断数据。
