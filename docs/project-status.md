@@ -11,11 +11,14 @@
   不作为有效上传结论；2026-09-01 20:27:38 +08:00 已用仓库标准
   `pnpm miniprogram:upload-experience` 重传 `.75@24a847f`。本项目开发版即体验版，无额外网页设置；
   未提审或正式发布，平台最新版本显示仍待用户刷新确认。
-- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73/.75` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73/.75/.76` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。`.75` 于 2026-09-01 20:10:36
   +08:00 经可信 add-only 工具追加；API/Web 条件重建，预热首个 TLS EOF 后恢复，live release 保持
   `a23266182122c6e2fcb5ca5aba5d8857ef781910`，未重建 MySQL、未创建数据库备份或同步 release。
+- `.76` 因上传后未同步 allowlist 导致体验版被 HTTP 426 拒绝；2026-09-01 21:42 +08:00 经用户当次
+  授权用同一可信 add-only 工具追加。API/Web 重建预热的 TLS EOF/502 在 1/30、2/30 后恢复；`.76/.75`
+  公网 200、七维全 true，未知版本 426、health 200，live release 不变；未备份、上传或同步 release。
 - `.68` 从 exact clean `fe12db53` 经已登记直连 IPv4 上传成功，184 files/2,351,718 bytes，upload
   manifest `764b93dc…dd9d`；未使用微信开发者工具。
 - `.69` 从 exact clean `c2a57441` 经用户新登记 IPv4 `154.64.226.11` 上传成功，185 files/
@@ -86,7 +89,8 @@
   `tagNameStyleIsolation` 为独立环境提示。已知 automator `getPageMetaByWebviewId(...)=null` 是环境问题。
 - `.76@a2cdd06` 已从 exact clean 源码用标准 CLI 上传：描述 `p10-test-tools-skyline-a2cdd06`、
   `buildDirty=false`、191 code files、ZIP 2,446,002 B、manifest `e50d001d…f027`；未提审、未发布，
-  未改 allowlist、production、数据库、备份或服务器 release。
+  上传当时未改 allowlist、production、数据库、备份或服务器 release；其后已按独立授权完成 `.76`
+  add-only allowlist 与 capability 验证。
 - `.74@d23a78a` 已由用户在小米 14 按 test-tools 清单确认无异常；该历史真机证据不外推为当前
   `.76@a2cdd06` 真机通过。当前结论仅为历史不变量已恢复，且当前 SHA 自动化/开发者工具回归通过。
 - 前序通讯录纠偏 `a9021c4e`/上传源码 `24a847f` 保持主线：一次性 App 启动标记、会话内有界诊断、
@@ -100,6 +104,8 @@
   锁等待、I/O、系统负载及备份或导入任务。当前不改客户端、SQL、索引、缓存、API 或预热策略。
 - 非阻塞待办：`instanceAgeMs` 达 600000ms 上限时，报告显示 `≥600000ms` 或“已封顶”，不得作为精确值；
   不为此单独发版。性能最终口径 checkpoint 为 `docs(audit): clarify .75 long-tail observation`。
+- `.76` allowlist 状态 checkpoint 以 `docs(audit): record .76 allowlist activation` 识别；它只记录已完成的
+  production 配置操作，不得写作体验版源码 SHA，也不因文档提交再次操作 production。
 - `.75@24a847f` 小米 14 已确认半屏高度、关闭/回弹、内部列表滚动和固定清除入口四项通过；详细
   request ID、包体、manifest 和文档 checkpoint 留在 `docs/audit/STATUS.md`、审计报告与 Git 历史。
 
@@ -177,7 +183,8 @@
   保留仍影响下一批的事实。
 - 当前 test-tools 源码：定向红灯 15/16，修复后 17/17；Mini 111 files/580 tests、TypeScript、
   production build/verify/dry-run、ESLint/Prettier/core smoke 通过；源码/dist 目标 Warning 源为 0。
-- 当前 `.76@a2cdd06`：真实 DevTools 3.17.1/Skyline/390px/Console 通过，标准 CLI 上传成功；历史
+- 当前 `.76@a2cdd06`：真实 DevTools 3.17.1/Skyline/390px/Console 通过，标准 CLI 上传及 production
+  allowlist/capability 验证成功；历史
   `.74@d23a78a` 小米 14 test-tools 与 `.75@24a847f` 半屏证据按各自 SHA 保留。
 - 既有 Page/controller/handler/timer/实例隔离、Worklet 2/2、权限/通知/Profile、发布控制与回滚门禁
   仍由原 checkpoint 测试保护；无本轮证据授权修改 API、数据库、索引、缓存或生产发布轨道。
@@ -214,8 +221,8 @@
 
 ## 下一步与停止条件
 
-1. test-tools Skyline Warning 清理在当前源码 `a2cdd065` 完成；`.76@a2cdd06` 已上传，后续
-   docs-only 收口 SHA 不是体验版源码，不再次上传。
+1. test-tools Skyline Warning 清理在当前源码 `a2cdd065` 完成；`.76@a2cdd06` 已上传并通过 allowlist，
+   后续 docs-only 收口 SHA 不是体验版源码，不再次上传或操作 production。
 2. 主包 1.5 MiB 提示留给包体积审计；1445/1506 节点提示留给“页面状态、异步链路与列表性能”；
    既有冷构建时限波动不直接视为用户侧性能，绑定状态 503 仅在直接证据再次出现时调查。
 3. `.75` 服务端长尾未解决、转观察；仅在 total >2,000ms 或 main query >1,500ms 时按 request ID

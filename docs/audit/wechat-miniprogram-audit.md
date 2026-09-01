@@ -5,11 +5,11 @@
 - 当前源码 checkpoint：`a2cdd0651783538a0aa6a566d30922391752d528`；前驱通讯录纠偏
   `a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4` 保持在主线
 - 历史体验构建：`.72@5fff288`、`.73@c7c142e`、`.74@d23a78a`、`.75@24a847f`
-- 当前体验构建：`.76@a2cdd06`，描述 `p10-test-tools-skyline-a2cdd06`，已上传
+- 当前体验构建：`.76@a2cdd06`，描述 `p10-test-tools-skyline-a2cdd06`，已上传并通过 production allowlist
 - 本轮上传源码：`24a847ffdeec5899ab7c9d505c740b715df3ef6e`；`.75@24a847f` 已用仓库标准 CLI
   重传，开发版即体验版，无额外网页设置
 - 本批性质：独立 worktree 的纯小程序/文档纠偏；代码阶段不操作 API、数据库、production 或用户脏主树；
-  上传后仅按用户单独授权追加 `.75` production allowlist
+  `.75` 与 `.76` 均只在用户分别单独授权后追加 production allowlist
 
 ## 2026-09-01 test-tools Skyline 修复语义核验与最终收口
 
@@ -47,8 +47,14 @@
 - 已知 `getPageMetaByWebviewId(...)=null` 是 automator/inspectee 环境问题，不是源码故障；本轮未重复
   触发，也未据此修改业务代码。基础库灰度/线上最低版本提示继续作为独立环境事项。
 - `.76@a2cdd06` 已从 exact clean 源码经标准 `pnpm miniprogram:upload-experience` 上传：191 code files、
-  ZIP 2,446,002 B、manifest `e50d001d…f027`。未提交审核、未正式发布、未灰度、未改 production、
-  allowlist、数据库、备份或服务器 release。
+  ZIP 2,446,002 B、manifest `e50d001d…f027`。上传动作本身未提交审核、未正式发布、未灰度，也未改
+  production、allowlist、数据库、备份或服务器 release。
+- 用户随后报告当前体验版无法进入；公网对照确认 `.76` 为 HTTP 426 `CLIENT_VERSION_UNSUPPORTED`，
+  已放行 `.75` 为 HTTP 200。经用户当次“继续”授权，21:42 +08:00 使用 root-owned add-only 工具追加
+  `0.1.0-p10.20260901.76`。首个 SSH banner 尝试在命令到达前超时，远端实际只执行一次 `ensure`。
+- `ensure` 只重建 API/Web，MySQL 保持运行；预热 TLS EOF/502 在内置 1/30、2/30 等待后恢复。独立
+  trusted `verify`、公网 `.76/.75=200` 七维全 true、动态未知版本 426 与 health 200 均通过；live release
+  保持 `a2326618…`。未再次上传、未提审/发布、未创建生产备份或同步服务器 release。
 - 历史 `.74@d23a78a` 已由用户在小米 14 按 test-tools 清单确认无异常；该真机证据不能改写为当前
   `.76@a2cdd06` 已真机验证。当前准确结论是：主线已重新向前恢复历史真机验收的不变量，并通过当前
   SHA 的自动化与真实开发者工具回归。

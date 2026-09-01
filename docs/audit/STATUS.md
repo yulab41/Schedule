@@ -42,7 +42,13 @@
   四项全部通过；半屏真机收口 checkpoint 以 `docs(audit): close .75 Xiaomi half-sheet acceptance` 识别
 - `.76@a2cdd06`：2026-09-01 从 exact clean 源码经标准 `pnpm miniprogram:upload-experience` 上传成功；
   描述 `p10-test-tools-skyline-a2cdd06`，`buildDirty=false`，191 code files、ZIP 2,446,002 B、manifest
-  `e50d001d…f027`；未提审、未正式发布、未改 allowlist、production、数据库或服务器 release
+  `e50d001d…f027`；上传当时未提审、未正式发布、未改 allowlist、production、数据库或服务器 release
+- `.76` production allowlist：用户报告体验版无法进入后，公网确认 `.76=426 CLIENT_VERSION_UNSUPPORTED`、
+  `.75=200`。2026-09-01 21:42 +08:00 经用户当次授权用可信 add-only 工具追加；远端实际执行一次
+  `ensure`，API/Web 重建，预热 TLS EOF 与 502 分别在 1/30、2/30 后恢复，MySQL 保持运行。
+- 独立可信 `verify` 与公网复核通过：`.76/.75` HTTP 200 且七维全 true、动态未知版本 HTTP 426、health
+  200；live release 仍为 `a23266182122c6e2fcb5ca5aba5d8857ef781910`。未上传、未提审/发布、未创建
+  数据库备份、未同步服务器 release。状态 checkpoint 以 `docs(audit): record .76 allowlist activation` 识别。
 
 ## test-tools Skyline 语义收口
 

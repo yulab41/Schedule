@@ -2046,3 +2046,15 @@
   锁等待、I/O、系统负载以及备份或导入任务。当前不改客户端、SQL、索引、缓存、API 或预热策略。
 - 非阻塞待办：`instanceAgeMs` 在 600000ms 封顶时，未来报告应显示 `≥600000ms` 或“已封顶”，不能作为
   精确值；不为该显示问题单独发版。本轮不修改代码、不上传、不操作 production 或创建备份。
+
+## 2026-09-01 `.76` production allowlist 放行
+
+- 用户报告最新体验版无法进入；公网最小对照确认 `.76` 为 HTTP 426 `CLIENT_VERSION_UNSUPPORTED`，
+  `.75` 为 HTTP 200 七维全 true，动态未知版本为 426，根因是 `.76` 上传后未加入 production allowlist。
+- 用户以“继续”授权 exact `0.1.0-p10.20260901.76` 的可信 add-only 操作。原策略 trusted `verify` 先通过；
+  首次 SSH banner 在命令到达前超时，随后用相同参数连接，远端实际执行唯一一次 `ensure`。
+- `ensure` 重建 API/Web，MySQL 保持运行；预热 TLS EOF 与 502 分别在内置 1/30、2/30 后恢复。独立
+  trusted `verify`、公网 `.76/.75=200` 七维全 true、未知版本 426、health 200 均通过；live release
+  保持 `a23266182122c6e2fcb5ca5aba5d8857ef781910`。
+- 未再次上传、提审或正式发布，未创建生产备份、同步服务器 release 或修改业务代码。状态文档 checkpoint
+  以 `docs(audit): record .76 allowlist activation` 识别，文档提交不得再次触发 production 操作。
