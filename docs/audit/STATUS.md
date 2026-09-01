@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-- 当前阶段：阶段 B 后纠偏源码已用标准 CLI 重传，待平台可见性确认与小米 14 验收
+- 当前阶段：`.75@24a847f` 小米 14 首批启动诊断已返回，首次搜索定位到服务端主查询长尾
 - 基线：`a23266182122c6e2fcb5ca5aba5d8857ef781910`（核验后的最新 `origin/main`，包含阶段 B）
 - 工作区：`codex/preupload-diagnostics-correction`，独立 worktree；用户脏主工作树未修改
 - 代码 checkpoint：`a9021c4e fix(miniprogram): correct preupload diagnostics boundaries`，已推送并快进 `origin/main`
@@ -17,6 +17,11 @@
   `verify` 复核通过，live release 前后均为 `a23266182122c6e2fcb5ca5aba5d8857ef781910`
 - allowlist 状态文档 checkpoint 以 `docs(audit): record .75 allowlist activation` 识别；不是上传源码 SHA
 - 标准 CLI 重传文档 checkpoint 以 `docs(audit): correct .75 standard CLI upload` 识别；不是上传源码 SHA
+- 小米 14 证据：5 条均完成且与 production request log 逐一匹配；页面会话首次搜索 10,016ms，
+  后续 4 次中位 471ms。首次服务端 9,942ms、主查询 9,696ms；后续中位分别 404.5/209.5ms。
+- 首次主查询占总耗时 96.8%，响应后到下一渲染周期 21ms，服务端外首字节差值 40ms；诊断序列化
+  0ms。API `cold=false`，`instanceAge=600000ms` 是客户端上限，表示实例至少存活 10 分钟而非恰好 10 分钟。
+- 首批真机证据文档 checkpoint 以 `docs(audit): record .75 first-search evidence` 识别；不触发外部状态
 
 ## 已修复边界
 
@@ -56,7 +61,9 @@
 ## 未验证与唯一下一任务
 
 - 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮没有微信原生 Console、Network 或拖拽手感证据。
-- Web/Node 证据不作为微信原生验收；capability 已放行，开发版即体验版，平台是否已显示标准 CLI
-  重传的 `.75` 仍待用户刷新确认。
-- 唯一下一任务：用户确认平台/小程序显示 `.75@24a847f` 后，只收集该构建的小米 14 诊断数据；数据返回前
-  不开始阶段 B 优化，不再次上传、修改 allowlist、部署、备份或同步 release。
+- 构建字段已由小米 14 报告确认为 `.75@24a847f`；半屏拖拽、回弹、列表滚动与固定清除仍待人工结论。
+- 当前只有 1 条“新 App.onLaunch 后页面会话首次搜索”样本，且 5 条均标记完成/进行中复用为否，不能
+  把后续搜索当作同条件缓存复用对照，也不能据一次长尾宣称每次首次搜索都会慢。
+- 唯一下一任务：再做 2 次独立“下次 App 启动首次搜索诊断”，每次把同一个 3 字姓名查询作为页面
+  第一次搜索并只复制该条；复现后再决定是否授权查询计划/索引或缓存方向。此前不改搜索、数据库、
+  索引或部署，不再次上传、修改 allowlist、备份或同步 release。

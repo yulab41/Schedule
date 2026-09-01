@@ -1983,3 +1983,17 @@
 - 上传后 HEAD/洁净度/profile/manifest/包体保持一致，production health=200、`.75` 七维 capability
   全 true。临时 buildTime 辅助文件已删除；未再次修改 allowlist、部署、备份、同步 release、提审或
   正式发布。平台最新版本显示仍由用户刷新确认，确认前不开始阶段 B 优化。
+
+## 2026-09-01 `.75@24a847f` 小米 14 首批启动诊断
+
+- 用户回传 5 条人员模式完成记录，构建/一次性启动标记/new `App.onLaunch`/非 warm resume 均匹配。
+  5 个 request ID 与 production API 脱敏日志逐一匹配，全部 `/employee-directory` HTTP 200；完成时间
+  9,942.9/365.6/405.9/632.6/403.9ms 与 Server-Timing 一致。首次 SSH 因代理 DNS 映射到
+  `198.18.0.41` 在 banner 前超时，未到服务器；改用 known_hosts 中既有 production IP 后只读成功。
+- 页面会话首次记录是倒序列表 `#5`：总计 10,016ms、TTFB 9,982ms、服务端 9,942ms、主查询
+  9,696ms；后续 4 条中位 471/438/404.5/209.5ms。首次主查询占总计 96.8%，客户端响应后 21ms、
+  服务端外 TTFB 差值 40ms、诊断序列化 0ms，故客户端、profile、网络和 setData 不是长尾主因。
+- `cold=false` 排除 API 进程 60s 内冷启动；显示 `instanceAge=600000ms` 是客户端 clamp，只表示实例
+  至少存活 10 分钟。当前只有 1 个独立启动首次样本，所有记录完成/进行中复用均为否，尚不能区分
+  可重复首搜问题、查询词选择性或数据库/OS 页缓存预热。本轮不改代码/API/查询/索引/数据库/缓存；
+  下一步只重复 2 次独立启动的同一 3 字姓名首搜。
