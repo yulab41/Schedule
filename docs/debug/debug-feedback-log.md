@@ -2011,3 +2011,15 @@
 - 两批独立启动首搜目前为 10,016ms 与 685ms，10 秒 rows/main-query 长尾未复现。结论收敛为偶发
   服务端长尾，尚无客户端或索引改动证据；再取 1 次独立启动同查询样本，之前不改代码/查询/数据库/
   索引/缓存，不操作上传、allowlist、production、备份或 release。
+
+## 2026-09-01 `.75@24a847f` 第三次独立启动与性能收口
+
+- 用户回传单条记录，满足独立 App 运行会话判据：记录数 1、页面会话首次、一次性标记、new
+  `App.onLaunch`、非 warm resume、无请求复用。request ID 与 production API 日志匹配，HTTP 200，
+  responseTime 705.3ms 与 Server-Timing 705ms 一致。
+- total/TTFB/server/main=799/741/705/505ms，server 外 36ms、响应后 44ms、诊断序列化 0ms；App
+  启动到下一渲染约 7,512ms、页面加载到该周期约 5,946ms，但包含用户搜索确认等待，不作启动指标。
+- 三次独立首搜为 10,016/685/799ms，中位 total/TTFB/server/main=799/741/705/505ms；两次连续复测
+  均亚秒，10 秒主查询事件未复现。停止查询/索引/客户端/预热修改，转长尾观察；仅当 total >2s 或
+  main query >1.5s 时再收集单条并升级调查。当前唯一下一证据为半屏高度、下滑/回弹、内部滚动和固定
+  清除入口的小米 14 人工结论；未操作代码、数据库、上传、allowlist、production、备份或 release。
