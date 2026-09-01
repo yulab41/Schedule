@@ -4,13 +4,13 @@
 
 ## 仓库与生产基线（2026-09-01）
 
-- 纠偏分支：`codex/preupload-diagnostics-correction`，独立 worktree 基线为最新 `origin/main`
-  `a23266182122c6e2fcb5ca5aba5d8857ef781910`；阶段 B 保持在前驱中。
-- `.72@5fff288` 与 `.73@c7c142e` 均为历史已上传版本；纠偏源码
-  `24a847ffdeec5899ab7c9d505c740b715df3ef6e` 的首次直接 SDK 调用虽返回成功，但平台仍显示 `.74`，
-  不作为有效上传结论；2026-09-01 20:27:38 +08:00 已用仓库标准
-  `pnpm miniprogram:upload-experience` 重传 `.75@24a847f`。本项目开发版即体验版，无额外网页设置；
-  未提审或正式发布，平台最新版本显示仍待用户刷新确认。
+- 当前审计基线：`origin/main@1eb80e8413386f754a058d3270a2f55bb24aae43`；独立 worktree
+  `runtime/external-project-worktrees/static-audit-group1-20260901`，分支
+  `codex/audit-static-state-async-list-20260901`。当前小程序源码 checkpoint 仍为 `a2cdd065`；其后的
+  主线提交只涉及 docs/status/debug，小程序源码未变化。
+- `.72@5fff288` 与 `.73@c7c142e` 均为历史已上传版本；`.75@24a847f` 已由标准
+  `pnpm miniprogram:upload-experience` 上传，`.76@a2cdd06` 是当前最新小程序源码体验版本。均未提审或
+  正式发布；本轮静态审计没有上传、修改 allowlist 或操作 production。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73/.75/.76` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。`.75` 于 2026-09-01 20:10:36
@@ -73,41 +73,23 @@
 
 ## 当前活动批次
 
-- 唯一任务为 test-tools Skyline Warning 语义核验与最终收口；起始 `origin/main` 为 `89cafa28`，
-  源码 checkpoint `a2cdd065 fix(miniprogram): restore test tools Skyline compatibility`。
-- 历史 `d23a78a9` 与 `a9021c4e` 的 merge-base 均为 `a2326618`；`a9021c4e` 是主线祖先，
-  `d23a78a9` 是 `.74` 真机验收侧枝。主线 test-tools 继承旧 Grid/换行实现，本轮在保留全部通讯录
-  诊断功能的前提下最小向前修复，不 cherry-pick/覆盖旧文件，不回退 `a9021c4e`。
-- 当前实现：四处 `word-break:break-all`、两组可换行 Flex、等宽报告按钮、自适应链接、固定 54px
-  正常/异常按钮、320px 纵向/换行与明确 `.scenario-screenshot`；`disableScroll:false`、事件 handler、
-  页面纵向滚动和通讯录新增诊断语义不变。
-- 当前源码定向先红 15/16 后绿 17/17；Mini 111 files/580 tests、TypeScript、276-file production
-  build、verify、dry-run、ESLint/Prettier/core smoke 通过。源码/dist 目标不兼容写法为 0，
-  320/390/412、长文本、点击合同和无横溢由当前自动化覆盖。
-- 当前真实开发者工具 Stable `2.02.2608040`、基础库 3.17.1、Skyline、develop：390px 显示
-  `.76@a2cdd06`，fresh/截图后 Console 应用 error 0、目标 9 条 Warning 0；两条
-  `tagNameStyleIsolation` 为独立环境提示。已知 automator `getPageMetaByWebviewId(...)=null` 是环境问题。
-- `.76@a2cdd06` 已从 exact clean 源码用标准 CLI 上传：描述 `p10-test-tools-skyline-a2cdd06`、
-  `buildDirty=false`、191 code files、ZIP 2,446,002 B、manifest `e50d001d…f027`；未提审、未发布，
-  上传当时未改 allowlist、production、数据库、备份或服务器 release；其后已按独立授权完成 `.76`
-  add-only allowlist 与 capability 验证。
-- `.74@d23a78a` 已由用户在小米 14 按 test-tools 清单确认无异常；该历史真机证据不外推为当前
-  `.76@a2cdd06` 真机通过。当前结论仅为历史不变量已恢复，且当前 SHA 自动化/开发者工具回归通过。
-- 前序通讯录纠偏 `a9021c4e`/上传源码 `24a847f` 保持主线：一次性 App 启动标记、会话内有界诊断、
-  transport 最终门禁和隐私上限有效；`.75@24a847f` 已标准 CLI 上传并加入 allowlist。
-- `.75` 三次独立启动首搜为 10,016/685/799ms；已排除稳定的客户端首次搜索退化，但确认一次服务端
-  主查询约 9.7 秒长尾。后两次独立启动未复现；测试集中在十几分钟内，未覆盖服务端或数据库长时间
-  冷态，根因与发生率未知，当前转观察且不标记解决。
-- 正常首搜约 0.7–0.8 秒，本轮不再优化；精确计数约 180–200ms。若未来压缩正常延迟，先单独确认页面
-  是否需要精确总数，不与 10 秒长尾混为一谈。
-- 保留 total >2,000ms 或 main query >1,500ms 阈值；自然使用超限时按 request ID 调查查询计划、
-  锁等待、I/O、系统负载及备份或导入任务。当前不改客户端、SQL、索引、缓存、API 或预热策略。
-- 非阻塞待办：`instanceAgeMs` 达 600000ms 上限时，报告显示 `≥600000ms` 或“已封顶”，不得作为精确值；
-  不为此单独发版。性能最终口径 checkpoint 为 `docs(audit): clarify .75 long-tail observation`。
-- `.76` allowlist 状态 checkpoint 以 `docs(audit): record .76 allowlist activation` 识别；它只记录已完成的
-  production 配置操作，不得写作体验版源码 SHA，也不因文档提交再次操作 production。
-- `.75@24a847f` 小米 14 已确认半屏高度、关闭/回弹、内部列表滚动和固定清除入口四项通过；详细
-  request ID、包体、manifest 和文档 checkpoint 留在 `docs/audit/STATUS.md`、审计报告与 Git 历史。
+- 当前没有进行中的代码批次；刚完成的唯一任务为“静态审计第 1 组：页面状态、异步链路与列表性能”。
+  本轮只审计和更新文档，没有修改或修复小程序业务代码。
+- `git fetch origin` 后从 clean `origin/main` 建立独立 worktree；主线并行新增的三个文档提交已在无
+  本地改动时 `--ff-only` 同步，最终审计基线为 `1eb80e84`。用户脏主工作树和其他并行 worktree 未动。
+- 历史 `d23a78a9` 不是当前主线祖先；当前 `a2cdd065` 源码等价包含已验收 test-tools Flex、四处
+  `word-break:break-all` 与截图类，目标 Warning 源为 0，因此没有在错误基线上继续审计。
+- 本轮发现：`MINI-G1-001` P1 高可信生命周期候选、`MINI-G1-002` P2 已确认 holiday 重复请求、
+  `MINI-G1-003` P2 高可信大 payload 候选、`MINI-G1-004` P3 长列表容量待运行证据；没有 P0。
+- 通讯录首搜路径具备 500ms debounce、首批 30 条、稳定 query/in-flight/完成复用和多层陈旧响应检查；
+  没有本地完整人员库拼音索引或每字符全量筛选。三次既有独立 App 首搜 10,016/685/799ms 只支持
+  排除稳定客户端瓶颈，一次约 9.7 秒服务端主查询长尾仍未解决。
+- 1,445/1,506 节点分别归属诊断 PoC 和正式手排 20×30 最大矩阵，均非 App 首屏；WXS 滚动 0
+  `setData`，点格最多两个路径。节点数结合历史目标 Android 验收只保留 no-growth warning，不立新 P1/P2。
+- 临时探针均脱敏、只在审计 worktree 运行并已删除；当前 tracked diff 仅三份审计/状态文档。仓库政策
+  禁止的 DevTools/automator 未调用，也没有上传、allowlist、production、数据库或服务器操作。
+- 本轮 docs-only checkpoint 将以 `docs(audit): complete static state and async review` 识别；详细调用链、
+  误判风险、建议和完整命令见 `docs/audit/wechat-miniprogram-audit.md` 与 `docs/audit/STATUS.md`。
 
 ## 已完成的测试工具批次
 
@@ -181,6 +163,10 @@
 
 - 详细历史以 Git checkpoint、`docs/audit/wechat-miniprogram-audit.md` 和精确 debug 日志为准；本状态只
   保留仍影响下一批的事实。
+- 当前静态审计：workspace packages build 7/7、定向 8 files/96 tests、Mini 111 files/580 tests、
+  `miniprogram:verify` 全部通过；main 1,677,803B、total 5,113,474B、Worklet 2/2、matrix
+  1,445/1,506。三个临时探针分别确认生命周期失效机制、同年 holiday 5 请求/1 URL 和 scheduling
+  4×100 输入 56,171B，均已删除。
 - 当前 test-tools 源码：定向红灯 15/16，修复后 17/17；Mini 111 files/580 tests、TypeScript、
   production build/verify/dry-run、ESLint/Prettier/core smoke 通过；源码/dist 目标 Warning 源为 0。
 - 当前 `.76@a2cdd06`：真实 DevTools 3.17.1/Skyline/390px/Console 通过，标准 CLI 上传及 production
@@ -221,13 +207,11 @@
 
 ## 下一步与停止条件
 
-1. test-tools Skyline Warning 清理在当前源码 `a2cdd065` 完成；`.76@a2cdd06` 已上传并通过 allowlist，
-   后续 docs-only 收口 SHA 不是体验版源码，不再次上传或操作 production。
-2. 主包 1.5 MiB 提示留给包体积审计；1445/1506 节点提示留给“页面状态、异步链路与列表性能”；
-   既有冷构建时限波动不直接视为用户侧性能，绑定状态 503 仅在直接证据再次出现时调查。
-3. `.75` 服务端长尾未解决、转观察；仅在 total >2,000ms 或 main query >1,500ms 时按 request ID
-   调查查询计划、锁等待、I/O、系统负载及备份或导入任务。`instanceAgeMs` 封顶显示不单独发版。
-4. 唯一下一任务：从最终 `origin/main` SHA 开始“静态审计第 1 组：页面状态、异步链路与列表性能”。
+1. 静态审计第 1 组完成；四项发现均保持各自证据状态，本轮不修复。
+2. 唯一建议下一问题组：只处理 `MINI-G1-001`“异步生命周期失效边界”。先为 workflow host 和一个
+   organization 直达页写旧代码必红的 deferred 回归，再决定统一 generation/teardown。
+3. 不顺带处理 holiday 去重、scheduling payload、长列表分页、缓存、API、数据库或服务端搜索长尾。
+4. 主包 1.5 MiB warning 留给后续“包体积与分包边界”；绑定 503 只有取得直接调用链时才关联。
 
-停止条件：本轮完成 docs-only checkpoint 并推送后停止，不开始静态审计第 1 组；不再次上传、提审、
-发布、修改 allowlist、部署、创建生产备份、同步服务器 release，或改客户端、SQL、索引、缓存、API、预热。
+停止条件：本轮完成 docs-only checkpoint 并推送后停止；不开始修复，不上传、提审、发布、修改
+allowlist、部署、创建生产备份或同步服务器 release。
