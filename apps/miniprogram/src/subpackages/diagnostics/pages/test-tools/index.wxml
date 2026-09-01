@@ -89,7 +89,7 @@
       <text class="scenario-path">点击路径：{{item.path}}</text>
       <text>观察：{{item.observe}}</text>
       <text>正常结果：{{item.normal}}</text>
-      <text>应截图：{{item.screenshot}}</text>
+      <text class="scenario-screenshot">应截图：{{item.screenshot}}</text>
       <view class="scenario-actions">
         <view wx:if="{{item.action === 'gesture'}}" class="scenario-link" hover-class="is-pressed" bindtap="handleOpenGestureProbe">{{item.actionLabel}}</view>
         <view wx:else class="scenario-link" hover-class="is-pressed" bindtap="handleOpenWorkspace">{{item.actionLabel}}</view>

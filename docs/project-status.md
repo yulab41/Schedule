@@ -70,73 +70,44 @@
 
 ## 当前活动批次
 
-- 唯一任务为“体验版上传前纠偏审计”，checkpoint 以
-  `a9021c4e fix(miniprogram): correct preupload diagnostics boundaries` 识别，已推送并快进
-  `origin/main`；不改 API contract、数据库、索引、
-  production 缓存或搜索业务。
-- App 只保留会话内定长数据槽和一次性启动标记；旧 `runtime-directory-diagnostics-bridge.ts` 与
-  `search-diagnostics.ts` 已删除。报告/复制/展示只在 diagnostics 分包；organization 以同分包共享
-  controller/轻量 bridge 供 component 与独立 Page 复用。
-- develop/trial 支持“下次 App 启动首次搜索诊断”：持久化值只有 schema/armedAt/expiresAt，新的
-  `App.onLaunch` 立即消费；release 清除且不启用。记录不持久化，跨测试工具/通讯录仍使用同一 App 槽。
-- 记录上限 20 条、单条 4096 B、复制 24576 B、Header 值 4096 字符、request ID 64 个白名单字符；
-  原始 response/header/profile/搜索参数不进入仓库，序列化耗时和估算标志单列。
-- capability 等待、失败、无权限零请求、卸载/群组变化失效、Promise 复用/释放、旧响应隔离均有直接
-  回归；transport 仍是最终 capability/上下文门禁，未恢复 controller 的搜索前重复等待。
-- 相同 Node 24.14.0/pnpm 11.9.0、lockfile、production profile 和命令下，基线→clean checkpoint：
-  总包 5,280,739→5,115,045 B，main 1,680,271→1,678,747 B（`app.js` −7,977 B），organization
-  1,231,973→1,053,980 B。
-- 完整 Mini 同一命令连续两次均为 111 files/578 tests/0 skipped。此前 561/560 差异的唯一测试是
-  用户脏主树未提交的 `renders member rows without combining wx:else and wx:for on one element`，不属于本批。
-- 用户当次批准的唯一 `.75` 产物已从上述 exact clean SHA 上传：191 code files、官方上传 ZIP
-  2,445,701 B；本地包审计 5,114,602 B，上传 manifest
-  `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f` 与批准的 dry-run 完全一致。
-  本次使用根标准脚本而非直接 SDK 编排；`.75` production allowlist 已另行授权并通过公网验证。
-- 上传状态文档 checkpoint 以 `docs(audit): record .75 diagnostics upload` 识别；该后续文档提交不得
-  写作体验版源码 SHA，也不触发 ECS/production/数据库操作。
-- allowlist 状态文档 checkpoint 以 `docs(audit): record .75 allowlist activation` 识别；它同样不是
-  上传源码 SHA，且不得因文档提交再次操作 production。
-- 标准 CLI 重传状态文档 checkpoint 以 `docs(audit): correct .75 standard CLI upload` 识别；体验版
-  源码仍为 `24a847ff…`，不得写成后续文档 SHA。
-- 用户已回传匹配 `.75@24a847f` 的小米 14 启动诊断：5/5 request ID 与 production API 日志匹配、
-  HTTP 200。页面会话首次搜索总计 10,016ms，其中服务端 9,942ms、rows/main query 9,696ms；后续
-  4 次中位 471/404.5/209.5ms。客户端响应后中位 17.5ms、首次 21ms，网络外差值约 40ms。
-- 该批只有 1 条独立 App 启动首次样本，全部 5 条均无完成/进行中请求复用；当前结论是“已定位一次
-  服务端主查询长尾，复现率未确定”，不是普遍性能结论，也不授权直接修改查询、索引或数据库。
-- 首批真机证据文档 checkpoint 以 `docs(audit): record .75 first-search evidence` 识别；该文档提交
-  不触发上传、allowlist、production 或数据库操作。
-- 第二批匹配 `.75@24a847f` 的 5/5 request ID 同样为 production HTTP 200；新独立 App 启动首搜
-  685ms、服务端 617ms、主查询 412ms，首批 10,016/9,942/9,696ms 长尾未复现。第二批另一条页面
-  会话首搜 725/667/438ms，但与首条共用 App 启动时间基线和内存报告，不计为独立启动样本。
-- 两批独立启动首搜当前为 10,016ms 与 685ms，只能确认一次服务端主查询长尾，不能确认稳定退化；
-  第二批被替代请求仍在服务端 291.2ms/200 完成，页面正确拒绝旧结果。
-- 第二批真机证据文档 checkpoint 以 `docs(audit): record .75 first-search repeat` 识别；该文档提交
-  不触发上传、allowlist、production 或数据库操作。
-- 第三次独立 App 首搜记录数仅 1，request ID 匹配 production HTTP 200/705.3ms；total/TTFB/server/
-  main=799/741/705/505ms。三次独立样本为 10,016/685/799ms，中位 799/741/705/505ms；10 秒长尾
-  连续两次未复现。已排除稳定的客户端首次搜索退化；已确认一次服务端主查询约 9.7 秒长尾，但测试
-  集中在十几分钟内、未覆盖服务端或数据库长时间冷态，根因与发生率未知，当前转观察且不标记解决。
-- 正常首搜约 0.7–0.8 秒，本轮不再优化；精确计数查询约 180–200ms。若未来要压缩正常延迟，先单独
-  确认页面是否需要精确总数，不能与 10 秒长尾混为一谈。
-- 超过 total 2,000ms 或 main query 1,500ms 时，以 request ID 调查查询计划、锁等待、I/O、系统负载、
-  备份或导入任务；当前不改客户端、SQL、索引、缓存、API 或预热策略。
-- 非阻塞待办：`instanceAgeMs` 达 600000ms 上限时，报告应显示 `≥600000ms` 或“已封顶”，不得作为
-  精确值；不为此单独发版。
-- 性能最终口径 checkpoint 以 `docs(audit): clarify .75 long-tail observation` 识别；它只更新文档，
-  不触发代码、上传、allowlist、production 或数据库操作。
-- 文档 Prettier、`git diff --check` 与 agent-context policy 3/3 通过；`project-status.md` 已从既存
-  290 行历史流水账精简到规则上限内，旧细节仍由 Git 与定向 debug 日志保存。
-- 第三批收口文档 checkpoint 以 `docs(audit): close .75 first-search sampling` 识别；该文档提交不触发
-  上传、allowlist、production 或数据库操作。
-- 用户已在 `.75@24a847f` 的小米 14 上确认半屏筛选的高度、下滑关闭/短拖回弹、内部列表滚动不误关、
-  固定清除入口四项全部通过；该真机结论仅适用于当前 Android 设备与构建，不外推到其他平台。
-- 半屏真机收口 checkpoint 以 `docs(audit): close .75 Xiaomi half-sheet acceptance` 识别；它只更新文档，
-  不触发上传、allowlist、production、数据库备份或服务器 release。
+- 唯一任务为 test-tools Skyline Warning 语义核验与最终收口；起始 `origin/main` 为 `89cafa28`，
+  源码 checkpoint `a2cdd065 fix(miniprogram): restore test tools Skyline compatibility`。
+- 历史 `d23a78a9` 与 `a9021c4e` 的 merge-base 均为 `a2326618`；`a9021c4e` 是主线祖先，
+  `d23a78a9` 是 `.74` 真机验收侧枝。主线 test-tools 继承旧 Grid/换行实现，本轮在保留全部通讯录
+  诊断功能的前提下最小向前修复，不 cherry-pick/覆盖旧文件，不回退 `a9021c4e`。
+- 当前实现：四处 `word-break:break-all`、两组可换行 Flex、等宽报告按钮、自适应链接、固定 54px
+  正常/异常按钮、320px 纵向/换行与明确 `.scenario-screenshot`；`disableScroll:false`、事件 handler、
+  页面纵向滚动和通讯录新增诊断语义不变。
+- 当前源码定向先红 15/16 后绿 17/17；Mini 111 files/580 tests、TypeScript、276-file production
+  build、verify、dry-run、ESLint/Prettier/core smoke 通过。源码/dist 目标不兼容写法为 0，
+  320/390/412、长文本、点击合同和无横溢由当前自动化覆盖。
+- 当前真实开发者工具 Stable `2.02.2608040`、基础库 3.17.1、Skyline、develop：390px 显示
+  `.76@a2cdd06`，fresh/截图后 Console 应用 error 0、目标 9 条 Warning 0；两条
+  `tagNameStyleIsolation` 为独立环境提示。已知 automator `getPageMetaByWebviewId(...)=null` 是环境问题。
+- `.76@a2cdd06` 已从 exact clean 源码用标准 CLI 上传：描述 `p10-test-tools-skyline-a2cdd06`、
+  `buildDirty=false`、191 code files、ZIP 2,446,002 B、manifest `e50d001d…f027`；未提审、未发布，
+  未改 allowlist、production、数据库、备份或服务器 release。
+- `.74@d23a78a` 已由用户在小米 14 按 test-tools 清单确认无异常；该历史真机证据不外推为当前
+  `.76@a2cdd06` 真机通过。当前结论仅为历史不变量已恢复，且当前 SHA 自动化/开发者工具回归通过。
+- 前序通讯录纠偏 `a9021c4e`/上传源码 `24a847f` 保持主线：一次性 App 启动标记、会话内有界诊断、
+  transport 最终门禁和隐私上限有效；`.75@24a847f` 已标准 CLI 上传并加入 allowlist。
+- `.75` 三次独立启动首搜为 10,016/685/799ms；已排除稳定的客户端首次搜索退化，但确认一次服务端
+  主查询约 9.7 秒长尾。后两次独立启动未复现；测试集中在十几分钟内，未覆盖服务端或数据库长时间
+  冷态，根因与发生率未知，当前转观察且不标记解决。
+- 正常首搜约 0.7–0.8 秒，本轮不再优化；精确计数约 180–200ms。若未来压缩正常延迟，先单独确认页面
+  是否需要精确总数，不与 10 秒长尾混为一谈。
+- 保留 total >2,000ms 或 main query >1,500ms 阈值；自然使用超限时按 request ID 调查查询计划、
+  锁等待、I/O、系统负载及备份或导入任务。当前不改客户端、SQL、索引、缓存、API 或预热策略。
+- 非阻塞待办：`instanceAgeMs` 达 600000ms 上限时，报告显示 `≥600000ms` 或“已封顶”，不得作为精确值；
+  不为此单独发版。性能最终口径 checkpoint 为 `docs(audit): clarify .75 long-tail observation`。
+- `.75@24a847f` 小米 14 已确认半屏高度、关闭/回弹、内部列表滚动和固定清除入口四项通过；详细
+  request ID、包体、manifest 和文档 checkpoint 留在 `docs/audit/STATUS.md`、审计报告与 Git 历史。
 
 ## 已完成的测试工具批次
 
-- “更多 → 测试工具”已由 `18498a8b` 实现，production 与 `.70@18498a8` 已同步并放行；release
-  失败关闭、只读有界诊断和隐私边界保持有效，当前只待实体 Android/DevTools 人工复核。
+- “更多 → 测试工具”由 `18498a8b` 实现；`.74@d23a78a` 历史小米 14 验收通过，主线回归由
+  `a2cdd065` 向前修复并以 `.76@a2cdd06` 完成当前自动化、开发者工具和体验上传。release 失败关闭、
+  只读有界诊断、隐私边界和后续通讯录诊断均保持有效；Skyline Warning 清理任务已完成关闭。
 
 ## 已完成的发布基线与当前修复
 
@@ -202,10 +173,15 @@
 
 ## 已完成验证
 
-- 当前纠偏批次的测试、包体、上传、allowlist、三批真机诊断与半屏验收事实保留在上方活动批次及
-  `docs/audit/STATUS.md`；逐命令与旧批次验证由 Git checkpoint 和定向 debug 日志保存。
-- `.46–.52`、`.60–.62` 的上传、allowlist、备份、部署与 verifier 历史已由各自 Git checkpoint
-  和 debug 日志保存；当前操作边界以上方最新 `.75` 事实为准。
+- 详细历史以 Git checkpoint、`docs/audit/wechat-miniprogram-audit.md` 和精确 debug 日志为准；本状态只
+  保留仍影响下一批的事实。
+- 当前 test-tools 源码：定向红灯 15/16，修复后 17/17；Mini 111 files/580 tests、TypeScript、
+  production build/verify/dry-run、ESLint/Prettier/core smoke 通过；源码/dist 目标 Warning 源为 0。
+- 当前 `.76@a2cdd06`：真实 DevTools 3.17.1/Skyline/390px/Console 通过，标准 CLI 上传成功；历史
+  `.74@d23a78a` 小米 14 test-tools 与 `.75@24a847f` 半屏证据按各自 SHA 保留。
+- 既有 Page/controller/handler/timer/实例隔离、Worklet 2/2、权限/通知/Profile、发布控制与回滚门禁
+  仍由原 checkpoint 测试保护；无本轮证据授权修改 API、数据库、索引、缓存或生产发布轨道。
+- 性能口径文档 Prettier、`git diff --check` 与 agent-context policy 3/3 通过；状态文档保持在 250 行上限内。
 
 ## 语义与偏差记录
 
@@ -238,11 +214,13 @@
 
 ## 下一步与停止条件
 
-1. `.75@24a847f` 已由标准 CLI 重传、正式 allowlist 放行并由小米 14 报告确认；不再次上传或改版本。
-2. 性能长尾未解决、转观察；仅在 total >2,000ms 或 main query >1,500ms 时复制最近一次记录，并按
-   request ID 调查查询计划、锁等待、I/O、系统负载及备份或导入任务。
-3. 小米 14 半屏筛选四项已全部通过；当前纠偏审计批次完成，没有自动实施任务。
+1. test-tools Skyline Warning 清理在当前源码 `a2cdd065` 完成；`.76@a2cdd06` 已上传，后续
+   docs-only 收口 SHA 不是体验版源码，不再次上传。
+2. 主包 1.5 MiB 提示留给包体积审计；1445/1506 节点提示留给“页面状态、异步链路与列表性能”；
+   既有冷构建时限波动不直接视为用户侧性能，绑定状态 503 仅在直接证据再次出现时调查。
+3. `.75` 服务端长尾未解决、转观察；仅在 total >2,000ms 或 main query >1,500ms 时按 request ID
+   调查查询计划、锁等待、I/O、系统负载及备份或导入任务。`instanceAgeMs` 封顶显示不单独发版。
+4. 唯一下一任务：从最终 `origin/main` SHA 开始“静态审计第 1 组：页面状态、异步链路与列表性能”。
 
-停止条件：等待性能阈值再次超限的脱敏记录或用户明确开启新批次；不自行进入阶段 B 优化，不改客户端、
-SQL、索引、缓存、API 或预热，不再次上传、修改 allowlist、部署、创建生产备份或同步服务器 release。
-`instanceAgeMs` 封顶显示只随未来合适版本修正，不单独发版；微信原生 Console/Network 输出仍未采集。
+停止条件：本轮完成 docs-only checkpoint 并推送后停止，不开始静态审计第 1 组；不再次上传、提审、
+发布、修改 allowlist、部署、创建生产备份、同步服务器 release，或改客户端、SQL、索引、缓存、API、预热。
