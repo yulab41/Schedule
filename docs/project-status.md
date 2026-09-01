@@ -7,8 +7,10 @@
 - 纠偏分支：`codex/preupload-diagnostics-correction`，独立 worktree 基线为最新 `origin/main`
   `a23266182122c6e2fcb5ca5aba5d8857ef781910`；阶段 B 保持在前驱中。
 - `.72@5fff288` 与 `.73@c7c142e` 均为历史已上传版本；纠偏源码
-  `24a847ffdeec5899ab7c9d505c740b715df3ef6e` 已于 2026-09-01 18:17:57 +08:00 以
-  `.75@24a847f` 上传为微信开发版本，尚未由平台后台“设为体验版”，也未提审或正式发布。
+  `24a847ffdeec5899ab7c9d505c740b715df3ef6e` 的首次直接 SDK 调用虽返回成功，但平台仍显示 `.74`，
+  不作为有效上传结论；2026-09-01 20:27:38 +08:00 已用仓库标准
+  `pnpm miniprogram:upload-experience` 重传 `.75@24a847f`。本项目开发版即体验版，无额外网页设置；
+  未提审或正式发布，平台最新版本显示仍待用户刷新确认。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73/.75` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。`.75` 于 2026-09-01 20:10:36
@@ -87,14 +89,15 @@
 - 完整 Mini 同一命令连续两次均为 111 files/578 tests/0 skipped。此前 561/560 差异的唯一测试是
   用户脏主树未提交的 `renders member rows without combining wx:else and wx:for on one element`，不属于本批。
 - 用户当次批准的唯一 `.75` 产物已从上述 exact clean SHA 上传：191 code files、官方上传 ZIP
-  2,445,675 B、官方编译后 full package 5,100,197 B；本地包审计 5,114,602 B，上传 manifest
+  2,445,701 B；本地包审计 5,114,602 B，上传 manifest
   `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f` 与批准的 dry-run 完全一致。
-  仓库 `miniprogram-ci` 只提供上传，不提供平台“设为体验版”；`.75` production allowlist 已另行授权
-  并通过公网验证，当前只剩平台后台人工一步，完成前不能把本轮描述为已部署给体验用户。
+  本次使用根标准脚本而非直接 SDK 编排；`.75` production allowlist 已另行授权并通过公网验证。
 - 上传状态文档 checkpoint 以 `docs(audit): record .75 diagnostics upload` 识别；该后续文档提交不得
   写作体验版源码 SHA，也不触发 ECS/production/数据库操作。
 - allowlist 状态文档 checkpoint 以 `docs(audit): record .75 allowlist activation` 识别；它同样不是
   上传源码 SHA，且不得因文档提交再次操作 production。
+- 标准 CLI 重传状态文档 checkpoint 以 `docs(audit): correct .75 standard CLI upload` 识别；体验版
+  源码仍为 `24a847ff…`，不得写成后续文档 SHA。
 
 ## 已完成的测试工具批次
 
@@ -255,8 +258,8 @@
 
 ## 下一步与停止条件
 
-1. `.75@24a847f` 已上传并通过正式 allowlist/七维 capability/unknown=426；不再次上传或改版本。
-2. 微信公众平台仍需人工把开发版本 `.75` 选为体验版；随后只收集匹配构建的小米 14 数据。
+1. `.75@24a847f` 已由标准 CLI 重传并通过正式 allowlist/七维 capability/unknown=426；不再次上传或改版本。
+2. 用户刷新平台/重新进入小程序确认最新版本为 `.75`，随后只收集匹配构建的小米 14 数据。
 
 停止条件：数据返回前不进入阶段 B 优化，不再次上传、修改 allowlist、部署、创建生产备份或同步
 服务器 release；微信原生 Console、拖拽手感和小米 14 结果继续待人工验收。

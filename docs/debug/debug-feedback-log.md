@@ -1968,3 +1968,18 @@
   未变化。未创建生产备份、未同步 release、未上传、未提审或正式发布。
 - 用户已授权平台“设为体验版”，但 Chrome 对微信公众平台后台实施站点安全阻断；没有绕过或改用其他
   控制面。当前只剩用户在版本管理把开发版本 `.75` 选为体验版，随后回传小米 14 诊断数据。
+
+## 2026-09-01 `.75` 标准 CLI 重传纠正
+
+- 用户确认本项目开发版即体验版、没有网页设置步骤，并报告平台最新仍为 `.74`。因此 18:17:57 的
+  直接 SDK 调用虽返回 191 files/成功响应，但不再作为平台有效上传结论；没有据此改成 `.76`。
+- 仓库既有 `runtime/release-worktree` 经受控 helper 切到 exact detached
+  `24a847ffdeec5899ab7c9d505c740b715df3ef6e`，dependencies reused，tracked/untracked clean。Node
+  24.14.0、pnpm 11.9.0、AppID、仓库外私钥、production/API、`.75`/描述均重新核对。
+- 为保持用户批准的 immutable 产物，标准 CLI dry-run 使用已核验 buildTime，manifest 精确仍为
+  `be28692545891baf083dda498b4c45587e144d7e6601b4dd62f9d80f5dcf129f`，包审计 5,114,602 B、无
+  local 标记。20:26:57 +08:00 执行根 `pnpm miniprogram:upload-experience`，20:27:38 成功完成：
+  191 code files、上传 ZIP 2,445,701 B、version `.75`、同一 manifest。
+- 上传后 HEAD/洁净度/profile/manifest/包体保持一致，production health=200、`.75` 七维 capability
+  全 true。临时 buildTime 辅助文件已删除；未再次修改 allowlist、部署、备份、同步 release、提审或
+  正式发布。平台最新版本显示仍由用户刷新确认，确认前不开始阶段 B 优化。
