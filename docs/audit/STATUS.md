@@ -1,6 +1,7 @@
 # 微信小程序审计状态
 
-- 当前阶段：`.75@24a847f` 三次独立启动诊断与小米 14 半屏四项原生交互均已收口；性能长尾转观察
+- 当前阶段：`.75@24a847f` 三次独立启动诊断与小米 14 半屏四项原生交互均已收口；稳定客户端首搜
+  退化已排除，服务端主查询长尾未解决、转观察
 - 基线：`a23266182122c6e2fcb5ca5aba5d8857ef781910`（核验后的最新 `origin/main`，包含阶段 B）
 - 工作区：`codex/preupload-diagnostics-correction`，独立 worktree；用户脏主工作树未修改
 - 代码 checkpoint：`a9021c4e fix(miniprogram): correct preupload diagnostics boundaries`，已推送并快进 `origin/main`
@@ -20,7 +21,7 @@
 - 小米 14 证据：5 条均完成且与 production request log 逐一匹配；页面会话首次搜索 10,016ms，
   后续 4 次中位 471ms。首次服务端 9,942ms、主查询 9,696ms；后续中位分别 404.5/209.5ms。
 - 首次主查询占总耗时 96.8%，响应后到下一渲染周期 21ms，服务端外首字节差值 40ms；诊断序列化
-  0ms。API `cold=false`，`instanceAge=600000ms` 是客户端上限，表示实例至少存活 10 分钟而非恰好 10 分钟。
+  0ms。API `cold=false`，`instanceAge=600000ms` 是客户端上限，只能解释为实例至少存活 10 分钟。
 - 首批真机证据文档 checkpoint 以 `docs(audit): record .75 first-search evidence` 识别；不触发外部状态
 - 第二批 5 条 request ID 亦全部匹配 production HTTP 200；新 App 启动首搜 685ms、服务端 617ms、
   主查询 412ms，较首批异常分别低 93.2%/93.8%/95.8%。响应后 21ms、服务端外首字节差值 32ms。
@@ -30,7 +31,8 @@
 - 第三次独立启动报告仅 1 条记录，request ID 匹配 production HTTP 200/705.3ms；总计 799ms、
   TTFB 741ms、服务端 705ms、主查询 505ms、服务端外 36ms、响应后 44ms、诊断序列化 0ms。
 - 三次独立 App 首搜为 10,016/685/799ms；中位 total/TTFB/server/main 为 799/741/705/505ms。
-  两次连续复测均亚秒，首批 10 秒只保留为一次偶发服务端 rows/main-query 长尾，不启动优化。
+  已排除稳定的客户端首次搜索退化；确认一次约 9.7 秒服务端 rows/main-query 长尾，后续两次独立 App
+  启动未复现。采样集中在十几分钟内，未覆盖服务端或数据库长时间冷态，根因与发生率仍未知，不标记解决。
 - 第三批收口文档 checkpoint 以 `docs(audit): close .75 first-search sampling` 识别；不触发外部状态
 - 用户已在小米 14 上确认半屏高度、横条下滑关闭与短拖回弹、列表滚动不误关、固定“清除全部筛选”
   四项全部通过；半屏真机收口 checkpoint 以 `docs(audit): close .75 Xiaomi half-sheet acceptance` 识别
@@ -76,7 +78,12 @@
   字段确认为 `.75@24a847f` 的小米 14 上完成半屏四项原生交互验收，结论只适用于该 Android 真机与构建，
   不外推为 iOS、全部安卓或全平台通过。
 - 三个独立启动首搜已有 1 次 10 秒异常、2 次连续亚秒复测；样本不足以估算长尾发生率，但足以拒绝
-  “每次首次搜索必慢”和立即改索引/缓存。以后若 total >2,000ms 或 server main query >1,500ms，
-  再复制单条记录并升级调查。
+  “每次首次搜索必慢”和立即改索引/缓存。正常首搜约 0.7–0.8 秒，本轮不再优化；精确计数约占
+  180–200ms，若以后仍需压缩正常延迟，先单独确认页面是否需要精确总数，不与 10 秒长尾混为一谈。
+- 保留 total >2,000ms 或 server main query >1,500ms 的观察阈值；自然使用再次超限时，以 request ID
+  调查查询计划、锁等待、I/O、系统负载及备份或导入任务。当前不改客户端、SQL、索引、缓存、API 或预热。
+- 非阻塞待办：`instanceAgeMs` 达到 600000ms 上限时，后续报告应显示 `≥600000ms` 或“已封顶”，不得
+  当作精确值；不为这一显示问题单独发版。
+- 性能最终口径 checkpoint 以 `docs(audit): clarify .75 long-tail observation` 识别；仅更新文档。
 - 当前审计批次已完成，没有自动实施任务。等待用户在阈值再次超限时提供单条脱敏记录，或明确开启
   新批次；不自行进入阶段 B 优化，不再次上传、修改 allowlist、部署、备份或同步 release。

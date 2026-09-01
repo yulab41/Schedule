@@ -114,7 +114,18 @@
   不触发上传、allowlist、production 或数据库操作。
 - 第三次独立 App 首搜记录数仅 1，request ID 匹配 production HTTP 200/705.3ms；total/TTFB/server/
   main=799/741/705/505ms。三次独立样本为 10,016/685/799ms，中位 799/741/705/505ms；10 秒长尾
-  连续两次未复现，当前转观察，不授权客户端、查询、索引、数据库或预热修改。
+  连续两次未复现。已排除稳定的客户端首次搜索退化；已确认一次服务端主查询约 9.7 秒长尾，但测试
+  集中在十几分钟内、未覆盖服务端或数据库长时间冷态，根因与发生率未知，当前转观察且不标记解决。
+- 正常首搜约 0.7–0.8 秒，本轮不再优化；精确计数查询约 180–200ms。若未来要压缩正常延迟，先单独
+  确认页面是否需要精确总数，不能与 10 秒长尾混为一谈。
+- 超过 total 2,000ms 或 main query 1,500ms 时，以 request ID 调查查询计划、锁等待、I/O、系统负载、
+  备份或导入任务；当前不改客户端、SQL、索引、缓存、API 或预热策略。
+- 非阻塞待办：`instanceAgeMs` 达 600000ms 上限时，报告应显示 `≥600000ms` 或“已封顶”，不得作为
+  精确值；不为此单独发版。
+- 性能最终口径 checkpoint 以 `docs(audit): clarify .75 long-tail observation` 识别；它只更新文档，
+  不触发代码、上传、allowlist、production 或数据库操作。
+- 文档 Prettier、`git diff --check` 与 agent-context policy 3/3 通过；`project-status.md` 已从既存
+  290 行历史流水账精简到规则上限内，旧细节仍由 Git 与定向 debug 日志保存。
 - 第三批收口文档 checkpoint 以 `docs(audit): close .75 first-search sampling` 识别；该文档提交不触发
   上传、allowlist、production 或数据库操作。
 - 用户已在 `.75@24a847f` 的小米 14 上确认半屏筛选的高度、下滑关闭/短拖回弹、内部列表滚动不误关、
@@ -191,64 +202,10 @@
 
 ## 已完成验证
 
-- 较早的 Profile、权限、通知和 Page 架构红绿/发布证据已落 Git checkpoint 与 debug 日志；当前状态
-  仅保留仍影响后续发布的最新事实。
-- Page/controller/handler/timer/实例隔离/薄壳/build-tools 与新预挂载定向均通过；workflow host
-  强化 7/7，organization WXML handler 16/16，Checkpoint A 定向 8 files/55。
-- 年月滚轮定向：picker + P7 feedback 2 files / 22 tests 通过；旧实现的反向接管用例先红。
-- `.50` UI-thread 滚轮自动回归曾 3 files / 25 tests 通过，但真机三项核心行为全部缺失，结果无效并已回滚。
-- WXS 探针先红 6+3 项；clean 定向 5 files/31、Mini 105/508、root 239/1,125 通过，37/355 跳过。
-- 全端 build/typecheck、verify/determinism/source/package/performance/CI/core smoke 通过；2/2 Worklet、
-  5,088,998 bytes、main 1,615,149、manifest `9f7e174b…c14d`。
-- 通讯录旧实现的双页持久化/异步隔离/视觉契约 3 项先红；实现后 controller 14/14、视觉 5/5、
-  卡片 simulate 1/1、Mini 95 files/460 tests、Web 目录黄金 3 files/19 tests 通过；当前 dirty tree
-  root Vitest 236 files/1,118 tests 通过（37 files/353 tests 按环境跳过）。
-- 任务文件 Prettier/ESLint、root build/typecheck 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，
-  无需 Web browser smoke。
-- 完整 `pnpm verify` 被 411 个既有文件的全仓 format 阻断；独立 root lint 被未修改
-  `apps/miniprogram/src/platform/wx-request-executor.ts:141` 的既有 `prefer-const` 阻断。
-  任务文件不在失败集内，未接管或格式化无关用户内容。
-- allowlist/release/cache 控制面：4 files / 32 tests 通过；新增 Bash 均通过 Git Bash `bash -n`。
-- 主 checkpoint `50c696ab` 已推送；Mini `.46` 官方上传、完整生产部署、正式 allowlist
-  ensure/verify、重复幂等 ensure、两次 full verifier 与远端临时目录清理均通过。
-- 状态 checkpoint `f7557992` 的本地打包继续 2.9 秒三层 hit。生产只上传 manifest 后，
-  `schedule-ecs-reuse-release` 前后 API container ID
-  `5b8ed6e6…45cd74`/created `2026-08-27T10:37:11.855693624Z` 与 Web ID
-  `ba7b789a…672362`/created `2026-08-27T10:37:22.371720913Z` 完全不变；工具内双 verifier
-  与随后带公网 IP full verifier 均通过。
-- 完整 boundary checkpoint `f71540d8` 与 release-worktree 修复 `7de1bee1` 均已推送；forced
-  detached checkout 在三重 clean 后成功且 dependencies reused，ECS 再次三层 hit。
-  `.47` 上传、manifest-only reuse、正式 allowlist ensure/幂等 ensure/verify 与公网 full verifier
-  全部通过；生产 release 在最终状态同步前为 `7de1bee1378fe5ac415f95a0865c9b8683049bc0`。
-- 滚轮代码 checkpoint `f6be9cdb` 已推送；`.48` 官方上传成功。clean release worktree 复用三层
-  cache，备份 `29266719-280d-4a8b-b617-2654a367d36e` 后可信 hash-identical reuse 通过；切换前后
-  API/Web container ID 与 created timestamp 不变。随后正式 ensure/verify `.48`、七维 capability、
-  未知版本 426 和带公网 IP full verifier 全部通过，远端临时目录已删除。
-- 导航代码 checkpoint `79a0ae90` 已推送；clean release worktree 三层 cache hit。备份
-  `b7794f7f-4b4a-42c9-a7c8-cf4b01b9a92c` 后可信 hash-identical reuse 无停机切换，随后
-  `.49` 官方上传并正式 ensure/verify；allowlist 重建容器首次 TLS EOF 后自动恢复。七维能力、
-  未知版本 426、带公网 IP full verifier 与远端临时目录清理均通过。最终状态发布备份为
-  `29442285-9d6e-446c-8b1c-5c4d20f46192`。
-- UI-thread 滚轮 checkpoint `5bed6d34` 已推送；`.50` 官方 Summer 上传 165 files/zip 1,937,770/
-  manifest `aa2867ca…0d73`。备份 `ea1e3ea9-8c03-49e3-a405-0315fc64a34f` 后可信 reuse
-  无停机同步且容器不变；正式 ensure/verify `.50`、七维 capability、未知版本 426、带公网 IP
-  full verifier 与远端 temp 清理通过。
-- rollback checkpoint `99006bad` 已推送；`.51` 官方上传 165 files/zip 1,935,669/manifest
-  `30271052…b0e3`。备份 `0025dcf8-6495-428e-9c4a-6da457e2f680` 后 trusted reuse，正式
-  ensure/verify `.51`、七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
-- 通知 checkpoint `304d742f` 已推送；发布备份
-  `9c9f2551-965f-4293-91f2-269271e06ba0` 后完整部署 API/Web，预热首个 502 后恢复。`.52`
-  官方上传 170 code files/zip 2,017,665/manifest `c2f45e08…0110`；正式 ensure/verify、
-  七维 capability、未知版本 426、带公网 IP full verifier 与远端 temp 清理通过。
-- Profile Task 4 代码 `a50b423b` 及组合契约 `353ec1b9` 已推送；`.60` 官方上传 177 code
-  files/zip 2,315,337/upload manifest `14c1f298…0bd9`，正式 ensure/verify、七维 capability、未知版本
-  426 与带公网 IP full verifier 通过。最终状态 checkpoint 识别消息为
-  `docs(status): record profile web parity deployment`，发布备份为 `ed1d8535-810c-470b-b790-8d2e207cc1bc`。
-- 登录 `.61@353ec1b` 官方上传 177 code files/zip 2,315,373/upload manifest `e114414f…e2ef9`；
-  正式 ensure/verify、七维 capability、未知版本 426 与带公网 IP full verifier 通过。
-- 权限代码 `dffef1f2` 已推送；`.62` 官方上传 178 code files/zip 2,333,143/manifest `f6cd2201…43b0`。
-  备份 `451bff17-6ded-41a6-950f-808e93046a0a` 后制品全哈希相同，trusted reuse 无停机切换；正式
-  ensure/verify、七维 capability、未知版本 426、公网 full verifier 与远端 temp 清理通过。
+- 当前纠偏批次的测试、包体、上传、allowlist、三批真机诊断与半屏验收事实保留在上方活动批次及
+  `docs/audit/STATUS.md`；逐命令与旧批次验证由 Git checkpoint 和定向 debug 日志保存。
+- `.46–.52`、`.60–.62` 的上传、allowlist、备份、部署与 verifier 历史已由各自 Git checkpoint
+  和 debug 日志保存；当前操作边界以上方最新 `.75` 事实为准。
 
 ## 语义与偏差记录
 
@@ -282,9 +239,10 @@
 ## 下一步与停止条件
 
 1. `.75@24a847f` 已由标准 CLI 重传、正式 allowlist 放行并由小米 14 报告确认；不再次上传或改版本。
-2. 性能项停止改动；以后仅在 total >2,000ms 或 main query >1,500ms 时复制最近一次记录。
+2. 性能长尾未解决、转观察；仅在 total >2,000ms 或 main query >1,500ms 时复制最近一次记录，并按
+   request ID 调查查询计划、锁等待、I/O、系统负载及备份或导入任务。
 3. 小米 14 半屏筛选四项已全部通过；当前纠偏审计批次完成，没有自动实施任务。
 
-停止条件：等待性能阈值再次超限的脱敏记录或用户明确开启新批次；不自行进入阶段 B 优化，不改代码/
-搜索/数据库/索引/缓存，不再次上传、修改 allowlist、部署、创建生产备份或同步服务器 release。
-微信原生 Console/Network 输出当前仍未采集。
+停止条件：等待性能阈值再次超限的脱敏记录或用户明确开启新批次；不自行进入阶段 B 优化，不改客户端、
+SQL、索引、缓存、API 或预热，不再次上传、修改 allowlist、部署、创建生产备份或同步服务器 release。
+`instanceAgeMs` 封顶显示只随未来合适版本修正，不单独发版；微信原生 Console/Network 输出仍未采集。
