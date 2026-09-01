@@ -183,9 +183,13 @@ describe('P10 native directory controller', () => {
     await flushPromises();
     expect(listRequests()).toHaveLength(listRequestCount + 1);
     expect(lastRequest().url).toContain('q=%E6%9D%8E%E5%9B%9B%E4%BA%94');
+
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
   });
 
-  it('does not auto-send a slowly typed partial full-pinyin query', async () => {
+  it('sends slowly typed full pinyin only once after keyboard confirmation', async () => {
     const page = createPageInstance(definition, runtimeProperties());
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
@@ -198,9 +202,13 @@ describe('P10 native directory controller', () => {
     }
 
     expect(listRequests()).toHaveLength(listRequestCount);
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('q=xumanbin');
   });
 
-  it('does not auto-send slowly typed ASCII initials without confirmation', async () => {
+  it('sends slowly typed ASCII initials only once after keyboard confirmation', async () => {
     const page = createPageInstance(definition, runtimeProperties());
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
@@ -213,9 +221,13 @@ describe('P10 native directory controller', () => {
     }
 
     expect(listRequests()).toHaveLength(listRequestCount);
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('q=xmb');
   });
 
-  it('does not auto-send one-character or intermediate numeric input', async () => {
+  it('sends a slowly typed employee number only once after keyboard confirmation', async () => {
     const page = createPageInstance(definition, runtimeProperties());
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
@@ -228,6 +240,28 @@ describe('P10 native directory controller', () => {
     }
 
     expect(listRequests()).toHaveLength(listRequestCount);
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('q=0468');
+  });
+
+  it('trims confirmed ASCII input and ignores whitespace-only confirmation', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '  xmb  ' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('q=xmb');
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '   ' } });
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
   });
 
   it('does not auto-send phone or ASCII-numeric mixed input', async () => {
@@ -245,7 +279,7 @@ describe('P10 native directory controller', () => {
     expect(listRequests()).toHaveLength(listRequestCount);
   });
 
-  it('uses one handler for the visible search action and keyboard confirmation', async () => {
+  it('uses the input confirmation handler for successive ASCII searches', async () => {
     const page = createPageInstance(definition, runtimeProperties());
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
@@ -264,17 +298,18 @@ describe('P10 native directory controller', () => {
     expect(listRequests()).toHaveLength(listRequestCount + 2);
   });
 
-  it('reuses one in-flight request across visible-button and keyboard confirmation', async () => {
+  it('reuses one in-flight request across consecutive keyboard confirmations', async () => {
     const page = createPageInstance(definition, runtimeProperties());
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
     definition.methods.handleSearchInput.call(page, { detail: { value: 'xmb' } });
     deferNextListRequest = true;
 
-    definition.methods.handleSearch.call(page, {
+    const confirmEvent = {
       currentTarget: { dataset: { directoryKind: 'internal' } },
-    });
-    definition.methods.handleSearch.call(page);
+    };
+    definition.methods.handleSearch.call(page, confirmEvent);
+    definition.methods.handleSearch.call(page, confirmEvent);
     await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
     expect(listRequests()).toHaveLength(1);
 

@@ -130,7 +130,7 @@
               maxlength="100"
               confirm-type="search"
               placeholder-class="search-placeholder"
-              placeholder="{{pane.directoryKind === 'employee' ? '搜索姓名、级别、工号、拼音、首字母或号码' : '搜索科室、姓名、拼音或号码'}}"
+              placeholder="{{pane.directoryKind === 'employee' ? '姓名可自动搜索；拼音、工号或电话输入后按键盘搜索' : '名称可自动搜索；拼音或电话输入后按键盘搜索'}}"
               data-directory-kind="{{pane.directoryKind}}"
               bindinput="handleSearchInput"
               bindconfirm="handleSearch"
@@ -145,15 +145,6 @@
             >
               <image src="/assets/icons/web-directory-close.svg" mode="aspectFit" />
             </view>
-            <ui-button
-              class="search-submit"
-              variant="primary"
-              label="搜索"
-              aria-label="搜索通讯录"
-              disabled="{{pane.searching || pane.searchQuery.length === 0}}"
-              data-directory-kind="{{pane.directoryKind}}"
-              bindpress="handleSearch"
-            ></ui-button>
           </view>
 
           <view wx:if="{{pane.errorMessage}}" class="directory-error" aria-role="alert">
