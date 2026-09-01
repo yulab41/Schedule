@@ -34,6 +34,7 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
+import { captureWorkflowControllerTask } from '../controller-host.js';
 
 type PageState = 'error' | 'loading' | 'ready';
 
@@ -427,6 +428,8 @@ async function loadDutyPageWithCapability(
   page: DutyPageInstance,
   options: { readonly preserveForms?: boolean } = {},
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const serial = ++page._loadSerial;
   if (options.preserveForms !== true) {
     page._requestPreview = undefined;
@@ -437,8 +440,9 @@ async function loadDutyPageWithCapability(
   page.setData({ errorMessage: '', state: 'loading' });
   try {
     await requireClientCapability('workflows');
+    if (!task.isCurrent()) return;
     const groups = await workbenchClient.listGroups();
-    if (serial !== page._loadSerial) return;
+    if (!task.isCurrent() || serial !== page._loadSerial) return;
     const group = resolveTargetGroup(groups, page._requestedGroupId);
     if (group === undefined) throw new Error('当前没有可使用加扣班功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能发起或处理加扣班。');
@@ -453,7 +457,9 @@ async function loadDutyPageWithCapability(
       workflowClient.listMyDutyAdjustments(group.id),
       canApprove ? workflowClient.listDutyAdjustmentApprovals(group.id) : Promise.resolve([]),
     ]);
-    if (serial !== page._loadSerial || page._currentGroupId !== group.id) return;
+    if (!task.isCurrent() || serial !== page._loadSerial || page._currentGroupId !== group.id) {
+      return;
+    }
     page._calendar = calendar;
     page._rawMyRequests = mine;
     page._rawApprovals = approvals;
@@ -472,7 +478,7 @@ async function loadDutyPageWithCapability(
     syncCandidates(page);
     syncDutyLists(page);
   } catch (error) {
-    if (serial !== page._loadSerial) return;
+    if (!task.isCurrent() || serial !== page._loadSerial) return;
     page._currentGroupId = '';
     page.setData({
       canApprove: false,
@@ -483,6 +489,8 @@ async function loadDutyPageWithCapability(
 }
 
 async function loadCalendarMonth(page: DutyPageInstance, month: string): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page._currentGroupId === '') return;
   const serial = ++page._calendarSerial;
   const groupId = page._currentGroupId;
@@ -490,6 +498,7 @@ async function loadCalendarMonth(page: DutyPageInstance, month: string): Promise
   try {
     const calendar = await workbenchClient.getCalendar(groupId, month);
     if (
+      !task.isCurrent() ||
       serial !== page._calendarSerial ||
       page._currentGroupId !== groupId ||
       page.data.businessMonth !== month
@@ -499,13 +508,15 @@ async function loadCalendarMonth(page: DutyPageInstance, month: string): Promise
     page._calendar = calendar;
     syncCandidates(page);
   } catch (error) {
-    if (serial === page._calendarSerial) {
+    if (task.isCurrent() && serial === page._calendarSerial) {
       page.setData({
         requestErrorMessage: toUserMessage(error, '加扣班月份暂时无法加载，请稍后重试。'),
       });
     }
   } finally {
-    if (serial === page._calendarSerial) page.setData({ requestBusy: false });
+    if (task.isCurrent() && serial === page._calendarSerial) {
+      page.setData({ requestBusy: false });
+    }
   }
 }
 
@@ -571,6 +582,8 @@ function syncDutyLists(page: DutyPageInstance): void {
 }
 
 async function computeRequestPreview(page: DutyPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const input = getRequestPair(page);
   if (input === undefined) {
     page.setData({ requestErrorMessage: '请先选择自己的班次和加班成员。' });
@@ -580,17 +593,22 @@ async function computeRequestPreview(page: DutyPageInstance): Promise<void> {
   page.setData({ requestBusy: true });
   try {
     const preview = await workflowClient.previewDutyAdjustment(page._currentGroupId, input);
+    if (!task.isCurrent()) return;
     page._requestPreview = preview;
     page._requestPreviewInput = Object.freeze({ ...input });
     page.setData(createPreviewPatch(preview, 'request'));
   } catch (error) {
+    if (!task.isCurrent()) return;
     await handlePreviewError(page, error, 'request');
+    if (!task.isCurrent()) return;
   } finally {
-    page.setData({ requestBusy: false });
+    if (task.isCurrent()) page.setData({ requestBusy: false });
   }
 }
 
 async function submitDutyRequest(page: DutyPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page.data.requestBusy || page._currentGroupId === '') return;
   const pair = getRequestPair(page);
   if (pair === undefined) {
@@ -599,6 +617,7 @@ async function submitDutyRequest(page: DutyPageInstance): Promise<void> {
   }
   if (!pairMatches(page._requestPreviewInput, pair)) {
     await computeRequestPreview(page);
+    if (!task.isCurrent()) return;
     if (!pairMatches(page._requestPreviewInput, pair)) return;
   }
   const reason = page.data.reason.trim();
@@ -608,6 +627,7 @@ async function submitDutyRequest(page: DutyPageInstance): Promise<void> {
   page.setData({ requestBusy: true, requestErrorMessage: '', infoMessage: '' });
   try {
     const created = await workflowClient.createDutyAdjustmentRequest(page._currentGroupId, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
       infoMessage:
@@ -621,19 +641,24 @@ async function submitDutyRequest(page: DutyPageInstance): Promise<void> {
     resetRequestForm(page);
     notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ requestErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       clearRequestPreview(page);
       await loadDutyPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ requestBusy: false });
+    if (task.isCurrent()) page.setData({ requestBusy: false });
   }
 }
 
 async function computeAdminPreview(page: DutyPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const input = getAdminPair(page);
   if (input === undefined) {
     page.setData({ adminErrorMessage: '请选择被代班班次和加班成员。' });
@@ -643,17 +668,22 @@ async function computeAdminPreview(page: DutyPageInstance): Promise<void> {
   page.setData({ adminBusy: true });
   try {
     const preview = await workflowClient.previewDutyAdjustment(page._currentGroupId, input);
+    if (!task.isCurrent()) return;
     page._adminPreview = preview;
     page._adminPreviewInput = Object.freeze({ ...input });
     page.setData(createPreviewPatch(preview, 'admin'));
   } catch (error) {
+    if (!task.isCurrent()) return;
     await handlePreviewError(page, error, 'admin');
+    if (!task.isCurrent()) return;
   } finally {
-    page.setData({ adminBusy: false });
+    if (task.isCurrent()) page.setData({ adminBusy: false });
   }
 }
 
 async function submitDirectDuty(page: DutyPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.adminBusy || page._currentGroupId === '') return;
   const pair = getAdminPair(page);
   if (pair === undefined) {
@@ -662,6 +692,7 @@ async function submitDirectDuty(page: DutyPageInstance): Promise<void> {
   }
   if (!pairMatches(page._adminPreviewInput, pair)) {
     await computeAdminPreview(page);
+    if (!task.isCurrent()) return;
     if (!pairMatches(page._adminPreviewInput, pair)) return;
   }
   const reason = page.data.adminReason.trim();
@@ -671,6 +702,7 @@ async function submitDirectDuty(page: DutyPageInstance): Promise<void> {
   page.setData({ adminBusy: true, adminErrorMessage: '', infoMessage: '' });
   try {
     const created = await workflowClient.createDirectDutyAdjustment(page._currentGroupId, request);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
       adminFormVisible: false,
@@ -679,15 +711,18 @@ async function submitDirectDuty(page: DutyPageInstance): Promise<void> {
     resetAdminForm(page);
     notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ adminErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       clearAdminPreview(page);
       await loadDutyPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ adminBusy: false });
+    if (task.isCurrent()) page.setData({ adminBusy: false });
   }
 }
 
@@ -696,6 +731,8 @@ async function mutateDuty(
   id: string | undefined,
   action: 'accept' | 'approve' | 'cancel' | 'reject',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const duty = findDutyRequest(page, id);
   if (duty === undefined || page.data.mutationBusyIds.includes(duty.id)) return;
   const operationKey = `${page._currentGroupId}:duty-adjustment:${action}:${duty.id}:${duty.version}`;
@@ -715,18 +752,26 @@ async function mutateDuty(
     } else {
       await workflowClient.rejectDutyAdjustment(page._currentGroupId, duty.id, input);
     }
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({ infoMessage: '加扣班状态已更新。' });
     notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       await loadDutyPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ mutationBusyIds: page.data.mutationBusyIds.filter((item) => item !== duty.id) });
+    if (task.isCurrent()) {
+      page.setData({
+        mutationBusyIds: page.data.mutationBusyIds.filter((item) => item !== duty.id),
+      });
+    }
   }
 }
 
@@ -735,16 +780,23 @@ async function confirmDutyMutation(
   id: string | undefined,
   action: 'cancel' | 'reject',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const duty = findDutyRequest(page, id);
   if (duty === undefined) return;
   const content =
     action === 'cancel'
       ? '确定撤销该加扣班申请吗？'
       : `确定驳回 ${duty.deductedMemberName ?? ''} 的加扣班申请吗？`;
-  if (await showConfirm(content)) await mutateDuty(page, duty.id, action);
+  const confirmed = await showConfirm(content);
+  if (!task.isCurrent() || !confirmed) return;
+  await mutateDuty(page, duty.id, action);
+  if (!task.isCurrent()) return;
 }
 
 async function revokeDuty(page: DutyPageInstance): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const duty = page._revokeTarget;
   if (duty === undefined || page.data.revokeBusy) return;
   const reason = page.data.revokeReason.trim();
@@ -756,6 +808,7 @@ async function revokeDuty(page: DutyPageInstance): Promise<void> {
   page.setData({ revokeBusy: true, revokeErrorMessage: '' });
   try {
     await workflowClient.revokeDutyAdjustment(page._currentGroupId, duty.id, input);
+    if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page._revokeTarget = undefined;
     page.setData({
@@ -764,26 +817,32 @@ async function revokeDuty(page: DutyPageInstance): Promise<void> {
     });
     notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ revokeErrorMessage: getMutationErrorMessage(error) });
     if (isConflict(error)) {
       page._operationAttempts.delete(operationKey);
       page._revokeTarget = undefined;
       page.setData({ revokeVisible: false });
       await loadDutyPageWithCapability(page, { preserveForms: true });
+      if (!task.isCurrent()) return;
     }
   } finally {
-    page.setData({ revokeBusy: false });
+    if (task.isCurrent()) page.setData({ revokeBusy: false });
   }
 }
 
 async function updateGroupApproval(page: DutyPageInstance, checked: boolean): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.settingsBusy) return;
   page.setData({ settingsBusy: true, errorMessage: '', infoMessage: '' });
   try {
     const result = await workflowClient.updateGroupDutyAdjustmentSettings(page._currentGroupId, {
       requiresApproval: checked,
     });
+    if (!task.isCurrent()) return;
     page.setData({
       infoMessage: result.requiresApproval
         ? '加扣班已改为需要管理员审批。'
@@ -791,19 +850,23 @@ async function updateGroupApproval(page: DutyPageInstance, checked: boolean): Pr
       requiresApproval: result.requiresApproval,
     });
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。') });
   } finally {
-    page.setData({ settingsBusy: false });
+    if (task.isCurrent()) page.setData({ settingsBusy: false });
   }
 }
 
 async function updateAutoAccept(page: DutyPageInstance, checked: boolean): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   if (page.data.settingsBusy) return;
   page.setData({ settingsBusy: true, errorMessage: '', infoMessage: '' });
   try {
     const result = await workflowClient.updateMySwapSettings(page._currentGroupId, {
       autoAcceptSwaps: checked,
     });
+    if (!task.isCurrent()) return;
     page.setData({
       autoAcceptSwaps: result.autoAcceptSwaps,
       infoMessage: result.autoAcceptSwaps
@@ -811,9 +874,10 @@ async function updateAutoAccept(page: DutyPageInstance, checked: boolean): Promi
         : '已关闭自动接受换班/加扣班。',
     });
   } catch (error) {
+    if (!task.isCurrent()) return;
     page.setData({ errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。') });
   } finally {
-    page.setData({ settingsBusy: false });
+    if (task.isCurrent()) page.setData({ settingsBusy: false });
   }
 }
 
@@ -822,13 +886,18 @@ async function handlePreviewError(
   error: unknown,
   form: 'admin' | 'request',
 ): Promise<void> {
+  const task = captureWorkflowControllerTask(page);
+  if (!task.isCurrent()) return;
   const message = isConflict(error)
     ? '排班数据已被其他操作更新，请重新选择班次并生成预览。'
     : toUserMessage(error, '加扣班预览暂时无法生成。');
   page.setData(
     form === 'admin' ? { adminErrorMessage: message } : { requestErrorMessage: message },
   );
-  if (isConflict(error)) await loadDutyPageWithCapability(page, { preserveForms: true });
+  if (isConflict(error)) {
+    await loadDutyPageWithCapability(page, { preserveForms: true });
+    if (!task.isCurrent()) return;
+  }
 }
 
 function syncAdminOvertimeOptionsAfterReset(page: DutyPageInstance): void {

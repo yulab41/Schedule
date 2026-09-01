@@ -12,9 +12,12 @@ interface ControllerDefinition {
 
 interface WorkflowPanelHost {
   __attached?: boolean;
+  __workflowAttachmentToken?: object;
   __controller: ControllerDefinition | undefined;
+  __workflowControllerToken?: object;
   __infoMessageTimer?: unknown;
   __loadedGroupId?: string;
+  __workflowLifecycleManaged?: true;
   readonly data: Readonly<Record<string, unknown>>;
   readonly properties: {
     readonly active: boolean;
@@ -33,6 +36,24 @@ interface WorkflowPageHost extends WorkflowPanelHost {
 interface WorkflowPageBoundaries {
   readonly controller: MiniTelemetryBoundaryMarker;
   readonly page: MiniTelemetryBoundaryMarker;
+}
+
+export interface WorkflowControllerTask {
+  isCurrent(): boolean;
+}
+
+export function captureWorkflowControllerTask(host: object): WorkflowControllerTask {
+  const target = host as WorkflowPanelHost;
+  if (target.__workflowLifecycleManaged !== true) return { isCurrent: () => true };
+  const controller = target.__controller;
+  const token = target.__workflowControllerToken;
+  return {
+    isCurrent: () =>
+      token !== undefined &&
+      target.__attached === true &&
+      target.__controller === controller &&
+      target.__workflowControllerToken === token,
+  };
 }
 
 export function createWorkflowPageDefinition(
@@ -75,12 +96,7 @@ export function createWorkflowPageDefinition(
       if (typeof onHide === 'function') (onHide as ControllerMethod).call(this);
     },
     onUnload(this: WorkflowPageHost): void {
-      try {
-        const onUnload = this.__controller?.['onUnload'];
-        if (typeof onUnload === 'function') (onUnload as ControllerMethod).call(this);
-      } finally {
-        detachWorkflowPageHost(this);
-      }
+      detachWorkflowPageHost(this);
     },
     handlePickerRequestOpen(this: WorkflowPageHost): void {
       closeWorkflowPickers(this);
@@ -120,17 +136,16 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     data: { ...prototype.data, embedded: true },
     lifetimes: {
       attached(this: WorkflowPanelHost): void {
-        this.__attached = true;
-        this.setData({ embedded: this.properties.embedded }, () =>
-          this.triggerEvent?.('workspaceready'),
-        );
+        const attachmentToken = attachWorkflowHost(this);
+        this.setData({ embedded: this.properties.embedded }, () => {
+          if (isWorkflowAttachmentCurrent(this, attachmentToken)) {
+            this.triggerEvent?.('workspaceready');
+          }
+        });
         startController(this, createDefinition);
       },
       detached(this: WorkflowPanelHost): void {
-        clearInfoMessageTimer(this);
-        this.__attached = false;
-        this.__controller = undefined;
-        this.__loadedGroupId = '';
+        detachWorkflowHost(this);
       },
     },
     observers: {
@@ -164,7 +179,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
 }
 
 function attachWorkflowPageHost(host: WorkflowPageHost): void {
-  host.__attached = true;
+  attachWorkflowHost(host);
   if (host.__workflowPageOriginalSetData !== undefined) return;
   const originalSetData = host.setData;
   host.__workflowPageOriginalSetData = originalSetData;
@@ -181,9 +196,7 @@ function attachWorkflowPageHost(host: WorkflowPageHost): void {
 }
 
 function detachWorkflowPageHost(host: WorkflowPageHost): void {
-  clearInfoMessageTimer(host);
-  host.__attached = false;
-  host.__controller = undefined;
+  detachWorkflowHost(host);
   const originalSetData = host.__workflowPageOriginalSetData;
   if (originalSetData !== undefined) host.setData = originalSetData;
   delete host.__workflowPageOriginalSetData;
@@ -196,11 +209,9 @@ function startWorkflowPageController(
   boundary?: MiniTelemetryBoundaryMarker,
 ): void {
   if (boundary !== undefined) recordMiniTelemetryBoundary(boundary);
+  disposeWorkflowController(host);
   const controller = normalizeDefinition(createDefinition(false));
-  host.__controller = controller;
-  for (const [key, value] of Object.entries(controller)) {
-    if (key.startsWith('_')) (host as unknown as Record<string, unknown>)[key] = value;
-  }
+  installWorkflowController(host, controller);
   host.setData(controller.data);
   const onLoad = controller['onLoad'];
   if (typeof onLoad === 'function') (onLoad as ControllerMethod).call(host, query);
@@ -222,9 +233,10 @@ function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
   clearInfoMessageTimer(host);
   if (typeof value !== 'string' || value === '') return;
   const expected = value;
+  const task = captureWorkflowControllerTask(host);
   host.__infoMessageTimer = setTimeout(() => {
     host.__infoMessageTimer = undefined;
-    if (host.__attached === true && host.data['infoMessage'] === expected) {
+    if (task.isCurrent() && host.data['infoMessage'] === expected) {
       host.setData({ infoMessage: '' });
     }
   }, 2_000);
@@ -236,25 +248,62 @@ function startController(
 ): void {
   const groupId = host.properties.groupId;
   if (groupId === '') {
-    const onUnload = host.__controller?.['onUnload'];
-    if (typeof onUnload === 'function') onUnload.call(host);
-    host.__controller = undefined;
-    host.__loadedGroupId = '';
+    disposeWorkflowController(host);
     return;
   }
   if (host.__loadedGroupId === groupId) return;
+  disposeWorkflowController(host);
   const controller = normalizeDefinition(createDefinition(host.properties.embedded));
-  host.__controller = controller;
   host.__loadedGroupId = groupId;
-  for (const [key, value] of Object.entries(controller)) {
-    if (key.startsWith('_')) (host as unknown as Record<string, unknown>)[key] = value;
-  }
+  installWorkflowController(host, controller);
   host.setData(controller.data);
   const onLoad = controller['onLoad'];
   if (typeof onLoad === 'function') {
     host.triggerEvent?.('workspacerequest');
     onLoad.call(host, { groupId });
   }
+}
+
+function attachWorkflowHost(host: WorkflowPanelHost): object {
+  const token = {};
+  host.__workflowLifecycleManaged = true;
+  host.__attached = true;
+  host.__workflowAttachmentToken = token;
+  return token;
+}
+
+function detachWorkflowHost(host: WorkflowPanelHost): void {
+  host.__attached = false;
+  delete host.__workflowAttachmentToken;
+  disposeWorkflowController(host);
+}
+
+function disposeWorkflowController(host: WorkflowPanelHost): void {
+  const controller = host.__controller;
+  try {
+    const onUnload = controller?.['onUnload'];
+    if (typeof onUnload === 'function') (onUnload as ControllerMethod).call(host);
+  } finally {
+    clearInfoMessageTimer(host);
+    delete host.__workflowControllerToken;
+    host.__controller = undefined;
+    host.__loadedGroupId = '';
+  }
+}
+
+function installWorkflowController(
+  host: WorkflowPanelHost,
+  controller: ControllerDefinition,
+): void {
+  host.__controller = controller;
+  host.__workflowControllerToken = {};
+  for (const [key, value] of Object.entries(controller)) {
+    if (key.startsWith('_')) (host as unknown as Record<string, unknown>)[key] = value;
+  }
+}
+
+function isWorkflowAttachmentCurrent(host: WorkflowPanelHost, token: object): boolean {
+  return host.__attached === true && host.__workflowAttachmentToken === token;
 }
 
 function normalizeDefinition(value: unknown): ControllerDefinition {
