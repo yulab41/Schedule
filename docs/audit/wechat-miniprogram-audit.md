@@ -1,13 +1,65 @@
 # 微信小程序审计报告
 
-- 审计阶段：阶段 B 后体验版上传前纠偏；基线为 clean `a23266182122c6e2fcb5ca5aba5d8857ef781910`
+- 审计阶段：test-tools Skyline 语义回归最终收口；起始主线为 clean `89cafa28ce3b5bc0e3805ac163491738f3d89b49`
 - 更新时间：2026-09-01（Asia/Hong_Kong）
-- 纠偏代码 checkpoint：`a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4`，已推送并快进 `origin/main`
-- 历史体验构建：`.72@5fff288`、`.73@c7c142e` 均已上传
+- 当前源码 checkpoint：`a2cdd0651783538a0aa6a566d30922391752d528`；前驱通讯录纠偏
+  `a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4` 保持在主线
+- 历史体验构建：`.72@5fff288`、`.73@c7c142e`、`.74@d23a78a`、`.75@24a847f`
+- 当前体验构建：`.76@a2cdd06`，描述 `p10-test-tools-skyline-a2cdd06`，已上传
 - 本轮上传源码：`24a847ffdeec5899ab7c9d505c740b715df3ef6e`；`.75@24a847f` 已用仓库标准 CLI
   重传，开发版即体验版，无额外网页设置
 - 本批性质：独立 worktree 的纯小程序/文档纠偏；代码阶段不操作 API、数据库、production 或用户脏主树；
   上传后仅按用户单独授权追加 `.75` production allowlist
+
+## 2026-09-01 test-tools Skyline 修复语义核验与最终收口
+
+### 提交关系与结论
+
+- 历史真机验收源码 `d23a78a9d0f9769102957ecefd6f6781a37f06d2` 与通讯录纠偏提交
+  `a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4` 的 merge-base 均为 `a2326618`；`a9021c4e`
+  已进入主线，`d23a78a9` 未进入主线，只保留为 `.74` 历史验收证据。
+- `a9021c4e` 的通讯录诊断功能本身继续保留，但其 test-tools 文件仍继承旧基线：四处
+  `overflow-wrap:anywhere`、两组 Grid/四处 `grid-template-columns`、一处 `:last-of-type` 及缺失的
+  兼容回归合同均存在。因此当前实现属于“本轮重新向前修复”，不是回退通讯录，也不是整体覆盖旧文件。
+- 当前源码 checkpoint 为 `a2cdd0651783538a0aa6a566d30922391752d528`：仅修改 test-tools WXML、
+  WXSS 和直接测试；通讯录下次启动标记、诊断字段、隐私上限、复制报告和目录 controller 保持不变。
+
+### 当前不变量与自动证据
+
+- 四处长文本使用 `word-break:break-all`；目标 Grid 与 `grid-template-columns` 成对清除；截图文字使用
+  `.scenario-screenshot`。报告按钮为可换行 Flex 且各 `flex:1;min-width:0`；场景链接
+  `flex:1;min-width:0`，正常/异常固定 54px；320px 下报告按钮纵向、链接独占一行。
+- 定向测试先在当前主线得到 15/16 红灯，修复后 17/17；动态调用确认同一
+  `handleScenarioResult` 对 `passed/issue` 立即更新，WXML 事件绑定、`disableScroll:false` 和页面纵向
+  滚动架构不变。320/390/412 宽度、固定按钮余量、长文本和无横溢由当前合同测试覆盖。
+- 当前 SHA：Mini 111 files/580 tests、TypeScript、276-file production build、Mini verify、CI dry-run、
+  ESLint/Prettier/core smoke 均通过。verify：package 5,114,546 B，Worklet 2/2，矩阵 1445/1506，
+  manifest `65494ddc…80d0`；dry-run manifest `1b91f003…d473`。
+- 当前源码和新 dist 对 `display:grid|grid-template-columns|overflow-wrap:anywhere|:last-of-type` 扫描均
+  为 0，四处 `word-break:break-all` 均存在。构建标识
+  `0.1.0-p10.20260901.76@a2cdd06`、描述 `p10-test-tools-skyline-a2cdd06`、`buildDirty=false`。
+
+### 开发者工具、上传和证据边界
+
+- 当前 SHA 在真实微信开发者工具 Stable `2.02.2608040`、基础库 3.17.1、Skyline、develop 下编译并
+  打开 test-tools；390px 截图显示 `.76@a2cdd06`。fresh Console 与截图后 Console 的应用 error 均为
+  0，目标 9 条页面级 Warning 为 0；仅两条独立 `tagNameStyleIsolation` 环境提示。
+- 已知 `getPageMetaByWebviewId(...)=null` 是 automator/inspectee 环境问题，不是源码故障；本轮未重复
+  触发，也未据此修改业务代码。基础库灰度/线上最低版本提示继续作为独立环境事项。
+- `.76@a2cdd06` 已从 exact clean 源码经标准 `pnpm miniprogram:upload-experience` 上传：191 code files、
+  ZIP 2,446,002 B、manifest `e50d001d…f027`。未提交审核、未正式发布、未灰度、未改 production、
+  allowlist、数据库、备份或服务器 release。
+- 历史 `.74@d23a78a` 已由用户在小米 14 按 test-tools 清单确认无异常；该真机证据不能改写为当前
+  `.76@a2cdd06` 已真机验证。当前准确结论是：主线已重新向前恢复历史真机验收的不变量，并通过当前
+  SHA 的自动化与真实开发者工具回归。
+- 后续 docs-only 收口提交 SHA 与体验版源码 SHA 必然不同；docs-only 提交只记录证据，不得描述为
+  `.76` 体验版源码，也不触发再次上传或任何 production 操作。
+
+### 留待后续问题组
+
+- 主包 1.5 MiB 提示进入包体积审计；矩阵节点 1445/1506 进入“页面状态、异步链路与列表性能”。
+- 既有首次冷构建固定时限波动不能直接作为用户侧性能问题；绑定状态 503 只有再次复现并取得直接
+  证据时才重新调查。test-tools Skyline Warning 清理在本轮完成并关闭。
 
 ## 普通用户版结论
 
@@ -159,16 +211,17 @@ Skills。本项目未使用 CloudBase，也没有自动化微信开发者工具�
 
 ### 微信开发者工具和 MCP
 
-- PATH 中可发现 `wechatide.cmd`，但没有执行它，也没有把“命令存在”写成“工具已就绪”。
-- 当前会话没有暴露可直接调用的微信小程序/CloudBase MCP 工具。
-- `apps/miniprogram/AGENTS.md` 明令 LLM 不得控制微信开发者工具 GUI/CLI，这比通用 Skill 更严格；
-  所以本轮未运行 `check_wechatide_status`、模拟器、Console、Network、截图或微信工具上传。
-- 允许且已实际使用的是仓库 Node/TypeScript/Vitest/esbuild/包体脚本和 Node `miniprogram-ci` 上传。
+- 以下四项是阶段 0 当时的执行面记录，已被本文顶部 2026-09-01 当前 SHA 证据补充；不得当成
+  test-tools 收口轮次的现状。
+- 阶段 0 时 PATH 中可发现 `wechatide.cmd`，但未执行，也没有把“命令存在”写成“工具已就绪”。
+- 阶段 0 会话没有暴露可直接调用的微信小程序/CloudBase MCP 工具，并按当时仓库政策未操作 GUI/CLI。
+- 阶段 0 实际使用仓库 Node/TypeScript/Vitest/esbuild/包体脚本；后续上传使用 Node `miniprogram-ci`。
 
 ### 工具限制导致的未验证项
 
-开发者工具编译、Console error/warning、Network、页面启动/切换、真实请求数、白屏、软键盘、原生
-Skyline 布局和小米 14 体验版均为：“当前工具无法测量，暂未验证”。
+本段只记录阶段 0 当时的未验证项：开发者工具编译、Console/Network、页面启动/切换、真实请求数、
+白屏、软键盘、原生 Skyline 布局和小米 14 体验版当时均为“当前工具无法测量，暂未验证”。当前
+test-tools Console/Skyline/390px 与历史 `.74` 小米 14 证据以本文顶部收口章节为准。
 
 ## 3. 技术栈与工程结构
 
@@ -191,8 +244,8 @@ Skyline 布局和小米 14 体验版均为：“当前工具无法测量，暂�
 | 请求       | 统一 `wx.request`/`wx.downloadFile`；Bearer、401 恢复、幂等和有限重试 | `src/platform/`                           |
 | 缓存       | 私有 storage；会话、群组/月度工作台缓存；24h 只读缓存，无离线写队列   | `private-storage.ts`、`workbench-read.ts` |
 
-当前本地 `project.config.json`/私有配置显示基础库 3.17.1，但该 `project.config.json` 含用户未提交变化；
-该值只代表本机当前设置，不能冒充 clean Git 基线或实体微信客户端实际基础库。
+阶段 0 当时本地配置显示基础库 3.17.1，但含用户未提交变化，因此当时不能作为 clean Git 或实体机
+证据。当前收口轮次已由 clean worktree 的临时 private 配置和真实 Console 独立确认基础库 3.17.1。
 
 ## 4. 主包、分包与页面
 
@@ -419,8 +472,8 @@ favicon 证据后复测，实际页面 6 个按钮均 ≥44px、页面错误为 
 
 ### 10.4 未验证与人工证据
 
-仓库政策禁止代理调用微信开发者工具，因此 DevTools 编译、Console/Network 和原生页面截图仍是
-“当前工具无法测量，暂未验证”。`.70@18498a8` 已上传，但只有用户在小米 14 提供匹配版本的
-版本/设备/安全区/显示/交互证据后，才可把本批状态更新为实体 Android 验收通过。
+本段是 `.70@18498a8` 当时的边界记录：当轮 DevTools/Console/原生截图尚未验证。其后
+`.74@d23a78a` 已由用户完成小米 14 test-tools 验收；当前 `.76@a2cdd06` 已完成自动化与真实
+DevTools 回归但未被描述为当前 SHA 真机通过。各 SHA 的证据不得互换。
 
 后续唯一建议任务见 `docs/audit/STATUS.md`。
