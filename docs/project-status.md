@@ -65,7 +65,8 @@
 ## 当前活动批次
 
 - 唯一任务为“体验版上传前纠偏审计”，checkpoint 以
-  `fix(miniprogram): correct preupload diagnostics boundaries` 识别；不改 API contract、数据库、索引、
+  `a9021c4e fix(miniprogram): correct preupload diagnostics boundaries` 识别，已推送并快进
+  `origin/main`；不改 API contract、数据库、索引、
   production 缓存或搜索业务。
 - App 只保留会话内定长数据槽和一次性启动标记；旧 `runtime-directory-diagnostics-bridge.ts` 与
   `search-diagnostics.ts` 已删除。报告/复制/展示只在 diagnostics 分包；organization 以同分包共享
@@ -76,9 +77,9 @@
   原始 response/header/profile/搜索参数不进入仓库，序列化耗时和估算标志单列。
 - capability 等待、失败、无权限零请求、卸载/群组变化失效、Promise 复用/释放、旧响应隔离均有直接
   回归；transport 仍是最终 capability/上下文门禁，未恢复 controller 的搜索前重复等待。
-- 相同 Node 24.14.0/pnpm 11.9.0、lockfile、production profile 和命令下，基线→预提交构建：总包
-  5,280,739→5,115,044 B，main 1,680,271→1,678,746 B（`app.js` −7,865 B），organization
-  1,231,973→1,053,980 B；最终 clean SHA 仍须在提交后复核。
+- 相同 Node 24.14.0/pnpm 11.9.0、lockfile、production profile 和命令下，基线→clean checkpoint：
+  总包 5,280,739→5,115,045 B，main 1,680,271→1,678,747 B（`app.js` −7,977 B），organization
+  1,231,973→1,053,980 B。
 - 完整 Mini 同一命令连续两次均为 111 files/578 tests/0 skipped。此前 561/560 差异的唯一测试是
   用户脏主树未提交的 `renders member rows without combining wx:else and wx:for on one element`，不属于本批。
 
@@ -241,8 +242,8 @@
 
 ## 下一步与停止条件
 
-1. 完成 checkpoint 提交/推送，并在最终 clean SHA 重跑 production build、包体、determinism 与上传 dry-run。
-2. 查询历史后只生成新的未使用拟上传版本；等待用户基于最终结果当次明确批准，不复用 `.72/.73`。
+1. `.74` 已被另一份本地原生验收证据占用；拟上传版本使用首个全局未占用的 `.75` 并绑定最终 SHA。
+2. 等待用户基于最终结果当次明确批准；不得把 dry-run 当成上传，不复用 `.72/.73/.74`。
 
 停止条件：本轮不上传体验版，不部署 production，不创建生产备份或同步服务器 release 标识；微信原生
 Console/拖拽手感与小米 14 新体验版继续待用户人工验收。

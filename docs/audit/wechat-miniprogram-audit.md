@@ -2,7 +2,7 @@
 
 - 审计阶段：阶段 B 后体验版上传前纠偏；基线为 clean `a23266182122c6e2fcb5ca5aba5d8857ef781910`
 - 更新时间：2026-09-01（Asia/Hong_Kong）
-- 纠偏 checkpoint：以 `fix(miniprogram): correct preupload diagnostics boundaries` 识别，待提交/推送
+- 纠偏代码 checkpoint：`a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4`，已推送并快进 `origin/main`
 - 历史体验构建：`.72@5fff288`、`.73@c7c142e` 均已上传；本轮尚未上传任何新版本
 - 本批性质：独立 worktree 的纯小程序/文档纠偏；不操作 API、数据库、production 或用户脏主树
 
@@ -13,9 +13,8 @@
 内；正式 release 清除一次性标记且不创建诊断槽。统一 transport、鉴权、capability、重试、错误映射
 和请求复用保持不变。
 
-同一 Mini 命令连续两次均为 111 files/578 tests/0 skipped。包体相对 clean 基线总包净减 165,695 B，
-main 净减 1,525 B（其中 `app.js` 净减 7,865 B），organization 净减 177,993 B；最终 clean
-checkpoint 仍会在提交后复核。仓库规则
+同一 Mini 命令连续两次均为 111 files/578 tests/0 skipped。包体相对 clean 基线总包净减 165,694 B，
+main 净减 1,524 B（其中 `app.js` 净减 7,977 B），organization 净减 177,993 B。仓库规则
 禁止代理操作微信开发者工具，因此 Console、原生拖拽手感和小米 14 新体验版继续待人工验收。
 
 ## 2026-09-01 体验版上传前纠偏审计

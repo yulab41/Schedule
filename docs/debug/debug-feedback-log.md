@@ -1935,3 +1935,7 @@
 - 运行/原生验证：Node/Vitest/TypeScript/esbuild/静态包体证据有效；仓库禁止代理调用微信开发者工具，
   所以 Console、Network、原生拖拽手感和小米 14 新体验版仍未验证。本轮不上传、不部署 production、
   不创建生产备份或同步服务器 release。
+- checkpoint：`a9021c4ebc0398b42c99a23a06a0db8b7dcc3dd4` 已推送并正常快进 `origin/main`。clean
+  同口径包体为 total 5,115,045 B、main 1,678,747 B、organization 1,053,980 B；`.74` 已被另一份
+  本地原生验收证据占用，首个全局未占用拟上传版本为 `.75`。production verify/determinism 与
+  `upload-experience --dry-run` 通过；dry-run 未改变外部状态。

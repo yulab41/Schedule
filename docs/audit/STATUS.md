@@ -3,7 +3,7 @@
 - 当前阶段：阶段 B 后“体验版上传前纠偏审计”
 - 基线：`a23266182122c6e2fcb5ca5aba5d8857ef781910`（核验后的最新 `origin/main`，包含阶段 B）
 - 工作区：`codex/preupload-diagnostics-correction`，独立 worktree；用户脏主工作树未修改
-- checkpoint：以 `fix(miniprogram): correct preupload diagnostics boundaries` 识别，待提交/推送
+- 代码 checkpoint：`a9021c4e fix(miniprogram): correct preupload diagnostics boundaries`，已推送并快进 `origin/main`
 - `.72@5fff288`、`.73@c7c142e`：历史已上传版本；本轮未上传、未提审、未正式发布
 - production：本轮未部署、未备份数据库、未同步服务器 release 元数据
 
@@ -32,7 +32,7 @@
 | Mini 全量稳定性  | 同一命令连续两次均 111 files / 578 tests / 0 skipped                                                     |
 | 仓库非 Mini 全量 | 242 files / 1,132 tests 通过；37 files / 355 tests 因无隔离测试数据库跳过                                |
 | 旧 561/560 差异  | 唯一多项为脏主树未提交测试 `renders member rows without combining wx:else and wx:for on one element`     |
-| 包体基线→预提交  | total 5,280,739→5,115,044；main 1,680,271→1,678,746（app.js −7,865）；organization 1,231,973→1,053,980 B |
+| 包体基线→clean   | total 5,280,739→5,115,045；main 1,680,271→1,678,747（app.js −7,977）；organization 1,231,973→1,053,980 B |
 | 包边界           | 报告/复制只在 diagnostics；profile/header 白名单解析只在 organization bridge；App/热入口无重型报告符号   |
 | 工具链           | Node 24.14.0、pnpm 11.9.0、仓库 lockfile、production profile                                             |
 
@@ -46,5 +46,5 @@
 
 - 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮没有微信原生 Console、Network 或拖拽手感证据。
 - Web/Node 证据不作为微信原生验收；小米 14 新体验版仍待用户在未来获批上传后人工验收。
-- 下一任务：提交/推送后在最终 clean SHA 复跑 production verify、determinism、包体和上传 dry-run，
-  查询历史并生成新的未使用拟上传版本；仍不得上传或操作 production。
+- `.74` 已被另一份本地原生验收证据占用；首个全局未占用拟上传版本为 `.75`。下一任务是等待用户
+  基于最终结果当次明确批准；仍不得上传或操作 production。
