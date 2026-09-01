@@ -888,6 +888,9 @@ function activateMode(page: DirectoryPageInstance, kind: DirectoryKind, animate:
   const normalized = normalizeDirectoryKind(kind);
   const index = modeIndex(normalized);
   if (page.data.directoryKind === normalized && page.data.activeModeIndex === index) return;
+  for (const directoryKind of directoryKinds) {
+    clearSearchTimer(getRuntime(page, directoryKind));
+  }
   const previous = page.data.directoryKind;
   const runtime = getRuntime(page, normalized);
   const cards = createDirectoryCards(runtime, normalized);
@@ -1484,6 +1487,10 @@ function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void 
     resetSearchResults(page, kind);
     return;
   }
+  if (pane.searchQuery.trim().length > 0 && !containsHanCharacter(pane.searchQuery)) {
+    resetSearchResults(page, kind);
+    return;
+  }
   runtime.querySerial += 1;
   runtime.currentBaseQueryKey = undefined;
   runtime.completedBaseQueryKey = undefined;
@@ -1497,6 +1504,21 @@ function scheduleSearch(page: DirectoryPageInstance, kind: DirectoryKind): void 
     runtime.searchTimer = undefined;
     void search(page, kind);
   }, 500);
+}
+
+function containsHanCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (
+      (codePoint >= 0x3400 && codePoint <= 0x4dbf) ||
+      (codePoint >= 0x4e00 && codePoint <= 0x9fff) ||
+      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+      (codePoint >= 0x20_000 && codePoint <= 0x32_3af)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function search(

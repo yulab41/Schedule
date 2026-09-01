@@ -185,6 +185,140 @@ describe('P10 native directory controller', () => {
     expect(lastRequest().url).toContain('q=%E6%9D%8E%E5%9B%9B%E4%BA%94');
   });
 
+  it('does not auto-send a slowly typed partial full-pinyin query', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    for (const value of ['x', 'xu', 'xum', 'xuma', 'xuman', 'xumanb']) {
+      definition.methods.handleSearchInput.call(page, { detail: { value } });
+      await vi.advanceTimersByTimeAsync(600);
+    }
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+  });
+
+  it('does not auto-send slowly typed ASCII initials without confirmation', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    for (const value of ['x', 'xm', 'xmb']) {
+      definition.methods.handleSearchInput.call(page, { detail: { value } });
+      await vi.advanceTimersByTimeAsync(600);
+    }
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+  });
+
+  it('does not auto-send one-character or intermediate numeric input', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    for (const value of ['0', '04', '046', '0468']) {
+      definition.methods.handleSearchInput.call(page, { detail: { value } });
+      await vi.advanceTimersByTimeAsync(600);
+    }
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+  });
+
+  it('keeps a single Han character eligible for the 500ms automatic search', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '徐' } });
+    await vi.advanceTimersByTimeAsync(499);
+    expect(listRequests()).toHaveLength(listRequestCount);
+    await vi.advanceTimersByTimeAsync(1);
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('q=%E5%BE%90');
+  });
+
+  it('cancels the Han debounce when keyboard confirmation starts the same search', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '徐' } });
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(600);
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+  });
+
+  it('clears an unexpired Han debounce when the query is cleared', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '徐' } });
+    await vi.advanceTimersByTimeAsync(250);
+    definition.methods.handleClearSearch.call(page);
+    await vi.advanceTimersByTimeAsync(500);
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+    expect(page.data.internalPane.searchQuery).toBe('');
+  });
+
+  it('clears an unexpired debounce when switching directory modes', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '徐' } });
+    await vi.advanceTimersByTimeAsync(250);
+    definition.methods.handleEmployeeMode.call(page);
+    await vi.advanceTimersByTimeAsync(500);
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+    expect(page.data.directoryKind).toBe('employee');
+  });
+
+  it('lets a filter search replace an unexpired debounce without a second request', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '徐' } });
+    await vi.advanceTimersByTimeAsync(250);
+    definition.methods.handleFilterOption.call(page, {
+      currentTarget: {
+        dataset: { directoryKind: 'internal', filter: 'campusCode', value: 'main' },
+      },
+    });
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(500);
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+    expect(lastRequest().url).toContain('campusCode=main');
+  });
+
   it('loads facets, searches by text, filters independently, and loads a cursor page', async () => {
     const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
     definition.lifetimes.attached.call(page);
