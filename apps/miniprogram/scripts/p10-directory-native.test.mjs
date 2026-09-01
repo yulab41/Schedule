@@ -107,6 +107,13 @@ describe('P10 native directory parity', () => {
     );
     expect(executeSearch).not.toContain("await requireClientCapability('organization')");
     expect(template).toContain('class="filter-sheet"');
+    const searchAction = template.match(/<ui-button[\s\S]*?class="search-submit"[\s\S]*?>/u)?.[0];
+    expect(searchAction).toContain('label="搜索"');
+    expect(searchAction).toContain('bindpress="handleSearch"');
+    expect(searchAction).toContain('data-directory-kind="{{pane.directoryKind}}"');
+    expect(searchAction).toContain(
+      'disabled="{{pane.searching || pane.searchQuery.length === 0}}"',
+    );
     expect(template).toContain('style="{{filterSheetStyle}}"');
     expect(template).toContain('wx:if="{{!pane.facetsLoading && !pane.facetsErrorMessage}}"');
     expect(template).toContain('aria-disabled="true"');
@@ -123,6 +130,7 @@ describe('P10 native directory parity', () => {
     expect(styles).not.toContain('height: 92vh');
     expect(styles).not.toContain('max-height: 840px');
     expect(styles).toContain('.sheet-scroll');
+    expect(styles).toMatch(/\.search-submit\s*\{[^}]*flex:\s*0 0 auto;/su);
     expect(styles).toContain('min-height: 0');
     expect(styles).toContain('flex: 1');
   });

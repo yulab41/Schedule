@@ -192,7 +192,7 @@ describe('P10 native directory controller', () => {
     const listRequestCount = listRequests().length;
     vi.useFakeTimers();
 
-    for (const value of ['x', 'xu', 'xum', 'xuma', 'xuman', 'xumanb']) {
+    for (const value of ['x', 'xu', 'xum', 'xuma', 'xuman', 'xumanb', 'xumanbi', 'xumanbin']) {
       definition.methods.handleSearchInput.call(page, { detail: { value } });
       await vi.advanceTimersByTimeAsync(600);
     }
@@ -228,6 +228,58 @@ describe('P10 native directory controller', () => {
     }
 
     expect(listRequests()).toHaveLength(listRequestCount);
+  });
+
+  it('does not auto-send phone or ASCII-numeric mixed input', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+    vi.useFakeTimers();
+
+    for (const value of ['7', '70', '700', '7000', '70000000001', 'D0468', 'xmb0468']) {
+      definition.methods.handleSearchInput.call(page, { detail: { value } });
+      await vi.advanceTimersByTimeAsync(600);
+    }
+
+    expect(listRequests()).toHaveLength(listRequestCount);
+  });
+
+  it('uses one handler for the visible search action and keyboard confirmation', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const listRequestCount = listRequests().length;
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: 'xmb' } });
+    definition.methods.handleSearch.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(listRequestCount + 1);
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: 'xumanbin' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(listRequestCount + 2);
+  });
+
+  it('reuses one in-flight request across visible-button and keyboard confirmation', async () => {
+    const page = createPageInstance(definition, runtimeProperties());
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: 'xmb' } });
+    deferNextListRequest = true;
+
+    definition.methods.handleSearch.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+    });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(deferredListRequest).toBeDefined());
+    expect(listRequests()).toHaveLength(1);
+
+    deferredListRequest.success({ data: pageResponse(false), statusCode: 200 });
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
   });
 
   it('keeps a single Han character eligible for the 500ms automatic search', async () => {

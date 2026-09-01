@@ -145,6 +145,15 @@
             >
               <image src="/assets/icons/web-directory-close.svg" mode="aspectFit" />
             </view>
+            <ui-button
+              class="search-submit"
+              variant="primary"
+              label="搜索"
+              aria-label="搜索通讯录"
+              disabled="{{pane.searching || pane.searchQuery.length === 0}}"
+              data-directory-kind="{{pane.directoryKind}}"
+              bindpress="handleSearch"
+            ></ui-button>
           </view>
 
           <view wx:if="{{pane.errorMessage}}" class="directory-error" aria-role="alert">
