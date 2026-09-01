@@ -119,12 +119,15 @@
         <view class="diagnostic-action" aria-role="button" bindtap="handleClearDirectoryRecords">清空记录</view>
         <view class="diagnostic-action" aria-role="button" bindtap="handleCopyLatestDirectorySearch">复制最近一次</view>
         <view class="diagnostic-action" aria-role="button" bindtap="handleCopyRecentDirectorySearches">复制最近 10 次</view>
+        <view class="diagnostic-action is-primary {{nextLaunchDirectoryDiagnosticArmed ? 'is-disabled' : ''}}" aria-role="button" aria-disabled="{{nextLaunchDirectoryDiagnosticArmed}}" bindtap="handleArmNextLaunchDirectoryRecording">下次 App 启动首次搜索诊断</view>
+        <view class="diagnostic-action {{nextLaunchDirectoryDiagnosticArmed ? '' : 'is-disabled'}}" aria-role="button" aria-disabled="{{!nextLaunchDirectoryDiagnosticArmed}}" bindtap="handleCancelNextLaunchDirectoryRecording">取消下次启动诊断</view>
       </view>
+      <text class="directory-next-launch-state">{{nextLaunchDirectoryDiagnosticArmed ? '已设置：完全关闭后重新进入小程序，标记会在新的 App.onLaunch 中立即消费' : '未设置下次 App 启动诊断'}}</text>
       <view class="directory-diagnostic-steps">
         <text>标准步骤</text>
-        <text>1. 点“开始记录”，再点下方“回到工作台测试”。</text>
-        <text>2. 打开通讯录，依次做首次搜索、相同条件第二次、不同关键词、带筛选和科室搜索。</text>
-        <text>3. 条件允许时分别在 Wi-Fi 和移动网络测试；每个主要场景尽量做 5 次。</text>
+        <text>1. 页面会话诊断可点“开始记录”；下次启动首搜请点“下次 App 启动首次搜索诊断”。</text>
+        <text>2. 完全关闭并重新进入小程序，直接打开通讯录完成第一次搜索。</text>
+        <text>3. 再做相同条件第二次、不同关键词、带筛选和科室搜索；条件允许时比较 Wi-Fi/移动网络。</text>
         <text>4. 回到“更多 → 测试工具”，点“停止记录”，再复制最近 10 次发给 Codex。</text>
       </view>
       <view class="directory-diagnostic-recent">
@@ -136,8 +139,9 @@
             <text>{{item.totalMs}} ms</text>
           </view>
           <text>序号 {{item.diagnosticId}} · 长度 {{item.searchTermLength}} · 返回 {{item.resultCount}} 条 · 筛选 {{item.hasFilters ? '有' : '无'}}</text>
-          <text>请求前 {{item.facetsOrReleaseWaitMs}} ms · 网络响应 {{item.networkResponseMs}} ms · 转换 {{item.responseToConversionMs}} ms · 卡片 {{item.cardBuildMs}} ms · 可见 {{item.resultVisibleMs}} ms</text>
-          <text>setData {{item.setDataCallCount}} 次 / {{item.setDataTotalBytes}} B · profile {{item.profileLabel}} · request ID {{item.requestId}}</text>
+          <text>请求前 {{item.facetsOrReleaseWaitMs}} ms · 网络响应 {{item.networkResponseMs}} ms · 转换 {{item.responseToConversionMs}} ms · 卡片 {{item.cardBuildMs}} ms · 下一渲染周期完成 {{item.nextRenderCycleMs}} ms</text>
+          <text>setData {{item.setDataCallCount}} 次 / {{item.setDataTotalBytes}} B（估算） · profileEnabled {{item.profileEnabled ? '是' : '否'}} · 诊断序列化 {{item.diagnosticSerializationMs}} ms · request ID {{item.requestId}}</text>
+          <text>记录总耗时包含诊断附加开销；setData 提交和 wx.nextTick 都不代表用户已看到首张卡片。{{item.truncated ? '本条已安全截断。' : ''}}</text>
         </view>
       </view>
     </view>

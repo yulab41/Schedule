@@ -1910,3 +1910,28 @@
 - 状态转为“已实现待小米 14 复核”；最终上传状态识别消息为
   `docs(status): finalize directory phase b experience upload`。下一步只收集 `.73` 首次/重复/不同词/
   筛选/科室及可行时 Wi-Fi/移动网络诊断，不提前修改数据库或填写性能提升。
+
+## 2026-09-01 体验版上传前诊断边界纠偏
+
+- 基线与引入点：fetch 后 `origin/main=a23266182122c6e2fcb5ca5aba5d8857ef781910`，包含阶段 B，
+  无分叉。`git log -S`/`git blame` 确认 `18498a8b` 把诊断 store 放入 App，`73811f1f` 引入
+  通讯录 trace/profile 和“下一渲染可见”，`bb97145d` 增加 Server-Timing。独立 worktree 重做最小
+  修复，没有 reset 或整体 cherry-pick `5fff288f`。
+- 测试数量根因：脏主树比 clean `5fff288f` 多出的唯一测试为
+  `renders member rows without combining wx:else and wx:for on one element`，来自用户未提交的
+  `group-settings-page.test.mjs`；对应 WXML 同样未提交，本批未触碰。没有条件注册、skip 或生成文件原因。
+- 回归先红：完整 Mini 首轮明确暴露独立 Page 新 `active:true` 期望未同步，以及 `4de2cd91` 引入的
+  insights 测试把 8 月写死却读取真实当前月。前者补精确属性，后者仅在测试内冻结 Date 并恢复；
+  随后同一命令连续两次均 111 files/578 tests/0 skipped。
+- 诊断纠偏：App 改为普通定长槽；报告/复制/展示留在 diagnostics；organization 使用共享 controller
+  与轻量 bridge，原始 profile/header 即时白名单提取后丢弃。一次性启动标记只保存 schema/时间，
+  新 `App.onLaunch` 消费，release 清除，warm resume 单列。
+- capability/lifecycle：transport 在 capability/token 等待后执行通用上下文最终检查；controller 不恢复
+  搜索前重复 capability 等待。新增未初始化、加载失败、等待卸载和等待群组变化回归；无权限零请求、
+  共享 Promise、失败释放和旧响应隔离继续通过。
+- 包体：相同 Node 24.14.0/pnpm 11.9.0、lockfile、production profile/环境/命令，基线→预提交为
+  total 5,280,739→5,115,044 B、main 1,680,271→1,678,746 B（`app.js` −7,865 B）、organization
+  1,231,973→1,053,980 B。报告符号只在 diagnostics，profile/header parser 只在 organization bridge。
+- 运行/原生验证：Node/Vitest/TypeScript/esbuild/静态包体证据有效；仓库禁止代理调用微信开发者工具，
+  所以 Console、Network、原生拖拽手感和小米 14 新体验版仍未验证。本轮不上传、不部署 production、
+  不创建生产备份或同步服务器 release。

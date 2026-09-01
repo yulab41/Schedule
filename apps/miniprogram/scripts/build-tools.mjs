@@ -157,6 +157,9 @@ const staticExtensions = new Set([
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
   'platform/runtime-diagnostics-bridge.ts',
+  'platform/runtime-diagnostics-launch.ts',
+  'platform/runtime-diagnostics-limits.ts',
+  'platform/runtime-diagnostics-types.ts',
   'platform/runtime-diagnostics.ts',
   'platform/runtime-environment.ts',
   ...['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel'].flatMap((panel) => [
@@ -167,7 +170,6 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
   'components/profile-panel/controller.ts',
   'components/profile-panel/index.ts',
   'subpackages/organization/components/directory-panel/controller.ts',
-  'subpackages/organization/components/directory-panel/search-diagnostics.ts',
   'subpackages/organization/components/group-settings-panel/controller.ts',
   'subpackages/organization/components/group-settings-panel/index.ts',
   'subpackages/organization/components/invite-visitor-panel/controller.ts',
@@ -384,6 +386,12 @@ export async function buildMiniProgram({
     },
     entryNames: '[dir]/[name]',
     entryPoints,
+    external: [
+      './directory-diagnostics-bridge.js',
+      './directory-panel-controller.js',
+      '../../components/directory-panel/directory-diagnostics-bridge.js',
+      '../../components/directory-panel/directory-panel-controller.js',
+    ],
     format: 'cjs',
     legalComments: 'none',
     logLevel: 'silent',

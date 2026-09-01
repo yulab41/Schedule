@@ -57,7 +57,7 @@ import {
   type WxJsonRequestOptions,
   type WxJsonRequestSuccess,
 } from './wx-request-executor.js';
-import { isRuntimeDirectorySearchRecording } from './runtime-diagnostics-bridge.js';
+import type { RuntimeRequestDiagnosticObserver } from './runtime-diagnostics-types.js';
 
 export type { WxJsonRequest, WxJsonRequestOptions, WxJsonRequestSuccess };
 
@@ -102,9 +102,11 @@ export function createWxJsonTransport(options: {
   readonly awaitAccessToken?: (() => Promise<string | undefined>) | undefined;
   readonly capability: ClientCapabilityRequirement | CapabilityResolver;
   readonly delay?: ((milliseconds: number) => Promise<void>) | undefined;
+  readonly diagnosticObserver?: RuntimeRequestDiagnosticObserver | undefined;
   readonly finalizeUnauthorized?: ((failedToken: string) => void) | undefined;
   readonly getSessionGeneration?: (() => number) | undefined;
   readonly getAccessToken: () => string | undefined;
+  readonly isRequestContextCurrent?: (() => boolean) | undefined;
   readonly recoverAccessToken?: ((failedToken: string) => Promise<string | undefined>) | undefined;
   readonly sessionGeneration?: (() => number) | undefined;
   readonly timeout?: number | undefined;
@@ -121,15 +123,12 @@ export function createWxJsonTransport(options: {
           typeof options.capability === 'function'
             ? options.capability(endpoint as ClientEndpoint<unknown, unknown>, input)
             : options.capability;
-        const directoryDiagnosticRecording = isRuntimeDirectorySearchRecording();
-        const directoryListDiagnosticRecording =
-          directoryDiagnosticRecording && isDirectoryListPath(path);
-        const capabilityStartedAt = directoryDiagnosticRecording ? Date.now() : 0;
+        const diagnosticsEnabled = options.diagnosticObserver?.shouldObserve(endpoint.id) === true;
+        const capabilityStartedAt = diagnosticsEnabled ? Date.now() : 0;
         await requireClientCapability(capability);
-        const capabilityWaitMs = directoryDiagnosticRecording
-          ? Date.now() - capabilityStartedAt
-          : 0;
-        const contextStartedAt = directoryDiagnosticRecording ? Date.now() : 0;
+        const capabilityWaitMs = diagnosticsEnabled ? Date.now() - capabilityStartedAt : 0;
+        assertRequestContextCurrent(options.isRequestContextCurrent);
+        const contextStartedAt = diagnosticsEnabled ? Date.now() : 0;
         let accessToken = endpoint.auth === 'bearer' ? options.getAccessToken() : undefined;
         if (
           endpoint.auth === 'bearer' &&
@@ -138,7 +137,8 @@ export function createWxJsonTransport(options: {
         ) {
           accessToken = await options.awaitAccessToken();
         }
-        const contextWaitMs = directoryDiagnosticRecording ? Date.now() - contextStartedAt : 0;
+        assertRequestContextCurrent(options.isRequestContextCurrent);
+        const contextWaitMs = diagnosticsEnabled ? Date.now() - contextStartedAt : 0;
         if (endpoint.auth === 'bearer' && (accessToken === undefined || accessToken.length === 0)) {
           throw createAuthenticationRequiredError();
         }
@@ -163,15 +163,19 @@ export function createWxJsonTransport(options: {
                 },
               }),
           capability,
-          ...(directoryDiagnosticRecording
+          diagnosticEndpoint: endpoint.id,
+          ...(diagnosticsEnabled
             ? { diagnosticPreflight: { capabilityWaitMs, contextWaitMs } }
             : {}),
-          diagnosticProfileEnabled: directoryDiagnosticRecording,
+          diagnosticProfileEnabled: diagnosticsEnabled,
+          ...(diagnosticsEnabled && options.diagnosticObserver !== undefined
+            ? { diagnosticObserver: options.diagnosticObserver }
+            : {}),
           ...(body === undefined ? {} : { data: body }),
           ...(options.delay === undefined ? {} : { delay: options.delay }),
           ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
-          ...(directoryListDiagnosticRecording
-            ? { header: { 'X-Schedule-Directory-Diagnostics': 'v1' } }
+          ...(diagnosticsEnabled && options.diagnosticObserver?.header !== undefined
+            ? { header: options.diagnosticObserver.header }
             : {}),
           method: endpoint.method,
           request: options.request,
@@ -194,18 +198,17 @@ export function createWxJsonTransport(options: {
   };
 }
 
-function isDirectoryListPath(path: string): boolean {
-  return /\/groups\/[^/?]+\/(?:employee-)?directory(?:\?|$)/u.test(path);
-}
-
 function createRuntimeWxJsonTransport(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
   capability: ClientCapabilityRequirement | CapabilityResolver = 'core',
+  diagnosticObserver?: RuntimeRequestDiagnosticObserver,
+  isRequestContextCurrent?: () => boolean,
 ): ClientTransport {
   return createWxJsonTransport({
     apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
     capability,
+    ...(diagnosticObserver === undefined ? {} : { diagnosticObserver }),
     ...(authentication === undefined
       ? {}
       : {
@@ -216,6 +219,7 @@ function createRuntimeWxJsonTransport(
           sessionGeneration: authentication.getSessionGeneration,
         }),
     getAccessToken,
+    ...(isRequestContextCurrent === undefined ? {} : { isRequestContextCurrent }),
     request: (requestOptions) => wx.request(requestOptions),
   });
 }
@@ -280,10 +284,24 @@ export function createRuntimeOrganizationReadClient(
 export function createRuntimeDirectoryReadClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
+  diagnosticObserver?: RuntimeRequestDiagnosticObserver,
+  isRequestContextCurrent?: () => boolean,
 ): DirectoryReadClient {
   return createDirectoryReadClient(
-    createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
+    createRuntimeWxJsonTransport(
+      getAccessToken,
+      authentication,
+      'organization',
+      diagnosticObserver,
+      isRequestContextCurrent,
+    ),
   );
+}
+
+function assertRequestContextCurrent(isCurrent?: () => boolean): void {
+  if (isCurrent?.() === false) {
+    throw Object.assign(new Error(), { code: 'RUNTIME_REQUEST_CONTEXT_INVALIDATED' });
+  }
 }
 
 export function createRuntimeOrganizationWriteClient(

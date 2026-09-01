@@ -1,3 +1,4 @@
-import { createDirectoryPanelControllerDefinition } from './controller.js';
+import { createDirectoryPanelControllerDefinition } from './directory-panel-controller.js';
+import { directoryDiagnosticsBridge } from './directory-diagnostics-bridge.js';
 
-Component(createDirectoryPanelControllerDefinition());
+Component(createDirectoryPanelControllerDefinition(directoryDiagnosticsBridge));

@@ -126,6 +126,52 @@ describe('safe Mini test tools', () => {
     expect(appDefinition).not.toHaveProperty('onNetworkStatusChange');
   });
 
+  it('consumes the one-shot marker only on a new trial App launch and marks later resume warm', async () => {
+    let appDefinition;
+    const runtime = createWx('trial', vi.fn());
+    vi.stubGlobal('wx', runtime);
+    const launch = await import('../src/platform/runtime-diagnostics-launch.ts');
+    expect(launch.armRuntimeDirectoryLaunchMarker(runtime)).toBe(true);
+    vi.stubGlobal('App', (value) => {
+      appDefinition = value;
+    });
+    await import('../src/app.ts');
+
+    appDefinition.onShow();
+    expect(launch.hasRuntimeDirectoryLaunchMarker(runtime)).toBe(true);
+    expect(appDefinition.globalData.runtimeDiagnostics.directorySearchRecording).toBe(false);
+
+    appDefinition.onLaunch();
+    expect(launch.hasRuntimeDirectoryLaunchMarker(runtime)).toBe(false);
+    expect(appDefinition.globalData.runtimeDiagnostics).toMatchObject({
+      directorySearchRecording: true,
+      launchMarkerConsumed: true,
+      launchObserved: true,
+      warmResumeObserved: false,
+    });
+    appDefinition.onShow();
+    expect(appDefinition.globalData.runtimeDiagnostics.warmResumeObserved).toBe(false);
+    appDefinition.onShow();
+    expect(appDefinition.globalData.runtimeDiagnostics.warmResumeObserved).toBe(true);
+  });
+
+  it('clears an inherited one-shot marker without enabling diagnostics in release', async () => {
+    let appDefinition;
+    const runtime = createWx('release', vi.fn());
+    vi.stubGlobal('wx', runtime);
+    const launch = await import('../src/platform/runtime-diagnostics-launch.ts');
+    expect(launch.armRuntimeDirectoryLaunchMarker(runtime)).toBe(true);
+    vi.stubGlobal('App', (value) => {
+      appDefinition = value;
+    });
+    await import('../src/app.ts');
+
+    appDefinition.onLaunch();
+
+    expect(launch.hasRuntimeDirectoryLaunchMarker(runtime)).toBe(false);
+    expect(appDefinition.globalData).not.toHaveProperty('runtimeDiagnostics');
+  });
+
   it('creates the bounded store in develop without adding runtime listeners', async () => {
     let appDefinition;
     vi.stubGlobal('wx', createWx('develop', vi.fn()));
@@ -135,11 +181,16 @@ describe('safe Mini test tools', () => {
     await import('../src/app.ts');
 
     expect(appDefinition.globalData.runtimeDiagnostics).toMatchObject({
+      appLaunchAt: 0,
+      directorySearches: [],
       errors: [],
       performance: [],
       requests: [],
     });
-    expect(appDefinition.globalData.runtimeDiagnostics.recordRequest).toEqual(expect.any(Function));
+    expect(appDefinition.globalData.runtimeDiagnostics).not.toHaveProperty('recordRequest');
+    appDefinition.onLaunch();
+    expect(appDefinition.globalData.runtimeDiagnostics.launchObserved).toBe(true);
+    expect(appDefinition.globalData.runtimeDiagnostics.appLaunchAt).toBeGreaterThan(0);
     expect(appDefinition).not.toHaveProperty('onNetworkStatusChange');
     expect(appDefinition).not.toHaveProperty('onMemoryWarning');
   });
@@ -277,6 +328,91 @@ describe('safe Mini test tools', () => {
     expect(runtimeDiagnostics.getSnapshot().directorySearches).toEqual([]);
   });
 
+  it('shares one session-only diagnostic slot between diagnostics and organization packages', async () => {
+    let definition;
+    const storeModule = await import('../src/platform/runtime-diagnostics.ts');
+    const runtimeDiagnostics = storeModule.createRuntimeDiagnosticsStore();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics } }));
+    vi.stubGlobal('wx', createWx('trial', vi.fn()));
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const organization =
+      await import('../src/subpackages/organization/components/directory-panel/directory-diagnostics-bridge.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await Promise.resolve();
+    definition.handleStartDirectoryRecording.call(instance);
+
+    const trace = organization.beginDirectorySearchDiagnostic({
+      directoryKind: 'internal',
+      directoryPageLoadedAt: Date.now(),
+      facetsReady: true,
+      hasFilters: false,
+      pageSessionSearchIndex: 1,
+      publishedBatchConfirmed: true,
+      searchQuery: 'sensitive query is not retained',
+    });
+    organization.completeDirectorySearchDiagnostic(trace, {
+      completedResultReuse: true,
+      inFlightRequestReuse: false,
+      outcome: 'success',
+    });
+    definition.handleRefresh.call(instance);
+    await Promise.resolve();
+
+    expect(instance.data.directorySearchRows).toHaveLength(1);
+    expect(runtimeDiagnostics.directorySearches).toHaveLength(1);
+    expect(JSON.stringify(runtimeDiagnostics.directorySearches)).not.toContain('sensitive query');
+  });
+
+  it('bounds and redacts one oversized directory record', async () => {
+    const diagnostics = await import('../src/platform/runtime-diagnostics.ts');
+    const store = diagnostics.createRuntimeDiagnosticsStore();
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
+    store.recordDirectorySearch({
+      ...directorySearchDiagnostic(1),
+      requestId: `unsafe/request?query=${'secret'.repeat(100)}`,
+      serverTiming: { raw: 'private-response'.repeat(1_000), supported: true },
+    });
+
+    const packed = store.directorySearches[0];
+    const snapshot = store.getSnapshot().directorySearches[0];
+    expect(Buffer.byteLength(JSON.stringify(packed), 'utf8')).toBeLessThanOrEqual(4096);
+    expect(snapshot).toMatchObject({ requestId: 'unavailable', truncated: true });
+    expect(JSON.stringify(snapshot)).not.toMatch(/private-response|unsafe\/request|query=/u);
+  });
+
+  it('hard-caps copied diagnostics text by UTF-8 bytes and appends a truncation notice', async () => {
+    let definition;
+    const clipboard = vi.fn((options) => options.success?.());
+    const runtime = createWx('trial', vi.fn());
+    runtime.setClipboardData = clipboard;
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await Promise.resolve();
+    instance.data.deviceRows = Array.from({ length: 12 }, (_, index) => ({
+      impact: '',
+      label: `oversized-${index}`,
+      screenshot: '',
+      status: 'good',
+      statusLabel: '正常',
+      value: '诊断文本'.repeat(4_000),
+    }));
+
+    definition.handleCopyCodexReport.call(instance);
+
+    const report = clipboard.mock.calls.at(-1)?.[0].data;
+    expect(Buffer.byteLength(report, 'utf8')).toBeLessThanOrEqual(24 * 1024);
+    expect(report).toContain('[已安全截断：复制文本超过 24576 B 上限]');
+  });
+
   it('keeps the page in a diagnostics subpackage and forbids raw payload or storage-value access', () => {
     const appConfig = JSON.parse(readSource('app.json'));
     const diagnosticsPackage = appConfig.subpackages.find(
@@ -314,22 +450,24 @@ describe('safe Mini test tools', () => {
 
 function directorySearchDiagnostic(index) {
   return {
+    appLaunchToConfirmMs: 120,
+    autoStartedByLaunchMarker: index === 0,
     cardBuildMs: 4,
     completedResultReuse: false,
     confirmedAt: 1_000 + index,
     contextWaitMs: 0,
     diagnosticId: `DIR-${index}`,
+    diagnosticSerializationMs: 3,
     directoryKind: 'employee',
+    directoryPageLoadToConfirmMs: 80,
     duplicateRequestIntercepted: false,
     eventHandlerStartMs: 0,
-    experienceVersion: '0.1.0-test@abc1234',
     facetsOrReleaseWaitMs: 2,
     facetsReady: true,
     firstSearchInPageSession: index === 0,
     hasFilters: false,
     hasNextPage: false,
     inFlightRequestReuse: false,
-    miniProgramVersion: '1.2.3',
     networkProfile: {
       connectMs: 3,
       dnsMs: 2,
@@ -340,16 +478,18 @@ function directorySearchDiagnostic(index) {
     },
     networkRequestStartMs: 3,
     networkResponseMs: 18,
-    networkType: 'wifi',
+    newAppLaunchObserved: index === 0,
+    nextRenderCycleMs: 28,
     outcome: 'success',
+    pageSessionSearchIndex: index + 1,
+    profileEnabled: true,
     publishedBatchConfirmed: true,
     recordedAt: 2_000 + index,
     requestId: `request-${index}`,
     responseBytes: 888,
+    responseBytesEstimated: true,
     responseToConversionMs: 2,
     resultCount: 3,
-    resultVisibleMs: 28,
-    sdkVersion: '3.17.1',
     searchTermLength: 5,
     searchType: 'employee-code',
     serverTiming: {
@@ -371,18 +511,20 @@ function directorySearchDiagnostic(index) {
       totalMs: 90,
       transformMs: 1,
     },
-    setDataCallbackMs: 26,
+    setDataBytesEstimated: true,
     setDataCallCount: 2,
+    setDataCommitMs: 26,
     setDataMaxBytes: 500,
     setDataTotalBytes: 700,
-    systemVersion: 'Android 15 employee-secret account-1 group-1 permission-x cursor-x',
     totalMs: 28,
-    wechatVersion: '8.0.60',
+    truncated: false,
+    unsafeContext: 'employee-secret account-1 group-1 permission-x cursor-x',
     deviceModel: 'Xiaomi 14 林医生 13800138000',
   };
 }
 
 function createWx(envVersion, request) {
+  const storage = new Map();
   return {
     getAccountInfoSync: () => ({ miniProgram: { envVersion, version: '1.2.3' } }),
     getAppBaseInfo: () => ({
@@ -408,6 +550,7 @@ function createWx(envVersion, request) {
     }),
     getNetworkType: (options) => options.success({ networkType: 'wifi' }),
     getStorageInfoSync: () => ({ currentSize: 12, keys: ['cache.v2:private'], limitSize: 10240 }),
+    getStorageSync: (key) => storage.get(key),
     getSystemSetting: () => ({ deviceOrientation: 'portrait' }),
     getWindowInfo: () => ({
       pixelRatio: 3,
@@ -420,6 +563,8 @@ function createWx(envVersion, request) {
     }),
     redirectTo: vi.fn(),
     request,
+    removeStorageSync: (key) => storage.delete(key),
+    setStorageSync: (key, value) => storage.set(key, value),
     showToast: vi.fn(),
   };
 }

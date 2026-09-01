@@ -75,6 +75,14 @@ Production deployment synchronizes application code and committed migrations onl
 
 Documentation-only checkpoint commits must also become the production release so that the deployed release identifier matches Git `HEAD`, even when application artifacts are otherwise unchanged.
 
+Exception for Mini Program and documentation-only scope: a checkpoint that changes only
+`apps/miniprogram/**` and/or documentation must not trigger a production deployment, production database
+backup, or server release-metadata synchronization unless the user gives explicit authorization for that
+production operation in the current turn. A Mini Program upload is a separate operation and never proves
+that API/Web artifacts or containers changed. If a later production deployment is authorized, derive the
+rollback candidate from the server's current live release immediately before deployment; never substitute
+an earlier application-code checkpoint.
+
 ## 微信小程序审计与小米 14 验收
 
 本节适用于 `docs/audit/AUDIT_MASTER_PLAN.md` 管理的微信小程序审计、优化和验收；

@@ -2,11 +2,11 @@
 
 本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
-## 仓库与生产基线（2026-08-31）
+## 仓库与生产基线（2026-09-01）
 
-- 分支：`main`；通讯录阶段 B 代码 `bb97145d` 已推送并同步 production，最终状态 checkpoint 以
-  `docs(status): finalize directory phase b experience upload` 识别。
-- 当前体验候选 `.73@c7c142e` 已上传并通过 allowlist/full verifier；`.72@5fff288` 为诊断基线；`.66` 因真机外层位移后白屏被取代，`.67` 未创建。`.65` workbench 白屏已被后继取代且禁止回退。
+- 纠偏分支：`codex/preupload-diagnostics-correction`，独立 worktree 基线为最新 `origin/main`
+  `a23266182122c6e2fcb5ca5aba5d8857ef781910`；阶段 B 保持在前驱中。
+- `.72@5fff288` 与 `.73@c7c142e` 均为历史已上传版本；当前纠偏 checkpoint 尚未上传，不能描述为已部署给体验用户。
 - `.59/.60/.61/.62/.63/.64/.65/.66/.68/.69/.70/.71/.72/.73` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
@@ -64,23 +64,23 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录性能诊断阶段 B，规格/计划为
-  `2026-08-31-miniprogram-directory-performance-phase-b-*`；阶段 A checkpoint `73811f1f`、
-  production 与 `.72@5fff288` 保持基线。
-- 小米 14 两批共 17 条 Wi-Fi 诊断已与 production request ID 日志逐条匹配，均为 HTTP 200。
-  9 次完成搜索中位总耗时 1315ms、请求前 7ms、首字节 1216ms、API 总耗时 250ms、API 外差值
-  约 992ms、返回后到可见 19ms；转换 0–1ms、卡片 0–2ms。
-- 17 次中 8 次被后续输入替代；连续输入间隔约 265–450ms，旧 240ms 防抖会发出中间关键词。
-  本批只把自动防抖按证据调整为 500ms，显式确认仍立即请求。
-- API 内仍有 14–1790ms 波动。本批增加受控 Server-Timing 响应头，下一轮区分鉴权、事务连接
-  等待、权限、发布批次、别名、主查询、联系方式、计数、转换、序列化和总耗时；排队不支持、
-  应用层缓存 none 明确写出，不修改 JSON contract、schema、索引、权限锁或搜索查询结构。
-- 旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿（37/355 环境跳过），全端
-  build/typecheck、Mini 全门禁、任务质量和报告构建通过。代码 `bb97145d` 已推送并完成生产备份/
-  全量部署/公网验证；`.73@c7c142e` 已获当次批准、上传并完成正式白名单与公网验证。
-- exact clean `c7c142eb` 上传源 Mini 110 files/562 tests、production verify 5,279,092 B 和 CI dry-run
-  通过；`.73` 上传 190 code files/2,517,609 B、manifest `6ed8b196…b89e4`，七维 capability 全 true、
-  unknown=426，allowlist verify 与公网 full verifier 通过。
+- 唯一任务为“体验版上传前纠偏审计”，checkpoint 以
+  `fix(miniprogram): correct preupload diagnostics boundaries` 识别；不改 API contract、数据库、索引、
+  production 缓存或搜索业务。
+- App 只保留会话内定长数据槽和一次性启动标记；旧 `runtime-directory-diagnostics-bridge.ts` 与
+  `search-diagnostics.ts` 已删除。报告/复制/展示只在 diagnostics 分包；organization 以同分包共享
+  controller/轻量 bridge 供 component 与独立 Page 复用。
+- develop/trial 支持“下次 App 启动首次搜索诊断”：持久化值只有 schema/armedAt/expiresAt，新的
+  `App.onLaunch` 立即消费；release 清除且不启用。记录不持久化，跨测试工具/通讯录仍使用同一 App 槽。
+- 记录上限 20 条、单条 4096 B、复制 24576 B、Header 值 4096 字符、request ID 64 个白名单字符；
+  原始 response/header/profile/搜索参数不进入仓库，序列化耗时和估算标志单列。
+- capability 等待、失败、无权限零请求、卸载/群组变化失效、Promise 复用/释放、旧响应隔离均有直接
+  回归；transport 仍是最终 capability/上下文门禁，未恢复 controller 的搜索前重复等待。
+- 相同 Node 24.14.0/pnpm 11.9.0、lockfile、production profile 和命令下，基线→预提交构建：总包
+  5,280,739→5,115,044 B，main 1,680,271→1,678,746 B（`app.js` −7,865 B），organization
+  1,231,973→1,053,980 B；最终 clean SHA 仍须在提交后复核。
+- 完整 Mini 同一命令连续两次均为 111 files/578 tests/0 skipped。此前 561/560 差异的唯一测试是
+  用户脏主树未提交的 `renders member rows without combining wx:else and wx:for on one element`，不属于本批。
 
 ## 已完成的测试工具批次
 
@@ -241,8 +241,8 @@
 
 ## 下一步与停止条件
 
-1. 用户在小米 14 `.73@c7c142e` 测试人员首次/重复/不同词/筛选和科室，尽量各 5 次。
-2. 条件允许时分别测试 Wi-Fi/移动网络，停止记录后复制最近 10 次给 Codex。
+1. 完成 checkpoint 提交/推送，并在最终 clean SHA 重跑 production build、包体、determinism 与上传 dry-run。
+2. 查询历史后只生成新的未使用拟上传版本；等待用户基于最终结果当次明确批准，不复用 `.72/.73`。
 
-停止条件：没有匹配 `.73` 的小米 14 数据前，不实施数据库索引、权限锁、查询结构或部署拓扑修改，
-不填写修改后性能数值，不提审、不正式发布。
+停止条件：本轮不上传体验版，不部署 production，不创建生产备份或同步服务器 release 标识；微信原生
+Console/拖拽手感与小米 14 新体验版继续待用户人工验收。

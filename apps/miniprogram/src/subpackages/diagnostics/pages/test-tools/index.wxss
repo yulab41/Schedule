@@ -436,11 +436,16 @@ page {
 }
 
 .directory-diagnostic-heading > text,
+.directory-next-launch-state,
 .directory-diagnostic-steps > text:not(:first-child),
 .directory-search-record > text {
   color: var(--ui-color-text-secondary);
   font-size: 12px;
   line-height: 1.55;
+}
+
+.directory-next-launch-state {
+  display: block;
 }
 
 .directory-diagnostic-actions {

@@ -4,6 +4,7 @@ import {
 } from '../app/client-capability-store.js';
 import { buildInfo } from './build-info.js';
 import { recordRuntimeDiagnosticRequest } from './runtime-diagnostics-bridge.js';
+import type { RuntimeRequestDiagnosticObserver } from './runtime-diagnostics-types.js';
 
 export interface WxJsonRequestSuccess {
   readonly data: unknown;
@@ -59,6 +60,8 @@ export interface ExecuteWxJsonRequestInput {
       }
     | undefined;
   readonly diagnosticProfileEnabled?: boolean | undefined;
+  readonly diagnosticObserver?: RuntimeRequestDiagnosticObserver | undefined;
+  readonly diagnosticEndpoint?: string | undefined;
   readonly delay?: ((milliseconds: number) => Promise<void>) | undefined;
   readonly header?: Readonly<Record<string, string>> | undefined;
   readonly idempotencyKey?: string | undefined;
@@ -169,11 +172,12 @@ export async function executeWxJsonRequest(
           }),
       completedAt: Date.now(),
       durationMs: Date.now() - diagnosticStartedAt,
-      endpoint: input.url,
+      endpoint: input.diagnosticEndpoint ?? 'unknown',
       method: input.method,
       ...(diagnosticIssuedAt === undefined ? {} : { issuedAt: diagnosticIssuedAt }),
       ...(captureNetworkProfile ? { networkProfile: { supported: false } } : {}),
       outcome: 'failed',
+      profileEnabled: captureNetworkProfile,
       retryCount,
       startedAt: diagnosticStartedAt,
       ...(diagnosticStatusCode === undefined ? {} : { statusCode: diagnosticStatusCode }),
@@ -189,6 +193,13 @@ function recordCompletedDiagnosticRequest(
   response: WxJsonRequestSuccess,
   retryCount: number,
 ): void {
+  const observation =
+    input.diagnosticProfileEnabled === true
+      ? input.diagnosticObserver?.observe({
+          requestProfile: response.profile,
+          responseHeader: response.header,
+        })
+      : undefined;
   recordRuntimeDiagnosticRequest({
     ...(input.diagnosticPreflight === undefined
       ? {}
@@ -198,18 +209,17 @@ function recordCompletedDiagnosticRequest(
         }),
     completedAt: Date.now(),
     durationMs: Date.now() - startedAt,
-    endpoint: input.url,
+    endpoint: input.diagnosticEndpoint ?? 'unknown',
     method: input.method,
     ...(issuedAt === undefined ? {} : { issuedAt }),
-    ...(input.diagnosticProfileEnabled === true
-      ? {
-          profileRequested: true,
-          requestProfile: response.profile,
-          responseHeader: response.header,
-        }
-      : {}),
+    ...(observation?.networkProfile === undefined
+      ? {}
+      : { networkProfile: observation.networkProfile }),
     outcome: response.statusCode >= 200 && response.statusCode < 400 ? 'success' : 'http-error',
+    profileEnabled: input.diagnosticProfileEnabled === true,
+    ...(observation?.requestId === undefined ? {} : { requestId: observation.requestId }),
     retryCount,
+    ...(observation?.serverTiming === undefined ? {} : { serverTiming: observation.serverTiming }),
     startedAt,
     statusCode: response.statusCode,
   });

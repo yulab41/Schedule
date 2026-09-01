@@ -1,20 +1,47 @@
 # 微信小程序审计报告
 
-- 审计阶段：通讯录半屏筛选与性能诊断阶段 A 已同步 `.72`，等待小米 14 诊断数据
-- 更新时间：2026-08-31（Asia/Hong_Kong）
-- 代码 checkpoint：`7952f1d106c65a5c3b8815ee0dc52756252f381a`，已推送并同步 production release
-- 体验构建：`0.1.0-p10.20260831.71@7952f1d`，189 files / 2,449,336 bytes
-- 本批性质：修改前后包体来自同一用户工作树；正式构建、部署与上传来自 exact clean commit
+- 审计阶段：阶段 B 后体验版上传前纠偏；基线为 clean `a23266182122c6e2fcb5ca5aba5d8857ef781910`
+- 更新时间：2026-09-01（Asia/Hong_Kong）
+- 纠偏 checkpoint：以 `fix(miniprogram): correct preupload diagnostics boundaries` 识别，待提交/推送
+- 历史体验构建：`.72@5fff288`、`.73@c7c142e` 均已上传；本轮尚未上传任何新版本
+- 本批性质：独立 worktree 的纯小程序/文档纠偏；不操作 API、数据库、production 或用户脏主树
 
 ## 普通用户版结论
 
-简单来说：“更多”里已经有一套给普通用户看的安全测试工具，可以核对版本、手机与安全区，勾选显示
-问题，查看脱敏的少量网络/错误/性能摘要，并一次复制给 Codex。正式版入口、直接路径和旧手势探针都
-会关闭，正式版也不会创建诊断仓库；诊断不保存、不上传、不读取请求正文或用户资料。
+本轮把诊断重型实现从 App 和重复的通讯录入口中移出，增加一次性的“下次 App 启动首次搜索诊断”，
+并把字节估算、序列化耗时、warm resume、profile 开关和截断语义写清。诊断记录仍只在当前 App 会话
+内；正式 release 清除一次性标记且不创建诊断槽。统一 transport、鉴权、capability、重试、错误映射
+和请求复用保持不变。
 
-构建、类型、exact-clean 554 项 Mini 测试、1,139 项根测试和安全/包体门禁已经通过，包体没有触发
-新阻断。体验版 `.71@7952f1d` 已上传并通过生产客户端白名单；仓库规则禁止代理操作微信开发者工具，
-所以当前仍只能说“自动验证和体验上传完成”，不能说“小米 14 已验收”或“Console 没有错误”。
+同一 Mini 命令连续两次均为 111 files/578 tests/0 skipped。包体相对 clean 基线总包净减 165,695 B，
+main 净减 1,525 B（其中 `app.js` 净减 7,865 B），organization 净减 177,993 B；最终 clean
+checkpoint 仍会在提交后复核。仓库规则
+禁止代理操作微信开发者工具，因此 Console、原生拖拽手感和小米 14 新体验版继续待人工验收。
+
+## 2026-09-01 体验版上传前纠偏审计
+
+- 测试数量：旧报告 561/560 的唯一差异是用户脏主树未提交测试
+  `renders member rows without combining wx:else and wx:for on one element`；clean `5fff288f` 不含该项，
+  也没有条件注册、环境 skip、生成文件或本任务漏提交测试造成差异。
+- 架构：App 仅保留定长会话槽；删除旧 platform bridge 和 organization `search-diagnostics`。
+  component/独立 Page 共同引用一个 organization controller 和一个诊断 bridge；报告、复制和截断文案
+  只进入 diagnostics 分包。通用 transport 只保留可选观察钩子和通用上下文失效检查。
+- 启动诊断：develop/trial 可持久化一次性 schema/armedAt/expiresAt 标记；新的 `App.onLaunch` 立即
+  消费，首次 `onShow` 不记 warm，后续恢复记 warm resume。release 清除标记且不启用；记录跨页面但
+  不落 storage。
+- 指标与隐私：响应/setData 大小由诊断开启时的 `JSON.stringify` 估算，耗时单列，不混入卡片构建；
+  setData callback 和 nextTick 分别称“数据提交完成”“下一渲染周期完成”。原始 response、header、
+  profile、URL 参数和搜索内容不入仓库或报告。
+- 硬上限：request/error/performance/directory 为 20/10/12/20 条，单条 4096 B，复制 24576 B，
+  Header 值 4096 字符，request ID 64 个白名单字符。超限值丢弃或安全截断并标记。
+- capability/lifecycle：新增尚未初始化、加载失败、等待中卸载、等待中群组变化的组合回归；既有
+  无权限零请求、相同请求共享、失败锁释放和旧响应隔离继续通过。transport 仍是最终安全门禁。
+- 半屏：外层只按实时 `windowHeight × 50%`；安全区只作内部 padding，`box-sizing`、flex 收缩、
+  监听解除、WXS 阈值/回弹和列表滚动边界均有静态或 Node 证据。
+- 历史措辞：阶段 A 代码曾提交并推送；当时 production 只同步 release 元数据，API/Web 制品和容器
+  未变化。`.72/.73` 为历史上传；纯小程序/文档变更不能通过服务器 release 同步被描述为“部署给体验用户”。
+- 操作边界：本轮没有上传、production 部署、生产数据库备份或服务器 release 同步。以后若获准部署，
+  rollback candidate 必须从服务器当前 live release 读取。
 
 ## 1. 基线边界与工作树
 
@@ -225,7 +252,7 @@ Console/Network/帧率与小米 14 仍无当前构建证据，不能据此宣称
 - 修复：按真实 `windowHeight/screenHeight/safeArea` 计算约半屏高度并监听横竖屏变化；保留横条、固定头部/清除、单一滚动区和滚动恢复。测试工具新增默认停止、最多 20 条、可复制 1/10 次的隐私安全诊断；profile 仅在记录中开启。只删除 controller 的一层明确重复能力等待，transport/executor 门禁保留。
 - 风险：低到中；诊断只写 App 内存，不改变 API/contracts/数据库/索引/搜索排序/筛选语义。请求 profile 和额外计时在停止记录时关闭。
 - 置信度：半屏与诊断实现高；首次搜索瓶颈低，必须等小米 14 数据。
-- 状态：代码 `73811f1f` 已推送；备份 `92af6f22-1d9e-47a2-b78d-e1de255c4fd2` 后可信无停机同步 production，公网 full verifier 通过。用户登记 `38.190.176.204` 后，同一 `.72@5fff288` 重试成功并通过正式 allowlist、七维 capability、unknown=426 与公网 full verifier；待小米 14 数据，阶段 B 未开始。
+- 状态：阶段 A 代码 `73811f1f` 已提交并推送；当时 production 只同步 release 元数据，API/Web 制品和容器没有变化。用户登记 `38.190.176.204` 后，同一 `.72@5fff288` 重试成功并通过正式 allowlist、七维 capability、unknown=426 与公网 full verifier；`.72` 现为历史上传版本。
 - 验证：Mini 110 files/561 tests；production verify/source/package/performance/determinism/CI dry-run、全端 build/typecheck、Web 辅助黄金和 core smoke 通过。最终包 5,273,141 B，较同口径基线增加 59,504 B；原生手感、端到端阶段数字和性能变化均为“待小米 14 体验版实测”。
 
 ### 阶段 0 保留输入

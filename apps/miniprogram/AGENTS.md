@@ -22,7 +22,7 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 - Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison scripts are allowed without opening WeChat DevTools.
 - Development/preview and experience uploads may be automated when credentials are available outside the repository.
-- Every completed and validated Mini Program modification checkpoint must be uploaded to the WeChat development/experience track after its Git push. A dry-run is not an upload and cannot satisfy this rule.
+- An experience upload requires the user's explicit approval for that exact checkpoint in the current turn. A production build, package audit, preview/upload dry-run, or earlier approval is not an upload and does not authorize one. When approval is absent or the user prohibits upload, stop at the pushed clean checkpoint and record the proposed version instead.
 - If the repository-external upload key or another required WeChat platform credential is unavailable, do not substitute DevTools automation or claim success. Record the exact checkpoint as upload-blocked, request the missing external input, and upload that same checkpoint before starting the next implementation step.
 - Submission for review and formal publication always require explicit user approval.
 - ECS deployment remains the repository-root release track. A Mini Program upload is a separate track and never happens merely because Git/ECS advanced.
@@ -45,5 +45,5 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 ## Checkpoints
 
 - Run the root gates plus the Mini Program static, simulate, boundary, Worklet, determinism, secret, and package-size gates required by the active phase.
-- Update the root status before a checkpoint, review both unstaged and staged diffs, stage explicit task paths, commit, push, and follow the repository ECS backup/deploy/verify rule.
+- Update the root status before a checkpoint, review both unstaged and staged diffs, stage explicit task paths, commit, and push. Mini-only or documentation-only checkpoints do not trigger ECS backup, deployment, or release-metadata synchronization without explicit current production authorization.
 - Never claim native visual or interaction acceptance from Storybook, `miniprogram-simulate`, or `miniprogram-ci`; only the user's explicit feedback after operating the agreed physical device provides native-runtime acceptance.

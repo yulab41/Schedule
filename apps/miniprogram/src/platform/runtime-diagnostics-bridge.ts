@@ -1,52 +1,46 @@
+import {
+  RUNTIME_DIAGNOSTIC_ERROR_LIMIT,
+  RUNTIME_DIAGNOSTIC_PERFORMANCE_LIMIT,
+  RUNTIME_DIAGNOSTIC_REQUEST_LIMIT,
+} from './runtime-diagnostics-limits.js';
 import type {
   RuntimeDiagnosticError,
   RuntimeDiagnosticPerformance,
   RuntimeDiagnosticRequestInput,
-  RuntimeDiagnosticsStore,
-} from './runtime-diagnostics.js';
-
-interface DiagnosticsBridgeApp {
-  readonly globalData?: {
-    readonly runtimeDiagnostics?: RuntimeDiagnosticsStore | undefined;
-  };
-}
+  RuntimeDiagnosticsSlot,
+} from './runtime-diagnostics-types.js';
 
 export function recordRuntimeDiagnosticRequest(entry: RuntimeDiagnosticRequestInput): void {
-  try {
-    resolveRuntimeDiagnosticsStore()?.recordRequest(entry);
-  } catch {
-    // Diagnostics must never alter request behavior.
-  }
+  boundedPush(resolveSlot()?.requests, entry, RUNTIME_DIAGNOSTIC_REQUEST_LIMIT);
 }
 
 export function recordRuntimeDiagnosticError(entry: RuntimeDiagnosticError): void {
-  try {
-    resolveRuntimeDiagnosticsStore()?.recordError(entry);
-  } catch {
-    // Error diagnostics must never recursively report themselves.
-  }
+  boundedPush(resolveSlot()?.errors, entry, RUNTIME_DIAGNOSTIC_ERROR_LIMIT);
 }
 
 export function recordRuntimeDiagnosticPerformance(entry: RuntimeDiagnosticPerformance): void {
-  try {
-    resolveRuntimeDiagnosticsStore()?.recordPerformance(entry);
-  } catch {
-    // Performance diagnostics are best-effort and read-only.
-  }
+  boundedPush(resolveSlot()?.performance, entry, RUNTIME_DIAGNOSTIC_PERFORMANCE_LIMIT);
 }
 
 export function isRuntimeDirectorySearchRecording(): boolean {
+  return resolveSlot()?.directorySearchRecording === true;
+}
+
+function resolveSlot(): RuntimeDiagnosticsSlot | undefined {
   try {
-    return resolveRuntimeDiagnosticsStore()?.isDirectorySearchRecording() === true;
+    return getApp<{ globalData?: { runtimeDiagnostics?: RuntimeDiagnosticsSlot } }>().globalData
+      ?.runtimeDiagnostics;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-function resolveRuntimeDiagnosticsStore(): RuntimeDiagnosticsStore | undefined {
+function boundedPush<T>(target: T[] | undefined, value: T, maximum: number): void {
   try {
-    return getApp<DiagnosticsBridgeApp>().globalData?.runtimeDiagnostics;
+    if (target === undefined) return;
+    target.push(value);
+    if (target.length > maximum) target.shift();
   } catch {
-    return undefined;
+    // Diagnostics must never alter request, error, or performance behavior.
   }
 }

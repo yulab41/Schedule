@@ -1,52 +1,50 @@
 # 微信小程序审计状态
 
-- 当前阶段：通讯录性能诊断阶段 B，已取得 `.72@5fff288` 小米 14 数据并完成 API 日志对照
-- 状态：阶段 B 代码、origin、production 与 `.73@c7c142e` 体验候选已同步并通过白名单/full verifier
-- 任务起始 checkpoint：`eeba6402`；工作树保留并行用户修改
-- 代码 checkpoint：`bb97145d perf(directory): add measured server timing diagnostics`，已推送
-- production 应用 checkpoint：`bb97145dee8f8ee7a1ec4a57d532c60eb8f63625`
-- 生产备份：`758c1a3b-d444-4bd1-879a-e675ae6276e5`（55 表、197,477 行、88,492,384 bytes）
-- 最终 production release 元数据以 `docs(status): finalize directory phase b experience upload` 识别
-- 当前体验候选：`0.1.0-p10.20260831.73@c7c142e`，190 code files/2,517,609 bytes，manifest `6ed8b196…b89e4`
-- 首次上传被微信 `20003 invalid ip: 38.190.176.204` 拒绝；用户登记该 IP 后，同一版本/SHA/描述重试成功
-- 基线类型：同一用户工作树修改前/后静态构建；原生、Network、端到端 HTTP 未测
+- 当前阶段：阶段 B 后“体验版上传前纠偏审计”
+- 基线：`a23266182122c6e2fcb5ca5aba5d8857ef781910`（核验后的最新 `origin/main`，包含阶段 B）
+- 工作区：`codex/preupload-diagnostics-correction`，独立 worktree；用户脏主工作树未修改
+- checkpoint：以 `fix(miniprogram): correct preupload diagnostics boundaries` 识别，待提交/推送
+- `.72@5fff288`、`.73@c7c142e`：历史已上传版本；本轮未上传、未提审、未正式发布
+- production：本轮未部署、未备份数据库、未同步服务器 release 元数据
 
-## 阶段 B 实测结论
+## 已修复边界
 
-- 两批共 17 条 Wi-Fi 记录全部以 request ID 对上 production API 完成日志，均为 HTTP 200；9 次完成、8 次被新搜索替代。
-- 完成搜索中位：总计 1315ms、请求前 7ms、首字节 1216ms、API 总耗时 250ms、API 外差值约 992ms、返回后到可见 19ms。
-- 客户端转换 0–1ms、卡片 0–2ms、单次完成约 3KB setData；没有证据支持大改转换、卡片或渲染。
-- 8/17 被替代与 240ms 防抖、265–450ms 连续输入间隔一致；本批调整为 500ms，显式确认保持立即执行。
-- API 仍有 14–1790ms 波动，现有日志不能分段；本批只加受控响应头诊断，不改 API body、数据库 schema/索引、权限锁和查询结构。
+- App 主包只保留会话内定长诊断槽、启动时间和一次性启动标记状态，不导入诊断仓库类、报告或 profile 解析。
+- 删除旧 `platform/runtime-directory-diagnostics-bridge.ts` 与 organization `search-diagnostics.ts`；
+  component/独立 Page 共享同一 organization controller 产物和轻量诊断 bridge。
+- develop/trial 可设置“下次 App 启动首次搜索诊断”；持久化对象仅含 schema/armedAt/expiresAt，
+  新 `App.onLaunch` 立即消费，release 清除且不启用。`onShow` 恢复不会消费，并能标记 warm resume。
+- 记录跨“测试工具 → 通讯录 → 测试工具”停留在同一 App 会话槽，不持久化关键词、号码、工号、
+  账号、群组、权限、筛选、结果或诊断记录。
+- 报告使用“数据提交完成”“下一渲染周期完成”；记录 `profileEnabled`、诊断序列化耗时、字节估算和截断。
+- 固定上限：请求 20、错误 10、性能 12、通讯录 20 条；单条 4096 B、复制 24576 B、Header 值
+  4096 字符、request ID 64 个 `[0-9A-Za-z._:-]` 字符。原始 response/header/profile/参数即时丢弃。
+- transport 保留最终 capability/上下文门禁；未恢复 controller 搜索前重复等待。等待、失败、无权限、
+  卸载、上下文变化、请求复用/锁释放和旧响应隔离均有直接组合回归。
+- 半屏外层只按实时 `windowHeight × 50%`；安全区只作内部 padding。监听注册前先解除旧 handler，
+  detach 解除；WXS 仅绑定拖拽横条，96 px/28 px/0.65 阈值、回弹和内部 scroll-view 边界保持。
 
 ## 自动证据
 
-| 项目       | 结果                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------- |
-| 红绿定向   | 旧实现 Mini 3 项、API 1 项先红；实现后 Mini 3 files/65 tests、API 1 file/3 tests 全绿    |
-| Mini 全量  | 110 files/563 tests 全绿                                                                 |
-| 仓库全量   | 串行 245 files/1,142 tests 全绿；37 files/355 tests 按无数据库环境跳过                   |
-| 构建与静态 | 全端 build/typecheck、Mini verify/source/package/performance/determinism/CI dry-run 通过 |
-| 任务质量   | 任务 ESLint/Prettier/diff、数据报告构建与 `pnpm smoke:check-core` 通过                   |
-| 包体       | 5,273,141→5,279,151 B（+6,010）；main 1,675,797→1,679,326 B（+3,529）                    |
+| 项目             | 结果                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| 定向回归         | controller 44、test-tools 15、transport 16、纠偏边界 6 项通过                                            |
+| Mini 全量稳定性  | 同一命令连续两次均 111 files / 578 tests / 0 skipped                                                     |
+| 仓库非 Mini 全量 | 242 files / 1,132 tests 通过；37 files / 355 tests 因无隔离测试数据库跳过                                |
+| 旧 561/560 差异  | 唯一多项为脏主树未提交测试 `renders member rows without combining wx:else and wx:for on one element`     |
+| 包体基线→预提交  | total 5,280,739→5,115,044；main 1,680,271→1,678,746（app.js −7,865）；organization 1,231,973→1,053,980 B |
+| 包边界           | 报告/复制只在 diagnostics；profile/header 白名单解析只在 organization bridge；App/热入口无重型报告符号   |
+| 工具链           | Node 24.14.0、pnpm 11.9.0、仓库 lockfile、production profile                                             |
 
-当前主包 1.5M 和矩阵节点仍为基线 warning，门禁通过。`pnpm --filter @schedule/api test` 因现有根
-Vitest `src/**` 排除规则在子包 cwd 找不到测试；根级全量实际执行全部 API 测试并通过。阶段 B 报告已由
-Data App 预构建运行时校验，HTML SHA-256 `8a5d742b…cf53`，保存在 ignored `runtime/audit/`。
+## 历史措辞纠正
 
-## 工具与未验证项
+- 阶段 A 代码曾提交并推送；当时 production 只同步 release 元数据，API/Web 制品和容器未变化。
+- `.72`、`.73` 是历史体验上传，不代表本轮代码已部署给体验用户。
+- 小程序、文档与 API/Web production 是独立轨道；纯小程序/文档 checkpoint 不自动触发生产操作。
 
-- 已读取并应用：`brainstorming`、`systematic-debugging`、`miniprogram-development`、`frontend-design`、
-  `metric-diagnostics`、`analyze-data-quality`、`build-report`、`visualize-data`。
-- 已使用：Git、Node、pnpm、TypeScript、Vitest、生产脱敏日志、Data App 构建器、项目构建/包体/
-  确定性/CI/core-smoke 脚本。
-- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮未调用。
-- 当前实现后的 Server-Timing、原生自动搜索手感和 `.73` 端到端时间尚未真机验证；修改后数值不得估算。
+## 未验证与唯一下一任务
 
-## 唯一下一任务
-
-用户在小米 14 `.73@c7c142e` 按首次、同条件第二次、不同关键词、带筛选、科室及可行时 Wi-Fi/移动
-网络执行诊断，停止后复制最近 10 次给 Codex。
-
-停止条件：匹配 `.73` 的小米 14 数据返回前，不修改数据库索引、权限锁、搜索查询结构或生产部署方式，
-不填写修改后性能数字，不提审、不正式发布。
+- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮没有微信原生 Console、Network 或拖拽手感证据。
+- Web/Node 证据不作为微信原生验收；小米 14 新体验版仍待用户在未来获批上传后人工验收。
+- 下一任务：提交/推送后在最终 clean SHA 复跑 production verify、determinism、包体和上传 dry-run，
+  查询历史并生成新的未使用拟上传版本；仍不得上传或操作 production。

@@ -35,6 +35,18 @@ docker compose logs --tail 100 api web nginx
 - Nginx 对 exact route 按来源 IP 做内存限流，API 另有不保留 IP 的全局分钟预算；没有遥测读取 API。
 - `privacy-retention` 每 15 分钟删除严格早于 30 天 cutoff 的遥测行。`miniprogram_telemetry_events` 永久排除在备份/恢复之外；job summary 只记录数量和 cutoff。
 
+## 小程序证据、包体与上传边界
+
+- 拟上传产物必须来自最终提交的独立干净 worktree；不得复用主工作树混合 `dist`。构建资料需记录完整 SHA、Node/pnpm、lockfile、production profile、环境变量、版本号、描述和脏树状态。
+- 修改前后包体只使用相同工具链、lockfile、profile、清理/构建/统计命令比较，并列出总包、主包、每个分包和最大文件差异。“release 运行时关闭”不等于代码未打包；必须静态检查重型诊断符号所在包。
+- Web 黄金图、Node 自动化、`miniprogram-simulate` 和 dry-run 只属于辅助证据，不能写成微信原生 Console、交互手感或小米 14 体验版验收通过。
+- 上传体验版前必须重新核对最终 SHA、未使用版本号、显示标识、AppID、目标环境和仓库外私钥来源，并取得用户对该 checkpoint 的当次明确批准。dry-run 不等于上传；不得输出私钥内容。
+- 纯小程序或文档 checkpoint 不自动触发 production 部署、数据库备份或服务器 release 标识同步。小程序上传与 API/Web production 是两条独立发布轨道。
+
+## Production 回滚来源
+
+- 如获当次明确授权执行 production 部署，rollback candidate 必须在部署前从服务器当前 live release 读取并核验；不得用上一个应用代码 checkpoint、旧聊天记录或本地猜测替代。
+
 ## 事故响应
 
 - S1：数据丢失、服务不可用或需要恢复数据库。

@@ -10,6 +10,7 @@ import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/c
 import { describe, expect, it, vi } from 'vitest';
 
 import { createWxJsonTransport as createRawWxJsonTransport } from '../src/platform/client-core-calendar.js';
+import { directoryRequestDiagnosticObserver } from '../src/subpackages/organization/components/directory-panel/directory-diagnostics-bridge.js';
 
 const appRoot = new URL('../', import.meta.url);
 
@@ -113,6 +114,21 @@ describe('P2 Mini wx.request JSON transport', () => {
     await expect(
       transport.request(calendarReadEndpoints.holidays, { year: 2026 }),
     ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED', status: 401 });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('keeps the unified transport as the final context gate before wx.request', async () => {
+    const request = vi.fn();
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      getAccessToken: () => 'mini-token',
+      isRequestContextCurrent: () => false,
+      request,
+    });
+
+    await expect(
+      transport.request(calendarReadEndpoints.holidays, { year: 2026 }),
+    ).rejects.toMatchObject({ code: 'RUNTIME_REQUEST_CONTEXT_INVALIDATED' });
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -363,7 +379,7 @@ describe('P2 Mini wx.request JSON transport', () => {
     vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
     const request = vi.fn((options) => {
       options.success({
-        data: holidayApiGoldenResponse,
+        data: 'ok',
         header: { 'x-request-id': 'request-safe-1', Authorization: 'must-not-be-recorded' },
         profile: {
           SSLconnectionEnd: 9,
@@ -381,11 +397,12 @@ describe('P2 Mini wx.request JSON transport', () => {
     });
     const transport = createWxJsonTransport({
       apiBaseUrl: 'https://example.test/api',
+      diagnosticObserver: directoryRequestDiagnosticObserver,
       getAccessToken: () => 'token',
       request,
     });
 
-    await transport.request(calendarReadEndpoints.holidays, { year: 2026 });
+    await transport.request(directoryDiagnosticEndpoint(), undefined);
 
     expect(request.mock.calls[0]?.[0].enableProfile).toBe(true);
     const recorded = store.getSnapshot().requests.at(-1);
@@ -399,8 +416,24 @@ describe('P2 Mini wx.request JSON transport', () => {
         ttfbMs: 10,
       },
       requestId: 'request-safe-1',
+      profileEnabled: true,
     });
     expect(JSON.stringify(recorded)).not.toMatch(/Authorization|must-not-be-recorded|token/iu);
+    expect(
+      directoryRequestDiagnosticObserver.observe({
+        responseHeader: { 'x-request-id': 'a'.repeat(65) },
+      }).requestId,
+    ).toBeUndefined();
+    expect(
+      directoryRequestDiagnosticObserver.observe({
+        responseHeader: { 'x-request-id': 'unsafe/request?id=secret' },
+      }).requestId,
+    ).toBeUndefined();
+    expect(
+      directoryRequestDiagnosticObserver.observe({
+        responseHeader: { 'server-timing': 'private;dur=1,'.repeat(300) },
+      }).serverTiming,
+    ).toEqual({ supported: false });
   });
 
   it('requests and retains only fixed directory Server-Timing fields while recording', async () => {
@@ -411,7 +444,7 @@ describe('P2 Mini wx.request JSON transport', () => {
     const endpoint = defineClientEndpoint({
       auth: 'bearer',
       decoder: createCompactDecoder({ type: 'string' }),
-      id: 'test.directory-timing',
+      id: 'organization.directory-list',
       method: 'GET',
       path: () => '/groups/group-1/employee-directory?q=redacted',
     });
@@ -429,6 +462,7 @@ describe('P2 Mini wx.request JSON transport', () => {
     });
     const transport = createWxJsonTransport({
       apiBaseUrl: 'https://example.test/api',
+      diagnosticObserver: directoryRequestDiagnosticObserver,
       getAccessToken: () => 'token',
       request,
     });
@@ -466,4 +500,14 @@ describe('P2 Mini wx.request JSON transport', () => {
 
 function readSource(relativePath) {
   return readFileSync(new URL(relativePath, appRoot), 'utf8');
+}
+
+function directoryDiagnosticEndpoint() {
+  return defineClientEndpoint({
+    auth: 'bearer',
+    decoder: createCompactDecoder({ type: 'string' }),
+    id: 'organization.directory-list',
+    method: 'GET',
+    path: () => '/groups/group-1/employee-directory?q=redacted',
+  });
 }

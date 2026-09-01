@@ -151,7 +151,11 @@ describe('P10 native directory controller', () => {
     });
     const module =
       await import('../src/subpackages/organization/components/directory-panel/controller.ts');
-    definition = module.createDirectoryPanelControllerDefinition();
+    const diagnostics =
+      await import('../src/subpackages/organization/components/directory-panel/directory-diagnostics-bridge.ts');
+    definition = module.createDirectoryPanelControllerDefinition(
+      diagnostics.directoryDiagnosticsBridge,
+    );
     await enableTestClientCapabilities();
   });
 
@@ -999,6 +1003,109 @@ describe('P10 native directory controller', () => {
     expect(page.data.employeePane.entries).toEqual([]);
   });
 
+  it('waits for an uninitialized capability before issuing one directory request', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const capabilityStore = await import('../src/app/client-capability-store.ts');
+    let resolveCapability;
+    const pendingCapability = new Promise((resolve) => {
+      resolveCapability = resolve;
+    });
+    capabilityStore.configureRuntimeClientCapabilityReader(() => pendingCapability, 'test');
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    expect(listRequests()).toHaveLength(0);
+
+    resolveCapability(enabledCapabilities());
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
+    expect(listRequests()).toHaveLength(1);
+    expect(page._modeRuntimes.internal.inFlightPages.size).toBe(0);
+  });
+
+  it('keeps the disabled error mapping and sends no request when capability loading fails', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const capabilityStore = await import('../src/app/client-capability-store.ts');
+    capabilityStore.configureRuntimeClientCapabilityReader(
+      () => Promise.reject(new Error('capability service unavailable')),
+      'test',
+    );
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('disabled'));
+
+    expect(page.data.internalPane.errorMessage).toBe('当前版本的这项功能已暂停，请稍后重试。');
+    expect(listRequests()).toHaveLength(0);
+    expect(page._modeRuntimes.internal.inFlightPages.size).toBe(0);
+  });
+
+  it('invalidates a capability-waiting search on detach without request, cache, or UI effects', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const capabilityStore = await import('../src/app/client-capability-store.ts');
+    let resolveCapability;
+    const pendingCapability = new Promise((resolve) => {
+      resolveCapability = resolve;
+    });
+    capabilityStore.configureRuntimeClientCapabilityReader(() => pendingCapability, 'test');
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    const oldRuntime = page._modeRuntimes.internal;
+    expect(oldRuntime.inFlightPages.size).toBe(1);
+    definition.lifetimes.detached.call(page);
+    const setDataCountAfterDetach = page.setDataCalls.length;
+
+    resolveCapability(enabledCapabilities());
+    await flushPromises();
+    await flushPromises();
+
+    expect(listRequests()).toHaveLength(0);
+    expect(page.setDataCalls).toHaveLength(setDataCountAfterDetach);
+    expect(oldRuntime.rawEntries).toEqual([]);
+    expect(oldRuntime.completedBaseQueryKey).toBeUndefined();
+    expect(oldRuntime.inFlightPages.size).toBe(0);
+    expect(globalThis.wx.setStorageSync).not.toHaveBeenCalled();
+    expect(globalThis.wx.makePhoneCall).not.toHaveBeenCalled();
+  });
+
+  it('does not issue an old-group request after capability wait when context changes', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+    const capabilityStore = await import('../src/app/client-capability-store.ts');
+    let resolveCapability;
+    const pendingCapability = new Promise((resolve) => {
+      resolveCapability = resolve;
+    });
+    capabilityStore.configureRuntimeClientCapabilityReader(() => pendingCapability, 'test');
+
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await flushPromises();
+    const oldRuntime = page._modeRuntimes.internal;
+    page.properties = { ...page.properties, groupId: secondGroupId };
+    definition.observers.groupId.call(page);
+
+    resolveCapability(enabledCapabilities());
+    await vi.waitFor(() => expect(page.data.groupId).toBe(secondGroupId));
+    await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
+
+    expect(
+      requests.filter((request) => request.url.includes(`/groups/${groupId}/directory?`)),
+    ).toHaveLength(0);
+    expect(oldRuntime.rawEntries).toEqual([]);
+    expect(oldRuntime.completedBaseQueryKey).toBeUndefined();
+    expect(oldRuntime.inFlightPages.size).toBe(0);
+  });
+
   it('does not commit a pending search response after detaching', async () => {
     const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
     definition.lifetimes.attached.call(page);
@@ -1117,16 +1224,20 @@ describe('P10 native directory controller', () => {
     await vi.waitFor(() => expect(store.getSnapshot().directorySearches).toHaveLength(1));
     const recorded = store.getSnapshot().directorySearches[0];
     expect(recorded).toMatchObject({
+      autoStartedByLaunchMarker: false,
       directoryKind: 'employee',
       facetsReady: true,
       firstSearchInPageSession: true,
-      miniProgramVersion: '1.2.3',
-      networkType: 'wifi',
+      pageSessionSearchIndex: 1,
       outcome: 'success',
+      profileEnabled: true,
       publishedBatchConfirmed: true,
       requestId: 'directory-request-employee-1',
+      responseBytesEstimated: true,
       searchTermLength: 5,
       searchType: 'employee-code',
+      setDataBytesEstimated: true,
+      truncated: false,
     });
     expect(recorded.setDataCallCount).toBeGreaterThanOrEqual(3);
     expect(recorded.setDataTotalBytes).toBeGreaterThan(0);
@@ -1167,7 +1278,7 @@ describe('P10 native directory controller', () => {
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
 
-    expect(page.data.filterSheetStyle).toBe('height:412px;');
+    expect(page.data.filterSheetStyle).toBe('height:410px;');
     expect(globalThis.wx.onWindowResize).toHaveBeenCalledTimes(1);
 
     windowInfo = {
@@ -1221,6 +1332,20 @@ function runtimeProperties(overrides = {}) {
     groupVersion: 3,
     permissionContextReady: true,
     ...overrides,
+  };
+}
+
+function enabledCapabilities() {
+  return {
+    core: true,
+    externalMessages: true,
+    global: true,
+    guest: true,
+    insights: true,
+    organization: true,
+    platform: 'miniprogram',
+    version: 'test',
+    workflows: true,
   };
 }
 

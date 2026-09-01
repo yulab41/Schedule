@@ -116,7 +116,12 @@ describe('organization direct Page registration', () => {
     const instance = { data: { ...definition.data }, setData: vi.fn() };
     definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
 
-    expect(instance.properties).toEqual({ directoryKind: 'internal', embedded: false, groupId });
+    expect(instance.properties).toEqual({
+      active: true,
+      directoryKind: 'internal',
+      embedded: false,
+      groupId,
+    });
     expect(mocks.directoryAttached.mock.instances[0]).toBe(instance);
     definition.handleBack.call(instance);
     expect(mocks.directoryHandleBack.mock.instances[0]).toBe(instance);

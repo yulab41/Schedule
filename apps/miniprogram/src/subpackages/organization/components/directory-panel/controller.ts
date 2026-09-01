@@ -46,15 +46,10 @@ import {
   stableSerialize,
   type DirectoryFilterState,
 } from './query-runtime.js';
-import {
-  beginDirectorySearchDiagnostic,
-  completeDirectorySearchDiagnostic,
-  markDirectorySearchRequestStarted,
-  markDirectorySearchResult,
-  markDirectorySearchReuse,
-  trackDirectorySearchSetData,
-  type DirectorySearchDiagnosticTrace,
-} from './search-diagnostics.js';
+import type {
+  DirectoryDiagnosticsBridge,
+  DirectorySearchDiagnosticTrace,
+} from './directory-diagnostics-bridge.js';
 import {
   ClientCapabilityDisabledError,
   requireClientCapability,
@@ -218,6 +213,7 @@ interface DirectoryPageInstance {
   readonly data: DirectoryPageData;
   readonly properties: {
     readonly directoryKind: DirectoryKind;
+    readonly active?: boolean;
     readonly embedded: boolean;
     readonly contextRefreshRevision?: number;
     readonly groupId: string;
@@ -229,7 +225,9 @@ interface DirectoryPageInstance {
   _contextSignature: string;
   _detached: boolean;
   _directoryClient: DirectoryReadClient;
+  _directoryPageLoadedAt: number;
   _directorySearchCount: number;
+  _requestContextSerial: number;
   _foregroundRefreshPromise: Promise<void> | undefined;
   _foregroundRefreshSerial: number;
   _instanceId: number;
@@ -288,10 +286,7 @@ interface DirectorySearchConfirmation {
   readonly eventHandlerStartedAt: number;
 }
 
-const directoryClient = createRuntimeDirectoryReadClient(
-  getStoredWechatToken,
-  getWechatRequestAuthentication(),
-);
+let directoryDiagnostics: DirectoryDiagnosticsBridge | undefined;
 const directoryKinds: readonly DirectoryKind[] = ['internal', 'employee'];
 const DIRECTORY_PAGE_SIZE = 30;
 let nextDirectoryInstanceId = 0;
@@ -305,7 +300,48 @@ const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
   subunit: '单元',
 };
 
-export function createDirectoryPanelControllerDefinition() {
+function beginDirectorySearchDiagnostic(
+  input: Parameters<DirectoryDiagnosticsBridge['beginDirectorySearchDiagnostic']>[0],
+): DirectorySearchDiagnosticTrace | undefined {
+  return directoryDiagnostics?.beginDirectorySearchDiagnostic(input);
+}
+
+function completeDirectorySearchDiagnostic(
+  trace: DirectorySearchDiagnosticTrace | undefined,
+  input: Parameters<DirectoryDiagnosticsBridge['completeDirectorySearchDiagnostic']>[1],
+): void {
+  directoryDiagnostics?.completeDirectorySearchDiagnostic(trace, input);
+}
+
+function markDirectorySearchRequestStarted(
+  trace: DirectorySearchDiagnosticTrace | undefined,
+): void {
+  directoryDiagnostics?.markDirectorySearchRequestStarted(trace);
+}
+
+function markDirectorySearchResult(
+  trace: DirectorySearchDiagnosticTrace | undefined,
+  input: Parameters<DirectoryDiagnosticsBridge['markDirectorySearchResult']>[1],
+): void {
+  directoryDiagnostics?.markDirectorySearchResult(trace, input);
+}
+
+function markDirectorySearchReuse(
+  trace: DirectorySearchDiagnosticTrace | undefined,
+  input: Parameters<DirectoryDiagnosticsBridge['markDirectorySearchReuse']>[1],
+): void {
+  directoryDiagnostics?.markDirectorySearchReuse(trace, input);
+}
+
+function trackDirectorySearchSetData(
+  trace: DirectorySearchDiagnosticTrace | undefined,
+  patch: Readonly<Record<string, unknown>>,
+): void {
+  directoryDiagnostics?.trackDirectorySearchSetData(trace, patch);
+}
+
+export function createDirectoryPanelControllerDefinition(diagnostics?: DirectoryDiagnosticsBridge) {
+  directoryDiagnostics = diagnostics;
   const data: DirectoryPageData = {
     activeSheet: createSheetData(),
     activeModeIndex: 0,
@@ -328,6 +364,7 @@ export function createDirectoryPanelControllerDefinition() {
   return {
     data,
     properties: {
+      active: { type: Boolean, value: false },
       contextRefreshRevision: { type: Number, value: 0 },
       directoryKind: { type: String, value: 'internal' },
       embedded: { type: Boolean, value: false },
@@ -338,6 +375,9 @@ export function createDirectoryPanelControllerDefinition() {
       permissionContextReady: { type: Boolean, value: false },
     },
     observers: {
+      active(this: DirectoryPageInstance): void {
+        if (this.properties.active === true) startDirectoryPageSession(this);
+      },
       contextRefreshRevision(this: DirectoryPageInstance): void {
         void revalidateForegroundContext(this);
       },
@@ -366,6 +406,10 @@ export function createDirectoryPanelControllerDefinition() {
         initializeRuntimeState(this);
         this._detached = false;
         this._instanceId = ++nextDirectoryInstanceId;
+        renewDirectoryClient(this);
+        if (this.properties.active === true || this.properties.embedded !== true) {
+          startDirectoryPageSession(this);
+        }
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
@@ -391,6 +435,7 @@ export function createDirectoryPanelControllerDefinition() {
         unregisterDirectoryWindowResize(this);
         initializeRuntimeState(this);
         this._detached = true;
+        this._requestContextSerial += 1;
         invalidateForegroundRefresh(this);
         for (const kind of directoryKinds) invalidateRuntime(this._modeRuntimes[kind]);
         clearModeIconTimers(this);
@@ -524,16 +569,7 @@ export function createDirectoryPanelControllerDefinition() {
 
 function createFilterSheetStyle(windowInfo: MiniProgramWindowInfo): string {
   const windowHeight = Math.max(1, Math.round(windowInfo.windowHeight));
-  const rawSafeBottom = windowInfo.safeArea?.bottom;
-  const screenHeight = Math.max(windowHeight, Math.round(windowInfo.screenHeight ?? windowHeight));
-  const safeCoordinateHeight =
-    typeof rawSafeBottom === 'number' && rawSafeBottom > windowHeight ? screenHeight : windowHeight;
-  const safeAreaBottom =
-    typeof rawSafeBottom === 'number' && Number.isFinite(rawSafeBottom)
-      ? Math.max(0, Math.min(windowHeight, safeCoordinateHeight - rawSafeBottom))
-      : 0;
-  const usableHeight = windowHeight - safeAreaBottom;
-  const sheetHeight = Math.max(1, Math.round(usableHeight * 0.5 + safeAreaBottom));
+  const sheetHeight = Math.max(1, Math.round(windowHeight * 0.5));
   return `height:${sheetHeight}px;`;
 }
 
@@ -630,7 +666,6 @@ function createModeRuntime(groupId = ''): DirectoryModeRuntime {
 }
 
 function initializeRuntimeState(page: DirectoryPageInstance): void {
-  page._directoryClient = directoryClient;
   if (
     page._modeRuntimes === undefined ||
     page._modeRuntimes.internal === undefined ||
@@ -648,7 +683,27 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
   if (typeof page._contextSignature !== 'string') page._contextSignature = '';
   if (typeof page._foregroundRefreshSerial !== 'number') page._foregroundRefreshSerial = 0;
   if (typeof page._instanceId !== 'number') page._instanceId = 0;
+  if (typeof page._directoryPageLoadedAt !== 'number') page._directoryPageLoadedAt = 0;
   if (typeof page._directorySearchCount !== 'number') page._directorySearchCount = 0;
+  if (typeof page._requestContextSerial !== 'number') page._requestContextSerial = 0;
+}
+
+function renewDirectoryClient(page: DirectoryPageInstance): void {
+  const requestContextSerial = ++page._requestContextSerial;
+  page._directoryClient = createRuntimeDirectoryReadClient(
+    getStoredWechatToken,
+    getWechatRequestAuthentication(),
+    directoryDiagnostics?.directoryRequestDiagnosticObserver,
+    () =>
+      !page._detached &&
+      page._instanceId !== 0 &&
+      page._requestContextSerial === requestContextSerial,
+  );
+}
+
+function startDirectoryPageSession(page: DirectoryPageInstance): void {
+  page._directoryPageLoadedAt = Date.now();
+  page._directorySearchCount = 0;
 }
 
 function startLoad(page: DirectoryPageInstance): void {
@@ -670,6 +725,7 @@ function startLoad(page: DirectoryPageInstance): void {
     return;
   }
   invalidateForegroundRefresh(page);
+  renewDirectoryClient(page);
   for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
   page._modeRuntimes = {
     employee: createModeRuntime(groupId),
@@ -1457,17 +1513,18 @@ function search(
     return Promise.resolve();
   }
   const diagnosticStartedAt = Date.now();
+  page._directorySearchCount += 1;
   const diagnosticTrace = beginDirectorySearchDiagnostic({
     confirmedAt: confirmation?.confirmedAt ?? diagnosticStartedAt,
     directoryKind: kind,
+    directoryPageLoadedAt: page._directoryPageLoadedAt,
     eventHandlerStartedAt: confirmation?.eventHandlerStartedAt ?? diagnosticStartedAt,
     facetsReady: runtime.facets !== undefined,
-    firstSearchInPageSession: page._directorySearchCount === 0,
     hasFilters: Object.keys(runtime.filters).length > 0,
+    pageSessionSearchIndex: page._directorySearchCount,
     publishedBatchConfirmed: runtime.facets?.publishedImportVersion !== undefined,
     searchQuery: pane.searchQuery,
   });
-  page._directorySearchCount += 1;
   const identity = createQueryIdentity(page, kind, runtime, pane.searchQuery);
   const pageRequestKey = createPageRequestKey(identity.baseQueryKey);
   if (!force) {
@@ -1809,7 +1866,7 @@ function finishDirectorySearchAfterRender(
     readonly completedResultReuse: boolean;
     readonly inFlightRequestReuse: boolean;
     readonly outcome: 'failed' | 'success' | 'superseded';
-    readonly setDataCallbackAt?: number | undefined;
+    readonly setDataCommitAt?: number | undefined;
   },
 ): void {
   if (diagnosticTrace === undefined) return;
@@ -1817,7 +1874,7 @@ function finishDirectorySearchAfterRender(
     const finish = (): void =>
       completeDirectorySearchDiagnostic(diagnosticTrace, {
         ...input,
-        visibleAt: Date.now(),
+        nextRenderCycleAt: Date.now(),
       });
     const runtime = wx as unknown as {
       readonly nextTick?: (callback: () => void) => void;
@@ -1841,7 +1898,7 @@ function createDirectorySearchSetDataCallback(
     : () =>
         finishDirectorySearchAfterRender(page, diagnosticTrace, {
           ...input,
-          setDataCallbackAt: Date.now(),
+          setDataCommitAt: Date.now(),
         });
 }
 

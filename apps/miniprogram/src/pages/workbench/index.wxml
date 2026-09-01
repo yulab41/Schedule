@@ -706,6 +706,7 @@
           </view>
           <directory-panel
             wx:if="{{workspaceMounted.directory}}"
+            active="{{activeWorkspace === 'directory'}}"
             directory-kind="internal"
             group-id="{{canOpenGroupSettings ? currentGroupId : ''}}"
             permission-context-ready="{{directoryPermissionContextReady}}"

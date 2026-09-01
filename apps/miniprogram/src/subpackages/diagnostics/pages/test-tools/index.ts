@@ -1,5 +1,11 @@
 import { buildInfo } from '../../../../platform/build-info.js';
 import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
+import { RUNTIME_DIAGNOSTIC_COPY_MAX_BYTES } from '../../../../platform/runtime-diagnostics-limits.js';
+import {
+  armRuntimeDirectoryLaunchMarker,
+  clearRuntimeDirectoryLaunchMarker,
+  hasRuntimeDirectoryLaunchMarker,
+} from '../../../../platform/runtime-diagnostics-launch.js';
 import {
   clearRuntimeDirectorySearches,
   getRuntimeDiagnosticsSnapshot,
@@ -76,7 +82,6 @@ interface DirectorySearchView extends RuntimeDirectorySearchDiagnostic {
   readonly key: string;
   readonly modeLabel: string;
   readonly outcomeLabel: string;
-  readonly profileLabel: string;
   readonly searchTypeLabel: string;
 }
 
@@ -91,6 +96,7 @@ interface TestToolsPageData {
   readonly errorRows: readonly ErrorView[];
   readonly generatedAt: string;
   readonly networkType: string;
+  readonly nextLaunchDirectoryDiagnosticArmed: boolean;
   readonly pageReadyMs: number;
   readonly performanceRows: readonly PerformanceView[];
   readonly requestRows: readonly RequestView[];
@@ -282,6 +288,7 @@ Page({
     errorRows: [],
     generatedAt: formatTimestamp(Date.now()),
     networkType: '读取中',
+    nextLaunchDirectoryDiagnosticArmed: false,
     pageReadyMs: 0,
     performanceRows: [],
     requestRows: [],
@@ -302,6 +309,7 @@ Page({
     this.setData({
       buildRows: createBuildRows(identity.version),
       environmentLabel: formatMiniProgramEnvironment(identity.envVersion),
+      nextLaunchDirectoryDiagnosticArmed: hasRuntimeDirectoryLaunchMarker(),
       storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
     });
     void collectDeviceRows(wx as unknown as RuntimeSystemApi).then(({ networkType, rows }) => {
@@ -341,6 +349,7 @@ Page({
     if (!this._active) return;
     this.setData({
       generatedAt: formatTimestamp(Date.now()),
+      nextLaunchDirectoryDiagnosticArmed: hasRuntimeDirectoryLaunchMarker(),
       storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
     });
     refreshRuntimeDiagnostics(this);
@@ -404,6 +413,22 @@ Page({
     }
     refreshRuntimeDiagnostics(this);
     wx.showToast?.({ icon: 'success', title: '已开始记录通讯录搜索' });
+  },
+
+  handleArmNextLaunchDirectoryRecording(this: TestToolsPageInstance): void {
+    if (!this._active || !isTestToolsRuntimeEnabled()) return;
+    const armed = armRuntimeDirectoryLaunchMarker();
+    this.setData({ nextLaunchDirectoryDiagnosticArmed: armed });
+    wx.showToast?.({
+      icon: armed ? 'success' : 'none',
+      title: armed ? '下次 App 启动诊断已开启' : '无法保存一次性标记',
+    });
+  },
+
+  handleCancelNextLaunchDirectoryRecording(this: TestToolsPageInstance): void {
+    clearRuntimeDirectoryLaunchMarker();
+    this.setData({ nextLaunchDirectoryDiagnosticArmed: false });
+    wx.showToast?.({ icon: 'success', title: '下次启动诊断已取消' });
   },
 
   handleStopDirectoryRecording(this: TestToolsPageInstance): void {
@@ -712,7 +737,6 @@ function toDirectorySearchView(
         : entry.outcome === 'superseded'
           ? '已被新搜索替代'
           : '失败',
-    profileLabel: entry.networkProfile.supported ? '支持' : '不支持',
     searchTypeLabel: searchTypeLabel(entry.searchType),
   };
 }
@@ -773,6 +797,7 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
   const lines = [
     simplified ? '[Codex 简化诊断报告 v1]' : '[测试工具完整诊断报告 v1]',
     '安全说明：本报告不含请求体、响应体、Header、凭证、身份、联系方式、成员信息或原始堆栈。',
+    '口径说明：记录总耗时包含诊断附加开销；setData 提交和下一渲染周期不代表用户已实际看到结果。',
     '',
     '[版本]',
     `构建=${buildInfo.buildLabel}`,
@@ -849,6 +874,7 @@ function createDirectorySearchReport(rows: readonly DirectorySearchView[]): stri
   return [
     '[通讯录性能诊断 v1]',
     '安全说明：只含长度、类型、阶段耗时、计数和设备环境；不含原始搜索词、姓名、号码、工号、账号、群组、权限、筛选值或游标。',
+    '口径说明：记录总耗时包含诊断附加开销；响应和 setData 字节数均为 JSON.stringify 估算。',
     `构建=${buildInfo.buildLabel}`,
     `记录数=${rows.length}`,
     '',
@@ -859,14 +885,15 @@ function createDirectorySearchReport(rows: readonly DirectorySearchView[]): stri
 function createDirectorySearchReportLines(rows: readonly DirectorySearchView[]): string[] {
   return rows.flatMap((item, index) => [
     `#${index + 1} ${item.diagnosticId} | ${formatTimestamp(item.confirmedAt)} | ${item.modeLabel} | ${item.outcomeLabel}`,
-    `搜索=长度${item.searchTermLength}，类型${item.searchTypeLabel}，筛选=${yesNo(item.hasFilters)}，页面会话首次=${yesNo(item.firstSearchInPageSession)}`,
+    `搜索=长度${item.searchTermLength}，类型${item.searchTypeLabel}，筛选=${yesNo(item.hasFilters)}，页面会话第${item.pageSessionSearchIndex}次，页面会话首次=${yesNo(item.firstSearchInPageSession)}`,
+    `启动=下次启动标记自动开启${yesNo(item.autoStartedByLaunchMarker)}，新 App.onLaunch=${yesNo(item.newAppLaunchObserved)}，warm resume=${yesNo(item.warmResume)}，App启动到确认${item.appLaunchToConfirmMs}ms，通讯录页面加载到确认${item.directoryPageLoadToConfirmMs}ms`,
     `复用=完成结果${yesNo(item.completedResultReuse)}，进行中请求${yesNo(item.inFlightRequestReuse)}，重复拦截${yesNo(item.duplicateRequestIntercepted)}`,
-    `阶段ms=事件开始${item.eventHandlerStartMs}，账号/群组/权限等待${item.contextWaitMs}，facets/发布复核等待${item.facetsOrReleaseWaitMs}，发请求${item.networkRequestStartMs}，收响应${item.networkResponseMs}，响应到转换${item.responseToConversionMs}，卡片${item.cardBuildMs}，setData回调${item.setDataCallbackMs}，下一渲染可见${item.resultVisibleMs}，总计${item.totalMs}`,
-    `setData=次数${item.setDataCallCount}，累计估算${item.setDataTotalBytes}B，最大单次${item.setDataMaxBytes}B`,
-    `结果=返回${item.resultCount}条，下一页${yesNo(item.hasNextPage)}，响应估算${item.responseBytes}B，facets就绪${yesNo(item.facetsReady)}，发布批次确认${yesNo(item.publishedBatchConfirmed)}`,
-    `网络=${item.networkType}，requestId=${item.requestId}，profile=${formatNetworkProfile(item.networkProfile)}`,
+    `阶段ms=事件开始${item.eventHandlerStartMs}，账号/群组/权限等待${item.contextWaitMs}，facets/发布复核等待${item.facetsOrReleaseWaitMs}，发请求${item.networkRequestStartMs}，收响应${item.networkResponseMs}，响应到转换${item.responseToConversionMs}，卡片${item.cardBuildMs}，数据提交完成${item.setDataCommitMs}，下一渲染周期完成${item.nextRenderCycleMs}，诊断序列化${item.diagnosticSerializationMs}，总计${item.totalMs}`,
+    `setData=次数${item.setDataCallCount}，累计${item.setDataTotalBytes}B，最大单次${item.setDataMaxBytes}B，字节为估算=${yesNo(item.setDataBytesEstimated)}`,
+    `结果=返回${item.resultCount}条，下一页${yesNo(item.hasNextPage)}，响应${item.responseBytes}B，字节为估算=${yesNo(item.responseBytesEstimated)}，facets就绪${yesNo(item.facetsReady)}，发布批次确认${yesNo(item.publishedBatchConfirmed)}`,
+    `网络=requestId=${item.requestId}，profileEnabled=${yesNo(item.profileEnabled)}，profile=${formatNetworkProfile(item.networkProfile)}`,
     `服务端=${formatServerTiming(item.serverTiming)}`,
-    `环境=${item.deviceModel} | ${item.systemVersion} | 微信${item.wechatVersion} | 基础库${item.sdkVersion} | 小程序${item.miniProgramVersion} | 体验构建${item.experienceVersion}`,
+    `边界=截断${yesNo(item.truncated)}，记录总耗时包含诊断附加开销`,
     '',
   ]);
 }
@@ -921,10 +948,34 @@ function copyText(value: string, successTitle: string): void {
     return;
   }
   wx.setClipboardData({
-    data: value,
+    data: truncateCopyText(value),
     fail: () => wx.showToast?.({ icon: 'none', title: '复制失败，请稍后重试' }),
     success: () => wx.showToast?.({ icon: 'success', title: successTitle }),
   });
+}
+
+function truncateCopyText(value: string): string {
+  if (utf8Bytes(value) <= RUNTIME_DIAGNOSTIC_COPY_MAX_BYTES) return value;
+  const notice = `\n[已安全截断：复制文本超过 ${RUNTIME_DIAGNOSTIC_COPY_MAX_BYTES} B 上限]`;
+  const budget = RUNTIME_DIAGNOSTIC_COPY_MAX_BYTES - utf8Bytes(notice);
+  let output = '';
+  let bytes = 0;
+  for (const character of value) {
+    const next = utf8Bytes(character);
+    if (bytes + next > budget) break;
+    output += character;
+    bytes += next;
+  }
+  return output + notice;
+}
+
+function utf8Bytes(value: string): number {
+  let bytes = 0;
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    bytes += codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+  }
+  return bytes;
 }
 
 function check(id: string, label: string, impact: string, screenshot: string): DisplayCheck {

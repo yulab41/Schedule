@@ -1,125 +1,44 @@
-export type DiagnosticRequestOutcome = 'failed' | 'http-error' | 'success';
+import {
+  RUNTIME_DIAGNOSTIC_ERROR_LIMIT,
+  RUNTIME_DIAGNOSTIC_PERFORMANCE_LIMIT,
+  RUNTIME_DIAGNOSTIC_REQUEST_LIMIT,
+  RUNTIME_DIAGNOSTIC_REQUEST_ID_MAX_LENGTH,
+  RUNTIME_DIAGNOSTIC_REQUEST_ID_PATTERN,
+  RUNTIME_DIRECTORY_RECORD_MAX_BYTES,
+  RUNTIME_DIRECTORY_SEARCH_LIMIT,
+} from './runtime-diagnostics-limits.js';
+import type {
+  RuntimeDiagnosticError,
+  RuntimeDiagnosticPerformance,
+  RuntimeDiagnosticRequestInput,
+  RuntimeDiagnosticsSlot,
+  RuntimeDiagnosticsSnapshot,
+  RuntimeDirectorySearchPackedRecord,
+  RuntimeDirectorySearchDiagnostic,
+} from './runtime-diagnostics-types.js';
 
-export interface RuntimeDiagnosticNetworkProfile {
-  readonly connectMs?: number | undefined;
-  readonly dnsMs?: number | undefined;
-  readonly downloadMs?: number | undefined;
-  readonly supported: boolean;
-  readonly tlsMs?: number | undefined;
-  readonly ttfbMs?: number | undefined;
+export type {
+  DiagnosticRequestOutcome,
+  RuntimeDiagnosticError,
+  RuntimeDiagnosticNetworkProfile,
+  RuntimeDiagnosticPerformance,
+  RuntimeDiagnosticRequest,
+  RuntimeDiagnosticRequestInput,
+  RuntimeDiagnosticServerTiming,
+  RuntimeDiagnosticsSlot,
+  RuntimeDiagnosticsSnapshot,
+  RuntimeDirectorySearchDiagnostic,
+  RuntimeDirectorySearchOutcome,
+  RuntimeDirectorySearchType,
+} from './runtime-diagnostics-types.js';
+
+interface DiagnosticsApp {
+  readonly globalData?: {
+    readonly runtimeDiagnostics?: RuntimeDiagnosticsSlot | undefined;
+  };
 }
 
-export interface RuntimeDiagnosticServerTiming {
-  readonly aliasMs?: number | undefined;
-  readonly authMs?: number | undefined;
-  readonly batchMs?: number | undefined;
-  readonly cache?: 'hit' | 'miss' | 'none' | 'unsupported' | undefined;
-  readonly coldStart?: boolean | undefined;
-  readonly contactsMs?: number | undefined;
-  readonly countMs?: number | undefined;
-  readonly databaseWaitMs?: number | undefined;
-  readonly instanceAgeMs?: number | undefined;
-  readonly permissionMs?: number | undefined;
-  readonly queryMs?: number | undefined;
-  readonly queueSupported?: boolean | undefined;
-  readonly rowsMs?: number | undefined;
-  readonly serializationMs?: number | undefined;
-  readonly supported: boolean;
-  readonly totalMs?: number | undefined;
-  readonly transformMs?: number | undefined;
-}
-
-export interface RuntimeDiagnosticRequest {
-  readonly capabilityWaitMs?: number | undefined;
-  readonly completedAt?: number | undefined;
-  readonly contextWaitMs?: number | undefined;
-  readonly duplicate: boolean;
-  readonly durationMs: number;
-  readonly endpoint: string;
-  readonly issuedAt?: number | undefined;
-  readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
-  readonly networkProfile?: RuntimeDiagnosticNetworkProfile | undefined;
-  readonly outcome: DiagnosticRequestOutcome;
-  readonly requestId?: string | undefined;
-  readonly retryCount: number;
-  readonly serverTiming?: RuntimeDiagnosticServerTiming | undefined;
-  readonly startedAt: number;
-  readonly statusCode?: number | undefined;
-}
-
-export type RuntimeDirectorySearchOutcome = 'failed' | 'success' | 'superseded';
-export type RuntimeDirectorySearchType = 'employee-code' | 'name' | 'other' | 'phone';
-
-export interface RuntimeDirectorySearchDiagnostic {
-  readonly cardBuildMs: number;
-  readonly completedResultReuse: boolean;
-  readonly confirmedAt: number;
-  readonly contextWaitMs: number;
-  readonly deviceModel: string;
-  readonly diagnosticId: string;
-  readonly directoryKind: 'employee' | 'internal';
-  readonly duplicateRequestIntercepted: boolean;
-  readonly eventHandlerStartMs: number;
-  readonly experienceVersion: string;
-  readonly facetsOrReleaseWaitMs: number;
-  readonly facetsReady: boolean;
-  readonly firstSearchInPageSession: boolean;
-  readonly hasFilters: boolean;
-  readonly hasNextPage: boolean;
-  readonly inFlightRequestReuse: boolean;
-  readonly miniProgramVersion: string;
-  readonly networkProfile: RuntimeDiagnosticNetworkProfile;
-  readonly networkRequestStartMs: number;
-  readonly networkResponseMs: number;
-  readonly networkType: string;
-  readonly outcome: RuntimeDirectorySearchOutcome;
-  readonly publishedBatchConfirmed: boolean;
-  readonly recordedAt: number;
-  readonly requestId: string;
-  readonly responseBytes: number;
-  readonly responseToConversionMs: number;
-  readonly resultCount: number;
-  readonly resultVisibleMs: number;
-  readonly sdkVersion: string;
-  readonly searchTermLength: number;
-  readonly searchType: RuntimeDirectorySearchType;
-  readonly serverTiming: RuntimeDiagnosticServerTiming;
-  readonly setDataCallbackMs: number;
-  readonly setDataCallCount: number;
-  readonly setDataMaxBytes: number;
-  readonly setDataTotalBytes: number;
-  readonly systemVersion: string;
-  readonly totalMs: number;
-  readonly wechatVersion: string;
-}
-
-export interface RuntimeDiagnosticError {
-  readonly code: string;
-  readonly fingerprint: string;
-  readonly page: string;
-  readonly recordedAt: number;
-}
-
-export interface RuntimeDiagnosticPerformance {
-  readonly durationMs: number;
-  readonly metric: string;
-  readonly page: string;
-  readonly recordedAt: number;
-}
-
-export interface RuntimeDiagnosticsSnapshot {
-  readonly directorySearches: readonly RuntimeDirectorySearchDiagnostic[];
-  readonly directorySearchRecording: boolean;
-  readonly errors: readonly RuntimeDiagnosticError[];
-  readonly performance: readonly RuntimeDiagnosticPerformance[];
-  readonly requests: readonly RuntimeDiagnosticRequest[];
-}
-
-export interface RuntimeDiagnosticsStore {
-  readonly directorySearches: RuntimeDirectorySearchDiagnostic[];
-  readonly errors: RuntimeDiagnosticError[];
-  readonly performance: RuntimeDiagnosticPerformance[];
-  readonly requests: RuntimeDiagnosticRequest[];
+export interface RuntimeDiagnosticsStore extends RuntimeDiagnosticsSlot {
   clearDirectorySearches(): void;
   getSnapshot(): RuntimeDiagnosticsSnapshot;
   isDirectorySearchRecording(): boolean;
@@ -131,46 +50,126 @@ export interface RuntimeDiagnosticsStore {
   stopDirectorySearchRecording(): void;
 }
 
-export type RuntimeDiagnosticRequestInput = Omit<
-  RuntimeDiagnosticRequest,
-  'duplicate' | 'durationMs' | 'endpoint' | 'retryCount'
-> & {
-  readonly durationMs: number;
-  readonly endpoint: string;
-  readonly profileRequested?: boolean | undefined;
-  readonly requestProfile?: unknown;
-  readonly responseHeader?: unknown;
-  readonly retryCount: number;
-};
-
-interface DiagnosticsApp {
-  readonly globalData?: {
-    readonly runtimeDiagnostics?: RuntimeDiagnosticsStore | undefined;
+// Test helper and diagnostics-only facade. App runtime creates only the plain data slot.
+export function createRuntimeDiagnosticsStore(): RuntimeDiagnosticsStore {
+  const slot: RuntimeDiagnosticsSlot = {
+    appLaunchAt: 0,
+    directorySearchRecording: false,
+    directorySearches: [],
+    errors: [],
+    initialShowPending: false,
+    launchMarkerConsumed: false,
+    launchObserved: false,
+    performance: [],
+    requests: [],
+    warmResumeObserved: false,
   };
+  const store: RuntimeDiagnosticsStore = {
+    ...slot,
+    clearDirectorySearches: () => slot.directorySearches.splice(0, slot.directorySearches.length),
+    getSnapshot: () => createSnapshot(slot),
+    isDirectorySearchRecording: () => slot.directorySearchRecording,
+    recordDirectorySearch: (entry) => appendDirectorySearch(slot, entry),
+    recordError: (entry) => boundedPush(slot.errors, entry, RUNTIME_DIAGNOSTIC_ERROR_LIMIT),
+    recordPerformance: (entry) =>
+      boundedPush(slot.performance, entry, RUNTIME_DIAGNOSTIC_PERFORMANCE_LIMIT),
+    recordRequest: (entry) =>
+      boundedPush(
+        slot.requests,
+        {
+          ...entry,
+          endpoint: sanitizeDiagnosticEndpoint(entry.endpoint),
+          ...(entry.networkProfile === undefined
+            ? {}
+            : { networkProfile: sanitizeNetworkProfile(entry.networkProfile) }),
+          ...(entry.requestId === undefined
+            ? {}
+            : { requestId: safeOptionalRequestId(entry.requestId) }),
+          ...(entry.serverTiming === undefined
+            ? {}
+            : { serverTiming: sanitizeServerTiming(entry.serverTiming) }),
+        },
+        RUNTIME_DIAGNOSTIC_REQUEST_LIMIT,
+      ),
+    startDirectorySearchRecording: () => {
+      slot.directorySearchRecording = true;
+      store.directorySearchRecording = true;
+    },
+    stopDirectorySearchRecording: () => {
+      slot.directorySearchRecording = false;
+      store.directorySearchRecording = false;
+    },
+  };
+  // Keep facade array references and scalar launch fields aligned with the backing slot.
+  Object.defineProperties(store, {
+    appLaunchAt: { get: () => slot.appLaunchAt, set: (value) => (slot.appLaunchAt = value) },
+    directorySearchRecording: {
+      get: () => slot.directorySearchRecording,
+      set: (value) => (slot.directorySearchRecording = value),
+    },
+    launchMarkerConsumed: {
+      get: () => slot.launchMarkerConsumed,
+      set: (value) => (slot.launchMarkerConsumed = value),
+    },
+    launchObserved: {
+      get: () => slot.launchObserved,
+      set: (value) => (slot.launchObserved = value),
+    },
+  });
+  return store;
 }
 
-const requestLimit = 20;
-const errorLimit = 10;
-const performanceLimit = 12;
-const directorySearchLimit = 20;
+export function getRuntimeDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot {
+  const slot = resolveRuntimeDiagnosticsSlot();
+  return slot === undefined
+    ? {
+        appLaunchAt: 0,
+        directorySearches: [],
+        directorySearchRecording: false,
+        errors: [],
+        launchMarkerConsumed: false,
+        launchObserved: false,
+        performance: [],
+        requests: [],
+      }
+    : createSnapshot(slot);
+}
+
+export function startRuntimeDirectorySearchRecording(): boolean {
+  const slot = resolveRuntimeDiagnosticsSlot();
+  if (slot === undefined) return false;
+  slot.directorySearchRecording = true;
+  slot.launchMarkerConsumed = false;
+  return true;
+}
+
+export function stopRuntimeDirectorySearchRecording(): void {
+  const slot = resolveRuntimeDiagnosticsSlot();
+  if (slot !== undefined) slot.directorySearchRecording = false;
+}
+
+export function clearRuntimeDirectorySearches(): void {
+  const slot = resolveRuntimeDiagnosticsSlot();
+  slot?.directorySearches.splice(0, slot.directorySearches.length);
+}
+
+export { sanitizeDiagnosticEndpoint };
+
 const safeEndpointSegments = new Set([
   'api',
   'auth',
-  'backfill-batches',
   'calendar',
   'client-capabilities',
   'client-telemetry',
   'contacts',
   'directory',
   'employee-directory',
-  'duty-adjustments',
   'events',
   'exports',
   'facets',
   'groups',
   'holidays',
   'insights',
-  'leave-requests',
   'login',
   'me',
   'members',
@@ -181,240 +180,12 @@ const safeEndpointSegments = new Set([
   'scheduling-config',
   'search',
   'statistics',
-  'swap-requests',
   'visitor-access',
   'wechat',
   'workbench',
 ]);
 
-export function createRuntimeDiagnosticsStore(): RuntimeDiagnosticsStore {
-  const directorySearches: RuntimeDirectorySearchDiagnostic[] = [];
-  const errors: RuntimeDiagnosticError[] = [];
-  const performance: RuntimeDiagnosticPerformance[] = [];
-  const requests: RuntimeDiagnosticRequest[] = [];
-  let directorySearchRecording = false;
-  const store: RuntimeDiagnosticsStore = {
-    directorySearches,
-    errors,
-    performance,
-    requests,
-    clearDirectorySearches: () => directorySearches.splice(0, directorySearches.length),
-    getSnapshot: () => createSnapshot(store),
-    isDirectorySearchRecording: () => directorySearchRecording,
-    recordDirectorySearch: (entry) => appendDirectorySearch(store, entry),
-    recordError: (entry) => appendError(store, entry),
-    recordPerformance: (entry) => appendPerformance(store, entry),
-    recordRequest: (entry) => appendRequest(store, entry),
-    startDirectorySearchRecording: () => {
-      directorySearchRecording = true;
-    },
-    stopDirectorySearchRecording: () => {
-      directorySearchRecording = false;
-    },
-  };
-  return store;
-}
-
-export function getRuntimeDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot {
-  const store = resolveRuntimeDiagnosticsStore();
-  if (store === undefined) {
-    return {
-      directorySearches: [],
-      directorySearchRecording: false,
-      errors: [],
-      performance: [],
-      requests: [],
-    };
-  }
-  return store.getSnapshot();
-}
-
-export function startRuntimeDirectorySearchRecording(): boolean {
-  const store = resolveRuntimeDiagnosticsStore();
-  if (store === undefined) return false;
-  store.startDirectorySearchRecording();
-  return true;
-}
-
-export function stopRuntimeDirectorySearchRecording(): void {
-  resolveRuntimeDiagnosticsStore()?.stopDirectorySearchRecording();
-}
-
-export function clearRuntimeDirectorySearches(): void {
-  resolveRuntimeDiagnosticsStore()?.clearDirectorySearches();
-}
-
-export function isRuntimeDirectorySearchRecording(): boolean {
-  return resolveRuntimeDiagnosticsStore()?.isDirectorySearchRecording() === true;
-}
-
-function createSnapshot(store: RuntimeDiagnosticsStore): RuntimeDiagnosticsSnapshot {
-  return {
-    directorySearches: store.directorySearches.map((entry) => ({
-      ...entry,
-      networkProfile: { ...entry.networkProfile },
-      serverTiming: { ...entry.serverTiming },
-    })),
-    directorySearchRecording: store.isDirectorySearchRecording(),
-    errors: store.errors.map((entry) => ({ ...entry })),
-    performance: store.performance.map((entry) => ({ ...entry })),
-    requests: store.requests.map((entry) => ({
-      ...entry,
-      ...(entry.networkProfile === undefined
-        ? {}
-        : { networkProfile: { ...entry.networkProfile } }),
-      ...(entry.serverTiming === undefined ? {} : { serverTiming: { ...entry.serverTiming } }),
-    })),
-  };
-}
-
-function appendRequest(store: RuntimeDiagnosticsStore, entry: RuntimeDiagnosticRequestInput): void {
-  try {
-    const endpoint = sanitizeDiagnosticEndpoint(entry.endpoint);
-    const startedAt = normalizeTimestamp(entry.startedAt);
-    const previous = store.requests.at(-1);
-    const duplicate =
-      previous !== undefined &&
-      previous.method === entry.method &&
-      previous.endpoint === endpoint &&
-      Math.abs(startedAt - previous.startedAt) <= 1_000;
-    const networkProfile = resolveNetworkProfile(entry);
-    const requestId = resolveRequestId(entry);
-    const serverTiming = resolveServerTiming(entry);
-    pushBounded(
-      store.requests,
-      {
-        ...(entry.capabilityWaitMs === undefined
-          ? {}
-          : { capabilityWaitMs: normalizeDuration(entry.capabilityWaitMs) }),
-        ...(entry.completedAt === undefined
-          ? {}
-          : { completedAt: normalizeTimestamp(entry.completedAt) }),
-        duplicate,
-        ...(entry.contextWaitMs === undefined
-          ? {}
-          : { contextWaitMs: normalizeDuration(entry.contextWaitMs) }),
-        durationMs: normalizeDuration(entry.durationMs),
-        endpoint,
-        ...(entry.issuedAt === undefined ? {} : { issuedAt: normalizeTimestamp(entry.issuedAt) }),
-        method: entry.method,
-        ...(networkProfile === undefined ? {} : { networkProfile }),
-        outcome: entry.outcome,
-        retryCount: Math.max(0, Math.min(9, Math.round(entry.retryCount))),
-        ...(requestId === undefined ? {} : { requestId }),
-        startedAt,
-        ...(serverTiming === undefined ? {} : { serverTiming }),
-        ...(Number.isInteger(entry.statusCode)
-          ? { statusCode: Math.max(0, Math.min(999, entry.statusCode as number)) }
-          : {}),
-      },
-      requestLimit,
-    );
-  } catch {
-    // Diagnostics must never alter request behavior.
-  }
-}
-
-function appendDirectorySearch(
-  store: RuntimeDiagnosticsStore,
-  entry: RuntimeDirectorySearchDiagnostic,
-): void {
-  try {
-    pushBounded(
-      store.directorySearches,
-      {
-        cardBuildMs: normalizeDuration(entry.cardBuildMs),
-        completedResultReuse: entry.completedResultReuse === true,
-        confirmedAt: normalizeTimestamp(entry.confirmedAt),
-        contextWaitMs: normalizeDuration(entry.contextWaitMs),
-        deviceModel: sanitizeRuntimeLabel(entry.deviceModel, '不支持'),
-        diagnosticId: sanitizeDiagnosticId(entry.diagnosticId),
-        directoryKind: entry.directoryKind === 'employee' ? 'employee' : 'internal',
-        duplicateRequestIntercepted: entry.duplicateRequestIntercepted === true,
-        eventHandlerStartMs: normalizeDuration(entry.eventHandlerStartMs),
-        experienceVersion: sanitizeRuntimeLabel(entry.experienceVersion, '未提供'),
-        facetsOrReleaseWaitMs: normalizeDuration(entry.facetsOrReleaseWaitMs),
-        facetsReady: entry.facetsReady === true,
-        firstSearchInPageSession: entry.firstSearchInPageSession === true,
-        hasFilters: entry.hasFilters === true,
-        hasNextPage: entry.hasNextPage === true,
-        inFlightRequestReuse: entry.inFlightRequestReuse === true,
-        miniProgramVersion: sanitizeRuntimeLabel(entry.miniProgramVersion, '未提供'),
-        networkProfile: normalizeNetworkProfile(entry.networkProfile),
-        networkRequestStartMs: normalizeDuration(entry.networkRequestStartMs),
-        networkResponseMs: normalizeDuration(entry.networkResponseMs),
-        networkType: sanitizeRuntimeLabel(entry.networkType, '不支持'),
-        outcome:
-          entry.outcome === 'success' || entry.outcome === 'superseded' ? entry.outcome : 'failed',
-        publishedBatchConfirmed: entry.publishedBatchConfirmed === true,
-        recordedAt: normalizeTimestamp(entry.recordedAt),
-        requestId: sanitizeRequestId(entry.requestId),
-        responseBytes: normalizeCount(entry.responseBytes, 20_000_000),
-        responseToConversionMs: normalizeDuration(entry.responseToConversionMs),
-        resultCount: normalizeCount(entry.resultCount, 100_000),
-        resultVisibleMs: normalizeDuration(entry.resultVisibleMs),
-        sdkVersion: sanitizeRuntimeLabel(entry.sdkVersion, '不支持'),
-        searchTermLength: normalizeCount(entry.searchTermLength, 100),
-        searchType:
-          entry.searchType === 'employee-code' ||
-          entry.searchType === 'name' ||
-          entry.searchType === 'phone'
-            ? entry.searchType
-            : 'other',
-        serverTiming: normalizeServerTiming(entry.serverTiming),
-        setDataCallbackMs: normalizeDuration(entry.setDataCallbackMs),
-        setDataCallCount: normalizeCount(entry.setDataCallCount, 100),
-        setDataMaxBytes: normalizeCount(entry.setDataMaxBytes, 20_000_000),
-        setDataTotalBytes: normalizeCount(entry.setDataTotalBytes, 100_000_000),
-        systemVersion: sanitizeRuntimeLabel(entry.systemVersion, '不支持'),
-        totalMs: normalizeDuration(entry.totalMs),
-        wechatVersion: sanitizeRuntimeLabel(entry.wechatVersion, '不支持'),
-      },
-      directorySearchLimit,
-    );
-  } catch {
-    // Directory diagnostics must never alter search behavior.
-  }
-}
-
-function appendError(store: RuntimeDiagnosticsStore, entry: RuntimeDiagnosticError): void {
-  try {
-    pushBounded(
-      store.errors,
-      {
-        code: sanitizeFixedLabel(entry.code, 'UNKNOWN'),
-        fingerprint: sanitizeFingerprint(entry.fingerprint),
-        page: sanitizeFixedLabel(entry.page, 'unknown'),
-        recordedAt: normalizeTimestamp(entry.recordedAt),
-      },
-      errorLimit,
-    );
-  } catch {
-    // Error diagnostics must never recursively report themselves.
-  }
-}
-
-function appendPerformance(
-  store: RuntimeDiagnosticsStore,
-  entry: RuntimeDiagnosticPerformance,
-): void {
-  try {
-    pushBounded(
-      store.performance,
-      {
-        durationMs: normalizeDuration(entry.durationMs),
-        metric: sanitizeFixedLabel(entry.metric, 'unknown'),
-        page: sanitizeFixedLabel(entry.page, 'unknown'),
-        recordedAt: normalizeTimestamp(entry.recordedAt),
-      },
-      performanceLimit,
-    );
-  } catch {
-    // Performance diagnostics are best-effort and read-only.
-  }
-}
-
-export function sanitizeDiagnosticEndpoint(value: string): string {
+function sanitizeDiagnosticEndpoint(value: string): string {
   const path = value.replace(/^https?:\/\/[^/]+/iu, '').split(/[?#]/u, 1)[0] ?? '';
   const segments = path
     .split('/')
@@ -424,7 +195,230 @@ export function sanitizeDiagnosticEndpoint(value: string): string {
   return segments.length === 0 ? '/unknown' : `/${segments.join('/')}`;
 }
 
-function resolveRuntimeDiagnosticsStore(): RuntimeDiagnosticsStore | undefined {
+function createSnapshot(slot: RuntimeDiagnosticsSlot): RuntimeDiagnosticsSnapshot {
+  return {
+    appLaunchAt: slot.appLaunchAt,
+    directorySearches: slot.directorySearches.map(unpackDirectorySearch),
+    directorySearchRecording: slot.directorySearchRecording,
+    errors: slot.errors.map((entry) => ({ ...entry })),
+    launchMarkerConsumed: slot.launchMarkerConsumed,
+    launchObserved: slot.launchObserved,
+    performance: slot.performance.map((entry) => ({ ...entry })),
+    requests: slot.requests.map((entry, index, requests) => ({
+      ...entry,
+      duplicate:
+        requests[index - 1]?.method === entry.method &&
+        requests[index - 1]?.endpoint === entry.endpoint &&
+        Math.abs(entry.startedAt - (requests[index - 1]?.startedAt ?? 0)) <= 1_000,
+      ...(entry.networkProfile === undefined
+        ? {}
+        : { networkProfile: { ...entry.networkProfile } }),
+      profileEnabled: entry.profileEnabled === true,
+      ...(entry.serverTiming === undefined ? {} : { serverTiming: { ...entry.serverTiming } }),
+    })),
+  };
+}
+
+function appendDirectorySearch(
+  slot: RuntimeDiagnosticsSlot,
+  entry: RuntimeDirectorySearchDiagnostic,
+): void {
+  const safe = {
+    appLaunchToConfirmMs: duration(entry.appLaunchToConfirmMs),
+    autoStartedByLaunchMarker: entry.autoStartedByLaunchMarker === true,
+    cardBuildMs: duration(entry.cardBuildMs),
+    completedResultReuse: entry.completedResultReuse === true,
+    confirmedAt: timestamp(entry.confirmedAt),
+    contextWaitMs: duration(entry.contextWaitMs),
+    diagnosticId: fixedText(entry.diagnosticId, 32, 'DIR-unavailable'),
+    diagnosticSerializationMs: duration(entry.diagnosticSerializationMs),
+    directoryKind:
+      entry.directoryKind === 'employee' ? ('employee' as const) : ('internal' as const),
+    directoryPageLoadToConfirmMs: duration(entry.directoryPageLoadToConfirmMs),
+    duplicateRequestIntercepted: entry.duplicateRequestIntercepted === true,
+    eventHandlerStartMs: duration(entry.eventHandlerStartMs),
+    facetsOrReleaseWaitMs: duration(entry.facetsOrReleaseWaitMs),
+    facetsReady: entry.facetsReady === true,
+    firstSearchInPageSession: entry.firstSearchInPageSession === true,
+    hasFilters: entry.hasFilters === true,
+    hasNextPage: entry.hasNextPage === true,
+    inFlightRequestReuse: entry.inFlightRequestReuse === true,
+    networkProfile: sanitizeNetworkProfile(entry.networkProfile),
+    networkRequestStartMs: duration(entry.networkRequestStartMs),
+    networkResponseMs: duration(entry.networkResponseMs),
+    newAppLaunchObserved: entry.newAppLaunchObserved === true,
+    nextRenderCycleMs: duration(entry.nextRenderCycleMs),
+    outcome:
+      entry.outcome === 'success' || entry.outcome === 'superseded'
+        ? entry.outcome
+        : ('failed' as const),
+    pageSessionSearchIndex: count(entry.pageSessionSearchIndex, 100),
+    profileEnabled: entry.profileEnabled === true,
+    publishedBatchConfirmed: entry.publishedBatchConfirmed === true,
+    recordedAt: timestamp(entry.recordedAt),
+    requestId: safeRequestId(entry.requestId),
+    responseBytes: count(entry.responseBytes, 20_000_000),
+    responseBytesEstimated: entry.responseBytesEstimated === true,
+    responseToConversionMs: duration(entry.responseToConversionMs),
+    resultCount: count(entry.resultCount, 100_000),
+    searchTermLength: count(entry.searchTermLength, 100),
+    searchType:
+      entry.searchType === 'employee-code' ||
+      entry.searchType === 'name' ||
+      entry.searchType === 'phone'
+        ? entry.searchType
+        : ('other' as const),
+    serverTiming: sanitizeServerTiming(entry.serverTiming),
+    setDataBytesEstimated: entry.setDataBytesEstimated === true,
+    setDataCallCount: count(entry.setDataCallCount, 100),
+    setDataCommitMs: duration(entry.setDataCommitMs),
+    setDataMaxBytes: count(entry.setDataMaxBytes, 20_000_000),
+    setDataTotalBytes: count(entry.setDataTotalBytes, 100_000_000),
+    totalMs: duration(entry.totalMs),
+    truncated:
+      entry.truncated === true || utf8Bytes(safeJson(entry)) > RUNTIME_DIRECTORY_RECORD_MAX_BYTES,
+    warmResume: entry.warmResume === true,
+  };
+  const packed = packDirectorySearch(safe);
+  if (utf8Bytes(JSON.stringify(packed)) > RUNTIME_DIRECTORY_RECORD_MAX_BYTES) {
+    packed[7] = 'DIR-truncated';
+    packed[19] = { supported: false };
+    packed[29] = 'unavailable';
+    packed[36] = { supported: false };
+    packed[43] = true;
+  }
+  slot.directorySearches.push(packed);
+  if (slot.directorySearches.length > RUNTIME_DIRECTORY_SEARCH_LIMIT) {
+    slot.directorySearches.splice(
+      0,
+      slot.directorySearches.length - RUNTIME_DIRECTORY_SEARCH_LIMIT,
+    );
+  }
+}
+
+function packDirectorySearch(entry: RuntimeDirectorySearchDiagnostic): unknown[] {
+  return [
+    1,
+    entry.appLaunchToConfirmMs,
+    entry.autoStartedByLaunchMarker,
+    entry.cardBuildMs,
+    entry.completedResultReuse,
+    entry.confirmedAt,
+    entry.contextWaitMs,
+    entry.diagnosticId,
+    entry.diagnosticSerializationMs,
+    entry.directoryKind === 'employee' ? 'e' : 'i',
+    entry.directoryPageLoadToConfirmMs,
+    entry.duplicateRequestIntercepted,
+    entry.eventHandlerStartMs,
+    entry.facetsOrReleaseWaitMs,
+    entry.facetsReady,
+    entry.firstSearchInPageSession,
+    entry.hasFilters,
+    entry.hasNextPage,
+    entry.inFlightRequestReuse,
+    entry.networkProfile,
+    entry.networkRequestStartMs,
+    entry.networkResponseMs,
+    entry.newAppLaunchObserved,
+    entry.nextRenderCycleMs,
+    entry.outcome === 'success' ? 's' : entry.outcome === 'superseded' ? 'x' : 'f',
+    entry.pageSessionSearchIndex,
+    entry.profileEnabled,
+    entry.publishedBatchConfirmed,
+    entry.recordedAt,
+    entry.requestId,
+    entry.responseBytes,
+    entry.responseBytesEstimated,
+    entry.responseToConversionMs,
+    entry.resultCount,
+    entry.searchTermLength,
+    entry.searchType === 'employee-code'
+      ? 'e'
+      : entry.searchType === 'name'
+        ? 'n'
+        : entry.searchType === 'phone'
+          ? 'p'
+          : 'o',
+    entry.serverTiming,
+    entry.setDataBytesEstimated,
+    entry.setDataCallCount,
+    entry.setDataCommitMs,
+    entry.setDataMaxBytes,
+    entry.setDataTotalBytes,
+    entry.totalMs,
+    entry.truncated,
+    entry.warmResume,
+  ];
+}
+
+function unpackDirectorySearch(
+  value: RuntimeDirectorySearchPackedRecord,
+): RuntimeDirectorySearchDiagnostic {
+  const outcome = value[24] === 's' ? 'success' : value[24] === 'x' ? 'superseded' : 'failed';
+  const searchType =
+    value[35] === 'e'
+      ? 'employee-code'
+      : value[35] === 'n'
+        ? 'name'
+        : value[35] === 'p'
+          ? 'phone'
+          : 'other';
+  return {
+    appLaunchToConfirmMs: duration(value[1] as number),
+    autoStartedByLaunchMarker: value[2] === true,
+    cardBuildMs: duration(value[3] as number),
+    completedResultReuse: value[4] === true,
+    confirmedAt: timestamp(value[5] as number),
+    contextWaitMs: duration(value[6] as number),
+    diagnosticId: fixedText(String(value[7] ?? ''), 32, 'DIR-unavailable'),
+    diagnosticSerializationMs: duration(value[8] as number),
+    directoryKind: value[9] === 'e' ? 'employee' : 'internal',
+    directoryPageLoadToConfirmMs: duration(value[10] as number),
+    duplicateRequestIntercepted: value[11] === true,
+    eventHandlerStartMs: duration(value[12] as number),
+    facetsOrReleaseWaitMs: duration(value[13] as number),
+    facetsReady: value[14] === true,
+    firstSearchInPageSession: value[15] === true,
+    hasFilters: value[16] === true,
+    hasNextPage: value[17] === true,
+    inFlightRequestReuse: value[18] === true,
+    networkProfile:
+      isRecord(value[19]) && value[19]['supported'] === true
+        ? (value[19] as unknown as RuntimeDirectorySearchDiagnostic['networkProfile'])
+        : { supported: false },
+    networkRequestStartMs: duration(value[20] as number),
+    networkResponseMs: duration(value[21] as number),
+    newAppLaunchObserved: value[22] === true,
+    nextRenderCycleMs: duration(value[23] as number),
+    outcome,
+    pageSessionSearchIndex: count(value[25] as number, 100),
+    profileEnabled: value[26] === true,
+    publishedBatchConfirmed: value[27] === true,
+    recordedAt: timestamp(value[28] as number),
+    requestId: safeRequestId(String(value[29] ?? '')),
+    responseBytes: count(value[30] as number, 20_000_000),
+    responseBytesEstimated: value[31] === true,
+    responseToConversionMs: duration(value[32] as number),
+    resultCount: count(value[33] as number, 100_000),
+    searchTermLength: count(value[34] as number, 100),
+    searchType,
+    serverTiming:
+      isRecord(value[36]) && value[36]['supported'] === true
+        ? (value[36] as unknown as RuntimeDirectorySearchDiagnostic['serverTiming'])
+        : { supported: false },
+    setDataBytesEstimated: value[37] === true,
+    setDataCallCount: count(value[38] as number, 100),
+    setDataCommitMs: duration(value[39] as number),
+    setDataMaxBytes: count(value[40] as number, 20_000_000),
+    setDataTotalBytes: count(value[41] as number, 100_000_000),
+    totalMs: duration(value[42] as number),
+    truncated: value[43] === true,
+    warmResume: value[44] === true,
+  };
+}
+
+function resolveRuntimeDiagnosticsSlot(): RuntimeDiagnosticsSlot | undefined {
   try {
     return getApp<DiagnosticsApp>().globalData?.runtimeDiagnostics;
   } catch {
@@ -432,235 +426,114 @@ function resolveRuntimeDiagnosticsStore(): RuntimeDiagnosticsStore | undefined {
   }
 }
 
-function pushBounded<T>(target: T[], value: T, limit: number): void {
-  target.push(value);
-  if (target.length > limit) target.splice(0, target.length - limit);
+function safeRequestId(value: string): string {
+  const candidate = String(value);
+  if (candidate.length > RUNTIME_DIAGNOSTIC_REQUEST_ID_MAX_LENGTH) return 'unavailable';
+  return RUNTIME_DIAGNOSTIC_REQUEST_ID_PATTERN.test(candidate) ? candidate : 'unavailable';
 }
 
-function normalizeDuration(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(600_000, Math.round(value)));
+function safeOptionalRequestId(value: string): string | undefined {
+  const safe = safeRequestId(value);
+  return safe === 'unavailable' ? undefined : safe;
 }
 
-function normalizeTimestamp(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return Date.now();
-  return Math.round(value);
-}
-
-function normalizeCount(value: number, maximum: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(maximum, Math.round(value)));
-}
-
-function normalizeNetworkProfile(
-  value: RuntimeDiagnosticNetworkProfile,
-): RuntimeDiagnosticNetworkProfile {
-  if (value.supported !== true) return { supported: false };
+function sanitizeNetworkProfile(
+  value: RuntimeDirectorySearchDiagnostic['networkProfile'] | undefined,
+): RuntimeDirectorySearchDiagnostic['networkProfile'] {
+  if (value?.supported !== true) return { supported: false };
   return {
     supported: true,
-    ...(value.dnsMs === undefined ? {} : { dnsMs: normalizeDuration(value.dnsMs) }),
-    ...(value.connectMs === undefined ? {} : { connectMs: normalizeDuration(value.connectMs) }),
-    ...(value.tlsMs === undefined ? {} : { tlsMs: normalizeDuration(value.tlsMs) }),
-    ...(value.ttfbMs === undefined ? {} : { ttfbMs: normalizeDuration(value.ttfbMs) }),
-    ...(value.downloadMs === undefined ? {} : { downloadMs: normalizeDuration(value.downloadMs) }),
+    ...optionalDuration('connectMs', value.connectMs),
+    ...optionalDuration('dnsMs', value.dnsMs),
+    ...optionalDuration('downloadMs', value.downloadMs),
+    ...optionalDuration('tlsMs', value.tlsMs),
+    ...optionalDuration('ttfbMs', value.ttfbMs),
   };
 }
 
-function normalizeServerTiming(
-  value: RuntimeDiagnosticServerTiming,
-): RuntimeDiagnosticServerTiming {
-  if (value.supported !== true) return { supported: false };
+function sanitizeServerTiming(
+  value: RuntimeDirectorySearchDiagnostic['serverTiming'] | undefined,
+): RuntimeDirectorySearchDiagnostic['serverTiming'] {
+  if (value?.supported !== true) return { supported: false };
   return {
     supported: true,
-    ...(value.aliasMs === undefined ? {} : { aliasMs: normalizeDuration(value.aliasMs) }),
-    ...(value.authMs === undefined ? {} : { authMs: normalizeDuration(value.authMs) }),
-    ...(value.batchMs === undefined ? {} : { batchMs: normalizeDuration(value.batchMs) }),
-    ...(value.cache === 'hit' ||
-    value.cache === 'miss' ||
-    value.cache === 'none' ||
-    value.cache === 'unsupported'
+    ...optionalDuration('aliasMs', value.aliasMs),
+    ...optionalDuration('authMs', value.authMs),
+    ...optionalDuration('batchMs', value.batchMs),
+    ...(value.cache === 'hit' || value.cache === 'miss' || value.cache === 'none'
       ? { cache: value.cache }
       : {}),
-    ...(value.coldStart === undefined ? {} : { coldStart: value.coldStart === true }),
-    ...(value.contactsMs === undefined ? {} : { contactsMs: normalizeDuration(value.contactsMs) }),
-    ...(value.countMs === undefined ? {} : { countMs: normalizeDuration(value.countMs) }),
-    ...(value.databaseWaitMs === undefined
-      ? {}
-      : { databaseWaitMs: normalizeDuration(value.databaseWaitMs) }),
-    ...(value.instanceAgeMs === undefined
-      ? {}
-      : { instanceAgeMs: normalizeCount(value.instanceAgeMs, 2_592_000_000) }),
-    ...(value.permissionMs === undefined
-      ? {}
-      : { permissionMs: normalizeDuration(value.permissionMs) }),
-    ...(value.queryMs === undefined ? {} : { queryMs: normalizeDuration(value.queryMs) }),
-    ...(value.queueSupported === undefined
-      ? {}
-      : { queueSupported: value.queueSupported === true }),
-    ...(value.rowsMs === undefined ? {} : { rowsMs: normalizeDuration(value.rowsMs) }),
-    ...(value.serializationMs === undefined
-      ? {}
-      : { serializationMs: normalizeDuration(value.serializationMs) }),
-    ...(value.totalMs === undefined ? {} : { totalMs: normalizeDuration(value.totalMs) }),
-    ...(value.transformMs === undefined
-      ? {}
-      : { transformMs: normalizeDuration(value.transformMs) }),
+    ...(typeof value.coldStart === 'boolean' ? { coldStart: value.coldStart } : {}),
+    ...optionalDuration('contactsMs', value.contactsMs),
+    ...optionalDuration('countMs', value.countMs),
+    ...optionalDuration('databaseWaitMs', value.databaseWaitMs),
+    ...optionalDuration('instanceAgeMs', value.instanceAgeMs),
+    ...optionalDuration('permissionMs', value.permissionMs),
+    ...optionalDuration('queryMs', value.queryMs),
+    ...(typeof value.queueSupported === 'boolean' ? { queueSupported: value.queueSupported } : {}),
+    ...optionalDuration('rowsMs', value.rowsMs),
+    ...optionalDuration('serializationMs', value.serializationMs),
+    ...optionalDuration('totalMs', value.totalMs),
+    ...optionalDuration('transformMs', value.transformMs),
   };
 }
 
-function resolveNetworkProfile(
-  entry: RuntimeDiagnosticRequestInput,
-): RuntimeDiagnosticNetworkProfile | undefined {
-  if (entry.networkProfile !== undefined) return normalizeNetworkProfile(entry.networkProfile);
-  if (entry.requestProfile !== undefined) {
-    return normalizeNetworkProfile(normalizeRequestProfile(entry.requestProfile));
+function optionalDuration<Key extends string>(
+  key: Key,
+  value: number | undefined,
+): { readonly [Property in Key]?: number } {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? ({ [key]: duration(value) } as { readonly [Property in Key]?: number })
+    : {};
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? '';
+  } catch {
+    return 'x'.repeat(RUNTIME_DIRECTORY_RECORD_MAX_BYTES + 1);
   }
-  return entry.profileRequested === true ? { supported: false } : undefined;
 }
 
-function resolveServerTiming(
-  entry: RuntimeDiagnosticRequestInput,
-): RuntimeDiagnosticServerTiming | undefined {
-  if (entry.serverTiming !== undefined) return normalizeServerTiming(entry.serverTiming);
-  const header = findResponseHeader(entry.responseHeader, 'server-timing');
-  if (header === undefined) return undefined;
-  const metrics = new Map<string, { readonly description?: string; readonly duration?: number }>();
-  for (const item of header.split(',')) {
-    const [rawName, ...rawParameters] = item.trim().split(';');
-    const name = rawName?.trim().toLowerCase();
-    if (name === undefined || name.length === 0) continue;
-    let description: string | undefined;
-    let duration: number | undefined;
-    for (const rawParameter of rawParameters) {
-      const [rawKey, ...rawValue] = rawParameter.trim().split('=');
-      const key = rawKey?.toLowerCase();
-      const value = rawValue.join('=').trim();
-      if (key === 'dur' && /^\d+(?:\.\d+)?$/u.test(value)) duration = Number(value);
-      if (key === 'desc') description = value.replace(/^"|"$/gu, '').toLowerCase();
-    }
-    metrics.set(name, {
-      ...(description === undefined ? {} : { description }),
-      ...(duration === undefined ? {} : { duration }),
-    });
-  }
-  if (
-    metrics.get('queue')?.description !== 'unsupported' ||
-    metrics.get('cache')?.description !== 'none' ||
-    metrics.get('total')?.duration === undefined
-  ) {
-    return { supported: false };
-  }
-  const duration = (name: string): number | undefined => metrics.get(name)?.duration;
-  const coldDescription = metrics.get('cold')?.description;
-  return normalizeServerTiming({
-    supported: true,
-    ...(duration('alias') === undefined ? {} : { aliasMs: duration('alias') }),
-    ...(duration('auth') === undefined ? {} : { authMs: duration('auth') }),
-    ...(duration('batch') === undefined ? {} : { batchMs: duration('batch') }),
-    cache: 'none',
-    ...(coldDescription === 'cold' || coldDescription === 'warm'
-      ? { coldStart: coldDescription === 'cold' }
-      : {}),
-    ...(duration('contacts') === undefined ? {} : { contactsMs: duration('contacts') }),
-    ...(duration('count') === undefined ? {} : { countMs: duration('count') }),
-    ...(duration('db_wait') === undefined ? {} : { databaseWaitMs: duration('db_wait') }),
-    ...(duration('instance_age') === undefined ? {} : { instanceAgeMs: duration('instance_age') }),
-    ...(duration('permission') === undefined ? {} : { permissionMs: duration('permission') }),
-    ...(duration('query') === undefined ? {} : { queryMs: duration('query') }),
-    queueSupported: false,
-    ...(duration('rows') === undefined ? {} : { rowsMs: duration('rows') }),
-    ...(duration('serialize') === undefined ? {} : { serializationMs: duration('serialize') }),
-    totalMs: duration('total'),
-    ...(duration('transform') === undefined ? {} : { transformMs: duration('transform') }),
-  });
+function boundedPush<T>(target: T[], value: T, maximum: number): void {
+  target.push(value);
+  if (target.length > maximum) target.shift();
 }
 
-function normalizeRequestProfile(value: unknown): RuntimeDiagnosticNetworkProfile {
-  if (!isRecord(value)) return { supported: false };
-  const dnsMs = phaseDuration(value, 'domainLookUpStart', 'domainLookUpEnd');
-  const connectMs = phaseDuration(value, 'connectStart', 'connectEnd');
-  const tlsMs = phaseDuration(value, 'SSLconnectionStart', 'SSLconnectionEnd');
-  const ttfbMs = phaseDuration(value, 'requestStart', 'responseStart');
-  const downloadMs = phaseDuration(value, 'responseStart', 'responseEnd');
-  if ([dnsMs, connectMs, tlsMs, ttfbMs, downloadMs].every((item) => item === undefined)) {
-    return { supported: false };
-  }
-  return {
-    supported: true,
-    ...(dnsMs === undefined ? {} : { dnsMs }),
-    ...(connectMs === undefined ? {} : { connectMs }),
-    ...(tlsMs === undefined ? {} : { tlsMs }),
-    ...(ttfbMs === undefined ? {} : { ttfbMs }),
-    ...(downloadMs === undefined ? {} : { downloadMs }),
-  };
-}
-
-function phaseDuration(
-  profile: Readonly<Record<string, unknown>>,
-  startKey: string,
-  endKey: string,
-): number | undefined {
-  const start = profile[startKey];
-  const end = profile[endKey];
-  return typeof start === 'number' &&
-    Number.isFinite(start) &&
-    typeof end === 'number' &&
-    Number.isFinite(end) &&
-    end >= start
-    ? end - start
-    : undefined;
-}
-
-function resolveRequestId(entry: RuntimeDiagnosticRequestInput): string | undefined {
-  if (entry.requestId !== undefined) return sanitizeRequestId(entry.requestId);
-  const value = findResponseHeader(entry.responseHeader, 'x-request-id');
-  return value === undefined ? undefined : sanitizeRequestId(value);
-}
-
-function findResponseHeader(value: unknown, expectedName: string): string | undefined {
-  if (!isRecord(value)) return undefined;
-  for (const [key, headerValue] of Object.entries(value)) {
-    if (key.toLowerCase() === expectedName && typeof headerValue === 'string') return headerValue;
-  }
-  return undefined;
-}
-
-function sanitizeDiagnosticId(value: string): string {
-  const normalized = String(value)
-    .replace(/[^0-9A-Za-z-]/gu, '')
-    .slice(0, 32);
-  return normalized.length === 0 ? 'DIR-unavailable' : normalized;
-}
-
-function sanitizeRequestId(value: string): string {
+function fixedText(value: string, maximum: number, fallback: string): string {
   const normalized = String(value)
     .replace(/[^0-9A-Za-z._:-]/gu, '')
-    .slice(0, 80);
-  return normalized.length === 0 ? '不支持' : normalized;
-}
-
-function sanitizeRuntimeLabel(value: string, fallback: string): string {
-  const normalized = String(value)
-    .replace(/[+]?\d{7,}/gu, '[redacted]')
-    .replace(/\b(?:account|employee|group|permission|cursor)-[^\s/]+/giu, '[redacted]')
-    .replace(/[^0-9A-Za-z ._()+/\-[\]]/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .trim()
-    .slice(0, 80);
+    .slice(0, maximum);
   return normalized.length === 0 ? fallback : normalized;
 }
 
-function sanitizeFixedLabel(value: string, fallback: string): string {
-  const normalized = String(value)
-    .replace(/[^0-9A-Za-z:_-]/gu, '')
-    .slice(0, 64);
-  return normalized.length === 0 ? fallback : normalized;
+function utf8Bytes(value: string): number {
+  let bytes = 0;
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    bytes += codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+  }
+  return bytes;
 }
 
-function sanitizeFingerprint(value: string): string {
-  return /^[0-9a-f]{64}$/u.test(value) ? value : 'unavailable';
+function duration(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(600_000, Math.round(value)))
+    : 0;
+}
+
+function count(value: number | undefined, maximum: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(maximum, Math.round(value)))
+    : 0;
+}
+
+function timestamp(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : Date.now();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
