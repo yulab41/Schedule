@@ -5,12 +5,14 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 当前仓库批次（2026-09-02）
 
-- 唯一任务：`MINI-G1-002` 工作台同一年 holidays 请求去重；P2 已确认并修复，正在完成最终主线整合。
+- 唯一任务：`MINI-G1-002` 工作台同一年 holidays 请求去重；P2 已确认并修复，修复 checkpoint
+  `32467997` 已完成最终主线整合，当前只同步收口状态。
 - 起始主线：`origin/main@2751f549756d890d9bfbe7be14fd4eb905977527`；用户给出的已闭环参考
   `24fce3bb90d5b64b97d57b51bb76c4ed0376e8cd` 已确认是其祖先。
 - 修复分支/worktree：`codex/fix-mini-g1-002-holiday-year-dedupe` /
   `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`。
-- checkpoint：`fix(miniprogram): dedupe annual workbench holidays`。
+- 修复 checkpoint：`32467997`（`fix(miniprogram): dedupe annual workbench holidays`）；最终状态
+  checkpoint：`docs(status): close MINI-G1-002 main integration`。
 - fresh worktree frozen install：1,459 包本地复用、0 下载、7m43.8s；7 个 workspace packages 在本
   worktree 构建通过，锁文件未变，没有借用主工作区 dist。
 - 用户脏主工作区、既有 worktree、`MINI-G1-001`、XMB、test-tools、通讯录并行成果和其他分支均未
@@ -50,9 +52,8 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 唯一下一任务与停止条件
 
-提交候选后再次 fetch。若 `origin/main` 推进，自行语义整合并重跑受影响测试、Mini 全量、verify、状态
-策略和 core smoke；只做普通非强制推送。若只有分支保护明确拒绝 main push，则保留基于最新主线并
-验证通过的 merge-ready 分支和原始错误。核对远端 SHA、修复分支可追溯、工作树 clean、无未推送提交后
-停止。
+修复候选验证后再次 fetch，`origin/main` 前后均为 `2751f549`；远端修复分支已建立，main 已普通快进
+`2751f549 → 32467997`，没有 force push、冲突或分支保护错误。最终状态 checkpoint 复验后普通推送到
+修复分支和 main；核对二者远端 SHA、工作树 clean、无未推送提交后停止。
 
 后续唯一候选可记录为 `MINI-G1-003`；本轮不执行。

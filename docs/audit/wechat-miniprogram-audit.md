@@ -1,13 +1,15 @@
 # 微信小程序审计报告
 
-- 当前阶段：`MINI-G1-002` 工作台同年度 holidays 请求去重已确认并修复，正在完成 exact clean
-  checkpoint 与最新主线非强制整合；起始主线为
+- 当前阶段：`MINI-G1-002` 工作台同年度 holidays 请求去重已确认并修复；exact clean 修复 checkpoint
+  `324679975f4234d5cd1e3e15e945b53212504fa9` 已非强制快进到主线，起始主线为
   `origin/main@2751f549756d890d9bfbe7be14fd4eb905977527`
 - 更新时间：2026-09-02（Asia/Hong_Kong）
 - 修复分支/worktree：`codex/fix-mini-g1-002-holiday-year-dedupe` /
   `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`
 - 已闭环参考 `24fce3bb90d5b64b97d57b51bb76c4ed0376e8cd` 是起始主线祖先；最新主线其后的通讯录
-  搜索确认修复全部保留。本 checkpoint 以 `fix(miniprogram): dedupe annual workbench holidays` 识别。
+  搜索确认修复全部保留。修复 checkpoint 为 `32467997`，提交信息是
+  `fix(miniprogram): dedupe annual workbench holidays`；最终状态 checkpoint 以
+  `docs(status): close MINI-G1-002 main integration` 识别。
 - 本批性质：只修复 `MINI-G1-002`；未修改 `MINI-G1-003`、`MINI-G1-004`、XMB、test-tools、API、
   数据库、持久缓存策略或页面交互，
   未调用微信开发者工具、未上传体验版、未部署 production，也未修改或清理其他 worktree
@@ -356,9 +358,10 @@ Android 已对 20×30 双轴滚动、冻结层、进度条、点格和撤销明�
 - 本轮只修复 `MINI-G1-002`；`MINI-G1-003`、`MINI-G1-004`、XMB、test-tools 和包体矩阵 warning 未
   修改。未上传体验版、未提审、未正式发布，未改 allowlist/production/数据库。
 
-本轮只在 exact-commit 全部门禁通过后非强制推送 `origin/main` 并确认可追溯/clean，然后停止；不自行
-开始其他问题。若继续第 1 组，唯一候选可记录为 `MINI-G1-003`，但本轮不执行；包体积与分包边界仍是
-另一审计问题组，不与之混做。
+修复 checkpoint 已在第二次 fetch 确认 `origin/main` 未漂移后，以普通 fast-forward 从 `2751f549` 推送
+到 `32467997`；远端修复分支也已建立。最终状态 checkpoint 只同步本收口事实，非强制推送并核对远端
+状态与 clean 工作树后停止，不自行开始其他问题。若继续第 1 组，唯一候选可记录为 `MINI-G1-003`，
+但本轮不执行；包体积与分包边界仍是另一审计问题组，不与之混做。
 
 ## 2026-09-01 test-tools Skyline 修复语义核验与最终收口
 

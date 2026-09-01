@@ -26,9 +26,10 @@
   1,677,999B、total 5,121,436B、Worklet 2/2、matrix 1445/1506，仅既有三项 warning。fresh
   worktree 首次 TypeScript 因 package dist 尚未构建失败；本地构建 7 packages 后原命令通过，未改锁。
 - 外部边界：真实微信 Network/耗时当前工具无法测量，不声明真机性能提升；未调用微信开发者工具、未
-  上传体验版、未部署 production。checkpoint 以 `fix(miniprogram): dedupe annual workbench holidays`
-  识别；最终再次 fetch、必要时自行整合、非强制推送并核对远端后停止，下一候选仅记录
-  `MINI-G1-003`。
+  上传体验版、未部署 production。修复 checkpoint `32467997` 完整复验后，第二次 fetch 的
+  `origin/main` 前后均为 `2751f549`；远端修复分支建立成功，main 普通快进 `2751f549 → 32467997`，
+  无 force push/冲突。最终状态 checkpoint 以 `docs(status): close MINI-G1-002 main integration` 识别；
+  同步到修复分支和 main、核对远端/clean 后停止，下一候选仅记录 `MINI-G1-003`。
 
 ## 2026-09-02 MINI-G1-001 主线整合与最终收口
 

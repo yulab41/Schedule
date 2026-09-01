@@ -1,12 +1,13 @@
 # 微信小程序审计状态
 
-- 当前阶段：`MINI-G1-002` P2 已确认并修复；exact clean checkpoint 正在按最终清单复验并非强制
-  整合到执行时最新主线
+- 当前阶段：`MINI-G1-002` P2 已确认并修复；exact clean 修复 checkpoint `32467997` 已非强制快进到
+  执行时最新主线，当前只完成最终状态同步
 - 起始主线：`origin/main@2751f549756d890d9bfbe7be14fd4eb905977527`
 - 已闭环参考：`24fce3bb90d5b64b97d57b51bb76c4ed0376e8cd`，已确认是起始主线祖先
 - 修复分支/worktree：`codex/fix-mini-g1-002-holiday-year-dedupe` /
   `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`
-- checkpoint：`fix(miniprogram): dedupe annual workbench holidays`
+- 修复 checkpoint：`32467997`（`fix(miniprogram): dedupe annual workbench holidays`）；最终状态
+  checkpoint：`docs(status): close MINI-G1-002 main integration`
 - 范围：只改工作台同一 load generation 的 holidays 年度请求计划、永久测试和四份连续性文档；
   `MINI-G1-003`、`MINI-G1-004`、XMB、test-tools、API、数据库、持久缓存、UI、权限和路由未改
 - 外部状态：未调用微信开发者工具 GUI/CLI，未上传体验版、未提审/发布，未部署 production 或创建
@@ -51,10 +52,9 @@ fresh worktree 的首次 Mini TypeScript 因 7 个 workspace package dist 尚未
 ## 主线整合、独立状态与停止条件
 
 - `24fce3bb` 之后的 `MINI-G1-001`、XMB、test-tools 和最新通讯录提交均保留；本轮 diff 不含这些路径。
-- 完成候选提交后再次 fetch；若 `origin/main` 推进，自行语义整合并重跑受影响测试、Mini 全量、verify、
-  状态策略和 core smoke；只做普通非强制推送。
-- 若远端分支保护明确拒绝 main push，保留基于最新主线且验证通过的 merge-ready 修复分支并记录原始
-  错误；普通 SHA 漂移或冲突自行处理。
+- 修复分支完整验证后第二次 fetch：`origin/main` 前后均为 `2751f549`，没有主线漂移；修复分支和 main
+  的普通推送均成功，main `2751f549 → 32467997`，没有 force push 或冲突。
+- 最终状态 checkpoint 只更新四份连续性文档；复验后普通推送到修复分支和 main，并核对二者远端 SHA。
 
-本轮在远端 SHA、修复分支可追溯、工作树 clean 和无未推送提交核对后停止。下一候选可记录为
-`MINI-G1-003`，本轮不执行。
+最终状态 checkpoint 远端可追溯、工作树 clean、无未推送提交后停止。下一候选可记录为
+`MINI-G1-003`，本轮不执行；不上传体验版、不部署 production。
