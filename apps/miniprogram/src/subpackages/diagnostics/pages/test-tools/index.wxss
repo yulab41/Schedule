@@ -121,7 +121,7 @@ page {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 20px;
   font-weight: 700;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .build-strip-note {
@@ -248,7 +248,7 @@ page {
   font-size: 13px;
   font-weight: 650;
   line-height: 1.5;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .row-explanation,
@@ -266,7 +266,7 @@ page {
 
 .row-screenshot,
 .check-item > text:last-child,
-.scenario-card > text:last-of-type {
+.scenario-screenshot {
   color: #426e86;
 }
 
@@ -306,10 +306,16 @@ page {
 
 .two-actions,
 .report-actions {
-  display: grid;
+  display: flex;
   margin: 14px 0 10px;
+  flex-wrap: wrap;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.two-actions > ui-button,
+.report-actions > ui-button {
+  min-width: 0;
+  flex: 1;
 }
 
 .scenario-card {
@@ -334,10 +340,10 @@ page {
 }
 
 .scenario-actions {
-  display: grid;
+  display: flex;
   margin-top: 14px;
+  flex-wrap: wrap;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) 54px 54px;
 }
 
 .scenario-link,
@@ -353,8 +359,15 @@ page {
 }
 
 .scenario-link {
+  min-width: 0;
+  flex: 1;
   background: #eaf5fb;
   color: #1d668d;
+}
+
+.scenario-mark {
+  width: 54px;
+  flex: none;
 }
 
 .scenario-mark.is-pass {
@@ -572,7 +585,7 @@ page {
 .request-endpoint {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .empty-diagnostic {
@@ -607,7 +620,7 @@ page {
   color: var(--ui-color-text-secondary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 10px;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 @media (max-width: 340px) {
@@ -626,11 +639,11 @@ page {
 
   .two-actions,
   .report-actions {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
-  .scenario-actions {
-    grid-template-columns: 1fr 54px 54px;
+  .scenario-link {
+    flex-basis: 100%;
   }
 
   .build-strip-version {

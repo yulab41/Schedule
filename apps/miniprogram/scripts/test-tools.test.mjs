@@ -446,7 +446,86 @@ describe('safe Mini test tools', () => {
     expect(template).toContain('复制最近一次');
     expect(template).toContain('复制最近 10 次');
   });
+
+  it('updates one scenario immediately through the existing passed and issue event contract', async () => {
+    let definition;
+    vi.stubGlobal('wx', createWx('develop', vi.fn()));
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    const scenarioId = instance.data.scenarios[0].id;
+
+    definition.handleScenarioResult.call(instance, {
+      currentTarget: { dataset: { result: 'passed', scenarioId } },
+    });
+    expect(instance.data.scenarios[0]).toMatchObject({ result: 'passed', resultLabel: '正常' });
+
+    definition.handleScenarioResult.call(instance, {
+      currentTarget: { dataset: { result: 'issue', scenarioId } },
+    });
+    expect(instance.data.scenarios[0]).toMatchObject({
+      result: 'issue',
+      resultLabel: '发现异常',
+    });
+  });
+
+  it('keeps the current diagnostics additions within the verified Skyline-safe layout contract', () => {
+    const template = readSource('subpackages/diagnostics/pages/test-tools/index.wxml');
+    const styles = readSource('subpackages/diagnostics/pages/test-tools/index.wxss');
+    const pageConfig = JSON.parse(
+      readSource('subpackages/diagnostics/pages/test-tools/index.json'),
+    );
+
+    expect(styles).not.toMatch(/display:\s*grid|grid-template-columns/iu);
+    expect(styles).not.toContain('overflow-wrap: anywhere');
+    expect(styles).not.toContain(':last-of-type');
+    expect(styles.match(/word-break:\s*break-all/gu)).toHaveLength(4);
+
+    expect(cssRule(styles, '.two-actions,\n.report-actions')).toMatch(
+      /display:\s*flex[\s\S]*flex-wrap:\s*wrap/iu,
+    );
+    expect(cssRule(styles, '.two-actions > ui-button,\n.report-actions > ui-button')).toMatch(
+      /min-width:\s*0[\s\S]*flex:\s*1/iu,
+    );
+    expect(cssRule(styles, '.scenario-actions')).toMatch(
+      /display:\s*flex[\s\S]*flex-wrap:\s*wrap/iu,
+    );
+    expect(cssRule(styles, '.scenario-link')).toMatch(/min-width:\s*0[\s\S]*flex:\s*1/iu);
+    expect(styles).toMatch(/\.scenario-mark\s*\{\s*width:\s*54px;\s*flex:\s*none;/iu);
+    expect(styles).toMatch(
+      /@media\s*\(max-width:\s*340px\)[\s\S]*\.scenario-link\s*\{[^}]*flex-basis:\s*100%/iu,
+    );
+
+    for (const width of [320, 390, 412]) {
+      const narrow = width <= 340;
+      const pagePadding = narrow ? 24 : 32;
+      const cardPadding = narrow ? 28 : 32;
+      const innerWidth = width - pagePadding - cardPadding;
+      const fixedScenarioControls = 54 * 2 + 8;
+      expect(innerWidth).toBeGreaterThan(fixedScenarioControls);
+      if (!narrow) {
+        expect(innerWidth - fixedScenarioControls - 8).toBeGreaterThan(0);
+      }
+    }
+
+    expect(template).toContain(
+      '<text class="scenario-screenshot">应截图：{{item.screenshot}}</text>',
+    );
+    expect(template).toContain('data-result="passed" bindtap="handleScenarioResult">正常</view>');
+    expect(template).toContain('data-result="issue" bindtap="handleScenarioResult">异常</view>');
+    expect(pageConfig.disableScroll).toBe(false);
+  });
 });
+
+function cssRule(styles, selector) {
+  const start = styles.indexOf(`${selector} {`);
+  expect(start, `missing CSS rule ${selector}`).toBeGreaterThanOrEqual(0);
+  const end = styles.indexOf('}', start);
+  expect(end, `unterminated CSS rule ${selector}`).toBeGreaterThan(start);
+  return styles.slice(start, end + 1);
+}
 
 function directorySearchDiagnostic(index) {
   return {
