@@ -29,9 +29,7 @@ export const insightsEventDetailGoldenResponse = {
 
 const summary = {
   actualCount: 8,
-  byRole: [
-    { actualCount: 8, plannedCount: 9, scheduleRoleId: 'role-1', scheduleRoleName: '夜班' },
-  ],
+  byRole: [{ actualCount: 8, plannedCount: 9, scheduleRoleId: 'role-1', scheduleRoleName: '夜班' }],
   byShiftType: [
     { actualCount: 8, plannedCount: 9, shiftTypeId: 'shift-type-1', shiftTypeName: '夜班' },
   ],

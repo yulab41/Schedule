@@ -1,7 +1,4 @@
-import {
-  visitorAccessAggregatePageSchema,
-  visitorAccessLogPageSchema,
-} from '@schedule/contracts';
+import { visitorAccessAggregatePageSchema, visitorAccessLogPageSchema } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -10,7 +7,10 @@ import {
   visitorAccessLogPageDecoder,
   visitorAccessReadEndpoints,
 } from './visitor-access-read-client.js';
-import { visitorAccessAggregateGoldenResponse, visitorAccessApiGoldenResponse } from './testing/visitor-access-api-golden.js';
+import {
+  visitorAccessAggregateGoldenResponse,
+  visitorAccessApiGoldenResponse,
+} from './testing/visitor-access-api-golden.js';
 import type { ClientTransport } from './endpoint.js';
 
 describe('P9 visitor access shared read boundary', () => {
@@ -18,18 +18,28 @@ describe('P9 visitor access shared read boundary', () => {
     const groupId = 'group /一';
     expect(
       visitorAccessReadEndpoints.logs.path({ groupId, cursor: 'cursor /一', pageSize: 25 }),
-    ).toBe('/groups/group%20%2F%E4%B8%80/visitor-access-logs?cursor=cursor%20%2F%E4%B8%80&pageSize=25');
+    ).toBe(
+      '/groups/group%20%2F%E4%B8%80/visitor-access-logs?cursor=cursor%20%2F%E4%B8%80&pageSize=25',
+    );
+    expect(visitorAccessReadEndpoints.aggregates.path({ groupId, pageSize: 10 })).toBe(
+      '/groups/group%20%2F%E4%B8%80/visitor-access-aggregates?pageSize=10',
+    );
     expect(
-      visitorAccessReadEndpoints.aggregates.path({ groupId, pageSize: 10 }),
-    ).toBe('/groups/group%20%2F%E4%B8%80/visitor-access-aggregates?pageSize=10');
-    expect(Object.values(visitorAccessReadEndpoints).every((endpoint) => endpoint.auth === 'bearer')).toBe(true);
-    expect(Object.values(visitorAccessReadEndpoints).every((endpoint) => endpoint.method === 'GET')).toBe(true);
+      Object.values(visitorAccessReadEndpoints).every((endpoint) => endpoint.auth === 'bearer'),
+    ).toBe(true);
+    expect(
+      Object.values(visitorAccessReadEndpoints).every((endpoint) => endpoint.method === 'GET'),
+    ).toBe(true);
   });
 
   it('matches Web Zod for valid payloads without cloning and rejects strict extras', () => {
     for (const [schema, decoder, value] of [
       [visitorAccessLogPageSchema, visitorAccessLogPageDecoder, visitorAccessApiGoldenResponse],
-      [visitorAccessAggregatePageSchema, visitorAccessAggregatePageDecoder, visitorAccessAggregateGoldenResponse],
+      [
+        visitorAccessAggregatePageSchema,
+        visitorAccessAggregatePageDecoder,
+        visitorAccessAggregateGoldenResponse,
+      ],
     ] as const) {
       const zodResult = schema.safeParse(value);
       const compactResult = decoder.safeDecode(value);

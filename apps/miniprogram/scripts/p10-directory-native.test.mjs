@@ -115,9 +115,7 @@ describe('P10 native directory parity', () => {
     expect(template).not.toContain('class="search-submit"');
     expect(template).not.toContain('bindpress="handleSearch"');
     expect(template).not.toContain('bindtap="handleSearch"');
-    expect(template).toContain(
-      "姓名可自动搜索；拼音、工号或电话输入后按键盘搜索",
-    );
+    expect(template).toContain('姓名可自动搜索；拼音、工号或电话输入后按键盘搜索');
     expect(template).toContain('style="{{filterSheetStyle}}"');
     expect(template).toContain('wx:if="{{!pane.facetsLoading && !pane.facetsErrorMessage}}"');
     expect(template).toContain('aria-disabled="true"');

@@ -80,10 +80,7 @@ describe('P8 organization RC and production release contract', () => {
     ]);
     expect(plan.requiredEvidence).toContain('duplicateWriteObserved');
     expect(plan.requiredEvidence).toContain('secretPersistenceObserved');
-    expect(plan.completion.acceptedFeedback).toEqual([
-      'P8组织管理RC通过',
-      'P8 组织管理 RC 通过',
-    ]);
+    expect(plan.completion.acceptedFeedback).toEqual(['P8组织管理RC通过', 'P8 组织管理 RC 通过']);
     expect(planSource).not.toMatch(/MINITEST_|minium|privateKey|token|AppSecret/iu);
 
     for (const copy of [
@@ -104,7 +101,9 @@ describe('P8 organization RC and production release contract', () => {
     }
     expect(audit).toContain('P8-C–F 原生页面已完成');
     expect(audit).toContain('P8 RC 自动契约');
-    expect(capabilitySwitch).toContain('Usage: schedule-client-capability <capability> <true|false>');
+    expect(capabilitySwitch).toContain(
+      'Usage: schedule-client-capability <capability> <true|false>',
+    );
     expect(capabilitySwitch).toContain('validate_policy_configuration');
     expect(capabilitySwitch).toContain('probe_effective_capabilities');
     expect(capabilitySwitch).toContain('restore_previous_environment');
