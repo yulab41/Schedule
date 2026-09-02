@@ -2214,3 +2214,29 @@
   分别为 `58ccbf61…12cb7` 与 `7626ed37…6f0ea`，均 `deployable=false`。本轮没有连接 production、
   部署、备份、迁移、建索引、改配置、启用 candidate 或上传 Mini；唯一下一任务是等待管理通道恢复后
   一次低频实时只读 preflight。
+
+## 2026-09-02 directory 阶段 1 production 部署
+
+- 参考历史任务 `01a060d0-4211-79c0-aabb-7858ac075616` 复核网络根因：VPN/TUN 将正式域名解析到
+  `198.18.0.43`；直连真实 IP 会在 banner 前超时。最终使用正式域名、仓库外 `aliyun_schedule` 私钥、
+  `IdentitiesOnly` 和严格 host-key。一次 60s banner 超时后同参数低频重连成功。
+- 实时 preflight 取得旧 live `a23266182122c6e2fcb5ca5aba5d8857ef781910` 与 retained rollback
+  `c7c142eb…`；单主机/单 API/MySQL/Web；磁盘可用 16,810,885,120B、inode 可用 2,455,778、可用内存
+  996,308KiB、swap free 1,167,848KiB。MySQL 8.4.11、buffer pool 128MiB、schema 52、目标索引 0、
+  长事务/pending MDL/active DDL 均 0；当前 verifier 通过。
+- 从 exact `cc43e8c82424617303a4b2f3b2d9119f66a91eb2` 建 release。错误地从候选 worktree 启动 helper
+  产生深层路径，唯一 `release-cache.test` 因 Windows `ENAMETOOLONG` 红；改用仓库规定根级
+  `runtime/release-worktree` 后原测试通过，未改/skip 测试。最终 `pnpm verify`：Mini 113/612、root
+  244 files/1,162 tests；37 files/355 DB tests 按无 DB 环境跳过。
+- deployable package 两次稳定字段一致并命中三层缓存：dist 1,329,235B/
+  `3753c2fd…7f4c6`，API-flat 5,823,712B/`9841baf1…a2903`；最高 migration 0052，无 0053、无阶段 2
+  plan-switch，rollback 精确为部署前 live `a2326618…`。
+- 强制备份 `155c2560-ef5d-4acf-90d1-a24158e6e1ee` 创建成功：daily、55 表、205,864 行、
+  91,237,728B。第一次 stdin wrapper 被 `docker compose run` 消费后续输入，只完成备份；只读确认
+  current release 未变。随后以 `bash -c` 参数继续并验证同一备份文件，不重复备份。
+- updater 成功发布 `cc43e8c…`；migration runner 在 52 条 journal 上为空跑，schema 保持 52、目标索引
+  保持 0，MySQL 容器未重建。API/Web 重建后首次 502 在内置 1/30 健康等待恢复；runtime plan 精确为
+  legacy，API instance=1。
+- 远端完整 verifier 及独立公网 Web 200、health 200/ready、`.78`/`.76` 七项能力全 true、未知版本
+  426 全部通过。本轮没有执行 0053、建索引、启用 candidate、改 MySQL 配置或上传 Mini；阶段 2
+  继续等待另行明确批准。

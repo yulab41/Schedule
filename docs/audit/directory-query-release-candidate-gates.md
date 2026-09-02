@@ -9,9 +9,10 @@
 `70f14ce68520cda0c40976583b02edc063597fdb` 均未改写；原实验 volume、readiness volume 和 runtime
 报告也未删除。
 
-当前仍是 **production NO-GO**。本轮按用户边界没有连接 production，没有生成 deployable release，
-也没有部署、备份、迁移、建索引、修改配置、启用 candidate 或上传小程序。唯一剩余生产阻塞是：
-管理通道恢复后取得一次低频、实时、只读 preflight；历史 release/resource 值不能代替该结果。
+管理通道恢复后，阶段 1 已于 2026-09-02 完成 production 部署；实际源码为
+`cc43e8c82424617303a4b2f3b2d9119f66a91eb2`，数据库仍为 schema 0052，实际查询计划仍为 legacy。
+阶段 2 继续 **NO-GO**：本轮没有执行 0053、创建覆盖索引、启用 candidate、调整 buffer pool 或上传
+小程序。阶段 1 的成功不能自动授权阶段 2。
 
 ## 最新主线差异
 
@@ -148,6 +149,32 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 阶段 2 虽跟踪 8 个 readiness harness 文件，但 production archive allowlist 不含
 `scripts/directory-query-readiness/` 或 `runtime/`。旧 manifest 继续作为历史证据，明确不可部署。
 
+## 阶段 1 production 部署
+
+- VPN/TUN 把正式域名映射为 `198.18.0.43`；直连真实 IP 会在 SSH banner 前超时。最终固定使用正式
+  域名、仓库外 `aliyun_schedule` 私钥、`IdentitiesOnly` 与严格 host-key 校验。一次 banner 超时后按
+  同一参数低频重连成功。
+- 实时 preflight：旧 live release 为 `a23266182122c6e2fcb5ca5aba5d8857ef781910`，旧 manifest rollback
+  为 `c7c142eb…`，两者均保留；单主机、单 API/MySQL/Web；磁盘可用 16,810,885,120B、inode 可用
+  2,455,778、`MemAvailable=996,308KiB`、swap free 1,167,848KiB。
+- MySQL 为 8.4.11 / `utf8mb4_0900_ai_ci`，buffer pool 128MiB，`tmp_table_size` 与
+  `max_heap_table_size` 各 16MiB，`temptable_max_ram=1GiB`、mmap=0、max connections=151、读取时连接 8；
+  migration=52、目标索引=0、长事务=0、pending MDL=0、active DDL=0、磁盘临时表累计=0。
+- 精确 stage 1 worktree 为根仓库 `runtime/release-worktree`。误从候选 worktree 创建的深层副本导致一次
+  Windows `ENAMETOOLONG`，正确短路径下同一测试通过；没有 skip 或修改测试。最终 `pnpm verify` 为
+  Mini 113 files / 612 tests、root 244 files / 1,162 tests，37 files / 355 DB tests 按无 DB 环境跳过。
+- deployable 包连续两次稳定字段一致。dist 为 1,329,235B / SHA-256
+  `3753c2fd…7f4c6`；API-flat 为 5,823,712B / `9841baf1…a2903`；归档最高 0052，无 0053 和阶段 2
+  plan-switch 工具。rollback 精确绑定部署前 live `a2326618…`。
+- 部署前在 release lock 下创建备份 `155c2560-ef5d-4acf-90d1-a24158e6e1ee`：daily、55 表、205,864
+  行、91,237,728B；数据库记录与命名卷文件大小一致。第一次远端 wrapper 因备份容器消费 stdin 而在
+  备份后正常 EOF，核对确认 release 未变；后续使用 `bash -c` 参数继续，未重复备份。
+- updater 成功发布 `cc43e8c…`，其 migration runner 在已有 52 条 journal 上为空跑；MySQL 容器未重建。
+  API/Web 重建后的首次 health 为 502，内置 1/30 等待即恢复。远端 verifier、Web 200、health
+  200/ready、`.78`/`.76` 七项能力全 true、动态未知版本 426 均通过。
+- 发布后再次精确核对：current release=`cc43e8c…`、schema=52、目标索引=0、runtime plan=legacy、API
+  instance=1。没有启用 candidate，也没有把隔离性能数字写成 production 实测。
+
 ## 上线观测归因
 
 - candidate 与 legacy 的 main/count SQL 结构不同，应在受控时间窗从
@@ -168,32 +195,30 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 
 ## 修订后的 PASS / BLOCKED
 
-| 项目                                                      | 状态    | 证据                                                                               |
-| --------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
-| 正式测试红灯                                              | PASS    | 日期、12 文件 format、browser smoke 各自独立提交；所有强制本地门禁已绿             |
-| 0053 精确身份与索引定义                                   | PASS    | unit/integration/真实 migration；journal hash 与可见非唯一 BTREE 三列精确校验      |
-| schema readiness 缓存                                     | PASS    | 实例单例、60s TTL、同窗 Promise 合并、过期/失败 fail closed、实例重建/显式 refresh |
-| 隔离 MDL 有界失败与重试                                   | PASS    | session lock wait 5s；25/25 migration 测试证明零残留和安全重试                     |
-| production updater 实际 DDL 恢复                          | BLOCKED | 未连接 production，未运行 updater/migration                                        |
-| flag 脚本与失败恢复                                       | PASS    | trusted switch/release control 测试通过；缺失/非法/读取失败为 legacy               |
-| production 实际切换耗时                                   | BLOCKED | 代码 health 上限不是 production 测量                                               |
-| production 实际中断时间                                   | BLOCKED | 未执行全局切换                                                                     |
-| SSH 不可用时的回滚可执行性                                | BLOCKED | 管理通道未恢复即不能宣称可操作                                                     |
-| 单一 Compose project 控制逻辑                             | PASS    | 同一 env、全 API force-recreate、逐实例校验的脚本测试通过                          |
-| production 主机数量                                       | BLOCKED | 本轮禁止连接，实时拓扑未知                                                         |
-| production API 实例数量                                   | BLOCKED | 本轮禁止连接，实时拓扑未知                                                         |
-| production 全实例一致性                                   | BLOCKED | 未在真实拓扑执行                                                                   |
-| 临时表归因方法                                            | PASS    | plan-specific digest 指标、应用 plan 窗口和全局兜底口径已冻结                      |
-| production 临时表/内存余量                                | BLOCKED | tmp/TempTable、连接上限、内存余量无本轮实时值                                      |
-| 阶段 1 source-only 产物                                   | PASS    | 精确 SHA、最高 0052、无 0053、deterministic、non-deployable                        |
-| 阶段 2 source-only 产物                                   | PASS    | 精确 SHA/0053、deterministic、non-deployable；harness/runtime 排除                 |
-| production 管理通道                                       | BLOCKED | 按用户要求本轮未重试 SSH                                                           |
-| live release 与 rollback                                  | BLOCKED | 不用历史 SHA 代替实时值                                                            |
-| production 磁盘、inode、内存、MDL、schema/index、备份状态 | BLOCKED | 等待一次实时只读 preflight                                                         |
+| 项目                                                     | 状态    | 证据                                                                               |
+| -------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| 正式测试红灯                                             | PASS    | 日期、12 文件 format、browser smoke 各自独立提交；所有强制本地门禁已绿             |
+| 0053 精确身份与索引定义                                  | PASS    | unit/integration/真实 migration；journal hash 与可见非唯一 BTREE 三列精确校验      |
+| schema readiness 缓存                                    | PASS    | 实例单例、60s TTL、同窗 Promise 合并、过期/失败 fail closed、实例重建/显式 refresh |
+| 隔离 MDL 有界失败与重试                                  | PASS    | session lock wait 5s；25/25 migration 测试证明零残留和安全重试                     |
+| production 阶段 1 updater                                | PASS    | 备份后发布 `cc43e8c…`，远端 verifier 和独立公网核验通过                            |
+| production 0053 DDL 与失败恢复                           | BLOCKED | 阶段 1 只有 0052；本轮没有在 production 执行 0053                                  |
+| flag 源码与失败恢复测试                                  | PASS    | 缺失/非法/读取失败为 legacy；trusted switch 测试通过                               |
+| production candidate 切换工具/耗时/中断                  | BLOCKED | 阶段 1 未安装阶段 2 switch 工具，也未执行全局切换                                  |
+| 管理通道与 rollback 来源                                 | PASS    | VPN/TUN 正式域名可用；rollback=`a2326618…` 且 retained                             |
+| production 实际 rollback 演练                            | BLOCKED | 工具和来源已验证，但本轮未执行回滚                                                 |
+| 单一 Compose project 控制逻辑                            | PASS    | 同一 env、全 API force-recreate、逐实例校验的脚本测试通过                          |
+| production 主机/API 实例数量与一致性                     | PASS    | 单主机、单 API/MySQL/Web；post-deploy verifier 逐实例通过                          |
+| 临时表归因方法                                           | PASS    | plan-specific digest 指标、应用 plan 窗口和全局兜底口径已冻结                      |
+| production 临时表配置与内存余量                          | PASS    | 只读实时值已取得；4–8MiB/480MiB 仍只作为估算，不是实际 candidate 内存              |
+| 阶段 1 source-only 产物                                  | PASS    | 精确 SHA、最高 0052、无 0053、deterministic、non-deployable                        |
+| 阶段 1 production release                                | PASS    | deployable artifacts、备份、发布、schema/index/legacy 与公网核验全部通过           |
+| 阶段 2 source-only 产物                                  | PASS    | 精确 SHA/0053、deterministic、non-deployable；harness/runtime 排除                 |
+| 阶段 2 production release / migration / candidate        | BLOCKED | 未获本轮授权；不得由阶段 1 成功自动推进                                            |
+| live release、磁盘、inode、内存、MDL、schema/index、备份 | PASS    | 实时 preflight 与 post-deploy 再核对                                               |
 
 ## 唯一下一步与停止条件
 
-保持 NO-GO。只有用户明确通知 SSH 或等价管理通道恢复后，才执行一次低频只读 preflight，取得 live
-release、精确 rollback、主机/API 拓扑、磁盘/inode、内存/swap、buffer pool、tmp/TempTable、连接上限、
-schema/journal/index、长事务、pending MDL、表/索引大小、备份和恢复工具状态。该批全部实时可读后才
-重新判断是否可生成 deployable release；当前不提供生产执行批准建议。
+阶段 1 已完成并停止。阶段 2 的唯一下一步是等待用户另行明确批准 migration/index；届时必须从当时 live
+release 重新做低频只读 preflight、生成新的 deployable manifest 和新备份，先部署仍为 legacy 的阶段 2，
+再把 candidate 全局切换作为另一项单独批准。当前不迁移、不建索引、不启用 candidate。

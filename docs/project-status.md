@@ -1,23 +1,24 @@
 # Project Status
 
-## 当前 release-candidate 批次（2026-09-02，已完成，production NO-GO）
+## 当前 release-candidate 批次（2026-09-02，阶段 1 已部署；阶段 2 NO-GO）
 
-- 最新远端主线为 `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；本轮结束前再次 fetch，
-  SHA 未漂移。旧 `codex/directory-query-production-ready@70f14ce6` 未改写，只作历史审计依据。
-- 正式门禁维护分支 `codex/release-gate-maintenance-20260902` 包含三个独立 checkpoint：日期时钟、
-  12 文件 format-only、Web smoke 空月 fixture。根 `pnpm verify`、真实 MySQL migration/directory、
-  production Compose 静态配置和真实浏览器 smoke 均通过。
-- 新分支 `codex/directory-query-release-candidate` 的阶段 1 为
-  `cc43e8c82424617303a4b2f3b2d9119f66a91eb2`；阶段 2 业务/迁移来源为
-  `50ac2d07a3412c6d76a3494b1150868276f4781c`。前者最高 migration 0052，后者包含精确 0053；两者默认
-  flag 均为 legacy，只有 source-only 非部署 manifest。
-- 完整门禁与重新分类见 `docs/audit/directory-query-release-candidate-gates.md`。候选 SQL、migration 与
-  `70f14ce6` 字节一致；多 seed 零差异及隔离关键性能 smoke 通过，但这些不是 production 实测。
-- 唯一下一批次：等待用户明确通知 production 管理通道恢复后，只执行一次低频只读 preflight，实时
-  取得 live release、rollback、拓扑、schema/index、资源、MDL 和备份/恢复状态。在此之前禁止生成
-  deployable release，也不部署、备份、迁移、建索引、改配置、启用 candidate 或上传 Mini。
-- 本轮状态文档 checkpoint 以 `docs(release): record forward-ported directory gates` 识别；不得因该
-  docs checkpoint 触发 production release 同步。
+- production 实际源码为阶段 1
+  `cc43e8c82424617303a4b2f3b2d9119f66a91eb2`；直接 rollback candidate 为部署前 live release
+  `a23266182122c6e2fcb5ca5aba5d8857ef781910`，两份 immutable release 均由 verifier 核对。
+- 部署前创建加密数据库备份 `155c2560-ef5d-4acf-90d1-a24158e6e1ee`：daily、55 表、205,864 行、
+  91,237,728B。阶段 1 归档最高 migration 0052；updater 的 migration 步骤为空跑，部署后 schema 仍为
+  52、目标索引仍不存在、API 实际 `DIRECTORY_QUERY_PLAN=legacy`。
+- 远端完整 verifier 与独立公网 Web/health/capability/未知版本 426 均通过；production 拓扑为单主机、
+  单 API/MySQL/Web。MySQL 未重建；API/Web 在内置健康等待后恢复。
+- SSH 根因为 VPN/TUN：正式域名解析到 `198.18.0.43`，必须使用正式域名、既有 `aliyun_schedule` 私钥和
+  严格 host-key 校验；直连真实 IP 会在 banner 前超时。
+- 阶段 2 业务/迁移来源仍为 `50ac2d07a3412c6d76a3494b1150868276f4781c`，只有 source-only 证据；本轮
+  没有执行 0053、建索引、启用 candidate、调整 MySQL 配置或上传 Mini。旧
+  `codex/directory-query-production-ready@70f14ce6` 未改写，实验 volume/runtime 证据保留。
+- 唯一下一批次：等待用户对阶段 2 migration/index 的另一次明确批准；即使以后部署阶段 2，也必须先
+  保持 legacy，迁移和 candidate 全局切换仍是不同审批/回滚单元。
+- 本轮状态 checkpoint 以 `docs(release): record directory stage1 deployment` 识别；该 docs SHA 不是
+  production 源码 SHA，不因文档提交再次操作 production。
 
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/wechat-miniprogram-audit.md` 和精确
 debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
