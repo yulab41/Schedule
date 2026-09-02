@@ -45,6 +45,7 @@ runtime/api-flat.old-*/
 
 # Browser smoke screenshots
 /.tmp-smoke-*/
+/runtime/smoke/
 
 # WeChat Mini Program local and generated state
 /apps/miniprogram/dist/
