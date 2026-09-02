@@ -7,7 +7,7 @@
 - 起始基线：`origin/main@359966f7240d2f557b24dd0c1ac61979d6bb829`；执行分支/worktree 为
   `codex/fix-exp-ux-002` / `runtime/external-project-worktrees/exp-ux-002`。
 - 设计文件：`docs/superpowers/specs/2026-09-02-exp-ux-002-design.md`；本批不上传体验版、不部署 production，
-  也不调用微信开发者工具。
+  也不调用微信开发者工具。设计 checkpoint 为 `ef3e06cf`（`docs(superpowers): design EXP-UX-002 workflow sheets`）。
 - 为保留 production `50ac2d07a3412c6d76a3494b1150868276f4781c` 的 schema 53 与目录查询能力，最终源码
   release tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`（第一父 `d1594d09`，第二父为 production release）。
 - 范围：换班 sheet、共用 workflow picker、leave/swap/duty 非 Tab 遗留底栏、所有页面右上角 P5/P7/P8/P9

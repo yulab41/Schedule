@@ -14,7 +14,7 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
   `runtime/external-project-worktrees/exp-ux-002`；起始基线为最新 `origin/main@359966f7`。用户主 worktree
   和其他 worktree 未修改、清理、暂存或借用。
 - 本轮设计 checkpoint：书面规格 `docs/superpowers/specs/2026-09-02-exp-ux-002-design.md`，提交信息为
-  `docs(superpowers): design EXP-UX-002 workflow sheets`（提交后补记 hash）。
+  `docs(superpowers): design EXP-UX-002 workflow sheets`，commit `ef3e06cf`。
 - 设计 checkpoint：`7cef75ff docs(superpowers): design EXP-UX-001 experience fixes`。
 - 功能 checkpoint：`3b1cbd1b fix(miniprogram): close EXP-UX-001 experience regressions`。
 - clean 包体文档 checkpoint：`f04fc56d docs(audit): record clean EXP-UX-001 verification`。
