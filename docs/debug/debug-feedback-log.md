@@ -2185,3 +2185,32 @@
   controller 定向 1 file/44 tests 通过。
 - 本轮未改客户端、SQL、索引、缓存、API 或预热，未执行 production 写入/清缓存/重启/备份/部署，
   未上传体验版。下一步等待用户从最多三个候选方向中确认后再实施。
+
+## 2026-09-02 正式门禁清理与 directory release-candidate 前移
+
+- 开始和结束前 fetch 均确认 `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；
+  `a4f50c0..origin/main` 只有 Mini scheduling rotation 局部输入更新及测试/文档，没有 API、migration、
+  Web、配置或部署改动。旧 `codex/directory-query-production-ready@70f14ce6` 未改写。
+- 回归引入点：duty 日期 fixture 为 `5d8b205a`，swap 为 `b20ff9b8`；生产 helper 本来就支持第三个
+  `now`。旧测试在 2026-09-02 对固定 2026-09-01 数据自然过期，红灯先复现，再在 `ba7d3793` 固定测试
+  时钟并补 CST 跨月/跨年，3 files / 17 tests 通过，未改业务源码。
+- 全仓 `format:check` 在干净最新主线精确失败 12 文件；`071549f4` 只做 Prettier 机械格式化，随后
+  全仓通过。`.t-select` Sheet helper 由 `af37f5e4` 引入；失败根因是当前月测试库为空而 selector
+  按产品 `v-if` 不存在，不是 selector 过时、动画、Sheet 或业务故障。`5f564b8b` 改为语义空态/固定
+  2026-08 有数据 fixture 等待，不加 sleep/timeout/skip，也不改产品 Web。
+- 运行/浏览器验证：`pnpm smoke:browser` 在候选源码、本地 API/MySQL 与 127.0.0.1:4173 上最终通过
+  登录、管理员、成员、访客 vkey 和访问记录，全流程无浏览器错误；首次重跑只因 worktree 缺脚本固定
+  读取的本地 `.env` 在访客步骤停止，临时硬链接建立后完整通过并立即移除。API/Web session 已停止，
+  ignored 证据保留在当前 worktree `runtime/smoke/latest`。
+- 候选验证：定向 8 files / 85 tests、真实 MySQL 8.4.11 migration 25/25、directory integration
+  12/12；`pnpm verify` 的 format/lint/build/typecheck 全绿，Mini 113 files / 612 tests，root
+  246 passed files / 1,170 passed tests，37 files / 364 DB tests 在无 DB env 的标准 root 命令按设计跳过。
+  GitHub docs/workflow Prettier 与 production Compose `config --quiet` 也通过。
+- 前移后的 query/migration 与 `70f14ce6` 字节一致。旧 readiness volume 保存 hardening 前 0053 hash，
+  新 guard 正确 fail closed；没有改写旧 volume。全新独立 volume 从当前 0053 fresh apply 后，20 轮关键
+  smoke 实际观察 candidate：首字母 main examined rows 88,098→1,205、P95 53.4→32.0ms、0 error；
+  有效七级筛选仍 legacy。这是隔离 smoke，不是 production 性能。
+- 新阶段 1/2 为 `cc43e8c8` / `50ac2d07`；source-only manifests 两次字节一致，manifest SHA-256
+  分别为 `58ccbf61…12cb7` 与 `7626ed37…6f0ea`，均 `deployable=false`。本轮没有连接 production、
+  部署、备份、迁移、建索引、改配置、启用 candidate 或上传 Mini；唯一下一任务是等待管理通道恢复后
+  一次低频实时只读 preflight。

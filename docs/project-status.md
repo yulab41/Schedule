@@ -1,9 +1,28 @@
 # Project Status
 
+## 当前 release-candidate 批次（2026-09-02，已完成，production NO-GO）
+
+- 最新远端主线为 `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；本轮结束前再次 fetch，
+  SHA 未漂移。旧 `codex/directory-query-production-ready@70f14ce6` 未改写，只作历史审计依据。
+- 正式门禁维护分支 `codex/release-gate-maintenance-20260902` 包含三个独立 checkpoint：日期时钟、
+  12 文件 format-only、Web smoke 空月 fixture。根 `pnpm verify`、真实 MySQL migration/directory、
+  production Compose 静态配置和真实浏览器 smoke 均通过。
+- 新分支 `codex/directory-query-release-candidate` 的阶段 1 为
+  `cc43e8c82424617303a4b2f3b2d9119f66a91eb2`；阶段 2 业务/迁移来源为
+  `50ac2d07a3412c6d76a3494b1150868276f4781c`。前者最高 migration 0052，后者包含精确 0053；两者默认
+  flag 均为 legacy，只有 source-only 非部署 manifest。
+- 完整门禁与重新分类见 `docs/audit/directory-query-release-candidate-gates.md`。候选 SQL、migration 与
+  `70f14ce6` 字节一致；多 seed 零差异及隔离关键性能 smoke 通过，但这些不是 production 实测。
+- 唯一下一批次：等待用户明确通知 production 管理通道恢复后，只执行一次低频只读 preflight，实时
+  取得 live release、rollback、拓扑、schema/index、资源、MDL 和备份/恢复状态。在此之前禁止生成
+  deployable release，也不部署、备份、迁移、建索引、改配置、启用 candidate 或上传 Mini。
+- 本轮状态文档 checkpoint 以 `docs(release): record forward-ported directory gates` 识别；不得因该
+  docs checkpoint 触发 production release 同步。
+
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/wechat-miniprogram-audit.md` 和精确
 debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
 
-## 当前仓库批次（2026-09-02）
+## 最近已完成 Mini 批次（2026-09-02，非当前任务）
 
 - 唯一任务：`MINI-G1-003` 排班配置轮转数字输入的岗位×成员全量重建；状态为
   `P2，逻辑层性能问题已确认并修复；真机可见卡顿未直接确认`。
@@ -54,10 +73,10 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
   构建产物或生产状态变更。
 - 未调用微信开发者工具 GUI/CLI，未上传体验版、未提审/发布，未部署 production、未创建生产备份。
 
-## 唯一下一任务与停止条件
+## Mini 轨道既有停止条件
 
 最终 tip 全量验证后再次 fetch。若主线漂移，语义整合并复跑受影响测试、Mini 全量、verify、状态策略和
 core smoke；修复分支可先普通推送，main 只做一次最终普通 fast-forward，不 force push。核对远端 SHA、
 工作树 clean、无未推送提交后停止。
 
-后续唯一候选可记录为 `MINI-G1-004`；本轮不执行。
+Mini 轨道后续候选可记录为 `MINI-G1-004`；它不是当前 release-candidate 批次，本轮不执行。
