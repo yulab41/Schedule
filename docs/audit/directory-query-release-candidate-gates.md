@@ -202,8 +202,9 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 - Mini 是独立发布轨道。`.78` 的精确源码为 `07decdbb…`；并行主线 `d1594d09…` 有实际 Mini 源码变化，
   clean `.79` 以 production profile 通过 114 files / 621 tests、verify、determinism、package audit 和
   CI dry-run后上传成功：191 code files、zip 2,451,655B、upload manifest `fe2acd36…a10f0`，显示标识
-  `0.1.0-p10.20260902.79@d1594d0`。`.79` 尚未加入 production allowlist，当前能力探针为 426；未提审、
-  未正式发布，也没有因 Mini 上传再次部署 production。
+  `0.1.0-p10.20260902.79@d1594d0`。用户另行批准后，可信 add-only 工具精确追加 `.79`；首个 TLS reset
+  在 1/30 健康等待内恢复，allowlist verify、完整 ECS verifier、`.79` 七项能力、`.78` 兼容和动态未知
+  版本 426 均通过。未提审、未正式发布，也没有创建备份、迁移数据库、重新部署 release 或启用 candidate。
 
 ## 上线观测归因
 
@@ -250,10 +251,10 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 | production candidate                                     | BLOCKED | 未获独立切换授权；实际容器值仍为 legacy                                            |
 | live release、磁盘、inode、内存、MDL、schema/index、备份 | PASS    | 实时 preflight 与 post-deploy 再核对                                               |
 | Mini `.79` 官方体验上传                                  | PASS    | exact `d1594d09…`；191 files / 2,451,655B / manifest `fe2acd36…a10f0`              |
-| Mini `.79` production allowlist                          | BLOCKED | 当前只读能力探针 426；上传授权未扩张为 production 配置写入                         |
+| Mini `.79` production allowlist                          | PASS    | 可信 add-only 只追加 1 项；`.79` 200/七项 true，`.78` 200，unknown 426             |
 
 ## 唯一下一步与停止条件
 
-阶段 2 已完成并保持 legacy。后续只有两个相互独立、都需明确授权的动作：用可信 add-only 工具把 Mini
-`.79` 加入 production client-version allowlist；或在新的实时 preflight 后执行 candidate 全局切换。
-未获授权前不执行任一项，不自动重部署新主线、不提审或正式发布 Mini，也不删除实验 volume/证据。
+阶段 2 已完成并保持 legacy，Mini `.79` 已上传并加入 production allowlist。下一步由用户在 Xiaomi 14
+完成 `EXP-UX-001` 真机验收；服务端 candidate 全局切换仍是另一项独立授权，执行前必须重新实时 preflight。
+当前不自动重部署新主线、不提审或正式发布 Mini，也不删除实验 volume/证据。

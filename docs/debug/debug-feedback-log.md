@@ -2257,5 +2257,9 @@
   Mini 114 files/621 tests、verify 5,113,963B、determinism、package audit 与 CI dry-run。官方 Node
   `miniprogram-ci` 上传成功：`0.1.0-p10.20260902.79@d1594d0`、描述 `exp-ux-001-d1594d0`、191 code
   files、zip 2,451,655B、manifest `fe2acd36…a10f0`；未调用微信开发者工具、未提审或正式发布。
-- `.79` 当前 production capability 为 426，`.78` 仍为 200；本轮上传授权没有扩张为 allowlist 写入。
-  唯一后续为等待 `.79` add-only allowlist 或 candidate 全局切换的各自明确授权，二者不得合并。
+- `.79` 上传后 production capability 为 426、`.78` 为 200。用户随后独立批准精确 `.79` add-only；
+  preflight 确认 live `50ac2d07…`、rollback `cc43e8c…`、legacy、目标缺失且原策略 verify 通过。可信
+  `ensure` 只追加 1 项，API/Web 重建的首个 TLS reset 在 1/30 内恢复；独立 allowlist verify、完整
+  ECS verifier、公网 `.79` 200/七项 true、`.78` 200、unknown 426 全绿。release、schema53、三列索引
+  与 legacy 均未改变；未创建备份、部署代码、执行 migration 或启用 candidate。下一步只做 Xiaomi 14
+  `EXP-UX-001` 验收；candidate 全局切换继续等待另一项明确授权。

@@ -19,10 +19,12 @@
   migration、配置或部署脚本。production 仍精确记录获批源码 `50ac2d07…`，没有自动重部署新主线。
 - `0.1.0-p10.20260902.79@d1594d0` 已从 detached clean production profile 经官方 Node
   `miniprogram-ci` 上传（191 code files、zip 2,451,655B、manifest `fe2acd36…a10f0`）。production
-  allowlist 尚无 `.79`，只读探针为 426；上传成功不等于当前可进入业务，追加白名单需另行明确批准。
+  allowlist 已按用户独立授权由可信 add-only 工具追加；API/Web 重建时首个 TLS reset 在 1/30 内恢复，
+  随后 allowlist verify、完整 ECS verifier、`.79` 七项能力、`.78` 兼容和未知版本 426 均通过。
 - 旧 `codex/directory-query-production-ready@70f14ce6` 未改写，实验 volume/runtime 证据和阶段 1/2 本地
-  发布证据均保留。下一步只等待 `.79` allowlist 或 candidate 全局切换的独立授权，不自动执行任一项。
-- 本轮状态 checkpoint 以 `docs(release): record directory stage2 deployment` 识别；该 docs SHA 不是
+  发布证据均保留。`.79` 现在可供 Xiaomi 14 体验验收；candidate 全局切换仍等待独立授权，不自动执行。
+- 阶段 2 部署状态 checkpoint 为 `d4bbab34 docs(release): record directory stage2 deployment`；本轮
+  allowlist 状态 checkpoint 以 `docs(audit): record .79 allowlist activation` 识别。两个 docs SHA 都不是
   production 或 Mini 源码 SHA，不因文档提交再次操作 production。
 
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/wechat-miniprogram-audit.md` 和精确
