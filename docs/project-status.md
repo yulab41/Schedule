@@ -5,55 +5,59 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 当前仓库批次（2026-09-02）
 
-- 唯一任务：`MINI-G1-002` 工作台同一年 holidays 请求去重；P2 已确认并修复，修复 checkpoint
-  `32467997` 已完成最终主线整合，当前只同步收口状态。
-- 起始主线：`origin/main@2751f549756d890d9bfbe7be14fd4eb905977527`；用户给出的已闭环参考
-  `24fce3bb90d5b64b97d57b51bb76c4ed0376e8cd` 已确认是其祖先。
-- 修复分支/worktree：`codex/fix-mini-g1-002-holiday-year-dedupe` /
-  `runtime/external-project-worktrees/mini-g1-002-holiday-year-dedupe-20260902`。
-- 修复 checkpoint：`32467997`（`fix(miniprogram): dedupe annual workbench holidays`）；最终状态
-  checkpoint：`docs(status): close MINI-G1-002 main integration`。
-- fresh worktree frozen install：1,459 包本地复用、0 下载、7m43.8s；7 个 workspace packages 在本
+- 唯一任务：`MINI-G1-003` 排班配置轮转数字输入的岗位×成员全量重建；状态为
+  `P2，逻辑层性能问题已确认并修复；真机可见卡顿未直接确认`。
+- 起始主线：`origin/main@a4f50c0207ccb67f5ccdc78dd3912ba248fec9af`；执行前 fetch 后无 SHA 漂移。
+- 修复分支/worktree：`codex/fix-mini-g1-003-scheduling-input` /
+  `runtime/external-project-worktrees/mini-g1-003-scheduling-input-20260902`。
+- checkpoint 识别信息：`fix(miniprogram): localize scheduling rotation input updates`。
+- fresh worktree frozen install：1,459 包本地复用、0 下载、7m49.3s；7 个 workspace packages 在本
   worktree 构建通过，锁文件未变，没有借用主工作区 dist。
-- 用户脏主工作区、既有 worktree、`MINI-G1-001`、XMB、test-tools、通讯录并行成果和其他分支均未
+- 用户脏主工作区、既有 worktree、`MINI-G1-001/002`、XMB、test-tools、通讯录并行成果和其他分支均未
   修改、清理或覆盖；不重跑阶段 0。
 
 ## 根因、红灯与修复
 
-- 接口核实：`GET /holidays?year=...` 的 client/route/service/model 均按年份返回全年数据。
-- 引入点：`9e3a966c` 把原 `readMonths` 唯一年份集合改成逐月 `readMonth` 年度读取；五个月窗口由
-  `4300fbe7` 定义。当前 `loadActiveThenAdjacent` 又让相邻月并发，形成同年 result/in-flight 重复。
-- 永久测试：`apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`。未改业务源码时 3/3 红：
-  同年 5 次；跨年 `[2026,2026,2026,2027,2027]` 且 2027 同时在途 2 次；首次失败后 retry 累计 6 次。
-- 最小修复：`loadWorkbench`/`refreshWorkbenchWindow` 每个 generation 先生成唯一年份 Map，同年共享
-  原始 Promise。新 generation 新建 Map，不是全局或持久缓存，失败 Promise 不会跨 retry 保留。
-- 修复后：同年 `5→1`；跨年 `5→2` 且每年一次/2027 同时在途 1 次；失败后 retry 累计 `6→2`。
-- 保持语义：五个月 calendar、资源顺序、每月年度结果、跨年 dates 和月格展示、活动月先 ready、相邻
-  月 best-effort、错误/离线/403/24h cache、request serial、receiver、UI、接口、权限和路由均不变。
+- 引入点：`38233039` 初次实现 P8 scheduling config 时，让 `handleRotationInput` 的标量草稿更新复用
+  `createRoleCards`，导致每字符遍历所有岗位、复制/排序每岗全部群组成员并完整回传 `roleCards`。
+- 依赖核实：每天人数/当前位置只影响 `_rotationDrafts`、目标显示和最终保存 payload；起始日期同样不
+  影响成员。它们不改变成员归属、岗位/成员排序、卡片数或 picker 成员列表。成员选择/移动确实改变
+  关系，继续使用完整重建；班种输入和其他页面未处理。
+- 永久测试扩展 `apps/miniprogram/scripts/p8-organization-c2-controller.test.mjs`。夹具名称纠正后，在未改
+  业务源码时纯净目标合同 3 项红；既有读取/创建和必要成员重建 3 项保持绿。
+- 修复前同一字符：4×2 为 1 次 `setData`/`roleCards`/2,476B/4 次排序/8 个成员视图复制；4×100 为
+  1 次/`roleCards`/53,364B/4 次排序/400 个成员视图复制，payload 增长 50,888B、复制增长 392。
+- 最小修复：保留原 `_rotationDrafts` 和 `toPositiveInt`，按稳定 `roleId` 当场查当前索引，只更新
+  `roleCards[index]` 的目标字段；岗位缺失/未知字段保留旧全量回退。没有 debounce、缓存或架构改造。
+- 修复后 4×2/4×100 均为 1 次精确路径 `setData`、41B，排序/岗位/成员数组/成员视图重建与增长均为 0。
+- 保持语义：目标卡片立即显示；连续输入取最后值；空串/非法值仍为 1；没有新增失焦处理；原提示不
+  被清除；保存使用最新值；重排卡片后仍按稳定 ID 更新正确岗位；其他岗位/成员及成员关系操作不变。
 
-## clean checkpoint 验证
+## 最终候选验证
 
-- holidays 永久合同 3/3；workbench 相关 4 files/40 tests。
-- 标准 `pnpm miniprogram:test` 自动发现新文件，113 files/608 tests 全绿。
+- 永久 controller 合同 6/6；所有含 scheduling-config 的相关测试 16 files/75 tests。
+- 标准 `pnpm miniprogram:test` 自动发现扩展文件，113 files/612 tests 全绿。
 - Mini TypeScript 通过；production build 276 files。
-- `pnpm miniprogram:verify` 通过：main 1,677,999B、total 5,121,436B、Worklet 2/2、matrix
-  1445/1506。只有既有主包 1.5MiB 与 matrix 三项 warning，没有新增 warning 类别。
-- 任务文件 Prettier、`git diff --check`、状态策略 3/3 和 `smoke:check-core` 通过。
-- 真实微信 Network 次数/耗时和小米 14 性能当前工具无法测量，暂未验证；本问题由自动化收口，不要求
-  用户真机复现，也不新增 test-tools。
+- `pnpm miniprogram:verify` 通过：main 1,677,998B、total 5,121,615B、Worklet 2/2、matrix
+  1445/1506。相对未改基线 total +179B、organization +180B；main -1B 为元数据噪声；只有既有三项
+  warning，没有新增依赖或 warning 类别。
+- 任务文件 Prettier/ESLint、`git diff --check`、状态策略 3/3 与 `smoke:check-core` 通过；未触及 Web
+  核心链路，无需 `pnpm smoke:browser`。
+- 真实微信 bridge/帧率和小米 14 可见卡顿当前工具无法测量，暂未验证；自动化已足以收口逻辑问题，
+  不要求用户真机复现，也不新增 test-tools。
 
 ## 精确范围与外部边界
 
-- 业务源码仅 `apps/miniprogram/src/pages/workbench/index.ts`；永久测试仅
-  `apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`；另更新 audit 报告、audit STATUS、本文件和
-  `docs/debug/debug-feedback-log.md`。
-- 没有 `MINI-G1-003`/`004`、XMB、test-tools、包体/矩阵治理、API/DB、锁文件、构建产物或生产状态变更。
+- 业务源码仅 scheduling-config panel controller；永久测试扩展现有 P8-C-2 controller 文件；另更新
+  audit 报告、audit STATUS、本文件和 `docs/debug/debug-feedback-log.md`。
+- 没有 `MINI-G1-004`、XMB、test-tools、班种输入、API/DB、权限、路由、视觉、排班规则、锁文件、
+  构建产物或生产状态变更。
 - 未调用微信开发者工具 GUI/CLI，未上传体验版、未提审/发布，未部署 production、未创建生产备份。
 
 ## 唯一下一任务与停止条件
 
-修复候选验证后再次 fetch，`origin/main` 前后均为 `2751f549`；远端修复分支已建立，main 已普通快进
-`2751f549 → 32467997`，没有 force push、冲突或分支保护错误。最终状态 checkpoint 复验后普通推送到
-修复分支和 main；核对二者远端 SHA、工作树 clean、无未推送提交后停止。
+最终 tip 全量验证后再次 fetch。若主线漂移，语义整合并复跑受影响测试、Mini 全量、verify、状态策略和
+core smoke；修复分支可先普通推送，main 只做一次最终普通 fast-forward，不 force push。核对远端 SHA、
+工作树 clean、无未推送提交后停止。
 
-后续唯一候选可记录为 `MINI-G1-003`；本轮不执行。
+后续唯一候选可记录为 `MINI-G1-004`；本轮不执行。

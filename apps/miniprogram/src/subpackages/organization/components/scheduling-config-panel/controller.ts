@@ -115,7 +115,10 @@ interface SchedulingConfigPageInstance {
   _roleMemberIds: Map<string, string[]>;
   _roleMemberOrder: Map<string, string[]>;
   _rotationDrafts: Map<string, RotationDraft>;
-  setData(patch: Partial<SchedulingConfigPageData>, callback?: () => void): void;
+  setData(
+    patch: Partial<SchedulingConfigPageData> & Record<string, unknown>,
+    callback?: () => void,
+  ): void;
 }
 
 interface RotationDraft {
@@ -353,14 +356,22 @@ export function createSchedulingConfigPanelControllerDefinition() {
       const current = this._rotationDrafts.get(roleId);
       if (current === undefined) return;
       const value = readString(event);
+      const isPositiveIntegerField =
+        field === 'requiredMembersPerDay' || field === 'currentPosition';
+      const nextValue = isPositiveIntegerField ? toPositiveInt(value) : value;
       this._rotationDrafts.set(roleId, {
         ...current,
-        [field]:
-          field === 'requiredMembersPerDay' || field === 'currentPosition'
-            ? toPositiveInt(value)
-            : value,
+        [field]: nextValue,
       });
-      this.setData({ roleCards: createRoleCards(this) });
+      const roleIndex = this.data.roleCards.findIndex((role) => role.id === roleId);
+      if (
+        roleIndex < 0 ||
+        (field !== 'requiredMembersPerDay' && field !== 'currentPosition' && field !== 'startDate')
+      ) {
+        this.setData({ roleCards: createRoleCards(this) });
+        return;
+      }
+      this.setData({ [`roleCards[${roleIndex}].${field}`]: nextValue });
     },
 
     handleRotationPicker(this: SchedulingConfigPageInstance, event: ValueInputEvent): void {

@@ -2,6 +2,36 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-02 MINI-G1-003 排班配置轮转输入局部更新
+
+- 基线/范围：fetch 后从 clean `origin/main@a4f50c02` 建立独立仓库内 worktree；只改 scheduling-config
+  轮转标量输入、现有永久 controller 测试和四份连续性文档。`MINI-G1-001/002`、`MINI-G1-004`、
+  XMB、test-tools、班种输入、API/DB/权限/路由/视觉/业务规则及其他 worktree 均未改；不重跑阶段 0。
+- 调用链/依赖：两个数字 `bindinput` 与起始日期 `bindchange` 进入 `handleRotationInput`。每天人数、
+  当前位置和日期只影响 `_rotationDrafts`、目标卡片显示及 `updateRotationRule` 保存 payload，不影响成员
+  归属、岗位/成员排序、卡片数、memberNames 或 picker 索引。成员选择/移动确有关系依赖，继续全量重建。
+- 引入点/根因：`git log -S` 与 blame 定位 `38233039`。P8 初始实现把标量输入复用
+  `createRoleCards`，每字符对所有岗位复制/排序全部 group members，再完整 `setData({ roleCards })`。
+- 测试先行：扩展标准入口自动发现的 `p8-organization-c2-controller.test.mjs`。第一次运行中旧读取测试因
+  fixture 把“一线”写成“1线”误红，不计证据；只修 fixture 且仍未改业务源码后，既有读取/创建和必要
+  成员重建 3 项绿，目标合同纯净 3 项红。
+- 修复前证据：4×2 一字符为 1 次 `setData`、键 `roleCards`、2,476B、4 次排序、4 个 role card/成员
+  数组和 8 个 member view 重建；4×100 为 53,364B、4 次排序、4/4/400 重建，payload +50,888B、成员
+  view +392。历史 56,171B 来自另一临时 fixture，不作为永久阈值。
+- 最小实现：原 `toPositiveInt` 和 `_rotationDrafts` 先行更新不变；按稳定 `roleId` 查当前数组索引，仅
+  `setData` 一个 `roleCards[index].field`。ID 缺失或未知字段保留旧全量回退；无 debounce、延迟显示、
+  全局缓存或架构改造。
+- 绿灯/语义审计：4×2/4×100 都是 1 次精确路径 patch、41B，排序和岗位/成员重建均 0；controller 6/6，
+  scheduling-config 相关 16 files/75 tests，标准 Mini 113/612。连续输入最后值、空/非法值→1、无新增
+  blur、提示不清除、保存最新值、重排后稳定 ID、其他岗位/成员不变，以及成员选择仍必要重建均通过。
+  receiver、Promise/catch、空值、版本/幂等、权限/capability、API、路由和业务写次数不变。
+- 运行/浏览器验证：Mini TypeScript、276-file production build、verify、任务 Prettier/ESLint、diff、
+  状态策略 3/3 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需 `pnpm smoke:browser`。verify
+  为 main 1,677,998B、total 5,121,615B、2/2 Worklet、matrix 1445/1506。相对基线 total +179B、
+  organization +180B，main -1B 为元数据噪声，无新增 warning 类别。
+- 外部边界：`MINI-G1-003：P2，逻辑层性能问题已确认并修复；真机可见卡顿未直接确认。` 未调用微信
+  开发者工具，未上传体验版、未部署 production；不把自动化的冗余消除写成真机卡顿已经确认修复。
+
 ## 2026-09-02 MINI-G1-002 工作台年度 holidays 请求去重
 
 - 基线/范围：fetch 后从 clean `origin/main@2751f549` 建立独立 worktree；`24fce3bb` 已确认是祖先。
