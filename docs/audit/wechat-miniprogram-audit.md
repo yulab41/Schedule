@@ -1076,3 +1076,66 @@ verifier。
 5. 抽查所有页面右上角不再出现 P…；测试工具的内部 build/version 诊断仍可用但不在页面右上角渲染 phase tag。
 
 这五步是下一版实体设备人工验收清单，不把当前 Node/静态构建结果写成真机手势已通过。
+
+## 12. EXP-UX-002 请假与加扣班弹窗外壳续修
+
+### 12.1 范围、证据和旧实现红灯
+
+本批从 fetch 后的 `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb829` 建立独立
+`codex/fix-exp-ux-002` worktree，承接 #4 请假、#5 加扣班两张 Xiaomi 14 体验版截图中仍未闭合的弹窗
+问题。截图构建 SHA、trial、renderer、基础库、微信版本和构建时间当前工具无法读取，因此仍只作为反馈
+现象证据，不写成当前修复 tip 的实体设备验收。
+
+修改业务源码前先把 `apps/miniprogram/scripts/exp-ux-002.test.mjs` 接入标准 `--dir scripts` 入口，并在
+旧源码上运行：4 个合同全部失败。失败分别证明请假/加扣班没有注册或使用 `ui-sheet`、直达 Page manifest
+没有声明 include 所需的 `ui-sheet`、表单缺少共享 scroll/footer 分离，以及工作流共享 sheet 布局未覆盖旧
+本地实现。修复后该合同 4/4 通过；连同既有 P7、ui-sheet、直达页合同的定向运行是 5 files / 33 tests
+passed，`pnpm miniprogram:test` 为 115 files / 625 tests passed。
+
+### 12.2 #4/#5 根因与修复后的层级、可视高度和手势
+
+两张截图的根因不是业务 controller 或路由，而是请假和加扣班 direct Page include 的五个弹窗仍各自落在
+panel 内的旧本地外壳：`sheet-layer` 为组件局部 `position:absolute; z-index:40`，请假新建表单使用
+`height:auto; max-height:78vh`、审批使用 `height:88%`，操作按钮又放在正文 scroll-view 内；加扣班撤销
+还没有共享滚动区和顶部拖动区。该层级既受页面容器/overflow 影响，也无法保证脱离首页导航和 Xiaomi 14
+底部安全区；旧手势没有进入共享 `drag-dismiss.wxs`。`git log -S`/`git blame` 将旧请假表单定位到
+`9fae3869`，旧工作流表单路径定位到 `80ddadf0`/`bc32a4f1`；上一批 `3b1cbd1b` 只迁移了内嵌换班，
+没有修改这五个 direct Page 业务弹窗。
+
+本批请假新建、请假审批、加扣班发起、管理员直达、加扣班撤销全部改为已有 `components/ui/ui-sheet` 的
+slot 内容，没有复制新组件或改 API/controller 业务语义：
+
+- 修复前是局部 absolute/z40，与页面级底栏竞争；修复后统一为 `ui-sheet__layer` fixed/z400，高于首页
+  Tab 导航 z50，也不需要任意增大导航 z-index。
+- 修复前高度按内容或 88% 变化，按钮可能随正文滚动；修复后统一 `height:78vh; max-height:660px`，
+  顶部约在可用高度四分之一，面板约占四分之三。
+- 修复前正文和操作区混在一个 scroll-view；修复后正文是 `workflow-sheet-scroll`（`min-height:0;
+  flex:1`），提交/审批/撤销按钮在独立 `workflow-sheet-footer`（`flex:none`）中，footer 始终在正文
+  下方并位于 `calc(16px + env(safe-area-inset-bottom))` 点击空间之上。
+- 标题、完成/关闭和把手都在共享顶部 drag region；正文、workflow picker 列表和 footer 不接管关闭手势。
+  共享 WXS 保持 96px 位移，或至少 28px 且速度 0.65 的快速下滑阈值；短拖、向上/横向拖动和 cancel 回弹，
+  busy 状态由 `swipe-dismiss="{{!busy}}"` 禁止关闭。现有完成、关闭、遮罩和业务 busy guard 未改。
+
+三个 direct Page JSON（leave/swap/duty）均显式注册 `ui-sheet`；swap 仅作 include manifest 对齐，换班业务
+模板不变。既有 workflow picker 与 controller 生命周期保持原路径。源码只读审查中仍可见通讯录筛选的独立
+`directory-panel` sheet 类名，它是截图 #3 的业务参考，不与本批五个 workflow modal 共用实现，故未扩大迁移。
+
+### 12.3 自动验证、包体和真机边界
+
+当前修复 tip 的实际门禁结果：
+
+- `pnpm miniprogram:build`：production 276 files written；`pnpm miniprogram:verify` 通过，
+  `packageBytes=5,109,717`，source/output worklets `2/2`。主包 `1,677,998B` warning 和矩阵
+  `1445/1505` warning 均为已有类别，没有新增 warning 类别。
+- 同一 production package-audit 口径相对上一批 clean `5,113,419B` 为 `5,109,717B`，实际少
+  `3,702B`；其中 workflows 从 `832,966B` 到 `829,265B`，少 `3,701B`。这是本次实际测量结果，
+  不是对未来构建的包体承诺；build manifest 的时间字段仍不作为稳定 hash 指标。
+- Mini TypeScript、Mini 全量、source audit、全仓 Prettier、ESLint、`git diff --check` 和
+  `pnpm smoke:check-core` 均通过。标准入口已自动发现 `exp-ux-002.test.mjs`。
+- 这些证据来自源码静态检查、Node 自动化、WXS 合同和 production build；按仓库政策未调用微信开发者工具，
+  未上传体验版，未部署 production，不能替代 Xiaomi 14 的真实触摸、Skyline 渲染和底部安全区结果。
+
+下一版 Xiaomi 14 最小验收只针对本批：从“更多”分别进入请假和加扣班，打开新建/发起、审批/管理员直达及撤销
+弹窗；确认顶部约四分之一、footer/关闭按钮不被底栏或安全区遮挡，长正文可独立滚动；从把手短拖和 cancel
+确认平滑回弹，达到阈值只关闭一次，正文或 picker 内滑动不误关；busy 时不能下滑关闭；最后确认左上角返回和
+系统侧滑返回仍正常。这些步骤保持“待用户复核”，不把自动化通过写成真机手势通过。

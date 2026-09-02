@@ -7,14 +7,16 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 - 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`；本批起始基线为
   `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`。
-- 当前活动批次：`EXP-UX-002`；用户已批准本轮请假/加扣班弹窗外壳设计，当前处于“书面设计 checkpoint 已完成，
-  待测试先行与最小源码修复”状态。上一批 `EXP-UX-001` 的 `.80` 体验版和 production release 仍只作为历史
-  参考，本批不自动上传或部署。
+- 当前活动批次：`EXP-UX-002`；用户已批准并复核本轮请假/加扣班弹窗外壳设计，当前处于“实现与自动验证完成，
+  待 Xiaomi 14 真机复核”状态。上一批 `EXP-UX-001` 的 `.80` 体验版和 production release 仍只作为历史参考，
+  本批不自动上传或部署。
 - 修复分支/worktree：`codex/fix-exp-ux-002` /
   `runtime/external-project-worktrees/exp-ux-002`；起始基线为最新 `origin/main@359966f7`。用户主 worktree
   和其他 worktree 未修改、清理、暂存或借用。
 - 本轮设计 checkpoint：书面规格 `docs/superpowers/specs/2026-09-02-exp-ux-002-design.md`，提交信息为
   `docs(superpowers): design EXP-UX-002 workflow sheets`，commit `ef3e06cf`。
+- 本轮功能 checkpoint：请假/加扣班五个弹窗迁移到既有 `ui-sheet`，计划提交信息为
+  `fix(miniprogram): align workflow sheets with shared shell`；代码与最终状态文档待在本 checkpoint 一并提交。
 - 设计 checkpoint：`7cef75ff docs(superpowers): design EXP-UX-001 experience fixes`。
 - 功能 checkpoint：`3b1cbd1b fix(miniprogram): close EXP-UX-001 experience regressions`。
 - clean 包体文档 checkpoint：`f04fc56d docs(audit): record clean EXP-UX-001 verification`。
@@ -41,13 +43,14 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 验证证据
 
-- 旧实现先红：EXP 合同在业务源码修改前实际 7 红/1 绿；修复后 EXP 9/9，受影响定向合同 52/52。
-- Mini 全量：`pnpm miniprogram:test` 为 114 files / 621 tests passed。
-- Mini：`pnpm miniprogram:build`、`pnpm --filter @schedule/miniprogram typecheck`、source audit、
-  `pnpm miniprogram:verify` 均通过；clean verify packageBytes `5,113,419`。manifest 会包含每次构建时间，
-  因此每次 verify 重新生成，不作为稳定 SHA/包体指标提交。
-- 包体同口径从 `5,121,616` 降至 `5,113,419`，实际减少 `8,197` bytes；主包 warning 和矩阵 warning 保持
-  既有类别。
+- 上一批 `EXP-UX-001` 的历史证据仍见审计第 11 节；本批新合同在业务源码修改前实际 4/4 红，修复后 4/4；
+  当前受影响定向运行 5 files / 33 tests passed。
+- Mini 全量：`pnpm miniprogram:test` 为 115 files / 625 tests passed；Mini TypeScript 通过。
+- Mini：`pnpm miniprogram:build` 写入 276 files，source audit、`pnpm miniprogram:verify` 均通过；当前
+  production packageBytes `5,109,717`。同口径上一批 clean `5,113,419`，实际减少 `3,702` bytes（workflows
+  减少 `3,701` bytes）。manifest 会包含每次构建时间，不作为稳定 hash 指标。
+- 本批 package audit 的主包 warning 与矩阵 `1445/1505` warning 保持既有类别，无新增类别；根 Prettier、ESLint、
+  `git diff --check` 与 `pnpm smoke:check-core` 均通过。
 - 根 production build、TypeScript、ESLint、全仓 Prettier、`git diff --check` 均通过；合入 production 父线后
   `pnpm test` 为 246 files / 1,170 passed / 364 skipped。
 - `pnpm smoke:browser` 已运行：第一次因 5173 未启动拒绝连接；按正式启动方式重试时，该 worktree 缺少本地 `.env`，
@@ -59,9 +62,10 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 状态策略与唯一下一任务
 
-- 本轮状态：`已批准设计 → 待用户复核书面规格 → 测试先行 → 实现 → 自动验证 → 待 Xiaomi 14 真机复核`；
-  在测试与源码未完成前不得写“已修复”或上传体验版。
-- 唯一下一任务：用户复核 `docs/superpowers/specs/2026-09-02-exp-ux-002-design.md` 后，新增旧实现失败的永久
-  合同并记录红灯，再迁移请假/加扣班五个弹窗到既有 `ui-sheet`。继续不进入日期选择器、事件记录或图标任务。
+- 本轮状态：`已批准设计 → 规格复核通过 → 测试先行（旧 4/4 红）→ 实现 → 自动验证 → 待 Xiaomi 14 真机复核`；
+  自动测试通过不等于已完成真机触摸验收。
+- 唯一下一任务：用与最终 checkpoint 一致的体验版，在 Xiaomi 14 上复核请假/加扣班五个 sheet 的高度、safe-area、
+  独立滚动、顶部拖动阈值/回弹、busy 保护和系统返回。继续不进入日期选择器、事件记录或图标任务；本批未上传体验版、
+  未部署 production。
 - 主线收口规则：先 fetch 最新主线，普通漂移自行处理；最终只做一次普通 fast-forward 推送到 main，
   不 force push、不清理其他 worktree。完成主线收口后停止。

@@ -139,6 +139,17 @@ describe('P7 native swap workflow page', () => {
       ),
     );
     const styles = readPage('wxss');
+    const workflowSheetStyles = readFileSync(
+      path.join(
+        sourceRoot,
+        'subpackages',
+        'workflows',
+        'components',
+        'workflow-leave-panel',
+        'index.wxss',
+      ),
+      'utf8',
+    );
 
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
     expect(JSON.parse(readPage('json')).usingComponents).toMatchObject({
@@ -149,8 +160,10 @@ describe('P7 native swap workflow page', () => {
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
     expect(styles).not.toMatch(/\.bottom-nav(?:-item)?\b/u);
     expect(styles).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))');
-    expect(styles).toMatch(/\.workflow-sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su);
-    expect(styles).toMatch(/\.workflow-sheet-footer\s*\{[^}]*flex:\s*none;/su);
+    expect(workflowSheetStyles).toMatch(
+      /\.workflow-sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su,
+    );
+    expect(workflowSheetStyles).toMatch(/\.workflow-sheet-footer\s*\{[^}]*flex:\s*none;/su);
     expect(styles).not.toMatch(/display:\s*grid|@media|clamp\(/u);
   });
 });

@@ -268,17 +268,15 @@
     </view>
   </scroll-view>
 
-  <view wx:if="{{requestFormVisible}}" class="sheet-layer">
-    <view class="sheet-scrim" aria-role="button" bindtap="handleCloseRequestForm"></view>
-    <view class="native-sheet request-sheet" aria-role="dialog" aria-label="发起加扣班">
-      <view class="sheet-handle"></view>
-      <view class="sheet-heading"
-        ><view><text class="sheet-title">发起加扣班</text></view
-        ><view class="sheet-finish" aria-role="button" bindtap="handleCloseRequestForm"
-          >完成</view
-        ></view
-      >
-      <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
+  <ui-sheet
+    wx:if="{{requestFormVisible}}"
+    visible="{{requestFormVisible}}"
+    title="发起加扣班"
+    close-label="完成"
+    swipe-dismiss="{{!requestBusy}}"
+    bind:close="handleCloseRequestForm"
+  >
+      <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
         ><view class="sheet-body">
           <view class="sheet-form-intro"
             ><text class="form-section-title">安排成员代值我的班次</text></view
@@ -330,13 +328,6 @@
               bindinput="handleReasonInput"
             />
           </view>
-          <view class="form-actions"
-            ><view class="web-button is-outline" aria-role="button" bindtap="handlePreview"
-              >生成预览</view
-            ><view class="web-button is-primary" aria-role="button" bindtap="handleSubmit"
-              >{{requestBusy ? '正在提交' : '提交加扣班'}}</view
-            ></view
-          >
           <view wx:if="{{requestPreviewReady}}" class="preview-card"
             ><text class="preview-title">加扣班预览</text
             ><text>{{requestPreviewSummary}}</text></view
@@ -344,22 +335,28 @@
           <view wx:for="{{requestPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
             ><text>{{item.message}}</text></view
           >
-        </view></scroll-view
-      >
-    </view>
-  </view>
-
-  <view wx:if="{{adminFormVisible}}" class="sheet-layer">
-    <view class="sheet-scrim" aria-role="button" bindtap="handleCloseAdminForm"></view>
-    <view class="native-sheet request-sheet" aria-role="dialog" aria-label="管理员直接代值">
-      <view class="sheet-handle"></view>
-      <view class="sheet-heading"
-        ><view><text class="sheet-title">管理员直接代值</text></view
-        ><view class="sheet-finish" aria-role="button" bindtap="handleCloseAdminForm"
-          >完成</view
+        </view>
+      </scroll-view>
+    <view class="workflow-sheet-footer">
+      <view class="form-actions"
+        ><view class="web-button is-outline" aria-role="button" bindtap="handlePreview"
+          >生成预览</view
+        ><view class="web-button is-primary" aria-role="button" bindtap="handleSubmit"
+          >{{requestBusy ? '正在提交' : '提交加扣班'}}</view
         ></view
       >
-      <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
+    </view>
+  </ui-sheet>
+
+  <ui-sheet
+    wx:if="{{adminFormVisible}}"
+    visible="{{adminFormVisible}}"
+    title="管理员直接代值"
+    close-label="完成"
+    swipe-dismiss="{{!adminBusy}}"
+    bind:close="handleCloseAdminForm"
+  >
+      <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
         ><view class="sheet-body">
           <view class="sheet-form-intro">
             <text class="form-section-title">选择代值班次与成员</text>
@@ -412,13 +409,6 @@
               bindinput="handleAdminReasonInput"
             />
           </view>
-          <view class="form-actions"
-            ><view class="web-button is-outline" aria-role="button" bindtap="handleAdminPreview"
-              >生成预览</view
-            ><view class="web-button is-primary" aria-role="button" bindtap="handleAdminSubmit"
-              >{{adminBusy ? '正在执行' : '直接执行代值'}}</view
-            ></view
-          >
           <view wx:if="{{adminPreviewReady}}" class="preview-card"
             ><text class="preview-title">直接代值预览</text
             ><text>{{adminPreviewSummary}}</text></view
@@ -426,35 +416,47 @@
           <view wx:for="{{adminPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
             ><text>{{item.message}}</text></view
           >
-        </view></scroll-view
-      >
-    </view>
-  </view>
-
-  <view wx:if="{{revokeVisible}}" class="sheet-layer">
-    <view class="sheet-scrim" aria-role="button" bindtap="handleCloseRevoke"></view>
-    <view class="native-sheet revoke-sheet" aria-role="dialog" aria-label="撤销加扣班">
-      <view class="sheet-handle"></view>
-      <view class="sheet-heading"
-        ><view><text class="sheet-title">撤销加扣班</text><text>撤销后恢复原扣班成员。</text></view
-        ><view class="sheet-close" aria-role="button" bindtap="handleCloseRevoke">×</view></view
-      >
-      <view class="sheet-body"
-        ><view wx:if="{{revokeErrorMessage}}" class="native-alert is-danger"
-          ><text>{{revokeErrorMessage}}</text></view
-        ><view class="field-block"
-          ><text class="field-label">撤销原因（选填）</text
-          ><textarea
-            class="native-textarea"
-            value="{{revokeReason}}"
-            maxlength="200"
-            placeholder="记录撤销原因"
-            bindinput="handleRevokeReasonInput"
-          /></view
-        ><view class="web-button is-danger-outline" aria-role="button" bindtap="handleConfirmRevoke"
-          >{{revokeBusy ? '正在撤销' : '确认撤销加扣班'}}</view
+        </view>
+      </scroll-view>
+    <view class="workflow-sheet-footer">
+      <view class="form-actions"
+        ><view class="web-button is-outline" aria-role="button" bindtap="handleAdminPreview"
+          >生成预览</view
+        ><view class="web-button is-primary" aria-role="button" bindtap="handleAdminSubmit"
+          >{{adminBusy ? '正在执行' : '直接执行代值'}}</view
         ></view
       >
     </view>
-  </view>
+  </ui-sheet>
+
+  <ui-sheet
+    wx:if="{{revokeVisible}}"
+    visible="{{revokeVisible}}"
+    title="撤销加扣班"
+    close-label="关闭"
+    swipe-dismiss="{{!revokeBusy}}"
+    bind:close="handleCloseRevoke"
+  >
+    <view class="workflow-sheet-short-content">
+      <text class="workflow-form-hint">撤销后恢复原扣班成员。</text>
+      <view wx:if="{{revokeErrorMessage}}" class="native-alert is-danger"
+        ><text>{{revokeErrorMessage}}</text></view
+      >
+      <view class="field-block"
+        ><text class="field-label">撤销原因（选填）</text
+        ><textarea
+          class="native-textarea"
+          value="{{revokeReason}}"
+          maxlength="200"
+          placeholder="记录撤销原因"
+          bindinput="handleRevokeReasonInput"
+        /></view
+      >
+    </view>
+    <view class="workflow-sheet-footer">
+      <view class="web-button is-danger-outline" aria-role="button" bindtap="handleConfirmRevoke"
+        >{{revokeBusy ? '正在撤销' : '确认撤销加扣班'}}</view
+      >
+    </view>
+  </ui-sheet>
 </view>

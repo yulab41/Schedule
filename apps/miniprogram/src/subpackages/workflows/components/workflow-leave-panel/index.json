@@ -2,6 +2,7 @@
   "component": true,
   "styleIsolation": "apply-shared",
   "usingComponents": {
+    "ui-sheet": "/components/ui/ui-sheet/index",
     "workflow-picker": "/subpackages/workflows/components/workflow-picker/index"
   }
 }

@@ -25,6 +25,26 @@
   legacy、动态未知版本 HTTP 426 和 `ECS_PUBLIC_IP=120.77.220.79` full verifier 全部通过。未提审、未正式发布
   小程序；下一步仅是用户在 `.80` 上做 Xiaomi 14 原生交互复核，不进入日期组件、事件记录或图标任务。
 
+## 2026-09-02 EXP-UX-002 请假与加扣班弹窗外壳续修
+
+- 反馈范围：上一体验版截图 #4/#5 中，请假和加扣班通过“更多”打开的非 Tab 页面仍使用旧本地弹窗；本轮只
+  处理五个 workflow modal 的高度、safe-area、独立滚动和顶部下滑关闭，不重跑阶段 0、不执行 `MINI-G1-004`，
+  不进入日期组件、事件记录、图标或 P 标签。
+- 定位：`git log -S`/`git blame` 将请假旧表单定位到 `9fae3869`，旧工作流表单路径定位到
+  `80ddadf0`/`bc32a4f1`。旧 `sheet-layer` 是组件局部 absolute/z40；请假新建是 auto/78vh、审批是 88%，
+  操作区位于正文 scroll-view 内，加扣班撤销也没有共享滚动/drag 外壳。上一批只迁移了内嵌换班，不是本批五个
+  direct Page 弹窗。
+- 先红后绿：新增 `apps/miniprogram/scripts/exp-ux-002.test.mjs` 在旧源码上 4/4 红；修复后 4/4 绿。请假
+  新建/审批、加扣班发起/管理员直达/撤销都改为既有 `ui-sheet`，正文改为 `workflow-sheet-scroll`，按钮放入
+  `workflow-sheet-footer`；共享 `ui-sheet` fixed/z400、78vh/max660、safe-area 和 drag-dismiss WXS 不复制。
+  direct leave/swap/duty Page manifest 显式注册 `ui-sheet`；controller/API/路由和 busy close guard 不变。
+- 验证：定向 5 files/33 tests、Mini 全量 115 files/625 tests、Mini TypeScript、production 276-file build、
+  source audit、`miniprogram:verify`、Prettier、ESLint、`git diff --check` 和 `pnpm smoke:check-core` 均通过。
+  verify 报告 package `5,109,717B`，同口径上一批 clean `5,113,419B`，实际减少 `3,702B`（workflows 减少
+  `3,701B`）；主包 `1,677,998B` 和矩阵 `1445/1505` 是原有 warning 类别。
+- 边界：上述为源码/Node/WXS/构建证据，未调用微信开发者工具，未上传体验版，未部署 production；仍需下一版
+  与最终 tip 匹配的小米 14 体验版人工验证触摸手感、内部滚动、safe-area、拖动阈值/回弹和系统侧滑返回。
+
 ## 2026-09-02 MINI-G1-003 排班配置轮转输入局部更新
 
 - 基线/范围：fetch 后从 clean `origin/main@a4f50c02` 建立独立仓库内 worktree；只改 scheduling-config
