@@ -7,12 +7,14 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 - 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`；本批起始基线为
   `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`。
-- 当前活动批次：`EXP-UX-001`；用户已批准书面设计，代码、永久合同、审计和 debug 连续性文档已完成，
-  并已完成 `.80` 体验上传、production release 与 client-version allowlist，当前状态为“已完成自动化与发布验证，
-  待用户 Xiaomi 14 真机复核”。
-- 修复分支/worktree：`codex/fix-exp-ux-001` /
-  `runtime/external-project-worktrees/exp-ux-001`；用户主 worktree 和其他 worktree 未修改、清理、
-  暂存或借用。
+- 当前活动批次：`EXP-UX-002`；用户已批准本轮请假/加扣班弹窗外壳设计，当前处于“书面设计 checkpoint 已完成，
+  待测试先行与最小源码修复”状态。上一批 `EXP-UX-001` 的 `.80` 体验版和 production release 仍只作为历史
+  参考，本批不自动上传或部署。
+- 修复分支/worktree：`codex/fix-exp-ux-002` /
+  `runtime/external-project-worktrees/exp-ux-002`；起始基线为最新 `origin/main@359966f7`。用户主 worktree
+  和其他 worktree 未修改、清理、暂存或借用。
+- 本轮设计 checkpoint：书面规格 `docs/superpowers/specs/2026-09-02-exp-ux-002-design.md`，提交信息为
+  `docs(superpowers): design EXP-UX-002 workflow sheets`（提交后补记 hash）。
 - 设计 checkpoint：`7cef75ff docs(superpowers): design EXP-UX-001 experience fixes`。
 - 功能 checkpoint：`3b1cbd1b fix(miniprogram): close EXP-UX-001 experience regressions`。
 - clean 包体文档 checkpoint：`f04fc56d docs(audit): record clean EXP-UX-001 verification`。
@@ -57,9 +59,9 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 状态策略与唯一下一任务
 
-- 四类代码问题：`已完成`（根因已修复且自动化/构建验证通过）；发布状态为 `已完成（自动验证、体验上传与
-  production release）→ 待用户复核`，原因仅为
-  Xiaomi 14 的真实触摸手感、safe-area、内部滚动和系统返回尚未在当前 tip 的体验版上复核。
-- 唯一下一任务：用户在 `.80` 体验版按审计第 11.6 节五步做 Xiaomi 14 最小验收；不开始事件记录、日期组件或图标任务。
+- 本轮状态：`已批准设计 → 待用户复核书面规格 → 测试先行 → 实现 → 自动验证 → 待 Xiaomi 14 真机复核`；
+  在测试与源码未完成前不得写“已修复”或上传体验版。
+- 唯一下一任务：用户复核 `docs/superpowers/specs/2026-09-02-exp-ux-002-design.md` 后，新增旧实现失败的永久
+  合同并记录红灯，再迁移请假/加扣班五个弹窗到既有 `ui-sheet`。继续不进入日期选择器、事件记录或图标任务。
 - 主线收口规则：先 fetch 最新主线，普通漂移自行处理；最终只做一次普通 fast-forward 推送到 main，
   不 force push、不清理其他 worktree。完成主线收口后停止。

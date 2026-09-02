@@ -2,10 +2,12 @@
 
 ## 当前阶段
 
-- 当前批次：`EXP-UX-001`；用户已确认书面设计，代码与永久回归合同已完成，自动化状态为“已完成”，整体
-  状态为“已完成（自动验证、体验上传与 production release）→ 待用户复核”。
-- 起始基线：`origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；执行分支/worktree 为
-  `codex/fix-exp-ux-001` / `runtime/external-project-worktrees/exp-ux-001`。
+- 当前批次：`EXP-UX-002`；用户已批准请假/加扣班弹窗外壳设计，书面设计已完成，代码尚未修改，自动化尚未
+  重跑；当前状态为“书面规格待用户复核”。
+- 起始基线：`origin/main@359966f7240d2f557b24dd0c1ac61979d6bb829`；执行分支/worktree 为
+  `codex/fix-exp-ux-002` / `runtime/external-project-worktrees/exp-ux-002`。
+- 设计文件：`docs/superpowers/specs/2026-09-02-exp-ux-002-design.md`；本批不上传体验版、不部署 production，
+  也不调用微信开发者工具。
 - 为保留 production `50ac2d07a3412c6d76a3494b1150868276f4781c` 的 schema 53 与目录查询能力，最终源码
   release tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`（第一父 `d1594d09`，第二父为 production release）。
 - 范围：换班 sheet、共用 workflow picker、leave/swap/duty 非 Tab 遗留底栏、所有页面右上角 P5/P7/P8/P9
@@ -41,7 +43,7 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：用户在 `.80` 体验版按审计主报告第 11.6 节执行 Xiaomi 14 最小验收，覆盖 sheet 高度/footer/
-  内部滚动/拖动回弹、picker toggle/清理、请假/加扣班返回和所有右上角 P… 消失。
+- 唯一下一任务：用户复核本批书面规格后，在旧请假/加扣班弹窗源码上运行新增失败合同，记录红灯，再进入最小
+  `ui-sheet` 迁移；最终补写本批根因、前后层级/高度/安全区/滚动区和真机待验收清单。
 - 本批完成主线普通 fast-forward 收口后停止；不进入事件记录、日期组件或图标任务。未验证项在下一版实体设备
   证据到达前保持“待用户复核”。
