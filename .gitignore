@@ -49,7 +49,9 @@ runtime/api-flat.old-*/
 
 # Browser smoke screenshots
 /.tmp-smoke-*/
-/runtime/smoke/
+
+# Agent-local machine notes and reusable validation ledger
+/runtime/agent-context/
 
 # WeChat Mini Program local and generated state
 /apps/miniprogram/dist/

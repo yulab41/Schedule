@@ -3,6 +3,25 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/wechat-miniprogram-audit.md` 和精确
 debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
 
+## 执行规范收口 checkpoint（2026-09-02）
+
+- 任务级别：L1 规则/文档修改；基于 origin/main@359966f7 的独立
+  codex/execution-policy-closure-20260902 worktree，未触碰主工作树或其他并行 worktree。
+- 已完成 T1 根 AGENTS.md 路由化；T2 新增 execution-handbook 七个按需章节；T3 建立被忽略的
+  本机说明和验证台账；T4 合并 .gitignore 重复规则；T5 保持活动批次和停止条件不变。
+- 实际修改范围仅为 AGENTS.md、.gitignore、docs/agent-context/、docs/project-status.md；
+  未修改产品业务源码、现有产品规格或专题 runbook。
+- 轻量验证通过：git diff --check；Prettier check（本轮路由/手册文件）；9 个路由文档的相对
+  链接检查；root policy consistency（AGENTS 75 行、章节路由齐全、忽略规则唯一）。已有
+  project-status 未做整篇格式化，避免无关重排。
+- 当前状态：已完成（规则/文档和轻量验证）。checkpoint 提交信息：
+  docs(agent): close execution routing and pitfalls。
+- 决策/偏差：主工作树存在并行用户改动且本地 main 落后远端，因此使用基于 origin/main 的
+  codex/execution-policy-closure-20260902 专用 worktree；本轮未安装依赖、未运行全仓 build/测试
+  或 production 打包、未上传小程序、未连接 production、未创建生产备份。
+- 本任务完成后唯一下一活动批次仍为 EXP-UX-001 的 Xiaomi 14 .80 真机复核；不开始
+  MINI-G1-004、事件记录、日期选择器或全局图标任务。
+
 ## 当前仓库批次（2026-09-02）
 
 - 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`；本批起始基线为
