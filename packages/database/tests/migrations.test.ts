@@ -49,7 +49,7 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 52 }]);
+    expect(migrations).toEqual([{ count: 53 }]);
     expect(tables).toEqual([{ count: 57 }]);
   });
 
@@ -223,13 +223,21 @@ describeWithDatabase('identity and group migrations', () => {
           AND INDEX_NAME IN (
             'directory_contact_methods_full_number_idx',
             'directory_contact_methods_extension_idx',
+            'directory_search_aliases_entry_type_normalized_idx',
             'directory_search_aliases_normalized_idx'
           )
       `)) as unknown as [readonly { indexName: string }[], unknown];
     expect(indexes.map((row) => row.indexName).sort()).toEqual([
       'directory_contact_methods_extension_idx',
       'directory_contact_methods_full_number_idx',
+      'directory_search_aliases_entry_type_normalized_idx',
       'directory_search_aliases_normalized_idx',
+    ]);
+
+    expect(await readDirectoryCandidateIndex(client)).toEqual([
+      { columnName: 'entry_id', nonUnique: 1, sequence: 1 },
+      { columnName: 'type', nonUnique: 1, sequence: 2 },
+      { columnName: 'normalized_value', nonUnique: 1, sequence: 3 },
     ]);
 
     await client.database.execute(sql`
@@ -265,6 +273,35 @@ describeWithDatabase('identity and group migrations', () => {
            0, 0, 0, 0, JSON_OBJECT(), JSON_OBJECT())
       `),
     ).resolves.toBeDefined();
+  });
+
+  it('keeps the directory candidate index migration and rollback definition-safe', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    await runMigrationFile(client, '0053_directory_candidate_covering_index');
+    expect(await readDirectoryCandidateIndex(client)).toHaveLength(3);
+
+    const rollbackPath = join(
+      migrationsDirectory,
+      'rollback',
+      '0053_directory_candidate_covering_index.sql',
+    );
+    await runSqlFile(client, rollbackPath);
+    await runSqlFile(client, rollbackPath);
+    expect(await readDirectoryCandidateIndex(client)).toEqual([]);
+
+    await client.database.execute(sql`
+      ALTER TABLE directory_search_aliases
+        ADD INDEX directory_search_aliases_entry_type_normalized_idx
+          (entry_id, normalized_value, type),
+        ALGORITHM=INPLACE,
+        LOCK=NONE
+    `);
+    await expect(runSqlFile(client, rollbackPath)).rejects.toThrow();
+    expect(await readDirectoryCandidateIndex(client)).toEqual([
+      { columnName: 'entry_id', nonUnique: 1, sequence: 1 },
+      { columnName: 'normalized_value', nonUnique: 1, sequence: 2 },
+      { columnName: 'type', nonUnique: 1, sequence: 3 },
+    ]);
   });
 
   it('blocks active over-limit manual templates before applying P5 constraints', async () => {
@@ -927,6 +964,10 @@ describeWithDatabase('identity and group migrations', () => {
 
 async function runMigrationFile(client: DatabaseClient, migrationName: string): Promise<void> {
   const filePath = join(migrationsDirectory, `${migrationName}.sql`);
+  await runSqlFile(client, filePath);
+}
+
+async function runSqlFile(client: DatabaseClient, filePath: string): Promise<void> {
   const sqlText = await readFile(filePath, 'utf8');
   for (const statement of sqlText.split('--> statement-breakpoint')) {
     const trimmed = statement.trim();
@@ -934,6 +975,34 @@ async function runMigrationFile(client: DatabaseClient, migrationName: string): 
       await client.database.execute(sql.raw(trimmed));
     }
   }
+}
+
+async function readDirectoryCandidateIndex(
+  client: DatabaseClient,
+): Promise<readonly { columnName: string; nonUnique: number; sequence: number }[]> {
+  const [rows] = (await client.database.execute(sql`
+    SELECT
+      COLUMN_NAME AS columnName,
+      NON_UNIQUE AS nonUnique,
+      SEQ_IN_INDEX AS sequence
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'directory_search_aliases'
+      AND INDEX_NAME = 'directory_search_aliases_entry_type_normalized_idx'
+    ORDER BY SEQ_IN_INDEX
+  `)) as unknown as [
+    Array<{
+      columnName: string;
+      nonUnique: number | string;
+      sequence: number | string;
+    }>,
+    unknown,
+  ];
+  return rows.map((row) => ({
+    columnName: row.columnName,
+    nonUnique: Number(row.nonUnique),
+    sequence: Number(row.sequence),
+  }));
 }
 
 async function createLegacyMigrationsDirectory(entryCount = 32): Promise<string> {
