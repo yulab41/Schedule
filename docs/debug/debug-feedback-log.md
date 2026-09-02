@@ -2256,3 +2256,38 @@
 - 证据边界：Node/static/WXS/production build 通过不等于 Xiaomi 14 真机手势通过。下一版需复核 sheet
   高度/安全区/内部滚动/拖动回弹、picker toggle 与卸载清理、请假/加扣班系统返回，以及所有右上角 P… 消失。
   本轮未调用微信开发者工具，未上传体验版，未部署 production。
+
+## 2026-09-02 EXP-FEAT-002 事件记录点击无反应
+
+- 连续性：按执行时最新 `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298` 创建干净
+  `runtime/external-project-worktrees/exp-feat-002-event-records` /
+  `codex/exp-feat-002-event-records`；主 worktree 的用户改动未触碰。本轮只处理班次详情事件记录，
+  不处理日期选择器、图标系统或 `MINI-G1-004`。
+- Web 追踪：入口是 `SelectedDateDutyDetails.vue` 的 `open-events`，承载是 `CalendarView.vue` 的
+  `ResponsiveSheet`，读取是 `api.getGroupEvents(groupId, { pageSize: 100, shiftId: assignment.id })`，
+  展示由 `EventTimeline` 和事件时间线规则负责；API route 以 `viewScheduleConfiguration` 守门。
+  对齐矩阵、权限边界和剩余差异见 `docs/audit/exp-feat-002-event-records.md`。
+- 根因：小程序 `index.wxml` 的两处事件记录整行绑定 `handleUnavailable`，该 handler 只写“功能将在后续阶段
+  开放”的公告；没有 `assignment.id`、`insights.events` GET、`ScheduleEventPage` 解码链或真实 sheet。
+  `git log -S`/`git blame` 复核占位引入点为 `ad4cfb2c`/`4fe1b5e78`，不是运行时点击坐标或图标资源错误。
+- 失败先行：永久红灯测试 `apps/miniprogram/scripts/exp-feat-002-event-records.test.mjs` 在旧源码上实际
+  返回 `RED: expected 2 real event handlers, found 0`（退出码 1）；同一检查在实现后找到 2 个真实处理器。
+- 修复：两处入口改为 `handleOpenShiftEvents` 并携带 row assignment ID；工作台复用既有 `ui-sheet`，正文拆到
+  `components/shift-event-records`；读取复用 `createRuntimeInsightsReadClient().listEvents` 的既有
+  `insights.events` GET，`shift-event-model.ts` 复用 shared `buildEventTimelineItems`、标签、北京时间、
+  narrative、changes 和 change chain。客户端按既有 `toolAccess.insights` 守门，guest 不发请求，后端权限仍为
+  最终边界；没有新增写请求。
+- 异步/空值审计：打开/retry 先清卡片与变更链；响应提交必须同时满足 `isVisible`、sheet 可见、request serial、
+  group ID 和 assignment ID。关闭、遮罩、完成、下滑、隐藏、卸载、切群组和 capability 收缩都会失效旧请求并清空
+  private assignment；不同班次不会复用旧卡片。Web assignment timeline 的 change chain 在 Mini 常显、marker 用
+  共享文字 label，是已记录的适配差异；raw data 不进入小程序 WXML。
+- 运行验证：定向事件 `5/5`；Mini 全量 `115 files / 626 tests`；Mini/根 TypeScript、Mini production build
+  （281 files）、`miniprogram:verify`（packageBytes `5,143,838`）、package audit（total `5,143,838`）、
+  source audit、determinism、credential-free CI dry-run、全仓 Prettier、ESLint、`git diff --check` 和
+  `pnpm smoke:check-core` 均通过。首轮全量在冷安装期间出现 7 个无关超时/页面 CSS 预算失败，移出事件样式后
+  重跑清零，未保留无关改动。
+- 运行/浏览器验证：本轮只运行 `pnpm smoke:check-core`，结果为未涉及 Web 核心链路，无需 `pnpm smoke:browser`；
+  仓库政策下未调用微信开发者工具，未上传体验版、未提交审核、未部署 production。Node/静态/构建结果不等于
+  Xiaomi 14 原生验收；下一版只按 `docs/audit/exp-feat-002-event-records.md` 的最小步骤复核。
+- 状态：代码和自动化验证完成，当前为“待用户复核”；最终应在最新远端主线确认后一次普通 fast-forward 推送，
+  不做体验上传或 production 部署。

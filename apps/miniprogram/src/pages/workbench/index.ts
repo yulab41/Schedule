@@ -1,4 +1,9 @@
-import type { CalendarReadModel, GroupSummary, HolidayReadModel } from '@schedule/contracts';
+import type {
+  CalendarDutyAssignment,
+  CalendarReadModel,
+  GroupSummary,
+  HolidayReadModel,
+} from '@schedule/contracts';
 import {
   addBusinessMonths,
   addWeeks,
@@ -15,7 +20,10 @@ import {
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../app/client-capability-store.js';
-import { createRuntimeP9InsightsActionsClient } from '../../platform/client-core-calendar.js';
+import {
+  createRuntimeInsightsReadClient,
+  createRuntimeP9InsightsActionsClient,
+} from '../../platform/client-core-calendar.js';
 import {
   canUseWorkbenchOfflineFallback,
   clearWorkbenchGroupCaches,
@@ -55,8 +63,14 @@ import {
   type WorkbenchToolAccess,
   type WorkbenchToolId,
 } from '../../features/workbench/workbench-tool-access.js';
+import {
+  createShiftEventCards,
+  getShiftEventChangeChain,
+  type ShiftEventCard,
+} from '../../features/workbench/shift-event-model.js';
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
+type ShiftEventState = 'closed' | 'empty' | 'error' | 'loading' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
 const PRIMARY_WORKSPACES = ['calendar', 'directory', 'swap', 'profile', 'more'] as const;
 type ActiveWorkspace = (typeof PRIMARY_WORKSPACES)[number];
@@ -171,6 +185,12 @@ interface WorkbenchPageData {
   readonly selectedDetails: WorkbenchViewModel['selectedDetails'];
   readonly selectedLabel: string;
   readonly selectedCountLabel: string;
+  readonly shiftEventCards: readonly ShiftEventCard[];
+  readonly shiftEventErrorMessage: string;
+  readonly shiftEventChangeChain: string;
+  readonly shiftEventMeta: string;
+  readonly shiftEventSheetOpen: boolean;
+  readonly shiftEventState: ShiftEventState;
   readonly calendarNavAnimating: boolean;
   readonly state: WorkbenchState;
   readonly testCenterEnabled: boolean;
@@ -211,6 +231,8 @@ interface WorkbenchPageInstance {
   periodShiftCommitPending: boolean;
   periodShiftQueue: number;
   notificationRequestSerial: number;
+  shiftEventAssignment: CalendarDutyAssignment | undefined;
+  shiftEventRequestSerial: number;
   requestSerial: number;
   selectComponent(selector: string):
     | {
@@ -223,6 +245,10 @@ interface WorkbenchPageInstance {
 }
 
 const client = createWorkbenchReadClient();
+const insightsReadClient = createRuntimeInsightsReadClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
 const notificationClient = createRuntimeP9InsightsActionsClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
@@ -295,6 +321,12 @@ Page({
     selectedDetails: [],
     selectedLabel: formatDateLabel(today),
     selectedCountLabel: '0 个班种',
+    shiftEventCards: [],
+    shiftEventChangeChain: '',
+    shiftEventErrorMessage: '',
+    shiftEventMeta: '',
+    shiftEventSheetOpen: false,
+    shiftEventState: 'closed' as ShiftEventState,
     calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
     testCenterEnabled: false,
@@ -361,6 +393,8 @@ Page({
   periodShiftQueue: 0,
   requestSerial: 0,
   notificationRequestSerial: 0,
+  shiftEventAssignment: undefined,
+  shiftEventRequestSerial: 0,
   _notificationPollTimer: undefined,
   _performanceDiagnosticsEnabled: false,
   _performanceProbe: undefined,
@@ -402,11 +436,13 @@ Page({
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
     this.requestSerial += 1;
+    invalidateShiftEventRequest(this);
     this.setData({
       expandedDetailKey: '',
       filterOpen: false,
       groupOpen: false,
       notificationSheetOpen: false,
+      ...emptyShiftEventDataPatch(),
     });
   },
 
@@ -415,6 +451,7 @@ Page({
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
     this.requestSerial += 1;
+    invalidateShiftEventRequest(this);
   },
 
   handleGroupToggle(this: WorkbenchPageInstance): void {
@@ -438,6 +475,7 @@ Page({
     this.monthRingSlot = 1;
     this.monthResources.clear();
     this.notificationRequestSerial += 1;
+    invalidateShiftEventRequest(this);
     this.setData({
       activeWorkspace,
       activeFilterCount: 0,
@@ -462,6 +500,7 @@ Page({
       groupOpen: false,
       notificationSheetOpen: false,
       notificationUnreadCount: 0,
+      ...emptyShiftEventDataPatch(),
       selectedDate: today,
       selectedLabel: formatDateLabel(today),
       toolAccess,
@@ -751,12 +790,41 @@ Page({
     this.setData({ expandedDetailKey: this.data.expandedDetailKey === key ? '' : key });
   },
 
-  handleUnavailable(this: WorkbenchPageInstance, event: TapEvent): void {
-    const label = event.currentTarget.dataset.label ?? '该项';
-    const motion = event.currentTarget.dataset.motion ?? '';
-    this.setData({ announcement: `${label}功能将在后续阶段开放。`, navMotion: '' }, () => {
-      this.setData({ navMotion: motion });
-    });
+  handleOpenShiftEvents(this: WorkbenchPageInstance, event: TapEvent): void {
+    const assignmentId = event.currentTarget.dataset.assignmentId;
+    if (assignmentId === undefined || assignmentId.length === 0) return;
+    if (this.data.currentGroupId === '') {
+      this.setData({ announcement: '当前群组尚未准备好，请刷新后重试。' });
+      return;
+    }
+    if (!this.data.toolAccess.insights) {
+      this.setData({ announcement: '当前账号无权查看事件记录。' });
+      return;
+    }
+    const assignment = this.calendar?.assignments.find(({ id }) => id === assignmentId);
+    if (assignment === undefined) {
+      this.setData({ announcement: '当前班次信息尚未准备好，请刷新后重试。' });
+      return;
+    }
+    requestShiftEvents(this, this.data.currentGroupId, assignment);
+  },
+
+  handleShiftEventRetry(this: WorkbenchPageInstance): void {
+    const assignment = this.shiftEventAssignment;
+    if (!this.data.shiftEventSheetOpen || assignment === undefined) return;
+    if (!this.data.toolAccess.insights) {
+      this.setData({
+        shiftEventErrorMessage: '当前账号无权查看事件记录。',
+        shiftEventState: 'error',
+      });
+      return;
+    }
+    requestShiftEvents(this, this.data.currentGroupId, assignment);
+  },
+
+  handleShiftEventClose(this: WorkbenchPageInstance): void {
+    invalidateShiftEventRequest(this);
+    this.setData(emptyShiftEventDataPatch());
   },
 
   handleDirectoryNav(this: WorkbenchPageInstance): void {
@@ -942,6 +1010,112 @@ Page({
   },
 });
 
+function requestShiftEvents(
+  page: WorkbenchPageInstance,
+  groupId: string,
+  assignment: CalendarDutyAssignment,
+): void {
+  const requestSerial = page.shiftEventRequestSerial + 1;
+  page.shiftEventRequestSerial = requestSerial;
+  page.shiftEventAssignment = assignment;
+  page.setData({
+    shiftEventCards: [],
+    shiftEventChangeChain: '',
+    shiftEventErrorMessage: '',
+    shiftEventMeta: `${assignment.businessDate} ${assignment.shiftTypeName} · ${assignment.scheduleRoleName}`,
+    shiftEventSheetOpen: true,
+    shiftEventState: 'loading',
+  });
+  void loadShiftEvents(page, requestSerial, groupId, assignment);
+}
+
+async function loadShiftEvents(
+  page: WorkbenchPageInstance,
+  requestSerial: number,
+  groupId: string,
+  assignment: CalendarDutyAssignment,
+): Promise<void> {
+  try {
+    await requireClientCapability('insights');
+    const result = await insightsReadClient.listEvents(groupId, {
+      pageSize: 100,
+      shiftId: assignment.id,
+    });
+    if (!isShiftEventRequestCurrent(page, requestSerial, groupId, assignment.id)) return;
+    const cards = createShiftEventCards(result.events, assignment);
+    page.setData({
+      shiftEventCards: cards,
+      shiftEventChangeChain: getShiftEventChangeChain(result.events, assignment.id) ?? '',
+      shiftEventErrorMessage: '',
+      shiftEventState: cards.length === 0 ? 'empty' : 'ready',
+    });
+  } catch (error) {
+    if (!isShiftEventRequestCurrent(page, requestSerial, groupId, assignment.id)) return;
+    page.setData({
+      shiftEventCards: [],
+      shiftEventChangeChain: '',
+      shiftEventErrorMessage: getShiftEventErrorMessage(error),
+      shiftEventState: 'error',
+    });
+  }
+}
+
+function invalidateShiftEventRequest(page: WorkbenchPageInstance): void {
+  page.shiftEventRequestSerial += 1;
+  page.shiftEventAssignment = undefined;
+}
+
+function isShiftEventRequestCurrent(
+  page: WorkbenchPageInstance,
+  requestSerial: number,
+  groupId: string,
+  assignmentId: string,
+): boolean {
+  return (
+    page.isVisible &&
+    page.data.shiftEventSheetOpen &&
+    requestSerial === page.shiftEventRequestSerial &&
+    groupId === page.data.currentGroupId &&
+    page.shiftEventAssignment?.id === assignmentId
+  );
+}
+
+function emptyShiftEventDataPatch(): Pick<
+  WorkbenchPageData,
+  | 'shiftEventCards'
+  | 'shiftEventChangeChain'
+  | 'shiftEventErrorMessage'
+  | 'shiftEventMeta'
+  | 'shiftEventSheetOpen'
+  | 'shiftEventState'
+> {
+  return {
+    shiftEventCards: [],
+    shiftEventChangeChain: '',
+    shiftEventErrorMessage: '',
+    shiftEventMeta: '',
+    shiftEventSheetOpen: false,
+    shiftEventState: 'closed',
+  };
+}
+
+function getShiftEventErrorMessage(error: unknown): string {
+  if (error instanceof ClientCapabilityDisabledError) {
+    return '事件记录暂时不可用，请稍后重试。';
+  }
+  if (getErrorStatus(error) === 401) return '登录状态已失效，请重新登录。';
+  if (getErrorStatus(error) === 403) return '当前账号无权查看事件记录。';
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { readonly code?: string }).code === 'NETWORK_ERROR'
+  ) {
+    return '网络连接失败，请稍后重试。';
+  }
+  return '事件记录暂时无法加载，请稍后重试。';
+}
+
 function startNotificationPolling(page: WorkbenchPageInstance): void {
   stopNotificationPolling(page);
   void refreshNotificationUnreadCount(page);
@@ -1030,6 +1204,7 @@ async function loadWorkbench(
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
       page.notificationRequestSerial += 1;
+      invalidateShiftEventRequest(page);
       page.setData({
         canManageScheduleTools: false,
         canOpenGroupSettings: false,
@@ -1043,6 +1218,7 @@ async function loadWorkbench(
         groups,
         notificationSheetOpen: false,
         notificationUnreadCount: 0,
+        ...emptyShiftEventDataPatch(),
         state: 'empty',
         workflowPanelsMounted: false,
         toolAccess: createWorkbenchToolAccess(undefined, getClientCapabilitySnapshot()),
@@ -1057,6 +1233,7 @@ async function loadWorkbench(
     if (groupChanged) {
       if (page.data.currentGroupId !== '') page.monthResources.clear();
       page.notificationRequestSerial += 1;
+      invalidateShiftEventRequest(page);
       page.setData({
         currentGroupId: selectedGroup.id,
         currentGroupIsDeveloperAdmin: selectedGroup.isDeveloperAdmin === true,
@@ -1066,6 +1243,7 @@ async function loadWorkbench(
         currentGroupVersion: selectedGroup.version,
         notificationSheetOpen: false,
         notificationUnreadCount: 0,
+        ...emptyShiftEventDataPatch(),
       });
       writeStoredWorkbenchGroupId(ownerId, selectedGroup.id);
     }
@@ -1201,11 +1379,13 @@ function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown
   if (!(error instanceof ClientCapabilityDisabledError)) return;
   page.notificationRequestSerial += 1;
   page.requestSerial += 1;
+  invalidateShiftEventRequest(page);
   page.setData({
     canReLogin: false,
     errorMessage: error.message,
     notificationSheetOpen: false,
     notificationUnreadCount: 0,
+    ...emptyShiftEventDataPatch(),
     offlineNotice: '',
     state: 'error',
     workflowsEnabled: false,
@@ -1221,6 +1401,10 @@ function syncWorkbenchToolAccess(page: WorkbenchPageInstance): WorkbenchToolAcce
     (candidate) => candidate.id === page.data.currentGroupId,
   );
   const toolAccess = createWorkbenchToolAccess(currentGroup, capability);
+  if (!toolAccess.insights && page.data.shiftEventSheetOpen) {
+    invalidateShiftEventRequest(page);
+    page.setData(emptyShiftEventDataPatch());
+  }
   page.setData({
     canManageScheduleTools: toolAccess.manualSchedule,
     canOpenGroupSettings: toolAccess.groupSettings,

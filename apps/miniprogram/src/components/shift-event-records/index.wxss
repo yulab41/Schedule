@@ -1,0 +1,187 @@
+.shift-event-sheet-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ui-spacing-sm);
+}
+
+.shift-event-meta {
+  flex: none;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
+}
+
+.shift-event-loading,
+.shift-event-empty,
+.shift-event-error {
+  display: flex;
+  min-height: 160px;
+  padding: var(--ui-spacing-lg);
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--ui-spacing-sm);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
+  text-align: center;
+}
+
+.shift-event-loading {
+  flex: 1;
+}
+
+.shift-event-error-title {
+  color: var(--ui-color-text-primary);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.shift-event-error-message {
+  color: var(--ui-color-text-secondary);
+}
+
+.shift-event-retry {
+  display: flex;
+  min-width: 96px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 14px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-small);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.shift-event-sheet-scroll {
+  min-height: 0;
+  flex: 1;
+}
+
+.shift-event-timeline {
+  display: flex;
+  padding-bottom: var(--ui-spacing-sm);
+  flex-direction: column;
+  gap: var(--ui-spacing-sm);
+}
+
+.shift-event-card {
+  display: flex;
+  min-width: 0;
+  padding: var(--ui-spacing-md);
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: var(--ui-spacing-xs);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.shift-event-card-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ui-spacing-xs);
+}
+
+.shift-event-type,
+.shift-event-marker {
+  display: inline-flex;
+  min-height: 24px;
+  padding: 2px 8px;
+  box-sizing: border-box;
+  align-items: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.shift-event-type.is-swap {
+  color: #7a4310;
+  background: #fff3cd;
+}
+
+.shift-event-type.is-leave {
+  color: #136242;
+  background: #e3f5e8;
+}
+
+.shift-event-type.is-adjustment {
+  color: #6b3b94;
+  background: #f2e8ff;
+}
+
+.shift-event-marker {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-background);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.shift-event-time,
+.shift-event-reason,
+.shift-event-change-label {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-normal);
+}
+
+.shift-event-narrative {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
+}
+
+.shift-event-changes {
+  display: flex;
+  padding-top: 4px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shift-event-change {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shift-event-change-value {
+  min-width: 0;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-normal);
+  text-align: right;
+  word-break: break-all;
+}
+
+.shift-event-chain {
+  display: flex;
+  padding: var(--ui-spacing-sm);
+  flex: none;
+  flex-direction: column;
+  gap: var(--ui-spacing-xs);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.shift-event-chain-title {
+  color: var(--ui-color-primary-dark);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.shift-event-chain-summary {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-normal);
+}
