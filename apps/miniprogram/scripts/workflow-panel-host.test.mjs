@@ -103,6 +103,7 @@ describe('workflow panel host transient status', () => {
     page.onLoad.call(instance, query);
     expect(onLoad.mock.instances[0]).toBe(instance);
     expect(onLoad).toHaveBeenCalledWith(query);
+    closeFromParent.mockClear();
     page.onShow.call(instance);
     expect(onShow.mock.instances[0]).toBe(instance);
     page.handlePickerRequestOpen.call(instance);

@@ -281,6 +281,7 @@ function detachWorkflowHost(host: WorkflowPanelHost): void {
 function disposeWorkflowController(host: WorkflowPanelHost): void {
   const controller = host.__controller;
   try {
+    closeWorkflowPickers(host);
     const onUnload = controller?.['onUnload'];
     if (typeof onUnload === 'function') (onUnload as ControllerMethod).call(host);
   } finally {

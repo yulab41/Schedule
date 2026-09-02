@@ -66,19 +66,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.phase-chip {
-  display: inline-flex;
-  min-height: 24px;
-  padding: 0 8px;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-primary-light);
-  border-radius: var(--ui-radius-pill);
-  font-size: var(--ui-font-size-xs);
-  font-weight: var(--ui-font-weight-semibold);
-}
 .platform-accounts-scroll {
   width: 100%;
 }

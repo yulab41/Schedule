@@ -170,6 +170,10 @@ Component({
   methods: {
     handleOpen(this: WorkflowPickerInstance): void {
       if (this.properties.disabled) return;
+      if (this.data.open) {
+        closePicker(this);
+        return;
+      }
       for (const picker of pickerInstances) {
         if (picker !== this && picker.data.open) {
           closePicker(picker);

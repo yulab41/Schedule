@@ -921,3 +921,134 @@ favicon 证据后复测，实际页面 6 个按钮均 ≥44px、页面错误为 
 DevTools 回归但未被描述为当前 SHA 真机通过。各 SHA 的证据不得互换。
 
 后续唯一建议任务见 `docs/audit/STATUS.md`。
+
+## 11. EXP-UX-001 体验版反馈批次
+
+### 11.1 范围、证据和先红后绿
+
+本批基于 fetch 后的 `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`，在独立
+`codex/fix-exp-ux-001` worktree 执行；不重跑阶段 0，不执行 `MINI-G1-004`，不处理日期选择器、
+事件记录或全局图标重构。用户提供的五张小米 14 体验版截图作为问题证据：#1 是内嵌换班 sheet
+被底栏遮挡，#2 是同一空下拉再次点击仍保持打开，#3 是通讯录筛选 sheet 的正常交互参考，#4
+是请假直达页遗留底栏，#5 是加扣班直达页遗留底栏。截图内当前构建 SHA、trial、renderer、基础库、
+微信版本和构建时间无法由当前工具读取，因此不能把截图写成当前修复 tip 的真机验收结论。
+
+业务源码修改前新增 `apps/miniprogram/scripts/exp-ux-001.test.mjs`。在旧实现上实际得到 7 项红灯：
+同实例 selector/空 selector/A-B 复点 toggle、Page unload 清理、共享 sheet 注册、旧导航、P 标签；
+共享 WXS 的拖动阈值合同 1 项先通过。修复后定向 EXP 合同为 9 tests passed，连同受影响的 host、
+生命周期、P7、请假、加扣班、换班测试为 52 tests passed；Mini 全量为 114 files / 621 tests passed。
+
+### 11.2 换班 sheet 根因与前后层级
+
+截图 #1 的根因是多因素组合，而不是单纯缺一个大 `z-index`：旧换班 panel 的 `sheet-layer` 是组件
+局部 `position:absolute; z-index:40; inset:0`，其 panel 受 workflow/workbench 局部高度和 overflow
+约束；首页 `bottom-nav` 是页面级 fixed 层，使用 `--ui-z-index-navigation`（当前为 50）。旧 request/
+admin 操作区还放在正文 `scroll-view` 内，所以导航覆盖了内容/按钮后，用户无法靠正文继续滚到被遮住区域。
+旧实现和相关引入点由 `git log -S`/`git blame` 定位到 `80ddadf0`（native request sheet）与
+`bc32a4f1`（P7 panel bottom-nav / picker open path）。
+
+修复后的 request、管理员直换、撤销三种换班弹层均复用既有 `components/ui/ui-sheet`：
+
+- `ui-sheet__layer` 为 `position:fixed; z-index:400`，高于仍由真正首页 Tab 使用的 z50 导航；不改导航层级，
+  也不改变首页 Tab。
+- panel 使用既有 `height:78vh; max-height:660px`，顶部约在可用视口四分之一附近，整体约占四分之三；
+  content 使用 `padding-bottom:calc(16px + env(safe-area-inset-bottom))`，同时保留 footer 与设备底部
+  安全区的点击空间。
+- handle/header 位于共享 drag region；标题和完成/关闭入口不进入正文滚动。request/admin 的
+  `workflow-sheet-scroll` 为 `min-height:0; flex:1`，preview/冲突留在正文，操作按钮移到其后的
+  `workflow-sheet-footer`（`flex:none`），因此按钮不会随正文滚走或被底栏覆盖。撤销原因正文与确认按钮
+  也分离到同一 footer。
+- 共享 `drag-dismiss.wxs` 仍只接收顶部 drag region：横向/非向下拖动不关闭，短拖或 cancel 回弹；
+  距离阈值为 96px、快速滑动阈值为 28px / 0.65 velocity，轴向起判 8px、纵横比 1.2，关闭只调用一次。
+  忙碌提交/撤销时关闭手势禁用，完成、取消、遮罩和业务忙碌保护的既有语义保留。
+
+这些是静态源码、WXS 单测和构建验证结论；弹窗触摸手感、正文/下拉内部滚动与 Xiaomi 14 safe-area 仍需
+下一版实体设备验证。
+
+### 11.3 workflow picker 审查与统一合同
+
+共用实现为 `subpackages/workflows/components/workflow-picker/index.{ts,wxml,wxss}`，调用页面/面板为：
+
+- `workflow-leave-panel`：请假类型、日期、审批策略等 picker；
+- `workflow-swap-panel`：月份、我的班次、目标成员/班次及管理员直换字段；
+- `workflow-duty-panel`：月份、成员、班次及策略字段。
+
+三者均使用同一个 `workflow-picker`，没有页面自复制的 custom select/combobox。workbench 自己的角色/
+班次/成员筛选是独立页面壳层 dropdown，已有字段互斥和外部点击关闭；原生 `<picker>` 仍仅用于既有
+排班/组织/导出页面，不共享本次 workflow picker 的 handler，故不扩大修改。
+
+旧 `handleOpen` 只关闭其他实例后继续进入打开分支，缺少 `this.data.open` 分支；`git log -S`/`git blame`
+确认该路径来自 `bc32a4f1`。现改为已打开时只执行一次 `closePicker` 并立即返回；未打开时仍先关闭同作用域其他
+实例、只发一次 `pickerrequestopen`、保留上下展开计算；选项选择、外部点击、sheet 关闭、context dispose
+和 Page unload 都关闭并清理 timer/wheel generation。空选项也经过同一 toggle，因此满足关闭→打开、复点→关闭、
+A→B、选择后关闭、卸载清理和同作用域单层合同。
+
+### 11.4 二级页面旧导航源码删除
+
+静态审查发现完全相同根因的旧 `<view class="bottom-nav">` 只存在于三个 workflow panel；真正的
+`pages/workbench` 首页导航不是本批删除对象。为保持同一壳层根因闭环，以下三页一并做低风险清理：
+
+- `workflow-leave-panel/index.wxml`：删除日历/请假/换班/加扣班/更多五项旧导航节点；
+  `controller.ts` 删除 `handleUnavailable`、`handleSwapNav`、`handleDutyNav`。
+- `workflow-swap-panel/index.wxml`：删除同一五项旧导航节点；`controller.ts` 删除
+  `handleUnavailable`、`handleLeaveNav`、`handleDutyNav`。
+- `workflow-duty-panel/index.wxml`：删除同一五项旧导航节点；`controller.ts` 删除
+  `handleUnavailable`、`handleLeaveNav`、`handleSwapNav` 及其仅供跳转的 `navigateWorkflowPage` 辅助函数。
+
+`workflow-leave-panel/index.wxss` 中旧 `.bottom-nav`、`.bottom-nav-item`、active/disabled/compact 样式
+及三份共用旧导航样式已删除；swap/duty 的同名覆盖也删除。三个 panel 的内容底部由旧的
+`calc(64px + env(safe-area-inset-bottom))` 改为必要的 `calc(16px + env(safe-area-inset-bottom))`；
+嵌入态 20px 保留为 panel 内部安全间距。controller 中仍为 64px 的 `pageScrollStyle`/header height
+只计算顶部自定义 header，不是底部导航占位，路由和 `handleBack` 未动。
+
+三个 direct Page JSON 原本就只有真实的 `workflow-picker` usingComponent，没有导航专用 usingComponent；
+删除后仍通过 `/subpackages/workflows/pages/{leave,swap,duty}/index` 的 `Page(createWorkflowPageDefinition(...))`
+打开，左上角返回和系统侧滑返回保留。源码只读审查未发现其他非 Tab 页面挂载完全相同的 `.bottom-nav`；
+workbench 的真正首页 Tab 保留。共享 web icon assets 仍被首页使用，未错误删除。
+
+### 11.5 P… 标签来源、删除和包体证据
+
+标签真实来源是模板静态 `<text class="phase-chip">P5/P7/P8/P9</text>`，不是 build variable、debug
+状态、公共调试组件或运行态字段。共定位 13 个节点：scheduling P5×2、workflow P7×3、organization
+P8×4、insights P9×4。对应 standalone/合并 badge 的 `.phase-chip` 样式也从源码移除；导出卡片原本
+复用该 class 的真实 `CSV` 格式徽标改为 `format-chip`，其业务显示保留。
+
+最终源码搜索 `rg 'phase-chip' apps/miniprogram/src` 无结果；production build 后搜索 `dist` 也没有
+`phase-chip` 或这些右上角 P5/P7/P8/P9 标签。`src/platform/build-info.ts`、测试工具
+`buildRows[0].value`、编译 SHA/版本/profile/time metadata 和 P1 诊断页左侧说明均保留；没有把内部版本追踪
+信息改成用户可见 phase tag，也没有用透明/移屏/恒 false 隐藏。
+
+同一 production profile、同一 package-audit 口径的真实结果：
+
+| 范围 | 修改前 bytes | 修改后 bytes | 变化 |
+| --- | ---: | ---: | ---: |
+| main | 1,677,999 | 1,677,998 | -1 |
+| subpackages/scheduling | 425,917 | 425,318 | -599 |
+| subpackages/organization | 1,054,228 | 1,053,334 | -894 |
+| subpackages/workflows | 839,488 | 832,985 | -6,503 |
+| subpackages/insights | 1,071,963 | 1,071,781 | -182 |
+| subpackages/diagnostics | 52,021 | 52,021 | 0 |
+| total | 5,121,616 | 5,113,437 | **-8,179** |
+
+`pnpm miniprogram:verify` 同样报告 `packageBytes=5113437`；既有主包 1.5 MiB warning 和矩阵 1445/1505
+warning 保持原类别，未扩大本轮审计。包体确实减少 8,179 bytes；不宣称额外清理共享导航 asset 或必然
+减少更多。
+
+### 11.6 验证边界和下一版最小真机步骤
+
+已完成的自动化层级包括 EXP 定向合同、bottom-sheet/ui-sheet、workflow picker、workflow page/controller/
+lifecycle、P7 相关测试、Mini 全量、Mini TypeScript、production build、`miniprogram:verify`、source audit、
+包体审计、`git diff --check`；微信开发者工具 GUI/CLI 按仓库政策未调用，未上传体验版，未部署 production。
+根仓库 TypeScript、ESLint、Prettier 和 `smoke:check-core` 必须在最终文档 tip 再跑并以实际结果记录；全仓
+format 基线已有与本批无关的既存失败，不修改其文件。
+
+下一版 Xiaomi 14 最小验收：
+
+1. 用最终 commit 的 production/trial 构建（当次明确授权后）打开首页第三个“换班”，确认 sheet 顶部约四分之一、
+   footer/完成可点击、正文能独立上下滚动，内容和按钮不进入底部导航/安全区。
+2. 从把手短拖/cancel 后确认平滑回弹，达到距离或速度阈值只关闭一次；从正文、picker 列表上下滑动不关闭。
+3. 逐一验证“我的班次”等选择器复点关闭、A→B 切换、暂无可选项复点关闭、选项选择后关闭和 sheet 关闭后不残留。
+4. 从“更多”进入请假、加扣班，确认无旧底栏，左上角返回和系统侧滑返回正常，正文延伸到安全区。
+5. 抽查所有页面右上角不再出现 P…；测试工具的内部 build/version 诊断仍可用但不在页面右上角渲染 phase tag。
+
+这五步是下一版实体设备人工验收清单，不把当前 Node/静态构建结果写成真机手势已通过。

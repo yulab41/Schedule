@@ -83,7 +83,7 @@
   white-space: nowrap;
 }
 
-.phase-chip {
+.format-chip {
   display: inline-flex;
   min-height: 24px;
   padding: 0 8px;

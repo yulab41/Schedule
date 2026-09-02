@@ -15,7 +15,6 @@
       <text class="header-title-main">群组管理</text>
       <text class="header-title-sub">{{currentGroupName}} · {{currentGroupRole}}</text>
     </view>
-    <text class="phase-chip">P8</text>
   </view>
 
   <scroll-view

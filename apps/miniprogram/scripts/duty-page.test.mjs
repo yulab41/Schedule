@@ -68,8 +68,8 @@ describe('P7 native duty-adjustment workflow page', () => {
     expect(workbench).toContain('wx:if="{{toolAccess.duty}}"');
     expect(workbenchController).toContain("'/subpackages/workflows/pages/duty/index'");
     expect(workbenchController).toContain('navigateWorkflowTool');
-    expect(leaveTemplate).toContain('bindtap="handleDutyNav"');
-    expect(swapTemplate).toContain('bindtap="handleDutyNav"');
+    expect(leaveTemplate).not.toContain('class="bottom-nav"');
+    expect(swapTemplate).not.toContain('class="bottom-nav"');
   });
 
   it('mirrors every frozen Web duty section, form, direct form, and page state', () => {
@@ -144,8 +144,8 @@ describe('P7 native duty-adjustment workflow page', () => {
     expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
     expect(styles).toContain('.duty-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
-    expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);
-    expect(styles).toContain('padding-bottom: calc(64px + env(safe-area-inset-bottom))');
+    expect(styles).not.toMatch(/\.bottom-nav(?:-item)?\b/u);
+    expect(styles).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))');
     expect(styles).not.toMatch(/display:\s*grid|@media|clamp\(/u);
   });
 });

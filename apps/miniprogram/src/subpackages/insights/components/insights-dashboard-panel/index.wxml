@@ -10,7 +10,7 @@
     ><view class="header-title"
       ><text class="header-title-main">事件与统计</text
       ><text class="header-title-sub">值班台账 · 只读审计</text></view
-    ><text class="phase-chip">P9</text></view
+    ></view
   >
   <scroll-view
     class="insights-dashboard-scroll"

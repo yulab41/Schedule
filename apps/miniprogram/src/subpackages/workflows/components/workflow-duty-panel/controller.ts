@@ -264,18 +264,6 @@ export function createDutyPanelControllerDefinition(embedded = false) {
       void loadDutyPageWithCapability(this, { preserveForms: true });
     },
 
-    handleLeaveNav(this: DutyPageInstance): void {
-      navigateWorkflowPage(this, 'leave');
-    },
-
-    handleSwapNav(this: DutyPageInstance): void {
-      navigateWorkflowPage(this, 'swap');
-    },
-
-    handleUnavailable(this: DutyPageInstance): void {
-      this.setData({ infoMessage: '更多功能将在后续阶段开放。' });
-    },
-
     handleOpenRequestForm(this: DutyPageInstance): void {
       resetRequestForm(this);
       this.setData({ requestFormVisible: true });
@@ -1070,13 +1058,6 @@ function createAssignmentOption(assignment: CalendarDutyAssignment): SelectionOp
 
 function notifyCalendarChanged(page: DutyPageInstance): void {
   page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
-}
-
-function navigateWorkflowPage(page: DutyPageInstance, target: 'leave' | 'swap'): void {
-  if (page._currentGroupId === '') return;
-  wx.redirectTo({
-    url: `/subpackages/workflows/pages/${target}/index?groupId=${encodeURIComponent(page._currentGroupId)}`,
-  });
 }
 
 function findDutyRequest(

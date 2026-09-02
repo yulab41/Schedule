@@ -7,7 +7,6 @@
       <text class="header-title-main">手动排班</text>
       <text class="header-title-sub">{{currentGroupName}} · 管理员</text>
     </view>
-    <text class="phase-chip">P5</text>
   </view>
 
   <scroll-view class="manual-page-scroll" style="{{pageScrollStyle}}" scroll-y enhanced show-scrollbar="false">

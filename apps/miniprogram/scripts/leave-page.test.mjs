@@ -97,8 +97,8 @@ describe('P7 native leave workflow page', () => {
     expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
     expect(styles).toContain('.leave-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
-    expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);
-    expect(styles).toContain('padding-bottom: calc(64px + env(safe-area-inset-bottom))');
+    expect(styles).not.toMatch(/\.bottom-nav(?:-item)?\b/u);
+    expect(styles).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))');
     expect(styles).not.toMatch(/display:\s*grid|@media|clamp\(/u);
   });
 });

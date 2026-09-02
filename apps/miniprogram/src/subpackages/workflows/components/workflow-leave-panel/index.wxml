@@ -17,7 +17,6 @@
       <text class="header-title-main">请假与审批</text>
       <text class="header-title-sub">{{currentGroupName}} · {{currentGroupRole}}</text>
     </view>
-    <text class="phase-chip">P7</text>
   </view>
 
   <scroll-view
@@ -211,29 +210,6 @@
       </view>
     </view>
   </scroll-view>
-
-  <view wx:if="{{!embedded}}" class="bottom-nav" aria-label="工作流导航">
-    <view class="bottom-nav-item" aria-role="button" bindtap="handleBack">
-      <image src="/assets/icons/web-calendar.svg" mode="aspectFit" /><text>日历</text>
-    </view>
-    <view class="bottom-nav-item is-active" aria-current="page">
-      <image src="/assets/icons/web-leave.svg" mode="aspectFit" /><text>请假</text>
-    </view>
-    <view class="bottom-nav-item" data-label="换班" aria-disabled="false" bindtap="handleSwapNav">
-      <image src="/assets/icons/web-swap.svg" mode="aspectFit" /><text>换班</text>
-    </view>
-    <view class="bottom-nav-item" data-label="加扣班" aria-disabled="false" bindtap="handleDutyNav">
-      <image src="/assets/icons/web-duty.svg" mode="aspectFit" /><text>加扣班</text>
-    </view>
-    <view
-      class="bottom-nav-item is-disabled"
-      data-label="更多"
-      aria-disabled="true"
-      bindtap="handleUnavailable"
-    >
-      <image src="/assets/icons/web-more.svg" mode="aspectFit" /><text>更多</text>
-    </view>
-  </view>
 
   <view hidden="{{!formVisible}}" class="sheet-layer">
     <view class="sheet-scrim" aria-role="button" bindtap="handleCloseForm"></view>

@@ -240,7 +240,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.phase-chip,
 .unread-badge {
   display: inline-flex;
   min-height: 24px;

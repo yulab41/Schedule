@@ -275,25 +275,6 @@ export function createSwapPanelControllerDefinition(embedded = false) {
       void loadSwapPageWithCapability(this, { preserveForms: true });
     },
 
-    handleLeaveNav(this: SwapPageInstance): void {
-      if (this._currentGroupId === '') return;
-      wx.redirectTo({
-        url: `/subpackages/workflows/pages/leave/index?groupId=${encodeURIComponent(this._currentGroupId)}`,
-      });
-    },
-
-    handleDutyNav(this: SwapPageInstance): void {
-      if (this._currentGroupId === '') return;
-      wx.redirectTo({
-        url: `/subpackages/workflows/pages/duty/index?groupId=${encodeURIComponent(this._currentGroupId)}`,
-      });
-    },
-
-    handleUnavailable(this: SwapPageInstance, event: DatasetEvent): void {
-      const label = event.currentTarget.dataset['label'] ?? '此功能';
-      this.setData({ infoMessage: `${label}将在后续 P7 阶段开放。` });
-    },
-
     handleOpenRequestForm(this: SwapPageInstance): void {
       resetRequestForm(this);
       this.setData({ requestFormVisible: true });

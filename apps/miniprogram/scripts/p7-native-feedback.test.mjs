@@ -282,11 +282,16 @@ describe('P7 physical-device feedback regressions', () => {
     const swapTemplate = read('subpackages/workflows/components/workflow-swap-panel/index.wxml');
     const sharedStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
 
-    for (const template of [leaveTemplate, dutyTemplate, swapTemplate]) {
+    for (const template of [leaveTemplate, dutyTemplate]) {
       expect(template).toContain('native-sheet request-sheet');
       expect(template).toContain('class="sheet-finish"');
       expect(template).toMatch(/class="sheet-finish"[^>]*>完成</u);
     }
+    expect(swapTemplate).toContain('<ui-sheet');
+    expect(swapTemplate).toContain('title="发起换班"');
+    expect(swapTemplate).toContain('class="workflow-sheet-scroll"');
+    expect(swapTemplate).toContain('class="workflow-sheet-footer"');
+    expect(swapTemplate).not.toContain('native-sheet request-sheet');
     expect(leaveTemplate).toContain('class="native-textarea leave-reason-field"');
     expect(dutyTemplate.match(/class="native-reason-input"/gu)).toHaveLength(2);
     expect(sharedStyles).toMatch(
@@ -312,7 +317,10 @@ describe('P7 physical-device feedback regressions', () => {
       /\.leave-page\.is-compact \.request-sheet \.sheet-body\s*\{[^}]*padding:\s*0 16px calc\(16px \+ env\(safe-area-inset-bottom\)\);/su,
     );
     expect(sharedStyles).toMatch(
-      /\.duty-page\.is-compact \.request-sheet \.form-actions,[^}]*\.swap-page\.is-compact \.request-sheet \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
+      /\.duty-page\.is-compact \.request-sheet \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
+    );
+    expect(read('subpackages/workflows/components/workflow-swap-panel/index.wxss')).toMatch(
+      /\.swap-page\.is-compact \.workflow-sheet-footer \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
     );
     expect(leaveTemplate).toContain('leave-form-intro');
     expect(leaveTemplate).toContain('请假信息');

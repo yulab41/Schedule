@@ -95,26 +95,13 @@ page {
   white-space: nowrap;
 }
 
-.phase-chip {
-  display: flex;
-  min-height: 28px;
-  padding: 0 9px;
-  align-items: center;
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-primary-light);
-  border: 1px solid var(--ui-color-primary-border);
-  border-radius: var(--ui-radius-pill);
-  font-size: var(--ui-font-size-xs);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
 .leave-scroll {
   width: 100%;
 }
 
 .page-content {
   padding: 12px 14px 0;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -469,55 +456,6 @@ page {
 
 .native-select.is-disabled {
   opacity: 0.55;
-}
-
-.bottom-nav {
-  position: absolute;
-  z-index: 18;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  min-height: 58px;
-  padding: 3px 5px env(safe-area-inset-bottom);
-  box-sizing: content-box;
-  align-items: stretch;
-  background: rgba(255, 255, 255, 0.97);
-  border-top: 1px solid var(--ui-color-border);
-  box-shadow: 0 -8px 24px rgba(22, 32, 42, 0.06);
-}
-
-.bottom-nav-item {
-  min-height: 44px;
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  color: var(--ui-color-text-muted);
-  border-radius: var(--ui-radius-small);
-  font-size: 10px;
-}
-
-.bottom-nav-item image {
-  width: 22px;
-  height: 22px;
-  opacity: 0.7;
-}
-
-.bottom-nav-item.is-active {
-  color: var(--ui-color-primary);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
-.bottom-nav-item.is-active image {
-  opacity: 1;
-}
-
-.bottom-nav-item.is-disabled {
-  opacity: 0.48;
 }
 
 .sheet-layer {
@@ -934,15 +872,10 @@ page {
   width: 100%;
 }
 
-.leave-page.is-compact .bottom-nav-item {
-  font-size: 9px;
-}
-
 .leave-page.is-compact .request-sheet .sheet-body {
   padding: 0 16px calc(16px + env(safe-area-inset-bottom));
 }
 
-.duty-page.is-compact .request-sheet .form-actions,
-.swap-page.is-compact .request-sheet .form-actions {
+.duty-page.is-compact .request-sheet .form-actions {
   flex-direction: row;
 }

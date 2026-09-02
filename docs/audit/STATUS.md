@@ -2,31 +2,39 @@
 
 ## 当前阶段
 
-- 当前批次：`EXP-UX-001`；用户已批准设计，书面 spec 已写入并等待用户复核，尚未修改业务源码或测试。
+- 当前批次：`EXP-UX-001`；用户已确认书面设计，代码与永久回归合同已完成，自动化状态为“已完成”，整体
+  状态为“待用户复核”。
 - 基线：`origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；执行分支/worktree 为
   `codex/fix-exp-ux-001` / `runtime/external-project-worktrees/exp-ux-001`。
-- 本轮范围：工作流换班 sheet、共用 workflow picker、工作流直达页遗留 bottom-nav、所有页面右上角
-  P5/P7/P8/P9 phase chip；不重跑阶段 0，不执行 `MINI-G1-004`、日期选择器业务、事件记录或全局图标重构。
+- 范围：换班 sheet、共用 workflow picker、leave/swap/duty 非 Tab 遗留底栏、所有页面右上角 P5/P7/P8/P9
+  标签；不重跑阶段 0，不执行 `MINI-G1-004`、日期选择器业务、事件记录或全局图标重构。
 
 ## 已验证事实
 
-- 小米 14 体验版真实截图已收到：换班 sheet 底部被工作台导航覆盖；同一空下拉再次点击仍保持打开；
-  通讯录筛选 sheet 的 fixed/独立滚动行为可作参考；请假和加扣班非 Tab 页面仍显示遗留工作流导航。
-- 静态追踪确认换班旧 sheet 为组件局部 `absolute/z40`，工作台导航为页面级 fixed 层；workflow picker
-  的 `handleOpen` 没有自身 `open` 分支；leave/swap/duty 三个 panel 共享同一旧 bottom-nav；全源码有
-  13 个右上角静态 P5/P7/P8/P9 phase-chip 节点。
-- 现有 `ui-sheet` 已具备 fixed 层、标题/完成入口、安全区和顶部 drag WXS；工作台首页筛选器已有字段
-  toggle；原生 `<picker>` 实例不复用 workflow picker 根因。
+- 用户五张 Xiaomi 14 截图映射为：#1 换班 sheet 被首页底栏遮挡，#2 同一空下拉复点不关闭，#3 通讯录筛选
+  sheet 为 fixed/独立滚动参考，#4 请假直达页遗留底栏，#5 加扣班直达页遗留底栏。截图构建身份字段当前
+  工具无法读取，不能写成当前修复 tip 的真机验收。
+- 旧根因已用 `git log -S`/`git blame` 定位：swap native sheet `80ddadf0`，P7 panel nav/picker path
+  `bc32a4f1`，export phase chip `de710eaf`。旧合同先红 7 项，修复后 EXP 9/9、定向 52/52、Mini 全量
+  114 files / 621 tests 通过。
+- 新换班 sheet 使用既有 `ui-sheet` fixed z400、78vh/max660、safe-area，正文 scroll 与 footer 分离，拖动
+  仅由顶部 drag region 所有；picker 统一 toggle/互斥/卸载清理。
+- leave/swap/duty 旧 bottom-nav 节点、handler、专用样式和 64px 底栏预留已源码删除；direct Page JSON
+  没有旧导航专用 usingComponents，路由/back/system side-swipe 保留；真正 workbench Tab 未改。
+- 13 个 `phase-chip` P 标签节点及样式已删除，CSV 改为 `format-chip`，build identity、测试工具 metadata、
+  P1 左侧诊断说明保留；源码/dist 搜索无 phase chip。production 包体 `5,121,616 → 5,113,437`，减少
+  `8,179` bytes。
 
-## 当前阻塞与外部边界
+## 验证与边界
 
-- 不是技术阻塞：等待用户对书面 spec 的复核后进入“先红后绿”的永久合同阶段。
-- 当前工具无法替代小米 14 后续真机手势复核；未调用微信开发者工具 GUI/CLI，未上传体验版，未提审/发布，
-  未部署 production 或创建生产备份。
+- `pnpm miniprogram:test`、Mini typecheck/build/source/verify、根 build/typecheck/lint、定向 Prettier、
+  `git diff --check`、`smoke:check-core` 均已通过；全仓 format 只剩记录中的 12 个既有无关文件。
+- 当前工具按仓库政策未调用微信开发者工具 GUI/CLI，未上传体验版、未部署 production、未创建生产备份。
+  Node、WXS、静态层级和包体证据不能代替 Xiaomi 14 原生手势、安全区、Skyline 渲染或系统返回验收。
 
 ## 唯一下一任务与停止条件
 
-- 下一任务：书面 spec 复核通过后新增 `EXP-UX-001` 合同并在旧源码上记录红灯，之后才修改业务源码。
-- 本轮最终需记录每张截图的根因、修复前后层级/高度/滚动/安全区、picker 调用者审查、旧导航删除、
-  P 标签源码/产物搜索、包体实际差值、全量验证和仍需真机验证的步骤。主线只做一次普通 fast-forward，
-  不上传体验版、不部署 production；完成后停止，不进入后续审计批次。
+- 唯一下一任务：待用户明确授权当前最终 SHA 体验版后，按审计主报告第 11.6 节执行 Xiaomi 14 最小验收，
+  覆盖 sheet 高度/footer/内部滚动/拖动回弹、picker toggle/清理、请假/加扣班返回和所有右上角 P… 消失。
+- 本批完成主线普通 fast-forward 收口后停止；不上传体验版、不部署 production，不进入事件记录、日期组件或
+  图标任务。未验证项在下一版实体设备证据到达前保持“待用户复核”。

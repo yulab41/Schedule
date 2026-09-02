@@ -67,7 +67,6 @@ page {
   white-space: nowrap;
 }
 
-.phase-chip,
 .status-badge,
 .handoff-state,
 .range-days {
@@ -81,12 +80,6 @@ page {
   border-radius: var(--ui-radius-pill);
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-semibold);
-}
-
-.phase-chip {
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-primary-light);
-  border: 1px solid var(--ui-color-primary-border);
 }
 
 .manual-page-scroll {

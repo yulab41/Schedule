@@ -10,7 +10,7 @@
     ><view class="header-title"
       ><text class="header-title-main">平台账号</text
       ><text class="header-title-sub">平台管理员后台</text></view
-    ><text class="phase-chip">P8</text></view
+    ></view
   >
   <scroll-view
     class="platform-accounts-scroll"

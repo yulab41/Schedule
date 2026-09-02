@@ -2185,3 +2185,31 @@
   controller 定向 1 file/44 tests 通过。
 - 本轮未改客户端、SQL、索引、缓存、API 或预热，未执行 production 写入/清缓存/重启/备份/部署，
   未上传体验版。下一步等待用户从最多三个候选方向中确认后再实施。
+
+## 2026-09-02 EXP-UX-001 workflow sheet / picker / page shell / phase tag
+
+- 用户提供 Xiaomi 14 体验版截图 #1～#5：#1 换班 sheet 被首页底栏盖住，#2 同一空下拉复点不关闭，
+  #3 通讯录筛选 sheet 为正常 fixed/独立滚动参考，#4 请假直达页和 #5 加扣班直达页仍挂遗留底栏。
+  截图构建身份字段当前工具无法读取，只作为反馈现象证据，不写成当前修复 tip 的实体设备验收。
+- 连续性：先 `git fetch origin`，确认最新 `origin/main=07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2` 已含
+  MINI-G1-001～003；修复在 clean `runtime/external-project-worktrees/exp-ux-001` /
+  `codex/fix-exp-ux-001`，用户主 worktree/其他 worktree 未修改。设计先经用户批准并写入
+  `docs/superpowers/specs/2026-09-02-exp-ux-001-design.md`。
+- 引入点证据：`git log -S 'handleOpen(this: WorkflowPickerInstance)'`/`git blame` 指向 `bc32a4f1`；
+  `git log -S 'class="bottom-nav"'` 指向 `bc32a4f1`；`git log -S 'native-sheet request-sheet'`
+  指向 `80ddadf0`；导出 phase chip 指向 `de710eaf`。静态根因分别为 picker 缺自身 open 分支、三个
+  workflow panel 复制旧 nav、swap sheet 局部 absolute/z40 与页面 fixed/z50 竞争，及 13 个静态 phase-chip 节点。
+- 先红后绿：业务源码改动前 `exp-ux-001.test.mjs` 在旧实现上 7 红/1 绿；修复后定向 EXP 9/9，
+  受影响 workflow/host/lifecycle/P7 页面 52/52，Mini 全量 114 files/621 tests 通过。
+- 修复：swap request/admin/revoke 统一接入既有 `ui-sheet`（fixed/z400，78vh/max660，safe-area）；
+  request/admin 正文使用 flex 独立 scroll，操作区移到 scroll 外 `workflow-sheet-footer`；共享 WXS 仅从顶部
+  drag region 处理并保留 96px/28px/0.65 阈值和短拖回弹。picker 已开复点只 close+return，A/B 继续单层互斥，
+  host dispose/unload 调用 `closeFromParent` 清理。leave/swap/duty 的旧 nav WXML/handler/style 删除，
+  旧 64px nav 预留改为必要的 16px + safe-area；路由/back 保留。所有 13 个 phase-chip WXML/CSS 删除，
+  CSV 改 format-chip，build identity/test metadata/P1 左侧说明保留。
+- 构建/包体：production build 276 files；package total 5,121,616→5,113,437 bytes（-8,179），其中
+  workflows -6,503。`miniprogram:verify` passed，现有主包和矩阵 warning 未新增类别；dist 搜索无
+  `phase-chip`/右上角 P5/P7/P8/P9 标签。
+- 证据边界：Node/static/WXS/production build 通过不等于 Xiaomi 14 真机手势通过。下一版需复核 sheet
+  高度/安全区/内部滚动/拖动回弹、picker toggle 与卸载清理、请假/加扣班系统返回，以及所有右上角 P… 消失。
+  本轮未调用微信开发者工具，未上传体验版，未部署 production。

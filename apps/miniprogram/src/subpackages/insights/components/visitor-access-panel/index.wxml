@@ -12,7 +12,6 @@
       ><text class="header-title-main">谁在查看排班？</text
       ><text class="header-title-sub">访客访问 · 只读审计</text></view
     >
-    <text class="phase-chip">P9</text>
   </view>
   <scroll-view
     class="visitor-access-scroll"

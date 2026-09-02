@@ -5,7 +5,7 @@
 }
 
 .swap-page .page-content {
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 .swap-page.is-embedded .page-content {
@@ -13,10 +13,6 @@
 }
 
 .web-button {
-  min-height: 44px;
-}
-
-.bottom-nav-item {
   min-height: 44px;
 }
 
@@ -98,6 +94,39 @@
   align-items: stretch;
 }
 
+.workflow-sheet-scroll {
+  min-height: 0;
+  flex: 1;
+}
+
+.workflow-sheet-scroll .sheet-body {
+  padding: 0 0 16px;
+}
+
+.workflow-sheet-footer {
+  display: flex;
+  min-width: 0;
+  padding: 8px 0 0;
+  box-sizing: border-box;
+  flex: none;
+  border-top: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+.workflow-sheet-footer .form-actions,
+.workflow-sheet-footer > .web-button {
+  width: 100%;
+}
+
+.workflow-sheet-short-content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ui-spacing-md);
+}
+
 .preview-card {
   padding: 12px 14px;
   color: var(--ui-color-primary-dark);
@@ -108,11 +137,6 @@
   line-height: var(--ui-line-height-body);
 }
 
-.revoke-sheet {
-  height: auto;
-  max-height: 62%;
-}
-
 .swap-page.is-compact .heading-actions,
 .swap-page.is-compact .form-actions {
   flex-direction: column;
@@ -121,4 +145,8 @@
 .swap-page.is-compact .heading-actions .web-button,
 .swap-page.is-compact .form-actions .web-button {
   width: 100%;
+}
+
+.swap-page.is-compact .workflow-sheet-footer .form-actions {
+  flex-direction: row;
 }

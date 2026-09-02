@@ -67,8 +67,8 @@ describe('P7 native swap workflow page', () => {
     expect(workbench).toContain('wx:if="{{toolAccess.duty}}"');
     expect(workbenchController).toContain("activatePrimaryWorkspace(this, 'swap'");
     expect(workbenchController).not.toContain('openWorkflowWorkspace(');
-    expect(leaveTemplate).toContain('bindtap="handleSwapNav"');
-    expect(leaveController).toContain('/subpackages/workflows/pages/swap/index?groupId=');
+    expect(leaveTemplate).not.toContain('class="bottom-nav"');
+    expect(leaveController).not.toContain('handleSwapNav');
   });
 
   it('mirrors every frozen Web swap section, form, direct form, and page state', () => {
@@ -141,11 +141,16 @@ describe('P7 native swap workflow page', () => {
     const styles = readPage('wxss');
 
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
-    expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
+    expect(JSON.parse(readPage('json')).usingComponents).toMatchObject({
+      'ui-sheet': '/components/ui/ui-sheet/index',
+      'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
+    });
     expect(styles).toContain('.swap-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
-    expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);
-    expect(styles).toContain('padding-bottom: calc(64px + env(safe-area-inset-bottom))');
+    expect(styles).not.toMatch(/\.bottom-nav(?:-item)?\b/u);
+    expect(styles).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))');
+    expect(styles).toMatch(/\.workflow-sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su);
+    expect(styles).toMatch(/\.workflow-sheet-footer\s*\{[^}]*flex:\s*none;/su);
     expect(styles).not.toMatch(/display:\s*grid|@media|clamp\(/u);
   });
 });

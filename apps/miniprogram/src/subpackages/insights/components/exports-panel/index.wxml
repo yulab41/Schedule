@@ -12,7 +12,6 @@
       ><text class="header-title-main">导出排班与统计</text
       ><text class="header-title-sub">登录态下载 · 仅当前群组</text></view
     >
-    <text class="phase-chip">P9</text>
   </view>
   <scroll-view
     class="exports-scroll"
@@ -53,7 +52,7 @@
             ><view
               ><text class="card-title">导出内容</text
               ><text class="card-subtitle">当前群组 · CSV 文件</text></view
-            ><text class="phase-chip">CSV</text></view
+            ><text class="format-chip">CSV</text></view
           >
 
           <view class="field-block">

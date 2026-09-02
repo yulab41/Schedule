@@ -95,7 +95,6 @@
   white-space: nowrap;
 }
 
-.phase-chip,
 .readiness-scope,
 .built-in-badge {
   display: inline-flex;

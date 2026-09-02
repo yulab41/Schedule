@@ -13,7 +13,6 @@
       <text class="header-title-main">排班补录</text>
       <text class="header-title-sub">{{currentGroupName}} · 管理员</text>
     </view>
-    <text class="phase-chip">P5</text>
   </view>
 
   <scroll-view

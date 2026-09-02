@@ -409,25 +409,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       const request = findMyRequest(this, event.currentTarget.dataset['id']);
       if (request !== undefined) void confirmRequestMutation(this, request, 'revoke');
     },
-
-    handleUnavailable(this: LeavePageInstance, event: DatasetEvent): void {
-      const label = event.currentTarget.dataset['label'] ?? '此功能';
-      this.setData({ infoMessage: `${label}将在后续 P7 阶段开放。` });
-    },
-
-    handleSwapNav(this: LeavePageInstance): void {
-      if (this._currentGroupId === '') return;
-      wx.redirectTo({
-        url: `/subpackages/workflows/pages/swap/index?groupId=${encodeURIComponent(this._currentGroupId)}`,
-      });
-    },
-
-    handleDutyNav(this: LeavePageInstance): void {
-      if (this._currentGroupId === '') return;
-      wx.redirectTo({
-        url: `/subpackages/workflows/pages/duty/index?groupId=${encodeURIComponent(this._currentGroupId)}`,
-      });
-    },
   };
 }
 
