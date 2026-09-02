@@ -5,59 +5,38 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 当前仓库批次（2026-09-02）
 
-- 唯一任务：`MINI-G1-003` 排班配置轮转数字输入的岗位×成员全量重建；状态为
-  `P2，逻辑层性能问题已确认并修复；真机可见卡顿未直接确认`。
-- 起始主线：`origin/main@a4f50c0207ccb67f5ccdc78dd3912ba248fec9af`；执行前 fetch 后无 SHA 漂移。
-- 修复分支/worktree：`codex/fix-mini-g1-003-scheduling-input` /
-  `runtime/external-project-worktrees/mini-g1-003-scheduling-input-20260902`。
-- checkpoint 识别信息：`fix(miniprogram): localize scheduling rotation input updates`。
-- fresh worktree frozen install：1,459 包本地复用、0 下载、7m49.3s；7 个 workspace packages 在本
-  worktree 构建通过，锁文件未变，没有借用主工作区 dist。
-- 用户脏主工作区、既有 worktree、`MINI-G1-001/002`、XMB、test-tools、通讯录并行成果和其他分支均未
-  修改、清理或覆盖；不重跑阶段 0。
+- 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`，当前基线为
+  `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`。
+- 当前活动批次：`EXP-UX-001`；用户已批准设计，书面 spec 已写入，当前等待书面 spec 复核，尚未改
+  业务源码或测试合同。
+- 修复分支/worktree：`codex/fix-exp-ux-001` /
+  `runtime/external-project-worktrees/exp-ux-001`；worktree 从最新 `origin/main` 创建且初始 clean。
+- 设计 checkpoint：`docs(superpowers): design EXP-UX-001 experience fixes`（提交前识别信息）。
+- 用户主工作区和其他 worktree 的既有内容未修改、清理、暂存或借用；不重跑阶段 0，不执行
+  `MINI-G1-004`。
 
-## 根因、红灯与修复
+## 当前设计与证据
 
-- 引入点：`38233039` 初次实现 P8 scheduling config 时，让 `handleRotationInput` 的标量草稿更新复用
-  `createRoleCards`，导致每字符遍历所有岗位、复制/排序每岗全部群组成员并完整回传 `roleCards`。
-- 依赖核实：每天人数/当前位置只影响 `_rotationDrafts`、目标显示和最终保存 payload；起始日期同样不
-  影响成员。它们不改变成员归属、岗位/成员排序、卡片数或 picker 成员列表。成员选择/移动确实改变
-  关系，继续使用完整重建；班种输入和其他页面未处理。
-- 永久测试扩展 `apps/miniprogram/scripts/p8-organization-c2-controller.test.mjs`。夹具名称纠正后，在未改
-  业务源码时纯净目标合同 3 项红；既有读取/创建和必要成员重建 3 项保持绿。
-- 修复前同一字符：4×2 为 1 次 `setData`/`roleCards`/2,476B/4 次排序/8 个成员视图复制；4×100 为
-  1 次/`roleCards`/53,364B/4 次排序/400 个成员视图复制，payload 增长 50,888B、复制增长 392。
-- 最小修复：保留原 `_rotationDrafts` 和 `toPositiveInt`，按稳定 `roleId` 当场查当前索引，只更新
-  `roleCards[index]` 的目标字段；岗位缺失/未知字段保留旧全量回退。没有 debounce、缓存或架构改造。
-- 修复后 4×2/4×100 均为 1 次精确路径 `setData`、41B，排序/岗位/成员数组/成员视图重建与增长均为 0。
-- 保持语义：目标卡片立即显示；连续输入取最后值；空串/非法值仍为 1；没有新增失焦处理；原提示不
-  被清除；保存使用最新值；重排卡片后仍按稳定 ID 更新正确岗位；其他岗位/成员及成员关系操作不变。
+- 书面设计：`docs/superpowers/specs/2026-09-02-exp-ux-001-design.md`。已完成占位符、范围、内部一致性
+  和验证边界自审。
+- 真实小米 14 证据包含：工作台换班 sheet 被底栏覆盖、同一空下拉再次点击仍打开、通讯录筛选 sheet
+  正常、请假/加扣班直达页遗留底栏；用户另确认删除所有页面右上角 P 阶段标签。
+- 静态根因已定位：换班 panel 使用局部 `absolute/z40` sheet，而工作台底栏是页面级 fixed 导航层；
+  picker 的 `handleOpen` 缺少自身 open toggle；三个 workflow panel 同时拥有同一遗留 bottom-nav；
+  13 个 header `phase-chip` P5/P7/P8/P9 节点来自 WXML 静态文本。
 
-## 最终候选验证
+## 设计 checkpoint 验证与边界
 
-- 永久 controller 合同 6/6；所有含 scheduling-config 的相关测试 16 files/75 tests。
-- 标准 `pnpm miniprogram:test` 自动发现扩展文件，113 files/612 tests 全绿。
-- Mini TypeScript 通过；production build 276 files。
-- `pnpm miniprogram:verify` 通过：main 1,677,998B、total 5,121,615B、Worklet 2/2、matrix
-  1445/1506。相对未改基线 total +179B、organization +180B；main -1B 为元数据噪声；只有既有三项
-  warning，没有新增依赖或 warning 类别。
-- 任务文件 Prettier/ESLint、`git diff --check`、状态策略 3/3 与 `smoke:check-core` 通过；未触及 Web
-  核心链路，无需 `pnpm smoke:browser`。
-- 真实微信 bridge/帧率和小米 14 可见卡顿当前工具无法测量，暂未验证；自动化已足以收口逻辑问题，
-  不要求用户真机复现，也不新增 test-tools。
-
-## 精确范围与外部边界
-
-- 业务源码仅 scheduling-config panel controller；永久测试扩展现有 P8-C-2 controller 文件；另更新
-  audit 报告、audit STATUS、本文件和 `docs/debug/debug-feedback-log.md`。
-- 没有 `MINI-G1-004`、XMB、test-tools、班种输入、API/DB、权限、路由、视觉、排班规则、锁文件、
-  构建产物或生产状态变更。
-- 未调用微信开发者工具 GUI/CLI，未上传体验版、未提审/发布，未部署 production、未创建生产备份。
+- 已执行 `git diff --check`，设计文档无格式错误；尚未运行业务测试、构建、verify 或包体测量。
+- 计划先新增 `EXP-UX-001` 永久合同并在旧实现上确认红灯，再改共享 sheet/picker/page shell/标签源码。
+- 保留 buildLabel、SHA/版本编译变量、测试工具内部 metadata 和 P1 左侧诊断说明；导出页 CSV 将改用
+  `format-chip`，不保留 phase 样式链路。
+- 未调用微信开发者工具 GUI/CLI，未上传体验版，未部署 production，未创建生产备份。
 
 ## 唯一下一任务与停止条件
 
-最终 tip 全量验证后再次 fetch。若主线漂移，语义整合并复跑受影响测试、Mini 全量、verify、状态策略和
-core smoke；修复分支可先普通推送，main 只做一次最终普通 fast-forward，不 force push。核对远端 SHA、
-工作树 clean、无未推送提交后停止。
-
-后续唯一候选可记录为 `MINI-G1-004`；本轮不执行。
+- 下一任务：用户复核并确认书面 spec；确认后只新增永久回归合同，在旧源码上记录红灯。
+- spec 复核前停止业务实现；实现后需在同一最终 tip 完成用户指定全量验证、更新审计/debug/状态文档，
+  再 fetch 最新主线并处理普通漂移。
+- 主线只做一次最终普通 fast-forward 推送，不 force push；不上传体验版、不部署 production。完成主线收口
+  后停止，不开始事件记录、日期组件或图标任务。
