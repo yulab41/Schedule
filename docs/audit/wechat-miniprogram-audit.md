@@ -1039,9 +1039,32 @@ P8×4、insights P9×4。对应 standalone/合并 badge 的 `.phase-chip` 样式
 
 已完成的自动化层级包括 EXP 定向合同、bottom-sheet/ui-sheet、workflow picker、workflow page/controller/
 lifecycle、P7 相关测试、Mini 全量、Mini TypeScript、production build、`miniprogram:verify`、source audit、
-包体审计、`git diff --check`；微信开发者工具 GUI/CLI 按仓库政策未调用，未上传体验版，未部署 production。
-根仓库 TypeScript、ESLint、Prettier 和 `smoke:check-core` 必须在最终文档 tip 再跑并以实际结果记录；全仓
-format 基线已有与本批无关的既存失败，不修改其文件。
+包体审计、根仓库 TypeScript、ESLint、全仓 Prettier、`pnpm test` 和 `git diff --check`；微信开发者工具 GUI/CLI
+按仓库政策未调用。`pnpm smoke:browser` 已实际运行，但第一次因 5173 未监听失败；按正式启动方式重试时该
+worktree 缺少本地 `.env`，API 无法启动，未进入产品断言，端口也已确认无残留；该环境结果不替代 production
+verifier。
+
+### 11.7 体验上传、production release 和 allowlist（2026-09-02）
+
+- 最终 production 源码 tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`。由于生产 live release
+  `50ac2d07a3412c6d76a3494b1150868276f4781c` 来自另一条已部署历史且数据库已经是 schema 53，将该 production
+  父线合入 EXP tip；这样保留目录查询能力，并使 `rollbackCandidate=50ac2d07` 合法。最终 ECS manifest 的
+  schema 范围为 52..53，应用/控制面/schema/retained archive 哈希与当前生产一致，因此采用 trusted reuse，未
+  迁移数据库、未重建 API/Web 容器。
+- 发布前通过可信备份 job 创建生产加密备份：`bd5f74d6-4b06-4330-878b-9c1f87c6ee9f`，daily、55 表、
+  206,133 行、91,326,356B；reuse 前后及正式域名 full verifier 均通过，当前 production release 为上述
+  `3897581e`。
+- `0.1.0-p10.20260902.80` 从同一 production profile、同一源码 tip 的 clean worktree 经官方 Node
+  `miniprogram-ci` 上传成功：191 code files、ZIP `2,451,857B`、upload manifest
+  `a0b6a3ce4ed762f6151932ebbf83f74cdfa9dead63dee398b50b380eeae4deaf`。首次代理/直连均因 TUN/IPv6 出口被
+  微信 `-10008 invalid ip` 拒绝；未成版、未改 allowlist。最终仅在进程级把 `servicewechat.com` 绑定到真实
+  IPv4 后成功，未修改 hosts、VPN 或系统配置。
+- 使用正式域名、`aliyun_schedule` 私钥和 `StrictHostKeyChecking=yes` 执行可信
+  `schedule-client-version-allowlist ensure`；`.80` 已追加并通过 API/Web 健康、七维 capability、legacy 和
+  动态未知版本 HTTP 426 探针，随后 `verify` 与 `ECS_PUBLIC_IP=120.77.220.79` full verifier 通过。临时远端
+  manifest 已删除。
+- 以上是体验上传与生产服务器部署证据，不是微信提审或小程序正式发布；小米 14 真机触摸、安全区、内部滚动、
+  系统返回和 Skyline 体验仍待用户用 `.80` 人工复核。
 
 下一版 Xiaomi 14 最小验收：
 

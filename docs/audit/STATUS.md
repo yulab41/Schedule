@@ -3,9 +3,11 @@
 ## 当前阶段
 
 - 当前批次：`EXP-UX-001`；用户已确认书面设计，代码与永久回归合同已完成，自动化状态为“已完成”，整体
-  状态为“待用户复核”。
-- 基线：`origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；执行分支/worktree 为
+  状态为“已完成（自动验证、体验上传与 production release）→ 待用户复核”。
+- 起始基线：`origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`；执行分支/worktree 为
   `codex/fix-exp-ux-001` / `runtime/external-project-worktrees/exp-ux-001`。
+- 为保留 production `50ac2d07a3412c6d76a3494b1150868276f4781c` 的 schema 53 与目录查询能力，最终源码
+  release tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`（第一父 `d1594d09`，第二父为 production release）。
 - 范围：换班 sheet、共用 workflow picker、leave/swap/duty 非 Tab 遗留底栏、所有页面右上角 P5/P7/P8/P9
   标签；不重跑阶段 0，不执行 `MINI-G1-004`、日期选择器业务、事件记录或全局图标重构。
 
@@ -27,14 +29,19 @@
 
 ## 验证与边界
 
-- `pnpm miniprogram:test`、Mini typecheck/build/source/verify、根 build/typecheck/lint、定向 Prettier、
-  `git diff --check`、`smoke:check-core` 均已通过；全仓 format 只剩记录中的 12 个既有无关文件。
-- 当前工具按仓库政策未调用微信开发者工具 GUI/CLI，未上传体验版、未部署 production、未创建生产备份。
-  Node、WXS、静态层级和包体证据不能代替 Xiaomi 14 原生手势、安全区、Skyline 渲染或系统返回验收。
+- `pnpm miniprogram:test` 为 114 files / 621 tests；Mini typecheck/build/source/verify、根 build/typecheck/lint、
+  `pnpm test`（246 files / 1,170 passed / 364 skipped）、全仓 Prettier、`git diff --check` 均通过。
+- `pnpm smoke:browser` 已运行但未进入产品断言：初次 5173 未监听；按正式启动方式重试时该 worktree 缺少本地
+  `.env`，API 无法启动；端口已确认无残留。`pnpm smoke:check-core` 在补记该结果后通过。
+- 当前工具按仓库政策未调用微信开发者工具 GUI/CLI。`.80` 已从 production profile 上传（191 code files、ZIP
+  `2,451,857B`、upload manifest `a0b6a3ce…4deaf`）；production release 已切换并完成 allowlist。
+  生产备份为 `bd5f74d6-4b06-4330-878b-9c1f87c6ee9f`（55 表、206,133 行、91,326,356B）。
+- allowlist `0.1.0-p10.20260902.80` 的 ensure/verify、七维 capability、未知版本 426、带公网 IP full verifier
+  均通过；Node、WXS、静态层级和包体证据不能代替 Xiaomi 14 原生手势、安全区、Skyline 渲染或系统返回验收。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：待用户明确授权当前最终 SHA 体验版后，按审计主报告第 11.6 节执行 Xiaomi 14 最小验收，
-  覆盖 sheet 高度/footer/内部滚动/拖动回弹、picker toggle/清理、请假/加扣班返回和所有右上角 P… 消失。
-- 本批完成主线普通 fast-forward 收口后停止；不上传体验版、不部署 production，不进入事件记录、日期组件或
-  图标任务。未验证项在下一版实体设备证据到达前保持“待用户复核”。
+- 唯一下一任务：用户在 `.80` 体验版按审计主报告第 11.6 节执行 Xiaomi 14 最小验收，覆盖 sheet 高度/footer/
+  内部滚动/拖动回弹、picker toggle/清理、请假/加扣班返回和所有右上角 P… 消失。
+- 本批完成主线普通 fast-forward 收口后停止；不进入事件记录、日期组件或图标任务。未验证项在下一版实体设备
+  证据到达前保持“待用户复核”。

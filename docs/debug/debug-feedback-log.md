@@ -2,6 +2,29 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-02 EXP-UX-001 最终体验上传与 production 收口
+
+- 最终源码 tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`：在 `d1594d09` EXP 修复 tip 上合入当前
+  production release `50ac2d07a3412c6d76a3494b1150868276f4781c`，保留已部署的目录查询与 schema 53，避免
+  以 schema 52 版本覆盖现网；新 manifest 的 rollback candidate 为当前 live `50ac2d07`。
+- 合并后复验：Mini `114 files / 621 tests`，根 `pnpm test` `246 files / 1,170 passed / 364 skipped`，
+  TypeScript、production build（Mini 276 files/Web 4,242 modules）、Mini source/verify、ESLint、全仓
+  Prettier、`git diff --check` 均通过。Mini production package `5,113,419B`，相对 `5,121,616B` 实际减少
+  `8,197B`；主包与矩阵既有 warning 未扩大。
+- 运行/浏览器验证：`pnpm smoke:browser` 第一次在 1/6 因 `localhost:5173` 未启动拒绝连接；按仓库启动方式
+  重试时该 worktree 缺少本地 `.env`，API 无法启动，未进入产品断言；端口已确认无残留。此结果不写成浏览器
+  功能通过，也不替代 production verifier。
+- production：备份 `bd5f74d6-4b06-4330-878b-9c1f87c6ee9f`（daily、55 表、206,133 行、91,326,356B，
+  SHA `a611672e…edb602`）成功；应用/控制面/schema/retained archive 哈希与现网一致，trusted reuse 无停机
+  切换到 `3897581e`，未迁移数据库或重建 API/Web。随后通过正式域名的 SSH 路径、现有 `aliyun_schedule` 私钥
+  和 `StrictHostKeyChecking=yes` 完成 allowlist 与完整 verifier。
+- 体验版：`0.1.0-p10.20260902.80` production profile 上传成功，191 code files、ZIP `2,451,857B`、
+  upload manifest `a0b6a3ce…4deaf`。代理/普通直连先后因 TUN/IPv6 出口触发微信 `-10008 invalid ip`，未成版、
+  未改白名单；最终只在本次 Node 子进程将正式微信域名绑定到真实 IPv4，未修改 hosts、VPN 或系统配置。
+- allowlist：可信 add-only `ensure 0.1.0-p10.20260902.80` 追加成功；`verify`、`.80` 七维 capability、
+  legacy、动态未知版本 HTTP 426 和 `ECS_PUBLIC_IP=120.77.220.79` full verifier 全部通过。未提审、未正式发布
+  小程序；下一步仅是用户在 `.80` 上做 Xiaomi 14 原生交互复核，不进入日期组件、事件记录或图标任务。
+
 ## 2026-09-02 MINI-G1-003 排班配置轮转输入局部更新
 
 - 基线/范围：fetch 后从 clean `origin/main@a4f50c02` 建立独立仓库内 worktree；只改 scheduling-config
