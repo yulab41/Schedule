@@ -21,7 +21,8 @@ describe('directory controlled Server-Timing', () => {
     app.decorate('authenticate', async (request: { authenticatedIdentity?: unknown }) => {
       request.authenticatedIdentity = identity;
     });
-    list = vi.fn(async (_identity, _groupId, _query, _kind, timing) => {
+    list = vi.fn(async (_identity, _groupId, _query, _kind, timing, observePlan) => {
+      observePlan?.('candidate');
       Object.assign(timing ?? {}, {
         aliasMs: 1,
         batchMs: 2,
@@ -29,6 +30,7 @@ describe('directory controlled Server-Timing', () => {
         countMs: 12,
         databaseWaitMs: 7,
         permissionMs: 8,
+        directoryQueryPlan: 'candidate',
         queryMs: 46,
         rowsMs: 30,
         transformMs: 1,
@@ -60,6 +62,7 @@ describe('directory controlled Server-Timing', () => {
     const timing = response.headers['server-timing'];
     expect(timing).toContain('queue;desc="unsupported"');
     expect(timing).toContain('cache;desc="none"');
+    expect(timing).toContain('directory_plan;desc="candidate"');
     expect(timing).toMatch(/cold;desc="(?:cold|warm)"/u);
     expect(timing).toContain('db_wait;dur=7');
     expect(timing).toContain('rows;dur=30');
@@ -67,6 +70,7 @@ describe('directory controlled Server-Timing', () => {
     expect(timing).not.toContain('private-value');
     expect(list).toHaveBeenCalledTimes(1);
     expect(list.mock.calls[0]?.[4]).toBeDefined();
+    expect(list.mock.calls[0]?.[5]).toBeTypeOf('function');
   });
 
   it('does not expose timing without both the diagnostic opt-in and Mini Program platform', async () => {

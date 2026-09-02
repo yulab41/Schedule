@@ -1,9 +1,15 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import {
   createTestDatabaseClient,
+  directoryCampuses,
+  directoryCandidateMigrationIdentity,
+  directoryEntries,
+  directoryImportBatches,
   migrateDatabase,
+  withTransaction,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
@@ -12,10 +18,23 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import {
+  buildCandidateSearch,
+  buildSearchRank,
+  resolveEmployeeCodeEntryIds,
+} from './directory-query.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
+const directoryAuthTokens = {
+  'administrator-token': 'directory-administrator',
+  'developer-token': 'directory-developer',
+  'guest-token': 'directory-guest',
+  'member-token': 'directory-member',
+  'outsider-token': 'directory-outsider',
+  'owner-token': 'directory-owner',
+} as const;
 
 describeWithDatabase('internal directory routes', () => {
   let app: ReturnType<typeof createApp>;
@@ -28,13 +47,7 @@ describeWithDatabase('internal directory routes', () => {
     await migrateDatabase(client, migrationsDirectory);
     groupId = await seedDirectoryFixture(client);
     app = createApp({
-      authPort: createFakeAuthPort({
-        'administrator-token': 'directory-administrator',
-        'developer-token': 'directory-developer',
-        'guest-token': 'directory-guest',
-        'member-token': 'directory-member',
-        'outsider-token': 'directory-outsider',
-      }),
+      authPort: createFakeAuthPort(directoryAuthTokens),
       databaseClient: client,
       logger: false,
     });
@@ -200,6 +213,333 @@ describeWithDatabase('internal directory routes', () => {
     expect(malformed.statusCode).toBe(400);
   });
 
+  it('keeps legacy and candidate results identical across routing, roles, and cursor handoffs', async () => {
+    const candidateApp = createApp({
+      authPort: createFakeAuthPort(directoryAuthTokens),
+      databaseClient: client,
+      directoryQueryPlan: 'candidate',
+      logger: false,
+    });
+    try {
+      const scenarios = [
+        ['member-token', 'q=%E6%80%A5%E8%AF%8A'],
+        ['member-token', 'q=jzk'],
+        ['member-token', 'q=jizhenke'],
+        ['member-token', 'q=D0468'],
+        ['member-token', 'q=0468'],
+        ['member-token', 'q=0000000001'],
+        ['member-token', 'q=not-present'],
+        ['member-token', 'q=j'],
+        ['member-token', 'q=j&department=%E6%80%A5%E8%AF%8A%E7%A7%91'],
+        ['member-token', 'pageSize=2'],
+        ['owner-token', 'q=j'],
+        ['administrator-token', 'q=j'],
+        ['developer-token', 'q=j'],
+        ['guest-token', 'q=j'],
+        ['outsider-token', 'q=j'],
+      ] as const;
+      for (const [token, query] of scenarios) {
+        const request = {
+          headers: { authorization: `Bearer ${token}` },
+          method: 'GET' as const,
+          url: `/groups/${groupId}/directory?${query}`,
+        };
+        const [legacy, candidate] = await Promise.all([
+          app.inject(request),
+          candidateApp.inject(request),
+        ]);
+        expect(candidate.statusCode, `${token}:${query}`).toBe(legacy.statusCode);
+        if (legacy.statusCode === 200) {
+          expect(candidate.json(), `${token}:${query}`).toEqual(legacy.json());
+        }
+      }
+
+      const canonical = await collectPageIds(app, app, 'member-token', 'q=j&pageSize=1');
+      expect(await collectPageIds(app, candidateApp, 'member-token', 'q=j&pageSize=1')).toEqual(
+        canonical,
+      );
+      expect(await collectPageIds(candidateApp, app, 'member-token', 'q=j&pageSize=1')).toEqual(
+        canonical,
+      );
+      expect(new Set(canonical)).toHaveProperty('size', canonical.length);
+
+      const candidateTiming = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=jzk`,
+      });
+      const filteredTiming = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=jzk&department=%E6%80%A5%E8%AF%8A%E7%A7%91`,
+      });
+      const singleCharacterTiming = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=j`,
+      });
+      expect(candidateTiming.headers['server-timing']).toContain('directory_plan;desc="candidate"');
+      expect(filteredTiming.headers['server-timing']).toContain('directory_plan;desc="legacy"');
+      expect(singleCharacterTiming.headers['server-timing']).toContain(
+        'directory_plan;desc="legacy"',
+      );
+    } finally {
+      await candidateApp.close();
+    }
+  });
+
+  it.each([17, 43, 89])(
+    'keeps randomized semantic differences at zero for deterministic seed %i',
+    async (seed) => {
+      await replacePublishedDirectorySnapshot(client, seed);
+      const candidateApp = createApp({
+        authPort: createFakeAuthPort(directoryAuthTokens),
+        databaseClient: client,
+        directoryQueryPlan: 'candidate',
+        logger: false,
+      });
+      try {
+        for (const query of buildDifferentialQueries(seed)) {
+          const [legacy, candidate] = await Promise.all([
+            readAllDirectoryPages(app, groupId, 'member-token', query),
+            readAllDirectoryPages(candidateApp, groupId, 'member-token', query),
+          ]);
+          expect(candidate, `seed=${seed};query=${query}`).toEqual(legacy);
+          if (usesCandidateRankPath(query)) {
+            const ranks = await readLegacyAndCandidateRanks(
+              client,
+              new URLSearchParams(query).get('q') ?? '',
+            );
+            expect(ranks.candidate, `seed=${seed};rank-query=${query}`).toEqual(ranks.legacy);
+          }
+        }
+
+        const roleQuery = new URLSearchParams({
+          pageSize: '1',
+          q: `shared-${seed}`,
+        }).toString();
+        for (const token of ['member-token', 'owner-token', 'administrator-token', 'guest-token']) {
+          const [legacy, candidate] = await Promise.all([
+            readAllDirectoryPages(app, groupId, token, roleQuery),
+            readAllDirectoryPages(candidateApp, groupId, token, roleQuery),
+          ]);
+          expect(candidate, `seed=${seed};role=${token}`).toEqual(legacy);
+        }
+
+        await client.database.execute(sql`
+          UPDATE group_memberships AS membership
+          INNER JOIN users AS account ON account.id = membership.user_id
+          SET membership.role = 'administrator'
+          WHERE membership.group_id = ${groupId}
+            AND account.cloudbase_uid = 'directory-member'
+        `);
+        const [legacyAfterRoleChange, candidateAfterRoleChange] = await Promise.all([
+          readAllDirectoryPages(app, groupId, 'member-token', roleQuery),
+          readAllDirectoryPages(candidateApp, groupId, 'member-token', roleQuery),
+        ]);
+        expect(candidateAfterRoleChange).toEqual(legacyAfterRoleChange);
+        expect(candidateAfterRoleChange.statusCode).toBe(200);
+      } finally {
+        await candidateApp.close();
+      }
+    },
+  );
+
+  it('keeps candidate disabled when the journal still has 53 rows but lacks exact migration 0053', async () => {
+    const [[before]] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count FROM __drizzle_migrations
+    `)) as unknown as [[{ count: number | string }], unknown];
+    expect(Number(before?.count)).toBe(53);
+    await client.database.execute(sql`
+      DELETE FROM __drizzle_migrations
+      WHERE created_at = ${directoryCandidateMigrationIdentity.createdAt}
+    `);
+    await client.database.execute(sql`
+      INSERT INTO __drizzle_migrations (hash, created_at)
+      VALUES (${'f'.repeat(64)}, ${directoryCandidateMigrationIdentity.createdAt + 1})
+    `);
+    const [[after]] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count FROM __drizzle_migrations
+    `)) as unknown as [[{ count: number | string }], unknown];
+    expect(Number(after?.count)).toBe(53);
+    const logLines: string[] = [];
+    const loggerStream = new Writable({
+      write(chunk, _encoding, callback) {
+        logLines.push(String(chunk));
+        callback();
+      },
+    });
+    const candidateApp = createApp({
+      authPort: createFakeAuthPort(directoryAuthTokens),
+      databaseClient: client,
+      directoryQueryPlan: 'candidate',
+      loggerStream,
+    });
+    try {
+      const response = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=jzk`,
+      });
+      expect(response.statusCode, response.payload).toBe(200);
+      expect(response.headers['server-timing']).toContain('directory_plan;desc="legacy"');
+      expect(
+        logLines
+          .map((line) => JSON.parse(line) as Record<string, unknown>)
+          .filter((entry) => entry['event'] === 'directory_candidate_plan_unavailable'),
+      ).toEqual([
+        expect.objectContaining({
+          directoryQueryPlan: 'legacy',
+          reason: 'migration-index-inconsistent',
+        }),
+      ]);
+    } finally {
+      await candidateApp.close();
+    }
+  });
+
+  it('falls back without a 500 when candidate is configured without its exact index', async () => {
+    await client.database.execute(sql`
+      ALTER TABLE directory_search_aliases
+        DROP INDEX directory_search_aliases_entry_type_normalized_idx,
+        ALGORITHM=INPLACE,
+        LOCK=NONE
+    `);
+    const logLines: string[] = [];
+    const loggerStream = new Writable({
+      write(chunk, _encoding, callback) {
+        logLines.push(String(chunk));
+        callback();
+      },
+    });
+    const candidateApp = createApp({
+      authPort: createFakeAuthPort(directoryAuthTokens),
+      databaseClient: client,
+      directoryQueryPlan: 'candidate',
+      loggerStream,
+    });
+    try {
+      const response = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=private-marker`,
+      });
+      expect(response.statusCode, response.payload).toBe(200);
+      expect(response.headers['server-timing']).toContain('directory_plan;desc="legacy"');
+      const forbidden = await candidateApp.inject({
+        headers: { authorization: 'Bearer guest-token' },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=private-marker`,
+      });
+      expect(forbidden.statusCode).toBe(403);
+      const entries = logLines
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .filter((entry) => entry['event'] === 'directory_candidate_plan_unavailable');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        directoryQueryPlan: 'legacy',
+        reason: 'index-missing-or-invalid',
+      });
+      expect(JSON.stringify(entries[0])).not.toContain('private-marker');
+      expect(JSON.stringify(entries[0])).not.toContain(groupId);
+      const planEntries = logLines
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .filter((entry) => entry['event'] === 'directory_query_plan_selected');
+      expect(planEntries).toHaveLength(2);
+      for (const planEntry of planEntries) {
+        expect(planEntry).toMatchObject({ directoryQueryPlan: 'legacy' });
+        expect(JSON.stringify(planEntry)).not.toContain('private-marker');
+        expect(JSON.stringify(planEntry)).not.toContain(groupId);
+      }
+    } finally {
+      await candidateApp.close();
+    }
+  });
+
+  it('rejects a same-name index with a different ordered definition', async () => {
+    await client.database.execute(sql`
+      ALTER TABLE directory_search_aliases
+        DROP INDEX directory_search_aliases_entry_type_normalized_idx,
+        ALGORITHM=INPLACE,
+        LOCK=NONE
+    `);
+    await client.database.execute(sql`
+      ALTER TABLE directory_search_aliases
+        ADD INDEX directory_search_aliases_entry_type_normalized_idx
+          (type, entry_id, normalized_value),
+        ALGORITHM=INPLACE,
+        LOCK=NONE
+    `);
+    const candidateApp = createApp({
+      authPort: createFakeAuthPort(directoryAuthTokens),
+      databaseClient: client,
+      directoryQueryPlan: 'candidate',
+      logger: false,
+    });
+    try {
+      const response = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=jzk`,
+      });
+      expect(response.statusCode, response.payload).toBe(200);
+      expect(response.headers['server-timing']).toContain('directory_plan;desc="legacy"');
+    } finally {
+      await candidateApp.close();
+    }
+  });
+
+  async function collectPageIds(
+    firstApp: ReturnType<typeof createApp>,
+    subsequentApp: ReturnType<typeof createApp>,
+    token: string,
+    initialQuery: string,
+  ): Promise<readonly string[]> {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    let pageIndex = 0;
+    do {
+      const response = await (pageIndex === 0 ? firstApp : subsequentApp).inject({
+        headers: { authorization: `Bearer ${token}` },
+        method: 'GET',
+        url:
+          `/groups/${groupId}/directory?${initialQuery}` +
+          (cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`),
+      });
+      expect(response.statusCode, response.payload).toBe(200);
+      const page = response.json<{ entries: { id: string }[]; nextCursor?: string }>();
+      ids.push(...page.entries.map((entry) => entry.id));
+      cursor = page.nextCursor;
+      pageIndex += 1;
+      expect(pageIndex).toBeLessThan(20);
+    } while (cursor !== undefined);
+    return ids;
+  }
+
   async function getDirectory(
     token: string,
     query: string,
@@ -244,6 +584,70 @@ interface SeedUser {
   readonly id: string;
   readonly membershipRole?: 'administrator' | 'guest' | 'member' | 'owner';
   readonly uid: string;
+}
+
+async function readLegacyAndCandidateRanks(
+  client: DatabaseClient,
+  query: string,
+): Promise<{
+  candidate: readonly { id: string; rank: number }[];
+  legacy: readonly { id: string; rank: number }[];
+}> {
+  const [batch] = await client.database
+    .select({ id: directoryImportBatches.id })
+    .from(directoryImportBatches)
+    .where(
+      sql`${directoryImportBatches.directoryKind} = 'internal'
+      AND ${directoryImportBatches.status} = 'published'`,
+    )
+    .limit(1);
+  if (batch === undefined) throw new Error('Published internal directory batch is missing.');
+  return withTransaction(client, async (transaction) => {
+    const employeeCodeEntryIds = await resolveEmployeeCodeEntryIds(transaction, batch.id, query);
+    const legacyRank = buildSearchRank(query, employeeCodeEntryIds);
+    const [legacyRows] = (await transaction.execute(sql`
+      SELECT ${directoryEntries.id} AS id, ${legacyRank} AS searchRank
+      FROM ${directoryEntries}
+      INNER JOIN ${directoryCampuses}
+        ON ${directoryCampuses.id} = ${directoryEntries.campusId}
+      WHERE ${directoryEntries.batchId} = ${batch.id}
+        AND ${directoryEntries.visibility} = 'member'
+        AND ${legacyRank} > 0
+      ORDER BY ${legacyRank} DESC,
+               ${directoryCampuses.displayOrder} ASC,
+               ${directoryEntries.displayOrder} ASC,
+               ${directoryEntries.id} ASC
+    `)) as unknown as [readonly { id: string; searchRank: number | string }[], unknown];
+    const candidates = buildCandidateSearch(batch.id, query, false, employeeCodeEntryIds);
+    const candidateRank = sql<number>`candidate_rank.search_rank`;
+    const [candidateRows] = (await transaction.execute(sql`
+      SELECT ${directoryEntries.id} AS id, ${candidateRank} AS searchRank
+      FROM (${candidates}) AS candidate_rank
+      INNER JOIN ${directoryEntries}
+        ON ${directoryEntries.id} = candidate_rank.entry_id
+      INNER JOIN ${directoryCampuses}
+        ON ${directoryCampuses.id} = ${directoryEntries.campusId}
+      WHERE ${directoryEntries.batchId} = ${batch.id}
+        AND ${directoryEntries.visibility} = 'member'
+        AND ${candidateRank} > 0
+      ORDER BY ${candidateRank} DESC,
+               ${directoryCampuses.displayOrder} ASC,
+               ${directoryEntries.displayOrder} ASC,
+               ${directoryEntries.id} ASC
+    `)) as unknown as [readonly { id: string; searchRank: number | string }[], unknown];
+    const normalize = (rows: readonly { id: string; searchRank: number | string }[]) =>
+      rows.map((row) => ({ id: row.id, rank: Number(row.searchRank) }));
+    return { candidate: normalize(candidateRows), legacy: normalize(legacyRows) };
+  });
+}
+
+function usesCandidateRankPath(query: string): boolean {
+  const parameters = new URLSearchParams(query);
+  const search = parameters.get('q')?.trim();
+  if (search === undefined || [...search].length <= 1) return false;
+  return !['building', 'campusCode', 'department', 'entryKind', 'floor', 'section', 'subunit'].some(
+    (key) => parameters.has(key),
+  );
 }
 
 async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
@@ -439,6 +843,234 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
   }
 
   return groupId;
+}
+
+async function replacePublishedDirectorySnapshot(
+  client: DatabaseClient,
+  seed: number,
+): Promise<void> {
+  const [campusRows] = (await client.database.execute(sql`
+    SELECT id FROM directory_campuses WHERE code = 'central' LIMIT 1
+  `)) as unknown as [readonly { id: string }[], unknown];
+  const campusId = campusRows[0]?.id;
+  if (campusId === undefined) throw new Error('Differential campus fixture is missing.');
+
+  await client.database.execute(sql`
+    UPDATE directory_import_batches
+    SET status = 'superseded', superseded_at = CURRENT_TIMESTAMP(3)
+    WHERE directory_kind = 'internal' AND status = 'published'
+  `);
+  const batchId = deterministicUuid(seed, 'batch', 0);
+  const documentId = deterministicUuid(seed, 'document', 0);
+  await client.database.execute(sql`
+    INSERT INTO directory_import_batches
+      (id, import_version, schema_version, status, effective_on, manifest_sha256,
+       source_document_count, entry_count, contact_method_count, warning_count,
+       diff_summary, warning_summary, published_at)
+    VALUES
+      (${batchId}, ${`directory-differential-${seed}`}, 1, 'published', '2026-09-02',
+       ${sha256(`manifest:${seed}`)}, 1, 7, 7, 0,
+       JSON_OBJECT('seed', ${seed}), JSON_OBJECT(), CURRENT_TIMESTAMP(3))
+  `);
+  await client.database.execute(sql`
+    INSERT INTO directory_source_documents
+      (id, batch_id, campus_id, document_key, title, source_sha256,
+       effective_on, page_count, display_order)
+    VALUES
+      (${documentId}, ${batchId}, ${campusId}, ${`seed-${seed}`}, '差分通讯录',
+       ${sha256(`document:${seed}`)}, '2026-09-02', 1, 10)
+  `);
+
+  const specialAliases = [
+    `CASEALIAS-${seed}`,
+    `混合Mixed-${seed}`,
+    `ＡＢＣ-${seed}`,
+    `space value ${seed}`,
+    `literal%${seed}`,
+    `literal_${seed}`,
+    `slash\\${seed}`,
+    `quote'${seed}`,
+    `Å${seed}`,
+    `İ${seed}`,
+  ];
+  for (let index = 0; index < 7; index += 1) {
+    const entryId = deterministicUuid(seed, 'entry', index);
+    const employeeCode = `D${String(seed).padStart(2, '0')}${String(index).padStart(3, '0')}`;
+    const phone = differentialPhone(seed, index);
+    const aliases: Array<{ normalized: string; type: string; value: string }> = [
+      { normalized: normalizeFixtureAlias(`测试${seed}`), type: 'source', value: `测试${seed}` },
+      {
+        normalized: normalizeFixtureAlias(`shared-${seed}`),
+        type: 'source',
+        value: `shared-${seed}`,
+      },
+      {
+        normalized: normalizeFixtureAlias(`seedfull${seed}${index}`),
+        type: 'pinyin_full',
+        value: `seedfull${seed}${index}`,
+      },
+      {
+        normalized: normalizeFixtureAlias(`seedcompact${seed}${index}`),
+        type: 'pinyin_compact',
+        value: `seedcompact${seed}${index}`,
+      },
+      { normalized: normalizeFixtureAlias(`s${seed}`), type: 'pinyin_initials', value: `s${seed}` },
+      { normalized: employeeCode.toLowerCase(), type: 'source', value: employeeCode },
+    ];
+    if (index < 5) {
+      aliases.push({
+        normalized: normalizeFixtureAlias(`exact-page-${seed}`),
+        type: 'manual',
+        value: `exact-page-${seed}`,
+      });
+    }
+    if (index < 6) {
+      aliases.push({
+        normalized: normalizeFixtureAlias(`over-page-${seed}`),
+        type: 'manual',
+        value: `over-page-${seed}`,
+      });
+    }
+    if (index === 0) {
+      aliases.push(
+        {
+          normalized: normalizeFixtureAlias(`shared-${seed}`),
+          type: 'manual',
+          value: `shared-${seed}`,
+        },
+        ...specialAliases.map((value) => ({
+          normalized: normalizeFixtureAlias(value),
+          type: 'manual',
+          value,
+        })),
+      );
+    }
+
+    await client.database.execute(sql`
+      INSERT INTO directory_entries
+        (id, batch_id, source_document_id, campus_id, entry_key, source_page,
+         source_locator, section_name, department_name, contact_name, employee_code,
+         entry_kind, visibility, display_order, search_text, content_sha256)
+      VALUES
+        (${entryId}, ${batchId}, ${documentId}, ${campusId}, ${`seed-${seed}-entry-${index}`}, 1,
+         ${`row-${index}`}, '差分一级', '差分科室', ${`测试人员${seed}-${index}`},
+         ${employeeCode}, 'person', ${index === 6 ? 'administrator' : 'member'},
+         ${index < 3 ? 10 : index * 10}, ${aliases.map((alias) => alias.value).join(' ')},
+         ${sha256(`entry:${seed}:${index}`)})
+    `);
+    await client.database.execute(sql`
+      INSERT INTO directory_contact_methods
+        (id, entry_id, type, full_number, normalized_full_number, contact_sha256,
+         is_primary, display_order)
+      VALUES
+        (${deterministicUuid(seed, 'contact', index)}, ${entryId}, 'mobile', ${phone}, ${phone},
+         ${sha256(`contact:${seed}:${index}`)}, 1, 10)
+    `);
+    for (const [aliasIndex, alias] of aliases.entries()) {
+      await client.database.execute(sql`
+        INSERT INTO directory_search_aliases
+          (id, entry_id, type, alias_value, normalized_value, alias_sha256)
+        VALUES
+          (${deterministicUuid(seed, `alias-${index}`, aliasIndex)}, ${entryId},
+           ${alias.type}, ${alias.value}, ${alias.normalized},
+           ${sha256(`alias:${seed}:${index}:${aliasIndex}`)})
+      `);
+    }
+  }
+}
+
+function buildDifferentialQueries(seed: number): readonly string[] {
+  const employeeCode = `D${String(seed).padStart(2, '0')}000`;
+  const queryValues = [
+    `测试${seed}`,
+    `shared-${seed}`,
+    `seedfull${seed}0`,
+    `seedfu`,
+    `s${seed}`,
+    employeeCode,
+    employeeCode.slice(1),
+    differentialPhone(seed, 0),
+    'not-present',
+    's',
+    `CASEALIAS-${seed}`,
+    `混合Mixed-${seed}`,
+    `ＡＢＣ-${seed}`,
+    `  space   value  ${seed}  `,
+    `literal%${seed}`,
+    `literal_${seed}`,
+    `slash\\${seed}`,
+    `quote'${seed}`,
+    `Å${seed}`,
+    `İ${seed}`,
+    'x'.repeat(100),
+  ];
+  return [
+    ...queryValues.map((q) => new URLSearchParams({ pageSize: '1', q }).toString()),
+    new URLSearchParams({ pageSize: '5', q: `exact-page-${seed}` }).toString(),
+    new URLSearchParams({ pageSize: '5', q: `over-page-${seed}` }).toString(),
+    new URLSearchParams({
+      campusCode: 'central',
+      entryKind: 'person',
+      pageSize: '2',
+      q: `shared-${seed}`,
+    }).toString(),
+    new URLSearchParams({ pageSize: '3' }).toString(),
+    new URLSearchParams({ pageSize: '100', q: `shared-${seed}` }).toString(),
+  ];
+}
+
+interface DirectoryReadSnapshot {
+  readonly code?: string | undefined;
+  readonly pages?: readonly unknown[] | undefined;
+  readonly statusCode: number;
+}
+
+async function readAllDirectoryPages(
+  targetApp: ReturnType<typeof createApp>,
+  targetGroupId: string,
+  token: string,
+  query: string,
+): Promise<DirectoryReadSnapshot> {
+  const pages: unknown[] = [];
+  let cursor: string | undefined;
+  for (let pageIndex = 0; pageIndex < 50; pageIndex += 1) {
+    const response = await targetApp.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url:
+        `/groups/${targetGroupId}/directory?${query}` +
+        (cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`),
+    });
+    if (response.statusCode !== 200) {
+      const error = response.json<{ code?: string }>();
+      return { code: error.code, statusCode: response.statusCode };
+    }
+    const page = response.json<{ nextCursor?: string }>();
+    pages.push(page);
+    cursor = page.nextCursor;
+    if (cursor === undefined) return { pages, statusCode: 200 };
+  }
+  throw new Error('Differential pagination did not terminate.');
+}
+
+function differentialPhone(seed: number, index: number): string {
+  return `70${String(seed).padStart(3, '0')}${String(index).padStart(6, '0')}`;
+}
+
+function normalizeFixtureAlias(value: string): string {
+  return value.normalize('NFKC').trim().toLowerCase().replaceAll(/\s+/gu, ' ');
+}
+
+function deterministicUuid(seed: number, namespace: string, index: number): string {
+  const hex = sha256(`${seed}:${namespace}:${index}`).slice(0, 32).split('');
+  hex[12] = '4';
+  hex[16] = '8';
+  const value = hex.join('');
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {

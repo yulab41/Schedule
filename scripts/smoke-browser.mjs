@@ -1184,6 +1184,58 @@ async function assertSelectPopupInsideSheet(sheet, label) {
   await dropdown.waitFor({ state: 'hidden', timeout: 5000 });
 }
 
+async function assertCalendarFilterSheetControls(page, filterSheet) {
+  if ((await filterSheet.locator('.t-select').count()) > 0) {
+    await assertSelectPopupInsideSheet(filterSheet, '手机月历筛选');
+    return;
+  }
+
+  const activeMonth = page.locator('.calendar-swipe-panel[aria-hidden="false"]');
+  const inMonthDays = activeMonth.locator(
+    '.day-cell:not([data-outside-month="true"]) .day-select-button',
+  );
+  const emptyDays = activeMonth.locator(
+    '.day-cell:not([data-outside-month="true"]) .day-select-button[aria-label$="，暂无排班"]',
+  );
+  const inMonthDayCount = await inMonthDays.count();
+  if (inMonthDayCount === 0 || (await emptyDays.count()) !== inMonthDayCount) {
+    fail('手机月历存在已发布排班，但筛选底部页没有渲染对应下拉字段。');
+  }
+}
+
+async function assertSelectedDateDutyDetails(dutyDetails, selectedDateLabel) {
+  const dutyDetailsText = await dutyDetails.innerText();
+  if (!dutyDetailsText.includes('选中日期') || !dutyDetailsText.includes('个班种')) {
+    fail('选中日期下方缺少按班种分组的完整值班详情轨道。');
+  }
+
+  const shiftDetailCardCount = await dutyDetails.locator('.shift-detail-card').count();
+  if (selectedDateLabel?.endsWith('，暂无排班') === true) {
+    if (
+      shiftDetailCardCount !== 0 ||
+      !dutyDetailsText.includes('当日暂无符合当前筛选条件的排班。')
+    ) {
+      fail('无排班的选中日期没有显示明确空态，或错误显示了班种详情卡片。');
+    }
+    return;
+  }
+
+  if (shiftDetailCardCount === 0) {
+    fail('有排班的选中日期未显示班种详情卡片。');
+  }
+}
+
+async function assertAssignmentEventSheet(page, dutyDetails) {
+  await dutyDetails.locator('.event-action').first().click();
+  const eventSheet = page.locator('dialog[open][aria-label="班次事件记录"]');
+  await eventSheet.waitFor({ state: 'visible', timeout: 5000 });
+  await waitForBodyText(page, '班次事件记录', 10000);
+  if (!(await eventSheet.innerText()).includes('事件记录')) {
+    fail('班次事件响应式 Sheet 未显示事件记录内容。');
+  }
+  await eventSheet.locator('button[aria-label="关闭"]').click();
+}
+
 async function assertShiftWorkflowsMobile(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '换班' }).first().click();
@@ -1488,7 +1540,7 @@ async function assertMonthCalendarInteractions(page) {
   if (smallFilterActions.length > 0) {
     fail(`手机筛选底部页存在小于 44px 的按钮：${smallFilterActions.join('、')}`);
   }
-  await assertSelectPopupInsideSheet(filterSheet, '手机月历筛选');
+  await assertCalendarFilterSheetControls(page, filterSheet);
   await filterSheet.locator('button[aria-label="关闭"]').click();
   await filterSheet.waitFor({ state: 'hidden', timeout: 5000 });
 
@@ -1540,13 +1592,7 @@ async function assertMonthCalendarInteractions(page) {
 
   const dutyDetails = page.locator('.selected-date-details');
   await dutyDetails.waitFor({ state: 'visible', timeout: 5000 });
-  const dutyDetailsText = await dutyDetails.innerText();
-  if (!dutyDetailsText.includes('选中日期') || !dutyDetailsText.includes('个班种')) {
-    fail('选中日期下方缺少按班种分组的完整值班详情轨道。');
-  }
-  if ((await dutyDetails.locator('.shift-detail-card').count()) === 0) {
-    fail('有排班的选中日期未显示班种详情卡片。');
-  }
+  await assertSelectedDateDutyDetails(dutyDetails, changedSelectedLabel);
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ height: 844, width });
@@ -1568,17 +1614,6 @@ async function assertMonthCalendarInteractions(page) {
       fail(`${width}px 值班详情存在小于 44px 的操作：${detailMetrics.smallActions.join('、')}`);
     }
   }
-
-  await page.setViewportSize({ height: 844, width: 390 });
-  const eventAction = dutyDetails.locator('.event-action').first();
-  await eventAction.click();
-  const eventSheet = page.locator('dialog[open][aria-label="班次事件记录"]');
-  await eventSheet.waitFor({ state: 'visible', timeout: 5000 });
-  await waitForBodyText(page, '班次事件记录', 10000);
-  if (!(await eventSheet.innerText()).includes('事件记录')) {
-    fail('班次事件响应式 Sheet 未显示事件记录内容。');
-  }
-  await eventSheet.locator('button[aria-label="关闭"]').click();
 
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.waitForTimeout(150);
@@ -1621,6 +1656,43 @@ async function assertMonthCalendarInteractions(page) {
   ) {
     fail('月历应由固定卡片裁切方形格子，并只在蓝色选中描边上保留边角圆角。');
   }
+
+  await filterTrigger.click();
+  await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
+  await assertCalendarFilterSheetControls(page, filterSheet);
+  await filterSheet.locator('button[aria-label="关闭"]').click();
+  await filterSheet.waitFor({ state: 'hidden', timeout: 5000 });
+
+  const populatedMonthDate = swipeViewport
+    .locator(
+      '.calendar-swipe-panel[aria-hidden="false"] .day-cell:not([data-outside-month="true"]) .day-select-button[aria-label*="个班次"]',
+    )
+    .first();
+  await populatedMonthDate.waitFor({ state: 'visible', timeout: 5000 });
+  const populatedMonthDateLabel = await populatedMonthDate.getAttribute('aria-label');
+  const populatedBusinessDate = populatedMonthDateLabel?.slice(0, 10);
+  if (populatedBusinessDate === undefined) fail('固定排班月份缺少可验证的已发布班次。');
+  await swipeViewport
+    .locator(
+      `.calendar-swipe-panel[aria-hidden="false"] .day-cell[data-date="${populatedBusinessDate}"] .day-header`,
+    )
+    .click();
+  await page.waitForFunction(
+    (businessDate) =>
+      document
+        .querySelector(
+          '.calendar-swipe-panel[aria-hidden="false"] .day-select-button[aria-pressed="true"]',
+        )
+        ?.getAttribute('aria-label')
+        ?.startsWith(businessDate) === true,
+    populatedBusinessDate,
+    { timeout: 5000 },
+  );
+  await dutyDetails
+    .locator('.shift-detail-card')
+    .first()
+    .waitFor({ state: 'visible', timeout: 5000 });
+  await assertAssignmentEventSheet(page, dutyDetails);
 
   await page.screenshot({
     fullPage: true,
@@ -2581,11 +2653,33 @@ async function assertRegularMemberMobilePhoneConsent(page) {
   await waitForBodyText(page, '我的资料', 15000, '返回普通成员通讯录');
 }
 
+async function selectStatisticsFixtureMonth(page) {
+  await page.locator('.statistics-month-input .temporal-picker-trigger').click();
+  const monthPickerDialog = page.locator(
+    'dialog.temporal-picker-dialog[open][aria-label="选择月份"]',
+  );
+  await monthPickerDialog.waitFor({ state: 'visible', timeout: 5000 });
+  await monthPickerDialog.locator('[data-wheel-value="2026"]').first().click();
+  await monthPickerDialog.locator('[data-wheel-value="8"]').last().click();
+  await monthPickerDialog.getByRole('button', { name: '完成' }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('.summary-ledger-heading strong')?.textContent?.trim() === '2026年8月',
+    undefined,
+    { timeout: 15000 },
+  );
+  await page
+    .locator('.member-statistics-table tbody tr td:not([colspan])')
+    .first()
+    .waitFor({ state: 'visible', timeout: 5000 });
+}
+
 async function assertStatisticsNotificationAndExportResponsive(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '统计' }).first().click();
   await waitForBodyText(page, '排班统计', 15000, '排班统计');
   await waitForBodyText(page, '成员统计', 15000, '成员统计');
+  await selectStatisticsFixtureMonth(page);
 
   for (const { height, width } of [
     { height: 900, width: 1280 },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EnvironmentValidationError, loadEnvironment } from './env.js';
+import { EnvironmentValidationError, loadEnvironment, resolveDirectoryQueryPlan } from './env.js';
 
 const validEnvironment = {
   MYSQL_DATABASE: 'schedule_dev',
@@ -15,6 +15,7 @@ describe('loadEnvironment', () => {
       API_PORT: 3000,
       AUTH_DEV_MODE: 'false',
       AUTH_PASSWORD_ENABLED: 'false',
+      DIRECTORY_QUERY_PLAN: 'legacy',
       MYSQL_HOST: '127.0.0.1',
       MYSQL_PORT: 3306,
       NODE_ENV: 'development',
@@ -31,6 +32,33 @@ describe('loadEnvironment', () => {
     });
     expect(loadEnvironment(validEnvironment).WECHAT_APPID).toBeUndefined();
     expect(loadEnvironment(validEnvironment).MINIPROGRAM_LEGACY_CLIENT_VERSION).toBeUndefined();
+  });
+
+  it('keeps the directory candidate plan fail-safe and legacy by default', () => {
+    expect(loadEnvironment(validEnvironment).DIRECTORY_QUERY_PLAN).toBe('legacy');
+    expect(
+      loadEnvironment({ ...validEnvironment, DIRECTORY_QUERY_PLAN: 'candidate' })
+        .DIRECTORY_QUERY_PLAN,
+    ).toBe('candidate');
+    for (const value of ['', 'CANDIDATE', 'invalid', ' candidate ']) {
+      expect(
+        loadEnvironment({ ...validEnvironment, DIRECTORY_QUERY_PLAN: value }).DIRECTORY_QUERY_PLAN,
+      ).toBe('legacy');
+    }
+    expect(
+      resolveDirectoryQueryPlan(() => {
+        throw new Error('configuration source unavailable');
+      }),
+    ).toBe('legacy');
+    const unreadablePlan = new Proxy(validEnvironment, {
+      get(target, property, receiver) {
+        if (property === 'DIRECTORY_QUERY_PLAN') {
+          throw new Error('configuration source unavailable');
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    expect(loadEnvironment(unreadablePlan).DIRECTORY_QUERY_PLAN).toBe('legacy');
   });
 
   it('accepts only an exact supported Mini version list with an included legacy version', () => {

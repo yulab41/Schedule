@@ -23,7 +23,15 @@ describe('P9 visitor access Web golden', () => {
 
   it('registers 390, 320, large-text, loading, empty, error and disabled stories', () => {
     const source = read('./P9VisitorAccessGolden.stories.ts');
-    for (const story of ['Ready390', 'Ready320', 'LargeText390', 'Loading', 'Empty', 'ErrorState', 'InsightsDisabled']) {
+    for (const story of [
+      'Ready390',
+      'Ready320',
+      'LargeText390',
+      'Loading',
+      'Empty',
+      'ErrorState',
+      'InsightsDisabled',
+    ]) {
       expect(source).toContain(`export const ${story}`);
     }
   });

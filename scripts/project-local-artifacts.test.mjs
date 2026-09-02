@@ -17,11 +17,13 @@ describe('project-local generated artifacts', () => {
 
   it('keeps only the latest browser smoke evidence under runtime/smoke', () => {
     const value = source('./smoke-browser.mjs');
+    const gitignore = source('../.gitignore');
 
     expect(value).not.toContain("from 'node:os'");
     expect(value).not.toContain('os.tmpdir()');
     expect(value).toContain("path.join(ROOT, 'runtime', 'smoke', 'latest')");
     expect(value).toContain('assertRuntimeArtifactPath');
+    expect(gitignore).toMatch(/^\/runtime\/smoke\/$/m);
   });
 
   it('defaults the reusable release worktree to runtime/release-worktree', () => {

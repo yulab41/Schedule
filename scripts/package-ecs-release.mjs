@@ -47,6 +47,7 @@ const DIST_PATHS = [
   'infra/scripts/ecs-reuse-release.sh',
   'infra/scripts/client-capability-switch.sh',
   'infra/scripts/client-version-allowlist.sh',
+  'infra/scripts/directory-query-plan-switch.sh',
   'infra/scripts/schedule-backup.sh',
   'infra/scripts/schedule-notifications.sh',
   'infra/scripts/schedule-privacy-retention.sh',
@@ -84,6 +85,7 @@ const PORTABLE_SHELL_PATHS = [
   'infra/scripts/ecs-reuse-release.sh',
   'infra/scripts/client-capability-switch.sh',
   'infra/scripts/client-version-allowlist.sh',
+  'infra/scripts/directory-query-plan-switch.sh',
   'infra/scripts/schedule-backup.sh',
   'infra/scripts/schedule-notifications.sh',
   'infra/scripts/schedule-privacy-retention.sh',
@@ -509,7 +511,7 @@ const manifest = {
   schemaVersion: 1,
   releaseFeatureLevel: RELEASE_FEATURE_LEVEL,
   databaseSchemaMin: '52',
-  databaseSchemaMax: '52',
+  databaseSchemaMax: '53',
   rollbackCandidate: rollbackCandidate(),
   releaseId: commit,
   gitCommit: commit,
@@ -545,6 +547,9 @@ const manifest = {
     ),
     clientVersionAllowlistSha256: sha256File(
       path.join(ROOT, 'infra/scripts/client-version-allowlist.sh'),
+    ),
+    directoryQueryPlanSwitchSha256: sha256File(
+      path.join(ROOT, 'infra/scripts/directory-query-plan-switch.sh'),
     ),
   },
 };

@@ -19,13 +19,53 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const EventsReady390: Story = { name: '1 · 事件时间线 · 390×844', args: { surface: 'events' }, globals: { viewport: 'mobile390' } };
-export const StatisticsReady390: Story = { name: '2 · 排班统计 · 390×844', args: { surface: 'statistics' }, globals: { viewport: 'mobile390' } };
-export const NotificationsReady390: Story = { name: '3 · 通知中心 · 390×844', args: { surface: 'notifications' }, globals: { viewport: 'mobile390' } };
-export const ExportReady390: Story = { name: '4 · 导出入口 · 390×844', args: { surface: 'export' }, globals: { viewport: 'mobile390' } };
-export const EventsBoundary320: Story = { name: '5 · 事件边界 · 320×844', args: { surface: 'events' }, globals: { viewport: 'mobile320' } };
-export const LargeText390: Story = { name: '6 · 大字号 · 390×844', args: { largeText: true, surface: 'statistics' }, globals: { viewport: 'mobile390' } };
-export const Loading: Story = { name: '7 · 加载中', args: { state: 'loading' }, globals: { viewport: 'mobile390' } };
-export const Empty: Story = { name: '8 · 空状态', args: { state: 'empty' }, globals: { viewport: 'mobile390' } };
-export const ErrorState: Story = { name: '9 · 错误重试', args: { state: 'error' }, globals: { viewport: 'mobile390' } };
-export const DisabledMember: Story = { name: '10 · 成员权限关闭', args: { role: 'member', state: 'disabled' }, globals: { viewport: 'mobile390' } };
+export const EventsReady390: Story = {
+  name: '1 · 事件时间线 · 390×844',
+  args: { surface: 'events' },
+  globals: { viewport: 'mobile390' },
+};
+export const StatisticsReady390: Story = {
+  name: '2 · 排班统计 · 390×844',
+  args: { surface: 'statistics' },
+  globals: { viewport: 'mobile390' },
+};
+export const NotificationsReady390: Story = {
+  name: '3 · 通知中心 · 390×844',
+  args: { surface: 'notifications' },
+  globals: { viewport: 'mobile390' },
+};
+export const ExportReady390: Story = {
+  name: '4 · 导出入口 · 390×844',
+  args: { surface: 'export' },
+  globals: { viewport: 'mobile390' },
+};
+export const EventsBoundary320: Story = {
+  name: '5 · 事件边界 · 320×844',
+  args: { surface: 'events' },
+  globals: { viewport: 'mobile320' },
+};
+export const LargeText390: Story = {
+  name: '6 · 大字号 · 390×844',
+  args: { largeText: true, surface: 'statistics' },
+  globals: { viewport: 'mobile390' },
+};
+export const Loading: Story = {
+  name: '7 · 加载中',
+  args: { state: 'loading' },
+  globals: { viewport: 'mobile390' },
+};
+export const Empty: Story = {
+  name: '8 · 空状态',
+  args: { state: 'empty' },
+  globals: { viewport: 'mobile390' },
+};
+export const ErrorState: Story = {
+  name: '9 · 错误重试',
+  args: { state: 'error' },
+  globals: { viewport: 'mobile390' },
+};
+export const DisabledMember: Story = {
+  name: '10 · 成员权限关闭',
+  args: { role: 'member', state: 'disabled' },
+  globals: { viewport: 'mobile390' },
+};

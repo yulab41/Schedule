@@ -11,6 +11,13 @@ const applicationSettings = {
   API_HOST: requiredTextSchema.default('127.0.0.1'),
   API_PORT: portSchema.default(3000),
 };
+const directoryQueryPlanSchema = z.preprocess(
+  (value) => (value === 'candidate' ? 'candidate' : 'legacy'),
+  z.enum(['legacy', 'candidate']),
+);
+const directorySettings = {
+  DIRECTORY_QUERY_PLAN: directoryQueryPlanSchema,
+};
 const databaseSettings = {
   MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
   MYSQL_PORT: portSchema.default(3306),
@@ -131,6 +138,7 @@ export const environmentSchema = z
     AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
     ...authSettings,
     ...clientCapabilitySettings,
+    ...directorySettings,
     ...applicationSettings,
     ...databaseSettings,
     ...operationSettings,
@@ -177,6 +185,7 @@ const testEnvironmentSchema = z
     AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
     ...authSettings,
     ...clientCapabilitySettings,
+    ...directorySettings,
     ...applicationSettings,
     BACKUP_DIR: requiredTextSchema.default('./backups'),
     TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
@@ -207,8 +216,9 @@ export class EnvironmentValidationError extends Error {
 }
 
 export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Environment {
-  if (values.NODE_ENV === 'test') {
-    const testResult = testEnvironmentSchema.safeParse(values);
+  const safeValues = withSafeDirectoryQueryPlan(values);
+  if (safeValues.NODE_ENV === 'test') {
+    const testResult = testEnvironmentSchema.safeParse(safeValues);
 
     if (!testResult.success) {
       throw new EnvironmentValidationError(getIssueMessages(testResult.error));
@@ -221,6 +231,7 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       API_HOST: testResult.data.API_HOST,
       API_PORT: testResult.data.API_PORT,
       BACKUP_DIR: testResult.data.BACKUP_DIR,
+      DIRECTORY_QUERY_PLAN: testResult.data.DIRECTORY_QUERY_PLAN,
       MINIPROGRAM_CAPABILITY_CORE_ENABLED: testResult.data.MINIPROGRAM_CAPABILITY_CORE_ENABLED,
       MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED:
         testResult.data.MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED,
@@ -254,13 +265,32 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
     };
   }
 
-  const result = environmentSchema.safeParse(values);
+  const result = environmentSchema.safeParse(safeValues);
 
   if (!result.success) {
     throw new EnvironmentValidationError(getIssueMessages(result.error));
   }
 
   return result.data;
+}
+
+function withSafeDirectoryQueryPlan(values: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const directoryQueryPlan = resolveDirectoryQueryPlan(() => values.DIRECTORY_QUERY_PLAN);
+  return new Proxy(values, {
+    get(target, property, receiver) {
+      return property === 'DIRECTORY_QUERY_PLAN'
+        ? directoryQueryPlan
+        : Reflect.get(target, property, receiver);
+    },
+  });
+}
+
+export function resolveDirectoryQueryPlan(readValue: () => unknown): 'candidate' | 'legacy' {
+  try {
+    return readValue() === 'candidate' ? 'candidate' : 'legacy';
+  } catch {
+    return 'legacy';
+  }
 }
 
 function getIssueMessages(error: z.ZodError): string[] {

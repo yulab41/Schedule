@@ -53,6 +53,7 @@ const calendar: CalendarReadModel = {
   roles: [{ id: 'role-1', name: '一线' }],
   shiftTypes: [],
 };
+const fixedWorkflowNow = new Date('2026-09-01T00:00:00.000Z');
 
 describe('duty adjustment flow logic', () => {
   it('formats shift time ranges in China Standard Time', () => {
@@ -62,7 +63,7 @@ describe('duty adjustment flow logic', () => {
   });
 
   it('builds my shifts, admin shift options, and overtime member options', () => {
-    const candidates = buildDutyAdjustmentCandidates(calendar, 'me');
+    const candidates = buildDutyAdjustmentCandidates(calendar, 'me', fixedWorkflowNow);
 
     expect(candidates.myAssignments.map((shift) => shift.id)).toEqual(['assignment-1']);
     expect(candidates.adminShiftOptions.map((shift) => shift.id)).toEqual([
@@ -82,7 +83,7 @@ describe('duty adjustment flow logic', () => {
       ],
     };
 
-    const candidates = buildDutyAdjustmentCandidates(pastCalendar, 'me');
+    const candidates = buildDutyAdjustmentCandidates(pastCalendar, 'me', fixedWorkflowNow);
     expect(candidates.myAssignments.map((shift) => shift.id)).toEqual(['future-me']);
     expect(candidates.adminShiftOptions.map((shift) => shift.id)).toEqual(['future-me']);
     expect(candidates.overtimeOptions.map((member) => member.membershipId)).toEqual(['target']);

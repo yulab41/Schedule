@@ -29,6 +29,6 @@ describe('P9 insights Web golden', () => {
     expect(source).toContain("surface: 'export'");
     expect(source).toContain('mobile320');
     expect(source).toContain('largeText: true');
-    expect(source).toContain('state: \'disabled\'');
+    expect(source).toContain("state: 'disabled'");
   });
 });

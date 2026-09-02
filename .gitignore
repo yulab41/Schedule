@@ -38,6 +38,10 @@ runtime/*.tar.gz
 runtime/*.tar.zst
 runtime/ecs-release/
 /runtime/release-cache/
+/runtime/audit/
+/runtime/external-project-worktrees/
+/runtime/release-worktree/
+/runtime/smoke/
 /runtime/tmp/
 /runtime/test-*/
 runtime/api-sim-*/
@@ -45,6 +49,7 @@ runtime/api-flat.old-*/
 
 # Browser smoke screenshots
 /.tmp-smoke-*/
+/runtime/smoke/
 
 # WeChat Mini Program local and generated state
 /apps/miniprogram/dist/

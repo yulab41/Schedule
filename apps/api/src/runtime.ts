@@ -97,6 +97,7 @@ export function createRuntimeApp(
     authPort,
     clientCapabilityPolicy: createClientCapabilityPolicy(environment),
     databaseClient,
+    directoryQueryPlan: environment.DIRECTORY_QUERY_PLAN,
     pushDispatcher: createPushDispatcher(environment),
     ...(passwordAuthService === undefined ? {} : { passwordAuthService }),
     wechatGateway,

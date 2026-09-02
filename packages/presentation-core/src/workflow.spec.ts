@@ -88,10 +88,17 @@ describe('shared workflow presentation', () => {
     ]);
   });
 
-  it('uses the Web 08:00 China-time business-day handover', () => {
+  it('uses the Web 08:00 China-time business-day handover across month and year boundaries', () => {
     expect(getTodayBusinessDate(new Date('2026-08-26T23:59:00.000Z'))).toBe('2026-08-26');
     expect(getTodayBusinessDate(new Date('2026-08-27T00:00:00.000Z'))).toBe('2026-08-27');
-    expect(getCurrentWorkflowBusinessMonth(new Date('2026-09-01T23:59:00.000Z'))).toBe('2026-09');
+    expect(getTodayBusinessDate(new Date('2026-08-31T23:59:59.999Z'))).toBe('2026-08-31');
+    expect(getTodayBusinessDate(new Date('2026-09-01T00:00:00.000Z'))).toBe('2026-09-01');
+    expect(getCurrentWorkflowBusinessMonth(new Date('2026-08-31T23:59:59.999Z'))).toBe('2026-08');
+    expect(getCurrentWorkflowBusinessMonth(new Date('2026-09-01T00:00:00.000Z'))).toBe('2026-09');
+    expect(getTodayBusinessDate(new Date('2026-12-31T23:59:59.999Z'))).toBe('2026-12-31');
+    expect(getTodayBusinessDate(new Date('2027-01-01T00:00:00.000Z'))).toBe('2027-01-01');
+    expect(getCurrentWorkflowBusinessMonth(new Date('2026-12-31T23:59:59.999Z'))).toBe('2026-12');
+    expect(getCurrentWorkflowBusinessMonth(new Date('2027-01-01T00:00:00.000Z'))).toBe('2027-01');
   });
 
   it('formats assignment and shift summaries exactly like Web', () => {

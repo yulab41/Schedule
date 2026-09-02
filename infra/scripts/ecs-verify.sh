@@ -227,7 +227,7 @@ verify_installed_control_plane() {
   if [ ! -f "$CONTROL_PLANE_MANIFEST" ]; then
     return 1
   fi
-  local backup_sha update_sha verify_sha rollback_sha reuse_sha capability_sha version_sha privacy_sha
+  local backup_sha update_sha verify_sha rollback_sha reuse_sha capability_sha version_sha directory_plan_sha privacy_sha installed_path
   backup_sha="$(control_manifest_value backupSchedulerSha256)"
   update_sha="$(control_manifest_value ecsUpdateSha256)"
   verify_sha="$(control_manifest_value ecsVerifySha256)"
@@ -235,6 +235,7 @@ verify_installed_control_plane() {
   reuse_sha="$(control_manifest_value ecsReuseReleaseSha256)"
   capability_sha="$(control_manifest_value clientCapabilitySwitchSha256)"
   version_sha="$(control_manifest_value clientVersionAllowlistSha256)"
+  directory_plan_sha="$(control_manifest_value directoryQueryPlanSwitchSha256)"
   privacy_sha="$(control_manifest_value privacyRetentionSchedulerSha256)"
   for expected_hash in "$backup_sha" "$update_sha" "$verify_sha" "$rollback_sha" "$capability_sha"; do
     [[ "$expected_hash" =~ ^[0-9a-f]{64}$ ]] || return 1
@@ -252,6 +253,10 @@ verify_installed_control_plane() {
     [[ "$version_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
     [ "$(sha256sum /usr/local/bin/schedule-client-version-allowlist | awk '{print $1}')" = "$version_sha" ] || return 1
   fi
+  if [ -n "$directory_plan_sha" ]; then
+    [[ "$directory_plan_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+    [ "$(sha256sum /usr/local/bin/schedule-directory-query-plan | awk '{print $1}')" = "$directory_plan_sha" ] || return 1
+  fi
   if [ -n "$reuse_sha" ]; then
     installed_path=/usr/local/bin/schedule-ecs-reuse-release
     [ -f "$installed_path" ] || return 1
@@ -262,7 +267,6 @@ verify_installed_control_plane() {
     [[ "$privacy_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
     [ "$(sha256sum /usr/local/lib/schedule/schedule-privacy-retention.sh | awk '{print $1}')" = "$privacy_sha" ] || return 1
   fi
-  local installed_path
   for installed_path in \
     /usr/local/lib/schedule/schedule-backup.sh \
     /usr/local/lib/schedule/ecs-update.sh \
@@ -278,6 +282,12 @@ verify_installed_control_plane() {
   done
   if [ -n "$version_sha" ]; then
     installed_path=/usr/local/bin/schedule-client-version-allowlist
+    [ -f "$installed_path" ] || return 1
+    [ "$(stat -c '%u:%g' "$installed_path")" = "0:0" ] || return 1
+    if find "$installed_path" -perm /022 -print -quit | grep -q .; then return 1; fi
+  fi
+  if [ -n "$directory_plan_sha" ]; then
+    installed_path=/usr/local/bin/schedule-directory-query-plan
     [ -f "$installed_path" ] || return 1
     [ "$(stat -c '%u:%g' "$installed_path")" = "0:0" ] || return 1
     if find "$installed_path" -perm /022 -print -quit | grep -q .; then return 1; fi
@@ -373,6 +383,7 @@ EXPECTED_ECS_ROLLBACK_SHA="$(manifest_value ecsRollbackSha256)"
 EXPECTED_ECS_REUSE_RELEASE_SHA="$(manifest_value ecsReuseReleaseSha256)"
 EXPECTED_CAPABILITY_SWITCH_SHA="$(manifest_value clientCapabilitySwitchSha256)"
 EXPECTED_CLIENT_VERSION_ALLOWLIST_SHA="$(manifest_value clientVersionAllowlistSha256)"
+EXPECTED_DIRECTORY_QUERY_PLAN_SWITCH_SHA="$(manifest_value directoryQueryPlanSwitchSha256)"
 CURRENT_RELEASE="$(cat "$DEPLOY_DIR/current-release" 2>/dev/null || true)"
 if [ -z "$EXPECTED_DATABASE_SCHEMA_MIN" ] && [ -z "$EXPECTED_DATABASE_SCHEMA_MAX" ]; then
   EXPECTED_DATABASE_SCHEMA_MIN="0"
@@ -424,6 +435,10 @@ DEPLOY_HAS_VERSION_ALLOWLIST="false"
 if [ -f "$DEPLOY_DIR/infra/scripts/client-version-allowlist.sh" ]; then
   DEPLOY_HAS_VERSION_ALLOWLIST="true"
 fi
+DEPLOY_HAS_DIRECTORY_QUERY_PLAN_CONTROL="false"
+if [ -f "$DEPLOY_DIR/infra/scripts/directory-query-plan-switch.sh" ]; then
+  DEPLOY_HAS_DIRECTORY_QUERY_PLAN_CONTROL="true"
+fi
 if [ "$RELEASE_FEATURE_LEVEL" = "$P6_RELEASE_FEATURE_LEVEL" ]; then
   [ "$DEPLOY_HAS_CAPABILITY_CONTROL" = "true" ]
   validate_miniprogram_capability_config
@@ -447,6 +462,10 @@ if [ "$RELEASE_FEATURE_LEVEL" = "$P6_RELEASE_FEATURE_LEVEL" ]; then
   if [ "$DEPLOY_HAS_VERSION_ALLOWLIST" = "true" ]; then
     [[ "$EXPECTED_CLIENT_VERSION_ALLOWLIST_SHA" =~ ^[0-9a-f]{64}$ ]]
     [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/client-version-allowlist.sh" | awk '{print $1}')" = "$EXPECTED_CLIENT_VERSION_ALLOWLIST_SHA" ]
+  fi
+  if [ "$DEPLOY_HAS_DIRECTORY_QUERY_PLAN_CONTROL" = "true" ]; then
+    [[ "$EXPECTED_DIRECTORY_QUERY_PLAN_SWITCH_SHA" =~ ^[0-9a-f]{64}$ ]]
+    [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/directory-query-plan-switch.sh" | awk '{print $1}')" = "$EXPECTED_DIRECTORY_QUERY_PLAN_SWITCH_SHA" ]
   fi
   if [ -n "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" ]; then
     [[ "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" =~ ^[0-9a-f]{64}$ ]]
@@ -586,6 +605,64 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 52 ]; then
     echo "[verify] 错误：用户头像表、列、CHECK、级联外键或存量内容无效。" >&2
     exit 1
   }
+fi
+
+DIRECTORY_QUERY_PLAN="$(env_value DIRECTORY_QUERY_PLAN)"
+DIRECTORY_QUERY_PLAN="${DIRECTORY_QUERY_PLAN:-legacy}"
+case "$DIRECTORY_QUERY_PLAN" in
+  legacy|candidate) ;;
+  *) echo "[verify] 错误：DIRECTORY_QUERY_PLAN 配置无效。" >&2; exit 1 ;;
+esac
+API_CONTAINERS="$(compose ps -q api)"
+[ -n "$API_CONTAINERS" ] || {
+  echo "[verify] 错误：没有运行中的 API 实例。" >&2
+  exit 1
+}
+while IFS= read -r api_container; do
+  [ -n "$api_container" ] || continue
+  [ "$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_container" |
+    grep -Fxc "DIRECTORY_QUERY_PLAN=$DIRECTORY_QUERY_PLAN" || true)" = "1" ] || {
+    echo "[verify] 错误：API 实例 DIRECTORY_QUERY_PLAN 不一致。" >&2
+    exit 1
+  }
+done <<< "$API_CONTAINERS"
+
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 53 ]; then
+  DIRECTORY_CANDIDATE_INDEX_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+      -e "SELECT
+        COALESCE(GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR \",\"), \"\"),
+        COALESCE(GROUP_CONCAT(DISTINCT NON_UNIQUE ORDER BY NON_UNIQUE SEPARATOR \",\"), \"\"),
+        COALESCE(GROUP_CONCAT(DISTINCT INDEX_TYPE ORDER BY INDEX_TYPE SEPARATOR \",\"), \"\"),
+        COALESCE(GROUP_CONCAT(DISTINCT IS_VISIBLE ORDER BY IS_VISIBLE SEPARATOR \",\"), \"\")
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = \"directory_search_aliases\"
+        AND INDEX_NAME = \"directory_search_aliases_entry_type_normalized_idx\""')"
+  [ "$DIRECTORY_CANDIDATE_INDEX_SCHEMA" = $'entry_id,type,normalized_value\t1\tBTREE\tYES' ] || {
+    echo "[verify] 错误：schema 53 的通讯录 candidate 覆盖索引缺失或定义不符。" >&2
+    exit 1
+  }
+  if [ -f "$DEPLOY_DIR/migrations/0053_directory_candidate_covering_index.sql" ]; then
+    EXPECTED_0053_HASH="$(sha256sum "$DEPLOY_DIR/migrations/0053_directory_candidate_covering_index.sql" | awk '{print $1}')"
+    DIRECTORY_CANDIDATE_MIGRATION_SCHEMA="$(docker exec -e SCHEDULE_0053_HASH="$EXPECTED_0053_HASH" \
+      medical-schedule-prod-mysql-1 sh -c \
+      'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" -e "SELECT
+        (SELECT COUNT(*) FROM __drizzle_migrations WHERE created_at = 1785542400053 AND hash = \"$SCHEDULE_0053_HASH\"),
+        (SELECT COUNT(*) FROM __drizzle_migrations WHERE created_at = 1785542400053 OR hash = \"$SCHEDULE_0053_HASH\"),
+        COALESCE((SELECT MIN(id) FROM __drizzle_migrations WHERE created_at = 1785542400053 AND hash = \"$SCHEDULE_0053_HASH\"), 0)"')"
+    IFS=$'\t' read -r exact_0053 related_0053 id_0053 <<< "$DIRECTORY_CANDIDATE_MIGRATION_SCHEMA"
+    [ "$exact_0053" = "1" ] && [ "$related_0053" = "1" ] && [[ "$id_0053" =~ ^[1-9][0-9]*$ ]] || {
+      echo "[verify] 错误：0053 migration journal 身份与 release SQL hash 不一致。" >&2
+      exit 1
+    }
+  elif [ "$DIRECTORY_QUERY_PLAN" = "candidate" ]; then
+    echo "[verify] 错误：candidate 计划缺少 0053 migration 身份来源。" >&2
+    exit 1
+  fi
+elif [ "$DIRECTORY_QUERY_PLAN" = "candidate" ]; then
+  echo "[verify] 错误：schema 53/0053 未就绪时不得启用 candidate。" >&2
+  exit 1
 fi
 
 WEB_LOGS="$(docker logs --since 15m medical-schedule-prod-web-1 2>&1 || true)"
