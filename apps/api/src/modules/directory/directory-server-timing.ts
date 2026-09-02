@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyRequest, RouteShorthandOptions } from 'fastify';
 
+import type { DirectoryQueryPlan } from './directory-query-plan.js';
+
 export interface DirectoryServerTimingTrace {
   aliasMs?: number | undefined;
   authMs?: number | undefined;
@@ -7,6 +9,7 @@ export interface DirectoryServerTimingTrace {
   contactsMs?: number | undefined;
   countMs?: number | undefined;
   databaseWaitMs?: number | undefined;
+  directoryQueryPlan?: DirectoryQueryPlan | undefined;
   permissionMs?: number | undefined;
   queryMs?: number | undefined;
   rowsMs?: number | undefined;
@@ -97,6 +100,9 @@ function formatDirectoryServerTiming(trace: DirectoryServerTimingTrace, totalMs:
     `cold;desc="${trace.coldStart ? 'cold' : 'warm'}"`,
     metric('instance_age', trace.instanceAgeMs, 2_592_000_000),
     'cache;desc="none"',
+    trace.directoryQueryPlan === undefined
+      ? 'directory_plan;desc="unsupported"'
+      : 'directory_plan;desc="' + trace.directoryQueryPlan + '"',
     metric('auth', trace.authMs),
     metric('db_wait', trace.databaseWaitMs),
     metric('permission', trace.permissionMs),

@@ -588,6 +588,24 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 52 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 53 ]; then
+  DIRECTORY_CANDIDATE_INDEX_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+      -e "SELECT
+        COALESCE(GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR \",\"), \"\"),
+        COALESCE(GROUP_CONCAT(DISTINCT NON_UNIQUE ORDER BY NON_UNIQUE SEPARATOR \",\"), \"\"),
+        COALESCE(GROUP_CONCAT(DISTINCT INDEX_TYPE ORDER BY INDEX_TYPE SEPARATOR \",\"), \"\"),
+        COALESCE(GROUP_CONCAT(DISTINCT IS_VISIBLE ORDER BY IS_VISIBLE SEPARATOR \",\"), \"\")
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = \"directory_search_aliases\"
+        AND INDEX_NAME = \"directory_search_aliases_entry_type_normalized_idx\""')"
+  [ "$DIRECTORY_CANDIDATE_INDEX_SCHEMA" = $'entry_id,type,normalized_value\t1\tBTREE\tYES' ] || {
+    echo "[verify] 错误：schema 53 的通讯录 candidate 覆盖索引缺失或定义不符。" >&2
+    exit 1
+  }
+fi
+
 WEB_LOGS="$(docker logs --since 15m medical-schedule-prod-web-1 2>&1 || true)"
 if printf '%s\n' "$WEB_LOGS" | grep -Eq \
   'client: ([0-9a-fA-F:.]+)|(^|[[:space:]])([0-9]{1,3}\.){3}[0-9]{1,3}[[:space:]]+-[[:space:]]+-|visitorKey=|businessMonth='; then

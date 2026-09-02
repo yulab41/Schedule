@@ -113,7 +113,7 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource).toContain("RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1'");
     expect(packageSource).toContain('releaseFeatureLevel: RELEASE_FEATURE_LEVEL');
     expect(packageSource).toContain("databaseSchemaMin: '52'");
-    expect(packageSource).toContain("databaseSchemaMax: '52'");
+    expect(packageSource).toContain("databaseSchemaMax: '53'");
     expect(packageSource).toContain('ECS_ROLLBACK_CANDIDATE');
     expect(packageSource).toContain('rollbackCandidate: rollbackCandidate()');
     expect(packageSource.indexOf("'build'")).toBeLessThan(
@@ -142,5 +142,12 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('avatar_cascade_fk');
     expect(verifySource).toContain('invalid_avatar_rows');
     expect(verifySource).toContain('"54" ] && [ "$latest_backup_table_count" != "55"');
+  });
+
+  it('verifies the exact schema 53 directory candidate index definition', () => {
+    expect(verifySource).toContain('directory_search_aliases_entry_type_normalized_idx');
+    expect(verifySource).toContain('entry_id,type,normalized_value');
+    expect(verifySource).toContain('BTREE');
+    expect(verifySource).toContain('YES');
   });
 });

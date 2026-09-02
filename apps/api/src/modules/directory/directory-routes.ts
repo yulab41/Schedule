@@ -23,13 +23,19 @@ export function registerDirectoryRoutes(
   app.get('/groups/:groupId/directory/facets', { preHandler: app.authenticate }, (request) =>
     directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
-  app.get('/groups/:groupId/directory', createDirectoryListTimingOptions(app), (request) =>
+  app.get('/groups/:groupId/directory', createDirectoryListTimingOptions(app), async (request) =>
     directoryQuery.list(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseDirectoryQuery(request.query),
       'internal',
       getDirectoryServerTimingTrace(request),
+      (directoryQueryPlan) => {
+        request.log.info(
+          { directoryQueryPlan, event: 'directory_query_plan_selected' },
+          'Directory query plan selected.',
+        );
+      },
     ),
   );
   app.post('/groups/:groupId/directory/lookup', { preHandler: app.authenticate }, (request) =>
@@ -46,14 +52,23 @@ export function registerDirectoryRoutes(
     (request) =>
       directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request), 'employee'),
   );
-  app.get('/groups/:groupId/employee-directory', createDirectoryListTimingOptions(app), (request) =>
-    directoryQuery.list(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      parseDirectoryQuery(request.query),
-      'employee',
-      getDirectoryServerTimingTrace(request),
-    ),
+  app.get(
+    '/groups/:groupId/employee-directory',
+    createDirectoryListTimingOptions(app),
+    async (request) =>
+      directoryQuery.list(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseDirectoryQuery(request.query),
+        'employee',
+        getDirectoryServerTimingTrace(request),
+        (directoryQueryPlan) => {
+          request.log.info(
+            { directoryQueryPlan, event: 'directory_query_plan_selected' },
+            'Directory query plan selected.',
+          );
+        },
+      ),
   );
   app.post(
     '/groups/:groupId/employee-directory/lookup',
