@@ -1,15 +1,16 @@
 # 微信小程序审计报告
 
-- 当前阶段：`MINI-G1-003` P2 逻辑层性能问题已确认并修复；真机可见卡顿未直接确认。起始主线为
-  `origin/main@a4f50c0207ccb67f5ccdc78dd3912ba248fec9af`
+- 当前阶段：`MINI-G1-004` 运行证据核查已完成；结论为“证据仍不足，保留 P3”，尚未确认真实规模下的
+  用户可见性能问题。`MINI-G1-001`～`MINI-G1-003` 已在起始主线闭环，且本轮未回退其代码或文档。起始主线为
+  `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298`
 - 更新时间：2026-09-02（Asia/Hong_Kong）
-- 修复分支/worktree：`codex/fix-mini-g1-003-scheduling-input` /
-  `runtime/external-project-worktrees/mini-g1-003-scheduling-input-20260902`
-- 起始主线已包含 `MINI-G1-001`、`MINI-G1-002` 和通讯录既有闭环；本轮 checkpoint 以
-  `fix(miniprogram): localize scheduling rotation input updates` 识别。
-- 本批性质：只修复 `MINI-G1-003`；未修改 `MINI-G1-004`、XMB、test-tools、API、数据库、权限、路由、
-  视觉设计、排班业务规则或其他页面，未调用微信开发者工具、未上传体验版、未部署 production，也未
-  修改或清理其他 worktree
+- 调查分支/worktree：`codex/mini-g1-004-evidence-audit-20260902` /
+  `runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`
+- 起始主线已包含 `MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003` 和通讯录既有闭环；本轮 checkpoint 以
+  `audit(miniprogram): measure MINI-G1-004 list growth` 识别。
+- 本批性质：只做 `MINI-G1-004` 运行证据核查；新增一个默认不进入生产运行时的、无隐私 synthetic Node/Vitest
+  诊断测试和审计记录，未修改业务实现、API、数据库、权限、路由或既有 G1-001～003 文档，未调用微信
+  开发者工具、未上传体验版、未部署 production，也未修改或清理其他 worktree
 
 ## 2026-09-01 静态审计第 1 组：页面状态、异步链路与列表性能
 
@@ -34,8 +35,10 @@
 列表、复制全部 400 个成员视图，并把完整 `roleCards` 送过逻辑层到视图层。现在输入仍立即显示、仍按
 原规则把空值/非法值归一为 1，保存仍读取最新草稿，但只发送目标岗位的一个字段；4×2 与 4×100 的
 输入 patch 都是 41B，成本不再随成员数增长。三项修复都有 Node/静态自动化证据，不要求用户制造竞态、
-重复请求或大群组输入；不得把逻辑层优化夸大成真机性能提升。`MINI-G1-004` 保持原审计结论，本轮未
-顺手处理。
+重复请求或大群组输入；不得把逻辑层优化夸大成真机性能提升。本轮进一步核查了 `MINI-G1-004` 的两个
+管理页：静态与 synthetic fixture 均证明其当前链路按全量记录增长，但仓库没有当前生产逐页规模分布，
+也没有与本次起始 SHA 匹配的小米 14 原生渲染证据。因此不升级为“已确认真实规模风险”，也不以 Node
+耗时关闭，保持 P3，详见本报告第 12 节。
 
 ### 基线与工具事实
 
@@ -70,7 +73,7 @@
 | MINI-G1-001 | P1   | 已确认并修复（逻辑层） | `apps/miniprogram/src/subpackages/workflows/components/controller-host.ts:45-104,136-151,267-306`；leave `controller.ts:434-837`；swap `controller.ts:316-350,492-1011,1137-1170`；duty `controller.ts:427-902`；`apps/miniprogram/scripts/workflow-controller-lifecycle.test.mjs:29-357` | 永久测试在未改源码时 7/7 红：detach/unload 后回写、A→B 覆盖、重挂碰撞、并发乱序；统一 token/guard 后 13/13 绿；结构审计覆盖 32 个 async/83 个 await、3 个显式 `.then` 和重复 dispose    | 修复前慢网、切群组或快速返回可让旧续体覆盖新状态；修复后旧续体零状态/UI 副作用，B 正常结果仍更新 | 已实施 host attachment/controller 对象 token、统一 dispose 和全异步 continuation task guard；保留 API/幂等语义 | 自动化已证明逻辑契约；微信原生可见故障未确认，当前不要求真机复现 |
 | MINI-G1-002 | P2   | 已确认并修复           | `apps/miniprogram/src/pages/workbench/index.ts` 的 load generation、`readMonth` 和 `createHolidayReader`；`apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`                                                                                                                    | 永久测试在未改业务源码时 3/3 红：同年 5 次；跨年 `[2026,2026,2026,2027,2027]` 且 2027 同时在途 2 次；失败后重试累计 6 次。最小修复后同年 1 次、跨年 2 次且每年一个、失败后重试累计 2 次 | 去掉同一五个月窗口中 4 个重复年度 GET；没有据此声称真机耗时改善                                  | 已实施每个 load generation 的唯一年份 Promise 计划；不建立全局或持久缓存                                       | Node 已证明请求/数据/重试合同；真实 Network 耗时暂未验证         |
 | MINI-G1-003 | P2   | 已确认并修复（逻辑层） | `scheduling-config-panel/controller.ts` 的 `handleRotationInput`/`createRoleCards`；`p8-organization-c2-controller.test.mjs`                                                                                                                                                              | 未改业务源码时 4×100 一字符为 1 次完整 `roleCards`、53,364B、4 次排序、4/4/400 个岗位/成员数组/成员视图重建；修复后为一个稳定 ID 路径、41B、重建与排序均 0；4×2 同为 41B                | 已消除确定性的每字符全量逻辑计算与 bridge payload；真机是否曾出现用户可见迟滞仍未知              | 已保留逻辑层草稿，按当前稳定 `roleId` 定位并只更新目标字段；成员选择/排序继续走必要重建                        | 自动化已证明冗余消除；真机可见卡顿未直接确认，默认不要求复现     |
-| MINI-G1-004 | P3   | 待运行证据             | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | 平台账号和群组成员读取后直接完整 map + `wx:for`，没有 cursor/pageSize 或渲染窗口                                                                                                        | 只在账号/成员很多时可能出现长首屏；当前实际数量未知                                              | 先记录条数、payload、节点和真机耗时；超阈值后再决定分页/分批，不先重构                                         | 必须取得脱敏数量和真机/原生渲染证据                              |
+| MINI-G1-004 | P3   | 证据仍不足，保留 P3     | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | API/契约无分页或总量上限；1/25/100 无隐私 fixture 均全量 map、全量 ready `setData` 和全量 `wx:for`，节点与 payload 随 N 增长                                                                                                        | 增长关系已确认，但现有生产资料只有聚合总数，不能证明某一页面已达到造成用户影响的规模；Node 毫秒数不外推真机                                             | 补当前版本脱敏逐页规模与匹配 SHA 的原生首屏/滚动证据；达到真实影响阈值后另行批准最小分页/分批方案                                         | 当前无匹配 Xiaomi 14/DevTools 证据；本轮不上传、不部署                              |
 
 ### MINI-G1-001：共享 workflow host 异步续体失效边界（已确认并修复）
 
@@ -205,16 +208,17 @@ test-tools 诊断。修复不取消已经发出的网络 transport；一个业�
   Client Core `organization-read-client.ts:189-190` 同样没有分页参数。
 - 触发条件：开发者管理员进入平台账号页，或有管理权限的用户进入成员较多的群组设置页；只有真实
   accounts/members 数量较大时才可能成为 bridge 与节点开销。
-- 静态证据：两个 transport 合同都返回数组，controller 在一次响应中完整 map 并一次 setData，WXML
-  使用稳定 `id` key，但没有分页、分批或窗口化边界。运行证据：尚未验证；本轮没有读取生产人员数据，
-  也没有当前 SHA 的脱敏条数、原生节点、payload 或真机耗时。
+- 静态证据：两个 transport 合同都返回数组，controller 在一次响应中完整 map 并在 ready patch 中完整回传，
+  WXML 使用稳定 `id` key，但没有分页、分批或窗口化边界。初步运行证据见第 12 节：1/25/100 无隐私 fixture
+  均由一次列表请求返回，view model 与重复节点均覆盖全量记录；setData 调用次数保持常数而 payload 随 N 增长。
+  当前仍没有生产逐页分布、当前 SHA 的原生节点、首绘/滚动或真机耗时证据。
 - 用户影响：若后台账号或群组成员达到较大规模，首次进入管理页可能变慢；当前无法证明现有用户已遇到，
   不影响通讯录搜索，也不据此要求立即引入虚拟列表。
 - 误判风险：服务端或业务规则可能把真实规模约束在很小范围，且两个页面都只面向管理操作；因此保持
-  P3“待运行证据”，不写成已确认卡顿。
-- 最小建议与回归：先用现有脱敏诊断记录条数、响应 bytes、单次 setData bytes、节点和小米 14 首绘；
-  只有超过约定阈值后，另行批准 API 分页或视图分批。回归应覆盖 cursor 合并、稳定 `id` key、选择状态、
-  权限和错误重试，禁止为本轮审计先改接口。
+  P3“证据仍不足”，不写成已确认真实规模卡顿。
+- 最小建议与回归：先补当前版本的脱敏逐页规模和匹配 SHA 的小米 14 原生首绘/滚动证据；只有真实规模与
+  原生行为共同达到约定阈值后，另行批准 API 分页或视图分批。若进入修复，回归应覆盖 cursor 合并、稳定
+  `id` key、选择状态、权限和错误重试，禁止为本轮审计先改接口。
 
 ### setData 热点表
 
@@ -1076,3 +1080,117 @@ verifier。
 5. 抽查所有页面右上角不再出现 P…；测试工具的内部 build/version 诊断仍可用但不在页面右上角渲染 phase tag。
 
 这五步是下一版实体设备人工验收清单，不把当前 Node/静态构建结果写成真机手势已通过。
+
+## 12. 2026-09-02 `MINI-G1-004` 运行证据核查与处置决策
+
+### 12.1 范围、基线和证据层级
+
+- 本轮执行时先 `fetch`，以最新 `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298` 建立仓库内
+  独立干净 worktree：`runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`，分支为
+  `codex/mini-g1-004-evidence-audit-20260902`。未重跑阶段 0。
+- 当前报告、`docs/audit/STATUS.md` 和起始主线均确认 `MINI-G1-001`～`MINI-G1-003` 已闭环；本轮没有
+  回退、改写或覆盖它们的代码和文档。`git log -S`/`git blame` 将本次两条全量链路的主要引入点定位为
+  平台账号 `c0ea31e9`、群组管理 `70f9a98f`；本轮仅调查，不改变这些行为。
+- 运行证据使用新增的 `apps/miniprogram/scripts/mini-g1-004-scale-probe.test.mjs`。它只在 Vitest 中
+  注入无隐私 fixture 和请求桩，默认不进入小程序生产运行时，不改 API 或页面代码；记录 JSON UTF-8
+  payload bytes、记录数、view model 数、ready patch bytes、所有 `setData` 次数/总 bytes、请求次数、
+  逻辑 map 次数及静态 WXML 重复行节点估算。`elapsedMs` 仅是桌面 Node 测量，未用于推断真机卡顿。
+- 门禁结果：定向 P8 C1/E、direct pages、thin-page boundary 与 probe 共 7 files / 31 tests 通过；补齐
+  workspace contracts/scheduling-domain 的只读 dist 后，正式 `pnpm miniprogram:test` 为 115 files /
+  622 tests 通过（117.62s），`pnpm exec vitest run scripts/test-discovery-policy.test.mjs` 为 1 file /
+  3 tests 通过。没有为本轮修改既有业务失败项。
+- 按仓库政策，本轮没有调用微信开发者工具 GUI/CLI、模拟器、Console/Network 或上传流程；没有上传体验版，
+  没有部署 production。
+
+### 12.2 API、权限范围和自然上限
+
+| 页面/数据 | 实际读取 | 权限范围 | 服务端/契约边界 | 结论 |
+| --- | --- | --- | --- | --- |
+| Platform accounts | `GET /platform-admin/users` | `requirePlatformAdmin` | 查询未删除用户并排序，契约为单个 `users` 数组；未发现 `limit`、cursor、offset、pageSize 或总量上限 | 权限限制了谁能看，没有限制能返回多少条 |
+| Group members | `GET /groups/:groupId/members` | `viewMembers` | 返回群组活动成员，并合并未重复的 pending roster；查询无 `limit`/cursor/pageSize | 没有按群组成员数分页或总量上限 |
+| Group contacts | `GET /groups/:groupId/contacts` | `viewContacts` | 返回该群组可见联系人数组；查询无 `limit`/cursor/pageSize | 联系人 payload 也随成员规模增长 |
+
+定位依据为 platform route/service `apps/api/src/modules/platform-admin/platform-admin-routes.ts:33-35`、
+`apps/api/src/modules/platform-admin/platform-admin-service.ts:78-105`，以及契约/client
+`packages/contracts/src/platform.ts:39-53`、`packages/client-core/src/organization-read-client.ts:134-140,198-201`；
+群组成员/联系人 route/service 为 `apps/api/src/modules/groups/group-routes.ts:218-220,297-299`、
+`apps/api/src/modules/groups/membership-service.ts:378-473` 和
+`apps/api/src/modules/groups/contact-service.ts:54-109`。这些查询均未出现可证明总量上限的 `limit`、cursor
+或 pageSize。
+
+页面的 `scroll-view` 只是整页滚动容器，不是列表窗口。两个页面均没有搜索、筛选、懒加载、分页或只渲染
+可视窗口。代码中找到的“新增成员最多 100 条”和 roster batch 最多 500 条是单次写入批量上限，不是
+群组总成员上限；数据库唯一索引和字段长度也没有形成总量上限。未发现能把这两个读取列表自然约束到固定
+小规模的业务规则。
+
+因此，“页面一次加载的真实最大记录数”当前仍为未知：本轮可复现的最大 synthetic fixture 是 100 条，
+不是生产最大值，也不是修复阈值。
+
+### 12.3 页面一次加载的实际处理方式
+
+- Platform accounts：一次列表请求返回全部账号；`loadAccounts` 保存完整数组，执行完整
+  `accounts.map(toAccountCard)`，并对完整数组做两个统计 filter，在 ready patch 一次回传完整 `accounts`。
+  当前 direct Page fixture 的总 `setData` 次数为 4（页面 groupId、布局、loading、ready），ready 行在
+  `index.wxml:59` 用单层 `wx:for="{{accounts}}"` 全量创建。
+- Group settings：一次 members 请求和一次 contacts 请求分别返回完整数组；`createOrganizationPatch`
+  对完整 contacts 建索引并执行完整 `memberCards = members.map(...)`，ready patch 全量回传。当前选定
+  fixture 的 direct Page 总 `setData` 次数为 6，包含成员主加载和日历偏好等固定辅助状态；成员行在
+  `index.wxml:507` 用 `wx:for="{{memberCards}}"` 全量创建。开发者管理员路径的既有测试同时记录了完整
+  管理页的 9 个 GET，但这些辅助请求不改变成员列表全量性质。
+
+### 12.4 小/中/大无隐私 fixture 的可重复结果
+
+测试档位为 `N = 1 / 25 / 100`。以下 bytes 均为测试桩 JSON 的 UTF-8 字节数；`templateNodes` 是按
+  当前 WXML 条件分支得到的每条记录 host element/component 节点估算，不是微信原生节点检查器读数。
+
+Platform accounts：
+
+| N | response records / bytes | view model records | ready `setData` bytes | 总 `setData` 次数 / bytes | 静态重复节点 | 逻辑处理 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1 / 110 | 1 | 341 | 4 / 592 | 8 | account map 1，统计 filter 2 |
+| 25 | 25 / 2,466 | 25 | 4,860 | 4 / 5,111 | 200 | account map 25，统计 filter 50 |
+| 100 | 100 / 9,855 | 100 | 19,000 | 4 / 19,251 | 800 | account map 100，统计 filter 200 |
+
+Group settings（response 为 members；contacts 单独读取）：
+
+| N | member records / bytes | contacts bytes | view model records | ready `setData` bytes | 总 `setData` 次数 / bytes | 静态重复节点 | 逻辑处理 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1 / 150 | 135 | 1 | 1,068 | 6 / 2,988 | 12 | contact map 1，member map 1 |
+| 25 | 25 / 3,726 | 3,351 | 25 | 9,228 | 6 / 11,148 | 300 | contact map 25，member map 25 |
+| 100 | 100 / 14,901 | 13,401 | 100 | 34,728 | 6 / 36,648 | 1,200 | contact map 100，member map 100 |
+
+增长关系是明确的：记录数 N 增长时，view model 和逻辑 map 次数为 O(N)，静态重复节点为
+Platform `8N`、Group `12N`；一次请求仍返回完整数组，ready `setData` 次数不随 N 增加，但 ready
+payload 和整次加载的 `setData` 总 bytes 为 O(N)。例如 1→100 时，平台 ready bytes 为 341→19,000，
+群组 ready bytes 为 1,068→34,728。测试输出中的桌面 Node `elapsedMs` 约为几十毫秒且受测试调度影响；
+它没有经过微信原生 bridge、WXML 渲染器或小米 14，不能转换成真机卡顿结论。
+
+### 12.5 现有生产/测试规模与证据边界
+
+- 仓库现有 P8 只读生产聚合快照（2026-08-25）记录：活动群组 2 个，活动成员角色合计 owner 2、
+  administrator 3、member 21，pending roster 0，活动用户 35；它没有逐群组分布、平台账号 endpoint
+  实际返回数、记录创建/删除状态的当前快照，也不是本次 `origin/main` SHA 的运行采样。即使把这些合计数
+  当作量级参考，也不能推出某个页面的真实最大 N 或首屏节点数。
+- 现有 P8 controller/page 测试使用的是 1 个账号和 1 个成员，能证明权限、请求和状态合同，不能证明列表
+  规模下的用户影响。本轮 synthetic 100 条补足了增长关系，但不替代生产聚合或原生设备证据。
+- 当前没有与本次起始 SHA、renderer、基础库和微信版本匹配的小米 14/原生渲染记录；因此无法测量真实首绘、
+  原生节点、滚动可操作性或 bridge 延迟。没有数据证明已经发生数据错误、崩溃或不可操作故障。
+
+### 12.6 处置决策
+
+本轮唯一结论：**证据仍不足，保留 P3，并不进入修复阶段。**
+
+原因是两边证据同时成立但不能互相替代：API 没有自然总量上限，页面确实全量创建视图、全量回传和全量
+渲染，且 synthetic 测量证明 payload/逻辑/节点随 N 增长；但真实生产最大 N、逐页分布和原生设备用户影响
+尚未得到证明。故不能关闭或降低 `MINI-G1-004`，也不能把 synthetic/Node 结果升级为“已确认随真实规模产生
+全量渲染风险”。本轮不修改业务实现，不生成修复 Prompt。
+
+若后续继续补证，最小步骤为：
+
+1. 在与目标发布一致的服务器侧做一次仅聚合的脱敏读取，记录平台 endpoint 返回总数、每个群组 members/
+   pending roster 的最大值和 contacts 量级，以及时间、release SHA；不记录姓名、手机号、账号或完整响应。
+2. 由用户在匹配构建上使用既有“更多 → 测试工具”或 Xiaomi 14 人工操作，记录 SHA/trial、renderer、基础库、
+   微信版本、实际 N、response/setData bytes、首屏/滚动是否可操作和可取得的原生节点/首绘证据；当前工具
+   不代替这一步，也不在本轮上传。
+3. 将真实最大 N 与本次 1/25/100 的结构性增长对照：若真实规模仍小且原生操作正常，可关闭或降低 P3；只有
+   真实规模与原生表现共同显示用户影响时，才另行批准分页/分批的最小修复设计。

@@ -5,14 +5,13 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 当前仓库批次（2026-09-02）
 
-- 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`；本批起始基线为
-  `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`。
-- 当前活动批次：`EXP-UX-001`；用户已批准书面设计，代码、永久合同、审计和 debug 连续性文档已完成，
-  并已完成 `.80` 体验上传、production release 与 client-version allowlist，当前状态为“已完成自动化与发布验证，
-  待用户 Xiaomi 14 真机复核”。
-- 修复分支/worktree：`codex/fix-exp-ux-001` /
-  `runtime/external-project-worktrees/exp-ux-001`；用户主 worktree 和其他 worktree 未修改、清理、
-  暂存或借用。
+- 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`；本批以执行时最新
+  `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298` 为基线，三项既有代码和文档均未回退。
+- 当前活动批次：`MINI-G1-004` 运行证据核查；最终结论为“证据仍不足，保留 P3”，未进入业务修复阶段。
+  先前 `EXP-UX-001` 的自动验证、体验上传和 production release 属于已完成历史，不在本轮重做。
+- 调查分支/worktree：`codex/mini-g1-004-evidence-audit-20260902` /
+  `runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`；用户主 worktree、既有修复
+  worktree 和其他并行 worktree 未修改、清理、暂存或借用。
 - 设计 checkpoint：`7cef75ff docs(superpowers): design EXP-UX-001 experience fixes`。
 - 功能 checkpoint：`3b1cbd1b fix(miniprogram): close EXP-UX-001 experience regressions`。
 - clean 包体文档 checkpoint：`f04fc56d docs(audit): record clean EXP-UX-001 verification`。
@@ -20,7 +19,20 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 - 为保留当前 production `50ac2d07` 的 schema 53/目录查询能力，最终源码 tip 为
   `3897581e7a8d5734ef5910e2dd8854a92c246062`，其第一父为 EXP tip `d1594d09`、第二父为当前 production release；
   production 使用该 tip 的 hash-identical trusted reuse。
-- 不重跑阶段 0，不执行 `MINI-G1-004`，不进入日期选择器、事件记录或全局图标任务。
+- 本轮不重跑阶段 0，不修改业务实现/API/数据库/权限/路由，不进入日期选择器、事件记录或全局图标任务。
+  未调用微信开发者工具 GUI/CLI，未上传体验版，未部署 production。
+
+## MINI-G1-004 调查结果
+
+- 平台账号 `GET /platform-admin/users` 和群组 members/contacts 读取 API 都返回完整数组；权限检查限制可见
+  身份，但未发现分页、cursor/pageSize、服务端 limit 或总量上限。页面没有搜索、筛选、懒加载或渲染窗口。
+- 新增仅测试用的 `apps/miniprogram/scripts/mini-g1-004-scale-probe.test.mjs`，用无隐私 `N=1/25/100`
+  fixture 测量完整 view model、ready `setData`、总 payload、静态重复节点和逻辑 map 次数；未改生产运行时。
+  1→100 时平台节点估算 `8→800`、ready bytes `341→19,000`；群组节点估算 `12→1,200`、ready bytes
+  `1,068→34,728`；setData 次数分别恒为 4/6，payload 随 N 增长。桌面 Node 毫秒数不作为真机卡顿证据。
+- 现有 P8 生产资料只有 2026-08-25 聚合快照（活动群组 2、活动成员 owner 2/admin 3/member 21、pending
+  0、活动用户 35），没有当前 release 的逐页最大 N/分布；现有 controller 测试只有 1 个账号/成员。因此
+  不能证明真实规模已造成用户影响，也不能因没有自然上限而直接确认真机风险。
 
 ## 已完成的 EXP-UX-001
 
@@ -40,7 +52,10 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 ## 验证证据
 
 - 旧实现先红：EXP 合同在业务源码修改前实际 7 红/1 绿；修复后 EXP 9/9，受影响定向合同 52/52。
-- Mini 全量：`pnpm miniprogram:test` 为 114 files / 621 tests passed。
+- 起始主线历史 Mini 全量为 114 files / 621 tests passed；本轮新增诊断后，clean worktree 正式
+  `pnpm miniprogram:test` 为 115 files / 622 tests passed（117.62s）。
+- `pnpm exec vitest run scripts/test-discovery-policy.test.mjs` 为 1 file / 3 tests passed；contracts 与
+  scheduling-domain 只读 build 产物已补齐以完成 workspace 测试解析。
 - Mini：`pnpm miniprogram:build`、`pnpm --filter @schedule/miniprogram typecheck`、source audit、
   `pnpm miniprogram:verify` 均通过；clean verify packageBytes `5,113,419`。manifest 会包含每次构建时间，
   因此每次 verify 重新生成，不作为稳定 SHA/包体指标提交。
@@ -57,9 +72,10 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 状态策略与唯一下一任务
 
-- 四类代码问题：`已完成`（根因已修复且自动化/构建验证通过）；发布状态为 `已完成（自动验证、体验上传与
-  production release）→ 待用户复核`，原因仅为
-  Xiaomi 14 的真实触摸手感、safe-area、内部滚动和系统返回尚未在当前 tip 的体验版上复核。
-- 唯一下一任务：用户在 `.80` 体验版按审计第 11.6 节五步做 Xiaomi 14 最小验收；不开始事件记录、日期组件或图标任务。
-- 主线收口规则：先 fetch 最新主线，普通漂移自行处理；最终只做一次普通 fast-forward 推送到 main，
-  不 force push、不清理其他 worktree。完成主线收口后停止。
+- 当前 `MINI-G1-004` 状态为“证据仍不足，保留 P3”：不关闭，也不提升为已确认真实规模风险；本轮没有
+  业务修复 Prompt。唯一下一任务是补当前 release 的脱敏逐页规模/分布与匹配 SHA 的 Xiaomi 14 原生首屏、
+  节点和滚动证据，再决定是否关闭或进入最小修复设计。
+- 本调查 checkpoint 的停止条件：文档、测试和 diff 审阅完成后提交并推送调查分支；按用户指示不上传体验版、
+  不部署 production。不要因本批有剩余上下文而进入分页/分批实现。
+- 本批 checkpoint commit message：`audit(miniprogram): measure MINI-G1-004 list growth`；提交后以 Git 短哈希
+  作为本批可接续身份。
