@@ -2155,3 +2155,42 @@
   controller 定向 1 file/44 tests 通过。
 - 本轮未改客户端、SQL、索引、缓存、API 或预热，未执行 production 写入/清缓存/重启/备份/部署，
   未上传体验版。下一步等待用户从最多三个候选方向中确认后再实施。
+
+## 2026-09-02 通讯录查询 production-ready 正式化
+
+- Git：从执行时最新 origin/main@a4f50c0207ccb67f5ccdc78dd3912ba248fec9af 的独立 worktree
+  正式化；原 codex/directory-query-isolation、两个 Docker volume 和 runtime 证据均保留。没有修改
+  用户脏主工作树，服务端分支不快进 main。
+- 分层提交：API/flag/schema 52–53 兼容桥为 5dcb2b5ae7034aea1ad34033a38a58c9683f4b9a；
+  migration/严格语义/基准为 1e1084f9f38e3ebdbe7105a95c60c865215f6caf，允许未来先部署前者、后迁移。
+- 引入点：legacy 非数字 rank/相关子查询主要来自 e74e5f35，工号分支由 427ff6b5/7952f1d1 扩展；
+  git log -S 和 git blame 已复核。修复不是等价重构，candidate 作为 feature flag 后的新计划独立加入。
+- 路由：未设置/非法/读取失败均 legacy；candidate 只处理长度至少 2、无有效七级筛选的文本/数字查询。
+  空查询、单字符和真实筛选保持 legacy。“全部”在小程序请求层省略，不把状态对象非空误判成筛选。
+- 安全门禁：candidate 还要求 migration count≥53 及可见、非唯一、BTREE、精确列序
+  (entry_id,type,normalized_value)；缺失/检查失败只告警并回退，不返回 500。日志和 Server-Timing
+  只记录 plan，不含查询、账号或群组原值。
+- 语义：固定场景、双向跨计划分页、3 个 seed×26 API 查询、角色/权限变化零差异；93 组高层语义
+  对照之外，69 组 candidate 输入额外直接比较完整 entryId+rank 序列，集合、顺序、rank、total、
+  hasNext、cursor、连续分页和权限均 0 差异。
+- 隔离：MySQL 8.4.11、128MiB、7,021 entries/128,659 aliases；相关四表 139,591,680B，超过
+  128MiB。新索引 14,254,080B。成对交错 40 轮首字母 main examined 36,597→1,205，P95
+  78.0→42.5ms；明确改善但低于约 50% 参考值。单字符/筛选实际走 legacy。
+- 并发：120 请求、并发 1/5/10/20 均 0 error/timeout/disk temp；并发 20 throughput
+  8.434→10.744/s、total P95 2920.952→2277.997ms、MySQL CPU 13992.169→10862.980ms。
+- 导入/DDL：索引使 alias insert P50 +24.073%、全量导入 +2.136%、失败导入回滚 +8.365%、
+  rollback call +36.101%；在线 INPLACE/LOCK=NONE 2357.393ms，读 7/写 62 均无错误，观测 pending
+  MDL=0。该结果不外推 production 临时空间或锁等待。
+- production 只读：公网 health 200；SSH 两次在 banner 前超时，零远端命令。实时磁盘/inode/内存、
+  buffer、事务/MDL、索引、备份、live release/rollback candidate 未取得，故未生成 deploy release。
+- 运行/浏览器验证：pnpm smoke:browser 首次因 localhost:5173 未启动停止；按 runbook 在当前源码
+  127.0.0.1:4173 + API3000 重跑，本地 dev DB 从 schema49 迁移到53 后登录与管理员工作台成功，
+  连续两次均被既有“筛选排班” Sheet 内 .t-select 5 秒可见性断言阻断。本轮无 Web/UI diff；临时
+  API/Web session 已停止，3000/4173 无监听。
+- 验证：feature flag/plan/timing/release 5 files/75，migration 24，directory DB 11，Mini
+  113 files/608 全绿；root lint/typecheck/build、任务 Prettier、bash -n、diff check 通过。root
+  Vitest 241 files/1158 通过、37 files/362 DB 项按环境跳过；另 2 个既有 Web 日期 fixture 因当前
+  2026-09-02 将 2026-09-01 判为过去而失败，未改无关文件。全仓 format:check 仍只报 12 个基线文件。
+- 外部边界：未上传/分配体验版，未部署/修改 production，未创建生产备份，未运行生产迁移/索引/
+  EXPLAIN ANALYZE/缓存清理/重启/配置修改。准确结论仍是“扫描放大和冷页回表已优化，production
+  长尾是否彻底消除仍需持续观察”。

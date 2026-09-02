@@ -897,4 +897,22 @@ favicon 证据后复测，实际页面 6 个按钮均 ≥44px、页面错误为 
 `.74@d23a78a` 已由用户完成小米 14 test-tools 验收；当前 `.76@a2cdd06` 已完成自动化与真实
 DevTools 回归但未被描述为当前 SHA 真机通过。各 SHA 的证据不得互换。
 
+## 11. 2026-09-02 输入收敛与服务端查询正式化
+
+- 小程序输入收敛已独立进入主线：中文（含单汉字）继续静默 500ms 自动搜索；ASCII、数字和混合输入
+  只由现有 bindconfirm 触发。最终没有可见搜索按钮，没有 bindblur/页面点击/键盘收起触发，也没有
+  预热搜索或第二套 handler。clean 最新主线为 `a4f50c0207ccb67f5ccdc78dd3912ba248fec9af`。
+- 候选 `.77@a4f50c0` 仅做 production dry-run，display 为
+  `0.1.0-p10.20260902.77@a4f50c0`，描述 `p10-directory-confirm-a4f50c0`，manifest
+  `f193af947efc9339741f323db16374dcf31306ef2bb4617729108848e6a8c8ec`。没有查询平台占用历史、没有
+  分配该编号、没有上传。
+- 服务端正式化只在 `codex/directory-query-production-ready`：默认 legacy，candidate 受 migration 53
+  和精确覆盖索引门禁；单字符/有效筛选继续 legacy。三 seed API、直接 rank、跨计划分页和权限为
+  0 差异；成对隔离基准首字母 examined 约 -96.7%、main P95 约 -45.5%。
+- 完整路由、冷/热、并发、导入写放大、在线 DDL、production 只读预检和回滚计划见
+  [通讯录查询 production-ready 正式化报告](./directory-query-production-readiness.md)。隔离结果不得写成
+  小米 14 或 production 实测，也不得宣称 9–10 秒长尾已彻底解决。
+- 本轮未调用微信开发者工具、未上传体验版、未部署/修改 production、未创建生产备份、未运行生产
+  迁移/索引或切换服务器 release。
+
 后续唯一建议任务见 `docs/audit/STATUS.md`。
