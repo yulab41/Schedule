@@ -365,6 +365,13 @@
       "when": 1785542400052,
       "tag": "0052_user_profile_avatars",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1785542400053,
+      "tag": "0053_directory_candidate_covering_index",
+      "breakpoints": true
     }
   ]
 }

@@ -234,5 +234,10 @@ export const directorySearchAliases = mysqlTable(
     uniqueIndex('directory_search_aliases_entry_hash_unique').on(table.entryId, table.aliasSha256),
     index('directory_search_aliases_normalized_idx').on(table.normalizedValue, table.type),
     index('directory_search_aliases_entry_type_idx').on(table.entryId, table.type),
+    index('directory_search_aliases_entry_type_normalized_idx').on(
+      table.entryId,
+      table.type,
+      table.normalizedValue,
+    ),
   ],
 );
