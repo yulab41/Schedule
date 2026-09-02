@@ -27,6 +27,10 @@ const versionAllowlistSource = readFileSync(
   fileURLToPath(new URL('../infra/scripts/client-version-allowlist.sh', import.meta.url)),
   'utf8',
 );
+const directoryQueryPlanSwitchSource = readFileSync(
+  fileURLToPath(new URL('../infra/scripts/directory-query-plan-switch.sh', import.meta.url)),
+  'utf8',
+);
 const attributesSource = readFileSync(
   fileURLToPath(new URL('../.gitattributes', import.meta.url)),
   'utf8',
@@ -49,7 +53,7 @@ describe('ECS directory import runtime packaging', () => {
 
   it('stops the old API write path before migrations and only restarts it afterward', () => {
     const stopIndex = updateSource.indexOf('compose stop api');
-    const migrateIndex = updateSource.indexOf('compose run --rm api node apps/api/dist/migrate.js');
+    const migrateIndex = updateSource.indexOf('run_database_migrations', stopIndex);
     const restartIndex = updateSource.indexOf(
       'compose up -d --force-recreate api web',
       migrateIndex,
@@ -75,6 +79,7 @@ describe('ECS directory import runtime packaging', () => {
       'infra/scripts/ecs-reuse-release.sh',
       'infra/scripts/client-capability-switch.sh',
       'infra/scripts/client-version-allowlist.sh',
+      'infra/scripts/directory-query-plan-switch.sh',
       'infra/scripts/schedule-backup.sh',
       'infra/scripts/schedule-privacy-retention.sh',
     ]) {
@@ -88,6 +93,7 @@ describe('ECS directory import runtime packaging', () => {
       'ecsReuseReleaseSha256',
       'clientCapabilitySwitchSha256',
       'clientVersionAllowlistSha256',
+      'directoryQueryPlanSwitchSha256',
       'backupSchedulerSha256',
       'privacyRetentionSchedulerSha256',
     ]) {
@@ -100,6 +106,7 @@ describe('ECS directory import runtime packaging', () => {
     expect(capabilitySwitchSource).toContain('DEPLOY_DIR="/opt/schedule"');
     expect(capabilitySwitchSource).toContain('ENV_FILE="$DEPLOY_DIR/.env.production"');
     expect(versionAllowlistSource).toContain('up -d --force-recreate api web');
+    expect(directoryQueryPlanSwitchSource).toContain('up -d --force-recreate api');
   });
 
   it('refuses mislabeled or non-portable release artifacts before packaging', () => {

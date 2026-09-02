@@ -13,6 +13,7 @@ import type {
 import { directoryEntryKindLabels } from '@schedule/contracts';
 import {
   directoryCampuses,
+  directoryCandidateMigrationIdentity,
   directoryContactMethods,
   directoryEntries,
   directoryImportBatches,
@@ -251,10 +252,18 @@ async function inspectCandidateDirectoryReadiness(
   databaseClient: DatabaseClient,
 ): Promise<DirectoryCandidateReadiness> {
   const [migrationRows] = (await databaseClient.database.execute(sql`
-    SELECT COUNT(*) AS migrationCount FROM __drizzle_migrations
-  `)) as unknown as [[{ migrationCount: number | string }], unknown];
-  const migrationCount = Number(migrationRows[0]?.migrationCount ?? 0);
-  if (migrationCount < 53) return { indexRows: [], migrationCount };
+    SELECT
+      id,
+      hash,
+      created_at AS createdAt
+    FROM __drizzle_migrations
+    WHERE created_at = ${directoryCandidateMigrationIdentity.createdAt}
+      OR hash = ${directoryCandidateMigrationIdentity.hash}
+    ORDER BY id
+  `)) as unknown as [
+    Array<{ createdAt: number | string; hash: string; id: number | string }>,
+    unknown,
+  ];
   const [rows] = (await databaseClient.database.execute(sql`
     SELECT
       COLUMN_NAME AS columnName,
@@ -288,7 +297,11 @@ async function inspectCandidateDirectoryReadiness(
       nonUnique: Number(row.nonUnique),
       sequence: Number(row.sequence),
     })),
-    migrationCount,
+    migrationRows: migrationRows.map((row) => ({
+      createdAt: Number(row.createdAt),
+      hash: row.hash,
+      id: Number(row.id),
+    })),
   };
 }
 

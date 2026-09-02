@@ -1,13 +1,16 @@
 import type { DirectoryQuery } from '@schedule/contracts';
+import { directoryCandidateMigrationIdentity } from '@schedule/database';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   DirectoryCandidateIndexGuard,
+  directoryCandidateReadinessTtlMs,
   directoryCandidateIndexName,
   hasCandidateDirectoryIndexDefinition,
   selectDirectoryQueryPlan,
   type DirectoryCandidateReadiness,
   type DirectoryIndexDefinitionRow,
+  type DirectoryMigrationJournalRow,
 } from './directory-query-plan.js';
 
 describe('directory query plan routing', () => {
@@ -102,7 +105,7 @@ describe('directory candidate covering-index guard', () => {
   ];
   const exactReadiness: DirectoryCandidateReadiness = {
     indexRows: exactRows,
-    migrationCount: 53,
+    migrationRows: [migrationRow()],
   };
 
   it('accepts only the named non-unique index with the exact ordered columns', () => {
@@ -136,28 +139,59 @@ describe('directory candidate covering-index guard', () => {
     expect(directoryCandidateIndexName).toBe('directory_search_aliases_entry_type_normalized_idx');
   });
 
-  it('memoizes a successful inspection across concurrent requests', async () => {
+  it('coalesces concurrent inspection and rechecks only after the bounded TTL', async () => {
+    let now = 10_000;
     const inspect = vi.fn(async () => exactReadiness);
     const warn = vi.fn();
-    const guard = new DirectoryCandidateIndexGuard(inspect, warn);
+    const guard = new DirectoryCandidateIndexGuard(inspect, warn, {
+      now: () => now,
+      ttlMs: directoryCandidateReadinessTtlMs,
+    });
 
     await expect(Promise.all([guard.isAvailable(), guard.isAvailable()])).resolves.toEqual([
       true,
       true,
     ]);
     expect(inspect).toHaveBeenCalledTimes(1);
+    now += directoryCandidateReadinessTtlMs - 1;
+    await expect(guard.isAvailable()).resolves.toBe(true);
+    expect(inspect).toHaveBeenCalledTimes(1);
+
+    now += 1;
+    await expect(Promise.all([guard.isAvailable(), guard.isAvailable()])).resolves.toEqual([
+      true,
+      true,
+    ]);
+    expect(inspect).toHaveBeenCalledTimes(2);
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('fails closed without throwing when the index is absent or inspection fails', async () => {
+  it('requires the exact 0053 journal identity and exact index definition', async () => {
     for (const [inspect, reason] of [
-      [vi.fn(async () => ({ indexRows: exactRows, migrationCount: 52 })), 'migration-incomplete'],
-      [vi.fn(async () => ({ indexRows: [], migrationCount: 53 })), 'index-missing-or-invalid'],
+      [
+        vi.fn(async () => ({ indexRows: [], migrationRows: [migrationRow()] })),
+        'index-missing-or-invalid',
+      ],
+      [
+        vi.fn(async () => ({
+          indexRows: [row('type', 1), row('entry_id', 2), row('normalized_value', 3)],
+          migrationRows: [migrationRow()],
+        })),
+        'index-missing-or-invalid',
+      ],
+      [vi.fn(async () => ({ indexRows: [], migrationRows: [] })), 'migration-missing-or-invalid'],
+      [
+        vi.fn(async () => ({
+          indexRows: exactRows,
+          migrationRows: [migrationRow({ hash: '0'.repeat(64) })],
+        })),
+        'migration-index-inconsistent',
+      ],
       [
         vi.fn(async () => {
           throw new Error('private database detail');
         }),
-        'index-inspection-failed',
+        'readiness-inspection-failed',
       ],
     ] as const) {
       const warn = vi.fn();
@@ -170,6 +204,22 @@ describe('directory candidate covering-index guard', () => {
       expect(warn).toHaveBeenCalledTimes(1);
     }
   });
+
+  it('keeps failures cached only for the TTL and supports an explicit post-migration refresh', async () => {
+    let readiness: DirectoryCandidateReadiness = { indexRows: [], migrationRows: [] };
+    const inspect = vi.fn(async () => readiness);
+    const warn = vi.fn();
+    const guard = new DirectoryCandidateIndexGuard(inspect, warn);
+
+    await expect(guard.isAvailable()).resolves.toBe(false);
+    readiness = exactReadiness;
+    await expect(guard.isAvailable()).resolves.toBe(false);
+    expect(inspect).toHaveBeenCalledTimes(1);
+
+    await expect(guard.refresh()).resolves.toBe(true);
+    await expect(guard.isAvailable()).resolves.toBe(true);
+    expect(inspect).toHaveBeenCalledTimes(2);
+  });
 });
 
 function row(columnName: string, sequence: number, nonUnique = 1): DirectoryIndexDefinitionRow {
@@ -180,5 +230,16 @@ function row(columnName: string, sequence: number, nonUnique = 1): DirectoryInde
     isVisible: 'YES',
     nonUnique,
     sequence,
+  };
+}
+
+function migrationRow(
+  overrides: Partial<DirectoryMigrationJournalRow> = {},
+): DirectoryMigrationJournalRow {
+  return {
+    createdAt: directoryCandidateMigrationIdentity.createdAt,
+    hash: directoryCandidateMigrationIdentity.hash,
+    id: 53,
+    ...overrides,
   };
 }

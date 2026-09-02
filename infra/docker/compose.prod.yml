@@ -60,6 +60,7 @@ services:
       NODE_ENV: production
       AUTH_DEV_MODE: 'false'
       AUTH_PASSWORD_ENABLED: 'true'
+      DIRECTORY_QUERY_PLAN: ${DIRECTORY_QUERY_PLAN:-legacy}
       BACKUP_DIR: /data/backups
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
