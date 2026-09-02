@@ -9,14 +9,14 @@
 `70f14ce68520cda0c40976583b02edc063597fdb` 均未改写；原实验 volume、readiness volume 和 runtime
 报告也未删除。
 
-管理通道恢复后，阶段 1 已于 2026-09-02 完成 production 部署；实际源码为
-`cc43e8c82424617303a4b2f3b2d9119f66a91eb2`，数据库仍为 schema 0052，实际查询计划仍为 legacy。
-阶段 2 继续 **NO-GO**：本轮没有执行 0053、创建覆盖索引、启用 candidate、调整 buffer pool 或上传
-小程序。阶段 1 的成功不能自动授权阶段 2。
+管理通道恢复后，阶段 1 与获批的阶段 2 已于 2026-09-02 依次完成 production 部署；实际源码为
+`50ac2d07a3412c6d76a3494b1150868276f4781c`，数据库为 schema 0053，覆盖索引已按精确定义创建，
+实际查询计划仍为 legacy。candidate 全局切换继续 **NO-GO**：迁移/索引成功不自动授权切换计划，
+本轮没有启用 candidate、调整 buffer pool 或把隔离性能数字写成 production 实测。
 
 ## 最新主线差异
 
-两次 fetch 均确认最新主线为
+阶段 2 开始打包前，两次 fetch 均确认当时主线为
 `07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`。`a4f50c0207ccb67f5ccdc78dd3912ba248fec9af`
 到该 SHA 只有一个提交：
 
@@ -34,6 +34,12 @@
 因此旧 `5dcb2b5a` 或 `70f14ce6` 虽仍以主线旧 SHA 为祖先，却会遗漏上述 Mini 业务修复、对应永久测试和
 最新状态文档；同时保留日期、format、browser smoke 三个正式红灯及旧 source-only 基线，不能直接作为
 最终 release 来源。
+
+阶段 2 完成后、Mini 上传前的再次 fetch 发现 `origin/main` 已并行前进到
+`d1594d09a52bc1e3810dfa6ae41e4a3e3dde52d0`，其四个新增提交为 `EXP-UX-001` Mini 体验修复与文档；
+与阶段 2 的 merge base 仍为 `07decdbb…`，且没有 API、migration、production 配置或部署脚本变化。
+因此本轮没有把新主线静默并入已经明确批准的阶段 2，也没有以 `d1594d09…` 重新部署 production；该
+SHA 只作为后述 Mini `.79` 的精确上传源码。
 
 旧分支相对最新主线独有提交按拓扑顺序为：
 
@@ -175,6 +181,30 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 - 发布后再次精确核对：current release=`cc43e8c…`、schema=52、目标索引=0、runtime plan=legacy、API
   instance=1。没有启用 candidate，也没有把隔离性能数字写成 production 实测。
 
+## 阶段 2 production 部署与 Mini 独立轨道
+
+- 部署前低频只读 preflight 精确确认 live=`cc43e8c…`、rollback=`a2326618…`、schema=52、0053 journal=0、
+  目标索引=0、runtime plan 默认 legacy、单 API/MySQL/Web、长事务/pending MDL/active DDL 均为 0；当前
+  verifier 通过。磁盘可用 16,777,588,736B、inode 可用 2,455,570、可用内存 906,248KiB。
+- exact detached `50ac2d07…` 的 deployable package 连续两次稳定字段一致。dist 为 1,335,469B / SHA-256
+  `6183c6fd…5845`；API-flat 为 5,834,876B / `b9ca43a3…5846`；rollback 精确绑定 live `cc43e8c…`。
+  归档包含 0053/rollback 与 plan-switch，0053 内容 SHA-256 为 `9ae2192f…b909`；不含 readiness harness
+  或 runtime 原始证据。
+- release lock 下先创建备份 `80de252f-cbb3-4c02-86d3-765dffb7130c`：daily、55 表、205,991 行、
+  91,279,360B、SHA-256 `f9426f82…18a5`；数据库记录和命名卷文件大小一致。updater 随后执行 0053，
+  API/Web 重建后两个 502 预热探针内恢复，于 2026-09-02 19:28:33 +08:00 完成。
+- 独立 postflight 精确得到 migration=53，journal id/hash/createdAt 为
+  `53 / 9ae2192f…b909 / 1785542400053`；索引为可见非唯一 BTREE，列序严格
+  `entry_id,type,normalized_value`。runtime `DIRECTORY_QUERY_PLAN=legacy`，单 API/MySQL/Web，长事务、
+  pending MDL、active DDL 均为 0；可信 plan-switch 为 `root:root/0755`，但未调用 candidate。
+- 远端完整 verifier、可信 client allowlist verify，以及独立公网 Web/health、`.78`、`.76` 七项能力和
+  未知版本 426 全部通过。rollback 现在精确为阶段 1 `cc43e8c…`；本轮没有执行 production rollback 演练。
+- Mini 是独立发布轨道。`.78` 的精确源码为 `07decdbb…`；并行主线 `d1594d09…` 有实际 Mini 源码变化，
+  clean `.79` 以 production profile 通过 114 files / 621 tests、verify、determinism、package audit 和
+  CI dry-run后上传成功：191 code files、zip 2,451,655B、upload manifest `fe2acd36…a10f0`，显示标识
+  `0.1.0-p10.20260902.79@d1594d0`。`.79` 尚未加入 production allowlist，当前能力探针为 426；未提审、
+  未正式发布，也没有因 Mini 上传再次部署 production。
+
 ## 上线观测归因
 
 - candidate 与 legacy 的 main/count SQL 结构不同，应在受控时间窗从
@@ -202,10 +232,12 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 | schema readiness 缓存                                    | PASS    | 实例单例、60s TTL、同窗 Promise 合并、过期/失败 fail closed、实例重建/显式 refresh |
 | 隔离 MDL 有界失败与重试                                  | PASS    | session lock wait 5s；25/25 migration 测试证明零残留和安全重试                     |
 | production 阶段 1 updater                                | PASS    | 备份后发布 `cc43e8c…`，远端 verifier 和独立公网核验通过                            |
-| production 0053 DDL 与失败恢复                           | BLOCKED | 阶段 1 只有 0052；本轮没有在 production 执行 0053                                  |
+| production 0053 DDL                                      | PASS    | 阶段 2 updater 成功执行；journal 精确、索引三列定义精确、无残留 MDL/DDL            |
+| production 0053 失败自动恢复实测                         | BLOCKED | 本次 DDL 成功；失败恢复只在隔离 MDL 测试中通过，未在 production 制造失败           |
 | flag 源码与失败恢复测试                                  | PASS    | 缺失/非法/读取失败为 legacy；trusted switch 测试通过                               |
-| production candidate 切换工具/耗时/中断                  | BLOCKED | 阶段 1 未安装阶段 2 switch 工具，也未执行全局切换                                  |
-| 管理通道与 rollback 来源                                 | PASS    | VPN/TUN 正式域名可用；rollback=`a2326618…` 且 retained                             |
+| production candidate 切换工具                            | PASS    | 阶段 2可信工具已安装为 root:root/0755；未调用 candidate                            |
+| production candidate 切换耗时/中断                       | BLOCKED | 实际计划仍为 legacy；全局切换继续等待独立批准                                      |
+| 管理通道与 rollback 来源                                 | PASS    | VPN/TUN 正式域名可用；rollback=`cc43e8c…` 且 retained                              |
 | production 实际 rollback 演练                            | BLOCKED | 工具和来源已验证，但本轮未执行回滚                                                 |
 | 单一 Compose project 控制逻辑                            | PASS    | 同一 env、全 API force-recreate、逐实例校验的脚本测试通过                          |
 | production 主机/API 实例数量与一致性                     | PASS    | 单主机、单 API/MySQL/Web；post-deploy verifier 逐实例通过                          |
@@ -214,11 +246,14 @@ fresh-current 0053 的本地 MySQL 8.4.11 关键 smoke 为 20 轮成对交错；
 | 阶段 1 source-only 产物                                  | PASS    | 精确 SHA、最高 0052、无 0053、deterministic、non-deployable                        |
 | 阶段 1 production release                                | PASS    | deployable artifacts、备份、发布、schema/index/legacy 与公网核验全部通过           |
 | 阶段 2 source-only 产物                                  | PASS    | 精确 SHA/0053、deterministic、non-deployable；harness/runtime 排除                 |
-| 阶段 2 production release / migration / candidate        | BLOCKED | 未获本轮授权；不得由阶段 1 成功自动推进                                            |
+| 阶段 2 production release / migration                    | PASS    | 备份后发布 `50ac2d07…`，schema/index/legacy、远端 verifier 与公网核验均通过        |
+| production candidate                                     | BLOCKED | 未获独立切换授权；实际容器值仍为 legacy                                            |
 | live release、磁盘、inode、内存、MDL、schema/index、备份 | PASS    | 实时 preflight 与 post-deploy 再核对                                               |
+| Mini `.79` 官方体验上传                                  | PASS    | exact `d1594d09…`；191 files / 2,451,655B / manifest `fe2acd36…a10f0`              |
+| Mini `.79` production allowlist                          | BLOCKED | 当前只读能力探针 426；上传授权未扩张为 production 配置写入                         |
 
 ## 唯一下一步与停止条件
 
-阶段 1 已完成并停止。阶段 2 的唯一下一步是等待用户另行明确批准 migration/index；届时必须从当时 live
-release 重新做低频只读 preflight、生成新的 deployable manifest 和新备份，先部署仍为 legacy 的阶段 2，
-再把 candidate 全局切换作为另一项单独批准。当前不迁移、不建索引、不启用 candidate。
+阶段 2 已完成并保持 legacy。后续只有两个相互独立、都需明确授权的动作：用可信 add-only 工具把 Mini
+`.79` 加入 production client-version allowlist；或在新的实时 preflight 后执行 candidate 全局切换。
+未获授权前不执行任一项，不自动重部署新主线、不提审或正式发布 Mini，也不删除实验 volume/证据。

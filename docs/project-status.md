@@ -1,24 +1,29 @@
 # Project Status
 
-## 当前 release-candidate 批次（2026-09-02，阶段 1 已部署；阶段 2 NO-GO）
+## 当前 release-candidate 批次（2026-09-02，阶段 2 已部署；candidate 未启用）
 
-- production 实际源码为阶段 1
-  `cc43e8c82424617303a4b2f3b2d9119f66a91eb2`；直接 rollback candidate 为部署前 live release
-  `a23266182122c6e2fcb5ca5aba5d8857ef781910`，两份 immutable release 均由 verifier 核对。
-- 部署前创建加密数据库备份 `155c2560-ef5d-4acf-90d1-a24158e6e1ee`：daily、55 表、205,864 行、
-  91,237,728B。阶段 1 归档最高 migration 0052；updater 的 migration 步骤为空跑，部署后 schema 仍为
-  52、目标索引仍不存在、API 实际 `DIRECTORY_QUERY_PLAN=legacy`。
-- 远端完整 verifier 与独立公网 Web/health/capability/未知版本 426 均通过；production 拓扑为单主机、
-  单 API/MySQL/Web。MySQL 未重建；API/Web 在内置健康等待后恢复。
-- SSH 根因为 VPN/TUN：正式域名解析到 `198.18.0.43`，必须使用正式域名、既有 `aliyun_schedule` 私钥和
-  严格 host-key 校验；直连真实 IP 会在 banner 前超时。
-- 阶段 2 业务/迁移来源仍为 `50ac2d07a3412c6d76a3494b1150868276f4781c`，只有 source-only 证据；本轮
-  没有执行 0053、建索引、启用 candidate、调整 MySQL 配置或上传 Mini。旧
-  `codex/directory-query-production-ready@70f14ce6` 未改写，实验 volume/runtime 证据保留。
-- 唯一下一批次：等待用户对阶段 2 migration/index 的另一次明确批准；即使以后部署阶段 2，也必须先
-  保持 legacy，迁移和 candidate 全局切换仍是不同审批/回滚单元。
-- 本轮状态 checkpoint 以 `docs(release): record directory stage1 deployment` 识别；该 docs SHA 不是
-  production 源码 SHA，不因文档提交再次操作 production。
+- production 实际源码为阶段 2
+  `50ac2d07a3412c6d76a3494b1150868276f4781c`；直接 rollback candidate 为阶段 1
+  `cc43e8c82424617303a4b2f3b2d9119f66a91eb2`，两份 immutable release 均保留并由 verifier 核对。
+- 在 release lock 下先创建加密备份 `80de252f-cbb3-4c02-86d3-765dffb7130c`：daily、55 表、205,991 行、
+  91,279,360B。随后 0053 成功写入精确 journal identity，并创建可见非唯一 BTREE
+  `directory_search_aliases_entry_type_normalized_idx(entry_id,type,normalized_value)`；schema 为 53。
+- API/Web 重建后两个 502 预热探针内恢复；远端完整 verifier 与独立公网 Web/health、`.78`、`.76`、
+  未知版本 426 均通过。production 仍为单主机、单 API/MySQL/Web；MySQL 未重建，长事务、pending MDL
+  和 active DDL 均为 0。
+- production 配置未显式写入查询计划，阶段 2 Compose 注入的实际容器值为
+  `DIRECTORY_QUERY_PLAN=legacy`。可信 plan-switch 工具已安装，但本轮没有调用 candidate；candidate
+  全局切换仍是独立审批和回滚单元。
+- 部署打包开始后 `origin/main` 从 `07decdbb…` 前进到
+  `d1594d09a52bc1e3810dfa6ae41e4a3e3dde52d0`；新增提交只涉及 `EXP-UX-001` Mini 与文档，不含 API、
+  migration、配置或部署脚本。production 仍精确记录获批源码 `50ac2d07…`，没有自动重部署新主线。
+- `0.1.0-p10.20260902.79@d1594d0` 已从 detached clean production profile 经官方 Node
+  `miniprogram-ci` 上传（191 code files、zip 2,451,655B、manifest `fe2acd36…a10f0`）。production
+  allowlist 尚无 `.79`，只读探针为 426；上传成功不等于当前可进入业务，追加白名单需另行明确批准。
+- 旧 `codex/directory-query-production-ready@70f14ce6` 未改写，实验 volume/runtime 证据和阶段 1/2 本地
+  发布证据均保留。下一步只等待 `.79` allowlist 或 candidate 全局切换的独立授权，不自动执行任一项。
+- 本轮状态 checkpoint 以 `docs(release): record directory stage2 deployment` 识别；该 docs SHA 不是
+  production 或 Mini 源码 SHA，不因文档提交再次操作 production。
 
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/wechat-miniprogram-audit.md` 和精确
 debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。

@@ -2240,3 +2240,22 @@
 - 远端完整 verifier 及独立公网 Web 200、health 200/ready、`.78`/`.76` 七项能力全 true、未知版本
   426 全部通过。本轮没有执行 0053、建索引、启用 candidate、改 MySQL 配置或上传 Mini；阶段 2
   继续等待另行明确批准。
+
+## 2026-09-02 directory 阶段 2 production 部署与 EXP-UX-001 体验上传
+
+- 阶段 2 获明确批准后，低频实时 preflight 确认 live `cc43e8c…`、schema52、0053/index 均为0、
+  legacy、单 API/MySQL/Web、长事务/pending MDL/active DDL 均0。exact `50ac2d07…` deployable 两次稳定
+  字段一致：dist 1,335,469B/`6183c6fd…5845`、API-flat 5,834,876B/`b9ca43a3…5846`，rollback 绑定
+  `cc43e8c…`；归档 0053 hash `9ae2192f…b909`，无 readiness/runtime 证据。
+- release lock 下备份 `80de252f-cbb3-4c02-86d3-765dffb7130c`（daily、55 表、205,991 行、
+  91,279,360B、`f9426f82…18a5`）后执行 updater。0053 成功，API/Web 在两个 502 探针内恢复；postflight
+  得到 journal 53/精确 hash+createdAt、可见非唯一 BTREE `(entry_id,type,normalized_value)`、schema53、
+  runtime plan=legacy、单实例且无残留 MDL/DDL。远端 verifier、可信 allowlist verify、公网 Web/health、
+  `.78`/`.76` 七维与 unknown=426 全绿；candidate 工具已安装但未调用。
+- 部署过程中 `origin/main` 并行从 `07decdbb…` 前进到 `d1594d09…`；新增内容仅 EXP-UX-001 Mini/文档，
+  未静默重部署 production。`.78` 精确源码为 `07decdbb…`；detached clean `d1594d09…` 的 `.79` 通过
+  Mini 114 files/621 tests、verify 5,113,963B、determinism、package audit 与 CI dry-run。官方 Node
+  `miniprogram-ci` 上传成功：`0.1.0-p10.20260902.79@d1594d0`、描述 `exp-ux-001-d1594d0`、191 code
+  files、zip 2,451,655B、manifest `fe2acd36…a10f0`；未调用微信开发者工具、未提审或正式发布。
+- `.79` 当前 production capability 为 426，`.78` 仍为 200；本轮上传授权没有扩张为 allowlist 写入。
+  唯一后续为等待 `.79` add-only allowlist 或 candidate 全局切换的各自明确授权，二者不得合并。
