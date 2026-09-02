@@ -23,7 +23,7 @@
   没有旧导航专用 usingComponents，路由/back/system side-swipe 保留；真正 workbench Tab 未改。
 - 13 个 `phase-chip` P 标签节点及样式已删除，CSV 改为 `format-chip`，build identity、测试工具 metadata、
   P1 左侧诊断说明保留；源码/dist 搜索无 phase chip。clean production 包体 `5,121,616 → 5,113,419`，
-  减少 `8,197` bytes。
+  减少 `8,197` bytes；manifest 为每次 build-time 生成值，不作为稳定包体指标。
 
 ## 验证与边界
 

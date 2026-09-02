@@ -14,7 +14,8 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
   暂存或借用。
 - 设计 checkpoint：`7cef75ff docs(superpowers): design EXP-UX-001 experience fixes`。
 - 功能 checkpoint：`3b1cbd1b fix(miniprogram): close EXP-UX-001 experience regressions`。
-- 本次 clean 包体/manifest 文档 checkpoint 提交信息：`docs(audit): record clean EXP-UX-001 verification`（本文件更新后提交）。
+- clean 包体文档 checkpoint：`f04fc56d docs(audit): record clean EXP-UX-001 verification`。
+- 本次 build-time manifest 口径修正文档 checkpoint 提交信息：`docs(audit): clarify volatile build manifest`（本文件更新后提交）。
 - 不重跑阶段 0，不执行 `MINI-G1-004`，不进入日期选择器、事件记录或全局图标任务。
 
 ## 已完成的 EXP-UX-001
@@ -37,8 +38,8 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 - 旧实现先红：EXP 合同在业务源码修改前实际 7 红/1 绿；修复后 EXP 9/9，受影响定向合同 52/52。
 - Mini 全量：`pnpm miniprogram:test` 为 114 files / 621 tests passed。
 - Mini：`pnpm miniprogram:build`、`pnpm --filter @schedule/miniprogram typecheck`、source audit、
-  `pnpm miniprogram:verify` 均通过；clean verify packageBytes `5,113,419`，manifest
-  `af24780657b229cb8e0fab62dac8d38c71daab46b9718930b030e3ef40f659e2`。
+  `pnpm miniprogram:verify` 均通过；clean verify packageBytes `5,113,419`。manifest 会包含每次构建时间，
+  因此每次 verify 重新生成，不作为稳定 SHA/包体指标提交。
 - 包体同口径从 `5,121,616` 降至 `5,113,419`，实际减少 `8,197` bytes；主包 warning 和矩阵 warning 保持
   既有类别。
 - 根 production build 通过；根 TypeScript 通过；ESLint 通过；`pnpm smoke:check-core` 通过并确认未涉及
