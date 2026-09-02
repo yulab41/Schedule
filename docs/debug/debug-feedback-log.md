@@ -2194,3 +2194,24 @@
 - 外部边界：未上传/分配体验版，未部署/修改 production，未创建生产备份，未运行生产迁移/索引/
   EXPLAIN ANALYZE/缓存清理/重启/配置修改。准确结论仍是“扫描放大和冷页回表已优化，production
   长尾是否彻底消除仍需持续观察”。
+
+## 2026-09-02 通讯录 candidate production 最后门禁补强
+
+- 引入点：`git log -S migrationCount` 与 blame 证实 `5dcb2b5a` 首次以 migration 总数和永久 Promise
+  门禁 candidate；`git log -S 'compose run --rm api node apps/api/dist/migrate.js'` 追到既有 updater，0053
+  来自 `1e1084f9` 且没有 session MDL 等待上限。它们是本轮回归测试的旧行为基线。
+- 测试先行红灯精确覆盖：53 条 journal 但缺 0053、0053/index 任一缺失、同名异定义、journal/index
+  不一致、检查异常、TTL/显式刷新、MDL 阻塞、部署总超时与 global flag wiring；随后实现精确
+  `id + created_at + hash`、60 秒 TTL、5 秒 session lock wait 和 300 秒 updater 总超时。
+- 隔离 MySQL 人为持有 `directory_search_aliases` metadata lock：0053 在约 5 秒返回
+  `ER_LOCK_WAIT_TIMEOUT/1205`，索引仍为空；释放后原 migration 重试成功。原始失败日志只在临时文件
+  分类并删除，对外只保留 metadata-lock/index-conflict/DDL/total-timeout 四类。
+- production flag 是启动时读取的全局开关；新增 trusted switch 在 release lock 下原子更新 env、重建
+  并核对全部 Compose API 实例。candidate 前精确复核 0053/index；candidate 失败恢复 legacy，
+  candidate→legacy 健康失败也不反向切回 candidate。健康等待代码上界 90 秒，production 实耗未知。
+- source-only dry-run 证明阶段 1 `5dcb2b5a` 最高 migration 0052，不能执行 0053；不构建或保留
+  deployable tar/zstd。benchmark、合成数据、runtime 和两个保留 Docker volume 不进入生产 archive。
+- 本轮唯一一次 SSH 仍在 banner exchange 前超时，远端命令数 0；按用户门禁直接 NO-GO，不使用历史
+  live release。两个日期 fixture 和既有 Web smoke 仍是独立正式发布红灯，不混入 directory commit。
+- checkpoint 以 `hardening(directory): close production preflight gaps` 识别；本轮未合并 main、上传、
+  部署、备份、执行 production migration/DDL/EXPLAIN、修改 production 配置/flag 或删除实验证据。

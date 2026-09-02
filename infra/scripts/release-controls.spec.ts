@@ -212,6 +212,71 @@ describe('release control installation and backward compatibility', () => {
     expect(updateSource).toContain('trap rollback_on_signal HUP INT TERM');
     expect(updateSource).toContain('cleanup_on_exit');
   });
+
+  it('bounds migrations independently and classifies DDL failures before restoring the prior release', async () => {
+    const source = await readScript('ecs-update.sh');
+
+    expect(source).toContain('MIGRATION_TOTAL_TIMEOUT_SECONDS=300');
+    expect(source).toContain('timeout --foreground --signal=TERM --kill-after=15');
+    expect(source).toContain('medical-schedule-prod-api-migrate');
+    expect(source).toContain('metadata-lock-timeout');
+    expect(source).toContain('index-definition-conflict');
+    expect(source).toContain('ddl-execution-failed');
+    expect(source).toContain('deployment-migration-timeout');
+    expect(source).toContain('restore_deployment_state');
+    const stopIndex = source.indexOf('compose stop api');
+    const migrateIndex = source.indexOf('run_database_migrations', stopIndex);
+    const restartIndex = source.indexOf('compose up -d --force-recreate api web', migrateIndex);
+    expect(stopIndex).toBeGreaterThan(-1);
+    expect(migrateIndex).toBeGreaterThan(stopIndex);
+    expect(restartIndex).toBeGreaterThan(migrateIndex);
+  });
+});
+
+describe('production directory query-plan control', () => {
+  it('wires one startup-only global plan value through production compose with legacy default', async () => {
+    const compose = await readFile(
+      fileURLToPath(new URL('../docker/compose.prod.yml', import.meta.url)),
+      'utf8',
+    );
+    const environment = await readFile(
+      fileURLToPath(new URL('../../.env.production.example', import.meta.url)),
+      'utf8',
+    );
+
+    expect(compose).toContain('DIRECTORY_QUERY_PLAN: ${DIRECTORY_QUERY_PLAN:-legacy}');
+    expect(environment).toContain('DIRECTORY_QUERY_PLAN=legacy');
+  });
+
+  it('uses a root-owned atomic global switch and recreates every compose API instance', async () => {
+    const source = await readScript('directory-query-plan-switch.sh');
+
+    expect(source).toContain('legacy|candidate');
+    expect(source).toContain('/var/lock/schedule-release.lock');
+    expect(source).toContain('mktemp "$DEPLOY_DIR/.env.production.directory-plan.XXXXXX"');
+    expect(source).toContain('mv -f -- "$NEXT_ENV" "$ENV_FILE"');
+    expect(source).toContain('up -d --force-recreate api');
+    expect(source).toContain('compose ps -q api');
+    expect(source).toContain('DIRECTORY_QUERY_PLAN');
+    expect(source).not.toMatch(/(?:^|\n)\s*(?:source|\.)\s+[^\n]*\.env\.production/u);
+  });
+
+  it('requires exact migration and index readiness before candidate but always permits legacy rollback', async () => {
+    const source = await readScript('directory-query-plan-switch.sh');
+    const verifySource = await readScript('ecs-verify.sh');
+
+    expect(source).toContain('0053_directory_candidate_covering_index.sql');
+    expect(source).toContain('created_at = 1785542400053');
+    expect(source).toContain('entry_id,type,normalized_value');
+    expect(source).toContain('BTREE');
+    expect(source).toContain('YES');
+    expect(source).toContain('if [ "$DESIRED_PLAN" = "candidate" ]');
+    expect(source).toContain('restore_legacy_after_failed_candidate');
+    expect(source).toContain('legacy rollback remains active');
+    expect(verifySource).toContain('migrations/0053_directory_candidate_covering_index.sql');
+    expect(verifySource).toContain('created_at = 1785542400053');
+    expect(verifySource).toContain('0053 migration journal 身份与 release SQL hash 不一致');
+  });
 });
 
 describe('hash-identical release reuse', () => {

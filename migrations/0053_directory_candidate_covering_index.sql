@@ -1,3 +1,7 @@
+SET @schedule_0053_previous_lock_wait_timeout := @@SESSION.lock_wait_timeout;
+--> statement-breakpoint
+SET SESSION lock_wait_timeout = 5;
+--> statement-breakpoint
 SET @schedule_0053_columns := (
   SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',')
   FROM information_schema.STATISTICS
@@ -48,7 +52,10 @@ EXECUTE schedule_0053_statement;
 --> statement-breakpoint
 DEALLOCATE PREPARE schedule_0053_statement;
 --> statement-breakpoint
-SET @schedule_0053_columns := NULL,
+SET SESSION lock_wait_timeout = @schedule_0053_previous_lock_wait_timeout;
+--> statement-breakpoint
+SET @schedule_0053_previous_lock_wait_timeout := NULL,
+    @schedule_0053_columns := NULL,
     @schedule_0053_non_unique := NULL,
     @schedule_0053_index_type := NULL,
     @schedule_0053_is_visible := NULL,

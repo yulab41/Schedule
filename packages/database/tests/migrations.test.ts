@@ -3,8 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { sql } from 'drizzle-orm';
+import { createConnection } from 'mysql2/promise';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -303,6 +305,51 @@ describeWithDatabase('identity and group migrations', () => {
       { columnName: 'type', nonUnique: 1, sequence: 3 },
     ]);
   });
+
+  it('bounds metadata-lock waiting, leaves no partial index, and permits a safe retry', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    await client.database.execute(sql`
+        ALTER TABLE directory_search_aliases
+          DROP INDEX directory_search_aliases_entry_type_normalized_idx,
+          ALGORITHM=INPLACE,
+          LOCK=NONE
+      `);
+    const blocker = await createConnection(databaseOptions as DatabaseConnectionOptions);
+    await blocker.beginTransaction();
+    await blocker.query('SELECT COUNT(*) FROM directory_search_aliases');
+    const startedAt = performance.now();
+    const attempt = runMigrationFile(client, '0053_directory_candidate_covering_index').then(
+      () => ({ kind: 'success' as const }),
+      (error: unknown) => ({ error, kind: 'error' as const }),
+    );
+
+    const firstOutcome = await Promise.race([
+      attempt,
+      delay(7_000).then(() => ({ kind: 'still-waiting' as const })),
+    ]);
+    await blocker.rollback();
+    await blocker.end();
+    const finalOutcome = await attempt;
+
+    expect(firstOutcome.kind).toBe('error');
+    expect(finalOutcome.kind).toBe('error');
+    if (finalOutcome.kind === 'error') {
+      expect(finalOutcome.error).toMatchObject({
+        cause: expect.objectContaining({ code: 'ER_LOCK_WAIT_TIMEOUT', errno: 1205 }),
+      });
+      expect(
+        String((finalOutcome.error as { cause?: { message?: string } }).cause?.message),
+      ).toMatch(/Lock wait timeout exceeded/i);
+    }
+    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(4_000);
+    expect(performance.now() - startedAt).toBeLessThan(7_000);
+    expect(await readDirectoryCandidateIndex(client)).toEqual([]);
+
+    await expect(
+      runMigrationFile(client, '0053_directory_candidate_covering_index'),
+    ).resolves.toBeUndefined();
+    expect(await readDirectoryCandidateIndex(client)).toHaveLength(3);
+  }, 20_000);
 
   it('blocks active over-limit manual templates before applying P5 constraints', async () => {
     const preP5MigrationsDirectory = await createLegacyMigrationsDirectory(47);

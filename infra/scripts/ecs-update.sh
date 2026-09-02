@@ -11,8 +11,11 @@ COMPOSE_FILES=(-f infra/docker/compose.prod.yml)
 DOMAIN="hosp.schedule.eylinhome.top"
 PRESERVE_CONTROL_PLANE="${SCHEDULE_PRESERVE_CONTROL_PLANE:-false}"
 P6_RELEASE_FEATURE_LEVEL="p6-client-capabilities-v1"
+MIGRATION_TOTAL_TIMEOUT_SECONDS=300
+MIGRATION_CONTAINER_NAME="medical-schedule-prod-api-migrate"
 DEPLOY_MUTATION_STARTED="false"
 NEXT_CURRENT_RELEASE=""
+MIGRATION_LOG_PATH=""
 
 fail() {
   echo "[deploy] 错误：$*" >&2
@@ -140,6 +143,38 @@ configure_database_privacy_retention() {
       -e "SET PERSIST binlog_expire_logs_seconds = 2592000; SET PERSIST general_log = OFF"'
 }
 
+run_database_migrations() {
+  local status category
+  MIGRATION_LOG_PATH="$(mktemp "$DEPLOY_DIR/runtime/.migration.XXXXXX")"
+  docker rm -f "$MIGRATION_CONTAINER_NAME" >/dev/null 2>&1 || true
+  set +e
+  timeout --foreground --signal=TERM --kill-after=15 "${MIGRATION_TOTAL_TIMEOUT_SECONDS}s" \
+    docker compose --env-file .env.production "${COMPOSE_FILES[@]}" run --rm \
+      --name "$MIGRATION_CONTAINER_NAME" api node apps/api/dist/migrate.js \
+      >"$MIGRATION_LOG_PATH" 2>&1
+  status=$?
+  set -e
+  if [ "$status" -eq 0 ]; then
+    rm -f -- "$MIGRATION_LOG_PATH"
+    MIGRATION_LOG_PATH=""
+    return 0
+  fi
+
+  docker rm -f "$MIGRATION_CONTAINER_NAME" >/dev/null 2>&1 || true
+  if [ "$status" -eq 124 ]; then
+    category="deployment-migration-timeout"
+  elif grep -Eqi 'Lock wait timeout exceeded|ER_LOCK_WAIT_TIMEOUT' "$MIGRATION_LOG_PATH"; then
+    category="metadata-lock-timeout"
+  elif grep -Fqi 'directory candidate index definition mismatch' "$MIGRATION_LOG_PATH"; then
+    category="index-definition-conflict"
+  else
+    category="ddl-execution-failed"
+  fi
+  rm -f -- "$MIGRATION_LOG_PATH"
+  MIGRATION_LOG_PATH=""
+  fail "数据库迁移失败（${category}）。"
+}
+
 assert_release_path() {
   local path="$1"
   case "$path" in
@@ -250,6 +285,10 @@ if archive_has_path infra/scripts/client-capability-switch.sh; then
     CONTROL_PATHS+=(infra/scripts/client-version-allowlist.sh)
     CONTROL_HASH_KEYS+=(clientVersionAllowlistSha256)
   fi
+  if archive_has_path infra/scripts/directory-query-plan-switch.sh; then
+    CONTROL_PATHS+=(infra/scripts/directory-query-plan-switch.sh)
+    CONTROL_HASH_KEYS+=(directoryQueryPlanSwitchSha256)
+  fi
   if archive_has_path infra/scripts/ecs-reuse-release.sh; then
     CONTROL_PATHS+=(infra/scripts/ecs-reuse-release.sh)
     CONTROL_HASH_KEYS+=(ecsReuseReleaseSha256)
@@ -300,6 +339,7 @@ for relative_path in \
   infra/scripts/ecs-reuse-release.sh \
   infra/scripts/client-capability-switch.sh \
   infra/scripts/client-version-allowlist.sh \
+  infra/scripts/directory-query-plan-switch.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-notifications.sh \
   infra/scripts/schedule-privacy-retention.sh \
@@ -324,6 +364,7 @@ if [ "$PRESERVE_CONTROL_PLANE" = "false" ]; then
     /usr/local/bin/schedule-ecs-reuse-release
     /usr/local/bin/schedule-client-capability
     /usr/local/bin/schedule-client-version-allowlist
+    /usr/local/bin/schedule-directory-query-plan
     /usr/local/lib/schedule
     /etc/cron.d/schedule-notifications
     /etc/cron.d/schedule-backup
@@ -365,6 +406,7 @@ restore_previous() {
     infra/scripts/ecs-reuse-release.sh \
     infra/scripts/client-capability-switch.sh \
     infra/scripts/client-version-allowlist.sh \
+    infra/scripts/directory-query-plan-switch.sh \
     infra/scripts/schedule-backup.sh \
     infra/scripts/schedule-notifications.sh \
     infra/scripts/schedule-privacy-retention.sh \
@@ -407,6 +449,11 @@ restore_deployment_state() {
     rm -f -- "$NEXT_CURRENT_RELEASE" || true
     NEXT_CURRENT_RELEASE=""
   fi
+  if [ -n "$MIGRATION_LOG_PATH" ]; then
+    rm -f -- "$MIGRATION_LOG_PATH" || true
+    MIGRATION_LOG_PATH=""
+  fi
+  docker rm -f "$MIGRATION_CONTAINER_NAME" >/dev/null 2>&1 || true
   DEPLOY_MUTATION_STARTED="false"
 }
 
@@ -457,6 +504,7 @@ for relative_path in \
   infra/scripts/ecs-reuse-release.sh \
   infra/scripts/client-capability-switch.sh \
   infra/scripts/client-version-allowlist.sh \
+  infra/scripts/directory-query-plan-switch.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-notifications.sh \
   infra/scripts/schedule-privacy-retention.sh \
@@ -485,6 +533,7 @@ for optional_path in \
   infra/scripts/ecs-reuse-release.sh \
   infra/scripts/client-capability-switch.sh \
   infra/scripts/client-version-allowlist.sh \
+  infra/scripts/directory-query-plan-switch.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-privacy-retention.sh; do
   if archive_has_path "$optional_path"; then
@@ -507,7 +556,7 @@ rmdir "$DEPLOY_DIR/runtime/api-flat-new"
 
 echo "[deploy] 4/7 停止旧 API 写入并在容器内执行数据库迁移"
 compose stop api
-compose run --rm api node apps/api/dist/migrate.js
+run_database_migrations
 configure_database_privacy_retention
 CURRENT_DATABASE_SCHEMA="$(database_migration_count)"
 if [[ ! "$CURRENT_DATABASE_SCHEMA" =~ ^[0-9]+$ ]] ||
@@ -551,6 +600,10 @@ EOF
   if [ -f infra/scripts/client-version-allowlist.sh ]; then
     install -m 0755 infra/scripts/client-version-allowlist.sh \
       /usr/local/bin/schedule-client-version-allowlist
+  fi
+  if [ -f infra/scripts/directory-query-plan-switch.sh ]; then
+    install -m 0755 infra/scripts/directory-query-plan-switch.sh \
+      /usr/local/bin/schedule-directory-query-plan
   fi
   if [ -f infra/scripts/schedule-backup.sh ]; then
     install -d -m 0755 /usr/local/lib/schedule

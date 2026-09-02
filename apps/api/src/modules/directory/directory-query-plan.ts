@@ -1,6 +1,8 @@
 import type { DirectoryQuery } from '@schedule/contracts';
+import { directoryCandidateMigrationIdentity } from '@schedule/database';
 
 export const directoryCandidateIndexName = 'directory_search_aliases_entry_type_normalized_idx';
+export const directoryCandidateReadinessTtlMs = 60_000;
 
 export type DirectoryQueryPlan = 'candidate' | 'legacy';
 
@@ -15,39 +17,79 @@ export interface DirectoryIndexDefinitionRow {
 
 export interface DirectoryCandidateReadiness {
   readonly indexRows: readonly DirectoryIndexDefinitionRow[];
-  readonly migrationCount: number;
+  readonly migrationRows: readonly DirectoryMigrationJournalRow[];
+}
+
+export interface DirectoryMigrationJournalRow {
+  readonly createdAt: number;
+  readonly hash: string;
+  readonly id: number;
 }
 
 export type DirectoryCandidateIndexUnavailableReason =
-  'index-inspection-failed' | 'index-missing-or-invalid' | 'migration-incomplete';
+  | 'index-missing-or-invalid'
+  | 'migration-index-inconsistent'
+  | 'migration-missing-or-invalid'
+  | 'readiness-inspection-failed';
+
+interface DirectoryCandidateIndexGuardOptions {
+  readonly now?: (() => number) | undefined;
+  readonly ttlMs?: number | undefined;
+}
 
 export class DirectoryCandidateIndexGuard {
-  private availability: Promise<boolean> | undefined;
+  private cached: { readonly available: boolean; readonly expiresAt: number } | undefined;
+  private refreshInFlight: Promise<boolean> | undefined;
+  private readonly now: () => number;
+  private readonly ttlMs: number;
 
   public constructor(
     private readonly inspect: () => Promise<DirectoryCandidateReadiness>,
     private readonly onUnavailable: (
       reason: DirectoryCandidateIndexUnavailableReason,
     ) => void = () => undefined,
-  ) {}
+    options: DirectoryCandidateIndexGuardOptions = {},
+  ) {
+    this.now = options.now ?? Date.now;
+    this.ttlMs = options.ttlMs ?? directoryCandidateReadinessTtlMs;
+  }
 
   public isAvailable(): Promise<boolean> {
-    this.availability ??= this.inspectOnce();
-    return this.availability;
+    if (this.cached !== undefined && this.now() < this.cached.expiresAt) {
+      return Promise.resolve(this.cached.available);
+    }
+    return this.refresh();
+  }
+
+  public refresh(): Promise<boolean> {
+    this.refreshInFlight ??= this.inspectOnce()
+      .then((available) => {
+        this.cached = { available, expiresAt: this.now() + this.ttlMs };
+        return available;
+      })
+      .finally(() => {
+        this.refreshInFlight = undefined;
+      });
+    return this.refreshInFlight;
   }
 
   private async inspectOnce(): Promise<boolean> {
     try {
       const readiness = await this.inspect();
-      if (readiness.migrationCount < 53) {
-        this.onUnavailable('migration-incomplete');
+      const migrationReady = hasDirectoryCandidateMigrationIdentity(readiness.migrationRows);
+      const indexReady = hasCandidateDirectoryIndexDefinition(readiness.indexRows);
+      if (!migrationReady) {
+        this.onUnavailable(
+          readiness.indexRows.length > 0
+            ? 'migration-index-inconsistent'
+            : 'migration-missing-or-invalid',
+        );
         return false;
       }
-      const available = hasCandidateDirectoryIndexDefinition(readiness.indexRows);
-      if (!available) this.onUnavailable('index-missing-or-invalid');
-      return available;
+      if (!indexReady) this.onUnavailable('index-missing-or-invalid');
+      return indexReady;
     } catch {
-      this.onUnavailable('index-inspection-failed');
+      this.onUnavailable('readiness-inspection-failed');
       return false;
     }
   }
@@ -109,5 +151,17 @@ export function hasCandidateDirectoryIndexDefinition(
       row.nonUnique === 1 &&
       row.sequence === index + 1 &&
       row.columnName === candidateIndexColumns[index],
+  );
+}
+
+export function hasDirectoryCandidateMigrationIdentity(
+  rows: readonly DirectoryMigrationJournalRow[],
+): boolean {
+  return (
+    rows.length === 1 &&
+    Number.isSafeInteger(rows[0]?.id) &&
+    (rows[0]?.id ?? 0) > 0 &&
+    rows[0]?.createdAt === directoryCandidateMigrationIdentity.createdAt &&
+    rows[0]?.hash === directoryCandidateMigrationIdentity.hash
   );
 }

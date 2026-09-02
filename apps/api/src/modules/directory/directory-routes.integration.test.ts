@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createTestDatabaseClient,
   directoryCampuses,
+  directoryCandidateMigrationIdentity,
   directoryEntries,
   directoryImportBatches,
   migrateDatabase,
@@ -356,17 +357,35 @@ describeWithDatabase('internal directory routes', () => {
     },
   );
 
-  it('keeps candidate disabled until migration 0053 is recorded even when the index exists', async () => {
+  it('keeps candidate disabled when the journal still has 53 rows but lacks exact migration 0053', async () => {
+    const [[before]] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count FROM __drizzle_migrations
+    `)) as unknown as [[{ count: number | string }], unknown];
+    expect(Number(before?.count)).toBe(53);
     await client.database.execute(sql`
       DELETE FROM __drizzle_migrations
-      ORDER BY id DESC
-      LIMIT 1
+      WHERE created_at = ${directoryCandidateMigrationIdentity.createdAt}
     `);
+    await client.database.execute(sql`
+      INSERT INTO __drizzle_migrations (hash, created_at)
+      VALUES (${'f'.repeat(64)}, ${directoryCandidateMigrationIdentity.createdAt + 1})
+    `);
+    const [[after]] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count FROM __drizzle_migrations
+    `)) as unknown as [[{ count: number | string }], unknown];
+    expect(Number(after?.count)).toBe(53);
+    const logLines: string[] = [];
+    const loggerStream = new Writable({
+      write(chunk, _encoding, callback) {
+        logLines.push(String(chunk));
+        callback();
+      },
+    });
     const candidateApp = createApp({
       authPort: createFakeAuthPort(directoryAuthTokens),
       databaseClient: client,
       directoryQueryPlan: 'candidate',
-      logger: false,
+      loggerStream,
     });
     try {
       const response = await candidateApp.inject({
@@ -380,6 +399,16 @@ describeWithDatabase('internal directory routes', () => {
       });
       expect(response.statusCode, response.payload).toBe(200);
       expect(response.headers['server-timing']).toContain('directory_plan;desc="legacy"');
+      expect(
+        logLines
+          .map((line) => JSON.parse(line) as Record<string, unknown>)
+          .filter((entry) => entry['event'] === 'directory_candidate_plan_unavailable'),
+      ).toEqual([
+        expect.objectContaining({
+          directoryQueryPlan: 'legacy',
+          reason: 'migration-index-inconsistent',
+        }),
+      ]);
     } finally {
       await candidateApp.close();
     }
@@ -442,6 +471,43 @@ describeWithDatabase('internal directory routes', () => {
         expect(JSON.stringify(planEntry)).not.toContain('private-marker');
         expect(JSON.stringify(planEntry)).not.toContain(groupId);
       }
+    } finally {
+      await candidateApp.close();
+    }
+  });
+
+  it('rejects a same-name index with a different ordered definition', async () => {
+    await client.database.execute(sql`
+      ALTER TABLE directory_search_aliases
+        DROP INDEX directory_search_aliases_entry_type_normalized_idx,
+        ALGORITHM=INPLACE,
+        LOCK=NONE
+    `);
+    await client.database.execute(sql`
+      ALTER TABLE directory_search_aliases
+        ADD INDEX directory_search_aliases_entry_type_normalized_idx
+          (type, entry_id, normalized_value),
+        ALGORITHM=INPLACE,
+        LOCK=NONE
+    `);
+    const candidateApp = createApp({
+      authPort: createFakeAuthPort(directoryAuthTokens),
+      databaseClient: client,
+      directoryQueryPlan: 'candidate',
+      logger: false,
+    });
+    try {
+      const response = await candidateApp.inject({
+        headers: {
+          authorization: 'Bearer member-token',
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=jzk`,
+      });
+      expect(response.statusCode, response.payload).toBe(200);
+      expect(response.headers['server-timing']).toContain('directory_plan;desc="legacy"');
     } finally {
       await candidateApp.close();
     }
