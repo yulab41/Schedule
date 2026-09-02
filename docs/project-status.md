@@ -5,24 +5,21 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 
 ## 当前仓库批次（2026-09-02）
 
-- 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`；本批起始基线为
-  `origin/main@07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2`。
-- 当前活动批次：`EXP-UX-001`；用户已批准书面设计，代码、永久合同、审计和 debug 连续性文档已完成，
-  并已完成 `.80` 体验上传、production release 与 client-version allowlist，当前状态为“已完成自动化与发布验证，
-  待用户 Xiaomi 14 真机复核”。
-- 修复分支/worktree：`codex/fix-exp-ux-001` /
-  `runtime/external-project-worktrees/exp-ux-001`；用户主 worktree 和其他 worktree 未修改、清理、
-  暂存或借用。
-- 设计 checkpoint：`7cef75ff docs(superpowers): design EXP-UX-001 experience fixes`。
-- 功能 checkpoint：`3b1cbd1b fix(miniprogram): close EXP-UX-001 experience regressions`。
-- clean 包体文档 checkpoint：`f04fc56d docs(audit): record clean EXP-UX-001 verification`。
-- 本次 build-time manifest 口径修正文档 checkpoint 提交信息：`docs(audit): clarify volatile build manifest`（本文件更新后提交）。
-- 为保留当前 production `50ac2d07` 的 schema 53/目录查询能力，最终源码 tip 为
-  `3897581e7a8d5734ef5910e2dd8854a92c246062`，其第一父为 EXP tip `d1594d09`、第二父为当前 production release；
-  production 使用该 tip 的 hash-identical trusted reuse。
-- 不重跑阶段 0，不执行 `MINI-G1-004`，不进入日期选择器、事件记录或全局图标任务。
+- 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`、`EXP-UX-001`；历史发布/真机边界保留在下方
+  历史段落与 `docs/audit/STATUS.md` 的前一版记录中。
+- 当前活动批次：`EXP-ICON-004`；已完成 Web/微信小程序图标与图标动效静态审计、单一来源设计和风险分批，
+  当前状态为“已完成静态/构建证据 → 待用户审阅并批准 B1”。
+- 起始基线：最新 `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298`。
+- 调查分支/worktree：`codex/exp-icon-004-audit` /
+  `runtime/external-project-worktrees/exp-icon-004-audit`；由 `origin/main` 创建，初始工作树干净；用户主
+  worktree 和其他 worktree 未修改、清理、暂存或借用。
+- 本轮只更新审计、设计、计划和状态文档；没有修改 Web/Mini 生产 icon、`packages/ui-tokens`、路由、API 或
+  业务逻辑；不重跑阶段 0，不调用微信开发者工具，不上传体验版，不部署 production。
+- 设计/完整对照：`docs/superpowers/specs/2026-09-02-exp-icon-004-icon-parity-design.md`、
+  `docs/audit/exp-icon-004-icon-parity-audit.md`；实施计划和 B1 精确 Prompt：
+  `docs/superpowers/plans/2026-09-02-exp-icon-004-icon-parity-implementation-plan.md`。
 
-## 已完成的 EXP-UX-001
+## 上一批次 EXP-UX-001 历史
 
 - 换班 request/admin/revoke 三种 sheet 改用既有 `ui-sheet`：fixed z400、78vh/max660、safe-area、
   独立滚动区、固定 footer 和顶部 drag region；首页真实 Tab 导航仍为 z50。
@@ -37,7 +34,7 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 - 详细截图映射、根因、删除清单、picker 调用者、包体和真机边界见 `docs/audit/wechat-miniprogram-audit.md`
   第 11 节；连续性记录见 `docs/debug/debug-feedback-log.md` 的 2026-09-02 条目。
 
-## 验证证据
+## 上一批次验证证据（EXP-UX-001）
 
 - 旧实现先红：EXP 合同在业务源码修改前实际 7 红/1 绿；修复后 EXP 9/9，受影响定向合同 52/52。
 - Mini 全量：`pnpm miniprogram:test` 为 114 files / 621 tests passed。
@@ -55,11 +52,28 @@ debug 日志为准。每轮先读 `docs/agent-context/pitfall-index.json`，只�
 - production 备份：`bd5f74d6-4b06-4330-878b-9c1f87c6ee9f`（55 表、206,133 行、91,326,356B）；当前 release
   `3897581e7a8d5734ef5910e2dd8854a92c246062`；allowlist 含 `0.1.0-p10.20260902.80`。
 
+## EXP-ICON-004 审计验证证据
+
+- 当前调查 worktree 基于最新 `origin/main@359966f7`，初始工作树干净；本轮 tracked diff 仅允许为审计/设计/
+  计划/状态文档。
+- 已实际运行 `node apps/miniprogram/scripts/build.mjs --profile=production`（276 files written）、
+  `node apps/miniprogram/scripts/source-audit.mjs`（passed）、`node apps/miniprogram/scripts/package-audit.mjs`
+  （passed，total `5,113,419B`）和 `node apps/miniprogram/scripts/performance-budget.mjs`（passed，
+  `tapCellPaths=2`）。
+- Mini icon 源为 26 个 SVG / `7,218B`，当前全复制到 main；包体为 main `1,677,999B`、scheduling
+  `425,318B`、organization `1,053,334B`、workflows `832,966B`、insights `1,071,781B`、diagnostics
+  `52,021B`、total `5,113,419B`。main 既有内部 1.5MiB warning 已记录，迁移预算为 main +4KiB、total +8KiB。
+- 本 checkpoint 计划提交信息：`docs(audit): record EXP-ICON-004 icon parity design`；提交前继续确认暂存
+  diff 仅含本批 6 个文档。
+- 本轮未触及 Web core consumer，不运行 `pnpm smoke:browser`；没有运行微信开发者工具、体验上传、真机验收或
+  production deploy。Web bundle delta、原生冷启动、微信 image 内部 path animation、renderer 与 reduced-motion
+  客户端行为均为“当前工具无法测量，暂未验证”。
+
 ## 状态策略与唯一下一任务
 
-- 四类代码问题：`已完成`（根因已修复且自动化/构建验证通过）；发布状态为 `已完成（自动验证、体验上传与
-  production release）→ 待用户复核`，原因仅为
-  Xiaomi 14 的真实触摸手感、safe-area、内部滚动和系统返回尚未在当前 tip 的体验版上复核。
-- 唯一下一任务：用户在 `.80` 体验版按审计第 11.6 节五步做 Xiaomi 14 最小验收；不开始事件记录、日期组件或图标任务。
-- 主线收口规则：先 fetch 最新主线，普通漂移自行处理；最终只做一次普通 fast-forward 推送到 main，
-  不 force push、不清理其他 worktree。完成主线收口后停止。
+- 当前批次状态：`已完成静态/构建证据 → 待用户审阅`；没有把单测/Node 构建写成 Web、微信原生或 Xiaomi 14
+  验收通过。
+- 唯一下一任务：用户审阅 `docs/audit/exp-icon-004-icon-parity-audit.md`、对应 design/plan 以及 B1 精确
+  Prompt；若批准，下一轮只执行 B1 source catalog/generator/tests，不自动进入 B2 生产图标替换。
+- 本轮调查分支完成文档 checkpoint 推送后停止；不上传体验版、不部署 production，不进入全量 icon 实现或后续
+  真机批次。不得清理其他 worktree，不 force push，不改 main。

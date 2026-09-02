@@ -1,15 +1,13 @@
 # 微信小程序审计报告
 
-- 当前阶段：`MINI-G1-003` P2 逻辑层性能问题已确认并修复；真机可见卡顿未直接确认。起始主线为
-  `origin/main@a4f50c0207ccb67f5ccdc78dd3912ba248fec9af`
+- 当前阶段：`EXP-ICON-004` Web/微信小程序图标与图标动效一致性静态审计、单一来源设计和分批计划已完成；
+  等待用户审阅 B1 Prompt。此前 `MINI-G1` 与 `EXP-UX-001` 章节保留为历史证据。
 - 更新时间：2026-09-02（Asia/Hong_Kong）
-- 修复分支/worktree：`codex/fix-mini-g1-003-scheduling-input` /
-  `runtime/external-project-worktrees/mini-g1-003-scheduling-input-20260902`
-- 起始主线已包含 `MINI-G1-001`、`MINI-G1-002` 和通讯录既有闭环；本轮 checkpoint 以
-  `fix(miniprogram): localize scheduling rotation input updates` 识别。
-- 本批性质：只修复 `MINI-G1-003`；未修改 `MINI-G1-004`、XMB、test-tools、API、数据库、权限、路由、
-  视觉设计、排班业务规则或其他页面，未调用微信开发者工具、未上传体验版、未部署 production，也未
-  修改或清理其他 worktree
+- 当前调查分支/worktree：`codex/exp-icon-004-audit` /
+  `runtime/external-project-worktrees/exp-icon-004-audit`
+- 当前审计基线：`origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298`
+- 本批性质：只做 icon source/motion/包体审计与迁移设计；不重跑阶段 0，不修改生产图标实现，不调用微信
+  开发者工具，不上传体验版，不部署 production。
 
 ## 2026-09-01 静态审计第 1 组：页面状态、异步链路与列表性能
 
@@ -1020,15 +1018,15 @@ P8×4、insights P9×4。对应 standalone/合并 badge 的 `.phase-chip` 样式
 
 同一 production profile、同一 package-audit 口径的真实结果：
 
-| 范围 | 修改前 bytes | 修改后 bytes | 变化 |
-| --- | ---: | ---: | ---: |
-| main | 1,677,999 | 1,677,999 | 0 |
-| subpackages/scheduling | 425,917 | 425,318 | -599 |
-| subpackages/organization | 1,054,228 | 1,053,334 | -894 |
-| subpackages/workflows | 839,488 | 832,966 | -6,522 |
-| subpackages/insights | 1,071,963 | 1,071,781 | -182 |
-| subpackages/diagnostics | 52,021 | 52,021 | 0 |
-| total | 5,121,616 | 5,113,419 | **-8,197** |
+| 范围                     | 修改前 bytes | 修改后 bytes |       变化 |
+| ------------------------ | -----------: | -----------: | ---------: |
+| main                     |    1,677,999 |    1,677,999 |          0 |
+| subpackages/scheduling   |      425,917 |      425,318 |       -599 |
+| subpackages/organization |    1,054,228 |    1,053,334 |       -894 |
+| subpackages/workflows    |      839,488 |      832,966 |     -6,522 |
+| subpackages/insights     |    1,071,963 |    1,071,781 |       -182 |
+| subpackages/diagnostics  |       52,021 |       52,021 |          0 |
+| total                    |    5,121,616 |    5,113,419 | **-8,197** |
 
 `pnpm miniprogram:verify` 同样报告 `packageBytes=5113419`；manifest 含每次构建时间、会随 verify 重新生成，
 不作为稳定包体指标。既有主包 1.5 MiB warning 和矩阵 1445/1505 warning 保持原类别，未扩大本轮审计。
@@ -1076,3 +1074,57 @@ verifier。
 5. 抽查所有页面右上角不再出现 P…；测试工具的内部 build/version 诊断仍可用但不在页面右上角渲染 phase tag。
 
 这五步是下一版实体设备人工验收清单，不把当前 Node/静态构建结果写成真机手势已通过。
+
+## 12. EXP-ICON-004：Web 与小程序图标及动效一致性审计（2026-09-02）
+
+本节记录本轮审计的入口和仓库级状态；完整逐文件对照、动效矩阵、source boundary、包体预算、风险批次和
+第一实施批次 Prompt 见 [`exp-icon-004-icon-parity-audit.md`](./exp-icon-004-icon-parity-audit.md)。设计与实施
+边界见 [`2026-09-02-exp-icon-004-icon-parity-design.md`](../superpowers/specs/2026-09-02-exp-icon-004-icon-parity-design.md)
+和 [`2026-09-02-exp-icon-004-icon-parity-implementation-plan.md`](../superpowers/plans/2026-09-02-exp-icon-004-icon-parity-implementation-plan.md)。
+
+### 12.1 只读基线和验证层级
+
+本轮在 `origin/main@359966f7` 创建干净独立 worktree，生产源码没有 icon diff。实际执行：
+
+```text
+node apps/miniprogram/scripts/build.mjs --profile=production
+  [miniprogram-build] production: 276 files written to dist/
+node apps/miniprogram/scripts/source-audit.mjs
+  [miniprogram-source] passed; worklet directives: 2
+node apps/miniprogram/scripts/package-audit.mjs
+  [miniprogram-package] passed; total 5113419 bytes
+node apps/miniprogram/scripts/performance-budget.mjs
+  [miniprogram-performance] passed; tapCellPaths=2
+```
+
+包体基线为 main `1,677,999B`、scheduling `425,318B`、organization `1,053,334B`、workflows `832,966B`、
+insights `1,071,781B`、diagnostics `52,021B`、total `5,113,419B`。`apps/miniprogram/src/assets/icons` 有 26
+个 SVG、7,218B；因位于 root assets，当前全部进入 main。以上是静态构建证据，不是微信原生或小米 14 证据。
+
+本轮实际读取并采用的技能为 `brainstorming`、`systematic-debugging`、`miniprogram-development`：分别用于先做
+source-only 设计、按调用点/历史定位根因、遵守 Mini 原生渲染边界。实际使用的是 Git、PowerShell、Node 静态
+构建/审计脚本和补丁编辑；没有调用 MCP、微信开发者工具 GUI/CLI、体验上传、production 部署或真实设备能力。
+因此 Web smoke、微信原生冷启动、Skyline/WebView、Mini `<image>` 内部 path 动效、reduced-motion 客户端行为
+和 Xiaomi 14 均未测量。
+
+### 12.2 核心发现
+
+- Web 生产端的真实来源是 `WorkbenchNavIcon.vue` inline SVG、`LucideMinimalActionIcon.vue` 的 inline/
+  TDesign 混合来源、TDesign direct imports、少量 CSS 几何和 PWA PNG；未发现生产 sprite 或 icon font。
+- Mini 端同时使用静态 SVG、CSS/WXML 手绘形状和 text glyph。很多 SVG path 与 Web/TDesign exact，但没有
+  `packages/ui-icons`、source/license/checksum 或 motion manifest；`web-*` 文件名不构成共享来源证明。
+- P1 为底部 nav actor/loop/组合差异、更多入口语义 icon 复用错误、以及外部 `<image>` 无法驱动 Web 内部
+  path draw。P2 为 token/cap/size/geometry 漂移、CSS mode/filter 近似、主包重复 asset；P3 为 Storybook/Poc/
+  dead CSS/status glyph 等非核心重复。
+- 推荐 source-only `packages/ui-icons`；Web 继续 inline SVG/CSS adapter，Mini 继续 generated SVG +
+  image/WXML/WXSS adapter。motion spec 共享数值与状态语义，不能原样复制浏览器 runtime。
+
+### 12.3 迁移计划与边界
+
+`B0`（本轮）只完成审计文档；`B1` 建 catalog/generator/tests 且不替换页面 consumer；`B2` 迁移底部 nav
+和顶部 bell/profile；`B3` 迁移 calendar/directory actions；`B4` 纠正更多入口真实语义；`B5` 处理 identity/
+status/legacy 清理。B1–B3 main 预算为不超过 `1,682,095B`、total 不超过 `5,121,611B`，且不得新增 package
+warning；超预算、需要 canvas/runtime、path source 不可追溯或需要扩大业务范围时停止。
+
+当前唯一下一任务是用户审阅并批准 B1 精确 Prompt。本轮不上传体验版、不部署 production；小米 14 的 renderer、
+reduced-motion、image 内部 path animation、尺寸/颜色/点击重播和 active-only loop 均待同构建体验版确认。
