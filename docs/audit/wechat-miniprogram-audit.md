@@ -1022,16 +1022,17 @@ P8×4、insights P9×4。对应 standalone/合并 badge 的 `.phase-chip` 样式
 
 | 范围 | 修改前 bytes | 修改后 bytes | 变化 |
 | --- | ---: | ---: | ---: |
-| main | 1,677,999 | 1,677,998 | -1 |
+| main | 1,677,999 | 1,677,999 | 0 |
 | subpackages/scheduling | 425,917 | 425,318 | -599 |
 | subpackages/organization | 1,054,228 | 1,053,334 | -894 |
-| subpackages/workflows | 839,488 | 832,985 | -6,503 |
+| subpackages/workflows | 839,488 | 832,966 | -6,522 |
 | subpackages/insights | 1,071,963 | 1,071,781 | -182 |
 | subpackages/diagnostics | 52,021 | 52,021 | 0 |
-| total | 5,121,616 | 5,113,437 | **-8,179** |
+| total | 5,121,616 | 5,113,419 | **-8,197** |
 
-`pnpm miniprogram:verify` 同样报告 `packageBytes=5113437`；既有主包 1.5 MiB warning 和矩阵 1445/1505
-warning 保持原类别，未扩大本轮审计。包体确实减少 8,179 bytes；不宣称额外清理共享导航 asset 或必然
+`pnpm miniprogram:verify` 同样报告 `packageBytes=5113419`，manifest 为
+`af24780657b229cb8e0fab62dac8d38c71daab46b9718930b030e3ef40f659e2`；既有主包 1.5 MiB warning 和矩阵 1445/1505
+warning 保持原类别，未扩大本轮审计。包体确实减少 8,197 bytes；不宣称额外清理共享导航 asset 或必然
 减少更多。
 
 ### 11.6 验证边界和下一版最小真机步骤

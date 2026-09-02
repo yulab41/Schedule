@@ -22,8 +22,8 @@
 - leave/swap/duty 旧 bottom-nav 节点、handler、专用样式和 64px 底栏预留已源码删除；direct Page JSON
   没有旧导航专用 usingComponents，路由/back/system side-swipe 保留；真正 workbench Tab 未改。
 - 13 个 `phase-chip` P 标签节点及样式已删除，CSV 改为 `format-chip`，build identity、测试工具 metadata、
-  P1 左侧诊断说明保留；源码/dist 搜索无 phase chip。production 包体 `5,121,616 → 5,113,437`，减少
-  `8,179` bytes。
+  P1 左侧诊断说明保留；源码/dist 搜索无 phase chip。clean production 包体 `5,121,616 → 5,113,419`，
+  减少 `8,197` bytes。
 
 ## 验证与边界
 

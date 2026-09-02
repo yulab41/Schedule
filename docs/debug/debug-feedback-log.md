@@ -2207,8 +2207,8 @@
   host dispose/unload 调用 `closeFromParent` 清理。leave/swap/duty 的旧 nav WXML/handler/style 删除，
   旧 64px nav 预留改为必要的 16px + safe-area；路由/back 保留。所有 13 个 phase-chip WXML/CSS 删除，
   CSV 改 format-chip，build identity/test metadata/P1 左侧说明保留。
-- 构建/包体：production build 276 files；package total 5,121,616→5,113,437 bytes（-8,179），其中
-  workflows -6,503。`miniprogram:verify` passed，现有主包和矩阵 warning 未新增类别；dist 搜索无
+- 构建/包体：clean production build 276 files；package total 5,121,616→5,113,419 bytes（-8,197），其中
+  workflows -6,522。`miniprogram:verify` passed，现有主包和矩阵 warning 未新增类别；dist 搜索无
   `phase-chip`/右上角 P5/P7/P8/P9 标签。
 - 证据边界：Node/static/WXS/production build 通过不等于 Xiaomi 14 真机手势通过。下一版需复核 sheet
   高度/安全区/内部滚动/拖动回弹、picker toggle 与卸载清理、请假/加扣班系统返回，以及所有右上角 P… 消失。
