@@ -70,6 +70,7 @@ import type { PasswordAuthService } from './modules/auth/password-auth-service.j
 import { registerPasswordAuthRoutes } from './modules/auth/password-auth-routes.js';
 import { registerDirectoryRoutes } from './modules/directory/directory-routes.js';
 import { DirectoryQuery } from './modules/directory/directory-query.js';
+import type { DirectoryQueryPlan } from './modules/directory/directory-query-plan.js';
 import { registerCalendarPreferencesRoutes } from './modules/calendar-preferences/calendar-preferences-routes.js';
 import { CalendarPreferencesService } from './modules/calendar-preferences/calendar-preferences-service.js';
 import { ClientCapabilityPolicy } from './modules/client-capabilities/client-capability-policy.js';
@@ -90,6 +91,7 @@ export interface CreateAppOptions {
   readonly authPort?: AuthPort;
   readonly clientCapabilityPolicy?: ClientCapabilityPolicy;
   readonly databaseClient?: DatabaseClient;
+  readonly directoryQueryPlan?: DirectoryQueryPlan;
   readonly holidayAdminUids?: ReadonlySet<string>;
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
@@ -239,7 +241,22 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
     registerPastScheduleRoutes(app, new PastScheduleService(options.databaseClient));
-    registerDirectoryRoutes(app, new DirectoryQuery(options.databaseClient));
+    registerDirectoryRoutes(
+      app,
+      new DirectoryQuery(options.databaseClient, {
+        configuredPlan: options.directoryQueryPlan ?? 'legacy',
+        onCandidateUnavailable: (reason) => {
+          app.log.warn(
+            {
+              directoryQueryPlan: 'legacy',
+              event: 'directory_candidate_plan_unavailable',
+              reason,
+            },
+            'Directory candidate query plan is unavailable; using legacy.',
+          );
+        },
+      }),
+    );
     registerPlatformAdminRoutes(
       app,
       new PlatformAdminService(options.databaseClient, platformAdminUids),
