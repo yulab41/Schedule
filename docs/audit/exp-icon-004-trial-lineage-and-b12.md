@@ -1,0 +1,234 @@
+# EXP-ICON-004-B1.2 图标一致性与体验版 `.74–.84` 血缘审计
+
+## 结论先行
+
+`.84` 中看到的图标回退属实，而且原因已经定位：体验版版本号只是上传时填写的字符串，当前上传封装只检查
+“是否像语义版本”，不检查该版本是否已被其他 worktree 使用、不检查候选是否包含上一体验版，也不把微信体验版
+绑定到不可变 Git 身份。`0.1.0-p10.20260903.84` 实际来自
+`8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`，而图标修复位于其后的独立分支
+`1ffab10c3f30987e31db47eb555f9e0aef0bf787` 和
+`5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1`。因此 `.84` 的数字比 `.83` 大，代码却不包含 `.83`。
+
+这不是微信缓存造成的主因，也不是用户肉眼误判。`.84` 的 clean production `build-profile.json` 已直接证明
+`buildCommit=8e6a4a3`。该源码仍有 25 个不同的 `web-*.svg` 名称、85 次生产引用，分布在 20 个生产源码文件；
+图标分支则为 0 次 `web-*`、46 个不同的 generated `ui-*` 资产、127 次引用。
+
+全面排查还发现两个层次的问题：
+
+1. **P1 发布血缘回归**：`.75` 曾未包含 `.74` 的支线修复，直到 `.76` 才恢复；`.84` 又未包含 `.83` 的图标修复。
+2. **P1/P2 视觉适配遗漏**：即使回到 `.83` 图标分支，底部通讯录/换班/我的/更多仍未完整对齐 Web 的
+   active/inactive 色、active-only 循环、尺寸和按压反馈；顶部个人仍误用底部导航 profile 几何；部分尺寸/stroke
+   和关键帧仍手写在平台 CSS 中，尚未真正由单一 motion specification 生成。
+
+推荐修复不是把 `.83` 直接重新编号上传，而是先建立不可重复版本和累积血缘门禁，再把原图标提交合入执行时最新
+`origin/main`，最后完成 B1.2 的剩余适配。旧 `.74` 不应直接 cherry-pick：当前主线已由 `.76` 更完整地恢复其
+行为，且当前相关三个文件与 `.76` 的 blob 完全一致。
+
+## 审计边界与证据等级
+
+- 审计基线：`origin/main@a1bba5710cfd5c94b5fd5148898e4f17e45faab9`；图标运行时代码比较仍以其祖先
+  `78d0424e` 为冻结点，后续三个主线提交只涉及 Skill、规则和审计文档。
+- 设计 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`，创建时 clean。
+- `.84` 制品证据：`runtime/release-worktree`，detached clean，production，构建时间
+  `2026-09-03T11:19:57.580Z`。
+- 图标修复证据：`codex/exp-icon-004-full-20260903@45ecf755`；生产代码提交为 `1ffab10c`、`5285dd17`。
+- 上传事件来源：Git 历史、仓库审计文档、保留的 build profile，以及 Codex App 中对应上传任务记录。微信后台
+  不提供可由当前工具读取的“同一版本号历次 payload”不可变账本，因此同号事件按已有任务证据记录。
+- 图片证据：用户提供的 `.84` 小米 14 体验版截图与 Web 截图；版本元数据尚未由用户从“更多 → 测试工具”回传，
+  所以截图只用于说明观感，不单独承担 SHA 归因。
+- 未调用微信开发者工具 GUI/CLI；未上传、未连接服务器、未改 allowlist、未部署 production。
+
+## `.74–.84` 体验版本事件账本
+
+“包含旧改动”分为两种：Git 祖先为严格包含；旧补丁被后续实现完整取代为语义包含。版本号相同但 SHA 不同即记为
+碰撞，不能把后一次上传当成前一次的可追溯更新。
+
+| 显示版本/事件 | Git SHA | 平台动作 | 与前一有效候选关系 | 当前结论 |
+| --- | --- | --- | --- | --- |
+| `.74` 原始 | `d23a78a` | 已上传并有历史 Xiaomi 14 test-tools 反馈 | 独立诊断支线 | 后续 `.75` 未严格包含；行为由 `.76` 更完整恢复 |
+| `.74` 日历重用 | `8e6a4a32` | 后续并行任务误用同号上传 | 与原 `.74` 为不同 SHA | **版本碰撞**；不得再作为身份 |
+| `.75` | `24a847ff` | 已上传、曾放行 | **不包含** `.74@d23a78a` | P1 临时遗漏；随后由 `.76` 修复 |
+| `.76` | `a2cdd065` | 已上传、曾放行 | 恢复 test-tools Skyline 不变量 | 当前主线三个关键 blob 与此提交一致 |
+| `.77` | `a4f50c02` | 仅 dry-run/预留，未上传 | 包含 `.76` | 不属于体验版发布历史，但版本已在本地证据中出现，仍不复用 |
+| `.78` | `07decdbb` | 已上传、曾放行 | 包含 `.76` 和 `.77` 基线 | 累积关系正常 |
+| `.79` | `d1594d09` | 已上传、曾放行 | 包含 `.78` | 累积关系正常 |
+| `.80` | `3897581e` | 已上传、曾放行 | 包含 `.79` | 累积关系正常 |
+| `.81` UX | `48488019` | 已上传、曾放行 | 包含 `.80` | 当时的累积候选 |
+| `.81` 日历 | `8e6a4a32` | 并行任务再次上传同号 | 包含 UX `.81`，但覆盖同号身份 | **版本碰撞** |
+| `.81` 图标 | `1ffab10c` | 图标任务再次上传同号 | 包含日历基线 | **版本碰撞** |
+| `.82` 日历 | `8e6a4a32` | 已上传、曾放行 | 与日历 `.81` 同 SHA | 新号码没有新代码；可追溯但无新增能力 |
+| `.82` 图标 | `5285dd17` | 图标任务再次上传同号 | 包含 `1ffab10c` | **版本碰撞** |
+| `.83` 图标 | `5285dd17` | 已上传、曾放行 | 包含 `.82` 日历及两次图标修复 | 图标线的最后有效候选 |
+| `.84` 日历 | `8e6a4a32` | 已上传、曾放行 | **不包含** `.83@5285dd17` | **P1 实质回退；当前用户所见版本** |
+
+### 严格祖先链
+
+| 相邻有效候选 | 是否为 Git 祖先 | 判定 |
+| --- | --- | --- |
+| `.74@d23a78a → .75@24a847ff` | 否 | 旧支线未并入，曾遗漏 |
+| `.75@24a847ff → .76@a2cdd065` | 是 | 正常 |
+| `.76@a2cdd065 → .78@07decdbb` | 是 | `.77` 未上传，不影响链 |
+| `.78 → .79 → .80 → .81(UX) → .82(日历)` | 是 | 主线累积正常 |
+| `.82(日历)@8e6a4a32 → .83(图标)@5285dd17` | 是 | 正常 |
+| `.83(图标)@5285dd17 → .84(日历)@8e6a4a32` | 否 | 明确回退 |
+
+### 当前 `origin/main` 是否缺旧改动
+
+- 当前主线包含 `.75`、`.76`、`.78`、`.79`、`.80`、UX `.81`、日历 `.82/.84` 以及后续 G1-004 调查提交。
+- 当前主线不含 `1ffab10c`、`5285dd17`，因此缺失 `.83` 的全部图标同源迁移和日历/人员动效补丁。
+- 当前主线不含原 `.74@d23a78a` 的 commit 身份，但不缺其最终行为：
+  `test-tools.test.mjs`、test-tools WXML、WXSS 当前 blob 分别为 `6f8e0682`、`d292210e`、`1b43ac07`，与
+  `.76@a2cdd065` 完全相同。`.76` 是对 `.74` 的重新调查和更完整恢复，故不合入旧支线提交。
+- 以 `8e6a4a32` 为共同基线，当前主线和图标分支的代码改动没有重叠；仅
+  `docs/project-status.md`、`docs/audit/STATUS.md`、`docs/audit/wechat-miniprogram-audit.md` 重叠。实现时应合并
+  原提交并人工重写这三份状态文档，不能用旧分支版本覆盖当前主线。
+
+## 根因与防复发要求
+
+| 编号 | 严重程度 | 原因 | 证据 | 修复要求 |
+| --- | --- | --- | --- | --- |
+| LINEAGE-001 | P1 | 多个独立 worktree 各自扫描局部分支/文档选择版本，缺少中央原子占用 | `.74/.81/.82` 均有同号多 SHA | 远端不可变 tag 原子占用；同号同 SHA 只允许幂等重试 |
+| LINEAGE-002 | P1 | `resolveUploadMetadata` 只检查通用 semver 和 80 字说明 | 上传 helper 无 Git 祖先、clean、历史占用检查 | 所有 `upload-experience` 强制执行 lineage preflight |
+| LINEAGE-003 | P1 | 版本号和 Git SHA、manifest、前序体验候选没有不可变绑定 | `.84` 数字前进、SHA 后退 | tag 绑定 exact SHA；说明必须含短 SHA；落 ignored receipt |
+| LINEAGE-004 | P1 | allowlist 只识别版本字符串，无法发现微信后台同号 payload 被覆盖 | 同号重传后服务器仍只看到相同字符串 | 上传前阻断重复；allowlist 不能充当制品账本 |
+| LINEAGE-005 | P2 | 当前流程允许从旧 detached SHA 直接赋新版本 | `.84@8e6a4a32` | 要求最新 `origin/main`、最后累积 trial 和 required checkpoints 均为 HEAD 祖先 |
+
+推荐以远端 tag `miniprogram-trial/<完整版本>` 作为原子版本占用。第一次 push 成功即永久占用；上传失败也不回收，
+下一次使用新版本。若 tag 已指向同一 SHA，可重试同一上传；若指向不同 SHA，必须失败关闭。纯 tracked JSON 无法解决
+两个未合并分支同时选中同一号码的竞态，因此只能作为历史审计，不作为唯一锁。
+
+紧急回滚也不得把旧 SHA 改成新版本上传；应在最新累积候选之上创建显式 revert commit，使 Git 血缘仍单调前进。
+
+## Web / 小程序完整图标对照
+
+### 来源盘点
+
+| 来源 | Web | `.84` Mini | 图标分支 | 结论 |
+| --- | --- | --- | --- | --- |
+| inline SVG/path | `WorkbenchNavIcon` 导航几何、action icon 几何 | 多个独立 `web-*.svg` | `packages/ui-icons/src/catalog.ts` | 几何应直接共享 |
+| icon component | TDesign Vue + 页面 inline component | `<image>` 与页面私有 WXML | Web `SharedIcon`；Mini generated asset | 平台渲染需适配 |
+| sprite | 未发现生产 `<use>` sprite | 未发现 | 不引入 | 无迁移项 |
+| 字体图标 | 未发现生产 icon font | 未发现 | 不引入 | 无迁移项 |
+| 图片资源 | PWA 192/512/maskable | 小程序 SVG 图片 | 页面 SVG 由 catalog 生成 | PWA 图不共享 |
+| CSS/JS 动画 | Web 组件内 keyframes/状态触发 | 页面 WXSS + `setData` 触发 | motion catalog 已有一部分 | B1.2 需消除手写规格副本 |
+| 第三方库 | `tdesign-icons-vue-next@0.4.7` 的已核对 path | 不应引入运行时库 | 只保存 path 与许可证元数据 | 可共享数据，不共享 Vue 组件 |
+
+### 场景、规格、差异和迁移分类
+
+| 范围/图标 | Web 真值（状态、尺寸、stroke、动效） | `.84` / 图标分支差异 | 严重程度 | 结论 |
+| --- | --- | --- | --- | --- |
+| 底部日历 `calendar` | active primary / inactive secondary；23px/2；active check 1800ms ease-in-out infinite | `.84` 旧资产 + 420ms 私有点击弹跳；B1.1 已删弹跳并作 opacity 兼容 | P1 | 需适配；真实 dash 仍真机确认 |
+| 底部通讯录 `directory` | 23px/2；active-only `contact-person` 1800ms cubic-bezier 循环 | `.84` 旧资产；图标分支固定 primary、没有 actor loop、24px | P1 | B1.2 分 base/person、双色、active-only |
+| 底部换班 `swap` | 23px/2；左右箭头 active-only 1800ms 循环 | 图标分支固定 secondary；`navMotion` 点击后离开仍可能循环；24px | P1 | B1.2 双色并直接绑定 active state |
+| 底部我的 `profile` | 23px/2；仅 portrait 1800ms active loop | 图标分支固定 primary；复用顶部 480ms one-shot 状态，且整图运动；24px | P1 | B1.2 分 body/portrait，独立状态 |
+| 底部更多 `more` | 23px/2；active-only 1800ms，dot delay 0/100/200ms，只位移 | 图标分支固定 secondary；点击状态可在 inactive 时持续；Mini 多了 opacity；24px | P1 | B1.2 双色、active-only、删除私有 opacity |
+| 底部按压反馈 | 整个 nav item scale 0.98，fast token | Mini 只把图标 scale 0.88，140ms | P2 | 共享 press spec，平台 hover adapter |
+| 顶部通知 `bell` | 21.6px/1.8；打开时 620ms；独立 unread dot | 图标分支 24px/2；几何和关键帧数值已同源/等值 | P2 | 共享 context token + stroke override；真机看 origin |
+| 顶部个人 `user` | TDesign User，20px/2；打开时 480ms | 图标分支误用底部 nav `profile` 几何且 24px，并与底部共用状态 | P1 | 改用 `ui-user`，分离 top/bottom adapter |
+| 通讯录科室 `department` | 18px/1.8；inactive `#586678`；切入 internal 500ms/90° | `.84` 为手绘近似；B1.1 已同源且规格一致 | P1→已修待合入 | 需适配，destination-only |
+| 通讯录人员 `people` | 18px/1.8；inactive `#586678`；切入 employee 520ms，46% 时 -0.75/+1px | `.84` 为 CSS 手绘单人；B1.1 已拆同源双 actor | P1→已修待合入 | 需适配，真机重点 |
+| 通讯录筛选/搜索/关闭/清空 | funnel 18；search 22；close 20；均来自 TDesign/shared path | `.84` 含旧独立资产/字符；图标分支已迁移 | P1→已修待合入 | 可共享几何，静态适配 |
+| 通讯录收藏/电话 | star 21；phone 17；电话 620ms 0/-8/7/-3/0° | 图标分支几何、尺寸、时序已对齐 | P1→已修待合入 | 可共享 + wrapper motion |
+| 日历筛选 `filter` | 20px/1.8；三 bar 520ms，46% 位移 +2/-2/+1px | 图标分支 part 几何/时序正确，但生成资产仍为默认 stroke 2 | P2 | B1.2 增加 1.8 context override |
+| 日历左右箭头 | 20px；切期 260ms，48% ±2px | 同源 path；Mini adapter 数值等值 | P2/低 | 需生成契约，真机确认触发次数 |
+| 日历定位 `locate` | action glyph 16px；520ms 0→90° | Mini 工作台为 20px；几何/时序同源 | P2 | B1.2 使用 context size token |
+| 班次电话/事件/展开 | phone 16或18、history 16、chevron 16；按上下文颜色 | 图标分支已使用同源资产；页面尺寸基本等值 | P1→已修待合入 | 可共享；电话 wrapper 适配 |
+| 更多页：群组/手排/补录/请假/换班/加扣班/配置 | Web semantic nav path；mobile sheet glyph 20px，active 时对应 loop | `.84` 多个语义误配；图标分支 path 已修，但 Mini row 统一 24px、无 active row 生命周期 | P1/P2 | path 直接共享；B1.2 统一 20px；动效按路由差异保持静态 |
+| 更多页：事件/通知设置/通知中心/导出 | `events`/`bell`/`notifications`/TDesign export | `.84` 有 calendar/history 等误配；图标分支已修 | P1→已修待合入 | 可直接共享几何 |
+| 更多页：成员邀请/访客/平台账号/测试工具 | Web 无一一专用产品图形 | 图标分支复用 user/calendar-check/info，避免猜画 | P2 | 暂不新设计；真机确认语义即可 |
+| 更多行 chevron | TDesign chevron-right，20px muted | `.84` 字符/旧资源混用；图标分支同源且 20px | P1→已修待合入 | 可直接共享 |
+| 工作流 picker/日期/关闭 | TDesign chevrons/close；尺寸由现有 picker context | `.84` 字符、border triangle 与图片混用；图标分支已迁移 | P1→已修待合入 | 需平台触摸/方向适配 |
+| 身份 user/lock | TDesign User/LockOn，页面 context size | `.84` profile/lock 私有资产；图标分支同源 | P1→已修待合入 | 可直接共享几何 |
+| 各分包返回/弹层关闭 | TDesign chevron-left/close，20px 左右 | `.84` 仍有多来源；图标分支统一 | P1→已修待合入 | 可直接共享 |
+| PWA/Logo/loading/time-line dot/内容字符 | 平台或内容语义，不是页面 icon contract | 无跨端一一对应 | P3 | 暂不迁移 |
+
+### 同类问题的全面结论
+
+- `.84` 回退覆盖 `1ffab10c` 的**全部**图标改动，不仅是用户截图中的底部和人员按钮；更多页、筛选、关闭、
+  下拉、电话、事件、工作流和身份页也都回到了旧来源。
+- 图标分支已解决“几何来源”主体，但没有完全解决“使用场景规格”和“motion 单一来源”。Web
+  `WorkbenchNavIcon.vue` 仍保存 14 类导航 keyframe，`motion.ts` 只结构化了通用 navigation 和 more 等少数
+  规格；Web action、Mini page/component WXSS 也各自复制数值。当前有些值相同，但未来仍可漂移。
+- 因此 B1.2 必须同时增加 context token/manifest 和生成式 motion adapter 契约，不能只替换两张图片。
+
+## 三类迁移结论
+
+### 可直接共享
+
+- 24×24 viewBox、path/circle/rect/group、fill-rule、pathLength、linecap/linejoin 和来源/许可证元数据。
+- Web inline path 与已核对 TDesign path；第三方 Vue component 不进入 Mini。
+- primary/secondary/muted/success/favorite 等颜色 token。
+- duration、delay、easing、iteration、direction、fill、offset 和 transform/opacity/dash 关键帧数据。
+
+### 需要平台适配
+
+- Web 输出真实 SVG DOM；Mini 构建时生成 `ui-*.svg`，通过 `<image>` 加载。
+- Mini 无法可靠选择外部 SVG 内部 group：calendar/directory/profile/swap/more 使用同源 part asset 叠放；
+  只允许平台 selector、transform-origin 和能力降级不同，数值来自同一 spec。
+- `stroke-dashoffset` 在 Mini 外部 SVG 中降级为相同 0.3→1→0.3 opacity，不能用 `scaleX` 假装描边。
+- 页面路由离开后没有 Web active nav row 的场景保持静态，不创建无意义的后台循环。
+- reduced-motion、hover-class、safe area、原生 picker/scroll/swiper 继续由平台层负责。
+
+### 暂不建议迁移
+
+- PWA 安装图、Logo、loading ring、时间线点、内容中的 `✓/→/↓`。
+- 没有 Web 真实来源的 visitor/test 专用新图形；当前复用已存在语义，不凭截图重新临摹。
+- Canvas、逐帧 `setData`、SMIL 或新增动画运行时库；没有足够真机收益证据且会增加启动/维护风险。
+
+## 包体与启动预算
+
+| 口径 | 总包 | 主包 | 说明 |
+| --- | ---: | ---: | --- |
+| `.84@8e6a4a3` exact clean production | 5,152,789 B | 1,716,235 B | 当前用户所见回退版本；主包有既有 1.5 MiB 内部 warning |
+| `.83@5285dd1` exact clean production | 5,170,583 B | 1,732,195 B | 已含 B1/B1.1；不同版本元数据，作为独立测量，不宣称严格性能 delta |
+
+B1.2 预算：
+
+- 相对重新建立的同口径 parent baseline：总包增量不超过 64 KiB，B1.2 自身不超过 16 KiB。
+- generated icon/motion 资产总增量不超过 32 KiB，B1.2 新增 variant/adapter 不超过 12 KiB。
+- 不新增 npm runtime dependency，不引入 Base64 大图、Canvas、Lottie 或字体图标。
+- 底部 layered adapter 最多比图标分支增加 2 个常驻 `<image>` actor 节点；本地 SVG 无网络请求。
+- 若主包增量超过预算，优先删除未被生产引用的 variant 或把非首屏静态资产留在既有分包；不得复制页面私有版本。
+- 冷启动、帧率、内存和 Skyline 合成开销当前工具无法测量，必须在匹配候选的 Xiaomi 14 体验版记录；不得用
+  Node package audit 推导“无性能影响”。
+
+## 按风险拆分的实施批次
+
+| 批次 | 内容 | 风险 | 停止条件 |
+| --- | --- | --- | --- |
+| B0（本 checkpoint） | `.74–.84` 血缘、全图标差异、单一来源和批次设计 | 低，文档-only | 审计可复核、分支推送；不改生产图标/上传/服务器 |
+| B1 | 体验版历史账本、不可变 tag 版本占用、clean/current-main/latest-trial/required-ancestor preflight | 中，发布工具 | 旧实现红灯、新实现绿灯；dry-run 不推 tag、不上传 |
+| B2 | 在执行时最新 main 上合并 `5285dd17` 的原始提交血缘并解决三份文档冲突 | 中，跨分支 | 任何业务代码冲突或旧状态覆盖当前状态即停止 |
+| B3 | 底部 5 项、顶部 2 项、通讯录模式、filter/locate/more context 的 B1.2；生成 Web/Mini motion adapters | 中，视觉运行时 | path 不可追溯、需新运行时、包体超预算或测试不等值即停止 |
+| B4 | 全量静态对照、Mini/Web gates、同口径包体和浏览器/Node 证据，提交并推送调查分支 | 中 | relevant gate 失败不形成候选 |
+| B5 | L3 exact-clean candidate、动态选择未占用版本、用户当次批准后 tag+上传；另获 L4 后 allowlist | 高，外部状态 | 未获精确批准、tag 冲突、SHA/版本/profile 不一致即停止 |
+
+## 第一实施批次的精确 Prompt
+
+> 执行 `EXP-ICON-004-LINEAGE-B1`。先从执行时最新 `origin/main` 更新现有
+> `codex/exp-icon-004-lineage-b12-20260903` clean worktree，不重跑阶段 0。仅实现体验版血缘门禁，不修改生产
+> 图标、业务页面、API、权限、路由或数据库。新增 tracked `.74–.84` 历史账本和 trial lineage policy；新增纯
+> Node helper 与 Vitest。先写在旧实现上失败的测试，覆盖：同一版本不同 SHA 必须拒绝、同一版本同一 SHA 只允许
+> 幂等重试、候选必须 clean production、`origin/main`/最后累积 trial/required checkpoints 必须为 HEAD 祖先、
+> description 必须包含短 SHA、dry-run 不创建 tag、不写 receipt、不改变外部状态。推荐以
+> `refs/tags/miniprogram-trial/<完整版本>` 作远端原子占用；首次成功后永久占用，失败不删除，严禁 force。把门禁接入
+> 现有 `upload-experience`，上传成功后只向已验证 ignored 的根 `runtime/audit/miniprogram-trials/` 写脱敏 receipt。
+> 更新 miniprogram-ci/release runbook、审计状态和 debug 记录。运行定向红绿测试、Mini 测试发现策略、
+> `pnpm miniprogram:test`、相关 typecheck/format/lint、`git diff --check`、`pnpm smoke:check-core`。只提交并普通
+> 推送调查分支；不创建真实 tag、不上传体验版、不操作 allowlist、不连接或部署 production。若实现需要改变版本
+> 语法或回滚策略，先停止并回到设计确认。
+
+## 需要 Xiaomi 14 体验版确认的差异
+
+最终候选必须先在“更多 → 测试工具”回传 `trial`、短 SHA、版本、build time、renderer、基础库、微信和 Android
+版本；旧 `.81/.82/.83/.84` 截图不能替代新候选。
+
+1. 底部五项：23px、active/inactive 色、仅当前项循环；切走后动画立即停止；重复点当前项不重启动画。
+2. 日历：check opacity 循环是否在 Skyline 可接受；无 420ms 弹跳、无横向压扁；reduced-motion 停止。
+3. 通讯录：bottom directory actor 进入循环；科室/人员 18px、1.8 stroke、双色和 500/520ms destination-only。
+4. 换班/我的/更多：左右箭头、portrait、dot 的方向、幅度、delay；更多不得出现 Mini 私有透明度闪烁。
+5. 顶部 bell/user：尺寸、stroke、颜色、红点位置、一次性 620/480ms，且不驱动底部 profile。
+6. 日历筛选/定位、通讯录筛选/搜索/收藏/电话、事件 history、更多页所有工具、工作流 picker、返回和关闭。
+7. 390×844、320px、大字体与默认字体下的安全区、裁切和抖动；记录冷启动、首次切 tab、连续切 tab 是否有可感知回归。
+
+未取得匹配证据前只能写“自动化候选通过，待 Xiaomi 14 复核”，不能写 iOS、所有 Android 或全平台通过。
