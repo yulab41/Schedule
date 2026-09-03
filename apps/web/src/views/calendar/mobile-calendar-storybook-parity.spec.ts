@@ -162,9 +162,11 @@ describe('mobile calendar Storybook 2 parity', () => {
   it('uses the exact Storybook bell silhouette and notification dot treatment', () => {
     const notificationBell = readSource('../../features/notifications/NotificationBell.vue');
     const actionIcon = readSource('../../components/LucideMinimalActionIcon.vue');
+    const iconCatalog = readSource('../../../../../packages/ui-icons/src/catalog.ts');
 
-    expect(actionIcon).toContain('d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"');
-    expect(actionIcon).toContain('d="M10 21h4"');
+    expect(iconCatalog).toContain('M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z');
+    expect(iconCatalog).toContain('M10 21h4');
+    expect(actionIcon).toContain('<SharedIcon');
     expect(notificationBell).toContain('name="bell"');
     expect(notificationBell).toContain('v-if="unreadCount > 0" class="notification-dot"');
     expect(notificationBell).toMatch(

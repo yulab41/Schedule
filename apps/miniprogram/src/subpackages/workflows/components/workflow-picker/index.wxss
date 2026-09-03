@@ -53,27 +53,39 @@
 }
 
 .workflow-picker-chevron {
-  width: 9px;
-  height: 9px;
+  display: flex;
+  width: 20px;
+  height: 20px;
   margin-right: 4px;
   flex: none;
-  border-right: 1.8px solid var(--ui-color-text-muted);
-  border-bottom: 1.8px solid var(--ui-color-text-muted);
-  transform: rotate(-45deg);
+  align-items: center;
+  justify-content: center;
+}
+
+.workflow-picker-chevron image {
+  width: 20px;
+  height: 20px;
+  transform: rotate(0deg);
 }
 
 .workflow-picker-chevron.is-right {
-  transform: rotate(-45deg);
+  transform: none;
 }
 
 .workflow-picker-chevron.is-down {
   margin-top: -4px;
-  transform: rotate(45deg);
+}
+
+.workflow-picker-chevron.is-down image {
+  transform: rotate(90deg);
 }
 
 .workflow-picker-chevron.is-up {
   margin-top: 4px;
-  transform: rotate(-135deg);
+}
+
+.workflow-picker-chevron.is-up image {
+  transform: rotate(-90deg);
 }
 
 .workflow-picker-layer {
@@ -156,6 +168,11 @@
   color: var(--ui-color-primary);
   border-radius: 13px;
   font-size: 24px;
+}
+
+.workflow-picker-close image {
+  width: 20px;
+  height: 20px;
 }
 
 .workflow-picker-summary {

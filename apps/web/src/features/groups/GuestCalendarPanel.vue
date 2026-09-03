@@ -4,13 +4,13 @@ import type {
   GroupSummary,
   GuestCalendarReadModel,
 } from '@schedule/contracts';
-import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import AppStatePanel from '../../components/AppStatePanel.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import {
   addBusinessMonths,
   getBusinessMonthLabel,
@@ -92,13 +92,13 @@ function changeMonth(delta: number): void {
     </AppStatePanel>
     <div class="guest-calendar-toolbar">
       <t-button variant="outline" @click="changeMonth(-1)">
-        <template #icon><ChevronLeftIcon /></template>
+        <template #icon><SharedIcon name="chevron-left" /></template>
         上一月
       </t-button>
       <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
       <t-button variant="outline" @click="changeMonth(1)">
         下一月
-        <template #icon><ChevronRightIcon /></template>
+        <template #icon><SharedIcon name="chevron-right" /></template>
       </t-button>
     </div>
     <t-loading v-if="isLoading" text="正在加载排班" />

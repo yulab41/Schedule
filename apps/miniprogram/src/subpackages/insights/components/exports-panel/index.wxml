@@ -6,7 +6,7 @@
       aria-role="button"
       aria-label="返回更多工具"
       bindtap="handleBack"
-      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+      ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
     /></view>
     <view class="header-title"
       ><text class="header-title-main">导出排班与统计</text
@@ -68,7 +68,7 @@
                 aria-role="button"
                 aria-label="文件类型，{{exportType === 'statistics' ? '统计' : '排班'}}"
                 ><text>{{exportType === 'statistics' ? '统计' : '排班'}}</text
-                ><text class="picker-chevron" aria-hidden="true">›</text></view
+                ><image class="picker-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
               ></picker
             >
           </view>
@@ -100,7 +100,7 @@
                 aria-role="button"
                 aria-label="上一导出周期"
                 bindtap="handlePreviousPeriod"
-                ><text aria-hidden="true">‹</text></view
+                ><image class="period-step-icon" src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" aria-hidden="true" /></view
               >
               <view class="period-readout"
                 ><text class="period-value">{{periodLabel}}</text
@@ -113,7 +113,7 @@
                 aria-role="button"
                 aria-label="下一导出周期"
                 bindtap="handleNextPeriod"
-                ><text aria-hidden="true">›</text></view
+                ><image class="period-step-icon" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
               >
             </view>
           </view>
@@ -132,7 +132,7 @@
                 aria-role="button"
                 aria-label="排班岗位，{{roleOptions[roleIndex].label}}"
                 ><text>{{roleOptions[roleIndex].label}}</text
-                ><text class="picker-chevron" aria-hidden="true">›</text></view
+                ><image class="picker-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
               ></picker
             >
           </view>
@@ -151,7 +151,7 @@
                 aria-role="button"
                 aria-label="成员，{{memberOptions[memberIndex].label}}"
                 ><text>{{memberOptions[memberIndex].label}}</text
-                ><text class="picker-chevron" aria-hidden="true">›</text></view
+                ><image class="picker-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
               ></picker
             >
           </view>

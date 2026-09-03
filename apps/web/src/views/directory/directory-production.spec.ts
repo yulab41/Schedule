@@ -90,9 +90,9 @@ describe('production hospital directory integration', () => {
     expect(view).toContain('class="directory-filter-sheet"');
     expect(view).not.toContain('层级联动，避免无效组合');
     expect(view).not.toContain('可跳级开始；选定上级后只显示匹配下级。');
-    expect(view).toContain('FilterClearIcon');
+    expect(view).toContain('name="filter-clear"');
     expect(view).toContain(':aria-expanded="isFilterSectionExpanded(section.key)"');
-    expect(view).toContain('ChevronRightIcon');
+    expect(view).toContain('name="chevron-right"');
     expect(view).toContain('v-if="filterSheetVisible && isFilterSectionExpanded(section.key)"');
     expect(view).not.toContain('v-show="isFilterSectionExpanded(section.key)"');
     expect(view).toMatch(/\.sheet-reset-action\s*{[^}]*width:\s*100%/s);
@@ -102,7 +102,7 @@ describe('production hospital directory integration', () => {
   it('shows full favorite and frequent cards below active results, while idle mode does not load all entries', () => {
     const view = source('./InternalDirectoryView.vue');
 
-    expect(view).toContain('StarFilledIcon');
+    expect(view).toContain('name="star-filled"');
     expect(view).toContain('toggleFavorite');
     expect(view).toContain('recordDirectoryUse');
     expect(view).toContain('hasActiveDirectoryCriteria');

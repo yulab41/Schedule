@@ -1139,3 +1139,24 @@ slot 内容，没有复制新组件或改 API/controller 业务语义：
 弹窗；确认顶部约四分之一、footer/关闭按钮不被底栏或安全区遮挡，长正文可独立滚动；从把手短拖和 cancel
 确认平滑回弹，达到阈值只关闭一次，正文或 picker 内滑动不误关；busy 时不能下滑关闭；最后确认左上角返回和
 系统侧滑返回仍正常。这些步骤保持“待用户复核”，不把自动化通过写成真机手势通过。
+
+## 13. EXP-ICON-004 Web/小程序图标同源审计（2026-09-03）
+
+本批从最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39` 建立独立 worktree，审查了 Web
+`WorkbenchNavIcon`、`LucideMinimalActionIcon`、TDesign 直引用、CSS/JS 动效、PWA 图标，以及小程序
+工作台、顶部/底部导航、更多、通讯录、日历、事件、工作流、导出、通知、访客、身份和页面返回控件。
+未发现生产 sprite 或图标字体；发现多份 `web-*.svg`、CSS 手绘 bar/person/chevron、文字 `×/‹/›`
+和语义错配，按 P1/P2/P3 记录于 `docs/audit/exp-icon-004-icon-parity-audit.md`。
+
+修复新增 `packages/ui-icons`：catalog 保存真实 Web/TDesign path、linecap/join、来源/许可证和
+content hash；motion 保存 duration/delay/easing/iteration/direction/fill/reduced-motion；Web 经
+`SharedIcon` 渲染，小程序生成 44 个 `ui-*.svg` 并使用 wrapper/part asset 适配外部 image 限制。
+底部导航、顶部 bell/profile、更多每一行、通讯录按钮、筛选/关闭/下拉、日历/事件/身份等旧资源引用已收敛，
+26 个确认无引用的旧 `web-*.svg` 已删除；没有改变业务接口、权限、路由或数据流。
+
+B1 的实际证据包括失败先行 parity contract 4 项红灯后 4/4 绿、Mini 全量 119 files/646 tests、Web
+定向 34 tests、Mini/Web TypeScript、Web build、Mini production build/verify、source/package/performance/
+determinism、Prettier、ESLint；候选 packageBytes `5,168,783`，相对基线 `5,151,893` 增加 `16,890B`
+（约 0.33%）。这些均为静态/Node 证据；`pnpm smoke:browser` 因本地 API 3000 未运行停留登录页，未写成浏览器通过。
+本轮未调用微信开发者工具，未上传体验版，未提交审核，未正式发布，未部署 production。体验版和 Xiaomi 14
+复核门禁与清单见专门审计报告和 `docs/audit/STATUS.md`。

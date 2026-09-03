@@ -10,7 +10,7 @@
           aria-label="返回排班台"
           bindtap="handleBack"
         >
-          <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+          <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
         </view>
         <view class="profile-heading-copy">
           <text class="profile-eyebrow">个人中心</text>
@@ -58,7 +58,7 @@
               <text class="profile-section-title">值班概览</text>
             </view>
             <button class="profile-inline-action" bindtap="handleOpenStatistics">
-              查看完整统计 <text aria-hidden="true">›</text>
+              查看完整统计 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
             </button>
           </view>
 
@@ -132,7 +132,7 @@
             <text class="profile-duty-time">{{nextDutyTimeLabel}}</text>
             <text class="profile-duty-role">{{nextDutyRoleLabel}}</text>
             <button class="profile-duty-link" bindtap="handleOpenCalendar">
-              打开排班日历 <text aria-hidden="true">›</text>
+              打开排班日历 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
             </button>
           </block>
           <text wx:else class="profile-duty-empty"> 当前月份与下个月没有查询到你的待值班次。 </text>

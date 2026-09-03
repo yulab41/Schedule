@@ -35,6 +35,11 @@ page {
   line-height: 1;
 }
 
+.header-back image {
+  width: 20px;
+  height: 20px;
+}
+
 .header-refresh {
   padding: 0 12px;
   color: var(--ui-color-primary);

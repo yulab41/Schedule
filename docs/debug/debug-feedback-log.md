@@ -2315,3 +2315,32 @@
   Xiaomi 14 原生验收；下一版只按 `docs/audit/exp-feat-002-event-records.md` 的最小步骤复核。
 - 状态：代码和自动化验证完成，当前为“待用户复核”；最终应在最新远端主线确认后一次普通 fast-forward 推送，
   不做体验上传或 production 部署。
+
+## 2026-09-03 EXP-ICON-004 Web/小程序图标同源修复
+
+- 连续性：按执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39` 创建独立干净
+  `runtime/external-project-worktrees/exp-icon-004-full-20260903` / `codex/exp-icon-004-full-20260903`；
+  未触碰主 worktree 的既有用户改动。
+- 根因：Web 导航/动作组件、TDesign 直引用和小程序 `web-*.svg`/CSS/text 近似实现分散维护，日历、通讯录、
+  更多工具、筛选、关闭、下拉和部分动效没有可验证的统一几何与规格来源。
+- 失败先行：新增 `apps/miniprogram/scripts/icon-parity-contract.test.mjs` 在实现前实际出现 4 个失败，
+  缺少共享 catalog/motion、Web adapter 和小程序语义资产；实现后该契约 4/4 通过。
+- 修复范围：新增 `packages/ui-icons`，以 Web 实际 path/TDesign path 和 `packages/ui-tokens` 生成小程序 SVG；
+  Web 的 `WorkbenchNavIcon`、`LucideMinimalActionIcon`、日历/通讯录/身份/状态/导出/访客/个人等优先控件
+  改用 `SharedIcon`；小程序底部/顶部/更多/通讯录/工作流 picker/关闭/筛选/日期箭头改用生成资产；确认无引用后删除
+  26 个旧 `web-*.svg`，未改业务接口或数据流。
+- 动效适配：bell/profile/export/filter/locate/department/people/phone 的 duration/easing/keyframe 与共享 motion
+  规格留在 `packages/ui-icons/src/motion.ts`；Web 直接按 data-part 渲染，小程序对外部 SVG 采用同源 part 资产、
+  wrapper 或 image 兼容层。外部 image 无法控制 SVG 内部 path 的 dashoffset/分组 transform，calendar draw 在
+  小程序仍为兼容实现，通讯录 people 已拆成同源 primary/secondary part asset 执行两组位移关键帧。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动返回 `ERR_CONNECTION_REFUSED`；启动本 worktree
+  Vite 并设置 `VITE_AUTH_DEV_MODE=true` 后重跑，在登录页进入管理员时因本地 API `127.0.0.1:3000` 未运行，
+  URL 保持 `/login?redirect=/` 并超时。未伪造浏览器、Console、Network 或真机结论；该结果已记录供
+  `pnpm smoke:check-core` 校验。仓库政策下未调用微信开发者工具。
+- 引用收口：最终外部图片引用扫描发现生成清单漏登记 `ui-backfill.svg`，已补入同一 catalog 并重生成；最终 44 个
+  `ui-*.svg` 均有生成标记且所有 WXML 引用均可解析，无遗留 `web-*.svg`。
+- 验证收口：Mini production build `300 files`、packageBytes `5,168,783`（main `1,730,788`）、source/package/
+  performance/determinism/verify、Mini 全量 `119 files/646 tests`、根 `pnpm verify` 的 `246 passed/37 skipped` 与
+  `1,170 passed/364 skipped` 均通过；主包 1.5 MB 和 600-cell 矩阵 lower-bound warning 为既有类别。
+- 状态：最终构建/包体/全量回归已完成，待提交并推送；体验版上传需候选 commit、版本描述、测试页面和脏树状态再次确认后
+  取得用户当次明确批准；不提交审核、不正式发布、不部署 production。

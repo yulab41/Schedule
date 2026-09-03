@@ -6,7 +6,7 @@
       aria-role="button"
       aria-label="返回更多工具"
       bindtap="handleBack"
-      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
+      ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" /></view
     ><view class="header-title"
       ><text class="header-title-main">平台账号</text
       ><text class="header-title-sub">平台管理员后台</text></view
@@ -96,7 +96,7 @@
           ><text class="section-eyebrow">账号证明</text
           ><text class="sheet-title">管理 {{selectedAccountLabel}}</text></view
         ><view class="sheet-close" aria-role="button" aria-label="关闭" bindtap="handleCloseEditor"
-          >×</view
+          ><image class="sheet-close-icon" src="/assets/icons/ui-close.svg" mode="aspectFit" /></view
         ></view
       ><text class="sheet-copy">只修改用户名或生成一次性小程序绑定链接，不设置或显示密码。</text
       ><view class="field-block"

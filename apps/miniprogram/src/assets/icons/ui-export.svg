@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:package:tdesign-icons-vue-next@0.4.7:export;content:60f8112b68a8341ddd55b7d9f6b03865b33fbd88b08838f9449f56c3d60044c5 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+<path data-part="frame" d="M10 3H3V21H21V15" /><path data-part="arrow" d="M10.5 14.75L10.5 11.5C10.5 8.73857 12.7386 6.5 15.5 6.5L21 6.49999" /><path data-part="arrow" d="M19 10L22.5 6.49999L19 3" />
+</svg>

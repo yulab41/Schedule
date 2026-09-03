@@ -266,8 +266,9 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerStyles).toMatch(
       /\.workflow-picker-selector-popover\.is-up\s*\{[^}]*top:\s*auto;[^}]*bottom:\s*calc\(100% \+ 6px\);/su,
     );
+    expect(pickerTemplate).toContain('/assets/icons/ui-chevron-right-muted.svg');
     expect(pickerStyles).toMatch(
-      /\.workflow-picker-chevron\.is-right\s*\{[^}]*transform:\s*rotate\(-45deg\);/su,
+      /\.workflow-picker-chevron\.is-right\s*\{[^}]*transform:\s*none;/su,
     );
     expect(pickerStyles).toMatch(
       /\.workflow-picker-selector-popover\.is-measuring\s*\{[^}]*visibility:\s*hidden;[^}]*opacity:\s*0;/su,

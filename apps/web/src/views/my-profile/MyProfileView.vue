@@ -5,7 +5,6 @@ import {
   emptyMyProfileOverview,
   type MyProfileOverview,
 } from '@schedule/presentation-core';
-import { LogoutIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -17,6 +16,7 @@ import {
 } from '../../features/calendar/calendar-logic.js';
 import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 import { formatSelectedDateLabel } from '../../features/calendar/selected-date-duty.js';
+import SharedIcon from '../../components/SharedIcon.vue';
 import { useSessionStore } from '../../stores/session.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import type { WorkbenchTabId } from '../../features/layout/workbench-nav.js';
@@ -172,7 +172,7 @@ function navigate(tabId: WorkbenchTabId): void {
             <h3 id="profile-stats-title">值班概览</h3>
           </div>
           <button type="button" class="profile-inline-action" @click="navigate('statistics')">
-            查看完整统计 <span aria-hidden="true">›</span>
+            查看完整统计 <SharedIcon class="profile-inline-chevron" name="chevron-right" />
           </button>
         </div>
         <div v-if="overviewLoading" class="profile-overview-state" aria-live="polite">
@@ -250,7 +250,7 @@ function navigate(tabId: WorkbenchTabId): void {
               {{ props.group.name }}
             </p>
             <button type="button" class="profile-duty-link" @click="navigate('calendar')">
-              打开排班日历 <span aria-hidden="true">›</span>
+              打开排班日历 <SharedIcon class="profile-inline-chevron" name="chevron-right" />
             </button>
           </template>
           <p v-else class="profile-duty-empty">当前月份与下个月没有查询到你的待值班次。</p>
@@ -310,7 +310,7 @@ function navigate(tabId: WorkbenchTabId): void {
 
     <div class="profile-actions">
       <button type="button" class="profile-sign-out" @click="emit('sign-out')">
-        <LogoutIcon aria-hidden="true" />
+        <SharedIcon name="logout" />
         退出登录
       </button>
       <p>登录状态只保存在当前设备，退出后需要重新验证。</p>
@@ -504,6 +504,13 @@ function navigate(tabId: WorkbenchTabId): void {
   margin-left: 4px;
   font-size: 18px;
   font-weight: var(--ui-font-weight-regular);
+}
+
+.profile-inline-chevron {
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
 .profile-inline-action:focus-visible,

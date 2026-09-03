@@ -5,7 +5,7 @@
 >
   <view wx:if="{{!embedded}}" class="mini-header" style="{{shellHeaderStyle}}">
     <view class="header-back" aria-role="button" aria-label="返回排班台" bindtap="handleBack">
-      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+      <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
     </view>
     <view class="header-title">
       <text class="header-title-main">加扣班管理</text>

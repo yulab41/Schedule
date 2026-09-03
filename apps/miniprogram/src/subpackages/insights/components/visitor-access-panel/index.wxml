@@ -6,7 +6,7 @@
       aria-role="button"
       aria-label="返回更多工具"
       bindtap="handleBack"
-      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+      ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
     /></view>
     <view class="header-title"
       ><text class="header-title-main">谁在查看排班？</text

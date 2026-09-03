@@ -21,7 +21,6 @@ describe('Lucide Minimal action icon preview', () => {
       'phone',
       'profile',
     ]) {
-      expect(icon).toContain(`name === '${name}'`);
       expect(icon).toContain(`.icon-${name}`);
     }
 
@@ -42,32 +41,18 @@ describe('Lucide Minimal action icon preview', () => {
       expect(icon).toContain(`@keyframes ${motion}`);
     }
 
-    expect(icon).toContain(
-      "import { CallIcon, ExportIcon, UserIcon } from 'tdesign-icons-vue-next'",
-    );
-    for (const source of [
-      'calendar-filter',
-      'calendar-locator',
-      'directory-department',
-      'directory-people',
-      'notification-bell',
-      'tdesign-call',
-      'tdesign-export',
-      'tdesign-user',
-    ]) {
-      expect(icon).toContain(`data-static-source="${source}"`);
+    expect(icon).toContain("import { type IconKey } from '@schedule/ui-icons'");
+    expect(icon).toContain('<SharedIcon');
+    expect(icon).toContain('const sharedIconName = computed<IconKey>');
+    for (const source of ['tdesign-call', 'tdesign-export', 'tdesign-user']) {
+      expect(icon).toContain(`return '${source}'`);
     }
 
     expect(icon).toContain('readonly motionKey?: number;');
     expect(icon).toContain('readonly previewMotion?: boolean;');
     expect(icon).toContain('transform: rotate(90deg);');
-    expect(icon).toContain(':deep(#stroke2)');
-    expect(icon).toContain(':deep(#stroke1)');
     expect(icon).toContain('transform: translate(2.2px, -2.2px);');
     expect(icon).toContain('transform: translate(-0.7px, 0.7px);');
-    expect(icon).toContain('d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"');
-    expect(icon).toContain('d="M22 21v-2a4 4 0 0 0-3-3.87"');
-    expect(icon).not.toContain('d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2"');
     expect(icon).toContain(':data-motion-key="motionKey"');
     expect(icon).toContain('stroke-width: var(--action-motion-icon-stroke-width, 2);');
     expect(icon).toContain('@media (prefers-reduced-motion: reduce)');

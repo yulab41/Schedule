@@ -265,6 +265,11 @@
   color: var(--ui-color-text-muted);
   font-size: 24px;
 }
+
+.sheet-close image {
+  width: 20px;
+  height: 20px;
+}
 .sheet-copy {
   display: block;
   margin: 10px 0 18px;

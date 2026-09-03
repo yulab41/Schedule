@@ -13,7 +13,7 @@
           <view
             class="group-switcher-arrow {{groupOpen ? 'is-open' : ''}}"
             aria-hidden="true"
-          ></view>
+          ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view>
         </view>
         <view wx:if="{{groupOpen}}" class="group-menu" aria-label="选择当前群组">
           <view
@@ -53,7 +53,7 @@
         bindtap="handleNotification"
       >
         <view class="top-icon bell-icon {{notificationAnimating ? 'is-animating' : ''}}">
-          <image class="top-icon-image" src="/assets/icons/web-bell.svg" mode="aspectFit" />
+          <image class="top-icon-image" src="/assets/icons/ui-bell.svg" mode="aspectFit" />
           <view
             wx:if="{{notificationUnreadCount > 0}}"
             class="notification-dot"
@@ -69,7 +69,7 @@
         bindtap="handleProfileNav"
       >
         <view class="top-icon profile-icon {{profileAnimating ? 'is-animating' : ''}}">
-          <image class="top-icon-image" src="/assets/icons/web-profile.svg" mode="aspectFit" />
+          <image class="top-icon-image" src="/assets/icons/ui-profile.svg" mode="aspectFit" />
         </view>
       </view>
     </view>
@@ -112,7 +112,7 @@
                 <view
                   class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}"
                   aria-hidden="true"
-                  ><view></view><view></view><view></view
+                  ><image class="filter-icon-bar filter-icon-bar-top" src="/assets/icons/ui-filter-top.svg" mode="aspectFit" /><image class="filter-icon-bar filter-icon-bar-middle" src="/assets/icons/ui-filter-middle.svg" mode="aspectFit" /><image class="filter-icon-bar filter-icon-bar-bottom" src="/assets/icons/ui-filter-bottom.svg" mode="aspectFit" />
                 ></view>
                 <text>筛选</text>
                 <text wx:if="{{activeFilterCount > 0}}" class="filter-count"
@@ -195,12 +195,12 @@
                               >
                               <image
                                 class="detail-phone-icon"
-                                src="/assets/icons/web-phone.svg"
+                                src="/assets/icons/ui-phone-success.svg"
                                 mode="aspectFit"
                               />
                               <image
                                 class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
-                                src="/assets/icons/web-chevron-right.svg"
+                                src="/assets/icons/ui-chevron-right.svg"
                                 mode="aspectFit"
                               />
                             </view>
@@ -224,7 +224,7 @@
                               aria-role="button"
                               aria-label="拨打{{phone.label}} {{phone.number}}"
                               catchtap="handleListCall"
-                              ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
+                              ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit" />
                               <text>{{phone.label}} {{phone.number}}</text></view
                             >
                           </view>
@@ -248,7 +248,7 @@
                             bindtap="handleOpenShiftEvents"
                             ><image
                               class="event-history-icon"
-                              src="/assets/icons/web-history.svg"
+                              src="/assets/icons/ui-history.svg"
                               mode="aspectFit"
                             />
                             ><text>事件记录</text></view
@@ -279,7 +279,7 @@
                         class="chevron is-left {{weekSwiperCurrent === 0 ? 'is-animating' : ''}}"
                         ><image
                           class="chevron-image"
-                          src="/assets/icons/web-chevron-left.svg"
+                          src="/assets/icons/ui-chevron-left.svg"
                           mode="aspectFit" /></view
                     ></view>
                     <view class="calendar-heading"
@@ -297,7 +297,7 @@
                       ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
                         ><image
                           class="locate-image"
-                          src="/assets/icons/web-locate.svg"
+                          src="/assets/icons/ui-locate.svg"
                           mode="aspectFit" /></view
                     ></view>
                     <view
@@ -313,7 +313,7 @@
                         class="chevron is-right {{weekSwiperCurrent === 2 ? 'is-animating' : ''}}"
                         ><image
                           class="chevron-image"
-                          src="/assets/icons/web-chevron-right.svg"
+                          src="/assets/icons/ui-chevron-right.svg"
                           mode="aspectFit" /></view
                     ></view>
                   </view>
@@ -431,12 +431,12 @@
                               >
                               <image
                                 class="detail-phone-icon"
-                                src="/assets/icons/web-phone.svg"
+                                src="/assets/icons/ui-phone-success.svg"
                                 mode="aspectFit"
                               />
                               <image
                                 class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
-                                src="/assets/icons/web-chevron-right.svg"
+                                src="/assets/icons/ui-chevron-right.svg"
                                 mode="aspectFit"
                               />
                             </view>
@@ -460,7 +460,7 @@
                               aria-role="button"
                               aria-label="拨打{{phone.label}} {{phone.number}}"
                               catchtap="handleListCall"
-                              ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
+                              ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit" />
                               <text>{{phone.label}} {{phone.number}}</text></view
                             >
                           </view>
@@ -484,7 +484,7 @@
                             bindtap="handleOpenShiftEvents"
                             ><image
                               class="event-history-icon"
-                              src="/assets/icons/web-history.svg"
+                              src="/assets/icons/ui-history.svg"
                               mode="aspectFit"
                             />
                             ><text>事件记录</text></view
@@ -515,7 +515,7 @@
                         class="chevron is-left {{listSwiperCurrent === 0 ? 'is-animating' : ''}}"
                         ><image
                           class="chevron-image"
-                          src="/assets/icons/web-chevron-left.svg"
+                          src="/assets/icons/ui-chevron-left.svg"
                           mode="aspectFit" /></view
                     ></view>
                     <view class="calendar-heading"
@@ -535,7 +535,7 @@
                         class="chevron is-right {{listSwiperCurrent === 2 ? 'is-animating' : ''}}"
                         ><image
                           class="chevron-image"
-                          src="/assets/icons/web-chevron-right.svg"
+                          src="/assets/icons/ui-chevron-right.svg"
                           mode="aspectFit" /></view
                     ></view>
                     <view
@@ -549,7 +549,7 @@
                       ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
                         ><image
                           class="locate-image"
-                          src="/assets/icons/web-locate.svg"
+                          src="/assets/icons/ui-locate.svg"
                           mode="aspectFit" /></view
                     ></view>
                   </view>
@@ -632,7 +632,7 @@
                                   aria-role="button"
                                   aria-label="联系{{duty.name}}"
                                   catchtap="handleListCall"
-                                  ><image src="/assets/icons/web-phone.svg" mode="aspectFit"
+                                  ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit"
                                 /></view>
                               </view>
                             </view>
@@ -796,11 +796,11 @@
                   aria-role="button"
                   bindtap="handleOpenGroupSettings"
                 >
-                  <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-groups.svg" mode="aspectFit" />
                   <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -811,11 +811,11 @@
                   aria-role="button"
                   bindtap="handleOpenManualSchedule"
                 >
-                  <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-manual.svg" mode="aspectFit" />
                   <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -826,11 +826,11 @@
                   aria-role="button"
                   bindtap="handleOpenBackfill"
                 >
-                  <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-backfill.svg" mode="aspectFit" />
                   <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -841,11 +841,11 @@
                   aria-role="button"
                   bindtap="handleOpenLeave"
                 >
-                  <image src="/assets/icons/web-leave.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-leave.svg" mode="aspectFit" />
                   <view><text>请假</text><text>提交请假并处理待审批申请</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -856,11 +856,11 @@
                   aria-role="button"
                   bindtap="handleOpenDuty"
                 >
-                  <image src="/assets/icons/web-duty.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-duty.svg" mode="aspectFit" />
                   <view><text>加扣班</text><text>发起代值、加班或扣班调整</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -871,11 +871,11 @@
                   aria-role="button"
                   bindtap="handleOpenSchedulingConfig"
                 >
-                  <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-config.svg" mode="aspectFit" />
                   <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -892,11 +892,11 @@
                   aria-role="button"
                   bindtap="handleOpenInsights"
                 >
-                  <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-events.svg" mode="aspectFit" />
                   <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -907,11 +907,11 @@
                   aria-role="button"
                   bindtap="handleOpenNotificationSettings"
                 >
-                  <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-bell.svg" mode="aspectFit" />
                   <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -922,11 +922,11 @@
                   aria-role="button"
                   bindtap="handleOpenNotifications"
                 >
-                  <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-notifications.svg" mode="aspectFit" />
                   <view><text>通知中心</text><text>查看排班、请假与换班提醒</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -937,11 +937,11 @@
                   aria-role="button"
                   bindtap="handleOpenExports"
                 >
-                  <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-export.svg" mode="aspectFit" />
                   <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -958,11 +958,11 @@
                   aria-role="button"
                   bindtap="handleOpenInviteVisitor"
                 >
-                  <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-user.svg" mode="aspectFit" />
                   <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -973,11 +973,11 @@
                   aria-role="button"
                   bindtap="handleOpenVisitorAccess"
                 >
-                  <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-calendar-check.svg" mode="aspectFit" />
                   <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -988,11 +988,11 @@
                   aria-role="button"
                   bindtap="handleOpenPlatformAccounts"
                 >
-                  <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-user.svg" mode="aspectFit" />
                   <view><text>平台账号</text><text>仅平台管理员可分配用户名与绑定链接</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -1007,11 +1007,11 @@
                   aria-role="button"
                   bindtap="handleOpenTestCenter"
                 >
-                  <image src="/assets/icons/web-more-secondary.svg" mode="aspectFit" />
+                  <image src="/assets/icons/ui-info-circle.svg" mode="aspectFit" />
                   <view><text>测试工具</text><text>查看安全诊断并按步骤完成真机检查</text></view>
                   <image
                     class="more-chevron"
-                    src="/assets/icons/web-chevron-right.svg"
+                    src="/assets/icons/ui-chevron-right.svg"
                     mode="aspectFit"
                   />
                 </view>
@@ -1054,7 +1054,7 @@
           aria-role="button"
           aria-label="关闭筛选"
           catchtap="handleFilterClose"
-          >×</view
+          ><image class="sheet-close-icon" src="/assets/icons/ui-close.svg" mode="aspectFit" /></view
         >
       </view>
 
@@ -1078,7 +1078,7 @@
           aria-role="button"
           aria-expanded="{{filterOpenField === 'role'}}"
           catchtap="handleFilterFieldToggle"
-          ><text>{{filterRoleSummary}}</text><view class="filter-select-chevron"></view
+          ><text>{{filterRoleSummary}}</text><view class="filter-select-chevron"><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view
         ></view>
         <scroll-view
           wx:if="{{filterOpenField === 'role'}}"
@@ -1113,7 +1113,7 @@
           aria-role="button"
           aria-expanded="{{filterOpenField === 'shift'}}"
           catchtap="handleFilterFieldToggle"
-          ><text>{{filterShiftTypeSummary}}</text><view class="filter-select-chevron"></view
+          ><text>{{filterShiftTypeSummary}}</text><view class="filter-select-chevron"><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view
         ></view>
         <scroll-view
           wx:if="{{filterOpenField === 'shift'}}"
@@ -1148,7 +1148,7 @@
           aria-role="button"
           aria-expanded="{{filterOpenField === 'member'}}"
           catchtap="handleFilterFieldToggle"
-          ><text>{{filterMemberSummary}}</text><view class="filter-select-chevron"></view
+          ><text>{{filterMemberSummary}}</text><view class="filter-select-chevron"><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view
         ></view>
         <scroll-view
           wx:if="{{filterOpenField === 'member'}}"
@@ -1224,11 +1224,11 @@
       aria-role="button"
       aria-current="{{activeWorkspace === 'calendar' ? 'page' : ''}}"
       bindtap="handleCalendarNav"
-      ><view class="nav-icon nav-calendar is-looping {{calendarNavAnimating ? 'is-animating' : ''}}"
-        ><image class="nav-icon-image" src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+      ><view class="nav-icon nav-calendar {{activeWorkspace === 'calendar' ? 'is-looping' : ''}} {{calendarNavAnimating ? 'is-animating' : ''}}"
+        ><image class="nav-icon-image" src="/assets/icons/ui-calendar.svg" mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/web-calendar-check.svg"
+          src="/assets/icons/ui-calendar-check.svg"
           mode="aspectFit" /></view
       ><text>日历</text></view
     >
@@ -1244,7 +1244,7 @@
       ><view class="nav-icon nav-directory"
         ><image
           class="nav-icon-image"
-          src="/assets/icons/web-directory.svg"
+          src="/assets/icons/ui-directory.svg"
           mode="aspectFit" /></view
       ><text>通讯录</text></view
     >
@@ -1260,11 +1260,11 @@
       ><view class="nav-icon nav-swap {{navMotion === 'swap' ? 'is-animating' : ''}}"
         ><image
           class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/web-swap.svg"
+          src="/assets/icons/ui-swap-left.svg"
           mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor-secondary"
-          src="/assets/icons/web-swap-secondary.svg"
+          src="/assets/icons/ui-swap-right.svg"
           mode="aspectFit" /></view
       ><text>换班</text></view
     >
@@ -1278,7 +1278,7 @@
       aria-role="button"
       bindtap="handleProfileNav"
       ><view class="nav-icon nav-profile {{profileAnimating ? 'is-animating' : ''}}"
-        ><image class="nav-icon-image" src="/assets/icons/web-profile.svg" mode="aspectFit" /></view
+        ><image class="nav-icon-image" src="/assets/icons/ui-profile.svg" mode="aspectFit" /></view
       ><text>我的</text></view
     >
     <view
@@ -1293,15 +1293,15 @@
       ><view class="nav-icon nav-more {{navMotion === 'more' ? 'is-animating' : ''}}"
         ><image
           class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/web-more.svg"
+          src="/assets/icons/ui-more-primary.svg"
           mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor-secondary"
-          src="/assets/icons/web-more-secondary.svg"
+          src="/assets/icons/ui-more-secondary.svg"
           mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor-tertiary"
-          src="/assets/icons/web-more-tertiary.svg"
+          src="/assets/icons/ui-more-tertiary.svg"
           mode="aspectFit" /></view
       ><text>更多</text></view
     >

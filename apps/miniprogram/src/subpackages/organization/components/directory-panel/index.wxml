@@ -46,7 +46,7 @@
                 >
                   <image
                     class="filter-open-icon"
-                    src="/assets/icons/web-directory-filter.svg"
+                    src="/assets/icons/ui-filter-funnel.svg"
                     mode="aspectFit"
                     aria-hidden="true"
                   />
@@ -64,7 +64,7 @@
                 >
                   <image
                     class="filter-open-icon"
-                    src="/assets/icons/web-directory-filter.svg"
+                    src="/assets/icons/ui-filter-funnel.svg"
                     mode="aspectFit"
                     aria-hidden="true"
                   />
@@ -120,7 +120,7 @@
           <view class="directory-search" aria-role="search">
             <image
               class="search-icon"
-              src="/assets/icons/web-directory-search.svg"
+              src="/assets/icons/ui-search.svg"
               mode="aspectFit"
               aria-hidden="true"
             />
@@ -143,7 +143,7 @@
               data-directory-kind="{{pane.directoryKind}}"
               bindtap="handleClearSearch"
             >
-              <image src="/assets/icons/web-directory-close.svg" mode="aspectFit" />
+              <image src="/assets/icons/ui-close.svg" mode="aspectFit" />
             </view>
           </view>
 
@@ -202,7 +202,7 @@
             <view wx:elif="{{!pane.searching && !pane.errorMessage}}" class="empty-card">
               <image
                 class="empty-search-icon"
-                src="/assets/icons/web-directory-search.svg"
+                src="/assets/icons/ui-search.svg"
                 mode="aspectFit"
                 aria-hidden="true"
               />
@@ -315,7 +315,7 @@
         data-directory-kind="{{sheet.directoryKind}}"
         bindtap="handleClearFilters"
       >
-        <image src="/assets/icons/web-directory-filter-clear.svg" mode="aspectFit" />
+        <image src="/assets/icons/ui-filter-clear.svg" mode="aspectFit" />
         <text>清除全部筛选</text>
         <text wx:if="{{sheet.activeFilterCount > 0}}" class="sheet-reset-count"
           >已选 {{sheet.activeFilterCount}} 项</text
@@ -361,7 +361,9 @@
                   <text>{{section.label}}</text>
                   <text>{{section.selectedLabel}} · {{section.optionCount}} 项</text>
                 </view>
-                <view class="filter-chevron {{section.expanded ? 'is-expanded' : ''}}"></view>
+                <view class="filter-chevron {{section.expanded ? 'is-expanded' : ''}}"
+                  ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view
+                >
               </view>
               <view wx:if="{{section.expanded}}" class="filter-options">
                 <view
@@ -402,7 +404,7 @@
       aria-label="返回更多工具"
       bindtap="handleBack"
     >
-      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+      <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
     </view>
     <text class="header-title-main">通讯录</text>
   </view>
@@ -425,7 +427,11 @@
           class="mode-icon department-icon {{departmentAnimating ? 'is-animating' : ''}}"
           aria-hidden="true"
         >
-          <view class="department-grid"><view></view><view></view><view></view><view></view></view>
+          <image
+            class="mode-icon-image"
+            src="{{directoryKind === 'internal' ? '/assets/icons/ui-department.svg' : '/assets/icons/ui-department-muted.svg'}}"
+            mode="aspectFit"
+          />
         </view>
         <text>科室</text>
       </view>
@@ -440,12 +446,16 @@
           class="mode-icon people-icon {{peopleAnimating ? 'is-animating' : ''}}"
           aria-hidden="true"
         >
-          <view class="person-primary"
-            ><view class="person-head"></view><view class="person-body"></view
-          ></view>
-          <view class="person-secondary"
-            ><view class="person-head"></view><view class="person-body"></view
-          ></view>
+          <image
+            class="mode-icon-image mode-icon-image-primary"
+            src="{{directoryKind === 'employee' ? '/assets/icons/ui-people-primary.svg' : '/assets/icons/ui-people-primary-muted.svg'}}"
+            mode="aspectFit"
+          />
+          <image
+            class="mode-icon-image mode-icon-image-secondary"
+            src="{{directoryKind === 'employee' ? '/assets/icons/ui-people-secondary.svg' : '/assets/icons/ui-people-secondary-muted.svg'}}"
+            mode="aspectFit"
+          />
         </view>
         <text>人员</text>
       </view>

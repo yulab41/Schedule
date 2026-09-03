@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
+import SharedIcon from './SharedIcon.vue';
 import { isPointOutsideRectangle } from './temporal-picker-interactions.js';
 
 defineOptions({ inheritAttrs: false });
@@ -551,7 +552,7 @@ onBeforeUnmount(() => {
       <span class="temporal-picker-value" :class="{ 'is-placeholder': modelValue === '' }">
         {{ displayValue }}
       </span>
-      <span class="temporal-picker-chevron" aria-hidden="true">›</span>
+      <SharedIcon class="temporal-picker-chevron" name="chevron-right" />
     </button>
 
     <dialog
@@ -576,7 +577,7 @@ onBeforeUnmount(() => {
             aria-label="关闭"
             @click="cancelPicker"
           >
-            ×
+            <SharedIcon name="close" />
           </button>
         </header>
 
@@ -665,9 +666,13 @@ onBeforeUnmount(() => {
 
         <div v-else-if="kind === 'date'" class="temporal-picker-content date-picker-panel">
           <div class="date-period-navigation">
-            <button type="button" aria-label="上一月" @click="navigateDateMonth(-1)">‹</button>
+            <button type="button" aria-label="上一月" @click="navigateDateMonth(-1)">
+              <SharedIcon name="chevron-left" />
+            </button>
             <strong>{{ draftYear }}年{{ draftMonth }}月</strong>
-            <button type="button" aria-label="下一月" @click="navigateDateMonth(1)">›</button>
+            <button type="button" aria-label="下一月" @click="navigateDateMonth(1)">
+              <SharedIcon name="chevron-right" />
+            </button>
           </div>
           <div class="weekday-grid" aria-hidden="true">
             <span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span>
@@ -818,11 +823,10 @@ onBeforeUnmount(() => {
 }
 
 .temporal-picker-chevron {
+  width: 20px;
+  height: 20px;
   justify-self: end;
   color: var(--ui-color-text-muted, #8b96a3);
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
 }
 
 .temporal-picker-dialog {
@@ -903,7 +907,12 @@ onBeforeUnmount(() => {
   border-radius: 13px;
   cursor: pointer;
   font: inherit;
-  font-size: 24px;
+}
+
+.temporal-picker-close svg,
+.date-period-navigation button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .temporal-selection-summary {

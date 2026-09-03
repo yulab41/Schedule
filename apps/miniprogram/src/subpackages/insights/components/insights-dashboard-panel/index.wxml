@@ -6,7 +6,7 @@
       aria-role="button"
       aria-label="返回更多工具"
       bindtap="handleBack"
-      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
+      ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" /></view
     ><view class="header-title"
       ><text class="header-title-main">事件与统计</text
       ><text class="header-title-sub">值班台账 · 只读审计</text></view
@@ -126,14 +126,14 @@
                 aria-role="button"
                 aria-label="上一统计周期"
                 bindtap="handlePreviousPeriod"
-                >‹</view
+                ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" aria-hidden="true" /></view
               ><text>{{statisticsPeriodLabel}}</text
               ><view
                 class="period-step"
                 aria-role="button"
                 aria-label="下一统计周期"
                 bindtap="handleNextPeriod"
-                >›</view
+                ><image src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
               ></view
             ></view
           ><ui-alert

@@ -7,7 +7,7 @@
       aria-label="返回更多工具"
       bindtap="handleBack"
     >
-      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+      <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
     </view>
     <view class="header-title">
       <text class="header-title-main">排班配置</text>
@@ -376,7 +376,7 @@
                     data-direction="up"
                     aria-role="button"
                     bindtap="handleMoveRoleMember"
-                    >↑</view
+                    ><image class="order-icon order-icon-up" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" /></view
                   ><view
                     class="order-button"
                     data-role-id="{{role.id}}"
@@ -384,7 +384,7 @@
                     data-direction="down"
                     aria-role="button"
                     bindtap="handleMoveRoleMember"
-                    >↓</view
+                    ><image class="order-icon order-icon-down" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" /></view
                   ></view
                 ></view
               ><ui-button
