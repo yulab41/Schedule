@@ -38,6 +38,7 @@ runtime/*.tar.gz
 runtime/*.tar.zst
 runtime/ecs-release/
 /runtime/release-cache/
+/runtime/local/
 /runtime/tmp/
 /runtime/test-*/
 runtime/api-sim-*/

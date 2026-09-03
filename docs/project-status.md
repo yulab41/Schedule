@@ -86,6 +86,8 @@
 
 - “更多 → 测试工具”已由 `18498a8b` 实现，production 与 `.70@18498a8` 已同步并放行；release
   失败关闭、只读有界诊断和隐私边界保持有效，当前只待实体 Android/DevTools 人工复核。
+- 仓库级 `schedule-project-guardrails` 已建立；13 文件结构/front matter、9 个 Markdown/62 个链接、
+  Windows PowerShell 只读/失败关闭 dry-run 与 `git diff --check` 通过。checkpoint `chore(agent): add Schedule project guardrails`；未安装/全量测试/构建/上传/连接 production，当前批次和停止条件不变。
 
 ## 已完成的发布基线与当前修复
 

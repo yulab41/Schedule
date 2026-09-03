@@ -1,0 +1,6 @@
+interface:
+  display_name: "Schedule Project Guardrails"
+  short_description: "Route Schedule work through repository safety gates"
+  default_prompt: "Use $schedule-project-guardrails to classify this Schedule task and load only the required project rules."
+policy:
+  allow_implicit_invocation: true

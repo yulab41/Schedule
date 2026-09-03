@@ -2,6 +2,10 @@
 
 These instructions apply to the entire repository.
 
+For Schedule repository changes, debugging, builds, Mini Program uploads, release candidates, or
+production work, use the repository-local `$schedule-project-guardrails` skill first; it routes to
+the existing rules and does not replace their fact sources.
+
 ## Cross-Conversation Continuity
 
 Do not rely on prior chat history when starting or resuming implementation.
