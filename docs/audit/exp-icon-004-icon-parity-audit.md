@@ -11,8 +11,13 @@ inline SVG、TDesign 组件、`web-*.svg`、CSS 几何和文字字符多个来�
 `SharedIcon` 渲染，小程序使用生成的 `ui-*.svg` 和平台兼容层；没有复制 React/DOM/CSS 运行时。
 修复不改变 API、路由、权限、业务状态或用户操作结果。
 
-静态修复已经通过 Node/TypeScript/构建/自动化检查，但当前没有浏览器 API 后端运行证据，也没有
-微信开发者工具或 Xiaomi 14 体验版证据。因此“代码候选已修复”不等于“跨端视觉验收通过”。
+静态修复已经通过 Node/TypeScript/构建/自动化检查；`1ffab10c` 已从 managed exact-clean
+`runtime/release-worktree` 上传为体验版 `0.1.0-p10.20260903.81`。上传首次因代理/TUN 的 IPv6 出口被微信
+`-10008 invalid ip` 拒绝，复用已审计的进程级 IPv4 DNS 兼容路径后同一候选成功上传（196 code files、ZIP
+`2,486,095 B`、local upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`）。
+当前仍没有浏览器 API 后端运行证据、微信开发者工具或 Xiaomi 14 视觉/动效证据，因此“代码候选已修复”不等于“跨端视觉验收通过”。
+服务器端已按用户授权核对该版本：生产 client-version allowlist `ensure` 幂等通过且未重建容器，随后 allowlist `verify` 与完整 ECS
+verifier 通过；这不是本批代码的 Git/ECS 部署，也不能代替 Xiaomi 14 验收。
 
 ## 审计边界与证据
 

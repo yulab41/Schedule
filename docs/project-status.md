@@ -5,7 +5,7 @@
 
 ## 当前仓库批次（2026-09-03）
 
-- 当前活动批次：`EXP-ICON-004-B1`；状态为“已完成（含自动化验证）→ 待体验版确认”。本批覆盖 Web/小程序
+- 当前活动批次：`EXP-ICON-004-B1`；状态为“已完成（含自动化验证）→ 待 Xiaomi 14 复核”。本批覆盖 Web/小程序
   底部导航、顶部导航、更多、通讯录按钮、日历、事件、工作流、导出、通知、访客、身份和页面返回图标；不重跑阶段 0。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-full-20260903`；分支
   `codex/exp-icon-004-full-20260903`；基于执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
@@ -13,8 +13,9 @@
 - 设计、计划和审计分别见 `docs/superpowers/specs/2026-09-03-exp-icon-004-icon-migration-implementation-design.md`、
   `docs/superpowers/plans/2026-09-03-exp-icon-004-icon-migration-implementation-plan.md` 和
   `docs/audit/exp-icon-004-icon-parity-audit.md`。
-- 当前边界：用户已要求在审查到位后修复并准备体验版；仓库门禁仍要求在上传前展示精确候选 SHA/版本/描述/测试页并取得当次明确确认。
-  不提交审核、不正式发布、不部署 production。
+- 当前边界：用户已确认精确候选并授权体验上传；`0.1.0-p10.20260903.81` 已从 managed `runtime/release-worktree` 的
+  `1ffab10c` clean production profile 上传成功。服务器可信 allowlist `ensure` 已核对该版本已存在并通过验证，未重建容器；随后
+  allowlist `verify` 与完整 ECS verifier 通过。不提交审核、不正式发布、不部署本批代码。
 
 ## 本批基线与验证证据
 
@@ -33,7 +34,9 @@
 - 浏览器证据：首次 `pnpm smoke:browser` 因 5173 未启动 `ERR_CONNECTION_REFUSED`；启动本 worktree Vite 并设置
   `VITE_AUTH_DEV_MODE=true` 后，在管理员登录步骤因本地 API `127.0.0.1:3000` 未运行停留 `/login?redirect=/`；
   该结果已写入 `docs/debug/debug-feedback-log.md`，`pnpm smoke:check-core` 已通过。浏览器功能未宣称通过。
-- 按仓库政策未调用微信开发者工具 GUI/CLI，未上传体验版，未正式发布，未部署 production；Xiaomi 14 证据当前“工具无法测量，暂未验证”。
+- 按仓库政策未调用微信开发者工具 GUI/CLI；第一次代理上传因 IPv6 `-10008 invalid ip` 失败，随后用既有 IPv4 DNS 兼容脚本重试成功：
+  196 code files、ZIP `2,486,095 B`、upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`。
+  未提交审核、未正式发布、未部署 production；Xiaomi 14 证据当前“工具无法测量，暂未验证”。
 
 ## 已完成的历史批次
 
@@ -44,10 +47,12 @@
 
 ## 状态策略与唯一下一任务
 
-- 当前问题状态：实现、静态检查和自动化验证完成，进入“待体验版确认”；不得写成 Xiaomi 14 真机通过。
-- 唯一下一任务：复核本批 diff 和最终验证，生成干净候选后向用户展示精确短 SHA、trial 版本、版本描述、脏树状态及测试页面；
-  取得当次明确批准后，仅用 `miniprogram-ci` 上传体验版，上传完成立即停止，等待匹配构建的 Xiaomi 14 证据。
+- 当前问题状态：实现、静态检查、自动化验证和体验上传完成，进入“待 Xiaomi 14 复核”；不得写成 Xiaomi 14 真机通过。
+- 唯一下一任务：用户核对匹配构建的 Xiaomi 14 体验版，覆盖底部/顶部/更多/通讯录/日历/事件/导出/工作流/身份图标、动效、安全区和
+  reduced-motion，并返回真实证据；上传完成后本轮停止。
 - 上传前必须通过 managed `runtime/release-worktree` safety checker、production profile、credential-free dry-run、package/verify；
   不使用主 worktree ignored 状态，不调用微信开发者工具，不提交审核、不正式发布、不部署 production。
-- Checkpoint outcome：Task 1–4（全量审计、单一来源/失败契约、B1 修复、最终验证/文档）已完成；拟创建提交消息
-  `fix(miniprogram): unify EXP-ICON-004 icon sources`。提交前 staged diff 已审阅且只包含本批文件，随后普通 fast-forward 推送当前分支。
+- Checkpoint outcome：Task 1–4（全量审计、单一来源/失败契约、B1 修复、最终验证/文档）已完成；代码 checkpoint
+  `1ffab10c fix(miniprogram): unify EXP-ICON-004 icon sources` 已普通 fast-forward 推送，体验上传从其 exact-clean release worktree
+  完成；服务器 client-version allowlist 已幂等核对通过。当前文档 follow-up checkpoint 将只记录上传回执、IP 白名单回退、服务器放行
+  和未部署本批代码的边界。

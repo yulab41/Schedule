@@ -2,6 +2,24 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-03 EXP-ICON-004 体验上传与白名单边界
+
+- 候选冻结：代码 checkpoint `1ffab10c3f30987e31db47eb555f9e0aef0bf787` 已推送；managed
+  `runtime/release-worktree` 为 detached exact-clean worktree。safety checker、production profile、credential-free
+  `miniprogram-ci` dry-run、package/verify 均通过，`buildDirty=false`，44 个 `ui-*.svg` 引用无缺失。
+- 上传失败定位：首次执行同一候选时，本机代理/TUN 让微信看到 IPv6 出口，微信返回 `-10008 invalid ip`；没有形成版本。
+  按历史已验证路径清除本次进程代理，并以 `runtime/ci-network/force-servicewechat-ipv4.cjs` 只对
+  `servicewechat.com` 做进程级 IPv4 DNS 兼容，未修改 hosts、VPN、系统或源码。
+- 上传成功：同一 SHA、版本 `0.1.0-p10.20260903.81`、描述 `exp-icon-004-b1-1ffab10` 重试成功；官方接口报告
+  196 code files、ZIP `2,486,095 B`，仓库 wrapper 回报 local upload manifest
+  `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`。该动作没有提交审核或正式发布。
+- 白名单：上传 IP 白名单通过既有已登记直连 IPv4 路径验证。用户随后授权服务器放行该版本；可信
+  `sudo schedule-client-version-allowlist ensure 0.1.0-p10.20260903.81` 返回版本已存在并通过验证、未重建容器；独立
+  `verify` 通过。完整 `ecs-verify.sh` 通过，公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 跳过；没有备份/改写 production、没有部署本批代码、
+  没有调用微信开发者工具。
+- 当前状态：体验版已上传，等待用户用匹配构建在 Xiaomi 14 核对底部/顶部/更多/通讯录/日历/事件/导出/工作流/身份图标、动效和安全区；
+  当前没有实体设备证据，不能写成真机验收通过。
+
 ## 2026-09-03 EXP-CALENDAR-003 请假日期选择器修复
 
 - 基线/范围：在代码修改前从执行时最新 `origin/main@0792ed01` rebase 的独立 worktree

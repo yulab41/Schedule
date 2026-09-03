@@ -1158,5 +1158,10 @@ B1 的实际证据包括失败先行 parity contract 4 项红灯后 4/4 绿、Mi
 定向 34 tests、Mini/Web TypeScript、Web build、Mini production build/verify、source/package/performance/
 determinism、Prettier、ESLint；候选 packageBytes `5,168,783`，相对基线 `5,151,893` 增加 `16,890B`
 （约 0.33%）。这些均为静态/Node 证据；`pnpm smoke:browser` 因本地 API 3000 未运行停留登录页，未写成浏览器通过。
-本轮未调用微信开发者工具，未上传体验版，未提交审核，未正式发布，未部署 production。体验版和 Xiaomi 14
-复核门禁与清单见专门审计报告和 `docs/audit/STATUS.md`。
+本轮未调用微信开发者工具。用户确认后，`1ffab10c` 已由 managed exact-clean release worktree 以 production profile
+上传体验版 `0.1.0-p10.20260903.81`（描述 `exp-icon-004-b1-1ffab10`、196 code files、ZIP `2,486,095 B`、
+local upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`）。首次代理/TUN IPv6
+出口被微信 `-10008 invalid ip` 拒绝，随后用既有进程级 IPv4 DNS 兼容脚本重试成功；上传 IP 白名单路径可用。
+服务器端随后按用户授权执行可信 client-version allowlist `ensure`；目标版本已存在并通过验证，未重建容器，随后独立 `verify` 与完整
+ECS verifier 通过（公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 跳过）。这不是本批代码的 Git/ECS 部署；未提交审核、未正式发布、未部署
+本批代码，体验版和 Xiaomi 14 复核门禁与清单见专门审计报告和 `docs/audit/STATUS.md`。
