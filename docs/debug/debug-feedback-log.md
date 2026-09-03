@@ -22,9 +22,9 @@
   `git diff --check`、`pnpm smoke:check-core` 均通过。package `5,151,892B`，main `1,715,718B`，仅既有主包/矩阵/
   Web 大 chunk warning。未上传体验版、未部署 production。
 - 运行/原生验证：仅有静态检查、Node 自动化和构建证据；未调用微信开发者工具，当前工具无法测量 Xiaomi 14 实际帧率、
-  手势阻尼和丝滑度，最终状态为“已完成（含运行验证）→ 待 Xiaomi 14 用户复核”。本轮 checkpoint 识别消息为
-  `fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`，提交后补记实际 SHA；一次普通 fast-forward 推送
-  `main` 后停止。
+  手势阻尼和丝滑度，最终状态为“已完成（含运行验证）→ 待 Xiaomi 14 用户复核”。本轮 checkpoint 为
+  `4e5cb461 fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`；一次普通 fast-forward 推送 `main`
+  后停止。
 
 ## 2026-09-02 EXP-UX-001 最终体验上传与 production 收口
 

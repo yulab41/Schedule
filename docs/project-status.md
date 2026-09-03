@@ -45,7 +45,7 @@
 - 当前问题状态：实现、静态检查、Node 自动化和构建已完成，进入“待用户复核”；不得写成 Xiaomi 14 真机通过。
 - 唯一下一任务：用户在与最终主线 SHA 匹配的构建上按最终回复的 4 步路径复核 Xiaomi 14 的跟手、阈值、回弹、
   today、跨年和关闭重开；本轮不上传、不部署，用户复核前不开始其他日期/图标任务。
-- Checkpoint commit：`fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`（提交前状态已写入；提交后用
-  同一 worktree 补记实际短 SHA）。
+- Checkpoint commit：`4e5cb461 fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`；本地提交已完成，本批
+  只允许一次普通 fast-forward 推送主线，完成后停止。
 - 主线收口规则：重新确认最新远端主线后，只做一次普通 fast-forward 推送到 `main`，不 force push、不上传体验版、
   不部署 production；推送完成后停止。
