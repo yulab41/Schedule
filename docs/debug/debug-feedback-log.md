@@ -2,6 +2,30 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-03 EXP-CALENDAR-003 请假日期选择器修复
+
+- 基线/范围：在代码修改前从执行时最新 `origin/main@0792ed01` rebase 的独立 worktree
+  `runtime/external-project-worktrees/exp-calendar-003-20260902` 工作；只改日期选择器月切换、today 定位、选中态和
+  相关连续性测试，不处理图标系统、`MINI-G1-004`、月份滚轮、API/数据库或生产发布。
+- 引入点/根因：`git log -S`/`git blame` 定位旧日期 `handleDateSwiperChange` 到 `b5603189`，today 图标 timer 到
+  `0975b2d1`。旧实现把原生 swiper change 与整窗 `setData`/`dateSwiperIndex: 1` 中心复位绑定，破坏跟手动画；
+  today 直接替换整月，timer 只反馈图标而不是定位管线。
+- 测试先行：新增共享 pager 状态机、日期静态视觉合同；旧实现先因缺共享模块、旧事件/中心复位和蓝色 token 失败。
+  实现后日期/状态定向 6 files/63 tests 全绿；扩展覆盖取消回弹、快速按钮队列、月底截断、跨年逐月 today、关闭重开
+  stale finish、today/selected/weekend/disabled 组合。
+- 修复：新增 `components/calendar/calendar-period-pager.ts`，首页 `calendar-month` 与 `workbench-model` 复用同一
+  三槽映射/状态迁移/240ms、`easeOutCubic`/队列；请假 picker 使用稳定物理 `slot` key，change 仅预锁，animationfinish
+  提交，目标月份先进入相邻槽，跨多月 today 每次完成后继续一月。未引入 WXS/Worklet/touchmove 第二 owner。
+  选中背景改用 `--ui-color-today-marker`，文字 `--ui-color-near-black`，today/disabled/周末规则保持可区分。
+- 验证：Mini 全量 `118 files / 642 tests`；Mini typecheck、282-file production build、verify/source/package/
+  determinism；根 `pnpm verify` 为 `246 passed / 37 skipped`、`1170 passed / 364 skipped`；根格式、ESLint、
+  `git diff --check`、`pnpm smoke:check-core` 均通过。package `5,151,892B`，main `1,715,718B`，仅既有主包/矩阵/
+  Web 大 chunk warning。未上传体验版、未部署 production。
+- 运行/原生验证：仅有静态检查、Node 自动化和构建证据；未调用微信开发者工具，当前工具无法测量 Xiaomi 14 实际帧率、
+  手势阻尼和丝滑度，最终状态为“已完成（含运行验证）→ 待 Xiaomi 14 用户复核”。本轮 checkpoint 为
+  `4e5cb461 fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`；一次普通 fast-forward 推送 `main`
+  后停止。
+
 ## 2026-09-02 EXP-UX-001 最终体验上传与 production 收口
 
 - 最终源码 tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`：在 `d1594d09` EXP 修复 tip 上合入当前
@@ -24,6 +48,26 @@
 - allowlist：可信 add-only `ensure 0.1.0-p10.20260902.80` 追加成功；`verify`、`.80` 七维 capability、
   legacy、动态未知版本 HTTP 426 和 `ECS_PUBLIC_IP=120.77.220.79` full verifier 全部通过。未提审、未正式发布
   小程序；下一步仅是用户在 `.80` 上做 Xiaomi 14 原生交互复核，不进入日期组件、事件记录或图标任务。
+
+## 2026-09-02 EXP-UX-002 请假与加扣班弹窗外壳续修
+
+- 反馈范围：上一体验版截图 #4/#5 中，请假和加扣班通过“更多”打开的非 Tab 页面仍使用旧本地弹窗；本轮只
+  处理五个 workflow modal 的高度、safe-area、独立滚动和顶部下滑关闭，不重跑阶段 0、不执行 `MINI-G1-004`，
+  不进入日期组件、事件记录、图标或 P 标签。
+- 定位：`git log -S`/`git blame` 将请假旧表单定位到 `9fae3869`，旧工作流表单路径定位到
+  `80ddadf0`/`bc32a4f1`。旧 `sheet-layer` 是组件局部 absolute/z40；请假新建是 auto/78vh、审批是 88%，
+  操作区位于正文 scroll-view 内，加扣班撤销也没有共享滚动/drag 外壳。上一批只迁移了内嵌换班，不是本批五个
+  direct Page 弹窗。
+- 先红后绿：新增 `apps/miniprogram/scripts/exp-ux-002.test.mjs` 在旧源码上 4/4 红；修复后 4/4 绿。请假
+  新建/审批、加扣班发起/管理员直达/撤销都改为既有 `ui-sheet`，正文改为 `workflow-sheet-scroll`，按钮放入
+  `workflow-sheet-footer`；共享 `ui-sheet` fixed/z400、78vh/max660、safe-area 和 drag-dismiss WXS 不复制。
+  direct leave/swap/duty Page manifest 显式注册 `ui-sheet`；controller/API/路由和 busy close guard 不变。
+- 验证：定向 5 files/33 tests、Mini 全量 115 files/625 tests、Mini TypeScript、production 276-file build、
+  source audit、`miniprogram:verify`、Prettier、ESLint、`git diff --check` 和 `pnpm smoke:check-core` 均通过。
+  verify 报告 package `5,109,717B`，同口径上一批 clean `5,113,419B`，实际减少 `3,702B`（workflows 减少
+  `3,701B`）；主包 `1,677,998B` 和矩阵 `1445/1505` 是原有 warning 类别。
+- 边界：上述为源码/Node/WXS/构建证据，未调用微信开发者工具，未上传体验版，未部署 production；仍需下一版
+  与最终 tip 匹配的小米 14 体验版人工验证触摸手感、内部滚动、safe-area、拖动阈值/回弹和系统侧滑返回。
 
 ## 2026-09-02 MINI-G1-003 排班配置轮转输入局部更新
 
@@ -2236,3 +2280,38 @@
 - 证据边界：Node/static/WXS/production build 通过不等于 Xiaomi 14 真机手势通过。下一版需复核 sheet
   高度/安全区/内部滚动/拖动回弹、picker toggle 与卸载清理、请假/加扣班系统返回，以及所有右上角 P… 消失。
   本轮未调用微信开发者工具，未上传体验版，未部署 production。
+
+## 2026-09-02 EXP-FEAT-002 事件记录点击无反应
+
+- 连续性：按执行时最新 `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298` 创建干净
+  `runtime/external-project-worktrees/exp-feat-002-event-records` /
+  `codex/exp-feat-002-event-records`；主 worktree 的用户改动未触碰。本轮只处理班次详情事件记录，
+  不处理日期选择器、图标系统或 `MINI-G1-004`。
+- Web 追踪：入口是 `SelectedDateDutyDetails.vue` 的 `open-events`，承载是 `CalendarView.vue` 的
+  `ResponsiveSheet`，读取是 `api.getGroupEvents(groupId, { pageSize: 100, shiftId: assignment.id })`，
+  展示由 `EventTimeline` 和事件时间线规则负责；API route 以 `viewScheduleConfiguration` 守门。
+  对齐矩阵、权限边界和剩余差异见 `docs/audit/exp-feat-002-event-records.md`。
+- 根因：小程序 `index.wxml` 的两处事件记录整行绑定 `handleUnavailable`，该 handler 只写“功能将在后续阶段
+  开放”的公告；没有 `assignment.id`、`insights.events` GET、`ScheduleEventPage` 解码链或真实 sheet。
+  `git log -S`/`git blame` 复核占位引入点为 `ad4cfb2c`/`4fe1b5e78`，不是运行时点击坐标或图标资源错误。
+- 失败先行：永久红灯测试 `apps/miniprogram/scripts/exp-feat-002-event-records.test.mjs` 在旧源码上实际
+  返回 `RED: expected 2 real event handlers, found 0`（退出码 1）；同一检查在实现后找到 2 个真实处理器。
+- 修复：两处入口改为 `handleOpenShiftEvents` 并携带 row assignment ID；工作台复用既有 `ui-sheet`，正文拆到
+  `components/shift-event-records`；读取复用 `createRuntimeInsightsReadClient().listEvents` 的既有
+  `insights.events` GET，`shift-event-model.ts` 复用 shared `buildEventTimelineItems`、标签、北京时间、
+  narrative、changes 和 change chain。客户端按既有 `toolAccess.insights` 守门，guest 不发请求，后端权限仍为
+  最终边界；没有新增写请求。
+- 异步/空值审计：打开/retry 先清卡片与变更链；响应提交必须同时满足 `isVisible`、sheet 可见、request serial、
+  group ID 和 assignment ID。关闭、遮罩、完成、下滑、隐藏、卸载、切群组和 capability 收缩都会失效旧请求并清空
+  private assignment；不同班次不会复用旧卡片。Web assignment timeline 的 change chain 在 Mini 常显、marker 用
+  共享文字 label，是已记录的适配差异；raw data 不进入小程序 WXML。
+- 运行验证：定向事件 `5/5`；Mini 全量 `115 files / 626 tests`；Mini/根 TypeScript、Mini production build
+  （281 files）、`miniprogram:verify`（packageBytes `5,143,838`）、package audit（total `5,143,838`）、
+  source audit、determinism、credential-free CI dry-run、全仓 Prettier、ESLint、`git diff --check` 和
+  `pnpm smoke:check-core` 均通过。首轮全量在冷安装期间出现 7 个无关超时/页面 CSS 预算失败，移出事件样式后
+  重跑清零，未保留无关改动。
+- 运行/浏览器验证：本轮只运行 `pnpm smoke:check-core`，结果为未涉及 Web 核心链路，无需 `pnpm smoke:browser`；
+  仓库政策下未调用微信开发者工具，未上传体验版、未提交审核、未部署 production。Node/静态/构建结果不等于
+  Xiaomi 14 原生验收；下一版只按 `docs/audit/exp-feat-002-event-records.md` 的最小步骤复核。
+- 状态：代码和自动化验证完成，当前为“待用户复核”；最终应在最新远端主线确认后一次普通 fast-forward 推送，
+  不做体验上传或 production 部署。

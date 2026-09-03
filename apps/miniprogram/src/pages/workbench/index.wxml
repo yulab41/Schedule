@@ -240,10 +240,12 @@
                           </view>
                           <view
                             class="event-action"
-                            data-label="事件记录"
+                            data-assignment-id="{{row.key}}"
                             hover-class="is-pressed"
                             aria-role="button"
-                            bindtap="handleUnavailable"
+                            aria-label="查看事件记录"
+                            aria-disabled="{{!toolAccess.insights}}"
+                            bindtap="handleOpenShiftEvents"
                             ><image
                               class="event-history-icon"
                               src="/assets/icons/web-history.svg"
@@ -474,10 +476,12 @@
                           </view>
                           <view
                             class="event-action"
-                            data-label="事件记录"
+                            data-assignment-id="{{row.key}}"
                             hover-class="is-pressed"
                             aria-role="button"
-                            bindtap="handleUnavailable"
+                            aria-label="查看事件记录"
+                            aria-disabled="{{!toolAccess.insights}}"
+                            bindtap="handleOpenShiftEvents"
                             ><image
                               class="event-history-icon"
                               src="/assets/icons/web-history.svg"
@@ -1193,6 +1197,24 @@
       group-id="{{currentGroupId}}"
       bind:unreadchanged="handleNotificationUnreadChanged"
     ></notifications-panel>
+  </ui-sheet>
+
+  <ui-sheet
+    visible="{{shiftEventSheetOpen}}"
+    title="班次事件记录"
+    close-label="完成"
+    swipe-dismiss="{{true}}"
+    bind:close="handleShiftEventClose"
+  >
+    <shift-event-records
+      wx:if="{{shiftEventSheetOpen}}"
+      cards="{{shiftEventCards}}"
+      change-chain="{{shiftEventChangeChain}}"
+      error-message="{{shiftEventErrorMessage}}"
+      meta="{{shiftEventMeta}}"
+      state="{{shiftEventState}}"
+      bind:retry="handleShiftEventRetry"
+    ></shift-event-records>
   </ui-sheet>
 
   <view class="bottom-nav" aria-label="工作台导航">

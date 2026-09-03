@@ -211,15 +211,15 @@
     </view>
   </scroll-view>
 
-  <view hidden="{{!formVisible}}" class="sheet-layer">
-    <view class="sheet-scrim" aria-role="button" bindtap="handleCloseForm"></view>
-    <view class="native-sheet request-sheet" aria-role="dialog" aria-label="新建请假">
-      <view class="sheet-handle"></view>
-      <view class="sheet-heading">
-        <view><text class="sheet-title">新建请假</text></view>
-        <view class="sheet-finish" aria-role="button" bindtap="handleCloseForm">完成</view>
-      </view>
-      <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+  <ui-sheet
+    wx:if="{{formVisible}}"
+    visible="{{formVisible}}"
+    title="新建请假"
+    close-label="完成"
+    swipe-dismiss="{{!formBusy}}"
+    bind:close="handleCloseForm"
+  >
+      <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
         <view class="sheet-body">
           <view wx:if="{{formErrorMessage}}" class="native-alert is-danger"
             ><text>{{formErrorMessage}}</text></view
@@ -296,28 +296,30 @@
               bindinput="handleReasonInput"
             />
           </view>
-          <view
-            class="web-button is-primary leave-submit {{formBusy ? 'is-disabled' : ''}}"
-            aria-role="button"
-            aria-busy="{{formBusy}}"
-            bindtap="handleSubmitLeave"
-            >{{formBusy ? '正在提交' : '提交请假'}}</view
-          >
         </view>
       </scroll-view>
+    <view class="workflow-sheet-footer">
+      <view
+        class="web-button is-primary leave-submit {{formBusy ? 'is-disabled' : ''}}"
+        aria-role="button"
+        aria-busy="{{formBusy}}"
+        bindtap="handleSubmitLeave"
+        >{{formBusy ? '正在提交' : '提交请假'}}</view
+      >
     </view>
-  </view>
+  </ui-sheet>
 
-  <view wx:if="{{approvalVisible}}" class="sheet-layer">
-    <view class="sheet-scrim" aria-role="button" bindtap="handleCloseApproval"></view>
-    <view class="native-sheet approval-sheet" aria-role="dialog" aria-label="预览并审批">
-      <view class="sheet-handle"></view>
-      <view class="sheet-heading">
-        <view><text class="sheet-title">预览并审批</text><text>{{approvalSummary}}</text></view>
-        <view class="sheet-close" aria-role="button" bindtap="handleCloseApproval">×</view>
-      </view>
-      <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+  <ui-sheet
+    wx:if="{{approvalVisible}}"
+    visible="{{approvalVisible}}"
+    title="预览并审批"
+    close-label="关闭"
+    swipe-dismiss="{{!approvalBusy}}"
+    bind:close="handleCloseApproval"
+  >
+      <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
         <view class="sheet-body">
+          <view class="sheet-form-intro"><text class="form-intro">{{approvalSummary}}</text></view>
           <view wx:if="{{approvalErrorMessage}}" class="native-alert is-danger"
             ><text>{{approvalErrorMessage}}</text></view
           >
@@ -359,17 +361,18 @@
                 <text>我已知晓冲突和空缺，确认按预览结果批准该请假。</text>
               </label>
             </checkbox-group>
-            <view class="approval-actions">
-              <view class="web-button is-danger-outline" aria-role="button" bindtap="handleReject"
-                >驳回</view
-              >
-              <view class="web-button is-primary" aria-role="button" bindtap="handleApprove"
-                >{{approvalHasAffectedAssignments ? '批准并重排' : '批准'}}</view
-              >
-            </view>
           </view>
         </view>
       </scroll-view>
+    <view wx:if="{{approvalPreviewReady}}" class="workflow-sheet-footer">
+      <view class="approval-actions">
+        <view class="web-button is-danger-outline" aria-role="button" bindtap="handleReject"
+          >驳回</view
+        >
+        <view class="web-button is-primary" aria-role="button" bindtap="handleApprove"
+          >{{approvalHasAffectedAssignments ? '批准并重排' : '批准'}}</view
+        >
+      </view>
     </view>
-  </view>
+  </ui-sheet>
 </view>

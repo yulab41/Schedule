@@ -1,3 +1,17 @@
+import {
+  CALENDAR_PERIOD_SWIPER_DURATION_MS,
+  CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
+  cancelCalendarPeriodShift,
+  commitCalendarPeriodSwipe,
+  finishCalendarPeriodShift,
+  isCalendarPeriodSlot,
+  prepareCalendarPeriodChange,
+  requestCalendarPeriodShift,
+  takeQueuedCalendarPeriodShift,
+  type CalendarPeriodPagerState,
+  type CalendarPeriodSlot,
+} from '../calendar-period-pager.js';
+
 interface MonthSwipeEvent {
   readonly detail: { readonly current: number };
 }
@@ -10,7 +24,7 @@ interface CalendarSelectEvent {
   readonly detail: { readonly businessDate: string };
 }
 
-type MonthSlot = 0 | 1 | 2;
+type MonthSlot = CalendarPeriodSlot;
 
 interface CalendarMonthInstance {
   _monthActiveSlot: MonthSlot;
@@ -23,6 +37,7 @@ interface CalendarMonthInstance {
     readonly stepMotion: string;
     readonly swiperCurrent: number;
     readonly swiperDuration: number;
+    readonly swiperEasingFunction: string;
     readonly viewportHeight: number;
   };
   continueQueuedShift(): void;
@@ -43,7 +58,8 @@ Component({
     locateAnimating: false,
     stepMotion: '',
     swiperCurrent: 1,
-    swiperDuration: 240,
+    swiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    swiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
     viewportHeight: 270,
   },
   observers: {
@@ -68,35 +84,29 @@ Component({
   methods: {
     handleMonthChangeStart(this: CalendarMonthInstance, event: MonthChangeStartEvent): void {
       const { current } = event.detail;
-      if (!isMonthSlot(current)) return;
-      if (
-        this._monthShiftPending ||
-        this._monthHeightTargetIndex !== undefined ||
-        current === this._monthActiveSlot
-      ) {
-        return;
-      }
-      this._monthHeightTargetIndex = current;
+      const state = readMonthPagerState(this);
+      if (!prepareCalendarPeriodChange(state, current)) return;
+      writeMonthPagerState(this, state);
       const viewportHeight = this.data.panelHeights?.[current] ?? 270;
       if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
     },
     handleMonthSwipe(this: CalendarMonthInstance, event: MonthSwipeEvent): void {
       const { current } = event.detail;
-      if (!isMonthSlot(current)) return;
-      if (current === this._monthActiveSlot) {
-        if (this._monthHeightTargetIndex === undefined) return;
-        this._monthHeightTargetIndex = undefined;
-        const viewportHeight = this.data.panelHeights?.[this._monthActiveSlot] ?? 270;
+      const state = readMonthPagerState(this);
+      if (!isCalendarPeriodSlot(current)) return;
+      if (current === state.activeSlot) {
+        if (state.targetSlot === undefined) return;
+        cancelCalendarPeriodShift(state);
+        writeMonthPagerState(this, state);
+        const viewportHeight = this.data.panelHeights?.[state.activeSlot] ?? 270;
         if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
         return;
       }
-      if (this._monthShiftPending) return;
-      const delta = getMonthSlotDelta(this._monthActiveSlot, current);
-      if (delta === 0) return;
-      this._monthActiveSlot = current;
-      this._monthShiftPending = true;
+      const committed = commitCalendarPeriodSwipe(state, current);
+      if (committed === undefined) return;
+      writeMonthPagerState(this, state);
       this.setData({ swiperCurrent: current }, () => {
-        this.triggerEvent('monthchange', { current, delta });
+        this.triggerEvent('monthchange', committed);
       });
     },
     startProgrammaticShift(
@@ -104,33 +114,31 @@ Component({
       delta: -1 | 1,
       targetHeight?: number,
     ): void {
-      if (this._monthShiftPending || this._monthHeightTargetIndex !== undefined) {
-        this._queuedMonthDelta = clampMonthShiftQueue(this._queuedMonthDelta + delta);
-        return;
-      }
-      const targetIndex = getAdjacentMonthSlot(this._monthActiveSlot, delta);
-      this._monthHeightTargetIndex = targetIndex;
+      const state = readMonthPagerState(this);
+      const request = requestCalendarPeriodShift(state, delta);
+      writeMonthPagerState(this, state);
+      if (!request.started) return;
+      const targetIndex = request.targetSlot;
       this.setData({ stepMotion: '' }, () => {
         this.setData({
           stepMotion: delta < 0 ? 'previous' : 'next',
           swiperCurrent: targetIndex,
-          swiperDuration: 240,
+          swiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
           viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
         });
       });
     },
     finishPeriodShift(this: CalendarMonthInstance): void {
-      this._monthHeightTargetIndex = undefined;
-      this._monthShiftPending = false;
-      this.triggerEvent('monthsettled', {
-        continues: this._queuedMonthDelta !== 0,
-      });
+      const state = readMonthPagerState(this);
+      const settled = finishCalendarPeriodShift(state);
+      writeMonthPagerState(this, state);
+      this.triggerEvent('monthsettled', { continues: settled.continues });
     },
     continueQueuedShift(this: CalendarMonthInstance): void {
-      const queuedDelta = this._queuedMonthDelta;
-      if (queuedDelta === 0) return;
-      const delta: -1 | 1 = queuedDelta < 0 ? -1 : 1;
-      this._queuedMonthDelta = queuedDelta - delta;
+      const state = readMonthPagerState(this);
+      const delta = takeQueuedCalendarPeriodShift(state);
+      writeMonthPagerState(this, state);
+      if (delta === 0) return;
       this.startProgrammaticShift(delta);
     },
     handlePrevious(this: CalendarMonthInstance): void {
@@ -151,20 +159,21 @@ Component({
   },
 });
 
-function clampMonthShiftQueue(value: number): number {
-  return Math.max(-6, Math.min(6, value));
+function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPagerState {
+  return {
+    activeSlot: instance._monthActiveSlot ?? 1,
+    queuedDelta: instance._queuedMonthDelta ?? 0,
+    shiftPending: instance._monthShiftPending ?? false,
+    targetSlot: instance._monthHeightTargetIndex,
+  };
 }
 
-function isMonthSlot(value: number): value is MonthSlot {
-  return value === 0 || value === 1 || value === 2;
-}
-
-function getAdjacentMonthSlot(activeSlot: MonthSlot, delta: -1 | 1): MonthSlot {
-  return ((activeSlot + delta + 3) % 3) as MonthSlot;
-}
-
-function getMonthSlotDelta(activeSlot: MonthSlot, targetSlot: MonthSlot): -1 | 0 | 1 {
-  if (getAdjacentMonthSlot(activeSlot, 1) === targetSlot) return 1;
-  if (getAdjacentMonthSlot(activeSlot, -1) === targetSlot) return -1;
-  return 0;
+function writeMonthPagerState(
+  instance: CalendarMonthInstance,
+  state: CalendarPeriodPagerState,
+): void {
+  instance._monthActiveSlot = state.activeSlot;
+  instance._monthHeightTargetIndex = state.targetSlot;
+  instance._monthShiftPending = state.shiftPending;
+  instance._queuedMonthDelta = state.queuedDelta;
 }

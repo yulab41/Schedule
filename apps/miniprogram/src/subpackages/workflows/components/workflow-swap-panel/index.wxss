@@ -94,39 +94,6 @@
   align-items: stretch;
 }
 
-.workflow-sheet-scroll {
-  min-height: 0;
-  flex: 1;
-}
-
-.workflow-sheet-scroll .sheet-body {
-  padding: 0 0 16px;
-}
-
-.workflow-sheet-footer {
-  display: flex;
-  min-width: 0;
-  padding: 8px 0 0;
-  box-sizing: border-box;
-  flex: none;
-  border-top: 1px solid var(--ui-color-border);
-  background: var(--ui-color-surface);
-}
-
-.workflow-sheet-footer .form-actions,
-.workflow-sheet-footer > .web-button {
-  width: 100%;
-}
-
-.workflow-sheet-short-content {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--ui-spacing-md);
-}
-
 .preview-card {
   padding: 12px 14px;
   color: var(--ui-color-primary-dark);

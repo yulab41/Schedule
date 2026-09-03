@@ -166,6 +166,7 @@ describe('P7 physical-device feedback regressions', () => {
     const wheelStyles = read('components/ui/ui-wheel-column/index.wxss');
     const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
     const leaveStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
+    const sheetStyles = read('components/ui/ui-sheet/index.wxss');
 
     const pickerTrigger = pickerTemplate.match(
       /class="workflow-picker-trigger[^"]*"[\s\S]*?bindtap="handleOpen"/u,
@@ -185,11 +186,12 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerStyles).toMatch(
       /\.workflow-picker-sheet\s*\{[^}]*box-shadow:\s*0 16px 36px rgba\(22, 32, 42, 0\.14\)/su,
     );
-    expect(leaveTemplate).toContain('hidden="{{!formVisible}}"');
+    expect(leaveTemplate).toContain('<ui-sheet');
+    expect(leaveTemplate).toContain('visible="{{formVisible}}"');
+    expect(leaveTemplate).not.toContain('native-sheet request-sheet');
     expect(leaveTemplate).not.toContain('wx:if="{{affectedShiftsLoading}}">读取中');
-    expect(leaveStyles).toMatch(
-      /\.native-sheet\s*>\s*\.sheet-heading\s*>\s*\.sheet-close\s*\{[^}]*margin-left:\s*auto;[^}]*flex:\s*0 0 44px/su,
-    );
+    expect(leaveStyles).not.toContain('.native-sheet');
+    expect(sheetStyles).toContain('.ui-sheet__drag-region');
   });
 
   it('coordinates dropdown dismissal, compact empty state, filter outside taps, and group warmup', () => {
@@ -273,7 +275,7 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerStyles).not.toMatch(/\.workflow-picker-wheel-item\.is-animating/u);
     expect(pickerTemplate).toContain("dateLocateAnimating ? 'is-animating' : ''");
     expect(pickerTemplate).toContain('hover-start-time="0"');
-    expect(pickerTemplate).toContain('wx:key="key"');
+    expect(pickerTemplate).toContain('wx:key="slot"');
   });
 
   it('matches the Web request Sheet, compact reason fields, buttons, and Done action', () => {
@@ -281,11 +283,14 @@ describe('P7 physical-device feedback regressions', () => {
     const dutyTemplate = read('subpackages/workflows/components/workflow-duty-panel/index.wxml');
     const swapTemplate = read('subpackages/workflows/components/workflow-swap-panel/index.wxml');
     const sharedStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
+    const sheetStyles = read('components/ui/ui-sheet/index.wxss');
 
     for (const template of [leaveTemplate, dutyTemplate]) {
-      expect(template).toContain('native-sheet request-sheet');
-      expect(template).toContain('class="sheet-finish"');
-      expect(template).toMatch(/class="sheet-finish"[^>]*>完成</u);
+      expect(template).toContain('<ui-sheet');
+      expect(template).toContain('close-label="完成"');
+      expect(template).toContain('class="workflow-sheet-scroll"');
+      expect(template).toContain('class="workflow-sheet-footer"');
+      expect(template).not.toContain('native-sheet request-sheet');
     }
     expect(swapTemplate).toContain('<ui-sheet');
     expect(swapTemplate).toContain('title="发起换班"');
@@ -294,30 +299,27 @@ describe('P7 physical-device feedback regressions', () => {
     expect(swapTemplate).not.toContain('native-sheet request-sheet');
     expect(leaveTemplate).toContain('class="native-textarea leave-reason-field"');
     expect(dutyTemplate.match(/class="native-reason-input"/gu)).toHaveLength(2);
-    expect(sharedStyles).toMatch(
-      /\.sheet-scrim\s*\{[^}]*background:\s*rgba\(22, 32, 42, 0\.32\)/su,
+    expect(sharedStyles).not.toContain('.sheet-layer');
+    expect(sharedStyles).not.toContain('.native-sheet');
+    expect(sheetStyles).toMatch(
+      /\.ui-sheet__layer\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*400;/su,
     );
-    expect(sharedStyles).toMatch(
-      /\.request-sheet\s*\{[^}]*height:\s*auto;[^}]*max-height:\s*78vh;[^}]*background:\s*var\(--ui-color-surface\);[^}]*border-radius:\s*22px 22px 0 0;/su,
+    expect(sheetStyles).toMatch(
+      /\.ui-sheet__panel\s*\{[^}]*height:\s*78vh;[^}]*max-height:\s*660px;/su,
     );
-    expect(sharedStyles).toMatch(
-      /\.request-sheet \.sheet-heading\s*\{[^}]*min-height:\s*56px;[^}]*padding:\s*4px 16px;[^}]*border-bottom:\s*0;/su,
+    expect(sheetStyles).toMatch(
+      /\.ui-sheet__content\s*\{[^}]*min-height:\s*0;[^}]*padding:\s*0 16px calc\(16px \+ env\(safe-area-inset-bottom\)\);/su,
     );
+    expect(sheetStyles).toMatch(/\.ui-sheet__drag-region\s*\{[^}]*flex:\s*none;/su);
     expect(sharedStyles).toMatch(
       /\.leave-reason-field\s*\{[^}]*height:\s*44px;[^}]*min-height:\s*44px;/su,
     );
     expect(sharedStyles).toMatch(/\.native-reason-input\s*\{[^}]*min-height:\s*44px;/su);
     expect(sharedStyles).toMatch(
-      /\.request-sheet \.web-button\.is-primary\s*\{[^}]*box-shadow:\s*none;/su,
+      /\.workflow-sheet-scroll \.sheet-body\s*\{[^}]*padding:\s*0 0 16px;/su,
     );
     expect(sharedStyles).toMatch(
-      /\.request-sheet \.sheet-heading > \.sheet-finish\s*\{[^}]*width:\s*44px;[^}]*flex:\s*0 0 44px;/su,
-    );
-    expect(sharedStyles).toMatch(
-      /\.leave-page\.is-compact \.request-sheet \.sheet-body\s*\{[^}]*padding:\s*0 16px calc\(16px \+ env\(safe-area-inset-bottom\)\);/su,
-    );
-    expect(sharedStyles).toMatch(
-      /\.duty-page\.is-compact \.request-sheet \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
+      /\.workflow-sheet-footer\s*\{[^}]*border-top:\s*1px solid var\(--ui-color-border\);/su,
     );
     expect(read('subpackages/workflows/components/workflow-swap-panel/index.wxss')).toMatch(
       /\.swap-page\.is-compact \.workflow-sheet-footer \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
@@ -333,7 +335,9 @@ describe('P7 physical-device feedback regressions', () => {
     expect(leaveTemplate).toContain('原因说明（选填）');
     expect(leaveTemplate).toContain('请填写请假原因');
     expect(leaveTemplate).toContain('提交请假');
-    expect(sharedStyles).toMatch(/\.request-sheet \.date-fields\s*\{[^}]*flex-direction:\s*row;/su);
+    expect(sharedStyles).toMatch(
+      /\.workflow-sheet-scroll \.date-fields\s*\{[^}]*flex-direction:\s*row;/su,
+    );
     expect(sharedStyles).toMatch(
       /\.leave-page\.is-compact \.date-fields\s*\{[^}]*flex-direction:\s*row;/su,
     );

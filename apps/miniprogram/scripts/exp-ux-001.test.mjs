@@ -146,7 +146,9 @@ describe('EXP-UX-001 experience feedback contracts', () => {
         'src/subpackages/workflows/components/workflow-swap-panel/index.json',
       );
       const template = read('src/subpackages/workflows/components/workflow-swap-panel/index.wxml');
-      const styles = read('src/subpackages/workflows/components/workflow-swap-panel/index.wxss');
+      const workflowSheetStyles = read(
+        'src/subpackages/workflows/components/workflow-leave-panel/index.wxss',
+      );
       const sharedTemplate = read('src/components/ui/ui-sheet/index.wxml');
       const sharedStyles = read('src/components/ui/ui-sheet/index.wxss');
       const workbenchStyles = read('src/pages/workbench/index.wxss');
@@ -173,8 +175,10 @@ describe('EXP-UX-001 experience feedback contracts', () => {
           sheet.indexOf('class="workflow-sheet-footer"'),
         );
       }
-      expect(styles).toMatch(/\.workflow-sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su);
-      expect(styles).toMatch(/\.workflow-sheet-footer\s*\{[^}]*flex:\s*none;/su);
+      expect(workflowSheetStyles).toMatch(
+        /\.workflow-sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su,
+      );
+      expect(workflowSheetStyles).toMatch(/\.workflow-sheet-footer\s*\{[^}]*flex:\s*none;/su);
       expect(sharedTemplate).toContain('class="ui-sheet__drag-region"');
       expect(sharedTemplate).not.toMatch(/class="ui-sheet__content"[^>]*bindtouch/iu);
       expect(sharedStyles).toMatch(
@@ -248,6 +252,7 @@ describe('EXP-UX-001 experience feedback contracts', () => {
   describe('non-Tab workflow pages', () => {
     const workflows = ['leave', 'swap', 'duty'];
     const directPageConfig = {
+      'ui-sheet': '/components/ui/ui-sheet/index',
       'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
     };
     const legacyHandlers = {

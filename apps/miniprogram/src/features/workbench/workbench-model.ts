@@ -13,8 +13,14 @@ import {
   type CalendarAssignmentLike,
 } from '@schedule/presentation-core';
 
+import {
+  getAdjacentCalendarPeriodSlot,
+  mapCalendarPeriodRing,
+  type CalendarPeriodSlot,
+} from '../../components/calendar/calendar-period-pager.js';
+
 export type WorkbenchRelativePanel = -1 | 0 | 1;
-export type MonthSlot = 0 | 1 | 2;
+export type MonthSlot = CalendarPeriodSlot;
 export interface WorkbenchFilters {
   readonly membershipIds: readonly string[];
   readonly onlyChanges: boolean;
@@ -151,9 +157,7 @@ export const emptyWorkbenchFilters: WorkbenchFilters = {
   shiftTypeIds: [],
 };
 
-export function getAdjacentMonthSlot(activeSlot: MonthSlot, delta: -1 | 1): MonthSlot {
-  return ((activeSlot + delta + 3) % 3) as MonthSlot;
-}
+export const getAdjacentMonthSlot = getAdjacentCalendarPeriodSlot;
 
 export function createMonthRing(
   logicalPanels: readonly WorkbenchPanel[],
@@ -183,16 +187,10 @@ export function createMonthRing(
       monthPanels: logicalPanels.map((panel, slot) => ({ ...panel, slot: slot as MonthSlot })),
     };
   }
-  const nextSlot = getAdjacentMonthSlot(activeSlot, 1);
-  const previousSlot = getAdjacentMonthSlot(activeSlot, -1);
-  const monthPanels = new Array<WorkbenchPanel>(3);
-  const monthPanelHeights = new Array<number>(3);
-  monthPanels[activeSlot] = { ...currentPanel, slot: activeSlot };
-  monthPanels[nextSlot] = { ...nextPanel, slot: nextSlot };
-  monthPanels[previousSlot] = { ...previousPanel, slot: previousSlot };
-  monthPanelHeights[activeSlot] = currentHeight;
-  monthPanelHeights[nextSlot] = nextHeight;
-  monthPanelHeights[previousSlot] = previousHeight;
+  const monthPanels = mapCalendarPeriodRing(logicalPanels, activeSlot);
+  const monthPanelHeights = monthPanels.map(
+    (panel) => heightByRelative.get(panel.relative) ?? currentHeight,
+  );
   return { monthPanelHeights, monthPanels };
 }
 
