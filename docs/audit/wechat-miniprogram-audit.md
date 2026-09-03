@@ -1165,3 +1165,25 @@ local upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bc
 服务器端随后按用户授权执行可信 client-version allowlist `ensure`；目标版本已存在并通过验证，未重建容器，随后独立 `verify` 与完整
 ECS verifier 通过（公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 跳过）。这不是本批代码的 Git/ECS 部署；未提交审核、未正式发布、未部署
 本批代码，体验版和 Xiaomi 14 复核门禁与清单见专门审计报告和 `docs/audit/STATUS.md`。
+
+## 14. EXP-ICON-004-B1.1 动效真机反馈修复（2026-09-03）
+
+用户报告 `.81` 的日历动效和通讯录人员模式按钮与 Web 不一致。`git log -S`/`git blame` 与静态比对确认：
+日历 B1 仍保留 Mini 私有 420ms 点击弹跳，并用 `scaleX(.35)` 模拟 Web dash draw；人员 motion 的
+520ms/easing/位移/目的状态触发已经一致，差异是 Mini 生成资产 stroke 2（Web 1.8）和未选中色
+`#6B7785`（Web `#586678`）。
+
+B1.1 没有修改 path 或业务状态：日历新增由相同 `calendar-base`/`calendar-check` 生成的 secondary 资产，
+删除私有点击状态和几何缩放，只保留 active-only 1800ms canonical opacity 兼容循环；人员资产经同一 manifest
+以 1.8 stroke 生成，Web/Mini 样式及生成器共同消费 `directoryModeInactive #586678` token。外链 SVG
+内部 dashoffset 仍是平台限制，不以 Canvas、逐帧 `setData` 或页面私有 SVG 绕过。
+
+新契约在旧实现上 `3 failed / 1 passed`，修复后 4/4；Mini 定向 38/38、最终全量 120 files/650 tests，
+Web/token 定向 42/42，共享包/Web/Mini typecheck、Web build、Mini production build/source/package/
+performance/determinism/verify、format/lint 与 `smoke:check-core` 均通过。production package 为
+`5,169,730 B`、main `1,731,703 B`，相对 B1 只增加 `947 B / 915 B`；本批 SVG 源资产净增 863 B。
+一次与 Web build 并行的 Mini 全量运行出现 5 个构建型测试默认 5 秒超时；延长超时证明断言通过，缓存预热后
+按原命令串行重跑 120/650 全绿，未修改无关测试时限。
+
+本批未运行微信开发者工具、未上传新体验版、未连接或部署 production。下一候选必须重新取得精确上传批准，
+并在 Xiaomi 14 核对日历颜色/循环/重复点击滚动复位、人员 1.8 线宽/颜色/520ms destination-only 动效与 reduced-motion。

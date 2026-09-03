@@ -1224,11 +1224,15 @@
       aria-role="button"
       aria-current="{{activeWorkspace === 'calendar' ? 'page' : ''}}"
       bindtap="handleCalendarNav"
-      ><view class="nav-icon nav-calendar {{activeWorkspace === 'calendar' ? 'is-looping' : ''}} {{calendarNavAnimating ? 'is-animating' : ''}}"
-        ><image class="nav-icon-image" src="/assets/icons/ui-calendar.svg" mode="aspectFit" />
+      ><view class="nav-icon nav-calendar {{activeWorkspace === 'calendar' ? 'is-looping' : ''}}"
+        ><image
+          class="nav-icon-image"
+          src="{{activeWorkspace === 'calendar' ? '/assets/icons/ui-calendar.svg' : '/assets/icons/ui-calendar-muted.svg'}}"
+          mode="aspectFit"
+        />
         <image
           class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/ui-calendar-check.svg"
+          src="{{activeWorkspace === 'calendar' ? '/assets/icons/ui-calendar-check.svg' : '/assets/icons/ui-calendar-check-muted.svg'}}"
           mode="aspectFit" /></view
       ><text>日历</text></view
     >

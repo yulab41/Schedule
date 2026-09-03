@@ -10,6 +10,7 @@ const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = resolve(packageDirectory, '../../apps/miniprogram/src/assets/icons');
 const colors = {
   danger: colorTokens.danger,
+  directoryModeInactive: colorTokens.directoryModeInactive,
   favorite: colorTokens.warning,
   muted: colorTokens.textMuted,
   primary: colorTokens.primary,
@@ -74,7 +75,7 @@ for (const entry of miniAssetEntries) {
   const source = `<!-- generated:ui-icons;source:${definition.sourceSha};content:${contentHash} -->`;
   const svg = [
     source,
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${definition.viewBox}" fill="none" stroke="${color}" stroke-width="${definition.strokeWidth}" stroke-linecap="${definition.lineCap}" stroke-linejoin="${definition.lineJoin}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${definition.viewBox}" fill="none" stroke="${color}" stroke-width="${entry.strokeWidth ?? definition.strokeWidth}" stroke-linecap="${definition.lineCap}" stroke-linejoin="${definition.lineJoin}">`,
     definition.nodes.map((node) => renderNode(node, color)).join(''),
     '</svg>',
     '',

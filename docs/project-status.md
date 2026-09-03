@@ -5,7 +5,7 @@
 
 ## 当前仓库批次（2026-09-03）
 
-- 当前活动批次：`EXP-ICON-004-B1.1`；状态为“用户已确认设计，修复实施中”。用户在 Xiaomi 14 体验版
+- 当前活动批次：`EXP-ICON-004-B1.1`；状态为“已完成自动化验证，待新候选上传授权与 Xiaomi 14 复核”。用户在 Xiaomi 14 体验版
   `0.1.0-p10.20260903.81` 指出日历动效与通讯录人员模式图标仍和 Web 不一致；本批只修复这两个已定位差异，
   不重跑阶段 0。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-full-20260903`；分支
@@ -39,7 +39,16 @@
   该结果已写入 `docs/debug/debug-feedback-log.md`，`pnpm smoke:check-core` 已通过。浏览器功能未宣称通过。
 - 按仓库政策未调用微信开发者工具 GUI/CLI；第一次代理上传因 IPv6 `-10008 invalid ip` 失败，随后用既有 IPv4 DNS 兼容脚本重试成功：
   196 code files、ZIP `2,486,095 B`、upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`。
-  未提交审核、未正式发布、未部署 production；Xiaomi 14 证据当前“工具无法测量，暂未验证”。
+  未提交审核、未正式发布、未部署 production；自动化工具无法取得 Xiaomi 14 证据，后续用户问题反馈缺少完整环境元数据。
+- B1.1 根因：Mini 日历保留了 Web 不存在的 420ms 点击弹跳并以 `scaleX(.35)` 模拟 dash draw；通讯录人员
+  motion/触发已一致，但生成资产为 stroke 2 和 `#6B7785`，不同于 Web 的 1.8 和 `#586678`。
+- B1.1 实现：删除日历私有点击状态/关键帧，保留 active-only 1800ms/ease-in-out/infinite，并把外链 SVG
+  兼容层收敛为 canonical opacity；新增同源 secondary 资产。Mini manifest 支持 stroke override，新增共享
+  `directoryModeInactive` token；people motion/controller 未改。外部 image 内部 dashoffset 仍待真机判断兼容观感。
+- B1.1 失败契约旧实现 `3 failed / 1 passed`、修复后 4/4；定向 Mini 38/38、Web/token 42/42，最终 Mini
+  120 files/650 tests；共享/Web/Mini typecheck、Web build、Mini build/source/package/performance/determinism/
+  verify、format、lint、`smoke:check-core` 通过。302 files、package `5,169,730B`、main `1,731,703B`，
+  相对 B1 `+947B/+915B`；本批 SVG 净增 863B，无新增 warning 类别或运行时依赖。
 
 ## 已完成的历史批次
 
@@ -50,10 +59,9 @@
 
 ## 状态策略与唯一下一任务
 
-- 当前问题状态：B1.1 根因已定位、设计已确认；日历的私有点击弹跳/缩放降级与人员资产 stroke/未选中色待通过
-  失败先行契约修复。`.81` 用户反馈是问题证据，不得写成 Xiaomi 14 验收通过。
-- 唯一下一任务：完成 B1.1 精确回归测试、最小修复、同口径包体和全量验证，更新审计后提交并推送调查分支；
-  停在新体验版上传门禁前。
+- 当前问题状态：B1.1 代码与自动化验证完成；`.81` 用户反馈是旧候选问题证据，不得写成新候选 Xiaomi 14 验收通过。
+- 唯一下一任务：创建并普通推送由消息 `fix(miniprogram): align calendar and people icon motion` 标识的
+  B1.1 checkpoint，然后停止在新体验版上传门禁前。
 - B1.1 设计 checkpoint 由提交消息 `docs(design): specify EXP-ICON-004 motion parity fix` 标识；随后实施 checkpoint
   必须记录实际测试、包体、commit 和推送结果。
 - 任何后续上传都必须重新报告精确 SHA、trial 版本、描述、脏树与测试页并取得当次明确批准；不使用主 worktree ignored 状态，

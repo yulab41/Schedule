@@ -109,10 +109,12 @@ export interface IconDefinition {
   readonly sourceSha: string;
 }
 
-export type IconColorRole = 'primary' | 'secondary' | 'muted' | 'success' | 'favorite' | 'danger';
+export type IconColorRole =
+  'danger' | 'directoryModeInactive' | 'favorite' | 'muted' | 'primary' | 'secondary' | 'success';
 
 export interface MiniAssetEntry {
   readonly fileKey: string;
   readonly sourceKey: IconKey;
   readonly colorRole: IconColorRole;
+  readonly strokeWidth?: number;
 }

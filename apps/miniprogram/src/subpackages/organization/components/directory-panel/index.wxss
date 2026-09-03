@@ -110,7 +110,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #586678;
+  color: var(--ui-color-directory-mode-inactive);
   border-radius: 11px;
   font-size: 14px;
   font-weight: var(--ui-font-weight-semibold);

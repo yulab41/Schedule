@@ -288,7 +288,7 @@ describe('P4 native workbench', () => {
     expect(template).toContain('scroll-into-view="{{scrollTarget}}"');
     expect(template).toContain('filterIconAnimating');
     expect(template).toContain('locateIconAnimating');
-    expect(template).toContain('calendarNavAnimating');
+    expect(template).not.toContain('calendarNavAnimating');
     expect(template).toContain('class="workbench-shell-header"');
     expect(template).toContain('style="{{shellHeaderStyle}}"');
     expect(template).not.toContain('style="top:{{shellHeaderHeight}}px"');

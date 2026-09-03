@@ -2,13 +2,16 @@
 
 ## 当前阶段
 
-- 当前批次：`EXP-ICON-004-B1`；Web/小程序图标同源修复已完成静态实现并上传体验版，状态为“已完成（含自动化验证）→ 待 Xiaomi 14 复核”。
+- 当前批次：`EXP-ICON-004-B1.1`；针对 `.81` 真机反馈的日历和通讯录人员模式图标差异已完成静态修复与
+  自动化验证，状态为“已实现待新候选上传授权与真机复核”。
 - 执行基线：按执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39` 创建独立干净
   `runtime/external-project-worktrees/exp-icon-004-full-20260903` / `codex/exp-icon-004-full-20260903`；主 worktree 的用户改动未触碰。
 - 范围：底部导航、顶部通知/个人、更多工具、通讯录按钮、日历/事件/导出/工作流控制、身份和状态图标的来源审计与同源迁移；不改业务接口、数据结构、路由语义或业务行为。
 - 设计、计划和完整对照见 `docs/superpowers/specs/2026-09-03-exp-icon-004-icon-migration-implementation-design.md`、
   `docs/superpowers/plans/2026-09-03-exp-icon-004-icon-migration-implementation-plan.md` 和
   `docs/audit/exp-icon-004-icon-parity-audit.md`。
+- B1.1 补充设计/计划见 `docs/superpowers/specs/2026-09-03-exp-icon-004-motion-parity-follow-up-design.md` 和
+  `docs/superpowers/plans/2026-09-03-exp-icon-004-motion-parity-follow-up-implementation-plan.md`；用户已确认该设计。
 
 ## 已验证事实
 
@@ -34,14 +37,31 @@
   `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`。
 - 上传 IP 白名单路径已验证可用；没有修改 hosts、VPN、系统配置或仓库生产配置。用户随后明确授权服务器放行该版本；可信
   `schedule-client-version-allowlist ensure 0.1.0-p10.20260903.81` 返回“版本已存在并通过验证；未重建容器”，独立 `verify` 通过。
-  随后的完整 `ecs-verify.sh` 通过；公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 按工具规则跳过。未提交审核、未正式发布、未部署本批代码，
-  当前没有 Xiaomi 14 实机证据。
+  随后的完整 `ecs-verify.sh` 通过；公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 按工具规则跳过。未提交审核、未正式发布、未部署本批代码；
+  上传 checkpoint 当时尚无结构化 Xiaomi 14 证据，后续问题反馈见下一项。
+- 用户随后报告 `.81` 的日历动效和通讯录人员模式按钮与 Web 不一致。静态复核确认：日历还保留 Web 不存在的
+  420ms 点击弹跳，并用 `scaleX(.35)` 代替 dash draw；人员 520ms/位移/目标状态触发已经一致，差异来自 Mini
+  生成资产 `stroke-width=2`（Web 为 1.8）及未选中 `#6B7785`（Web 为 `#586678`）。该用户报告是问题证据，
+  但缺少 renderer/基础库/微信版本等完整元数据，不能作为修复后的验收证据。
+- B1.1 已删除日历私有点击状态/关键帧，保留 active-only `1800ms ease-in-out infinite`，并把外链 SVG 兼容层
+  收敛为 shared motion 的 `opacity .3 → 1 → .3`；不再缩放图形。新增 calendar/check secondary 同源资产。
+  外链 SVG 内部 path 的 `stroke-dashoffset` 仍无法由页面 WXSS 可靠驱动，不虚构完全等价。
+- B1.1 为通讯录模式资产增加 manifest 级 `strokeWidth: 1.8`，新增共享
+  `directoryModeInactive #586678` token；Web/Mini 样式和 Mini 生成资产共同消费。人员 520ms motion 与触发逻辑未改。
+- 失败先行：新契约在旧实现上为 `3 failed / 1 passed`，其中通过项正是人员 motion 数值/触发；修复后 4/4，
+  原 B1 定向合计 38/38。最终 Mini 全量 `120 files / 650 tests`、Web/token 定向 `42/42`，共享包/Web/Mini
+  类型检查、Web build、Mini production build/source/package/performance/determinism/verify、format、lint、
+  `smoke:check-core` 均通过；thin-page guard 通过且没有 Page/Component 挂载变化。
+- B1.1 production build 为 302 files、packageBytes `5,169,730`、main `1,731,703`；相对 B1 候选仅
+  `+947 B / +915 B`。本批 8 个新增/变化 SVG 源资产净增 `863 B`，低于 8 KiB follow-up 预算；既有主包和
+  600-cell 矩阵 warning 未新增类别。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：用户在 Xiaomi 14 上核对与 `1ffab10c`/`0.1.0-p10.20260903.81` 匹配的体验版，并按下方清单提供版本、renderer、基础库、微信版本、
-  构建时间和实际观察结果；本轮上传动作已停止。
-- 真机复核至少覆盖：底部导航五项及 active-only loop、顶部 bell/profile、更多每一行图形/右箭头、通讯录科室/人员切换、搜索/筛选/清除/收藏/电话、
-  日历前后月/周/定位、事件记录、导出、工作流 picker 的下拉方向/关闭、身份 user/lock、Xiaomi 14 安全区与 reduced-motion。
-- 服务器版本放行已完成且为幂等 no-op；本轮不进行 Git/ECS 代码部署、数据库备份/迁移、提审或正式发布。
-- 当前状态保持“待 Xiaomi 14 复核”；Node/静态/模拟器结果不能代替真机验收。
+- 唯一下一任务：创建并普通推送由消息 `fix(miniprogram): align calendar and people icon motion` 标识的 B1.1
+  checkpoint，然后停止在新体验版门禁前。后续必须重新报告精确 SHA、trial 版本/描述、脏树和测试页并取得当次上传批准。
+- 新体验版真机只需回归本次差异：日历未激活 secondary 色、激活后的 1800ms opacity/draw 观感、重复点击无额外弹跳且仍回到顶部；
+  人员未选中 `#586678`、选中 primary、1.8 线宽、切入 employee 时 520ms 位移、重复点击不重播；再确认 reduced-motion。
+- `.81` 的服务器版本放行保持原状；B1.1 不继承其上传/production 授权。本轮不上传、不连接 Git/ECS production、
+  不做数据库备份/迁移、不提审或正式发布。
+- 当前状态保持“待新体验版 Xiaomi 14 复核”；Node/静态/浏览器构建结果不能代替真机验收。

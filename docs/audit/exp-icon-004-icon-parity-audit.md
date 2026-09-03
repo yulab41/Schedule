@@ -15,9 +15,14 @@ inline SVG、TDesign 组件、`web-*.svg`、CSS 几何和文字字符多个来�
 `runtime/release-worktree` 上传为体验版 `0.1.0-p10.20260903.81`。上传首次因代理/TUN 的 IPv6 出口被微信
 `-10008 invalid ip` 拒绝，复用已审计的进程级 IPv4 DNS 兼容路径后同一候选成功上传（196 code files、ZIP
 `2,486,095 B`、local upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`）。
-当前仍没有浏览器 API 后端运行证据、微信开发者工具或 Xiaomi 14 视觉/动效证据，因此“代码候选已修复”不等于“跨端视觉验收通过”。
+当前仍没有与 B1.1 修复候选匹配的浏览器 API 后端、微信开发者工具或 Xiaomi 14 视觉/动效验收证据，
+因此“代码候选已修复”不等于“跨端视觉验收通过”。
 服务器端已按用户授权核对该版本：生产 client-version allowlist `ensure` 幂等通过且未重建容器，随后 allowlist `verify` 与完整 ECS
 verifier 通过；这不是本批代码的 Git/ECS 部署，也不能代替 Xiaomi 14 验收。
+
+`.81` 上的后续用户反馈暴露了两项 B1 适配遗漏。B1.1 已按 Web 真值修复：底部日历删除 Mini 私有
+420ms 点击弹跳和 `scaleX` 几何缩放，加入 primary/secondary 同源资产；通讯录人员资产使用 Web 的
+1.8 stroke 与共享未选中色 `#586678`，原 520ms motion 不改。修复只完成静态/Node 验证，尚未上传新体验版。
 
 ## 审计边界与证据
 
@@ -54,7 +59,7 @@ P3 为低风险装饰或暂不具备跨端等价条件。表中“B1 状态”�
 
 | 图标/位置 | Web 基线真实来源 | 小程序基线差异 | 严重程度 | B1 状态与结论 |
 | --- | --- | --- | --- | --- |
-| 底部导航：日历 | `WorkbenchNavIcon` 的日历框 + check path，check 为 `data-part=check` | 曾拆成两个无来源关联的 `web-calendar.svg` / `web-calendar-check.svg`，且一直 `is-looping` | P1 | `calendar-base` + `calendar-check` 均由 catalog 生成；active-only loop 已对齐；image 层的 draw 视觉需真机确认 |
+| 底部导航：日历 | `WorkbenchNavIcon` 的日历框 + check path，check 为 `data-part=check` | B1 后仍有 Web 不存在的 420ms 点击弹跳，并以 `scaleX(.35)` 代替 dash draw；未激活资产仍为 primary | P1 | B1.1 删除私有弹跳/缩放，增加同源 secondary 资产；active-only 1800ms/ease-in-out/opacity 已对齐，image 内部 dash 仍为兼容限制，需真机确认 |
 | 底部导航：通讯录 | `directory` path + `contact-person` group | 独立 `web-directory.svg` | P1 | 改为 `ui-directory.svg`，来源/颜色 token 化 |
 | 底部导航：换班 | `swap` 的左右箭头 group | `web-swap.svg` 与 `web-swap-secondary.svg` 私有维护 | P1 | 改为 `ui-swap-left/right.svg`，动效改为 1800ms infinite active loop |
 | 底部导航：我的 | Web 为 `profile` path/circle | Mini 的 `web-profile.svg` 实为另一份 TDesign User path | P1 | `ui-profile` 用 Web 导航几何；身份/账号语义单独用 `ui-user` |
@@ -82,7 +87,7 @@ P3 为低风险装饰或暂不具备跨端等价条件。表中“B1 状态”�
 | 筛选面板关闭 | Web TDesign Close path/按钮 | Mini 使用 `×` 字符 | P1 | 改为 `ui-close.svg` |
 | 筛选下拉箭头 | Web/Mini 组件各自用字符或 border triangle | Mini `filter-chevron`、group selector 曾为 CSS border | P1 | 改为旋转 `ui-chevron-right-muted.svg`，只保留平台旋转适配 |
 | 通讯录顶部/筛选 | Web Filter/Search/Close/FilterClear path | Mini 旧 `web-directory-*` | P1 | `ui-filter-funnel`、`ui-search`、`ui-close`、`ui-filter-clear` |
-| 通讯录科室/人员切换 | Web action 的 department/people groups | Mini 是 CSS grid/person 手绘 | P1 | `ui-department` 与 `ui-people-primary/secondary`，muted 状态使用生成 token variant；500/520ms 兼容 motion |
+| 通讯录科室/人员切换 | Web action 的 department/people groups；模式按钮 18px、stroke 1.8、未选中 `#586678` | B1 已移除手绘并对齐 motion，但生成资产仍为 stroke 2、未选中 `#6B7785` | 人员差异 P2；原来源问题 P1 | B1.1 由同一 catalog 以 manifest override 生成 1.8 stroke，未选中色来自共享 token；500/520ms 与 destination-only 触发不变 |
 | 通讯录收藏 | Web TDesign Star/StarFilled | Mini 旧 directory 专用 star | P1 | 统一 `ui-star` / `ui-star-filled`，保留 favorite token |
 | 通讯录拨号 | Web action phone | Mini 旧 directory phone SVG | P1 | 使用 `ui-phone.svg`，保留 dial target 与 phone motion |
 | 工作流 picker 触发器/日期箭头/关闭 | Web TemporalPicker path；Mini 自绘 border/`×`/字符 | 形状、旋转、颜色和关闭来源分散 | P1 | trigger、date nav、close 改用 chevron/close assets；picker 的 native 交互仍由 Mini adapter 承载 |
@@ -116,8 +121,9 @@ P3 为低风险装饰或暂不具备跨端等价条件。表中“B1 状态”�
   事件代码。
 - 小程序不能可靠地选择外部 `<image>` 内部 SVG 的 path/group，因此筛选 bar 使用同一个 catalog 的三个
   part asset 叠放；电话、bell、profile、department、people 使用 image/wrapper 兼容实现。
-- `stroke-dashoffset`、外部 image 内部 group transform 不能在小程序 image 外部等价复现；兼容层只复用
-  duration/easing/数值，不重新发明关键帧。calendar draw 仍需真机确认；people 已拆为同源 primary/secondary
+- `stroke-dashoffset`、外部 image 内部 group transform 不能在小程序 image 外部等价复现；B1.1 的 calendar
+  兼容层只执行 canonical opacity `.3 → 1 → .3`，不再以 `scaleX` 改变几何，并复用 1800ms/ease-in-out/infinite。
+  calendar draw 仍需真机确认；people 已拆为同源 primary/secondary
   part asset，两个位移关键帧均由平台层执行。
 - `prefers-reduced-motion`/小程序 reduced-motion 规则保留；关闭状态和点击状态不改变业务异步路径。
 
@@ -178,6 +184,15 @@ source revision 和 nodes content hash，生成器会删除自己生成但已不
 | generated SVG assets | 旧 `web-*` 约 7,218 B | 44 个约 20,654 B | +13,436 B | ≤ 24 KiB 静态资产预算；通过 |
 | Web shared icon chunk | 无 catalog chunk | raw 12.73 KiB / gzip 4.63 KiB | 新增 | 无运行时第三方依赖；在 Web build warning 范围内可接受 |
 
+### B1.1 follow-up 包体
+
+| 指标 | B1 `.81` 候选 | B1.1 本地候选 | 变化 | 判断 |
+| --- | ---:| ---:| ---:| --- |
+| Mini 总包 | 5,168,783 B | 5,169,730 B | +947 B | ≤16 KiB follow-up 预算；通过 |
+| Mini 主包 | 1,730,788 B | 1,731,703 B | +915 B | 既有 1.5 MB warning，无新增类别 |
+| 本批 8 个新增/变化 SVG 源资产 | 2,876 B | 3,739 B | +863 B | ≤8 KiB 资产预算；通过 |
+| 文件数 | 300 | 302 | +2 | 两个 calendar secondary variant，无运行时依赖 |
+
 基线/候选均为静态 Node package audit；真实冷启动、内存、帧率和 Skyline renderer 开销当前工具无法测量，
 暂未验证。若体验版证据显示首屏或切页回归，优先减少非首屏生成资产或按分包边界延迟加载，不复制页面私有版本。
 
@@ -186,6 +201,7 @@ source revision 和 nodes content hash，生成器会删除自己生成但已不
 | 批次 | 范围 | 风险 | 停止条件/验收 |
 | --- | --- | --- | --- |
 | B1（本分支） | catalog/types/motion、Web adapters、底部/顶部/更多/通讯录/日历/身份/工作流优先图标、旧副本清理 | 低到中；可能有尺寸/颜色/外部 image 动效差异 | TypeScript、契约、全量 Mini tests、Web build、Mini build/verify、包体预算通过；不改变业务行为 |
+| B1.1（本分支） | `.81` 日历 adapter 与通讯录模式资产的视觉规格补齐 | 低；日历 dash 只能 opacity 降级 | 精确契约旧实现 3 红/1 绿、修复后 4/4；Mini 120 files/650 tests、包体和构建门禁通过；待新体验版 |
 | B2（体验版验收） | 用 B1 候选在 Xiaomi 14 Android 微信体验版确认视觉、active-only loop、下拉/关闭、safe-area 和 reduced motion | 中到高；依赖原生 renderer/微信版本 | 只接受匹配 SHA、renderer、基础库、微信版本和构建时间的用户证据；发现回归则回 B1 修复，不继续扩大范围 |
 | B3（按需） | P3 状态字符/品牌或 visitor/test 专用图标的产品决策 | 中；可能改变语义/品牌边界 | 先有设计确认和真实来源，再单独红绿测试；不与 B1/B2 混批 |
 
@@ -206,5 +222,8 @@ Android 微信体验版确认：
 4. 日历月/周/列表前后箭头、定位、事件记录入口；筛选三条 bar 是否同 Web path 且在 390px 宽度不抖动。
 5. 工作流 picker 的 right/down/up 方向、日期箭头、关闭按钮、滚轮/弹层安全区、返回和 reduced-motion。
 6. 身份 user/lock、导出/通知/状态控件及 390×844/小字体/大字体环境；Android 系统返回、刘海/底部安全区。
+
+B1.1 新候选须额外聚焦：日历未激活颜色、激活循环、重复点击无 420ms 弹跳且滚动复位仍生效；人员
+active/inactive 颜色与 1.8 线宽、只在切入 employee 时播放一次、520ms 节奏；reduced-motion 下两者均停止非必要动画。
 
 当前不得据此声称 iOS、全部 Android、所有基础库或全平台通过；未取得匹配真机证据前，状态保持“待用户复核”。

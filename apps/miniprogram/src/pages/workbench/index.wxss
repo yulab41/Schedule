@@ -1038,10 +1038,6 @@ page {
   padding: 0;
 }
 
-.nav-calendar.is-animating {
-  animation: click-nav-calendar 420ms cubic-bezier(0.2, 0, 0, 1);
-}
-
 .bottom-nav-item.is-pressed .nav-icon,
 .calendar-step.is-pressed .chevron,
 .calendar-locator.is-pressed .locate-crosshair {
@@ -1091,21 +1087,6 @@ page {
   }
 }
 
-@keyframes click-nav-calendar {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-  }
-
-  42% {
-    transform: translateY(-1px) scale(1.06);
-  }
-
-  68% {
-    transform: translateY(0.5px) scale(0.98);
-  }
-}
-
 @media (max-width: 340px) {
   .workbench-content {
     padding-right: 10px;
@@ -1132,8 +1113,7 @@ page {
 
   .filter-icon.is-animating,
   .filter-icon.is-animating image,
-  .locate-crosshair.is-animating,
-  .nav-calendar.is-animating {
+  .locate-crosshair.is-animating {
     animation: none;
   }
 }
@@ -2097,12 +2077,10 @@ page {
 @keyframes minimal-draw {
   0%,
   100% {
-    opacity: 0.35;
-    transform: scaleX(0.35);
+    opacity: 0.3;
   }
   50% {
     opacity: 1;
-    transform: scaleX(1);
   }
 }
 

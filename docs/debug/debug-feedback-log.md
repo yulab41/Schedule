@@ -2,6 +2,40 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-03 EXP-ICON-004-B1.1 日历与人员图标动效一致性修复
+
+- 现场证据：用户在 Xiaomi 14 体验版 `0.1.0-p10.20260903.81` 报告日历动效及通讯录人员模式按钮
+  与 Web 不一致；未取得 renderer/基础库/微信版本截图，因此可作为症状，不作为修复后验收。
+- 引入点：`git log -S`/`git blame` 将 Mini `click-nav-calendar` 追到 `9cdd0a8d`，B1 `1ffab10c` 在换用
+  split asset 时仍保留该状态；calendar shared motion/adapter 历史涉及 `5b9542a2`、`733e3af6`、
+  `3fc41610`、`9a436e8b`。people Web motion 来自 `fea129bb`，Mini motion 来自 `6b5b30fb`，B1 在
+  `1ffab10c` 拆分同源 part asset；双方 motion 数值本来一致。
+- 根因：Mini 日历额外执行 Web 没有的 420ms 点击弹跳，且用 opacity `.35` + `scaleX(.35)` 模拟
+  Web check path 的 opacity `.3` + dashoffset；日历资产固定 primary。people 的 520ms、easing、46%
+  位移和 destination-only 触发均正确，观感差异来自生成资产 stroke 2 vs Web 1.8、inactive
+  `#6B7785` vs Web `#586678`。原 parity test 未检查这些值。
+- 失败先行：新增 `icon-motion-parity.test.mjs`，旧实现实际 `3 failed / 1 passed`；通过项只覆盖已经正确的
+  people motion/触发。修复后该契约 4/4，连同原 B1/工作台/通讯录定向为 38/38。
+- 行为变化：删除 `calendarNavAnimating` 与 `click-nav-calendar`；切入日历仍由
+  `activatePrimaryWorkspace(this, 'calendar')` 完成，重复点击仍以两次 `setData` 清空并恢复 `scrollTarget`
+  回到顶部。active-only 1800ms/ease-in-out/infinite 不变，兼容关键帧只保留 opacity `.3 → 1 → .3`，
+  不再拉伸几何。people 的 controller、timer、触发与关键帧完全未改。
+- 视觉来源：新增 calendar/check secondary variants；Mini asset manifest 支持 stroke override，通讯录
+  department/people 统一 1.8。新增 `directoryModeInactive #586678` token，由 Web、Mini 和生成器共用；
+  8 个新增/变化 SVG source hash/content hash 可追溯，净增 863 B。没有 Canvas、逐帧 `setData`、inline SVG
+  或运行时依赖。
+- 验证：共享包/Web/Mini typecheck 通过；Web/token 定向 42/42、Mini 定向 38/38、Mini 最终全量
+  120 files/650 tests；Web build、Mini production build 302 files、source/package/performance/determinism/
+  verify、format、lint、`git diff --check` 均通过。packageBytes `5,169,730`、main `1,731,703`，相对 B1
+  `+947/+915 B`；既有主包与矩阵 warning 无新增类别。
+- 超时复核：首次 Mini 全量与 Web build 并行时，5 个构建型测试命中默认 5 秒超时；对应断言在 30 秒门限下
+  全部通过，缓存预热后以原命令单独串行重跑 120/650 全绿，没有修改测试时限或生产逻辑。
+- 运行/浏览器验证：Web 只把原 `#586678` 常量替换为同值 token，未改 Web 几何、motion、交互或核心链路；
+  本 follow-up 未重跑 `pnpm smoke:browser`，`pnpm smoke:check-core` 通过。仓库政策下未调用微信开发者工具；
+  新体验版/Xiaomi 14 仍待重新授权和匹配构建证据。
+- 发布边界：实现 checkpoint 由消息 `fix(miniprogram): align calendar and people icon motion` 标识并推送
+  调查分支；本轮不上传、不提审、不正式发布、不连接或部署 production。
+
 ## 2026-09-03 EXP-ICON-004 体验上传与白名单边界
 
 - 候选冻结：代码 checkpoint `1ffab10c3f30987e31db47eb555f9e0aef0bf787` 已推送；managed
@@ -17,8 +51,8 @@
   `sudo schedule-client-version-allowlist ensure 0.1.0-p10.20260903.81` 返回版本已存在并通过验证、未重建容器；独立
   `verify` 通过。完整 `ecs-verify.sh` 通过，公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 跳过；没有备份/改写 production、没有部署本批代码、
   没有调用微信开发者工具。
-- 当前状态：体验版已上传，等待用户用匹配构建在 Xiaomi 14 核对底部/顶部/更多/通讯录/日历/事件/导出/工作流/身份图标、动效和安全区；
-  当前没有实体设备证据，不能写成真机验收通过。
+- 当时状态：体验版已上传，当时尚无实体设备反馈；后续发现日历/人员差异及修复记录见上方 B1.1，`.81`
+  仍不能写成真机验收通过。
 
 ## 2026-09-03 EXP-CALENDAR-003 请假日期选择器修复
 
