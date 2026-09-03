@@ -10,6 +10,9 @@
 - 本轮冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
+- 冻结后发现主线 `76a572a3378bb452b23db30eb5d850c3d705cd93` 仅补入 guardrail Skill、根 `AGENTS.md`、
+  `.gitignore` 和状态文档；MINI-G1-004 相关运行时路径无差异。按冻结规则，本轮证据仍归属于 `78d0424e…`，
+  不切换候选、不重跑 production 聚合。
 - 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；本次补证没有改变主线代码。
 - 执行 worktree：`runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`；主工作区的
   用户自有脏改动、其他 worktree 和其内容未修改、清理、暂存或借用。依赖沿用该 clean worktree，未重新链接
@@ -54,6 +57,9 @@ scripts/mini-g1-004-scale-probe.test.mjs --fileParallelism=false`，1 file / 1 t
   基线本身不是 Prettier clean，本轮未为格式重排历史全文。
 - 决策/偏差：production 聚合首次 SQL 仅在数据库解析阶段因保留字停止，未读取数据；修正后的唯一有效查询
   前后 release 一致。未取得原生节点或 bridge 指标，不把 synthetic 估算写成真机结果。
+- 前一文档 evidence checkpoint `cc5fd98a51dd4117205614bb1e36d8596c0b7fed`（`docs(audit): record
+MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提交 `76a572a3…` 是冻结后才发现的
+  guardrail-only 主线更新，未改变本轮证据身份。
 - 本轮按仓库政策未调用微信开发者工具 GUI/CLI、模拟器、Console/Network；Node、静态和 simulate 结果不代替
   微信原生或 Xiaomi 14 验收。
 - 只更新本轮证据记录文档；不修改业务运行时代码、API、数据库、权限、路由、锁文件、dist 或其他生成物。根
@@ -76,5 +82,5 @@ scripts/mini-g1-004-scale-probe.test.mjs --fileParallelism=false`，1 file / 1 t
   抄录和两个页面的只读首屏/滚动录屏反馈；若版本或 SHA 不匹配，停止测试并只回传实际环境信息。
 - 本批停止条件：当前补证结果已记录，等待匹配构建的 Xiaomi 14 反馈；不进入业务修复，不上传，不部署。最终状态
   保持 `MINI-G1-004：证据仍不足，保留 P3，等待匹配构建的 Xiaomi 14 反馈。`
-- 计划 checkpoint commit message：`docs(audit): record MINI-G1-004 second-stage evidence`；提交后继续以当前
-  `origin/main` 和冻结 evidence baseline 作为身份，不把文档提交 SHA 当成体验版源码 SHA。
+- 本次 post-freeze guardrail 说明的 checkpoint commit message：`docs(audit): note post-freeze guardrail
+baseline`；提交后继续以冻结 evidence baseline 作为身份，不把文档提交 SHA 当成体验版源码 SHA。

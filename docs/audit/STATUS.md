@@ -10,6 +10,10 @@
 - `.84` 的完整上传 Manifest 为
   `a4991a6ce17defc4982959da540141d46f7417be1ecc691905f4cccd508c9fa0`；上传记录为 clean
   `production` profile，包体 `5,152,789 bytes`。相关运行时路径与当前主线等价，可以作为本轮真机候选。
+- 冻结后发现主线新增 `76a572a3378bb452b23db30eb5d850c3d705cd93`（`fix(agent): make Schedule guardrails
+discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitignore` 和状态文档，MINI-G1-004 相关
+  运行时路径无差异。按冻结规则，本轮证据仍归属于 `EVIDENCE_MAIN_SHA=78d0424e…`，不切换候选、不重跑
+  production 聚合。
 - 本轮只做 Git/上传记录/allowlist 状态的只读复核、一次 production 聚合读取、既有 synthetic probe 和文档记录；
   未上传新体验版、未部署 production、未修改 allowlist 或业务实现。主线其他已完成批次和发布事实继续保留。
 
