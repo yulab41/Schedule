@@ -107,6 +107,15 @@ describe('native P5 group mobile-phone consent page', () => {
     );
   });
 
+  it('renders member rows without combining wx:else and wx:for on one element', () => {
+    const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
+
+    expect(template).not.toMatch(/<view\s+wx:else\s+wx:for=/u);
+    expect(template).toContain(
+      'wx:if="{{managementState !== \'loading\' && memberCards.length > 0}}"',
+    );
+  });
+
   it('uses Skyline-safe flex layout, the 22 by 22 golden checkbox, compact class, and 44px actions', () => {
     const styles = readFileSync(path.join(componentRoot, 'index.wxss'), 'utf8');
     const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');

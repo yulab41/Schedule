@@ -506,7 +506,7 @@
               ><text>当前群组暂无成员。</text></view
             >
             <view
-              wx:else
+              wx:if="{{managementState !== 'loading' && memberCards.length > 0}}"
               wx:for="{{memberCards}}"
               wx:for-item="member"
               wx:key="id"

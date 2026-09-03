@@ -8,7 +8,22 @@
     "minifyWXML": true,
     "minifyWXSS": true,
     "uploadWithSourceMap": false,
-    "urlCheck": true
+    "urlCheck": true,
+    "uglifyFileName": false,
+    "enhance": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
   "compileType": "miniprogram",
   "miniprogramRoot": "dist/",
@@ -17,5 +32,7 @@
     "include": []
   },
   "appid": "wx56a7a21f974fd9af",
-  "editorSetting": {}
+  "editorSetting": {},
+  "libVersion": "3.17.1",
+  "simulatorPluginLibVersion": {}
 }

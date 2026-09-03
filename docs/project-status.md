@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的事实；详细历史以 Git 提交为准。每轮同时读取 `docs/agent-context/pitfall-index.json`，只加载与任务匹配的坑位详情。
 
+## Git 安全收口（2026-09-03，进行中）
+
+- 本轮保护的 `origin/main` 为 `78d0424e19cfc81be142da7e0f5367110f1fc8f2`；禁止向 main 推送、合并、回退或重写。
+- 已在仓库外 `E:\AItools\GitSafety-20260903-01a06769` 保存 dirty worktree 的状态、diff、未跟踪清单、哈希和分类现场。
+- 根树当前仅保存明确的 Mini 用户修改和 Web UI2 Storybook 草稿；`.agents` 技能包、`runtime`、嵌套 worktree、依赖/构建产物和工作簿不入 Git。
+- 下一步：完成根树 checkpoint 推送，随后将本地 `main` 仅以 fast-forward 对齐保护基线；不上传小程序、不提审、不发布、不部署。
+
 ## 仓库与生产基线（2026-08-31）
 
 - 分支：`main`；通讯录阶段 B 代码 `bb97145d` 已推送并同步 production，最终状态 checkpoint 以
