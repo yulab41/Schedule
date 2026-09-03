@@ -6,8 +6,9 @@
 
 - 本轮保护的 `origin/main` 为 `78d0424e19cfc81be142da7e0f5367110f1fc8f2`；禁止向 main 推送、合并、回退或重写。
 - 已在仓库外 `E:\AItools\GitSafety-20260903-01a06769` 保存 dirty worktree 的状态、diff、未跟踪清单、哈希和分类现场。
-- 根树当前仅保存明确的 Mini 用户修改和 Web UI2 Storybook 草稿；`.agents` 技能包、`runtime`、嵌套 worktree、依赖/构建产物和工作簿不入 Git。
-- 下一步：完成根树 checkpoint 推送，随后将本地 `main` 仅以 fast-forward 对齐保护基线；不上传小程序、不提审、不发布、不部署。
+- 根树 Mini 用户修改已保存为 `c151bcaa`（`chore(checkpoint): preserve root Mini user changes`）并推送；`.agents` 技能包、`runtime`、嵌套 worktree、依赖/构建产物和工作簿不入 Git。
+- 当前下一批是根树 9 个 Web UI2 Storybook 草稿文件，计划消息为 `chore(checkpoint): preserve root Web UI2 drafts`；完成后本地 `main` 仅以 fast-forward 对齐保护基线。
+- 本轮停止条件：不上传小程序、不提审、不发布、不部署；不向 main 推送或合并。
 
 ## 仓库与生产基线（2026-08-31）
 
