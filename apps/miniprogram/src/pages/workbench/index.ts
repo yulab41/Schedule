@@ -112,6 +112,7 @@ interface WorkbenchPageData {
   readonly currentGroupRole: string;
   readonly currentGroupRoleKind: GroupSummary['role'];
   readonly canReLogin: boolean;
+  readonly directoryPanelMounted: boolean;
   readonly directoryPanelReady: boolean;
   readonly errorMessage: string;
   readonly expandedDetailKey: string;
@@ -147,6 +148,7 @@ interface WorkbenchPageData {
   readonly periodSwiperDuration: number;
   readonly performanceEvidence: string;
   readonly profileAnimating: boolean;
+  readonly profilePanelMounted: boolean;
   readonly profilePanelReady: boolean;
   readonly scrollTarget: string;
   readonly shellActionsStyle: string;
@@ -223,6 +225,7 @@ Page({
     currentGroupRole: '',
     currentGroupRoleKind: 'member' as GroupSummary['role'],
     canReLogin: false,
+    directoryPanelMounted: false,
     directoryPanelReady: false,
     errorMessage: '',
     expandedDetailKey: '',
@@ -258,6 +261,7 @@ Page({
     periodSwiperDuration: 260,
     performanceEvidence: '',
     profileAnimating: false,
+    profilePanelMounted: false,
     profilePanelReady: false,
     scrollTarget: '',
     shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
@@ -306,6 +310,10 @@ Page({
     this._performanceProbe.start('core-ready');
     this.setData(createShellLayoutPatch());
     void loadWorkbenchWithCapability(this);
+  },
+
+  onReady(this: WorkbenchPageInstance): void {
+    this.setData({ directoryPanelMounted: true });
   },
 
   onShow(this: WorkbenchPageInstance): void {
@@ -691,6 +699,7 @@ Page({
     }
     this.setData({
       activeWorkspace: 'directory',
+      directoryPanelMounted: true,
       filterOpen: false,
       groupOpen: false,
       navMotion: '',
@@ -709,6 +718,7 @@ Page({
         filterOpen: false,
         groupOpen: false,
         profileAnimating: false,
+        profilePanelMounted: true,
       },
       () => this.setData({ profileAnimating: true }),
     );

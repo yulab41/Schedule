@@ -669,6 +669,7 @@
       <ui-loading label="正在准备通讯录"></ui-loading>
     </view>
     <directory-panel
+      wx:if="{{directoryPanelMounted}}"
       directory-kind="internal"
       group-id="{{canOpenGroupSettings ? currentGroupId : ''}}"
       embedded="{{true}}"
@@ -697,6 +698,7 @@
       <ui-loading label="正在准备个人中心"></ui-loading>
     </view>
     <profile-panel
+      wx:if="{{profilePanelMounted}}"
       embedded="{{true}}"
       group-id="{{currentGroupId}}"
       group-name="{{currentGroupName}}"
