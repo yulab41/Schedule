@@ -5,17 +5,20 @@
 
 ## 当前仓库批次（2026-09-03）
 
-- 当前活动批次：`EXP-ICON-004-B1`；状态为“已完成（含自动化验证）→ 待 Xiaomi 14 复核”。本批覆盖 Web/小程序
-  底部导航、顶部导航、更多、通讯录按钮、日历、事件、工作流、导出、通知、访客、身份和页面返回图标；不重跑阶段 0。
+- 当前活动批次：`EXP-ICON-004-B1.1`；状态为“用户已确认设计，修复实施中”。用户在 Xiaomi 14 体验版
+  `0.1.0-p10.20260903.81` 指出日历动效与通讯录人员模式图标仍和 Web 不一致；本批只修复这两个已定位差异，
+  不重跑阶段 0。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-full-20260903`；分支
   `codex/exp-icon-004-full-20260903`；基于执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
   根工作区的用户自有脏改动未接管。
 - 设计、计划和审计分别见 `docs/superpowers/specs/2026-09-03-exp-icon-004-icon-migration-implementation-design.md`、
   `docs/superpowers/plans/2026-09-03-exp-icon-004-icon-migration-implementation-plan.md` 和
   `docs/audit/exp-icon-004-icon-parity-audit.md`。
-- 当前边界：用户已确认精确候选并授权体验上传；`0.1.0-p10.20260903.81` 已从 managed `runtime/release-worktree` 的
+- B1.1 补充设计与计划见 `docs/superpowers/specs/2026-09-03-exp-icon-004-motion-parity-follow-up-design.md` 和
+  `docs/superpowers/plans/2026-09-03-exp-icon-004-motion-parity-follow-up-implementation-plan.md`；设计已由用户确认。
+- 当前边界：上一候选曾获当次授权；`0.1.0-p10.20260903.81` 已从 managed `runtime/release-worktree` 的
   `1ffab10c` clean production profile 上传成功。服务器可信 allowlist `ensure` 已核对该版本已存在并通过验证，未重建容器；随后
-  allowlist `verify` 与完整 ECS verifier 通过。不提交审核、不正式发布、不部署本批代码。
+  allowlist `verify` 与完整 ECS verifier 通过。该授权不自动延伸至 B1.1；本轮不上传、不提交审核、不正式发布、不连接或部署 production。
 
 ## 本批基线与验证证据
 
@@ -47,12 +50,11 @@
 
 ## 状态策略与唯一下一任务
 
-- 当前问题状态：实现、静态检查、自动化验证和体验上传完成，进入“待 Xiaomi 14 复核”；不得写成 Xiaomi 14 真机通过。
-- 唯一下一任务：用户核对匹配构建的 Xiaomi 14 体验版，覆盖底部/顶部/更多/通讯录/日历/事件/导出/工作流/身份图标、动效、安全区和
-  reduced-motion，并返回真实证据；上传完成后本轮停止。
-- 上传前必须通过 managed `runtime/release-worktree` safety checker、production profile、credential-free dry-run、package/verify；
-  不使用主 worktree ignored 状态，不调用微信开发者工具，不提交审核、不正式发布、不部署 production。
-- Checkpoint outcome：Task 1–4（全量审计、单一来源/失败契约、B1 修复、最终验证/文档）已完成；代码 checkpoint
-  `1ffab10c fix(miniprogram): unify EXP-ICON-004 icon sources` 已普通 fast-forward 推送，体验上传从其 exact-clean release worktree
-  完成；服务器 client-version allowlist 已幂等核对通过。当前文档 follow-up checkpoint 将只记录上传回执、IP 白名单回退、服务器放行
-  和未部署本批代码的边界。
+- 当前问题状态：B1.1 根因已定位、设计已确认；日历的私有点击弹跳/缩放降级与人员资产 stroke/未选中色待通过
+  失败先行契约修复。`.81` 用户反馈是问题证据，不得写成 Xiaomi 14 验收通过。
+- 唯一下一任务：完成 B1.1 精确回归测试、最小修复、同口径包体和全量验证，更新审计后提交并推送调查分支；
+  停在新体验版上传门禁前。
+- B1.1 设计 checkpoint 由提交消息 `docs(design): specify EXP-ICON-004 motion parity fix` 标识；随后实施 checkpoint
+  必须记录实际测试、包体、commit 和推送结果。
+- 任何后续上传都必须重新报告精确 SHA、trial 版本、描述、脏树与测试页并取得当次明确批准；不使用主 worktree ignored 状态，
+  不调用微信开发者工具，不提交审核、不正式发布、不连接或部署 production。
