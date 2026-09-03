@@ -38,6 +38,7 @@ runtime/*.tar.gz
 runtime/*.tar.zst
 runtime/ecs-release/
 /runtime/release-cache/
+/runtime/local/
 /runtime/audit/
 /runtime/external-project-worktrees/
 /runtime/release-worktree/

@@ -47,6 +47,17 @@
 - 不修改业务运行时代码、API、数据库、权限、路由、锁文件、dist 或其他生成物；最终候选只增加 probe 和更新
   三份状态/审计文档。
 
+## 仓库级 Skill 发现修复（2026-09-03）
+
+- `schedule-project-guardrails` 原只存在于专用分支/worktree，当前 `main` 因不含该提交而无法发现；现从
+  自包含 checkpoint `411399e7` 精确移植 13 个 Skill 文件，并补根 `AGENTS.md` 短路由和 `runtime/local/` 忽略。
+- 未采用 `5c45236d` 的依赖生命周期扩展，因为其引用的 `scripts/codex/*` helper 与 pitfall 尚未进入当前主线；
+  不把不完整规则或该提交的无关 23 文件一起带入。
+- 结构/front matter、9 个 Markdown/62 个链接、YAML、Windows PowerShell 5.1、只读 dry-run、失败关闭、
+  Prettier、core-route 与 diff 检查通过。checkpoint 以 `fix(agent): make Schedule guardrails discoverable on main` 识别。
+- 本批不改应用/数据库/迁移/构建产物，不安装依赖、不上传、不创建 production 备份或连接服务器；并行的
+  `docs/audit/STATUS.md`/审计报告改动保持用户所有且不暂存，本 checkpoint 不接管其下一任务或停止条件。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：补“当前 release 脱敏规模 + 匹配构建的小米 14”证据，包括逐页规模/分布、SHA/trial、renderer、
