@@ -45,6 +45,33 @@
       "staleWhen": ["pnpm major version changes", "allowBuilds or verifyDepsBeforeRun changes"]
     },
     {
+      "id": "repeated-1459-linking",
+      "state": "fixed-guarded",
+      "signals": [
+        "1459 reused",
+        "1459 linking",
+        "1,459 packages reused",
+        "repeated pnpm install",
+        "worktree dependency fingerprint",
+        "global virtual store",
+        "missing workspace dist"
+      ],
+      "paths": [
+        "scripts/codex/**",
+        "scripts/prepare-release-worktree.mjs",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "detail": "docs/agent-context/pitfalls/repeated-1459-linking.md",
+      "guard": "scripts/codex/worktree-deps-core.test.mjs",
+      "validation": "ensure deps reuse, profile bootstrap, and one bounded fingerprint-change probe",
+      "lastVerifiedAt": "2026-09-03",
+      "staleWhen": [
+        "Node or pnpm major version changes",
+        "dependency marker schema, pnpm layout, or workspace package exports change"
+      ]
+    },
+    {
       "id": "windows-shell-fail-fast",
       "state": "fixed-guarded",
       "signals": ["PowerShell", "native exit code", "command chain", "false green"],

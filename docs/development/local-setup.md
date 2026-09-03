@@ -8,11 +8,29 @@
 ## 启动
 
 ```powershell
-pnpm install --frozen-lockfile
+& scripts/codex/ensure-worktree-deps.ps1
+& scripts/codex/ensure-workspace-bootstrap.ps1 -Profile api
 docker compose up -d mysql
 pnpm --filter @schedule/api migrate
 pnpm dev
 ```
+
+依赖以 lockfile、workspace manifests、pnpm 布局和 Node/pnpm/平台/store 指纹管理；新对话、切换分支、
+源码 SHA 或 `origin/main` 前进本身不会重装。指纹一致且健康检查通过时脚本输出
+`DEPENDENCIES_REUSED=true`。依赖安装与 workspace 自有 `dist` 分开；Mini 日常任务使用
+`-Profile mini`，API 使用 `-Profile api`，Web 使用 `-Profile web`，不要为定向任务先跑全 workspace build。
+
+Codex 长期 worktree 槽位由以下入口管理；默认池位于仓库所在盘根目录的 `ScheduleWT`，不提交绝对路径：
+
+```powershell
+& scripts/codex/manage-worktree-pool.ps1 -Action Status -Json
+& scripts/codex/manage-worktree-pool.ps1 -Action Acquire -Role general -Owner '<task-id>' -Json
+& scripts/codex/manage-worktree-pool.ps1 -Action Release -Path '<acquired-path>' -LeaseToken '<token>' -Json
+```
+
+只释放 clean 槽位；对话结束保留 worktree 和各自的 `node_modules`。不得把多个槽位 junction 到同一
+可写 `node_modules`，不得用 `git clean -xfd`。当前 release helper 继续使用仓库内固定
+`runtime/release-worktree`，但共享同一环境感知依赖门禁。
 
 本地开发认证只在开发环境启用；测试数据库必须使用独立 Compose 服务和 `TEST_MYSQL_*`，禁止连接开发库或生产库。
 

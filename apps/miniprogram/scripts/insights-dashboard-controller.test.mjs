@@ -53,6 +53,7 @@ describe('insights dashboard shared parity controller', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.setSystemTime(new Date('2026-08-25T04:00:00.000Z'));
     vi.stubGlobal('wx', {
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
@@ -73,6 +74,7 @@ describe('insights dashboard shared parity controller', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 

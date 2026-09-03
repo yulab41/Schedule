@@ -20,6 +20,15 @@ The inspector must confirm all Schedule markers and print `RESULT=PASS`. If it d
 
 Keep the reported `SKILL_HASH` in the current thread. When it is unchanged, do not reread this file or references already read in that thread; read only a newly routed reference. When it changes, reload this router and the references for the active task.
 
+## Dependency lifecycle hard gate
+
+> A conversation boundary is never a dependency invalidation boundary.
+
+Before any dependency install, route through [worktree/bootstrap](references/worktree-and-bootstrap.md)
+and the repository dependency gate. A source checkout, branch change, new conversation, or advancing
+`origin/main` does not justify reinstalling dependencies. Running install with an unchanged dependency
+fingerprint is a guard failure.
+
 ## Route the task
 
 | Level | Use for                                                                                    | Required routing                                                                                                                                           |

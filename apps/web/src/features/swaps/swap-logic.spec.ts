@@ -55,6 +55,7 @@ const calendar: CalendarReadModel = {
   roles: [{ id: 'role-1', name: '一线' }],
   shiftTypes: [],
 };
+const referenceNow = new Date('2026-08-25T04:00:00.000Z');
 
 describe('swap flow logic', () => {
   it('formats shift time ranges in China Standard Time', () => {
@@ -64,7 +65,7 @@ describe('swap flow logic', () => {
   });
 
   it('builds my assignments, target options, and per-target assignment lists', () => {
-    const candidates = buildSwapCandidates(calendar, 'me');
+    const candidates = buildSwapCandidates(calendar, 'me', referenceNow);
 
     expect(candidates.myAssignments.map((assignment) => assignment.id)).toEqual(['assignment-1']);
     expect(candidates.targetOptions.map((member) => member.membershipId)).toEqual(['target']);
@@ -97,7 +98,7 @@ describe('swap flow logic', () => {
       ],
     };
 
-    const candidates = buildSwapCandidates(pastCalendar, 'me');
+    const candidates = buildSwapCandidates(pastCalendar, 'me', referenceNow);
     expect(candidates.myAssignments.map((item) => item.id)).toEqual(['assignment-4']);
     expect(candidates.targetOptions.map((member) => member.membershipId)).toEqual([]);
     expect(candidates.assignmentsByTarget.has('target')).toBe(false);

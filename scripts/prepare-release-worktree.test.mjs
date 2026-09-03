@@ -130,6 +130,17 @@ describe('reusable isolated release worktree', () => {
     expect(shouldReuseDependencies(root, gitDirectory, 'same')).toBe(false);
   });
 
+  it('routes release dependency reuse through the environment-aware worktree gate', () => {
+    const source = fs.readFileSync(
+      new URL('./prepare-release-worktree.mjs', import.meta.url),
+      'utf8',
+    );
+
+    expect(source).toContain('ensureWorktreeDependencies');
+    expect(source).toContain('adoptHealthyExisting: legacyDependenciesReusable');
+    expect(source).not.toContain('writeDependencyMarker(gitDirectory');
+  });
+
   it('invokes the pnpm JavaScript entry directly on Windows instead of spawning pnpm.cmd', () => {
     const appData = createTemporaryDirectory();
     const cliPath = path.join(appData, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs');
@@ -148,6 +159,7 @@ describe('reusable isolated release worktree', () => {
     expect(PNPM_INSTALL_ARGUMENTS).toEqual([
       'install',
       '--frozen-lockfile',
+      '--offline',
       '--config.strictDepBuilds=false',
     ]);
   });

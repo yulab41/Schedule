@@ -1910,3 +1910,19 @@
 - 状态转为“已实现待小米 14 复核”；最终上传状态识别消息为
   `docs(status): finalize directory phase b experience upload`。下一步只收集 `.73` 首次/重复/不同词/
   筛选/科室及可行时 Wi-Fi/移动网络诊断，不提前修改数据库或填写性能提升。
+
+## 2026-09-03 依赖审计触发的 Mini 测试时钟漂移
+
+- 触发与引入点：pnpm global virtual store 兼容性全量 Mini 测试在
+  `insights-dashboard-controller.test.mjs:158` 得到 `2026年9月`、预期 `2026年8月`；
+  `git log -S` 与 `git blame` 定位原断言随 `4de2cd91` 引入。
+- 根因隔离：同一 `411399e7` 在 worktree-local `node_modules` 稳定复现，排除 global virtual store；
+  controller 模块加载时按真实 2026-09 日期初始化，而整组 fixture 固定为 2026-08。
+- 最小修复与语义：沿用 duty/swap 已验证模式，在每项导入 controller 前把系统时间固定到
+  `2026-08-25T04:00:00Z`，afterEach 恢复真实 timers。只稳定测试输入，不改 controller、API、
+  异步 serial、Promise/catch、空值或业务副作用。
+- 验证：旧测试在 local 与 GVS 均为 1/6 失败；修改后 local 定向 6/6、GVS Mini 全量
+  110 files/562 tests 通过。未调用微信开发者工具、未上传、未连接 production。
+- 同轮 root 全量又在 duty/swap Web 测试复现相同日期漂移；引入点分别为 `5d8b205a`、
+  `b20ff9b8`。共享函数已有第三个 `now` 参数，四个测试调用改为传入同一 2026-08-25 reference，
+  不改实现也不启用 fake timers；旧实现 2/11 失败，修改后 11/11 通过。

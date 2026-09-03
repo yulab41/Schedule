@@ -18,16 +18,20 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import {
+  PNPM_INSTALL_ARGUMENTS as SHARED_PNPM_INSTALL_ARGUMENTS,
+  ensureWorktreeDependencies,
+  resolvePnpmInvocation,
+  stripPnpmBuildPlaceholders,
+} from './codex/worktree-deps-core.mjs';
+
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
 export const RELEASE_RUNTIME_ROOT = path.join(ROOT, 'runtime');
 export const DEFAULT_RELEASE_WORKTREE_PATH = path.join(ROOT, 'runtime', 'release-worktree');
-export const PNPM_INSTALL_ARGUMENTS = [
-  'install',
-  '--frozen-lockfile',
-  '--config.strictDepBuilds=false',
-];
+export const PNPM_INSTALL_ARGUMENTS = SHARED_PNPM_INSTALL_ARGUMENTS;
+export { resolvePnpmInvocation, stripPnpmBuildPlaceholders };
 
 function fail(message) {
   throw new Error(`[release:worktree] ${message}`);
@@ -230,81 +234,6 @@ function trackedDependencyInputs(worktreeRoot) {
   return collectDependencyInputs(source.split('\0').filter(Boolean));
 }
 
-export function resolvePnpmInvocation(
-  environment = process.env,
-  platform = process.platform,
-  nodeExecutable = process.execPath,
-) {
-  const explicitCli = environment.npm_execpath;
-  if (explicitCli !== undefined && fs.existsSync(explicitCli)) {
-    return { argumentsPrefix: [explicitCli], command: nodeExecutable };
-  }
-
-  if (platform === 'win32') {
-    const candidates = [
-      environment.APPDATA === undefined
-        ? undefined
-        : path.join(environment.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
-      path.join(path.dirname(nodeExecutable), 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
-      path.join(path.dirname(nodeExecutable), 'node_modules', 'corepack', 'dist', 'pnpm.js'),
-    ];
-    const cliPath = candidates.find(
-      (candidate) => candidate !== undefined && fs.existsSync(candidate),
-    );
-    if (cliPath === undefined) {
-      fail('找不到可直接交给 Node 执行的 pnpm JavaScript 入口。');
-    }
-    return { argumentsPrefix: [cliPath], command: nodeExecutable };
-  }
-
-  return { argumentsPrefix: [], command: 'pnpm' };
-}
-
-export function stripPnpmBuildPlaceholders(source) {
-  return source.replace(
-    /^[ \t]+(?:'[^'\r\n]+'|"[^"\r\n]+"|[^:\r\n]+): set this to true or false\r?\n/gmu,
-    '',
-  );
-}
-
-function restorePnpmWorkspaceAfterInstall(workspacePath, original) {
-  const current = fs.readFileSync(workspacePath);
-  if (current.equals(original)) return;
-  const stripped = stripPnpmBuildPlaceholders(current.toString('utf8'));
-  const normalize = (value) => value.replaceAll('\r\n', '\n');
-  if (normalize(stripped) !== normalize(original.toString('utf8'))) {
-    fail('pnpm install 修改了 build-review 占位值以外的 workspace 配置，拒绝自动恢复。');
-  }
-  fs.writeFileSync(workspacePath, original);
-}
-
-function runPnpmInstall(worktreeRoot) {
-  const environment = { ...process.env, CI: 'true' };
-  const invocation = resolvePnpmInvocation(environment);
-  const workspacePath = path.join(worktreeRoot, 'pnpm-workspace.yaml');
-  const originalWorkspace = fs.readFileSync(workspacePath);
-  try {
-    run(invocation.command, [...invocation.argumentsPrefix, ...PNPM_INSTALL_ARGUMENTS], {
-      cwd: worktreeRoot,
-      env: environment,
-      stdio: 'inherit',
-    });
-  } finally {
-    restorePnpmWorkspaceAfterInstall(workspacePath, originalWorkspace);
-  }
-}
-
-function writeDependencyMarker(gitDirectory, fingerprint, commit) {
-  const markerPath = path.join(gitDirectory, DEPENDENCY_MARKER);
-  const temporaryPath = `${markerPath}.${process.pid}.tmp`;
-  fs.writeFileSync(
-    temporaryPath,
-    `${JSON.stringify({ commit, fingerprint, updatedAt: new Date().toISOString() }, undefined, 2)}\n`,
-    'utf8',
-  );
-  fs.renameSync(temporaryPath, markerPath);
-}
-
 export function main(arguments_ = process.argv.slice(2)) {
   const options = parseArguments(arguments_);
   const target = options.worktreePath ?? DEFAULT_RELEASE_WORKTREE_PATH;
@@ -315,18 +244,19 @@ export function main(arguments_ = process.argv.slice(2)) {
   const gitDirectory = git(['rev-parse', '--absolute-git-dir'], { cwd: target }).stdout.trim();
   const dependencyInputs = trackedDependencyInputs(target);
   const fingerprint = computeDependencyFingerprint(target, dependencyInputs);
-  const reusedDependencies = shouldReuseDependencies(target, gitDirectory, fingerprint);
-
-  if (!reusedDependencies) {
-    runPnpmInstall(target);
-    writeDependencyMarker(gitDirectory, fingerprint, commit);
-  }
+  const legacyDependenciesReusable = shouldReuseDependencies(target, gitDirectory, fingerprint);
+  const dependencyResult = ensureWorktreeDependencies({
+    worktree: target,
+    adoptHealthyExisting: legacyDependenciesReusable,
+    checkOnly: false,
+    json: options.json,
+  });
   assertCleanWorktree(target);
 
   const result = {
     commit,
     created,
-    dependencies: reusedDependencies ? 'reused' : 'installed',
+    dependencies: dependencyResult.dependenciesReused ? 'reused' : 'installed',
     path: target,
   };
   if (options.json) console.log(JSON.stringify(result));

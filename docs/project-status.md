@@ -64,23 +64,11 @@
 
 ## 当前活动批次
 
-- 唯一任务为通讯录性能诊断阶段 B，规格/计划为
-  `2026-08-31-miniprogram-directory-performance-phase-b-*`；阶段 A checkpoint `73811f1f`、
-  production 与 `.72@5fff288` 保持基线。
-- 小米 14 两批共 17 条 Wi-Fi 诊断已与 production request ID 日志逐条匹配，均为 HTTP 200。
-  9 次完成搜索中位总耗时 1315ms、请求前 7ms、首字节 1216ms、API 总耗时 250ms、API 外差值
-  约 992ms、返回后到可见 19ms；转换 0–1ms、卡片 0–2ms。
-- 17 次中 8 次被后续输入替代；连续输入间隔约 265–450ms，旧 240ms 防抖会发出中间关键词。
-  本批只把自动防抖按证据调整为 500ms，显式确认仍立即请求。
-- API 内仍有 14–1790ms 波动。本批增加受控 Server-Timing 响应头，下一轮区分鉴权、事务连接
-  等待、权限、发布批次、别名、主查询、联系方式、计数、转换、序列化和总耗时；排队不支持、
-  应用层缓存 none 明确写出，不修改 JSON contract、schema、索引、权限锁或搜索查询结构。
-- 旧实现目标用例先红；Mini 110/563、root 245 files/1,142 tests 全绿（37/355 环境跳过），全端
-  build/typecheck、Mini 全门禁、任务质量和报告构建通过。代码 `bb97145d` 已推送并完成生产备份/
-  全量部署/公网验证；`.73@c7c142e` 已获当次批准、上传并完成正式白名单与公网验证。
-- exact clean `c7c142eb` 上传源 Mini 110 files/562 tests、production verify 5,279,092 B 和 CI dry-run
-  通过；`.73` 上传 190 code files/2,517,609 B、manifest `6ed8b196…b89e4`，七维 capability 全 true、
-  unknown=426，allowlist verify 与公网 full verifier 通过。
+- 唯一业务任务仍为通讯录性能诊断阶段 B 的 `.73@c7c142e` 小米 14 复核。阶段代码
+  `bb97145d`、production、体验上传、allowlist/full verifier 已完成。
+- 基线 17 条 Wi-Fi 中 9 次完成搜索中位 1315ms，首字节 1216ms、API 250ms、API 外约 992ms；
+  8 次被后续输入替代。当前只收集首次/重复/不同词/筛选/科室及可行时双网络数据。
+- 没有匹配 `.73` 的新实体数据前，不修改索引、权限锁、查询结构或部署拓扑，不填写改善数值。
 
 ## 已完成的测试工具批次
 
@@ -88,6 +76,17 @@
   失败关闭、只读有界诊断和隐私边界保持有效，当前只待实体 Android/DevTools 人工复核。
 - 仓库级 `schedule-project-guardrails` 已建立；13 文件结构/front matter、9 个 Markdown/62 个链接、
   Windows PowerShell 只读/失败关闭 dry-run 与 `git diff --check` 通过。checkpoint `chore(agent): add Schedule project guardrails`；未安装/全量测试/构建/上传/连接 production，当前批次和停止条件不变。
+- 依赖环境 Task 1–6 已完成：39 个初始/40 个最终 worktree 审计；A warm 0.535s、B cold
+  490.069s、C GVS cold 463.881s。B 的 463.403s 在 import，1454 hardlink/5 copy、download/
+  lifecycle=0；项目与 store 同在 E:，Defender 为放大器但不是单独根因。
+- 已建立 `E:\ScheduleWT\general-1` 长期 clean 槽位、原子租约、依赖环境/健康指纹和分 profile
+  workspace bootstrap；源码 SHA/业务源码实测不 install，manifest 变更给出精确 reason。
+- GVS 跨 Mini 110/562、API 46/172（33/324 环境跳过）、typecheck/build/direct Node/release/smoke
+  兼容通过；C 时长低 5.34% 但 Defender 条件不同，不作因果提升结论，未改主线配置。
+- 门禁测试 5 files/51 tests、日期漂移定向 17/17、skill validation 与格式/lint 通过；root 复跑
+  248 files/1,177 tests 通过（37/355 环境跳过）。checkpoint 以
+  `perf(dev): reuse worktree dependencies by fingerprint` 识别；本轮按用户边界不连接/deploy
+  production，不备份/迁移数据库，不上传小程序。
 
 ## 已完成的发布基线与当前修复
 
