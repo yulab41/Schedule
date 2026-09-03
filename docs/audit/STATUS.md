@@ -2,12 +2,12 @@
 
 ## 当前阶段
 
-- 当前批次：`MINI-G1-004` 调查成果主线整合与 Git 收口；调查结论保持“证据仍不足，保留 P3”，不进入分页、
-  分批、懒加载或虚拟列表修复。
-- 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；本次整合基线为执行时最新
-  `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
-- 本批仅合并调查成果，不采集 production 数据、不上传体验版、不操作 allowlist、不部署 production；主线其他
-  已完成批次和发布事实继续保留。
+- 当前批次：`MINI-G1-004` 第二阶段补证；结论仍为“证据不足，保留 P3”，不进入分页、分批、懒加载或
+  虚拟列表修复。
+- 执行时最新基线为 `origin/main@78d0424e19cfc81be142da7e0f5367110f1fc8f2`；已确认包含 scale probe、
+  G1-004 审计/状态文档及上一轮调查结论。
+- 本轮只做 `.80` 运行时等价性判定、一次 production 只读聚合核查和人工验收说明；不改业务实现、不上传、
+  不部署、不操作 allowlist，未重跑阶段 0。
 
 ## 已保留的主线事实
 
@@ -28,21 +28,29 @@
   0、活动用户 35），没有当前 release 的逐页最大 N/分布；既有测试只有 1 个账号/成员，不能证明用户影响。
 - scale probe `apps/miniprogram/scripts/mini-g1-004-scale-probe.test.mjs` 只使用 synthetic 占位数据，不进入
   生产运行时，不包含姓名、手机号、账号或真实群组 ID；桌面 Node wall-clock 仅作记录，不能外推真机卡顿。
+- `.80` `0.1.0-p10.20260902.80@3897581e` 的 `.80` capability GET 返回 HTTP 200；与 `origin/main` 比较的
+  platform/group-settings controller、WXML、Page、organization read client、相关 API route/service/contracts、
+  App/build-info/runtime-environment、test-tools 和 build inputs 均无差异。`.80` 对 G1-004 属于运行时语义等价构建，
+  可直接补证，不重新上传。
+- 服务器 `current-release` 实测为 `48488019171924701054354e8f707b08eb4d12fe`；该 live release 与
+  `origin/main` 在同一批相关路径也无差异。历史文档中的 `3897581e` 不再作为当前 live release 使用。
+- production 一次聚合读取（UTC `2026-09-03 13:12:22.797`）得到 platform accounts `35`；活动群组 `2` 个，
+  匿名排序后的 members endpoint 最终有效行数为 `17`、`6`，两组 pending 非重复均为 `0`，contacts endpoint
+  行数分别为 `17`、`6`。此处 contacts 是 endpoint 行数，不是非空手机号数。
 
 ## 验证与边界
 
-- 复用已完成依赖安装的 G1-004 clean worktree；未重新链接 1,459 个依赖。主线变化触及 Mini 测试/相关路径，
-  合并后正式 `pnpm miniprogram:test` 通过：119 files / 643 tests（91.46s）。
-- 合并后 probe 所在的相关 7 files / 31 tests 通过，`pnpm exec vitest run scripts/test-discovery-policy.test.mjs`
-  通过 1 file / 3 tests；Prettier、ESLint、`git diff --check` 与状态策略检查均通过。未调用微信开发者工具
-  GUI/CLI、模拟器、Console/Network；`pnpm smoke:check-core` 确认未涉及 Web 核心链路。仍没有当前匹配 SHA
-  的 Xiaomi 14 原生节点、首绘、滚动或 bridge 证据。
-- 所有未取得的原生/production 数据统一记为“当前工具无法测量，暂未验证”；本轮没有业务运行时代码、API、
-  数据库、权限、路由、锁文件、dist 或其他生成物改动。
+- 在 `runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`（HEAD 与 `origin/main` 对齐）
+  运行 `pnpm --filter @schedule/miniprogram exec vitest run scripts/mini-g1-004-scale-probe.test.mjs`：1 file /
+  1 test 通过；N=1/25/100 结构性结果保持 `8N` platform host、`12N` group member host，ready payload 随 N 增长。
+- 本轮没有调用微信开发者工具 GUI/CLI、模拟器、Console/Network；没有匹配 `.80` 的 Xiaomi 14 环境、首屏、原生
+  节点或滚动反馈，统一记为“当前工具无法测量，暂未验证”。现有 test-tools 没有 G1-004 专用 setData/节点指标，
+  本轮未增加埋点。
+- production 查询为只读聚合；没有写入、备份、部署、重启、清缓存、权限/账号/群组操作；没有业务源码、API、数据库、
+  配置、锁文件、dist 或生成物修改。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：补“当前 release 脱敏规模 + 匹配构建的小米 14”证据，包括逐页规模/分布、SHA/trial、renderer、
-  基础库、微信版本、首屏/节点/滚动结果；补证前保持 `MINI-G1-004` P3。
-- 本批停止条件：合并后相称门禁、四文件清单和 Git 状态确认完成，普通 fast-forward 推送 `origin/main` 后
-  停止；不继续扩大调查，不进入业务修复。
+- 唯一下一任务：用户在可复用的 `.80@3897581e` 小米 14 体验版中回传测试工具环境字段，以及 platform accounts /
+  group settings 两页的首屏、完整性、滚动和可操作性结果；在此之前保持 `MINI-G1-004` P3。
+- 本轮停止条件：production 聚合证据和人工测试说明完成后停止；不关闭 G1-004，不升级风险，不进入业务修复。

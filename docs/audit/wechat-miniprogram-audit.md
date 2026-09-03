@@ -1,17 +1,17 @@
 # 微信小程序审计报告
 
-- 当前阶段：`MINI-G1-004` 运行证据核查及主线整合已完成；结论为“证据仍不足，保留 P3”，尚未确认真实
-  规模下的用户可见性能问题。`MINI-G1-001`～`MINI-G1-003` 已闭环，且本轮未回退其代码或文档。整合前主线为
-  `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
+- 当前阶段：`MINI-G1-004` 第二阶段补证进行中；结论仍为“证据不足，保留 P3”，尚未确认真实规模下的用户可见
+  性能问题。`MINI-G1-001`～`MINI-G1-003` 已闭环，且本轮未回退其代码或文档。执行时主线为
+  `origin/main@78d0424e19cfc81be142da7e0f5367110f1fc8f2`。
 - 更新时间：2026-09-03（Asia/Hong_Kong）
 - 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；整合 worktree/分支为
   `runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902` /
   `codex/mini-g1-004-evidence-audit-20260902`。
 - 主线较新的 `EXP-UX-002`、`EXP-FEAT-002`、`EXP-CALENDAR-003` 及 `EXP-UX-001` production release
-  结论均已保留；本轮 checkpoint 以 `merge: integrate MINI-G1-004 evidence audit` 识别。
-- 本批性质：只做 `MINI-G1-004` 运行证据核查；新增一个默认不进入生产运行时的、无隐私 synthetic Node/Vitest
-  诊断测试和审计记录，未修改业务实现、API、数据库、权限、路由或既有 G1-001～003 文档，未调用微信
-  开发者工具、未上传体验版、未部署 production，也未修改或清理其他 worktree
+  结论均已保留；上一轮整合 checkpoint 以 `merge: integrate MINI-G1-004 evidence audit` 识别。
+- 本批性质：只做当前 release 脱敏规模、`.80` 运行时等价性和 Xiaomi 14 补证说明；未修改业务实现、API、数据库、
+  权限、路由或既有 G1-001～003 文档，未调用微信开发者工具、未上传体验版、未部署 production，也未修改或清理其他
+  worktree。
 
 ## 2026-09-01 静态审计第 1 组：页面状态、异步链路与列表性能
 
@@ -1260,3 +1260,79 @@ slot 内容，没有复制新组件或改 API/controller 业务语义：
 弹窗；确认顶部约四分之一、footer/关闭按钮不被底栏或安全区遮挡，长正文可独立滚动；从把手短拖和 cancel
 确认平滑回弹，达到阈值只关闭一次，正文或 picker 内滑动不误关；busy 时不能下滑关闭；最后确认左上角返回和
 系统侧滑返回仍正常。这些步骤保持“待用户复核”，不把自动化通过写成真机手势通过。
+
+## 14. 2026-09-03 `MINI-G1-004` 第二阶段补证
+
+### 14.1 执行基线与 `.80` 可复用性
+
+- 本轮先执行 `git fetch origin`；执行时 `origin/main` 为
+  `78d0424e19cfc81be142da7e0f5367110f1fc8f2`，已确认包含
+  `apps/miniprogram/scripts/mini-g1-004-scale-probe.test.mjs`、G1-004 审计/状态文档，且上一轮结论仍为
+  “证据不足，保留 P3”。
+- 既有记录的 `.80` 为 `0.1.0-p10.20260902.80`、源码 tip `3897581e7a8d5734ef5910e2dd8854a92c246062`。
+  对该 tip 与 `origin/main` 的以下范围执行 Git 语义范围比较，结果均无差异：platform accounts controller/
+  WXML/Page、group settings controller/WXML/Page、`organization-read-client`、platform-admin users route/
+  service/contracts、group members/contacts route/service/contracts、App/build-info/runtime-environment、
+  test-tools 页面以及 `build.mjs`/`build-tools.mjs`/Mini package/root package/lock/project config 等构建输入。
+- `48488019171924701054354e8f707b08eb4d12fe` 是服务器 `current-release` 实测的 live release；它与
+  `origin/main` 在上述相关路径也无差异。故不能因完整 SHA 不同否定 `.80`：对 MINI-G1-004，`.80` 是运行时
+  语义等价构建。
+- 对 `.80` 请求 production capability endpoint 得 HTTP 200，说明现行版本策略仍接受该版本；本轮没有运行
+  allowlist 命令或修改策略，也没有重新上传体验版。
+
+### 14.2 production 一次只读脱敏规模核查
+
+- 查询时间：`2026-09-03 13:12:22.797 UTC`；release SHA：
+  `48488019171924701054354e8f707b08eb4d12fe`。
+- 查询按当前 endpoint 语义聚合：platform accounts 仅计 `users.deleted_at IS NULL` 的 `/platform-admin/users`
+  有效行；members 复用 endpoint 的 active membership、active user/profile、非 guest、非 developer-admin、
+  未删除过滤；pending roster 按服务端返回前的同名去重规则统计；contacts 按左连接后 endpoint 最终行数统计，
+  不是非空手机号数。输出没有姓名、手机号、账号、群组名、真实 ID 或完整响应。
+
+| 匿名群组序号（按最终 members 行数降序） | active members | pending roster 非重复 | members endpoint 最终有效行数 | contacts endpoint 行数 |
+| ---: | ---: | ---: | ---: | ---: |
+| `group-rank-1` | 17 | 0 | 17 | 17 |
+| `group-rank-2` | 6 | 0 | 6 | 6 |
+
+- Platform accounts endpoint 当前有效记录总数：`35`。
+- 活动群组总数：`2`；group settings 的最终 members 行数分布为 `[17, 6]`：最大 `17`，最小 `6`，中位数
+  `11.5`。群组数量不足以让 P90/P95 具有统计意义，故不输出这两个分位数。
+- 最大规模页面是 platform accounts（`N=35`），不是 group settings（最大 `N=17`）。
+
+### 14.3 与 N=1/25/100 synthetic probe 的对照
+
+本轮在与 `origin/main` 对齐的 G1-004 worktree 执行：
+`pnpm --filter @schedule/miniprogram exec vitest run scripts/mini-g1-004-scale-probe.test.mjs`，结果为 `1 file /
+1 test passed`。probe 的固定结构参照为 platform `8N` host nodes、group member `12N` host nodes；ready payload
+和整次 setData payload 随 N 增长，桌面 Node elapsed 不是原生渲染耗时。
+
+| 当前实际页面规模 | 最近 fixture 档位 | synthetic 结构估算（仅结构，不是原生节点/真机耗时） |
+| ---: | ---: | --- |
+| platform accounts `N=35` | `25` | 约 `280` 个重复 host、ready setData 约 `6,749 B`、整次 setData 约 `7,000 B`；account map `35`、统计 filter `70` |
+| group settings `group-rank-1`, `N=17` | `25` | 约 `204` 个重复 host、ready setData 约 `6,508 B`、整次 setData 约 `8,428 B`；contact/member map 各 `17` |
+| group settings `group-rank-2`, `N=6` | `25` | 约 `72` 个重复 host、ready setData 约 `2,768 B`、整次 setData 约 `4,688 B`；contact/member map 各 `6` |
+
+以上 bytes 是在 N=1 与 N=100 fixture 间按既有线性关系插值的 synthetic 结构估算，不是原生节点数、bridge payload
+读数、首屏耗时或小米 14 卡顿预测。N 小不能自动关闭 G1-004，N 大也不能自动升级风险或启动分页。
+
+### 14.4 小米 14 最小人工验收清单（使用现有 `.80`）
+
+1. 在小米 14 微信打开体验版 `.80`；开始前进入“更多 → 测试工具”，记录并回传：版本号、短 SHA、`trial/develop`、
+   renderer、基础库、微信版本、手机型号。只需截图/抄回这些字段，不复制业务数据。
+2. 从点击 platform accounts 入口开始录屏，使用已有权限账号进入平台账号页，等待列表完整出现；不启用、停用、删除或修改账号。
+3. 在 platform accounts 从顶部连续滚到接近底部，再滚回顶部；普通返回后重新进入一次。
+4. 记录 platform accounts：是否白屏、列表是否完整、是否立即可滚、是否持续卡住/跳动、按钮是否长期不可操作、
+   首屏大致属于 `<1秒`/`1～2秒`/`>2秒`。
+5. 优先打开成员最多的现有群组；无法识别时逐个群组只读查看。打开 group settings 的成员区域，不添加、删除、调整成员，
+   不保存业务修改。
+6. 在 group settings 从顶部滚到接近底部并返回；离开页面后重新进入一次。
+7. 记录 group settings 同样的白屏、完整性、立即滚动、卡住/跳动、按钮可操作性和首屏时间档位；test-tools 没有
+   G1-004 专用 setData/节点指标，不要尝试复制或填写这类数据。
+8. 停止录屏后回传环境字段、两页结果和截图/录屏文件名；确认“未修改生产数据或权限”。
+
+### 14.5 当前处置
+
+本轮补足了当前 live release 的脱敏规模，也确认现有 `.80` 可以承担 MINI-G1-004 真机补证；但尚未取得小米 14 的
+匹配环境、首屏、原生节点、连续滚动和按钮可操作性反馈。因此 `MINI-G1-004` 仍为 **P3：证据不足**，等待用户真机
+回传后再判断是否关闭或进入后续批准流程。本轮不实施分页、懒加载、虚拟列表、埋点、上传、allowlist 操作或 production
+变更。
