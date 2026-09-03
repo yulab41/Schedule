@@ -152,16 +152,19 @@
       <swiper
         class="workflow-picker-date-swiper"
         current="{{dateSwiperIndex}}"
-        duration="240"
-        easing-function="easeOutCubic"
-        bindchange="handleDateSwiperChange"
+        duration="{{dateSwiperDuration}}"
+        easing-function="{{dateSwiperEasingFunction}}"
+        circular="{{true}}"
+        skip-hidden-item-layout="{{false}}"
+        bindchange="handleDateSwiperChangeStart"
+        bindanimationfinish="handleDateSwiperFinish"
       >
-        <swiper-item wx:for="{{datePanels}}" wx:key="key" wx:for-item="panel">
+        <swiper-item wx:for="{{datePanels}}" wx:key="slot" wx:for-item="panel">
           <view class="workflow-picker-date-grid">
             <view
               wx:for="{{panel.cells}}"
               wx:key="value"
-              class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+              class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
               data-value="{{item.value}}"
               aria-role="button"
               aria-disabled="{{item.disabled}}"

@@ -11,16 +11,16 @@
 本轮反馈为 `EXP-CALENDAR-003`：请假日期选择器左右滑动顿挫，“回到今天”跳转生硬，选中日期
 仍使用蓝色光圈。当前代码和历史证据形成以下对比：
 
-| 维度 | 首页 `calendar-month` | 请假 `workflow-picker` 日期模式 | 结论 |
-| --- | --- | --- | --- |
-| 视图所有者 | 原生三槽 `swiper`，`circular=true` | 三份面板但非循环 `swiper` | 日期模式缺少稳定的物理槽 |
-| 手势提交 | 原生 `change` 只预锁目标，`animationfinish` 才提交 | `change` 立即重建草稿和三份面板 | 数据重建与原生动画竞争 |
-| 动画 | `240ms`、`easeOutCubic`，高度另有连续过渡 | `240ms` 只写在模板中，事件后硬回到 `current=1` | 结束时容易出现回拉/跳帧 |
-| 相邻数据 | `createMonthRing` 将逻辑前后月预置到相邻物理槽 | 每次 `createDateDraftPatch` 从当前月重建前中后三份 | 快速切换时没有稳定 ring |
-| 快速连续操作 | 组件锁住一次提交并累计 `[-6, 6]` 队列 | 没有日期切换锁/队列 | 连续手势和按钮可能互相覆盖 |
-| today | 先把目标月放入相邻槽，再复用 programmatic shift | 直接重建今天整月，只旋转图标 `520ms` | 页面替换是瞬时的，不是同一导航管线 |
-| WXS/Worklet | 月份横滑不使用 WXS/Worklet | 日期横滑也不使用 WXS/Worklet；月份滚轮另有已验证 WXS | 本轮不引入第三种横滑引擎 |
-| 选中视觉 | 首页今日使用 `--ui-color-today-marker` | 日期选中使用 `--ui-color-primary` 蓝色 | 应切换到既有黄色语义 token |
+| 维度         | 首页 `calendar-month`                              | 请假 `workflow-picker` 日期模式                      | 结论                               |
+| ------------ | -------------------------------------------------- | ---------------------------------------------------- | ---------------------------------- |
+| 视图所有者   | 原生三槽 `swiper`，`circular=true`                 | 三份面板但非循环 `swiper`                            | 日期模式缺少稳定的物理槽           |
+| 手势提交     | 原生 `change` 只预锁目标，`animationfinish` 才提交 | `change` 立即重建草稿和三份面板                      | 数据重建与原生动画竞争             |
+| 动画         | `240ms`、`easeOutCubic`，高度另有连续过渡          | `240ms` 只写在模板中，事件后硬回到 `current=1`       | 结束时容易出现回拉/跳帧            |
+| 相邻数据     | `createMonthRing` 将逻辑前后月预置到相邻物理槽     | 每次 `createDateDraftPatch` 从当前月重建前中后三份   | 快速切换时没有稳定 ring            |
+| 快速连续操作 | 组件锁住一次提交并累计 `[-6, 6]` 队列              | 没有日期切换锁/队列                                  | 连续手势和按钮可能互相覆盖         |
+| today        | 先把目标月放入相邻槽，再复用 programmatic shift    | 直接重建今天整月，只旋转图标 `520ms`                 | 页面替换是瞬时的，不是同一导航管线 |
+| WXS/Worklet  | 月份横滑不使用 WXS/Worklet                         | 日期横滑也不使用 WXS/Worklet；月份滚轮另有已验证 WXS | 本轮不引入第三种横滑引擎           |
+| 选中视觉     | 首页今日使用 `--ui-color-today-marker`             | 日期选中使用 `--ui-color-primary` 蓝色               | 应切换到既有黄色语义 token         |
 
 日期分页的首个实现由 `b5603189` 引入，today 图标 timer 由 `0975b2d1` 引入；`git blame` 已确认当前
 相关代码仍来自这两轮。根因不是日期规则或业务请求，而是日期模式把原生 `swiper` 的一次横向动画
@@ -55,7 +55,8 @@ shift 管线。
 - `activeSlot`：当前可见物理槽；`targetSlot`：已由原生 change 锁定、等待完成的槽。
 - `shiftPending`：父级尚未提交目标数据时阻止重复提交。
 - `queuedDelta`：动画期间按钮/程序操作累计的月份位移，钳制到 `[-6, 6]`，每次结算最多继续一月。
-- `CALENDAR_PERIOD_SWIPER_DURATION_MS = 240`、原生 `easeOutCubic` 和首页已有的高度缓动曲线。
+- `CALENDAR_PERIOD_SWIPER_DURATION_MS = 240`、`CALENDAR_PERIOD_SWIPER_EASING_FUNCTION = easeOutCubic`
+  和首页已有的高度缓动曲线。
 - `getAdjacentCalendarPeriodSlot`、`getCalendarPeriodSlotDelta`、ring 映射和目标槽预置函数。
 
 原生 `swiper` 负责距离/速度阈值、跟手、惯性和回弹；逻辑层不新增 `touchmove`、速度估算或
@@ -86,7 +87,8 @@ active slot 映射到三个物理槽。
 - `circular="{{true}}"`；
 - `skip-hidden-item-layout="{{false}}"`；
 - `duration` 绑定共享的 `240ms` 数据值；
-- `easing-function="easeOutCubic"`；
+- `easing-function` 绑定共享的 `easeOutCubic` 数据值；
+- `swiper-item` 使用稳定的物理 `slot` key，不以逻辑月份 key 触发循环重排；
 - `bindchange` 只锁定目标，`bindanimationfinish` 才提交月份变更；
 - 不出现 `scroll-top`、`bindscroll`、CSS snap、WXS/Worklet 或第二个横向手势 owner。
 
@@ -104,10 +106,10 @@ active slot 映射到三个物理槽。
 
 1. 今天与当前 draft 年月相同：只更新当前月选中日和摘要，不启动无意义的横向位移；今天超出
    `min/max` 时不改变任何日期状态。
-2. 今天位于其他年月：先用同一 ring/目标槽预置今天所在月份，保存 today locate target，再调用
-   与上一月/下一月完全相同的 programmatic shift。`animationfinish` 后才将 draft 年月日设为今天，
-   完成/取消语义不变。跨年或相隔多月仍只使用一个已预置的相邻槽动画，和首页 `startLocateTransition`
-   的导航管线一致；不逐月闪跳。
+2. 今天位于其他年月：保存 today locate target，先把下一个相邻月份预置到目标槽，再调用与上一月/
+   下一月完全相同的 programmatic shift。每次 `animationfinish` 后才提交一个相邻月份；若仍未到达
+   today 月份，就继续预置下一槽并沿同一管线推进，直到最终月份再提交今天的日号。这样跨年或相隔
+   多月不会瞬间替换整月，也不会把最终日期提前写入错误月份。
 
 图标的现有 `520ms` 旋转反馈可以保留，但它不再承担页面定位；测试只把它作为低频反馈，不把 timer
 当作月份动画完成信号。

@@ -270,6 +270,8 @@ describe('P7 Web-parity workflow picker controller', () => {
   });
 
   it('builds the Web calendar date grid and confirms the selected day', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z'));
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });
 
@@ -278,8 +280,13 @@ describe('P7 Web-parity workflow picker controller', () => {
     instance.triggerEvent.mockClear();
     expect(instance.data.dateCells).toHaveLength(42);
     expect(instance.data.dateCells.find((cell) => cell.value === '2026-08-24')).toMatchObject({
+      isToday: true,
       isSelected: true,
       muted: false,
+    });
+    expect(instance.data.dateCells.find((cell) => cell.value === '2026-08-29')).toMatchObject({
+      isWeekend: true,
+      isSelected: false,
     });
     definition.methods.handleDateSelect.call(instance, {
       currentTarget: { dataset: { value: '2026-08-25' } },
@@ -292,31 +299,137 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.open).toBe(false);
   });
 
-  it('supports horizontal date month paging and a today locator without emitting early', async () => {
+  it('supports circular horizontal date month paging and a today locator without emitting early', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z'));
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });
     definition.lifetimes.attached.call(instance);
     definition.methods.handleOpen.call(instance);
-    definition.methods.handleDateSwiperChange.call(instance, { detail: { current: 2 } });
+    definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 2 } });
+
+    expect(instance.data.draftMonth).toBe(8);
+    expect(instance.data.dateSwiperIndex).toBe(1);
+    expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-09', relative: 1, slot: 2 });
+
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
 
     expect(instance.data.datePanels).toHaveLength(3);
     expect(instance.data.datePanels.map((panel) => panel.key)).toEqual([
+      '2026-10',
       '2026-08',
       '2026-09',
-      '2026-10',
     ]);
     expect(instance.data.draftMonth).toBe(9);
+    expect(instance.data.dateSwiperIndex).toBe(2);
     expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
     definition.methods.handleDateToday.call(instance);
+    expect(instance.data.draftDisplayValue).toBe('2026年9月24日');
+    expect(instance.data.dateSwiperIndex).toBe(1);
+    expect(instance.data.datePanels[1]).toMatchObject({ key: '2026-08', relative: -1, slot: 1 });
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 1 } });
     expect(instance.data.draftDisplayValue).toBe('2026年8月24日');
+    expect(instance.data.draftMonth).toBe(8);
     expect(instance.data.dateLocateAnimating).toBe(true);
     vi.advanceTimersByTime(519);
     expect(instance.data.dateLocateAnimating).toBe(true);
     vi.advanceTimersByTime(1);
     expect(instance.data.dateLocateAnimating).toBe(false);
     expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('keeps button shifts in the same pending/finish pipeline and isolates stale close events', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-31' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleDateNavigate.call(instance, {
+      currentTarget: { dataset: { offset: 1 } },
+    });
+    expect(instance.data.draftMonth).toBe(8);
+    expect(instance.data.dateSwiperIndex).toBe(2);
+    expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-09', slot: 2 });
+
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.draftMonth).toBe(9);
+    expect(instance.data.draftDay).toBe(30);
+
+    definition.methods.handleClose.call(instance);
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.draftMonth).toBe(8);
+    expect(instance.data.dateSwiperIndex).toBe(1);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('locates today through adjacent prepared panels across a year boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-01-02T00:00:00.000Z'));
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, {
+      max: '2027-12-31',
+      min: '2026-01-01',
+      mode: 'date',
+      value: '2026-11-30',
+    });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleDateToday.call(instance);
+    expect(instance.data.draftDisplayValue).toBe('2026年11月30日');
+    expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-12', slot: 2 });
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
+
+    expect(instance.data.draftDisplayValue).toBe('2026年12月2日');
+    expect(instance.data.datePanels[0]).toMatchObject({ key: '2027-01', slot: 0 });
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 0 } });
+
+    expect(instance.data.draftDisplayValue).toBe('2027年1月2日');
+    expect(instance.data.dateSwiperIndex).toBe(0);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('drains rapid button shifts one prepared month per animation finish', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleDateNavigate.call(instance, {
+      currentTarget: { dataset: { offset: 1 } },
+    });
+    definition.methods.handleDateNavigate.call(instance, {
+      currentTarget: { dataset: { offset: 1 } },
+    });
+    expect(instance.data.draftMonth).toBe(8);
+    expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-09', slot: 2 });
+
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.draftMonth).toBe(9);
+    expect(instance.data.dateSwiperIndex).toBe(0);
+    expect(instance.data.datePanels[0]).toMatchObject({ key: '2026-10', slot: 0 });
+
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 0 } });
+    expect(instance.data.draftMonth).toBe(10);
+    expect(instance.data.dateSwiperIndex).toBe(0);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('does not commit a cancelled native swipe or retain its pending selection', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 2 } });
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 1 } });
+
+    expect(instance.data.draftDisplayValue).toBe('2026年8月24日');
+    expect(instance.data.dateSwiperIndex).toBe(1);
+    definition.methods.handleConfirm.call(instance);
+    expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2026-08-24' });
     definition.lifetimes.detached.call(instance);
   });
 });

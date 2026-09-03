@@ -444,13 +444,21 @@
 }
 
 .workflow-picker-date-cell.is-selected {
-  color: var(--ui-color-white);
+  color: var(--ui-color-near-black);
   font-weight: var(--ui-font-weight-strong);
 }
 
 .workflow-picker-date-cell.is-selected > text {
-  background: var(--ui-color-primary);
-  box-shadow: 0 5px 12px rgba(10, 102, 213, 0.24);
+  background: var(--ui-color-today-marker);
+  box-shadow: 0 5px 12px var(--ui-color-warning-light);
+}
+
+.workflow-picker-date-cell.is-today:not(.is-selected) > text {
+  box-shadow: inset 0 0 0 2px var(--ui-color-today-marker);
+}
+
+.workflow-picker-date-cell.is-today.is-selected > text {
+  box-shadow: inset 0 0 0 2px var(--ui-color-near-black);
 }
 
 .workflow-picker-date-cell.is-disabled {

@@ -3,33 +3,36 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/` 和精确 debug 日志为准。每轮先读
 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
 
-## 当前仓库批次（2026-09-02）
+## 当前仓库批次（2026-09-03）
 
-- 已完成主线批次：`MINI-G1-001`、`MINI-G1-002`、`MINI-G1-003`、`EXP-UX-001`、`EXP-UX-002`；EXP-UX-002
-  的请假/加扣班共享 sheet 迁移已由主线 `48488019` 收口，原生 Xiaomi 14 复核仍按其状态记录处理。
-- 当前活动批次：`EXP-FEAT-002`；事件记录代码与自动化验证已完成，当前状态为“已完成（含运行验证）→ 待用户复核”。
-- 执行基线：创建 worktree 时最新 `origin/main@359966f7240d2f557b24dd0c1ac61979d6bb8298`；收口前已安全
-  rebase 至 `origin/main@48488019`。修复分支/worktree 为 `codex/exp-feat-002-event-records` /
-  `runtime/external-project-worktrees/exp-feat-002-event-records`。
-- 设计与计划：`docs/superpowers/specs/2026-09-02-exp-feat-002-event-records-design.md`、
-  `docs/superpowers/plans/2026-09-02-exp-feat-002-event-records-implementation-plan.md`；Web→Mini 对齐矩阵与
-  小米 14 验收清单见 `docs/audit/exp-feat-002-event-records.md`。
-- 本批只处理班次详情事件记录：入口、既有事件 GET、共享 `ui-sheet`、状态、权限和异步隔离；不处理
-  `MINI-G1-004`、日期选择器、图标系统、API/数据库合同或业务写请求。
-- 不调用微信开发者工具、不上传体验版、不提交审核、不部署 production；自动化结果不替代下一版 Xiaomi 14 原生验收。
+- 当前活动批次：`EXP-CALENDAR-003`；状态为“已完成（含运行验证）→ 待用户复核”。本轮只处理请假日期选择器
+  的月份横滑、定位今天和选中态颜色，不处理图标系统、`MINI-G1-004`、月份滚轮、API、数据库或业务规则。
+- 执行 worktree：`runtime/external-project-worktrees/exp-calendar-003-20260902`；分支
+  `codex/exp-calendar-003-20260902`。代码基线为在实现前 rebase 到执行时最新 `origin/main@0792ed01`；根工作区
+  的用户自有脏改动未接管。
+- 设计规格：`docs/superpowers/specs/2026-09-02-miniprogram-exp-calendar-003-design.md`。共享
+  `calendar-period-pager` 统一三槽 ring、active/target/queued 状态、取消/提交边界、240ms 和 easeOutCubic；
+  首页月历与请假日期 swiper 仍保留各自渲染，月份滚轮 WXS/Worklet 未改动。
+- 根因已由 `git log -S`/`git blame` 定位：日期模式旧 `handleDateSwiperChange` 在原生 change 中立即重建整窗并复位
+  中心槽（`b5603189`）；today 旧路径只重建整月并依赖 `0975b2d1` 的图标 timer。修复后 change 只预锁，
+  animationfinish 才提交；循环面板用稳定物理 `slot` key，相隔多月的 today 按相邻月逐步走同一管线。
+- 视觉合同：选中日期使用既有 `--ui-color-today-marker`，文字为 `--ui-color-near-black`；未选中 today 用黄色
+  内描边，today+selected 用 near-black 内描边，周末/红色规则在选中规则之前，disabled/首页主蓝保持不变。
+- 不调用微信开发者工具、不上传体验版、不提交审核、不部署 production。自动化和构建只能证明状态、数据预置及动画
+  调度，不能证明 Xiaomi 14 的实际跟手帧率或“丝滑度”。
 
 ## 本批基线与验证证据
 
-- worktree 创建时基线 SHA `359966f7`、初始状态 clean；Node `v24.14.0`、pnpm `11.9.0`。
-- `pnpm install --frozen-lockfile --offline` 通过 lockfile 供应链校验，1459 个包链接完成，耗时约 42 分 53 秒；依赖
-  目录为 ignored 产物。修改前永久红灯检查实际返回 0 个真实处理器、退出码 1。
-- 定向事件测试 5/5；Mini 全量 115 files/626 tests；根测试 246 passed/37 skipped（1170 passed/364 skipped）。
-- Mini/根 TypeScript、Mini production build（281 files）、根 production build、`miniprogram:verify`、source/package
-  audit、determinism、credential-free CI dry-run、全仓 Prettier、ESLint、`git diff --check`、状态策略和
-  `pnpm smoke:check-core` 均通过。最终 packageBytes `5,143,838`，main `1,712,119`；既有主包/矩阵及 Web 大
-  chunk warning 未新增类别。
-- 首轮冷安装期间全量 Mini 测试出现 7 个无关超时/页面 WXSS 预算失败；事件样式拆分到叶子组件后复跑清零，未保留
-  无关改动。完整根因、请求隔离、权限和剩余差异见 audit/debug 文档。
+- 初始主工作区含用户自有未提交改动；独立 worktree 初建后因 `origin/main` 前进，在代码修改前安全 rebase 到
+  `0792ed01`。Node `v24.14.0`、pnpm `11.9.0`；完整 `pnpm install --frozen-lockfile --ignore-scripts` 通过。
+- 测试先行：共享状态机、日期控制器和视觉合同在旧实现上先红；实现后日期/状态定向 6 files/63 tests 通过，Mini
+  全量 `118 files / 642 tests` 通过。既有月份滚轮 WXS 集成测试仍通过。
+- 最终 `pnpm verify` 通过：根格式、ESLint、workspace build/typecheck、Mini 全量及根 `246 passed / 37 skipped`，
+  `1170 passed / 364 skipped`。Mini production build `282 files`；Mini verify/source/package/determinism 通过。
+- 最终 Mini package `5,151,892` bytes，main `1,715,718` bytes；主包 1.5M 和两个 600-cell 矩阵节点 warning
+  为既有阈值类别，Web build 的大 chunk warning 也未新增类别。
+- `pnpm smoke:check-core` 通过并确认未涉及 Web 核心链路，无需浏览器冒烟；未取得微信原生运行时或 Xiaomi 14 证据，
+  该层统一记录为“当前工具无法测量，暂未验证”。
 
 ## 已完成的历史批次
 
@@ -39,11 +42,10 @@
 
 ## 状态策略与唯一下一任务
 
-- 当前问题状态：代码、静态检查、Node 自动化和构建已完成，转为“待用户复核”；微信开发者工具与 Xiaomi 14 原生
-  证据当前工具无法测量，不能写成真机通过。
-- 唯一下一任务：下一版 Xiaomi 14 按 `docs/audit/exp-feat-002-event-records.md` 的 5 步最小验收核对匹配短 SHA、
-  真实 sheet、loading/empty/error/retry、关闭/切班次隔离和无权边界；用户复核完成前不开始新的事件/日期/图标任务。
-- Checkpoint commit：`fix(miniprogram): align shift event records with Web`；提交内容仅包含本批事件入口、共享
-  sheet 内容、测试、对齐文档、黄金清单和状态记录。
-- 主线收口规则：在最新远端主线确认后只做一次普通 fast-forward 推送到 main，不 force push、不上传体验版、不部署
-  production；推送完成后停止。
+- 当前问题状态：实现、静态检查、Node 自动化和构建已完成，进入“待用户复核”；不得写成 Xiaomi 14 真机通过。
+- 唯一下一任务：用户在与最终主线 SHA 匹配的构建上按最终回复的 4 步路径复核 Xiaomi 14 的跟手、阈值、回弹、
+  today、跨年和关闭重开；本轮不上传、不部署，用户复核前不开始其他日期/图标任务。
+- Checkpoint commit：`fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`（提交前状态已写入；提交后用
+  同一 worktree 补记实际短 SHA）。
+- 主线收口规则：重新确认最新远端主线后，只做一次普通 fast-forward 推送到 `main`，不 force push、不上传体验版、
+  不部署 production；推送完成后停止。

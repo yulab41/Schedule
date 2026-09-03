@@ -61,7 +61,7 @@
     style="height:{{viewportHeight}}px"
     current="{{swiperCurrent}}"
     duration="{{swiperDuration}}"
-    easing-function="easeOutCubic"
+    easing-function="{{swiperEasingFunction}}"
     circular="{{true}}"
     skip-hidden-item-layout="{{false}}"
     bindchange="handleMonthChangeStart"

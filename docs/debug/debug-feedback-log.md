@@ -2,6 +2,30 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-03 EXP-CALENDAR-003 请假日期选择器修复
+
+- 基线/范围：在代码修改前从执行时最新 `origin/main@0792ed01` rebase 的独立 worktree
+  `runtime/external-project-worktrees/exp-calendar-003-20260902` 工作；只改日期选择器月切换、today 定位、选中态和
+  相关连续性测试，不处理图标系统、`MINI-G1-004`、月份滚轮、API/数据库或生产发布。
+- 引入点/根因：`git log -S`/`git blame` 定位旧日期 `handleDateSwiperChange` 到 `b5603189`，today 图标 timer 到
+  `0975b2d1`。旧实现把原生 swiper change 与整窗 `setData`/`dateSwiperIndex: 1` 中心复位绑定，破坏跟手动画；
+  today 直接替换整月，timer 只反馈图标而不是定位管线。
+- 测试先行：新增共享 pager 状态机、日期静态视觉合同；旧实现先因缺共享模块、旧事件/中心复位和蓝色 token 失败。
+  实现后日期/状态定向 6 files/63 tests 全绿；扩展覆盖取消回弹、快速按钮队列、月底截断、跨年逐月 today、关闭重开
+  stale finish、today/selected/weekend/disabled 组合。
+- 修复：新增 `components/calendar/calendar-period-pager.ts`，首页 `calendar-month` 与 `workbench-model` 复用同一
+  三槽映射/状态迁移/240ms、`easeOutCubic`/队列；请假 picker 使用稳定物理 `slot` key，change 仅预锁，animationfinish
+  提交，目标月份先进入相邻槽，跨多月 today 每次完成后继续一月。未引入 WXS/Worklet/touchmove 第二 owner。
+  选中背景改用 `--ui-color-today-marker`，文字 `--ui-color-near-black`，today/disabled/周末规则保持可区分。
+- 验证：Mini 全量 `118 files / 642 tests`；Mini typecheck、282-file production build、verify/source/package/
+  determinism；根 `pnpm verify` 为 `246 passed / 37 skipped`、`1170 passed / 364 skipped`；根格式、ESLint、
+  `git diff --check`、`pnpm smoke:check-core` 均通过。package `5,151,892B`，main `1,715,718B`，仅既有主包/矩阵/
+  Web 大 chunk warning。未上传体验版、未部署 production。
+- 运行/原生验证：仅有静态检查、Node 自动化和构建证据；未调用微信开发者工具，当前工具无法测量 Xiaomi 14 实际帧率、
+  手势阻尼和丝滑度，最终状态为“已完成（含运行验证）→ 待 Xiaomi 14 用户复核”。本轮 checkpoint 识别消息为
+  `fix(miniprogram): smooth EXP-CALENDAR-003 leave date picker`，提交后补记实际 SHA；一次普通 fast-forward 推送
+  `main` 后停止。
+
 ## 2026-09-02 EXP-UX-001 最终体验上传与 production 收口
 
 - 最终源码 tip 为 `3897581e7a8d5734ef5910e2dd8854a92c246062`：在 `d1594d09` EXP 修复 tip 上合入当前

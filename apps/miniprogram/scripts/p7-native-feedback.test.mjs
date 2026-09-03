@@ -275,7 +275,7 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerStyles).not.toMatch(/\.workflow-picker-wheel-item\.is-animating/u);
     expect(pickerTemplate).toContain("dateLocateAnimating ? 'is-animating' : ''");
     expect(pickerTemplate).toContain('hover-start-time="0"');
-    expect(pickerTemplate).toContain('wx:key="key"');
+    expect(pickerTemplate).toContain('wx:key="slot"');
   });
 
   it('matches the Web request Sheet, compact reason fields, buttons, and Done action', () => {

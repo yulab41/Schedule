@@ -1,3 +1,21 @@
+import {
+  CALENDAR_PERIOD_SWIPER_DURATION_MS,
+  CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
+  cancelCalendarPeriodShift,
+  commitCalendarPeriodSwipe,
+  createCalendarPeriodPagerState,
+  finishCalendarPeriodShift,
+  isCalendarPeriodSlot,
+  mapCalendarPeriodRing,
+  placeCalendarPeriodTarget,
+  prepareCalendarPeriodChange,
+  requestCalendarPeriodShift,
+  takeQueuedCalendarPeriodShift,
+  type CalendarPeriodPagerState,
+  type CalendarPeriodRelative,
+  type CalendarPeriodSlot,
+} from '../../../../components/calendar/calendar-period-pager.js';
+
 interface WorkflowPickerOption {
   readonly isWeekend?: boolean;
   readonly label: string;
@@ -19,6 +37,7 @@ interface WorkflowPickerDateCell {
   readonly day: number;
   readonly disabled: boolean;
   readonly isSelected: boolean;
+  readonly isToday: boolean;
   readonly isWeekend: boolean;
   readonly muted: boolean;
   readonly value: string;
@@ -27,6 +46,8 @@ interface WorkflowPickerDatePanel {
   readonly cells: readonly WorkflowPickerDateCell[];
   readonly key: string;
   readonly month: number;
+  readonly relative: CalendarPeriodRelative;
+  readonly slot: CalendarPeriodSlot;
   readonly year: number;
 }
 
@@ -56,6 +77,11 @@ interface DateSwiperEvent {
 }
 
 interface WorkflowPickerInstance {
+  _dateLocateTarget?:
+    { readonly day: number; readonly month: number; readonly year: number } | undefined;
+  _datePager?: CalendarPeriodPagerState;
+  _datePendingSelection?:
+    { readonly day: number; readonly month: number; readonly year: number } | undefined;
   _dateLocateTimer?: unknown;
   _monthWheelSequence?: number;
   _wheelRuntimeId?: string;
@@ -66,6 +92,8 @@ interface WorkflowPickerInstance {
     readonly dateLocateAnimating: boolean;
     readonly datePanels: readonly WorkflowPickerDatePanel[];
     readonly dateSwiperIndex: number;
+    readonly dateSwiperDuration: number;
+    readonly dateSwiperEasingFunction: string;
     readonly days: readonly number[];
     readonly draftDay: number;
     readonly draftDisplayValue: string;
@@ -131,6 +159,8 @@ Component({
     dateLocateAnimating: false,
     datePanels: [] as readonly WorkflowPickerDatePanel[],
     dateSwiperIndex: 1,
+    dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
     days: Array.from({ length: 31 }, (_, index) => index + 1),
     draftDay: 1,
     draftDisplayValue: '',
@@ -158,10 +188,12 @@ Component({
   lifetimes: {
     attached(this: WorkflowPickerInstance): void {
       pickerInstances.add(this);
+      resetDatePager(this);
       this.setData(createWheelRuntimePatch(this));
     },
     detached(this: WorkflowPickerInstance): void {
       clearPickerTimer(this);
+      resetDatePager(this);
       resetWheelSequences(this);
       pickerInstances.delete(this);
     },
@@ -180,6 +212,7 @@ Component({
         }
       }
       clearPickerTimer(this);
+      resetDatePager(this);
       const wheelRuntime = beginWheelGeneration(this);
       this.triggerEvent('pickerrequestopen', {}, { bubbles: true, composed: true });
       if (this.properties.mode === 'selector') {
@@ -227,6 +260,8 @@ Component({
           this.properties.max,
         ),
         dateSwiperIndex: 1,
+        dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+        dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
         dateLocateAnimating: false,
         days,
         draftDay,
@@ -292,30 +327,64 @@ Component({
     handleDateNavigate(this: WorkflowPickerInstance, event: DateNavigateEvent): void {
       const offset = Number(event.currentTarget.dataset.offset);
       if (offset !== -1 && offset !== 1) return;
-      const next = new Date(Date.UTC(this.data.draftYear, this.data.draftMonth - 1 + offset, 1));
-      const year = next.getUTCFullYear();
-      const month = next.getUTCMonth() + 1;
-      const days = createDayValues(year, month);
-      const draftDay = Math.min(this.data.draftDay, days.length);
-      this.setData(createDateDraftPatch(this, year, month, draftDay));
+      if (this._dateLocateTarget !== undefined) return;
+      startDateProgrammaticShift(this, offset);
     },
 
-    handleDateSwiperChange(this: WorkflowPickerInstance, event: DateSwiperEvent): void {
-      const offset = event.detail.current - 1;
-      if (offset !== -1 && offset !== 1) return;
-      const next = new Date(Date.UTC(this.data.draftYear, this.data.draftMonth - 1 + offset, 1));
-      const year = next.getUTCFullYear();
-      const month = next.getUTCMonth() + 1;
-      const day = Math.min(this.data.draftDay, createDayValues(year, month).length);
-      this.setData(createDateDraftPatch(this, year, month, day));
+    handleDateSwiperChangeStart(this: WorkflowPickerInstance, event: DateSwiperEvent): void {
+      const current = Number(event.detail.current);
+      const state = readDatePagerState(this);
+      if (!prepareCalendarPeriodChange(state, current)) return;
+      writeDatePagerState(this, state);
+      const targetPanel = this.data.datePanels[current];
+      if (targetPanel !== undefined) {
+        this._datePendingSelection = {
+          day: Math.min(
+            this.data.draftDay,
+            createDayValues(targetPanel.year, targetPanel.month).length,
+          ),
+          month: targetPanel.month,
+          year: targetPanel.year,
+        };
+      }
+    },
+
+    handleDateSwiperFinish(this: WorkflowPickerInstance, event: DateSwiperEvent): void {
+      const current = Number(event.detail.current);
+      const state = readDatePagerState(this);
+      if (!isCalendarPeriodSlot(current)) return;
+      if (current === state.activeSlot) {
+        if (state.targetSlot === undefined) return;
+        cancelCalendarPeriodShift(state);
+        writeDatePagerState(this, state);
+        this._dateLocateTarget = undefined;
+        this._datePendingSelection = undefined;
+        return;
+      }
+      const committed = commitCalendarPeriodSwipe(state, current);
+      if (committed === undefined) return;
+      writeDatePagerState(this, state);
+      applyDatePeriodChange(this, committed.delta);
     },
 
     handleDateToday(this: WorkflowPickerInstance): void {
-      startDateLocateMotion(this);
       const today = currentChinaDateParts();
-      const value = `${today.year}-${pad(today.month)}-${pad(today.day)}`;
+      const value = formatDateValue(today);
       if (isOutsideRange(value, this.properties.min, this.properties.max)) return;
-      this.setData(createDateDraftPatch(this, today.year, today.month, today.day));
+      const state = readDatePagerState(this);
+      if (state.targetSlot !== undefined || state.shiftPending) return;
+      startDateLocateMotion(this);
+      if (today.year === this.data.draftYear && today.month === this.data.draftMonth) {
+        this._dateLocateTarget = undefined;
+        this._datePendingSelection = undefined;
+        this.setData(createDateDraftPatch(this, today.year, today.month, today.day));
+        return;
+      }
+      this._dateLocateTarget = today;
+      const targetMonth = `${today.year}-${pad(today.month)}`;
+      const currentMonth = `${this.data.draftYear}-${pad(this.data.draftMonth)}`;
+      const delta: -1 | 1 = targetMonth < currentMonth ? -1 : 1;
+      startDateProgrammaticShift(this, delta, today);
     },
 
     handleDateSelect(this: WorkflowPickerInstance, event: DateTapEvent): void {
@@ -329,6 +398,10 @@ Component({
       ) {
         return;
       }
+      const state = readDatePagerState(this);
+      if (state.targetSlot !== undefined || state.shiftPending) return;
+      this._dateLocateTarget = undefined;
+      this._datePendingSelection = undefined;
       this.setData(createDateDraftPatch(this, selected.year, selected.month, selected.day));
     },
 
@@ -342,10 +415,21 @@ Component({
         return;
       }
 
+      if (this.properties.mode === 'date') {
+        const state = readDatePagerState(this);
+        if (state.targetSlot !== undefined || state.shiftPending) return;
+      }
+
       const value =
         this.properties.mode === 'month'
           ? `${this.data.draftYear}-${pad(this.data.draftMonth)}`
-          : `${this.data.draftYear}-${pad(this.data.draftMonth)}-${pad(this.data.draftDay)}`;
+          : formatDateValue(
+              this._datePendingSelection ?? {
+                day: this.data.draftDay,
+                month: this.data.draftMonth,
+                year: this.data.draftYear,
+              },
+            );
       this.triggerEvent('change', { value });
       closePicker(this);
     },
@@ -395,6 +479,119 @@ function clearPickerTimer(instance: WorkflowPickerInstance): void {
   instance._dateLocateTimer = undefined;
 }
 
+function readDatePagerState(instance: WorkflowPickerInstance): CalendarPeriodPagerState {
+  if (instance._datePager === undefined) {
+    instance._datePager = createCalendarPeriodPagerState();
+  }
+  return instance._datePager;
+}
+
+function writeDatePagerState(
+  instance: WorkflowPickerInstance,
+  state: CalendarPeriodPagerState,
+): void {
+  instance._datePager = state;
+}
+
+function resetDatePager(instance: WorkflowPickerInstance): void {
+  instance._datePager = createCalendarPeriodPagerState();
+  instance._dateLocateTarget = undefined;
+  instance._datePendingSelection = undefined;
+}
+
+function startDateProgrammaticShift(
+  instance: WorkflowPickerInstance,
+  delta: -1 | 1,
+  locateTarget?: { readonly day: number; readonly month: number; readonly year: number },
+): void {
+  const state = readDatePagerState(instance);
+  const request = requestCalendarPeriodShift(state, delta);
+  writeDatePagerState(instance, state);
+  if (!request.started) return;
+
+  const next = new Date(Date.UTC(instance.data.draftYear, instance.data.draftMonth - 1 + delta, 1));
+  const year = next.getUTCFullYear();
+  const month = next.getUTCMonth() + 1;
+  const day = Math.min(
+    locateTarget?.day ?? instance.data.draftDay,
+    createDayValues(year, month).length,
+  );
+  const targetPanel = createDatePanel(
+    year,
+    month,
+    day,
+    instance.properties.min,
+    instance.properties.max,
+    0,
+    request.targetSlot,
+  );
+  const currentPanels =
+    instance.data.datePanels.length === 3
+      ? instance.data.datePanels
+      : createDatePanels(
+          instance.data.draftYear,
+          instance.data.draftMonth,
+          instance.data.draftDay,
+          instance.properties.min,
+          instance.properties.max,
+          state.activeSlot,
+        );
+  const datePanels = placeCalendarPeriodTarget(currentPanels, state.activeSlot, delta, targetPanel);
+  instance._datePendingSelection = { day, month, year };
+  if (locateTarget !== undefined) instance._dateLocateTarget = locateTarget;
+  else instance._dateLocateTarget = undefined;
+  const generation = instance.data.wheelGeneration;
+  instance.setData({ datePanels }, () => {
+    const currentState = readDatePagerState(instance);
+    if (
+      !instance.data.open ||
+      instance.data.wheelGeneration !== generation ||
+      currentState.targetSlot !== request.targetSlot
+    ) {
+      return;
+    }
+    instance.setData({
+      dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+      dateSwiperIndex: request.targetSlot,
+    });
+  });
+}
+
+function applyDatePeriodChange(instance: WorkflowPickerInstance, delta: -1 | 1): void {
+  const pending = instance._datePendingSelection;
+  const next = new Date(Date.UTC(instance.data.draftYear, instance.data.draftMonth - 1 + delta, 1));
+  const year = pending?.year ?? next.getUTCFullYear();
+  const month = pending?.month ?? next.getUTCMonth() + 1;
+  const day = pending?.day ?? Math.min(instance.data.draftDay, createDayValues(year, month).length);
+  const generation = instance.data.wheelGeneration;
+  instance.setData(createDateDraftPatch(instance, year, month, day), () => {
+    if (!instance.data.open || instance.data.wheelGeneration !== generation) return;
+    instance._datePendingSelection = undefined;
+    finishDatePeriodShift(instance);
+  });
+}
+
+function finishDatePeriodShift(instance: WorkflowPickerInstance): void {
+  const state = readDatePagerState(instance);
+  const settled = finishCalendarPeriodShift(state);
+  writeDatePagerState(instance, state);
+  const locateTarget = instance._dateLocateTarget;
+  if (locateTarget !== undefined) {
+    const targetMonth = formatMonthValue(locateTarget.year, locateTarget.month);
+    const currentMonth = formatMonthValue(instance.data.draftYear, instance.data.draftMonth);
+    if (currentMonth !== targetMonth) {
+      const delta: -1 | 1 = targetMonth < currentMonth ? -1 : 1;
+      startDateProgrammaticShift(instance, delta, locateTarget);
+      return;
+    }
+    instance._dateLocateTarget = undefined;
+  }
+  if (!settled.continues) return;
+  const delta = takeQueuedCalendarPeriodShift(state);
+  writeDatePagerState(instance, state);
+  if (delta !== 0) startDateProgrammaticShift(instance, delta);
+}
+
 function ensureWheelRuntimeId(instance: WorkflowPickerInstance): string {
   if (instance._wheelRuntimeId === undefined) {
     pickerRuntimeSerial += 1;
@@ -432,6 +629,7 @@ function beginWheelGeneration(instance: WorkflowPickerInstance): Readonly<Record
 
 function closePicker(instance: WorkflowPickerInstance): void {
   clearPickerTimer(instance);
+  resetDatePager(instance);
   resetWheelSequences(instance);
   instance.setData({ open: false, wheelGeneration: nextWheelGeneration(instance) });
 }
@@ -507,6 +705,7 @@ function createDateDraftPatch(
   month: number,
   day: number,
 ): Readonly<Record<string, unknown>> {
+  const activeSlot = readDatePagerState(instance).activeSlot;
   return {
     dateCells: createDateCells(year, month, day, instance.properties.min, instance.properties.max),
     datePanels: createDatePanels(
@@ -515,8 +714,10 @@ function createDateDraftPatch(
       day,
       instance.properties.min,
       instance.properties.max,
+      activeSlot,
     ),
-    dateSwiperIndex: 1,
+    dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    dateSwiperIndex: activeSlot,
     days: createDayValues(year, month),
     draftDay: day,
     draftDisplayValue: formatTemporalDisplay('date', year, month, day),
@@ -531,16 +732,40 @@ function createDatePanels(
   day: number,
   min: string,
   max: string,
+  activeSlot: CalendarPeriodSlot = 1,
 ): readonly WorkflowPickerDatePanel[] {
-  return [-1, 0, 1].map((offset) => {
-    const date = new Date(Date.UTC(year, month - 1 + offset, 1));
-    return {
-      cells: createDateCells(date.getUTCFullYear(), date.getUTCMonth() + 1, day, min, max),
-      key: `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}`,
-      month: date.getUTCMonth() + 1,
-      year: date.getUTCFullYear(),
-    };
+  const logicalPanels = ([-1, 0, 1] as const).map((relative) => {
+    const date = new Date(Date.UTC(year, month - 1 + relative, 1));
+    return createDatePanel(
+      date.getUTCFullYear(),
+      date.getUTCMonth() + 1,
+      day,
+      min,
+      max,
+      relative,
+      (relative + 1) as CalendarPeriodSlot,
+    );
   });
+  return mapCalendarPeriodRing(logicalPanels, activeSlot);
+}
+
+function createDatePanel(
+  year: number,
+  month: number,
+  day: number,
+  min: string,
+  max: string,
+  relative: CalendarPeriodRelative,
+  slot: CalendarPeriodSlot,
+): WorkflowPickerDatePanel {
+  return {
+    cells: createDateCells(year, month, day, min, max),
+    key: `${year}-${pad(month)}`,
+    month,
+    relative,
+    slot,
+    year,
+  };
 }
 
 function createYearValues(centerYear: number): readonly number[] {
@@ -559,6 +784,7 @@ function createDateCells(
   min: string,
   max: string,
 ): readonly WorkflowPickerDateCell[] {
+  const todayValue = formatDateValue(currentChinaDateParts());
   const firstWeekday = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
   const currentMonthDays = createDayValues(year, month).length;
   const previousMonth = month === 1 ? 12 : month - 1;
@@ -586,6 +812,7 @@ function createDateCells(
       day,
       disabled: muted || isOutsideRange(value, min, max),
       isSelected: !muted && day === selectedDay,
+      isToday: !muted && value === todayValue,
       isWeekend: weekday === 0 || weekday === 6,
       muted,
       value,
@@ -624,6 +851,18 @@ function currentChinaDateParts(): {
     month: chinaNow.getUTCMonth() + 1,
     year: chinaNow.getUTCFullYear(),
   };
+}
+
+function formatDateValue(value: {
+  readonly day: number;
+  readonly month: number;
+  readonly year: number;
+}): string {
+  return `${value.year}-${pad(value.month)}-${pad(value.day)}`;
+}
+
+function formatMonthValue(year: number, month: number): string {
+  return `${year}-${pad(month)}`;
 }
 
 function parseTemporalValue(
