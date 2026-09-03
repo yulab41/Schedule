@@ -31,10 +31,31 @@
 - 超时复核：首次 Mini 全量与 Web build 并行时，5 个构建型测试命中默认 5 秒超时；对应断言在 30 秒门限下
   全部通过，缓存预热后以原命令单独串行重跑 120/650 全绿，没有修改测试时限或生产逻辑。
 - 运行/浏览器验证：Web 只把原 `#586678` 常量替换为同值 token，未改 Web 几何、motion、交互或核心链路；
-  本 follow-up 未重跑 `pnpm smoke:browser`，`pnpm smoke:check-core` 通过。仓库政策下未调用微信开发者工具；
-  新体验版/Xiaomi 14 仍待重新授权和匹配构建证据。
-- 发布边界：实现 checkpoint 由消息 `fix(miniprogram): align calendar and people icon motion` 标识并推送
-  调查分支；本轮不上传、不提审、不正式发布、不连接或部署 production。
+  本 follow-up 未重跑 `pnpm smoke:browser`，`pnpm smoke:check-core` 通过。仓库政策下未调用微信开发者工具。
+- 候选门禁：实现 checkpoint `5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1` 已推送。managed release
+  worktree 以 Node `v24.14.0`/pnpm `11.9.0` 复用依赖，`.83` production profile、302 files、package
+  `5,170,583 B`、main `1,732,195 B`；source/package/determinism/verify、CI dry-run、38 项定向与上传前后
+  safety checker 通过，`buildDirty=false`/`VERSION_LOCAL=absent`。
+- 版本冲突根因：仅扫描当前分支/docs/runtime 时最高为 `.81`，故先上传 `.82`（196 files、ZIP
+  `2,488,362 B`、manifest `3b06c224176e4e48ef96063afb71069634d7d58f6d4bcaddc9ccec9ce8798376`）。服务器
+  ensure 随后返回 already-present；跨任务读取确认 `EXP-CALENDAR-003` 早已用 `.82` 上传并放行。生产配置 mtime
+  也早于本轮上传。没有全局版本租约是直接原因；`.82` 具有覆盖歧义，不作验收，已通知原任务，未获退役授权故未删除。
+- 并发边界：另一个依赖审计任务曾在 `.82` 后把 fixed release worktree 切回 `1ffab10c`。`.83` 前已协调其暂停
+  fixed worktree 和 helper 编辑；对方报告其 helper 定向 4 files/45 tests 已通过。本任务 prepare 后由独立 safety
+  checker 证明 exact-clean `5285dd17`，上传后再次通过；该任务收到完成通知后解除冻结。
+- 最终上传：`.83` 在本地记录、build profile、近期任务摘要均为 0 占用，生产 capability 为 426；随后同一
+  clean SHA/描述上传成功：196 files、ZIP `2,488,358 B`、manifest
+  `8c67a51e01084d7a09b941fdd9d7a9284d669e49028331ee39fba5c7e31dc313`。直连 IPv4 与已登记上传白名单一致；
+  既有 DNS helper 的“必须 ignored”附加检查失败时尚未上传，随后确认其 pinned A 仍在官方 DNS 且 TLS 可达，
+  只读加载既有用户文件，未修改、复制或暂存该文件。
+- 服务器放行：trusted `ensure .83` 追加 1 个版本并重建 API/Web；首个 TLS EOF、一次 502 在内置第 2 轮健康等待恢复。
+  独立 allowlist verify、带公网 IP 的完整 ECS verifier、`.83=200`、未知 `.84=426` 通过。production release
+  保持 `48488019171924701054354e8f707b08eb4d12fe`；无本分支应用部署、数据库备份/迁移、提审或正式发布。
+- 文档门禁：status/artifact policy 2 files/6 tests、`smoke:check-core` 与 `git diff --check` 通过。额外对两份
+  长期审计 Markdown 执行 Prettier check 时报告表格对齐差异；对 `HEAD` 原文复核同样为非 clean 基线，故没有
+  为本次发布回执批量重排历史表格，也未把该附加检查写成通过。
+- 状态：只有 `.83@5285dd1` 可用于本批 Xiaomi 14 验收；`.81/.82` 均不可替代。发布记录 checkpoint 由
+  `docs(audit): record EXP-ICON-004 B1.1 trial upload` 标识并普通推送调查分支。
 
 ## 2026-09-03 EXP-ICON-004 体验上传与白名单边界
 

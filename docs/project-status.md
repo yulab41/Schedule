@@ -5,7 +5,7 @@
 
 ## 当前仓库批次（2026-09-03）
 
-- 当前活动批次：`EXP-ICON-004-B1.1`；状态为“已完成自动化验证，待新候选上传授权与 Xiaomi 14 复核”。用户在 Xiaomi 14 体验版
+- 当前活动批次：`EXP-ICON-004-B1.1`；状态为“修复体验版已上传并放行，待 Xiaomi 14 复核”。用户在 Xiaomi 14 体验版
   `0.1.0-p10.20260903.81` 指出日历动效与通讯录人员模式图标仍和 Web 不一致；本批只修复这两个已定位差异，
   不重跑阶段 0。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-full-20260903`；分支
@@ -16,9 +16,14 @@
   `docs/audit/exp-icon-004-icon-parity-audit.md`。
 - B1.1 补充设计与计划见 `docs/superpowers/specs/2026-09-03-exp-icon-004-motion-parity-follow-up-design.md` 和
   `docs/superpowers/plans/2026-09-03-exp-icon-004-motion-parity-follow-up-implementation-plan.md`；设计已由用户确认。
-- 当前边界：上一候选曾获当次授权；`0.1.0-p10.20260903.81` 已从 managed `runtime/release-worktree` 的
-  `1ffab10c` clean production profile 上传成功。服务器可信 allowlist `ensure` 已核对该版本已存在并通过验证，未重建容器；随后
-  allowlist `verify` 与完整 ECS verifier 通过。该授权不自动延伸至 B1.1；本轮不上传、不提交审核、不正式发布、不连接或部署 production。
+- 当前发布：`5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1` 已从 managed exact-clean release worktree 以
+  production profile 上传为 `0.1.0-p10.20260903.83`，描述 `exp-icon-004-b1.1-5285dd1`；可信 allowlist
+  已原子追加该版本，独立 verify、带公网 IP 的完整 ECS verifier、`.83=200`/未知 `.84=426` 均通过。
+  未提交审核、未正式发布、未部署本分支应用代码或迁移数据库；production 应用 release 仍为 `48488019`。
+- 版本冲突：分支/本地记录预检只发现 `.81`，故先误用 `.82` 上传一次；随后生产 allowlist no-op 与跨任务核对证明
+  `.82` 已属于 `EXP-CALENDAR-003`。该冲突上传不作为本批验收版本，已通知原任务 `.82` 不再是可靠验收标识；
+  服务器 `.82` 保持 add-only，未获版本退役授权故未删除。最终 `.83` 在本地记录、build profile、近期任务和生产 426
+  四层确认未占用后上传。
 
 ## 本批基线与验证证据
 
@@ -49,6 +54,10 @@
   120 files/650 tests；共享/Web/Mini typecheck、Web build、Mini build/source/package/performance/determinism/
   verify、format、lint、`smoke:check-core` 通过。302 files、package `5,169,730B`、main `1,731,703B`，
   相对 B1 `+947B/+915B`；本批 SVG 净增 863B，无新增 warning 类别或运行时依赖。
+- `.83` release profile 复验：Node `v24.14.0`、pnpm `11.9.0`，302 files、package `5,170,583B`、main
+  `1,732,195B`（含显式版本/描述元数据）；source/package/determinism/verify、credential-free dry-run、38 项定向测试和
+  上传前后 safety checker 均通过。微信回执为 196 code files、ZIP `2,488,358B`、upload manifest
+  `8c67a51e01084d7a09b941fdd9d7a9284d669e49028331ee39fba5c7e31dc313`。
 
 ## 已完成的历史批次
 
@@ -59,10 +68,8 @@
 
 ## 状态策略与唯一下一任务
 
-- 当前问题状态：B1.1 代码与自动化验证完成；`.81` 用户反馈是旧候选问题证据，不得写成新候选 Xiaomi 14 验收通过。
-- 唯一下一任务：创建并普通推送由消息 `fix(miniprogram): align calendar and people icon motion` 标识的
-  B1.1 checkpoint，然后停止在新体验版上传门禁前。
-- B1.1 设计 checkpoint 由提交消息 `docs(design): specify EXP-ICON-004 motion parity fix` 标识；随后实施 checkpoint
-  必须记录实际测试、包体、commit 和推送结果。
-- 任何后续上传都必须重新报告精确 SHA、trial 版本、描述、脏树与测试页并取得当次明确批准；不使用主 worktree ignored 状态，
-  不调用微信开发者工具，不提交审核、不正式发布、不连接或部署 production。
+- 当前问题状态：B1.1 代码、自动化、`.83` 体验上传和服务器放行完成；不得据此写成 Xiaomi 14 验收通过。
+- 唯一下一任务：用户在 Xiaomi 14 打开 `trial 0.1.0-p10.20260903.83`，核对 build `5285dd1` 后复核日历
+  active/inactive/重复点击/reduced-motion 与通讯录人员 1.8 stroke/颜色/520ms destination-only motion；返回环境与观察结果后停止。
+- 发布记录 checkpoint 由提交消息 `docs(audit): record EXP-ICON-004 B1.1 trial upload` 标识并普通推送调查分支。
+- 不调用微信开发者工具，不再上传，不提交审核、不正式发布、不部署应用 production；后续版本必须先跨任务检查版本占用。

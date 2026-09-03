@@ -3,7 +3,7 @@
 ## 当前阶段
 
 - 当前批次：`EXP-ICON-004-B1.1`；针对 `.81` 真机反馈的日历和通讯录人员模式图标差异已完成静态修复与
-  自动化验证，状态为“已实现待新候选上传授权与真机复核”。
+  自动化验证，修复体验版 `.83@5285dd1` 已上传并放行，状态为“待 Xiaomi 14 真机复核”。
 - 执行基线：按执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39` 创建独立干净
   `runtime/external-project-worktrees/exp-icon-004-full-20260903` / `codex/exp-icon-004-full-20260903`；主 worktree 的用户改动未触碰。
 - 范围：底部导航、顶部通知/个人、更多工具、通讯录按钮、日历/事件/导出/工作流控制、身份和状态图标的来源审计与同源迁移；不改业务接口、数据结构、路由语义或业务行为。
@@ -55,13 +55,23 @@
 - B1.1 production build 为 302 files、packageBytes `5,169,730`、main `1,731,703`；相对 B1 候选仅
   `+947 B / +915 B`。本批 8 个新增/变化 SVG 源资产净增 `863 B`，低于 8 KiB follow-up 预算；既有主包和
   600-cell 矩阵 warning 未新增类别。
+- 本轮精确上传候选为 clean `5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1`、production、
+  `0.1.0-p10.20260903.83`、`exp-icon-004-b1.1-5285dd1`。显式元数据构建为 302 files、packageBytes
+  `5,170,583`、main `1,732,195`；source/package/determinism/verify、CI dry-run、定向 38/38 和上传前后
+  safety checker 通过。微信上传回执：196 code files、ZIP `2,488,358 B`、manifest
+  `8c67a51e01084d7a09b941fdd9d7a9284d669e49028331ee39fba5c7e31dc313`。
+- 版本唯一性复核发现 `.82` 已由 `EXP-CALENDAR-003` 上传并放行；本批在仅扫描分支记录后曾误上传 `.82`
+  （manifest `3b06c224…8798376`），不将其作为本批候选，并已通知原任务该标识存在覆盖歧义。最终 `.83`
+  在本地记录/build profile/近期任务/生产 426 四层均无占用；`.82` 未删除，版本退役未获授权。
+- `.83` allowlist `ensure` 原子追加 1 个版本并重建 API/Web；首个 TLS EOF 与一次 502 在内置第 2 轮健康等待恢复。
+  独立 allowlist verify、带公网 IP 的完整 ECS verifier、`.83=200` 与未知 `.84=426` 均通过。production
+  应用 release 保持 `48488019171924701054354e8f707b08eb4d12fe`；未部署本分支代码、未迁移数据库。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：创建并普通推送由消息 `fix(miniprogram): align calendar and people icon motion` 标识的 B1.1
-  checkpoint，然后停止在新体验版门禁前。后续必须重新报告精确 SHA、trial 版本/描述、脏树和测试页并取得当次上传批准。
-- 新体验版真机只需回归本次差异：日历未激活 secondary 色、激活后的 1800ms opacity/draw 观感、重复点击无额外弹跳且仍回到顶部；
+- 唯一下一任务：用户在 Xiaomi 14 核对 `trial .83`、build `5285dd1`、renderer、基础库、微信/Android 版本和构建时间后复核本批；
+  `.81`/`.82` 证据均不能用于 B1.1 验收。
+- 真机只需回归本次差异：日历未激活 secondary 色、激活后的 1800ms opacity/draw 观感、重复点击无额外弹跳且仍回到顶部；
   人员未选中 `#586678`、选中 primary、1.8 线宽、切入 employee 时 520ms 位移、重复点击不重播；再确认 reduced-motion。
-- `.81` 的服务器版本放行保持原状；B1.1 不继承其上传/production 授权。本轮不上传、不连接 Git/ECS production、
-  不做数据库备份/迁移、不提审或正式发布。
-- 当前状态保持“待新体验版 Xiaomi 14 复核”；Node/静态/浏览器构建结果不能代替真机验收。
+- `.81/.82/.83` 服务器版本保持 add-only；本轮不再上传、不做数据库备份/迁移、不提审、不正式发布或部署应用代码。
+- 当前状态保持“待 `.83` Xiaomi 14 复核”；Node/静态/上传/服务器 verifier 不能代替真机验收。

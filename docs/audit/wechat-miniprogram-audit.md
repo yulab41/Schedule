@@ -1185,5 +1185,16 @@ performance/determinism/verify、format/lint 与 `smoke:check-core` 均通过。
 一次与 Web build 并行的 Mini 全量运行出现 5 个构建型测试默认 5 秒超时；延长超时证明断言通过，缓存预热后
 按原命令串行重跑 120/650 全绿，未修改无关测试时限。
 
-本批未运行微信开发者工具、未上传新体验版、未连接或部署 production。下一候选必须重新取得精确上传批准，
-并在 Xiaomi 14 核对日历颜色/循环/重复点击滚动复位、人员 1.8 线宽/颜色/520ms destination-only 动效与 reduced-motion。
+本批未运行微信开发者工具。用户明确批准上传和版本白名单后，从 managed exact-clean
+`5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1` 以 production profile 上传最终未占用版本
+`0.1.0-p10.20260903.83`，描述 `exp-icon-004-b1.1-5285dd1`；微信回执为 196 code files、ZIP
+`2,488,358 B`、manifest `8c67a51e01084d7a09b941fdd9d7a9284d669e49028331ee39fba5c7e31dc313`。
+
+版本预检曾只扫描本分支并误判 `.82` 未占用，上传后生产 allowlist no-op 与跨任务记录证明 `.82` 已由
+`EXP-CALENDAR-003` 使用；该冲突版本不作为任何一方可靠验收标识，原任务已收到通知。最终 `.83` 经本地记录、
+build profile、近期任务和生产 426 四层确认未占用。`.83` trusted ensure 原子追加成功，重建 API/Web 时
+首个 TLS EOF 和一次 502 在第 2 轮健康等待恢复；独立 allowlist verify、带公网 IP 完整 ECS verifier、
+`.83=200`/未知 `.84=426` 均通过。production 应用 release 仍为 `48488019`，未部署本分支代码或迁移数据库。
+
+下一步只在 Xiaomi 14 的匹配 `.83` 上核对日历颜色/循环/重复点击滚动复位、人员 1.8 线宽/颜色/520ms
+destination-only 动效与 reduced-motion；`.81/.82` 证据不能替代。本轮不提审、不正式发布。

@@ -22,7 +22,12 @@ verifier 通过；这不是本批代码的 Git/ECS 部署，也不能代替 Xiao
 
 `.81` 上的后续用户反馈暴露了两项 B1 适配遗漏。B1.1 已按 Web 真值修复：底部日历删除 Mini 私有
 420ms 点击弹跳和 `scaleX` 几何缩放，加入 primary/secondary 同源资产；通讯录人员资产使用 Web 的
-1.8 stroke 与共享未选中色 `#586678`，原 520ms motion 不改。修复只完成静态/Node 验证，尚未上传新体验版。
+1.8 stroke 与共享未选中色 `#586678`，原 520ms motion 不改。修复 commit `5285dd17` 已以未占用版本
+`0.1.0-p10.20260903.83` 上传并完成服务器 allowlist；当前只差匹配 `.83` 的 Xiaomi 14 复核。
+
+版本分配曾出现一次跨任务冲突：`.82` 已属于 `EXP-CALENDAR-003`，本批仅扫描分支记录后又上传了一次 `.82`。
+该标识不用于本批或原任务验收，原任务已收到冲突通知；最终 `.83` 经本地记录、build profile、近期任务与生产
+426 四层确认后使用。版本白名单为 add-only，未获退役授权，故没有删除 `.82`。
 
 ## 审计边界与证据
 
@@ -193,6 +198,11 @@ source revision 和 nodes content hash，生成器会删除自己生成但已不
 | 本批 8 个新增/变化 SVG 源资产 | 2,876 B | 3,739 B | +863 B | ≤8 KiB 资产预算；通过 |
 | 文件数 | 300 | 302 | +2 | 两个 calendar secondary variant，无运行时依赖 |
 
+`.83` exact-clean release profile 因嵌入完整版本/描述元数据，package 为 `5,170,583 B`、main
+`1,732,195 B`；上传为 196 code files、ZIP `2,488,358 B`，manifest
+`8c67a51e01084d7a09b941fdd9d7a9284d669e49028331ee39fba5c7e31dc313`。该口径与上表本地无显式元数据
+构建不同，不能据二者计算性能回归。
+
 基线/候选均为静态 Node package audit；真实冷启动、内存、帧率和 Skyline renderer 开销当前工具无法测量，
 暂未验证。若体验版证据显示首屏或切页回归，优先减少非首屏生成资产或按分包边界延迟加载，不复制页面私有版本。
 
@@ -201,8 +211,8 @@ source revision 和 nodes content hash，生成器会删除自己生成但已不
 | 批次 | 范围 | 风险 | 停止条件/验收 |
 | --- | --- | --- | --- |
 | B1（本分支） | catalog/types/motion、Web adapters、底部/顶部/更多/通讯录/日历/身份/工作流优先图标、旧副本清理 | 低到中；可能有尺寸/颜色/外部 image 动效差异 | TypeScript、契约、全量 Mini tests、Web build、Mini build/verify、包体预算通过；不改变业务行为 |
-| B1.1（本分支） | `.81` 日历 adapter 与通讯录模式资产的视觉规格补齐 | 低；日历 dash 只能 opacity 降级 | 精确契约旧实现 3 红/1 绿、修复后 4/4；Mini 120 files/650 tests、包体和构建门禁通过；待新体验版 |
-| B2（体验版验收） | 用 B1 候选在 Xiaomi 14 Android 微信体验版确认视觉、active-only loop、下拉/关闭、safe-area 和 reduced motion | 中到高；依赖原生 renderer/微信版本 | 只接受匹配 SHA、renderer、基础库、微信版本和构建时间的用户证据；发现回归则回 B1 修复，不继续扩大范围 |
+| B1.1（本分支） | `.81` 日历 adapter 与通讯录模式资产的视觉规格补齐 | 低；日历 dash 只能 opacity 降级 | 精确契约旧实现 3 红/1 绿、修复后 4/4；Mini 120 files/650 tests、包体和构建门禁通过；`.83@5285dd1` 已上传/放行 |
+| B2（体验版验收） | 用 `.83@5285dd1` 在 Xiaomi 14 Android 微信体验版确认视觉、active-only loop 与人员 motion | 中到高；依赖原生 renderer/微信版本 | 只接受匹配 SHA、renderer、基础库、微信版本和构建时间的用户证据；`.81/.82` 均不可替代 |
 | B3（按需） | P3 状态字符/品牌或 visitor/test 专用图标的产品决策 | 中；可能改变语义/品牌边界 | 先有设计确认和真实来源，再单独红绿测试；不与 B1/B2 混批 |
 
 ## 第一实施批次精确 Prompt
@@ -223,7 +233,7 @@ Android 微信体验版确认：
 5. 工作流 picker 的 right/down/up 方向、日期箭头、关闭按钮、滚轮/弹层安全区、返回和 reduced-motion。
 6. 身份 user/lock、导出/通知/状态控件及 390×844/小字体/大字体环境；Android 系统返回、刘海/底部安全区。
 
-B1.1 新候选须额外聚焦：日历未激活颜色、激活循环、重复点击无 420ms 弹跳且滚动复位仍生效；人员
+B1.1 `.83@5285dd1` 须额外聚焦：日历未激活颜色、激活循环、重复点击无 420ms 弹跳且滚动复位仍生效；人员
 active/inactive 颜色与 1.8 线宽、只在切入 employee 时播放一次、520ms 节奏；reduced-motion 下两者均停止非必要动画。
 
 当前不得据此声称 iOS、全部 Android、所有基础库或全平台通过；未取得匹配真机证据前，状态保持“待用户复核”。
