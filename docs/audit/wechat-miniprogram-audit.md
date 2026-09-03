@@ -1,17 +1,17 @@
 # 微信小程序审计报告
 
-- 当前阶段：`MINI-G1-004` 运行证据核查及主线整合已完成；结论为“证据仍不足，保留 P3”，尚未确认真实
-  规模下的用户可见性能问题。`MINI-G1-001`～`MINI-G1-003` 已闭环，且本轮未回退其代码或文档。整合前主线为
-  `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
+- 当前阶段：`MINI-G1-004` 第二阶段补证已完成 production 脱敏聚合和候选适用性核查；结论仍为“证据仍不足，
+  保留 P3”，尚未确认真实规模下的用户可见性能问题。`MINI-G1-001`～`MINI-G1-003` 已闭环，且本轮未回退
+  其代码或文档。当前 `origin/main` 为 `78d0424e19cfc81be142da7e0f5367110f1fc8f2`。
 - 更新时间：2026-09-03（Asia/Hong_Kong）
 - 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；整合 worktree/分支为
   `runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902` /
   `codex/mini-g1-004-evidence-audit-20260902`。
 - 主线较新的 `EXP-UX-002`、`EXP-FEAT-002`、`EXP-CALENDAR-003` 及 `EXP-UX-001` production release
-  结论均已保留；本轮 checkpoint 以 `merge: integrate MINI-G1-004 evidence audit` 识别。
-- 本批性质：只做 `MINI-G1-004` 运行证据核查；新增一个默认不进入生产运行时的、无隐私 synthetic Node/Vitest
-  诊断测试和审计记录，未修改业务实现、API、数据库、权限、路由或既有 G1-001～003 文档，未调用微信
-  开发者工具、未上传体验版、未部署 production，也未修改或清理其他 worktree
+  结论均已保留；前一轮整合 checkpoint 以 `merge: integrate MINI-G1-004 evidence audit` 识别。
+- 本批性质：只做 `MINI-G1-004` 证据补充；复核 Git/上传记录/allowlist 状态，执行一次低影响 production 聚合
+  读取，复用无隐私 synthetic Node/Vitest probe，并补充人工验收说明。未修改业务实现、API、数据库、权限、路由，
+  未调用微信开发者工具，未上传新体验版、未部署 production，也未修改或清理其他 worktree。
 
 ## 2026-09-01 静态审计第 1 组：页面状态、异步链路与列表性能
 
@@ -74,7 +74,7 @@
 | MINI-G1-001 | P1   | 已确认并修复（逻辑层） | `apps/miniprogram/src/subpackages/workflows/components/controller-host.ts:45-104,136-151,267-306`；leave `controller.ts:434-837`；swap `controller.ts:316-350,492-1011,1137-1170`；duty `controller.ts:427-902`；`apps/miniprogram/scripts/workflow-controller-lifecycle.test.mjs:29-357` | 永久测试在未改源码时 7/7 红：detach/unload 后回写、A→B 覆盖、重挂碰撞、并发乱序；统一 token/guard 后 13/13 绿；结构审计覆盖 32 个 async/83 个 await、3 个显式 `.then` 和重复 dispose    | 修复前慢网、切群组或快速返回可让旧续体覆盖新状态；修复后旧续体零状态/UI 副作用，B 正常结果仍更新 | 已实施 host attachment/controller 对象 token、统一 dispose 和全异步 continuation task guard；保留 API/幂等语义 | 自动化已证明逻辑契约；微信原生可见故障未确认，当前不要求真机复现 |
 | MINI-G1-002 | P2   | 已确认并修复           | `apps/miniprogram/src/pages/workbench/index.ts` 的 load generation、`readMonth` 和 `createHolidayReader`；`apps/miniprogram/scripts/workbench-holiday-dedupe.test.mjs`                                                                                                                    | 永久测试在未改业务源码时 3/3 红：同年 5 次；跨年 `[2026,2026,2026,2027,2027]` 且 2027 同时在途 2 次；失败后重试累计 6 次。最小修复后同年 1 次、跨年 2 次且每年一个、失败后重试累计 2 次 | 去掉同一五个月窗口中 4 个重复年度 GET；没有据此声称真机耗时改善                                  | 已实施每个 load generation 的唯一年份 Promise 计划；不建立全局或持久缓存                                       | Node 已证明请求/数据/重试合同；真实 Network 耗时暂未验证         |
 | MINI-G1-003 | P2   | 已确认并修复（逻辑层） | `scheduling-config-panel/controller.ts` 的 `handleRotationInput`/`createRoleCards`；`p8-organization-c2-controller.test.mjs`                                                                                                                                                              | 未改业务源码时 4×100 一字符为 1 次完整 `roleCards`、53,364B、4 次排序、4/4/400 个岗位/成员数组/成员视图重建；修复后为一个稳定 ID 路径、41B、重建与排序均 0；4×2 同为 41B                | 已消除确定性的每字符全量逻辑计算与 bridge payload；真机是否曾出现用户可见迟滞仍未知              | 已保留逻辑层草稿，按当前稳定 `roleId` 定位并只更新目标字段；成员选择/排序继续走必要重建                        | 自动化已证明冗余消除；真机可见卡顿未直接确认，默认不要求复现     |
-| MINI-G1-004 | P3   | 证据仍不足，保留 P3     | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | API/契约无分页或总量上限；1/25/100 无隐私 fixture 均全量 map、全量 ready `setData` 和全量 `wx:for`，节点与 payload 随 N 增长                                                                                                        | 增长关系已确认，但现有生产资料只有聚合总数，不能证明某一页面已达到造成用户影响的规模；Node 毫秒数不外推真机                                             | 补当前版本脱敏逐页规模与匹配 SHA 的原生首屏/滚动证据；达到真实影响阈值后另行批准最小分页/分批方案                                         | 当前无匹配 Xiaomi 14/DevTools 证据；本轮不上传、不部署                              |
+| MINI-G1-004 | P3   | 证据仍不足，保留 P3     | `platform-accounts-panel/controller.ts:189-220`、`index.wxml:59`；`group-settings-panel/controller.ts:610-641,944-1026`、`index.wxml:489-536`                                                                                                                                             | API/契约无分页或总量上限；1/25/100 无隐私 fixture 均全量 map、全量 ready `setData` 和全量 `wx:for`，节点与 payload 随 N 增长；冻结 live release 的脱敏聚合为 platform 35、group final 17/6                                                                 | 真实规模已补到逐群组级别，但尚无 Xiaomi 14 用户影响证据；Node 毫秒数和静态节点估算不外推真机                                             | 使用冻结 `.84@8e6a4a32` 做 Xiaomi 14 首屏/滚动人工验收；达到真实影响阈值后另行批准最小分页/分批方案                                         | `.84` 运行时等价已证；等待匹配 Xiaomi 14 反馈，不上传、不部署                              |
 
 ### MINI-G1-001：共享 workflow host 异步续体失效边界（已确认并修复）
 
@@ -1198,6 +1198,156 @@ payload 和整次加载的 `setData` 总 bytes 为 O(N)。例如 1→100 时，�
    不代替这一步，也不在本轮上传。
 3. 将真实最大 N 与本次 1/25/100 的结构性增长对照：若真实规模仍小且原生操作正常，可关闭或降低 P3；只有
    真实规模与原生表现共同显示用户影响时，才另行批准分页/分批的最小修复设计。
+
+### 12.7 2026-09-03 第二阶段补证：冻结候选、production 脱敏规模与 Xiaomi 14 说明
+
+#### 动态发现与冻结基线
+
+- 本轮开始和 production 查询前均执行 `git fetch origin`。第二次 fetch 后，执行时最新主线为
+  `MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`。
+- 当前可取得且满足上传成功、clean 可追溯源码、版本/SHA 唯一对应、完整 Manifest、source/package/
+  determinism/CI 门禁、allowlist verify 和 production/full verifier 记录的最新体验版为：版本
+  `0.1.0-p10.20260903.84`，源码 SHA
+  `8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`，完整上传 Manifest
+  `a4991a6ce17defc4982959da540141d46f7417be1ecc691905f4cccd508c9fa0`。上传日志起点为
+  `2026-09-03T19:19:59.935+08:00`，profile 为 `production`，clean gate 标记为
+  `production-clean`，最终包体为 `5,152,789 bytes`。上传记录还显示日期组件定向测试 12/12、
+  TypeScript、verify、source/package、determinism、CI dry-run、allowlist ensure/verify 和完整 production
+  verifier 均通过；未提审、未正式发布。
+- 当前服务器实际 live release 独立读取为
+  `LIVE_SERVER_RELEASE=48488019171924701054354e8f707b08eb4d12fe`，没有因体验版或主线 SHA 相同而推定。
+  服务器只读支持版本状态中仍包含 `.84`；当前 Git 版本记录中未发现 `.85` 或更晚的
+  `0.1.0-p10.20260903.*` 记录，也没有发现 `.84` 被撤销或判定为故障的后续记录。
+- 冻结值为：
+
+  ```text
+  EVIDENCE_MAIN_SHA=78d0424e19cfc81be142da7e0f5367110f1fc8f2
+  EVIDENCE_TRIAL_VERSION=0.1.0-p10.20260903.84
+  EVIDENCE_TRIAL_SHA=8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39
+  EVIDENCE_TRIAL_MANIFEST=a4991a6ce17defc4982959da540141d46f7417be1ecc691905f4cccd508c9fa0
+  EVIDENCE_SERVER_RELEASE=48488019171924701054354e8f707b08eb4d12fe
+  EVIDENCE_FROZEN_AT=2026-09-03T22:05:18.4095188+08:00
+  ```
+
+#### `.84` 与主线、live release 的适用性
+
+- `.84@8e6a4a32` 是 `origin/main@78d0424e` 的祖先；对本任务相关运行时 scope 的比较没有差异，包含
+  platform accounts Page/panel 的 TS、WXML、WXSS，group settings Page/panel 的 TS、WXML、WXSS，
+  `organization-read-client`，platform-admin users API route/service/contracts，group members/pending
+  roster/contacts route/service/contracts，以及 build-info、runtime environment、test-tools 和 build
+  profile/config。该 scope 两侧的相关 blob 清单哈希均为
+  `37943122c24e7ddd1772b686b1324f777b0efe4473c1e0c5914c89591bead0e6`，因此 `.84` 对 MINI-G1-004 是
+  运行时语义等价构建，可直接用于本轮真机补证。
+- live release 并不等于主线或体验版，但以 `48488019` 与当前主线比较时，platform-admin、groups
+  members/contacts、permission、client、contracts 和相关 database schema scope 无差异；双方清单哈希均为
+  `ab3be6b4f52e7a801e72d93da2c201d05ce335c904e3243701d684f87ce07654`。因此 production 聚合使用 live
+  release 的实际数据，页面语义引用该 scope 的当前 endpoint 合同；这里只证明相关 scope 等价，不声称三者
+  的完整 Git tree 相同。
+- 冻结后未切换到其他版本。执行期间没有发现更新的合格体验版；因此本轮真机说明只归属于上述 `.84` 冻结基线。
+
+#### Production 只读聚合结果
+
+查询窗口为 `2026-09-03T14:12:44Z`（约 `2026-09-03 22:12:44+08:00`），查询前后 release 均为
+`48488019171924701054354e8f707b08eb4d12fe`，结果有效。首个查询文本在数据库解析阶段因 `groups` 保留字
+停止、没有执行数据读取；修正表名后才执行唯一有效的只读聚合，未写入 production。
+
+查询口径严格按当前 endpoint 语义折叠：平台账号为 `users.deleted_at IS NULL` 的 `/platform-admin/users`
+返回记录（包括 endpoint 会返回的 suspended 状态）；活动群组为未删除群组；members 使用 active membership、
+active user、非 developer admin、非 guest、未删除 membership/user/profile，并以二进制姓名相等规则排除与
+active member 重复的 pending roster；contacts 使用相同有效成员过滤和未删除 contact 的 left-join 行数。
+没有输出完整 API 响应、姓名、手机号、账号、工号、群组名称或真实 ID。
+
+| 匿名活动群组 | active members | pending roster 非重复 | members endpoint 最终有效行数 | contacts endpoint 行数 |
+| --- | ---: | ---: | ---: | ---: |
+| `group-rank-1` | 17 | 0 | 17 | 17 |
+| `group-rank-2` | 6 | 0 | 6 | 6 |
+
+- `/platform-admin/users` 有效返回记录总数：`35`。
+- 活动群组总数：`2`。以 members endpoint 最终有效行数作为群组规模时：最小值 `6`、最大值 `17`、
+  中位数 `11.5`；群组数为 2，P90/P95 不具统计意义，不输出伪精确分位数。
+- 最大列表来自 platform accounts（`35`），不是 group settings（最大 `17`）。
+
+#### 与 N=1/25/100 synthetic probe 对照
+
+既有 `apps/miniprogram/scripts/mini-g1-004-scale-probe.test.mjs` 在 clean G1 worktree 中执行通过：1 file / 1
+test。下表只记录 ready `setData` payload 和静态重复行节点估算；不是微信原生节点、真机耗时或帧率。
+
+| fixture N | platform ready bytes | platform 静态模板节点估算 | group ready bytes | group 静态模板节点估算 |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 341 | 8 | 1,068 | 12 |
+| 25 | 4,860 | 200 | 9,228 | 300 |
+| 100 | 19,000 | 800 | 34,728 | 1,200 |
+
+按既有关系作结构估算（只作为 synthetic 参照）：
+
+- platform accounts 实际 `N=35` 最接近 `N=25`；用 N=1 与 N=100 端点线性插值，ready payload 约
+  `6,749 bytes`，静态重复节点约 `8N=280`。
+- 最大 group settings 实际 `N=17` 最接近 `N=25`；按现有 group ready 线性关系估算约 `6,508 bytes`，
+  静态重复节点约 `12N=204`。
+- 另一个群组 `N=6` 更接近 `N=1`；同口径估算约 `2,768 bytes`，静态重复节点约 `72`。
+- 这些是 synthetic 结构估算，不能称为微信原生节点数、Xiaomi 14 真机耗时、首帧时间或帧率；N 较小不自动
+  关闭 P3，N 较大也不自动触发分页设计。
+
+#### Xiaomi 14 最小人工验收清单（冻结候选 `.84`）
+
+1. 在 Xiaomi 14 体验版打开“更多 → 测试工具”，先抄回完整版本号、短 SHA、`trial/develop`、renderer、
+   基础库、微信版本和手机型号；期望版本为 `0.1.0-p10.20260903.84`、短 SHA `8e6a4a32`。
+2. 若版本或 SHA 任一不匹配，立即停止本轮测试，只回传实际环境信息，不把后续结果归入本冻结候选。
+3. 若匹配，开始屏幕录制；使用已有权限的账号进入平台账号页，等待列表完整出现，记录首屏属于 `<1秒`、
+   `1～2秒` 或 `>2秒`，以及是否白屏、长期 loading、能否立即滚动、按钮是否长期不可操作。
+4. 从顶部连续滚到接近底部，再滚回顶部，记录是否持续卡住、跳动或丢失内容；执行普通返回后重新进入，
+   记录是否正常。全程不启用、停用、删除或修改账号。
+5. 在同一录屏中进入 group settings，优先选择成员最多的现有群组；无法识别时逐个群组只读查看，直到完成
+   成员区域检查。
+6. 打开成员区域并等待列表完整出现，记录相同的首屏、白屏、loading、立即滚动和按钮可操作性结果。
+7. 从顶部滚到接近底部并返回，记录卡住、跳动、丢内容；离开页面后重新进入，记录是否正常。全程不添加、
+   删除、调整成员，不保存任何业务修改。
+8. 停止录屏并回传下方模板；当前 test-tools 没有 MINI-G1-004 专用的原生节点、setData 或 bridge 指标，
+   不复制或虚构这些字段，也不修改运行时增加埋点。
+
+回传模板：
+
+```text
+MINI-G1-004 Xiaomi 14 回传
+测试时间：
+冻结候选：0.1.0-p10.20260903.84 @ 8e6a4a32
+
+测试工具环境：
+- 完整版本号：
+- 短 SHA：
+- trial/develop：
+- renderer：
+- 基础库：
+- 微信版本：
+- 手机型号：
+
+若版本/SHA 不匹配：NOT_MATCHED，停止后续测试。
+
+Platform accounts：
+- 首屏：<1秒 / 1～2秒 / >2秒：
+- 明显白屏：是 / 否：
+- 列表完整：是 / 否：
+- 是否能立即滚动：是 / 否：
+- 是否持续卡住、跳动或丢内容：
+- 是否长期 loading 或按钮不可操作：
+- 返回重进：正常 / 异常：
+
+Group settings（群组只记“成员最多”或“无法识别”，不填群组名称/ID）：
+- 目标群组说明：
+- 首屏：<1秒 / 1～2秒 / >2秒：
+- 明显白屏：是 / 否：
+- 列表完整：是 / 否：
+- 是否能立即滚动：是 / 否：
+- 是否持续卡住、跳动或丢内容：
+- 是否长期 loading 或按钮不可操作：
+- 返回重进：正常 / 异常：
+
+录屏文件：由用户按本地审计约定保存，不上传到聊天中包含生产数据的原始日志。
+```
+
+本节补证不改变处置决策：`MINI-G1-004：证据仍不足，保留 P3，等待匹配构建的 Xiaomi 14 反馈。`
+在收到与冻结版本和 SHA 匹配的用户真机反馈前，不关闭问题、不确认故障、不生成分页或其他业务修复。
+
 ## 13. EXP-UX-002 请假与加扣班弹窗外壳续修
 
 ### 13.1 范围、证据和旧实现红灯

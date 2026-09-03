@@ -5,15 +5,17 @@
 
 ## 当前仓库批次（2026-09-03）
 
-- 当前活动批次：`MINI-G1-004` 调查成果主线整合与 Git 收口。调查结论仍为“证据仍不足，保留 P3”，不进入
-  分页、分批、懒加载或虚拟列表修复。
-- 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；本次整合前最新主线为
-  `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
+- 当前活动批次：`MINI-G1-004` 第二阶段补证（production 脱敏聚合、体验版运行时适用性和 Xiaomi 14 人工验收
+  准备）。调查结论仍为“证据仍不足，保留 P3”，不进入分页、分批、懒加载或虚拟列表修复。
+- 本轮冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
+  `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
+  `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
+- 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；本次补证没有改变主线代码。
 - 执行 worktree：`runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`；主工作区的
   用户自有脏改动、其他 worktree 和其内容未修改、清理、暂存或借用。依赖沿用该 clean worktree，未重新链接
   1,459 个依赖。
-- 本轮只合并四个调查成果文件，不采集 production 数据、不上传体验版、不操作 allowlist、不部署 production；
-  未重跑阶段 0。
+- 本轮只做 Git/上传记录/allowlist 状态的只读复核、一次 production 聚合读取、既有 synthetic probe 和审计文档
+  记录；未上传新体验版、未部署 production、未修改 allowlist，未重跑阶段 0。
 
 ## MINI-G1-004 调查成果
 
@@ -22,8 +24,10 @@
 - scale probe 只使用 synthetic 占位数据，标准 Mini 测试可发现，不进入生产运行时，不包含姓名、手机号、账号或
   真实群组 ID。`N=1/25/100` 显示 platform 行节点估算 `8N`、group member 行估算 `12N`；1→100 时 ready
   bytes 为 `341→19,000`、`1,068→34,728`，setData 次数固定为 4、6，payload 随 N 增长。
-- 现有生产资料仅有 2026-08-25 聚合参考（活动群组 2、owner/admin/member 合计 2/3/21、pending 0、活动
-  用户 35），没有当前 release 的逐页最大 N/分布；既有 P8 测试只有 1 个账号/成员，不能证明已形成用户影响。
+- 冻结 live release 下的 production 只读聚合为：`/platform-admin/users` 有效返回 35 条；活动群组 2 个，
+  匿名成员最终有效行数为 17、6，pending 非重复均为 0，contacts endpoint 行数为 17、6。群组规模统计（最终
+  members 行数）为最小 6、最大 17、中位数 11.5；2 个群组时 P90/P95 不具统计意义。最大列表来自 platform
+  accounts（35）。
 - 桌面 Node wall-clock 只作可重复性记录，不能外推 Xiaomi 14 卡顿；没有匹配构建的原生首绘、节点、滚动或
   bridge 证据。
 
@@ -37,15 +41,23 @@
 
 ## 验证证据与边界
 
-- 复用同一 clean worktree 的既有依赖和 workspace dist，未重新链接 1,459 个依赖。本轮主线发生变化且触及 Mini
-  测试路径，合并后 `pnpm miniprogram:test` 通过 119 files / 643 tests（91.46s）。
-- 合并后 probe 所在的相关 7 files / 31 tests、`pnpm exec vitest run scripts/test-discovery-policy.test.mjs`
-  的 1 file / 3 tests、Prettier、ESLint、`git diff --check` 与状态策略检查均通过；`pnpm smoke:check-core`
-  确认未涉及 Web 核心链路。
+- 已执行两次 `git fetch origin`，冻结前确认 `.84` 与当前主线的 MINI-G1-004 相关路径无差异；trial/main 相关
+  blob 清单哈希均为 `37943122c24e7ddd1772b686b1324f777b0efe4473c1e0c5914c89591bead0e6`。live release 与主线
+  的相关 API/contract scope 也无差异，双方清单哈希均为 `ab3be6b4f52e7a801e72d93da2c201d05ce335c904e3243701d684f87ce07654`。
+- 复用 clean G1 worktree 执行既有 probe：`pnpm --filter @schedule/miniprogram exec vitest run
+scripts/mini-g1-004-scale-probe.test.mjs --fileParallelism=false`，1 file / 1 test 通过（855ms）。本轮未
+  重跑阶段 0 或 Mini 全量测试。
+- production 查询窗口为 `2026-09-03T14:12:44Z`，前后 release 一致；首次 SQL 文本在解析阶段因 `groups`
+  保留字停止、未读取数据，修正后才执行有效的只读聚合。未调用微信开发者工具 GUI/CLI、模拟器、
+  Console/Network、截图或上传；Xiaomi 14 原生首绘、节点、滚动和 bridge 结果仍待用户提供。
+- 文档校验：`git diff --check` 通过；`docs/audit/STATUS.md` 和本文件按仓库 Prettier 规则通过。审计长报告
+  基线本身不是 Prettier clean，本轮未为格式重排历史全文。
+- 决策/偏差：production 聚合首次 SQL 仅在数据库解析阶段因保留字停止，未读取数据；修正后的唯一有效查询
+  前后 release 一致。未取得原生节点或 bridge 指标，不把 synthetic 估算写成真机结果。
 - 本轮按仓库政策未调用微信开发者工具 GUI/CLI、模拟器、Console/Network；Node、静态和 simulate 结果不代替
   微信原生或 Xiaomi 14 验收。
-- 不修改业务运行时代码、API、数据库、权限、路由、锁文件、dist 或其他生成物；最终候选只增加 probe 和更新
-  三份状态/审计文档。
+- 只更新本轮证据记录文档；不修改业务运行时代码、API、数据库、权限、路由、锁文件、dist 或其他生成物。根
+  工作区既有未跟踪 `.agents/`、`runtime/`、`src/` 和本地表格保持原样。
 
 ## 仓库级 Skill 发现修复（2026-09-03）
 
@@ -60,9 +72,9 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：补“当前 release 脱敏规模 + 匹配构建的小米 14”证据，包括逐页规模/分布、SHA/trial、renderer、
-  基础库、微信版本、首屏/节点/滚动结果；补证前保持 `MINI-G1-004` P3。
-- 本批停止条件：合并后相称门禁、四文件清单和 Git 状态确认完成，以普通非强制方式推送 `origin/main` 后停止；
-  不进入业务修复、不上传、不部署。
-- 计划 checkpoint commit message：`merge: integrate MINI-G1-004 evidence audit`；提交后以最终主线 SHA 作为
-  可接续身份。
+- 唯一下一任务：用户在冻结的 `0.1.0-p10.20260903.84@8e6a4a32` 上完成 Xiaomi 14“更多 → 测试工具”环境
+  抄录和两个页面的只读首屏/滚动录屏反馈；若版本或 SHA 不匹配，停止测试并只回传实际环境信息。
+- 本批停止条件：当前补证结果已记录，等待匹配构建的 Xiaomi 14 反馈；不进入业务修复，不上传，不部署。最终状态
+  保持 `MINI-G1-004：证据仍不足，保留 P3，等待匹配构建的 Xiaomi 14 反馈。`
+- 计划 checkpoint commit message：`docs(audit): record MINI-G1-004 second-stage evidence`；提交后继续以当前
+  `origin/main` 和冻结 evidence baseline 作为身份，不把文档提交 SHA 当成体验版源码 SHA。
