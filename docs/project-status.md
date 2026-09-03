@@ -76,6 +76,22 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - 本批不改应用/数据库/迁移/构建产物，不安装依赖、不上传、不创建 production 备份或连接服务器；并行的
   `docs/audit/STATUS.md`/审计报告改动保持用户所有且不暂存，本 checkpoint 不接管其下一任务或停止条件。
 
+## 仓库级 Skill 依赖环境生命周期（2026-09-04）
+
+- 已把用户批准的 dependency environment lifecycle 完整写入按需加载的 `worktree-and-bootstrap.md`；短
+  `SKILL.md` 只增加安装前路由和复用硬门禁，未复制整章规范。
+- Skill 校验器现固定检查 conversation/branch/SHA 不自动失效、完整指纹维度、健康 `node_modules` 复用、
+  worktree 池持久化、禁止 `git clean -xfd`、禁止跨 worktree 共享可写依赖以及 workspace 输出独立指纹。
+- 当前 `main` 只有 release worktree 的 tracked-input marker，没有专用分支 `5c45236d` 中完整的通用
+  `scripts/codex/*` 池化 helper；本批不移植该提交或声称已有完整 checker。适用 helper 不能覆盖全部维度时必须
+  停止并报告，不能用重装代替检查。
+- 定向红绿校验先捕获缺少 lifecycle 路由，补齐后通过：结构 13 文件、front matter、YAML、9 个 Markdown/64
+  个链接、3 个 PowerShell 语法和只读 AST、context dry-run、Prettier、`pnpm smoke:check-core` 与
+  `git diff --check` 均通过；未触发核心浏览器 smoke。
+- 本批不修改业务功能、依赖、锁文件、构建产物或生产状态；未运行 `pnpm install`、全仓 verify、production
+  build、包体审计、微信上传、production SSH/备份/部署。checkpoint 以
+  `docs(agent): preserve dependency environments across conversations` 识别。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：用户在冻结的 `0.1.0-p10.20260903.84@8e6a4a32` 上完成 Xiaomi 14“更多 → 测试工具”环境
