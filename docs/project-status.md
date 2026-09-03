@@ -6,16 +6,16 @@
 ## 仓库与生产基线（2026-08-28）
 
 - 分支：`main`；运行时代码 checkpoint 为
-  `353ec1b927df25ac00ee3b9b81c9a327e4b1ef97`。最终状态以“包含本文件的 Git HEAD”为
+  `dffef1f2ef7640110bb390c97810fe4394d01d08`。最终状态以“包含本文件的 Git HEAD”为
   Git/origin/production 对齐标识，并通过 hash-identical reuse 同步，不重启应用。
-- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.61@353ec1b`，177 code files，zip
-  `2,315,373` bytes，upload manifest `e114414feef8ceaa7b031b3ca574e04c1dfecd3e455b81d90f1855b9284e2ef9`。
-- `.59/.60/.61` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
+- 当前生产小程序最终体验候选：`0.1.0-p9.20260828.62@dffef1f`，178 code files，zip
+  `2,333,143` bytes，upload manifest `f6cd22018b046c8f015533fca3030f81b9d87aa23cbf1d5ff3bff2534cd843b0`。
+- `.59/.60/.61/.62` 已通过正式 `schedule-client-version-allowlist ensure/verify` 加入白名单；`.55-.58` 因来源
   污染、Summer 超时或上传 IP 拒绝而废弃，均未进入白名单。global/core/workflows/organization/
   insights/externalMessages/guest 七维均为 `true`，未知版本返回 426。
 - 当前生产数据库 schema 52；最近一次已完成发布备份为
-  `ed1d8535-810c-470b-b790-8d2e207cc1bc`（55 表、182,020 行、83,433,628 bytes、
-  SHA-256 `a65645d5489576730b311b75abd77ecf85d750565a8d94adbac65750858b5c60`）。
+  `451bff17-6ded-41a6-950f-808e93046a0a`（55 表、182,162 行、83,480,708 bytes、
+  SHA-256 `d1ccaf6b1d75f7a635c55e7e9b83a8737882046037115e303af50c1b428d4b8c`）。
 - 微信体验轨道未提交审核、未正式发布；自动化不得推断审核/正式发布授权。
 
 ## 用户所有的工作树内容
@@ -26,8 +26,8 @@
 - `apps/miniprogram/scripts/group-settings-page.test.mjs`：用户新增成员行回归；导航批次只分 hunk
   暂存自身断言，成员行回归保持未暂存。
 - `apps/miniprogram/src/subpackages/organization/components/group-settings-panel/index.wxml`：用户修复成员 `wx:if`；本轮静态 include 复用但不暂存。
-- 登录会话连续性与群组权限 runtime、测试和视觉稿正由并行任务维护；identity/session/permission
-  脏文件不得整文件暂存。通讯录 panel/card、P10 定向测试、黄金与 RC 文档由本批独占，可显式整路径暂存。
+- 年月滚轮 WXS 探针正由并行任务维护；其 gesture/ui-wheel、坑位索引、RC 与计划文件不得整文件
+  暂存。通讯录/Profile/登录已完成的 checkpoint 只作为当前发布前驱。
 - 通知 Sheet 为本轮明确批次；只能显式暂存通知/API/UiSheet/工作台自身文件，
   不得夹带同一工作树的登录、通讯录、Profile 或其他用户内容。
 - `.agents/`、Web UI2 Storybook 草稿、根 `src/`、`runtime/` 历史证据与工作簿。
@@ -51,9 +51,8 @@
   未知版本 426 与带公网 IP full verifier 均通过，当前只待实体 Android 复核。
 - 群组普通成员权限与日历偏好已获用户书面批准；规格与实施计划为
   `docs/superpowers/specs/2026-08-27-miniprogram-member-permission-design.md` 及对应 `plans/` 文件。
-  当前只落文档 checkpoint，随后以独立测试文件先冻结权限矩阵，不接管登录或通讯录测试 hunk。
-- `.51@99006ba` 已完成 `.50` 前向回滚、自动验证、体验上传、生产同步和 allowlist；实体 Android
-  “恢复 `.49` 表现”的确认可独立进行，不阻塞非滚轮代码设计。
+  代码 `dffef1f2` 已推送并以备份后 trusted reuse 部署；`.62@dffef1f` 已上传、allowlist/full verifier
+  通过，当前只待实体 Android 复核。
 - 用户已批准年月滚轮改走“WXS 单一视图层引擎 → 独立真机探针 → 通过后生产接入”的新方向；
   书面规格为 `docs/superpowers/specs/2026-08-28-miniprogram-workflow-picker-wxs-design.md`。
   已有两次目标 Android Worklet 失败与 WXS 矩阵通过证据，因此不再重复 `.50` 架构；`.51` 运行
@@ -61,18 +60,10 @@
 
 ## 当前活动批次
 
-- 用户已批准把小程序“我的”页按 Web Production 1:1 重建，并增加真实的小程序身份状态与账号级
-  微信头像；不显示真实微信号，头像只在微信快捷登录时可选刷新。
-- 书面规格与计划为 `docs/superpowers/specs/2026-08-27-miniprogram-my-profile-web-parity-design.md`
-  和对应 `plans/` 文件；文档 checkpoint `bb52e47b` 已推送并部署。
-- 引入点：Web 个人值班聚合来自 `ebd1b19f`，Mini 常驻 Profile controller/workbench 入口来自
-  `79a0ae90`，微信快捷登录来自 `e69cfb76`，密码登录禁解绑来自 `75ec2c1d`。
-- Tasks 1–2 已以 `9e42057c`、`3c1b131a`、`6cf71152` 完成共享模型、头像/绑定 API 与 schema 52；
-  Task 3 `f858ae6d`/`9ac508ba` 已发布 `.53/.54`，完成私有头像缓存与 chooseAvatar 登录刷新。
-- Task 4 已测试先行完成 Web 1:1 controller/WXML/WXSS、成员请求降级、群组陈旧隔离、访客/无群组、
-  绑定/解绑、头像恢复、密码 proof 与统计/日历导航；checkpoint 识别消息为
-  `feat(miniprogram): match web profile experience`。`.60@353ec1b` 已从锁定快照上传，正式 allowlist、七维能力、
-  未知版本 426 与带公网 IP full verifier 通过，当前只待实体 Android 复核。
+- 权限批次自动验收已完成：成员“更多”精确保留六项，群组页保留只读资料、退出、手机号公开与
+  个人日历偏好；群主/管理员保留管理工具和群组默认，平台账号仅后台管理员。
+- 当前状态为“已完成（含运行验证）→待用户实体 Android 复核”。并行 WXS 滚轮探针保持用户所有且
+  与权限 checkpoint 隔离；不提审、不正式发布。
 
 ## 已完成的发布基线与当前修复
 
@@ -145,6 +136,10 @@
   环境跳过）。全端 build/typecheck、production verify/determinism/source/package/performance/CI dry-run 与 core
   smoke 通过；总包 5,006,692 bytes、主包 1,579,433 bytes 仅触发 1.5M 预警且低于 1.8M 阻断线，
   manifest `45c97151fc82910951b44ecbb6aa7a0544f8b9f76b1b00a38336016ce188069e`。
+- 权限批次旧实现红灯覆盖缺失客户端、成员事件/通知误禁、管理项仍渲染、创建/加入可调用及偏好失败
+  隔离；实现后 Mini 103 files/499 tests、root 239 files/1,125 tests 通过（37 files/355 tests 按环境
+  跳过），全端 build/typecheck、任务代码 Prettier/ESLint、production verify/CI dry-run 与 core smoke 通过。
+  clean checkpoint 包 5,067,668 bytes、main 1,593,819 bytes、2/2 Worklet，manifest `8d1dbdfe…2123c`。
 - 通知定向：API SQL/Client Core/Storybook 3 files/6 tests；Mini build-tools/UiSheet/通知/工作台
   7 files/33 tests 通过。Web typecheck/build/Storybook build 通过；390/320/大字号均 ready 且无水平溢出。
 - 通知干净 checkpoint Mini typecheck/production verify/determinism/package/CI dry-run 通过；2/2 Worklet，
@@ -208,6 +203,9 @@
   `docs(status): record profile web parity deployment`，发布备份为 `ed1d8535-810c-470b-b790-8d2e207cc1bc`。
 - 登录 `.61@353ec1b` 官方上传 177 code files/zip 2,315,373/upload manifest `e114414f…e2ef9`；
   正式 ensure/verify、七维 capability、未知版本 426 与带公网 IP full verifier 通过。
+- 权限代码 `dffef1f2` 已推送；`.62` 官方上传 178 code files/zip 2,333,143/manifest `f6cd2201…43b0`。
+  备份 `451bff17-6ded-41a6-950f-808e93046a0a` 后制品全哈希相同，trusted reuse 无停机切换；正式
+  ensure/verify、七维 capability、未知版本 426、公网 full verifier 与远端 temp 清理通过。
 
 ## 语义与偏差记录
 
@@ -234,13 +232,15 @@
 - 通讯录本批唯一请求变化为进入时科室/人员各一次 facets 与收藏索引轻量预热；未搜索/筛选不读取
   列表，模式切换零请求。每模式异步序号、偏好 owner/group/kind key、分页、号码可拨规则、收藏
   一次存储和拨号一次副作用不变；群组变化、卸载或 organization 失效同时作废两页。
+- 权限批次将 `canManageScheduleTools/allowMembers` 替换为逐工具纯矩阵；渲染、群组切换和点击均使用
+  当前角色/capability，拒绝路径零导航。新增偏好读取为一次 preferences + 一次现有 config GET，保存
+  各一次 PUT；Bearer、receiver、Promise/catch、严格解码与 `null` 跟随语义不变，无缓存/离线写队列。
 
 ## 下一步与停止条件
 
-1. 登录 `.61@353ec1b` 等待实体 Android 复核 D0468/admin、登录直达主页、“我的”资料和 390/320
-   登录布局；Profile `.60` 与通讯录 `.59` 按各自 RC 独立复核。
-2. 权限批次可在登录最终状态 checkpoint 推送并生产同步、共享索引释放后，取 `.61` 之后的下一
-   单调版本。
+1. 用户用实体 Android 复核普通成员六项“更多”、群组只读边界、退出/手机号公开和个人偏好；
+   群主/管理员复核群组默认偏好，后台管理员复核平台账号。
+2. 并行 WXS 滚轮探针按其独立计划继续，不修改或回退权限 checkpoint。
 
-停止条件：登录 Git/origin/production/`.61` 自动验收完成并转为“待实体 Android 复核”；权限批次
-使用后续单调版本。不得提交审核或正式发布，也不得将失败/来源不明的 `.55-.58` 加入 allowlist。
+停止条件已满足：权限 Git/origin/production/`.62`/allowlist 对齐，等待实体 Android；不得提审、
+正式发布或将失败/来源不明的 `.55-.58` 加入 allowlist。

@@ -61,8 +61,10 @@ describe('P7 native swap workflow page', () => {
     ]);
     expect(workbench).toContain('bindtap="handleSwapNav"');
     expect(workbench.match(/\{\{workflowPanelsMounted \? '' : 'is-disabled'\}\}/gu)).toHaveLength(
-      3,
+      1,
     );
+    expect(workbench).toContain('wx:if="{{toolAccess.leave}}"');
+    expect(workbench).toContain('wx:if="{{toolAccess.duty}}"');
     expect(workbenchController).toContain("openWorkflowWorkspace(this, 'swap')");
     expect(leaveTemplate).toContain('bindtap="handleSwapNav"');
     expect(leaveController).toContain('/subpackages/workflows/pages/swap/index?groupId=');

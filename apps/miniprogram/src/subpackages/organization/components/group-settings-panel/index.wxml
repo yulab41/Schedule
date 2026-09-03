@@ -47,7 +47,9 @@
             <text class="section-eyebrow">协作身份</text>
             <text class="page-title">群组管理</text>
           </view>
-          <text class="page-description">创建或加入工作群组，并管理当前群组的共享身份。</text>
+          <text class="page-description"
+            >查看当前群组，并管理自己的日历偏好与联系方式公开设置。</text
+          >
         </view>
 
         <view class="group-identity-band">
@@ -147,6 +149,179 @@
           </view>
         </view>
 
+        <view class="group-card calendar-preferences-card">
+          <view class="group-card-header"><text>日历偏好</text></view>
+          <view class="group-card-body">
+            <view wx:if="{{calendarPreferencesState === 'loading'}}" class="inline-loading">
+              <ui-loading label="正在读取日历偏好"></ui-loading>
+            </view>
+            <view wx:elif="{{calendarPreferencesState === 'error'}}" class="preference-error">
+              <ui-alert
+                tone="danger"
+                title="日历偏好暂时无法加载"
+                message="{{calendarPreferencesError}}"
+              ></ui-alert>
+              <view
+                class="web-button"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleCalendarPreferencesRetry"
+                >重新加载日历偏好</view
+              >
+            </view>
+            <view wx:else class="calendar-preference-sections">
+              <ui-alert
+                wx:if="{{calendarPreferencesError}}"
+                tone="danger"
+                title="日历偏好未保存"
+                message="{{calendarPreferencesError}}"
+              ></ui-alert>
+              <ui-alert
+                wx:if="{{calendarPreferencesInfo}}"
+                tone="success"
+                title="日历偏好"
+                message="{{calendarPreferencesInfo}}"
+              ></ui-alert>
+
+              <view
+                wx:if="{{canManageGroupCalendarDefaults}}"
+                class="calendar-preference-section"
+              >
+                <view class="preference-heading">
+                  <view>
+                    <text class="preference-title">群组日历默认设置</text>
+                    <text>决定成员首次进入日历时看到的视图。</text>
+                  </view>
+                  <text class="preference-scope is-group">群组默认</text>
+                </view>
+                <view class="calendar-view-segment" aria-role="radiogroup">
+                  <view
+                    class="calendar-view-option {{groupCalendarView === 'month' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="month"
+                    aria-role="radio"
+                    aria-checked="{{groupCalendarView === 'month'}}"
+                    bindtap="handleGroupCalendarViewSelect"
+                    >月视图</view
+                  >
+                  <view
+                    class="calendar-view-option {{groupCalendarView === 'week' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="week"
+                    aria-role="radio"
+                    aria-checked="{{groupCalendarView === 'week'}}"
+                    bindtap="handleGroupCalendarViewSelect"
+                    >周视图</view
+                  >
+                  <view
+                    class="calendar-view-option {{groupCalendarView === 'list' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="list"
+                    aria-role="radio"
+                    aria-checked="{{groupCalendarView === 'list'}}"
+                    bindtap="handleGroupCalendarViewSelect"
+                    >列表视图</view
+                  >
+                </view>
+                <view class="field-block">
+                  <text class="field-label">月视图默认班种</text>
+                  <picker
+                    mode="selector"
+                    range="{{groupCalendarShiftOptions}}"
+                    range-key="label"
+                    value="{{groupCalendarShiftIndex}}"
+                    bindchange="handleGroupCalendarShiftChange"
+                  >
+                    <view class="native-picker"
+                      >{{groupCalendarShiftOptions[groupCalendarShiftIndex].label}}</view
+                    >
+                  </picker>
+                </view>
+                <view
+                  class="web-button {{isSavingGroupCalendarDefaults ? 'is-disabled' : 'is-primary'}}"
+                  hover-class="{{isSavingGroupCalendarDefaults ? 'none' : 'is-pressed'}}"
+                  aria-role="button"
+                  aria-disabled="{{isSavingGroupCalendarDefaults}}"
+                  aria-busy="{{isSavingGroupCalendarDefaults}}"
+                  bindtap="handleSaveGroupCalendarDefaults"
+                  >{{isSavingGroupCalendarDefaults ? '正在保存' : '保存群组默认'}}</view
+                >
+              </view>
+
+              <view class="calendar-preference-section is-personal">
+                <view class="preference-heading">
+                  <view>
+                    <text class="preference-title">我的日历偏好</text>
+                    <text>个人设置优先；也可以继续跟随群组。</text>
+                  </view>
+                  <text class="preference-scope">仅自己</text>
+                </view>
+                <view class="calendar-view-segment is-personal" aria-role="radiogroup">
+                  <view
+                    class="calendar-view-option {{memberCalendarView === 'follow' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="follow"
+                    aria-role="radio"
+                    aria-checked="{{memberCalendarView === 'follow'}}"
+                    bindtap="handleMemberCalendarViewSelect"
+                    >跟随群组</view
+                  >
+                  <view
+                    class="calendar-view-option {{memberCalendarView === 'month' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="month"
+                    aria-role="radio"
+                    aria-checked="{{memberCalendarView === 'month'}}"
+                    bindtap="handleMemberCalendarViewSelect"
+                    >月视图</view
+                  >
+                  <view
+                    class="calendar-view-option {{memberCalendarView === 'week' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="week"
+                    aria-role="radio"
+                    aria-checked="{{memberCalendarView === 'week'}}"
+                    bindtap="handleMemberCalendarViewSelect"
+                    >周视图</view
+                  >
+                  <view
+                    class="calendar-view-option {{memberCalendarView === 'list' ? 'is-active' : ''}}"
+                    hover-class="is-pressed"
+                    data-view="list"
+                    aria-role="radio"
+                    aria-checked="{{memberCalendarView === 'list'}}"
+                    bindtap="handleMemberCalendarViewSelect"
+                    >列表视图</view
+                  >
+                </view>
+                <view class="field-block">
+                  <text class="field-label">月视图默认班种</text>
+                  <picker
+                    mode="selector"
+                    range="{{memberCalendarShiftOptions}}"
+                    range-key="label"
+                    value="{{memberCalendarShiftIndex}}"
+                    bindchange="handleMemberCalendarShiftChange"
+                  >
+                    <view class="native-picker"
+                      >{{memberCalendarShiftOptions[memberCalendarShiftIndex].label}}</view
+                    >
+                  </picker>
+                </view>
+                <view
+                  class="web-button {{isSavingMemberCalendarPreferences ? 'is-disabled' : 'is-primary'}}"
+                  hover-class="{{isSavingMemberCalendarPreferences ? 'none' : 'is-pressed'}}"
+                  aria-role="button"
+                  aria-disabled="{{isSavingMemberCalendarPreferences}}"
+                  aria-busy="{{isSavingMemberCalendarPreferences}}"
+                  bindtap="handleSaveMemberCalendarPreferences"
+                  >{{isSavingMemberCalendarPreferences ? '正在保存' : '保存我的偏好'}}</view
+                >
+              </view>
+            </view>
+          </view>
+        </view>
+
         <view wx:if="{{!organizationEnabled}}" class="organization-capability-note">
           <text class="capability-note-title">组织管理写入能力暂未开放</text>
           <text>当前可查看成员与联系方式；启用组织管理能力后才会提交新增、修改或删除。</text>
@@ -223,7 +398,7 @@
           </view>
         </view>
 
-        <view wx:if="{{organizationEnabled}}" class="group-card group-lifecycle-card">
+        <view wx:if="{{canManageGroupLifecycle}}" class="group-card group-lifecycle-card">
           <view class="group-card-header"><text>创建或加入群组</text></view>
           <view class="group-card-body mutation-fields">
             <view class="field-block">
@@ -357,10 +532,7 @@
                   >
                 </view>
               </view>
-              <view
-                wx:if="{{member.canManage || (member.isUnclaimed && !member.isCurrentUser)}}"
-                class="member-row-actions"
-              >
+              <view wx:if="{{member.canManage}}" class="member-row-actions">
                 <view
                   wx:if="{{member.canEdit}}"
                   class="web-button compact-button"

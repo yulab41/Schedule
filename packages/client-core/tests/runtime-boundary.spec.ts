@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 const productionSources = [
   new URL('../src/index.ts', import.meta.url),
   new URL('../src/calendar-client.ts', import.meta.url),
+  new URL('../src/calendar-preferences-client.ts', import.meta.url),
   new URL('../src/client-capability-client.ts', import.meta.url),
   new URL('../src/directory-read-client.ts', import.meta.url),
   new URL('../src/endpoint.ts', import.meta.url),
@@ -54,6 +55,7 @@ describe('client-core runtime boundary', () => {
     expect(bundledInputs).toEqual(
       [
         'packages/client-core/src/calendar-client.ts',
+        'packages/client-core/src/calendar-preferences-client.ts',
         'packages/client-core/src/client-capability-client.ts',
         'packages/client-core/src/directory-read-client.ts',
         'packages/client-core/src/endpoint.ts',

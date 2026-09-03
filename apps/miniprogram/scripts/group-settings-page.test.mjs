@@ -57,7 +57,8 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(source).toContain("'/subpackages/organization/pages/group-settings/index'");
     expect(template).not.toContain('<group-settings-panel');
     expect(template).not.toContain("activeWorkspace !== 'group'");
-    expect(source).toContain("selectedGroup.role !== 'guest'");
+    expect(source).toContain('createWorkbenchToolAccess');
+    expect(source).toContain('toolAccess.groupSettings');
     expect(template).toMatch(/data-label="更多"[\s\S]*?bindtap="handleMoreNav"/u);
   });
 

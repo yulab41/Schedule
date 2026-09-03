@@ -6,6 +6,12 @@ export {
   type CalendarReadClient,
 } from './calendar-client.js';
 export {
+  calendarPreferencesDecoder,
+  calendarPreferencesEndpoints,
+  createCalendarPreferencesClient,
+  type CalendarPreferencesClient,
+} from './calendar-preferences-client.js';
+export {
   createDirectoryReadClient,
   directoryEntryLookupResponseDecoder,
   directoryFacetSnapshotDecoder,

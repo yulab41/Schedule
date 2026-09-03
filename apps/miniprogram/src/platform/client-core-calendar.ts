@@ -2,6 +2,7 @@ import {
   calendarReadEndpoints,
   calendarReadModelDecoder,
   createAuthenticationRequiredError,
+  createCalendarPreferencesClient,
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
   createInsightsReadClient,
@@ -24,6 +25,7 @@ import {
   holidayReadModelDecoder,
   groupMemberListDecoder,
   groupSummaryListDecoder,
+  type CalendarPreferencesClient,
   type CalendarReadClient,
   type ClientTransport,
   type GroupMobilePhoneConsentClient,
@@ -234,6 +236,15 @@ export function createRuntimeCalendarReadClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): CalendarReadClient {
   return createCalendarReadClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
+}
+
+export function createRuntimeCalendarPreferencesClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): CalendarPreferencesClient {
+  return createCalendarPreferencesClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication),
+  );
 }
 
 export function createRuntimeOrganizationReadClient(

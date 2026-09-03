@@ -1,5 +1,6 @@
 import {
   ClientCoreError,
+  type CalendarPreferencesClient,
   type GroupMobilePhoneConsentSubmission,
   type OrganizationReadClient,
   type OrganizationWriteClient,
@@ -10,6 +11,8 @@ import {
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
 import type {
+  CalendarPreferenceView,
+  CalendarPreferences,
   DissolvedGroup,
   GroupCatalogEntry,
   GroupMember,
@@ -17,6 +20,7 @@ import type {
   GroupMobilePhoneConsent,
   GroupSummary,
   MembershipClaimRequest,
+  SchedulingConfig,
 } from '@schedule/contracts';
 import {
   createGroupMobilePhoneConsentDraft,
@@ -27,6 +31,7 @@ import {
 } from '@schedule/presentation-core';
 
 import {
+  createRuntimeCalendarPreferencesClient,
   createRuntimeGroupMobilePhoneConsentClient,
   createRuntimeOrganizationReadClient,
   createRuntimeOrganizationWriteClient,
@@ -86,6 +91,11 @@ interface DissolvedCardView {
   readonly version: number;
 }
 
+interface CalendarShiftOption {
+  readonly label: string;
+  readonly value: string;
+}
+
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
 }
@@ -96,13 +106,21 @@ interface TapEvent {
 
 interface GroupSettingsPageData {
   readonly actionLabel: '已同意' | '保存同意' | '撤回同意';
+  readonly calendarPreferencesError: string;
+  readonly calendarPreferencesInfo: string;
+  readonly calendarPreferencesState: 'error' | 'loading' | 'ready';
   readonly canSave: boolean;
+  readonly canManageGroupCalendarDefaults: boolean;
+  readonly canManageGroupLifecycle: boolean;
   readonly consentState: GroupMobilePhoneConsent['state'];
   readonly contactVersion: number;
   readonly currentGroupCodeDigits: readonly GroupCodeDigitView[];
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
   readonly groupCodeDraft: string;
+  readonly groupCalendarShiftIndex: number;
+  readonly groupCalendarShiftOptions: readonly CalendarShiftOption[];
+  readonly groupCalendarView: CalendarPreferenceView;
   readonly groupNameDraft: string;
   readonly groupVersion: number;
   readonly largeText: boolean;
@@ -138,8 +156,13 @@ interface GroupSettingsPageData {
   readonly errorMessage: string;
   readonly groupCodeAriaLabel: string;
   readonly infoMessage: string;
+  readonly isSavingGroupCalendarDefaults: boolean;
+  readonly isSavingMemberCalendarPreferences: boolean;
   readonly isSaving: boolean;
   readonly maskedMobilePhone: string;
+  readonly memberCalendarShiftIndex: number;
+  readonly memberCalendarShiftOptions: readonly CalendarShiftOption[];
+  readonly memberCalendarView: CalendarPreferenceView | 'follow';
   readonly noticeVersion: string;
   readonly pageScrollStyle: string;
   readonly profileInitial: string;
@@ -152,6 +175,8 @@ interface GroupSettingsPageData {
 }
 
 interface GroupSettingsPageInstance {
+  _calendarPreferencesClient: CalendarPreferencesClient;
+  _calendarPreferencesSerial: number;
   _consentDraft: GroupMobilePhoneConsentDraft | undefined;
   _consentStatus: GroupMobilePhoneConsent | undefined;
   _currentGroupId: string;
@@ -174,6 +199,10 @@ const consentClient = createRuntimeGroupMobilePhoneConsentClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
+const calendarPreferencesClient = createRuntimeCalendarPreferencesClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
 const workbenchClient = createWorkbenchReadClient();
 const organizationReadClient = createRuntimeOrganizationReadClient(
   getStoredWechatToken,
@@ -188,6 +217,11 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
   return {
     data: {
       actionLabel: '保存同意',
+      calendarPreferencesError: '',
+      calendarPreferencesInfo: '',
+      calendarPreferencesState: 'loading',
+      canManageGroupCalendarDefaults: false,
+      canManageGroupLifecycle: false,
       canSave: false,
       consentState: 'not-consented',
       contactVersion: 0,
@@ -195,6 +229,9 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       currentGroupName: '正在读取群组',
       currentGroupRole: '',
       groupCodeDraft: '',
+      groupCalendarShiftIndex: 0,
+      groupCalendarShiftOptions: createCalendarShiftOptions('group', []),
+      groupCalendarView: 'month',
       groupNameDraft: '',
       groupVersion: 0,
       largeText: false,
@@ -230,8 +267,13 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       errorMessage: '',
       groupCodeAriaLabel: '群组码暂不可用',
       infoMessage: '',
+      isSavingGroupCalendarDefaults: false,
+      isSavingMemberCalendarPreferences: false,
       isSaving: false,
       maskedMobilePhone: '',
+      memberCalendarShiftIndex: 0,
+      memberCalendarShiftOptions: createCalendarShiftOptions('member', []),
+      memberCalendarView: 'follow',
       noticeVersion: '—',
       pageScrollStyle: 'height:calc(100% - 64px);',
       profileInitial: '我',
@@ -245,6 +287,8 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     _consentDraft: undefined,
     _consentStatus: undefined,
+    _calendarPreferencesClient: calendarPreferencesClient,
+    _calendarPreferencesSerial: 0,
     _currentGroupId: '',
     _loadSerial: 0,
     _requestedGroupId: '',
@@ -301,6 +345,61 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     handleSave(this: GroupSettingsPageInstance): void {
       void saveConsent(this);
+    },
+
+    handleCalendarPreferencesRetry(this: GroupSettingsPageInstance): void {
+      void loadCalendarPreferences(this);
+    },
+
+    handleGroupCalendarViewSelect(this: GroupSettingsPageInstance, event: TapEvent): void {
+      if (!this.data.canManageGroupCalendarDefaults) return;
+      const view = readCalendarView(event.currentTarget.dataset.view);
+      if (view === undefined) return;
+      this.setData({
+        calendarPreferencesError: '',
+        calendarPreferencesInfo: '',
+        groupCalendarView: view,
+      });
+    },
+
+    handleGroupCalendarShiftChange(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
+      if (!this.data.canManageGroupCalendarDefaults) return;
+      const index = readPickerIndex(event, this.data.groupCalendarShiftOptions.length);
+      if (index === undefined) return;
+      this.setData({
+        calendarPreferencesError: '',
+        calendarPreferencesInfo: '',
+        groupCalendarShiftIndex: index,
+      });
+    },
+
+    handleSaveGroupCalendarDefaults(this: GroupSettingsPageInstance): void {
+      void saveGroupCalendarDefaults(this);
+    },
+
+    handleMemberCalendarViewSelect(this: GroupSettingsPageInstance, event: TapEvent): void {
+      const rawView = event.currentTarget.dataset.view;
+      const view = rawView === 'follow' ? 'follow' : readCalendarView(rawView);
+      if (view === undefined) return;
+      this.setData({
+        calendarPreferencesError: '',
+        calendarPreferencesInfo: '',
+        memberCalendarView: view,
+      });
+    },
+
+    handleMemberCalendarShiftChange(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
+      const index = readPickerIndex(event, this.data.memberCalendarShiftOptions.length);
+      if (index === undefined) return;
+      this.setData({
+        calendarPreferencesError: '',
+        calendarPreferencesInfo: '',
+        memberCalendarShiftIndex: index,
+      });
+    },
+
+    handleSaveMemberCalendarPreferences(this: GroupSettingsPageInstance): void {
+      void saveMemberCalendarPreferences(this);
     },
 
     handleGroupNameInput(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
@@ -386,6 +485,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     },
 
     handleOpenContactEditor(this: GroupSettingsPageInstance, event: TapEvent): void {
+      if (!this.data.canManageMembers) return;
       const memberId = event.currentTarget.dataset.memberId;
       if (memberId === undefined) return;
       const member = this._members.find((candidate) => candidate.id === memberId);
@@ -446,6 +546,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
 async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void> {
   const serial = ++page._loadSerial;
+  page._calendarPreferencesSerial += 1;
   page._consentDraft = undefined;
   page._consentStatus = undefined;
   page._currentGroupId = '';
@@ -456,14 +557,24 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
   page._catalog = [];
   page._dissolvedGroups = [];
   page.setData({
+    calendarPreferencesError: '',
+    calendarPreferencesInfo: '',
+    calendarPreferencesState: 'loading',
+    canManageGroupCalendarDefaults: false,
+    canManageGroupLifecycle: false,
     canSave: false,
     errorMessage: '',
     infoMessage: '',
+    isSavingGroupCalendarDefaults: false,
+    isSavingMemberCalendarPreferences: false,
     isSaving: false,
     managementError: '',
     managementInfo: '',
     managementState: 'loading',
     memberCards: [],
+    memberCalendarShiftIndex: 0,
+    memberCalendarShiftOptions: createCalendarShiftOptions('member', []),
+    memberCalendarView: 'follow',
     claimCards: [],
     catalogCards: [],
     catalogLabels: [],
@@ -475,6 +586,9 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
     rosterNames: '',
     contactEditorOpen: false,
     saveDisabled: true,
+    groupCalendarShiftIndex: 0,
+    groupCalendarShiftOptions: createCalendarShiftOptions('group', []),
+    groupCalendarView: 'month',
     state: 'loading',
     switchDisabled: true,
   });
@@ -487,12 +601,21 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
 
     page._currentGroupId = group.id;
     page._group = group;
+    const capabilitySnapshot = getClientCapabilitySnapshot();
+    const canManageLifecycle = resolveCanManageGroupLifecycle(
+      group,
+      capabilitySnapshot.organization,
+    );
     const statusPromise = consentClient.getStatus(group.id);
     const membersPromise = page._organizationReadClient.listGroupMembers(group.id);
     const contactsPromise = page._organizationReadClient.listGroupContacts(group.id);
-    const claimsPromise = page._organizationReadClient.listMembershipClaimRequests(group.id);
-    const catalogPromise = page._organizationReadClient.listGroupCatalog();
-    const capabilitySnapshot = getClientCapabilitySnapshot();
+    const claimsPromise =
+      group.isDeveloperAdmin === true
+        ? page._organizationReadClient.listMembershipClaimRequests(group.id)
+        : Promise.resolve([] as MembershipClaimRequest[]);
+    const catalogPromise = canManageLifecycle
+      ? page._organizationReadClient.listGroupCatalog()
+      : Promise.resolve([] as GroupCatalogEntry[]);
     const dissolvedPromise =
       capabilitySnapshot.organization && (group.role === 'owner' || group.isDeveloperAdmin === true)
         ? page._organizationReadClient.listDissolvedGroups()
@@ -517,6 +640,7 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
       ...createGroupDirectoryPatch(catalog, dissolved),
     });
     applyConsentStatus(page, status, { state: 'ready' });
+    void loadCalendarPreferences(page);
   } catch (error) {
     if (serial !== page._loadSerial) return;
     page.setData({
@@ -540,6 +664,7 @@ async function loadGroupSettingsWithCapability(page: GroupSettingsPageInstance):
 
 function setGroupSettingsCapabilityError(page: GroupSettingsPageInstance, error: unknown): void {
   if (!(error instanceof ClientCapabilityDisabledError)) return;
+  page._calendarPreferencesSerial += 1;
   page._loadSerial += 1;
   page.setData({
     errorMessage: error.message,
@@ -548,6 +673,156 @@ function setGroupSettingsCapabilityError(page: GroupSettingsPageInstance, error:
     state: 'error',
     switchDisabled: true,
   });
+}
+
+async function loadCalendarPreferences(page: GroupSettingsPageInstance): Promise<void> {
+  const groupId = page._currentGroupId;
+  const serial = page._calendarPreferencesSerial + 1;
+  page._calendarPreferencesSerial = serial;
+  if (groupId === '') return;
+  page.setData({
+    calendarPreferencesError: '',
+    calendarPreferencesInfo: '',
+    calendarPreferencesState: 'loading',
+    isSavingGroupCalendarDefaults: false,
+    isSavingMemberCalendarPreferences: false,
+  });
+  try {
+    const [preferences, config] = await Promise.all([
+      page._calendarPreferencesClient.get(groupId),
+      page._organizationReadClient.getSchedulingConfig(groupId),
+    ]);
+    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    applyCalendarPreferences(page, preferences, config);
+  } catch (error) {
+    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    page.setData({
+      calendarPreferencesError: toUserMessage(error, '日历偏好暂时无法读取，请稍后重试。'),
+      calendarPreferencesInfo: '',
+      calendarPreferencesState: 'error',
+      isSavingGroupCalendarDefaults: false,
+      isSavingMemberCalendarPreferences: false,
+    });
+  }
+}
+
+async function saveGroupCalendarDefaults(page: GroupSettingsPageInstance): Promise<void> {
+  if (
+    !page.data.canManageGroupCalendarDefaults ||
+    page.data.calendarPreferencesState !== 'ready' ||
+    page.data.isSavingGroupCalendarDefaults ||
+    page._currentGroupId === ''
+  ) {
+    return;
+  }
+  const selected = page.data.groupCalendarShiftOptions[page.data.groupCalendarShiftIndex];
+  if (selected === undefined) return;
+  const serial = page._calendarPreferencesSerial;
+  const groupId = page._currentGroupId;
+  page.setData({
+    calendarPreferencesError: '',
+    calendarPreferencesInfo: '',
+    isSavingGroupCalendarDefaults: true,
+  });
+  try {
+    const preferences = await page._calendarPreferencesClient.updateGroupDefaults(groupId, {
+      defaultMonthShiftTypeId: selected.value === '' ? null : selected.value,
+      defaultView: page.data.groupCalendarView,
+    });
+    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    applyCalendarPreferences(page, preferences);
+    page.setData({ calendarPreferencesInfo: '群组日历默认设置已保存。' });
+  } catch (error) {
+    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    page.setData({
+      calendarPreferencesError: toUserMessage(error, '群组日历默认设置未保存，请稍后重试。'),
+    });
+  } finally {
+    if (isCalendarPreferenceRequestCurrent(page, serial, groupId)) {
+      page.setData({ isSavingGroupCalendarDefaults: false });
+    }
+  }
+}
+
+async function saveMemberCalendarPreferences(page: GroupSettingsPageInstance): Promise<void> {
+  if (
+    page.data.calendarPreferencesState !== 'ready' ||
+    page.data.isSavingMemberCalendarPreferences ||
+    page._currentGroupId === ''
+  ) {
+    return;
+  }
+  const selected = page.data.memberCalendarShiftOptions[page.data.memberCalendarShiftIndex];
+  if (selected === undefined) return;
+  const serial = page._calendarPreferencesSerial;
+  const groupId = page._currentGroupId;
+  page.setData({
+    calendarPreferencesError: '',
+    calendarPreferencesInfo: '',
+    isSavingMemberCalendarPreferences: true,
+  });
+  try {
+    const preferences = await page._calendarPreferencesClient.updateMine(groupId, {
+      defaultMonthShiftTypeId: selected.value === '' ? null : selected.value,
+      defaultView: page.data.memberCalendarView === 'follow' ? null : page.data.memberCalendarView,
+    });
+    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    applyCalendarPreferences(page, preferences);
+    page.setData({ calendarPreferencesInfo: '个人日历偏好已保存。' });
+  } catch (error) {
+    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    page.setData({
+      calendarPreferencesError: toUserMessage(error, '个人日历偏好未保存，请稍后重试。'),
+    });
+  } finally {
+    if (isCalendarPreferenceRequestCurrent(page, serial, groupId)) {
+      page.setData({ isSavingMemberCalendarPreferences: false });
+    }
+  }
+}
+
+function applyCalendarPreferences(
+  page: GroupSettingsPageInstance,
+  preferences: CalendarPreferences,
+  config?: SchedulingConfig,
+): void {
+  if (preferences.groupId !== page._currentGroupId) {
+    throw new Error('日历偏好响应与当前群组不匹配。');
+  }
+  const enabledShiftTypes = config?.shiftTypes.filter((shiftType) => shiftType.isEnabled);
+  const groupCalendarShiftOptions =
+    enabledShiftTypes === undefined
+      ? page.data.groupCalendarShiftOptions
+      : createCalendarShiftOptions('group', enabledShiftTypes);
+  const memberCalendarShiftOptions =
+    enabledShiftTypes === undefined
+      ? page.data.memberCalendarShiftOptions
+      : createCalendarShiftOptions('member', enabledShiftTypes);
+  page.setData({
+    calendarPreferencesError: '',
+    calendarPreferencesState: 'ready',
+    canManageGroupCalendarDefaults: preferences.canManageGroupDefaults,
+    groupCalendarShiftIndex: findCalendarShiftIndex(
+      groupCalendarShiftOptions,
+      preferences.groupDefaultMonthShiftTypeId,
+    ),
+    groupCalendarShiftOptions,
+    groupCalendarView: preferences.groupDefaultView,
+    memberCalendarShiftIndex: findCalendarShiftIndex(
+      memberCalendarShiftOptions,
+      preferences.memberDefaultMonthShiftTypeId,
+    ),
+    memberCalendarShiftOptions,
+    memberCalendarView: preferences.memberDefaultView ?? 'follow',
+  });
+}
+
+function isCalendarPreferenceRequestCurrent(
+  page: GroupSettingsPageInstance,
+  serial: number,
+  groupId: string,
+): boolean {
+  return serial === page._calendarPreferencesSerial && groupId === page._currentGroupId;
 }
 
 async function saveConsent(page: GroupSettingsPageInstance): Promise<void> {
@@ -656,6 +931,16 @@ function syncConsentView(page: GroupSettingsPageInstance): void {
   page.setData(createConsentViewPatch(page._consentStatus, page._consentDraft));
 }
 
+function resolveCanManageGroupLifecycle(
+  group: GroupSummary,
+  organizationEnabled: boolean,
+): boolean {
+  return (
+    organizationEnabled &&
+    (group.isDeveloperAdmin === true || group.role === 'owner' || group.role === 'administrator')
+  );
+}
+
 function createOrganizationPatch(
   group: GroupSummary,
   members: readonly GroupMember[],
@@ -666,6 +951,7 @@ function createOrganizationPatch(
   | 'canDissolveGroup'
   | 'canLeaveGroup'
   | 'canManageGroup'
+  | 'canManageGroupLifecycle'
   | 'canManageMembers'
   | 'claimCards'
   | 'groupCodeDraft'
@@ -683,6 +969,7 @@ function createOrganizationPatch(
   const canManageMembers =
     organizationEnabled &&
     (group.role === 'owner' || group.role === 'administrator' || isDeveloperAdmin);
+  const canManageGroupLifecycle = resolveCanManageGroupLifecycle(group, organizationEnabled);
   const canDissolveGroup = organizationEnabled && (group.role === 'owner' || isDeveloperAdmin);
   const canLeaveGroup = organizationEnabled && group.role !== 'owner' && !isDeveloperAdmin;
   const contactByMemberId = new Map(contacts.map((contact) => [contact.membershipId, contact]));
@@ -690,6 +977,7 @@ function createOrganizationPatch(
     canDissolveGroup,
     canLeaveGroup,
     canManageGroup,
+    canManageGroupLifecycle,
     canManageMembers,
     claimCards: claims.map((claim) => ({
       canDecide: canManageMembers && claim.status === 'pending',
@@ -779,7 +1067,7 @@ function formatDeletedAt(value: string): string {
 }
 
 async function createGroup(page: GroupSettingsPageInstance): Promise<void> {
-  if (!(await ensureOrganizationCapability(page))) return;
+  if (!page.data.canManageGroupLifecycle || !(await ensureOrganizationCapability(page))) return;
   const name = page.data.createGroupName.trim();
   const groupCode = page.data.createGroupCode.trim();
   if (name.length === 0) {
@@ -817,7 +1105,7 @@ async function createGroup(page: GroupSettingsPageInstance): Promise<void> {
 }
 
 async function joinGroup(page: GroupSettingsPageInstance): Promise<void> {
-  if (!(await ensureOrganizationCapability(page))) return;
+  if (!page.data.canManageGroupLifecycle || !(await ensureOrganizationCapability(page))) return;
   const selectedId = page.data.selectedCatalogId;
   const selected = page._catalog.find((entry) => entry.id === selectedId);
   const groupCode = page.data.joinGroupCode.trim();
@@ -930,6 +1218,12 @@ async function restoreGroup(page: GroupSettingsPageInstance, groupId: string): P
 }
 
 async function reloadGroupDirectory(page: GroupSettingsPageInstance): Promise<void> {
+  if (!page.data.canManageGroupLifecycle) {
+    page._catalog = [];
+    page._dissolvedGroups = [];
+    page.setData(createGroupDirectoryPatch([], []));
+    return;
+  }
   try {
     const catalog = await page._organizationReadClient.listGroupCatalog();
     const dissolved = page.data.canDissolveGroup
@@ -1227,7 +1521,9 @@ async function reloadOrganizationData(
     const [members, contacts, claims] = await Promise.all([
       page._organizationReadClient.listGroupMembers(group.id),
       page._organizationReadClient.listGroupContacts(group.id),
-      page._organizationReadClient.listMembershipClaimRequests(group.id),
+      group.isDeveloperAdmin === true
+        ? page._organizationReadClient.listMembershipClaimRequests(group.id)
+        : Promise.resolve([] as MembershipClaimRequest[]),
     ]);
     page._members = members;
     page._contacts = contacts;
@@ -1269,6 +1565,41 @@ function resolveOperationId(page: GroupSettingsPageInstance, key: string): strin
 
 function readInputValue(event: ValueInputEvent): string {
   return typeof event.detail?.value === 'string' ? event.detail.value : '';
+}
+
+function readPickerIndex(event: ValueInputEvent, optionCount: number): number | undefined {
+  const rawIndex = event.detail?.value;
+  const index = typeof rawIndex === 'number' ? rawIndex : Number(rawIndex);
+  return Number.isInteger(index) && index >= 0 && index < optionCount ? index : undefined;
+}
+
+function readCalendarView(value: string | undefined): CalendarPreferenceView | undefined {
+  return value === 'list' || value === 'month' || value === 'week' ? value : undefined;
+}
+
+function createCalendarShiftOptions(
+  scope: 'group' | 'member',
+  shiftTypes: SchedulingConfig['shiftTypes'],
+): readonly CalendarShiftOption[] {
+  return [
+    {
+      label: scope === 'group' ? '自动选择首个启用班种' : '跟随群组',
+      value: '',
+    },
+    ...shiftTypes.map((shiftType) => ({
+      label: `${shiftType.name}（${shiftType.abbreviation}）`,
+      value: shiftType.id,
+    })),
+  ];
+}
+
+function findCalendarShiftIndex(
+  options: readonly CalendarShiftOption[],
+  shiftTypeId: string | null,
+): number {
+  if (shiftTypeId === null) return 0;
+  const index = options.findIndex((option) => option.value === shiftTypeId);
+  return index < 0 ? 0 : index;
 }
 
 function uniqueNames(value: string): string[] {

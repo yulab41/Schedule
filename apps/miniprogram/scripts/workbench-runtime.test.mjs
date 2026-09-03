@@ -40,6 +40,11 @@ describe('P6-A workbench runtime coordination', () => {
       canOpenGroupSettings: true,
       currentGroupId: 'group-1',
       groups: [groupSummary()],
+      toolAccess: {
+        ...instance.data.toolAccess,
+        groupSettings: true,
+        leave: true,
+      },
       workflowPanelsMounted: true,
       workflowsEnabled: true,
     });
@@ -68,6 +73,92 @@ describe('P6-A workbench runtime coordination', () => {
       ),
     );
     expect(instance.data.activeWorkspace).toBe('more');
+  });
+
+  it('opens approved member tools and blocks every manager-only route at the handler boundary', async () => {
+    const storage = createStorage();
+    const navigateTo = vi.fn();
+    const runtime = createWx(storage, vi.fn());
+    runtime.navigateTo = navigateTo;
+    runtime.showToast = vi.fn();
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    Object.assign(instance.data, {
+      currentGroupId: 'group-1',
+      groups: [groupSummary()],
+      toolAccess: Object.fromEntries(
+        Object.keys(instance.data.toolAccess).map((key) => [key, true]),
+      ),
+    });
+
+    definition.handleOpenInsights.call(instance);
+    expect(navigateTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        url: '/subpackages/insights/pages/insights/index?groupId=group-1',
+      }),
+    );
+    definition.handleOpenNotifications.call(instance);
+    expect(navigateTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        url: '/subpackages/insights/pages/notifications/index?groupId=group-1',
+      }),
+    );
+
+    instance.data.toolAccess = Object.fromEntries(
+      Object.keys(instance.data.toolAccess).map((key) => [key, true]),
+    );
+    const callCount = navigateTo.mock.calls.length;
+    for (const handler of [
+      definition.handleOpenManualSchedule,
+      definition.handleOpenBackfill,
+      definition.handleOpenSchedulingConfig,
+      definition.handleOpenExports,
+      definition.handleOpenInviteVisitor,
+      definition.handleOpenVisitorAccess,
+      definition.handleOpenPlatformAccounts,
+    ]) {
+      handler.call(instance);
+    }
+    expect(navigateTo).toHaveBeenCalledTimes(callCount);
+    expect(runtime.showToast).toHaveBeenLastCalledWith({
+      icon: 'none',
+      title: '当前账号无权访问此工具。',
+    });
+  });
+
+  it('drops administrator tool access synchronously when switching to a member group', async () => {
+    const storage = createStorage();
+    const runtime = createWx(
+      storage,
+      vi.fn((options) => options.fail?.(new Error('offline'))),
+    );
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    Object.assign(instance.data, {
+      currentGroupId: 'group-owner',
+      groups: [{ id: 'group-owner', name: '管理群', role: 'owner', version: 1 }, groupSummary()],
+      toolAccess: Object.fromEntries(
+        Object.keys(instance.data.toolAccess).map((key) => [key, true]),
+      ),
+    });
+
+    definition.handleGroupSelect.call(instance, {
+      currentTarget: { dataset: { groupId: 'group-1' } },
+    });
+
+    expect(instance.data.currentGroupId).toBe('group-1');
+    expect(instance.data.toolAccess).toMatchObject({
+      groupSettings: true,
+      insights: true,
+      manualSchedule: false,
+      platformAccounts: false,
+    });
+    await vi.waitFor(() => expect(instance.data.state).toBe('error'));
+    definition.onHide.call(instance);
   });
 
   it('opens the notification Sheet only for a current group and accepts unread updates', async () => {
