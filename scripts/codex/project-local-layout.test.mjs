@@ -16,6 +16,7 @@ const toolchainFiles = [
   '.pnpmfile.cjs',
   'scripts/codex/ensure-worktree-deps.ps1',
   'scripts/codex/ensure-workspace-bootstrap.ps1',
+  'scripts/codex/archive-worktree-recovery.ps1',
   'scripts/codex/dependency-maintenance.ps1',
   'scripts/codex/install-tripwire.cjs',
   'scripts/codex/manage-worktree-pool.ps1',

@@ -244,6 +244,22 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - 新增 `scripts/codex/validate-pool-concurrency.ps1`，仅用于确定性并发/溢出门禁；PowerShell AST 与工具链 Node
   tests `17/17` 通过。checkpoint 计划提交：`test(dev): verify warm pool concurrency overflow`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-009（2026-09-05）
+
+- canonical 根已完成项目内 store 迁移并通过 root bootstrap；6 个正式 general 槽位保持 clean/free，`.modules.yaml`
+  均指向 `runtime/pnpm-store/v11`，pool 并发演练结果仍为 6/6 distinct、N+1 `POOL_BUSY`、无 install/新建
+  worktree。
+- `E:\ScheduleWT\guardrails-integrate` 和无依赖的旧内部 pool worktree 已用 Git-aware 操作移除；其余 clean unique
+  worktree 已先写 recovery ref、tracked patch 和 SHA-256 manifest，再按 Windows 长路径结果分类。成功删除 13 个，
+  长路径失败项保留；dirty `directory-query-isolation` 和当前 active task 路径均未删除。
+- 两个失效的 `runtime/audit/preupload-*` 物理目录已从 Git stale 注册中保留为 `invalid-physical-worktree`，因没有
+  linked-worktree metadata 且可能含用户生成数据，不做递归删除；详情和状态 hash 在 `runtime/codex/recovery`。
+- legacy overlay 已覆盖 37 个 retained historical worktree，全部被本地 Git exclude，canonical Skill tree hash 为
+  `e7c83c77…c2cedd0`；从 `test-tools-finalization` 与 dirty historical 路径启动 setup 均输出 `REUSE_ONLY`、
+  `INSTALL_INVOKED=false`、`MANAGED_WORKTREE_NOT_WARM`。
+- 仍有两个 Codex task 处于 active 状态；其中 icon task/审计路径保留，不强行终止或改写。当前 checkpoint 未包含
+  业务源码、lockfile、runtime 数据或用户未跟踪文件。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，
