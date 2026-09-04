@@ -17,6 +17,7 @@ describe('repository test and shell policy', () => {
       'src/**',
       '**/.artifacts/**',
       'apps/miniprogram/scripts/**',
+      'scripts/codex/**',
     ]) {
       expect(config).toContain(`'${pattern}'`);
     }
@@ -30,6 +31,7 @@ describe('repository test and shell policy', () => {
     expect(rootPackage.scripts['miniprogram:test']).toBe(
       'pnpm --filter @schedule/miniprogram test',
     );
+    expect(rootPackage.scripts.test).toContain('node --test scripts/codex/*.test.mjs');
     expect(rootPackage.scripts.verify).toContain('pnpm miniprogram:test');
   });
 

@@ -53,7 +53,7 @@
         bindtap="handleNotification"
       >
         <view class="top-icon bell-icon {{notificationAnimating ? 'is-animating' : ''}}">
-          <image class="top-icon-image" src="/assets/icons/ui-bell.svg" mode="aspectFit" />
+          <image class="top-icon-image" src="/assets/icons/ui-bell-top.svg" mode="aspectFit" />
           <view
             wx:if="{{notificationUnreadCount > 0}}"
             class="notification-dot"
@@ -69,7 +69,7 @@
         bindtap="handleProfileNav"
       >
         <view class="top-icon profile-icon {{profileAnimating ? 'is-animating' : ''}}">
-          <image class="top-icon-image" src="/assets/icons/ui-profile.svg" mode="aspectFit" />
+          <image class="top-icon-image" src="/assets/icons/ui-user.svg" mode="aspectFit" />
         </view>
       </view>
     </view>
@@ -1245,10 +1245,14 @@
       aria-disabled="{{!canOpenGroupSettings}}"
       aria-role="button"
       bindtap="handleDirectoryNav"
-      ><view class="nav-icon nav-directory"
+      ><view class="nav-icon nav-directory {{activeWorkspace === 'directory' ? 'is-looping' : ''}}"
         ><image
           class="nav-icon-image"
-          src="/assets/icons/ui-directory.svg"
+          src="{{activeWorkspace === 'directory' ? '/assets/icons/ui-directory-base.svg' : '/assets/icons/ui-directory-base-muted.svg'}}"
+          mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor"
+          src="{{activeWorkspace === 'directory' ? '/assets/icons/ui-directory-person.svg' : '/assets/icons/ui-directory-person-muted.svg'}}"
           mode="aspectFit" /></view
       ><text>通讯录</text></view
     >
@@ -1261,14 +1265,14 @@
       aria-disabled="{{!workflowPanelsMounted}}"
       aria-role="button"
       bindtap="handleSwapNav"
-      ><view class="nav-icon nav-swap {{navMotion === 'swap' ? 'is-animating' : ''}}"
+      ><view class="nav-icon nav-swap {{activeWorkspace === 'swap' ? 'is-looping' : ''}}"
         ><image
           class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/ui-swap-left.svg"
+          src="{{activeWorkspace === 'swap' ? '/assets/icons/ui-swap-left.svg' : '/assets/icons/ui-swap-left-muted.svg'}}"
           mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor-secondary"
-          src="/assets/icons/ui-swap-right.svg"
+          src="{{activeWorkspace === 'swap' ? '/assets/icons/ui-swap-right.svg' : '/assets/icons/ui-swap-right-muted.svg'}}"
           mode="aspectFit" /></view
       ><text>换班</text></view
     >
@@ -1281,8 +1285,15 @@
       aria-disabled="false"
       aria-role="button"
       bindtap="handleProfileNav"
-      ><view class="nav-icon nav-profile {{profileAnimating ? 'is-animating' : ''}}"
-        ><image class="nav-icon-image" src="/assets/icons/ui-profile.svg" mode="aspectFit" /></view
+      ><view class="nav-icon nav-profile {{activeWorkspace === 'profile' ? 'is-looping' : ''}}"
+        ><image
+          class="nav-icon-image"
+          src="{{activeWorkspace === 'profile' ? '/assets/icons/ui-profile-body.svg' : '/assets/icons/ui-profile-body-muted.svg'}}"
+          mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor"
+          src="{{activeWorkspace === 'profile' ? '/assets/icons/ui-profile-portrait.svg' : '/assets/icons/ui-profile-portrait-muted.svg'}}"
+          mode="aspectFit" /></view
       ><text>我的</text></view
     >
     <view
@@ -1294,18 +1305,18 @@
       aria-disabled="false"
       aria-role="button"
       bindtap="handleMoreNav"
-      ><view class="nav-icon nav-more {{navMotion === 'more' ? 'is-animating' : ''}}"
+      ><view class="nav-icon nav-more {{activeWorkspace === 'more' ? 'is-looping' : ''}}"
         ><image
           class="nav-icon-image nav-icon-actor"
-          src="/assets/icons/ui-more-primary.svg"
+          src="{{activeWorkspace === 'more' ? '/assets/icons/ui-more-primary.svg' : '/assets/icons/ui-more-primary-muted.svg'}}"
           mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor-secondary"
-          src="/assets/icons/ui-more-secondary.svg"
+          src="{{activeWorkspace === 'more' ? '/assets/icons/ui-more-secondary.svg' : '/assets/icons/ui-more-secondary-muted.svg'}}"
           mode="aspectFit" />
         <image
           class="nav-icon-image nav-icon-actor-tertiary"
-          src="/assets/icons/ui-more-tertiary.svg"
+          src="{{activeWorkspace === 'more' ? '/assets/icons/ui-more-tertiary.svg' : '/assets/icons/ui-more-tertiary-muted.svg'}}"
           mode="aspectFit" /></view
       ><text>更多</text></view
     >

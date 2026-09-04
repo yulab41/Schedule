@@ -10,6 +10,7 @@ function readSource(relativePath: string): string {
 describe('Lucide Minimal action icon preview', () => {
   it('keeps the current production geometry intact and animates it only on demand', () => {
     const icon = readSource('../../components/LucideMinimalActionIcon.vue');
+    const generatedMotion = readSource('../../generated/ui-icon-motion.css');
 
     for (const name of [
       'bell',
@@ -21,24 +22,24 @@ describe('Lucide Minimal action icon preview', () => {
       'phone',
       'profile',
     ]) {
-      expect(icon).toContain(`.icon-${name}`);
+      expect(generatedMotion).toContain(`.icon-${name}`);
     }
 
     for (const motion of [
-      'click-bell',
-      'click-department',
-      'click-export-arrow',
-      'click-export-frame',
-      'click-filter-bottom',
-      'click-filter-middle',
-      'click-filter-top',
-      'click-locate',
-      'click-people-primary',
-      'click-people-secondary',
-      'click-phone',
-      'click-profile',
+      'ui-motion-bell-bell',
+      'ui-motion-department-rotor',
+      'ui-motion-export-arrow',
+      'ui-motion-export-frame',
+      'ui-motion-filter-filter-bottom',
+      'ui-motion-filter-filter-middle',
+      'ui-motion-filter-filter-top',
+      'ui-motion-locate-rotor',
+      'ui-motion-people-primary',
+      'ui-motion-people-secondary',
+      'ui-motion-phone-phone-body',
+      'ui-motion-profile-portrait',
     ]) {
-      expect(icon).toContain(`@keyframes ${motion}`);
+      expect(generatedMotion).toContain(`@keyframes ${motion}`);
     }
 
     expect(icon).toContain("import { type IconKey } from '@schedule/ui-icons'");
@@ -50,12 +51,12 @@ describe('Lucide Minimal action icon preview', () => {
 
     expect(icon).toContain('readonly motionKey?: number;');
     expect(icon).toContain('readonly previewMotion?: boolean;');
-    expect(icon).toContain('transform: rotate(90deg);');
-    expect(icon).toContain('transform: translate(2.2px, -2.2px);');
-    expect(icon).toContain('transform: translate(-0.7px, 0.7px);');
+    expect(generatedMotion).toContain('transform: rotate(90deg);');
+    expect(generatedMotion).toContain('transform: translate(2.2px, -2.2px);');
+    expect(generatedMotion).toContain('transform: translate(-0.7px, 0.7px);');
     expect(icon).toContain(':data-motion-key="motionKey"');
     expect(icon).toContain('stroke-width: var(--action-motion-icon-stroke-width, 2);');
-    expect(icon).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(generatedMotion).toContain('@media (prefers-reduced-motion: reduce)');
     expect(icon).not.toContain('infinite');
     expect(icon).not.toContain('stroke-dasharray');
     expect(icon).not.toContain('stroke-dashoffset');

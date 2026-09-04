@@ -1,4 +1,4 @@
-<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/components/LucideMinimalActionIcon.vue#filter/bottom;content:c74bbcf5cd4ac4700d90fb2cf0ea4d285d9894f945963c4e4dd4406e1630fa03 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/components/LucideMinimalActionIcon.vue#filter/bottom;content:c74bbcf5cd4ac4700d90fb2cf0ea4d285d9894f945963c4e4dd4406e1630fa03;context:calendar-filter -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
 <path data-part="filter-bottom" d="M10 18h4" />
 </svg>

@@ -43,12 +43,12 @@ const oneShot = (
   parts,
 });
 
-const loop = (key: string, parts: readonly MotionPart[]): MotionSpec => ({
+const loop = (key: string, parts: readonly MotionPart[], easing = 'ease-in-out'): MotionSpec => ({
   key,
   trigger: 'activate',
   durationMs: 1800,
   delayMs: 0,
-  easing: 'ease-in-out',
+  easing,
   iterationCount: 'infinite',
   direction: 'normal',
   fillMode: 'none',
@@ -187,6 +187,133 @@ export const iconMotionSpecs = {
       ],
     },
   ]),
+  'navigation-enter': loop(
+    'navigation-enter',
+    [
+      {
+        partKey: 'actor',
+        keyframes: [
+          { offset: 0, opacity: 0.45, transform: 'translateX(-2px)' },
+          { offset: 0.5, opacity: 1, transform: 'translateX(0)' },
+          { offset: 1, opacity: 0.45, transform: 'translateX(-2px)' },
+        ],
+      },
+    ],
+    'cubic-bezier(0.2, 0, 0, 1)',
+  ),
+  'navigation-column': loop(
+    'navigation-column',
+    [
+      {
+        partKey: 'column',
+        keyframes: [
+          { offset: 0, transform: 'translateX(0)' },
+          { offset: 0.5, transform: 'translateX(-3px)' },
+          { offset: 1, transform: 'translateX(0)' },
+        ],
+      },
+    ],
+    'cubic-bezier(0.2, 0, 0, 1)',
+  ),
+  'navigation-rewind': loop(
+    'navigation-rewind',
+    [
+      {
+        partKey: 'clock-hands',
+        keyframes: [
+          { offset: 0, transform: 'rotate(0deg)' },
+          { offset: 1, transform: 'rotate(-360deg)' },
+        ],
+      },
+    ],
+    'linear',
+  ),
+  'navigation-swap': loop(
+    'navigation-swap',
+    [
+      {
+        partKey: 'arrow-left',
+        keyframes: [
+          { offset: 0, transform: 'translateX(0)' },
+          { offset: 0.25, transform: 'translateX(-2px)' },
+          { offset: 0.5, transform: 'translateX(0)' },
+          { offset: 0.75, transform: 'translateX(1px)' },
+          { offset: 1, transform: 'translateX(0)' },
+        ],
+      },
+      {
+        partKey: 'arrow-right',
+        keyframes: [
+          { offset: 0, transform: 'translateX(0)' },
+          { offset: 0.25, transform: 'translateX(2px)' },
+          { offset: 0.5, transform: 'translateX(0)' },
+          { offset: 0.75, transform: 'translateX(-1px)' },
+          { offset: 1, transform: 'translateX(0)' },
+        ],
+      },
+    ],
+    'cubic-bezier(0.2, 0, 0, 1)',
+  ),
+  'navigation-duty': loop('navigation-duty', [
+    {
+      partKey: 'plus-minus',
+      keyframes: [
+        { offset: 0, opacity: 0.55 },
+        { offset: 0.5, opacity: 1 },
+        { offset: 1, opacity: 0.55 },
+      ],
+    },
+  ]),
+  'navigation-events': loop('navigation-events', [
+    {
+      partKey: 'event-dots',
+      keyframes: [
+        { offset: 0, transform: 'translateY(-7px)' },
+        { offset: 0.5, transform: 'translateY(7px)' },
+        { offset: 1, transform: 'translateY(-7px)' },
+      ],
+    },
+  ]),
+  'navigation-bell': loop('navigation-bell', [
+    {
+      partKey: 'bell',
+      keyframes: [
+        { offset: 0, transform: 'rotate(0deg)' },
+        { offset: 0.2, transform: 'rotate(-8deg)' },
+        { offset: 0.4, transform: 'rotate(7deg)' },
+        { offset: 0.6, transform: 'rotate(-4deg)' },
+        { offset: 0.8, transform: 'rotate(2deg)' },
+        { offset: 1, transform: 'rotate(0deg)' },
+      ],
+    },
+  ]),
+  'navigation-profile': loop(
+    'navigation-profile',
+    [
+      {
+        partKey: 'portrait',
+        keyframes: [
+          { offset: 0, transform: 'translateY(0)' },
+          { offset: 0.5, transform: 'translateY(-1.5px)' },
+          { offset: 1, transform: 'translateY(0)' },
+        ],
+      },
+    ],
+    'cubic-bezier(0.2, 0, 0, 1)',
+  ),
+  'navigation-gear': loop(
+    'navigation-gear',
+    [
+      {
+        partKey: 'gear',
+        keyframes: [
+          { offset: 0, transform: 'rotate(0deg)' },
+          { offset: 1, transform: 'rotate(360deg)' },
+        ],
+      },
+    ],
+    'linear',
+  ),
   'more-stagger': {
     ...loop('more-stagger', []),
     parts: [
@@ -218,4 +345,63 @@ export const iconMotionSpecs = {
       },
     ],
   },
+  'navigation-logout': loop(
+    'navigation-logout',
+    [
+      {
+        partKey: 'logout-arrow',
+        keyframes: [
+          { offset: 0, opacity: 0.55, transform: 'translateX(0)' },
+          { offset: 0.5, opacity: 1, transform: 'translateX(3px)' },
+          { offset: 1, opacity: 0.55, transform: 'translateX(0)' },
+        ],
+      },
+    ],
+    'cubic-bezier(0.2, 0, 0, 1)',
+  ),
+  'period-chevron': oneShot('period-chevron', 'navigate', 260, 'cubic-bezier(0.2, 0, 0, 1)', [
+    {
+      partKey: 'right',
+      keyframes: [
+        { offset: 0, transform: 'translateX(0)' },
+        { offset: 0.48, transform: 'translateX(2px)' },
+        { offset: 1, transform: 'translateX(0)' },
+      ],
+    },
+    {
+      partKey: 'left',
+      keyframes: [
+        { offset: 0, transform: 'translateX(0)' },
+        { offset: 0.48, transform: 'translateX(-2px)' },
+        { offset: 1, transform: 'translateX(0)' },
+      ],
+    },
+  ]),
+  'calendar-chevron': oneShot('calendar-chevron', 'navigate', 240, 'cubic-bezier(0.2, 0, 0, 1)', [
+    {
+      partKey: 'right',
+      keyframes: [
+        { offset: 0, transform: 'translateX(0)' },
+        { offset: 0.48, transform: 'translateX(2px)' },
+        { offset: 1, transform: 'translateX(0)' },
+      ],
+    },
+    {
+      partKey: 'left',
+      keyframes: [
+        { offset: 0, transform: 'translateX(0)' },
+        { offset: 0.48, transform: 'translateX(-2px)' },
+        { offset: 1, transform: 'translateX(0)' },
+      ],
+    },
+  ]),
+  'navigation-press': oneShot('navigation-press', 'click', 120, 'ease', [
+    {
+      partKey: 'item',
+      keyframes: [
+        { offset: 0, transform: 'scale(1)' },
+        { offset: 1, transform: 'scale(0.98)' },
+      ],
+    },
+  ]),
 } as const satisfies Readonly<Record<string, MotionSpec>>;

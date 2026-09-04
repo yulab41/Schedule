@@ -1,4 +1,4 @@
-<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#more;content:ca352647774f78e6ced43897fa8f0e4d8f9388ca1471eaf7c1630a5e11284d89 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#more;content:ca352647774f78e6ced43897fa8f0e4d8f9388ca1471eaf7c1630a5e11284d89;context:mobile-bottom-navigation -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 <circle cx="5" cy="12" r="1" />
 </svg>

@@ -18,12 +18,16 @@ describe('Lucide Minimal production action icons', () => {
 
     if (!existsSync(componentPath)) return;
     const icon = readFileSync(componentPath, 'utf8');
+    const generatedMotion = readSource('../generated/ui-icon-motion.css');
     expect(icon).toContain('readonly motionKey?: number;');
     expect(icon).toContain('const isAnimating = ref(false);');
     expect(icon).toContain("flush: 'sync'");
     expect(icon).toContain(':class="{ \'is-animating\': isAnimating }"');
     expect(icon).not.toContain("'is-animating': motionKey > 0");
-    expect(icon).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(icon).not.toContain('@keyframes');
+    expect(generatedMotion).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(generatedMotion).toContain('.icon-bell .is-animating');
+    expect(generatedMotion).toContain('620ms cubic-bezier(0.2, 0, 0, 1)');
     expect(icon).not.toContain('infinite');
     expect(icon).not.toContain('opacity:');
     expect(icon).not.toContain('stroke-dasharray');

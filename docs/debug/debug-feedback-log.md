@@ -2465,3 +2465,34 @@
   v2 state 与后续判断不受影响。
 - 最终 ancestry：`bce96ce8` 的第二父提交为 `765b5c09`；`origin/main`、`5285dd17`、`1ffab10c` 和
   `c027abcd` 均经 `git merge-base --is-ancestor` 返回 0。
+
+## 2026-09-04 EXP-ICON-004-B3/B4 context 与 motion 单一来源
+
+- 症状与引入点：`.84@8e6a4a3`、`.85@a1bba57` 缺少 `.83@5285dd1` 的图标祖先是首要血缘回退；恢复
+  `5285dd17` 后仍有第二层适配漂移。`git log -S`/`git blame` 将 Web nav keyframe 定位到 `5b9542a2`、
+  Web action motion 定位到 `fea129bb`、Mini people motion 定位到 `6b5b30fb`、Mini 底部 24px 定位到
+  `3fc41610`；B1 `1ffab10c` 的 combined directory/profile asset 没有表达 active/inactive part 生命周期。
+- 根因：geometry 虽已进入 catalog，但场景 size/stroke/color、底部 active 状态和完整 motion 数值仍分别存在
+  Web component 与多个 Mini WXSS/TS 中。顶部个人还误用了底部 profile 几何，`navMotion` 会把点击事件状态和
+  当前 active workspace 分离；因此同一 path 仍可表现不同。
+- 失败先行：`icon-b12-single-source.test.mjs` 在旧实现上 5/5 失败，覆盖 context/binding、底部五项 active
+  直绑与双色 part、两端生成 adapter、同 geometry variant 以及生成确定性。实现后 5/5，Mini 定向组最终
+  8 files/126 tests；Web/token 定向 4 files/19 tests 通过。
+- 修复：新增 `context.ts`、`platform-bindings.ts` 与 motion adapter generator；`motion.ts` 保存完整
+  trigger/duration/delay/easing/iteration/direction/fill/reduced-motion。Web base/Storybook 导入生成 CSS；Mini
+  页面/组件导入生成 WXSS，并只用同源 SVG part 或 wrapper 处理外链 SVG 限制。底部五项 23px/2、双色、
+  active-only 1800ms；顶部 bell 21.6px/1.8、TDesign User 20px/2；people 18px/1.8 与 520ms 保持 Web 真值。
+- 语义等价：API、权限、路由、数据模型、请求、错误处理和页面状态均未改变；移除的 `navMotion` 只取消错误的
+  点击后驻留状态，动画改由既有 `activeWorkspace` 唯一决定。Mini 日历只省略不支持控制的内部 dashoffset，
+  保留同 spec opacity；reduced-motion 统一关闭非必要 motion。
+- 验证：Mini 全量 123 files/668 tests；Web production build 4,251 modules；Mini source/package/performance/
+  determinism/verify；Web/Mini/ui-icons typecheck；format/lint/generated/diff 与 `pnpm smoke:check-core` 通过。
+  工作树 production verify total/main `5,181,999/1,745,405 B`，相对 parent `+12,268/+13,701 B`，0 新
+  runtime dependency；仅保留既有主包、矩阵和 Web chunk warning。
+- 总门禁修复：首轮 `pnpm verify` 的最后阶段因 `4602120b` 新增 5 个 `node:test` 文件被 Vitest 误收集而报
+  “No test suite”；此前实际 assertions 均通过。回归断言先 2 项失败；根 `test` 改为先执行
+  `node --test scripts/codex/*.test.mjs`，Vitest config 排除该目录后 Node 17/17、Vitest 246 files/1,171 tests
+  及完整 `pnpm verify` 通过。该改动只修测试发现边界，不进入产品包。
+- 运行/浏览器验证：B3 未修改 Web core 路径；`pnpm smoke:check-core` 复用已记录的 B2 浏览器结果并通过。
+  仓库政策下未调用微信开发者工具。Node/构建不能证明 Skyline、帧率、transform-origin 或 Xiaomi 14 观感；
+  exact clean 体验版仍须按审计清单人工确认。

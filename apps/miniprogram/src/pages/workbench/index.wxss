@@ -1,3 +1,5 @@
+@import "../../styles/ui-icon-motion.wxss";
+
 page {
   height: 100%;
   background: var(--ui-color-background);
@@ -160,8 +162,6 @@ page {
 }
 
 .more-item > image:first-child {
-  width: 24px;
-  height: 24px;
   flex: none;
 }
 
@@ -195,7 +195,6 @@ page {
 .calendar-step.is-pressed,
 .calendar-locator.is-pressed,
 .week-day.is-pressed,
-.bottom-nav-item.is-pressed,
 .retry-action.is-pressed,
 .login-action.is-pressed,
 .group-option.is-pressed {
@@ -344,8 +343,6 @@ page {
 .filter-icon {
   position: relative;
   display: flex;
-  width: 20px;
-  height: 20px;
   margin-right: 6px;
   flex-direction: column;
   align-items: center;
@@ -356,20 +353,6 @@ page {
 .filter-icon-bar {
   position: absolute;
   inset: 0;
-  width: 20px;
-  height: 20px;
-}
-
-.filter-icon.is-animating .filter-icon-bar-top {
-  animation: click-filter-top 520ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.filter-icon.is-animating .filter-icon-bar-middle {
-  animation: click-filter-middle 520ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.filter-icon.is-animating .filter-icon-bar-bottom {
-  animation: click-filter-bottom 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .filter-count {
@@ -795,8 +778,6 @@ page {
 
 .locate-crosshair {
   position: relative;
-  width: 20px;
-  height: 20px;
 }
 
 .locate-crosshair::before,
@@ -809,10 +790,6 @@ page {
   display: block;
   width: 100%;
   height: 100%;
-}
-
-.locate-crosshair.is-animating {
-  animation: click-locate 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .week-day-row,
@@ -1018,13 +995,8 @@ page {
 
 .nav-icon {
   position: relative;
-  width: 24px;
-  height: 24px;
   margin-bottom: 1px;
   box-sizing: border-box;
-  transition:
-    transform 140ms ease,
-    opacity 140ms ease;
 }
 
 .nav-more {
@@ -1038,53 +1010,9 @@ page {
   padding: 0;
 }
 
-.bottom-nav-item.is-pressed .nav-icon,
 .calendar-step.is-pressed .chevron,
 .calendar-locator.is-pressed .locate-crosshair {
   transform: scale(0.88);
-}
-
-@keyframes click-filter-top {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  46% {
-    transform: translateX(2px);
-  }
-}
-
-@keyframes click-filter-middle {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  46% {
-    transform: translateX(-2px);
-  }
-}
-
-@keyframes click-filter-bottom {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  46% {
-    transform: translateX(1px);
-  }
-}
-
-@keyframes click-locate {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(90deg);
-  }
 }
 
 @media (max-width: 340px) {
@@ -1103,18 +1031,6 @@ page {
     min-height: 92px;
     padding-right: 2px;
     padding-left: 2px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .nav-icon {
-    transition: none;
-  }
-
-  .filter-icon.is-animating,
-  .filter-icon.is-animating image,
-  .locate-crosshair.is-animating {
-    animation: none;
   }
 }
 
@@ -1250,8 +1166,6 @@ page {
 
 .top-icon {
   position: relative;
-  width: 24px;
-  height: 24px;
   box-sizing: border-box;
 }
 
@@ -1280,39 +1194,6 @@ page {
   width: 100%;
   height: 100%;
   transform-origin: center;
-}
-
-.bell-icon.is-animating {
-  transform-origin: 12px 3px;
-  animation: minimal-bell 620ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.nav-calendar.is-looping .nav-icon-actor {
-  animation: minimal-draw 1800ms ease-in-out infinite;
-}
-
-.nav-swap.is-animating .nav-icon-actor {
-  animation: minimal-swap-left 1800ms cubic-bezier(0.2, 0, 0, 1) infinite;
-}
-
-.nav-swap.is-animating .nav-icon-actor-secondary {
-  animation: minimal-swap-right 1800ms cubic-bezier(0.2, 0, 0, 1) infinite;
-}
-
-.nav-more.is-animating .nav-icon-image {
-  animation: minimal-dot 1800ms ease-in-out infinite;
-}
-
-.nav-more.is-animating .nav-icon-actor-secondary {
-  animation-delay: 100ms;
-}
-
-.nav-more.is-animating .nav-icon-actor-tertiary {
-  animation-delay: 200ms;
-}
-
-.profile-icon.is-animating {
-  animation: click-profile 480ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .workbench-content {
@@ -1366,8 +1247,6 @@ page {
 }
 
 .filter-icon {
-  width: 20px;
-  height: 20px;
   margin-right: 5px;
   justify-content: center;
   gap: 3px;
@@ -1746,16 +1625,6 @@ page {
   background: var(--ui-color-primary-light);
 }
 
-.calendar-navigation .chevron.is-animating,
-.list-calendar-heading .chevron.is-animating {
-  animation: click-period-chevron 260ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.calendar-navigation .chevron.is-left.is-animating,
-.list-calendar-heading .chevron.is-left.is-animating {
-  animation-name: click-period-chevron-left;
-}
-
 .filter-sheet-backdrop {
   position: fixed;
   z-index: 200;
@@ -2013,126 +1882,12 @@ page {
   }
 }
 
-@keyframes click-period-chevron {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  48% {
-    transform: translateX(2px);
-  }
-}
-
-@keyframes click-period-chevron-left {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  48% {
-    transform: translateX(-2px);
-  }
-}
-
 @keyframes filter-sheet-enter {
   from {
     transform: translateY(100%);
   }
   to {
     transform: translateY(0);
-  }
-}
-
-@keyframes click-profile {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  42% {
-    transform: translateY(-1.5px);
-  }
-  68% {
-    transform: translateY(0.5px);
-  }
-}
-
-@keyframes minimal-bell {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  22% {
-    transform: rotate(-9deg);
-  }
-  44% {
-    transform: rotate(8deg);
-  }
-  64% {
-    transform: rotate(-5deg);
-  }
-  82% {
-    transform: rotate(3deg);
-  }
-}
-
-@keyframes minimal-draw {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes minimal-swap-left {
-  0%,
-  50%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-2px);
-  }
-  75% {
-    transform: translateX(1px);
-  }
-}
-
-@keyframes minimal-swap-right {
-  0%,
-  50%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(2px);
-  }
-  75% {
-    transform: translateX(-1px);
-  }
-}
-
-@keyframes minimal-duty {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
-@keyframes minimal-dot {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-2px);
   }
 }
 
@@ -2149,10 +1904,6 @@ page {
 @media (prefers-reduced-motion: reduce) {
   .filter-sheet-backdrop,
   .filter-sheet,
-  .bell-icon.is-animating,
-  .profile-icon.is-animating,
-  .nav-icon,
-  .nav-icon image,
   .group-switcher-arrow image,
   .filter-select-chevron image {
     animation: none !important;

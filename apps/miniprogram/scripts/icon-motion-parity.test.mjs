@@ -48,10 +48,10 @@ describe('EXP-ICON-004-B1.1 motion parity', () => {
     const iconDirectory = resolve(repositoryRoot, 'apps/miniprogram/src/assets/icons');
 
     expect(catalog).toMatch(
-      /fileKey: 'calendar-muted'[\s\S]{0,120}?sourceKey: 'calendar-base'[\s\S]{0,120}?colorRole: 'secondary'/,
+      /fileKey: 'calendar-muted'[\s\S]{0,140}?sourceKey: 'calendar-base'[\s\S]{0,140}?contextKey: 'mobile-bottom-navigation'[\s\S]{0,80}?tone: 'inactive'/,
     );
     expect(catalog).toMatch(
-      /fileKey: 'calendar-check-muted'[\s\S]{0,120}?sourceKey: 'calendar-check'[\s\S]{0,120}?colorRole: 'secondary'/,
+      /fileKey: 'calendar-check-muted'[\s\S]{0,140}?sourceKey: 'calendar-check'[\s\S]{0,140}?contextKey: 'mobile-bottom-navigation'[\s\S]{0,80}?tone: 'inactive'/,
     );
     expect(existsSync(resolve(iconDirectory, 'ui-calendar-muted.svg'))).toBe(true);
     expect(existsSync(resolve(iconDirectory, 'ui-calendar-check-muted.svg'))).toBe(true);
@@ -83,12 +83,14 @@ describe('EXP-ICON-004-B1.1 motion parity', () => {
   });
 
   it('adapts calendar draw without inventing a Mini-only geometry animation', () => {
-    const miniStyles = read('apps/miniprogram/src/pages/workbench/index.wxss');
-    const webStyles = read('apps/web/src/features/layout/WorkbenchNavIcon.vue');
+    const miniStyles = read('apps/miniprogram/src/styles/ui-icon-motion.wxss');
+    const webStyles = read('apps/web/src/generated/ui-icon-motion.css');
+    const miniWorkbench = read('apps/miniprogram/src/pages/workbench/index.wxss');
+    const webIcon = read('apps/web/src/features/layout/WorkbenchNavIcon.vue');
     const motion = read('packages/ui-icons/src/motion.ts');
     const miniRule = block(miniStyles, '.nav-calendar.is-looping .nav-icon-actor');
-    const miniFrames = block(miniStyles, '@keyframes minimal-draw');
-    const webFrames = block(webStyles, '@keyframes minimal-draw');
+    const miniFrames = block(miniStyles, '@keyframes ui-motion-navigation-check');
+    const webFrames = block(webStyles, '@keyframes ui-motion-navigation-check');
 
     expect(motion).toContain("navigation: loop('navigation'");
     expect(motion).toContain('{ offset: 0, opacity: 0.3, strokeDashoffset: 1 }');
@@ -96,17 +98,19 @@ describe('EXP-ICON-004-B1.1 motion parity', () => {
     expect(motion).toContain('{ offset: 1, opacity: 0.3, strokeDashoffset: 1 }');
     expect(webFrames).toContain('opacity: 0.3;');
     expect(webFrames).toContain('stroke-dashoffset: 1;');
-    expect(miniRule).toContain('animation: minimal-draw 1800ms ease-in-out infinite;');
+    expect(miniRule).toContain('ui-motion-navigation-check 1800ms ease-in-out');
     expect(miniFrames).toContain('opacity: 0.3;');
     expect(miniFrames).toContain('opacity: 1;');
     expect(miniFrames).not.toMatch(/scaleX|stroke-dashoffset/);
-    expect(miniStyles).not.toContain('.nav-calendar.is-animating');
-    expect(miniStyles).not.toContain('@keyframes click-nav-calendar');
+    expect(miniWorkbench).toContain('ui-icon-motion.wxss');
+    expect(miniWorkbench).not.toContain('@keyframes minimal-draw');
+    expect(webIcon).not.toContain('@keyframes minimal-draw');
   });
 
   it('renders directory mode assets with the Web stroke and shared inactive color', () => {
     const types = read('packages/ui-icons/src/types.ts');
     const catalog = read('packages/ui-icons/src/catalog.ts');
+    const context = read('packages/ui-icons/src/context.ts');
     const tokenSource = read('packages/ui-tokens/src/tokens.ts');
     const tokenCss = read('packages/ui-tokens/src/tokens.css');
     const tokenWxss = read('packages/ui-tokens/src/tokens.wxss');
@@ -122,6 +126,9 @@ describe('EXP-ICON-004-B1.1 motion parity', () => {
     expect(tokenWxss).toContain('--ui-color-directory-mode-inactive: #586678;');
     expect(webView).toContain('color: var(--ui-color-directory-mode-inactive);');
     expect(miniStyles).toContain('color: var(--ui-color-directory-mode-inactive);');
+    expect(context).toMatch(
+      /'directory-mode'[\s\S]{0,140}?sizePx:\s*18[\s\S]{0,80}?strokeWidth:\s*1\.8/,
+    );
 
     for (const fileKey of [
       'department',
@@ -132,7 +139,9 @@ describe('EXP-ICON-004-B1.1 motion parity', () => {
       'people-secondary-muted',
     ]) {
       expect(catalog).toMatch(
-        new RegExp(`fileKey: '${fileKey}'[\\s\\S]{0,180}?strokeWidth: 1\\.8`),
+        new RegExp(
+          `fileKey: '${fileKey}'[\\s\\S]{0,220}?contextKey: 'directory-mode'[\\s\\S]{0,80}?tone: '(?:active|inactive)'`,
+        ),
       );
       const asset = read(`apps/miniprogram/src/assets/icons/ui-${fileKey}.svg`);
       expect(asset).toContain('viewBox="0 0 24 24"');
@@ -151,24 +160,22 @@ describe('EXP-ICON-004-B1.1 motion parity', () => {
 
   it('keeps people motion values and destination-only triggers aligned', () => {
     const sharedMotion = read('packages/ui-icons/src/motion.ts');
-    const webIcon = read('apps/web/src/components/LucideMinimalActionIcon.vue');
+    const webIcon = read('apps/web/src/generated/ui-icon-motion.css');
     const webView = read('apps/web/src/views/directory/UnifiedDirectoryView.vue');
     const miniController = read(
       'apps/miniprogram/src/subpackages/organization/components/directory-panel/controller.ts',
     );
-    const miniStyles = read(
-      'apps/miniprogram/src/subpackages/organization/components/directory-panel/index.wxss',
-    );
+    const miniStyles = read('apps/miniprogram/src/styles/ui-icon-motion.wxss');
 
     const sharedPeople = segment(
       sharedMotion,
       "people: oneShot('people'",
       "phone: oneShot('phone'",
     );
-    const miniPrimary = block(miniStyles, '@keyframes click-people-primary');
-    const miniSecondary = block(miniStyles, '@keyframes click-people-secondary');
-    const webPrimary = block(webIcon, '@keyframes click-people-primary');
-    const webSecondary = block(webIcon, '@keyframes click-people-secondary');
+    const miniPrimary = block(miniStyles, '@keyframes ui-motion-people-primary');
+    const miniSecondary = block(miniStyles, '@keyframes ui-motion-people-secondary');
+    const webPrimary = block(webIcon, '@keyframes ui-motion-people-primary');
+    const webSecondary = block(webIcon, '@keyframes ui-motion-people-secondary');
     const miniActivate = block(miniController, 'function activateMode(');
     const webSelect = block(webView, 'function selectDirectory(');
 

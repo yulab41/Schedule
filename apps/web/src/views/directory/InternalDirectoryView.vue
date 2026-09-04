@@ -1388,12 +1388,7 @@ async function lookupPreferredEntries(
 }
 
 .favorite-action.is-favorite {
-  color: #d49300;
-}
-
-.favorite-action svg {
-  width: 21px;
-  height: 21px;
+  color: var(--ui-color-warning);
 }
 
 .entry-title-line {
@@ -1523,7 +1518,6 @@ async function lookupPreferredEntries(
 }
 
 .directory-dial-action .phone-motion-icon {
-  --action-motion-icon-size: 17px;
   flex: 0 0 auto;
 }
 

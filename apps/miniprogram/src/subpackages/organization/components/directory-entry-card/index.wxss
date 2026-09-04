@@ -1,3 +1,5 @@
+@import "../../../../styles/ui-icon-motion.wxss";
+
 :host {
   display: block;
   min-width: 0;
@@ -143,11 +145,6 @@
   background: #fff6d8;
 }
 
-.favorite-icon {
-  width: 21px;
-  height: 21px;
-}
-
 .contact-methods {
   margin-top: 5px;
   gap: 1px;
@@ -221,14 +218,8 @@
 }
 
 .phone-icon {
-  width: 17px;
-  height: 17px;
   flex: 0 0 auto;
   transform-origin: center;
-}
-
-.phone-icon.is-animating {
-  animation: click-phone 620ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .entry-notes {
@@ -272,22 +263,6 @@
   min-height: 44px;
 }
 
-@keyframes click-phone {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  26% {
-    transform: rotate(-8deg);
-  }
-  52% {
-    transform: rotate(7deg);
-  }
-  74% {
-    transform: rotate(-3deg);
-  }
-}
-
 @media (max-width: 380px) {
   .contact-method.has-contact-label {
     grid-template-columns: minmax(58px, auto) minmax(0, 1fr);
@@ -301,11 +276,5 @@
   .directory-number {
     padding-right: 3px;
     padding-left: 3px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .phone-icon.is-animating {
-    animation: none;
   }
 }

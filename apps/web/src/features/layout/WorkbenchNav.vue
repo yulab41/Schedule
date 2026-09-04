@@ -195,13 +195,7 @@ onBeforeUnmount(() => {
   transition:
     color var(--ui-duration-fast) ease,
     background var(--ui-duration-fast) ease,
-    transform var(--ui-duration-fast) ease;
-}
-
-.nav-item svg {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
+    transform var(--ui-icon-navigation-press-duration) ease;
 }
 
 .nav-item:hover,
@@ -210,7 +204,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-item:active {
-  transform: scale(0.98);
+  transform: var(--ui-icon-navigation-press-transform);
 }
 
 .nav-item.is-active {
@@ -246,11 +240,6 @@ onBeforeUnmount(() => {
   line-height: 1.1;
 }
 
-.workbench-bottom-nav .nav-item svg {
-  width: 23px;
-  height: 23px;
-}
-
 .more-nav {
   display: grid;
 }
@@ -278,9 +267,7 @@ onBeforeUnmount(() => {
   text-align: left;
 }
 
-.more-nav-item svg {
-  width: 20px;
-  height: 20px;
+.more-nav-item .more-nav-chevron {
   color: var(--ui-color-text-secondary);
 }
 
@@ -300,6 +287,8 @@ onBeforeUnmount(() => {
 }
 
 .more-nav-chevron {
+  width: 20px;
+  height: 20px;
   color: var(--ui-color-text-muted);
   font-size: 24px;
 }

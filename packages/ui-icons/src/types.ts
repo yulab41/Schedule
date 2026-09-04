@@ -10,6 +10,8 @@ export type IconKey =
   | 'config'
   | 'department'
   | 'directory'
+  | 'directory-base'
+  | 'directory-person'
   | 'duty'
   | 'download'
   | 'error-circle'
@@ -41,6 +43,8 @@ export type IconKey =
   | 'people-secondary'
   | 'phone'
   | 'profile'
+  | 'profile-body'
+  | 'profile-portrait'
   | 'search'
   | 'star'
   | 'star-filled'
@@ -112,9 +116,35 @@ export interface IconDefinition {
 export type IconColorRole =
   'danger' | 'directoryModeInactive' | 'favorite' | 'muted' | 'primary' | 'secondary' | 'success';
 
-export interface MiniAssetEntry {
+export type IconContextKey =
+  | 'calendar-filter'
+  | 'calendar-locate'
+  | 'desktop-navigation'
+  | 'directory-favorite'
+  | 'directory-mode'
+  | 'directory-phone'
+  | 'mobile-bottom-navigation'
+  | 'more-row'
+  | 'top-bell'
+  | 'top-profile';
+
+export type MiniAssetTone = 'active' | 'inactive';
+
+interface MiniAssetEntryBase {
   readonly fileKey: string;
   readonly sourceKey: IconKey;
-  readonly colorRole: IconColorRole;
-  readonly strokeWidth?: number;
 }
+
+export type MiniAssetEntry =
+  | (MiniAssetEntryBase & {
+      readonly colorRole: IconColorRole;
+      readonly contextKey?: never;
+      readonly strokeWidth?: number;
+      readonly tone?: never;
+    })
+  | (MiniAssetEntryBase & {
+      readonly colorRole?: never;
+      readonly contextKey: IconContextKey;
+      readonly strokeWidth?: never;
+      readonly tone: MiniAssetTone;
+    });

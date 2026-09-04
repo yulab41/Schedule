@@ -5,8 +5,9 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：用户已明确批准 `EXP-ICON-004-B3`，并在当前消息授权完成后上传新的微信体验版及把该精确版本
-  加入服务端客户端版本白名单。没有授权提交审核、正式发布、Web/API production 部署、数据库变更或备份。
+- 当前活动批次：`EXP-ICON-004-B3` 已实现，B4 正在形成 checkpoint；用户已授权门禁通过后上传新的微信体验版
+  并把该精确版本加入服务端客户端版本白名单。没有授权提交审核、正式发布、Web/API production 部署、数据库
+  变更或备份。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已连续 fetch 并合入最新
   `origin/main@4602120b`；其两次主线更新只涉及 Schedule guardrail、Hook、worktree/dependency/release helper
@@ -17,6 +18,8 @@
 - 前序最新体验版为 `0.1.0-p10.20260903.85@a1bba571`；服务端 allowlist 已确认保留 `.81–.85`。B3 必须在最终
   clean SHA 和完整门禁后动态分配大于 85 的唯一未占用版本，不能复用或预猜版本号。
 - 依赖模式固定为 `DEPENDENCY_MODE=REUSE_ONLY`；既有一次 frozen install 授权已消费，本轮不得安装依赖。
+- B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
+  本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
 ## EXP-ICON-004 根因与 B2 结果
 
@@ -32,8 +35,9 @@
 - B1.1 已删除日历 Web 不存在的 420ms 点击弹跳，保留 active-only 1800ms opacity 兼容，并把通讯录人员
   线宽/未选中色统一为 `1.8/#586678`；people 520ms motion/触发不改。Mini 外链 SVG 不能直接控制内部 path，
   日历 draw 观感仍需 Xiaomi 14 确认。
-- B2 不重新设计，也不是最终 B1.2。底部 5 项 23px/双色/active-only motion、顶部 user 几何/尺寸、filter
-  stroke、locate/more context 和 motion codegen 等剩余差异留给下一独立 B3。
+- B3 已补齐剩余 B1.2：底部 5 项为 23px/双色/active-only motion，顶部 user 使用真实 TDesign 几何，bell/user、
+  filter/locate/more/directory action 的尺寸与 stroke 由 context 生成；Web/Mini 动效均由同一 motion spec 生成。
+  页面只保留 selector/origin/capability 适配，不保存第二套数值。
 
 ## 依赖环境与主线守卫
 
@@ -43,10 +47,10 @@
 - 临时 tooling checkpoint `d62f780c` 保留为历史父提交，但最终树采用 `TOOLCHAIN-GUARDRAILS-001@fa10d5ba`
   的官方 `DEPENDENCY_MODE=REUSE_ONLY`、workspace bootstrap、warm pool/lease 和 Hook 机制。release helper 也只走
   official ReuseOnly，不自动安装。
-- 官方 Skill hash 已更新为 `ccf9dd22e612ae2142061d45b98d6da4f177d125ffff838d2d4e7b76f19c7ec7`；L2
-  inspector PASS，匹配坑位为 `repeated-1459-linking`。官方 `ReuseOnly -AdoptHealthyExisting` 与随后普通
-  `ReuseOnly` 均为 `READY_REUSE / DEPENDENCIES_REUSED=true / INSTALL_INVOKED=false`，fingerprint
-  `3a1b7a6d…`；未执行第二次安装。
+- 最新项目内 Skill inspector hash 为 `3359f5e6af2b1b79a6f257bc3d826db5f6ee0c8e9655d42418a2f3bd7ac02090`；
+  L4 PASS，匹配坑位为 `client-version-allowlist`，当前消息授权范围已记录。最新
+  `ReuseOnly -AdoptHealthyExisting` 为 `READY_REUSE / DEPENDENCIES_REUSED=true / INSTALL_INVOKED=false`，
+  fingerprint `f7a1af33…`；本轮没有安装依赖。
 - 临时 v1 marker 的精确删除被本机安全策略拒绝，未绕过；它位于 Git-admin、没有最终代码消费者。官方只读
   `schedule-worktree-state/dependencies-v2.json`，判断不受影响。
 - `TOOLCHAIN-GUARDRAILS-002@765b5c09` 的动态 Git/trial/production 身份与版本分配已随主线保留；其后续
@@ -58,9 +62,21 @@
 
 ## 验证与预算
 
-- B2 入口同口径 Mini total/main 为 `5,151,893/1,715,719 B`；当前为 302 files、
+- B3 新契约在旧实现上 5/5 失败，修复后通过。Mini 定向 8 files/126 tests、完整测试 123 files/668 tests；Web/token 定向
+  4 files/19 tests；Web production build 4,251 modules；Web/Mini/ui-icons typecheck、Mini
+  source/package/performance/determinism/verify、credential-free CI dry-run、format/lint、generated check、diff
+  check 与 core smoke 均通过。
+- B3 working-tree production verify 为 total/main `5,181,999/1,745,405 B`，相对同环境 parent
+  `5,169,731/1,731,704 B` 为 `+12,268/+13,701 B`；不新增 dependency，低于 B1.2 总增量和 12 KiB
+  variant/adapter 门槛。最终 clean checkpoint 仍需复测，不能以 dirty build 替代发布证据。
+- `pnpm verify` 首次只在根测试发现处失败：`4602120b` 新增的 5 个 Node test-runner 文件被 Vitest 误收集并
+  报 “No test suite”。回归测试先 2 项失败；修复后根入口先运行 17 项 Node guard tests，Vitest 明确排除
+  `scripts/codex/**`，随后 246 files/1,171 tests 全绿。产品代码、依赖和测试语义未改变。
+  修复后的完整 `pnpm verify`（format/lint/build/typecheck/Mini/root tests）已整链通过。
+
+- B2 入口同口径 Mini total/main 为 `5,151,893/1,715,719 B`；B2 checkpoint 为 302 files、
   `5,169,730/1,731,703 B`，即 `+17,837/+15,984 B`。低于总包 ≤64KiB 预算，只保留既有主包和矩阵 warning。
-- 当前累计已通过：B1 trial history；Mini 定向 7 files/63 tests；Web/token 5 files/39 tests；临时 tooling
+- B2 累计曾通过：B1 trial history；Mini 定向 7 files/63 tests；Web/token 5 files/39 tests；临时 tooling
   2 files/18 tests；Mini 全量 122 files/663 tests；四个定向 typecheck；Web build 4,249 modules/17.42s；
   Mini verify/package/source/performance/determinism/CI dry-run。
 - `pnpm verify` 的 format/lint/build/typecheck 全绿；Mini 再次 122/663，根 Vitest 247 files passed/37 skipped、
@@ -121,9 +137,7 @@
 
 ## 唯一下一任务与停止条件
 
-- B3 已获批准：先用失败测试锁定底部五项、顶部 user、filter/locate/more context 与 motion codegen 的 B1.2
-  差异，再完成最小同源修复和同口径验证。
-- 验证通过后提交并普通推送调查分支；再从最终精确 clean SHA 建立 `runtime/release-worktree`，独占分配唯一
+- B3/B4 完成最终复核后提交并普通推送调查分支；再从最终精确 clean SHA 建立 `runtime/release-worktree`，独占分配唯一
   版本、完成 version-bound build 与体验版上传，并只把该精确版本追加到服务端 allowlist 后 verify。
 - 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不
   正式发布、不部署 production 应用或数据库。

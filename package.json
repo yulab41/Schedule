@@ -40,7 +40,7 @@
     "miniprogram:upload-experience": "pnpm --filter @schedule/miniprogram upload:experience",
     "miniprogram:verify": "pnpm --filter @schedule/miniprogram verify",
     "miniprogram:visual-compare": "pnpm --filter @schedule/miniprogram visual:compare",
-    "test": "vitest run",
+    "test": "node --test scripts/codex/*.test.mjs && vitest run",
     "test:api-integration": "node --env-file=.env scripts/run-api-integration.mjs",
     "test:api-integration:manual-schedule": "node --env-file=.env scripts/run-api-integration-manual-schedule.mjs",
     "test:api-integration:task10": "node --env-file=.env scripts/run-api-integration-task10.mjs",

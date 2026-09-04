@@ -121,18 +121,28 @@ const calendarCheck = local(
   'apps/web/src/features/layout/WorkbenchNavIcon.vue#calendar/check',
 );
 
-const directory = local('directory', [
+const directoryBaseNodes: readonly IconNode[] = [
   path('directory-caps', 'M8 2v2M16 2v2'),
   rect('directory-body', 3, 4, 18, 18, 2),
-  group(
-    'directory-person',
-    [
-      circle('directory-head', 12, 11, 3),
-      path('directory-shoulders', 'M7 22v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2'),
-    ],
-    'contact-person',
-  ),
+];
+const directoryPersonNodes: readonly IconNode[] = [
+  circle('directory-head', 12, 11, 3),
+  path('directory-shoulders', 'M7 22v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2'),
+];
+const directory = local('directory', [
+  ...directoryBaseNodes,
+  group('directory-person', directoryPersonNodes, 'contact-person'),
 ]);
+const directoryBase = local(
+  'directory-base',
+  directoryBaseNodes,
+  'apps/web/src/features/layout/WorkbenchNavIcon.vue#directory/base',
+);
+const directoryPerson = local(
+  'directory-person',
+  directoryPersonNodes,
+  'apps/web/src/features/layout/WorkbenchNavIcon.vue#directory/contact-person',
+);
 
 const groups = local('groups', [
   path('groups-primary-body', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'),
@@ -230,13 +240,24 @@ const members = local('members', [
   ),
 ]);
 
+const profileBodyNodes: readonly IconNode[] = [
+  path('profile-body', 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'),
+];
+const profilePortraitNodes: readonly IconNode[] = [circle('profile-head', 12, 7, 4, 'portrait')];
 const profile = local(
   'profile',
-  [
-    path('profile-body', 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'),
-    circle('profile-head', 12, 7, 4, 'portrait'),
-  ],
+  [...profileBodyNodes, ...profilePortraitNodes],
   'apps/web/src/features/layout/WorkbenchNavIcon.vue#profile',
+);
+const profileBody = local(
+  'profile-body',
+  profileBodyNodes,
+  'apps/web/src/features/layout/WorkbenchNavIcon.vue#profile/body',
+);
+const profilePortrait = local(
+  'profile-portrait',
+  profilePortraitNodes,
+  'apps/web/src/features/layout/WorkbenchNavIcon.vue#profile/portrait',
 );
 
 const config = local('config', [
@@ -577,6 +598,8 @@ export const iconCatalog = {
   config,
   department,
   directory,
+  'directory-base': directoryBase,
+  'directory-person': directoryPerson,
   duty,
   download,
   'error-circle': errorCircle,
@@ -620,6 +643,8 @@ export const iconCatalog = {
   'people-secondary': peopleSecondary,
   phone,
   profile,
+  'profile-body': profileBody,
+  'profile-portrait': profilePortrait,
   search,
   star,
   'star-filled': starFilled,
@@ -633,74 +658,221 @@ export const iconCatalog = {
 
 export const miniAssetEntries: readonly MiniAssetEntry[] = [
   { fileKey: 'backfill', sourceKey: 'backfill', colorRole: 'secondary' },
-  { fileKey: 'bell', sourceKey: 'bell', colorRole: 'primary' },
-  { fileKey: 'calendar', sourceKey: 'calendar-base', colorRole: 'primary' },
-  { fileKey: 'calendar-muted', sourceKey: 'calendar-base', colorRole: 'secondary' },
-  { fileKey: 'calendar-check', sourceKey: 'calendar-check', colorRole: 'primary' },
-  { fileKey: 'calendar-check-muted', sourceKey: 'calendar-check', colorRole: 'secondary' },
+  { fileKey: 'bell', sourceKey: 'bell', colorRole: 'secondary' },
+  { fileKey: 'bell-top', sourceKey: 'bell', contextKey: 'top-bell', tone: 'active' },
+  {
+    fileKey: 'calendar',
+    sourceKey: 'calendar-base',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'calendar-muted',
+    sourceKey: 'calendar-base',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
+  {
+    fileKey: 'calendar-check',
+    sourceKey: 'calendar-check',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'calendar-check-muted',
+    sourceKey: 'calendar-check',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
   { fileKey: 'chevron-left', sourceKey: 'chevron-left', colorRole: 'primary' },
   { fileKey: 'chevron-right', sourceKey: 'chevron-right', colorRole: 'primary' },
   { fileKey: 'chevron-right-muted', sourceKey: 'chevron-right', colorRole: 'muted' },
   { fileKey: 'close', sourceKey: 'close', colorRole: 'secondary' },
   { fileKey: 'config', sourceKey: 'config', colorRole: 'secondary' },
-  { fileKey: 'department', sourceKey: 'department', colorRole: 'primary', strokeWidth: 1.8 },
+  {
+    fileKey: 'department',
+    sourceKey: 'department',
+    contextKey: 'directory-mode',
+    tone: 'active',
+  },
   {
     fileKey: 'department-muted',
     sourceKey: 'department',
-    colorRole: 'directoryModeInactive',
-    strokeWidth: 1.8,
+    contextKey: 'directory-mode',
+    tone: 'inactive',
   },
-  { fileKey: 'directory', sourceKey: 'directory', colorRole: 'primary' },
+  {
+    fileKey: 'directory-base',
+    sourceKey: 'directory-base',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'directory-base-muted',
+    sourceKey: 'directory-base',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
+  {
+    fileKey: 'directory-person',
+    sourceKey: 'directory-person',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'directory-person-muted',
+    sourceKey: 'directory-person',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
   { fileKey: 'duty', sourceKey: 'duty', colorRole: 'secondary' },
   { fileKey: 'events', sourceKey: 'events', colorRole: 'secondary' },
   { fileKey: 'export', sourceKey: 'export', colorRole: 'secondary' },
-  { fileKey: 'filter-top', sourceKey: 'filter-top', colorRole: 'primary' },
-  { fileKey: 'filter-middle', sourceKey: 'filter-middle', colorRole: 'primary' },
-  { fileKey: 'filter-bottom', sourceKey: 'filter-bottom', colorRole: 'primary' },
+  {
+    fileKey: 'filter-top',
+    sourceKey: 'filter-top',
+    contextKey: 'calendar-filter',
+    tone: 'active',
+  },
+  {
+    fileKey: 'filter-middle',
+    sourceKey: 'filter-middle',
+    contextKey: 'calendar-filter',
+    tone: 'active',
+  },
+  {
+    fileKey: 'filter-bottom',
+    sourceKey: 'filter-bottom',
+    contextKey: 'calendar-filter',
+    tone: 'active',
+  },
   { fileKey: 'filter-clear', sourceKey: 'filter-clear', colorRole: 'primary' },
   { fileKey: 'filter-funnel', sourceKey: 'filter-funnel', colorRole: 'primary' },
   { fileKey: 'groups', sourceKey: 'groups', colorRole: 'secondary' },
   { fileKey: 'history', sourceKey: 'history', colorRole: 'secondary' },
   { fileKey: 'info-circle', sourceKey: 'info-circle', colorRole: 'secondary' },
   { fileKey: 'leave', sourceKey: 'leave', colorRole: 'secondary' },
-  { fileKey: 'locate', sourceKey: 'locate', colorRole: 'primary' },
+  { fileKey: 'locate', sourceKey: 'locate', contextKey: 'calendar-locate', tone: 'active' },
   { fileKey: 'lock', sourceKey: 'lock', colorRole: 'primary' },
   { fileKey: 'manual', sourceKey: 'manual', colorRole: 'secondary' },
-  { fileKey: 'more-primary', sourceKey: 'more-primary', colorRole: 'secondary' },
-  { fileKey: 'more-secondary', sourceKey: 'more-secondary', colorRole: 'secondary' },
-  { fileKey: 'more-tertiary', sourceKey: 'more-tertiary', colorRole: 'secondary' },
+  {
+    fileKey: 'more-primary',
+    sourceKey: 'more-primary',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'more-primary-muted',
+    sourceKey: 'more-primary',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
+  {
+    fileKey: 'more-secondary',
+    sourceKey: 'more-secondary',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'more-secondary-muted',
+    sourceKey: 'more-secondary',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
+  {
+    fileKey: 'more-tertiary',
+    sourceKey: 'more-tertiary',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'more-tertiary-muted',
+    sourceKey: 'more-tertiary',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
   { fileKey: 'notifications', sourceKey: 'notifications', colorRole: 'secondary' },
   {
     fileKey: 'people-primary',
     sourceKey: 'people-primary',
-    colorRole: 'primary',
-    strokeWidth: 1.8,
+    contextKey: 'directory-mode',
+    tone: 'active',
   },
   {
     fileKey: 'people-primary-muted',
     sourceKey: 'people-primary',
-    colorRole: 'directoryModeInactive',
-    strokeWidth: 1.8,
+    contextKey: 'directory-mode',
+    tone: 'inactive',
   },
   {
     fileKey: 'people-secondary',
     sourceKey: 'people-secondary',
-    colorRole: 'primary',
-    strokeWidth: 1.8,
+    contextKey: 'directory-mode',
+    tone: 'active',
   },
   {
     fileKey: 'people-secondary-muted',
     sourceKey: 'people-secondary',
-    colorRole: 'directoryModeInactive',
-    strokeWidth: 1.8,
+    contextKey: 'directory-mode',
+    tone: 'inactive',
   },
-  { fileKey: 'phone', sourceKey: 'phone', colorRole: 'primary' },
+  { fileKey: 'phone', sourceKey: 'phone', contextKey: 'directory-phone', tone: 'active' },
   { fileKey: 'phone-success', sourceKey: 'phone', colorRole: 'success' },
-  { fileKey: 'profile', sourceKey: 'profile', colorRole: 'primary' },
+  {
+    fileKey: 'profile-body',
+    sourceKey: 'profile-body',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'profile-body-muted',
+    sourceKey: 'profile-body',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
+  {
+    fileKey: 'profile-portrait',
+    sourceKey: 'profile-portrait',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'profile-portrait-muted',
+    sourceKey: 'profile-portrait',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
   { fileKey: 'search', sourceKey: 'search', colorRole: 'muted' },
-  { fileKey: 'star', sourceKey: 'star', colorRole: 'muted' },
-  { fileKey: 'star-filled', sourceKey: 'star-filled', colorRole: 'favorite' },
-  { fileKey: 'swap-left', sourceKey: 'swap-left', colorRole: 'secondary' },
-  { fileKey: 'swap-right', sourceKey: 'swap-right', colorRole: 'secondary' },
+  { fileKey: 'star', sourceKey: 'star', contextKey: 'directory-favorite', tone: 'inactive' },
+  {
+    fileKey: 'star-filled',
+    sourceKey: 'star-filled',
+    contextKey: 'directory-favorite',
+    tone: 'active',
+  },
+  {
+    fileKey: 'swap-left',
+    sourceKey: 'swap-left',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'swap-left-muted',
+    sourceKey: 'swap-left',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
+  {
+    fileKey: 'swap-right',
+    sourceKey: 'swap-right',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'active',
+  },
+  {
+    fileKey: 'swap-right-muted',
+    sourceKey: 'swap-right',
+    contextKey: 'mobile-bottom-navigation',
+    tone: 'inactive',
+  },
   { fileKey: 'user', sourceKey: 'user', colorRole: 'primary' },
 ];

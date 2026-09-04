@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 
 import 'tdesign-vue-next/es/style/index.css';
 import '../src/styles/tokens.css';
+import '../src/generated/ui-icon-motion.css';
 import './storybook.css';
 
 const storyRouter = createRouter({

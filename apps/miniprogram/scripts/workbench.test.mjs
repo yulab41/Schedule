@@ -265,6 +265,7 @@ describe('P4 native workbench', () => {
     const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
     const pageStyles = readSource('pages/workbench/index.wxss');
     const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
+    const iconMotionStyles = readSource('styles/ui-icon-motion.wxss');
     expect(template).toContain('月');
     expect(template).toContain('周');
     expect(template).toContain('列表');
@@ -297,10 +298,11 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="group-switcher-trigger');
     expect(template).toContain('class="notification-action');
     expect(template).toContain('class="shell-profile-action');
-    expect(template).toContain('/assets/icons/ui-bell.svg');
-    expect(template).toContain('/assets/icons/ui-profile.svg');
+    expect(template).toContain('/assets/icons/ui-bell-top.svg');
+    expect(template).toContain('/assets/icons/ui-user.svg');
     expect(template).toContain('/assets/icons/ui-calendar.svg');
-    expect(template).toContain('/assets/icons/ui-directory.svg');
+    expect(template).toContain('/assets/icons/ui-directory-base.svg');
+    expect(template).toContain('/assets/icons/ui-directory-person.svg');
     expect(template).toContain('/assets/icons/ui-leave.svg');
     expect(template).toContain('/assets/icons/ui-swap-left.svg');
     expect(template).toContain('/assets/icons/ui-duty.svg');
@@ -331,12 +333,16 @@ describe('P4 native workbench', () => {
     expect(monthTemplate).toContain('bindchange="handleMonthChangeStart"');
     expect(monthTemplate).toContain('style="height:{{viewportHeight}}px"');
     expect(template).toContain('panel-heights="{{monthPanelHeights}}"');
-    expect(pageStyles).toContain('@keyframes click-filter-top');
-    expect(pageStyles).toContain('@keyframes click-locate');
-    expect(pageStyles).toContain('@keyframes minimal-swap-left');
-    expect(pageStyles).toContain('@keyframes minimal-dot');
+    expect(pageStyles).toContain('@import "../../styles/ui-icon-motion.wxss";');
+    expect(pageStyles).not.toContain('@keyframes click-filter-top');
+    expect(pageStyles).not.toContain('@keyframes minimal-swap-left');
+    expect(iconMotionStyles).toContain('@keyframes ui-motion-filter-filter-top');
+    expect(iconMotionStyles).toContain('@keyframes ui-motion-locate-rotor');
+    expect(iconMotionStyles).toContain('@keyframes ui-motion-navigation-swap-arrow-left');
+    expect(iconMotionStyles).toContain('@keyframes ui-motion-more-stagger-dot-one');
     expect(pageStyles).toContain('@keyframes filter-sheet-enter');
-    expect(monthStyles).toContain('@keyframes click-locate');
+    expect(monthStyles).toContain('@import "../../../styles/ui-icon-motion.wxss";');
+    expect(monthStyles).not.toContain('@keyframes click-locate');
     expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(
       /\.calendar-cell-slot\.is-selected::after\s*{[^}]*right:\s*-1px;[^}]*bottom:\s*-1px;[^}]*border:\s*2px solid var\(--ui-color-primary\);/s,

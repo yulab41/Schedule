@@ -167,7 +167,6 @@ interface WorkbenchPageData {
   readonly monthLabel: string;
   readonly monthPanelHeights: readonly number[];
   readonly monthPanels: WorkbenchViewModel['monthPanels'];
-  readonly navMotion: string;
   readonly notificationAnimating: boolean;
   readonly notificationSheetOpen: boolean;
   readonly notificationUnreadCount: number;
@@ -302,7 +301,6 @@ Page({
     monthLabel: formatMonthLabel(initialMonth),
     monthPanelHeights: [270, 270, 270],
     monthPanels: [],
-    navMotion: '',
     notificationAnimating: false,
     notificationSheetOpen: false,
     notificationUnreadCount: 0,
@@ -829,12 +827,10 @@ Page({
     activatePrimaryWorkspace(this, 'directory', {
       filterOpen: false,
       groupOpen: false,
-      navMotion: '',
     });
   },
 
   handleSwapNav(this: WorkbenchPageInstance): void {
-    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'swap' }));
     activatePrimaryWorkspace(this, 'swap', { filterOpen: false, groupOpen: false });
   },
 
@@ -884,9 +880,7 @@ Page({
     activatePrimaryWorkspace(this, 'more', {
       filterOpen: false,
       groupOpen: false,
-      navMotion: '',
     });
-    this.setData({ navMotion: 'more' });
   },
 
   handleOpenManualSchedule(this: WorkbenchPageInstance): void {

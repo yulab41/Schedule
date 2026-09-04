@@ -228,10 +228,10 @@ B1.2 预算：
 | 批次 | 内容 | 风险 | 停止条件 |
 | --- | --- | --- | --- |
 | B0（本 checkpoint） | `.74–.84` 血缘、全图标差异、单一来源和批次设计 | 低，文档-only | 审计可复核、分支推送；不改生产图标/上传/服务器 |
-| B1（已实施待 checkpoint） | 体验版历史账本、不可变 tag 版本占用、clean/current-main/latest-trial/required-ancestor preflight | 中，发布工具 | 旧实现红灯、新实现定向绿灯；完整门禁通过后提交推送 |
-| B2 | 在执行时最新 main 上合并 `5285dd17` 的原始提交血缘并解决三份文档冲突 | 中，跨分支 | 任何业务代码冲突或旧状态覆盖当前状态即停止 |
-| B3 | 底部 5 项、顶部 2 项、通讯录模式、filter/locate/more context 的 B1.2；生成 Web/Mini motion adapters | 中，视觉运行时 | path 不可追溯、需新运行时、包体超预算或测试不等值即停止 |
-| B4 | 全量静态对照、Mini/Web gates、同口径包体和浏览器/Node 证据，提交并推送调查分支 | 中 | relevant gate 失败不形成候选 |
+| B1（已完成） | 体验版历史账本、不可变 tag 版本占用、clean/current-main/latest-trial/required-ancestor preflight | 中，发布工具 | `c027abcd` 已通过并成为候选硬门禁 |
+| B2（已完成） | 在执行时最新 main 上合并 `5285dd17` 的原始提交血缘并解决三份文档冲突 | 中，跨分支 | `24ea709e` 保留原提交祖先身份，B2 文档 checkpoint 已推送 |
+| B3（已实现） | 底部 5 项、顶部 2 项、通讯录模式、filter/locate/more context 的 B1.2；生成 Web/Mini motion adapters | 中，视觉运行时 | 红绿契约、完整 Mini/Web gate 和工作树包体通过，待 clean checkpoint 复测 |
+| B4（进行中） | 全量静态对照、Mini/Web gates、同口径包体和浏览器/Node 证据，提交并推送调查分支 | 中 | relevant gate 失败不形成候选 |
 | B5 | L3 exact-clean candidate、动态选择未占用版本、用户当次批准后 tag+上传；另获 L4 后 allowlist | 高，外部状态 | 未获精确批准、tag 冲突、SHA/版本/profile 不一致即停止 |
 
 ### B2 入口预检（2026-09-04）
@@ -267,6 +267,36 @@ Mini 为 302 files、total/main `5,169,730/1,731,703 B`；Mini 122 files/663 tes
 `DEPENDENCIES_REUSED=true / INSTALL_INVOKED=false`；主线对 Mini/Web/icon runtime 的改动数为
 0，因此复用前述应用门禁证据，只补跑官方 Node 13/13、Vitest 17/17、Skill/format/syntax/diff 检查。最终
 `bce96ce8` 已确认 main、B1、B1.1 和 B1-lineage 四条祖先关系全部成立。
+
+### B3/B4 单一视觉来源实施结果（2026-09-04）
+
+- 引入点复核：Web 导航 keyframe 来自 `5b9542a2`，Web action keyframe 来自 `fea129bb`，Mini people
+  keyframe 来自 `6b5b30fb`；Mini 底部 24px 来自 `3fc41610`，B1 `1ffab10c` 生成了合并版
+  directory/profile 资产，B1.1 `5285dd17` 只补齐日历和人员差异。因此 B3 剩余问题不是单一截图或缓存，而是
+  geometry 已共享后，context、part 生命周期与 timing 仍分散在平台文件。
+- 失败先行：新增 B1.2 契约在旧实现上 5/5 失败，分别捕获缺 context/binding、底部未直接绑定 active state、
+  未生成两端 motion adapter、缺同源 active/inactive part variant 和生成结果不可复核；实现后 5/5 通过。
+- 单一来源边界：`catalog.ts` 继续保存唯一 path/part/source/license；新增 `context.ts` 保存 size/stroke/color
+  role，`motion.ts` 保存 trigger/duration/delay/easing/iteration/direction/fill/reduced-motion，
+  `platform-bindings.ts` 只保存 selector、transform-origin 与 `omit-stroke-dashoffset` 能力降级。两个生成器逐字
+  校验 58 个 Mini SVG 及 Web/Mini motion 输出，页面不再维护共享关键帧数值。
+- 视觉行为：底部 5 项统一 23px/2、active primary/inactive secondary 与 active-only 1800ms loop；日历仅做
+  opacity 兼容，通讯录/我的/更多拆同源 actor，换班保留双向移动，更多 delay 为 0/100/200ms。顶部 bell 为
+  21.6px/1.8，顶部 profile 改用 TDesign User 20px/2 并与底部状态分离；department/people、filter/locate、
+  favorite/phone、more row 均由共享 context 输出。Mini 只用 `<image>` part/wrapper 适配，没有复制 DOM/CSS runtime。
+- 范围完整性：B1 已迁移的更多页全部工具、筛选/搜索/关闭/清空、收藏/电话、事件 history、工作流 picker、身份
+  user/lock、返回箭头继续保留同源几何；B3 没有把路由离开后的静态 more-row 强行改成后台循环，也未迁移
+  Logo/PWA/loading/内容字符。旧 `web-*`、`ui-directory.svg`、`ui-profile.svg`、`navMotion` 与平台私有共享
+  keyframe 均已清除。
+- 自动门禁：Mini 123 files/668 tests；Web/token 定向 4 files/19 tests；Web/Mini/ui-icons typecheck；Web
+  production build 4,251 modules；Mini source/package/performance/determinism/verify；format/lint、generated check、
+  diff check、core smoke 均通过。仓库级验证另发现 `4602120b` 的 5 个 Node tests 被 Vitest 误收集；新增回归先
+  2 项失败，修复 test runner 边界后 Node 17/17、根 Vitest 246 files/1,171 tests 及完整 `pnpm verify`
+  通过，产品运行时不变。
+- 工作树同口径包体：parent `5,169,731/1,731,704 B`，B3 production verify
+  `5,181,999/1,745,405 B`，变化 `+12,268/+13,701 B`；58 个 SVG 27,257 B，Web/Mini adapter
+  `12,240/9,490 B`，0 新 runtime dependency。当前结果低于设计预算，但最终上传仍必须以 exact clean SHA
+  复测；冷启动、帧率、内存和 Skyline 合成开销只由匹配体验版 Xiaomi 14 证据确认。
 
 ## 第一实施批次的精确 Prompt
 

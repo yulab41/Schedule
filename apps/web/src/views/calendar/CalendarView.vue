@@ -1127,15 +1127,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   display: none;
 }
 
-.filter-icon {
-  --action-motion-icon-size: 20px;
-  --action-motion-icon-stroke-width: 1.8;
-}
-
-.locator-motion-icon {
-  --action-motion-icon-size: 16px;
-}
-
 .calendar-locator {
   display: grid;
   width: 44px;

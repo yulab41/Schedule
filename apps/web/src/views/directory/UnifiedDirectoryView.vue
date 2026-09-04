@@ -305,11 +305,6 @@ onBeforeUnmount(() => {
   transform: scale(0.985);
 }
 
-.directory-mode-icon {
-  --action-motion-icon-size: 18px;
-  --action-motion-icon-stroke-width: 1.8;
-}
-
 .directory-mode-panel {
   min-width: 0;
 }

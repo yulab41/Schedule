@@ -7,28 +7,31 @@ inline SVG、TDesign 组件、`web-*.svg`、CSS 几何和文字字符多个来�
 颜色、尺寸和动效时序漂移，属于 P1 来源一致性问题；没有发现 P0（阻断启动或造成数据/权限错误）
 图标问题。
 
-本分支已完成 B1 修复：以 Web 真实 path/TDesign path 的结构化数据作为唯一几何来源，Web 使用
-`SharedIcon` 渲染，小程序使用生成的 `ui-*.svg` 和平台兼容层；没有复制 React/DOM/CSS 运行时。
-修复不改变 API、路由、权限、业务状态或用户操作结果。
+本累计分支已完成 B1/B1.1/B1.2 修复：以 Web 真实 path/TDesign path 的结构化数据作为唯一几何来源，Web 使用
+`SharedIcon` 渲染，小程序使用生成的 `ui-*.svg` 和平台兼容层；尺寸/stroke/颜色角色来自共享 context，
+两端关键帧来自同一 motion specification。没有复制 React/DOM/CSS 运行时，修复不改变 API、路由、权限、
+业务状态或用户操作结果。
 
 静态修复已经通过 Node/TypeScript/构建/自动化检查；`1ffab10c` 已从 managed exact-clean
 `runtime/release-worktree` 上传为体验版 `0.1.0-p10.20260903.81`。上传首次因代理/TUN 的 IPv6 出口被微信
 `-10008 invalid ip` 拒绝，复用已审计的进程级 IPv4 DNS 兼容路径后同一候选成功上传（196 code files、ZIP
 `2,486,095 B`、local upload manifest `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`）。
-当前仍没有与 B1.1 修复候选匹配的浏览器 API 后端、微信开发者工具或 Xiaomi 14 视觉/动效验收证据，
+当前仍没有与 B1.2 修复候选匹配的微信原生运行时或 Xiaomi 14 视觉/动效验收证据，
 因此“代码候选已修复”不等于“跨端视觉验收通过”。
 服务器端已按用户授权核对该版本：生产 client-version allowlist `ensure` 幂等通过且未重建容器，随后 allowlist `verify` 与完整 ECS
 verifier 通过；这不是本批代码的 Git/ECS 部署，也不能代替 Xiaomi 14 验收。
 
 `.81` 上的后续用户反馈暴露了两项 B1 适配遗漏。B1.1 已按 Web 真值修复：底部日历删除 Mini 私有
 420ms 点击弹跳和 `scaleX` 几何缩放，加入 primary/secondary 同源资产；通讯录人员资产使用 Web 的
-1.8 stroke 与共享未选中色 `#586678`，原 520ms motion 不改。修复只完成静态/Node 验证，尚未上传新体验版。
+1.8 stroke 与共享未选中色 `#586678`，原 520ms motion 不改。B3 又补齐底部五项、顶部 user、context 与
+motion codegen；当前只完成静态/Node/构建验证，尚未上传新的 B1.2 体验版。
 
 ## 审计边界与证据
 
-- 基线：执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`。
-- worktree：`runtime/external-project-worktrees/exp-icon-004-full-20260903`；分支：
-  `codex/exp-icon-004-full-20260903`。
+- 原始审计基线：`origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；B3 parent：
+  `fcb3c15a`（含 `origin/main@4602120b`、`5285dd17` 与 `c027abcd`）。
+- 当前 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支：
+  `codex/exp-icon-004-lineage-b12-20260903`。
 - 范围：工作台底部/顶部导航、更多工具、日历、通讯录、事件记录、筛选/关闭/下拉、换班/加扣班/请假、
   导出/通知/访客、身份页、状态和页面返回控件。
 - 静态证据：源码、WXML/WXSS、SVG 节点、依赖清单、Git 引用搜索、Node 测试、TypeScript、构建和包体脚本。
@@ -214,13 +217,30 @@ source revision 和 nodes content hash，生成器会删除自己生成但已不
   Web/Mini/icon/tokens/lockfile 运行时范围改动数为 0；合入后共享 package 和 46 个生成资产仍逐树等同
   `5285dd17`。
 
+## B1.2 单一 context / motion 来源结果
+
+- `packages/ui-icons/src/context.ts` 现为 10 个重点场景的唯一 size/stroke/color-role 来源；
+  `platform-bindings.ts` 只有 Web/Mini selector、origin 与 capability。`motion.ts` 统一保存顶部动作、通讯录人员、
+  日历定位/箭头、底部 active loop 和 120ms nav press 的完整时序与关键帧。
+- Web 全局生成 CSS 与 Storybook 共用同一输出；Mini 的 workbench、calendar、directory entry/panel 与 workflow
+  picker 导入生成 WXSS。原组件/page 中的 `minimal-*`、`click-*` 共享关键帧已删除，生成器 `--check` 会阻止
+  手改和漂移。
+- 底部 calendar/directory/swap/profile/more 均直接从 `activeWorkspace` 选择 active/inactive 同源 SVG，并只让
+  active part 循环。顶部个人不再复用底部 profile，而使用 `ui-user.svg`；通讯录 people 与底部 directory/profile/
+  more 通过分层 part asset 绕开外链 SVG 内部节点不可控的限制。
+- 工作树验证为 Mini 123 files/668 tests、根 Node guard 17/17、根 Vitest 246 files/1,171 tests、Web build
+  4,251 modules；Mini production verify total/main `5,181,999/1,745,405 B`，相对 parent
+  `+12,268/+13,701 B`。没有新增 runtime dependency 或 warning 类别。最终结论仍需 exact clean trial 的
+  Xiaomi 14 录屏/截图，尤其是日历 opacity 降级、people 双 actor、顶部 transform-origin 与连续切 tab 性能。
+
 ## 风险拆分与实施批次
 
 | 批次 | 范围 | 风险 | 停止条件/验收 |
 | --- | --- | --- | --- |
 | B1（本分支） | catalog/types/motion、Web adapters、底部/顶部/更多/通讯录/日历/身份/工作流优先图标、旧副本清理 | 低到中；可能有尺寸/颜色/外部 image 动效差异 | TypeScript、契约、全量 Mini tests、Web build、Mini build/verify、包体预算通过；不改变业务行为 |
 | B1.1（本分支） | `.81` 日历 adapter 与通讯录模式资产的视觉规格补齐 | 低；日历 dash 只能 opacity 降级 | 精确契约旧实现 3 红/1 绿、修复后 4/4；Mini 120 files/650 tests、包体和构建门禁通过；待新体验版 |
-| B2（体验版验收） | 用 B1 候选在 Xiaomi 14 Android 微信体验版确认视觉、active-only loop、下拉/关闭、safe-area 和 reduced motion | 中到高；依赖原生 renderer/微信版本 | 只接受匹配 SHA、renderer、基础库、微信版本和构建时间的用户证据；发现回归则回 B1 修复，不继续扩大范围 |
+| B1.2 / 累计计划 B3（已实现） | context、active/inactive part、active-only 生命周期、Web/Mini motion codegen | 中；外链 SVG 需兼容层 | 自动门禁和工作树预算通过；exact clean 候选继续复测 |
+| B2（体验版验收） | 用累计候选在 Xiaomi 14 Android 微信体验版确认视觉、active-only loop、下拉/关闭、safe-area 和 reduced motion | 中到高；依赖原生 renderer/微信版本 | 只接受匹配 SHA、renderer、基础库、微信版本和构建时间的用户证据；发现回归则回实现批次修复，不继续扩大范围 |
 | B3（按需） | P3 状态字符/品牌或 visitor/test 专用图标的产品决策 | 中；可能改变语义/品牌边界 | 先有设计确认和真实来源，再单独红绿测试；不与 B1/B2 混批 |
 
 ## 第一实施批次精确 Prompt

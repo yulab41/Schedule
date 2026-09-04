@@ -13,7 +13,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "check:generated": "node scripts/generate-miniprogram-assets.mjs --check && node scripts/generate-motion-adapters.mjs --check",
     "generate:mini": "node scripts/generate-miniprogram-assets.mjs",
+    "generate:motion": "node scripts/generate-motion-adapters.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

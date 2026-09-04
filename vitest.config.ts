@@ -79,6 +79,7 @@ export default defineConfig({
       'src/**',
       '**/.artifacts/**',
       'apps/miniprogram/scripts/**',
+      'scripts/codex/**',
     ],
     fileParallelism: false,
   },

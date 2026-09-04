@@ -1,3 +1,5 @@
+@import "../../../../styles/ui-icon-motion.wxss";
+
 .workflow-picker-root {
   position: relative;
   width: 100%;
@@ -396,9 +398,6 @@
   height: 20px;
 }
 
-.workflow-picker-date-locate-icon.is-animating {
-  animation: click-date-locate 520ms cubic-bezier(0.2, 0, 0, 1);
-}
 .workflow-picker-date-swiper {
   width: 100%;
   height: 252px;
@@ -539,20 +538,9 @@
   }
 }
 
-@keyframes click-date-locate {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(90deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .workflow-picker-sheet,
-  .workflow-picker-selector-popover.is-ready,
-  .workflow-picker-date-locate-icon.is-animating {
+  .workflow-picker-selector-popover.is-ready {
     animation: none;
   }
 }

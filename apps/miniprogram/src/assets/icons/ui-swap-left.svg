@@ -1,4 +1,4 @@
-<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#swap;content:98c51429f85e619d103a108e795ba32fcb7baf1443b3fb6114e000ec70c4fd8e -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#swap;content:98c51429f85e619d103a108e795ba32fcb7baf1443b3fb6114e000ec70c4fd8e;context:mobile-bottom-navigation -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 <path d="M8 3 4 7l4 4" /><path d="M4 7h16" />
 </svg>

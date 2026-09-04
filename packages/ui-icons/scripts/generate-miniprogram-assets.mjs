@@ -1,13 +1,21 @@
-import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { colorTokens } from '@schedule/ui-tokens';
-import { iconCatalog, miniAssetEntries } from '../dist/index.js';
+import { iconCatalog, iconContextSpecs, miniAssetEntries } from '../dist/index.js';
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = resolve(packageDirectory, '../../apps/miniprogram/src/assets/icons');
+const checkOnly = process.argv.slice(2).includes('--check');
 const colors = {
   danger: colorTokens.danger,
   directoryModeInactive: colorTokens.directoryModeInactive,
@@ -66,34 +74,84 @@ function renderNode(node, color) {
   return `<rect ${attrs.join(' ')} />`;
 }
 
-mkdirSync(outputDirectory, { recursive: true });
-const expectedFiles = new Set();
+function resolveEntryStyle(entry) {
+  if (entry.contextKey === undefined) {
+    return {
+      colorRole: entry.colorRole,
+      strokeWidth: entry.strokeWidth,
+    };
+  }
+  const context = iconContextSpecs[entry.contextKey];
+  const colorRole = entry.tone === 'inactive' ? context.inactiveColorRole : context.activeColorRole;
+  return {
+    colorRole,
+    contextKey: context.key,
+    strokeWidth: context.strokeWidth,
+  };
+}
+
+const expectedFiles = new Map();
 for (const entry of miniAssetEntries) {
   const definition = iconCatalog[entry.sourceKey];
-  const color = colors[entry.colorRole];
+  const style = resolveEntryStyle(entry);
+  const color = colors[style.colorRole];
   const contentHash = createHash('sha256').update(JSON.stringify(definition.nodes)).digest('hex');
-  const source = `<!-- generated:ui-icons;source:${definition.sourceSha};content:${contentHash} -->`;
+  const source =
+    style.contextKey === undefined
+      ? `<!-- generated:ui-icons;source:${definition.sourceSha};content:${contentHash} -->`
+      : `<!-- generated:ui-icons;source:${definition.sourceSha};content:${contentHash};context:${style.contextKey} -->`;
   const svg = [
     source,
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${definition.viewBox}" fill="none" stroke="${color}" stroke-width="${entry.strokeWidth ?? definition.strokeWidth}" stroke-linecap="${definition.lineCap}" stroke-linejoin="${definition.lineJoin}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${definition.viewBox}" fill="none" stroke="${color}" stroke-width="${style.strokeWidth ?? definition.strokeWidth}" stroke-linecap="${definition.lineCap}" stroke-linejoin="${definition.lineJoin}">`,
     definition.nodes.map((node) => renderNode(node, color)).join(''),
     '</svg>',
     '',
   ].join('\n');
   const fileName = `ui-${entry.fileKey}.svg`;
-  expectedFiles.add(fileName);
-  writeFileSync(resolve(outputDirectory, fileName), svg, 'utf8');
+  expectedFiles.set(fileName, svg);
 }
 
-for (const fileName of readdirSync(outputDirectory)) {
-  if (!fileName.startsWith('ui-') || !fileName.endsWith('.svg') || expectedFiles.has(fileName)) {
-    continue;
+if (checkOnly) {
+  const differences = [];
+  for (const [fileName, expected] of expectedFiles) {
+    const filePath = resolve(outputDirectory, fileName);
+    if (!existsSync(filePath) || readFileSync(filePath, 'utf8') !== expected) {
+      differences.push(fileName);
+    }
   }
-  const filePath = resolve(outputDirectory, fileName);
-  const existing = readFileSync(filePath, 'utf8');
-  if (existing.includes('generated:ui-icons')) unlinkSync(filePath);
+  if (existsSync(outputDirectory)) {
+    for (const fileName of readdirSync(outputDirectory)) {
+      if (
+        !fileName.startsWith('ui-') ||
+        !fileName.endsWith('.svg') ||
+        expectedFiles.has(fileName)
+      ) {
+        continue;
+      }
+      const existing = readFileSync(resolve(outputDirectory, fileName), 'utf8');
+      if (existing.includes('generated:ui-icons')) differences.push(fileName);
+    }
+  }
+  if (differences.length > 0) {
+    console.error(
+      `[ui-icons] generated assets differ: ${[...new Set(differences)].sort().join(', ')}`,
+    );
+    process.exitCode = 1;
+  } else {
+    console.log(`[ui-icons] ${expectedFiles.size} tracked Mini SVG assets are current`);
+  }
+} else {
+  mkdirSync(outputDirectory, { recursive: true });
+  for (const [fileName, svg] of expectedFiles) {
+    writeFileSync(resolve(outputDirectory, fileName), svg, 'utf8');
+  }
+  for (const fileName of readdirSync(outputDirectory)) {
+    if (!fileName.startsWith('ui-') || !fileName.endsWith('.svg') || expectedFiles.has(fileName)) {
+      continue;
+    }
+    const filePath = resolve(outputDirectory, fileName);
+    const existing = readFileSync(filePath, 'utf8');
+    if (existing.includes('generated:ui-icons')) unlinkSync(filePath);
+  }
+  console.log(`[ui-icons] generated ${expectedFiles.size} Mini SVG assets in ${outputDirectory}`);
 }
-
-console.log(
-  `[ui-icons] generated ${miniAssetEntries.length} Mini SVG assets in ${outputDirectory}`,
-);
