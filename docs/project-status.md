@@ -260,6 +260,20 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - 仍有两个 Codex task 处于 active 状态；其中 icon task/审计路径保留，不强行终止或改写。当前 checkpoint 未包含
   业务源码、lockfile、runtime 数据或用户未跟踪文件。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-010（2026-09-05）
+
+- 最终 early-tripwire guard-test 已在 disposable worktree 实测 `493ms` 退出：未授权 install exit code 1、
+  `EXIT_BEFORE_IMPORT=true`、imported packages `0`、node_modules 未创建/未变、lockfile 未变、项目 store 文件数/字节数/
+  index SHA 前后一致；disposable worktree 已移除。
+- 新 canonical Codex 子 session 已完成完整演练：AGENTS/Skill/inspector/setup 加载，Acquire `general-1`、带 token
+  ReuseOnly、7 个 root producer bootstrap 全部 reused、最小工具链测试 `3/3`、精确 Release；最终事实为
+  `NEW_SESSION_AGENTS_LOADED=true`、`PROJECT_SKILL_AVAILABLE=true`、`POOL_ACQUIRE=READY_REUSE`、
+  `DEPENDENCIES_REUSED=true`、`INSTALL_INVOKED=false`、`HOOK_TRUST_PROMPT=false`、`POOL_RELEASE=READY_REUSE`。
+- 演练暴露的 bootstrap 非 JSON `reasons` 对象迭代错误已在当前待提交 diff 修复；这是输出格式 bug，不改变 bootstrap
+  决策或依赖环境。修复后需在正式槽位重跑非 JSON bootstrap 复核。
+- canonical root、6 个 general slot 和项目 store 均保持项目内；当前仅保留 icon task lease，其他 stale/active 审计
+  路径不强行终止。下一 checkpoint 计划提交：`fix(dev): handle bootstrap reason map output`。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，

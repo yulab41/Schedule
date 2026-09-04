@@ -429,7 +429,9 @@ function printResult(result, json) {
   console.log(`WORKTREE_CREATED=${result.worktreeCreated ? 'true' : 'false'}`);
   console.log(`WORKSPACE_BOOTSTRAP_BUILT=${(result.built ?? []).join(',')}`);
   console.log(`WORKSPACE_BOOTSTRAP_REUSED=${(result.reused ?? []).join(',')}`);
-  for (const reason of result.reasons ?? []) console.log(`INVALIDATION_REASON=${reason}`);
+  if (Array.isArray(result.reasons)) {
+    for (const reason of result.reasons) console.log(`INVALIDATION_REASON=${reason}`);
+  }
 }
 
 export function main(arguments_ = process.argv.slice(2)) {
