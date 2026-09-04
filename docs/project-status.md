@@ -103,8 +103,8 @@
 
 - 项目工具链本线程已完成：静态门禁、安装 tripwire、pool 溢出、SHA 切换、6 槽 ReuseOnly/bootstrap、canonical
   新 session 和 historical overlay 新 session 演练均有 ignored 证据；本轮没有生产、数据库或小程序上传操作。
-- 最终状态 checkpoint 之后，6 个 formal general slot 已无安装同步到 `7bf50bd0`，逐槽 `ReuseOnly`、root bootstrap
-  和最小定向测试仍通过，`built=0,reused=7`；这是 docs-only SHA 漂移，未使完整验证代码证据失效。
+- 最终状态 checkpoint 之后，6 个 formal general slot 已按最新 docs-only 主线无安装同步，逐槽 `ReuseOnly`、root
+  bootstrap 和最小定向测试仍通过，`built=0,reused=7`；状态文档漂移未使完整验证代码证据失效。
 - Codex app 最后检查仍显示历史图标任务“收口 Web 与小程序图标一致性”和“审计图标一致性迁移方案 (2)”为 active；
   当前唯一 lease 是 `runtime/wt/icon-parity-1`，有进程/未完成上传任务，未被本线程中断、抢占或删除。故不能把
   `ALL_PREVIOUS_PARALLEL_TASKS_FINISHED` 写成 true；其余正式 general pool 不受影响且 6 个均 free。
