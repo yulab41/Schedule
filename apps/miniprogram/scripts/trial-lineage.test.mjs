@@ -10,6 +10,7 @@ import {
   allocateNextTrialVersion,
   assertBuildProfileMatchesCandidate,
   assertTrialCandidateFacts,
+  evaluateEquivalentProof,
   inspectTrialCandidate,
   loadTrialHistory,
   loadTrialPolicy,
@@ -95,6 +96,15 @@ function createPolicy(requiredCommit = REQUIRED_ICON_CHECKPOINT) {
     tagPrefix: 'miniprogram-trial/',
     versionPrefix: '0.1.0-p10',
   };
+}
+
+function createEquivalentPolicy() {
+  const policy = createPolicy();
+  const actualCheckpoint = loadTrialPolicy().requiredCheckpoints.find(
+    ({ commit }) => commit === REQUIRED_ICON_CHECKPOINT,
+  );
+  policy.requiredCheckpoints[0].equivalentProof = structuredClone(actualCheckpoint.equivalentProof);
+  return policy;
 }
 
 function createTestHistory() {
@@ -215,6 +225,27 @@ describe('trial lineage history and policy', () => {
 });
 
 describe('trial candidate preflight', () => {
+  it('matches every canonical proof file against the candidate tree', async () => {
+    const checkpoint = loadTrialPolicy().requiredCheckpoints.find(
+      ({ commit }) => commit === REQUIRED_ICON_CHECKPOINT,
+    );
+    const blobs = new Map(
+      checkpoint.equivalentProof.files.map(({ path: file, blob }) => [file, blob]),
+    );
+    const runGit = vi.fn(async (arguments_) => ({
+      code: 0,
+      stderr: '',
+      stdout: arguments_[0] === 'rev-parse' ? blobs.get(arguments_[1].slice('HEAD:'.length)) : '',
+    }));
+
+    await expect(
+      evaluateEquivalentProof(runGit, 'fixture-root', checkpoint),
+    ).resolves.toMatchObject({
+      equivalent: true,
+      strategy: 'canonical-tree-files',
+    });
+  });
+
   it('accepts only a clean production cumulative candidate with traceable metadata', () => {
     const policy = createPolicy();
 
@@ -303,6 +334,42 @@ describe('trial candidate preflight', () => {
         policy,
       ),
     ).toThrow(/already reserved.*different commit/iu);
+  });
+
+  it('accepts a tracked old trial only when every required feature has a canonical equivalent proof', () => {
+    const policy = createEquivalentPolicy();
+    const facts = createCandidateFacts({
+      latestTrial: {
+        commit: '2222222222222222222222222222222222222222',
+        isAncestor: false,
+        sequence: 86,
+        trackedHistory: true,
+        version: '0.1.0-p10.20260904.86',
+      },
+      requiredCheckpoints: [
+        {
+          commit: REQUIRED_ICON_CHECKPOINT,
+          equivalent: true,
+          isAncestor: false,
+        },
+      ],
+      version: '0.1.0-p10.20260905.87',
+    });
+
+    expect(assertTrialCandidateFacts(facts, policy)).toMatchObject({
+      reservation: 'new',
+      sequence: 87,
+    });
+
+    expect(() =>
+      assertTrialCandidateFacts(
+        {
+          ...facts,
+          latestTrial: { ...facts.latestTrial, trackedHistory: false },
+        },
+        policy,
+      ),
+    ).toThrow(/latest cumulative trial.*ancestor/iu);
   });
 
   it('freshly fetches origin/main and rejects a candidate made stale by a parallel branch', async () => {

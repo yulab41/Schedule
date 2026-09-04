@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile);
 const THIS_FILE = fileURLToPath(import.meta.url);
 const REPOSITORY_ROOT = path.resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const FULL_COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
+const GIT_OBJECT_PATTERN = /^[a-f0-9]{40}$/u;
 const MANIFEST_DIGEST_PATTERN = /^[a-f0-9]{64}$/u;
 const PLATFORM_ACTIONS = new Set(['dry-run-only', 'uploaded']);
 
@@ -53,6 +54,14 @@ function requireFullCommit(value, label) {
   return commit;
 }
 
+function requireGitObject(value, label) {
+  const object = requireText(value, label).toLowerCase();
+  if (!GIT_OBJECT_PATTERN.test(object)) {
+    throw new Error(`${label} must be a full 40-character Git object id.`);
+  }
+  return object;
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
@@ -63,6 +72,36 @@ function parseJsonFile(filePath, label) {
   } catch (error) {
     throw new Error(`Unable to read ${label} at ${filePath}.`, { cause: error });
   }
+}
+
+function validateEquivalentProof(proof, label) {
+  requireRecord(proof, label);
+  if (proof.strategy !== 'canonical-tree-files') {
+    throw new Error(`${label} strategy must be canonical-tree-files.`);
+  }
+  requireText(proof.evidence, `${label} evidence`);
+  if (!Array.isArray(proof.files) || proof.files.length === 0) {
+    throw new Error(`${label} must list at least one canonical file.`);
+  }
+
+  const paths = new Set();
+  for (const [index, file] of proof.files.entries()) {
+    requireRecord(file, `${label} file ${index}`);
+    const filePath = requireText(file.path, `${label} file ${index} path`);
+    if (
+      !/^[A-Za-z0-9._/-]+$/u.test(filePath) ||
+      filePath.startsWith('/') ||
+      filePath.includes('..') ||
+      filePath.includes('//')
+    ) {
+      throw new Error(`${label} file ${index} path must be a safe repository-relative path.`);
+    }
+    if (paths.has(filePath)) throw new Error(`${label} file ${index} path is duplicated.`);
+    paths.add(filePath);
+    requireGitObject(file.blob, `${label} file ${index} blob`);
+  }
+
+  return proof;
 }
 
 export function loadTrialHistory(filePath = TRIAL_HISTORY_PATH) {
@@ -108,6 +147,12 @@ export function validateTrialPolicy(policy) {
       throw new Error(`Required checkpoint ${commit} is duplicated.`);
     }
     configuredCommits.add(commit);
+    if (checkpoint.equivalentProof !== undefined) {
+      validateEquivalentProof(
+        checkpoint.equivalentProof,
+        `Required checkpoint ${commit} equivalentProof`,
+      );
+    }
   }
 
   return policy;
@@ -299,6 +344,27 @@ async function isAncestor(runGit, repositoryRoot, ancestor, descendant) {
   return result.code === 0;
 }
 
+export async function evaluateEquivalentProof(runGit, repositoryRoot, checkpoint) {
+  const proof = checkpoint.equivalentProof;
+  if (proof === undefined) return { equivalent: false, files: [] };
+
+  const files = [];
+  let equivalent = true;
+  for (const file of proof.files) {
+    const result = await gitText(
+      runGit,
+      repositoryRoot,
+      ['rev-parse', `HEAD:${file.path}`],
+      [0, 128],
+    );
+    const actual = result.code === 0 ? result.stdout.toLowerCase() : null;
+    const matches = actual === file.blob;
+    if (!matches) equivalent = false;
+    files.push({ actual, blob: file.blob, matches, path: file.path });
+  }
+  return { equivalent, files, strategy: proof.strategy };
+}
+
 function remoteTagRef(version, policy) {
   return `refs/tags/${policy.tagPrefix}${version}`;
 }
@@ -446,10 +512,11 @@ export function assertTrialCandidateFacts(facts, policy = loadTrialPolicy()) {
     if (!Number.isSafeInteger(latestTrial.sequence)) {
       throw new Error('Latest cumulative trial sequence must be an integer.');
     }
-    if (latestTrial.isAncestor !== true) {
-      throw new Error(
-        `Latest cumulative trial ${latestTrial.version} must be an ancestor of trial HEAD.`,
-      );
+    if (
+      latestTrial.trackedHistory !== undefined &&
+      typeof latestTrial.trackedHistory !== 'boolean'
+    ) {
+      throw new Error('Latest cumulative trial trackedHistory must be boolean.');
     }
   }
 
@@ -459,12 +526,29 @@ export function assertTrialCandidateFacts(facts, policy = loadTrialPolicy()) {
   const ancestryByCommit = new Map(
     facts.requiredCheckpoints.map((checkpoint) => [checkpoint.commit?.toLowerCase(), checkpoint]),
   );
+  const requiredFeatureCoverage = policy.requiredCheckpoints.every((checkpoint) => {
+    const ancestry = ancestryByCommit.get(checkpoint.commit.toLowerCase());
+    return (
+      ancestry?.isAncestor === true ||
+      (ancestry?.equivalent === true && checkpoint.equivalentProof !== undefined)
+    );
+  });
+  if (
+    latestTrial !== null &&
+    latestTrial.isAncestor !== true &&
+    !(latestTrial.trackedHistory === true && requiredFeatureCoverage)
+  ) {
+    throw new Error(
+      `Latest cumulative trial ${latestTrial.version} must be an ancestor of trial HEAD unless it is a tracked observation and every required feature has a verified canonical equivalence proof.`,
+    );
+  }
   for (const checkpoint of policy.requiredCheckpoints) {
     const commit = checkpoint.commit.toLowerCase();
     const ancestry = ancestryByCommit.get(commit);
-    if (ancestry?.isAncestor !== true) {
+    const equivalent = ancestry?.equivalent === true && checkpoint.equivalentProof !== undefined;
+    if (ancestry?.isAncestor !== true && !equivalent) {
       throw new Error(
-        `Required checkpoint ${commit.slice(0, 7)} must be an ancestor of trial HEAD.`,
+        `Required checkpoint ${commit.slice(0, 7)} must be an ancestor of trial HEAD or match its canonical equivalence proof.`,
       );
     }
   }
@@ -540,11 +624,31 @@ export async function inspectTrialCandidate(
         `Required checkpoint ${checkpoint.commit.slice(0, 7)} is unavailable in this repository.`,
       );
     }
+    const isAncestorResult = await isAncestor(
+      runGit,
+      resolvedRepositoryRoot,
+      checkpoint.commit,
+      head,
+    );
+    const equivalence = await evaluateEquivalentProof(runGit, resolvedRepositoryRoot, checkpoint);
     requiredCheckpoints.push({
       commit: checkpoint.commit,
-      isAncestor: await isAncestor(runGit, resolvedRepositoryRoot, checkpoint.commit, head),
+      equivalence,
+      equivalent: equivalence.equivalent,
+      isAncestor: isAncestorResult,
     });
   }
+
+  const latestHistoryEvent =
+    latestTag === null
+      ? null
+      : (history.entries
+          .flatMap((entry) => entry.events)
+          .find(
+            (event) =>
+              event.version === latestTag.version &&
+              event.commit.toLowerCase() === latestTag.commit,
+          ) ?? null);
 
   const latestTrial =
     latestTag === null
@@ -552,6 +656,7 @@ export async function inspectTrialCandidate(
       : {
           ...latestTag,
           isAncestor: await isAncestor(runGit, resolvedRepositoryRoot, latestTag.commit, head),
+          trackedHistory: latestHistoryEvent !== null,
         };
   const validated = assertTrialCandidateFacts(
     {

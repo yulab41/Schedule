@@ -24,8 +24,9 @@ Git/ECS 打包允许复用 `runtime/release-cache/v1` 的哈希校验 build/dist
 
 ## 体验版本白名单
 
-- 体验上传只能从 clean production 累积候选执行：候选必须后继 fresh `origin/main`、远端最新
-  `miniprogram-trial/<version>` 和 policy required checkpoints；版本说明必须含短 SHA。
+- 体验上传只能从 clean production 累积候选执行：候选必须后继 fresh `origin/main`，且远端最新
+  `miniprogram-trial/<version>` 必须是候选祖先；若最新 tag 是 tracked 旧观察版本，则需通过 policy
+  `equivalentProof` 的逐文件 canonical 等价证明和全部 required checkpoints 覆盖。版本说明必须含短 SHA。
 - 上传封装会先把完整版本原子绑定到不可变轻量 tag。同 tag 同 SHA 仅允许最新候选幂等重试；不同 SHA 拒绝。
   上传失败或响应不确定也永久消耗该版本，禁止删除/force tag 或换代码后复用版本。
 - 体验上传成功且 Git/ECS checkpoint 已部署后，只能通过 `sudo schedule-client-version-allowlist ensure <version>` 追加生产支持版本。

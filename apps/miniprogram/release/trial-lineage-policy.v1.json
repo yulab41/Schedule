@@ -8,15 +8,69 @@
   "requiredCheckpoints": [
     {
       "commit": "1ffab10c3f30987e31db47eb555f9e0aef0bf787",
-      "reason": "Preserve the canonical Web/Mini icon source migration before any later cumulative trial."
+      "reason": "Preserve the canonical Web/Mini icon source migration before any later cumulative trial.",
+      "equivalentProof": {
+        "strategy": "canonical-tree-files",
+        "evidence": "The current canonical catalog, platform bindings, and parity contract are the audited equivalent implementation of this source migration.",
+        "files": [
+          {
+            "path": "packages/ui-icons/src/catalog.ts",
+            "blob": "db2f5b991db6301a6ea9f4fb678339eeebdf6dd1"
+          },
+          {
+            "path": "packages/ui-icons/src/platform-bindings.ts",
+            "blob": "c6b458b81a4090c55e40ea4a07b05dbc7c3d2b95"
+          },
+          {
+            "path": "apps/miniprogram/scripts/icon-parity-contract.test.mjs",
+            "blob": "30e7fba02ffb9451ea4a1109eebea7ebd5879bbb"
+          }
+        ]
+      }
     },
     {
       "commit": "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
-      "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial."
+      "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial.",
+      "equivalentProof": {
+        "strategy": "canonical-tree-files",
+        "evidence": "The current shared motion source, Mini motion contract, and workbench lifecycle are the audited equivalent implementation of this calendar/people checkpoint.",
+        "files": [
+          {
+            "path": "packages/ui-icons/src/motion.ts",
+            "blob": "1b7e78bed68989ef67231b7f9ea43de709142645"
+          },
+          {
+            "path": "apps/miniprogram/scripts/icon-motion-parity.test.mjs",
+            "blob": "7f34448a4d5c0757ac2dc633d238637b6b758ad1"
+          },
+          {
+            "path": "apps/miniprogram/src/pages/workbench/index.ts",
+            "blob": "34bafa66e91ded7a693f660d2c1f4ff6ff585309"
+          }
+        ]
+      }
     },
     {
       "commit": "71110712d41756d19e95a50ecf5aa0d083728da1",
-      "reason": "Preserve the Web/Mini motion candidate lineage before any later cumulative trial."
+      "reason": "Preserve the Web/Mini motion candidate lineage before any later cumulative trial.",
+      "equivalentProof": {
+        "strategy": "canonical-tree-files",
+        "evidence": "The current motion adapter generator, B12 contract, and generated Web CSS are the audited equivalent implementation of this cross-platform motion candidate.",
+        "files": [
+          {
+            "path": "packages/ui-icons/scripts/generate-motion-adapters.mjs",
+            "blob": "c78ad8caef70f50d902fb805834b413e34a1ebb5"
+          },
+          {
+            "path": "apps/miniprogram/scripts/icon-b12-single-source.test.mjs",
+            "blob": "60e011a10386f51a35d334e15774d56af3bbca0a"
+          },
+          {
+            "path": "apps/web/src/generated/ui-icon-motion.css",
+            "blob": "b1d206b34c087b14eda41820809bd1bb9258112e"
+          }
+        ]
+      }
     }
   ]
 }

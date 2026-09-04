@@ -60,8 +60,10 @@ pnpm --filter @schedule/miniprogram ci:dry-run
 
 1. 校验 tracked `release/trial-history.v1.json` 和 `release/trial-lineage-policy.v1.json`，并 fresh-fetch
    `origin/main`。
-2. 要求 worktree clean、profile 为 `production`，候选包含最新 `origin/main`、远端最新 cumulative trial tag
-   和 policy 中全部 required checkpoints。
+2. 要求 worktree clean、profile 为 `production`，候选包含最新 `origin/main`，并满足远端最新 cumulative trial
+   tag 的血缘要求。最新 tag 必须是候选祖先；若它是 tracked 的旧观察版本，则只有在候选逐文件匹配 policy
+   `equivalentProof` 且全部 required checkpoints 均以祖先或等价实现覆盖时才可继续。policy 中全部 required
+   checkpoints 都必须通过祖先或 canonical 等价证明。
 3. 重新读取 `refs/tags/miniprogram-trial/*` 后校验全局序号。新号码必须大于 tracked policy floor 和远端最大序号；
    不按日期、任务或分支重置。计划和文档不得预先硬编码“下一个”号码；省略 `WECHAT_CI_VERSION` 时由
    `allocateNextTrialVersion` 选择，显式版本只接受严格 preflight/幂等重试。

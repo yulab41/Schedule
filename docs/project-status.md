@@ -1,21 +1,21 @@
 # Project Status
 
-本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/` 和精确 debug 日志为准。每轮先读
+本文档只记录当前可安全接续的事实；详细历史以 `docs/audit/` 和精确 debug 日志为准。每轮先读
 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
 
 ## 当前仓库批次（2026-09-05）
 
 - 当前活动批次：`ICON-PARITY-CLOSE-001`（Web/Mini 图标五层 parity、确定性门禁、版本血缘与工具链固化）。
   主工作树及其他 worktree 的用户改动均未接管。
-- 本轮起始 `origin/main@bb81e723`；冻结前最近 fetch 为 `origin/main@ba1e97a7cdc9ccfcbe88f8430e1f9c565444b317`。
-  最新主线只新增 recovery 文档/测试（`ba1e97a7`），已作为当前整合 checkpoint 的第二父提交；未覆盖 icons、
-  Mini/Web runtime、lineage 或 lockfile。
+- 本轮起始 `origin/main@bb81e723`；最新 fetch 为 `origin/main@969f740dce5179d88aa43fa8abbe6117214beb07`。
+  `7f407038` 修复 bootstrap 非 JSON `reasons` map，`fc79762d` 记录 bootstrap profile，`969f740d` 恢复 release
+  test formatting；这些均是文档/工具链变化，整合时不覆盖 icons、Mini/Web runtime、lineage 或 lockfile。
 - 当前候选 worktree：`runtime/wt/icon-parity-1`，分支 `codex/icon-parity-current-20260904`；任务台账在
   ignored `runtime/codex/tasks/icon-parity-current.json`。当前整合提交 subject 为
   `merge: integrate latest origin/main`，状态/完整候选 SHA 以台账和 Git 为准。
-- 历史关系：`1ffab10c`、`5285dd17`、`71110712` 均为图标实现祖先；`8e6a4a32` 是旧日历基线；旧观察版
-  `.86@8caa5f20` 不作为当前源码。`1ffab10c`/`71110712` 的 search ring 缺段已由锁定
-  `tdesign-icons-vue-next@0.4.7` 的回归测试定位并修正。
+- 历史关系：`8e6a4a32` 是旧日历基线；`1ffab10c`、`5285dd17`、`71110712` 的实现已进入当前 canonical
+  tree，但最终 merge 采用等价整合提交而非保留三者的祖先关系；旧观察版 `.86@8caa5f20` 不作为当前源码。
+  `tdesign-icons-vue-next@0.4.7` 的 search-ring 回归测试已定位并修正历史缺段。
 - 当前 checkpoint tracked 变化只包含 canonical icon/catalog/context/motion、Mini 生成资产、Web gallery、
   parity/liveness gates、lineage/release helper、guardrail/reference 和状态文档；无生产数据库/凭据/runtime
   产物进入 Git。
@@ -37,7 +37,11 @@
 
 - `trial-history.v1.json` 覆盖 `.74–.86`；已实际观察的 `.86@8caa5f20` 记录了 production、manifest、描述、tag、
   上传时间并标明旧候选。policy 要求 `1ffab10c`、`5285dd17`、`71110712`，candidate preflight 还要求 fresh
-  `origin/main`、latest trial ancestor、clean production、description short SHA、exact build metadata。
+  `origin/main`、latest trial ancestor 或受 required-feature 等价证明、clean production、description short SHA、
+  exact build metadata。
+- 当前 candidate 与历史图标提交为等价整合而非祖先关系；三组 canonical tree-file blob proof 已接入 lineage helper，
+  `pnpm --filter @schedule/miniprogram exec vitest run scripts/trial-lineage.test.mjs --fileParallelism=false`
+  已通过 15/15，非 tracked 旧 trial 无 proof 时仍 fail closed。
 - `allocateNextTrialVersion` 已接入正式 upload helper：没有显式版本时读取 history 与远端 immutable tags，按
   Asia/Shanghai 当前日期生成下一个序号；最终 reservation 仍以同 SHA lightweight tag 原子绑定，禁止旧源码占用高版本。
 - 官方依赖最终指纹 `b392a5b881360c1aa0bac89bfdbd8f45c9e928c9d0a1ab17e6dedbaca0dbc48e`，current-message L2
@@ -49,11 +53,12 @@
 
 ## 验证与边界
 
-- post-merge 定向：Mini icon/workbench/calendar 5 files/45 tests；lineage/CI 2 files/19 tests；guardrail Node
-  18/18；catalog/gallery 2/2；skill validator `RESULT=PASS`；`pnpm smoke:check-core` 通过。
-- 最终 `pnpm verify` 第一次尝试在 `76016094` 已完成 format/lint/build/typecheck/icon parity、Mini 123 files/669
-  tests、Node 21 tests和根 Vitest 247 passed/37 skipped，但因 `agent-context-policy` 发现旧状态文档 314 行
-  超过 250 行而退出 1；已将状态压缩并使旧 SHA 证据失效，待新 exact SHA 重跑一次完整 verify。
+- post-merge 定向：Mini icon/workbench/calendar 5 files/45 tests；lineage/CI 2 files/19 tests；lineage equivalence
+  15/15；guardrail Node 18/18；latest-main pool/bootstrap Node 7/7；catalog/gallery 2/2；skill validator
+  `RESULT=PASS`；`pnpm smoke:check-core` 通过。
+- `pnpm verify` 的上一轮成功证据属于已失效候选（完整输出和失效原因在 ignored task ledger）；候选 preflight 因主线工具链
+  连续前进至 `969f740d` 而拒绝旧 HEAD，故当前整合 tree 必须只执行一次新的完整 verify，再执行未覆盖的 Mini
+  package/source/determinism/safety/lineage 门禁。
 - `pnpm smoke:browser` 已真实启动 Edge、打开 Web；因 API `127.0.0.1:3000` 未运行停在 `/login?redirect=/`。
   这不是 gallery 失败，也未反复跑管理员登录；未调用微信开发者工具 GUI/CLI、模拟器、Console/Network。
 - Mini/Node/静态/Web gallery 结果不能证明 Xiaomi 14 原生视觉、Skyline、帧率、冷启动、内存或真机交互；当前
@@ -63,6 +68,6 @@
 
 - `MINI-G1-004` 的规模/production 聚合、`.84/.85` 旧上传、G1 人工证据和各轮 guardrail/toolchain 记录继续在
   `docs/audit/`、`docs/debug/debug-feedback-log.md` 与 Git 历史中保留；本文件不重复历史全文。
-- 唯一下一任务：在压缩后的当前整合 tree 上确认 clean exact SHA，运行唯一一次完整 `pnpm verify`，再运行未覆盖的
-  Mini package/source/determinism/safety/lineage 门禁；全部通过后动态分配、上传体验版并验证版本/SHA/manifest/
-  allowlist/网络路线。停止于体验版验证，不提审、不正式发布、不部署 production。
+- 唯一下一任务：解决最新 main merge 的文档冲突并提交单一最终整合 checkpoint，在最新 exact clean SHA 上运行唯一一次完整
+  `pnpm verify`，再运行未覆盖的 Mini package/source/determinism/safety/lineage 门禁；全部通过后动态分配、上传体验
+  版并验证版本/SHA/manifest/allowlist/网络路线。停止于体验版验证，不提审、不正式发布、不部署 production。

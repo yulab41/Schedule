@@ -432,7 +432,7 @@ function Register-Slot {
         commonDir = $config.commonDir
         createdAt = if ($existing) { $existing.createdAt } else { (Get-Date).ToUniversalTime().ToString('o') }
         dependencyFingerprint = $dependency.dependencyFingerprint
-        bootstrapProfile = if ($existing) { $existing.bootstrapProfile } else { $null }
+        bootstrapProfile = if ($Profile) { $Profile } elseif ($existing) { $existing.bootstrapProfile } else { $null }
         updatedAt = (Get-Date).ToUniversalTime().ToString('o')
     }
     Write-AtomicJson -Target $paths.marker -Value $metadata
