@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary, ScheduleExportType } from '@schedule/contracts';
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
-import { DownloadIcon, InfoCircleIcon } from 'tdesign-icons-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
@@ -9,6 +8,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
@@ -250,7 +250,7 @@ function updateVisibility(nextVisible: boolean): void {
           </t-form-item>
         </div>
         <p class="export-hint">
-          <InfoCircleIcon aria-hidden="true" />
+          <SharedIcon name="info-circle" />
           <span>文件默认不包含电话号码和内部审计内容；每次导出都会记录安全审计。</span>
         </p>
         <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
@@ -283,7 +283,7 @@ function updateVisibility(nextVisible: boolean): void {
             取消
           </t-button>
           <t-button theme="primary" :loading="isWorking" @click="runExport">
-            <template #icon><DownloadIcon /></template>
+            <template #icon><SharedIcon name="download" /></template>
             导出 CSV
           </t-button>
         </footer>

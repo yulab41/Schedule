@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { WifiOffIcon } from 'tdesign-icons-vue-next';
-
+import SharedIcon from '../components/SharedIcon.vue';
 import { getAppStatePresentation } from './app-state.js';
 import { useOnlineState } from './online-state.js';
 
@@ -10,7 +9,7 @@ const offlineState = getAppStatePresentation('offline');
 
 <template>
   <div v-if="!isOnline" class="offline-banner" role="status" aria-live="polite">
-    <span class="offline-icon" aria-hidden="true"><WifiOffIcon /></span>
+    <span class="offline-icon" aria-hidden="true"><SharedIcon name="wifi-off" /></span>
     <div>
       <span>{{ offlineState.eyebrow }}</span>
       <strong>{{ offlineState.title }}</strong>

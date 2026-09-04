@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import WorkbenchNavIcon from './WorkbenchNavIcon.vue';
 import type { WorkbenchNavItem, WorkbenchTabId } from './workbench-nav.js';
 
@@ -129,7 +130,7 @@ onBeforeUnmount(() => {
             aria-hidden="true"
           />
           <span>{{ item.label }}</span>
-          <span class="more-nav-chevron" aria-hidden="true">›</span>
+          <SharedIcon class="more-nav-chevron" name="chevron-right" />
         </button>
         <p v-if="secondaryItems.length > 3" class="more-nav-group">信息与管理</p>
         <button
@@ -149,7 +150,7 @@ onBeforeUnmount(() => {
             aria-hidden="true"
           />
           <span>{{ item.label }}</span>
-          <span class="more-nav-chevron" aria-hidden="true">›</span>
+          <SharedIcon class="more-nav-chevron" name="chevron-right" />
         </button>
         <p class="more-nav-group">账号</p>
         <button type="button" class="more-nav-item is-danger" @click="signOut">

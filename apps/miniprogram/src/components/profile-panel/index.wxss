@@ -265,6 +265,13 @@
   font-weight: var(--ui-font-weight-regular);
 }
 
+.profile-inline-chevron {
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
 .profile-overview-state {
   min-height: 116px;
   display: flex;

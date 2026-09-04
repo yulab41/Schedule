@@ -2,6 +2,58 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-03 EXP-ICON-004-B1.1 日历与人员图标动效一致性修复
+
+- 现场证据：用户在 Xiaomi 14 体验版 `0.1.0-p10.20260903.81` 报告日历动效及通讯录人员模式按钮
+  与 Web 不一致；未取得 renderer/基础库/微信版本截图，因此可作为症状，不作为修复后验收。
+- 引入点：`git log -S`/`git blame` 将 Mini `click-nav-calendar` 追到 `9cdd0a8d`，B1 `1ffab10c` 在换用
+  split asset 时仍保留该状态；calendar shared motion/adapter 历史涉及 `5b9542a2`、`733e3af6`、
+  `3fc41610`、`9a436e8b`。people Web motion 来自 `fea129bb`，Mini motion 来自 `6b5b30fb`，B1 在
+  `1ffab10c` 拆分同源 part asset；双方 motion 数值本来一致。
+- 根因：Mini 日历额外执行 Web 没有的 420ms 点击弹跳，且用 opacity `.35` + `scaleX(.35)` 模拟
+  Web check path 的 opacity `.3` + dashoffset；日历资产固定 primary。people 的 520ms、easing、46%
+  位移和 destination-only 触发均正确，观感差异来自生成资产 stroke 2 vs Web 1.8、inactive
+  `#6B7785` vs Web `#586678`。原 parity test 未检查这些值。
+- 失败先行：新增 `icon-motion-parity.test.mjs`，旧实现实际 `3 failed / 1 passed`；通过项只覆盖已经正确的
+  people motion/触发。修复后该契约 4/4，连同原 B1/工作台/通讯录定向为 38/38。
+- 行为变化：删除 `calendarNavAnimating` 与 `click-nav-calendar`；切入日历仍由
+  `activatePrimaryWorkspace(this, 'calendar')` 完成，重复点击仍以两次 `setData` 清空并恢复 `scrollTarget`
+  回到顶部。active-only 1800ms/ease-in-out/infinite 不变，兼容关键帧只保留 opacity `.3 → 1 → .3`，
+  不再拉伸几何。people 的 controller、timer、触发与关键帧完全未改。
+- 视觉来源：新增 calendar/check secondary variants；Mini asset manifest 支持 stroke override，通讯录
+  department/people 统一 1.8。新增 `directoryModeInactive #586678` token，由 Web、Mini 和生成器共用；
+  8 个新增/变化 SVG source hash/content hash 可追溯，净增 863 B。没有 Canvas、逐帧 `setData`、inline SVG
+  或运行时依赖。
+- 验证：共享包/Web/Mini typecheck 通过；Web/token 定向 42/42、Mini 定向 38/38、Mini 最终全量
+  120 files/650 tests；Web build、Mini production build 302 files、source/package/performance/determinism/
+  verify、format、lint、`git diff --check` 均通过。packageBytes `5,169,730`、main `1,731,703`，相对 B1
+  `+947/+915 B`；既有主包与矩阵 warning 无新增类别。
+- 超时复核：首次 Mini 全量与 Web build 并行时，5 个构建型测试命中默认 5 秒超时；对应断言在 30 秒门限下
+  全部通过，缓存预热后以原命令单独串行重跑 120/650 全绿，没有修改测试时限或生产逻辑。
+- 运行/浏览器验证：Web 只把原 `#586678` 常量替换为同值 token，未改 Web 几何、motion、交互或核心链路；
+  本 follow-up 未重跑 `pnpm smoke:browser`，`pnpm smoke:check-core` 通过。仓库政策下未调用微信开发者工具；
+  新体验版/Xiaomi 14 仍待重新授权和匹配构建证据。
+- 发布边界：实现 checkpoint 由消息 `fix(miniprogram): align calendar and people icon motion` 标识并推送
+  调查分支；本轮不上传、不提审、不正式发布、不连接或部署 production。
+
+## 2026-09-03 EXP-ICON-004 体验上传与白名单边界
+
+- 候选冻结：代码 checkpoint `1ffab10c3f30987e31db47eb555f9e0aef0bf787` 已推送；managed
+  `runtime/release-worktree` 为 detached exact-clean worktree。safety checker、production profile、credential-free
+  `miniprogram-ci` dry-run、package/verify 均通过，`buildDirty=false`，44 个 `ui-*.svg` 引用无缺失。
+- 上传失败定位：首次执行同一候选时，本机代理/TUN 让微信看到 IPv6 出口，微信返回 `-10008 invalid ip`；没有形成版本。
+  按历史已验证路径清除本次进程代理，并以 `runtime/ci-network/force-servicewechat-ipv4.cjs` 只对
+  `servicewechat.com` 做进程级 IPv4 DNS 兼容，未修改 hosts、VPN、系统或源码。
+- 上传成功：同一 SHA、版本 `0.1.0-p10.20260903.81`、描述 `exp-icon-004-b1-1ffab10` 重试成功；官方接口报告
+  196 code files、ZIP `2,486,095 B`，仓库 wrapper 回报 local upload manifest
+  `a68c1706742b26fb5ac9cd0572793423003c4c837fd2590aab52ac3bcf804eb6`。该动作没有提交审核或正式发布。
+- 白名单：上传 IP 白名单通过既有已登记直连 IPv4 路径验证。用户随后授权服务器放行该版本；可信
+  `sudo schedule-client-version-allowlist ensure 0.1.0-p10.20260903.81` 返回版本已存在并通过验证、未重建容器；独立
+  `verify` 通过。完整 `ecs-verify.sh` 通过，公网 IP 主动探测因未设置 `ECS_PUBLIC_IP` 跳过；没有备份/改写 production、没有部署本批代码、
+  没有调用微信开发者工具。
+- 当时状态：体验版已上传，当时尚无实体设备反馈；后续发现日历/人员差异及修复记录见上方 B1.1，`.81`
+  仍不能写成真机验收通过。
+
 ## 2026-09-03 EXP-CALENDAR-003 请假日期选择器修复
 
 - 基线/范围：在代码修改前从执行时最新 `origin/main@0792ed01` rebase 的独立 worktree
@@ -2350,3 +2402,54 @@
   `docs/project-status.md` 和 `docs/audit/STATUS.md`；保留 `.85` exact evidence、G1 人工待办和 B1 状态，Skill/
   G1 长报告自动合入。合并后 Mini 120 files/655 tests、verify/package/trial policy/determinism/CI dry-run、
   format/lint、Skill validation、agent-context、diff check 和 core smoke 再次通过；未新增外部状态。
+
+## 2026-09-03 EXP-ICON-004 Web/小程序图标同源修复
+
+- 连续性：按执行时最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39` 创建独立干净
+  `runtime/external-project-worktrees/exp-icon-004-full-20260903` / `codex/exp-icon-004-full-20260903`；
+  未触碰主 worktree 的既有用户改动。
+- 根因：Web 导航/动作组件、TDesign 直引用和小程序 `web-*.svg`/CSS/text 近似实现分散维护，日历、通讯录、
+  更多工具、筛选、关闭、下拉和部分动效没有可验证的统一几何与规格来源。
+- 失败先行：新增 `apps/miniprogram/scripts/icon-parity-contract.test.mjs` 在实现前实际出现 4 个失败，
+  缺少共享 catalog/motion、Web adapter 和小程序语义资产；实现后该契约 4/4 通过。
+- 修复范围：新增 `packages/ui-icons`，以 Web 实际 path/TDesign path 和 `packages/ui-tokens` 生成小程序 SVG；
+  Web 的 `WorkbenchNavIcon`、`LucideMinimalActionIcon`、日历/通讯录/身份/状态/导出/访客/个人等优先控件
+  改用 `SharedIcon`；小程序底部/顶部/更多/通讯录/工作流 picker/关闭/筛选/日期箭头改用生成资产；确认无引用后删除
+  26 个旧 `web-*.svg`，未改业务接口或数据流。
+- 动效适配：bell/profile/export/filter/locate/department/people/phone 的 duration/easing/keyframe 与共享 motion
+  规格留在 `packages/ui-icons/src/motion.ts`；Web 直接按 data-part 渲染，小程序对外部 SVG 采用同源 part 资产、
+  wrapper 或 image 兼容层。外部 image 无法控制 SVG 内部 path 的 dashoffset/分组 transform，calendar draw 在
+  小程序仍为兼容实现，通讯录 people 已拆成同源 primary/secondary part asset 执行两组位移关键帧。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动返回 `ERR_CONNECTION_REFUSED`；启动本 worktree
+  Vite 并设置 `VITE_AUTH_DEV_MODE=true` 后重跑，在登录页进入管理员时因本地 API `127.0.0.1:3000` 未运行，
+  URL 保持 `/login?redirect=/` 并超时。未伪造浏览器、Console、Network 或真机结论；该结果已记录供
+  `pnpm smoke:check-core` 校验。仓库政策下未调用微信开发者工具。
+- 引用收口：最终外部图片引用扫描发现生成清单漏登记 `ui-backfill.svg`，已补入同一 catalog 并重生成；最终 44 个
+  `ui-*.svg` 均有生成标记且所有 WXML 引用均可解析，无遗留 `web-*.svg`。
+- 验证收口：Mini production build `300 files`、packageBytes `5,168,783`（main `1,730,788`）、source/package/
+  performance/determinism/verify、Mini 全量 `119 files/646 tests`、根 `pnpm verify` 的 `246 passed/37 skipped` 与
+  `1,170 passed/364 skipped` 均通过；主包 1.5 MB 和 600-cell 矩阵 lower-bound warning 为既有类别。
+- 状态：最终构建/包体/全量回归已完成，待提交并推送；体验版上传需候选 commit、版本描述、测试页面和脏树状态再次确认后
+  取得用户当次明确批准；不提交审核、不正式发布、不部署 production。
+
+## 2026-09-04 EXP-ICON-004-B2 累积血缘恢复
+
+- 引入点与原因：用户所见 `.84@8e6a4a3` 和后续 `.85@a1bba57` 都不是 `.83@5285dd1` 的后继，因而缺少
+  `1ffab10c`/`5285dd17`。本轮从已含最新 `origin/main@75cc0d3b`、B1 `c027abcd` 的累计分支以 merge parent
+  方式纳入 `5285dd17`；生产代码无冲突，冲突只在三份状态/历史文档。
+- 依赖前置：旧 release marker `0d971de1` 只验证 source hash 和目录存在。经用户授权新增完整 environment
+  fingerprint/health guard（checkpoint `d62f780c`）。最终 B2 图先只读返回 `MISS`，精确原因为缺少 Web/ui-icons
+  和 ui-icons/ui-tokens 两个 workspace link；一次 frozen install 用 pnpm 11.9.0 在 1.6 秒完成、0 新下载，随后
+  `MATCH/HEALTH=PASS`，tracked 工作树无安装副作用。
+- 自动化验证：B1 trial history `.74–.85` 通过；Mini 图标/日历/通讯录等定向 7 files/63 tests、Web/token
+  5 files/39 tests、依赖工具 2 files/18 tests、Mini 全量 122 files/663 tests 均通过。四个定向 typecheck、
+  Web production build（4,249 modules，17.42s）及 Mini verify/package/source/performance/determinism/CI dry-run
+  均通过；Mini 为 302 files、total/main `5,169,730/1,731,703 B`，只有既有主包/矩阵 warning。
+- 全仓验证：`pnpm verify` 的 format/lint/build/typecheck 均通过；Mini 再次 122/663，根 Vitest 为
+  247 files passed / 37 skipped、1,178 passed / 364 skipped，总耗时 303,368ms。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动返回 `ERR_CONNECTION_REFUSED`；临时启动本
+  worktree Vite（`VITE_AUTH_DEV_MODE=true`）后重跑，可打开登录页并进入管理员步骤，但 `/users/me` 代理因本地
+  API `127.0.0.1:3000` 未运行返回 `ECONNREFUSED`，URL 留在 `/login?redirect=/`。Vite 已关闭；不得写成浏览器
+  功能或视觉通过，需由后续 exact candidate/Xiaomi 14 补齐。
+- 边界：未调用微信开发者工具 GUI/CLI，未创建真实 trial tag，未上传、放行、提审、正式发布，未连接或部署
+  production。B2 只恢复已审计 B1/B1.1；B1.2 视觉差异继续留给下一独立批次。

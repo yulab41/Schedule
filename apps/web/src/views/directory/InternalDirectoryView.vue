@@ -9,21 +9,13 @@ import type {
   DirectoryQuery,
   GroupSummary,
 } from '@schedule/contracts';
-import {
-  ChevronRightIcon,
-  CloseIcon,
-  FilterIcon,
-  FilterClearIcon,
-  SearchIcon,
-  StarFilledIcon,
-  StarIcon,
-} from 'tdesign-icons-vue-next';
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import {
   getCompatibleDirectoryFacetOptionsByKey,
   getMeaningfulDirectoryFilterKeys,
@@ -522,7 +514,7 @@ async function lookupPreferredEntries(
             :aria-label="`打开筛选，已选 ${activeFilterCount} 项`"
             @click="filterSheetVisible = true"
           >
-            <FilterIcon aria-hidden="true" />
+            <SharedIcon name="filter-funnel" />
             <span>全部筛选</span>
             <strong v-if="activeFilterCount > 0">{{ activeFilterCount }}</strong>
           </button>
@@ -549,7 +541,7 @@ async function lookupPreferredEntries(
     </section>
 
     <form class="directory-search" role="search" @submit.prevent="runSearchImmediately">
-      <SearchIcon aria-hidden="true" />
+      <SharedIcon name="search" />
       <label for="hospital-directory-search" class="visually-hidden"
         >搜索{{ directoryTitle }}</label
       >
@@ -574,7 +566,7 @@ async function lookupPreferredEntries(
         aria-label="清空搜索"
         @click="clearSearch"
       >
-        <CloseIcon aria-hidden="true" />
+        <SharedIcon name="close" />
       </button>
       <button type="submit" class="search-submit">搜索</button>
     </form>
@@ -659,11 +651,11 @@ async function lookupPreferredEntries(
                 :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
                 @click="toggleFavorite(entryGroup)"
               >
-                <StarFilledIcon
+                <SharedIcon
                   v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
-                  aria-hidden="true"
+                  name="star-filled"
                 />
-                <StarIcon v-else aria-hidden="true" />
+                <SharedIcon v-else name="star" />
               </button>
             </header>
 
@@ -764,7 +756,7 @@ async function lookupPreferredEntries(
       </div>
 
       <div v-else-if="!isLoading && errorMessage === undefined" class="directory-empty">
-        <SearchIcon aria-hidden="true" />
+        <SharedIcon name="search" />
         <strong>没有找到匹配号码</strong>
         <p>可缩短搜索词，或清除部分层级筛选后重试。</p>
         <button type="button" @click="resetDirectorySearch">清空搜索和筛选</button>
@@ -847,11 +839,11 @@ async function lookupPreferredEntries(
                   :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
                   @click="toggleFavorite(entryGroup)"
                 >
-                  <StarFilledIcon
+                  <SharedIcon
                     v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
-                    aria-hidden="true"
+                    name="star-filled"
                   />
-                  <StarIcon v-else aria-hidden="true" />
+                  <SharedIcon v-else name="star" />
                 </button>
               </header>
 
@@ -973,7 +965,7 @@ async function lookupPreferredEntries(
           :disabled="activeFilterCount === 0"
           @click="clearAllFilters"
         >
-          <FilterClearIcon aria-hidden="true" />
+          <SharedIcon name="filter-clear" />
           <span>清除全部筛选</span>
           <small v-if="activeFilterCount > 0">已选 {{ activeFilterCount }} 项</small>
         </button>
@@ -1010,8 +1002,8 @@ async function lookupPreferredEntries(
                     >{{ selectedFilterLabel(section) }} · {{ section.options.length }} 项</small
                   >
                 </span>
-                <ChevronRightIcon
-                  aria-hidden="true"
+                <SharedIcon
+                  name="chevron-right"
                   :class="{ 'is-expanded': isFilterSectionExpanded(section.key) }"
                 />
               </button>

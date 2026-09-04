@@ -275,7 +275,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #586678;
+  color: var(--ui-color-directory-mode-inactive);
   background: transparent;
   border: 0;
   border-radius: 11px;

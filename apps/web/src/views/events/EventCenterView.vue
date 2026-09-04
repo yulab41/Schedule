@@ -6,13 +6,13 @@ import type {
   ScheduleEventDetail,
   VisitorAccessLog,
 } from '@schedule/contracts';
-import { FilterIcon } from 'tdesign-icons-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import SharedIcon from '../../components/SharedIcon.vue';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
 import EventFilters from '../../features/events/EventFilters.vue';
 import EventTimeline from '../../features/events/EventTimeline.vue';
@@ -294,7 +294,7 @@ function eventStatusLabel(status: string): string {
         class="mobile-event-filter"
         @click="filterVisible = true"
       >
-        <template #icon><FilterIcon /></template>
+        <template #icon><SharedIcon name="filter-funnel" /></template>
         筛选<span v-if="activeFilterCount > 0">（{{ activeFilterCount }}）</span>
       </t-button>
     </header>

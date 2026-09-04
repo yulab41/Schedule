@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#config;content:af40f58dfe1461401d14aadfe960a865d3eb6d22a6cc9bed16f3c984dea1bfca -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<g data-part="gear"><path d="M9.67 4.14a2.34 2.34 0 0 1 4.66 0 2.34 2.34 0 0 0 3.32 1.91 2.34 2.34 0 0 1 2.33 4.03 2.34 2.34 0 0 0 0 3.84 2.34 2.34 0 0 1-2.33 4.03 2.34 2.34 0 0 0-3.32 1.91 2.34 2.34 0 0 1-4.66 0 2.34 2.34 0 0 0-3.32-1.91 2.34 2.34 0 0 1-2.33-4.03 2.34 2.34 0 0 0 0-3.84 2.34 2.34 0 0 1 2.33-4.03 2.34 2.34 0 0 0 3.32-1.91" /><circle cx="12" cy="12" r="3" /></g>
+</svg>

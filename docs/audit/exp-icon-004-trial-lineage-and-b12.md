@@ -254,6 +254,16 @@ tracked source hash 和 `node_modules` 目录存在性。新实现将 source、N
 checker 与 explicit installer 分离，release-worktree 复用相同核心。新增测试先因实现模块不存在而失败，转绿后
 两组定向测试 `18/18` 通过；真实入口结果为 `MISS / marker-missing / HEALTH=PASS`，没有提前安装或写 marker。
 
+最终 B2 图只读检查进一步准确识别两个缺失 workspace link：`apps/web → @schedule/ui-icons` 与
+`packages/ui-icons → @schedule/ui-tokens`。按用户单次授权执行一次 frozen install：15 个 workspace，lockfile
+已是最新、0 新下载，pnpm 11.9.0 用时 1.6 秒；随后为 `MATCH/HEALTH=PASS`，没有 tracked 副作用。当前累计
+Mini 为 302 files、total/main `5,169,730/1,731,703 B`；Mini 122 files/663 tests、Web/token 39 tests、
+`pnpm verify`（根 1,178 passed/364 skipped）及全部相关构建门禁通过。浏览器 smoke 仅因本地 API 3000
+未运行停在登录重定向，不能替代 Xiaomi 14。
+
+验证期间 `origin/main` 前进到 `fa10d5ba`，并带来项目官方 `scripts/codex/worktree-deps-*` 完整实现。为避免
+两套 dependency source，后续主线 merge 将保留官方实现并删除本轮临时 checker 最终树内容；不会再次安装。
+
 ## 第一实施批次的精确 Prompt
 
 > 执行 `EXP-ICON-004-LINEAGE-B1`。先从执行时最新 `origin/main` 更新现有

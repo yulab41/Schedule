@@ -23,6 +23,7 @@ describe('UI design tokens', () => {
     expect(colorTokens.successLight).toBe('#EAF8EF');
     expect(colorTokens.surface).toBe('#FFFFFF');
     expect(colorTokens.background).toBe('#F4F7FB');
+    expect(colorTokens.directoryModeInactive).toBe('#586678');
     expect(colorTokens.textPrimary).toBe('#16202A');
     expect(colorTokens.textSecondary).toBe('#5E6A78');
     expect(colorTokens.border).toBe('#DCE3EB');

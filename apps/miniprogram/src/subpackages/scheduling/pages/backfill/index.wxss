@@ -164,8 +164,21 @@ page {
   text-align: center;
 }
 
+.web-input-shell .picker-chevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  transform: rotate(90deg);
+}
+
 .web-button {
   justify-content: center;
+}
+
+.web-button image {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 
 .web-button.is-primary {

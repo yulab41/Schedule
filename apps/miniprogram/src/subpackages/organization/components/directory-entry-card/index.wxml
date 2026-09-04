@@ -39,7 +39,7 @@
       >
         <image
           class="favorite-icon"
-          src="{{entry.favorite ? '/assets/icons/web-directory-star-filled.svg' : '/assets/icons/web-directory-star.svg'}}"
+          src="{{entry.favorite ? '/assets/icons/ui-star-filled.svg' : '/assets/icons/ui-star.svg'}}"
           mode="aspectFit"
         />
       </view>
@@ -69,7 +69,7 @@
               <text class="contact-number">{{number.number}}</text>
               <image
                 class="phone-icon {{animatingNumberId === number.id ? 'is-animating' : ''}}"
-                src="/assets/icons/web-directory-phone.svg"
+                src="/assets/icons/ui-phone.svg"
                 mode="aspectFit"
               />
             </view>

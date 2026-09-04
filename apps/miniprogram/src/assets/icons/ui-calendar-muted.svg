@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#calendar/base;content:6dd4c2c5a5600d45a2644a32edc0c3c890249a93afa26237d1ad56d9cbf63311 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M8 2v4M16 2v4" /><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M3 10h18" />
+</svg>

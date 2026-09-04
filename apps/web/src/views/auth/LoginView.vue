@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { LockOnIcon, UserIcon } from 'tdesign-icons-vue-next';
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import SiteComplianceFooter from '../../components/SiteComplianceFooter.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import { useSessionStore } from '../../stores/session.js';
 import { toUserMessage } from '../../utils/user-message.js';
 
@@ -69,7 +69,7 @@ async function submitDev(uid: string): Promise<void> {
           <label>
             <span>账号</span>
             <span class="auth-input-shell">
-              <UserIcon aria-hidden="true" />
+              <SharedIcon name="user" />
               <input
                 v-model="username"
                 autocomplete="username"
@@ -83,7 +83,7 @@ async function submitDev(uid: string): Promise<void> {
           <label>
             <span>密码</span>
             <span class="auth-input-shell">
-              <LockOnIcon aria-hidden="true" />
+              <SharedIcon name="lock" />
               <input
                 v-model="password"
                 autocomplete="current-password"

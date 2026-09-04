@@ -76,10 +76,10 @@ describe('P4 native workbench', () => {
   it('uses the production Web history SVG for event actions', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageStyles = readSource('pages/workbench/index.wxss');
-    const historyIcon = readSource('assets/icons/web-history.svg');
+    const historyIcon = readSource('assets/icons/ui-history.svg');
 
     expect(
-      template.match(/class="event-history-icon"[\s\S]*?src="\/assets\/icons\/web-history\.svg"/g),
+      template.match(/class="event-history-icon"[\s\S]*?src="\/assets\/icons\/ui-history\.svg"/g),
     ).toHaveLength(2);
     expect(template).not.toContain('class="history-icon"');
     expect(pageStyles).toMatch(/\.event-history-icon\s*{[^}]*width:\s*16px;[^}]*height:\s*16px;/s);
@@ -288,7 +288,7 @@ describe('P4 native workbench', () => {
     expect(template).toContain('scroll-into-view="{{scrollTarget}}"');
     expect(template).toContain('filterIconAnimating');
     expect(template).toContain('locateIconAnimating');
-    expect(template).toContain('calendarNavAnimating');
+    expect(template).not.toContain('calendarNavAnimating');
     expect(template).toContain('class="workbench-shell-header"');
     expect(template).toContain('style="{{shellHeaderStyle}}"');
     expect(template).not.toContain('style="top:{{shellHeaderHeight}}px"');
@@ -297,17 +297,17 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="group-switcher-trigger');
     expect(template).toContain('class="notification-action');
     expect(template).toContain('class="shell-profile-action');
-    expect(template).toContain('/assets/icons/web-bell.svg');
-    expect(template).toContain('/assets/icons/web-profile.svg');
-    expect(template).toContain('/assets/icons/web-calendar.svg');
-    expect(template).toContain('/assets/icons/web-directory.svg');
-    expect(template).toContain('/assets/icons/web-leave.svg');
-    expect(template).toContain('/assets/icons/web-swap.svg');
-    expect(template).toContain('/assets/icons/web-duty.svg');
-    expect(template).toContain('/assets/icons/web-more.svg');
-    expect(template).toContain('/assets/icons/web-locate.svg');
-    expect(template).toContain('/assets/icons/web-chevron-left.svg');
-    expect(template).toContain('/assets/icons/web-chevron-right.svg');
+    expect(template).toContain('/assets/icons/ui-bell.svg');
+    expect(template).toContain('/assets/icons/ui-profile.svg');
+    expect(template).toContain('/assets/icons/ui-calendar.svg');
+    expect(template).toContain('/assets/icons/ui-directory.svg');
+    expect(template).toContain('/assets/icons/ui-leave.svg');
+    expect(template).toContain('/assets/icons/ui-swap-left.svg');
+    expect(template).toContain('/assets/icons/ui-duty.svg');
+    expect(template).toContain('/assets/icons/ui-more-primary.svg');
+    expect(template).toContain('/assets/icons/ui-locate.svg');
+    expect(template).toContain('/assets/icons/ui-chevron-left.svg');
+    expect(template).toContain('/assets/icons/ui-chevron-right.svg');
     expect(template).toContain('class="selected-date-details"');
     expect(template).toContain('class="detail-heading"');
     expect(template).toContain('class="duty-group-grid"');

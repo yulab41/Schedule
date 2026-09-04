@@ -25,8 +25,9 @@ describe('production workbench navigation icons', () => {
     expect(nav).toContain('<WorkbenchNavIcon name="logout" aria-hidden="true" />');
   });
 
-  it('covers every production icon plus more and logout with the approved minimal geometry', () => {
+  it('adapts every production icon plus more and logout from the shared catalog', () => {
     const icon = readSource('./WorkbenchNavIcon.vue');
+    const navModel = readSource('./workbench-nav.ts');
 
     for (const name of [
       'backfill',
@@ -46,9 +47,15 @@ describe('production workbench navigation icons', () => {
       'statistics',
       'swap',
     ]) {
-      expect(icon).toContain(`name === '${name}'`);
+      if (name === 'logout' || name === 'more') continue;
+      expect(navModel).toContain(`'${name}'`);
     }
 
+    expect(icon).toContain("import { type IconKey } from '@schedule/ui-icons'");
+    expect(icon).toContain("Extract<IconKey, WorkbenchNavIconId | 'logout' | 'more'>");
+    expect(icon).toContain("'logout'");
+    expect(icon).toContain("'more'");
+    expect(icon).toContain(':name="name"');
     expect(icon).toContain('data-source="lucide-animated-pqoqubbw"');
     expect(icon).toContain('stroke-width: 2;');
     expect(icon).toContain('@media (prefers-reduced-motion: reduce)');

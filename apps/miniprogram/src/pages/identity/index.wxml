@@ -53,7 +53,7 @@
           <view class="identity-login-field__shell">
             <image
               class="identity-login-field__icon"
-              src="/assets/icons/web-profile.svg"
+              src="/assets/icons/ui-user.svg"
               mode="aspectFit"
               aria-hidden="true"
             />
@@ -73,7 +73,7 @@
           <view class="identity-login-field__shell">
             <image
               class="identity-login-field__icon"
-              src="/assets/icons/web-lock.svg"
+              src="/assets/icons/ui-lock.svg"
               mode="aspectFit"
               aria-hidden="true"
             />

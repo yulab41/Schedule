@@ -12,7 +12,7 @@
     <view
       class="workflow-picker-chevron {{mode === 'selector' ? (open ? 'is-up' : 'is-down') : 'is-right'}}"
       aria-hidden="true"
-    ></view>
+    ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view>
   </view>
 
   <view
@@ -60,7 +60,7 @@
         <text>{{draftDisplayValue}}</text>
       </view>
       <view class="workflow-picker-close" aria-role="button" aria-label="关闭" bindtap="handleClose"
-        >×</view
+        ><image src="/assets/icons/ui-close.svg" mode="aspectFit" /></view
       >
     </view>
 
@@ -117,7 +117,7 @@
           hover-start-time="0"
           hover-stay-time="60"
           bindtap="handleDateNavigate"
-          ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+          ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
         /></view>
         <text>{{draftYear}}年{{draftMonth}}月</text>
         <view
@@ -130,7 +130,7 @@
           bindtap="handleDateToday"
           ><view
             class="workflow-picker-date-locate-icon {{dateLocateAnimating ? 'is-animating' : ''}}"
-            ><image src="/assets/icons/web-locate.svg" mode="aspectFit" /></view
+            ><image src="/assets/icons/ui-locate.svg" mode="aspectFit" /></view
         ></view>
         <view
           class="workflow-picker-date-step"
@@ -141,7 +141,7 @@
           hover-start-time="0"
           hover-stay-time="60"
           bindtap="handleDateNavigate"
-          ><image src="/assets/icons/web-chevron-right.svg" mode="aspectFit"
+          ><image src="/assets/icons/ui-chevron-right.svg" mode="aspectFit"
         /></view>
       </view>
       <view class="workflow-picker-weekdays">

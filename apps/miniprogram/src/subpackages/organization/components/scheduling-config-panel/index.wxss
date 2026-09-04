@@ -455,6 +455,19 @@
   border-color: var(--ui-color-primary);
 }
 
+.order-button .order-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.order-button .order-icon-up {
+  transform: rotate(-90deg);
+}
+
+.order-button .order-icon-down {
+  transform: rotate(90deg);
+}
+
 .row-editor {
   display: flex;
   grid-column: 1 / -1;

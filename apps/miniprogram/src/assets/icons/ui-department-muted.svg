@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/components/LucideMinimalActionIcon.vue#department;content:a77948225018e476b8e3fe78eadc3c82a2c0ac7e99f11046e1076ffe20cee0e7 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#586678" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<g data-part="rotor"><rect x="4" y="4" width="6" height="6" rx="1.5" /><rect x="14" y="4" width="6" height="6" rx="1.5" /><rect x="4" y="14" width="6" height="6" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" /></g>
+</svg>

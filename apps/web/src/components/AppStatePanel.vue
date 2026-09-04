@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ErrorCircleIcon, InfoCircleIcon, WifiOffIcon } from 'tdesign-icons-vue-next';
-
 import type { AppStateTone } from '../pwa/app-state.js';
+import SharedIcon from './SharedIcon.vue';
 
 defineProps<{
   readonly description: string;
@@ -19,9 +18,9 @@ defineProps<{
     :aria-live="tone === 'error' ? 'assertive' : 'polite'"
   >
     <span class="app-state-icon" aria-hidden="true">
-      <ErrorCircleIcon v-if="tone === 'error'" />
-      <WifiOffIcon v-else-if="tone === 'offline'" />
-      <InfoCircleIcon v-else />
+      <SharedIcon v-if="tone === 'error'" name="error-circle" />
+      <SharedIcon v-else-if="tone === 'offline'" name="wifi-off" />
+      <SharedIcon v-else name="info-circle" />
     </span>
     <div class="app-state-copy">
       <span class="app-state-eyebrow">{{ eyebrow }}</span>

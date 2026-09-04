@@ -4,6 +4,7 @@ export const colorTokens = {
   borderStrong: '#C5CDD6',
   danger: '#D92D20',
   dangerLight: '#FDECEA',
+  directoryModeInactive: '#586678',
   focusRing: '#0A66D5',
   holidayBackground: '#FFF5F5',
   nearBlack: '#16202A',

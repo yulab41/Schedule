@@ -7,7 +7,6 @@ import type {
   GroupSummary,
   ScheduleEvent,
 } from '@schedule/contracts';
-import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -23,6 +22,7 @@ import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import CompactSwitch from '../../components/CompactSwitch.vue';
 import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
@@ -805,7 +805,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             @touchend.passive="releaseCalendarControl"
             @touchstart.passive="pressCalendarControl"
           >
-            <ChevronLeftIcon aria-hidden="true" />
+            <SharedIcon name="chevron-left" />
             <span>上一周</span>
           </button>
           <div class="week-heading">
@@ -836,7 +836,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             @touchend.passive="releaseCalendarControl"
             @touchstart.passive="pressCalendarControl"
           >
-            <ChevronRightIcon aria-hidden="true" />
+            <SharedIcon name="chevron-right" />
             <span>下一周</span>
           </button>
         </header>
@@ -890,7 +890,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               @touchend.passive="releaseCalendarControl"
               @touchstart.passive="pressCalendarControl"
             >
-              <ChevronLeftIcon aria-hidden="true" />
+              <SharedIcon name="chevron-left" />
               <span>上一月</span>
             </button>
             <div class="month-heading">
@@ -921,7 +921,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               @touchend.passive="releaseCalendarControl"
               @touchstart.passive="pressCalendarControl"
             >
-              <ChevronRightIcon aria-hidden="true" />
+              <SharedIcon name="chevron-right" />
               <span>下一月</span>
             </button>
             <label class="month-picker">
@@ -982,7 +982,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               aria-label="上一月"
               @click="goToPreviousMonth"
             >
-              <ChevronLeftIcon aria-hidden="true" />
+              <SharedIcon name="chevron-left" />
             </button>
             <div class="list-month-heading">
               <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
@@ -994,7 +994,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               aria-label="下一月"
               @click="goToNextMonth"
             >
-              <ChevronRightIcon aria-hidden="true" />
+              <SharedIcon name="chevron-right" />
             </button>
             <button
               class="calendar-locator"

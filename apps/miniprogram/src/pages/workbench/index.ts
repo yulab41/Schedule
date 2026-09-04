@@ -191,7 +191,6 @@ interface WorkbenchPageData {
   readonly shiftEventMeta: string;
   readonly shiftEventSheetOpen: boolean;
   readonly shiftEventState: ShiftEventState;
-  readonly calendarNavAnimating: boolean;
   readonly state: WorkbenchState;
   readonly testCenterEnabled: boolean;
   readonly viewMode: WorkbenchView;
@@ -327,7 +326,6 @@ Page({
     shiftEventMeta: '',
     shiftEventSheetOpen: false,
     shiftEventState: 'closed' as ShiftEventState,
-    calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
     testCenterEnabled: false,
     viewMode: 'month' as const,
@@ -729,11 +727,11 @@ Page({
 
   handleCalendarNav(this: WorkbenchPageInstance): void {
     if (this.data.activeWorkspace !== 'calendar') {
-      activatePrimaryWorkspace(this, 'calendar', { calendarNavAnimating: false });
+      activatePrimaryWorkspace(this, 'calendar');
       return;
     }
-    this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
-      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
+    this.setData({ scrollTarget: '' }, () => {
+      this.setData({ scrollTarget: 'workbench-content-top' });
     });
   },
 

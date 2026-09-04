@@ -113,9 +113,9 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(template).toContain('<swiper-item');
     expect(template).toContain('wx:key="slot"');
     expect(template).not.toContain('<pan-gesture-handler');
-    expect(template).toContain('/assets/icons/web-chevron-left.svg');
-    expect(template).toContain('/assets/icons/web-chevron-right.svg');
-    expect(template).toContain('/assets/icons/web-locate.svg');
+    expect(template).toContain('/assets/icons/ui-chevron-left.svg');
+    expect(template).toContain('/assets/icons/ui-chevron-right.svg');
+    expect(template).toContain('/assets/icons/ui-locate.svg');
     const styles = readSource('components/calendar/calendar-month/index.wxss');
     expect(styles).toMatch(/transition:\s*height 240ms cubic-bezier\(0\.33, 1, 0\.68, 1\);/u);
     expect(styles).not.toContain('locate-crosshair::before');

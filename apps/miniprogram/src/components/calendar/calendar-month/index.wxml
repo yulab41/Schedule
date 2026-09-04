@@ -13,7 +13,7 @@
         class="chevron is-left {{stepMotion === 'previous' ? 'is-animating' : ''}}"
         aria-hidden="true"
       >
-        <image class="chevron-image" src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+        <image class="chevron-image" src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
       </view>
     </view>
     <view class="month-heading">
@@ -30,7 +30,7 @@
       bindtap="handleLocateToday"
     >
       <view class="locate-crosshair {{locateAnimating ? 'is-animating' : ''}}" aria-hidden="true">
-        <image class="locate-image" src="/assets/icons/web-locate.svg" mode="aspectFit" />
+        <image class="locate-image" src="/assets/icons/ui-locate.svg" mode="aspectFit" />
       </view>
     </view>
     <view
@@ -46,7 +46,7 @@
         class="chevron is-right {{stepMotion === 'next' ? 'is-animating' : ''}}"
         aria-hidden="true"
       >
-        <image class="chevron-image" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        <image class="chevron-image" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
   </view>

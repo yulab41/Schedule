@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ConfirmedHolidayDate, GuestCalendarReadModel } from '@schedule/contracts';
-import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -8,6 +7,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import AppStatePanel from '../../components/AppStatePanel.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import {
   addBusinessMonths,
   createLatestRequestTracker,
@@ -162,13 +162,13 @@ async function changeMonth(delta: number): Promise<void> {
       <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
       <div class="guest-calendar-toolbar">
         <t-button variant="outline" @click="changeMonth(-1)">
-          <template #icon><ChevronLeftIcon /></template>
+          <template #icon><SharedIcon name="chevron-left" /></template>
           上一月
         </t-button>
         <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
         <t-button variant="outline" @click="changeMonth(1)">
           下一月
-          <template #icon><ChevronRightIcon /></template>
+          <template #icon><SharedIcon name="chevron-right" /></template>
         </t-button>
       </div>
 

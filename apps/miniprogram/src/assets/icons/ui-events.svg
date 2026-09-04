@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#events;content:e96f32390a37229193316e284eb57348af7a26d21196306fdcbe7c4b7d00e785 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M8 5h13M8 12h13M8 19h13" /><g data-part="event-dots"><path d="M3 5h.01M3 12h.01M3 19h.01" /></g>
+</svg>

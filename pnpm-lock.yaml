@@ -127,6 +127,9 @@ importers:
       '@schedule/scheduling-domain':
         specifier: workspace:*
         version: link:../../packages/scheduling-domain
+      '@schedule/ui-icons':
+        specifier: workspace:*
+        version: link:../../packages/ui-icons
       '@schedule/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens
@@ -136,9 +139,6 @@ importers:
       pinia:
         specifier: ^4.0.2
         version: 4.0.2(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.5.40(typescript@5.9.3))
-      tdesign-icons-vue-next:
-        specifier: 0.4.7
-        version: 0.4.7(vue@3.5.40(typescript@5.9.3))
       tdesign-vue-next:
         specifier: ^1.20.5
         version: 1.20.5(vue@3.5.40(typescript@5.9.3))
@@ -233,6 +233,12 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(mysql2@3.23.2(@types/node@24.13.3))
+
+  packages/ui-icons:
+    dependencies:
+      '@schedule/ui-tokens':
+        specifier: workspace:*
+        version: link:../ui-tokens
 
   packages/ui-tokens: {}
 

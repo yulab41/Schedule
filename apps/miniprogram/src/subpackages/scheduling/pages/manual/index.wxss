@@ -42,6 +42,11 @@ page {
   line-height: 1;
 }
 
+.header-back image {
+  width: 20px;
+  height: 20px;
+}
+
 .header-back.is-pressed {
   background: var(--ui-color-primary-light);
 }
@@ -1163,6 +1168,11 @@ ui-alert {
   color: var(--ui-color-text-secondary);
   border-radius: 50%;
   font-size: 25px;
+}
+
+.dialog-close image {
+  width: 20px;
+  height: 20px;
 }
 
 .release-dialog-meta,

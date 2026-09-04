@@ -230,8 +230,9 @@ page {
 }
 
 .test-route-arrow {
+  width: 18px;
+  height: 18px;
   margin-left: 12px;
-  color: var(--ui-color-primary);
   font-size: 22px;
   line-height: 1;
 }

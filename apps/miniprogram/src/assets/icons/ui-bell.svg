@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/components/LucideMinimalActionIcon.vue#bell;content:b60cef9d9388df0a5020ad1b66391365eefe54274be63432de9c1f6b3726d201 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<g data-part="bell"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" /><path d="M10 21h4" /></g>
+</svg>

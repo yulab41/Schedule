@@ -1,6 +1,6 @@
 <view class="test-tools-page">
   <view class="test-tools-header">
-    <view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回更多" bindtap="handleBack">‹</view>
+    <view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回更多" bindtap="handleBack"><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" /></view>
     <view class="header-copy">
       <text class="header-kicker">安全诊断 · 只读</text>
       <text class="header-title">测试工具</text>
