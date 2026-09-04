@@ -5,8 +5,17 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`TOOLCHAIN-GUARDRAILS-INTERNAL-001`（Schedule Codex 全局规范、依赖复用、持久 warm worktree
-  池和 Hook 收口）。前序 `TOOLCHAIN-GUARDRAILS-003`、动态身份批次和 `MINI-G1-004` 均保留历史结论，不因本批进入业务修复。
+- 当前活动批次：`ICON-PARITY-CLOSE-001`（Web/Mini 图标五层 parity、确定性门禁、版本血缘与工具链固化）。前序
+  `TOOLCHAIN-GUARDRAILS-FINAL-001`、动态身份批次和 `MINI-G1-004` 均保留历史结论，不覆盖用户脏改动。
+- 本轮起始事实：`origin/main@bb81e723fc63dc5b95c946cd7505635f896c94fc`；任务 worktree
+  `runtime/wt/icon-parity-1`，基于该 SHA 创建。相关历史 `8e6a4a32`、`1ffab10c`、`5285dd17`、`71110712` 均不在
+  当前主线；已上传观察版 `.86@8caa5f20` 来自图标专用支线，不能直接视为当前源码。
+- 任务状态台账：`runtime/codex/tasks/icon-parity-current.json`（ignored）；本轮网络路线尚未冻结。
+- 依赖复用事实：初始指纹 `b1ca5cc1…e7dc98` 的两次前置 wrapper 失败未进入依赖解析；修复工具链并同步
+  `pnpmfileChecksum` 后新指纹 `b30dd8c7…cf1391` 完成一次有效 offline frozen materialization，最终健康复核为
+  `READY_REUSE`，未升级依赖。
+- 即将创建的工具链 checkpoint：`chore(agent): make dependency reconciliation deterministic`；只包含依赖维护
+  路由、锁文件 checksum、健康检测修复和对应回归测试。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -173,9 +182,7 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：在该 checkpoint 上执行项目 store 镜像、迁移外部 warm worktree、顺序准备 6 个正式槽位，
-  运行 early-tripwire/pool/SHA/bootstrap/new-session/legacy-overlay 验证，清点并安全收口 stale worktree，
-  再 fetch 并普通 fast-forward 推进最终 `origin/main`。
-- 停止条件：6 个槽位均为项目内、独立、clean、detached、healthy、root bootstrap ready，所有最终验证值
-  已记录；不部署 production、不创建备份、不迁移数据库、不上传小程序。若某个 dirty/唯一提交/外部 store
-  所有权无法安全处理，则保留恢复证据并报告真实数量，不丢弃数据。
+- 唯一下一任务：在已健康的独占 worktree 中整合当前最新 `origin/main` 与经过等价审计的图标实现，先运行
+  快速 parity 红绿门禁，再固化 canonical catalog/context/state/motion、双向 manifest、gallery 和跨端引用扫描。
+- 停止条件：候选尚未完成图标门禁、受影响测试、完整验证和 exact SHA/版本血缘前，不上传体验版；不部署
+  production、不创建备份、不迁移数据库、不提交审核或正式发布。仍保护外部 worktree、主工作树脏文件和并行任务。

@@ -452,7 +452,7 @@ function sanitizeConfigValue(key, value) {
 export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonicalProjectHome(root) } = {}) {
   const targetStorePath = resolveProjectLocalStorePath(projectHome);
   const environment = { ...process.env, npm_config_store_dir: targetStorePath };
-  const storePath = path.resolve(targetStorePath);
+  const storePath = path.resolve(runPnpm(root, ['store', 'path', `--store-dir=${targetStorePath}`]).trim());
   const pnpmVersion = runPnpm(root, ['--version'], { environment }).trim();
   const layout = Object.fromEntries(
     PNPM_LAYOUT_CONFIG_KEYS.map((key) => {
@@ -638,7 +638,14 @@ function installDependencies({ root, authorizationFile, commonDir, targetStorePa
   if (!authorization.valid) {
     return { installed: false, authorized: false, reason: authorization.reason };
   }
-  const environment = { ...process.env, CI: 'true' };
+  const environment = {
+    ...process.env,
+    CI: 'true',
+    // The project invokes pnpm's JS entry directly through Node, so pnpm does not
+    // populate npm_config_user_agent for the pnpmfile tripwire. Bind the exact
+    // measured version into the child environment instead of weakening the guard.
+    npm_config_user_agent: `pnpm/${pnpmVersion} npm/? node/${process.version}`,
+  };
   runPnpm(root, maintenanceCommandArguments({ root, storePath: targetStorePath }), {
     environment,
     stdio: json ? ['ignore', 'pipe', 'pipe'] : 'inherit',
@@ -735,6 +742,7 @@ export function ensureWorktreeDependencies(options = {}) {
       reasons: [...base.reasons, `authorization:${authorization.reason}`],
     };
   }
+  fs.mkdirSync(stateDirectory, { recursive: true });
   if (!createExclusiveDirectory(lockPath)) return { ...base, taskStatus: 'POOL_BUSY', reasons: ['dependency-install-lock-present'] };
   try {
     writeJsonAtomic(path.join(lockPath, 'owner.json'), {
@@ -755,7 +763,13 @@ export function ensureWorktreeDependencies(options = {}) {
     }
     const installedHealth = getHealth();
     if (!installedHealth.healthy) {
-      return { ...base, taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV', reasons: installedHealth.reasons.map((reason) => `health:${reason}`) };
+      return {
+        ...base,
+        taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV',
+        installed: true,
+        installInvoked: true,
+        reasons: installedHealth.reasons.map((reason) => `health:${reason}`),
+      };
     }
     writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
     return { ...base, taskStatus: 'READY_INSTALLED', dependenciesReused: false, installed: true, installInvoked: true };

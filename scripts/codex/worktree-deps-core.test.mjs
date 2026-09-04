@@ -10,6 +10,7 @@ import {
   createDependencySnapshot,
   diffDependencySnapshots,
   inspectDependencyHealth,
+  inspectRuntimeEnvironment,
   maintenanceCommandArguments,
   maintenanceCommandHash,
   resolveCanonicalProjectHome,
@@ -43,11 +44,18 @@ test.after(() => {
 test('derives project-local state from the Git common directory, not linked-worktree admin state', () => {
   const projectHome = resolveCanonicalProjectHome(REPOSITORY_ROOT);
   const state = resolveProjectLocalState(REPOSITORY_ROOT);
-  assert.equal(projectHome, REPOSITORY_ROOT);
   assert.equal(state.projectHome, projectHome);
   assert.equal(state.fingerprintRoot.startsWith(path.join(projectHome, 'runtime', 'codex', 'fingerprints')), true);
   assert.equal(state.dependencyMarkerPath.includes(`${path.sep}.git${path.sep}`), false);
   assert.equal(resolveProjectLocalStorePath(projectHome), path.join(projectHome, 'runtime', 'pnpm-store'));
+});
+
+test('inspects the versioned project-local store selected by maintenance', () => {
+  const projectHome = resolveCanonicalProjectHome(REPOSITORY_ROOT);
+  const targetStorePath = resolveProjectLocalStorePath(projectHome);
+  const runtime = inspectRuntimeEnvironment(REPOSITORY_ROOT, { projectHome });
+  assert.equal(runtime.targetStorePath, targetStorePath);
+  assert.equal(runtime.storePath.startsWith(`${targetStorePath}${path.sep}`), true);
 });
 
 test('binds maintenance commands to the project-local store and exact worktree', () => {
@@ -154,4 +162,34 @@ test('health checks require the worktree metadata, store, and root executables',
     platform: 'win32',
   });
   assert.ok(unhealthy.reasons.includes('root-executable-missing:vitest'));
+});
+
+test('PowerShell maintenance callers use named forwarding instead of array binding', () => {
+  const maintenance = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/dependency-maintenance.ps1'),
+    'utf8',
+  );
+  const pool = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/manage-worktree-pool.ps1'),
+    'utf8',
+  );
+  assert.match(maintenance, /\$coreParameters\s*=\s*@\{/u);
+  assert.match(maintenance, /Mode\s*=\s*'DependencyMaintenance'/u);
+  assert.doesNotMatch(maintenance, /\$coreArguments\s*=\s*@\(/u);
+  assert.match(pool, /\$parameters\s*=\s*@\{/u);
+  assert.match(pool, /Mode\s*=\s*'ReuseOnly'/u);
+  assert.doesNotMatch(pool, /\$arguments\s*=\s*@\(/u);
+});
+
+test('first maintenance and versioned-store health paths are initialized before reuse', () => {
+  const source = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/worktree-deps-core.mjs'),
+    'utf8',
+  );
+  const stateDirectoryIndex = source.indexOf('fs.mkdirSync(stateDirectory, { recursive: true });');
+  const lockIndex = source.indexOf('createExclusiveDirectory(lockPath)');
+  assert.ok(stateDirectoryIndex >= 0);
+  assert.ok(lockIndex > stateDirectoryIndex);
+  assert.match(source, /\['store', 'path', `--store-dir=\$\{targetStorePath\}`\]/u);
+  assert.match(source, /npm_config_user_agent:\s*`pnpm\/\$\{pnpmVersion\}/u);
 });

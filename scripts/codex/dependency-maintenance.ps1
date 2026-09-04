@@ -86,7 +86,9 @@ try {
         "--store-dir=$targetStore"
     )
     $commandJson = @($installArguments) | ConvertTo-Json -Compress
-    $commandHash = Get-Sha256 (($canonicalCommon + [Environment]::NewLine + $canonicalWorktree + [Environment]::NewLine + $commandJson))
+    # The Node core hashes a platform-independent LF-delimited tuple. Keep the authorization
+    # record stable on Windows instead of using Environment.NewLine (CRLF).
+    $commandHash = Get-Sha256 (($canonicalCommon + "`n" + $canonicalWorktree + "`n" + $commandJson))
     $created = (Get-Date).ToUniversalTime()
     $record = [ordered]@{
         schemaVersion = 2
@@ -114,16 +116,13 @@ try {
     Write-Output 'INSTALL_AUTHORIZED=true'
     try {
         $coreScript = Join-Path $PSScriptRoot 'ensure-worktree-deps.ps1'
-        $coreArguments = @(
-            '-Mode',
-            'DependencyMaintenance',
-            '-WorktreeRoot',
-            $worktree,
-            '-AuthorizationFile',
-            $authorizationFile
-        )
-        if ($Json) { $coreArguments += '-Json' }
-        $output = & $coreScript @coreArguments
+        $coreParameters = @{
+            Mode = 'DependencyMaintenance'
+            WorktreeRoot = $worktree
+            AuthorizationFile = $authorizationFile
+        }
+        if ($Json) { $coreParameters.Json = $true }
+        $output = & $coreScript @coreParameters
         $exitCode = $LASTEXITCODE
         $output | ForEach-Object { Write-Output $_ }
         if ($exitCode -ne 0) { exit $exitCode }

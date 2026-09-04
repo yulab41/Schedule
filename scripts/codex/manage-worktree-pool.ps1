@@ -328,10 +328,14 @@ function Get-DependencyCheck {
         [string]$Token,
         [switch]$AdoptHealthyExisting
     )
-    $arguments = @('-Mode', 'ReuseOnly', '-WorktreeRoot', $WorktreePath, '-Json')
-    if ($Token) { $arguments += @('-LeaseToken', $Token) }
-    if ($AdoptHealthyExisting) { $arguments += '-AdoptHealthyExisting' }
-    $output = & $DependencyScript @arguments
+    $parameters = @{
+        Mode = 'ReuseOnly'
+        WorktreeRoot = $WorktreePath
+        Json = $true
+    }
+    if ($Token) { $parameters.LeaseToken = $Token }
+    if ($AdoptHealthyExisting) { $parameters.AdoptHealthyExisting = $true }
+    $output = & $DependencyScript @parameters
     return (($output -join [Environment]::NewLine) | ConvertFrom-Json)
 }
 
