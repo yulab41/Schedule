@@ -5,9 +5,10 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`EXP-ICON-004-B3` 已实现，B4 正在形成 checkpoint；用户已授权门禁通过后上传新的微信体验版
-  并把该精确版本加入服务端客户端版本白名单。没有授权提交审核、正式发布、Web/API production 部署、数据库
-  变更或备份。
+- 当前活动批次：`EXP-ICON-004-B3/B4` 已完成实现和 guardrail 收口，进入精确体验版上传门禁。此前会话表达了
+  上传及白名单目标，但当前用户消息仅确认一次性依赖授权已创建；尚未对最终 exact checkpoint 给出本轮 L3
+  上传批准，也未在当前消息授权 L4 服务端 allowlist。因此状态为 `UPLOAD_REQUIRED`；没有授权提交审核、正式
+  发布、Web/API production 部署、数据库变更或备份。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已连续 fetch 并合入最新
   `origin/main@4602120b`；其两次主线更新只涉及 Schedule guardrail、Hook、worktree/dependency/release helper
@@ -36,6 +37,10 @@
   `fix(agent): serialize bootstrap reasons safely` 识别。最终 Node guard 22/22、release/test-discovery 14/14、
   format/lint/core smoke、diff check 与完整 `pnpm verify` 通过；Mini 123 files/668 tests，根 Vitest
   246 files/1,171 tests。
+- 输出收口 checkpoint `7dab8773` 已推送；managed release worktree 已 clean/detached/ready，依赖与 Mini 三个
+  producer 均只复用。exact production verify 为 total/main `5,182,000/1,745,406 B`，manifest `b953c6a4…`；
+  credential-free CI dry-run manifest `169a559b…`。AppID/miniprogramRoot 和仓库外上传私钥存在性已通过脱敏检查；
+  本机无法权威确认微信后台当前 IP 白名单。未分配版本、未创建 trial tag、未上传。
 - B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
   本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
@@ -155,9 +160,9 @@
 
 ## 唯一下一任务与停止条件
 
-- 完成 bootstrap reason 输出收口门禁、提交并普通推送；以新的 exact clean SHA 重置 release worktree，
-  复用已经健康且有 dependency/bootstrap marker 的独立环境，不再安装或重复构建 producer。
-- 依赖与候选门禁通过后独占分配唯一版本、完成 version-bound build；披露精确 SHA/version/description/
-  manifest/test pages 并取得当次上传批准后上传体验版。服务端 allowlist 是独立 L4，须由当时用户消息明确授权。
+- 提交并推送本次 `UPLOAD_REQUIRED` 连续性记录，以该 docs checkpoint 作为最终 exact SHA 重置 managed
+  release worktree；只复用健康 dependency/bootstrap marker，并重跑版本无关的 exact production verify。
+- 向用户披露 exact SHA、变更、clean/profile、manifest、测试页面及 IP 白名单前置项并取得当次 L3 上传批准；
+  获批前不分配版本、不创建 tag。服务端 allowlist 是独立 L4，须由当时用户消息对上传后的 exact version 明确授权。
 - 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不
   正式发布、不部署 production 应用或数据库。

@@ -2552,3 +2552,7 @@
 - 验证：formatter 定向 3/3、Node guard 22/22、release/test-discovery 14/14、format、lint、
   `pnpm smoke:check-core`、`git diff --check` 与完整 `pnpm verify` 通过；Mini 123 files/668 tests，根 Vitest
   246 files/1,171 tests。未调用微信开发者工具，未分配版本、创建 tag、上传或连接 production。
+- `7dab8773` exact release 复核：managed worktree clean/detached/ready；dependencies 与 Mini 三个 producer 均
+  reused；production verify total/main `5,182,000/1,745,406 B`、manifest `b953c6a4…`，无凭据 CI dry-run
+  manifest `169a559b…`。AppID/root/key 存在性脱敏检查通过，当前上传 IP 白名单无法从本机权威测量。当前消息
+  未授权该 exact checkpoint 上传或 L4 allowlist，故未选号、占 tag、上传或连接服务器，状态记为 `UPLOAD_REQUIRED`。
