@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "remote": "origin",
+  "mainBranch": "main",
+  "tagPrefix": "miniprogram-trial/",
+  "versionPrefix": "0.1.0-p10",
+  "lastSequence": 85,
+  "requiredCheckpoints": [
+    {
+      "commit": "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
+      "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial."
+    }
+  ]
+}

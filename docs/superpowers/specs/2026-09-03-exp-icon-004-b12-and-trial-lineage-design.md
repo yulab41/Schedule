@@ -87,7 +87,7 @@ directory mode 18px/1.8、directory favorite 21px、directory phone 17px、calen
 
 ```text
 apps/miniprogram/release/trial-history.v1.json
-  # .74–.84 的 append-only 审计事实与碰撞标记
+  # .74–.85 的 append-only 审计事实与碰撞标记（.85 在 B1 执行期间由并行任务上传）
 apps/miniprogram/release/trial-lineage-policy.v1.json
   # schema、lastSequence bootstrap、required checkpoints
 apps/miniprogram/scripts/trial-lineage.mjs
@@ -115,8 +115,9 @@ atomic push refs/tags/miniprogram-trial/<version>
 build metadata equality → miniprogram-ci upload → ignored receipt
 ```
 
-历史账本记录 `.74–.84` 的碰撞事实；bootstrap `lastSequence=84`，但实际版本必须在 L3 当时重新读取远端 refs 后动态
-提出，不能在计划中硬编码 `.85`。序号全局单调增加，不因日期或任务切换而回收。
+历史账本原始审计范围为 `.74–.84`；B1 执行期间并行任务又上传并放行 `.85@a1bba57`，故实施账本把该事实追加为
+`.85`，bootstrap 更新为 `lastSequence=85`。实际版本仍必须在 L3 当时重新读取远端 refs 后动态提出，不能在计划中
+硬编码任何“下一号”。序号全局单调增加，不因日期或任务切换而回收。
 
 首次启用 tag 机制时，候选必须包含 `5285dd17` 和执行时最新 main。之后 latest cumulative tag 成为下一候选的直接
 祖先门禁。实验切片只允许 preview/dry-run，不进入 `upload-experience`、不创建 cumulative tag、不加入 production

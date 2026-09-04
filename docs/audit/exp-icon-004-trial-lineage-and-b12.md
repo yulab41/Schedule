@@ -1,4 +1,4 @@
-# EXP-ICON-004-B1.2 图标一致性与体验版 `.74–.84` 血缘审计
+# EXP-ICON-004-B1.2 图标一致性与体验版 `.74–.85` 血缘审计
 
 ## 结论先行
 
@@ -38,10 +38,15 @@
   所以截图只用于说明观感，不单独承担 SHA 归因。
 - 未调用微信开发者工具 GUI/CLI；未上传、未连接服务器、未改 allowlist、未部署 production。
 
-## `.74–.84` 体验版本事件账本
+## `.74–.85` 体验版本事件账本
 
 “包含旧改动”分为两种：Git 祖先为严格包含；旧补丁被后续实现完整取代为语义包含。版本号相同但 SHA 不同即记为
 碰撞，不能把后一次上传当成前一次的可追溯更新。
+
+历史证据能确认 `.75/.76/.78/.80/.81/.82/.83/.84/.85` 的完整 date-bearing 版本；`.74/.77/.79` 只确认末尾
+全局序号，因此 tracked 账本明确写为 `version: null` / `versionEvidence: sequence-only`，不猜造日期。其中 `.74`
+结论是“末尾序号被不同 SHA 重用”；`.81/.82` 则有同一完整版本被不同 SHA 重传的直接证据。`.85@a1bba57`
+由并行 G1-004 任务在 B1 实施期间通过旧流程上传并放行，因此作为执行时新事实追加，且没有追补真实 trial tag。
 
 | 显示版本/事件 | Git SHA | 平台动作 | 与前一有效候选关系 | 当前结论 |
 | --- | --- | --- | --- | --- |
@@ -60,6 +65,7 @@
 | `.82` 图标 | `5285dd17` | 图标任务再次上传同号 | 包含 `1ffab10c` | **版本碰撞** |
 | `.83` 图标 | `5285dd17` | 已上传、曾放行 | 包含 `.82` 日历及两次图标修复 | 图标线的最后有效候选 |
 | `.84` 日历 | `8e6a4a32` | 已上传、曾放行 | **不包含** `.83@5285dd17` | **P1 实质回退；当前用户所见版本** |
+| `.85` G1-004 | `a1bba571` | B1 实施期间由并行任务上传、放行 | 包含 `.84`，仍不包含 `.83` 图标分支 | 旧流程最后一个 bootstrap 事件；未来序号必须大于 85 |
 
 ### 严格祖先链
 
@@ -71,6 +77,7 @@
 | `.78 → .79 → .80 → .81(UX) → .82(日历)` | 是 | 主线累积正常 |
 | `.82(日历)@8e6a4a32 → .83(图标)@5285dd17` | 是 | 正常 |
 | `.83(图标)@5285dd17 → .84(日历)@8e6a4a32` | 否 | 明确回退 |
+| `.84(日历)@8e6a4a32 → .85(G1)@a1bba571` | 是 | 主线前进，但仍缺 `.83` 图标提交 |
 
 ### 当前 `origin/main` 是否缺旧改动
 
@@ -98,6 +105,30 @@
 两个未合并分支同时选中同一号码的竞态，因此只能作为历史审计，不作为唯一锁。
 
 紧急回滚也不得把旧 SHA 改成新版本上传；应在最新累积候选之上创建显式 revert commit，使 Git 血缘仍单调前进。
+
+## B1 发布门禁实施结果（2026-09-04）
+
+- 新增 `apps/miniprogram/release/trial-history.v1.json`：逐序号记录 `.74–.85`，完整版本不确定的历史事件保持
+  `null`，并把 `.74/.81/.82` 标为 collision；新增 policy 以执行期间最新 `.85` 为 bootstrap floor，
+  required checkpoint 固定为 `5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1`。
+- 新增纯 Node `trial-lineage.mjs`：fresh-fetch `origin/main`，读取远端 cumulative tags，检查 clean/
+  production/description short SHA/required ancestors，逐字段核对 `build-profile.json`，并以非 force push 创建
+  `refs/tags/miniprogram-trial/<完整版本>`。远端已绑定同 SHA 时只允许 latest trial 幂等重试，绑定不同 SHA
+  时 fail closed；上传失败不删除 tag。
+- `upload-experience` 现在按“inspect → exact-metadata production build → fresh confirm → tag reserve → 微信上传 →
+  ignored receipt”执行。dry-run 在 build 后直接返回，不 fetch/push trial tag、不写 receipt、不调用上传。
+- 失败先行证据：旧实现运行新增定向测试时因 `trial-lineage.mjs` 不存在而在收集阶段退出 1；实现后定向 lineage
+  12/12、既有 miniprogram-ci helper 6/6 通过。临时 bare remote 的两个不同 SHA 并发占同一版本时仅一个成功；
+  winner 同 SHA 重试通过，loser 被拒；并行分支推进 `main` 后旧候选也被 fresh-fetch 门禁拒绝。
+- 完整 Mini 首轮有 118 files/652 tests 通过、2 个 suite 因 clean worktree 缺
+  `@schedule/scheduling-domain` declarations 在收集阶段失败；按 workspace producer 关系只构建 `contracts`、
+  `scheduling-domain` 和随后缺失的 `presentation-core`，同一命令复跑为 120/120 files、655/655 tests。Mini
+  typecheck、source、production verify、package/performance/determinism、credential-free CI dry-run、全仓
+  format/lint、agent-context 3/3、`git diff --check` 与 `smoke:check-core` 均通过。
+- production verify/package 均为 total `5,151,892 B`、main `1,715,718 B`，与 B1 前相同口径基线完全一致；
+  仅保留既有主包和矩阵 best-effort warning。B1 release tooling 与 JSON 不进入业务包。
+- 本实施只改变 release tooling、tracked 账本和文档，不改变 Mini 业务包、图标、页面、API、权限、路由或数据库。
+  本轮没有对 `origin` 创建真实 trial tag，没有上传、allowlist、服务器连接或 production 部署。
 
 ## Web / 小程序完整图标对照
 
@@ -197,7 +228,7 @@ B1.2 预算：
 | 批次 | 内容 | 风险 | 停止条件 |
 | --- | --- | --- | --- |
 | B0（本 checkpoint） | `.74–.84` 血缘、全图标差异、单一来源和批次设计 | 低，文档-only | 审计可复核、分支推送；不改生产图标/上传/服务器 |
-| B1 | 体验版历史账本、不可变 tag 版本占用、clean/current-main/latest-trial/required-ancestor preflight | 中，发布工具 | 旧实现红灯、新实现绿灯；dry-run 不推 tag、不上传 |
+| B1（已实施待 checkpoint） | 体验版历史账本、不可变 tag 版本占用、clean/current-main/latest-trial/required-ancestor preflight | 中，发布工具 | 旧实现红灯、新实现定向绿灯；完整门禁通过后提交推送 |
 | B2 | 在执行时最新 main 上合并 `5285dd17` 的原始提交血缘并解决三份文档冲突 | 中，跨分支 | 任何业务代码冲突或旧状态覆盖当前状态即停止 |
 | B3 | 底部 5 项、顶部 2 项、通讯录模式、filter/locate/more context 的 B1.2；生成 Web/Mini motion adapters | 中，视觉运行时 | path 不可追溯、需新运行时、包体超预算或测试不等值即停止 |
 | B4 | 全量静态对照、Mini/Web gates、同口径包体和浏览器/Node 证据，提交并推送调查分支 | 中 | relevant gate 失败不形成候选 |
@@ -207,7 +238,7 @@ B1.2 预算：
 
 > 执行 `EXP-ICON-004-LINEAGE-B1`。先从执行时最新 `origin/main` 更新现有
 > `codex/exp-icon-004-lineage-b12-20260903` clean worktree，不重跑阶段 0。仅实现体验版血缘门禁，不修改生产
-> 图标、业务页面、API、权限、路由或数据库。新增 tracked `.74–.84` 历史账本和 trial lineage policy；新增纯
+> 图标、业务页面、API、权限、路由或数据库。新增 tracked `.74–.85` 历史账本和 trial lineage policy；新增纯
 > Node helper 与 Vitest。先写在旧实现上失败的测试，覆盖：同一版本不同 SHA 必须拒绝、同一版本同一 SHA 只允许
 > 幂等重试、候选必须 clean production、`origin/main`/最后累积 trial/required checkpoints 必须为 HEAD 祖先、
 > description 必须包含短 SHA、dry-run 不创建 tag、不写 receipt、不改变外部状态。推荐以
@@ -221,7 +252,7 @@ B1.2 预算：
 ## 需要 Xiaomi 14 体验版确认的差异
 
 最终候选必须先在“更多 → 测试工具”回传 `trial`、短 SHA、版本、build time、renderer、基础库、微信和 Android
-版本；旧 `.81/.82/.83/.84` 截图不能替代新候选。
+版本；旧 `.81/.82/.83/.84/.85` 截图不能替代新候选。
 
 1. 底部五项：23px、active/inactive 色、仅当前项循环；切走后动画立即停止；重复点当前项不重启动画。
 2. 日历：check opacity 循环是否在 Skyline 可接受；无 420ms 弹跳、无横向压扁；reduced-motion 停止。

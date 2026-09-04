@@ -36,6 +36,7 @@
     "miniprogram:package-audit": "pnpm --filter @schedule/miniprogram check:package",
     "miniprogram:preview": "pnpm --filter @schedule/miniprogram preview",
     "miniprogram:test": "pnpm --filter @schedule/miniprogram test",
+    "miniprogram:trial-lineage": "pnpm --filter @schedule/miniprogram check:trial-lineage",
     "miniprogram:upload-experience": "pnpm --filter @schedule/miniprogram upload:experience",
     "miniprogram:verify": "pnpm --filter @schedule/miniprogram verify",
     "miniprogram:visual-compare": "pnpm --filter @schedule/miniprogram visual:compare",

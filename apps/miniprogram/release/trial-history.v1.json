@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "sequenceRange": {
+    "from": 74,
+    "to": 85
+  },
+  "entries": [
+    {
+      "sequence": 74,
+      "collision": true,
+      "events": [
+        {
+          "label": "original diagnostics trial",
+          "version": null,
+          "versionEvidence": "sequence-only",
+          "commit": "d23a78a9d0f9769102957ecefd6f6781a37f06d2",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: historical Xiaomi 14 test-tools feedback; the exact date-bearing version string is not retained."
+        },
+        {
+          "label": "calendar branch reused sequence",
+          "version": null,
+          "versionEvidence": "sequence-only",
+          "commit": "8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: a parallel calendar task later uploaded another payload ending in .74; the exact date-bearing version string is not retained."
+        }
+      ]
+    },
+    {
+      "sequence": 75,
+      "collision": false,
+      "events": [
+        {
+          "label": "diagnostics follow-up",
+          "version": "0.1.0-p10.20260901.75",
+          "versionEvidence": "exact",
+          "commit": "24a847ffdeec5899ab7c9d505c740b715df3ef6e",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; this branch did not contain the original .74 commit."
+        }
+      ]
+    },
+    {
+      "sequence": 76,
+      "collision": false,
+      "events": [
+        {
+          "label": "diagnostics cumulative recovery",
+          "version": "0.1.0-p10.20260901.76",
+          "versionEvidence": "exact",
+          "commit": "a2cdd0651783538a0aa6a566d30922391752d528",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; restored the final test-tools behavior."
+        }
+      ]
+    },
+    {
+      "sequence": 77,
+      "collision": false,
+      "events": [
+        {
+          "label": "local dry-run candidate",
+          "version": null,
+          "versionEvidence": "sequence-only",
+          "commit": "a4f50c0207ccb67f5ccdc78dd3912ba248fec9af",
+          "platformAction": "dry-run-only",
+          "evidence": "EXP-ICON-004 lineage audit: credential-free dry-run only; the exact date-bearing version string is not retained as upload evidence."
+        }
+      ]
+    },
+    {
+      "sequence": 78,
+      "collision": false,
+      "events": [
+        {
+          "label": "cumulative trial",
+          "version": "0.1.0-p10.20260902.78",
+          "versionEvidence": "exact",
+          "commit": "07decdbbf8bd4eaf7c34077392aea3b1fbc4eac2",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; contains the .76 and .77 baseline."
+        }
+      ]
+    },
+    {
+      "sequence": 79,
+      "collision": false,
+      "events": [
+        {
+          "label": "cumulative trial",
+          "version": null,
+          "versionEvidence": "sequence-only",
+          "commit": "d1594d09a52bc1e3810dfa6ae41e4a3e3dde52d0",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; the exact date-bearing version string is not retained."
+        }
+      ]
+    },
+    {
+      "sequence": 80,
+      "collision": false,
+      "events": [
+        {
+          "label": "cumulative trial",
+          "version": "0.1.0-p10.20260902.80",
+          "versionEvidence": "exact",
+          "commit": "3897581e7a8d5734ef5910e2dd8854a92c246062",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; contains .79."
+        }
+      ]
+    },
+    {
+      "sequence": 81,
+      "collision": true,
+      "events": [
+        {
+          "label": "UX cumulative candidate",
+          "version": "0.1.0-p10.20260903.81",
+          "versionEvidence": "exact",
+          "commit": "48488019171924701054354e8f707b08eb4d12fe",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted as the then-cumulative UX candidate."
+        },
+        {
+          "label": "calendar overwrite",
+          "version": "0.1.0-p10.20260903.81",
+          "versionEvidence": "exact",
+          "commit": "8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: the parallel calendar task uploaded the same exact version with a different commit."
+        },
+        {
+          "label": "icon overwrite",
+          "version": "0.1.0-p10.20260903.81",
+          "versionEvidence": "exact",
+          "commit": "1ffab10c3f30987e31db47eb555f9e0aef0bf787",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: the icon task uploaded the same exact version with a third commit."
+        }
+      ]
+    },
+    {
+      "sequence": 82,
+      "collision": true,
+      "events": [
+        {
+          "label": "calendar candidate",
+          "version": "0.1.0-p10.20260903.82",
+          "versionEvidence": "exact",
+          "commit": "8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted without a code change from the calendar .81 payload."
+        },
+        {
+          "label": "icon overwrite",
+          "version": "0.1.0-p10.20260903.82",
+          "versionEvidence": "exact",
+          "commit": "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: the icon task uploaded the same exact version with its motion correction checkpoint."
+        }
+      ]
+    },
+    {
+      "sequence": 83,
+      "collision": false,
+      "events": [
+        {
+          "label": "icon cumulative candidate",
+          "version": "0.1.0-p10.20260903.83",
+          "versionEvidence": "exact",
+          "commit": "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; last accepted icon-line candidate."
+        }
+      ]
+    },
+    {
+      "sequence": 84,
+      "collision": false,
+      "events": [
+        {
+          "label": "calendar regression candidate",
+          "version": "0.1.0-p10.20260903.84",
+          "versionEvidence": "exact",
+          "commit": "8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39",
+          "platformAction": "uploaded",
+          "evidence": "EXP-ICON-004 lineage audit: uploaded and allowlisted; does not contain .83@5285dd17 and caused the observed icon regression."
+        }
+      ]
+    },
+    {
+      "sequence": 85,
+      "collision": false,
+      "events": [
+        {
+          "label": "MINI-G1-004 evidence candidate",
+          "version": "0.1.0-p10.20260903.85",
+          "versionEvidence": "exact",
+          "commit": "a1bba5710cfd5c94b5fd5148898e4f17e45faab9",
+          "platformAction": "uploaded",
+          "evidence": "origin/main@75cc0d3b records the successful upload and allowlist activation that occurred while B1 was being implemented; no immutable trial tag existed yet."
+        }
+      ]
+    }
+  ]
+}

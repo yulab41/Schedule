@@ -2315,3 +2315,34 @@
   Xiaomi 14 原生验收；下一版只按 `docs/audit/exp-feat-002-event-records.md` 的最小步骤复核。
 - 状态：代码和自动化验证完成，当前为“待用户复核”；最终应在最新远端主线确认后一次普通 fast-forward 推送，
   不做体验上传或 production 部署。
+
+## 2026-09-04 EXP-ICON-004-LINEAGE-B1 体验版血缘门禁
+
+- 回归与引入点：`.84@8e6a4a3` 不包含 `.83@5285dd1` 的图标提交；`.74/.81/.82` 也出现过末尾序号或完整
+  版本被不同 SHA 重用。`git log -S 'resolveUploadMetadata' -- apps/miniprogram/scripts/miniprogram-ci-helpers.mjs`
+  与对应 `git blame` 均把旧上传路径定位到 `3884713b`：它只校验通用 semver/80 字说明并直接调用
+  `ci.upload`，没有 clean、SHA、main/latest-trial/required-ancestor 或中央版本占用门禁；`f8c743ad` 只补
+  Worklet 模块路径，没有改变该语义。
+- 失败先行：生产实现修改前新增 `trial-lineage.test.mjs`，旧树因不存在 `trial-lineage.mjs` 在测试收集阶段以
+  `ERR_MODULE_NOT_FOUND` 退出 1。实现后定向 lineage 12/12、既有 CI helper 6/6 通过；临时 bare remote
+  的两个不同 SHA 并发占同一 tag 时只有一个成功，同 SHA latest retry 幂等、不同 SHA retry 失败。
+- 修复：tracked 历史逐序号记录 `.74–.85`，对完整版本无法证明的 `.74/.77/.79` 保持 `version: null`；
+  policy bootstrap floor 为执行期间新增的 `.85`，并要求 `5285dd17`。真实 `upload-experience` 现在依次执行
+  fresh inspect、exact metadata production build、fresh confirm、非 force 轻量 tag reserve、微信 upload 和
+  ignored receipt；失败或不确定上传不删除 tag。preview/dry-run 不执行 trial fetch/push/receipt/upload。
+- 并行主线事实：B1 验证期间 `origin/main` 前进并记录旧流程上传/放行
+  `0.1.0-p10.20260903.85@a1bba57`；若仍保留 `.84` floor 会允许再次选择 `.85`，因此账本追加该已证实事件，
+  不追补真实 tag。后续候选仍须动态选取大于 85 的序号，并同时包含 fresh main 与 `5285dd17`。
+- 语义审计：preview 的 build/credentials/project/CI 调用和返回字段保持不变，并有 fake CI 回归证明不触发
+  lineage；upload 有意把 metadata/血缘错误提前到 build 前，显式把 version/description/short SHA 写入
+  build profile，构建后再确认 HEAD/dirty/ancestry。tag 是 upload 前唯一新增远端副作用，receipt 只在 upload
+  成功后写入；upload 失败测试证明 tag reserve 已发生而 receipt 未写。没有改变业务 API、权限、路由、页面、
+  图标、数据库或 Mini runtime。
+- 验证：完整 Mini 首轮 118 files/652 tests 通过，另 2 suite 因 clean worktree 缺 workspace declarations 在
+  收集阶段失败；只构建对应 producer `contracts`/`scheduling-domain`/`presentation-core` 后，同一命令为
+  120/120 files、655/655 tests。typecheck、source、trial policy、production verify、package、performance、
+  determinism、credential-free CI dry-run、全仓 format/lint、agent-context 3/3、`git diff --check` 和
+  `pnpm smoke:check-core` 通过；未涉及 Web core，无需 `smoke:browser`。package total/main 为
+  `5,151,892/1,715,718 B`，与 B1 前基线相同。
+- 边界：未调用微信开发者工具 GUI/CLI，未对 `origin` 创建 trial tag，未上传体验版、未操作 allowlist、未提审、
+  未正式发布、未连接或部署 production。Node/Git 自动化不等于 Xiaomi 14 原生验收。

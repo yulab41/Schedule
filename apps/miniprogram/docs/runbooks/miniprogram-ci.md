@@ -33,8 +33,8 @@ P1 在 app `package.json` 中建立稳定脚本，根 `package.json` 只做 work
 ```text
 WECHAT_CI_PRIVATE_KEY_PATH  仓库外的上传私钥绝对路径
 WECHAT_CI_ROBOT             1–30，默认 1
-WECHAT_CI_VERSION           upload-experience 必填的语义版本
-WECHAT_CI_DESCRIPTION       upload-experience 必填，最多 80 字符
+WECHAT_CI_VERSION           upload-experience 必填，格式 0.1.0-p10.YYYYMMDD.<全局递增序号>
+WECHAT_CI_DESCRIPTION       upload-experience 必填，最多 80 字符且必须包含当前七位短 SHA
 ```
 
 无凭证本地校验：
@@ -44,6 +44,31 @@ pnpm --filter @schedule/miniprogram ci:dry-run
 ```
 
 真实上传前必须在轮次记录中绑定 Git 提交、构建 profile、版本号和说明；上传完成后记录微信平台返回结果。上传密钥只接受仓库外绝对路径，不接受把密钥内容粘贴进仓库、日志或聊天回显。
+
+## 体验版血缘与版本占用
+
+`upload-experience` 自动执行 fail-closed 门禁，调用者不能跳过：
+
+1. 校验 tracked `release/trial-history.v1.json` 和 `release/trial-lineage-policy.v1.json`，并 fresh-fetch
+   `origin/main`。
+2. 要求 worktree clean、profile 为 `production`，候选包含最新 `origin/main`、远端最新 cumulative trial tag
+   和 policy 中全部 required checkpoints。
+3. 重新读取 `refs/tags/miniprogram-trial/*` 后校验全局序号。新号码必须大于 bootstrap `.85` 和远端最大序号；
+   不按日期、任务或分支重置。计划和文档不得预先硬编码“下一个”号码。
+4. 构建后再次检查同一 HEAD 与 ancestry，并要求 `dist/build-profile.json` 的 commit、version、description、
+   dirty 和 production profile 与候选逐字段相等。
+5. 在调用微信上传前，以非 force push 原子创建轻量 tag
+   `refs/tags/miniprogram-trial/<完整版本>`。同版本同 SHA 只允许最新候选幂等重试；同版本不同 SHA 失败。
+6. 上传成功后，只在主仓库已忽略的 `runtime/audit/miniprogram-trials/<完整版本>.json` 写白名单字段 receipt；
+   receipt 不含 AppID、私钥、token 或平台响应正文。
+
+版本 tag 一经创建永久占用，即使微信上传失败或响应不确定也不得删除、force 或改指向；代码需要变化时使用新提交和
+新版本。`pnpm miniprogram:trial-lineage` 只校验 tracked 账本/policy 与 required commit 的本地存在性，不 fetch、
+不 push。`pnpm miniprogram:ci:dry-run` 同样不读取上传凭证、不创建 tag、不写 receipt、不调用微信上传。
+
+真实命令同时包含“永久占用远端 tag”和“上传体验版”两个外部动作。执行前必须披露 exact full SHA、动态选出的完整
+版本、description、clean/profile 和测试页面，并取得用户对该 exact checkpoint 的当次明确批准。上传不会自动放行
+服务器 allowlist；allowlist 仍是独立 L4 操作。
 
 预览和体验上传会改变微信平台外部状态。虽然属于用户已批准的自动化范围，执行者仍须在轮次记录中写明 profile、Git 提交和结果；不得把审核或正式发布动作加入此脚本。二维码固定写入已忽略的 `.artifacts/preview/<profile>.png`，日志只输出相对路径，不输出二维码内容。
 

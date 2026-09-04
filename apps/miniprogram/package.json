@@ -16,6 +16,7 @@
     "check:package": "node scripts/package-audit.mjs",
     "check:performance": "node scripts/build.mjs --profile=production && node scripts/performance-budget.mjs",
     "check:source": "node scripts/source-audit.mjs",
+    "check:trial-lineage": "node scripts/trial-lineage.mjs audit",
     "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=production --dry-run",
     "preview": "node scripts/miniprogram-ci.mjs preview --profile=production",
     "test": "vitest run --dir scripts --fileParallelism=false",
