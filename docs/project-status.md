@@ -15,7 +15,8 @@
 - 主线 merge 的冲突仅为 dependency reference、release helper 和本状态文档，均已解析。最终保留
   `fa10d5ba` 官方 `scripts/codex/worktree-deps-*` 单一来源；临时 `d62f780c` checker 文件已删除，避免两套事实源。
 - 最新主线整合 checkpoint：`bce96ce8`（`merge: integrate official Schedule guardrails after icon recovery`）。
-  最终状态文档 checkpoint 以 `docs(audit): record EXP-ICON-004 B2 integration` 识别。
+  状态证据 checkpoint `ef6ed7e9` 已随完整分支普通推送成功；最终 handoff 以
+  `docs(audit): close EXP-ICON-004 B2` 识别。
 - 当前边界：不创建真实 trial tag、不上传体验版、不操作 allowlist、不提审、不正式发布、不连接、查询或部署
   production。此前用户对一次 frozen install 的授权已消费，不允许再次安装。
 
@@ -86,6 +87,7 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：创建 `docs(audit): record EXP-ICON-004 B2 integration` 文档 checkpoint 并普通推送调查分支。
-  当前 `bce96ce8` 已确认 `origin/main@765b5c09`、`5285dd17`、`1ffab10c`、`c027abcd` 均为祖先。
-- 推送成功即停止；不进入 B3、L3 体验上传、Hook 审核/重启或 L4 服务器操作。
+- B2 已完成并推送；当前 `bce96ce8` 已确认 `origin/main@765b5c09`、`5285dd17`、`1ffab10c`、
+  `c027abcd` 均为祖先。
+- 唯一下一任务：等待用户另行明确批准 B3，再修复底部五项、顶部 user、filter/locate/more context 与 motion
+  codegen 的剩余 B1.2 差异。本轮立即停止，不进入 B3、L3 体验上传、Hook 审核/重启或 L4 服务器操作。

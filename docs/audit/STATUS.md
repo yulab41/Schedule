@@ -3,7 +3,8 @@
 ## 当前阶段
 
 - 当前批次：用户已明确授权 dependency-guard 前置批次及 `EXP-ICON-004-B2`。图标血缘 checkpoint 为
-  `24ea709e`；最新主线 guardrail 整合 checkpoint 为 `bce96ce8`，正在形成最终状态文档 checkpoint。
+  `24ea709e`；最新主线 guardrail 整合 checkpoint 为 `bce96ce8`；状态证据 `ef6ed7e9` 已随完整调查分支
+  普通推送成功，正在形成最终 handoff 文档 checkpoint。
 - 独立 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。B2 起点已含当时最新 `75cc0d3b`；验证期间前进的
   `origin/main=765b5c09` 已作为 `bce96ce8` 第二父提交合入。
@@ -59,6 +60,6 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：创建 `docs(audit): record EXP-ICON-004 B2 integration` checkpoint 并普通推送调查分支；
-  `bce96ce8` 已验证 main/B1/B1.1/B1-lineage ancestry 全部成立。
-- 推送成功即停止；不进入 B3、L3 上传、Hook 审核/重启或 L4 服务器操作。
+- B2 已完成并推送；`bce96ce8` 已验证 main/B1/B1.1/B1-lineage ancestry 全部成立。
+- 唯一下一任务：等待用户另行明确批准 B3，处理审计中仍列出的底部/顶部/context/motion-codegen 差异。本轮
+  立即停止；不进入 B3、L3 上传、Hook 审核/重启或 L4 服务器操作。
