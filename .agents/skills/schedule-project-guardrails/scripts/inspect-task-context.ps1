@@ -144,7 +144,7 @@ try {
 
     $normalizedPaths = @($Paths | Where-Object { $_ } | ForEach-Object { $_ -replace '\\', '/' })
     $haystack = (($TaskText, ($normalizedPaths -join ' ')) -join ' ').ToLowerInvariant()
-    $isMiniProgram = $haystack -match 'miniprogram|mini program|\u5c0f\u7a0b\u5e8f|\u5fae\u4fe1|apps/miniprogram'
+    $isMiniProgram = $haystack -match 'miniprogram|mini program|uploaded trial|experience upload|\u5c0f\u7a0b\u5e8f|\u5fae\u4fe1|\u4f53\u9a8c\u7248|apps/miniprogram'
     $isVisibleUi = $haystack -match 'visible ui|visual|interaction|layout|storybook|\bui\b|\bux\b|\u754c\u9762|\u89c6\u89c9|\u4ea4\u4e92|\u5e03\u5c40'
     $isUnknownDebug = $haystack -match 'unknown root|unknown cause|root cause unknown|\u672a\u77e5\u6839\u56e0|\u539f\u56e0\u4e0d\u660e|\u65e0\u6cd5\u590d\u73b0'
     $isAmbiguous = $haystack -match 'ambiguous|unclear requirement|architecture undecided|\u9700\u6c42\u4e0d\u660e|\u67b6\u6784\u672a\u5b9a|\u4ecd\u6709\u6b67\u4e49'
@@ -152,6 +152,7 @@ try {
     $needsWorktree = $Level -in @('L3', 'L4') -or
         $haystack -match 'worktree|bootstrap|dependency|install|build|dist|declaration|\u5de5\u4f5c\u6811|\u4f9d\u8d56|\u5b89\u88c5|\u6784\u5efa|\u58f0\u660e'
     $needsDebugging = $isUnknownDebug -or $haystack -match 'regression|debug|failure|error|\u56de\u5f52|\u6545\u969c|\u5931\u8d25|\u62a5\u9519'
+    $needsDynamicIdentity = $haystack -match 'origin/main|eligible uploaded trial|live release|dynamic release identity|version allocation|baseline freeze|\u4f53\u9a8c\u7248|\u7248\u672c.*\u5206\u914d|\u57fa\u7ebf.*\u51bb\u7ed3|\u53d1\u5e03.*\u8eab\u4efd'
 
     $applicableAgents = [System.Collections.Generic.List[string]]::new()
     Add-Unique -List $applicableAgents -Value 'AGENTS.md'
@@ -173,7 +174,7 @@ try {
     if ($needsDebugging) {
         Add-Unique -List $references -Value 'references/debugging.md'
     }
-    if ($Level -in @('L3', 'L4')) {
+    if ($Level -in @('L3', 'L4') -or $needsDynamicIdentity) {
         Add-Unique -List $references -Value 'references/release-candidate.md'
     }
     if ($Level -eq 'L4') {

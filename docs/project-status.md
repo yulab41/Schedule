@@ -5,8 +5,9 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`TOOLCHAIN-GUARDRAILS-001`（Schedule Codex 全局规范、依赖复用、持久 warm worktree
-  池和 Hook 收口）。前序 `MINI-G1-004` 仍保留“证据仍不足，保留 P3”的审计结论，不因本批进入业务修复。
+- 当前活动批次：`TOOLCHAIN-GUARDRAILS-002`（动态发现并冻结 Git/体验版/production 发布身份，以及体验版
+  版本分配边界）。前序 `TOOLCHAIN-GUARDRAILS-001` 已在 `fa10d5ba` 收口；`MINI-G1-004` 仍保留“证据仍
+  不足，保留 P3”的审计结论，不因本批进入业务修复。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -98,9 +99,9 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
   `SKILL.md` 只增加安装前路由和复用硬门禁，未复制整章规范。
 - Skill 校验器现固定检查 conversation/branch/SHA 不自动失效、完整指纹维度、健康 `node_modules` 复用、
   worktree 池持久化、禁止 `git clean -xfd`、禁止跨 worktree 共享可写依赖以及 workspace 输出独立指纹。
-- 当前 `main` 只有 release worktree 的 tracked-input marker，没有专用分支 `5c45236d` 中完整的通用
-  `scripts/codex/*` 池化 helper；本批不移植该提交或声称已有完整 checker。适用 helper 不能覆盖全部维度时必须
-  停止并报告，不能用重装代替检查。
+- 该 checkpoint 当时的 `main` 只有 release worktree tracked-input marker，未移植专用分支 `5c45236d` 的
+  通用 helper；此历史限制随后已由 `TOOLCHAIN-GUARDRAILS-001@fa10d5ba` 的受审计
+  `scripts/codex/*` 机制取代。
 - 定向红绿校验先捕获缺少 lifecycle 路由，补齐后通过：结构 13 文件、front matter、YAML、9 个 Markdown/64
   个链接、3 个 PowerShell 语法和只读 AST、context dry-run、Prettier、`pnpm smoke:check-core` 与
   `git diff --check` 均通过；未触发核心浏览器 smoke。
@@ -124,6 +125,23 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
   Mini Program 工具链。
 - 本 checkpoint commit message：`chore(agent): close Schedule Codex runtime guardrails`。提交只允许包含
   工具链文件，绝不包含 runtime 产物、凭据、用户主工作树改动或其他 worktree 内容。
+
+## TOOLCHAIN-GUARDRAILS-002（2026-09-04）
+
+- 基线为最新 `origin/main@fa10d5ba`。版本、SHA 和 release 在 Prompt/示例/计划/状态中只作为带来源与时间的
+  观察记录；任务开始动态发现、外部变更前复核、第一次外部变更开始后冻结本轮基线。
+- `origin/main`、最新合格已上传体验版和 production live release 现在明确分离；未获当前消息 L4 授权时不实时
+  查询 production，历史记录标记 `LIVE_RELEASE_VERIFIED=false`，不得作为 rollback 或部署事实。
+- Mini 事实源不再在无上传授权时预分配 proposed version。需要体验版证据时只选择可证明合格的既有上传；没有
+  候选则记录 `UPLOAD_REQUIRED`。授权上传也必须在最终 clean SHA/门禁完成后通过独占锁读取占用状态并绑定不可变
+  的版本/SHA/Manifest；当前 checkout 没有该锁 helper 时返回 `UPLOAD_VERSION_ALLOCATION_BLOCKED`。
+- 定向红绿先证明旧 Skill 缺少动态身份路由，现已通过结构/front matter、11 个 Markdown/73 个链接、3 个
+  PowerShell 只读 AST、固定版本/SHA 正反例、L0/L3 context dry-run、未授权 L4 失败关闭、Prettier、YAML、
+  core-route 与 diff 检查。`skill-creator` 的 `quick_validate.py` 因本机没有 PyYAML 无法运行；按本轮禁装依赖
+  边界未安装，改用仓库 validator 和现有 Node YAML parser。
+- 本批只修改 Skill、AGENTS 和 runbook/status；未安装依赖、未运行全仓测试或 production build，未分配/上传
+  体验版，未连接、查询、备份或部署 production。checkpoint 以
+  `docs(agent): make release identities dynamic` 识别。
 
 ## 唯一下一任务与停止条件
 

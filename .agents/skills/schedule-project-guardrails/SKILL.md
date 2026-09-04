@@ -42,6 +42,8 @@ In `REUSE_ONLY`:
 
 `L0`–`L3` never upgrade themselves to `L4`. Approved design, code, tests, a Git push, or a Mini Program upload is not production authorization.
 
+Version, SHA, and release identifiers in prompts, examples, plans, or status snapshots are observations, never permanent defaults. For identity-sensitive evidence or external actions, follow the [dynamic release identity](references/release-candidate.md#dynamic-release-identity) rule: discover the latest state permitted by current authorization, revalidate before mutation, and freeze the run baseline when the operation starts. Keep the latest `origin/main`, the latest eligible uploaded trial, and the production live release distinct; a live production lookup remains `L4`.
+
 Load conditional references only when their trigger matches:
 
 - Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md) and [dependency lifecycle](references/dependency-lifecycle.md).

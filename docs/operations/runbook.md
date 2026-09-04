@@ -43,6 +43,17 @@ docker compose logs --tail 100 api web nginx
 - 上传体验版前必须重新核对最终 SHA、未使用版本号、显示标识、AppID、目标环境和仓库外私钥来源，并取得用户对该 checkpoint 的当次明确批准。dry-run 不等于上传；不得输出私钥内容。
 - 纯小程序或文档 checkpoint 不自动触发 production 部署、数据库备份或服务器 release 标识同步。小程序上传与 API/Web production 是两条独立发布轨道。
 
+## 动态发布身份与基线冻结
+
+- Prompt、示例、计划或状态文档中的版本、SHA 和 release 只能作为带来源与时间的观察记录，不能成为后续任务的永久默认值。状态文档可以保存一次已冻结证据，但下一轮必须重新发现，而不是照抄。
+- 任务开始时发现当前授权允许确认的最新状态；无法取得新鲜来源时明确标为未知或过期，不猜测。需要区分：
+  - 最新 `origin/main`：以本轮成功 fetch 后的远端引用为准；
+  - 最新合格的已上传体验版：按小程序 CI runbook 的成功上传记录、clean SHA、production profile 和 Manifest 判定；
+  - production 当前 live release：只有当前消息明确授权相应 `L4` 读取且实时查询成功后才能这样称呼，否则沿用的历史记录必须标记 `LIVE_RELEASE_VERIFIED=false`。
+- 三者是独立身份，不因 SHA、时间或版本描述碰巧相同而互相证明。体验版上传不证明服务器已部署，`origin/main` 前进也不改变已上传体验版或 live release。
+- 每次外部变更前重新核验受影响的身份和权限；若发现变化，先停止并重做 preflight。第一次外部变更开始时冻结本轮基线，记录发现时间、来源和三类身份中实际适用的值；操作途中不得静默切换到更新值。
+- 体验版版本分配、不可变的版本/SHA/Manifest 绑定、无上传授权时的候选选择，以 [miniprogram-ci 运行手册](../../apps/miniprogram/docs/runbooks/miniprogram-ci.md#体验版版本分配与不可变身份) 为唯一事实来源。
+
 ## Production 回滚来源
 
 - 如获当次明确授权执行 production 部署，rollback candidate 必须在部署前从服务器当前 live release 读取并核验；不得用上一个应用代码 checkpoint、旧聊天记录或本地猜测替代。

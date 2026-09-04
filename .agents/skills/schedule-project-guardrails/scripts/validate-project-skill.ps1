@@ -145,7 +145,8 @@ try {
         '$frontend-design', '$systematic-debugging', '$brainstorming',
         'dependency environment lifecycle', 'DEPENDENCY_MODE=REUSE_ONLY',
         'A conversation boundary is never a dependency invalidation boundary.',
-        'POOL_BUSY', 'INSTALL_INVOKED=false'
+        'POOL_BUSY', 'INSTALL_INVOKED=false', 'dynamic release identity',
+        'latest eligible uploaded trial', 'production live release'
     )) {
         if (-not $skillContent.Contains($requiredToken)) {
             throw "SKILL.md is missing required routing token: $requiredToken"
@@ -188,6 +189,73 @@ try {
         if (-not $parallelReference.Contains($requiredPoolToken)) {
             throw "parallel workflow reference is missing rule: $requiredPoolToken"
         }
+    }
+
+    $releaseReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/release-candidate.md') -Raw
+    foreach ($requiredReleaseToken in @(
+        '## Dynamic release identity',
+        'dynamic release identity and baseline freeze',
+        'LIVE_RELEASE_VERIFIED=false'
+    )) {
+        if (-not $releaseReference.Contains($requiredReleaseToken)) {
+            throw "release-candidate reference is missing dynamic identity rule: $requiredReleaseToken"
+        }
+    }
+
+    $miniReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/miniprogram.md') -Raw
+    foreach ($requiredMiniToken in @(
+        'UPLOAD_VERSION_ALLOCATION_BLOCKED',
+        'UPLOAD_REQUIRED'
+    )) {
+        if (-not $miniReference.Contains($requiredMiniToken)) {
+            throw "Mini Program reference is missing dynamic version rule: $requiredMiniToken"
+        }
+    }
+
+    $productionReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/production.md') -Raw
+    if (-not $productionReference.Contains('LIVE_RELEASE_VERIFIED=false')) {
+        throw 'production reference is missing the live-release verification boundary'
+    }
+
+    $operationsRunbook = Get-Content -LiteralPath (Join-Path $root 'docs/operations/runbook.md') -Raw
+    foreach ($requiredBaselineToken in @(
+        '## 动态发布身份与基线冻结',
+        '最新 `origin/main`',
+        '最新合格的已上传体验版',
+        'production 当前 live release',
+        '`LIVE_RELEASE_VERIFIED=false`'
+    )) {
+        if (-not $operationsRunbook.Contains($requiredBaselineToken)) {
+            throw "operations runbook is missing dynamic baseline rule: $requiredBaselineToken"
+        }
+    }
+
+    $miniRunbook = Get-Content -LiteralPath (Join-Path $root 'apps/miniprogram/docs/runbooks/miniprogram-ci.md') -Raw
+    foreach ($requiredAllocationToken in @(
+        '## 体验版版本分配与不可变身份',
+        '不得预先指定下一个版本号',
+        '版本号 + 源码 SHA + 上传 Manifest',
+        '`UPLOAD_VERSION_ALLOCATION_BLOCKED`',
+        '`UPLOAD_REQUIRED`',
+        '当前消息已明确授权上传',
+        '幂等重试'
+    )) {
+        if (-not $miniRunbook.Contains($requiredAllocationToken)) {
+            throw "miniprogram-ci runbook is missing version-allocation rule: $requiredAllocationToken"
+        }
+    }
+
+    $miniAgents = Get-Content -LiteralPath (Join-Path $root 'apps/miniprogram/AGENTS.md') -Raw
+    if ($miniAgents.Contains('record the proposed version instead')) {
+        throw 'Mini Program AGENTS.md still preallocates a proposed version without upload authority'
+    }
+    if (-not $miniAgents.Contains('UPLOAD_REQUIRED')) {
+        throw 'Mini Program AGENTS.md is missing the no-upload status boundary'
+    }
+
+    $contextInspector = Get-Content -LiteralPath (Join-Path $skillRoot 'scripts/inspect-task-context.ps1') -Raw
+    if (-not $contextInspector.Contains('$needsDynamicIdentity')) {
+        throw 'context inspector does not route dynamic release identity tasks'
     }
 
     $knownPitfalls = Get-Content -LiteralPath (Join-Path $skillRoot 'references/known-pitfalls.md') -Raw
@@ -256,6 +324,27 @@ try {
     $allSkillText = ($requiredFiles | ForEach-Object {
         Get-Content -LiteralPath (Join-Path $skillRoot $_) -Raw
     }) -join "`n"
+    $pinnedSemanticVersion = [regex]::Match(
+        $allSkillText,
+        '(?<![A-Za-z0-9])\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?![A-Za-z0-9])'
+    )
+    if ($pinnedSemanticVersion.Success) {
+        throw "skill contains a permanently pinned semantic version: $($pinnedSemanticVersion.Value)"
+    }
+    $pinnedSha = [regex]::Match(
+        $allSkillText,
+        '(?i)(?<![0-9a-f])(?=[0-9a-f]{7,40}(?![0-9a-f]))(?=[0-9a-f]{0,39}[0-9])[0-9a-f]{7,40}(?![0-9a-f])'
+    )
+    if ($pinnedSha.Success) {
+        throw "skill contains a permanently pinned SHA/release value: $($pinnedSha.Value)"
+    }
+    $pinnedIdentityAssignment = [regex]::Match(
+        $allSkillText,
+        '(?im)\b(?:MAIN_HEAD|ORIGIN_MAIN_SHA|EVIDENCE_MAIN_SHA|EVIDENCE_TRIAL_VERSION|EVIDENCE_TRIAL_SHA|EVIDENCE_TRIAL_MANIFEST|EVIDENCE_SERVER_RELEASE|LIVE_SERVER_RELEASE|PRODUCTION_LIVE_RELEASE)\s*=\s*(?!<)[^\s;]+'
+    )
+    if ($pinnedIdentityAssignment.Success) {
+        throw "skill contains a permanently pinned release identity: $($pinnedIdentityAssignment.Value)"
+    }
     if ($allSkillText -match '(?i)[A-Z]:\\Users\\' -or
         $allSkillText -match '-----BEGIN [A-Z ]*PRIVATE KEY-----') {
         throw 'skill contains a machine-specific user path or private-key material'
