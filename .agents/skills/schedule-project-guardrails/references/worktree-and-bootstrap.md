@@ -15,6 +15,11 @@ Authoritative sources:
 
 ## Boundaries
 
+The project-local `.codex/setup.ps1` is a no-install setup script. It only resolves the canonical home
+from the Git common directory, reads the current `AGENTS.md`/legacy overlay, and checks an existing
+pool slot. It does not acquire a different Codex worktree, create `node_modules`, run bootstrap, or
+install dependencies. Task routing performs Acquire separately.
+
 - Ordinary `L1` work stays in the current worktree; do not create another worktree merely for convenience.
 - The canonical project home is the parent of the Git common directory. New persistent Schedule pool
   slots are direct children of its `runtime/wt` directory; a linked worktree must never be used as the
@@ -36,4 +41,9 @@ A clean worktree can have installed dependencies but no generated workspace pack
 
 Use the repository build graph for a final candidate. Do not invent a bootstrap order or add dependencies. A missing declaration or `dist` file is a producer-bootstrap decision, never a reason to install dependencies. A successful install that links the same 1459 packages is not a reason to repeat it; a matching fingerprint and healthy `node_modules` must be reused.
 
-Generated release, smoke, log, and scratch data stays in the ignored repository `runtime/` paths established by the helpers. Credentials remain outside the repository.
+Generated release, smoke, log, recovery, lease, fingerprint, and scratch data stays in the ignored
+repository `runtime/` paths established by the helpers. Credentials remain outside the repository.
+
+The project `.pnpmfile.cjs` is an early install tripwire. Direct local dependency mutation must exit
+before import/link and point to `scripts/codex/dependency-maintenance.ps1`; preinstall-only checks are
+not an acceptable substitute.

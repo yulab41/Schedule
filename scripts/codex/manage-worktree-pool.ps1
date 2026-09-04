@@ -24,6 +24,11 @@ param(
 
     [string]$LeaseToken,
 
+    [string]$BaseRef = 'origin/main',
+
+    [ValidatePattern('^codex/[A-Za-z0-9._/-]+$')]
+    [string]$BranchName,
+
     [ValidateRange(1, 240)]
     [int]$TtlMinutes = 30,
 
@@ -35,8 +40,7 @@ $PSNativeCommandUseErrorActionPreference = $true
 Set-StrictMode -Version Latest
 
 $repositoryHint = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-$RepositoryRoot = (& git -C $repositoryHint rev-parse --show-toplevel).Trim()
-$RepositoryRoot = [IO.Path]::GetFullPath($RepositoryRoot)
+$RepositoryRoot = [IO.Path]::GetFullPath(((& git -C $repositoryHint rev-parse --show-toplevel).Trim()))
 $commonRaw = (& git -C $RepositoryRoot rev-parse --git-common-dir).Trim()
 $CommonDirectory = if ([IO.Path]::IsPathRooted($commonRaw)) {
     [IO.Path]::GetFullPath($commonRaw)
@@ -54,7 +58,7 @@ if ($PoolRoot) {
 $PoolRoot = $ExpectedPoolRoot
 $DependencyScript = Join-Path $PSScriptRoot 'ensure-worktree-deps.ps1'
 $BootstrapScript = Join-Path $PSScriptRoot 'ensure-workspace-bootstrap.ps1'
-$SlotMarkerName = 'pool-slot-v1.json'
+$SlotMarkerName = 'pool-slot-v2.json'
 $StateRoot = Join-Path $CanonicalProjectHome 'runtime/codex'
 $LocalStateRoot = Join-Path $StateRoot 'state'
 $SlotStateRoot = Join-Path $LocalStateRoot 'slots'
@@ -68,7 +72,9 @@ if (-not $TaskId) { $TaskId = $Owner }
 
 function Get-CanonicalPath {
     param([Parameter(Mandatory = $true)][string]$Value)
-    return [IO.Path]::GetFullPath($Value).TrimEnd('\').ToLowerInvariant()
+    $resolved = [IO.Path]::GetFullPath($Value).TrimEnd('\')
+    try { $resolved = [IO.Path]::GetFullPath((Get-Item -LiteralPath $resolved -Force).FullName).TrimEnd('\') } catch { }
+    return $resolved.ToLowerInvariant()
 }
 
 function Test-PathInside {
@@ -76,21 +82,48 @@ function Test-PathInside {
         [Parameter(Mandatory = $true)][string]$Parent,
         [Parameter(Mandatory = $true)][string]$Child
     )
-    $parentCanonical = Get-CanonicalPath $Parent
-    $childCanonical = Get-CanonicalPath $Child
-    return $childCanonical -eq $parentCanonical -or $childCanonical.StartsWith("$parentCanonical\", [StringComparison]::OrdinalIgnoreCase)
+    $parentPath = Get-CanonicalPath $Parent
+    $childPath = Get-CanonicalPath $Child
+    return $childPath -eq $parentPath -or $childPath.StartsWith("$parentPath\", [StringComparison]::OrdinalIgnoreCase)
 }
 
-function Get-CommonDirectory {
-    return $CommonDirectory
+function Invoke-Git {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [switch]$AllowFailure
+    )
+    $previous = $PSNativeCommandUseErrorActionPreference
+    try {
+        $PSNativeCommandUseErrorActionPreference = $false
+        $output = @(& git -C $WorkingDirectory @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $PSNativeCommandUseErrorActionPreference = $previous
+    }
+    if (-not $AllowFailure -and $exitCode -ne 0) {
+        throw "git -C $WorkingDirectory $($Arguments -join ' ') failed: $($output -join ' ')"
+    }
+    return [pscustomobject]@{ ExitCode = $exitCode; Output = ($output -join [Environment]::NewLine).Trim() }
 }
 
-function Get-RegisteredWorktrees {
-    $raw = @(& git -C $RepositoryRoot worktree list --porcelain) -join "`n"
+function Get-GitValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+    $result = Invoke-Git -WorkingDirectory $WorkingDirectory -Arguments $Arguments
+    if ([string]::IsNullOrWhiteSpace($result.Output)) { throw "git $($Arguments -join ' ') returned no value." }
+    return $result.Output
+}
+
+function Parse-WorktreeList {
+    param([Parameter(Mandatory = $true)][string]$Source)
     $entries = @()
-    foreach ($block in ($raw -split "`n`n")) {
+    foreach ($block in ($Source -split '\r?\n\r?\n')) {
         if ([string]::IsNullOrWhiteSpace($block)) { continue }
-        $lines = $block -split "`n"
+        $lines = $block -split '\r?\n'
         $pathLine = $lines | Where-Object { $_.StartsWith('worktree ') } | Select-Object -First 1
         $headLine = $lines | Where-Object { $_.StartsWith('HEAD ') } | Select-Object -First 1
         if (-not $pathLine -or -not $headLine) { continue }
@@ -105,6 +138,10 @@ function Get-RegisteredWorktrees {
     return $entries
 }
 
+function Get-RegisteredWorktrees {
+    return @(Parse-WorktreeList (Get-GitValue -WorkingDirectory $RepositoryRoot -Arguments @('worktree', 'list', '--porcelain')))
+}
+
 function Assert-PoolBoundary {
     if (-not (Test-Path -LiteralPath $PoolRoot -PathType Container)) {
         [void](New-Item -ItemType Directory -LiteralPath $PoolRoot -Force)
@@ -115,9 +152,6 @@ function Assert-PoolBoundary {
     }
     if ((Get-CanonicalPath $PoolRoot) -ne (Get-CanonicalPath $ExpectedPoolRoot)) {
         throw "Pool root is not the canonical project-local runtime/wt path: $PoolRoot"
-    }
-    if ((Get-CanonicalPath $CanonicalProjectHome) -eq (Get-CanonicalPath $PoolRoot)) {
-        throw 'Pool root cannot be the canonical project home itself.'
     }
     if ([IO.Path]::GetPathRoot((Get-CanonicalPath $RepositoryRoot)) -ne [IO.Path]::GetPathRoot((Get-CanonicalPath $PoolRoot))) {
         throw "Pool must be on the repository volume: $PoolRoot"
@@ -137,9 +171,7 @@ function Get-SlotKey {
         $bytes = [Text.Encoding]::UTF8.GetBytes((Get-CanonicalPath $WorktreePath))
         return -join ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
     }
-    finally {
-        $sha.Dispose()
-    }
+    finally { $sha.Dispose() }
 }
 
 function Get-SlotPaths {
@@ -155,8 +187,8 @@ function Get-SlotPaths {
 function Test-CleanWorktree {
     param([Parameter(Mandatory = $true)][string]$WorktreePath)
     if (-not (Test-Path -LiteralPath $WorktreePath -PathType Container)) { return $false }
-    $status = @(& git -C $WorktreePath status --porcelain=v1 --untracked-files=all)
-    return $status.Count -eq 0
+    $result = Invoke-Git -WorkingDirectory $WorktreePath -Arguments @('status', '--porcelain=v1', '--untracked-files=all') -AllowFailure
+    return $result.ExitCode -eq 0 -and $result.Output -eq ''
 }
 
 function Test-StandaloneNodeModules {
@@ -191,9 +223,7 @@ function Get-ProcessEvidence {
             })
         return [pscustomobject]@{ known = $true; count = $matches.Count; method = 'commandline-path' }
     }
-    catch {
-        return [pscustomobject]@{ known = $false; count = $null; method = 'process-query-failed' }
-    }
+    catch { return [pscustomobject]@{ known = $false; count = $null; method = 'process-query-failed' } }
 }
 
 function Get-ChildProcessEvidence {
@@ -204,9 +234,8 @@ function Get-ChildProcessEvidence {
         $children = @()
         while ($pending.Count -gt 0) {
             $parent = $pending[0]
-            if ($pending.Count -eq 1) { $pending = @() } else { $pending = @($pending | Select-Object -Skip 1) }
-            $direct = @($all | Where-Object { [int]$_.ParentProcessId -eq [int]$parent })
-            foreach ($child in $direct) {
+            $pending = if ($pending.Count -eq 1) { @() } else { @($pending | Select-Object -Skip 1) }
+            foreach ($child in @($all | Where-Object { [int]$_.ParentProcessId -eq $parent })) {
                 if ($children -notcontains [int]$child.ProcessId) {
                     $children += [int]$child.ProcessId
                     $pending += [int]$child.ProcessId
@@ -215,9 +244,7 @@ function Get-ChildProcessEvidence {
         }
         return [pscustomobject]@{ known = $true; count = $children.Count; method = 'process-parent-tree' }
     }
-    catch {
-        return [pscustomobject]@{ known = $false; count = $null; method = 'child-process-query-failed' }
-    }
+    catch { return [pscustomobject]@{ known = $false; count = $null; method = 'child-process-query-failed' } }
 }
 
 function Write-AtomicJson {
@@ -228,7 +255,7 @@ function Write-AtomicJson {
     [void](New-Item -ItemType Directory -Path (Split-Path $Target -Parent) -Force)
     $temporary = "$Target.$PID.tmp"
     $encoding = [Text.UTF8Encoding]::new($false)
-    [IO.File]::WriteAllText($temporary, (($Value | ConvertTo-Json -Depth 10) + "`n"), $encoding)
+    [IO.File]::WriteAllText($temporary, (($Value | ConvertTo-Json -Depth 12) + [Environment]::NewLine), $encoding)
     Move-Item -LiteralPath $temporary -Destination $Target -Force
 }
 
@@ -241,15 +268,13 @@ function New-AtomicLease {
     $stream = $null
     try {
         $stream = [IO.File]::Open($LeasePath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
-        $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($Lease | ConvertTo-Json -Depth 10) + "`n")
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($Lease | ConvertTo-Json -Depth 12) + [Environment]::NewLine)
         $stream.Write($bytes, 0, $bytes.Length)
         $stream.Flush($true)
         return $true
     }
     catch [IO.IOException] { return $false }
-    finally {
-        if ($stream) { $stream.Dispose() }
-    }
+    finally { if ($stream) { $stream.Dispose() } }
 }
 
 function Read-Lease {
@@ -269,19 +294,18 @@ function Get-ManagedSlots {
         $paths = Get-SlotPaths $resolved
         if (-not (Test-Path -LiteralPath $paths.marker -PathType Leaf)) { continue }
         try { $metadata = Get-Content -LiteralPath $paths.marker -Raw | ConvertFrom-Json } catch { continue }
-        if ($metadata.schemaVersion -ne 1 -or [string]::IsNullOrWhiteSpace($metadata.path)) { continue }
-        if ((Get-CanonicalPath $metadata.path) -ne $resolved) { continue }
-        if ($metadata.commonDir -and (Get-CanonicalPath $metadata.commonDir) -ne (Get-CanonicalPath $CommonDirectory)) { continue }
-        $lease = Read-Lease $paths.lease
-        $process = Get-ProcessEvidence $resolved
+        if ($metadata.schemaVersion -ne 2 -or [string]::IsNullOrWhiteSpace($metadata.path)) { continue }
+        if ((Get-CanonicalPath ([string]$metadata.path)) -ne $resolved) { continue }
+        if ($metadata.commonDir -and (Get-CanonicalPath ([string]$metadata.commonDir)) -ne (Get-CanonicalPath $CommonDirectory)) { continue }
         $slots += [pscustomobject]@{
             path = $resolved
             head = $worktree.head
             branch = $worktree.branch
+            detached = [bool]$worktree.detached
             paths = $paths
             metadata = $metadata
-            lease = $lease
-            process = $process
+            lease = Read-Lease $paths.lease
+            process = Get-ProcessEvidence $resolved
         }
     }
     return $slots
@@ -290,9 +314,6 @@ function Get-ManagedSlots {
 function Assert-ManagedSlot {
     param([Parameter(Mandatory = $true)][string]$WorktreePath)
     $resolved = Get-CanonicalPath $WorktreePath
-    if (-not (Test-PathInside -Parent $PoolRoot -Child $resolved) -or $resolved -eq (Get-CanonicalPath $PoolRoot)) {
-        throw "Slot is outside the configured pool: $resolved"
-    }
     if ([IO.Path]::GetDirectoryName($resolved).TrimEnd('\') -ne (Get-CanonicalPath $PoolRoot)) {
         throw "Slot must be a direct child of the configured pool: $resolved"
     }
@@ -304,28 +325,27 @@ function Assert-ManagedSlot {
 function Get-DependencyCheck {
     param(
         [Parameter(Mandatory = $true)][string]$WorktreePath,
-        [string]$Token
+        [string]$Token,
+        [switch]$AdoptHealthyExisting
     )
-    if ($Token) {
-        $output = & $DependencyScript -Mode ReuseOnly -WorktreeRoot $WorktreePath -LeaseToken $Token -Json
-    }
-    else {
-        $output = & $DependencyScript -Mode ReuseOnly -WorktreeRoot $WorktreePath -Json
-    }
-    return (($output -join "`n") | ConvertFrom-Json)
+    $arguments = @('-Mode', 'ReuseOnly', '-WorktreeRoot', $WorktreePath, '-Json')
+    if ($Token) { $arguments += @('-LeaseToken', $Token) }
+    if ($AdoptHealthyExisting) { $arguments += '-AdoptHealthyExisting' }
+    $output = & $DependencyScript @arguments
+    return (($output -join [Environment]::NewLine) | ConvertFrom-Json)
 }
 
 function Ensure-LocalPoolConfig {
-    $commonDir = Get-CanonicalPath (Get-CommonDirectory)
+    $commonDir = Get-CanonicalPath $CommonDirectory
     if (Test-Path -LiteralPath $LocalConfigPath -PathType Leaf) {
         $existing = Get-Content -LiteralPath $LocalConfigPath -Raw | ConvertFrom-Json
-        if ((Get-CanonicalPath $existing.commonDir) -ne $commonDir -or (Get-CanonicalPath $existing.poolRoot) -ne (Get-CanonicalPath $PoolRoot)) {
+        if ((Get-CanonicalPath ([string]$existing.commonDir)) -ne $commonDir -or (Get-CanonicalPath ([string]$existing.poolRoot)) -ne (Get-CanonicalPath $PoolRoot)) {
             throw 'Local Schedule pool config belongs to another repository or pool root.'
         }
         return $existing
     }
     $config = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         repositoryRoot = $RepositoryRoot
         commonDir = $commonDir
         poolRoot = $PoolRoot
@@ -361,11 +381,10 @@ function Write-Result {
     if ($Json) { $Value | ConvertTo-Json -Depth 12 -Compress }
     else {
         $Value | ConvertTo-Json -Depth 12
-        if ($Value.taskStatus) { Write-Output "TASK_STATUS=$($Value.taskStatus)" }
-        $installInvoked = ([bool]$Value.installInvoked).ToString().ToLowerInvariant()
-        $worktreeCreated = ([bool]$Value.worktreeCreated).ToString().ToLowerInvariant()
-        Write-Output "INSTALL_INVOKED=$installInvoked"
-        Write-Output "WORKTREE_CREATED=$worktreeCreated"
+        Write-Output "TASK_STATUS=$($Value.taskStatus)"
+        Write-Output "DEPENDENCIES_REUSED=$(([bool]$Value.dependenciesReused).ToString().ToLowerInvariant())"
+        Write-Output "INSTALL_INVOKED=$(([bool]$Value.installInvoked).ToString().ToLowerInvariant())"
+        Write-Output "WORKTREE_CREATED=$(([bool]$Value.worktreeCreated).ToString().ToLowerInvariant())"
         Write-Output "WORKTREE_POOL_ROOT=$PoolRoot"
         Write-Output 'NESTED_WORKTREE_CREATION=false'
     }
@@ -378,14 +397,15 @@ function Register-Slot {
     if ([IO.Path]::GetDirectoryName($resolved).TrimEnd('\') -ne (Get-CanonicalPath $PoolRoot)) { throw 'Only direct pool children may be registered.' }
     $registered = Get-RegisteredWorktrees | Where-Object { (Get-CanonicalPath $_.path) -eq $resolved } | Select-Object -First 1
     if (-not $registered) { throw 'The path is not an existing Git worktree.' }
+    if (-not $registered.detached -or $registered.branch) { throw 'A free pool slot must be detached; task branches are created only during Acquire.' }
     if (-not (Test-CleanWorktree $resolved)) { throw 'Refusing to register a dirty worktree.' }
     if (-not (Test-StandaloneNodeModules $resolved)) { throw 'node_modules is linked; each slot needs an independent writable tree.' }
     $process = Get-ProcessEvidence $resolved
     if (-not $process.known) { throw 'Could not prove that the slot has no active process.' }
     if ($process.count -ne 0) { return New-Result -TaskStatus 'POOL_BUSY' -Reason 'active-process-observed' }
-    $dependency = Get-DependencyCheck $resolved
+    $dependency = Get-DependencyCheck -WorktreePath $resolved -AdoptHealthyExisting
     if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
-        $reason = $dependency.reasons -join ','
+        $reason = @($dependency.reasons) -join ','
         if (-not $reason) { $reason = 'dependency environment is not reusable' }
         return New-Result -TaskStatus 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' -Reason $reason
     }
@@ -393,7 +413,8 @@ function Register-Slot {
     $paths = Get-SlotPaths $resolved
     $existing = if (Test-Path -LiteralPath $paths.marker -PathType Leaf) { Get-Content -LiteralPath $paths.marker -Raw | ConvertFrom-Json } else { $null }
     $metadata = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
+        slotMarker = $SlotMarkerName
         role = $Role
         index = $Index
         permanence = 'permanent'
@@ -402,25 +423,58 @@ function Register-Slot {
         commonDir = $config.commonDir
         createdAt = if ($existing) { $existing.createdAt } else { (Get-Date).ToUniversalTime().ToString('o') }
         dependencyFingerprint = $dependency.dependencyFingerprint
-        bootstrapProfile = $null
+        bootstrapProfile = if ($existing) { $existing.bootstrapProfile } else { $null }
+        updatedAt = (Get-Date).ToUniversalTime().ToString('o')
     }
     Write-AtomicJson -Target $paths.marker -Value $metadata
     return New-Result -TaskStatus 'READY_REUSE' -DependenciesReused $true -Data ([pscustomobject]@{ path = $resolved; registered = $true; fingerprint = $dependency.dependencyFingerprint })
 }
 
+function Resolve-BaseCommit {
+    return Get-GitValue -WorkingDirectory $RepositoryRoot -Arguments @('rev-parse', '--verify', "$BaseRef`^{commit}")
+}
+
+function Initialize-TaskBranch {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorktreePath,
+        [Parameter(Mandatory = $true)][string]$BaseCommit
+    )
+    $name = if ($BranchName) { $BranchName } else { "codex/schedule-$PID-$([guid]::NewGuid().ToString('N').Substring(0, 12))" }
+    $existing = Invoke-Git -WorkingDirectory $RepositoryRoot -Arguments @('show-ref', '--verify', "refs/heads/$name") -AllowFailure
+    if ($existing.ExitCode -eq 0) { throw "Task branch already exists: $name" }
+    [void](Invoke-Git -WorkingDirectory $WorktreePath -Arguments @('switch', '--detach', $BaseCommit))
+    [void](Invoke-Git -WorkingDirectory $WorktreePath -Arguments @('switch', '--create', $name, $BaseCommit))
+    return [pscustomobject]@{ name = "refs/heads/$name"; head = $BaseCommit }
+}
+
+function Update-SlotMetadata {
+    param(
+        [Parameter(Mandatory = $true)][object]$Slot,
+        [Parameter(Mandatory = $true)][string]$Status,
+        [string]$DependencyFingerprint,
+        [string]$BootstrapProfile
+    )
+    $metadata = [ordered]@{}
+    foreach ($property in $Slot.metadata.PSObject.Properties) { $metadata[$property.Name] = $property.Value }
+    $metadata.status = $Status
+    $metadata.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+    if ($DependencyFingerprint) { $metadata.dependencyFingerprint = $DependencyFingerprint }
+    if ($BootstrapProfile) { $metadata.bootstrapProfile = $BootstrapProfile }
+    Write-AtomicJson -Target $Slot.paths.marker -Value $metadata
+}
+
 function Acquire-Slot {
     Assert-PoolBoundary
     [void](Ensure-LocalPoolConfig)
-    $managed = @(Get-ManagedSlots | Where-Object { $_.metadata.role -eq $Role })
-    $freeSeen = $false
+    $managed = @(Get-ManagedSlots | Where-Object { $_.metadata.role -eq $Role -and $_.metadata.status -eq 'free' })
     $busySeen = $false
     $incompatibleReasons = @()
     foreach ($slot in ($managed | Sort-Object path)) {
         if ($slot.lease) { $busySeen = $true; continue }
+        if (-not $slot.detached -or $slot.branch) { $busySeen = $true; continue }
         if (-not $slot.process.known -or $slot.process.count -ne 0) { $busySeen = $true; continue }
         if (-not (Test-CleanWorktree $slot.path) -or -not (Test-StandaloneNodeModules $slot.path)) { continue }
-        $freeSeen = $true
-        try { $dependency = Get-DependencyCheck $slot.path }
+        try { $dependency = Get-DependencyCheck -WorktreePath $slot.path }
         catch { $incompatibleReasons += "${slot.path}:dependency-check-error"; continue }
         if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
             $incompatibleReasons += "${slot.path}:$($dependency.taskStatus)"
@@ -428,7 +482,7 @@ function Acquire-Slot {
         }
         $token = [guid]::NewGuid().ToString('D')
         $lease = [ordered]@{
-            schemaVersion = 1
+            schemaVersion = 2
             token = $token
             path = $slot.path
             sessionId = $SessionId
@@ -439,49 +493,57 @@ function Acquire-Slot {
             acquiredAt = (Get-Date).ToUniversalTime().ToString('o')
             lastHeartbeat = (Get-Date).ToUniversalTime().ToString('o')
             head = $slot.head
-            branch = $slot.branch
+            branch = $null
             dependencyFingerprint = $dependency.dependencyFingerprint
             bootstrapProfile = $Profile
             status = 'leased'
         }
         if (-not (New-AtomicLease -LeasePath $slot.paths.lease -Lease $lease)) { $busySeen = $true; continue }
+        $branch = $null
         try {
+            $baseCommit = Resolve-BaseCommit
+            $branch = Initialize-TaskBranch -WorktreePath $slot.path -BaseCommit $baseCommit
+            $lease.head = $branch.head
+            $lease.branch = $branch.name
+            Write-AtomicJson -Target $slot.paths.lease -Value $lease
             $verified = Get-DependencyCheck -WorktreePath $slot.path -Token $token
             if ($verified.taskStatus -ne 'READY_REUSE' -or -not $verified.dependenciesReused) {
-                Remove-Item -LiteralPath $slot.paths.lease -Force
-                $reason = $verified.reasons -join ','
-                if (-not $reason) { $reason = 'dependency changed while acquiring' }
-                return New-Result -TaskStatus 'BLOCKED_DEPENDENCY_INSTALL_REQUIRED' -Reason $reason
+                throw "Dependency reuse failed after task branch assignment: $(@($verified.reasons) -join ',')"
             }
             $bootstrap = $null
             if ($Profile) {
                 $bootstrapOutput = & $BootstrapScript -Profile $Profile -WorktreeRoot $slot.path -LeaseToken $token -Json
-                $bootstrap = (($bootstrapOutput -join "`n") | ConvertFrom-Json)
+                $bootstrap = (($bootstrapOutput -join [Environment]::NewLine) | ConvertFrom-Json)
                 if ($bootstrap.taskStatus -ne 'READY_BOOTSTRAP') {
-                    $reason = $bootstrap.reasons -join ','
-                    if (-not $reason) { $reason = 'bootstrap did not complete' }
-                    return New-Result -TaskStatus $bootstrap.taskStatus -Reason $reason -Data ([pscustomobject]@{ path = $slot.path; leaseToken = $token })
+                    throw "Bootstrap did not complete: $(@($bootstrap.reasons) -join ',')"
                 }
             }
+            Update-SlotMetadata -Slot $slot -Status 'leased' -DependencyFingerprint $verified.dependencyFingerprint -BootstrapProfile $Profile
             return New-Result -TaskStatus 'READY_REUSE' -DependenciesReused $true -Data ([pscustomobject]@{
                     path = $slot.path
                     role = $Role
                     leaseToken = $token
                     sessionId = $SessionId
                     taskId = $TaskId
+                    head = $branch.head
+                    branch = $branch.name
                     fingerprint = $verified.dependencyFingerprint
                     bootstrap = $bootstrap
                 })
         }
         catch {
-            throw
+            $message = $_.Exception.Message
+            if ($branch -and (Test-CleanWorktree $slot.path)) {
+                try { [void](Invoke-Git -WorkingDirectory $slot.path -Arguments @('switch', '--detach', $branch.head)) } catch { $message += '; slot could not be detached safely' }
+            }
+            if (Test-Path -LiteralPath $slot.paths.lease -PathType Leaf) { Remove-Item -LiteralPath $slot.paths.lease -Force }
+            Update-SlotMetadata -Slot $slot -Status 'free'
+            return New-Result -TaskStatus 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' -Reason $message
         }
     }
     if ($busySeen) { return New-Result -TaskStatus 'POOL_BUSY' -Reason 'all compatible slots are leased, active, dirty, or concurrently claimed' }
-    if ($freeSeen -and $incompatibleReasons.Count -gt 0) {
-        return New-Result -TaskStatus 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' -Reason ($incompatibleReasons -join ';')
-    }
-    return New-Result -TaskStatus 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' -Reason 'no registered warm slot is available'
+    if ($incompatibleReasons.Count -gt 0) { return New-Result -TaskStatus 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' -Reason ($incompatibleReasons -join ';') }
+    return New-Result -TaskStatus 'POOL_BUSY' -Reason 'no free registered warm slot is available; cold worktree creation is disabled'
 }
 
 function Assert-OwnedLease {
@@ -506,13 +568,24 @@ function Release-Slot {
     Assert-PoolBoundary
     if (-not $Path) { throw 'Release requires -Path.' }
     $slot = Assert-ManagedSlot $Path
-    [void](Assert-OwnedLease $slot)
-    if (-not (Test-CleanWorktree $slot.path)) { throw 'Refusing to release a dirty slot.' }
+    $lease = Assert-OwnedLease $slot
+    if (-not (Test-CleanWorktree $slot.path)) {
+        Update-SlotMetadata -Slot $slot -Status 'quarantined-dirty'
+        return New-Result -TaskStatus 'QUARANTINED_DIRTY' -Reason 'dirty worktree is protected; release does not reset or clean it'
+    }
     if (-not $slot.process.known -or $slot.process.count -ne 0) { throw 'Refusing to release while an active process is observed or process evidence is unavailable.' }
-    $children = Get-ChildProcessEvidence ([int]$slot.lease.pid)
+    $children = Get-ChildProcessEvidence ([int]$lease.pid)
     if (-not $children.known -or $children.count -ne 0) { throw 'Refusing to release while child process evidence is unavailable or active.' }
+    $dependency = Get-DependencyCheck -WorktreePath $slot.path -Token $LeaseToken
+    if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
+        Update-SlotMetadata -Slot $slot -Status 'quarantined-dependency'
+        return New-Result -TaskStatus 'BLOCKED_DEPENDENCY_INSTALL_REQUIRED' -Reason (@($dependency.reasons) -join ',')
+    }
+    $head = Get-GitValue -WorkingDirectory $slot.path -Arguments @('rev-parse', 'HEAD')
+    [void](Invoke-Git -WorkingDirectory $slot.path -Arguments @('switch', '--detach', $head))
+    Update-SlotMetadata -Slot $slot -Status 'free' -DependencyFingerprint $dependency.dependencyFingerprint
     Remove-Item -LiteralPath $slot.paths.lease -Force
-    return New-Result -TaskStatus 'READY_REUSE' -DependenciesReused $true -Data ([pscustomobject]@{ path = $slot.path; released = $true })
+    return New-Result -TaskStatus 'READY_REUSE' -DependenciesReused $true -Data ([pscustomobject]@{ path = $slot.path; released = $true; head = $head })
 }
 
 function Test-PidAlive {
@@ -522,16 +595,15 @@ function Test-PidAlive {
 
 function Test-ExpiredLease {
     param([Parameter(Mandatory = $true)][object]$Slot)
-    if (-not $Slot.lease) { return $false }
-    if ($Slot.lease.path -ne $Slot.path -or $Slot.lease.head -ne $Slot.head -or $Slot.lease.branch -ne $Slot.branch) { return $false }
+    if (-not $Slot.lease -or $Slot.lease.path -ne $Slot.path) { return $false }
+    if ($Slot.lease.head -ne $Slot.head -or $Slot.lease.branch -ne $Slot.branch) { return $false }
     $heartbeat = [DateTime]::Parse($Slot.lease.lastHeartbeat).ToUniversalTime()
     if (((Get-Date).ToUniversalTime() - $heartbeat).TotalMinutes -le $TtlMinutes) { return $false }
     if (Test-PidAlive ([int]$Slot.lease.pid)) { return $false }
     if (-not $Slot.process.known -or $Slot.process.count -ne 0) { return $false }
     $children = Get-ChildProcessEvidence ([int]$Slot.lease.pid)
     if (-not $children.known -or $children.count -ne 0) { return $false }
-    if (-not (Test-CleanWorktree $Slot.path)) { return $false }
-    return $true
+    return Test-CleanWorktree $Slot.path
 }
 
 function Reclaim-ExpiredLeases {
@@ -540,6 +612,9 @@ function Reclaim-ExpiredLeases {
     $reclaimed = @()
     foreach ($slot in $candidates) {
         if (Test-ExpiredLease $slot) {
+            $head = Get-GitValue -WorkingDirectory $slot.path -Arguments @('rev-parse', 'HEAD')
+            [void](Invoke-Git -WorkingDirectory $slot.path -Arguments @('switch', '--detach', $head))
+            Update-SlotMetadata -Slot $slot -Status 'free'
             Remove-Item -LiteralPath $slot.paths.lease -Force
             $reclaimed += $slot.path
         }
@@ -547,35 +622,46 @@ function Reclaim-ExpiredLeases {
     return New-Result -TaskStatus 'READY_REUSE' -Data ([pscustomobject]@{ reclaimed = $reclaimed; count = $reclaimed.Count })
 }
 
+function Get-ModulesStoreDir {
+    param([Parameter(Mandatory = $true)][string]$WorktreePath)
+    $metadataPath = Join-Path $WorktreePath 'node_modules/.modules.yaml'
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) { return $null }
+    try { return [string]((Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json).storeDir) } catch { return $null }
+}
+
 function Get-PoolStatus {
     Assert-PoolBoundary
     $rows = @()
     foreach ($slot in Get-ManagedSlots) {
         $dependency = $null
-        if (-not $slot.lease -and $slot.process.known -and $slot.process.count -eq 0 -and (Test-CleanWorktree $slot.path)) {
-            try { $dependency = Get-DependencyCheck $slot.path } catch { $dependency = $null }
+        if (-not $slot.lease -and $slot.metadata.status -eq 'free' -and $slot.detached -and $slot.process.known -and $slot.process.count -eq 0 -and (Test-CleanWorktree $slot.path)) {
+            try { $dependency = Get-DependencyCheck -WorktreePath $slot.path } catch { $dependency = $null }
         }
         $rows += [pscustomobject]@{
             path = $slot.path
             role = $slot.metadata.role
             index = $slot.metadata.index
             permanence = $slot.metadata.permanence
+            status = $slot.metadata.status
             head = $slot.head
             branch = $slot.branch
+            detached = $slot.detached
             clean = Test-CleanWorktree $slot.path
-            nodeModulesMarker = Test-Path -LiteralPath (Join-Path $slot.path 'node_modules/.modules.yaml')
+            nodeModules = Test-Path -LiteralPath (Join-Path $slot.path 'node_modules') -PathType Container
+            modulesYaml = Test-Path -LiteralPath (Join-Path $slot.path 'node_modules/.modules.yaml') -PathType Leaf
+            storeDir = Get-ModulesStoreDir $slot.path
             processEvidence = $slot.process
             leased = $null -ne $slot.lease
             sessionId = if ($slot.lease) { $slot.lease.sessionId } else { $null }
             taskId = if ($slot.lease) { $slot.lease.taskId } else { $null }
-            compatible = if ($dependency) { [bool]$dependency.dependenciesReused } else { $null }
-            dependencyFingerprint = if ($dependency) { $dependency.dependencyFingerprint } else { $null }
+            compatible = if ($dependency) { [bool]$dependency.dependenciesReused } else { $false }
+            dependencyFingerprint = if ($dependency) { $dependency.dependencyFingerprint } else { $slot.metadata.dependencyFingerprint }
+            bootstrapProfile = $slot.metadata.bootstrapProfile
         }
     }
-    $available = @($rows | Where-Object { $_.clean -and -not $_.leased -and $_.compatible -eq $true -and $_.processEvidence.known -and $_.processEvidence.count -eq 0 }).Count
+    $available = @($rows | Where-Object { $_.status -eq 'free' -and $_.detached -and $_.clean -and -not $_.leased -and $_.compatible -eq $true -and $_.processEvidence.known -and $_.processEvidence.count -eq 0 }).Count
     $occupied = @($rows | Where-Object { $_.leased }).Count
-    $reserve = @($rows | Where-Object { $_.permanence -eq 'reserve' }).Count
-    $status = if ($available -gt 0) { 'READY_REUSE' } else { 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' }
+    $status = if ($available -gt 0) { 'READY_REUSE' } else { 'POOL_BUSY' }
     return New-Result -TaskStatus $status -DependenciesReused ($available -gt 0) -Data ([pscustomobject]@{
             poolRoot = $PoolRoot
             repositoryRoot = $RepositoryRoot
@@ -583,8 +669,8 @@ function Get-PoolStatus {
             registeredWarmSlots = $rows.Count
             availableSlots = $available
             occupiedSlots = $occupied
-            reserveSlots = $reserve
             maxNoInstallConcurrency = $available
+            nestedWorktreeCreation = $false
         })
 }
 

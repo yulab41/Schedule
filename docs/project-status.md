@@ -155,30 +155,27 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
  - 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
   checkpoint 以 `docs(agent): route Mini safety capsule` 识别。
 
-## TOOLCHAIN-GUARDRAILS-INTERNAL-001（2026-09-04）
+## TOOLCHAIN-GUARDRAILS-FINAL-001（2026-09-04）
 
-- 方向纠正：正式 Skill、根路由、项目 Hook、配置、指纹、bootstrap、租约、状态、池和未来 store 目标统一
-  收敛到 canonical project home 下的 `.agents/`、`.codex/`、`scripts/codex/` 和 `runtime/`；不再新增项目外
-  Schedule 写入。既有项目外 worktree、旧 store 和此前全局临时内容只按遗留状态保护，未移动活动环境。
-- 从方向纠正时的最新 `origin/main` tip 建立项目内 `runtime/wt/guardrails-integrate` 集成 worktree；集成 worktree
-  没有 `node_modules`，本轮没有 install/fetch/rebuild/prune，也没有创建冷依赖环境。项目内 ReuseOnly 演练
-  应保持 `BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`，不得借用遗留外部 warm 槽位。
-- 已完成项目内路径门禁改造：精确 ignore `runtime/codex/`、`runtime/wt/`、`runtime/pnpm-store/`；
-  Hook 配置使用相对路径；指纹/bootstrap 状态不再进入 Git admin；pool 只接受 runtime/wt 直接子 worktree，
-  使用 runtime/codex 原子租约并将 `NESTED_WORKTREE_CREATION=false` 固定为硬门禁。
-- 候选审计、日期漂移归属和前一 checkpoint 的旧证据保留在开发记录；前一外部集成提交不被重写，最终只从
-  最新主线选择性提交本项目内布局修正版。
-- 当前工作树轻量验证：项目 Skill 校验 `RESULT=PASS`；项目 Hook/指纹/bootstrap/池/布局 Node 定向测试
-  `17/17`；项目内 ReuseOnly 和 Mini bootstrap 均 fail-closed 且 `INSTALL_INVOKED=false`；项目外遗留登记
-  仅写入被忽略的 `runtime/codex/state`，没有移动或修改遗留 worktree/store。远端期间新增的动态身份与 Mini
-  安全胶囊提交已审计并保留，本分支已在最新 tip 上正常重放。
-- checkpoint message：`fix(agent): keep Schedule Codex guardrails project-local`。已逐文件审阅并显式暂存工具链
-  路径；不得触碰业务源码、依赖、锁文件、生产、数据库或小程序上传。
+- 基线已动态 fetch 并快进到 `origin/main@4602120b`；`4602120b` 仍为最新主线祖先。初始清点 43 个
+  Git worktree，未发现 Schedule 路径下活动 Node/pnpm/test/build/server 进程或 lease；历史并发峰值没有
+  可验证的 `>5` 证据，因此按默认目标 6 个 warm 槽位。
+- 本 checkpoint 已移除项目 Codex Hook 注册、Hook wrapper、Hook 测试和 Hook 配置；新增项目 rules、
+  `.codex/setup.ps1`、`.pnpmfile.cjs` 早期 tripwire、自动授权维护 wrapper、分支绑定 pool manager、
+  store mirror、warm-pool provisioning 和 legacy overlay 同步器。正式路由不依赖 Hook 或人工 trust。
+- `ReuseOnly` 基线输出为 `INSTALL_INVOKED=false`；当前 canonical `node_modules/.modules.yaml` 仍指向
+  外部 store，待下一批项目 store 镜像和授权迁移。不得把本状态中的旧 store/旧 worktree观察当作最终通过。
+- 已验证：项目 rules `pnpm install`/`pnpm.cmd install`/`npm ci`/`corepack pnpm install`/`git clean` 为
+  `forbidden`，测试与 store 只读命令不匹配；Skill validator `RESULT=PASS`；工具链 Node tests `17/17`；
+  Node syntax、PowerShell AST、Markdown、`git diff --check` 通过。
+- checkpoint message：`refactor(agent): remove manual Hook trust dependency`。显式暂存仅限工具链/文档路径，
+  不包含 `runtime/`、`src/`、用户表格、业务源码或 `pnpm-lock.yaml`。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：在最新 `origin/main` 上正常重放本项目内工具链提交、复核差异并安全推进主线；随后用户在
-  Codex `/hooks` 中核对项目 Hook 路径/哈希并手动信任，所有并行任务完成后统一重启
-  Codex，再恢复原有旧对话。
-- 本批停止条件：仓库工具链提交已推送且仅保留待用户 Hook 审核/重启激活；不部署 production、不创建备份、
-  不迁移数据库、不上传小程序。前序 `MINI-G1-004` 继续等待匹配构建的 Xiaomi 14 反馈。
+- 唯一下一任务：在该 checkpoint 上执行项目 store 镜像、迁移外部 warm worktree、顺序准备 6 个正式槽位，
+  运行 early-tripwire/pool/SHA/bootstrap/new-session/legacy-overlay 验证，清点并安全收口 stale worktree，
+  再 fetch 并普通 fast-forward 推进最终 `origin/main`。
+- 停止条件：6 个槽位均为项目内、独立、clean、detached、healthy、root bootstrap ready，所有最终验证值
+  已记录；不部署 production、不创建备份、不迁移数据库、不上传小程序。若某个 dirty/唯一提交/外部 store
+  所有权无法安全处理，则保留恢复证据并报告真实数量，不丢弃数据。

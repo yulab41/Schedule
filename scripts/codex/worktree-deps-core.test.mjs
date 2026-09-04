@@ -10,6 +10,8 @@ import {
   createDependencySnapshot,
   diffDependencySnapshots,
   inspectDependencyHealth,
+  maintenanceCommandArguments,
+  maintenanceCommandHash,
   resolveCanonicalProjectHome,
   resolveProjectLocalState,
   resolveProjectLocalStorePath,
@@ -41,11 +43,24 @@ test.after(() => {
 test('derives project-local state from the Git common directory, not linked-worktree admin state', () => {
   const projectHome = resolveCanonicalProjectHome(REPOSITORY_ROOT);
   const state = resolveProjectLocalState(REPOSITORY_ROOT);
-  assert.equal(projectHome, path.resolve(REPOSITORY_ROOT, '..', '..', '..'));
+  assert.equal(projectHome, REPOSITORY_ROOT);
   assert.equal(state.projectHome, projectHome);
   assert.equal(state.fingerprintRoot.startsWith(path.join(projectHome, 'runtime', 'codex', 'fingerprints')), true);
   assert.equal(state.dependencyMarkerPath.includes(`${path.sep}.git${path.sep}`), false);
   assert.equal(resolveProjectLocalStorePath(projectHome), path.join(projectHome, 'runtime', 'pnpm-store'));
+});
+
+test('binds maintenance commands to the project-local store and exact worktree', () => {
+  const storePath = resolveProjectLocalStorePath(REPOSITORY_ROOT);
+  const arguments_ = maintenanceCommandArguments({ root: REPOSITORY_ROOT, storePath });
+  assert.deepEqual(arguments_, [
+    'install',
+    '--frozen-lockfile',
+    '--offline',
+    '--config.strictDepBuilds=false',
+    `--store-dir=${storePath.toLocaleLowerCase('en-US')}`,
+  ]);
+  assert.match(maintenanceCommandHash({ commonDir: path.join(REPOSITORY_ROOT, '.git'), root: REPOSITORY_ROOT, storePath }), /^[0-9a-f]{64}$/u);
 });
 
 test('uses an offline install argument list only in separately authorized maintenance mode', () => {

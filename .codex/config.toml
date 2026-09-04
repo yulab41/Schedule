@@ -1,4 +1,5 @@
 # Schedule project-local Codex layer.
-# Hook handlers are declared in .codex/hooks.json and resolved from the current checkout.
-# Runtime state, leases, fingerprints, and the future package store stay under runtime/.
+# No Hook registration is required. Codex local-environment setup is .codex/setup.ps1;
+# command defense-in-depth is .codex/rules/schedule-dependency-mutation.rules.
+# Runtime state, leases, fingerprints, recovery evidence, and the package store stay under runtime/.
 # No machine-specific absolute path or user-level configuration is required here.

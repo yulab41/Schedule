@@ -1,11 +1,11 @@
 ---
 name: schedule-project-guardrails
-description: Use only for the Schedule medical-staff scheduling repository. Trigger for every repository change, debug, test, build, Mini Program upload, release, production-related, or parallel-worktree task. Default to DEPENDENCY_MODE=REUSE_ONLY; new conversations and source changes do not invalidate dependencies. Parallel work requires an exclusive warm worktree. Never install dependencies, upload, or touch production without separate current-message authorization.
+description: Use for every Schedule modification, debug, test, build, upload, release, production-related, or parallel task. Default DEPENDENCY_MODE=REUSE_ONLY; acquire an exclusive warm worktree first. New conversations are not dependency invalidation. Ordinary tasks have no install permission. Schedule does not depend on Hooks or manual trust.
 ---
 
 # Schedule Project Guardrails
 
-Use this skill as a router. Existing repository rules, plans, runbooks, and tests remain the facts; do not copy them into task notes or this entrypoint.
+Use this skill as a router; repository rules, plans, runbooks, and tests remain the facts.
 
 ## Enter the skill
 
@@ -16,16 +16,34 @@ Before any project action, run the read-only context inspector from the reposito
   -Level L1 -TaskText '<concise task>' -Paths '<affected path>'
 ```
 
-The inspector must confirm all Schedule markers and print `RESULT=PASS`. If it does not, stop using this skill. Read the reported root `AGENTS.md`, continuity status, pitfall index, applicable child `AGENTS.md`, and only the reported references. Match the pitfall index again if the diff expands.
+The inspector must confirm Schedule markers and print `RESULT=PASS`; otherwise stop. Read the reported root
+`AGENTS.md`, status, pitfall index, applicable child `AGENTS.md`, and only the reported references. Rematch
+the pitfall index if the diff expands.
 
-Keep the reported `SKILL_HASH` in the current thread. When it is unchanged, do not reread this file or references already read in that thread; read only a newly routed reference. When it changes, reload this router and the references for the active task.
+Keep `SKILL_HASH` in the thread. If unchanged, reread only newly routed references; if changed, reload this
+router and the active references.
 
-The default is `DEPENDENCY_MODE=REUSE_ONLY`. A conversation boundary is never a dependency invalidation boundary. Read the [dependency environment lifecycle](references/dependency-lifecycle.md) before any dependency maintenance request; ordinary task level, branch/SHA movement, missing workspace output, or a clean-source check never authorizes installation.
+The default is `DEPENDENCY_MODE=REUSE_ONLY`. A conversation boundary is never a dependency invalidation boundary. Read the [dependency environment lifecycle](references/dependency-lifecycle.md) for maintenance;
+ordinary task level, branch/SHA movement, missing output, or clean checks never authorize installation.
 
-The canonical project home is derived from the Git common directory. Persistent Schedule worktrees
-are direct children of `runtime/wt`; fingerprints, leases, logs, and evidence stay under ignored
-`runtime/codex`; the future package store target is `runtime/pnpm-store`. These project-local paths are
-not replaced by a user-level or external Schedule copy.
+Every new Schedule task started from the canonical root follows this first-line route before source edits:
+
+```text
+TASK_LEVEL=<L0-L4>
+DEPENDENCY_MODE=REUSE_ONLY
+ASSIGNED_WORKTREE=<path>
+DEPENDENCIES_REUSED=true
+INSTALL_INVOKED=false
+HIGHEST_GATE=<gate>
+```
+
+The task invokes `scripts/codex/manage-worktree-pool.ps1 -Action Acquire`, then runs ReuseOnly, incremental
+bootstrap, and a targeted test in the returned slot. The canonical root and non-pool managed worktrees are
+routing surfaces only. A full pool returns
+`TASK_STATUS=POOL_BUSY`, `INSTALL_INVOKED=false`, and `WORKTREE_CREATED=false`.
+
+`.codex/setup.ps1` is no-install: it derives the canonical home from Git common-dir, reads the route, and
+checks only an assigned pool slot. Schedule has no Hook registration, Hook trust state, or `/hooks` dependency.
 
 In `REUSE_ONLY`:
 
@@ -36,8 +54,8 @@ In `REUSE_ONLY`:
 - A parallel task acquires one exclusive warm slot; a busy or exhausted pool returns `POOL_BUSY` and never creates a cold worktree.
 
 For a fingerprint mismatch, report `TASK_STATUS=BLOCKED_DEPENDENCY_INSTALL_REQUIRED`,
-`DEPENDENCIES_REUSED=false`, `INSTALL_INVOKED=false`, and the changed field(s). A missing producer
-`dist` or declaration is a bootstrap decision, never a dependency-install trigger.
+`DEPENDENCIES_REUSED=false`, `INSTALL_INVOKED=false`, and changed fields. Missing producer `dist` is a
+bootstrap decision, never an install trigger.
 
 ## Route the task
 
@@ -55,7 +73,7 @@ Version, SHA, and release identifiers in prompts, examples, plans, or status sna
 
 Load conditional references only when their trigger matches:
 
-- Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md) and [dependency lifecycle](references/dependency-lifecycle.md).
+  - Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md) and [dependency lifecycle](references/dependency-lifecycle.md).
 - Persistent worktree pool, leases, or parallel coordination: [multi-parallel workflow](references/multi-parallel-workflow.md).
 - Mini Program code, build, native evidence, preview, or upload: [Mini Program](references/miniprogram.md). For a Mini modification, this conditional reference plus the level-required testing/evidence reference replaces a repeated Mini safety preamble; do not load it for non-Mini work.
 - Unknown root cause or regression investigation: [debugging](references/debugging.md).

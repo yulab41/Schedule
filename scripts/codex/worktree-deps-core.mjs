@@ -28,6 +28,7 @@ export const PNPM_INSTALL_ARGUMENTS = [
   '--config.strictDepBuilds=false',
 ];
 export const MAX_MAINTENANCE_AUTHORIZATION_MINUTES = 15;
+export const MAINTENANCE_AUTHORIZATION_SCHEMA_VERSION = 2;
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const DEPENDENCY_MARKER = 'dependencies-v2.json';
@@ -449,12 +450,13 @@ function sanitizeConfigValue(key, value) {
 }
 
 export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonicalProjectHome(root) } = {}) {
-  const storePath = path.resolve(runPnpm(root, ['store', 'path']).trim());
-  const pnpmVersion = runPnpm(root, ['--version']).trim();
   const targetStorePath = resolveProjectLocalStorePath(projectHome);
+  const environment = { ...process.env, npm_config_store_dir: targetStorePath };
+  const storePath = path.resolve(targetStorePath);
+  const pnpmVersion = runPnpm(root, ['--version'], { environment }).trim();
   const layout = Object.fromEntries(
     PNPM_LAYOUT_CONFIG_KEYS.map((key) => {
-      const value = runPnpm(root, ['config', 'get', key]).trim() || 'undefined';
+      const value = runPnpm(root, ['config', 'get', key], { environment }).trim() || 'undefined';
       return [key, sanitizeConfigValue(key, value)];
     }),
   );
@@ -559,31 +561,52 @@ function createExclusiveDirectory(directoryPath) {
   }
 }
 
-function createMaintenanceCommand(root, storePath = resolveProjectLocalStorePath(resolveCanonicalProjectHome(root))) {
-  return [
-    'pnpm',
-    ...PNPM_INSTALL_ARGUMENTS,
-    `--store-dir=${canonicalPath(storePath)}`,
-    `--cwd=${canonicalPath(root)}`,
-  ];
+export function maintenanceCommandArguments({
+  root,
+  storePath = resolveProjectLocalStorePath(resolveCanonicalProjectHome(root)),
+}) {
+  return [...PNPM_INSTALL_ARGUMENTS, `--store-dir=${canonicalPath(storePath)}`];
 }
 
 export function maintenanceCommandHash({ commonDir, root, storePath }) {
-  return sha256(`${canonicalPath(commonDir)}\n${createMaintenanceCommand(root, storePath).join('\u0000')}`);
+  const arguments_ = maintenanceCommandArguments({ root, storePath });
+  return sha256(`${canonicalPath(commonDir)}\n${canonicalPath(root)}\n${stableJson(arguments_)}`);
 }
 
-export function validateMaintenanceAuthorization({ filePath, commonDir, root, now = new Date() }) {
+export function validateMaintenanceAuthorization({
+  filePath,
+  commonDir,
+  root,
+  storePath = resolveProjectLocalStorePath(resolveCanonicalProjectHome(root)),
+  pnpmVersion,
+  nodeVersion = process.version,
+  now = new Date(),
+}) {
   if (!filePath || !fs.existsSync(filePath)) return { valid: false, reason: 'authorization-file-missing' };
   let authorization;
   try { authorization = JSON.parse(fs.readFileSync(filePath, 'utf8')); }
   catch { return { valid: false, reason: 'authorization-file-invalid' }; }
   const record = Array.isArray(authorization) ? authorization[0] : authorization;
-  if (!record || record.schemaVersion !== 1 || record.singleUse !== true) {
+  if (!record || record.schemaVersion !== MAINTENANCE_AUTHORIZATION_SCHEMA_VERSION || record.singleUse !== true) {
     return { valid: false, reason: 'authorization-schema-invalid' };
   }
   if (record.commonDir !== canonicalPath(commonDir)) return { valid: false, reason: 'authorization-common-dir-mismatch' };
-  if (record.commandHash !== maintenanceCommandHash({ commonDir, root })) {
+  if (record.targetWorktree !== canonicalPath(root)) return { valid: false, reason: 'authorization-worktree-mismatch' };
+  if (record.targetStorePath !== canonicalPath(storePath)) return { valid: false, reason: 'authorization-store-mismatch' };
+  const expectedArguments = maintenanceCommandArguments({ root, storePath });
+  if (record.command?.cwd !== canonicalPath(root) || stableJson(record.command?.args) !== stableJson(expectedArguments)) {
+    return { valid: false, reason: 'authorization-command-mismatch' };
+  }
+  if (record.commandHash !== maintenanceCommandHash({ commonDir, root, storePath })) {
     return { valid: false, reason: 'authorization-command-hash-mismatch' };
+  }
+  if (record.lockfileSha256 !== sha256(fs.readFileSync(path.join(root, 'pnpm-lock.yaml')))) {
+    return { valid: false, reason: 'authorization-lockfile-mismatch' };
+  }
+  if (record.nodeVersion !== nodeVersion) return { valid: false, reason: 'authorization-node-version-mismatch' };
+  if (record.pnpmVersion !== pnpmVersion) return { valid: false, reason: 'authorization-pnpm-version-mismatch' };
+  if (typeof record.nonce !== 'string' || !/^[0-9a-f-]{36}$/iu.test(record.nonce)) {
+    return { valid: false, reason: 'authorization-nonce-invalid' };
   }
   if (typeof record.reason !== 'string' || record.reason.trim() === '') {
     return { valid: false, reason: 'authorization-reason-missing' };
@@ -604,17 +627,19 @@ function consumeMaintenanceAuthorization(filePath, record) {
   writeJsonAtomic(filePath, { ...record, usedAt: new Date().toISOString() });
 }
 
-function installDependencies({ root, authorizationFile, commonDir, targetStorePath, json }) {
+function installDependencies({ root, authorizationFile, commonDir, targetStorePath, pnpmVersion, json }) {
   const authorization = validateMaintenanceAuthorization({
     filePath: authorizationFile,
     commonDir,
     root,
+    storePath: targetStorePath,
+    pnpmVersion,
   });
   if (!authorization.valid) {
     return { installed: false, authorized: false, reason: authorization.reason };
   }
   const environment = { ...process.env, CI: 'true' };
-  runPnpm(root, [...PNPM_INSTALL_ARGUMENTS, `--store-dir=${targetStorePath}`], {
+  runPnpm(root, maintenanceCommandArguments({ root, storePath: targetStorePath }), {
     environment,
     stdio: json ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   });
@@ -686,7 +711,7 @@ export function ensureWorktreeDependencies(options = {}) {
   const commonDir = gitCommonDirectory(root);
   const authorizationFile = path.resolve(options.authorizationFile ?? path.join(
     projectState.stateRoot,
-    'dependency-maintenance-authorizations',
+    'authorizations',
     'pending.json',
   ));
   if (!isPathInside(projectState.stateRoot, authorizationFile)) {
@@ -700,6 +725,8 @@ export function ensureWorktreeDependencies(options = {}) {
     filePath: authorizationFile,
     commonDir,
     root,
+    storePath: runtime.targetStorePath,
+    pnpmVersion: runtime.environment.pnpmVersion,
   });
   if (!authorization.valid) {
     return {
@@ -720,6 +747,7 @@ export function ensureWorktreeDependencies(options = {}) {
       authorizationFile,
       commonDir,
       targetStorePath: runtime.targetStorePath,
+      pnpmVersion: runtime.environment.pnpmVersion,
       json: options.json === true,
     });
     if (!install.installed) {

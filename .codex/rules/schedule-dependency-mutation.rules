@@ -1,0 +1,245 @@
+# Schedule dependency and destructive-cleanup defense in depth.
+# The authoritative early install guard is .pnpmfile.cjs; this file protects Codex shell calls.
+
+prefix_rule(
+    pattern = ["pnpm", "install"],
+    decision = "forbidden",
+    justification = "Ordinary Schedule tasks are ReuseOnly; use the DependencyMaintenance wrapper.",
+    match = ["pnpm install", "pnpm install --frozen-lockfile"],
+    not_match = ["pnpm test", "pnpm run test", "pnpm install-package"],
+)
+prefix_rule(
+    pattern = ["pnpm", "i"],
+    decision = "forbidden",
+    justification = "The pnpm install alias is unavailable outside DependencyMaintenance.",
+    match = ["pnpm i", "pnpm i --offline"],
+    not_match = ["pnpm test", "pnpm list", "pnpm init"],
+)
+prefix_rule(
+    pattern = ["pnpm", "add"],
+    decision = "forbidden",
+    justification = "Dependency declarations may not change during an ordinary Schedule task.",
+    match = ["pnpm add zod", "pnpm add -D typescript"],
+    not_match = ["pnpm test", "pnpm exec vitest"],
+)
+prefix_rule(
+    pattern = ["pnpm", "remove"],
+    decision = "forbidden",
+    justification = "Dependency declarations may not change during an ordinary Schedule task.",
+    match = ["pnpm remove zod"],
+    not_match = ["pnpm test", "pnpm list"],
+)
+prefix_rule(
+    pattern = ["pnpm", "rm"],
+    decision = "forbidden",
+    justification = "The pnpm remove alias is unavailable outside DependencyMaintenance.",
+    match = ["pnpm rm zod"],
+    not_match = ["pnpm test", "pnpm exec vitest"],
+)
+prefix_rule(
+    pattern = ["pnpm", "update"],
+    decision = "forbidden",
+    justification = "Lockfile and dependency versions are immutable for ordinary Schedule tasks.",
+    match = ["pnpm update", "pnpm update zod"],
+    not_match = ["pnpm test", "pnpm list"],
+)
+prefix_rule(
+    pattern = ["pnpm", "up"],
+    decision = "forbidden",
+    justification = "The pnpm update alias is unavailable outside DependencyMaintenance.",
+    match = ["pnpm up", "pnpm up zod"],
+    not_match = ["pnpm test", "pnpm exec vitest"],
+)
+prefix_rule(
+    pattern = ["pnpm", "fetch"],
+    decision = "forbidden",
+    justification = "Ordinary Schedule tasks may not mutate the dependency store.",
+    match = ["pnpm fetch", "pnpm fetch --offline"],
+    not_match = ["pnpm store path", "pnpm list"],
+)
+prefix_rule(
+    pattern = ["pnpm", "rebuild"],
+    decision = "forbidden",
+    justification = "Dependency rebuilds are reserved for DependencyMaintenance.",
+    match = ["pnpm rebuild", "pnpm rebuild esbuild"],
+    not_match = ["pnpm test", "pnpm exec tsc"],
+)
+prefix_rule(
+    pattern = ["pnpm", "prune"],
+    decision = "forbidden",
+    justification = "Ordinary Schedule tasks may not prune dependency state.",
+    match = ["pnpm prune"],
+    not_match = ["pnpm test", "pnpm list"],
+)
+prefix_rule(
+    pattern = ["pnpm", "store", "prune"],
+    decision = "forbidden",
+    justification = "The Schedule store is persistent and cannot be pruned by a task.",
+    match = ["pnpm store prune"],
+    not_match = ["pnpm store path", "pnpm list"],
+)
+
+prefix_rule(
+    pattern = ["pnpm.cmd", "install"],
+    decision = "forbidden",
+    justification = "The Windows pnpm shim cannot bypass ReuseOnly.",
+    match = ["pnpm.cmd install"],
+    not_match = ["pnpm.cmd test"],
+)
+prefix_rule(
+    pattern = ["pnpm.exe", "install"],
+    decision = "forbidden",
+    justification = "The Windows pnpm executable cannot bypass ReuseOnly.",
+    match = ["pnpm.exe install"],
+    not_match = ["pnpm.exe test"],
+)
+prefix_rule(
+    pattern = ["corepack", "pnpm", "install"],
+    decision = "forbidden",
+    justification = "Corepack-wrapped pnpm installs are still dependency mutations.",
+    match = ["corepack pnpm install"],
+    not_match = ["corepack pnpm test"],
+)
+prefix_rule(
+    pattern = ["corepack.cmd", "pnpm", "install"],
+    decision = "forbidden",
+    justification = "The Windows Corepack shim cannot bypass ReuseOnly.",
+    match = ["corepack.cmd pnpm install"],
+    not_match = ["corepack.cmd pnpm test"],
+)
+
+prefix_rule(
+    pattern = ["npm", "install"],
+    decision = "forbidden",
+    justification = "Schedule dependencies are managed only by the authorized wrapper.",
+    match = ["npm install", "npm install --offline"],
+    not_match = ["npm test", "npm run test"],
+)
+prefix_rule(
+    pattern = ["npm", "i"],
+    decision = "forbidden",
+    justification = "The npm install alias is unavailable for ordinary Schedule tasks.",
+    match = ["npm i", "npm i zod"],
+    not_match = ["npm test", "npm run test"],
+)
+prefix_rule(
+    pattern = ["npm", "ci"],
+    decision = "forbidden",
+    justification = "Clean installs are unavailable outside DependencyMaintenance.",
+    match = ["npm ci"],
+    not_match = ["npm test", "npm list"],
+)
+prefix_rule(
+    pattern = ["npm", "update"],
+    decision = "forbidden",
+    justification = "Lockfile and dependency versions are immutable for ordinary Schedule tasks.",
+    match = ["npm update", "npm update zod"],
+    not_match = ["npm test", "npm list"],
+)
+prefix_rule(
+    pattern = ["npm", "uninstall"],
+    decision = "forbidden",
+    justification = "Dependency declarations may not change during an ordinary Schedule task.",
+    match = ["npm uninstall zod"],
+    not_match = ["npm test", "npm list"],
+)
+prefix_rule(
+    pattern = ["npm.cmd", "install"],
+    decision = "forbidden",
+    justification = "The Windows npm shim cannot bypass ReuseOnly.",
+    match = ["npm.cmd install"],
+    not_match = ["npm.cmd test"],
+)
+prefix_rule(
+    pattern = ["npm.exe", "install"],
+    decision = "forbidden",
+    justification = "The Windows npm executable cannot bypass ReuseOnly.",
+    match = ["npm.exe install"],
+    not_match = ["npm.exe test"],
+)
+
+prefix_rule(
+    pattern = ["yarn", "install"],
+    decision = "forbidden",
+    justification = "Schedule dependencies are managed only by pnpm DependencyMaintenance.",
+    match = ["yarn install", "yarn install --frozen-lockfile"],
+    not_match = ["yarn test", "yarn run test"],
+)
+prefix_rule(
+    pattern = ["yarn", "add"],
+    decision = "forbidden",
+    justification = "Dependency declarations may not change during an ordinary Schedule task.",
+    match = ["yarn add zod"],
+    not_match = ["yarn test", "yarn list"],
+)
+prefix_rule(
+    pattern = ["yarn", "remove"],
+    decision = "forbidden",
+    justification = "Dependency declarations may not change during an ordinary Schedule task.",
+    match = ["yarn remove zod"],
+    not_match = ["yarn test", "yarn list"],
+)
+prefix_rule(
+    pattern = ["yarn", "upgrade"],
+    decision = "forbidden",
+    justification = "Lockfile and dependency versions are immutable for ordinary Schedule tasks.",
+    match = ["yarn upgrade", "yarn upgrade zod"],
+    not_match = ["yarn test", "yarn list"],
+)
+prefix_rule(
+    pattern = ["yarn.cmd", "install"],
+    decision = "forbidden",
+    justification = "The Windows yarn shim cannot bypass ReuseOnly.",
+    match = ["yarn.cmd install"],
+    not_match = ["yarn.cmd test"],
+)
+prefix_rule(
+    pattern = ["yarn.exe", "install"],
+    decision = "forbidden",
+    justification = "The Windows yarn executable cannot bypass ReuseOnly.",
+    match = ["yarn.exe install"],
+    not_match = ["yarn.exe test"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", "-xfd"],
+    decision = "forbidden",
+    justification = "Schedule worktrees and recovery evidence must not be destructively cleaned.",
+    match = ["git clean -xfd", "git clean -xfd -- runtime"],
+    not_match = ["git status --short", "git clean -fd"],
+)
+prefix_rule(
+    pattern = ["git", "clean", "-x", "-f", "-d"],
+    decision = "forbidden",
+    justification = "Schedule worktrees and recovery evidence must not be destructively cleaned.",
+    match = ["git clean -x -f -d", "git clean -x -f -d -- runtime"],
+    not_match = ["git status --short", "git clean -f -d"],
+)
+prefix_rule(
+    pattern = ["git", "clean", "-xdf"],
+    decision = "forbidden",
+    justification = "Schedule worktrees and recovery evidence must not be destructively cleaned.",
+    match = ["git clean -xdf"],
+    not_match = ["git status --short", "git clean -df"],
+)
+prefix_rule(
+    pattern = ["rm", "-rf", "node_modules"],
+    decision = "forbidden",
+    justification = "A task may not delete a reusable dependency environment.",
+    match = ["rm -rf node_modules"],
+    not_match = ["rm -rf dist", "pnpm test"],
+)
+prefix_rule(
+    pattern = ["Remove-Item", "-Recurse", "-Force", "node_modules"],
+    decision = "forbidden",
+    justification = "A task may not delete a reusable dependency environment.",
+    match = ["Remove-Item -Recurse -Force node_modules"],
+    not_match = ["Remove-Item -Recurse -Force dist", "pnpm test"],
+)
+prefix_rule(
+    pattern = ["rmdir", "/s", "/q", "node_modules"],
+    decision = "forbidden",
+    justification = "A task may not delete a reusable dependency environment.",
+    match = ["rmdir /s /q node_modules"],
+    not_match = ["rmdir /s /q dist", "pnpm test"],
+)

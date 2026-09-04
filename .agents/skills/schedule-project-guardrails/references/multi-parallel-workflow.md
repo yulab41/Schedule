@@ -3,9 +3,11 @@
 ## Pool and ownership
 
 The Schedule pool is project-local and lives under the canonical project home at `runtime/wt`; its
-registration and lease state lives under the ignored `runtime/codex` tree. The pool manager may
-register existing direct-child worktrees, but it must never create a cold worktree as a fallback and
-must never place a worktree inside another worktree.
+registration and lease state lives under the ignored `runtime/codex` tree, beside the project-local
+`runtime/pnpm-store`. The pool manager may register existing direct-child worktrees, but it must never
+create a cold worktree as a fallback and must never place a worktree inside another worktree. The
+explicit `provision-warm-pool.ps1` maintenance channel is the only creator of new pool worktrees.
+The pool must never create a cold worktree.
 
 Each active task owns one worktree and its own writable `node_modules`. Two tasks may not share a slot,
 branch, `HEAD`, writable dependency directory, or mixed `dist` output. Existing worktrees not explicitly
@@ -16,10 +18,13 @@ Slot selection is ordered as follows:
 
 1. the current task's already healthy bound worktree;
 2. a registered `permanent/free/clean` compatible warm slot;
-3. another explicitly released clean worktree with independent healthy dependencies;
+3. another explicitly released clean detached slot with independent healthy dependencies;
 4. no slot: return `POOL_BUSY` or `BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`.
 
-Never fall back to `new worktree -> install -> full build`.
+Acquire creates a unique `codex/*` task branch from the requested safe base inside the leased slot.
+Release detaches a clean slot before returning it to `free`; a dirty or dependency-incompatible slot is
+marked quarantined and is never reset or cleaned automatically. Never fall back to
+`new worktree -> install -> full build`.
 
 ## Lease
 
@@ -36,8 +41,8 @@ WORKTREE_CREATED=false
 ```
 
 Release requires the owning token/session, a clean worktree, and evidence of no active test, build,
-server, or child process. Release removes only that lease record; it never resets, checks out, cleans,
-deletes the worktree, or deletes `node_modules`.
+server, or child process. Release removes only that lease record after detaching the task branch; it
+never resets, destructively cleans, deletes the worktree, or deletes `node_modules`.
 
 An expired lease is not reclaimed merely because a conversation ended. Reclaim requires all of these:
 the recorded process/session is absent, the TTL is exceeded, the worktree is clean, no child or related

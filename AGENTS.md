@@ -1,5 +1,20 @@
 # Project Agent Rules
 
+Schedule 默认 `DEPENDENCY_MODE=REUSE_ONLY`。
+
+A conversation boundary is never a dependency invalidation boundary.
+
+所有修改、debug、测试、构建、上传和发布任务，必须先使用
+`$schedule-project-guardrails`，并在修改源码前取得独占 warm worktree。
+
+新对话、新任务、恢复旧对话、新分支、切换分支、切换 SHA、`origin/main` 前进和仅业务源码变化，均不得触发依赖安装。
+
+普通任务不得运行 `pnpm/npm/yarn install`。没有 warm 槽位时返回 `POOL_BUSY`，不得创建冷安装 worktree。
+
+正式任务路由固定为 `Acquire → ReuseOnly → Bootstrap → Targeted test`；本项目不依赖 Hook、Hook trust 或人工审核。
+
+详细规则继续放在仓库级 `$schedule-project-guardrails` Skill、项目 `.codex/rules`、无安装 setup 和 pnpm 早期 tripwire 中，不把全文复制进本文件。
+
 <!-- schedule-project-runtime-route:start -->
 Schedule repository work must load `$schedule-project-guardrails`.
 

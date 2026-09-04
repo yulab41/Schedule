@@ -7,7 +7,10 @@
 
 ## 启动
 
-先在当前或已绑定的 worktree 中执行只读依赖复用检查：
+Codex 新任务由项目内 `.codex/setup.ps1` 做轻量定位，再在 canonical root 通过 pool manager 取得
+独占槽位。setup 不安装依赖，也不会把聊天自动迁移到另一个 Codex worktree。
+
+在当前或已绑定的槽位中执行只读依赖复用检查：
 
 ```powershell
 & scripts/codex/ensure-worktree-deps.ps1 -Mode ReuseOnly
@@ -28,9 +31,16 @@ pnpm dev
 & scripts/codex/ensure-workspace-bootstrap.ps1 -Profile api
 ```
 
-依赖维护是独立任务，必须有当前消息的用户授权和一次性本机授权记录；本轮未创建记录、未运行维护通道。
-需要维护时，只能由用户准备记录后调用 `scripts/codex/dependency-maintenance.ps1 -AuthorizationFile <record>`；
-目标 store 由 canonical project home 计算为项目内 `runtime/pnpm-store`，不会由 ReuseOnly 路径调用。
+依赖维护是独立通道，只能调用项目内 wrapper；wrapper 自动创建并在结束时删除一次性授权记录：
+
+```powershell
+& scripts/codex/dependency-maintenance.ps1 `
+  -Reason 'Provision project-local warm slot' `
+  -WorktreeRoot 'E:\AItools\Schedule\runtime\wt\general-1'
+```
+
+目标 store 由 canonical project home 计算为项目内 `runtime/pnpm-store`。`.pnpmfile.cjs` 会在
+解析/import/link 前拒绝直接安装；`ReuseOnly` 路径永远不会创建授权或调用安装。
 
 本地开发认证只在开发环境启用；测试数据库必须使用独立 Compose 服务和 `TEST_MYSQL_*`，禁止连接开发库或生产库。
 
