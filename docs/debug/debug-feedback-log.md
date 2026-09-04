@@ -2515,3 +2515,25 @@
   两组 prefer-offline 契约均失败。实现后 Node guard 19/19、release/test-discovery Vitest 14/14 及 PowerShell
   AST、Skill validator、format/lint、core smoke 和完整 `pnpm verify` 通过；Mini 123 files/668 tests，根
   Vitest 246 files/1,171 tests。真实新授权 bootstrap 仍待新 checkpoint。
+
+## 2026-09-04 dependency-maintenance 项目内 store health 收口
+
+- 复现：用户创建并校验通过的第二份单次授权绑定 `db7f3328` 与 command hash `487abec9…`。维护命令只运行一次，
+  使用 `--frozen-lockfile --prefer-offline --store-dir=<runtime/pnpm-store>` 完成 1459-package materialization，
+  `.modules.yaml` 写入版本化项目内 store；授权随后写入 `usedAt`。最终却返回
+  `health:modules-store-mismatch`，并错误显示 `installInvoked=false`。
+- 引入点与根因：`git log -S`/blame 将 ambient `pnpm store path`、post-install health 返回基线定位到
+  `fa10d5ba`；`4602120b` 后续新增项目内 base target，但只传给 install。安装前快照和 health closure 因此仍持有
+  ambient `E:/.pnpm-store/v11`，与 pnpm 实际写入的项目内 `runtime/pnpm-store/v11` 必然不等；health 失败分支又
+  展开了默认 `base.installInvoked=false`，掩盖已发生的安装。
+- 测试先行：新增运行时 store 契约在旧实现上以 `false !== true` 失败；新增 post-install 报告契约在旧实现上因
+  缺 `installed: true` 失败。修复后两项均通过：先计算项目内 base target，再调用
+  `pnpm store path --store-dir=<target>` 获取版本化路径，fingerprint/health 共用该路径；安装已完成但最终 health
+  失败时明确返回 `installed/installInvoked=true`。
+- 环境收口：修复代码下的首次纯 ReuseOnly 只报告 `marker:missing`，证明其余 health 全绿；使用既有显式
+  `-AdoptHealthyExisting` 写入 marker 后，第二次纯 ReuseOnly 返回 `READY_REUSE`、
+  `DEPENDENCIES_REUSED=true`、`INSTALL_INVOKED=false`。未重放已消费授权、未第二次安装、未修改 tracked
+  manifest/lockfile 或产品代码，也未占用 trial tag、上传或连接 production。
+- 验证：Node guard 21/21、release/test-discovery 14/14、Schedule Skill validator、format、lint、
+  `pnpm smoke:check-core` 与完整 `pnpm verify` 通过；Mini 123 files/668 tests，根 Vitest 246 files/1,171 tests。
+  本轮未触及 Web core 新路径，复用已有浏览器 smoke 记录；工具验证不代表微信原生或 Xiaomi 14 通过。

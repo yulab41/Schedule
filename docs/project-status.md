@@ -17,13 +17,18 @@
   checkpoint 为 `b480899d`。当前候选必须继续包含 `c027abcd` 的累计体验版血缘门禁。
 - 前序最新体验版为 `0.1.0-p10.20260903.85@a1bba571`；服务端 allowlist 已确认保留 `.81–.85`。B3 必须在最终
   clean SHA 和完整门禁后动态分配大于 85 的唯一未占用版本，不能复用或预猜版本号。
-- 依赖默认仍固定为 `DEPENDENCY_MODE=REUSE_ONLY`。为准备 `71110712` release worktree，用户创建了一次性维护
-  授权；旧通道在安装前先暴露 PowerShell 参数与锁父目录缺陷，随后 frozen offline install 因项目内 store
-  缺 `@eslint/js@9.39.5` tarball 失败（downloaded 0）。授权未消费后过期，release `node_modules` 当前不完整。
-- 用户已明确批准整体修复并允许下载 lockfile 固定依赖：维护通道改为 named splat、授权后创建锁父目录及
-  `--frozen-lockfile --prefer-offline`；普通 ReuseOnly、单次授权、项目内 store 与禁止 force 不变。tooling
-  checkpoint 以 `fix(agent): make dependency maintenance bootstrap-safe` 识别。旧实现对应四组回归均先红；修复后
-  Node guard 19/19、release/test-discovery 14/14、Skill validator 与完整 `pnpm verify` 通过。
+- 依赖默认仍固定为 `DEPENDENCY_MODE=REUSE_ONLY`。`fix(agent): make dependency maintenance bootstrap-safe`
+  已形成并推送 `db7f3328`；其 named splat、锁父目录和 `--frozen-lockfile --prefer-offline` 回归及完整
+  `pnpm verify` 已通过。用户随后创建了绑定 `db7f3328`/exact command hash 的第二份单次授权。
+- 该授权维护实际完成 1459-package materialization，并写入项目内 `runtime/pnpm-store/v11`；授权已消费。安装后
+  health 暴露最后一处路径数据流缺陷：`fa10d5ba` 读取 ambient `E:/.pnpm-store/v11`，而 `4602120b` 只把项目内
+  base target 传给 install，导致成功安装被误报为 `modules-store-mismatch`，且失败结果错误声称未调用 install。
+- 当前修复让 fingerprint/health 使用 `pnpm store path --store-dir=<project-local-target>` 的版本化结果，并在
+  post-install health 失败时如实标记 `installed/installInvoked=true`。两项回归均先红后绿；已健康采纳 marker，
+  随后纯 ReuseOnly 返回 `READY_REUSE / DEPENDENCIES_REUSED=true / INSTALL_INVOKED=false`，未重复安装。checkpoint
+  以 `fix(agent): align dependency health with project-local store` 识别。Node guard 21/21、release/test-discovery
+  14/14、Skill validator、format/lint/core smoke 与完整 `pnpm verify` 均通过；Mini 123 files/668 tests，根
+  Vitest 246 files/1,171 tests。
 - B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
   本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
@@ -143,9 +148,9 @@
 
 ## 唯一下一任务与停止条件
 
-- 完成 dependency-maintenance 整体修复门禁、提交并普通推送；以新的 exact clean SHA 重置 release worktree，
-  计算新 command hash，并等待用户本人创建新的 15 分钟单次授权记录后初始化项目内 store。
-- 依赖健康后独占分配唯一版本、完成 version-bound build 与体验版上传，并只把该精确版本追加到服务端
-  allowlist 后 verify。
+- 完成项目内版本化 store health 修复门禁、提交并普通推送；以新的 exact clean SHA 重置 release worktree，
+  复用已经健康且有 marker 的独立依赖环境，不再安装。
+- 依赖与候选门禁通过后独占分配唯一版本、完成 version-bound build；披露精确 SHA/version/description/
+  manifest/test pages 并取得当次上传批准后上传体验版。服务端 allowlist 是独立 L4，须由当时用户消息明确授权。
 - 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不
   正式发布、不部署 production 应用或数据库。

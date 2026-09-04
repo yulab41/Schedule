@@ -57,7 +57,9 @@ user-created authorization record; the wrapper does not create records, choose a
 the authorization. Its install branch passes the calculated project-local `runtime/pnpm-store` target,
 keeps `--frozen-lockfile`, and uses `--prefer-offline`: cached content is preferred, while missing
 lockfile-pinned tarballs may be downloaded only inside this separately authorized channel. `ReuseOnly`
-never invokes pnpm, never downloads, and never upgrades itself to maintenance.
+never invokes pnpm, never downloads, and never upgrades itself to maintenance. Fingerprinting and
+health checks use the versioned path returned by `pnpm store path --store-dir=<project-local-target>`
+(for example the target's `v11` child), never the ambient default pnpm store.
 
 Expected reuse output is:
 

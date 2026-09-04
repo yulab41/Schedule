@@ -10,6 +10,7 @@ import {
   createDependencySnapshot,
   diffDependencySnapshots,
   inspectDependencyHealth,
+  inspectRuntimeEnvironment,
   resolveCanonicalProjectHome,
   resolveProjectLocalState,
   resolveProjectLocalStorePath,
@@ -48,6 +49,14 @@ test('derives project-local state from the Git common directory, not linked-work
   assert.equal(resolveProjectLocalStorePath(projectHome), path.join(projectHome, 'runtime', 'pnpm-store'));
 });
 
+test('inspects dependency health against the versioned project-local store used by maintenance', () => {
+  const projectHome = resolveCanonicalProjectHome(REPOSITORY_ROOT);
+  const targetStorePath = resolveProjectLocalStorePath(projectHome);
+  const runtime = inspectRuntimeEnvironment(REPOSITORY_ROOT, { projectHome });
+  assert.equal(runtime.targetStorePath, targetStorePath);
+  assert.equal(runtime.storePath.startsWith(`${targetStorePath}${path.sep}`), true);
+});
+
 test('uses a frozen prefer-offline install only in separately authorized maintenance mode', () => {
   assert.deepEqual(PNPM_INSTALL_ARGUMENTS, [
     'install',
@@ -79,6 +88,16 @@ test('creates the worktree fingerprint directory before acquiring its maintenanc
   const acquireLock = source.indexOf('createExclusiveDirectory(lockPath)');
   assert.notEqual(createParent, -1);
   assert.ok(createParent < acquireLock);
+});
+
+test('reports a completed install invocation when post-install health validation fails', () => {
+  const source = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/worktree-deps-core.mjs'),
+    'utf8',
+  );
+  const healthFailure = source.match(/if \(!installedHealth\.healthy\) \{([\s\S]*?)\n\s*\}/u)?.[1] ?? '';
+  assert.match(healthFailure, /installed:\s*true/u);
+  assert.match(healthFailure, /installInvoked:\s*true/u);
 });
 
 test('fingerprint inputs ignore ordinary source while detecting dependency inputs', () => {

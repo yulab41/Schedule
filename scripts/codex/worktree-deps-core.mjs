@@ -449,9 +449,9 @@ function sanitizeConfigValue(key, value) {
 }
 
 export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonicalProjectHome(root) } = {}) {
-  const storePath = path.resolve(runPnpm(root, ['store', 'path']).trim());
-  const pnpmVersion = runPnpm(root, ['--version']).trim();
   const targetStorePath = resolveProjectLocalStorePath(projectHome);
+  const storePath = path.resolve(runPnpm(root, ['store', 'path', `--store-dir=${targetStorePath}`]).trim());
+  const pnpmVersion = runPnpm(root, ['--version']).trim();
   const layout = Object.fromEntries(
     PNPM_LAYOUT_CONFIG_KEYS.map((key) => {
       const value = runPnpm(root, ['config', 'get', key]).trim() || 'undefined';
@@ -728,7 +728,13 @@ export function ensureWorktreeDependencies(options = {}) {
     }
     const installedHealth = getHealth();
     if (!installedHealth.healthy) {
-      return { ...base, taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV', reasons: installedHealth.reasons.map((reason) => `health:${reason}`) };
+      return {
+        ...base,
+        taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV',
+        installed: true,
+        installInvoked: true,
+        reasons: installedHealth.reasons.map((reason) => `health:${reason}`),
+      };
     }
     writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
     return { ...base, taskStatus: 'READY_INSTALLED', dependenciesReused: false, installed: true, installInvoked: true };
