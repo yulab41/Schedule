@@ -44,7 +44,7 @@ docs/agent-context/pitfall-index.json，只加载匹配坑位详情。
   一致。首尝试被微信 -10008 invalid ip 拒绝，未换版本；复用 exact dist 的 process-level IPv4 fallback 上传成功。
 - lineage：最新 .87 tag 是 candidate ancestor；三项历史提交本身不是 ancestor，但 policy canonical tree-file proofs
   对每个 required checkpoint 全部 matched=true，tracked old .86 的等价实现例外 fail closed。trial history
-  .74–.86 与 policy required checkpoints 校验通过。
+  .74–.87 与 policy required checkpoints 校验通过。
 - 官方依赖最终指纹 b392a5b881360c1aa0bac89bfdbd8f45c9e928c9d0a1ab17e6dedbaca0dbc48e；最终 ReuseOnly
   READY_REUSE、installInvoked=false。全轮五个 distinct fingerprints 各一次有效 frozen reconciliation，child
   invocation 9（两次 pre-resolution tripwire、两次 lockfile rejection、五次有效 child），下载 0，tracked tree

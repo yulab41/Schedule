@@ -36,7 +36,7 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## ICON-PARITY-CLOSE-001 当前增量
 
-- 当前整合树已纳入累积 trial lineage 工具；tracked history 覆盖 `.74–.86`，其中 `.86` 精确记录为
+- 当前整合树已纳入累积 trial lineage 工具；tracked history 覆盖 `.74–.87`，其中 `.86` 精确记录为
   `0.1.0-p10.20260904.86@8caa5f201b373fadd9453b8e4ec02fc3f93fe0cb`，manifest 为
   `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`，并明确标记为旧观察候选。
 - policy 现在要求 `1ffab10c`、`5285dd17`、`71110712` 三个历史 checkpoint；candidate preflight 仍要求

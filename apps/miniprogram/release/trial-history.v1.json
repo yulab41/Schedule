@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sequenceRange": {
     "from": 74,
-    "to": 86
+    "to": 87
   },
   "entries": [
     {
@@ -216,6 +216,30 @@
           "commit": "8caa5f201b373fadd9453b8e4ec02fc3f93fe0cb",
           "platformAction": "uploaded",
           "evidence": "runtime/audit/exp-icon-004/allocation-0.1.0-p10.20260904.86.json and runtime/audit/miniprogram-trials/0.1.0-p10.20260904.86.json record the uploaded production profile, manifest, description, immutable tag and upload time; this older observation is not the current candidate."
+        }
+      ]
+    },
+    {
+      "sequence": 87,
+      "collision": false,
+      "events": [
+        {
+          "label": "current Web/Mini icon parity candidate",
+          "version": "0.1.0-p10.20260905.87",
+          "versionEvidence": "exact",
+          "commit": "5aff4449e0f2ef703b367c846b67a9e51bac04bf",
+          "platformAction": "uploaded",
+          "manifestHash": "7b1acbe671d78fc8c10510407fb8a07107a8e738015fa6b0033a2b0a7b677a9a",
+          "profile": "production",
+          "description": "exp-icon-004-web-mini-parity-5aff444",
+          "uploadedAt": "2026-09-04T18:30:17.070Z",
+          "allowlistStatus": "verified",
+          "requiredFeatureCommits": [
+            "1ffab10c3f30987e31db47eb555f9e0aef0bf787",
+            "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
+            "71110712d41756d19e95a50ecf5aa0d083728da1"
+          ],
+          "evidence": "runtime/audit/miniprogram-trials/0.1.0-p10.20260905.87.json, immutable tag and trusted allowlist ensure/verify record the exact production upload; source candidate is 5aff4449 and the prior .86 observation is not reused."
         }
       ]
     }

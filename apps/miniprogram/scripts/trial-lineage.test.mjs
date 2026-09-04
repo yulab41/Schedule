@@ -145,7 +145,7 @@ describe('trial lineage history and policy', () => {
 
     expect(() => validateTrialConfiguration(history, policy)).not.toThrow();
     expect(history.entries.map(({ sequence }) => sequence)).toEqual([
-      74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86,
+      74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87,
     ]);
     expect(
       history.entries.filter(({ collision }) => collision).map(({ sequence }) => sequence),
@@ -165,7 +165,15 @@ describe('trial lineage history and policy', () => {
         version: '0.1.0-p10.20260904.86',
       }),
     ]);
-    expect(policy).toMatchObject({ lastSequence: 86, schemaVersion: 1 });
+    expect(history.entries.find(({ sequence }) => sequence === 87)?.events).toEqual([
+      expect.objectContaining({
+        allowlistStatus: 'verified',
+        commit: '5aff4449e0f2ef703b367c846b67a9e51bac04bf',
+        manifestHash: '7b1acbe671d78fc8c10510407fb8a07107a8e738015fa6b0033a2b0a7b677a9a',
+        version: '0.1.0-p10.20260905.87',
+      }),
+    ]);
+    expect(policy).toMatchObject({ lastSequence: 87, schemaVersion: 1 });
     expect(policy.requiredCheckpoints).toContainEqual(
       expect.objectContaining({ commit: REQUIRED_ICON_CHECKPOINT }),
     );
