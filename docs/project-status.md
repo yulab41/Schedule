@@ -208,6 +208,15 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - checkpoint 计划提交：`hardening(dev): make maintenance cleanup and task routing deterministic`；未包含业务源码、
   `runtime/`、用户未跟踪文件或 `pnpm-lock.yaml`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-005（2026-09-04）
+
+- `general-1` 修复性维护已通过 tripwire 并完成离线物化，但初次健康复核误把 pnpm 11 正常生成的
+  `runtime/pnpm-store/v11` 当成外部 store，因而未写 marker；未发生下载，lockfile 未变，授权和 claim 已清除。
+- `worktree-deps-core.mjs` 现只接受项目 store 根或该根下与 pnpm major 对应的 `v<major>` metadata 路径，保留
+  worktree-local virtual store 和独立 node_modules 约束；新增的 versioned-store health test 已通过。
+- 在活动 task 尚未完全结束前不操作其 lease/worktree；本轮不会强行终止并行任务或删除其生成物。
+- checkpoint 计划提交：`fix(dev): accept pnpm versioned project store metadata`；未包含业务源码或 `pnpm-lock.yaml`。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，

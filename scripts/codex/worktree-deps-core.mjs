@@ -353,7 +353,10 @@ export function inspectDependencyHealth({
   if (metadata.storeDir === undefined) reasons.push('modules-store-metadata-missing');
   else if (storePath) {
     try {
-      if (canonicalPath(metadata.storeDir) !== canonicalPath(storePath)) reasons.push('modules-store-mismatch');
+      const expectedStorePaths = new Set([canonicalPath(storePath)]);
+      const pnpmMajor = String(expectedPnpmVersion ?? '').match(/^(\d+)/u)?.[1];
+      if (pnpmMajor !== undefined) expectedStorePaths.add(canonicalPath(path.join(storePath, `v${pnpmMajor}`)));
+      if (!expectedStorePaths.has(canonicalPath(metadata.storeDir))) reasons.push('modules-store-mismatch');
     } catch { reasons.push('modules-store-unreadable'); }
   }
   if (metadata.virtualStoreDir === undefined || !fs.existsSync(metadata.virtualStoreDir)) {

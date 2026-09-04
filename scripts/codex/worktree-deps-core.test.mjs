@@ -142,6 +142,23 @@ test('health checks require the worktree metadata, store, and root executables',
     platform: 'win32',
   });
   assert.deepEqual(healthy, { healthy: true, reasons: [] });
+  write(root, 'node_modules/.modules.yaml', JSON.stringify({
+    nodeLinker: 'isolated',
+    packageManager: 'pnpm@11.9.0',
+    storeDir: path.join(storePath, 'v11'),
+    virtualStoreDir: virtualStorePath,
+  }));
+  const versionedStoreHealthy = inspectDependencyHealth({
+    root,
+    storePath,
+    workspacePackages: [
+      { directory: packageA, manifest: { name: '@schedule/a', version: '1.0.0' } },
+      { directory: packageB, manifest: { name: '@schedule/b', version: '1.0.0', dependencies: { '@schedule/a': 'workspace:*' } } },
+    ],
+    expectedPnpmVersion: '11.9.0',
+    platform: 'win32',
+  });
+  assert.deepEqual(versionedStoreHealthy, { healthy: true, reasons: [] });
   fs.rmSync(path.join(root, 'node_modules/.bin/vitest.CMD'));
   const unhealthy = inspectDependencyHealth({
     root,
