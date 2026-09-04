@@ -17,7 +17,13 @@
   checkpoint 为 `b480899d`。当前候选必须继续包含 `c027abcd` 的累计体验版血缘门禁。
 - 前序最新体验版为 `0.1.0-p10.20260903.85@a1bba571`；服务端 allowlist 已确认保留 `.81–.85`。B3 必须在最终
   clean SHA 和完整门禁后动态分配大于 85 的唯一未占用版本，不能复用或预猜版本号。
-- 依赖模式固定为 `DEPENDENCY_MODE=REUSE_ONLY`；既有一次 frozen install 授权已消费，本轮不得安装依赖。
+- 依赖默认仍固定为 `DEPENDENCY_MODE=REUSE_ONLY`。为准备 `71110712` release worktree，用户创建了一次性维护
+  授权；旧通道在安装前先暴露 PowerShell 参数与锁父目录缺陷，随后 frozen offline install 因项目内 store
+  缺 `@eslint/js@9.39.5` tarball 失败（downloaded 0）。授权未消费后过期，release `node_modules` 当前不完整。
+- 用户已明确批准整体修复并允许下载 lockfile 固定依赖：维护通道改为 named splat、授权后创建锁父目录及
+  `--frozen-lockfile --prefer-offline`；普通 ReuseOnly、单次授权、项目内 store 与禁止 force 不变。tooling
+  checkpoint 以 `fix(agent): make dependency maintenance bootstrap-safe` 识别。旧实现对应四组回归均先红；修复后
+  Node guard 19/19、release/test-discovery 14/14、Skill validator 与完整 `pnpm verify` 通过。
 - B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
   本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
@@ -137,7 +143,9 @@
 
 ## 唯一下一任务与停止条件
 
-- B3/B4 完成最终复核后提交并普通推送调查分支；再从最终精确 clean SHA 建立 `runtime/release-worktree`，独占分配唯一
-  版本、完成 version-bound build 与体验版上传，并只把该精确版本追加到服务端 allowlist 后 verify。
+- 完成 dependency-maintenance 整体修复门禁、提交并普通推送；以新的 exact clean SHA 重置 release worktree，
+  计算新 command hash，并等待用户本人创建新的 15 分钟单次授权记录后初始化项目内 store。
+- 依赖健康后独占分配唯一版本、完成 version-bound build 与体验版上传，并只把该精确版本追加到服务端
+  allowlist 后 verify。
 - 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不
   正式发布、不部署 production 应用或数据库。

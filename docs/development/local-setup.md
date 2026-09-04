@@ -28,9 +28,11 @@ pnpm dev
 & scripts/codex/ensure-workspace-bootstrap.ps1 -Profile api
 ```
 
-依赖维护是独立任务，必须有当前消息的用户授权和一次性本机授权记录；本轮未创建记录、未运行维护通道。
+依赖维护是独立任务，必须有当前消息的用户授权和一次性本机授权记录。
 需要维护时，只能由用户准备记录后调用 `scripts/codex/dependency-maintenance.ps1 -AuthorizationFile <record>`；
-目标 store 由 canonical project home 计算为项目内 `runtime/pnpm-store`，不会由 ReuseOnly 路径调用。
+目标 store 由 canonical project home 计算为项目内 `runtime/pnpm-store`，不会由 ReuseOnly 路径调用。授权维护保持
+`--frozen-lockfile --prefer-offline`：优先缓存，仅在项目内 store 缺失 lockfile 已固定 tarball 时联网补齐；不使用
+`--force`，也不修改 manifest 或 lockfile。
 
 本地开发认证只在开发环境启用；测试数据库必须使用独立 Compose 服务和 `TEST_MYSQL_*`，禁止连接开发库或生产库。
 

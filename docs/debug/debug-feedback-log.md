@@ -2496,3 +2496,22 @@
 - 运行/浏览器验证：B3 未修改 Web core 路径；`pnpm smoke:check-core` 复用已记录的 B2 浏览器结果并通过。
   仓库政策下未调用微信开发者工具。Node/构建不能证明 Skyline、帧率、transform-origin 或 Xiaomi 14 观感；
   exact clean 体验版仍须按审计清单人工确认。
+
+## 2026-09-04 dependency-maintenance 首次项目内 bootstrap 修复
+
+- 现场与引入点：exact `71110712` release worktree 因缺 `@schedule/web -> @schedule/ui-icons` link 进入用户授权的
+  maintenance。第一次调用在安装前把数组中的字面量 `-Mode` 绑定成 `Mode` 值；`git log -S`/blame 定位到
+  `4602120b`。修正后第二次在安装前因 worktree fingerprint 父目录不存在而 `ENOENT`；锁创建来自
+  `fa10d5ba`。补齐父目录后第三次真正进入 pnpm，但同一 `fa10d5ba` 把新项目内 store 与 `--offline` 组合，
+  缺 `@eslint/js@9.39.5` tarball 时以 `ERR_PNPM_NO_OFFLINE_TARBALL` 失败。
+- 影响：前两次没有调用 pnpm；第三次以 frozen lockfile、project-local store 运行，reused/downloaded/added 均为
+  0 后失败，并重建成不完整的 ignored release `node_modules`。授权未在失败路径消费，随后自然过期；tracked
+  manifest/lockfile、产品代码、trial tag、微信平台与 production 均未改变。
+- 整体修复：用户明确批准停止增量试补后的统一方案。PowerShell wrapper 使用 hashtable named splat；授权通过后
+  先创建 fingerprint 目录；维护参数保持 `--frozen-lockfile` 和禁止 force，将严格 `--offline` 改为
+  `--prefer-offline`，只在单次授权维护中下载 lockfile 已固定且有完整性校验的缺失 tarball。默认 ReuseOnly
+  仍不调用 pnpm、不下载、不自升维护。
+- 测试先行：旧 wrapper 对 named-splat 契约失败，旧 core 对父目录契约失败，旧 offline 参数对 Node/Vitest
+  两组 prefer-offline 契约均失败。实现后 Node guard 19/19、release/test-discovery Vitest 14/14 及 PowerShell
+  AST、Skill validator、format/lint、core smoke 和完整 `pnpm verify` 通过；Mini 123 files/668 tests，根
+  Vitest 246 files/1,171 tests。真实新授权 bootstrap 仍待新 checkpoint。

@@ -48,15 +48,37 @@ test('derives project-local state from the Git common directory, not linked-work
   assert.equal(resolveProjectLocalStorePath(projectHome), path.join(projectHome, 'runtime', 'pnpm-store'));
 });
 
-test('uses an offline install argument list only in separately authorized maintenance mode', () => {
+test('uses a frozen prefer-offline install only in separately authorized maintenance mode', () => {
   assert.deepEqual(PNPM_INSTALL_ARGUMENTS, [
     'install',
     '--frozen-lockfile',
-    '--offline',
+    '--prefer-offline',
     '--config.strictDepBuilds=false',
   ]);
+  assert.equal(PNPM_INSTALL_ARGUMENTS.includes('--offline'), false);
   assert.equal(PNPM_INSTALL_ARGUMENTS.includes('--force'), false);
   assert.equal(PNPM_INSTALL_ARGUMENTS.some((value) => value === 'store'), false);
+});
+
+test('passes dependency-maintenance options to the PowerShell wrapper as named parameters', () => {
+  const wrapper = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/dependency-maintenance.ps1'),
+    'utf8',
+  );
+  assert.match(wrapper, /\$arguments\s*=\s*@\{/u);
+  assert.match(wrapper, /Mode\s*=\s*'DependencyMaintenance'/u);
+  assert.doesNotMatch(wrapper, /\$arguments\s*=\s*@\(/u);
+});
+
+test('creates the worktree fingerprint directory before acquiring its maintenance lock', () => {
+  const source = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/worktree-deps-core.mjs'),
+    'utf8',
+  );
+  const createParent = source.indexOf('fs.mkdirSync(stateDirectory, { recursive: true });');
+  const acquireLock = source.indexOf('createExclusiveDirectory(lockPath)');
+  assert.notEqual(createParent, -1);
+  assert.ok(createParent < acquireLock);
 });
 
 test('fingerprint inputs ignore ordinary source while detecting dependency inputs', () => {

@@ -29,15 +29,12 @@ if (-not (Test-Path -LiteralPath $resolvedAuthorization -PathType Leaf)) {
 }
 
 $coreScript = Join-Path $PSScriptRoot 'ensure-worktree-deps.ps1'
-$arguments = @(
-    '-Mode',
-    'DependencyMaintenance',
-    '-WorktreeRoot',
-    [IO.Path]::GetFullPath($WorktreeRoot),
-    '-AuthorizationFile',
-    $resolvedAuthorization
-)
-if ($Json) { $arguments += '-Json' }
+$arguments = @{
+    Mode = 'DependencyMaintenance'
+    WorktreeRoot = [IO.Path]::GetFullPath($WorktreeRoot)
+    AuthorizationFile = $resolvedAuthorization
+}
+if ($Json) { $arguments.Json = $true }
 
 & $coreScript @arguments
 exit $LASTEXITCODE

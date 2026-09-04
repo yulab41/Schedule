@@ -24,7 +24,7 @@ export const PNPM_LAYOUT_CONFIG_KEYS = [
 export const PNPM_INSTALL_ARGUMENTS = [
   'install',
   '--frozen-lockfile',
-  '--offline',
+  '--prefer-offline',
   '--config.strictDepBuilds=false',
 ];
 export const MAX_MAINTENANCE_AUTHORIZATION_MINUTES = 15;
@@ -708,6 +708,7 @@ export function ensureWorktreeDependencies(options = {}) {
       reasons: [...base.reasons, `authorization:${authorization.reason}`],
     };
   }
+  fs.mkdirSync(stateDirectory, { recursive: true });
   if (!createExclusiveDirectory(lockPath)) return { ...base, taskStatus: 'POOL_BUSY', reasons: ['dependency-install-lock-present'] };
   try {
     writeJsonAtomic(path.join(lockPath, 'owner.json'), {

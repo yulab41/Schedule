@@ -147,13 +147,15 @@ describe('reusable isolated release worktree', () => {
     });
   });
 
-  it('keeps the separately authorized maintenance argument list offline and non-forced', () => {
+  it('keeps the separately authorized maintenance argument list frozen, prefer-offline, and non-forced', () => {
     expect(PNPM_INSTALL_ARGUMENTS).toEqual([
       'install',
       '--frozen-lockfile',
-      '--offline',
+      '--prefer-offline',
       '--config.strictDepBuilds=false',
     ]);
+    expect(PNPM_INSTALL_ARGUMENTS).not.toContain('--offline');
+    expect(PNPM_INSTALL_ARGUMENTS).not.toContain('--force');
   });
 
   it('routes release preparation through ReuseOnly and has no automatic install call', () => {

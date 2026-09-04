@@ -54,7 +54,10 @@ The standard command is:
 
 The only maintenance entrypoint is `scripts/codex/dependency-maintenance.ps1`. It requires a
 user-created authorization record; the wrapper does not create records, choose a store, or broaden
-the authorization. Its install branch passes the calculated project-local `runtime/pnpm-store` target.
+the authorization. Its install branch passes the calculated project-local `runtime/pnpm-store` target,
+keeps `--frozen-lockfile`, and uses `--prefer-offline`: cached content is preferred, while missing
+lockfile-pinned tarballs may be downloaded only inside this separately authorized channel. `ReuseOnly`
+never invokes pnpm, never downloads, and never upgrades itself to maintenance.
 
 Expected reuse output is:
 

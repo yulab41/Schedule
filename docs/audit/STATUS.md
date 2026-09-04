@@ -10,6 +10,10 @@
   `origin/main@4602120b`、图标血缘 `5285dd17`（含 `1ffab10c`）及累计体验版门禁 `c027abcd`。
 - 前序最新体验版为 `0.1.0-p10.20260903.85@a1bba571`。最终候选必须再次 fresh-fetch main、保持上述祖先、
   从 clean exact SHA 动态占用大于 85 的唯一版本；禁止预猜、复用或删除 trial tag。
+- B3/B4 checkpoint `71110712` 已推送且 exact-clean verify 通过；发布 worktree 准备随后暴露新
+  dependency-maintenance 通道的三处端到端缺口。用户已批准整体修复与 lockfile 固定依赖下载，当前正在形成
+  独立 tooling checkpoint。四组回归先红后绿，Node guard 19/19、release/test-discovery 14/14、Skill validator
+  和完整 `pnpm verify` 已通过；尚未占用新版本、上传或修改 allowlist。
 
 ## EXP-ICON-004 B3 已验证事实
 
@@ -49,8 +53,10 @@
 
 ## 唯一下一任务与停止条件
 
-- 完成最终定向/仓库绿灯、逐行 diff 审核、状态文档与普通 commit/push；随后 fresh-fetch main，从 exact clean
-  checkpoint 建立 `runtime/release-worktree`，完成版本绑定 build、动态唯一版本占用及体验版上传。
+- 完成维护通道 named parameter、锁父目录和 prefer-offline bootstrap 的红绿/全仓验证，提交并推送新的 exact
+  checkpoint；随后重置 `runtime/release-worktree`，由用户本人创建与新 command hash 绑定的单次授权记录，
+  初始化项目内 store 并重新验证依赖健康。
+- 依赖健康后完成版本绑定 build、动态唯一版本占用及体验版上传。
 - 上传前必须披露 exact SHA、版本、description、clean/profile/manifest 和测试页面；若仓库门禁仍要求精确候选
   二次确认，则在该点等待用户确认。上传成功后只执行受控 allowlist `ensure <exact-version>`、`verify` 和规定的
   只读生产健康验证，不部署应用或数据库。
