@@ -217,6 +217,16 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - 在活动 task 尚未完全结束前不操作其 lease/worktree；本轮不会强行终止并行任务或删除其生成物。
 - checkpoint 计划提交：`fix(dev): accept pnpm versioned project store metadata`；未包含业务源码或 `pnpm-lock.yaml`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-006（2026-09-04）
+
+- `general-1` 已切换到当前工具链 checkpoint `3b892318`，通过一次性离线修复后由 `ReuseOnly + AdoptHealthyExisting`
+  采用：`READY_REUSE`、fingerprint `94dd3060…4516e4`、`.modules.yaml` 为项目 `runtime/pnpm-store/v11`、
+  worktree-local virtual store 和独立 node_modules 均通过；root profile bootstrap `READY_BOOTSTRAP`。
+- pool Register 首次暴露了 PowerShell 数组参数在子脚本边界的绑定缺陷，已改为参数哈希表并复核注册成功；没有
+  新增 install、没有下载、没有改 lockfile。授权目录当前为空。
+- checkpoint 计划提交：`fix(dev): pass pool dependency parameters safely`；下一步是等待活动 task/lease 释放后，
+  以 `general-1` 为基准顺序扩容其余正式槽位并执行收口矩阵。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，
