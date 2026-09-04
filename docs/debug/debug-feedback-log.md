@@ -2537,3 +2537,18 @@
 - 验证：Node guard 21/21、release/test-discovery 14/14、Schedule Skill validator、format、lint、
   `pnpm smoke:check-core` 与完整 `pnpm verify` 通过；Mini 123 files/668 tests，根 Vitest 246 files/1,171 tests。
   本轮未触及 Web core 新路径，复用已有浏览器 smoke 记录；工具验证不代表微信原生或 Xiaomi 14 通过。
+
+## 2026-09-04 workspace bootstrap reason 输出收口
+
+- 复现与引入点：`9396ed04` release worktree 通过 safety checker 后，Mini profile 首次成功构建 contracts、
+  client-core、presentation-core 并逐包写入 marker；最终 human-readable `printResult` 对
+  `result.reasons` 执行 `for...of`，但成功 bootstrap 的 reasons 是 package-to-array object，故在完整结果已打印后
+  抛出 `object is not iterable`。`git blame` 定位到 `fa10d5ba`；依赖失败路径的 reasons 则是 array，必须兼容两种形状。
+- 测试先行与修复：新增 formatter 契约在旧实现上因 missing export 失败；实现只读纯函数，将 dependency array
+  原样输出，把 package map 展平为 `<package>:<reason>`，并由 human-readable printer 统一消费。未改变 producer
+  拓扑、fingerprint、构建判定、marker、锁或 JSON 输出。
+- 真实复核：不重装、不删除输出，使用修复后的 wrapper 对同一 exact worktree 复跑；contracts、client-core、
+  presentation-core 全部 reused，返回 `READY_BOOTSTRAP / DEPENDENCIES_REUSED=true / INSTALL_INVOKED=false`。
+- 验证：formatter 定向 3/3、Node guard 22/22、release/test-discovery 14/14、format、lint、
+  `pnpm smoke:check-core`、`git diff --check` 与完整 `pnpm verify` 通过；Mini 123 files/668 tests，根 Vitest
+  246 files/1,171 tests。未调用微信开发者工具，未分配版本、创建 tag、上传或连接 production。

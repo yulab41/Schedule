@@ -29,6 +29,13 @@
   以 `fix(agent): align dependency health with project-local store` 识别。Node guard 21/21、release/test-discovery
   14/14、Skill validator、format/lint/core smoke 与完整 `pnpm verify` 均通过；Mini 123 files/668 tests，根
   Vitest 246 files/1,171 tests。
+- `9396ed04` 推送后，release worktree 成功前进并复用依赖；Mini 三个 producer 首次均构建且 marker 写入，但
+  human-readable 输出把 package-scoped `reasons` object 当 iterable，末尾误报失败。引入点同为 `fa10d5ba`；
+  新回归先因缺 formatter export 失败，修复后同时支持 dependency reason array 和 package reason map。真实 wrapper
+  复跑全部复用并返回 `READY_BOOTSTRAP / INSTALL_INVOKED=false`。收口 checkpoint 以
+  `fix(agent): serialize bootstrap reasons safely` 识别。最终 Node guard 22/22、release/test-discovery 14/14、
+  format/lint/core smoke、diff check 与完整 `pnpm verify` 通过；Mini 123 files/668 tests，根 Vitest
+  246 files/1,171 tests。
 - B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
   本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
@@ -148,8 +155,8 @@
 
 ## 唯一下一任务与停止条件
 
-- 完成项目内版本化 store health 修复门禁、提交并普通推送；以新的 exact clean SHA 重置 release worktree，
-  复用已经健康且有 marker 的独立依赖环境，不再安装。
+- 完成 bootstrap reason 输出收口门禁、提交并普通推送；以新的 exact clean SHA 重置 release worktree，
+  复用已经健康且有 dependency/bootstrap marker 的独立环境，不再安装或重复构建 producer。
 - 依赖与候选门禁通过后独占分配唯一版本、完成 version-bound build；披露精确 SHA/version/description/
   manifest/test pages 并取得当次上传批准后上传体验版。服务端 allowlist 是独立 L4，须由当时用户消息明确授权。
 - 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不

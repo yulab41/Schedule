@@ -418,6 +418,14 @@ function parseArguments(arguments_) {
   return options;
 }
 
+export function formatBootstrapReasons(reasons) {
+  if (Array.isArray(reasons)) return reasons;
+  if (reasons === null || typeof reasons !== 'object') return [];
+  return Object.entries(reasons).flatMap(([name, packageReasons]) =>
+    Array.isArray(packageReasons) ? packageReasons.map((reason) => `${name}:${reason}`) : [],
+  );
+}
+
 function printResult(result, json) {
   if (json) {
     console.log(JSON.stringify(result));
@@ -429,7 +437,7 @@ function printResult(result, json) {
   console.log(`WORKTREE_CREATED=${result.worktreeCreated ? 'true' : 'false'}`);
   console.log(`WORKSPACE_BOOTSTRAP_BUILT=${(result.built ?? []).join(',')}`);
   console.log(`WORKSPACE_BOOTSTRAP_REUSED=${(result.reused ?? []).join(',')}`);
-  for (const reason of result.reasons ?? []) console.log(`INVALIDATION_REASON=${reason}`);
+  for (const reason of formatBootstrapReasons(result.reasons)) console.log(`INVALIDATION_REASON=${reason}`);
 }
 
 export function main(arguments_ = process.argv.slice(2)) {

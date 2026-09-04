@@ -16,6 +16,11 @@
   失败时的调用事实；两项回归先红后绿，健康 marker 已采纳，复核为 `READY_REUSE` 且未二次安装。尚未占用
   新版本、上传或修改 allowlist。Node guard 21/21、release/test-discovery 14/14、Skill validator、
   format/lint/core smoke 与完整 `pnpm verify` 均通过；Mini 123 files/668 tests，根 Vitest 246 files/1,171 tests。
+- `9396ed04` release worktree 已 clean/detached/ready，依赖复用成功。Mini producer 首次构建和 marker 写入成功后，
+  仅 human-readable 输出因错误迭代 package reason map 返回非零；新增 formatter 回归先红后绿，真实 wrapper 复跑
+  返回三个 producer 全部 reused、`READY_BOOTSTRAP`、`INSTALL_INVOKED=false`。当前正在形成最后的输出收口
+  checkpoint；最终 Node guard 22/22、release/test-discovery 14/14、format/lint/core smoke、diff check 与完整
+  `pnpm verify` 通过，Mini 123 files/668 tests、根 Vitest 246 files/1,171 tests。仍未分配或占用 trial 版本。
 
 ## EXP-ICON-004 B3 已验证事实
 
@@ -55,8 +60,8 @@
 
 ## 唯一下一任务与停止条件
 
-- 完成项目内版本化 store health 修复的全仓验证、提交并推送新的 exact checkpoint；随后重置
-  `runtime/release-worktree` 并只以 ReuseOnly 复用现有健康依赖。
+- 完成 bootstrap reason 输出收口的全仓验证、提交并推送新的 exact checkpoint；随后重置
+  `runtime/release-worktree` 并只以 ReuseOnly 复用现有健康依赖和 producer 输出。
 - 完成版本绑定 build 与动态唯一版本分配；上传前披露 exact tuple 并取得当次 L3 批准后才上传体验版。
 - 上传前必须披露 exact SHA、版本、description、clean/profile/manifest 和测试页面；若仓库门禁仍要求精确候选
   二次确认，则在该点等待用户确认。上传成功后，只有用户当时消息明确授权 exact version 的 L4 操作，才执行

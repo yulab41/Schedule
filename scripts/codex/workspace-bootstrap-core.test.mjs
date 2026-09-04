@@ -4,7 +4,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { BOOTSTRAP_PROFILES, ensureWorkspaceBootstrap } from './workspace-bootstrap-core.mjs';
+import {
+  BOOTSTRAP_PROFILES,
+  ensureWorkspaceBootstrap,
+  formatBootstrapReasons,
+} from './workspace-bootstrap-core.mjs';
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const temporaryDirectories = [];
@@ -53,6 +57,21 @@ test('Mini profile contains only the three required producers', () => {
     '@schedule/presentation-core',
   ]);
   assert.deepEqual(BOOTSTRAP_PROFILES.root.length, 7);
+});
+
+test('formats both dependency failures and package-scoped bootstrap reasons', () => {
+  assert.deepEqual(formatBootstrapReasons(['dependency-marker-missing']), ['dependency-marker-missing']);
+  assert.deepEqual(
+    formatBootstrapReasons({
+      '@schedule/client-core': ['source-fingerprint-changed'],
+      '@schedule/contracts': ['marker-missing'],
+      '@schedule/presentation-core': [],
+    }),
+    [
+      '@schedule/client-core:source-fingerprint-changed',
+      '@schedule/contracts:marker-missing',
+    ],
+  );
 });
 
 test('bootstraps topologically once, then reuses unchanged outputs', () => {
