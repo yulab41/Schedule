@@ -7,7 +7,7 @@
 
 - 当前活动批次：`TOOLCHAIN-GUARDRAILS-FINAL`（Schedule Codex 依赖复用、项目内 warm pool、早期安装阻断和
   无 Hook trust 收口）。当前 canonical 根为 `E:\AItools\Schedule`，当前 `main`/`origin/main` 均为
-  `969f740d`（`chore(test): restore release test formatting`）。
+  `a505746a`（`fix(test): isolate node toolchain tests from Vitest`）。
 - 前序 production/Mini 证据仍按各自冻结 SHA 解释；本批不接 production、不备份、不迁移数据库、不上传小程序，
   不把 Node/静态/simulate 结果写成 Xiaomi 14 原生验收。
 - 根工作树 tracked 文件干净；既有未跟踪 `.agents/`、`runtime/`、`src/` 和本地表格为用户所有，未删除、覆盖、
@@ -40,7 +40,7 @@
   但 Schedule 的正式 root/pool `.modules.yaml` 均指向项目内 `runtime/pnpm-store\v11`，不再依赖旧 store；未启用
   GVS，未改变 nodeLinker，未删除或 prune store。
 - 正式 warm 槽位为 `runtime/wt/general-1` 至 `general-6`，均为 Git detached、clean、独立 writable
-  `node_modules`、`.modules.yaml`、`dist`/`.tsbuildinfo` 和 fingerprint；当前统一 HEAD=`969f740d`，依赖 fingerprint
+  `node_modules`、`.modules.yaml`、`dist`、独立 `.tsbuildinfo` 和 fingerprint；当前统一 HEAD=`a505746a`，依赖 fingerprint
   为 `94dd306036825788f466207a97a06a54d85c3b5b02f1b1f3e38568083c4516e4`，注册 profile 为 `root`。
 - 6 个槽位逐一 `ReuseOnly`=`READY_REUSE`、root bootstrap=`READY_BOOTSTRAP`，每槽位 `built=0,reused=7`；6/6
   最小定向测试通过。pool 并发演练为 6/6 distinct；第 7 个返回 `POOL_BUSY`、无 install、无 worktree 创建。
@@ -69,11 +69,11 @@
 - 新 canonical Codex 子 session 演练已从项目根读取 AGENTS/Skill、inspector=`RESULT=PASS`、Acquire formal slot、
   ReuseOnly、root bootstrap reuse、最小测试、Release；输出 `NEW_SESSION_AGENTS_LOADED=true`、
   `PROJECT_SKILL_AVAILABLE=true`、`DEPENDENCIES_REUSED=true`、`INSTALL_INVOKED=false`、`HOOK_TRUST_PROMPT=false`。
-- 完整 `pnpm verify` 首轮仅因既有 release test 的 Prettier 偏差停止，已作 4 行纯格式修正并提交；第二轮在
-  `runtime/codex/state/final-verify-969f740d.log` 记录了 format、lint、build、typecheck、Mini 119 files/643 tests，
-  随后发现 root Vitest 收集 5 个 Node `node:test` 文件及状态长度超过 250 行。已排除 `scripts/codex/**` 并压缩本
-  文档；独立 `pnpm test` 通过：246 files/1171 tests passed，37 个数据库集成文件/364 tests skipped（无外部数据库）。
-- 下一步在包含上述测试配置的最终 SHA 上重新跑一次完整 `pnpm verify`；不改业务逻辑、不安装依赖。
+- 完整 `pnpm verify` 在最终 `a505746a` formal warm slot 通过：format、lint、packages/apps build、typecheck、
+  Mini 119 files/643 tests，以及 root Vitest 246 files/1171 tests passed；37 个数据库集成文件/364 tests 因无外部
+  数据库环境 skip。日志为 ignored `runtime/codex/state/final-verify-a505746a.log`。
+- `general-1..6` 已逐槽位完成 `ReuseOnly`/root bootstrap/最小定向测试；每槽 `built=0,reused=7`，并生成独立
+  `.tsbuildinfo`（每个 87,810 bytes）。最终 fetch 后 `main==origin/main==a505746a`，祖先检查通过。
 - 未调用微信开发者工具 GUI/CLI、模拟器、Console/Network、上传或生产；未创建 production backup，未迁移数据库。
 
 ## 已推送 checkpoint
@@ -99,9 +99,18 @@
 - 本 checkpoint 只涉及 Vitest 测试收集边界和状态文档压缩，不涉及业务源码、依赖版本、lockfile、runtime 数据或生产。
 - checkpoint message：`fix(test): isolate node toolchain tests from Vitest`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-014（2026-09-05）
+
+- 项目工具链本线程已完成：静态门禁、安装 tripwire、pool 溢出、SHA 切换、6 槽 ReuseOnly/bootstrap、canonical
+  新 session 和 historical overlay 新 session 演练均有 ignored 证据；本轮没有生产、数据库或小程序上传操作。
+- Codex app 最后检查仍显示历史图标任务“收口 Web 与小程序图标一致性”和“审计图标一致性迁移方案 (2)”为 active；
+  当前唯一 lease 是 `runtime/wt/icon-parity-1`，有进程/未完成上传任务，未被本线程中断、抢占或删除。故不能把
+  `ALL_PREVIOUS_PARALLEL_TASKS_FINISHED` 写成 true；其余正式 general pool 不受影响且 6 个均 free。
+- checkpoint message：`docs(dev): record final ReuseOnly closure evidence`。
+
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：提交并推送本 checkpoint，在最终项目内 warm 槽位重新运行完整 `pnpm verify`，完成最后 fetch/状态
-  复核与主线收口。
+- 唯一下一任务：历史图标任务自然结束后，仅重新检查其 lease、进程、worktree 和远端是否漂移；本线程不执行任何
+  上传、强制终止或接管。当前依赖复用收口已完成，停止条件为保留该外部 lease 事实且不影响 general pool。
 - 停止条件：完整工具链门禁通过或明确记录不可归因/预存在失败；6 个正式槽位仍为项目内独立 clean warm；不部署
   production、不备份、不迁移数据库、不上传小程序。所有变更均显式暂存，不纳入 runtime、用户未跟踪文件或业务源码。
