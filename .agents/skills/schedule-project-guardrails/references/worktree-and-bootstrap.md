@@ -30,7 +30,23 @@ Do not run `pnpm install` merely because:
 - the worktree switched to another SHA;
 - a clean-source verification is required.
 
-Before installing, run the project dependency fingerprint check.
+Before installing, run the repository's read-only checker from the worktree root:
+
+```powershell
+node scripts/check-dependency-environment.mjs
+```
+
+`DEPENDENCY_ENVIRONMENT=MATCH` exits successfully and authorizes reuse. `MISS` reports only the
+fingerprint/health reason and does not mutate the worktree. It is not install authorization by itself.
+After the current task has explicit dependency-install authorization, use the guarded installer:
+
+```powershell
+node scripts/install-dependency-environment.mjs
+```
+
+The installer rechecks first, performs at most one frozen install on a `MISS`, verifies health before
+recording the worktree-local marker, and performs no install on `MATCH`. The release worktree helper uses
+the same implementation rather than a separate marker contract.
 
 The dependency fingerprint must include:
 

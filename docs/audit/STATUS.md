@@ -2,11 +2,14 @@
 
 ## 当前阶段
 
-- 当前批次：用户明确批准的 `EXP-ICON-004-LINEAGE-B1` 已先红后绿实现，`c027abcd` 为 B1 实现 checkpoint；
-  执行期间前进的 `origin/main@75cc0d3b` 已合入，合并后复核通过，正在创建 merge checkpoint 并推送。
+- 当前批次：用户已明确授权 dependency-guard 前置批次和后续 `EXP-ICON-004-B2`；完整 checker 已先红后绿
+  实现，正在形成独立 tooling checkpoint，尚未修改或合并生产图标代码。
 - 独立 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；当前分支
   `codex/exp-icon-004-lineage-b12-20260903`。
 - 本批不修改生产图标，不创建真实 tag，不上传体验版，不操作 allowlist，不连接或部署 production。
+- 新 checker 覆盖全部 dependency source inputs、Node/pnpm、OS/架构、pnpm layout、store path 以及
+  direct/workspace links 健康；只读入口不写文件，显式 installer 仅在 `MISS` 时至多运行一次 frozen install，
+  健康通过后才写 worktree 私有 marker。release-worktree 已改为复用同一契约。
 - 详细血缘/图标结论见 `docs/audit/exp-icon-004-trial-lineage-and-b12.md`；设计见
   `docs/superpowers/specs/2026-09-03-exp-icon-004-b12-and-trial-lineage-design.md`。
 
@@ -37,6 +40,16 @@
 
 ## 验证与边界
 
+- 旧弱 marker 的引入点为 `0d971de1`；新增测试先以缺实现模块失败，随后 dependency/release-worktree
+  `18/18`、Node syntax、项目 Skill validator 和 `git diff --check` 通过。真实只读检查为
+  `MISS / marker-missing / HEALTH=PASS`（exit 2），未安装依赖、未写 marker。
+- 通用 Skill `quick_validate.py` 因本机 Python 缺少 `PyYAML` 未能启动；未擅自补装，仓库专用 validator 已通过。
+
+- B2 入口 `eaac822c` clean，最新 `origin/main=75cc0d3b`。B1 lineage audit、相关 Mini 5 files/55 tests、Mini
+  production verify/package 均通过，基线 total/main=`5,151,893/1,715,719 B`。
+- Web clean baseline 只缺 workspace producer dist；定向构建 `ui-tokens` 和唯一缺失的 `client-core` 后，Web
+  build 以 `4,242 modules` 通过（`36,900 ms`），仅有既有 chunk warning。未运行依赖安装。
+
 - 旧实现红灯为缺少 `trial-lineage.mjs` 的 `ERR_MODULE_NOT_FOUND`；新实现定向 lineage 12/12、CI helper 6/6，
   临时远端竞态、same/different SHA retry、stale main、dirty/staging/local/missing-ancestor、exact build、失败无
   receipt 和 preview/dry-run 隔离均有覆盖。
@@ -51,5 +64,6 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：创建 `merge: integrate latest main into trial lineage guard` merge checkpoint 并普通推送调查分支。
-- 当前停止条件：推送成功即停止；不自动进入 B2、B3、L3 上传或 L4 服务器操作。
+- 唯一下一任务：提交并推送 dependency-guard checkpoint 后恢复 B2，合并 `5285dd17`，对最终依赖图运行
+  checker；仅 `MISS` 时按已获授权运行一次 guarded frozen install，再执行 Web/Mini 真实构建和包体复测。
+- 当前停止条件：B2 checkpoint 推送成功即停止；不进入 B3、L3 上传或 L4 服务器操作。

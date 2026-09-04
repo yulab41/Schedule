@@ -14,7 +14,6 @@ import {
   parseArguments,
   parseWorktreeList,
   resolvePnpmInvocation,
-  shouldReuseDependencies,
   stripPnpmBuildPlaceholders,
 } from './prepare-release-worktree.mjs';
 
@@ -113,21 +112,15 @@ describe('reusable isolated release worktree', () => {
     expect(computeDependencyFingerprint(root, files)).not.toBe(first);
   });
 
-  it('reuses dependencies only when node_modules and the worktree-local fingerprint agree', () => {
-    const root = createTemporaryDirectory();
-    const gitDirectory = path.join(root, '.git-worktree');
-    fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
-    fs.mkdirSync(gitDirectory, { recursive: true });
-    fs.writeFileSync(
-      path.join(gitDirectory, 'schedule-release-dependencies.json'),
-      JSON.stringify({ fingerprint: 'same' }),
+  it('delegates release dependency reuse to the complete shared environment guard', () => {
+    const source = fs.readFileSync(
+      new URL('./prepare-release-worktree.mjs', import.meta.url),
       'utf8',
     );
 
-    expect(shouldReuseDependencies(root, gitDirectory, 'same')).toBe(true);
-    expect(shouldReuseDependencies(root, gitDirectory, 'different')).toBe(false);
-    fs.rmSync(path.join(root, 'node_modules'), { recursive: true });
-    expect(shouldReuseDependencies(root, gitDirectory, 'same')).toBe(false);
+    expect(source).toContain("from './dependency-environment.mjs'");
+    expect(source).toContain('installCurrentDependencyEnvironmentIfNeeded(target)');
+    expect(source).not.toContain('schedule-release-dependencies.json');
   });
 
   it('invokes the pnpm JavaScript entry directly on Windows instead of spawning pnpm.cmd', () => {

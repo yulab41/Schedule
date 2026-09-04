@@ -234,6 +234,26 @@ B1.2 预算：
 | B4 | 全量静态对照、Mini/Web gates、同口径包体和浏览器/Node 证据，提交并推送调查分支 | 中 | relevant gate 失败不形成候选 |
 | B5 | L3 exact-clean candidate、动态选择未占用版本、用户当次批准后 tag+上传；另获 L4 后 allowlist | 高，外部状态 | 未获精确批准、tag 冲突、SHA/版本/profile 不一致即停止 |
 
+### B2 入口预检（2026-09-04）
+
+用户批准 B2 后，执行时最新 `origin/main` 仍为 `75cc0d3b`，当前累计分支为 clean `eaac822c`。目标
+`5285dd17` 会引入新的 `packages/ui-icons` workspace package、Web dependency 和 lockfile importer；当前
+worktree 的 Web dependency links 不含 `@schedule/ui-icons`。与此同时，`879e98f6` 引入的 dependency
+environment lifecycle 要求安装前必须由完整 helper 覆盖全部 tracked dependency inputs、Node/pnpm、OS/架构、
+pnpm layout 和 store path，并验证 `node_modules` 健康；当前主线只有不完整的 release tracked-input marker。
+
+因此 B2 在 Git merge 前失败关闭：没有运行 `pnpm install`，没有手工创建 junction/symlink，没有借用其他
+worktree 的依赖或 dist，也没有修改/合并生产图标。入口基线的 Mini 5 files/55 tests、production verify/package
+通过（total/main=`5,151,893/1,715,719 B`）；定向补齐当前已有 producer dist 后，Web baseline build 也以
+4,242 modules 通过。恢复 B2 前需要用户另行批准仓库级 dependency checker 前置批次，不能把该扩展默认为图标
+合并的一部分。
+
+用户随后明确授权该前置批次及 `MISS` 后的一次 frozen install。旧弱 marker 的引入点为 `0d971de1`：它只比较
+tracked source hash 和 `node_modules` 目录存在性。新实现将 source、Node/pnpm、OS/架构、layout 和 store path
+合成完整 fingerprint，并独立验证 pnpm metadata、virtual store、direct dependency 和 workspace link；read-only
+checker 与 explicit installer 分离，release-worktree 复用相同核心。新增测试先因实现模块不存在而失败，转绿后
+两组定向测试 `18/18` 通过；真实入口结果为 `MISS / marker-missing / HEALTH=PASS`，没有提前安装或写 marker。
+
 ## 第一实施批次的精确 Prompt
 
 > 执行 `EXP-ICON-004-LINEAGE-B1`。先从执行时最新 `origin/main` 更新现有

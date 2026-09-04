@@ -5,15 +5,20 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：用户明确批准的 `EXP-ICON-004-LINEAGE-B1` 已先红后绿实现，并已将执行期间前进的
-  `origin/main@75cc0d3b82dbe03fa1923e0c091b805872603ff8` 合入当前分支；合并后复核通过，正在创建 merge
-  checkpoint 并推送。
+- 当前活动批次：用户已明确授权 dependency-guard 前置批次和后续 `EXP-ICON-004-B2`。完整 dependency
+  fingerprint/health checker 已先红后绿实现，正在形成独立 tooling checkpoint；尚未修改或合并生产图标代码。
+- tooling checkpoint 以 `fix(tooling): validate dependency environment reuse` 识别；提交后普通推送当前调查分支。
 - B1 实现 checkpoint：`c027abcd`（`fix(miniprogram): enforce cumulative trial lineage`）。执行 worktree：
   `runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。
-- 本批修改 Mini release helper、历史/policy、测试、runbook、审计和状态文档；未修改生产图标、业务页面、API、
-  权限、路由、数据库、依赖、锁文件或 generated dist，未重跑阶段 0。
+- 当前前置批次新增只读 dependency checker、显式 guarded installer、测试，并让 release-worktree 复用同一完整
+  契约；同步更新仓库 Skill 路由和审计文档。未修改生产图标、业务页面、API、权限、路由、数据库、依赖声明、
+  锁文件或 generated dist，未重跑阶段 0。
 - 本批未创建真实 trial tag、未上传体验版、未操作 allowlist、未提审、未正式发布、未连接或部署 production。
+- B2 目标提交会新增 `packages/ui-icons`、给 Web 增加 `@schedule/ui-icons` workspace link、移除
+  `tdesign-icons-vue-next` 并修改 `pnpm-lock.yaml`。新 checker 已覆盖全部 dependency source inputs、
+  Node/pnpm、OS/架构、pnpm layout、store path 及 direct/workspace links 健康；只读入口不写文件，installer
+  只在 `MISS` 时至多运行一次现有 frozen install，健康复核通过后才记录 worktree 私有 marker。
 
 ## EXP-ICON-004 已确认根因与 B1 结果
 
@@ -50,6 +55,24 @@
 
 ## 验证、依赖与预算
 
+- 旧 release dependency marker 由 `0d971de1` 引入，只比较 tracked input hash 和 `node_modules` 目录存在性；
+  不覆盖 `879e98f6` 后要求的 toolchain/layout/store/link-health，故是本轮已确认的守卫缺口。
+- checker 红灯：`scripts/dependency-environment.test.mjs` 首次因实现模块不存在而失败；实现后 dependency +
+  release-worktree 定向测试 `18/18` 通过，4 个 Node syntax check、项目 Skill validator、`git diff --check`
+  通过。真实只读检查返回 `MISS / marker-missing / HEALTH=PASS`，实际退出码 2；没有安装或写 marker。
+- 行为变化清单：release helper 的匹配判断从“source hash + 目录存在”升级为完整环境 + links 健康；MATCH 仍为
+  零安装，MISS 仍至多调用一次同参数 frozen install，但现在安装后健康失败不会写 marker，旧 marker 会安全地
+  触发一次 MISS。同步调用，无 `this`/Promise/catch/空值或调用次数语义漂移。
+- Skill Creator 通用 `quick_validate.py` 因本机 Python 缺 `PyYAML` 无法启动；没有为此安装额外依赖。仓库专用
+  `validate-project-skill.ps1` 完整通过。
+
+- B2 入口基线：`HEAD=eaac822c`、工作树 clean、`origin/main=75cc0d3b` 且为 HEAD 祖先；B1 trial lineage
+  audit 通过。相关 Mini 5 files/55 tests 通过，production verify 用时 `6,476 ms`，package total/main 为
+  `5,151,893/1,715,719 B`。
+- Web baseline 首次因 clean worktree 缺 producer dist 失败；只构建 `ui-tokens`、审计全部 Web workspace
+  producer 后再构建唯一缺失的 `client-core`，同一 Web build 通过（`4,242 modules`，`36,900 ms`，保留既有
+  500 KiB chunk warning）。这没有安装依赖或修改 tracked 文件。
+
 - 失败先行：旧实现运行新增测试时因缺 `trial-lineage.mjs` 以 `ERR_MODULE_NOT_FOUND` 退出 1；实现后定向
   lineage 12/12、既有 CI helper 6/6 通过。临时 bare remote 的两个不同 SHA 并发占同一 tag 时只有一个成功；
   winner 同 SHA retry 幂等，loser 被拒；并行分支推进 main 后 stale candidate 也被拒。
@@ -79,7 +102,6 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：用户再次明确批准后执行 `EXP-ICON-004-B2`，从执行时最新 `origin/main`/当前累计分支合入
-  `1ffab10c`、`5285dd17` 的原始提交身份，并仅人工解决已知状态文档冲突；先确认 B1 门禁仍通过。
-- merge checkpoint 以 `merge: integrate latest main into trial lineage guard` 识别；普通推送成功即停止。不自动进入
-  B2、B3 图标修改、L3 上传或 L4 production 操作。
+- 唯一下一任务：提交并普通推送 dependency-guard checkpoint 后恢复 B2，合并 `5285dd17` 原始血缘；对最终
+  依赖图先运行只读 checker，只有 `MISS` 才按本次授权运行一次 guarded frozen install，然后执行 Web/Mini 验证。
+- 当前停止条件：B2 checkpoint 普通推送成功即停止；不进入 B3、L3 上传或 L4 production 操作。
