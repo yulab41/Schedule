@@ -3,302 +3,105 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/` 和精确 debug 日志为准。每轮先读
 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
 
-## 当前仓库批次（2026-09-04）
+## 当前仓库批次（2026-09-05）
 
-- 当前活动批次：`TOOLCHAIN-GUARDRAILS-INTERNAL-001`（Schedule Codex 全局规范、依赖复用、持久 warm worktree
-  池和 Hook 收口）。前序 `TOOLCHAIN-GUARDRAILS-003`、动态身份批次和 `MINI-G1-004` 均保留历史结论，不因本批进入业务修复。
-- 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
-  `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
-  `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
-- 前序冻结后发现主线 `76a572a3378bb452b23db30eb5d850c3d705cd93` 仅补入 guardrail Skill、根 `AGENTS.md`、
-  `.gitignore` 和状态文档；MINI-G1-004 相关运行时路径无差异。前序 production 聚合证据仍归属于
-  `78d0424e…`，本轮不重跑 production 聚合；上传候选另按当前主线建立独立的 `.85` evidence baseline。
-- 调查原始 tip：`e7ec0617716d37326f84ced01337da5adf941b82`；本次补证没有改变主线代码。
-- 执行 worktree：`runtime/external-project-worktrees/mini-g1-004-evidence-audit-20260902`；主工作区的
-  用户自有脏改动、其他 worktree 和其内容未修改、清理、暂存或借用。依赖沿用该 clean worktree，未重新链接
-  1,459 个依赖。
-- 上传前再次 fetch 并复核后，当前 MINI-G1-004 运行时证据基线为：
-  `EVIDENCE_MAIN_SHA=a1bba5710cfd5c94b5fd5148898e4f17e45faab9`；选定唯一未占用体验版
-  `EVIDENCE_TRIAL_VERSION=0.1.0-p10.20260903.85`、
-  `EVIDENCE_TRIAL_SHA=a1bba5710cfd5c94b5fd5148898e4f17e45faab9`、
-  `EVIDENCE_TRIAL_MANIFEST=7ae30753e7fc6437826a802df30d1062016a7192f5d494baba50ab9c8be5f63b`；
-  profile 为 `production`，clean 标记为 `production-clean`，包体 `5,153,449 bytes`。上传日志起始时间为
-  `2026-09-04T07:42:13.616+08:00`，服务器实际 release 仍为
-  `EVIDENCE_SERVER_RELEASE=48488019171924701054354e8f707b08eb4d12fe`。
-- 服务器 allowlist 复核显示此前 `.81`、`.82`、`.83`、`.84` 均保留，本轮只追加 `.85`，没有覆盖或遗漏历史
-  体验版；allowlist verify 和完整 production verifier 均通过。未提审、未正式发布、未执行 ECS 部署、数据库
-  迁移或备份，未重跑阶段 0。
+- 当前活动批次：`TOOLCHAIN-GUARDRAILS-FINAL`（Schedule Codex 依赖复用、项目内 warm pool、早期安装阻断和
+  无 Hook trust 收口）。当前 canonical 根为 `E:\AItools\Schedule`，当前 `main`/`origin/main` 均为
+  `969f740d`（`chore(test): restore release test formatting`）。
+- 前序 production/Mini 证据仍按各自冻结 SHA 解释；本批不接 production、不备份、不迁移数据库、不上传小程序，
+  不把 Node/静态/simulate 结果写成 Xiaomi 14 原生验收。
+- 根工作树 tracked 文件干净；既有未跟踪 `.agents/`、`runtime/`、`src/` 和本地表格为用户所有，未删除、覆盖、
+  暂存或提交。
 
-## MINI-G1-004 调查成果
+## 正式工具链状态
 
-- `GET /platform-admin/users`、`GET /groups/:groupId/members`、`GET /groups/:groupId/contacts` 返回完整数组；
-  未发现服务端 `limit`、cursor、offset、pageSize 或自然总量上限。页面没有搜索、筛选、懒加载或渲染窗口。
-- scale probe 只使用 synthetic 占位数据，标准 Mini 测试可发现，不进入生产运行时，不包含姓名、手机号、账号或
-  真实群组 ID。`N=1/25/100` 显示 platform 行节点估算 `8N`、group member 行估算 `12N`；1→100 时 ready
-  bytes 为 `341→19,000`、`1,068→34,728`，setData 次数固定为 4、6，payload 随 N 增长。
-- 冻结 live release 下的 production 只读聚合为：`/platform-admin/users` 有效返回 35 条；活动群组 2 个，
-  匿名成员最终有效行数为 17、6，pending 非重复均为 0，contacts endpoint 行数为 17、6。群组规模统计（最终
-  members 行数）为最小 6、最大 17、中位数 11.5；2 个群组时 P90/P95 不具统计意义。最大列表来自 platform
-  accounts（35）。
-- `.85` 与 `.84` 及当前主线的 MINI-G1-004 相关运行时 scope 等价；候选 build safety 为
-  `ready-clean-detached`，源码相对 `.84` 的差异仅为调查 probe/构建记录等非运行时内容。`.85` 可作为当前
-  Xiaomi 14 人工验收候选，但 production 聚合仍归属于已冻结的 live release，不把体验版上传写成 production
-  发布。
-- 桌面 Node wall-clock 只作可重复性记录，不能外推 Xiaomi 14 卡顿；没有匹配构建的原生首绘、节点、滚动或
-  bridge 证据。
+- 根 `AGENTS.md` 已在最前部声明 `DEPENDENCY_MODE=REUSE_ONLY`、conversation boundary 不使依赖失效、每个
+  Schedule 任务先加载 `$schedule-project-guardrails` 并 Acquire 独占 warm slot；普通任务不得 install，无槽位
+  返回 `POOL_BUSY`，正式路由为 `Acquire → ReuseOnly → Bootstrap → Targeted test`，不依赖 Hook trust。
+- 正式 Skill 为 `.agents/skills/schedule-project-guardrails/SKILL.md`；description 前置声明适用范围、默认
+  ReuseOnly、独占 warm、普通任务无安装权限和无 Hook 依赖。Skill validator、front matter、OpenAI YAML、Markdown
+  links、PowerShell read-only AST 均通过。
+- `.codex/config.toml` 只保留项目说明；`.codex/hooks.json`、`.codex/hooks/project.json`、项目 Hook 源码和
+  无其他用途的 wrapper 已移除。项目有效配置没有 Schedule Hook 注册，不需要 `/hooks`、trust 或人工审核。
+- `.codex/setup.ps1` 及 `schedule-project-setup.ps1` 只做 canonical/common-dir 解析、AGENTS 路由和轻量状态检查；
+  它们不 Acquire、不 bootstrap、不创建 `node_modules`、不 install，非 warm managed worktree 返回
+  `MANAGED_WORKTREE_NOT_WARM`。
+- `.codex/rules/schedule-dependency-mutation.rules` 已用 `decision = "forbidden"` 覆盖直接 install/update/fetch/
+  rebuild/prune、删除 node_modules 和 destructive `git clean`，并有 match/not_match 单元例；`codex execpolicy check`
+  对 `pnpm install`、`pnpm.cmd install`、`npm ci`、`git clean -xfd` 为 forbidden，对 `pnpm test` 无匹配。
+- `.pnpmfile.cjs` 加载 `scripts/codex/install-tripwire.cjs`。未授权直接 install 的实测为 exit code 1、493ms、
+  `EXIT_BEFORE_IMPORT=true`、import 0、node_modules/lockfile/store 均未变；错误明确指向
+  `scripts/codex/dependency-maintenance.ps1`。唯一维护入口使用精确授权、frozen lockfile、offline、项目内 store、
+  最长 30 分钟、单次 nonce，成功后才写 fingerprint，失败清理授权且不写成功 marker。
 
-## 主线既有结论（合并时保留）
+## 依赖、槽位和 bootstrap
 
-- `origin/main` 的 `EXP-UX-001`、`EXP-UX-002`、`EXP-FEAT-002`、`EXP-CALENDAR-003` 代码、设计、审计和
-  自动化结论均保留；最新 `EXP-CALENDAR-003` 状态仍按主线记录为“已完成（含运行验证）→ 待用户复核”。
-- `EXP-UX-001` 的 production release/schema/目录查询保留事实仍有效；历史 release tip 为
-  `3897581e7a8d5734ef5910e2dd8854a92c246062`，`.80` 体验与 production 记录不因本次调查改变。
-- 主线新增的代码、测试、`docs/audit/exp-feat-002-event-records.md` 及相关设计/计划文件未被本次整合回退。
+- 正式 store：`E:\AItools\Schedule\runtime\pnpm-store`；旧 `E:\.pnpm-store\v11` 因可能被其他项目使用而保留，
+  但 Schedule 的正式 root/pool `.modules.yaml` 均指向项目内 `runtime/pnpm-store\v11`，不再依赖旧 store；未启用
+  GVS，未改变 nodeLinker，未删除或 prune store。
+- 正式 warm 槽位为 `runtime/wt/general-1` 至 `general-6`，均为 Git detached、clean、独立 writable
+  `node_modules`、`.modules.yaml`、`dist`/`.tsbuildinfo` 和 fingerprint；当前统一 HEAD=`969f740d`，依赖 fingerprint
+  为 `94dd306036825788f466207a97a06a54d85c3b5b02f1b1f3e38568083c4516e4`，注册 profile 为 `root`。
+- 6 个槽位逐一 `ReuseOnly`=`READY_REUSE`、root bootstrap=`READY_BOOTSTRAP`，每槽位 `built=0,reused=7`；6/6
+  最小定向测试通过。pool 并发演练为 6/6 distinct；第 7 个返回 `POOL_BUSY`、无 install、无 worktree 创建。
+- SHA 切换演练在 `general-2` 的 `b076d542 ↔ 7f407038` 间复用同一 fingerprint，install=0、bootstrap reuse、
+  build=0，最终 clean。
+- 本轮实际一次性维护 install 数量及成功/失败分解保存在 ignored `runtime/codex/state`；没有联网下载，没有
+  `--force`，没有 lockfile 或依赖版本变更。
 
-## 验证证据与边界
+## worktree、恢复和历史 overlay
 
-- 已执行本轮 fetch 和上传前复核；`.85` 与 `.84`/主线的 MINI-G1-004 相关运行时 scope blob 清单哈希均为
-  `37943122c24e7ddd1772b686b1324f777b0efe4473c1e0c5914c89591bead0e6`。live release 与主线的相关
-  API/contract scope 也无差异，双方清单哈希均为 `ab3be6b4f52e7a801e72d93da2c201d05ce335c904e3243701d684f87ce07654`。
-- 复用 clean G1 worktree 执行既有 probe：`pnpm --filter @schedule/miniprogram exec vitest run
-scripts/mini-g1-004-scale-probe.test.mjs --fileParallelism=false`，1 file / 1 test 通过（855ms）。候选 clean
-  release worktree 的 Mini 全量门禁为 119 files / 643 tests 通过；`verify`、source/package、determinism、
-  CI dry-run 和 safety 均通过。本轮未重跑阶段 0。
-- production 查询窗口为 `2026-09-03T14:12:44Z`，前后 release 一致；首次 SQL 文本在解析阶段因 `groups`
-  保留字停止、未读取数据，修正后才执行有效的只读聚合。未调用微信开发者工具 GUI/CLI、模拟器、
-  Console/Network、截图或模拟器；上传使用 TUN 保持开启时的进程级 `servicewechat.com` IPv4 DNS route，
-  未修改系统 TUN、hosts、系统 DNS 或业务实现。Xiaomi 14 原生首绘、节点、滚动和 bridge 结果仍待用户提供。
-- 文档校验：`git diff --check` 通过；`docs/audit/STATUS.md` 和本文件按仓库 Prettier 规则通过。审计长报告
-  基线本身不是 Prettier clean，本轮未为格式重排历史全文。
-- 决策/偏差：production 聚合首次 SQL 仅在数据库解析阶段因保留字停止，未读取数据；修正后的唯一有效查询
-  前后 release 一致。未取得原生节点或 bridge 指标，不把 synthetic 估算写成真机结果。
-- 前一文档 evidence checkpoint `cc5fd98a51dd4117205614bb1e36d8596c0b7fed`（`docs(audit): record
-MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提交 `76a572a3…` 是冻结后才发现的
-  guardrail-only 主线更新，未改变本轮证据身份。
-- 本轮按仓库政策未调用微信开发者工具 GUI/CLI、模拟器、Console/Network；Node、静态和 simulate 结果不代替
-  微信原生或 Xiaomi 14 验收。此前普通 TUN/代理上传尝试收到微信 `-10008 invalid ip` 且没有成功回执；随后
-  使用仅对本次 Node 进程生效的 DNS override 后成功，临时 helper 已删除。
-- 只更新本轮证据记录文档；不修改业务运行时代码、API、数据库、权限、路由、锁文件、dist 或其他生成物。根
-  工作区既有未跟踪 `.agents/`、`runtime/`、`src/` 和本地表格保持原样。
+- 初始 Git worktree 盘点为 43 个；旧 `E:\ScheduleWT\general-1` 已 Git-aware move 到项目 pool，旧路径无真实
+  worktree data；无关 stale worktree 已先建立 recovery ref/patch/manifest 后按 clean、进程、lease、唯一提交和
+  用户文件条件处理。成功删除 13 个，Windows 长路径/dirty/唯一提交项保留恢复证据；不做递归强删。
+- `runtime/codex/recovery` 中保留恢复 manifest/patch；两个无 Git metadata 的 `runtime/audit/preupload-*` 物理目录
+  作为 invalid physical worktree 保留，未删除可能的用户生成数据。当前项目外 Schedule 实际 worktree data=0，未建
+  兼容 junction；`runtime/release-worktree` 仅有项目内未注册候选产物，因历史任务状态保留待后续明确清理。
+- retained historical worktree overlay 由 `scripts/codex/sync-legacy-worktree-overlays.ps1` 生成，使用 canonical
+  Skill tree hash `e7c83c77f4e19c4b28c033f253d4e31b5e36cc40c2d912f9ff8240e80c2cedd0`，全部本地 Git exclude。新历史
+  session 演练已输出 `LEGACY_OVERLAY_PRESENT=true`、`DEPENDENCY_MODE=REUSE_ONLY`、`INSTALL_INVOKED=false`、
+  `TASK_STATUS=MANAGED_WORKTREE_NOT_WARM`。
 
-## 仓库级 Skill 发现修复（2026-09-03）
+## 验证与安全边界
 
-- `schedule-project-guardrails` 原只存在于专用分支/worktree，当前 `main` 因不含该提交而无法发现；现从
-  自包含 checkpoint `411399e7` 精确移植 13 个 Skill 文件，并补根 `AGENTS.md` 短路由和 `runtime/local/` 忽略。
-- 未采用 `5c45236d` 的依赖生命周期扩展，因为其引用的 `scripts/codex/*` helper 与 pitfall 尚未进入当前主线；
-  不把不完整规则或该提交的无关 23 文件一起带入。
-- 结构/front matter、9 个 Markdown/62 个链接、YAML、Windows PowerShell 5.1、只读 dry-run、失败关闭、
-  Prettier、core-route 与 diff 检查通过。checkpoint 以 `fix(agent): make Schedule guardrails discoverable on main` 识别。
-- 本批不改应用/数据库/迁移/构建产物，不安装依赖、不上传、不创建 production 备份或连接服务器；并行的
-  `docs/audit/STATUS.md`/审计报告改动保持用户所有且不暂存，本 checkpoint 不接管其下一任务或停止条件。
+- 静态验证：Skill validator、Markdown/links、PS5.1/PS7 AST、Node syntax、`git diff --check`、project-local
+  layout/ignore/pool/tripwire Node tests 均通过；工具链 Node tests 当前为 18/18。
+- 新 canonical Codex 子 session 演练已从项目根读取 AGENTS/Skill、inspector=`RESULT=PASS`、Acquire formal slot、
+  ReuseOnly、root bootstrap reuse、最小测试、Release；输出 `NEW_SESSION_AGENTS_LOADED=true`、
+  `PROJECT_SKILL_AVAILABLE=true`、`DEPENDENCIES_REUSED=true`、`INSTALL_INVOKED=false`、`HOOK_TRUST_PROMPT=false`。
+- 完整 `pnpm verify` 首轮仅因既有 release test 的 Prettier 偏差停止，已作 4 行纯格式修正并提交；第二轮在
+  `runtime/codex/state/final-verify-969f740d.log` 记录了 format、lint、build、typecheck、Mini 119 files/643 tests，
+  随后发现 root Vitest 收集 5 个 Node `node:test` 文件及状态长度超过 250 行。已排除 `scripts/codex/**` 并压缩本
+  文档；独立 `pnpm test` 通过：246 files/1171 tests passed，37 个数据库集成文件/364 tests skipped（无外部数据库）。
+- 下一步在包含上述测试配置的最终 SHA 上重新跑一次完整 `pnpm verify`；不改业务逻辑、不安装依赖。
+- 未调用微信开发者工具 GUI/CLI、模拟器、Console/Network、上传或生产；未创建 production backup，未迁移数据库。
 
-## 仓库级 Skill 依赖环境生命周期（2026-09-04）
+## 已推送 checkpoint
 
-- 已把用户批准的 dependency environment lifecycle 完整写入按需加载的 `worktree-and-bootstrap.md`；短
-  `SKILL.md` 只增加安装前路由和复用硬门禁，未复制整章规范。
-- Skill 校验器现固定检查 conversation/branch/SHA 不自动失效、完整指纹维度、健康 `node_modules` 复用、
-  worktree 池持久化、禁止 `git clean -xfd`、禁止跨 worktree 共享可写依赖以及 workspace 输出独立指纹。
-- 该 checkpoint 当时的 `main` 只有 release worktree tracked-input marker，未移植专用分支 `5c45236d` 的
-  通用 helper；此历史限制随后已由 `TOOLCHAIN-GUARDRAILS-001@fa10d5ba` 的受审计
-  `scripts/codex/*` 机制取代。
-- 定向红绿校验先捕获缺少 lifecycle 路由，补齐后通过：结构 13 文件、front matter、YAML、9 个 Markdown/64
-  个链接、3 个 PowerShell 语法和只读 AST、context dry-run、Prettier、`pnpm smoke:check-core` 与
-  `git diff --check` 均通过；未触发核心浏览器 smoke。
-- 本批不修改业务功能、依赖、锁文件、构建产物或生产状态；未运行 `pnpm install`、全仓 verify、production
-  build、包体审计、微信上传、production SSH/备份/部署。checkpoint 以
-  `docs(agent): preserve dependency environments across conversations` 识别。
+- `bb81e723` `refactor(agent): remove manual Hook trust dependency`
+- `a93d90ff` `chore(dev): complete project-local store mirror`
+- `5cef3276` `fix(dev): make maintenance authorization and pool provisioning executable`
+- `e8e5ecae` `hardening(dev): make maintenance cleanup and task routing deterministic`
+- `3b892318` `fix(dev): accept pnpm versioned project store metadata`
+- `d18dd7aa` `fix(dev): pass pool dependency parameters safely`
+- `b72ca8ba` `fix(dev): avoid reserved PowerShell home variable`
+- `b076d542` `test(dev): verify warm pool concurrency overflow`
+- `ba1e97a7` `chore(dev): archive stale worktree recovery evidence`
+- `7f407038` `fix(dev): handle bootstrap reason map output`
+- `fc79762d` `fix(dev): record bootstrap profile during pool registration`
+- `969f740d` `chore(test): restore release test formatting`
 
-## TOOLCHAIN-GUARDRAILS-001（2026-09-04）
+## TOOLCHAIN-GUARDRAILS-FINAL-013（2026-09-05）
 
-- 基线为 `origin/main@75cc0d3b`；候选 `5c45236d` 的两项独有提交已逐提交审计。候选没有改 lockfile、
-  workspace 配置、package dependency declarations、production Compose、migration 或业务运行时代码；日期
-  漂移测试、性能测量脚本、长调试日志和旧状态文档未移植。
-- 集成分支从最新主线建立独立短路径 worktree；最终范围仅含项目 Skill 路由与新增的 dependency/bootstrap/
-  pool/lease/Hook 机制、setup 文档、release helper no-install 路由、对应轻量测试和本状态记录。
-- `ReuseOnly` 实测在无依赖的集成 worktree 返回 `BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`；已确认的 warm 槽位完成
-  依赖指纹复用、`mini` 增量 bootstrap（3 个 producer）、最小现有测试 7/7，并再次复用成功。全程
-  `PNPM_INSTALL_INVOCATIONS=0`。
-- 静态/Node 验证：Skill `RESULT=PASS`；8 个 Node 文件 syntax pass；PowerShell 3 个 wrapper/pool AST
-  pass；无第三方依赖定向测试 13/13 pass；第二个并发 claimant 得到 `POOL_BUSY`，租约正常释放。未运行
-  全仓 verify、browser smoke、冷安装、GVS、production 或
-  Mini Program 工具链。
-- 本 checkpoint commit message：`chore(agent): close Schedule Codex runtime guardrails`。提交只允许包含
-  工具链文件，绝不包含 runtime 产物、凭据、用户主工作树改动或其他 worktree 内容。
-
-## TOOLCHAIN-GUARDRAILS-002（2026-09-04）
-
-- 基线为最新 `origin/main@fa10d5ba`。版本、SHA 和 release 在 Prompt/示例/计划/状态中只作为带来源与时间的
-  观察记录；任务开始动态发现、外部变更前复核、第一次外部变更开始后冻结本轮基线。
-- `origin/main`、最新合格已上传体验版和 production live release 现在明确分离；未获当前消息 L4 授权时不实时
-  查询 production，历史记录标记 `LIVE_RELEASE_VERIFIED=false`，不得作为 rollback 或部署事实。
-- Mini 事实源不再在无上传授权时预分配 proposed version。需要体验版证据时只选择可证明合格的既有上传；没有
-  候选则记录 `UPLOAD_REQUIRED`。授权上传也必须在最终 clean SHA/门禁完成后通过独占锁读取占用状态并绑定不可变
-  的版本/SHA/Manifest；当前 checkout 没有该锁 helper 时返回 `UPLOAD_VERSION_ALLOCATION_BLOCKED`。
-- 定向红绿先证明旧 Skill 缺少动态身份路由，现已通过结构/front matter、11 个 Markdown/73 个链接、3 个
-  PowerShell 只读 AST、固定版本/SHA 正反例、L0/L3 context dry-run、未授权 L4 失败关闭、Prettier、YAML、
-  core-route 与 diff 检查。`skill-creator` 的 `quick_validate.py` 因本机没有 PyYAML 无法运行；按本轮禁装依赖
-  边界未安装，改用仓库 validator 和现有 Node YAML parser。
-- 本批只修改 Skill、AGENTS 和 runbook/status；未安装依赖、未运行全仓测试或 production build，未分配/上传
-  体验版，未连接、查询、备份或部署 production。checkpoint 以
-  `docs(agent): make release identities dynamic` 识别。
-
-## TOOLCHAIN-GUARDRAILS-003（2026-09-04）
-
-- 审计确认用户给出的五条 Mini 避坑边界已分别由 `miniprogram.md`、`testing-and-evidence.md`、根/子目录
-  `AGENTS.md` 和既有 runbook 保存；不再把整段复制进 `SKILL.md` 或每轮 Prompt。
-- `SKILL.md` 只增加条件说明：Mini 修改自动组合 Mini reference 与级别所需 testing/evidence reference；非 Mini
-  L1 dry-run 不加载 Mini reference。`miniprogram.md` 仅增加胶囊路由说明，不复制事实规则。
-- validator 现在固定检查 clean target SHA/独立 worktree、禁止主树混合 `dist`、`version=local`、Mini 不自动
-  production/备份、Xiaomi 14 最终验收、同环境父/新 SHA 对比和诊断包体语义。定向红绿先捕获缺少胶囊路由，
-  补齐后 Skill 结构/front matter、11 个 Markdown/74 个链接、3 个 PowerShell 只读 AST 和 Node YAML 解析
-  通过；`quick_validate.py` 仍因缺 PyYAML 无法启动，遵守禁装依赖边界未补装。
- - 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
-  checkpoint 以 `docs(agent): route Mini safety capsule` 识别。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-001（2026-09-04）
-
-- 基线已动态 fetch 并快进到 `origin/main@4602120b`；`4602120b` 仍为最新主线祖先。初始清点 43 个
-  Git worktree，未发现 Schedule 路径下活动 Node/pnpm/test/build/server 进程或 lease；历史并发峰值没有
-  可验证的 `>5` 证据，因此按默认目标 6 个 warm 槽位。
-- 本 checkpoint 已移除项目 Codex Hook 注册、Hook wrapper、Hook 测试和 Hook 配置；新增项目 rules、
-  `.codex/setup.ps1`、`.pnpmfile.cjs` 早期 tripwire、自动授权维护 wrapper、分支绑定 pool manager、
-  store mirror、warm-pool provisioning 和 legacy overlay 同步器。正式路由不依赖 Hook 或人工 trust。
-- `ReuseOnly` 基线输出为 `INSTALL_INVOKED=false`；当前 canonical `node_modules/.modules.yaml` 仍指向
-  外部 store，待下一批项目 store 镜像和授权迁移。不得把本状态中的旧 store/旧 worktree观察当作最终通过。
-- 已验证：项目 rules `pnpm install`/`pnpm.cmd install`/`npm ci`/`corepack pnpm install`/`git clean` 为
-  `forbidden`，测试与 store 只读命令不匹配；Skill validator `RESULT=PASS`；工具链 Node tests `17/17`；
-  Node syntax、PowerShell AST、Markdown、`git diff --check` 通过。
-- checkpoint message：`refactor(agent): remove manual Hook trust dependency`。显式暂存仅限工具链/文档路径，
-  不包含 `runtime/`、`src/`、用户表格、业务源码或 `pnpm-lock.yaml`。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-002（2026-09-04）
-
-- 项目 store 镜像已完成：旧 store `E:\.pnpm-store\v11` 保留；源 122,851 文件/2,080,992,131 bytes，
-  项目 store 已验证包含全部源内容，目标 173,348 文件/2,678,642,967 bytes，额外本地缓存 50,497 文件；
-  2,889 条内部链接已重写到项目内，78 条回指其他 checkout 的 store metadata link 跳过，抽样哈希通过。
-- 镜像没有调用 pnpm install、没有联网、没有删除/修剪 store；目标位于 `runtime/pnpm-store`，待正式槽位
-  安装后复核每个 `.modules.yaml` 的 `storeDir`。
-- checkpoint message：`chore(dev): complete project-local store mirror`；下一步是迁移/准备正式 warm pool，
-  然后执行授权 install、root bootstrap 和并发/新 session 验证。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-003（2026-09-04）
-
-- 外部 warm `E:\ScheduleWT\general-1` 已通过 Git-aware move 迁入 `runtime/wt/general-1`，HEAD 从
-  `5c45236d` 安全切换到 `origin/main@a93d90ff`；旧路径无真实 worktree data。
-- 一次性维护前置校验记录：参数绑定缺陷、fingerprint 父目录初始化缺陷、pnpmfile user-agent 观测缺陷均在
-  install/import/link 前失败，未修改槽位依赖、lockfile 或 store；修正已进入待提交工具链 diff。
-- store early tripwire 的实测 guard-test 仍为 484ms 退出、`EXIT_BEFORE_IMPORT=true`、`NODE_MODULES_MUTATED=false`、
-  `LOCKFILE_CHANGED=false`、`STORE_CHANGED=false`；下一步重试同一 general-1 授权维护并顺序准备 general-2..6。
-- checkpoint message：`fix(dev): make maintenance authorization and pool provisioning executable`；下一步 stop
-  condition unchanged: all six project-local slots must be healthy and root-bootstrap-ready before final main update。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-004（2026-09-04）
-
-- `general-1` 的首个真实 DependencyMaintenance 尝试按项目内 store、frozen lockfile、offline 执行约 5.5 分钟后
-  以 exit code 2 失败；未写成功 marker，槽位保持 clean 但依赖不健康，授权记录已清除。该次安装计入本轮
-  维护尝试，后续只有在确认损坏并修复根因后才可单独重试。
-- 修复尝试明确捕获 `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`：旧锁文件没有 `pnpmfileChecksum`，而带有空 package
-  hook 的 tripwire 会触发该配置比较。`.pnpmfile.cjs` 已改为只执行早期授权检查并导出空对象，保留 tripwire
-  且不要求改写锁文件；这是工具链兼容修正，不是依赖或 lockfile 变更。
-- 维护 wrapper 的授权/claim 清理改为 .NET 精确文件删除并在删除后复核，避免失败路径留下可复用授权；pool
-  非 JSON 输出补齐 `DEPENDENCY_MODE`、`ASSIGNED_WORKTREE`、`HIGHEST_GATE` 路由字段；release 文档明确普通
-  release 不得自行 install，依赖不匹配必须转入 DependencyMaintenance。
-- 最终清点时发现其他 Codex task 仍有活动状态，且其中一个刚完成项目内依赖 reconciliation；未终止任务、未删除
-  其槽位、未改动共享 store。stale worktree 收口和后续 install 暂停到活动进程/任务真正结束后再执行。
-- checkpoint 计划提交：`hardening(dev): make maintenance cleanup and task routing deterministic`；未包含业务源码、
-  `runtime/`、用户未跟踪文件或 `pnpm-lock.yaml`。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-005（2026-09-04）
-
-- `general-1` 修复性维护已通过 tripwire 并完成离线物化，但初次健康复核误把 pnpm 11 正常生成的
-  `runtime/pnpm-store/v11` 当成外部 store，因而未写 marker；未发生下载，lockfile 未变，授权和 claim 已清除。
-- `worktree-deps-core.mjs` 现只接受项目 store 根或该根下与 pnpm major 对应的 `v<major>` metadata 路径，保留
-  worktree-local virtual store 和独立 node_modules 约束；新增的 versioned-store health test 已通过。
-- 在活动 task 尚未完全结束前不操作其 lease/worktree；本轮不会强行终止并行任务或删除其生成物。
-- checkpoint 计划提交：`fix(dev): accept pnpm versioned project store metadata`；未包含业务源码或 `pnpm-lock.yaml`。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-006（2026-09-04）
-
-- `general-1` 已切换到当前工具链 checkpoint `3b892318`，通过一次性离线修复后由 `ReuseOnly + AdoptHealthyExisting`
-  采用：`READY_REUSE`、fingerprint `94dd3060…4516e4`、`.modules.yaml` 为项目 `runtime/pnpm-store/v11`、
-  worktree-local virtual store 和独立 node_modules 均通过；root profile bootstrap `READY_BOOTSTRAP`。
-- pool Register 首次暴露了 PowerShell 数组参数在子脚本边界的绑定缺陷，已改为参数哈希表并复核注册成功；没有
-  新增 install、没有下载、没有改 lockfile。授权目录当前为空。
-- checkpoint 计划提交：`fix(dev): pass pool dependency parameters safely`；下一步是等待活动 task/lease 释放后，
-  以 `general-1` 为基准顺序扩容其余正式槽位并执行收口矩阵。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-007（2026-09-04）
-
-- warm-pool provisioning 首次只完成前置解析即发现脚本使用 PowerShell 保留变量 `$HOME`，未创建 worktree、未
-  install、未改变 store；已改用 `canonicalProjectHome`，provision 与 legacy overlay 脚本 AST 复核通过。
-- `general-1` 仍是唯一已注册正式槽位；下一步重新运行 6-slot provisioning，顺序物化缺失槽位并逐个完成 root
-  bootstrap/register。
-- checkpoint 计划提交：`fix(dev): avoid reserved PowerShell home variable`；未包含业务源码或 lockfile。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-008（2026-09-05）
-
-- 6-slot 并发演练已通过：6 个 child Acquire 返回不同路径，Git worktree 数量 `49 → 49`，第 7 个请求返回
-  `POOL_BUSY` 且 `INSTALL_INVOKED=false`、`WORKTREE_CREATED=false`；6 个测试租约均释放，general 槽位仍 clean。
-- 演练期间修复了 pool manager 严格模式空队列遍历、竞争分支属性插值，以及验证器在部分 child 失败时的租约收集和
-  显式参数调用；没有触碰 icon task lease，没有创建冷 worktree。
-- 新增 `scripts/codex/validate-pool-concurrency.ps1`，仅用于确定性并发/溢出门禁；PowerShell AST 与工具链 Node
-  tests `17/17` 通过。checkpoint 计划提交：`test(dev): verify warm pool concurrency overflow`。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-009（2026-09-05）
-
-- canonical 根已完成项目内 store 迁移并通过 root bootstrap；6 个正式 general 槽位保持 clean/free，`.modules.yaml`
-  均指向 `runtime/pnpm-store/v11`，pool 并发演练结果仍为 6/6 distinct、N+1 `POOL_BUSY`、无 install/新建
-  worktree。
-- `E:\ScheduleWT\guardrails-integrate` 和无依赖的旧内部 pool worktree 已用 Git-aware 操作移除；其余 clean unique
-  worktree 已先写 recovery ref、tracked patch 和 SHA-256 manifest，再按 Windows 长路径结果分类。成功删除 13 个，
-  长路径失败项保留；dirty `directory-query-isolation` 和当前 active task 路径均未删除。
-- 两个失效的 `runtime/audit/preupload-*` 物理目录已从 Git stale 注册中保留为 `invalid-physical-worktree`，因没有
-  linked-worktree metadata 且可能含用户生成数据，不做递归删除；详情和状态 hash 在 `runtime/codex/recovery`。
-- legacy overlay 已覆盖 37 个 retained historical worktree，全部被本地 Git exclude，canonical Skill tree hash 为
-  `e7c83c77…c2cedd0`；从 `test-tools-finalization` 与 dirty historical 路径启动 setup 均输出 `REUSE_ONLY`、
-  `INSTALL_INVOKED=false`、`MANAGED_WORKTREE_NOT_WARM`。
-- 仍有两个 Codex task 处于 active 状态；其中 icon task/审计路径保留，不强行终止或改写。当前 checkpoint 未包含
-  业务源码、lockfile、runtime 数据或用户未跟踪文件。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-010（2026-09-05）
-
-- 最终 early-tripwire guard-test 已在 disposable worktree 实测 `493ms` 退出：未授权 install exit code 1、
-  `EXIT_BEFORE_IMPORT=true`、imported packages `0`、node_modules 未创建/未变、lockfile 未变、项目 store 文件数/字节数/
-  index SHA 前后一致；disposable worktree 已移除。
-- 新 canonical Codex 子 session 已完成完整演练：AGENTS/Skill/inspector/setup 加载，Acquire `general-1`、带 token
-  ReuseOnly、7 个 root producer bootstrap 全部 reused、最小工具链测试 `3/3`、精确 Release；最终事实为
-  `NEW_SESSION_AGENTS_LOADED=true`、`PROJECT_SKILL_AVAILABLE=true`、`POOL_ACQUIRE=READY_REUSE`、
-  `DEPENDENCIES_REUSED=true`、`INSTALL_INVOKED=false`、`HOOK_TRUST_PROMPT=false`、`POOL_RELEASE=READY_REUSE`。
-- 演练暴露的 bootstrap 非 JSON `reasons` 对象迭代错误已在当前待提交 diff 修复；这是输出格式 bug，不改变 bootstrap
-  决策或依赖环境。修复后需在正式槽位重跑非 JSON bootstrap 复核。
-- canonical root、6 个 general slot 和项目 store 均保持项目内；当前仅保留 icon task lease，其他 stale/active 审计
-  路径不强行终止。下一 checkpoint 计划提交：`fix(dev): handle bootstrap reason map output`。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-011（2026-09-05）
-
-- 复核发现 provisioning 已把 `-Profile root` 传给 pool Register，但 Register 只保留旧值，导致新建/重注册
-  槽位的 `bootstrapProfile` 元数据为空；Acquire 路径原本已正确写入 profile。已按 Acquire 的工作实现修复
-  Register，并新增回归断言；旧实现测试先红、修复后通过。
-- 6 个正式 general 槽位已重新 Register 为 `bootstrapProfile=root`；逐槽位 `ReuseOnly`、root bootstrap
-  均为 `READY_REUSE`/`READY_BOOTSTRAP`，每槽位 root 输出 `built=0,reused=7`，最小定向测试 6/6 通过。
-- 本 checkpoint 只涉及 pool 元数据/测试/状态文档；不涉及业务源码、依赖版本、lockfile、runtime 数据或生产。
-- 当前 Codex app 仍显示两个历史图标任务为 active；未终止、未抢占 lease/分支，待其自然结束后再做最终远端
-  fetch、overlay hash 同步、全量主线收口。该事实不是本工具链失败，但在结束前不能宣称所有并行任务已完成。
-- checkpoint message：`fix(dev): record bootstrap profile during pool registration`。
-
-## TOOLCHAIN-GUARDRAILS-FINAL-012（2026-09-05）
-
-- 在 `general-1` 运行最终 `pnpm verify` 时，首个 `format:check` 发现主线既有
-  `scripts/prepare-release-worktree.test.mjs` 有 4 行 Prettier 格式偏差；未进入 build、test 或 install。
-- 已按 Prettier 仅格式化该测试文件，行为与依赖输入不变；单文件 `prettier --check` 已通过。该修正作为
-  独立测试工具链 checkpoint，之后在最终 SHA 上重新运行一次完整 verify。
-- 当前仍有两个历史图标 Codex task 显示 active；没有中断或触碰其 lease/分支。checkpoint message：
-  `chore(test): restore release test formatting`。
+- root Vitest 的失败根因是 Node 原生测试文件落入 Vitest 默认 glob；`vitest.config.ts` 现在把 `scripts/codex/**`
+  列入 exclude，保留它们由 `node --test` 独立运行。`docs/project-status.md` 同时保持 250 行以内；配置/文档
+  定向验证已通过。
+- 本 checkpoint 只涉及 Vitest 测试收集边界和状态文档压缩，不涉及业务源码、依赖版本、lockfile、runtime 数据或生产。
+- checkpoint message：`fix(test): isolate node toolchain tests from Vitest`。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：确认历史并行 task/process 已结束（或记录真实保留项）后，提交格式修正，重新 fetch，
-  在最终项目内 warm 槽位运行完整工具链验证，并更新最终收口事实。
-- 停止条件：6 个槽位均为项目内、独立、clean、detached、healthy、root bootstrap ready，所有最终验证值
-  已记录；不部署 production、不创建备份、不迁移数据库、不上传小程序。若某个 dirty/唯一提交/外部 store
-  所有权无法安全处理，则保留恢复证据并报告真实数量，不丢弃数据。
+- 唯一下一任务：提交并推送本 checkpoint，在最终项目内 warm 槽位重新运行完整 `pnpm verify`，完成最后 fetch/状态
+  复核与主线收口。
+- 停止条件：完整工具链门禁通过或明确记录不可归因/预存在失败；6 个正式槽位仍为项目内独立 clean warm；不部署
+  production、不备份、不迁移数据库、不上传小程序。所有变更均显式暂存，不纳入 runtime、用户未跟踪文件或业务源码。
