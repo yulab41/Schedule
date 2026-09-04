@@ -2453,7 +2453,8 @@
   功能或视觉通过，需由后续 exact candidate/Xiaomi 14 补齐。
 - 边界：未调用微信开发者工具 GUI/CLI，未创建真实 trial tag，未上传、放行、提审、正式发布，未连接或部署
   production。B2 只恢复已审计 B1/B1.1；B1.2 视觉差异继续留给下一独立批次。
-- 最新主线整合：验证期间 `origin/main` 前进到 `fa10d5ba`，其官方 `scripts/codex/worktree-deps-*` 取代临时
+- 最新主线整合：验证期间 `origin/main` 经 `fa10d5ba` 前进到 `765b5c09`；官方
+  `scripts/codex/worktree-deps-*` 取代临时
   `d62f780c` checker，最终树不保留重复 CLI/core。官方 `ReuseOnly -AdoptHealthyExisting` 与再次 ReuseOnly
   均为 READY_REUSE、依赖复用 true、安装 false；主线对 Mini/Web/icon runtime 改动数为 0。
 - 官方工具回归：Node test runner 13/13、Vitest 17/17、Skill validator、4 个 Node syntax、仓库 format、diff
@@ -2462,3 +2463,5 @@
   无运行语义变化。
 - 清理说明：临时 v1 marker 的精确删除被本机安全策略拒绝，未绕过；它位于 Git-admin 且无最终消费者，官方
   v2 state 与后续判断不受影响。
+- 最终 ancestry：`bce96ce8` 的第二父提交为 `765b5c09`；`origin/main`、`5285dd17`、`1ffab10c` 和
+  `c027abcd` 均经 `git merge-base --is-ancestor` 返回 0。

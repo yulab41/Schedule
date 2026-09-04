@@ -2,16 +2,15 @@
 
 ## 当前阶段
 
-- 当前批次：用户已明确授权 dependency-guard 前置批次及 `EXP-ICON-004-B2`。图标血缘已以
-  `24ea709e`（`merge: restore EXP-ICON-004 shared icon lineage`）完成 checkpoint；正在形成随后最新主线
-  guardrail 整合 checkpoint。
+- 当前批次：用户已明确授权 dependency-guard 前置批次及 `EXP-ICON-004-B2`。图标血缘 checkpoint 为
+  `24ea709e`；最新主线 guardrail 整合 checkpoint 为 `bce96ce8`，正在形成最终状态文档 checkpoint。
 - 独立 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。B2 起点已含当时最新 `75cc0d3b`；验证期间前进的
-  `origin/main=fa10d5ba` 已进入待提交 merge。
+  `origin/main=765b5c09` 已作为 `bce96ce8` 第二父提交合入。
 - 图标 merge 的三个冲突只在状态/debug 文档；最新主线 merge 的三个冲突只在 dependency reference、release
   helper 和项目状态。全部按“当前状态 + 原始历史 + 官方 guardrail 单一来源”解析，生产图标代码无冲突。
 - 两次普通 push 曾被 GitHub Schannel TLS 握手失败阻断；远端现已恢复。验证期间前进的
-  `origin/main@fa10d5ba` 已合入待提交树；主线只触及 guardrail/文档/工具，对图标运行时范围改动数为 0。
+  `origin/main@765b5c09` 已合入；主线只触及 guardrail/文档/工具，对图标运行时范围改动数为 0。
   官方实现已取代 `d62f780c` 的临时重复脚本，最终树只有一个 dependency source。
 - 本轮不创建真实 trial tag、不上传体验版、不操作 allowlist、不提审、不正式发布、不连接或部署 production。
 
@@ -60,6 +59,6 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：创建 `merge: integrate official Schedule guardrails after icon recovery` checkpoint，提交后验证
-  main/B1/B1.1 ancestry 并普通推送调查分支。
-- 推送成功即停止；不进入 B3、L3 上传或 L4 服务器操作。
+- 唯一下一任务：创建 `docs(audit): record EXP-ICON-004 B2 integration` checkpoint 并普通推送调查分支；
+  `bce96ce8` 已验证 main/B1/B1.1/B1-lineage ancestry 全部成立。
+- 推送成功即停止；不进入 B3、L3 上传、Hook 审核/重启或 L4 服务器操作。

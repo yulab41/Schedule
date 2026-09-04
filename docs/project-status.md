@@ -9,11 +9,13 @@
   （`merge: restore EXP-ICON-004 shared icon lineage`），父提交精确包含本分支与 `5285dd17`；后者的祖先包含
   `1ffab10c`。生产图标代码无 merge conflict。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
-  `codex/exp-icon-004-lineage-b12-20260903`。验证期间 `origin/main` 从 `75cc0d3b` 前进到 `fa10d5ba`；最新主线
-  已合入待提交树，且对 Mini/Web/ui-icons/tokens/lockfile 的运行时改动数为 0。
+  `codex/exp-icon-004-lineage-b12-20260903`。验证期间 `origin/main` 从 `75cc0d3b` 经 `fa10d5ba` 前进到
+  `765b5c09`；最新主线已作为 `bce96ce8` 的第二父提交合入，且对 Mini/Web/ui-icons/tokens/lockfile 的运行时
+  改动数为 0。
 - 主线 merge 的冲突仅为 dependency reference、release helper 和本状态文档，均已解析。最终保留
   `fa10d5ba` 官方 `scripts/codex/worktree-deps-*` 单一来源；临时 `d62f780c` checker 文件已删除，避免两套事实源。
-- 最新主线整合 checkpoint 以 `merge: integrate official Schedule guardrails after icon recovery` 识别。
+- 最新主线整合 checkpoint：`bce96ce8`（`merge: integrate official Schedule guardrails after icon recovery`）。
+  最终状态文档 checkpoint 以 `docs(audit): record EXP-ICON-004 B2 integration` 识别。
 - 当前边界：不创建真实 trial tag、不上传体验版、不操作 allowlist、不提审、不正式发布、不连接、查询或部署
   production。此前用户对一次 frozen install 的授权已消费，不允许再次安装。
 
@@ -48,8 +50,9 @@
   `3a1b7a6d…`；未执行第二次安装。
 - 临时 v1 marker 的精确删除被本机安全策略拒绝，未绕过；它位于 Git-admin、没有最终代码消费者。官方只读
   `schedule-worktree-state/dependencies-v2.json`，判断不受影响。
-- `TOOLCHAIN-GUARDRAILS-002` 的动态 Git/trial/production 身份与版本分配仍是主线后续任务；不因本轮 B2
-  自动开始。MINI-G1-004 仍是“证据不足，保留 P3”，`.85` 只用于其既有 Xiaomi 14 人工补证。
+- `TOOLCHAIN-GUARDRAILS-002@765b5c09` 的动态 Git/trial/production 身份与版本分配已随主线保留；其后续
+  Hook 人工审核/重启是独立任务，本轮不开始。MINI-G1-004 仍是“证据不足，保留 P3”，`.85` 只用于既有
+  Xiaomi 14 人工补证。
 
 ## 验证与预算
 
@@ -60,7 +63,7 @@
   Mini verify/package/source/performance/determinism/CI dry-run。
 - `pnpm verify` 的 format/lint/build/typecheck 全绿；Mini 再次 122/663，根 Vitest 247 files passed/37 skipped、
   1,178 passed/364 skipped，总耗时 303,368ms。以上证据属于 `24ea709e` checkpoint tree 与相同依赖环境；合入
-  `fa10d5ba` 后只需复核受影响 guardrail/tooling 与依赖复用，不重复昂贵应用 gate。
+  `765b5c09` 后仅复核受影响 guardrail/tooling 与依赖复用，没有重复昂贵应用 gate。
 - 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动失败；临时 Vite 后可打开登录页，但本地 API
   3000 未运行，管理员步骤停在 `/login?redirect=/`。Vite 已关闭；`pnpm smoke:check-core` 已通过。不宣称
   浏览器功能、Mini 原生或 Xiaomi 14 视觉通过。
@@ -83,6 +86,6 @@
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：审阅 staged diff，创建 `merge: integrate official Schedule guardrails after icon recovery`
-  checkpoint；提交后确认 `origin/main`、`5285dd17`、`1ffab10c` 均为 HEAD 祖先，再普通推送调查分支。
-- 推送成功即停止；不进入 B3、L3 体验上传、TOOLCHAIN-GUARDRAILS-002 或 L4 服务器操作。
+- 唯一下一任务：创建 `docs(audit): record EXP-ICON-004 B2 integration` 文档 checkpoint 并普通推送调查分支。
+  当前 `bce96ce8` 已确认 `origin/main@765b5c09`、`5285dd17`、`1ffab10c`、`c027abcd` 均为祖先。
+- 推送成功即停止；不进入 B3、L3 体验上传、Hook 审核/重启或 L4 服务器操作。
