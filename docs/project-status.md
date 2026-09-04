@@ -6,8 +6,8 @@
 ## 当前仓库批次（2026-09-05）
 
 - 当前活动批次：`TOOLCHAIN-GUARDRAILS-FINAL`（Schedule Codex 依赖复用、项目内 warm pool、早期安装阻断和
-  无 Hook trust 收口）。当前 canonical 根为 `E:\AItools\Schedule`，当前 `main`/`origin/main` 均为
-  `a505746a`（`fix(test): isolate node toolchain tests from Vitest`）。
+  无 Hook trust 收口）。当前 canonical 根为 `E:\AItools\Schedule`；最终完整工具链验证对应代码 SHA 为
+  `a505746a`，其后仅有状态/文档 checkpoint，当前主线以 Git `HEAD`/`origin/main` 为准。
 - 前序 production/Mini 证据仍按各自冻结 SHA 解释；本批不接 production、不备份、不迁移数据库、不上传小程序，
   不把 Node/静态/simulate 结果写成 Xiaomi 14 原生验收。
 - 根工作树 tracked 文件干净；既有未跟踪 `.agents/`、`runtime/`、`src/` 和本地表格为用户所有，未删除、覆盖、
@@ -103,6 +103,8 @@
 
 - 项目工具链本线程已完成：静态门禁、安装 tripwire、pool 溢出、SHA 切换、6 槽 ReuseOnly/bootstrap、canonical
   新 session 和 historical overlay 新 session 演练均有 ignored 证据；本轮没有生产、数据库或小程序上传操作。
+- 最终状态 checkpoint 之后，6 个 formal general slot 已无安装同步到 `7bf50bd0`，逐槽 `ReuseOnly`、root bootstrap
+  和最小定向测试仍通过，`built=0,reused=7`；这是 docs-only SHA 漂移，未使完整验证代码证据失效。
 - Codex app 最后检查仍显示历史图标任务“收口 Web 与小程序图标一致性”和“审计图标一致性迁移方案 (2)”为 active；
   当前唯一 lease 是 `runtime/wt/icon-parity-1`，有进程/未完成上传任务，未被本线程中断、抢占或删除。故不能把
   `ALL_PREVIOUS_PARALLEL_TASKS_FINISHED` 写成 true；其余正式 general pool 不受影响且 6 个均 free。
