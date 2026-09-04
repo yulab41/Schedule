@@ -3,7 +3,8 @@
 ## 当前阶段
 
 - 当前批次：`ICON-PARITY-CLOSE-001`（Web/Mini 生产图标五层 parity、生成资产 liveness、动效和体验版血缘收口）。
-  机器静态/Node 门禁已通过；Xiaomi 14 原生视觉仍未取得与当前候选匹配的用户证据，不写成真机通过。
+  机器静态/Node/完整 verify/体验上传/allowlist 门禁已通过；Xiaomi 14 原生视觉仍未取得与当前候选匹配的用户证据，
+  不写成真机通过。
 - 前序 `MINI-G1-004` 第二阶段补证、体验版 `.85` 及其“等待 Xiaomi 14 反馈”的历史结论保留在下方，不再作为本轮
   唯一下一任务。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
@@ -25,8 +26,9 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## ICON-PARITY-CLOSE-001 机器证据
 
-- 候选工作树：`runtime/wt/icon-parity-1`，基于工具链 checkpoint 工作；起始 `origin/main@bb81e723`，冻结前
-  最近 fetch 的最新主线为 `ba1e97a7`。历史 `1ffab10c`、`5285dd17`、`71110712` 已做祖先/等价实现核对。
+- 候选工作树：`runtime/wt/icon-parity-1`，分支 `codex/icon-parity-current-20260904`；起始
+  `origin/main@bb81e723`，当前最新主线为 `32792fe4`（仅 status 文档），已由 final merge 纳入。历史
+  `1ffab10c`、`5285dd17`、`71110712` 已做祖先/等价实现核对。
 - `pnpm icon:parity` 已通过：55 canonical definitions、58 generated Mini SVG、138 生产引用、legacy 0、未消费资产 0、
   Mini keyframes 32/32、Web/Mini motion bindings 31/25、generator 连跑 deterministic；隔离 gallery 无登录/API。
 - 未调用微信开发者工具 GUI/CLI、模拟器、Console/Network 或截图。Node/静态/browser gallery 证据只能说明机器门禁和
@@ -50,6 +52,17 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
   error。未调用微信开发者工具 GUI/CLI，Xiaomi 14 原生视觉仍未验证。
 - exact `ea83a45a` 的完整 `pnpm verify` 首次尝试在 format:check 退出码 1 停止，未进入昂贵 build/test；两个格式问题
   已修正并通过 `pnpm format:check`，因此该 SHA 不再是候选。
+
+## ICON-PARITY-CLOSE-001 最终上传收口
+
+- exact source candidate `5aff4449e0f2ef703b367c846b67a9e51bac04bf` 的 `pnpm verify` 通过：Mini 123 files/671 tests、
+  Node 22/22、root Vitest 248 files（37 skipped）、1173 passed/364 skipped；verify log SHA-256
+  `0a54379cc6c662fc4182c3b536f33746b799af69e5fac00b3ff4713c2de9beb4`。
+- 动态分配并上传 `0.1.0-p10.20260905.87`，description `exp-icon-004-web-mini-parity-5aff444`，production
+  manifest `7b1acbe671d78fc8c10510407fb8a07107a8e738015fa6b0033a2b0a7b677a9a`；远端 immutable tag 与 receipt
+  均绑定同一 source SHA。首次代理/TUN 路由返回 `-10008 invalid ip`，复用 exact dist、进程级 IPv4 fallback 后上传成功。
+- 可信 add-only `schedule-client-version-allowlist ensure .87` 与独立 `verify` 均 exit 0；旧 legacy/unknown=426
+  校验通过，MySQL 未重建。GitHub 普通 HTTPS push、canonical ECS SSH（known_hosts + StrictHostKeyChecking=yes）均通过。
 
 ## 已保留的主线事实
 
@@ -99,7 +112,5 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：把格式修正纳入当前 latest-main/lineage/tooling checkpoint，重新冻结 exact clean candidate，并仅在
-  所有版本血缘、包体、source/package/determinism 与完整 verifier 通过后动态选择并上传体验版。
-- 本批停止条件：上传后验证版本、source SHA、manifest、allowlist 和网络路线；不提审、不正式发布、不部署 ECS/
-  数据库，并明确保留“Xiaomi 14 原生视觉待用户提供匹配证据”的边界。
+- 唯一下一任务：无；已完成最新主线整合、exact candidate 验证、体验上传、版本血缘、allowlist 与网络记录。
+- 本批停止条件已满足：不提审、不正式发布、不部署 ECS/数据库，保留“Xiaomi 14 原生视觉待用户提供匹配证据”的边界。

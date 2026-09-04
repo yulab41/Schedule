@@ -80,5 +80,5 @@ docs/agent-context/pitfall-index.json，只加载匹配坑位详情。
   绑定到已 TLS 预检的 129.226.106.233 后成功；保留 hostname/SNI/证书校验，未改系统 hosts/VPN/DNS。
 - ECS：仅 canonical hostname SSH 用于本消息授权的 allowlist ensure/verify；known_hosts/StrictHostKeyChecking 保持开启，
   未使用 direct-IP fallback。
-- 当前唯一下一任务：完成文档-only merge 的普通 push，更新 ignored task state 与最终 log hashes，释放本任务 warm
-  lease；停止于体验版验证，不提审、不正式发布、不部署 production。
+- 当前唯一下一任务：完成最终审计文档 checkpoint 的普通 push，更新 ignored task state 与最终 log hashes，释放本任务
+  warm lease；停止于体验版验证，不提审、不正式发布、不部署 production。

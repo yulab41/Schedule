@@ -265,3 +265,19 @@ B1.1 新候选须额外聚焦：日历未激活颜色、激活循环、重复点
 active/inactive 颜色与 1.8 线宽、只在切入 employee 时播放一次、520ms 节奏；reduced-motion 下两者均停止非必要动画。
 
 当前不得据此声称 iOS、全部 Android、所有基础库或全平台通过；未取得匹配真机证据前，状态保持“待用户复核”。
+
+## 2026-09-05 最终机器门禁与体验版血缘
+
+- 最终 exact source candidate `5aff4449e0f2ef703b367c846b67a9e51bac04bf` 通过完整 `pnpm verify`；独立 gallery、
+  package/source/determinism/CI dry-run/lineage gates 也通过。当前 `origin/main@32792fe4` 只包含工具链/状态文档
+  变化，已由最终 merge 纳入；未覆盖图标或 Mini/Web runtime。
+- 体验版由 allocator 动态选为 `0.1.0-p10.20260905.87`，production profile，description
+  `exp-icon-004-web-mini-parity-5aff444`，manifest `7b1acbe671d78fc8c10510407fb8a07107a8e738015fa6b0033a2b0a7b677a9a`；
+  远端 tag、build profile、receipt 均绑定 `5aff4449`。普通代理路由首次返回 `-10008 invalid ip`，随后使用已 TLS
+  预检的进程级 IPv4 lookup 复用同一 dist 成功；没有换版本。
+- 可信 add-only allowlist `ensure .87` 与 `verify` 均通过，旧 legacy 与 unknown=426 保持验证；该动作仅重建
+  API/Web，未重建 MySQL。GitHub/ECS 均使用已验证 hostname/strict host-key 路线；未执行正式提审/发布、数据库或
+  无关 production 部署。
+- 三个历史定位提交在最终 Git graph 中不是祖先，但 policy 中登记的 canonical tree-file blob proofs 全部匹配，且
+  parity gate 证明当前语义、几何、context、状态、motion 与构建交付合同完整；因此这是可审计的等价实现，不是旧源码
+  借高版本号上传。Xiaomi 14 原生视觉与动效仍待匹配环境人工证据。

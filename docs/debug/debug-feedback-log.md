@@ -2519,3 +2519,26 @@
   Prettier 差异后退出码 1，未运行 build/test；修正后 `pnpm format:check` 通过，候选 SHA 随之失效并重新整合。
 - 工具链改动只扩展本地 L2 精确锁文件 reconciliation；不提供依赖升级、联网、手工 link、production、数据库、
   force push 或正式发布绕过。未调用微信开发者工具 GUI/CLI，Xiaomi 14 原生视觉仍未验证。
+
+## 2026-09-05 ICON-PARITY-CLOSE-001 最终 candidate / upload
+
+- 最新主线在候选期间连续前进至 `32792fe4`，变化均为 bootstrap/test/status 工具链或文档；最终分支以正常 merge
+  纳入，没有 force push。上传前 exact source candidate 为 `5aff4449`，发布后文档-only merge 为 `52e56d9f`。
+- 机器 parity 最终为 55 canonical definitions、58 Mini SVG、138 production references、legacy 0、unreferenced
+  0、13 contexts、14 stateful groups、Web/Mini motion 31/25、Mini keyframes 32/orphan 0；独立 Edge gallery
+  55/13/44，stop/start loop/one-shot `2/1 → 0/0 → 2/1`，无 404/console error。Xiaomi 14 原生视觉仍未验证。
+- `pnpm verify` 在最终 exact source candidate 运行成功；Mini 123 files/671 tests、Node 22/22、root Vitest
+  248 files（37 skipped）、1173 passed/364 skipped，log SHA-256 为
+  `0a54379cc6c662fc4182c3b536f33746b799af69e5fac00b3ff4713c2de9beb4`。未重复 verify 已覆盖的 build/typecheck/
+  full suites/root tests/format/lint；final release gates package/source/determinism/CI dry-run/lineage 均通过。
+- 动态 allocator 选择 `0.1.0-p10.20260905.87`；source SHA `5aff4449e0f2ef703b367c846b67a9e51bac04bf`、
+  production profile、description `exp-icon-004-web-mini-parity-5aff444`、manifest
+  `7b1acbe671d78fc8c10510407fb8a07107a8e738015fa6b0033a2b0a7b677a9a`；远端 tag 与 receipt 精确一致。
+- 首次微信代理/TUN 路由收到 `-10008 invalid ip`，没有换版本；保留 `.87` tag，复用 exact dist 后清除本进程代理，
+  用 `force-servicewechat-ipv4.cjs` 的已 TLS 预检 IPv4 `129.226.106.233` 重试成功。未调用 DevTools GUI/CLI。
+- canonical ECS SSH 仅执行本消息授权的 add-only `schedule-client-version-allowlist ensure .87` 与独立 `verify`，
+  均 exit 0；MySQL 未重建，旧 legacy 与 unknown=426 由可信工具验证。未做数据库备份/迁移、正式提审/发布或无关
+  production 部署。
+- 依赖 fingerprint `b392a5b8…0dbc48e` 最终 `READY_REUSE`，installInvoked=false；全轮五个 distinct fingerprint
+  各一次有效 frozen reconciliation，child invocation 9、下载 0、tracked tree 不变。L2 当前消息授权和网络路线已
+  固化到 ignored `runtime/codex` 台账，临时授权文件无残留。
