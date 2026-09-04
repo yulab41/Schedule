@@ -286,9 +286,19 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
   fetch、overlay hash 同步、全量主线收口。该事实不是本工具链失败，但在结束前不能宣称所有并行任务已完成。
 - checkpoint message：`fix(dev): record bootstrap profile during pool registration`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-012（2026-09-05）
+
+- 在 `general-1` 运行最终 `pnpm verify` 时，首个 `format:check` 发现主线既有
+  `scripts/prepare-release-worktree.test.mjs` 有 4 行 Prettier 格式偏差；未进入 build、test 或 install。
+- 已按 Prettier 仅格式化该测试文件，行为与依赖输入不变；单文件 `prettier --check` 已通过。该修正作为
+  独立测试工具链 checkpoint，之后在最终 SHA 上重新运行一次完整 verify。
+- 当前仍有两个历史图标 Codex task 显示 active；没有中断或触碰其 lease/分支。checkpoint message：
+  `chore(test): restore release test formatting`。
+
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：确认历史并行 task/process 已结束后，重跑最终 fetch/overlay hash/主线收口和最终工具链验证。
+- 唯一下一任务：确认历史并行 task/process 已结束（或记录真实保留项）后，提交格式修正，重新 fetch，
+  在最终项目内 warm 槽位运行完整工具链验证，并更新最终收口事实。
 - 停止条件：6 个槽位均为项目内、独立、clean、detached、healthy、root bootstrap ready，所有最终验证值
   已记录；不部署 production、不创建备份、不迁移数据库、不上传小程序。若某个 dirty/唯一提交/外部 store
   所有权无法安全处理，则保留恢复证据并报告真实数量，不丢弃数据。
