@@ -5,9 +5,8 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`TOOLCHAIN-GUARDRAILS-002`（动态发现并冻结 Git/体验版/production 发布身份，以及体验版
-  版本分配边界）。前序 `TOOLCHAIN-GUARDRAILS-001` 已在 `fa10d5ba` 收口；`MINI-G1-004` 仍保留“证据仍
-  不足，保留 P3”的审计结论，不因本批进入业务修复。
+- 当前活动批次：`TOOLCHAIN-GUARDRAILS-003`（按需加载的小程序安全胶囊与防漂移校验）。前序动态身份批次已在
+  `765b5c09` 收口；`MINI-G1-004` 仍保留“证据仍不足，保留 P3”的审计结论，不因本批进入业务修复。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -142,6 +141,19 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - 本批只修改 Skill、AGENTS 和 runbook/status；未安装依赖、未运行全仓测试或 production build，未分配/上传
   体验版，未连接、查询、备份或部署 production。checkpoint 以
   `docs(agent): make release identities dynamic` 识别。
+
+## TOOLCHAIN-GUARDRAILS-003（2026-09-04）
+
+- 审计确认用户给出的五条 Mini 避坑边界已分别由 `miniprogram.md`、`testing-and-evidence.md`、根/子目录
+  `AGENTS.md` 和既有 runbook 保存；不再把整段复制进 `SKILL.md` 或每轮 Prompt。
+- `SKILL.md` 只增加条件说明：Mini 修改自动组合 Mini reference 与级别所需 testing/evidence reference；非 Mini
+  L1 dry-run 不加载 Mini reference。`miniprogram.md` 仅增加胶囊路由说明，不复制事实规则。
+- validator 现在固定检查 clean target SHA/独立 worktree、禁止主树混合 `dist`、`version=local`、Mini 不自动
+  production/备份、Xiaomi 14 最终验收、同环境父/新 SHA 对比和诊断包体语义。定向红绿先捕获缺少胶囊路由，
+  补齐后 Skill 结构/front matter、11 个 Markdown/74 个链接、3 个 PowerShell 只读 AST 和 Node YAML 解析
+  通过；`quick_validate.py` 仍因缺 PyYAML 无法启动，遵守禁装依赖边界未补装。
+- 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
+  checkpoint 以 `docs(agent): route Mini safety capsule` 识别。
 
 ## 唯一下一任务与停止条件
 

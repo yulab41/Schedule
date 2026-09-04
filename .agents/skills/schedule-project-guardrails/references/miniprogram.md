@@ -11,6 +11,10 @@ Authoritative sources:
 - [release and rollback runbook](../../../../apps/miniprogram/docs/runbooks/release-and-rollback.md)
 - [Xiaomi 14 acceptance protocol](../../../../docs/audit/XIAOMI14_TEST_PROTOCOL.md)
 
+## Mini guardrail capsule
+
+For a Mini modification, pair this reference with [testing/evidence](testing-and-evidence.md), which is already part of `L1`–`L3` routing. Together they carry the clean-source, upload, production-separation, device-acceptance, comparable-evidence, and bundle-content boundaries without copying a safety paragraph into every prompt. Do not load this capsule for unrelated work.
+
 ## Execution boundary
 
 Load `$miniprogram-development` for Mini tasks, but do not invoke its WeChat DevTools actions. This repository forbids an agent from starting, waking, closing, inspecting, controlling, or automating the DevTools GUI/CLI. Node-based repository scripts remain available within the selected task level.
