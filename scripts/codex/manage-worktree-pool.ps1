@@ -382,9 +382,14 @@ function Write-Result {
     else {
         $Value | ConvertTo-Json -Depth 12
         Write-Output "TASK_STATUS=$($Value.taskStatus)"
+        Write-Output 'DEPENDENCY_MODE=REUSE_ONLY'
         Write-Output "DEPENDENCIES_REUSED=$(([bool]$Value.dependenciesReused).ToString().ToLowerInvariant())"
         Write-Output "INSTALL_INVOKED=$(([bool]$Value.installInvoked).ToString().ToLowerInvariant())"
         Write-Output "WORKTREE_CREATED=$(([bool]$Value.worktreeCreated).ToString().ToLowerInvariant())"
+        if ($Value.PSObject.Properties.Name -contains 'data' -and $Value.data -and $Value.data.PSObject.Properties.Name -contains 'path') {
+            Write-Output "ASSIGNED_WORKTREE=$($Value.data.path)"
+        }
+        Write-Output "HIGHEST_GATE=$($Value.taskStatus)"
         Write-Output "WORKTREE_POOL_ROOT=$PoolRoot"
         Write-Output 'NESTED_WORKTREE_CREATION=false'
     }

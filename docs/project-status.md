@@ -192,11 +192,27 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - checkpoint message：`fix(dev): make maintenance authorization and pool provisioning executable`；下一步 stop
   condition unchanged: all six project-local slots must be healthy and root-bootstrap-ready before final main update。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-004（2026-09-04）
+
+- `general-1` 的首个真实 DependencyMaintenance 尝试按项目内 store、frozen lockfile、offline 执行约 5.5 分钟后
+  以 exit code 2 失败；未写成功 marker，槽位保持 clean 但依赖不健康，授权记录已清除。该次安装计入本轮
+  维护尝试，后续只有在确认损坏并修复根因后才可单独重试。
+- 修复尝试明确捕获 `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`：旧锁文件没有 `pnpmfileChecksum`，而带有空 package
+  hook 的 tripwire 会触发该配置比较。`.pnpmfile.cjs` 已改为只执行早期授权检查并导出空对象，保留 tripwire
+  且不要求改写锁文件；这是工具链兼容修正，不是依赖或 lockfile 变更。
+- 维护 wrapper 的授权/claim 清理改为 .NET 精确文件删除并在删除后复核，避免失败路径留下可复用授权；pool
+  非 JSON 输出补齐 `DEPENDENCY_MODE`、`ASSIGNED_WORKTREE`、`HIGHEST_GATE` 路由字段；release 文档明确普通
+  release 不得自行 install，依赖不匹配必须转入 DependencyMaintenance。
+- 最终清点时发现其他 Codex task 仍有活动状态，且其中一个刚完成项目内依赖 reconciliation；未终止任务、未删除
+  其槽位、未改动共享 store。stale worktree 收口和后续 install 暂停到活动进程/任务真正结束后再执行。
+- checkpoint 计划提交：`hardening(dev): make maintenance cleanup and task routing deterministic`；未包含业务源码、
+  `runtime/`、用户未跟踪文件或 `pnpm-lock.yaml`。
+
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：在该 checkpoint 上执行项目 store 镜像、迁移外部 warm worktree、顺序准备 6 个正式槽位，
-  运行 early-tripwire/pool/SHA/bootstrap/new-session/legacy-overlay 验证，清点并安全收口 stale worktree，
-  再 fetch 并普通 fast-forward 推进最终 `origin/main`。
+- 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，
+  顺序准备 6 个正式槽位，运行 early-tripwire/pool/SHA/bootstrap/new-session/legacy-overlay 验证，再 fetch
+  并普通 fast-forward 推进最终 `origin/main`。
 - 停止条件：6 个槽位均为项目内、独立、clean、detached、healthy、root bootstrap ready，所有最终验证值
   已记录；不部署 production、不创建备份、不迁移数据库、不上传小程序。若某个 dirty/唯一提交/外部 store
   所有权无法安全处理，则保留恢复证据并报告真实数量，不丢弃数据。

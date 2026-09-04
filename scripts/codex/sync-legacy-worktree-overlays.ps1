@@ -94,6 +94,7 @@ try {
             }
             continue
         }
+        $overlayExists = Test-Path -LiteralPath $overridePath -PathType Leaf
         $overlay = @(
             '# Schedule legacy worktree overlay',
             'Schedule project: medical-staff-scheduling-system.',
@@ -110,7 +111,7 @@ try {
             [IO.File]::AppendAllText($exclude, "AGENTS.override.md$([Environment]::NewLine)", [Text.UTF8Encoding]::new($false))
         }
         $ignored = Invoke-Git -WorkingDirectory $path -Arguments @('check-ignore', '-q', '--no-index', 'AGENTS.override.md')
-        $created += 1
+        if (-not $overlayExists) { $created += 1 }
         $records += [pscustomobject]@{ path = $path; head = $entry.head; branch = $entry.branch; overlayVersion = 1; canonicalSkillTreeHash = $skillHash; ignored = ($ignored -eq '') }
     }
     $statePath = Join-Path $home 'runtime/codex/state/legacy-overlays.json'

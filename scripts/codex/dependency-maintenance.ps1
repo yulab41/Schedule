@@ -54,6 +54,17 @@ function Write-AtomicJson {
     Move-Item -LiteralPath $temporary -Destination $Target -Force
 }
 
+function Remove-AuthorizationArtifacts {
+    param([Parameter(Mandatory = $true)][string]$AuthorizationFile)
+    foreach ($candidate in @($AuthorizationFile, "$AuthorizationFile.claim")) {
+        if (-not [IO.File]::Exists($candidate)) { continue }
+        [IO.File]::Delete($candidate)
+        if ([IO.File]::Exists($candidate)) {
+            throw "Unable to remove dependency-maintenance authorization artifact: $candidate"
+        }
+    }
+}
+
 try {
     $hint = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
     $worktree = [IO.Path]::GetFullPath((Get-GitValue -WorkingDirectory $hint -Arguments @('rev-parse', '--show-toplevel')))
@@ -121,9 +132,7 @@ try {
         if ($exitCode -ne 0) { exit $exitCode }
     }
     finally {
-        foreach ($candidate in @($authorizationFile, "$authorizationFile.claim")) {
-            if (Test-Path -LiteralPath $candidate) { Remove-Item -LiteralPath $candidate -Force -ErrorAction SilentlyContinue }
-        }
+        Remove-AuthorizationArtifacts -AuthorizationFile $authorizationFile
     }
 }
 catch {
