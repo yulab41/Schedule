@@ -1,13 +1,22 @@
 # Release-candidate routing
 
-Read this reference for `L3` only. It does not grant production access.
+Read the dynamic identity section whenever a task depends on version/SHA/release freshness. Read the remaining candidate sections for `L3` only. This reference does not grant production access.
 
 Authoritative sources:
 
+- [dynamic release identity and baseline freeze](../../../../docs/operations/runbook.md#动态发布身份与基线冻结)
 - [release worktree helper](../../../../scripts/prepare-release-worktree.mjs)
 - [ECS packager](../../../../scripts/package-ecs-release.mjs) and [release cache](../../../../scripts/release-cache.mjs)
 - [release-cache pitfall](../../../../docs/agent-context/pitfalls/release-cache-and-reuse.md)
 - Platform-specific release runbooks routed by the task
+
+## Dynamic release identity
+
+Values recorded in prompts, examples, plans, or status documents are timestamped evidence, not permanent defaults. Follow the operations runbook to discover only the state permitted by the current authorization at task start, revalidate the affected identities immediately before the first external mutation, and freeze the run baseline when that mutation starts.
+
+Keep fetched `origin/main`, the latest eligible uploaded Mini Program trial, and the production live release as independent identities even when two values happen to share a SHA. Without an explicitly authorized current `L4` lookup, a recorded production value must remain `LIVE_RELEASE_VERIFIED=false` and cannot be used as a current rollback or deployment fact.
+
+For Mini Program version selection and immutable version/SHA/Manifest binding, also read [Mini Program routing](miniprogram.md).
 
 ## Candidate invariant
 

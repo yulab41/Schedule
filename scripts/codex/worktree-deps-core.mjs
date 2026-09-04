@@ -1,0 +1,728 @@
+/* global console, process */
+
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+export const DEPENDENCY_MARKER_SCHEMA_VERSION = 2;
+export const DEFAULT_DEPENDENCY_MODE = 'ReuseOnly';
+export const REQUIRED_ROOT_EXECUTABLES = ['eslint', 'prettier', 'tsc', 'vitest'];
+export const PNPM_LAYOUT_CONFIG_KEYS = [
+  'enableGlobalVirtualStore',
+  'nodeLinker',
+  'packageImportMethod',
+  'recursiveInstall',
+  'sideEffectsCache',
+  'storeDir',
+  'virtualStoreType',
+  'verifyDepsBeforeRun',
+  'strictDepBuilds',
+];
+export const PNPM_INSTALL_ARGUMENTS = [
+  'install',
+  '--frozen-lockfile',
+  '--offline',
+  '--config.strictDepBuilds=false',
+];
+export const MAX_MAINTENANCE_AUTHORIZATION_MINUTES = 15;
+
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const DEPENDENCY_STATE_DIRECTORY = 'schedule-worktree-state';
+const DEPENDENCY_MARKER = 'dependencies-v2.json';
+const DEPENDENCY_LOCK = 'dependency-install.lock';
+const SLOT_LEASE = 'slot-lease-v1.lock';
+const SCHEDULE_MARKERS = [
+  'pnpm-workspace.yaml',
+  'apps/miniprogram',
+  'apps/api',
+  'infra/docker/compose.prod.yml',
+];
+
+function fail(message, code = 'SCHEDULE_DEPENDENCY_ERROR') {
+  const error = new Error(`[schedule:deps] ${message}`);
+  error.code = code;
+  throw error;
+}
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function normalizeRelativePath(value) {
+  return value.replaceAll('\\', '/').replace(/^\.\//u, '');
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right, 'en'))
+        .map(([key, nested]) => [key, stableValue(nested)]),
+    );
+  }
+  return value;
+}
+
+function stableJson(value) {
+  return JSON.stringify(stableValue(value));
+}
+
+function canonicalPath(value) {
+  const resolved = path.resolve(value);
+  let real = resolved;
+  try { real = fs.realpathSync.native(resolved); } catch { /* a marker may be checked before it exists */ }
+  return process.platform === 'win32' ? real.toLocaleLowerCase('en-US') : real;
+}
+
+function isPathInside(parent, child) {
+  const relative = path.relative(canonicalPath(parent), canonicalPath(child));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+export function assertScheduleRoot(root) {
+  const normalizedRoot = path.resolve(root);
+  const packagePath = path.join(normalizedRoot, 'package.json');
+  let packageJson;
+  try {
+    packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+  } catch {
+    fail(`not a readable Schedule repository: ${normalizedRoot}`, 'NOT_SCHEDULE_REPOSITORY');
+  }
+  if (packageJson.name !== 'medical-staff-scheduling-system' || packageJson.private !== true) {
+    fail(`package identity does not match Schedule: ${normalizedRoot}`, 'NOT_SCHEDULE_REPOSITORY');
+  }
+  for (const marker of SCHEDULE_MARKERS) {
+    if (!fs.existsSync(path.join(normalizedRoot, marker))) {
+      fail(`Schedule marker is missing: ${marker}`, 'NOT_SCHEDULE_REPOSITORY');
+    }
+  }
+  return normalizedRoot;
+}
+
+function readJson(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    fail(`invalid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+  }
+}
+
+function readWorkspacePatterns(root) {
+  const workspacePath = path.join(root, 'pnpm-workspace.yaml');
+  const lines = fs.readFileSync(workspacePath, 'utf8').split(/\r?\n/u);
+  const patterns = [];
+  let inPackages = false;
+  for (const line of lines) {
+    if (/^packages:\s*$/u.test(line)) {
+      inPackages = true;
+      continue;
+    }
+    if (inPackages && /^\S/u.test(line)) break;
+    if (inPackages) {
+      const match = line.match(/^\s*-\s+(.+?)\s*$/u);
+      if (!match) continue;
+      const value = match[1].replace(/\s+#.*$/u, '').trim().replace(/^['"]|['"]$/gu, '');
+      if (value) patterns.push(value);
+    }
+  }
+  const inline = fs
+    .readFileSync(workspacePath, 'utf8')
+    .match(/^packages:\s*\[([^\]]+)\]/mu)?.[1]
+    ?.split(',')
+    .map((value) => value.trim().replace(/^['"]|['"]$/gu, ''))
+    .filter(Boolean);
+  return [...new Set([...(inline ?? []), ...patterns])];
+}
+
+function globPatternToRegExp(pattern) {
+  const normalized = normalizeRelativePath(pattern).replace(/^\.\//u, '').replace(/\/$/u, '');
+  let source = '^';
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    if (character === '*') {
+      if (normalized[index + 1] === '*') {
+        source += '.*';
+        index += 1;
+      } else source += '[^/]*';
+    } else if (character === '?') source += '[^/]';
+    else source += /[\\^$+?.()|{}[\]]/u.test(character) ? `\\${character}` : character;
+  }
+  return new RegExp(`${source}$`, 'u');
+}
+
+function collectPackageJsonFiles(directory, root, results = []) {
+  if (!fs.existsSync(directory)) return results;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (['.git', 'node_modules', 'runtime', 'dist', 'coverage'].includes(entry.name)) continue;
+    const absolutePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) collectPackageJsonFiles(absolutePath, root, results);
+    else if (entry.isFile() && entry.name === 'package.json') {
+      results.push(normalizeRelativePath(path.relative(root, absolutePath)));
+    }
+  }
+  return results;
+}
+
+export function discoverWorkspacePackages(root) {
+  const normalizedRoot = assertScheduleRoot(root);
+  const patterns = readWorkspacePatterns(normalizedRoot);
+  const includes = patterns.filter((pattern) => !pattern.startsWith('!')).map(globPatternToRegExp);
+  const excludes = patterns
+    .filter((pattern) => pattern.startsWith('!'))
+    .map((pattern) => globPatternToRegExp(pattern.slice(1)));
+  const manifests = collectPackageJsonFiles(normalizedRoot, normalizedRoot).filter((relativePath) => {
+    return includes.some((pattern) => pattern.test(relativePath.replace(/\/package\.json$/u, ''))) &&
+      !excludes.some((pattern) => pattern.test(relativePath.replace(/\/package\.json$/u, '')));
+  });
+  return manifests
+    .map((relativePath) => {
+      const manifestPath = path.join(normalizedRoot, relativePath);
+      return {
+        directory: path.dirname(manifestPath),
+        manifestPath,
+        manifest: readJson(manifestPath),
+      };
+    })
+    .filter((workspacePackage) => typeof workspacePackage.manifest.name === 'string')
+    .sort((left, right) => left.manifest.name.localeCompare(right.manifest.name, 'en'));
+}
+
+function collectFilesRecursively(directory, root, results = []) {
+  if (!fs.existsSync(directory)) return results;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (['node_modules', '.git', 'runtime'].includes(entry.name)) continue;
+    const absolutePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) collectFilesRecursively(absolutePath, root, results);
+    else if (entry.isFile()) results.push(normalizeRelativePath(path.relative(root, absolutePath)));
+  }
+  return results;
+}
+
+export function collectDependencyInputPaths(root, workspacePackages = discoverWorkspacePackages(root)) {
+  const normalizedRoot = path.resolve(root);
+  const inputs = new Set(['package.json']);
+  for (const workspacePackage of workspacePackages) {
+    inputs.add(normalizeRelativePath(path.relative(normalizedRoot, workspacePackage.manifestPath)));
+  }
+  for (const fileName of [
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+    'pnpm-workspace.yml',
+    '.npmrc',
+    '.pnpmrc',
+    '.nvmrc',
+    '.node-version',
+  ]) {
+    if (fs.existsSync(path.join(normalizedRoot, fileName))) inputs.add(fileName);
+  }
+  for (const entry of fs.readdirSync(normalizedRoot, { withFileTypes: true })) {
+    if (entry.isFile() && (entry.name === '.pnpmfile.cjs' || entry.name.startsWith('.pnpmfile.'))) {
+      inputs.add(entry.name);
+    }
+  }
+  for (const relativePath of collectFilesRecursively(path.join(normalizedRoot, 'patches'), normalizedRoot)) {
+    inputs.add(relativePath);
+  }
+  return [...inputs].sort((left, right) => left.localeCompare(right, 'en'));
+}
+
+export function createDependencySnapshot({ root, inputPaths, environment }) {
+  const normalizedRoot = path.resolve(root);
+  const inputs = [...new Set(inputPaths.map(normalizeRelativePath))]
+    .sort((left, right) => left.localeCompare(right, 'en'))
+    .map((relativePath) => {
+      const absolutePath = path.resolve(normalizedRoot, relativePath);
+      if (!isPathInside(normalizedRoot, absolutePath)) fail(`dependency input escapes worktree: ${relativePath}`);
+      if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
+        fail(`dependency input is missing: ${relativePath}`);
+      }
+      return { path: relativePath, sha256: sha256(fs.readFileSync(absolutePath)) };
+    });
+  const normalizedEnvironment = stableValue(environment);
+  return {
+    schemaVersion: DEPENDENCY_MARKER_SCHEMA_VERSION,
+    fingerprint: sha256(stableJson({ environment: normalizedEnvironment, inputs })),
+    inputs,
+    environment: normalizedEnvironment,
+  };
+}
+
+function compareObject(previous, current, prefix = '') {
+  const changes = [];
+  const keys = [...new Set([...Object.keys(previous ?? {}), ...Object.keys(current ?? {})])].sort(
+    (left, right) => left.localeCompare(right, 'en'),
+  );
+  for (const key of keys) {
+    const before = previous?.[key];
+    const after = current?.[key];
+    const field = prefix ? `${prefix}.${key}` : key;
+    if (
+      before !== null && after !== null &&
+      typeof before === 'object' && typeof after === 'object' &&
+      !Array.isArray(before) && !Array.isArray(after)
+    ) changes.push(...compareObject(before, after, field));
+    else if (stableJson(before) !== stableJson(after)) changes.push(`${field}:changed`);
+  }
+  return changes;
+}
+
+export function diffDependencySnapshots(previous, current) {
+  if (previous === undefined || previous === null) return ['marker:missing'];
+  if (previous.schemaVersion !== current.schemaVersion) return ['marker:schema-changed'];
+  if (previous.fingerprint === current.fingerprint) return [];
+  const previousInputs = new Map((previous.inputs ?? []).map((entry) => [entry.path, entry.sha256]));
+  const currentInputs = new Map((current.inputs ?? []).map((entry) => [entry.path, entry.sha256]));
+  const changes = [];
+  for (const inputPath of [...new Set([...previousInputs.keys(), ...currentInputs.keys()])].sort()) {
+    if (!previousInputs.has(inputPath)) changes.push(`input:${inputPath}:added`);
+    else if (!currentInputs.has(inputPath)) changes.push(`input:${inputPath}:removed`);
+    else if (previousInputs.get(inputPath) !== currentInputs.get(inputPath)) {
+      changes.push(`input:${inputPath}:changed`);
+    }
+  }
+  changes.push(...compareObject(previous.environment, current.environment, 'environment'));
+  return changes.length === 0 ? ['fingerprint:changed'] : changes;
+}
+
+function parseModulesMetadata(source) {
+  try {
+    return JSON.parse(source);
+  } catch {
+    const metadata = {};
+    for (const key of ['nodeLinker', 'packageManager', 'storeDir', 'virtualStoreDir']) {
+      const match = source.match(new RegExp(`^\\s*${key}:\\s*["']?([^"'\\r\\n]+)`, 'mu'));
+      if (match?.[1] !== undefined) metadata[key] = match[1].trim();
+    }
+    return metadata;
+  }
+}
+
+function workspaceDependencyNames(manifest) {
+  const names = [];
+  for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    for (const [name, specifier] of Object.entries(manifest[section] ?? {})) {
+      if (typeof specifier === 'string' && specifier.startsWith('workspace:')) names.push(name);
+    }
+  }
+  return names;
+}
+
+export function inspectDependencyHealth({
+  root,
+  storePath,
+  workspacePackages,
+  expectedPnpmVersion,
+  platform = process.platform,
+  allowGlobalVirtualStore = false,
+}) {
+  const normalizedRoot = path.resolve(root);
+  const nodeModulesPath = path.join(normalizedRoot, 'node_modules');
+  const modulesPath = path.join(nodeModulesPath, '.modules.yaml');
+  const reasons = [];
+  if (!fs.existsSync(nodeModulesPath)) return { healthy: false, reasons: ['node-modules-missing'] };
+  try {
+    if (fs.lstatSync(nodeModulesPath).isSymbolicLink()) reasons.push('node-modules-root-is-linked');
+  } catch {
+    reasons.push('node-modules-root-unreadable');
+  }
+  if (!fs.existsSync(modulesPath)) reasons.push('modules-metadata-missing');
+  let metadata = {};
+  if (fs.existsSync(modulesPath)) {
+    try {
+      metadata = parseModulesMetadata(fs.readFileSync(modulesPath, 'utf8'));
+    } catch {
+      reasons.push('modules-metadata-unreadable');
+    }
+  }
+  if (!storePath || !fs.existsSync(storePath)) reasons.push('pnpm-store-unavailable');
+  else {
+    try { fs.accessSync(storePath, fs.constants.R_OK); }
+    catch { reasons.push('pnpm-store-unreadable'); }
+  }
+  if (expectedPnpmVersion && metadata.packageManager !== `pnpm@${expectedPnpmVersion}`) {
+    reasons.push('modules-pnpm-version-mismatch');
+  }
+  if (metadata.storeDir === undefined) reasons.push('modules-store-metadata-missing');
+  else if (storePath) {
+    try {
+      if (canonicalPath(metadata.storeDir) !== canonicalPath(storePath)) reasons.push('modules-store-mismatch');
+    } catch { reasons.push('modules-store-unreadable'); }
+  }
+  if (metadata.virtualStoreDir === undefined || !fs.existsSync(metadata.virtualStoreDir)) {
+    reasons.push('virtual-store-missing');
+  } else if (!allowGlobalVirtualStore) {
+    try {
+      if (!isPathInside(nodeModulesPath, metadata.virtualStoreDir)) {
+        reasons.push('virtual-store-not-worktree-local');
+      }
+    } catch { reasons.push('virtual-store-unreadable'); }
+  }
+  const suffix = platform === 'win32' ? '.CMD' : '';
+  for (const executable of REQUIRED_ROOT_EXECUTABLES) {
+    const candidates = [
+      path.join(nodeModulesPath, '.bin', `${executable}${suffix}`),
+      path.join(nodeModulesPath, '.bin', executable),
+    ];
+    if (!candidates.some((candidate) => fs.existsSync(candidate))) {
+      reasons.push(`root-executable-missing:${executable}`);
+    }
+  }
+  const packagesByName = new Map(workspacePackages.map((workspacePackage) => [workspacePackage.manifest.name, workspacePackage]));
+  for (const workspacePackage of workspacePackages) {
+    for (const dependencyName of workspaceDependencyNames(workspacePackage.manifest)) {
+      const dependency = packagesByName.get(dependencyName);
+      if (!dependency) {
+        reasons.push(`workspace-dependency-not-found:${workspacePackage.manifest.name}->${dependencyName}`);
+        continue;
+      }
+      const linkPath = path.join(workspacePackage.directory, 'node_modules', ...dependencyName.split('/'));
+      if (!fs.existsSync(linkPath)) {
+        reasons.push(`workspace-link-missing:${workspacePackage.manifest.name}->${dependencyName}`);
+        continue;
+      }
+      try {
+        if (canonicalPath(linkPath) !== canonicalPath(dependency.directory)) {
+          reasons.push(`workspace-link-wrong-target:${workspacePackage.manifest.name}->${dependencyName}`);
+        }
+      } catch {
+        reasons.push(`workspace-link-unreadable:${workspacePackage.manifest.name}->${dependencyName}`);
+      }
+    }
+  }
+  return { healthy: reasons.length === 0, reasons: [...new Set(reasons)].sort() };
+}
+
+function run(command, arguments_, options = {}) {
+  const result = spawnSync(command, arguments_, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    env: options.env ?? process.env,
+    stdio: options.stdio ?? ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  if (result.error) fail(`${command} could not start: ${result.error.message}`);
+  if (result.status !== 0) {
+    const detail = `${result.stderr ?? ''}${result.stdout ?? ''}`.trim();
+    fail(`${command} ${arguments_.join(' ')} failed${detail ? `: ${detail}` : ''}`);
+  }
+  return result.stdout ?? '';
+}
+
+export function resolvePnpmInvocation(environment = process.env, platform = process.platform, nodeExecutable = process.execPath) {
+  const explicitCli = environment.npm_execpath;
+  if (explicitCli && fs.existsSync(explicitCli)) return { argumentsPrefix: [explicitCli], command: nodeExecutable };
+  if (platform === 'win32') {
+    const candidates = [
+      environment.APPDATA ? path.join(environment.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs') : undefined,
+      path.join(path.dirname(nodeExecutable), 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
+      path.join(path.dirname(nodeExecutable), 'node_modules', 'corepack', 'dist', 'pnpm.js'),
+    ];
+    const cliPath = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+    if (cliPath) return { argumentsPrefix: [cliPath], command: nodeExecutable };
+    return { argumentsPrefix: [], command: 'pnpm.cmd' };
+  }
+  return { argumentsPrefix: [], command: 'pnpm' };
+}
+
+function runPnpm(root, arguments_, options = {}) {
+  const invocation = resolvePnpmInvocation(options.environment ?? process.env);
+  return run(invocation.command, [...invocation.argumentsPrefix, ...arguments_], {
+    cwd: root,
+    env: options.environment,
+    stdio: options.stdio,
+  });
+}
+
+function sanitizeConfigValue(key, value) {
+  const pathKeys = new Set(['storeDir', 'virtualStoreDir']);
+  if (pathKeys.has(key) && value && value !== 'undefined' && path.isAbsolute(value)) {
+    return `sha256:${sha256(canonicalPath(value))}`;
+  }
+  return value;
+}
+
+export function inspectRuntimeEnvironment(root) {
+  const storePath = path.resolve(runPnpm(root, ['store', 'path']).trim());
+  const pnpmVersion = runPnpm(root, ['--version']).trim();
+  const layout = Object.fromEntries(
+    PNPM_LAYOUT_CONFIG_KEYS.map((key) => {
+      const value = runPnpm(root, ['config', 'get', key]).trim() || 'undefined';
+      return [key, sanitizeConfigValue(key, value)];
+    }),
+  );
+  return {
+    environment: {
+      architecture: process.arch,
+      nodeVersion: process.version,
+      os: `${os.platform()}-${os.release()}`,
+      pnpmVersion,
+      storePathHash: sha256(canonicalPath(storePath)),
+      storeVolume: path.parse(storePath).root.replace(/[\\/]+$/u, '').toLocaleLowerCase('en-US'),
+      layout,
+    },
+    storePath,
+  };
+}
+
+function gitDirectory(root) {
+  return path.resolve(run('git', ['rev-parse', '--absolute-git-dir'], { cwd: root }).trim());
+}
+
+function gitCommonDirectory(root) {
+  return path.resolve(root, run('git', ['rev-parse', '--git-common-dir'], { cwd: root }).trim());
+}
+
+function readMarker(markerPath) {
+  try {
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+    return marker.schemaVersion === DEPENDENCY_MARKER_SCHEMA_VERSION ? marker : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeJsonAtomic(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(temporaryPath, `${JSON.stringify(value, undefined, 2)}\n`, 'utf8');
+  fs.renameSync(temporaryPath, filePath);
+}
+
+function hasActiveLocalLock(stateDirectory, leaseToken) {
+  const dependencyLock = path.join(stateDirectory, DEPENDENCY_LOCK);
+  if (fs.existsSync(dependencyLock)) return 'dependency-install-lock-present';
+  const leasePath = path.join(stateDirectory, SLOT_LEASE);
+  if (!fs.existsSync(leasePath)) return undefined;
+  if (!leaseToken) return 'slot-lease-present';
+  try {
+    const lease = JSON.parse(fs.readFileSync(leasePath, 'utf8'));
+    if (lease.token !== leaseToken) return 'slot-lease-owned-by-another-task';
+  } catch {
+    return 'slot-lease-unreadable';
+  }
+  return undefined;
+}
+
+function createExclusiveDirectory(directoryPath) {
+  try {
+    fs.mkdirSync(directoryPath);
+    return true;
+  } catch (error) {
+    if (error?.code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
+function createMaintenanceCommand(root) {
+  return [
+    'pnpm',
+    ...PNPM_INSTALL_ARGUMENTS,
+    `--cwd=${canonicalPath(root)}`,
+  ];
+}
+
+export function maintenanceCommandHash({ commonDir, root }) {
+  return sha256(`${canonicalPath(commonDir)}\n${createMaintenanceCommand(root).join('\u0000')}`);
+}
+
+export function validateMaintenanceAuthorization({ filePath, commonDir, root, now = new Date() }) {
+  if (!filePath || !fs.existsSync(filePath)) return { valid: false, reason: 'authorization-file-missing' };
+  let authorization;
+  try { authorization = JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+  catch { return { valid: false, reason: 'authorization-file-invalid' }; }
+  const record = Array.isArray(authorization) ? authorization[0] : authorization;
+  if (!record || record.schemaVersion !== 1 || record.singleUse !== true) {
+    return { valid: false, reason: 'authorization-schema-invalid' };
+  }
+  if (record.commonDir !== canonicalPath(commonDir)) return { valid: false, reason: 'authorization-common-dir-mismatch' };
+  if (record.commandHash !== maintenanceCommandHash({ commonDir, root })) {
+    return { valid: false, reason: 'authorization-command-hash-mismatch' };
+  }
+  if (typeof record.reason !== 'string' || record.reason.trim() === '') {
+    return { valid: false, reason: 'authorization-reason-missing' };
+  }
+  const expiresAt = Date.parse(record.expiresAt ?? '');
+  const createdAt = Date.parse(record.createdAt ?? '');
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(createdAt) || expiresAt <= now.getTime()) {
+    return { valid: false, reason: 'authorization-expired' };
+  }
+  if (expiresAt - createdAt > MAX_MAINTENANCE_AUTHORIZATION_MINUTES * 60_000) {
+    return { valid: false, reason: 'authorization-ttl-too-long' };
+  }
+  if (record.usedAt) return { valid: false, reason: 'authorization-already-used' };
+  return { valid: true, record };
+}
+
+function consumeMaintenanceAuthorization(filePath, record) {
+  writeJsonAtomic(filePath, { ...record, usedAt: new Date().toISOString() });
+}
+
+function installDependencies({ root, authorizationFile, commonDir, json }) {
+  const authorization = validateMaintenanceAuthorization({
+    filePath: authorizationFile,
+    commonDir,
+    root,
+  });
+  if (!authorization.valid) {
+    return { installed: false, authorized: false, reason: authorization.reason };
+  }
+  const environment = { ...process.env, CI: 'true' };
+  runPnpm(root, PNPM_INSTALL_ARGUMENTS, {
+    environment,
+    stdio: json ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+  });
+  consumeMaintenanceAuthorization(authorizationFile, authorization.record);
+  return { installed: true, authorized: true };
+}
+
+export function ensureWorktreeDependencies(options = {}) {
+  const root = assertScheduleRoot(fs.realpathSync.native(path.resolve(options.worktree ?? process.cwd())));
+  const mode = options.mode ?? DEFAULT_DEPENDENCY_MODE;
+  if (!['ReuseOnly', 'DependencyMaintenance'].includes(mode)) fail(`unsupported dependency mode: ${mode}`);
+  const workspacePackages = discoverWorkspacePackages(root);
+  const runtime = inspectRuntimeEnvironment(root);
+  const snapshot = createDependencySnapshot({
+    root,
+    inputPaths: collectDependencyInputPaths(root, workspacePackages),
+    environment: runtime.environment,
+  });
+  const stateDirectory = path.join(gitDirectory(root), DEPENDENCY_STATE_DIRECTORY);
+  const markerPath = path.join(stateDirectory, DEPENDENCY_MARKER);
+  const lockPath = path.join(stateDirectory, DEPENDENCY_LOCK);
+  const busyReason = hasActiveLocalLock(stateDirectory, options.leaseToken);
+  const getHealth = () => inspectDependencyHealth({
+    root,
+    storePath: runtime.storePath,
+    workspacePackages,
+    expectedPnpmVersion: runtime.environment.pnpmVersion,
+    allowGlobalVirtualStore: false,
+  });
+  const previous = readMarker(markerPath);
+  const fingerprintReasons = diffDependencySnapshots(previous, snapshot);
+  const health = getHealth();
+  const base = {
+    dependencyFingerprint: snapshot.fingerprint,
+    fingerprint: snapshot.fingerprint,
+    dependenciesReused: false,
+    installed: false,
+    installInvoked: false,
+    worktreeCreated: false,
+    reasons: [...fingerprintReasons, ...health.reasons.map((reason) => `health:${reason}`)],
+    markerPath,
+    mode,
+  };
+  if (busyReason) {
+    return { ...base, taskStatus: 'POOL_BUSY', reasons: [busyReason] };
+  }
+  if (fingerprintReasons.length === 0 && health.healthy) {
+    return { ...base, taskStatus: 'READY_REUSE', dependenciesReused: true, reasons: [] };
+  }
+  if (mode === 'ReuseOnly') {
+    if (
+      options.adoptHealthyExisting === true &&
+      previous === undefined &&
+      fingerprintReasons.length === 1 &&
+      fingerprintReasons[0] === 'marker:missing' &&
+      health.healthy
+    ) {
+      writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
+      return { ...base, taskStatus: 'READY_REUSE', dependenciesReused: true, adopted: true, reasons: ['marker:missing'] };
+    }
+    if (!health.healthy && health.reasons.includes('node-modules-missing')) {
+      return { ...base, taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' };
+    }
+    return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_INSTALL_REQUIRED' };
+  }
+  const commonDir = gitCommonDirectory(root);
+  const authorizationFile = options.authorizationFile;
+  const authorization = validateMaintenanceAuthorization({
+    filePath: authorizationFile,
+    commonDir,
+    root,
+  });
+  if (!authorization.valid) {
+    return {
+      ...base,
+      taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED',
+      reasons: [...base.reasons, `authorization:${authorization.reason}`],
+    };
+  }
+  if (!createExclusiveDirectory(lockPath)) return { ...base, taskStatus: 'POOL_BUSY', reasons: ['dependency-install-lock-present'] };
+  try {
+    writeJsonAtomic(path.join(lockPath, 'owner.json'), {
+      pid: process.pid,
+      startedAt: new Date().toISOString(),
+      fingerprint: snapshot.fingerprint,
+    });
+    const install = installDependencies({ root, authorizationFile, commonDir, json: options.json === true });
+    if (!install.installed) {
+      return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED', reasons: [`authorization:${install.reason}`] };
+    }
+    const installedHealth = getHealth();
+    if (!installedHealth.healthy) {
+      return { ...base, taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV', reasons: installedHealth.reasons.map((reason) => `health:${reason}`) };
+    }
+    writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
+    return { ...base, taskStatus: 'READY_INSTALLED', dependenciesReused: false, installed: true, installInvoked: true };
+  } finally {
+    fs.rmSync(lockPath, { force: true, recursive: true });
+  }
+}
+
+function parseArguments(arguments_) {
+  const options = {
+    authorizationFile: undefined,
+    json: false,
+    leaseToken: undefined,
+    mode: DEFAULT_DEPENDENCY_MODE,
+    worktree: process.cwd(),
+  };
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    if (argument === '--json') options.json = true;
+    else if (argument === '--mode' || argument === '--worktree' || argument === '--authorization-file' || argument === '--lease-token') {
+      const value = arguments_[index + 1];
+      if (value === undefined || value.startsWith('--')) fail(`${argument} requires a value`);
+      if (argument === '--mode') options.mode = value;
+      else if (argument === '--worktree') options.worktree = value;
+      else if (argument === '--authorization-file') options.authorizationFile = value;
+      else options.leaseToken = value;
+      index += 1;
+    } else if (argument === '--adopt-healthy-existing') options.adoptHealthyExisting = true;
+    else if (argument === '--check-only') options.mode = 'ReuseOnly';
+    else fail(`unknown argument: ${argument}`);
+  }
+  return options;
+}
+
+function printResult(result, json) {
+  if (json) {
+    console.log(JSON.stringify(result));
+    return;
+  }
+  console.log(`TASK_STATUS=${result.taskStatus}`);
+  console.log(`DEPENDENCIES_REUSED=${result.dependenciesReused ? 'true' : 'false'}`);
+  console.log(`INSTALL_INVOKED=${result.installInvoked ? 'true' : 'false'}`);
+  console.log(`WORKTREE_CREATED=${result.worktreeCreated ? 'true' : 'false'}`);
+  console.log(`DEPENDENCY_FINGERPRINT=${result.dependencyFingerprint}`);
+  for (const reason of result.reasons ?? []) console.log(`INVALIDATION_REASON=${reason}`);
+}
+
+export function main(arguments_ = process.argv.slice(2)) {
+  const options = parseArguments(arguments_);
+  const result = ensureWorktreeDependencies(options);
+  printResult(result, options.json);
+  return result;
+}
+
+if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === SCRIPT_PATH) {
+  try { main(); }
+  catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 2;
+  }
+}

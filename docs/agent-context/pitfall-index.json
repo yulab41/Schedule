@@ -146,6 +146,25 @@
         "WXS wheel ownership, projection, snap timing, runtime isolation, or picker mounting changes",
         "the WXS reverse-drag or existing workflow-picker regression fails or is removed"
       ]
+    },
+    {
+      "id": "repeated-1459-linking",
+      "state": "fixed-guarded",
+      "signals": ["1459 packages", "repeated linking", "cold install", "dependency reuse"],
+      "paths": [
+        "scripts/codex/**",
+        ".agents/skills/schedule-project-guardrails/**",
+        "scripts/prepare-release-worktree.mjs"
+      ],
+      "detail": "docs/agent-context/pitfalls/repeated-1459-linking.md",
+      "guard": "scripts/codex/worktree-deps-core.test.mjs",
+      "validation": "node --test scripts/codex/worktree-deps-core.test.mjs scripts/codex/worktree-pool-policy.test.mjs",
+      "lastVerifiedAt": "2026-09-04",
+      "staleWhen": [
+        "pnpm major version changes",
+        "the dependency marker schema or health dimensions change",
+        "the persistent pool policy changes"
+      ]
     }
   ]
 }

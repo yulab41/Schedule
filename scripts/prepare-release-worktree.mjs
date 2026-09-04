@@ -2,8 +2,8 @@
  * Prepare one persistent detached worktree for exact-commit release builds.
  *
  * The worktree is isolated under runtime/ inside the repository, while its ignored
- * node_modules directory survives commit changes. Dependencies are installed
- * only when the complete environment fingerprint misses or health fails.
+ * node_modules directory survives commit changes. Dependencies are never installed
+ * by this helper; a matching healthy environment is required before a release build.
  *
  * Usage:
  *   node scripts/prepare-release-worktree.mjs
@@ -12,25 +12,23 @@
 
 /* global console, process */
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { installCurrentDependencyEnvironmentIfNeeded } from './dependency-environment.mjs';
-
-export {
-  PNPM_INSTALL_ARGUMENTS,
-  collectDependencyInputs,
-  computeDependencyFingerprint,
-  resolvePnpmInvocation,
-  stripPnpmBuildPlaceholders,
-} from './dependency-environment.mjs';
+import {
+  PNPM_INSTALL_ARGUMENTS as SHARED_PNPM_INSTALL_ARGUMENTS,
+  ensureWorktreeDependencies,
+} from './codex/worktree-deps-core.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
+const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
 export const RELEASE_RUNTIME_ROOT = path.join(ROOT, 'runtime');
 export const DEFAULT_RELEASE_WORKTREE_PATH = path.join(ROOT, 'runtime', 'release-worktree');
+export const PNPM_INSTALL_ARGUMENTS = SHARED_PNPM_INSTALL_ARGUMENTS;
 
 function fail(message) {
   throw new Error(`[release:worktree] ${message}`);
@@ -84,6 +82,46 @@ export function parseWorktreeList(source) {
 
   if (current !== undefined) entries.push(current);
   return entries;
+}
+
+export function collectDependencyInputs(trackedFiles) {
+  return trackedFiles
+    .map((file) => file.replaceAll('\\', '/'))
+    .filter((file) => {
+      const basename = path.posix.basename(file);
+      return (
+        basename === 'package.json' ||
+        file === '.npmrc' ||
+        file === '.pnpmfile.cjs' ||
+        file === 'pnpm-lock.yaml' ||
+        file === 'pnpm-workspace.yaml' ||
+        file === 'pnpm-workspace.yml' ||
+        file === 'pnpmfile.cjs' ||
+        file.startsWith('patches/')
+      );
+    })
+    .sort();
+}
+
+export function computeDependencyFingerprint(root, relativePaths) {
+  const hash = crypto.createHash('sha256');
+  for (const relativePath of [...relativePaths].sort()) {
+    hash.update(relativePath);
+    hash.update('\0');
+    hash.update(fs.readFileSync(path.join(root, relativePath)));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+export function shouldReuseDependencies(worktreeRoot, gitDirectory, fingerprint) {
+  if (!fs.existsSync(path.join(worktreeRoot, 'node_modules'))) return false;
+  try {
+    const marker = JSON.parse(fs.readFileSync(path.join(gitDirectory, DEPENDENCY_MARKER), 'utf8'));
+    return marker.fingerprint === fingerprint;
+  } catch {
+    return false;
+  }
 }
 
 function run(command, arguments_, options = {}) {
@@ -167,9 +205,9 @@ function prepareRegisteredWorktree(target, commit) {
     if (fs.existsSync(target)) {
       fail(`目标目录已存在但不是本仓库登记的 worktree，拒绝接管：${target}`);
     }
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    git(['worktree', 'add', '--detach', target, commit], { stdio: 'inherit' });
-    return true;
+    fail(
+      `TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV\nDEPENDENCIES_REUSED=false\nINSTALL_INVOKED=false\nWORKTREE_CREATED=false\nNo existing warm release worktree is registered: ${target}`,
+    );
   }
 
   if (!entry.detached || entry.branch !== undefined) {
@@ -188,6 +226,48 @@ function prepareRegisteredWorktree(target, commit) {
   return false;
 }
 
+function trackedDependencyInputs(worktreeRoot) {
+  const source = git(['ls-files', '-z'], { cwd: worktreeRoot }).stdout;
+  return collectDependencyInputs(source.split('\0').filter(Boolean));
+}
+
+export function resolvePnpmInvocation(
+  environment = process.env,
+  platform = process.platform,
+  nodeExecutable = process.execPath,
+) {
+  const explicitCli = environment.npm_execpath;
+  if (explicitCli !== undefined && fs.existsSync(explicitCli)) {
+    return { argumentsPrefix: [explicitCli], command: nodeExecutable };
+  }
+
+  if (platform === 'win32') {
+    const candidates = [
+      environment.APPDATA === undefined
+        ? undefined
+        : path.join(environment.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
+      path.join(path.dirname(nodeExecutable), 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
+      path.join(path.dirname(nodeExecutable), 'node_modules', 'corepack', 'dist', 'pnpm.js'),
+    ];
+    const cliPath = candidates.find(
+      (candidate) => candidate !== undefined && fs.existsSync(candidate),
+    );
+    if (cliPath === undefined) {
+      fail('找不到可直接交给 Node 执行的 pnpm JavaScript 入口。');
+    }
+    return { argumentsPrefix: [cliPath], command: nodeExecutable };
+  }
+
+  return { argumentsPrefix: [], command: 'pnpm' };
+}
+
+export function stripPnpmBuildPlaceholders(source) {
+  return source.replace(
+    /^[ \t]+(?:'[^'\r\n]+'|"[^"\r\n]+"|[^:\r\n]+): set this to true or false\r?\n/gmu,
+    '',
+  );
+}
+
 export function main(arguments_ = process.argv.slice(2)) {
   const options = parseArguments(arguments_);
   const target = options.worktreePath ?? DEFAULT_RELEASE_WORKTREE_PATH;
@@ -195,13 +275,29 @@ export function main(arguments_ = process.argv.slice(2)) {
 
   const commit = resolveCommit(options.commit);
   const created = prepareRegisteredWorktree(target, commit);
-  const dependencyResult = installCurrentDependencyEnvironmentIfNeeded(target);
+  const dependencyState = ensureWorktreeDependencies({
+    worktree: target,
+    mode: 'ReuseOnly',
+    adoptHealthyExisting: true,
+    json: options.json,
+  });
+  if (dependencyState.taskStatus !== 'READY_REUSE' || !dependencyState.dependenciesReused) {
+    fail(
+      [
+        `TASK_STATUS=${dependencyState.taskStatus}`,
+        'DEPENDENCIES_REUSED=false',
+        'INSTALL_INVOKED=false',
+        'WORKTREE_CREATED=false',
+        ...(dependencyState.reasons ?? []).map((reason) => `INVALIDATION_REASON=${reason}`),
+      ].join('\n'),
+    );
+  }
   assertCleanWorktree(target);
 
   const result = {
     commit,
     created,
-    dependencies: dependencyResult.action,
+    dependencies: 'reused',
     path: target,
   };
   if (options.json) console.log(JSON.stringify(result));

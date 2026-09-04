@@ -262,7 +262,9 @@ Mini 为 302 files、total/main `5,169,730/1,731,703 B`；Mini 122 files/663 tes
 未运行停在登录重定向，不能替代 Xiaomi 14。
 
 验证期间 `origin/main` 前进到 `fa10d5ba`，并带来项目官方 `scripts/codex/worktree-deps-*` 完整实现。为避免
-两套 dependency source，后续主线 merge 将保留官方实现并删除本轮临时 checker 最终树内容；不会再次安装。
+两套 dependency source，主线 merge 已保留官方实现并删除本轮临时 checker 最终树内容。官方健康采用和再次
+ReuseOnly 均返回 `DEPENDENCIES_REUSED=true / INSTALL_INVOKED=false`；主线对 Mini/Web/icon runtime 的改动数为
+0，因此复用前述应用门禁证据，只补跑官方 Node 13/13、Vitest 17/17、Skill/format/syntax/diff 检查。
 
 ## 第一实施批次的精确 Prompt
 

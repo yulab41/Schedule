@@ -5,13 +5,15 @@ Read this reference only after the current user message explicitly authorizes th
 Authoritative sources:
 
 - [ECS deployment runbook](../../../../docs/deployment/aliyun-ecs.md)
-- [operations runbook](../../../../docs/operations/runbook.md)
+- [operations runbook](../../../../docs/operations/runbook.md#动态发布身份与基线冻结)
 - Current release/control scripts under [`infra/scripts`](../../../../infra/scripts)
 - [release-cache pitfall](../../../../docs/agent-context/pitfalls/release-cache-and-reuse.md)
 
 ## Authorization and local configuration
 
 Reconfirm the authorized target and action immediately before connecting. Design approval, code approval, test approval, Git push, release-candidate creation, and Mini upload do not authorize production.
+
+A production release value from a prompt, plan, or status file is only a recorded observation. Claim a current live release only after the current message authorizes the required `L4` read and the runbook query succeeds immediately before the operation. Otherwise record `LIVE_RELEASE_VERIFIED=false`; never use the stale value as a rollback candidate or proof of deployment state.
 
 Machine-specific operator notes may exist only at `$REPO_ROOT/runtime/local/production-operator.md`. The repository ignores the entire `runtime/local/` directory. Read that file only when `L4` requires it; never quote, copy, stage, or commit its private-key path, host/IP, username, or other machine-specific values. Do not create a tracked placeholder. The skill validator proves the path is ignored without creating it.
 

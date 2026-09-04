@@ -210,6 +210,8 @@ source revision 和 nodes content hash，生成器会删除自己生成但已不
   停在 `/login?redirect=/`；不宣称浏览器功能或真机视觉通过。
 - 本报告下方“B2（体验版验收）”是原图标分支的批次命名；当前累计计划把“恢复原提交血缘”称为 B2、把剩余
   视觉规格修复称为 B3。两者都不改变体验上传必须另获当次 L3 授权的门禁。
+- 验证期间前进的 `origin/main@fa10d5ba` 只改变项目 guardrail/工具/文档，对本报告的 Web/Mini/icon/tokens/
+  lockfile 运行时范围改动数为 0；合入后共享 package 和 46 个生成资产仍逐树等同 `5285dd17`。
 
 ## 风险拆分与实施批次
 
