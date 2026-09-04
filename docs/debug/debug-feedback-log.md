@@ -2556,3 +2556,18 @@
   reused；production verify total/main `5,182,000/1,745,406 B`、manifest `b953c6a4…`，无凭据 CI dry-run
   manifest `169a559b…`。AppID/root/key 存在性脱敏检查通过，当前上传 IP 白名单无法从本机权威测量。当前消息
   未授权该 exact checkpoint 上传或 L4 allowlist，故未选号、占 tag、上传或连接服务器，状态记为 `UPLOAD_REQUIRED`。
+
+## 2026-09-04 EXP-ICON-004 `.86` 精确体验版上传
+
+- 动态身份：最终 gate checkpoint `8caa5f20` 已推送，fresh `origin/main` 仍为 `4602120b`，远端初始无
+  cumulative trial tag。用户明确授权动态分配后，仓库 helper 以 `.85` 为 floor 原子创建
+  `miniprogram-trial/0.1.0-p10.20260904.86`，绑定 full SHA `8caa5f201b373fadd9453b8e4ec02fc3f93fe0cb`。
+- 精确批准：version `0.1.0-p10.20260904.86`、description `exp-icon-004-web-mini-parity-8caa5f2`、production/
+  clean、build time `2026-09-04T12:11:25.130Z` 与 Manifest
+  `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2` 披露后，用户回复匹配 approval token。
+- 上传：复用既有 ignored process-local IPv4 DNS adapter，仅作用于 `servicewechat.com`；未改 hosts、VPN 或系统。
+  Summer Worklet 编译完成，微信接口返回成功，197 code files、ZIP `2,491,144 B`。upload receipt 写入 ignored
+  `runtime/audit/miniprogram-trials/`，reservation 为同 SHA 幂等确认。
+- 上传后：远端 tag、receipt、build profile、独立 Manifest 重算与 safety checker 全部一致；version-bound
+  package total/main `5,183,336/1,746,172 B`，release worktree 仍 clean。临时暂停 wrapper 已删除，脱敏
+  allocation evidence/receipt 保留。当前消息未授权 L4 allowlist，未连接 production；未提审、正式发布或部署。

@@ -5,10 +5,10 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`EXP-ICON-004-B3/B4` 已完成实现和 guardrail 收口，进入精确体验版上传门禁。此前会话表达了
-  上传及白名单目标，但当前用户消息仅确认一次性依赖授权已创建；尚未对最终 exact checkpoint 给出本轮 L3
-  上传批准，也未在当前消息授权 L4 服务端 allowlist。因此状态为 `UPLOAD_REQUIRED`；没有授权提交审核、正式
-  发布、Web/API production 部署、数据库变更或备份。
+- 当前活动批次：`EXP-ICON-004-B3/B4` 已完成实现、guardrail 收口和精确体验版上传。用户先授权
+  `8caa5f20` 动态分配版本并确认上传 IP 白名单，再对完整 version/SHA/Manifest tuple 给出本轮 L3 上传批准；
+  `0.1.0-p10.20260904.86` 已上传成功。当前消息未授权 L4 服务端 allowlist；没有授权提交审核、正式发布、
+  Web/API production 部署、数据库变更或备份。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已连续 fetch 并合入最新
   `origin/main@4602120b`；其两次主线更新只涉及 Schedule guardrail、Hook、worktree/dependency/release helper
@@ -41,6 +41,13 @@
   producer 均只复用。exact production verify 为 total/main `5,182,000/1,745,406 B`，manifest `b953c6a4…`；
   credential-free CI dry-run manifest `169a559b…`。AppID/miniprogramRoot 和仓库外上传私钥存在性已通过脱敏检查；
   本机无法权威确认微信后台当前 IP 白名单。未分配版本、未创建 trial tag、未上传。
+- 最终 docs gate checkpoint `8caa5f20` 已推送。执行时远端无 cumulative trial tag，仓库 helper 在 fresh main/
+  required-ancestor/clean/profile 门禁下动态选择并原子占用 `0.1.0-p10.20260904.86`；description 为
+  `exp-icon-004-web-mini-parity-8caa5f2`。用户确认 exact tuple 后，同一暂停进程用 process-local IPv4 DNS adapter
+  上传成功：197 code files、ZIP `2,491,144 B`，version-bound total/main `5,183,336/1,746,172 B`，Manifest
+  `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`。receipt、远端 tag、profile、重算
+  Manifest、包体和 clean safety checker 均一致；尚未操作 production allowlist。上传记录 checkpoint 以
+  `docs(audit): record .86 icon parity trial upload` 识别。
 - B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
   本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
@@ -160,9 +167,7 @@
 
 ## 唯一下一任务与停止条件
 
-- 提交并推送本次 `UPLOAD_REQUIRED` 连续性记录，以该 docs checkpoint 作为最终 exact SHA 重置 managed
-  release worktree；只复用健康 dependency/bootstrap marker，并重跑版本无关的 exact production verify。
-- 向用户披露 exact SHA、变更、clean/profile、manifest、测试页面及 IP 白名单前置项并取得当次 L3 上传批准；
-  获批前不分配版本、不创建 tag。服务端 allowlist 是独立 L4，须由当时用户消息对上传后的 exact version 明确授权。
-- 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不
-  正式发布、不部署 production 应用或数据库。
+- 提交并推送 `.86@8caa5f20` 上传记录；上传 SHA 保持 `8caa5f20`，后续 docs checkpoint 不冒充小程序 payload。
+- 等待用户当前消息明确授权 exact `0.1.0-p10.20260904.86` 的 L4 add-only allowlist；获批后只执行可信
+  `schedule-client-version-allowlist ensure <exact-version>`、独立 `verify` 与规定的只读完整生产 verifier。
+- allowlist 与验证结果记录后停止。保持“小米 14 待用户复核”；不提审、不正式发布、不部署 production 应用或数据库。

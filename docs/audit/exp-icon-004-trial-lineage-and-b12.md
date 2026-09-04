@@ -298,6 +298,22 @@ Mini 为 302 files、total/main `5,169,730/1,731,703 B`；Mini 122 files/663 tes
   `12,240/9,490 B`，0 新 runtime dependency。当前结果低于设计预算，但最终上传仍必须以 exact clean SHA
   复测；冷启动、帧率、内存和 Skyline 合成开销只由匹配体验版 Xiaomi 14 证据确认。
 
+### B5 精确体验版结果（2026-09-04）
+
+- 最终小程序 payload 为 clean/detached managed worktree `8caa5f201b373fadd9453b8e4ec02fc3f93fe0cb`，包含
+  fresh `origin/main@4602120b`、`5285dd17`（含 `1ffab10c`）和 `c027abcd`。依赖及三个 Mini producer 均由
+  ReuseOnly 复用，`INSTALL_INVOKED=false`。
+- 动态占用时远端尚无 cumulative trial tag；helper 以 policy `.85` 为 floor 分配并原子创建 lightweight tag
+  `miniprogram-trial/0.1.0-p10.20260904.86`，精确指向 `8caa5f20`。用户对
+  `version/SHA/description/Manifest` 完整 tuple 明确批准后才继续上传。
+- 微信上传成功：version `0.1.0-p10.20260904.86`，description
+  `exp-icon-004-web-mini-parity-8caa5f2`，197 code files，ZIP `2,491,144 B`；version-bound total/main
+  `5,183,336/1,746,172 B`，Manifest
+  `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`。receipt/profile/tag/独立重算和
+  upload safety checker 一致；未调用微信开发者工具。
+- 本轮上传不代表 Xiaomi 14 验收。底部/顶部、日历、通讯录人员、更多、事件和工作流图标仍按下方清单在同一
+  `.86` 体验版人工复核。当前未获 L4 allowlist 授权，故未连接服务器、未放行版本，也未提审或正式发布。
+
 ## 第一实施批次的精确 Prompt
 
 > 执行 `EXP-ICON-004-LINEAGE-B1`。先从执行时最新 `origin/main` 更新现有

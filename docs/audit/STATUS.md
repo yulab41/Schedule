@@ -2,10 +2,10 @@
 
 ## 当前阶段
 
-- 当前批次：`EXP-ICON-004-B3/B4` 已完成实现、依赖和 guardrail 收口，进入精确体验版上传门禁。此前会话表达了
-  上传及白名单目标，但当前用户消息只确认一次性依赖授权已创建；尚未对最终 exact checkpoint 给出本轮 L3
-  上传批准，也未在当前消息授权 L4 服务端 allowlist，故状态为 `UPLOAD_REQUIRED`。没有授权提交审核、正式发布、
-  Web/API production 部署、数据库变更或备份。
+- 当前批次：`EXP-ICON-004-B3/B4` 已完成实现、依赖/guardrail 收口和精确体验版上传。用户先授权
+  `8caa5f20` 动态分配版本并确认上传 IP 白名单，再明确批准完整 tuple；
+  `0.1.0-p10.20260904.86@8caa5f20` 已上传成功。当前消息未授权 L4 服务端 allowlist；没有授权提交审核、
+  正式发布、Web/API production 部署、数据库变更或备份。
 - 独立 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。当前实现 parent 为 `fcb3c15a`，已包含最新
   `origin/main@4602120b`、图标血缘 `5285dd17`（含 `1ffab10c`）及累计体验版门禁 `c027abcd`。
@@ -26,6 +26,11 @@
   均 reused。exact production verify total/main 为 `5,182,000/1,745,406 B`、manifest `b953c6a4…`；无凭据
   CI dry-run manifest `169a559b…`。AppID/`dist/` root 与仓库外私钥存在性已脱敏确认；微信后台当前上传 IP
   白名单由本机工具无法权威测量。未分配版本、创建 tag、上传或连接 production。
+- 最终 gate checkpoint `8caa5f20` 已推送；动态分配并原子占用版本 `0.1.0-p10.20260904.86`，description
+  `exp-icon-004-web-mini-parity-8caa5f2`。精确批准后上传成功：197 code files、ZIP `2,491,144 B`，version-bound
+  total/main `5,183,336/1,746,172 B`，Manifest
+  `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`。脱敏 receipt、远端 lightweight tag、
+  build profile、独立 Manifest 重算、package audit 与 upload safety checker 均一致，worktree 仍 clean。
 
 ## EXP-ICON-004 B3 已验证事实
 
@@ -65,12 +70,7 @@
 
 ## 唯一下一任务与停止条件
 
-- 提交并推送 `UPLOAD_REQUIRED` 连续性记录，以该 docs checkpoint 作为最终 exact SHA 重置
-  `runtime/release-worktree`，只复用健康依赖/producer 输出并重跑 exact production verify。
-- 披露 exact SHA、clean/profile、manifest、测试页面和上传 IP 白名单前置项；取得当次 L3 批准后才动态分配
-  唯一版本、执行 version-bound build、创建不可变 tag 并上传体验版。
-- 上传前必须披露 exact SHA、版本、description、clean/profile/manifest 和测试页面；若仓库门禁仍要求精确候选
-  二次确认，则在该点等待用户确认。上传成功后，只有用户当时消息明确授权 exact version 的 L4 操作，才执行
-  受控 allowlist `ensure <exact-version>`、`verify` 和规定的只读生产健康验证；不部署应用或数据库。
-- 收到上传回执并记录 version/SHA/manifest、allowlist 加法语义与验证结果后停止。Xiaomi 14 状态保持
-  “自动化候选通过，待用户复核”；不提审、不正式发布。
+- 提交并推送 `.86@8caa5f20` 上传记录；后续 docs SHA 与已上传 payload 身份分开记录。
+- 等待用户当前消息明确授权 exact `.86` 的 L4 add-only allowlist。获批后只执行可信 `ensure`、独立 `verify`
+  和规定的只读生产健康验证；不部署应用或数据库。
+- allowlist 结果记录后停止。Xiaomi 14 状态保持“自动化候选通过，待用户复核”；不提审、不正式发布。
