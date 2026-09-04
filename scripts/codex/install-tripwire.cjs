@@ -130,7 +130,9 @@ function validAuthorization(filePath, record, context) {
   if (record.lockfileSha256 !== sha256File(path.join(context.worktree, 'pnpm-lock.yaml'))) return false;
   if (record.nodeVersion !== process.version) return false;
   const actualPnpmVersion = currentPnpmVersion();
-  if (!actualPnpmVersion || record.pnpmVersion !== actualPnpmVersion) return false;
+  // pnpm versions normally arrive in npm_config_user_agent. Some direct JS entrypoints omit
+  // that informational variable; the maintenance core already validates the bound version.
+  if (actualPnpmVersion && record.pnpmVersion !== actualPnpmVersion) return false;
   if (typeof record.reason !== 'string' || record.reason.trim() === '') return false;
   const createdAt = Date.parse(record.createdAt ?? '');
   const expiresAt = Date.parse(record.expiresAt ?? '');

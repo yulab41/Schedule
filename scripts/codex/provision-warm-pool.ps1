@@ -77,7 +77,7 @@ try {
             if (Test-Path -LiteralPath $slotPath) { throw "Slot path exists but is not a registered worktree: $slotPath" }
             [void](Invoke-Git -WorkingDirectory $repo -Arguments @('worktree', 'add', '--detach', $slotPath, $baseCommit))
             $existing = [pscustomobject]@{ Path = $slotPath; Head = $baseCommit; Branch = $null; Detached = $true }
-        } elseif (-not $existing.Detached -or $existing.Branch) {
+        } elseif (-not $existing.Detached -or $existing.Branch -or $existing.Head -ne $baseCommit) {
             $status = (Invoke-Git -WorkingDirectory $slotPath -Arguments @('status', '--porcelain=v1', '--untracked-files=all')).Output
             if ($status) { throw "Existing pool target is dirty and cannot be normalized: $slotPath" }
             [void](Invoke-Git -WorkingDirectory $slotPath -Arguments @('switch', '--detach', $baseCommit))

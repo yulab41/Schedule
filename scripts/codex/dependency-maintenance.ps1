@@ -86,7 +86,8 @@ try {
         "--store-dir=$targetStore"
     )
     $commandJson = @($installArguments) | ConvertTo-Json -Compress
-    $commandHash = Get-Sha256 (($canonicalCommon + [Environment]::NewLine + $canonicalWorktree + [Environment]::NewLine + $commandJson))
+    $hashSeparator = [char]10
+    $commandHash = Get-Sha256 (($canonicalCommon + $hashSeparator + $canonicalWorktree + $hashSeparator + $commandJson))
     $created = (Get-Date).ToUniversalTime()
     $record = [ordered]@{
         schemaVersion = 2
@@ -114,16 +115,7 @@ try {
     Write-Output 'INSTALL_AUTHORIZED=true'
     try {
         $coreScript = Join-Path $PSScriptRoot 'ensure-worktree-deps.ps1'
-        $coreArguments = @(
-            '-Mode',
-            'DependencyMaintenance',
-            '-WorktreeRoot',
-            $worktree,
-            '-AuthorizationFile',
-            $authorizationFile
-        )
-        if ($Json) { $coreArguments += '-Json' }
-        $output = & $coreScript @coreArguments
+        $output = & $coreScript -Mode DependencyMaintenance -WorktreeRoot $worktree -AuthorizationFile $authorizationFile -Json:$Json
         $exitCode = $LASTEXITCODE
         $output | ForEach-Object { Write-Output $_ }
         if ($exitCode -ne 0) { exit $exitCode }

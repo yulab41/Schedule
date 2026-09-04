@@ -552,6 +552,7 @@ function hasActiveLocalLock(stateDirectory, leaseRoot, worktree, leaseToken) {
 }
 
 function createExclusiveDirectory(directoryPath) {
+  fs.mkdirSync(path.dirname(directoryPath), { recursive: true });
   try {
     fs.mkdirSync(directoryPath);
     return true;

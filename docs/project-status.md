@@ -181,6 +181,17 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - checkpoint message：`chore(dev): complete project-local store mirror`；下一步是迁移/准备正式 warm pool，
   然后执行授权 install、root bootstrap 和并发/新 session 验证。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-003（2026-09-04）
+
+- 外部 warm `E:\ScheduleWT\general-1` 已通过 Git-aware move 迁入 `runtime/wt/general-1`，HEAD 从
+  `5c45236d` 安全切换到 `origin/main@a93d90ff`；旧路径无真实 worktree data。
+- 一次性维护前置校验记录：参数绑定缺陷、fingerprint 父目录初始化缺陷、pnpmfile user-agent 观测缺陷均在
+  install/import/link 前失败，未修改槽位依赖、lockfile 或 store；修正已进入待提交工具链 diff。
+- store early tripwire 的实测 guard-test 仍为 484ms 退出、`EXIT_BEFORE_IMPORT=true`、`NODE_MODULES_MUTATED=false`、
+  `LOCKFILE_CHANGED=false`、`STORE_CHANGED=false`；下一步重试同一 general-1 授权维护并顺序准备 general-2..6。
+- checkpoint message：`fix(dev): make maintenance authorization and pool provisioning executable`；下一步 stop
+  condition unchanged: all six project-local slots must be healthy and root-bootstrap-ready before final main update。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：在该 checkpoint 上执行项目 store 镜像、迁移外部 warm worktree、顺序准备 6 个正式槽位，
