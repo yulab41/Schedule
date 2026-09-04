@@ -16,6 +16,12 @@ Authoritative sources:
 ## Boundaries
 
 - Ordinary `L1` work stays in the current worktree; do not create another worktree merely for convenience.
+- The canonical project home is the parent of the Git common directory. New persistent Schedule pool
+  slots are direct children of its `runtime/wt` directory; a linked worktree must never be used as the
+  base for a nested `runtime/wt` path.
+- `runtime/wt`, `runtime/codex`, and `runtime/pnpm-store` are exact ignored project-local paths. They
+  are excluded from workspace and tool discovery, while other managed `runtime/` evidence remains
+  governed by the existing scoped rules.
 - Final-candidate work uses the repository-managed fixed short path `$REPO_ROOT/runtime/release-worktree`. Use the existing helper; never create a worktree inside another candidate, beneath a package, or in a deeper ad hoc directory.
 - Before using a candidate, run `scripts/check-worktree-safety.ps1`. A wrong, linked, unregistered, branch-attached, dirty, or commit-mismatched path fails closed. The checker never creates, cleans, switches, or deletes it.
 - Only the existing release helper may create or advance the managed path. Do not delete/recreate it to solve dependency or line-ending symptoms.

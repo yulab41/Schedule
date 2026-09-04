@@ -42,6 +42,9 @@ runtime/ecs-release/
 /runtime/audit/
 /runtime/external-project-worktrees/
 /runtime/release-worktree/
+/runtime/codex/
+/runtime/wt/
+/runtime/pnpm-store/
 /runtime/smoke/
 /runtime/tmp/
 /runtime/test-*/

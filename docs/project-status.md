@@ -8,9 +8,10 @@
 - 当前活动批次：用户已明确批准 `EXP-ICON-004-B3`，并在当前消息授权完成后上传新的微信体验版及把该精确版本
   加入服务端客户端版本白名单。没有授权提交审核、正式发布、Web/API production 部署、数据库变更或备份。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
-  `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已 fetch，最新主线为 `origin/main@8a3157e8`；主线改动仅为
-  `TOOLCHAIN-GUARDRAILS-003` 的 Mini 安全胶囊、validator 和本状态文档，Mini/Web/ui-icons/tokens/lockfile
-  没有运行时改动。合并冲突只发生在本状态文档，已按当前 B3 批次重写并保留主线安全规则。
+  `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已连续 fetch 并合入最新
+  `origin/main@4602120b`；其两次主线更新只涉及 Schedule guardrail、Hook、worktree/dependency/release helper
+  和文档，Mini/Web/ui-icons/tokens/lockfile 没有业务运行时改动。合并冲突只发生在本状态文档，按当前 B3
+  批次重写并保留主线安全规则。
 - 图标血缘 merge checkpoint 为 `24ea709e`，父提交包含 `5285dd17`，后者祖先包含 `1ffab10c`；B2 收口
   checkpoint 为 `b480899d`。当前候选必须继续包含 `c027abcd` 的累计体验版血缘门禁。
 - 前序最新体验版为 `0.1.0-p10.20260903.85@a1bba571`；服务端 allowlist 已确认保留 `.81–.85`。B3 必须在最终
@@ -95,8 +96,28 @@
   production/备份、Xiaomi 14 最终验收、同环境父/新 SHA 对比和诊断包体语义。定向红绿先捕获缺少胶囊路由，
   补齐后 Skill 结构/front matter、11 个 Markdown/74 个链接、3 个 PowerShell 只读 AST 和 Node YAML 解析
   通过；`quick_validate.py` 仍因缺 PyYAML 无法启动，遵守禁装依赖边界未补装。
-- 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
+ - 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
   checkpoint 以 `docs(agent): route Mini safety capsule` 识别。
+
+## TOOLCHAIN-GUARDRAILS-INTERNAL-001（2026-09-04）
+
+- 方向纠正：正式 Skill、根路由、项目 Hook、配置、指纹、bootstrap、租约、状态、池和未来 store 目标统一
+  收敛到 canonical project home 下的 `.agents/`、`.codex/`、`scripts/codex/` 和 `runtime/`；不再新增项目外
+  Schedule 写入。既有项目外 worktree、旧 store 和此前全局临时内容只按遗留状态保护，未移动活动环境。
+- 从方向纠正时的最新 `origin/main` tip 建立项目内 `runtime/wt/guardrails-integrate` 集成 worktree；集成 worktree
+  没有 `node_modules`，本轮没有 install/fetch/rebuild/prune，也没有创建冷依赖环境。项目内 ReuseOnly 演练
+  应保持 `BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`，不得借用遗留外部 warm 槽位。
+- 已完成项目内路径门禁改造：精确 ignore `runtime/codex/`、`runtime/wt/`、`runtime/pnpm-store/`；
+  Hook 配置使用相对路径；指纹/bootstrap 状态不再进入 Git admin；pool 只接受 runtime/wt 直接子 worktree，
+  使用 runtime/codex 原子租约并将 `NESTED_WORKTREE_CREATION=false` 固定为硬门禁。
+- 候选审计、日期漂移归属和前一 checkpoint 的旧证据保留在开发记录；前一外部集成提交不被重写，最终只从
+  最新主线选择性提交本项目内布局修正版。
+- 当前工作树轻量验证：项目 Skill 校验 `RESULT=PASS`；项目 Hook/指纹/bootstrap/池/布局 Node 定向测试
+  `17/17`；项目内 ReuseOnly 和 Mini bootstrap 均 fail-closed 且 `INSTALL_INVOKED=false`；项目外遗留登记
+  仅写入被忽略的 `runtime/codex/state`，没有移动或修改遗留 worktree/store。远端期间新增的动态身份与 Mini
+  安全胶囊提交已审计并保留，本分支已在最新 tip 上正常重放。
+- checkpoint message：`fix(agent): keep Schedule Codex guardrails project-local`。已逐文件审阅并显式暂存工具链
+  路径；不得触碰业务源码、依赖、锁文件、生产、数据库或小程序上传。
 
 ## 唯一下一任务与停止条件
 

@@ -8,6 +8,7 @@ import {
   DEPENDENCY_MUTATION_REASON,
   SCHEDULE_HOOK_CONTEXT,
   classifyCommand,
+  detectScheduleProject,
   handleHookEvent,
   releaseOwnedLeases,
 } from './schedule-project-hook.mjs';
@@ -91,7 +92,16 @@ test('blocks recursive cleanup in a persistent slot', () => {
 });
 
 test('injects context only for Schedule and denies PreToolUse without authorization', () => {
-  const config = { commonDir, poolRoot: path.join(root, 'runtime', 'synthetic-pool') };
+  const config = {
+    commonDir: '.git',
+    poolRoot: 'runtime/synthetic-pool',
+    stateRoot: 'runtime/codex',
+    authorizationDir: 'runtime/codex/dependency-maintenance-authorizations',
+  };
+  const detected = detectScheduleProject({ cwd: root, config, git: fakeGit });
+  assert.equal(detected.poolRoot, path.join(root, 'runtime', 'synthetic-pool'));
+  assert.equal(detected.stateRoot, path.join(root, 'runtime', 'codex'));
+  assert.equal(detected.authorizationDir, path.join(root, 'runtime', 'codex', 'dependency-maintenance-authorizations'));
   assert.ok(SCHEDULE_HOOK_CONTEXT.length <= 250);
   const scheduleStart = handleHookEvent(event('SessionStart'), { config, git: fakeGit });
   assert.equal(scheduleStart.additionalContext.includes('REUSE_ONLY'), true);
@@ -101,12 +111,12 @@ test('injects context only for Schedule and denies PreToolUse without authorizat
   assert.deepEqual(denial, { decision: 'deny', reason: DEPENDENCY_MUTATION_REASON });
   const nonSchedule = handleHookEvent(
     { ...event('PreToolUse', 'pnpm install'), cwd: root },
-    { config: { commonDir: path.join(root, 'not-schedule', '.git'), poolRoot: config.poolRoot }, git: fakeGit },
+    { config: { ...config, commonDir: path.join(root, 'not-schedule', '.git') }, git: fakeGit },
   );
   assert.equal(nonSchedule, undefined);
   const nonScheduleContext = handleHookEvent(
     { ...event('SessionStart'), cwd: root },
-    { config: { commonDir: path.join(root, 'not-schedule', '.git'), poolRoot: config.poolRoot }, git: fakeGit },
+    { config: { ...config, commonDir: path.join(root, 'not-schedule', '.git') }, git: fakeGit },
   );
   assert.equal(nonScheduleContext, undefined);
 });
@@ -114,27 +124,29 @@ test('injects context only for Schedule and denies PreToolUse without authorizat
 test('SessionEnd removes only the owning lease and preserves node_modules', () => {
   const poolRoot = temporaryDirectory();
   const slot = path.join(poolRoot, 'general-1');
-  const admin = path.join(slot, 'admin');
-  const state = path.join(admin, 'schedule-worktree-state');
+  const state = path.join(poolRoot, 'state');
+  const leaseRoot = path.join(state, 'leases');
+  const leasePath = path.join(leaseRoot, 'general-1.json');
   const nodeModulesMarker = path.join(slot, 'node_modules', 'keep.txt');
   fs.mkdirSync(path.dirname(nodeModulesMarker), { recursive: true });
-  fs.mkdirSync(state, { recursive: true });
+  fs.mkdirSync(leaseRoot, { recursive: true });
   fs.writeFileSync(nodeModulesMarker, 'keep\n');
-  fs.writeFileSync(path.join(state, 'slot-lease-v1.lock'), JSON.stringify({
+  fs.writeFileSync(leasePath, JSON.stringify({
     pid: -1,
+    path: slot,
     sessionId: 'session-1',
     taskId: 'thread-1',
   }));
   const released = releaseOwnedLeases({
-    project: { poolRoot },
+    project: { poolRoot, stateRoot: state },
     event: { session_id: 'session-1', thread_id: 'thread-1' },
     git: (cwd, arguments_) => {
-      if (arguments_[0] === 'rev-parse') return admin;
+      if (arguments_[0] === 'rev-parse') return root;
       if (arguments_[0] === 'status') return '';
       return undefined;
     },
   });
   assert.equal(released, 1);
-  assert.equal(fs.existsSync(path.join(state, 'slot-lease-v1.lock')), false);
+  assert.equal(fs.existsSync(leasePath), false);
   assert.equal(fs.existsSync(nodeModulesMarker), true);
 });

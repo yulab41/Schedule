@@ -22,6 +22,11 @@ Keep the reported `SKILL_HASH` in the current thread. When it is unchanged, do n
 
 The default is `DEPENDENCY_MODE=REUSE_ONLY`. A conversation boundary is never a dependency invalidation boundary. Read the [dependency environment lifecycle](references/dependency-lifecycle.md) before any dependency maintenance request; ordinary task level, branch/SHA movement, missing workspace output, or a clean-source check never authorizes installation.
 
+The canonical project home is derived from the Git common directory. Persistent Schedule worktrees
+are direct children of `runtime/wt`; fingerprints, leases, logs, and evidence stay under ignored
+`runtime/codex`; the future package store target is `runtime/pnpm-store`. These project-local paths are
+not replaced by a user-level or external Schedule copy.
+
 In `REUSE_ONLY`:
 
 - A matching fingerprint and healthy worktree-local `node_modules` are reused.
@@ -29,6 +34,10 @@ In `REUSE_ONLY`:
 - A missing environment stops with `TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`.
 - Normal output is `DEPENDENCIES_REUSED=true` and `INSTALL_INVOKED=false`.
 - A parallel task acquires one exclusive warm slot; a busy or exhausted pool returns `POOL_BUSY` and never creates a cold worktree.
+
+For a fingerprint mismatch, report `TASK_STATUS=BLOCKED_DEPENDENCY_INSTALL_REQUIRED`,
+`DEPENDENCIES_REUSED=false`, `INSTALL_INVOKED=false`, and the changed field(s). A missing producer
+`dist` or declaration is a bootstrap decision, never a dependency-install trigger.
 
 ## Route the task
 

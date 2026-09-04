@@ -1,0 +1,4 @@
+# Schedule project-local Codex layer.
+# Hook handlers are declared in .codex/hooks.json and resolved from the current checkout.
+# Runtime state, leases, fingerprints, and the future package store stay under runtime/.
+# No machine-specific absolute path or user-level configuration is required here.

@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 test('pool policy is exclusive, persistent, and never creates a cold worktree', () => {
   const pool = fs.readFileSync(path.join(root, 'scripts/codex/manage-worktree-pool.ps1'), 'utf8');
   assert.match(pool, /CreateNew/iu);
-  assert.match(pool, /slot-lease-v1\.lock/iu);
+  assert.match(pool, /slotKey/iu);
   assert.match(pool, /sessionId/iu);
   assert.match(pool, /taskId/iu);
   assert.match(pool, /lastHeartbeat/iu);
@@ -19,6 +19,10 @@ test('pool policy is exclusive, persistent, and never creates a cold worktree', 
   assert.match(pool, /lease\.branch/iu);
   assert.match(pool, /Get-ChildProcessEvidence/iu);
   assert.match(pool, /process-parent-tree/iu);
+  assert.match(pool, /runtime[\\/]wt/iu);
+  assert.match(pool, /runtime[\\/]codex/iu);
+  assert.doesNotMatch(pool, new RegExp(['CODEX', '_HOME'].join(''), 'iu'));
+  assert.doesNotMatch(pool, new RegExp(['Schedule', 'WT'].join(''), 'iu'));
   assert.doesNotMatch(pool, /git\s+-C[^\r\n]+worktree\s+add/iu);
   assert.doesNotMatch(pool, /git\s+clean/iu);
   assert.doesNotMatch(pool, /node_modules[^\r\n]*(?:Remove-Item|rm\s+-rf)/iu);

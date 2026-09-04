@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const SCHEDULE_HOOK_CONTEXT =
-  'Schedule: DEPENDENCY_MODE=REUSE_ONLY; load schedule-project-guardrails. New/resumed conversations, branch/SHA changes, or missing dist do not justify install. Reuse a healthy worktree or exclusive warm slot; else fail closed—never cold-install.';
+  'Schedule project: dependency mode=REUSE_ONLY. Load schedule-project-guardrails. New/resumed, branch/SHA changes, or missing dist never authorize install. Use a healthy worktree or exclusive warm slot; none means fail closed—never cold-install.';
 export const DEPENDENCY_MUTATION_REASON =
   'TASK_STATUS=BLOCKED_DEPENDENCY_MUTATION\nINSTALL_INVOKED=false\nREASON=Schedule defaults to REUSE_ONLY; current user message has no dependency-maintenance authorization.';
 export const DANGEROUS_DEPENDENCY_SUBCOMMANDS = new Set([
@@ -25,7 +25,6 @@ export const DANGEROUS_DEPENDENCY_SUBCOMMANDS = new Set([
 export const SHELL_TOOL_PATTERN = /(?:bash|cmd|command|exec|powershell|pwsh|shell|terminal)/iu;
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const DEFAULT_CONFIG_PATH = path.join(path.dirname(SCRIPT_PATH), 'project.json');
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -253,6 +252,11 @@ function readJson(filePath, fsImpl = fs) {
   catch { return undefined; }
 }
 
+function resolveConfiguredPath(root, value, fallback) {
+  const configured = value ?? fallback;
+  return path.isAbsolute(configured) ? path.resolve(configured) : path.resolve(root, configured);
+}
+
 function runGit(cwd, arguments_, spawn = spawnSync) {
   const result = spawn('git', ['-C', cwd, ...arguments_], { encoding: 'utf8', windowsHide: true });
   if (result.error || result.status !== 0) return undefined;
@@ -261,13 +265,24 @@ function runGit(cwd, arguments_, spawn = spawnSync) {
 
 export function detectScheduleProject({ cwd, config, git = runGit, fsImpl = fs }) {
   if (!cwd || !config?.commonDir) return undefined;
-  const root = git(cwd, ['rev-parse', '--show-toplevel']);
+  const discoveredRoot = git(cwd, ['rev-parse', '--show-toplevel']);
+  const root = discoveredRoot ? path.resolve(discoveredRoot) : undefined;
   const commonRaw = git(cwd, ['rev-parse', '--git-common-dir']);
   const common = commonRaw && (path.isAbsolute(commonRaw) ? commonRaw : path.resolve(root ?? cwd, commonRaw));
-  if (!root || !common || canonicalPath(common) !== canonicalPath(config.commonDir)) return undefined;
+  const canonicalProjectHome = common ? path.dirname(path.resolve(common)) : undefined;
+  const configuredCommon = canonicalProjectHome && resolveConfiguredPath(canonicalProjectHome, config.commonDir, '.git');
+  if (!root || !common || !configuredCommon || canonicalPath(common) !== canonicalPath(configuredCommon)) return undefined;
   const markers = ['pnpm-workspace.yaml', 'apps/miniprogram', 'apps/api', 'infra/docker/compose.prod.yml'];
   if (!markers.every((marker) => fsImpl.existsSync(path.join(root, marker)))) return undefined;
-  return { root, commonDir: canonicalPath(common), poolRoot: config.poolRoot };
+  const poolRoot = resolveConfiguredPath(canonicalProjectHome, config.poolRoot, 'runtime/wt');
+  const stateRoot = resolveConfiguredPath(canonicalProjectHome, config.stateRoot, 'runtime/codex');
+  const authorizationDir = resolveConfiguredPath(
+    canonicalProjectHome,
+    config.authorizationDir,
+    path.join('runtime', 'codex', 'dependency-maintenance-authorizations'),
+  );
+  if (!isPathInside(canonicalProjectHome, poolRoot) || !isPathInside(canonicalProjectHome, stateRoot) || !isPathInside(canonicalProjectHome, authorizationDir)) return undefined;
+  return { root, canonicalProjectHome, commonDir: canonicalPath(common), poolRoot, stateRoot, authorizationDir };
 }
 
 function eventValue(event, keys) {
@@ -335,19 +350,22 @@ function processAlive(pid) {
 }
 
 export function releaseOwnedLeases({ project, event, fsImpl = fs, git = runGit }) {
-  if (!project?.poolRoot || !fsImpl.existsSync(project.poolRoot)) return 0;
+  if (!project?.poolRoot || !project?.stateRoot || !fsImpl.existsSync(project.poolRoot)) return 0;
+  const leaseRoot = path.join(project.stateRoot, 'leases');
+  if (!fsImpl.existsSync(leaseRoot)) return 0;
   const sessionId = event?.session_id ?? event?.sessionId;
   const taskId = event?.thread_id ?? event?.taskId;
   const eventPid = Number(event?.pid);
   let released = 0;
-  for (const entry of fsImpl.readdirSync(project.poolRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const slotPath = path.join(project.poolRoot, entry.name);
-    const admin = git(slotPath, ['rev-parse', '--absolute-git-dir']);
-    if (!admin) continue;
-    const leasePath = path.join(admin, 'schedule-worktree-state', 'slot-lease-v1.lock');
+  for (const entry of fsImpl.readdirSync(leaseRoot, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.toLocaleLowerCase('en-US').endsWith('.json')) continue;
+    const leasePath = path.join(leaseRoot, entry.name);
     const lease = readJson(leasePath, fsImpl);
     if (!lease) continue;
+    if (typeof lease.path !== 'string' || !isPathInside(project.poolRoot, lease.path)) continue;
+    const slotPath = path.resolve(lease.path);
+    if (path.dirname(canonicalPath(slotPath)) !== canonicalPath(project.poolRoot)) continue;
+    if (!git(slotPath, ['rev-parse', '--show-toplevel'])) continue;
     const matchesIdentity =
       (sessionId && lease.sessionId === sessionId) ||
       (taskId && lease.taskId === taskId) ||
@@ -376,7 +394,13 @@ export function handleHookEvent(event, { config, now = new Date(), fsImpl = fs, 
   if (typeof command !== 'string') return undefined;
   const classification = classifyCommand(command, { cwd: project.root, poolRoot: project.poolRoot });
   if (!classification.blocked) return undefined;
-  const authorization = validAuthorization({ project, command, config, fsImpl, now });
+  const authorization = validAuthorization({
+    project,
+    command,
+    config: { ...config, authorizationDir: project.authorizationDir },
+    fsImpl,
+    now,
+  });
   if (authorization) {
     consumeAuthorization(authorization, fsImpl);
     return { decision: 'allow', reason: 'user-authorized dependency maintenance' };
@@ -388,7 +412,12 @@ export function main() {
   const input = fs.readFileSync(0, 'utf8').trim();
   let event = {};
   try { event = input ? JSON.parse(input) : {}; } catch { event = {}; }
-  const configPath = process.env.SCHEDULE_HOOK_CONFIG ?? DEFAULT_CONFIG_PATH;
+  const discoveredRoot = runGit(process.cwd(), ['rev-parse', '--show-toplevel']);
+  const configPath = process.env.SCHEDULE_HOOK_CONFIG ?? (
+    discoveredRoot
+      ? path.join(path.resolve(discoveredRoot), '.codex', 'hooks', 'project.json')
+      : path.join(path.dirname(SCRIPT_PATH), '..', '..', '.codex', 'hooks', 'project.json')
+  );
   const config = readJson(configPath) ?? {};
   const response = handleHookEvent(event, { config });
   if (response) console.log(JSON.stringify(response));

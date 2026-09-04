@@ -179,8 +179,9 @@ try {
 
     $parallelReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/multi-parallel-workflow.md') -Raw
     foreach ($requiredPoolToken in @(
-        'machine-local Schedule pool',
-        'same volume as the repository and pnpm store',
+        'project-local',
+        '`runtime/wt`',
+        '`runtime/codex`',
         'atomic create operation',
         'Each active task owns one worktree',
         'POOL_BUSY',

@@ -1,0 +1,50 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node \".codex/hooks/schedule-project-hook.mjs\"",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "UserPromptSubmit": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node \".codex/hooks/schedule-project-hook.mjs\"",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node \".codex/hooks/schedule-project-hook.mjs\"",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "SessionEnd": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node \".codex/hooks/schedule-project-hook.mjs\"",
+          "timeout": 10
+        }
+      ]
+    }
+  ]
+}

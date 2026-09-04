@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "project": "Schedule",
+  "commonDir": ".git",
+  "poolRoot": "runtime/wt",
+  "stateRoot": "runtime/codex",
+  "authorizationDir": "runtime/codex/dependency-maintenance-authorizations"
+}
