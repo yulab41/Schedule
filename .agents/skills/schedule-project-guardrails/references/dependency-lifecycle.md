@@ -21,8 +21,8 @@ with an explicit adoption flag, record a marker for an already healthy environme
 
 ## Fingerprint
 
-The marker is local state under the worktree's Git administrative directory, never a tracked file. Its
-fingerprint includes the SHA-256 of:
+The marker is ignored project-local state under `runtime/codex/fingerprints/<worktree-key>/`, never a
+tracked file. Its fingerprint includes the SHA-256 of:
 
 - `pnpm-lock.yaml`, `pnpm-workspace.yaml`, the root `package.json`, every workspace `package.json`;
 - dependency patches and pnpm hooks (`patches/**`, `.pnpmfile.*`), plus `.npmrc`/pnpm layout configuration;
@@ -31,7 +31,9 @@ fingerprint includes the SHA-256 of:
 - `nodeLinker`, package import method, global virtual store, side-effects cache, virtual-store type,
   recursive install, `verifyDepsBeforeRun`, and other dependency-layout settings.
 
-Absolute local paths are hashed in the marker and may be retained only in ignored machine-local state.
+The future Schedule store target is the ignored project-local `runtime/pnpm-store` path, calculated
+from the canonical project home. Existing external stores remain legacy transition state and are not
+registered as project-local pool environments; no migration is implicit.
 
 ## Health and decisions
 
@@ -49,6 +51,10 @@ The standard command is:
 ```powershell
 & scripts/codex/ensure-worktree-deps.ps1 -Mode ReuseOnly
 ```
+
+The only maintenance entrypoint is `scripts/codex/dependency-maintenance.ps1`. It requires a
+user-created authorization record; the wrapper does not create records, choose a store, or broaden
+the authorization. Its install branch passes the calculated project-local `runtime/pnpm-store` target.
 
 Expected reuse output is:
 

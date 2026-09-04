@@ -37,15 +37,28 @@ Set-StrictMode -Version Latest
 $repositoryHint = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $RepositoryRoot = (& git -C $repositoryHint rev-parse --show-toplevel).Trim()
 $RepositoryRoot = [IO.Path]::GetFullPath($RepositoryRoot)
-if (-not $PoolRoot) { $PoolRoot = Join-Path ([IO.Path]::GetPathRoot($RepositoryRoot)) 'ScheduleWT' }
-$PoolRoot = [IO.Path]::GetFullPath($PoolRoot).TrimEnd('\')
+$commonRaw = (& git -C $RepositoryRoot rev-parse --git-common-dir).Trim()
+$CommonDirectory = if ([IO.Path]::IsPathRooted($commonRaw)) {
+    [IO.Path]::GetFullPath($commonRaw)
+} else {
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $commonRaw))
+}
+$CanonicalProjectHome = [IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($CommonDirectory)).TrimEnd('\')
+$ExpectedPoolRoot = [IO.Path]::GetFullPath((Join-Path $CanonicalProjectHome 'runtime/wt')).TrimEnd('\')
+if ($PoolRoot) {
+    $requestedPoolRoot = [IO.Path]::GetFullPath($PoolRoot).TrimEnd('\')
+    if (-not $requestedPoolRoot.Equals($ExpectedPoolRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "PoolRoot must be the project-local runtime/wt path: $ExpectedPoolRoot"
+    }
+}
+$PoolRoot = $ExpectedPoolRoot
 $DependencyScript = Join-Path $PSScriptRoot 'ensure-worktree-deps.ps1'
 $BootstrapScript = Join-Path $PSScriptRoot 'ensure-workspace-bootstrap.ps1'
 $SlotMarkerName = 'pool-slot-v1.json'
-$LeaseName = 'slot-lease-v1.lock'
-$codexHome = [Environment]::GetEnvironmentVariable('CODEX_HOME')
-if ([string]::IsNullOrWhiteSpace($codexHome)) { $codexHome = Join-Path $env:USERPROFILE '.codex' }
-$LocalStateRoot = Join-Path ([IO.Path]::GetFullPath($codexHome)) 'schedule-worktree-pool'
+$StateRoot = Join-Path $CanonicalProjectHome 'runtime/codex'
+$LocalStateRoot = Join-Path $StateRoot 'state'
+$SlotStateRoot = Join-Path $LocalStateRoot 'slots'
+$LeaseRoot = Join-Path $StateRoot 'leases'
 $LocalConfigPath = Join-Path $LocalStateRoot 'config.json'
 if (-not $Owner) { $Owner = "codex-$PID" }
 if (-not $SessionId) { $SessionId = [Environment]::GetEnvironmentVariable('CODEX_SESSION_ID') }
@@ -69,9 +82,7 @@ function Test-PathInside {
 }
 
 function Get-CommonDirectory {
-    $raw = (& git -C $RepositoryRoot rev-parse --git-common-dir).Trim()
-    if ([IO.Path]::IsPathRooted($raw)) { return [IO.Path]::GetFullPath($raw) }
-    return [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $raw))
+    return $CommonDirectory
 }
 
 function Get-RegisteredWorktrees {
@@ -96,31 +107,48 @@ function Get-RegisteredWorktrees {
 
 function Assert-PoolBoundary {
     if (-not (Test-Path -LiteralPath $PoolRoot -PathType Container)) {
-        throw "Pool root does not exist: $PoolRoot"
+        [void](New-Item -ItemType Directory -LiteralPath $PoolRoot -Force)
+    }
+    $poolItem = Get-Item -LiteralPath $PoolRoot -Force
+    if (($poolItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'Pool root must not be a symbolic link or directory junction.'
+    }
+    if ((Get-CanonicalPath $PoolRoot) -ne (Get-CanonicalPath $ExpectedPoolRoot)) {
+        throw "Pool root is not the canonical project-local runtime/wt path: $PoolRoot"
+    }
+    if ((Get-CanonicalPath $CanonicalProjectHome) -eq (Get-CanonicalPath $PoolRoot)) {
+        throw 'Pool root cannot be the canonical project home itself.'
     }
     if ([IO.Path]::GetPathRoot((Get-CanonicalPath $RepositoryRoot)) -ne [IO.Path]::GetPathRoot((Get-CanonicalPath $PoolRoot))) {
         throw "Pool must be on the repository volume: $PoolRoot"
     }
     foreach ($worktree in Get-RegisteredWorktrees) {
-        if (Test-PathInside -Parent $worktree.path -Child $PoolRoot) {
+        if ((Get-CanonicalPath $worktree.path) -ne (Get-CanonicalPath $CanonicalProjectHome) -and
+            (Test-PathInside -Parent $worktree.path -Child $PoolRoot)) {
             throw "Pool is nested inside a registered worktree: $PoolRoot"
         }
     }
 }
 
-function Get-SlotStateDirectory {
+function Get-SlotKey {
     param([Parameter(Mandatory = $true)][string]$WorktreePath)
-    $gitDirectory = (& git -C $WorktreePath rev-parse --absolute-git-dir).Trim()
-    return Join-Path $gitDirectory 'schedule-worktree-state'
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [Text.Encoding]::UTF8.GetBytes((Get-CanonicalPath $WorktreePath))
+        return -join ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
+    }
+    finally {
+        $sha.Dispose()
+    }
 }
 
 function Get-SlotPaths {
     param([Parameter(Mandatory = $true)][string]$WorktreePath)
-    $stateDirectory = Get-SlotStateDirectory $WorktreePath
+    $slotKey = Get-SlotKey $WorktreePath
     return [pscustomobject]@{
-        stateDirectory = $stateDirectory
-        marker = Join-Path $stateDirectory $SlotMarkerName
-        lease = Join-Path $stateDirectory $LeaseName
+        slotKey = $slotKey
+        marker = Join-Path $SlotStateRoot "$slotKey.json"
+        lease = Join-Path $LeaseRoot "$slotKey.json"
     }
 }
 
@@ -227,7 +255,8 @@ function New-AtomicLease {
 function Read-Lease {
     param([Parameter(Mandatory = $true)][string]$LeasePath)
     if (-not (Test-Path -LiteralPath $LeasePath -PathType Leaf)) { return $null }
-    return Get-Content -LiteralPath $LeasePath -Raw | ConvertFrom-Json
+    try { return Get-Content -LiteralPath $LeasePath -Raw | ConvertFrom-Json }
+    catch { return [pscustomobject]@{ invalid = $true } }
 }
 
 function Get-ManagedSlots {
@@ -239,7 +268,10 @@ function Get-ManagedSlots {
         if (-not (Test-Path -LiteralPath $resolved -PathType Container)) { continue }
         $paths = Get-SlotPaths $resolved
         if (-not (Test-Path -LiteralPath $paths.marker -PathType Leaf)) { continue }
-        $metadata = Get-Content -LiteralPath $paths.marker -Raw | ConvertFrom-Json
+        try { $metadata = Get-Content -LiteralPath $paths.marker -Raw | ConvertFrom-Json } catch { continue }
+        if ($metadata.schemaVersion -ne 1 -or [string]::IsNullOrWhiteSpace($metadata.path)) { continue }
+        if ((Get-CanonicalPath $metadata.path) -ne $resolved) { continue }
+        if ($metadata.commonDir -and (Get-CanonicalPath $metadata.commonDir) -ne (Get-CanonicalPath $CommonDirectory)) { continue }
         $lease = Read-Lease $paths.lease
         $process = Get-ProcessEvidence $resolved
         $slots += [pscustomobject]@{
@@ -317,6 +349,7 @@ function New-Result {
         dependenciesReused = $DependenciesReused
         installInvoked = $InstallInvoked
         worktreeCreated = $WorktreeCreated
+        nestedWorktreeCreation = $false
     }
     if ($Reason) { $result.reason = $Reason }
     if ($Data) { $result.data = $Data }
@@ -333,6 +366,8 @@ function Write-Result {
         $worktreeCreated = ([bool]$Value.worktreeCreated).ToString().ToLowerInvariant()
         Write-Output "INSTALL_INVOKED=$installInvoked"
         Write-Output "WORKTREE_CREATED=$worktreeCreated"
+        Write-Output "WORKTREE_POOL_ROOT=$PoolRoot"
+        Write-Output 'NESTED_WORKTREE_CREATION=false'
     }
 }
 
@@ -540,7 +575,8 @@ function Get-PoolStatus {
     $available = @($rows | Where-Object { $_.clean -and -not $_.leased -and $_.compatible -eq $true -and $_.processEvidence.known -and $_.processEvidence.count -eq 0 }).Count
     $occupied = @($rows | Where-Object { $_.leased }).Count
     $reserve = @($rows | Where-Object { $_.permanence -eq 'reserve' }).Count
-    return New-Result -TaskStatus 'READY_REUSE' -DependenciesReused ($available -gt 0) -Data ([pscustomobject]@{
+    $status = if ($available -gt 0) { 'READY_REUSE' } else { 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' }
+    return New-Result -TaskStatus $status -DependenciesReused ($available -gt 0) -Data ([pscustomobject]@{
             poolRoot = $PoolRoot
             repositoryRoot = $RepositoryRoot
             slots = $rows

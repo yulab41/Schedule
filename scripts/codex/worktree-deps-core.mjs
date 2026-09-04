@@ -30,10 +30,9 @@ export const PNPM_INSTALL_ARGUMENTS = [
 export const MAX_MAINTENANCE_AUTHORIZATION_MINUTES = 15;
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const DEPENDENCY_STATE_DIRECTORY = 'schedule-worktree-state';
 const DEPENDENCY_MARKER = 'dependencies-v2.json';
 const DEPENDENCY_LOCK = 'dependency-install.lock';
-const SLOT_LEASE = 'slot-lease-v1.lock';
+const PROJECT_RUNTIME_DIRECTORY = 'runtime';
 const SCHEDULE_MARKERS = [
   'pnpm-workspace.yaml',
   'apps/miniprogram',
@@ -76,6 +75,10 @@ function canonicalPath(value) {
   let real = resolved;
   try { real = fs.realpathSync.native(resolved); } catch { /* a marker may be checked before it exists */ }
   return process.platform === 'win32' ? real.toLocaleLowerCase('en-US') : real;
+}
+
+export function getWorktreeStateKey(worktree) {
+  return sha256(canonicalPath(worktree)).slice(0, 24);
 }
 
 function isPathInside(parent, child) {
@@ -445,9 +448,10 @@ function sanitizeConfigValue(key, value) {
   return value;
 }
 
-export function inspectRuntimeEnvironment(root) {
+export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonicalProjectHome(root) } = {}) {
   const storePath = path.resolve(runPnpm(root, ['store', 'path']).trim());
   const pnpmVersion = runPnpm(root, ['--version']).trim();
+  const targetStorePath = resolveProjectLocalStorePath(projectHome);
   const layout = Object.fromEntries(
     PNPM_LAYOUT_CONFIG_KEYS.map((key) => {
       const value = runPnpm(root, ['config', 'get', key]).trim() || 'undefined';
@@ -462,18 +466,46 @@ export function inspectRuntimeEnvironment(root) {
       pnpmVersion,
       storePathHash: sha256(canonicalPath(storePath)),
       storeVolume: path.parse(storePath).root.replace(/[\\/]+$/u, '').toLocaleLowerCase('en-US'),
+      targetStorePath: 'runtime/pnpm-store',
+      targetStorePathHash: sha256(canonicalPath(targetStorePath)),
+      targetStoreVolume: path.parse(targetStorePath).root.replace(/[\\/]+$/u, '').toLocaleLowerCase('en-US'),
+      storePolicy: 'project-local-target',
       layout,
     },
     storePath,
+    targetStorePath,
   };
-}
-
-function gitDirectory(root) {
-  return path.resolve(run('git', ['rev-parse', '--absolute-git-dir'], { cwd: root }).trim());
 }
 
 function gitCommonDirectory(root) {
   return path.resolve(root, run('git', ['rev-parse', '--git-common-dir'], { cwd: root }).trim());
+}
+
+export function resolveCanonicalProjectHome(root) {
+  const commonDirectory = gitCommonDirectory(path.resolve(root));
+  const projectHome = path.dirname(commonDirectory);
+  return assertScheduleRoot(fs.realpathSync.native(projectHome));
+}
+
+export function resolveProjectLocalState(root) {
+  const worktreeRoot = path.resolve(root);
+  const projectHome = resolveCanonicalProjectHome(worktreeRoot);
+  const stateRoot = path.join(projectHome, PROJECT_RUNTIME_DIRECTORY, 'codex');
+  const worktreeKey = getWorktreeStateKey(worktreeRoot);
+  const fingerprintRoot = path.join(stateRoot, 'fingerprints', worktreeKey);
+  return {
+    projectHome,
+    stateRoot,
+    fingerprintRoot,
+    leaseRoot: path.join(stateRoot, 'leases'),
+    worktreeKey,
+    dependencyMarkerPath: path.join(fingerprintRoot, DEPENDENCY_MARKER),
+    dependencyLockPath: path.join(fingerprintRoot, DEPENDENCY_LOCK),
+  };
+}
+
+export function resolveProjectLocalStorePath(projectHome) {
+  return path.join(path.resolve(projectHome), PROJECT_RUNTIME_DIRECTORY, 'pnpm-store');
 }
 
 function readMarker(markerPath) {
@@ -492,18 +524,28 @@ function writeJsonAtomic(filePath, value) {
   fs.renameSync(temporaryPath, filePath);
 }
 
-function hasActiveLocalLock(stateDirectory, leaseToken) {
+function findSlotLease(leaseRoot, worktree) {
+  if (!leaseRoot || !fs.existsSync(leaseRoot)) return undefined;
+  for (const entry of fs.readdirSync(leaseRoot, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+    const leasePath = path.join(leaseRoot, entry.name);
+    try {
+      const lease = JSON.parse(fs.readFileSync(leasePath, 'utf8'));
+      if (lease?.path && canonicalPath(lease.path) === canonicalPath(worktree)) return { leasePath, lease };
+    } catch {
+      // An unreadable lease is handled as a busy condition by the caller only when it owns the path.
+    }
+  }
+  return undefined;
+}
+
+function hasActiveLocalLock(stateDirectory, leaseRoot, worktree, leaseToken) {
   const dependencyLock = path.join(stateDirectory, DEPENDENCY_LOCK);
   if (fs.existsSync(dependencyLock)) return 'dependency-install-lock-present';
-  const leasePath = path.join(stateDirectory, SLOT_LEASE);
-  if (!fs.existsSync(leasePath)) return undefined;
+  const slotLease = findSlotLease(leaseRoot, worktree);
+  if (!slotLease) return leaseToken ? 'slot-lease-not-found' : undefined;
   if (!leaseToken) return 'slot-lease-present';
-  try {
-    const lease = JSON.parse(fs.readFileSync(leasePath, 'utf8'));
-    if (lease.token !== leaseToken) return 'slot-lease-owned-by-another-task';
-  } catch {
-    return 'slot-lease-unreadable';
-  }
+  if (slotLease.lease.token !== leaseToken) return 'slot-lease-owned-by-another-task';
   return undefined;
 }
 
@@ -517,16 +559,17 @@ function createExclusiveDirectory(directoryPath) {
   }
 }
 
-function createMaintenanceCommand(root) {
+function createMaintenanceCommand(root, storePath = resolveProjectLocalStorePath(resolveCanonicalProjectHome(root))) {
   return [
     'pnpm',
     ...PNPM_INSTALL_ARGUMENTS,
+    `--store-dir=${canonicalPath(storePath)}`,
     `--cwd=${canonicalPath(root)}`,
   ];
 }
 
-export function maintenanceCommandHash({ commonDir, root }) {
-  return sha256(`${canonicalPath(commonDir)}\n${createMaintenanceCommand(root).join('\u0000')}`);
+export function maintenanceCommandHash({ commonDir, root, storePath }) {
+  return sha256(`${canonicalPath(commonDir)}\n${createMaintenanceCommand(root, storePath).join('\u0000')}`);
 }
 
 export function validateMaintenanceAuthorization({ filePath, commonDir, root, now = new Date() }) {
@@ -561,7 +604,7 @@ function consumeMaintenanceAuthorization(filePath, record) {
   writeJsonAtomic(filePath, { ...record, usedAt: new Date().toISOString() });
 }
 
-function installDependencies({ root, authorizationFile, commonDir, json }) {
+function installDependencies({ root, authorizationFile, commonDir, targetStorePath, json }) {
   const authorization = validateMaintenanceAuthorization({
     filePath: authorizationFile,
     commonDir,
@@ -571,7 +614,7 @@ function installDependencies({ root, authorizationFile, commonDir, json }) {
     return { installed: false, authorized: false, reason: authorization.reason };
   }
   const environment = { ...process.env, CI: 'true' };
-  runPnpm(root, PNPM_INSTALL_ARGUMENTS, {
+  runPnpm(root, [...PNPM_INSTALL_ARGUMENTS, `--store-dir=${targetStorePath}`], {
     environment,
     stdio: json ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   });
@@ -584,16 +627,17 @@ export function ensureWorktreeDependencies(options = {}) {
   const mode = options.mode ?? DEFAULT_DEPENDENCY_MODE;
   if (!['ReuseOnly', 'DependencyMaintenance'].includes(mode)) fail(`unsupported dependency mode: ${mode}`);
   const workspacePackages = discoverWorkspacePackages(root);
-  const runtime = inspectRuntimeEnvironment(root);
+  const projectState = resolveProjectLocalState(root);
+  const runtime = inspectRuntimeEnvironment(root, { projectHome: projectState.projectHome });
   const snapshot = createDependencySnapshot({
     root,
     inputPaths: collectDependencyInputPaths(root, workspacePackages),
     environment: runtime.environment,
   });
-  const stateDirectory = path.join(gitDirectory(root), DEPENDENCY_STATE_DIRECTORY);
-  const markerPath = path.join(stateDirectory, DEPENDENCY_MARKER);
-  const lockPath = path.join(stateDirectory, DEPENDENCY_LOCK);
-  const busyReason = hasActiveLocalLock(stateDirectory, options.leaseToken);
+  const stateDirectory = projectState.fingerprintRoot;
+  const markerPath = projectState.dependencyMarkerPath;
+  const lockPath = projectState.dependencyLockPath;
+  const busyReason = hasActiveLocalLock(stateDirectory, projectState.leaseRoot, root, options.leaseToken);
   const getHealth = () => inspectDependencyHealth({
     root,
     storePath: runtime.storePath,
@@ -614,6 +658,8 @@ export function ensureWorktreeDependencies(options = {}) {
     reasons: [...fingerprintReasons, ...health.reasons.map((reason) => `health:${reason}`)],
     markerPath,
     mode,
+    canonicalProjectHome: projectState.projectHome,
+    projectLocalStoreTarget: 'runtime/pnpm-store',
   };
   if (busyReason) {
     return { ...base, taskStatus: 'POOL_BUSY', reasons: [busyReason] };
@@ -638,7 +684,18 @@ export function ensureWorktreeDependencies(options = {}) {
     return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_INSTALL_REQUIRED' };
   }
   const commonDir = gitCommonDirectory(root);
-  const authorizationFile = options.authorizationFile;
+  const authorizationFile = path.resolve(options.authorizationFile ?? path.join(
+    projectState.stateRoot,
+    'dependency-maintenance-authorizations',
+    'pending.json',
+  ));
+  if (!isPathInside(projectState.stateRoot, authorizationFile)) {
+    return {
+      ...base,
+      taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED',
+      reasons: [...base.reasons, 'authorization:project-local-path-required'],
+    };
+  }
   const authorization = validateMaintenanceAuthorization({
     filePath: authorizationFile,
     commonDir,
@@ -658,7 +715,13 @@ export function ensureWorktreeDependencies(options = {}) {
       startedAt: new Date().toISOString(),
       fingerprint: snapshot.fingerprint,
     });
-    const install = installDependencies({ root, authorizationFile, commonDir, json: options.json === true });
+    const install = installDependencies({
+      root,
+      authorizationFile,
+      commonDir,
+      targetStorePath: runtime.targetStorePath,
+      json: options.json === true,
+    });
     if (!install.installed) {
       return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED', reasons: [`authorization:${install.reason}`] };
     }

@@ -10,6 +10,9 @@ import {
   createDependencySnapshot,
   diffDependencySnapshots,
   inspectDependencyHealth,
+  resolveCanonicalProjectHome,
+  resolveProjectLocalState,
+  resolveProjectLocalStorePath,
 } from './worktree-deps-core.mjs';
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -33,6 +36,16 @@ test.after(() => {
   for (const directory of temporaryDirectories.splice(0)) {
     fs.rmSync(directory, { force: true, recursive: true });
   }
+});
+
+test('derives project-local state from the Git common directory, not linked-worktree admin state', () => {
+  const projectHome = resolveCanonicalProjectHome(REPOSITORY_ROOT);
+  const state = resolveProjectLocalState(REPOSITORY_ROOT);
+  assert.equal(projectHome, path.resolve(REPOSITORY_ROOT, '..', '..', '..'));
+  assert.equal(state.projectHome, projectHome);
+  assert.equal(state.fingerprintRoot.startsWith(path.join(projectHome, 'runtime', 'codex', 'fingerprints')), true);
+  assert.equal(state.dependencyMarkerPath.includes(`${path.sep}.git${path.sep}`), false);
+  assert.equal(resolveProjectLocalStorePath(projectHome), path.join(projectHome, 'runtime', 'pnpm-store'));
 });
 
 test('uses an offline install argument list only in separately authorized maintenance mode', () => {

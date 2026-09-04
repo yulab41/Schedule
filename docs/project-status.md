@@ -5,8 +5,8 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`TOOLCHAIN-GUARDRAILS-003`（按需加载的小程序安全胶囊与防漂移校验）。前序动态身份批次已在
-  `765b5c09` 收口；`MINI-G1-004` 仍保留“证据仍不足，保留 P3”的审计结论，不因本批进入业务修复。
+- 当前活动批次：`TOOLCHAIN-GUARDRAILS-INTERNAL-001`（Schedule Codex 全局规范、依赖复用、持久 warm worktree
+  池和 Hook 收口）。前序 `TOOLCHAIN-GUARDRAILS-003`、动态身份批次和 `MINI-G1-004` 均保留历史结论，不因本批进入业务修复。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -152,12 +152,33 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
   production/备份、Xiaomi 14 最终验收、同环境父/新 SHA 对比和诊断包体语义。定向红绿先捕获缺少胶囊路由，
   补齐后 Skill 结构/front matter、11 个 Markdown/74 个链接、3 个 PowerShell 只读 AST 和 Node YAML 解析
   通过；`quick_validate.py` 仍因缺 PyYAML 无法启动，遵守禁装依赖边界未补装。
-- 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
+ - 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
   checkpoint 以 `docs(agent): route Mini safety capsule` 识别。
+
+## TOOLCHAIN-GUARDRAILS-INTERNAL-001（2026-09-04）
+
+- 方向纠正：正式 Skill、根路由、项目 Hook、配置、指纹、bootstrap、租约、状态、池和未来 store 目标统一
+  收敛到 canonical project home 下的 `.agents/`、`.codex/`、`scripts/codex/` 和 `runtime/`；不再新增项目外
+  Schedule 写入。既有项目外 worktree、旧 store 和此前全局临时内容只按遗留状态保护，未移动活动环境。
+- 从方向纠正时的最新 `origin/main` tip 建立项目内 `runtime/wt/guardrails-integrate` 集成 worktree；集成 worktree
+  没有 `node_modules`，本轮没有 install/fetch/rebuild/prune，也没有创建冷依赖环境。项目内 ReuseOnly 演练
+  应保持 `BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`，不得借用遗留外部 warm 槽位。
+- 已完成项目内路径门禁改造：精确 ignore `runtime/codex/`、`runtime/wt/`、`runtime/pnpm-store/`；
+  Hook 配置使用相对路径；指纹/bootstrap 状态不再进入 Git admin；pool 只接受 runtime/wt 直接子 worktree，
+  使用 runtime/codex 原子租约并将 `NESTED_WORKTREE_CREATION=false` 固定为硬门禁。
+- 候选审计、日期漂移归属和前一 checkpoint 的旧证据保留在开发记录；前一外部集成提交不被重写，最终只从
+  最新主线选择性提交本项目内布局修正版。
+- 当前工作树轻量验证：项目 Skill 校验 `RESULT=PASS`；项目 Hook/指纹/bootstrap/池/布局 Node 定向测试
+  `17/17`；项目内 ReuseOnly 和 Mini bootstrap 均 fail-closed 且 `INSTALL_INVOKED=false`；项目外遗留登记
+  仅写入被忽略的 `runtime/codex/state`，没有移动或修改遗留 worktree/store。远端期间新增的动态身份与 Mini
+  安全胶囊提交已审计并保留，本分支已在最新 tip 上正常重放。
+- checkpoint message：`fix(agent): keep Schedule Codex guardrails project-local`。已逐文件审阅并显式暂存工具链
+  路径；不得触碰业务源码、依赖、锁文件、生产、数据库或小程序上传。
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：用户在 Codex `/hooks` 中核对 Hook 路径/哈希并手动信任；所有并行任务完成后统一重启
+- 唯一下一任务：在最新 `origin/main` 上正常重放本项目内工具链提交、复核差异并安全推进主线；随后用户在
+  Codex `/hooks` 中核对项目 Hook 路径/哈希并手动信任，所有并行任务完成后统一重启
   Codex，再恢复原有旧对话。
 - 本批停止条件：仓库工具链提交已推送且仅保留待用户 Hook 审核/重启激活；不部署 production、不创建备份、
   不迁移数据库、不上传小程序。前序 `MINI-G1-004` 继续等待匹配构建的 Xiaomi 14 反馈。

@@ -118,19 +118,19 @@ describe('reusable isolated release worktree', () => {
 
   it('reuses dependencies only when node_modules and the worktree-local fingerprint agree', () => {
     const root = createTemporaryDirectory();
-    const gitDirectory = path.join(root, '.git-worktree');
+    const stateDirectory = path.join(root, 'runtime', 'codex', 'fingerprints', 'test');
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
-    fs.mkdirSync(gitDirectory, { recursive: true });
+    fs.mkdirSync(stateDirectory, { recursive: true });
     fs.writeFileSync(
-      path.join(gitDirectory, 'schedule-release-dependencies.json'),
+      path.join(stateDirectory, 'schedule-release-dependencies.json'),
       JSON.stringify({ fingerprint: 'same' }),
       'utf8',
     );
 
-    expect(shouldReuseDependencies(root, gitDirectory, 'same')).toBe(true);
-    expect(shouldReuseDependencies(root, gitDirectory, 'different')).toBe(false);
+    expect(shouldReuseDependencies(root, stateDirectory, 'same')).toBe(true);
+    expect(shouldReuseDependencies(root, stateDirectory, 'different')).toBe(false);
     fs.rmSync(path.join(root, 'node_modules'), { recursive: true });
-    expect(shouldReuseDependencies(root, gitDirectory, 'same')).toBe(false);
+    expect(shouldReuseDependencies(root, stateDirectory, 'same')).toBe(false);
   });
 
   it('invokes the pnpm JavaScript entry directly on Windows instead of spawning pnpm.cmd', () => {

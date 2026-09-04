@@ -2,7 +2,10 @@
 
 ## Pool and ownership
 
-The machine-local Schedule pool is configured outside Git and must stay on the same volume as the repository and pnpm store. Its path is local configuration, not a repository fact. The pool manager may register existing direct-child worktrees, but it must never create a cold worktree as a fallback and must never place a worktree inside another worktree.
+The Schedule pool is project-local and lives under the canonical project home at `runtime/wt`; its
+registration and lease state lives under the ignored `runtime/codex` tree. The pool manager may
+register existing direct-child worktrees, but it must never create a cold worktree as a fallback and
+must never place a worktree inside another worktree.
 
 Each active task owns one worktree and its own writable `node_modules`. Two tasks may not share a slot,
 branch, `HEAD`, writable dependency directory, or mixed `dist` output. Existing worktrees not explicitly
@@ -20,8 +23,8 @@ Never fall back to `new worktree -> install -> full build`.
 
 ## Lease
 
-Lease state is local and lives under `$CODEX_HOME/schedule-worktree-pool/` plus the slot's Git admin
-state. Acquire uses an atomic create operation. A lease records at least the slot path, session ID,
+Lease state is local and lives under `runtime/codex/leases/`, never in Git administrative state.
+Acquire uses an atomic create operation. A lease records at least the slot path, session ID,
 task/thread ID, owner PID and process evidence, acquisition time, last heartbeat, `HEAD`, branch,
 dependency fingerprint, bootstrap profile, status, and a random lease token. A second claimant seeing
 the same atomic lease returns exactly:

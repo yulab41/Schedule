@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   discoverWorkspacePackages,
   ensureWorktreeDependencies,
+  resolveProjectLocalState,
   resolvePnpmInvocation,
 } from './worktree-deps-core.mjs';
 
@@ -44,7 +45,6 @@ export const BOOTSTRAP_PROFILES = Object.freeze({
 });
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const BOOTSTRAP_STATE_DIRECTORY = 'schedule-worktree-state';
 const BOOTSTRAP_MARKER = 'workspace-bootstrap-v2.json';
 const BOOTSTRAP_LOCK = 'workspace-bootstrap.lock';
 
@@ -324,10 +324,6 @@ function run(command, arguments_, options = {}) {
   return result.stdout ?? '';
 }
 
-function gitDirectory(root) {
-  return path.resolve(run('git', ['rev-parse', '--absolute-git-dir'], { cwd: root }).trim());
-}
-
 function runPnpm(root, arguments_, options = {}) {
   const invocation = resolvePnpmInvocation(options.environment ?? process.env);
   return run(invocation.command, [...invocation.argumentsPrefix, ...arguments_], {
@@ -364,7 +360,7 @@ export function ensureWorkspaceBootstrapForWorktree(options) {
       reasons: ['typescript-package-missing'],
     };
   }
-  const stateDirectory = path.join(gitDirectory(root), BOOTSTRAP_STATE_DIRECTORY);
+  const stateDirectory = resolveProjectLocalState(root).fingerprintRoot;
   const result = ensureWorkspaceBootstrap({
     root,
     profile: options.profile,

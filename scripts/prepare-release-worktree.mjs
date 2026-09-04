@@ -24,7 +24,24 @@ import {
 } from './codex/worktree-deps-core.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
+const SCRIPT_CHECKOUT_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
+
+function resolveCanonicalProjectHome() {
+  const result = spawnSync('git', ['-C', SCRIPT_CHECKOUT_ROOT, 'rev-parse', '--git-common-dir'], {
+    cwd: SCRIPT_CHECKOUT_ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (result.error || result.status !== 0 || !result.stdout.trim()) {
+    fail('无法从 Git common directory 解析 canonical project home。');
+  }
+  const commonDirectory = path.isAbsolute(result.stdout.trim())
+    ? path.resolve(result.stdout.trim())
+    : path.resolve(SCRIPT_CHECKOUT_ROOT, result.stdout.trim());
+  return path.dirname(commonDirectory);
+}
+
+const ROOT = resolveCanonicalProjectHome();
 const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
 export const RELEASE_RUNTIME_ROOT = path.join(ROOT, 'runtime');
 export const DEFAULT_RELEASE_WORKTREE_PATH = path.join(ROOT, 'runtime', 'release-worktree');
@@ -114,10 +131,11 @@ export function computeDependencyFingerprint(root, relativePaths) {
   return hash.digest('hex');
 }
 
-export function shouldReuseDependencies(worktreeRoot, gitDirectory, fingerprint) {
+export function shouldReuseDependencies(worktreeRoot, stateDirectory, fingerprint) {
   if (!fs.existsSync(path.join(worktreeRoot, 'node_modules'))) return false;
   try {
-    const marker = JSON.parse(fs.readFileSync(path.join(gitDirectory, DEPENDENCY_MARKER), 'utf8'));
+    const markerPath = path.join(stateDirectory, DEPENDENCY_MARKER);
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
     return marker.fingerprint === fingerprint;
   } catch {
     return false;

@@ -7,9 +7,9 @@ Schedule repository work must load `$schedule-project-guardrails`.
 - Do not install or update dependencies without separate authorization in the current message.
 - Parallel tasks use one exclusive healthy warm worktree each; never share writable `node_modules`.
 - Branch/SHA changes, `origin/main` movement, business-source changes, or missing workspace output do not authorize installation.
-- If no reusable environment exists, fail closed; use the configured machine-local warm pool and return `POOL_BUSY` when exhausted.
+- If no reusable environment exists, fail closed; use the project-local `runtime/wt` warm pool and return `POOL_BUSY` when exhausted.
 
-Detailed rules live in the repository Skill references; the local pool path is machine configuration and is never committed.
+Detailed rules live in the repository Skill references; pool leases and fingerprints stay under the ignored project-local `runtime/codex` state tree.
 <!-- schedule-project-runtime-route:end -->
 
 These instructions apply to the entire repository.
@@ -168,10 +168,9 @@ an earlier application-code checkpoint.
 
 All project-related worktrees, release packages, smoke screenshots, logs, debug output, and build scratch data must stay under this repository, normally in the ignored `runtime/` tree. Do not create sibling `Schedule-*` directories or persistent `schedule-*` items in the operating-system temporary directory. Keep only the latest reusable release worktree at `runtime/release-worktree`; remove superseded release/test/debug copies after confirming they are landed or disposable. Unlanded development worktrees must remain intact under `runtime/external-project-worktrees/`. Credentials, upload private keys, and production secrets are the only required exception and must remain outside the repository.
 
-The Schedule dependency-reuse guardrail has one additional machine-local exception: the configured
-same-volume persistent warm pool is operated only by `scripts/codex/manage-worktree-pool.ps1` and its
-lease checks. It is not a scratch, release, log, or credential directory and its absolute path is never
-committed.
+The Schedule dependency-reuse guardrail uses only the ignored project-local `runtime/wt` pool and
+`runtime/codex` state tree. These paths are excluded from source, package, and release discovery by
+the repository's existing scoped globs and the exact ignore rules above.
 
 ## 防回归与运行验证（所有修复/重构轮次必须遵守）
 

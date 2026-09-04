@@ -29,6 +29,8 @@ pnpm dev
 ```
 
 依赖维护是独立任务，必须有当前消息的用户授权和一次性本机授权记录；本轮未创建记录、未运行维护通道。
+需要维护时，只能由用户准备记录后调用 `scripts/codex/dependency-maintenance.ps1 -AuthorizationFile <record>`；
+目标 store 由 canonical project home 计算为项目内 `runtime/pnpm-store`，不会由 ReuseOnly 路径调用。
 
 本地开发认证只在开发环境启用；测试数据库必须使用独立 Compose 服务和 `TEST_MYSQL_*`，禁止连接开发库或生产库。
 
