@@ -1,4 +1,4 @@
-# EXP-ICON-004-B1.2 图标一致性与体验版 `.74–.85` 血缘审计
+# EXP-ICON-004-B1.2 图标一致性与体验版 `.74–.86` 血缘审计
 
 ## 结论先行
 
@@ -312,7 +312,26 @@ Mini 为 302 files、total/main `5,169,730/1,731,703 B`；Mini 122 files/663 tes
   `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`。receipt/profile/tag/独立重算和
   upload safety checker 一致；未调用微信开发者工具。
 - 本轮上传不代表 Xiaomi 14 验收。底部/顶部、日历、通讯录人员、更多、事件和工作流图标仍按下方清单在同一
-  `.86` 体验版人工复核。当前未获 L4 allowlist 授权，故未连接服务器、未放行版本，也未提审或正式发布。
+  `.86` 体验版人工复核。后续 L4 仅放行该 exact 版本，没有提审或正式发布。
+
+### B6 `.86` production allowlist 结果（2026-09-04）
+
+- 用户明确授权 exact `0.1.0-p10.20260904.86` 的 add-only allowlist、可信 `ensure`、独立 `verify` 和只读
+  完整 ECS 验证。连接前实时读取的 live release 为
+  `48488019171924701054354e8f707b08eb4d12fe`；current-release、deploy manifest、可信控制器和已安装 verifier
+  哈希一致，目标版本尚不在白名单。
+- 本机正式域名解析落入 VPN/TUN `198.18.0.0/15` 合成范围，未把它当作生产地址。物理路由要求两个独立 DoH
+  来源与 `known_hosts` 中唯一同主机密钥公网候选一致，并保留正式域名 TLS、严格 `HostKeyAlias`、
+  `StrictHostKeyChecking=yes`；endpoint、账号和密钥没有写入跟踪文件。首次 ensure 连接前超时，确认未到服务器；
+  重新验证名称、TLS 和 TCP/22 后的唯一有界重试成功。
+- 可信 `ensure` 追加 1 个版本并重建 API/Web；一次 TLS EOF 和一次 502 均发生在容器预热窗口，随后健康检查、
+  `.86` 七维 capability 与动态未知版本 426 通过。独立 `schedule-client-version-allowlist verify` 随后通过。
+- 已安装、manifest 绑定的完整 ECS verifier 通过：正式域名健康、unknown/public-IP HTTP/HTTPS Host 拒绝、公开
+  监听边界、release/artifact/control-plane 哈希、容器、迁移、隐私约束、Mini capability 和 unknown=426 全部正常，
+  且没有跳过公网 IP 探针。最终 `.86` 在列表中恰好一次、env 为 root:root/0600、目标 capability schema 正确，
+  live release 未变化。
+- 本操作没有部署应用制品、修改数据库、创建备份、提交审核或正式发布。Xiaomi 14 仍为“自动化候选通过，待用户
+  复核”。
 
 ## 第一实施批次的精确 Prompt
 

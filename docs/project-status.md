@@ -5,10 +5,10 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`EXP-ICON-004-B3/B4` 已完成实现、guardrail 收口和精确体验版上传。用户先授权
-  `8caa5f20` 动态分配版本并确认上传 IP 白名单，再对完整 version/SHA/Manifest tuple 给出本轮 L3 上传批准；
-  `0.1.0-p10.20260904.86` 已上传成功。当前消息未授权 L4 服务端 allowlist；没有授权提交审核、正式发布、
-  Web/API production 部署、数据库变更或备份。
+- 当前活动批次：`EXP-ICON-004-B3/B4` 已完成实现、guardrail 收口、精确体验版上传和 L4 客户端版本放行。
+  `0.1.0-p10.20260904.86@8caa5f20` 已上传成功；用户随后明确授权 exact `.86` 的 add-only allowlist、可信
+  `ensure`、独立 `verify` 和只读完整 ECS 验证，以上操作均已完成。没有授权或执行提交审核、正式发布、
+  Web/API 应用部署、数据库变更或备份。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已连续 fetch 并合入最新
   `origin/main@4602120b`；其两次主线更新只涉及 Schedule guardrail、Hook、worktree/dependency/release helper
@@ -46,8 +46,15 @@
   `exp-icon-004-web-mini-parity-8caa5f2`。用户确认 exact tuple 后，同一暂停进程用 process-local IPv4 DNS adapter
   上传成功：197 code files、ZIP `2,491,144 B`，version-bound total/main `5,183,336/1,746,172 B`，Manifest
   `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`。receipt、远端 tag、profile、重算
-  Manifest、包体和 clean safety checker 均一致；尚未操作 production allowlist。上传记录 checkpoint 以
+  Manifest、包体和 clean safety checker 均一致。上传记录 checkpoint 以
   `docs(audit): record .86 icon parity trial upload` 识别。
+- L4 执行前实时确认 production live release 为 `48488019171924701054354e8f707b08eb4d12fe`，且
+  current-release、deploy manifest、可信 allowlist 控制器和已安装 ECS verifier 哈希一致；`.86` 执行前不存在。
+  本机正式域名被 VPN/TUN 解析为 `198.18.0.0/15` 合成地址，故按 ignored operator 规则使用两个独立 DoH
+  解析源、唯一同主机密钥公网候选、正式域名 TLS 与严格 `HostKeyAlias` 建立物理路径，不记录 endpoint、账号或
+  密钥。首次 ensure 连接前超时且未到服务器；完成路由复核后的唯一有界重试成功追加 1 个版本并重建 API/Web，
+  两次预热探针后恢复健康。随后独立 `verify` 与带公网 IP Host 拒绝探针的完整 ECS verifier 均通过；最终 `.86`
+  在列表中恰好一次、env 仍为 root:root/0600、目标 capability schema 正确、live release 未变化。
 - B3/B4 checkpoint 以 `fix(icons): unify Web and Mini icon motion sources` 识别；提交前 staged diff 必须只含
   本批 icon/motion adapter、回归测试、测试发现边界与审计文档。
 
@@ -167,7 +174,8 @@
 
 ## 唯一下一任务与停止条件
 
-- 提交并推送 `.86@8caa5f20` 上传记录；上传 SHA 保持 `8caa5f20`，后续 docs checkpoint 不冒充小程序 payload。
-- 等待用户当前消息明确授权 exact `0.1.0-p10.20260904.86` 的 L4 add-only allowlist；获批后只执行可信
-  `schedule-client-version-allowlist ensure <exact-version>`、独立 `verify` 与规定的只读完整生产 verifier。
-- allowlist 与验证结果记录后停止。保持“小米 14 待用户复核”；不提审、不正式发布、不部署 production 应用或数据库。
+- 以 `docs(audit): record .86 allowlist activation` 提交并推送本次放行证据；该 docs checkpoint 不改变已上传
+  payload 身份，也不触发新的 production 操作。
+- 本批随后停止。唯一剩余事项是用户在 exact `.86@8caa5f20` 上完成 Xiaomi 14 底部/顶部、日历、通讯录人员、
+  更多、事件与工作流图标的原生视觉和动效复核；当前状态保持“自动化候选通过，待用户复核”。
+- 不提审、不正式发布、不部署 production 应用或数据库；任何后续 production 动作需要新的当次明确授权。

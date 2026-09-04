@@ -2,10 +2,10 @@
 
 ## 当前阶段
 
-- 当前批次：`EXP-ICON-004-B3/B4` 已完成实现、依赖/guardrail 收口和精确体验版上传。用户先授权
-  `8caa5f20` 动态分配版本并确认上传 IP 白名单，再明确批准完整 tuple；
-  `0.1.0-p10.20260904.86@8caa5f20` 已上传成功。当前消息未授权 L4 服务端 allowlist；没有授权提交审核、
-  正式发布、Web/API production 部署、数据库变更或备份。
+- 当前批次：`EXP-ICON-004-B3/B4` 已完成实现、依赖/guardrail 收口、精确体验版上传和 L4 客户端版本放行。
+  `0.1.0-p10.20260904.86@8caa5f20` 已上传成功；用户随后授权 exact `.86` 的 add-only allowlist、可信
+  `ensure`、独立 `verify` 和只读完整 ECS 验证，以上操作均已完成。没有授权或执行提交审核、正式发布、
+  Web/API 应用部署、数据库变更或备份。
 - 独立 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
   `codex/exp-icon-004-lineage-b12-20260903`。当前实现 parent 为 `fcb3c15a`，已包含最新
   `origin/main@4602120b`、图标血缘 `5285dd17`（含 `1ffab10c`）及累计体验版门禁 `c027abcd`。
@@ -31,6 +31,12 @@
   total/main `5,183,336/1,746,172 B`，Manifest
   `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`。脱敏 receipt、远端 lightweight tag、
   build profile、独立 Manifest 重算、package audit 与 upload safety checker 均一致，worktree 仍 clean。
+- L4 实时基线为 live release `48488019171924701054354e8f707b08eb4d12fe`，current-release/manifest、可信
+  控制器和完整 verifier 哈希一致；`.86` 放行前不存在。正式域名的本机 DNS 为 TUN 合成地址，因此仅在两个独立
+  DoH 源、唯一同主机密钥公网候选、正式域名 TLS 和严格 `HostKeyAlias` 全部一致后使用物理路径，且未记录敏感
+  连接值。首次 ensure 在连接前超时、未触发服务器写入；唯一有界重试成功追加 1 个版本并重建 API/Web，预热后
+  健康。独立 `verify`、完整 ECS verifier（含公网 IP HTTP/HTTPS Host 拒绝探针）和最终只读检查均通过；`.86`
+  恰好出现一次、env 保持 root:root/0600、目标 capability schema 正确、live release 未变化。
 
 ## EXP-ICON-004 B3 已验证事实
 
@@ -70,7 +76,7 @@
 
 ## 唯一下一任务与停止条件
 
-- 提交并推送 `.86@8caa5f20` 上传记录；后续 docs SHA 与已上传 payload 身份分开记录。
-- 等待用户当前消息明确授权 exact `.86` 的 L4 add-only allowlist。获批后只执行可信 `ensure`、独立 `verify`
-  和规定的只读生产健康验证；不部署应用或数据库。
-- allowlist 结果记录后停止。Xiaomi 14 状态保持“自动化候选通过，待用户复核”；不提审、不正式发布。
+- 提交并推送 `docs(audit): record .86 allowlist activation`；该 docs SHA 与已上传 payload 身份分开记录，且不触发
+  新的 production 操作。
+- 本批随后停止。唯一剩余任务是用户在 exact `.86@8caa5f20` 上完成 Xiaomi 14 原生图标和动效复核；状态保持
+  “自动化候选通过，待用户复核”。不提审、不正式发布、不部署应用或数据库。

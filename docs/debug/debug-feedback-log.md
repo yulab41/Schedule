@@ -2570,4 +2570,26 @@
   `runtime/audit/miniprogram-trials/`，reservation 为同 SHA 幂等确认。
 - 上传后：远端 tag、receipt、build profile、独立 Manifest 重算与 safety checker 全部一致；version-bound
   package total/main `5,183,336/1,746,172 B`，release worktree 仍 clean。临时暂停 wrapper 已删除，脱敏
-  allocation evidence/receipt 保留。当前消息未授权 L4 allowlist，未连接 production；未提审、正式发布或部署。
+  allocation evidence/receipt 保留。该上传轮次未连接 production；未提审、正式发布或部署。
+
+## 2026-09-04 EXP-ICON-004 `.86` production allowlist 放行
+
+- 授权与实时基线：用户在当前消息授权自行解决 TUN 路由阻塞并继续 exact
+  `0.1.0-p10.20260904.86` 的 add-only allowlist、可信 `ensure`、独立 `verify` 和只读完整 ECS 验证。L4 inspector
+  通过。连接前实时确认 live release 为 `48488019171924701054354e8f707b08eb4d12fe`，current-release 与 deploy
+  manifest 一致；控制面 manifest 绑定的 allowlist/verifier 哈希匹配，env 为 root:root/0600，目标版本不存在。
+- 路由根因：正式域名的本机解析全部落入 VPN/TUN `198.18.0.0/15` 合成地址；专用密钥和域名主机指纹有效，但
+  machine-local operator 说明曾缺失。按既往成功模式建立 ignored、无敏感值的物理路由规则：要求至少两个独立
+  DoH 源与 `known_hosts` 中唯一同主机密钥公网候选一致，再通过正式域名 TLS、严格 `HostKeyAlias`、
+  `StrictHostKeyChecking=yes` 和只读 SSH 身份探针。Google DoH 一次 EOF、一次 timeout 后停止重试；Cloudflare 与
+  AliDNS 一致，Quad9 不可达仅记传输失败。endpoint、账号和密钥未写入跟踪文档。
+- 执行：首次 ensure 在 SSH 建连前超时，确认未到服务器。按 runbook 重新核对名称、TLS 和 TCP/22 后仅做一次有界
+  重试；可信控制器成功追加 1 个版本并重建 API/Web。预热窗口出现一次 TLS EOF 和一次 HTTP 502，随后健康、目标
+  `.86` 七维 capability 和动态未知版本 426 通过，控制器完成而未回滚。
+- 独立验证：`sudo schedule-client-version-allowlist verify` 通过。control-plane manifest 绑定的完整 ECS verifier
+  以公网地址参数运行且未跳过 public-IP 探针；正式域名健康、unknown/public-IP HTTP/HTTPS Host 拒绝、监听端口、
+  release/artifact/control-plane 哈希、容器、迁移、隐私约束、Mini capability 和 unknown=426 全部通过。
+- 最终只读检查：live release 保持 `48488019171924701054354e8f707b08eb4d12fe`，`.86` 在 supported list 中恰好
+  一次，env 仍为 root:root/0600，正式域名目标 capability identity/schema/type 通过。未部署应用制品、未修改
+  数据库、未创建备份、未提审或正式发布；Xiaomi 14 继续待用户复核。checkpoint 以
+  `docs(audit): record .86 allowlist activation` 识别。
