@@ -5,8 +5,8 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：`MINI-G1-004` 第二阶段补证（体验版上传/放行后的 Xiaomi 14 人工验收准备）。调查结论仍为
-  “证据仍不足，保留 P3”，不进入分页、分批、懒加载或虚拟列表修复。
+- 当前活动批次：`TOOLCHAIN-GUARDRAILS-001`（Schedule Codex 全局规范、依赖复用、持久 warm worktree
+  池和 Hook 收口）。前序 `MINI-G1-004` 仍保留“证据仍不足，保留 P3”的审计结论，不因本批进入业务修复。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -108,11 +108,26 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
   build、包体审计、微信上传、production SSH/备份/部署。checkpoint 以
   `docs(agent): preserve dependency environments across conversations` 识别。
 
+## TOOLCHAIN-GUARDRAILS-001（2026-09-04）
+
+- 基线为 `origin/main@75cc0d3b`；候选 `5c45236d` 的两项独有提交已逐提交审计。候选没有改 lockfile、
+  workspace 配置、package dependency declarations、production Compose、migration 或业务运行时代码；日期
+  漂移测试、性能测量脚本、长调试日志和旧状态文档未移植。
+- 集成分支从最新主线建立独立短路径 worktree；最终范围仅含项目 Skill 路由与新增的 dependency/bootstrap/
+  pool/lease/Hook 机制、setup 文档、release helper no-install 路由、对应轻量测试和本状态记录。
+- `ReuseOnly` 实测在无依赖的集成 worktree 返回 `BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`；已确认的 warm 槽位完成
+  依赖指纹复用、`mini` 增量 bootstrap（3 个 producer）、最小现有测试 7/7，并再次复用成功。全程
+  `PNPM_INSTALL_INVOCATIONS=0`。
+- 静态/Node 验证：Skill `RESULT=PASS`；8 个 Node 文件 syntax pass；PowerShell 3 个 wrapper/pool AST
+  pass；无第三方依赖定向测试 13/13 pass；第二个并发 claimant 得到 `POOL_BUSY`，租约正常释放。未运行
+  全仓 verify、browser smoke、冷安装、GVS、production 或
+  Mini Program 工具链。
+- 本 checkpoint commit message：`chore(agent): close Schedule Codex runtime guardrails`。提交只允许包含
+  工具链文件，绝不包含 runtime 产物、凭据、用户主工作树改动或其他 worktree 内容。
+
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：用户在已放行的 `0.1.0-p10.20260903.85@a1bba57` 上完成 Xiaomi 14“更多 → 测试工具”环境
-  抄录和两个页面的只读首屏/滚动录屏反馈；若版本或 SHA 不匹配，停止测试并只回传实际环境信息。
-- 本批停止条件：体验版上传/放行已完成，等待匹配构建的 Xiaomi 14 反馈；不进入业务修复，不提审、不正式发布、
-  不部署。最终状态保持 `MINI-G1-004：证据仍不足，保留 P3，等待匹配构建的 Xiaomi 14 反馈。`
-- 本 checkpoint commit message：`docs(audit): record MINI-G1-004 experience upload`；提交后的文档 SHA 不替代
-  `EVIDENCE_MAIN_SHA` 或体验版源码 SHA。
+- 唯一下一任务：用户在 Codex `/hooks` 中核对 Hook 路径/哈希并手动信任；所有并行任务完成后统一重启
+  Codex，再恢复原有旧对话。
+- 本批停止条件：仓库工具链提交已推送且仅保留待用户 Hook 审核/重启激活；不部署 production、不创建备份、
+  不迁移数据库、不上传小程序。前序 `MINI-G1-004` 继续等待匹配构建的 Xiaomi 14 反馈。

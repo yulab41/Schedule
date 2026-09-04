@@ -1,6 +1,6 @@
 ---
 name: schedule-project-guardrails
-description: Route Schedule repository changes, debugging, builds, Mini Program uploads, release candidates, and production work through project-specific context, authorization, worktree, and validation guardrails. Use only when the Schedule repository markers match.
+description: Use only for the Schedule medical-staff scheduling repository. Trigger for every repository change, debug, test, build, Mini Program upload, release, production-related, or parallel-worktree task. Default to DEPENDENCY_MODE=REUSE_ONLY; new conversations and source changes do not invalidate dependencies. Parallel work requires an exclusive warm worktree. Never install dependencies, upload, or touch production without separate current-message authorization.
 ---
 
 # Schedule Project Guardrails
@@ -20,7 +20,15 @@ The inspector must confirm all Schedule markers and print `RESULT=PASS`. If it d
 
 Keep the reported `SKILL_HASH` in the current thread. When it is unchanged, do not reread this file or references already read in that thread; read only a newly routed reference. When it changes, reload this router and the references for the active task.
 
-Before any `pnpm install`, read and apply the [dependency environment lifecycle](references/worktree-and-bootstrap.md#dependency-environment-lifecycle). A conversation, branch, source SHA, or clean-source check does not invalidate dependencies; reuse a matching healthy worktree environment.
+The default is `DEPENDENCY_MODE=REUSE_ONLY`. A conversation boundary is never a dependency invalidation boundary. Read the [dependency environment lifecycle](references/dependency-lifecycle.md) before any dependency maintenance request; ordinary task level, branch/SHA movement, missing workspace output, or a clean-source check never authorizes installation.
+
+In `REUSE_ONLY`:
+
+- A matching fingerprint and healthy worktree-local `node_modules` are reused.
+- A fingerprint mismatch stops with the changed fields; it does not install, delete dependencies, repair the store, or use `--force`.
+- A missing environment stops with `TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`.
+- Normal output is `DEPENDENCIES_REUSED=true` and `INSTALL_INVOKED=false`.
+- A parallel task acquires one exclusive warm slot; a busy or exhausted pool returns `POOL_BUSY` and never creates a cold worktree.
 
 ## Route the task
 
@@ -36,7 +44,8 @@ Before any `pnpm install`, read and apply the [dependency environment lifecycle]
 
 Load conditional references only when their trigger matches:
 
-- Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md).
+- Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md) and [dependency lifecycle](references/dependency-lifecycle.md).
+- Persistent worktree pool, leases, or parallel coordination: [multi-parallel workflow](references/multi-parallel-workflow.md).
 - Mini Program code, build, native evidence, preview, or upload: [Mini Program](references/miniprogram.md).
 - Unknown root cause or regression investigation: [debugging](references/debugging.md).
 - Gate selection, comparisons, or evidence claims: [testing/evidence](references/testing-and-evidence.md).
@@ -49,4 +58,4 @@ Load other skills only on these triggers:
 - `$systematic-debugging`: failures whose root cause is not already established.
 - `$brainstorming`: unresolved requirements or architecture only. Do not repeat it when the user has approved a complete design.
 
-Run [worktree safety](scripts/check-worktree-safety.ps1) before any `L3` source is prepared. Run [skill validation](scripts/validate-project-skill.ps1) after changing this skill. Neither script authorizes a build, upload, production connection, or deletion.
+Run [worktree safety](scripts/check-worktree-safety.ps1) before any `L3` source is prepared. Run [skill validation](scripts/validate-project-skill.ps1) after changing this skill. The reusable dependency wrapper is `scripts/codex/ensure-worktree-deps.ps1 -Mode ReuseOnly`; the bootstrap wrapper is `scripts/codex/ensure-workspace-bootstrap.ps1 -Profile <mini|api|web|root|release>`. Neither validation script authorizes a build, upload, production connection, deletion, or dependency installation.

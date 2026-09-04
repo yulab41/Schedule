@@ -1,7 +1,7 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { URL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -19,6 +19,7 @@ import {
 } from './prepare-release-worktree.mjs';
 
 const temporaryDirectories = [];
+const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
@@ -27,7 +28,9 @@ afterEach(() => {
 });
 
 function createTemporaryDirectory() {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'schedule-release-worktree-'));
+  const runtimeRoot = path.join(REPOSITORY_ROOT, 'runtime');
+  fs.mkdirSync(runtimeRoot, { recursive: true });
+  const directory = fs.mkdtempSync(path.join(runtimeRoot, 'codex-test-release-'));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -144,12 +147,20 @@ describe('reusable isolated release worktree', () => {
     });
   });
 
-  it('keeps unapproved dependency scripts blocked without failing the reusable install', () => {
+  it('keeps the separately authorized maintenance argument list offline and non-forced', () => {
     expect(PNPM_INSTALL_ARGUMENTS).toEqual([
       'install',
       '--frozen-lockfile',
+      '--offline',
       '--config.strictDepBuilds=false',
     ]);
+  });
+
+  it('routes release preparation through ReuseOnly and has no automatic install call', () => {
+    const source = fs.readFileSync(new URL('./prepare-release-worktree.mjs', import.meta.url), 'utf8');
+    expect(source).toContain("mode: 'ReuseOnly'");
+    expect(source).toContain('ensureWorktreeDependencies');
+    expect(source).not.toContain('runPnpmInstall');
   });
 
   it('records explicit non-build decisions for optional dependency install scripts', () => {

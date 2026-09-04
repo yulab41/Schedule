@@ -2,8 +2,8 @@
  * Prepare one persistent detached worktree for exact-commit release builds.
  *
  * The worktree is isolated under runtime/ inside the repository, while its ignored
- * node_modules directory survives commit changes. Dependencies are installed
- * only when their tracked inputs change.
+ * node_modules directory survives commit changes. Dependencies are never installed
+ * by this helper; a matching healthy environment is required before a release build.
  *
  * Usage:
  *   node scripts/prepare-release-worktree.mjs
@@ -18,16 +18,17 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import {
+  PNPM_INSTALL_ARGUMENTS as SHARED_PNPM_INSTALL_ARGUMENTS,
+  ensureWorktreeDependencies,
+} from './codex/worktree-deps-core.mjs';
+
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
 export const RELEASE_RUNTIME_ROOT = path.join(ROOT, 'runtime');
 export const DEFAULT_RELEASE_WORKTREE_PATH = path.join(ROOT, 'runtime', 'release-worktree');
-export const PNPM_INSTALL_ARGUMENTS = [
-  'install',
-  '--frozen-lockfile',
-  '--config.strictDepBuilds=false',
-];
+export const PNPM_INSTALL_ARGUMENTS = SHARED_PNPM_INSTALL_ARGUMENTS;
 
 function fail(message) {
   throw new Error(`[release:worktree] ${message}`);
@@ -204,9 +205,9 @@ function prepareRegisteredWorktree(target, commit) {
     if (fs.existsSync(target)) {
       fail(`目标目录已存在但不是本仓库登记的 worktree，拒绝接管：${target}`);
     }
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    git(['worktree', 'add', '--detach', target, commit], { stdio: 'inherit' });
-    return true;
+    fail(
+      `TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV\nDEPENDENCIES_REUSED=false\nINSTALL_INVOKED=false\nWORKTREE_CREATED=false\nNo existing warm release worktree is registered: ${target}`,
+    );
   }
 
   if (!entry.detached || entry.branch !== undefined) {
@@ -267,44 +268,6 @@ export function stripPnpmBuildPlaceholders(source) {
   );
 }
 
-function restorePnpmWorkspaceAfterInstall(workspacePath, original) {
-  const current = fs.readFileSync(workspacePath);
-  if (current.equals(original)) return;
-  const stripped = stripPnpmBuildPlaceholders(current.toString('utf8'));
-  const normalize = (value) => value.replaceAll('\r\n', '\n');
-  if (normalize(stripped) !== normalize(original.toString('utf8'))) {
-    fail('pnpm install 修改了 build-review 占位值以外的 workspace 配置，拒绝自动恢复。');
-  }
-  fs.writeFileSync(workspacePath, original);
-}
-
-function runPnpmInstall(worktreeRoot) {
-  const environment = { ...process.env, CI: 'true' };
-  const invocation = resolvePnpmInvocation(environment);
-  const workspacePath = path.join(worktreeRoot, 'pnpm-workspace.yaml');
-  const originalWorkspace = fs.readFileSync(workspacePath);
-  try {
-    run(invocation.command, [...invocation.argumentsPrefix, ...PNPM_INSTALL_ARGUMENTS], {
-      cwd: worktreeRoot,
-      env: environment,
-      stdio: 'inherit',
-    });
-  } finally {
-    restorePnpmWorkspaceAfterInstall(workspacePath, originalWorkspace);
-  }
-}
-
-function writeDependencyMarker(gitDirectory, fingerprint, commit) {
-  const markerPath = path.join(gitDirectory, DEPENDENCY_MARKER);
-  const temporaryPath = `${markerPath}.${process.pid}.tmp`;
-  fs.writeFileSync(
-    temporaryPath,
-    `${JSON.stringify({ commit, fingerprint, updatedAt: new Date().toISOString() }, undefined, 2)}\n`,
-    'utf8',
-  );
-  fs.renameSync(temporaryPath, markerPath);
-}
-
 export function main(arguments_ = process.argv.slice(2)) {
   const options = parseArguments(arguments_);
   const target = options.worktreePath ?? DEFAULT_RELEASE_WORKTREE_PATH;
@@ -312,21 +275,29 @@ export function main(arguments_ = process.argv.slice(2)) {
 
   const commit = resolveCommit(options.commit);
   const created = prepareRegisteredWorktree(target, commit);
-  const gitDirectory = git(['rev-parse', '--absolute-git-dir'], { cwd: target }).stdout.trim();
-  const dependencyInputs = trackedDependencyInputs(target);
-  const fingerprint = computeDependencyFingerprint(target, dependencyInputs);
-  const reusedDependencies = shouldReuseDependencies(target, gitDirectory, fingerprint);
-
-  if (!reusedDependencies) {
-    runPnpmInstall(target);
-    writeDependencyMarker(gitDirectory, fingerprint, commit);
+  const dependencyState = ensureWorktreeDependencies({
+    worktree: target,
+    mode: 'ReuseOnly',
+    adoptHealthyExisting: true,
+    json: options.json,
+  });
+  if (dependencyState.taskStatus !== 'READY_REUSE' || !dependencyState.dependenciesReused) {
+    fail(
+      [
+        `TASK_STATUS=${dependencyState.taskStatus}`,
+        'DEPENDENCIES_REUSED=false',
+        'INSTALL_INVOKED=false',
+        'WORKTREE_CREATED=false',
+        ...(dependencyState.reasons ?? []).map((reason) => `INVALIDATION_REASON=${reason}`),
+      ].join('\n'),
+    );
   }
   assertCleanWorktree(target);
 
   const result = {
     commit,
     created,
-    dependencies: reusedDependencies ? 'reused' : 'installed',
+    dependencies: 'reused',
     path: target,
   };
   if (options.json) console.log(JSON.stringify(result));

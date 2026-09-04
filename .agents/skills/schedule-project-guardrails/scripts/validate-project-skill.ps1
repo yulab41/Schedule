@@ -86,6 +86,8 @@ try {
         'agents/openai.yaml',
         'references/task-levels.md',
         'references/worktree-and-bootstrap.md',
+        'references/dependency-lifecycle.md',
+        'references/multi-parallel-workflow.md',
         'references/miniprogram.md',
         'references/debugging.md',
         'references/testing-and-evidence.md',
@@ -141,22 +143,23 @@ try {
     foreach ($requiredToken in @(
         'L0', 'L1', 'L2', 'L3', 'L4', 'SKILL_HASH', '$miniprogram-development',
         '$frontend-design', '$systematic-debugging', '$brainstorming',
-        'dependency environment lifecycle'
+        'dependency environment lifecycle', 'DEPENDENCY_MODE=REUSE_ONLY',
+        'A conversation boundary is never a dependency invalidation boundary.',
+        'POOL_BUSY', 'INSTALL_INVOKED=false'
     )) {
         if (-not $skillContent.Contains($requiredToken)) {
             throw "SKILL.md is missing required routing token: $requiredToken"
         }
     }
 
-    $worktreeReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/worktree-and-bootstrap.md') -Raw
+    $dependencyReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/dependency-lifecycle.md') -Raw
     foreach ($requiredLifecycleToken in @(
-        '## Dependency environment lifecycle',
         'A conversation boundary is never a dependency invalidation boundary.',
-        '- a new task branch was created;',
-        '- the worktree switched to another SHA;',
+        'a new or resumed Codex conversation, task, or branch;',
+        'switching branches or source SHA',
         '`pnpm-lock.yaml`',
         '`pnpm-workspace.yaml`',
-        'all workspace `package.json` files',
+        'every workspace `package.json`',
         'dependency patches and pnpm hooks',
         'Node and pnpm versions',
         'operating system and architecture',
@@ -164,13 +167,26 @@ try {
         'the resolved pnpm store path',
         'When the fingerprint matches and `node_modules` passes its health check:',
         '- skip `pnpm install`;',
-        'Use a persistent pool of short-path worktrees',
-        'Never use `git clean -xfd` on a reusable worktree.',
-        'Do not junction one writable `node_modules` directory into multiple worktrees.',
-        'Workspace build outputs have a separate source/config fingerprint.'
+        'single-use local authorization record',
+        'no install is run.'
     )) {
-        if (-not $worktreeReference.Contains($requiredLifecycleToken)) {
-            throw "worktree/bootstrap reference is missing dependency lifecycle rule: $requiredLifecycleToken"
+        if (-not $dependencyReference.Contains($requiredLifecycleToken)) {
+            throw "dependency lifecycle reference is missing rule: $requiredLifecycleToken"
+        }
+    }
+
+    $parallelReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/multi-parallel-workflow.md') -Raw
+    foreach ($requiredPoolToken in @(
+        'machine-local Schedule pool',
+        'same volume as the repository and pnpm store',
+        'atomic create operation',
+        'Each active task owns one worktree',
+        'POOL_BUSY',
+        'maximum no-install concurrency',
+        'never create a cold worktree'
+    )) {
+        if (-not $parallelReference.Contains($requiredPoolToken)) {
+            throw "parallel workflow reference is missing rule: $requiredPoolToken"
         }
     }
 
