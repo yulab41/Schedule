@@ -171,6 +171,16 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - checkpoint message：`refactor(agent): remove manual Hook trust dependency`。显式暂存仅限工具链/文档路径，
   不包含 `runtime/`、`src/`、用户表格、业务源码或 `pnpm-lock.yaml`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-002（2026-09-04）
+
+- 项目 store 镜像已完成：旧 store `E:\.pnpm-store\v11` 保留；源 122,851 文件/2,080,992,131 bytes，
+  项目 store 已验证包含全部源内容，目标 173,348 文件/2,678,642,967 bytes，额外本地缓存 50,497 文件；
+  2,889 条内部链接已重写到项目内，78 条回指其他 checkout 的 store metadata link 跳过，抽样哈希通过。
+- 镜像没有调用 pnpm install、没有联网、没有删除/修剪 store；目标位于 `runtime/pnpm-store`，待正式槽位
+  安装后复核每个 `.modules.yaml` 的 `storeDir`。
+- checkpoint message：`chore(dev): complete project-local store mirror`；下一步是迁移/准备正式 warm pool，
+  然后执行授权 install、root bootstrap 和并发/新 session 验证。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：在该 checkpoint 上执行项目 store 镜像、迁移外部 warm worktree、顺序准备 6 个正式槽位，
