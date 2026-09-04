@@ -52,6 +52,7 @@ test('the project pnpmfile is independent of Codex Hooks and has no install bypa
   const pnpmfile = fs.readFileSync(path.join(root, '.pnpmfile.cjs'), 'utf8');
   const maintenance = fs.readFileSync(path.join(root, 'scripts/codex/dependency-maintenance.ps1'), 'utf8');
   assert.match(pnpmfile, /install-tripwire\.cjs/iu);
+  assert.match(pnpmfile, /module\.exports\s*=\s*\{\s*\}/iu);
   assert.doesNotMatch(pnpmfile, /hook\.json|schedule-project-hook/iu);
   assert.match(maintenance, /lockfileSha256/iu);
   assert.match(maintenance, /singleUse\s*=\s*\$true/iu);

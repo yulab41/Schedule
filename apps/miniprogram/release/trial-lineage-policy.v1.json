@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "remote": "origin",
+  "mainBranch": "main",
+  "tagPrefix": "miniprogram-trial/",
+  "versionPrefix": "0.1.0-p10",
+  "lastSequence": 86,
+  "requiredCheckpoints": [
+    {
+      "commit": "1ffab10c3f30987e31db47eb555f9e0aef0bf787",
+      "reason": "Preserve the canonical Web/Mini icon source migration before any later cumulative trial."
+    },
+    {
+      "commit": "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
+      "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial."
+    },
+    {
+      "commit": "71110712d41756d19e95a50ecf5aa0d083728da1",
+      "reason": "Preserve the Web/Mini motion candidate lineage before any later cumulative trial."
+    }
+  ]
+}

@@ -9,10 +9,12 @@ import {
   collectDependencyInputPaths,
   createDependencySnapshot,
   diffDependencySnapshots,
+  findL2ReconciliationAttempt,
   inspectDependencyHealth,
   inspectRuntimeEnvironment,
   maintenanceCommandArguments,
   maintenanceCommandHash,
+  recordL2ReconciliationAttempt,
   resolveCanonicalProjectHome,
   resolveProjectLocalState,
   resolveProjectLocalStorePath,
@@ -69,6 +71,27 @@ test('binds maintenance commands to the project-local store and exact worktree',
     `--store-dir=${storePath.toLocaleLowerCase('en-US')}`,
   ]);
   assert.match(maintenanceCommandHash({ commonDir: path.join(REPOSITORY_ROOT, '.git'), root: REPOSITORY_ROOT, storePath }), /^[0-9a-f]{64}$/u);
+});
+
+test('records one L2 frozen reconciliation attempt per complete fingerprint', () => {
+  const auditPath = path.join(temporaryDirectory(), 'runtime', 'codex', 'l2-reconciliation-v1.json');
+  const fingerprint = 'a'.repeat(64);
+  const initial = {
+    fingerprint,
+    installInvoked: true,
+    startedAt: '2026-09-05T00:00:00.000Z',
+    status: 'started',
+  };
+  recordL2ReconciliationAttempt(auditPath, initial);
+  recordL2ReconciliationAttempt(auditPath, {
+    ...initial,
+    completedAt: '2026-09-05T00:00:01.000Z',
+    status: 'ready-reuse',
+  });
+  const audit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
+  assert.equal(audit.schemaVersion, 1);
+  assert.equal(audit.attempts.length, 1);
+  assert.equal(findL2ReconciliationAttempt(audit, fingerprint).status, 'ready-reuse');
 });
 
 test('uses an offline install argument list only in separately authorized maintenance mode', () => {
@@ -150,6 +173,23 @@ test('health checks require the worktree metadata, store, and root executables',
     platform: 'win32',
   });
   assert.deepEqual(healthy, { healthy: true, reasons: [] });
+  write(root, 'node_modules/.modules.yaml', JSON.stringify({
+    nodeLinker: 'isolated',
+    packageManager: 'pnpm@11.9.0',
+    storeDir: path.join(storePath, 'v11'),
+    virtualStoreDir: virtualStorePath,
+  }));
+  const versionedStoreHealthy = inspectDependencyHealth({
+    root,
+    storePath,
+    workspacePackages: [
+      { directory: packageA, manifest: { name: '@schedule/a', version: '1.0.0' } },
+      { directory: packageB, manifest: { name: '@schedule/b', version: '1.0.0', dependencies: { '@schedule/a': 'workspace:*' } } },
+    ],
+    expectedPnpmVersion: '11.9.0',
+    platform: 'win32',
+  });
+  assert.deepEqual(versionedStoreHealthy, { healthy: true, reasons: [] });
   fs.rmSync(path.join(root, 'node_modules/.bin/vitest.CMD'));
   const unhealthy = inspectDependencyHealth({
     root,
@@ -176,7 +216,14 @@ test('PowerShell maintenance callers use named forwarding instead of array bindi
   assert.match(maintenance, /\$coreParameters\s*=\s*@\{/u);
   assert.match(maintenance, /Mode\s*=\s*'DependencyMaintenance'/u);
   assert.match(maintenance, /coreParameters\.LeaseToken\s*=\s*\$LeaseToken/u);
+  assert.match(maintenance, /CurrentMessageAuthorization/u);
   assert.doesNotMatch(maintenance, /\$coreArguments\s*=\s*@\(/u);
+  const ensure = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'scripts/codex/ensure-worktree-deps.ps1'),
+    'utf8',
+  );
+  assert.match(ensure, /CurrentMessageAuthorization/u);
+  assert.match(ensure, /current-message-authorization/u);
   assert.match(pool, /\$parameters\s*=\s*@\{/u);
   assert.match(pool, /Mode\s*=\s*'ReuseOnly'/u);
   assert.doesNotMatch(pool, /\$arguments\s*=\s*@\(/u);

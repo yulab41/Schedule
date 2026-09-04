@@ -9,6 +9,15 @@ import {
   readProfileArgument,
   sha256,
 } from './build-tools.mjs';
+import {
+  assertBuildProfileMatchesCandidate,
+  allocateNextTrialVersion,
+  confirmTrialCandidate,
+  inspectTrialCandidate,
+  readBuildProfile,
+  reserveTrialVersion,
+  writeTrialReceipt,
+} from './trial-lineage.mjs';
 
 const ALLOWED_ACTIONS = new Set(['preview', 'upload-experience']);
 const DEFAULT_ROBOT = 1;
@@ -80,7 +89,7 @@ export function resolveCiCredentials(environment = process.env) {
 
 export function resolveUploadMetadata(environment = process.env) {
   const version = requiredText(environment.WECHAT_CI_VERSION, 'WECHAT_CI_VERSION');
-  const description = requiredText(environment.WECHAT_CI_DESCRIPTION, 'WECHAT_CI_DESCRIPTION');
+  const description = resolveUploadDescription(environment);
 
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error('WECHAT_CI_VERSION must be a semantic version.');
@@ -91,6 +100,14 @@ export function resolveUploadMetadata(environment = process.env) {
   }
 
   return { description, version };
+}
+
+export function resolveUploadDescription(environment = process.env) {
+  const description = requiredText(environment.WECHAT_CI_DESCRIPTION, 'WECHAT_CI_DESCRIPTION');
+  if (description.length > 80) {
+    throw new Error('WECHAT_CI_DESCRIPTION must not exceed 80 characters.');
+  }
+  return description;
 }
 
 export function redactText(value, secrets) {
@@ -147,24 +164,77 @@ async function loadProjectIdentity() {
   return { appid };
 }
 
-export async function runCiCommand({ action, dryRun, profile }, environment = process.env) {
-  const buildResult = await buildMiniProgram({ profile });
+export async function runCiCommand(
+  { action, dryRun, profile },
+  environment = process.env,
+  dependencyOverrides = {},
+) {
+  const dependencies = {
+    assertBuildProfileMatchesCandidate,
+    allocateNextTrialVersion,
+    buildMiniProgram,
+    configureMiniprogramCiModulePath,
+    confirmTrialCandidate,
+    inspectTrialCandidate,
+    loadCiModule: async () => {
+      const ciModule = await import('miniprogram-ci');
+      return ciModule.default ?? ciModule;
+    },
+    loadProjectIdentity,
+    readBuildProfile,
+    reserveTrialVersion,
+    resolveCiCredentials,
+    writeTrialReceipt,
+    ...dependencyOverrides,
+  };
+  const isRealTrialUpload = action === 'upload-experience' && !dryRun;
+  const metadata = isRealTrialUpload
+    ? {
+        description: resolveUploadDescription(environment),
+        version: environment.WECHAT_CI_VERSION?.trim() || null,
+      }
+    : null;
+  if (metadata !== null && metadata.version !== null) resolveUploadMetadata(environment);
+  if (metadata !== null && metadata.version === null) {
+    metadata.version = await dependencies.allocateNextTrialVersion({
+      repositoryRoot: REPOSITORY_ROOT,
+    });
+  }
+  const inspectedCandidate = isRealTrialUpload
+    ? await dependencies.inspectTrialCandidate({
+        description: metadata.description,
+        profile,
+        repositoryRoot: REPOSITORY_ROOT,
+        version: metadata.version,
+      })
+    : null;
+  const buildResult = await dependencies.buildMiniProgram({
+    ...(inspectedCandidate === null
+      ? {}
+      : {
+          buildCommit: inspectedCandidate.shortHead,
+          buildDescription: inspectedCandidate.description,
+          buildDirty: false,
+          buildVersion: inspectedCandidate.version,
+        }),
+    profile,
+  });
+  const manifestDigest = sha256(JSON.stringify(buildResult.files));
 
   if (dryRun) {
     return {
       action,
       externalStateChanged: false,
-      manifestDigest: sha256(JSON.stringify(buildResult.files)),
+      manifestDigest,
       profile,
     };
   }
 
-  const credentials = resolveCiCredentials(environment);
-  const { appid } = await loadProjectIdentity();
+  const credentials = dependencies.resolveCiCredentials(environment);
+  const { appid } = await dependencies.loadProjectIdentity();
   const secrets = [appid, credentials.privateKeyPath];
-  configureMiniprogramCiModulePath(environment);
-  const ciModule = await import('miniprogram-ci');
-  const ci = ciModule.default ?? ciModule;
+  dependencies.configureMiniprogramCiModulePath(environment);
+  const ci = await dependencies.loadCiModule();
   const project = new ci.Project({
     appid,
     privateKeyPath: credentials.privateKeyPath,
@@ -193,28 +263,43 @@ export async function runCiCommand({ action, dryRun, profile }, environment = pr
       action,
       artifact: path.relative(APP_ROOT, qrcodeOutputDest).replaceAll(path.sep, '/'),
       externalStateChanged: true,
-      manifestDigest: sha256(JSON.stringify(buildResult.files)),
+      manifestDigest,
       profile,
     };
   }
 
-  const metadata = resolveUploadMetadata(environment);
+  const confirmedCandidate = await dependencies.confirmTrialCandidate(inspectedCandidate);
+  const buildProfile = await dependencies.readBuildProfile(buildResult.outputDirectory);
+  dependencies.assertBuildProfileMatchesCandidate(buildProfile, confirmedCandidate);
+  const reservation = await dependencies.reserveTrialVersion({
+    head: confirmedCandidate.head,
+    repositoryRoot: confirmedCandidate.repositoryRoot,
+    version: confirmedCandidate.version,
+  });
   await withRedactedConsole(secrets, () =>
     ci.upload({
-      desc: metadata.description,
+      desc: confirmedCandidate.description,
       onProgressUpdate: () => undefined,
       project,
       robot: credentials.robot,
       setting: settings,
-      version: metadata.version,
+      version: confirmedCandidate.version,
     }),
   );
+  const receipt = await dependencies.writeTrialReceipt({
+    buildTime: buildProfile.buildTime,
+    candidate: confirmedCandidate,
+    manifestDigest,
+    reservation: reservation.reservation,
+    uploadedAt: new Date().toISOString(),
+  });
 
   return {
     action,
     externalStateChanged: true,
-    manifestDigest: sha256(JSON.stringify(buildResult.files)),
+    manifestDigest,
     profile,
-    version: metadata.version,
+    receipt,
+    version: confirmedCandidate.version,
   };
 }

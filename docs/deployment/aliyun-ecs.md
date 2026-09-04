@@ -4,7 +4,7 @@
 
 ## 本地生成 release
 
-服务器不负责安装依赖或编译。Windows 本地发布固定复用项目内 `runtime/release-worktree` 的隔离 detached worktree；首次创建时才完整落地依赖，后续切换 commit 时保留该目录的 `node_modules`，仅当受 Git 跟踪的 lockfile、workspace 配置、patch 或任一 `package.json` 变化时执行增量 `pnpm install --frozen-lockfile`。项目相关 worktree、release、smoke、日志和临时打包目录禁止写到项目目录之外；凭据/私钥仍必须保留在仓库外受控目录：
+服务器不负责安装依赖或编译。Windows 本地发布固定复用项目内 `runtime/release-worktree` 的隔离 detached worktree；普通 release 任务只允许复用已经健康的项目内依赖，依赖指纹不匹配时必须停止并转入明确的 DependencyMaintenance 通道，不能在 release helper 或新对话中自行安装。获授权的维护通道才可针对精确 lockfile 使用离线、项目内 store 的 `scripts/codex/dependency-maintenance.ps1`，并在成功后重新建立指纹；后续切换 commit 时保留该目录的 `node_modules`。项目相关 worktree、release、smoke、日志和临时打包目录禁止写到项目目录之外；凭据/私钥仍必须保留在仓库外受控目录：
 
 ```powershell
 node scripts/prepare-release-worktree.mjs --commit HEAD

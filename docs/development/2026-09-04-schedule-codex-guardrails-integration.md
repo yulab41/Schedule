@@ -15,7 +15,8 @@
   冷 worktree。
 - `.codex/setup.ps1` 只做轻量定位和复用检查，不安装、不 bootstrap、不迁移聊天到其他 worktree。
 - `.codex/rules/schedule-dependency-mutation.rules` 是 Codex shell 防护；`.pnpmfile.cjs` 在 pnpm
-  解析/import/link 前再次阻断未经授权的依赖变更。
+  解析/import/link 前再次阻断未经授权的依赖变更。tripwire 模块不注册 package hook，因此不会
+  要求改写现有 `pnpm-lock.yaml` 的 `pnpmfileChecksum`。
 
 ## 维护通道
 

@@ -157,7 +157,10 @@ describe('reusable isolated release worktree', () => {
   });
 
   it('routes release preparation through ReuseOnly and has no automatic install call', () => {
-    const source = fs.readFileSync(new URL('./prepare-release-worktree.mjs', import.meta.url), 'utf8');
+    const source = fs.readFileSync(
+      new URL('./prepare-release-worktree.mjs', import.meta.url),
+      'utf8',
+    );
     expect(source).toContain("mode: 'ReuseOnly'");
     expect(source).toContain('ensureWorktreeDependencies');
     expect(source).not.toContain('runPnpmInstall');

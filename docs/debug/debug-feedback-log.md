@@ -2496,3 +2496,26 @@
 - 运行/浏览器验证：B3 未修改 Web core 路径；`pnpm smoke:check-core` 复用已记录的 B2 浏览器结果并通过。
   仓库政策下未调用微信开发者工具。Node/构建不能证明 Skyline、帧率、transform-origin 或 Xiaomi 14 观感；
   exact clean 体验版仍须按审计清单人工确认。
+
+## 2026-09-05 ICON-PARITY-CLOSE-001 血缘与 L2 依赖收口
+
+- 当前候选 worktree 为 `runtime/wt/icon-parity-1`，起始 fetch 为 `origin/main@bb81e723`，冻结前最近
+  fetch 为 `origin/main@ba1e97a7`。整合树保留 `1ffab10c`、`5285dd17`、`71110712` 三条历史祖先，另将
+  已实际观察但不作为当前候选的 `.86@8caa5f20` 写入 tracked trial history。
+- `trial-history.v1.json` 现覆盖 `.74–.86`；policy required checkpoints 为 `1ffab10c`、`5285dd17`、
+  `71110712`。lineage/CI helper 定向测试在为真实 Git fixture 设置逐测试 30 秒有界上限后为 19/19；该
+  上限只针对跨进程 fixture，不改变业务运行时 timeout。
+- `allocateNextTrialVersion` 已接入正式 upload helper：缺少显式版本时读取 tracked history 和远端
+  `miniprogram-trial/*` reservations，按 Asia/Shanghai 当前日期选择下一个全局序号；不会把 `.87` 写死。
+- 官方依赖检查在血缘 package script 纳入后返回 `MISS`，完整指纹为
+  `b392a5b881360c1aa0bac89bfdbd8f45c9e928c9d0a1ab17e6dedbaca0dbc48e`。current-message L2 wrapper 的第一次
+  child 在解析前被既有 tripwire 拒绝；修正临时授权转发后只完成一次有效 `pnpm install --frozen-lockfile
+  --offline`，0 下载；随后 ReuseOnly 为 `READY_REUSE`，tracked tree hash 未变。ignored audit 记录
+  `authorizationSource=current-message`、attemptCount=2、tripwire recovery 和最终状态，所有临时授权文件已清理。
+- 运行/浏览器验证：`pnpm smoke:browser` 真实打开 Edge 后因本地 API `127.0.0.1:3000` 未运行停在
+  `/login?redirect=/`；独立 `/icon-parity.html` gallery 真实加载 55 catalog、13 context、44 binding cards，
+  stop/start 后 loop/one-shot 从 `2/1` 到 `0/0` 再回 `2/1`，无 404/console error。`pnpm smoke:check-core` 通过。
+- 最终候选第一次完整 verify 记录于 `ea83a45a`：format:check 发现 lineage helper 与最新主线 recovery test 的
+  Prettier 差异后退出码 1，未运行 build/test；修正后 `pnpm format:check` 通过，候选 SHA 随之失效并重新整合。
+- 工具链改动只扩展本地 L2 精确锁文件 reconciliation；不提供依赖升级、联网、手工 link、production、数据库、
+  force push 或正式发布绕过。未调用微信开发者工具 GUI/CLI，Xiaomi 14 原生视觉仍未验证。

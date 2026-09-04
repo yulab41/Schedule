@@ -55,9 +55,10 @@ The standard command is:
 & scripts/codex/ensure-worktree-deps.ps1 -Mode ReuseOnly
 ```
 
-The only maintenance entrypoint is `scripts/codex/dependency-maintenance.ps1`. It creates a single-use
-local authorization record just before the exact offline pnpm child process starts and removes it on
-every exit path. Its install branch passes the calculated project-local `runtime/pnpm-store` target.
+The only maintenance entrypoint is `scripts/codex/dependency-maintenance.ps1`. Its ordinary maintenance
+mode creates a single-use local authorization record just before the exact offline pnpm child process
+starts and removes it on every exit path. Its install branch passes the calculated project-local
+`runtime/pnpm-store` target.
 
 Expected reuse output is:
 
@@ -94,16 +95,20 @@ Dependency maintenance is independent of L0–L4. The local authorization is bou
 common directory, target worktree, exact command arguments, lockfile SHA-256, Node version, pnpm
 version, nonce, reason, and an expiry no longer than 15 minutes. The wrapper never uses `--force`,
 never enables networking, never deletes the store, and writes the dependency fingerprint only after
-health passes. A second attempt cannot reuse the consumed nonce. A single-use local authorization record
-is required for maintenance; in `ReuseOnly`, no install is run.
+health passes. A second attempt cannot reuse the consumed nonce. In `ReuseOnly`, no install is run. The
+explicit L2 current-message path may use `-CurrentMessageAuthorization` instead of a user-created JSON
+file, but it still requires the owned warm worktree lease and writes an ignored per-fingerprint
+reconciliation audit before the child process starts.
 
 ## L2 local frozen reconciliation
 
 When the current user message explicitly authorizes exact-lockfile reconciliation, a cross-package task may
-classify a `MISS` with a healthy but unlinked or absent environment as an L2 local frozen operation. The
-existing `scripts/codex/dependency-maintenance.ps1` wrapper creates the short-lived single-use authorization
-record itself, binds it to the exact worktree/fingerprint/command, and removes it on every exit path. The
-task must write the outcome to ignored `runtime/codex` state and may invoke at most one frozen offline
-install for that complete fingerprint. This exception does not permit dependency upgrades, networking,
-manual `node_modules` stitching, force options, production connections, database operations, force pushes,
-formal Mini publication, or release review.
+classify a `MISS` with a healthy but unlinked or absent environment as an L2 local frozen operation. Call
+the existing `scripts/codex/dependency-maintenance.ps1 -CurrentMessageAuthorization` entrypoint with the
+owned lease; this records the current message as the authorization source and avoids requiring the user to
+create a JSON file. The core binds the operation to the exact worktree, complete fingerprint, lockfile and
+fixed `install --frozen-lockfile --offline` command, records an ignored audit before the child starts, and
+refuses a second install for that fingerprint. After the child exits, health and tracked-tree stability
+must be rechecked and a follow-up `ReuseOnly` result must be `READY_REUSE`. This exception does not permit
+dependency upgrades, networking, manual `node_modules` stitching, force options, production connections,
+database operations, force pushes, formal Mini publication, or release review.

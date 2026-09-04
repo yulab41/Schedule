@@ -8,6 +8,8 @@ param(
 
     [string]$LeaseToken,
 
+    [switch]$CurrentMessageAuthorization,
+
     [switch]$Json
 )
 
@@ -56,6 +58,17 @@ function Write-AtomicJson {
     Move-Item -LiteralPath $temporary -Destination $Target -Force
 }
 
+function Remove-AuthorizationArtifacts {
+    param([Parameter(Mandatory = $true)][string]$AuthorizationFile)
+    foreach ($candidate in @($AuthorizationFile, "$AuthorizationFile.claim")) {
+        if (-not [IO.File]::Exists($candidate)) { continue }
+        [IO.File]::Delete($candidate)
+        if ([IO.File]::Exists($candidate)) {
+            throw "Unable to remove dependency-maintenance authorization artifact: $candidate"
+        }
+    }
+}
+
 try {
     $hint = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
     $worktree = [IO.Path]::GetFullPath((Get-GitValue -WorkingDirectory $hint -Arguments @('rev-parse', '--show-toplevel')))
@@ -88,9 +101,8 @@ try {
         "--store-dir=$targetStore"
     )
     $commandJson = @($installArguments) | ConvertTo-Json -Compress
-    # The Node core hashes a platform-independent LF-delimited tuple. Keep the authorization
-    # record stable on Windows instead of using Environment.NewLine (CRLF).
-    $commandHash = Get-Sha256 (($canonicalCommon + "`n" + $canonicalWorktree + "`n" + $commandJson))
+    $hashSeparator = [char]10
+    $commandHash = Get-Sha256 (($canonicalCommon + $hashSeparator + $canonicalWorktree + $hashSeparator + $commandJson))
     $created = (Get-Date).ToUniversalTime()
     $record = [ordered]@{
         schemaVersion = 2
@@ -112,9 +124,11 @@ try {
         createdAt = $created.ToString('o')
         expiresAt = $created.AddMinutes(15).ToString('o')
         reason = $Reason.Trim()
+        authorizationSource = if ($CurrentMessageAuthorization) { 'current-message' } else { 'maintenance-wrapper' }
     }
     Write-AtomicJson -Target $authorizationFile -Value $record
     Write-Output 'DEPENDENCY_MAINTENANCE_AUTHORIZED=true'
+    if ($CurrentMessageAuthorization) { Write-Output 'AUTHORIZATION_SOURCE=current-message' }
     Write-Output 'INSTALL_AUTHORIZED=true'
     try {
         $coreScript = Join-Path $PSScriptRoot 'ensure-worktree-deps.ps1'
@@ -123,6 +137,7 @@ try {
             WorktreeRoot = $worktree
             AuthorizationFile = $authorizationFile
         }
+        if ($CurrentMessageAuthorization) { $coreParameters.CurrentMessageAuthorization = $true }
         if ($LeaseToken) { $coreParameters.LeaseToken = $LeaseToken }
         if ($Json) { $coreParameters.Json = $true }
         $output = & $coreScript @coreParameters
@@ -131,9 +146,7 @@ try {
         if ($exitCode -ne 0) { exit $exitCode }
     }
     finally {
-        foreach ($candidate in @($authorizationFile, "$authorizationFile.claim")) {
-            if (Test-Path -LiteralPath $candidate) { Remove-Item -LiteralPath $candidate -Force -ErrorAction SilentlyContinue }
-        }
+        Remove-AuthorizationArtifacts -AuthorizationFile $authorizationFile
     }
 }
 catch {

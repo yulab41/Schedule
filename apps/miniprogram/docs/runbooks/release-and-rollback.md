@@ -24,6 +24,10 @@ Git/ECS 打包允许复用 `runtime/release-cache/v1` 的哈希校验 build/dist
 
 ## 体验版本白名单
 
+- 体验上传只能从 clean production 累积候选执行：候选必须后继 fresh `origin/main`、远端最新
+  `miniprogram-trial/<version>` 和 policy required checkpoints；版本说明必须含短 SHA。
+- 上传封装会先把完整版本原子绑定到不可变轻量 tag。同 tag 同 SHA 仅允许最新候选幂等重试；不同 SHA 拒绝。
+  上传失败或响应不确定也永久消耗该版本，禁止删除/force tag 或换代码后复用版本。
 - 体验上传成功且 Git/ECS checkpoint 已部署后，只能通过 `sudo schedule-client-version-allowlist ensure <version>` 追加生产支持版本。
 - 禁止 PowerShell 管道或临时远端脚本改写 `.env.production`；禁止依赖 JSON 字段顺序比较能力响应。
 - `ensure` 必须验证目标版本、动态未知版本 426、配置 `root:root/0600` 和 API/Web 健康；随后再次运行 `sudo schedule-client-version-allowlist verify` 与完整 `ecs-verify.sh`。
@@ -32,6 +36,7 @@ Git/ECS 打包允许复用 `runtime/release-cache/v1` 的哈希校验 build/dist
 ## 回滚
 
 - 首选立即关闭受影响的 server capability，使客户端隐藏入口且 API 拒绝写入。
-- 保留上一已验收小程序版本和对应 API contract；需要平台回退时由用户在微信后台操作/批准。
+- 保留上一已验收小程序版本和对应 API contract；需要平台回退时由用户在微信后台操作/批准。需要上传修复包时，
+  在最新累积 tip 上创建显式 revert commit 并使用新的全局版本，不给旧 SHA 分配新版本。
 - 数据库迁移必须向后兼容 Web 和上一 Mini 版本；发布前备份是恢复底线，但不能用本地数据库覆盖生产。
 - 回滚后重跑正式域名只读核验、ECS verify 和受影响身份/权限/幂等测试，并记录实际版本。

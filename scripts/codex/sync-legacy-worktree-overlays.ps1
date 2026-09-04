@@ -68,9 +68,9 @@ try {
     $root = [IO.Path]::GetFullPath((Invoke-Git -WorkingDirectory $hint -Arguments @('rev-parse', '--show-toplevel')))
     $commonRaw = Invoke-Git -WorkingDirectory $root -Arguments @('rev-parse', '--git-common-dir')
     $common = if ([IO.Path]::IsPathRooted($commonRaw)) { [IO.Path]::GetFullPath($commonRaw) } else { [IO.Path]::GetFullPath((Join-Path $root $commonRaw)) }
-    $home = [IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($common)).TrimEnd('\')
-    $pool = Get-CanonicalPath (Join-Path $home 'runtime/wt')
-    $skill = Join-Path $home '.agents/skills/schedule-project-guardrails'
+    $canonicalProjectHome = [IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($common)).TrimEnd('\')
+    $pool = Get-CanonicalPath (Join-Path $canonicalProjectHome 'runtime/wt')
+    $skill = Join-Path $canonicalProjectHome '.agents/skills/schedule-project-guardrails'
     $skillHash = Get-TreeHash $skill
     $entries = @(Parse-WorktreeList (Invoke-Git -WorkingDirectory $root -Arguments @('worktree', 'list', '--porcelain')))
     $records = @()
@@ -79,7 +79,7 @@ try {
     foreach ($entry in $entries) {
         $path = [IO.Path]::GetFullPath($entry.path)
         $canonical = Get-CanonicalPath $path
-        if ($canonical -eq (Get-CanonicalPath $home) -or $canonical.StartsWith("$pool\")) { continue }
+        if ($canonical -eq (Get-CanonicalPath $canonicalProjectHome) -or $canonical.StartsWith("$pool\")) { continue }
         $agentsPath = Join-Path $path 'AGENTS.md'
         $overridePath = Join-Path $path 'AGENTS.override.md'
         $agents = if (Test-Path -LiteralPath $agentsPath -PathType Leaf) { Get-Content -LiteralPath $agentsPath -Raw } else { '' }
@@ -94,6 +94,7 @@ try {
             }
             continue
         }
+        $overlayExists = Test-Path -LiteralPath $overridePath -PathType Leaf
         $overlay = @(
             '# Schedule legacy worktree overlay',
             'Schedule project: medical-staff-scheduling-system.',
@@ -110,11 +111,11 @@ try {
             [IO.File]::AppendAllText($exclude, "AGENTS.override.md$([Environment]::NewLine)", [Text.UTF8Encoding]::new($false))
         }
         $ignored = Invoke-Git -WorkingDirectory $path -Arguments @('check-ignore', '-q', '--no-index', 'AGENTS.override.md')
-        $created += 1
+        if (-not $overlayExists) { $created += 1 }
         $records += [pscustomobject]@{ path = $path; head = $entry.head; branch = $entry.branch; overlayVersion = 1; canonicalSkillTreeHash = $skillHash; ignored = ($ignored -eq '') }
     }
-    $statePath = Join-Path $home 'runtime/codex/state/legacy-overlays.json'
-    Write-AtomicJson -Target $statePath -Value ([ordered]@{ schemaVersion = 1; generatedAt = (Get-Date).ToUniversalTime().ToString('o'); canonicalProjectHome = $home; canonicalSkillTreeHash = $skillHash; overlays = $records })
+    $statePath = Join-Path $canonicalProjectHome 'runtime/codex/state/legacy-overlays.json'
+    Write-AtomicJson -Target $statePath -Value ([ordered]@{ schemaVersion = 1; generatedAt = (Get-Date).ToUniversalTime().ToString('o'); canonicalProjectHome = $canonicalProjectHome; canonicalSkillTreeHash = $skillHash; overlays = $records })
     Write-Output "OVERLAYS_CREATED=$created"
     Write-Output "OVERLAYS_REMOVED=$removed"
     Write-Output "STATE_PATH=$statePath"

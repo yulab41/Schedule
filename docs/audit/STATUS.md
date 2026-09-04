@@ -25,12 +25,31 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## ICON-PARITY-CLOSE-001 机器证据
 
-- 候选工作树：`runtime/wt/icon-parity-1`，基于工具链 checkpoint 工作；起始 `origin/main@bb81e723`，待整合
-  的最新主线为 `b076d542`。历史 `1ffab10c`、`5285dd17`、`71110712` 已做祖先/等价实现核对。
+- 候选工作树：`runtime/wt/icon-parity-1`，基于工具链 checkpoint 工作；起始 `origin/main@bb81e723`，冻结前
+  最近 fetch 的最新主线为 `ba1e97a7`。历史 `1ffab10c`、`5285dd17`、`71110712` 已做祖先/等价实现核对。
 - `pnpm icon:parity` 已通过：55 canonical definitions、58 generated Mini SVG、138 生产引用、legacy 0、未消费资产 0、
   Mini keyframes 32/32、Web/Mini motion bindings 31/25、generator 连跑 deterministic；隔离 gallery 无登录/API。
 - 未调用微信开发者工具 GUI/CLI、模拟器、Console/Network 或截图。Node/静态/browser gallery 证据只能说明机器门禁和
   Web 页面结构，不能替代 Xiaomi 14 原生渲染验收。
+
+## ICON-PARITY-CLOSE-001 当前增量
+
+- 当前整合树已纳入累积 trial lineage 工具；tracked history 覆盖 `.74–.86`，其中 `.86` 精确记录为
+  `0.1.0-p10.20260904.86@8caa5f201b373fadd9453b8e4ec02fc3f93fe0cb`，manifest 为
+  `7b3130b04e40e7bbf67a2c5c9e3b3b112e8b7fbf2892f546147d708f5f5a46a2`，并明确标记为旧观察候选。
+- policy 现在要求 `1ffab10c`、`5285dd17`、`71110712` 三个历史 checkpoint；candidate preflight 仍要求
+  fresh `origin/main`、latest trial、clean production、description short SHA、exact build metadata 和
+  immutable lightweight tag。
+- 当前消息授权的 L2 dependency reconciliation 使用官方 wrapper 完成一次有效 frozen offline child，完整
+  指纹为 `b392a5b8…0dbc48e`；follow-up `ReuseOnly` 为 `READY_REUSE`，下载 0、tracked tree hash 不变。
+  ignored audit 同时保留一次早停 tripwire 和恢复标记，未重复有效安装。
+- `allocateNextTrialVersion` 已从 policy/history 与远端 immutable tags 动态计算下一个日期/序号；定向 lineage/CI
+  为 19/19，guardrail Node 为 18/18，post-merge icon parity 仍为 55/58/138、legacy 0、unreferenced 0。
+- 运行/浏览器验证：`pnpm smoke:browser` 已真实启动 Edge 并打开 Web，但因 API `127.0.0.1:3000` 未运行停在
+  `/login?redirect=/`；独立 gallery 已真实加载并验证 55 catalog、13 context、stop/start motion，无 404/console
+  error。未调用微信开发者工具 GUI/CLI，Xiaomi 14 原生视觉仍未验证。
+- exact `ea83a45a` 的完整 `pnpm verify` 首次尝试在 format:check 退出码 1 停止，未进入昂贵 build/test；两个格式问题
+  已修正并通过 `pnpm format:check`，因此该 SHA 不再是候选。
 
 ## 已保留的主线事实
 
@@ -80,7 +99,7 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：在 `origin/main@b076d542` 之上整合当前图标实现 checkpoint，重新执行快速 parity/受影响测试，
-  冻结 exact clean candidate，并仅在所有版本血缘、包体、source/package/determinism 与完整 verifier 通过后上传体验版。
-- 本批停止条件：体验版上传后验证版本与 source SHA/manifest/allowlist；不提审、不正式发布、不部署 ECS/数据库，
-  并明确保留“Xiaomi 14 原生视觉待用户提供匹配证据”的边界。
+- 唯一下一任务：把格式修正纳入当前 latest-main/lineage/tooling checkpoint，重新冻结 exact clean candidate，并仅在
+  所有版本血缘、包体、source/package/determinism 与完整 verifier 通过后动态选择并上传体验版。
+- 本批停止条件：上传后验证版本、source SHA、manifest、allowlist 和网络路线；不提审、不正式发布、不部署 ECS/
+  数据库，并明确保留“Xiaomi 14 原生视觉待用户提供匹配证据”的边界。

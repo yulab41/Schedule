@@ -11,6 +11,8 @@ param(
 
     [switch]$AdoptHealthyExisting,
 
+    [switch]$CurrentMessageAuthorization,
+
     [switch]$Json
 )
 
@@ -29,6 +31,7 @@ $arguments = @(
 if ($AuthorizationFile) { $arguments += @('--authorization-file', [IO.Path]::GetFullPath($AuthorizationFile)) }
 if ($LeaseToken) { $arguments += @('--lease-token', $LeaseToken) }
 if ($AdoptHealthyExisting) { $arguments += '--adopt-healthy-existing' }
+if ($CurrentMessageAuthorization) { $arguments += '--current-message-authorization' }
 if ($Json) { $arguments += '--json' }
 
 & node @arguments

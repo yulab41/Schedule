@@ -29,10 +29,12 @@ export const PNPM_INSTALL_ARGUMENTS = [
 ];
 export const MAX_MAINTENANCE_AUTHORIZATION_MINUTES = 15;
 export const MAINTENANCE_AUTHORIZATION_SCHEMA_VERSION = 2;
+export const L2_RECONCILIATION_AUDIT_SCHEMA_VERSION = 1;
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const DEPENDENCY_MARKER = 'dependencies-v2.json';
 const DEPENDENCY_LOCK = 'dependency-install.lock';
+const L2_RECONCILIATION_AUDIT = 'l2-reconciliation-v1.json';
 const PROJECT_RUNTIME_DIRECTORY = 'runtime';
 const SCHEDULE_MARKERS = [
   'pnpm-workspace.yaml',
@@ -353,7 +355,10 @@ export function inspectDependencyHealth({
   if (metadata.storeDir === undefined) reasons.push('modules-store-metadata-missing');
   else if (storePath) {
     try {
-      if (canonicalPath(metadata.storeDir) !== canonicalPath(storePath)) reasons.push('modules-store-mismatch');
+      const expectedStorePaths = new Set([canonicalPath(storePath)]);
+      const pnpmMajor = String(expectedPnpmVersion ?? '').match(/^(\d+)/u)?.[1];
+      if (pnpmMajor !== undefined) expectedStorePaths.add(canonicalPath(path.join(storePath, `v${pnpmMajor}`)));
+      if (!expectedStorePaths.has(canonicalPath(metadata.storeDir))) reasons.push('modules-store-mismatch');
     } catch { reasons.push('modules-store-unreadable'); }
   }
   if (metadata.virtualStoreDir === undefined || !fs.existsSync(metadata.virtualStoreDir)) {
@@ -503,6 +508,7 @@ export function resolveProjectLocalState(root) {
     worktreeKey,
     dependencyMarkerPath: path.join(fingerprintRoot, DEPENDENCY_MARKER),
     dependencyLockPath: path.join(fingerprintRoot, DEPENDENCY_LOCK),
+    l2ReconciliationAuditPath: path.join(fingerprintRoot, L2_RECONCILIATION_AUDIT),
   };
 }
 
@@ -524,6 +530,52 @@ function writeJsonAtomic(filePath, value) {
   const temporaryPath = `${filePath}.${process.pid}.tmp`;
   fs.writeFileSync(temporaryPath, `${JSON.stringify(value, undefined, 2)}\n`, 'utf8');
   fs.renameSync(temporaryPath, filePath);
+}
+
+function readL2ReconciliationAudit(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return { schemaVersion: L2_RECONCILIATION_AUDIT_SCHEMA_VERSION, attempts: [] };
+  }
+  let audit;
+  try {
+    audit = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    fail(`invalid L2 reconciliation audit: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+  }
+  if (
+    audit?.schemaVersion !== L2_RECONCILIATION_AUDIT_SCHEMA_VERSION ||
+    !Array.isArray(audit.attempts)
+  ) {
+    fail(`invalid L2 reconciliation audit schema: ${filePath}`);
+  }
+  for (const attempt of audit.attempts) {
+    if (!/^[a-f0-9]{64}$/u.test(attempt?.fingerprint ?? '') || attempt?.installInvoked !== true) {
+      fail(`invalid L2 reconciliation audit attempt: ${filePath}`);
+    }
+  }
+  return audit;
+}
+
+export function findL2ReconciliationAttempt(audit, fingerprint) {
+  if (audit?.schemaVersion !== L2_RECONCILIATION_AUDIT_SCHEMA_VERSION || !Array.isArray(audit.attempts)) {
+    throw new Error('L2 reconciliation audit must have schemaVersion 1 and an attempts array.');
+  }
+  return audit.attempts.find((attempt) => attempt.fingerprint === fingerprint);
+}
+
+export function recordL2ReconciliationAttempt(filePath, attempt) {
+  if (!/^[a-f0-9]{64}$/u.test(attempt?.fingerprint ?? '')) {
+    throw new Error('L2 reconciliation attempt fingerprint must be a SHA-256 digest.');
+  }
+  if (attempt.installInvoked !== true) {
+    throw new Error('L2 reconciliation attempts must record an invoked frozen install.');
+  }
+  const audit = readL2ReconciliationAudit(filePath);
+  const existingIndex = audit.attempts.findIndex(({ fingerprint }) => fingerprint === attempt.fingerprint);
+  if (existingIndex === -1) audit.attempts.push({ ...attempt });
+  else audit.attempts[existingIndex] = { ...audit.attempts[existingIndex], ...attempt };
+  writeJsonAtomic(filePath, audit);
+  return audit.attempts[existingIndex === -1 ? audit.attempts.length - 1 : existingIndex];
 }
 
 function findSlotLease(leaseRoot, worktree) {
@@ -552,6 +604,7 @@ function hasActiveLocalLock(stateDirectory, leaseRoot, worktree, leaseToken) {
 }
 
 function createExclusiveDirectory(directoryPath) {
+  fs.mkdirSync(path.dirname(directoryPath), { recursive: true });
   try {
     fs.mkdirSync(directoryPath);
     return true;
@@ -627,7 +680,15 @@ function consumeMaintenanceAuthorization(filePath, record) {
   writeJsonAtomic(filePath, { ...record, usedAt: new Date().toISOString() });
 }
 
-function installDependencies({ root, authorizationFile, commonDir, targetStorePath, pnpmVersion, json }) {
+function installDependencies({
+  root,
+  authorizationFile,
+  commonDir,
+  currentMessageAuthorization = false,
+  targetStorePath,
+  pnpmVersion,
+  json,
+}) {
   const authorization = validateMaintenanceAuthorization({
     filePath: authorizationFile,
     commonDir,
@@ -646,12 +707,23 @@ function installDependencies({ root, authorizationFile, commonDir, targetStorePa
     // measured version into the child environment instead of weakening the guard.
     npm_config_user_agent: `pnpm/${pnpmVersion} npm/? node/${process.version}`,
   };
-  runPnpm(root, maintenanceCommandArguments({ root, storePath: targetStorePath }), {
+  const stdout = runPnpm(root, maintenanceCommandArguments({ root, storePath: targetStorePath }), {
     environment,
     stdio: json ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   });
   consumeMaintenanceAuthorization(authorizationFile, authorization.record);
-  return { installed: true, authorized: true };
+  return { installed: true, authorized: true, stdout };
+}
+
+function trackedTreeStatus(root) {
+  return run('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root }).trim();
+}
+
+function inferDownloadCount(stdout) {
+  if (typeof stdout !== 'string' || stdout.trim() === '') return null;
+  if (/already up to date/iu.test(stdout) || /packages:\s*\+0/iu.test(stdout)) return 0;
+  const match = stdout.match(/(?:downloaded|added)\s+(\d+)/iu);
+  return match ? Number.parseInt(match[1], 10) : null;
 }
 
 export function ensureWorktreeDependencies(options = {}) {
@@ -692,6 +764,7 @@ export function ensureWorktreeDependencies(options = {}) {
     mode,
     canonicalProjectHome: projectState.projectHome,
     projectLocalStoreTarget: 'runtime/pnpm-store',
+    l2ReconciliationAuditPath: projectState.l2ReconciliationAuditPath,
   };
   if (busyReason) {
     return { ...base, taskStatus: 'POOL_BUSY', reasons: [busyReason] };
@@ -716,6 +789,17 @@ export function ensureWorktreeDependencies(options = {}) {
     return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_INSTALL_REQUIRED' };
   }
   const commonDir = gitCommonDirectory(root);
+  const currentMessageAuthorization = options.currentMessageAuthorization === true;
+  if (currentMessageAuthorization) {
+    const slotLease = findSlotLease(projectState.leaseRoot, root);
+    if (!options.leaseToken || !slotLease || slotLease.lease.token !== options.leaseToken) {
+      return {
+        ...base,
+        taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED',
+        reasons: [...base.reasons, 'authorization:current-message-requires-owned-lease'],
+      };
+    }
+  }
   const authorizationFile = path.resolve(options.authorizationFile ?? path.join(
     projectState.stateRoot,
     'authorizations',
@@ -742,8 +826,43 @@ export function ensureWorktreeDependencies(options = {}) {
       reasons: [...base.reasons, `authorization:${authorization.reason}`],
     };
   }
+  const reconciliationAudit = readL2ReconciliationAudit(projectState.l2ReconciliationAuditPath);
+  const previousReconciliation = findL2ReconciliationAttempt(
+    reconciliationAudit,
+    snapshot.fingerprint,
+  );
+  const tripwireRecoveryAllowed =
+    previousReconciliation?.status === 'tripwire-pre-resolution' &&
+    previousReconciliation.recoveryAttempted !== true;
+  if (previousReconciliation && !tripwireRecoveryAllowed) {
+    return {
+      ...base,
+      taskStatus: 'BLOCKED_L2_RECONCILIATION_ALREADY_ATTEMPTED',
+      reasons: [
+        ...base.reasons,
+        `l2-reconciliation:${snapshot.fingerprint}:already-attempted`,
+        `l2-reconciliation-status:${previousReconciliation.status ?? 'unknown'}`,
+      ],
+    };
+  }
   fs.mkdirSync(stateDirectory, { recursive: true });
   if (!createExclusiveDirectory(lockPath)) return { ...base, taskStatus: 'POOL_BUSY', reasons: ['dependency-install-lock-present'] };
+  const installArguments = maintenanceCommandArguments({ root, storePath: runtime.targetStorePath });
+  const trackedTreeBefore = trackedTreeStatus(root);
+  const reconciliationAttempt = {
+    authorizationSource: currentMessageAuthorization ? 'current-message' : 'authorization-file',
+    command: { cwd: canonicalPath(root), args: installArguments },
+    commandHash: maintenanceCommandHash({ commonDir, root, storePath: runtime.targetStorePath }),
+    fingerprint: snapshot.fingerprint,
+    installInvoked: true,
+    lockfileSha256: sha256(fs.readFileSync(path.join(root, 'pnpm-lock.yaml'))),
+    startedAt: new Date().toISOString(),
+    status: 'started',
+    attemptCount: (previousReconciliation?.attemptCount ?? 0) + 1,
+    recoveryAttempted: tripwireRecoveryAllowed,
+    trackedTreeBeforeHash: sha256(trackedTreeBefore),
+  };
+  recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, reconciliationAttempt);
   try {
     writeJsonAtomic(path.join(lockPath, 'owner.json'), {
       pid: process.pid,
@@ -754,25 +873,66 @@ export function ensureWorktreeDependencies(options = {}) {
       root,
       authorizationFile,
       commonDir,
+      currentMessageAuthorization,
       targetStorePath: runtime.targetStorePath,
       pnpmVersion: runtime.environment.pnpmVersion,
       json: options.json === true,
     });
     if (!install.installed) {
+      recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
+        ...reconciliationAttempt,
+        completedAt: new Date().toISOString(),
+        status: `authorization-failed:${install.reason}`,
+      });
       return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED', reasons: [`authorization:${install.reason}`] };
     }
     const installedHealth = getHealth();
-    if (!installedHealth.healthy) {
+    const trackedTreeAfter = trackedTreeStatus(root);
+    const trackedTreeChanged = trackedTreeAfter !== trackedTreeBefore;
+    const downloadCount = inferDownloadCount(install.stdout);
+    if (!installedHealth.healthy || trackedTreeChanged) {
+      recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
+        ...reconciliationAttempt,
+        completedAt: new Date().toISOString(),
+        downloadCount,
+        status: installedHealth.healthy ? 'tracked-tree-changed' : 'health-failed',
+        trackedTreeAfterHash: sha256(trackedTreeAfter),
+        trackedTreeChanged,
+      });
       return {
         ...base,
         taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV',
         installed: true,
         installInvoked: true,
-        reasons: installedHealth.reasons.map((reason) => `health:${reason}`),
+        reasons: [
+          ...installedHealth.reasons.map((reason) => `health:${reason}`),
+          ...(trackedTreeChanged ? ['tracked-tree-changed-by-install'] : []),
+        ],
       };
     }
     writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
+    recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
+      ...reconciliationAttempt,
+      completedAt: new Date().toISOString(),
+      downloadCount,
+      status: 'ready-reuse',
+      trackedTreeAfterHash: sha256(trackedTreeAfter),
+      trackedTreeChanged: false,
+    });
     return { ...base, taskStatus: 'READY_INSTALLED', dependenciesReused: false, installed: true, installInvoked: true };
+  } catch (error) {
+    const errorText = error instanceof Error ? error.message : String(error);
+    recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
+      ...reconciliationAttempt,
+      completedAt: new Date().toISOString(),
+      failurePhase: errorText.includes('[schedule:install-tripwire]')
+        ? 'tripwire-before-resolution'
+        : 'pnpm-child',
+      status: errorText.includes('[schedule:install-tripwire]')
+        ? 'tripwire-pre-resolution'
+        : 'install-failed',
+    });
+    throw error;
   } finally {
     fs.rmSync(lockPath, { force: true, recursive: true });
   }
@@ -784,6 +944,7 @@ function parseArguments(arguments_) {
     json: false,
     leaseToken: undefined,
     mode: DEFAULT_DEPENDENCY_MODE,
+    currentMessageAuthorization: false,
     worktree: process.cwd(),
   };
   for (let index = 0; index < arguments_.length; index += 1) {
@@ -798,6 +959,7 @@ function parseArguments(arguments_) {
       else options.leaseToken = value;
       index += 1;
     } else if (argument === '--adopt-healthy-existing') options.adoptHealthyExisting = true;
+    else if (argument === '--current-message-authorization') options.currentMessageAuthorization = true;
     else if (argument === '--check-only') options.mode = 'ReuseOnly';
     else fail(`unknown argument: ${argument}`);
   }
