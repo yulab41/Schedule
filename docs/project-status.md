@@ -227,6 +227,14 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - checkpoint 计划提交：`fix(dev): pass pool dependency parameters safely`；下一步是等待活动 task/lease 释放后，
   以 `general-1` 为基准顺序扩容其余正式槽位并执行收口矩阵。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-007（2026-09-04）
+
+- warm-pool provisioning 首次只完成前置解析即发现脚本使用 PowerShell 保留变量 `$HOME`，未创建 worktree、未
+  install、未改变 store；已改用 `canonicalProjectHome`，provision 与 legacy overlay 脚本 AST 复核通过。
+- `general-1` 仍是唯一已注册正式槽位；下一步重新运行 6-slot provisioning，顺序物化缺失槽位并逐个完成 root
+  bootstrap/register。
+- checkpoint 计划提交：`fix(dev): avoid reserved PowerShell home variable`；未包含业务源码或 lockfile。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，

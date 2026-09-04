@@ -49,14 +49,14 @@ try {
     $repo = [IO.Path]::GetFullPath((Invoke-Git -WorkingDirectory $hint -Arguments @('rev-parse', '--show-toplevel')).Output)
     $commonRaw = (Invoke-Git -WorkingDirectory $repo -Arguments @('rev-parse', '--git-common-dir')).Output
     $common = if ([IO.Path]::IsPathRooted($commonRaw)) { [IO.Path]::GetFullPath($commonRaw) } else { [IO.Path]::GetFullPath((Join-Path $repo $commonRaw)) }
-    $home = [IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($common)).TrimEnd('\')
-    $pool = [IO.Path]::GetFullPath((Join-Path $home 'runtime/wt')).TrimEnd('\')
-    if ((Canonical $home) -eq (Canonical $pool)) { throw 'Pool root cannot be canonical project home.' }
-    if ([IO.Path]::GetPathRoot($home) -ne [IO.Path]::GetPathRoot($pool)) { throw 'Pool must stay on the project volume.' }
+    $canonicalProjectHome = [IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($common)).TrimEnd('\')
+    $pool = [IO.Path]::GetFullPath((Join-Path $canonicalProjectHome 'runtime/wt')).TrimEnd('\')
+    if ((Canonical $canonicalProjectHome) -eq (Canonical $pool)) { throw 'Pool root cannot be canonical project home.' }
+    if ([IO.Path]::GetPathRoot($canonicalProjectHome) -ne [IO.Path]::GetPathRoot($pool)) { throw 'Pool must stay on the project volume.' }
     if (Test-Path -LiteralPath $pool) {
         if ((Get-Item -LiteralPath $pool -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Pool root must not be a junction or symlink.' }
     } else { [void](New-Item -ItemType Directory -Path $pool -Force) }
-    $driveName = [IO.Path]::GetPathRoot($home).TrimEnd('\').TrimEnd(':')
+    $driveName = [IO.Path]::GetPathRoot($canonicalProjectHome).TrimEnd('\').TrimEnd(':')
     $drive = Get-PSDrive -Name $driveName -PSProvider FileSystem
     $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$driveName`:'"
     $minimumFree = [Math]::Max(20GB, [int64]($disk.Size * 0.15))
