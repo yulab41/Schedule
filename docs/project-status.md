@@ -68,6 +68,7 @@
 
 - `MINI-G1-004` 的规模/production 聚合、`.84/.85` 旧上传、G1 人工证据和各轮 guardrail/toolchain 记录继续在
   `docs/audit/`、`docs/debug/debug-feedback-log.md` 与 Git 历史中保留；本文件不重复历史全文。
-- 唯一下一任务：解决最新 main merge 的文档冲突并提交单一最终整合 checkpoint，在最新 exact clean SHA 上运行唯一一次完整
-  `pnpm verify`，再运行未覆盖的 Mini package/source/determinism/safety/lineage 门禁；全部通过后动态分配、上传体验
-  版并验证版本/SHA/manifest/allowlist/网络路线。停止于体验版验证，不提审、不正式发布、不部署 production。
+- 最新主线整合已完成，当前整合 tree 的第二父提交为 `a505746a`；唯一下一任务：在最新 exact clean SHA 上运行
+  唯一一次完整 `pnpm verify`，再运行未覆盖的 Mini package/source/determinism/safety/lineage 门禁；全部通过后动态
+  分配、上传体验版并验证版本/SHA/manifest/allowlist/网络路线。停止于体验版验证，不提审、不正式发布、不部署
+  production。
