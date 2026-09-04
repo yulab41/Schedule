@@ -73,12 +73,12 @@ docs/agent-context/pitfall-index.json，只加载匹配坑位详情。
 - Xiaomi 14：当前工具无法测量，暂未验证；静态 SVG、Node/Vitest、Mini simulate 与 Web gallery 不能替代原生视觉、
   Skyline、帧率、冷启动、内存或真机交互。未提审、未正式发布、未做数据库备份/迁移或无关 production 部署。
 
-## 网络与下一步
+## 网络与完成状态
 
 - GitHub：configured HTTPS origin transport，fetch 与普通 push 成功，未使用 fallback。
 - WeChat：系统 DNS 返回 Fake-IP 198.18.0.58；普通代理请求被 -10008 拒绝，清除本进程代理并将 servicewechat.com
   绑定到已 TLS 预检的 129.226.106.233 后成功；保留 hostname/SNI/证书校验，未改系统 hosts/VPN/DNS。
 - ECS：仅 canonical hostname SSH 用于本消息授权的 allowlist ensure/verify；known_hosts/StrictHostKeyChecking 保持开启，
   未使用 direct-IP fallback。
-- 当前唯一下一任务：完成最终审计文档 checkpoint 的普通 push，更新 ignored task state 与最终 log hashes，释放本任务
-  warm lease；停止于体验版验证，不提审、不正式发布、不部署 production。
+- 当前批次已完成：最终审计文档、ignored task state、release ledger、普通 push 与 warm lease 释放均已完成；最终
+  分支无未推送提交。停止于体验版验证，不提审、不正式发布、不部署 production。
