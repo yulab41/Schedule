@@ -5,20 +5,17 @@
 
 ## 当前仓库批次（2026-09-04）
 
-- 当前活动批次：用户已明确授权 `EXP-ICON-004-B2`。图标血缘 merge checkpoint 为 `24ea709e`
-  （`merge: restore EXP-ICON-004 shared icon lineage`），父提交精确包含本分支与 `5285dd17`；后者的祖先包含
-  `1ffab10c`。生产图标代码无 merge conflict。
+- 当前活动批次：用户已明确批准 `EXP-ICON-004-B3`，并在当前消息授权完成后上传新的微信体验版及把该精确版本
+  加入服务端客户端版本白名单。没有授权提交审核、正式发布、Web/API production 部署、数据库变更或备份。
 - 执行 worktree：`runtime/external-project-worktrees/exp-icon-004-lineage-b12-20260903`；分支
-  `codex/exp-icon-004-lineage-b12-20260903`。验证期间 `origin/main` 从 `75cc0d3b` 经 `fa10d5ba` 前进到
-  `765b5c09`；最新主线已作为 `bce96ce8` 的第二父提交合入，且对 Mini/Web/ui-icons/tokens/lockfile 的运行时
-  改动数为 0。
-- 主线 merge 的冲突仅为 dependency reference、release helper 和本状态文档，均已解析。最终保留
-  `fa10d5ba` 官方 `scripts/codex/worktree-deps-*` 单一来源；临时 `d62f780c` checker 文件已删除，避免两套事实源。
-- 最新主线整合 checkpoint：`bce96ce8`（`merge: integrate official Schedule guardrails after icon recovery`）。
-  状态证据 checkpoint `ef6ed7e9` 已随完整分支普通推送成功；最终 handoff 以
-  `docs(audit): close EXP-ICON-004 B2` 识别。
-- 当前边界：不创建真实 trial tag、不上传体验版、不操作 allowlist、不提审、不正式发布、不连接、查询或部署
-  production。此前用户对一次 frozen install 的授权已消费，不允许再次安装。
+  `codex/exp-icon-004-lineage-b12-20260903`。B3 开始前已 fetch，最新主线为 `origin/main@8a3157e8`；主线改动仅为
+  `TOOLCHAIN-GUARDRAILS-003` 的 Mini 安全胶囊、validator 和本状态文档，Mini/Web/ui-icons/tokens/lockfile
+  没有运行时改动。合并冲突只发生在本状态文档，已按当前 B3 批次重写并保留主线安全规则。
+- 图标血缘 merge checkpoint 为 `24ea709e`，父提交包含 `5285dd17`，后者祖先包含 `1ffab10c`；B2 收口
+  checkpoint 为 `b480899d`。当前候选必须继续包含 `c027abcd` 的累计体验版血缘门禁。
+- 前序最新体验版为 `0.1.0-p10.20260903.85@a1bba571`；服务端 allowlist 已确认保留 `.81–.85`。B3 必须在最终
+  clean SHA 和完整门禁后动态分配大于 85 的唯一未占用版本，不能复用或预猜版本号。
+- 依赖模式固定为 `DEPENDENCY_MODE=REUSE_ONLY`；既有一次 frozen install 授权已消费，本轮不得安装依赖。
 
 ## EXP-ICON-004 根因与 B2 结果
 
@@ -54,6 +51,9 @@
 - `TOOLCHAIN-GUARDRAILS-002@765b5c09` 的动态 Git/trial/production 身份与版本分配已随主线保留；其后续
   Hook 人工审核/重启是独立任务，本轮不开始。MINI-G1-004 仍是“证据不足，保留 P3”，`.85` 只用于既有
   Xiaomi 14 人工补证。
+- `TOOLCHAIN-GUARDRAILS-003@8a3157e8` 已随最新主线合入：Mini 修改必须组合 Mini safety capsule 与对应级别
+  testing/evidence reference；validator 会固定检查 clean target SHA、独立 worktree、Mini/production 分离、
+  `version=local`、Xiaomi 14 验收和同环境父/新 SHA 对比。
 
 ## 验证与预算
 
@@ -85,9 +85,24 @@
 - B1.1 motion follow-up、B1 血缘、本轮 B2 浏览器结果见相应 design/plan 与
   `docs/debug/debug-feedback-log.md`。
 
+## TOOLCHAIN-GUARDRAILS-003（2026-09-04）
+
+- 审计确认用户给出的五条 Mini 避坑边界已分别由 `miniprogram.md`、`testing-and-evidence.md`、根/子目录
+  `AGENTS.md` 和既有 runbook 保存；不再把整段复制进 `SKILL.md` 或每轮 Prompt。
+- `SKILL.md` 只增加条件说明：Mini 修改自动组合 Mini reference 与级别所需 testing/evidence reference；非 Mini
+  L1 dry-run 不加载 Mini reference。`miniprogram.md` 仅增加胶囊路由说明，不复制事实规则。
+- validator 现在固定检查 clean target SHA/独立 worktree、禁止主树混合 `dist`、`version=local`、Mini 不自动
+  production/备份、Xiaomi 14 最终验收、同环境父/新 SHA 对比和诊断包体语义。定向红绿先捕获缺少胶囊路由，
+  补齐后 Skill 结构/front matter、11 个 Markdown/74 个链接、3 个 PowerShell 只读 AST 和 Node YAML 解析
+  通过；`quick_validate.py` 仍因缺 PyYAML 无法启动，遵守禁装依赖边界未补装。
+- 本批不改业务代码，不安装依赖，不构建或运行全仓测试，不上传小程序，不连接/查询/备份/部署 production。
+  checkpoint 以 `docs(agent): route Mini safety capsule` 识别。
+
 ## 唯一下一任务与停止条件
 
-- B2 已完成并推送；当前 `bce96ce8` 已确认 `origin/main@765b5c09`、`5285dd17`、`1ffab10c`、
-  `c027abcd` 均为祖先。
-- 唯一下一任务：等待用户另行明确批准 B3，再修复底部五项、顶部 user、filter/locate/more context 与 motion
-  codegen 的剩余 B1.2 差异。本轮立即停止，不进入 B3、L3 体验上传、Hook 审核/重启或 L4 服务器操作。
+- B3 已获批准：先用失败测试锁定底部五项、顶部 user、filter/locate/more context 与 motion codegen 的 B1.2
+  差异，再完成最小同源修复和同口径验证。
+- 验证通过后提交并普通推送调查分支；再从最终精确 clean SHA 建立 `runtime/release-worktree`，独占分配唯一
+  版本、完成 version-bound build 与体验版上传，并只把该精确版本追加到服务端 allowlist 后 verify。
+- 收到上传成功回执、记录版本/SHA/manifest、allowlist ensure/verify 通过并更新审计状态后停止。不提审、不
+  正式发布、不部署 production 应用或数据库。

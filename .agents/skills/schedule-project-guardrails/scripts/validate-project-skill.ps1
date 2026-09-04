@@ -146,7 +146,8 @@ try {
         'dependency environment lifecycle', 'DEPENDENCY_MODE=REUSE_ONLY',
         'A conversation boundary is never a dependency invalidation boundary.',
         'POOL_BUSY', 'INSTALL_INVOKED=false', 'dynamic release identity',
-        'latest eligible uploaded trial', 'production live release'
+        'latest eligible uploaded trial', 'production live release',
+        'replaces a repeated Mini safety preamble'
     )) {
         if (-not $skillContent.Contains($requiredToken)) {
             throw "SKILL.md is missing required routing token: $requiredToken"
@@ -205,10 +206,29 @@ try {
     $miniReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/miniprogram.md') -Raw
     foreach ($requiredMiniToken in @(
         'UPLOAD_VERSION_ALLOCATION_BLOCKED',
-        'UPLOAD_REQUIRED'
+        'UPLOAD_REQUIRED',
+        'Mini guardrail capsule',
+        'target SHA in the independent clean managed worktree',
+        'Never mix main-worktree `dist` with candidate source.',
+        'version=local',
+        'must not automatically deploy a server',
+        'production backup',
+        'Web golden images',
+        'Xiaomi 14 Android `trial`'
     )) {
         if (-not $miniReference.Contains($requiredMiniToken)) {
-            throw "Mini Program reference is missing dynamic version rule: $requiredMiniToken"
+            throw "Mini Program reference is missing project invariant: $requiredMiniToken"
+        }
+    }
+
+    $testingReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/testing-and-evidence.md') -Raw
+    foreach ($requiredEvidenceToken in @(
+        'clean parent SHA and clean new SHA',
+        'same toolchain, command, profile, environment variables, dependency fingerprint',
+        'Disabling a diagnostic feature at runtime does not prove its code was excluded from the bundle.'
+    )) {
+        if (-not $testingReference.Contains($requiredEvidenceToken)) {
+            throw "testing/evidence reference is missing Mini evidence invariant: $requiredEvidenceToken"
         }
     }
 
