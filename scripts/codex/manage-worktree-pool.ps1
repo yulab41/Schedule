@@ -230,15 +230,15 @@ function Get-ChildProcessEvidence {
     param([Parameter(Mandatory = $true)][int]$ProcessId)
     try {
         $all = @(Get-CimInstance Win32_Process)
-        $pending = @($ProcessId)
-        $children = @()
+        $pending = [System.Collections.Generic.Queue[int]]::new()
+        $pending.Enqueue($ProcessId)
+        $children = [System.Collections.Generic.HashSet[int]]::new()
         while ($pending.Count -gt 0) {
-            $parent = $pending[0]
-            $pending = if ($pending.Count -eq 1) { @() } else { @($pending | Select-Object -Skip 1) }
+            $parent = $pending.Dequeue()
             foreach ($child in @($all | Where-Object { [int]$_.ParentProcessId -eq $parent })) {
-                if ($children -notcontains [int]$child.ProcessId) {
-                    $children += [int]$child.ProcessId
-                    $pending += [int]$child.ProcessId
+                $childId = [int]$child.ProcessId
+                if ($children.Add($childId)) {
+                    $pending.Enqueue($childId)
                 }
             }
         }
@@ -484,9 +484,9 @@ function Acquire-Slot {
         if (-not $slot.process.known -or $slot.process.count -ne 0) { $busySeen = $true; continue }
         if (-not (Test-CleanWorktree $slot.path) -or -not (Test-StandaloneNodeModules $slot.path)) { continue }
         try { $dependency = Get-DependencyCheck -WorktreePath $slot.path }
-        catch { $incompatibleReasons += "${slot.path}:dependency-check-error"; continue }
+        catch { $incompatibleReasons += "$($slot.path):dependency-check-error"; continue }
         if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
-            $incompatibleReasons += "${slot.path}:$($dependency.taskStatus)"
+            $incompatibleReasons += "$($slot.path):$($dependency.taskStatus)"
             continue
         }
         $token = [guid]::NewGuid().ToString('D')
@@ -584,7 +584,9 @@ function Release-Slot {
     }
     if (-not $slot.process.known -or $slot.process.count -ne 0) { throw 'Refusing to release while an active process is observed or process evidence is unavailable.' }
     $children = Get-ChildProcessEvidence ([int]$lease.pid)
-    if (-not $children.known -or $children.count -ne 0) { throw 'Refusing to release while child process evidence is unavailable or active.' }
+    if (-not $children.known -or $children.count -ne 0) {
+        throw "Refusing to release while child process evidence is unavailable or active (known=$($children.known), count=$($children.count), leasePid=$($lease.pid))."
+    }
     $dependency = Get-DependencyCheck -WorktreePath $slot.path -Token $LeaseToken
     if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
         Update-SlotMetadata -Slot $slot -Status 'quarantined-dependency'

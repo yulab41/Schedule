@@ -235,6 +235,15 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
   bootstrap/register。
 - checkpoint 计划提交：`fix(dev): avoid reserved PowerShell home variable`；未包含业务源码或 lockfile。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-008（2026-09-05）
+
+- 6-slot 并发演练已通过：6 个 child Acquire 返回不同路径，Git worktree 数量 `49 → 49`，第 7 个请求返回
+  `POOL_BUSY` 且 `INSTALL_INVOKED=false`、`WORKTREE_CREATED=false`；6 个测试租约均释放，general 槽位仍 clean。
+- 演练期间修复了 pool manager 严格模式空队列遍历、竞争分支属性插值，以及验证器在部分 child 失败时的租约收集和
+  显式参数调用；没有触碰 icon task lease，没有创建冷 worktree。
+- 新增 `scripts/codex/validate-pool-concurrency.ps1`，仅用于确定性并发/溢出门禁；PowerShell AST 与工具链 Node
+  tests `17/17` 通过。checkpoint 计划提交：`test(dev): verify warm pool concurrency overflow`。
+
 ## 唯一下一任务与停止条件
 
 - 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，

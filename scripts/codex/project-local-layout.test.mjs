@@ -22,6 +22,7 @@ const toolchainFiles = [
   'scripts/codex/provision-warm-pool.ps1',
   'scripts/codex/register-legacy-external-worktrees.ps1',
   'scripts/codex/schedule-project-setup.ps1',
+  'scripts/codex/validate-pool-concurrency.ps1',
   'scripts/codex/worktree-deps-core.mjs',
   'scripts/codex/workspace-bootstrap-core.mjs',
 ];
