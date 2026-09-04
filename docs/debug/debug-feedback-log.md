@@ -2346,3 +2346,7 @@
   `5,151,892/1,715,718 B`，与 B1 前基线相同。
 - 边界：未调用微信开发者工具 GUI/CLI，未对 `origin` 创建 trial tag，未上传体验版、未操作 allowlist、未提审、
   未正式发布、未连接或部署 production。Node/Git 自动化不等于 Xiaomi 14 原生验收。
+- 最新主线整合：B1 checkpoint `c027abcd` 后人工合并 `origin/main@75cc0d3b`，冲突仅为
+  `docs/project-status.md` 和 `docs/audit/STATUS.md`；保留 `.85` exact evidence、G1 人工待办和 B1 状态，Skill/
+  G1 长报告自动合入。合并后 Mini 120 files/655 tests、verify/package/trial policy/determinism/CI dry-run、
+  format/lint、Skill validation、agent-context、diff check 和 core smoke 再次通过；未新增外部状态。

@@ -20,6 +20,8 @@ The inspector must confirm all Schedule markers and print `RESULT=PASS`. If it d
 
 Keep the reported `SKILL_HASH` in the current thread. When it is unchanged, do not reread this file or references already read in that thread; read only a newly routed reference. When it changes, reload this router and the references for the active task.
 
+Before any `pnpm install`, read and apply the [dependency environment lifecycle](references/worktree-and-bootstrap.md#dependency-environment-lifecycle). A conversation, branch, source SHA, or clean-source check does not invalidate dependencies; reuse a matching healthy worktree environment.
+
 ## Route the task
 
 | Level | Use for                                                                                    | Required routing                                                                                                                                           |

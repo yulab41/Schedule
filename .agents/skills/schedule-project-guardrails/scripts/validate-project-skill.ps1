@@ -140,10 +140,37 @@ try {
     }
     foreach ($requiredToken in @(
         'L0', 'L1', 'L2', 'L3', 'L4', 'SKILL_HASH', '$miniprogram-development',
-        '$frontend-design', '$systematic-debugging', '$brainstorming'
+        '$frontend-design', '$systematic-debugging', '$brainstorming',
+        'dependency environment lifecycle'
     )) {
         if (-not $skillContent.Contains($requiredToken)) {
             throw "SKILL.md is missing required routing token: $requiredToken"
+        }
+    }
+
+    $worktreeReference = Get-Content -LiteralPath (Join-Path $skillRoot 'references/worktree-and-bootstrap.md') -Raw
+    foreach ($requiredLifecycleToken in @(
+        '## Dependency environment lifecycle',
+        'A conversation boundary is never a dependency invalidation boundary.',
+        '- a new task branch was created;',
+        '- the worktree switched to another SHA;',
+        '`pnpm-lock.yaml`',
+        '`pnpm-workspace.yaml`',
+        'all workspace `package.json` files',
+        'dependency patches and pnpm hooks',
+        'Node and pnpm versions',
+        'operating system and architecture',
+        'dependency-layout pnpm settings',
+        'the resolved pnpm store path',
+        'When the fingerprint matches and `node_modules` passes its health check:',
+        '- skip `pnpm install`;',
+        'Use a persistent pool of short-path worktrees',
+        'Never use `git clean -xfd` on a reusable worktree.',
+        'Do not junction one writable `node_modules` directory into multiple worktrees.',
+        'Workspace build outputs have a separate source/config fingerprint.'
+    )) {
+        if (-not $worktreeReference.Contains($requiredLifecycleToken)) {
+            throw "worktree/bootstrap reference is missing dependency lifecycle rule: $requiredLifecycleToken"
         }
     }
 
