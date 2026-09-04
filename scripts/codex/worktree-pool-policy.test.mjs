@@ -28,6 +28,14 @@ test('pool policy is exclusive, persistent, and never creates a cold worktree', 
   assert.doesNotMatch(pool, /node_modules[^\r\n]*(?:Remove-Item|rm\s+-rf)/iu);
 });
 
+test('pool registration records an explicitly requested bootstrap profile', () => {
+  const pool = fs.readFileSync(path.join(root, 'scripts/codex/manage-worktree-pool.ps1'), 'utf8');
+  assert.match(
+    pool,
+    /bootstrapProfile\s*=\s*if\s*\(\$Profile\)\s*\{\s*\$Profile\s*\}\s*elseif\s*\(\$existing\)/isu,
+  );
+});
+
 test('setup wrappers default to ReuseOnly and cannot request maintenance implicitly', () => {
   const deps = fs.readFileSync(path.join(root, 'scripts/codex/ensure-worktree-deps.ps1'), 'utf8');
   const bootstrap = fs.readFileSync(path.join(root, 'scripts/codex/ensure-workspace-bootstrap.ps1'), 'utf8');

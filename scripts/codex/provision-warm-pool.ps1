@@ -93,7 +93,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Root bootstrap failed for $slotPath" }
         $bootstrap = (($bootstrapOutput -join [Environment]::NewLine) | ConvertFrom-Json)
         if ($bootstrap.taskStatus -ne 'READY_BOOTSTRAP') { throw "Root bootstrap did not complete for $slotPath" }
-        $registerOutput = & $registerScript -Action Register -Path $slotPath -Role general -Index $index -Json
+        $registerOutput = & $registerScript -Action Register -Path $slotPath -Role general -Index $index -Profile $Profile -Json
         if ($LASTEXITCODE -ne 0) { throw "Pool registration failed for $slotPath" }
         $registration = (($registerOutput -join [Environment]::NewLine) | ConvertFrom-Json)
         if ($registration.taskStatus -ne 'READY_REUSE') { throw "Pool registration did not return READY_REUSE for $slotPath" }

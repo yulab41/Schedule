@@ -274,11 +274,21 @@ MINI-G1-004 second-stage evidence`）已普通 fast-forward 推送；其父提�
 - canonical root、6 个 general slot 和项目 store 均保持项目内；当前仅保留 icon task lease，其他 stale/active 审计
   路径不强行终止。下一 checkpoint 计划提交：`fix(dev): handle bootstrap reason map output`。
 
+## TOOLCHAIN-GUARDRAILS-FINAL-011（2026-09-05）
+
+- 复核发现 provisioning 已把 `-Profile root` 传给 pool Register，但 Register 只保留旧值，导致新建/重注册
+  槽位的 `bootstrapProfile` 元数据为空；Acquire 路径原本已正确写入 profile。已按 Acquire 的工作实现修复
+  Register，并新增回归断言；旧实现测试先红、修复后通过。
+- 6 个正式 general 槽位已重新 Register 为 `bootstrapProfile=root`；逐槽位 `ReuseOnly`、root bootstrap
+  均为 `READY_REUSE`/`READY_BOOTSTRAP`，每槽位 root 输出 `built=0,reused=7`，最小定向测试 6/6 通过。
+- 本 checkpoint 只涉及 pool 元数据/测试/状态文档；不涉及业务源码、依赖版本、lockfile、runtime 数据或生产。
+- 当前 Codex app 仍显示两个历史图标任务为 active；未终止、未抢占 lease/分支，待其自然结束后再做最终远端
+  fetch、overlay hash 同步、全量主线收口。该事实不是本工具链失败，但在结束前不能宣称所有并行任务已完成。
+- checkpoint message：`fix(dev): record bootstrap profile during pool registration`。
+
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：确认并行 task/process 已结束后，修复并验证 `general-1`，迁移/收口可安全处理的 worktree，
-  顺序准备 6 个正式槽位，运行 early-tripwire/pool/SHA/bootstrap/new-session/legacy-overlay 验证，再 fetch
-  并普通 fast-forward 推进最终 `origin/main`。
+- 唯一下一任务：确认历史并行 task/process 已结束后，重跑最终 fetch/overlay hash/主线收口和最终工具链验证。
 - 停止条件：6 个槽位均为项目内、独立、clean、detached、healthy、root bootstrap ready，所有最终验证值
   已记录；不部署 production、不创建备份、不迁移数据库、不上传小程序。若某个 dirty/唯一提交/外部 store
   所有权无法安全处理，则保留恢复证据并报告真实数量，不丢弃数据。
