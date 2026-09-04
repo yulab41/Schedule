@@ -95,11 +95,6 @@ function openNotificationCenter(): void {
   cursor: pointer;
 }
 
-.notification-icon {
-  --action-motion-icon-size: 21.6px;
-  --action-motion-icon-stroke-width: 1.8;
-}
-
 .notification-dot {
   position: absolute;
   top: 9px;

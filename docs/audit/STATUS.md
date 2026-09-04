@@ -2,8 +2,10 @@
 
 ## 当前阶段
 
-- 当前批次：`MINI-G1-004` 第二阶段补证（体验版上传/放行后的 Xiaomi 14 人工验收准备）；结论仍为“证据仍
-  不足，保留 P3”，不进入分页、分批、懒加载或虚拟列表修复。
+- 当前批次：`ICON-PARITY-CLOSE-001`（Web/Mini 生产图标五层 parity、生成资产 liveness、动效和体验版血缘收口）。
+  机器静态/Node 门禁已通过；Xiaomi 14 原生视觉仍未取得与当前候选匹配的用户证据，不写成真机通过。
+- 前序 `MINI-G1-004` 第二阶段补证、体验版 `.85` 及其“等待 Xiaomi 14 反馈”的历史结论保留在下方，不再作为本轮
+  唯一下一任务。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -20,6 +22,15 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
   production 聚合；上传候选另按当前主线建立独立的 `.85` evidence baseline。
 - 本轮只上传上述 clean 候选并通过既有 allowlist 控制放行；未提审、未正式发布、未部署 ECS/数据库，未修改
   业务实现。主线其他已完成批次和发布事实继续保留。
+
+## ICON-PARITY-CLOSE-001 机器证据
+
+- 候选工作树：`runtime/wt/icon-parity-1`，基于工具链 checkpoint 工作；起始 `origin/main@bb81e723`，待整合
+  的最新主线为 `b076d542`。历史 `1ffab10c`、`5285dd17`、`71110712` 已做祖先/等价实现核对。
+- `pnpm icon:parity` 已通过：55 canonical definitions、58 generated Mini SVG、138 生产引用、legacy 0、未消费资产 0、
+  Mini keyframes 32/32、Web/Mini motion bindings 31/25、generator 连跑 deterministic；隔离 gallery 无登录/API。
+- 未调用微信开发者工具 GUI/CLI、模拟器、Console/Network 或截图。Node/静态/browser gallery 证据只能说明机器门禁和
+  Web 页面结构，不能替代 Xiaomi 14 原生渲染验收。
 
 ## 已保留的主线事实
 
@@ -69,7 +80,7 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：用户在已放行的 `0.1.0-p10.20260903.85@a1bba57` 上完成 Xiaomi 14“更多 → 测试工具”环境
-  抄录和两个页面的只读首屏/滚动录屏反馈；若版本或 SHA 不匹配，停止测试并只回传实际环境信息。
-- 本批停止条件：体验版上传/放行已完成，等待匹配构建的 Xiaomi 14 反馈；不继续扩大调查，不进入业务修复，
-  不提审、不正式发布、不部署。最终状态保持 `MINI-G1-004：证据仍不足，保留 P3，等待匹配构建的 Xiaomi 14 反馈。`
+- 唯一下一任务：在 `origin/main@b076d542` 之上整合当前图标实现 checkpoint，重新执行快速 parity/受影响测试，
+  冻结 exact clean candidate，并仅在所有版本血缘、包体、source/package/determinism 与完整 verifier 通过后上传体验版。
+- 本批停止条件：体验版上传后验证版本与 source SHA/manifest/allowlist；不提审、不正式发布、不部署 ECS/数据库，
+  并明确保留“Xiaomi 14 原生视觉待用户提供匹配证据”的边界。

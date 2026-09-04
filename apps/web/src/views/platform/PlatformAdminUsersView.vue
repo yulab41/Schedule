@@ -10,6 +10,7 @@ import { RouterLink } from 'vue-router';
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import { toUserMessage } from '../../utils/user-message.js';
+import SharedIcon from '../../components/SharedIcon.vue';
 
 const api = createApiClient({ auth: localAuth });
 const operationAttempts = new Map<
@@ -279,7 +280,7 @@ async function generateBindingLink(): Promise<void> {
           aria-label="关闭"
           @click="closeAssignment"
         >
-          ×
+          <SharedIcon name="close" />
         </button>
         <p class="platform-eyebrow">账号证明</p>
         <h2 id="platform-modal-title">管理用户账号</h2>
@@ -642,6 +643,11 @@ td code {
   background: transparent;
   border: 0;
   font-size: 24px;
+}
+
+.platform-modal-close svg {
+  width: 20px;
+  height: 20px;
 }
 
 .platform-modal h2 {

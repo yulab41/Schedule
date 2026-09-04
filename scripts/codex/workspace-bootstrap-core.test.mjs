@@ -52,7 +52,7 @@ test('Mini profile contains only the three required producers', () => {
     '@schedule/client-core',
     '@schedule/presentation-core',
   ]);
-  assert.deepEqual(BOOTSTRAP_PROFILES.root.length, 7);
+  assert.deepEqual(BOOTSTRAP_PROFILES.root.length, 8);
 });
 
 test('bootstraps topologically once, then reuses unchanged outputs', () => {

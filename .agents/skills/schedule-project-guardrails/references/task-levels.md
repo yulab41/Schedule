@@ -20,6 +20,9 @@ Default edits and debugging to `L1`. Choose `L2` only when the requested claim c
 - Enter `L4` only when the current user message explicitly authorizes the exact production action. Ambiguous words such as “release”, “finish”, or “publish” are insufficient when the target is unclear.
 - Mini-only changes do not authorize server deployment, database migration, a production backup, or a capability change.
 - Experience upload changes external state and requires the current-message approval required by the Mini audit rules. Review submission and formal publication always require separate explicit approval.
+- An exact-lockfile, offline dependency reconciliation after a health `MISS` is an L2 local operation only
+  when the current user message explicitly authorizes it; use the official wrapper and its one-per-fingerprint
+  audit. It does not escalate to production or formal publication.
 
 ## Work within the selected level
 

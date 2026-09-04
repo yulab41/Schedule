@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#calendar/check;content:cce738f73d96b5a232274f0948efb707aab0641b88e1eadb2c58f329be5445b6;context:mobile-bottom-navigation -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5E6A78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path data-part="check" d="m9 16 2 2 4-4" pathLength="1" />
+</svg>

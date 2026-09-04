@@ -210,10 +210,6 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.duty-phone-button .phone-motion-icon {
-  --action-motion-icon-size: 18px;
-}
-
 .duty-cell.contact-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;

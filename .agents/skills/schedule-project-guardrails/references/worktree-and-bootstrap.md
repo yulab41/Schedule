@@ -47,3 +47,7 @@ repository `runtime/` paths established by the helpers. Credentials remain outsi
 The project `.pnpmfile.cjs` is an early install tripwire. Direct local dependency mutation must exit
 before import/link and point to `scripts/codex/dependency-maintenance.ps1`; preinstall-only checks are
 not an acceptable substitute.
+
+For the L2 exact-lockfile reconciliation rule and the icon-specific dependency evidence contract, also read
+[worktree and dependencies](worktree-and-dependencies.md). Do not use that route to bypass the no-install
+default or to manually repair workspace links.

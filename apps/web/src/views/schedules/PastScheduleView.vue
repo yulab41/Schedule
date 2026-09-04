@@ -20,13 +20,13 @@ import {
   toggleBackfillStage,
   type PastScheduleBackfillStageMap,
 } from '@schedule/presentation-core';
-import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import SharedIcon from '../../components/SharedIcon.vue';
 import TemporalPicker from '../../components/TemporalPicker.vue';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import {
@@ -390,7 +390,7 @@ function formatEventTime(value: string): string {
           月份
           <span class="month-nav">
             <t-button variant="outline" size="small" :disabled="isSaving" @click="changeMonth(-1)">
-              <template #icon><ChevronLeftIcon /></template>
+              <template #icon><SharedIcon name="chevron-left" /></template>
               上一月
             </t-button>
             <TemporalPicker
@@ -402,7 +402,7 @@ function formatEventTime(value: string): string {
               @update:model-value="onMonthInput"
             />
             <t-button variant="outline" size="small" :disabled="isSaving" @click="changeMonth(1)">
-              <template #icon><ChevronRightIcon /></template>
+              <template #icon><SharedIcon name="chevron-right" /></template>
               下一月
             </t-button>
           </span>

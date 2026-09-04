@@ -2,7 +2,7 @@
 
 <view class="manual-page">
   <view class="mini-header" style="{{shellHeaderStyle}}">
-    <view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回排班台" bindtap="handleBack">‹</view>
+    <view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回排班台" bindtap="handleBack"><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" /></view>
     <view class="header-title">
       <text class="header-title-main">手动排班</text>
       <text class="header-title-sub">{{currentGroupName}} · 管理员</text>
@@ -222,7 +222,7 @@
     <view class="release-dialog {{releaseDialogDanger ? 'is-danger' : ''}}" aria-role="dialog" aria-modal="true">
       <view class="release-dialog-header">
         <view><text>{{releaseDialogKicker}}</text><text class="release-dialog-title">{{releaseDialogTitle}}</text></view>
-        <view class="dialog-close" hover-class="is-pressed" aria-role="button" aria-label="关闭" bindtap="handleCloseReleaseDialog">×</view>
+        <view class="dialog-close" hover-class="is-pressed" aria-role="button" aria-label="关闭" bindtap="handleCloseReleaseDialog"><image src="/assets/icons/ui-close.svg" mode="aspectFit" /></view>
       </view>
       <text class="release-dialog-meta">{{releaseDialogMeta}}</text>
       <view wx:for="{{releaseCallouts}}" wx:key="message" class="release-callout is-{{item.tone}}">{{item.message}}</view>

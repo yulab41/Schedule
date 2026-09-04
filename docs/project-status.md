@@ -3,19 +3,21 @@
 本文档只记录当前可安全接续的事实；详细历史以 Git、`docs/audit/` 和精确 debug 日志为准。每轮先读
 `docs/agent-context/pitfall-index.json`，只加载匹配坑位详情。
 
-## 当前仓库批次（2026-09-04）
+## 当前仓库批次（2026-09-05）
 
 - 当前活动批次：`ICON-PARITY-CLOSE-001`（Web/Mini 图标五层 parity、确定性门禁、版本血缘与工具链固化）。前序
   `TOOLCHAIN-GUARDRAILS-FINAL-001`、动态身份批次和 `MINI-G1-004` 均保留历史结论，不覆盖用户脏改动。
-- 本轮起始事实：`origin/main@bb81e723fc63dc5b95c946cd7505635f896c94fc`；任务 worktree
-  `runtime/wt/icon-parity-1`，基于该 SHA 创建。相关历史 `8e6a4a32`、`1ffab10c`、`5285dd17`、`71110712` 均不在
-  当前主线；已上传观察版 `.86@8caa5f20` 来自图标专用支线，不能直接视为当前源码。
-- 任务状态台账：`runtime/codex/tasks/icon-parity-current.json`（ignored）；本轮网络路线尚未冻结。
-- 依赖复用事实：初始指纹 `b1ca5cc1…e7dc98` 的两次前置 wrapper 失败未进入依赖解析；修复工具链并同步
-  `pnpmfileChecksum` 后新指纹 `b30dd8c7…cf1391` 完成一次有效 offline frozen materialization，最终健康复核为
-  `READY_REUSE`，未升级依赖。
-- 即将创建的工具链 checkpoint：`chore(agent): make dependency reconciliation deterministic`；只包含依赖维护
-  路由、锁文件 checksum、健康检测修复和对应回归测试。
+- 本轮起始事实：`origin/main@bb81e723fc63dc5b95c946cd7505635f896c94fc`；第二次 fetch 的最新主线为
+  `origin/main@b076d542bf4eb751aa4f8959e1523da1e3d21642`。任务 worktree 为 `runtime/wt/icon-parity-1`，
+  基于工具链 checkpoint `bbe2a930` 创建。相关历史 `8e6a4a32`、`1ffab10c`、`5285dd17`、`71110712` 已完成
+  祖先/等价实现审计，待在最新主线之上整合；已上传观察版 `.86@8caa5f20` 来自旧图标支线，不能视为当前源码。
+- 任务状态台账：`runtime/codex/tasks/icon-parity-current.json`（ignored）；当前网络仍待外部上传路线冻结。
+- 依赖复用事实：最终完整指纹为 `b962df27…f3f55e9`，官方复核为 `READY_REUSE`。三次不同完整指纹各完成
+  一次有效 `--frozen-lockfile --offline` reconciliation，child install invocation 共 5（含 1 次早期 tripwire
+  阻断和 1 次旧指纹 lockfile rejection），下载 0，tracked tree 未被安装改写。
+- 工具链 checkpoint `bbe2a930` 已完成；本次实现 checkpoint 计划使用
+  `feat(icons): enforce canonical Web and Mini parity`，内容包括 canonical catalog/context/motion、58 个
+  Mini 资产、隔离 Web gallery、确定性 parity/liveness 门禁及 guardrail/reference 固化。
 - 前序 production 聚合冻结基线：`MAIN_HEAD=78d0424e19cfc81be142da7e0f5367110f1fc8f2`；体验版
   `0.1.0-p10.20260903.84@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39`；live server release
   `48488019171924701054354e8f707b08eb4d12fe`；冻结时间 `2026-09-03T22:05:18.4095188+08:00`。
@@ -35,8 +37,25 @@
   `2026-09-04T07:42:13.616+08:00`，服务器实际 release 仍为
   `EVIDENCE_SERVER_RELEASE=48488019171924701054354e8f707b08eb4d12fe`。
 - 服务器 allowlist 复核显示此前 `.81`、`.82`、`.83`、`.84` 均保留，本轮只追加 `.85`，没有覆盖或遗漏历史
-  体验版；allowlist verify 和完整 production verifier 均通过。未提审、未正式发布、未执行 ECS 部署、数据库
-  迁移或备份，未重跑阶段 0。
+ 体验版；allowlist verify 和完整 production verifier 均通过。未提审、未正式发布、未执行 ECS 部署、数据库
+ 迁移或备份，未重跑阶段 0。
+
+## ICON-PARITY-CLOSE-001 当前 checkpoint
+
+- 历史关系：`1ffab10c`、`5285dd17`、`71110712` 均为当前候选祖先；`1ffab10c`/`71110712` 中的 search ring
+  path 仍缺最后一段，已通过锁定 `tdesign-icons-vue-next@0.4.7` 的 catalog 回归测试定位并修正，Mini 资产已由
+  generator 重写。`.84@8e6a4a32` 与 `.86@8caa5f20` 都不作为当前候选源码。
+- 快速 parity 实测：`pnpm icon:parity` 通过；catalog 55、Mini generated 58、Mini 生产引用 138/58、legacy
+  引用 0、unreferenced asset 0、Mini keyframes 32、orphan keyframes 0、Web/Mini motion bindings 31/25，
+  generator 连续两次输出 deterministic，gallery build entry 已纳入 Web Vite 多页构建。
+- 受影响定向测试：UI icons catalog 1/1、Web gallery 1/1、Mini icon/workbench/calendar 5 files/45 tests，
+  guardrail Node tests 17/17；`@schedule/ui-icons`、Web typecheck 和 Web build 均通过。根 `pnpm test` 的旧基线
+  曾因 Node `scripts/codex/*.test.mjs` 被 Vitest 错误收集而失败，当前分支保留 Node/Vitest 分流修复，完整 verify
+  尚待最新主线整合后执行。
+- guardrail 已补充 icon parity、testing/evidence、worktree/dependencies、network/VPN 和 known-pitfalls 路由；
+  `validate-project-skill.ps1` 返回 `RESULT=PASS`。执行面遵守仓库政策，未调用微信开发者工具 GUI/CLI。
+- 当前 stop condition：先提交此实现 checkpoint并整合 `origin/main@b076d542`；冲突解决后重新跑快速 parity、受影响
+  tests 和 dependency/skill checks，再冻结 exact candidate。未通过 exact clean candidate 的完整 verify 前不上传。
 
 ## MINI-G1-004 调查成果
 

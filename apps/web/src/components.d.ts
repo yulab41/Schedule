@@ -19,6 +19,8 @@ declare module 'vue' {
     ResponsiveSheet: typeof import('./components/ResponsiveSheet.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SharedIcon: typeof import('./components/SharedIcon.vue')['default']
+    SharedIconPart: typeof import('./components/SharedIconPart.vue')['default']
     SiteComplianceFooter: typeof import('./components/SiteComplianceFooter.vue')['default']
     TAlert: typeof import('tdesign-vue-next')['Alert']
     TButton: typeof import('tdesign-vue-next')['Button']

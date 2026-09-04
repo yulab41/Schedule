@@ -191,7 +191,7 @@ describe('P10 native directory parity', () => {
     expect(card).toContain('showDivider');
     expect(template).toContain('large-text="{{largeText}}"');
     expect(card).toContain("largeText ? 'is-large-text' : ''");
-    expect(card).toContain('web-directory-star');
+    expect(card).toContain('ui-star-filled');
     expect(cardStyles).toContain('.directory-entry.has-divider');
     expect(cardStyles).toContain('.directory-entry.is-large-text .contact-number-group');
     expect(cardStyles).toContain('line-height: var(--ui-line-height-normal)');

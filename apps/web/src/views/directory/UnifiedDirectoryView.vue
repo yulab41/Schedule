@@ -275,7 +275,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #586678;
+  color: var(--ui-color-directory-mode-inactive);
   background: transparent;
   border: 0;
   border-radius: 11px;
@@ -303,11 +303,6 @@ onBeforeUnmount(() => {
 
 .directory-mode-tab:active {
   transform: scale(0.985);
-}
-
-.directory-mode-icon {
-  --action-motion-icon-size: 18px;
-  --action-motion-icon-stroke-width: 1.8;
 }
 
 .directory-mode-panel {

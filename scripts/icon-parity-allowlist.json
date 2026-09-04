@@ -1,0 +1,6 @@
+[
+  {
+    "path": "apps/web/src/components/SharedIcon.vue",
+    "reason": "The canonical Web renderer must contain the shared SVG root; its geometry is emitted from @schedule/ui-icons and is checked separately."
+  }
+]

@@ -7,7 +7,7 @@
       aria-label="返回排班台"
       bindtap="handleBack"
     >
-      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+      <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
     </view>
     <view class="header-title">
       <text class="header-title-main">排班补录</text>
@@ -66,7 +66,7 @@
               bindchange="handleRoleChange"
             >
               <view class="web-input-shell"
-                ><text>{{roleLabels[roleIndex] || '请选择排班岗位'}}</text><text>⌄</text></view
+                ><text>{{roleLabels[roleIndex] || '请选择排班岗位'}}</text><image class="picker-chevron" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" /></view
               >
             </picker>
           </view>
@@ -79,7 +79,7 @@
                 aria-role="button"
                 aria-disabled="{{isBusy}}"
                 bindtap="handlePreviousMonth"
-                >‹ 上一月</view
+                ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" /><text>上一月</text></view
               >
               <picker
                 mode="date"
@@ -96,7 +96,7 @@
                 aria-role="button"
                 aria-disabled="{{isBusy}}"
                 bindtap="handleNextMonth"
-                >下一月 ›</view
+                ><text>下一月</text><image src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" /></view
               >
             </view>
           </view>

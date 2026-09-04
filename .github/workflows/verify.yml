@@ -93,4 +93,5 @@ jobs:
           TEST_MYSQL_PASSWORD: schedule_test_password
         run: |
           pnpm build
+          pnpm icon:parity:check
           pnpm test

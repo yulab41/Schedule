@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/features/layout/WorkbenchNavIcon.vue#profile/portrait;content:3553004848ae41aa04cdfe26cbc4ef51b844aeb3a1c3bfdf14a791c90b37a993;context:mobile-bottom-navigation -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<circle data-part="portrait" cx="12" cy="7" r="4" />
+</svg>

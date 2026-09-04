@@ -165,6 +165,39 @@
         "the dependency marker schema or health dimensions change",
         "the persistent pool policy changes"
       ]
+    },
+    {
+      "id": "icon-parity-contract",
+      "state": "fixed-guarded",
+      "signals": [
+        "icon parity",
+        "web-*.svg",
+        "currentColor",
+        "multi-part icon",
+        "generator manifest",
+        "orphan keyframes",
+        "activeWorkspace"
+      ],
+      "paths": [
+        "packages/ui-icons/**",
+        "apps/web/icon-parity.html",
+        "apps/web/src/icon-parity/**",
+        "apps/web/src/generated/ui-icon-motion.css",
+        "apps/miniprogram/src/assets/icons/**",
+        "apps/miniprogram/src/styles/ui-icon-motion.wxss",
+        "apps/miniprogram/src/**/*.wxml",
+        "apps/miniprogram/src/**/*.wxss",
+        "scripts/icon-parity*.mjs"
+      ],
+      "detail": ".agents/skills/schedule-project-guardrails/references/icon-parity.md",
+      "guard": "scripts/icon-parity.mjs",
+      "validation": "pnpm icon:parity:check",
+      "lastVerifiedAt": "2026-09-05",
+      "staleWhen": [
+        "canonical catalog, generator manifest, context/motion source, or platform binding changes",
+        "WXML/WXSS production icon references change",
+        "Web or Mini renderer/toolchain changes"
+      ]
     }
   ]
 }

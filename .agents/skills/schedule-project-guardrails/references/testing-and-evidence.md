@@ -15,6 +15,15 @@ Authoritative sources:
 - `L2` adds only the integration and runtime gates needed for the requested cross-boundary claim.
 - `L3` runs the full relevant candidate gate set from the applicable plan/runbook after the final SHA is frozen. Do not repeatedly run expensive gates for the same final SHA and identical input/toolchain fingerprint when valid evidence already exists.
 - Browser smoke and core-smoke triggers remain those in root `AGENTS.md`; a unit-test pass is not a browser/runtime pass.
+- Run the fast `pnpm icon:parity` gate before expensive Mini/Web tests. It is the only icon parity checker;
+  do not recreate its inventory or rerun its child generator checks as separate gates.
+- For a final candidate, `pnpm verify` includes format, lint, build, typecheck, `icon:parity:check`, Mini
+  tests, and root tests. Run only the additional Mini package audit, package-size, source/package lineage,
+  and release checks not covered by `verify`.
+- Web build and Mini full suite are CPU/disk-heavy and run serially. Preserve long-command output in ignored
+  `runtime/` evidence; on timeout inspect resources first and rerun only the failed bounded command.
+- Browser evidence must first record whether the Web and API services are running and whether the requested
+  page actually needs the API. The isolated icon gallery is the preferred browser target for icon work.
 
 ## Comparable evidence
 

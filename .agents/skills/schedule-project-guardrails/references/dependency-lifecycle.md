@@ -96,3 +96,14 @@ version, nonce, reason, and an expiry no longer than 15 minutes. The wrapper nev
 never enables networking, never deletes the store, and writes the dependency fingerprint only after
 health passes. A second attempt cannot reuse the consumed nonce. A single-use local authorization record
 is required for maintenance; in `ReuseOnly`, no install is run.
+
+## L2 local frozen reconciliation
+
+When the current user message explicitly authorizes exact-lockfile reconciliation, a cross-package task may
+classify a `MISS` with a healthy but unlinked or absent environment as an L2 local frozen operation. The
+existing `scripts/codex/dependency-maintenance.ps1` wrapper creates the short-lived single-use authorization
+record itself, binds it to the exact worktree/fingerprint/command, and removes it on every exit path. The
+task must write the outcome to ignored `runtime/codex` state and may invoke at most one frozen offline
+install for that complete fingerprint. This exception does not permit dependency upgrades, networking,
+manual `node_modules` stitching, force options, production connections, database operations, force pushes,
+formal Mini publication, or release review.

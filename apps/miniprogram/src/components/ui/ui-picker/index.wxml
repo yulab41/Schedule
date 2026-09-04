@@ -9,6 +9,6 @@
   <text class="ui-picker__label">{{label}}</text>
   <view class="ui-picker__value-row">
     <text class="ui-picker__value">{{value}}</text>
-    <text class="ui-picker__chevron" aria-hidden="true">›</text>
+    <image class="ui-picker__chevron" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" />
   </view>
 </view>

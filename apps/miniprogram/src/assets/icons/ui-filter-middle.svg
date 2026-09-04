@@ -1,0 +1,4 @@
+<!-- generated:ui-icons;source:git:8e6a4a32:apps/web/src/components/LucideMinimalActionIcon.vue#filter/middle;content:5e90ae8931aa9a230b4c65a795ea4cb8ae4c04424e04529728cf03fb9847c4d4;context:calendar-filter -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0A66D5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<path data-part="filter-middle" d="M7 12h10" />
+</svg>

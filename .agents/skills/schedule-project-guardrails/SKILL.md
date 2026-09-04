@@ -73,11 +73,13 @@ Version, SHA, and release identifiers in prompts, examples, plans, or status sna
 
 Load conditional references only when their trigger matches:
 
-  - Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md) and [dependency lifecycle](references/dependency-lifecycle.md).
+- Fresh worktree, dependency bootstrap, missing declarations/dist, or build provenance: [worktree/bootstrap](references/worktree-and-bootstrap.md) and [dependency lifecycle](references/dependency-lifecycle.md).
 - Persistent worktree pool, leases, or parallel coordination: [multi-parallel workflow](references/multi-parallel-workflow.md).
 - Mini Program code, build, native evidence, preview, or upload: [Mini Program](references/miniprogram.md). For a Mini modification, this conditional reference plus the level-required testing/evidence reference replaces a repeated Mini safety preamble; do not load it for non-Mini work.
 - Unknown root cause or regression investigation: [debugging](references/debugging.md).
 - Gate selection, comparisons, or evidence claims: [testing/evidence](references/testing-and-evidence.md).
+- Web/Mini icon source, context, state, motion, asset liveness, or gallery work: [icon parity](references/icon-parity.md).
+- VPN/TUN, GitHub, WeChat upload, or ECS route selection: [network and VPN](references/network-and-vpn.md).
 - A matching known symptom: search the compact [known-pitfall index](references/known-pitfalls.md) by ID or symptom; do not load it for unrelated work.
 
 Load other skills only on these triggers:

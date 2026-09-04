@@ -55,8 +55,8 @@ describe('P3 native identity pages', () => {
     expect(template).toContain('清楚掌握每一次值班');
     expect(template).toContain('进入工作台');
     expect(template).toContain('微信快捷登录');
-    expect(template).toContain('/assets/icons/web-profile.svg');
-    expect(template).toContain('/assets/icons/web-lock.svg');
+    expect(template).toContain('/assets/icons/ui-user.svg');
+    expect(template).toContain('/assets/icons/ui-lock.svg');
     expect(template).toContain('aria-label="账号"');
     expect(template).toContain('aria-label="密码"');
     expect(template).toContain('bindconfirm="handlePasswordLogin"');

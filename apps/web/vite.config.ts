@@ -36,6 +36,10 @@ export default defineConfig(({ mode }) => {
     ],
     build: {
       rollupOptions: {
+        input: {
+          app: fileURLToPath(new URL('./index.html', import.meta.url)),
+          iconParity: fileURLToPath(new URL('./icon-parity.html', import.meta.url)),
+        },
         output: {
           manualChunks: {
             'vendor-query': ['@tanstack/vue-query'],

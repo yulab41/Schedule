@@ -148,7 +148,7 @@
             <text class="test-route-title">动态月历</text>
             <text class="test-route-note">已通过 · 可再次查看</text>
           </view>
-          <text class="test-route-arrow" aria-hidden="true">›</text>
+          <image class="test-route-arrow" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
         </navigator>
         <navigator
           class="test-route"
@@ -160,7 +160,7 @@
             <text class="test-route-title">7×7 日常矩阵</text>
             <text class="test-route-note">49 格 · 横向滚动</text>
           </view>
-          <text class="test-route-arrow" aria-hidden="true">›</text>
+          <image class="test-route-arrow" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
         </navigator>
         <navigator
           class="test-route"
@@ -172,7 +172,7 @@
             <text class="test-route-title">20×30 最大矩阵</text>
             <text class="test-route-note">600 格 · 双轴滚动</text>
           </view>
-          <text class="test-route-arrow" aria-hidden="true">›</text>
+          <image class="test-route-arrow" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
         </navigator>
         <navigator
           wx:if="{{testToolsEnabled}}"
@@ -185,7 +185,7 @@
             <text class="test-route-title">Android 手势能力探针</text>
             <text class="test-route-note">诊断专用 · Pan 与普通触摸</text>
           </view>
-          <text class="test-route-arrow" aria-hidden="true">›</text>
+          <image class="test-route-arrow" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
         </navigator>
       </view>
     </view>

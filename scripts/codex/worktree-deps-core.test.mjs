@@ -175,6 +175,7 @@ test('PowerShell maintenance callers use named forwarding instead of array bindi
   );
   assert.match(maintenance, /\$coreParameters\s*=\s*@\{/u);
   assert.match(maintenance, /Mode\s*=\s*'DependencyMaintenance'/u);
+  assert.match(maintenance, /coreParameters\.LeaseToken\s*=\s*\$LeaseToken/u);
   assert.doesNotMatch(maintenance, /\$coreArguments\s*=\s*@\(/u);
   assert.match(pool, /\$parameters\s*=\s*@\{/u);
   assert.match(pool, /Mode\s*=\s*'ReuseOnly'/u);

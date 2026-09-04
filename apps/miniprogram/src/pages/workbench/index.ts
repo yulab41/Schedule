@@ -167,7 +167,6 @@ interface WorkbenchPageData {
   readonly monthLabel: string;
   readonly monthPanelHeights: readonly number[];
   readonly monthPanels: WorkbenchViewModel['monthPanels'];
-  readonly navMotion: string;
   readonly notificationAnimating: boolean;
   readonly notificationSheetOpen: boolean;
   readonly notificationUnreadCount: number;
@@ -191,7 +190,6 @@ interface WorkbenchPageData {
   readonly shiftEventMeta: string;
   readonly shiftEventSheetOpen: boolean;
   readonly shiftEventState: ShiftEventState;
-  readonly calendarNavAnimating: boolean;
   readonly state: WorkbenchState;
   readonly testCenterEnabled: boolean;
   readonly viewMode: WorkbenchView;
@@ -303,7 +301,6 @@ Page({
     monthLabel: formatMonthLabel(initialMonth),
     monthPanelHeights: [270, 270, 270],
     monthPanels: [],
-    navMotion: '',
     notificationAnimating: false,
     notificationSheetOpen: false,
     notificationUnreadCount: 0,
@@ -327,7 +324,6 @@ Page({
     shiftEventMeta: '',
     shiftEventSheetOpen: false,
     shiftEventState: 'closed' as ShiftEventState,
-    calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
     testCenterEnabled: false,
     viewMode: 'month' as const,
@@ -729,11 +725,11 @@ Page({
 
   handleCalendarNav(this: WorkbenchPageInstance): void {
     if (this.data.activeWorkspace !== 'calendar') {
-      activatePrimaryWorkspace(this, 'calendar', { calendarNavAnimating: false });
+      activatePrimaryWorkspace(this, 'calendar');
       return;
     }
-    this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
-      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
+    this.setData({ scrollTarget: '' }, () => {
+      this.setData({ scrollTarget: 'workbench-content-top' });
     });
   },
 
@@ -831,12 +827,10 @@ Page({
     activatePrimaryWorkspace(this, 'directory', {
       filterOpen: false,
       groupOpen: false,
-      navMotion: '',
     });
   },
 
   handleSwapNav(this: WorkbenchPageInstance): void {
-    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'swap' }));
     activatePrimaryWorkspace(this, 'swap', { filterOpen: false, groupOpen: false });
   },
 
@@ -886,9 +880,7 @@ Page({
     activatePrimaryWorkspace(this, 'more', {
       filterOpen: false,
       groupOpen: false,
-      navMotion: '',
     });
-    this.setData({ navMotion: 'more' });
   },
 
   handleOpenManualSchedule(this: WorkbenchPageInstance): void {

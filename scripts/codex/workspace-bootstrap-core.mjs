@@ -23,6 +23,7 @@ export const BOOTSTRAP_PROFILES = Object.freeze({
     '@schedule/presentation-core',
     '@schedule/scheduling-domain',
     '@schedule/ui-tokens',
+    '@schedule/ui-icons',
   ],
   root: [
     '@schedule/contracts',
@@ -32,6 +33,7 @@ export const BOOTSTRAP_PROFILES = Object.freeze({
     '@schedule/scheduling-domain',
     '@schedule/test-fixtures',
     '@schedule/ui-tokens',
+    '@schedule/ui-icons',
   ],
   release: [
     '@schedule/contracts',
@@ -41,6 +43,7 @@ export const BOOTSTRAP_PROFILES = Object.freeze({
     '@schedule/scheduling-domain',
     '@schedule/test-fixtures',
     '@schedule/ui-tokens',
+    '@schedule/ui-icons',
   ],
 });
 

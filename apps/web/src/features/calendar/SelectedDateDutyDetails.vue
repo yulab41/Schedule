@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
-import { ChevronRightIcon, HistoryIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
@@ -10,6 +9,7 @@ import {
   getCalendarMarkerDescription,
 } from './calendar-logic.js';
 import ChangeBadge from './ChangeBadge.vue';
+import SharedIcon from '../../components/SharedIcon.vue';
 import { getFixedShiftDutyDisplay } from './fixed-shift-duty-display.js';
 import { buildGroupedDutyDetails, type GroupedDutyDetail } from './grouped-duty-details.js';
 import { formatSelectedDateLabel } from './selected-date-duty.js';
@@ -163,7 +163,7 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
                   name="phone"
                   :motion-key="phoneMotionKey(phoneMotionId(row.assignment.id, 'toggle'))"
                 />
-                <ChevronRightIcon class="disclosure-icon" aria-hidden="true" />
+                <SharedIcon class="disclosure-icon" name="chevron-right" />
               </button>
               <div v-else class="staff-name-static">
                 <strong>{{ row.dutyName }}</strong>
@@ -203,7 +203,7 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
             </div>
 
             <button type="button" class="event-action" @click="emit('open-events', row.assignment)">
-              <HistoryIcon aria-hidden="true" />
+              <SharedIcon name="history" />
               事件记录
             </button>
           </section>
@@ -441,7 +441,6 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
 }
 
 .staff-name-button .phone-motion-icon {
-  --action-motion-icon-size: 16px;
   color: var(--ui-color-primary);
 }
 
@@ -485,10 +484,6 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
 .event-action svg {
   width: 16px;
   height: 16px;
-}
-
-.phone-split-actions .phone-motion-icon {
-  --action-motion-icon-size: 16px;
 }
 
 .staff-duty-meta {

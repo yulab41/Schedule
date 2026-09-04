@@ -319,10 +319,6 @@ function openExportDialog(): void {
   outline-offset: 2px;
 }
 
-.top-action-motion-icon {
-  --action-motion-icon-size: 20px;
-}
-
 .shell-export-action {
   display: inline-flex;
   min-width: var(--ui-touch-target-minimum);

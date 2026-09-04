@@ -6,6 +6,8 @@ param(
 
     [string]$WorktreeRoot = (Get-Location).Path,
 
+    [string]$LeaseToken,
+
     [switch]$Json
 )
 
@@ -121,6 +123,7 @@ try {
             WorktreeRoot = $worktree
             AuthorizationFile = $authorizationFile
         }
+        if ($LeaseToken) { $coreParameters.LeaseToken = $LeaseToken }
         if ($Json) { $coreParameters.Json = $true }
         $output = & $coreScript @coreParameters
         $exitCode = $LASTEXITCODE

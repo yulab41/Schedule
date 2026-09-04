@@ -55,3 +55,8 @@
     box-sizing: border-box;
   }
 }
+
+.period-step image {
+  width: 20px;
+  height: 20px;
+}

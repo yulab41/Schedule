@@ -1,0 +1,487 @@
+/* generated:ui-icon-motion;platform:miniprogram;context:bd76c6e615cf47d0c3c7f1e3e4770c7a34cc803b1092ab86d54a1952544f3959;motion:8a0a61d1c3aaa7ceca8b67793f192ed1bb5e59f76cf1764fe4c075f8a592fe24;bindings:0f18b3fa254c3c343231dc3041ee87e8ab7edc04c28e38ec0fb1b8f161fe12c4 */
+
+page {
+  --ui-icon-navigation-press-duration: 120ms;
+  --ui-icon-navigation-press-transform: scale(0.98);
+}
+
+.bottom-nav-item {
+  transition: transform var(--ui-icon-navigation-press-duration) ease;
+}
+
+.bottom-nav-item.is-pressed {
+  transform: var(--ui-icon-navigation-press-transform);
+}
+
+.nav-icon {
+  width: 23px;
+  height: 23px;
+  transform-origin: center;
+}
+
+.top-icon.bell-icon {
+  width: 21.6px;
+  height: 21.6px;
+  transform-origin: 12px 3px;
+}
+
+.top-icon.profile-icon {
+  width: 20px;
+  height: 20px;
+  transform-origin: center;
+}
+
+.mode-icon, .mode-icon-image {
+  width: 18px;
+  height: 18px;
+  transform-origin: center;
+}
+
+.favorite-icon {
+  width: 21px;
+  height: 21px;
+  transform-origin: center;
+}
+
+.phone-icon {
+  width: 17px;
+  height: 17px;
+  transform-origin: center;
+}
+
+.filter-icon, .filter-icon-bar {
+  width: 20px;
+  height: 20px;
+  transform-origin: center;
+}
+
+.locate-crosshair {
+  width: 16px;
+  height: 16px;
+  transform-origin: 12px 12px;
+}
+
+.more-item > image:first-child {
+  width: 20px;
+  height: 20px;
+  transform-origin: center;
+}
+
+.detail-phone-action image {
+  width: 16px;
+  height: 16px;
+  transform-origin: center;
+}
+
+.filter-icon.is-animating .filter-icon-bar-top {
+  animation: ui-motion-filter-filter-top 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.filter-icon.is-animating .filter-icon-bar-middle {
+  animation: ui-motion-filter-filter-middle 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.filter-icon.is-animating .filter-icon-bar-bottom {
+  animation: ui-motion-filter-filter-bottom 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.locate-crosshair.is-animating {
+  transform-origin: center;
+  animation: ui-motion-locate-rotor 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.workflow-picker-date-locate-icon.is-animating {
+  transform-origin: center;
+  animation: ui-motion-locate-rotor 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.department-icon.is-animating .mode-icon-image {
+  transform-origin: center;
+  animation: ui-motion-department-rotor 500ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.people-icon.is-animating .mode-icon-image-primary {
+  animation: ui-motion-people-primary 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.people-icon.is-animating .mode-icon-image-secondary {
+  animation: ui-motion-people-secondary 520ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.phone-icon.is-animating {
+  transform-origin: center;
+  animation: ui-motion-phone-phone-body 620ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.bell-icon.is-animating {
+  transform-origin: 12px 3px;
+  animation: ui-motion-bell-bell 620ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.profile-icon.is-animating {
+  transform-origin: center;
+  animation: ui-motion-profile-portrait 480ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.nav-calendar.is-looping .nav-icon-actor {
+  animation: ui-motion-navigation-check 1800ms ease-in-out 0ms infinite normal none;
+}
+
+.nav-directory.is-looping .nav-icon-actor {
+  animation: ui-motion-navigation-enter-actor 1800ms cubic-bezier(0.2, 0, 0, 1) 0ms infinite normal none;
+}
+
+.nav-swap.is-looping .nav-icon-actor {
+  animation: ui-motion-navigation-swap-arrow-left 1800ms cubic-bezier(0.2, 0, 0, 1) 0ms infinite normal none;
+}
+
+.nav-swap.is-looping .nav-icon-actor-secondary {
+  animation: ui-motion-navigation-swap-arrow-right 1800ms cubic-bezier(0.2, 0, 0, 1) 0ms infinite normal none;
+}
+
+.nav-profile.is-looping .nav-icon-actor {
+  animation: ui-motion-navigation-profile-portrait 1800ms cubic-bezier(0.2, 0, 0, 1) 0ms infinite normal none;
+}
+
+.nav-more.is-looping .nav-icon-actor {
+  animation: ui-motion-more-stagger-dot-one 1800ms ease-in-out 0ms infinite normal none;
+}
+
+.nav-more.is-looping .nav-icon-actor-secondary {
+  animation: ui-motion-more-stagger-dot-two 1800ms ease-in-out 100ms infinite normal none;
+}
+
+.nav-more.is-looping .nav-icon-actor-tertiary {
+  animation: ui-motion-more-stagger-dot-three 1800ms ease-in-out 200ms infinite normal none;
+}
+
+.calendar-navigation .chevron.is-right.is-animating {
+  animation: ui-motion-period-chevron-right 260ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.list-calendar-heading .chevron.is-right.is-animating {
+  animation: ui-motion-period-chevron-right 260ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.calendar-navigation .chevron.is-left.is-animating {
+  animation: ui-motion-period-chevron-left 260ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.list-calendar-heading .chevron.is-left.is-animating {
+  animation: ui-motion-period-chevron-left 260ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.month-toolbar .chevron.is-right.is-animating {
+  animation: ui-motion-calendar-chevron-right 240ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+.month-toolbar .chevron.is-left.is-animating {
+  animation: ui-motion-calendar-chevron-left 240ms cubic-bezier(0.2, 0, 0, 1) 0ms 1 normal none;
+}
+
+@keyframes ui-motion-filter-filter-top {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-filter-filter-middle {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-filter-filter-bottom {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-locate-rotor {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(90deg);
+  }
+}
+
+@keyframes ui-motion-department-rotor {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(90deg);
+  }
+}
+
+@keyframes ui-motion-people-primary {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(-0.75px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-people-secondary {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-phone-phone-body {
+  0% {
+    transform: rotate(0deg);
+  }
+  26% {
+    transform: rotate(-8deg);
+  }
+  52% {
+    transform: rotate(7deg);
+  }
+  74% {
+    transform: rotate(-3deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes ui-motion-bell-bell {
+  0% {
+    transform: rotate(0deg);
+  }
+  22% {
+    transform: rotate(-9deg);
+  }
+  44% {
+    transform: rotate(8deg);
+  }
+  64% {
+    transform: rotate(-5deg);
+  }
+  82% {
+    transform: rotate(3deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes ui-motion-profile-portrait {
+  0% {
+    transform: translateY(0);
+  }
+  42% {
+    transform: translateY(-1.5px);
+  }
+  68% {
+    transform: translateY(0.5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-motion-navigation-check {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes ui-motion-navigation-enter-actor {
+  0% {
+    transform: translateX(-2px);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-2px);
+    opacity: 0.45;
+  }
+}
+
+@keyframes ui-motion-navigation-swap-arrow-left {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-navigation-swap-arrow-right {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(2px);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(-1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-navigation-profile-portrait {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-motion-more-stagger-dot-one {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-motion-more-stagger-dot-two {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-motion-more-stagger-dot-three {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-motion-period-chevron-right {
+  0% {
+    transform: translateX(0);
+  }
+  48% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-period-chevron-left {
+  0% {
+    transform: translateX(0);
+  }
+  48% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-calendar-chevron-right {
+  0% {
+    transform: translateX(0);
+  }
+  48% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-motion-calendar-chevron-left {
+  0% {
+    transform: translateX(0);
+  }
+  48% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-icon.is-animating image,
+  .locate-crosshair.is-animating,
+  .workflow-picker-date-locate-icon.is-animating,
+  .department-icon.is-animating .mode-icon-image,
+  .people-icon.is-animating .mode-icon-image,
+  .phone-icon.is-animating,
+  .bell-icon.is-animating,
+  .profile-icon.is-animating,
+  .nav-icon image,
+  .chevron.is-animating {
+    animation: none !important;
+    transition: none !important;
+  }
+}
