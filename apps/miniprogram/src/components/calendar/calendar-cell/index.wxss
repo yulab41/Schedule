@@ -1,3 +1,5 @@
+@import '../../../styles/calendar-date-marker.wxss';
+
 .calendar-cell {
   position: relative;
   display: flex;
@@ -36,14 +38,6 @@
 }
 
 .date-number {
-  display: flex;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 3px;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--ui-radius-pill);
   font-size: 10px;
   font-weight: var(--ui-font-weight-strong);
   line-height: 18px;
@@ -54,8 +48,7 @@
 }
 
 .calendar-cell.is-today .date-number {
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
+  color: var(--ui-color-near-black);
 }
 
 .holiday-chip {

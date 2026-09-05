@@ -1,7 +1,7 @@
 .shift-event-sheet-content {
   display: flex;
   min-height: 0;
-  flex: 1;
+  padding-bottom: var(--ui-spacing-sm);
   flex-direction: column;
   gap: var(--ui-spacing-sm);
 }
@@ -58,6 +58,7 @@
 }
 
 .shift-event-sheet-scroll {
+  height: 100%;
   min-height: 0;
   flex: 1;
 }

@@ -1,0 +1,26 @@
+/* A native view owns geometry; Skyline text only paints the date glyph. */
+.calendar-date-marker {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.calendar-date-text {
+  display: block;
+  width: 100%;
+  padding: 0;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-date-marker.is-today {
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
+}

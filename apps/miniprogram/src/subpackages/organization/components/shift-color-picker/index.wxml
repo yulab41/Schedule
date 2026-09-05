@@ -1,0 +1,96 @@
+<view
+  class="shift-color-picker {{disabled ? 'is-disabled' : ''}} {{largeText ? 'is-large-text' : ''}}"
+>
+  <text class="color-label">颜色</text>
+  <view class="color-palette">
+    <view
+      wx:for="{{palette}}"
+      wx:key="*this"
+      class="color-swatch {{selectedColor === item ? 'is-selected' : ''}}"
+      data-color="{{item}}"
+      aria-role="button"
+      aria-label="选择颜色 {{item}}"
+      aria-pressed="{{selectedColor === item}}"
+      aria-disabled="{{disabled}}"
+      bindtap="handlePreset"
+      ><view class="swatch-fill" style="background:{{item}};"></view
+    ></view>
+    <view
+      class="color-swatch custom-color-trigger {{!isPresetColor ? 'is-selected' : ''}}"
+      aria-role="button"
+      aria-label="自定义颜色"
+      aria-expanded="{{customOpen}}"
+      aria-pressed="{{!isPresetColor}}"
+      aria-disabled="{{disabled}}"
+      bindtap="handleCustomToggle"
+    >
+      <view class="swatch-fill" style="background:{{customColor}};"></view>
+      <view class="custom-color-plus" aria-hidden="true">
+        <view class="plus-horizontal"></view><view class="plus-vertical"></view>
+      </view>
+    </view>
+  </view>
+  <view wx:if="{{customOpen}}" class="custom-color-panel" aria-label="自定义颜色调色板">
+    <view class="color-picker-field">
+      <text class="color-label">调色板</text>
+      <view
+        id="shift-color-spectrum"
+        class="color-spectrum"
+        style="background-color:{{spectrumColor}};"
+        aria-label="选择自定义颜色的饱和度和明度，当前 {{customColor}}"
+        aria-disabled="{{disabled}}"
+        catchtouchstart="handleSpectrumStart"
+        catchtouchmove="handleTouchMove"
+        catchtouchend="handleTouchEnd"
+        catchtouchcancel="handleTouchCancel"
+      >
+        <view class="spectrum-white" aria-hidden="true"></view>
+        <view class="spectrum-black" aria-hidden="true"></view>
+        <view class="spectrum-cursor" style="{{spectrumCursorStyle}}" aria-hidden="true"></view>
+      </view>
+      <view
+        id="shift-color-hue"
+        class="color-hue"
+        aria-role="slider"
+        aria-label="色相"
+        aria-valuemin="0"
+        aria-valuemax="360"
+        aria-valuenow="{{hue}}"
+        aria-disabled="{{disabled}}"
+        catchtouchstart="handleHueStart"
+        catchtouchmove="handleTouchMove"
+        catchtouchend="handleTouchEnd"
+        catchtouchcancel="handleTouchCancel"
+      >
+        <view class="hue-track" aria-hidden="true"></view>
+        <view class="hue-cursor" style="{{hueCursorStyle}}" aria-hidden="true"></view>
+        <view class="hue-hitbox" aria-hidden="true"></view>
+      </view>
+    </view>
+    <view class="color-input-row">
+      <view class="hex-color-field">
+        <text class="color-label">HEX</text>
+        <input
+          class="hex-color-input"
+          value="{{customHex}}"
+          maxlength="16"
+          disabled="{{disabled}}"
+          aria-label="自定义颜色 HEX"
+          aria-invalid="{{customColorError}}"
+          confirm-type="done"
+          bindinput="handleHexInput"
+          bindconfirm="handleHexConfirm"
+        />
+      </view>
+      <view
+        class="apply-custom-color"
+        aria-role="button"
+        aria-label="应用自定义颜色"
+        aria-disabled="{{disabled}}"
+        bindtap="handleApply"
+        >应用</view
+      >
+    </view>
+    <text wx:if="{{customColorError}}" class="color-error" aria-role="alert">请输入 #RRGGBB</text>
+  </view>
+</view>

@@ -3,6 +3,7 @@ interface ShiftEventRecordsInstance {
 }
 
 Component({
+  options: { virtualHost: true },
   properties: {
     cards: { type: Array, value: [] },
     changeChain: { type: String, value: '' },

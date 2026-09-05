@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "shift-color-picker": "/subpackages/organization/components/shift-color-picker/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-button": "/components/ui/ui-button/index",
     "ui-loading": "/components/ui/ui-loading/index",

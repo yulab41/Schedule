@@ -9,7 +9,9 @@
   aria-disabled="{{!isCurrentMonth}}"
   bindtap="handleSelect"
 >
-  <text class="date-number">{{day}}</text>
+  <view class="calendar-date-marker {{isToday ? 'is-today' : ''}}">
+    <text class="date-number calendar-date-text">{{day}}</text>
+  </view>
   <text wx:if="{{holiday}}" class="holiday-chip">{{holiday}}</text>
   <view wx:if="{{person || marker}}" class="month-duty-line">
     <text wx:if="{{person}}" class="month-person">{{person}}</text>

@@ -1,69 +1,66 @@
-<view class="shift-event-sheet-content">
-  <text wx:if="{{meta}}" class="shift-event-meta">{{meta}}</text>
-  <ui-loading
-    wx:if="{{state === 'loading'}}"
-    class="shift-event-loading"
-    label="正在加载事件记录"
-  ></ui-loading>
-  <view wx:elif="{{state === 'error'}}" class="shift-event-error">
-    <text class="shift-event-error-title">事件记录暂时无法加载</text>
-    <text class="shift-event-error-message">{{errorMessage}}</text>
-    <view
-      class="shift-event-retry"
-      hover-class="is-pressed"
-      aria-role="button"
-      bindtap="handleRetry"
-      >重新加载</view
-    >
-  </view>
-  <view wx:elif="{{state === 'empty'}}" class="shift-event-empty">
-    <text>该班次暂无事件记录。</text>
-  </view>
-  <scroll-view
-    wx:elif="{{state === 'ready'}}"
-    class="shift-event-sheet-scroll"
-    scroll-y
-    enhanced
-    show-scrollbar="{{false}}"
-  >
-    <view class="shift-event-timeline">
+<scroll-view
+  class="shift-event-sheet-scroll"
+  scroll-y
+  type="list"
+  enhanced
+  show-scrollbar="{{false}}"
+>
+  <view class="shift-event-sheet-content">
+    <text wx:if="{{meta}}" class="shift-event-meta">{{meta}}</text>
+    <ui-loading
+      wx:if="{{state === 'loading'}}"
+      class="shift-event-loading"
+      label="正在加载事件记录"
+    ></ui-loading>
+    <view wx:elif="{{state === 'error'}}" class="shift-event-error">
+      <text class="shift-event-error-title">事件记录暂时无法加载</text>
+      <text class="shift-event-error-message">{{errorMessage}}</text>
       <view
-        wx:for="{{cards}}"
-        wx:for-item="eventItem"
-        wx:key="id"
-        class="shift-event-card"
+        class="shift-event-retry"
+        hover-class="is-pressed"
+        aria-role="button"
+        bindtap="handleRetry"
+        >重新加载</view
       >
-        <view class="shift-event-card-heading">
-          <text class="shift-event-type is-{{eventItem.eventTone}}"
-            >{{eventItem.eventTypeLabel}}</text
+    </view>
+    <view wx:elif="{{state === 'empty'}}" class="shift-event-empty">
+      <text>该班次暂无事件记录。</text>
+    </view>
+    <view wx:elif="{{state === 'ready'}}">
+      <view class="shift-event-timeline">
+        <view wx:for="{{cards}}" wx:for-item="eventItem" wx:key="id" class="shift-event-card">
+          <view class="shift-event-card-heading">
+            <text class="shift-event-type is-{{eventItem.eventTone}}"
+              >{{eventItem.eventTypeLabel}}</text
+            >
+            <text wx:if="{{eventItem.markerLabel}}" class="shift-event-marker"
+              >{{eventItem.markerLabel}}</text
+            >
+          </view>
+          <text class="shift-event-time">{{eventItem.occurredAtLabel}}</text>
+          <text wx:if="{{eventItem.narrative}}" class="shift-event-narrative"
+            >{{eventItem.narrative}}</text
           >
-          <text wx:if="{{eventItem.markerLabel}}" class="shift-event-marker"
-            >{{eventItem.markerLabel}}</text
+          <text wx:if="{{eventItem.reason}}" class="shift-event-reason"
+            >原因：{{eventItem.reason}}</text
           >
-        </view>
-        <text class="shift-event-time">{{eventItem.occurredAtLabel}}</text>
-        <text wx:if="{{eventItem.narrative}}" class="shift-event-narrative"
-          >{{eventItem.narrative}}</text
-        >
-        <text wx:if="{{eventItem.reason}}" class="shift-event-reason"
-          >原因：{{eventItem.reason}}</text
-        >
-        <view wx:if="{{eventItem.changes.length > 0}}" class="shift-event-changes">
-          <view
-            wx:for="{{eventItem.changes}}"
-            wx:for-item="change"
-            wx:key="label"
-            class="shift-event-change"
-          >
-            <text class="shift-event-change-label">{{change.label}}</text>
-            <text class="shift-event-change-value">{{change.valueLabel}}</text>
+          <view wx:if="{{eventItem.changes.length > 0}}" class="shift-event-changes">
+            <view
+              wx:for="{{eventItem.changes}}"
+              wx:for-item="change"
+              wx:key="label"
+              class="shift-event-change"
+            >
+              <text class="shift-event-change-label">{{change.label}}</text>
+              <text class="shift-event-change-value">{{change.valueLabel}}</text>
+            </view>
           </view>
         </view>
       </view>
     </view>
-  </scroll-view>
-  <view wx:if="{{changeChain}}" class="shift-event-chain">
-    <text class="shift-event-chain-title">人员变更链</text>
-    <text class="shift-event-chain-summary">{{changeChain}}</text>
+    <view wx:if="{{changeChain}}" class="shift-event-chain">
+      <text class="shift-event-chain-title">人员变更链</text>
+      <text class="shift-event-chain-summary">{{changeChain}}</text>
+    </view>
   </view>
-</view>
+</scroll-view>

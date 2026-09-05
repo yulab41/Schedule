@@ -124,16 +124,14 @@
                   ><view class="native-picker">{{newShiftEndTime || '选择时间'}}</view></picker
                 ></view
               >
-              <view class="field-block"
-                ><text class="field-label">颜色 HEX</text
-                ><input
-                  class="native-field native-color"
-                  maxlength="7"
-                  value="{{newShiftColor}}"
-                  data-field="color"
-                  bindinput="handleNewShiftInput"
-              /></view>
             </view>
+            <shift-color-picker
+              value="{{newShiftColor}}"
+              disabled="{{!canManage || !organizationEnabled || managementState === 'loading'}}"
+              large-text="{{largeText}}"
+              data-field="color"
+              bind:change="handleNewShiftInput"
+            ></shift-color-picker>
             <view class="option-row">
               <view
                 class="option-item"
@@ -254,16 +252,15 @@
                     bindchange="handleShiftInput"
                     ><view class="native-picker">{{shift.endTime || '选择时间'}}</view></picker
                   ></view
-                ><view class="field-block"
-                  ><text class="field-label">颜色 HEX</text
-                  ><input
-                    class="native-field native-color"
-                    maxlength="7"
-                    value="{{shift.color}}"
-                    data-shift-id="{{shift.id}}"
-                    data-field="color"
-                    bindinput="handleShiftInput" /></view
-              ></view>
+                ></view
+              >
+              <shift-color-picker
+                value="{{shift.color}}"
+                disabled="{{!canManage || !organizationEnabled || managementState === 'loading'}}"
+                large-text="{{largeText}}"
+                data-shift-id="{{shift.id}}"
+                bind:change="handleShiftColorInput"
+              ></shift-color-picker>
               <view class="option-row"
                 ><view
                   class="option-item"

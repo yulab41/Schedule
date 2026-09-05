@@ -17,6 +17,7 @@ import {
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import { normalizeHex, shiftColorPresentation } from '../shift-color-picker/color.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -250,6 +251,10 @@ export function createSchedulingConfigPanelControllerDefinition() {
       const shiftId = event.currentTarget?.dataset?.shiftId;
       const field = event.currentTarget?.dataset?.field;
       if (shiftId === undefined || field === undefined) return;
+      if (field === 'color') {
+        updateShiftColor(this, shiftId, readString(event));
+        return;
+      }
       this.setData({
         shiftDrafts: this.data.shiftDrafts.map((shift) =>
           shift.id === shiftId
@@ -263,11 +268,7 @@ export function createSchedulingConfigPanelControllerDefinition() {
       if (!this.data.canManage || !this.data.organizationEnabled) return;
       const shiftId = event.currentTarget?.dataset?.shiftId;
       if (shiftId === undefined) return;
-      this.setData({
-        shiftDrafts: this.data.shiftDrafts.map((shift) =>
-          shift.id === shiftId ? { ...shift, color: readString(event) } : shift,
-        ),
-      });
+      updateShiftColor(this, shiftId, readString(event));
     },
 
     handleShiftToggleField(this: SchedulingConfigPageInstance, event: TapEvent): void {
@@ -862,7 +863,7 @@ function toShiftDraftView(shift: ShiftType, editing: boolean): ShiftDraftView {
     textColor: shift.textColor,
     version: shift.version,
     editing,
-    contrastWarning: bestContrastRatio(shift.color) < 4.5,
+    contrastWarning: shiftColorPresentation(shift.color).contrastWarning,
   };
 }
 
@@ -898,21 +899,21 @@ function toRotationDraft(role: ScheduleRole): RotationDraft {
   };
 }
 
-function bestContrastRatio(color: string): number {
-  const value = color.replace('#', '');
-  if (!/^[\da-f]{6}$/iu.test(value)) return 7;
-  const channels = [0, 2, 4].map(
-    (index) => Number.parseInt(value.slice(index, index + 2), 16) / 255,
-  );
-  const weights = [0.2126, 0.7152, 0.0722] as const;
-  const luminance = channels.reduce(
-    (sum, channel, index) =>
-      sum +
-      (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4) *
-        (weights[index] ?? 0),
-    0,
-  );
-  return 1.05 / (luminance + 0.05);
+function updateShiftColor(
+  page: SchedulingConfigPageInstance,
+  shiftId: string,
+  value: string,
+): void {
+  if (page.data.managementState === 'loading') return;
+  const color = normalizeHex(value);
+  const index = page.data.shiftDrafts.findIndex((shift) => shift.id === shiftId);
+  if (color === undefined || index < 0) return;
+  const presentation = shiftColorPresentation(color);
+  page.setData({
+    [`shiftDrafts[${index}].color`]: color,
+    [`shiftDrafts[${index}].textColor`]: presentation.textColor,
+    [`shiftDrafts[${index}].contrastWarning`]: presentation.contrastWarning,
+  });
 }
 
 function setDataField(page: SchedulingConfigPageInstance, field: string, value: string): void {
@@ -920,7 +921,10 @@ function setDataField(page: SchedulingConfigPageInstance, field: string, value: 
   else if (field === 'abbreviation') page.setData({ newShiftAbbreviation: value });
   else if (field === 'startTime') page.setData({ newShiftStartTime: value });
   else if (field === 'endTime') page.setData({ newShiftEndTime: value });
-  else if (field === 'color') page.setData({ newShiftColor: value });
+  else if (field === 'color' && page.data.managementState !== 'loading') {
+    const color = normalizeHex(value);
+    if (color !== undefined) page.setData({ newShiftColor: color });
+  }
 }
 
 function readString(event: ValueInputEvent): string {

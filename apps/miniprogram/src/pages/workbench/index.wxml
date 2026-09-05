@@ -345,8 +345,9 @@
                           bindtap="handleWeekDaySelect"
                         >
                           <view class="week-date-line"
-                            ><text class="day-number">{{day.day}}</text
-                            ><text wx:if="{{day.holiday}}" class="week-holiday"
+                            ><view class="calendar-date-marker {{day.isToday ? 'is-today' : ''}}">
+                              <text class="day-number calendar-date-text">{{day.day}}</text>
+                            </view><text wx:if="{{day.holiday}}" class="week-holiday"
                               >{{day.holiday}}</text
                             ></view
                           >
@@ -1201,6 +1202,7 @@
 
   <ui-sheet
     visible="{{shiftEventSheetOpen}}"
+    size="half"
     title="班次事件记录"
     close-label="完成"
     swipe-dismiss="{{true}}"
