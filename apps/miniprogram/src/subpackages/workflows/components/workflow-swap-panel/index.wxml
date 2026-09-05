@@ -70,22 +70,24 @@
             <view class="setting-copy"
               ><text>换班需要管理员审批</text><text>目标成员接受后，再由管理员确认。</text></view
             >
-            <switch
+            <ui-switch
               checked="{{requiresApproval}}"
-              disabled="{{settingsBusy}}"
+              loading="{{settingsBusy}}"
+              label="换班需要管理员审批"
               color="#1F5AA6"
-              bindchange="handleGroupApprovalToggle"
+              bind:change="handleGroupApprovalToggle"
             />
           </view>
           <view class="setting-card">
             <view class="setting-copy"
               ><text>自动接受换班</text><text>收到换班时自动进入下一处理状态。</text></view
             >
-            <switch
+            <ui-switch
               checked="{{autoAcceptSwaps}}"
-              disabled="{{settingsBusy}}"
+              loading="{{settingsBusy}}"
+              label="自动接受换班"
               color="#1F5AA6"
-              bindchange="handleAutoAcceptToggle"
+              bind:change="handleAutoAcceptToggle"
             />
           </view>
         </view>

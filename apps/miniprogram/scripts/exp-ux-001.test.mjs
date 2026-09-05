@@ -284,7 +284,10 @@ describe('EXP-UX-001 experience feedback contracts', () => {
         for (const handler of legacyHandlers[workflow]) {
           expect(controller).not.toContain(handler);
         }
-        expect(pageConfig.usingComponents).toEqual(directPageConfig);
+        expect(pageConfig.usingComponents).toEqual({
+          ...directPageConfig,
+          ...(workflow === 'leave' ? {} : { 'ui-switch': '/components/ui/ui-switch/index' }),
+        });
         expect(pageTemplate.trim()).toBe(
           `<include src="../../components/workflow-${workflow}-panel/index.wxml" />`,
         );

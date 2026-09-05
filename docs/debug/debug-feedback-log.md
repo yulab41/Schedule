@@ -2571,3 +2571,22 @@
 - 上传后的记录契约先红后绿，lineage16+CI6共22项PASS；初次root配置排除了Mini测试，不算有效红证据。
   记录checkpoint message：chore(miniprogram): record UI alignment trial 88 delivery；不重复上传、不改冻结归档。
   未提审、正式发布、ECS应用代码/数据库部署、数据库备份/迁移或release元数据同步。真机层待用户复核。
+
+## 2026-09-05 MINI-FEEDBACK-REGRESSION-001 顶部通知背景和开关闪烁
+
+- 用户截图：通知文字直接覆盖标题，切换设置时其他开关闪烁。截图缺少完整构建/renderer信息，不作为当前SHA的原生定量验收。
+- 基线6d3c01b1；通知引入454ad56e，工作流原生switch和共用settingsBusy/disabled引入bc32a4f1；
+  UiSwitch loading淡化来自24bc2c4b。已逐调用log-S/blame，API、权限、请求次数与生命周期保护不改变。
+- 原page级变量不能假定在root-portal继续继承；旧浏览器测试错误使用Web :root全局变量。
+  换成实际page作用域后复现透明、radius0、shadow none、z无效；现由既有构建派生同源局部token，实心白底圆角卡片生效。
+- 四个原生switch换为已有UiSwitch，loading保持外观并阻止重复点击；永久disabled仍淡化。
+  点击项立即更新，失败仅回滚该项；原settingsBusy串行锁、this绑定、try/catch/finally和旧controller失效保护保留。
+- 回归先红后绿；夹具初次缺常量/导出不算产品红灯。修复后78定向PASS；首次全量3个旧leaf注册清单失败，
+  精确增加swap/duty UiSwitch并增强bind:change发现后18项定向PASS；最终全量789PASS/11条件skip，98.17s。
+- 运行/浏览器验证：复用Edge的实际WXML/WXSS模型，28通知+36开关绘制PASS；通知白底/radius18/shadow/z1100/
+  对比度5.5136，显示替换清除不移动body；保存时开关opacity1、永久disabled0.55、未操作开关几何和颜色不变。
+- Mini TypeScript/lint/格式、verify内build/source/package/performance/determinism、icon parity和CI dry-run均PASS；
+  清除WXML无关换行且证明非空白等价后56项受影响测试及输出审计再次PASS，本地包主1760518/总5211737 bytes，
+  既有warning保留。工具不能测量真实微信Console/Network/冷启动，原生待用户复核。
+- 根工作区另一项护栏/CI/tripwire修改保持，不混入本轮。checkpoint message：
+  fix(miniprogram): restore toast surface and stable switch feedback；UPLOAD_REQUIRED，本轮未授权上传或生产操作，未分配新版本。

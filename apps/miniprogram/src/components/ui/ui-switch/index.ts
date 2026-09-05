@@ -10,6 +10,7 @@ interface UiSwitchInstance {
 Component({
   properties: {
     checked: { type: Boolean, value: false },
+    color: { type: String, value: '' },
     disabled: { type: Boolean, value: false },
     label: { type: String, value: '' },
     loading: { type: Boolean, value: false },

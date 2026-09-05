@@ -102,6 +102,7 @@ describe('workflow direct Page registration', () => {
 
       expect(config.usingComponents).toEqual({
         'ui-sheet': '/components/ui/ui-sheet/index',
+        ...(workflow === 'leave' ? {} : { 'ui-switch': '/components/ui/ui-switch/index' }),
         'ui-toast': '/components/ui/ui-toast/index',
         'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
       });
@@ -111,6 +112,11 @@ describe('workflow direct Page registration', () => {
       expect(read(`${root}/index.wxss`)).toContain(
         `@import '../../components/${panel}/index.wxss';`,
       );
+      if (workflow !== 'leave') {
+        expect(readWorkflowHandlers(workflow)).toEqual(
+          expect.arrayContaining(['handleGroupApprovalToggle', 'handleAutoAcceptToggle']),
+        );
+      }
     },
   );
 
@@ -150,7 +156,7 @@ function readWorkflowHandlers(workflow) {
   );
   return [
     ...new Set(
-      [...template.matchAll(/(?:bind|catch)(?::|[a-z]+)=['"]([A-Za-z][\w]*)['"]/gu)].map(
+      [...template.matchAll(/(?:bind|catch):?[A-Za-z][\w-]*=['"]([A-Za-z][\w]*)['"]/gu)].map(
         (match) => match[1],
       ),
     ),

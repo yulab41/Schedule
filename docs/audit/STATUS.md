@@ -2,7 +2,11 @@
 
 ## 当前阶段
 
-- 当前执行批次已切换为 `MINI-UI-ALIGN-009`（`mini-ui-20260905001548`）：用户当次明确授权九项
+- 当前批次为`MINI-FEEDBACK-REGRESSION-001`（`mini-toast-switch-20260905133316`），用户反馈通知背景缺失和开关闪烁。
+  两项已修复，78定向、789项Mini全量、28通知绘制、36开关绘制及CI dry-run均通过；详细事实见
+  `docs/audit/mini-toast-switch-20260905133316.md`。原生层待用户复核，`UPLOAD_REQUIRED`。
+  本轮未获得新的上传/生产授权，未申请版本、未上传、未改白名单；下述UI-009及更早阶段均为历史记录。
+- 历史已完成批次 `MINI-UI-ALIGN-009`（`mini-ui-20260905001548`）：用户当次明确授权九项
   小程序 UI 修复、四路并行、自动 main 集成/普通推送及动态体验上传。九项源码、机器门禁与独立复核已完成；
   连续选色P2由45a8e0b3单独修复，Mini最终763通过，布局额外启用通过。源码84dc966e已普通推送main，
   动态体验版`0.1.0-p10.20260905.88`已上传成功；精确白名单与完整production verifier通过。
@@ -117,9 +121,16 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 - 根工作区已跟踪文件无新增修改；既有 `.agents/`、`runtime/`、`src/` 和本地表格等未跟踪内容保持原样。本轮
   不修改业务运行时代码、API、数据库、权限、路由、锁文件、dist 或其他生成物。
 
-## 唯一下一任务与停止条件
+## 前序UI-009停止条件（历史）
 
 - `MINI-UI-ALIGN-009`代码/自动门禁/main/动态上传/回执与完整verifier条件均已满足。
   末次checkpoint记录真实交付回执；推送与租约释放事实见Git和ignored task state。唯一下一自动任务：无，停止本轮。
 - 未提审、未正式发布、未部署ECS应用代码或数据库、未执行数据库迁移。可信add-only白名单流程仅刷新
   API/Web容器配置；live release不变，MySQL未重建。未宣称 Xiaomi 14 真机验收通过。
+
+## 当前唯一下一任务与停止条件
+
+- 当前两项代码与自动验证完成，checkpoint message为`fix(miniprogram): restore toast surface and stable switch feedback`。
+  完成正常提交/推送并安全释放本轮租约；实时结果见Git及ignored任务状态。
+- 之后只在取得当次授权时准备本次修复体验版，授权前停止版本分配/上传；不自动开展其他审计批次。
+  前序.88不含本轮修复。未调用DevTools、未连接/部署ECS、未做生产备份、白名单修改或数据库迁移。

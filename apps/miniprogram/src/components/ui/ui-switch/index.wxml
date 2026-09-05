@@ -1,5 +1,5 @@
 <view
-  class="ui-switch__hit-area {{disabled || loading ? 'is-inactive' : ''}}"
+  class="ui-switch__hit-area {{disabled ? 'is-inactive' : ''}}"
   hover-class="{{disabled || loading ? 'none' : 'is-pressed'}}"
   hover-start-time="0"
   hover-stay-time="80"
@@ -10,7 +10,11 @@
   aria-busy="{{loading}}"
   bindtap="handleToggle"
 >
-  <view class="ui-switch__track {{checked ? 'is-checked' : ''}}" aria-hidden="true">
+  <view
+    class="ui-switch__track {{checked ? 'is-checked' : ''}}"
+    style="{{checked && color ? 'background-color:' + color + ';' : ''}}"
+    aria-hidden="true"
+  >
     <view class="ui-switch__thumb"></view>
   </view>
 </view>

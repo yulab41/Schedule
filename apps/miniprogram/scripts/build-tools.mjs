@@ -307,6 +307,17 @@ function copyGeneratedUiTokens(outputDirectory) {
   const destinationPath = path.join(outputDirectory, 'styles', 'tokens.wxss');
   mkdirSync(path.dirname(destinationPath), { recursive: true });
   copyFileSync(UI_TOKENS_WXSS, destinationPath);
+  const tokens = readFileSync(UI_TOKENS_WXSS, 'utf8');
+  if (!/^page(?=\s*\{)/u.test(tokens)) {
+    throw new Error('generated UI tokens must declare the page scope');
+  }
+  // A root portal cannot depend on its former page ancestor. Rebind the same
+  // generated tokens locally instead of copying values or adding a runtime package.
+  writeFileSync(
+    path.join(outputDirectory, 'styles', 'ui-toast-tokens.wxss'),
+    tokens.replace(/^page(?=\s*\{)/u, '.ui-toast__layer'),
+    'utf8',
+  );
 }
 
 function collectTypeScriptEntryPoints(sourceDirectory) {

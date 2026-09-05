@@ -2,6 +2,33 @@
   "schemaVersion": 1,
   "pitfalls": [
     {
+      "id": "mini-feedback-portal-and-switch",
+      "state": "fixed-guarded",
+      "signals": [
+        "root-portal",
+        "transparent toast",
+        "通知背景",
+        "switch flicker",
+        "开关闪烁",
+        "settingsBusy"
+      ],
+      "paths": [
+        "apps/miniprogram/src/components/ui/ui-toast/**",
+        "apps/miniprogram/src/components/ui/ui-switch/**",
+        "apps/miniprogram/scripts/ui-toast-layout.mjs",
+        "apps/miniprogram/scripts/workflow-switch-feedback.test.mjs"
+      ],
+      "detail": "docs/agent-context/pitfalls/mini-feedback-portal-and-switch.md",
+      "guard": "apps/miniprogram/scripts/workflow-switch-feedback.test.mjs",
+      "validation": "pnpm --filter @schedule/miniprogram verify && pnpm miniprogram:test && node apps/miniprogram/scripts/ui-toast-layout.mjs",
+      "lastVerifiedAt": "2026-09-05",
+      "staleWhen": [
+        "portal placement, token scope, renderer or CSS model changes",
+        "switch loading/disabled state or settings update lifecycle changes",
+        "the portal paint or switch feedback regression fails"
+      ]
+    },
+    {
       "id": "mini-page-boundary",
       "state": "active",
       "signals": ["Android white screen", "Skyline", "requiredComponents", "Page", "panel"],

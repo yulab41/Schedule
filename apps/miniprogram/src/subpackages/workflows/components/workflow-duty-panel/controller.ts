@@ -827,7 +827,13 @@ async function updateGroupApproval(page: DutyPageInstance, checked: boolean): Pr
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.settingsBusy) return;
-  page.setData({ settingsBusy: true, errorMessage: '', infoMessage: '' });
+  const previousValue = page.data.requiresApproval;
+  page.setData({
+    settingsBusy: true,
+    requiresApproval: checked,
+    errorMessage: '',
+    infoMessage: '',
+  });
   try {
     const result = await workflowClient.updateGroupDutyAdjustmentSettings(page._currentGroupId, {
       requiresApproval: checked,
@@ -841,7 +847,10 @@ async function updateGroupApproval(page: DutyPageInstance, checked: boolean): Pr
     });
   } catch (error) {
     if (!task.isCurrent()) return;
-    page.setData({ errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。') });
+    page.setData({
+      requiresApproval: previousValue,
+      errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。'),
+    });
   } finally {
     if (task.isCurrent()) page.setData({ settingsBusy: false });
   }
@@ -851,7 +860,8 @@ async function updateAutoAccept(page: DutyPageInstance, checked: boolean): Promi
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
   if (page.data.settingsBusy) return;
-  page.setData({ settingsBusy: true, errorMessage: '', infoMessage: '' });
+  const previousValue = page.data.autoAcceptSwaps;
+  page.setData({ settingsBusy: true, autoAcceptSwaps: checked, errorMessage: '', infoMessage: '' });
   try {
     const result = await workflowClient.updateMySwapSettings(page._currentGroupId, {
       autoAcceptSwaps: checked,
@@ -865,7 +875,10 @@ async function updateAutoAccept(page: DutyPageInstance, checked: boolean): Promi
     });
   } catch (error) {
     if (!task.isCurrent()) return;
-    page.setData({ errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。') });
+    page.setData({
+      autoAcceptSwaps: previousValue,
+      errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。'),
+    });
   } finally {
     if (task.isCurrent()) page.setData({ settingsBusy: false });
   }

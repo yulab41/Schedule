@@ -53,4 +53,38 @@ describe('P1 native foundation simulate smoke', () => {
     expect(changeListener).toHaveBeenCalledOnce();
     expect(changeListener.mock.calls[0][0].detail).toEqual({ checked: true });
   });
+
+  it('keeps the same switch painted while loading, blocks taps, and preserves permanent disabled styling', async () => {
+    const component = await renderSwitch({ checked: true, label: '设置', loading: false });
+    const track = component.querySelector('.ui-switch__track').dom;
+    const changeListener = vi.fn();
+    component.addEventListener('change', changeListener);
+    component.setData({ loading: true });
+    expect(component.querySelector('.ui-switch__track').dom).toBe(track);
+    expect(component.querySelector('.ui-switch__hit-area').dom.className).not.toContain(
+      'is-inactive',
+    );
+    expect(component.querySelector('.ui-switch__track').dom.className).toContain('is-checked');
+    component.instance.handleToggle();
+    expect(changeListener).not.toHaveBeenCalled();
+    component.setData({ loading: false });
+    expect(component.querySelector('.ui-switch__track').dom).toBe(track);
+    component.setData({ disabled: true });
+    expect(component.querySelector('.ui-switch__hit-area').dom.className).toContain('is-inactive');
+    component.instance.handleToggle();
+    expect(changeListener).not.toHaveBeenCalled();
+    component.detach();
+  });
+
+  it('reuses an explicit checked color without changing the off track or default color contract', async () => {
+    const component = await renderSwitch({ checked: true, color: '#1F5AA6' });
+    expect(component.querySelector('.ui-switch__track').dom.style.backgroundColor).toBe(
+      'rgb(31, 90, 166)',
+    );
+    component.setData({ checked: false });
+    expect(component.querySelector('.ui-switch__track').dom.style.backgroundColor).toBe('');
+    component.setData({ checked: true, color: '' });
+    expect(component.querySelector('.ui-switch__track').dom.style.backgroundColor).toBe('');
+    component.detach();
+  });
 });

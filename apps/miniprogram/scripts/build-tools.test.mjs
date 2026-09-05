@@ -148,6 +148,16 @@ describe('Mini Program deterministic toolchain guards', () => {
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_VERSION__');
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_COMMIT__');
       expect(compiled).not.toContain('__MINIPROGRAM_BUILD_TIME__');
+      const tokenSource = readFileSync(
+        new URL('../../../packages/ui-tokens/src/tokens.wxss', import.meta.url),
+        'utf8',
+      );
+      const portalTokens = readFileSync(
+        path.join(outdir, 'styles', 'ui-toast-tokens.wxss'),
+        'utf8',
+      );
+      expect(portalTokens).toMatch(/^\.ui-toast__layer\s*\{/u);
+      expect(portalTokens.replace(/^\.ui-toast__layer/u, 'page')).toBe(tokenSource);
     } finally {
       rmSync(fixtureRoot, { force: true, recursive: true });
     }
