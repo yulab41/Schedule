@@ -457,7 +457,7 @@ function sanitizeConfigValue(key, value) {
 export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonicalProjectHome(root) } = {}) {
   const targetStorePath = resolveProjectLocalStorePath(projectHome);
   const environment = { ...process.env, npm_config_store_dir: targetStorePath };
-  const storePath = path.resolve(runPnpm(root, ['store', 'path', `--store-dir=${targetStorePath}`]).trim());
+  const storePath = path.resolve(targetStorePath);
   const pnpmVersion = runPnpm(root, ['--version'], { environment }).trim();
   const layout = Object.fromEntries(
     PNPM_LAYOUT_CONFIG_KEYS.map((key) => {

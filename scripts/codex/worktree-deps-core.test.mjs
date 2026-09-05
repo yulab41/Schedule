@@ -52,12 +52,12 @@ test('derives project-local state from the Git common directory, not linked-work
   assert.equal(resolveProjectLocalStorePath(projectHome), path.join(projectHome, 'runtime', 'pnpm-store'));
 });
 
-test('inspects the versioned project-local store selected by maintenance', () => {
+test('uses the stable project-local store identity selected by maintenance', () => {
   const projectHome = resolveCanonicalProjectHome(REPOSITORY_ROOT);
   const targetStorePath = resolveProjectLocalStorePath(projectHome);
   const runtime = inspectRuntimeEnvironment(REPOSITORY_ROOT, { projectHome });
   assert.equal(runtime.targetStorePath, targetStorePath);
-  assert.equal(runtime.storePath.startsWith(`${targetStorePath}${path.sep}`), true);
+  assert.equal(runtime.storePath, targetStorePath);
 });
 
 test('binds maintenance commands to the project-local store and exact worktree', () => {
@@ -229,7 +229,7 @@ test('PowerShell maintenance callers use named forwarding instead of array bindi
   assert.doesNotMatch(pool, /\$arguments\s*=\s*@\(/u);
 });
 
-test('first maintenance and versioned-store health paths are initialized before reuse', () => {
+test('first maintenance and stable-store health paths are initialized before reuse', () => {
   const source = fs.readFileSync(
     path.join(REPOSITORY_ROOT, 'scripts/codex/worktree-deps-core.mjs'),
     'utf8',
@@ -238,6 +238,6 @@ test('first maintenance and versioned-store health paths are initialized before 
   const lockIndex = source.indexOf('createExclusiveDirectory(lockPath)');
   assert.ok(stateDirectoryIndex >= 0);
   assert.ok(lockIndex > stateDirectoryIndex);
-  assert.match(source, /\['store', 'path', `--store-dir=\$\{targetStorePath\}`\]/u);
+  assert.match(source, /const storePath = path\.resolve\(targetStorePath\);/u);
   assert.match(source, /npm_config_user_agent:\s*`pnpm\/\$\{pnpmVersion\}/u);
 });
