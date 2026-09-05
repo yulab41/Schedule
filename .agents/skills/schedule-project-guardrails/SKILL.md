@@ -44,6 +44,7 @@ routing surfaces only. A full pool returns
 
 `.codex/setup.ps1` is no-install: it derives the canonical home from Git common-dir, reads the route, and
 checks only an assigned pool slot. Schedule has no Hook registration, Hook trust state, or `/hooks` dependency.
+The only non-maintenance install exception is the committed GitHub Actions fresh-checkout path, covered by synthetic tripwire allow/deny tests; it is not a local bypass.
 
 In `REUSE_ONLY`:
 

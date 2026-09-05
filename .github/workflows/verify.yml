@@ -47,6 +47,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
+        env:
+          SCHEDULE_CI_INSTALL_CHANNEL: github-actions-fresh-checkout
         run: pnpm install --frozen-lockfile
 
       - name: Cache build caches

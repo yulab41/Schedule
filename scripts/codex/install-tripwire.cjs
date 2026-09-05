@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 
 const AUTHORIZATION_SCHEMA_VERSION = 2;
 const MAX_AUTHORIZATION_MINUTES = 15;
+const CI_INSTALL_CHANNEL = 'github-actions-fresh-checkout';
 const AUTHORIZATION_DIRECTORY = path.join('runtime', 'codex', 'authorizations');
 const DEPENDENCY_MUTATIONS = new Set([
   'install',
@@ -78,6 +79,13 @@ function isDependencyMutation(arguments_) {
   return command === 'store' && commandName(arguments_, index + 1) === 'prune';
 }
 
+function isCiFreshInstall(arguments_) {
+  const normalized = arguments_.map((argument) => String(argument).toLocaleLowerCase('en-US'));
+  return (
+    normalized.length === 2 && normalized[0] === 'install' && normalized[1] === '--frozen-lockfile'
+  );
+}
+
 function readGitValue(cwd, arguments_) {
   return execFileSync('git', ['-C', cwd, ...arguments_], {
     cwd,
@@ -86,19 +94,65 @@ function readGitValue(cwd, arguments_) {
   }).trim();
 }
 
+function githubRepositorySlug(remote) {
+  const normalized = String(remote)
+    .trim()
+    .replace(/\.git$/iu, '');
+  const match = normalized.match(/(?:https?:\/\/|git@)([^/:]+)[/:]([^/]+\/[^/]+)$/iu);
+  if (!match || match[1].toLocaleLowerCase('en-US') !== 'github.com') return undefined;
+  return match[2].toLocaleLowerCase('en-US');
+}
+
+function originGithubRepository(cwd) {
+  try {
+    return githubRepositorySlug(readGitValue(cwd, ['config', '--get', 'remote.origin.url']));
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveProjectHome(cwd) {
   const commonRaw = readGitValue(cwd, ['rev-parse', '--git-common-dir']);
-  const common = path.isAbsolute(commonRaw) ? path.resolve(commonRaw) : path.resolve(cwd, commonRaw);
+  const common = path.isAbsolute(commonRaw)
+    ? path.resolve(commonRaw)
+    : path.resolve(cwd, commonRaw);
   return {
     commonDir: canonicalPath(common),
     projectHome: path.dirname(common),
   };
 }
 
-function currentPnpmVersion() {
-  const userAgent = String(process.env.npm_config_user_agent ?? '');
+function currentPnpmVersion(env = process.env) {
+  const userAgent = String(env.npm_config_user_agent ?? '');
   const match = userAgent.match(/(?:^|\s)pnpm\/([^\s]+)/u);
   return match?.[1];
+}
+
+function isGithubActionsFreshCheckout({ cwd, arguments_, env = process.env }) {
+  if (!isCiFreshInstall(arguments_)) return false;
+  if (String(env.GITHUB_ACTIONS ?? '').toLocaleLowerCase('en-US') !== 'true') return false;
+  if (String(env.CI ?? '').toLocaleLowerCase('en-US') !== 'true') return false;
+  if (String(env.SCHEDULE_CI_INSTALL_CHANNEL ?? '') !== CI_INSTALL_CHANNEL) return false;
+  if (String(env.GITHUB_SERVER_URL ?? '').replace(/\/+$/u, '') !== 'https://github.com')
+    return false;
+  for (const field of ['GITHUB_RUN_ID', 'GITHUB_WORKFLOW', 'GITHUB_EVENT_NAME', 'RUNNER_OS']) {
+    if (String(env[field] ?? '').trim() === '') return false;
+  }
+  let project;
+  try {
+    project = resolveProjectHome(cwd);
+  } catch {
+    return false;
+  }
+  if (
+    !env.GITHUB_WORKSPACE ||
+    canonicalPath(env.GITHUB_WORKSPACE) !== canonicalPath(project.projectHome)
+  )
+    return false;
+  const repository = originGithubRepository(cwd);
+  return Boolean(
+    repository && repository === String(env.GITHUB_REPOSITORY ?? '').toLocaleLowerCase('en-US'),
+  );
 }
 
 function readJson(filePath) {
@@ -115,19 +169,28 @@ function deepEqual(left, right) {
 
 function authorizationFiles(directory) {
   if (!fs.existsSync(directory)) return [];
-  return fs.readdirSync(directory, { withFileTypes: true })
+  return fs
+    .readdirSync(directory, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
     .map((entry) => path.join(directory, entry.name));
 }
 
 function validAuthorization(filePath, record, context) {
-  if (!record || record.schemaVersion !== AUTHORIZATION_SCHEMA_VERSION || record.singleUse !== true) return false;
-  if (record.usedAt || typeof record.nonce !== 'string' || !/^[0-9a-f-]{36}$/iu.test(record.nonce)) return false;
+  if (!record || record.schemaVersion !== AUTHORIZATION_SCHEMA_VERSION || record.singleUse !== true)
+    return false;
+  if (record.usedAt || typeof record.nonce !== 'string' || !/^[0-9a-f-]{36}$/iu.test(record.nonce))
+    return false;
   if (record.createdBy !== 'scripts/codex/dependency-maintenance.ps1') return false;
-  if (record.commonDir !== context.commonDir || record.targetWorktree !== context.worktree) return false;
-  if (record.command?.cwd !== context.worktree || !deepEqual(record.command?.args, context.arguments)) return false;
+  if (record.commonDir !== context.commonDir || record.targetWorktree !== context.worktree)
+    return false;
+  if (
+    record.command?.cwd !== context.worktree ||
+    !deepEqual(record.command?.args, context.arguments)
+  )
+    return false;
   if (record.targetStorePath !== context.targetStorePath) return false;
-  if (record.lockfileSha256 !== sha256File(path.join(context.worktree, 'pnpm-lock.yaml'))) return false;
+  if (record.lockfileSha256 !== sha256File(path.join(context.worktree, 'pnpm-lock.yaml')))
+    return false;
   if (record.nodeVersion !== process.version) return false;
   const actualPnpmVersion = currentPnpmVersion();
   // pnpm versions normally arrive in npm_config_user_agent. Some direct JS entrypoints omit
@@ -137,7 +200,8 @@ function validAuthorization(filePath, record, context) {
   const createdAt = Date.parse(record.createdAt ?? '');
   const expiresAt = Date.parse(record.expiresAt ?? '');
   if (!Number.isFinite(createdAt) || !Number.isFinite(expiresAt)) return false;
-  if (expiresAt <= Date.now() || expiresAt - createdAt > MAX_AUTHORIZATION_MINUTES * 60_000) return false;
+  if (expiresAt <= Date.now() || expiresAt - createdAt > MAX_AUTHORIZATION_MINUTES * 60_000)
+    return false;
   if (path.basename(filePath, '.json') !== record.nonce) return false;
   return true;
 }
@@ -147,7 +211,11 @@ function claimAuthorization(filePath, record) {
   let handle;
   try {
     handle = fs.openSync(claimPath, 'wx');
-    fs.writeFileSync(handle, `${JSON.stringify({ nonce: record.nonce, pid: process.pid, claimedAt: new Date().toISOString() })}\n`, 'utf8');
+    fs.writeFileSync(
+      handle,
+      `${JSON.stringify({ nonce: record.nonce, pid: process.pid, claimedAt: new Date().toISOString() })}\n`,
+      'utf8',
+    );
     fs.closeSync(handle);
     return true;
   } catch (error) {
@@ -157,12 +225,25 @@ function claimAuthorization(filePath, record) {
   }
 }
 
-function assertInstallAuthorized({ cwd = process.cwd(), arguments_ = process.argv.slice(2) } = {}) {
+function assertInstallAuthorized({
+  cwd = process.cwd(),
+  arguments_ = process.argv.slice(2),
+  env = process.env,
+} = {}) {
   if (!isDependencyMutation(arguments_)) return { mutation: false, authorized: true };
+  if (isGithubActionsFreshCheckout({ cwd, arguments_, env })) {
+    return { mutation: true, authorized: true, authorizationSource: CI_INSTALL_CHANNEL };
+  }
   const { commonDir, projectHome } = resolveProjectHome(cwd);
   const worktree = canonicalPath(cwd);
   const targetStorePath = canonicalPath(path.join(projectHome, 'runtime', 'pnpm-store'));
-  const context = { commonDir, projectHome, worktree, targetStorePath, arguments: arguments_.map(String) };
+  const context = {
+    commonDir,
+    projectHome,
+    worktree,
+    targetStorePath,
+    arguments: arguments_.map(String),
+  };
   const directory = path.join(projectHome, AUTHORIZATION_DIRECTORY);
   for (const filePath of authorizationFiles(directory)) {
     const record = readJson(filePath);
@@ -172,17 +253,20 @@ function assertInstallAuthorized({ cwd = process.cwd(), arguments_ = process.arg
   }
   throw new Error(
     '[schedule:install-tripwire] unauthorized dependency mutation; use scripts/codex/dependency-maintenance.ps1. ' +
-    'The install was stopped before dependency resolution/import/link.',
+      'The install was stopped before dependency resolution/import/link.',
   );
 }
 
 module.exports = {
   AUTHORIZATION_DIRECTORY,
   AUTHORIZATION_SCHEMA_VERSION,
+  CI_INSTALL_CHANNEL,
   DEPENDENCY_MUTATIONS,
   MAX_AUTHORIZATION_MINUTES,
   assertInstallAuthorized,
   canonicalPath,
+  isCiFreshInstall,
   isDependencyMutation,
+  isGithubActionsFreshCheckout,
   sha256File,
 };

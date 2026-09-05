@@ -24,6 +24,8 @@ rg -n -C 2 '<pitfall-id>' .agents/skills/schedule-project-guardrails/references/
 | `repeated-1459-linking`         | Install repeatedly prints linking progress for 1459 packages with no dependency-input change                     | Stop reinstalling; verify the managed dependency fingerprint and reuse the existing worktree dependencies. See [worktree/bootstrap](worktree-and-bootstrap.md).                                                     |
 | `duplicate-expensive-gates`     | Same final SHA and identical candidate fingerprint is sent through full gates again                              | Reuse intact recorded evidence; rerun only when a fingerprint/evidence/guard input changed. See [release candidate](release-candidate.md).                                                                          |
 
+| `ci-fresh-install-tripwire` | GitHub Actions fresh checkout is rejected by the project pnpm tripwire | Check the committed CI marker plus runner/workspace/repository fields and run synthetic allow/deny tests; never weaken local ReuseOnly. See [dependency lifecycle](dependency-lifecycle.md). |
+
 ## Icon, release, test, and network symptoms
 
 | Pitfall ID                         | Symptom/search terms                                                                                          | First safe response and fact source                                                                                                                                                    |

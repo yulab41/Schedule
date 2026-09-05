@@ -31,6 +31,10 @@ install dependencies. Task routing performs Acquire separately.
 - Before using a candidate, run `scripts/check-worktree-safety.ps1`. A wrong, linked, unregistered, branch-attached, dirty, or commit-mismatched path fails closed. The checker never creates, cleans, switches, or deletes it.
 - Only the existing release helper may create or advance the managed path. Do not delete/recreate it to solve dependency or line-ending symptoms.
 
+Start recursive audits with explicit allowlists/exclusions for `.git`, `node_modules`, `dist`, `runtime/wt`,
+`runtime/codex`, and recovery/evidence roots. Before archive or delete, require a worktree gitfile/metadata,
+matching `git rev-parse --show-toplevel`, and membership in `git worktree list`; `git -C <path>` alone is not proof.
+
 ## Routing
 
 The complete dependency rules are in [dependency lifecycle](dependency-lifecycle.md). The complete lease and pool rules are in [multi-parallel workflow](multi-parallel-workflow.md). Keep these concerns separate: dependency health decides whether an environment can be reused; bootstrap health decides which workspace producers need incremental rebuilding.

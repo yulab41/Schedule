@@ -1,8 +1,8 @@
 # Dependency environment lifecycle
 
 This reference governs dependency reuse for the Schedule repository. It is a no-install default; the
-project-local `scripts/codex/dependency-maintenance.ps1` channel is the only path that may install or
-update dependencies.
+project-local `scripts/codex/dependency-maintenance.ps1` channel is the only local path that may install or
+update dependencies. The committed GitHub Actions fresh-checkout path is the only non-maintenance exception.
 
 ## Invalidation boundary
 
@@ -21,6 +21,19 @@ rebuild, prune, delete, repair, or use `--force` for dependencies. It may read l
 with an explicit adoption flag, record a marker for an already healthy environment. A `.pnpmfile.cjs`
 tripwire independently rejects dependency mutation before pnpm resolution/import/link unless the
 single-use project-local maintenance authorization matches the exact command.
+
+## CI fresh checkout
+
+The committed GitHub Actions workflow marks its fresh-checkout install explicitly; the tripwire additionally
+checks runner identity, canonical workspace, origin repository, run metadata, and `--frozen-lockfile`.
+Local processes setting `CI` or the marker alone remain unauthorized. Keep synthetic allow/deny coverage in
+`scripts/codex/install-tripwire.test.mjs`; never validate this exception with a real local install.
+
+## Stable tracked state and lazy pool reconciliation
+
+Tracked state records stable baselines or queries Git for the current tip; never write a not-yet-created final
+SHA into the same commit. A docs-only or Skill-only commit does not require idle warm slots to move; the next
+Acquire advances its task base lazily when dependency inputs match.
 
 ## Fingerprint
 
@@ -59,6 +72,11 @@ The only maintenance entrypoint is `scripts/codex/dependency-maintenance.ps1`. I
 mode creates a single-use local authorization record just before the exact offline pnpm child process
 starts and removes it on every exit path. Its install branch passes the calculated project-local
 `runtime/pnpm-store` target.
+
+Before warm materialization, freeze the target slot, project-local store, lockfile, and toolchain inputs;
+record an ignored per-slot ledger of attempt, reason, outcome, and fingerprint, and never repeat a successful
+fingerprint. Do not manufacture outputs the project does not use; an unconfigured `.tsbuildinfo` is not a
+health requirement.
 
 Expected reuse output is:
 

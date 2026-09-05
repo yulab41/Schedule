@@ -48,6 +48,8 @@ An expired lease is not reclaimed merely because a conversation ended. Reclaim r
 the recorded process/session is absent, the TTL is exceeded, the worktree is clean, no child or related
 process remains, and the slot identity, `HEAD`, and registration still match. If any check is uncertain,
 leave the lease in place and fail closed.
+For an unrelated historical lease during closeout, perform this ownership/process check once; if evidence
+remains uncertain, retain it and finish without waiting or polling.
 
 ## Bootstrap after reuse
 
