@@ -27,9 +27,9 @@ For an authorized upload, allocate the version only through the runbook's exclus
 
 Before an experience upload:
 
-1. Enter `L3`, establish the exact clean SHA, complete the required version-independent gates, and run the worktree checker with `-RequireReady -ExpectedCommit <sha>`.
+1. Enter `L3`, establish the exact clean SHA, complete the required version-independent gates, promote the owned warm lease through the existing release helper, and run the worktree checker with `-RequireReady -ExpectedCommit <sha> -WorktreePath <slot> -LeaseToken <token> -RunId <taskId>`.
 2. Apply the canonical locked version-allocation procedure. Stop on an unavailable lock, uncertain occupied-version state, or tuple conflict.
-3. Build the version-bound production artifact, then run the checker with `-RequireReady -ExpectedCommit <sha> -ForMiniprogramUpload -MiniProgramVersion <version>`. Confirm `build-profile.json` binds the same version and SHA, reports a clean build, and contains no `version=local` fallback; bind its upload Manifest to the same immutable identity.
+3. Build the version-bound production artifact in that slot's own `apps/miniprogram/dist`, then repeat the same checker arguments plus `-ForMiniprogramUpload -MiniProgramVersion <version>`. Confirm `build-profile.json` binds the same version and SHA, reports a clean build newer than lease preparation, and contains no `version=local` fallback; bind its upload Manifest to the same immutable identity.
 4. Report the change, short SHA, allocated version/description, dirty-tree state, Manifest, and test pages; obtain the user's explicit approval for this upload in the current message.
 5. Revalidate the allocation and relevant dynamic baseline immediately before using the existing Node `miniprogram-ci` runbook. An upload does not authorize review submission or formal publication.
 

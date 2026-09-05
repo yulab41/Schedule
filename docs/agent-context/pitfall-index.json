@@ -2,6 +2,17 @@
   "schemaVersion": 1,
   "pitfalls": [
     {
+      "id": "leased-upload-candidate",
+      "state": "fixed-guarded",
+      "signals": ["release worktree must use the fixed path", "upload lease", "上传检查器", "releaseCandidate"],
+      "paths": ["scripts/prepare-release-worktree.mjs", "scripts/codex/release-candidate-core.mjs", ".agents/skills/schedule-project-guardrails/scripts/check-worktree-safety.ps1", "apps/miniprogram/scripts/miniprogram-ci-helpers.mjs", "apps/miniprogram/scripts/trial-lineage.mjs"],
+      "detail": "docs/agent-context/pitfalls/leased-upload-candidate.md",
+      "guard": "scripts/codex/release-candidate-core.test.mjs",
+      "validation": "node --test scripts/codex/release-candidate-core.test.mjs && pnpm --filter @schedule/miniprogram exec vitest run scripts/upload-worktree-gate.test.mjs scripts/trial-upload-lock.test.mjs scripts/trial-lineage.test.mjs",
+      "lastVerifiedAt": "2026-09-05",
+      "staleWhen": ["pool root, slot/lease schema, owner or expiry semantics change", "CI entry or candidate output/manifest checks change", "the real candidate checker or regression guard fails"]
+    },
+    {
       "id": "mini-feedback-portal-and-switch",
       "state": "fixed-guarded",
       "signals": [

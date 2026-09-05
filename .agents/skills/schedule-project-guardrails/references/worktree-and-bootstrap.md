@@ -27,9 +27,9 @@ install dependencies. Task routing performs Acquire separately.
 - `runtime/wt`, `runtime/codex`, and `runtime/pnpm-store` are exact ignored project-local paths. They
   are excluded from workspace and tool discovery, while other managed `runtime/` evidence remains
   governed by the existing scoped rules.
-- Final-candidate work uses the repository-managed fixed short path `$REPO_ROOT/runtime/release-worktree`. Use the existing helper; never create a worktree inside another candidate, beneath a package, or in a deeper ad hoc directory.
-- Before using a candidate, run `scripts/check-worktree-safety.ps1`. A wrong, linked, unregistered, branch-attached, dirty, or commit-mismatched path fails closed. The checker never creates, cleans, switches, or deletes it.
-- Only the existing release helper may create or advance the managed path. Do not delete/recreate it to solve dependency or line-ending symptoms.
+- Final upload candidates use an exclusive healthy direct-child `runtime/wt` slot. The existing release helper freezes its already checked-out clean SHA and records upload purpose/expiry in the same owned lease; see [candidate routing](release-candidate.md).
+- Before building and uploading, run the existing `scripts/check-worktree-safety.ps1` with exact path, SHA, lease token and RUN_ID. Wrong, linked, unregistered, foreign, expired, development-only, branch-attached, dirty or commit-mismatched candidates fail closed. The checker never mutates them.
+- Do not resurrect, delete or recreate the retired `runtime/release-worktree`, copy dependencies, or create nested/cold candidates to satisfy a legacy path assumption.
 
 Start recursive audits with explicit allowlists/exclusions for `.git`, `node_modules`, `dist`, `runtime/wt`,
 `runtime/codex`, and recovery/evidence roots. Before archive or delete, require a worktree gitfile/metadata,

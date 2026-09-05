@@ -1,13 +1,13 @@
 /**
- * Prepare one persistent detached worktree for exact-commit release builds.
+ * Prepare an already owned warm pool worktree for an exact-commit upload.
  *
  * The worktree is isolated under runtime/ inside the repository, while its ignored
  * node_modules directory survives commit changes. Dependencies are never installed
  * by this helper; a matching healthy environment is required before a release build.
  *
  * Usage:
- *   node scripts/prepare-release-worktree.mjs
- *   node scripts/prepare-release-worktree.mjs --commit <ref> --path <absolute-path>
+ *   node scripts/prepare-release-worktree.mjs --commit <ref> --path <leased-pool-path>
+ *     --lease-token <token> --run-id <taskId> --purpose upload
  */
 
 /* global console, process */
@@ -18,10 +18,13 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { PNPM_INSTALL_ARGUMENTS as SHARED_PNPM_INSTALL_ARGUMENTS } from './codex/worktree-deps-core.mjs';
 import {
-  PNPM_INSTALL_ARGUMENTS as SHARED_PNPM_INSTALL_ARGUMENTS,
-  ensureWorktreeDependencies,
-} from './codex/worktree-deps-core.mjs';
+  assertApprovedPoolPath,
+  assertNoPathLinks,
+  inspectReleaseCandidate,
+  prepareReleaseCandidate,
+} from './codex/release-candidate-core.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_CHECKOUT_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
@@ -44,7 +47,6 @@ function resolveCanonicalProjectHome() {
 const ROOT = resolveCanonicalProjectHome();
 const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
 export const RELEASE_RUNTIME_ROOT = path.join(ROOT, 'runtime');
-export const DEFAULT_RELEASE_WORKTREE_PATH = path.join(ROOT, 'runtime', 'release-worktree');
 export const PNPM_INSTALL_ARGUMENTS = SHARED_PNPM_INSTALL_ARGUMENTS;
 
 function fail(message) {
@@ -52,7 +54,16 @@ function fail(message) {
 }
 
 export function parseArguments(arguments_) {
-  const result = { commit: 'HEAD', json: false, worktreePath: undefined };
+  const result = {
+    commit: 'HEAD',
+    json: false,
+    worktreePath: undefined,
+    leaseToken: undefined,
+    runId: undefined,
+    purpose: undefined,
+    ttlMinutes: 120,
+    checkOnly: false,
+  };
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
@@ -60,13 +71,25 @@ export function parseArguments(arguments_) {
       result.json = true;
       continue;
     }
-    if (argument === '--commit' || argument === '--path') {
+    if (argument === '--check-only') {
+      result.checkOnly = true;
+      continue;
+    }
+    if (
+      ['--commit', '--path', '--lease-token', '--run-id', '--purpose', '--ttl-minutes'].includes(
+        argument,
+      )
+    ) {
       const value = arguments_[index + 1];
       if (value === undefined || value.startsWith('--')) {
         fail(`${argument} 缺少值。`);
       }
       if (argument === '--commit') result.commit = value;
-      else result.worktreePath = path.resolve(value);
+      else if (argument === '--path') result.worktreePath = value;
+      else if (argument === '--lease-token') result.leaseToken = value;
+      else if (argument === '--run-id') result.runId = value;
+      else if (argument === '--purpose') result.purpose = value;
+      else result.ttlMinutes = Number(value);
       index += 1;
       continue;
     }
@@ -162,91 +185,13 @@ function git(arguments_, options = {}) {
   return run('git', arguments_, options);
 }
 
-function canonicalPath(value) {
-  const resolved = path.resolve(value);
-  return process.platform === 'win32' ? resolved.toLocaleLowerCase('en-US') : resolved;
-}
-
 export function assertSafeTarget(target) {
-  const runtimeRoot = canonicalPath(RELEASE_RUNTIME_ROOT);
-  const candidate = canonicalPath(target);
-  const relativeFromRuntime = path.relative(runtimeRoot, candidate);
-
-  if (
-    candidate === runtimeRoot ||
-    relativeFromRuntime.startsWith('..') ||
-    path.isAbsolute(relativeFromRuntime)
-  ) {
-    fail('发布 worktree 必须位于仓库 runtime 子目录内，不能使用项目外路径。');
-  }
-
-  if (fs.existsSync(RELEASE_RUNTIME_ROOT) && fs.lstatSync(RELEASE_RUNTIME_ROOT).isSymbolicLink()) {
-    fail('仓库 runtime/ 不得是符号链接或目录联接。');
-  }
-  let current = RELEASE_RUNTIME_ROOT;
-  for (const segment of relativeFromRuntime.split(path.sep)) {
-    current = path.join(current, segment);
-    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) {
-      fail(`发布 worktree 路径不得穿过符号链接或目录联接：${current}`);
-    }
-  }
+  assertApprovedPoolPath(ROOT, target);
+  assertNoPathLinks(ROOT, target);
 }
 
 function resolveCommit(reference) {
   return git(['rev-parse', '--verify', `${reference}^{commit}`]).stdout.trim();
-}
-
-function assertCleanWorktree(worktreeRoot) {
-  const unstagedClean =
-    git(['diff', '--quiet', '--exit-code'], { allowFailure: true, cwd: worktreeRoot }).status === 0;
-  const stagedClean =
-    git(['diff', '--cached', '--quiet', '--exit-code'], {
-      allowFailure: true,
-      cwd: worktreeRoot,
-    }).status === 0;
-  const untracked = git(['ls-files', '--others', '--exclude-standard'], {
-    cwd: worktreeRoot,
-  }).stdout.trim();
-  if (!unstagedClean || !stagedClean || untracked !== '') {
-    const detail = git(['status', '--short'], { cwd: worktreeRoot }).stdout.trim();
-    fail(`复用目录存在未提交或未忽略内容，已停止以免覆盖：${worktreeRoot}\n${detail}`);
-  }
-}
-
-function prepareRegisteredWorktree(target, commit) {
-  const registered = parseWorktreeList(git(['worktree', 'list', '--porcelain']).stdout);
-  const entry = registered.find(
-    (candidate) => canonicalPath(candidate.path) === canonicalPath(target),
-  );
-
-  if (entry === undefined) {
-    if (fs.existsSync(target)) {
-      fail(`目标目录已存在但不是本仓库登记的 worktree，拒绝接管：${target}`);
-    }
-    fail(
-      `TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV\nDEPENDENCIES_REUSED=false\nINSTALL_INVOKED=false\nWORKTREE_CREATED=false\nNo existing warm release worktree is registered: ${target}`,
-    );
-  }
-
-  if (!entry.detached || entry.branch !== undefined) {
-    fail(`目标 worktree 挂载了分支，拒绝将用户分支改作发布目录：${target}`);
-  }
-  if (!fs.existsSync(target)) {
-    fail(`Git 仍登记发布 worktree，但目录不存在；请先人工执行 git worktree repair：${target}`);
-  }
-
-  assertCleanWorktree(target);
-  // Content/index/untracked checks above prove there is no user work to lose. Force only the
-  // tracked checkout so stat-only CRLF→LF noise cannot block the managed worktree; ignored
-  // node_modules and release caches remain intact.
-  git(['checkout', '--force', '--detach', commit], { cwd: target });
-  assertCleanWorktree(target);
-  return false;
-}
-
-function trackedDependencyInputs(worktreeRoot) {
-  const source = git(['ls-files', '-z'], { cwd: worktreeRoot }).stdout;
-  return collectDependencyInputs(source.split('\0').filter(Boolean));
 }
 
 export function resolvePnpmInvocation(
@@ -288,33 +233,31 @@ export function stripPnpmBuildPlaceholders(source) {
 
 export function main(arguments_ = process.argv.slice(2)) {
   const options = parseArguments(arguments_);
-  const target = options.worktreePath ?? DEFAULT_RELEASE_WORKTREE_PATH;
+  if (!options.worktreePath || !options.leaseToken || !options.runId) {
+    fail(
+      'Use --path, --lease-token and --run-id from an exclusive Acquire; TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV',
+    );
+  }
+  const target = options.worktreePath;
   assertSafeTarget(target);
 
   const commit = resolveCommit(options.commit);
-  const created = prepareRegisteredWorktree(target, commit);
-  const dependencyState = ensureWorktreeDependencies({
+  const candidateOptions = {
     worktree: target,
-    mode: 'ReuseOnly',
-    adoptHealthyExisting: true,
-    json: options.json,
-  });
-  if (dependencyState.taskStatus !== 'READY_REUSE' || !dependencyState.dependenciesReused) {
-    fail(
-      [
-        `TASK_STATUS=${dependencyState.taskStatus}`,
-        'DEPENDENCIES_REUSED=false',
-        'INSTALL_INVOKED=false',
-        'WORKTREE_CREATED=false',
-        ...(dependencyState.reasons ?? []).map((reason) => `INVALIDATION_REASON=${reason}`),
-      ].join('\n'),
-    );
-  }
-  assertCleanWorktree(target);
+    expectedCommit: commit,
+    leaseToken: options.leaseToken,
+    runId: options.runId,
+    purpose: options.purpose,
+    ttlMinutes: options.ttlMinutes,
+  };
+  const checked = options.checkOnly
+    ? inspectReleaseCandidate(candidateOptions)
+    : prepareReleaseCandidate(candidateOptions);
 
   const result = {
+    ...checked,
     commit,
-    created,
+    created: false,
     dependencies: 'reused',
     path: target,
   };

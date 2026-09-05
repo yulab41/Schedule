@@ -6,18 +6,23 @@ import {
   APP_ROOT,
   ARTIFACT_ROOT,
   buildMiniProgram,
+  createFileManifest,
   readProfileArgument,
   sha256,
 } from './build-tools.mjs';
 import {
   assertBuildProfileMatchesCandidate,
   allocateNextTrialVersion,
+  bindTrialManifest,
   confirmTrialCandidate,
   inspectTrialCandidate,
   readBuildProfile,
+  recordTrialAllocation,
   reserveTrialVersion,
   writeTrialReceipt,
+  withTrialUploadLock,
 } from './trial-lineage.mjs';
+import { inspectReleaseCandidate } from '../../../scripts/codex/release-candidate-core.mjs';
 
 const ALLOWED_ACTIONS = new Set(['preview', 'upload-experience']);
 const DEFAULT_ROBOT = 1;
@@ -164,7 +169,40 @@ async function loadProjectIdentity() {
   return { appid };
 }
 
-export async function runCiCommand(
+export function checkUploadCandidate(environment, output = {}) {
+  return inspectReleaseCandidate({
+    worktree: REPOSITORY_ROOT,
+    runId: requiredText(environment.SCHEDULE_UPLOAD_RUN_ID, 'SCHEDULE_UPLOAD_RUN_ID'),
+    leaseToken: requiredText(
+      environment.SCHEDULE_WORKTREE_LEASE_TOKEN,
+      'SCHEDULE_WORKTREE_LEASE_TOKEN',
+    ),
+    expectedCommit: requiredText(environment.SCHEDULE_UPLOAD_COMMIT, 'SCHEDULE_UPLOAD_COMMIT'),
+    ...output,
+  });
+}
+
+function verifyBuildManifest(buildResult, expected) {
+  const actual = sha256(
+    JSON.stringify(
+      createFileManifest(buildResult.outputDirectory, new Set(['build-manifest.json'])),
+    ),
+  );
+  if (actual !== expected) throw new Error('Upload output changed after build; manifest mismatch.');
+}
+
+export async function runCiCommand(options, environment = process.env, dependencyOverrides = {}) {
+  if (options.action === 'upload-experience' && !options.dryRun) {
+    await (dependencyOverrides.checkUploadCandidate ?? checkUploadCandidate)(environment);
+    return (dependencyOverrides.withTrialUploadLock ?? withTrialUploadLock)(
+      { repositoryRoot: REPOSITORY_ROOT, runId: environment.SCHEDULE_UPLOAD_RUN_ID },
+      () => executeCiCommand(options, environment, dependencyOverrides),
+    );
+  }
+  return executeCiCommand(options, environment, dependencyOverrides);
+}
+
+async function executeCiCommand(
   { action, dryRun, profile },
   environment = process.env,
   dependencyOverrides = {},
@@ -172,7 +210,9 @@ export async function runCiCommand(
   const dependencies = {
     assertBuildProfileMatchesCandidate,
     allocateNextTrialVersion,
+    bindTrialManifest,
     buildMiniProgram,
+    checkUploadCandidate,
     configureMiniprogramCiModulePath,
     confirmTrialCandidate,
     inspectTrialCandidate,
@@ -182,9 +222,11 @@ export async function runCiCommand(
     },
     loadProjectIdentity,
     readBuildProfile,
+    recordTrialAllocation,
     reserveTrialVersion,
     resolveCiCredentials,
     writeTrialReceipt,
+    verifyBuildManifest,
     ...dependencyOverrides,
   };
   const isRealTrialUpload = action === 'upload-experience' && !dryRun;
@@ -208,6 +250,7 @@ export async function runCiCommand(
         version: metadata.version,
       })
     : null;
+  if (inspectedCandidate !== null) await dependencies.recordTrialAllocation(inspectedCandidate);
   const buildResult = await dependencies.buildMiniProgram({
     ...(inspectedCandidate === null
       ? {}
@@ -271,6 +314,17 @@ export async function runCiCommand(
   const confirmedCandidate = await dependencies.confirmTrialCandidate(inspectedCandidate);
   const buildProfile = await dependencies.readBuildProfile(buildResult.outputDirectory);
   dependencies.assertBuildProfileMatchesCandidate(buildProfile, confirmedCandidate);
+  await dependencies.checkUploadCandidate(environment, {
+    forUpload: true,
+    version: confirmedCandidate.version,
+    outputDirectory: buildResult.outputDirectory,
+  });
+  await dependencies.verifyBuildManifest(buildResult, manifestDigest);
+  await dependencies.bindTrialManifest({
+    candidate: confirmedCandidate,
+    manifestDigest,
+    buildTime: buildProfile.buildTime,
+  });
   const reservation = await dependencies.reserveTrialVersion({
     head: confirmedCandidate.head,
     repositoryRoot: confirmedCandidate.repositoryRoot,

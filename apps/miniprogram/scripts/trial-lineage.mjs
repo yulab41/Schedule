@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rmdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { assertNoPathLinks } from '../../../scripts/codex/release-candidate-core.mjs';
 
 const execFileAsync = promisify(execFile);
 const THIS_FILE = fileURLToPath(import.meta.url);
@@ -439,7 +441,16 @@ export async function allocateNextTrialVersion(
   validateTrialConfiguration(history, policy);
   const tags = await listRemoteTrialTags(runGit, path.resolve(repositoryRoot), policy);
   const highestRemoteSequence = tags.reduce((highest, tag) => Math.max(highest, tag.sequence), 0);
-  const nextSequence = Math.max(policy.lastSequence, highestRemoteSequence) + 1;
+  const allocations = await (options.readLocalTrialAllocations ?? readLocalTrialAllocations)(
+    repositoryRoot,
+    options,
+  );
+  const highestLocalSequence = allocations.reduce(
+    (highest, record) => Math.max(highest, parseTrialVersion(record.version, policy).sequence),
+    0,
+  );
+  const nextSequence =
+    Math.max(policy.lastSequence, highestRemoteSequence, highestLocalSequence) + 1;
   return `${policy.versionPrefix}.${formatTrialDate(now)}.${nextSequence}`;
 }
 
@@ -838,6 +849,181 @@ async function defaultVerifyIgnored(receiptPath, { runGit, storageRoot }) {
     [0, 1],
   );
   return result.code === 0;
+}
+
+async function localTrialContext(repositoryRoot, options) {
+  const runGit = options.runGit ?? defaultRunGit;
+  const context =
+    options.receiptRoot === undefined
+      ? await resolveDefaultReceiptContext(runGit, repositoryRoot)
+      : {
+          receiptRoot: path.resolve(options.receiptRoot),
+          storageRoot: path.resolve(repositoryRoot),
+        };
+  const allowed = await (options.verifyIgnored ?? defaultVerifyIgnored)(context.receiptRoot, {
+    runGit,
+    storageRoot: context.storageRoot,
+  });
+  if (!allowed) throw new Error('Trial allocation/manifest directory must be ignored.');
+  assertNoPathLinks(context.storageRoot, context.receiptRoot);
+  return context;
+}
+
+export async function readLocalTrialAllocations(repositoryRoot = REPOSITORY_ROOT, options = {}) {
+  const context = await localTrialContext(repositoryRoot, options);
+  let names;
+  try {
+    names = await readdir(context.receiptRoot);
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+  const records = [];
+  for (const name of names.filter((value) => value.endsWith('.allocation.json'))) {
+    const file = path.join(context.receiptRoot, name);
+    assertNoPathLinks(context.storageRoot, file);
+    const record = JSON.parse(await readFile(file, 'utf8'));
+    if (record.schemaVersion !== 1 || record.profile !== 'production')
+      throw new Error('Malformed trial allocation record.');
+    requireFullCommit(record.commit, 'Trial allocation commit');
+    parseTrialVersion(record.version, options.policy ?? loadTrialPolicy());
+    if (name !== `${record.version}.allocation.json`)
+      throw new Error('Trial allocation filename mismatch.');
+    records.push(record);
+  }
+  return records;
+}
+
+async function immutableTrialRecord(file, record, fields) {
+  try {
+    await writeFile(file, `${JSON.stringify(record, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    const existing = JSON.parse(await readFile(file, 'utf8'));
+    if (fields.some((field) => existing[field] !== record[field]))
+      throw new Error('Immutable trial allocation/manifest tuple conflict.');
+    return existing;
+  }
+  return record;
+}
+
+export async function recordTrialAllocation(candidate, options = {}) {
+  const version = parseTrialVersion(candidate.version, options.policy ?? loadTrialPolicy()).version;
+  const commit = requireFullCommit(candidate.head, 'Trial allocation commit');
+  if (candidate.profile !== 'production') throw new Error('Trial allocation requires production.');
+  const context = await localTrialContext(candidate.repositoryRoot ?? REPOSITORY_ROOT, options);
+  await mkdir(context.receiptRoot, { recursive: true });
+  const file = path.join(context.receiptRoot, `${version}.allocation.json`);
+  assertNoPathLinks(context.storageRoot, file);
+  return immutableTrialRecord(
+    file,
+    {
+      schemaVersion: 1,
+      version,
+      commit,
+      profile: 'production',
+      description: candidate.description,
+      allocatedAt: new Date().toISOString(),
+    },
+    ['schemaVersion', 'version', 'commit', 'profile', 'description'],
+  );
+}
+
+export async function bindTrialManifest({ candidate, manifestDigest, buildTime }, options = {}) {
+  const allocation = await recordTrialAllocation(candidate, options);
+  if (
+    !MANIFEST_DIGEST_PATTERN.test(manifestDigest ?? '') ||
+    !Number.isFinite(Date.parse(buildTime))
+  )
+    throw new Error('Invalid frozen trial manifest identity.');
+  const context = await localTrialContext(candidate.repositoryRoot ?? REPOSITORY_ROOT, options);
+  const file = path.join(context.receiptRoot, `${allocation.version}.manifest.json`);
+  assertNoPathLinks(context.storageRoot, file);
+  if (candidate.reservation === 'idempotent') {
+    try {
+      await readFile(file, 'utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT')
+        throw new Error('Cannot retry a reserved version without immutable manifest evidence.');
+      throw error;
+    }
+  }
+  await immutableTrialRecord(file, { ...allocation, manifestDigest, buildTime }, [
+    'schemaVersion',
+    'version',
+    'commit',
+    'profile',
+    'description',
+    'manifestDigest',
+    'buildTime',
+  ]);
+  return file;
+}
+
+async function releaseTrialUploadLock(lock, ownerPath, nonce, runId, operationError) {
+  try {
+    const owner = JSON.parse(await readFile(ownerPath, 'utf8'));
+    if (owner.nonce !== nonce || owner.runId !== runId)
+      throw new Error('Upload lock ownership changed; lock retained.');
+    await unlink(ownerPath);
+    await rmdir(lock);
+  } catch (cleanupError) {
+    if (operationError)
+      throw new AggregateError(
+        [operationError, cleanupError],
+        'Upload operation and lock cleanup failed; inspect retained evidence.',
+      );
+    throw cleanupError;
+  }
+}
+
+export async function withTrialUploadLock(
+  { repositoryRoot = REPOSITORY_ROOT, runId },
+  operation,
+  options = {},
+) {
+  requireText(runId, 'Upload RUN_ID');
+  const context = await localTrialContext(repositoryRoot, options);
+  const lock = path.join(context.storageRoot, 'runtime/codex/locks/miniprogram-upload.lock');
+  assertNoPathLinks(context.storageRoot, lock);
+  const runGit = options.runGit ?? defaultRunGit;
+  if (
+    !(await (options.verifyIgnored ?? defaultVerifyIgnored)(lock, {
+      runGit,
+      storageRoot: context.storageRoot,
+    }))
+  )
+    throw new Error('Trial upload lock path must be ignored.');
+  await mkdir(path.dirname(lock), { recursive: true });
+  try {
+    await mkdir(lock);
+  } catch (error) {
+    if (error.code === 'EEXIST')
+      throw new Error('UPLOAD_VERSION_ALLOCATION_BLOCKED: another upload operation owns the lock.');
+    throw error;
+  }
+  const nonce = randomUUID();
+  const ownerPath = path.join(lock, 'owner.json');
+  let operationError;
+  try {
+    await writeFile(
+      ownerPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        nonce,
+        runId,
+        pid: process.pid,
+        acquiredAt: new Date().toISOString(),
+      }),
+      { flag: 'wx' },
+    );
+    return await operation();
+  } catch (error) {
+    operationError = error;
+    throw error;
+  } finally {
+    await releaseTrialUploadLock(lock, ownerPath, nonce, runId, operationError);
+  }
 }
 
 export async function writeTrialReceipt(payload, options = {}) {

@@ -238,7 +238,7 @@ describe('trial lineage history and policy', () => {
     await expect(
       allocateNextTrialVersion(
         { now: new Date('2026-09-05T00:00:00.000Z'), repositoryRoot: 'fixture-root' },
-        { runGit },
+        { runGit, readLocalTrialAllocations: async () => [] },
       ),
     ).resolves.toBe('0.1.0-p10.20260905.89');
     expect(runGit).toHaveBeenCalledWith(
@@ -626,6 +626,18 @@ describe('build identity, receipt, and upload integration', () => {
         WECHAT_CI_VERSION: candidate.version,
       },
       {
+        checkUploadCandidate: async () => order.push('candidate-guard'),
+        withTrialUploadLock: async (_options, operation) => {
+          order.push('lock');
+          try {
+            return await operation();
+          } finally {
+            order.push('unlock');
+          }
+        },
+        recordTrialAllocation: async () => order.push('allocate-record'),
+        bindTrialManifest: async () => order.push('bind-manifest'),
+        verifyBuildManifest: async () => order.push('verify-manifest'),
         assertBuildProfileMatchesCandidate: () => order.push('assert-build-profile'),
         buildMiniProgram: async (options) => {
           order.push('build');
@@ -674,15 +686,22 @@ describe('build identity, receipt, and upload integration', () => {
       version: candidate.version,
     });
     expect(order).toEqual([
+      'candidate-guard',
+      'lock',
       'inspect',
+      'allocate-record',
       'build',
       'configure-ci',
       'confirm',
       'read-build-profile',
       'assert-build-profile',
+      'candidate-guard',
+      'verify-manifest',
+      'bind-manifest',
       'reserve',
       'upload',
       'receipt',
+      'unlock',
     ]);
   });
 
@@ -745,6 +764,11 @@ describe('build identity, receipt, and upload integration', () => {
           WECHAT_CI_VERSION: candidate.version,
         },
         {
+          checkUploadCandidate: () => undefined,
+          withTrialUploadLock: async (_options, operation) => operation(),
+          recordTrialAllocation: () => undefined,
+          bindTrialManifest: () => undefined,
+          verifyBuildManifest: () => undefined,
           assertBuildProfileMatchesCandidate: () => undefined,
           buildMiniProgram: async () => ({
             files: [{ path: 'app.js', sha256: 'fixture' }],

@@ -20,7 +20,17 @@ For Mini Program version selection and immutable version/SHA/Manifest binding, a
 
 ## Candidate invariant
 
-Freeze one target SHA. Prepare it only through the managed `$REPO_ROOT/runtime/release-worktree`, then prove the worktree is registered, detached, clean, and at that SHA with `scripts/check-worktree-safety.ps1 -RequireReady -ExpectedCommit <sha>`. Do not package or upload from the main worktree.
+Freeze one target SHA in an already acquired healthy direct child of the canonical `runtime/wt` pool. The retired `runtime/release-worktree` is not an alternate upload path; do not copy, link or move source into it.
+
+The existing helper promotes only the owning task's lease, under its operation lock:
+
+```text
+node scripts/prepare-release-worktree.mjs --path <leased-slot> --commit <full-sha> --lease-token <token> --run-id <lease-taskId> --purpose upload
+```
+
+It preserves the original registry/token, adds a bounded `releaseCandidate` purpose/commit/output/expiry, and detaches only the already checked-out clean SHA. It never creates a worktree, installs, force-checks out, or takes over a foreign branch. Ordinary development leases are not upload candidates.
+
+Run the skill's `scripts/check-worktree-safety.ps1 -RepoRoot <canonical-root> -WorktreePath <leased-slot> -RequireReady -ExpectedCommit <sha> -LeaseToken <token> -RunId <lease-taskId>`. The checker and helper share one core; they require real direct-child paths without aliases/junctions, registered Git identity, current ownership/heartbeat/purpose/expiry, exact SHA, a clean detached tree, independent healthy dependencies and the slot's own output. Repeat with `-ForMiniprogramUpload -MiniProgramVersion <version>` after a fresh build. Do not package or upload from the main worktree.
 
 Use the canonical [candidate preflight and application evidence rules](testing-and-evidence.md#candidate-preflight).
 

@@ -48,7 +48,9 @@ test('setup wrappers default to ReuseOnly and cannot request maintenance implici
 
 test('release preparation requires a pre-existing reusable environment', () => {
   const release = fs.readFileSync(path.join(root, 'scripts/prepare-release-worktree.mjs'), 'utf8');
-  assert.match(release, /mode:\s*['"]ReuseOnly['"]/u);
+  const core = fs.readFileSync(path.join(root, 'scripts/codex/release-candidate-core.mjs'), 'utf8');
+  assert.match(release, /prepareReleaseCandidate/u);
+  assert.match(core, /mode:\s*['"]ReuseOnly['"]/u);
   assert.match(release, /TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV/u);
   assert.doesNotMatch(release, /runPnpmInstall/iu);
 });

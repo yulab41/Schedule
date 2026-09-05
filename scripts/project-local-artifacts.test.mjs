@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { URL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -26,10 +27,13 @@ describe('project-local generated artifacts', () => {
     expect(gitignore).toMatch(/^\/runtime\/smoke\/$/m);
   });
 
-  it('defaults the reusable release worktree to runtime/release-worktree', () => {
+  it('requires an explicit leased warm candidate instead of taking over a legacy directory', () => {
     const value = source('./prepare-release-worktree.mjs');
-
-    expect(value).toContain("path.join(ROOT, 'runtime', 'release-worktree')");
+    const core = source('./codex/release-candidate-core.mjs');
+    expect(value).toContain('options.worktreePath');
+    expect(value).toContain('options.leaseToken');
+    expect(core).toContain("path.join(root, 'runtime/wt')");
+    expect(core).toContain('assertApprovedPoolPath');
     expect(value).not.toContain(
       'path.join(path.dirname(ROOT), `${path.basename(ROOT)}-release-worktree`)',
     );

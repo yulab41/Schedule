@@ -2590,3 +2590,21 @@
   既有warning保留。工具不能测量真实微信Console/Network/冷启动，原生待用户复核。
 - 根工作区另一项护栏/CI/tripwire修改保持，不混入本轮。checkpoint message：
   fix(miniprogram): restore toast surface and stable switch feedback；UPLOAD_REQUIRED，本轮未授权上传或生产操作，未分配新版本。
+
+## 2026-09-05 WARM-UPLOAD-GUARD-001 上传候选兼容
+
+- 用户明确授权工具兼容/测试/文档/独立提交/普通push、包含cdb759b9应用修复的体验上传，以及add-only allowlist/full verifier。
+- 分类LATENT_COMPATIBILITY_GAP_EXPOSED：76a572a3写死旧release目录；4602120b采用项目内warm池；
+  .88源码84dc966e到cdb759b9的pool/checker/helper零diff。ef6885d0和d10db9fe没有修改布局/schema/checker。
+  .88真实上传编排未调用该checker，成功receipt不是兼容性证明。旧固定目录未登记且无Git文件，保持不动。
+- 现有checker/helper共用候选核心；原真实lease新增受控upload用途、RUN_ID/SHA/own-dist/有效期。
+  严格拒绝根/任意/别名/联接、无lease/异主/失效、开发用途、dirty/非detached/错SHA/混用输出，不增加force/skip。
+- 真实CI前后强制同一门禁；既有版本分配器原子操作锁、不可变本地占用与manifest绑定，保留远端原子tag/血缘。
+- 先红后绿：helper3、CI入口2、真实悬空联接/路径别名及过期负例；Git旧分配器复用已占用fixture版本，当前正确跳过。
+- Node工具81、root定向25（allowlist5）、Mini上传工具30通过（含真实文件manifest篡改拒绝）；目标lint/JS/PS语法/官方格式/Skill validator通过。
+  Python通用validator缺PyYAML，未安装；以仓库完整validator为准。实际PS入口已证明拒绝脏owned warm候选。
+- 运行/浏览器验证：本轮仅发布工具；业务src tree f505883d01359db826c7a181009e3b98e7ad22e4与cdb759b9相同，
+  复用789通过/11条件skip，未无条件重跑业务或Web浏览器测试；smoke:check-core通过。
+- 并行B0独立任务先完成57d11d70，已安全整合，未修改其活动文件或借用租约。根用户既有10组未跟踪内容保持。
+- 独立checkpoint message：fix(release): align upload checker with leased worktree layout。
+  完整根因/行为/后续实际上传证据见docs/audit/warm-upload-guard-20260905154545.md；当前上传阶段尚待执行，不冒称成功。

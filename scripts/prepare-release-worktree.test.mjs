@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  DEFAULT_RELEASE_WORKTREE_PATH,
+  RELEASE_RUNTIME_ROOT,
   PNPM_INSTALL_ARGUMENTS,
   assertSafeTarget,
   collectDependencyInputs,
@@ -36,30 +36,52 @@ function createTemporaryDirectory() {
 }
 
 describe('reusable isolated release worktree', () => {
-  it('keeps every release worktree inside the repository runtime directory', () => {
-    const runtimeRoot = path.dirname(DEFAULT_RELEASE_WORKTREE_PATH);
+  it('accepts only direct warm pool candidates, never the legacy or nested runtime path', () => {
+    const runtimeRoot = RELEASE_RUNTIME_ROOT;
     const repositoryRoot = path.dirname(runtimeRoot);
-
-    expect(DEFAULT_RELEASE_WORKTREE_PATH).toBe(path.join(runtimeRoot, 'release-worktree'));
-    expect(() => assertSafeTarget(DEFAULT_RELEASE_WORKTREE_PATH)).not.toThrow();
-    expect(() =>
-      assertSafeTarget(path.join(runtimeRoot, 'release-worktree-secondary')),
-    ).not.toThrow();
-    expect(() => assertSafeTarget(runtimeRoot)).toThrow(/runtime 子目录/u);
-    expect(() => assertSafeTarget(repositoryRoot)).toThrow(/runtime 子目录/u);
+    expect(() => assertSafeTarget(path.join(runtimeRoot, 'wt', 'general-1'))).not.toThrow();
+    expect(() => assertSafeTarget(path.join(runtimeRoot, 'release-worktree'))).toThrow(
+      /warm pool/u,
+    );
+    expect(() => assertSafeTarget(path.join(runtimeRoot, 'wt', 'general-1', 'nested'))).toThrow(
+      /warm pool/u,
+    );
+    expect(() => assertSafeTarget(runtimeRoot)).toThrow(/warm pool/u);
+    expect(() => assertSafeTarget(repositoryRoot)).toThrow(/warm pool/u);
     expect(() =>
       assertSafeTarget(path.join(path.dirname(repositoryRoot), 'Schedule-release')),
-    ).toThrow(/runtime 子目录/u);
+    ).toThrow(/warm pool/u);
   });
 
   it('defaults to HEAD and accepts an explicit commit and absolute worktree path', () => {
-    expect(parseArguments([])).toEqual({ commit: 'HEAD', json: false, worktreePath: undefined });
+    expect(parseArguments([])).toEqual({
+      commit: 'HEAD',
+      json: false,
+      worktreePath: undefined,
+      leaseToken: undefined,
+      runId: undefined,
+      purpose: undefined,
+      ttlMinutes: 120,
+      checkOnly: false,
+    });
 
     const worktreePath = path.resolve('E:/isolated/schedule-release');
     expect(parseArguments(['--commit', 'abc1234', '--path', worktreePath, '--json'])).toEqual({
       commit: 'abc1234',
       json: true,
       worktreePath,
+      leaseToken: undefined,
+      runId: undefined,
+      purpose: undefined,
+      ttlMinutes: 120,
+      checkOnly: false,
+    });
+    expect(
+      parseArguments(['--path', worktreePath, '--lease-token', 'owner-token', '--check-only']),
+    ).toMatchObject({
+      worktreePath,
+      leaseToken: 'owner-token',
+      checkOnly: true,
     });
   });
 
@@ -161,8 +183,13 @@ describe('reusable isolated release worktree', () => {
       new URL('./prepare-release-worktree.mjs', import.meta.url),
       'utf8',
     );
-    expect(source).toContain("mode: 'ReuseOnly'");
-    expect(source).toContain('ensureWorktreeDependencies');
+    const core = fs.readFileSync(
+      new URL('./codex/release-candidate-core.mjs', import.meta.url),
+      'utf8',
+    );
+    expect(source).toContain('prepareReleaseCandidate');
+    expect(core).toContain("mode: 'ReuseOnly'");
+    expect(core).toContain('ensureWorktreeDependencies');
     expect(source).not.toContain('runPnpmInstall');
   });
 
@@ -192,13 +219,14 @@ describe('reusable isolated release worktree', () => {
 
   it('checks content, index, and untracked files instead of rejecting stat-only EOL noise', () => {
     const source = fs.readFileSync(
-      new URL('./prepare-release-worktree.mjs', import.meta.url),
+      new URL('./codex/release-candidate-core.mjs', import.meta.url),
       'utf8',
     );
     expect(source).not.toContain("['status', '--porcelain=v1', '--untracked-files=all']");
     expect(source).toContain("['diff', '--quiet', '--exit-code']");
     expect(source).toContain("['diff', '--cached', '--quiet', '--exit-code']");
     expect(source).toContain("['ls-files', '--others', '--exclude-standard']");
-    expect(source).toContain("['checkout', '--force', '--detach', commit]");
+    expect(source).not.toContain("['checkout', '--force', '--detach', commit]");
+    expect(source).toContain("['switch', '--detach', current.head]");
   });
 });

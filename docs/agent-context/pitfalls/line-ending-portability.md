@@ -9,7 +9,7 @@ working tree needs one-time LF materialization. Never run broad `git add --renor
 user worktree; new/managed worktrees should rematerialize only tracked files while preserving
 ignored dependencies and caches.
 
-The managed release helper first proves content diff, cached diff, and untracked state are clean,
-then uses a forced detached tracked checkout. This is required because Git may otherwise reject
-stat-only CRLF→LF noise even when blob hashes are identical; never copy that force behavior to an
-ordinary user worktree.
+The current upload helper proves content diff, cached diff, untracked state and lease ownership are
+clean, then detaches only the already checked-out SHA with a normal switch. It does not force a
+checkout or rematerialize a retired directory. If stat-only CRLF→LF noise prevents that operation,
+diagnose the exact file/index difference; never copy another task's source or output to pass it.

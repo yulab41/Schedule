@@ -35,6 +35,9 @@ WECHAT_CI_PRIVATE_KEY_PATH  仓库外的上传私钥绝对路径
 WECHAT_CI_ROBOT             1–30，默认 1
 WECHAT_CI_VERSION           可省略；省略时由正式 helper 根据 tracked history 与远端 reservation 动态分配，显式值只用于已核验的幂等重试
 WECHAT_CI_DESCRIPTION       upload-experience 必填，最多 80 字符且必须包含当前七位短 SHA
+SCHEDULE_UPLOAD_RUN_ID      当前有效上传用途 lease 的 taskId
+SCHEDULE_WORKTREE_LEASE_TOKEN  本任务正式 Acquire 返回的拥有者 token
+SCHEDULE_UPLOAD_COMMIT      准备上传用途时冻结的完整 SHA
 ```
 
 ## 体验版版本分配与不可变身份
@@ -55,6 +58,17 @@ pnpm --filter @schedule/miniprogram ci:dry-run
 真实上传前必须在轮次记录中绑定 Git 提交、构建 profile、版本号和说明；上传完成后记录微信平台返回结果。上传密钥只接受仓库外绝对路径，不接受把密钥内容粘贴进仓库、日志或聊天回显。
 
 ## 体验版血缘与版本占用
+
+真实 CI 入口在读取/分配版本前及构建后均执行同一个正式候选检查器。必须先通过现有
+`scripts/prepare-release-worktree.mjs --path <owned-slot> --commit <sha> --lease-token <token> --run-id <taskId> --purpose upload`
+准备槽位；它只在原有效租约中追加有时限的上传用途，不创建第二套 lease registry。
+`runtime/release-worktree` 旧固定路径不再作为候选；普通开发、失效、其他任务、脏树及混用输出均拒绝。
+
+上传入口持有 canonical ignored `runtime/codex/locks/miniprogram-upload.lock`，覆盖版本选择、构建、tag预约和上传。
+分配器同时读取 tracked floor、远端 tag 和同一 `runtime/audit/miniprogram-trials/` 下的不可变 `.allocation.json`；
+构建失败但尚未创建远端 tag 的号码也不会再次分给其他源码。`.manifest.json` 在 tag 前绑定版本/SHA/Manifest；
+有冲突或无法证明原Manifest的旧版本重试失败关闭。释放操作锁不会删除已占用号码或 `.88` 的记录。
+`ci:dry-run` 仍然不读凭据、不创建tag、不写分配记录；版本锁/占用 dry-run 使用隔离测试fixture，不伪造平台成功。
 
 `upload-experience` 自动执行 fail-closed 门禁，调用者不能跳过：
 

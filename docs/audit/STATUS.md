@@ -2,6 +2,11 @@
 
 ## 当前阶段
 
+- 当前为`WARM-UPLOAD-GUARD-001`（`warm-upload-guard-20260905154545`）：用户已明确授权发布工具兼容修复、
+  独立提交/普通push、新体验版上传及精确allowlist/full production verifier。工具136项定向检查已通过。
+  应用src与cdb759b9完全相同，复用789通过/11条件skip；不改业务。详见`docs/audit/warm-upload-guard-20260905154545.md`。
+  本轮下一步为独立工具checkpoint与真实clean候选验证，然后直接完成已授权上传；不再次询问、不进入其他批次。
+- 以下MINI-FEEDBACK及UI-009为前序事实，不代表本轮已上传。
 - 当前批次为`MINI-FEEDBACK-REGRESSION-001`（`mini-toast-switch-20260905133316`），用户反馈通知背景缺失和开关闪烁。
   两项已修复，78定向、789项Mini全量、28通知绘制、36开关绘制及CI dry-run均通过；详细事实见
   `docs/audit/mini-toast-switch-20260905133316.md`。原生层待用户复核，`UPLOAD_REQUIRED`。
@@ -130,7 +135,7 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## 当前唯一下一任务与停止条件
 
-- 当前两项代码与自动验证完成，checkpoint message为`fix(miniprogram): restore toast surface and stable switch feedback`。
-  完成正常提交/推送并安全释放本轮租约；实时结果见Git及ignored任务状态。
-- 之后只在取得当次授权时准备本次修复体验版，授权前停止版本分配/上传；不自动开展其他审计批次。
-  前序.88不含本轮修复。未调用DevTools、未连接/部署ECS、未做生产备份、白名单修改或数据库迁移。
+- 当前工具checkpoint message：`fix(release): align upload checker with leased worktree layout`。
+  完成clean候选/最终main/动态版本/新production构建与全部输出门禁、精确allowlist和完整verifier、上传回执核对后停止。
+- 前序.88不含本轮应用修复，不复用或覆盖。只读SSH预检已完成；当前未修改allowlist、未上传新版本。
+  不调用DevTools，不提审/正式发布，不部署ECS/数据库或迁移，不宣称Xiaomi14验收通过。
