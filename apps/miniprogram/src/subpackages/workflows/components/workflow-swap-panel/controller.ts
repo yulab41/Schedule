@@ -121,6 +121,7 @@ interface SwapPageData {
   readonly revokeReason: string;
   readonly revokeVisible: boolean;
   readonly settingsBusy: boolean;
+  readonly shellHeaderHeight: number;
   readonly shellHeaderStyle: string;
   readonly state: PageState;
   readonly targetAssignmentIndex: number;
@@ -222,6 +223,7 @@ export function createSwapPanelControllerDefinition(embedded = false) {
       revokeReason: '',
       revokeVisible: false,
       settingsBusy: false,
+      shellHeaderHeight: 64,
       shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
       state: 'loading',
       targetAssignmentIndex: -1,
@@ -1309,13 +1311,14 @@ function unique(values: readonly string[]): string[] {
 
 function createShellLayoutPatch(): Pick<
   SwapPageData,
-  'pageScrollStyle' | 'shellHeaderStyle' | 'viewportClass'
+  'pageScrollStyle' | 'shellHeaderHeight' | 'shellHeaderStyle' | 'viewportClass'
 > {
   const windowInfo = wx.getWindowInfo();
   const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
   const headerHeight = statusBarHeight + 52;
   return {
     pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+    shellHeaderHeight: headerHeight,
     shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
     viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
   };

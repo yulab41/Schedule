@@ -1,0 +1,16 @@
+<root-portal enable="{{true}}">
+  <view
+    class="ui-toast__layer {{isVisible ? 'is-visible' : ''}}"
+    style="top:{{safeTopOffset}}px;"
+    aria-hidden="{{!isVisible}}"
+    aria-role="status"
+    aria-label="{{displayTitle + ' ' + displayMessage}}"
+  >
+    <view class="ui-toast ui-toast--{{displayTone}}">
+      <text wx:if="{{displayTitle}}" class="ui-toast__title">{{displayTitle}}</text>
+      <text wx:if="{{displayMessage}}" class="ui-toast__message" max-lines="2"
+        >{{displayMessage}}</text
+      >
+    </view>
+  </view>
+</root-portal>

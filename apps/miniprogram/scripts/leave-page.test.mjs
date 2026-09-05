@@ -62,7 +62,7 @@ describe('P7 native leave workflow page', () => {
     for (const state of ['loading', 'error', 'ready']) {
       expect(template).toContain(`state === '${state}'`);
     }
-    for (const tone of ['is-warning', 'is-success', 'is-danger']) {
+    for (const tone of ['is-warning', 'tone="success"', 'is-danger']) {
       expect(template).toContain(tone);
     }
     expect(template).not.toMatch(/<t-|tdesign|<button|<scroll-view[^>]*scroll-x/iu);

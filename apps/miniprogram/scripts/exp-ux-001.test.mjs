@@ -253,6 +253,7 @@ describe('EXP-UX-001 experience feedback contracts', () => {
     const workflows = ['leave', 'swap', 'duty'];
     const directPageConfig = {
       'ui-sheet': '/components/ui/ui-sheet/index',
+      'ui-toast': '/components/ui/ui-toast/index',
       'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
     };
     const legacyHandlers = {

@@ -1,3 +1,10 @@
+<ui-toast
+  visible="{{!!infoMessage && (!embedded || active)}}"
+  title="操作完成"
+  message="{{infoMessage}}"
+  tone="success"
+/>
+
 <view
   class="duty-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
   bindtap="handlePanelBackgroundTap"
@@ -57,9 +64,6 @@
 
         <view wx:if="{{errorMessage}}" class="native-alert is-danger"
           ><text class="alert-title">操作未完成</text><text>{{errorMessage}}</text></view
-        >
-        <view wx:if="{{infoMessage}}" class="native-alert is-success"
-          ><text class="alert-title">操作完成</text><text>{{infoMessage}}</text></view
         >
 
         <view class="settings-row">

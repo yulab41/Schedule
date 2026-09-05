@@ -102,6 +102,7 @@ describe('workflow direct Page registration', () => {
 
       expect(config.usingComponents).toEqual({
         'ui-sheet': '/components/ui/ui-sheet/index',
+        'ui-toast': '/components/ui/ui-toast/index',
         'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
       });
       expect(read(`${root}/index.wxml`).trim()).toBe(

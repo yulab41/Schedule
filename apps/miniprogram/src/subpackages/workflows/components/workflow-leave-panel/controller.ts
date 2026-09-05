@@ -125,6 +125,7 @@ interface LeavePageData {
   readonly pendingApprovalCount: number;
   readonly pendingApprovals: readonly LeaveRequestView[];
   readonly reason: string;
+  readonly shellHeaderHeight: number;
   readonly shellHeaderStyle: string;
   readonly startDate: string;
   readonly startDateDisplay: string;
@@ -224,6 +225,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       pendingApprovalCount: 0,
       pendingApprovals: [],
       reason: '',
+      shellHeaderHeight: 64,
       shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
       startDate: initialDate,
       startDateDisplay: formatDateWithWeekday(initialDate),
@@ -951,13 +953,14 @@ function formatRole(role: GroupSummary['role']): string {
 
 function createShellLayoutPatch(): Pick<
   LeavePageData,
-  'pageScrollStyle' | 'shellHeaderStyle' | 'viewportClass'
+  'pageScrollStyle' | 'shellHeaderHeight' | 'shellHeaderStyle' | 'viewportClass'
 > {
   const windowInfo = wx.getWindowInfo();
   const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
   const headerHeight = statusBarHeight + 52;
   return {
     pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+    shellHeaderHeight: headerHeight,
     shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
     viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
   };

@@ -16,6 +16,8 @@ interface WorkflowPanelHost {
   __controller: ControllerDefinition | undefined;
   __workflowControllerToken?: object;
   __infoMessageTimer?: unknown;
+  __infoMessageToken?: object;
+  __workflowPageHidden?: boolean;
   __loadedGroupId?: string;
   __workflowLifecycleManaged?: true;
   readonly data: Readonly<Record<string, unknown>>;
@@ -88,10 +90,12 @@ export function createWorkflowPageDefinition(
       startWorkflowPageController(this, createDefinition, query, boundaries?.controller);
     },
     onShow(this: WorkflowPageHost): void {
+      resumeWorkflowFeedback(this);
       const onShow = this.__controller?.['onShow'];
       if (typeof onShow === 'function') (onShow as ControllerMethod).call(this);
     },
     onHide(this: WorkflowPageHost): void {
+      suspendWorkflowFeedback(this);
       const onHide = this.__controller?.['onHide'];
       if (typeof onHide === 'function') (onHide as ControllerMethod).call(this);
     },
@@ -157,7 +161,11 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
       },
     },
     pageLifetimes: {
+      hide(this: WorkflowPanelHost): void {
+        suspendWorkflowFeedback(this);
+      },
       show(this: WorkflowPanelHost): void {
+        resumeWorkflowFeedback(this);
         if (!this.properties.active) return;
         const onShow = this.__controller?.['onShow'];
         if (typeof onShow === 'function') {
@@ -224,6 +232,7 @@ function closeWorkflowPickers(host: WorkflowPanelHost): void {
 }
 
 function clearInfoMessageTimer(host: WorkflowPanelHost): void {
+  delete host.__infoMessageToken;
   if (host.__infoMessageTimer === undefined) return;
   clearTimeout(host.__infoMessageTimer);
   host.__infoMessageTimer = undefined;
@@ -231,15 +240,33 @@ function clearInfoMessageTimer(host: WorkflowPanelHost): void {
 
 function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
   clearInfoMessageTimer(host);
-  if (typeof value !== 'string' || value === '') return;
+  if (typeof value !== 'string' || value === '' || host.__workflowPageHidden === true) return;
   const expected = value;
   const task = captureWorkflowControllerTask(host);
+  if (!task.isCurrent()) return;
+  const token = {};
+  host.__infoMessageToken = token;
   host.__infoMessageTimer = setTimeout(() => {
+    if (host.__infoMessageToken !== token) return;
+    delete host.__infoMessageToken;
     host.__infoMessageTimer = undefined;
     if (task.isCurrent() && host.data['infoMessage'] === expected) {
       host.setData({ infoMessage: '' });
     }
   }, 2_000);
+}
+
+function suspendWorkflowFeedback(host: WorkflowPanelHost): void {
+  host.__workflowPageHidden = true;
+  clearInfoMessageTimer(host);
+}
+
+function resumeWorkflowFeedback(host: WorkflowPanelHost): void {
+  if (host.__workflowPageHidden === true && host.__attached === true) {
+    // Hidden-page operations may finish normally, but their old feedback must not reappear.
+    host.setData({ infoMessage: '' });
+  }
+  host.__workflowPageHidden = false;
 }
 
 function startController(
@@ -268,6 +295,7 @@ function attachWorkflowHost(host: WorkflowPanelHost): object {
   const token = {};
   host.__workflowLifecycleManaged = true;
   host.__attached = true;
+  host.__workflowPageHidden = false;
   host.__workflowAttachmentToken = token;
   return token;
 }

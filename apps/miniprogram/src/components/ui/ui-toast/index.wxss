@@ -1,0 +1,86 @@
+.ui-toast__layer {
+  position: fixed;
+  z-index: calc(var(--ui-z-index-dialog) + 100);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity var(--ui-duration-fast) ease-out,
+    transform var(--ui-duration-fast) ease-out;
+}
+
+.ui-toast__layer.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ui-toast {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  max-width: 560px;
+  padding: 10px 22px;
+  pointer-events: none;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius-pill);
+  box-shadow: var(--ui-shadow-elevated);
+  font-family: var(--ui-font-family-system);
+}
+
+.ui-toast--success {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+  border-color: var(--ui-color-success);
+}
+
+.ui-toast--warning {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+  border-color: var(--ui-color-warning);
+}
+
+.ui-toast--error {
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+  border-color: var(--ui-color-danger);
+}
+
+.ui-toast__title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-normal);
+  pointer-events: none;
+}
+
+.ui-toast__message {
+  display: -webkit-box;
+  min-width: 0;
+  max-height: 3.1em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-toast__layer {
+    transition: none;
+    transform: none;
+  }
+}
