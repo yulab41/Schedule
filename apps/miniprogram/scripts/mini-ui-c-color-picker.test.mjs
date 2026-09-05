@@ -176,6 +176,49 @@ describe('task C color picker interaction', () => {
     expect(instance.data.brightness).toBe(1);
   });
 
+  it.each([
+    ['spectrum', 'old-first', '#000000'],
+    ['spectrum', 'latest-first', '#000000'],
+    ['hue', 'old-first', '#00FFFF'],
+    ['hue', 'latest-first', '#00FFFF'],
+  ])(
+    'uses the latest completed %s tap when measurements return %s',
+    async (area, order, expected) => {
+      const instance = await picker('#FF0000');
+      instance.handleCustomToggle();
+      const start = area === 'spectrum' ? 'handleSpectrumStart' : 'handleHueStart';
+      const firstPoint = area === 'spectrum' ? touch(30, 100) : touch(30, 120);
+      const latestPoint = area === 'spectrum' ? touch(230, 200) : touch(130, 120, 2);
+      const first = geometry(instance, undefined, undefined, true);
+      instance[start](event(firstPoint));
+      instance.handleTouchEnd(event(firstPoint, true));
+      const latest = geometry(instance, undefined, undefined, true);
+      instance[start](event(latestPoint));
+      instance.handleTouchEnd(event(latestPoint, true));
+      expect(instance.createSelectorQuery).toHaveBeenCalledOnce();
+      if (order === 'old-first') {
+        first.flush();
+        latest.flush();
+      } else {
+        latest.flush();
+        first.flush();
+      }
+      expect(lastValue(instance)).toBe(expected);
+      expect(instance.triggerEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('continues to ignore a second finger while the first gesture is active', async () => {
+    const instance = await picker();
+    instance.handleCustomToggle();
+    const first = geometry(instance, undefined, undefined, true);
+    instance.handleSpectrumStart(event(touch(30, 100)));
+    instance.handleSpectrumStart(event(touch(230, 200, 2)));
+    expect(instance.createSelectorQuery).toHaveBeenCalledOnce();
+    first.flush();
+    expect(lastValue(instance)).toBe('#FFFFFF');
+  });
+
   it('maps both hue endpoints to red and ignores secondary touches', async () => {
     const instance = await picker('#FF0000');
     instance.handleCustomToggle();

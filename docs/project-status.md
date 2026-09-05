@@ -8,10 +8,10 @@
   用户已确认九项 UI 需求及四路并行、自动集成 main、普通推送、动态版本分配和体验上传。
 - 起始及最近成功 fetch：`origin/main@32792fe47b1c3769bebe14a0632e3de9279e7b32`。
   该 main 尚未包含已完成图标分支 `codex/icon-parity-current-20260904@297ad3d2`；
-  最终集成将保留这条前序同源资产与正式 trial allocator 血缘。本轮不新增 Web 行为修改。
+  集成已保留这条前序同源资产与正式 trial allocator 血缘。本轮相对297ad3d2无 Web/锁文件增量。
 - 集成槽位：`runtime/wt/icon-parity-1`，分支 `codex/mini-ui-20260905001548-integration`。
-  A/B/C 使用 general-1/2/3，D 原 general-4 执行面无响应、未产生修改，已请求关闭，
-  替补在 general-5 独占开发。所有真实任务路径、租约与状态见 ignored
+  A/B/C/D四路已提交、按顺序集成且其开发租约已释放。原D无改动挂起后关闭，general-5替补完成。
+  独立只读复核也已完成。所有真实任务路径、租约与状态见 ignored
   `runtime/codex/tasks/mini-ui-20260905001548.json`。
 - 根工作区原有未跟踪 skills、runtime、src 和本地表格保持原样；不暂存、提交或清理用户文件。
 - 依赖策略：REUSE_ONLY。所有 Acquire/Bootstrap 复用通过，新增安装 0。
@@ -24,14 +24,21 @@
 - B：个人资料横排和按钮居中、登录块级表单间距；实际 WXML/WXSS 浏览器代理几何验证。
 - C：50% 事件 Sheet、唯一颜色选择器/转换工具、月/周统一黄色居中日期标记。
 - D：全 Mini 瞬时成功反馈扫描、顶层胶囊通知，复用 controller-host 单计时器及失效保护。
-- 四路正收敛定向回归和本地提交；未将单测或浏览器代理结果宣称为微信原生验收。
+- 四路原提交：A585caa33、B4be2bb58、C977e1289、D80e6ac72；集成5947982a/de5bc37b/121714b1/454ad56e。
+- 独立复核发现连续色板点击等待测量的P2；已补5项回归并修复，独立复现确认最新选择胜出、旧响应丢弃。
+  单独checkpoint message：`fix(miniprogram): retain latest rapid color gesture`；详情见当前review审计记录。
 - 集成前 production 基线：`297ad3d2`，构建 19.117s，315 文件；总包 5,182,395 bytes，
   主包 1,745,801 bytes，仅既有 1.5M 内部 warning，无硬限制错误。记录在
   `runtime/codex/logs/mini-ui-20260905001548/integration-baseline-*.log`。
-- trial-lineage 基线有三项本地 Git fixture 超时，正按原阈值在重型测试空档复测；
-  未降低门禁或将失败记为通过。
-- 最终聚合：等待 A→B→C→D 集成后执行一次 `pnpm verify`、只读复核，以及其未覆盖的
-  `pnpm miniprogram:verify`、CI dry-run、fresh lineage、allowlist 与完整 production verifier。
+- 正式根 `pnpm verify` 一次PASS，327.833s：Mini758、Node22、root1173通过；既有条件skip如实保留。
+  log SHA256：192fe6b9d23c32eee872a44358f8ab4b77fd9772de354d1eb018d197c0c58b3d。
+- P2修复后Mini类型/lint/格式与全量复测PASS：763通过/11默认布局skip；这11项已独立启用布局验证。
+  trial-lineage15/15，未改原30秒阈值；最新竞争case4.489s，无未解决测试失败。
+- 集成实际布局：A15场景、B110状态、C全部320/390/414/横屏/大字及色板、D7场景PASS；P2后C再复测PASS。
+- Mini production verify/source/package/performance/determinism与CI dry-run均PASS；P2后总包5,208,175、
+  主包1,757,754 bytes，仅既有主包/600格矩阵warning。未复跑不受影响Web/API/root测试。
+- 未将Node、浏览器代理或默认skip声称为微信原生验收。提交后还须fresh lineage、动态版本、精确构建、
+  allowlist与完整production verifier，再上传并验证回执。
 
 ## 发布身份与边界
 
@@ -47,6 +54,7 @@
 
 ## 唯一下一动作与停止条件
 
-- 唯一下一动作：收敛四路本地提交，基于再次 fetch 的最新 main 语义集成，完成九行验收矩阵和正式门禁。
+- 唯一下一动作：提交已通过复核的连续选色修复，收口Mini电话资产/最终验收文档checkpoint，正常推送main，
+  重新独占干净上传槽位并动态申请体验版；尚未分配本轮版本，不借用前序.87作为完成证据。
 - 停止条件：九项代码/自动验证通过、普通推送进入 origin/main、动态版本成功上传、
   manifest/source/tag/receipt 一致、可信 allowlist 与完整 verifier 通过，释放可安全释放的本轮租约。

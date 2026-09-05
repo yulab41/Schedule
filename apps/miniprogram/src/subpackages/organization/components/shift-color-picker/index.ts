@@ -209,7 +209,13 @@ function hsvView(hsv: HsvColor) {
 }
 
 function startGesture(instance: PickerInstance, area: Gesture['area'], event: TouchEvent): void {
-  if (instance.data.disabled || !instance.data.customOpen || instance._gesture !== undefined)
+  // An ended tap may still await measurement. The next tap supersedes it; the
+  // query callback's object-identity check below rejects the obsolete response.
+  if (
+    instance.data.disabled ||
+    !instance.data.customOpen ||
+    (instance._gesture !== undefined && !instance._gesture.ended)
+  )
     return;
   const point = event.touches?.[0];
   if (point === undefined) return;

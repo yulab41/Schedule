@@ -2542,3 +2542,23 @@
 - 依赖 fingerprint `b392a5b8…0dbc48e` 最终 `READY_REUSE`，installInvoked=false；全轮五个 distinct fingerprint
   各一次有效 frozen reconciliation，child invocation 9、下载 0、tracked tree 不变。L2 当前消息授权和网络路线已
   固化到 ignored `runtime/codex` 台账，临时授权文件无残留。
+
+## 2026-09-05 MINI-UI-ALIGN-009 九项界面修复与独立复核
+
+- 范围：通讯录短文案/绿色同源电话/末级路径、共享Sheet75%与50%、个人/登录布局、唯一颜色选择器、
+  月周黄色居中日期标记、全Mini流内计时成功反馈迁为顶层胶囊。Web/API/权限/排班业务语义不扩展。
+- 引入点均已逐调用log-S/blame：A2751f549/1de042b5/6b5b30fb/304d742f/73811f1f；
+  B a50b423b/62e45eb7/e69cfb76/9ac508ba；C0792ed01/38233039/1f715c96/ad4cfb2c/50c6d1ed；
+  D bc32a4f1b/0d971de17/50c696ab7/24fce3bb9。具体文件、因果、风险和红绿见本轮四份audit记录。
+- 合并前置图标分支时保留main稳定storePath，9/9 Node测试；Mini绿色电话改为已有success资产，
+  官方生成器清理无引用蓝色资产，57资产/138引用/legacy0/无主0，Web生成CSS与几何不变。
+- REVIEW-COLOR-001(P2，高置信)：121714b1中新手势被未返回测量的已结束gesture阻挡；白→黑只有1查询，
+  错误保留白。新增SV/hue正序/倒序4项先红，多指1项绿；只放行ended旧手势替换，旧响应仍由对象身份拒绝。
+  38picker+6controller通过，独立复现确认两次查询且只提交最新黑一次，P2关闭。
+- 运行/浏览器验证：实际WXML/WXSS的Node/Edge代理，A15场景、B110状态、C移动/横屏/大字/滚动、D7场景，
+  集成树B/C显式启用13测试通过，P2后C再通过。不得冒称微信原生/小米14；没有稳定原生黄金相似率。
+- 正式根verify一次通过(327.833s，Mini758/Node22/root1173)；P2后仅重跑受影响Mini全量763通过、
+  TypeScript/lint/格式、production/source/package/performance/determinism、CI dry-run和C布局，全部PASS。
+  先前本地Git fixture超时最终在原阈值下通过；未改变任何全局timeout或削弱失败断言。
+- checkpoint message：fix(miniprogram): retain latest rapid color gesture。仍待最终main推送、动态体验版、
+  精确manifest与可信allowlist/full verifier；未提审、正式发布、ECS/数据库部署或数据库迁移。
