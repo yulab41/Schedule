@@ -2,15 +2,19 @@
 
 ## 当前阶段
 
-- 当前为`WARM-UPLOAD-GUARD-001`（`warm-upload-guard-20260905154545`）：用户已明确授权发布工具兼容修复、
-  独立提交/普通push、新体验版上传及精确allowlist/full production verifier。工具136项定向检查已通过。
-  应用src与cdb759b9完全相同，复用789通过/11条件skip；不改业务。详见`docs/audit/warm-upload-guard-20260905154545.md`。
-  本轮下一步为独立工具checkpoint与真实clean候选验证，然后直接完成已授权上传；不再次询问、不进入其他批次。
-- 以下MINI-FEEDBACK及UI-009为前序事实，不代表本轮已上传。
+- 当前为`WARM-UPLOAD-GUARD-001`（`warm-upload-guard-20260905154545`）：独立兼容提交c25fcf43已普通push，
+  动态体验版`0.1.0-p10.20260905.89`已官方上传成功（2026-09-05T09:56:18.409Z）；原生层待用户复核。
+  源码c25fcf43含cdb759b9，应用tree为f505883d01359db826c7a181009e3b98e7ad22e4，复用789通过/11条件skip。
+  工具136项定向、真实租约/输出检查、新production/source/package/performance/determinism/CI dry-run均通过。
+  精确allowlist及完整installed production verifier通过；live release仍为48488019171924701054354e8f707b08eb4d12fe。
+  Manifest为df43c76b82c975f812dd726d49e666822b40ee27d8d63e7cc1f69d67dfc68047，主包1,761,110/总包5,212,766 bytes。
+  详情含明确invalid-ip失败后的同产物重试、预警/跳过项和P0交接缺口：`docs/audit/warm-upload-guard-20260905154545.md`。
+  本轮不进入其他批次；只完成收口记录普通push与租约释放。未宣称Xiaomi14验收通过。
+- 以下MINI-FEEDBACK及UI-009为前序事实；其当时的UPLOAD_REQUIRED已由本轮.89交付解决。
 - 当前批次为`MINI-FEEDBACK-REGRESSION-001`（`mini-toast-switch-20260905133316`），用户反馈通知背景缺失和开关闪烁。
   两项已修复，78定向、789项Mini全量、28通知绘制、36开关绘制及CI dry-run均通过；详细事实见
   `docs/audit/mini-toast-switch-20260905133316.md`。原生层待用户复核，`UPLOAD_REQUIRED`。
-  本轮未获得新的上传/生产授权，未申请版本、未上传、未改白名单；下述UI-009及更早阶段均为历史记录。
+  该前序修复轮当时未获得新上传/生产授权，未申请版本、未上传、未改白名单；本轮交付见上方。
 - 历史已完成批次 `MINI-UI-ALIGN-009`（`mini-ui-20260905001548`）：用户当次明确授权九项
   小程序 UI 修复、四路并行、自动 main 集成/普通推送及动态体验上传。九项源码、机器门禁与独立复核已完成；
   连续选色P2由45a8e0b3单独修复，Mini最终763通过，布局额外启用通过。源码84dc966e已普通推送main，
@@ -135,7 +139,9 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## 当前唯一下一任务与停止条件
 
-- 当前工具checkpoint message：`fix(release): align upload checker with leased worktree layout`。
-  完成clean候选/最终main/动态版本/新production构建与全部输出门禁、精确allowlist和完整verifier、上传回执核对后停止。
-- 前序.88不含本轮应用修复，不复用或覆盖。只读SSH预检已完成；当前未修改allowlist、未上传新版本。
-  不调用DevTools，不提审/正式发布，不部署ECS/数据库或迁移，不宣称Xiaomi14验收通过。
+- 工具提交c25fcf43、动态.89上传、完整门禁和回执/manifest/tag核对已完成；仅收口文档普通push及释放本轮记录租约。
+  文档checkpoint message：`docs(release): record verified feedback trial upload`，最终SHA/释放结果见Git和ignored task state。
+- 唯一下一验收为用户在.89@c25fcf4复核通知胶囊、换班开关、请假通知、排班配置开关；状态“待用户复核”。
+  一次性并行交接为P0_NOT_COVERED_OR_PARTIAL，不以兼容测试冒称完整血缘P0通过，不接管P1/P2。
+- .88及其manifest完整保留。未调用DevTools、未提审/正式发布、未部署ECS应用代码/数据库或迁移；
+  精确allowlist只刷新API/Web配置，MySQL和live release保持。未宣称Xiaomi14真机验收通过。

@@ -2608,3 +2608,21 @@
 - 并行B0独立任务先完成57d11d70，已安全整合，未修改其活动文件或借用租约。根用户既有10组未跟踪内容保持。
 - 独立checkpoint message：fix(release): align upload checker with leased worktree layout。
   完整根因/行为/后续实际上传证据见docs/audit/warm-upload-guard-20260905154545.md；当前上传阶段尚待执行，不冒称成功。
+
+### WARM-UPLOAD-GUARD-001 实际交付收口
+
+- 独立工具提交c25fcf43（fix(release): align upload checker with leased worktree layout）普通push成功；
+  fresh main包含cdb759b9及并行B0 57d11d70。真实新Acquire/ReuseOnly/bootstrap、clean/detached/upload用途及版本输出门禁均PASS。
+- 动态锁内分配0.1.0-p10.20260905.89，源码c25fcf43a01e7f5d27a59856891387b0fe918228，描述feedback-toast-switch-c25fcf4。
+  330文件，主包1,761,110/总包5,212,766 bytes；manifest df43c76b82c975f812dd726d49e666822b40ee27d8d63e7cc1f69d67dfc68047。
+- 运行/浏览器验证：Mini typecheck、trial-lineage、全新production/source/package/performance/determinism/实际CI dry-run及PS输出检查PASS；
+  业务树f505883d01359db826c7a181009e3b98e7ad22e4未变，仍复用789 passed/11 conditional skipped，不重跑业务或Web浏览器全套。
+- 首次官方上传明确-10008 invalid ip，无成功回执；核实tag与不可变manifest后，依固定SDK的单域名NO_PROXY及既有进程IPv4路线，
+  同一冻结产物幂等重试，未重建/覆盖版本或关闭TLS。2026-09-05T09:56:18.409Z官方接受；receipt/allocation/manifest/new dist/archive/tag一致。
+- 精确add-only allowlist ensure/verify、完整hash-verified installed production verifier PASS；live仍为48488019171924701054354e8f707b08eb4d12fe。
+  API/Web仅刷新配置，MySQL未重建；脚本未配置ECS_PUBLIC_IP的主动公网探测明确skip。预警与原生/平台manifest测量限制如实记录。
+- 上传租约已正式释放；收口使用新独占文档租约，doc-only checkpoint message为docs(release): record verified feedback trial upload。
+  根原有10组未跟踪内容及.88旧manifest保留；不提交dist/lock/凭证或其他任务文件。
+- B2一次性交接结论P0_NOT_COVERED_OR_PARTIAL：现有非祖先等价策略没有完整绑定latest ledger/trial SHA/candidate/proof-set。
+  本次直接包含.88，不用该例外；未接管P1/P2，不把lineage16或工具136测试作为完整P0矩阵。
+- 未提审、未正式发布、未部署ECS应用或数据库、未迁移/备份数据库、未宣称Xiaomi14真机通过。唯一下一验收是用户复核.89通知与开关。
