@@ -26,7 +26,7 @@
 - D：全 Mini 瞬时成功反馈扫描、顶层胶囊通知，复用 controller-host 单计时器及失效保护。
 - 四路原提交：A585caa33、B4be2bb58、C977e1289、D80e6ac72；集成5947982a/de5bc37b/121714b1/454ad56e。
 - 独立复核发现连续色板点击等待测量的P2；已补5项回归并修复，独立复现确认最新选择胜出、旧响应丢弃。
-  单独checkpoint message：`fix(miniprogram): retain latest rapid color gesture`；详情见当前review审计记录。
+  单独checkpoint `45a8e0b3 fix(miniprogram): retain latest rapid color gesture`；详情见当前review审计记录。
 - 集成前 production 基线：`297ad3d2`，构建 19.117s，315 文件；总包 5,182,395 bytes，
   主包 1,745,801 bytes，仅既有 1.5M 内部 warning，无硬限制错误。记录在
   `runtime/codex/logs/mini-ui-20260905001548/integration-baseline-*.log`。
@@ -54,7 +54,7 @@
 
 ## 唯一下一动作与停止条件
 
-- 唯一下一动作：提交已通过复核的连续选色修复，收口Mini电话资产/最终验收文档checkpoint，正常推送main，
+- 唯一下一动作：收口Mini电话资产/最终验收文档checkpoint，message `fix(miniprogram): complete nine UI alignment fixes`，正常推送main，
   重新独占干净上传槽位并动态申请体验版；尚未分配本轮版本，不借用前序.87作为完成证据。
 - 停止条件：九项代码/自动验证通过、普通推送进入 origin/main、动态版本成功上传、
   manifest/source/tag/receipt 一致、可信 allowlist 与完整 verifier 通过，释放可安全释放的本轮租约。

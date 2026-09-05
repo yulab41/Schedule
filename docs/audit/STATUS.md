@@ -3,8 +3,9 @@
 ## 当前阶段
 
 - 当前执行批次已切换为 `MINI-UI-ALIGN-009`（`mini-ui-20260905001548`）：用户当次明确授权九项
-  小程序 UI 修复、四路并行、自动 main 集成/普通推送及动态体验上传。实现与定向回归正在收敛，
-  最终机器门禁和上传尚未完成；实时接续事实以 `docs/project-status.md` 及 ignored task state 为准。
+  小程序 UI 修复、四路并行、自动 main 集成/普通推送及动态体验上传。九项源码、机器门禁与独立复核已完成；
+  连续选色P2由45a8e0b3单独修复，Mini最终763通过，布局额外启用通过。当前待最终main推送与精确体验上传；
+  完整矩阵见 `docs/audit/mini-ui-20260905001548.md`，接续以project-status及ignored task state为准。
 - 下述 ICON-PARITY 与 MINI-G1-004 章节是前序已冻结历史证据，不证明本轮 UI 已通过。
 - 当前批次：`ICON-PARITY-CLOSE-001`（Web/Mini 生产图标五层 parity、生成资产 liveness、动效和体验版血缘收口）。
   机器静态/Node/完整 verify/体验上传/allowlist 门禁已通过；Xiaomi 14 原生视觉仍未取得与当前候选匹配的用户证据，
@@ -116,6 +117,7 @@ discoverable on main`）；其文件范围为 Skill、根 `AGENTS.md`、`.gitign
 
 ## 唯一下一任务与停止条件
 
-- 唯一下一任务：按 A→B→C→D 收口 `MINI-UI-ALIGN-009`，形成九项需求矩阵、集成门禁和当次授权体验上传。
+- 唯一下一任务：将已通过所有代码门禁的 `MINI-UI-ALIGN-009` 正常推送main，动态申请体验版，
+  从精确干净源码冻结manifest，通过可信allowlist/full verifier后上传并核对回执。
 - 当前停止条件尚未满足；禁止提审、正式发布和 ECS/数据库部署。未宣称 Xiaomi 14 真机验收通过，
   用户已明确本轮不以人工截图作为代码提交或体验上传前置条件。

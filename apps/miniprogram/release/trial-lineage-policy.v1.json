@@ -11,11 +11,11 @@
       "reason": "Preserve the canonical Web/Mini icon source migration before any later cumulative trial.",
       "equivalentProof": {
         "strategy": "canonical-tree-files",
-        "evidence": "The current canonical catalog, platform bindings, and parity contract are the audited equivalent implementation of this source migration.",
+        "evidence": "The current canonical catalog, platform bindings, and parity contract preserve the audited source migration. MINI-UI-ALIGN-009 removes only the unused Mini blue phone asset in favor of the already accepted shared success asset; canonical geometry and Web bindings stay unchanged and the full icon parity gate passes.",
         "files": [
           {
             "path": "packages/ui-icons/src/catalog.ts",
-            "blob": "db2f5b991db6301a6ea9f4fb678339eeebdf6dd1"
+            "blob": "3a98c8efd1b62d344be9c7a27cbba4a2220e419e"
           },
           {
             "path": "packages/ui-icons/src/platform-bindings.ts",

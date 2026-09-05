@@ -816,7 +816,6 @@ export const miniAssetEntries: readonly MiniAssetEntry[] = [
     contextKey: 'directory-mode',
     tone: 'inactive',
   },
-  { fileKey: 'phone', sourceKey: 'phone', contextKey: 'directory-phone', tone: 'active' },
   { fileKey: 'phone-success', sourceKey: 'phone', colorRole: 'success' },
   {
     fileKey: 'profile-body',
