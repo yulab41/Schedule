@@ -2,6 +2,8 @@
 
 本文档保存当前可接续状态；历史事实以 Git、docs/audit/ 和精确 debug 记录为准。
 
+- Skill-only 收口：APPLICATION_MAINLINE_CLOSED；依赖规范去重及预检/证据复用/cutoff 已完成，Skill validator、Node 守卫 8/8、format:check 通过；checkpoint `docs(agent): refine candidate evidence and dependency routing`；应用/发布无变化，无下一自动批次，停止条件为主线包含此提交且租约释放。
+
 ## 当前批次（2026-09-05）
 
 - 当前活动批次：MINI-UI-ALIGN-009；RUN_ID `mini-ui-20260905001548`。九项实现、自动验证、main推送、

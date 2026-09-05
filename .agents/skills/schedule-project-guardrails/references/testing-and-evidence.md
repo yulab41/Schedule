@@ -13,7 +13,7 @@ Authoritative sources:
 
 - `L1` defaults to a targeted red/green regression and gates for affected packages/files. Do not run full-repository verification merely because it exists.
 - `L2` adds only the integration and runtime gates needed for the requested cross-boundary claim.
-- `L3` runs the full relevant candidate gate set from the applicable plan/runbook after the final SHA is frozen. Do not repeatedly run expensive gates for the same final SHA and identical input/toolchain fingerprint when valid evidence already exists.
+- `L3` selects the applicable plan/runbook gates; apply the candidate preflight and evidence reuse rules below.
 - Browser smoke and core-smoke triggers remain those in root `AGENTS.md`; a unit-test pass is not a browser/runtime pass.
 - Run the fast `pnpm icon:parity` gate before expensive Mini/Web tests. It is the only icon parity checker;
   do not recreate its inventory or rerun its child generator checks as separate gates.
@@ -24,6 +24,25 @@ Authoritative sources:
   `runtime/` evidence; on timeout inspect resources first and rerun only the failed bounded command.
 - Browser evidence must first record whether the Web and API services are running and whether the requested
   page actually needs the API. The isolated icon gallery is the preferred browser target for icon work.
+
+## Candidate preflight
+
+Before any full `pnpm verify`, finish the applicable cheap gates in this order:
+
+1. Official `format:check` scope, `git diff --check`, conflict-marker scan, and existing document line limits.
+2. This skill's `scripts/validate-project-skill.ps1` when affected; affected ledger/runbook consistency checks.
+3. Official dependency health via [dependency lifecycle](dependency-lifecycle.md), then affected static contracts.
+
+A failure stops Web build, Mini full tests, and root full tests; fix it before freezing the candidate.
+
+## Application evidence fingerprint
+
+Bind application evidence to app-tree digest, lock/build inputs (including release tools), toolchain, dependency
+fingerprint, and profile/environment; retain exact commands, results, and artifact identity separately from Git SHA.
+For docs/audit/ledger/status-only changes that leave those inputs unchanged, reuse application builds, Mini full
+tests, Web build, package and manifest evidence; run only affected document/ledger/format/guard checks.
+A repository commit SHA change alone never invalidates application evidence. Changed inputs or missing evidence
+require only affected gates; version/SHA-bound artifacts keep their original identity and cannot be relabelled.
 
 ## Comparable evidence
 

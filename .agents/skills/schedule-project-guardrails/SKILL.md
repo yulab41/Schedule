@@ -46,17 +46,8 @@ routing surfaces only. A full pool returns
 checks only an assigned pool slot. Schedule has no Hook registration, Hook trust state, or `/hooks` dependency.
 The only non-maintenance install exception is the committed GitHub Actions fresh-checkout path, covered by synthetic tripwire allow/deny tests; it is not a local bypass.
 
-In `REUSE_ONLY`:
-
-- A matching fingerprint and healthy worktree-local `node_modules` are reused.
-- A fingerprint mismatch stops with the changed fields; it does not install, delete dependencies, repair the store, or use `--force`.
-- A missing environment stops with `TASK_STATUS=BLOCKED_NO_REUSABLE_DEPENDENCY_ENV`.
-- Normal output is `DEPENDENCIES_REUSED=true` and `INSTALL_INVOKED=false`.
-- A parallel task acquires one exclusive warm slot; a busy or exhausted pool returns `POOL_BUSY` and never creates a cold worktree.
-
-For a fingerprint mismatch, report `TASK_STATUS=BLOCKED_DEPENDENCY_INSTALL_REQUIRED`,
-`DEPENDENCIES_REUSED=false`, `INSTALL_INVOKED=false`, and changed fields. Missing producer `dist` is a
-bootstrap decision, never an install trigger.
+Dependency health, mismatch decisions, and authorized maintenance are defined only in the
+[dependency environment lifecycle](references/dependency-lifecycle.md); use its official wrappers.
 
 ## Route the task
 

@@ -43,15 +43,10 @@ The complete dependency rules are in [dependency lifecycle](dependency-lifecycle
 
 A clean worktree can have installed dependencies but no generated workspace package `dist` or declarations. If a targeted Vitest collection or typecheck fails on missing workspace output, identify the producer package and run only its existing build before retrying the consumer. Do not copy `dist` from the main worktree, and do not treat a mixed-source/mixed-dist pass as evidence.
 
-Use the repository build graph for a final candidate. Do not invent a bootstrap order or add dependencies. A missing declaration or `dist` file is a producer-bootstrap decision, never a reason to install dependencies. A successful install that links the same 1459 packages is not a reason to repeat it; a matching fingerprint and healthy `node_modules` must be reused.
+Use the repository build graph for a final candidate. Do not invent a bootstrap order or add dependencies. A missing declaration or `dist` file is a producer-bootstrap decision; dependency reuse follows the canonical lifecycle reference above.
 
 Generated release, smoke, log, recovery, lease, fingerprint, and scratch data stays in the ignored
 repository `runtime/` paths established by the helpers. Credentials remain outside the repository.
 
-The project `.pnpmfile.cjs` is an early install tripwire. Direct local dependency mutation must exit
-before import/link and point to `scripts/codex/dependency-maintenance.ps1`; preinstall-only checks are
-not an acceptable substitute.
-
-For the L2 exact-lockfile reconciliation rule and the icon-specific dependency evidence contract, also read
-[worktree and dependencies](worktree-and-dependencies.md). Do not use that route to bypass the no-install
-default or to manually repair workspace links.
+Install tripwire and authorized reconciliation decisions belong only to
+[dependency lifecycle](dependency-lifecycle.md); use its official checks.
