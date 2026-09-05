@@ -1,3 +1,4 @@
+/* global process */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -14,6 +15,12 @@ import {
 } from './install-tripwire.cjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const canonicalWorkspace = path.dirname(
+  path.resolve(
+    root,
+    execFileSync('git', ['-C', root, 'rev-parse', '--git-common-dir'], { encoding: 'utf8' }).trim(),
+  ),
+);
 const originRemote = execFileSync('git', ['-C', root, 'config', '--get', 'remote.origin.url'], {
   encoding: 'utf8',
 }).trim();
@@ -29,7 +36,7 @@ function githubFreshInstallEnvironment(overrides = {}) {
     CI: 'true',
     GITHUB_ACTIONS: 'true',
     GITHUB_SERVER_URL: 'https://github.com',
-    GITHUB_WORKSPACE: root,
+    GITHUB_WORKSPACE: canonicalWorkspace,
     GITHUB_REPOSITORY: githubRepository,
     GITHUB_RUN_ID: 'synthetic-run-1',
     GITHUB_WORKFLOW: 'Verify',

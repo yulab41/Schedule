@@ -180,10 +180,14 @@ export function discoverWorkspacePackages(root) {
   const excludes = patterns
     .filter((pattern) => pattern.startsWith('!'))
     .map((pattern) => globPatternToRegExp(pattern.slice(1)));
-  const manifests = collectPackageJsonFiles(normalizedRoot, normalizedRoot).filter((relativePath) => {
-    return includes.some((pattern) => pattern.test(relativePath.replace(/\/package\.json$/u, ''))) &&
-      !excludes.some((pattern) => pattern.test(relativePath.replace(/\/package\.json$/u, '')));
-  });
+  const manifests = collectPackageJsonFiles(normalizedRoot, normalizedRoot).filter(
+    (relativePath) => {
+      return (
+        includes.some((pattern) => pattern.test(relativePath.replace(/\/package\.json$/u, ''))) &&
+        !excludes.some((pattern) => pattern.test(relativePath.replace(/\/package\.json$/u, '')))
+      );
+    },
+  );
   return manifests
     .map((relativePath) => {
       const manifestPath = path.join(normalizedRoot, relativePath);
@@ -208,7 +212,10 @@ function collectFilesRecursively(directory, root, results = []) {
   return results;
 }
 
-export function collectDependencyInputPaths(root, workspacePackages = discoverWorkspacePackages(root)) {
+export function collectDependencyInputPaths(
+  root,
+  workspacePackages = discoverWorkspacePackages(root),
+) {
   const normalizedRoot = path.resolve(root);
   const inputs = new Set(['package.json']);
   for (const workspacePackage of workspacePackages) {
@@ -230,7 +237,10 @@ export function collectDependencyInputPaths(root, workspacePackages = discoverWo
       inputs.add(entry.name);
     }
   }
-  for (const relativePath of collectFilesRecursively(path.join(normalizedRoot, 'patches'), normalizedRoot)) {
+  for (const relativePath of collectFilesRecursively(
+    path.join(normalizedRoot, 'patches'),
+    normalizedRoot,
+  )) {
     inputs.add(relativePath);
   }
   return [...inputs].sort((left, right) => left.localeCompare(right, 'en'));
@@ -267,10 +277,14 @@ function compareObject(previous, current, prefix = '') {
     const after = current?.[key];
     const field = prefix ? `${prefix}.${key}` : key;
     if (
-      before !== null && after !== null &&
-      typeof before === 'object' && typeof after === 'object' &&
-      !Array.isArray(before) && !Array.isArray(after)
-    ) changes.push(...compareObject(before, after, field));
+      before !== null &&
+      after !== null &&
+      typeof before === 'object' &&
+      typeof after === 'object' &&
+      !Array.isArray(before) &&
+      !Array.isArray(after)
+    )
+      changes.push(...compareObject(before, after, field));
     else if (stableJson(before) !== stableJson(after)) changes.push(`${field}:changed`);
   }
   return changes;
@@ -280,10 +294,14 @@ export function diffDependencySnapshots(previous, current) {
   if (previous === undefined || previous === null) return ['marker:missing'];
   if (previous.schemaVersion !== current.schemaVersion) return ['marker:schema-changed'];
   if (previous.fingerprint === current.fingerprint) return [];
-  const previousInputs = new Map((previous.inputs ?? []).map((entry) => [entry.path, entry.sha256]));
+  const previousInputs = new Map(
+    (previous.inputs ?? []).map((entry) => [entry.path, entry.sha256]),
+  );
   const currentInputs = new Map((current.inputs ?? []).map((entry) => [entry.path, entry.sha256]));
   const changes = [];
-  for (const inputPath of [...new Set([...previousInputs.keys(), ...currentInputs.keys()])].sort()) {
+  for (const inputPath of [
+    ...new Set([...previousInputs.keys(), ...currentInputs.keys()]),
+  ].sort()) {
     if (!previousInputs.has(inputPath)) changes.push(`input:${inputPath}:added`);
     else if (!currentInputs.has(inputPath)) changes.push(`input:${inputPath}:removed`);
     else if (previousInputs.get(inputPath) !== currentInputs.get(inputPath)) {
@@ -346,8 +364,11 @@ export function inspectDependencyHealth({
   }
   if (!storePath || !fs.existsSync(storePath)) reasons.push('pnpm-store-unavailable');
   else {
-    try { fs.accessSync(storePath, fs.constants.R_OK); }
-    catch { reasons.push('pnpm-store-unreadable'); }
+    try {
+      fs.accessSync(storePath, fs.constants.R_OK);
+    } catch {
+      reasons.push('pnpm-store-unreadable');
+    }
   }
   if (expectedPnpmVersion && metadata.packageManager !== `pnpm@${expectedPnpmVersion}`) {
     reasons.push('modules-pnpm-version-mismatch');
@@ -357,9 +378,13 @@ export function inspectDependencyHealth({
     try {
       const expectedStorePaths = new Set([canonicalPath(storePath)]);
       const pnpmMajor = String(expectedPnpmVersion ?? '').match(/^(\d+)/u)?.[1];
-      if (pnpmMajor !== undefined) expectedStorePaths.add(canonicalPath(path.join(storePath, `v${pnpmMajor}`)));
-      if (!expectedStorePaths.has(canonicalPath(metadata.storeDir))) reasons.push('modules-store-mismatch');
-    } catch { reasons.push('modules-store-unreadable'); }
+      if (pnpmMajor !== undefined)
+        expectedStorePaths.add(canonicalPath(path.join(storePath, `v${pnpmMajor}`)));
+      if (!expectedStorePaths.has(canonicalPath(metadata.storeDir)))
+        reasons.push('modules-store-mismatch');
+    } catch {
+      reasons.push('modules-store-unreadable');
+    }
   }
   if (metadata.virtualStoreDir === undefined || !fs.existsSync(metadata.virtualStoreDir)) {
     reasons.push('virtual-store-missing');
@@ -368,7 +393,9 @@ export function inspectDependencyHealth({
       if (!isPathInside(nodeModulesPath, metadata.virtualStoreDir)) {
         reasons.push('virtual-store-not-worktree-local');
       }
-    } catch { reasons.push('virtual-store-unreadable'); }
+    } catch {
+      reasons.push('virtual-store-unreadable');
+    }
   }
   const suffix = platform === 'win32' ? '.CMD' : '';
   for (const executable of REQUIRED_ROOT_EXECUTABLES) {
@@ -380,25 +407,37 @@ export function inspectDependencyHealth({
       reasons.push(`root-executable-missing:${executable}`);
     }
   }
-  const packagesByName = new Map(workspacePackages.map((workspacePackage) => [workspacePackage.manifest.name, workspacePackage]));
+  const packagesByName = new Map(
+    workspacePackages.map((workspacePackage) => [workspacePackage.manifest.name, workspacePackage]),
+  );
   for (const workspacePackage of workspacePackages) {
     for (const dependencyName of workspaceDependencyNames(workspacePackage.manifest)) {
       const dependency = packagesByName.get(dependencyName);
       if (!dependency) {
-        reasons.push(`workspace-dependency-not-found:${workspacePackage.manifest.name}->${dependencyName}`);
+        reasons.push(
+          `workspace-dependency-not-found:${workspacePackage.manifest.name}->${dependencyName}`,
+        );
         continue;
       }
-      const linkPath = path.join(workspacePackage.directory, 'node_modules', ...dependencyName.split('/'));
+      const linkPath = path.join(
+        workspacePackage.directory,
+        'node_modules',
+        ...dependencyName.split('/'),
+      );
       if (!fs.existsSync(linkPath)) {
         reasons.push(`workspace-link-missing:${workspacePackage.manifest.name}->${dependencyName}`);
         continue;
       }
       try {
         if (canonicalPath(linkPath) !== canonicalPath(dependency.directory)) {
-          reasons.push(`workspace-link-wrong-target:${workspacePackage.manifest.name}->${dependencyName}`);
+          reasons.push(
+            `workspace-link-wrong-target:${workspacePackage.manifest.name}->${dependencyName}`,
+          );
         }
       } catch {
-        reasons.push(`workspace-link-unreadable:${workspacePackage.manifest.name}->${dependencyName}`);
+        reasons.push(
+          `workspace-link-unreadable:${workspacePackage.manifest.name}->${dependencyName}`,
+        );
       }
     }
   }
@@ -421,12 +460,19 @@ function run(command, arguments_, options = {}) {
   return result.stdout ?? '';
 }
 
-export function resolvePnpmInvocation(environment = process.env, platform = process.platform, nodeExecutable = process.execPath) {
+export function resolvePnpmInvocation(
+  environment = process.env,
+  platform = process.platform,
+  nodeExecutable = process.execPath,
+) {
   const explicitCli = environment.npm_execpath;
-  if (explicitCli && fs.existsSync(explicitCli)) return { argumentsPrefix: [explicitCli], command: nodeExecutable };
+  if (explicitCli && fs.existsSync(explicitCli))
+    return { argumentsPrefix: [explicitCli], command: nodeExecutable };
   if (platform === 'win32') {
     const candidates = [
-      environment.APPDATA ? path.join(environment.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs') : undefined,
+      environment.APPDATA
+        ? path.join(environment.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs')
+        : undefined,
       path.join(path.dirname(nodeExecutable), 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
       path.join(path.dirname(nodeExecutable), 'node_modules', 'corepack', 'dist', 'pnpm.js'),
     ];
@@ -454,7 +500,10 @@ function sanitizeConfigValue(key, value) {
   return value;
 }
 
-export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonicalProjectHome(root) } = {}) {
+export function inspectRuntimeEnvironment(
+  root,
+  { projectHome = resolveCanonicalProjectHome(root) } = {},
+) {
   const targetStorePath = resolveProjectLocalStorePath(projectHome);
   const environment = { ...process.env, npm_config_store_dir: targetStorePath };
   const storePath = path.resolve(targetStorePath);
@@ -472,10 +521,16 @@ export function inspectRuntimeEnvironment(root, { projectHome = resolveCanonical
       os: `${os.platform()}-${os.release()}`,
       pnpmVersion,
       storePathHash: sha256(canonicalPath(storePath)),
-      storeVolume: path.parse(storePath).root.replace(/[\\/]+$/u, '').toLocaleLowerCase('en-US'),
+      storeVolume: path
+        .parse(storePath)
+        .root.replace(/[\\/]+$/u, '')
+        .toLocaleLowerCase('en-US'),
       targetStorePath: 'runtime/pnpm-store',
       targetStorePathHash: sha256(canonicalPath(targetStorePath)),
-      targetStoreVolume: path.parse(targetStorePath).root.replace(/[\\/]+$/u, '').toLocaleLowerCase('en-US'),
+      targetStoreVolume: path
+        .parse(targetStorePath)
+        .root.replace(/[\\/]+$/u, '')
+        .toLocaleLowerCase('en-US'),
       storePolicy: 'project-local-target',
       layout,
     },
@@ -506,6 +561,7 @@ export function resolveProjectLocalState(root) {
     fingerprintRoot,
     leaseRoot: path.join(stateRoot, 'leases'),
     worktreeKey,
+    slotKey: sha256(canonicalPath(worktreeRoot)),
     dependencyMarkerPath: path.join(fingerprintRoot, DEPENDENCY_MARKER),
     dependencyLockPath: path.join(fingerprintRoot, DEPENDENCY_LOCK),
     l2ReconciliationAuditPath: path.join(fingerprintRoot, L2_RECONCILIATION_AUDIT),
@@ -540,7 +596,9 @@ function readL2ReconciliationAudit(filePath) {
   try {
     audit = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch (error) {
-    fail(`invalid L2 reconciliation audit: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+    fail(
+      `invalid L2 reconciliation audit: ${filePath} (${error instanceof Error ? error.message : String(error)})`,
+    );
   }
   if (
     audit?.schemaVersion !== L2_RECONCILIATION_AUDIT_SCHEMA_VERSION ||
@@ -571,7 +629,9 @@ export function recordL2ReconciliationAttempt(filePath, attempt) {
     throw new Error('L2 reconciliation attempts must record an invoked frozen install.');
   }
   const audit = readL2ReconciliationAudit(filePath);
-  const existingIndex = audit.attempts.findIndex(({ fingerprint }) => fingerprint === attempt.fingerprint);
+  const existingIndex = audit.attempts.findIndex(
+    ({ fingerprint }) => fingerprint === attempt.fingerprint,
+  );
   if (existingIndex === -1) audit.attempts.push({ ...attempt });
   else audit.attempts[existingIndex] = { ...audit.attempts[existingIndex], ...attempt };
   writeJsonAtomic(filePath, audit);
@@ -684,7 +744,6 @@ function installDependencies({
   root,
   authorizationFile,
   commonDir,
-  currentMessageAuthorization = false,
   targetStorePath,
   pnpmVersion,
   json,
@@ -719,17 +778,20 @@ function trackedTreeStatus(root) {
   return run('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root }).trim();
 }
 
-function inferDownloadCount(stdout) {
+export function inferDownloadCount(stdout) {
   if (typeof stdout !== 'string' || stdout.trim() === '') return null;
-  if (/already up to date/iu.test(stdout) || /packages:\s*\+0/iu.test(stdout)) return 0;
-  const match = stdout.match(/(?:downloaded|added)\s+(\d+)/iu);
-  return match ? Number.parseInt(match[1], 10) : null;
+  const counts = [...stdout.matchAll(/downloaded\s+(\d+)/giu)].map((match) => Number(match[1]));
+  if (counts.length) return Math.max(...counts);
+  return /already up to date/iu.test(stdout) || /packages:\s*\+0/iu.test(stdout) ? 0 : null;
 }
 
-export function ensureWorktreeDependencies(options = {}) {
-  const root = assertScheduleRoot(fs.realpathSync.native(path.resolve(options.worktree ?? process.cwd())));
+function ensureWorktreeDependenciesCore(options = {}) {
+  const root = assertScheduleRoot(
+    fs.realpathSync.native(path.resolve(options.worktree ?? process.cwd())),
+  );
   const mode = options.mode ?? DEFAULT_DEPENDENCY_MODE;
-  if (!['ReuseOnly', 'DependencyMaintenance'].includes(mode)) fail(`unsupported dependency mode: ${mode}`);
+  if (!['ReuseOnly', 'DependencyMaintenance'].includes(mode))
+    fail(`unsupported dependency mode: ${mode}`);
   const workspacePackages = discoverWorkspacePackages(root);
   const projectState = resolveProjectLocalState(root);
   const runtime = inspectRuntimeEnvironment(root, { projectHome: projectState.projectHome });
@@ -741,14 +803,20 @@ export function ensureWorktreeDependencies(options = {}) {
   const stateDirectory = projectState.fingerprintRoot;
   const markerPath = projectState.dependencyMarkerPath;
   const lockPath = projectState.dependencyLockPath;
-  const busyReason = hasActiveLocalLock(stateDirectory, projectState.leaseRoot, root, options.leaseToken);
-  const getHealth = () => inspectDependencyHealth({
+  const busyReason = hasActiveLocalLock(
+    stateDirectory,
+    projectState.leaseRoot,
     root,
-    storePath: runtime.storePath,
-    workspacePackages,
-    expectedPnpmVersion: runtime.environment.pnpmVersion,
-    allowGlobalVirtualStore: false,
-  });
+    options.leaseToken,
+  );
+  const getHealth = () =>
+    inspectDependencyHealth({
+      root,
+      storePath: runtime.storePath,
+      workspacePackages,
+      expectedPnpmVersion: runtime.environment.pnpmVersion,
+      allowGlobalVirtualStore: false,
+    });
   const previous = readMarker(markerPath);
   const fingerprintReasons = diffDependencySnapshots(previous, snapshot);
   const health = getHealth();
@@ -781,7 +849,13 @@ export function ensureWorktreeDependencies(options = {}) {
       health.healthy
     ) {
       writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
-      return { ...base, taskStatus: 'READY_REUSE', dependenciesReused: true, adopted: true, reasons: ['marker:missing'] };
+      return {
+        ...base,
+        taskStatus: 'READY_REUSE',
+        dependenciesReused: true,
+        adopted: true,
+        reasons: ['marker:missing'],
+      };
     }
     if (!health.healthy && health.reasons.includes('node-modules-missing')) {
       return { ...base, taskStatus: 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' };
@@ -800,11 +874,10 @@ export function ensureWorktreeDependencies(options = {}) {
       };
     }
   }
-  const authorizationFile = path.resolve(options.authorizationFile ?? path.join(
-    projectState.stateRoot,
-    'authorizations',
-    'pending.json',
-  ));
+  const authorizationFile = path.resolve(
+    options.authorizationFile ??
+      path.join(projectState.stateRoot, 'authorizations', 'pending.json'),
+  );
   if (!isPathInside(projectState.stateRoot, authorizationFile)) {
     return {
       ...base,
@@ -831,9 +904,7 @@ export function ensureWorktreeDependencies(options = {}) {
     reconciliationAudit,
     snapshot.fingerprint,
   );
-  const tripwireRecoveryAllowed =
-    previousReconciliation?.status === 'tripwire-pre-resolution' &&
-    previousReconciliation.recoveryAttempted !== true;
+  const tripwireRecoveryAllowed = false;
   if (previousReconciliation && !tripwireRecoveryAllowed) {
     return {
       ...base,
@@ -846,10 +917,24 @@ export function ensureWorktreeDependencies(options = {}) {
     };
   }
   fs.mkdirSync(stateDirectory, { recursive: true });
-  if (!createExclusiveDirectory(lockPath)) return { ...base, taskStatus: 'POOL_BUSY', reasons: ['dependency-install-lock-present'] };
-  const installArguments = maintenanceCommandArguments({ root, storePath: runtime.targetStorePath });
+  if (!createExclusiveDirectory(lockPath))
+    return { ...base, taskStatus: 'POOL_BUSY', reasons: ['dependency-install-lock-present'] };
+  const installArguments = maintenanceCommandArguments({
+    root,
+    storePath: runtime.targetStorePath,
+  });
   const trackedTreeBefore = trackedTreeStatus(root);
   const reconciliationAttempt = {
+    leaseBinding: currentMessageAuthorization
+      ? {
+          slotId: options.slotId,
+          owner: options.owner,
+          sessionId: options.sessionId,
+          taskId: options.taskId,
+          tokenHash: sha256(options.leaseToken),
+          baseSha: options.baseSha,
+        }
+      : undefined,
     authorizationSource: currentMessageAuthorization ? 'current-message' : 'authorization-file',
     command: { cwd: canonicalPath(root), args: installArguments },
     commandHash: maintenanceCommandHash({ commonDir, root, storePath: runtime.targetStorePath }),
@@ -884,18 +969,35 @@ export function ensureWorktreeDependencies(options = {}) {
         completedAt: new Date().toISOString(),
         status: `authorization-failed:${install.reason}`,
       });
-      return { ...base, taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED', reasons: [`authorization:${install.reason}`] };
+      return {
+        ...base,
+        taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED',
+        reasons: [`authorization:${install.reason}`],
+      };
     }
     const installedHealth = getHealth();
+    const afterSnapshot = createDependencySnapshot({
+      root,
+      inputPaths: collectDependencyInputPaths(root, discoverWorkspacePackages(root)),
+      environment: inspectRuntimeEnvironment(root, { projectHome: projectState.projectHome })
+        .environment,
+    });
+    if (afterSnapshot.fingerprint !== snapshot.fingerprint)
+      installedHealth.reasons.push('dependency-inputs-changed');
+    installedHealth.healthy = installedHealth.reasons.length === 0;
     const trackedTreeAfter = trackedTreeStatus(root);
     const trackedTreeChanged = trackedTreeAfter !== trackedTreeBefore;
     const downloadCount = inferDownloadCount(install.stdout);
-    if (!installedHealth.healthy || trackedTreeChanged) {
+    if (!installedHealth.healthy || trackedTreeChanged || downloadCount !== 0) {
       recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
         ...reconciliationAttempt,
         completedAt: new Date().toISOString(),
         downloadCount,
-        status: installedHealth.healthy ? 'tracked-tree-changed' : 'health-failed',
+        status: !installedHealth.healthy
+          ? 'health-failed'
+          : trackedTreeChanged
+            ? 'tracked-tree-changed'
+            : 'zero-downloads-not-proven',
         trackedTreeAfterHash: sha256(trackedTreeAfter),
         trackedTreeChanged,
       });
@@ -907,6 +1009,7 @@ export function ensureWorktreeDependencies(options = {}) {
         reasons: [
           ...installedHealth.reasons.map((reason) => `health:${reason}`),
           ...(trackedTreeChanged ? ['tracked-tree-changed-by-install'] : []),
+          ...(downloadCount !== 0 ? ['zero-downloads-not-proven'] : []),
         ],
       };
     }
@@ -915,11 +1018,17 @@ export function ensureWorktreeDependencies(options = {}) {
       ...reconciliationAttempt,
       completedAt: new Date().toISOString(),
       downloadCount,
-      status: 'ready-reuse',
+      status: currentMessageAuthorization ? 'dependencies-healthy' : 'ready-reuse',
       trackedTreeAfterHash: sha256(trackedTreeAfter),
       trackedTreeChanged: false,
     });
-    return { ...base, taskStatus: 'READY_INSTALLED', dependenciesReused: false, installed: true, installInvoked: true };
+    return {
+      ...base,
+      taskStatus: 'READY_INSTALLED',
+      dependenciesReused: false,
+      installed: true,
+      installInvoked: true,
+    };
   } catch (error) {
     const errorText = error instanceof Error ? error.message : String(error);
     recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
@@ -938,6 +1047,247 @@ export function ensureWorktreeDependencies(options = {}) {
   }
 }
 
+export function validateReconciliationLease({
+  lease,
+  slot,
+  options,
+  root,
+  baseSha,
+  fingerprint,
+  slotId,
+}) {
+  if (!lease || !slot || lease.schemaVersion !== 2 || slot.schemaVersion !== 2)
+    return 'registered-lease-required';
+  if (
+    canonicalPath(lease.path ?? '') !== canonicalPath(root) ||
+    canonicalPath(slot.path ?? '') !== canonicalPath(root)
+  )
+    return 'slot-path-mismatch';
+  for (const [key, expected] of Object.entries({
+    owner: options.owner,
+    sessionId: options.sessionId,
+    taskId: options.taskId,
+    token: options.leaseToken,
+    slotId: options.slotId,
+  })) {
+    if (!expected || lease[key] !== expected) return key + '-mismatch';
+  }
+  if (slotId !== options.slotId) return 'slotId-mismatch';
+  if (
+    !options.baseSha ||
+    options.baseSha !== baseSha ||
+    lease.baseSha !== baseSha ||
+    lease.head !== baseSha
+  )
+    return 'baseSha-mismatch';
+  if (
+    !options.fingerprint ||
+    options.fingerprint !== fingerprint ||
+    lease.dependencyFingerprint !== fingerprint
+  )
+    return 'fingerprint-mismatch';
+  if (!['NEEDS_RECONCILIATION', 'READY_REUSE'].includes(lease.status))
+    return 'lease-state-mismatch';
+  if (slot.status !== lease.status) return 'slot-state-mismatch';
+  return undefined;
+}
+
+export function ensureWorktreeDependencies(options = {}) {
+  if (options.mode !== 'DependencyMaintenance' || options.currentMessageAuthorization !== true)
+    return ensureWorktreeDependenciesCore(options);
+  const root = assertScheduleRoot(
+    fs.realpathSync.native(path.resolve(options.worktree ?? process.cwd())),
+  );
+  const state = resolveProjectLocalState(root);
+  if (
+    canonicalPath(path.dirname(root)) !== canonicalPath(path.join(state.projectHome, 'runtime/wt'))
+  )
+    fail('reconciliation requires a registered pool child');
+  const registered = run('git', ['worktree', 'list', '--porcelain'], { cwd: root })
+    .split(/\r?\n/u)
+    .filter((line) => line.startsWith('worktree '))
+    .some((line) => canonicalPath(line.slice(9)) === canonicalPath(root));
+  if (!registered) fail('reconciliation worktree is not registered');
+  return withReconciliationLease({
+    options,
+    root,
+    state,
+    measure: () => {
+      const runtime = inspectRuntimeEnvironment(root, { projectHome: state.projectHome });
+      return {
+        fingerprint: createDependencySnapshot({
+          root,
+          inputPaths: collectDependencyInputPaths(root, discoverWorkspacePackages(root)),
+          environment: runtime.environment,
+        }).fingerprint,
+        baseSha: run('git', ['rev-parse', 'HEAD'], { cwd: root }).trim(),
+        tracked: trackedTreeStatus(root),
+      };
+    },
+    reconcile: () => ensureWorktreeDependenciesCore(options),
+    bootstrap: (lease) =>
+      JSON.parse(
+        run(
+          process.execPath,
+          [
+            path.join(path.dirname(SCRIPT_PATH), 'workspace-bootstrap-core.mjs'),
+            '--worktree',
+            root,
+            '--profile',
+            lease.bootstrapProfile || 'root',
+            '--lease-token',
+            lease.token,
+            '--json',
+          ],
+          { cwd: root },
+        ),
+      ),
+  });
+}
+
+export function withReconciliationLease({ options, root, state, measure, reconcile, bootstrap }) {
+  const leasePath = path.join(state.leaseRoot, state.slotKey + '.json');
+  const slotPath = path.join(state.stateRoot, 'state', 'slots', state.slotKey + '.json');
+  const operationPath = leasePath + '.operation';
+  const blocked = (reason) => {
+    fs.mkdirSync(state.fingerprintRoot, { recursive: true });
+    fs.appendFileSync(
+      path.join(state.fingerprintRoot, 'reconciliation-preflight.jsonl'),
+      JSON.stringify({
+        at: new Date().toISOString(),
+        reason,
+        installInvoked: false,
+        owner: options.owner,
+        taskId: options.taskId,
+        baseSha: options.baseSha,
+        fingerprint: options.fingerprint,
+      }) + '\n',
+    );
+    return {
+      taskStatus: 'BLOCKED_DEPENDENCY_MAINTENANCE_AUTHORIZATION_REQUIRED',
+      dependenciesReused: false,
+      installInvoked: false,
+      reasons: ['authorization:' + reason],
+    };
+  };
+  if (!fs.existsSync(leasePath)) return blocked('current-message-requires-owned-lease');
+  let operation;
+  try {
+    operation = fs.openSync(operationPath, 'wx');
+  } catch (error) {
+    if (error.code === 'EEXIST')
+      return { ...blocked('lease-operation-in-progress'), taskStatus: 'POOL_BUSY' };
+    throw error;
+  }
+  let lease;
+  let slot;
+  let owned = false;
+  try {
+    lease = readJson(leasePath);
+    slot = readJson(slotPath);
+    const snapshot = measure();
+    const baseSha = snapshot.baseSha;
+    const invalid = validateReconciliationLease({
+      lease,
+      slot,
+      options,
+      root,
+      baseSha,
+      fingerprint: snapshot.fingerprint,
+      slotId: state.slotKey,
+    });
+    if (invalid) return blocked(invalid);
+    owned = true;
+    if (snapshot.tracked) return blocked('clean-tracked-tree-required');
+    // Hold the same lease through validation, pnpm, bootstrap, and the final state commit.
+    const result = reconcile();
+
+    if (!['READY_INSTALLED', 'READY_REUSE'].includes(result.taskStatus)) {
+      if (result.installInvoked) throw new Error(result.reasons.join(','));
+      return result;
+    }
+    const bootstrapResult = bootstrap(lease);
+    if (bootstrapResult.taskStatus !== 'READY_BOOTSTRAP')
+      throw new Error('reconciliation-bootstrap-failed');
+    const after = measure();
+    if (after.tracked || after.fingerprint !== snapshot.fingerprint || after.baseSha !== baseSha)
+      throw new Error('reconciliation-inputs-changed');
+    const current = readJson(leasePath);
+    if (current.token !== lease.token) throw new Error('lease-changed-during-reconciliation');
+    writeJsonAtomic(slotPath, {
+      ...slot,
+      status: 'READY_REUSE',
+      dependencyFingerprint: snapshot.fingerprint,
+      updatedAt: new Date().toISOString(),
+    });
+    writeJsonAtomic(leasePath, {
+      ...lease,
+      status: 'READY_REUSE',
+      lastHeartbeat: new Date().toISOString(),
+    });
+    if (state.l2ReconciliationAuditPath && fs.existsSync(state.l2ReconciliationAuditPath)) {
+      const attempt = findL2ReconciliationAttempt(
+        readL2ReconciliationAudit(state.l2ReconciliationAuditPath),
+        snapshot.fingerprint,
+      );
+      if (attempt)
+        recordL2ReconciliationAttempt(state.l2ReconciliationAuditPath, {
+          ...attempt,
+          status: 'ready-reuse',
+          bootstrapProfile: lease.bootstrapProfile || 'root',
+        });
+    }
+    return {
+      ...result,
+      reasons: [],
+      taskStatus: 'READY_REUSE',
+      bootstrap: bootstrapResult,
+      baseSha,
+      slotId: state.slotKey,
+    };
+  } catch (error) {
+    if (owned) {
+      if (state.l2ReconciliationAuditPath && fs.existsSync(state.l2ReconciliationAuditPath)) {
+        const attempt = findL2ReconciliationAttempt(
+          readL2ReconciliationAudit(state.l2ReconciliationAuditPath),
+          options.fingerprint,
+        );
+        if (attempt)
+          recordL2ReconciliationAttempt(state.l2ReconciliationAuditPath, {
+            ...attempt,
+            status: 'quarantined-reconciliation',
+            failure: String(error),
+          });
+      }
+      fs.appendFileSync(
+        path.join(state.fingerprintRoot, 'reconciliation-preflight.jsonl'),
+        JSON.stringify({
+          at: new Date().toISOString(),
+          status: 'quarantined',
+          reason: String(error),
+        }) + '\n',
+      );
+      fs.rmSync(state.dependencyMarkerPath, { force: true });
+      fs.rmSync(path.join(state.fingerprintRoot, 'workspace-bootstrap-v2.json'), { force: true });
+      writeJsonAtomic(slotPath, {
+        ...slot,
+        status: 'quarantined-dependency',
+        failure: String(error),
+        updatedAt: new Date().toISOString(),
+      });
+      writeJsonAtomic(leasePath, {
+        ...lease,
+        status: 'QUARANTINED_RECONCILIATION',
+        failure: String(error),
+      });
+    }
+    throw error;
+  } finally {
+    fs.closeSync(operation);
+    fs.unlinkSync(operationPath);
+  }
+}
+
 function parseArguments(arguments_) {
   const options = {
     authorizationFile: undefined,
@@ -950,16 +1300,41 @@ function parseArguments(arguments_) {
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     if (argument === '--json') options.json = true;
-    else if (argument === '--mode' || argument === '--worktree' || argument === '--authorization-file' || argument === '--lease-token') {
+    else if (
+      argument === '--mode' ||
+      argument === '--worktree' ||
+      argument === '--authorization-file' ||
+      [
+        '--lease-token',
+        '--owner',
+        '--session-id',
+        '--task-id',
+        '--slot-id',
+        '--base-sha',
+        '--fingerprint',
+      ].includes(argument)
+    ) {
       const value = arguments_[index + 1];
       if (value === undefined || value.startsWith('--')) fail(`${argument} requires a value`);
       if (argument === '--mode') options.mode = value;
       else if (argument === '--worktree') options.worktree = value;
       else if (argument === '--authorization-file') options.authorizationFile = value;
-      else options.leaseToken = value;
+      else
+        options[
+          {
+            '--lease-token': 'leaseToken',
+            '--owner': 'owner',
+            '--session-id': 'sessionId',
+            '--task-id': 'taskId',
+            '--slot-id': 'slotId',
+            '--base-sha': 'baseSha',
+            '--fingerprint': 'fingerprint',
+          }[argument]
+        ] = value;
       index += 1;
     } else if (argument === '--adopt-healthy-existing') options.adoptHealthyExisting = true;
-    else if (argument === '--current-message-authorization') options.currentMessageAuthorization = true;
+    else if (argument === '--current-message-authorization')
+      options.currentMessageAuthorization = true;
     else if (argument === '--check-only') options.mode = 'ReuseOnly';
     else fail(`unknown argument: ${argument}`);
   }
@@ -987,8 +1362,9 @@ export function main(arguments_ = process.argv.slice(2)) {
 }
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === SCRIPT_PATH) {
-  try { main(); }
-  catch (error) {
+  try {
+    main();
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 2;
   }

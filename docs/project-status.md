@@ -4,7 +4,20 @@
 
 - Skill-only 收口：APPLICATION_MAINLINE_CLOSED；依赖规范去重及预检/证据复用/cutoff 已完成，Skill validator、Node 守卫 8/8、format:check 通过；checkpoint `docs(agent): refine candidate evidence and dependency routing`；应用/发布无变化，无下一自动批次，停止条件为主线包含此提交且租约释放。
 
-## 当前批次（2026-09-05）
+## B0 工具链收口（2026-09-05）
+
+- 当前授权批次：B0-ACQUIRE-RECONCILIATION-HANDOFF；仅修复 Acquire/offline reconciliation lease 契约。
+- 基线 origin/main 为 cdb759b9d8781dc01749f103d2d30d346689121d；整合前两点 diff 为空。
+- checkpoint: fix(tooling): preserve owned lease through offline reconciliation。
+- general-1 已完成唯一一次有效 frozen/offline reconciliation，下载0、tracked tree无变化；root健康通过。
+- 全新 b0-fresh-smoke 普通 Acquire 已返回 READY_REUSE，安装0，bootstrap全复用；维修/smoke lease已释放。
+- 工具链39项、连续性/发现守卫6项、format:check、目标lint和smoke:check-core通过。
+- 详情：docs/debug/b0-acquire-reconciliation-handoff.md；最终SHA/推送后smoke/清理见
+  ignored runtime/codex/logs/b0-acquire-reconciliation-20260905/handoff.json。
+- 唯一下一批次为独立 B2；停止条件：checkpoint进入origin/main、最终fresh Acquire通过、B0 lease全部释放。
+  不在本轮启动B2、不改业务/图标/Skill/体验版/allowlist、不连接生产。以下Mini事实仅保留连续性。
+
+## 前序 Mini 批次（2026-09-05）
 
 - 当前批次：MINI-FEEDBACK-REGRESSION-001，RUN_ID `mini-toast-switch-20260905133316`。
   用户反馈通知只显示文字、开关切换时闪烁；两项代码修复、定向/绘制/最终Mini全量均已通过。
@@ -46,5 +59,5 @@
 - 前序已上传观察仍为`.88@84dc966ea384e6f88c354bc5e5fb506ee5144d08`，详情见
   `docs/audit/mini-ui-20260905001548.md`；它不含本轮修复，不能作为本轮完成的真机证据。
 - 本轮checkpoint完成并正常推送后安全释放租约；推送/释放的最终事实以Git与ignored任务状态为准。
-- 唯一下一动作：取得当次授权后再准备本次修复体验版；授权前停止版本分配/上传，不自动开始其他业务批次。
+- Mini 前序待授权动作：取得当次授权后再准备修复体验版；不属于B0的后续批次。
   未提审、未正式发布、未部署ECS/数据库、未做生产备份或数据库迁移。未宣称Xiaomi 14真机验收通过。

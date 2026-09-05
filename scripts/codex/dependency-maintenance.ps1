@@ -1,12 +1,16 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [ValidateNotNullOrEmpty()]
     [string]$Reason,
 
     [string]$WorktreeRoot = (Get-Location).Path,
 
     [string]$LeaseToken,
+    [string]$Owner,
+    [string]$SessionId,
+    [string]$TaskId,
+    [string]$SlotId,
+    [string]$BaseSha,
+    [string]$Fingerprint,
 
     [switch]$CurrentMessageAuthorization,
 
@@ -86,6 +90,16 @@ try {
     $canonicalWorktree = Get-CanonicalPath $worktree
     $canonicalCommon = Get-CanonicalPath $commonDirectory
     $targetStore = Get-CanonicalPath (Join-Path $canonicalProjectHome 'runtime/pnpm-store')
+    $preflightLog = Join-Path $canonicalProjectHome 'runtime/codex/logs/dependency-maintenance-preflight.jsonl'
+    [void](New-Item -ItemType Directory -Path (Split-Path $preflightLog -Parent) -Force)
+    $preflight = [ordered]@{ at=(Get-Date).ToUniversalTime().ToString('o'); worktree=$canonicalWorktree; owner=$Owner; sessionId=$SessionId; taskId=$TaskId; fingerprint=$Fingerprint; baseSha=$BaseSha; installInvoked=$false; phase='wrapper-preflight' }
+    [IO.File]::AppendAllText($preflightLog, (($preflight | ConvertTo-Json -Compress) + [Environment]::NewLine))
+    if ([string]::IsNullOrWhiteSpace($Reason)) { throw 'Reason is required before pnpm starts.' }
+    if ($CurrentMessageAuthorization) {
+        foreach ($name in @('Owner','SessionId','TaskId','SlotId','BaseSha','Fingerprint','LeaseToken')) {
+            if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $name -ValueOnly))) { throw "Current-message reconciliation requires -$name before pnpm starts." }
+        }
+    }
     $authorizationRoot = [IO.Path]::GetFullPath((Join-Path $canonicalProjectHome 'runtime/codex/authorizations'))
     $nonce = [guid]::NewGuid().ToString('D')
     $authorizationFile = Join-Path $authorizationRoot "$nonce.json"
@@ -139,6 +153,10 @@ try {
         }
         if ($CurrentMessageAuthorization) { $coreParameters.CurrentMessageAuthorization = $true }
         if ($LeaseToken) { $coreParameters.LeaseToken = $LeaseToken }
+        foreach ($name in @('Owner','SessionId','TaskId','SlotId','BaseSha','Fingerprint')) {
+            $value = Get-Variable -Name $name -ValueOnly
+            if ($value) { $coreParameters[$name] = $value }
+        }
         if ($Json) { $coreParameters.Json = $true }
         $output = & $coreScript @coreParameters
         $exitCode = $LASTEXITCODE
@@ -150,6 +168,9 @@ try {
     }
 }
 catch {
+    if (Get-Variable -Name preflightLog -ErrorAction SilentlyContinue) {
+        [IO.File]::AppendAllText($preflightLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');phase='wrapper-error';reason=$_.Exception.Message} | ConvertTo-Json -Compress) + [Environment]::NewLine))
+    }
     Write-Error $_
     exit 2
 }

@@ -32,6 +32,8 @@ param(
     [ValidateRange(1, 240)]
     [int]$TtlMinutes = 30,
 
+    [switch]$ReconciliationHandoff,
+
     [switch]$Json
 )
 
@@ -475,23 +477,26 @@ function Update-SlotMetadata {
 function Acquire-Slot {
     Assert-PoolBoundary
     [void](Ensure-LocalPoolConfig)
-    $managed = @(Get-ManagedSlots | Where-Object { $_.metadata.role -eq $Role -and $_.metadata.status -eq 'free' })
+    $managed = @(Get-ManagedSlots | Where-Object { $_.metadata.role -eq $Role -and (-not $Path -or $_.path -eq (Get-CanonicalPath $Path)) })
     $busySeen = $false
     $incompatibleReasons = @()
     foreach ($slot in ($managed | Sort-Object path)) {
+        if ($slot.metadata.status -ne 'free') { $busySeen = $true; continue }
         if ($slot.lease) { $busySeen = $true; continue }
         if (-not $slot.detached -or $slot.branch) { $busySeen = $true; continue }
         if (-not $slot.process.known -or $slot.process.count -ne 0) { $busySeen = $true; continue }
         if (-not (Test-CleanWorktree $slot.path) -or -not (Test-StandaloneNodeModules $slot.path)) { continue }
         try { $dependency = Get-DependencyCheck -WorktreePath $slot.path }
         catch { $incompatibleReasons += "$($slot.path):dependency-check-error"; continue }
-        if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
+        if (($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) -and -not $ReconciliationHandoff) {
             $incompatibleReasons += "$($slot.path):$($dependency.taskStatus)"
             continue
         }
         $token = [guid]::NewGuid().ToString('D')
         $lease = [ordered]@{
             schemaVersion = 2
+            slotId = $slot.paths.slotKey
+            baseSha = $null
             token = $token
             path = $slot.path
             sessionId = $SessionId
@@ -510,14 +515,29 @@ function Acquire-Slot {
         if (-not (New-AtomicLease -LeasePath $slot.paths.lease -Lease $lease)) { $busySeen = $true; continue }
         $branch = $null
         try {
+            if (Test-Path -LiteralPath "$($slot.paths.lease).operation") { throw 'Lease operation in progress.' }
+            if (Test-Path -LiteralPath $slot.paths.marker) {
+                $currentMetadata = Get-Content -LiteralPath $slot.paths.marker -Raw | ConvertFrom-Json
+                if ($currentMetadata.status -ne 'free') { throw 'Slot state changed before atomic claim.' }
+            }
             $baseCommit = Resolve-BaseCommit
             $branch = Initialize-TaskBranch -WorktreePath $slot.path -BaseCommit $baseCommit
             $lease.head = $branch.head
+            $lease.baseSha = $baseCommit
             $lease.branch = $branch.name
             Write-AtomicJson -Target $slot.paths.lease -Value $lease
             $verified = Get-DependencyCheck -WorktreePath $slot.path -Token $token
             if ($verified.taskStatus -ne 'READY_REUSE' -or -not $verified.dependenciesReused) {
-                throw "Dependency reuse failed after task branch assignment: $(@($verified.reasons) -join ',')"
+                if ($verified.taskStatus -notin @('BLOCKED_DEPENDENCY_INSTALL_REQUIRED', 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV')) { throw 'Unexpected dependency check failure.' }
+                $lease.status = 'NEEDS_RECONCILIATION'
+                $lease.dependencyFingerprint = $verified.dependencyFingerprint
+                Write-AtomicJson -Target $slot.paths.lease -Value $lease
+                Update-SlotMetadata -Slot $slot -Status 'NEEDS_RECONCILIATION' -DependencyFingerprint $verified.dependencyFingerprint -BootstrapProfile $Profile
+                return New-Result -TaskStatus 'NEEDS_RECONCILIATION' -Reason (@($verified.reasons) -join ',') -Data ([pscustomobject]@{
+                    path = $slot.path; slotId = $slot.paths.slotKey; owner = $Owner; sessionId = $SessionId; taskId = $TaskId
+                    leaseToken = $token; head = $branch.head; baseSha = $baseCommit; branch = $branch.name
+                    fingerprint = $verified.dependencyFingerprint; profile = $Profile
+                })
             }
             $bootstrap = $null
             if ($Profile) {
@@ -545,8 +565,8 @@ function Acquire-Slot {
             if ($branch -and (Test-CleanWorktree $slot.path)) {
                 try { [void](Invoke-Git -WorkingDirectory $slot.path -Arguments @('switch', '--detach', $branch.head)) } catch { $message += '; slot could not be detached safely' }
             }
+            Update-SlotMetadata -Slot $slot -Status 'quarantined-dependency'
             if (Test-Path -LiteralPath $slot.paths.lease -PathType Leaf) { Remove-Item -LiteralPath $slot.paths.lease -Force }
-            Update-SlotMetadata -Slot $slot -Status 'free'
             return New-Result -TaskStatus 'BLOCKED_NO_REUSABLE_DEPENDENCY_ENV' -Reason $message
         }
     }
@@ -559,6 +579,9 @@ function Assert-OwnedLease {
     param([Parameter(Mandatory = $true)][object]$Slot)
     if (-not $Slot.lease) { throw 'Slot is not leased.' }
     if (-not $LeaseToken -or $Slot.lease.token -ne $LeaseToken) { throw 'Lease token does not own this slot.' }
+    if ($Slot.lease.PSObject.Properties.Name -contains 'slotId') {
+        if ($Slot.lease.owner -ne $Owner -or $Slot.lease.sessionId -ne $SessionId -or $Slot.lease.taskId -ne $TaskId) { throw 'Lease owner/session/task mismatch.' }
+    }
     return $Slot.lease
 }
 
@@ -568,9 +591,10 @@ function Heartbeat-Slot {
     $slot = Assert-ManagedSlot $Path
     $lease = Assert-OwnedLease $slot
     $lease.lastHeartbeat = (Get-Date).ToUniversalTime().ToString('o')
-    $lease.status = 'leased'
     Write-AtomicJson -Target $slot.paths.lease -Value $lease
-    return New-Result -TaskStatus 'READY_REUSE' -DependenciesReused $true -Data ([pscustomobject]@{ path = $slot.path; heartbeat = $lease.lastHeartbeat })
+    $ready = $lease.status -in @('leased', 'READY_REUSE')
+    $status = if ($ready) { 'READY_REUSE' } else { $lease.status }
+    return New-Result -TaskStatus $status -DependenciesReused $ready -Data ([pscustomobject]@{ path = $slot.path; heartbeat = $lease.lastHeartbeat })
 }
 
 function Release-Slot {
@@ -586,6 +610,13 @@ function Release-Slot {
     $children = Get-ChildProcessEvidence ([int]$lease.pid)
     if (-not $children.known -or $children.count -ne 0) {
         throw "Refusing to release while child process evidence is unavailable or active (known=$($children.known), count=$($children.count), leasePid=$($lease.pid))."
+    }
+    if ($lease.status -in @('NEEDS_RECONCILIATION', 'QUARANTINED_RECONCILIATION')) {
+        $head = Get-GitValue -WorkingDirectory $slot.path -Arguments @('rev-parse', 'HEAD')
+        [void](Invoke-Git -WorkingDirectory $slot.path -Arguments @('switch', '--detach', $head))
+        Update-SlotMetadata -Slot $slot -Status 'quarantined-dependency'
+        Remove-Item -LiteralPath $slot.paths.lease -Force
+        return New-Result -TaskStatus 'QUARANTINED_RECONCILIATION' -Data ([pscustomobject]@{ path = $slot.path; released = $true })
     }
     $dependency = Get-DependencyCheck -WorktreePath $slot.path -Token $LeaseToken
     if ($dependency.taskStatus -ne 'READY_REUSE' -or -not $dependency.dependenciesReused) {
@@ -622,12 +653,21 @@ function Reclaim-ExpiredLeases {
     $candidates = if ($Path) { @(Assert-ManagedSlot $Path) } else { @(Get-ManagedSlots) }
     $reclaimed = @()
     foreach ($slot in $candidates) {
+        $reclaimOperation = "$($slot.paths.lease).operation"
+        $reclaimStream = $null
+        try {
+            try { $reclaimStream = [IO.File]::Open($reclaimOperation, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None) }
+            catch [IO.IOException] { continue }
+            $slot.lease = Read-Lease $slot.paths.lease
         if (Test-ExpiredLease $slot) {
             $head = Get-GitValue -WorkingDirectory $slot.path -Arguments @('rev-parse', 'HEAD')
             [void](Invoke-Git -WorkingDirectory $slot.path -Arguments @('switch', '--detach', $head))
             Update-SlotMetadata -Slot $slot -Status 'free'
             Remove-Item -LiteralPath $slot.paths.lease -Force
             $reclaimed += $slot.path
+        }
+        } finally {
+            if ($reclaimStream) { $reclaimStream.Dispose(); Remove-Item -LiteralPath $reclaimOperation -Force }
         }
     }
     return New-Result -TaskStatus 'READY_REUSE' -Data ([pscustomobject]@{ reclaimed = $reclaimed; count = $reclaimed.Count })
@@ -685,7 +725,14 @@ function Get-PoolStatus {
         })
 }
 
+$operationPath = $null
+$operationStream = $null
 try {
+    if ($Action -in @('Release', 'Heartbeat')) {
+        if (-not $Path) { throw 'Lease mutations require an exact -Path.' }
+        $operationPath = (Get-SlotPaths (Get-CanonicalPath $Path)).lease + '.operation'
+        $operationStream = [IO.File]::Open($operationPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    }
     $result = switch ($Action) {
         'Register' { Register-Slot }
         'Acquire' { Acquire-Slot }
@@ -700,4 +747,8 @@ catch {
     $errorResult = New-Result -TaskStatus 'BLOCKED_POOL_POLICY' -Reason $_.Exception.Message
     Write-Result $errorResult
     exit 2
+}
+
+finally {
+    if ($operationStream) { $operationStream.Dispose(); Remove-Item -LiteralPath $operationPath -Force }
 }
