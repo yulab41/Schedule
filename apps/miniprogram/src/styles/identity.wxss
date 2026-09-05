@@ -168,6 +168,36 @@ page {
   border-radius: var(--ui-radius-large);
 }
 
+.identity-login-form,
+.identity-login-field {
+  display: block;
+  min-width: 0;
+}
+
+.identity-login-actions {
+  display: flex;
+  min-width: 0;
+  margin-top: var(--ui-spacing-xl);
+  flex-direction: column;
+  gap: var(--ui-spacing-md);
+}
+
+.identity-login-actions .identity-card__button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.identity-login-actions .identity-divider {
+  margin: 0;
+}
+
+.identity-login-card .identity-error {
+  display: block;
+  margin-bottom: var(--ui-spacing-md);
+}
+
 .identity-login-field__label {
   display: block;
   margin-bottom: 7px;
@@ -182,6 +212,7 @@ page {
 
 .identity-login-field__shell {
   display: flex;
+  min-width: 0;
   min-height: 50px;
   padding: 0 14px;
   box-sizing: border-box;
@@ -209,13 +240,15 @@ page {
 
 .identity-login-field__control {
   min-width: 0;
-  height: 48px;
+  min-height: 48px;
+  height: calc(var(--ui-font-size-md) + var(--ui-spacing-xxl));
   padding: 0;
   flex: 1;
   color: var(--ui-color-text-primary);
   background: transparent;
   font-family: var(--ui-font-family-system);
   font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-normal);
 }
 
 .identity-login-privacy {

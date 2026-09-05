@@ -164,7 +164,7 @@
             >
           </view>
           <view class="profile-detail-row">
-            <view>
+            <view class="profile-detail-label">
               <text>微信小程序身份</text>
               <text wx:if="{{bindingState === 'error'}}" class="profile-detail-hint">
                 稍后可重新进入刷新
@@ -176,7 +176,7 @@
             </view>
           </view>
           <view class="profile-detail-row">
-            <text>微信头像</text>
+            <text class="profile-detail-label">微信头像</text>
             <view class="profile-detail-action">
               <text>{{avatarSyncLabel}}</text>
               <button
@@ -189,7 +189,7 @@
             </view>
           </view>
           <view class="profile-detail-row is-last">
-            <text>登录密码</text>
+            <text class="profile-detail-label">登录密码</text>
             <button class="profile-password-action" bindtap="handlePasswordOpen">
               修改登录密码
             </button>

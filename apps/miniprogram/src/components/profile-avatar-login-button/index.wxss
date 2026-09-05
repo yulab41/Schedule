@@ -1,6 +1,8 @@
 .profile-avatar-login-button {
   width: 100%;
+  min-width: 0;
   min-height: var(--ui-touch-target-minimum);
+  margin: 0;
   box-sizing: border-box;
   display: flex;
   padding: 0 14px;
@@ -13,6 +15,8 @@
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
   line-height: var(--ui-line-height-normal);
+  text-align: center;
+  word-break: normal;
   transition: opacity var(--ui-duration-fast) ease;
 }
 

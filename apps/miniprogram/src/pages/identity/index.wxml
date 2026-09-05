@@ -47,7 +47,7 @@
         tone="danger"
       ></ui-alert>
 
-      <block wx:if="{{mode === 'login'}}">
+      <view wx:if="{{mode === 'login'}}" class="identity-login-form">
         <view class="identity-login-field">
           <text class="identity-login-field__label">账号</text>
           <view class="identity-login-field__shell">
@@ -89,23 +89,25 @@
             />
           </view>
         </view>
-        <ui-button
-          class="identity-card__button"
-          label="进入工作台"
-          variant="primary"
-          loading="{{loading}}"
-          bind:press="handlePasswordLogin"
-        ></ui-button>
-        <view class="identity-divider" aria-hidden="true"
-          ><view></view><text>或</text><view></view
-        ></view>
-        <profile-avatar-login-button
-          class="identity-card__button identity-card__button--secondary identity-card__button--wechat"
-          label="微信快捷登录"
-          loading="{{loading}}"
-          bind:press="handleWechatLogin"
-        ></profile-avatar-login-button>
-      </block>
+        <view class="identity-login-actions">
+          <ui-button
+            class="identity-card__button"
+            label="进入工作台"
+            variant="primary"
+            loading="{{loading}}"
+            bind:press="handlePasswordLogin"
+          ></ui-button>
+          <view class="identity-divider" aria-hidden="true"
+            ><view></view><text>或</text><view></view
+          ></view>
+          <profile-avatar-login-button
+            class="identity-card__button identity-card__button--secondary identity-card__button--wechat"
+            label="微信快捷登录"
+            loading="{{loading}}"
+            bind:press="handleWechatLogin"
+          ></profile-avatar-login-button>
+        </view>
+      </view>
 
       <block wx:elif="{{mode === 'choice'}}">
         <view class="identity-status identity-status--info"
