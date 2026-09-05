@@ -4,7 +4,7 @@
   "mainBranch": "main",
   "tagPrefix": "miniprogram-trial/",
   "versionPrefix": "0.1.0-p10",
-  "lastSequence": 87,
+  "lastSequence": 88,
   "requiredCheckpoints": [
     {
       "commit": "1ffab10c3f30987e31db47eb555f9e0aef0bf787",

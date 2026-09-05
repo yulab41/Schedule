@@ -139,13 +139,13 @@ function createCandidateFacts(overrides = {}) {
 }
 
 describe('trial lineage history and policy', () => {
-  it('tracks every legacy sequence from .74 through .86 and marks every collision', () => {
+  it('tracks every recorded sequence from .74 through .88 and marks every collision', () => {
     const history = loadTrialHistory();
     const policy = loadTrialPolicy();
 
     expect(() => validateTrialConfiguration(history, policy)).not.toThrow();
     expect(history.entries.map(({ sequence }) => sequence)).toEqual([
-      74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87,
+      74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
     ]);
     expect(
       history.entries.filter(({ collision }) => collision).map(({ sequence }) => sequence),
@@ -173,7 +173,7 @@ describe('trial lineage history and policy', () => {
         version: '0.1.0-p10.20260905.87',
       }),
     ]);
-    expect(policy).toMatchObject({ lastSequence: 87, schemaVersion: 1 });
+    expect(policy).toMatchObject({ lastSequence: 88, schemaVersion: 1 });
     expect(policy.requiredCheckpoints).toContainEqual(
       expect.objectContaining({ commit: REQUIRED_ICON_CHECKPOINT }),
     );
@@ -184,6 +184,22 @@ describe('trial lineage history and policy', () => {
         expect.objectContaining({ commit: REQUIRED_MOTION_CANDIDATE }),
       ]),
     );
+  });
+
+  it('records the accepted nine-item UI trial with its exact source and manifest', () => {
+    const history = loadTrialHistory();
+    expect(history.entries.find(({ sequence }) => sequence === 88)?.events).toEqual([
+      expect.objectContaining({
+        allowlistStatus: 'verified',
+        commit: '84dc966ea384e6f88c354bc5e5fb506ee5144d08',
+        description: 'mini-ui9-directory-sheet-profile-color-toast-84dc966',
+        manifestHash: 'bad19c28d9844176ee42a94ade9425eecd0cc4c3ed978ebc73c87e3adffdc372',
+        platformAction: 'uploaded',
+        profile: 'production',
+        uploadedAt: '2026-09-05T02:48:58.237Z',
+        version: '0.1.0-p10.20260905.88',
+      }),
+    ]);
   });
 
   it('rejects an unmarked legacy sequence collision', () => {

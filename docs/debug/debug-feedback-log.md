@@ -2560,5 +2560,14 @@
 - 正式根verify一次通过(327.833s，Mini758/Node22/root1173)；P2后仅重跑受影响Mini全量763通过、
   TypeScript/lint/格式、production/source/package/performance/determinism、CI dry-run和C布局，全部PASS。
   先前本地Git fixture超时最终在原阈值下通过；未改变任何全局timeout或削弱失败断言。
-- checkpoint message：fix(miniprogram): retain latest rapid color gesture。仍待最终main推送、动态体验版、
-  精确manifest与可信allowlist/full verifier；未提审、正式发布、ECS/数据库部署或数据库迁移。
+- 修复checkpoint：45a8e0b3；最终源码checkpoint：84dc966e，fix(miniprogram): complete nine UI alignment fixes。
+- main首次普通push报commit_refs错误；核验远端未接受后第二次成功。无外部main漂移、无force或用户改动丢失。
+- 动态.88@84dc966e已在2026-09-05T02:48:58.237Z被CI接受；manifest
+  bad19c28d9844176ee42a94ade9425eecd0cc4c3ed978ebc73c87e3adffdc372；329文件、主包1758921/总包5210216 bytes。
+  clean production、同时间两次determinism和最终包一致，远端tag/官方receipt/归档逐文件一致，无版本竞争。
+- 本地编排路径检查在分配前早停，canonical cwd修正后继续；微信TLS1.3保留校验，实际上传一次。
+  已安装可信add-only allowlist ensure/verify和完整production verifier均PASS，server release前后48488019不变，
+  仅API/Web配置容器刷新，MySQL未重建；可选公网IP主动探测按工具默认skip，正式域名与unknown Host已测。
+- 上传后的记录契约先红后绿，lineage16+CI6共22项PASS；初次root配置排除了Mini测试，不算有效红证据。
+  记录checkpoint message：chore(miniprogram): record UI alignment trial 88 delivery；不重复上传、不改冻结归档。
+  未提审、正式发布、ECS应用代码/数据库部署、数据库备份/迁移或release元数据同步。真机层待用户复核。

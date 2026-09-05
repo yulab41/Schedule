@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sequenceRange": {
     "from": 74,
-    "to": 87
+    "to": 88
   },
   "entries": [
     {
@@ -240,6 +240,30 @@
             "71110712d41756d19e95a50ecf5aa0d083728da1"
           ],
           "evidence": "runtime/audit/miniprogram-trials/0.1.0-p10.20260905.87.json, immutable tag and trusted allowlist ensure/verify record the exact production upload; source candidate is 5aff4449 and the prior .86 observation is not reused."
+        }
+      ]
+    },
+    {
+      "sequence": 88,
+      "collision": false,
+      "events": [
+        {
+          "label": "nine-item Mini UI alignment cumulative candidate",
+          "version": "0.1.0-p10.20260905.88",
+          "versionEvidence": "exact",
+          "commit": "84dc966ea384e6f88c354bc5e5fb506ee5144d08",
+          "platformAction": "uploaded",
+          "manifestHash": "bad19c28d9844176ee42a94ade9425eecd0cc4c3ed978ebc73c87e3adffdc372",
+          "profile": "production",
+          "description": "mini-ui9-directory-sheet-profile-color-toast-84dc966",
+          "uploadedAt": "2026-09-05T02:48:58.237Z",
+          "allowlistStatus": "verified",
+          "requiredFeatureCommits": [
+            "1ffab10c3f30987e31db47eb555f9e0aef0bf787",
+            "5285dd17a78793f2e62e1afcb0a7ef65f6ae57c1",
+            "71110712d41756d19e95a50ecf5aa0d083728da1"
+          ],
+          "evidence": "runtime/audit/miniprogram-trials/0.1.0-p10.20260905.88.json, immutable remote tag, frozen 329-file manifest and archived dist all bind source 84dc966e. Trusted add-only allowlist ensure/verify and the complete installed production verifier passed; the live server release stayed unchanged. See docs/audit/mini-ui-20260905001548.md."
         }
       ]
     }
