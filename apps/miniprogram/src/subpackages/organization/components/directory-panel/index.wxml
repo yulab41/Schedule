@@ -1,10 +1,8 @@
-<wxs module="directorySheetGesture" src="./filter-sheet-drag.wxs"></wxs>
-
 <template name="directory-pane">
   <scroll-view
     class="directory-scroll"
     type="list"
-    scroll-y
+    scroll-y="{{!filterSheetOpen}}"
     enhanced
     show-scrollbar="{{false}}"
     scroll-top="{{pane.mainScrollTop}}"
@@ -130,7 +128,8 @@
               maxlength="100"
               confirm-type="search"
               placeholder-class="search-placeholder"
-              placeholder="{{pane.directoryKind === 'employee' ? '姓名可自动搜索；拼音、工号或电话输入后按键盘搜索' : '名称可自动搜索；拼音或电话输入后按键盘搜索'}}"
+              placeholder="{{pane.searchPlaceholder}}"
+              aria-label="{{pane.searchPlaceholder}}"
               data-directory-kind="{{pane.directoryKind}}"
               bindinput="handleSearchInput"
               bindconfirm="handleSearch"
@@ -192,6 +191,7 @@
                 entry="{{entry}}"
                 disabled="{{pane.interactionDisabled}}"
                 large-text="{{largeText}}"
+                layout-active="{{layoutActive}}"
                 show-divider="{{entryIndex > 0}}"
                 data-directory-kind="{{pane.directoryKind}}"
                 bindfavoritechange="handleDirectoryCardFavorite"
@@ -252,6 +252,7 @@
                   wx:key="id"
                   entry="{{entry}}"
                   large-text="{{largeText}}"
+                  layout-active="{{layoutActive}}"
                   show-divider="{{entryIndex > 0}}"
                   data-directory-kind="{{pane.directoryKind}}"
                   bindfavoritechange="handleDirectoryCardFavorite"
@@ -272,125 +273,97 @@
 </template>
 
 <template name="directory-filter-sheet">
-  <view wx:if="{{sheet.open}}" class="sheet-layer" catchtouchmove="preventTouchMove">
+  <ui-sheet
+    visible="{{sheet.open}}"
+    title="筛选{{sheet.title}}"
+    size="three-quarter"
+    swipe-area="handle"
+    swipe-dismiss="{{true}}"
+    data-directory-kind="{{sheet.directoryKind}}"
+    bindclose="handleCloseFilters"
+  >
     <view
-      id="directory-filter-sheet-scrim"
-      class="sheet-scrim"
+      class="sheet-reset-action {{sheet.activeFilterCount === 0 ? 'is-disabled' : ''}}"
       aria-role="button"
-      aria-label="关闭筛选"
+      aria-disabled="{{sheet.activeFilterCount === 0}}"
       data-directory-kind="{{sheet.directoryKind}}"
-      bindtap="handleCloseFilters"
-    ></view>
-    <view
-      id="directory-filter-sheet-panel"
-      class="filter-sheet"
-      style="{{filterSheetStyle}}"
-      aria-role="dialog"
-      aria-label="筛选{{sheet.title}}"
+      bindtap="handleClearFilters"
     >
-      <view
-        class="sheet-drag-region"
-        bindtouchstart="{{directorySheetGesture.touchStart}}"
-        bindtouchmove="{{directorySheetGesture.touchMove}}"
-        bindtouchend="{{directorySheetGesture.touchEnd}}"
-        bindtouchcancel="{{directorySheetGesture.touchCancel}}"
+      <image src="/assets/icons/ui-filter-clear.svg" mode="aspectFit" />
+      <text>清除全部筛选</text>
+      <text wx:if="{{sheet.activeFilterCount > 0}}" class="sheet-reset-count"
+        >已选 {{sheet.activeFilterCount}} 项</text
       >
-        <view class="sheet-handle" aria-hidden="true"></view>
-      </view>
-      <view class="sheet-heading">
-        <text class="sheet-title">筛选{{sheet.title}}</text>
-        <view
-          class="sheet-finish"
-          aria-role="button"
-          aria-label="完成筛选"
-          data-directory-kind="{{sheet.directoryKind}}"
-          bindtap="handleCloseFilters"
-          >完成</view
-        >
-      </view>
-      <view
-        class="sheet-reset-action {{sheet.activeFilterCount === 0 ? 'is-disabled' : ''}}"
-        aria-role="button"
-        aria-disabled="{{sheet.activeFilterCount === 0}}"
-        data-directory-kind="{{sheet.directoryKind}}"
-        bindtap="handleClearFilters"
-      >
-        <image src="/assets/icons/ui-filter-clear.svg" mode="aspectFit" />
-        <text>清除全部筛选</text>
-        <text wx:if="{{sheet.activeFilterCount > 0}}" class="sheet-reset-count"
-          >已选 {{sheet.activeFilterCount}} 项</text
-        >
-      </view>
-      <text wx:if="{{sheet.filterAdjustmentMessage}}" class="visually-hidden" aria-live="polite"
-        >{{sheet.filterAdjustmentMessage}}</text
-      >
-      <scroll-view
-        class="sheet-scroll"
-        type="list"
-        scroll-y
-        enhanced
-        show-scrollbar="{{false}}"
-        scroll-with-animation="{{true}}"
-        scroll-into-view="{{sheet.scrollTarget}}"
-        scroll-top="{{sheet.scrollTop}}"
-        data-directory-kind="{{sheet.directoryKind}}"
-        bindscroll="handleSheetScroll"
-      >
-        <view class="sheet-body">
-          <view class="directory-filter-grid">
-            <view wx:if="{{sheet.emptyMessage}}" class="sheet-empty-state">
-              <text>{{sheet.emptyMessage}}</text>
-              <text>当前通讯录没有需要进一步缩小的层级。</text>
-            </view>
+    </view>
+    <text wx:if="{{sheet.filterAdjustmentMessage}}" class="visually-hidden" aria-live="polite"
+      >{{sheet.filterAdjustmentMessage}}</text
+    >
+    <scroll-view
+      class="sheet-scroll"
+      type="list"
+      scroll-y
+      enhanced
+      show-scrollbar="{{false}}"
+      scroll-with-animation="{{true}}"
+      scroll-into-view="{{sheet.scrollTarget}}"
+      scroll-top="{{sheet.scrollTop}}"
+      data-directory-kind="{{sheet.directoryKind}}"
+      bindscroll="handleSheetScroll"
+    >
+      <view class="sheet-body">
+        <view class="directory-filter-grid">
+          <view wx:if="{{sheet.emptyMessage}}" class="sheet-empty-state">
+            <text>{{sheet.emptyMessage}}</text>
+            <text>当前通讯录没有需要进一步缩小的层级。</text>
+          </view>
+          <view
+            wx:for="{{sheet.sections}}"
+            wx:for-item="section"
+            wx:key="key"
+            id="directory-filter-{{sheet.directoryKind}}-{{section.key}}"
+            class="filter-section"
+          >
             <view
-              wx:for="{{sheet.sections}}"
-              wx:for-item="section"
-              wx:key="key"
-              id="directory-filter-{{sheet.directoryKind}}-{{section.key}}"
-              class="filter-section"
+              class="filter-section-toggle"
+              aria-role="button"
+              aria-expanded="{{section.expanded}}"
+              data-directory-kind="{{sheet.directoryKind}}"
+              data-filter="{{section.key}}"
+              bindtap="handleToggleFilterSection"
             >
+              <view class="filter-section-copy">
+                <text>{{section.label}}</text>
+                <text>{{section.selectedLabel}} · {{section.optionCount}} 项</text>
+              </view>
+              <view class="filter-chevron {{section.expanded ? 'is-expanded' : ''}}"
+                ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view
+              >
+            </view>
+            <view wx:if="{{section.expanded}}" class="filter-options">
               <view
-                class="filter-section-toggle"
+                wx:for="{{section.options}}"
+                wx:for-item="option"
+                wx:key="value"
+                class="filter-option {{option.value === section.selectedValue ? 'is-selected' : ''}}"
                 aria-role="button"
-                aria-expanded="{{section.expanded}}"
+                aria-pressed="{{option.value === section.selectedValue}}"
                 data-directory-kind="{{sheet.directoryKind}}"
                 data-filter="{{section.key}}"
-                bindtap="handleToggleFilterSection"
+                data-value="{{option.value}}"
+                bindtap="handleFilterOption"
               >
-                <view class="filter-section-copy">
-                  <text>{{section.label}}</text>
-                  <text>{{section.selectedLabel}} · {{section.optionCount}} 项</text>
-                </view>
-                <view class="filter-chevron {{section.expanded ? 'is-expanded' : ''}}"
-                  ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view
-                >
+                <text>{{option.label}}</text>
+                <text wx:if="{{option.value}}" class="option-count">{{option.count}}</text>
               </view>
-              <view wx:if="{{section.expanded}}" class="filter-options">
-                <view
-                  wx:for="{{section.options}}"
-                  wx:for-item="option"
-                  wx:key="value"
-                  class="filter-option {{option.value === section.selectedValue ? 'is-selected' : ''}}"
-                  aria-role="button"
-                  aria-pressed="{{option.value === section.selectedValue}}"
-                  data-directory-kind="{{sheet.directoryKind}}"
-                  data-filter="{{section.key}}"
-                  data-value="{{option.value}}"
-                  bindtap="handleFilterOption"
-                >
-                  <text>{{option.label}}</text>
-                  <text wx:if="{{option.value}}" class="option-count">{{option.count}}</text>
-                </view>
-                <text wx:if="{{section.optionCount === 0}}" class="filter-options-empty"
-                  >当前上级下无可选项</text
-                >
-              </view>
+              <text wx:if="{{section.optionCount === 0}}" class="filter-options-empty"
+                >当前上级下无可选项</text
+              >
             </view>
           </view>
         </view>
-      </scroll-view>
-    </view>
-  </view>
+      </view>
+    </scroll-view>
+  </ui-sheet>
 </template>
 
 <view
@@ -472,16 +445,20 @@
       aria-label="科室与人员通讯录，可左右滑动切换"
     >
       <swiper-item class="directory-mode-item" aria-hidden="{{directoryKind !== 'internal'}}">
-        <template is="directory-pane" data="{{pane: internalPane, largeText: largeText}}" />
+        <template
+          is="directory-pane"
+          data="{{pane: internalPane, largeText: largeText, filterSheetOpen: filterSheetOpen, layoutActive: (!embedded || active) && directoryKind === 'internal'}}"
+        />
       </swiper-item>
       <swiper-item class="directory-mode-item" aria-hidden="{{directoryKind !== 'employee'}}">
-        <template is="directory-pane" data="{{pane: employeePane, largeText: largeText}}" />
+        <template
+          is="directory-pane"
+          data="{{pane: employeePane, largeText: largeText, filterSheetOpen: filterSheetOpen, layoutActive: (!embedded || active) && directoryKind === 'employee'}}"
+        />
       </swiper-item>
     </swiper>
   </view>
-
-  <template
-    is="directory-filter-sheet"
-    data="{{sheet: activeSheet, filterSheetStyle: filterSheetStyle}}"
-  />
+</view>
+<view class="directory-sheet-host {{largeText ? 'is-large-text' : ''}}">
+  <template is="directory-filter-sheet" data="{{sheet: activeSheet}}" />
 </view>

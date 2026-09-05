@@ -119,17 +119,10 @@
   gap: 1px;
 }
 
-.entry-meta,
 .entry-notes {
   color: #667386;
   font-size: var(--ui-font-size-xs);
   line-height: var(--ui-line-height-normal);
-}
-
-.entry-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .favorite-action {
@@ -236,7 +229,6 @@
 }
 
 .directory-entry.is-large-text .entry-title,
-.directory-entry.is-large-text .entry-meta,
 .directory-entry.is-large-text .entry-notes,
 .directory-entry.is-large-text .contact-number {
   overflow: visible;

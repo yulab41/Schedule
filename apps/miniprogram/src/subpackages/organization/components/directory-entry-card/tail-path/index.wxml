@@ -1,0 +1,12 @@
+<view
+  class="directory-tail-path {{largeText ? 'is-large-text' : ''}}"
+  aria-role="text"
+  aria-label="{{value}}"
+>
+  <text class="directory-tail-path__text" aria-hidden="true">{{displayText}}</text>
+  <view class="directory-tail-path__measurements" aria-hidden="true">
+    <text wx:for="{{candidates}}" wx:key="*this" class="directory-tail-path__measure"
+      >{{item}}</text
+    >
+  </view>
+</view>

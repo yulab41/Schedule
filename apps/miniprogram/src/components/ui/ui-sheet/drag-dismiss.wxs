@@ -17,7 +17,7 @@ var state = {
   startX: 0,
   startY: 0,
   tracking: false,
-  velocityY: 0
+  velocityY: 0,
 };
 
 function finiteNumber(value) {
@@ -37,16 +37,33 @@ function firstTouch(event) {
 }
 
 function swipeDismissEnabled(event) {
-  var value = event.currentTarget && event.currentTarget.dataset
-    ? event.currentTarget.dataset.swipeDismiss
-    : false;
+  var value =
+    event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset.swipeDismiss
+      : false;
+  var area =
+    event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset.swipeArea
+      : 'header';
+  var origin = event.target && event.target.dataset ? event.target.dataset.swipeOrigin : 'header';
+  if (origin === 'content') return false;
+  if (area === 'handle' && origin !== 'handle') return false;
   return value === true || value === 'true';
+}
+
+function reset(newValue, oldValue, ownerInstance) {
+  state.animationToken += 1;
+  state.tracking = false;
+  state.axis = AXIS_UNDECIDED;
+  state.offsetY = 0;
+  state.velocityY = 0;
+  setDirectMotion(ownerInstance, 0);
 }
 
 function resolveElements(ownerInstance) {
   return {
     panel: ownerInstance.selectComponent('#ui-sheet-panel'),
-    scrim: ownerInstance.selectComponent('#ui-sheet-scrim')
+    scrim: ownerInstance.selectComponent('#ui-sheet-scrim'),
   };
 }
 
@@ -55,13 +72,13 @@ function setDirectMotion(ownerInstance, offsetY) {
   if (elements.panel) {
     elements.panel.setStyle({
       transform: 'translateY(' + offsetY + 'px)',
-      transition: 'none'
+      transition: 'none',
     });
   }
   if (elements.scrim) {
     elements.scrim.setStyle({
       opacity: '' + clamp(1 - offsetY / 320, 0.2, 1),
-      transition: 'none'
+      transition: 'none',
     });
   }
 }
@@ -73,19 +90,20 @@ function rebound(ownerInstance) {
   if (elements.panel) {
     elements.panel.setStyle({
       transform: 'translateY(0px)',
-      transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+      transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)',
     });
   }
   if (elements.scrim) {
     elements.scrim.setStyle({
       opacity: '1',
-      transition: 'opacity 180ms ease-out'
+      transition: 'opacity 180ms ease-out',
     });
   }
 }
 
 function finishDismiss(ownerInstance, animationToken, remainingFrames) {
   if (state.animationToken !== animationToken) return;
+  if (!ownerInstance.selectComponent('#ui-sheet-panel')) return;
   if (remainingFrames <= 0) {
     ownerInstance.callMethod('handleSwipeDismiss');
     return;
@@ -102,13 +120,13 @@ function dismiss(ownerInstance) {
   if (elements.panel) {
     elements.panel.setStyle({
       transform: 'translateY(100vh)',
-      transition: 'transform 160ms cubic-bezier(0.4, 0, 1, 1)'
+      transition: 'transform 160ms cubic-bezier(0.4, 0, 1, 1)',
     });
   }
   if (elements.scrim) {
     elements.scrim.setStyle({
       opacity: '0',
-      transition: 'opacity 160ms ease-in'
+      transition: 'opacity 160ms ease-in',
     });
   }
   finishDismiss(ownerInstance, animationToken, EXIT_FRAME_COUNT);
@@ -186,8 +204,9 @@ function touchCancel(event, ownerInstance) {
 }
 
 module.exports = {
+  reset: reset,
   touchCancel: touchCancel,
   touchEnd: touchEnd,
   touchMove: touchMove,
-  touchStart: touchStart
+  touchStart: touchStart,
 };

@@ -1,0 +1,42 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.directory-tail-path {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  direction: ltr;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-normal);
+}
+
+.directory-tail-path.is-large-text {
+  font-size: var(--ui-font-size-md);
+}
+
+.directory-tail-path__text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-tail-path__measurements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.directory-tail-path__measure {
+  flex: none;
+  white-space: nowrap;
+}

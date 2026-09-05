@@ -53,7 +53,11 @@ describe('native UiSheet', () => {
     });
     await import('../src/components/ui/ui-sheet/index.ts');
     const triggerEvent = vi.fn();
-    const instance = { triggerEvent };
+    const instance = {
+      triggerEvent,
+      _attached: true,
+      properties: { visible: true, swipeDismiss: true },
+    };
 
     definition.methods.handleButtonClose.call(instance);
     definition.methods.handleBackdropClose.call(instance);

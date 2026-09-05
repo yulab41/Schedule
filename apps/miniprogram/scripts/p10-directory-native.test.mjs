@@ -106,7 +106,7 @@ describe('P10 native directory parity', () => {
       controller.indexOf('function recordReusedDirectorySearch'),
     );
     expect(executeSearch).not.toContain("await requireClientCapability('organization')");
-    expect(template).toContain('class="filter-sheet"');
+    expect(template).toContain('<ui-sheet');
     const searchInput = template.match(/<input[\s\S]*?class="search-input"[\s\S]*?\/>/u)?.[0];
     expect(searchInput).toBeDefined();
     expect(searchInput).toContain('confirm-type="search"');
@@ -115,12 +115,13 @@ describe('P10 native directory parity', () => {
     expect(template).not.toContain('class="search-submit"');
     expect(template).not.toContain('bindpress="handleSearch"');
     expect(template).not.toContain('bindtap="handleSearch"');
-    expect(template).toContain('姓名可自动搜索；拼音、工号或电话输入后按键盘搜索');
-    expect(template).toContain('style="{{filterSheetStyle}}"');
+    expect(template).toContain('placeholder="{{pane.searchPlaceholder}}"');
+    expect(controller).toContain('搜索姓名、级别、工号、拼音、首字母或号码');
+    expect(template).toContain('size="three-quarter"');
     expect(template).toContain('wx:if="{{!pane.facetsLoading && !pane.facetsErrorMessage}}"');
     expect(template).toContain('aria-disabled="true"');
     expect(template).toContain('当前无需筛选');
-    expect(template).toContain('data="{{sheet: activeSheet, filterSheetStyle: filterSheetStyle}}"');
+    expect(template).toContain('data="{{sheet: activeSheet}}"');
     expect(template.match(/<template\s+is="directory-filter-sheet"/gu)).toHaveLength(1);
     expect(template).not.toContain('pane.filterSections');
     expect(template).not.toContain('pane.nextCursor');
@@ -184,8 +185,8 @@ describe('P10 native directory parity', () => {
     expect(styles).toMatch(
       /\.result-summary\s*{[^}]*font-size:\s*var\(--ui-font-size-sm\);[^}]*line-height:\s*var\(--ui-line-height-normal\)/s,
     );
-    expect(styles).toMatch(
-      /\.sheet-title\s*{[^}]*font-size:\s*var\(--ui-font-size-xl\);[^}]*line-height:\s*var\(--ui-line-height-tight\)/s,
+    expect(read('src/components/ui/ui-sheet/index.wxss')).toMatch(
+      /\.ui-sheet__title\s*{[^}]*font-size:\s*var\(--ui-font-size-xl\);[^}]*line-height:\s*var\(--ui-line-height-tight\)/s,
     );
     expect(template).toContain('show-divider="{{entryIndex > 0}}"');
     expect(card).toContain('showDivider');
@@ -211,19 +212,9 @@ describe('P10 native directory parity', () => {
       'src/subpackages/organization/components/directory-panel/controller.ts',
     );
 
-    expect(template).toContain(
-      '<wxs module="directorySheetGesture" src="./filter-sheet-drag.wxs"></wxs>',
-    );
-    expect(template).toContain('id="directory-filter-sheet-panel"');
-    expect(template).toContain('id="directory-filter-sheet-scrim"');
-    const dragRegion = template.match(/<view\s+class="sheet-drag-region"[\s\S]*?<\/view>/u)?.[0];
-    expect(dragRegion).toContain('bindtouchstart="{{directorySheetGesture.touchStart}}"');
-    expect(dragRegion).toContain('bindtouchmove="{{directorySheetGesture.touchMove}}"');
-    expect(dragRegion).toContain('bindtouchend="{{directorySheetGesture.touchEnd}}"');
-    expect(dragRegion).toContain('bindtouchcancel="{{directorySheetGesture.touchCancel}}"');
-    expect(dragRegion).toContain('class="sheet-handle"');
-    expect(dragRegion).not.toContain('sheet-heading');
-    expect(dragRegion).not.toContain('sheet-reset-action');
+    expect(template).toContain('swipe-area="handle"');
+    expect(template).toContain('swipe-dismiss="{{true}}"');
+    expect(template).not.toContain('directorySheetGesture');
 
     const resetIndex = template.indexOf('class="sheet-reset-action');
     const scrollIndex = template.indexOf('class="sheet-scroll"');
@@ -236,11 +227,15 @@ describe('P10 native directory parity', () => {
     expect(scrollMarkup).not.toContain('sheet-reset-action');
     expect(scrollMarkup).not.toContain('directorySheetGesture.touch');
 
-    expect(styles).toMatch(/\.filter-sheet\s*\{[^}]*display:\s*flex;/su);
-    expect(styles).toMatch(/\.filter-sheet\s*\{[^}]*flex-direction:\s*column;/su);
-    expect(styles).toMatch(/\.sheet-drag-region\s*\{[^}]*height:\s*28px;/su);
+    const sheetStyles = read('src/components/ui/ui-sheet/index.wxss');
+    expect(sheetStyles).toMatch(/\.ui-sheet__panel\s*\{[^}]*display:\s*flex;/su);
+    expect(sheetStyles).toMatch(/\.ui-sheet__panel\s*\{[^}]*flex-direction:\s*column;/su);
+    expect(sheetStyles).toMatch(
+      /\.ui-sheet__handle-region\.is-handle-only\s*\{[^}]*height:\s*28px;/su,
+    );
     expect(styles).toMatch(/\.sheet-scroll\s*\{[^}]*min-height:\s*0;[^}]*flex:\s*1;/su);
-    expect(controller).toContain('handleFilterSheetSwipeDismiss');
+    expect(controller).toContain('handleCloseFilters');
+    expect(template).toContain('bindclose="handleCloseFilters"');
   });
 
   it('documents the Xiaomi 14 half-sheet and repeatable performance procedure', () => {

@@ -1,6 +1,6 @@
 <wxs module="sheetGesture" src="./drag-dismiss.wxs"></wxs>
 
-<view wx:if="{{visible}}" class="ui-sheet__layer">
+<view wx:if="{{visible}}" class="ui-sheet__layer" catchtouchmove="preventTouchMove">
   <view
     id="ui-sheet-scrim"
     class="ui-sheet__scrim"
@@ -12,6 +12,9 @@
   <view
     id="ui-sheet-panel"
     class="ui-sheet__panel"
+    style="{{panelStyle}}"
+    gesture-session="{{gestureSession}}"
+    change:gesture-session="{{sheetGesture.reset}}"
     aria-role="dialog"
     aria-label="{{title}}"
     catchtap="preventTouchMove"
@@ -19,12 +22,19 @@
     <view
       class="ui-sheet__drag-region"
       data-swipe-dismiss="{{swipeDismiss}}"
+      data-swipe-area="{{swipeArea}}"
       bindtouchstart="{{sheetGesture.touchStart}}"
       bindtouchmove="{{sheetGesture.touchMove}}"
       bindtouchend="{{sheetGesture.touchEnd}}"
       bindtouchcancel="{{sheetGesture.touchCancel}}"
     >
-      <view class="ui-sheet__handle" aria-hidden="true"></view>
+      <view
+        class="ui-sheet__handle-region {{swipeArea === 'handle' ? 'is-handle-only' : ''}}"
+        data-swipe-origin="handle"
+        aria-hidden="true"
+      >
+        <view class="ui-sheet__handle" data-swipe-origin="handle"></view>
+      </view>
       <view class="ui-sheet__header">
         <text class="ui-sheet__title">{{title}}</text>
         <view

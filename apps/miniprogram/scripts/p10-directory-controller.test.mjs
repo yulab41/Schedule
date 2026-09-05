@@ -565,7 +565,10 @@ describe('P10 native directory controller', () => {
     });
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('ready'));
 
-    definition.methods.handleFilterSheetSwipeDismiss.call(page);
+    definition.methods.handleCloseFilters.call(page, {
+      currentTarget: { dataset: { directoryKind: 'internal' } },
+      detail: { source: 'swipe' },
+    });
 
     expect(page.data.filterSheetOpen).toBe(false);
     expect(page.data.activeSheet.open).toBe(false);
@@ -1480,40 +1483,19 @@ describe('P10 native directory controller', () => {
     });
   });
 
-  it('sizes the filter sheet from the live window and safe area, then follows rotation', async () => {
-    let resizeHandler;
-    let windowInfo = {
-      safeArea: { bottom: 840, height: 816, left: 0, right: 390, top: 24, width: 390 },
-      screenHeight: 844,
-      statusBarHeight: 24,
-      windowHeight: 820,
-      windowWidth: 390,
-    };
-    globalThis.wx.getWindowInfo = () => windowInfo;
-    globalThis.wx.onWindowResize = vi.fn((handler) => {
-      resizeHandler = handler;
-    });
+  it('delegates window sizing to UiSheet without a second controller resize listener', async () => {
+    globalThis.wx.onWindowResize = vi.fn();
     globalThis.wx.offWindowResize = vi.fn();
     const page = createPageInstance(definition, runtimeProperties());
 
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
 
-    expect(page.data.filterSheetStyle).toBe('height:410px;');
-    expect(globalThis.wx.onWindowResize).toHaveBeenCalledTimes(1);
-
-    windowInfo = {
-      safeArea: { bottom: 390, height: 366, left: 0, right: 844, top: 24, width: 844 },
-      screenHeight: 390,
-      statusBarHeight: 24,
-      windowHeight: 390,
-      windowWidth: 844,
-    };
-    resizeHandler();
-    expect(page.data.filterSheetStyle).toBe('height:195px;');
+    expect(page.data).not.toHaveProperty('filterSheetStyle');
+    expect(globalThis.wx.onWindowResize).not.toHaveBeenCalled();
 
     definition.lifetimes.detached.call(page);
-    expect(globalThis.wx.offWindowResize).toHaveBeenCalledWith(resizeHandler);
+    expect(globalThis.wx.offWindowResize).not.toHaveBeenCalled();
   });
 
   function lastRequest() {

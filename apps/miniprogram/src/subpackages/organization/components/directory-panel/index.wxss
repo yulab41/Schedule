@@ -1,6 +1,7 @@
 @import "../../../../styles/ui-icon-motion.wxss";
 
-.directory-page {
+.directory-page,
+.directory-sheet-host {
   --directory-accent: #0a66d5;
   --directory-accent-soft: #eaf3ff;
   --directory-canvas: #f7f9fc;
@@ -8,16 +9,19 @@
   --directory-text: #17202a;
   --directory-muted: #667386;
   --directory-border: #dce3eb;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   color: var(--directory-text);
-  background:
-    radial-gradient(circle at 50% -120px, rgba(10, 102, 213, 0.08), transparent 360px),
-    var(--directory-canvas);
   font-family: var(--ui-font-family-system);
   font-size: var(--ui-font-size-md);
   line-height: var(--ui-line-height-normal);
+}
+
+.directory-page {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% -120px, rgba(10, 102, 213, 0.08), transparent 360px),
+    var(--directory-canvas);
 }
 
 .mini-header {
@@ -213,7 +217,6 @@
 .search-clear,
 .retry-action,
 .empty-reset,
-.sheet-finish,
 .sheet-reset-action,
 .filter-section-toggle,
 .filter-option {
@@ -405,9 +408,9 @@
   box-sizing: border-box;
   display: flex;
   min-height: 50px;
-  padding: 4px 7px 4px 16px;
+  padding: 4px 6px;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   background: var(--directory-surface);
   border: 1px solid var(--ui-color-border-strong);
   border-radius: 14px;
@@ -430,6 +433,9 @@
   height: 44px;
   flex: 1;
   padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--directory-text);
   font-size: 16px;
   font-weight: var(--ui-font-weight-regular);
@@ -437,6 +443,9 @@
 }
 
 .search-placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--ui-color-text-muted);
 }
 
@@ -632,97 +641,21 @@
   text-align: center;
 }
 
-.sheet-layer {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.sheet-scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(22, 32, 42, 0.32);
-  backdrop-filter: blur(2px);
-}
-
-.filter-sheet {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: 100%;
-  overflow: hidden;
-  box-sizing: border-box;
-  flex-direction: column;
-  background: var(--directory-surface);
-  border-radius: 22px 22px 0 0;
-  box-shadow: var(--ui-shadow-elevated);
-  animation: sheet-enter 240ms ease-out;
-}
-
-.sheet-drag-region {
-  display: flex;
-  height: 28px;
-  box-sizing: border-box;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  touch-action: none;
-}
-
-.sheet-handle {
-  width: 38px;
-  height: 5px;
-  margin: 0 auto;
-  background: var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-pill);
-}
-
-.sheet-heading {
-  display: flex;
-  min-height: 56px;
-  padding: 4px 16px;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: space-between;
-  flex: none;
-  gap: 12px;
-}
-
-.sheet-title {
-  font-size: var(--ui-font-size-xl);
-  font-weight: var(--ui-font-weight-semibold);
-  line-height: var(--ui-line-height-tight);
-}
-
-.sheet-finish {
-  display: flex;
-  min-width: 44px;
-  padding: 0 8px;
-  align-items: center;
-  justify-content: center;
-  color: var(--directory-accent);
-  border-radius: var(--ui-radius-small);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
 .sheet-scroll {
   min-height: 0;
   flex: 1;
 }
 
 .sheet-body {
-  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  min-width: 0;
 }
 
 .sheet-reset-action {
   display: flex;
-  width: calc(100% - 32px);
+  width: 100%;
   min-height: 44px;
   min-width: 0;
-  margin: 0 16px 8px;
+  margin: 0 0 8px;
   padding: 0 12px;
   box-sizing: border-box;
   flex: none;
@@ -907,13 +840,6 @@
   }
 }
 
-@keyframes sheet-enter {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-}
-
 .is-compact .mode-rail {
   margin-right: 10px;
   margin-left: 10px;
@@ -956,7 +882,6 @@
 
 .is-large-text .filter-open-action,
 .is-large-text .clear-filter-action,
-.is-large-text .sheet-finish,
 .is-large-text .sheet-reset-action,
 .is-large-text .filter-section-toggle,
 .is-large-text .filter-option {
@@ -967,7 +892,6 @@
   .mode-indicator,
   .mode-tab,
   .directory-skeleton view,
-  .filter-sheet,
   .filter-chevron,
   .filter-chevron image {
     animation: none !important;

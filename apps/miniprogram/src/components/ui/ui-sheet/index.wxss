@@ -47,6 +47,21 @@
   border-radius: var(--ui-radius-pill);
 }
 
+.ui-sheet__handle-region {
+  display: flex;
+  flex: none;
+  justify-content: center;
+}
+
+.ui-sheet__handle-region.is-handle-only {
+  height: 28px;
+  align-items: center;
+}
+
+.ui-sheet__handle-region.is-handle-only .ui-sheet__handle {
+  margin: 0 auto;
+}
+
 .ui-sheet__header {
   display: flex;
   min-height: 56px;

@@ -114,27 +114,25 @@ describe('directory diagnostics pre-upload correction', () => {
     expect(organizationBridge).not.toMatch(/复制|安全说明|诊断报告|setClipboardData/u);
   });
 
-  it('keeps the half-sheet height, safe-area padding, drag, and scroll boundaries explicit', () => {
+  it('keeps shared three-quarter height, safe-area padding, drag, and scroll boundaries explicit', () => {
     const controller = readSource(
       'subpackages/organization/components/directory-panel/controller.ts',
     );
     const template = readSource('subpackages/organization/components/directory-panel/index.wxml');
     const styles = readSource('subpackages/organization/components/directory-panel/index.wxss');
-    const drag = readSource(
-      'subpackages/organization/components/directory-panel/filter-sheet-drag.wxs',
-    );
+    const drag = readSource('components/ui/ui-sheet/drag-dismiss.wxs');
+    const sheet = readSource('components/ui/ui-sheet/index.ts');
+    const sheetStyles = readSource('components/ui/ui-sheet/index.wxss');
 
-    expect(controller).toContain('Math.round(windowHeight * 0.5)');
-    expect(controller).toContain("filterSheetStyle: 'height:50vh;'");
-    expect(controller).toContain('unregisterDirectoryWindowResize(page);');
-    expect(controller).toContain('runtime.offWindowResize?.(handler);');
+    expect(template).toContain('size="three-quarter"');
+    expect(sheet).toContain('Math.round(height * ratio)');
+    expect(sheet).toContain('offWindowResize?.(handler)');
+    expect(controller).not.toContain('filterSheetStyle');
     expect(controller).not.toContain('height:92vh');
-    expect(styles).toMatch(/\.filter-sheet[\s\S]*box-sizing: border-box;/u);
+    expect(sheetStyles).toMatch(/\.ui-sheet__panel[\s\S]*box-sizing: border-box;/u);
     expect(styles).toMatch(/\.sheet-scroll[\s\S]*min-height: 0;[\s\S]*flex: 1;/u);
-    expect(styles).toContain('env(safe-area-inset-bottom)');
-    expect(template).toMatch(
-      /class="sheet-drag-region"[\s\S]*bindtouchstart[\s\S]*bindtouchmove[\s\S]*bindtouchend/u,
-    );
+    expect(sheetStyles).toContain('env(safe-area-inset-bottom)');
+    expect(template).toContain('swipe-area="handle"');
     expect(template).toMatch(/<scroll-view[\s\S]*class="sheet-scroll"[\s\S]*scroll-y/u);
     expect(drag).toContain('var DISMISS_DISTANCE = 96;');
     expect(drag).toContain('var FLICK_DISTANCE = 28;');

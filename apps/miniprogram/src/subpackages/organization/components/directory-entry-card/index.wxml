@@ -24,9 +24,15 @@
           >
         </view>
         <view wx:if="{{entry.contexts.length > 0}}" class="entry-contexts">
-          <text wx:for="{{entry.contexts}}" wx:for-item="context" wx:key="*this" class="entry-meta"
-            >{{context}}</text
-          >
+          <directory-tail-path
+            class="entry-context-path"
+            wx:for="{{entry.contexts}}"
+            wx:for-item="context"
+            wx:key="*this"
+            value="{{context}}"
+            large-text="{{largeText}}"
+            layout-active="{{layoutActive}}"
+          ></directory-tail-path>
         </view>
       </view>
       <view
@@ -69,7 +75,7 @@
               <text class="contact-number">{{number.number}}</text>
               <image
                 class="phone-icon {{animatingNumberId === number.id ? 'is-animating' : ''}}"
-                src="/assets/icons/ui-phone.svg"
+                src="/assets/icons/ui-phone-success.svg"
                 mode="aspectFit"
               />
             </view>

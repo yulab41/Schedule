@@ -160,6 +160,7 @@ interface DirectoryPaneData {
   readonly resultSummary: string;
   readonly retryKind: DirectoryRetryKind;
   readonly searchQuery: string;
+  readonly searchPlaceholder: string;
   readonly searching: boolean;
   readonly state: DirectoryState;
   readonly title: string;
@@ -172,7 +173,6 @@ interface DirectoryPageData {
   readonly directoryKind: DirectoryKind;
   readonly employeePane: DirectoryPaneData;
   readonly embedded: boolean;
-  readonly filterSheetStyle: string;
   readonly filterSheetOpen: boolean;
   readonly groupId: string;
   readonly internalPane: DirectoryPaneData;
@@ -233,7 +233,6 @@ interface DirectoryPageInstance {
   _instanceId: number;
   _modeIconTimers: Partial<Record<DirectoryKind, unknown>>;
   _modeRuntimes: Record<DirectoryKind, DirectoryModeRuntime>;
-  _windowResizeHandler: (() => void) | undefined;
   createSelectorQuery?(): DirectorySelectorQuery;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent?(name: 'panelready' | 'workspacerequest'): void;
@@ -349,7 +348,6 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
     directoryKind: 'internal',
     employeePane: createPaneData('employee'),
     embedded: false,
-    filterSheetStyle: 'height:50vh;',
     filterSheetOpen: false,
     groupId: '',
     internalPane: createPaneData('internal'),
@@ -414,11 +412,9 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
         const embedded = this.properties.embedded;
-        const filterSheetStyle = createFilterSheetStyle(windowInfo);
         this.setData(
           {
             embedded,
-            filterSheetStyle,
             largeText:
               ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
                 16) >= 20,
@@ -428,11 +424,9 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
           },
           () => this.triggerEvent?.('panelready'),
         );
-        registerDirectoryWindowResize(this);
         startLoad(this);
       },
       detached(this: DirectoryPageInstance): void {
-        unregisterDirectoryWindowResize(this);
         initializeRuntimeState(this);
         this._detached = true;
         this._requestContextSerial += 1;
@@ -442,7 +436,6 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
       },
     },
     methods: {
-      preventTouchMove(): void {},
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },
@@ -499,9 +492,6 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
       },
       handleCloseFilters(this: DirectoryPageInstance, event?: ModeTargetEvent): void {
         closeFilters(this, eventKind(this, event));
-      },
-      handleFilterSheetSwipeDismiss(this: DirectoryPageInstance): void {
-        closeFilters(this, this.data.activeSheet.directoryKind);
       },
       handleToggleFilterSection(this: DirectoryPageInstance, event: FilterOptionEvent): void {
         const kind = eventKind(this, event);
@@ -567,37 +557,6 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
   };
 }
 
-function createFilterSheetStyle(windowInfo: MiniProgramWindowInfo): string {
-  const windowHeight = Math.max(1, Math.round(windowInfo.windowHeight));
-  const sheetHeight = Math.max(1, Math.round(windowHeight * 0.5));
-  return `height:${sheetHeight}px;`;
-}
-
-function registerDirectoryWindowResize(page: DirectoryPageInstance): void {
-  unregisterDirectoryWindowResize(page);
-  const runtime = wx as unknown as {
-    readonly onWindowResize?: (handler: () => void) => void;
-  };
-  if (runtime.onWindowResize === undefined) return;
-  const handler = (): void => {
-    if (page._detached) return;
-    const filterSheetStyle = createFilterSheetStyle(wx.getWindowInfo());
-    if (page.data.filterSheetStyle !== filterSheetStyle) page.setData({ filterSheetStyle });
-  };
-  page._windowResizeHandler = handler;
-  runtime.onWindowResize(handler);
-}
-
-function unregisterDirectoryWindowResize(page: DirectoryPageInstance): void {
-  const handler = page._windowResizeHandler;
-  page._windowResizeHandler = undefined;
-  if (handler === undefined) return;
-  const runtime = wx as unknown as {
-    readonly offWindowResize?: (callback: () => void) => void;
-  };
-  runtime.offWindowResize?.(handler);
-}
-
 function createPaneData(kind: DirectoryKind): DirectoryPaneData {
   return {
     activeFilterCount: 0,
@@ -618,6 +577,10 @@ function createPaneData(kind: DirectoryKind): DirectoryPaneData {
     resultSummary: '',
     retryKind: '',
     searchQuery: '',
+    searchPlaceholder:
+      kind === 'employee'
+        ? '搜索姓名、级别、工号、拼音、首字母或号码'
+        : '搜索科室、姓名、拼音或号码',
     searching: false,
     state: 'loading',
     title: kind === 'employee' ? '人员通讯录' : '科室通讯录',

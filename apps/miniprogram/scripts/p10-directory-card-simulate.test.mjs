@@ -11,6 +11,17 @@ async function renderDirectoryCard(properties) {
   vi.stubGlobal('Component', (value) => {
     definition = value;
   });
+  await import('../src/subpackages/organization/components/directory-entry-card/tail-path/index.ts');
+  const tailPath = simulate.load({
+    ...definition,
+    template: readFileSync(
+      path.join(
+        process.cwd(),
+        'src/subpackages/organization/components/directory-entry-card/tail-path/index.wxml',
+      ),
+      'utf8',
+    ),
+  });
   await import('../src/subpackages/organization/components/directory-entry-card/index.ts');
   const template = readFileSync(
     path.join(
@@ -24,7 +35,11 @@ async function renderDirectoryCard(properties) {
     ),
     'utf8',
   );
-  const id = simulate.load({ ...definition, template });
+  const id = simulate.load({
+    ...definition,
+    template,
+    usingComponents: { 'directory-tail-path': tailPath },
+  });
   const component = simulate.render(id, properties);
   component.attach(globalThis.document.body);
   return component;
@@ -78,6 +93,16 @@ describe('P10 directory entry card simulate parity', () => {
     const callListener = vi.fn();
     component.addEventListener('favoritechange', favoriteListener);
     component.addEventListener('directorycall', callListener);
+
+    const address = component.querySelector('.entry-context-path');
+    expect(address).toBeDefined();
+    expect(address.data.value).toBe('本部院区 › 行政职能');
+    // simulate does not project Mini ARIA attributes into its HTML DOM. The
+    // source contract separately asserts aria-label={{value}}; here verify the
+    // actual child receives the full value and renders its uncompressed fallback.
+    expect(address.querySelector('.directory-tail-path__text').dom.textContent).toBe(
+      '本部院区 › 行政职能',
+    );
 
     expect(component.querySelector('.directory-entry').dom.classList.contains('has-divider')).toBe(
       true,

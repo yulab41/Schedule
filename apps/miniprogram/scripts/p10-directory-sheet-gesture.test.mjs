@@ -5,10 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 function readGesture() {
   return readFileSync(
-    new URL(
-      '../src/subpackages/organization/components/directory-panel/filter-sheet-drag.wxs',
-      import.meta.url,
-    ),
+    new URL('../src/components/ui/ui-sheet/drag-dismiss.wxs', import.meta.url),
     'utf8',
   );
 }
@@ -28,8 +25,8 @@ describe('P10 directory filter-sheet drag dismissal', () => {
         animationFrames.push(callback);
       },
       selectComponent(selector) {
-        if (selector === '#directory-filter-sheet-panel') return { setStyle: panelSetStyle };
-        if (selector === '#directory-filter-sheet-scrim') return { setStyle: scrimSetStyle };
+        if (selector === '#ui-sheet-panel') return { setStyle: panelSetStyle };
+        if (selector === '#ui-sheet-scrim') return { setStyle: scrimSetStyle };
         return undefined;
       },
     };
@@ -47,7 +44,7 @@ describe('P10 directory filter-sheet drag dismissal', () => {
     handlers.touchEnd(touchEndEvent(380, 205), owner);
     flushAnimationFrames(animationFrames);
     expect(callMethod).toHaveBeenCalledTimes(1);
-    expect(callMethod).toHaveBeenCalledWith('handleFilterSheetSwipeDismiss');
+    expect(callMethod).toHaveBeenCalledWith('handleSwipeDismiss');
     expect(scrimSetStyle).toHaveBeenCalledWith(expect.objectContaining({ opacity: '0' }));
   });
 
@@ -62,9 +59,7 @@ describe('P10 directory filter-sheet drag dismissal', () => {
       callMethod,
       requestAnimationFrame: vi.fn(),
       selectComponent(selector) {
-        return selector === '#directory-filter-sheet-panel'
-          ? { setStyle: panelSetStyle }
-          : { setStyle: vi.fn() };
+        return selector === '#ui-sheet-panel' ? { setStyle: panelSetStyle } : { setStyle: vi.fn() };
       },
     };
 
@@ -87,7 +82,12 @@ describe('P10 directory filter-sheet drag dismissal', () => {
 });
 
 function touchEvent(timeStamp, clientY, clientX = 100) {
-  return { timeStamp, touches: [{ clientX, clientY }] };
+  return {
+    timeStamp,
+    touches: [{ clientX, clientY }],
+    currentTarget: { dataset: { swipeDismiss: true, swipeArea: 'handle' } },
+    target: { dataset: { swipeOrigin: 'handle' } },
+  };
 }
 
 function touchEndEvent(timeStamp, clientY, clientX = 100) {

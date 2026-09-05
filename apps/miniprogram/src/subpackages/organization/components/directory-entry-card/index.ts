@@ -10,6 +10,7 @@ interface DirectoryEntryCardInstance {
     readonly entry: DirectoryEntryCardValue | null;
     readonly disabled: boolean;
     readonly largeText: boolean;
+    readonly layoutActive: boolean;
     readonly showDivider: boolean;
   };
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
@@ -21,6 +22,7 @@ Component({
     disabled: { type: Boolean, value: false },
     entry: { type: Object, value: null },
     largeText: { type: Boolean, value: false },
+    layoutActive: { type: Boolean, value: true },
     showDivider: { type: Boolean, value: false },
   },
   data: {
