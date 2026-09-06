@@ -24,6 +24,8 @@
 - 本检查点message：`feat: retire profile photos and group codes with compatible UX cleanup`。B独立原提交已推送，其余成果由本总控检查点统一提交。
 - 最近生产只读观察：live `48488019171924701054354e8f707b08eb4d12fe`，schema53，group_code不可空；正式域名TLS健康成功。
 - 本轮生产备份/迁移/API/Web部署/新上传尚未执行；此前`.89@c25fcf43`及manifest保持不变。
+- S打包拦截了legacy/hoisted不读锁导致的mysql2版本漂移（3.24.3对锁定3.23.2），未发布该产物。新官方共享锁图离线路径真实probe通过：resolved0/downloaded0/reused85；81外部包及4工作区包，外部锁图一致，root锁文件和warm依赖未改。
+- 本工具修正检查点message：`fix(release): preserve locked dependencies in offline runtime packaging`；仅打包器与其回归测试/记录改变，应用源树与6d0575d0等价，复用既有完整门禁和浏览器证据。
 
 ## 唯一下一任务与停止条件
 

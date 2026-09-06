@@ -458,7 +458,12 @@ if (distEntry === undefined) {
 
 const flatDeployArguments = [
   'deploy',
-  '--legacy',
+  // Modern deploy converts the shared lock graph and installs only the artifact's frozen graph.
+  // Legacy + hoisted explicitly disables lockfile reads in pnpm 11.
+  '--config.shared-workspace-lockfile=true',
+  '--config.inject-workspace-packages=true',
+  '--config.lockfile=true',
+  '--config.offline=true',
   '--config.node-linker=hoisted',
   '--config.shamefully-hoist=true',
   '--filter',

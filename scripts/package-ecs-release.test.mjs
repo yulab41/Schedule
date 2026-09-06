@@ -37,6 +37,18 @@ const attributesSource = readFileSync(
 );
 
 describe('ECS directory import runtime packaging', () => {
+  it('uses the shared frozen deployment graph offline instead of legacy re-resolution', () => {
+    expect(packageSource).not.toContain("'--legacy'");
+    for (const setting of [
+      'shared-workspace-lockfile',
+      'inject-workspace-packages',
+      'lockfile',
+      'offline',
+    ]) {
+      expect(packageSource).toContain(`'--config.${setting}=true'`);
+    }
+  });
+
   it('ships compiled infra scripts and their complete production dependency closure', () => {
     expect(packageSource).toContain("'infra/scripts/dist'");
     expect(packageSource).toContain("'@schedule/holiday-import-script'");
