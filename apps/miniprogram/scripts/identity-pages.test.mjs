@@ -22,7 +22,6 @@ describe('P3 native identity pages', () => {
       'pages/calendar-poc/index',
       'pages/manual-matrix-poc/index',
       'pages/gesture-probe/index',
-      'pages/identity/unbind',
       'pages/admin-bind/preview',
     ];
 
@@ -86,14 +85,19 @@ describe('P3 native identity pages', () => {
     expect(client).toContain('getWechatCode()');
   });
 
-  it('keeps unbind scoped to the current Mini AppID and idempotent', () => {
-    const template = readSource('pages/identity/unbind.wxml');
-    const source = readSource('pages/identity/unbind.ts');
+  it('uses an inline unbind confirmation and removes the retired page route', () => {
+    const template = readSource('components/profile-panel/index.wxml');
+    const source = readSource('components/profile-panel/controller.ts');
+    const app = readJson('app.json');
     const client = readSource('platform/wechat-identity.ts');
 
-    expect(template).toContain('不删除 Web 账号或排班资料');
+    expect(app.pages).not.toContain('pages/identity/unbind');
+    expect(template).toContain('profile-confirm-backdrop');
+    expect(source).toContain('解除微信绑定');
+    expect(source).toContain('wx.showModal');
     expect(source).toContain('createIdempotencyKey');
-    expect(source).toContain('unbindWechatIdentity(this._idempotencyKey)');
+    expect(source).toContain('unbindWechatIdentity');
+    expect(source).not.toContain("navigateTo('/pages/identity/unbind')");
     expect(client).toContain('/me/wechat/miniprogram/unbind');
     expect(client).toContain('idempotencyKey,');
     expect(client).toContain('clearWechatSession(true)');

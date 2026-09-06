@@ -211,10 +211,20 @@ describe('controlled root-layer workflow toast', () => {
         );
       })
       .map((file) => file.replaceAll('\\', '/').split('/src/')[1]);
-    expect(clearingSources).toEqual(['subpackages/workflows/components/controller-host.ts']);
+    expect(clearingSources).toHaveLength(2);
+    expect(clearingSources).toEqual(
+      expect.arrayContaining([
+        'subpackages/workflows/components/controller-host.ts',
+        'subpackages/organization/components/group-settings-panel/controller.ts',
+      ]),
+    );
+    const groupSettingsTemplate = read(
+      'subpackages/organization/components/group-settings-panel/index.wxml',
+    );
+    expect(groupSettingsTemplate).toContain('<ui-toast');
+    expect(groupSettingsTemplate).toContain('visible="{{!!infoMessage}}"');
     for (const [directory, field] of [
       ['subpackages/insights/components/notifications-panel', 'infoMessage'],
-      ['subpackages/organization/components/group-settings-panel', 'infoMessage'],
       ['subpackages/organization/components/scheduling-config-panel', 'managementInfo'],
       ['subpackages/organization/components/invite-visitor-panel', 'managementInfo'],
       ['subpackages/organization/components/platform-accounts-panel', 'managementInfo'],

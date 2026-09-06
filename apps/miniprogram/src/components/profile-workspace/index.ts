@@ -65,7 +65,11 @@ Component({
   methods: {
     handleBindingRetry: controller.handleBindingRetry,
     handleBack: controller.handleBack,
+    handleConfirmDialogTap: controller.handleConfirmDialogTap,
     handleCurrentPasswordInput: controller.handleCurrentPasswordInput,
+    handleDefaultPasswordReminderClose: controller.handleDefaultPasswordReminderClose,
+    handleDefaultPasswordReminderDismiss: controller.handleDefaultPasswordReminderDismiss,
+    handleDefaultPasswordReminderEdit: controller.handleDefaultPasswordReminderEdit,
     handleNewPasswordInput: controller.handleNewPasswordInput,
     handleOpenCalendar: controller.handleOpenCalendar,
     handleOpenStatistics: controller.handleOpenStatistics,

@@ -9,6 +9,8 @@ beforeAll(async () => {
   vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
   vi.stubGlobal('wx', {
     getWindowInfo: vi.fn(() => ({ fontSizeSetting: 16 })),
+    showModal: vi.fn(),
+    showToast: vi.fn(),
   });
   ({ createProfilePanelControllerDefinition } =
     await import('../src/components/profile-panel/controller.ts'));
@@ -239,6 +241,40 @@ describe('Mini Web-parity profile controller', () => {
       newPassword: 'new-password',
     });
   });
+
+  it('opens an inline unbind confirmation and keeps the retired route unused', async () => {
+    const dependencies = createDependencies({
+      unbindWechat: vi.fn().mockResolvedValue({ unbound: true }),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    globalThis.wx.showModal.mockImplementation(({ success }) =>
+      success({ confirm: true, cancel: false }),
+    );
+
+    definition.onLoad.call(panel);
+    await vi.waitFor(() => expect(panel.data.bindingState).toBe('ready'));
+    definition.handleUnbind.call(panel);
+    await vi.waitFor(() => expect(dependencies.unbindWechat).toHaveBeenCalledOnce());
+    expect(globalThis.wx.showModal).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmText: '解除绑定', cancelText: '取消' }),
+    );
+    expect(dependencies.finishSensitiveSessionChange).toHaveBeenCalledOnce();
+  });
+
+  it('opens the Web-parity default-password reminder when status requires a change', async () => {
+    const dependencies = createDependencies({
+      getPasswordStatus: vi.fn().mockResolvedValue({ hasPassword: true, mustChangePassword: true }),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+
+    definition.onLoad.call(panel);
+    await vi.waitFor(() => expect(panel.data.bindingState).toBe('ready'));
+    expect(panel.data.defaultPasswordReminderOpen).toBe(true);
+    definition.handleDefaultPasswordReminderDismiss.call(panel);
+    expect(panel.data.defaultPasswordReminderOpen).toBe(false);
+  });
 });
 
 function createPanel(definition) {
@@ -267,6 +303,7 @@ function createDependencies(overrides = {}) {
       version: 1,
     })),
     getWechatBinding: vi.fn().mockResolvedValue({ bound: true, canUnbind: true }),
+    getPasswordStatus: vi.fn().mockResolvedValue({ hasPassword: true, mustChangePassword: false }),
     getYearStatistics: vi.fn(async () =>
       yearStatistics([
         ['2026-05', 4],
@@ -287,6 +324,7 @@ function createDependencies(overrides = {}) {
     navigateTo: vi.fn(),
     now: vi.fn(() => '2026-08-20T00:00:00.000Z'),
     signOut: vi.fn(),
+    unbindWechat: vi.fn().mockResolvedValue({ unbound: true }),
   };
   return { ...dependencies, ...overrides };
 }

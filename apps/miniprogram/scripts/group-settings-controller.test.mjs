@@ -35,6 +35,7 @@ describe('P5 native group mobile-phone consent controller', () => {
       }),
       navigateBack: vi.fn(),
       navigateTo: vi.fn(),
+      showToast: vi.fn(),
       request: vi.fn((options) => {
         requests.push(options);
         if (options.url.endsWith('/groups') && options.method === 'GET') {
@@ -238,6 +239,7 @@ describe('P5 native group mobile-phone consent controller', () => {
       desiredConsent: false,
       infoMessage: '已撤回当前群组的手机号公开同意。',
     });
+    expect(globalThis.wx.showToast).not.toHaveBeenCalled();
   });
 
   it('reloads a 409 status and uses its new contact version with a new operation id', async () => {

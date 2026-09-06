@@ -33,6 +33,13 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(disclosureStart).toBeGreaterThan(-1);
     expect(leaveStart).toBeGreaterThan(disclosureStart);
   });
+
+  it('uses the shared transient toast for successful phone disclosure changes', () => {
+    const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
+    expect(template).toContain('<ui-toast');
+    expect(template).toContain('visible="{{!!infoMessage}}"');
+    expect(template).not.toContain('title="手机号公开设置"');
+  });
   it('registers group settings in the organization subpackage only', () => {
     const appJson = JSON.parse(readFileSync(path.join(sourceRoot, 'app.json'), 'utf8'));
     expect(appJson.subpackages).toContainEqual({

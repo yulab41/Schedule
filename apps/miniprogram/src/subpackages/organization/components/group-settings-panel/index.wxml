@@ -49,12 +49,12 @@
           </view>
         </view>
 
-        <ui-alert
-          wx:if="{{infoMessage}}"
-          tone="success"
-          title="手机号公开设置"
+        <ui-toast
+          visible="{{!!infoMessage}}"
+          title="操作完成"
           message="{{infoMessage}}"
-        ></ui-alert>
+          tone="success"
+        ></ui-toast>
 
         <view class="group-card calendar-preferences-card">
           <view class="group-card-header"><text>日历偏好</text></view>

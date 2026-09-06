@@ -12,6 +12,11 @@ export interface MiniProgramBindingStatus {
   readonly canUnbind: boolean;
 }
 
+export interface MiniProgramPasswordStatus {
+  readonly hasPassword: boolean;
+  readonly mustChangePassword: boolean;
+}
+
 export type ProfilePasswordChangeInput =
   | {
       readonly authMethod: 'password';
@@ -25,6 +30,7 @@ export interface ProfileAccountClient {
     input: ProfilePasswordChangeInput,
   ) => Promise<{ readonly passwordChanged: true }>;
   readonly getWechatBinding: () => Promise<MiniProgramBindingStatus>;
+  readonly getPasswordStatus: () => Promise<MiniProgramPasswordStatus>;
 }
 
 export class ProfileAccountError extends Error {
@@ -105,6 +111,38 @@ export function createProfileAccountClient(
       return {
         bound: response.data['bound'],
         canUnbind: response.data['canUnbind'],
+      };
+    },
+
+    async getPasswordStatus() {
+      const requestAuthentication = await createRequestAuthentication(
+        getAccessToken,
+        authentication,
+      );
+      let response;
+      try {
+        response = await executeWxJsonRequest({
+          authentication: requestAuthentication,
+          capability: 'core',
+          method: 'GET',
+          request: (requestOptions) => wx.request(requestOptions),
+          url: `${apiBaseUrl()}/auth/password/status`,
+        });
+      } catch {
+        throw new ProfileAccountError('初始密码状态暂时无法读取。');
+      }
+      if (
+        response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        !isRecord(response.data) ||
+        typeof response.data['hasPassword'] !== 'boolean' ||
+        typeof response.data['mustChangePassword'] !== 'boolean'
+      ) {
+        throw new ProfileAccountError('初始密码状态暂时无法读取。');
+      }
+      return {
+        hasPassword: response.data['hasPassword'],
+        mustChangePassword: response.data['mustChangePassword'],
       };
     },
   };

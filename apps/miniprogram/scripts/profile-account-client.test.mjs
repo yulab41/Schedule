@@ -18,6 +18,10 @@ describe('Mini profile account client', () => {
         options.success({ data: { bound: true, canUnbind: true }, statusCode: 200 });
         return;
       }
+      if (options.url.endsWith('/auth/password/status')) {
+        options.success({ data: { hasPassword: true, mustChangePassword: true }, statusCode: 200 });
+        return;
+      }
       if (options.url.endsWith('/me/password')) {
         options.success({ data: { passwordChanged: true }, statusCode: 200 });
         return;
@@ -62,6 +66,22 @@ describe('Mini profile account client', () => {
       expect.objectContaining({
         data: { currentPassword: 'old-password', newPassword: 'new-password' },
         method: 'PUT',
+      }),
+    );
+  });
+
+  it('reads the Web-compatible default-password status', async () => {
+    const { createProfileAccountClient } = await import('../src/platform/profile-account.ts');
+    const client = createProfileAccountClient(() => 'bearer-token');
+
+    await expect(client.getPasswordStatus()).resolves.toEqual({
+      hasPassword: true,
+      mustChangePassword: true,
+    });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        url: 'https://example.test/api/auth/password/status',
       }),
     );
   });

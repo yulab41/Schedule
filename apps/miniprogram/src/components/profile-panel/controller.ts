@@ -24,18 +24,25 @@ import {
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
+  getIdentityErrorMessage,
+  unbindWechatIdentity,
   type IdentityAuthMethod,
   type WechatAuthenticatedProfile,
 } from '../../platform/wechat-identity.js';
 import {
   createProfileAccountClient,
   type MiniProgramBindingStatus,
+  type MiniProgramPasswordStatus,
   type ProfilePasswordChangeInput,
 } from '../../platform/profile-account.js';
 import {
   readStoredWorkbenchGroupId,
   readWorkbenchGroupSnapshot,
 } from '../../platform/workbench-read.js';
+import {
+  isDefaultPasswordReminderDismissed,
+  persistDefaultPasswordReminderDismissal,
+} from '../../platform/password-reminder-storage.js';
 import { formatDateLabel, getTodayBusinessDate } from '../../features/workbench/workbench-model.js';
 
 type ProfileMode = 'missing' | 'ready';
@@ -63,6 +70,7 @@ interface ProfilePanelData {
   readonly bindingState: BindingState;
   readonly buildLabel: string;
   readonly canUnbindWechat: boolean;
+  readonly defaultPasswordReminderOpen: boolean;
   readonly currentPassword: string;
   readonly embedded: boolean;
   readonly groupId: string;
@@ -88,6 +96,7 @@ interface ProfilePanelData {
   readonly passwordError: string;
   readonly passwordSaving: boolean;
   readonly passwordSheetOpen: boolean;
+  readonly unbindSaving: boolean;
   readonly realName: string;
   readonly roleLabel: string;
   readonly shortPhone: string;
@@ -101,6 +110,7 @@ interface ProfilePanelInstance {
   accountRequestSerial: number;
   data: ProfilePanelData;
   overviewRequestSerial: number;
+  _passwordReminderSuppressed?: boolean;
   setData(patch: Partial<ProfilePanelData>): void;
   triggerEvent?(name: string): void;
 }
@@ -127,6 +137,7 @@ export interface ProfilePanelDependencies {
   ) => Promise<MyProfileMonthStatisticsLike>;
   readonly getProfile: () => WechatAuthenticatedProfile | undefined;
   readonly getWechatBinding: () => Promise<MiniProgramBindingStatus>;
+  readonly getPasswordStatus: () => Promise<MiniProgramPasswordStatus>;
   readonly getYearStatistics: (
     groupId: string,
     year: number,
@@ -137,6 +148,7 @@ export interface ProfilePanelDependencies {
   readonly navigateTo: (url: string) => void;
   readonly now: () => string;
   readonly signOut: () => void;
+  readonly unbindWechat: (idempotencyKey: string) => Promise<{ readonly unbound: true }>;
 }
 
 export function createProfilePanelControllerDefinition(
@@ -152,6 +164,7 @@ export function createProfilePanelControllerDefinition(
       bindingState: 'loading' as BindingState,
       buildLabel: buildInfo.buildLabel,
       canUnbindWechat: false,
+      defaultPasswordReminderOpen: false,
       currentPassword: '',
       embedded,
       groupId: '',
@@ -183,12 +196,14 @@ export function createProfilePanelControllerDefinition(
       showDutyOverview: false,
       specialDateCountLabel: '—',
       trend: [] as readonly ProfileTrendColumn[],
+      unbindSaving: false,
       yearCountLabel: '—',
     } satisfies ProfilePanelData,
 
     onLoad(this: ProfilePanelInstance): void {
       this.accountRequestSerial = 0;
       this.overviewRequestSerial = 0;
+      this._passwordReminderSuppressed = false;
       const windowInfo = wx.getWindowInfo();
       const fontSizeSetting = (windowInfo as unknown as { readonly fontSizeSetting?: number })
         .fontSizeSetting;
@@ -231,8 +246,53 @@ export function createProfilePanelControllerDefinition(
     },
 
     handleUnbind(this: ProfilePanelInstance): void {
-      if (!this.data.canUnbindWechat) return;
-      dependencies.navigateTo('/pages/identity/unbind');
+      if (!this.data.canUnbindWechat || this.data.unbindSaving) return;
+      try {
+        wx.showModal({
+          cancelText: '取消',
+          confirmText: '解除绑定',
+          content: '只移除当前小程序身份，不删除 Web 账号或排班资料。解绑后可重新绑定。',
+          title: '解除微信绑定',
+          success: (result) => {
+            if (result.confirm) void unbindWechat(this, dependencies);
+          },
+          fail: () => {
+            wx.showToast?.({ icon: 'none', title: '弹窗未能打开，请重试。' });
+          },
+        });
+      } catch {
+        wx.showToast?.({ icon: 'none', title: '弹窗未能打开，请重试。' });
+      }
+    },
+
+    handleDefaultPasswordReminderClose(this: ProfilePanelInstance): void {
+      if (!this.data.passwordSaving) {
+        this._passwordReminderSuppressed = true;
+        this.setData({ defaultPasswordReminderOpen: false });
+      }
+    },
+
+    handleDefaultPasswordReminderDismiss(this: ProfilePanelInstance): void {
+      const profile = dependencies.getProfile();
+      this._passwordReminderSuppressed = true;
+      if (profile !== undefined) persistDefaultPasswordReminderDismissal(profile.id);
+      this.setData({ defaultPasswordReminderOpen: false });
+    },
+
+    handleDefaultPasswordReminderEdit(this: ProfilePanelInstance): void {
+      this._passwordReminderSuppressed = true;
+      this.setData({ defaultPasswordReminderOpen: false });
+      this.setData({
+        currentPassword: '',
+        newPassword: '',
+        passwordConfirm: '',
+        passwordError: '',
+        passwordSheetOpen: true,
+      });
+    },
+
+    handleConfirmDialogTap(): void {
+      // Keep taps inside the dialog from closing it through the backdrop handler.
     },
 
     handleBindingRetry(this: ProfilePanelInstance): void {
@@ -300,7 +360,7 @@ export function createProfilePanelControllerDefinition(
       void dependencies
         .changePassword(input)
         .then(() => {
-          this.setData({ passwordSheetOpen: false });
+          this.setData({ defaultPasswordReminderOpen: false, passwordSheetOpen: false });
           dependencies.finishSensitiveSessionChange();
         })
         .catch((error: unknown) =>
@@ -365,7 +425,10 @@ async function refreshAccount(
   if (profile === undefined) return;
   const requestSerial = ++panel.accountRequestSerial;
   panel.setData({ bindingState: 'loading', bindingLabel: '正在读取', canUnbindWechat: false });
-  const [binding] = await Promise.allSettled([dependencies.getWechatBinding()]);
+  const [binding, passwordStatus] = await Promise.allSettled([
+    dependencies.getWechatBinding(),
+    dependencies.getPasswordStatus(),
+  ]);
   if (requestSerial !== panel.accountRequestSerial || dependencies.getProfile()?.id !== profile.id)
     return;
   panel.setData({
@@ -373,7 +436,26 @@ async function refreshAccount(
       binding.status === 'fulfilled' ? (binding.value.bound ? '已绑定' : '未绑定') : '暂时无法读取',
     bindingState: binding.status === 'fulfilled' ? 'ready' : 'error',
     canUnbindWechat: binding.status === 'fulfilled' && binding.value.canUnbind,
+    defaultPasswordReminderOpen:
+      passwordStatus.status === 'fulfilled' &&
+      passwordStatus.value.mustChangePassword &&
+      !isDefaultPasswordReminderDismissed(profile.id) &&
+      panel._passwordReminderSuppressed !== true,
   });
+}
+
+async function unbindWechat(
+  panel: ProfilePanelInstance,
+  dependencies: ProfilePanelDependencies,
+): Promise<void> {
+  panel.setData({ unbindSaving: true });
+  try {
+    await dependencies.unbindWechat(createIdempotencyKey());
+    dependencies.finishSensitiveSessionChange();
+  } catch (error) {
+    panel.setData({ unbindSaving: false });
+    wx.showToast?.({ icon: 'none', title: getIdentityErrorMessage(error) });
+  }
 }
 
 async function resolveStandaloneGroup(
@@ -573,6 +655,7 @@ function createRuntimeDependencies(): ProfilePanelDependencies {
       insights.getMonthStatistics(groupId, businessMonth),
     getProfile: getStoredWechatProfile,
     getWechatBinding: () => account.getWechatBinding(),
+    getPasswordStatus: () => account.getPasswordStatus(),
     getYearStatistics: (groupId, year) => insights.getYearStatistics(groupId, year),
     listGroupContacts: (groupId) => organization.listGroupContacts(groupId),
     listGroupMembers: (groupId) => organization.listGroupMembers(groupId),
@@ -580,7 +663,17 @@ function createRuntimeDependencies(): ProfilePanelDependencies {
     navigateTo: (url) => wx.navigateTo({ url }),
     now: () => new Date().toISOString(),
     signOut: finishSensitiveSessionChange,
+    unbindWechat: (idempotencyKey) => unbindWechatIdentity(idempotencyKey),
   };
+}
+
+function createIdempotencyKey(): string {
+  const seed = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const hex = seed
+    .replace(/[^a-f0-9]/giu, '')
+    .padEnd(32, '0')
+    .slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 function finishSensitiveSessionChange(): void {

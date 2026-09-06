@@ -145,6 +145,7 @@ interface GroupSettingsPageInstance {
   _calendarPreferencesSerial: number;
   _consentDraft: GroupMobilePhoneConsentDraft | undefined;
   _consentStatus: GroupMobilePhoneConsent | undefined;
+  _consentNoticeTimer: ReturnType<typeof setTimeout> | undefined;
   _currentGroupId: string;
   _loadSerial: number;
   _requestedGroupId: string;
@@ -246,6 +247,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     _consentDraft: undefined,
     _consentStatus: undefined,
+    _consentNoticeTimer: undefined,
     _calendarPreferencesClient: calendarPreferencesClient,
     _calendarPreferencesSerial: 0,
     _currentGroupId: '',
@@ -297,6 +299,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
         !this.data.desiredConsent,
       );
       this.setData({ errorMessage: '', infoMessage: '' });
+      clearConsentNoticeTimer(this);
       syncConsentView(this);
       void saveConsent(this);
     },
@@ -475,6 +478,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
 async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void> {
   const serial = ++page._loadSerial;
+  clearConsentNoticeTimer(page);
   page._calendarPreferencesSerial += 1;
   page._consentDraft = undefined;
   page._consentStatus = undefined;
@@ -775,6 +779,11 @@ async function saveConsent(page: GroupSettingsPageInstance): Promise<void> {
       isSaving: false,
       state: 'ready',
     });
+    scheduleConsentNoticeClear(
+      page,
+      groupId,
+      granted ? '已保存当前群组的手机号公开同意。' : '已撤回当前群组的手机号公开同意。',
+    );
   } catch (error) {
     if (page._currentGroupId !== groupId) return;
     if (isConflict(error)) {
@@ -803,6 +812,7 @@ async function reloadAfterConflict(
       isSaving: false,
       state: 'ready',
     });
+    scheduleConsentNoticeClear(page, groupId, '联系方式或同意状态已变化，请按最新状态重新确认。');
   } catch (error) {
     if (serial !== page._loadSerial || page._currentGroupId !== groupId) return;
     page._consentDraft = undefined;
@@ -835,6 +845,27 @@ function applyConsentStatus(
 function syncConsentView(page: GroupSettingsPageInstance): void {
   if (page._consentStatus === undefined || page._consentDraft === undefined) return;
   page.setData(createConsentViewPatch(page._consentStatus, page._consentDraft));
+}
+
+function clearConsentNoticeTimer(page: GroupSettingsPageInstance): void {
+  if (page._consentNoticeTimer !== undefined) {
+    clearTimeout(page._consentNoticeTimer);
+    page._consentNoticeTimer = undefined;
+  }
+}
+
+function scheduleConsentNoticeClear(
+  page: GroupSettingsPageInstance,
+  groupId: string,
+  message: string,
+): void {
+  clearConsentNoticeTimer(page);
+  page._consentNoticeTimer = setTimeout(() => {
+    page._consentNoticeTimer = undefined;
+    if (page._currentGroupId === groupId && page.data.infoMessage === message) {
+      page.setData({ infoMessage: '' });
+    }
+  }, 2_000);
 }
 
 function resolveCanManageGroupLifecycle(

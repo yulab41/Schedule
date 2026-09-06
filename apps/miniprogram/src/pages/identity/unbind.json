@@ -1,7 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "ui-alert": "/components/ui/ui-alert/index",
-    "ui-loading": "/components/ui/ui-loading/index"
-  }
-}

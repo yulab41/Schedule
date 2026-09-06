@@ -1,6 +1,15 @@
 # Project Status
 
-## 当前批次：UX-CLEANUP-10 截图反馈2已实现，待发布授权/真机复核
+## 当前批次：UX-CLEANUP-10 feedback3已实现，待提交/发布授权与真机复核
+
+- 基线 `92f16c5396b596f08128af026dad635b6260cd54`（feedback2；API/Web与体验版`.92`已交付）；本轮使用同RUN_ID的 `feedback3` warm slot `runtime/wt/general-3`，依赖复用、冷安装0。
+- 已完成：手机号公开成功提示改为共享 `ui-toast` 瞬时通知并在2秒后清除；解除绑定改为原位确认弹窗；删除废弃 `pages/identity/unbind` 四件套；接入已有 `/auth/password/status` 并增加 Web 样式初始密码提醒，编辑沿用既有密码 sheet。
+- 保留仍被真实入口引用的 POC/诊断页；未删除历史业务数据、解绑接口或生产 schema。
+- 定向相关回归58项通过；Mini typecheck、production verify、icon parity通过。完整历史 Mini 测试仍有一个与本轮无关的 workbench 引号断言失败，详见 `docs/audit/ux-cleanup-10-feedback3.md`。
+- 当前未部署、未上传、未改 API/Web；生产与体验版仍为 `92f16c5396b596f08128af026dad635b6260cd54` / `.92`。小米14和微信原生交互待用户在同版本体验版复核。
+- 下一步：提交并推送本轮 Mini-only checkpoint，释放本轮 warm lease；不得把本轮代码描述为生产/体验版已生效。
+
+## 前序 feedback2 交付记录
 
 - 基线3a7d2553；同RUN_ID的feedback1，root general-3独占，C新general-1负责认领退役，D无热槽仅只读审计，安装0。
 - 当前实施：群组成员卡/工号、认领全端退役、群组版本展示删除、个人页紧凑对齐、底部公开开关、筛选三图层定位。内部并发version和历史认领表/记录保留。
@@ -11,7 +20,7 @@
 - 收口message：`docs(release): record feedback1 trial 91 delivery`。仅记录已交付source，不重传或改变.91身份；唯一下一任务为小米14同.91版本验收群组成员、我的、公开开关和筛选图标。未提审/正式发布。详见 `docs/audit/ux-cleanup-10-feedback1.md`。
 - feedback2 已完成：公开手机号切换期间不插入“正在保存”文字，标签字号收紧；退出群组置于页面底部；事件与统计默认打开“排班统计”；全天班胶囊改为紧凑容器；修改登录密码字号与周围一致；首页筛选图标改用三条原生横线并保留生成资源引用；换班/请假/加扣班确认窗口异常不再静默当作取消。
 - 定向回归46项通过；Mini完整verify 139文件/853通过/13条件skip，类型检查、icon parity、格式/lint与diff check通过。工作流修复提交 `ccdcd8fff20050293b7f280206c331948a1ca208` 已整合；根整合提交待记录。
-- 当前未部署/未上传feedback2，体验版仍为`.91@831160d5`；本批次没有新的生产授权。唯一下一任务：完成根整合提交后，等待本轮API/Web与体验版发布授权，并由用户用小米14复核同版本视觉/交互。
+- feedback2 随后已整合为 `92f16c5396b596f08128af026dad635b6260cd54`，API/Web与体验版`.92`已交付；其小米14复核仍以真机证据为准。
 
 ## 前序 .90 交付事实
 
