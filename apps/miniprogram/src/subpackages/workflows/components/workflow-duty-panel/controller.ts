@@ -780,6 +780,10 @@ async function confirmDutyMutation(
       ? '确定撤销该加扣班申请吗？'
       : `确定驳回 ${duty.deductedMemberName ?? ''} 的加扣班申请吗？`;
   const confirmed = await showConfirm(content);
+  if (task.isCurrent() && confirmed === 'failed') {
+    page.setData({ errorMessage: '确认窗口未能打开，请再次点击操作按钮重试。' });
+    return;
+  }
   if (!task.isCurrent() || !confirmed) return;
   await mutateDuty(page, duty.id, action);
   if (!task.isCurrent()) return;
@@ -1139,15 +1143,19 @@ function toUserMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
 
-function showConfirm(content: string): Promise<boolean> {
+function showConfirm(content: string): Promise<boolean | 'failed'> {
   return new Promise((resolve) => {
-    wx.showModal({
-      cancelText: '暂不',
-      confirmText: '确认',
-      content,
-      success: (result) => resolve(result.confirm),
-      fail: () => resolve(false),
-      title: '请确认',
-    });
+    try {
+      wx.showModal({
+        cancelText: '暂不',
+        confirmText: '确认',
+        content,
+        success: (result) => resolve(result.confirm),
+        fail: () => resolve('failed'),
+        title: '请确认',
+      });
+    } catch {
+      resolve('failed');
+    }
   });
 }

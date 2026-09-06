@@ -687,6 +687,10 @@ async function confirmRejectLeave(page: LeavePageInstance): Promise<void> {
   const target = page._approvalTarget;
   if (target === undefined || page.data.approvalBusy) return;
   const confirmed = await showConfirm(getLeaveRejectionConfirmation(target.memberName));
+  if (task.isCurrent() && confirmed === 'failed') {
+    page.setData({ approvalErrorMessage: '确认窗口未能打开，请再次点击操作按钮重试。' });
+    return;
+  }
   if (!task.isCurrent() || !confirmed) return;
   const operationKey = `${page._currentGroupId}:leave:reject:${target.id}:${target.version}`;
   const request = resolveOperation(page, operationKey, { expectedVersion: target.version });
@@ -729,6 +733,10 @@ async function confirmRequestMutation(
       ? '确定取消该请假申请吗？'
       : '确定撤销该已批准的请假吗？撤销后如需恢复原排班，请重新生成或发布排班。';
   const confirmed = await showConfirm(message);
+  if (task.isCurrent() && confirmed === 'failed') {
+    page.setData({ errorMessage: '确认窗口未能打开，请再次点击操作按钮重试。' });
+    return;
+  }
   if (!task.isCurrent() || !confirmed) return;
   const operationKey = `${page._currentGroupId}:leave:${action}:${request.id}:${request.version}`;
   const input = resolveOperation(page, operationKey, { expectedVersion: request.version });
@@ -1004,15 +1012,19 @@ function notifyCalendarChanged(page: LeavePageInstance): void {
   page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
 }
 
-function showConfirm(content: string): Promise<boolean> {
+function showConfirm(content: string): Promise<boolean | 'failed'> {
   return new Promise((resolve) => {
-    wx.showModal({
-      cancelText: '暂不',
-      confirmText: '确认',
-      content,
-      title: '请确认',
-      success: (result) => resolve(result.confirm),
-      fail: () => resolve(false),
-    });
+    try {
+      wx.showModal({
+        cancelText: '暂不',
+        confirmText: '确认',
+        content,
+        title: '请确认',
+        success: (result) => resolve(result.confirm),
+        fail: () => resolve('failed'),
+      });
+    } catch {
+      resolve('failed');
+    }
   });
 }
