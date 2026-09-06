@@ -14,7 +14,11 @@ import {
 } from '@schedule/presentation-core';
 
 import { buildInfo } from '../../platform/build-info.js';
-import { isTestToolsRuntimeEnabled } from '../../platform/runtime-environment.js';
+import {
+  canUseDiagnostics,
+  refreshDiagnosticsAccess,
+  subscribeDiagnosticsPermission,
+} from '../../platform/diagnostics-access.js';
 import {
   ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
@@ -39,6 +43,7 @@ import {
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
+  getWechatSessionGeneration,
 } from '../../platform/wechat-identity.js';
 import {
   createNativePerformanceProbe,
@@ -216,6 +221,8 @@ interface WorkbenchPageData {
 }
 
 interface WorkbenchPageInstance {
+  _diagnosticsUnsubscribe: (() => void) | undefined;
+  _diagnosticsSerial: number;
   _notificationPollTimer: unknown;
   _performanceDiagnosticsEnabled: boolean;
   _performanceProbe: NativePerformanceProbe | undefined;
@@ -401,13 +408,18 @@ Page({
   _notificationPollTimer: undefined,
   _performanceDiagnosticsEnabled: false,
   _performanceProbe: undefined,
+  _diagnosticsUnsubscribe: undefined,
+  _diagnosticsSerial: 0,
 
   onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
     this.isVisible = true;
     this._performanceDiagnosticsEnabled = options.performance === '1';
     this._performanceProbe = createNativePerformanceProbe();
     this._performanceProbe.start('core-ready');
-    this.setData({ ...createShellLayoutPatch(), testCenterEnabled: isTestToolsRuntimeEnabled() });
+    this._diagnosticsUnsubscribe = subscribeDiagnosticsPermission((allowed) => {
+      this.setData({ testCenterEnabled: this.isVisible && allowed && canUseDiagnostics() });
+    });
+    this.setData({ ...createShellLayoutPatch(), testCenterEnabled: false });
     void loadWorkbenchWithCapability(this);
   },
 
@@ -417,6 +429,13 @@ Page({
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
+    const diagnosticsSerial = ++this._diagnosticsSerial;
+    this.setData({ testCenterEnabled: canUseDiagnostics() });
+    void refreshDiagnosticsAccess().then((allowed) => {
+      if (this.isVisible && diagnosticsSerial === this._diagnosticsSerial) {
+        this.setData({ testCenterEnabled: allowed && canUseDiagnostics() });
+      }
+    });
     startNotificationPolling(this);
     const isInitialShow = !this.hasShown;
     this.hasShown = true;
@@ -435,11 +454,13 @@ Page({
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    this._diagnosticsSerial += 1;
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
     this.requestSerial += 1;
     invalidateShiftEventRequest(this);
     this.setData({
+      testCenterEnabled: false,
       filterOpen: false,
       groupOpen: false,
       notificationSheetOpen: false,
@@ -449,6 +470,9 @@ Page({
 
   onUnload(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    this._diagnosticsSerial += 1;
+    this._diagnosticsUnsubscribe?.();
+    this._diagnosticsUnsubscribe = undefined;
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
     this.requestSerial += 1;
@@ -956,9 +980,20 @@ Page({
     navigateGroupTool(this, 'exports', '/subpackages/insights/pages/exports/index');
   },
 
-  handleOpenTestCenter(this: WorkbenchPageInstance): void {
-    if (!isTestToolsRuntimeEnabled()) {
-      announceToolNavigationFailure(this, '测试工具仅在开发版和体验版开放。');
+  async handleOpenTestCenter(this: WorkbenchPageInstance): Promise<void> {
+    const ownerId = getStoredWechatProfile()?.id;
+    const generation = getWechatSessionGeneration();
+    const serial = this._diagnosticsSerial;
+    const allowed = await refreshDiagnosticsAccess();
+    if (
+      !this.isVisible ||
+      serial !== this._diagnosticsSerial ||
+      ownerId !== getStoredWechatProfile()?.id ||
+      generation !== getWechatSessionGeneration()
+    )
+      return;
+    if (!allowed || !canUseDiagnostics()) {
+      announceToolNavigationFailure(this, '当前账号无权使用测试工具。');
       return;
     }
     wx.navigateTo({
