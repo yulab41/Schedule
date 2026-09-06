@@ -27,5 +27,18 @@
 - 筛选.89/.90/current源码没有几何差异或箭头。20px光栅图和放大图已检查三横线；top/left替代inset是定位兼容加固，不宣称证实真机箭头根因已消失。未更改其他图标或canonical几何。
 - 公开号码工号查询是一次批量query，使用已发布employee/person目录及原visibility权限；唯一发布批次由既有directoryKind/publishedSlot唯一约束保证。号码未公开（含本人私有号码）不参与，缺码/不同码歧义不返回。
 - 删除审计：Mini/Web/API/contracts/client-core不再存在认领活跃请求/服务/标签；isUnclaimed、invite.bindUnclaimedMembership、roster claimedBy/status仅用于已有预设/定向邀请内部关系兼容，历史schema/迁移/记录保留。
-- 当前没有新生产写入、迁移或体验版上传，也没有分配新版本。本轮新增认领退役，与前序B保留非码认领的范围不同；发布需配套API/Web及新Mini，不能把旧.90视为已更新。
+- 实施检查点时尚未部署/上传；随后用户明确授权配套发布，结果见下节。不能把旧.90视为已更新。
 - 检查点message：`fix: refine member and profile layouts and retire claims`。主控统一提交C补丁及本线源码；C因本线未单独运行browser而不绕过commit门禁。原dirty副本受保护。
+
+## 2026-09-06 实际发布
+
+- 当前消息明确授权API/Web和新体验版；L4 inspector携带授权标志后RESULT=PASS。初次遗漏标志被拒绝，无生产操作；没有绕过门禁。发布source831160d57f9a92a9a59bb1ca9a040ec9b4f6fb84，fresh origin/main相同，生产前驱实时核验为40a189dda71b7038e545713a40d36728c0831a6e。
+- 独占general-3 Acquire/ReuseOnly/Bootstrap复用8个producer，安装/冷安装/reconciliation0。正式ECS packager重新编译API/Web并用锁定依赖离线deploy打包85项运行依赖，非开发环境安装。候选42项、trial-lineage及实际PS checker通过，沿用已通过的完整源码验证，不再启动全量verify。
+- 复用已验证deploy-stage.sh，发布锁内先完整verifier、真实备份及SHA核验，再updater和完整verifier。备份0b31e1b2-afec-4f8a-aab4-8388e8ca1652，SHA256 40d680c9fdec341261f2dda77282d6ac1122341f7ddf4e6104950489f4496193，55表/96,954,528bytes；既有备份保留策略正常执行。
+- API/Web实际release831160d5，schema前后54；迁移runner执行1次但新增迁移0，0054既有摘要与历史非空group_code摘要不变。安全回退前驱为当前40a189dd（同schema54且头像/群组码已退役），实际回退0。
+- 线上无会话探测：认领GET及头像旧入口404，binding/diagnostics-access/contacts401；未伪造真实会话或实施用户副作用。普通用户/目标admin正反例沿用自动化，真实绑定待用户验收。
+- 微信版本由正式锁分配0.1.0-p10.20260906.91；description `feedback1-831160d`，production/clean，source同API/Web。2026-09-06T09:01:39.237Z官方上传成功，Manifest0776041dc89c3058e46cc4a88a2df622902f7a1f285ee8135d4f8190c1f92ab2，allocation/receipt/remote tag/实际dist摘要逐项一致。
+- 最终包334文件：主包1,694,515；scheduling415,220；organization1,016,195；workflows821,180；insights1,040,407；diagnostics67,990；总包5,055,507bytes；官方上传zip2,441,154bytes。主包内部1.5M warning保留，不等于平台包体失败；不把压缩包和源码包混比，不承诺性能收益。
+- SSH沿用历史成功主机及严格host-key；微信沿用当前真实系统IPv4/TLS1.3、进程ipv4first和servicewechat-only NO_PROXY，SDK未启用代理。没有改VPN/TUN、DNS、hosts或TLS。一次本地TLS探测遗漏port导致参数错误，补443后通过，不是网络故障。
+- 本次API/Web部署1/成功1、备份1、上传1/成功1、精确allowlist ensure1及verify通过，随后完整installed verifier通过；发布日志在general-3/runtime/codex/ux-feedback1-*，官方回执在canonical runtime/audit/miniprogram-trials。旧.90回执不变。
+- 收口仅文档，发布source和.91三元组保持不变，不机械重传/同步release元数据；仅释放本轮lease。小米14同版本验收待办，未提审/正式发布，未拨真人电话或修改真实隐私/换班设置。

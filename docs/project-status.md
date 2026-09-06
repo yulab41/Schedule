@@ -1,11 +1,14 @@
 # Project Status
 
-## 当前批次：UX-CLEANUP-10 截图反馈1已验证，待配套发布
+## 当前批次：UX-CLEANUP-10 截图反馈1已发布，待真机复核
 
 - 基线3a7d2553；同RUN_ID的feedback1，root general-3独占，C新general-1负责认领退役，D无热槽仅只读审计，安装0。
 - 当前实施：群组成员卡/工号、认领全端退役、群组版本展示删除、个人页紧凑对齐、底部公开开关、筛选三图层定位。内部并发version和历史认领表/记录保留。
 - 已完成定向API/客户端171项、目录工号8项、UI34项，真实浏览器 `pnpm smoke:browser` 全流程PASS。完整verify2次启动/2次DAG/1次通过（Mini839、Node81、root1183通过；条件skip单列）。随后Mini文案/计数增量44项及production校验通过。
-- 检查点message：`fix: refine member and profile layouts and retire claims`。唯一下一任务：配套API/Web部署及新体验版的发布授权；目前未部署/上传，不重新批准产品方向。详见 `docs/audit/ux-cleanup-10-feedback1.md`。
+- 源码831160d57f9a92a9a59bb1ca9a040ec9b4f6fb84已推送main；用户随后明确授权配套API/Web与新体验版发布，已实际完成。schema54不变，无新增迁移；备份0b31e1b2-afec-4f8a-aab4-8388e8ca1652及部署前后完整verifier通过。
+- 体验版0.1.0-p10.20260906.91，description `feedback1-831160d`，source同API/Web；2026-09-06T09:01:39.237Z上传成功，Manifest0776041dc89c3058e46cc4a88a2df622902f7a1f285ee8135d4f8190c1f92ab2。精确allowlist ensure/verify及完整生产复核通过。
+- 本次发布无源码修改，复用既有完整verify证据；候选42项、血缘、包体和实际PS候选检查通过。上传1次/成功1次，API/Web部署1次/成功1次，回退0，冷安装/依赖reconciliation0。
+- 收口message：`docs(release): record feedback1 trial 91 delivery`。仅记录已交付source，不重传或改变.91身份；唯一下一任务为小米14同.91版本验收群组成员、我的、公开开关和筛选图标。未提审/正式发布。详见 `docs/audit/ux-cleanup-10-feedback1.md`。
 
 ## 前序 .90 交付事实
 
@@ -25,7 +28,7 @@
 - .90精确allowlist及完整installed production verifier此前PASS；本次只重试CI，没有再次迁移/部署/备份。Mini source与生产F应用树一致。
 - REUSE_ONLY；官方warm离线reconciliation2次，冷安装0/升级0；本次重试及文档收口安装0。
 
-## 收口及唯一下一步
+## 前序 .90 收口记录（后续以顶部 .91 为准）
 
 - 检查点message：`docs(release): record UX cleanup trial 90 delivery`。仅文档，保持.90的source/Manifest不变，不重部署生产或机械重上传。最终main和租约释放见Git及ignored任务登记。
 - 原upload lease已释放；A/C/D副本因dirty被官方保护性隔离，未清理/重置；D实验不在main。文档lease收口后仅释放本轮自己的租约。
