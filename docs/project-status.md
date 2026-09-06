@@ -17,7 +17,7 @@
 - 个人页13项桌面WXML/WXSS代理布局、toast28组合通过；没有微信原生/小米14同新版本证据。
 - canonical L4 inspector PASS；REUSE_ONLY。两个既有槽各一次官方离线reconciliation，installInvoked2/冷安装0/升级0。
 
-## 当前发布阶段：F迁移候选（S已部署）
+## 当前发布阶段：F已部署，体验版待上传
 
 - S含全部应用退役与UI代码，schema模型可空，运行兼容53..54；物理NOT NULL时无码新建返回503且不插入。源码journal仍53。
 - F恢复了已测试0054/journal及对应两份测试；实际MySQL迁移2项再次通过。SQL摘要9fa2592ec7fe0631770b9b53d6b8eaeb8a2505dbf9df6a64350566316b2aa2b7，未改已执行迁移。
@@ -29,6 +29,8 @@
 
 ## 唯一下一任务与停止条件
 
-- 提交/push F检查点 `feat(database): retire group code generation with nullable compatibility` → 用当前live S作为回退目标打包F → 再备份/执行0054并核验 → 匹配体验版上传与精确allowlist。
+- F40a189dd已部署，schema54、0054摘要、历史码保护、完整verifier通过；第二份备份c4e890a1-a570-44f2-aa6f-a165889292ed已核验。
+- 上传preflight在版本分配前发现5285旧整文件证明失配；仅更新经独立复核的workbench blob，保留历史图标/动效及全部门禁。检查点message：`fix(mini): renew audited workbench lineage proof`。
+- 下一步冻结新证明源码，匹配体验版上传与精确allowlist；应用树与F一致，不重新部署相同API/Web。
 - 每一步按真实回执推进；权限、备份、兼容、锁或网络实际阻塞则保存成果准确报告，不重复请求已批准B方案。
 - 不提审/正式发布，不拨真人电话、不改真实隐私/退出群组。真机验收仍待小米14同最终构建证据。

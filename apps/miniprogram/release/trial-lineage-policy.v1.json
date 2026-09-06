@@ -33,7 +33,7 @@
       "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial.",
       "equivalentProof": {
         "strategy": "canonical-tree-files",
-        "evidence": "The current shared motion source, Mini motion contract, and workbench lifecycle are the audited equivalent implementation of this calendar/people checkpoint.",
+        "evidence": "UX-CLEANUP-10 preserves the shared motion source and Mini motion contract unchanged. The workbench diff retires photos, adds independent detail expansion/account response guards, and restricts diagnostics; handleCalendarNav and directory navigation motion remain unchanged, with no calendarNavAnimating reintroduced. The renewed workbench blob is audited in docs/audit/ux-cleanup-10-20260906083903.md and covered by the existing icon-motion-parity and lineage gates.",
         "files": [
           {
             "path": "packages/ui-icons/src/motion.ts",
@@ -45,7 +45,7 @@
           },
           {
             "path": "apps/miniprogram/src/pages/workbench/index.ts",
-            "blob": "34bafa66e91ded7a693f660d2c1f4ff6ff585309"
+            "blob": "0c7ab72b76a98a6da3179ce55adccc479f9eb30f"
           }
         ]
       }
