@@ -333,7 +333,7 @@ describe('P4 native workbench', () => {
     expect(monthTemplate).toContain('bindchange="handleMonthChangeStart"');
     expect(monthTemplate).toContain('style="height:{{viewportHeight}}px"');
     expect(template).toContain('panel-heights="{{monthPanelHeights}}"');
-    expect(pageStyles).toContain('@import "../../styles/ui-icon-motion.wxss";');
+    expect(pageStyles).toMatch(/@import ['"]\.\.\/\.\.\/styles\/ui-icon-motion\.wxss['"];?/u);
     expect(pageStyles).not.toContain('@keyframes click-filter-top');
     expect(pageStyles).not.toContain('@keyframes minimal-swap-left');
     expect(iconMotionStyles).toContain('@keyframes ui-motion-filter-filter-top');
@@ -341,7 +341,9 @@ describe('P4 native workbench', () => {
     expect(iconMotionStyles).toContain('@keyframes ui-motion-navigation-swap-arrow-left');
     expect(iconMotionStyles).toContain('@keyframes ui-motion-more-stagger-dot-one');
     expect(pageStyles).toContain('@keyframes filter-sheet-enter');
-    expect(monthStyles).toContain('@import "../../../styles/ui-icon-motion.wxss";');
+    expect(monthStyles).toMatch(
+      /@import ['"]\.\.\/\.\.\/\.\.\/styles\/ui-icon-motion\.wxss['"];?/u,
+    );
     expect(monthStyles).not.toContain('@keyframes click-locate');
     expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(

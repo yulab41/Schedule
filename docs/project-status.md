@@ -1,13 +1,13 @@
 # Project Status
 
-## 当前批次：UX-CLEANUP-10 feedback3已实现，待提交/发布授权与真机复核
+## 当前批次：UX-CLEANUP-10 feedback3已实现，workbench断言已修复，待发布复核
 
 - 基线 `92f16c5396b596f08128af026dad635b6260cd54`（feedback2；API/Web与体验版`.92`已交付）；本轮使用同RUN_ID的 `feedback3` warm slot `runtime/wt/general-3`，依赖复用、冷安装0。
 - 已完成：手机号公开成功提示改为共享 `ui-toast` 瞬时通知并在2秒后清除；解除绑定改为原位确认弹窗；删除废弃 `pages/identity/unbind` 四件套；接入已有 `/auth/password/status` 并增加 Web 样式初始密码提醒，编辑沿用既有密码 sheet。
 - 保留仍被真实入口引用的 POC/诊断页；未删除历史业务数据、解绑接口或生产 schema。
-- 定向相关回归58项通过；Mini typecheck、production verify、icon parity通过。完整历史 Mini 测试仍有一个与本轮无关的 workbench 引号断言失败，详见 `docs/audit/ux-cleanup-10-feedback3.md`。
+- 定向相关回归58项通过；Mini完整测试139文件通过、1条件跳过，857项通过、13项条件跳过；typecheck、production verify、icon parity通过。workbench测试改为接受合法单/双引号导入写法。
 - 当前未部署、未上传、未改 API/Web；生产与体验版仍为 `92f16c5396b596f08128af026dad635b6260cd54` / `.92`。小米14和微信原生交互待用户在同版本体验版复核。
-- 下一步：提交并推送本轮 Mini-only checkpoint，释放本轮 warm lease；不得把本轮代码描述为生产/体验版已生效。
+- 下一步：提交本轮测试修复并按当前授权执行API/Web核验与体验版上传；不得把本轮代码描述为已通过真机验收。
 
 ## 前序 feedback2 交付记录
 

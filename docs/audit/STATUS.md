@@ -1,11 +1,11 @@
 # 微信小程序审计状态
 
-## 当前批次：UX-CLEANUP-10 feedback3已实现，待提交/发布授权与真机复核
+## 当前批次：UX-CLEANUP-10 feedback3已实现，workbench断言已修复，待发布复核
 
 - 反馈3已在 `runtime/wt/general-3` 完成：共享瞬时手机号公开提示、内联解绑确认、废弃解绑页删除、Web匹配初始密码提醒。
-- 定向相关回归58项、Mini typecheck、production verify、icon parity通过；生产包 `5,051,233` bytes。没有 API/Web部署、数据库迁移或体验版上传。
+- 定向相关回归58项、Mini完整测试139文件通过（857项通过、13项条件跳过）、typecheck、production verify、icon parity通过；生产包 `5,051,233` bytes。workbench单/双引号导入断言已修复；尚未部署或上传。
 - 仍被索引/诊断/手动排班引用的 POC 页保留；旧解绑页已从 app 路由、源码和样式中移除。真实微信、原生弹窗和小米14证据未取得。
-- 唯一步骤：提交并推送本轮 checkpoint，随后等待明确发布授权；发布前不得写“全端生效”。详见 `ux-cleanup-10-feedback3.md`。
+- 唯一步骤：提交测试修复并按当前授权执行发布候选；发布前不得写“全端生效”。详见 `ux-cleanup-10-feedback3.md`。
 
 ## 前序 feedback2 交付记录
 
