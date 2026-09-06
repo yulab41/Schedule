@@ -85,10 +85,48 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.detailExpansion.expanded).toEqual({});
   });
 
+  it.each(['member', 'administrator', 'guest'])(
+    'denies direct test-tool navigation for an ungranted %s',
+    async (role) => {
+      const runtime = createWx(createStorage(), vi.fn());
+      runtime.navigateTo = vi.fn();
+      runtime.showToast = vi.fn();
+      vi.stubGlobal('wx', runtime);
+      await import('../src/pages/workbench/index.ts');
+      await enableTestClientCapabilities();
+      const instance = createPageInstance(definition);
+      instance.data.currentGroupRoleKind = role;
+      instance.data.currentGroupIsDeveloperAdmin = true;
+      await definition.handleOpenTestCenter.call(instance);
+      expect(runtime.navigateTo).not.toHaveBeenCalled();
+      expect(instance.data.testCenterEnabled).toBe(false);
+    },
+  );
+
+  it('does not navigate after a granted lookup outlives the visible page', async () => {
+    const runtime = createWx(createStorage(), vi.fn());
+    let pending;
+    runtime.request = (options) => {
+      pending = options;
+    };
+    runtime.navigateTo = vi.fn();
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    const opening = definition.handleOpenTestCenter.call(instance);
+    await vi.waitFor(() => expect(pending).toBeDefined());
+    definition.onHide.call(instance);
+    pending.success({ data: { allowed: true }, statusCode: 200 });
+    await opening;
+    expect(runtime.navigateTo).not.toHaveBeenCalled();
+    expect(instance.data.testCenterEnabled).toBe(false);
+  });
+
   it('switches primary destinations in place and pushes secondary tools onto the Page stack', async () => {
     const storage = createStorage();
     const navigateTo = vi.fn();
-    const runtime = createWx(storage, vi.fn());
+    const runtime = createWx(storage, vi.fn(), true);
     runtime.navigateTo = navigateTo;
     runtime.showToast = vi.fn();
     vi.stubGlobal('wx', runtime);
@@ -134,7 +172,7 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.activeWorkspace).toBe('more');
 
     instance.data.currentGroupId = '';
-    definition.handleOpenTestCenter.call(instance);
+    await definition.handleOpenTestCenter.call(instance);
     expect(navigateTo).toHaveBeenLastCalledWith(
       expect.objectContaining({ url: '/subpackages/diagnostics/pages/test-tools/index' }),
     );
@@ -609,7 +647,7 @@ function createStorage(extra = {}) {
   ]);
 }
 
-function createWx(storage, request) {
+function createWx(storage, request, diagnosticsAllowed = false) {
   return {
     getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop', version: 'test' } }),
     getMenuButtonBoundingClientRect: () => ({
@@ -630,7 +668,10 @@ function createWx(storage, request) {
       windowWidth: 390,
     }),
     removeStorageSync: (key) => storage.delete(key),
-    request,
+    request: (options) =>
+      options.url.endsWith('/me/diagnostics-access')
+        ? options.success({ data: { allowed: diagnosticsAllowed }, statusCode: 200 })
+        : request(options),
     setStorageSync: (key, value) => storage.set(key, value),
   };
 }

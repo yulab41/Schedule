@@ -122,7 +122,8 @@ describe('Mini workbench Web-parity navigation', () => {
     expect(source).toContain("'/subpackages/workflows/pages/duty/index'");
     expect(source).toContain("'/subpackages/diagnostics/pages/test-tools/index'");
     expect(source).toContain('testCenterEnabled: false');
-    expect(source).toContain('isTestToolsRuntimeEnabled()');
+    expect(source).toContain('refreshDiagnosticsAccess()');
+    expect(source).toContain('subscribeDiagnosticsPermission');
   });
 
   it('shares directory and profile content between embedded and direct Page hosts', () => {

@@ -3,6 +3,22 @@ import vm from 'node:vm';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const permission = vi.hoisted(() => ({
+  allowed: true,
+  refresh: vi.fn(async () => true),
+  listener: undefined,
+}));
+vi.mock('../src/platform/diagnostics-access.js', () => ({
+  canUseDiagnostics: () => permission.allowed,
+  refreshDiagnosticsAccess: () => permission.refresh(),
+  subscribeDiagnosticsPermission: (listener) => {
+    permission.listener = listener;
+    return () => {
+      permission.listener = undefined;
+    };
+  },
+}));
+
 import { findWorkletIssues } from './build-tools.mjs';
 
 function readSource(relativePath) {
@@ -12,6 +28,8 @@ function readSource(relativePath) {
 describe('P1 Android gesture capability probe', () => {
   beforeEach(() => {
     vi.resetModules();
+    permission.allowed = true;
+    permission.refresh.mockReset().mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -68,8 +86,17 @@ describe('P1 Android gesture capability probe', () => {
     await import('../src/pages/gesture-probe/index.ts');
 
     const setData = vi.fn();
-    const instance = { applyAnimatedStyle: vi.fn(), setData };
+    const instance = {
+      data: structuredClone(definition.data),
+      applyAnimatedStyle: vi.fn(),
+      setData(patch, callback) {
+        Object.assign(this.data, patch);
+        setData(patch);
+        callback?.();
+      },
+    };
     definition.onLoad.call(instance);
+    await definition.onShow.call(instance);
     setData.mockClear();
 
     definition.handleProbePan.call(instance, { deltaX: 24, deltaY: -18, state: 2 });
@@ -101,10 +128,85 @@ describe('P1 Android gesture capability probe', () => {
     });
     await import('../src/pages/gesture-probe/index.ts');
 
-    definition.onLoad.call({ setData: vi.fn() });
+    permission.allowed = false;
+    permission.refresh.mockResolvedValue(false);
+    const instance = { setData: vi.fn() };
+    definition.onLoad.call(instance);
+    await definition.onShow.call(instance);
 
     expect(redirectTo).toHaveBeenCalledWith({ url: '/pages/workbench/index' });
     expect(shared).not.toHaveBeenCalled();
+  });
+
+  it('keeps direct-entry data blank until grant and cancels pending grant after hide', async () => {
+    let definition;
+    let resolveGrant;
+    permission.refresh.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGrant = resolve;
+        }),
+    );
+    const getDeviceInfo = vi.fn();
+    vi.stubGlobal('wx', { getDeviceInfo, redirectTo: vi.fn() });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/pages/gesture-probe/index.ts');
+    const instance = {
+      data: structuredClone(definition.data),
+      setData(patch, callback) {
+        Object.assign(this.data, patch);
+        callback?.();
+      },
+    };
+    definition.onLoad.call(instance);
+    const pending = definition.onShow.call(instance);
+    expect(instance.data.diagnosticsAllowed).toBe(false);
+    expect(instance.data.buildLabel).toBe('');
+    expect(getDeviceInfo).not.toHaveBeenCalled();
+    definition.onHide.call(instance);
+    resolveGrant(true);
+    await pending;
+    expect(getDeviceInfo).not.toHaveBeenCalled();
+    expect(instance.data.diagnosticsAllowed).toBe(false);
+    definition.onUnload.call(instance);
+    expect(permission.listener).toBeUndefined();
+  });
+
+  it('revokes displayed diagnostics and cancels stress immediately on account permission loss', async () => {
+    let definition;
+    vi.stubGlobal('wx', {
+      getAppBaseInfo: () => ({ version: 'test' }),
+      getDeviceInfo: () => ({ model: 'synthetic device' }),
+      worklet: { shared: (value) => ({ value }) },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/pages/gesture-probe/index.ts');
+    const instance = {
+      data: structuredClone(definition.data),
+      applyAnimatedStyle: vi.fn(),
+      setData(patch, callback) {
+        Object.assign(this.data, patch);
+        callback?.();
+      },
+    };
+    definition.onLoad.call(instance);
+    await definition.onShow.call(instance);
+    expect(instance.data.diagnosticsAllowed).toBe(true);
+    permission.allowed = false;
+    permission.listener(false);
+    expect(instance.data).toMatchObject({
+      diagnosticsAllowed: false,
+      buildLabel: '',
+      model: '',
+      workspaceStressRunning: false,
+    });
+    definition.handleWorkspaceStress.call(instance);
+    expect(instance._workspaceStressTimer).toBeUndefined();
+    expect(instance.data.workspaceStressRunning).toBe(false);
   });
 
   it('keeps the diagnostic WXS module isolated from the matrix WXS input module', () => {
@@ -190,7 +292,7 @@ describe('P1 Android gesture capability probe', () => {
     });
     await import('../src/pages/gesture-probe/index.ts');
     const instance = {
-      data: structuredClone(definition.data),
+      data: { ...structuredClone(definition.data), diagnosticsAllowed: true },
       setData(patch) {
         Object.assign(this.data, patch);
       },

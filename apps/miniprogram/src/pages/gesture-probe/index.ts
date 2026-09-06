@@ -1,5 +1,9 @@
 import { buildInfo } from '../../platform/build-info.js';
-import { isTestToolsRuntimeEnabled } from '../../platform/runtime-environment.js';
+import {
+  canUseDiagnostics,
+  refreshDiagnosticsAccess,
+  subscribeDiagnosticsPermission,
+} from '../../platform/diagnostics-access.js';
 
 declare const getCurrentPages: undefined | (() => unknown[]);
 
@@ -10,6 +14,9 @@ interface GestureProbeEvent {
 }
 
 interface GestureProbePageInstance {
+  _visible: boolean;
+  _accessSerial: number;
+  _unsubscribe: (() => void) | undefined;
   _probeX: MiniProgramSharedValue<number>;
   _probeY: MiniProgramSharedValue<number>;
   _touchMoveCount: number;
@@ -21,6 +28,7 @@ interface GestureProbePageInstance {
   ): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   readonly data: {
+    readonly diagnosticsAllowed: boolean;
     readonly wheelCommandRevision: number;
     readonly wheelGeneration: number;
     readonly wheelItems: readonly GestureProbeWheelItem[];
@@ -74,7 +82,8 @@ const workspaceProbeItems = [
 Page({
   data: {
     appVersion: '未知',
-    buildLabel: buildInfo.buildLabel,
+    buildLabel: '',
+    diagnosticsAllowed: false,
     model: '未知',
     platform: '未知',
     sdkVersion: '未知',
@@ -101,44 +110,37 @@ Page({
     wheelSettledLabel: '2026年',
   },
   onLoad(this: GestureProbePageInstance): void {
-    if (!isTestToolsRuntimeEnabled()) {
-      wx.showToast?.({ icon: 'none', title: '该诊断页仅在开发版和体验版开放' });
+    this._visible = false;
+    this._accessSerial = 0;
+    this._unsubscribe = subscribeDiagnosticsPermission((allowed) => {
+      if (!allowed) clearProbeAccess(this);
+    });
+  },
+  async onShow(this: GestureProbePageInstance): Promise<void> {
+    this._visible = true;
+    const serial = ++this._accessSerial;
+    this.setData({ diagnosticsAllowed: false });
+    const allowed = await refreshDiagnosticsAccess();
+    if (!this._visible || serial !== this._accessSerial) return;
+    if (!allowed || !canUseDiagnostics()) {
+      clearProbeAccess(this);
       wx.redirectTo({ url: '/pages/workbench/index' });
       return;
     }
-    const { shared } = wx.worklet;
-    this._probeX = shared(0);
-    this._probeY = shared(0);
-    this._touchMoveCount = 0;
-    this._workspaceStressTimer = undefined;
-    const probeX = this._probeX;
-    const probeY = this._probeY;
-    this.applyAnimatedStyle(
-      '#gesture-probe-dot',
-      () => {
-        'worklet';
-        return { transform: `translate(${probeX.value}px, ${probeY.value}px)` };
-      },
-      { flush: 'sync' },
-    );
-
-    const appBaseInfo = wx.getAppBaseInfo();
-    const deviceInfo = wx.getDeviceInfo();
-    this.setData({
-      appVersion: appBaseInfo.version,
-      model: deviceInfo.model,
-      platform: deviceInfo.platform,
-      sdkVersion: appBaseInfo.SDKVersion,
-      system: deviceInfo.system,
+    this.setData({ diagnosticsAllowed: true }, () => {
+      if (this._visible && serial === this._accessSerial && canUseDiagnostics())
+        initializeProbe.call(this);
     });
-    syncWorkspaceDiagnostics(this);
   },
-  onShow(this: GestureProbePageInstance): void {
-    syncWorkspaceDiagnostics(this);
+  onHide(this: GestureProbePageInstance): void {
+    this._visible = false;
+    clearProbeAccess(this);
   },
   onUnload(this: GestureProbePageInstance): void {
-    if (this._workspaceStressTimer !== undefined) clearTimeout(this._workspaceStressTimer);
-    this._workspaceStressTimer = undefined;
+    this._visible = false;
+    clearProbeAccess(this);
+    this._unsubscribe?.();
+    this._unsubscribe = undefined;
   },
   handleProbePan(this: GestureProbePageInstance, event: GestureProbeEvent): void {
     'worklet';
@@ -147,10 +149,12 @@ Page({
     this._probeY.value = Math.max(-70, Math.min(70, this._probeY.value + event.deltaY));
   },
   handleTouchStart(this: GestureProbePageInstance): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     this._touchMoveCount = 0;
     this.setData({ touchMoveCount: 0, touchStatus: '普通触摸已开始' });
   },
   handleTouchMove(this: GestureProbePageInstance): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     this._touchMoveCount += 1;
     this.setData({
       touchMoveCount: this._touchMoveCount,
@@ -158,9 +162,11 @@ Page({
     });
   },
   handleTouchEnd(this: GestureProbePageInstance): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     this.setData({ touchMoveCount: this._touchMoveCount, touchStatus: '普通触摸已结束' });
   },
   handleWorkspaceStress(this: GestureProbePageInstance): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     if (this.data.workspaceStressRunning) return;
     this.setData({ workspaceStressCount: 0, workspaceStressRunning: true }, () =>
       runWorkspaceStress(this, 50),
@@ -170,12 +176,14 @@ Page({
     this: GestureProbePageInstance,
     event: { readonly currentTarget: { readonly dataset: { readonly index?: number } } },
   ): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     const index = Number(event.currentTarget.dataset.index);
     if (!Number.isInteger(index) || index < 0 || index >= workspaceProbeItems.length) return;
     activateWorkspaceProbe(index);
     this.setData({ workspaceProbeIndex: index }, () => syncWorkspaceDiagnostics(this));
   },
   handleWheelPreview(this: GestureProbePageInstance, event: GestureProbeWheelEvent): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     if (event.detail.generation !== this.data.wheelGeneration) return;
     const index = boundedProbeYearIndex(event.detail.index);
     this.setData({
@@ -184,6 +192,7 @@ Page({
     });
   },
   handleWheelReset(this: GestureProbePageInstance): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     this.setData({
       wheelCommandRevision: this.data.wheelCommandRevision + 1,
       wheelGeneration: this.data.wheelGeneration + 1,
@@ -193,6 +202,7 @@ Page({
     });
   },
   handleWheelSettled(this: GestureProbePageInstance, event: GestureProbeWheelEvent): void {
+    if (!this.data.diagnosticsAllowed || !canUseDiagnostics()) return;
     if (event.detail.generation !== this.data.wheelGeneration) return;
     const index = boundedProbeYearIndex(event.detail.index);
     this.setData({
@@ -208,6 +218,7 @@ function boundedProbeYearIndex(value: number): number {
 }
 
 function runWorkspaceStress(page: GestureProbePageInstance, remaining: number): void {
+  if (!page._visible || !page.data.diagnosticsAllowed || !canUseDiagnostics()) return;
   if (remaining <= 0) {
     page._workspaceStressTimer = undefined;
     page.setData({ workspaceStressRunning: false }, () => syncWorkspaceDiagnostics(page));
@@ -240,6 +251,7 @@ function activateWorkspaceProbe(index: number): void {
 }
 
 function syncWorkspaceDiagnostics(page: GestureProbePageInstance): void {
+  if (!page.data.diagnosticsAllowed || !canUseDiagnostics()) return;
   const host = findWorkbenchProbeHost();
   if (host === undefined) {
     const index = page.data?.workspaceProbeIndex ?? 0;
@@ -296,4 +308,57 @@ function formatWorkspaceCounts(state: WorkspaceProbeCountState): string {
 
 function workspaceLabel(workspace: WorkspaceProbeKey): string {
   return workspaceProbeItems.find((item) => item.key === workspace)?.label ?? workspace;
+}
+
+function initializeProbe(this: GestureProbePageInstance): void {
+  const { shared } = wx.worklet;
+  this._probeX = shared(0);
+  this._probeY = shared(0);
+  this._touchMoveCount = 0;
+  this._workspaceStressTimer = undefined;
+  const probeX = this._probeX;
+  const probeY = this._probeY;
+  this.applyAnimatedStyle(
+    '#gesture-probe-dot',
+    () => {
+      'worklet';
+      return { transform: `translate(${probeX.value}px, ${probeY.value}px)` };
+    },
+    { flush: 'sync' },
+  );
+
+  const appBaseInfo = wx.getAppBaseInfo();
+  const deviceInfo = wx.getDeviceInfo();
+  this.setData({
+    buildLabel: buildInfo.buildLabel,
+    appVersion: appBaseInfo.version,
+    model: deviceInfo.model,
+    platform: deviceInfo.platform,
+    sdkVersion: appBaseInfo.SDKVersion,
+    system: deviceInfo.system,
+  });
+  syncWorkspaceDiagnostics(this);
+}
+
+function clearProbeAccess(page: GestureProbePageInstance): void {
+  page._accessSerial += 1;
+  if (page._workspaceStressTimer !== undefined) clearTimeout(page._workspaceStressTimer);
+  page._workspaceStressTimer = undefined;
+  page.setData({
+    diagnosticsAllowed: false,
+    buildLabel: '',
+    appVersion: '',
+    model: '',
+    platform: '',
+    sdkVersion: '',
+    system: '',
+    workspaceStressRunning: false,
+    workspaceProbeRequests: '',
+    workspaceProbeAttached: '',
+    workspaceProbeReady: '',
+    workspaceProbeMounted: '',
+    workspaceProbeQueue: '',
+    workspaceProbeDuplicateReady: '',
+    workspaceProbe: '',
+  });
 }
