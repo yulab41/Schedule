@@ -22,7 +22,6 @@ import {
   groups,
   inviteTokens,
   memberScheduleRoles,
-  membershipClaimRequests,
   rosterEntries,
   scheduleRoles,
   userAuthIdentities,
@@ -506,7 +505,7 @@ export class InviteService {
       throw new ApiError({
         code: 'NOT_FOUND',
         statusCode: 404,
-        userMessage: '邀请目标待认领人员不存在或不可用。',
+        userMessage: '邀请目标预设人员不存在或不可用。',
       });
     }
     return {
@@ -860,19 +859,7 @@ export class InviteService {
       .update(groups)
       .set({ ownerUserId: targetMembership.userId, version: sql`${groups.version} + 1` })
       .where(eq(groups.ownerUserId, currentUser.id));
-    await transaction
-      .update(membershipClaimRequests)
-      .set({
-        requestingUserId: targetMembership.userId,
-        version: sql`${membershipClaimRequests.version} + 1`,
-      })
-      .where(
-        and(
-          eq(membershipClaimRequests.requestingUserId, currentUser.id),
-          eq(membershipClaimRequests.status, 'pending'),
-          isNull(membershipClaimRequests.deletedAt),
-        ),
-      );
+
     await transaction
       .update(groupJoinRequests)
       .set({

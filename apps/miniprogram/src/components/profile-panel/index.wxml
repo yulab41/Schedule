@@ -43,7 +43,7 @@
               <text class="profile-eyebrow">个人数据</text>
               <text class="profile-section-title">值班概览</text>
             </view>
-            <button class="profile-inline-action" bindtap="handleOpenStatistics">
+            <button size="mini" class="profile-inline-action" bindtap="handleOpenStatistics">
               查看完整统计 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
             </button>
           </view>
@@ -93,10 +93,12 @@
           </view>
           <block wx:if="{{!nextDutyEmpty}}">
             <text class="profile-duty-time">{{nextDutyTimeLabel}}</text>
-            <text class="profile-duty-role">{{nextDutyRoleLabel}}</text>
-            <button class="profile-duty-link" bindtap="handleOpenCalendar">
-              打开排班日历 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
-            </button>
+            <view class="profile-duty-footer">
+              <text class="profile-duty-role">{{nextDutyRoleLabel}}</text>
+              <button size="mini" class="profile-duty-link" bindtap="handleOpenCalendar">
+                打开排班日历 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
+              </button>
+            </view>
           </block>
           <text wx:else class="profile-duty-empty"> 当前月份与下个月没有查询到你的待值班次。 </text>
         </view>
@@ -158,14 +160,14 @@
             </view>
             <view class="profile-detail-action">
               <text>{{bindingLabel}}</text>
-              <button wx:if="{{bindingState === 'error'}}" bindtap="handleBindingRetry">重试</button>
-              <button wx:if="{{canUnbindWechat}}" bindtap="handleUnbind">解除绑定</button>
+              <button size="mini" wx:if="{{bindingState === 'error'}}" bindtap="handleBindingRetry"><text class="profile-action-label">重试</text></button>
+              <button size="mini" wx:if="{{canUnbindWechat}}" bindtap="handleUnbind"><text class="profile-action-label">解除绑定</text></button>
             </view>
           </view>
           <view class="profile-detail-row is-last">
             <text class="profile-detail-label">登录密码</text>
-            <button class="profile-password-action" bindtap="handlePasswordOpen">
-              修改登录密码
+            <button size="mini" class="profile-password-action" bindtap="handlePasswordOpen">
+              <text class="profile-action-label">修改登录密码</text>
             </button>
           </view>
         </view>

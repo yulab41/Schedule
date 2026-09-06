@@ -60,7 +60,7 @@ describe('P8-C-1 native organization management controller', () => {
           options.success({ data: [member()], statusCode: 200 });
           return;
         }
-        if (url.endsWith(`/groups/${groupId}/contacts`) && options.method === 'GET') {
+        if (url.split('?')[0].endsWith(`/groups/${groupId}/contacts`) && options.method === 'GET') {
           options.success({ data: [contact()], statusCode: 200 });
           return;
         }
@@ -117,7 +117,7 @@ describe('P8-C-1 native organization management controller', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads developer-admin member/contact/claim reads alongside the P5 consent state', async () => {
+  it('loads developer-admin member/contact reads without retired claims alongside the P5 consent state', async () => {
     const page = createPageInstance(definition);
     definition.onLoad.call(page, { groupId });
 
@@ -137,13 +137,15 @@ describe('P8-C-1 native organization management controller', () => {
       ],
       organizationEnabled: true,
     });
-    expect(requests.filter((request) => request.method === 'GET')).toHaveLength(8);
+    expect(requests.filter((request) => request.method === 'GET')).toHaveLength(7);
+    expect(requests.some((request) => request.url.includes('claim'))).toBe(false);
   });
 
   it('reuses a self directory card and only dials a current authorized number', async () => {
     const page = await loadReadyPage(definition);
     const member = page.data.memberCards[0];
-    expect(member.entry.title).toContain(' · 我');
+    expect(member.entry.title).toBe(member.name);
+    expect(member.isCurrentUser).toBe(true);
     expect(member.entry.kindLabel).toBe('群主');
     expect(member.entry.jobTitles).toEqual([]);
     definition.handleMemberCall.call(page, { detail: { groupId: membershipId, number: '6601' } });

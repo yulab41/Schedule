@@ -22,10 +22,6 @@ describe('P8 Web organization mutation attempt equivalence', () => {
       'updateGroupMemberContact',
       'deleteGroupMember',
       'transferGroupOwnership',
-      'createMembershipClaimRequest',
-      'approveMembershipClaimRequest',
-      'rejectMembershipClaimRequest',
-      'revokeMembershipClaim',
       'deleteGroup',
       'restoreGroup',
     ]) {

@@ -4,7 +4,6 @@ import type {
   GroupMemberContact,
   GroupMobilePhoneConsent,
   GroupSummary,
-  MembershipClaimRequest,
   PlatformAdminUserAccountList,
   ScheduleRole,
   SchedulingConfig,
@@ -102,9 +101,6 @@ export function createP8OrganizationFixtureFetch(
     }
     if (path === `/groups/${p8GroupId}/contacts` && method === 'GET') {
       return json(options.surface === 'empty' ? [] : groupContacts());
-    }
-    if (path === `/groups/${p8GroupId}/claim-requests` && method === 'GET') {
-      return json(options.surface === 'empty' ? [] : claimRequests());
     }
     if (path === `/groups/${p8GroupId}/scheduling-config` && method === 'GET') {
       return json(schedulingConfig(options.surface === 'empty'));
@@ -234,22 +230,6 @@ function groupContacts(): readonly GroupMemberContact[] {
     {
       isConfirmed: false,
       membershipId: memberMembershipId,
-      version: 1,
-    },
-  ];
-}
-
-function claimRequests(): readonly MembershipClaimRequest[] {
-  return [
-    {
-      createdAt: '2026-08-25T08:00:00.000Z',
-      groupId: p8GroupId,
-      id: '66666666-6666-4666-8666-666666666661',
-      requestingUserId: '77777777-7777-4777-8777-777777777771',
-      requestingUserRealName: '王医生',
-      status: 'pending',
-      targetMemberRealName: '王医生',
-      targetMembershipId: pendingMembershipId,
       version: 1,
     },
   ];

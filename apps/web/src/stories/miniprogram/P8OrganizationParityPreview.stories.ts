@@ -77,8 +77,8 @@ export const MembersMember390: Story = {
   name: '11 · 普通成员通讯录 · 390',
   args: { area: 'members', role: 'member', surface: 'ready' },
 };
-export const MembersDeveloperClaims390: Story = {
-  name: '12 · 后台管理员认领申请 · 390',
+export const MembersDeveloper390: Story = {
+  name: '12 · 后台管理员成员管理 · 390',
   args: { area: 'members', role: 'developer', surface: 'ready' },
 };
 export const MembersManageConfirm320: Story = {

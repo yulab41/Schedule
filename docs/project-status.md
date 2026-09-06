@@ -1,6 +1,13 @@
 # Project Status
 
-## 当前批次：UX-CLEANUP-10 已交付，待用户真机复核
+## 当前批次：UX-CLEANUP-10 截图反馈1已验证，待配套发布
+
+- 基线3a7d2553；同RUN_ID的feedback1，root general-3独占，C新general-1负责认领退役，D无热槽仅只读审计，安装0。
+- 当前实施：群组成员卡/工号、认领全端退役、群组版本展示删除、个人页紧凑对齐、底部公开开关、筛选三图层定位。内部并发version和历史认领表/记录保留。
+- 已完成定向API/客户端171项、目录工号8项、UI34项，真实浏览器 `pnpm smoke:browser` 全流程PASS。完整verify2次启动/2次DAG/1次通过（Mini839、Node81、root1183通过；条件skip单列）。随后Mini文案/计数增量44项及production校验通过。
+- 检查点message：`fix: refine member and profile layouts and retire claims`。唯一下一任务：配套API/Web部署及新体验版的发布授权；目前未部署/上传，不重新批准产品方向。详见 `docs/audit/ux-cleanup-10-feedback1.md`。
+
+## 前序 .90 交付事实
 
 - RUN_ID `ux-cleanup-10-20260906083903`。最终B授权十项代码、保留历史数据迁移、API/Web及一个体验版；额外仅批准PastScheduleView月份按钮44px局部修复。
 - 手机号仍为**默认群内可见，明确关闭才隐藏**；严格显式同意实验未采用。

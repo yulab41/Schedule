@@ -540,7 +540,7 @@ function createMarkerList(markers: readonly string[]): readonly string[] {
 }
 
 function getAssignmentName(assignment: CalendarAssignmentLike): string {
-  return assignment.actualMemberName ?? assignment.plannedMemberName ?? '待认领';
+  return assignment.actualMemberName ?? assignment.plannedMemberName ?? '待分配';
 }
 
 function formatClock(value: string): string {

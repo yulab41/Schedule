@@ -44,7 +44,7 @@ describe('P8 organization shared write boundary', () => {
     }
   });
 
-  it('uses the transport receiver once for all 18 methods without retrying', async () => {
+  it('uses the transport receiver once for all 14 methods without retrying', async () => {
     const request = vi.fn(async (endpoint: { readonly id: string }) => responseFor(endpoint.id));
     const transport = { request } as unknown as ClientTransport;
     const client = createOrganizationWriteClient(transport);
@@ -78,25 +78,11 @@ describe('P8 organization shared write boundary', () => {
       membershipId: memberId,
       operationId,
     });
-    await client.createMembershipClaimRequest(groupId, {
-      expectedMemberVersion: 2,
-      membershipId: memberId,
-      operationId,
-    });
-    await client.approveMembershipClaimRequest(groupId, 'claim-1', {
-      expectedVersion: 1,
-      operationId,
-    });
-    await client.rejectMembershipClaimRequest(groupId, 'claim-1', {
-      expectedVersion: 1,
-      operationId,
-    });
-    await client.revokeMembershipClaim(groupId, memberId, { expectedVersion: 2, operationId });
     await client.deleteGroup(groupId, { expectedVersion: 3, operationId });
     await client.restoreGroup(groupId, { expectedVersion: 4, operationId });
 
-    expect(request).toHaveBeenCalledTimes(18);
-    expect(request.mock.contexts).toEqual(Array.from({ length: 18 }, () => transport));
+    expect(request).toHaveBeenCalledTimes(14);
+    expect(request.mock.contexts).toEqual(Array.from({ length: 14 }, () => transport));
   });
 });
 
@@ -114,7 +100,6 @@ function sampleInput(id: string): unknown {
   if (id.includes('member-name'))
     return { groupId, memberId, request: { ...request, realName: '林' } };
   if (id.includes('member')) return { groupId, memberId, request };
-  if (id.includes('claim')) return { claimId: 'claim-1', groupId, request };
   return { groupId, request };
 }
 

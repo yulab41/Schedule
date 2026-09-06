@@ -407,7 +407,6 @@ function resolveOrganizationReadCapability(
 ): ClientCapabilityRequirement {
   switch (endpoint.id) {
     case 'organization.catalog':
-    case 'organization.claim-requests':
     case 'organization.contacts':
     case 'organization.groups':
     case 'organization.members':

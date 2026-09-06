@@ -11,7 +11,6 @@ import type { MembershipService } from './membership-service.js';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const memberId = '22222222-2222-4222-8222-222222222222';
-const claimId = '33333333-3333-4333-8333-333333333333';
 const firstOperationId = '44444444-4444-4444-8444-444444444444';
 const secondOperationId = '55555555-5555-4555-8555-555555555555';
 const identity = { cloudbaseUid: 'test-user' } satisfies AuthenticatedIdentity;
@@ -38,18 +37,13 @@ describe('P8 organization route operation and version boundary', () => {
     calls = {
       addGroupMembers: serviceCall({ added: 1 }),
       addRosterEntries: serviceCall({ added: 1 }),
-      approveClaim: serviceCall(claim()),
-      claimGroup: serviceCall({ group: group(), status: 'claimed' }),
       convertRosterEntries: serviceCall({ converted: 1, skipped: 0 }),
-      createClaim: serviceCall({ direct: true }),
       createGroup: serviceCall(group()),
       deleteGroup: serviceCall(),
       deleteMember: serviceCall(),
       joinGuest: serviceCall(group('guest')),
       leaveGroup: serviceCall(),
-      rejectClaim: serviceCall(claim('rejected')),
       restoreGroup: serviceCall(),
-      revokeClaim: serviceCall(),
       transferOwnership: serviceCall(group('administrator')),
       updateCode: serviceCall(group()),
       updateContact: serviceCall(contact()),
@@ -62,7 +56,6 @@ describe('P8 organization route operation and version boundary', () => {
       {
         addGroupMembers: calls.addGroupMembers,
         addRosterEntries: calls.addRosterEntries,
-        claim: calls.claimGroup,
         convertRosterEntries: calls.convertRosterEntries,
         create: calls.createGroup,
         restoreGroup: calls.restoreGroup,
@@ -70,14 +63,10 @@ describe('P8 organization route operation and version boundary', () => {
         updateName: calls.updateName,
       } as unknown as GroupService,
       {
-        approveClaimRequest: calls.approveClaim,
-        createClaimRequest: calls.createClaim,
         deleteGroup: calls.deleteGroup,
         deleteMember: calls.deleteMember,
         joinAsGuest: calls.joinGuest,
         leaveGroup: calls.leaveGroup,
-        rejectClaimRequest: calls.rejectClaim,
-        revokeClaim: calls.revokeClaim,
         transferOwnership: calls.transferOwnership,
         updateMemberName: calls.updateMemberName,
         updateMemberRole: calls.updateMemberRole,
@@ -121,7 +110,6 @@ describe('P8 organization route operation and version boundary', () => {
 
   it('retires code routes without calling either legacy service', async () => {
     for (const request of [
-      { method: 'POST' as const, url: '/groups/claim', payload: { groupCode: '1234' } },
       {
         method: 'PUT' as const,
         url: `/groups/${groupId}/group-code`,
@@ -133,7 +121,6 @@ describe('P8 organization route operation and version boundary', () => {
           .statusCode,
       ).toBe(404);
     }
-    expect(calls.claimGroup).not.toHaveBeenCalled();
     expect(calls.updateCode).not.toHaveBeenCalled();
   });
 
@@ -142,7 +129,7 @@ describe('P8 organization route operation and version boundary', () => {
     const responses = await Promise.all(requests.map((request) => app.inject(request)));
 
     expect(responses.map((response) => response.statusCode)).toEqual([
-      201, 201, 204, 200, 200, 200, 200, 200, 200, 200, 200, 200, 201, 200, 200, 200, 204, 204,
+      201, 201, 204, 200, 200, 200, 200, 200, 200, 200, 200, 200, 204, 204,
     ]);
     for (const [name, call] of Object.entries(calls)) {
       if (name === 'claimGroup' || name === 'updateCode') continue;
@@ -159,9 +146,6 @@ describe('P8 organization route operation and version boundary', () => {
     );
     expect(calls.transferOwnership!.mock.calls[0]?.at(-1)).toEqual(
       expect.objectContaining({ expectedGroupVersion: 3, expectedMemberVersion: 4 }),
-    );
-    expect(calls.approveClaim!.mock.calls[0]?.at(-1)).toEqual(
-      expect.objectContaining({ expectedVersion: 5 }),
     );
   });
 
@@ -213,19 +197,6 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
       expectedMemberVersion: 4,
       membershipId: memberId,
     }),
-    request('POST', `/groups/${groupId}/claim-requests`, {
-      expectedMemberVersion: 4,
-      membershipId: memberId,
-    }),
-    request('POST', `/groups/${groupId}/claim-requests/${claimId}/approve`, {
-      expectedVersion: 5,
-    }),
-    request('POST', `/groups/${groupId}/claim-requests/${claimId}/reject`, {
-      expectedVersion: 5,
-    }),
-    request('POST', `/groups/${groupId}/members/${memberId}/revoke-claim`, {
-      expectedVersion: 4,
-    }),
     request('DELETE', `/groups/${groupId}`, { expectedVersion: 3 }),
     request('POST', `/groups/${groupId}/restore`, { expectedVersion: 4 }),
   ];
@@ -241,18 +212,4 @@ function member() {
 
 function contact() {
   return { isConfirmed: false, membershipId: memberId, shortPhone: '6601', version: 2 };
-}
-
-function claim(status: 'pending' | 'rejected' = 'pending') {
-  return {
-    createdAt: '2026-08-25T00:00:00.000Z',
-    groupId,
-    id: claimId,
-    requestingUserId: 'user-1',
-    requestingUserRealName: '林医生',
-    status,
-    targetMemberRealName: '林医生',
-    targetMembershipId: memberId,
-    version: 5,
-  };
 }

@@ -128,7 +128,7 @@ async function measureGroupSettingsPage(count) {
         options.success({ data: members, statusCode: 200 });
         return;
       }
-      if (url.endsWith(`/groups/${groupId}/contacts`) && options.method === 'GET') {
+      if (url.split('?')[0].endsWith(`/groups/${groupId}/contacts`) && options.method === 'GET') {
         options.success({ data: contacts, statusCode: 200 });
         return;
       }
@@ -191,7 +191,9 @@ async function measureGroupSettingsPage(count) {
     templateNodes: nodeCount('groupMemberRow', count),
     viewModelRecordCount: page.data.memberCards.length,
     contactRequestCount: requests.filter(
-      (request) => request.method === 'GET' && request.url.endsWith(`/groups/${groupId}/contacts`),
+      (request) =>
+        request.method === 'GET' &&
+        request.url.split('?')[0].endsWith(`/groups/${groupId}/contacts`),
     ).length,
   };
 }
@@ -251,7 +253,6 @@ function createGroup() {
 function createMember(index) {
   return {
     id: `membership-${String(index + 1).padStart(3, '0')}`,
-    isClaimedByCurrentUser: false,
     isCurrentUser: false,
     isUnclaimed: false,
     realName: `member-${String(index + 1).padStart(3, '0')}`,

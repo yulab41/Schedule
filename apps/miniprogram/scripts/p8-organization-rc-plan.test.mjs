@@ -66,7 +66,7 @@ describe('P8 organization RC and production release contract', () => {
     expect(plan.roles).toEqual(['owner', 'administrator', 'member', 'platform-admin']);
     expect(plan.cases.map((entry) => entry.id)).toEqual([
       'owner-group-member-lifecycle',
-      'administrator-roster-claims-contacts',
+      'administrator-roster-contacts',
       'member-readonly-boundary',
       'member-wechat-quick-login',
       'owner-admin-scheduling-configuration',

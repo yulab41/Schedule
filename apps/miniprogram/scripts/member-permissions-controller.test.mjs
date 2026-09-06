@@ -124,7 +124,8 @@ describe('Mini group settings member permissions and calendar preferences', () =
     expect(page.data.state).toBe('ready');
     expect(page.data.memberCards).toHaveLength(1);
     expect(page.data.calendarPreferencesError).not.toBe('');
-    expect(page.data.maskedMobilePhone).toBe('138 **** 7926');
+    expect(page.data.consentState).toBe('not-consented');
+    expect(page.data.switchDisabled).toBe(false);
   });
 
   it('preserves the personal preference draft after a failed save and supports retry', async () => {
@@ -179,7 +180,7 @@ describe('Mini group settings member permissions and calendar preferences', () =
       options.success({ data: [member()], statusCode: 200 });
       return;
     }
-    if (url.endsWith(`/groups/${groupId}/contacts`) && method === 'GET') {
+    if (url.split('?')[0].endsWith(`/groups/${groupId}/contacts`) && method === 'GET') {
       options.success({ data: [contact()], statusCode: 200 });
       return;
     }

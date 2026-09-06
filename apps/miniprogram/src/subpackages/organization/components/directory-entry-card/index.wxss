@@ -271,7 +271,6 @@
   }
 }
 
-.directory-entry.is-current-user {
-  background: var(--ui-color-primary-light);
-  border-color: var(--ui-color-primary-border);
+.directory-entry.is-current-user .entry-accent {
+  background: #67b893;
 }

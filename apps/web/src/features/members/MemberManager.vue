@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type {
-  GroupMember,
-  GroupMemberContact,
-  GroupSummary,
-  MembershipClaimRequest,
-} from '@schedule/contracts';
+import type { GroupMember, GroupMemberContact, GroupSummary } from '@schedule/contracts';
 import {
   resolveWorkflowOperationAttempt,
   type WorkflowOperationAttempt,
@@ -18,7 +13,6 @@ import { localAuth } from '../../auth/local-auth.js';
 import { hasDuplicateRosterName, parseRosterNames } from '../groups/roster-input.js';
 import GroupContactForm from '../profile/GroupContactForm.vue';
 import { createEditableGroupContact } from './member-contact-edit.js';
-import { getClaimRequestTone } from './member-presentation.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -35,7 +29,6 @@ const operationAttempts = new Map<
 >();
 const members = ref<GroupMember[]>([]);
 const contacts = ref<GroupMemberContact[]>([]);
-const claimRequests = ref<MembershipClaimRequest[]>([]);
 const errorMessage = ref<string>();
 const rosterMessage = ref<string>();
 const identityMessage = ref<string>();
@@ -83,15 +76,8 @@ const canManageContacts = computed(
   () =>
     props.group.role === 'owner' || props.group.role === 'administrator' || isDeveloperAdmin.value,
 );
-const canHandleClaims = computed(() => isDeveloperAdmin.value);
 const pendingMembers = computed(() =>
   members.value.filter((member) => member.isPendingRoster === true),
-);
-const pendingClaimRequests = computed(() =>
-  claimRequests.value.filter((request) => request.status === 'pending'),
-);
-const handledClaimRequests = computed(() =>
-  claimRequests.value.filter((request) => request.status !== 'pending'),
 );
 const contactEditorMember = computed(() =>
   editingContactMemberId.value === undefined
@@ -127,15 +113,13 @@ async function loadMembers(): Promise<void> {
   isLoading.value = true;
 
   try {
-    const [nextMembers, nextContacts, nextClaims] = await Promise.all([
+    const [nextMembers, nextContacts] = await Promise.all([
       api.listGroupMembers(props.group.id),
       api.listGroupContacts(props.group.id),
-      canHandleClaims.value ? api.listMembershipClaimRequests(props.group.id) : Promise.resolve([]),
     ]);
     if (currentRequest === requestVersion) {
       members.value = nextMembers;
       contacts.value = nextContacts;
-      claimRequests.value = nextClaims;
     }
   } catch (error) {
     if (currentRequest === requestVersion) {
@@ -347,61 +331,6 @@ async function deleteGroup(): Promise<void> {
   }
 }
 
-async function revokeClaim(member: GroupMember): Promise<void> {
-  if (!window.confirm(`确定撤销成员“${member.realName}”的认领吗？撤销后该成员恢复为未认领状态。`)) {
-    return;
-  }
-  errorMessage.value = undefined;
-  isUpdating.value = true;
-  const attemptKey = `claim-revoke:${member.id}`;
-  try {
-    await api.revokeMembershipClaim(
-      props.group.id,
-      member.id,
-      resolveOrganizationAttempt(attemptKey, {
-        expectedVersion: member.version,
-      }),
-    );
-    completeOrganizationAttempt(attemptKey);
-    identityMessage.value = `已撤销成员“${member.realName}”的认领。`;
-    await loadMembers();
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
-  } finally {
-    isUpdating.value = false;
-  }
-}
-
-async function decideClaim(request: MembershipClaimRequest, approve: boolean): Promise<void> {
-  if (
-    !window.confirm(
-      approve
-        ? `确定同意 ${request.requestingUserRealName} 认领成员“${request.targetMemberRealName}”吗？`
-        : `确定驳回 ${request.requestingUserRealName} 认领成员“${request.targetMemberRealName}”的申请吗？`,
-    )
-  ) {
-    return;
-  }
-  errorMessage.value = undefined;
-  isUpdating.value = true;
-  const attemptKey = `claim-${approve ? 'approve' : 'reject'}:${request.id}`;
-  const input = resolveOrganizationAttempt(attemptKey, { expectedVersion: request.version });
-  try {
-    if (approve) {
-      await api.approveMembershipClaimRequest(props.group.id, request.id, input);
-    } else {
-      await api.rejectMembershipClaimRequest(props.group.id, request.id, input);
-    }
-    completeOrganizationAttempt(attemptKey);
-    identityMessage.value = approve ? '已同意该认领申请。' : '已驳回该认领申请。';
-    await loadMembers();
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
-  } finally {
-    isUpdating.value = false;
-  }
-}
-
 function canEditContact(member: GroupMember): boolean {
   return member.isCurrentUser || canManageContacts.value;
 }
@@ -441,35 +370,6 @@ function roleLabel(role: GroupMember['role']): string {
   return role === 'administrator' ? '管理员' : '成员';
 }
 
-function claimStatusLabel(member: GroupMember): string {
-  if (member.isPendingRoster === true) {
-    return '待认领名单';
-  }
-  if (member.isUnclaimed === true) {
-    return '未认领';
-  }
-  if (member.isClaimedByCurrentUser === true) {
-    return '已认领（我）';
-  }
-  if (member.claimRequestStatus === 'pending') {
-    return '认领申请待审批';
-  }
-  return '已认领';
-}
-
-function claimRequestStatusLabel(status: MembershipClaimRequest['status']): string {
-  switch (status) {
-    case 'pending':
-      return '待审批';
-    case 'approved':
-      return '已同意';
-    case 'rejected':
-      return '已驳回';
-    case 'cancelled':
-      return '已取消';
-  }
-}
-
 function openContactEditor(member: GroupMember): void {
   if (member.isPendingRoster === true || !canEditContact(member)) return;
   memberActionTarget.value = undefined;
@@ -483,16 +383,11 @@ async function handleContactSaved(): Promise<void> {
 }
 
 function hasMemberManagementActions(member: GroupMember): boolean {
-  const canRevoke =
-    member.isPendingRoster !== true &&
-    member.isCurrentUser !== true &&
-    member.isUnclaimed !== true &&
-    canHandleClaims.value;
   const canChangeRole =
     canManageAdministrators.value && member.role !== 'owner' && member.isPendingRoster !== true;
   const canDelete = canAddMembers.value && member.isCurrentUser !== true && member.role !== 'owner';
   const canRename = isDeveloperAdmin.value && member.isPendingRoster !== true;
-  return canRevoke || canChangeRole || canDelete || canRename;
+  return canChangeRole || canDelete || canRename;
 }
 
 function openMemberActions(member: GroupMember): void {
@@ -500,7 +395,7 @@ function openMemberActions(member: GroupMember): void {
 }
 
 async function runMemberAction(
-  action: 'convert' | 'delete' | 'rename' | 'revoke' | 'toggle-role' | 'transfer',
+  action: 'convert' | 'delete' | 'rename' | 'toggle-role' | 'transfer',
 ): Promise<void> {
   const member = memberActionTarget.value;
   if (member === undefined) return;
@@ -515,9 +410,6 @@ async function runMemberAction(
       break;
     case 'rename':
       await updateMemberName(member);
-      break;
-    case 'revoke':
-      await revokeClaim(member);
       break;
     case 'toggle-role':
       await updateRole(member, member.role === 'member' ? 'administrator' : 'member');
@@ -548,60 +440,6 @@ async function runMemberAction(
         全部转为正式成员
       </t-button>
     </div>
-
-    <section
-      v-if="canHandleClaims && (pendingClaimRequests.length > 0 || handledClaimRequests.length > 0)"
-      class="claim-requests-panel"
-    >
-      <header class="section-heading">
-        <div>
-          <h3>身份认领申请</h3>
-          <p>核对申请人与目标成员后再处理。</p>
-        </div>
-        <span>{{ pendingClaimRequests.length }} 项待处理</span>
-      </header>
-      <table class="member-table claim-table">
-        <thead>
-          <tr>
-            <th>申请人</th>
-            <th>目标成员</th>
-            <th>状态</th>
-            <th>处理人</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="request in claimRequests"
-            :key="request.id"
-            class="member-card claim-card"
-            :class="{ 'is-actionable': request.status === 'pending' }"
-          >
-            <td class="member-primary" data-label="申请人">
-              {{ request.requestingUserRealName }}
-            </td>
-            <td data-label="目标成员">{{ request.targetMemberRealName }}</td>
-            <td data-label="状态">
-              <span class="status-badge" :class="getClaimRequestTone(request.status)">
-                {{ claimRequestStatusLabel(request.status) }}
-              </span>
-            </td>
-            <td data-label="处理人">{{ request.decidedByRealName ?? '—' }}</td>
-            <td class="action-cell claim-actions" data-label="操作">
-              <template v-if="request.status === 'pending'">
-                <t-button variant="outline" @click="decideClaim(request, true)"> 同意 </t-button>
-                <t-button theme="danger" variant="text" @click="decideClaim(request, false)">
-                  驳回
-                </t-button>
-              </template>
-              <span v-else class="handled-label">
-                {{ request.status === 'approved' ? '已同意' : '已处理' }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
 
     <t-loading v-if="isLoading" text="正在加载成员" />
     <template v-else>
@@ -698,7 +536,7 @@ async function runMemberAction(
                 <div class="directory-name-line">
                   <strong>{{ member.realName }}</strong>
                   <span v-if="member.isPendingRoster === true" class="status-badge neutral">
-                    待认领
+                    待转为正式成员
                   </span>
                 </div>
                 <small>{{ roleLabel(member.role) }}</small>
@@ -816,7 +654,7 @@ async function runMemberAction(
     >
       <div v-if="memberActionTarget !== undefined" class="member-sheet-actions">
         <p class="member-action-summary">
-          {{ roleLabel(memberActionTarget.role) }} · {{ claimStatusLabel(memberActionTarget) }}
+          {{ roleLabel(memberActionTarget.role) }}
         </p>
         <t-button
           v-if="memberActionTarget.isPendingRoster === true && canAddMembers"
@@ -857,20 +695,6 @@ async function runMemberAction(
           @click="runMemberAction('transfer')"
         >
           转让群主
-        </t-button>
-        <t-button
-          v-if="
-            memberActionTarget.isPendingRoster !== true &&
-            memberActionTarget.isCurrentUser !== true &&
-            memberActionTarget.isUnclaimed !== true &&
-            canHandleClaims
-          "
-          theme="danger"
-          variant="outline"
-          :loading="isUpdating"
-          @click="runMemberAction('revoke')"
-        >
-          撤销身份认领
         </t-button>
         <t-button
           v-if="
@@ -999,8 +823,7 @@ async function runMemberAction(
   line-height: var(--ui-line-height-normal);
 }
 
-.pending-panel,
-.claim-requests-panel {
+.pending-panel {
   display: grid;
   min-width: 0;
   gap: var(--ui-spacing-sm);
@@ -1412,24 +1235,6 @@ async function runMemberAction(
   font-size: var(--ui-font-size-sm);
 }
 
-.claim-option {
-  display: flex;
-  min-height: var(--ui-touch-target-minimum);
-  margin-bottom: var(--ui-spacing-xs);
-  padding: 10px 12px;
-  gap: var(--ui-spacing-xs);
-  align-items: center;
-  color: var(--ui-color-text-primary);
-  background: var(--ui-color-surface-muted);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-medium);
-  font-size: var(--ui-font-size-sm);
-}
-
-.claim-option input:disabled + span {
-  color: var(--ui-color-text-muted);
-}
-
 .member-sheet-actions {
   display: grid;
   gap: var(--ui-spacing-sm);
@@ -1609,8 +1414,7 @@ async function runMemberAction(
     display: none !important;
   }
 
-  .member-table .member-card .mobile-member-actions,
-  .member-table .member-card .claim-actions {
+  .member-table .member-card .mobile-member-actions {
     display: grid;
     min-height: var(--ui-touch-target-minimum);
     padding-top: var(--ui-spacing-xxs);
@@ -1618,17 +1422,14 @@ async function runMemberAction(
     gap: var(--ui-spacing-xs);
   }
 
-  .member-table .member-card .mobile-member-actions::before,
-  .member-table .member-card .claim-actions::before {
+  .member-table .member-card .mobile-member-actions::before {
     display: none;
   }
 
-  .mobile-member-actions :deep(.t-button),
-  .claim-actions :deep(.t-button) {
+  .mobile-member-actions :deep(.t-button) {
     width: 100%;
     min-width: 0;
   }
-
   .contact-cell {
     align-items: center !important;
   }
@@ -1662,8 +1463,7 @@ async function runMemberAction(
     display: none;
   }
 
-  .member-table .member-card .mobile-member-actions,
-  .member-table .member-card .claim-actions {
+  .member-table .member-card .mobile-member-actions {
     grid-template-columns: 1fr;
   }
 }

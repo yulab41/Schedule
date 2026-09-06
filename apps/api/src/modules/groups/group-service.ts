@@ -117,7 +117,7 @@ export class GroupService {
         throw new ApiError({
           code: 'CONFLICT',
           statusCode: 409,
-          userMessage: '群组内存在同名的待认领人员。',
+          userMessage: '群组内存在同名的预设人员。',
         });
       }
 
@@ -310,7 +310,7 @@ export class GroupService {
       throw new ApiError({
         code: 'CONFLICT',
         statusCode: 409,
-        userMessage: '群组内已存在同名的待认领人员，请先让该成员认领或移除待认领名单。',
+        userMessage: '群组内已存在同名的预设人员，请先处理已有预设人员。',
       });
     }
   }
@@ -536,7 +536,7 @@ function ensureDistinctNames(realNames: readonly string[]): void {
   throw new ApiError({
     code: 'CONFLICT',
     statusCode: 409,
-    userMessage: '群组内存在同名的待认领人员。',
+    userMessage: '群组内存在同名的预设人员。',
   });
 }
 

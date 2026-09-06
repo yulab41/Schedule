@@ -49,75 +49,14 @@
           </view>
         </view>
 
-        <ui-alert
-          wx:if="{{errorMessage}}"
-          tone="danger"
-          title="设置未保存"
-          message="{{errorMessage}}"
-        ></ui-alert>
-        <ui-alert
+<ui-alert
           wx:if="{{infoMessage}}"
           tone="success"
           title="手机号公开设置"
           message="{{infoMessage}}"
         ></ui-alert>
 
-        <view class="group-card contact-consent-card">
-          <view class="group-card-header"><text>联系方式公开</text></view>
-          <view class="group-card-body">
-            <view class="contact-consent-section">
-              <view class="consent-heading">
-                <view class="consent-heading-copy">
-                  <text class="consent-title">我的手机号公开设置</text>
-                  <text>仅决定当前群组成员能否查看您的完整手机号。</text>
-                </view>
-                <text class="preference-scope">仅自己</text>
-              </view>
 
-              <ui-alert
-                wx:if="{{consentState === 'missing-phone'}}"
-                tone="warning"
-                title="尚未设置手机号"
-                message="请先在账号资料中设置手机号，再决定是否向当前群组公开。"
-              ></ui-alert>
-              <ui-alert
-                wx:elif="{{consentState === 'stale'}}"
-                tone="warning"
-                title="需要重新同意"
-                message="号码或说明版本已变化，公开设置已关闭；请重新确认后保存同意。"
-              ></ui-alert>
-
-              <view
-                class="phone-consent-control {{switchDisabled || isSaving ? 'is-disabled' : ''}}"
-                hover-class="{{switchDisabled || isSaving ? 'none' : 'is-pressed'}}"
-                aria-role="switch"
-                aria-checked="{{desiredConsent}}"
-                aria-disabled="{{switchDisabled || isSaving}}"
-                bindtap="handleConsentToggle"
-              >
-                <view
-                  class="phone-consent-checkbox {{desiredConsent ? 'is-checked' : ''}}"
-                  aria-hidden="true"
-                  ><text wx:if="{{desiredConsent}}">✓</text></view
-                >
-                <view class="phone-consent-copy">
-                  <text>允许本群组显示完整手机号</text>
-                  <text>此选择可随时撤回，不影响账号、资料或排班。</text>
-                </view>
-              </view>
-
-              <view
-                class="web-button consent-save {{saveDisabled ? 'is-disabled' : 'is-primary'}}"
-                hover-class="{{saveDisabled ? 'none' : 'is-pressed'}}"
-                aria-role="button"
-                aria-disabled="{{saveDisabled}}"
-                aria-busy="{{isSaving}}"
-                bindtap="handleSave"
-                >{{isSaving ? '正在保存' : actionLabel}}</view
-              >
-            </view>
-          </view>
-        </view>
 
         <view class="group-card calendar-preferences-card">
           <view class="group-card-header"><text>日历偏好</text></view>
@@ -314,11 +253,11 @@
             ><text>已解散群组</text><text class="card-scope">30 天内可恢复</text></view
           >
           <view class="group-card-body member-card-list">
-            <view wx:for="{{dissolvedCards}}" wx:for-item="dissolved" wx:key="id" class="claim-row">
-              <view class="claim-row-copy"
+            <view wx:for="{{dissolvedCards}}" wx:for-item="dissolved" wx:key="id" class="group-record-row">
+              <view class="group-record-row-copy"
                 ><text>{{dissolved.name}}</text
                 ><text class="member-row-meta"
-                  >解散于 {{dissolved.deletedAt}} · 版本 v{{dissolved.version}}</text
+                  >解散于 {{dissolved.deletedAt}}</text
                 ></view
               >
               <view
@@ -335,9 +274,9 @@
         <view class="group-card member-management-card">
           <view class="group-card-header member-card-header">
             <view
-              ><text>成员与预设</text
+              ><text>群组成员</text
               ><text class="card-subtitle"
-                >{{memberCards.length}} 位成员 · 当前群组版本 v{{groupVersion}}</text
+                >{{memberCards.length}} 位成员</text
               ></view
             >
             <view
@@ -360,6 +299,7 @@
               wx:else
               wx:for="{{memberCards}}"
               wx:for-item="member"
+              wx:for-index="memberIndex"
               wx:key="id"
               class="member-management-row"
             >
@@ -368,6 +308,7 @@
                 entry="{{member.entry}}"
                 show-favorite="{{false}}"
                 current-user="{{member.isCurrentUser}}"
+                show-divider="{{memberIndex > 0}}"
                 large-text="{{largeText}}"
                 binddirectorycall="handleMemberCall"
               ></directory-entry-card>
@@ -388,15 +329,7 @@
                   bindtap="handleConvertRoster"
                   >转为正式成员</view
                 >
-                <view
-                  wx:if="{{member.isUnclaimed && !member.isCurrentUser}}"
-                  class="web-button compact-button is-primary"
-                  data-member-id="{{member.id}}"
-                  data-action="claim"
-                  aria-role="button"
-                  bindtap="handleMemberAction"
-                  >认领</view
-                >
+
                 <view
                   wx:if="{{member.canManage && !member.isCurrentUser && !member.isPendingRoster}}"
                   class="web-button compact-button is-danger"
@@ -429,38 +362,7 @@
           </view>
         </view>
 
-        <view wx:if="{{claimCards.length > 0}}" class="group-card claim-management-card">
-          <view class="group-card-header"
-            ><text>认领请求</text><text class="card-scope">管理员可处理</text></view
-          >
-          <view class="group-card-body claim-card-list">
-            <view wx:for="{{claimCards}}" wx:for-item="claim" wx:key="id" class="claim-row">
-              <view class="claim-row-copy"
-                ><text>{{claim.requesterName}} → {{claim.targetName}}</text
-                ><text class="member-row-meta"
-                  >{{claim.statusLabel}} · 请求版本 v{{claim.version}}</text
-                ></view
-              >
-              <view wx:if="{{claim.canDecide}}" class="claim-row-actions"
-                ><view
-                  class="web-button compact-button is-primary"
-                  data-claim-id="{{claim.id}}"
-                  data-action="approve"
-                  aria-role="button"
-                  bindtap="handleClaimAction"
-                  >同意</view
-                ><view
-                  class="web-button compact-button is-danger"
-                  data-claim-id="{{claim.id}}"
-                  data-action="reject"
-                  aria-role="button"
-                  bindtap="handleClaimAction"
-                  >驳回</view
-                ></view
-              >
-            </view>
-          </view>
-        </view>
+
 
         <ui-alert
           wx:if="{{managementError}}"
@@ -550,6 +452,21 @@
           <view class="web-button is-primary" aria-role="button" bindtap="handleSaveContact"
             >保存成员资料</view
           >
+        </view>
+
+        <view class="group-card contact-disclosure-card">
+          <view class="contact-disclosure-row">
+            <view class="contact-disclosure-copy">
+              <text class="contact-disclosure-title">群内公开手机号</text>
+              <text wx:if="{{consentState === 'missing-phone'}}" class="contact-disclosure-note">请先设置手机号</text>
+              <text wx:elif="{{isSaving}}" class="contact-disclosure-note">正在保存…</text>
+            </view>
+            <ui-switch checked="{{desiredConsent}}" disabled="{{switchDisabled}}" loading="{{isSaving}}" label="群内公开手机号" bind:change="handleConsentToggle"></ui-switch>
+          </view>
+          <view wx:if="{{errorMessage}}" class="contact-disclosure-error">
+            <text>{{errorMessage}}</text>
+            <view class="web-button compact-button" aria-role="button" bindtap="handleSave">重试保存</view>
+          </view>
         </view>
       </view>
       <view class="bottom-spacer"></view>

@@ -62,7 +62,7 @@ const baseMembers: readonly DirectoryMember[] = [
   {
     id: 'wu',
     name: '吴若宁',
-    role: '待认领',
+    role: '预设成员',
     longNumber: '未填写',
     shortNumber: '未填写',
     pending: true,
@@ -221,7 +221,7 @@ onMounted(resetPreview);
               <div class="identity-copy">
                 <div class="name-line">
                   <strong>{{ member.name }}</strong>
-                  <span v-if="member.pending" class="pending-badge">待认领</span>
+                  <span v-if="member.pending" class="pending-badge">预设成员</span>
                 </div>
                 <span>{{ member.role }}</span>
               </div>

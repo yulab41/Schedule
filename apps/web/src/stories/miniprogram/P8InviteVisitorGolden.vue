@@ -57,7 +57,7 @@ const canRotateVisitorAccess = computed(() => ['developer', 'owner'].includes(pr
           <dl class="invite-summary">
             <div>
               <dt>目标成员</dt>
-              <dd>王医生 · 待认领</dd>
+              <dd>王医生 · 预设成员</dd>
             </div>
             <div>
               <dt>群组身份</dt>

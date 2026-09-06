@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('P8 organization mutation contracts', () => {
-  it('requires operation ids on every group, roster, membership, contact, and claim request', () => {
+  it('requires operation ids on every group, roster, membership and contact request', () => {
     const source = readFileSync(new URL('./groups.ts', import.meta.url), 'utf8');
     for (const typeName of [
       'CreateGroupRequest',
@@ -13,13 +13,11 @@ describe('P8 organization mutation contracts', () => {
       'OrganizationOperationRequest',
       'GroupVersionMutationRequest',
       'GroupMemberVersionMutationRequest',
-      'MembershipClaimDecisionRequest',
       'UpdateGroupNameRequest',
       'UpdateGroupMemberRoleRequest',
       'UpdateGroupMemberNameRequest',
       'UpdateGroupMemberContactRequest',
       'TransferGroupOwnershipRequest',
-      'CreateMembershipClaimRequest',
     ]) {
       expect(source).toMatch(
         new RegExp(
@@ -30,7 +28,7 @@ describe('P8 organization mutation contracts', () => {
     }
   });
 
-  it('exposes versions for every mutable group, member, roster, contact, and claim object', () => {
+  it('exposes versions for every mutable group, member, roster and contact object', () => {
     const source = readFileSync(new URL('./groups.ts', import.meta.url), 'utf8');
     expect(source).toMatch(/groupMemberSchema[\s\S]*?version: z\.number\(\)\.int\(\)\.min\(1\)/u);
     expect(source).toMatch(
@@ -39,7 +37,6 @@ describe('P8 organization mutation contracts', () => {
     for (const typeName of [
       'GroupVersionMutationRequest',
       'GroupMemberVersionMutationRequest',
-      'MembershipClaimDecisionRequest',
       'UpdateGroupNameRequest',
       'UpdateGroupMemberRoleRequest',
       'UpdateGroupMemberNameRequest',
@@ -54,9 +51,6 @@ describe('P8 organization mutation contracts', () => {
     }
     expect(source).toMatch(
       /export interface TransferGroupOwnershipRequest[\s\S]*?expectedGroupVersion[\s\S]*?expectedMemberVersion/u,
-    );
-    expect(source).toMatch(
-      /export interface CreateMembershipClaimRequest[\s\S]*?expectedMemberVersion/u,
     );
   });
 });

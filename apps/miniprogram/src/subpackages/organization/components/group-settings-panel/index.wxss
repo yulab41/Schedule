@@ -78,10 +78,7 @@ page {
 }
 .group-setup-panel,
 .group-identity-copy,
-.group-card-body,
-.contact-consent-section,
-.consent-heading-copy,
-.phone-consent-copy {
+.group-card-body{
   display: flex;
   flex-direction: column;
 }
@@ -150,33 +147,6 @@ page {
 .group-card-body {
   padding: var(--ui-spacing-sm);
 }
-.contact-consent-section {
-  padding: var(--ui-spacing-md);
-  gap: var(--ui-spacing-sm);
-  background: var(--ui-color-surface-muted);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-medium);
-}
-.consent-heading {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--ui-spacing-sm);
-}
-.consent-heading-copy {
-  min-width: 0;
-  gap: 3px;
-}
-.consent-heading-copy > text:last-child {
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
-  line-height: var(--ui-line-height-body);
-}
-.consent-title {
-  font-size: var(--ui-font-size-md);
-  font-weight: var(--ui-font-weight-semibold);
-}
 .preference-scope {
   min-height: 24px;
   padding: 0 8px;
@@ -187,56 +157,6 @@ page {
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-semibold);
   line-height: 24px;
-}
-.phone-consent-control {
-  display: flex;
-  min-height: 58px;
-  padding: 9px 11px;
-  box-sizing: border-box;
-  align-items: center;
-  gap: 10px;
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-medium);
-}
-.phone-consent-control.is-disabled {
-  opacity: 0.55;
-}
-.phone-consent-control.is-pressed {
-  opacity: 0.78;
-}
-.phone-consent-checkbox {
-  display: flex;
-  width: 22px;
-  height: 22px;
-  box-sizing: border-box;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-white);
-  background: var(--ui-color-surface);
-  border: 2px solid var(--ui-color-border-strong);
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: var(--ui-font-weight-strong);
-}
-.phone-consent-checkbox.is-checked {
-  background: var(--ui-color-primary);
-  border-color: var(--ui-color-primary);
-}
-.phone-consent-copy {
-  min-width: 0;
-  flex: 1;
-  gap: 2px;
-}
-.phone-consent-copy > text:first-child {
-  font-size: var(--ui-font-size-sm);
-  font-weight: var(--ui-font-weight-semibold);
-}
-.phone-consent-copy > text:last-child {
-  color: var(--ui-color-text-secondary);
-  font-size: 10px;
-  line-height: 1.35;
 }
 .web-button {
   display: flex;
@@ -290,7 +210,7 @@ page {
 .group-mutation-card,
 .calendar-preferences-card,
 .member-management-card,
-.claim-management-card,
+
 .group-lifecycle-card,
 .group-exit-card,
 .dissolved-group-card {
@@ -352,6 +272,9 @@ page {
 .member-card-header {
   gap: 8px;
 }
+.member-card-header .card-subtitle {
+  margin-left: 0;
+}
 .member-card-header > view:first-child {
   display: flex;
   min-width: 0;
@@ -359,8 +282,7 @@ page {
   gap: 3px;
 }
 .mutation-fields,
-.member-card-list,
-.claim-card-list {
+.member-card-list{
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -415,7 +337,7 @@ page {
   padding-bottom: 10px;
   line-height: var(--ui-line-height-body);
 }
-.claim-row {
+.group-record-row {
   display: flex;
   padding: 12px;
   align-items: flex-start;
@@ -425,19 +347,19 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-small);
 }
-.claim-row-copy {
+.group-record-row-copy {
   display: flex;
   min-width: 0;
   flex: 1;
   gap: 9px;
 }
-.claim-row-copy {
+.group-record-row-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 3px;
 }
-.claim-row-copy > text:first-child {
+.group-record-row-copy > text:first-child {
   overflow: hidden;
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
@@ -450,7 +372,7 @@ page {
   line-height: var(--ui-line-height-body);
 }
 .member-row-actions,
-.claim-row-actions {
+.group-record-row-actions {
   display: flex;
   max-width: 48%;
   flex-wrap: wrap;
@@ -549,25 +471,21 @@ page {
   padding-right: 10px;
   padding-left: 10px;
 }
-.group-settings-page.is-compact .group-identity-band,
-.group-settings-page.is-compact .contact-consent-section {
+.group-settings-page.is-compact .group-identity-band{
   padding: var(--ui-spacing-sm);
 }
-.group-settings-page.is-compact .consent-heading {
-  gap: 6px;
-}
 .group-settings-page.is-compact .member-management-row,
-.group-settings-page.is-compact .claim-row {
+.group-settings-page.is-compact .group-record-row {
   padding: 10px;
 }
 .group-settings-page.is-compact .member-row-actions,
-.group-settings-page.is-compact .claim-row-actions {
+.group-settings-page.is-compact .group-record-row-actions {
   max-width: 100%;
   justify-content: flex-start;
 }
 .group-settings-page.is-large-text .header-title-sub,
 .group-settings-page.is-large-text .group-name,
-.group-settings-page.is-large-text .claim-row-copy > text:first-child,
+.group-settings-page.is-large-text .group-record-row-copy > text:first-child,
 .group-settings-page.is-large-text .member-row-meta,
 .group-settings-page.is-large-text .organization-capability-note,
 .group-settings-page.is-large-text .inline-editor-copy,
@@ -582,9 +500,7 @@ page {
 .group-settings-page.is-large-text .card-scope,
 .group-settings-page.is-large-text .card-subtitle,
 .group-settings-page.is-large-text .field-label,
-.group-settings-page.is-large-text .consent-title,
 .group-settings-page.is-large-text .preference-title,
-.group-settings-page.is-large-text .phone-consent-copy > text:first-child,
 .group-settings-page.is-large-text .capability-note-title,
 .group-settings-page.is-large-text .inline-editor-heading,
 .group-settings-page.is-large-text .phone-confirm-toggle,
@@ -596,7 +512,6 @@ page {
 .group-settings-page.is-large-text .group-name {
   font-size: 26px;
 }
-.group-settings-page.is-large-text .phone-consent-copy > text:last-child,
 .group-settings-page.is-large-text .preference-heading > view > text:last-child,
 .group-settings-page.is-large-text .member-row-meta,
 .group-settings-page.is-large-text .organization-capability-note,
@@ -619,10 +534,6 @@ page {
 .group-settings-page.is-large-text .member-card-header > .web-button {
   width: 100%;
 }
-.group-settings-page.is-large-text .consent-heading {
-  align-items: flex-start;
-  flex-direction: column;
-}
 .group-settings-page.is-large-text .preference-heading {
   align-items: flex-start;
   flex-direction: column;
@@ -631,16 +542,6 @@ page {
   align-self: flex-start;
   min-height: 32px;
   line-height: 32px;
-}
-.group-settings-page.is-large-text .phone-consent-control {
-  align-items: flex-start;
-}
-.group-settings-page.is-large-text .phone-consent-control {
-  min-height: 76px;
-}
-.group-settings-page.is-large-text .phone-consent-copy > text:first-child,
-.group-settings-page.is-large-text .phone-consent-copy > text:last-child {
-  white-space: normal;
 }
 .group-settings-page.is-large-text .native-field,
 .group-settings-page.is-large-text .native-picker,
@@ -664,24 +565,24 @@ page {
   font-size: var(--ui-font-size-md);
 }
 .group-settings-page.is-large-text .member-management-row,
-.group-settings-page.is-large-text .claim-row {
+.group-settings-page.is-large-text .group-record-row {
   flex-wrap: wrap;
 }
-.group-settings-page.is-large-text .claim-row-copy {
+.group-settings-page.is-large-text .group-record-row-copy {
   flex: 1 1 100%;
 }
-.group-settings-page.is-large-text .claim-row-copy > text:first-child {
+.group-settings-page.is-large-text .group-record-row-copy > text:first-child {
   overflow-wrap: anywhere;
 }
 .group-settings-page.is-large-text .member-row-actions,
-.group-settings-page.is-large-text .claim-row-actions {
+.group-settings-page.is-large-text .group-record-row-actions {
   width: 100%;
   max-width: 100%;
   flex-direction: column;
   justify-content: flex-start;
 }
 .group-settings-page.is-large-text .member-row-actions .web-button,
-.group-settings-page.is-large-text .claim-row-actions .web-button,
+.group-settings-page.is-large-text .group-record-row-actions .web-button,
 .group-settings-page.is-large-text .group-action-row .web-button {
   width: 100%;
 }
@@ -706,8 +607,7 @@ page {
   padding-top: 12px;
   padding-bottom: 12px;
 }
-.group-settings-page.is-compact.is-large-text .group-identity-band,
-.group-settings-page.is-compact.is-large-text .contact-consent-section {
+.group-settings-page.is-compact.is-large-text .group-identity-band{
   padding: 12px;
 }
 .calendar-preferences-card {
@@ -742,4 +642,62 @@ page {
 .member-entry-card {
   display: block;
   width: 100%;
+}
+
+.member-management-card .group-card-body.member-card-list {
+  display: block;
+  padding: 0;
+  gap: 0;
+}
+
+.member-management-card .member-management-row {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.member-management-card .member-row-actions {
+  padding: 0 12px 10px;
+}
+
+.contact-disclosure-card {
+  padding: 14px 16px;
+}
+
+.contact-disclosure-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.contact-disclosure-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contact-disclosure-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.contact-disclosure-note,
+.contact-disclosure-error {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ui-color-text-secondary);
+}
+
+.contact-disclosure-error {
+  display: flex;
+  margin-top: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-color-danger);
 }

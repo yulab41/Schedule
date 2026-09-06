@@ -45,9 +45,6 @@ import {
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
   memberSwapSettingsSchema,
-  membershipClaimLookupResponseSchema,
-  membershipClaimRequestSchema,
-  membershipClaimRequestListSchema,
   organizationMutationCompletedSchema,
   pastScheduleBackfillBatchResultSchema,
   pastScheduleBackfillRecordListSchema,
@@ -236,18 +233,6 @@ const source = await format(
       memberSwapSettings: sanitizeJsonSchema(
         z.toJSONSchema(memberSwapSettingsSchema),
         'memberSwapSettings',
-      ),
-      membershipClaimLookupResponse: sanitizeJsonSchema(
-        z.toJSONSchema(membershipClaimLookupResponseSchema),
-        'membershipClaimLookupResponse',
-      ),
-      membershipClaimRequest: sanitizeJsonSchema(
-        z.toJSONSchema(membershipClaimRequestSchema),
-        'membershipClaimRequest',
-      ),
-      membershipClaimRequestList: sanitizeJsonSchema(
-        z.toJSONSchema(membershipClaimRequestListSchema),
-        'membershipClaimRequestList',
       ),
       organizationMutationCompleted: sanitizeJsonSchema(
         z.toJSONSchema(organizationMutationCompletedSchema),

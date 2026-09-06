@@ -89,7 +89,10 @@ describe('P5 native group mobile-phone consent controller', () => {
           });
           return;
         }
-        if (options.url.endsWith(`/groups/${groupId}/contacts`) && options.method === 'GET') {
+        if (
+          options.url.split('?')[0].endsWith(`/groups/${groupId}/contacts`) &&
+          options.method === 'GET'
+        ) {
           options.success({
             data: [
               {
@@ -127,13 +130,11 @@ describe('P5 native group mobile-phone consent controller', () => {
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
 
     expect(instance.data).toMatchObject({
-      actionLabel: '保存同意',
       canSave: false,
       consentState: 'not-consented',
       currentGroupName: '头颈外科医生',
       currentGroupRole: '成员',
       desiredConsent: false,
-      maskedMobilePhone: '138 **** 7926',
       viewportClass: '',
     });
     expect(globalThis.wx.setStorageSync).toBeUndefined();
@@ -210,19 +211,28 @@ describe('P5 native group mobile-phone consent controller', () => {
     expect(updateRequests()[3].header['Idempotency-Key']).not.toBe(firstKey);
   });
 
+  it('saves a switch change without requiring a separate save action', async () => {
+    statusResponses = [status({ consentedAt: '2026-08-24T01:00:00.000Z', state: 'consented' })];
+    updateResponses.push(status({ state: 'not-consented' }));
+    const instance = await loadReadyInstance(definition);
+    definition.handleConsentToggle.call(instance);
+    await vi.waitFor(() => expect(updateRequests()).toHaveLength(1));
+    await vi.waitFor(() => expect(instance.data.isSaving).toBe(false));
+    expect(updateRequests()[0].data.consented).toBe(false);
+    expect(instance.data.desiredConsent).toBe(false);
+  });
   it('submits a revoke and atomically replaces the saved response', async () => {
     statusResponses = [status({ consentedAt: '2026-08-24T01:00:00.000Z', state: 'consented' })];
     updateResponses.push(status({ state: 'not-consented' }));
     const instance = await loadReadyInstance(definition);
 
     definition.handleConsentToggle.call(instance);
-    expect(instance.data).toMatchObject({ actionLabel: '撤回同意', canSave: true });
+    expect(instance.data).toMatchObject({ canSave: true });
     definition.handleSave.call(instance);
     await vi.waitFor(() => expect(instance.data.isSaving).toBe(false));
 
     expect(updateRequests()[0].data.consented).toBe(false);
     expect(instance.data).toMatchObject({
-      actionLabel: '保存同意',
       canSave: false,
       consentState: 'not-consented',
       desiredConsent: false,
@@ -309,7 +319,6 @@ describe('P5 native group mobile-phone consent controller', () => {
     definition.handleSave.call(instance);
 
     expect(instance.data).toMatchObject({
-      actionLabel: '保存同意',
       canSave: false,
       consentState: 'missing-phone',
       desiredConsent: false,
@@ -355,7 +364,6 @@ function status(overrides = {}) {
   return {
     contactVersion: 3,
     groupId,
-    maskedMobilePhone: '138 **** 7926',
     membershipId,
     noticeVersion: 'v1',
     state: 'not-consented',

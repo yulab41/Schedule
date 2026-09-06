@@ -5,8 +5,6 @@ import type {
   GroupMemberContact,
   GroupQrResponse,
   GroupSummary,
-  MembershipClaimLookupResponse,
-  MembershipClaimRequest,
   PlatformAdminUserAccount,
   PlatformAdminUserAccountList,
   ResolveInviteResponse,
@@ -20,8 +18,6 @@ import {
   groupMemberListJsonSchema,
   groupQrResponseJsonSchema,
   groupSummaryListJsonSchema,
-  membershipClaimLookupResponseJsonSchema,
-  membershipClaimRequestListJsonSchema,
   platformAdminUserAccountListJsonSchema,
   resolveInviteResponseJsonSchema,
   schedulingConfigJsonSchema,
@@ -33,10 +29,6 @@ type EmptyInput = Readonly<Record<string, never>>;
 
 interface GroupInput {
   readonly groupId: string;
-}
-
-interface ClaimLookupInput extends GroupInput {
-  readonly realName: string;
 }
 
 interface InviteInput {
@@ -57,11 +49,6 @@ export const groupMemberListDecoder =
 export const groupMemberContactListDecoder = createCompactDecoder<GroupMemberContact[]>(
   groupMemberContactListJsonSchema,
 );
-export const membershipClaimRequestListDecoder = createCompactDecoder<MembershipClaimRequest[]>(
-  membershipClaimRequestListJsonSchema,
-);
-export const membershipClaimLookupResponseDecoder =
-  createCompactDecoder<MembershipClaimLookupResponse>(membershipClaimLookupResponseJsonSchema);
 export const platformAdminUserAccountListDecoder =
   createCompactDecoder<PlatformAdminUserAccountList>(platformAdminUserAccountListJsonSchema);
 export const resolveInviteResponseDecoder = createCompactDecoder<ResolveInviteResponse>(
@@ -81,27 +68,12 @@ export const organizationReadEndpoints = {
     method: 'GET',
     path: () => '/groups/catalog',
   }),
-  claimLookup: defineClientEndpoint<ClaimLookupInput, MembershipClaimLookupResponse>({
-    auth: 'bearer',
-    body: ({ realName }) => ({ realName }),
-    decoder: membershipClaimLookupResponseDecoder,
-    id: 'organization.claim-lookup',
-    method: 'POST',
-    path: ({ groupId }) => `${groupPath(groupId)}/claim-lookups`,
-  }),
-  claimRequests: defineClientEndpoint<GroupInput, MembershipClaimRequest[]>({
-    auth: 'bearer',
-    decoder: membershipClaimRequestListDecoder,
-    id: 'organization.claim-requests',
-    method: 'GET',
-    path: ({ groupId }) => `${groupPath(groupId)}/claim-requests`,
-  }),
   contacts: defineClientEndpoint<GroupInput, GroupMemberContact[]>({
     auth: 'bearer',
     decoder: groupMemberContactListDecoder,
     id: 'organization.contacts',
     method: 'GET',
-    path: ({ groupId }) => `${groupPath(groupId)}/contacts`,
+    path: ({ groupId }) => `${groupPath(groupId)}/contacts?includeEmployeeCodes=1`,
   }),
   dissolvedGroups: defineClientEndpoint<EmptyInput, DissolvedGroup[]>({
     auth: 'bearer',
@@ -163,9 +135,7 @@ export interface OrganizationReadClient {
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
-  listMembershipClaimRequests(groupId: string): Promise<MembershipClaimRequest[]>;
   listPlatformUserAccounts(): Promise<PlatformAdminUserAccount[]>;
-  lookupClaimMatches(groupId: string, realName: string): Promise<MembershipClaimLookupResponse>;
   resolveInvite(token: string): Promise<ResolveInviteResponse>;
 }
 
@@ -192,16 +162,10 @@ export function createOrganizationReadClient(transport: ClientTransport): Organi
     listGroups() {
       return transport.request(organizationReadEndpoints.groups, {});
     },
-    listMembershipClaimRequests(groupId) {
-      return transport.request(organizationReadEndpoints.claimRequests, { groupId });
-    },
     listPlatformUserAccounts() {
       return transport
         .request(organizationReadEndpoints.platformAccounts, {})
         .then((result) => result.users);
-    },
-    lookupClaimMatches(groupId, realName) {
-      return transport.request(organizationReadEndpoints.claimLookup, { groupId, realName });
     },
     resolveInvite(token) {
       return transport.request(organizationReadEndpoints.resolveInvite, { token });

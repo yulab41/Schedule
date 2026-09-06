@@ -29,6 +29,7 @@ import {
   maskMobilePhone,
 } from './mobile-phone-consent.js';
 import { GroupPermissionService } from './permission-service.js';
+import { readMemberEmployeeCodes } from './group-member-directory-codes.js';
 import {
   createOrganizationFingerprint,
   runOrganizationMutation,
@@ -54,6 +55,7 @@ export class ContactService {
   public async listContacts(
     identity: AuthenticatedIdentity,
     groupId: string,
+    options: { readonly includeEmployeeCodes?: boolean } = {},
   ): Promise<GroupMemberContact[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
@@ -64,6 +66,7 @@ export class ContactService {
       );
       const contacts = await transaction
         .select({
+          realName: userProfiles.realName,
           isConfirmed: groupMemberContacts.isConfirmed,
           membershipId: groupMemberships.id,
           mobilePhone: groupMemberContacts.mobilePhone,
@@ -99,13 +102,33 @@ export class ContactService {
         )
         .orderBy(asc(userProfiles.realName), asc(groupMemberships.id));
 
-      return contacts.map((contact) =>
+      const visibleContacts = contacts.map((contact) =>
         toGroupMemberContact(
           contact,
           contact.membershipId === authorization.membership.id ||
             isMobilePhoneConsentEffective(authorization.group.id, contact.membershipId, contact),
         ),
       );
+      if (options.includeEmployeeCodes !== true) return visibleContacts;
+      const codes = await readMemberEmployeeCodes(
+        transaction,
+        contacts.map((contact) => ({
+          membershipId: contact.membershipId,
+          realName: contact.realName,
+          mobilePhone: isMobilePhoneConsentEffective(groupId, contact.membershipId, contact)
+            ? (contact.mobilePhone ?? undefined)
+            : undefined,
+        })),
+        authorization.user.isDeveloperAdmin ||
+          authorization.membership.role === 'owner' ||
+          authorization.membership.role === 'administrator',
+      );
+      return visibleContacts.map((contact) => {
+        const employeeCodes = codes.get(contact.membershipId);
+        return employeeCodes === undefined
+          ? contact
+          : { ...contact, employeeCodes: [...employeeCodes] };
+      });
     });
   }
 

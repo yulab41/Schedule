@@ -57,7 +57,7 @@
       ]
     },
     {
-      "id": "administrator-roster-claims-contacts",
+      "id": "administrator-roster-contacts",
       "role": "administrator",
       "checks": ["member-read", "preset-create-edit", "claim-approve-revoke", "contact-consent"]
     },

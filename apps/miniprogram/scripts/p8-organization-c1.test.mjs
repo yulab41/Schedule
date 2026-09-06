@@ -27,8 +27,9 @@ describe('P8-C-1 native organization management', () => {
       ],
     });
     expect(groupSettingsPage).toContain('createGroupSettingsPanelControllerDefinition(false)');
-    expect(panel).toContain('成员与预设');
-    expect(panel).toContain('认领请求');
+    expect(panel).toContain('群组成员');
+    expect(panel).not.toContain('认领');
+    expect(panel).not.toContain('当前群组版本');
     expect(panel).toContain('联系方式');
     expect(panel).toContain('添加预设成员');
   });

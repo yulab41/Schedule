@@ -2626,3 +2626,10 @@
 - B2一次性交接结论P0_NOT_COVERED_OR_PARTIAL：现有非祖先等价策略没有完整绑定latest ledger/trial SHA/candidate/proof-set。
   本次直接包含.88，不用该例外；未接管P1/P2，不把lineage16或工具136测试作为完整P0矩阵。
 - 未提审、未正式发布、未部署ECS应用或数据库、未迁移/备份数据库、未宣称Xiaomi14真机通过。唯一下一验收是用户复核.89通知与开关。
+
+## UX-CLEANUP-10-FEEDBACK1（2026-09-06）
+
+- 基线3a7d2553；成员卡/工号、认领退役、个人页紧凑对齐、底部公开开关。个人页210px最小高度与间距来自a50b423b，前轮6d0575d0仅调整颜色和按钮外框；本次新增内容边缘及同排几何验证。filter三SVG在.89/.90相同，未证实箭头几何回归；仅显式定位加固，原生待验。
+- 运行/浏览器验证：`pnpm smoke:browser`（SMOKE_BASE_URL=http://127.0.0.1:5182，API3012，既有隔离合成MySQL库）PASS；登录、管理员、成员、访客、访问记录全流程无浏览器错误。证据runtime/codex/ux-feedback1-smoke.log；没有真实业务副作用。
+- 完整verify第二次PASS：Mini839通过/13条件skip、Node81通过、root1183通过/367条件skip。第一次旧掩码展示断言失败已改为验证公开状态隔离；最后Mini文案/计数增量44项及production source/package/typecheck补验PASS。Profile13及filter1浏览器代理、群组390/320样例通过，不能代替小米14。
+- 状态：代码已完成（含运行验证），未生产部署/新体验上传。新增认领退役需要API与新版Mini配套；旧.90管理员群组页仍有退休GET调用。历史数据、内部版本保护、默认群内可见规则保留。详见docs/audit/ux-cleanup-10-feedback1.md。

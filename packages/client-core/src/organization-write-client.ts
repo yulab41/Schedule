@@ -6,15 +6,11 @@ import type {
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
   CreateGroupRequest,
-  CreateMembershipClaimRequest,
-  CreateMembershipClaimResponse,
   GroupMember,
   GroupMemberContact,
   GroupMemberVersionMutationRequest,
   GroupSummary,
   GroupVersionMutationRequest,
-  MembershipClaimDecisionRequest,
-  MembershipClaimRequest,
   OrganizationOperationRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
@@ -30,7 +26,6 @@ import {
   groupMemberContactJsonSchema,
   groupMemberJsonSchema,
   groupSummaryJsonSchema,
-  membershipClaimRequestJsonSchema,
 } from './generated/calendar-schemas.js';
 import { defineClientEndpoint, type ClientEndpoint, type ClientTransport } from './endpoint.js';
 import { createCompactDecoder, type CompactDecoder } from './json-decoder.js';
@@ -47,10 +42,6 @@ interface MemberRequestInput<Request> extends GroupRequestInput<Request> {
   readonly memberId: string;
 }
 
-interface ClaimRequestInput<Request> extends GroupRequestInput<Request> {
-  readonly claimId: string;
-}
-
 export const groupSummaryMutationDecoder =
   createCompactDecoder<GroupSummary>(groupSummaryJsonSchema);
 export const groupMemberMutationDecoder = createCompactDecoder<GroupMember>(groupMemberJsonSchema);
@@ -65,25 +56,6 @@ export const addGroupMembersResponseDecoder = createCompactDecoder<AddGroupMembe
 );
 export const convertPendingRosterResponseDecoder =
   createCompactDecoder<ConvertPendingRosterResponse>(convertPendingRosterResponseJsonSchema);
-export const membershipClaimRequestMutationDecoder = createCompactDecoder<MembershipClaimRequest>(
-  membershipClaimRequestJsonSchema,
-);
-export const createMembershipClaimResponseDecoder: CompactDecoder<CreateMembershipClaimResponse> = {
-  safeDecode(value) {
-    if (!isRecord(value)) return { success: false };
-    const keys = Object.keys(value).sort().join(',');
-    if (value['direct'] === true) {
-      return keys === 'direct'
-        ? { data: value as CreateMembershipClaimResponse, success: true }
-        : { success: false };
-    }
-    if (value['direct'] !== false || keys !== 'direct,request') return { success: false };
-    const request = membershipClaimRequestMutationDecoder.safeDecode(value['request']);
-    return request.success
-      ? { data: value as CreateMembershipClaimResponse, success: true }
-      : { success: false };
-  },
-};
 const emptyResponseDecoder: CompactDecoder<void> = {
   safeDecode(value) {
     return value === undefined || value === null || value === ''
@@ -110,11 +82,6 @@ export const organizationWriteEndpoints = {
     'roster-entries',
     addRosterEntriesResponseDecoder,
   ),
-  approveMembershipClaim: claimEndpoint(
-    'claim-approve',
-    'approve',
-    membershipClaimRequestMutationDecoder,
-  ),
   convertRosterEntries: groupEndpoint<ConvertPendingRosterRequest, ConvertPendingRosterResponse>(
     'roster-convert',
     'POST',
@@ -130,12 +97,6 @@ export const organizationWriteEndpoints = {
     method: 'POST',
     path: () => '/groups',
   }),
-  createMembershipClaim: groupEndpoint<CreateMembershipClaimRequest, CreateMembershipClaimResponse>(
-    'claim-create',
-    'POST',
-    'claim-requests',
-    createMembershipClaimResponseDecoder,
-  ),
   deleteGroup: groupEndpoint<GroupVersionMutationRequest, void>(
     'group-delete',
     'DELETE',
@@ -160,21 +121,10 @@ export const organizationWriteEndpoints = {
     'leave',
     emptyResponseDecoder,
   ),
-  rejectMembershipClaim: claimEndpoint(
-    'claim-reject',
-    'reject',
-    membershipClaimRequestMutationDecoder,
-  ),
   restoreGroup: groupEndpoint<GroupVersionMutationRequest, void>(
     'group-restore',
     'POST',
     'restore',
-    emptyResponseDecoder,
-  ),
-  revokeMembershipClaim: memberEndpoint<GroupMemberVersionMutationRequest, void>(
-    'claim-revoke',
-    'POST',
-    'revoke-claim',
     emptyResponseDecoder,
   ),
   transferGroupOwnership: groupEndpoint<TransferGroupOwnershipRequest, GroupSummary>(
@@ -218,20 +168,11 @@ export interface OrganizationWriteClient {
     groupId: string,
     request: AddRosterEntriesRequest,
   ): Promise<AddRosterEntriesResponse>;
-  approveMembershipClaimRequest(
-    groupId: string,
-    claimId: string,
-    request: MembershipClaimDecisionRequest,
-  ): Promise<MembershipClaimRequest>;
   convertRosterEntries(
     groupId: string,
     request: ConvertPendingRosterRequest,
   ): Promise<ConvertPendingRosterResponse>;
   createGroup(request: CreateGroupRequest): Promise<GroupSummary>;
-  createMembershipClaimRequest(
-    groupId: string,
-    request: CreateMembershipClaimRequest,
-  ): Promise<CreateMembershipClaimResponse>;
   deleteGroup(groupId: string, request: GroupVersionMutationRequest): Promise<void>;
   deleteGroupMember(
     groupId: string,
@@ -240,17 +181,7 @@ export interface OrganizationWriteClient {
   ): Promise<void>;
   joinGroupAsGuest(groupId: string, request: OrganizationOperationRequest): Promise<GroupSummary>;
   leaveGroup(groupId: string, request: OrganizationOperationRequest): Promise<void>;
-  rejectMembershipClaimRequest(
-    groupId: string,
-    claimId: string,
-    request: MembershipClaimDecisionRequest,
-  ): Promise<MembershipClaimRequest>;
   restoreGroup(groupId: string, request: GroupVersionMutationRequest): Promise<void>;
-  revokeMembershipClaim(
-    groupId: string,
-    memberId: string,
-    request: GroupMemberVersionMutationRequest,
-  ): Promise<void>;
   transferGroupOwnership(
     groupId: string,
     request: TransferGroupOwnershipRequest,
@@ -279,14 +210,10 @@ export function createOrganizationWriteClient(transport: ClientTransport): Organ
       group(organizationWriteEndpoints.addGroupMembers, groupId, request),
     addRosterEntries: (groupId, request) =>
       group(organizationWriteEndpoints.addRosterEntries, groupId, request),
-    approveMembershipClaimRequest: (groupId, claimId, request) =>
-      claim(organizationWriteEndpoints.approveMembershipClaim, groupId, claimId, request),
     convertRosterEntries: (groupId, request) =>
       group(organizationWriteEndpoints.convertRosterEntries, groupId, request),
     createGroup: (request) =>
       transport.request(organizationWriteEndpoints.createGroup, { request }),
-    createMembershipClaimRequest: (groupId, request) =>
-      group(organizationWriteEndpoints.createMembershipClaim, groupId, request),
     deleteGroup: (groupId, request) =>
       group(organizationWriteEndpoints.deleteGroup, groupId, request),
     deleteGroupMember: (groupId, memberId, request) =>
@@ -295,12 +222,8 @@ export function createOrganizationWriteClient(transport: ClientTransport): Organ
       group(organizationWriteEndpoints.joinGroupAsGuest, groupId, request),
     leaveGroup: (groupId, request) =>
       group(organizationWriteEndpoints.leaveGroup, groupId, request),
-    rejectMembershipClaimRequest: (groupId, claimId, request) =>
-      claim(organizationWriteEndpoints.rejectMembershipClaim, groupId, claimId, request),
     restoreGroup: (groupId, request) =>
       group(organizationWriteEndpoints.restoreGroup, groupId, request),
-    revokeMembershipClaim: (groupId, memberId, request) =>
-      member(organizationWriteEndpoints.revokeMembershipClaim, groupId, memberId, request),
     transferGroupOwnership: (groupId, request) =>
       group(organizationWriteEndpoints.transferGroupOwnership, groupId, request),
     updateGroupMemberContact: (groupId, memberId, request) =>
@@ -327,14 +250,6 @@ export function createOrganizationWriteClient(transport: ClientTransport): Organ
     request: Request,
   ): Promise<Output> {
     return transport.request(endpoint, { groupId, memberId, request });
-  }
-  function claim<Request, Output>(
-    endpoint: ClientEndpoint<ClaimRequestInput<Request>, Output>,
-    groupId: string,
-    claimId: string,
-    request: Request,
-  ): Promise<Output> {
-    return transport.request(endpoint, { claimId, groupId, request });
   }
 }
 
@@ -373,30 +288,6 @@ function memberEndpoint<Request extends { readonly operationId: string }, Output
   });
 }
 
-function claimEndpoint(
-  id: string,
-  action: 'approve' | 'reject',
-  decoder: CompactDecoder<MembershipClaimRequest>,
-) {
-  return defineClientEndpoint<
-    ClaimRequestInput<MembershipClaimDecisionRequest>,
-    MembershipClaimRequest
-  >({
-    auth: 'bearer',
-    body,
-    decoder,
-    id: `organization-write.${id}`,
-    idempotencyKey: operationId,
-    method: 'POST',
-    path: ({ claimId, groupId }) =>
-      `${groupPath(groupId)}/claim-requests/${encodeURIComponent(claimId)}/${action}`,
-  });
-}
-
 function groupPath(groupId: string): string {
   return `/groups/${encodeURIComponent(groupId)}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -24,7 +24,6 @@ import type {
   LeaveWorkflowBlocker,
   ManualScheduleTemplate,
   ManualApplyPreview,
-  MembershipClaimRequest,
   MemberNotificationPreferences,
   MonthStatisticsSnapshot,
   NotificationRecord,
@@ -152,18 +151,6 @@ const groupMobilePhoneConsent: GroupMobilePhoneConsent = {
   membershipId: '22222222-2222-4222-8222-222222222222',
   noticeVersion: 'v1',
   state: 'not-consented',
-};
-
-const membershipClaimRequest: MembershipClaimRequest = {
-  createdAt: '2026-08-01T00:00:00.000Z',
-  groupId: 'group-1',
-  id: 'claim-1',
-  requestingUserId: 'user-1',
-  requestingUserRealName: '张医生',
-  status: 'pending',
-  targetMemberRealName: '李医生',
-  targetMembershipId: 'membership-2',
-  version: 1,
 };
 
 const scheduleRole: ScheduleRole = {
@@ -1207,137 +1194,6 @@ describe('Web API client', () => {
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
-  });
-
-  it('has no group-code write or claim capability', () => {
-    const client = createApiClient({ auth: createAuthClient() });
-    expect('claimGroup' in client).toBe(false);
-    expect('updateGroupCode' in client).toBe(false);
-  });
-
-  it('rejects a claim lookup response with an invalid role', async () => {
-    const invalidLookup = {
-      matches: [
-        {
-          isUnclaimed: true,
-          membershipId: 'membership-1',
-          realName: '张医生',
-          role: 'admin',
-        },
-      ],
-    };
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify(invalidLookup), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(client.lookupClaimMatches(group.id, '张医生')).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
-  it('rejects a membership claim request with an unknown status', async () => {
-    const futureStatusClaim = { ...membershipClaimRequest, status: 'future-status' };
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify(futureStatusClaim), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(
-      client.approveMembershipClaimRequest(group.id, membershipClaimRequest.id, {
-        expectedVersion: membershipClaimRequest.version,
-        operationId: organizationOperationId,
-      }),
-    ).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
-  it('rejects a membership claim request list with a non-number version', async () => {
-    const invalidClaim = { ...membershipClaimRequest, version: '1' };
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify([invalidClaim]), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(client.listMembershipClaimRequests(group.id)).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
-  it('rejects a direct claim response that still includes a request', async () => {
-    const invalidResponse = { direct: true, request: membershipClaimRequest };
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify(invalidResponse), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(
-      client.createMembershipClaimRequest(group.id, {
-        expectedMemberVersion: 1,
-        membershipId: 'membership-2',
-        operationId: organizationOperationId,
-      }),
-    ).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
-  it('rejects a non-direct claim response without a request', async () => {
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify({ direct: false }), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(
-      client.createMembershipClaimRequest(group.id, {
-        expectedMemberVersion: 1,
-        membershipId: 'membership-2',
-        operationId: organizationOperationId,
-      }),
-    ).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
-  it('accepts a group member with optional claim fields', async () => {
-    const fullMember = {
-      ...groupMember,
-      claimRequestStatus: 'pending',
-      claimedByName: '张医生',
-      isClaimedByCurrentUser: true,
-      isPendingRoster: true,
-      isUnclaimed: true,
-    };
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify([fullMember]), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(client.listGroupMembers(group.id)).resolves.toEqual([fullMember]);
   });
 
   it('rejects a group member with an empty real name', async () => {

@@ -146,7 +146,6 @@ function isCoreRoute(method: string, route: string): boolean {
     route === '/groups/catalog' ||
     route === '/groups/:groupId/members' ||
     route === '/groups/:groupId/contacts' ||
-    route === '/groups/:groupId/claim-requests' ||
     route === '/groups/:groupId/scheduling-config'
   );
 }

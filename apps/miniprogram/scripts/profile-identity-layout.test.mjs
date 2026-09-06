@@ -28,6 +28,7 @@ const primitiveStyles = `
   block { display: contents; }
   scroll-view { overflow-y: auto; }
   input { border: 0; outline: 0; box-sizing: border-box; }
+  button:not([size]) { width: 184px; }
   button { display: block; width: auto; min-width: 184px; margin: 0 auto; padding: 0 14px;
     font: inherit; line-height: 2.55555556; text-align: center; }
 `;
@@ -196,11 +197,52 @@ describe.skipIf(!browserPath)(
 
     async function render(markup, styles, width) {
       await page.setViewportSize({ width, height: width === 844 ? 390 : 844 });
+      markup = markup.replace(/src="(\/assets\/icons\/[^"{}]+)"/gu, (_, asset) => {
+        const svg = readFileSync(path.join(appRoot, 'src', asset), 'utf8');
+        return 'src="data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64') + '"';
+      });
       await page.setContent(
         `<style>${primitiveStyles}${tokens}${appStyles}${styles}</style>${markup}`,
       );
     }
 
+    it('renders the filter as three aligned horizontal SVG bars', async () => {
+      const tree = fragment(read('src/pages/workbench/index.wxml'));
+      const button = tree.querySelector('.filter-button');
+      button.className = 'filter-button';
+      button.querySelector('.filter-icon').className = 'filter-icon';
+      button.querySelector('.filter-count').remove();
+      const styles =
+        read('src/pages/workbench/index.wxss').replace(/@import[^;]+;/gu, '') +
+        read('src/styles/ui-icon-motion.wxss');
+      await render(button.outerHTML, styles, 390);
+      const boxes = await page.locator('.filter-icon-bar').evaluateAll((images) =>
+        images.map((image) => {
+          const r = image.getBoundingClientRect();
+          return {
+            left: r.left,
+            top: r.top,
+            width: r.width,
+            height: r.height,
+            loaded: image.complete && image.naturalWidth > 0,
+          };
+        }),
+      );
+      expect(boxes).toHaveLength(3);
+      expect(boxes.every((box) => box.loaded)).toBe(true);
+      expect(boxes[0]).toEqual(boxes[1]);
+      expect(boxes[1]).toEqual(boxes[2]);
+      for (const [part, geometry] of [
+        ['top', 'M4 6h16'],
+        ['middle', 'M7 12h10'],
+        ['bottom', 'M10 18h4'],
+      ]) {
+        expect(read('src/assets/icons/ui-filter-' + part + '.svg')).toContain(
+          'd="' + geometry + '"',
+        );
+      }
+      await page.screenshot({ path: path.join(evidenceDirectory, 'filter-three-bars.png') });
+    });
     it('keeps the simplified dashboard ordered and statistics right aligned at 390/320px and large text', async () => {
       for (const width of [390, 320])
         for (const large of [false, true]) {
@@ -228,6 +270,14 @@ describe.skipIf(!browserPath)(
             cards
               .map((card) => card.outerHTML)
               .join('')
+              .replaceAll('{{nextDutyDateLabel}}', '9月8日 周二')
+              .replaceAll('{{nextDutyTimeLabel}}', '08:00–08:00')
+              .replaceAll('{{nextDutyRoleLabel}}', '一线 · 示例科室')
+              .replaceAll('{{nextDutyShiftLabel}}', '全天班')
+              .replaceAll('{{monthCountLabel}}', '5')
+              .replaceAll('{{yearCountLabel}}', '50')
+              .replaceAll('{{specialDateCountLabel}}', '3')
+              .replaceAll('{{initial}}', '示')
               .replace(/\{\{[^}]+\}\}/gu, '示例') +
             '</view>';
           await render(markup, profileStyles, width);
@@ -240,6 +290,18 @@ describe.skipIf(!browserPath)(
             const heading = button.parentElement;
             const next = document.querySelector('.profile-next-duty');
             return {
+              contentRightGap:
+                heading.getBoundingClientRect().right -
+                button.querySelector('img').getBoundingClientRect().right,
+              nextHeight: next.getBoundingClientRect().height,
+              titleSize: parseFloat(
+                getComputedStyle(next.querySelector('.profile-next-title')).fontSize,
+              ),
+              footerCenterGap: (() => {
+                const role = next.querySelector('.profile-duty-role').getBoundingClientRect();
+                const link = next.querySelector('.profile-duty-link').getBoundingClientRect();
+                return Math.abs((role.top + role.bottom - link.top - link.bottom) / 2);
+              })(),
               rightGap:
                 heading.getBoundingClientRect().right - button.getBoundingClientRect().right,
               overflow: document.documentElement.scrollWidth > innerWidth,
@@ -248,6 +310,10 @@ describe.skipIf(!browserPath)(
             };
           });
           expect(geometry.rightGap).toBeLessThanOrEqual(1);
+          expect(geometry.contentRightGap).toBeLessThanOrEqual(1);
+          expect(geometry.titleSize).toBeGreaterThanOrEqual(20);
+          expect(geometry.footerCenterGap).toBeLessThanOrEqual(1);
+          if (!large) expect(geometry.nextHeight).toBeLessThan(200);
           expect(geometry.overflow).toBe(false);
           expect(geometry.background).not.toBe('rgba(0, 0, 0, 0)');
           expect(geometry.color).not.toBe('rgb(255, 255, 255)');
@@ -278,6 +344,13 @@ describe.skipIf(!browserPath)(
                     [...range.getClientRects()].map((line) => Math.round(line.y)),
                   ).size;
                   return {
+                    hasButton: !!node.parentElement.querySelector('button'),
+                    pairedCenterGap: (() => {
+                      const action = node.parentElement.querySelector('button');
+                      if (!action) return 0;
+                      const other = rect(action);
+                      return Math.abs((box.top + box.bottom - other.top - other.bottom) / 2);
+                    })(),
                     width: box.width,
                     right: box.right,
                     rowRight: rect(node.closest('.profile-detail-row')).right,
@@ -334,7 +407,10 @@ describe.skipIf(!browserPath)(
             for (const status of geometry.statuses) {
               expect(status.lines).toBeLessThanOrEqual(2);
               expect(status.width).toBeGreaterThanOrEqual(status.fontSize * 3);
-              expect(Math.abs(status.right - status.rowRight)).toBeLessThanOrEqual(1);
+              if (!status.hasButton)
+                expect(Math.abs(status.right - status.rowRight)).toBeLessThanOrEqual(1);
+              else if (state.bindingLabel === '已绑定')
+                expect(status.pairedCenterGap).toBeLessThanOrEqual(1);
             }
             expect(Math.abs(geometry.buttons[0].rightGap)).toBeLessThanOrEqual(1);
             expect(Math.abs(geometry.buttons[1].outerCenter)).toBeLessThanOrEqual(1);

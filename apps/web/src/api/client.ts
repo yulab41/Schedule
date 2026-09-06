@@ -9,8 +9,6 @@ import type {
   ConvertPendingRosterResponse,
   CreateInviteLinkRequest,
   CreateInviteLinkResponse,
-  CreateMembershipClaimRequest,
-  CreateMembershipClaimResponse,
   ApiErrorCode,
   ApiErrorResponse,
   AppliedManualScheduleTemplateResult,
@@ -58,9 +56,6 @@ import type {
   ManualScheduleTemplate,
   MemberSwapSettings,
   MemberNotificationPreferences,
-  MembershipClaimLookupResponse,
-  MembershipClaimRequest,
-  MembershipClaimDecisionRequest,
   MonthStatisticsSnapshot,
   NotificationPage,
   NotificationRecord,
@@ -410,27 +405,6 @@ export interface ApiClient {
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
   restoreGroup(groupId: string, input: GroupVersionMutationRequest): Promise<void>;
   getGroupGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
-  lookupClaimMatches(groupId: string, realName: string): Promise<MembershipClaimLookupResponse>;
-  createMembershipClaimRequest(
-    groupId: string,
-    input: CreateMembershipClaimRequest,
-  ): Promise<CreateMembershipClaimResponse>;
-  listMembershipClaimRequests(groupId: string): Promise<MembershipClaimRequest[]>;
-  approveMembershipClaimRequest(
-    groupId: string,
-    claimRequestId: string,
-    input: MembershipClaimDecisionRequest,
-  ): Promise<MembershipClaimRequest>;
-  rejectMembershipClaimRequest(
-    groupId: string,
-    claimRequestId: string,
-    input: MembershipClaimDecisionRequest,
-  ): Promise<MembershipClaimRequest>;
-  revokeMembershipClaim(
-    groupId: string,
-    membershipId: string,
-    input: GroupMemberVersionMutationRequest,
-  ): Promise<void>;
   updateProfile(realName: string): Promise<UserProfile>;
   listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]>;
   listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
@@ -1464,24 +1438,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
     listGroupMembers(groupId) {
       return organizationReadClient.listGroupMembers(groupId);
-    },
-    lookupClaimMatches(groupId, realName) {
-      return organizationReadClient.lookupClaimMatches(groupId, realName);
-    },
-    createMembershipClaimRequest(groupId, input) {
-      return organizationWriteClient.createMembershipClaimRequest(groupId, input);
-    },
-    listMembershipClaimRequests(groupId) {
-      return organizationReadClient.listMembershipClaimRequests(groupId);
-    },
-    approveMembershipClaimRequest(groupId, claimRequestId, input) {
-      return organizationWriteClient.approveMembershipClaimRequest(groupId, claimRequestId, input);
-    },
-    rejectMembershipClaimRequest(groupId, claimRequestId, input) {
-      return organizationWriteClient.rejectMembershipClaimRequest(groupId, claimRequestId, input);
-    },
-    revokeMembershipClaim(groupId, membershipId, input) {
-      return organizationWriteClient.revokeMembershipClaim(groupId, membershipId, input);
     },
     regenerateVisitorKey(groupId, input) {
       return inviteVisitorWriteClient.regenerateVisitorKey(groupId, input);

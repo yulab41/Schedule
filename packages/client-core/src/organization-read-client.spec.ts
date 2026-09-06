@@ -5,8 +5,6 @@ import {
   groupMemberListSchema,
   groupQrResponseSchema,
   groupSummaryListSchema,
-  membershipClaimLookupResponseSchema,
-  membershipClaimRequestListSchema,
   platformAdminUserAccountListSchema,
   resolveInviteResponseSchema,
   schedulingConfigSchema,
@@ -22,8 +20,6 @@ import {
   groupMemberListDecoder,
   groupQrResponseDecoder,
   groupSummaryListDecoder,
-  membershipClaimLookupResponseDecoder,
-  membershipClaimRequestListDecoder,
   organizationReadEndpoints,
   platformAdminUserAccountListDecoder,
   resolveInviteResponseDecoder,
@@ -32,6 +28,19 @@ import {
 import type { ClientTransport } from './endpoint.js';
 
 describe('P8 organization shared read boundary', () => {
+  it('preserves optional verified contact employee codes and rejects malformed values', () => {
+    for (const codes of [undefined, [], ['SYNTHETIC-001']]) {
+      const contact = {
+        ...golden.contacts[0],
+        ...(codes === undefined ? {} : { employeeCodes: codes }),
+      };
+      expect(groupMemberContactListSchema.safeParse([contact]).success).toBe(true);
+      expect(groupMemberContactListDecoder.safeDecode([contact]).success).toBe(true);
+    }
+    const malformed = [{ ...golden.contacts[0], employeeCodes: [123] }];
+    expect(groupMemberContactListSchema.safeParse(malformed).success).toBe(false);
+    expect(groupMemberContactListDecoder.safeDecode(malformed).success).toBe(false);
+  });
   it('keeps authentication, methods, encoded paths, and lookup bodies exact', () => {
     const groupId = 'group /一';
     expect(organizationReadEndpoints.groups.path({})).toBe('/groups');
@@ -41,10 +50,7 @@ describe('P8 organization shared read boundary', () => {
       '/groups/group%20%2F%E4%B8%80/members',
     );
     expect(organizationReadEndpoints.contacts.path({ groupId })).toBe(
-      '/groups/group%20%2F%E4%B8%80/contacts',
-    );
-    expect(organizationReadEndpoints.claimRequests.path({ groupId })).toBe(
-      '/groups/group%20%2F%E4%B8%80/claim-requests',
+      '/groups/group%20%2F%E4%B8%80/contacts?includeEmployeeCodes=1',
     );
     expect(organizationReadEndpoints.schedulingConfig.path({ groupId })).toBe(
       '/groups/group%20%2F%E4%B8%80/scheduling-config',
@@ -53,20 +59,16 @@ describe('P8 organization shared read boundary', () => {
       '/groups/group%20%2F%E4%B8%80/group-qr',
     );
     expect(organizationReadEndpoints.platformAccounts.path({})).toBe('/platform-admin/users');
-    expect(organizationReadEndpoints.claimLookup.body?.({ groupId, realName: ' 林医生 ' })).toEqual(
-      { realName: ' 林医生 ' },
-    );
     expect(organizationReadEndpoints.resolveInvite.body?.({ token: 'ticket /一' })).toEqual({
       token: 'ticket /一',
     });
     expect(
       Object.values(organizationReadEndpoints).every((endpoint) => endpoint.auth === 'bearer'),
     ).toBe(true);
-    expect(organizationReadEndpoints.claimLookup.method).toBe('POST');
     expect(organizationReadEndpoints.resolveInvite.method).toBe('POST');
     expect(
       Object.entries(organizationReadEndpoints)
-        .filter(([key]) => key !== 'claimLookup' && key !== 'resolveInvite')
+        .filter(([key]) => key !== 'resolveInvite')
         .every(([, endpoint]) => endpoint.method === 'GET'),
     ).toBe(true);
   });
@@ -78,12 +80,6 @@ describe('P8 organization shared read boundary', () => {
       [dissolvedGroupListSchema, dissolvedGroupListDecoder, golden.dissolvedGroups],
       [groupMemberListSchema, groupMemberListDecoder, golden.members],
       [groupMemberContactListSchema, groupMemberContactListDecoder, golden.contacts],
-      [membershipClaimRequestListSchema, membershipClaimRequestListDecoder, golden.claimRequests],
-      [
-        membershipClaimLookupResponseSchema,
-        membershipClaimLookupResponseDecoder,
-        golden.claimLookup,
-      ],
       [schedulingConfigSchema, schedulingConfigReadDecoder, golden.schedulingConfig],
       [groupQrResponseSchema, groupQrResponseDecoder, golden.groupQr],
       [
@@ -149,8 +145,6 @@ describe('P8 organization shared read boundary', () => {
       ['organization.dissolved-groups', golden.dissolvedGroups],
       ['organization.members', golden.members],
       ['organization.contacts', golden.contacts],
-      ['organization.claim-requests', golden.claimRequests],
-      ['organization.claim-lookup', golden.claimLookup],
       ['organization.scheduling-config', golden.schedulingConfig],
       ['organization.group-qr', golden.groupQr],
       ['organization.platform-accounts', golden.platformAccounts],
@@ -165,13 +159,11 @@ describe('P8 organization shared read boundary', () => {
     await expect(client.listDissolvedGroups()).resolves.toBe(golden.dissolvedGroups);
     await expect(client.listGroupMembers('group-1')).resolves.toBe(golden.members);
     await expect(client.listGroupContacts('group-1')).resolves.toBe(golden.contacts);
-    await expect(client.listMembershipClaimRequests('group-1')).resolves.toBe(golden.claimRequests);
-    await expect(client.lookupClaimMatches('group-1', '陈医生')).resolves.toBe(golden.claimLookup);
     await expect(client.getSchedulingConfig('group-1')).resolves.toBe(golden.schedulingConfig);
     await expect(client.getGroupQr('group-1')).resolves.toBe(golden.groupQr);
     await expect(client.listPlatformUserAccounts()).resolves.toBe(golden.platformAccounts.users);
     await expect(client.resolveInvite('invite-token')).resolves.toBe(golden.invite);
-    expect(request).toHaveBeenCalledTimes(11);
-    expect(request.mock.contexts).toEqual(Array.from({ length: 11 }, () => transport));
+    expect(request).toHaveBeenCalledTimes(9);
+    expect(request.mock.contexts).toEqual(Array.from({ length: 9 }, () => transport));
   });
 });

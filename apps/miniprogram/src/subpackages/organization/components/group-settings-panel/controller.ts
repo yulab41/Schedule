@@ -18,7 +18,6 @@ import type {
   GroupMemberContact,
   GroupMobilePhoneConsent,
   GroupSummary,
-  MembershipClaimRequest,
   SchedulingConfig,
 } from '@schedule/contracts';
 import {
@@ -55,18 +54,8 @@ interface MemberCardView {
   readonly id: string;
   readonly isCurrentUser: boolean;
   readonly isPendingRoster: boolean;
-  readonly isUnclaimed: boolean;
   readonly name: string;
   readonly roleLabel: string;
-  readonly version: number;
-}
-
-interface ClaimCardView {
-  readonly canDecide: boolean;
-  readonly id: string;
-  readonly requesterName: string;
-  readonly statusLabel: string;
-  readonly targetName: string;
   readonly version: number;
 }
 
@@ -96,7 +85,6 @@ interface TapEvent {
 }
 
 interface GroupSettingsPageData {
-  readonly actionLabel: '已同意' | '保存同意' | '撤回同意';
   readonly calendarPreferencesError: string;
   readonly calendarPreferencesInfo: string;
   readonly calendarPreferencesState: 'error' | 'loading' | 'ready';
@@ -113,7 +101,6 @@ interface GroupSettingsPageData {
   readonly memberCalendarViewOptions: readonly CalendarShiftOption[];
   readonly groupCalendarView: CalendarPreferenceView;
   readonly groupNameDraft: string;
-  readonly groupVersion: number;
   readonly largeText: boolean;
   readonly organizationEnabled: boolean;
   readonly canManageGroup: boolean;
@@ -121,7 +108,6 @@ interface GroupSettingsPageData {
   readonly canLeaveGroup: boolean;
   readonly canDissolveGroup: boolean;
   readonly memberCards: readonly MemberCardView[];
-  readonly claimCards: readonly ClaimCardView[];
   readonly dissolvedCards: readonly DissolvedCardView[];
   readonly createGroupName: string;
   readonly managementError: string;
@@ -142,7 +128,6 @@ interface GroupSettingsPageData {
   readonly isSavingGroupCalendarDefaults: boolean;
   readonly isSavingMemberCalendarPreferences: boolean;
   readonly isSaving: boolean;
-  readonly maskedMobilePhone: string;
   readonly memberCalendarShiftIndex: number;
   readonly memberCalendarShiftOptions: readonly CalendarShiftOption[];
   readonly memberCalendarView: CalendarPreferenceView | 'follow';
@@ -166,7 +151,6 @@ interface GroupSettingsPageInstance {
   _group: GroupSummary | undefined;
   _members: readonly GroupMember[];
   _contacts: readonly GroupMemberContact[];
-  _claimRequests: readonly MembershipClaimRequest[];
   _dissolvedGroups: readonly DissolvedGroup[];
   _operationIds: Map<string, string>;
   _organizationReadClient: OrganizationReadClient;
@@ -196,7 +180,6 @@ const organizationWriteClient = createRuntimeOrganizationWriteClient(
 export function createGroupSettingsPanelControllerDefinition(embedded = false) {
   return {
     data: {
-      actionLabel: '保存同意',
       calendarPreferencesError: '',
       calendarPreferencesInfo: '',
       calendarPreferencesState: 'loading',
@@ -222,7 +205,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
         { label: '列表视图', value: 'list' },
       ],
       groupNameDraft: '',
-      groupVersion: 0,
       largeText: false,
       organizationEnabled: false,
       canManageGroup: false,
@@ -230,7 +212,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       canLeaveGroup: false,
       canDissolveGroup: false,
       memberCards: [],
-      claimCards: [],
       dissolvedCards: [],
       createGroupName: '',
       managementError: '',
@@ -251,7 +232,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       isSavingGroupCalendarDefaults: false,
       isSavingMemberCalendarPreferences: false,
       isSaving: false,
-      maskedMobilePhone: '',
       memberCalendarShiftIndex: 0,
       memberCalendarShiftOptions: createCalendarShiftOptions('member', []),
       memberCalendarView: 'follow',
@@ -274,7 +254,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     _group: undefined,
     _members: [],
     _contacts: [],
-    _claimRequests: [],
     _dissolvedGroups: [],
     _operationIds: new Map(),
     _organizationReadClient: organizationReadClient,
@@ -319,6 +298,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       );
       this.setData({ errorMessage: '', infoMessage: '' });
       syncConsentView(this);
+      void saveConsent(this);
     },
 
     handleSave(this: GroupSettingsPageInstance): void {
@@ -490,13 +470,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       if (memberId === undefined || action === undefined) return;
       void runMemberAction(this, memberId, action);
     },
-
-    handleClaimAction(this: GroupSettingsPageInstance, event: TapEvent): void {
-      const claimId = event.currentTarget.dataset.claimId;
-      const action = event.currentTarget.dataset.action;
-      if (claimId === undefined || action === undefined) return;
-      void decideClaim(this, claimId, action);
-    },
   };
 }
 
@@ -509,7 +482,6 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
   page._group = undefined;
   page._members = [];
   page._contacts = [];
-  page._claimRequests = [];
   page._dissolvedGroups = [];
   page.setData({
     calendarPreferencesError: '',
@@ -530,7 +502,6 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
     memberCalendarShiftIndex: 0,
     memberCalendarShiftOptions: createCalendarShiftOptions('member', []),
     memberCalendarView: 'follow',
-    claimCards: [],
     dissolvedCards: [],
     rosterEditorOpen: false,
     rosterNames: '',
@@ -555,29 +526,23 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
     const statusPromise = consentClient.getStatus(group.id);
     const membersPromise = page._organizationReadClient.listGroupMembers(group.id);
     const contactsPromise = page._organizationReadClient.listGroupContacts(group.id);
-    const claimsPromise =
-      group.isDeveloperAdmin === true
-        ? page._organizationReadClient.listMembershipClaimRequests(group.id)
-        : Promise.resolve([] as MembershipClaimRequest[]);
     const dissolvedPromise =
       capabilitySnapshot.organization && (group.role === 'owner' || group.isDeveloperAdmin === true)
         ? page._organizationReadClient.listDissolvedGroups()
         : Promise.resolve([] as DissolvedGroup[]);
-    const [status, members, contacts, claims, dissolved] = await Promise.all([
+    const [status, members, contacts, dissolved] = await Promise.all([
       statusPromise,
       membersPromise,
       contactsPromise,
-      claimsPromise,
       dissolvedPromise,
     ]);
     if (serial !== page._loadSerial || page._currentGroupId !== group.id) return;
     page._members = members;
     page._contacts = contacts;
-    page._claimRequests = claims;
     page._dissolvedGroups = dissolved;
     page.setData({
       ...createGroupPatch(group),
-      ...createOrganizationPatch(group, members, contacts, claims),
+      ...createOrganizationPatch(group, members, contacts),
       ...createGroupDirectoryPatch(dissolved),
     });
     applyConsentStatus(page, status, { state: 'ready' });
@@ -886,7 +851,6 @@ function createOrganizationPatch(
   group: GroupSummary,
   members: readonly GroupMember[],
   contacts: readonly GroupMemberContact[],
-  claims: readonly MembershipClaimRequest[],
 ): Pick<
   GroupSettingsPageData,
   | 'canDissolveGroup'
@@ -894,9 +858,7 @@ function createOrganizationPatch(
   | 'canManageGroup'
   | 'canManageGroupLifecycle'
   | 'canManageMembers'
-  | 'claimCards'
   | 'groupNameDraft'
-  | 'groupVersion'
   | 'managementError'
   | 'managementInfo'
   | 'managementState'
@@ -919,16 +881,7 @@ function createOrganizationPatch(
     canManageGroup,
     canManageGroupLifecycle,
     canManageMembers,
-    claimCards: claims.map((claim) => ({
-      canDecide: canManageMembers && claim.status === 'pending',
-      id: claim.id,
-      requesterName: claim.requestingUserRealName,
-      statusLabel: formatClaimStatus(claim.status),
-      targetName: claim.targetMemberRealName,
-      version: claim.version,
-    })),
     groupNameDraft: group.name,
-    groupVersion: group.version,
     managementError: '',
     managementInfo: '',
     managementState: 'ready',
@@ -943,7 +896,6 @@ function createOrganizationPatch(
         id: member.id,
         isCurrentUser: member.isCurrentUser,
         isPendingRoster,
-        isUnclaimed: member.isUnclaimed === true,
         name: member.realName,
         roleLabel: formatRole(member.role),
         version: member.version,
@@ -1110,7 +1062,6 @@ async function saveGroupName(page: GroupSettingsPageInstance): Promise<void> {
     page.setData({
       ...createGroupPatch(result),
       groupNameDraft: result.name,
-      groupVersion: result.version,
       managementInfo: '群组名称已更新。',
       managementState: 'ready',
     });
@@ -1216,7 +1167,7 @@ async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void>
       candidate.membershipId === nextContact.membershipId ? nextContact : candidate,
     );
     page.setData({
-      ...createOrganizationPatch(group, page._members, page._contacts, page._claimRequests),
+      ...createOrganizationPatch(group, page._members, page._contacts),
       contactEditorOpen: false,
       editingMemberId: '',
       managementInfo: '成员资料已更新。',
@@ -1239,8 +1190,8 @@ async function runMemberAction(
   const group = page._group;
   const member = page._members.find((candidate) => candidate.id === memberId);
   if (group === undefined || member === undefined) return;
-  const actionText =
-    action === 'delete' ? '删除这个成员吗？' : action === 'revoke' ? '撤销这个成员的认领吗？' : '';
+  if (!['delete', 'administrator', 'member'].includes(action)) return;
+  const actionText = action === 'delete' ? '删除这个成员吗？' : '';
   if (actionText !== '' && !(await showConfirm(actionText))) return;
   page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
   try {
@@ -1250,85 +1201,18 @@ async function runMemberAction(
         expectedVersion: member.version,
         operationId: resolveOperationId(page, operationKey),
       });
-    } else if (action === 'revoke') {
-      await page._organizationWriteClient.revokeMembershipClaim(group.id, member.id, {
-        expectedVersion: member.version,
-        operationId: resolveOperationId(page, operationKey),
-      });
     } else if (action === 'administrator' || action === 'member') {
       await page._organizationWriteClient.updateGroupMemberRole(group.id, member.id, {
         expectedVersion: member.version,
         operationId: resolveOperationId(page, operationKey),
         role: action,
       });
-    } else if (action === 'claim') {
-      const result = await page._organizationWriteClient.createMembershipClaimRequest(group.id, {
-        expectedMemberVersion: member.version,
-        membershipId: member.id,
-        operationId: resolveOperationId(page, operationKey),
-      });
-      if (result.direct) {
-        page.setData({ managementInfo: '已直接认领该预设成员。' });
-      }
     }
     page._operationIds.delete(operationKey);
-    await reloadOrganizationData(
-      page,
-      action === 'claim' ? '认领申请已提交。' : '成员状态已更新。',
-    );
+    await reloadOrganizationData(page, '成员状态已更新。');
   } catch (error) {
     page.setData({
       managementError: `${toUserMessage(error, '成员操作没有完成，请稍后重试。')} 可保持当前内容重试。`,
-      managementState: 'error',
-    });
-  }
-}
-
-async function decideClaim(
-  page: GroupSettingsPageInstance,
-  claimId: string,
-  action: string,
-): Promise<void> {
-  if (!page.data.canManageMembers || !(await ensureOrganizationCapability(page))) return;
-  const group = page._group;
-  const claim = page._claimRequests.find((candidate) => candidate.id === claimId);
-  if (
-    group === undefined ||
-    claim === undefined ||
-    !(await showConfirm(action === 'approve' ? '同意这项认领申请吗？' : '驳回这项认领申请吗？'))
-  )
-    return;
-  const operationKey = `claim-${action}:${claim.id}:${claim.version}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
-  try {
-    const request = {
-      expectedVersion: claim.version,
-      operationId: resolveOperationId(page, operationKey),
-    };
-    const result =
-      action === 'approve'
-        ? await page._organizationWriteClient.approveMembershipClaimRequest(
-            group.id,
-            claim.id,
-            request,
-          )
-        : await page._organizationWriteClient.rejectMembershipClaimRequest(
-            group.id,
-            claim.id,
-            request,
-          );
-    page._operationIds.delete(operationKey);
-    page._claimRequests = page._claimRequests.map((candidate) =>
-      candidate.id === result.id ? result : candidate,
-    );
-    page.setData({
-      ...createOrganizationPatch(group, page._members, page._contacts, page._claimRequests),
-      managementInfo: action === 'approve' ? '认领申请已同意。' : '认领申请已驳回。',
-      managementState: 'ready',
-    });
-  } catch (error) {
-    page.setData({
-      managementError: `${toUserMessage(error, '认领申请没有处理，请稍后重试。')} 可保持当前内容重试。`,
       managementState: 'error',
     });
   }
@@ -1341,18 +1225,14 @@ async function reloadOrganizationData(
   const group = page._group;
   if (group === undefined) return;
   try {
-    const [members, contacts, claims] = await Promise.all([
+    const [members, contacts] = await Promise.all([
       page._organizationReadClient.listGroupMembers(group.id),
       page._organizationReadClient.listGroupContacts(group.id),
-      group.isDeveloperAdmin === true
-        ? page._organizationReadClient.listMembershipClaimRequests(group.id)
-        : Promise.resolve([] as MembershipClaimRequest[]),
     ]);
     page._members = members;
     page._contacts = contacts;
-    page._claimRequests = claims;
     page.setData({
-      ...createOrganizationPatch(group, members, contacts, claims),
+      ...createOrganizationPatch(group, members, contacts),
       managementInfo: infoMessage,
       managementState: 'ready',
       rosterEditorOpen: false,
@@ -1441,16 +1321,6 @@ function emptyToNull(value: string): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
-function formatClaimStatus(status: MembershipClaimRequest['status']): string {
-  return status === 'pending'
-    ? '待处理'
-    : status === 'approved'
-      ? '已同意'
-      : status === 'rejected'
-        ? '已驳回'
-        : '已取消';
-}
-
 function showConfirm(content: string): Promise<boolean> {
   return new Promise((resolve) => {
     wx.showModal({
@@ -1468,24 +1338,20 @@ function createConsentViewPatch(
   draft: GroupMobilePhoneConsentDraft,
 ): Pick<
   GroupSettingsPageData,
-  | 'actionLabel'
   | 'canSave'
   | 'consentState'
   | 'contactVersion'
   | 'desiredConsent'
-  | 'maskedMobilePhone'
   | 'noticeVersion'
   | 'saveDisabled'
   | 'switchDisabled'
 > {
   const view = createGroupMobilePhoneConsentViewModel(status, draft);
   return {
-    actionLabel: view.actionLabel,
     canSave: view.canSave,
     consentState: status.state,
     contactVersion: status.contactVersion,
     desiredConsent: view.desiredConsent,
-    maskedMobilePhone: view.maskedMobilePhone,
     noticeVersion: status.noticeVersion,
     saveDisabled: !view.canSave,
     switchDisabled: !view.hasPhone,
@@ -1566,7 +1432,7 @@ function toUserMessage(error: unknown, fallback: string): string {
 
 function createMemberDirectoryEntry(member: GroupMember, contact: GroupMemberContact | undefined) {
   const numbers = [
-    { value: contact?.mobilePhone, field: 'full' as const, label: '手机' },
+    { value: contact?.mobilePhone, field: 'full' as const, label: '长号' },
     { value: contact?.shortPhone, field: 'extension' as const, label: '短号' },
   ].flatMap(({ value, field, label }) => {
     if (value === undefined || value.trim() === '') return [];
@@ -1585,21 +1451,14 @@ function createMemberDirectoryEntry(member: GroupMember, contact: GroupMemberCon
       },
     ];
   });
-  const status = member.isPendingRoster
-    ? '待转为正式成员'
-    : member.isUnclaimed
-      ? '待认领'
-      : member.isClaimedByCurrentUser
-        ? '已认领'
-        : '';
   return {
     id: member.id,
-    title: `${member.realName}${member.isCurrentUser ? ' · 我' : ''}`,
+    title: member.realName,
     kindLabel: formatRole(member.role),
-    jobTitles: status ? [status] : [],
+    jobTitles: [],
     contexts: [],
-    employeeCodes: [],
-    employeeCodeLabel: '',
+    employeeCodes: contact?.employeeCodes ?? [],
+    employeeCodeLabel: contact?.employeeCodes?.join(' / ') ?? '',
     favorite: false,
     merged: false,
     mergeCountLabel: '',

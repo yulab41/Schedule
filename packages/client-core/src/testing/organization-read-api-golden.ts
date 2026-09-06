@@ -4,8 +4,6 @@ import type {
   GroupMember,
   GroupMemberContact,
   GroupSummary,
-  MembershipClaimLookupResponse,
-  MembershipClaimRequest,
   PlatformAdminUserAccountList,
   ResolveInviteResponse,
   SchedulingConfig,
@@ -13,29 +11,6 @@ import type {
 
 export const organizationReadApiGoldenResponse = {
   groupQr: { imageBase64: 'iVBORw0KGgo=' } as const,
-  claimLookup: {
-    matches: [
-      {
-        isUnclaimed: true,
-        membershipId: 'membership-2',
-        realName: '陈医生',
-        role: 'member',
-      },
-    ],
-  } as const satisfies MembershipClaimLookupResponse,
-  claimRequests: [
-    {
-      createdAt: '2026-08-25T08:00:00.000Z',
-      groupId: 'group-1',
-      id: 'claim-1',
-      requestingUserId: 'user-2',
-      requestingUserRealName: '陈医生',
-      status: 'pending',
-      targetMemberRealName: '陈医生',
-      targetMembershipId: 'membership-2',
-      version: 1,
-    },
-  ] as const satisfies readonly MembershipClaimRequest[],
   contacts: [
     {
       isConfirmed: true,
@@ -82,15 +57,6 @@ export const organizationReadApiGoldenResponse = {
       realName: '林医生',
       role: 'owner',
       version: 3,
-    },
-    {
-      id: 'roster-1',
-      isCurrentUser: false,
-      isPendingRoster: true,
-      isUnclaimed: true,
-      realName: '陈医生',
-      role: 'member',
-      version: 1,
     },
   ] as const satisfies readonly GroupMember[],
   platformAccounts: {

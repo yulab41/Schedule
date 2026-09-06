@@ -25,7 +25,7 @@
 
 ### 1. 群组与成员生命周期
 
-打开“群组设置”，创建/改名（群组码已退役），查看成员、预设、认领和联系方式；执行一次成员角色变更、解散与恢复。危险操作必须二次确认，409 后刷新最新版本，表单仍可显式重试。
+打开“群组设置”，创建/改名（群组码已退役），查看成员、预设和联系方式（认领功能已退役）；执行一次成员角色变更、解散与恢复。危险操作必须二次确认，409 后刷新最新版本，表单仍可显式重试。
 
 ### 2. 排班配置
 
@@ -39,7 +39,7 @@
 
 ### 4. 管理员权限边界
 
-验证管理员可管理普通成员、预设、认领、联系方式和排班配置，但不能提升/移除管理员、转让所有权、解散群组或管理平台账号。页面隐藏不是证据，API 拒绝才是最终结果。
+验证管理员可管理普通成员、预设、联系方式和排班配置，但不能提升/移除管理员、转让所有权、解散群组或管理平台账号。页面隐藏不是证据，API 拒绝才是最终结果。
 
 ## 普通成员账号
 
@@ -74,7 +74,7 @@
 buildLabel:
 deviceModel / Android / WeChat / baseLibrary / fontScale:
 owner-group-member-lifecycle result / duplicateWriteObserved:
-administrator-roster-claims-contacts result / capabilityGateObserved:
+administrator-roster-contacts result / capabilityGateObserved:
 member-readonly-boundary result:
 member-wechat-quick-login result / capabilityGateObserved:
 owner-admin-scheduling-configuration result / duplicateWriteObserved:

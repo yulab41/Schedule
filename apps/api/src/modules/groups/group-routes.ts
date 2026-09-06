@@ -4,10 +4,8 @@ import {
   type AddRosterEntriesRequest,
   type ConvertPendingRosterRequest,
   type CreateGroupRequest,
-  type CreateMembershipClaimRequest,
   type GroupMemberVersionMutationRequest,
   type GroupVersionMutationRequest,
-  type MembershipClaimDecisionRequest,
   type OrganizationOperationRequest,
   type TransferGroupOwnershipRequest,
   type UpdateGroupMemberContactRequest,
@@ -71,7 +69,6 @@ const updateGroupNameInputSchema = z
 
 const membershipRoleSchema = z.enum(['administrator', 'member']);
 const membershipIdSchema = z.string().uuid();
-const claimRequestIdSchema = z.string().uuid();
 const phoneSchema = z.string().trim().min(1).max(32);
 
 const updateMemberRoleInputSchema = z
@@ -85,20 +82,6 @@ const updateMemberRoleInputSchema = z
 const transferOwnershipInputSchema = z
   .object({
     expectedGroupVersion: expectedVersionSchema,
-    expectedMemberVersion: expectedVersionSchema,
-    membershipId: membershipIdSchema,
-    operationId: operationIdSchema,
-  })
-  .strict();
-
-const claimLookupInputSchema = z
-  .object({
-    realName: realNameSchema,
-  })
-  .strict();
-
-const createMembershipClaimInputSchema = z
-  .object({
     expectedMemberVersion: expectedVersionSchema,
     membershipId: membershipIdSchema,
     operationId: operationIdSchema,
@@ -191,68 +174,6 @@ export function registerGroupRoutes(
     membershipService.listMembers(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
-  app.post('/groups/:groupId/claim-lookups', { preHandler: app.authenticate }, async (request) =>
-    membershipService.lookupClaimMatches(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      parseClaimLookupInput(request.body),
-    ),
-  );
-
-  app.post(
-    '/groups/:groupId/claim-requests',
-    { preHandler: app.authenticate },
-    async (request, reply) => {
-      const result = await membershipService.createClaimRequest(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseCreateMembershipClaimInput(request),
-      );
-      return reply.code(result.direct ? 201 : 202).send(result);
-    },
-  );
-
-  app.get('/groups/:groupId/claim-requests', { preHandler: app.authenticate }, async (request) =>
-    membershipService.listClaimRequests(getAuthenticatedIdentity(request), parseGroupId(request)),
-  );
-
-  app.post(
-    '/groups/:groupId/claim-requests/:claimRequestId/approve',
-    { preHandler: app.authenticate },
-    (request) =>
-      membershipService.approveClaimRequest(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseClaimRequestId(request),
-        parseClaimDecisionInput(request),
-      ),
-  );
-
-  app.post(
-    '/groups/:groupId/claim-requests/:claimRequestId/reject',
-    { preHandler: app.authenticate },
-    (request) =>
-      membershipService.rejectClaimRequest(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseClaimRequestId(request),
-        parseClaimDecisionInput(request),
-      ),
-  );
-
-  app.post(
-    '/groups/:groupId/members/:membershipId/revoke-claim',
-    { preHandler: app.authenticate },
-    async (request) => {
-      await membershipService.revokeClaim(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseMembershipId(request),
-        parseMemberVersionMutationInput(request),
-      );
-    },
-  );
-
   app.delete(
     '/groups/:groupId/members/:membershipId',
     { preHandler: app.authenticate },
@@ -267,7 +188,10 @@ export function registerGroupRoutes(
   );
 
   app.get('/groups/:groupId/contacts', { preHandler: app.authenticate }, async (request) =>
-    contactService.listContacts(getAuthenticatedIdentity(request), parseGroupId(request)),
+    contactService.listContacts(getAuthenticatedIdentity(request), parseGroupId(request), {
+      includeEmployeeCodes:
+        (request.query as { includeEmployeeCodes?: unknown }).includeEmployeeCodes === '1',
+    }),
   );
 
   app.get(
@@ -526,33 +450,6 @@ function parseTransferOwnershipInput(request: FastifyRequest): TransferGroupOwne
   return parseDangerousBody(request, transferOwnershipInputSchema) as TransferGroupOwnershipRequest;
 }
 
-function parseClaimLookupInput(value: unknown): { readonly realName: string } {
-  const result = claimLookupInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
-}
-
-function parseCreateMembershipClaimInput(request: FastifyRequest): CreateMembershipClaimRequest {
-  return parseDangerousBody(
-    request,
-    createMembershipClaimInputSchema,
-  ) as CreateMembershipClaimRequest;
-}
-
-function parseClaimRequestId(request: FastifyRequest): string {
-  const result = claimRequestIdSchema.safeParse(
-    (request.params as { claimRequestId?: unknown }).claimRequestId,
-  );
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
-}
-
 function parseUpdateContactInput(request: FastifyRequest): UpdateGroupMemberContactRequest {
   return parseDangerousBody(request, updateContactInputSchema) as UpdateGroupMemberContactRequest;
 }
@@ -596,10 +493,6 @@ function parseMemberVersionMutationInput(
     request,
     versionMutationInputSchema,
   ) as GroupMemberVersionMutationRequest;
-}
-
-function parseClaimDecisionInput(request: FastifyRequest): MembershipClaimDecisionRequest {
-  return parseDangerousBody(request, versionMutationInputSchema) as MembershipClaimDecisionRequest;
 }
 
 function parseDangerousBody<Parsed extends { readonly operationId?: string | undefined }>(

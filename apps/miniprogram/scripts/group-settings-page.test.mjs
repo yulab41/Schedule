@@ -68,11 +68,9 @@ describe('native P5 group mobile-phone consent page', () => {
       '返回排班台',
       '群组管理',
       '当前工作群组',
-      '联系方式公开',
-      '我的手机号公开设置',
-      '仅自己',
-      '允许本群组显示完整手机号',
-      '保存同意',
+      '群内公开手机号',
+      'contact-disclosure-card',
+      '重试保存',
     ]) {
       expect(template).toContain(expected);
     }
@@ -81,11 +79,10 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(template).toContain("state === 'loading'");
     expect(template).toContain("state === 'error'");
     expect(template).toContain("consentState === 'missing-phone'");
-    expect(template).toContain("consentState === 'stale'");
-    expect(template).toContain('bindtap="handleConsentToggle"');
+
+    expect(template).toContain('bind:change="handleConsentToggle"');
     expect(template).toContain('bindtap="handleSave"');
     expect(template).toContain('bindtap="handleRetry"');
-    expect(readFileSync(path.join(componentRoot, 'controller.ts'), 'utf8')).toContain("'撤回同意'");
   });
 
   it('reuses the group settings controller in a standalone direct Page', () => {
@@ -105,34 +102,23 @@ describe('native P5 group mobile-phone consent page', () => {
     );
   });
 
-  it('uses Skyline-safe flex layout, the 22 by 22 golden checkbox, compact class, and 44px actions', () => {
+  it('reuses the leaf capsule switch at the bottom and removes the old checkbox and wrapper', () => {
     const styles = readFileSync(path.join(componentRoot, 'index.wxss'), 'utf8');
     const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
     const pageJson = JSON.parse(readPageFile('json'));
-
     expect(pageJson.renderer).toBe('skyline');
-    expect(pageJson.usingComponents['ui-switch']).toBeUndefined();
-    expect(template).toContain('group-settings-page {{viewportClass}}');
-    expect(template).toContain('aria-role="switch"');
-    expect(template).toContain('aria-checked="{{desiredConsent}}"');
-    expect(styles).toContain('.group-settings-page.is-compact');
-    expect(styles).toContain('min-height: 44px');
-    expect(styles).toMatch(
-      /\.phone-consent-control\s*\{[^}]*min-height:\s*58px;[^}]*display:\s*flex;|\.phone-consent-control\s*\{[^}]*display:\s*flex;[^}]*min-height:\s*58px;/su,
+    expect(pageJson.usingComponents['ui-switch']).toBe('/components/ui/ui-switch/index');
+    expect(template).toContain('checked="{{desiredConsent}}"');
+    expect(template).toContain('loading="{{isSaving}}"');
+    expect(template.indexOf('contact-disclosure-card')).toBeGreaterThan(
+      template.indexOf('member-management-card'),
     );
-    expect(styles).toMatch(
-      /\.phone-consent-checkbox\s*\{[^}]*width:\s*22px;[^}]*height:\s*22px;/su,
-    );
+    expect(template).not.toContain('phone-consent-checkbox');
+    expect(template).not.toContain('consent-save');
     expect(styles).not.toMatch(/display:\s*grid/u);
     expect(styles).not.toContain('grid-template');
-    expect(styles).not.toContain('clamp(');
     expect(styles).not.toContain('@media');
-    expect(template).not.toContain('<ui-switch');
-    expect(template).not.toContain('class="consent-state');
-    expect(template).not.toContain('class="action-note"');
-    expect(template).not.toContain('class="save-hint"');
   });
-
   it('uses the shared runtime client without persisting phone, consent, payload, or a write queue', () => {
     const source = readFileSync(path.join(componentRoot, 'controller.ts'), 'utf8');
     const factory = readFileSync(
@@ -143,7 +129,7 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(factory).toContain('createRuntimeGroupMobilePhoneConsentClient');
     expect(factory).toContain('createGroupMobilePhoneConsentClient');
     expect(source).toContain('createRuntimeGroupMobilePhoneConsentClient');
-    expect(source).toContain('maskedMobilePhone');
+    expect(source).not.toContain('maskedMobilePhone');
     expect(source).not.toContain('fullMobilePhone');
     expect(source).not.toContain('rawMobilePhone');
     expect(source).not.toContain('setStorageSync');

@@ -353,7 +353,9 @@ page {
 
 .filter-icon-bar {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  display: block;
 }
 
 .filter-count {

@@ -19,8 +19,6 @@ describe('P8 Web organization shared read delegation', () => {
       'listDissolvedGroups',
       'listGroupMembers',
       'listGroupContacts',
-      'listMembershipClaimRequests',
-      'lookupClaimMatches',
       'getSchedulingConfig',
       'listPlatformUserAccounts',
     ]) {
@@ -35,8 +33,6 @@ describe('P8 Web organization shared read delegation', () => {
       golden.dissolvedGroups,
       golden.members,
       golden.contacts,
-      golden.claimRequests,
-      golden.claimLookup,
       golden.schedulingConfig,
       golden.platformAccounts,
     ];
@@ -53,49 +49,27 @@ describe('P8 Web organization shared read delegation', () => {
     await expect(client.listDissolvedGroups()).resolves.toEqual(golden.dissolvedGroups);
     await expect(client.listGroupMembers('group /一')).resolves.toEqual(golden.members);
     await expect(client.listGroupContacts('group /一')).resolves.toEqual(golden.contacts);
-    await expect(client.listMembershipClaimRequests('group /一')).resolves.toEqual(
-      golden.claimRequests,
-    );
-    await expect(client.lookupClaimMatches('group /一', ' 林医生 ')).resolves.toEqual(
-      golden.claimLookup,
-    );
     await expect(client.getSchedulingConfig('group /一')).resolves.toEqual(golden.schedulingConfig);
     await expect(client.listPlatformUserAccounts()).resolves.toEqual(golden.platformAccounts.users);
 
-    expect(fetchImplementation).toHaveBeenCalledTimes(9);
-    expect(fetchImplementation.mock.calls.map(([url]) => url)).toEqual([
+    expect(fetchImplementation).toHaveBeenCalledTimes(7);
+    expect(fetchImplementation.mock.calls.map(([url]) => String(url))).toEqual([
       '/api/groups',
       '/api/groups/catalog',
       '/api/groups/dissolved',
       '/api/groups/group%20%2F%E4%B8%80/members',
-      '/api/groups/group%20%2F%E4%B8%80/contacts',
-      '/api/groups/group%20%2F%E4%B8%80/claim-requests',
-      '/api/groups/group%20%2F%E4%B8%80/claim-lookups',
+      '/api/groups/group%20%2F%E4%B8%80/contacts?includeEmployeeCodes=1',
       '/api/groups/group%20%2F%E4%B8%80/scheduling-config',
       '/api/platform-admin/users',
     ]);
     expect(
-      fetchImplementation.mock.calls
-        .filter((_, index) => index !== 6)
-        .every(
-          ([, init]) =>
-            JSON.stringify(init?.headers) ===
-            JSON.stringify({ Authorization: 'Bearer signed-in-token' }),
-        ),
+      fetchImplementation.mock.calls.every(
+        ([, init]) =>
+          JSON.stringify(init?.headers) ===
+          JSON.stringify({ Authorization: 'Bearer signed-in-token' }),
+      ),
     ).toBe(true);
-    expect(fetchImplementation.mock.calls[6]?.[1]?.headers).toEqual({
-      Authorization: 'Bearer signed-in-token',
-      'Content-Type': 'application/json',
-    });
-    expect(fetchImplementation.mock.calls[6]?.[1]).toMatchObject({
-      body: JSON.stringify({ realName: ' 林医生 ' }),
-      method: 'POST',
-    });
-    expect(
-      fetchImplementation.mock.calls
-        .filter((_, index) => index !== 6)
-        .every(([, init]) => init?.method === 'GET'),
-    ).toBe(true);
+    expect(fetchImplementation.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
   });
 });
 
