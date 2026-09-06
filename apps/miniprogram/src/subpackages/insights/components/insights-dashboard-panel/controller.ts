@@ -126,7 +126,7 @@ const initialStatisticsYear = Number(initialBusinessMonth.slice(0, 4));
 export function createInsightsDashboardPanelControllerDefinition() {
   return {
     data: {
-      activeTab: 'events' as DashboardTab,
+      activeTab: 'statistics' as DashboardTab,
       businessMonth: initialBusinessMonth,
       errorMessage: '',
       eventCountLabel: '0 条事件',

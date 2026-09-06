@@ -1,4 +1,4 @@
-@import "../../styles/ui-icon-motion.wxss";
+@import '../../styles/ui-icon-motion.wxss';
 @import '../../styles/calendar-date-marker.wxss';
 
 page {
@@ -356,6 +356,32 @@ page {
   top: 0;
   left: 0;
   display: block;
+  box-sizing: border-box;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.filter-icon .filter-icon-bar-top {
+  top: 5px;
+  left: 2px;
+  width: 16px;
+}
+
+.filter-icon .filter-icon-bar-middle {
+  top: 10px;
+  left: 4px;
+  width: 12px;
+}
+
+.filter-icon .filter-icon-bar-bottom {
+  top: 15px;
+  left: 6px;
+  width: 8px;
+}
+
+.filter-icon-source {
+  display: none;
 }
 
 .filter-count {

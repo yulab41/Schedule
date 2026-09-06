@@ -49,14 +49,12 @@
           </view>
         </view>
 
-<ui-alert
+        <ui-alert
           wx:if="{{infoMessage}}"
           tone="success"
           title="手机号公开设置"
           message="{{infoMessage}}"
         ></ui-alert>
-
-
 
         <view class="group-card calendar-preferences-card">
           <view class="group-card-header"><text>日历偏好</text></view>
@@ -196,17 +194,6 @@
           </view>
         </view>
 
-        <view wx:if="{{canLeaveGroup}}" class="group-leave-action">
-          <view
-            class="web-button group-leave-button"
-            hover-class="is-pressed"
-            aria-role="button"
-            aria-disabled="{{managementState === 'loading'}}"
-            bindtap="handleLeaveGroup"
-            >退出群组</view
-          >
-        </view>
-
         <view wx:if="{{canDissolveGroup}}" class="group-card group-exit-card">
           <view class="group-card-header"
             ><text>当前群组操作</text><text class="card-scope">群主专属</text></view
@@ -253,12 +240,15 @@
             ><text>已解散群组</text><text class="card-scope">30 天内可恢复</text></view
           >
           <view class="group-card-body member-card-list">
-            <view wx:for="{{dissolvedCards}}" wx:for-item="dissolved" wx:key="id" class="group-record-row">
+            <view
+              wx:for="{{dissolvedCards}}"
+              wx:for-item="dissolved"
+              wx:key="id"
+              class="group-record-row"
+            >
               <view class="group-record-row-copy"
                 ><text>{{dissolved.name}}</text
-                ><text class="member-row-meta"
-                  >解散于 {{dissolved.deletedAt}}</text
-                ></view
+                ><text class="member-row-meta">解散于 {{dissolved.deletedAt}}</text></view
               >
               <view
                 class="web-button compact-button is-primary"
@@ -275,9 +265,7 @@
           <view class="group-card-header member-card-header">
             <view
               ><text>群组成员</text
-              ><text class="card-subtitle"
-                >{{memberCards.length}} 位成员</text
-              ></view
+              ><text class="card-subtitle">{{memberCards.length}} 位成员</text></view
             >
             <view
               wx:if="{{canManageMembers}}"
@@ -361,8 +349,6 @@
             </view>
           </view>
         </view>
-
-
 
         <ui-alert
           wx:if="{{managementError}}"
@@ -458,15 +444,35 @@
           <view class="contact-disclosure-row">
             <view class="contact-disclosure-copy">
               <text class="contact-disclosure-title">群内公开手机号</text>
-              <text wx:if="{{consentState === 'missing-phone'}}" class="contact-disclosure-note">请先设置手机号</text>
-              <text wx:elif="{{isSaving}}" class="contact-disclosure-note">正在保存…</text>
+              <text wx:if="{{consentState === 'missing-phone'}}" class="contact-disclosure-note"
+                >请先设置手机号</text
+              >
             </view>
-            <ui-switch checked="{{desiredConsent}}" disabled="{{switchDisabled}}" loading="{{isSaving}}" label="群内公开手机号" bind:change="handleConsentToggle"></ui-switch>
+            <ui-switch
+              checked="{{desiredConsent}}"
+              disabled="{{switchDisabled}}"
+              loading="{{isSaving}}"
+              label="群内公开手机号"
+              bind:change="handleConsentToggle"
+            ></ui-switch>
           </view>
           <view wx:if="{{errorMessage}}" class="contact-disclosure-error">
             <text>{{errorMessage}}</text>
-            <view class="web-button compact-button" aria-role="button" bindtap="handleSave">重试保存</view>
+            <view class="web-button compact-button" aria-role="button" bindtap="handleSave"
+              >重试保存</view
+            >
           </view>
+        </view>
+
+        <view wx:if="{{canLeaveGroup}}" class="group-leave-action">
+          <view
+            class="web-button group-leave-button"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{managementState === 'loading'}}"
+            bindtap="handleLeaveGroup"
+            >退出群组</view
+          >
         </view>
       </view>
       <view class="bottom-spacer"></view>

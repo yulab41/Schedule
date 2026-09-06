@@ -112,7 +112,7 @@
                 <view
                   class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}"
                   aria-hidden="true"
-                  ><image class="filter-icon-bar filter-icon-bar-top" src="/assets/icons/ui-filter-top.svg" mode="aspectFit" /><image class="filter-icon-bar filter-icon-bar-middle" src="/assets/icons/ui-filter-middle.svg" mode="aspectFit" /><image class="filter-icon-bar filter-icon-bar-bottom" src="/assets/icons/ui-filter-bottom.svg" mode="aspectFit" />
+                  ><view class="filter-icon-bar filter-icon-bar-top"></view><view class="filter-icon-bar filter-icon-bar-middle"></view><view class="filter-icon-bar filter-icon-bar-bottom"></view><image class="filter-icon-source" src="/assets/icons/ui-filter-top.svg" aria-hidden="true" /><image class="filter-icon-source" src="/assets/icons/ui-filter-middle.svg" aria-hidden="true" /><image class="filter-icon-source" src="/assets/icons/ui-filter-bottom.svg" aria-hidden="true" />
                 ></view>
                 <text>筛选</text>
                 <text wx:if="{{activeFilterCount > 0}}" class="filter-count"

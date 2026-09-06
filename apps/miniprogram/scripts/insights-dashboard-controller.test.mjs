@@ -86,6 +86,7 @@ describe('insights dashboard shared parity controller', () => {
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
 
+    expect(page.data.activeTab).toBe('statistics');
     expect(mocks.listEvents).toHaveBeenCalledWith(groupId, { pageSize: 50 });
     expect(page.data.eventGroups[0]).toMatchObject({
       countLabel: '1 条',

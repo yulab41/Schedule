@@ -21,6 +21,18 @@ function readPageFile(extension) {
 }
 
 describe('native P5 group mobile-phone consent page', () => {
+  it('keeps disclosure labels stable while saving and puts leave after disclosure', () => {
+    const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
+    const disclosureStart = template.indexOf('<view class="group-card contact-disclosure-card">');
+    const leaveStart = template.indexOf(
+      '<view wx:if="{{canLeaveGroup}}" class="group-leave-action">',
+    );
+    const disclosure = template.slice(disclosureStart, leaveStart);
+    expect(disclosure).not.toContain('正在保存');
+    expect(disclosure).toContain('loading="{{isSaving}}"');
+    expect(disclosureStart).toBeGreaterThan(-1);
+    expect(leaveStart).toBeGreaterThan(disclosureStart);
+  });
   it('registers group settings in the organization subpackage only', () => {
     const appJson = JSON.parse(readFileSync(path.join(sourceRoot, 'app.json'), 'utf8'));
     expect(appJson.subpackages).toContainEqual({

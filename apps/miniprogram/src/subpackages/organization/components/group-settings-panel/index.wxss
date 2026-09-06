@@ -78,7 +78,7 @@ page {
 }
 .group-setup-panel,
 .group-identity-copy,
-.group-card-body{
+.group-card-body {
   display: flex;
   flex-direction: column;
 }
@@ -210,7 +210,6 @@ page {
 .group-mutation-card,
 .calendar-preferences-card,
 .member-management-card,
-
 .group-lifecycle-card,
 .group-exit-card,
 .dissolved-group-card {
@@ -282,7 +281,7 @@ page {
   gap: 3px;
 }
 .mutation-fields,
-.member-card-list{
+.member-card-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -471,7 +470,7 @@ page {
   padding-right: 10px;
   padding-left: 10px;
 }
-.group-settings-page.is-compact .group-identity-band{
+.group-settings-page.is-compact .group-identity-band {
   padding: var(--ui-spacing-sm);
 }
 .group-settings-page.is-compact .member-management-row,
@@ -607,7 +606,7 @@ page {
   padding-top: 12px;
   padding-bottom: 12px;
 }
-.group-settings-page.is-compact.is-large-text .group-identity-band{
+.group-settings-page.is-compact.is-large-text .group-identity-band {
   padding: 12px;
 }
 .calendar-preferences-card {
@@ -681,7 +680,7 @@ page {
 }
 
 .contact-disclosure-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
 }

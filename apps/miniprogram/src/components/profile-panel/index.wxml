@@ -44,7 +44,13 @@
               <text class="profile-section-title">值班概览</text>
             </view>
             <button size="mini" class="profile-inline-action" bindtap="handleOpenStatistics">
-              查看完整统计 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
+              查看完整统计
+              <image
+                class="profile-inline-chevron"
+                src="/assets/icons/ui-chevron-right.svg"
+                mode="aspectFit"
+                aria-hidden="true"
+              />
             </button>
           </view>
 
@@ -87,16 +93,22 @@
               <text class="profile-eyebrow">下一班</text>
               <text class="profile-next-title">{{nextDutyDateLabel}}</text>
             </view>
-            <text wx:if="{{!nextDutyEmpty}}" class="profile-shift-badge">
-              {{nextDutyShiftLabel}}
-            </text>
+            <view wx:if="{{!nextDutyEmpty}}" class="profile-shift-badge">
+              <text>{{nextDutyShiftLabel}}</text>
+            </view>
           </view>
           <block wx:if="{{!nextDutyEmpty}}">
             <text class="profile-duty-time">{{nextDutyTimeLabel}}</text>
             <view class="profile-duty-footer">
               <text class="profile-duty-role">{{nextDutyRoleLabel}}</text>
               <button size="mini" class="profile-duty-link" bindtap="handleOpenCalendar">
-                打开排班日历 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
+                打开排班日历
+                <image
+                  class="profile-inline-chevron"
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                  aria-hidden="true"
+                />
               </button>
             </view>
           </block>
@@ -160,8 +172,12 @@
             </view>
             <view class="profile-detail-action">
               <text>{{bindingLabel}}</text>
-              <button size="mini" wx:if="{{bindingState === 'error'}}" bindtap="handleBindingRetry"><text class="profile-action-label">重试</text></button>
-              <button size="mini" wx:if="{{canUnbindWechat}}" bindtap="handleUnbind"><text class="profile-action-label">解除绑定</text></button>
+              <button size="mini" wx:if="{{bindingState === 'error'}}" bindtap="handleBindingRetry">
+                <text class="profile-action-label">重试</text>
+              </button>
+              <button size="mini" wx:if="{{canUnbindWechat}}" bindtap="handleUnbind">
+                <text class="profile-action-label">解除绑定</text>
+              </button>
             </view>
           </view>
           <view class="profile-detail-row is-last">

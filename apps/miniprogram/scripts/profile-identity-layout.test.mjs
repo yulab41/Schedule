@@ -16,6 +16,12 @@ const identityTemplate = read('src/pages/identity/index.wxml');
 const profileTemplate = read('src/components/profile-panel/index.wxml');
 const identityStyles = read('src/styles/identity.wxss');
 const profileStyles = read('src/components/profile-panel/index.wxss');
+it('uses a view badge with a trimmed text label and explicitly sizes password text', () => {
+  const badge = fragment(profileTemplate).querySelector('.profile-shift-badge');
+  expect(badge.tagName.toLowerCase()).toBe('view');
+  expect(badge.querySelector('text').textContent.trim()).toBe('{{nextDutyShiftLabel}}');
+  expect(profileStyles).toMatch(/\.profile-action-label\s*\{[^}]*font-size:\s*12px/su);
+});
 const appStyles = read('src/app.wxss')
   .replace(/@import[^;]+;/gu, '')
   .replace(/\bpage(?=\s*\{)/gu, 'body');
@@ -216,22 +222,26 @@ describe.skipIf(!browserPath)(
         read('src/pages/workbench/index.wxss').replace(/@import[^;]+;/gu, '') +
         read('src/styles/ui-icon-motion.wxss');
       await render(button.outerHTML, styles, 390);
-      const boxes = await page.locator('.filter-icon-bar').evaluateAll((images) =>
-        images.map((image) => {
-          const r = image.getBoundingClientRect();
+      const boxes = await page.locator('.filter-icon-bar').evaluateAll((bars) =>
+        bars.map((bar) => {
+          const r = bar.getBoundingClientRect();
           return {
             left: r.left,
             top: r.top,
             width: r.width,
             height: r.height,
-            loaded: image.complete && image.naturalWidth > 0,
           };
         }),
       );
       expect(boxes).toHaveLength(3);
-      expect(boxes.every((box) => box.loaded)).toBe(true);
-      expect(boxes[0]).toEqual(boxes[1]);
-      expect(boxes[1]).toEqual(boxes[2]);
+      expect(boxes.map((box) => [box.width, box.height])).toEqual([
+        [16, 2],
+        [12, 2],
+        [8, 2],
+      ]);
+      expect(boxes[0].left).toBeLessThan(boxes[1].left);
+      expect(boxes[1].left).toBeLessThan(boxes[2].left);
+      expect(button.querySelectorAll('.filter-icon-source')).toHaveLength(3);
       for (const [part, geometry] of [
         ['top', 'M4 6h16'],
         ['middle', 'M7 12h10'],
