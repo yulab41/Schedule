@@ -1533,7 +1533,9 @@ async function assertMonthCalendarInteractions(page) {
     buttons
       .filter((button) => {
         const rect = button.getBoundingClientRect();
-        return rect.width < 44 || rect.height < 44;
+        // Transformed sheet geometry can report a 44px control as 43.999969px.
+        // Round subpixel measurement noise only; a real 40.5px target still fails.
+        return Math.round(rect.width * 100) < 4400 || Math.round(rect.height * 100) < 4400;
       })
       .map((button) => button.textContent?.trim() ?? button.getAttribute('aria-label') ?? ''),
   );
@@ -1899,25 +1901,11 @@ async function assertBackfillCalendarColors(page) {
 async function assertGroupManagementConfigAndEventNav(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
-  await waitForBodyText(page, '加入其他群组', 15000, '加入其他群组');
-  await waitForBodyText(page, '共享群组码', 15000, '共享群组码');
+  await page.locator('.group-identity-band').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('.contact-consent-card').waitFor({ state: 'visible', timeout: 15000 });
   await waitForBodyText(page, '我的手机号公开设置', 15000, '手机号公开设置');
-  await waitForBodyText(page, '管理员不能代替成员授权', 15000, '手机号公开边界');
-  const groupCode = page.locator('.group-code-digits').first();
-  const groupCodeLabel = await groupCode.getAttribute('aria-label');
-  if (!/^群组码 (?:\d ){3}\d$/u.test(groupCodeLabel ?? '')) {
-    fail(`当前群组码展示异常：${groupCodeLabel ?? '缺少可访问标签'}`);
-  }
-  if ((await groupCode.locator('strong').count()) !== 4) {
-    fail('当前群组码没有保持四位腕带式展示。');
-  }
-  const codeInput = page.locator('.group-code-input input').first();
-  if ((await codeInput.count()) === 0) {
-    fail('群组码编辑输入框不存在。');
-  }
-  if ((await codeInput.inputValue()) !== (groupCodeLabel ?? '').replace(/\D/g, '')) {
-    fail('群组码编辑输入框未显示当前四位码。');
+  if ((await page.locator('.group-code-digits, .group-code-input').count()) !== 0) {
+    fail('已退役群组码的展示或编辑入口仍存在。');
   }
 
   for (const width of [1280, 390, 320]) {
@@ -1965,8 +1953,8 @@ async function assertGroupManagementConfigAndEventNav(page) {
     if (metrics.consentCardCount !== 1 || metrics.consentControlHeight < 44) {
       fail(`${width}px 群组设置缺少本人手机号同意卡或其触控区小于 44px。`);
     }
-    if (metrics.digitCount !== 4 || !metrics.digitsFit) {
-      fail(`${width}px 群组码四位数字没有完整显示。`);
+    if (metrics.digitCount !== 0) {
+      fail(`${width}px 仍显示已退役群组码。`);
     }
     if (metrics.cardColumns !== (width === 1280 ? 2 : 1)) {
       fail(`${width}px 群组管理卡片列数异常：${metrics.cardColumns}`);
@@ -2249,8 +2237,12 @@ async function assertGuestStateResponsive(page, mode) {
 
 async function assertMemberAndNotificationPages(page) {
   await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
-  await waitForBodyText(page, '我的资料', 15000, '成员通讯录');
   await page.locator('.member-directory-list').waitFor({ state: 'visible', timeout: 15000 });
+  // The synthetic local-admin is a platform administrator, excluded from schedulable members.
+  // Its own profile remains on My Profile; the ordinary-member phase verifies the self editor.
+  if ((await page.locator('.self-directory-section').count()) !== 0) {
+    fail('平台管理员不应作为排班成员出现在本人通讯录卡中。');
+  }
   const memberBody = await page.locator('body').innerText();
   if (memberBody.includes('成员数据暂时无法加载')) {
     fail('成员页数据加载失败。');
@@ -2265,7 +2257,7 @@ async function assertMemberAndNotificationPages(page) {
   for (const width of [390, 320]) {
     await page.setViewportSize({ height: 844, width });
     await page.waitForTimeout(200);
-    await page.locator('.self-directory-section').scrollIntoViewIfNeeded();
+    await page.locator('.member-directory-list').scrollIntoViewIfNeeded();
     const metrics = await page.evaluate(() => {
       const controls = [
         ...document.querySelectorAll(
@@ -2293,8 +2285,8 @@ async function assertMemberAndNotificationPages(page) {
     });
     if (metrics.overflow) fail(`${width}px 成员页出现横向溢出。`);
     if (metrics.directoryItems === 0) fail(`${width}px 成员目录没有显示姓名。`);
-    if (metrics.persistentInputs !== 0 || metrics.selfEditButtons !== 1) {
-      fail(`${width}px 本人资料没有保持“按钮打开编辑、初始无输入框”。`);
+    if (metrics.persistentInputs !== 0 || metrics.selfEditButtons !== 0) {
+      fail(`${width}px 平台管理员不应出现排班成员本人资料编辑入口。`);
     }
     if (metrics.otherEditButtons === 0) {
       fail(`${width}px 后台管理员缺少修改他人联系方式的按钮。`);
@@ -2304,11 +2296,14 @@ async function assertMemberAndNotificationPages(page) {
     }
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '6-member-directory.png') });
-      await page.locator('.self-contact-card .contact-edit-button').click();
+      await page.locator('.member-directory-row .contact-edit-button').first().click();
       const contactSheet = page.locator('dialog[open][aria-label^="编辑"]');
       await contactSheet.waitFor({ state: 'visible', timeout: 5000 });
-      if ((await contactSheet.locator('input').count()) < 2) {
-        fail('联系方式编辑底部页没有显示长号和短号输入框。');
+      if (
+        (await contactSheet.locator('input[name="shortPhone"]').count()) !== 1 ||
+        (await contactSheet.locator('input[name="mobilePhone"]').count()) !== 0
+      ) {
+        fail('管理员编辑他人联系方式应仅允许短号，不能代填本人手机号。');
       }
       await assertWorkflowSheetTouchTargets(contactSheet, width, '联系方式编辑底部页');
       await contactSheet.locator('button[aria-label="关闭"]').click();
@@ -2420,6 +2415,16 @@ async function assertRegularMemberDirectory(page) {
     if (metrics.persistentInputs !== 0 || metrics.selfEditButtons !== 1) {
       fail(`${width}px 普通成员本人资料没有保持“修改按钮、初始无输入框”。`);
     }
+    if (width === 390) {
+      await page.locator('.self-contact-card .contact-edit-button').click();
+      const contactSheet = page.locator('dialog[open][aria-label^="编辑"]');
+      await contactSheet.waitFor({ state: 'visible', timeout: 5000 });
+      if ((await contactSheet.locator('input').count()) < 2) {
+        fail('普通成员本人编辑底部页缺少长号和短号输入框。');
+      }
+      await assertWorkflowSheetTouchTargets(contactSheet, width, '本人联系方式编辑底部页');
+      await contactSheet.locator('button[aria-label="关闭"]').click();
+    }
   }
 }
 
@@ -2512,13 +2517,23 @@ async function assertRegularMemberMobilePhoneConsent(page) {
           method: 'PUT',
         },
       );
-      return { status: response.status };
+      if (!response.ok) return { status: response.status };
+      const statusResponse = await fetch(
+        `/api/groups/${encodeURIComponent(groupId)}/mobile-phone-consent`,
+        { headers: { Authorization: 'Bearer local-member' } },
+      );
+      if (!statusResponse.ok) return { status: statusResponse.status };
+      const status = await statusResponse.json();
+      return { status: response.status, consentState: status.state };
     }, consentContext);
     if (prepared.status !== 200) {
       fail(`准备手机号同意浏览器生命周期失败：contact:${prepared.status}`);
     }
     usesTemporaryPhone = true;
-    consentContext.state = 'not-consented';
+    if (!['consented', 'not-consented', 'stale'].includes(prepared.consentState)) {
+      fail('准备临时号码后未读取到有效的服务端公开状态。');
+    }
+    consentContext.state = prepared.consentState;
     await page.setViewportSize({ height: 900, width: 1280 });
     await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
     await waitForBodyText(page, '我的资料', 15000, '临时号码准备后的成员页');

@@ -141,6 +141,8 @@ function isCoreRoute(method: string, route: string): boolean {
   if (method !== 'GET') return false;
   return (
     route === '/groups' ||
+    route === '/me/wechat/miniprogram/binding' ||
+    route === '/me/diagnostics-access' ||
     route === '/groups/catalog' ||
     route === '/groups/:groupId/members' ||
     route === '/groups/:groupId/contacts' ||

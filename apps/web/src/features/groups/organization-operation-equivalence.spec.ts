@@ -11,13 +11,11 @@ describe('P8 Web organization mutation attempt equivalence', () => {
     );
     for (const method of [
       'createGroup',
-      'claimGroup',
       'joinGroupAsGuest',
       'leaveGroup',
       'addRosterEntries',
       'convertRosterEntries',
       'addGroupMembers',
-      'updateGroupCode',
       'updateGroupName',
       'updateGroupMemberRole',
       'updateGroupMemberName',

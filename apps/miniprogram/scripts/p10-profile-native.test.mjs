@@ -24,7 +24,9 @@ describe('P10 native profile parity', () => {
 
     expect(app.pages).toContain('pages/profile/index');
     expect(page.trim()).toBe('<include src="../../components/profile-panel/index.wxml" />');
-    expect(panel).toContain('个人中心');
+    expect(panel).not.toContain('个人中心');
+    expect(panel).toContain('class="profile-identity-card"');
+    expect(panel).toContain('<text>{{initial}}</text>');
     expect(panel).toContain('账号与安全');
     expect(panel).toContain('wx:if="{{!embedded}}"');
     expect(workbench).toContain('handleProfileNav');
@@ -58,7 +60,10 @@ describe('P10 native profile parity', () => {
     expect(page).toContain('解除绑定');
     expect(controller).toContain('canUnbindWechat');
     expect(page).toContain('canUnbindWechat');
-    expect(page).toContain('微信头像');
+    expect(page).not.toContain('微信头像');
+    expect(page).not.toContain('chooseAvatar');
+    expect(page).toContain('bindtap="handleBindingRetry"');
+    expect(page).toContain('bindtap="handleSignOut"');
     expect(page).toContain('修改登录密码');
     expect(page).not.toContain('账号密码登录无需解除微信绑定');
     expect(page).not.toContain('切换登录方式');

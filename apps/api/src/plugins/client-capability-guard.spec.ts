@@ -16,6 +16,83 @@ afterEach(async () => {
 });
 
 describe('Mini capability guard', () => {
+  it('diagnostics GET requires an authenticated exact version and core grant; adjacent routes remain denied', async () => {
+    const identity = {
+      clientPlatform: 'miniprogram' as const,
+      clientVersion: CURRENT_VERSION,
+      cloudbaseUid: 'synthetic-admin',
+    };
+    const allowed = await createGuardApp(identity, { core: true, global: true });
+    expect(
+      (await allowed.app.inject({ method: 'GET', url: '/me/diagnostics-access' })).statusCode,
+    ).toBe(200);
+    for (const method of ['POST', 'PUT', 'DELETE'] as const)
+      expect((await allowed.app.inject({ method, url: '/me/diagnostics-access' })).statusCode).toBe(
+        503,
+      );
+    expect(
+      (await allowed.app.inject({ method: 'GET', url: '/me/diagnostics-access/other' })).statusCode,
+    ).toBe(503);
+    for (const flags of [
+      { core: false, global: true },
+      { core: true, global: false },
+    ]) {
+      const denied = await createGuardApp(identity, flags);
+      expect(
+        (await denied.app.inject({ method: 'GET', url: '/me/diagnostics-access' })).statusCode,
+      ).toBe(503);
+    }
+    const obsolete = await createGuardApp(
+      { ...identity, clientVersion: 'invalid-version' },
+      { core: true, global: true },
+    );
+    expect(
+      (await obsolete.app.inject({ method: 'GET', url: '/me/diagnostics-access' })).statusCode,
+    ).toBe(426);
+    const anonymous = await createGuardApp(undefined, { core: true, global: true });
+    expect(
+      (await anonymous.app.inject({ method: 'GET', url: '/me/diagnostics-access' })).statusCode,
+    ).toBe(401);
+  });
+  it('allows only exact binding GET under core and retains version and capability gates', async () => {
+    const identity = {
+      clientPlatform: 'miniprogram' as const,
+      clientVersion: CURRENT_VERSION,
+      cloudbaseUid: 'mini-user',
+    };
+    const { app } = await createGuardApp(identity, { core: true, global: true });
+    expect(
+      (await app.inject({ method: 'GET', url: '/me/wechat/miniprogram/binding' })).statusCode,
+    ).toBe(200);
+    for (const request of [
+      { method: 'POST' as const, url: '/me/wechat/miniprogram/binding' },
+      { method: 'GET' as const, url: '/me/wechat/miniprogram/binding/other' },
+    ])
+      expect((await app.inject(request)).statusCode).toBe(503);
+    for (const enabled of [
+      { core: false, global: true },
+      { core: true, global: false },
+    ]) {
+      const denied = await createGuardApp(identity, enabled);
+      expect(
+        (await denied.app.inject({ method: 'GET', url: '/me/wechat/miniprogram/binding' }))
+          .statusCode,
+      ).toBe(503);
+    }
+    const expired = await createGuardApp(undefined, { core: true, global: true });
+    expect(
+      (await expired.app.inject({ method: 'GET', url: '/me/wechat/miniprogram/binding' }))
+        .statusCode,
+    ).toBe(401);
+    const outdated = await createGuardApp(
+      { ...identity, clientVersion: '0.1.0-p6.20260824.80' },
+      { core: true, global: true },
+    );
+    expect(
+      (await outdated.app.inject({ method: 'GET', url: '/me/wechat/miniprogram/binding' }))
+        .statusCode,
+    ).toBe(426);
+  });
   it('allows current core routes for signed and mapped legacy Mini identities', async () => {
     const signed = await createGuardApp(
       { clientPlatform: 'miniprogram', clientVersion: CURRENT_VERSION, cloudbaseUid: 'mini-user' },
@@ -266,7 +343,7 @@ describe('Mini capability guard', () => {
 });
 
 async function createGuardApp(
-  identity: AuthenticatedIdentity,
+  identity: AuthenticatedIdentity | undefined,
   enabled: {
     readonly core?: boolean;
     readonly externalMessages?: boolean;
@@ -297,7 +374,15 @@ async function createGuardApp(
   registerAuthentication(app, authPort, policy);
   const mutation = vi.fn(async () => ({ ok: true }));
   const guarded = { preHandler: app.authenticate };
+  app.get('/me/wechat/miniprogram/binding', guarded, mutation);
+  app.post('/me/wechat/miniprogram/binding', guarded, mutation);
+  app.get('/me/wechat/miniprogram/binding/other', guarded, mutation);
   app.get('/users/me', guarded, mutation);
+  app.get('/me/diagnostics-access', guarded, mutation);
+  app.get('/me/diagnostics-access/other', guarded, mutation);
+  app.post('/me/diagnostics-access', guarded, mutation);
+  app.put('/me/diagnostics-access', guarded, mutation);
+  app.delete('/me/diagnostics-access', guarded, mutation);
   app.get('/groups', guarded, mutation);
   app.get('/groups/:groupId/calendar', guarded, mutation);
   app.post('/groups/:groupId/manual-schedule-templates', guarded, mutation);

@@ -1,3 +1,8 @@
+import {
+  canUseDiagnostics,
+  refreshDiagnosticsAccess,
+  subscribeDiagnosticsPermission,
+} from '../../../../platform/diagnostics-access.js';
 import { buildInfo } from '../../../../platform/build-info.js';
 import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
 import { RUNTIME_DIAGNOSTIC_COPY_MAX_BYTES } from '../../../../platform/runtime-diagnostics-limits.js';
@@ -86,6 +91,7 @@ interface DirectorySearchView extends RuntimeDirectorySearchDiagnostic {
 }
 
 interface TestToolsPageData {
+  readonly authorized: boolean;
   readonly buildRows: readonly DiagnosticRow[];
   readonly checkSummary: string;
   readonly deviceRows: readonly DiagnosticRow[];
@@ -106,6 +112,9 @@ interface TestToolsPageData {
 
 interface TestToolsPageInstance {
   _active: boolean;
+  _live: boolean;
+  _accessSerial: number;
+  _unsubscribe?: () => void;
   _loadStartedAt: number;
   readonly data: TestToolsPageData;
   setData(patch: Partial<TestToolsPageData>, callback?: () => void): void;
@@ -278,6 +287,7 @@ const scenarioDefaults: readonly DiagnosticScenario[] = [
 
 Page({
   data: {
+    authorized: false,
     buildRows: [],
     checkSummary: '尚未检查',
     deviceRows: [],
@@ -297,30 +307,21 @@ Page({
   },
 
   onLoad(this: TestToolsPageInstance): void {
-    this._active = true;
     this._loadStartedAt = Date.now();
-    if (!isTestToolsRuntimeEnabled()) {
-      this._active = false;
-      wx.showToast?.({ icon: 'none', title: '测试工具仅在开发版和体验版开放' });
-      wx.redirectTo({ url: '/pages/workbench/index' });
-      return;
-    }
-    const identity = readMiniProgramRuntimeIdentity();
-    this.setData({
-      buildRows: createBuildRows(identity.version),
-      environmentLabel: formatMiniProgramEnvironment(identity.envVersion),
-      nextLaunchDirectoryDiagnosticArmed: hasRuntimeDirectoryLaunchMarker(),
-      storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
+    this._accessSerial = 0;
+    this._live = true;
+    this._active = false;
+    this._unsubscribe = subscribeDiagnosticsPermission((allowed) => {
+      if (!allowed) {
+        this._accessSerial += 1;
+        clearTestToolsPage(this);
+      }
     });
-    void collectDeviceRows(wx as unknown as RuntimeSystemApi).then(({ networkType, rows }) => {
-      if (!this._active) return;
-      this.setData({ deviceRows: rows, networkType });
-    });
-    refreshRuntimeDiagnostics(this);
+    void authorizeTestToolsPage(this);
   },
 
   onReady(this: TestToolsPageInstance): void {
-    if (!this._active) return;
+    if (!this._active || !canUseDiagnostics()) return;
     const pageReadyMs = Date.now() - this._loadStartedAt;
     recordRuntimeDiagnosticPerformance({
       durationMs: pageReadyMs,
@@ -333,12 +334,21 @@ Page({
   },
 
   onShow(this: TestToolsPageInstance): void {
-    if (!this._active) return;
-    refreshRuntimeDiagnostics(this);
+    this._live = true;
+    void authorizeTestToolsPage(this);
+  },
+
+  onHide(this: TestToolsPageInstance): void {
+    this._live = false;
+    this._accessSerial += 1;
+    clearTestToolsPage(this);
   },
 
   onUnload(this: TestToolsPageInstance): void {
-    this._active = false;
+    this._live = false;
+    this._accessSerial += 1;
+    this._unsubscribe?.();
+    clearTestToolsPage(this);
   },
 
   handleBack(): void {
@@ -346,20 +356,22 @@ Page({
   },
 
   handleRefresh(this: TestToolsPageInstance): void {
-    if (!this._active) return;
+    if (!this._active || !canUseDiagnostics()) return;
     this.setData({
       generatedAt: formatTimestamp(Date.now()),
       nextLaunchDirectoryDiagnosticArmed: hasRuntimeDirectoryLaunchMarker(),
       storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
     });
     refreshRuntimeDiagnostics(this);
+    const serial = this._accessSerial;
     void collectDeviceRows(wx as unknown as RuntimeSystemApi).then(({ networkType, rows }) => {
-      if (!this._active) return;
+      if (!this._active || serial !== this._accessSerial || !canUseDiagnostics()) return;
       this.setData({ deviceRows: rows, networkType });
     });
   },
 
   handleCheckChange(this: TestToolsPageInstance, event: CheckboxChangeEvent): void {
+    if (!this._active || !canUseDiagnostics()) return;
     const checkId = event.currentTarget.dataset.checkId;
     if (typeof checkId !== 'string') return;
     const checked = event.detail.checked === true;
@@ -373,6 +385,7 @@ Page({
   },
 
   handleAllNormal(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     this.setData({
       checkSummary: '全部正常',
       displayChecks: this.data.displayChecks.map((item) => ({ ...item, checked: false })),
@@ -380,10 +393,12 @@ Page({
   },
 
   handleIssueMode(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     this.setData({ checkSummary: '发现异常，请勾选具体项目' });
   },
 
   handleScenarioResult(this: TestToolsPageInstance, event: ScenarioResultEvent): void {
+    if (!this._active || !canUseDiagnostics()) return;
     const scenarioId = event.currentTarget.dataset.scenarioId;
     const result = event.currentTarget.dataset.result;
     if (typeof scenarioId !== 'string' || (result !== 'passed' && result !== 'issue')) return;
@@ -400,13 +415,13 @@ Page({
     wx.reLaunch({ url: '/pages/workbench/index' });
   },
 
-  handleOpenGestureProbe(): void {
-    if (!isTestToolsRuntimeEnabled()) return;
+  handleOpenGestureProbe(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     wx.navigateTo({ url: '/pages/gesture-probe/index' });
   },
 
   handleStartDirectoryRecording(this: TestToolsPageInstance): void {
-    if (!this._active) return;
+    if (!this._active || !canUseDiagnostics()) return;
     if (!startRuntimeDirectorySearchRecording()) {
       wx.showToast?.({ icon: 'none', title: '当前环境无法开始记录' });
       return;
@@ -416,7 +431,7 @@ Page({
   },
 
   handleArmNextLaunchDirectoryRecording(this: TestToolsPageInstance): void {
-    if (!this._active || !isTestToolsRuntimeEnabled()) return;
+    if (!this._active || !canUseDiagnostics()) return;
     const armed = armRuntimeDirectoryLaunchMarker();
     this.setData({ nextLaunchDirectoryDiagnosticArmed: armed });
     wx.showToast?.({
@@ -426,24 +441,28 @@ Page({
   },
 
   handleCancelNextLaunchDirectoryRecording(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     clearRuntimeDirectoryLaunchMarker();
     this.setData({ nextLaunchDirectoryDiagnosticArmed: false });
     wx.showToast?.({ icon: 'success', title: '下次启动诊断已取消' });
   },
 
   handleStopDirectoryRecording(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     stopRuntimeDirectorySearchRecording();
     refreshRuntimeDiagnostics(this);
     wx.showToast?.({ icon: 'success', title: '已停止记录' });
   },
 
   handleClearDirectoryRecords(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     clearRuntimeDirectorySearches();
     refreshRuntimeDiagnostics(this);
     wx.showToast?.({ icon: 'success', title: '通讯录记录已清空' });
   },
 
   handleCopyLatestDirectorySearch(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     const latest = this.data.directorySearchRows.slice(0, 1);
     if (latest.length === 0) {
       wx.showToast?.({ icon: 'none', title: '暂时没有搜索记录' });
@@ -453,6 +472,7 @@ Page({
   },
 
   handleCopyRecentDirectorySearches(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     const recent = this.data.directorySearchRows.slice(0, 10);
     if (recent.length === 0) {
       wx.showToast?.({ icon: 'none', title: '暂时没有搜索记录' });
@@ -462,17 +482,74 @@ Page({
   },
 
   handleCopyChecks(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     copyText(createCheckReport(this.data), '检查结果已复制');
   },
 
   handleCopyFullReport(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     copyText(createDiagnosticReport(this.data, false), '完整诊断报告已复制');
   },
 
   handleCopyCodexReport(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
     copyText(createDiagnosticReport(this.data, true), 'Codex 简化报告已复制');
   },
 } as never);
+
+async function authorizeTestToolsPage(page: TestToolsPageInstance): Promise<void> {
+  const serial = ++page._accessSerial;
+  clearTestToolsPage(page);
+  const allowed = isTestToolsRuntimeEnabled() && (await refreshDiagnosticsAccess());
+  if (!page._live || serial !== page._accessSerial) return;
+  if (!allowed || !canUseDiagnostics()) {
+    wx.showToast?.({ icon: 'none', title: '当前账号不能使用测试工具' });
+    wx.redirectTo({ url: '/pages/workbench/index' });
+    return;
+  }
+  page._active = true;
+  page.setData({ authorized: true });
+  loadAuthorizedTestTools(page);
+}
+
+function clearTestToolsPage(page: TestToolsPageInstance): void {
+  page._active = false;
+  stopRuntimeDirectorySearchRecording();
+  page.setData({
+    authorized: false,
+    buildRows: [],
+    deviceRows: [],
+    storageRows: [],
+    requestRows: [],
+    errorRows: [],
+    performanceRows: [],
+    directorySearchRows: [],
+    directoryRecording: false,
+    nextLaunchDirectoryDiagnosticArmed: false,
+    displayChecks: displayCheckDefaults,
+    scenarios: scenarioDefaults,
+    checkSummary: '尚未检查',
+    environmentLabel: '正在确认身份',
+    networkType: '未读取',
+    pageReadyMs: 0,
+  });
+}
+
+function loadAuthorizedTestTools(page: TestToolsPageInstance): void {
+  const serial = page._accessSerial;
+  const identity = readMiniProgramRuntimeIdentity();
+  page.setData({
+    buildRows: createBuildRows(identity.version),
+    environmentLabel: formatMiniProgramEnvironment(identity.envVersion),
+    nextLaunchDirectoryDiagnosticArmed: hasRuntimeDirectoryLaunchMarker(),
+    storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
+  });
+  void collectDeviceRows(wx as unknown as RuntimeSystemApi).then(({ networkType, rows }) => {
+    if (!page._active || serial !== page._accessSerial || !canUseDiagnostics()) return;
+    page.setData({ deviceRows: rows, networkType });
+  });
+  refreshRuntimeDiagnostics(page);
+}
 
 function createBuildRows(miniProgramVersion: string): readonly DiagnosticRow[] {
   return [

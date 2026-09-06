@@ -109,6 +109,10 @@ describeWithDatabase('invite links and identity binding', () => {
     expect(accepted.json()).toMatchObject({
       group: { id: groupId, name: 'Invite group', role: 'administrator' },
     });
+    // Simulate a pre-retirement result without rewriting it during replay.
+    await client.database.execute(
+      sql`UPDATE idempotency_keys SET result = JSON_SET(result, '$.group.groupCode', '0037') WHERE operation_key = ${acceptOperationId}`,
+    );
     const replayedAccept = await acceptInvite(
       alice.token,
       createdBody.token,
@@ -118,6 +122,10 @@ describeWithDatabase('invite links and identity binding', () => {
     );
     expect(replayedAccept.statusCode, replayedAccept.body).toBe(200);
     expect(replayedAccept.json()).toEqual(accepted.json());
+    const [storedReplay] = await client.database.execute<{ code: string }>(
+      sql`SELECT JSON_UNQUOTE(JSON_EXTRACT(result, '$.group.groupCode')) AS code FROM idempotency_keys WHERE operation_key = ${acceptOperationId}`,
+    );
+    expect(storedReplay).toEqual([{ code: '0037' }]);
 
     const [roleRows] = (await client.database.execute(
       sql`SELECT COUNT(*) AS count FROM member_schedule_roles`,

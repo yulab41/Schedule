@@ -1,4 +1,4 @@
-@import "../../../../styles/ui-icon-motion.wxss";
+@import '../../../../styles/ui-icon-motion.wxss';
 
 :host {
   display: block;
@@ -269,4 +269,9 @@
     padding-right: 3px;
     padding-left: 3px;
   }
+}
+
+.directory-entry.is-current-user {
+  background: var(--ui-color-primary-light);
+  border-color: var(--ui-color-primary-border);
 }

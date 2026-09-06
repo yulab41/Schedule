@@ -114,7 +114,7 @@ export const groups = mysqlTable(
   {
     id: identifier(),
     name: varchar('name', { length: 100 }).notNull(),
-    groupCode: char('group_code', { length: 4 }).notNull(),
+    groupCode: char('group_code', { length: 4 }),
     visitorKey: varchar('visitor_key', { length: 64 })
       .notNull()
       .$defaultFn(() => randomBytes(16).toString('hex')),

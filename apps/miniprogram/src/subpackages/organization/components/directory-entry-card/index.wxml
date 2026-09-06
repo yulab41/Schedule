@@ -1,5 +1,5 @@
 <view
-  class="directory-entry {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}} {{disabled ? 'is-disabled' : ''}}"
+  class="directory-entry {{currentUser ? 'is-current-user' : ''}} {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}} {{disabled ? 'is-disabled' : ''}}"
   aria-disabled="{{disabled}}"
 >
   <view class="entry-accent"></view>
@@ -36,6 +36,7 @@
         </view>
       </view>
       <view
+        wx:if="{{showFavorite}}"
         class="favorite-action {{entry.favorite ? 'is-favorite' : ''}} {{disabled ? 'is-disabled' : ''}}"
         aria-role="button"
         aria-label="{{entry.favorite ? '取消收藏' : '收藏'}}{{entry.title}}"
@@ -69,7 +70,7 @@
               data-number-id="{{number.id}}"
               aria-role="button"
               aria-label="拨打{{entry.title}}的{{contact.label}} {{number.number}}"
-              bindtap="handleCall"
+              catchtap="handleCall"
             >
               <text wx:if="{{number.label}}" class="number-kind">{{number.label}}</text>
               <text class="contact-number">{{number.number}}</text>

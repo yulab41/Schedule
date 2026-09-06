@@ -129,12 +129,23 @@ describe('P7 physical-device feedback regressions', () => {
       JSON.parse(read('subpackages/workflows/components/workflow-picker/index.json'))
         .styleIsolation,
     ).toBe('apply-shared');
-    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
-    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const pickerTemplate =
+      read('subpackages/workflows/components/workflow-picker/index.wxml') +
+      read('components/ui/ui-selector/options.wxml');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxml')).toContain(
+      'components/ui/ui-selector/options.wxml',
+    );
+    const pickerStyles =
+      read('subpackages/workflows/components/workflow-picker/index.wxss') +
+      read('components/ui/ui-selector/index.wxss');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxss')).toContain(
+      'components/ui/ui-selector/index.wxss',
+    );
     expect(pickerTemplate).toContain('class="workflow-picker-sheet"');
     expect(pickerTemplate).toContain('workflow-picker-selector-popover');
     expect(pickerTemplate).toContain("open && mode !== 'selector'");
-    expect(pickerTemplate).toContain('class="workflow-picker-summary"');
+    expect(pickerTemplate).not.toContain('workflow-picker-summary');
+    expect(pickerStyles).not.toContain('workflow-picker-summary');
     expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-grid"');
     expect(pickerTemplate).not.toContain('<picker-view');
@@ -161,8 +172,18 @@ describe('P7 physical-device feedback regressions', () => {
   });
 
   it('removes long blue press fills and pre-mounts the leave form without transient copy', () => {
-    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
-    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const pickerTemplate =
+      read('subpackages/workflows/components/workflow-picker/index.wxml') +
+      read('components/ui/ui-selector/options.wxml');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxml')).toContain(
+      'components/ui/ui-selector/options.wxml',
+    );
+    const pickerStyles =
+      read('subpackages/workflows/components/workflow-picker/index.wxss') +
+      read('components/ui/ui-selector/index.wxss');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxss')).toContain(
+      'components/ui/ui-selector/index.wxss',
+    );
     const wheelStyles = read('components/ui/ui-wheel-column/index.wxss');
     const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
     const leaveStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
@@ -195,8 +216,18 @@ describe('P7 physical-device feedback regressions', () => {
   });
 
   it('coordinates dropdown dismissal, compact empty state, filter outside taps, and group warmup', () => {
-    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
-    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const pickerTemplate =
+      read('subpackages/workflows/components/workflow-picker/index.wxml') +
+      read('components/ui/ui-selector/options.wxml');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxml')).toContain(
+      'components/ui/ui-selector/options.wxml',
+    );
+    const pickerStyles =
+      read('subpackages/workflows/components/workflow-picker/index.wxss') +
+      read('components/ui/ui-selector/index.wxss');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxss')).toContain(
+      'components/ui/ui-selector/index.wxss',
+    );
     const pickerController = read('subpackages/workflows/components/workflow-picker/index.ts');
     const host = read('subpackages/workflows/components/controller-host.ts');
     const workbenchTemplate = read('pages/workbench/index.wxml');
@@ -240,8 +271,18 @@ describe('P7 physical-device feedback regressions', () => {
   });
 
   it('matches Web select geometry and keeps the open trigger blue until the dropdown closes', () => {
-    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
-    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const pickerTemplate =
+      read('subpackages/workflows/components/workflow-picker/index.wxml') +
+      read('components/ui/ui-selector/options.wxml');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxml')).toContain(
+      'components/ui/ui-selector/options.wxml',
+    );
+    const pickerStyles =
+      read('subpackages/workflows/components/workflow-picker/index.wxss') +
+      read('components/ui/ui-selector/index.wxss');
+    expect(read('subpackages/workflows/components/workflow-picker/index.wxss')).toContain(
+      'components/ui/ui-selector/index.wxss',
+    );
 
     expect(pickerTemplate).not.toMatch(/class="workflow-picker-option[^>]*hover-/u);
     expect(pickerStyles).toMatch(

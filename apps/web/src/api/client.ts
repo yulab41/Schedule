@@ -19,8 +19,6 @@ import type {
   ApprovedLeaveRequestResult,
   CalendarPreferences,
   CalendarReadModel,
-  ClaimGroupRequest,
-  ClaimGroupResponse,
   CreatePastScheduleAssignmentInput,
   CreateScheduleExportInput,
   CreateWechatAdminBindingLinkResponse,
@@ -98,7 +96,6 @@ import type {
   RejectLeaveRequestInput,
   ReorderRotationMembersRequest,
   RevokeInviteRequest,
-  UpdateGroupCodeRequest,
   UpdateGroupCalendarDefaults,
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
@@ -292,7 +289,6 @@ export interface ApiClient {
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult>;
-  claimGroup(input: ClaimGroupRequest): Promise<ClaimGroupResponse>;
   cancelSwapRequest(
     groupId: string,
     swapRequestId: string,
@@ -481,7 +477,6 @@ export interface ApiClient {
     templateId: string,
     input: PreviewManualTemplateApplyRequest,
   ): Promise<ManualApplyPreview>;
-  updateGroupCode(groupId: string, input: UpdateGroupCodeRequest): Promise<GroupSummary>;
   updateGroupCalendarDefaults(
     groupId: string,
     input: UpdateGroupCalendarDefaults,
@@ -971,9 +966,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
     convertRosterEntries(groupId, input) {
       return organizationWriteClient.convertRosterEntries(groupId, input);
-    },
-    claimGroup(input) {
-      return organizationWriteClient.claimGroup(input);
     },
     cancelSwapRequest(groupId, swapRequestId, input) {
       return workflowClient.cancelSwapRequest(groupId, swapRequestId, input);
@@ -1570,9 +1562,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
     previewLeaveRequestApproval(groupId, leaveRequestId, input) {
       return workflowClient.previewLeaveRequestApproval(groupId, leaveRequestId, input);
-    },
-    updateGroupCode(groupId, input) {
-      return organizationWriteClient.updateGroupCode(groupId, input);
     },
     updateGroupCalendarDefaults(groupId, input) {
       return requestJson(

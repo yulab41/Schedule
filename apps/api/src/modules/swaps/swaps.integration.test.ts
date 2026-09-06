@@ -1643,7 +1643,7 @@ describeWithDatabase('member shift swaps', () => {
       ['b-token', 'B Doctor'],
       ['c-token', 'C Doctor'],
     ] as const) {
-      await claimGroup(token, '5678', realName);
+      await attachTestMember(token, groupId, realName);
     }
 
     const config = await getConfig('owner-token', groupId);
@@ -2109,9 +2109,13 @@ describeWithDatabase('member shift swaps', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+  async function attachTestMember(
+    token: string,
+    targetGroupId: string,
+    realName: string,
+  ): Promise<void> {
     void token;
-    await insertDirectMembership(client, { groupCode, realName });
+    await insertDirectMembership(client, { groupId: targetGroupId, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

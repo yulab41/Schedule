@@ -17,7 +17,10 @@ interface WorkflowPanelHost {
   __workflowControllerToken?: object;
   __infoMessageTimer?: unknown;
   __infoMessageToken?: object;
+  __infoMessageSource?: string;
+  __infoMessageText?: string;
   __workflowPageHidden?: boolean;
+  __workflowFeedbackGeneration?: number;
   __loadedGroupId?: string;
   __workflowLifecycleManaged?: true;
   readonly data: Readonly<Record<string, unknown>>;
@@ -55,6 +58,18 @@ export function captureWorkflowControllerTask(host: object): WorkflowControllerT
       target.__attached === true &&
       target.__controller === controller &&
       target.__workflowControllerToken === token,
+  };
+}
+
+export function captureWorkflowFeedbackTask(host: object): WorkflowControllerTask {
+  const target = host as WorkflowPanelHost;
+  const task = captureWorkflowControllerTask(host);
+  const generation = target.__workflowFeedbackGeneration ?? 0;
+  return {
+    isCurrent: () =>
+      task.isCurrent() &&
+      target.__workflowPageHidden !== true &&
+      (target.__workflowFeedbackGeneration ?? 0) === generation,
   };
 }
 
@@ -240,6 +255,12 @@ function clearInfoMessageTimer(host: WorkflowPanelHost): void {
 
 function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
   clearInfoMessageTimer(host);
+  if (value !== host.__infoMessageText) {
+    delete host.__infoMessageSource;
+    if (host.data['infoMessageSaving'] || host.data['infoMessageTone'] === 'error') {
+      host.setData({ infoMessageSaving: false, infoMessageTone: 'success' });
+    }
+  }
   if (typeof value !== 'string' || value === '' || host.__workflowPageHidden === true) return;
   const expected = value;
   const task = captureWorkflowControllerTask(host);
@@ -256,9 +277,34 @@ function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
   }, 2_000);
 }
 
+export function pauseWorkflowInfo(target: object, source: string): void {
+  const host = target as WorkflowPanelHost;
+  if (host.__infoMessageSource !== source || !host.data['infoMessage']) return;
+  clearInfoMessageTimer(host);
+  host.setData({ infoMessageSaving: true });
+}
+
+export function publishWorkflowInfo(
+  target: object,
+  message: string,
+  source: string,
+  tone: 'success' | 'error' = 'success',
+): void {
+  const host = target as WorkflowPanelHost;
+  if (host.__workflowPageHidden === true) return;
+  host.__infoMessageSource = source;
+  host.__infoMessageText = message;
+  host.setData({ infoMessage: message, infoMessageSaving: false, infoMessageTone: tone });
+  updateInfoMessageTimer(host, message);
+}
+
 function suspendWorkflowFeedback(host: WorkflowPanelHost): void {
   host.__workflowPageHidden = true;
+  host.__workflowFeedbackGeneration = (host.__workflowFeedbackGeneration ?? 0) + 1;
   clearInfoMessageTimer(host);
+  host.setData({ infoMessage: '', infoMessageSaving: false });
+  delete host.__infoMessageSource;
+  delete host.__infoMessageText;
 }
 
 function resumeWorkflowFeedback(host: WorkflowPanelHost): void {

@@ -531,8 +531,8 @@ describeWithDatabase('notification workflows', () => {
     const groupId = await createGroup('Notifications group', '8899');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
-    await claimGroup('a-token', '8899', 'A Doctor');
-    await claimGroup('b-token', '8899', 'B Doctor');
+    await attachTestMember('a-token', groupId, 'A Doctor');
+    await attachTestMember('b-token', groupId, 'B Doctor');
     return { groupId };
   }
 
@@ -540,8 +540,8 @@ describeWithDatabase('notification workflows', () => {
     const groupId = await createGroup('Notifications schedule group', '7788');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
-    await claimGroup('a-token', '7788', 'A Doctor');
-    await claimGroup('b-token', '7788', 'B Doctor');
+    await attachTestMember('a-token', groupId, 'A Doctor');
+    await attachTestMember('b-token', groupId, 'B Doctor');
 
     const config = await getConfig('owner-token', groupId);
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);
@@ -651,9 +651,13 @@ describeWithDatabase('notification workflows', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+  async function attachTestMember(
+    token: string,
+    targetGroupId: string,
+    realName: string,
+  ): Promise<void> {
     void token;
-    await insertDirectMembership(client, { groupCode, realName });
+    await insertDirectMembership(client, { groupId: targetGroupId, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

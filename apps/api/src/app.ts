@@ -241,6 +241,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
     registerPastScheduleRoutes(app, new PastScheduleService(options.databaseClient));
+    const platformAdminService = new PlatformAdminService(
+      options.databaseClient,
+      platformAdminUids,
+    );
     registerDirectoryRoutes(
       app,
       new DirectoryQuery(options.databaseClient, {
@@ -256,11 +260,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
           );
         },
       }),
+      async (identity) => (await platformAdminService.diagnosticsAccess(identity)).allowed,
     );
-    registerPlatformAdminRoutes(
-      app,
-      new PlatformAdminService(options.databaseClient, platformAdminUids),
-    );
+    registerPlatformAdminRoutes(app, platformAdminService);
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

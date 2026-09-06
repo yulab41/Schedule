@@ -41,27 +41,11 @@
       </view>
 
       <view wx:else class="group-setup-panel">
-        <view class="group-panel-heading">
-          <view>
-            <text class="section-eyebrow">协作身份</text>
-            <text class="page-title">群组管理</text>
-          </view>
-          <text class="page-description"
-            >查看当前群组，并管理自己的日历偏好与联系方式公开设置。</text
-          >
-        </view>
-
         <view class="group-identity-band">
           <view class="group-identity-copy">
             <text>当前工作群组</text>
             <text class="group-name">{{currentGroupName}}</text>
             <text class="role-chip">{{currentGroupRole}}</text>
-          </view>
-          <view class="group-code-block">
-            <text>共享群组码</text>
-            <view class="group-code-digits" aria-label="{{groupCodeAriaLabel}}">
-              <text wx:for="{{currentGroupCodeDigits}}" wx:key="key">{{item.value}}</text>
-            </view>
           </view>
         </view>
 
@@ -88,16 +72,6 @@
                   <text>仅决定当前群组成员能否查看您的完整手机号。</text>
                 </view>
                 <text class="preference-scope">仅自己</text>
-              </view>
-
-              <view class="contact-member-row">
-                <view class="phone-avatar">{{profileInitial}}</view>
-                <view class="contact-member-copy">
-                  <text class="profile-name">{{profileName}}</text>
-                  <text wx:if="{{consentState === 'missing-phone'}}">尚未设置手机号</text>
-                  <text wx:else>手机号 {{maskedMobilePhone}}</text>
-                  <text>说明版本 {{noticeVersion}} · 号码变更后需重新同意</text>
-                </view>
               </view>
 
               <ui-alert
@@ -132,9 +106,6 @@
                 </view>
               </view>
 
-              <text class="privacy-boundary"
-                >管理员不能代替成员授权，也不能把同意复制到其他群组；撤回后完整号码立即隐藏。</text
-              >
               <view
                 class="web-button consent-save {{saveDisabled ? 'is-disabled' : 'is-primary'}}"
                 hover-class="{{saveDisabled ? 'none' : 'is-pressed'}}"
@@ -182,10 +153,7 @@
                 message="{{calendarPreferencesInfo}}"
               ></ui-alert>
 
-              <view
-                wx:if="{{canManageGroupCalendarDefaults}}"
-                class="calendar-preference-section"
-              >
+              <view wx:if="{{canManageGroupCalendarDefaults}}" class="calendar-preference-section">
                 <view class="preference-heading">
                   <view>
                     <text class="preference-title">群组日历默认设置</text>
@@ -193,48 +161,22 @@
                   </view>
                   <text class="preference-scope is-group">群组默认</text>
                 </view>
-                <view class="calendar-view-segment" aria-role="radiogroup">
-                  <view
-                    class="calendar-view-option {{groupCalendarView === 'month' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="month"
-                    aria-role="radio"
-                    aria-checked="{{groupCalendarView === 'month'}}"
-                    bindtap="handleGroupCalendarViewSelect"
-                    >月视图</view
-                  >
-                  <view
-                    class="calendar-view-option {{groupCalendarView === 'week' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="week"
-                    aria-role="radio"
-                    aria-checked="{{groupCalendarView === 'week'}}"
-                    bindtap="handleGroupCalendarViewSelect"
-                    >周视图</view
-                  >
-                  <view
-                    class="calendar-view-option {{groupCalendarView === 'list' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="list"
-                    aria-role="radio"
-                    aria-checked="{{groupCalendarView === 'list'}}"
-                    bindtap="handleGroupCalendarViewSelect"
-                    >列表视图</view
-                  >
-                </view>
+                <ui-selector
+                  title="群组默认视图"
+                  options="{{groupCalendarViewOptions}}"
+                  selected-index="{{groupCalendarView === 'month' ? 0 : groupCalendarView === 'week' ? 1 : groupCalendarView === 'list' ? 2 : 0}}"
+                  display-value="{{groupCalendarView === 'month' ? '月视图' : groupCalendarView === 'week' ? '周视图' : groupCalendarView === 'list' ? '列表视图' : '跟随群组'}}"
+                  bindchange="handleGroupCalendarViewSelect"
+                ></ui-selector>
                 <view class="field-block">
                   <text class="field-label">月视图默认班种</text>
-                  <picker
-                    mode="selector"
-                    range="{{groupCalendarShiftOptions}}"
-                    range-key="label"
-                    value="{{groupCalendarShiftIndex}}"
+                  <ui-selector
+                    title="月视图默认班种"
+                    options="{{groupCalendarShiftOptions}}"
+                    selected-index="{{groupCalendarShiftIndex}}"
+                    display-value="{{groupCalendarShiftOptions[groupCalendarShiftIndex].label}}"
                     bindchange="handleGroupCalendarShiftChange"
-                  >
-                    <view class="native-picker"
-                      >{{groupCalendarShiftOptions[groupCalendarShiftIndex].label}}</view
-                    >
-                  </picker>
+                  ></ui-selector>
                 </view>
                 <view
                   class="web-button {{isSavingGroupCalendarDefaults ? 'is-disabled' : 'is-primary'}}"
@@ -255,57 +197,22 @@
                   </view>
                   <text class="preference-scope">仅自己</text>
                 </view>
-                <view class="calendar-view-segment is-personal" aria-role="radiogroup">
-                  <view
-                    class="calendar-view-option {{memberCalendarView === 'follow' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="follow"
-                    aria-role="radio"
-                    aria-checked="{{memberCalendarView === 'follow'}}"
-                    bindtap="handleMemberCalendarViewSelect"
-                    >跟随群组</view
-                  >
-                  <view
-                    class="calendar-view-option {{memberCalendarView === 'month' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="month"
-                    aria-role="radio"
-                    aria-checked="{{memberCalendarView === 'month'}}"
-                    bindtap="handleMemberCalendarViewSelect"
-                    >月视图</view
-                  >
-                  <view
-                    class="calendar-view-option {{memberCalendarView === 'week' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="week"
-                    aria-role="radio"
-                    aria-checked="{{memberCalendarView === 'week'}}"
-                    bindtap="handleMemberCalendarViewSelect"
-                    >周视图</view
-                  >
-                  <view
-                    class="calendar-view-option {{memberCalendarView === 'list' ? 'is-active' : ''}}"
-                    hover-class="is-pressed"
-                    data-view="list"
-                    aria-role="radio"
-                    aria-checked="{{memberCalendarView === 'list'}}"
-                    bindtap="handleMemberCalendarViewSelect"
-                    >列表视图</view
-                  >
-                </view>
+                <ui-selector
+                  title="我的默认视图"
+                  options="{{memberCalendarViewOptions}}"
+                  selected-index="{{memberCalendarView === 'month' ? 1 : memberCalendarView === 'week' ? 2 : memberCalendarView === 'list' ? 3 : 0}}"
+                  display-value="{{memberCalendarView === 'month' ? '月视图' : memberCalendarView === 'week' ? '周视图' : memberCalendarView === 'list' ? '列表视图' : '跟随群组'}}"
+                  bindchange="handleMemberCalendarViewSelect"
+                ></ui-selector>
                 <view class="field-block">
                   <text class="field-label">月视图默认班种</text>
-                  <picker
-                    mode="selector"
-                    range="{{memberCalendarShiftOptions}}"
-                    range-key="label"
-                    value="{{memberCalendarShiftIndex}}"
+                  <ui-selector
+                    title="月视图默认班种"
+                    options="{{memberCalendarShiftOptions}}"
+                    selected-index="{{memberCalendarShiftIndex}}"
+                    display-value="{{memberCalendarShiftOptions[memberCalendarShiftIndex].label}}"
                     bindchange="handleMemberCalendarShiftChange"
-                  >
-                    <view class="native-picker"
-                      >{{memberCalendarShiftOptions[memberCalendarShiftIndex].label}}</view
-                    >
-                  </picker>
+                  ></ui-selector>
                 </view>
                 <view
                   class="web-button {{isSavingMemberCalendarPreferences ? 'is-disabled' : 'is-primary'}}"
@@ -347,39 +254,18 @@
                 >保存名称</view
               >
             </view>
-            <view class="field-block">
-              <text class="field-label">四位群组码</text>
-              <input
-                class="native-field"
-                type="number"
-                value="{{groupCodeDraft}}"
-                maxlength="4"
-                bindinput="handleGroupCodeInput"
-              />
-              <view
-                class="web-button is-primary"
-                hover-class="is-pressed"
-                aria-role="button"
-                bindtap="handleSaveGroupCode"
-                >保存群组码</view
-              >
-            </view>
           </view>
         </view>
 
-        <view wx:if="{{canLeaveGroup}}" class="group-card group-exit-card">
-          <view class="group-card-header"
-            ><text>当前群组操作</text><text class="card-scope">成员操作</text></view
+        <view wx:if="{{canLeaveGroup}}" class="group-leave-action">
+          <view
+            class="web-button group-leave-button"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{managementState === 'loading'}}"
+            bindtap="handleLeaveGroup"
+            >退出群组</view
           >
-          <view class="group-card-body group-action-row">
-            <view
-              class="web-button is-danger"
-              hover-class="is-pressed"
-              aria-role="button"
-              bindtap="handleLeaveGroup"
-              >退出群组</view
-            >
-          </view>
         </view>
 
         <view wx:if="{{canDissolveGroup}}" class="group-card group-exit-card">
@@ -398,7 +284,7 @@
         </view>
 
         <view wx:if="{{canManageGroupLifecycle}}" class="group-card group-lifecycle-card">
-          <view class="group-card-header"><text>创建或加入群组</text></view>
+          <view class="group-card-header"><text>创建群组</text></view>
           <view class="group-card-body mutation-fields">
             <view class="field-block">
               <text class="field-label">创建群组</text>
@@ -409,46 +295,12 @@
                 placeholder="新群组名称"
                 bindinput="handleCreateGroupNameInput"
               />
-              <input
-                class="native-field"
-                type="number"
-                value="{{createGroupCode}}"
-                maxlength="4"
-                placeholder="四位群组码"
-                bindinput="handleCreateGroupCodeInput"
-              />
               <view
                 class="web-button is-primary"
                 hover-class="is-pressed"
                 aria-role="button"
                 bindtap="handleCreateGroup"
                 >创建群组</view
-              >
-            </view>
-            <view class="field-block">
-              <text class="field-label">加入其他群组</text>
-              <picker
-                mode="selector"
-                range="{{catalogLabels}}"
-                value="{{catalogIndex}}"
-                bindchange="handleJoinGroupPickerChange"
-              >
-                <view class="native-picker">{{selectedCatalogLabel}}</view>
-              </picker>
-              <input
-                class="native-field"
-                type="number"
-                value="{{joinGroupCode}}"
-                maxlength="4"
-                placeholder="输入四位群组码"
-                bindinput="handleJoinGroupCodeInput"
-              />
-              <view
-                class="web-button is-primary"
-                hover-class="is-pressed"
-                aria-role="button"
-                bindtap="handleJoinGroup"
-                >加入群组</view
               >
             </view>
           </view>
@@ -511,26 +363,14 @@
               wx:key="id"
               class="member-management-row"
             >
-              <view class="member-row-main">
-                <view class="member-avatar">{{member.name[0]}}</view>
-                <view class="member-row-copy">
-                  <text class="member-row-name"
-                    >{{member.name}}{{member.isCurrentUser ? ' · 我' : ''}}</text
-                  >
-                  <text class="member-row-meta">{{member.roleLabel}} · {{member.statusLabel}}</text>
-                  <text wx:if="{{member.hasMobilePhone}}" class="member-contact-line"
-                    >长号 {{member.mobilePhone}}</text
-                  >
-                  <text wx:if="{{member.hasShortPhone}}" class="member-contact-line"
-                    >短号 {{member.shortPhone}}</text
-                  >
-                  <text
-                    wx:if="{{!member.hasMobilePhone && !member.hasShortPhone}}"
-                    class="member-contact-line"
-                    >联系方式未填写</text
-                  >
-                </view>
-              </view>
+              <directory-entry-card
+                class="member-entry-card"
+                entry="{{member.entry}}"
+                show-favorite="{{false}}"
+                current-user="{{member.isCurrentUser}}"
+                large-text="{{largeText}}"
+                binddirectorycall="handleMemberCall"
+              ></directory-entry-card>
               <view wx:if="{{member.canManage}}" class="member-row-actions">
                 <view
                   wx:if="{{member.canEdit}}"
@@ -648,7 +488,7 @@
             ></view
           >
           <text class="inline-editor-copy"
-            >每行输入一个姓名。成员使用保存姓名和群组码加入后会自动关联账号。</text
+            >每行输入一个姓名。请使用管理员提供的邀请关联成员账号。</text
           >
           <textarea
             class="native-textarea"

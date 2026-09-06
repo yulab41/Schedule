@@ -12,7 +12,6 @@ import {
   type DatabaseTransaction,
   userPasswordCredentials,
   userAuthIdentities,
-  userProfileAvatars,
   userProfiles,
   users,
   withTransaction,
@@ -307,13 +306,11 @@ export class PasswordAuthService {
   private async findProfile(userId: string): Promise<PasswordAuthResponse['profile']> {
     const [profile] = await this.databaseClient.database
       .select({
-        avatarVersion: userProfileAvatars.version,
         id: userProfiles.userId,
         realName: userProfiles.realName,
         version: userProfiles.version,
       })
       .from(userProfiles)
-      .leftJoin(userProfileAvatars, eq(userProfileAvatars.userId, userProfiles.userId))
       .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
       .limit(1);
 

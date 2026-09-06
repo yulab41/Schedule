@@ -1,0 +1,205 @@
+.workflow-picker-root {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.workflow-picker-root.is-open {
+  z-index: 30;
+}
+
+.workflow-picker-root.is-open .workflow-picker-trigger {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 0 0 2px rgba(10, 102, 213, 0.12);
+}
+
+.workflow-picker-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 5px 10px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+}
+
+.workflow-picker-trigger.is-pressed {
+  background: var(--ui-color-surface);
+  border-color: var(--ui-color-primary);
+}
+
+.workflow-picker-trigger.is-disabled {
+  opacity: 0.55;
+}
+
+.workflow-picker-trigger-value {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-picker-trigger-value.is-placeholder,
+.workflow-picker-chevron {
+  color: var(--ui-color-text-muted);
+}
+
+.workflow-picker-chevron {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.workflow-picker-chevron image {
+  width: 20px;
+  height: 20px;
+  transform: rotate(0deg);
+}
+
+.workflow-picker-chevron.is-right {
+  transform: none;
+}
+
+.workflow-picker-chevron.is-down {
+  margin-top: -4px;
+}
+
+.workflow-picker-chevron.is-down image {
+  transform: rotate(90deg);
+}
+
+.workflow-picker-chevron.is-up {
+  margin-top: 4px;
+}
+
+.workflow-picker-chevron.is-up image {
+  transform: rotate(-90deg);
+}
+
+.workflow-picker-selector-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  min-height: 0;
+  max-height: 300px;
+  padding: 6px;
+  box-sizing: border-box;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 10px;
+  box-shadow:
+    0 3px 14px 2px rgba(0, 0, 0, 0.05),
+    0 8px 10px 1px rgba(0, 0, 0, 0.06),
+    0 5px 5px -3px rgba(0, 0, 0, 0.1);
+}
+
+.workflow-picker-selector-popover.is-up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.workflow-picker-selector-popover.is-measuring {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workflow-picker-selector-popover.is-ready {
+  animation: selector-popover-in-down 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.workflow-picker-selector-popover.is-up.is-ready {
+  animation-name: selector-popover-in-up;
+}
+
+.workflow-picker-selector-backdrop {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+}
+
+.workflow-picker-option {
+  display: flex;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  align-items: center;
+  color: var(--ui-color-text-primary);
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.workflow-picker-option-weekend,
+.workflow-picker-option.is-weekend .workflow-picker-option-weekend {
+  color: var(--ui-color-danger);
+}
+
+.workflow-picker-option.is-selected {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.workflow-picker-option + .workflow-picker-option {
+  margin-top: 2px;
+}
+
+.workflow-picker-option-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.workflow-picker-empty {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+@keyframes selector-popover-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes selector-popover-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-picker-selector-popover.is-ready {
+    animation: none;
+  }
+}

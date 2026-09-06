@@ -64,7 +64,6 @@ const profile: UserProfile = {
 };
 
 const group: GroupSummary = {
-  groupCode: '1234',
   id: 'group-1',
   name: 'Emergency Department',
   role: 'owner',
@@ -846,75 +845,19 @@ describe('Web API client', () => {
     }
   });
 
-  it('sends group creation, roster claiming, and group-code updates through authenticated API calls', async () => {
+  it('creates a group with name and operation id only', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(JSON.stringify(group), { status: 201 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ status: 'request_created' }), { status: 202 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...group, groupCode: '9876', version: 2 }), { status: 200 }),
-      );
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
+      .mockResolvedValue(new Response(JSON.stringify(group), { status: 201 }));
+    const client = createApiClient({ auth: createAuthClient(), fetch: fetchImplementation });
     await expect(
-      client.createGroup({
-        groupCode: '1234',
-        name: 'Emergency Department',
-        operationId: organizationOperationId,
-      }),
+      client.createGroup({ name: 'Synthetic team', operationId: organizationOperationId }),
     ).resolves.toEqual(group);
-    await expect(
-      client.claimGroup({ groupCode: '1234', operationId: organizationOperationId }),
-    ).resolves.toEqual({
-      status: 'request_created',
-    });
-    await expect(
-      client.updateGroupCode(group.id, {
-        expectedVersion: group.version,
-        groupCode: '5678',
-        operationId: organizationOperationId,
-      }),
-    ).resolves.toEqual({
-      ...group,
-      groupCode: '9876',
-      version: 2,
-    });
-
-    expect(fetchImplementation).toHaveBeenNthCalledWith(
-      1,
+    expect(fetchImplementation).toHaveBeenCalledWith(
       '/api/groups',
       expect.objectContaining({
-        body: JSON.stringify({
-          groupCode: '1234',
-          name: 'Emergency Department',
-          operationId: organizationOperationId,
-        }),
         method: 'POST',
-      }),
-    );
-    expect(fetchImplementation).toHaveBeenNthCalledWith(
-      2,
-      '/api/groups/claim',
-      expect.objectContaining({
-        body: JSON.stringify({ groupCode: '1234', operationId: organizationOperationId }),
-        method: 'POST',
-      }),
-    );
-    expect(fetchImplementation).toHaveBeenNthCalledWith(
-      3,
-      '/api/groups/group-1/group-code',
-      expect.objectContaining({
-        body: JSON.stringify({
-          expectedVersion: group.version,
-          groupCode: '5678',
-          operationId: organizationOperationId,
-        }),
-        method: 'PUT',
+        body: JSON.stringify({ name: 'Synthetic team', operationId: organizationOperationId }),
       }),
     );
   });
@@ -1266,21 +1209,10 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a claimed group response without its group', async () => {
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify({ status: 'claimed' }), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(
-      client.claimGroup({ groupCode: '1234', operationId: organizationOperationId }),
-    ).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
+  it('has no group-code write or claim capability', () => {
+    const client = createApiClient({ auth: createAuthClient() });
+    expect('claimGroup' in client).toBe(false);
+    expect('updateGroupCode' in client).toBe(false);
   });
 
   it('rejects a claim lookup response with an invalid role', async () => {
@@ -3855,7 +3787,6 @@ describe('Web API client', () => {
 
     await expect(
       client.createGroup({
-        groupCode: '1234',
         name: 'Emergency Department',
         operationId: organizationOperationId,
       }),

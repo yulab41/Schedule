@@ -37,6 +37,7 @@ import {
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 import { captureWorkflowControllerTask } from '../controller-host.js';
+import { enqueueSettingIntent } from '../settings-intent.js';
 
 type PageState = 'error' | 'loading' | 'ready';
 
@@ -927,63 +928,35 @@ async function revokeSwap(page: SwapPageInstance): Promise<void> {
   }
 }
 
-async function updateGroupApproval(page: SwapPageInstance, checked: boolean): Promise<void> {
-  const task = captureWorkflowControllerTask(page);
-  if (!task.isCurrent()) return;
-  if (!page.data.canApprove || page.data.settingsBusy) return;
-  const previousValue = page.data.requiresApproval;
-  page.setData({
-    settingsBusy: true,
-    requiresApproval: checked,
-    errorMessage: '',
-    infoMessage: '',
+function updateGroupApproval(page: SwapPageInstance, checked: boolean): void {
+  if (!page.data.canApprove) return;
+  const groupId = page._currentGroupId;
+  enqueueSettingIntent(page, {
+    key: 'swap-group-approval',
+    field: 'requiresApproval',
+    value: checked,
+    save: async (value) =>
+      (await workflowClient.updateGroupSwapSettings(groupId, { requiresApproval: value }))
+        .requiresApproval,
+    read: async () => (await workflowClient.getGroupSwapSettings(groupId)).requiresApproval,
+    success: (value) => (value ? '换班已改为需要管理员审批。' : '换班已改为无需管理员审批。'),
+    failure: (error) => toUserMessage(error, '换班设置暂时无法更新。'),
   });
-  try {
-    const settings = await workflowClient.updateGroupSwapSettings(page._currentGroupId, {
-      requiresApproval: checked,
-    });
-    if (!task.isCurrent()) return;
-    page.setData({
-      infoMessage: settings.requiresApproval
-        ? '换班已改为需要管理员审批。'
-        : '换班已改为无需管理员审批。',
-      requiresApproval: settings.requiresApproval,
-    });
-  } catch (error) {
-    if (!task.isCurrent()) return;
-    page.setData({
-      requiresApproval: previousValue,
-      errorMessage: toUserMessage(error, '换班设置暂时无法更新。'),
-    });
-  } finally {
-    if (task.isCurrent()) page.setData({ settingsBusy: false });
-  }
 }
 
-async function updateAutoAccept(page: SwapPageInstance, checked: boolean): Promise<void> {
-  const task = captureWorkflowControllerTask(page);
-  if (!task.isCurrent()) return;
-  if (page.data.settingsBusy) return;
-  const previousValue = page.data.autoAcceptSwaps;
-  page.setData({ settingsBusy: true, autoAcceptSwaps: checked, errorMessage: '', infoMessage: '' });
-  try {
-    const settings = await workflowClient.updateMySwapSettings(page._currentGroupId, {
-      autoAcceptSwaps: checked,
-    });
-    if (!task.isCurrent()) return;
-    page.setData({
-      autoAcceptSwaps: settings.autoAcceptSwaps,
-      infoMessage: settings.autoAcceptSwaps ? '已开启自动接受换班。' : '已关闭自动接受换班。',
-    });
-  } catch (error) {
-    if (!task.isCurrent()) return;
-    page.setData({
-      autoAcceptSwaps: previousValue,
-      errorMessage: toUserMessage(error, '换班设置暂时无法更新。'),
-    });
-  } finally {
-    if (task.isCurrent()) page.setData({ settingsBusy: false });
-  }
+function updateAutoAccept(page: SwapPageInstance, checked: boolean): void {
+  const groupId = page._currentGroupId;
+  enqueueSettingIntent(page, {
+    key: 'auto-accept',
+    field: 'autoAcceptSwaps',
+    value: checked,
+    save: async (value) =>
+      (await workflowClient.updateMySwapSettings(groupId, { autoAcceptSwaps: value }))
+        .autoAcceptSwaps,
+    read: async () => (await workflowClient.getMySwapSettings(groupId)).autoAcceptSwaps,
+    success: (value) => (value ? '已开启自动接受换班。' : '已关闭自动接受换班。'),
+    failure: (error) => toUserMessage(error, '换班设置暂时无法更新。'),
+  });
 }
 
 async function handlePreviewError(

@@ -196,7 +196,6 @@ describe('P7 native duty-adjustment workflow controller', () => {
     if (path === '/groups' && options.method === 'GET') {
       respond(options, [
         {
-          groupCode: '0796',
           id: groupId,
           ...(isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
           name: '急诊一组',

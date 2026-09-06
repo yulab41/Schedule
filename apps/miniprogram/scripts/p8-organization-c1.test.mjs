@@ -73,7 +73,8 @@ describe('P8-C-1 native organization management', () => {
     expect(controller).toContain('fontSizeSetting');
     expect(panel).toContain("largeText ? 'is-large-text' : ''");
     expect(styles).toContain('.group-settings-page.is-large-text .group-name');
-    expect(styles).toContain('.group-settings-page.is-large-text .member-row-name');
+    expect(panel).toContain('<directory-entry-card');
+    expect(panel).toContain('large-text="{{largeText}}"');
     expect(styles).toContain('white-space: normal');
   });
 });

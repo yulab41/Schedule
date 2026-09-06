@@ -1,8 +1,8 @@
 <ui-toast
   visible="{{!!infoMessage && (!embedded || active)}}"
-  title="操作完成"
+  title="{{infoMessageSaving ? '正在保存' : (infoMessageTone === 'error' ? '操作未完成' : '操作完成')}}"
   message="{{infoMessage}}"
-  tone="success"
+  tone="{{infoMessageTone || 'success'}}"
 />
 
 <view
@@ -74,6 +74,7 @@
             <ui-switch
               checked="{{requiresApproval}}"
               loading="{{settingsBusy}}"
+              allow-pending-intent="{{true}}"
               label="加扣班需要管理员审批"
               color="#1F5AA6"
               bind:change="handleGroupApprovalToggle"
@@ -87,6 +88,7 @@
             <ui-switch
               checked="{{autoAcceptSwaps}}"
               loading="{{settingsBusy}}"
+              allow-pending-intent="{{true}}"
               label="自动接受换班/加扣班"
               color="#1F5AA6"
               bind:change="handleAutoAcceptToggle"
@@ -282,67 +284,66 @@
     swipe-dismiss="{{!requestBusy}}"
     bind:close="handleCloseRequestForm"
   >
-      <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
-        ><view class="sheet-body">
-          <view class="sheet-form-intro"
-            ><text class="form-section-title">安排成员代值我的班次</text></view
-          >
-          <view wx:if="{{requestErrorMessage}}" class="native-alert is-danger"
-            ><text>{{requestErrorMessage}}</text></view
-          >
-          <view class="field-block"
-            ><text class="field-label">月份</text
-            ><workflow-picker
-              mode="month"
-              value="{{businessMonth}}"
-              display-value="{{businessMonth}}"
-              title="月份"
-              bindchange="handleMonthChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">我的班次</text
-            ><workflow-picker
-              mode="selector"
-              options="{{myAssignmentOptions}}"
-              selected-index="{{myAssignmentIndex}}"
-              display-value="{{myAssignmentIndex >= 0 ? myAssignmentOptions[myAssignmentIndex].label : ''}}"
-              placeholder="选择我的班次"
-              title="我的班次"
-              bindchange="handleMyAssignmentChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">加班成员</text
-            ><workflow-picker
-              mode="selector"
-              options="{{overtimeMemberOptions}}"
-              selected-index="{{overtimeMemberIndex}}"
-              display-value="{{overtimeMemberIndex >= 0 ? overtimeMemberOptions[overtimeMemberIndex].label : ''}}"
-              placeholder="选择加班成员"
-              title="加班成员"
-              bindchange="handleOvertimeMemberChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">原因（选填）</text
-            ><input
-              class="native-reason-input"
-              value="{{reason}}"
-              maxlength="200"
-              placeholder="记录加扣班原因"
-              bindinput="handleReasonInput"
-            />
-          </view>
-          <view wx:if="{{requestPreviewReady}}" class="preview-card"
-            ><text class="preview-title">加扣班预览</text
-            ><text>{{requestPreviewSummary}}</text></view
-          >
-          <view wx:for="{{requestPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
-            ><text>{{item.message}}</text></view
-          >
+    <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
+      ><view class="sheet-body">
+        <view class="sheet-form-intro"
+          ><text class="form-section-title">安排成员代值我的班次</text></view
+        >
+        <view wx:if="{{requestErrorMessage}}" class="native-alert is-danger"
+          ><text>{{requestErrorMessage}}</text></view
+        >
+        <view class="field-block"
+          ><text class="field-label">月份</text
+          ><workflow-picker
+            mode="month"
+            value="{{businessMonth}}"
+            display-value="{{businessMonth}}"
+            title="月份"
+            bindchange="handleMonthChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">我的班次</text
+          ><workflow-picker
+            mode="selector"
+            options="{{myAssignmentOptions}}"
+            selected-index="{{myAssignmentIndex}}"
+            display-value="{{myAssignmentIndex >= 0 ? myAssignmentOptions[myAssignmentIndex].label : ''}}"
+            placeholder="选择我的班次"
+            title="我的班次"
+            bindchange="handleMyAssignmentChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">加班成员</text
+          ><workflow-picker
+            mode="selector"
+            options="{{overtimeMemberOptions}}"
+            selected-index="{{overtimeMemberIndex}}"
+            display-value="{{overtimeMemberIndex >= 0 ? overtimeMemberOptions[overtimeMemberIndex].label : ''}}"
+            placeholder="选择加班成员"
+            title="加班成员"
+            bindchange="handleOvertimeMemberChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">原因（选填）</text
+          ><input
+            class="native-reason-input"
+            value="{{reason}}"
+            maxlength="200"
+            placeholder="记录加扣班原因"
+            bindinput="handleReasonInput"
+          />
         </view>
-      </scroll-view>
+        <view wx:if="{{requestPreviewReady}}" class="preview-card"
+          ><text class="preview-title">加扣班预览</text><text>{{requestPreviewSummary}}</text></view
+        >
+        <view wx:for="{{requestPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
+          ><text>{{item.message}}</text></view
+        >
+      </view>
+    </scroll-view>
     <view class="workflow-sheet-footer">
       <view class="form-actions"
         ><view class="web-button is-outline" aria-role="button" bindtap="handlePreview"
@@ -362,68 +363,67 @@
     swipe-dismiss="{{!adminBusy}}"
     bind:close="handleCloseAdminForm"
   >
-      <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
-        ><view class="sheet-body">
-          <view class="sheet-form-intro">
-            <text class="form-section-title">选择代值班次与成员</text>
-            <text class="workflow-form-hint">直接生效，不需要双方确认或审批；原因选填。</text>
-          </view>
-          <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
-            ><text>{{adminErrorMessage}}</text></view
-          >
-          <view class="field-block"
-            ><text class="field-label">月份</text
-            ><workflow-picker
-              mode="month"
-              value="{{businessMonth}}"
-              display-value="{{businessMonth}}"
-              title="月份"
-              bindchange="handleMonthChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">被代班班次</text
-            ><workflow-picker
-              mode="selector"
-              options="{{adminAssignmentOptions}}"
-              selected-index="{{adminAssignmentIndex}}"
-              display-value="{{adminAssignmentIndex >= 0 ? adminAssignmentOptions[adminAssignmentIndex].label : ''}}"
-              placeholder="选择被代班班次"
-              title="被代班班次"
-              bindchange="handleAdminAssignmentChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">加班成员</text
-            ><workflow-picker
-              mode="selector"
-              options="{{adminOvertimeMemberOptions}}"
-              selected-index="{{adminOvertimeMemberIndex}}"
-              display-value="{{adminOvertimeMemberIndex >= 0 ? adminOvertimeMemberOptions[adminOvertimeMemberIndex].label : ''}}"
-              placeholder="选择加班成员"
-              title="加班成员"
-              bindchange="handleAdminOvertimeMemberChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">原因（选填）</text
-            ><input
-              class="native-reason-input"
-              value="{{adminReason}}"
-              maxlength="200"
-              placeholder="记录管理员代值原因"
-              bindinput="handleAdminReasonInput"
-            />
-          </view>
-          <view wx:if="{{adminPreviewReady}}" class="preview-card"
-            ><text class="preview-title">直接代值预览</text
-            ><text>{{adminPreviewSummary}}</text></view
-          >
-          <view wx:for="{{adminPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
-            ><text>{{item.message}}</text></view
-          >
+    <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}"
+      ><view class="sheet-body">
+        <view class="sheet-form-intro">
+          <text class="form-section-title">选择代值班次与成员</text>
+          <text class="workflow-form-hint">直接生效，不需要双方确认或审批；原因选填。</text>
         </view>
-      </scroll-view>
+        <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
+          ><text>{{adminErrorMessage}}</text></view
+        >
+        <view class="field-block"
+          ><text class="field-label">月份</text
+          ><workflow-picker
+            mode="month"
+            value="{{businessMonth}}"
+            display-value="{{businessMonth}}"
+            title="月份"
+            bindchange="handleMonthChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">被代班班次</text
+          ><workflow-picker
+            mode="selector"
+            options="{{adminAssignmentOptions}}"
+            selected-index="{{adminAssignmentIndex}}"
+            display-value="{{adminAssignmentIndex >= 0 ? adminAssignmentOptions[adminAssignmentIndex].label : ''}}"
+            placeholder="选择被代班班次"
+            title="被代班班次"
+            bindchange="handleAdminAssignmentChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">加班成员</text
+          ><workflow-picker
+            mode="selector"
+            options="{{adminOvertimeMemberOptions}}"
+            selected-index="{{adminOvertimeMemberIndex}}"
+            display-value="{{adminOvertimeMemberIndex >= 0 ? adminOvertimeMemberOptions[adminOvertimeMemberIndex].label : ''}}"
+            placeholder="选择加班成员"
+            title="加班成员"
+            bindchange="handleAdminOvertimeMemberChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">原因（选填）</text
+          ><input
+            class="native-reason-input"
+            value="{{adminReason}}"
+            maxlength="200"
+            placeholder="记录管理员代值原因"
+            bindinput="handleAdminReasonInput"
+          />
+        </view>
+        <view wx:if="{{adminPreviewReady}}" class="preview-card"
+          ><text class="preview-title">直接代值预览</text><text>{{adminPreviewSummary}}</text></view
+        >
+        <view wx:for="{{adminPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
+          ><text>{{item.message}}</text></view
+        >
+      </view>
+    </scroll-view>
     <view class="workflow-sheet-footer">
       <view class="form-actions"
         ><view class="web-button is-outline" aria-role="button" bindtap="handleAdminPreview"
@@ -456,8 +456,8 @@
           maxlength="200"
           placeholder="记录撤销原因"
           bindinput="handleRevokeReasonInput"
-        /></view
-      >
+        />
+      </view>
     </view>
     <view class="workflow-sheet-footer">
       <view class="web-button is-danger-outline" aria-role="button" bindtap="handleConfirmRevoke"

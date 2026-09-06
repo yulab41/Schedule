@@ -26,7 +26,6 @@ const props = withDefaults(
 );
 
 const previewGroup: GroupSummary = {
-  groupCode: '0001',
   id: 'storybook-p10-directory',
   name: '示例医疗中心',
   role: 'member',

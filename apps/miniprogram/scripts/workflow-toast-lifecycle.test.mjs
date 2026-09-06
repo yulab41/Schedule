@@ -55,6 +55,17 @@ describe('workflow toast scheduling regressions', () => {
   }
 
   for (const kind of ['page', 'panel']) {
+    it(`${kind}: unrelated feedback does not inherit a paused setting's saving state`, () => {
+      const { host, unload } = mount(kind);
+      api.publishWorkflowInfo(host, 'setting saved', 'setting');
+      api.pauseWorkflowInfo(host, 'setting');
+      expect(host.data.infoMessageSaving).toBe(true);
+      host.setData({ infoMessage: 'another operation completed' });
+      expect(host.data.infoMessageSaving).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(host.data.infoMessage).toBe('');
+      unload();
+    });
     it(`${kind}: replaces messages and restarts identical messages with one timer`, () => {
       const { host, unload } = mount(kind);
       for (const message of ['第一条', '第二条', '第二条']) {

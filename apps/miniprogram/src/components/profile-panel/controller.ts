@@ -28,11 +28,6 @@ import {
   type WechatAuthenticatedProfile,
 } from '../../platform/wechat-identity.js';
 import {
-  flushPendingProfileAvatarForStoredSession,
-  removeStoredProfileAvatar,
-  resolveStoredProfileAvatar,
-} from '../../platform/profile-avatar-runtime.js';
-import {
   createProfileAccountClient,
   type MiniProgramBindingStatus,
   type ProfilePasswordChangeInput,
@@ -64,9 +59,6 @@ interface ProfileTrendColumn {
 interface ProfilePanelData {
   readonly authMethod: IdentityAuthMethod;
   readonly authMethodLabel: string;
-  readonly avatarBusy: boolean;
-  readonly avatarPath: string;
-  readonly avatarSyncLabel: string;
   readonly bindingLabel: string;
   readonly bindingState: BindingState;
   readonly buildLabel: string;
@@ -121,9 +113,7 @@ export interface ProfilePanelDependencies {
   readonly changePassword: (
     input: ProfilePasswordChangeInput,
   ) => Promise<{ readonly passwordChanged: true }>;
-  readonly confirmAvatarRemoval: () => Promise<boolean>;
   readonly finishSensitiveSessionChange: () => void;
-  readonly flushPendingAvatar?: (() => Promise<unknown>) | undefined;
   readonly getAuthMethod: () => IdentityAuthMethod | undefined;
   readonly getBusinessDate: () => string;
   readonly getBusinessMonth: () => string;
@@ -146,8 +136,6 @@ export interface ProfilePanelDependencies {
   readonly listGroups: () => Promise<readonly ProfileGroupInput[]>;
   readonly navigateTo: (url: string) => void;
   readonly now: () => string;
-  readonly removeAvatar: (ownerId: string) => Promise<{ readonly removed: boolean }>;
-  readonly resolveAvatar: () => Promise<string | undefined>;
   readonly signOut: () => void;
 }
 
@@ -160,9 +148,6 @@ export function createProfilePanelControllerDefinition(
     data: {
       authMethod: 'wechat' as IdentityAuthMethod,
       authMethodLabel: '微信快捷登录',
-      avatarBusy: false,
-      avatarPath: '',
-      avatarSyncLabel: '未设置',
       bindingLabel: '正在读取',
       bindingState: 'loading' as BindingState,
       buildLabel: buildInfo.buildLabel,
@@ -215,10 +200,7 @@ export function createProfilePanelControllerDefinition(
 
     onShow(this: ProfilePanelInstance): void {
       syncProfile(this, dependencies);
-      void (dependencies.flushPendingAvatar?.() ?? Promise.resolve()).then(() => {
-        syncProfile(this, dependencies);
-        return refreshAccount(this, dependencies);
-      });
+      void refreshAccount(this, dependencies);
     },
 
     handleGroupChange(this: ProfilePanelInstance, group: ProfileGroupInput | undefined): void {
@@ -253,20 +235,8 @@ export function createProfilePanelControllerDefinition(
       dependencies.navigateTo('/pages/identity/unbind');
     },
 
-    handleAvatarRestore(this: ProfilePanelInstance): void {
-      if (this.data.avatarPath === '' || this.data.avatarBusy) return;
-      this.setData({ avatarBusy: true });
-      void dependencies
-        .confirmAvatarRemoval()
-        .then(async (confirmed) => {
-          if (!confirmed) return;
-          const profile = dependencies.getProfile();
-          if (profile === undefined) return;
-          await dependencies.removeAvatar(profile.id);
-          this.setData({ avatarPath: '', avatarSyncLabel: '未设置' });
-        })
-        .catch(() => this.setData({ avatarSyncLabel: '恢复失败，请重试' }))
-        .finally(() => this.setData({ avatarBusy: false }));
+    handleBindingRetry(this: ProfilePanelInstance): void {
+      if (this.data.bindingState !== 'loading') void refreshAccount(this, dependencies);
     },
 
     handlePasswordOpen(this: ProfilePanelInstance): void {
@@ -342,11 +312,15 @@ export function createProfilePanelControllerDefinition(
     },
 
     handleSwitchLogin(this: ProfilePanelInstance): void {
+      this.accountRequestSerial += 1;
+      this.overviewRequestSerial += 1;
       dependencies.signOut();
       this.setData({ mode: 'missing' });
     },
 
     handleSignOut(this: ProfilePanelInstance): void {
+      this.accountRequestSerial += 1;
+      this.overviewRequestSerial += 1;
       dependencies.signOut();
       this.setData({ mode: 'missing' });
     },
@@ -363,8 +337,6 @@ function syncProfile(panel: ProfilePanelInstance, dependencies: ProfilePanelDepe
   const profile = dependencies.getProfile();
   if (profile === undefined) {
     panel.setData({
-      avatarPath: '',
-      avatarSyncLabel: '未设置',
       bindingLabel: '未登录',
       bindingState: 'error',
       canUnbindWechat: false,
@@ -379,7 +351,6 @@ function syncProfile(panel: ProfilePanelInstance, dependencies: ProfilePanelDepe
   panel.setData({
     authMethod,
     authMethodLabel: authMethod === 'password' ? '账号密码登录' : '微信快捷登录',
-    avatarSyncLabel: profile.avatarVersion === undefined ? '未设置' : '已同步',
     initial: [...realName][0] ?? '我',
     mode: 'ready',
     realName,
@@ -393,16 +364,11 @@ async function refreshAccount(
   const profile = dependencies.getProfile();
   if (profile === undefined) return;
   const requestSerial = ++panel.accountRequestSerial;
-  panel.setData({ bindingState: 'loading' });
-  const [binding, avatar] = await Promise.allSettled([
-    dependencies.getWechatBinding(),
-    dependencies.resolveAvatar(),
-  ]);
-  if (requestSerial !== panel.accountRequestSerial) return;
+  panel.setData({ bindingState: 'loading', bindingLabel: '正在读取', canUnbindWechat: false });
+  const [binding] = await Promise.allSettled([dependencies.getWechatBinding()]);
+  if (requestSerial !== panel.accountRequestSerial || dependencies.getProfile()?.id !== profile.id)
+    return;
   panel.setData({
-    avatarPath: avatar.status === 'fulfilled' ? (avatar.value ?? '') : '',
-    avatarSyncLabel:
-      avatar.status === 'fulfilled' && avatar.value !== undefined ? '已同步' : '未设置',
     bindingLabel:
       binding.status === 'fulfilled' ? (binding.value.bound ? '已绑定' : '未绑定') : '暂时无法读取',
     bindingState: binding.status === 'fulfilled' ? 'ready' : 'error',
@@ -598,9 +564,7 @@ function createRuntimeDependencies(): ProfilePanelDependencies {
   const account = createProfileAccountClient(getStoredWechatToken, authentication);
   return {
     changePassword: (input) => account.changePassword(input),
-    confirmAvatarRemoval,
     finishSensitiveSessionChange,
-    flushPendingAvatar: flushPendingProfileAvatarForStoredSession,
     getAuthMethod: getStoredWechatAuthMethod,
     getBusinessDate: getTodayBusinessDate,
     getBusinessMonth: () => getTodayBusinessDate().slice(0, 7),
@@ -615,27 +579,8 @@ function createRuntimeDependencies(): ProfilePanelDependencies {
     listGroups: () => organization.listGroups() as Promise<readonly ProfileGroupInput[]>,
     navigateTo: (url) => wx.navigateTo({ url }),
     now: () => new Date().toISOString(),
-    removeAvatar: removeStoredProfileAvatar,
-    resolveAvatar: resolveStoredProfileAvatar,
     signOut: finishSensitiveSessionChange,
   };
-}
-
-function confirmAvatarRemoval(): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      wx.showModal({
-        cancelText: '取消',
-        confirmText: '恢复',
-        content: '恢复后将删除已同步头像，并改用姓名首字。',
-        fail: () => resolve(false),
-        success: ({ confirm }) => resolve(confirm),
-        title: '恢复姓名首字头像',
-      });
-    } catch {
-      resolve(false);
-    }
-  });
 }
 
 function finishSensitiveSessionChange(): void {

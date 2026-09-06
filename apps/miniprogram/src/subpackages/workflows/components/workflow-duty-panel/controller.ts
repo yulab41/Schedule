@@ -35,6 +35,7 @@ import {
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 import { captureWorkflowControllerTask } from '../controller-host.js';
+import { enqueueSettingIntent } from '../settings-intent.js';
 
 type PageState = 'error' | 'loading' | 'ready';
 
@@ -823,65 +824,36 @@ async function revokeDuty(page: DutyPageInstance): Promise<void> {
   }
 }
 
-async function updateGroupApproval(page: DutyPageInstance, checked: boolean): Promise<void> {
-  const task = captureWorkflowControllerTask(page);
-  if (!task.isCurrent()) return;
-  if (!page.data.canApprove || page.data.settingsBusy) return;
-  const previousValue = page.data.requiresApproval;
-  page.setData({
-    settingsBusy: true,
-    requiresApproval: checked,
-    errorMessage: '',
-    infoMessage: '',
+function updateGroupApproval(page: DutyPageInstance, checked: boolean): void {
+  if (!page.data.canApprove) return;
+  const groupId = page._currentGroupId;
+  enqueueSettingIntent(page, {
+    key: 'duty-group-approval',
+    field: 'requiresApproval',
+    value: checked,
+    save: async (value) =>
+      (await workflowClient.updateGroupDutyAdjustmentSettings(groupId, { requiresApproval: value }))
+        .requiresApproval,
+    read: async () =>
+      (await workflowClient.getGroupDutyAdjustmentSettings(groupId)).requiresApproval,
+    success: (value) => (value ? '加扣班已改为需要管理员审批。' : '加扣班已改为无需管理员审批。'),
+    failure: (error) => toUserMessage(error, '加扣班设置暂时无法更新。'),
   });
-  try {
-    const result = await workflowClient.updateGroupDutyAdjustmentSettings(page._currentGroupId, {
-      requiresApproval: checked,
-    });
-    if (!task.isCurrent()) return;
-    page.setData({
-      infoMessage: result.requiresApproval
-        ? '加扣班已改为需要管理员审批。'
-        : '加扣班已改为无需管理员审批。',
-      requiresApproval: result.requiresApproval,
-    });
-  } catch (error) {
-    if (!task.isCurrent()) return;
-    page.setData({
-      requiresApproval: previousValue,
-      errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。'),
-    });
-  } finally {
-    if (task.isCurrent()) page.setData({ settingsBusy: false });
-  }
 }
 
-async function updateAutoAccept(page: DutyPageInstance, checked: boolean): Promise<void> {
-  const task = captureWorkflowControllerTask(page);
-  if (!task.isCurrent()) return;
-  if (page.data.settingsBusy) return;
-  const previousValue = page.data.autoAcceptSwaps;
-  page.setData({ settingsBusy: true, autoAcceptSwaps: checked, errorMessage: '', infoMessage: '' });
-  try {
-    const result = await workflowClient.updateMySwapSettings(page._currentGroupId, {
-      autoAcceptSwaps: checked,
-    });
-    if (!task.isCurrent()) return;
-    page.setData({
-      autoAcceptSwaps: result.autoAcceptSwaps,
-      infoMessage: result.autoAcceptSwaps
-        ? '已开启自动接受换班/加扣班。'
-        : '已关闭自动接受换班/加扣班。',
-    });
-  } catch (error) {
-    if (!task.isCurrent()) return;
-    page.setData({
-      autoAcceptSwaps: previousValue,
-      errorMessage: toUserMessage(error, '加扣班设置暂时无法更新。'),
-    });
-  } finally {
-    if (task.isCurrent()) page.setData({ settingsBusy: false });
-  }
+function updateAutoAccept(page: DutyPageInstance, checked: boolean): void {
+  const groupId = page._currentGroupId;
+  enqueueSettingIntent(page, {
+    key: 'auto-accept',
+    field: 'autoAcceptSwaps',
+    value: checked,
+    save: async (value) =>
+      (await workflowClient.updateMySwapSettings(groupId, { autoAcceptSwaps: value }))
+        .autoAcceptSwaps,
+    read: async () => (await workflowClient.getMyDutyAdjustmentSettings(groupId)).autoAcceptSwaps,
+    success: (value) => (value ? '已开启自动接受换班/加扣班。' : '已关闭自动接受换班/加扣班。'),
+    failure: (error) => toUserMessage(error, '加扣班设置暂时无法更新。'),
+  });
 }
 
 async function handlePreviewError(

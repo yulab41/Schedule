@@ -41,7 +41,7 @@ describe('P5 scheduling closure golden preview', () => {
     }
     expect(previewSource).toContain('排班交接轨');
     expect(previewSource).toContain('确认后才会生效并留下“排班补录”事件记录');
-    expect(previewSource).toContain('管理员不能代替成员授权');
+    expect(previewSource).toContain('此选择可随时撤回，不影响账号、资料或排班。');
     expect(previewSource).toContain('范围变化后必须重新生成预览');
   });
 
@@ -101,12 +101,17 @@ describe('P5 scheduling closure golden preview', () => {
     expect(previewSource).toContain("activeState === 'phone-consent'");
     expect(previewSource).toContain("? '群组管理'");
     expect(previewSource).toContain('class="web-parity-page group-setup-panel"');
-    expect(previewSource).toContain('<p>协作身份</p>');
-    expect(previewSource).toContain('<h2>群组管理</h2>');
+    expect(previewSource).not.toContain('<p>协作身份</p>');
+    expect(previewSource).not.toContain('<h2>群组管理</h2>');
+    expect(previewSource).not.toContain('class="contact-member-row"');
+    expect(previewSource).not.toContain('class="privacy-boundary"');
     expect(previewSource).toContain('<span>当前工作群组</span>');
     expect(previewSource).toContain('class="group-card contact-consent-card"');
     expect(previewSource).toContain('class="preference-scope is-personal"');
     expect(previewSource).toContain('允许本群组显示完整手机号');
+    expect(previewSource).toContain('v-model="phoneConsent"');
+    expect(previewSource).toContain(':disabled="!phoneConsent"');
+    expect(previewSource).toContain('保存同意');
     expect(previewSource).toContain('v-if="isSchedulingState" class="handoff-rail"');
     expect(storiesSource).toContain('8 · 群组设置 / 手机号同意 · 390×844');
   });

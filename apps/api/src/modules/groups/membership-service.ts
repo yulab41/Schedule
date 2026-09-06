@@ -59,7 +59,6 @@ export class MembershipService {
   public async listGroups(identity: AuthenticatedIdentity): Promise<GroupSummary[]> {
     const memberships = await this.databaseClient.database
       .select({
-        groupCode: groups.groupCode,
         id: groups.id,
         isDeveloperAdmin: users.isDeveloperAdmin,
         name: groups.name,
@@ -89,7 +88,6 @@ export class MembershipService {
       name: membership.name,
       role: membership.role as GroupRole,
       version: membership.version,
-      ...(membership.role === 'guest' ? {} : { groupCode: membership.groupCode }),
     }));
   }
 
@@ -207,7 +205,7 @@ export class MembershipService {
           throw new ApiError({
             code: 'CONFLICT',
             statusCode: 409,
-            userMessage: '该群有您的未认领成员身份，请以成员身份输入群组码重新加入。',
+            userMessage: '该群有您的未认领成员身份，请联系管理员协助认领后加入。',
           });
         }
 
@@ -1630,7 +1628,6 @@ export class MembershipService {
           .where(eq(groups.id, authorization.group.id));
 
         return {
-          groupCode: authorization.group.groupCode,
           id: authorization.group.id,
           ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
           name: authorization.group.name,

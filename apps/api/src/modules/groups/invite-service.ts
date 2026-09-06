@@ -42,6 +42,7 @@ import {
   createOrganizationFingerprint,
   organizationMutationCompleted,
   runOrganizationMutation,
+  withoutRetiredGroupCode,
   type OrganizationMutationActor,
 } from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
@@ -296,7 +297,6 @@ export class InviteService {
 
           const [group] = await transaction
             .select({
-              groupCode: groups.groupCode,
               id: groups.id,
               name: groups.name,
               version: groups.version,
@@ -344,7 +344,6 @@ export class InviteService {
 
           return {
             group: {
-              groupCode: group.groupCode,
               id: group.id,
               name: group.name,
               role,
@@ -636,7 +635,9 @@ export class InviteService {
     if (typeof reissueSession !== 'boolean') {
       throw invalidStoredOperationResult();
     }
-    const parsed = acceptInviteResponseSchema.safeParse({ group: stored['group'] });
+    const parsed = acceptInviteResponseSchema.safeParse(
+      withoutRetiredGroupCode({ group: stored['group'] }),
+    );
     if (!parsed.success) throw invalidStoredOperationResult();
     if (!reissueSession) return parsed.data;
     if (this.issueSessionForUser === undefined) throw invalidStoredOperationResult();
@@ -709,7 +710,6 @@ export class InviteService {
   private async acceptMembershipTarget(
     transaction: DatabaseTransaction,
     group: {
-      readonly groupCode: string;
       readonly id: string;
       readonly name: string;
       readonly version: number;
@@ -781,7 +781,6 @@ export class InviteService {
   private async mergeWechatAccounts(
     transaction: DatabaseTransaction,
     group: {
-      readonly groupCode: string;
       readonly id: string;
       readonly name: string;
       readonly version: number;

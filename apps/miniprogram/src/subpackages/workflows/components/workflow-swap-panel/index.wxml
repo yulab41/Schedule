@@ -1,8 +1,8 @@
 <ui-toast
   visible="{{!!infoMessage && (!embedded || active)}}"
-  title="操作完成"
+  title="{{infoMessageSaving ? '正在保存' : (infoMessageTone === 'error' ? '操作未完成' : '操作完成')}}"
   message="{{infoMessage}}"
-  tone="success"
+  tone="{{infoMessageTone || 'success'}}"
 />
 
 <view
@@ -73,6 +73,7 @@
             <ui-switch
               checked="{{requiresApproval}}"
               loading="{{settingsBusy}}"
+              allow-pending-intent="{{true}}"
               label="换班需要管理员审批"
               color="#1F5AA6"
               bind:change="handleGroupApprovalToggle"
@@ -85,6 +86,7 @@
             <ui-switch
               checked="{{autoAcceptSwaps}}"
               loading="{{settingsBusy}}"
+              allow-pending-intent="{{true}}"
               label="自动接受换班"
               color="#1F5AA6"
               bind:change="handleAutoAcceptToggle"
@@ -275,74 +277,74 @@
     bind:close="handleCloseRequestForm"
   >
     <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
-        <view class="sheet-body">
-          <view class="sheet-form-intro"><text class="form-section-title">选择双方班次</text></view>
-          <view wx:if="{{requestErrorMessage}}" class="native-alert is-danger"
-            ><text>{{requestErrorMessage}}</text></view
-          >
-          <view class="field-block"
-            ><text class="field-label">我的班次月份</text
-            ><workflow-picker
-              mode="month"
-              value="{{myAssignmentMonth}}"
-              display-value="{{myAssignmentMonth}}"
-              title="我的班次月份"
-              bindchange="handleMyMonthChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">我的班次</text
-            ><workflow-picker
-              mode="selector"
-              options="{{myAssignmentOptions}}"
-              selected-index="{{myAssignmentIndex}}"
-              display-value="{{myAssignmentIndex >= 0 ? myAssignmentOptions[myAssignmentIndex].label : ''}}"
-              placeholder="选择我的班次"
-              title="我的班次"
-              bindchange="handleMyAssignmentChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">对方班次月份</text
-            ><workflow-picker
-              mode="month"
-              value="{{targetAssignmentMonth}}"
-              display-value="{{targetAssignmentMonth}}"
-              title="对方班次月份"
-              bindchange="handleTargetMonthChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">目标成员</text
-            ><workflow-picker
-              mode="selector"
-              options="{{targetMemberOptions}}"
-              selected-index="{{targetMemberIndex}}"
-              display-value="{{targetMemberIndex >= 0 ? targetMemberOptions[targetMemberIndex].label : ''}}"
-              placeholder="选择目标成员"
-              title="目标成员"
-              bindchange="handleTargetMemberChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">目标班次</text
-            ><workflow-picker
-              mode="selector"
-              options="{{targetAssignmentOptions}}"
-              selected-index="{{targetAssignmentIndex}}"
-              display-value="{{targetAssignmentIndex >= 0 ? targetAssignmentOptions[targetAssignmentIndex].label : ''}}"
-              placeholder="选择目标成员的班次"
-              title="目标班次"
-              bindchange="handleTargetAssignmentChange"
-            ></workflow-picker
-          ></view>
-          <view wx:if="{{requestPreviewReady}}" class="preview-card"
-            ><text class="preview-title">换班预览</text><text>{{requestPreviewSummary}}</text></view
-          >
-          <view wx:for="{{requestPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
-            ><text>{{item.message}}</text></view
-          >
-        </view>
+      <view class="sheet-body">
+        <view class="sheet-form-intro"><text class="form-section-title">选择双方班次</text></view>
+        <view wx:if="{{requestErrorMessage}}" class="native-alert is-danger"
+          ><text>{{requestErrorMessage}}</text></view
+        >
+        <view class="field-block"
+          ><text class="field-label">我的班次月份</text
+          ><workflow-picker
+            mode="month"
+            value="{{myAssignmentMonth}}"
+            display-value="{{myAssignmentMonth}}"
+            title="我的班次月份"
+            bindchange="handleMyMonthChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">我的班次</text
+          ><workflow-picker
+            mode="selector"
+            options="{{myAssignmentOptions}}"
+            selected-index="{{myAssignmentIndex}}"
+            display-value="{{myAssignmentIndex >= 0 ? myAssignmentOptions[myAssignmentIndex].label : ''}}"
+            placeholder="选择我的班次"
+            title="我的班次"
+            bindchange="handleMyAssignmentChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">对方班次月份</text
+          ><workflow-picker
+            mode="month"
+            value="{{targetAssignmentMonth}}"
+            display-value="{{targetAssignmentMonth}}"
+            title="对方班次月份"
+            bindchange="handleTargetMonthChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">目标成员</text
+          ><workflow-picker
+            mode="selector"
+            options="{{targetMemberOptions}}"
+            selected-index="{{targetMemberIndex}}"
+            display-value="{{targetMemberIndex >= 0 ? targetMemberOptions[targetMemberIndex].label : ''}}"
+            placeholder="选择目标成员"
+            title="目标成员"
+            bindchange="handleTargetMemberChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">目标班次</text
+          ><workflow-picker
+            mode="selector"
+            options="{{targetAssignmentOptions}}"
+            selected-index="{{targetAssignmentIndex}}"
+            display-value="{{targetAssignmentIndex >= 0 ? targetAssignmentOptions[targetAssignmentIndex].label : ''}}"
+            placeholder="选择目标成员的班次"
+            title="目标班次"
+            bindchange="handleTargetAssignmentChange"
+          ></workflow-picker
+        ></view>
+        <view wx:if="{{requestPreviewReady}}" class="preview-card"
+          ><text class="preview-title">换班预览</text><text>{{requestPreviewSummary}}</text></view
+        >
+        <view wx:for="{{requestPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
+          ><text>{{item.message}}</text></view
+        >
+      </view>
     </scroll-view>
     <view class="workflow-sheet-footer">
       <view class="form-actions"
@@ -364,90 +366,89 @@
     bind:close="handleCloseAdminForm"
   >
     <scroll-view class="workflow-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
-        <view class="sheet-body">
-          <view class="sheet-form-intro">
-            <text class="form-section-title">选择双方班次</text>
-            <text class="workflow-form-hint">直接生效，无需对方同意或审批。</text>
-          </view>
-          <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
-            ><text>{{adminErrorMessage}}</text></view
-          >
-          <view class="field-block"
-            ><text class="field-label">成员一月份</text
-            ><workflow-picker
-              mode="month"
-              value="{{adminInitiatorMonth}}"
-              display-value="{{adminInitiatorMonth}}"
-              title="成员一月份"
-              bindchange="handleAdminInitiatorMonthChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">成员一</text
-            ><workflow-picker
-              mode="selector"
-              options="{{adminInitiatorMemberOptions}}"
-              selected-index="{{adminInitiatorMemberIndex}}"
-              display-value="{{adminInitiatorMemberIndex >= 0 ? adminInitiatorMemberOptions[adminInitiatorMemberIndex].label : ''}}"
-              placeholder="选择成员一"
-              title="成员一"
-              bindchange="handleAdminInitiatorMemberChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">成员一的班次</text
-            ><workflow-picker
-              mode="selector"
-              options="{{adminInitiatorAssignmentOptions}}"
-              selected-index="{{adminInitiatorAssignmentIndex}}"
-              display-value="{{adminInitiatorAssignmentIndex >= 0 ? adminInitiatorAssignmentOptions[adminInitiatorAssignmentIndex].label : ''}}"
-              placeholder="选择成员一的班次"
-              title="成员一的班次"
-              bindchange="handleAdminInitiatorAssignmentChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">成员二月份</text
-            ><workflow-picker
-              mode="month"
-              value="{{adminTargetMonth}}"
-              display-value="{{adminTargetMonth}}"
-              title="成员二月份"
-              bindchange="handleAdminTargetMonthChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">成员二</text
-            ><workflow-picker
-              mode="selector"
-              options="{{adminTargetMemberOptions}}"
-              selected-index="{{adminTargetMemberIndex}}"
-              display-value="{{adminTargetMemberIndex >= 0 ? adminTargetMemberOptions[adminTargetMemberIndex].label : ''}}"
-              placeholder="选择成员二"
-              title="成员二"
-              bindchange="handleAdminTargetMemberChange"
-            ></workflow-picker
-          ></view>
-          <view class="field-block"
-            ><text class="field-label">成员二的班次</text
-            ><workflow-picker
-              mode="selector"
-              options="{{adminTargetAssignmentOptions}}"
-              selected-index="{{adminTargetAssignmentIndex}}"
-              display-value="{{adminTargetAssignmentIndex >= 0 ? adminTargetAssignmentOptions[adminTargetAssignmentIndex].label : ''}}"
-              placeholder="选择成员二的班次"
-              title="成员二的班次"
-              bindchange="handleAdminTargetAssignmentChange"
-            ></workflow-picker
-          ></view>
-          <view wx:if="{{adminPreviewReady}}" class="preview-card"
-            ><text class="preview-title">直接换班预览</text
-            ><text>{{adminPreviewSummary}}</text></view
-          >
-          <view wx:for="{{adminPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
-            ><text>{{item.message}}</text></view
-          >
+      <view class="sheet-body">
+        <view class="sheet-form-intro">
+          <text class="form-section-title">选择双方班次</text>
+          <text class="workflow-form-hint">直接生效，无需对方同意或审批。</text>
         </view>
+        <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
+          ><text>{{adminErrorMessage}}</text></view
+        >
+        <view class="field-block"
+          ><text class="field-label">成员一月份</text
+          ><workflow-picker
+            mode="month"
+            value="{{adminInitiatorMonth}}"
+            display-value="{{adminInitiatorMonth}}"
+            title="成员一月份"
+            bindchange="handleAdminInitiatorMonthChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">成员一</text
+          ><workflow-picker
+            mode="selector"
+            options="{{adminInitiatorMemberOptions}}"
+            selected-index="{{adminInitiatorMemberIndex}}"
+            display-value="{{adminInitiatorMemberIndex >= 0 ? adminInitiatorMemberOptions[adminInitiatorMemberIndex].label : ''}}"
+            placeholder="选择成员一"
+            title="成员一"
+            bindchange="handleAdminInitiatorMemberChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">成员一的班次</text
+          ><workflow-picker
+            mode="selector"
+            options="{{adminInitiatorAssignmentOptions}}"
+            selected-index="{{adminInitiatorAssignmentIndex}}"
+            display-value="{{adminInitiatorAssignmentIndex >= 0 ? adminInitiatorAssignmentOptions[adminInitiatorAssignmentIndex].label : ''}}"
+            placeholder="选择成员一的班次"
+            title="成员一的班次"
+            bindchange="handleAdminInitiatorAssignmentChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">成员二月份</text
+          ><workflow-picker
+            mode="month"
+            value="{{adminTargetMonth}}"
+            display-value="{{adminTargetMonth}}"
+            title="成员二月份"
+            bindchange="handleAdminTargetMonthChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">成员二</text
+          ><workflow-picker
+            mode="selector"
+            options="{{adminTargetMemberOptions}}"
+            selected-index="{{adminTargetMemberIndex}}"
+            display-value="{{adminTargetMemberIndex >= 0 ? adminTargetMemberOptions[adminTargetMemberIndex].label : ''}}"
+            placeholder="选择成员二"
+            title="成员二"
+            bindchange="handleAdminTargetMemberChange"
+          ></workflow-picker
+        ></view>
+        <view class="field-block"
+          ><text class="field-label">成员二的班次</text
+          ><workflow-picker
+            mode="selector"
+            options="{{adminTargetAssignmentOptions}}"
+            selected-index="{{adminTargetAssignmentIndex}}"
+            display-value="{{adminTargetAssignmentIndex >= 0 ? adminTargetAssignmentOptions[adminTargetAssignmentIndex].label : ''}}"
+            placeholder="选择成员二的班次"
+            title="成员二的班次"
+            bindchange="handleAdminTargetAssignmentChange"
+          ></workflow-picker
+        ></view>
+        <view wx:if="{{adminPreviewReady}}" class="preview-card"
+          ><text class="preview-title">直接换班预览</text><text>{{adminPreviewSummary}}</text></view
+        >
+        <view wx:for="{{adminPreviewConflicts}}" wx:key="id" class="native-alert is-danger"
+          ><text>{{item.message}}</text></view
+        >
+      </view>
     </scroll-view>
     <view class="workflow-sheet-footer">
       <view class="form-actions"

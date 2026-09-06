@@ -18,14 +18,18 @@ import { executeWxJsonRequest } from './wx-request-executor.js';
 
 export { subscribeDiagnosticsPermission };
 
+let accessSerial = 0;
+
 export function canUseDiagnostics(): boolean {
   return (
     isTestToolsRuntimeEnabled() &&
+    getStoredWechatToken() !== undefined &&
     hasDiagnosticsPermission(getStoredWechatProfile()?.id, getWechatSessionGeneration())
   );
 }
 
 export async function refreshDiagnosticsAccess(): Promise<boolean> {
+  const serial = ++accessSerial;
   const profile = getStoredWechatProfile();
   const accessToken = getStoredWechatToken();
   const generation = getWechatSessionGeneration();
@@ -42,7 +46,11 @@ export async function refreshDiagnosticsAccess(): Promise<boolean> {
       request: (options) => wx.request(options),
       url: runtimeConfig.apiBaseUrl.replace(/\/$/u, '') + '/me/diagnostics-access',
     });
-    if (generation !== getWechatSessionGeneration() || getStoredWechatProfile()?.id !== profile.id)
+    if (
+      serial !== accessSerial ||
+      generation !== getWechatSessionGeneration() ||
+      getStoredWechatProfile()?.id !== profile.id
+    )
       return false;
     if (
       response.statusCode !== 200 ||
@@ -57,28 +65,36 @@ export async function refreshDiagnosticsAccess(): Promise<boolean> {
     setDiagnosticsPermission(profile.id, generation);
     return true;
   } catch {
-    if (generation === getWechatSessionGeneration()) invalidateDiagnosticsPermission();
+    if (serial === accessSerial && generation === getWechatSessionGeneration())
+      invalidateDiagnosticsPermission();
     return false;
   }
 }
 
 function activateDiagnosticsSlot(): void {
   try {
-    const globalData = getApp<{ globalData?: { runtimeDiagnostics?: RuntimeDiagnosticsSlot } }>()
-      .globalData;
+    const globalData = getApp<{
+      globalData?: {
+        runtimeDiagnostics?: RuntimeDiagnosticsSlot;
+        diagnosticsLaunch?: Pick<
+          RuntimeDiagnosticsSlot,
+          'appLaunchAt' | 'launchObserved' | 'warmResumeObserved' | 'initialShowPending'
+        >;
+      };
+    }>().globalData;
     if (globalData === undefined || globalData.runtimeDiagnostics !== undefined) return;
     const launchMarkerConsumed = consumeRuntimeDirectoryLaunchMarker(true);
     globalData.runtimeDiagnostics = {
-      appLaunchAt: Date.now(),
+      appLaunchAt: globalData.diagnosticsLaunch?.appLaunchAt ?? 0,
       directorySearchRecording: launchMarkerConsumed,
       directorySearches: [],
       errors: [],
-      initialShowPending: false,
+      initialShowPending: globalData.diagnosticsLaunch?.initialShowPending ?? false,
       launchMarkerConsumed,
-      launchObserved: true,
+      launchObserved: globalData.diagnosticsLaunch?.launchObserved ?? false,
       performance: [],
       requests: [],
-      warmResumeObserved: false,
+      warmResumeObserved: globalData.diagnosticsLaunch?.warmResumeObserved ?? false,
     };
   } catch {
     /* A diagnostic slot is optional and never blocks navigation. */

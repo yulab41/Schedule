@@ -12,7 +12,6 @@ import type { DirectoryDataSource } from '../../views/directory/InternalDirector
 import UnifiedDirectoryView from '../../views/directory/UnifiedDirectoryView.vue';
 
 const previewGroup: GroupSummary = {
-  groupCode: '0001',
   id: 'storybook-unified-directory-group',
   name: '示例医疗中心',
   role: 'member',

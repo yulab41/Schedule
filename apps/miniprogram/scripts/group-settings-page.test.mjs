@@ -62,24 +62,22 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(template).toMatch(/data-label="更多"[\s\S]*?bindtap="handleMoreNav"/u);
   });
 
-  it('mirrors the accepted PhoneConsent390 information hierarchy and all native states', () => {
+  it('keeps consent controls and essential states after redundant content removal', () => {
     const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
     for (const expected of [
       '返回排班台',
       '群组管理',
-      '协作身份',
       '当前工作群组',
-      '共享群组码',
       '联系方式公开',
       '我的手机号公开设置',
       '仅自己',
-      '说明版本',
       '允许本群组显示完整手机号',
-      '管理员不能代替成员授权',
       '保存同意',
     ]) {
       expect(template).toContain(expected);
     }
+    for (const retired of ['共享群组码', '协作身份', 'contact-member-row', 'privacy-boundary'])
+      expect(template).not.toContain(retired);
     expect(template).toContain("state === 'loading'");
     expect(template).toContain("state === 'error'");
     expect(template).toContain("consentState === 'missing-phone'");

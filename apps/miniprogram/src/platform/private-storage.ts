@@ -1,5 +1,3 @@
-import { clearAllLocalProfileAvatars } from './profile-media.js';
-
 export const WECHAT_SESSION_STORAGE_KEY = 'schedule.wechat.session';
 export const WORKBENCH_GROUP_STORAGE_KEY = 'schedule.wechat.workbench.current-group';
 export const WORKBENCH_CACHE_V1_PREFIX = 'schedule.wechat.workbench.cache.v1:';
@@ -19,7 +17,7 @@ export function clearWechatSessionStorage(): void {
 }
 
 export function clearPrivateBusinessStorage(): void {
-  clearAllLocalProfileAvatars();
+  clearRetiredProfileAvatarStorage();
   removeStorage(WORKBENCH_GROUP_STORAGE_KEY);
   for (const key of readStorageKeys()) {
     if (privateBusinessPrefixes.some((prefix) => key.startsWith(prefix))) removeStorage(key);
@@ -39,6 +37,7 @@ export function clearPrivateBusinessStorageForGroup(ownerId: string, groupId: st
 }
 
 export function clearLegacyWorkbenchStorage(): void {
+  clearRetiredProfileAvatarStorage();
   for (const key of readStorageKeys()) {
     if (key.startsWith(WORKBENCH_CACHE_V1_PREFIX)) removeStorage(key);
   }
@@ -71,4 +70,11 @@ function removeStorage(key: string): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+// Remove only metadata from the retired photo feature; preserve files and all session/preferences.
+function clearRetiredProfileAvatarStorage(): void {
+  for (const key of readStorageKeys()) {
+    if (key.startsWith('schedule.profile.avatar.v1:')) removeStorage(key);
+  }
 }

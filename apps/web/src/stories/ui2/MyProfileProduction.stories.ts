@@ -11,7 +11,6 @@ const demoProfile = {
 } as const;
 
 const demoGroup = {
-  groupCode: 'demo',
   id: 'storybook-profile-group',
   isDeveloperAdmin: false,
   name: '示例医疗中心',

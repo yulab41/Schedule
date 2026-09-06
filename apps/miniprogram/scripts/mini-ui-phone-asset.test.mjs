@@ -26,7 +26,7 @@ describe('Mini directory reuses the accepted green phone source', () => {
     expect(card).toContain('/assets/icons/ui-phone-success.svg');
     expect(workbench).toContain('/assets/icons/ui-phone-success.svg');
     expect(card).not.toMatch(/\/assets\/icons\/(?:web-[^"']*phone[^"']*|ui-phone)\.svg/u);
-    expect(card).toContain('bindtap="handleCall"');
+    expect(card).toContain('catchtap="handleCall"');
     expect(card).toContain('animatingNumberId === number.id');
   });
 

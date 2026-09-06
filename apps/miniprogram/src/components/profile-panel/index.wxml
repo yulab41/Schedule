@@ -1,27 +1,14 @@
 <scroll-view class="profile-scroll" type="list" scroll-y show-scrollbar="{{false}}">
   <view class="profile-page {{embedded ? 'is-embedded' : ''}} {{largeText ? 'is-large-text' : ''}}">
-    <view class="profile-heading">
-      <view class="profile-heading-main">
-        <view
-          wx:if="{{!embedded}}"
-          class="profile-back"
-          hover-class="is-pressed"
-          aria-role="button"
-          aria-label="返回排班台"
-          bindtap="handleBack"
-        >
-          <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
-        </view>
-        <view class="profile-heading-copy">
-          <text class="profile-eyebrow">个人中心</text>
-          <text class="profile-title">我的</text>
-          <text class="profile-subtitle">账户、值班与安全设置</text>
-        </view>
-      </view>
-      <view class="profile-heading-avatar" aria-hidden="true">
-        <image wx:if="{{avatarPath}}" src="{{avatarPath}}" mode="aspectFill" />
-        <text wx:else>{{initial}}</text>
-      </view>
+    <view
+      wx:if="{{!embedded}}"
+      class="profile-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回排班台"
+      bindtap="handleBack"
+    >
+      <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
     </view>
 
     <view wx:if="{{mode === 'missing'}}" class="profile-state">
@@ -36,8 +23,7 @@
     <block wx:else>
       <view class="profile-identity-card">
         <view class="profile-avatar" aria-hidden="true">
-          <image wx:if="{{avatarPath}}" src="{{avatarPath}}" mode="aspectFill" />
-          <text wx:else>{{initial}}</text>
+          <text>{{initial}}</text>
         </view>
         <view class="profile-identity-copy">
           <view class="profile-name-row">
@@ -95,6 +81,26 @@
           </view>
         </view>
 
+        <view class="profile-next-duty">
+          <view class="profile-next-duty-heading">
+            <view>
+              <text class="profile-eyebrow">下一班</text>
+              <text class="profile-next-title">{{nextDutyDateLabel}}</text>
+            </view>
+            <text wx:if="{{!nextDutyEmpty}}" class="profile-shift-badge">
+              {{nextDutyShiftLabel}}
+            </text>
+          </view>
+          <block wx:if="{{!nextDutyEmpty}}">
+            <text class="profile-duty-time">{{nextDutyTimeLabel}}</text>
+            <text class="profile-duty-role">{{nextDutyRoleLabel}}</text>
+            <button class="profile-duty-link" bindtap="handleOpenCalendar">
+              打开排班日历 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
+            </button>
+          </block>
+          <text wx:else class="profile-duty-empty"> 当前月份与下个月没有查询到你的待值班次。 </text>
+        </view>
+
         <view class="profile-pulse-card">
           <view class="profile-card-heading">
             <view>
@@ -116,26 +122,6 @@
             </view>
           </view>
           <view wx:else class="profile-empty-insight">还没有可展示的个人统计趋势</view>
-        </view>
-
-        <view class="profile-next-duty">
-          <view class="profile-next-duty-heading">
-            <view>
-              <text class="profile-eyebrow">下一班</text>
-              <text class="profile-next-title">{{nextDutyDateLabel}}</text>
-            </view>
-            <text wx:if="{{!nextDutyEmpty}}" class="profile-shift-badge">
-              {{nextDutyShiftLabel}}
-            </text>
-          </view>
-          <block wx:if="{{!nextDutyEmpty}}">
-            <text class="profile-duty-time">{{nextDutyTimeLabel}}</text>
-            <text class="profile-duty-role">{{nextDutyRoleLabel}}</text>
-            <button class="profile-duty-link" bindtap="handleOpenCalendar">
-              打开排班日历 <image class="profile-inline-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
-            </button>
-          </block>
-          <text wx:else class="profile-duty-empty"> 当前月份与下个月没有查询到你的待值班次。 </text>
         </view>
       </block>
 
@@ -167,25 +153,13 @@
             <view class="profile-detail-label">
               <text>微信小程序身份</text>
               <text wx:if="{{bindingState === 'error'}}" class="profile-detail-hint">
-                稍后可重新进入刷新
+                请点击重试读取绑定状态
               </text>
             </view>
             <view class="profile-detail-action">
               <text>{{bindingLabel}}</text>
+              <button wx:if="{{bindingState === 'error'}}" bindtap="handleBindingRetry">重试</button>
               <button wx:if="{{canUnbindWechat}}" bindtap="handleUnbind">解除绑定</button>
-            </view>
-          </view>
-          <view class="profile-detail-row">
-            <text class="profile-detail-label">微信头像</text>
-            <view class="profile-detail-action">
-              <text>{{avatarSyncLabel}}</text>
-              <button
-                wx:if="{{avatarPath}}"
-                disabled="{{avatarBusy}}"
-                bindtap="handleAvatarRestore"
-              >
-                恢复姓名首字
-              </button>
             </view>
           </view>
           <view class="profile-detail-row is-last">

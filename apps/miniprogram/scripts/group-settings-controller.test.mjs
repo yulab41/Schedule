@@ -39,9 +39,7 @@ describe('P5 native group mobile-phone consent controller', () => {
         requests.push(options);
         if (options.url.endsWith('/groups') && options.method === 'GET') {
           options.success({
-            data: [
-              { groupCode: '2608', id: groupId, name: '头颈外科医生', role: 'member', version: 1 },
-            ],
+            data: [{ id: groupId, name: '头颈外科医生', role: 'member', version: 1 }],
             statusCode: 200,
           });
           return;
@@ -132,18 +130,10 @@ describe('P5 native group mobile-phone consent controller', () => {
       actionLabel: '保存同意',
       canSave: false,
       consentState: 'not-consented',
-      currentGroupCodeDigits: [
-        { key: 'digit-0', value: '2' },
-        { key: 'digit-1', value: '6' },
-        { key: 'digit-2', value: '0' },
-        { key: 'digit-3', value: '8' },
-      ],
       currentGroupName: '头颈外科医生',
       currentGroupRole: '成员',
       desiredConsent: false,
       maskedMobilePhone: '138 **** 7926',
-      profileInitial: '林',
-      profileName: '林恩宇',
       viewportClass: '',
     });
     expect(globalThis.wx.setStorageSync).toBeUndefined();

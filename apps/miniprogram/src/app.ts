@@ -1,55 +1,43 @@
-import { createRuntimeClientCapabilityStore } from './platform/client-capabilities.js';
-import { consumeRuntimeDirectoryLaunchMarker } from './platform/runtime-diagnostics-launch.js';
-import type { RuntimeDiagnosticsSlot } from './platform/runtime-diagnostics-types.js';
+import { clearRuntimeDirectoryLaunchMarker } from './platform/runtime-diagnostics-launch.js';
 import { isTestToolsRuntimeEnabled } from './platform/runtime-environment.js';
+import type { RuntimeDiagnosticsSlot } from './platform/runtime-diagnostics-types.js';
+import { createRuntimeClientCapabilityStore } from './platform/client-capabilities.js';
 import { createRuntimeMiniTelemetryEmitter } from './platform/telemetry.js';
 import { createWechatSessionRuntimeState } from './platform/wechat-session-runtime.js';
 
 const clientCapabilityStore = createRuntimeClientCapabilityStore();
 const telemetryEmitter = createRuntimeMiniTelemetryEmitter(clientCapabilityStore);
 const wechatSessionRuntimeState = createWechatSessionRuntimeState();
-const diagnosticsEnabled = isTestToolsRuntimeEnabled();
-const runtimeDiagnostics: RuntimeDiagnosticsSlot | undefined = diagnosticsEnabled
-  ? {
-      appLaunchAt: 0,
-      directorySearchRecording: false,
-      directorySearches: [],
-      errors: [],
-      initialShowPending: false,
-      launchMarkerConsumed: false,
-      launchObserved: false,
-      performance: [],
-      requests: [],
-      warmResumeObserved: false,
-    }
-  : undefined;
+// Only lifecycle provenance is retained before authorization, never diagnostic payloads.
+const diagnosticsLaunch = {
+  appLaunchAt: 0,
+  initialShowPending: false,
+  launchObserved: false,
+  warmResumeObserved: false,
+};
 
 App({
   globalData: {
     clientCapabilityStore,
-    ...(runtimeDiagnostics === undefined ? {} : { runtimeDiagnostics }),
     telemetryEmitter,
     wechatSessionRuntimeState,
+    diagnosticsLaunch,
   },
 
   onLaunch(): void {
-    const appLaunchAt = Date.now();
-    const launchMarkerConsumed = consumeRuntimeDirectoryLaunchMarker(diagnosticsEnabled);
-    if (runtimeDiagnostics !== undefined) {
-      runtimeDiagnostics.appLaunchAt = appLaunchAt;
-      runtimeDiagnostics.directorySearchRecording = launchMarkerConsumed;
-      runtimeDiagnostics.launchMarkerConsumed = launchMarkerConsumed;
-      runtimeDiagnostics.launchObserved = true;
-      runtimeDiagnostics.initialShowPending = true;
-      runtimeDiagnostics.warmResumeObserved = false;
-    }
+    if (!isTestToolsRuntimeEnabled()) clearRuntimeDirectoryLaunchMarker();
+    diagnosticsLaunch.appLaunchAt = Date.now();
+    diagnosticsLaunch.launchObserved = true;
+    diagnosticsLaunch.initialShowPending = true;
     void clientCapabilityStore.refresh({ force: true });
   },
 
-  onShow(): void {
-    if (runtimeDiagnostics !== undefined) {
-      if (runtimeDiagnostics.initialShowPending) runtimeDiagnostics.initialShowPending = false;
-      else if (runtimeDiagnostics.launchObserved) runtimeDiagnostics.warmResumeObserved = true;
+  onShow(this: { globalData: { runtimeDiagnostics?: RuntimeDiagnosticsSlot } }): void {
+    if (diagnosticsLaunch.initialShowPending) diagnosticsLaunch.initialShowPending = false;
+    else if (diagnosticsLaunch.launchObserved) diagnosticsLaunch.warmResumeObserved = true;
+    if (this.globalData.runtimeDiagnostics !== undefined) {
+      this.globalData.runtimeDiagnostics.initialShowPending = diagnosticsLaunch.initialShowPending;
+      this.globalData.runtimeDiagnostics.warmResumeObserved = diagnosticsLaunch.warmResumeObserved;
     }
     void clientCapabilityStore.refresh({ force: true });
   },

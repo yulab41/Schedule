@@ -6,6 +6,7 @@ const groupId = '11111111-1111-4111-8111-111111111111';
 const membershipId = '22222222-2222-4222-8222-222222222222';
 const shiftTypeId = '33333333-3333-4333-8333-333333333333';
 let groupVersion = 1;
+let contactOverrides = {};
 
 describe('P8-C-1 native organization management controller', () => {
   let definition;
@@ -15,11 +16,13 @@ describe('P8-C-1 native organization management controller', () => {
     vi.resetModules();
     requests = [];
     groupVersion = 1;
+    contactOverrides = {};
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
     vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'test');
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', {
+      makePhoneCall: vi.fn(),
       getStorageSync: vi.fn((key) => (key === 'schedule.wechat.session' ? session() : undefined)),
       removeStorageSync: vi.fn(),
       setStorageSync: vi.fn(),
@@ -33,7 +36,7 @@ describe('P8-C-1 native organization management controller', () => {
         }
         if (url.endsWith('/groups') && options.method === 'POST') {
           options.success({
-            data: group({ groupCode: options.data.groupCode, name: options.data.name }),
+            data: group({ name: options.data.name }),
             statusCode: 201,
           });
           return;
@@ -73,9 +76,18 @@ describe('P8-C-1 native organization management controller', () => {
           options.success({ data: schedulingConfig(), statusCode: 200 });
           return;
         }
-        if (url.endsWith('/groups/claim') && options.method === 'POST') {
+        if (
+          url.endsWith(`/groups/${groupId}/members/${membershipId}/contact`) &&
+          options.method === 'PUT'
+        ) {
           options.success({
-            data: { group: group({ id: 'group-join', name: '可加入群组' }), status: 'claimed' },
+            data: {
+              isConfirmed: options.data.isConfirmed,
+              membershipId,
+              mobilePhone: options.data.mobilePhone ?? undefined,
+              shortPhone: options.data.shortPhone ?? undefined,
+              version: 4,
+            },
             statusCode: 200,
           });
           return;
@@ -120,14 +132,77 @@ describe('P8-C-1 native organization management controller', () => {
       currentGroupName: '头颈外科医生',
       memberCards: [
         expect.objectContaining({
-          hasMobilePhone: true,
           name: '林医生',
-          shortPhone: '6601',
         }),
       ],
       organizationEnabled: true,
     });
-    expect(requests.filter((request) => request.method === 'GET')).toHaveLength(9);
+    expect(requests.filter((request) => request.method === 'GET')).toHaveLength(8);
+  });
+
+  it('reuses a self directory card and only dials a current authorized number', async () => {
+    const page = await loadReadyPage(definition);
+    const member = page.data.memberCards[0];
+    expect(member.entry.title).toContain(' · 我');
+    expect(member.entry.kindLabel).toBe('群主');
+    expect(member.entry.jobTitles).toEqual([]);
+    definition.handleMemberCall.call(page, { detail: { groupId: membershipId, number: '6601' } });
+    expect(globalThis.wx.makePhoneCall).toHaveBeenCalledExactlyOnceWith({ phoneNumber: '6601' });
+    definition.handleMemberCall.call(page, { detail: { groupId: 'stale-member', number: '6601' } });
+    definition.handleMemberCall.call(page, { detail: { groupId: membershipId, number: '9999' } });
+    expect(globalThis.wx.makePhoneCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not derive dialable numbers from masked or missing mobile phones', async () => {
+    contactOverrides = { mobilePhone: '138 **** 0000', shortPhone: undefined };
+    const page = await loadReadyPage(definition);
+    expect(page.data.memberCards[0].entry.contacts[0].numbers[0].dialable).toBe(false);
+    definition.handleMemberCall.call(page, {
+      detail: { groupId: membershipId, number: '1380000' },
+    });
+    expect(globalThis.wx.makePhoneCall).not.toHaveBeenCalled();
+  });
+
+  it('changes dropdown drafts without writing until the explicit save action', async () => {
+    const page = await loadReadyPage(definition);
+    definition.handleGroupCalendarViewSelect.call(page, { detail: { option: { value: 'week' } } });
+    definition.handleMemberCalendarViewSelect.call(page, {
+      detail: { option: { value: 'follow' } },
+    });
+    definition.handleGroupCalendarShiftChange.call(page, { detail: { value: '0' } });
+    expect(page.data.groupCalendarView).toBe('week');
+    expect(page.data.memberCalendarView).toBe('follow');
+    expect(requests.filter((request) => request.method !== 'GET')).toHaveLength(0);
+    page.data.canManageGroupCalendarDefaults = false;
+    definition.handleGroupCalendarViewSelect.call(page, { detail: { option: { value: 'list' } } });
+    expect(page.data.groupCalendarView).toBe('week');
+  });
+
+  it('keeps the existing contact editor payload when member cards are reused', async () => {
+    const page = await loadReadyPage(definition);
+    definition.handleOpenContactEditor.call(page, {
+      currentTarget: { dataset: { memberId: membershipId } },
+    });
+    definition.handleContactMobileInput.call(page, { detail: { value: '13000000000' } });
+    definition.handleContactShortInput.call(page, { detail: { value: '' } });
+    definition.handleSaveContact.call(page);
+    await vi.waitFor(() =>
+      expect(
+        requests.some(
+          (request) =>
+            request.url.endsWith(`/members/${membershipId}/contact`) && request.method === 'PUT',
+        ),
+      ).toBe(true),
+    );
+    const write = requests.find(
+      (request) =>
+        request.url.endsWith(`/members/${membershipId}/contact`) && request.method === 'PUT',
+    );
+    expect(write.data).toMatchObject({
+      mobilePhone: '13000000000',
+      shortPhone: null,
+      expectedVersion: 3,
+    });
   });
 
   it('uses one operation id in shared write headers and bodies for group name and roster writes', async () => {
@@ -152,11 +227,10 @@ describe('P8-C-1 native organization management controller', () => {
     expect(roster?.data.realNames).toEqual(['赵医生', '孙医生']);
   });
 
-  it('keeps create and claim writes idempotent through the shared transport', async () => {
+  it('creates without a group code and retains the idempotency boundary', async () => {
     const page = await loadReadyPage(definition);
 
     definition.handleCreateGroupNameInput.call(page, { detail: { value: '夜班协作组' } });
-    definition.handleCreateGroupCodeInput.call(page, { detail: { value: '7310' } });
     definition.handleCreateGroup.call(page);
     await vi.waitFor(() => expect(page.data.managementInfo).toContain('群组已创建'));
 
@@ -164,15 +238,11 @@ describe('P8-C-1 native organization management controller', () => {
       (request) => request.url.endsWith('/groups') && request.method === 'POST',
     );
     expect(create?.header['Idempotency-Key']).toBe(create?.data.operationId);
-    expect(create?.data).toMatchObject({ groupCode: '7310', name: '夜班协作组' });
+    expect(create?.data).toMatchObject({ name: '夜班协作组' });
 
-    definition.handleJoinGroupCodeInput.call(page, { detail: { value: '2608' } });
-    definition.handleJoinGroup.call(page);
-    await vi.waitFor(() => expect(page.data.managementInfo).toContain('已加入'));
-
-    const claim = requests.find((request) => request.url.endsWith('/groups/claim'));
-    expect(claim?.header['Idempotency-Key']).toBe(claim?.data.operationId);
-    expect(claim?.data.groupCode).toBe('2608');
+    expect(create?.data).not.toHaveProperty('groupCode');
+    expect(definition.handleJoinGroup).toBeUndefined();
+    expect(definition.handleSaveGroupCode).toBeUndefined();
   });
 });
 
@@ -206,7 +276,6 @@ function session() {
 
 function group(overrides = {}) {
   return {
-    groupCode: '2608',
     id: groupId,
     isDeveloperAdmin: true,
     name: '头颈外科医生',
@@ -227,6 +296,7 @@ function contact() {
     mobilePhone: '13800007926',
     shortPhone: '6601',
     version: 3,
+    ...contactOverrides,
   };
 }
 

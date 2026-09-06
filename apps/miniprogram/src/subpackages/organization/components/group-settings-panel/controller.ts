@@ -14,7 +14,6 @@ import type {
   CalendarPreferenceView,
   CalendarPreferences,
   DissolvedGroup,
-  GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
   GroupMobilePhoneConsent,
@@ -23,6 +22,8 @@ import type {
   SchedulingConfig,
 } from '@schedule/contracts';
 import {
+  canDialDirectoryNumber,
+  normalizeDirectoryDialNumber,
   createGroupMobilePhoneConsentDraft,
   createGroupMobilePhoneConsentViewModel,
   resolveGroupMobilePhoneConsentSubmission,
@@ -47,26 +48,16 @@ import {
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 
-interface GroupCodeDigitView {
-  readonly key: string;
-  readonly value: string;
-}
-
 interface MemberCardView {
+  readonly entry: ReturnType<typeof createMemberDirectoryEntry>;
   readonly canEdit: boolean;
   readonly canManage: boolean;
-  readonly hasMobilePhone: boolean;
-  readonly hasShortPhone: boolean;
   readonly id: string;
-  readonly isClaimedByCurrentUser: boolean;
   readonly isCurrentUser: boolean;
   readonly isPendingRoster: boolean;
   readonly isUnclaimed: boolean;
-  readonly mobilePhone: string;
   readonly name: string;
   readonly roleLabel: string;
-  readonly shortPhone: string;
-  readonly statusLabel: string;
   readonly version: number;
 }
 
@@ -77,11 +68,6 @@ interface ClaimCardView {
   readonly statusLabel: string;
   readonly targetName: string;
   readonly version: number;
-}
-
-interface CatalogCardView {
-  readonly id: string;
-  readonly label: string;
 }
 
 interface DissolvedCardView {
@@ -101,6 +87,11 @@ interface ValueInputEvent {
 }
 
 interface TapEvent {
+  readonly detail?: {
+    readonly option?: { readonly value?: string };
+    readonly groupId?: string;
+    readonly number?: string;
+  };
   readonly currentTarget: { readonly dataset: Record<string, string | undefined> };
 }
 
@@ -114,12 +105,12 @@ interface GroupSettingsPageData {
   readonly canManageGroupLifecycle: boolean;
   readonly consentState: GroupMobilePhoneConsent['state'];
   readonly contactVersion: number;
-  readonly currentGroupCodeDigits: readonly GroupCodeDigitView[];
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
-  readonly groupCodeDraft: string;
   readonly groupCalendarShiftIndex: number;
   readonly groupCalendarShiftOptions: readonly CalendarShiftOption[];
+  readonly groupCalendarViewOptions: readonly CalendarShiftOption[];
+  readonly memberCalendarViewOptions: readonly CalendarShiftOption[];
   readonly groupCalendarView: CalendarPreferenceView;
   readonly groupNameDraft: string;
   readonly groupVersion: number;
@@ -131,15 +122,8 @@ interface GroupSettingsPageData {
   readonly canDissolveGroup: boolean;
   readonly memberCards: readonly MemberCardView[];
   readonly claimCards: readonly ClaimCardView[];
-  readonly catalogCards: readonly CatalogCardView[];
-  readonly catalogLabels: readonly string[];
-  readonly catalogIndex: number;
-  readonly selectedCatalogId: string;
-  readonly selectedCatalogLabel: string;
   readonly dissolvedCards: readonly DissolvedCardView[];
   readonly createGroupName: string;
-  readonly createGroupCode: string;
-  readonly joinGroupCode: string;
   readonly managementError: string;
   readonly managementInfo: string;
   readonly managementState: 'error' | 'loading' | 'ready';
@@ -154,7 +138,6 @@ interface GroupSettingsPageData {
   readonly desiredConsent: boolean;
   readonly embedded: boolean;
   readonly errorMessage: string;
-  readonly groupCodeAriaLabel: string;
   readonly infoMessage: string;
   readonly isSavingGroupCalendarDefaults: boolean;
   readonly isSavingMemberCalendarPreferences: boolean;
@@ -165,8 +148,6 @@ interface GroupSettingsPageData {
   readonly memberCalendarView: CalendarPreferenceView | 'follow';
   readonly noticeVersion: string;
   readonly pageScrollStyle: string;
-  readonly profileInitial: string;
-  readonly profileName: string;
   readonly saveDisabled: boolean;
   readonly shellHeaderStyle: string;
   readonly state: 'error' | 'loading' | 'ready';
@@ -186,7 +167,6 @@ interface GroupSettingsPageInstance {
   _members: readonly GroupMember[];
   _contacts: readonly GroupMemberContact[];
   _claimRequests: readonly MembershipClaimRequest[];
-  _catalog: readonly GroupCatalogEntry[];
   _dissolvedGroups: readonly DissolvedGroup[];
   _operationIds: Map<string, string>;
   _organizationReadClient: OrganizationReadClient;
@@ -225,13 +205,22 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       canSave: false,
       consentState: 'not-consented',
       contactVersion: 0,
-      currentGroupCodeDigits: createGroupCodeDigits(),
       currentGroupName: '正在读取群组',
       currentGroupRole: '',
-      groupCodeDraft: '',
       groupCalendarShiftIndex: 0,
       groupCalendarShiftOptions: createCalendarShiftOptions('group', []),
       groupCalendarView: 'month',
+      groupCalendarViewOptions: [
+        { label: '月视图', value: 'month' },
+        { label: '周视图', value: 'week' },
+        { label: '列表视图', value: 'list' },
+      ],
+      memberCalendarViewOptions: [
+        { label: '跟随群组', value: 'follow' },
+        { label: '月视图', value: 'month' },
+        { label: '周视图', value: 'week' },
+        { label: '列表视图', value: 'list' },
+      ],
       groupNameDraft: '',
       groupVersion: 0,
       largeText: false,
@@ -242,15 +231,8 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       canDissolveGroup: false,
       memberCards: [],
       claimCards: [],
-      catalogCards: [],
-      catalogLabels: [],
-      catalogIndex: 0,
-      selectedCatalogId: '',
-      selectedCatalogLabel: '请选择群组',
       dissolvedCards: [],
       createGroupName: '',
-      createGroupCode: '',
-      joinGroupCode: '',
       managementError: '',
       managementInfo: '',
       managementState: 'loading',
@@ -265,7 +247,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       desiredConsent: false,
       embedded,
       errorMessage: '',
-      groupCodeAriaLabel: '群组码暂不可用',
       infoMessage: '',
       isSavingGroupCalendarDefaults: false,
       isSavingMemberCalendarPreferences: false,
@@ -276,8 +257,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       memberCalendarView: 'follow',
       noticeVersion: '—',
       pageScrollStyle: 'height:calc(100% - 64px);',
-      profileInitial: '我',
-      profileName: '当前账号',
       saveDisabled: true,
       shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
       state: 'loading',
@@ -296,7 +275,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     _members: [],
     _contacts: [],
     _claimRequests: [],
-    _catalog: [],
     _dissolvedGroups: [],
     _operationIds: new Map(),
     _organizationReadClient: organizationReadClient,
@@ -308,7 +286,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     ): void {
       recordMiniTelemetryBoundary('group-settings:controller-onload');
       this._requestedGroupId = decodeQueryValue(query['groupId']);
-      this.setData({ ...createShellLayoutPatch(this.data.embedded), ...createProfilePatch() });
+      this.setData({ ...createShellLayoutPatch(this.data.embedded) });
       void loadGroupSettingsWithCapability(this);
     },
 
@@ -353,7 +331,9 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     handleGroupCalendarViewSelect(this: GroupSettingsPageInstance, event: TapEvent): void {
       if (!this.data.canManageGroupCalendarDefaults) return;
-      const view = readCalendarView(event.currentTarget.dataset.view);
+      const view = readCalendarView(
+        event.detail?.option?.value ?? event.currentTarget.dataset.view,
+      );
       if (view === undefined) return;
       this.setData({
         calendarPreferencesError: '',
@@ -378,7 +358,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     },
 
     handleMemberCalendarViewSelect(this: GroupSettingsPageInstance, event: TapEvent): void {
-      const rawView = event.currentTarget.dataset.view;
+      const rawView = event.detail?.option?.value ?? event.currentTarget.dataset.view;
       const view = rawView === 'follow' ? 'follow' : readCalendarView(rawView);
       if (view === undefined) return;
       this.setData({
@@ -406,49 +386,25 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       this.setData({ groupNameDraft: readInputValue(event) });
     },
 
-    handleGroupCodeInput(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
-      this.setData({ groupCodeDraft: readInputValue(event).replace(/\D/gu, '').slice(0, 4) });
-    },
-
     handleSaveGroupName(this: GroupSettingsPageInstance): void {
       void saveGroupName(this);
-    },
-
-    handleSaveGroupCode(this: GroupSettingsPageInstance): void {
-      void saveGroupCode(this);
     },
 
     handleCreateGroupNameInput(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
       this.setData({ createGroupName: readInputValue(event) });
     },
 
-    handleCreateGroupCodeInput(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
-      this.setData({ createGroupCode: readInputValue(event).replace(/\D/gu, '').slice(0, 4) });
-    },
-
     handleCreateGroup(this: GroupSettingsPageInstance): void {
       void createGroup(this);
     },
 
-    handleJoinGroupCodeInput(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
-      this.setData({ joinGroupCode: readInputValue(event).replace(/\D/gu, '').slice(0, 4) });
-    },
-
-    handleJoinGroupPickerChange(this: GroupSettingsPageInstance, event: ValueInputEvent): void {
-      const rawIndex = event.detail?.value;
-      const index = typeof rawIndex === 'number' ? rawIndex : Number(rawIndex);
-      if (!Number.isInteger(index) || index < 0 || index >= this.data.catalogCards.length) return;
-      const selected = this.data.catalogCards[index];
-      if (selected === undefined) return;
-      this.setData({
-        catalogIndex: index,
-        selectedCatalogId: selected.id,
-        selectedCatalogLabel: selected.label,
-      });
-    },
-
-    handleJoinGroup(this: GroupSettingsPageInstance): void {
-      void joinGroup(this);
+    handleMemberCall(this: GroupSettingsPageInstance, event: TapEvent): void {
+      const { groupId, number } = event.detail ?? {};
+      const card = this.data.memberCards.find((member) => member.id === groupId);
+      const allowed = card?.entry.contacts
+        .flatMap((contact) => contact.numbers)
+        .some((candidate) => candidate.dialable && candidate.dialNumber === number);
+      if (allowed && number !== undefined) wx.makePhoneCall({ phoneNumber: number });
     },
 
     handleLeaveGroup(this: GroupSettingsPageInstance): void {
@@ -554,7 +510,6 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
   page._members = [];
   page._contacts = [];
   page._claimRequests = [];
-  page._catalog = [];
   page._dissolvedGroups = [];
   page.setData({
     calendarPreferencesError: '',
@@ -576,11 +531,6 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
     memberCalendarShiftOptions: createCalendarShiftOptions('member', []),
     memberCalendarView: 'follow',
     claimCards: [],
-    catalogCards: [],
-    catalogLabels: [],
-    catalogIndex: 0,
-    selectedCatalogId: '',
-    selectedCatalogLabel: '请选择群组',
     dissolvedCards: [],
     rosterEditorOpen: false,
     rosterNames: '',
@@ -602,10 +552,6 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
     page._currentGroupId = group.id;
     page._group = group;
     const capabilitySnapshot = getClientCapabilitySnapshot();
-    const canManageLifecycle = resolveCanManageGroupLifecycle(
-      group,
-      capabilitySnapshot.organization,
-    );
     const statusPromise = consentClient.getStatus(group.id);
     const membersPromise = page._organizationReadClient.listGroupMembers(group.id);
     const contactsPromise = page._organizationReadClient.listGroupContacts(group.id);
@@ -613,31 +559,26 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
       group.isDeveloperAdmin === true
         ? page._organizationReadClient.listMembershipClaimRequests(group.id)
         : Promise.resolve([] as MembershipClaimRequest[]);
-    const catalogPromise = canManageLifecycle
-      ? page._organizationReadClient.listGroupCatalog()
-      : Promise.resolve([] as GroupCatalogEntry[]);
     const dissolvedPromise =
       capabilitySnapshot.organization && (group.role === 'owner' || group.isDeveloperAdmin === true)
         ? page._organizationReadClient.listDissolvedGroups()
         : Promise.resolve([] as DissolvedGroup[]);
-    const [status, members, contacts, claims, catalog, dissolved] = await Promise.all([
+    const [status, members, contacts, claims, dissolved] = await Promise.all([
       statusPromise,
       membersPromise,
       contactsPromise,
       claimsPromise,
-      catalogPromise,
       dissolvedPromise,
     ]);
     if (serial !== page._loadSerial || page._currentGroupId !== group.id) return;
     page._members = members;
     page._contacts = contacts;
     page._claimRequests = claims;
-    page._catalog = catalog;
     page._dissolvedGroups = dissolved;
     page.setData({
       ...createGroupPatch(group),
       ...createOrganizationPatch(group, members, contacts, claims),
-      ...createGroupDirectoryPatch(catalog, dissolved),
+      ...createGroupDirectoryPatch(dissolved),
     });
     applyConsentStatus(page, status, { state: 'ready' });
     void loadCalendarPreferences(page);
@@ -954,7 +895,6 @@ function createOrganizationPatch(
   | 'canManageGroupLifecycle'
   | 'canManageMembers'
   | 'claimCards'
-  | 'groupCodeDraft'
   | 'groupNameDraft'
   | 'groupVersion'
   | 'managementError'
@@ -987,7 +927,6 @@ function createOrganizationPatch(
       targetName: claim.targetMemberRealName,
       version: claim.version,
     })),
-    groupCodeDraft: group.groupCode ?? '',
     groupNameDraft: group.name,
     groupVersion: group.version,
     managementError: '',
@@ -998,26 +937,15 @@ function createOrganizationPatch(
       const isPendingRoster = member.isPendingRoster === true;
       const canEdit = canManageMembers && !isPendingRoster;
       return {
+        entry: createMemberDirectoryEntry(member, contact),
         canEdit,
         canManage: canEdit,
-        hasMobilePhone: contact?.mobilePhone !== undefined,
-        hasShortPhone: contact?.shortPhone !== undefined,
         id: member.id,
-        isClaimedByCurrentUser: member.isClaimedByCurrentUser === true,
         isCurrentUser: member.isCurrentUser,
         isPendingRoster,
         isUnclaimed: member.isUnclaimed === true,
-        mobilePhone: contact?.mobilePhone ?? '',
         name: member.realName,
         roleLabel: formatRole(member.role),
-        shortPhone: contact?.shortPhone ?? '',
-        statusLabel: isPendingRoster
-          ? '待转为正式成员'
-          : member.isUnclaimed === true
-            ? '待认领'
-            : member.isClaimedByCurrentUser === true
-              ? '已认领'
-              : formatRole(member.role),
         version: member.version,
       };
     }),
@@ -1026,40 +954,16 @@ function createOrganizationPatch(
 }
 
 function createGroupDirectoryPatch(
-  catalog: readonly GroupCatalogEntry[],
   dissolved: readonly DissolvedGroup[],
-): Pick<
-  GroupSettingsPageData,
-  | 'catalogCards'
-  | 'catalogIndex'
-  | 'catalogLabels'
-  | 'dissolvedCards'
-  | 'selectedCatalogId'
-  | 'selectedCatalogLabel'
-> {
-  const catalogCards = catalog
-    .filter((entry) => entry.relation !== 'active-member' && entry.relation !== 'active-guest')
-    .map((entry) => ({
-      id: entry.id,
-      label: `${entry.name} · ${formatCatalogRelation(entry.relation)}`,
-    }));
+): Pick<GroupSettingsPageData, 'dissolvedCards'> {
   return {
-    catalogCards,
-    catalogIndex: 0,
-    catalogLabels: catalogCards.map((entry) => entry.label),
     dissolvedCards: dissolved.map((group) => ({
       deletedAt: formatDeletedAt(group.deletedAt),
       id: group.id,
       name: group.name,
       version: group.version,
     })),
-    selectedCatalogId: catalogCards[0]?.id ?? '',
-    selectedCatalogLabel: catalogCards[0]?.label ?? '暂无可加入群组',
   };
-}
-
-function formatCatalogRelation(relation: GroupCatalogEntry['relation']): string {
-  return relation === 'left-member' ? '可重新加入' : '可申请加入';
 }
 
 function formatDeletedAt(value: string): string {
@@ -1069,30 +973,21 @@ function formatDeletedAt(value: string): string {
 async function createGroup(page: GroupSettingsPageInstance): Promise<void> {
   if (!page.data.canManageGroupLifecycle || !(await ensureOrganizationCapability(page))) return;
   const name = page.data.createGroupName.trim();
-  const groupCode = page.data.createGroupCode.trim();
   if (name.length === 0) {
     page.setData({ managementError: '请输入新群组名称。', managementState: 'error' });
     return;
   }
-  if (!/^\d{4}$/u.test(groupCode)) {
-    page.setData({ managementError: '请输入四位群组码。', managementState: 'error' });
-    return;
-  }
-  const operationKey = `group-create:${name}:${groupCode}`;
+  const operationKey = `group-create:${name}`;
   page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
   try {
-    const result = await page._organizationWriteClient.createGroup({
-      groupCode,
+    await page._organizationWriteClient.createGroup({
       name,
       operationId: resolveOperationId(page, operationKey),
     });
     page._operationIds.delete(operationKey);
     page.setData({
-      createGroupCode: '',
       createGroupName: '',
-      managementInfo: result.groupCode
-        ? `群组已创建，群组码为 ${result.groupCode}。请继续添加预设成员。`
-        : '群组已创建，请继续添加预设成员。',
+      managementInfo: '群组已创建，请继续添加预设成员。',
       managementState: 'ready',
     });
     await reloadGroupDirectory(page);
@@ -1104,50 +999,13 @@ async function createGroup(page: GroupSettingsPageInstance): Promise<void> {
   }
 }
 
-async function joinGroup(page: GroupSettingsPageInstance): Promise<void> {
-  if (!page.data.canManageGroupLifecycle || !(await ensureOrganizationCapability(page))) return;
-  const selectedId = page.data.selectedCatalogId;
-  const selected = page._catalog.find((entry) => entry.id === selectedId);
-  const groupCode = page.data.joinGroupCode.trim();
-  if (selected === undefined) {
-    page.setData({ managementError: '请先选择要加入的群组。', managementState: 'error' });
-    return;
-  }
-  if (selected.relation === 'active-member' || selected.relation === 'active-guest') {
-    page.setData({ managementError: '您已经加入该群组。', managementState: 'error' });
-    return;
-  }
-  if (!/^\d{4}$/u.test(groupCode)) {
-    page.setData({ managementError: '请输入四位群组码。', managementState: 'error' });
-    return;
-  }
-  const operationKey = `group-claim:${selected.id}:${groupCode}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
-  try {
-    const result = await page._organizationWriteClient.claimGroup({
-      groupCode,
-      operationId: resolveOperationId(page, operationKey),
-    });
-    page._operationIds.delete(operationKey);
-    page.setData({
-      joinGroupCode: '',
-      managementInfo:
-        result.status === 'claimed'
-          ? `已加入“${result.group.name}”。`
-          : '已向管理员提交添加人员请求，管理员批准后才会开放群组排班。',
-      managementState: 'ready',
-    });
-    await reloadGroupDirectory(page);
-  } catch (error) {
-    page.setData({
-      managementError: `${toUserMessage(error, '群组加入申请没有完成，请稍后重试。')} 可保持内容重试。`,
-      managementState: 'error',
-    });
-  }
-}
-
 async function leaveGroup(page: GroupSettingsPageInstance): Promise<void> {
-  if (!page.data.canLeaveGroup || !(await ensureOrganizationCapability(page))) return;
+  if (
+    !page.data.canLeaveGroup ||
+    page.data.managementState === 'loading' ||
+    !(await ensureOrganizationCapability(page))
+  )
+    return;
   const group = page._group;
   if (group === undefined || !(await showConfirm('退出后将不再收到该群通知，确认退出吗？'))) return;
   const operationKey = `group-leave:${group.id}:${group.version}`;
@@ -1219,19 +1077,16 @@ async function restoreGroup(page: GroupSettingsPageInstance, groupId: string): P
 
 async function reloadGroupDirectory(page: GroupSettingsPageInstance): Promise<void> {
   if (!page.data.canManageGroupLifecycle) {
-    page._catalog = [];
     page._dissolvedGroups = [];
-    page.setData(createGroupDirectoryPatch([], []));
+    page.setData(createGroupDirectoryPatch([]));
     return;
   }
   try {
-    const catalog = await page._organizationReadClient.listGroupCatalog();
     const dissolved = page.data.canDissolveGroup
       ? await page._organizationReadClient.listDissolvedGroups()
       : ([] as DissolvedGroup[]);
-    page._catalog = catalog;
     page._dissolvedGroups = dissolved;
-    page.setData(createGroupDirectoryPatch(catalog, dissolved));
+    page.setData(createGroupDirectoryPatch(dissolved));
   } catch {
     // A successful write remains visible; directory refresh can be retried on the next load.
   }
@@ -1255,7 +1110,6 @@ async function saveGroupName(page: GroupSettingsPageInstance): Promise<void> {
     page.setData({
       ...createGroupPatch(result),
       groupNameDraft: result.name,
-      groupCodeDraft: result.groupCode ?? '',
       groupVersion: result.version,
       managementInfo: '群组名称已更新。',
       managementState: 'ready',
@@ -1263,37 +1117,6 @@ async function saveGroupName(page: GroupSettingsPageInstance): Promise<void> {
   } catch (error) {
     page.setData({
       managementError: `${toUserMessage(error, '群组名称没有保存，请稍后重试。')} 可保持当前内容重试。`,
-      managementState: 'error',
-    });
-  }
-}
-
-async function saveGroupCode(page: GroupSettingsPageInstance): Promise<void> {
-  if (!page.data.canManageGroup || !(await ensureOrganizationCapability(page))) return;
-  const group = page._group;
-  const groupCode = page.data.groupCodeDraft.trim();
-  if (group === undefined || !/^\d{4}$/u.test(groupCode) || groupCode === group.groupCode) return;
-  const operationKey = `group-code:${group.id}:${group.version}:${groupCode}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
-  try {
-    const result = await page._organizationWriteClient.updateGroupCode(group.id, {
-      expectedVersion: group.version,
-      groupCode,
-      operationId: resolveOperationId(page, operationKey),
-    });
-    page._operationIds.delete(operationKey);
-    page._group = result;
-    page.setData({
-      ...createGroupPatch(result),
-      groupNameDraft: result.name,
-      groupCodeDraft: result.groupCode ?? '',
-      groupVersion: result.version,
-      managementInfo: '群组码已更新。旧群组码不再有效。',
-      managementState: 'ready',
-    });
-  } catch (error) {
-    page.setData({
-      managementError: `${toUserMessage(error, '群组码没有保存，请稍后重试。')} 可保持当前内容重试。`,
       managementState: 'error',
     });
   }
@@ -1686,32 +1509,10 @@ function resolveTargetGroup(
 
 function createGroupPatch(
   group: GroupSummary,
-): Pick<
-  GroupSettingsPageData,
-  'currentGroupCodeDigits' | 'currentGroupName' | 'currentGroupRole' | 'groupCodeAriaLabel'
-> {
-  const digitValues = group.groupCode?.split('') ?? ['—', '—', '—', '—'];
+): Pick<GroupSettingsPageData, 'currentGroupName' | 'currentGroupRole'> {
   return {
-    currentGroupCodeDigits: createGroupCodeDigits(digitValues),
     currentGroupName: group.name,
     currentGroupRole: group.isDeveloperAdmin === true ? '后台管理员' : formatRole(group.role),
-    groupCodeAriaLabel:
-      group.groupCode === undefined ? '群组码暂不可用' : `群组码 ${digitValues.join(' ')}`,
-  };
-}
-
-function createGroupCodeDigits(
-  values: readonly string[] = ['—', '—', '—', '—'],
-): readonly GroupCodeDigitView[] {
-  return values.map((value, index) => ({ key: `digit-${index}`, value }));
-}
-
-function createProfilePatch(): Pick<GroupSettingsPageData, 'profileInitial' | 'profileName'> {
-  const profile = getStoredWechatProfile();
-  const profileName = profile?.realName ?? '当前账号';
-  return {
-    profileInitial: [...profileName][0] ?? '我',
-    profileName,
   };
 }
 
@@ -1761,4 +1562,51 @@ function createOperationId(): string {
 function toUserMessage(error: unknown, fallback: string): string {
   if (error instanceof ClientCoreError && error.message.length > 0) return error.message;
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+function createMemberDirectoryEntry(member: GroupMember, contact: GroupMemberContact | undefined) {
+  const numbers = [
+    { value: contact?.mobilePhone, field: 'full' as const, label: '手机' },
+    { value: contact?.shortPhone, field: 'extension' as const, label: '短号' },
+  ].flatMap(({ value, field, label }) => {
+    if (value === undefined || value.trim() === '') return [];
+    // The contacts endpoint applies per-group consent. Never turn a masked display into a number.
+    const dialable =
+      /^\+?[0-9][0-9 ()-]*$/u.test(value) &&
+      (field !== 'extension' || /^\d{3,6}$/u.test(value)) &&
+      canDialDirectoryNumber('mobile', field);
+    return [
+      {
+        id: `${member.id}:${field}`,
+        label,
+        number: value,
+        dialable,
+        dialNumber: dialable ? normalizeDirectoryDialNumber(value) : '',
+      },
+    ];
+  });
+  const status = member.isPendingRoster
+    ? '待转为正式成员'
+    : member.isUnclaimed
+      ? '待认领'
+      : member.isClaimedByCurrentUser
+        ? '已认领'
+        : '';
+  return {
+    id: member.id,
+    title: `${member.realName}${member.isCurrentUser ? ' · 我' : ''}`,
+    kindLabel: formatRole(member.role),
+    jobTitles: status ? [status] : [],
+    contexts: [],
+    employeeCodes: [],
+    employeeCodeLabel: '',
+    favorite: false,
+    merged: false,
+    mergeCountLabel: '',
+    notes: numbers.length === 0 ? '联系方式未填写或未公开' : '',
+    contacts:
+      numbers.length === 0
+        ? []
+        : [{ id: `${member.id}:contact`, label: '联系电话', showLabel: false, numbers }],
+  };
 }

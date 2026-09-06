@@ -22,6 +22,9 @@ export function registerPlatformAdminRoutes(
   app: FastifyInstance,
   platformAdminService: PlatformAdminService,
 ): void {
+  app.get('/me/diagnostics-access', { preHandler: app.authenticate }, async (request) =>
+    platformAdminService.diagnosticsAccess(getAuthenticatedIdentity(request)),
+  );
   app.get('/platform/me', { preHandler: app.authenticate }, async (request) =>
     platformAdminService.me(getAuthenticatedIdentity(request)),
   );

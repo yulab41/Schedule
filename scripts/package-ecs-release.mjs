@@ -13,6 +13,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
+
 import {
   acquireCacheLock,
   computeCacheKey,
@@ -510,8 +512,9 @@ if (flatEntry === undefined) {
 const manifest = {
   schemaVersion: 1,
   releaseFeatureLevel: RELEASE_FEATURE_LEVEL,
-  databaseSchemaMin: '52',
-  databaseSchemaMax: '53',
+  ...releaseSchemaCompatibility(
+    JSON.parse(fs.readFileSync(path.join(ROOT, 'migrations/meta/_journal.json'), 'utf8')),
+  ),
   rollbackCandidate: rollbackCandidate(),
   releaseId: commit,
   gitCommit: commit,

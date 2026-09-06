@@ -679,7 +679,7 @@ describeWithDatabase('scheduling configuration', () => {
       url: `/groups/${groupId}/roster-entries`,
     });
     expect(roster.statusCode).toBe(200);
-    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
     return groupId;
   }
 

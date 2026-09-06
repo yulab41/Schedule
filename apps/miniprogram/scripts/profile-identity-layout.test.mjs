@@ -87,12 +87,12 @@ function loginFixture(error = false) {
   primaryTree.querySelector('.ui-button__loading').remove();
   primaryTree.querySelector('.ui-button__label').textContent = primary.getAttribute('label');
   primary.append(primaryTree);
-  const wechat = card.querySelector('profile-avatar-login-button');
-  const wechatTree = fragment(read('src/components/profile-avatar-login-button/index.wxml'));
-  const wechatButton = wechatTree.querySelector('button');
-  wechatButton.className = 'profile-avatar-login-button';
+  const wechat = card.querySelector('ui-button[label="微信快捷登录"]');
+  const wechatTree = fragment(read('src/components/ui/ui-button/index.wxml'));
+  const wechatButton = wechatTree.querySelector('.ui-button');
+  wechatButton.className = 'ui-button ui-button--secondary identity-wechat-button';
   wechatButton.removeAttribute('disabled');
-  wechatTree.querySelector('.profile-avatar-login-button__loading').remove();
+  wechatTree.querySelector('.ui-button__loading').remove();
   wechatTree.querySelector('text').textContent = wechat.getAttribute('label');
   wechat.append(wechatTree);
   for (const input of tree.querySelectorAll('input')) input.removeAttribute('value');
@@ -102,7 +102,7 @@ function loginFixture(error = false) {
 }
 
 describe('Profile and identity layout contracts', () => {
-  it('keeps account controls and native avatar/login event contracts', () => {
+  it('keeps account controls and native account/login event contracts', () => {
     const tree = fragment(identityTemplate);
     const inputs = [...tree.querySelectorAll('.identity-login-field__control')];
     expect(inputs.map((input) => input.getAttribute('bindinput'))).toEqual([
@@ -115,15 +115,10 @@ describe('Profile and identity layout contracts', () => {
     expect(tree.querySelector('ui-button[label="进入工作台"]').getAttribute('bind:press')).toBe(
       'handlePasswordLogin',
     );
-    expect(tree.querySelector('profile-avatar-login-button').getAttribute('bind:press')).toBe(
+    expect(tree.querySelector('ui-button[label="微信快捷登录"]').getAttribute('bind:press')).toBe(
       'handleWechatLogin',
     );
-    const avatar = fragment(read('src/components/profile-avatar-login-button/index.wxml'));
-    expect(avatar.querySelector('button').getAttribute('open-type')).toBe('chooseAvatar');
-    expect(avatar.querySelector('button').getAttribute('bindchooseavatar')).toBe(
-      'handleChooseAvatar',
-    );
-    expect(avatar.querySelector('button').getAttribute('bindtap')).toBe('handlePress');
+    expect(identityTemplate).not.toContain('chooseAvatar');
     const profile = fragment(profileTemplate);
     expect(profile.querySelector('.profile-password-action').getAttribute('bindtap')).toBe(
       'handlePasswordOpen',
@@ -139,7 +134,7 @@ describe('Profile and identity layout contracts', () => {
     expect(form?.querySelectorAll('input').length).toBe(2);
     const actions = tree.querySelector('view.identity-login-actions');
     expect(actions?.querySelector('ui-button[label="进入工作台"]')).not.toBeNull();
-    expect(actions?.querySelector('profile-avatar-login-button')).not.toBeNull();
+    expect(actions?.querySelector('ui-button[label="微信快捷登录"]')).not.toBeNull();
     expect(tree.querySelector('scroll-view.identity-scroll').hasAttribute('scroll-y')).toBe(true);
     const layoutRules =
       identityStyles.match(
@@ -206,6 +201,62 @@ describe.skipIf(!browserPath)(
       );
     }
 
+    it('keeps the simplified dashboard ordered and statistics right aligned at 390/320px and large text', async () => {
+      for (const width of [390, 320])
+        for (const large of [false, true]) {
+          const tree = fragment(profileTemplate);
+          const selectors = [
+            '.profile-identity-card',
+            '.profile-stats-card',
+            '.profile-next-duty',
+            '.profile-pulse-card',
+          ];
+          const cards = selectors.map((selector) => tree.querySelector(selector));
+          expect(cards.every(Boolean)).toBe(true);
+          const positions = selectors.map((selector) =>
+            profileTemplate.indexOf('class="' + selector.slice(1) + '"'),
+          );
+          expect(positions).toEqual([...positions].sort((a, b) => a - b));
+          for (const node of tree.querySelectorAll(
+            '.profile-overview-state,.profile-duty-empty,.profile-empty-insight',
+          ))
+            node.remove();
+          const markup =
+            '<view class="profile-page ' +
+            (large ? 'is-large-text' : '') +
+            '">' +
+            cards
+              .map((card) => card.outerHTML)
+              .join('')
+              .replace(/\{\{[^}]+\}\}/gu, '示例') +
+            '</view>';
+          await render(markup, profileStyles, width);
+          if (large)
+            await page.addStyleTag({
+              content: ':root {--ui-font-size-xs:18px;--ui-font-size-sm:20px;}',
+            });
+          const geometry = await page.evaluate(() => {
+            const button = document.querySelector('.profile-inline-action');
+            const heading = button.parentElement;
+            const next = document.querySelector('.profile-next-duty');
+            return {
+              rightGap:
+                heading.getBoundingClientRect().right - button.getBoundingClientRect().right,
+              overflow: document.documentElement.scrollWidth > innerWidth,
+              background: getComputedStyle(next).backgroundColor,
+              color: getComputedStyle(next.querySelector('.profile-duty-time')).color,
+            };
+          });
+          expect(geometry.rightGap).toBeLessThanOrEqual(1);
+          expect(geometry.overflow).toBe(false);
+          expect(geometry.background).not.toBe('rgba(0, 0, 0, 0)');
+          expect(geometry.color).not.toBe('rgb(255, 255, 255)');
+          await page.screenshot({
+            path: path.join(evidenceDirectory, 'dashboard-' + width + '-' + large + '.png'),
+            fullPage: true,
+          });
+        }
+    });
     for (const width of [320, 390, 393, 414, 844]) {
       it(`keeps profile status horizontal and buttons aligned at ${width}px, including large text`, async () => {
         for (const large of [false, true]) {
@@ -280,7 +331,6 @@ describe.skipIf(!browserPath)(
               expect(Math.abs(row.centerGap)).toBeLessThanOrEqual(1);
             }
             if (state.bindingLabel.length <= 6) expect(geometry.statuses[0].lines).toBe(1);
-            if (state.avatarSyncLabel.length <= 3) expect(geometry.statuses[1].lines).toBe(1);
             for (const status of geometry.statuses) {
               expect(status.lines).toBeLessThanOrEqual(2);
               expect(status.width).toBeGreaterThanOrEqual(status.fontSize * 3);
@@ -309,13 +359,7 @@ describe.skipIf(!browserPath)(
       }, 30_000);
 
       it(`separates login fields/actions at ${width}px across focus, error, large text and keyboard-height changes`, async () => {
-        const styles =
-          identityStyles +
-          read('src/components/ui/ui-button/index.wxss') +
-          read('src/components/profile-avatar-login-button/index.wxss').replaceAll(
-            ':host',
-            'profile-avatar-login-button',
-          );
+        const styles = identityStyles + read('src/components/ui/ui-button/index.wxss');
         for (const large of [false, true]) {
           for (const error of [false, true]) {
             await render(loginFixture(error), styles, width);
@@ -335,7 +379,7 @@ describe.skipIf(!browserPath)(
                 );
                 const primary = box('.ui-button');
                 const divider = box('.identity-divider');
-                const wechat = box('.profile-avatar-login-button');
+                const wechat = box('.identity-wechat-button');
                 const privacy = box('.identity-login-privacy');
                 const scroll = document.querySelector('.identity-scroll');
                 scroll.scrollTop = scroll.scrollHeight;

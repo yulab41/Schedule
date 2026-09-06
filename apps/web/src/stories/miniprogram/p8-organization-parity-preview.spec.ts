@@ -88,11 +88,9 @@ describe('P8 organization parity Storybook golden', () => {
     expect(preview).toMatch(
       /\.p8-permission-wristband span,[\s\S]*?\.p8-permission-wristband dt\s*{[^}]*color:\s*var\(--ui-color-text-secondary\);/s,
     );
+    expect(groupSetup).not.toContain('group-panel-heading');
     expect(groupSetup).toMatch(
-      /\.group-panel-heading > span\s*{[^}]*color:\s*var\(--ui-color-text-secondary\);/s,
-    );
-    expect(groupSetup).toMatch(
-      /\.group-identity-copy span,[\s\S]*?\.created-group-code > span\s*{[^}]*color:\s*var\(--ui-color-text-secondary\);/s,
+      /\.group-identity-copy span\s*{[^}]*color:\s*var\(--ui-color-text-secondary\);/s,
     );
     expect(groupSetup).toMatch(
       /\.preference-scope\.is-personal\s*{[^}]*color:\s*var\(--ui-color-text-primary\);/s,

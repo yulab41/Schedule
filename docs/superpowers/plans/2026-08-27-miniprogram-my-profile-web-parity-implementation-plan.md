@@ -1,5 +1,7 @@
 # 小程序“我的”页 Web 对等与微信头像实施计划
 
+> 历史设计记录：头像功能、正文标题、卡片顺序与配色已由 UX-CLEANUP-10（2026-09-06）替代。当前验收以小程序 p10-profile-rc runbook 和 docs/audit/ux-cleanup-10-a.md 为准；下文保留历史决策，不再授权恢复照片功能。
+
 - 日期：2026-08-27
 - 基线：执行时以最新 `main` 与 `docs/project-status.md` 为准
 - 状态：用户已批准设计，Task 1 待红灯

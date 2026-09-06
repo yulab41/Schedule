@@ -1,0 +1,22 @@
+<import src="./options.wxml" />
+<view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
+  <view
+    class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"
+    aria-role="button"
+    aria-label="{{title}}"
+    aria-disabled="{{disabled}}"
+    aria-expanded="{{open}}"
+    bindtap="handleOpen"
+  >
+    <text class="workflow-picker-trigger-value {{displayValue ? '' : 'is-placeholder'}}"
+      >{{displayValue || placeholder}}</text
+    >
+    <view class="workflow-picker-chevron {{open ? 'is-up' : 'is-down'}}" aria-hidden="true"
+      ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit"
+    /></view>
+  </view>
+  <template
+    is="selector-options"
+    data="{{open, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
+  />
+</view>

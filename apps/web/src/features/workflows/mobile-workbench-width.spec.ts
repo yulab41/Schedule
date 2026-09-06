@@ -37,14 +37,11 @@ describe('mobile workbench full-width layout', () => {
     expect(memberManager).not.toContain('max-width: 230px');
   });
 
-  it('keeps compact group-code digits clustered from the left edge', () => {
+  it('retains the current group identity without retired code layout', () => {
     const groupPanel = readSource('../groups/GroupSetupPanel.vue');
 
-    expect(groupPanel).toMatch(
-      /@media \(max-width: 360px\)[\s\S]*?\.group-code-digits\s*{[^}]*justify-content:\s*flex-start;/s,
-    );
-    expect(groupPanel).not.toMatch(
-      /@media \(max-width: 360px\)[\s\S]*?\.group-code-digits\s*{[^}]*justify-content:\s*space-between;/s,
-    );
+    expect(groupPanel).toContain('class="group-identity-band"');
+    expect(groupPanel).not.toContain('group-code-digits');
+    expect(groupPanel).not.toContain('group-code-input');
   });
 });

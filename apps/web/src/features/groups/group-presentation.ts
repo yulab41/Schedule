@@ -1,9 +1,5 @@
 import type { GroupRole } from '@schedule/contracts';
 
-export function splitGroupCode(groupCode: string | undefined): readonly string[] {
-  return groupCode === undefined ? [] : [...groupCode];
-}
-
 export function getGroupRoleLabel(role: GroupRole): string {
   switch (role) {
     case 'owner':

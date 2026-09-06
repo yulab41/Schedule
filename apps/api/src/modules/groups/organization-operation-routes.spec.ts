@@ -93,15 +93,59 @@ describe('P8 organization route operation and version boundary', () => {
     await app.close();
   });
 
+  it('creates without a code and ignores only a retired legacy code field', async () => {
+    for (const payload of [
+      { name: 'Synthetic team' },
+      { name: 'Synthetic team', groupCode: '1234' },
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/groups',
+        headers: { 'idempotency-key': firstOperationId },
+        payload,
+      });
+      expect(response.statusCode).toBe(201);
+      expect(calls.createGroup!.mock.calls.at(-1)?.at(-1)).toEqual({
+        name: 'Synthetic team',
+        operationId: firstOperationId,
+      });
+    }
+    const invalid = await app.inject({
+      method: 'POST',
+      url: '/groups',
+      headers: { 'idempotency-key': firstOperationId },
+      payload: { name: 'Synthetic team', grantAdmin: true },
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
+
+  it('retires code routes without calling either legacy service', async () => {
+    for (const request of [
+      { method: 'POST' as const, url: '/groups/claim', payload: { groupCode: '1234' } },
+      {
+        method: 'PUT' as const,
+        url: `/groups/${groupId}/group-code`,
+        payload: { groupCode: '1234', expectedVersion: 1 },
+      },
+    ]) {
+      expect(
+        (await app.inject({ ...request, headers: { 'idempotency-key': firstOperationId } }))
+          .statusCode,
+      ).toBe(404);
+    }
+    expect(calls.claimGroup).not.toHaveBeenCalled();
+    expect(calls.updateCode).not.toHaveBeenCalled();
+  });
+
   it('accepts header-only operation ids and forwards every expected version', async () => {
     const requests = mutationRequests(firstOperationId);
     const responses = await Promise.all(requests.map((request) => app.inject(request)));
 
     expect(responses.map((response) => response.statusCode)).toEqual([
-      201, 201, 201, 204, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 201, 200, 200, 200, 204,
-      204,
+      201, 201, 204, 200, 200, 200, 200, 200, 200, 200, 200, 200, 201, 200, 200, 200, 204, 204,
     ]);
-    for (const call of Object.values(calls)) {
+    for (const [name, call] of Object.entries(calls)) {
+      if (name === 'claimGroup' || name === 'updateCode') continue;
       expect(call).toHaveBeenCalledOnce();
       expect(call.mock.calls[0]?.at(-1)).toEqual(
         expect.objectContaining({ operationId: firstOperationId }),
@@ -145,13 +189,11 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
   ) => ({ headers, method, payload: { ...payload, ...operation }, url });
   return [
     request('POST', '/groups', { groupCode: '2608', name: '急诊科' }),
-    request('POST', '/groups/claim', { groupCode: '2608' }),
     request('POST', `/groups/${groupId}/join-guest`),
     request('POST', `/groups/${groupId}/leave`),
     request('POST', `/groups/${groupId}/roster-entries`, { realNames: ['林医生'] }),
     request('POST', `/groups/${groupId}/roster-entries/convert`, { realNames: ['林医生'] }),
     request('POST', `/groups/${groupId}/members`, { realNames: ['林医生'] }),
-    request('PUT', `/groups/${groupId}/group-code`, { expectedVersion: 3, groupCode: '2609' }),
     request('PUT', `/groups/${groupId}/name`, { expectedVersion: 3, name: '急诊二组' }),
     request('PUT', `/groups/${groupId}/members/${memberId}/role`, {
       expectedVersion: 4,

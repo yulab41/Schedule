@@ -6,7 +6,7 @@
   aria-role="switch"
   aria-checked="{{checked}}"
   aria-label="{{label}}"
-  aria-disabled="{{disabled || loading}}"
+  aria-disabled="{{disabled || (loading && !allowPendingIntent)}}"
   aria-busy="{{loading}}"
   bindtap="handleToggle"
 >

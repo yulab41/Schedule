@@ -19,7 +19,44 @@ afterAll(() => {
 });
 
 describe('Mini Web-parity profile controller', () => {
-  it('builds the same statistics, trend, next duty, contacts, binding, and avatar view model', async () => {
+  it('offers a single manual retry after binding failure without inventing a bound state', async () => {
+    const dependencies = createDependencies({
+      getWechatBinding: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({ bound: false, canUnbind: false }),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    await vi.waitFor(() => expect(panel.data.bindingState).toBe('error'));
+    expect(panel.data.canUnbindWechat).toBe(false);
+    definition.handleBindingRetry.call(panel);
+    definition.handleBindingRetry.call(panel);
+    await vi.waitFor(() => expect(panel.data.bindingState).toBe('ready'));
+    expect(panel.data.bindingLabel).toBe('未绑定');
+    expect(dependencies.getWechatBinding).toHaveBeenCalledTimes(2);
+  });
+  it('ignores a binding response after the account changes', async () => {
+    let resolve;
+    const dependencies = createDependencies({
+      getWechatBinding: vi.fn(
+        () =>
+          new Promise((r) => {
+            resolve = r;
+          }),
+      ),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    dependencies.getProfile.mockReturnValue({ id: 'another-user', realName: '成员乙', version: 1 });
+    resolve({ bound: true, canUnbind: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(panel.data.canUnbindWechat).toBe(false);
+  });
+  it('builds the same statistics, trend, next duty, contacts, and binding view model', async () => {
     const dependencies = createDependencies();
     const definition = createProfilePanelControllerDefinition(true, dependencies);
     const panel = createPanel(definition);
@@ -29,7 +66,6 @@ describe('Mini Web-parity profile controller', () => {
 
     await vi.waitFor(() => expect(panel.data.overviewState).toBe('ready'));
     expect(panel.data).toMatchObject({
-      avatarPath: 'wxfile://usr/avatar.jpg',
       bindingLabel: '已绑定',
       canUnbindWechat: true,
       groupName: '头颈外科医生',
@@ -157,7 +193,7 @@ describe('Mini Web-parity profile controller', () => {
     });
   });
 
-  it('routes statistics/calendar, changes passwords safely, and restores the initial avatar', async () => {
+  it('routes statistics/calendar, changes passwords safely, and preserves signout', async () => {
     const dependencies = createDependencies();
     const definition = createProfilePanelControllerDefinition(true, dependencies);
     const panel = createPanel(definition);
@@ -181,10 +217,9 @@ describe('Mini Web-parity profile controller', () => {
       currentPassword: 'old-password',
       newPassword: 'new-password',
     });
-
-    definition.handleAvatarRestore.call(panel);
-    await vi.waitFor(() => expect(dependencies.removeAvatar).toHaveBeenCalledWith('user-1'));
-    expect(panel.data.avatarPath).toBe('');
+    definition.handleSignOut.call(panel);
+    expect(dependencies.signOut).toHaveBeenCalledTimes(1);
+    expect(panel.data.mode).toBe('missing');
   });
 
   it('submits a WeChat proof password change without a current-password field', async () => {
@@ -220,7 +255,6 @@ function createPanel(definition) {
 function createDependencies(overrides = {}) {
   const dependencies = {
     changePassword: vi.fn().mockResolvedValue({ passwordChanged: true }),
-    confirmAvatarRemoval: vi.fn().mockResolvedValue(true),
     finishSensitiveSessionChange: vi.fn(),
     getAuthMethod: vi.fn(() => 'password'),
     getBusinessDate: vi.fn(() => '2026-08-20'),
@@ -228,7 +262,6 @@ function createDependencies(overrides = {}) {
     getCalendar: vi.fn(async (_groupId, month) => calendar(month, [assignment()])),
     getMonthStatistics: vi.fn(async () => monthStatistics(memberRow(8, 2, 1))),
     getProfile: vi.fn(() => ({
-      avatarVersion: 3,
       id: 'user-1',
       realName: '徐漫彬',
       version: 1,
@@ -253,8 +286,6 @@ function createDependencies(overrides = {}) {
     listGroups: vi.fn(async () => [group('group-1', '头颈外科医生')]),
     navigateTo: vi.fn(),
     now: vi.fn(() => '2026-08-20T00:00:00.000Z'),
-    removeAvatar: vi.fn().mockResolvedValue({ removed: true }),
-    resolveAvatar: vi.fn().mockResolvedValue('wxfile://usr/avatar.jpg'),
     signOut: vi.fn(),
   };
   return { ...dependencies, ...overrides };

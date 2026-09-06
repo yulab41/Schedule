@@ -12,7 +12,6 @@ import InternalDirectoryView, {
 } from '../../views/directory/InternalDirectoryView.vue';
 
 const previewGroup: GroupSummary = {
-  groupCode: '0001',
   id: 'storybook-directory-group',
   name: '示例医疗中心',
   role: 'member',

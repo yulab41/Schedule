@@ -32,7 +32,7 @@ describe('unified directory Storybook proposal', () => {
     expect(stories).toContain('PeopleMobile390');
     expect(stories).toContain('Desktop1280');
     expect(stories).toContain("initialDirectory: 'employee'");
-    expect(stories).toContain("groupCode: '0001'");
+    expect(stories).not.toContain('groupCode:');
     expect(stories).not.toContain('138027');
   });
 

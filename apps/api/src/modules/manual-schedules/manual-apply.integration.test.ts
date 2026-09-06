@@ -51,7 +51,7 @@ describeWithDatabase('manual schedule template apply', () => {
     await registerUser('outsider-token', 'Outside Doctor');
     groupId = await createGroup('Apply group', '1234');
     await addRosterEntry(groupId, 'Candidate Doctor');
-    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
 
     const config = await getConfig('owner-token', groupId);
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);

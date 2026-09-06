@@ -48,7 +48,13 @@
     {
       "id": "owner-group-member-lifecycle",
       "role": "owner",
-      "checks": ["create-group", "rename", "group-code", "member-role", "dissolve-and-restore"]
+      "checks": [
+        "create-group-without-code",
+        "rename",
+        "group-code-retired",
+        "member-role",
+        "dissolve-and-restore"
+      ]
     },
     {
       "id": "administrator-roster-claims-contacts",

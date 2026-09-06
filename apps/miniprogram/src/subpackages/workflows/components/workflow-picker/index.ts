@@ -1,4 +1,9 @@
 import {
+  createRenderedOptions,
+  scheduleSelectorPlacement,
+  validOptionIndex,
+} from '../../../../components/ui/ui-selector/selector.js';
+import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
   cancelCalendarPeriodShift,
@@ -436,35 +441,6 @@ Component({
   },
 });
 
-function scheduleSelectorPlacement(instance: WorkflowPickerInstance): void {
-  if (typeof wx === 'undefined' || instance.createSelectorQuery === undefined) {
-    instance.setData({ popoverPlacementReady: true });
-    return;
-  }
-  const query = instance.createSelectorQuery();
-  query
-    .select('.workflow-picker-trigger')
-    .boundingClientRect()
-    .exec((results) => {
-      if (!instance.data.open) return;
-      const trigger = results[0];
-      if (trigger === undefined || trigger === null) {
-        instance.setData({ popoverPlacementReady: true });
-        return;
-      }
-      const optionCount = instance.properties.options.length;
-      const popupHeight = Math.min(300, Math.max(44, optionCount * 30 + 12));
-      const windowHeight = wx.getWindowInfo().windowHeight;
-      const spaceBelow = windowHeight - trigger.bottom - 8;
-      const spaceAbove = trigger.top - 8;
-      instance.setData({
-        popoverPlacement:
-          spaceBelow < popupHeight && spaceAbove > spaceBelow ? ('up' as const) : ('down' as const),
-        popoverPlacementReady: true,
-      });
-    });
-}
-
 function startDateLocateMotion(instance: WorkflowPickerInstance): void {
   if (instance._dateLocateTimer !== undefined) clearTimeout(instance._dateLocateTimer);
   instance.setData({ dateLocateAnimating: true });
@@ -816,26 +792,6 @@ function createDateCells(
       isWeekend: weekday === 0 || weekday === 6,
       muted,
       value,
-    };
-  });
-}
-
-function validOptionIndex(options: readonly WorkflowPickerOption[], selectedIndex: number): number {
-  return Number.isInteger(selectedIndex) && options[selectedIndex] !== undefined
-    ? selectedIndex
-    : -1;
-}
-
-function createRenderedOptions(
-  options: readonly WorkflowPickerOption[],
-): readonly WorkflowPickerRenderedOption[] {
-  return options.map((option) => {
-    const match = option.isWeekend ? /^(.*?)(（周[六日]）)(.*)$/u.exec(option.label) : null;
-    return {
-      ...option,
-      leadingLabel: match?.[1] ?? option.label,
-      trailingLabel: match?.[3] ?? '',
-      weekendLabel: match?.[2] ?? '',
     };
   });
 }

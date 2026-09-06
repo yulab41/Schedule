@@ -1,3 +1,4 @@
+import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import {
   directoryEntryLookupRequestSchema,
   directoryQuerySchema,
@@ -19,24 +20,28 @@ const groupIdSchema = z.string().uuid();
 export function registerDirectoryRoutes(
   app: FastifyInstance,
   directoryQuery: DirectoryQuery,
+  canUseDiagnostics: (identity: AuthenticatedIdentity) => Promise<boolean> = async () => false,
 ): void {
   app.get('/groups/:groupId/directory/facets', { preHandler: app.authenticate }, (request) =>
     directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
-  app.get('/groups/:groupId/directory', createDirectoryListTimingOptions(app), async (request) =>
-    directoryQuery.list(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      parseDirectoryQuery(request.query),
-      'internal',
-      getDirectoryServerTimingTrace(request),
-      (directoryQueryPlan) => {
-        request.log.info(
-          { directoryQueryPlan, event: 'directory_query_plan_selected' },
-          'Directory query plan selected.',
-        );
-      },
-    ),
+  app.get(
+    '/groups/:groupId/directory',
+    createDirectoryListTimingOptions(app, canUseDiagnostics),
+    async (request) =>
+      directoryQuery.list(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseDirectoryQuery(request.query),
+        'internal',
+        getDirectoryServerTimingTrace(request),
+        (directoryQueryPlan) => {
+          request.log.info(
+            { directoryQueryPlan, event: 'directory_query_plan_selected' },
+            'Directory query plan selected.',
+          );
+        },
+      ),
   );
   app.post('/groups/:groupId/directory/lookup', { preHandler: app.authenticate }, (request) =>
     directoryQuery.lookup(
@@ -54,7 +59,7 @@ export function registerDirectoryRoutes(
   );
   app.get(
     '/groups/:groupId/employee-directory',
-    createDirectoryListTimingOptions(app),
+    createDirectoryListTimingOptions(app, canUseDiagnostics),
     async (request) =>
       directoryQuery.list(
         getAuthenticatedIdentity(request),

@@ -47,7 +47,6 @@ const thirdAssignmentId = '66666666-6666-4666-8666-666666666663';
 
 export function getP7WorkflowGroup(role: P7WorkflowRole): GroupSummary {
   return {
-    groupCode: '0796',
     id: groupId,
     name: '急诊一组',
     role,

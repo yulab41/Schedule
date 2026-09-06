@@ -75,6 +75,25 @@ export class PlatformAdminService {
     return { isPlatformAdmin: user?.isDeveloperAdmin === 1 };
   }
 
+  public async diagnosticsAccess(
+    identity: AuthenticatedIdentity,
+  ): Promise<{ readonly allowed: boolean }> {
+    // The account seeded by 0037 is the designated admin, not every group/platform administrator.
+    const [user] = await this.databaseClient.database
+      .select({ isDeveloperAdmin: users.isDeveloperAdmin })
+      .from(users)
+      .where(
+        and(
+          eq(users.id, '00000000-0000-4000-8000-000000000001'),
+          eq(users.cloudbaseUid, identity.cloudbaseUid),
+          eq(users.status, 'active'),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+    return { allowed: user?.isDeveloperAdmin === 1 };
+  }
+
   public async listUserAccounts(
     identity: AuthenticatedIdentity,
   ): Promise<PlatformAdminUserAccountList> {

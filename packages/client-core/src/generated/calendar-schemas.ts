@@ -1,7 +1,7 @@
 import type { CompactJsonSchema } from '../json-decoder.js';
 
 const acceptInviteResponseSchemaJson =
-  '{"type":"object","properties":{"group":{"type":"object","properties":{"groupCode":{"type":"string","pattern":"^\\\\d{4}$"},"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false},"token":{"type":"string","minLength":1}},"required":["group"],"additionalProperties":false}';
+  '{"type":"object","properties":{"group":{"type":"object","properties":{"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false},"token":{"type":"string","minLength":1}},"required":["group"],"additionalProperties":false}';
 const addGroupMembersResponseSchemaJson =
   '{"type":"object","properties":{"added":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["added"],"additionalProperties":false}';
 const addRosterEntriesResponseSchemaJson =
@@ -53,9 +53,9 @@ const groupMemberListSchemaJson =
 const groupMemberSchemaJson =
   '{"type":"object","properties":{"claimRequestStatus":{"type":"string","enum":["pending","rejected"]},"claimedByName":{"type":"string"},"id":{"type":"string","minLength":1},"isClaimedByCurrentUser":{"type":"boolean"},"isCurrentUser":{"type":"boolean"},"isPendingRoster":{"type":"boolean"},"isUnclaimed":{"type":"boolean"},"realName":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","isCurrentUser","realName","role","version"],"additionalProperties":false}';
 const groupSummarySchemaJson =
-  '{"type":"object","properties":{"groupCode":{"type":"string","pattern":"^\\\\d{4}$"},"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false}';
+  '{"type":"object","properties":{"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false}';
 const groupSummaryListSchemaJson =
-  '{"type":"array","items":{"type":"object","properties":{"groupCode":{"type":"string","pattern":"^\\\\d{4}$"},"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false}}';
+  '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false}}';
 const groupSwapSettingsSchemaJson =
   '{"type":"object","properties":{"requiresApproval":{"type":"boolean"}},"required":["requiresApproval"],"additionalProperties":false}';
 const holidayReadModelSchemaJson =

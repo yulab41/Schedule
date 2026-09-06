@@ -53,6 +53,49 @@ describe('trusted diagnostics permission for the current session', () => {
     expect(app.globalData.runtimeDiagnostics).toBeUndefined();
     unsubscribe();
   });
+  it('a broken listener cannot block revocation or leave diagnostic payloads behind', async () => {
+    const api = await import('../src/platform/diagnostics-access.ts');
+    const state = await import('../src/platform/diagnostics-permission-state.ts');
+    await api.refreshDiagnosticsAccess();
+    api.subscribeDiagnosticsPermission(() => {
+      throw new Error('broken page');
+    });
+    const healthy = vi.fn();
+    api.subscribeDiagnosticsPermission(healthy);
+    expect(() => state.invalidateDiagnosticsPermission()).not.toThrow();
+    expect(healthy).toHaveBeenCalledWith(false);
+    expect(app.globalData.runtimeDiagnostics).toBeUndefined();
+  });
+  it('uses the actual app launch provenance rather than authorization time', async () => {
+    app.globalData.diagnosticsLaunch = {
+      appLaunchAt: 12345,
+      launchObserved: true,
+      initialShowPending: false,
+      warmResumeObserved: true,
+    };
+    const api = await import('../src/platform/diagnostics-access.ts');
+    await api.refreshDiagnosticsAccess();
+    expect(app.globalData.runtimeDiagnostics).toMatchObject({
+      appLaunchAt: 12345,
+      launchObserved: true,
+      warmResumeObserved: true,
+    });
+  });
+  it('an older same-account grant cannot overwrite a later denial', async () => {
+    const api = await import('../src/platform/diagnostics-access.ts');
+    let complete;
+    response.mockReturnValueOnce(
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const old = api.refreshDiagnosticsAccess();
+    response.mockResolvedValueOnce({ statusCode: 200, data: { allowed: false } });
+    expect(await api.refreshDiagnosticsAccess()).toBe(false);
+    complete({ statusCode: 200, data: { allowed: true } });
+    expect(await old).toBe(false);
+    expect(api.canUseDiagnostics()).toBe(false);
+  });
   it.each([401, 403, 426, 503])('denies HTTP %s without collecting data', async (statusCode) => {
     response.mockResolvedValue({ statusCode, data: { allowed: true } });
     const api = await import('../src/platform/diagnostics-access.ts');

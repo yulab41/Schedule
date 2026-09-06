@@ -1,3 +1,4 @@
+import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import type { FastifyInstance, FastifyRequest, RouteShorthandOptions } from 'fastify';
 
 import type { DirectoryQueryPlan } from './directory-query-plan.js';
@@ -23,18 +24,18 @@ export interface DirectoryServerTimingTrace {
 }
 
 const traceByRequest = new WeakMap<FastifyRequest, DirectoryServerTimingTrace>();
+const requestStart = new WeakMap<FastifyRequest, number>();
+const authStart = new WeakMap<FastifyRequest, number>();
 const coldInstanceThresholdMs = 60_000;
 
-export function createDirectoryListTimingOptions(app: FastifyInstance): RouteShorthandOptions {
+export function createDirectoryListTimingOptions(
+  app: FastifyInstance,
+  canUseDiagnostics: (identity: AuthenticatedIdentity) => Promise<boolean>,
+): RouteShorthandOptions {
   return {
     onRequest: async (request) => {
       if (!isDirectoryTimingRequested(request)) return;
-      const instanceAgeMs = Math.max(0, Math.round(process.uptime() * 1_000));
-      traceByRequest.set(request, {
-        coldStart: instanceAgeMs < coldInstanceThresholdMs,
-        instanceAgeMs,
-        requestStartedAt: performance.now(),
-      });
+      requestStart.set(request, performance.now());
     },
     onSend: async (request, reply, payload) => {
       const trace = traceByRequest.get(request);
@@ -48,13 +49,25 @@ export function createDirectoryListTimingOptions(app: FastifyInstance): RouteSho
     },
     preHandler: [
       async (request) => {
-        const trace = traceByRequest.get(request);
-        if (trace !== undefined) trace.authStartedAt = performance.now();
+        if (isDirectoryTimingRequested(request)) authStart.set(request, performance.now());
       },
       app.authenticate,
       async (request) => {
-        const trace = traceByRequest.get(request);
-        if (trace !== undefined) trace.authMs = elapsedSince(trace.authStartedAt);
+        if (!isDirectoryTimingRequested(request) || request.authenticatedIdentity === null) return;
+        let allowed = false;
+        try {
+          allowed = await canUseDiagnostics(request.authenticatedIdentity);
+        } catch {
+          /* Optional diagnostics must not disable an otherwise authorized directory query. */
+        }
+        if (!allowed) return;
+        const instanceAgeMs = Math.max(0, Math.round(process.uptime() * 1_000));
+        traceByRequest.set(request, {
+          coldStart: instanceAgeMs < coldInstanceThresholdMs,
+          instanceAgeMs,
+          requestStartedAt: requestStart.get(request) ?? performance.now(),
+          authMs: elapsedSince(authStart.get(request)),
+        });
       },
     ],
     preSerialization: async (request) => {

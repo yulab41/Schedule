@@ -3,6 +3,8 @@
   "styleIsolation": "apply-shared",
   "usingComponents": {
     "ui-alert": "/components/ui/ui-alert/index",
-    "ui-loading": "/components/ui/ui-loading/index"
+    "ui-loading": "/components/ui/ui-loading/index",
+    "ui-selector": "/components/ui/ui-selector/index",
+    "directory-entry-card": "/subpackages/organization/components/directory-entry-card/index"
   }
 }

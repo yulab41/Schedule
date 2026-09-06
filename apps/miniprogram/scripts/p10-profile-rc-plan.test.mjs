@@ -11,12 +11,15 @@ function read(relativePath) {
 }
 
 describe('P10 profile RC plan', () => {
-  it('locks the candidate and the manual stop condition', () => {
+  it('requires current release identity and preserves the device-review stop condition', () => {
     const plan = read('docs/runbooks/p10-profile-rc.md');
-    expect(plan).toContain('0.1.0-p9.20260828.64');
-    expect(plan).toContain('P10 个人中心 RC 通过');
-    expect(plan).toContain('生产 `organization=true`');
-    expect(plan).toContain('不提交审核或正式发布');
+    expect(plan).toContain('UX-CLEANUP-10 Q1/Q5');
+    expect(plan).toContain('总控发布记录');
+    expect(plan).toContain('源码与 manifest');
+    expect(plan).toContain('待用户复核');
+    expect(plan).not.toContain('0.1.0-p9.20260828.64');
+    expect(plan).not.toContain('生产 `organization=true`');
+    expect(plan).toContain('不提审、不正式发布');
     expect(plan).toContain('两次都不得白屏');
   });
 
@@ -26,7 +29,9 @@ describe('P10 profile RC plan', () => {
       '微信快捷登录',
       '账号密码登录',
       '微信小程序身份',
-      '微信头像',
+      '姓名首字',
+      '解除绑定',
+      '重试',
       '值班概览',
       '修改登录密码',
       '退出登录',

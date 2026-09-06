@@ -1,3 +1,4 @@
+<import src="../../../../components/ui/ui-selector/options.wxml" />
 <view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
   <view
     class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"
@@ -12,42 +13,15 @@
     <view
       class="workflow-picker-chevron {{mode === 'selector' ? (open ? 'is-up' : 'is-down') : 'is-right'}}"
       aria-hidden="true"
-    ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" /></view>
+      ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit"
+    /></view>
   </view>
 
-  <view
-    wx:if="{{open && mode === 'selector'}}"
-    class="workflow-picker-selector-backdrop"
-    aria-role="button"
-    aria-label="关闭选项"
-    bindtap="handleClose"
-  ></view>
-  <scroll-view
-    wx:if="{{open && mode === 'selector'}}"
-    class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}} {{popoverPlacementReady ? 'is-ready' : 'is-measuring'}}"
-    type="list"
-    scroll-y
-    enhanced
-    show-scrollbar="{{false}}"
-  >
-    <view
-      wx:for="{{renderedOptions}}"
-      wx:key="value"
-      class="workflow-picker-option {{item.isWeekend ? 'is-weekend' : ''}} {{index === selectedOptionIndex ? 'is-selected' : ''}}"
-      data-index="{{index}}"
-      aria-role="option"
-      aria-selected="{{index === selectedOptionIndex}}"
-      bindtap="handleOptionTap"
-    >
-      <text class="workflow-picker-option-label"
-        ><text>{{item.leadingLabel}}</text
-        ><text wx:if="{{item.weekendLabel}}" class="workflow-picker-option-weekend"
-          >{{item.weekendLabel}}</text
-        ><text>{{item.trailingLabel}}</text></text
-      >
-    </view>
-    <view wx:if="{{options.length === 0}}" class="workflow-picker-empty">暂无可选项</view>
-  </scroll-view>
+  <template
+    wx:if="{{mode === 'selector'}}"
+    is="selector-options"
+    data="{{open, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
+  />
 </view>
 
 <view wx:if="{{open && mode !== 'selector'}}" class="workflow-picker-layer">
@@ -60,19 +34,8 @@
         <text>{{draftDisplayValue}}</text>
       </view>
       <view class="workflow-picker-close" aria-role="button" aria-label="关闭" bindtap="handleClose"
-        ><image src="/assets/icons/ui-close.svg" mode="aspectFit" /></view
-      >
-    </view>
-
-    <view class="workflow-picker-summary">
-      <view class="workflow-picker-summary-mark"></view>
-      <view>
-        <text>{{draftDisplayValue}}</text>
-        <text
-          >{{mode === 'month' ? '上下滑动年份与月份' : mode === 'date' ? '选择日期后点击完成' :
-          '选择后点击完成'}}</text
-        >
-      </view>
+        ><image src="/assets/icons/ui-close.svg" mode="aspectFit"
+      /></view>
     </view>
 
     <view wx:if="{{mode === 'month'}}" class="workflow-picker-wheel">

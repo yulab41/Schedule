@@ -60,7 +60,6 @@ export const organizationReadApiGoldenResponse = {
   ] as const satisfies readonly GroupCatalogEntry[],
   groups: [
     {
-      groupCode: '2608',
       id: 'group-1',
       isDeveloperAdmin: true,
       name: '急诊科',

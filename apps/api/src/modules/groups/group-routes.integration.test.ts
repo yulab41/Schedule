@@ -69,7 +69,7 @@ describeWithDatabase('groups and roster claiming', () => {
     }
   });
 
-  it('uses the database uniqueness constraint across independent concurrent connections', async () => {
+  it('creates independent NULL-code groups across concurrent connections', async () => {
     const firstClient = createDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     const secondClient = createDatabaseClient(databaseOptions as DatabaseConnectionOptions);
 
@@ -77,16 +77,16 @@ describeWithDatabase('groups and roster claiming', () => {
       const [first, second] = await Promise.allSettled([
         new GroupService(firstClient).create(
           { cloudbaseUid: 'cloudbase-owner' },
-          { groupCode: '1234', name: 'Concurrent group one', operationId: randomUUID() },
+          { name: 'Concurrent group one', operationId: randomUUID() },
         ),
         new GroupService(secondClient).create(
           { cloudbaseUid: 'cloudbase-other-owner' },
-          { groupCode: '1234', name: 'Concurrent group two', operationId: randomUUID() },
+          { name: 'Concurrent group two', operationId: randomUUID() },
         ),
       ]);
 
-      expect([first, second].filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-      expect([first, second].filter((result) => result.status === 'rejected')).toHaveLength(1);
+      expect([first, second].filter((result) => result.status === 'fulfilled')).toHaveLength(2);
+      expect([first, second].filter((result) => result.status === 'rejected')).toHaveLength(0);
     } finally {
       await firstClient.close();
       await secondClient.close();
@@ -95,14 +95,19 @@ describeWithDatabase('groups and roster claiming', () => {
     const [storedGroup] = await client.database
       .select({ groupCode: groups.groupCode, name: groups.name })
       .from(groups)
-      .where(eq(groups.groupCode, '1234'));
+      .where(sql`${groups.name} LIKE 'Concurrent group%'`);
     const [ownerMembership] = await client.database
       .select({ role: groupMemberships.role })
       .from(groupMemberships)
       .innerJoin(groups, eq(groups.id, groupMemberships.groupId))
-      .where(and(eq(groups.groupCode, '1234'), eq(groupMemberships.userId, groups.ownerUserId)));
+      .where(
+        and(
+          sql`${groups.name} LIKE 'Concurrent group%'`,
+          eq(groupMemberships.userId, groups.ownerUserId),
+        ),
+      );
 
-    expect(storedGroup).toEqual({ groupCode: '1234', name: expect.stringContaining('Concurrent') });
+    expect(storedGroup).toEqual({ groupCode: null, name: expect.stringContaining('Concurrent') });
     expect(ownerMembership).toEqual({ role: 'owner' });
   });
 
@@ -221,7 +226,70 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(counts).toEqual([{ count: 1 }]);
   });
 
-  it('requires a manually supplied group code and only binds a matching pre-set member', async () => {
+  it('keeps historical reads available and blocks NULL creation until schema expansion', async () => {
+    const [owner] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-owner'));
+    const historicId = randomUUID();
+    await client.database.insert(groups).values({
+      id: historicId,
+      name: 'Historical transition fixture',
+      ownerUserId: owner!.id,
+      groupCode: '0037',
+    });
+    await client.database
+      .insert(groupMemberships)
+      .values({ id: randomUUID(), groupId: historicId, userId: owner!.id, role: 'owner' });
+    await client.database.execute(
+      sql`ALTER TABLE \`groups\` MODIFY COLUMN group_code char(4) NOT NULL`,
+    );
+    const read = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer owner-token' },
+    });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toEqual([
+      expect.objectContaining({ id: historicId, name: 'Historical transition fixture' }),
+    ]);
+    expect(read.json()[0]).not.toHaveProperty('groupCode');
+    const create = await app.inject({
+      method: 'POST',
+      url: '/groups',
+      headers: { authorization: 'Bearer owner-token' },
+      payload: { name: 'Blocked transition fixture' },
+    });
+    expect(create.statusCode).toBe(503);
+    expect(create.json()).toMatchObject({ error: { code: 'SERVICE_UNAVAILABLE' } });
+    const stored = await client.database.select({ id: groups.id }).from(groups);
+    expect(stored).toEqual([{ id: historicId }]);
+  });
+
+  it('does not expose a code stored in a historical operation replay', async () => {
+    const operationId = randomUUID();
+    const payload = { name: 'Replay fixture', operationId };
+    const request = {
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': operationId },
+      method: 'POST' as const,
+      url: '/groups',
+      payload,
+    };
+    const created = await app.inject(request);
+    expect(created.statusCode).toBe(201);
+    await client.database.execute(
+      sql`UPDATE idempotency_keys SET result = JSON_SET(result, '$.groupCode', '0037') WHERE operation_key = ${operationId}`,
+    );
+    const replay = await app.inject(request);
+    expect(replay.statusCode).toBe(201);
+    expect(replay.json()).toEqual(created.json());
+    const [stored] = await client.database.execute<{ code: string }>(
+      sql`SELECT JSON_UNQUOTE(JSON_EXTRACT(result, '$.groupCode')) AS code FROM idempotency_keys WHERE operation_key = ${operationId}`,
+    );
+    expect(stored).toEqual([{ code: '0037' }]);
+  });
+
+  it('creates without a code and never claims via retired code routes', async () => {
     const missingCode = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
@@ -244,9 +312,9 @@ describeWithDatabase('groups and roster claiming', () => {
       url: '/groups/claim',
     });
 
-    expect(missingCode.statusCode).toBe(400);
-    expect(unknownClaim.statusCode).toBe(403);
-    expect(matchingClaim.statusCode).toBe(201);
+    expect(missingCode.statusCode).toBe(201);
+    expect(unknownClaim.statusCode).toBe(404);
+    expect(matchingClaim.statusCode).toBe(404);
   });
 
   it('rejects duplicate pending roster names and keeps roster changes owner-only', async () => {
@@ -354,7 +422,7 @@ describeWithDatabase('groups and roster claiming', () => {
     });
     expect(again.json()).toEqual({ converted: 0, skipped: 1 });
 
-    await insertDirectMembership(client, { groupCode: '8901', realName: 'Outsider Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Outsider Doctor' });
     const [membership] = await client.database
       .select({ userId: groupMemberships.userId })
       .from(groupMemberships)
@@ -469,7 +537,7 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(userCount).toEqual([{ count: 0 }]);
   });
 
-  it('invalidates the previous code immediately when the owner regenerates it', async () => {
+  it('does not offer code regeneration or claim even to the owner', async () => {
     const group = await createGroup('Code rotation group', '5678');
     const groupSnapshot = group.json() as { id: string; version: number };
     const groupId = groupSnapshot.id;
@@ -488,8 +556,12 @@ describeWithDatabase('groups and roster claiming', () => {
       url: '/groups/claim',
     });
 
-    expect(regenerated.statusCode).toBe(200);
-    expect(regenerated.json()).toMatchObject({ groupCode: '6789', version: 2 });
+    expect(regenerated.statusCode).toBe(404);
+    const [stored] = await client.database
+      .select({ code: groups.groupCode })
+      .from(groups)
+      .where(eq(groups.id, groupId));
+    expect(stored?.code).toBeNull();
     expect(oldCodeClaim.statusCode).toBe(404);
   });
 
@@ -503,14 +575,14 @@ describeWithDatabase('groups and roster claiming', () => {
     await expect(
       service.create(
         { cloudbaseUid: 'cloudbase-owner' },
-        { groupCode: '7890', name: 'Blocked group', operationId: randomUUID() },
+        { name: 'Blocked group', operationId: randomUUID() },
       ),
     ).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
 
     const storedGroups = await client.database
       .select({ id: groups.id })
       .from(groups)
-      .where(eq(groups.groupCode, '7890'));
+      .where(eq(groups.name, 'Blocked group'));
 
     expect(storedGroups).toEqual([]);
   });
@@ -536,7 +608,7 @@ describeWithDatabase('groups and roster claiming', () => {
 
     await insertDirectMembership(client, {
       cloudbaseUid: 'cloudbase-candidate',
-      groupCode: '3456',
+      groupId,
       realName: 'Candidate Doctor',
     });
 

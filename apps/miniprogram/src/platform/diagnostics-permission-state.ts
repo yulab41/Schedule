@@ -9,7 +9,7 @@ export function hasDiagnosticsPermission(ownerId: string | undefined, generation
 
 export function setDiagnosticsPermission(ownerId: string, generation: number): void {
   grant = { ownerId, generation };
-  for (const listener of listeners) listener(true);
+  notifyPermission(true);
 }
 
 export function subscribeDiagnosticsPermission(listener: (allowed: boolean) => void): () => void {
@@ -28,5 +28,15 @@ export function invalidateDiagnosticsPermission(): void {
   } catch {
     /* Diagnostics never prevent session invalidation. */
   }
-  for (const listener of listeners) listener(false);
+  notifyPermission(false);
+}
+
+function notifyPermission(allowed: boolean): void {
+  for (const listener of listeners) {
+    try {
+      listener(allowed);
+    } catch {
+      /* A broken page cannot block logout or other revocations. */
+    }
+  }
 }

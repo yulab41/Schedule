@@ -1001,7 +1001,7 @@ describeWithDatabase('leave requests and reflow', () => {
       ['b-token', 'B Doctor'],
       ['c-token', 'C Doctor'],
     ] as const) {
-      await claimGroup(token, '4321', realName);
+      await attachTestMember(token, groupId, realName);
       expect((await listGroupMembers(groupId)).some((member) => member.realName === realName)).toBe(
         true,
       );
@@ -1417,9 +1417,13 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+  async function attachTestMember(
+    token: string,
+    targetGroupId: string,
+    realName: string,
+  ): Promise<void> {
     void token;
-    await insertDirectMembership(client, { groupCode, realName });
+    await insertDirectMembership(client, { groupId: targetGroupId, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

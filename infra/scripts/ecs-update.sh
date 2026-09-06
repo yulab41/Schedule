@@ -120,7 +120,7 @@ compose() {
 
 wait_for_health() {
   for attempt in $(seq 1 30); do
-    if curl -kfsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" \
+    if curl -fsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" \
       "https://${DOMAIN}/api/health"; then
       echo
       return 0
@@ -442,7 +442,7 @@ restore_deployment_state() {
   fi
   if [ "$application_restored" = "true" ]; then
     compose up -d --force-recreate api web || true
-    curl -kfsS --resolve "${DOMAIN}:443:127.0.0.1" \
+    curl -fsS --resolve "${DOMAIN}:443:127.0.0.1" \
       "https://${DOMAIN}/api/health" >/dev/null || true
   fi
   if [ -n "$NEXT_CURRENT_RELEASE" ]; then

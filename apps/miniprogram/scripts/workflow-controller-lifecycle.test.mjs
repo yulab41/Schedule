@@ -291,8 +291,9 @@ describe('workflow controller lifecycle generation', () => {
 
   it.each([
     { asyncFunctions: 8, awaits: 23, controller: 'workflow-leave-panel' },
-    { asyncFunctions: 12, awaits: 30, controller: 'workflow-swap-panel' },
-    { asyncFunctions: 12, awaits: 30, controller: 'workflow-duty-panel' },
+    // Settings writes/reconciliation use settings-intent, whose lifecycle has behavioral coverage.
+    { asyncFunctions: 10, awaits: 32, controller: 'workflow-swap-panel' },
+    { asyncFunctions: 10, awaits: 32, controller: 'workflow-duty-panel' },
   ])('keeps every async function in $controller under the shared task contract', (expected) => {
     const relativePath = `src/subpackages/workflows/components/${expected.controller}/controller.ts`;
     const source = readFileSync(path.join(appRoot, relativePath), 'utf8');

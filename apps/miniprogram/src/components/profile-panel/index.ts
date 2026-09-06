@@ -44,7 +44,7 @@ Component({
     },
   },
   methods: {
-    handleAvatarRestore: controller.handleAvatarRestore,
+    handleBindingRetry: controller.handleBindingRetry,
     handleBack: controller.handleBack,
     handleCurrentPasswordInput: controller.handleCurrentPasswordInput,
     handleNewPasswordInput: controller.handleNewPasswordInput,

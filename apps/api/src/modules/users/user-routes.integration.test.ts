@@ -107,66 +107,29 @@ describeWithDatabase('user authentication and profiles', () => {
     expect(alphaRead.json()).toEqual({ id: alpha.id, realName: 'Alpha Doctor', version: 1 });
   });
 
-  it('isolates, versions, serves, and deletes the current user avatar', async () => {
-    const alphaRegistration = await registerUser('active-alpha', 'Alpha Doctor');
-    await registerUser('active-beta', 'Beta Doctor');
-    const alpha = alphaRegistration.json() as { id: string };
-    const avatar = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
-
-    const first = await app.inject({
-      headers: { authorization: 'Bearer active-alpha', 'content-type': 'image/png' },
-      method: 'PUT',
-      payload: avatar,
-      url: '/users/me/avatar',
-    });
-    expect(first.statusCode, first.body).toBe(200);
-    expect(first.json()).toEqual({ avatarVersion: 1 });
-
-    const alphaRead = await app.inject({
-      headers: { authorization: 'Bearer active-alpha' },
-      method: 'GET',
-      url: '/users/me/avatar',
-    });
-    expect(alphaRead.statusCode).toBe(200);
-    expect(alphaRead.rawPayload).toEqual(avatar);
-    const betaRead = await app.inject({
-      headers: { authorization: 'Bearer active-beta' },
-      method: 'GET',
-      url: '/users/me/avatar',
-    });
-    expect(betaRead.statusCode).toBe(404);
-
-    const second = await app.inject({
-      headers: { authorization: 'Bearer active-alpha', 'content-type': 'image/png' },
-      method: 'PUT',
-      payload: avatar,
-      url: '/users/me/avatar',
-    });
-    expect(second.json()).toEqual({ avatarVersion: 2 });
-    const profile = await app.inject({
-      headers: { authorization: 'Bearer active-alpha' },
-      method: 'GET',
-      url: '/users/me',
-    });
-    expect(profile.json()).toEqual({
-      avatarVersion: 2,
-      id: alpha.id,
-      realName: 'Alpha Doctor',
-      version: 1,
-    });
-
-    const removed = await app.inject({
-      headers: { authorization: 'Bearer active-alpha' },
-      method: 'DELETE',
-      url: '/users/me/avatar',
-    });
-    expect(removed.json()).toEqual({ removed: true });
-    const removedAgain = await app.inject({
-      headers: { authorization: 'Bearer active-alpha' },
-      method: 'DELETE',
-      url: '/users/me/avatar',
-    });
-    expect(removedAgain.json()).toEqual({ removed: false });
+  it('retires photo routes and retains normal profile reads', async () => {
+    const registration = await registerUser('active-alpha', 'Alpha Doctor');
+    const { id } = registration.json() as { id: string };
+    for (const method of ['GET', 'PUT', 'DELETE'] as const) {
+      expect(
+        (
+          await app.inject({
+            method,
+            url: '/users/me/avatar',
+            headers: { authorization: 'Bearer active-alpha' },
+          })
+        ).statusCode,
+      ).toBe(404);
+    }
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/users/me',
+          headers: { authorization: 'Bearer active-alpha' },
+        })
+      ).json(),
+    ).toEqual({ id, realName: 'Alpha Doctor', version: 1 });
   });
 
   it('does not expose a soft-deleted profile to its authenticated user', async () => {

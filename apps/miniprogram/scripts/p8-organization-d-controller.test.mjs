@@ -133,7 +133,7 @@ function session() {
 }
 
 function group() {
-  return { groupCode: '2608', id: groupId, name: '急诊科', role: 'owner', version: 3 };
+  return { id: groupId, name: '急诊科', role: 'owner', version: 3 };
 }
 
 function members() {

@@ -51,7 +51,7 @@ describeWithDatabase('wechat notification deliveries', () => {
     await registerUser('owner-token', 'Owner Doctor');
     memberUserId = await registerUser('member-token', 'Member Doctor');
     groupId = (await createGroup('Notify group', '1234')).id;
-    await insertDirectMembership(client, { groupCode: '1234', realName: 'Member Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Member Doctor' });
     await client.database.execute(
       sql`UPDATE users SET wechat_openid = 'mock-openid-member' WHERE id = ${memberUserId}`,
     );

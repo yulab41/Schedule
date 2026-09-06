@@ -64,8 +64,8 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     `);
     groupId = await createGroup('Visitor group', '1234');
     await addRosterEntries(groupId, ['Admin Doctor', 'Member Doctor']);
-    await claimGroup('admin-token', '1234', 'Admin Doctor');
-    await claimGroup('member-token', '1234', 'Member Doctor');
+    await attachTestMember('admin-token', groupId, 'Admin Doctor');
+    await attachTestMember('member-token', groupId, 'Member Doctor');
 
     const members = (await listMembers(groupId)).json() as readonly {
       readonly id: string;
@@ -405,9 +405,13 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+  async function attachTestMember(
+    token: string,
+    targetGroupId: string,
+    realName: string,
+  ): Promise<void> {
     void token;
-    await insertDirectMembership(client, { groupCode, realName });
+    await insertDirectMembership(client, { groupId: targetGroupId, realName });
   }
 
   function listMembers(targetGroupId: string) {

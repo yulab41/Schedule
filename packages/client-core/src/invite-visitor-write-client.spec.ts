@@ -76,7 +76,7 @@ function responseFor(id: string): unknown {
   if (id.endsWith('visitor-key-regenerate')) return { visitorKeyChanged: true };
   if (id.endsWith('invite-accept')) {
     return {
-      group: { groupCode: '2608', id: 'group-1', name: '急诊科', role: 'member', version: 3 },
+      group: { id: 'group-1', name: '急诊科', role: 'member', version: 3 },
     };
   }
   return {

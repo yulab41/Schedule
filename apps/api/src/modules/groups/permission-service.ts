@@ -18,7 +18,6 @@ export type GroupPermission =
   | 'manageRoster'
   | 'manageScheduleConfiguration'
   | 'manageSwaps'
-  | 'updateGroupCode'
   | 'regenerateVisitorKey'
   | 'restoreGroup'
   | 'transferOwnership'
@@ -38,7 +37,6 @@ export interface ActiveGroupUser {
 }
 
 export interface ActiveGroup {
-  readonly groupCode: string;
   readonly dutyAdjustmentApprovalRequired: boolean;
   readonly id: string;
   readonly leaveReflowStrategy: 'keep-original-order' | 'shift-forward';
@@ -99,7 +97,6 @@ const permissionsByRole: Readonly<
     'manageRoster',
     'manageScheduleConfiguration',
     'manageSwaps',
-    'updateGroupCode',
     'regenerateVisitorKey',
     'restoreGroup',
     'transferOwnership',
@@ -303,7 +300,6 @@ export class GroupPermissionService {
         dutyAdjustmentApprovalRequiredValue: groups.dutyAdjustmentApprovalRequired,
         swapApprovalRequiredManuallySetValue: groups.swapApprovalRequiredManuallySet,
         swapApprovalRequiredValue: groups.swapApprovalRequired,
-        groupCode: groups.groupCode,
         id: groups.id,
         leaveReflowStrategy: groups.leaveReflowStrategy,
         name: groups.name,
@@ -327,7 +323,6 @@ export class GroupPermissionService {
 
     return {
       dutyAdjustmentApprovalRequired: group.dutyAdjustmentApprovalRequiredValue === 1,
-      groupCode: group.groupCode,
       id: group.id,
       leaveReflowStrategy: group.leaveReflowStrategy,
       name: group.name,

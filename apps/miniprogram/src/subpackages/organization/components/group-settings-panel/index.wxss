@@ -4,7 +4,6 @@ page {
   overflow: hidden;
   background: var(--ui-color-background);
 }
-
 .group-settings-page {
   width: 100%;
   height: 100%;
@@ -13,7 +12,6 @@ page {
   background: var(--ui-color-background);
   font-family: var(--ui-font-family-system);
 }
-
 .mini-header {
   position: relative;
   z-index: 8;
@@ -24,7 +22,6 @@ page {
   background: rgba(244, 247, 250, 0.96);
   border-bottom: 1px solid var(--ui-color-border);
 }
-
 .header-back {
   display: flex;
   width: 44px;
@@ -34,28 +31,23 @@ page {
   justify-content: center;
   border-radius: var(--ui-radius-medium);
 }
-
 .header-back image {
   width: 22px;
   height: 22px;
 }
-
 .header-back.is-pressed {
   background: var(--ui-color-primary-light);
 }
-
 .header-title {
   display: flex;
   min-width: 0;
   flex: 1;
   flex-direction: column;
 }
-
 .header-title-main {
   font-size: var(--ui-font-size-lg);
   font-weight: var(--ui-font-weight-strong);
 }
-
 .header-title-sub {
   margin-top: 2px;
   overflow: hidden;
@@ -64,16 +56,13 @@ page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .group-settings-scroll {
   width: 100%;
 }
-
 .page-content {
   padding: 12px 14px 0;
   box-sizing: border-box;
 }
-
 .page-state-card {
   display: flex;
   min-height: 210px;
@@ -87,51 +76,18 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-large);
 }
-
 .group-setup-panel,
-.group-panel-heading,
-.group-panel-heading > view,
 .group-identity-copy,
-.group-code-block,
 .group-card-body,
 .contact-consent-section,
 .consent-heading-copy,
-.contact-member-copy,
 .phone-consent-copy {
   display: flex;
   flex-direction: column;
 }
-
 .group-setup-panel {
   gap: var(--ui-spacing-md);
 }
-
-.group-panel-heading {
-  gap: var(--ui-spacing-md);
-}
-
-.group-panel-heading > view {
-  gap: 3px;
-}
-
-.section-eyebrow {
-  color: var(--ui-color-primary);
-  font-size: var(--ui-font-size-sm);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
-.page-title {
-  font-size: var(--ui-font-size-xl);
-  font-weight: var(--ui-font-weight-strong);
-  line-height: var(--ui-line-height-tight);
-}
-
-.page-description {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-sm);
-  line-height: var(--ui-line-height-body);
-}
-
 .group-identity-band {
   display: flex;
   padding: var(--ui-spacing-md);
@@ -143,18 +99,14 @@ page {
   border: 1px solid var(--ui-color-primary-border);
   border-radius: var(--ui-radius-large);
 }
-
 .group-identity-copy {
   min-width: 0;
   gap: 2px;
 }
-
-.group-identity-copy > text:first-child,
-.group-code-block > text:first-child {
+.group-identity-copy > text:first-child {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
 }
-
 .group-name {
   overflow: hidden;
   font-size: var(--ui-font-size-xl);
@@ -163,7 +115,6 @@ page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .role-chip {
   min-height: 24px;
   margin-top: var(--ui-spacing-xxs);
@@ -177,32 +128,6 @@ page {
   font-weight: var(--ui-font-weight-semibold);
   line-height: 24px;
 }
-
-.group-code-block {
-  align-items: flex-start;
-  gap: var(--ui-spacing-xxs);
-}
-
-.group-code-digits {
-  display: flex;
-  gap: var(--ui-spacing-xs);
-}
-
-.group-code-digits text {
-  display: flex;
-  width: 42px;
-  height: 50px;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-primary-border);
-  border-radius: var(--ui-radius-small);
-  box-shadow: var(--ui-shadow-card);
-  font-size: 24px;
-  font-variant-numeric: tabular-nums;
-}
-
 .group-card {
   min-width: 0;
   overflow: hidden;
@@ -211,7 +136,6 @@ page {
   border-radius: var(--ui-radius-medium);
   box-shadow: var(--ui-shadow-card);
 }
-
 .group-card-header {
   display: flex;
   min-height: 52px;
@@ -220,15 +144,12 @@ page {
   align-items: center;
   border-bottom: 1px solid var(--ui-color-border);
 }
-
 .group-card-header text {
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .group-card-body {
   padding: var(--ui-spacing-sm);
 }
-
 .contact-consent-section {
   padding: var(--ui-spacing-md);
   gap: var(--ui-spacing-sm);
@@ -236,7 +157,6 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);
 }
-
 .consent-heading {
   display: flex;
   min-width: 0;
@@ -244,23 +164,19 @@ page {
   justify-content: space-between;
   gap: var(--ui-spacing-sm);
 }
-
 .consent-heading-copy {
   min-width: 0;
   gap: 3px;
 }
-
 .consent-heading-copy > text:last-child {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   line-height: var(--ui-line-height-body);
 }
-
 .consent-title {
   font-size: var(--ui-font-size-md);
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .preference-scope {
   min-height: 24px;
   padding: 0 8px;
@@ -272,53 +188,6 @@ page {
   font-weight: var(--ui-font-weight-semibold);
   line-height: 24px;
 }
-
-.contact-member-row {
-  position: relative;
-  display: flex;
-  min-height: 66px;
-  padding: var(--ui-spacing-sm);
-  box-sizing: border-box;
-  align-items: center;
-  gap: var(--ui-spacing-sm);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-small);
-}
-
-.phone-avatar {
-  display: flex;
-  width: 48px;
-  height: 48px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
-  border-radius: 50%;
-  font-size: 19px;
-  font-weight: var(--ui-font-weight-strong);
-}
-
-.contact-member-copy {
-  min-width: 0;
-  flex: 1;
-  gap: 2px;
-}
-
-.contact-member-copy > text:not(.profile-name) {
-  overflow: hidden;
-  color: var(--ui-color-text-secondary);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-name {
-  font-size: var(--ui-font-size-sm);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
 .phone-consent-control {
   display: flex;
   min-height: 58px;
@@ -330,15 +199,12 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);
 }
-
 .phone-consent-control.is-disabled {
   opacity: 0.55;
 }
-
 .phone-consent-control.is-pressed {
   opacity: 0.78;
 }
-
 .phone-consent-checkbox {
   display: flex;
   width: 22px;
@@ -354,35 +220,24 @@ page {
   font-size: 14px;
   font-weight: var(--ui-font-weight-strong);
 }
-
 .phone-consent-checkbox.is-checked {
   background: var(--ui-color-primary);
   border-color: var(--ui-color-primary);
 }
-
 .phone-consent-copy {
   min-width: 0;
   flex: 1;
   gap: 2px;
 }
-
 .phone-consent-copy > text:first-child {
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .phone-consent-copy > text:last-child {
   color: var(--ui-color-text-secondary);
   font-size: 10px;
   line-height: 1.35;
 }
-
-.privacy-boundary {
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
-  line-height: var(--ui-line-height-body);
-}
-
 .web-button {
   display: flex;
   width: 100%;
@@ -398,29 +253,24 @@ page {
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-medium);
 }
-
 .web-button.is-primary {
   color: var(--ui-color-white);
   background: var(--ui-color-primary);
   border-color: var(--ui-color-primary);
 }
-
 .web-button.is-disabled {
   color: var(--ui-color-text-muted);
   background: var(--ui-color-surface-muted);
   border-color: var(--ui-color-border);
   opacity: 0.72;
 }
-
 .web-button.is-pressed {
   transform: scale(0.99);
   opacity: 0.86;
 }
-
 .bottom-spacer {
   height: calc(24px + env(safe-area-inset-bottom));
 }
-
 .organization-capability-note {
   display: flex;
   padding: 12px 14px;
@@ -433,12 +283,10 @@ page {
   font-size: var(--ui-font-size-sm);
   line-height: var(--ui-line-height-body);
 }
-
 .capability-note-title {
   color: var(--ui-color-text-primary);
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .group-mutation-card,
 .calendar-preferences-card,
 .member-management-card,
@@ -448,7 +296,6 @@ page {
 .dissolved-group-card {
   overflow: visible;
 }
-
 .calendar-preference-sections,
 .calendar-preference-section,
 .preference-error,
@@ -457,12 +304,10 @@ page {
   min-width: 0;
   flex-direction: column;
 }
-
 .calendar-preference-sections,
 .preference-error {
   gap: 12px;
 }
-
 .calendar-preference-section {
   padding: var(--ui-spacing-md);
   gap: 12px;
@@ -470,11 +315,9 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);
 }
-
 .calendar-preference-section.is-personal {
   border-color: var(--ui-color-primary-border);
 }
-
 .preference-heading {
   display: flex;
   min-width: 0;
@@ -482,81 +325,39 @@ page {
   justify-content: space-between;
   gap: 10px;
 }
-
 .preference-heading > view {
   flex: 1;
   gap: 3px;
 }
-
 .preference-heading > view > text:last-child {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   line-height: var(--ui-line-height-body);
 }
-
 .preference-title {
   color: var(--ui-color-text-primary);
   font-size: var(--ui-font-size-md);
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .preference-scope.is-group {
   color: var(--ui-color-primary);
   background: var(--ui-color-primary-light);
 }
-
-.calendar-view-segment {
-  display: flex;
-  padding: 4px;
-  flex-wrap: wrap;
-  gap: 4px;
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-small);
-}
-
-.calendar-view-option {
-  display: flex;
-  min-width: 82px;
-  min-height: 44px;
-  padding: 0 10px;
-  box-sizing: border-box;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-text-secondary);
-  border-radius: var(--ui-radius-small);
-  font-size: var(--ui-font-size-sm);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
-.calendar-view-option.is-active {
-  color: var(--ui-color-primary);
-  background: var(--ui-color-primary-light);
-}
-
-.calendar-view-option.is-pressed {
-  opacity: 0.82;
-}
-
 .card-scope,
 .card-subtitle {
   margin-left: auto;
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-xs);
 }
-
 .member-card-header {
   gap: 8px;
 }
-
 .member-card-header > view:first-child {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 3px;
 }
-
 .mutation-fields,
 .member-card-list,
 .claim-card-list {
@@ -564,19 +365,16 @@ page {
   flex-direction: column;
   gap: 10px;
 }
-
 .field-block {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
 .field-label {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .native-field,
 .native-textarea {
   width: 100%;
@@ -588,12 +386,10 @@ page {
   border-radius: var(--ui-radius-small);
   font-size: var(--ui-font-size-sm);
 }
-
 .native-field {
   height: 44px;
   line-height: 44px;
 }
-
 .native-picker {
   display: flex;
   min-height: 44px;
@@ -606,24 +402,19 @@ page {
   border-radius: var(--ui-radius-small);
   font-size: var(--ui-font-size-sm);
 }
-
 .group-action-row {
   display: flex;
   gap: 10px;
 }
-
 .group-action-row .web-button {
   flex: 1;
 }
-
 .native-textarea {
   min-height: 100px;
   padding-top: 10px;
   padding-bottom: 10px;
   line-height: var(--ui-line-height-body);
 }
-
-.member-management-row,
 .claim-row {
   display: flex;
   padding: 12px;
@@ -634,42 +425,18 @@ page {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-small);
 }
-
-.member-row-main,
 .claim-row-copy {
   display: flex;
   min-width: 0;
   flex: 1;
   gap: 9px;
 }
-
-.member-row-main {
-  align-items: flex-start;
-}
-
-.member-avatar {
-  display: flex;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
-  border-radius: 50%;
-  font-size: var(--ui-font-size-md);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
-.member-row-copy,
 .claim-row-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 3px;
 }
-
-.member-row-name,
 .claim-row-copy > text:first-child {
   overflow: hidden;
   font-size: var(--ui-font-size-sm);
@@ -677,14 +444,11 @@ page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.member-row-meta,
-.member-contact-line {
+.member-row-meta {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-xs);
   line-height: var(--ui-line-height-body);
 }
-
 .member-row-actions,
 .claim-row-actions {
   display: flex;
@@ -693,20 +457,17 @@ page {
   justify-content: flex-end;
   gap: 6px;
 }
-
 .compact-button {
   width: auto;
   min-height: 44px;
   padding: 0 9px;
   font-size: var(--ui-font-size-xs);
 }
-
 .web-button.is-danger {
   color: var(--ui-color-danger);
   background: var(--ui-color-danger-light);
   border-color: var(--ui-color-danger);
 }
-
 .inline-loading,
 .inline-empty {
   display: flex;
@@ -716,7 +477,6 @@ page {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
 }
-
 .inline-editor-sheet {
   display: flex;
   padding: 14px;
@@ -727,7 +487,6 @@ page {
   border-radius: var(--ui-radius-medium);
   box-shadow: var(--ui-shadow-elevated);
 }
-
 .inline-editor-heading {
   display: flex;
   min-height: 44px;
@@ -736,7 +495,6 @@ page {
   font-size: var(--ui-font-size-md);
   font-weight: var(--ui-font-weight-semibold);
 }
-
 .editor-close {
   display: flex;
   min-width: 44px;
@@ -746,13 +504,11 @@ page {
   color: var(--ui-color-primary-dark);
   border-radius: var(--ui-radius-small);
 }
-
 .inline-editor-copy {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-xs);
   line-height: var(--ui-line-height-body);
 }
-
 .phone-confirm-toggle {
   display: flex;
   min-height: 44px;
@@ -765,13 +521,11 @@ page {
   border-radius: var(--ui-radius-small);
   font-size: var(--ui-font-size-sm);
 }
-
 .phone-confirm-toggle.is-checked {
   color: var(--ui-color-primary-dark);
   background: var(--ui-color-primary-light);
   border-color: var(--ui-color-primary-border);
 }
-
 .phone-confirm-dot {
   width: 16px;
   height: 16px;
@@ -779,65 +533,42 @@ page {
   border: 2px solid var(--ui-color-border-strong);
   border-radius: 50%;
 }
-
 .phone-confirm-toggle.is-checked .phone-confirm-dot {
   background: var(--ui-color-primary);
   border-color: var(--ui-color-primary);
   box-shadow: inset 0 0 0 3px var(--ui-color-surface);
 }
-
 .group-settings-page.is-embedded .bottom-spacer {
   height: 24px;
 }
-
 .group-settings-page.is-compact .page-content {
   padding-right: 10px;
   padding-left: 10px;
 }
-
 .group-settings-page.is-compact .mini-header {
   padding-right: 10px;
   padding-left: 10px;
 }
-
 .group-settings-page.is-compact .group-identity-band,
 .group-settings-page.is-compact .contact-consent-section {
   padding: var(--ui-spacing-sm);
 }
-
-.group-settings-page.is-compact .group-code-digits {
-  gap: 6px;
-}
-
-.group-settings-page.is-compact .group-code-digits text {
-  width: 40px;
-  height: 48px;
-}
-
 .group-settings-page.is-compact .consent-heading {
   gap: 6px;
 }
-
 .group-settings-page.is-compact .member-management-row,
 .group-settings-page.is-compact .claim-row {
   padding: 10px;
 }
-
 .group-settings-page.is-compact .member-row-actions,
 .group-settings-page.is-compact .claim-row-actions {
   max-width: 100%;
   justify-content: flex-start;
 }
-
 .group-settings-page.is-large-text .header-title-sub,
-.group-settings-page.is-large-text .page-description,
 .group-settings-page.is-large-text .group-name,
-.group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name),
-.group-settings-page.is-large-text .member-row-name,
 .group-settings-page.is-large-text .claim-row-copy > text:first-child,
 .group-settings-page.is-large-text .member-row-meta,
-.group-settings-page.is-large-text .member-contact-line,
-.group-settings-page.is-large-text .privacy-boundary,
 .group-settings-page.is-large-text .organization-capability-note,
 .group-settings-page.is-large-text .inline-editor-copy,
 .group-settings-page.is-large-text .native-picker,
@@ -846,113 +577,81 @@ page {
   text-overflow: clip;
   white-space: normal;
 }
-
-.group-settings-page.is-large-text .section-eyebrow,
 .group-settings-page.is-large-text .group-identity-copy > text:first-child,
-.group-settings-page.is-large-text .group-code-block > text:first-child,
 .group-settings-page.is-large-text .group-card-header > text:first-child,
 .group-settings-page.is-large-text .card-scope,
 .group-settings-page.is-large-text .card-subtitle,
 .group-settings-page.is-large-text .field-label,
 .group-settings-page.is-large-text .consent-title,
 .group-settings-page.is-large-text .preference-title,
-.group-settings-page.is-large-text .profile-name,
 .group-settings-page.is-large-text .phone-consent-copy > text:first-child,
-.group-settings-page.is-large-text .privacy-boundary,
 .group-settings-page.is-large-text .capability-note-title,
 .group-settings-page.is-large-text .inline-editor-heading,
 .group-settings-page.is-large-text .phone-confirm-toggle,
 .group-settings-page.is-large-text .inline-editor-copy,
-.group-settings-page.is-large-text .web-button,
-.group-settings-page.is-large-text .calendar-view-option {
+.group-settings-page.is-large-text .web-button {
   font-size: var(--ui-font-size-md);
   line-height: var(--ui-line-height-body);
 }
-
-.group-settings-page.is-large-text .page-title,
 .group-settings-page.is-large-text .group-name {
   font-size: 26px;
 }
-
-.group-settings-page.is-large-text .page-description,
-.group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name),
 .group-settings-page.is-large-text .phone-consent-copy > text:last-child,
 .group-settings-page.is-large-text .preference-heading > view > text:last-child,
 .group-settings-page.is-large-text .member-row-meta,
-.group-settings-page.is-large-text .member-contact-line,
 .group-settings-page.is-large-text .organization-capability-note,
-.group-settings-page.is-large-text .privacy-boundary,
 .group-settings-page.is-large-text .inline-editor-copy {
   font-size: var(--ui-font-size-md);
   line-height: var(--ui-line-height-body);
 }
-
 .group-settings-page.is-large-text .group-card-header,
 .group-settings-page.is-large-text .member-card-header {
   align-items: flex-start;
   flex-direction: column;
   gap: 6px;
 }
-
 .group-settings-page.is-large-text .card-scope {
   margin-left: 0;
 }
-
 .group-settings-page.is-large-text .member-card-header > view:first-child {
   width: 100%;
 }
-
 .group-settings-page.is-large-text .member-card-header > .web-button {
   width: 100%;
 }
-
 .group-settings-page.is-large-text .consent-heading {
   align-items: flex-start;
   flex-direction: column;
 }
-
 .group-settings-page.is-large-text .preference-heading {
   align-items: flex-start;
   flex-direction: column;
 }
-
 .group-settings-page.is-large-text .preference-scope {
   align-self: flex-start;
   min-height: 32px;
   line-height: 32px;
 }
-
-.group-settings-page.is-large-text .contact-member-row,
 .group-settings-page.is-large-text .phone-consent-control {
   align-items: flex-start;
 }
-
-.group-settings-page.is-large-text .contact-member-copy > text:not(.profile-name) {
-  overflow-wrap: anywhere;
-}
-
 .group-settings-page.is-large-text .phone-consent-control {
   min-height: 76px;
 }
-
 .group-settings-page.is-large-text .phone-consent-copy > text:first-child,
 .group-settings-page.is-large-text .phone-consent-copy > text:last-child {
   white-space: normal;
 }
-
 .group-settings-page.is-large-text .native-field,
 .group-settings-page.is-large-text .native-picker,
-.group-settings-page.is-large-text .web-button,
-.group-settings-page.is-large-text .calendar-view-option {
+.group-settings-page.is-large-text .web-button {
   min-height: 52px;
 }
-
 .group-settings-page.is-large-text .native-field {
   height: 52px;
   line-height: 52px;
   font-size: var(--ui-font-size-md);
 }
-
 .group-settings-page.is-large-text .native-picker {
   align-items: flex-start;
   padding-top: 14px;
@@ -960,27 +659,20 @@ page {
   font-size: var(--ui-font-size-md);
   line-height: var(--ui-line-height-body);
 }
-
 .group-settings-page.is-large-text .native-textarea {
   min-height: 124px;
   font-size: var(--ui-font-size-md);
 }
-
 .group-settings-page.is-large-text .member-management-row,
 .group-settings-page.is-large-text .claim-row {
   flex-wrap: wrap;
 }
-
-.group-settings-page.is-large-text .member-row-main,
 .group-settings-page.is-large-text .claim-row-copy {
   flex: 1 1 100%;
 }
-
-.group-settings-page.is-large-text .member-row-name,
 .group-settings-page.is-large-text .claim-row-copy > text:first-child {
   overflow-wrap: anywhere;
 }
-
 .group-settings-page.is-large-text .member-row-actions,
 .group-settings-page.is-large-text .claim-row-actions {
   width: 100%;
@@ -988,49 +680,66 @@ page {
   flex-direction: column;
   justify-content: flex-start;
 }
-
 .group-settings-page.is-large-text .member-row-actions .web-button,
 .group-settings-page.is-large-text .claim-row-actions .web-button,
 .group-settings-page.is-large-text .group-action-row .web-button {
   width: 100%;
 }
-
 .group-settings-page.is-large-text .group-action-row {
   flex-direction: column;
 }
-
 .group-settings-page.is-large-text .compact-button {
   min-height: 52px;
   font-size: var(--ui-font-size-md);
 }
-
 .group-settings-page.is-large-text .inline-editor-heading {
   align-items: flex-start;
   flex-direction: column;
   gap: 6px;
 }
-
 .group-settings-page.is-large-text .editor-close {
   align-self: flex-end;
 }
-
 .group-settings-page.is-large-text .phone-confirm-toggle {
   align-items: flex-start;
   min-height: 52px;
   padding-top: 12px;
   padding-bottom: 12px;
 }
-
 .group-settings-page.is-compact.is-large-text .group-identity-band,
 .group-settings-page.is-compact.is-large-text .contact-consent-section {
   padding: 12px;
 }
-
-.group-settings-page.is-compact.is-large-text .group-code-digits {
-  gap: 6px;
+.calendar-preferences-card {
+  overflow: visible;
+}
+.group-leave-action {
+  display: flex;
+  justify-content: center;
+}
+.group-leave-button {
+  width: 184px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 18px;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-normal);
+  text-align: center;
+  word-break: normal;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
 }
 
-.group-settings-page.is-compact.is-large-text .group-code-digits text {
-  width: 40px;
-  height: 48px;
+.member-management-row {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+.member-entry-card {
+  display: block;
+  width: 100%;
 }

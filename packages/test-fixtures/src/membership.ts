@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 
 export interface InsertDirectMembershipInput {
   readonly cloudbaseUid?: string;
-  readonly groupCode: string;
+  readonly groupId: string;
   readonly realName: string;
   readonly role?: 'administrator' | 'member';
 }
@@ -29,13 +29,13 @@ export async function insertDirectMembership(
     LIMIT 1
   `)) as unknown as [{ id: string }[], unknown];
   const [groupRows] = (await client.database.execute(
-    sql`SELECT id FROM \`groups\` WHERE group_code = ${input.groupCode} LIMIT 1`,
+    sql`SELECT id FROM \`groups\` WHERE id = ${input.groupId} LIMIT 1`,
   )) as unknown as [{ id: string }[], unknown];
   const userId = userRows[0]?.id;
   const groupId = groupRows[0]?.id;
   if (userId === undefined || groupId === undefined) {
     throw new Error(
-      `insertDirectMembership fixture failed for realName=${input.realName} groupCode=${input.groupCode}`,
+      `insertDirectMembership fixture failed for realName=${input.realName} groupId=${input.groupId}`,
     );
   }
 

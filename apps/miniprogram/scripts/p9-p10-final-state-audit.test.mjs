@@ -82,7 +82,9 @@ describe('P9/P10 final automatic state audit', () => {
       'pane.searching',
     ]);
     expectAll(profileController, ["mode: 'missing'", "mode: 'ready'"]);
-    expectAll(profileTemplate, ['个人中心', 'canUnbindWechat']);
+    expectAll(profileTemplate, ['profile-identity-card', '{{initial}}', 'canUnbindWechat']);
+    expect(profileTemplate).not.toContain('个人中心');
+    expect(profileTemplate).not.toContain('微信头像');
     expectAll(profileStyles, ['.is-large-text', 'white-space: normal']);
     expectAll(workbench, [
       'isDeveloperAdmin',
@@ -117,6 +119,9 @@ describe('P9/P10 final automatic state audit', () => {
     }
     const profileRow = manifest.split('\n').find((line) => line.startsWith('| P10-A4 '));
     expect(profileRow).toContain('待实体 Android 复核');
-    expect(profileRow).toContain('`.60`');
+    const currentProfilePlan = read('docs/runbooks/p10-profile-rc.md');
+    expect(currentProfilePlan).toContain('UX-CLEANUP-10 Q1/Q5');
+    expect(currentProfilePlan).toContain('总控发布记录');
+    expect(currentProfilePlan).toContain('待用户复核');
   });
 });

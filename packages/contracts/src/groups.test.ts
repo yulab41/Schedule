@@ -24,8 +24,8 @@ describe('group membership contracts', () => {
       groupCatalogEntrySchema.safeParse({
         id: 'g1',
         name: '内科',
-        relation: 'none',
         groupCode: '1234',
+        relation: 'none',
       }).success,
     ).toBe(false);
   });

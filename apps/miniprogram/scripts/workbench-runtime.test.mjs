@@ -700,7 +700,7 @@ function createPageInstance(pageDefinition) {
 }
 
 function groupSummary() {
-  return { groupCode: '2608', id: 'group-1', name: '急诊科', role: 'member', version: 1 };
+  return { id: 'group-1', name: '急诊科', role: 'member', version: 1 };
 }
 
 function calendar(businessMonth) {

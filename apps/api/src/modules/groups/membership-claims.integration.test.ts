@@ -1,3 +1,4 @@
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -56,8 +57,7 @@ describeWithDatabase('membership identity claims', () => {
     groupId = createdGroup.id;
     const candidateRoster = await addFormalMember(groupId, 'Candidate Doctor');
     expect(candidateRoster.statusCode).toBe(200);
-    const candidateJoin = await claimGroup('candidate-token', '4321');
-    expect(candidateJoin.statusCode).toBe(201);
+    await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
     const added = await addFormalMember(groupId, 'Target Doctor');
     expect(added.statusCode).toBe(200);
     const members = (await listMembers('owner-token', groupId)).json() as {
@@ -158,15 +158,6 @@ describeWithDatabase('membership identity claims', () => {
       method: 'POST',
       payload: { realNames: [realName] },
       url: `/groups/${targetGroupId}/members`,
-    });
-  }
-
-  function claimGroup(token: string, groupCode: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: { groupCode },
-      url: '/groups/claim',
     });
   }
 
@@ -275,6 +266,7 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(`SET FOREIGN_KEY_CHECKS = 0`);
   const tables = [
+    'user_profile_avatars',
     'directory_search_aliases',
     'directory_contact_methods',
     'directory_entries',

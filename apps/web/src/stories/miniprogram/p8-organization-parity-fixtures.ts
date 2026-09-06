@@ -36,7 +36,6 @@ export function getP8OrganizationGroup(role: P8OrganizationRole): GroupSummary {
   const groupRole =
     role === 'administrator' ? 'administrator' : role === 'member' ? 'member' : 'owner';
   return {
-    groupCode: '2608',
     id: p8GroupId,
     ...(isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
     name: '急诊医学中心一组',

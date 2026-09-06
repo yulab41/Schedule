@@ -102,7 +102,6 @@ export {
 export {
   addGroupMembersResponseDecoder,
   addRosterEntriesResponseDecoder,
-  claimGroupResponseDecoder,
   convertPendingRosterResponseDecoder,
   createMembershipClaimResponseDecoder,
   createOrganizationWriteClient,

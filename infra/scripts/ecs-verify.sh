@@ -135,19 +135,19 @@ compose() {
 }
 
 domain_curl() {
-  curl -kfsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}$1"
+  curl -fsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}$1"
 }
 
 status_for_http_host() {
   local host="$1"
-  curl -ksS --max-time 5 -o /dev/null -w '%{http_code}' -H "Host: $host" \
+  curl -sS --max-time 5 -o /dev/null -w '%{http_code}' -H "Host: $host" \
     http://127.0.0.1/ || true
 }
 
 status_for_https_host() {
   local host="$1"
-  curl -ksS --max-time 5 -o /dev/null -w '%{http_code}' \
-    --resolve "${host}:443:127.0.0.1" "https://${host}/" || true
+  curl -sS --max-time 5 -o /dev/null -w '%{http_code}' \
+    -H "Host: $host" --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}/" || true
 }
 
 assert_rejected() {
@@ -170,7 +170,7 @@ verify_miniprogram_capabilities() {
   insights="$(env_value MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED)"
   external_messages="$(env_value MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED)"
   guest="$(env_value MINIPROGRAM_CAPABILITY_GUEST_ENABLED)"
-  response="$(curl -kfsS --max-time 5 --get --resolve "${DOMAIN}:443:127.0.0.1" \
+  response="$(curl -fsS --max-time 5 --get --resolve "${DOMAIN}:443:127.0.0.1" \
     --data-urlencode 'platform=miniprogram' --data-urlencode "version=$version" \
     "https://${DOMAIN}/api/client-capabilities")"
 
@@ -212,7 +212,7 @@ verify_miniprogram_capabilities() {
       *) break ;;
     esac
   done
-  unknown_status="$(curl -ksS --max-time 5 --get -o /dev/null -w '%{http_code}' \
+  unknown_status="$(curl -sS --max-time 5 --get -o /dev/null -w '%{http_code}' \
     --resolve "${DOMAIN}:443:127.0.0.1" --data-urlencode 'platform=miniprogram' \
     --data-urlencode "version=$unknown" \
     "https://${DOMAIN}/api/client-capabilities" || true)"

@@ -8,7 +8,6 @@ import type {
 import {
   type DatabaseClient,
   type DatabaseTransaction,
-  userProfileAvatars,
   userProfiles,
   users,
 } from '@schedule/database';
@@ -155,13 +154,11 @@ export class WechatWebAuthService {
   private async findProfile(userId: string): Promise<UserProfile | undefined> {
     const [profile] = await this.databaseClient.database
       .select({
-        avatarVersion: userProfileAvatars.version,
         id: userProfiles.userId,
         realName: userProfiles.realName,
         version: userProfiles.version,
       })
       .from(userProfiles)
-      .leftJoin(userProfileAvatars, eq(userProfileAvatars.userId, userProfiles.userId))
       .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
       .limit(1);
 

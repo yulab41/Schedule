@@ -571,6 +571,11 @@ function formatEventTime(value: string): string {
   min-height: var(--ui-touch-target-minimum);
 }
 
+.month-nav :deep(.t-button) {
+  min-width: var(--ui-touch-target-minimum);
+  flex-shrink: 0;
+}
+
 .month-input {
   min-width: 126px;
 }

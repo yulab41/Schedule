@@ -226,7 +226,6 @@ describe('controlled root-layer workflow toast', () => {
     }
     expect(read('pages/workbench/index.wxml')).toContain('aria-live="polite"');
     expect(read('subpackages/diagnostics/pages/test-tools/index.ts')).toContain('wx.showToast');
-    expect(read('platform/profile-avatar-runtime.ts')).toContain('本次头像未更新');
     expect(read('subpackages/workflows/components/workflow-swap-panel/controller.ts')).toContain(
       'wx.showModal',
     );

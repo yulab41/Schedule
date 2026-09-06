@@ -2,7 +2,6 @@ import {
   updateGroupMobilePhoneConsentRequestSchema,
   type AddGroupMembersRequest,
   type AddRosterEntriesRequest,
-  type ClaimGroupRequest,
   type ConvertPendingRosterRequest,
   type CreateGroupRequest,
   type CreateMembershipClaimRequest,
@@ -11,7 +10,6 @@ import {
   type MembershipClaimDecisionRequest,
   type OrganizationOperationRequest,
   type TransferGroupOwnershipRequest,
-  type UpdateGroupCodeRequest,
   type UpdateGroupMemberContactRequest,
   type UpdateGroupMemberNameRequest,
   type UpdateGroupMemberRoleRequest,
@@ -29,7 +27,6 @@ import { GroupService } from './group-service.js';
 import { MembershipService } from './membership-service.js';
 import type { VisitorKeyService } from './visitor-key-service.js';
 
-const groupCodeSchema = z.string().regex(/^\d{4}$/);
 const groupIdSchema = z.string().uuid();
 const groupNameSchema = z.string().trim().min(1).max(100);
 const realNameSchema = z.string().trim().min(1).max(100);
@@ -38,7 +35,6 @@ const expectedVersionSchema = z.number().int().min(1);
 
 const createGroupInputSchema = z
   .object({
-    groupCode: groupCodeSchema,
     name: groupNameSchema,
     operationId: operationIdSchema,
   })
@@ -62,21 +58,6 @@ const addGroupMembersInputSchema = z
   .object({
     operationId: operationIdSchema,
     realNames: z.array(realNameSchema).min(1).max(100),
-  })
-  .strict();
-
-const claimGroupInputSchema = z
-  .object({
-    groupCode: groupCodeSchema,
-    operationId: operationIdSchema,
-  })
-  .strict();
-
-const updateGroupCodeInputSchema = z
-  .object({
-    expectedVersion: expectedVersionSchema,
-    groupCode: groupCodeSchema,
-    operationId: operationIdSchema,
   })
   .strict();
 
@@ -174,15 +155,6 @@ export function registerGroupRoutes(
     );
 
     return reply.code(201).send(group);
-  });
-
-  app.post('/groups/claim', { preHandler: app.authenticate }, async (request, reply) => {
-    const result = await groupService.claim(
-      getAuthenticatedIdentity(request),
-      parseClaimGroupInput(request),
-    );
-
-    return reply.code(result.status === 'claimed' ? 201 : 202).send(result);
   });
 
   app.get('/groups', { preHandler: app.authenticate }, async (request) =>
@@ -332,14 +304,6 @@ export function registerGroupRoutes(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseAddGroupMembersInput(request),
-    ),
-  );
-
-  app.put('/groups/:groupId/group-code', { preHandler: app.authenticate }, async (request) =>
-    groupService.updateCode(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      parseUpdateGroupCodeInput(request),
     ),
   );
 
@@ -498,6 +462,20 @@ function getAuthenticatedIdentity(request: FastifyRequest) {
 }
 
 function parseCreateGroupInput(request: FastifyRequest): CreateGroupRequest {
+  // Older clients may send the retired code. Ignore that field only; keep strict validation.
+  const body = request.body;
+  if (typeof body === 'object' && body !== null && !Array.isArray(body)) {
+    const currentBody = { ...(body as Record<string, unknown>) };
+    delete currentBody['groupCode'];
+    const input = parseOrThrow(createGroupInputSchema, currentBody);
+    return {
+      ...input,
+      operationId: resolveDangerousOperationId(
+        request.headers['idempotency-key'],
+        input.operationId,
+      ),
+    };
+  }
   return parseDangerousBody(request, createGroupInputSchema) as CreateGroupRequest;
 }
 
@@ -514,14 +492,6 @@ function parseConvertRosterEntriesInput(request: FastifyRequest): ConvertPending
 
 function parseAddGroupMembersInput(request: FastifyRequest): AddGroupMembersRequest {
   return parseDangerousBody(request, addGroupMembersInputSchema) as AddGroupMembersRequest;
-}
-
-function parseClaimGroupInput(request: FastifyRequest): ClaimGroupRequest {
-  return parseDangerousBody(request, claimGroupInputSchema) as ClaimGroupRequest;
-}
-
-function parseUpdateGroupCodeInput(request: FastifyRequest): UpdateGroupCodeRequest {
-  return parseDangerousBody(request, updateGroupCodeInputSchema) as UpdateGroupCodeRequest;
 }
 
 function parseUpdateGroupNameInput(request: FastifyRequest): UpdateGroupNameRequest {

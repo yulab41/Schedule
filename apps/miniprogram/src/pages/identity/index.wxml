@@ -100,12 +100,13 @@
           <view class="identity-divider" aria-hidden="true"
             ><view></view><text>或</text><view></view
           ></view>
-          <profile-avatar-login-button
+          <ui-button
             class="identity-card__button identity-card__button--secondary identity-card__button--wechat"
+            variant="secondary"
             label="微信快捷登录"
             loading="{{loading}}"
             bind:press="handleWechatLogin"
-          ></profile-avatar-login-button>
+          ></ui-button>
         </view>
       </view>
 

@@ -90,7 +90,7 @@ describe('task A directory presentation', () => {
     expect(template).toContain(
       'aria-label="拨打{{entry.title}}的{{contact.label}} {{number.number}}"',
     );
-    expect(template).toContain('bindtap="handleCall"');
+    expect(template).toContain('catchtap="handleCall"');
     expect(read(`${cardPath}/index.wxss`)).toMatch(
       /\.directory-number\s*\{[^}]*min-height:\s*44px;/u,
     );

@@ -48,7 +48,7 @@ describeWithDatabase('calendar preferences', () => {
 
   it('persists administrator defaults and lets a member override only their own view', async () => {
     const groupId = await createGroup('Nurse schedule', '7319');
-    await insertDirectMembership(client, { groupCode: '7319', realName: 'Member Nurse' });
+    await insertDirectMembership(client, { groupId, realName: 'Member Nurse' });
     const config = (await getConfig(groupId)).json() as SchedulingConfig;
     const shiftTypeId = config.shiftTypes.find((shiftType) => shiftType.isEnabled)?.id;
     expect(shiftTypeId).toBeDefined();

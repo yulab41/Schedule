@@ -21,17 +21,19 @@ afterEach(() => {
 });
 
 describe('directory diagnostics pre-upload correction', () => {
-  it('keeps App as a plain bounded data slot and removes the two old heavy bridges', () => {
+  it('allocates the bounded diagnostics slot only after access confirmation and removes old bridges', () => {
     const app = readSource('app.ts');
+    const access = readSource('platform/diagnostics-access.ts');
     const transport = readSource('platform/client-core-calendar.ts');
     const controller = readSource(
       'subpackages/organization/components/directory-panel/controller.ts',
     );
 
     expect(app).not.toContain('createRuntimeDiagnosticsStore');
-    expect(app).toContain('directorySearches: []');
+    expect(app).not.toContain('directorySearches: []');
+    expect(access).toContain('directorySearches: []');
     expect(app).toContain('appLaunchAt: 0');
-    expect(app).toContain('consumeRuntimeDirectoryLaunchMarker');
+    expect(access).toContain('consumeRuntimeDirectoryLaunchMarker');
     expect(transport).toContain('diagnosticObserver');
     expect(transport).not.toContain('isRuntimeDirectorySearchRecording');
     expect(transport).not.toContain('isDirectoryListPath');

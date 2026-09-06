@@ -36,7 +36,13 @@ describe('MINI-G1-004 scale evidence (synthetic, diagnostic-only)', () => {
       ),
     };
 
-    const report = { group, nodeCoefficients, platform };
+    const report = {
+      group,
+      measurementScope:
+        'templateNodes estimates static elements in the parent WXML only; excludes reused component internals and native runtime nodes. No native performance or proportional reduction claim.',
+      nodeCoefficients,
+      platform,
+    };
     console.log(`[MINI-G1-004-SCALE] ${JSON.stringify(report)}`);
 
     expect(platform.map((result) => result.responseRecordCount)).toEqual(scales);
@@ -48,7 +54,7 @@ describe('MINI-G1-004 scale evidence (synthetic, diagnostic-only)', () => {
     expect(group.every((result) => result.contactRequestCount === 1)).toBe(true);
     expect(platform.every((result) => result.setDataCalls === platform[0].setDataCalls)).toBe(true);
     expect(group.every((result) => result.setDataCalls === group[0].setDataCalls)).toBe(true);
-    expect(nodeCoefficients).toEqual({ groupMemberRow: 12, platformAccountRow: 8 });
+    expect(nodeCoefficients).toEqual({ groupMemberRow: 6, platformAccountRow: 8 });
     expect(platform[2].readySetDataBytes).toBeGreaterThan(platform[0].readySetDataBytes);
     expect(group[2].readySetDataBytes).toBeGreaterThan(group[0].readySetDataBytes);
     expect(platform[2].responsePayloadBytes).toBeGreaterThan(platform[0].responsePayloadBytes);
@@ -234,7 +240,6 @@ function createAccount(index) {
 
 function createGroup() {
   return {
-    groupCode: '0000',
     id: groupId,
     isDeveloperAdmin: true,
     name: 'fixture-group',
@@ -327,7 +332,8 @@ function extractElementBlock(template, start) {
 }
 
 function nodeCount(kind, count) {
-  const nodesPerRecord = kind === 'platformAccountRow' ? 8 : 12;
+  // Parent WXML estimate only: directory-entry-card internals are not traversed.
+  const nodesPerRecord = kind === 'platformAccountRow' ? 8 : 6;
   return nodesPerRecord * count;
 }
 

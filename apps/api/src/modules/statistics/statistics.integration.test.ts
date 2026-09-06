@@ -258,8 +258,8 @@ describeWithDatabase('statistics snapshots', () => {
     const groupId = await createGroup('Statistics group', '6655');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
-    await claimGroup('a-token', '6655', 'A Doctor');
-    await claimGroup('b-token', '6655', 'B Doctor');
+    await attachTestMember('a-token', groupId, 'A Doctor');
+    await attachTestMember('b-token', groupId, 'B Doctor');
     const members = await listGroupMembers(groupId);
     const membershipById = new Map(members.map((member) => [member.realName, member.id]));
     return {
@@ -280,8 +280,8 @@ describeWithDatabase('statistics snapshots', () => {
     const groupId = await createGroup('Statistics schedule group', '5544');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
-    await claimGroup('a-token', '5544', 'A Doctor');
-    await claimGroup('b-token', '5544', 'B Doctor');
+    await attachTestMember('a-token', groupId, 'A Doctor');
+    await attachTestMember('b-token', groupId, 'B Doctor');
     const roleId = await setupRole(groupId);
     const rulesVersion = (await getConfig('admin-token', groupId)).rulesVersion;
     expect(
@@ -397,9 +397,13 @@ describeWithDatabase('statistics snapshots', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+  async function attachTestMember(
+    token: string,
+    targetGroupId: string,
+    realName: string,
+  ): Promise<void> {
     void token;
-    await insertDirectMembership(client, { groupCode, realName });
+    await insertDirectMembership(client, { groupId: targetGroupId, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

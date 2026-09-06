@@ -70,6 +70,59 @@ describeWithDatabase('platform administration and recovery', () => {
     }
   });
 
+  it('restricts diagnostics access to the active designated admin account', async () => {
+    for (const [token, allowed] of [
+      ['developer-token', true],
+      ['admin-token', false],
+      ['member-token', false],
+      ['outsider-token', false],
+    ] as const) {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/me/diagnostics-access',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ allowed });
+    }
+    expect((await app.inject({ method: 'GET', url: '/me/diagnostics-access' })).statusCode).toBe(
+      401,
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/me/diagnostics-access',
+          headers: { authorization: 'Bearer developer-token' },
+        })
+      ).statusCode,
+    ).toBe(404);
+    await client.database.execute(
+      sql`UPDATE users SET status = 'suspended' WHERE id = '00000000-0000-4000-8000-000000000001'`,
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/me/diagnostics-access',
+          headers: { authorization: 'Bearer developer-token' },
+        })
+      ).json(),
+    ).toEqual({ allowed: false });
+    await client.database.execute(
+      sql`UPDATE users SET status = 'active', deleted_at = NOW() WHERE id = '00000000-0000-4000-8000-000000000001'`,
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/me/diagnostics-access',
+          headers: { authorization: 'Bearer developer-token' },
+        })
+      ).json(),
+    ).toEqual({ allowed: false });
+  });
+
   it('reports platform administrator status without leaking other data', async () => {
     const admin = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
@@ -409,7 +462,7 @@ describeWithDatabase('platform administration and recovery', () => {
     });
     const result = await job.run(new Date('2026-08-02T04:00:00.000Z'));
     expect(result.backupKind).toBe('monthly');
-    expect(result.tableCount).toBe(54);
+    expect(result.tableCount).toBe(55);
     expect(result.rowCount).toBeGreaterThanOrEqual(4);
 
     const [archiveRows] = (await client.database.execute(
@@ -421,6 +474,7 @@ describeWithDatabase('platform administration and recovery', () => {
     const decrypted = decryptBackupArchive(JSON.parse(content.toString('utf8')), encryptionKey);
     expect(decrypted.tables).not.toHaveProperty('visitor_access_logs');
     expect(decrypted.tables).not.toHaveProperty('miniprogram_telemetry_events');
+    expect(decrypted.tables).toHaveProperty('user_profile_avatars');
     const [aggregateTables] = (await client.database.execute(sql`
       SELECT COUNT(*) AS count
       FROM information_schema.tables

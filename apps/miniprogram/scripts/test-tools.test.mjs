@@ -8,6 +8,11 @@ function readSource(relativePath) {
 
 beforeEach(() => {
   vi.resetModules();
+  vi.doMock('../src/platform/diagnostics-access.ts', () => ({
+    canUseDiagnostics: () => true,
+    refreshDiagnosticsAccess: async () => true,
+    subscribeDiagnosticsPermission: () => () => {},
+  }));
   vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
   vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'abc1234');
   vi.stubGlobal('__MINIPROGRAM_BUILD_DESCRIPTION__', 'audit-test-tools');
@@ -18,6 +23,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.doUnmock('../src/platform/diagnostics-access.ts');
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -126,7 +132,7 @@ describe('safe Mini test tools', () => {
     expect(appDefinition).not.toHaveProperty('onNetworkStatusChange');
   });
 
-  it('consumes the one-shot marker only on a new trial App launch and marks later resume warm', async () => {
+  it('retains only lifecycle provenance before grant and defers the one-shot marker', async () => {
     let appDefinition;
     const runtime = createWx('trial', vi.fn());
     vi.stubGlobal('wx', runtime);
@@ -139,20 +145,18 @@ describe('safe Mini test tools', () => {
 
     appDefinition.onShow();
     expect(launch.hasRuntimeDirectoryLaunchMarker(runtime)).toBe(true);
-    expect(appDefinition.globalData.runtimeDiagnostics.directorySearchRecording).toBe(false);
-
+    expect(appDefinition.globalData.runtimeDiagnostics).toBeUndefined();
     appDefinition.onLaunch();
-    expect(launch.hasRuntimeDirectoryLaunchMarker(runtime)).toBe(false);
-    expect(appDefinition.globalData.runtimeDiagnostics).toMatchObject({
-      directorySearchRecording: true,
-      launchMarkerConsumed: true,
+    expect(launch.hasRuntimeDirectoryLaunchMarker(runtime)).toBe(true);
+    expect(appDefinition.globalData.diagnosticsLaunch).toMatchObject({
       launchObserved: true,
       warmResumeObserved: false,
     });
     appDefinition.onShow();
-    expect(appDefinition.globalData.runtimeDiagnostics.warmResumeObserved).toBe(false);
+    expect(appDefinition.globalData.diagnosticsLaunch.warmResumeObserved).toBe(false);
     appDefinition.onShow();
-    expect(appDefinition.globalData.runtimeDiagnostics.warmResumeObserved).toBe(true);
+    expect(appDefinition.globalData.diagnosticsLaunch.warmResumeObserved).toBe(true);
+    expect(appDefinition.globalData.runtimeDiagnostics).toBeUndefined();
   });
 
   it('clears an inherited one-shot marker without enabling diagnostics in release', async () => {
@@ -172,7 +176,7 @@ describe('safe Mini test tools', () => {
     expect(appDefinition.globalData).not.toHaveProperty('runtimeDiagnostics');
   });
 
-  it('creates the bounded store in develop without adding runtime listeners', async () => {
+  it('defers the bounded store in develop until trusted authorization', async () => {
     let appDefinition;
     vi.stubGlobal('wx', createWx('develop', vi.fn()));
     vi.stubGlobal('App', (value) => {
@@ -180,17 +184,10 @@ describe('safe Mini test tools', () => {
     });
     await import('../src/app.ts');
 
-    expect(appDefinition.globalData.runtimeDiagnostics).toMatchObject({
-      appLaunchAt: 0,
-      directorySearches: [],
-      errors: [],
-      performance: [],
-      requests: [],
-    });
-    expect(appDefinition.globalData.runtimeDiagnostics).not.toHaveProperty('recordRequest');
+    expect(appDefinition.globalData.runtimeDiagnostics).toBeUndefined();
     appDefinition.onLaunch();
-    expect(appDefinition.globalData.runtimeDiagnostics.launchObserved).toBe(true);
-    expect(appDefinition.globalData.runtimeDiagnostics.appLaunchAt).toBeGreaterThan(0);
+    expect(appDefinition.globalData.diagnosticsLaunch.launchObserved).toBe(true);
+    expect(appDefinition.globalData.diagnosticsLaunch.appLaunchAt).toBeGreaterThan(0);
     expect(appDefinition).not.toHaveProperty('onNetworkStatusChange');
     expect(appDefinition).not.toHaveProperty('onMemoryWarning');
   });
@@ -233,9 +230,7 @@ describe('safe Mini test tools', () => {
 
     expect(instance.data.testCenterEnabled).toBe(false);
     expect(navigateTo).not.toHaveBeenCalled();
-    expect(runtime.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: '测试工具仅在开发版和体验版开放。' }),
-    );
+    expect(runtime.showToast).not.toHaveBeenCalled();
   });
 
   it('copies one stable structured Codex report without sensitive runtime content', async () => {
@@ -455,6 +450,8 @@ describe('safe Mini test tools', () => {
     });
     await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
     const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
     const scenarioId = instance.data.scenarios[0].id;
 
     definition.handleScenarioResult.call(instance, {
@@ -513,8 +510,12 @@ describe('safe Mini test tools', () => {
     expect(template).toContain(
       '<text class="scenario-screenshot">应截图：{{item.screenshot}}</text>',
     );
-    expect(template).toContain('data-result="passed" bindtap="handleScenarioResult">正常</view>');
-    expect(template).toContain('data-result="issue" bindtap="handleScenarioResult">异常</view>');
+    expect(template).toMatch(
+      /data-result="passed"\s+bindtap="handleScenarioResult"\s*>正常<\/view\s*>/u,
+    );
+    expect(template).toMatch(
+      /data-result="issue"\s+bindtap="handleScenarioResult"\s*>异常<\/view\s*>/u,
+    );
     expect(pageConfig.disableScroll).toBe(false);
   });
 });

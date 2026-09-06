@@ -252,7 +252,7 @@ describe('wechat mini program contracts', () => {
   });
 
   it('accepts an invite accept response with an optional reissued token', () => {
-    const group = { groupCode: '1234', id: 'g1', name: '内科', role: 'member', version: 1 };
+    const group = { id: 'g1', name: '内科', role: 'member', version: 1 };
     expect(acceptInviteResponseSchema.safeParse({ group }).success).toBe(true);
     expect(acceptInviteResponseSchema.safeParse({ group, token: 'reissued-token' }).success).toBe(
       true,

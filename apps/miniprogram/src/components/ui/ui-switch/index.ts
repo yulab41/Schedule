@@ -3,6 +3,7 @@ interface UiSwitchInstance {
     readonly checked: boolean;
     readonly disabled: boolean;
     readonly loading: boolean;
+    readonly allowPendingIntent: boolean;
   };
   triggerEvent(name: string, detail?: unknown): void;
 }
@@ -14,10 +15,15 @@ Component({
     disabled: { type: Boolean, value: false },
     label: { type: String, value: '' },
     loading: { type: Boolean, value: false },
+    allowPendingIntent: { type: Boolean, value: false },
   },
   methods: {
     handleToggle(this: UiSwitchInstance): void {
-      if (this.properties.disabled || this.properties.loading) return;
+      if (
+        this.properties.disabled ||
+        (this.properties.loading && !this.properties.allowPendingIntent)
+      )
+        return;
       this.triggerEvent('change', { checked: !this.properties.checked });
     },
   },

@@ -24,6 +24,8 @@ Component({
     largeText: { type: Boolean, value: false },
     layoutActive: { type: Boolean, value: true },
     showDivider: { type: Boolean, value: false },
+    showFavorite: { type: Boolean, value: true },
+    currentUser: { type: Boolean, value: false },
   },
   data: {
     animatingNumberId: '',

@@ -289,7 +289,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       payload: { realNames: ['Suspended Doctor'] },
       url: `/groups/${groupId}/roster-entries`,
     });
-    await insertDirectMembership(client, { groupCode: '1234', realName: 'Suspended Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Suspended Doctor' });
     await client.database
       .update(users)
       .set({ status: 'suspended' })
@@ -860,7 +860,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
 
     expect(group.statusCode).toBe(201);
     expect(roster.statusCode).toBe(200);
-    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
     return groupId;
   }
 

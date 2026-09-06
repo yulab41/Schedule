@@ -15,7 +15,6 @@ import {
   registerWechat,
   type WechatAuthenticatedResult,
 } from '../../platform/wechat-identity.js';
-import { clearPendingProfileAvatar } from '../../platform/profile-media.js';
 
 type IdentityMode = 'choice' | 'login' | 'password' | 'register';
 
@@ -107,7 +106,6 @@ Page({
   },
 
   handlePasswordLogin(this: IdentityPageInstance): void {
-    clearPendingProfileAvatar();
     const username = normalizeUsername(this.data.username);
     if (!isValidUsername(username) || this.data.password.length === 0) {
       this.setData({ errorMessage: '请输入有效账号和密码。' });

@@ -3,8 +3,6 @@ import type {
   AddGroupMembersResponse,
   AddRosterEntriesRequest,
   AddRosterEntriesResponse,
-  ClaimGroupRequest,
-  ClaimGroupResponse,
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
   CreateGroupRequest,
@@ -19,7 +17,6 @@ import type {
   MembershipClaimRequest,
   OrganizationOperationRequest,
   TransferGroupOwnershipRequest,
-  UpdateGroupCodeRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberNameRequest,
   UpdateGroupMemberRoleRequest,
@@ -71,24 +68,6 @@ export const convertPendingRosterResponseDecoder =
 export const membershipClaimRequestMutationDecoder = createCompactDecoder<MembershipClaimRequest>(
   membershipClaimRequestJsonSchema,
 );
-export const claimGroupResponseDecoder: CompactDecoder<ClaimGroupResponse> = {
-  safeDecode(value) {
-    if (!isRecord(value)) return { success: false };
-    const keys = Object.keys(value).sort();
-    if (value['status'] === 'request_created') {
-      return keys.length === 1 && keys[0] === 'status'
-        ? { data: value as ClaimGroupResponse, success: true }
-        : { success: false };
-    }
-    if (value['status'] !== 'claimed' || keys.join(',') !== 'group,status') {
-      return { success: false };
-    }
-    const group = groupSummaryMutationDecoder.safeDecode(value['group']);
-    return group.success
-      ? { data: value as ClaimGroupResponse, success: true }
-      : { success: false };
-  },
-};
 export const createMembershipClaimResponseDecoder: CompactDecoder<CreateMembershipClaimResponse> = {
   safeDecode(value) {
     if (!isRecord(value)) return { success: false };
@@ -136,15 +115,6 @@ export const organizationWriteEndpoints = {
     'approve',
     membershipClaimRequestMutationDecoder,
   ),
-  claimGroup: defineClientEndpoint<RequestInput<ClaimGroupRequest>, ClaimGroupResponse>({
-    auth: 'bearer',
-    body,
-    decoder: claimGroupResponseDecoder,
-    id: 'organization-write.claim-group',
-    idempotencyKey: operationId,
-    method: 'POST',
-    path: () => '/groups/claim',
-  }),
   convertRosterEntries: groupEndpoint<ConvertPendingRosterRequest, ConvertPendingRosterResponse>(
     'roster-convert',
     'POST',
@@ -213,12 +183,6 @@ export const organizationWriteEndpoints = {
     'owner-transfer',
     groupSummaryMutationDecoder,
   ),
-  updateGroupCode: groupEndpoint<UpdateGroupCodeRequest, GroupSummary>(
-    'group-code-update',
-    'PUT',
-    'group-code',
-    groupSummaryMutationDecoder,
-  ),
   updateGroupName: groupEndpoint<UpdateGroupNameRequest, GroupSummary>(
     'group-name-update',
     'PUT',
@@ -259,7 +223,6 @@ export interface OrganizationWriteClient {
     claimId: string,
     request: MembershipClaimDecisionRequest,
   ): Promise<MembershipClaimRequest>;
-  claimGroup(request: ClaimGroupRequest): Promise<ClaimGroupResponse>;
   convertRosterEntries(
     groupId: string,
     request: ConvertPendingRosterRequest,
@@ -292,7 +255,6 @@ export interface OrganizationWriteClient {
     groupId: string,
     request: TransferGroupOwnershipRequest,
   ): Promise<GroupSummary>;
-  updateGroupCode(groupId: string, request: UpdateGroupCodeRequest): Promise<GroupSummary>;
   updateGroupMemberContact(
     groupId: string,
     memberId: string,
@@ -319,7 +281,6 @@ export function createOrganizationWriteClient(transport: ClientTransport): Organ
       group(organizationWriteEndpoints.addRosterEntries, groupId, request),
     approveMembershipClaimRequest: (groupId, claimId, request) =>
       claim(organizationWriteEndpoints.approveMembershipClaim, groupId, claimId, request),
-    claimGroup: (request) => transport.request(organizationWriteEndpoints.claimGroup, { request }),
     convertRosterEntries: (groupId, request) =>
       group(organizationWriteEndpoints.convertRosterEntries, groupId, request),
     createGroup: (request) =>
@@ -342,8 +303,6 @@ export function createOrganizationWriteClient(transport: ClientTransport): Organ
       member(organizationWriteEndpoints.revokeMembershipClaim, groupId, memberId, request),
     transferGroupOwnership: (groupId, request) =>
       group(organizationWriteEndpoints.transferGroupOwnership, groupId, request),
-    updateGroupCode: (groupId, request) =>
-      group(organizationWriteEndpoints.updateGroupCode, groupId, request),
     updateGroupMemberContact: (groupId, memberId, request) =>
       member(organizationWriteEndpoints.updateMemberContact, groupId, memberId, request),
     updateGroupMemberName: (groupId, memberId, request) =>

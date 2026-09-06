@@ -56,16 +56,16 @@ describe('Mini group settings member permissions and calendar preferences', () =
     expect(requests.some((request) => request.url.endsWith('/claim-requests'))).toBe(false);
 
     definition.handleCreateGroupNameInput.call(page, { detail: { value: '越权群组' } });
-    definition.handleCreateGroupCodeInput.call(page, { detail: { value: '7310' } });
+    expect(definition.handleCreateGroupCodeInput).toBeUndefined();
     definition.handleCreateGroup.call(page);
-    definition.handleJoinGroup.call(page);
+    expect(definition.handleJoinGroup).toBeUndefined();
     definition.handleOpenContactEditor.call(page, tap({ memberId: membershipId }));
     await Promise.resolve();
 
     expect(requests.filter((request) => request.method === 'POST')).toHaveLength(0);
     expect(page.data.contactEditorOpen).toBe(false);
 
-    definition.handleMemberCalendarViewSelect.call(page, tap({ view: 'week' }));
+    definition.handleMemberCalendarViewSelect.call(page, { detail: { option: { value: 'week' } } });
     definition.handleMemberCalendarShiftChange.call(page, { detail: { value: 1 } });
     definition.handleSaveMemberCalendarPreferences.call(page);
     await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('个人日历偏好'));
@@ -78,7 +78,9 @@ describe('Mini group settings member permissions and calendar preferences', () =
       defaultView: 'week',
     });
 
-    definition.handleMemberCalendarViewSelect.call(page, tap({ view: 'follow' }));
+    definition.handleMemberCalendarViewSelect.call(page, {
+      detail: { option: { value: 'follow' } },
+    });
     definition.handleMemberCalendarShiftChange.call(page, { detail: { value: 0 } });
     definition.handleSaveMemberCalendarPreferences.call(page);
     await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('个人日历偏好'));
@@ -101,9 +103,9 @@ describe('Mini group settings member permissions and calendar preferences', () =
       canManageGroupCalendarDefaults: true,
       canManageGroupLifecycle: true,
     });
-    expect(requests.some((request) => request.url.endsWith('/groups/catalog'))).toBe(true);
+    expect(requests.some((request) => request.url.endsWith('/groups/catalog'))).toBe(false);
 
-    definition.handleGroupCalendarViewSelect.call(page, tap({ view: 'list' }));
+    definition.handleGroupCalendarViewSelect.call(page, { detail: { option: { value: 'list' } } });
     definition.handleGroupCalendarShiftChange.call(page, { detail: { value: 0 } });
     definition.handleSaveGroupCalendarDefaults.call(page);
     await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('群组日历默认'));
@@ -130,7 +132,7 @@ describe('Mini group settings member permissions and calendar preferences', () =
     await vi.waitFor(() => expect(page.data.calendarPreferencesState).toBe('ready'));
     preferenceSaveFailure = true;
 
-    definition.handleMemberCalendarViewSelect.call(page, tap({ view: 'week' }));
+    definition.handleMemberCalendarViewSelect.call(page, { detail: { option: { value: 'week' } } });
     definition.handleMemberCalendarShiftChange.call(page, { detail: { value: 1 } });
     definition.handleSaveMemberCalendarPreferences.call(page);
     await vi.waitFor(() => expect(page.data.calendarPreferencesError).not.toBe(''));
@@ -267,7 +269,7 @@ function tap(dataset) {
 }
 
 function group(overrides = {}) {
-  return { groupCode: '2608', id: groupId, name: '头颈外科医生', role, version: 1, ...overrides };
+  return { id: groupId, name: '头颈外科医生', role, version: 1, ...overrides };
 }
 
 function member() {

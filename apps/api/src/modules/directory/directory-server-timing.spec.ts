@@ -15,8 +15,10 @@ const identity = {
 describe('directory controlled Server-Timing', () => {
   let app: FastifyInstance;
   let list: ReturnType<typeof vi.fn>;
+  let authorized: boolean;
 
   beforeEach(() => {
+    authorized = true;
     app = Fastify({ logger: false });
     app.decorate('authenticate', async (request: { authenticatedIdentity?: unknown }) => {
       request.authenticatedIdentity = identity;
@@ -37,17 +39,36 @@ describe('directory controlled Server-Timing', () => {
       });
       return { entries: [], totalCount: 0 };
     });
-    registerDirectoryRoutes(app, {
-      facets: vi.fn(async () => ({ totalCount: 0 })),
-      list,
-      lookup: vi.fn(async () => ({ entries: [] })),
-    } as unknown as DirectoryQuery);
+    registerDirectoryRoutes(
+      app,
+      {
+        facets: vi.fn(async () => ({ totalCount: 0 })),
+        list,
+        lookup: vi.fn(async () => ({ entries: [] })),
+      } as unknown as DirectoryQuery,
+      async () => authorized,
+    );
   });
 
   afterEach(async () => {
     await app.close();
   });
 
+  it('ignores forged diagnostics headers for a non-target account while serving its normal query', async () => {
+    authorized = false;
+    const response = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/directory?q=safe`,
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-directory-diagnostics': 'v1',
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers).not.toHaveProperty('server-timing');
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(list.mock.calls[0]?.[4]).toBeUndefined();
+  });
   it('returns fixed non-sensitive segments only for opted-in Mini Program list reads', async () => {
     const response = await app.inject({
       headers: {

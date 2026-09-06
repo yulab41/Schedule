@@ -96,8 +96,3 @@ export const guestGroupSummarySchema = z
 export type GuestGroupSummary = z.infer<typeof guestGroupSummarySchema>;
 
 export const guestGroupSummaryListSchema = z.readonly(z.array(guestGroupSummarySchema));
-
-export interface ReadGuestCalendarRequest {
-  readonly businessMonth: string;
-  readonly groupCode: string;
-}

@@ -43,7 +43,7 @@ export async function runOrganizationMutation<Result>(options: {
 }): Promise<Result> {
   return withTransaction(options.databaseClient, async (transaction) => {
     const actor = await lockOrganizationActor(transaction, options.identity);
-    return withIdempotentOperation(
+    const result = await withIdempotentOperation(
       transaction,
       {
         actorUserId: actor.id,
@@ -59,6 +59,7 @@ export async function runOrganizationMutation<Result>(options: {
             serialize: (result) => options.resultCodec!.serialize(result, actor),
           },
     );
+    return withoutRetiredGroupCode(result);
   });
 }
 
@@ -134,4 +135,25 @@ function normalizeJsonValue(value: unknown): unknown {
     );
   }
   throw new Error('Organization operation payload must contain only JSON values.');
+}
+
+// Historical idempotency results remain stored verbatim. Only their retired public field is omitted.
+export function withoutRetiredGroupCode<Result>(result: Result): Result {
+  if (typeof result !== 'object' || result === null || Array.isArray(result)) return result;
+  const object = result as Record<string, unknown>;
+  if (
+    typeof object['id'] === 'string' &&
+    typeof object['name'] === 'string' &&
+    typeof object['role'] === 'string' &&
+    'groupCode' in object
+  ) {
+    const current = { ...object };
+    delete current['groupCode'];
+    return current as Result;
+  }
+  if (typeof object['group'] === 'object' && object['group'] !== null) {
+    const group = withoutRetiredGroupCode(object['group']);
+    if (group !== object['group']) return { ...object, group } as Result;
+  }
+  return result;
 }

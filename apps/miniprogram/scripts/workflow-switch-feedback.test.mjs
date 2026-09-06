@@ -21,9 +21,9 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', { getStorageSync: () => undefined });
     api = {
-      updateGroupSwapSettings: vi.fn(),
-      updateGroupDutyAdjustmentSettings: vi.fn(),
-      updateMySwapSettings: vi.fn(),
+      updateGroupSwapSettings: vi.fn(async (_group, input) => input),
+      updateGroupDutyAdjustmentSettings: vi.fn(async (_group, input) => input),
+      updateMySwapSettings: vi.fn(async (_group, input) => input),
     };
     vi.doMock('../src/platform/client-core-calendar.ts', async (importOriginal) => ({
       ...(await importOriginal()),
@@ -78,7 +78,7 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
       `${kind} ${field}: previews the clicked value once and keeps siblings/content stable from %s`,
       async (initial) => {
         const pending = deferred();
-        api[method].mockReturnValue(pending.promise);
+        api[method].mockReturnValueOnce(pending.promise);
         const { definition, host } = await mount(kind, field, initial);
         const otherField = field === 'requiresApproval' ? 'autoAcceptSwaps' : 'requiresApproval';
         const otherValue = host.data[otherField];
@@ -95,13 +95,13 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
             : 'handleAutoAcceptToggle';
         definition[otherHandler].call(host, { detail: { checked: !otherValue } });
         expect(Object.values(api).reduce((count, mock) => count + mock.mock.calls.length, 0)).toBe(
-          1,
+          2,
         );
         expect(api[method]).toHaveBeenCalledWith('fixture-group', { [field]: !initial });
         pending.resolve({ [field]: !initial });
         await vi.waitFor(() => expect(host.data.settingsBusy).toBe(false));
-        expect(host.data[field]).toBe(!initial);
-        expect(host.data[otherField]).toBe(otherValue);
+        expect(host.data[field]).toBe(initial);
+        expect(host.data[otherField]).toBe(!otherValue);
         expect(host.data.infoMessage).not.toBe('');
         expect(host.writes.every((patch) => !Object.hasOwn(patch, 'state'))).toBe(true);
         expect(host.data.incomingRequests).toBe(list);
@@ -110,15 +110,18 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
 
     it(`${kind} ${field}: rolls back only the pending value on failure and releases the existing lock`, async () => {
       const pending = deferred();
-      api[method].mockReturnValue(pending.promise);
+      api[method].mockReturnValueOnce(pending.promise);
       const { definition, host } = await mount(kind, field, false);
       definition[handler].call(host, { detail: { value: true } });
       expect(host.data[field]).toBe(true);
       pending.reject(new Error('synthetic failure'));
       await vi.waitFor(() => expect(host.data.settingsBusy).toBe(false));
       expect(host.data[field]).toBe(false);
-      expect(host.data.errorMessage).toBe('synthetic failure');
-      expect(host.data.infoMessage).toBe('');
+      expect(host.data.errorMessage).toBe('');
+      expect(host.data.infoMessage).toBe(
+        'synthetic failure 当前保存结果暂无法确认，请刷新后重试。',
+      );
+      expect(host.data.infoMessageTone).toBe('error');
       expect(
         host.writes.filter((patch) => Object.hasOwn(patch, field)).map((patch) => patch[field]),
       ).toEqual([true, false]);
@@ -128,7 +131,7 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
       `${kind} ${field}: ignores a late %s after the controller changes`,
       async (completion) => {
         const pending = deferred();
-        api[method].mockReturnValue(pending.promise);
+        api[method].mockReturnValueOnce(pending.promise);
         const { definition, host } = await mount(kind, field, false);
         definition[handler].call(host, { detail: { checked: true } });
         host.__workflowControllerToken = {};

@@ -28,6 +28,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 const directoryAuthTokens = {
+  'diagnostics-target-token': 'password_00000000-0000-4000-8000-000000000001',
   'administrator-token': 'directory-administrator',
   'developer-token': 'directory-developer',
   'guest-token': 'directory-guest',
@@ -56,6 +57,29 @@ describeWithDatabase('internal directory routes', () => {
   afterEach(async () => {
     await app.close();
     await client.close();
+  });
+
+  it('keeps ordinary directory reads available but returns diagnostic timings only to the designated admin', async () => {
+    for (const token of [
+      'member-token',
+      'administrator-token',
+      'developer-token',
+      'diagnostics-target-token',
+    ]) {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/groups/${groupId}/directory?q=safe`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-schedule-client-platform': 'miniprogram',
+          'x-schedule-directory-diagnostics': 'v1',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      if (token === 'diagnostics-target-token')
+        expect(response.headers['server-timing']).toBeDefined();
+      else expect(response.headers['server-timing']).toBeUndefined();
+    }
   });
 
   it('allows active formal members and administrators while rejecting guest, outsider, and anonymous access', async () => {
@@ -265,7 +289,7 @@ describeWithDatabase('internal directory routes', () => {
 
       const candidateTiming = await candidateApp.inject({
         headers: {
-          authorization: 'Bearer member-token',
+          authorization: 'Bearer diagnostics-target-token',
           'x-schedule-client-platform': 'miniprogram',
           'x-schedule-directory-diagnostics': 'v1',
         },
@@ -274,7 +298,7 @@ describeWithDatabase('internal directory routes', () => {
       });
       const filteredTiming = await candidateApp.inject({
         headers: {
-          authorization: 'Bearer member-token',
+          authorization: 'Bearer diagnostics-target-token',
           'x-schedule-client-platform': 'miniprogram',
           'x-schedule-directory-diagnostics': 'v1',
         },
@@ -283,7 +307,7 @@ describeWithDatabase('internal directory routes', () => {
       });
       const singleCharacterTiming = await candidateApp.inject({
         headers: {
-          authorization: 'Bearer member-token',
+          authorization: 'Bearer diagnostics-target-token',
           'x-schedule-client-platform': 'miniprogram',
           'x-schedule-directory-diagnostics': 'v1',
         },
@@ -357,11 +381,11 @@ describeWithDatabase('internal directory routes', () => {
     },
   );
 
-  it('keeps candidate disabled when the journal still has 53 rows but lacks exact migration 0053', async () => {
+  it('keeps candidate disabled at the same journal row count without exact migration 0053', async () => {
     const [[before]] = (await client.database.execute(sql`
       SELECT COUNT(*) AS count FROM __drizzle_migrations
     `)) as unknown as [[{ count: number | string }], unknown];
-    expect(Number(before?.count)).toBe(53);
+    expect(Number(before?.count)).toBeGreaterThanOrEqual(53);
     await client.database.execute(sql`
       DELETE FROM __drizzle_migrations
       WHERE created_at = ${directoryCandidateMigrationIdentity.createdAt}
@@ -373,7 +397,7 @@ describeWithDatabase('internal directory routes', () => {
     const [[after]] = (await client.database.execute(sql`
       SELECT COUNT(*) AS count FROM __drizzle_migrations
     `)) as unknown as [[{ count: number | string }], unknown];
-    expect(Number(after?.count)).toBe(53);
+    expect(Number(after?.count)).toBe(Number(before?.count));
     const logLines: string[] = [];
     const loggerStream = new Writable({
       write(chunk, _encoding, callback) {
@@ -390,7 +414,7 @@ describeWithDatabase('internal directory routes', () => {
     try {
       const response = await candidateApp.inject({
         headers: {
-          authorization: 'Bearer member-token',
+          authorization: 'Bearer diagnostics-target-token',
           'x-schedule-client-platform': 'miniprogram',
           'x-schedule-directory-diagnostics': 'v1',
         },
@@ -437,7 +461,7 @@ describeWithDatabase('internal directory routes', () => {
     try {
       const response = await candidateApp.inject({
         headers: {
-          authorization: 'Bearer member-token',
+          authorization: 'Bearer diagnostics-target-token',
           'x-schedule-client-platform': 'miniprogram',
           'x-schedule-directory-diagnostics': 'v1',
         },
@@ -499,7 +523,7 @@ describeWithDatabase('internal directory routes', () => {
     try {
       const response = await candidateApp.inject({
         headers: {
-          authorization: 'Bearer member-token',
+          authorization: 'Bearer diagnostics-target-token',
           'x-schedule-client-platform': 'miniprogram',
           'x-schedule-directory-diagnostics': 'v1',
         },
@@ -694,6 +718,11 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
   }
 
   const centralCampusId = randomUUID();
+  // Migration 0037 seeds the designated account; diagnostics do not bypass group membership.
+  await client.database.execute(sql`
+    INSERT INTO group_memberships (id, group_id, user_id, role)
+    VALUES (${randomUUID()}, ${groupId}, '00000000-0000-4000-8000-000000000001', 'administrator')
+  `);
   const northCampusId = randomUUID();
   const batchId = randomUUID();
   await client.database.execute(sql`

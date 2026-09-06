@@ -5,10 +5,6 @@ export type GroupRole = z.infer<typeof groupRoleSchema>;
 
 export const groupSummarySchema = z
   .object({
-    groupCode: z
-      .string()
-      .regex(/^\d{4}$/u)
-      .optional(),
     id: z.string().min(1),
     isDeveloperAdmin: z.boolean().optional(),
     name: z.string().min(1),
@@ -19,7 +15,6 @@ export const groupSummarySchema = z
 export type GroupSummary = z.infer<typeof groupSummarySchema>;
 
 export interface CreateGroupRequest {
-  readonly groupCode: string;
   readonly name: string;
   readonly operationId: string;
 }
@@ -56,23 +51,6 @@ export const convertPendingRosterResponseSchema = z
   })
   .strict();
 export type ConvertPendingRosterResponse = z.infer<typeof convertPendingRosterResponseSchema>;
-
-export interface ClaimGroupRequest {
-  readonly groupCode: string;
-  readonly operationId: string;
-}
-
-export const claimGroupResponseSchema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('request_created') }).strict(),
-  z.object({ status: z.literal('claimed'), group: groupSummarySchema }).strict(),
-]);
-export type ClaimGroupResponse = z.infer<typeof claimGroupResponseSchema>;
-
-export interface UpdateGroupCodeRequest {
-  readonly expectedVersion: number;
-  readonly groupCode: string;
-  readonly operationId: string;
-}
 
 export const groupMemberSchema = z
   .object({

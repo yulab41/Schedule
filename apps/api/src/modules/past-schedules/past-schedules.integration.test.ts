@@ -55,7 +55,7 @@ describeWithDatabase('past schedule backfill', () => {
     await registerUser('outsider-token', 'Outside Doctor');
     groupId = await createGroup('Backfill group', '1234');
     await addRosterEntry(groupId, 'Candidate Doctor');
-    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
+    await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
 
     const config = (await getConfig('owner-token', groupId)).json() as SchedulingConfig;
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);

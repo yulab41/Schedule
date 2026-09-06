@@ -171,7 +171,7 @@ export function writeWorkbenchGroupSnapshot(
 ): void {
   clearLegacyWorkbenchStorage();
   const sanitizedGroups = groups.map((group) => {
-    const sanitized = { ...group };
+    const sanitized: GroupSummary & { groupCode?: unknown } = { ...group };
     delete sanitized.groupCode;
     return sanitized;
   });

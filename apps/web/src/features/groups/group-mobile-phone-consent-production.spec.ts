@@ -20,11 +20,16 @@ describe('production group mobile phone consent', () => {
       '我的手机号公开设置',
       '仅自己',
       '允许本群组显示完整手机号',
-      '管理员不能代替成员授权',
+      '此选择可随时撤回，不影响账号、资料或排班。',
     ]) {
       expect(card).toContain(copy);
       expect(golden).toContain(copy);
     }
+    expect(card).toContain('管理员不能代替成员授权');
+    expect(golden).not.toContain('class="contact-member-row"');
+    expect(golden).not.toContain('class="privacy-boundary"');
+    expect(golden).toContain('v-model="phoneConsent"');
+    expect(golden).toContain('保存同意');
     expect(card).toContain('class="contact-member-row"');
     expect(card).toContain('class="phone-consent-control"');
     expect(card).toContain('class="privacy-boundary"');
