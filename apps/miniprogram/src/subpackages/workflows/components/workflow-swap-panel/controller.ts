@@ -887,6 +887,10 @@ async function confirmSwapMutation(
       ? '确定撤销该换班申请吗？'
       : `确定驳回与 ${swap.initiatorMemberName ?? '对方'} 的换班申请吗？`;
   const confirmed = await showConfirm(content);
+  if (task.isCurrent() && confirmed === 'failed') {
+    page.setData({ errorMessage: '确认窗口未能打开，请再次点击操作按钮重试。' });
+    return;
+  }
   if (!task.isCurrent() || !confirmed) return;
   await mutateSwap(page, swap.id, action);
   if (!task.isCurrent()) return;
@@ -1344,15 +1348,19 @@ function toUserMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
 
-function showConfirm(content: string): Promise<boolean> {
+function showConfirm(content: string): Promise<boolean | 'failed'> {
   return new Promise((resolve) => {
-    wx.showModal({
-      cancelText: '暂不',
-      confirmText: '确认',
-      content,
-      success: (result) => resolve(result.confirm),
-      fail: () => resolve(false),
-      title: '请确认',
-    });
+    try {
+      wx.showModal({
+        cancelText: '暂不',
+        confirmText: '确认',
+        content,
+        success: (result) => resolve(result.confirm),
+        fail: () => resolve('failed'),
+        title: '请确认',
+      });
+    } catch {
+      resolve('failed');
+    }
   });
 }
