@@ -68,6 +68,12 @@ import {
   type ShiftEventCard,
 } from '../../features/workbench/shift-event-model.js';
 
+import {
+  reconcileDetailExpansion,
+  toggleDetailExpansion,
+  type DetailExpansion,
+} from '../../features/workbench/detail-expansion.js';
+
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type ShiftEventState = 'closed' | 'empty' | 'error' | 'loading' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
@@ -141,7 +147,7 @@ interface WorkbenchPageData {
   readonly directoryContextRevision: number;
   readonly directoryPermissionContextReady: boolean;
   readonly errorMessage: string;
-  readonly expandedDetailKey: string;
+  readonly detailExpansion: DetailExpansion;
   readonly filterIconAnimating: boolean;
   readonly filterMembershipIds: readonly string[];
   readonly filterMemberOptions: readonly FilterOption[];
@@ -231,6 +237,7 @@ interface WorkbenchPageInstance {
   shiftEventAssignment: CalendarDutyAssignment | undefined;
   shiftEventRequestSerial: number;
   requestSerial: number;
+  requestOwnerId: string | undefined;
   selectComponent(selector: string):
     | {
         continueQueuedShift?(): void;
@@ -275,7 +282,7 @@ Page({
     directoryContextRevision: 0,
     directoryPermissionContextReady: false,
     errorMessage: '',
-    expandedDetailKey: '',
+    detailExpansion: reconcileDetailExpansion(undefined, [], []),
     filterIconAnimating: false,
     filterMembershipIds: [],
     filterMemberOptions: [],
@@ -387,6 +394,7 @@ Page({
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
   requestSerial: 0,
+  requestOwnerId: undefined,
   notificationRequestSerial: 0,
   shiftEventAssignment: undefined,
   shiftEventRequestSerial: 0,
@@ -432,7 +440,6 @@ Page({
     this.requestSerial += 1;
     invalidateShiftEventRequest(this);
     this.setData({
-      expandedDetailKey: '',
       filterOpen: false,
       groupOpen: false,
       notificationSheetOpen: false,
@@ -781,7 +788,7 @@ Page({
   handleDetailPhoneToggle(this: WorkbenchPageInstance, event: TapEvent): void {
     const key = event.currentTarget.dataset.key;
     if (key === undefined || key.length === 0) return;
-    this.setData({ expandedDetailKey: this.data.expandedDetailKey === key ? '' : key });
+    this.setData({ detailExpansion: toggleDetailExpansion(this.data.detailExpansion, key) });
   },
 
   handleOpenShiftEvents(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -1170,6 +1177,13 @@ async function loadWorkbench(
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
   const ownerId = getStoredWechatProfile()?.id;
+  if (page.requestOwnerId !== ownerId) {
+    page.calendar = undefined;
+    page.holidays = undefined;
+    page.monthResources.clear();
+    page.setData({ detailExpansion: reconcileDetailExpansion(undefined, [], []) });
+  }
+  page.requestOwnerId = ownerId;
   const hasLoadedData = page.calendar !== undefined && page.holidays !== undefined;
   page.setData({
     canReLogin: false,
@@ -1611,8 +1625,13 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
   );
   const ownerId = getStoredWechatProfile()?.id;
   if (ownerId === undefined) return;
+  if (page.requestOwnerId !== ownerId) {
+    await loadWorkbench(page, { forceRefresh: true });
+    return;
+  }
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
+  page.requestOwnerId = ownerId;
   try {
     const readHolidays = createHolidayReader(requestedMonths);
     const activeMonth = getActiveBusinessMonth(page);
@@ -1707,6 +1726,11 @@ function createViewPatch(
     ...monthRing,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,
+    detailExpansion: reconcileDetailExpansion(
+      page.data.detailExpansion,
+      [getStoredWechatProfile()?.id ?? '', page.data.currentGroupId, period.selectedDate],
+      view.selectedDetails,
+    ),
     selectedLabel: view.selectedLabel,
     weekPanels: view.weekPanels,
   };
@@ -1910,7 +1934,6 @@ function selectBusinessDate(page: WorkbenchPageInstance, businessDate: string): 
   page.setData({
     ...createViewPatch(page, period),
     announcement: `已选择 ${formatDateLabel(businessDate)}。`,
-    expandedDetailKey: '',
     selectedDate: businessDate,
   });
 }
@@ -2118,7 +2141,11 @@ function mergeHolidays(
 }
 
 function isCurrentRequest(page: WorkbenchPageInstance, requestSerial: number): boolean {
-  return page.isVisible && page.requestSerial === requestSerial;
+  return (
+    page.isVisible &&
+    page.requestSerial === requestSerial &&
+    page.requestOwnerId === getStoredWechatProfile()?.id
+  );
 }
 
 function getActiveBusinessMonth(page: WorkbenchPageInstance): string {

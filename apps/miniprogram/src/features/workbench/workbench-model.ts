@@ -65,6 +65,7 @@ export interface WorkbenchDetail {
 
 export interface WorkbenchDetailRow {
   readonly key: string;
+  readonly membershipId: string;
   readonly markerDetails: readonly WorkbenchMarkerDetail[];
   readonly name: string;
   readonly phoneOptions: readonly WorkbenchPhoneOption[];
@@ -471,6 +472,7 @@ function createDetailRow(
       key: marker,
       label: detailMarkerLabels[marker] ?? marker,
     })),
+    membershipId: membershipId ?? '',
     name: assignment.actualMemberName ?? assignment.plannedMemberName ?? '待安排',
     phoneOptions: createPhoneOptions(member),
     role: assignment.scheduleRoleName,
@@ -484,10 +486,10 @@ function createPhoneOptions(
 ): readonly WorkbenchPhoneOption[] {
   if (member === undefined) return [];
   const options: WorkbenchPhoneOption[] = [];
-  if (member.shortPhone !== undefined && member.shortPhone.length > 0) {
+  if (member.shortPhone !== undefined && /^\+?\d[\d ()-]*$/u.test(member.shortPhone)) {
     options.push({ label: '短号', number: member.shortPhone });
   }
-  if (member.mobilePhone !== undefined && member.mobilePhone.length > 0) {
+  if (member.mobilePhone !== undefined && /^\+?\d[\d ()-]*$/u.test(member.mobilePhone)) {
     options.push({ label: '手机', number: member.mobilePhone });
   }
   return options;
