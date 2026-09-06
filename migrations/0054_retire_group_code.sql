@@ -1,0 +1,1 @@
+ALTER TABLE `groups` MODIFY COLUMN `group_code` char(4) NULL DEFAULT NULL;

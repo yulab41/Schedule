@@ -51,8 +51,48 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 53 }]);
+    expect(migrations).toEqual([{ count: 54 }]);
     expect(tables).toEqual([{ count: 57 }]);
+  });
+
+  it('retains historical codes and relationships while allowing multiple new NULL groups', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    const owner = randomUUID();
+    const historic = randomUUID();
+    const first = randomUUID();
+    const second = randomUUID();
+    await client.database.insert(users).values({ id: owner, cloudbaseUid: 'migration-owner' });
+    await client.database
+      .insert(groups)
+      .values({ id: historic, name: 'Historical fixture', ownerUserId: owner, groupCode: '0037' });
+    const membershipId = randomUUID();
+    await client.database
+      .insert(groupMemberships)
+      .values({ id: membershipId, groupId: historic, userId: owner, role: 'owner' });
+    await client.database.execute(
+      sql`ALTER TABLE \`groups\` MODIFY COLUMN group_code char(4) NOT NULL`,
+    );
+    const migrationSql = await readFile(
+      join(migrationsDirectory, '0054_retire_group_code.sql'),
+      'utf8',
+    );
+    await client.database.execute(sql.raw(migrationSql));
+    await client.database.insert(groups).values([
+      { id: first, name: 'Null fixture one', ownerUserId: owner, groupCode: null },
+      { id: second, name: 'Null fixture two', ownerUserId: owner, groupCode: null },
+    ]);
+    const [rows] = await client.database.execute<{ id: string; groupCode: string | null }>(
+      sql`SELECT id, group_code AS groupCode FROM \`groups\` WHERE owner_user_id = ${owner} ORDER BY name`,
+    );
+    expect(rows).toEqual([
+      { id: historic, groupCode: '0037' },
+      { id: first, groupCode: null },
+      { id: second, groupCode: null },
+    ]);
+    const [relationships] = await client.database.execute<{ groupId: string }>(
+      sql`SELECT group_id AS groupId FROM group_memberships WHERE id = ${membershipId}`,
+    );
+    expect(relationships).toEqual([{ groupId: historic }]);
   });
 
   it('creates the visitor access retention aggregate and expiry index', async () => {
