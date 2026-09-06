@@ -186,7 +186,7 @@
                               hover-class="is-pressed"
                               aria-role="button"
                               aria-label="{{row.name}}，展开电话"
-                              aria-expanded="{{expandedDetailKey === row.key}}"
+                              aria-expanded="{{detailExpansion.expanded[row.key]}}"
                               bindtap="handleDetailPhoneToggle"
                             >
                               <view class="staff-name-copy"
@@ -199,7 +199,7 @@
                                 mode="aspectFit"
                               />
                               <image
-                                class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
+                                class="detail-disclosure {{detailExpansion.expanded[row.key] ? 'is-expanded' : ''}}"
                                 src="/assets/icons/ui-chevron-right.svg"
                                 mode="aspectFit"
                               />
@@ -211,7 +211,7 @@
                             <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
                           </view>
                           <view
-                            wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
+                            wx:if="{{detailExpansion.expanded[row.key] && row.phoneOptions.length > 0}}"
                             class="phone-split-actions"
                           >
                             <view
@@ -423,7 +423,7 @@
                               hover-class="is-pressed"
                               aria-role="button"
                               aria-label="{{row.name}}，展开电话"
-                              aria-expanded="{{expandedDetailKey === row.key}}"
+                              aria-expanded="{{detailExpansion.expanded[row.key]}}"
                               bindtap="handleDetailPhoneToggle"
                             >
                               <view class="staff-name-copy"
@@ -436,7 +436,7 @@
                                 mode="aspectFit"
                               />
                               <image
-                                class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
+                                class="detail-disclosure {{detailExpansion.expanded[row.key] ? 'is-expanded' : ''}}"
                                 src="/assets/icons/ui-chevron-right.svg"
                                 mode="aspectFit"
                               />
@@ -448,7 +448,7 @@
                             <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
                           </view>
                           <view
-                            wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
+                            wx:if="{{detailExpansion.expanded[row.key] && row.phoneOptions.length > 0}}"
                             class="phone-split-actions"
                           >
                             <view

@@ -548,6 +548,27 @@ describe('P4 native workbench', () => {
     expect(groupedView.selectedDetails[0]?.rows).toHaveLength(2);
   });
 
+  it('never exposes masked numbers as callable selected-detail actions', () => {
+    const view = createWorkbenchViewModel(
+      {
+        ...calendarApiGoldenResponse,
+        assignments: [
+          { ...calendarApiGoldenResponse.assignments[0], actualMembershipId: 'membership-1' },
+        ],
+        members: calendarApiGoldenResponse.members.map((member) => ({
+          ...member,
+          mobilePhone: '130****0001',
+          shortPhone: '6***01',
+        })),
+      },
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+    );
+    expect(view.selectedDetails[0].rows[0].phoneOptions).toEqual([]);
+  });
+
   it('renders an already-prefetched adjacent-month assignee without waiting for another read', () => {
     const adjacentAssignment = {
       ...calendarApiGoldenResponse.assignments[0],

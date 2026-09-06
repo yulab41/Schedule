@@ -25,6 +25,66 @@ describe('P6-A workbench runtime coordination', () => {
     vi.unstubAllGlobals();
   });
 
+  it('defaults each single-member shift open and preserves manual collapse on reselection', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    const source = calendarApiGoldenResponse.assignments[0];
+    instance.calendar = {
+      ...calendarApiGoldenResponse,
+      assignments: [
+        {
+          ...source,
+          id: 'day-row',
+          businessDate: '2026-09-07',
+          shiftTypeId: 'day',
+          actualMembershipId: 'member-a',
+        },
+        {
+          ...source,
+          id: 'night-row',
+          businessDate: '2026-09-07',
+          shiftTypeId: 'night',
+          actualMembershipId: 'member-a',
+        },
+      ],
+    };
+    instance.holidays = holidayApiGoldenResponse;
+    instance.data.currentGroupId = 'group-1';
+    const event = { currentTarget: { dataset: { businessDate: '2026-09-07' } } };
+    definition.handleWeekDaySelect.call(instance, event);
+    expect(instance.data.detailExpansion.expanded).toEqual({ 'day-row': true, 'night-row': true });
+    definition.handleDetailPhoneToggle.call(instance, {
+      currentTarget: { dataset: { key: 'day-row' } },
+    });
+    definition.handleWeekDaySelect.call(instance, event);
+    expect(instance.data.detailExpansion.expanded).toEqual({ 'day-row': false, 'night-row': true });
+  });
+
+  it('discards an old account calendar response before committing any group state', async () => {
+    const storage = createStorage();
+    let pendingGroups;
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/groups')) pendingGroups = options;
+      else options.success({ data: holidayApiGoldenResponse, statusCode: 200 });
+    });
+    vi.stubGlobal('wx', createWx(storage, request));
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(pendingGroups).toBeDefined());
+    const oldSession = storage.get('schedule.wechat.session');
+    storage.set('schedule.wechat.session', {
+      ...oldSession,
+      profile: { ...oldSession.profile, id: 'account-b' },
+    });
+    pendingGroups.success({ data: [groupSummary()], statusCode: 200 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(instance.data.currentGroupId).toBe('');
+    expect(instance.data.detailExpansion.expanded).toEqual({});
+  });
+
   it('switches primary destinations in place and pushes secondary tools onto the Page stack', async () => {
     const storage = createStorage();
     const navigateTo = vi.fn();
