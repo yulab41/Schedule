@@ -33,7 +33,7 @@
       "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial.",
       "equivalentProof": {
         "strategy": "canonical-tree-files",
-        "evidence": "UX-CLEANUP-10 preserves the shared motion source and Mini motion contract unchanged. The workbench diff retires photos, adds independent detail expansion/account response guards, and restricts diagnostics; handleCalendarNav and directory navigation motion remain unchanged, with no calendarNavAnimating reintroduced. The renewed workbench blob is audited in docs/audit/ux-cleanup-10-20260906083903.md and covered by the existing icon-motion-parity and lineage gates.",
+        "evidence": "Feedback4 adds only the approved startup password-reminder controller wiring to the previously audited workbench. AST comparison preserves all 62 existing Page methods (onUnload only adds account-security disposal) and all 61 top-level functions; handleCalendarNav and directory navigation remain unchanged, and calendarNavAnimating stays absent. Shared motion source and icon-motion-parity contract blobs are unchanged. See docs/audit/ux-cleanup-10-feedback4-release.md; existing motion and lineage gates remain required.",
         "files": [
           {
             "path": "packages/ui-icons/src/motion.ts",
@@ -45,7 +45,7 @@
           },
           {
             "path": "apps/miniprogram/src/pages/workbench/index.ts",
-            "blob": "0c7ab72b76a98a6da3179ce55adccc479f9eb30f"
+            "blob": "bbc1aadcd90799d3b96f524abd581064f8ddc365"
           }
         ]
       }
