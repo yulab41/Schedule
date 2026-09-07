@@ -26,6 +26,13 @@ import {
   isTestToolsRuntimeEnabled,
   readMiniProgramRuntimeIdentity,
 } from '../../../../platform/runtime-environment.js';
+import {
+  wechatDiagnosticData,
+  wechatDiagnosticMethods,
+  clearWechatDiagnosticPage,
+  prepareWechatDiagnosticPage,
+  wechatDiagnosticReport,
+} from './wechat-diagnostics.js';
 
 type RowStatus = 'good' | 'notice' | 'unavailable';
 type ScenarioResult = 'issue' | 'passed' | 'pending';
@@ -90,7 +97,7 @@ interface DirectorySearchView extends RuntimeDirectorySearchDiagnostic {
   readonly searchTypeLabel: string;
 }
 
-interface TestToolsPageData {
+interface TestToolsPageData extends Readonly<typeof wechatDiagnosticData> {
   readonly authorized: boolean;
   readonly buildRows: readonly DiagnosticRow[];
   readonly checkSummary: string;
@@ -286,7 +293,9 @@ const scenarioDefaults: readonly DiagnosticScenario[] = [
 ];
 
 Page({
+  ...wechatDiagnosticMethods,
   data: {
+    ...wechatDiagnosticData,
     authorized: false,
     buildRows: [],
     checkSummary: '尚未检查',
@@ -488,12 +497,18 @@ Page({
 
   handleCopyFullReport(this: TestToolsPageInstance): void {
     if (!this._active || !canUseDiagnostics()) return;
-    copyText(createDiagnosticReport(this.data, false), '完整诊断报告已复制');
+    copyText(
+      createDiagnosticReport(this.data, false) + '\n' + wechatDiagnosticReport(this),
+      '完整诊断报告已复制',
+    );
   },
 
   handleCopyCodexReport(this: TestToolsPageInstance): void {
     if (!this._active || !canUseDiagnostics()) return;
-    copyText(createDiagnosticReport(this.data, true), 'Codex 简化报告已复制');
+    copyText(
+      createDiagnosticReport(this.data, true) + '\n' + wechatDiagnosticReport(this),
+      'Codex 简化报告已复制',
+    );
   },
 } as never);
 
@@ -509,10 +524,12 @@ async function authorizeTestToolsPage(page: TestToolsPageInstance): Promise<void
   }
   page._active = true;
   page.setData({ authorized: true });
+  void prepareWechatDiagnosticPage(page);
   loadAuthorizedTestTools(page);
 }
 
 function clearTestToolsPage(page: TestToolsPageInstance): void {
+  clearWechatDiagnosticPage(page);
   page._active = false;
   stopRuntimeDirectorySearchRecording();
   page.setData({
@@ -998,7 +1015,8 @@ function formatServerTiming(timing: RuntimeDirectorySearchDiagnostic['serverTimi
     `结果转换${duration(timing.transformMs)}`,
     `序列化${duration(timing.serializationMs)}`,
     `冷启动${timing.coldStart === undefined ? '不支持' : timing.coldStart ? '是' : '否'}`,
-    `实例存活${duration(timing.instanceAgeMs)}`,
+    `实例存活${timing.instanceAgeMs === 2_592_000_000 ? '≥' : ''}${duration(timing.instanceAgeMs)}`,
+    `查询计划${timing.directoryPlan ?? '未提供'}`,
     `排队${timing.queueSupported === false ? '不支持' : '支持'}`,
     `缓存${timing.cache ?? '不支持'}`,
   ].join(' / ');

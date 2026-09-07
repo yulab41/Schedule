@@ -441,6 +441,22 @@ describe('P2 Mini wx.request JSON transport', () => {
     const store = diagnostics.createRuntimeDiagnosticsStore();
     store.startDirectorySearchRecording();
     vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: store } }));
+    for (const plan of ['legacy', 'candidate']) {
+      const parsed = directoryRequestDiagnosticObserver.observe({
+        responseHeader: {
+          'server-timing': `queue;desc="unsupported",cache;desc="none",total;dur=1,instance_age;dur=9999999999,directory_plan;desc="${plan}"`,
+        },
+      }).serverTiming;
+      expect(parsed).toMatchObject({ directoryPlan: plan, instanceAgeMs: 2_592_000_000 });
+    }
+    expect(
+      directoryRequestDiagnosticObserver.observe({
+        responseHeader: {
+          'server-timing':
+            'queue;desc="unsupported",cache;desc="none",total;dur=1,directory_plan;desc="private-secret"',
+        },
+      }).serverTiming,
+    ).not.toHaveProperty('directoryPlan');
     const endpoint = defineClientEndpoint({
       auth: 'bearer',
       decoder: createCompactDecoder({ type: 'string' }),

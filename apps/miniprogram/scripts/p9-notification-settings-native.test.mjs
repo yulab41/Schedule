@@ -58,7 +58,7 @@ describe('P9 native notification settings', () => {
     expect(template).toContain('正在读取通知设置');
     expect(template).toContain('通知提醒暂未开放');
     expect(template).toContain('开启接收偏好不代表微信已授权');
-    expect(template).toContain('模板尚未配置');
+    expect(template).toContain('订阅暂未就绪');
     expect(controller).toContain("status === 'accepted'");
     expect(controller).toContain("status === 'blocked'");
   });

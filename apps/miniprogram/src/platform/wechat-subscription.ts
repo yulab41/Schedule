@@ -2,6 +2,7 @@ import {
   ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
 } from '../app/client-capability-store.js';
+import { captureSubscriptionDiagnosticRecorder } from './subscription-diagnostics.js';
 
 export class WechatSubscriptionError extends Error {
   public constructor(public readonly code: number | undefined) {
@@ -56,6 +57,9 @@ export async function requestWechatSubscriptions(
     throw new ClientCapabilityDisabledError('externalMessages');
   }
   const normalizedTemplateIds = normalizeTemplateIds(templateIds);
+  const record = captureSubscriptionDiagnosticRecorder();
+  const startedAt = Date.now();
+  record({ stage: 'authorization', outcome: 'started' });
   return new Promise((resolve, reject) => {
     (
       wx as unknown as {
@@ -71,12 +75,19 @@ export async function requestWechatSubscriptions(
           Number.isFinite(error.errCode)
             ? error.errCode
             : undefined;
+        record({
+          stage: 'authorization',
+          outcome: 'failed',
+          durationMs: Date.now() - startedAt,
+          ...(code === undefined ? {} : { errCode: code }),
+        });
         reject(new WechatSubscriptionError(code));
       },
       success: (result) =>
         resolve(
           normalizedTemplateIds.map((templateId) => {
             const status = normalizeWechatSubscriptionStatus(result[templateId]);
+            record({ stage: 'authorization', outcome: status, durationMs: Date.now() - startedAt });
             return { granted: status === 'accepted', status, templateId };
           }),
         ),

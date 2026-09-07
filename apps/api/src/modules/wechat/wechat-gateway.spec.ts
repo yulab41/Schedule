@@ -42,6 +42,39 @@ function createGateway(
 }
 
 describe('mock WeChat gateway', () => {
+  it('reports per-call token/send phases without credentials', async () => {
+    const phases: string[] = [];
+    const { gateway } = createGateway((input) =>
+      String(input).includes('/cgi-bin/token')
+        ? jsonResponse({ access_token: 'private-token', expires_in: 7200 })
+        : jsonResponse({ errcode: 0 }),
+    );
+    await gateway.sendSubscribeMessage(
+      'private-id',
+      'private-template',
+      { thing1: { value: 'test' } },
+      (phase) => phases.push(phase),
+    );
+    expect(phases).toEqual(['access-token', 'send']);
+    const failed: string[] = [];
+    const { gateway: invalid } = createGateway(() =>
+      jsonResponse({ errcode: 40125, errmsg: 'private-credential' }),
+    );
+    await expect(
+      invalid.sendSubscribeMessage('x', 'y', {}, (phase) => failed.push(phase)),
+    ).rejects.toBeInstanceOf(WechatGatewayError);
+    expect(failed).toEqual(['access-token']);
+    const sendFailed: string[] = [];
+    const { gateway: refused } = createGateway((input) =>
+      String(input).includes('/cgi-bin/token')
+        ? jsonResponse({ access_token: 'private-token', expires_in: 7200 })
+        : jsonResponse({ errcode: 43101, errmsg: 'private' }),
+    );
+    await expect(
+      refused.sendSubscribeMessage('x', 'y', {}, (phase) => sendFailed.push(phase)),
+    ).rejects.toBeInstanceOf(WechatGatewayError);
+    expect(sendFailed).toEqual(['access-token', 'send']);
+  });
   it('is always configured and returns stable mock openids per code', async () => {
     const gateway = createMockWechatGateway();
     expect(gateway.isConfigured).toBe(true);

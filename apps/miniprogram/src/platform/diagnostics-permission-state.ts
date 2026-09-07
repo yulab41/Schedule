@@ -23,8 +23,13 @@ export function invalidateDiagnosticsPermission(): void {
   grant = undefined;
   clearRuntimeDirectoryLaunchMarker();
   try {
-    const globalData = getApp<{ globalData?: { runtimeDiagnostics?: unknown } }>().globalData;
-    if (globalData !== undefined) delete globalData.runtimeDiagnostics;
+    const globalData = getApp<{
+      globalData?: { runtimeDiagnostics?: unknown; subscriptionDiagnostics?: unknown };
+    }>().globalData;
+    if (globalData !== undefined) {
+      delete globalData.runtimeDiagnostics;
+      delete globalData.subscriptionDiagnostics;
+    }
   } catch {
     /* Diagnostics never prevent session invalidation. */
   }

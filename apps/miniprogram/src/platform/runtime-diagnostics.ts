@@ -467,7 +467,12 @@ function sanitizeServerTiming(
     ...optionalDuration('contactsMs', value.contactsMs),
     ...optionalDuration('countMs', value.countMs),
     ...optionalDuration('databaseWaitMs', value.databaseWaitMs),
-    ...optionalDuration('instanceAgeMs', value.instanceAgeMs),
+    ...(typeof value.instanceAgeMs === 'number' && Number.isFinite(value.instanceAgeMs)
+      ? { instanceAgeMs: Math.max(0, Math.min(2_592_000_000, Math.round(value.instanceAgeMs))) }
+      : {}),
+    ...(value.directoryPlan === 'legacy' || value.directoryPlan === 'candidate'
+      ? { directoryPlan: value.directoryPlan }
+      : {}),
     ...optionalDuration('permissionMs', value.permissionMs),
     ...optionalDuration('queryMs', value.queryMs),
     ...(typeof value.queueSupported === 'boolean' ? { queueSupported: value.queueSupported } : {}),

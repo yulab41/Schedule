@@ -313,7 +313,10 @@ function parseServerTiming(headers: unknown): RuntimeDiagnosticServerTiming {
     for (const parameter of parameters) {
       const [rawKey, rawValue = ''] = parameter.trim().split('=');
       if (rawKey?.toLowerCase() === 'dur' && /^\d+(?:\.\d+)?$/u.test(rawValue)) {
-        duration = Math.min(600_000, Math.round(Number(rawValue)));
+        duration = Math.min(
+          name === 'instance_age' ? 2_592_000_000 : 600_000,
+          Math.round(Number(rawValue)),
+        );
       }
       if (rawKey?.toLowerCase() === 'desc') {
         description = rawValue.replace(/^"|"$/gu, '').toLowerCase();
@@ -323,6 +326,11 @@ function parseServerTiming(headers: unknown): RuntimeDiagnosticServerTiming {
     else if (name === 'cache') cacheValid = description === 'none';
     else if (name === 'cold' && (description === 'cold' || description === 'warm')) {
       output['coldStart'] = description === 'cold';
+    } else if (
+      name === 'directory_plan' &&
+      (description === 'legacy' || description === 'candidate')
+    ) {
+      output['directoryPlan'] = description;
     } else if (duration !== undefined) {
       const field = serverTimingDurationFields[name];
       if (field !== undefined) output[field] = duration;

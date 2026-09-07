@@ -29,6 +29,8 @@ import {
   requestWechatSubscriptions,
   WechatSubscriptionError,
 } from '../../../../platform/wechat-subscription.js';
+import { loadWechatSubscriptionTemplates } from '../../../../platform/wechat-notification-client.js';
+import { captureSubscriptionDiagnosticRecorder } from '../../../../platform/subscription-diagnostics.js';
 import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
@@ -64,6 +66,8 @@ interface NotificationsPageData {
   readonly groupHoursInput: string;
   readonly groupSettingsBusy: boolean;
   readonly infoMessage: string;
+  readonly feedbackTone: 'success' | 'error';
+  readonly templateNotice: string;
   readonly largeText: boolean;
   readonly loadingMore: boolean;
   readonly mode: 'notifications' | 'settings';
@@ -83,6 +87,7 @@ interface NotificationsPageData {
 }
 
 interface NotificationsPageInstance extends InfoMessageHost {
+  _subscriptionTemplates?: readonly string[];
   readonly data: NotificationsPageData;
   readonly properties: {
     readonly embedded: boolean;
@@ -109,10 +114,6 @@ const preferencesClient = createRuntimeNotificationPreferencesClient(
   getWechatRequestAuthentication(),
 );
 const workbenchClient = createWorkbenchReadClient();
-// This template is approved and configured in the production WeChat account.
-const SUBSCRIPTION_TEMPLATE_IDS: readonly string[] = [
-  'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
-];
 
 export function createNotificationsPanelControllerDefinition() {
   return {
@@ -127,6 +128,7 @@ export function createNotificationsPanelControllerDefinition() {
       groupHoursInput: '',
       groupSettingsBusy: false,
       infoMessage: '',
+      feedbackTone: 'success' as const,
       largeText: false,
       loadingMore: false,
       mode: 'notifications' as const,
@@ -139,7 +141,8 @@ export function createNotificationsPanelControllerDefinition() {
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       showSubscriptionSettings: false,
       state: 'loading' as NotificationState,
-      templateConfigured: SUBSCRIPTION_TEMPLATE_IDS.length > 0,
+      templateConfigured: false,
+      templateNotice: '正在读取微信订阅配置…',
       unreadCount: 0,
       unreadCountLabel: '0 未读',
       viewportClass: '',
@@ -246,9 +249,15 @@ export function createNotificationsPanelControllerDefinition() {
         if (!this.data.showSubscriptionSettings || this.data.busy) return;
         const requestSerial = this._requestSerial;
         const groupId = this.data.groupId;
+        const feedback = captureNotificationFeedback(this);
         const onFailure = () => {
           if (!isNotificationRequestCurrent(this, requestSerial, groupId)) return;
-          this.setData({ errorMessage: '微信设置暂时无法打开，请点击右上角菜单进入设置。' });
+          showNotificationInfo(
+            this,
+            '微信设置暂时无法打开，请点击右上角菜单进入设置。',
+            feedback,
+            'error',
+          );
         };
         try {
           (
@@ -360,6 +369,23 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
     const group = groups.find((candidate) => candidate.id === groupId);
     if (group === undefined) throw new Error('当前群组信息缺失，请返回工作台后重试。');
     const canManageGroupSettings = canManageNotificationSettings(group);
+    void loadWechatSubscriptionTemplates()
+      .then((templates) => {
+        if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+        page._subscriptionTemplates = templates;
+        page.setData({
+          templateConfigured: templates.length > 0,
+          templateNotice: '微信订阅模板尚未配置，请联系管理员。',
+        });
+      })
+      .catch(() => {
+        if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+        page._subscriptionTemplates = [];
+        page.setData({
+          templateConfigured: false,
+          templateNotice: '微信订阅配置读取失败，请刷新重试。其他提醒设置仍可使用。',
+        });
+      });
     const [preferences, groupSettings] = await Promise.all([
       page._preferencesClient.getMine(groupId),
       canManageGroupSettings
@@ -419,7 +445,12 @@ async function saveGroupSettings(page: NotificationsPageInstance): Promise<void>
       setNotificationsDisabled(page, error.message);
       return;
     }
-    page.setData({ errorMessage: toUserMessage(error, '通知设置暂时无法保存，请稍后重试。') });
+    showNotificationInfo(
+      page,
+      toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
+      feedback,
+      'error',
+    );
   } finally {
     if (isNotificationRequestCurrent(page, requestSerial, groupId)) {
       page.setData({ groupSettingsBusy: false });
@@ -453,7 +484,12 @@ async function saveMyPreferences(page: NotificationsPageInstance): Promise<void>
       setNotificationsDisabled(page, error.message);
       return;
     }
-    page.setData({ errorMessage: toUserMessage(error, '通知设置暂时无法保存，请稍后重试。') });
+    showNotificationInfo(
+      page,
+      toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
+      feedback,
+      'error',
+    );
   } finally {
     if (isNotificationRequestCurrent(page, requestSerial, groupId)) {
       page.setData({ mySettingsBusy: false });
@@ -493,9 +529,10 @@ function showNotificationInfo(
   page: NotificationsPageInstance,
   message: string,
   isCurrent: () => boolean,
+  tone: 'success' | 'error' = 'success',
 ): void {
   if (!isCurrent()) return;
-  page.setData({ infoMessage: message });
+  page.setData({ infoMessage: message, feedbackTone: tone });
   scheduleInfoMessageExpiry(page, message, isCurrent);
 }
 
@@ -578,6 +615,8 @@ async function toggleSubscription(
   const requestSerial = page._requestSerial;
   const groupId = page.data.groupId;
   const feedback = captureNotificationFeedback(page);
+  const record = captureSubscriptionDiagnosticRecorder();
+  let savingPreference = false;
   page.setData({ busy: true, errorMessage: '', infoMessage: '', showSubscriptionSettings: false });
   try {
     const capability = getClientCapabilitySnapshot();
@@ -587,12 +626,13 @@ async function toggleSubscription(
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     let enabled = checked;
     if (checked) {
-      if (SUBSCRIPTION_TEMPLATE_IDS.length === 0) {
+      if (!page._subscriptionTemplates?.length) {
         if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
-        page.setData({ busy: false, errorMessage: '微信订阅模板尚未配置，暂时无法开启。' });
+        page.setData({ busy: false });
+        showNotificationInfo(page, '微信订阅模板尚未配置，暂时无法开启。', feedback, 'error');
         return;
       }
-      const grants = await requestWechatSubscriptions(SUBSCRIPTION_TEMPLATE_IDS);
+      const grants = await requestWechatSubscriptions(page._subscriptionTemplates);
       if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
       enabled = grants.length > 0 && grants.every((grant) => grant.status === 'accepted');
       if (!enabled) {
@@ -600,17 +640,25 @@ async function toggleSubscription(
         page.setData({
           busy: false,
           showSubscriptionSettings: !blocked,
-          errorMessage: blocked
-            ? '微信订阅已被系统封禁，本次订阅未完成。'
-            : '未获得本次微信订阅授权。若已记住拒绝选择，请在微信设置中调整后再次订阅。',
         });
+        showNotificationInfo(
+          page,
+          blocked
+            ? '微信订阅已被系统封禁，本次订阅未完成。'
+            : '本次未获订阅授权，请在微信设置中检查。',
+          feedback,
+          'error',
+        );
         return;
       }
     }
+    savingPreference = true;
+    record({ stage: 'preference', outcome: 'started' });
     const preferences = await page._preferencesClient.updateMine(groupId, {
       wechatNotificationsEnabled: enabled,
     });
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+    record({ stage: 'preference', outcome: 'saved' });
     page.setData({
       busy: false,
       enabled: preferences.wechatNotificationsEnabled !== false,
@@ -622,6 +670,7 @@ async function toggleSubscription(
     );
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+    if (savingPreference) record({ stage: 'preference', outcome: 'failed' });
     if (error instanceof ClientCapabilityDisabledError) {
       setNotificationsDisabled(page, error.message);
       return;
@@ -629,8 +678,13 @@ async function toggleSubscription(
     page.setData({
       busy: false,
       showSubscriptionSettings: error instanceof WechatSubscriptionError && error.code === 20004,
-      errorMessage: toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
     });
+    showNotificationInfo(
+      page,
+      toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
+      feedback,
+      'error',
+    );
   }
 }
 

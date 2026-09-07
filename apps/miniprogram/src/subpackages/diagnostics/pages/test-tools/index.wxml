@@ -10,7 +10,7 @@
         ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
       /></view>
       <view class="header-copy">
-        <text class="header-kicker">安全诊断 · 只读</text>
+        <text class="header-kicker">安全诊断</text>
         <text class="header-title">测试工具</text>
       </view>
       <view
@@ -350,6 +350,23 @@
       </view>
     </view>
 
+    <view class="diagnostic-section">
+      <view class="section-heading"><text class="section-title">微信提醒诊断</text></view>
+      <text class="section-note">先检查并订阅，再主动发送一次本人测试。发送会消耗一次订阅额度；不自动重试、不向其他人发送。</text>
+      <view class="diagnostic-card">
+        <view wx:for="{{wechatRows}}" wx:key="index" class="diagnostic-row"><text class="row-label">{{item.label}}</text><text class="row-value">{{item.value}}</text></view>
+        <text class="row-value">{{wechatTestResult}}</text>
+        <text class="row-value">{{wechatReceived}}</text>
+      </view>
+      <view class="wechat-diagnostic-actions">
+        <ui-button label="刷新只读检查" variant="secondary" disabled="{{wechatBusy}}" bindpress="handleRefreshWechat"></ui-button>
+        <ui-button label="开始本次订阅诊断" disabled="{{wechatBusy || !wechatReady}}" loading="{{wechatBusy}}" bindpress="handleWechatSubscribe"></ui-button>
+        <ui-button label="打开微信设置" variant="secondary" bindpress="handleWechatSettings"></ui-button>
+        <ui-button label="发送一条本人测试消息" disabled="{{wechatBusy || !wechatGranted}}" bindpress="handleWechatTestSend"></ui-button>
+        <ui-button label="我已收到" variant="secondary" disabled="{{wechatBusy || !wechatTestResult}}" bindpress="handleWechatReceived"></ui-button>
+        <ui-button label="暂未收到" variant="secondary" disabled="{{wechatBusy || !wechatTestResult}}" bindpress="handleWechatNotReceived"></ui-button>
+      </view>
+    </view>
     <view class="report-card">
       <text class="report-kicker">一次复制 · 稳定结构</text>
       <text class="report-title">生成安全测试报告</text>

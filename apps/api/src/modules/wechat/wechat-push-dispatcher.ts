@@ -6,6 +6,7 @@ import {
   WechatGatewayError,
   type WechatGateway,
   type WechatSubscribeMessageData,
+  type WechatSendPhaseObserver,
 } from './wechat-gateway.js';
 
 export type WechatTemplateKind = 'dutyReminder';
@@ -55,6 +56,7 @@ export class WechatPushDispatcher {
   public async send(
     notification: WechatNotificationRecord,
     database?: ScheduleDatabase | DatabaseTransaction,
+    observe?: WechatSendPhaseObserver,
   ): Promise<{ readonly messageId: string | null }> {
     if (!this.gateway.isConfigured) {
       throw new WechatGatewayError(
@@ -86,11 +88,9 @@ export class WechatPushDispatcher {
       );
     }
 
-    return this.gateway.sendSubscribeMessage(
-      openid,
-      templateId,
-      buildSubscribeMessageData(notification.title, notification.body),
-    );
+    const data = buildSubscribeMessageData(notification.title, notification.body);
+    if (observe === undefined) return this.gateway.sendSubscribeMessage(openid, templateId, data);
+    return this.gateway.sendSubscribeMessage(openid, templateId, data, observe);
   }
 }
 

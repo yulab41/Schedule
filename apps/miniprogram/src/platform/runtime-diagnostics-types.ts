@@ -19,6 +19,7 @@ export interface RuntimeDiagnosticServerTiming {
   readonly countMs?: number | undefined;
   readonly databaseWaitMs?: number | undefined;
   readonly instanceAgeMs?: number | undefined;
+  readonly directoryPlan?: 'legacy' | 'candidate' | undefined;
   readonly permissionMs?: number | undefined;
   readonly queryMs?: number | undefined;
   readonly queueSupported?: boolean | undefined;

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   updateMine: vi.fn(),
   requireClientCapability: vi.fn(),
   snapshot: vi.fn(),
+  templates: vi.fn(),
 }));
 
 vi.mock('../src/app/client-capability-store.ts', () => ({
@@ -36,6 +37,11 @@ vi.mock('../src/platform/client-core-calendar.ts', () => ({
     markNotificationRead: mocks.markNotificationRead,
   }),
 }));
+
+vi.mock('../src/platform/wechat-notification-client.ts', () => ({
+  loadWechatSubscriptionTemplates: mocks.templates,
+}));
+vi.mock('../src/platform/diagnostics-access.ts', () => ({ canUseDiagnostics: () => false }));
 
 vi.mock('../src/platform/workbench-read.ts', () => ({
   createWorkbenchReadClient: () => ({ listGroups: mocks.listGroups }),
@@ -90,11 +96,38 @@ describe('notification parity controller', () => {
       isRead: true,
     }));
     mocks.requestSubscriptions.mockResolvedValue([]);
+    mocks.templates.mockResolvedValue(['Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI']);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('uses a two-second error capsule and retains input on invalid settings', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    vi.useFakeTimers();
+    page.setData({ myHoursMode: 'custom', myHoursInput: '' });
+    definition.methods.handleSaveMyPreferences.call(page);
+    await flushPromises();
+    expect(page.data.feedbackTone).toBe('error');
+    expect(page.data.infoMessage).not.toBe('');
+    expect(page.data.errorMessage).toBe('');
+    vi.advanceTimersByTime(2000);
+    expect(page.data.infoMessage).toBe('');
+  });
+
+  it('keeps preferences available when subscription configuration fails', async () => {
+    mocks.templates.mockRejectedValue(new Error('offline'));
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    expect(page.data.templateConfigured).toBe(false);
+    expect(page.data.templateNotice).toContain('读取失败');
   });
 
   it('loads and saves Web-equivalent group and personal reminder settings', async () => {
@@ -346,8 +379,9 @@ describe('notification parity controller', () => {
       definition.methods.handleSubscribe.call(page);
       await vi.waitFor(() => expect(page.data.busy).toBe(false));
       expect(mocks.updateMine).not.toHaveBeenCalled();
-      expect(page.data.infoMessage).toBe('');
-      expect(page.data.errorMessage).not.toBe('');
+      expect(page.data.feedbackTone).toBe('error');
+      expect(page.data.infoMessage).not.toBe('');
+      expect(page.data.errorMessage).toBe('');
     },
   );
 
@@ -433,8 +467,9 @@ describe('notification parity controller', () => {
     mocks.updateMine.mockRejectedValue(new Error('保存失败'));
     definition.methods.handleSubscribe.call(page);
     await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.infoMessage).toBe('');
-    expect(page.data.errorMessage).toBe('保存失败');
+    expect(page.data.feedbackTone).toBe('error');
+    expect(page.data.infoMessage).toBe('保存失败');
+    expect(page.data.errorMessage).toBe('');
   });
 
   it('ignores a settings failure after detach and handles unavailable native settings safely', async () => {
@@ -447,7 +482,8 @@ describe('notification parity controller', () => {
       throw new Error('unavailable');
     });
     definition.methods.handleOpenSubscriptionSettings.call(page);
-    expect(page.data.errorMessage).toContain('右上角');
+    expect(page.data.infoMessage).toContain('右上角');
+    expect(page.data.feedbackTone).toBe('error');
     page.setData({ errorMessage: '' });
     definition.methods.handleOpenSubscriptionSettings.call(page);
     const callback = globalThis.wx.openSetting.mock.calls[1][0].fail;

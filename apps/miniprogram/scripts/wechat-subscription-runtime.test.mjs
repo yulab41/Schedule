@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ snapshot: vi.fn() }));
+vi.mock('../src/platform/subscription-diagnostics.ts', () => ({
+  captureSubscriptionDiagnosticRecorder: () => () => {},
+}));
 vi.mock('../src/app/client-capability-store.ts', () => ({
   getClientCapabilitySnapshot: mocks.snapshot,
   ClientCapabilityDisabledError: class extends Error {},

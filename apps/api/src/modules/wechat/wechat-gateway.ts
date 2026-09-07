@@ -18,8 +18,10 @@ export interface WechatSubscribeMessageResult {
   // 微信订阅消息接口不返回 msgid；messageId 仅用于 mock/审计引用。
   readonly messageId: string | null;
 }
+export type WechatSendPhaseObserver = (phase: 'access-token' | 'send') => void;
 
 export interface WechatGateway {
+  readonly isMock?: boolean;
   readonly appId?: string | undefined;
   readonly isConfigured: boolean;
   exchangeCode(code: string): Promise<WechatExchangeCodeResult>;
@@ -29,6 +31,7 @@ export interface WechatGateway {
     openid: string,
     templateId: string,
     data: WechatSubscribeMessageData,
+    observe?: WechatSendPhaseObserver,
   ): Promise<WechatSubscribeMessageResult>;
 }
 
@@ -190,10 +193,13 @@ export class WechatApiGateway implements WechatGateway {
     openid: string,
     templateId: string,
     data: WechatSubscribeMessageData,
+    observe?: WechatSendPhaseObserver,
   ): Promise<WechatSubscribeMessageResult> {
     this.assertConfigured();
 
+    observeSendPhase(observe, 'access-token');
     const accessToken = await this.getAccessToken();
+    observeSendPhase(observe, 'send');
     const payload = await this.requestJson(
       `${WECHAT_API_BASE_URL}/cgi-bin/message/subscribe/send?access_token=${encodeURIComponent(accessToken)}`,
       {
@@ -320,6 +326,17 @@ export class WechatApiGateway implements WechatGateway {
   }
 }
 
+function observeSendPhase(
+  observe: WechatSendPhaseObserver | undefined,
+  phase: 'access-token' | 'send',
+): void {
+  try {
+    observe?.(phase);
+  } catch {
+    /* A diagnostic observer must never change delivery behavior. */
+  }
+}
+
 export interface WechatWebApiGatewayOptions {
   readonly appId: string | undefined;
   readonly appSecret: string | undefined;
@@ -433,6 +450,7 @@ export function createMockWechatGateway(options: MockWechatGatewayOptions = {}):
   const log = options.log ?? (() => undefined);
 
   return {
+    isMock: true,
     appId: 'mock-mini-app-id',
     isConfigured: true,
     async exchangeCode(code) {

@@ -156,6 +156,10 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
+  'platform/subscription-diagnostics.ts',
+  'platform/wechat-notification-client.ts',
+  'platform/workbench-selection.ts',
+  'subpackages/diagnostics/pages/test-tools/wechat-diagnostics.ts',
   'platform/info-message-lifetime.ts',
   'components/account-security/controller.ts',
   'components/account-security/runtime.ts',

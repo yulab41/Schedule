@@ -655,3 +655,14 @@ page {
     font-size: 17px;
   }
 }
+
+.wechat-diagnostic-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.wechat-diagnostic-actions > ui-button {
+  width: 100%;
+  min-width: 0;
+}

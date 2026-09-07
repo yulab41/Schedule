@@ -40,6 +40,8 @@ import type { PushDispatcher } from './modules/notifications/notification-dispat
 import { NotificationQueryService } from './modules/notifications/notification-query.js';
 import { registerNotificationRoutes } from './modules/notifications/notification-routes.js';
 import { NotificationService } from './modules/notifications/notification-service.js';
+import { WechatDiagnosticsService } from './modules/wechat/wechat-diagnostics-service.js';
+import { registerWechatDiagnosticsRoutes } from './modules/wechat/wechat-diagnostics-routes.js';
 import { registerHolidayRoutes } from './modules/holidays/holiday-routes.js';
 import { HolidayService } from './modules/holidays/holiday-service.js';
 import { parseHolidayAdminUids } from './modules/holidays/holiday-admin.js';
@@ -232,6 +234,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         options.databaseClient,
         options.pushDispatcher ?? createPushDispatcher(process.env),
       ),
+    );
+    registerWechatDiagnosticsRoutes(
+      app,
+      new WechatDiagnosticsService(options.databaseClient, options.wechatGateway),
     );
     registerHolidayRoutes(
       app,

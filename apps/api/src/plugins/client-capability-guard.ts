@@ -143,6 +143,8 @@ function isCoreRoute(method: string, route: string): boolean {
     route === '/groups' ||
     route === '/me/wechat/miniprogram/binding' ||
     route === '/me/diagnostics-access' ||
+    route === '/me/wechat-notification-diagnostics' ||
+    route === '/notifications/wechat-subscription-config' ||
     route === '/groups/catalog' ||
     route === '/groups/:groupId/members' ||
     route === '/groups/:groupId/contacts' ||
@@ -161,6 +163,7 @@ function isWorkflowRoute(route: string): boolean {
 
 function isExternalMessageRoute(route: string): boolean {
   return (
+    route === '/me/wechat-notification-test' ||
     route === '/notifications/push-config' ||
     route === '/notifications/push-subscription' ||
     route.includes('/notification-settings') ||

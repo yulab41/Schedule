@@ -215,9 +215,9 @@
             bindpress="handleOpenSubscriptionSettings"
           ></ui-button
           ><view wx:if="{{!templateConfigured}}" class="template-note"
-            ><text class="template-note-title">模板尚未配置</text
+            ><text class="template-note-title">订阅暂未就绪</text
             ><text class="template-note-copy"
-              >当前体验版本尚未配置已批准的微信订阅模板，授权入口保持关闭。</text
+              >{{templateNotice}}</text
             ></view
           ><view class="bottom-spacer"></view
         ></view>
@@ -298,4 +298,4 @@
       </block> </view
   ></scroll-view>
 </view>
-<ui-toast visible="{{!!infoMessage}}" tone="success" message="{{infoMessage}}"></ui-toast>
+<ui-toast visible="{{!!infoMessage}}" tone="{{feedbackTone}}" message="{{infoMessage}}"></ui-toast>

@@ -30,6 +30,8 @@ import {
 
 export const WORKBENCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 export { WORKBENCH_GROUP_STORAGE_KEY };
+import { readStoredWorkbenchGroupId } from './workbench-selection.js';
+export { readStoredWorkbenchGroupId };
 
 export interface WorkbenchCacheEntry {
   readonly calendar: CalendarReadModel;
@@ -46,10 +48,6 @@ export interface WorkbenchMember {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-function readRequiredString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 function sanitizeCalendarForCache(calendar: CalendarReadModel): CalendarReadModel {
@@ -230,12 +228,6 @@ export function clearWorkbenchGroupCaches(ownerId: string, groupId: string): voi
   const remaining = groups.filter((group) => group.id !== groupId);
   if (remaining.length === 0) removeStorage(getWorkbenchGroupSnapshotKey(ownerId));
   else writeWorkbenchGroupSnapshot(ownerId, remaining);
-}
-
-export function readStoredWorkbenchGroupId(ownerId: string): string | undefined {
-  const value = readStorage(WORKBENCH_GROUP_STORAGE_KEY);
-  if (!isRecord(value) || value.ownerId !== ownerId) return undefined;
-  return readRequiredString(value.groupId);
 }
 
 export function writeStoredWorkbenchGroupId(ownerId: string, groupId: string): void {
