@@ -1,14 +1,12 @@
 # Project Status
 
-## 当前批次：feedback5代码已整合，正在全仓验证
+## 当前批次：feedback5自动验证通过，待发布授权与手机复核
 
-- 已完成反馈1/3/4/5/8的Mini源码修改：去筛选多余字符、压缩账户卡底空白、精简特殊日期文案、放松下一班时间字距、滚动12个月趋势（跨年最多2年请求，缺失不冒充零）。Web/共享包/API未改。
-- checkpoint message：`fix(miniprogram): refine profile layout and yearly duty trend`。相关35测试及Mini verify/typecheck/icon parity/smoke:check-core通过；390/320大字号布局代理通过，仍待小米14复核。详细证据见 `docs/audit/feedback5-ui.md`。
-- 主包1693649→1697935、总包5062991→5067277字节，均+4286；无新增依赖、安装0，general-3健康warm槽独占复用。
-- 已知线上观察仍为feedback4：source/release `bfd1fbbdcf2594d66fde39bba6ae4f18b22798e1`、体验版 `0.1.0-p10.20260907.94`。本轮获授权只读核验生产；未部署、未上传体验版；不将本轮源码当作线上版本。
-- 查询检查：线上legacy、0053索引已就绪，首搜4.423秒主要在SQL；建议后续独立授权受控启用candidate，未切换。general-1经健康与历史核对后官方恢复可用，无安装；详见 `docs/audit/feedback5-directory-inspection.md`。记录提交message：`docs(audit): record feedback5 production query inspection`。
-- 第6项群组日历偏好保存成功/失败已复用两秒顶部胶囊，补直接Page注册和组件生命周期；保留读取失败持久重试。相关测试及Mini verify、包审、toast28组合通过，组织分包+360字节；待主任务集成及真机复核。详见 `docs/audit/feedback5-group-feedback.md`；checkpoint message：`fix(miniprogram): unify calendar preference feedback`。
-- 微信诊断已整合040f03b7：本人诊断/主动测试、取凭据和发送阶段、模板同源、错误胶囊、通讯录查询计划与实例年龄。Mini89/API34/本地MySQL5及视觉代理通过，详见 `docs/audit/feedback5-notifications.md`；本轮未发送真实消息。
-- 整合全仓门禁先在lint发现新群组测试wx未显式声明；改为globalThis.wx后lint及11项回归通过，checkpoint message：`test(miniprogram): declare the shared wx fixture explicitly`。
-- 全Mini整合检查发现旧toast清单断言仍要求两套timer（925通过/1旧断言失败）；改为严格只允许共享timer，24项相关回归和lint通过。checkpoint message：`test(miniprogram): enforce one shared feedback timer`；业务代码未追加变化。
-- 唯一下一批：完成整合全仓门禁和同口径包审，更新最终记录并推送；停止于验证后checkpoint，生产candidate切换、部署与最终体验版上传待授权。
+- UI/交互已实现：筛选多余字符、账号卡留白、特殊日期短文案、下一班时间间距、滚动12月趋势、群组和通知设置操作的两秒共用胶囊。
+- 微信诊断已实现：服务端模板同源、原生授权/记住选择/偏好确认、取凭据与发送阶段、本人投递摘要、主动本人测试和人工收到确认。持久幂等、限频、严格权限与脱敏，无新依赖/迁移；本轮未发送真实消息。
+- 通讯录首搜4.423秒的主要耗时为主SQL4.183秒，并非全量下载。生产只读确认legacy、0053索引与可信切换工具就绪；未切换candidate，不能宣称首搜已改善。
+- 代码checkpoint：UI0768eef4、群组d3d6e2c6、通知040f03b7；整合测试修正至036d376f。干净036d376f上pnpm verify通过（324.83秒）：Node81、Mini926通过/15条件skip、root1186通过/372条件skip；本人诊断真实本地MySQL5另跑通过。
+- Mini verify通过：源码/构建/Worklet/确定性/包体门禁，主1702602、总5096194字节；比2ed5035c基线+8953/+33203。390/320及大字号桌面代理通过，不等于Skyline或小米14验收。主包1.5M内部提示和矩阵节点提示为既有warning。
+- general-1经历史/健康检查后官方恢复可用，与general-3并行复用；安装0/冷槽新建0。其他含未确认历史改动或缺依赖的槽位保留，不擅自删除。
+- 本轮生产只读观察bfd1fbbd、旧体验版.94；未部署、上传、切换生产配置或发送真实通知。详细记录见 `docs/audit/feedback5.md`。
+- 收口提交标识：`docs(audit): close feedback5 validated changes`，仅文档，不重建相同应用代码。唯一下一任务：取得最终提交的生产部署、candidate切换及体验版上传授权，再按官方流程执行并由用户验证首搜与订阅；本轮停止于推送已验证代码。

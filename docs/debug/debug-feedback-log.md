@@ -2633,3 +2633,12 @@
 - 运行/浏览器验证：`pnpm smoke:browser`（SMOKE_BASE_URL=http://127.0.0.1:5182，API3012，既有隔离合成MySQL库）PASS；登录、管理员、成员、访客、访问记录全流程无浏览器错误。证据runtime/codex/ux-feedback1-smoke.log；没有真实业务副作用。
 - 完整verify第二次PASS：Mini839通过/13条件skip、Node81通过、root1183通过/367条件skip。第一次旧掩码展示断言失败已改为验证公开状态隔离；最后Mini文案/计数增量44项及production source/package/typecheck补验PASS。Profile13及filter1浏览器代理、群组390/320样例通过，不能代替小米14。
 - 状态：代码已完成（含运行验证），未生产部署/新体验上传。新增认领退役需要API与新版Mini配套；旧.90管理员群组页仍有退休GET调用。历史数据、内部版本保护、默认群内可见规则保留。详见docs/audit/ux-cleanup-10-feedback1.md。
+
+## 2026-09-07 MINI-FEEDBACK5 — 界面、微信诊断与首搜
+
+- 筛选模板多余字符由c7f93d48引入；个人页留白/文案/负字距来自a50b423b/de5bc37b；四月趋势来自9e42057c。本轮0768eef4修复，跨年/缺失月份/窄屏大字号验证见docs/audit/feedback5-ui.md。
+- 群组偏好常驻反馈来自dffef1f2；通知错误块沿用766ec6ac，c55906e5仅替换成功提示。本轮d3d6e2c6/040f03b7复用唯一两秒timer，覆盖直接Page、错误tone及账号/群组ABA迟到回调；新增完整本人诊断，未发送真实微信消息。
+- legacy通讯录检索源自e74e5f35，已有cc43e8c8候选方案及50ac2d07门禁。当前.94首搜4423ms中主SQL4183ms；生产只读确认legacy与0053索引就绪，未切换、不能声称性能已改善。详见docs/audit/feedback5-directory-inspection.md。
+- 先红后绿：图标实际多出字符、原趋势4而非12、常驻保存反馈/缺Page注册、缺诊断模块及取凭据/发送phase；集成另外修正测试wx显式全局声明和过期的两套timer清单，业务代码不为断言而回退。
+- 运行/自动化验证：干净036d376f的pnpm verify通过（324.83秒）：Node81、Mini926通过/15条件skip、root1186通过/372条件skip；本人诊断另跑真实本地MySQL5通过，外部微信为stub。Mini verify/package/smoke:check-core通过，未触及Web核心链路。桌面布局代理不代替小米14。
+- 主/总包相对干净2ed5035c增加8953/33203字节，无依赖安装或迁移；详见docs/audit/feedback5.md。状态为自动验证完成待发布与用户手机复核；生产candidate切换、部署与体验版上传待当次授权。
