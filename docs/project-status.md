@@ -6,8 +6,9 @@
 - 用户批准七项Mini微调均已实现：未绑定直接账号密码sheet及旧步骤退役；初始密码冷启动提醒与本机按账号永久关闭；密码按钮修正；统计左置；今日选中黄圈；通知复用两秒ui-toast；独立微信订阅入口与同步授权调用。
 - `feedback4-20260907`，general-3先由root独占，c7f93d48提交并Release后由feedback4-notify正式Acquire。ReuseOnly/Bootstrap均PASS，INSTALL_INVOKED=false。无槽时POOL_BUSY，顺序交接，不共享可写依赖。
 - 最终Mini全集889通过/14条件skip（142文件通过/1跳过，103.73s）；typecheck、变更ESLint/format、Mini verify、icon parity通过。前半轮布局代理16项及共享toast浏览器布局28组合通过；均非原生验收。
-- notify阶段verify 6.25s：dirty主包1,693,648/总包5,062,990 bytes；clean基线1,689,058/5,051,234。净开销存在，不声称减包；最终clean测量待检查点后交接记录。主包1.5M与矩阵节点预算预警保留。
+- c55906e5 clean verify PASS：主包1,693,649/总包5,062,991 bytes；相较clean基线1,689,058/5,051,234净增4,591/11,757。净开销存在，不声称减包；主包1.5M与矩阵节点预算预警保留。
 - c7f93d48收尾审查的401自动恢复漏提醒已补waitForSession及卸载代数校验，2项先红后绿；通知新增20项回归含同步原生调用、静默授权、重复/迟到响应、direct Page和设置错误入口。
-- 本检查点message：`fix(miniprogram): clarify subscriptions and transient feedback`。暂未推送/上传/部署，无API、Web或schema修改。
-- 唯一下一任务：root接回已验证检查点，记录clean包体并普通推送，停止于UPLOAD_REQUIRED；最终SHA体验上传须用户当次授权，随后小米14核对版本复核七项。
+- 源码c7f93d48与c55906e5已普通推送GitHub main；首次push遇schannel TLS失败，普通重试一次成功，未改系统/证书/代理。无API、Web或schema修改，未上传/部署。
+- 本文档收口message：`docs(audit): record feedback4 validated checkpoint`。文档无应用输入变化，复用上述应用验证。
+- 唯一下一任务：UPLOAD_REQUIRED，获得最终SHA体验上传的当次明确授权后准备并上传，再由小米14核对同版本复核七项；本轮停止，不预分配版本或连接生产。
 - 详细证据与回归引入点见 `docs/audit/ux-cleanup-10-feedback4.md`。前序feedback3、feedback2交付事实保留在各轮审计文件与Git，不推断当前生产/体验版身份。

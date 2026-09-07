@@ -38,16 +38,18 @@ F4-07引入点：API默认true及发送字段为ef3d20ca5；controller异步gate
 - 基线身份/profile定向24通过/12布局条件skip，ESLint通过。新增identity/security/UI回归均已记录red后green。
 - 1–5检查点：47项定向PASS（identity、account-security、profile、workspace、build-tools、日期），ESLint/typecheck/verify/icon parity PASS。
 - Edge布局代理16项PASS，390×844/320px、大字号、登录及按钮几何；输出canonical runtime/codex/feedback4/profile-layout。修正代理中motion import先于page override的顺序，产品筛选图标代码未改。
-- 中途Mini全集：862通过、1旧共享模板路径断言失败、14条件skip；随后修正测试路径并定向通过。6–7完成后跑最终全集。
-- 独立组件方案曾增20,241 bytes；改为工作台直接模板与共享控制器并排除无用途独立module输出后，当前主包1,692,724/总包5,054,896。净增3,662 bytes，不声称净减包。
+- 中途Mini全集：862通过、1旧共享模板路径断言失败、14条件skip；随后修正测试路径并定向通过，6–7完成后的最终全集结果如下。
+- 独立组件方案曾增20,241 bytes；改为工作台直接模板与共享控制器并排除无用途独立module输出后，1–5阶段主包1,692,724/总包5,054,896。阶段净增3,662 bytes，不声称净减包。
 - 命令、实际日志/包摘要位于general-3/runtime/audit/feedback4，均ignored。原生Console/Network/冷启动性能当前工具无法测量，暂未验证。
 - 6–7及恢复收尾：新增22项回归先红后绿（通知15、订阅运行时5、恢复等待2）；受影响定向集与ui-toast共73项最终纳入全集通过。两处旧异步gate/文案静态断言与旧toast归属审计随实际结构迁移，未降低授权要求。
 - `pnpm --filter @schedule/miniprogram verify` PASS，6.25s，dirty主包1,693,648/总包5,062,990 bytes；相同预算预警保留。最大文件：workbench/index.js 217,223B、scheduling/pages/manual/index.js 182,334B、workflows/pages/swap/index.js 180,827B（无最大文件基线比较）。
 - `pnpm --filter @schedule/miniprogram test` PASS：142文件通过/1跳过，889通过/14条件skip，103.73s。日志`notify-full-mini.log`。变更ESLint/format、typecheck、icon parity PASS，无新增依赖。
 - `node apps/miniprogram/scripts/ui-toast-layout.mjs`复用已安装Edge完成28个CSS布局组合。首次将输出指定canonical runtime被脚本git check-ignore跨工作树边界拒绝；改用本槽ignored runtime/audit/feedback4/notification-toast-layout后PASS，未改脚本或产品布局来规避检查。
+- 源码提交后同槽clean `pnpm --filter @schedule/miniprogram verify`再次PASS，主包1,693,649/总包5,062,991 bytes；相较596c20b2 clean基线增加4,591/11,757。Manifest `cfca985635b5497729054ccbc1b0c94fac4ca0f739261e58400a0b3ab2e217fd`，日志`notify-clean-verify.log`。dirty字段为false多1字节，不能把dirty/clean差异当应用退化。
 
 ## 检查点与下一步
 
-- 首检查点message：`fix(miniprogram): streamline identity and launch password reminder`。
-- 最终检查点message：`fix(miniprogram): clarify subscriptions and transient feedback`；无体验上传/生产部署。
-- 唯一下一任务root接回本检查点，记录clean包体并普通推送，停止于UPLOAD_REQUIRED。原生授权窗口、实际送达和小米14验收均需新构建对应证据，不以本轮Node/桌面代理替代。
+- 首源码检查点c7f93d48：`fix(miniprogram): streamline identity and launch password reminder`。
+- 最终源码检查点c55906e5f17526bebfb40443500e02769cb9061c：`fix(miniprogram): clarify subscriptions and transient feedback`。两者已由root fast-forward整合并普通推送GitHub main；首次push的schannel TLS失败后仅重试一次即成功，未修改系统、证书或代理，未因网络重建/重测。
+- 文档收口message：`docs(audit): record feedback4 validated checkpoint`；应用输入不变，复用既有验证，不重复全测试。无体验上传/生产部署。
+- 唯一下一任务UPLOAD_REQUIRED：取得最终SHA当次体验上传授权后准备并上传，再核对同版本小米14证据。原生授权窗口、实际送达和真机验收不以本轮Node/桌面代理替代；本轮停止，不预分配版本。
