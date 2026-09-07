@@ -7,4 +7,5 @@
 - 主包1693649→1697935、总包5062991→5067277字节，均+4286；无新增依赖、安装0，general-3健康warm槽独占复用。
 - 已知线上观察仍为feedback4：source/release `bfd1fbbdcf2594d66fde39bba6ae4f18b22798e1`、体验版 `0.1.0-p10.20260907.94`。本轮获授权只读核验生产；未部署、未上传体验版；不将本轮源码当作线上版本。
 - 查询检查：线上legacy、0053索引已就绪，首搜4.423秒主要在SQL；建议后续独立授权受控启用candidate，未切换。general-1经健康与历史核对后官方恢复可用，无安装；详见 `docs/audit/feedback5-directory-inspection.md`。记录提交message：`docs(audit): record feedback5 production query inspection`。
+- 第6项群组日历偏好保存成功/失败已复用两秒顶部胶囊，补直接Page注册和组件生命周期；保留读取失败持久重试。相关测试及Mini verify、包审、toast28组合通过，组织分包+360字节；待主任务集成及真机复核。详见 `docs/audit/feedback5-group-feedback.md`；checkpoint message：`fix(miniprogram): unify calendar preference feedback`。
 - 唯一下一批：通知胶囊与微信订阅诊断、首次通讯录查询方案检查；停止条件为本轮剩余授权修改通过验证及独立checkpoint，不自动上传或部署。

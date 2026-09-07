@@ -51,9 +51,9 @@
 
         <ui-toast
           visible="{{!!infoMessage}}"
-          title="操作完成"
+          title="{{feedbackTone === 'error' ? '操作未完成' : '操作完成'}}"
           message="{{infoMessage}}"
-          tone="success"
+          tone="{{feedbackTone}}"
         ></ui-toast>
 
         <view class="group-card calendar-preferences-card">
@@ -77,19 +77,6 @@
               >
             </view>
             <view wx:else class="calendar-preference-sections">
-              <ui-alert
-                wx:if="{{calendarPreferencesError}}"
-                tone="danger"
-                title="日历偏好未保存"
-                message="{{calendarPreferencesError}}"
-              ></ui-alert>
-              <ui-alert
-                wx:if="{{calendarPreferencesInfo}}"
-                tone="success"
-                title="日历偏好"
-                message="{{calendarPreferencesInfo}}"
-              ></ui-alert>
-
               <view wx:if="{{canManageGroupCalendarDefaults}}" class="calendar-preference-section">
                 <view class="preference-heading">
                   <view>

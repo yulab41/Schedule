@@ -68,7 +68,7 @@ describe('Mini group settings member permissions and calendar preferences', () =
     definition.handleMemberCalendarViewSelect.call(page, { detail: { option: { value: 'week' } } });
     definition.handleMemberCalendarShiftChange.call(page, { detail: { value: 1 } });
     definition.handleSaveMemberCalendarPreferences.call(page);
-    await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('个人日历偏好'));
+    await vi.waitFor(() => expect(page.data.infoMessage).toContain('个人日历偏好'));
 
     const update = requests.find((request) =>
       request.url.endsWith(`/groups/${groupId}/calendar-preferences/mine`),
@@ -83,7 +83,7 @@ describe('Mini group settings member permissions and calendar preferences', () =
     });
     definition.handleMemberCalendarShiftChange.call(page, { detail: { value: 0 } });
     definition.handleSaveMemberCalendarPreferences.call(page);
-    await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('个人日历偏好'));
+    await vi.waitFor(() => expect(page.data.infoMessage).toContain('个人日历偏好'));
 
     const updates = requests.filter((request) =>
       request.url.endsWith(`/groups/${groupId}/calendar-preferences/mine`),
@@ -108,7 +108,7 @@ describe('Mini group settings member permissions and calendar preferences', () =
     definition.handleGroupCalendarViewSelect.call(page, { detail: { option: { value: 'list' } } });
     definition.handleGroupCalendarShiftChange.call(page, { detail: { value: 0 } });
     definition.handleSaveGroupCalendarDefaults.call(page);
-    await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('群组日历默认'));
+    await vi.waitFor(() => expect(page.data.infoMessage).toContain('群组日历默认'));
 
     const update = requests.find((request) =>
       request.url.endsWith(`/groups/${groupId}/calendar-settings`),
@@ -136,7 +136,8 @@ describe('Mini group settings member permissions and calendar preferences', () =
     definition.handleMemberCalendarViewSelect.call(page, { detail: { option: { value: 'week' } } });
     definition.handleMemberCalendarShiftChange.call(page, { detail: { value: 1 } });
     definition.handleSaveMemberCalendarPreferences.call(page);
-    await vi.waitFor(() => expect(page.data.calendarPreferencesError).not.toBe(''));
+    await vi.waitFor(() => expect(page.data.infoMessage).not.toBe(''));
+    expect(page.data.feedbackTone).toBe('error');
 
     expect(page.data).toMatchObject({
       isSavingMemberCalendarPreferences: false,
@@ -146,7 +147,7 @@ describe('Mini group settings member permissions and calendar preferences', () =
 
     preferenceSaveFailure = false;
     definition.handleSaveMemberCalendarPreferences.call(page);
-    await vi.waitFor(() => expect(page.data.calendarPreferencesInfo).toContain('个人日历偏好'));
+    await vi.waitFor(() => expect(page.data.infoMessage).toContain('个人日历偏好'));
     expect(page.data.calendarPreferencesError).toBe('');
   });
 

@@ -43,6 +43,10 @@ import {
 } from '../../../../platform/wechat-identity.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+} from '../../../../platform/info-message-lifetime.js';
+import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
@@ -86,7 +90,6 @@ interface TapEvent {
 
 interface GroupSettingsPageData {
   readonly calendarPreferencesError: string;
-  readonly calendarPreferencesInfo: string;
   readonly calendarPreferencesState: 'error' | 'loading' | 'ready';
   readonly canSave: boolean;
   readonly canManageGroupCalendarDefaults: boolean;
@@ -125,6 +128,7 @@ interface GroupSettingsPageData {
   readonly embedded: boolean;
   readonly errorMessage: string;
   readonly infoMessage: string;
+  readonly feedbackTone: 'success' | 'error';
   readonly isSavingGroupCalendarDefaults: boolean;
   readonly isSavingMemberCalendarPreferences: boolean;
   readonly isSaving: boolean;
@@ -145,7 +149,9 @@ interface GroupSettingsPageInstance {
   _calendarPreferencesSerial: number;
   _consentDraft: GroupMobilePhoneConsentDraft | undefined;
   _consentStatus: GroupMobilePhoneConsent | undefined;
-  _consentNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+  __infoMessageTimer?: unknown;
+  __infoMessageToken?: object;
+  _calendarVisible: boolean;
   _currentGroupId: string;
   _loadSerial: number;
   _requestedGroupId: string;
@@ -182,7 +188,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
   return {
     data: {
       calendarPreferencesError: '',
-      calendarPreferencesInfo: '',
+      feedbackTone: 'success',
       calendarPreferencesState: 'loading',
       canManageGroupCalendarDefaults: false,
       canManageGroupLifecycle: false,
@@ -247,7 +253,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     _consentDraft: undefined,
     _consentStatus: undefined,
-    _consentNoticeTimer: undefined,
+    _calendarVisible: true,
     _calendarPreferencesClient: calendarPreferencesClient,
     _calendarPreferencesSerial: 0,
     _currentGroupId: '',
@@ -272,9 +278,31 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     },
 
     onShow(this: GroupSettingsPageInstance): void {
+      const wasHidden = !this._calendarVisible;
+      this._calendarVisible = true;
+      if (wasHidden && this._currentGroupId !== '') void loadCalendarPreferences(this);
       void requireClientCapability('core').catch((error: unknown) =>
         setGroupSettingsCapabilityError(this, error),
       );
+    },
+
+    onHide(this: GroupSettingsPageInstance): void {
+      this._calendarVisible = false;
+      this._calendarPreferencesSerial += 1;
+      clearInfoMessageTimer(this);
+      this.setData({
+        infoMessage: '',
+        isSavingGroupCalendarDefaults: false,
+        isSavingMemberCalendarPreferences: false,
+      });
+    },
+
+    onUnload(this: GroupSettingsPageInstance): void {
+      this._calendarVisible = false;
+      this._calendarPreferencesSerial += 1;
+      this._loadSerial += 1;
+      this._currentGroupId = '';
+      clearInfoMessageTimer(this);
     },
 
     handleBack(): void {
@@ -320,7 +348,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       if (view === undefined) return;
       this.setData({
         calendarPreferencesError: '',
-        calendarPreferencesInfo: '',
         groupCalendarView: view,
       });
     },
@@ -331,7 +358,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       if (index === undefined) return;
       this.setData({
         calendarPreferencesError: '',
-        calendarPreferencesInfo: '',
         groupCalendarShiftIndex: index,
       });
     },
@@ -346,7 +372,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       if (view === undefined) return;
       this.setData({
         calendarPreferencesError: '',
-        calendarPreferencesInfo: '',
         memberCalendarView: view,
       });
     },
@@ -356,7 +381,6 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       if (index === undefined) return;
       this.setData({
         calendarPreferencesError: '',
-        calendarPreferencesInfo: '',
         memberCalendarShiftIndex: index,
       });
     },
@@ -489,7 +513,6 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
   page._dissolvedGroups = [];
   page.setData({
     calendarPreferencesError: '',
-    calendarPreferencesInfo: '',
     calendarPreferencesState: 'loading',
     canManageGroupCalendarDefaults: false,
     canManageGroupLifecycle: false,
@@ -592,7 +615,6 @@ async function loadCalendarPreferences(page: GroupSettingsPageInstance): Promise
   if (groupId === '') return;
   page.setData({
     calendarPreferencesError: '',
-    calendarPreferencesInfo: '',
     calendarPreferencesState: 'loading',
     isSavingGroupCalendarDefaults: false,
     isSavingMemberCalendarPreferences: false,
@@ -608,7 +630,6 @@ async function loadCalendarPreferences(page: GroupSettingsPageInstance): Promise
     if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
     page.setData({
       calendarPreferencesError: toUserMessage(error, '日历偏好暂时无法读取，请稍后重试。'),
-      calendarPreferencesInfo: '',
       calendarPreferencesState: 'error',
       isSavingGroupCalendarDefaults: false,
       isSavingMemberCalendarPreferences: false,
@@ -617,6 +638,8 @@ async function loadCalendarPreferences(page: GroupSettingsPageInstance): Promise
 }
 
 async function saveGroupCalendarDefaults(page: GroupSettingsPageInstance): Promise<void> {
+  const accountId = getStoredWechatProfile()?.id;
+  const authentication = getStoredWechatToken();
   if (
     !page.data.canManageGroupCalendarDefaults ||
     page.data.calendarPreferencesState !== 'ready' ||
@@ -629,9 +652,10 @@ async function saveGroupCalendarDefaults(page: GroupSettingsPageInstance): Promi
   if (selected === undefined) return;
   const serial = page._calendarPreferencesSerial;
   const groupId = page._currentGroupId;
+  clearInfoMessageTimer(page);
   page.setData({
     calendarPreferencesError: '',
-    calendarPreferencesInfo: '',
+    infoMessage: '',
     isSavingGroupCalendarDefaults: true,
   });
   try {
@@ -639,22 +663,40 @@ async function saveGroupCalendarDefaults(page: GroupSettingsPageInstance): Promi
       defaultMonthShiftTypeId: selected.value === '' ? null : selected.value,
       defaultView: page.data.groupCalendarView,
     });
-    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    if (
+      !isCalendarPreferenceRequestCurrent(page, serial, groupId) ||
+      getStoredWechatProfile()?.id !== accountId ||
+      getStoredWechatToken() !== authentication
+    )
+      return;
     applyCalendarPreferences(page, preferences);
-    page.setData({ calendarPreferencesInfo: '群组日历默认设置已保存。' });
+    showCalendarFeedback(page, '群组日历默认设置已保存。', 'success');
   } catch (error) {
-    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
-    page.setData({
-      calendarPreferencesError: toUserMessage(error, '群组日历默认设置未保存，请稍后重试。'),
-    });
+    if (
+      !isCalendarPreferenceRequestCurrent(page, serial, groupId) ||
+      getStoredWechatProfile()?.id !== accountId ||
+      getStoredWechatToken() !== authentication
+    )
+      return;
+    showCalendarFeedback(
+      page,
+      toUserMessage(error, '群组日历默认设置未保存，请稍后重试。'),
+      'error',
+    );
   } finally {
-    if (isCalendarPreferenceRequestCurrent(page, serial, groupId)) {
+    if (
+      isCalendarPreferenceRequestCurrent(page, serial, groupId) &&
+      getStoredWechatProfile()?.id === accountId &&
+      getStoredWechatToken() === authentication
+    ) {
       page.setData({ isSavingGroupCalendarDefaults: false });
     }
   }
 }
 
 async function saveMemberCalendarPreferences(page: GroupSettingsPageInstance): Promise<void> {
+  const accountId = getStoredWechatProfile()?.id;
+  const authentication = getStoredWechatToken();
   if (
     page.data.calendarPreferencesState !== 'ready' ||
     page.data.isSavingMemberCalendarPreferences ||
@@ -666,9 +708,10 @@ async function saveMemberCalendarPreferences(page: GroupSettingsPageInstance): P
   if (selected === undefined) return;
   const serial = page._calendarPreferencesSerial;
   const groupId = page._currentGroupId;
+  clearInfoMessageTimer(page);
   page.setData({
     calendarPreferencesError: '',
-    calendarPreferencesInfo: '',
+    infoMessage: '',
     isSavingMemberCalendarPreferences: true,
   });
   try {
@@ -676,16 +719,28 @@ async function saveMemberCalendarPreferences(page: GroupSettingsPageInstance): P
       defaultMonthShiftTypeId: selected.value === '' ? null : selected.value,
       defaultView: page.data.memberCalendarView === 'follow' ? null : page.data.memberCalendarView,
     });
-    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
+    if (
+      !isCalendarPreferenceRequestCurrent(page, serial, groupId) ||
+      getStoredWechatProfile()?.id !== accountId ||
+      getStoredWechatToken() !== authentication
+    )
+      return;
     applyCalendarPreferences(page, preferences);
-    page.setData({ calendarPreferencesInfo: '个人日历偏好已保存。' });
+    showCalendarFeedback(page, '个人日历偏好已保存。', 'success');
   } catch (error) {
-    if (!isCalendarPreferenceRequestCurrent(page, serial, groupId)) return;
-    page.setData({
-      calendarPreferencesError: toUserMessage(error, '个人日历偏好未保存，请稍后重试。'),
-    });
+    if (
+      !isCalendarPreferenceRequestCurrent(page, serial, groupId) ||
+      getStoredWechatProfile()?.id !== accountId ||
+      getStoredWechatToken() !== authentication
+    )
+      return;
+    showCalendarFeedback(page, toUserMessage(error, '个人日历偏好未保存，请稍后重试。'), 'error');
   } finally {
-    if (isCalendarPreferenceRequestCurrent(page, serial, groupId)) {
+    if (
+      isCalendarPreferenceRequestCurrent(page, serial, groupId) &&
+      getStoredWechatProfile()?.id === accountId &&
+      getStoredWechatToken() === authentication
+    ) {
       page.setData({ isSavingMemberCalendarPreferences: false });
     }
   }
@@ -732,7 +787,11 @@ function isCalendarPreferenceRequestCurrent(
   serial: number,
   groupId: string,
 ): boolean {
-  return serial === page._calendarPreferencesSerial && groupId === page._currentGroupId;
+  return (
+    page._calendarVisible &&
+    serial === page._calendarPreferencesSerial &&
+    groupId === page._currentGroupId
+  );
 }
 
 async function saveConsent(page: GroupSettingsPageInstance): Promise<void> {
@@ -848,10 +907,7 @@ function syncConsentView(page: GroupSettingsPageInstance): void {
 }
 
 function clearConsentNoticeTimer(page: GroupSettingsPageInstance): void {
-  if (page._consentNoticeTimer !== undefined) {
-    clearTimeout(page._consentNoticeTimer);
-    page._consentNoticeTimer = undefined;
-  }
+  clearInfoMessageTimer(page);
 }
 
 function scheduleConsentNoticeClear(
@@ -859,13 +915,30 @@ function scheduleConsentNoticeClear(
   groupId: string,
   message: string,
 ): void {
-  clearConsentNoticeTimer(page);
-  page._consentNoticeTimer = setTimeout(() => {
-    page._consentNoticeTimer = undefined;
-    if (page._currentGroupId === groupId && page.data.infoMessage === message) {
-      page.setData({ infoMessage: '' });
-    }
-  }, 2_000);
+  if (!page._calendarVisible) {
+    page.setData({ infoMessage: '' });
+    return;
+  }
+  page.setData({ feedbackTone: 'success' });
+  scheduleInfoMessageExpiry(
+    page,
+    message,
+    () => page._calendarVisible && page._currentGroupId === groupId,
+  );
+}
+
+function showCalendarFeedback(
+  page: GroupSettingsPageInstance,
+  message: string,
+  tone: 'success' | 'error',
+): void {
+  const groupId = page._currentGroupId;
+  page.setData({ infoMessage: message, feedbackTone: tone });
+  scheduleInfoMessageExpiry(
+    page,
+    message,
+    () => page._calendarVisible && page._currentGroupId === groupId,
+  );
 }
 
 function resolveCanManageGroupLifecycle(

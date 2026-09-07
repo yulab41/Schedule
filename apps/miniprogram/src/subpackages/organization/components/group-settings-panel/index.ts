@@ -47,6 +47,8 @@ Component({
       startController(this);
     },
     detached(this: GroupSettingsPanelHost): void {
+      const onUnload = this.__controller?.['onUnload'];
+      if (typeof onUnload === 'function') onUnload.call(this);
       this.__attached = false;
       this.__controller = undefined;
       this.__loadedGroupId = '';
@@ -58,6 +60,10 @@ Component({
     },
   },
   pageLifetimes: {
+    hide(this: GroupSettingsPanelHost): void {
+      const onHide = this.__controller?.['onHide'];
+      if (typeof onHide === 'function') onHide.call(this);
+    },
     show(this: GroupSettingsPanelHost): void {
       const onShow = this.__controller?.['onShow'];
       if (typeof onShow === 'function') onShow.call(this);
@@ -68,13 +74,25 @@ Component({
 
 function startController(host: GroupSettingsPanelHost): void {
   const groupId = host.properties.groupId;
-  if (groupId === '' || host.__loadedGroupId === groupId) return;
+  if (host.__loadedGroupId === groupId) return;
+  const onUnload = host.__controller?.['onUnload'];
+  if (typeof onUnload === 'function') onUnload.call(host);
+  if (groupId === '') {
+    host.__controller = undefined;
+    host.__loadedGroupId = '';
+    return;
+  }
   const controller = normalizeDefinition(
     createGroupSettingsPanelControllerDefinition(host.properties.embedded),
   );
   host.__controller = controller;
   host.__loadedGroupId = groupId;
   for (const [key, value] of Object.entries(controller)) {
+    if (
+      (key === '_calendarPreferencesSerial' || key === '_loadSerial') &&
+      typeof (host as unknown as Record<string, unknown>)[key] === 'number'
+    )
+      continue;
     if (key.startsWith('_')) (host as unknown as Record<string, unknown>)[key] = value;
   }
   host.setData(controller.data);
