@@ -1,5 +1,7 @@
 # UX-CLEANUP-10 feedback4
 
+本文件记录实施阶段；后续已交付.94@bfd1fbbd，当前状态与唯一下一任务以 `ux-cleanup-10-feedback4-release.md` 和 `STATUS.md` 为准。
+
 ## 授权与基线
 
 - 用户批准七项Mini微调；不授权依赖安装、生产连接或体验版上传。规划基线与远端main均为596c20b2。
