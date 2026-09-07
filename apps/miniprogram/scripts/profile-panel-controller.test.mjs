@@ -86,11 +86,13 @@ describe('Mini Web-parity profile controller', () => {
       specialDateCountLabel: '3',
       yearCountLabel: '24',
     });
-    expect(panel.data.trend).toEqual([
-      expect.objectContaining({ count: 4, current: false, label: '5月' }),
-      expect.objectContaining({ count: 6, current: false, label: '6月' }),
-      expect.objectContaining({ count: 6, current: false, label: '7月' }),
-      expect.objectContaining({ count: 8, current: true, label: '8月' }),
+    expect(panel.data.trend).toHaveLength(12);
+    expect(dependencies.getYearStatistics).toHaveBeenCalledWith('group-1', 2025);
+    expect(panel.data.trend.slice(-4)).toEqual([
+      expect.objectContaining({ count: 4, current: false, label: '5' }),
+      expect.objectContaining({ count: 6, current: false, label: '6' }),
+      expect.objectContaining({ count: 6, current: false, label: '7' }),
+      expect.objectContaining({ count: 8, current: true, label: '8' }),
     ]);
     expect(dependencies.listGroupMembers).toHaveBeenCalledOnce();
     expect(dependencies.getCalendar).toHaveBeenCalledTimes(2);
@@ -111,6 +113,36 @@ describe('Mini Web-parity profile controller', () => {
     expect(panel.data.overviewError).toBe('个人统计暂时无法加载，请稍后重试。');
     expect(panel.data.mobilePhone).toBe('13412348339');
     expect(panel.data.nextDutyShiftLabel).toBe('日班');
+  });
+
+  it('keeps current statistics when the prior year fails without inventing missing counts', async () => {
+    const dependencies = createDependencies({
+      getYearStatistics: vi.fn(async (_group, year) => {
+        if (year === 2025) throw new Error('unavailable');
+        return yearStatistics([['2026-08', 8]]);
+      }),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    definition.handleGroupChange.call(panel, group('group-1', '头颈外科医生'));
+    await vi.waitFor(() => expect(panel.data.overviewState).toBe('ready'));
+    expect(panel.data.trend[0]).toMatchObject({ countLabel: '—', heightStyle: 'height:0%;' });
+    expect(panel.data.trend.at(-1).count).toBe(8);
+    expect(panel.data.trendIncomplete).toBe(true);
+    expect(panel.data.monthCountLabel).toBe('8');
+    expect(panel.data.nextDutyEmpty).toBe(false);
+  });
+
+  it('does not fetch the previous year for a December window', async () => {
+    const dependencies = createDependencies({ getBusinessMonth: vi.fn(() => '2026-12') });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    definition.handleGroupChange.call(panel, group('group-1', '头颈外科医生'));
+    await vi.waitFor(() => expect(panel.data.overviewState).toBe('ready'));
+    expect(dependencies.getYearStatistics).toHaveBeenCalledExactlyOnceWith('group-1', 2026);
+    expect(panel.data.trendRange).toBe('2026.01–2026.12');
   });
 
   it('keeps available statistics when contacts and both calendars fail', async () => {

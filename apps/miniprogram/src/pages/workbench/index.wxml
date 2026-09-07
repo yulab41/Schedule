@@ -125,8 +125,7 @@
                   src="/assets/icons/ui-filter-bottom.svg"
                   aria-hidden="true"
                 />
-                ></view
-              >
+              </view>
               <text>筛选</text>
               <text wx:if="{{activeFilterCount > 0}}" class="filter-count"
                 >{{activeFilterCount}}</text

@@ -1,4 +1,5 @@
 import { createAccountSecurityController } from '../account-security/controller.js';
+import { buildProfileYearTrend, profileTrendYears } from './trend.js';
 import type {
   MyProfileCalendarLike,
   MyProfileContactLike,
@@ -54,7 +55,9 @@ export interface ProfileGroupInput {
 }
 
 interface ProfileTrendColumn {
-  readonly count: number;
+  readonly count: number | undefined;
+  readonly countLabel: string;
+  readonly businessMonth: string;
   readonly current: boolean;
   readonly heightStyle: string;
   readonly label: string;
@@ -100,6 +103,8 @@ interface ProfilePanelData {
   readonly showDutyOverview: boolean;
   readonly specialDateCountLabel: string;
   readonly trend: readonly ProfileTrendColumn[];
+  readonly trendRange: string;
+  readonly trendIncomplete: boolean;
   readonly yearCountLabel: string;
 }
 
@@ -190,6 +195,8 @@ export function createProfilePanelControllerDefinition(
       showDutyOverview: false,
       specialDateCountLabel: '—',
       trend: [] as readonly ProfileTrendColumn[],
+      trendRange: '',
+      trendIncomplete: false,
       unbindSaving: false,
       yearCountLabel: '—',
     } satisfies ProfilePanelData,
@@ -419,14 +426,23 @@ async function loadOverview(
     const members = await dependencies.listGroupMembers(group.id);
     if (!isCurrentOverviewRequest(panel, requestSerial, group.id)) return;
     const nextBusinessMonth = addBusinessMonths(businessMonth, 1);
-    const [contacts, monthStatistics, yearStatistics, currentCalendar, nextCalendar] =
-      await Promise.allSettled([
-        dependencies.listGroupContacts(group.id),
-        dependencies.getMonthStatistics(group.id, businessMonth),
-        dependencies.getYearStatistics(group.id, Number(businessMonth.slice(0, 4))),
-        dependencies.getCalendar(group.id, businessMonth),
-        dependencies.getCalendar(group.id, nextBusinessMonth),
-      ]);
+    const [
+      contacts,
+      monthStatistics,
+      yearStatistics,
+      currentCalendar,
+      nextCalendar,
+      previousStatistics,
+    ] = await Promise.allSettled([
+      dependencies.listGroupContacts(group.id),
+      dependencies.getMonthStatistics(group.id, businessMonth),
+      dependencies.getYearStatistics(group.id, Number(businessMonth.slice(0, 4))),
+      dependencies.getCalendar(group.id, businessMonth),
+      dependencies.getCalendar(group.id, nextBusinessMonth),
+      profileTrendYears(businessMonth).length > 1
+        ? dependencies.getYearStatistics(group.id, Number(businessMonth.slice(0, 4)) - 1)
+        : Promise.resolve(undefined),
+    ]);
     if (!isCurrentOverviewRequest(panel, requestSerial, group.id)) return;
     const overview = buildMyProfileOverview({
       businessDate: dependencies.getBusinessDate(),
@@ -446,6 +462,14 @@ async function loadOverview(
       overviewError: statisticsFailed ? '个人统计暂时无法加载，请稍后重试。' : '',
       overviewState: 'ready',
       ...overviewPatch(overview, `${businessMonth.slice(0, 4)} 年个人值班`, group.name),
+      ...trendPatch(
+        businessMonth,
+        overview.membershipId ?? '',
+        [yearStatistics, previousStatistics].flatMap((result) =>
+          result.status === 'fulfilled' && result.value !== undefined ? [result.value] : [],
+        ),
+        overview.monthCount,
+      ),
     });
   } catch {
     if (!isCurrentOverviewRequest(panel, requestSerial, group.id)) return;
@@ -482,11 +506,15 @@ function overviewPatch(
     nextDutyTimeLabel:
       nextDuty === undefined ? '' : formatDutyTime(nextDuty.startsAt, nextDuty.endsAt),
     overviewYearLabel,
+    trendRange: '',
+    trendIncomplete: false,
     shortPhone: overview.shortPhone ?? '',
     specialDateCountLabel:
       overview.specialDateCount === undefined ? '—' : String(overview.specialDateCount),
     trend: overview.trend.map((point, index) => ({
       count: point.count,
+      countLabel: String(point.count),
+      businessMonth: point.businessMonth,
       current: index === overview.trend.length - 1,
       heightStyle: `height:${Math.max(14, Math.round((point.count / maximum) * 100))}%;`,
       label: point.label,
@@ -522,7 +550,28 @@ function formatRole(group: ProfileGroupInput): string {
 }
 
 function formatDutyTime(startsAt: string, endsAt: string): string {
-  return `${formatChinaClock(startsAt)}–${formatChinaClock(endsAt)}`;
+  return `${formatChinaClock(startsAt)} – ${formatChinaClock(endsAt)}`;
+}
+
+function trendPatch(
+  businessMonth: string,
+  membershipId: string,
+  years: readonly MyProfileYearStatisticsLike[],
+  currentMonthCount?: number,
+): Partial<ProfilePanelData> {
+  if (!membershipId) return { trend: [], trendRange: '', trendIncomplete: false };
+  const points = buildProfileYearTrend(businessMonth, membershipId, years, currentMonthCount);
+  const maximum = Math.max(1, ...points.map((point) => point.count ?? 0));
+  return {
+    trendRange: `${points[0]!.businessMonth.replace('-', '.')}–${businessMonth.replace('-', '.')}`,
+    trendIncomplete: points.some((point) => point.count === undefined),
+    trend: points.map((point, index) => ({
+      ...point,
+      countLabel: point.count === undefined ? '—' : String(point.count),
+      current: index === 11,
+      heightStyle: `height:${point.count === undefined || point.count === 0 ? 0 : Math.max(4, Math.round((point.count / maximum) * 100))}%;`,
+    })),
+  };
 }
 
 function formatChinaClock(value: string): string {

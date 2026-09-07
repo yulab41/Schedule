@@ -310,6 +310,22 @@
   white-space: nowrap;
 }
 
+.profile-stat-note.is-special {
+  white-space: normal;
+  overflow: visible;
+}
+
+.profile-account-card {
+  padding-bottom: 8px;
+}
+
+.profile-trend-range {
+  display: block;
+  margin-top: 8px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+}
+
 .profile-period-label {
   padding: 4px 8px;
   color: var(--ui-color-text-secondary);
@@ -325,7 +341,7 @@
   display: flex;
   padding: 12px 4px 0;
   align-items: stretch;
-  gap: 12px;
+  gap: 4px;
   background:
     linear-gradient(var(--ui-color-border), var(--ui-color-border)) 0 35% / 100% 1px no-repeat,
     linear-gradient(var(--ui-color-border), var(--ui-color-border)) 0 70% / 100% 1px no-repeat;
@@ -358,7 +374,7 @@
 
 .profile-pulse-bar {
   width: 70%;
-  max-width: 30px;
+  max-width: 16px;
   max-height: 100%;
   align-self: end;
   background: #c9d6e4;
@@ -413,7 +429,7 @@
   font-size: 25px;
   font-weight: var(--ui-font-weight-bold);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -1px;
+  letter-spacing: normal;
 }
 
 .profile-duty-role,
@@ -462,6 +478,7 @@
 
 .profile-detail-row.is-last {
   border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .profile-detail-row > text:first-child,
@@ -724,7 +741,11 @@
   }
 
   .profile-pulse-chart {
-    gap: 8px;
+    gap: 3px;
+  }
+
+  .profile-account-card {
+    padding-bottom: 8px;
   }
 
   .profile-detail-row {

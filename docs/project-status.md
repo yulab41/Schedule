@@ -1,12 +1,9 @@
 # Project Status
 
-## 当前批次：feedback4 已部署并上传 .94，待小米14复核
+## 当前批次：feedback5 UI已实现，待真机复核；继续通知诊断与查询方案
 
-- 用户于2026-09-07当次授权生产部署与体验上传。最终source/release `bfd1fbbdcf2594d66fde39bba6ae4f18b22798e1`；源码与1b493e6b一致，仅续新工作台历史等价证明。此前七项修改见 `docs/audit/ux-cleanup-10-feedback4.md`。
-- 体验版 `0.1.0-p10.20260907.94`，description `feedback4-bfd1fbb`，2026-09-07T09:59:42.708Z上传成功。Manifest `818307b84752202fa63b204239cbf3ad7e84bcd00c42b28c2d4c061903ad1171`；回执/分配/绑定记录/原输出/归档及远端tag一致。
-- 生产当前bfd1fbbd/schema54，最终rollbackCandidate为部署前现场live1b493e6b；第二次备份 `47a14bb2-666c-4ed8-9d99-6d5d5737163e`，服务器加密文件SHA验证通过。两阶段均为官方hash-identical元数据复用；无迁移，无本地数据/凭据复制。
-- .94 add-only allowlist ensure/verify及最终完整生产verifier PASS。完整pnpm verify PASS：Mini889通过/14条件skip，root1183通过/367条件skip；候选24项、等价证明25项、最终真实PS候选检查均通过。
-- general-3独占顺序Acquire→ReuseOnly→Bootstrap，安装0/新建冷槽0。正式ci.upload调用1次/成功1次；此前阻塞均发生在真实上传前，.94冻结后未重建或更换源码/Manifest。
-- 5285dd1证明过期经62个Page方法/61个顶层函数AST核对续新；Git TLS间歇失败后使用任务内真实Git命令通道，所有官方门禁保留。详情及失败计数边界见 `docs/audit/ux-cleanup-10-feedback4-release.md`。
-- 文档收口message：`docs(release): record feedback4 trial 94 delivery`。只记录已交付source，不重传、不重部署；工作区释放见ignored租约和Git。未提审/正式发布，不声称原生或小米14已通过。
-- 唯一下一任务：用户从原体验版入口完全退出后重开，核对.94/bfd1fbb，再复核七项。停止条件为当前版本的真实手机反馈，不进入其他批次。
+- 已完成反馈1/3/4/5/8的Mini源码修改：去筛选多余字符、压缩账户卡底空白、精简特殊日期文案、放松下一班时间字距、滚动12个月趋势（跨年最多2年请求，缺失不冒充零）。Web/共享包/API未改。
+- checkpoint message：`fix(miniprogram): refine profile layout and yearly duty trend`。相关35测试及Mini verify/typecheck/icon parity/smoke:check-core通过；390/320大字号布局代理通过，仍待小米14复核。详细证据见 `docs/audit/feedback5-ui.md`。
+- 主包1693649→1697935、总包5062991→5067277字节，均+4286；无新增依赖、安装0，general-3健康warm槽独占复用。
+- 已知线上观察仍为feedback4：source/release `bfd1fbbdcf2594d66fde39bba6ae4f18b22798e1`、体验版 `0.1.0-p10.20260907.94`。本轮未连接/部署生产、未上传体验版；不将本轮源码当作线上版本。
+- 唯一下一批：通知胶囊与微信订阅诊断、首次通讯录查询方案检查；停止条件为本轮剩余授权修改通过验证及独立checkpoint，不自动上传或部署。

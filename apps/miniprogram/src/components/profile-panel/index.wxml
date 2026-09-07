@@ -82,7 +82,7 @@
                 ><text>{{specialDateCountLabel}}</text
                 ><text class="profile-stat-unit">次</text></view
               >
-              <text class="profile-stat-note">本月周末与节假日班次</text>
+              <text class="profile-stat-note is-special">本月周末/节假</text>
             </view>
           </view>
         </view>
@@ -121,11 +121,11 @@
               <text class="profile-eyebrow">DUTY PULSE</text>
               <text class="profile-section-title">值班节奏</text>
             </view>
-            <text class="profile-period-label">近四月</text>
+            <text class="profile-period-label">近一年</text>
           </view>
           <view wx:if="{{trend.length}}" class="profile-pulse-chart">
-            <view wx:for="{{trend}}" wx:key="label" class="profile-pulse-column">
-              <text>{{item.count}}</text>
+            <view wx:for="{{trend}}" wx:key="businessMonth" class="profile-pulse-column">
+              <text>{{item.countLabel}}</text>
               <view class="profile-pulse-track" aria-hidden="true">
                 <view
                   class="profile-pulse-bar {{item.current ? 'is-current' : ''}}"
@@ -136,6 +136,10 @@
             </view>
           </view>
           <view wx:else class="profile-empty-insight">还没有可展示的个人统计趋势</view>
+          <text class="profile-trend-range">{{trendRange}}</text>
+          <text wx:if="{{trendIncomplete}}" class="profile-trend-range"
+            >部分月份暂未获取，— 表示数据缺失</text
+          >
         </view>
       </block>
 

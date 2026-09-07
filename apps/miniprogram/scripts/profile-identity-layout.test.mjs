@@ -414,6 +414,76 @@ describe.skipIf(!browserPath)(
           });
         }
     });
+    it('fits twelve months and compact account spacing at 390/320 with large text', async () => {
+      for (const width of [390, 320])
+        for (const large of [false, true]) {
+          const tree = fragment(profileTemplate);
+          const chart = tree.querySelector('.profile-pulse-chart');
+          const column = chart.firstElementChild.outerHTML;
+          chart.innerHTML = Array.from({ length: 12 }, (_, index) =>
+            column
+              .replace('{{item.countLabel}}', String(index + 1))
+              .replace('{{item.label}}', String(index + 1))
+              .replace('{{item.heightStyle}}', `height:${(index + 1) * 8}%;`),
+          ).join('');
+          tree
+            .querySelectorAll('.profile-empty-insight,.profile-duty-empty')
+            .forEach((node) => node.remove());
+          const markup =
+            '<view class="profile-page ' +
+            (large ? 'is-large-text' : '') +
+            '">' +
+            [
+              '.profile-stats-card',
+              '.profile-next-duty',
+              '.profile-pulse-card',
+              '.profile-account-card',
+            ]
+              .map((selector) => tree.querySelector(selector).outerHTML)
+              .join('')
+              .replaceAll('{{nextDutyTimeLabel}}', '08:00 – 08:00')
+              .replaceAll('{{trendRange}}', '2025.10–2026.09')
+              .replace(/\{\{[^}]+\}\}/gu, '示例') +
+            '</view>';
+          await render(markup, profileStyles, width);
+          if (large)
+            await page.addStyleTag({
+              content: ':root {--ui-font-size-xs:18px;--ui-font-size-sm:20px;}',
+            });
+          const result = await page.evaluate(() => {
+            const card = document.querySelector('.profile-account-card');
+            const button = card.querySelector('.profile-password-action');
+            const time = document.querySelector('.profile-duty-time');
+            const labels = [
+              ...document.querySelectorAll('.profile-pulse-column > text:last-child'),
+            ].map((node) => node.getBoundingClientRect());
+            return {
+              bottomGap:
+                card.getBoundingClientRect().bottom - button.getBoundingClientRect().bottom,
+              touchHeight: button.getBoundingClientRect().height,
+              letterSpacing: getComputedStyle(time).letterSpacing,
+              columns: labels.length,
+              overlap: labels.some((box, index) => index > 0 && box.left < labels[index - 1].right),
+              noteClipped:
+                document.querySelector('.is-special').scrollWidth >
+                document.querySelector('.is-special').clientWidth,
+              overflow: document.documentElement.scrollWidth > innerWidth,
+            };
+          });
+          expect(result.columns).toBe(12);
+          expect(result.overlap).toBe(false);
+          expect(result.bottomGap).toBeLessThanOrEqual(12);
+          expect(result.touchHeight).toBeGreaterThanOrEqual(44);
+          expect(result.letterSpacing).toBe('normal');
+          expect(result.noteClipped).toBe(false);
+          expect(result.overflow).toBe(false);
+          observations.push({ feedback5: true, width, large, ...result });
+          await page.screenshot({
+            path: path.join(evidenceDirectory, `feedback5-${width}-${large}.png`),
+            fullPage: true,
+          });
+        }
+    });
     for (const width of [320, 390, 393, 414, 844]) {
       it(`keeps profile status horizontal and buttons aligned at ${width}px, including large text`, async () => {
         for (const large of [false, true]) {
