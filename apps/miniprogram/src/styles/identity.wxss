@@ -280,15 +280,6 @@ page {
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.identity-card__copy {
-  display: block;
-  margin-top: 8px;
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
-  line-height: var(--ui-line-height-normal);
-}
-
-.identity-mark,
 .identity-success-mark {
   display: flex;
   width: 58px;
@@ -336,26 +327,6 @@ page {
 .identity-card__button--wechat {
   color: var(--ui-color-primary-dark);
   border-color: var(--ui-color-primary-light);
-}
-
-.identity-card__button--navigator {
-  display: flex;
-  min-height: 44px;
-  padding: 0 16px;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
-  border-radius: var(--ui-radius-small);
-  font-size: var(--ui-font-size-md);
-  font-weight: var(--ui-font-weight-semibold);
-  line-height: 44px;
-  text-align: center;
-}
-
-.identity-card__button--navigator.is-pressed {
-  opacity: 0.82;
 }
 
 .identity-card__note {
@@ -419,68 +390,6 @@ page {
 
 .identity-status--warning {
   color: var(--ui-color-warning);
-}
-
-.identity-status--info {
-  color: var(--ui-color-primary-dark);
-}
-
-.identity-account {
-  display: flex;
-  margin: 22px 0 18px;
-  align-items: center;
-}
-
-.identity-account__avatar {
-  display: flex;
-  width: 36px;
-  height: 36px;
-  margin-right: 10px;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-primary-light);
-  border-radius: 50%;
-  font-weight: var(--ui-font-weight-strong);
-}
-
-.identity-account__copy {
-  display: flex;
-  flex-direction: column;
-}
-
-.identity-account__copy text:last-child {
-  margin-top: 3px;
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-xs);
-}
-
-.identity-callout {
-  display: flex;
-  margin-top: 14px;
-  padding: 12px;
-  align-items: flex-start;
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-primary-light);
-  border-radius: var(--ui-radius-small);
-  font-size: var(--ui-font-size-xs);
-  line-height: var(--ui-line-height-normal);
-}
-
-.identity-callout__icon {
-  display: flex;
-  width: 17px;
-  height: 17px;
-  margin-right: 9px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
-  border-radius: 50%;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: var(--ui-font-weight-strong);
 }
 
 .identity-target {

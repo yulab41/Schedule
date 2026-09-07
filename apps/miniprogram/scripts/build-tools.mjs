@@ -156,6 +156,10 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
+  'components/account-security/controller.ts',
+  'components/account-security/runtime.ts',
+  'platform/password-reminder-runtime.ts',
+  'platform/password-reminder-storage.ts',
   'platform/runtime-diagnostics-bridge.ts',
   'platform/runtime-diagnostics-launch.ts',
   'platform/runtime-diagnostics-limits.ts',

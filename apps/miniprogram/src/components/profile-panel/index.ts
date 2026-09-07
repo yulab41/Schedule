@@ -32,6 +32,9 @@ Component({
     },
   },
   lifetimes: {
+    detached(this: ProfilePanelInstance): void {
+      controller.onUnload.call(this);
+    },
     attached(this: ProfilePanelInstance): void {
       this.setData({ embedded: this.properties.embedded }, () => this.triggerEvent?.('panelready'));
       controller.onLoad.call(this);

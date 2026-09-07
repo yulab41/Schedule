@@ -1,3 +1,4 @@
+import { createAccountSecurityController } from '../account-security/controller.js';
 import type {
   MyProfileCalendarLike,
   MyProfileContactLike,
@@ -39,10 +40,6 @@ import {
   readStoredWorkbenchGroupId,
   readWorkbenchGroupSnapshot,
 } from '../../platform/workbench-read.js';
-import {
-  isDefaultPasswordReminderDismissed,
-  persistDefaultPasswordReminderDismissal,
-} from '../../platform/password-reminder-storage.js';
 import { formatDateLabel, getTodayBusinessDate } from '../../features/workbench/workbench-model.js';
 
 type ProfileMode = 'missing' | 'ready';
@@ -110,13 +107,9 @@ interface ProfilePanelInstance {
   accountRequestSerial: number;
   data: ProfilePanelData;
   overviewRequestSerial: number;
-  _passwordReminderSuppressed?: boolean;
+  _securityGeneration?: number;
   setData(patch: Partial<ProfilePanelData>): void;
   triggerEvent?(name: string): void;
-}
-
-interface InputEvent {
-  readonly detail: { readonly value: string };
 }
 
 export interface ProfilePanelDependencies {
@@ -156,6 +149,7 @@ export function createProfilePanelControllerDefinition(
   dependencyOverrides?: ProfilePanelDependencies,
 ) {
   const dependencies = dependencyOverrides ?? createRuntimeDependencies();
+  const security = createAccountSecurityController(dependencies);
   return {
     data: {
       authMethod: 'wechat' as IdentityAuthMethod,
@@ -200,10 +194,18 @@ export function createProfilePanelControllerDefinition(
       yearCountLabel: '—',
     } satisfies ProfilePanelData,
 
+    ...security.methods,
+
+    onUnload(this: ProfilePanelInstance): void {
+      security.dispose.call(this);
+      this.accountRequestSerial += 1;
+      this.overviewRequestSerial += 1;
+    },
+
     onLoad(this: ProfilePanelInstance): void {
       this.accountRequestSerial = 0;
       this.overviewRequestSerial = 0;
-      this._passwordReminderSuppressed = false;
+      security.initialize.call(this);
       const windowInfo = wx.getWindowInfo();
       const fontSizeSetting = (windowInfo as unknown as { readonly fontSizeSetting?: number })
         .fontSizeSetting;
@@ -265,113 +267,12 @@ export function createProfilePanelControllerDefinition(
       }
     },
 
-    handleDefaultPasswordReminderClose(this: ProfilePanelInstance): void {
-      if (!this.data.passwordSaving) {
-        this._passwordReminderSuppressed = true;
-        this.setData({ defaultPasswordReminderOpen: false });
-      }
-    },
-
-    handleDefaultPasswordReminderDismiss(this: ProfilePanelInstance): void {
-      const profile = dependencies.getProfile();
-      this._passwordReminderSuppressed = true;
-      if (profile !== undefined) persistDefaultPasswordReminderDismissal(profile.id);
-      this.setData({ defaultPasswordReminderOpen: false });
-    },
-
-    handleDefaultPasswordReminderEdit(this: ProfilePanelInstance): void {
-      this._passwordReminderSuppressed = true;
-      this.setData({ defaultPasswordReminderOpen: false });
-      this.setData({
-        currentPassword: '',
-        newPassword: '',
-        passwordConfirm: '',
-        passwordError: '',
-        passwordSheetOpen: true,
-      });
-    },
-
-    handleConfirmDialogTap(): void {
-      // Keep taps inside the dialog from closing it through the backdrop handler.
-    },
-
     handleBindingRetry(this: ProfilePanelInstance): void {
       if (this.data.bindingState !== 'loading') void refreshAccount(this, dependencies);
     },
 
-    handlePasswordOpen(this: ProfilePanelInstance): void {
-      this.setData({
-        currentPassword: '',
-        newPassword: '',
-        passwordConfirm: '',
-        passwordError: '',
-        passwordSheetOpen: true,
-      });
-    },
-
-    handlePasswordClose(this: ProfilePanelInstance): void {
-      if (this.data.passwordSaving) return;
-      this.setData({
-        currentPassword: '',
-        newPassword: '',
-        passwordConfirm: '',
-        passwordError: '',
-        passwordSheetOpen: false,
-      });
-    },
-
-    handleCurrentPasswordInput(this: ProfilePanelInstance, event: InputEvent): void {
-      this.setData({ currentPassword: event.detail.value, passwordError: '' });
-    },
-
-    handleNewPasswordInput(this: ProfilePanelInstance, event: InputEvent): void {
-      this.setData({ newPassword: event.detail.value, passwordError: '' });
-    },
-
-    handlePasswordConfirmInput(this: ProfilePanelInstance, event: InputEvent): void {
-      this.setData({ passwordConfirm: event.detail.value, passwordError: '' });
-    },
-
-    handlePasswordSubmit(this: ProfilePanelInstance): void {
-      if (this.data.passwordSaving) return;
-      const currentPassword = this.data.currentPassword;
-      const newPassword = this.data.newPassword;
-      if (
-        newPassword.length === 0 ||
-        this.data.passwordConfirm.length === 0 ||
-        newPassword !== this.data.passwordConfirm
-      ) {
-        this.setData({ passwordError: '请确认两次输入的新密码一致。' });
-        return;
-      }
-      if (this.data.authMethod === 'password' && currentPassword.length === 0) {
-        this.setData({ passwordError: '请输入当前密码。' });
-        return;
-      }
-      if (this.data.authMethod === 'password' && currentPassword === newPassword) {
-        this.setData({ passwordError: '新密码不能与当前密码相同。' });
-        return;
-      }
-      const input: ProfilePasswordChangeInput =
-        this.data.authMethod === 'password'
-          ? { authMethod: 'password', currentPassword, newPassword }
-          : { authMethod: 'wechat', newPassword };
-      this.setData({ passwordError: '', passwordSaving: true });
-      void dependencies
-        .changePassword(input)
-        .then(() => {
-          this.setData({ defaultPasswordReminderOpen: false, passwordSheetOpen: false });
-          dependencies.finishSensitiveSessionChange();
-        })
-        .catch((error: unknown) =>
-          this.setData({
-            passwordError: error instanceof Error ? error.message : '密码没有修改，请稍后重试。',
-          }),
-        )
-        .finally(() => this.setData({ passwordSaving: false }));
-    },
-
     handleSwitchLogin(this: ProfilePanelInstance): void {
+      security.dispose.call(this);
       this.accountRequestSerial += 1;
       this.overviewRequestSerial += 1;
       dependencies.signOut();
@@ -379,6 +280,7 @@ export function createProfilePanelControllerDefinition(
     },
 
     handleSignOut(this: ProfilePanelInstance): void {
+      security.dispose.call(this);
       this.accountRequestSerial += 1;
       this.overviewRequestSerial += 1;
       dependencies.signOut();
@@ -425,10 +327,7 @@ async function refreshAccount(
   if (profile === undefined) return;
   const requestSerial = ++panel.accountRequestSerial;
   panel.setData({ bindingState: 'loading', bindingLabel: '正在读取', canUnbindWechat: false });
-  const [binding, passwordStatus] = await Promise.allSettled([
-    dependencies.getWechatBinding(),
-    dependencies.getPasswordStatus(),
-  ]);
+  const [binding] = await Promise.allSettled([dependencies.getWechatBinding()]);
   if (requestSerial !== panel.accountRequestSerial || dependencies.getProfile()?.id !== profile.id)
     return;
   panel.setData({
@@ -436,11 +335,6 @@ async function refreshAccount(
       binding.status === 'fulfilled' ? (binding.value.bound ? '已绑定' : '未绑定') : '暂时无法读取',
     bindingState: binding.status === 'fulfilled' ? 'ready' : 'error',
     canUnbindWechat: binding.status === 'fulfilled' && binding.value.canUnbind,
-    defaultPasswordReminderOpen:
-      passwordStatus.status === 'fulfilled' &&
-      passwordStatus.value.mustChangePassword &&
-      !isDefaultPasswordReminderDismissed(profile.id) &&
-      panel._passwordReminderSuppressed !== true,
   });
 }
 

@@ -1,3 +1,4 @@
+@import '../../components/account-security/index.wxss';
 @import '../../styles/ui-icon-motion.wxss';
 @import '../../styles/calendar-date-marker.wxss';
 

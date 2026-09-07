@@ -81,7 +81,7 @@ describe('primary workspace persistent shell', () => {
     );
     expect(template).toContain('<profile-workspace');
     expect(template).not.toContain('<profile-panel');
-    expect(read('src/components/profile-panel/index.wxml')).toContain(
+    expect(read('src/components/account-security/index.wxml')).toContain(
       '<ui-sheet\n  wx:if="{{passwordSheetOpen}}"',
     );
   });

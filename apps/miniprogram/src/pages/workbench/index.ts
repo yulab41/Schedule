@@ -1,3 +1,5 @@
+import { createRuntimeAccountSecurityController } from '../../components/account-security/runtime.js';
+import type { AccountSecurityData } from '../../components/account-security/controller.js';
 import type {
   CalendarDutyAssignment,
   CalendarReadModel,
@@ -132,7 +134,7 @@ interface MonthReadResult {
 
 type HolidayReader = (year: number) => Promise<HolidayReadModel>;
 
-interface WorkbenchPageData {
+interface WorkbenchPageData extends AccountSecurityData {
   readonly activeWorkspace: ActiveWorkspace;
   readonly activeWorkspaceIndex: number;
   readonly activeFilterCount: number;
@@ -201,6 +203,7 @@ interface WorkbenchPageData {
   readonly shiftEventSheetOpen: boolean;
   readonly shiftEventState: ShiftEventState;
   readonly state: WorkbenchState;
+  readonly accountSecurityReady: boolean;
   readonly testCenterEnabled: boolean;
   readonly viewMode: WorkbenchView;
   readonly weekPanels: WorkbenchViewModel['weekPanels'];
@@ -256,6 +259,7 @@ interface WorkbenchPageInstance {
 }
 
 const client = createWorkbenchReadClient();
+const accountSecurity = createRuntimeAccountSecurityController();
 const insightsReadClient = createRuntimeInsightsReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
@@ -269,7 +273,9 @@ const today = getTodayBusinessDate();
 const initialMonth = today.slice(0, 7);
 
 Page({
+  ...accountSecurity.methods,
   data: {
+    ...accountSecurity.data,
     activeWorkspace: 'calendar' as ActiveWorkspace,
     activeWorkspaceIndex: 0,
     activeFilterCount: 0,
@@ -338,6 +344,7 @@ Page({
     shiftEventSheetOpen: false,
     shiftEventState: 'closed' as ShiftEventState,
     state: 'loading' as WorkbenchState,
+    accountSecurityReady: false,
     testCenterEnabled: false,
     viewMode: 'month' as const,
     weekPanels: [],
@@ -423,6 +430,13 @@ Page({
     void loadWorkbenchWithCapability(this);
   },
 
+  onReady(this: WorkbenchPageInstance): void {
+    accountSecurity.initialize.call(this);
+    this.setData({ accountSecurityReady: true }, () => {
+      void accountSecurity.checkReminder.call(this);
+    });
+  },
+
   onResize(this: WorkbenchPageInstance): void {
     this.setData(createShellLayoutPatch());
   },
@@ -469,6 +483,7 @@ Page({
   },
 
   onUnload(this: WorkbenchPageInstance): void {
+    accountSecurity.dispose.call(this);
     this.isVisible = false;
     this._diagnosticsSerial += 1;
     this._diagnosticsUnsubscribe?.();

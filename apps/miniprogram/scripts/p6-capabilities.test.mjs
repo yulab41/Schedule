@@ -372,14 +372,12 @@ describe('P6-B Mini capability bootstrap and guards', () => {
 
     await identity.loginWithWechat();
     await identity.linkWechatPassword('link-token', 'lin', 'secret');
-    await identity.registerWechat('link-token', '林医生');
     await identity.previewAdminBinding('binding-ticket');
     await identity.confirmAdminBinding('binding-ticket');
 
     expect(requests.map((options) => new URL(options.url).pathname)).toEqual([
       '/api/auth/wechat/login',
       '/api/auth/wechat/link-password',
-      '/api/auth/wechat/register',
       '/api/auth/wechat/admin-bind/preview',
       '/api/auth/wechat/admin-bind/confirm',
     ]);

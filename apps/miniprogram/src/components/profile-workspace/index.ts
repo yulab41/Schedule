@@ -50,8 +50,7 @@ Component({
     },
     detached(this: ProfileWorkspaceInstance): void {
       this.__attached = false;
-      this.accountRequestSerial += 1;
-      this.overviewRequestSerial += 1;
+      controller.onUnload.call(this);
     },
   },
   observers: {

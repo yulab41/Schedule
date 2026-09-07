@@ -78,6 +78,24 @@ describe('P3 identity login controller', () => {
     vi.unstubAllGlobals();
   });
 
+  it('opens binding directly, cancels without a write, and prevents duplicate login requests', async () => {
+    wechatLoginResult = {
+      status: 'link_required',
+      linkToken: 'link-token',
+      expiresAt: new Date(Date.now() + 600000).toISOString(),
+    };
+    const page = createPage(definition);
+    definition.handleWechatLogin.call(page);
+    definition.handleWechatLogin.call(page);
+    await vi.waitFor(() => expect(page.data.bindingOpen).toBe(true));
+    expect(requests).toHaveLength(1);
+    expect(page.data.mode).toBeUndefined();
+    definition.handlePasswordInput.call(page, { detail: { value: 'private-password' } });
+    definition.handleBindingCancel.call(page);
+    expect(page.data).toMatchObject({ bindingOpen: false, password: '', linkToken: '' });
+    expect(requests).toHaveLength(1);
+  });
+
   it('normalizes the Web-style account form, persists a password session, and opens home directly', async () => {
     const page = createPage(definition);
 
@@ -110,7 +128,7 @@ describe('P3 identity login controller', () => {
     );
   });
 
-  it('opens home directly after authenticated WeChat login, password linking, and first profile creation', async () => {
+  it('opens home directly after authenticated WeChat login, password linking, and returns a linked session', async () => {
     const wechatPage = createPage(definition);
     definition.handleWechatLogin.call(wechatPage);
     await vi.waitFor(() => expect(reLaunch).toHaveBeenCalledTimes(1));
@@ -122,7 +140,8 @@ describe('P3 identity login controller', () => {
     reLaunch.mockClear();
     const linkPage = createPage(definition, {
       linkToken: 'link-token',
-      mode: 'password',
+      bindingOpen: true,
+      linkExpiresAt: new Date(Date.now() + 600000).toISOString(),
       password: 'password',
       username: 'D0468',
     });
@@ -132,22 +151,9 @@ describe('P3 identity login controller', () => {
       authMethod: 'wechat',
       profile: { id: 'user-linked' },
     });
-
-    reLaunch.mockClear();
-    const registerPage = createPage(definition, {
-      linkToken: 'link-token',
-      mode: 'register',
-      realName: ' 新成员 ',
-    });
-    definition.handleRegister.call(registerPage);
-    await vi.waitFor(() => expect(reLaunch).toHaveBeenCalledTimes(1));
-    expect(storage.get('schedule.wechat.session')).toMatchObject({
-      authMethod: 'wechat',
-      profile: { id: 'user-created' },
-    });
   });
 
-  it('keeps link-required WeChat login in the existing proof choice flow', async () => {
+  it('opens the account binding sheet for an unknown WeChat identity', async () => {
     wechatLoginResult = {
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
       linkToken: 'link-token',
@@ -157,7 +163,7 @@ describe('P3 identity login controller', () => {
 
     definition.handleWechatLogin.call(page);
 
-    await vi.waitFor(() => expect(page.data.mode).toBe('choice'));
+    await vi.waitFor(() => expect(page.data.bindingOpen).toBe(true));
     expect(page.data.linkToken).toBe('link-token');
     expect(reLaunch).not.toHaveBeenCalled();
   });
@@ -173,6 +179,46 @@ describe('P3 identity login controller', () => {
     expect(storage.get('schedule.wechat.session')).toMatchObject({ token: 'password-token' });
     expect(reLaunch).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects expired binding credentials before making a binding request', () => {
+    const page = createPage(definition, {
+      bindingOpen: true,
+      linkToken: 'expired',
+      linkExpiresAt: new Date(Date.now() - 1000).toISOString(),
+      username: 'user',
+      password: 'private',
+    });
+    definition.handleLinkPassword.call(page);
+    expect(requests).toHaveLength(0);
+    expect(page.data).toMatchObject({ bindingOpen: false, linkToken: '', password: '' });
+    expect(page.data.errorMessage).toContain('重新点击微信');
+  });
+
+  it.each(['password', 'network'])(
+    'keeps failed %s binding in the sheet without persisting a session',
+    async (failure) => {
+      globalThis.wx.request.mockImplementation((options) => {
+        if (failure === 'password')
+          options.success({ data: { error: { code: 'UNAUTHORIZED' } }, statusCode: 401 });
+        else options.fail({ errMsg: 'network unavailable' });
+      });
+      const page = createPage(definition, {
+        bindingOpen: true,
+        linkToken: 'link',
+        linkExpiresAt: new Date(Date.now() + 600000).toISOString(),
+        username: 'user',
+        password: 'private',
+      });
+      definition.handleLinkPassword.call(page);
+      definition.handleLinkPassword.call(page);
+      await vi.waitFor(() => expect(page.data.loading).toBe(false));
+      expect(globalThis.wx.request).toHaveBeenCalledTimes(1);
+      expect(page.data.bindingOpen).toBe(true);
+      expect(page.data.errorMessage.length).toBeGreaterThan(0);
+      expect(storage.has('schedule.wechat.session')).toBe(false);
+      expect(reLaunch).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function createPage(definition, overrides = {}) {

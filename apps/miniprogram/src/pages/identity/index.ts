@@ -12,11 +12,8 @@ import {
   persistPasswordSession,
   persistWechatSession,
   type IdentityAuthMethod,
-  registerWechat,
   type WechatAuthenticatedResult,
 } from '../../platform/wechat-identity.js';
-
-type IdentityMode = 'choice' | 'login' | 'password' | 'register';
 
 interface InputEvent {
   readonly detail: { readonly value: string };
@@ -27,9 +24,9 @@ interface IdentityPageData {
   readonly errorMessage: string;
   readonly linkToken: string;
   readonly loading: boolean;
-  readonly mode: IdentityMode;
+  readonly bindingOpen: boolean;
+  readonly linkExpiresAt: string;
   readonly password: string;
-  readonly realName: string;
   readonly username: string;
 }
 
@@ -48,6 +45,8 @@ function completeAuthentication(
   page.setData({
     errorMessage: '',
     linkToken: '',
+    bindingOpen: false,
+    linkExpiresAt: '',
     loading: true,
     password: '',
   });
@@ -60,9 +59,9 @@ Page({
     errorMessage: '',
     linkToken: '',
     loading: false,
-    mode: 'login' as IdentityMode,
+    bindingOpen: false,
+    linkExpiresAt: '',
     password: '',
-    realName: '',
     username: '',
   },
 
@@ -79,19 +78,32 @@ Page({
     void guardIdentityCapability(this);
   },
 
-  handleBackToChoice(this: IdentityPageInstance): void {
-    this.setData({ errorMessage: '', mode: 'choice' });
-  },
-
-  handleChoosePassword(this: IdentityPageInstance): void {
-    this.setData({ errorMessage: '', mode: 'password' });
-  },
-
-  handleChooseRegister(this: IdentityPageInstance): void {
-    this.setData({ errorMessage: '', mode: 'register' });
+  handleBindingCancel(this: IdentityPageInstance): void {
+    if (this.data.loading) return;
+    this.setData({
+      bindingOpen: false,
+      linkToken: '',
+      linkExpiresAt: '',
+      password: '',
+      errorMessage: '',
+    });
   },
 
   handleLinkPassword(this: IdentityPageInstance): void {
+    if (this.data.loading || !this.data.bindingOpen) return;
+    if (
+      !this.data.linkToken ||
+      !Number.isFinite(Date.parse(this.data.linkExpiresAt)) ||
+      Date.parse(this.data.linkExpiresAt) <= Date.now()
+    ) {
+      this.setData({
+        bindingOpen: false,
+        linkToken: '',
+        password: '',
+        errorMessage: '绑定已过期，请重新点击微信快捷登录。',
+      });
+      return;
+    }
     const username = normalizeUsername(this.data.username);
     if (!isValidUsername(username) || this.data.password.length === 0) {
       this.setData({ errorMessage: '请输入账号和密码。' });
@@ -106,6 +118,7 @@ Page({
   },
 
   handlePasswordLogin(this: IdentityPageInstance): void {
+    if (this.data.loading || this.data.bindingOpen) return;
     const username = normalizeUsername(this.data.username);
     if (!isValidUsername(username) || this.data.password.length === 0) {
       this.setData({ errorMessage: '请输入有效账号和密码。' });
@@ -123,24 +136,8 @@ Page({
     this.setData({ password: event.detail.value });
   },
 
-  handleRealNameChange(this: IdentityPageInstance, event: InputEvent): void {
-    this.setData({ realName: event.detail.value });
-  },
-
-  handleRegister(this: IdentityPageInstance): void {
-    if (this.data.realName.trim().length === 0) {
-      this.setData({ errorMessage: '请输入真实姓名。' });
-      return;
-    }
-    this.setData({ errorMessage: '', loading: true });
-    void registerWechat(this.data.linkToken, this.data.realName.trim())
-      .then((result) => completeAuthentication(this, result, 'wechat'))
-      .catch((error: unknown) =>
-        this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
-      );
-  },
-
   handleWechatLogin(this: IdentityPageInstance): void {
+    if (this.data.loading || this.data.bindingOpen) return;
     this.setData({ errorMessage: '', loading: true });
     void loginWithWechat()
       .then((result) => {
@@ -152,7 +149,9 @@ Page({
           errorMessage: '',
           linkToken: result.linkToken,
           loading: false,
-          mode: 'choice',
+          bindingOpen: true,
+          password: '',
+          linkExpiresAt: result.expiresAt,
         });
       })
       .catch((error: unknown) =>

@@ -1,4 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { resetPasswordReminderLaunch } from '../src/components/account-security/controller.ts';
+beforeEach(() => resetPasswordReminderLaunch());
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let createProfilePanelControllerDefinition;
 
@@ -262,7 +264,7 @@ describe('Mini Web-parity profile controller', () => {
     expect(dependencies.finishSensitiveSessionChange).toHaveBeenCalledOnce();
   });
 
-  it('opens the Web-parity default-password reminder when status requires a change', async () => {
+  it('does not request or open the launch-only password reminder from profile', async () => {
     const dependencies = createDependencies({
       getPasswordStatus: vi.fn().mockResolvedValue({ hasPassword: true, mustChangePassword: true }),
     });
@@ -271,8 +273,8 @@ describe('Mini Web-parity profile controller', () => {
 
     definition.onLoad.call(panel);
     await vi.waitFor(() => expect(panel.data.bindingState).toBe('ready'));
-    expect(panel.data.defaultPasswordReminderOpen).toBe(true);
-    definition.handleDefaultPasswordReminderDismiss.call(panel);
+    expect(panel.data.defaultPasswordReminderOpen).toBe(false);
+    expect(dependencies.getPasswordStatus).not.toHaveBeenCalled();
     expect(panel.data.defaultPasswordReminderOpen).toBe(false);
   });
 });

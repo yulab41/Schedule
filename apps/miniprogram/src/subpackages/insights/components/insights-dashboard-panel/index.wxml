@@ -38,19 +38,11 @@
       ></view>
       <view wx:else class="dashboard-content"
         ><view class="page-heading"
-          ><text class="section-eyebrow">值班台账</text
-          ><text class="page-title">事件与统计</text
+          ><text class="section-eyebrow">值班台账</text><text class="page-title">事件与统计</text
           ><text class="page-description"
             >事件记录不可变；统计从已发布排班与变更记录汇总，保持与 Web 相同口径。</text
           ></view
         ><view class="tab-switch" role="tablist"
-          ><view
-            class="tab-item {{activeTab === 'events' ? 'is-active' : ''}}"
-            role="tab"
-            aria-selected="{{activeTab === 'events'}}"
-            data-tab="events"
-            bindtap="handleTabChange"
-            >事件时间线</view
           ><view
             class="tab-item {{activeTab === 'statistics' ? 'is-active' : ''}}"
             role="tab"
@@ -58,6 +50,13 @@
             data-tab="statistics"
             bindtap="handleTabChange"
             >排班统计</view
+          ><view
+            class="tab-item {{activeTab === 'events' ? 'is-active' : ''}}"
+            role="tab"
+            aria-selected="{{activeTab === 'events'}}"
+            data-tab="events"
+            bindtap="handleTabChange"
+            >事件时间线</view
           ></view
         ><view wx:if="{{activeTab === 'events'}}" class="events-content"
           ><view class="timeline-toolbar"
@@ -126,16 +125,20 @@
                 aria-role="button"
                 aria-label="上一统计周期"
                 bindtap="handlePreviousPeriod"
-                ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" aria-hidden="true" /></view
+                ><image
+                  src="/assets/icons/ui-chevron-left.svg"
+                  mode="aspectFit"
+                  aria-hidden="true" /></view
               ><text>{{statisticsPeriodLabel}}</text
               ><view
                 class="period-step"
                 aria-role="button"
                 aria-label="下一统计周期"
                 bindtap="handleNextPeriod"
-                ><image src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
-              ></view
-            ></view
+                ><image
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                  aria-hidden="true" /></view></view></view
           ><ui-alert
             wx:if="{{statisticsErrorMessage}}"
             tone="danger"
@@ -170,17 +173,14 @@
               ><view class="card-header"
                 ><view
                   ><text class="card-title">成员统计</text
-                  ><text class="card-subtitle">{{memberRows.length}} 位成员，按实际值班数排序</text></view
+                  ><text class="card-subtitle"
+                    >{{memberRows.length}} 位成员，按实际值班数排序</text
+                  ></view
                 ></view
               ><view wx:if="{{memberRows.length === 0}}" class="card-empty">暂无成员统计。</view
-              ><view
-                wx:for="{{memberRows}}"
-                wx:for-item="memberItem"
-                wx:key="id"
-                class="member-row"
+              ><view wx:for="{{memberRows}}" wx:for-item="memberItem" wx:key="id" class="member-row"
                 ><text class="member-name">{{memberItem.name}}</text
-                ><text>{{memberItem.countLabel}}</text
-                ><text>{{memberItem.shiftLabel}}</text
+                ><text>{{memberItem.countLabel}}</text><text>{{memberItem.shiftLabel}}</text
                 ><text>{{memberItem.workflowLabel}}</text
                 ><text>{{memberItem.adjustmentLabel}} · {{memberItem.comparisonLabel}}</text></view
               ></view
@@ -201,9 +201,10 @@
                     ><text>{{roleItem.name}}</text
                     ><text>{{roleItem.actualLabel}} / {{roleItem.plannedLabel}}</text></view
                   ><view class="breakdown-track"
-                    ><view class="breakdown-fill" style="width:{{roleItem.ratio}}%;"></view></view
-                  ></view
-                ></view
+                    ><view
+                      class="breakdown-fill"
+                      style="width:{{roleItem.ratio}}%;"
+                    ></view></view></view></view
               ><view class="surface-card breakdown-card"
                 ><view class="card-header"
                   ><view
@@ -224,12 +225,7 @@
                     ><view
                       class="breakdown-fill"
                       style="width:{{shiftItem.ratio}}%;"
-                    ></view></view
-                  ></view
-                ></view
-              ></view
-            ></block
-          ></view
+                    ></view></view></view></view></view></block></view
         ><ui-alert
           wx:if="{{errorMessage}}"
           tone="danger"
@@ -239,7 +235,8 @@
         ><view class="privacy-note"
           ><text class="privacy-title">数据口径与隐私</text
           ><text
-            >事件只显示必要的类型、状态、时间、对象和影响数量；原始 payload、操作编号、token 与完整身份标识不会写入页面状态。</text
+            >事件只显示必要的类型、状态、时间、对象和影响数量；原始 payload、操作编号、token
+            与完整身份标识不会写入页面状态。</text
           ></view
         ><view class="bottom-spacer"></view
       ></view> </view

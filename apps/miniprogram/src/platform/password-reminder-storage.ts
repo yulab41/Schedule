@@ -8,10 +8,11 @@ export function isDefaultPasswordReminderDismissed(profileId: string): boolean {
   }
 }
 
-export function persistDefaultPasswordReminderDismissal(profileId: string): void {
+export function persistDefaultPasswordReminderDismissal(profileId: string): boolean {
   try {
     wx.setStorageSync(`${defaultPasswordReminderDismissedPrefix}${profileId}`, 'true');
+    return true;
   } catch {
-    // Dismissal is best effort; the current session still closes the prompt.
+    return false;
   }
 }

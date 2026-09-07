@@ -255,7 +255,7 @@
 }
 
 .workflow-picker-date-cell.is-today.is-selected > text {
-  box-shadow: inset 0 0 0 2px var(--ui-color-near-black);
+  box-shadow: inset 0 0 0 2px var(--ui-color-today-marker);
 }
 
 .workflow-picker-date-cell.is-disabled {

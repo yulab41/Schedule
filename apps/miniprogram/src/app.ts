@@ -1,3 +1,4 @@
+import { createPasswordReminderRuntime } from './platform/password-reminder-runtime.js';
 import { clearRuntimeDirectoryLaunchMarker } from './platform/runtime-diagnostics-launch.js';
 import { isTestToolsRuntimeEnabled } from './platform/runtime-environment.js';
 import type { RuntimeDiagnosticsSlot } from './platform/runtime-diagnostics-types.js';
@@ -9,6 +10,7 @@ const clientCapabilityStore = createRuntimeClientCapabilityStore();
 const telemetryEmitter = createRuntimeMiniTelemetryEmitter(clientCapabilityStore);
 const wechatSessionRuntimeState = createWechatSessionRuntimeState();
 // Only lifecycle provenance is retained before authorization, never diagnostic payloads.
+const passwordReminderRuntime = createPasswordReminderRuntime();
 const diagnosticsLaunch = {
   appLaunchAt: 0,
   initialShowPending: false,
@@ -22,9 +24,12 @@ App({
     telemetryEmitter,
     wechatSessionRuntimeState,
     diagnosticsLaunch,
+    passwordReminderRuntime,
   },
 
   onLaunch(): void {
+    passwordReminderRuntime.checkedAccounts.clear();
+    passwordReminderRuntime.activeEditors.clear();
     if (!isTestToolsRuntimeEnabled()) clearRuntimeDirectoryLaunchMarker();
     diagnosticsLaunch.appLaunchAt = Date.now();
     diagnosticsLaunch.launchObserved = true;

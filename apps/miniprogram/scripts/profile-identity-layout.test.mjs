@@ -15,7 +15,9 @@ const read = (file) => readFileSync(path.join(appRoot, file), 'utf8');
 const identityTemplate = read('src/pages/identity/index.wxml');
 const profileTemplate = read('src/components/profile-panel/index.wxml');
 const identityStyles = read('src/styles/identity.wxss');
-const profileStyles = read('src/components/profile-panel/index.wxss');
+const profileStyles =
+  read('src/components/profile-panel/index.wxss') +
+  read('src/components/account-security/index.wxss');
 it('uses a view badge with a trimmed text label and explicitly sizes password text', () => {
   const badge = fragment(profileTemplate).querySelector('.profile-shift-badge');
   expect(badge.tagName.toLowerCase()).toBe('view');
@@ -212,15 +214,94 @@ describe.skipIf(!browserPath)(
       );
     }
 
+    it('centers the password submit text and keeps binding readable at 390/320px and large text', async () => {
+      for (const width of [390, 320])
+        for (const large of [false, true]) {
+          const security = fragment(read('src/components/account-security/index.wxml'));
+          const form = security.querySelector('.profile-password-form');
+          form.querySelector('.profile-password-proof-note').remove();
+          form.querySelector('.profile-password-error').remove();
+          const button = form.querySelector('.profile-password-submit');
+          button.removeAttribute('disabled');
+          button.innerHTML = '<span>确认修改</span>';
+          for (const input of form.querySelectorAll('input')) input.removeAttribute('value');
+          const sizing = large ? ':root { --ui-font-size-md:20px; --ui-font-size-sm:20px; }' : '';
+          await render(
+            '<view style="padding:18px">' + form.outerHTML + '</view>',
+            profileStyles + sizing,
+            width,
+          );
+          const geometry = await page.evaluate(() => {
+            const button = document.querySelector('.profile-password-submit');
+            const b = button.getBoundingClientRect();
+            const label = button.querySelector('span').getBoundingClientRect();
+            return {
+              x: Math.abs((b.left + b.right - label.left - label.right) / 2),
+              y: Math.abs((b.top + b.bottom - label.top - label.bottom) / 2),
+              font: parseFloat(getComputedStyle(button).fontSize),
+              height: b.height,
+              overflow: document.documentElement.scrollWidth > innerWidth,
+            };
+          });
+          expect(geometry.x).toBeLessThanOrEqual(1);
+          expect(geometry.y).toBeLessThanOrEqual(1);
+          expect(geometry.height).toBeGreaterThanOrEqual(48);
+          expect(geometry.font).toBeGreaterThanOrEqual(large ? 20 : 15);
+          expect(geometry.overflow).toBe(false);
+          observations.push({ surface: 'password-sheet', width, large, geometry });
+          await page.screenshot({
+            path: path.join(evidenceDirectory, `password-${width}-${large}.png`),
+          });
+
+          const binding = fragment(identityTemplate).querySelector('.identity-binding-form');
+          binding.querySelector('ui-alert').remove();
+          const shell = fragment(read('src/components/ui/ui-input-shell/index.wxml'));
+          shell.querySelector('.ui-input-shell').className = 'ui-input-shell';
+          shell.querySelector('.ui-input-shell__label').textContent = '账号';
+          shell.querySelector('.ui-input-shell__required').remove();
+          for (const node of shell.querySelectorAll('.ui-input-shell__message')) node.remove();
+          shell.querySelector('input').removeAttribute('disabled');
+          shell.querySelector('input').setAttribute('placeholder', '请输入管理员分配的账号');
+          binding.querySelector('ui-input-shell').replaceWith(shell);
+          const submit = fragment(read('src/components/ui/ui-button/index.wxml'));
+          submit.querySelector('.ui-button').className = 'ui-button ui-button--primary';
+          submit.querySelector('.ui-button__loading').remove();
+          submit.querySelector('.ui-button__label').textContent = '绑定并登录';
+          binding.querySelector('ui-button').replaceWith(submit);
+          for (const input of binding.querySelectorAll('input')) {
+            input.removeAttribute('value');
+            input.removeAttribute('disabled');
+          }
+          const styles =
+            identityStyles +
+            read('src/pages/identity/index.wxss').replace(/@import[^;]+;/gu, '') +
+            read('src/components/ui/ui-input-shell/index.wxss') +
+            read('src/components/ui/ui-button/index.wxss') +
+            sizing;
+          await render(
+            '<view style="padding:18px">' + binding.outerHTML + '</view>',
+            styles,
+            width,
+          );
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+            false,
+          );
+          await page.screenshot({
+            path: path.join(evidenceDirectory, `binding-${width}-${large}.png`),
+          });
+        }
+    });
+
     it('renders the filter as three aligned horizontal SVG bars', async () => {
       const tree = fragment(read('src/pages/workbench/index.wxml'));
       const button = tree.querySelector('.filter-button');
       button.className = 'filter-button';
       button.querySelector('.filter-icon').className = 'filter-icon';
       button.querySelector('.filter-count').remove();
+      // Match native import order: shared motion rules precede page overrides.
       const styles =
-        read('src/pages/workbench/index.wxss').replace(/@import[^;]+;/gu, '') +
-        read('src/styles/ui-icon-motion.wxss');
+        read('src/styles/ui-icon-motion.wxss') +
+        read('src/pages/workbench/index.wxss').replace(/@import[^;]+;/gu, '');
       await render(button.outerHTML, styles, 390);
       const boxes = await page.locator('.filter-icon-bar').evaluateAll((bars) =>
         bars.map((bar) => {

@@ -34,13 +34,13 @@ describe('P3 native identity pages', () => {
     const template = readSource('pages/identity/index.wxml');
     const source = readSource('pages/identity/index.ts');
 
-    expect(template).toContain("mode === 'login'");
-    expect(template).toContain("mode === 'choice'");
-    expect(template).toContain("mode === 'password'");
-    expect(template).toContain("mode === 'register'");
+    expect(template).toContain('bindingOpen');
+    expect(template).toContain('绑定并登录');
+    expect(template).not.toContain('微信身份');
+    expect(template).not.toContain('这是我第一次使用');
     expect(source).toContain('linkToken: result.linkToken');
-    expect(source).toContain('handleChoosePassword');
-    expect(source).toContain('handleChooseRegister');
+    expect(source).not.toContain('handleChoosePassword');
+    expect(source).not.toContain('handleChooseRegister');
     expect(template).not.toContain('公开注册');
     expect(template).not.toContain('身份已确认');
     expect(source).not.toContain("mode: 'authenticated'");
@@ -92,7 +92,7 @@ describe('P3 native identity pages', () => {
     const client = readSource('platform/wechat-identity.ts');
 
     expect(app.pages).not.toContain('pages/identity/unbind');
-    expect(template).toContain('profile-confirm-backdrop');
+    expect(template).toContain('../account-security/index.wxml');
     expect(source).toContain('解除微信绑定');
     expect(source).toContain('wx.showModal');
     expect(source).toContain('createIdempotencyKey');

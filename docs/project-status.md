@@ -1,48 +1,12 @@
 # Project Status
 
-## 当前批次：UX-CLEANUP-10 feedback3已实现，workbench断言已修复，待发布复核
+## 当前批次：UX-CLEANUP-10 feedback4 实施中
 
-- 基线 `92f16c5396b596f08128af026dad635b6260cd54`（feedback2；API/Web与体验版`.92`已交付）；本轮使用同RUN_ID的 `feedback3` warm slot `runtime/wt/general-3`，依赖复用、冷安装0。
-- 已完成：手机号公开成功提示改为共享 `ui-toast` 瞬时通知并在2秒后清除；解除绑定改为原位确认弹窗；删除废弃 `pages/identity/unbind` 四件套；接入已有 `/auth/password/status` 并增加 Web 样式初始密码提醒，编辑沿用既有密码 sheet。
-- 保留仍被真实入口引用的 POC/诊断页；未删除历史业务数据、解绑接口或生产 schema。
-- 定向相关回归58项通过；Mini完整测试139文件通过、1条件跳过，857项通过、13项条件跳过；typecheck、production verify、icon parity通过。workbench测试改为接受合法单/双引号导入写法。
-- 当前未部署、未上传、未改 API/Web；生产与体验版仍为 `92f16c5396b596f08128af026dad635b6260cd54` / `.92`。小米14和微信原生交互待用户在同版本体验版复核。
-- 下一步：提交本轮测试修复并按当前授权执行API/Web核验与体验版上传；不得把本轮代码描述为已通过真机验收。
-
-## 前序 feedback2 交付记录
-
-- 基线3a7d2553；同RUN_ID的feedback1，root general-3独占，C新general-1负责认领退役，D无热槽仅只读审计，安装0。
-- 当前实施：群组成员卡/工号、认领全端退役、群组版本展示删除、个人页紧凑对齐、底部公开开关、筛选三图层定位。内部并发version和历史认领表/记录保留。
-- 已完成定向API/客户端171项、目录工号8项、UI34项，真实浏览器 `pnpm smoke:browser` 全流程PASS。完整verify2次启动/2次DAG/1次通过（Mini839、Node81、root1183通过；条件skip单列）。随后Mini文案/计数增量44项及production校验通过。
-- 源码831160d57f9a92a9a59bb1ca9a040ec9b4f6fb84已推送main；用户随后明确授权配套API/Web与新体验版发布，已实际完成。schema54不变，无新增迁移；备份0b31e1b2-afec-4f8a-aab4-8388e8ca1652及部署前后完整verifier通过。
-- 体验版0.1.0-p10.20260906.91，description `feedback1-831160d`，source同API/Web；2026-09-06T09:01:39.237Z上传成功，Manifest0776041dc89c3058e46cc4a88a2df622902f7a1f285ee8135d4f8190c1f92ab2。精确allowlist ensure/verify及完整生产复核通过。
-- 本次发布无源码修改，复用既有完整verify证据；候选42项、血缘、包体和实际PS候选检查通过。上传1次/成功1次，API/Web部署1次/成功1次，回退0，冷安装/依赖reconciliation0。
-- 收口message：`docs(release): record feedback1 trial 91 delivery`。仅记录已交付source，不重传或改变.91身份；唯一下一任务为小米14同.91版本验收群组成员、我的、公开开关和筛选图标。未提审/正式发布。详见 `docs/audit/ux-cleanup-10-feedback1.md`。
-- feedback2 已完成：公开手机号切换期间不插入“正在保存”文字，标签字号收紧；退出群组置于页面底部；事件与统计默认打开“排班统计”；全天班胶囊改为紧凑容器；修改登录密码字号与周围一致；首页筛选图标改用三条原生横线并保留生成资源引用；换班/请假/加扣班确认窗口异常不再静默当作取消。
-- 定向回归46项通过；Mini完整verify 139文件/853通过/13条件skip，类型检查、icon parity、格式/lint与diff check通过。工作流修复提交 `ccdcd8fff20050293b7f280206c331948a1ca208` 已整合；根整合提交待记录。
-- feedback2 随后已整合为 `92f16c5396b596f08128af026dad635b6260cd54`，API/Web与体验版`.92`已交付；其小米14复核仍以真机证据为准。
-
-## 前序 .90 交付事实
-
-- RUN_ID `ux-cleanup-10-20260906083903`。最终B授权十项代码、保留历史数据迁移、API/Web及一个体验版；额外仅批准PastScheduleView月份按钮44px局部修复。
-- 手机号仍为**默认群内可见，明确关闭才隐藏**；严格显式同意实验未采用。
-- Q1—Q10全部整合。需求/文件/提交/测试/删除与兼容矩阵见 `docs/audit/ux-cleanup-10-20260906083903.md`。
-- 主应用6d0575d0、锁定依赖打包修正eb318961、0054兼容迁移40a189dd、经审计血缘证明94b761b5均已普通推送main；根目录既有用户内容保留。
-
-## 实际验证与交付
-
-- 完整verify启动4/进入DAG4/有效PASS1：Mini838通过/12条件skip，Node81通过，root1180通过/369条件skip。数据库另以真实MySQL55项及能力guard10项验证；5项合成shell回退测试不是生产恢复演练。
-- 隔离浏览器smoke全流程PASS；profile13桌面几何、toast28绘制组合；后续lineage/motion20项及icon:parity:check通过。原生/小米14证据未取得。
-- S eb318961 API/Web兼容过渡已验证；F40a189dda71b7038e545713a40d36728c0831a6e API/Web/schema54已验证。0054摘要9fa2592ec7fe0631770b9b53d6b8eaeb8a2505dbf9df6a64350566316b2aa2b7；历史非空码不变。两份真实备份及摘要见审计记录；实际回退0。
-- **体验版0.1.0-p10.20260906.90已上传成功**（2026-09-06T05:01:54.278Z），source94b761b553266dca34b39d05ca71d0f900644a85，description `ux-cleanup-10-94b761b`，Manifest3ea2b40006a4a334fa85664f73f3cdeb3a2dae0adf978297a98144a7e69f3d6c。
-- 回执/allocation/bound manifest/原冻结输出/归档/远端tag交叉核验PASS；334文件，主包1,716,791/总包5,143,555 bytes；.89旧回执保留。
-- 前两次invalid ip后用户更新白名单；旧固定IPv4路径再遇ECONNRESET。当前系统真实IPv4解析与TLS1.3通过，进程IPv4优先+servicewechat NO_PROXY重试成功。未改全局VPN/TUN/DNS/hosts/TLS；未重建冻结包。CI执行4次，上传请求3次（2失败/1成功），另1次在getrandstr断开。
-- .90精确allowlist及完整installed production verifier此前PASS；本次只重试CI，没有再次迁移/部署/备份。Mini source与生产F应用树一致。
-- REUSE_ONLY；官方warm离线reconciliation2次，冷安装0/升级0；本次重试及文档收口安装0。
-
-## 前序 .90 收口记录（后续以顶部 .91 为准）
-
-- 检查点message：`docs(release): record UX cleanup trial 90 delivery`。仅文档，保持.90的source/Manifest不变，不重部署生产或机械重上传。最终main和租约释放见Git及ignored任务登记。
-- 原upload lease已释放；A/C/D副本因dirty被官方保护性隔离，未清理/重置；D实验不在main。文档lease收口后仅释放本轮自己的租约。
-- 唯一下一步：用户在小米14打开.90@94b761b，验收日历/选择器/开关/我的/群组设置、真实微信绑定与目标admin入口。自动实施与发布已收口，不进入其他批次。
-- 未提审/正式发布；未拨真人电话、修改真实隐私/自动接受设置或退出真实群组，不声称真机通过。
+- 基线 `596c20b2321a3592fc3841a82ae0764e69aeb4b0`，2026-09-07已用 `git ls-remote`核对远端main；根工作目录既有未跟踪内容未改动。
+- 用户批准七项Mini微调；1–5已完成自动检查，待用户复核：微信未绑定直接账号密码sheet、退役自主建档与旧步骤；初始密码冷启动提醒、本机按账号永久关闭；密码按钮居中放大；统计左置；今日选中黄圈。
+- `feedback4-20260907`，general-3独占。Acquire→ReuseOnly→Bootstrap均PASS，INSTALL_INVOKED=false。并行组返回POOL_BUSY，改为同槽顺序交接，不共享可写依赖。
+- 已完成47项定向回归、类型/ESLint/构建与确定性/边界/包体检查、16项浏览器布局代理、icon parity。较早Mini全集862通过/1旧路径断言失败/14条件skip；旧断言迁到共享模板后定向通过，最终全集在6–7完成后重跑。
+- 当前主包1,692,724/总包5,054,896 bytes；初始基线1,689,058/5,051,234。新增提醒及共享状态有净开销，未声称总包下降。新弹窗重复entry方案已移除；状态存App.globalData，覆盖独立CJS产物共享测试。
+- 本检查点message：`fix(miniprogram): streamline identity and launch password reminder`。尚未上传/部署，无API、Web或schema修改。
+- 唯一下一任务：复用释放后的general-3实现6–7通知胶囊与明确微信授权入口，然后整批验证、提交推送，停止于UPLOAD_REQUIRED。体验版上传需最终SHA的当次授权。
+- 详细证据与回归引入点见 `docs/audit/ux-cleanup-10-feedback4.md`。前序feedback3、feedback2交付事实保留在各轮审计文件与Git，不推断当前生产/体验版身份。

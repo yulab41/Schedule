@@ -252,14 +252,6 @@ export async function linkWechatPassword(
   );
 }
 
-export async function registerWechat(
-  linkToken: string,
-  realName: string,
-): Promise<WechatAuthenticatedResult> {
-  await requireClientCapability('core');
-  return decodeAuthenticated(await postJson('/auth/wechat/register', { linkToken, realName }));
-}
-
 export async function previewAdminBinding(
   ticket: string,
 ): Promise<WechatAdminBindingPreviewResult> {
