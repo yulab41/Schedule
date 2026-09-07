@@ -8,4 +8,5 @@
 - 通讯录当前生产只读确认legacy，候选索引就绪；未修改查询配置，不能声称首搜已修复。证据见 `feedback5-directory-inspection.md`；恢复general-1后本轮两组可并行。
 - 第6项群组日历偏好胶囊已实现，直接Page和组件生命周期有回归；读取失败保留持久错误。组织分包+360字节，Mini verify及28组合CSS代理通过；详情 `feedback5-group-feedback.md`。未部署上传，待主任务集成和手机验收。
 - 微信本人诊断与错误胶囊已整合，Mini89/API34/本地MySQL5通过，真实消息未发送；详见 `feedback5-notifications.md`。整合lint发现新测试wx声明问题，修正后lint/11项回归通过。
+- 全Mini旧toast清单仍要求两套计时器，更新为只允许共用timer；24项相关回归与lint通过，保留原功能错误/生命周期检查。
 - 唯一下一批：整合全仓验证、同口径包审与最终推送；生产查询切换/部署/体验版上传待明确授权。仓库状态见 `../project-status.md`。

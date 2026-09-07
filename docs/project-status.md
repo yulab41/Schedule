@@ -10,4 +10,5 @@
 - 第6项群组日历偏好保存成功/失败已复用两秒顶部胶囊，补直接Page注册和组件生命周期；保留读取失败持久重试。相关测试及Mini verify、包审、toast28组合通过，组织分包+360字节；待主任务集成及真机复核。详见 `docs/audit/feedback5-group-feedback.md`；checkpoint message：`fix(miniprogram): unify calendar preference feedback`。
 - 微信诊断已整合040f03b7：本人诊断/主动测试、取凭据和发送阶段、模板同源、错误胶囊、通讯录查询计划与实例年龄。Mini89/API34/本地MySQL5及视觉代理通过，详见 `docs/audit/feedback5-notifications.md`；本轮未发送真实消息。
 - 整合全仓门禁先在lint发现新群组测试wx未显式声明；改为globalThis.wx后lint及11项回归通过，checkpoint message：`test(miniprogram): declare the shared wx fixture explicitly`。
+- 全Mini整合检查发现旧toast清单断言仍要求两套timer（925通过/1旧断言失败）；改为严格只允许共享timer，24项相关回归和lint通过。checkpoint message：`test(miniprogram): enforce one shared feedback timer`；业务代码未追加变化。
 - 唯一下一批：完成整合全仓门禁和同口径包审，更新最终记录并推送；停止于验证后checkpoint，生产candidate切换、部署与最终体验版上传待授权。

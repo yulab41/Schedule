@@ -211,13 +211,8 @@ describe('controlled root-layer workflow toast', () => {
         );
       })
       .map((file) => file.replaceAll('\\', '/').split('/src/')[1]);
-    expect(clearingSources).toHaveLength(2);
-    expect(clearingSources).toEqual(
-      expect.arrayContaining([
-        'platform/info-message-lifetime.ts',
-        'subpackages/organization/components/group-settings-panel/controller.ts',
-      ]),
-    );
+    // Calendar preferences now share the same host timer as the other transient feedback.
+    expect(clearingSources).toEqual(['platform/info-message-lifetime.ts']);
     const groupSettingsTemplate = read(
       'subpackages/organization/components/group-settings-panel/index.wxml',
     );
