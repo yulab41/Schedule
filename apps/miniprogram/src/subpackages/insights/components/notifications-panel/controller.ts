@@ -18,13 +18,22 @@ import {
 } from '@schedule/presentation-core';
 import {
   ClientCapabilityDisabledError,
+  getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
 import {
   createRuntimeNotificationPreferencesClient,
   createRuntimeP9InsightsActionsClient,
 } from '../../../../platform/client-core-calendar.js';
-import { requestWechatSubscriptions } from '../../../../platform/wechat-subscription.js';
+import {
+  requestWechatSubscriptions,
+  WechatSubscriptionError,
+} from '../../../../platform/wechat-subscription.js';
+import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+  type InfoMessageHost,
+} from '../../../../platform/info-message-lifetime.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import {
   getStoredWechatToken,
@@ -65,6 +74,7 @@ interface NotificationsPageData {
   readonly notifications: readonly NotificationCard[];
   readonly pageScrollStyle: string;
   readonly shellHeaderStyle: string;
+  readonly showSubscriptionSettings: boolean;
   readonly state: NotificationState;
   readonly templateConfigured: boolean;
   readonly unreadCount: number;
@@ -72,7 +82,7 @@ interface NotificationsPageData {
   readonly viewportClass: string;
 }
 
-interface NotificationsPageInstance {
+interface NotificationsPageInstance extends InfoMessageHost {
   readonly data: NotificationsPageData;
   readonly properties: {
     readonly embedded: boolean;
@@ -84,6 +94,8 @@ interface NotificationsPageInstance {
   _loadedGroupId: string;
   _nextCursor: string | undefined;
   _requestSerial: number;
+  _feedbackGeneration?: number;
+  _feedbackHidden?: boolean;
   setData(patch: Partial<NotificationsPageData>, callback?: () => void): void;
   triggerEvent?(name: string, detail?: unknown): void;
 }
@@ -125,6 +137,7 @@ export function createNotificationsPanelControllerDefinition() {
       notifications: [],
       pageScrollStyle: 'height:calc(100% - 76px);',
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
+      showSubscriptionSettings: false,
       state: 'loading' as NotificationState,
       templateConfigured: SUBSCRIPTION_TEMPLATE_IDS.length > 0,
       unreadCount: 0,
@@ -148,6 +161,7 @@ export function createNotificationsPanelControllerDefinition() {
     },
     lifetimes: {
       attached(this: NotificationsPageInstance): void {
+        this._feedbackHidden = false;
         recordMiniTelemetryBoundary(
           this.properties.mode === 'settings'
             ? 'notification-settings:controller-attached'
@@ -167,10 +181,19 @@ export function createNotificationsPanelControllerDefinition() {
         startLoad(this);
       },
       detached(this: NotificationsPageInstance): void {
+        suspendNotificationFeedback(this, false);
         initializeRuntimeState(this);
         invalidateNotificationRequests(this);
         this._loadedGroupId = '';
         this._nextCursor = undefined;
+      },
+    },
+    pageLifetimes: {
+      hide(this: NotificationsPageInstance): void {
+        suspendNotificationFeedback(this);
+      },
+      show(this: NotificationsPageInstance): void {
+        this._feedbackHidden = false;
       },
     },
     methods: {
@@ -215,6 +238,27 @@ export function createNotificationsPanelControllerDefinition() {
         event: { readonly detail: { readonly checked: boolean } },
       ): void {
         void toggleSubscription(this, event.detail.checked);
+      },
+      handleSubscribe(this: NotificationsPageInstance): void {
+        void toggleSubscription(this, true);
+      },
+      handleOpenSubscriptionSettings(this: NotificationsPageInstance): void {
+        if (!this.data.showSubscriptionSettings || this.data.busy) return;
+        const requestSerial = this._requestSerial;
+        const groupId = this.data.groupId;
+        const onFailure = () => {
+          if (!isNotificationRequestCurrent(this, requestSerial, groupId)) return;
+          this.setData({ errorMessage: '微信设置暂时无法打开，请点击右上角菜单进入设置。' });
+        };
+        try {
+          (
+            wx as unknown as {
+              openSetting(options: { withSubscriptions: boolean; fail(): void }): void;
+            }
+          ).openSetting({ withSubscriptions: true, fail: onFailure });
+        } catch {
+          onFailure();
+        }
       },
     },
   };
@@ -355,6 +399,7 @@ async function saveGroupSettings(page: NotificationsPageInstance): Promise<void>
   initializeRuntimeState(page);
   const requestSerial = page._requestSerial;
   const groupId = page.data.groupId;
+  const feedback = captureNotificationFeedback(page);
   page.setData({ errorMessage: '', groupSettingsBusy: true, infoMessage: '' });
   try {
     await requireClientCapability('externalMessages');
@@ -366,8 +411,8 @@ async function saveGroupSettings(page: NotificationsPageInstance): Promise<void>
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     page.setData({
       groupHoursInput: formatReminderHours(settings.dutyReminderHours),
-      infoMessage: '群组提醒时间已保存。',
     });
+    showNotificationInfo(page, '群组提醒时间已保存。', feedback);
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -387,6 +432,7 @@ async function saveMyPreferences(page: NotificationsPageInstance): Promise<void>
   initializeRuntimeState(page);
   const requestSerial = page._requestSerial;
   const groupId = page.data.groupId;
+  const feedback = captureNotificationFeedback(page);
   page.setData({ errorMessage: '', infoMessage: '', mySettingsBusy: true });
   try {
     await requireClientCapability('externalMessages');
@@ -397,10 +443,10 @@ async function saveMyPreferences(page: NotificationsPageInstance): Promise<void>
     });
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     page.setData({
-      infoMessage: '个人提醒设置已保存。',
       myHoursInput: formatReminderHours(preferences.dutyReminderHours),
       myHoursMode: getReminderHoursMode(preferences.dutyReminderHours),
     });
+    showNotificationInfo(page, '个人提醒设置已保存。', feedback);
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -427,6 +473,30 @@ function initializeRuntimeState(page: NotificationsPageInstance): void {
 
 function invalidateNotificationRequests(page: NotificationsPageInstance): void {
   page._requestSerial += 1;
+  page._feedbackGeneration = (page._feedbackGeneration ?? 0) + 1;
+  clearInfoMessageTimer(page);
+}
+
+function suspendNotificationFeedback(page: NotificationsPageInstance, clearView = true): void {
+  page._feedbackHidden = true;
+  page._feedbackGeneration = (page._feedbackGeneration ?? 0) + 1;
+  clearInfoMessageTimer(page);
+  if (clearView) page.setData({ infoMessage: '' });
+}
+
+function captureNotificationFeedback(page: NotificationsPageInstance): () => boolean {
+  const generation = page._feedbackGeneration ?? 0;
+  return () => !page._feedbackHidden && (page._feedbackGeneration ?? 0) === generation;
+}
+
+function showNotificationInfo(
+  page: NotificationsPageInstance,
+  message: string,
+  isCurrent: () => boolean,
+): void {
+  if (!isCurrent()) return;
+  page.setData({ infoMessage: message });
+  scheduleInfoMessageExpiry(page, message, isCurrent);
 }
 
 function isNotificationRequestCurrent(
@@ -446,6 +516,7 @@ function emptyNotificationsDataPatch(): Pick<
   | 'groupHoursInput'
   | 'groupSettingsBusy'
   | 'infoMessage'
+  | 'showSubscriptionSettings'
   | 'loadingMore'
   | 'myHoursInput'
   | 'myHoursMode'
@@ -463,6 +534,7 @@ function emptyNotificationsDataPatch(): Pick<
     groupHoursInput: '',
     groupSettingsBusy: false,
     infoMessage: '',
+    showSubscriptionSettings: false,
     loadingMore: false,
     myHoursInput: '',
     myHoursMode: 'default',
@@ -505,9 +577,13 @@ async function toggleSubscription(
   initializeRuntimeState(page);
   const requestSerial = page._requestSerial;
   const groupId = page.data.groupId;
-  page.setData({ busy: true, errorMessage: '', infoMessage: '' });
+  const feedback = captureNotificationFeedback(page);
+  page.setData({ busy: true, errorMessage: '', infoMessage: '', showSubscriptionSettings: false });
   try {
-    await requireClientCapability('externalMessages');
+    const capability = getClientCapabilitySnapshot();
+    if (!capability.global || !capability.externalMessages) {
+      throw new ClientCapabilityDisabledError('externalMessages');
+    }
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     let enabled = checked;
     if (checked) {
@@ -523,10 +599,10 @@ async function toggleSubscription(
         const blocked = grants.some((grant) => grant.status === 'blocked');
         page.setData({
           busy: false,
-          enabled: false,
-          infoMessage: blocked
-            ? '微信订阅已被系统封禁，未开启提醒。'
-            : '未获得微信订阅授权，未开启提醒。',
+          showSubscriptionSettings: !blocked,
+          errorMessage: blocked
+            ? '微信订阅已被系统封禁，本次订阅未完成。'
+            : '未获得本次微信订阅授权。若已记住拒绝选择，请在微信设置中调整后再次订阅。',
         });
         return;
       }
@@ -538,8 +614,12 @@ async function toggleSubscription(
     page.setData({
       busy: false,
       enabled: preferences.wechatNotificationsEnabled !== false,
-      infoMessage: enabled ? '微信值班提醒已开启。' : '微信值班提醒已关闭，应用内通知仍可用。',
     });
+    showNotificationInfo(
+      page,
+      enabled ? '已完成本次微信订阅授权。' : '微信值班提醒已关闭，应用内通知仍可用。',
+      feedback,
+    );
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     if (error instanceof ClientCapabilityDisabledError) {
@@ -548,6 +628,7 @@ async function toggleSubscription(
     }
     page.setData({
       busy: false,
+      showSubscriptionSettings: error instanceof WechatSubscriptionError && error.code === 20004,
       errorMessage: toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
     });
   }

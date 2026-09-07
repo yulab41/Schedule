@@ -1,6 +1,7 @@
 import { createAccountSecurityController } from './controller.js';
 import { createProfileAccountClient } from '../../platform/profile-account.js';
 import {
+  awaitWechatSessionRecovery,
   clearWechatSession,
   getStoredWechatAuthMethod,
   getStoredWechatProfile,
@@ -14,6 +15,7 @@ export function createRuntimeAccountSecurityController() {
     getWechatRequestAuthentication(),
   );
   return createAccountSecurityController({
+    waitForSession: awaitWechatSessionRecovery,
     getProfile: getStoredWechatProfile,
     getAuthMethod: getStoredWechatAuthMethod,
     getPasswordStatus: () => account.getPasswordStatus(),

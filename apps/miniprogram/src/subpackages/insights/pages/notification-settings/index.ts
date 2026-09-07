@@ -26,6 +26,12 @@ Page({
   onUnload(this: NotificationSettingsPageInstance): void {
     controller.lifetimes.detached.call(this);
   },
+  onHide(this: NotificationSettingsPageInstance): void {
+    controller.pageLifetimes.hide.call(this);
+  },
+  onShow(this: NotificationSettingsPageInstance): void {
+    controller.pageLifetimes.show.call(this);
+  },
 } as never);
 
 function decodeGroupId(value: string | undefined): string {

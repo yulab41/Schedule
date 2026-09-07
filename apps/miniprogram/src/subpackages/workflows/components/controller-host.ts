@@ -2,6 +2,10 @@ import {
   recordMiniTelemetryBoundary,
   type MiniTelemetryBoundaryMarker,
 } from '../../../platform/telemetry.js';
+import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+} from '../../../platform/info-message-lifetime.js';
 
 type ControllerMethod = (this: WorkflowPanelHost, ...arguments_: unknown[]) => unknown;
 
@@ -246,13 +250,6 @@ function closeWorkflowPickers(host: WorkflowPanelHost): void {
   }
 }
 
-function clearInfoMessageTimer(host: WorkflowPanelHost): void {
-  delete host.__infoMessageToken;
-  if (host.__infoMessageTimer === undefined) return;
-  clearTimeout(host.__infoMessageTimer);
-  host.__infoMessageTimer = undefined;
-}
-
 function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
   clearInfoMessageTimer(host);
   if (value !== host.__infoMessageText) {
@@ -265,16 +262,7 @@ function updateInfoMessageTimer(host: WorkflowPanelHost, value: unknown): void {
   const expected = value;
   const task = captureWorkflowControllerTask(host);
   if (!task.isCurrent()) return;
-  const token = {};
-  host.__infoMessageToken = token;
-  host.__infoMessageTimer = setTimeout(() => {
-    if (host.__infoMessageToken !== token) return;
-    delete host.__infoMessageToken;
-    host.__infoMessageTimer = undefined;
-    if (task.isCurrent() && host.data['infoMessage'] === expected) {
-      host.setData({ infoMessage: '' });
-    }
-  }, 2_000);
+  scheduleInfoMessageExpiry(host, expected, () => task.isCurrent());
 }
 
 export function pauseWorkflowInfo(target: object, source: string): void {

@@ -156,6 +156,7 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
+  'platform/info-message-lifetime.ts',
   'components/account-security/controller.ts',
   'components/account-security/runtime.ts',
   'platform/password-reminder-runtime.ts',

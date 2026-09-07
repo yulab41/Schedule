@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：UX-CLEANUP-10 feedback4 实施中
+## 当前批次：UX-CLEANUP-10 feedback4 已完成自动验证，待用户复核
 
 - 基线 `596c20b2321a3592fc3841a82ae0764e69aeb4b0`，2026-09-07已用 `git ls-remote`核对远端main；根工作目录既有未跟踪内容未改动。
-- 用户批准七项Mini微调；1–5已完成自动检查，待用户复核：微信未绑定直接账号密码sheet、退役自主建档与旧步骤；初始密码冷启动提醒、本机按账号永久关闭；密码按钮居中放大；统计左置；今日选中黄圈。
-- `feedback4-20260907`，general-3独占。Acquire→ReuseOnly→Bootstrap均PASS，INSTALL_INVOKED=false。并行组返回POOL_BUSY，改为同槽顺序交接，不共享可写依赖。
-- 已完成47项定向回归、类型/ESLint/构建与确定性/边界/包体检查、16项浏览器布局代理、icon parity。较早Mini全集862通过/1旧路径断言失败/14条件skip；旧断言迁到共享模板后定向通过，最终全集在6–7完成后重跑。
-- 当前主包1,692,724/总包5,054,896 bytes；初始基线1,689,058/5,051,234。新增提醒及共享状态有净开销，未声称总包下降。新弹窗重复entry方案已移除；状态存App.globalData，覆盖独立CJS产物共享测试。
-- 本检查点message：`fix(miniprogram): streamline identity and launch password reminder`。尚未上传/部署，无API、Web或schema修改。
-- 唯一下一任务：复用释放后的general-3实现6–7通知胶囊与明确微信授权入口，然后整批验证、提交推送，停止于UPLOAD_REQUIRED。体验版上传需最终SHA的当次授权。
+- 用户批准七项Mini微调均已实现：未绑定直接账号密码sheet及旧步骤退役；初始密码冷启动提醒与本机按账号永久关闭；密码按钮修正；统计左置；今日选中黄圈；通知复用两秒ui-toast；独立微信订阅入口与同步授权调用。
+- `feedback4-20260907`，general-3先由root独占，c7f93d48提交并Release后由feedback4-notify正式Acquire。ReuseOnly/Bootstrap均PASS，INSTALL_INVOKED=false。无槽时POOL_BUSY，顺序交接，不共享可写依赖。
+- 最终Mini全集889通过/14条件skip（142文件通过/1跳过，103.73s）；typecheck、变更ESLint/format、Mini verify、icon parity通过。前半轮布局代理16项及共享toast浏览器布局28组合通过；均非原生验收。
+- notify阶段verify 6.25s：dirty主包1,693,648/总包5,062,990 bytes；clean基线1,689,058/5,051,234。净开销存在，不声称减包；最终clean测量待检查点后交接记录。主包1.5M与矩阵节点预算预警保留。
+- c7f93d48收尾审查的401自动恢复漏提醒已补waitForSession及卸载代数校验，2项先红后绿；通知新增20项回归含同步原生调用、静默授权、重复/迟到响应、direct Page和设置错误入口。
+- 本检查点message：`fix(miniprogram): clarify subscriptions and transient feedback`。暂未推送/上传/部署，无API、Web或schema修改。
+- 唯一下一任务：root接回已验证检查点，记录clean包体并普通推送，停止于UPLOAD_REQUIRED；最终SHA体验上传须用户当次授权，随后小米14核对版本复核七项。
 - 详细证据与回归引入点见 `docs/audit/ux-cleanup-10-feedback4.md`。前序feedback3、feedback2交付事实保留在各轮审计文件与Git，不推断当前生产/体验版身份。

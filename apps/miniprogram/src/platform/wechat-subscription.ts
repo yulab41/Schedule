@@ -1,4 +1,24 @@
-import { requireClientCapability } from '../app/client-capability-store.js';
+import {
+  ClientCapabilityDisabledError,
+  getClientCapabilitySnapshot,
+} from '../app/client-capability-store.js';
+
+export class WechatSubscriptionError extends Error {
+  public constructor(public readonly code: number | undefined) {
+    super(
+      code === 20004
+        ? '微信通知总开关已关闭，请在微信设置中开启后再次订阅。'
+        : code === 10005
+          ? '微信暂时无法显示订阅窗口，请再次点击订阅。'
+          : code === 10004
+            ? '微信订阅模板暂不可用，请联系管理员。'
+            : code === 20005
+              ? '当前小程序的微信订阅能力已暂停。'
+              : '微信订阅授权暂时不可用，请检查网络后重试。',
+    );
+    this.name = 'WechatSubscriptionError';
+  }
+}
 
 export type WechatSubscriptionStatus = 'accepted' | 'rejected' | 'blocked' | 'filtered' | 'unknown';
 
@@ -29,7 +49,12 @@ interface WxSubscribeMessageOptions {
 export async function requestWechatSubscriptions(
   templateIds: readonly string[],
 ): Promise<readonly WechatSubscriptionGrant[]> {
-  await requireClientCapability('externalMessages');
+  // Page loading warms this snapshot. Never await before the native call:
+  // subscription must still belong to the user's original tap stack.
+  const capability = getClientCapabilitySnapshot();
+  if (!capability.global || !capability.externalMessages) {
+    throw new ClientCapabilityDisabledError('externalMessages');
+  }
   const normalizedTemplateIds = normalizeTemplateIds(templateIds);
   return new Promise((resolve, reject) => {
     (
@@ -37,7 +62,17 @@ export async function requestWechatSubscriptions(
         requestSubscribeMessage: (options: WxSubscribeMessageOptions) => unknown;
       }
     ).requestSubscribeMessage({
-      fail: () => reject(new Error('微信订阅授权暂时不可用，请稍后重试。')),
+      fail: (error) => {
+        const code =
+          typeof error === 'object' &&
+          error !== null &&
+          'errCode' in error &&
+          typeof error.errCode === 'number' &&
+          Number.isFinite(error.errCode)
+            ? error.errCode
+            : undefined;
+        reject(new WechatSubscriptionError(code));
+      },
       success: (result) =>
         resolve(
           normalizedTemplateIds.map((templateId) => {

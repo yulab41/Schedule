@@ -24,7 +24,8 @@ describe('P9 external message subscription boundary', () => {
   it('requires explicit capability-gated subscribe consent and keeps decisions in memory', () => {
     const adapter = read('src/platform/wechat-subscription.ts');
 
-    expect(adapter).toContain("requireClientCapability('externalMessages')");
+    expect(adapter).toContain('getClientCapabilitySnapshot()');
+    expect(adapter).toContain('!capability.global || !capability.externalMessages');
     expect(adapter).toContain('requestSubscribeMessage');
     expect(adapter).toContain('tmplIds');
     expect(adapter).not.toContain('wx.setStorageSync');

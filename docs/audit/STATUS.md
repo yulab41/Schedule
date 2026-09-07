@@ -1,10 +1,11 @@
 # 微信小程序审计状态
 
-## 当前批次：UX-CLEANUP-10 feedback4 实施中
+## 当前批次：UX-CLEANUP-10 feedback4 已完成自动验证，待用户复核
 
-- 1–5：已完成自动检查，待用户复核；6–7：待实施。范围和唯一下一任务与 `../project-status.md`一致。
+- 1–7均已实现并完成自动检查；实体机待用户复核。范围和唯一下一任务与 `../project-status.md`一致。
 - 本机按账号“不再提示”；仅App冷启动重新检查，热恢复不弹。旧绑定步骤和自主建档已删除，普通登录与管理员票据绑定保留。
-- 静态/Node：47项定向回归、typecheck、ESLint、Mini verify、icon parity通过。浏览器布局代理16项通过；不是Skyline/实体机证据。
+- 静态/Node：最终Mini全集889通过/14条件skip，typecheck、ESLint、Mini verify、icon parity通过。前半轮浏览器布局代理16项、共享toast28组合通过；不是Skyline/实体机证据。
 - 只读审查发现的跨打包入口单例问题已改为App.globalData，新增独立bundle共享状态测试；新组件重复entry已移除。
+- 订阅入口同步调用微信，接收偏好不冒充授权；拒绝不改偏好，20004提供明确设置入口。原生授权期间hide后仍完成保存，但不回放旧toast。自动401恢复前空账号漏提醒已补等待与卸载保护。
 - 未调用微信开发者工具、未连生产、未上传、未发真实通知；小米14同版本验证尚未取得。
-- 唯一下一任务：同槽顺序实施6–7，再整批验证与推送，停止于UPLOAD_REQUIRED。详见 `ux-cleanup-10-feedback4.md`。
+- 唯一下一任务：root接回已验证检查点，记录clean包体并普通推送，停止于UPLOAD_REQUIRED。体验上传需最终SHA当次授权，之后小米14复核。详见 `ux-cleanup-10-feedback4.md`。

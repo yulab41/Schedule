@@ -48,6 +48,35 @@ it('checks once per account per cold launch, including automatic login and no gr
   await resumed.controller.checkReminder.call(resumed.panel);
   expect(resumed.panel.data.defaultPasswordReminderOpen).toBe(true);
 });
+it('waits for an in-flight automatic login before checking the launch reminder', async () => {
+  let recover;
+  dependencies.getProfile.mockReturnValue(undefined);
+  dependencies.waitForSession = () =>
+    new Promise((resolve) => {
+      recover = resolve;
+    });
+  const { controller, panel } = mount();
+  const pending = controller.checkReminder.call(panel);
+  expect(dependencies.getPasswordStatus).not.toHaveBeenCalled();
+  dependencies.getProfile.mockReturnValue({ id: 'user-a' });
+  recover();
+  await pending;
+  expect(panel.data.defaultPasswordReminderOpen).toBe(true);
+});
+it('does not check or display a reminder after disposal while recovery is pending', async () => {
+  let recover;
+  dependencies.waitForSession = () =>
+    new Promise((resolve) => {
+      recover = resolve;
+    });
+  const { controller, panel } = mount();
+  const pending = controller.checkReminder.call(panel);
+  controller.dispose.call(panel);
+  recover();
+  await pending;
+  expect(dependencies.getPasswordStatus).not.toHaveBeenCalled();
+  expect(panel.data.defaultPasswordReminderOpen).toBe(false);
+});
 it('persists never-remind per account across launches and reports storage failure', async () => {
   const { controller, panel } = mount();
   await controller.checkReminder.call(panel);

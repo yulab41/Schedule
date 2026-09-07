@@ -27,7 +27,7 @@ describe('P9 native notification settings', () => {
       ],
     });
     expect(page).toContain('微信值班提醒');
-    expect(page).toContain('订阅授权只在点击开启时请求');
+    expect(page).toContain('微信订阅仅在你点击开启或“订阅微信提醒”时申请');
     expect(workbench).toContain('handleOpenNotificationSettings');
     expect(workbench).toContain('wx:if="{{toolAccess.notificationSettings}}"');
     expect(read('src/pages/workbench/index.ts')).toContain("'notificationSettings'");
@@ -41,7 +41,7 @@ describe('P9 native notification settings', () => {
     );
 
     expect(runtime).toContain('createRuntimeNotificationPreferencesClient');
-    expect(adapter).toContain("requireClientCapability('externalMessages')");
+    expect(adapter).toContain('getClientCapabilitySnapshot()');
     expect(controller).toContain('getMine');
     expect(controller).toContain('requestWechatSubscriptions');
     expect(controller).not.toContain('wx.setStorageSync');
@@ -57,7 +57,7 @@ describe('P9 native notification settings', () => {
 
     expect(template).toContain('正在读取通知设置');
     expect(template).toContain('通知提醒暂未开放');
-    expect(template).toContain('未获得微信订阅授权');
+    expect(template).toContain('开启接收偏好不代表微信已授权');
     expect(template).toContain('模板尚未配置');
     expect(controller).toContain("status === 'accepted'");
     expect(controller).toContain("status === 'blocked'");

@@ -44,6 +44,7 @@ interface InputEvent {
   readonly detail: { readonly value: string };
 }
 interface Dependencies {
+  waitForSession?(): Promise<unknown>;
   getProfile(): { readonly id: string } | undefined;
   getAuthMethod(): IdentityAuthMethod | undefined;
   getPasswordStatus(): Promise<MiniProgramPasswordStatus>;
@@ -70,6 +71,15 @@ export function createAccountSecurityController(dependencies: Dependencies) {
       this._securityGeneration = (this._securityGeneration ?? 0) + 1;
     },
     async checkReminder(this: AccountSecurityInstance): Promise<void> {
+      const generation = this._securityGeneration;
+      if (dependencies.waitForSession !== undefined) {
+        try {
+          await dependencies.waitForSession();
+        } catch {
+          return;
+        }
+        if (generation !== this._securityGeneration) return;
+      }
       const { checkedAccounts, activeEditors } = getPasswordReminderRuntime();
       const profileId = dependencies.getProfile()?.id;
       if (
@@ -79,7 +89,6 @@ export function createAccountSecurityController(dependencies: Dependencies) {
       )
         return;
       const accounts = checkedAccounts;
-      const generation = this._securityGeneration;
       accounts.add(profileId);
       try {
         const status = await dependencies.getPasswordStatus();

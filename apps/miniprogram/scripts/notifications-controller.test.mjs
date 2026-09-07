@@ -14,11 +14,13 @@ const mocks = vi.hoisted(() => ({
   updateGroup: vi.fn(),
   updateMine: vi.fn(),
   requireClientCapability: vi.fn(),
+  snapshot: vi.fn(),
 }));
 
 vi.mock('../src/app/client-capability-store.ts', () => ({
   ClientCapabilityDisabledError: mocks.ClientCapabilityDisabledError,
   requireClientCapability: mocks.requireClientCapability,
+  getClientCapabilitySnapshot: mocks.snapshot,
 }));
 
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
@@ -46,6 +48,12 @@ vi.mock('../src/platform/wechat-identity.ts', () => ({
 
 vi.mock('../src/platform/wechat-subscription.ts', () => ({
   requestWechatSubscriptions: mocks.requestSubscriptions,
+  WechatSubscriptionError: class extends Error {
+    constructor(code) {
+      super(`subscription error ${code}`);
+      this.code = code;
+    }
+  },
 }));
 
 describe('notification parity controller', () => {
@@ -55,8 +63,10 @@ describe('notification parity controller', () => {
     vi.stubGlobal('wx', {
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
+      openSetting: vi.fn(),
     });
     mocks.requireClientCapability.mockResolvedValue(undefined);
+    mocks.snapshot.mockReturnValue({ global: true, externalMessages: true });
     mocks.listGroups.mockResolvedValue([
       { id: groupId, isDeveloperAdmin: false, name: '测试群组', role: 'administrator' },
     ]);
@@ -72,7 +82,7 @@ describe('notification parity controller', () => {
       browserNotificationsEnabled: false,
       dutyReminderHours: input.dutyReminderHours ?? null,
       membershipId: 'member-1',
-      wechatNotificationsEnabled: false,
+      wechatNotificationsEnabled: input.wechatNotificationsEnabled ?? false,
     }));
     mocks.markAllNotificationsRead.mockResolvedValue({ count: 1 });
     mocks.markNotificationRead.mockImplementation(async (id) => ({
@@ -83,6 +93,7 @@ describe('notification parity controller', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -272,6 +283,203 @@ describe('notification parity controller', () => {
 
     expect(page.data.largeText).toBe(true);
   });
+
+  it('requests again synchronously when the persisted preference is already enabled', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    page.setData({ enabled: true });
+    mocks.requestSubscriptions.mockResolvedValue([{ status: 'accepted' }]);
+    definition.methods.handleSubscribe.call(page);
+    expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.infoMessage).toBe('已完成本次微信订阅授权。');
+  });
+
+  it('uses a two-second capsule and replaces its lifetime for consecutive saves', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    vi.useFakeTimers();
+    definition.methods.handleSaveMyPreferences.call(page);
+    await flushPromises();
+    expect(page.data.infoMessage).toBe('个人提醒设置已保存。');
+    await vi.advanceTimersByTimeAsync(1500);
+    definition.methods.handleSaveMyPreferences.call(page);
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(page.data.infoMessage).not.toBe('');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(page.data.infoMessage).toBe('');
+  });
+
+  it('saves authorization after native hide/show without replaying the old success capsule', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    let resolveGrant;
+    mocks.requestSubscriptions.mockReturnValue(
+      new Promise((resolve) => {
+        resolveGrant = resolve;
+      }),
+    );
+    definition.methods.handleToggle.call(page, { detail: { checked: true } });
+    definition.pageLifetimes.hide.call(page);
+    definition.pageLifetimes.show.call(page);
+    resolveGrant([{ status: 'accepted' }]);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.enabled).toBe(true);
+    expect(page.data.infoMessage).toBe('');
+  });
+
+  it.each(['rejected', 'blocked', 'filtered'])(
+    'does not save authorization for %s',
+    async (status) => {
+      const definition = await definitionFor('settings');
+      const page = pageFor(definition, 'settings');
+      definition.lifetimes.attached.call(page);
+      await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+      mocks.requestSubscriptions.mockResolvedValue([{ status }]);
+      definition.methods.handleSubscribe.call(page);
+      await vi.waitFor(() => expect(page.data.busy).toBe(false));
+      expect(mocks.updateMine).not.toHaveBeenCalled();
+      expect(page.data.infoMessage).toBe('');
+      expect(page.data.errorMessage).not.toBe('');
+    },
+  );
+
+  it('provides an explicit settings action for 20004 without automatically opening settings', async () => {
+    const { WechatSubscriptionError } = await import('../src/platform/wechat-subscription.ts');
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    mocks.requestSubscriptions.mockRejectedValue(new WechatSubscriptionError(20004));
+    definition.methods.handleSubscribe.call(page);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.showSubscriptionSettings).toBe(true);
+    expect(globalThis.wx.openSetting).not.toHaveBeenCalled();
+    definition.methods.handleOpenSubscriptionSettings.call(page);
+    expect(globalThis.wx.openSetting).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes an enabled preference without requesting a subscription', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    page.setData({ enabled: true });
+    definition.methods.handleToggle.call(page, { detail: { checked: false } });
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: false });
+  });
+
+  it('does not request subscription when the capability was disabled after loading', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    mocks.snapshot.mockReturnValue({ global: true, externalMessages: false });
+    definition.methods.handleSubscribe.call(page);
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+    expect(page.data.state).toBe('disabled');
+    expect(page.data.busy).toBe(false);
+  });
+
+  it.each(['detach', 'group'])(
+    'deduplicates taps and discards a grant after %s changes',
+    async (change) => {
+      const definition = await definitionFor('settings');
+      const page = pageFor(definition, 'settings');
+      definition.lifetimes.attached.call(page);
+      await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+      let resolveGrant;
+      mocks.requestSubscriptions.mockReturnValue(
+        new Promise((resolve) => {
+          resolveGrant = resolve;
+        }),
+      );
+      definition.methods.handleSubscribe.call(page);
+      definition.methods.handleSubscribe.call(page);
+      expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
+      if (change === 'detach') definition.lifetimes.detached.call(page);
+      else {
+        page.properties.groupId = otherGroupId;
+        definition.observers.groupId.call(page);
+      }
+      resolveGrant([{ status: 'accepted' }]);
+      await flushPromises();
+      expect(mocks.updateMine).not.toHaveBeenCalled();
+      expect(page.data.infoMessage).toBe('');
+    },
+  );
+
+  it('keeps the persisted preference on reject and never reports success on API failure', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    page.setData({ enabled: true });
+    mocks.requestSubscriptions.mockResolvedValue([{ status: 'rejected' }]);
+    definition.methods.handleSubscribe.call(page);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.enabled).toBe(true);
+    expect(mocks.updateMine).not.toHaveBeenCalled();
+    mocks.requestSubscriptions.mockResolvedValue([{ status: 'accepted' }]);
+    mocks.updateMine.mockRejectedValue(new Error('保存失败'));
+    definition.methods.handleSubscribe.call(page);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.infoMessage).toBe('');
+    expect(page.data.errorMessage).toBe('保存失败');
+  });
+
+  it('ignores a settings failure after detach and handles unavailable native settings safely', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    page.setData({ showSubscriptionSettings: true });
+    globalThis.wx.openSetting.mockImplementationOnce(() => {
+      throw new Error('unavailable');
+    });
+    definition.methods.handleOpenSubscriptionSettings.call(page);
+    expect(page.data.errorMessage).toContain('右上角');
+    page.setData({ errorMessage: '' });
+    definition.methods.handleOpenSubscriptionSettings.call(page);
+    const callback = globalThis.wx.openSetting.mock.calls[1][0].fail;
+    definition.lifetimes.detached.call(page);
+    callback();
+    expect(page.data.errorMessage).toBe('');
+  });
+
+  it.each(['notification-settings', 'notifications'])(
+    'bridges %s direct Page hide/show and expiry',
+    async (route) => {
+      let pageDefinition;
+      vi.stubGlobal('Page', (value) => {
+        pageDefinition = value;
+      });
+      mocks.listNotifications.mockResolvedValue({ notifications: [], unreadCount: 0 });
+      await import(`../src/subpackages/insights/pages/${route}/index.ts`);
+      const page = {
+        data: { ...pageDefinition.data },
+        setData(patch) {
+          Object.assign(this.data, patch);
+        },
+      };
+      pageDefinition.onLoad.call(page, { groupId });
+      await flushPromises();
+      page.setData({ infoMessage: '旧提示' });
+      pageDefinition.onHide.call(page);
+      pageDefinition.onShow.call(page);
+      expect(page.data.infoMessage).toBe('');
+      pageDefinition.onUnload.call(page);
+    },
+  );
 });
 
 async function definitionFor(mode) {

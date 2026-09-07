@@ -214,7 +214,7 @@ describe('controlled root-layer workflow toast', () => {
     expect(clearingSources).toHaveLength(2);
     expect(clearingSources).toEqual(
       expect.arrayContaining([
-        'subpackages/workflows/components/controller-host.ts',
+        'platform/info-message-lifetime.ts',
         'subpackages/organization/components/group-settings-panel/controller.ts',
       ]),
     );
@@ -223,8 +223,13 @@ describe('controlled root-layer workflow toast', () => {
     );
     expect(groupSettingsTemplate).toContain('<ui-toast');
     expect(groupSettingsTemplate).toContain('visible="{{!!infoMessage}}"');
+    const notificationsTemplate = read(
+      'subpackages/insights/components/notifications-panel/index.wxml',
+    );
+    expect(notificationsTemplate).toContain('<ui-toast');
+    expect(notificationsTemplate).toContain('visible="{{!!infoMessage}}"');
+    expect(notificationsTemplate).not.toContain('title="设置状态"');
     for (const [directory, field] of [
-      ['subpackages/insights/components/notifications-panel', 'infoMessage'],
       ['subpackages/organization/components/scheduling-config-panel', 'managementInfo'],
       ['subpackages/organization/components/invite-visitor-panel', 'managementInfo'],
       ['subpackages/organization/components/platform-accounts-panel', 'managementInfo'],

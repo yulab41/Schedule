@@ -3,7 +3,7 @@
 ## 授权与基线
 
 - 用户批准七项Mini微调；不授权依赖安装、生产连接或体验版上传。规划基线与远端main均为596c20b2。
-- 模式REUSE_ONLY；general-3租约用于feedback4-root。其他组POOL_BUSY，顺序交接同一健康槽，安装0、新建冷槽0。
+- 模式REUSE_ONLY；general-3先由feedback4-root独占，c7f93d48检查点释放后由feedback4-notify正式Acquire。其他组POOL_BUSY，顺序交接同一健康槽，安装0、新建冷槽0。
 - 读取Schedule guardrails、miniprogram-development、systematic-debugging、frontend-design及相关UI知识。成功使用shell/Git/Node/Edge布局代理；微信DevTools执行面因仓库政策禁用。
 - 截图只作问题报告；短SHA/renderer/基础库/微信版本不齐，不能写当前小米14已验收。
 
@@ -16,10 +16,21 @@
 | F4-03 | P2   | a50b423b按钮缺显式flex居中、sm字号                         | 复用原表单并统一md字号、48px最小高度；390/320和大字号浏览器几何通过，实体机待复核。                                                                                 |
 | F4-04 | P3   | ee6f9cb8旧tab顺序与用户要求不同                            | 统计左、事件右，保留statistics默认与数据口径；静态顺序/控制器回归。                                                                                                 |
 | F4-05 | P3   | 4e5cb461为today+selected加入near-black圈                   | 仅改同色黄色token，周末/禁用语义不变；原日期状态合同及增量断言通过。                                                                                                |
-| F4-06 | P2   | 通知保存使用常驻info alert                                 | 待实施共享ui-toast及两秒寿命；需覆盖direct Page生命周期。                                                                                                           |
-| F4-07 | P2   | 偏好默认true不是授权；异步gate在微信调用之前；fail吞错误码 | 待实施明确订阅入口、同步能力快照校验、直接wx调用和错误分类；不改变API默认或建设回调服务器。                                                                         |
+| F4-06 | P2   | 通知保存使用常驻info alert                                 | 群组/个人保存、微信订阅成功复用ui-toast；与换班共享两秒计时helper，状态挂实例。direct Page与Component均桥接hide/show，隐藏/卸载/换群不回放旧反馈。                  |
+| F4-07 | P2   | 偏好默认true不是授权；异步gate在微信调用之前；fail吞错误码 | 独立“订阅微信提醒”入口，同步能力快照校验后直接wx调用。静默accept成功；拒绝不写偏好；20004显示明确设置按钮。保留API默认，不建设回调服务器。                          |
 
 引入点使用git log -S与blame核实。状态机与UI改动按需求变化记录，不称纯重构。密码接收者绑定保留，新增卸载/账号变化的迟到响应保护；请求协议、proof和错误验证保持。
+
+F4-07引入点：API默认true及发送字段为ef3d20ca5；controller异步gate为766ec6ac6，adapter异步gate为cb82cb78c。原生是否因Promise丢失手势尚未确证，本次以同步调用回归保障直接点击边界。F4-02收尾审查发现c7f93d48在401恢复期间可能先读到空账号而漏提醒：现等待已有awaitWechatSessionRecovery，等待前后校验实例代数，卸载不继续请求，新增2项先红后绿。
+
+共享计时提取逐调用审计：接收者调用保留，清理token/计时器、2秒、当前任务与同文案校验相同，无异步请求或错误路径变化；额外清理为空计时状态的幂等调用。通知新增隐藏代数仅管反馈，不取消微信原生授权返回后的正常偏好保存。
+
+## 微信授权说明与未验证项
+
+- 用户确认症状为点击后不出现授权窗口。旧开关若默认true，点击实际走关闭分支；独立订阅入口现可再次申请。记住选择后静默返回是微信正常行为，不能强制弹窗。
+- 截图8的[消息推送配置](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)接收微信发给开发者的事件，与客户端弹订阅窗不同；本轮不填URL/Token/AESKey。
+- [微信订阅API](https://developers.weixin.qq.com/miniprogram/dev/api/open-api/subscribe-message/wx.requestSubscribeMessage.html)要求用户主动点击；[订阅说明](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/subscribe-message-overview.html)区分一次性和长期权限。官方网页经PowerShell只读请求取得，web工具直连失败不计成功使用。
+- 后端已实现定时任务与订阅发送；当前生产模板类型/字段、凭证配置、实际投递与微信原生窗口未测量。本次不声称“微信消息已送达”或“小米14验收通过”。
 
 ## 验证与体积
 
@@ -30,8 +41,13 @@
 - 中途Mini全集：862通过、1旧共享模板路径断言失败、14条件skip；随后修正测试路径并定向通过。6–7完成后跑最终全集。
 - 独立组件方案曾增20,241 bytes；改为工作台直接模板与共享控制器并排除无用途独立module输出后，当前主包1,692,724/总包5,054,896。净增3,662 bytes，不声称净减包。
 - 命令、实际日志/包摘要位于general-3/runtime/audit/feedback4，均ignored。原生Console/Network/冷启动性能当前工具无法测量，暂未验证。
+- 6–7及恢复收尾：新增22项回归先红后绿（通知15、订阅运行时5、恢复等待2）；受影响定向集与ui-toast共73项最终纳入全集通过。两处旧异步gate/文案静态断言与旧toast归属审计随实际结构迁移，未降低授权要求。
+- `pnpm --filter @schedule/miniprogram verify` PASS，6.25s，dirty主包1,693,648/总包5,062,990 bytes；相同预算预警保留。最大文件：workbench/index.js 217,223B、scheduling/pages/manual/index.js 182,334B、workflows/pages/swap/index.js 180,827B（无最大文件基线比较）。
+- `pnpm --filter @schedule/miniprogram test` PASS：142文件通过/1跳过，889通过/14条件skip，103.73s。日志`notify-full-mini.log`。变更ESLint/format、typecheck、icon parity PASS，无新增依赖。
+- `node apps/miniprogram/scripts/ui-toast-layout.mjs`复用已安装Edge完成28个CSS布局组合。首次将输出指定canonical runtime被脚本git check-ignore跨工作树边界拒绝；改用本槽ignored runtime/audit/feedback4/notification-toast-layout后PASS，未改脚本或产品布局来规避检查。
 
 ## 检查点与下一步
 
 - 首检查点message：`fix(miniprogram): streamline identity and launch password reminder`。
-- 唯一下一任务6–7通知实施，完成后整批验证并推送；无体验上传/生产部署。最终状态UPLOAD_REQUIRED，真机验收需新构建对应证据。
+- 最终检查点message：`fix(miniprogram): clarify subscriptions and transient feedback`；无体验上传/生产部署。
+- 唯一下一任务root接回本检查点，记录clean包体并普通推送，停止于UPLOAD_REQUIRED。原生授权窗口、实际送达和小米14验收均需新构建对应证据，不以本轮Node/桌面代理替代。
