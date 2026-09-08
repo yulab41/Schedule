@@ -113,6 +113,29 @@ describeWithDatabase('wechat notification deliveries', () => {
     });
   });
 
+  it('does not redirect an old account pending message to the new owner of its WeChat identity', async () => {
+    await appendDutyReminder(memberUserId);
+    // State after a committed unlink/rebind: the original business recipient is unchanged.
+    await client.database.execute(
+      sql`UPDATE users SET wechat_openid = NULL WHERE id = ${memberUserId}`,
+    );
+    await client.database.execute(
+      sql`UPDATE users SET wechat_openid = 'mock-openid-member' WHERE cloudbase_uid = 'cloudbase-owner'`,
+    );
+    const gateway = new RecordingGateway();
+    const retry = new NotificationRetryJob(
+      client,
+      createPushDispatcher({}),
+      new WechatPushDispatcher(client, gateway, templateIds),
+    );
+    expect((await retry.run()).skipped).toBe(1);
+    expect(gateway.sends).toHaveLength(0);
+    await appendDutyReminderToOwner();
+    expect((await retry.run()).sent).toBe(1);
+    expect(gateway.sends).toHaveLength(1);
+    expect(gateway.sends[0]?.openid).toBe('mock-openid-member');
+  });
+
   it('skips wechat deliveries when the preference is off or the user has no openid', async () => {
     const preferences = await app.inject({
       headers: { authorization: 'Bearer member-token' },

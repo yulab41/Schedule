@@ -145,38 +145,8 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
             ? undefined
             : { cloudbaseUid: user.cloudbaseUid };
         }
-        if (claims.provider === 'wechat_web') {
-          const [identity] = await options.databaseClient.database
-            .select({ userId: userAuthIdentities.userId })
-            .from(userAuthIdentities)
-            .where(
-              and(
-                eq(userAuthIdentities.provider, 'wechat_web'),
-                ...(claims.appId === undefined ? [] : [eq(userAuthIdentities.appId, claims.appId)]),
-                eq(userAuthIdentities.subject, claims.openid),
-                eq(userAuthIdentities.userId, claims.sub),
-              ),
-            )
-            .limit(1);
-          if (identity === undefined) {
-            return undefined;
-          }
-          const [user] = await options.databaseClient.database
-            .select({ authVersion: users.authVersion, cloudbaseUid: users.cloudbaseUid })
-            .from(users)
-            .where(
-              and(
-                eq(users.id, identity.userId),
-                eq(users.authVersion, authVersion),
-                eq(users.status, 'active'),
-                isNull(users.deletedAt),
-              ),
-            )
-            .limit(1);
-          return user?.cloudbaseUid === null || user?.cloudbaseUid === undefined
-            ? undefined
-            : { cloudbaseUid: user.cloudbaseUid };
-        }
+        // Retired website sessions must never fall through to Mini or dev authentication.
+        if (claims.provider === 'wechat_web') return undefined;
 
         if (claims.appId !== undefined) {
           const [identity] = await options.databaseClient.database

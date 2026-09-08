@@ -369,6 +369,7 @@ export class WechatAuthService {
         identityCount: sql<number>`(
           SELECT COUNT(*) FROM ${userAuthIdentities}
           WHERE ${userAuthIdentities.userId} = ${sourceUserId}
+            AND ${userAuthIdentities.provider} <> 'wechat_web'
         )`,
         ownedGroupCount: sql<number>`(
           SELECT COUNT(*) FROM ${groups}

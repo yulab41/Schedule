@@ -109,9 +109,6 @@ sudo schedule-client-version-allowlist verify
 微信网站应用相关变量可以留空，直到将来确实取得网站应用：
 
 ```dotenv
-WECHAT_WEB_APPID=
-WECHAT_WEB_APPSECRET=
-WECHAT_WEB_REDIRECT_URI=
 ```
 
 ## 正式入口核验

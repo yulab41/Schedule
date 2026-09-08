@@ -6,8 +6,7 @@ import { createDevAuthPort } from './adapters/auth/dev-auth.js';
 import { createWechatAuthPort } from './adapters/auth/wechat-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
-import { createWechatGateway, createWechatWebGateway } from './modules/wechat/wechat-gateway.js';
-import { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
+import { createWechatGateway } from './modules/wechat/wechat-gateway.js';
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
 import { PasswordAuthService } from './modules/auth/password-auth-service.js';
@@ -55,7 +54,6 @@ export function createRuntimeApp(
     user: environment.MYSQL_USER,
   });
   const wechatGateway = createWechatGateway(environment);
-  const wechatWebGateway = createWechatWebGateway(environment);
   const passwordAuthService =
     environment.AUTH_PASSWORD_ENABLED === 'true'
       ? new PasswordAuthService({
@@ -65,9 +63,7 @@ export function createRuntimeApp(
         })
       : undefined;
   const wechatAuthPort =
-    wechatGateway.isConfigured ||
-    wechatWebGateway?.isConfigured === true ||
-    passwordAuthService !== undefined
+    wechatGateway.isConfigured || passwordAuthService !== undefined
       ? createWechatAuthPort({
           allowDevTokens: isDevAuthEnabled(environment),
           databaseClient,
@@ -84,15 +80,6 @@ export function createRuntimeApp(
     );
   }
 
-  const wechatWebAuthService =
-    wechatWebGateway === undefined
-      ? undefined
-      : new WechatWebAuthService({
-          databaseClient,
-          gateway: wechatWebGateway,
-          redirectUri: environment.WECHAT_WEB_REDIRECT_URI,
-          sessionSecret: environment.WECHAT_SESSION_SECRET,
-        });
   const app = createApp({
     authPort,
     clientCapabilityPolicy: createClientCapabilityPolicy(environment),
@@ -101,7 +88,6 @@ export function createRuntimeApp(
     pushDispatcher: createPushDispatcher(environment),
     ...(passwordAuthService === undefined ? {} : { passwordAuthService }),
     wechatGateway,
-    ...(wechatWebAuthService === undefined ? {} : { wechatWebAuthService }),
     wechatSessionSecret: environment.WECHAT_SESSION_SECRET,
   });
 

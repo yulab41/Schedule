@@ -194,6 +194,58 @@ describe('P3 identity login controller', () => {
     expect(page.data.errorMessage).toContain('重新点击微信');
   });
 
+  it.each([
+    ['WECHAT_IDENTITY_IN_USE', '当前微信仍绑定其他账号'],
+    ['WECHAT_ACCOUNT_ALREADY_BOUND', '目标账号已绑定另一微信'],
+    ['WECHAT_APP_ID_MISMATCH', '微信身份与当前小程序不匹配'],
+  ])('shows a safe actionable binding error for %s', async (code, message) => {
+    globalThis.wx.request.mockImplementation((options) =>
+      options.success({
+        data: { error: { code, userMessage: 'PRIVATE-IDENTITY' } },
+        statusCode: 409,
+      }),
+    );
+    const page = createPage(definition, {
+      bindingOpen: true,
+      linkToken: 'link',
+      linkExpiresAt: new Date(Date.now() + 600000).toISOString(),
+      username: 'admin',
+      password: 'private',
+    });
+    definition.handleLinkPassword.call(page);
+    await vi.waitFor(() => expect(page.data.loading).toBe(false));
+    expect(page.data.errorMessage).toContain(message);
+    expect(page.data.errorMessage).not.toContain('PRIVATE');
+    expect(storage.has('schedule.wechat.session')).toBe(false);
+  });
+
+  it.each([
+    'WECHAT_LINK_TOKEN_EXPIRED',
+    'WECHAT_LINK_TOKEN_INVALID',
+    'WECHAT_LINK_TOKEN_USED',
+    'WECHAT_APP_ID_MISMATCH',
+  ])('clears unusable credentials returned by the server: %s', async (code) => {
+    globalThis.wx.request.mockImplementation((options) =>
+      options.success({ data: { error: { code } }, statusCode: 409 }),
+    );
+    const page = createPage(definition, {
+      bindingOpen: true,
+      linkToken: 'link',
+      linkExpiresAt: new Date(Date.now() + 600000).toISOString(),
+      username: 'admin',
+      password: 'private',
+    });
+    definition.handleLinkPassword.call(page);
+    await vi.waitFor(() => expect(page.data.loading).toBe(false));
+    expect(page.data).toMatchObject({
+      bindingOpen: false,
+      linkToken: '',
+      password: '',
+      linkExpiresAt: '',
+    });
+    expect(page.data.errorMessage).toContain('重新');
+  });
+
   it.each(['password', 'network'])(
     'keeps failed %s binding in the sheet without persisting a session',
     async (failure) => {

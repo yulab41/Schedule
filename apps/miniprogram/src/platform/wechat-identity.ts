@@ -165,7 +165,10 @@ function readApiError(value: unknown, statusCode: number): WechatIdentityClientE
   const error = isRecord(value) && isRecord(value.error) ? value.error : value;
   const code = isRecord(error) ? readString(error.code) : undefined;
   const knownMessages: Readonly<Record<string, string>> = {
-    CONFLICT: '身份状态发生变化，请重新开始。',
+    CONFLICT: '微信绑定状态冲突，请刷新后重试；如仍失败，请联系管理员。',
+    WECHAT_IDENTITY_IN_USE: '当前微信仍绑定其他账号，请先解绑原账号。',
+    WECHAT_ACCOUNT_ALREADY_BOUND: '目标账号已绑定另一微信，请先解除原绑定。',
+    WECHAT_APP_ID_MISMATCH: '微信身份与当前小程序不匹配，请重新微信登录。',
     FORBIDDEN: '当前账号不满足这项操作条件。',
     SERVICE_UNAVAILABLE: '微信服务暂时不可用，请稍后重试。',
     VALIDATION_FAILED: '请检查填写内容。',

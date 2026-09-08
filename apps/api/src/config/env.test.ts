@@ -239,7 +239,7 @@ describe('loadEnvironment', () => {
     ).toThrow(/AUTH_PASSWORD_ENABLED/);
   });
 
-  it('allows the future web WeChat configuration to remain absent', () => {
+  it('ignores retired website WeChat configuration', () => {
     expect(
       loadEnvironment({
         ...validEnvironment,
@@ -254,7 +254,7 @@ describe('loadEnvironment', () => {
         WECHAT_WEB_APPID: 'wx-web-app-id',
         WECHAT_WEB_APPSECRET: undefined,
       }),
-    ).toThrow(/WECHAT_WEB_APPID/);
+    ).not.toThrow();
   });
 
   it('validates the WeChat QR environment version', () => {

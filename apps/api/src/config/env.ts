@@ -33,9 +33,6 @@ const wechatSettings = {
   WECHAT_APPID: optionalTextSchema,
   WECHAT_APPSECRET: optionalTextSchema,
   WECHAT_SESSION_SECRET: optionalTextSchema,
-  WECHAT_WEB_APPID: optionalTextSchema,
-  WECHAT_WEB_APPSECRET: optionalTextSchema,
-  WECHAT_WEB_REDIRECT_URI: optionalTextSchema,
   WECHAT_MOCK_MODE: z.enum(['true', 'false']).default('false'),
   WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
   WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
@@ -85,19 +82,6 @@ function hasCompleteVapidConfiguration(environment: {
     environment.VAPID_PRIVATE_KEY,
     environment.VAPID_PUBLIC_KEY,
     environment.VAPID_SUBJECT,
-  ].filter((value) => value !== undefined);
-  return configuredValues.length === 0 || configuredValues.length === 3;
-}
-
-function hasCompleteWebWechatConfiguration(environment: {
-  readonly WECHAT_WEB_APPID?: string | undefined;
-  readonly WECHAT_WEB_APPSECRET?: string | undefined;
-  readonly WECHAT_WEB_REDIRECT_URI?: string | undefined;
-}): boolean {
-  const configuredValues = [
-    environment.WECHAT_WEB_APPID,
-    environment.WECHAT_WEB_APPSECRET,
-    environment.WECHAT_WEB_REDIRECT_URI,
   ].filter((value) => value !== undefined);
   return configuredValues.length === 0 || configuredValues.length === 3;
 }
@@ -168,11 +152,6 @@ export const environmentSchema = z
     message:
       'MINIPROGRAM_LEGACY_CLIENT_VERSION must be included in MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS, or both must be empty',
     path: ['MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS'],
-  })
-  .refine(hasCompleteWebWechatConfiguration, {
-    message:
-      'WECHAT_WEB_APPID, WECHAT_WEB_APPSECRET and WECHAT_WEB_REDIRECT_URI must be configured together',
-    path: ['WECHAT_WEB_APPID'],
   })
   .refine(hasValidProductionPasswordConfiguration, {
     message:
@@ -256,9 +235,6 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       WECHAT_APPID: testResult.data.WECHAT_APPID,
       WECHAT_APPSECRET: testResult.data.WECHAT_APPSECRET,
       WECHAT_SESSION_SECRET: testResult.data.WECHAT_SESSION_SECRET,
-      WECHAT_WEB_APPID: testResult.data.WECHAT_WEB_APPID,
-      WECHAT_WEB_APPSECRET: testResult.data.WECHAT_WEB_APPSECRET,
-      WECHAT_WEB_REDIRECT_URI: testResult.data.WECHAT_WEB_REDIRECT_URI,
       WECHAT_MOCK_MODE: testResult.data.WECHAT_MOCK_MODE,
       WECHAT_QR_ENV_VERSION: testResult.data.WECHAT_QR_ENV_VERSION,
       WECHAT_DUTY_REMINDER_TEMPLATE_ID: testResult.data.WECHAT_DUTY_REMINDER_TEMPLATE_ID,

@@ -30,6 +30,7 @@ export const wechatDiagnosticData = {
   wechatBusy: false,
   wechatReady: false,
   wechatGranted: false,
+  wechatSendReady: false,
   wechatReceived: '尚未人工确认',
   wechatTestResult: '',
 };
@@ -69,6 +70,8 @@ export async function prepareWechatDiagnosticPage(page: Host): Promise<void> {
   page.setData({
     wechatReady: false,
     wechatGranted: false,
+    wechatSendReady: false,
+    wechatTestResult: '',
     wechatRows: [{ label: '准备', value: '正在读取配置与本人状态…' }],
   });
   if (!group) {
@@ -112,7 +115,10 @@ export async function prepareWechatDiagnosticPage(page: Host): Promise<void> {
       value: `${outcomeLabels[row.outcome]}${row.errCode === undefined ? '' : ` / 错误码 ${row.errCode}`}${row.durationMs === undefined ? '' : ` / ${row.durationMs}ms`}`,
     })),
   ];
+  const issue = sendReadinessIssue(server.status === 'fulfilled' ? server.value : undefined);
+  if (issue) rows.push({ label: '发送前检查', value: issue });
   page.setData({
+    wechatSendReady: !issue,
     wechatRows: rows,
     wechatReady:
       nativeAvailable &&
@@ -217,8 +223,17 @@ export const wechatDiagnosticMethods = {
           if (!current()) return;
           record({ stage: 'preference', outcome: 'saved' });
           delete this._wechatOperation;
-          this.setData({ wechatGranted: true });
-          append(this, '接收偏好', '保存成功；可主动发送一条本人测试消息');
+          append(this, '接收偏好', '保存成功；正在重新检查绑定身份');
+          let state: unknown;
+          try {
+            state = await inspectWechatNotifications(group);
+          } catch {
+            state = undefined;
+          }
+          if (!current()) return;
+          const issue = sendReadinessIssue(state);
+          this.setData({ wechatGranted: !issue, wechatSendReady: !issue });
+          append(this, '发送前检查', issue || '身份一致；可主动发送一条本人测试消息');
         } catch {
           if (!current()) return;
           record({ stage: 'preference', outcome: 'failed' });
@@ -244,6 +259,7 @@ export const wechatDiagnosticMethods = {
       !canUseDiagnostics() ||
       this.data.wechatBusy ||
       !this.data.wechatGranted ||
+      !this.data.wechatSendReady ||
       !this._wechatGroup
     )
       return;
@@ -294,6 +310,20 @@ function record(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+function sendReadinessIssue(value: unknown): string {
+  if (value === undefined) return '无法确认发送条件，请刷新只读检查。';
+  const state = record(value);
+  if (state['currentAppIdentityExists'] !== true || state['legacyOpenidExists'] !== true)
+    return '当前账号未完成微信绑定，请退出登录后通过微信快捷登录绑定，再返回检查。';
+  if (state['identityMatches'] !== true)
+    return '微信登录与发送身份不一致，请重新微信登录并刷新检查。';
+  if (state['mockMode'] !== false) return '当前为模拟模式或状态未知，不能发送真实测试。';
+  if (state['gatewayConfigured'] !== true || state['templateConfigured'] !== true)
+    return '发送配置未就绪，请联系管理员检查。';
+  if (state['activeMember'] !== true) return '当前账号不是有效群成员。';
+  if (state['receivingEnabled'] !== true) return '请先开启微信提醒接收偏好。';
+  return '';
 }
 function serverRows(value: unknown): Row[] {
   if (value === undefined)

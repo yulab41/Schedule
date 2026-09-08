@@ -362,7 +362,7 @@
         <ui-button label="刷新只读检查" variant="secondary" disabled="{{wechatBusy}}" bindpress="handleRefreshWechat"></ui-button>
         <ui-button label="开始本次订阅诊断" disabled="{{wechatBusy || !wechatReady}}" loading="{{wechatBusy}}" bindpress="handleWechatSubscribe"></ui-button>
         <ui-button label="打开微信设置" variant="secondary" bindpress="handleWechatSettings"></ui-button>
-        <ui-button label="发送一条本人测试消息" disabled="{{wechatBusy || !wechatGranted}}" bindpress="handleWechatTestSend"></ui-button>
+        <ui-button label="发送一条本人测试消息" disabled="{{wechatBusy || !wechatGranted || !wechatSendReady}}" bindpress="handleWechatTestSend"></ui-button>
         <ui-button label="我已收到" variant="secondary" disabled="{{wechatBusy || !wechatTestResult}}" bindpress="handleWechatReceived"></ui-button>
         <ui-button label="暂未收到" variant="secondary" disabled="{{wechatBusy || !wechatTestResult}}" bindpress="handleWechatNotReceived"></ui-button>
       </view>

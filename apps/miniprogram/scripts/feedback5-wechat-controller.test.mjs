@@ -52,7 +52,18 @@ beforeEach(async () => {
   mock.owner = 'owner';
   mock.generation = 1;
   mock.templates.mockResolvedValue(['PRIVATE-TEMPLATE']);
-  mock.inspect.mockResolvedValue({ deliveries: [], tests: [], identityMatches: true });
+  mock.inspect.mockResolvedValue({
+    deliveries: [],
+    tests: [],
+    currentAppIdentityExists: true,
+    legacyOpenidExists: true,
+    identityMatches: true,
+    mockMode: false,
+    gatewayConfigured: true,
+    templateConfigured: true,
+    activeMember: true,
+    receivingEnabled: true,
+  });
   mock.subscribe.mockResolvedValue([{ granted: true, status: 'accepted' }]);
   mock.save.mockResolvedValue({});
   mock.send.mockResolvedValue({ outcome: 'accepted', category: 'wechat-accepted', phase: 'send' });
@@ -151,4 +162,58 @@ describe('self subscription diagnostic workflow', () => {
     module.wechatDiagnosticMethods.handleWechatTestSend.call(host);
     expect(mock.send).toHaveBeenCalledTimes(1);
   });
+});
+
+it.each([
+  { currentAppIdentityExists: false, legacyOpenidExists: false, identityMatches: false },
+  { currentAppIdentityExists: true, legacyOpenidExists: true, identityMatches: false },
+])(
+  'does not enable a test send after subscription when identity is missing or mismatched %j',
+  async (identity) => {
+    mock.inspect.mockResolvedValue({
+      ...identity,
+      mockMode: false,
+      gatewayConfigured: true,
+      templateConfigured: true,
+      activeMember: true,
+      receivingEnabled: true,
+    });
+    const host = page();
+    await module.prepareWechatDiagnosticPage(host);
+    module.wechatDiagnosticMethods.handleWechatSubscribe.call(host);
+    await flush();
+    expect(host.data.wechatGranted).toBe(false);
+    expect(module.wechatDiagnosticReport(host)).toMatch(/绑定|身份不一致/);
+    module.wechatDiagnosticMethods.handleWechatTestSend.call(host);
+    expect(mock.send).not.toHaveBeenCalled();
+  },
+);
+
+it('rechecks identity after acceptance and ignores a late result after an account change', async () => {
+  const host = page();
+  await module.prepareWechatDiagnosticPage(host);
+  let resolve;
+  mock.inspect.mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  module.wechatDiagnosticMethods.handleWechatSubscribe.call(host);
+  await flush();
+  expect(mock.inspect).toHaveBeenCalledTimes(2);
+  mock.owner = 'new-owner';
+  mock.generation++;
+  resolve({
+    currentAppIdentityExists: true,
+    legacyOpenidExists: true,
+    identityMatches: true,
+    mockMode: false,
+    gatewayConfigured: true,
+    templateConfigured: true,
+    activeMember: true,
+    receivingEnabled: true,
+  });
+  await flush();
+  expect(host.data.wechatGranted).toBe(false);
+  expect(mock.send).not.toHaveBeenCalled();
 });

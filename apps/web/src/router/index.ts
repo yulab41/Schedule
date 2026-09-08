@@ -13,10 +13,8 @@ export const router = createRouter({
       path: '/login',
     },
     {
-      component: () => import('../views/auth/WechatCallbackView.vue'),
-      meta: { guestOnly: true },
-      name: 'wechat-callback',
       path: '/auth/wechat/callback',
+      redirect: () => ({ name: 'login', query: {}, hash: '' }),
     },
     {
       path: '/register',

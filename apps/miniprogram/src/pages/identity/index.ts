@@ -4,6 +4,7 @@ import {
   requireClientCapability,
 } from '../../app/client-capability-store.js';
 import {
+  WechatIdentityClientError,
   getIdentityErrorMessage,
   getStoredWechatProfile,
   linkWechatPassword,
@@ -112,9 +113,23 @@ Page({
     this.setData({ errorMessage: '', loading: true });
     void linkWechatPassword(this.data.linkToken, username, this.data.password)
       .then((result) => completeAuthentication(this, result, 'wechat'))
-      .catch((error: unknown) =>
-        this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
-      );
+      .catch((error: unknown) => {
+        const invalidCredential =
+          error instanceof WechatIdentityClientError &&
+          [
+            'WECHAT_LINK_TOKEN_EXPIRED',
+            'WECHAT_LINK_TOKEN_INVALID',
+            'WECHAT_LINK_TOKEN_USED',
+            'WECHAT_APP_ID_MISMATCH',
+          ].includes(error.code ?? '');
+        this.setData({
+          errorMessage: getIdentityErrorMessage(error),
+          loading: false,
+          ...(invalidCredential
+            ? { bindingOpen: false, linkToken: '', linkExpiresAt: '', password: '' }
+            : {}),
+        });
+      });
   },
 
   handlePasswordLogin(this: IdentityPageInstance): void {

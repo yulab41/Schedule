@@ -60,8 +60,6 @@ import { registerWechatIdentityUnbindRoutes } from './modules/wechat/wechat-iden
 import { WechatIdentityUnbindService } from './modules/wechat/wechat-identity-unbind-service.js';
 import { registerWechatAdminBindingRoutes } from './modules/wechat/wechat-admin-binding-routes.js';
 import { WechatAdminBindingService } from './modules/wechat/wechat-admin-binding-service.js';
-import { registerWechatWebAuthRoutes } from './modules/wechat/wechat-web-auth-routes.js';
-import type { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
 import { registerAuthentication } from './plugins/authenticate.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRequestContext } from './plugins/request-context.js';
@@ -101,7 +99,6 @@ export interface CreateAppOptions {
   readonly platformAdminUids?: ReadonlySet<string>;
   readonly pushDispatcher?: PushDispatcher;
   readonly wechatGateway?: WechatGateway;
-  readonly wechatWebAuthService?: WechatWebAuthService;
   readonly wechatSessionSecret?: string | undefined;
 }
 
@@ -159,9 +156,6 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         }),
         clientCapabilityPolicy,
       );
-    }
-    if (options.wechatWebAuthService !== undefined) {
-      registerWechatWebAuthRoutes(app, options.wechatWebAuthService);
     }
     registerInviteRoutes(
       app,

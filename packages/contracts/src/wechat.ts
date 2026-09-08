@@ -11,14 +11,6 @@ export const wechatLoginRequestSchema = z
   .strict();
 export type WechatLoginRequest = z.infer<typeof wechatLoginRequestSchema>;
 
-const legacyWechatLoginResponseSchema = z
-  .object({
-    isNewUser: z.boolean(),
-    profile: userProfileSchema.optional(),
-    token: z.string().min(1),
-  })
-  .strict();
-
 export const wechatAuthenticatedResponseSchema = z
   .object({
     expiresAt: z.string().datetime({ offset: true }),
@@ -142,32 +134,6 @@ export const wechatAdminBindingConfirmResponseSchema = wechatAuthenticatedRespon
 export type WechatAdminBindingConfirmResponse = z.infer<
   typeof wechatAdminBindingConfirmResponseSchema
 >;
-
-export const wechatWebLoginStartQuerySchema = z
-  .object({
-    state: z.string().min(16).max(256),
-  })
-  .strict();
-export type WechatWebLoginStartQuery = z.infer<typeof wechatWebLoginStartQuerySchema>;
-
-export const wechatWebLoginStartResponseSchema = z
-  .object({
-    authorizeUrl: z.string().url(),
-    state: z.string().min(1),
-  })
-  .strict();
-export type WechatWebLoginStartResponse = z.infer<typeof wechatWebLoginStartResponseSchema>;
-
-export const wechatWebLoginExchangeRequestSchema = z
-  .object({
-    code: z.string().min(1),
-    state: z.string().min(1),
-  })
-  .strict();
-export type WechatWebLoginExchangeRequest = z.infer<typeof wechatWebLoginExchangeRequestSchema>;
-
-export const wechatWebLoginResponseSchema = legacyWechatLoginResponseSchema;
-export type WechatWebLoginResponse = z.infer<typeof wechatWebLoginResponseSchema>;
 
 export const visitorResolveRequestSchema = z
   .object({
