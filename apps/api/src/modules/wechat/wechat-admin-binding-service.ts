@@ -16,7 +16,6 @@ import {
   userProfiles,
   users,
   wechatAdminBindingTickets,
-  withTransaction,
 } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -31,6 +30,10 @@ import {
 } from '../platform-admin/platform-admin-operation.js';
 import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
+import {
+  lockWechatBindingScope,
+  withWechatBindingTransaction,
+} from './wechat-binding-transaction.js';
 import { WechatIdentityResolver } from './wechat-identity-resolver.js';
 import {
   createWechatSessionToken,
@@ -192,7 +195,18 @@ export class WechatAdminBindingService {
     clientVersion?: ClientVersion,
   ): Promise<WechatAdminBindingConfirmResponse> {
     const appId = this.getAppId();
-    return withTransaction(this.databaseClient, async (transaction) => {
+    // Reject invalid/expired/used tickets before spending the one-use WeChat code;
+    // the locked transaction below repeats all authoritative ticket checks.
+    await this.preview(input.ticket);
+    let exchanged;
+    try {
+      exchanged = await this.gateway.exchangeCode(input.code);
+    } catch (error) {
+      if (error instanceof WechatGatewayError) throw toWechatGatewayApiError(error);
+      throw error;
+    }
+    return withWechatBindingTransaction(this.databaseClient, async (transaction) => {
+      await lockWechatBindingScope(transaction, appId, exchanged.openid);
       const [ticket] = await transaction
         .select({
           expiresAt: wechatAdminBindingTickets.expiresAt,
@@ -218,24 +232,9 @@ export class WechatAdminBindingService {
         ticket.targetUserId,
         readTicketAuthVersion(input.ticket),
       );
-      let exchanged;
-      try {
-        exchanged = await this.gateway.exchangeCode(input.code);
-      } catch (error) {
-        if (error instanceof WechatGatewayError) throw toWechatGatewayApiError(error);
-        throw error;
-      }
       const resolved = await this.identityResolver.resolveInTransaction(transaction, {
-        allowDetachedIdentity: true,
         appId,
-        createUser: async () => ({ authVersion: target.authVersion, userId: target.userId }),
-        onResolved: async (currentTransaction, userId) => {
-          if (userId !== target.userId) throw identityConflictError();
-          await currentTransaction
-            .update(users)
-            .set({ wechatOpenid: exchanged.openid })
-            .where(and(eq(users.id, userId), isNull(users.wechatOpenid)));
-        },
+        targetUserId: target.userId,
         provider: 'wechat_mini_program',
         subject: exchanged.openid,
         unionId: exchanged.unionid,

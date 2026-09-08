@@ -4,11 +4,14 @@ import {
   type DatabaseClient,
   type DatabaseTransaction,
   wechatLinkTokens,
-  withTransaction,
 } from '@schedule/database';
 import { and, eq } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import {
+  lockWechatBindingScope,
+  withWechatBindingTransaction,
+} from './wechat-binding-transaction.js';
 
 const LINK_TOKEN_TTL_MS = 10 * 60 * 1000;
 
@@ -39,13 +42,23 @@ export class WechatLinkTokenService {
   }
 
   public async issue(identity: WechatLinkIdentity): Promise<IssuedWechatLinkToken> {
+    return withWechatBindingTransaction(this.databaseClient, async (transaction) => {
+      await lockWechatBindingScope(transaction, identity.appId, identity.subject);
+      return this.issueInTransaction(transaction, identity);
+    });
+  }
+
+  public async issueInTransaction(
+    transaction: DatabaseTransaction,
+    identity: WechatLinkIdentity,
+  ): Promise<IssuedWechatLinkToken> {
     if (identity.appId.length === 0 || identity.subject.length === 0) {
       throw invalidLinkTokenError();
     }
 
     const linkToken = randomBytes(32).toString('base64url');
     const expiresAt = new Date(this.now().valueOf() + LINK_TOKEN_TTL_MS);
-    await this.databaseClient.database.insert(wechatLinkTokens).values({
+    await transaction.insert(wechatLinkTokens).values({
       appId: identity.appId,
       existingUserId: identity.existingUserId,
       expiresAt,
@@ -64,7 +77,14 @@ export class WechatLinkTokenService {
       | undefined,
   ): Promise<Result> {
     const tokenHash = hashToken(linkToken);
-    return withTransaction(this.databaseClient, async (transaction) => {
+    const [scope] = await this.databaseClient.database
+      .select({ appId: wechatLinkTokens.appId, subject: wechatLinkTokens.subject })
+      .from(wechatLinkTokens)
+      .where(eq(wechatLinkTokens.tokenHash, tokenHash))
+      .limit(1);
+    if (scope === undefined) throw invalidLinkTokenError();
+    return withWechatBindingTransaction(this.databaseClient, async (transaction) => {
+      await lockWechatBindingScope(transaction, scope.appId, scope.subject);
       const [record] = await transaction
         .select({
           appId: wechatLinkTokens.appId,

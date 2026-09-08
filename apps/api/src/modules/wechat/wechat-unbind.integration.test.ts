@@ -9,7 +9,7 @@ import {
 } from '@schedule/database';
 import { resetDatabase } from '@schedule/test-fixtures';
 import { sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createPasswordSessionToken,
@@ -20,7 +20,9 @@ import {
 import { createApp } from '../../app.js';
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { hashPassword } from '../auth/password-auth-service.js';
+import { AuditWriter } from '../audit/audit-writer.js';
 import type { WechatGateway } from './wechat-gateway.js';
+import { WechatIdentityResolver } from './wechat-identity-resolver.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -33,11 +35,13 @@ const DEVELOPER_ADMIN_ID = '00000000-0000-4000-8000-000000000001';
 describeWithDatabase('current Mini AppID identity unbind', () => {
   let app: ReturnType<typeof createApp>;
   let client: DatabaseClient;
+  let gateway: WechatGateway;
 
   beforeEach(async () => {
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
+    gateway = createProofGateway();
     app = createApp({
       authPort: createWechatAuthPort({
         allowDevTokens: false,
@@ -47,12 +51,13 @@ describeWithDatabase('current Mini AppID identity unbind', () => {
       databaseClient: client,
       clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
-      wechatGateway: createProofGateway(),
+      wechatGateway: gateway,
       wechatSessionSecret: TEST_SESSION_SECRET,
     });
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     if (app !== undefined) await app.close();
     if (client !== undefined) await client.close();
   });
@@ -394,6 +399,348 @@ describeWithDatabase('current Mini AppID identity unbind', () => {
     `)) as unknown as [{ authVersion: number }[], unknown];
     expect(userRows).toEqual([{ authVersion: 1 }]);
   });
+
+  it.each([false, true])(
+    'allows a complete cross-account round trip with historical union records=%s',
+    async (withUnion) => {
+      const first = await seedBoundUser('roundtrip-a', {
+        withBusinessReference: true,
+        withWebIdentity: true,
+      });
+      const second = await seedBoundUser('roundtrip-b');
+      if (!withUnion) await client.database.execute(sql`DELETE FROM wechat_union_accounts`);
+      expect((await selfUnbind(first.token, randomUUID(), 'proof-roundtrip-a')).statusCode).toBe(
+        200,
+      );
+      expect((await selfUnbind(second.token, randomUUID(), 'proof-roundtrip-b')).statusCode).toBe(
+        200,
+      );
+      const login = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/login',
+        payload: { code: 'proof-roundtrip-a' },
+      });
+      expect(login.json().status).toBe('link_required');
+      const sibling = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/login',
+        payload: { code: 'proof-roundtrip-a' },
+      });
+      const linked = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/link-password',
+        payload: {
+          linkToken: login.json().linkToken,
+          username: second.username,
+          password: second.password,
+        },
+      });
+      expect(linked.statusCode, linked.body).toBe(200);
+      expect(linked.json().profile.id).toBe(second.userId);
+      const currentLogin = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/login',
+        payload: { code: 'proof-roundtrip-a' },
+      });
+      expect(currentLogin.json().profile.id).toBe(second.userId);
+      expect(
+        (await selfUnbind(linked.json().token, randomUUID(), 'proof-roundtrip-a')).statusCode,
+      ).toBe(200);
+      const stale = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/link-password',
+        payload: {
+          linkToken: sibling.json().linkToken,
+          username: first.username,
+          password: first.password,
+        },
+      });
+      expect(stale.json().error.code).toBe('WECHAT_LINK_TOKEN_USED');
+      const fresh = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/login',
+        payload: { code: 'proof-roundtrip-a' },
+      });
+      const returned = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/link-password',
+        payload: {
+          linkToken: fresh.json().linkToken,
+          username: first.username,
+          password: first.password,
+        },
+      });
+      expect(returned.statusCode, returned.body).toBe(200);
+      expect(returned.json().profile.id).toBe(first.userId);
+      const [rows] = await client.database.execute(
+        sql`SELECT id, wechat_openid AS openid FROM users WHERE id IN (${first.userId}, ${second.userId}) ORDER BY id`,
+      );
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          { id: first.userId, openid: first.subject },
+          { id: second.userId, openid: null },
+        ]),
+      );
+      const [members] = await client.database.execute(
+        sql`SELECT user_id AS userId FROM group_memberships WHERE user_id = ${first.userId}`,
+      );
+      expect(members).toEqual([{ userId: first.userId }]);
+    },
+  );
+
+  it('invalidates pending password proofs and legacy admin tickets on unbind and new binding', async () => {
+    const first = await seedBoundUser('stale-a');
+    const second = await seedBoundUser('stale-b');
+    await seedPendingProof('before-unbind', first.subject);
+    await seedLegacyTicket('old-admin-a', first.userId);
+    expect((await selfUnbind(first.token, randomUUID(), 'proof-stale-a')).statusCode).toBe(200);
+    expect((await selfUnbind(second.token, randomUUID(), 'proof-stale-b')).statusCode).toBe(200);
+    await seedLegacyTicket('old-admin-b', second.userId);
+    const login = await app.inject({
+      method: 'POST',
+      url: '/auth/wechat/login',
+      payload: { code: 'proof-stale-a' },
+    });
+    const linked = await passwordLink(login.json().linkToken, second);
+    expect(linked.statusCode, linked.body).toBe(200);
+    const [tokens] = await client.database.execute(
+      sql`SELECT status FROM wechat_link_tokens WHERE subject = ${first.subject}`,
+    );
+    expect(tokens).toEqual([{ status: 'consumed' }, { status: 'consumed' }]);
+    const [tickets] = await client.database.execute(
+      sql`SELECT status FROM wechat_admin_binding_tickets`,
+    );
+    expect(tickets).toEqual([{ status: 'consumed' }, { status: 'consumed' }]);
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/auth/wechat/admin-bind/preview',
+      payload: { ticket: 'old-admin-b' },
+    });
+    expect(preview.json().error.code).toBe('WECHAT_LINK_TOKEN_USED');
+  });
+
+  it('uses the same detached-target checks for administrator ticket binding', async () => {
+    const first = await seedBoundUser('ticket-a');
+    const second = await seedBoundUser('ticket-b');
+    expect((await selfUnbind(first.token, randomUUID(), 'proof-ticket-a')).statusCode).toBe(200);
+    expect((await selfUnbind(second.token, randomUUID(), 'proof-ticket-b')).statusCode).toBe(200);
+    await seedLegacyTicket('ticket-roundtrip', second.userId);
+    const pending = await app.inject({
+      method: 'POST',
+      url: '/auth/wechat/login',
+      payload: { code: 'proof-ticket-a' },
+    });
+    const bound = await app.inject({
+      method: 'POST',
+      url: '/auth/wechat/admin-bind/confirm',
+      payload: { ticket: 'ticket-roundtrip', code: 'proof-ticket-a' },
+    });
+    expect(bound.statusCode, bound.body).toBe(200);
+    expect(bound.json().profile.id).toBe(second.userId);
+    const old = await passwordLink(pending.json().linkToken, first);
+    expect(old.json().error.code).toBe('WECHAT_LINK_TOKEN_USED');
+    expect((await selfUnbind(bound.json().token, randomUUID(), 'proof-ticket-a')).statusCode).toBe(
+      200,
+    );
+  });
+
+  it('rejects occupied identities, occupied targets and wrong AppID without changing state', async () => {
+    const first = await seedBoundUser('occupied-a');
+    const second = await seedBoundUser('occupied-b');
+    await seedPendingProof('occupied-proof', first.subject);
+    const occupied = await passwordLink('occupied-proof', second);
+    expect(occupied.json().error.code).toBe('WECHAT_IDENTITY_IN_USE');
+    await seedPendingProof('new-proof', 'new-subject');
+    const targetBound = await passwordLink('new-proof', second);
+    expect(targetBound.json().error.code).toBe('WECHAT_ACCOUNT_ALREADY_BOUND');
+    await seedPendingProof('other-app-proof', 'new-subject', 'other-mini-app');
+    const otherApp = await passwordLink('other-app-proof', second);
+    expect(otherApp.json().error.code).toBe('WECHAT_APP_ID_MISMATCH');
+    const [tokens] = await client.database.execute(sql`SELECT status FROM wechat_link_tokens`);
+    expect(tokens).toEqual([{ status: 'pending' }, { status: 'pending' }, { status: 'pending' }]);
+    const [identities] = await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM user_auth_identities WHERE provider = 'wechat_mini_program'`,
+    );
+    expect(identities).toEqual([{ count: 2 }]);
+  });
+
+  it('allows only one concurrent claim of a subject and only one subject per target', async () => {
+    const first = await seedBoundUser('race-a');
+    const second = await seedBoundUser('race-b');
+    expect((await selfUnbind(first.token, randomUUID(), 'proof-race-a')).statusCode).toBe(200);
+    expect((await selfUnbind(second.token, randomUUID(), 'proof-race-b')).statusCode).toBe(200);
+    await seedPendingProof('race-proof-a', 'race-subject');
+    await seedPendingProof('race-proof-b', 'race-subject');
+    const results = await Promise.all([
+      passwordLink('race-proof-a', first),
+      passwordLink('race-proof-b', second),
+    ]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const loser = results[0]?.statusCode === 200 ? second : first;
+    await seedPendingProof('target-proof-a', 'target-subject-a');
+    await seedPendingProof('target-proof-b', 'target-subject-b');
+    const targetResults = await Promise.all([
+      passwordLink('target-proof-a', loser),
+      passwordLink('target-proof-b', loser),
+    ]);
+    expect(targetResults.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const [counts] = await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM user_auth_identities WHERE user_id = ${loser.userId} AND provider = 'wechat_mini_program'`,
+    );
+    expect(counts).toEqual([{ count: 1 }]);
+  });
+
+  it('rolls back all binding writes and proof invalidation if the audit fails', async () => {
+    const first = await seedBoundUser('rollback-a');
+    const second = await seedBoundUser('rollback-b');
+    await selfUnbind(first.token, randomUUID(), 'proof-rollback-a');
+    await selfUnbind(second.token, randomUUID(), 'proof-rollback-b');
+    await seedPendingProof('rollback-proof', first.subject);
+    await seedLegacyTicket('rollback-ticket', second.userId);
+    const audit = vi
+      .spyOn(AuditWriter.prototype, 'append')
+      .mockRejectedValueOnce(new Error('test audit unavailable'));
+    const failed = await passwordLink('rollback-proof', second);
+    expect(failed.statusCode).toBe(500);
+    audit.mockRestore();
+    const [before] = await client.database.execute(
+      sql`SELECT status FROM wechat_link_tokens WHERE token_hash = ${sha256('rollback-proof')}`,
+    );
+    const [tickets] = await client.database.execute(
+      sql`SELECT status FROM wechat_admin_binding_tickets WHERE ticket_hash = ${sha256('rollback-ticket')}`,
+    );
+    const [identities] = await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM user_auth_identities WHERE provider = 'wechat_mini_program'`,
+    );
+    expect(before).toEqual([{ status: 'pending' }]);
+    expect(tickets).toEqual([{ status: 'pending' }]);
+    expect(identities).toEqual([{ count: 0 }]);
+    const success = await passwordLink('rollback-proof', second);
+    expect(success.statusCode, success.body).toBe(200);
+  });
+
+  it.each([1, 3])(
+    'bounds database retries and exchanges each unbind code once (deadlocks=%i)',
+    async (failures) => {
+      const first = await seedBoundUser('retry');
+      const exchange = vi.spyOn(gateway, 'exchangeCode');
+      const original = AuditWriter.prototype.append;
+      let attempts = 0;
+      const audit = vi.spyOn(AuditWriter.prototype, 'append').mockImplementation(function (
+        this: AuditWriter,
+        ...args
+      ) {
+        attempts += 1;
+        if (attempts <= failures) return Promise.reject({ code: 'ER_LOCK_DEADLOCK' });
+        return original.apply(this, args);
+      });
+      const result = await selfUnbind(first.token, randomUUID(), 'proof-retry');
+      expect(result.statusCode).toBe(failures === 1 ? 200 : 500);
+      expect(exchange).toHaveBeenCalledTimes(1);
+      expect(audit).toHaveBeenCalledTimes(failures === 1 ? 2 : 3);
+      const [rows] = await client.database.execute(
+        sql`SELECT auth_version AS authVersion, wechat_openid AS openid FROM users WHERE id = ${first.userId}`,
+      );
+      expect(rows).toEqual([
+        { authVersion: failures === 1 ? 2 : 1, openid: failures === 1 ? null : first.subject },
+      ]);
+    },
+  );
+
+  it('rejects invalid and consumed admin tickets before exchanging the WeChat code', async () => {
+    const account = await seedBoundUser('replayed-ticket');
+    await seedLegacyTicket('used-ticket', account.userId);
+    await client.database.execute(sql`UPDATE wechat_admin_binding_tickets SET status = 'consumed'`);
+    const exchange = vi.spyOn(gateway, 'exchangeCode');
+    for (const [ticket, code] of [
+      ['used-ticket', 'WECHAT_LINK_TOKEN_USED'],
+      ['unknown-ticket', 'WECHAT_LINK_TOKEN_INVALID'],
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/wechat/admin-bind/confirm',
+        payload: { ticket, code: 'proof-replayed-ticket' },
+      });
+      expect(response.json().error.code).toBe(code);
+    }
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it('cannot issue a still-usable proof from a login resolved before a concurrent binding', async () => {
+    const first = await seedBoundUser('issuance');
+    await selfUnbind(first.token, randomUUID(), 'proof-issuance');
+    const pending = await app.inject({
+      method: 'POST',
+      url: '/auth/wechat/login',
+      payload: { code: 'proof-issuance' },
+    });
+    let release = () => {};
+    let entered = () => {};
+    const paused = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = WechatIdentityResolver.prototype.resolveInTransaction;
+    let once = true;
+    vi.spyOn(WechatIdentityResolver.prototype, 'resolveInTransaction').mockImplementation(
+      async function (this: WechatIdentityResolver, ...args) {
+        const result = await original.apply(this, args);
+        if (once) {
+          once = false;
+          entered();
+          await resume;
+        }
+        return result;
+      },
+    );
+    const lateLogin = app.inject({
+      method: 'POST',
+      url: '/auth/wechat/login',
+      payload: { code: 'proof-issuance' },
+    });
+    // app.inject starts when awaited/thened; explicitly start while observing the pause.
+    const lateResult = Promise.resolve(lateLogin);
+    await paused;
+    let settled = false;
+    const binding = passwordLink(pending.json().linkToken, first).then((result) => {
+      settled = true;
+      return result;
+    });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(settled).toBe(false);
+    } finally {
+      release();
+    }
+    const [late, bound] = await Promise.all([lateResult, binding]);
+    expect(bound.statusCode, bound.body).toBe(200);
+    expect(late.json().status).toBe('link_required');
+    await selfUnbind(bound.json().token, randomUUID(), 'proof-issuance');
+    const stale = await passwordLink(late.json().linkToken, first);
+    expect(stale.json().error.code).toBe('WECHAT_LINK_TOKEN_USED');
+  });
+
+  async function seedPendingProof(token: string, subject: string, appId = CURRENT_APP_ID) {
+    await client.database.execute(
+      sql`INSERT INTO wechat_link_tokens (id, token_hash, app_id, subject, expires_at) VALUES (${randomUUID()}, ${sha256(token)}, ${appId}, ${subject}, DATE_ADD(NOW(3), INTERVAL 10 MINUTE))`,
+    );
+  }
+
+  async function seedLegacyTicket(ticket: string, target: string) {
+    await client.database.execute(
+      sql`INSERT INTO wechat_admin_binding_tickets (id, ticket_hash, app_id, target_user_id, expires_at) VALUES (${randomUUID()}, ${sha256(ticket)}, ${CURRENT_APP_ID}, ${target}, DATE_ADD(NOW(3), INTERVAL 10 MINUTE))`,
+    );
+  }
+
+  async function passwordLink(linkToken: string, account: { username: string; password: string }) {
+    return app.inject({
+      method: 'POST',
+      url: '/auth/wechat/link-password',
+      payload: { linkToken, username: account.username, password: account.password },
+    });
+  }
 
   async function selfUnbind(token: string, operationId: string, code: string) {
     return app.inject({

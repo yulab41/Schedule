@@ -19,7 +19,6 @@ import {
   userProfiles,
   users,
   wechatIdentityDetachments,
-  wechatUnionAccounts,
 } from '@schedule/database';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
@@ -31,7 +30,11 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { normalizeUsername, verifyPassword } from '../auth/password-auth-service.js';
 import { toUserProfile } from '../users/user-profile.js';
-import { WechatIdentityResolver } from './wechat-identity-resolver.js';
+import {
+  lockWechatBindingScope,
+  withWechatBindingTransaction,
+} from './wechat-binding-transaction.js';
+import { WechatIdentityResolver, wechatBindingConflictError } from './wechat-identity-resolver.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
 import {
   WechatGatewayError,
@@ -80,52 +83,51 @@ export class WechatAuthService {
     }
 
     const appId = this.getAppId();
-    const resolved = await this.identityResolver.resolve({
-      appId,
-      onResolved: async (transaction, userId) => {
-        await transaction
-          .update(users)
-          .set({ wechatOpenid: exchanged.openid })
-          .where(and(eq(users.id, userId), isNull(users.wechatOpenid)));
-      },
-      provider: 'wechat_mini_program',
-      subject: exchanged.openid,
-      unionId: exchanged.unionid,
+    return withWechatBindingTransaction(this.databaseClient, async (transaction) => {
+      await lockWechatBindingScope(transaction, appId, exchanged.openid);
+      const resolved = await this.identityResolver.resolveInTransaction(transaction, {
+        appId,
+        onResolved: (currentTransaction, userId) =>
+          this.rememberLegacyOpenid(currentTransaction, userId, exchanged.openid),
+        provider: 'wechat_mini_program',
+        subject: exchanged.openid,
+        unionId: exchanged.unionid,
+      });
+      if (resolved === undefined) {
+        return {
+          ...(await this.linkTokenService.issueInTransaction(transaction, {
+            appId,
+            existingUserId: undefined,
+            subject: exchanged.openid,
+            unionId: exchanged.unionid,
+          })),
+          status: 'link_required',
+        };
+      }
+      const profile = await this.findProfile(resolved.userId, transaction);
+      if (profile === undefined) {
+        return {
+          ...(await this.linkTokenService.issueInTransaction(transaction, {
+            appId,
+            existingUserId: resolved.userId,
+            subject: exchanged.openid,
+            unionId: exchanged.unionid,
+          })),
+          status: 'link_required',
+        };
+      }
+      return {
+        expiresAt: new Date(this.now().valueOf() + WECHAT_SESSION_TTL_SECONDS * 1000).toISOString(),
+        profile,
+        status: 'authenticated',
+        token: this.issueSessionForUser(
+          resolved.userId,
+          exchanged.openid,
+          resolved.authVersion,
+          clientVersion,
+        ),
+      };
     });
-    if (resolved === undefined) {
-      return {
-        ...(await this.linkTokenService.issue({
-          appId,
-          existingUserId: undefined,
-          subject: exchanged.openid,
-          unionId: exchanged.unionid,
-        })),
-        status: 'link_required',
-      };
-    }
-    const profile = await this.findProfile(resolved.userId);
-    if (profile === undefined) {
-      return {
-        ...(await this.linkTokenService.issue({
-          appId,
-          existingUserId: resolved.userId,
-          subject: exchanged.openid,
-          unionId: exchanged.unionid,
-        })),
-        status: 'link_required',
-      };
-    }
-    return {
-      expiresAt: new Date(this.now().valueOf() + WECHAT_SESSION_TTL_SECONDS * 1000).toISOString(),
-      profile,
-      status: 'authenticated',
-      token: this.issueSessionForUser(
-        resolved.userId,
-        exchanged.openid,
-        resolved.authVersion,
-        clientVersion,
-      ),
-    };
   }
 
   public async linkPassword(
@@ -147,12 +149,8 @@ export class WechatAuthService {
       }
 
       const resolved = await this.identityResolver.resolveInTransaction(transaction, {
-        allowDetachedIdentity: true,
         appId: identity.appId,
-        createUser: async () => ({
-          authVersion: account.authVersion,
-          userId: account.userId,
-        }),
+        targetUserId: account.userId,
         onResolved: async (currentTransaction, userId) => {
           if (userId !== account.userId) throw identityConflictError();
           await this.rememberLegacyOpenid(currentTransaction, userId, identity.subject);
@@ -257,7 +255,7 @@ export class WechatAuthService {
   }
 
   private assertCurrentAppId(appId: string): void {
-    if (appId !== this.getAppId()) throw identityConflictError();
+    if (appId !== this.getAppId()) throw wechatBindingConflictError('WECHAT_APP_ID_MISMATCH');
   }
 
   private async createMiniUser(
@@ -353,7 +351,7 @@ export class WechatAuthService {
     requestId?: string,
   ): Promise<void> {
     if (account.wechatOpenid !== null && account.wechatOpenid !== subject) {
-      throw identityConflictError();
+      throw wechatBindingConflictError('WECHAT_ACCOUNT_ALREADY_BOUND');
     }
 
     const [source] = await transaction
@@ -391,10 +389,6 @@ export class WechatAuthService {
           LIMIT 1
         )`,
         status: users.status,
-        unionCount: sql<number>`(
-          SELECT COUNT(*) FROM ${wechatUnionAccounts}
-          WHERE ${wechatUnionAccounts.userId} = ${sourceUserId}
-        )`,
         wechatOpenid: users.wechatOpenid,
       })
       .from(users)
@@ -414,7 +408,6 @@ export class WechatAuthService {
       Number(source.ownedGroupCount) !== 0 ||
       Number(source.passwordCount) !== 0 ||
       Number(source.profileCount) > 1 ||
-      Number(source.unionCount) !== 0 ||
       (source.profileRealName !== null && source.profileRealName !== account.profile.realName)
     ) {
       throw identityConflictError();
@@ -527,7 +520,7 @@ export class WechatAuthService {
       .for('update');
     if (user === undefined) throw identityConflictError();
     if (user.wechatOpenid !== null && user.wechatOpenid !== subject) {
-      throw identityConflictError();
+      throw wechatBindingConflictError('WECHAT_ACCOUNT_ALREADY_BOUND');
     }
     if (user.wechatOpenid === null) {
       await transaction.update(users).set({ wechatOpenid: subject }).where(eq(users.id, userId));
@@ -546,8 +539,11 @@ export class WechatAuthService {
     return appId;
   }
 
-  private async findProfile(userId: string): Promise<UserProfile | undefined> {
-    const [profile] = await this.databaseClient.database
+  private async findProfile(
+    userId: string,
+    transaction: DatabaseTransaction,
+  ): Promise<UserProfile | undefined> {
+    const [profile] = await transaction
       .select({
         id: userProfiles.userId,
         realName: userProfiles.realName,

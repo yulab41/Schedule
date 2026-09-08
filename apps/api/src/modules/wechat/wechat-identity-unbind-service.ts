@@ -13,8 +13,6 @@ import {
   userPasswordCredentials,
   users,
   wechatIdentityDetachments,
-  wechatUnionAccounts,
-  withTransaction,
 } from '@schedule/database';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
@@ -30,6 +28,11 @@ import {
   type WechatGateway,
 } from './wechat-gateway.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
+import {
+  lockWechatBindingScope,
+  invalidateWechatBindingProofs,
+  withWechatBindingTransaction,
+} from './wechat-binding-transaction.js';
 import { hashWechatIdentitySubject } from './wechat-identity-hash.js';
 
 interface WechatIdentityUnbindServiceOptions {
@@ -72,8 +75,9 @@ export class WechatIdentityUnbindService {
   ): Promise<WechatMiniProgramUnbindResponse> {
     const appId = this.getAppId();
     const actor = await this.findActor(identity);
-    return withTransaction(this.databaseClient, async (transaction) =>
-      withIdempotentOperation(
+    let exchange: Promise<WechatExchangeCodeResult> | undefined;
+    return withWechatBindingTransaction(this.databaseClient, async (transaction) => {
+      return withIdempotentOperation(
         transaction,
         {
           actorUserId: actor,
@@ -82,7 +86,10 @@ export class WechatIdentityUnbindService {
           scope: 'wechat_miniprogram_unbind',
         },
         async () => {
-          const exchanged = await this.exchangeCode(input.code);
+          // Idempotent replays do not consume a fresh code, and a DB retry reuses
+          // this one exchange rather than calling WeChat again.
+          const exchanged = await (exchange ??= this.exchangeCode(input.code));
+          await lockWechatBindingScope(transaction, appId, exchanged.openid);
           const detachment = await this.findDetachmentBySubject(
             transaction,
             appId,
@@ -98,7 +105,8 @@ export class WechatIdentityUnbindService {
           }
 
           const user = await this.lockPasswordUser(transaction, actor, true);
-          await this.assertUnionMatchesUser(transaction, actor, exchanged.unionid);
+          if (user.wechatOpenid !== null && user.wechatOpenid !== exchanged.openid)
+            throw identityConflictError();
           if (miniIdentity === undefined) {
             if (detachment?.userId === actor) return { unbound: true };
             throw identityNotFoundError();
@@ -116,8 +124,8 @@ export class WechatIdentityUnbindService {
           });
           return { unbound: true };
         },
-      ),
-    );
+      );
+    });
   }
 
   public async getSelfBindingStatus(
@@ -157,7 +165,7 @@ export class WechatIdentityUnbindService {
     requestId?: string,
   ): Promise<WechatMiniProgramUnbindResponse> {
     const appId = this.getAppId();
-    return withTransaction(this.databaseClient, async (transaction) => {
+    return withWechatBindingTransaction(this.databaseClient, async (transaction) => {
       const actorUserId = await requirePlatformAdmin(
         transaction,
         identity,
@@ -212,6 +220,7 @@ export class WechatIdentityUnbindService {
       readonly user: LockedPasswordUser;
     },
   ): Promise<void> {
+    await lockWechatBindingScope(transaction, input.appId, input.identity.subject);
     const subjectHash = hashWechatIdentitySubject(input.identity.subject);
     const [existingByScope] = await transaction
       .select({ id: wechatIdentityDetachments.id, userId: wechatIdentityDetachments.userId })
@@ -277,6 +286,12 @@ export class WechatIdentityUnbindService {
           input.user.wechatOpenid === input.identity.subject ? null : input.user.wechatOpenid,
       })
       .where(eq(users.id, input.user.id));
+    await invalidateWechatBindingProofs(
+      transaction,
+      input.appId,
+      input.identity.subject,
+      input.user.id,
+    );
     await this.auditWriter.append(transaction, {
       action: input.auditAction,
       actorUserId: input.actorUserId,
@@ -290,28 +305,6 @@ export class WechatIdentityUnbindService {
       targetId: input.user.id,
       targetType: 'user',
     });
-  }
-
-  private async assertUnionMatchesUser(
-    transaction: DatabaseTransaction,
-    userId: string,
-    unionId: string | undefined,
-  ): Promise<void> {
-    if (unionId === undefined) return;
-    const [byUnion] = await transaction
-      .select({ userId: wechatUnionAccounts.userId })
-      .from(wechatUnionAccounts)
-      .where(eq(wechatUnionAccounts.unionId, unionId))
-      .limit(1)
-      .for('update');
-    if (byUnion !== undefined && byUnion.userId !== userId) throw identityConflictError();
-    const [byUser] = await transaction
-      .select({ unionId: wechatUnionAccounts.unionId })
-      .from(wechatUnionAccounts)
-      .where(eq(wechatUnionAccounts.userId, userId))
-      .limit(1)
-      .for('update');
-    if (byUser !== undefined && byUser.unionId !== unionId) throw identityConflictError();
   }
 
   private async exchangeCode(code: string): Promise<WechatExchangeCodeResult> {
