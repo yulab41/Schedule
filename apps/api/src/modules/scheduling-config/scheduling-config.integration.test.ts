@@ -143,7 +143,6 @@ describeWithDatabase('scheduling configuration', () => {
       method: 'PUT',
       payload: {
         expectedRoleVersion: firstRole.version,
-        expectedRotationRuleVersion: firstRole.rotationRule.version,
         expectedRulesVersion: configBeforeMembers.rulesVersion,
         membershipIds: [owner?.id, candidate?.id],
       },
@@ -156,59 +155,10 @@ describeWithDatabase('scheduling configuration', () => {
       method: 'PUT',
       payload: {
         expectedRoleVersion: firstRole.version,
-        expectedRotationRuleVersion: firstRole.rotationRule.version,
         expectedRulesVersion: rulesAfterMembers,
         membershipIds: [owner?.id],
       },
       url: `/groups/${groupId}/schedule-roles/${firstRole.id}/members`,
-    });
-    const invalidOrder = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        expectedRoleVersion: firstRoleWithMembers.version,
-        expectedRotationRuleVersion: firstRoleWithMembers.rotationRule.version,
-        expectedRulesVersion: rulesAfterMembers,
-        members: firstRoleWithMembers.members.map((member, index) => ({
-          position: index + 2,
-          scheduleRoleMemberId: member.id,
-        })),
-      },
-      url: `/groups/${groupId}/schedule-roles/${firstRole.id}/rotation-members`,
-    });
-    const validOrder = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        expectedRoleVersion: firstRoleWithMembers.version,
-        expectedRotationRuleVersion: firstRoleWithMembers.rotationRule.version,
-        expectedRulesVersion: rulesAfterMembers,
-        members: [...firstRoleWithMembers.members].reverse().map((member, index) => ({
-          position: index + 1,
-          scheduleRoleMemberId: member.id,
-        })),
-      },
-      url: `/groups/${groupId}/schedule-roles/${firstRole.id}/rotation-members`,
-    });
-    const reorderedFirstRole = validOrder.json() as ScheduleRoleResponse;
-    const configBeforeRule = await getConfig('owner-token', groupId);
-    const defaultShiftTypeId = configBeforeRule.shiftTypes.find(
-      (shiftType) => shiftType.isEnabled,
-    )?.id;
-    const rotationRule = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        currentPosition: 1,
-        defaultShiftTypeId,
-        expectedRoleVersion: reorderedFirstRole.version,
-        expectedRotationRuleVersion: reorderedFirstRole.rotationRule.version,
-        expectedRulesVersion: configBeforeRule.rulesVersion,
-        requiredMembersPerDay: 2,
-        startDate: '2026-08-31',
-        startingMemberScheduleRoleId: reorderedFirstRole.members[0]?.id,
-      },
-      url: `/groups/${groupId}/schedule-roles/${firstRole.id}/rotation-rule`,
     });
     const secondRole = await createRole(groupId, '二线');
     const configBeforeSecondMembers = await getConfig('owner-token', groupId);
@@ -217,7 +167,6 @@ describeWithDatabase('scheduling configuration', () => {
       method: 'PUT',
       payload: {
         expectedRoleVersion: secondRole.version,
-        expectedRotationRuleVersion: secondRole.rotationRule.version,
         expectedRulesVersion: configBeforeSecondMembers.rulesVersion,
         membershipIds: [candidate?.id],
       },
@@ -226,7 +175,6 @@ describeWithDatabase('scheduling configuration', () => {
 
     expect(membersSaved.statusCode).toBe(200);
     expect(firstRoleWithMembers).toMatchObject({
-      rotationRule: { version: firstRole.rotationRule.version + 1 },
       version: firstRole.version + 1,
     });
     expect(staleRoleMembers.statusCode).toBe(409);
@@ -237,29 +185,6 @@ describeWithDatabase('scheduling configuration', () => {
           objectType: 'schedule_role',
           version: firstRole.version + 1,
         },
-      },
-    });
-    expect(invalidOrder.statusCode).toBe(400);
-    expect(validOrder.statusCode).toBe(200);
-    expect(reorderedFirstRole).toMatchObject({
-      rotationRule: { version: firstRoleWithMembers.rotationRule.version + 1 },
-      version: firstRoleWithMembers.version + 1,
-    });
-    expect(validOrder.json()).toMatchObject({
-      members: [
-        { position: 1, realName: 'Candidate Doctor' },
-        { position: 2, realName: 'Owner Doctor' },
-      ],
-    });
-    expect(rotationRule.statusCode).toBe(200);
-    expect(rotationRule.json()).toMatchObject({
-      version: reorderedFirstRole.version + 1,
-      rotationRule: {
-        currentPosition: 1,
-        requiredMembersPerDay: 2,
-        startDate: '2026-08-31',
-        startingMemberScheduleRoleId: reorderedFirstRole.members[0]?.id,
-        version: reorderedFirstRole.rotationRule.version + 1,
       },
     });
     expect(secondRoleMembers.statusCode).toBe(200);
@@ -731,9 +656,6 @@ interface ScheduleRoleResponse {
     readonly realName: string;
     readonly version: number;
   }[];
-  readonly rotationRule: {
-    readonly version: number;
-  };
   readonly version: number;
 }
 
@@ -741,7 +663,6 @@ interface SchedulingConfigResponse {
   readonly roles: readonly {
     readonly members: readonly { readonly realName: string }[];
     readonly name: string;
-    readonly rotationRule: { readonly version: number };
     readonly version: number;
   }[];
   readonly shiftTypes: readonly ShiftTypeResponse[];

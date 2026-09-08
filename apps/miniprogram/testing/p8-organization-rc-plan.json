@@ -74,13 +74,7 @@
     {
       "id": "owner-admin-scheduling-configuration",
       "role": "owner-or-administrator",
-      "checks": [
-        "shift-type",
-        "role-members",
-        "rotation-rule",
-        "409-refresh",
-        "retry-preserves-form"
-      ]
+      "checks": ["shift-type", "role-members", "409-refresh", "retry-preserves-form"]
     },
     {
       "id": "owner-admin-invite-and-visitor",

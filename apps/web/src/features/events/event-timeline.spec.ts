@@ -27,6 +27,36 @@ function event(overrides: Partial<ScheduleEvent> = {}): ScheduleEvent {
 }
 
 describe('event timeline logic', () => {
+  it('reports the recorded guarded restoration counts', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          eventType: 'leave_request_revoked',
+          afterData: {
+            restoration: {
+              restorationUnavailable: false,
+              restoredAssignmentIds: ['a'],
+              skippedAssignments: [{ assignmentId: 'b', reason: 'assignment_changed' }],
+            },
+          },
+        }),
+      ),
+    ).toBe('请假已撤销，恢复 1 个未被修改的班次，跳过 1 个班次。');
+  });
+
+  it('explains cleared assignments and preserves historical leave events', () => {
+    expect(getEventTypeLabel('leave_assignments_cleared')).toBe('请假班次已清空');
+    expect(buildEventNarrative(event({ eventType: 'leave_assignments_cleared' }))).toContain(
+      '尚未开始的班次已清空',
+    );
+    expect(buildEventNarrative(event({ eventType: 'leave_cover_completed' }))).toContain(
+      '请假替班完成',
+    );
+    expect(buildEventNarrative(event({ eventType: 'leave_request_revoked' }))).toContain(
+      '没有可验证的恢复快照',
+    );
+  });
+
   it('labels known and unknown event types', () => {
     expect(getEventTypeLabel('swap_completed')).toBe('换班已生效');
     expect(getEventTypeLabel('unknown_type')).toBe('排班变更');
@@ -325,7 +355,7 @@ describe('event timeline logic', () => {
       '换班申请已提交。',
     );
     expect(buildEventNarrative(event({ eventType: 'leave_request_revoked' }))).toBe(
-      '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+      '请假已撤销，没有可验证的恢复快照，请按需要手动排班。',
     );
     expect(buildEventNarrative(event({ eventType: 'leave_request_cancelled' }))).toBe(
       '请假申请已取消。',

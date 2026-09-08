@@ -12,19 +12,17 @@ const shiftTypeId = 'shift /一';
 const operationId = '11111111-1111-4111-8111-111111111111';
 
 describe('P8 scheduling configuration shared write boundary', () => {
-  it('sets bearer auth, encoded paths, request bodies, and idempotency keys for all 8 writes', () => {
+  it('sets bearer auth, encoded paths, request bodies, and idempotency keys for all 6 writes', () => {
     expect(
-      schedulingConfigWriteEndpoints.updateRotationRule.path({
+      schedulingConfigWriteEndpoints.replaceScheduleRoleMembers.path({
         groupId,
         request: {
           ...roleMutationRequest(),
-          currentPosition: 1,
-          defaultShiftTypeId: shiftTypeId,
-          requiredMembersPerDay: 1,
+          membershipIds: ['member-1'],
         },
         roleId,
       }),
-    ).toBe('/groups/group%20%2F%E4%B8%80/schedule-roles/role%20%2F%E4%B8%80/rotation-rule');
+    ).toBe('/groups/group%20%2F%E4%B8%80/schedule-roles/role%20%2F%E4%B8%80/members');
     expect(
       schedulingConfigWriteEndpoints.deleteShiftType.path({
         groupId,
@@ -42,7 +40,7 @@ describe('P8 scheduling configuration shared write boundary', () => {
     }
   });
 
-  it('uses the transport receiver once for all 8 methods without retrying', async () => {
+  it('uses the transport receiver once for all 6 methods without retrying', async () => {
     const request = vi.fn(async (endpoint: { readonly id: string }) => responseFor(endpoint.id));
     const transport = { request } as unknown as ClientTransport;
     const client = createSchedulingConfigWriteClient(transport);
@@ -55,16 +53,6 @@ describe('P8 scheduling configuration shared write boundary', () => {
     await client.replaceScheduleRoleMembers(groupId, roleId, {
       ...roleMutationRequest(),
       membershipIds: ['member-1'],
-    });
-    await client.reorderRotationMembers(groupId, roleId, {
-      ...roleMutationRequest(),
-      members: [{ position: 1, scheduleRoleMemberId: 'role-member-1' }],
-    });
-    await client.updateRotationRule(groupId, roleId, {
-      ...roleMutationRequest(),
-      currentPosition: 1,
-      defaultShiftTypeId: shiftTypeId,
-      requiredMembersPerDay: 1,
     });
     await client.deleteScheduleRole(groupId, roleId, {
       expectedRulesVersion: 4,
@@ -88,15 +76,14 @@ describe('P8 scheduling configuration shared write boundary', () => {
       operationId,
     });
 
-    expect(request).toHaveBeenCalledTimes(8);
-    expect(request.mock.contexts).toEqual(Array.from({ length: 8 }, () => transport));
+    expect(request).toHaveBeenCalledTimes(6);
+    expect(request.mock.contexts).toEqual(Array.from({ length: 6 }, () => transport));
   });
 });
 
 function roleMutationRequest() {
   return {
     expectedRoleVersion: 2,
-    expectedRotationRuleVersion: 3,
     expectedRulesVersion: 4,
     operationId,
   };
@@ -149,12 +136,6 @@ function responseFor(id: string): unknown {
     id: roleId,
     members: [],
     name: '一线',
-    rotationRule: {
-      currentPosition: 1,
-      defaultShiftTypeId: shiftTypeId,
-      requiredMembersPerDay: 1,
-      version: 3,
-    },
     version: 2,
   };
 }

@@ -26,7 +26,6 @@ describe('P7 Mini workflow client boundary', () => {
             isAllDay: true,
             leaveType: 'sick',
             membershipId: '44444444-4444-4444-8444-444444444444',
-            reflowStrategy: 'keep-original-order',
             startsAt: '2026-08-24T16:00:00.000Z',
             status: 'pending',
             version: 1,

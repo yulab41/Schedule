@@ -264,7 +264,6 @@ describeWithDatabase('optimistic concurrency protection', () => {
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -353,7 +352,6 @@ interface ConfigResponse {
   readonly roles: readonly {
     readonly id: string;
     readonly members: readonly { readonly id: string; readonly realName: string }[];
-    readonly rotationRule: { readonly version: number };
     readonly version: number;
   }[];
   readonly rulesVersion: number;

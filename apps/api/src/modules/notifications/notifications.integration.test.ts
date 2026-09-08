@@ -1,3 +1,7 @@
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -12,7 +16,7 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { eq, sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -32,6 +36,8 @@ describeWithDatabase('notification workflows', () => {
   let client: DatabaseClient;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-31T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -52,6 +58,7 @@ describeWithDatabase('notification workflows', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -114,8 +121,8 @@ describeWithDatabase('notification workflows', () => {
       .limit(1);
     if (owner === undefined) throw new Error('Expected the owner fixture user.');
 
-    const firstGroupId = randomUUID();
-    const secondGroupId = randomUUID();
+    const firstGroupId = await createGroup('First notification group', '2341');
+    const secondGroupId = await createGroup('Second notification group', '2342');
     await client.database.insert(notifications).values([
       {
         body: '第一群组提醒',
@@ -411,7 +418,7 @@ describeWithDatabase('notification workflows', () => {
     const startingMemberScheduleRoleId = roleConfig?.members.find(
       (member) => member.realName === 'A Doctor',
     )?.id;
-    await updateRotationRule(context.groupId, roleId, {
+    await configureFixturePattern(context.groupId, roleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -560,7 +567,7 @@ describeWithDatabase('notification workflows', () => {
     const startingMemberScheduleRoleId = roleConfig?.members.find(
       (member) => member.realName === 'A Doctor',
     )?.id;
-    await updateRotationRule(groupId, roleId, {
+    await configureFixturePattern(groupId, roleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -699,13 +706,12 @@ describeWithDatabase('notification workflows', () => {
   ): Promise<void> {
     const config = await getConfig('owner-token', groupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -715,7 +721,7 @@ describeWithDatabase('notification workflows', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     groupId: string,
     roleId: string,
     payload: {
@@ -726,22 +732,7 @@ describeWithDatabase('notification workflows', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
-    const config = await getConfig('owner-token', groupId);
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...payload,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, groupId, roleId, payload);
   }
 
   async function generateSchedule(
@@ -750,9 +741,8 @@ describeWithDatabase('notification workflows', () => {
     rulesVersion: number,
     publishMode: 'draft' | 'published',
   ) {
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth: '2026-09',
         operationId: randomUUID(),
@@ -760,7 +750,6 @@ describeWithDatabase('notification workflows', () => {
         rulesVersion,
         scheduleRoleIds: [roleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
   }
 

@@ -4,12 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { registerSchedulingConfigRoutes } from './scheduling-config-routes.js';
 import type { SchedulingConfigService } from './scheduling-config-service.js';
+import { registerScheduleRoutes } from '../schedules/schedule-routes.js';
+import type { SchedulePublishModeService } from '../schedules/publish-mode-service.js';
+import type { SchedulePublishService } from '../schedules/publish-service.js';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const roleId = '22222222-2222-4222-8222-222222222222';
 const shiftTypeId = '33333333-3333-4333-8333-333333333333';
 const memberId = '44444444-4444-4444-8444-444444444444';
-const roleMemberId = '55555555-5555-4555-8555-555555555555';
 const firstOperationId = '66666666-6666-4666-8666-666666666666';
 const secondOperationId = '77777777-7777-4777-8777-777777777777';
 const identity = { cloudbaseUid: 'test-user' } satisfies AuthenticatedIdentity;
@@ -38,20 +40,36 @@ describe('P8 scheduling configuration route operation and version boundary', () 
       createShiftType: serviceCall(shiftType()),
       deleteRole: serviceCall({ completed: true }),
       deleteShiftType: serviceCall({ completed: true }),
-      reorderRotationMembers: serviceCall(role()),
       replaceRoleMembers: serviceCall(role()),
-      updateRotationRule: serviceCall(role()),
       updateShiftType: serviceCall(shiftType()),
     };
     registerSchedulingConfigRoutes(app, {
       ...calls,
       getConfig: vi.fn(),
     } as unknown as SchedulingConfigService);
+    registerScheduleRoutes(app, {} as SchedulePublishModeService, {} as SchedulePublishService);
     await app.ready();
   });
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('does not expose retired rotation or automatic generation routes', async () => {
+    for (const [method, url] of [
+      ['PUT', `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`],
+      ['PUT', `/groups/${groupId}/schedule-roles/${roleId}/rotation-members`],
+      ['POST', `/groups/${groupId}/schedules/generate-preview`],
+      ['POST', `/groups/${groupId}/schedules/generate`],
+    ] as const) {
+      expect((await app.inject({ method, url, payload: {} })).statusCode).toBe(404);
+    }
+    expect(app.hasRoute({ method: 'GET', url: '/groups/:groupId/schedule-publish-mode' })).toBe(
+      true,
+    );
+    expect(
+      app.hasRoute({ method: 'POST', url: '/groups/:groupId/schedules/:schedulePeriodId/publish' }),
+    ).toBe(true);
   });
 
   it('accepts header-only operation ids and forwards all aggregate and entity versions', async () => {
@@ -60,7 +78,7 @@ describe('P8 scheduling configuration route operation and version boundary', () 
     );
 
     expect(responses.map((response) => response.statusCode)).toEqual([
-      201, 200, 200, 200, 200, 201, 200, 200,
+      201, 200, 200, 201, 200, 200,
     ]);
     for (const call of Object.values(calls)) {
       expect(call).toHaveBeenCalledOnce();
@@ -69,7 +87,7 @@ describe('P8 scheduling configuration route operation and version boundary', () 
       );
     }
     expect(calls.replaceRoleMembers!.mock.calls[0]?.at(-1)).toEqual(
-      expect.objectContaining({ expectedRoleVersion: 2, expectedRotationRuleVersion: 3 }),
+      expect.objectContaining({ expectedRoleVersion: 2 }),
     );
     expect(calls.updateShiftType!.mock.calls[0]?.at(-1)).toEqual(
       expect.objectContaining({ expectedVersion: 5 }),
@@ -100,7 +118,6 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
   ) => ({ headers, method, payload: { ...payload, ...operation }, url });
   const roleVersions = {
     expectedRoleVersion: 2,
-    expectedRotationRuleVersion: 3,
     expectedRulesVersion: 4,
   };
   return [
@@ -111,16 +128,6 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
     request('PUT', `/groups/${groupId}/schedule-roles/${roleId}/members`, {
       ...roleVersions,
       membershipIds: [memberId],
-    }),
-    request('PUT', `/groups/${groupId}/schedule-roles/${roleId}/rotation-members`, {
-      ...roleVersions,
-      members: [{ position: 1, scheduleRoleMemberId: roleMemberId }],
-    }),
-    request('PUT', `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`, {
-      ...roleVersions,
-      currentPosition: 1,
-      defaultShiftTypeId: shiftTypeId,
-      requiredMembersPerDay: 1,
     }),
     request('DELETE', `/groups/${groupId}/schedule-roles/${roleId}`, {
       expectedRulesVersion: 4,
@@ -147,12 +154,6 @@ function role() {
     id: roleId,
     members: [],
     name: '一线',
-    rotationRule: {
-      currentPosition: 1,
-      defaultShiftTypeId: shiftTypeId,
-      requiredMembersPerDay: 1,
-      version: 3,
-    },
     version: 2,
   };
 }

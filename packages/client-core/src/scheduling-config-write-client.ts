@@ -1,13 +1,11 @@
 import type {
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
-  ReorderRotationMembersRequest,
   ReplaceScheduleRoleMembersRequest,
   ScheduleRole,
   ScheduleRoleVersionMutationRequest,
   ShiftType,
   ShiftTypeVersionMutationRequest,
-  UpdateRotationRuleRequest,
   UpdateShiftTypeRequest,
 } from '@schedule/contracts';
 
@@ -77,22 +75,10 @@ export const schedulingConfigWriteEndpoints = {
     'DELETE',
     emptyResponseDecoder,
   ),
-  reorderRotationMembers: roleEndpoint<ReorderRotationMembersRequest, ScheduleRole>(
-    'rotation-members-reorder',
-    'PUT',
-    'rotation-members',
-    scheduleRoleMutationDecoder,
-  ),
   replaceScheduleRoleMembers: roleEndpoint<ReplaceScheduleRoleMembersRequest, ScheduleRole>(
     'schedule-role-members-replace',
     'PUT',
     'members',
-    scheduleRoleMutationDecoder,
-  ),
-  updateRotationRule: roleEndpoint<UpdateRotationRuleRequest, ScheduleRole>(
-    'rotation-rule-update',
-    'PUT',
-    'rotation-rule',
     scheduleRoleMutationDecoder,
   ),
   updateShiftType: shiftTypeEndpoint<UpdateShiftTypeRequest, ShiftType>(
@@ -115,20 +101,10 @@ export interface SchedulingConfigWriteClient {
     shiftTypeId: string,
     request: ShiftTypeVersionMutationRequest,
   ): Promise<void>;
-  reorderRotationMembers(
-    groupId: string,
-    roleId: string,
-    request: ReorderRotationMembersRequest,
-  ): Promise<ScheduleRole>;
   replaceScheduleRoleMembers(
     groupId: string,
     roleId: string,
     request: ReplaceScheduleRoleMembersRequest,
-  ): Promise<ScheduleRole>;
-  updateRotationRule(
-    groupId: string,
-    roleId: string,
-    request: UpdateRotationRuleRequest,
   ): Promise<ScheduleRole>;
   updateShiftType(
     groupId: string,
@@ -149,12 +125,8 @@ export function createSchedulingConfigWriteClient(
       role(schedulingConfigWriteEndpoints.deleteScheduleRole, groupId, roleId, request),
     deleteShiftType: (groupId, shiftTypeId, request) =>
       shiftType(schedulingConfigWriteEndpoints.deleteShiftType, groupId, shiftTypeId, request),
-    reorderRotationMembers: (groupId, roleId, request) =>
-      role(schedulingConfigWriteEndpoints.reorderRotationMembers, groupId, roleId, request),
     replaceScheduleRoleMembers: (groupId, roleId, request) =>
       role(schedulingConfigWriteEndpoints.replaceScheduleRoleMembers, groupId, roleId, request),
-    updateRotationRule: (groupId, roleId, request) =>
-      role(schedulingConfigWriteEndpoints.updateRotationRule, groupId, roleId, request),
     updateShiftType: (groupId, shiftTypeId, request) =>
       shiftType(schedulingConfigWriteEndpoints.updateShiftType, groupId, shiftTypeId, request),
   };

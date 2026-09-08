@@ -25,7 +25,6 @@ import {
   dutyAdjustmentRequestSchema,
   groupDutyAdjustmentSettingsSchema,
   groupCatalogListSchema,
-  groupLeaveReflowStrategySchema,
   groupMemberContactSchema,
   groupMemberContactListSchema,
   groupMemberSchema,
@@ -37,7 +36,7 @@ import {
   groupSwapSettingsSchema,
   holidayReadModelSchema,
   leaveAffectedShiftListSchema,
-  leaveReflowPreviewSchema,
+  leaveApprovalPreviewSchema,
   leaveRequestListSchema,
   leaveRequestMutationResultSchema,
   leaveRequestSchema,
@@ -174,10 +173,6 @@ const source = await format(
         z.toJSONSchema(groupCatalogListSchema),
         'groupCatalogList',
       ),
-      groupLeaveReflowStrategy: sanitizeJsonSchema(
-        z.toJSONSchema(groupLeaveReflowStrategySchema),
-        'groupLeaveReflowStrategy',
-      ),
       groupMemberContact: sanitizeJsonSchema(
         z.toJSONSchema(groupMemberContactSchema),
         'groupMemberContact',
@@ -210,9 +205,9 @@ const source = await format(
         z.toJSONSchema(leaveAffectedShiftListSchema),
         'leaveAffectedShiftList',
       ),
-      leaveReflowPreview: sanitizeJsonSchema(
-        z.toJSONSchema(leaveReflowPreviewSchema),
-        'leaveReflowPreview',
+      leaveApprovalPreview: sanitizeJsonSchema(
+        z.toJSONSchema(leaveApprovalPreviewSchema),
+        'leaveApprovalPreview',
       ),
       leaveRequest: sanitizeJsonSchema(z.toJSONSchema(leaveRequestSchema), 'leaveRequest'),
       leaveRequestList: sanitizeJsonSchema(

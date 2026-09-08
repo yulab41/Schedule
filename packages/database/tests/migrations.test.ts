@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, isAbsolute } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { sql } from 'drizzle-orm';
@@ -51,8 +50,84 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 54 }]);
-    expect(tables).toEqual([{ count: 57 }]);
+    expect(migrations).toEqual([{ count: 56 }]);
+    expect(tables).toEqual([{ count: 55 }]);
+  });
+
+  it('retires automatic rules without changing memberships, manual templates or historical assignments', async () => {
+    const legacy = await createLegacyMigrationsDirectory(55);
+    try {
+      await migrateDatabase(client, legacy);
+      const owner = randomUUID(),
+        groupId = randomUUID(),
+        roleId = randomUUID(),
+        memberId = randomUUID(),
+        roleMemberId = randomUUID(),
+        shiftId = randomUUID(),
+        ruleId = randomUUID(),
+        templateId = randomUUID(),
+        periodId = randomUUID(),
+        assignmentId = randomUUID();
+      await client.database
+        .insert(users)
+        .values({ id: owner, cloudbaseUid: `retirement-${owner}` });
+      await client.database
+        .insert(groups)
+        .values({ id: groupId, name: 'Migration fixture', ownerUserId: owner });
+      await client.database
+        .insert(groupMemberships)
+        .values({ id: memberId, groupId, userId: owner, role: 'owner', status: 'active' });
+      await client.database.execute(
+        sql`INSERT INTO schedule_roles(id,group_id,name) VALUES(${roleId},${groupId},'Fixture role')`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO member_schedule_roles(id,schedule_role_id,membership_id) VALUES(${roleMemberId},${roleId},${memberId})`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO shift_types(id,group_id,name,abbreviation,display_order,color,text_color,start_time,end_time,crosses_midnight,is_enabled,is_all_day) VALUES(${shiftId},${groupId},'Fixture shift','F',1,'#123456','#FFFFFF','08:00','08:00',1,1,1)`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO rotation_rules(id,schedule_role_id,default_shift_type_id) VALUES(${ruleId},${roleId},${shiftId})`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO rotation_members(id,rotation_rule_id,member_schedule_role_id,position) VALUES(${randomUUID()},${ruleId},${roleMemberId},1)`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO manual_schedule_templates(id,group_id,schedule_role_id,start_date,cycle_days) VALUES(${templateId},${groupId},${roleId},'2026-09-01',1)`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO schedule_periods(id,group_id,schedule_role_id,business_month,revision,status,rules_version) VALUES(${periodId},${groupId},${roleId},'2026-07-01',1,'past',1)`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO shift_assignments(id,schedule_period_id,business_date,slot_position,shift_type_id,shift_type_name,shift_type_abbreviation,shift_type_color,shift_type_text_color,shift_type_configuration_version,shift_start_time,shift_end_time,crosses_midnight,is_all_day,counts_toward_statistics,starts_at,ends_at,planned_membership_id,planned_member_name) VALUES(${assignmentId},${periodId},'2026-07-08',1,${shiftId},'Fixture shift','F','#123456','#FFFFFF',1,'08:00','08:00',1,1,1,'2026-07-08 00:00:00','2026-07-09 00:00:00',${memberId},'Fixture member')`,
+      );
+      const before = await client.database.execute(
+        sql`SELECT id,version,planned_membership_id,starts_at,ends_at FROM shift_assignments WHERE id=${assignmentId}`,
+      );
+      await migrateDatabase(client, migrationsDirectory);
+      const after = await client.database.execute(
+        sql`SELECT id,version,planned_membership_id,starts_at,ends_at FROM shift_assignments WHERE id=${assignmentId}`,
+      );
+      expect(after[0]).toEqual(before[0]);
+      const [members] = await client.database.execute(
+        sql`SELECT id,membership_id FROM member_schedule_roles WHERE id=${roleMemberId}`,
+      );
+      expect(members).toEqual([{ id: roleMemberId, membership_id: memberId }]);
+      const [templates] = await client.database.execute(
+        sql`SELECT id,schedule_role_id FROM manual_schedule_templates WHERE id=${templateId}`,
+      );
+      expect(templates).toEqual([{ id: templateId, schedule_role_id: roleId }]);
+      const [retired] = await client.database.execute(
+        sql`SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('rotation_rules','rotation_members')`,
+      );
+      expect(retired).toEqual([]);
+      const [columns] = await client.database.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name='groups' AND column_name='leave_reflow_strategy') OR (table_name='leave_requests' AND column_name='reflow_strategy'))`,
+      );
+      expect(columns).toEqual([]);
+    } finally {
+      await removeLegacyMigrationsDirectory(legacy);
+    }
   });
 
   it('retains historical codes and relationships while allowing multiple new NULL groups', async () => {
@@ -1044,7 +1119,7 @@ describeWithDatabase('identity and group migrations', () => {
         )
       `);
     } finally {
-      await rm(legacyMigrationsDirectory, { force: true, recursive: true });
+      await removeLegacyMigrationsDirectory(legacyMigrationsDirectory);
     }
   });
 });
@@ -1092,8 +1167,22 @@ async function readDirectoryCandidateIndex(
   }));
 }
 
+async function removeLegacyMigrationsDirectory(directory: string): Promise<void> {
+  const artifactRoot = fileURLToPath(
+    new URL('../../../runtime/audit/migration-fixtures/', import.meta.url),
+  );
+  const child = relative(artifactRoot, directory);
+  if (!child || child.startsWith('..') || isAbsolute(child))
+    throw new Error('Invalid migration fixture cleanup target');
+  await rm(directory, { recursive: true, force: true });
+}
+
 async function createLegacyMigrationsDirectory(entryCount = 32): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'schedule-migrations-'));
+  const artifactRoot = fileURLToPath(
+    new URL('../../../runtime/audit/migration-fixtures/', import.meta.url),
+  );
+  await mkdir(artifactRoot, { recursive: true });
+  const directory = await mkdtemp(join(artifactRoot, 'migrations-'));
   await mkdir(join(directory, 'meta'));
   const journal = JSON.parse(
     await readFile(join(migrationsDirectory, 'meta/_journal.json'), 'utf8'),

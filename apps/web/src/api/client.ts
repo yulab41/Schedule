@@ -39,14 +39,13 @@ import type {
   GroupMobilePhoneConsent,
   GroupDutyAdjustmentSettings,
   GroupSchedulePublishMode,
-  GroupLeaveReflowStrategy,
   GroupSwapSettings,
   GroupSummary,
   GroupVersionMutationRequest,
   GuestCalendarReadModel,
   HolidayReadModel,
   JsonObject,
-  LeaveReflowPreview,
+  LeaveApprovalPreview,
   LeaveAffectedShift,
   LeaveAffectedShiftsInput,
   LeaveRequestMutationInput,
@@ -89,7 +88,6 @@ import type {
   PreviewManualTemplateApplyRequest,
   RejectedLeaveRequestResult,
   RejectLeaveRequestInput,
-  ReorderRotationMembersRequest,
   RevokeInviteRequest,
   UpdateGroupCalendarDefaults,
   ReplaceScheduleRoleMembersRequest,
@@ -115,7 +113,6 @@ import type {
   DirectoryFacetSnapshot,
   DirectoryPage,
   DirectoryQuery,
-  UpdateRotationRuleRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberNameRequest,
@@ -123,7 +120,6 @@ import type {
   UpdateGroupNameRequest,
   UpdateGroupDutyAdjustmentSettingsInput,
   UpdateManualScheduleTemplateRequest,
-  UpdateGroupLeaveReflowStrategyInput,
   UpdateGroupSwapSettingsInput,
   UpdateMemberSwapSettingsInput,
   UpdateMemberCalendarPreferences,
@@ -358,7 +354,6 @@ export interface ApiClient {
   getGroupDutyAdjustmentSettings(groupId: string): Promise<GroupDutyAdjustmentSettings>;
   getGroupMobilePhoneConsent(groupId: string): Promise<GroupMobilePhoneConsent>;
   getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings>;
-  getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
   getMyDutyAdjustmentSettings(groupId: string): Promise<MemberSwapSettings>;
   getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
@@ -443,7 +438,7 @@ export interface ApiClient {
     groupId: string,
     leaveRequestId: string,
     input: PreviewLeaveRequestInput,
-  ): Promise<LeaveReflowPreview>;
+  ): Promise<LeaveApprovalPreview>;
   previewDutyAdjustment(
     groupId: string,
     input: DutyAdjustmentPairInput,
@@ -498,11 +493,6 @@ export interface ApiClient {
     dutyAdjustmentId: string,
     input: RevokeDutyAdjustmentInput,
   ): Promise<DutyAdjustmentRequest>;
-  reorderRotationMembers(
-    groupId: string,
-    roleId: string,
-    input: ReorderRotationMembersRequest,
-  ): Promise<ScheduleRole>;
   replaceScheduleRoleMembers(
     groupId: string,
     roleId: string,
@@ -544,10 +534,6 @@ export interface ApiClient {
     groupId: string,
     input: UpdateGroupSwapSettingsInput,
   ): Promise<GroupSwapSettings>;
-  updateLeaveReflowStrategy(
-    groupId: string,
-    input: UpdateGroupLeaveReflowStrategyInput,
-  ): Promise<GroupLeaveReflowStrategy>;
   updateMySwapSettings(
     groupId: string,
     input: UpdateMemberSwapSettingsInput,
@@ -556,11 +542,6 @@ export interface ApiClient {
     groupId: string,
     input: UpdateMemberCalendarPreferences,
   ): Promise<CalendarPreferences>;
-  updateRotationRule(
-    groupId: string,
-    roleId: string,
-    input: UpdateRotationRuleRequest,
-  ): Promise<ScheduleRole>;
   updateShiftType(
     groupId: string,
     shiftTypeId: string,
@@ -1161,9 +1142,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     getGroupSwapSettings(groupId) {
       return workflowClient.getGroupSwapSettings(groupId);
     },
-    getLeaveReflowStrategy(groupId) {
-      return workflowClient.getLeaveReflowStrategy(groupId);
-    },
     getMySwapSettings(groupId) {
       return workflowClient.getMySwapSettings(groupId);
     },
@@ -1555,9 +1533,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     revokeDutyAdjustment(groupId, dutyAdjustmentId, input) {
       return workflowClient.revokeDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
-    reorderRotationMembers(groupId, roleId, input) {
-      return schedulingConfigWriteClient.reorderRotationMembers(groupId, roleId, input);
-    },
     replaceScheduleRoleMembers(groupId, roleId, input) {
       return schedulingConfigWriteClient.replaceScheduleRoleMembers(groupId, roleId, input);
     },
@@ -1595,9 +1570,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     updateGroupSwapSettings(groupId, input) {
       return workflowClient.updateGroupSwapSettings(groupId, input);
     },
-    updateLeaveReflowStrategy(groupId, input) {
-      return workflowClient.updateLeaveReflowStrategy(groupId, input);
-    },
     updateMySwapSettings(groupId, input) {
       return workflowClient.updateMySwapSettings(groupId, input);
     },
@@ -1610,9 +1582,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         { body: JSON.stringify(input), method: 'PUT' },
         isResponseBodyFromSchema(calendarPreferencesSchema),
       );
-    },
-    updateRotationRule(groupId, roleId, input) {
-      return schedulingConfigWriteClient.updateRotationRule(groupId, roleId, input);
     },
     updateShiftType(groupId, shiftTypeId, input) {
       return schedulingConfigWriteClient.updateShiftType(groupId, shiftTypeId, input);

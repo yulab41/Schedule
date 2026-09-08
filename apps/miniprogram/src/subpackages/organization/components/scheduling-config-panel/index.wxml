@@ -34,14 +34,14 @@
         <view class="config-heading">
           <text class="section-eyebrow">临床交接轨</text>
           <text class="page-title">排班配置</text>
-          <text class="page-description">先建立班种、岗位成员与轮转规则，再进入排班编制。</text>
+          <text class="page-description">配置班种与岗位成员，再使用手动模板排班。</text>
         </view>
 
         <view class="readiness-card">
           <view class="readiness-heading">
             <view
               ><text class="readiness-eyebrow">排班准备状态</text
-              ><text class="readiness-title">版本 v{{rulesVersion}}</text></view
+              ></view
             >
             <text class="readiness-scope">{{organizationEnabled ? '可编辑' : '只读预览'}}</text>
           </view>
@@ -56,12 +56,7 @@
                 >{{roleCards.length > 0 ? '✓' : '2'}}</text
               ><text>岗位</text><text>{{roleCards.length}} 个</text></view
             >
-            <view class="readiness-step"
-              ><text class="readiness-mark {{roleCards.length > 0 ? 'is-complete' : ''}}"
-                >{{roleCards.length > 0 ? '✓' : '3'}}</text
-              ><text>轮转规则</text
-              ><text>{{roleCards.length > 0 ? '待核对' : '待建立'}}</text></view
-            >
+
           </view>
         </view>
 
@@ -315,7 +310,7 @@
           <view class="card-header"
             ><view
               ><text class="card-title">岗位成员</text
-              ><text class="card-subtitle">岗位不是成员姓名；成员顺序会影响轮转</text></view
+              ><text class="card-subtitle">选择可以参与该岗位排班的成员</text></view
             ></view
           >
           <view class="new-role-row"
@@ -338,8 +333,6 @@
             <view class="role-heading"
               ><view
                 ><text class="role-title">{{role.name}}</text
-                ><text class="role-meta"
-                  >{{role.members.length}} 位成员 · 岗位版本 v{{role.version}}</text
                 ></view
               ><ui-button
                 variant="danger"
@@ -391,91 +384,8 @@
                 disabled="{{!canManage}}"
                 bindpress="handleSaveRoleMembers"
               ></ui-button
-              ><ui-button
-                variant="secondary"
-                label="保存轮转顺序"
-                data-role-id="{{role.id}}"
-                disabled="{{!canManage}}"
-                bindpress="handleSaveRoleOrder"
-              ></ui-button
-            ></view>
-            <view class="role-section rotation-section"
-              ><view class="rotation-heading"
-                ><view
-                  ><text class="field-label">轮转规则</text
-                  ><text class="role-meta">规则版本 v{{role.rotationVersion}}</text></view
-                ><ui-button
-                  variant="secondary"
-                  label="{{role.editing ? '收起规则' : '编辑规则'}}"
-                  data-role-id="{{role.id}}"
-                  bindpress="handleRotationToggle"
-                ></ui-button></view
-              ><view class="rotation-summary"
-                ><text>每天 {{role.requiredMembersPerDay}} 人</text
-                ><text>默认 {{role.defaultShiftTypeName}}</text
-                ><text>当前位置 {{role.currentPosition}}</text></view
-              ><view wx:if="{{role.editing}}" class="rotation-editor"
-                ><view class="field-grid"
-                  ><view class="field-block"
-                    ><text class="field-label">每天需要人数</text
-                    ><input
-                      class="native-field"
-                      type="number"
-                      value="{{role.requiredMembersPerDay}}"
-                      data-role-id="{{role.id}}"
-                      data-field="requiredMembersPerDay"
-                      bindinput="handleRotationInput" /></view
-                  ><view class="field-block"
-                    ><text class="field-label">当前位置</text
-                    ><input
-                      class="native-field"
-                      type="number"
-                      value="{{role.currentPosition}}"
-                      data-role-id="{{role.id}}"
-                      data-field="currentPosition"
-                      bindinput="handleRotationInput" /></view
-                  ><view class="field-block"
-                    ><text class="field-label">默认班种</text
-                    ><picker
-                      mode="selector"
-                      range="{{shiftDrafts}}"
-                      range-key="name"
-                      value="{{role.defaultShiftIndex}}"
-                      data-role-id="{{role.id}}"
-                      data-field="defaultShift"
-                      bindchange="handleRotationPicker"
-                      ><view class="native-picker">{{role.defaultShiftTypeName}}</view></picker
-                    ></view
-                  ><view class="field-block"
-                    ><text class="field-label">起始日期</text
-                    ><picker
-                      mode="date"
-                      value="{{role.startDate}}"
-                      data-role-id="{{role.id}}"
-                      data-field="startDate"
-                      bindchange="handleRotationInput"
-                      ><view class="native-picker">{{role.startDate || '选择日期'}}</view></picker
-                    ></view
-                  ><view class="field-block"
-                    ><text class="field-label">起始成员</text
-                    ><picker
-                      mode="selector"
-                      range="{{role.memberNames}}"
-                      value="{{role.startingMemberIndex}}"
-                      data-role-id="{{role.id}}"
-                      data-field="startingMember"
-                      bindchange="handleRotationPicker"
-                      ><view class="native-picker">{{role.startingMemberName}}</view></picker
-                    ></view
-                  ></view
-                ><ui-button
-                  variant="primary"
-                  label="保存轮转规则"
-                  data-role-id="{{role.id}}"
-                  disabled="{{!canManage}}"
-                  bindpress="handleSaveRotation"
-                ></ui-button></view
-            ></view>
+              ></view>
+
           </view>
         </view>
 

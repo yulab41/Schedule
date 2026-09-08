@@ -1,68 +1,47 @@
+import { LeaveAssignmentService } from './leave-assignment-service.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type {
   ApprovedLeaveRequestResult,
   ApproveLeaveRequestInput,
   CreateLeaveRequestInput,
-  GroupLeaveReflowStrategy,
   LeaveAffectedShift,
-  LeaveAffectedAssignment,
   LeaveAffectedShiftsInput,
-  LeaveMemberStatisticsDelta,
-  LeaveReflowConflict,
-  LeaveReflowPreview,
-  LeaveReflowStrategy,
+  LeaveApprovalPreview,
   LeaveRequest,
   LeaveRequestMutationInput,
   LeaveRequestMutationResult,
-  LeaveStatisticsDelta,
-  LeaveWorkflowBlocker,
   PreviewLeaveRequestInput,
   RejectedLeaveRequestResult,
   RejectLeaveRequestInput,
-  ScheduleGenerationVacancy,
-  ScheduleGenerationWarning,
-  UpdateGroupLeaveReflowStrategyInput,
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
-  groups,
   leaveRequests,
-  memberScheduleRoles,
-  rotationMembers,
-  rotationRules,
   schedulePeriods,
-  scheduleRoles,
   shiftAssignments,
   userProfiles,
   users,
   withTransaction,
 } from '@schedule/database';
 import {
-  createRotationBusinessKey,
   getChinaStandardTimeBusinessDate,
   getChinaStandardTimeCalendarDate,
   intervalsOverlap,
   isPastBusinessDate,
   leaveOverlapsInterval,
-  reflowLeaveAssignments,
-  type LeaveReflowInterval,
-  type ReflowAssignment,
-  type ReflowMember,
-  type ReflowRotationRule,
 } from '@schedule/scheduling-domain';
-import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
-import type { ActiveGroup, GroupAuthorization } from '../groups/permission-service.js';
+import type { GroupAuthorization } from '../groups/permission-service.js';
 import {
   isConflictBlockedError,
   writeConflictNotification,
 } from '../notifications/conflict-notifier.js';
-import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import { getCurrentDutyMembershipId } from '../workflows/workflow-conflict-service.js';
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
@@ -72,56 +51,13 @@ type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
 
-interface LoadedRotationMember {
-  readonly effectiveFrom?: string;
-  readonly effectiveTo?: string;
-  readonly isActive: boolean;
-  readonly memberScheduleRoleId: string;
-  readonly membershipId: string;
-  readonly position: number;
-  readonly realName: string;
-}
-
-interface RotationRuleRow {
-  readonly currentPosition: number;
-  readonly id: string;
-  readonly requiredMembersPerDay: number;
-  readonly scheduleRoleId: string;
-  readonly startDate: string;
-  readonly startingMemberScheduleRoleId: string | null;
-}
-
-interface MemberRow {
-  readonly effectiveFrom: string | null;
-  readonly effectiveTo: string | null;
-  readonly memberScheduleRoleDeletedAt: Date | null;
-  readonly memberScheduleRoleId: string;
-  readonly membershipDeletedAt: Date | null;
-  readonly membershipId: string;
-  readonly membershipStatus: string;
-  readonly position: number;
-  readonly realName: string;
-  readonly rotationRuleId: string;
-  readonly userDeletedAt: Date | null;
-  readonly userStatus: string;
-}
-
-interface ReflowContext {
-  readonly assignments: readonly ReflowAssignment[];
-  readonly domainResult: ReturnType<typeof reflowLeaveAssignments>;
-  readonly memberNamesById: ReadonlyMap<string, string>;
-  readonly periodById: ReadonlyMap<string, LockedSchedulePeriod>;
-  readonly periods: readonly LockedSchedulePeriod[];
-  readonly preview: LeaveReflowPreview;
-  readonly rowByBusinessKey: ReadonlyMap<string, LockedShiftAssignment>;
-  readonly workflowBlockers: readonly LeaveWorkflowBlocker[];
-}
-
 export class LeaveService {
   private readonly services: WorkflowServices;
+  private readonly assignments: LeaveAssignmentService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
     this.services = new WorkflowServices(databaseClient);
+    this.assignments = new LeaveAssignmentService(this.services);
   }
 
   public async submit(
@@ -142,7 +78,6 @@ export class LeaveService {
         isAllDay: input.isAllDay === true,
         leaveType: input.leaveType,
         reason: input.reason ?? null,
-        resolutionMode: input.resolutionMode ?? null,
         startsAt: input.startsAt,
       }),
       run: async (transaction, authorization) => {
@@ -181,14 +116,6 @@ export class LeaveService {
           });
         }
 
-        let reflowStrategy = authorization.group.leaveReflowStrategy;
-        if (input.resolutionMode === 'shift-forward') {
-          reflowStrategy = 'shift-forward';
-        }
-        if (input.resolutionMode === 'manual') {
-          reflowStrategy = 'keep-original-order';
-        }
-
         const leaveRequestId = randomUUID();
         await transaction.insert(leaveRequests).values({
           endsAt,
@@ -198,7 +125,6 @@ export class LeaveService {
           leaveType: input.leaveType,
           membershipId: authorization.membership.id,
           ...(input.reason === undefined ? {} : { reason: input.reason }),
-          reflowStrategy,
           startsAt,
         });
         const submittedEventId = await this.services.eventWriter.append(transaction, {
@@ -207,8 +133,6 @@ export class LeaveService {
             endsAt: endsAt.toISOString(),
             isAllDay: input.isAllDay === true,
             leaveType: input.leaveType,
-            reflowStrategy,
-            ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
             startsAt: startsAt.toISOString(),
           }),
           eventStatus: 'completed',
@@ -310,7 +234,7 @@ export class LeaveService {
     groupId: string,
     leaveRequestId: string,
     input: PreviewLeaveRequestInput,
-  ): Promise<LeaveReflowPreview> {
+  ): Promise<LeaveApprovalPreview> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.services.permissionService.requirePermission(
         transaction,
@@ -341,15 +265,9 @@ export class LeaveService {
         });
       }
       assertLeaveStartsTodayOrLater(leaveRequest.startsAt);
-      const strategy = input.strategy ?? leaveRequest.reflowStrategy;
-      const context = await this.loadReflowContext(
-        transaction,
-        authorization.group,
-        leaveRequest,
-        strategy,
-      );
-
-      return context.preview;
+      void input;
+      return (await this.assignments.preview(transaction, authorization.group, leaveRequest))
+        .preview;
     });
   }
 
@@ -379,11 +297,11 @@ export class LeaveService {
       requestFingerprint: createApproveFingerprint({
         acknowledgeBlockers: input.acknowledgeBlockers === true,
         expectedPeriodVersions: input.expectedPeriodVersions,
+        expectedAssignmentVersions: input.expectedAssignmentVersions,
         expectedRulesVersion: input.expectedRulesVersion,
         expectedVersion: input.expectedVersion,
         groupId,
         leaveRequestId,
-        strategy: input.strategy ?? null,
       }),
       run: (transaction, authorization) =>
         this.runApproval(transaction, authorization, leaveRequestId, input),
@@ -467,275 +385,102 @@ export class LeaveService {
     });
   }
 
-  public async getGroupStrategy(
-    identity: AuthenticatedIdentity,
-    groupId: string,
-  ): Promise<GroupLeaveReflowStrategy> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'viewScheduleConfiguration',
-      );
-      return { strategy: authorization.group.leaveReflowStrategy };
-    });
-  }
-
-  public async updateGroupStrategy(
-    identity: AuthenticatedIdentity,
-    groupId: string,
-    input: UpdateGroupLeaveReflowStrategyInput,
-  ): Promise<GroupLeaveReflowStrategy> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageLeaves',
-      );
-      await transaction
-        .update(groups)
-        .set({
-          leaveReflowStrategy: input.strategy,
-          version: sql`${groups.version} + 1`,
-        })
-        .where(eq(groups.id, authorization.group.id));
-
-      return { strategy: input.strategy };
-    });
-  }
-
   private async runApproval(
     transaction: DatabaseTransaction,
     authorization: GroupAuthorization,
     leaveRequestId: string,
     input: ApproveLeaveRequestInput,
   ): Promise<ApprovedLeaveRequestResult> {
-    const leaveRequest = await this.lockLeaveRequest(
-      transaction,
-      authorization.group.id,
-      leaveRequestId,
-    );
-    if (leaveRequest.status !== 'pending') {
+    const leave = await this.lockLeaveRequest(transaction, authorization.group.id, leaveRequestId);
+    if (leave.status !== 'pending')
       throw new ApiError({
         code: 'CONFLICT',
-        latestData: {
-          id: leaveRequest.id,
-          objectType: 'leave_request',
-          status: leaveRequest.status,
-          version: leaveRequest.version,
-        },
         statusCode: 409,
+        latestData: {
+          id: leave.id,
+          objectType: 'leave_request',
+          status: leave.status,
+          version: leave.version,
+        },
         userMessage: '该请假申请已处理，不能重复审批。',
       });
-    }
-    assertLeaveStartsTodayOrLater(leaveRequest.startsAt);
+    assertLeaveStartsTodayOrLater(leave.startsAt);
     assertExpectedVersion({
-      actualVersion: leaveRequest.version,
+      actualVersion: leave.version,
       expectedVersion: input.expectedVersion,
-      id: leaveRequest.id,
-      latestData: { status: leaveRequest.status, reflowStrategy: leaveRequest.reflowStrategy },
+      id: leave.id,
       objectType: 'leave_request',
-      userMessage: '请假申请已被其他操作更新，请刷新后重新审批。',
     });
-    if (authorization.group.rulesVersion !== input.expectedRulesVersion) {
+    if (authorization.group.rulesVersion !== input.expectedRulesVersion)
       throw new ApiError({
         code: 'CONFLICT',
+        statusCode: 409,
         latestData: { rulesVersion: authorization.group.rulesVersion },
-        statusCode: 409,
-        userMessage: '排班规则已更新，请刷新后重新审批。',
+        userMessage: '排班配置已更新，请重新预览。',
       });
-    }
-
-    const strategy = input.strategy ?? leaveRequest.reflowStrategy;
-    const context = await this.loadReflowContext(
-      transaction,
-      authorization.group,
-      leaveRequest,
-      strategy,
-      true,
-    );
-    if (context.workflowBlockers.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: toLatestData({ workflowBlockers: context.workflowBlockers }),
-        statusCode: 409,
-        userMessage: context.workflowBlockers.map((blocker) => blocker.message).join('；'),
-      });
-    }
+    const context = await this.assignments.preview(transaction, authorization.group, leave, true);
     this.assertExpectedPeriodVersions(context.periods, input.expectedPeriodVersions);
-
-    const hasBlockers =
-      context.preview.conflicts.length > 0 || context.preview.vacancies.length > 0;
-    if (hasBlockers && input.acknowledgeBlockers !== true) {
+    this.assignments.assertAssignmentVersions(context, input.expectedAssignmentVersions);
+    if (context.preview.workflowBlockers.length > 0)
       throw new ApiError({
         code: 'CONFLICT',
-        latestData: toLatestData({ preview: context.preview }),
         statusCode: 409,
-        userMessage: '请假重排结果包含硬冲突或待处理空缺，确认后才能生效。',
+        latestData: toLatestData({ workflowBlockers: context.preview.workflowBlockers }),
+        userMessage: context.preview.workflowBlockers.map((b) => b.message).join('；'),
       });
-    }
-
-    const adjustedByKey = new Map(
-      context.domainResult.assignments.map((assignment) => [assignment.businessKey, assignment]),
-    );
-    const affectedRows: LockedShiftAssignment[] = [];
-    for (const businessKey of context.domainResult.affectedBusinessKeys) {
-      const row = context.rowByBusinessKey.get(businessKey);
-      if (row === undefined) {
-        continue;
-      }
-      const adjusted = adjustedByKey.get(businessKey);
-      const nextMembershipId = adjusted?.plannedMembershipId ?? null;
-      affectedRows.push(row);
-      await updateShiftAssignments(transaction, eq(shiftAssignments.id, row.id), {
-        plannedMemberName:
-          nextMembershipId === null
-            ? null
-            : (context.memberNamesById.get(nextMembershipId) ?? null),
-        plannedMembershipId: nextMembershipId,
+    if (context.assignments.length > 0 && input.acknowledgeBlockers !== true)
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        latestData: toLatestData({ preview: context.preview }),
+        userMessage: '批准后将清空这些班次，请确认待安排空缺。',
       });
-    }
-
     const decidedAt = new Date();
     await transaction
       .update(leaveRequests)
       .set({
         approverUserId: authorization.user.id,
         decidedAt,
-        reflowStrategy: strategy,
         status: 'approved',
         version: sql`${leaveRequests.version} + 1`,
       })
-      .where(eq(leaveRequests.id, leaveRequest.id));
-
-    for (const [scheduleRoleId, position] of context.domainResult.nextCursorPositions) {
-      await transaction
-        .update(rotationRules)
-        .set({
-          currentPosition: position,
-          version: sql`${rotationRules.version} + 1`,
-        })
-        .where(eq(rotationRules.scheduleRoleId, scheduleRoleId));
-    }
-    if (strategy === 'shift-forward' && context.domainResult.nextCursorPositions.size > 0) {
-      await transaction
-        .update(groups)
-        .set({ rulesVersion: sql`${groups.rulesVersion} + 1` })
-        .where(eq(groups.id, authorization.group.id));
-    }
-
-    const approvalEventId = await this.services.eventWriter.append(transaction, {
-      affectedMembershipIds: [leaveRequest.membershipId],
-      afterData: toLatestData({
-        approverUserId: authorization.user.id,
-        decidedAt: decidedAt.toISOString(),
-        reflowStrategy: strategy,
-        status: 'approved',
-        version: leaveRequest.version + 1,
-      }),
-      beforeData: toLatestData({
-        reflowStrategy: leaveRequest.reflowStrategy,
-        status: leaveRequest.status,
-        version: leaveRequest.version,
-      }),
+      .where(eq(leaveRequests.id, leave.id));
+    const eventId = await this.services.eventWriter.append(transaction, {
+      affectedMembershipIds: [leave.membershipId],
+      beforeData: { status: leave.status, version: leave.version },
+      afterData: { status: 'approved', version: leave.version + 1 },
       eventStatus: 'completed',
       eventType: 'leave_request_approved',
       groupId: authorization.group.id,
       initiatedByUserId: authorization.user.id,
-      objectId: leaveRequest.id,
+      objectId: leave.id,
       objectType: 'leave_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
-      ...(context.periods[0] === undefined ? {} : { schedulePeriodId: context.periods[0].id }),
     });
+    await this.assignments.clear(
+      transaction,
+      authorization,
+      leave,
+      context,
+      input.operationId,
+      eventId,
+    );
     await this.services.notificationWriter.append(transaction, {
-      body: '您的请假申请已批准。',
+      body: '您的请假申请已批准，受影响班次已设为待安排。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_approved',
-      objectId: leaveRequest.id,
+      objectId: leave.id,
       objectType: 'leave_request',
-      payload: { reflowStrategy: strategy },
-      recipientMembershipIds: [leaveRequest.membershipId],
-      scheduleEventId: approvalEventId,
+      recipientMembershipIds: [leave.membershipId],
+      scheduleEventId: eventId,
       title: '请假申请已批准',
     });
-
-    const coverEventIds: string[] = [];
-    const reflowedMembershipIds: string[] = [];
-    if (affectedRows.length > 0) {
-      reflowedMembershipIds.push(
-        ...new Set(
-          [
-            leaveRequest.membershipId,
-            ...affectedRows.flatMap((row) => {
-              const roleId = context.periodById.get(row.schedulePeriodId)?.scheduleRoleId ?? '';
-              const adjusted = adjustedByKey.get(
-                createRotationBusinessKey(roleId, row.businessDate, row.slotPosition),
-              );
-              return adjusted?.plannedMembershipId === null ||
-                adjusted?.plannedMembershipId === undefined
-                ? []
-                : [adjusted.plannedMembershipId];
-            }),
-          ].filter((membershipId): membershipId is string => membershipId !== null),
-        ),
-      );
-      for (const schedulePeriodId of [
-        ...new Set(affectedRows.map((row) => row.schedulePeriodId)),
-      ]) {
-        const periodRows = affectedRows.filter((row) => row.schedulePeriodId === schedulePeriodId);
-        const coverEventId = await this.services.eventWriter.append(transaction, {
-          affectedMembershipIds: reflowedMembershipIds,
-          affectedShiftIds: periodRows.map((row) => row.id),
-          afterData: toLatestData({
-            leaveRequestId: leaveRequest.id,
-            reflowedShiftIds: periodRows.map((row) => row.id),
-            strategy,
-          }),
-          eventStatus: 'completed',
-          eventType: 'leave_cover_completed',
-          groupId: authorization.group.id,
-          initiatedByUserId: authorization.user.id,
-          objectId: leaveRequest.id,
-          objectType: 'leave_cover',
-          operationId: input.operationId,
-          operatorUserId: authorization.user.id,
-          parentEventId: approvalEventId,
-          schedulePeriodId,
-        });
-        coverEventIds.push(coverEventId);
-      }
-    }
-    const firstCoverEventId = coverEventIds[0];
-    if (reflowedMembershipIds.length > 0 && firstCoverEventId !== undefined) {
-      await this.services.notificationWriter.append(transaction, {
-        body: '请假重排后，您的班次已调整。',
-        groupId: authorization.group.id,
-        notificationType: 'schedule_changed',
-        payload: { reason: 'leave_cover' },
-        recipientMembershipIds: reflowedMembershipIds,
-        scheduleEventId: firstCoverEventId,
-        title: '排班已调整',
-      });
-    }
-    for (const period of context.periods) {
-      await this.services.statisticsService.refreshInTransaction(
-        transaction,
-        authorization.group.id,
-        period.businessMonth,
-      );
-    }
-
-    const updatedLeaveRequest = await this.readLeaveRequest(transaction, leaveRequest.id);
     return {
-      leaveRequest: updatedLeaveRequest,
+      leaveRequest: await this.readLeaveRequest(transaction, leave.id),
       operationId: input.operationId,
       preview: context.preview,
       status: 'approved',
-      strategy,
     };
   }
 
@@ -981,10 +726,13 @@ export class LeaveService {
         version: sql`${leaveRequests.version} + 1`,
       })
       .where(eq(leaveRequests.id, leaveRequest.id));
+    const restoration = await this.assignments.restore(transaction, authorization, leaveRequest);
     const revokedEventId = await this.services.eventWriter.append(transaction, {
+      affectedShiftIds: restoration.restoredAssignmentIds,
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         status: 'revoked',
+        restoration,
         version: leaveRequest.version + 1,
       }),
       beforeData: toLatestData({
@@ -1002,7 +750,7 @@ export class LeaveService {
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.services.notificationWriter.append(transaction, {
-      body: '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+      body: `请假已撤销，恢复 ${restoration.restoredAssignmentIds.length} 个未修改空缺；其余班次保留现状。`,
       groupId: authorization.group.id,
       notificationType: 'leave_request_revoked',
       objectId: leaveRequest.id,
@@ -1029,6 +777,7 @@ export class LeaveService {
       leaveRequestId: leaveRequest.id,
       operationId: input.operationId,
       status: 'revoked',
+      restoration,
     };
   }
 
@@ -1040,10 +789,6 @@ export class LeaveService {
     endsAt: Date,
     isAllDay: boolean | number,
   ): Promise<readonly LockedShiftAssignment[]> {
-    const leaveStartDate = getChinaStandardTimeBusinessDate(startsAt);
-    const leaveEndDate = getChinaStandardTimeBusinessDate(endsAt);
-    const startMonth = `${leaveStartDate.slice(0, 7)}-01`;
-    const endMonth = `${leaveEndDate.slice(0, 7)}-01`;
     const periods = await transaction
       .select()
       .from(schedulePeriods)
@@ -1052,8 +797,6 @@ export class LeaveService {
           eq(schedulePeriods.groupId, groupId),
           eq(schedulePeriods.status, 'published'),
           isNull(schedulePeriods.deletedAt),
-          gte(schedulePeriods.businessMonth, startMonth),
-          lte(schedulePeriods.businessMonth, endMonth),
         ),
       );
     if (periods.length === 0) {
@@ -1071,7 +814,7 @@ export class LeaveService {
             eq(shiftAssignments.plannedMembershipId, membershipId),
           ),
           isNull(shiftAssignments.deletedAt),
-          sql`${shiftAssignments.startsAt} > NOW()`,
+          sql`${shiftAssignments.startsAt} > ${new Date()}`,
         ),
       );
 
@@ -1108,351 +851,6 @@ export class LeaveService {
     }));
   }
 
-  private async loadReflowContext(
-    transaction: DatabaseTransaction,
-    group: ActiveGroup,
-    leaveRequest: LockedLeaveRequest,
-    strategy: LeaveReflowStrategy,
-    lockRows = false,
-  ): Promise<ReflowContext> {
-    const leaveStartDate = getChinaStandardTimeBusinessDate(leaveRequest.startsAt);
-    const leaveEndDate = getChinaStandardTimeBusinessDate(leaveRequest.endsAt);
-    const startMonth = `${leaveStartDate.slice(0, 7)}-01`;
-    const endMonth = `${leaveEndDate.slice(0, 7)}-01`;
-
-    let periodQuery = transaction
-      .select()
-      .from(schedulePeriods)
-      .where(
-        and(
-          eq(schedulePeriods.groupId, group.id),
-          eq(schedulePeriods.status, 'published'),
-          isNull(schedulePeriods.deletedAt),
-          gte(schedulePeriods.businessMonth, startMonth),
-          lte(schedulePeriods.businessMonth, endMonth),
-        ),
-      )
-      .orderBy(asc(schedulePeriods.businessMonth), asc(schedulePeriods.scheduleRoleId));
-    if (lockRows) {
-      periodQuery = periodQuery.for('update') as typeof periodQuery;
-    }
-    const periods = await periodQuery;
-    const [draftPeriod] = await transaction
-      .select({ id: schedulePeriods.id })
-      .from(schedulePeriods)
-      .where(
-        and(
-          eq(schedulePeriods.groupId, group.id),
-          eq(schedulePeriods.status, 'draft'),
-          isNull(schedulePeriods.deletedAt),
-          gte(schedulePeriods.businessMonth, startMonth),
-          lte(schedulePeriods.businessMonth, endMonth),
-        ),
-      )
-      .limit(1);
-    const periodById = new Map(periods.map((period) => [period.id, period]));
-    const scheduleRoleIdByPeriodId = new Map(
-      periods.map((period) => [period.id, period.scheduleRoleId] as const),
-    );
-
-    let assignments: readonly LockedShiftAssignment[];
-    if (periods.length === 0) {
-      assignments = [];
-    } else {
-      const periodIds = periods.map((period) => period.id);
-      let assignmentQuery = transaction
-        .select()
-        .from(shiftAssignments)
-        .where(
-          and(
-            inArray(shiftAssignments.schedulePeriodId, periodIds),
-            isNull(shiftAssignments.deletedAt),
-          ),
-        )
-        .orderBy(asc(shiftAssignments.businessDate), asc(shiftAssignments.slotPosition));
-      if (lockRows) {
-        assignmentQuery = assignmentQuery.for('update') as typeof assignmentQuery;
-      }
-      assignments = await assignmentQuery;
-    }
-
-    const leaves = await transaction
-      .select()
-      .from(leaveRequests)
-      .where(
-        and(
-          eq(leaveRequests.groupId, group.id),
-          eq(leaveRequests.status, 'approved'),
-          isNull(leaveRequests.deletedAt),
-          lte(leaveRequests.startsAt, leaveRequest.endsAt),
-          gte(leaveRequests.endsAt, leaveRequest.startsAt),
-        ),
-      );
-    const leaveIntervals: LeaveReflowInterval[] = leaves.map((leave) => ({
-      endsAt: leave.endsAt,
-      isAllDay: leave.isAllDay === 1,
-      membershipId: leave.membershipId,
-      startsAt: leave.startsAt,
-    }));
-    if (
-      !leaveIntervals.some(
-        (leave) =>
-          leave.membershipId === leaveRequest.membershipId &&
-          leave.startsAt.valueOf() === leaveRequest.startsAt.valueOf() &&
-          leave.endsAt.valueOf() === leaveRequest.endsAt.valueOf(),
-      )
-    ) {
-      leaveIntervals.push({
-        endsAt: leaveRequest.endsAt,
-        isAllDay: leaveRequest.isAllDay === 1,
-        membershipId: leaveRequest.membershipId,
-        startsAt: leaveRequest.startsAt,
-      });
-    }
-
-    const roleIds = [...new Set(periods.map((period) => period.scheduleRoleId))].sort();
-    const rotationRulesByRoleId = await this.loadRotationRules(transaction, group.id, roleIds);
-    const membersByRuleId = await this.loadRotationMembers(
-      transaction,
-      [...rotationRulesByRoleId.values()].map((rule) => rule.id),
-    );
-    const memberNamesById = new Map<string, string>();
-    for (const member of [...membersByRuleId.values()].flat()) {
-      memberNamesById.set(member.membershipId, member.realName);
-    }
-    for (const assignment of assignments) {
-      if (assignment.plannedMembershipId !== null && assignment.plannedMemberName !== null) {
-        memberNamesById.set(assignment.plannedMembershipId, assignment.plannedMemberName);
-      }
-    }
-
-    const domainRules = [...rotationRulesByRoleId.values()].map((rule) =>
-      toDomainReflowRule(rule, membersByRuleId.get(rule.id) ?? []),
-    );
-    const domainAssignments = assignments.map((assignment): ReflowAssignment => {
-      const scheduleRoleId = scheduleRoleIdByPeriodId.get(assignment.schedulePeriodId);
-      if (scheduleRoleId === undefined) {
-        throw new Error('The assignment references an unknown schedule period.');
-      }
-      return {
-        businessDate: assignment.businessDate,
-        businessKey: createRotationBusinessKey(
-          scheduleRoleId,
-          assignment.businessDate,
-          assignment.slotPosition,
-        ),
-        endsAt: assignment.endsAt,
-        plannedMembershipId: assignment.plannedMembershipId,
-        scheduleRoleId,
-        shiftTypeId: assignment.shiftTypeId,
-        slotPosition: assignment.slotPosition,
-        startsAt: assignment.startsAt,
-      };
-    });
-    const domainResult = reflowLeaveAssignments({
-      assignments: domainAssignments,
-      leave: {
-        endsAt: leaveRequest.endsAt,
-        isAllDay: leaveRequest.isAllDay === 1,
-        membershipId: leaveRequest.membershipId,
-        startsAt: leaveRequest.startsAt,
-      },
-      leaves: leaveIntervals,
-      rules: domainRules,
-      strategy,
-    });
-    const rowByBusinessKey = new Map(
-      assignments.map((assignment): [string, LockedShiftAssignment] => {
-        const scheduleRoleId = scheduleRoleIdByPeriodId.get(assignment.schedulePeriodId);
-        if (scheduleRoleId === undefined) {
-          throw new Error('The assignment references an unknown schedule period.');
-        }
-        return [
-          createRotationBusinessKey(
-            scheduleRoleId,
-            assignment.businessDate,
-            assignment.slotPosition,
-          ),
-          assignment,
-        ];
-      }),
-    );
-    const affectedShiftCount = assignments.filter(
-      (assignment) =>
-        assignment.businessDate >= leaveStartDate &&
-        assignment.businessDate < leaveEndDate &&
-        (assignment.plannedMembershipId === leaveRequest.membershipId ||
-          assignment.actualMembershipId === leaveRequest.membershipId),
-    ).length;
-    const affectedShifts = assignments
-      .filter(
-        (assignment) =>
-          assignment.businessDate >= leaveStartDate &&
-          assignment.businessDate < leaveEndDate &&
-          (assignment.plannedMembershipId === leaveRequest.membershipId ||
-            assignment.actualMembershipId === leaveRequest.membershipId),
-      )
-      .map((assignment) => {
-        const memberName = assignment.actualMemberName ?? assignment.plannedMemberName ?? undefined;
-        return {
-          businessDate: assignment.businessDate,
-          ...(memberName === undefined ? {} : { memberName }),
-          shiftTypeAbbreviation: assignment.shiftTypeAbbreviation,
-          shiftTypeName: assignment.shiftTypeName,
-        };
-      })
-      .sort((first, second) => first.businessDate.localeCompare(second.businessDate));
-
-    const workflowBlockers = (
-      await this.services.workflowConflictService.findLeaveWorkflowBlockers(
-        transaction,
-        group.id,
-        leaveRequest.membershipId,
-        leaveRequest.startsAt,
-        leaveRequest.endsAt,
-        leaveRequest.isAllDay,
-      )
-    ).map((blocker): LeaveWorkflowBlocker => ({
-      assignmentId: blocker.assignmentId,
-      message: blocker.message,
-    }));
-
-    const preview = this.buildPreview({
-      affectedShiftCount,
-      affectedShifts,
-      domainResult,
-      group,
-      leaveRequest,
-      memberNamesById,
-      overlapsUnpublishedPeriod: draftPeriod !== undefined,
-      periodById,
-      periods,
-      rowByBusinessKey,
-      strategy,
-      workflowBlockers,
-    });
-
-    return {
-      assignments: domainAssignments,
-      domainResult,
-      memberNamesById,
-      periodById,
-      periods,
-      preview,
-      rowByBusinessKey,
-      workflowBlockers,
-    };
-  }
-
-  private buildPreview(input: {
-    readonly affectedShiftCount: number;
-    readonly affectedShifts: readonly {
-      readonly businessDate: string;
-      readonly memberName?: string;
-      readonly shiftTypeAbbreviation: string;
-      readonly shiftTypeName: string;
-    }[];
-    readonly domainResult: ReturnType<typeof reflowLeaveAssignments>;
-    readonly group: ActiveGroup;
-    readonly leaveRequest: LockedLeaveRequest;
-    readonly memberNamesById: ReadonlyMap<string, string>;
-    readonly overlapsUnpublishedPeriod: boolean;
-    readonly periodById: ReadonlyMap<string, LockedSchedulePeriod>;
-    readonly periods: readonly LockedSchedulePeriod[];
-    readonly rowByBusinessKey: ReadonlyMap<string, LockedShiftAssignment>;
-    readonly strategy: LeaveReflowStrategy;
-    readonly workflowBlockers: readonly LeaveWorkflowBlocker[];
-  }): LeaveReflowPreview {
-    const adjustedByKey = new Map(
-      input.domainResult.assignments.map((assignment) => [assignment.businessKey, assignment]),
-    );
-    const affectedAssignments = input.domainResult.affectedBusinessKeys.flatMap(
-      (businessKey): LeaveAffectedAssignment[] => {
-        const row = input.rowByBusinessKey.get(businessKey);
-        const adjusted = adjustedByKey.get(businessKey);
-        if (row === undefined || adjusted === undefined) {
-          return [];
-        }
-        const nextMembershipId = adjusted.plannedMembershipId;
-        const nextMemberName =
-          nextMembershipId === null ? undefined : input.memberNamesById.get(nextMembershipId);
-        return [
-          {
-            assignmentId: row.id,
-            businessDate: row.businessDate,
-            endsAt: row.endsAt.toISOString(),
-            ...(row.plannedMembershipId === null
-              ? {}
-              : { previousMemberId: row.plannedMembershipId }),
-            ...(row.plannedMemberName === null
-              ? {}
-              : { previousMemberName: row.plannedMemberName }),
-            ...(nextMembershipId === null ? {} : { nextMemberId: nextMembershipId }),
-            ...(nextMemberName === undefined ? {} : { nextMemberName }),
-            shiftTypeAbbreviation: row.shiftTypeAbbreviation,
-            shiftTypeColor: row.shiftTypeColor,
-            shiftTypeId: row.shiftTypeId,
-            shiftTypeName: row.shiftTypeName,
-            shiftTypeTextColor: row.shiftTypeTextColor,
-            slotPosition: row.slotPosition,
-            startsAt: row.startsAt.toISOString(),
-          },
-        ];
-      },
-    );
-
-    return {
-      affectedAssignments,
-      affectedShiftCount: input.affectedShiftCount,
-      affectedShifts: input.affectedShifts,
-      conflicts: input.domainResult.conflicts.map((conflict): LeaveReflowConflict => {
-        const memberName = input.memberNamesById.get(conflict.membershipId);
-        return {
-          assignmentBusinessKeys: conflict.assignmentBusinessKeys,
-          code: conflict.code,
-          ...(memberName === undefined ? {} : { memberName }),
-          membershipId: conflict.membershipId,
-        };
-      }),
-      continuousDutyWarnings: input.domainResult.continuousDutyWarnings.map(
-        (warning): ScheduleGenerationWarning => {
-          const memberName = input.memberNamesById.get(warning.membershipId);
-          return {
-            assignmentBusinessKeys: warning.assignmentBusinessKeys,
-            code: warning.code,
-            endsAt: warning.endsAt.toISOString(),
-            membershipId: warning.membershipId,
-            ...(memberName === undefined ? {} : { memberName }),
-            startsAt: warning.startsAt.toISOString(),
-          };
-        },
-      ),
-      groupDefaultStrategy: input.group.leaveReflowStrategy,
-      leaveRequestId: input.leaveRequest.id,
-      leaveRequestVersion: input.leaveRequest.version,
-      overlapsUnpublishedPeriod: input.overlapsUnpublishedPeriod,
-      periodVersions: Object.fromEntries(
-        input.periods.map((period) => [period.id, period.version]),
-      ),
-      rulesVersion: input.group.rulesVersion,
-      statisticsDelta: buildStatisticsDelta(
-        input.periods,
-        input.rowByBusinessKey,
-        input.domainResult.assignments,
-        input.memberNamesById,
-      ),
-      strategy: input.strategy,
-      vacancies: input.domainResult.vacancies.map((vacancy): ScheduleGenerationVacancy => ({
-        assignmentBusinessKey: vacancy.assignmentBusinessKey,
-        businessDate: vacancy.businessDate,
-        code: vacancy.code,
-        scheduleRoleId: vacancy.scheduleRoleId,
-        slotPosition: vacancy.slotPosition,
-      })),
-      workflowBlockers: input.workflowBlockers,
-    };
-  }
-
   private assertExpectedPeriodVersions(
     periods: readonly LockedSchedulePeriod[],
     expectedPeriodVersions: Readonly<Record<string, number>>,
@@ -1481,102 +879,6 @@ export class LeaveService {
         });
       }
     }
-  }
-
-  private async loadRotationRules(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    scheduleRoleIds: readonly string[],
-  ): Promise<ReadonlyMap<string, RotationRuleRow>> {
-    if (scheduleRoleIds.length === 0) {
-      return new Map();
-    }
-    const rows = await transaction
-      .select({
-        currentPosition: rotationRules.currentPosition,
-        id: rotationRules.id,
-        requiredMembersPerDay: rotationRules.requiredMembersPerDay,
-        scheduleRoleId: scheduleRoles.id,
-        startDate: rotationRules.startDate,
-        startingMemberScheduleRoleId: rotationRules.startingMemberScheduleRoleId,
-      })
-      .from(scheduleRoles)
-      .innerJoin(rotationRules, eq(rotationRules.scheduleRoleId, scheduleRoles.id))
-      .where(
-        and(
-          eq(scheduleRoles.groupId, groupId),
-          inArray(scheduleRoles.id, [...scheduleRoleIds]),
-          isNull(scheduleRoles.deletedAt),
-          isNull(rotationRules.deletedAt),
-        ),
-      );
-
-    return new Map(
-      rows.flatMap((row): [string, RotationRuleRow][] =>
-        row.startDate === null
-          ? []
-          : [
-              [
-                row.scheduleRoleId,
-                {
-                  currentPosition: row.currentPosition,
-                  id: row.id,
-                  requiredMembersPerDay: row.requiredMembersPerDay,
-                  scheduleRoleId: row.scheduleRoleId,
-                  startDate: row.startDate,
-                  startingMemberScheduleRoleId: row.startingMemberScheduleRoleId,
-                },
-              ],
-            ],
-      ),
-    );
-  }
-
-  private async loadRotationMembers(
-    transaction: DatabaseTransaction,
-    rotationRuleIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly LoadedRotationMember[]>> {
-    if (rotationRuleIds.length === 0) {
-      return new Map();
-    }
-    const rows = await transaction
-      .select({
-        effectiveFrom: memberScheduleRoles.effectiveFrom,
-        effectiveTo: memberScheduleRoles.effectiveTo,
-        memberScheduleRoleDeletedAt: memberScheduleRoles.deletedAt,
-        memberScheduleRoleId: rotationMembers.memberScheduleRoleId,
-        membershipDeletedAt: groupMemberships.deletedAt,
-        membershipId: memberScheduleRoles.membershipId,
-        membershipStatus: groupMemberships.status,
-        position: rotationMembers.position,
-        realName: userProfiles.realName,
-        rotationRuleId: rotationMembers.rotationRuleId,
-        userDeletedAt: users.deletedAt,
-        userStatus: users.status,
-      })
-      .from(rotationMembers)
-      .innerJoin(
-        memberScheduleRoles,
-        eq(memberScheduleRoles.id, rotationMembers.memberScheduleRoleId),
-      )
-      .innerJoin(groupMemberships, eq(groupMemberships.id, memberScheduleRoles.membershipId))
-      .innerJoin(users, eq(users.id, groupMemberships.userId))
-      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-      .where(
-        and(
-          inArray(rotationMembers.rotationRuleId, [...rotationRuleIds]),
-          isNull(rotationMembers.deletedAt),
-        ),
-      )
-      .orderBy(asc(rotationMembers.rotationRuleId), asc(rotationMembers.position));
-    const membersByRuleId = new Map<string, LoadedRotationMember[]>();
-    for (const row of rows) {
-      const members = membersByRuleId.get(row.rotationRuleId) ?? [];
-      members.push(toLoadedRotationMember(row));
-      membersByRuleId.set(row.rotationRuleId, members);
-    }
-
-    return membersByRuleId;
   }
 
   private async lockLeaveRequest(
@@ -1697,140 +999,6 @@ export class LeaveService {
   }
 }
 
-function buildStatisticsDelta(
-  periods: readonly LockedSchedulePeriod[],
-  rowByBusinessKey: ReadonlyMap<string, LockedShiftAssignment>,
-  adjustedAssignments: readonly ReflowAssignment[],
-  memberNamesById: ReadonlyMap<string, string>,
-): LeaveStatisticsDelta {
-  const roleByPeriodId = new Map(periods.map((period) => [period.id, period.scheduleRoleId]));
-  const before = new Map<string, MutableStatistics>();
-  const after = new Map<string, MutableStatistics>();
-  for (const row of rowByBusinessKey.values()) {
-    if (row.plannedMembershipId === null) {
-      continue;
-    }
-    incrementStatistics(before, row.plannedMembershipId, row, roleByPeriodId);
-  }
-  for (const assignment of adjustedAssignments) {
-    if (assignment.plannedMembershipId === null) {
-      continue;
-    }
-    const row = rowByBusinessKey.get(assignment.businessKey);
-    if (row === undefined) {
-      continue;
-    }
-    incrementStatistics(after, assignment.plannedMembershipId, row, roleByPeriodId);
-  }
-
-  const membershipIds = [...new Set([...before.keys(), ...after.keys()])].sort((left, right) => {
-    const leftName = memberNamesById.get(left) ?? '';
-    const rightName = memberNamesById.get(right) ?? '';
-    return leftName.localeCompare(rightName, 'zh-Hans-CN') || left.localeCompare(right);
-  });
-  const byMember: LeaveMemberStatisticsDelta[] = membershipIds
-    .map((membershipId) => {
-      const beforeStatistics = before.get(membershipId);
-      const afterStatistics = after.get(membershipId);
-      const assignmentDelta =
-        (afterStatistics?.assignmentCount ?? 0) - (beforeStatistics?.assignmentCount ?? 0);
-      const countedDelta =
-        (afterStatistics?.countedAssignmentCount ?? 0) -
-        (beforeStatistics?.countedAssignmentCount ?? 0);
-      const weekendDelta =
-        (afterStatistics?.weekendAssignmentCount ?? 0) -
-        (beforeStatistics?.weekendAssignmentCount ?? 0);
-      if (assignmentDelta === 0 && countedDelta === 0 && weekendDelta === 0) {
-        return undefined;
-      }
-      return {
-        assignmentDelta,
-        countedDelta,
-        membershipId,
-        realName: memberNamesById.get(membershipId) ?? '',
-        weekendDelta,
-      };
-    })
-    .filter((delta): delta is LeaveMemberStatisticsDelta => delta !== undefined);
-
-  return {
-    byMember,
-    totalAssignmentDelta: byMember.reduce((total, delta) => total + delta.assignmentDelta, 0),
-    totalCountedDelta: byMember.reduce((total, delta) => total + delta.countedDelta, 0),
-    totalWeekendDelta: byMember.reduce((total, delta) => total + delta.weekendDelta, 0),
-  };
-}
-
-interface MutableStatistics {
-  assignmentCount: number;
-  countedAssignmentCount: number;
-  weekendAssignmentCount: number;
-}
-
-function incrementStatistics(
-  statisticsByMember: Map<string, MutableStatistics>,
-  membershipId: string,
-  row: LockedShiftAssignment,
-  roleByPeriodId: ReadonlyMap<string, string>,
-): void {
-  const statistics = statisticsByMember.get(membershipId) ?? {
-    assignmentCount: 0,
-    countedAssignmentCount: 0,
-    weekendAssignmentCount: 0,
-  };
-  statistics.assignmentCount += 1;
-  statistics.countedAssignmentCount += row.countsTowardStatistics === 1 ? 1 : 0;
-  const roleId = roleByPeriodId.get(row.schedulePeriodId);
-  if (roleId !== undefined && isWeekendBusinessDate(row.businessDate)) {
-    statistics.weekendAssignmentCount += 1;
-  }
-  statisticsByMember.set(membershipId, statistics);
-}
-
-function isWeekendBusinessDate(businessDate: string): boolean {
-  const day = new Date(`${businessDate}T00:00:00.000Z`).getUTCDay();
-  return day === 0 || day === 6;
-}
-
-function toDomainReflowRule(
-  rule: RotationRuleRow,
-  members: readonly LoadedRotationMember[],
-): ReflowRotationRule {
-  const startingMember = members.find(
-    (member) => member.memberScheduleRoleId === rule.startingMemberScheduleRoleId,
-  );
-  return {
-    members: members.map((member): ReflowMember => ({
-      ...(member.effectiveFrom === undefined ? {} : { effectiveFrom: member.effectiveFrom }),
-      ...(member.effectiveTo === undefined ? {} : { effectiveTo: member.effectiveTo }),
-      isActive: member.isActive,
-      membershipId: member.membershipId,
-      position: member.position,
-    })),
-    requiredMembersPerDay: rule.requiredMembersPerDay,
-    rotationStartDate: rule.startDate,
-    scheduleRoleId: rule.scheduleRoleId,
-    ...(startingMember === undefined ? {} : { startingMembershipId: startingMember.membershipId }),
-  };
-}
-
-function toLoadedRotationMember(row: MemberRow): LoadedRotationMember {
-  return {
-    ...(row.effectiveFrom === null ? {} : { effectiveFrom: row.effectiveFrom }),
-    ...(row.effectiveTo === null ? {} : { effectiveTo: row.effectiveTo }),
-    isActive:
-      row.membershipStatus === 'active' &&
-      row.userStatus === 'active' &&
-      row.memberScheduleRoleDeletedAt === null &&
-      row.membershipDeletedAt === null &&
-      row.userDeletedAt === null,
-    memberScheduleRoleId: row.memberScheduleRoleId,
-    membershipId: row.membershipId,
-    position: row.position,
-    realName: row.realName,
-  };
-}
-
 function toLeaveRequest(
   leaveRequest: LockedLeaveRequest,
   realName: string,
@@ -1858,7 +1026,6 @@ function toLeaveRequest(
     memberName: realName,
     membershipId: leaveRequest.membershipId,
     ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
-    reflowStrategy: leaveRequest.reflowStrategy,
     startsAt: leaveRequest.startsAt.toISOString(),
     status: leaveRequest.status,
     version: leaveRequest.version,
@@ -1879,7 +1046,6 @@ function createLeaveRequestFingerprint(input: {
   readonly isAllDay: boolean;
   readonly leaveType: string;
   readonly reason: string | null;
-  readonly resolutionMode: string | null;
   readonly startsAt: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -1888,16 +1054,19 @@ function createLeaveRequestFingerprint(input: {
 function createApproveFingerprint(input: {
   readonly acknowledgeBlockers: boolean;
   readonly expectedPeriodVersions: Readonly<Record<string, number>>;
+  readonly expectedAssignmentVersions: Readonly<Record<string, number>>;
   readonly expectedRulesVersion: number;
   readonly expectedVersion: number;
   readonly groupId: string;
   readonly leaveRequestId: string;
-  readonly strategy: string | null;
 }): string {
   return createHash('sha256')
     .update(
       JSON.stringify({
         ...input,
+        expectedAssignmentVersions: Object.fromEntries(
+          Object.entries(input.expectedAssignmentVersions).sort(([a], [b]) => a.localeCompare(b)),
+        ),
         expectedPeriodVersions: Object.fromEntries(
           Object.entries(input.expectedPeriodVersions).sort(([left], [right]) =>
             left.localeCompare(right),

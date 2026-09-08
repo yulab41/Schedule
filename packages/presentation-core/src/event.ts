@@ -1,5 +1,21 @@
 const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
+export function formatLeaveRestorationEvent(value: unknown): string {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    !('restorationUnavailable' in value) ||
+    value.restorationUnavailable !== false ||
+    !('restoredAssignmentIds' in value) ||
+    !Array.isArray(value.restoredAssignmentIds) ||
+    !('skippedAssignments' in value) ||
+    !Array.isArray(value.skippedAssignments)
+  ) {
+    return '请假已撤销，没有可验证的恢复快照，请按需要手动排班。';
+  }
+  return `请假已撤销，恢复 ${value.restoredAssignmentIds.length} 个未被修改的班次，跳过 ${value.skippedAssignments.length} 个班次。`;
+}
+
 export type EventChangeMarker = 'leave-cover' | 'overtime' | 'swap';
 export type EventTone = 'adjustment' | 'leave' | 'neutral' | 'schedule' | 'swap';
 export type JsonObjectLike = Readonly<Record<string, unknown>>;
@@ -60,6 +76,7 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
   duty_adjustment_request_created: '加扣班申请已提交',
   duty_adjustment_request_rejected: '加扣班申请已驳回',
   duty_adjustment_revoked: '加扣班已撤销',
+  leave_assignments_cleared: '请假班次已清空',
   leave_cover_completed: '请假替班完成',
   leave_request_cancelled: '请假申请已取消',
   leave_request_approved: '请假已批准',
@@ -316,12 +333,14 @@ export function buildEventNarrative<Assignment extends EventAssignmentLike>(
       return '请假申请已提交。';
     case 'leave_request_approved':
       return '请假已批准。';
+    case 'leave_assignments_cleared':
+      return '请假期间本人尚未开始的班次已清空，可手动安排人员。';
     case 'leave_request_rejected':
       return '请假申请已被拒绝。';
     case 'leave_request_cancelled':
       return '请假申请已取消。';
     case 'leave_request_revoked':
-      return '请假已撤销；如需恢复原排班，请重新生成或发布排班。';
+      return formatLeaveRestorationEvent(after.restoration);
     case 'duty_adjustment_completed': {
       const beforeName =
         readTopLevelMemberName(before) ??

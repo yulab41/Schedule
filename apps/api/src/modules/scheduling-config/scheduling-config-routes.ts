@@ -1,11 +1,9 @@
 import type {
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
-  ReorderRotationMembersRequest,
   ReplaceScheduleRoleMembersRequest,
   ScheduleRoleVersionMutationRequest,
   ShiftTypeVersionMutationRequest,
-  UpdateRotationRuleRequest,
   UpdateShiftTypeRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -24,7 +22,6 @@ const shiftNameSchema = z.string().trim().min(1).max(100);
 const abbreviationSchema = z.string().trim().min(1).max(16);
 const colorSchema = z.string().regex(/^#[\dA-F]{6}$/iu);
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/);
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const operationIdSchema = z.string().uuid().optional();
 const versionSchema = z.number().int().min(1);
 
@@ -38,44 +35,12 @@ const createRoleInputSchema = z
 const replaceRoleMembersInputSchema = z
   .object({
     expectedRoleVersion: versionSchema,
-    expectedRotationRuleVersion: versionSchema,
     expectedRulesVersion: versionSchema,
     membershipIds: z.array(membershipIdSchema).max(500),
     operationId: operationIdSchema,
   })
   .strict()
   .refine((input) => new Set(input.membershipIds).size === input.membershipIds.length);
-const reorderRotationMembersInputSchema = z
-  .object({
-    expectedRoleVersion: versionSchema,
-    expectedRotationRuleVersion: versionSchema,
-    expectedRulesVersion: versionSchema,
-    members: z
-      .array(
-        z
-          .object({
-            position: z.number().int().min(1).max(500),
-            scheduleRoleMemberId: z.string().uuid(),
-          })
-          .strict(),
-      )
-      .max(500),
-    operationId: operationIdSchema,
-  })
-  .strict();
-const rotationRuleInputSchema = z
-  .object({
-    currentPosition: z.number().int().min(1).max(500),
-    defaultShiftTypeId: shiftTypeIdSchema,
-    expectedRoleVersion: versionSchema,
-    expectedRotationRuleVersion: versionSchema,
-    expectedRulesVersion: versionSchema,
-    operationId: operationIdSchema,
-    requiredMembersPerDay: z.number().int().min(1).max(100),
-    startDate: dateSchema.nullable().optional(),
-    startingMemberScheduleRoleId: z.string().uuid().nullable().optional(),
-  })
-  .strict();
 const shiftTypeInputShape = {
   abbreviation: abbreviationSchema,
   color: colorSchema,
@@ -136,30 +101,6 @@ export function registerSchedulingConfigRoutes(
         parseGroupId(request),
         parseRoleId(request),
         parseReplaceRoleMembersInput(request),
-      ),
-  );
-
-  app.put(
-    '/groups/:groupId/schedule-roles/:roleId/rotation-members',
-    { preHandler: app.authenticate },
-    (request) =>
-      schedulingConfigService.reorderRotationMembers(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseRoleId(request),
-        parseReorderRotationMembersInput(request),
-      ),
-  );
-
-  app.put(
-    '/groups/:groupId/schedule-roles/:roleId/rotation-rule',
-    { preHandler: app.authenticate },
-    (request) =>
-      schedulingConfigService.updateRotationRule(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseRoleId(request),
-        parseRotationRuleInput(request),
       ),
   );
 
@@ -245,30 +186,6 @@ function parseReplaceRoleMembersInput(request: FastifyRequest): ReplaceScheduleR
     request,
     replaceRoleMembersInputSchema,
   ) as ReplaceScheduleRoleMembersRequest;
-}
-
-function parseReorderRotationMembersInput(request: FastifyRequest): ReorderRotationMembersRequest {
-  return parseDangerousBody(
-    request,
-    reorderRotationMembersInputSchema,
-  ) as ReorderRotationMembersRequest;
-}
-
-function parseRotationRuleInput(request: FastifyRequest): UpdateRotationRuleRequest {
-  const input = parseDangerousBody(request, rotationRuleInputSchema);
-  return {
-    currentPosition: input.currentPosition,
-    defaultShiftTypeId: input.defaultShiftTypeId,
-    expectedRoleVersion: input.expectedRoleVersion,
-    expectedRotationRuleVersion: input.expectedRotationRuleVersion,
-    expectedRulesVersion: input.expectedRulesVersion,
-    operationId: input.operationId,
-    requiredMembersPerDay: input.requiredMembersPerDay,
-    ...(input.startDate === undefined ? {} : { startDate: input.startDate }),
-    ...(input.startingMemberScheduleRoleId === undefined
-      ? {}
-      : { startingMemberScheduleRoleId: input.startingMemberScheduleRoleId }),
-  };
 }
 
 function parseCreateShiftTypeInput(request: FastifyRequest): CreateShiftTypeRequest {

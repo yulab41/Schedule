@@ -14,7 +14,7 @@ import {
 } from '@schedule/database';
 import { sql } from 'drizzle-orm';
 import { insertDirectMembership } from '@schedule/test-fixtures';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
@@ -34,6 +34,8 @@ describeWithDatabase('manual schedule template apply', () => {
   let rulesVersion: number;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-31T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -68,6 +70,7 @@ describeWithDatabase('manual schedule template apply', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -721,9 +724,9 @@ describeWithDatabase('manual schedule template apply', () => {
   it('blocks preview and apply when an approved leave overlaps the applied range', async () => {
     const templateId = await createTemplate();
     await client.database.execute(
-      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day, status, reflow_strategy)
+      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day, status)
           VALUES (${randomUUID()}, ${groupId}, ${candidateMembershipId}, 'sick',
-                  '2026-09-01 16:00:00', '2026-09-02 15:59:59', 1, 'approved', 'keep-original-order')`,
+                  '2026-09-01 16:00:00', '2026-09-02 15:59:59', 1, 'approved')`,
     );
 
     const preview = await applyPreview(templateId, { expectedRulesVersion: rulesVersion });
@@ -946,13 +949,12 @@ describeWithDatabase('manual schedule template apply', () => {
   ): Promise<void> {
     const config = await getConfig('owner-token', targetGroupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),

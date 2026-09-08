@@ -27,10 +27,10 @@ import {
   withTransaction,
 } from '@schedule/database';
 import {
-  createRotationBusinessKey,
+  createAssignmentBusinessKey,
   findContinuousDutyWarnings,
-  findRotationHardConflicts,
-  type GeneratedRotationAssignment,
+  findScheduleHardConflicts,
+  type ScheduleAssignmentSnapshot,
 } from '@schedule/scheduling-domain';
 import { and, asc, eq, isNull, ne } from 'drizzle-orm';
 
@@ -532,9 +532,9 @@ export class SchedulePublishService {
       .where(and(eq(scheduleRoles.id, period.scheduleRoleId), isNull(scheduleRoles.deletedAt)))
       .limit(1);
     const roleName = role?.name ?? '';
-    const domainAssignments = assignments.map<GeneratedRotationAssignment>((assignment) => ({
+    const domainAssignments = assignments.map<ScheduleAssignmentSnapshot>((assignment) => ({
       businessDate: assignment.businessDate,
-      businessKey: createRotationBusinessKey(
+      businessKey: createAssignmentBusinessKey(
         period.scheduleRoleId,
         assignment.businessDate,
         assignment.slotPosition,
@@ -572,7 +572,7 @@ export class SchedulePublishService {
           };
         },
       ),
-      hardConflicts: findRotationHardConflicts(domainAssignments).map(
+      hardConflicts: findScheduleHardConflicts(domainAssignments).map(
         (conflict): ScheduleGenerationConflict => {
           const memberName = memberNamesById.get(conflict.membershipId);
           return {
@@ -589,7 +589,7 @@ export class SchedulePublishService {
       vacancies: assignments
         .filter((assignment) => assignment.plannedMembershipId === null)
         .map((assignment): ScheduleGenerationVacancy => ({
-          assignmentBusinessKey: createRotationBusinessKey(
+          assignmentBusinessKey: createAssignmentBusinessKey(
             period.scheduleRoleId,
             assignment.businessDate,
             assignment.slotPosition,

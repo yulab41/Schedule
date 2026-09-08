@@ -93,19 +93,6 @@ export const groupRecycleDeleteSteps: readonly GroupRecycleDeleteStep[] = [
     buildQuery: (groupId) => sql`DELETE FROM audit_logs WHERE group_id = ${groupId}`,
   },
   {
-    table: 'rotation_members',
-    buildQuery: (groupId) => sql`DELETE FROM rotation_members
-                   WHERE rotation_rule_id IN (
-                     SELECT id FROM rotation_rules
-                     WHERE schedule_role_id IN (SELECT id FROM schedule_roles WHERE group_id = ${groupId})
-                   )`,
-  },
-  {
-    table: 'rotation_rules',
-    buildQuery: (groupId) => sql`DELETE FROM rotation_rules
-                   WHERE schedule_role_id IN (SELECT id FROM schedule_roles WHERE group_id = ${groupId})`,
-  },
-  {
     table: 'member_schedule_roles',
     buildQuery: (groupId) => sql`DELETE FROM member_schedule_roles
                    WHERE schedule_role_id IN (SELECT id FROM schedule_roles WHERE group_id = ${groupId})`,

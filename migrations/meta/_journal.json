@@ -386,6 +386,13 @@
       "when": 1785542400055,
       "tag": "0055_account_mobile_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785542400056,
+      "tag": "0056_retire_automatic_rotation",
+      "breakpoints": true
     }
   ]
 }

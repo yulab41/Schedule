@@ -1,3 +1,7 @@
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -17,7 +21,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { and, eq, sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -37,6 +41,8 @@ describeWithDatabase('paired duty adjustments', () => {
   let client: DatabaseClient;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-31T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -59,6 +65,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -69,7 +76,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('previews a pair and completes it after the overtime member accepts and the admin approves', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
 
     const previewResponse = await previewDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -169,7 +176,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('allows duty adjustment on a today shift even when it has already started', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const today = getChinaStandardTimeBusinessDate(new Date());
     await client.database
       .update(shiftAssignments)
@@ -190,7 +197,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('rejects duty adjustment on a past day', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const yesterday = getChinaStandardTimeBusinessDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
     await client.database
       .update(shiftAssignments)
@@ -212,7 +219,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('completes immediately when the overtime member auto-accepts and the group does not require approval', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     expect((await updateGroupSettings('owner-token', context.groupId, false)).statusCode).toBe(200);
     expect((await updateMySettings('b-token', context.groupId, true)).statusCode).toBe(200);
 
@@ -241,7 +248,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('treats an overtime member who never set the preference as not auto-accepting', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateGroupSettings('owner-token', context.groupId, false);
 
     const preview = (
@@ -266,7 +273,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('does not let automatic acceptance bypass administrator approval', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, true);
     expect((await getGroupSettings('b-token', context.groupId)).json()).toEqual({
       requiresApproval: true,
@@ -300,7 +307,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('lets only one active relation use the same shift and blocks swaps on it', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = await createDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -376,7 +383,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('invalidates the request when the covered assignment version changes', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = (
       await createDutyAdjustment('a-token', context.groupId, {
         coveredAssignmentId: context.assignments.aSep1.id,
@@ -402,7 +409,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('blocks requests when the overtime member is no longer in the role or has approved leave', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await replaceRoleMembers(context.groupId, context.roleId, [
       context.membershipIds.a,
       context.membershipIds.c,
@@ -440,11 +447,16 @@ describeWithDatabase('paired duty adjustments', () => {
     ).json() as { id: string };
     const leavePreview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId.id)
-    ).json() as { periodVersions: Record<string, number>; rulesVersion: number };
+    ).json() as {
+      periodVersions: Record<string, number>;
+      assignmentVersions: Record<string, number>;
+      rulesVersion: number;
+    };
     expect(
       (
         await approveLeave('owner-token', context.groupId, leaveRequestId.id, {
           expectedPeriodVersions: leavePreview.periodVersions,
+          expectedAssignmentVersions: leavePreview.assignmentVersions,
           expectedRulesVersion: leavePreview.rulesVersion,
           expectedVersion: 1,
           operationId: randomUUID(),
@@ -482,7 +494,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('blocks duty adjustment creation while the overtime member has a pending leave', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leave = await submitLeave('b-token', context.groupId, {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -502,7 +514,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('rechecks pending leave when the overtime member accepts the duty adjustment', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await createDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -529,7 +541,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('blocks duty adjustment creation when the shift has a pending swap', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, false);
     const swap = await createSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -549,7 +561,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('allows direct application without a reason and requires administrator permission', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const withoutReason = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.cSep3.id,
       operationId: randomUUID(),
@@ -593,7 +605,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('keeps archived assignment snapshots readable in approval history', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -620,7 +632,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('archives completed adjustments whose shift no longer exists and blocks direct revoke', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -650,7 +662,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('locks stale completed duty adjustments as non-revocable with lingering markers', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -692,7 +704,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('detects stale completed duty adjustments as archiveable candidates', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -720,7 +732,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('archives a stale completed duty adjustment, clears the marker, and unblocks new adjustments', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -829,7 +841,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('auto-archives a stale completed swap when a later pending duty adjustment is rejected', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const completed = await createSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -877,7 +889,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('rejects and cancels pending requests without touching the actual member', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = (
       await createDutyAdjustment('a-token', context.groupId, {
         coveredAssignmentId: context.assignments.aSep1.id,
@@ -915,7 +927,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('revokes a completed relation with or without a reason and restores the deducted member', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = (
       await createDutyAdjustment('a-token', context.groupId, {
         coveredAssignmentId: context.assignments.aSep1.id,
@@ -990,7 +1002,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('keeps the original reason when revoking without a reason', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = (
       await createDirectDutyAdjustment('owner-token', context.groupId, {
         coveredAssignmentId: context.assignments.aSep1.id,
@@ -1011,7 +1023,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('requires acknowledgement before withdrawing a schedule with active duty adjustments', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const completed = await createDirectDutyAdjustment('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1106,7 +1118,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('keeps both history rows when the same member adds once and deducts once', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = await createDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1174,7 +1186,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('replays the same create operation id without duplicates', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const operationId = randomUUID();
     const body = {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -1199,7 +1211,7 @@ describeWithDatabase('paired duty adjustments', () => {
   });
 
   it('restricts permissions and exposes group settings', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     expect(
       (
         await previewDutyAdjustment('outsider-token', context.groupId, {
@@ -1244,7 +1256,7 @@ describeWithDatabase('paired duty adjustments', () => {
     });
   });
 
-  async function seedPublishedRotation(): Promise<Context> {
+  async function seedPublishedSchedule(): Promise<Context> {
     const groupId = await createGroup('Duty group', '5678');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
@@ -1279,7 +1291,7 @@ describeWithDatabase('paired duty adjustments', () => {
       (member) => member.realName === 'A Doctor',
     )?.id;
     expect(startingMemberScheduleRoleId).toBeDefined();
-    await updateRotationRule(groupId, roleId, {
+    await configureFixturePattern(groupId, roleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -1533,6 +1545,7 @@ describeWithDatabase('paired duty adjustments', () => {
     leaveRequestId: string,
     body: {
       readonly expectedPeriodVersions: Readonly<Record<string, number>>;
+      readonly expectedAssignmentVersions: Readonly<Record<string, number>>;
       readonly expectedRulesVersion: number;
       readonly expectedVersion: number;
       readonly operationId: string;
@@ -1586,9 +1599,8 @@ describeWithDatabase('paired duty adjustments', () => {
   }
 
   async function generatePublished(groupId: string, roleId: string, rulesVersion: number) {
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth: '2026-09',
         operationId: randomUUID(),
@@ -1596,7 +1608,6 @@ describeWithDatabase('paired duty adjustments', () => {
         rulesVersion,
         scheduleRoleIds: [roleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
   }
 
@@ -1704,13 +1715,12 @@ describeWithDatabase('paired duty adjustments', () => {
   ): Promise<void> {
     const config = await getConfig('owner-token', groupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -1721,7 +1731,7 @@ describeWithDatabase('paired duty adjustments', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     groupId: string,
     roleId: string,
     payload: {
@@ -1732,23 +1742,7 @@ describeWithDatabase('paired duty adjustments', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
-    const config = await getConfig('owner-token', groupId);
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...payload,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, groupId, roleId, payload);
   }
 });
 

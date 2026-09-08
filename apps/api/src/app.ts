@@ -17,7 +17,7 @@ import { registerInviteRoutes } from './modules/groups/invite-routes.js';
 import { registerSchedulingConfigRoutes } from './modules/scheduling-config/scheduling-config-routes.js';
 import { SchedulingConfigService } from './modules/scheduling-config/scheduling-config-service.js';
 import { registerScheduleRoutes } from './modules/schedules/schedule-routes.js';
-import { ScheduleGenerateService } from './modules/schedules/generate-service.js';
+import { SchedulePublishModeService } from './modules/schedules/publish-mode-service.js';
 import { SchedulePublishService } from './modules/schedules/publish-service.js';
 import { ScheduleRepository } from './modules/schedules/schedule-repository.js';
 import { registerCalendarRoutes } from './modules/calendar/calendar-routes.js';
@@ -199,7 +199,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     const scheduleRepository = new ScheduleRepository(options.databaseClient);
     registerScheduleRoutes(
       app,
-      new ScheduleGenerateService(options.databaseClient, scheduleRepository),
+      new SchedulePublishModeService(options.databaseClient),
       new SchedulePublishService(options.databaseClient, scheduleRepository),
     );
     registerCalendarRoutes(

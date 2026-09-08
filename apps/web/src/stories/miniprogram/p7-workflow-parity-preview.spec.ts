@@ -88,12 +88,12 @@ describe('P7 workflow parity Storybook golden', () => {
     expect(stories.match(/viewport: 'mobile320'/gu)).toHaveLength(11);
   });
 
-  it('keeps the production leave reflow preview action at the 44px touch boundary', () => {
+  it('keeps the production leave approval preview action at the 44px touch boundary', () => {
     const approval = read('../../features/leaves/LeaveApprovalDialog.vue');
 
-    expect(approval).toContain('class="strategy-preview-action"');
+    expect(approval).toContain('class="approval-preview-action"');
     expect(approval).toMatch(
-      /\.strategy-preview-action[^}]*min-height:\s*var\(--ui-touch-target-minimum\)/su,
+      /\.approval-preview-action[^}]*min-height:\s*var\(--ui-touch-target-minimum\)/su,
     );
   });
 

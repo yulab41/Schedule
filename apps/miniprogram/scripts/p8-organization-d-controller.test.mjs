@@ -162,12 +162,6 @@ function config() {
         id: 'role-1',
         members: [],
         name: '一线',
-        rotationRule: {
-          currentPosition: 1,
-          defaultShiftTypeId: 'shift-1',
-          requiredMembersPerDay: 1,
-          version: 1,
-        },
         version: 1,
       },
     ],

@@ -12,8 +12,6 @@ describe('P8 Web scheduling configuration mutation equivalence', () => {
     for (const method of [
       'createScheduleRole',
       'replaceScheduleRoleMembers',
-      'reorderRotationMembers',
-      'updateRotationRule',
       'deleteScheduleRole',
       'createShiftType',
       'updateShiftType',
@@ -30,7 +28,7 @@ describe('P8 Web scheduling configuration mutation equivalence', () => {
     expect(source).toContain('crypto.randomUUID');
     expect(source).toContain('expectedRulesVersion: config.value.rulesVersion');
     expect(source).toContain('expectedRoleVersion: role.version');
-    expect(source).toContain('expectedRotationRuleVersion: role.rotationRule.version');
+    expect(source).not.toContain('expectedRotationRuleVersion');
     expect(source).toContain('expectedVersion: shiftType.version');
   });
 });

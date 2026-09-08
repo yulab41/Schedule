@@ -6,9 +6,9 @@ import {
   isValidManualScheduleDate,
 } from '@schedule/contracts/manual-schedule-limits';
 
-import { findContinuousDutyWarnings, findRotationHardConflicts } from '../conflicts.js';
-import type { ContinuousDutyWarning, GeneratedRotationAssignment } from '../rotation/types.js';
-import { getBusinessDates } from '../rotation/cursor.js';
+import { findContinuousDutyWarnings, findScheduleHardConflicts } from '../conflicts.js';
+import type { ContinuousDutyWarning, ScheduleAssignmentSnapshot } from '../assignment-types.js';
+import { getBusinessDates } from '../business-dates.js';
 import { toChinaStandardTimeShiftRange } from '../time.js';
 
 export interface ManualApplyMember {
@@ -72,7 +72,7 @@ export interface ManualApplyConflict {
 }
 
 export interface ManualApplyResult {
-  readonly assignments: readonly GeneratedRotationAssignment[];
+  readonly assignments: readonly ScheduleAssignmentSnapshot[];
   readonly conflicts: readonly ManualApplyConflict[];
   readonly continuousDutyWarnings: readonly ContinuousDutyWarning[];
   readonly vacancies: readonly ManualApplyVacancy[];
@@ -85,7 +85,7 @@ export function applyManualTemplate(input: ManualApplyTemplateInput): ManualAppl
   const endDate = input.endDate ?? addDays(input.startDate, input.cycleDays - 1);
   const businessDates = getBusinessDates(input.startDate, endDate);
 
-  const assignments: GeneratedRotationAssignment[] = [];
+  const assignments: ScheduleAssignmentSnapshot[] = [];
   const vacancies: ManualApplyVacancy[] = [];
   for (const [dateIndex, businessDate] of businessDates.entries()) {
     const cycleDay = (dateIndex % input.cycleDays) + 1;
@@ -144,7 +144,7 @@ export function applyManualTemplate(input: ManualApplyTemplateInput): ManualAppl
   return {
     assignments,
     conflicts: [
-      ...findRotationHardConflicts(assignments).map((conflict) => ({
+      ...findScheduleHardConflicts(assignments).map((conflict) => ({
         assignmentBusinessKeys: conflict.assignmentBusinessKeys,
         code: conflict.code,
         membershipId: conflict.membershipId,
@@ -235,7 +235,7 @@ function isManualMemberAvailable(member: ManualApplyMember, businessDate: string
 }
 
 function findManualLeaveConflicts(
-  assignments: readonly GeneratedRotationAssignment[],
+  assignments: readonly ScheduleAssignmentSnapshot[],
   leaveIntervals: readonly ManualLeaveInterval[],
 ): readonly ManualApplyConflict[] {
   const conflicts: ManualApplyConflict[] = [];

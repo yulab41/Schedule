@@ -58,7 +58,6 @@ page {
 .panel-heading,
 .section-heading > view,
 .request-person,
-.strategy-copy,
 .field-block,
 .impact-card,
 .approval-preview,
@@ -138,7 +137,6 @@ page {
 .state-copy,
 .heading-copy > text:last-child,
 .section-heading view > text:last-child,
-.strategy-copy > text:last-child,
 .empty-card > text:last-child {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
@@ -299,7 +297,6 @@ page {
 .section-heading,
 .request-card-heading,
 .request-detail,
-.strategy-card,
 .impact-heading,
 .approval-actions,
 .date-fields {
@@ -310,8 +307,7 @@ page {
   gap: var(--ui-spacing-md);
 }
 
-.section-heading > view,
-.strategy-copy {
+.section-heading > view{
   flex: 1;
   gap: 3px;
 }
@@ -348,7 +344,6 @@ page {
 }
 
 .request-card,
-.strategy-card,
 .impact-card {
   padding: var(--ui-spacing-md);
   box-sizing: border-box;
@@ -417,13 +412,6 @@ page {
 .request-actions .web-button {
   min-width: 120px;
   flex: 1;
-}
-
-.strategy-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ui-spacing-md);
-  box-shadow: none;
 }
 
 .native-select {

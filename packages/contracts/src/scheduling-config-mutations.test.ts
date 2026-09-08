@@ -8,8 +8,6 @@ describe('P8 scheduling configuration mutation contracts', () => {
     for (const typeName of [
       'CreateScheduleRoleRequest',
       'ReplaceScheduleRoleMembersRequest',
-      'ReorderRotationMembersRequest',
-      'UpdateRotationRuleRequest',
       'ScheduleRoleVersionMutationRequest',
       'CreateShiftTypeRequest',
       'UpdateShiftTypeRequest',
@@ -24,16 +22,12 @@ describe('P8 scheduling configuration mutation contracts', () => {
     }
   });
 
-  it('requires role, rotation-rule, and shift-type entity versions where they can be stale', () => {
+  it('requires role and shift-type entity versions where they can be stale', () => {
     const source = readFileSync(new URL('./scheduling-config.ts', import.meta.url), 'utf8');
-    for (const typeName of [
-      'ReplaceScheduleRoleMembersRequest',
-      'ReorderRotationMembersRequest',
-      'UpdateRotationRuleRequest',
-    ]) {
+    for (const typeName of ['ReplaceScheduleRoleMembersRequest']) {
       expect(source).toMatch(
         new RegExp(
-          `export interface ${typeName}[\\s\\S]*?readonly expectedRoleVersion: number;[\\s\\S]*?readonly expectedRotationRuleVersion: number;[\\s\\S]*?\\n\\}`,
+          `export interface ${typeName}[\\s\\S]*?readonly expectedRoleVersion: number;[\\s\\S]*?\\n\\}`,
           'u',
         ),
       );

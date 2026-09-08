@@ -467,7 +467,7 @@ describeWithDatabase('platform administration and recovery', () => {
     });
     const result = await job.run(new Date('2026-08-02T04:00:00.000Z'));
     expect(result.backupKind).toBe('monthly');
-    expect(result.tableCount).toBe(55);
+    expect(result.tableCount).toBe(53);
     expect(result.rowCount).toBeGreaterThanOrEqual(4);
 
     const [archiveRows] = (await client.database.execute(

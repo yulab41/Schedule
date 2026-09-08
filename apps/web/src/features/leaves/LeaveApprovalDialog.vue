@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import type {
-  GroupSummary,
-  LeaveReflowPreview,
-  LeaveReflowStrategy,
-  LeaveRequest,
-} from '@schedule/contracts';
+import type { GroupSummary, LeaveApprovalPreview, LeaveRequest } from '@schedule/contracts';
 import {
   resolveWorkflowOperationAttempt,
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
 import { computed, onMounted, ref } from 'vue';
-import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -22,8 +16,6 @@ import {
   formatLeaveRange,
   getLeaveRejectionConfirmation,
   getLeaveTypeLabel,
-  getReflowStrategyLabel,
-  reflowStrategyLabels,
   summarizeStatisticsDelta,
 } from './leave-logic.js';
 
@@ -40,9 +32,7 @@ const emit = defineEmits<{
 
 const api = createApiClient({ auth: localAuth });
 const visible = ref(true);
-const preview = ref<LeaveReflowPreview>();
-const strategy = ref<LeaveReflowStrategy>(props.request.reflowStrategy);
-const groupDefaultStrategy = ref<LeaveReflowStrategy>('keep-original-order');
+const preview = ref<LeaveApprovalPreview>();
 const acknowledgeBlockers = ref(false);
 const errorMessage = ref<string>();
 const isLoading = ref(false);
@@ -69,16 +59,7 @@ function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
   );
   return resolved.snapshot;
 }
-
-const strategyOptions = computed(() =>
-  (Object.keys(reflowStrategyLabels) as LeaveReflowStrategy[]).map((item) => ({
-    label: reflowStrategyLabels[item],
-    value: item,
-  })),
-);
-const blockerCount = computed(
-  () => (preview.value?.conflicts.length ?? 0) + (preview.value?.vacancies.length ?? 0),
-);
+const blockerCount = computed(() => preview.value?.vacancies.length ?? 0);
 const hasBlockers = computed(() => blockerCount.value > 0);
 const hasAffectedAssignments = computed(() => (preview.value?.affectedAssignments.length ?? 0) > 0);
 const affectedShifts = computed(() => preview.value?.affectedShifts ?? []);
@@ -91,11 +72,7 @@ async function loadContext(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
   try {
-    const [strategyResult] = await Promise.all([
-      api.getLeaveReflowStrategy(props.group.id),
-      refreshPreview(),
-    ]);
-    groupDefaultStrategy.value = strategyResult.strategy;
+    await refreshPreview();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');
   } finally {
@@ -107,9 +84,7 @@ async function refreshPreview(): Promise<void> {
   errorMessage.value = undefined;
   isPreviewing.value = true;
   try {
-    preview.value = await api.previewLeaveRequestApproval(props.group.id, props.request.id, {
-      strategy: strategy.value,
-    });
+    preview.value = await api.previewLeaveRequestApproval(props.group.id, props.request.id, {});
     acknowledgeBlockers.value = false;
   } catch (error) {
     if (isDataConflictError(error)) {
@@ -119,13 +94,6 @@ async function refreshPreview(): Promise<void> {
     }
   } finally {
     isPreviewing.value = false;
-  }
-}
-
-function onStrategyChange(value: SelectValue): void {
-  if (value === 'keep-original-order' || value === 'shift-forward') {
-    strategy.value = value;
-    void refreshPreview();
   }
 }
 
@@ -147,9 +115,9 @@ async function approve(): Promise<void> {
       resolveOperation(operationKey, {
         ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
         expectedPeriodVersions: preview.value.periodVersions,
+        expectedAssignmentVersions: preview.value.assignmentVersions,
         expectedRulesVersion: preview.value.rulesVersion,
         expectedVersion: props.request.version,
-        strategy: strategy.value,
       }),
     );
     operationAttempts.delete(operationKey);
@@ -252,22 +220,13 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
         </template>
 
         <template v-if="hasAffectedAssignments">
-          <label class="strategy-field">
-            重排策略
-            <t-select :value="strategy" :options="strategyOptions" @change="onStrategyChange" />
-          </label>
-          <p class="strategy-hint">
-            群组默认：{{
-              getReflowStrategyLabel(groupDefaultStrategy)
-            }}；管理员可先通过换班、加扣班或手动排班完成安排，再选择顺延或保持原顺序重排。
-          </p>
           <t-button
-            class="strategy-preview-action"
+            class="approval-preview-action"
             variant="outline"
             :loading="isPreviewing"
             @click="refreshPreview"
           >
-            生成重排预览
+            刷新待清空班次
           </t-button>
         </template>
         <p
@@ -283,35 +242,23 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
 
         <template v-if="preview !== undefined">
           <template v-if="hasAffectedAssignments">
-            <p class="statistics-delta">
-              统计变化：{{ summarizeStatisticsDelta(preview.statisticsDelta) }}
-            </p>
-
             <ul class="affected-list">
               <li v-for="assignment in preview.affectedAssignments" :key="assignment.assignmentId">
                 {{ formatAffectedAssignment(assignment) }}
               </li>
             </ul>
-
-            <t-alert
-              v-if="preview.conflicts.length > 0"
-              theme="error"
-              :message="`发现 ${preview.conflicts.length} 处硬冲突（请假或时间重叠）。`"
-            />
+            <p class="statistics-delta">
+              统计变化：{{ summarizeStatisticsDelta(preview.statisticsDelta) }}
+            </p>
             <t-alert
               v-if="preview.workflowBlockers.length > 0"
               theme="error"
               :message="preview.workflowBlockers.map((blocker) => blocker.message).join('；')"
             />
             <t-alert
-              v-if="preview.continuousDutyWarnings.length > 0"
-              theme="warning"
-              :message="`发现 ${preview.continuousDutyWarnings.length} 处连续值班风险（至少 24 小时）。`"
-            />
-            <t-alert
               v-if="preview.vacancies.length > 0"
               theme="warning"
-              :message="`发现 ${preview.vacancies.length} 个待处理空缺（无可用替班成员）。`"
+              :message="`发现 ${preview.vacancies.length} 个待处理空缺（批准后需手动安排）。`"
             />
 
             <label v-if="hasBlockers" class="acknowledge-field">
@@ -325,7 +272,7 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
               驳回
             </t-button>
             <t-button theme="primary" :loading="isApproving" @click="approve">
-              {{ hasAffectedAssignments ? '批准并重排' : '批准' }}
+              {{ hasAffectedAssignments ? '批准并清空' : '批准' }}
             </t-button>
           </div>
         </template>
@@ -369,27 +316,7 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
   overflow-wrap: anywhere;
 }
 
-.strategy-field {
-  display: grid;
-  gap: var(--ui-spacing-xxs);
-  color: var(--ui-color-text-primary);
-  font-size: var(--ui-font-size-sm);
-  font-weight: var(--ui-font-weight-medium);
-}
-
-.strategy-field :deep(.t-input),
-.strategy-field :deep(.t-select) {
-  min-height: var(--ui-touch-target-minimum);
-}
-
-.strategy-hint {
-  margin: 0;
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
-  line-height: var(--ui-line-height-normal);
-}
-
-.strategy-preview-action {
+.approval-preview-action {
   min-height: var(--ui-touch-target-minimum);
 }
 

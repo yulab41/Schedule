@@ -9,7 +9,6 @@ import {
   getLeaveRejectionConfirmation,
   getLeaveStatusTone,
   getLeaveTypeLabel,
-  getReflowStrategyLabel,
   getTodayCalendarDate,
   summarizeStatisticsDelta,
 } from './leave-logic.js';
@@ -144,10 +143,9 @@ describe('leave form logic', () => {
     ).toBe('无值班统计变化');
   });
 
-  it('maps leave types and reflow strategies to Chinese labels', () => {
+  it('maps leave types to Chinese labels', () => {
     expect(getLeaveTypeLabel('sick')).toBe('病假');
     expect(getLeaveTypeLabel('training')).toBe('进修');
-    expect(getReflowStrategyLabel('shift-forward')).toBe('整体顺延');
   });
 
   it('maps leave workflow states to accessible card tones and explicit rejection copy', () => {

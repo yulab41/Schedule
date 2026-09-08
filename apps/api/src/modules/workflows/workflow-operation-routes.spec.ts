@@ -149,6 +149,7 @@ describe('workflow route operation-id boundary', () => {
       [
         injectObjectMutation('leave-requests', 'approve', {
           expectedPeriodVersions: {},
+          expectedAssignmentVersions: {},
           expectedRulesVersion: 1,
           expectedVersion: 1,
         }),
@@ -242,6 +243,7 @@ describe('workflow route operation-id boundary', () => {
       ),
       injectObjectMutation('leave-requests', 'approve', {
         expectedPeriodVersions: {},
+        expectedAssignmentVersions: {},
         expectedRulesVersion: 1,
         expectedVersion: 1,
         operationId: secondOperationId,

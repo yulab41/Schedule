@@ -11,11 +11,10 @@ import type {
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
   GroupDutyAdjustmentSettings,
-  GroupLeaveReflowStrategy,
   GroupSwapSettings,
   LeaveAffectedShift,
   LeaveAffectedShiftsInput,
-  LeaveReflowPreview,
+  LeaveApprovalPreview,
   LeaveRequest,
   LeaveRequestMutationInput,
   LeaveRequestMutationResult,
@@ -30,7 +29,6 @@ import type {
   SwapRequest,
   SwapRequestMutationInput,
   UpdateGroupDutyAdjustmentSettingsInput,
-  UpdateGroupLeaveReflowStrategyInput,
   UpdateGroupSwapSettingsInput,
   UpdateMemberSwapSettingsInput,
 } from '@schedule/contracts';
@@ -41,10 +39,9 @@ import {
   dutyAdjustmentRequestJsonSchema,
   dutyAdjustmentRequestListJsonSchema,
   groupDutyAdjustmentSettingsJsonSchema,
-  groupLeaveReflowStrategyJsonSchema,
   groupSwapSettingsJsonSchema,
   leaveAffectedShiftListJsonSchema,
-  leaveReflowPreviewJsonSchema,
+  leaveApprovalPreviewJsonSchema,
   leaveRequestJsonSchema,
   leaveRequestListJsonSchema,
   leaveRequestMutationResultJsonSchema,
@@ -76,8 +73,8 @@ export const leaveRequestListDecoder = createCompactDecoder<LeaveRequest[]>(
 export const leaveAffectedShiftListDecoder = createCompactDecoder<readonly LeaveAffectedShift[]>(
   leaveAffectedShiftListJsonSchema,
 );
-export const leaveReflowPreviewDecoder = createCompactDecoder<LeaveReflowPreview>(
-  leaveReflowPreviewJsonSchema,
+export const leaveApprovalPreviewDecoder = createCompactDecoder<LeaveApprovalPreview>(
+  leaveApprovalPreviewJsonSchema,
 );
 export const approvedLeaveRequestResultDecoder = createCompactDecoder<ApprovedLeaveRequestResult>(
   approvedLeaveRequestResultJsonSchema,
@@ -87,9 +84,6 @@ export const rejectedLeaveRequestResultDecoder = createCompactDecoder<RejectedLe
 );
 export const leaveRequestMutationResultDecoder = createCompactDecoder<LeaveRequestMutationResult>(
   leaveRequestMutationResultJsonSchema,
-);
-export const groupLeaveReflowStrategyDecoder = createCompactDecoder<GroupLeaveReflowStrategy>(
-  groupLeaveReflowStrategyJsonSchema,
 );
 export const swapPreviewDecoder = createCompactDecoder<SwapPreview>(swapPreviewJsonSchema);
 export const swapRequestDecoder = createCompactDecoder<SwapRequest>(swapRequestJsonSchema);
@@ -156,11 +150,11 @@ export const workflowEndpoints = {
   }),
   leavePreview: defineClientEndpoint<
     ObjectRequestInput<PreviewLeaveRequestInput>,
-    LeaveReflowPreview
+    LeaveApprovalPreview
   >({
     auth: 'bearer',
     body: requestBody,
-    decoder: leaveReflowPreviewDecoder,
+    decoder: leaveApprovalPreviewDecoder,
     id: 'workflow.leave-preview',
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/preview`,
@@ -212,24 +206,6 @@ export const workflowEndpoints = {
     idempotencyKey: operationId,
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/revoke`,
-  }),
-  leaveStrategy: defineClientEndpoint<GroupInput, GroupLeaveReflowStrategy>({
-    auth: 'bearer',
-    decoder: groupLeaveReflowStrategyDecoder,
-    id: 'workflow.leave-strategy',
-    method: 'GET',
-    path: ({ groupId }) => leaveStrategyPath(groupId),
-  }),
-  leaveStrategyUpdate: defineClientEndpoint<
-    GroupRequestInput<UpdateGroupLeaveReflowStrategyInput>,
-    GroupLeaveReflowStrategy
-  >({
-    auth: 'bearer',
-    body: requestBody,
-    decoder: groupLeaveReflowStrategyDecoder,
-    id: 'workflow.leave-strategy-update',
-    method: 'PUT',
-    path: ({ groupId }) => leaveStrategyPath(groupId),
   }),
   swapPreview: defineClientEndpoint<GroupRequestInput<SwapPairInput>, SwapPreview>({
     auth: 'bearer',
@@ -490,7 +466,6 @@ export interface WorkflowClient {
     groupId: string,
     request: LeaveAffectedShiftsInput,
   ): Promise<readonly LeaveAffectedShift[]>;
-  getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
   getMyDutyAdjustmentSettings(groupId: string): Promise<MemberSwapSettings>;
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
   listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]>;
@@ -507,7 +482,7 @@ export interface WorkflowClient {
     groupId: string,
     objectId: string,
     request: PreviewLeaveRequestInput,
-  ): Promise<LeaveReflowPreview>;
+  ): Promise<LeaveApprovalPreview>;
   previewSwap(groupId: string, request: SwapPairInput): Promise<SwapPreview>;
   rejectDutyAdjustment(
     groupId: string,
@@ -547,10 +522,6 @@ export interface WorkflowClient {
     groupId: string,
     request: UpdateGroupSwapSettingsInput,
   ): Promise<GroupSwapSettings>;
-  updateLeaveReflowStrategy(
-    groupId: string,
-    request: UpdateGroupLeaveReflowStrategyInput,
-  ): Promise<GroupLeaveReflowStrategy>;
   updateMySwapSettings(
     groupId: string,
     request: UpdateMemberSwapSettingsInput,
@@ -605,7 +576,6 @@ export function createWorkflowClient(transport: ClientTransport): WorkflowClient
     getGroupSwapSettings: (groupId) => group(workflowEndpoints.swapSettings, groupId),
     getLeaveAffectedShifts: (groupId, request) =>
       group(workflowEndpoints.leaveAffectedShifts, groupId, request),
-    getLeaveReflowStrategy: (groupId) => group(workflowEndpoints.leaveStrategy, groupId),
     getMyDutyAdjustmentSettings: (groupId) => group(workflowEndpoints.dutyMySettings, groupId),
     getMySwapSettings: (groupId) => group(workflowEndpoints.swapMySettings, groupId),
     listDutyAdjustmentApprovals: (groupId) => group(workflowEndpoints.dutyApprovals, groupId),
@@ -635,8 +605,6 @@ export function createWorkflowClient(transport: ClientTransport): WorkflowClient
       group(workflowEndpoints.dutySettingsUpdate, groupId, request),
     updateGroupSwapSettings: (groupId, request) =>
       group(workflowEndpoints.swapSettingsUpdate, groupId, request),
-    updateLeaveReflowStrategy: (groupId, request) =>
-      group(workflowEndpoints.leaveStrategyUpdate, groupId, request),
     updateMySwapSettings: (groupId, request) =>
       group(workflowEndpoints.swapMySettingsUpdate, groupId, request),
   };
@@ -668,9 +636,6 @@ function leavePath(groupId: string): string {
 }
 function leaveObjectPath(groupId: string, objectId: string): string {
   return `${leavePath(groupId)}/${encodeURIComponent(objectId)}`;
-}
-function leaveStrategyPath(groupId: string): string {
-  return `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`;
 }
 function swapPath(groupId: string): string {
   return `/groups/${encodeURIComponent(groupId)}/swaps`;

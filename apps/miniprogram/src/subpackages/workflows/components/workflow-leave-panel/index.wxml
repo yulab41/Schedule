@@ -37,7 +37,7 @@
       <view wx:if="{{state === 'loading'}}" class="page-state-card">
         <view class="native-spinner"></view>
         <text class="state-title">正在加载请假数据</text>
-        <text class="state-copy">正在同步申请、审批和重排策略。</text>
+        <text class="state-copy">正在同步申请、审批和清空策略。</text>
       </view>
 
       <view wx:elif="{{state === 'error'}}" class="page-state-card">
@@ -139,21 +139,7 @@
         </view>
 
         <view wx:if="{{canApprove && activeTab === 'review'}}" class="review-content">
-          <view class="strategy-card">
-            <view class="strategy-copy">
-              <text class="section-title">群组默认重排策略</text>
-              <text>审批时仍可对单个申请覆盖此默认策略。</text>
-            </view>
-            <workflow-picker
-              mode="selector"
-              options="{{strategyOptions}}"
-              selected-index="{{strategyIndex}}"
-              display-value="{{strategyOptions[strategyIndex].label}}"
-              title="群组默认重排策略"
-              disabled="{{strategyBusy}}"
-              bindchange="handleStrategyChange"
-            ></workflow-picker>
-          </view>
+
 
           <view class="workflow-section">
             <view class="section-heading">
@@ -332,23 +318,13 @@
           >
           <view wx:if="{{approvalPreviewReady}}" class="approval-preview">
             <view class="impact-count">请假期间涉及 {{approvalShiftCount}} 个已发布班次。</view>
-            <view wx:if="{{approvalHasAffectedAssignments}}" class="field-block">
-              <text class="field-label">重排策略</text>
-              <workflow-picker
-                mode="selector"
-                options="{{strategyOptions}}"
-                selected-index="{{approvalStrategyIndex}}"
-                display-value="{{strategyOptions[approvalStrategyIndex].label}}"
-                title="重排策略"
-                bindchange="handleApprovalStrategyChange"
-              ></workflow-picker>
-            </view>
+
             <view
               wx:if="{{approvalHasAffectedAssignments}}"
               class="web-button is-outline"
               aria-role="button"
               bindtap="handleRefreshApproval"
-              >生成重排预览</view
+              >刷新待清空班次</view
             >
             <view wx:if="{{approvalStatistics}}" class="statistics-card"
               >统计变化：{{approvalStatistics}}</view
@@ -374,7 +350,7 @@
           >驳回</view
         >
         <view class="web-button is-primary" aria-role="button" bindtap="handleApprove"
-          >{{approvalHasAffectedAssignments ? '批准并重排' : '批准'}}</view
+          >{{approvalHasAffectedAssignments ? '批准并清空' : '批准'}}</view
         >
       </view>
     </view>

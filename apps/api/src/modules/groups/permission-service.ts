@@ -39,7 +39,6 @@ export interface ActiveGroupUser {
 export interface ActiveGroup {
   readonly dutyAdjustmentApprovalRequired: boolean;
   readonly id: string;
-  readonly leaveReflowStrategy: 'keep-original-order' | 'shift-forward';
   readonly name: string;
   readonly ownerUserId: string;
   readonly rulesVersion: number;
@@ -301,7 +300,6 @@ export class GroupPermissionService {
         swapApprovalRequiredManuallySetValue: groups.swapApprovalRequiredManuallySet,
         swapApprovalRequiredValue: groups.swapApprovalRequired,
         id: groups.id,
-        leaveReflowStrategy: groups.leaveReflowStrategy,
         name: groups.name,
         ownerUserId: groups.ownerUserId,
         rulesVersion: groups.rulesVersion,
@@ -324,7 +322,6 @@ export class GroupPermissionService {
     return {
       dutyAdjustmentApprovalRequired: group.dutyAdjustmentApprovalRequiredValue === 1,
       id: group.id,
-      leaveReflowStrategy: group.leaveReflowStrategy,
       name: group.name,
       ownerUserId: group.ownerUserId,
       rulesVersion: group.rulesVersion,

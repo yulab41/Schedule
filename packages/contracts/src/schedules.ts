@@ -2,19 +2,6 @@ import { z } from 'zod';
 
 export type SchedulePublishMode = 'draft' | 'published';
 
-export interface GenerateSchedulePreviewRequest {
-  readonly businessMonth: string;
-  readonly publishMode?: SchedulePublishMode;
-  readonly rulesVersion: number;
-  readonly scheduleRoleIds: readonly string[];
-}
-
-export interface SaveGeneratedScheduleRequest extends GenerateSchedulePreviewRequest {
-  readonly acknowledgeBlockers?: boolean;
-  readonly acknowledgeWorkflowRevocations?: boolean;
-  readonly operationId: string;
-}
-
 export interface PublishSchedulePeriodRequest {
   readonly acknowledgeBlockers?: boolean;
   readonly acknowledgeWorkflowRevocations?: boolean;
@@ -286,14 +273,6 @@ export const publishSchedulePeriodBatchResultSchema = z
 export type PublishSchedulePeriodBatchResult = {
   readonly periods: readonly SchedulePeriodSummary[];
 };
-
-export interface SavedScheduleGeneration {
-  readonly operationId: string;
-  readonly periods: readonly SchedulePeriodSummary[];
-  readonly preview: ScheduleGenerationPreview;
-  readonly publishMode: SchedulePublishMode;
-  readonly status: 'draft' | 'published';
-}
 
 export const groupSchedulePublishModeSchema = z
   .object({

@@ -126,8 +126,6 @@ function isCoreRoute(method: string, route: string): boolean {
     route.includes('/schedule-periods') ||
     route.includes('/schedule-publish-mode') ||
     route.includes('/schedules/') ||
-    route.endsWith('/schedules/generate') ||
-    route.endsWith('/schedules/generate-preview') ||
     route.includes('/past-schedules')
   ) {
     return true;
@@ -155,7 +153,6 @@ function isCoreRoute(method: string, route: string): boolean {
 function isWorkflowRoute(route: string): boolean {
   return (
     route.includes('/leave-requests') ||
-    route.includes('/leave-reflow-strategy') ||
     route.includes('/swaps') ||
     route.includes('/duty-adjustments')
   );

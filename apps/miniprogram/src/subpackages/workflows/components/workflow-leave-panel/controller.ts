@@ -1,9 +1,9 @@
+import { formatLeaveRestoration } from '@schedule/presentation-core';
 import { ClientCoreError } from '@schedule/client-core';
 import type {
   GroupSummary,
   LeaveAffectedShift,
-  LeaveReflowPreview,
-  LeaveReflowStrategy,
+  LeaveApprovalPreview,
   LeaveRequest,
   LeaveRequestStatus,
   LeaveRequestType,
@@ -57,7 +57,6 @@ interface LeaveRequestView {
   readonly memberName: string;
   readonly rangeLabel: string;
   readonly reasonLabel: string;
-  readonly reflowStrategy: LeaveReflowStrategy;
   readonly startsAt: string;
   readonly status: LeaveRequestStatus;
   readonly statusLabel: string;
@@ -100,7 +99,6 @@ interface LeavePageData {
   readonly approvalShiftCount: number;
   readonly approvalShifts: readonly LeaveShiftView[];
   readonly approvalStatistics: string;
-  readonly approvalStrategyIndex: number;
   readonly approvalSummary: string;
   readonly approvalVisible: boolean;
   readonly canApprove: boolean;
@@ -131,14 +129,11 @@ interface LeavePageData {
   readonly startDateDisplay: string;
   readonly todayDate: string;
   readonly state: PageState;
-  readonly strategyBusy: boolean;
-  readonly strategyIndex: number;
-  readonly strategyOptions: readonly LeaveOption<LeaveReflowStrategy>[];
   readonly viewportClass: string;
 }
 
 interface LeavePageInstance {
-  _approvalPreview: LeaveReflowPreview | undefined;
+  _approvalPreview: LeaveApprovalPreview | undefined;
   _approvalTarget: LeaveRequest | undefined;
   _currentGroupId: string;
   _hasShown: boolean;
@@ -171,10 +166,6 @@ const leaveTypeOptions: readonly LeaveOption<LeaveRequestType>[] = [
   { label: '产假', value: 'maternity' },
   { label: '其他', value: 'other' },
 ];
-const strategyOptions: readonly LeaveOption<LeaveReflowStrategy>[] = [
-  { label: '原轮值不变', value: 'keep-original-order' },
-  { label: '整体顺延', value: 'shift-forward' },
-];
 const workflowClient = createRuntimeWorkflowClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
@@ -200,7 +191,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       approvalShiftCount: 0,
       approvalShifts: [],
       approvalStatistics: '',
-      approvalStrategyIndex: 0,
       approvalSummary: '',
       approvalVisible: false,
       canApprove: false,
@@ -230,9 +220,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       startDate: initialDate,
       startDateDisplay: formatDateWithWeekday(initialDate),
       state: 'loading',
-      strategyBusy: false,
-      strategyIndex: 0,
-      strategyOptions,
       todayDate: initialDate,
       viewportClass: '',
     } satisfies LeavePageData,
@@ -340,13 +327,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       void submitLeave(this);
     },
 
-    handleStrategyChange(this: LeavePageInstance, event: ValueEvent): void {
-      const index = Number(event.detail.value);
-      if (Number.isInteger(index) && strategyOptions[index] !== undefined) {
-        void updateDefaultStrategy(this, index);
-      }
-    },
-
     handleOpenApproval(this: LeavePageInstance, event: DatasetEvent): void {
       const id = event.currentTarget.dataset['id'];
       const target = findApprovalTarget(this, id);
@@ -363,7 +343,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
         approvalShiftCount: 0,
         approvalShifts: [],
         approvalStatistics: '',
-        approvalStrategyIndex: strategyIndex(target.reflowStrategy),
         approvalSummary: `${target.memberName ?? '成员'} · ${getLeaveTypeLabel(target.leaveType)} · ${formatLeaveRange(target.startsAt, target.endsAt, target.isAllDay)}`,
         approvalVisible: true,
       });
@@ -375,14 +354,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       this._approvalPreview = undefined;
       this._approvalTarget = undefined;
       this.setData({ approvalVisible: false, approvalErrorMessage: '' });
-    },
-
-    handleApprovalStrategyChange(this: LeavePageInstance, event: ValueEvent): void {
-      const index = Number(event.detail.value);
-      if (Number.isInteger(index) && strategyOptions[index] !== undefined) {
-        this.setData({ approvalStrategyIndex: index });
-        void loadApprovalPreview(this);
-      }
     },
 
     handleRefreshApproval(this: LeavePageInstance): void {
@@ -437,10 +408,9 @@ async function loadLeavePageWithCapability(
     page._currentGroupId = group.id;
     const canApprove =
       group.isDeveloperAdmin === true || group.role === 'owner' || group.role === 'administrator';
-    const [mine, approvals, strategy] = await Promise.all([
+    const [mine, approvals] = await Promise.all([
       workflowClient.listMyLeaveRequests(group.id),
       canApprove ? workflowClient.listLeaveRequestApprovals(group.id) : Promise.resolve([]),
-      workflowClient.getLeaveReflowStrategy(group.id),
     ]);
     if (!task.isCurrent() || serial !== page._loadSerial || page._currentGroupId !== group.id) {
       return;
@@ -459,7 +429,6 @@ async function loadLeavePageWithCapability(
       pendingApprovalCount: pending.length,
       pendingApprovals: pending.map((request) => createLeaveRequestView(request, true)),
       state: 'ready',
-      strategyIndex: strategyIndex(strategy.strategy),
     });
   } catch (error) {
     if (!task.isCurrent() || serial !== page._loadSerial) return;
@@ -567,36 +536,11 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
   }
 }
 
-async function updateDefaultStrategy(page: LeavePageInstance, index: number): Promise<void> {
-  const task = captureWorkflowControllerTask(page);
-  if (!task.isCurrent()) return;
-  if (!page.data.canApprove || page.data.strategyBusy || page._currentGroupId === '') return;
-  const strategy = strategyOptions[index]?.value;
-  if (strategy === undefined) return;
-  page.setData({ errorMessage: '', infoMessage: '', strategyBusy: true });
-  try {
-    const result = await workflowClient.updateLeaveReflowStrategy(page._currentGroupId, {
-      strategy,
-    });
-    if (!task.isCurrent()) return;
-    page.setData({
-      infoMessage: '群组默认重排策略已更新，新提交的请假将使用该策略。',
-      strategyIndex: strategyIndex(result.strategy),
-    });
-  } catch (error) {
-    if (!task.isCurrent()) return;
-    page.setData({ errorMessage: toUserMessage(error, '默认重排策略暂时无法更新。') });
-  } finally {
-    if (task.isCurrent()) page.setData({ strategyBusy: false });
-  }
-}
-
 async function loadApprovalPreview(page: LeavePageInstance): Promise<void> {
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
   const target = page._approvalTarget;
   if (target === undefined || page._currentGroupId === '') return;
-  const strategy = strategyOptions[page.data.approvalStrategyIndex]?.value ?? target.reflowStrategy;
   page._approvalPreview = undefined;
   page.setData({
     approvalAcknowledged: false,
@@ -608,7 +552,7 @@ async function loadApprovalPreview(page: LeavePageInstance): Promise<void> {
     const preview = await workflowClient.previewLeaveRequestApproval(
       page._currentGroupId,
       target.id,
-      { strategy },
+      {},
     );
     if (!task.isCurrent() || page._approvalTarget?.id !== target.id) return;
     page._approvalPreview = preview;
@@ -636,12 +580,11 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
     return;
   }
   if (page.data.approvalRequiresAcknowledge && !page.data.approvalAcknowledged) {
-    page.setData({ approvalErrorMessage: '请先确认我已知晓冲突和空缺，再批准并重排。' });
+    page.setData({ approvalErrorMessage: '请先确认我已知晓冲突和空缺，再批准并清空。' });
     return;
   }
-  const strategy = strategyOptions[page.data.approvalStrategyIndex]?.value ?? target.reflowStrategy;
   const preview = page._approvalPreview;
-  if (preview === undefined || preview.strategy !== strategy) {
+  if (preview === undefined) {
     await loadApprovalPreview(page);
     if (!task.isCurrent()) return;
     return;
@@ -650,9 +593,9 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
   const request = resolveOperation(page, operationKey, {
     ...(page.data.approvalRequiresAcknowledge ? { acknowledgeBlockers: true } : {}),
     expectedPeriodVersions: preview.periodVersions,
+    expectedAssignmentVersions: preview.assignmentVersions,
     expectedRulesVersion: preview.rulesVersion,
     expectedVersion: target.version,
-    strategy,
   });
   page.setData({ approvalBusy: true, approvalErrorMessage: '' });
   try {
@@ -731,7 +674,7 @@ async function confirmRequestMutation(
   const message =
     action === 'cancel'
       ? '确定取消该请假申请吗？'
-      : '确定撤销该已批准的请假吗？撤销后如需恢复原排班，请重新生成或发布排班。';
+      : '确定撤销该已批准的请假吗？仅恢复未被后续修改的空缺，已人工安排的班次将保留。';
   const confirmed = await showConfirm(message);
   if (task.isCurrent() && confirmed === 'failed') {
     page.setData({ errorMessage: '确认窗口未能打开，请再次点击操作按钮重试。' });
@@ -742,18 +685,21 @@ async function confirmRequestMutation(
   const input = resolveOperation(page, operationKey, { expectedVersion: request.version });
   page.setData({ errorMessage: '', infoMessage: '' });
   try {
+    let restorationMessage = '请假已撤销。';
     if (action === 'cancel') {
       await workflowClient.cancelLeaveRequest(page._currentGroupId, request.id, input);
     } else {
-      await workflowClient.revokeLeaveRequest(page._currentGroupId, request.id, input);
+      const result = await workflowClient.revokeLeaveRequest(
+        page._currentGroupId,
+        request.id,
+        input,
+      );
+      restorationMessage = formatLeaveRestoration(result.restoration);
     }
     if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
-      infoMessage:
-        action === 'cancel'
-          ? '请假申请已取消。'
-          : '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+      infoMessage: action === 'cancel' ? '请假申请已取消。' : restorationMessage,
     });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
@@ -770,7 +716,7 @@ async function confirmRequestMutation(
 }
 
 function createApprovalPreviewPatch(
-  preview: LeaveReflowPreview,
+  preview: LeaveApprovalPreview,
 ): Pick<
   LeavePageData,
   | 'approvalAlerts'
@@ -782,13 +728,6 @@ function createApprovalPreviewPatch(
   | 'approvalStatistics'
 > {
   const alerts: LeaveAlertView[] = [];
-  if (preview.conflicts.length > 0) {
-    alerts.push({
-      id: 'conflicts',
-      message: `发现 ${preview.conflicts.length} 处硬冲突（请假或时间重叠）。`,
-      tone: 'danger',
-    });
-  }
   if (preview.workflowBlockers.length > 0) {
     alerts.push({
       id: 'blockers',
@@ -796,17 +735,10 @@ function createApprovalPreviewPatch(
       tone: 'danger',
     });
   }
-  if (preview.continuousDutyWarnings.length > 0) {
-    alerts.push({
-      id: 'warnings',
-      message: `发现 ${preview.continuousDutyWarnings.length} 处连续值班风险（至少 24 小时）。`,
-      tone: 'warning',
-    });
-  }
   if (preview.vacancies.length > 0) {
     alerts.push({
       id: 'vacancies',
-      message: `发现 ${preview.vacancies.length} 个待处理空缺（无可用替班成员）。`,
+      message: `发现 ${preview.vacancies.length} 个待处理空缺（批准后需手动安排）。`,
       tone: 'warning',
     });
   }
@@ -814,7 +746,7 @@ function createApprovalPreviewPatch(
     approvalAlerts: alerts,
     approvalHasAffectedAssignments: preview.affectedAssignments.length > 0,
     approvalPreviewReady: true,
-    approvalRequiresAcknowledge: preview.conflicts.length > 0 || preview.vacancies.length > 0,
+    approvalRequiresAcknowledge: preview.vacancies.length > 0,
     approvalShiftCount: preview.affectedShiftCount,
     approvalShifts: preview.affectedAssignments.map((assignment) => ({
       detail: formatAffectedAssignment(assignment),
@@ -839,7 +771,6 @@ function createLeaveRequestView(request: LeaveRequest, canReview: boolean): Leav
     memberName: request.memberName ?? '我',
     rangeLabel: formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay),
     reasonLabel: request.reason?.trim() || '未填写',
-    reflowStrategy: request.reflowStrategy,
     startsAt: request.startsAt,
     status: request.status,
     statusLabel: getLeaveStatusLabel(request.status),
@@ -877,7 +808,6 @@ function findApprovalTarget(
         leaveType: view.leaveType,
         membershipId: '',
         memberName: view.memberName,
-        reflowStrategy: view.reflowStrategy,
         startsAt: view.startsAt,
         status: view.status,
         version: view.version,
@@ -896,7 +826,6 @@ function findMyRequest(page: LeavePageInstance, id: string | undefined): LeaveRe
     isAllDay: true,
     leaveType: 'other',
     membershipId: '',
-    reflowStrategy: 'keep-original-order',
     startsAt: '',
     status: view.canCancel ? 'pending' : 'approved',
     version: view.version,
@@ -946,13 +875,6 @@ function createDatePatch(startDate: string, endDate: string): Partial<LeavePageD
     startDate,
     startDateDisplay: formatDateWithWeekday(startDate),
   };
-}
-
-function strategyIndex(strategy: LeaveReflowStrategy): number {
-  return Math.max(
-    0,
-    strategyOptions.findIndex((option) => option.value === strategy),
-  );
 }
 
 function formatRole(role: GroupSummary['role']): string {

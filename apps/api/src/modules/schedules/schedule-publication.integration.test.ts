@@ -1,23 +1,22 @@
+import type { FixtureSaveRequest } from '../../test-support/schedule-fixture.js';
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+  type FixtureScheduleResult,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type {
-  SaveGeneratedScheduleRequest,
-  SavedScheduleGeneration,
-  ScheduleGenerationPreview,
-} from '@schedule/contracts';
+import type { ScheduleGenerationPreview } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
-  scheduleEvents,
-  schedulePeriods,
-  shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { insertDirectMembership } from '@schedule/test-fixtures';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
@@ -26,7 +25,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 
-describeWithDatabase('automatic schedule generation, preview, and publishing', () => {
+describeWithDatabase('draft preview and publishing', () => {
   let app: ReturnType<typeof createApp>;
   let candidateMembershipId: string;
   let client: DatabaseClient;
@@ -36,6 +35,8 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
   let allDayShiftTypeId: string;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-31T04:00:00Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -68,7 +69,7 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
       (candidate) => candidate.id === primaryRoleId,
     );
     const startingMemberScheduleRoleId = role?.members[0]?.id as string;
-    await updateRotationRule(groupId, primaryRoleId, {
+    await configureFixturePattern(groupId, primaryRoleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -78,6 +79,7 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -85,82 +87,6 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
     if (client !== undefined) {
       await client.close();
     }
-  });
-
-  it('generates a deterministic preview without persisting assignments', async () => {
-    const config = await getConfig('owner-token', groupId);
-    const body = {
-      businessMonth: '2026-08',
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-    const first = await previewSchedule(groupId, body);
-    const second = await previewSchedule(groupId, body);
-
-    expect(first.statusCode).toBe(200);
-    expect(second.statusCode).toBe(200);
-    expect(second.json()).toEqual(first.json());
-    const preview = first.json() as ScheduleGenerationPreview;
-    expect(preview.assignments).toHaveLength(31);
-    expect(preview.vacancies).toEqual([]);
-    expect(preview.hardConflicts).toEqual([]);
-    expect(preview.statistics).toMatchObject({
-      assignmentCount: 31,
-      countedAssignmentCount: 31,
-      vacancyCount: 0,
-    });
-    expect(preview.assignments[0]).toMatchObject({
-      plannedMemberName: expect.any(String),
-      scheduleRoleName: '一线',
-    });
-
-    const leapMonth = await previewSchedule(groupId, {
-      ...body,
-      businessMonth: '2028-02',
-    });
-    expect((leapMonth.json() as ScheduleGenerationPreview).assignments).toHaveLength(29);
-
-    const [periodCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
-    );
-    const [assignmentCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count
-          FROM shift_assignments
-          INNER JOIN schedule_periods ON schedule_periods.id = shift_assignments.schedule_period_id
-          WHERE schedule_periods.group_id = ${groupId}`,
-    );
-
-    expect(periodCount).toEqual([{ count: 0 }]);
-    expect(assignmentCount).toEqual([{ count: 0 }]);
-  });
-
-  it('rejects generating a fully past month and points to backfill', async () => {
-    const initial = await getConfig('owner-token', groupId);
-    const role = initial.roles.find((candidate) => candidate.id === primaryRoleId) as {
-      readonly id: string;
-      readonly members: readonly { readonly id: string }[];
-    };
-    await updateRotationRule(groupId, primaryRoleId, {
-      currentPosition: 1,
-      defaultShiftTypeId: allDayShiftTypeId,
-      requiredMembersPerDay: 1,
-      startDate: '2020-01-01',
-      startingMemberScheduleRoleId: role.members[0]?.id as string,
-    });
-    const config = await getConfig('owner-token', groupId);
-    const body = {
-      businessMonth: '2020-01',
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-
-    const preview = await previewSchedule(groupId, body);
-    const save = await saveSchedule(groupId, { ...body, operationId: randomUUID() });
-
-    expect(preview.statusCode).toBe(409);
-    expect((preview.json() as ErrorResponse).error.message).toContain('排班补录');
-    expect(save.statusCode).toBe(409);
-    expect((save.json() as ErrorResponse).error.message).toContain('排班补录');
   });
 
   it('blocks publishing a draft whose month is fully past', async () => {
@@ -172,7 +98,7 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
         rulesVersion: config.rulesVersion,
         scheduleRoleIds: [primaryRoleId],
       })
-    ).json() as SavedScheduleGeneration;
+    ).json() as FixtureScheduleResult;
     const periodId = saved.periods[0]?.id as string;
     await client.database.execute(
       sql`UPDATE schedule_periods SET business_month = '2020-01-01' WHERE id = ${periodId}`,
@@ -187,262 +113,10 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
     expect((blocked.json() as ErrorResponse).error.message).toContain('排班补录');
   });
 
-  it('rejects generation and publication from a non-administrator', async () => {
-    const config = await getConfig('owner-token', groupId);
-    const body = {
-      businessMonth: '2026-08',
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-
-    const preview = await previewSchedule(groupId, body, 'candidate-token');
-    const save = await saveSchedule(
-      groupId,
-      { ...body, operationId: randomUUID() },
-      'candidate-token',
-    );
-    const publish = await publishSchedule(
-      groupId,
-      randomUUID(),
-      { expectedVersion: 1, operationId: randomUUID() },
-      'candidate-token',
-    );
-
-    expect(preview.statusCode).toBe(403);
-    expect(save.statusCode).toBe(403);
-    expect(publish.statusCode).toBe(403);
-  });
-
-  it('saves a draft idempotently using the operation id', async () => {
-    const config = await getConfig('owner-token', groupId);
-    const body: SaveGeneratedScheduleRequest = {
-      businessMonth: '2026-08',
-      operationId: randomUUID(),
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-    const first = await saveSchedule(groupId, body);
-    const firstResult = first.json() as SavedScheduleGeneration;
-
-    expect(first.statusCode).toBe(200);
-    expect(firstResult.periods).toHaveLength(1);
-    expect(firstResult.periods[0]).toMatchObject({
-      businessMonth: '2026-08-01',
-      revision: 1,
-      status: 'draft',
-    });
-    expect(firstResult.publishMode).toBe('draft');
-    expect(firstResult.preview.assignments).toHaveLength(31);
-
-    const replay = await saveSchedule(groupId, body);
-    expect(replay.statusCode).toBe(200);
-    expect(replay.json()).toEqual(firstResult);
-
-    const [periodCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
-    );
-    const [assignmentCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count
-          FROM shift_assignments
-          INNER JOIN schedule_periods ON schedule_periods.id = shift_assignments.schedule_period_id
-          WHERE schedule_periods.group_id = ${groupId}`,
-    );
-    expect(periodCount).toEqual([{ count: 1 }]);
-    expect(assignmentCount).toEqual([{ count: 31 }]);
-
-    const events = await client.database
-      .select({ eventType: scheduleEvents.eventType })
-      .from(scheduleEvents)
-      .where(eq(scheduleEvents.operationId, body.operationId));
-    expect(events.map((event) => event.eventType)).toEqual(
-      expect.arrayContaining(['schedule_period_created', 'schedule_generation_completed']),
-    );
-
-    const conflicting = await saveSchedule(groupId, { ...body, businessMonth: '2026-09' });
-    expect(conflicting.statusCode).toBe(409);
-  });
-
-  it('rejects stale rules versions before preview or save', async () => {
-    const config = await getConfig('owner-token', groupId);
-    const role = config.roles.find((candidate) => candidate.id === primaryRoleId) as {
-      readonly id: string;
-      readonly members: readonly { readonly id: string }[];
-    };
-    await updateRotationRule(groupId, primaryRoleId, {
-      currentPosition: 1,
-      defaultShiftTypeId: allDayShiftTypeId,
-      requiredMembersPerDay: 1,
-      startDate: '2026-08-01',
-      startingMemberScheduleRoleId: role.members[0]?.id as string,
-    });
-
-    const staleBody = {
-      businessMonth: '2026-08',
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-    const preview = await previewSchedule(groupId, staleBody);
-    const save = await saveSchedule(groupId, {
-      ...staleBody,
-      operationId: randomUUID(),
-    });
-
-    expect(preview.statusCode).toBe(409);
-    expect((preview.json() as ErrorResponse).error.latestData).toMatchObject({
-      rulesVersion: config.rulesVersion + 1,
-    });
-    expect(save.statusCode).toBe(409);
-
-    const [periodCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
-    );
-    expect(periodCount).toEqual([{ count: 0 }]);
-  });
-
-  it('blocks automatic publication on hard conflicts unless acknowledged', async () => {
-    await replaceRoleMembers(groupId, primaryRoleId, [ownerMembershipId]);
-    const role = (await getConfig('owner-token', groupId)).roles.find(
-      (candidate) => candidate.id === primaryRoleId,
-    );
-    await updateRotationRule(groupId, primaryRoleId, {
-      currentPosition: 1,
-      defaultShiftTypeId: allDayShiftTypeId,
-      requiredMembersPerDay: 2,
-      startDate: '2026-08-01',
-      startingMemberScheduleRoleId: role?.members[0]?.id as string,
-    });
-    const config = await getConfig('owner-token', groupId);
-    const body: SaveGeneratedScheduleRequest = {
-      businessMonth: '2026-08',
-      operationId: randomUUID(),
-      publishMode: 'published',
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-
-    const blocked = await saveSchedule(groupId, body);
-    expect(blocked.statusCode).toBe(409);
-    expect(
-      ((blocked.json() as ErrorResponse).error.latestData?.preview as ScheduleGenerationPreview)
-        .hardConflicts,
-    ).toHaveLength(31);
-
-    const [periodCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
-    );
-    expect(periodCount).toEqual([{ count: 0 }]);
-
-    const accepted = await saveSchedule(groupId, { ...body, acknowledgeBlockers: true });
-    expect(accepted.statusCode).toBe(200);
-    const result = accepted.json() as SavedScheduleGeneration;
-    expect(result.periods[0]).toMatchObject({ revision: 1, status: 'published' });
-    expect(result.preview.assignments).toHaveLength(62);
-    expect(result.preview.hardConflicts).toHaveLength(31);
-  });
-
-  it('auto-publishes by group setting and replaces the prior published version', async () => {
-    const mode = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: { publishMode: 'published' },
-      url: `/groups/${groupId}/schedule-publish-mode`,
-    });
-    expect(mode.statusCode).toBe(200);
-    expect(mode.json()).toEqual({ publishMode: 'published' });
-
-    const savedMode = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'GET',
-      url: `/groups/${groupId}/schedule-publish-mode`,
-    });
-    expect(savedMode.statusCode).toBe(200);
-    expect(savedMode.json()).toEqual({ publishMode: 'published' });
-
-    const config = await getConfig('owner-token', groupId);
-    const saveBody = {
-      businessMonth: '2030-08',
-      operationId: randomUUID(),
-      rulesVersion: config.rulesVersion,
-      scheduleRoleIds: [primaryRoleId],
-    };
-    const first = await saveSchedule(groupId, saveBody);
-    expect(first.statusCode).toBe(200);
-    const firstPeriod = (first.json() as SavedScheduleGeneration).periods[0];
-    const firstAssignments = await client.database
-      .select({
-        id: shiftAssignments.id,
-        plannedMembershipId: shiftAssignments.plannedMembershipId,
-      })
-      .from(shiftAssignments)
-      .where(eq(shiftAssignments.schedulePeriodId, firstPeriod?.id as string))
-      .orderBy(shiftAssignments.businessDate);
-    const initiatorAssignment = firstAssignments.find(
-      (assignment) => assignment.plannedMembershipId === ownerMembershipId,
-    );
-    const targetAssignment = firstAssignments.find(
-      (assignment) => assignment.plannedMembershipId === candidateMembershipId,
-    );
-    expect(initiatorAssignment).toBeDefined();
-    expect(targetAssignment).toBeDefined();
-    const directSwap = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      payload: {
-        initiatorAssignmentId: initiatorAssignment?.id,
-        operationId: randomUUID(),
-        targetAssignmentId: targetAssignment?.id,
-      },
-      url: `/groups/${groupId}/swaps/direct`,
-    });
-    expect(directSwap.statusCode, directSwap.body).toBe(201);
-
-    const secondBody = {
-      ...saveBody,
-      operationId: randomUUID(),
-    };
-    const blocked = await saveSchedule(groupId, secondBody);
-    expect(blocked.statusCode).toBe(409);
-    expect((blocked.json() as ErrorResponse).error.latestData).toMatchObject({
-      workflowImpacts: [{ kind: 'swap', status: 'completed' }],
-    });
-    const second = await saveSchedule(groupId, {
-      ...secondBody,
-      acknowledgeWorkflowRevocations: true,
-    });
-    expect(second.statusCode).toBe(200);
-
-    expect((first.json() as SavedScheduleGeneration).periods[0]).toMatchObject({
-      revision: 1,
-      status: 'published',
-    });
-    expect((second.json() as SavedScheduleGeneration).periods[0]).toMatchObject({
-      revision: 2,
-      status: 'published',
-    });
-
-    const periods = await client.database
-      .select({
-        replacedByPeriodId: schedulePeriods.replacedByPeriodId,
-        revision: schedulePeriods.revision,
-        status: schedulePeriods.status,
-      })
-      .from(schedulePeriods)
-      .where(eq(schedulePeriods.groupId, groupId))
-      .orderBy(schedulePeriods.revision);
-    expect(periods).toEqual([
-      {
-        replacedByPeriodId: (second.json() as SavedScheduleGeneration).periods[0]?.id ?? null,
-        revision: 1,
-        status: 'replaced',
-      },
-      { replacedByPeriodId: null, revision: 2, status: 'published' },
-    ]);
-  });
-
   it('requires acknowledgement before publishing a draft with vacancies', async () => {
     const vacantRoleId = await createRole(groupId, '空缺角色');
     await replaceRoleMembers(groupId, vacantRoleId, []);
-    await updateRotationRule(groupId, vacantRoleId, {
+    await configureFixturePattern(groupId, vacantRoleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -457,7 +131,7 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
       scheduleRoleIds: [vacantRoleId],
     });
     expect(saved.statusCode).toBe(200);
-    const savedResult = saved.json() as SavedScheduleGeneration;
+    const savedResult = saved.json() as FixtureScheduleResult;
     expect(savedResult.periods[0]).toMatchObject({ status: 'draft' });
     expect(savedResult.preview.vacancies).toHaveLength(31);
     const periodId = savedResult.periods[0]?.id as string;
@@ -577,13 +251,12 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
   ): Promise<void> {
     const config = await getConfig('owner-token', targetGroupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -594,7 +267,7 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     targetGroupId: string,
     roleId: string,
     body: {
@@ -605,52 +278,17 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
       readonly startingMemberScheduleRoleId: string | null;
     },
   ): Promise<void> {
-    const config = await getConfig('owner-token', targetGroupId);
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...body,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${targetGroupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-
-    expect(response.statusCode).toBe(200);
-  }
-
-  async function previewSchedule(
-    targetGroupId: string,
-    body: {
-      readonly businessMonth: string;
-      readonly rulesVersion: number;
-      readonly scheduleRoleIds: readonly string[];
-    },
-    token = 'owner-token',
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: body,
-      url: `/groups/${targetGroupId}/schedules/generate-preview`,
-    });
+    await configureScheduleFixture(client, targetGroupId, roleId, body);
   }
 
   async function saveSchedule(
     targetGroupId: string,
-    body: SaveGeneratedScheduleRequest,
+    body: FixtureSaveRequest,
     token = 'owner-token',
   ) {
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
       payload: body,
-      url: `/groups/${targetGroupId}/schedules/generate`,
     });
   }
 

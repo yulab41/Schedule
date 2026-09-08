@@ -117,8 +117,12 @@ describe('Mini capability guard', () => {
       ).statusCode,
     ).toBe(200);
     expect(
-      (await signed.app.inject({ method: 'POST', url: '/groups/123/schedules/generate' }))
-        .statusCode,
+      (
+        await signed.app.inject({
+          method: 'POST',
+          url: '/groups/123/manual-schedule-templates/456/apply',
+        })
+      ).statusCode,
     ).toBe(200);
     expect(
       (
@@ -386,7 +390,7 @@ async function createGuardApp(
   app.get('/groups', guarded, mutation);
   app.get('/groups/:groupId/calendar', guarded, mutation);
   app.post('/groups/:groupId/manual-schedule-templates', guarded, mutation);
-  app.post('/groups/:groupId/schedules/generate', guarded, mutation);
+  app.post('/groups/:groupId/manual-schedule-templates/:templateId/apply', guarded, mutation);
   app.post('/groups/:groupId/past-schedules/backfill-batches', guarded, mutation);
   app.get('/holidays', guarded, mutation);
   app.post('/groups/:groupId/leave-requests', guarded, mutation);

@@ -1,3 +1,7 @@
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -9,7 +13,7 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -26,6 +30,8 @@ describeWithDatabase('schedule exports', () => {
   let client: DatabaseClient;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-31T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -46,6 +52,7 @@ describeWithDatabase('schedule exports', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -243,7 +250,7 @@ describeWithDatabase('schedule exports', () => {
     const startingMemberScheduleRoleId = roleConfig?.members.find(
       (member) => member.realName === 'A Doctor',
     )?.id;
-    await updateRotationRule(groupId, roleId, {
+    await configureFixturePattern(groupId, roleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -338,13 +345,12 @@ describeWithDatabase('schedule exports', () => {
   ): Promise<void> {
     const config = await getConfig('admin-token', groupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -354,7 +360,7 @@ describeWithDatabase('schedule exports', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     groupId: string,
     roleId: string,
     payload: {
@@ -365,22 +371,7 @@ describeWithDatabase('schedule exports', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
-    const config = await getConfig('admin-token', groupId);
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer admin-token' },
-      method: 'PUT',
-      payload: {
-        ...payload,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, groupId, roleId, payload);
   }
 
   async function generateSchedule(
@@ -389,9 +380,8 @@ describeWithDatabase('schedule exports', () => {
     businessMonth: string,
     rulesVersion: number,
   ) {
-    const response = await app.inject({
+    const response = await createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer admin-token' },
-      method: 'POST',
       payload: {
         businessMonth,
         operationId: randomUUID(),
@@ -399,7 +389,6 @@ describeWithDatabase('schedule exports', () => {
         rulesVersion,
         scheduleRoleIds: [roleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
     expect(response.statusCode).toBe(200);
     return response;

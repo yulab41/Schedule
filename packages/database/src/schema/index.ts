@@ -127,12 +127,6 @@ export const groups = mysqlTable(
     schedulePublishMode: mysqlEnum('schedule_publish_mode', ['draft', 'published'])
       .default('draft')
       .notNull(),
-    leaveReflowStrategy: mysqlEnum('leave_reflow_strategy', [
-      'keep-original-order',
-      'shift-forward',
-    ])
-      .default('keep-original-order')
-      .notNull(),
     swapApprovalRequired: tinyint('swap_approval_required', { unsigned: true })
       .default(0)
       .notNull(),

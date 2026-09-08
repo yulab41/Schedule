@@ -2671,3 +2671,12 @@
 - 行为变化、手机号合并/退出、现有公开状态与整事务重试等价审计见docs/audit/feedback6-accounts.md。真实MySQL49、另群权限10/邀请8/日历16、共享7、Mini25通过，原失败与夹具修正保留。
 - 运行/浏览器验证：pnpm smoke:browser 原流程完整通过；专项Web姓名/手机号/用户名/密码保存及390/320四组窗口通过，无浏览器错误。Mini verify/包审通过，原生仍待用户复核。
 - 检查点feat(accounts): manage profiles and synchronize account phone numbers；独占复用依赖无安装，仅本地提交待根review，未部署/上传/生产写入。下一单元为轮转删除。
+
+
+## Feedback6 移除自动轮转（2026-09-08）
+
+- 用户批准删除轮转规则、顺序、自动生成和请假自动补位；引入点04c7da36/0d5ec55c/94dc6cac，git log -S与blame核对。业务变化及保留边界见docs/audit/feedback6-rotation.md。
+- 0056删除两表两列，保留岗位成员/手动模板/历史/内部并发版本；前向不兼容，恢复旧API前必须恢复相应数据库或前滚修复。
+- 批准清空未来实际本人班次；撤销以版本和快照核验，仅恢复未被人工修改的未来空缺，零影响有明确空证据；缺/坏旧快照不猜。DB跨月/临界时刻/工作流/成员删除/部分恢复回归通过。
+- 运行/浏览器验证：pnpm smoke:browser 原脚本经本地内存适配，当前schema56 API/Web与Edge全流程通过；日志runtime/audit/feedback6/rotation-browser-smoke.log，无浏览器错误，合成管理员标记finally恢复。Mini/静态不代表小米14体验版。
+- 全量检查的原始失败和后续定向结果保留，不放松生命周期、并发、外键或日期断言；检查点feat(scheduling): retire automatic rotation and guard leave restoration，本地待根review，无部署/上传/真实通知。

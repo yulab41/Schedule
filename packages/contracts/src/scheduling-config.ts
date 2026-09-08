@@ -12,31 +12,17 @@ export const scheduleRoleMemberSchema = z
   .object({
     id: z.string().min(1),
     membershipId: z.string().min(1),
-    position: z.number().int().min(1),
     realName: z.string().min(1),
     version: z.number().int(),
   })
   .strict();
 export type ScheduleRoleMember = z.infer<typeof scheduleRoleMemberSchema>;
 
-export const rotationRuleSchema = z
-  .object({
-    currentPosition: z.number().int().min(1),
-    defaultShiftTypeId: z.string().min(1),
-    requiredMembersPerDay: z.number().int().min(1),
-    startDate: z.string().optional(),
-    startingMemberScheduleRoleId: z.string().optional(),
-    version: z.number().int(),
-  })
-  .strict();
-export type RotationRule = z.infer<typeof rotationRuleSchema>;
-
 export const scheduleRoleSchema = z
   .object({
     id: z.string().min(1),
     members: z.readonly(z.array(scheduleRoleMemberSchema)),
     name: z.string().min(1),
-    rotationRule: rotationRuleSchema,
     version: z.number().int(),
   })
   .strict();
@@ -89,35 +75,9 @@ export interface CreateScheduleRoleRequest {
 
 export interface ReplaceScheduleRoleMembersRequest {
   readonly expectedRoleVersion: number;
-  readonly expectedRotationRuleVersion: number;
   readonly expectedRulesVersion: number;
   readonly membershipIds: readonly string[];
   readonly operationId: string;
-}
-
-export interface ReorderRotationMembersRequest {
-  readonly expectedRoleVersion: number;
-  readonly expectedRotationRuleVersion: number;
-  readonly expectedRulesVersion: number;
-  readonly members: readonly RotationMemberPosition[];
-  readonly operationId: string;
-}
-
-export interface RotationMemberPosition {
-  readonly position: number;
-  readonly scheduleRoleMemberId: string;
-}
-
-export interface UpdateRotationRuleRequest {
-  readonly currentPosition: number;
-  readonly defaultShiftTypeId: string;
-  readonly expectedRoleVersion: number;
-  readonly expectedRotationRuleVersion: number;
-  readonly expectedRulesVersion: number;
-  readonly operationId: string;
-  readonly requiredMembersPerDay: number;
-  readonly startDate?: string | null;
-  readonly startingMemberScheduleRoleId?: string | null;
 }
 
 export interface ScheduleRoleVersionMutationRequest {

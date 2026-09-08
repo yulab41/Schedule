@@ -39,7 +39,7 @@ import {
 import {
   applyManualTemplate,
   getChinaStandardTimeBusinessDate,
-  type GeneratedRotationAssignment,
+  type ScheduleAssignmentSnapshot,
   type ManualApplyMember,
   type ManualLeaveInterval,
   type ManualApplyShiftType,
@@ -64,7 +64,7 @@ import {
 import { toLatestData, toPeriodSummary } from '../schedules/shared.js';
 
 interface ApplyContext {
-  readonly assignments: readonly GeneratedRotationAssignment[];
+  readonly assignments: readonly ScheduleAssignmentSnapshot[];
   readonly preview: ManualApplyPreview;
   readonly template: ManualApplyTemplateRow;
 }
@@ -864,7 +864,7 @@ function buildPreview(input: {
 }
 
 function toPreviewAssignment(
-  assignment: GeneratedRotationAssignment,
+  assignment: ScheduleAssignmentSnapshot,
   roleName: string,
   memberNamesById: ReadonlyMap<string, string>,
   shiftTypesById: ReadonlyMap<string, typeof shiftTypes.$inferSelect>,
@@ -897,7 +897,7 @@ function toPreviewAssignment(
 }
 
 function buildStatistics(
-  assignments: readonly GeneratedRotationAssignment[],
+  assignments: readonly ScheduleAssignmentSnapshot[],
   vacancies: readonly ScheduleGenerationVacancy[],
   shiftTypesById: ReadonlyMap<string, typeof shiftTypes.$inferSelect>,
   roleName: string,
@@ -980,7 +980,7 @@ function getApplyEndDate(
 }
 
 function groupAssignmentsByMonth(
-  assignments: readonly GeneratedRotationAssignment[],
+  assignments: readonly ScheduleAssignmentSnapshot[],
 ): ReadonlyMap<string, CreateShiftAssignmentInput[]> {
   const assignmentsByMonth = new Map<string, CreateShiftAssignmentInput[]>();
   for (const assignment of assignments) {
@@ -1001,7 +1001,7 @@ function groupAssignmentsByMonth(
 }
 
 function getAffectedMembershipIds(
-  assignments: readonly GeneratedRotationAssignment[],
+  assignments: readonly ScheduleAssignmentSnapshot[],
 ): readonly string[] {
   return [
     ...new Set(

@@ -139,7 +139,6 @@ async function saveRoleMembers(role: ScheduleRole): Promise<void> {
   const attemptKey = `schedule-role-members:${role.id}`;
   const input = resolveConfigurationAttempt(attemptKey, {
     expectedRoleVersion: role.version,
-    expectedRotationRuleVersion: role.rotationRule.version,
     expectedRulesVersion: config.value.rulesVersion,
     membershipIds: getRoleDraft(role.id).memberIds,
   });

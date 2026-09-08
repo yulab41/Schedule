@@ -54,7 +54,7 @@ describe('MINI-G1-004 scale evidence (synthetic, diagnostic-only)', () => {
     expect(group.every((result) => result.contactRequestCount === 1)).toBe(true);
     expect(platform.every((result) => result.setDataCalls === platform[0].setDataCalls)).toBe(true);
     expect(group.every((result) => result.setDataCalls === group[0].setDataCalls)).toBe(true);
-    expect(nodeCoefficients).toEqual({ groupMemberRow: 6, platformAccountRow: 8 });
+    expect(nodeCoefficients).toEqual({ groupMemberRow: 6, platformAccountRow: 10 });
     expect(platform[2].readySetDataBytes).toBeGreaterThan(platform[0].readySetDataBytes);
     expect(group[2].readySetDataBytes).toBeGreaterThan(group[0].readySetDataBytes);
     expect(platform[2].responsePayloadBytes).toBeGreaterThan(platform[0].responsePayloadBytes);
@@ -69,7 +69,7 @@ async function measurePlatformPage(count) {
   installRuntimeGlobals({
     requests,
     requestHandler(options) {
-      if (options.url.endsWith('/platform-admin/users') && options.method === 'GET') {
+      if (options.url.endsWith('/platform-admin/users/details') && options.method === 'GET') {
         options.success({ data: { users: accounts }, statusCode: 200 });
         return;
       }
@@ -94,7 +94,8 @@ async function measurePlatformPage(count) {
     count,
     elapsedMs: round(elapsedMs),
     listRequestCount: requests.filter(
-      (request) => request.method === 'GET' && request.url.endsWith('/platform-admin/users'),
+      (request) =>
+        request.method === 'GET' && request.url.endsWith('/platform-admin/users/details'),
     ).length,
     logicalTransformPasses: { accountCardMap: count, countFilters: count * 2 },
     responsePayloadBytes: byteLength({ users: accounts }),
@@ -232,6 +233,9 @@ function createPageInstance(definition, patches) {
 
 function createAccount(index) {
   return {
+    accountKind: 'password',
+    accountVersion: 1,
+    profileVersion: 1,
     authVersion: index + 1,
     hasPassword: index % 2 === 0,
     id: `account-${String(index + 1).padStart(3, '0')}`,
@@ -334,7 +338,7 @@ function extractElementBlock(template, start) {
 
 function nodeCount(kind, count) {
   // Parent WXML estimate only: directory-entry-card internals are not traversed.
-  const nodesPerRecord = kind === 'platformAccountRow' ? 8 : 6;
+  const nodesPerRecord = kind === 'platformAccountRow' ? 10 : 6;
   return nodesPerRecord * count;
 }
 

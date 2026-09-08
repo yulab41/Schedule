@@ -56,7 +56,7 @@ describe('P5 native manual schedule controller', () => {
     const instance = createPageInstance(definition);
     instance._config = {
       groupMembers: [],
-      roles: [{ id: 'role-1', members: [], name: '一线', rotationRule: {}, version: 1 }],
+      roles: [{ id: 'role-1', members: [], name: '一线', version: 1 }],
       rulesVersion: 7,
       shiftTypes: [],
     };

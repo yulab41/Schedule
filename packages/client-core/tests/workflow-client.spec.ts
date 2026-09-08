@@ -5,7 +5,7 @@ import {
   createWorkflowClient,
   dutyAdjustmentPreviewDecoder,
   dutyAdjustmentRequestDecoder,
-  leaveReflowPreviewDecoder,
+  leaveApprovalPreviewDecoder,
   leaveRequestDecoder,
   swapPreviewDecoder,
   swapRequestDecoder,
@@ -19,7 +19,7 @@ const operationId = '33333333-3333-4333-8333-333333333333';
 
 describe('workflow client', () => {
   it('describes every read, preview, setting, and dangerous write endpoint', () => {
-    expect(Object.keys(workflowEndpoints)).toHaveLength(38);
+    expect(Object.keys(workflowEndpoints)).toHaveLength(36);
     expect(workflowEndpoints.leaveMine.path({ groupId })).toBe(`/groups/${groupId}/leave-requests`);
     expect(
       workflowEndpoints.swapPreview.path({
@@ -173,7 +173,7 @@ describe('workflow client', () => {
     expect(dutyAdjustmentRequestDecoder.safeDecode({ ...duty, status: 'future' }).success).toBe(
       false,
     );
-    expect(leaveReflowPreviewDecoder.safeDecode({}).success).toBe(false);
+    expect(leaveApprovalPreviewDecoder.safeDecode({}).success).toBe(false);
     expect(swapPreviewDecoder.safeDecode({}).success).toBe(false);
     expect(dutyAdjustmentPreviewDecoder.safeDecode({}).success).toBe(false);
   });
@@ -206,7 +206,6 @@ function minimalLeaveRequest(): LeaveRequest {
     isAllDay: true,
     leaveType: 'sick',
     membershipId: objectId,
-    reflowStrategy: 'keep-original-order',
     startsAt: '2026-09-01T00:00:00.000Z',
     status: 'pending',
     version: 1,

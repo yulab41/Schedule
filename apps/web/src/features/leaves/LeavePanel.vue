@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { formatLeaveRestoration } from '@schedule/presentation-core';
+import type { LeaveRequestMutationResult } from '@schedule/contracts';
 import type {
-  GroupLeaveReflowStrategy,
   GroupSummary,
   LeaveAffectedShift,
-  LeaveReflowStrategy,
   LeaveRequest,
   LeaveRequestType,
 } from '@schedule/contracts';
@@ -12,7 +12,6 @@ import {
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -27,10 +26,8 @@ import {
   getLeaveStatusLabel,
   getLeaveStatusTone,
   getLeaveTypeLabel,
-  getReflowStrategyLabel,
   getTodayCalendarDate,
   leaveTypeLabels,
-  reflowStrategyLabels,
 } from './leave-logic.js';
 
 const props = defineProps<{
@@ -44,7 +41,6 @@ const emit = defineEmits<{
 const api = createApiClient({ auth: localAuth });
 const myRequests = ref<LeaveRequest[]>([]);
 const approvals = ref<LeaveRequest[]>([]);
-const strategy = ref<GroupLeaveReflowStrategy>();
 const leaveType = ref<LeaveRequestType>('sick');
 const todayDate = ref(getTodayCalendarDate());
 const startDate = ref(todayDate.value);
@@ -87,12 +83,6 @@ const leaveTypeOptions = computed(() =>
     value: type,
   })),
 );
-const strategyOptions = computed(() =>
-  (Object.keys(reflowStrategyLabels) as LeaveReflowStrategy[]).map((item) => ({
-    label: reflowStrategyLabels[item],
-    value: item,
-  })),
-);
 const pendingApprovals = computed(() =>
   approvals.value.filter((request) => request.status === 'pending'),
 );
@@ -113,14 +103,12 @@ async function loadData(): Promise<void> {
   const currentGroup = props.group;
 
   try {
-    const [nextMine, nextApprovals, nextStrategy] = await Promise.all([
+    const [nextMine, nextApprovals] = await Promise.all([
       api.listMyLeaveRequests(currentGroup.id),
       canApprove.value ? api.listLeaveRequestApprovals(currentGroup.id) : Promise.resolve([]),
-      api.getLeaveReflowStrategy(currentGroup.id),
     ]);
     myRequests.value = nextMine;
     approvals.value = nextApprovals;
-    strategy.value = nextStrategy;
   } catch (error) {
     errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
   } finally {
@@ -197,25 +185,6 @@ async function loadAffectedShifts(): Promise<void> {
   }
 }
 
-async function updateStrategy(nextStrategy: SelectValue): Promise<void> {
-  if (
-    typeof nextStrategy !== 'string' ||
-    (nextStrategy !== 'keep-original-order' && nextStrategy !== 'shift-forward')
-  ) {
-    return;
-  }
-
-  errorMessage.value = undefined;
-  try {
-    strategy.value = await api.updateLeaveReflowStrategy(props.group.id, {
-      strategy: nextStrategy,
-    });
-    infoMessage.value = '群组默认重排策略已更新，新提交的请假将使用该策略。';
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
-  }
-}
-
 function openApproval(request: LeaveRequest): void {
   approvalTarget.value = request;
 }
@@ -240,7 +209,9 @@ async function cancelRequest(request: LeaveRequest): Promise<void> {
 }
 
 async function revokeRequest(request: LeaveRequest): Promise<void> {
-  if (!window.confirm('确定撤销该已批准的请假吗？撤销后如需恢复原排班，请重新生成或发布排班。')) {
+  if (
+    !window.confirm('确定撤销该已批准的请假吗？仅恢复未被后续修改的空缺，人工安排的班次将保留。')
+  ) {
     return;
   }
   const operationKey = `${props.group.id}:leave:revoke:${request.id}:${request.version}`;
@@ -254,20 +225,21 @@ async function revokeRequest(request: LeaveRequest): Promise<void> {
           expectedVersion: request.version,
         }),
       ),
-    '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+    (result) => formatLeaveRestoration((result as LeaveRequestMutationResult).restoration),
   );
 }
 
 async function runLeaveMutation(
   operationKey: string,
   mutation: () => Promise<unknown>,
-  successMessage: string,
+  successMessage: string | ((result: unknown) => string),
 ): Promise<void> {
   errorMessage.value = undefined;
   try {
-    await mutation();
+    const result = await mutation();
     operationAttempts.delete(operationKey);
-    infoMessage.value = successMessage;
+    infoMessage.value =
+      typeof successMessage === 'string' ? successMessage : successMessage(result);
     await loadData();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
@@ -349,24 +321,6 @@ function onWindowFocus(): void {
         </button>
       </nav>
 
-      <div
-        v-if="canApprove"
-        class="approval-config mobile-review-content"
-        :class="{ 'mobile-tab-hidden': mobileTab !== 'review' }"
-      >
-        <label>
-          群组默认重排策略
-          <t-select
-            :value="strategy?.strategy ?? ''"
-            :options="strategyOptions"
-            @change="updateStrategy"
-          />
-        </label>
-        <span v-if="strategy !== undefined" class="strategy-hint">
-          审批时仍可对单个申请覆盖此默认策略。
-        </span>
-      </div>
-
       <section
         v-if="canApprove"
         class="approval-section workflow-section mobile-review-content"
@@ -386,7 +340,6 @@ function onWindowFocus(): void {
               <th>类型</th>
               <th>时间</th>
               <th>原因</th>
-              <th>策略</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -407,7 +360,6 @@ function onWindowFocus(): void {
                 {{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}
               </td>
               <td data-label="原因">{{ request.reason ?? '未填写' }}</td>
-              <td data-label="策略">{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
               <td class="card-actions" data-label="操作">
                 <t-button variant="outline" @click="openApproval(request)">预览并审批</t-button>
               </td>
@@ -434,7 +386,6 @@ function onWindowFocus(): void {
               <th>类型</th>
               <th>时间</th>
               <th>原因</th>
-              <th>策略</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
@@ -453,7 +404,6 @@ function onWindowFocus(): void {
                 {{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}
               </td>
               <td data-label="原因">{{ request.reason ?? '未填写' }}</td>
-              <td data-label="策略">{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
               <td data-label="状态">
                 <span class="status-badge" :class="getLeaveStatusTone(request.status)">
                   {{ getLeaveStatusLabel(request.status) }}
@@ -824,11 +774,6 @@ function onWindowFocus(): void {
   border-radius: var(--ui-radius-large);
   box-shadow: var(--ui-shadow-card);
   font-weight: 400;
-}
-
-.strategy-hint {
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
 }
 
 .leave-table {

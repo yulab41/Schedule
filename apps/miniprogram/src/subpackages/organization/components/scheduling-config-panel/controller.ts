@@ -7,7 +7,7 @@ import {
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
-import type { GroupSummary, ScheduleRole, SchedulingConfig, ShiftType } from '@schedule/contracts';
+import type { GroupSummary, SchedulingConfig, ShiftType } from '@schedule/contracts';
 import {
   createRuntimeOrganizationReadClient,
   createRuntimeSchedulingConfigWriteClient,
@@ -41,7 +41,6 @@ interface ShiftDraftView {
   readonly name: string;
   readonly startTime: string;
   readonly textColor: string;
-  readonly version: number;
   readonly editing: boolean;
   readonly contrastWarning: boolean;
 }
@@ -50,28 +49,12 @@ interface RoleMemberView {
   readonly id: string;
   readonly membershipId: string;
   readonly name: string;
-  readonly position: number;
   readonly selected: boolean;
-  readonly version: number;
 }
-
 interface RoleCardView {
   readonly id: string;
   readonly members: readonly RoleMemberView[];
   readonly name: string;
-  readonly version: number;
-  readonly rotationVersion: number;
-  readonly currentPosition: number;
-  readonly defaultShiftTypeId: string;
-  readonly defaultShiftTypeName: string;
-  readonly defaultShiftIndex: number;
-  readonly requiredMembersPerDay: number;
-  readonly startDate: string;
-  readonly startingMemberId: string;
-  readonly startingMemberName: string;
-  readonly startingMemberIndex: number;
-  readonly memberNames: readonly string[];
-  readonly editing: boolean;
 }
 
 interface SchedulingConfigPageData {
@@ -84,7 +67,6 @@ interface SchedulingConfigPageData {
   readonly canManage: boolean;
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
-  readonly rulesVersion: number;
   readonly shiftDrafts: readonly ShiftDraftView[];
   readonly roleCards: readonly RoleCardView[];
   readonly newShiftEditorOpen: boolean;
@@ -114,20 +96,10 @@ interface SchedulingConfigPageInstance {
   _loadSerial: number;
   _operationIds: Map<string, string>;
   _roleMemberIds: Map<string, string[]>;
-  _roleMemberOrder: Map<string, string[]>;
-  _rotationDrafts: Map<string, RotationDraft>;
   setData(
     patch: Partial<SchedulingConfigPageData> & Record<string, unknown>,
     callback?: () => void,
   ): void;
-}
-
-interface RotationDraft {
-  readonly currentPosition: number;
-  readonly defaultShiftTypeId: string;
-  readonly requiredMembersPerDay: number;
-  readonly startDate: string;
-  readonly startingMemberId: string;
 }
 
 const organizationReadClient = createRuntimeOrganizationReadClient(
@@ -151,7 +123,6 @@ export function createSchedulingConfigPanelControllerDefinition() {
       canManage: false,
       currentGroupName: '正在读取群组',
       currentGroupRole: '',
-      rulesVersion: 0,
       shiftDrafts: [],
       roleCards: [],
       newShiftEditorOpen: false,
@@ -178,8 +149,6 @@ export function createSchedulingConfigPanelControllerDefinition() {
     _loadSerial: 0,
     _operationIds: new Map<string, string>(),
     _roleMemberIds: new Map<string, string[]>(),
-    _roleMemberOrder: new Map<string, string[]>(),
-    _rotationDrafts: new Map<string, RotationDraft>(),
 
     properties: { groupId: { type: String, value: '' } },
 
@@ -324,96 +293,6 @@ export function createSchedulingConfigPanelControllerDefinition() {
       void saveRoleMembers(this, roleId);
     },
 
-    handleMoveRoleMember(this: SchedulingConfigPageInstance, event: TapEvent): void {
-      if (!this.data.canManage || !this.data.organizationEnabled) return;
-      const roleId = event.currentTarget.dataset.roleId;
-      const memberId = event.currentTarget.dataset.memberId;
-      const direction = event.currentTarget.dataset.direction;
-      if (roleId === undefined || memberId === undefined || direction === undefined) return;
-      const order = [...(this._roleMemberOrder.get(roleId) ?? [])];
-      const index = order.indexOf(memberId);
-      const nextIndex = direction === 'up' ? index - 1 : index + 1;
-      if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
-      const currentMember = order[index];
-      const nextMember = order[nextIndex];
-      if (currentMember === undefined || nextMember === undefined) return;
-      order[index] = nextMember;
-      order[nextIndex] = currentMember;
-      this._roleMemberOrder.set(roleId, order);
-      this.setData({ roleCards: createRoleCards(this) });
-    },
-
-    handleSaveRoleOrder(this: SchedulingConfigPageInstance, event: TapEvent): void {
-      const roleId = event.currentTarget.dataset.roleId;
-      if (roleId === undefined) return;
-      void saveRoleOrder(this, roleId);
-    },
-
-    handleRotationInput(this: SchedulingConfigPageInstance, event: ValueInputEvent): void {
-      if (!this.data.canManage || !this.data.organizationEnabled) return;
-      const roleId = event.currentTarget?.dataset?.roleId;
-      const field = event.currentTarget?.dataset?.field;
-      if (roleId === undefined || field === undefined) return;
-      const current = this._rotationDrafts.get(roleId);
-      if (current === undefined) return;
-      const value = readString(event);
-      const isPositiveIntegerField =
-        field === 'requiredMembersPerDay' || field === 'currentPosition';
-      const nextValue = isPositiveIntegerField ? toPositiveInt(value) : value;
-      this._rotationDrafts.set(roleId, {
-        ...current,
-        [field]: nextValue,
-      });
-      const roleIndex = this.data.roleCards.findIndex((role) => role.id === roleId);
-      if (
-        roleIndex < 0 ||
-        (field !== 'requiredMembersPerDay' && field !== 'currentPosition' && field !== 'startDate')
-      ) {
-        this.setData({ roleCards: createRoleCards(this) });
-        return;
-      }
-      this.setData({ [`roleCards[${roleIndex}].${field}`]: nextValue });
-    },
-
-    handleRotationPicker(this: SchedulingConfigPageInstance, event: ValueInputEvent): void {
-      if (!this.data.canManage || !this.data.organizationEnabled) return;
-      const roleId = event.currentTarget?.dataset?.roleId;
-      const field = event.currentTarget?.dataset?.field;
-      if (roleId === undefined) return;
-      const current = this._rotationDrafts.get(roleId);
-      if (current === undefined) return;
-      const index = Number(event.detail?.value);
-      const role = this.data.roleCards.find((candidate) => candidate.id === roleId);
-      if (role === undefined || !Number.isInteger(index) || index < 0) return;
-      if (field === 'defaultShift') {
-        const shift = this._config?.shiftTypes[index];
-        if (shift === undefined) return;
-        this._rotationDrafts.set(roleId, { ...current, defaultShiftTypeId: shift.id });
-      } else if (field === 'startingMember') {
-        const member = role.members[index];
-        if (member === undefined) return;
-        this._rotationDrafts.set(roleId, { ...current, startingMemberId: member.id });
-      }
-      this.setData({ roleCards: createRoleCards(this) });
-    },
-
-    handleRotationToggle(this: SchedulingConfigPageInstance, event: TapEvent): void {
-      if (!this.data.canManage || !this.data.organizationEnabled) return;
-      const roleId = event.currentTarget.dataset.roleId;
-      if (roleId === undefined) return;
-      this.setData({
-        roleCards: this.data.roleCards.map((role) =>
-          role.id === roleId ? { ...role, editing: !role.editing } : role,
-        ),
-      });
-    },
-
-    handleSaveRotation(this: SchedulingConfigPageInstance, event: TapEvent): void {
-      const roleId = event.currentTarget.dataset.roleId;
-      if (roleId === undefined) return;
-      void saveRotation(this, roleId);
-    },
-
     handleRoleDelete(this: SchedulingConfigPageInstance, event: TapEvent): void {
       const roleId = event.currentTarget.dataset.roleId;
       if (roleId === undefined) return;
@@ -485,7 +364,6 @@ async function loadConfig(page: SchedulingConfigPageInstance): Promise<void> {
       managementState: 'ready',
       organizationEnabled,
       canManage: organizationEnabled && canManageGroup(group),
-      rulesVersion: config.rulesVersion,
       shiftDrafts: createShiftDrafts(config),
       roleCards: createRoleCards(page),
     });
@@ -508,8 +386,6 @@ function initializeRuntimeState(page: SchedulingConfigPageInstance): void {
   if (!Number.isFinite(page._loadSerial)) page._loadSerial = 0;
   if (!(page._operationIds instanceof Map)) page._operationIds = new Map();
   if (!(page._roleMemberIds instanceof Map)) page._roleMemberIds = new Map();
-  if (!(page._roleMemberOrder instanceof Map)) page._roleMemberOrder = new Map();
-  if (!(page._rotationDrafts instanceof Map)) page._rotationDrafts = new Map();
   if (typeof page._groupId !== 'string') page._groupId = '';
 }
 
@@ -517,10 +393,6 @@ function initializeDrafts(page: SchedulingConfigPageInstance, config: Scheduling
   page._roleMemberIds = new Map(
     config.roles.map((role) => [role.id, role.members.map((member) => member.membershipId)]),
   );
-  page._roleMemberOrder = new Map(
-    config.roles.map((role) => [role.id, role.members.map((member) => member.id)]),
-  );
-  page._rotationDrafts = new Map(config.roles.map((role) => [role.id, toRotationDraft(role)]));
 }
 
 function createShellGroupPatch(
@@ -546,65 +418,24 @@ function createRoleCards(page: SchedulingConfigPageInstance): readonly RoleCardV
   const config = page._config;
   if (config === undefined) return [];
   return config.roles.map((role) => {
-    const rotation = page._rotationDrafts.get(role.id) ?? toRotationDraft(role);
     const selected = new Set(page._roleMemberIds.get(role.id) ?? []);
-    const order = page._roleMemberOrder.get(role.id) ?? role.members.map((member) => member.id);
-    const roleMemberByMembership = new Map(
-      role.members.map((member) => [member.membershipId, member]),
-    );
-    const members = [...config.groupMembers]
-      .sort((left, right) => {
-        const leftRoleMember = roleMemberByMembership.get(left.membershipId);
-        const rightRoleMember = roleMemberByMembership.get(right.membershipId);
-        const leftPosition =
-          leftRoleMember === undefined ? Number.MAX_SAFE_INTEGER : order.indexOf(leftRoleMember.id);
-        const rightPosition =
-          rightRoleMember === undefined
-            ? Number.MAX_SAFE_INTEGER
-            : order.indexOf(rightRoleMember.id);
-        return (
-          leftPosition - rightPosition || left.realName.localeCompare(right.realName, 'zh-Hans')
-        );
-      })
-      .map((member, index) => {
-        const roleMember = roleMemberByMembership.get(member.membershipId);
-        return {
-          id: roleMember?.id ?? `unassigned:${member.membershipId}`,
-          membershipId: member.membershipId,
-          name: member.realName,
-          position: index + 1,
-          selected: selected.has(member.membershipId),
-          version: roleMember?.version ?? 0,
-        };
-      });
-    const defaultShift = config.shiftTypes.find(
-      (shift) => shift.id === rotation.defaultShiftTypeId,
-    );
-    const startingMember = members.find((member) => member.id === rotation.startingMemberId);
-    const defaultShiftIndex = config.shiftTypes.findIndex(
-      (shift) => shift.id === rotation.defaultShiftTypeId,
-    );
-    const startingMemberIndex = members.findIndex(
-      (member) => member.id === rotation.startingMemberId,
-    );
-    const existing = page.data.roleCards.find((card) => card.id === role.id);
     return {
       id: role.id,
-      members,
       name: role.name,
-      version: role.version,
-      rotationVersion: role.rotationRule.version,
-      currentPosition: rotation.currentPosition,
-      defaultShiftTypeId: rotation.defaultShiftTypeId,
-      defaultShiftTypeName: defaultShift?.name ?? '未选择',
-      defaultShiftIndex: Math.max(0, defaultShiftIndex),
-      requiredMembersPerDay: rotation.requiredMembersPerDay,
-      startDate: rotation.startDate,
-      startingMemberId: rotation.startingMemberId,
-      startingMemberName: startingMember?.name ?? '按顺序开始',
-      startingMemberIndex: Math.max(0, startingMemberIndex),
-      memberNames: members.map((member) => member.name),
-      editing: existing?.editing === true,
+      members: [...config.groupMembers]
+        .sort(
+          (a, b) =>
+            a.realName.localeCompare(b.realName, 'zh-Hans') ||
+            a.membershipId.localeCompare(b.membershipId),
+        )
+        .map((member) => ({
+          id:
+            role.members.find((m) => m.membershipId === member.membershipId)?.id ??
+            'unassigned:' + member.membershipId,
+          membershipId: member.membershipId,
+          name: member.realName,
+          selected: selected.has(member.membershipId),
+        })),
     };
   });
 }
@@ -714,63 +545,12 @@ async function saveRoleMembers(page: SchedulingConfigPageInstance, roleId: strin
   await runWrite(page, async () => {
     await page._schedulingWriteClient.replaceScheduleRoleMembers(page._groupId, role.id, {
       expectedRoleVersion: role.version,
-      expectedRotationRuleVersion: role.rotationRule.version,
       expectedRulesVersion: config.rulesVersion,
       membershipIds: page._roleMemberIds.get(role.id) ?? [],
       operationId: resolveOperationId(page, key),
     });
     page._operationIds.delete(key);
     page.setData({ managementInfo: '岗位成员已保存。' });
-  });
-}
-
-async function saveRoleOrder(page: SchedulingConfigPageInstance, roleId: string): Promise<void> {
-  if (!(await ensureManage(page))) return;
-  const config = page._config;
-  const role = config?.roles.find((candidate) => candidate.id === roleId);
-  if (config === undefined || role === undefined) return;
-  const roleMemberIds = new Set(role.members.map((member) => member.id));
-  const order = (page._roleMemberOrder.get(role.id) ?? []).filter((memberId) =>
-    roleMemberIds.has(memberId),
-  );
-  const key = `role-order:${role.id}:${role.version}:${role.rotationRule.version}:${order.join('|')}`;
-  await runWrite(page, async () => {
-    await page._schedulingWriteClient.reorderRotationMembers(page._groupId, role.id, {
-      expectedRoleVersion: role.version,
-      expectedRotationRuleVersion: role.rotationRule.version,
-      expectedRulesVersion: config.rulesVersion,
-      members: order.map((scheduleRoleMemberId, index) => ({
-        position: index + 1,
-        scheduleRoleMemberId,
-      })),
-      operationId: resolveOperationId(page, key),
-    });
-    page._operationIds.delete(key);
-    page.setData({ managementInfo: '轮转顺序已保存。' });
-  });
-}
-
-async function saveRotation(page: SchedulingConfigPageInstance, roleId: string): Promise<void> {
-  if (!(await ensureManage(page))) return;
-  const config = page._config;
-  const role = config?.roles.find((candidate) => candidate.id === roleId);
-  const draft = page._rotationDrafts.get(roleId);
-  if (config === undefined || role === undefined || draft === undefined) return;
-  const key = `rotation-rule:${role.id}:${role.version}:${role.rotationRule.version}:${config.rulesVersion}`;
-  await runWrite(page, async () => {
-    await page._schedulingWriteClient.updateRotationRule(page._groupId, role.id, {
-      currentPosition: Math.max(1, draft.currentPosition),
-      defaultShiftTypeId: draft.defaultShiftTypeId,
-      expectedRoleVersion: role.version,
-      expectedRotationRuleVersion: role.rotationRule.version,
-      expectedRulesVersion: config.rulesVersion,
-      operationId: resolveOperationId(page, key),
-      requiredMembersPerDay: Math.max(1, draft.requiredMembersPerDay),
-      startDate: emptyToNull(draft.startDate),
-      startingMemberScheduleRoleId: emptyToNull(draft.startingMemberId),
-    });
-    page._operationIds.delete(key);
-    page.setData({ managementInfo: '轮转规则已保存。' });
   });
 }
 
@@ -861,7 +641,6 @@ function toShiftDraftView(shift: ShiftType, editing: boolean): ShiftDraftView {
     name: shift.name,
     startTime: shift.startTime ?? '',
     textColor: shift.textColor,
-    version: shift.version,
     editing,
     contrastWarning: shiftColorPresentation(shift.color).contrastWarning,
   };
@@ -886,16 +665,6 @@ function toShiftInput(shift: ShiftDraftView): {
     isEnabled: shift.isEnabled,
     name: shift.name.trim(),
     startTime: emptyToNull(shift.startTime),
-  };
-}
-
-function toRotationDraft(role: ScheduleRole): RotationDraft {
-  return {
-    currentPosition: role.rotationRule.currentPosition,
-    defaultShiftTypeId: role.rotationRule.defaultShiftTypeId,
-    requiredMembersPerDay: role.rotationRule.requiredMembersPerDay,
-    startDate: role.rotationRule.startDate ?? '',
-    startingMemberId: role.rotationRule.startingMemberScheduleRoleId ?? '',
   };
 }
 
@@ -929,11 +698,6 @@ function setDataField(page: SchedulingConfigPageInstance, field: string, value: 
 
 function readString(event: ValueInputEvent): string {
   return typeof event.detail?.value === 'string' ? event.detail.value : '';
-}
-
-function toPositiveInt(value: string): number {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
 function emptyToNull(value: string): string | null {

@@ -16,6 +16,10 @@ import {
 } from '@schedule/database';
 import { sql } from 'drizzle-orm';
 
+const { ScheduleRepository } = (await import(
+  new URL('../../../apps/api/dist/modules/schedules/schedule-repository.js', import.meta.url).href
+)) as typeof import('../../apps/api/dist/modules/schedules/schedule-repository.js');
+
 const migrationsDirectory = fileURLToPath(new URL('../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
 const userIds: string[] = [];
@@ -66,7 +70,6 @@ try {
   const calendarScenario = await runCalendarReads(app);
   const leaveScenario = await runLeaveSubmissions(app);
   const swapScenario = await runConcurrentSwapRace(app);
-  const generationScenario = await runHundredMemberYear(app);
   const databaseMetrics = await collectDatabaseMetrics(client);
 
   const summary = {
@@ -74,7 +77,6 @@ try {
     firstRequestMs: coldStart.result.firstRequestMs,
     createdAt: new Date().toISOString(),
     databaseMetrics,
-    generation: generationScenario,
     leaves: leaveScenario,
     metadata: {
       database: databaseOptions.database,
@@ -179,6 +181,7 @@ async function runLeaveSubmissions(app: ReturnType<typeof createApp>) {
       ).json() as {
         leaveRequestVersion: number;
         periodVersions: Record<string, number>;
+        assignmentVersions: Record<string, number>;
         rulesVersion: number;
       };
       const approve = await app.inject({
@@ -186,6 +189,8 @@ async function runLeaveSubmissions(app: ReturnType<typeof createApp>) {
         method: 'POST',
         payload: {
           expectedPeriodVersions: preview.periodVersions,
+          expectedAssignmentVersions: preview.assignmentVersions,
+          acknowledgeBlockers: true,
           expectedRulesVersion: preview.rulesVersion,
           expectedVersion: preview.leaveRequestVersion,
           operationId: randomUUID(),
@@ -237,7 +242,7 @@ async function runConcurrentSwapRace(app: ReturnType<typeof createApp>) {
     })
   ).json() as { id: string };
   const memberIds = config.groupMembers.slice(0, 2).map((member) => member.membershipId);
-  const filledRole = (
+  (
     await app.inject({
       headers: { authorization: `Bearer ${ownerToken}` },
       method: 'PUT',
@@ -247,21 +252,6 @@ async function runConcurrentSwapRace(app: ReturnType<typeof createApp>) {
   ).json() as { members: readonly { id: string }[] };
   const defaultShiftTypeId =
     config.shiftTypes.find((shiftType) => shiftType.isAllDay)?.id ?? config.shiftTypes[0]?.id ?? '';
-  const rotate = await app.inject({
-    headers: { authorization: `Bearer ${ownerToken}` },
-    method: 'PUT',
-    payload: {
-      currentPosition: 1,
-      defaultShiftTypeId,
-      requiredMembersPerDay: 2,
-      startDate: `${getNextBusinessMonth()}-01`,
-      startingMemberScheduleRoleId: filledRole.members[0]?.id ?? '',
-    },
-    url: `/groups/${groupId}/schedule-roles/${role.id}/rotation-rule`,
-  });
-  if (rotate.statusCode !== 200) {
-    throw new Error(`swap race: rotation rule setup failed ${rotate.statusCode}: ${rotate.body}`);
-  }
   const freshConfig = (
     await app.inject({
       headers: { authorization: `Bearer ${ownerToken}` },
@@ -271,22 +261,29 @@ async function runConcurrentSwapRace(app: ReturnType<typeof createApp>) {
   ).json() as { rulesVersion: number };
 
   const month = getNextBusinessMonth();
-  const generated = await app.inject({
-    headers: { authorization: `Bearer ${ownerToken}` },
-    method: 'POST',
-    payload: {
-      acknowledgeBlockers: true,
-      businessMonth: month,
-      operationId: randomUUID(),
-      publishMode: 'published',
-      rulesVersion: freshConfig.rulesVersion,
-      scheduleRoleIds: [role.id],
-    },
-    url: `/groups/${groupId}/schedules/generate`,
+  const period = await new ScheduleRepository(client).createDraft({
+    actorUserId: userIds[1980]!,
+    assignments: memberIds.map((plannedMembershipId, index) => ({
+      businessDate: `${month}-01`,
+      shiftTypeId: defaultShiftTypeId,
+      plannedMembershipId,
+      slotPosition: index + 1,
+    })),
+    businessMonth: month,
+    expectedRulesVersion: freshConfig.rulesVersion,
+    groupId,
+    operationId: randomUUID(),
+    scheduleRoleId: role.id,
   });
-  if (generated.statusCode !== 200) {
-    throw new Error(`swap race: generation failed ${generated.statusCode}: ${generated.body}`);
-  }
+  const operationId = randomUUID();
+  const published = await app.inject({
+    headers: { authorization: `Bearer ${ownerToken}`, 'idempotency-key': operationId },
+    method: 'POST',
+    payload: { expectedVersion: period.version, operationId, acknowledgeBlockers: true },
+    url: `/groups/${groupId}/schedules/${period.id}/publish`,
+  });
+  if (published.statusCode !== 200)
+    throw new Error(`swap race: publication failed ${published.statusCode}`);
 
   const calendar = (
     await app.inject({
@@ -345,126 +342,6 @@ async function runConcurrentSwapRace(app: ReturnType<typeof createApp>) {
   });
 
   return { ...result, concurrentRequests: 20 };
-}
-
-async function runHundredMemberYear(app: ReturnType<typeof createApp>) {
-  const ownerToken = 'load-token-1000';
-  const bigGroupId = await createGroup(app, ownerToken, '100 Member Group', '0901');
-  const bigMemberIds = userIds.slice(1001, 1100);
-  await client.database.insert(groupMemberships).values(
-    bigMemberIds.map((userId) => ({
-      groupId: bigGroupId,
-      id: randomUUID(),
-      role: 'member' as const,
-      userId,
-    })),
-  );
-
-  const config = (
-    await app.inject({
-      headers: { authorization: `Bearer ${ownerToken}` },
-      method: 'GET',
-      url: `/groups/${bigGroupId}/scheduling-config`,
-    })
-  ).json() as {
-    groupMembers: readonly { membershipId: string }[];
-    rulesVersion: number;
-    shiftTypes: readonly { id: string; isAllDay: boolean }[];
-  };
-  const role = (
-    await app.inject({
-      headers: { authorization: `Bearer ${ownerToken}` },
-      method: 'POST',
-      payload: { name: '主班' },
-      url: `/groups/${bigGroupId}/schedule-roles`,
-    })
-  ).json() as { id: string };
-  const allMemberIds = config.groupMembers.map((member) => member.membershipId);
-  if (allMemberIds.length !== 100) {
-    throw new Error(`100-member setup: expected 100 members, got ${allMemberIds.length}`);
-  }
-  const filledRole = (
-    await app.inject({
-      headers: { authorization: `Bearer ${ownerToken}` },
-      method: 'PUT',
-      payload: { membershipIds: allMemberIds },
-      url: `/groups/${bigGroupId}/schedule-roles/${role.id}/members`,
-    })
-  ).json() as { members: readonly { id: string }[] };
-  const defaultShiftTypeId =
-    config.shiftTypes.find((shiftType) => shiftType.isAllDay)?.id ?? config.shiftTypes[0]?.id ?? '';
-  await app.inject({
-    headers: { authorization: `Bearer ${ownerToken}` },
-    method: 'PUT',
-    payload: {
-      currentPosition: 1,
-      defaultShiftTypeId,
-      requiredMembersPerDay: 3,
-      startDate: `${getNextBusinessMonth()}-01`,
-      startingMemberScheduleRoleId: filledRole.members[0]?.id ?? '',
-    },
-    url: `/groups/${bigGroupId}/schedule-roles/${role.id}/rotation-rule`,
-  });
-  const freshConfig = (
-    await app.inject({
-      headers: { authorization: `Bearer ${ownerToken}` },
-      method: 'GET',
-      url: `/groups/${bigGroupId}/scheduling-config`,
-    })
-  ).json() as { rulesVersion: number };
-
-  const startMonth = getNextBusinessMonth();
-  const [startYearText, startMonthText] = startMonth.split('-');
-  const months = Array.from({ length: 12 }, (_, index) => {
-    const absolute = Number(startYearText) * 12 + (Number(startMonthText) - 1) + index;
-    const year = Math.floor(absolute / 12);
-    const month = (absolute % 12) + 1;
-    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
-  });
-
-  const previews = await measure(async () => {
-    const responses = await Promise.all(
-      months.map((businessMonth) =>
-        app.inject({
-          headers: { authorization: `Bearer ${ownerToken}` },
-          method: 'POST',
-          payload: {
-            businessMonth,
-            rulesVersion: freshConfig.rulesVersion,
-            scheduleRoleIds: [role.id],
-          },
-          url: `/groups/${bigGroupId}/schedules/generate-preview`,
-        }),
-      ),
-    );
-    const ok = responses.filter((response) => response.statusCode === 200).length;
-    if (ok !== 12) {
-      throw new Error(`12-month preview: only ${ok}/12 succeeded`);
-    }
-    return { months: 12 };
-  });
-
-  const saved = await measure(async () => {
-    const response = await app.inject({
-      headers: { authorization: `Bearer ${ownerToken}` },
-      method: 'POST',
-      payload: {
-        acknowledgeBlockers: true,
-        businessMonth: startMonth,
-        operationId: randomUUID(),
-        publishMode: 'published',
-        rulesVersion: freshConfig.rulesVersion,
-        scheduleRoleIds: [role.id],
-      },
-      url: `/groups/${bigGroupId}/schedules/generate`,
-    });
-    if (response.statusCode !== 200) {
-      throw new Error(`12-month save failed with ${response.statusCode}`);
-    }
-    return { published: true };
-  });
-
-  return { previews, saved };
 }
 
 async function seedDataset(databaseClient: DatabaseClient): Promise<void> {
@@ -600,18 +477,11 @@ function assertAcceptance(summary: Record<string, unknown>): void {
     submitted: { result: { created: number } };
   };
   const swaps = summary.swaps as { result: { conflicts: number; created: number } };
-  const generation = summary.generation as {
-    previews: { result: { months: number } };
-    saved: { result: { published: boolean } };
-  };
   if (leaves.submitted.result.created !== 100 || leaves.approved.result.completed < 19) {
     throw new Error('acceptance: leave submissions/approvals did not reach target');
   }
   if (swaps.result.created !== 1 || swaps.result.conflicts !== 19) {
     throw new Error('acceptance: concurrent same-shift swap did not keep exactly one winner');
-  }
-  if (generation.previews.result.months !== 12 || !generation.saved.result.published) {
-    throw new Error('acceptance: 100-member 12-month generation did not complete');
   }
 }
 

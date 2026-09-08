@@ -316,27 +316,17 @@ function createdScheduleRole(): ScheduleRole {
       {
         id: '88888888-8888-4888-8888-888888888881',
         membershipId: currentMembershipId,
-        position: 1,
         realName: '林医生',
         version: 2,
       },
       {
         id: '88888888-8888-4888-8888-888888888882',
         membershipId: memberMembershipId,
-        position: 2,
         realName: '陈医生',
         version: 1,
       },
     ],
     name: '一线值班',
-    rotationRule: {
-      currentPosition: 1,
-      defaultShiftTypeId: shiftTypeId,
-      requiredMembersPerDay: 1,
-      startDate: '2026-08-01',
-      startingMemberScheduleRoleId: '88888888-8888-4888-8888-888888888881',
-      version: 2,
-    },
     version: 2,
   };
 }

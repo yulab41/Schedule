@@ -155,7 +155,6 @@ export {
   getLeaveStatusLabel,
   getLeaveStatusTone,
   getLeaveTypeLabel,
-  getReflowStrategyLabel,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
   getSwapStatusLabel,
@@ -175,7 +174,6 @@ export {
   leaveStatusLabels,
   leaveTypeLabels,
   loadSwapMonthCalendars,
-  reflowStrategyLabels,
   resolveNextDutyAdjustmentStatus,
   resolveNextSwapStatus,
   resolveNextWorkflowStatus,
@@ -184,7 +182,6 @@ export {
   type DutyAdjustmentCandidateOptions,
   type LeaveAffectedAssignmentLike,
   type LeaveFormInterval,
-  type LeaveReflowStrategy,
   type LeaveRequestStatus,
   type LeaveRequestType,
   type LeaveStatisticsDeltaLike,
@@ -260,3 +257,5 @@ export {
   type MyProfileTrendPoint,
   type MyProfileYearStatisticsLike,
 } from './profile.js';
+
+export { formatLeaveRestoration } from './workflow.js';

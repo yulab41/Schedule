@@ -9,7 +9,6 @@ export type WorkflowRequestStatus =
 export type WorkflowStatusTone = 'danger' | 'neutral' | 'success' | 'warning';
 export type LeaveRequestStatus = 'approved' | 'pending' | 'rejected';
 export type LeaveRequestType = 'maternity' | 'other' | 'rotation' | 'sick' | 'training';
-export type LeaveReflowStrategy = 'keep-original-order' | 'shift-forward';
 export type LeaveStatusTone = 'danger' | 'success' | 'warning';
 
 export interface WorkflowAssignmentLike {
@@ -114,11 +113,6 @@ export const leaveStatusLabels: Readonly<Record<LeaveRequestStatus, string>> = {
   approved: '已批准',
   pending: '待审批',
   rejected: '已驳回',
-};
-
-export const reflowStrategyLabels: Readonly<Record<LeaveReflowStrategy, string>> = {
-  'keep-original-order': '原轮值不变',
-  'shift-forward': '整体顺延',
 };
 
 export function isOperableAssignment<
@@ -449,10 +443,6 @@ export function getLeaveRejectionConfirmation(memberName?: string): string {
   return `确定驳回${memberName ?? '该成员'}的请假申请吗？`;
 }
 
-export function getReflowStrategyLabel(strategy: LeaveReflowStrategy): string {
-  return reflowStrategyLabels[strategy];
-}
-
 export function getTodayCalendarDate(now: Date = new Date()): string {
   return new Date(now.valueOf() + chinaStandardTimeOffsetMilliseconds).toISOString().slice(0, 10);
 }
@@ -537,4 +527,30 @@ function addDays(value: string, days: number): string {
 
 function formatMonthDay(value: string): string {
   return value.slice(5);
+}
+
+export function formatLeaveRestoration(
+  restoration:
+    | {
+        readonly restoredAssignmentIds: readonly string[];
+        readonly skippedAssignments: readonly { readonly reason: string }[];
+        readonly restorationUnavailable: boolean;
+      }
+    | undefined,
+): string {
+  if (restoration === undefined || restoration.restorationUnavailable)
+    return '请假已撤销，没有可验证的恢复快照，请按需要手动排班。';
+  const labels: Record<string, string> = {
+    assignment_changed: '班次已被修改',
+    period_changed: '排班已替换或撤回',
+    already_started: '班次已开始',
+    assignment_missing: '班次已不存在',
+    snapshot_unavailable: '缺少有效快照',
+    snapshot_member_missing: '原排班成员已不存在',
+    member_or_workflow_conflict: '成员或工作流冲突',
+  };
+  const reasons = [
+    ...new Set(restoration.skippedAssignments.map((s) => labels[s.reason] ?? '班次暂不可恢复')),
+  ];
+  return `请假已撤销，恢复 ${restoration.restoredAssignmentIds.length} 个班次${restoration.skippedAssignments.length === 0 ? '。' : `，跳过 ${restoration.skippedAssignments.length} 个（${reasons.join('、')}）。`}`;
 }

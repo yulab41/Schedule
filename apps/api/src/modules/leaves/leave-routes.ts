@@ -5,7 +5,6 @@ import type {
   LeaveRequestMutationInput,
   PreviewLeaveRequestInput,
   RejectLeaveRequestInput,
-  UpdateGroupLeaveReflowStrategyInput,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -18,8 +17,6 @@ const groupIdSchema = z.string().uuid();
 const leaveRequestIdSchema = z.string().uuid();
 const operationIdSchema = z.string().uuid();
 const leaveTypeSchema = z.enum(['training', 'rotation', 'sick', 'maternity', 'other']);
-const strategySchema = z.enum(['keep-original-order', 'shift-forward']);
-const resolutionModeSchema = z.enum(['manual', 'shift-forward']);
 const datetimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.number().int().min(1);
 const periodVersionsSchema = z.record(z.string().uuid(), versionSchema);
@@ -31,7 +28,6 @@ const createLeaveInputSchema = z
     leaveType: leaveTypeSchema,
     operationId: operationIdSchema.optional(),
     reason: z.string().trim().min(1).max(1000).optional(),
-    resolutionMode: resolutionModeSchema.optional(),
     startsAt: datetimeSchema,
   })
   .strict();
@@ -44,20 +40,16 @@ const affectedShiftsInputSchema = z
   })
   .strict();
 
-const previewInputSchema = z
-  .object({
-    strategy: strategySchema.optional(),
-  })
-  .strict();
+const previewInputSchema = z.object({}).strict();
 
 const approveInputSchema = z
   .object({
     acknowledgeBlockers: z.boolean().optional(),
     expectedPeriodVersions: periodVersionsSchema,
+    expectedAssignmentVersions: periodVersionsSchema,
     expectedRulesVersion: versionSchema,
     expectedVersion: versionSchema,
     operationId: operationIdSchema.optional(),
-    strategy: strategySchema.optional(),
   })
   .strict();
 
@@ -69,12 +61,6 @@ const rejectInputSchema = z
   .strict();
 
 const mutationInputSchema = rejectInputSchema;
-
-const updateStrategyInputSchema = z
-  .object({
-    strategy: strategySchema,
-  })
-  .strict();
 
 export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveService): void {
   app.post('/groups/:groupId/leave-requests', { preHandler: app.authenticate }, (request, reply) =>
@@ -164,18 +150,6 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
         parseMutationInput(request),
       ),
   );
-
-  app.get('/groups/:groupId/leave-reflow-strategy', { preHandler: app.authenticate }, (request) =>
-    leaveService.getGroupStrategy(getAuthenticatedIdentity(request), parseGroupId(request)),
-  );
-
-  app.put('/groups/:groupId/leave-reflow-strategy', { preHandler: app.authenticate }, (request) =>
-    leaveService.updateGroupStrategy(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      parseUpdateStrategyInput(request.body),
-    ),
-  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {
@@ -209,7 +183,6 @@ function parseCreateInput(request: FastifyRequest): CreateLeaveRequestInput {
     leaveType: input.leaveType,
     operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
     ...(input.reason === undefined ? {} : { reason: input.reason }),
-    ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
     startsAt: input.startsAt,
   };
 }
@@ -224,10 +197,8 @@ function parseAffectedShiftsInput(value: unknown): LeaveAffectedShiftsInput {
 }
 
 function parsePreviewInput(value: unknown): PreviewLeaveRequestInput {
-  const input = parseOrThrow(previewInputSchema, value);
-  return {
-    ...(input.strategy === undefined ? {} : { strategy: input.strategy }),
-  };
+  parseOrThrow(previewInputSchema, value);
+  return {};
 }
 
 function parseApproveInput(request: FastifyRequest): ApproveLeaveRequestInput {
@@ -237,10 +208,10 @@ function parseApproveInput(request: FastifyRequest): ApproveLeaveRequestInput {
       ? {}
       : { acknowledgeBlockers: input.acknowledgeBlockers }),
     expectedPeriodVersions: input.expectedPeriodVersions,
+    expectedAssignmentVersions: input.expectedAssignmentVersions,
     expectedRulesVersion: input.expectedRulesVersion,
     expectedVersion: input.expectedVersion,
     operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
-    ...(input.strategy === undefined ? {} : { strategy: input.strategy }),
   };
 }
 
@@ -258,10 +229,6 @@ function parseMutationInput(request: FastifyRequest): LeaveRequestMutationInput 
     ...input,
     operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
   };
-}
-
-function parseUpdateStrategyInput(value: unknown): UpdateGroupLeaveReflowStrategyInput {
-  return parseOrThrow(updateStrategyInputSchema, value);
 }
 
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {

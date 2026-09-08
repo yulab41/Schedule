@@ -166,12 +166,7 @@ describe('P7 native leave workflow controller', () => {
       canApprove: true,
       pendingApprovalCount: 1,
     });
-    expect(instance.data.approvalAlerts.map((item) => item.tone)).toEqual([
-      'danger',
-      'danger',
-      'warning',
-      'warning',
-    ]);
+    expect(instance.data.approvalAlerts.map((item) => item.tone)).toEqual(['danger', 'warning']);
     const displayedPreviewRequestCount = previewRequests().length;
 
     definition.handleApprove.call(instance);
@@ -274,10 +269,6 @@ describe('P7 native leave workflow controller', () => {
       ]);
       return;
     }
-    if (path.endsWith('/leave-reflow-strategy')) {
-      respond(options, { strategy: 'keep-original-order' });
-      return;
-    }
     if (path.endsWith('/leave-requests/affected-shifts')) {
       respond(options, [
         {
@@ -304,7 +295,6 @@ describe('P7 native leave workflow controller', () => {
         operationId: options.data.operationId,
         preview: preview(),
         status: 'approved',
-        strategy: 'keep-original-order',
       });
       return;
     }
@@ -381,7 +371,6 @@ function leave(status, id, memberName) {
     memberName,
     membershipId: memberId,
     reason: '门诊进修',
-    reflowStrategy: 'keep-original-order',
     startsAt: '2026-08-24T16:00:00.000Z',
     status,
     version: 1,
@@ -415,28 +404,10 @@ function preview() {
         shiftTypeName: '全天班',
       },
     ],
-    conflicts: [
-      {
-        assignmentBusinessKeys: ['2026-08-26:role:1'],
-        code: 'MEMBER_TIME_OVERLAP',
-        memberName: '王医生',
-        membershipId: memberId,
-      },
-    ],
-    continuousDutyWarnings: [
-      {
-        assignmentBusinessKeys: ['a', 'b'],
-        code: 'CONTINUOUS_DUTY_24_HOURS',
-        endsAt: '2026-08-28T00:00:00.000Z',
-        memberName: '王医生',
-        membershipId: memberId,
-        startsAt: '2026-08-26T00:00:00.000Z',
-      },
-    ],
-    groupDefaultStrategy: 'keep-original-order',
     leaveRequestId: requestId,
     leaveRequestVersion: 1,
     overlapsUnpublishedPeriod: true,
+    assignmentVersions: {},
     periodVersions: { '77777777-7777-4777-8777-777777777777': 2 },
     rulesVersion: 3,
     statisticsDelta: {
@@ -453,7 +424,6 @@ function preview() {
       totalCountedDelta: 0,
       totalWeekendDelta: 0,
     },
-    strategy: 'keep-original-order',
     vacancies: [
       {
         assignmentBusinessKey: '2026-08-27:role:1',

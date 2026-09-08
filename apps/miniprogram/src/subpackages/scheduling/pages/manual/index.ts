@@ -1788,7 +1788,6 @@ function createMemberOptions(
       members.push({
         id: `stale:${membershipId}`,
         membershipId,
-        position: members.length + 1,
         realName: `${page._memberNames.get(membershipId) ?? '未知成员'}（已离岗）`,
         version: 1,
       });

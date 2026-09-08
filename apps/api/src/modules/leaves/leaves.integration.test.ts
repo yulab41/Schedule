@@ -1,16 +1,24 @@
+import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
+import { WorkflowConflictService } from '../workflows/workflow-conflict-service.js';
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type { LeaveReflowPreview, LeaveRequest } from '@schedule/contracts';
+import type { LeaveApprovalPreview, LeaveRequest } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
+  shiftAssignments,
+  withTransaction,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { getChinaStandardTimeCalendarDate } from '@schedule/scheduling-domain';
-import { sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { eq, sql } from 'drizzle-orm';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -39,12 +47,14 @@ describe('leave natural-calendar-date guard', () => {
   });
 });
 
-describeWithDatabase('leave requests and reflow', () => {
+describeWithDatabase('leave approval and guarded restoration', () => {
   let allDayShiftTypeId: string;
   let app: ReturnType<typeof createApp>;
   let client: DatabaseClient;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-31T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -67,6 +77,8 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -77,7 +89,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('rejects a leave request whose start date is before today', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const today = getChinaStandardTimeCalendarDate(new Date());
     const yesterday = new Date(`${today}T00:00:00.000Z`);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
@@ -98,7 +110,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('submits a typed all-day leave with a reason and rejects overlapping intervals', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
 
     const submitted = await submitLeave('a-token', context.groupId, {
       endsAt: '2026-09-02T00:00:00.000Z',
@@ -115,7 +127,6 @@ describeWithDatabase('leave requests and reflow', () => {
       memberName: 'A Doctor',
       membershipId: context.membershipIds.a,
       reason: '发烧需要休息',
-      reflowStrategy: 'keep-original-order',
       status: 'pending',
       version: 1,
     });
@@ -141,7 +152,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('replays leave creation by operation id and rejects payload or header mismatches', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const operationId = randomUUID();
     const body = {
       endsAt: '2026-09-02T00:00:00.000Z',
@@ -177,7 +188,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('lets the applicant cancel a pending leave request and records the event', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       leaveType: 'sick',
@@ -218,7 +229,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('lets an administrator revoke an approved leave request and removes swap blocking', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -228,11 +239,12 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     expect(
       (
         await approveLeave('owner-token', context.groupId, leaveRequestId, {
           expectedPeriodVersions: preview.periodVersions,
+          expectedAssignmentVersions: preview.assignmentVersions,
           expectedRulesVersion: preview.rulesVersion,
           expectedVersion: 1,
           operationId: randomUUID(),
@@ -269,16 +281,16 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('blocks revoking an approved leave that includes past dates', async () => {
-    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const context = await seedPublishedSchedule(['a', 'b', 'c'], '2026-09');
     const leaveRequestId = randomUUID();
     await client.database.execute(sql`
       INSERT INTO leave_requests
         (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day,
-         reason, status, reflow_strategy, version)
+         reason, status, version)
       VALUES
         (${leaveRequestId}, ${context.groupId}, ${context.membershipIds.a!}, 'sick',
          '2026-08-01 00:00:00.000', '2026-08-02 00:00:00.000', 1,
-         '已过日期撤销测试', 'approved', 'keep-original-order', 2)
+         '已过日期撤销测试', 'approved', 2)
     `);
 
     const blocked = await revokeLeave('owner-token', context.groupId, leaveRequestId, {
@@ -294,88 +306,8 @@ describeWithDatabase('leave requests and reflow', () => {
     });
   });
 
-  it('submits leave without forcing manual coverage and reflows on approval', async () => {
-    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
-    const leaveStart = '2026-09-01T00:00:00.000Z';
-    const leaveEnd = '2026-09-02T00:00:00.000Z';
-
-    const affected = (
-      await affectedShifts('a-token', context.groupId, {
-        endsAt: leaveEnd,
-        isAllDay: true,
-        startsAt: leaveStart,
-      })
-    ).json() as readonly { businessDate: string; isCovered: boolean }[];
-    expect(affected).toEqual([
-      expect.objectContaining({ businessDate: '2026-09-01', isCovered: false }),
-    ]);
-
-    const submitted = await submitLeave('a-token', context.groupId, {
-      endsAt: leaveEnd,
-      isAllDay: true,
-      leaveType: 'sick',
-      reason: '手动未安排',
-      resolutionMode: 'manual',
-      startsAt: leaveStart,
-    });
-    expect(submitted.statusCode).toBe(201);
-    expect(submitted.json()).toMatchObject({ reflowStrategy: 'keep-original-order' });
-
-    const assignmentRows = (
-      await client.database.execute(
-        sql`SELECT id, business_date AS businessDate, planned_membership_id AS plannedMembershipId
-            FROM shift_assignments
-            WHERE schedule_period_id = ${context.periodId}
-              AND business_date IN ('2026-09-01', '2026-09-02')`,
-      )
-    )[0] as unknown as readonly {
-      businessDate: string;
-      id: string;
-      plannedMembershipId: string | null;
-    }[];
-    const aSep1 = assignmentRows.find(
-      (row) =>
-        row.businessDate === '2026-09-01' && row.plannedMembershipId === context.membershipIds.a,
-    )?.id;
-    const bSep2 = assignmentRows.find(
-      (row) =>
-        row.businessDate === '2026-09-02' && row.plannedMembershipId === context.membershipIds.b,
-    )?.id;
-    expect(aSep1).toBeDefined();
-    expect(bSep2).toBeDefined();
-    expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
-    const swap = await createSwapRequest('a-token', context.groupId, {
-      initiatorAssignmentId: aSep1!,
-      operationId: randomUUID(),
-      targetAssignmentId: bSep2!,
-      targetMembershipId: context.membershipIds.b!,
-    });
-    expect(swap.statusCode).toBe(201);
-    expect(swap.json()).toMatchObject({ status: 'pending_target' });
-
-    const covered = (
-      await affectedShifts('a-token', context.groupId, {
-        endsAt: leaveEnd,
-        isAllDay: true,
-        startsAt: leaveStart,
-      })
-    ).json() as readonly { businessDate: string; isCovered: boolean }[];
-    expect(covered.find((shift) => shift.businessDate === '2026-09-01')?.isCovered).toBe(true);
-
-    const forwarded = await submitLeave('a-token', context.groupId, {
-      endsAt: '2026-09-08T00:00:00.000Z',
-      isAllDay: true,
-      leaveType: 'other',
-      reason: '顺延',
-      resolutionMode: 'shift-forward',
-      startsAt: '2026-09-07T00:00:00.000Z',
-    });
-    expect(forwarded.statusCode).toBe(201);
-    expect(forwarded.json()).toMatchObject({ reflowStrategy: 'shift-forward' });
-  });
-
   it('submits a leave without a reason', async () => {
-    const context = await seedPublishedRotation(['a'], '2026-09');
+    const context = await seedPublishedSchedule(['a'], '2026-09');
     const created = await submitLeave('a-token', context.groupId, {
       endsAt: '2026-09-04T00:00:00.000Z',
       isAllDay: true,
@@ -387,7 +319,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('excludes the exclusive end-date shift from affected shifts', async () => {
-    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const context = await seedPublishedSchedule(['a', 'b', 'c'], '2026-09');
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-04T00:00:00.000Z',
       isAllDay: true,
@@ -398,7 +330,7 @@ describeWithDatabase('leave requests and reflow', () => {
 
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     expect(preview.affectedShiftCount).toBe(1);
     expect(preview.affectedShifts.map((shift) => shift.businessDate)).toEqual(['2026-09-01']);
     expect(
@@ -407,7 +339,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('does not count a completed historical swap as leave coverage but still allows submission', async () => {
-    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const context = await seedPublishedSchedule(['a', 'b', 'c'], '2026-09');
     expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
     const assignmentRows = (
       await client.database.execute(
@@ -458,14 +390,13 @@ describeWithDatabase('leave requests and reflow', () => {
       isAllDay: true,
       leaveType: 'sick',
       reason: '历史换班不算覆盖',
-      resolutionMode: 'manual',
       startsAt: '2026-09-02T00:00:00.000Z',
     });
     expect(submitted.statusCode).toBe(201);
   });
 
   it('blocks leave approval while a completed duty adjustment makes the member actual', async () => {
-    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const context = await seedPublishedSchedule(['a', 'b', 'c'], '2026-09');
     const [assignmentRows] = await client.database.execute(
       sql`SELECT id
           FROM shift_assignments
@@ -493,7 +424,7 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     expect(preview.workflowBlockers).toEqual([
       expect.objectContaining({
         assignmentId,
@@ -502,6 +433,7 @@ describeWithDatabase('leave requests and reflow', () => {
     ]);
     const approved = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: preview.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -511,7 +443,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('blocks leave approval while a completed swap makes the member actual', async () => {
-    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const context = await seedPublishedSchedule(['a', 'b', 'c'], '2026-09');
     expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
     const [assignmentRows] = await client.database.execute(
       sql`SELECT id, business_date AS businessDate, planned_membership_id AS plannedMembershipId
@@ -557,10 +489,11 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     expect(preview.workflowBlockers.length).toBeGreaterThan(0);
     const approved = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: preview.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -568,158 +501,8 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(approved.statusCode).toBe(409);
   });
 
-  it('previews a partial all-day overlap and keeps the original order on approval', async () => {
-    const context = await seedPublishedRotation();
-    const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-09-01T20:00:00.000Z',
-      leaveType: 'training',
-      reason: '外出进修半天',
-      startsAt: '2026-09-01T16:00:00.000Z',
-    });
-
-    const previewResponse = await previewLeave('owner-token', context.groupId, leaveRequestId);
-    expect(previewResponse.statusCode).toBe(200);
-    const preview = previewResponse.json() as LeaveReflowPreview;
-    expect(preview).toMatchObject({
-      affectedAssignments: [
-        {
-          businessDate: '2026-09-01',
-          nextMemberId: context.membershipIds.b,
-          nextMemberName: 'B Doctor',
-          previousMemberId: context.membershipIds.a,
-          previousMemberName: 'A Doctor',
-          shiftTypeName: '全天班',
-          slotPosition: 1,
-        },
-      ],
-      groupDefaultStrategy: 'keep-original-order',
-      leaveRequestId,
-      leaveRequestVersion: 1,
-      rulesVersion: context.rulesVersion,
-      strategy: 'keep-original-order',
-    });
-    expect(preview.conflicts).toEqual([]);
-    expect(preview.vacancies).toEqual([]);
-    expect(preview.statisticsDelta).toMatchObject({
-      byMember: [
-        {
-          assignmentDelta: -1,
-          countedDelta: -1,
-          membershipId: context.membershipIds.a,
-          realName: 'A Doctor',
-          weekendDelta: 0,
-        },
-        {
-          assignmentDelta: 1,
-          countedDelta: 1,
-          membershipId: context.membershipIds.b,
-          realName: 'B Doctor',
-          weekendDelta: 0,
-        },
-      ],
-      totalAssignmentDelta: 0,
-      totalCountedDelta: 0,
-      totalWeekendDelta: 0,
-    });
-
-    const approval = await approveLeave('owner-token', context.groupId, leaveRequestId, {
-      expectedPeriodVersions: preview.periodVersions,
-      expectedRulesVersion: context.rulesVersion,
-      expectedVersion: 1,
-      operationId: randomUUID(),
-    });
-    expect(approval.statusCode).toBe(200);
-    expect(approval.json()).toMatchObject({
-      leaveRequest: { status: 'approved', version: 2 },
-      status: 'approved',
-      strategy: 'keep-original-order',
-    });
-
-    const planned = await readPlannedNames(context.groupId, context.periodId, 4);
-    expect(planned).toEqual(['B Doctor', 'B Doctor', 'C Doctor', 'A Doctor']);
-    const [coverEvents] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id = ${context.groupId} AND event_type = 'leave_cover_completed'`,
-    );
-    expect(coverEvents).toEqual([{ count: 1 }]);
-
-    const calendar = await getCalendar('owner-token', context.groupId, '2026-09');
-    expect(calendar.statusCode).toBe(200);
-    const calendarBody = calendar.json() as CalendarResponse;
-    const firstAssignment = calendarBody.assignments.find(
-      (assignment) => assignment.businessDate === '2026-09-01',
-    );
-    expect(firstAssignment?.plannedMemberName).toBe('B Doctor');
-    expect(firstAssignment?.changeMarkers).toContain('leave-cover');
-  });
-
-  it('shift-forward skips the member, advances the cursor, and lets them rejoin', async () => {
-    const context = await seedPublishedRotation();
-    const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-09-02T00:00:00.000Z',
-      isAllDay: true,
-      leaveType: 'sick',
-      reason: '病假一天',
-      startsAt: '2026-09-01T00:00:00.000Z',
-    });
-
-    const previewResponse = await previewLeave(
-      'owner-token',
-      context.groupId,
-      leaveRequestId,
-      'shift-forward',
-    );
-    expect(previewResponse.statusCode).toBe(200);
-    const preview = previewResponse.json() as LeaveReflowPreview;
-    expect(preview.strategy).toBe('shift-forward');
-    expect(
-      preview.affectedAssignments.map((assignment) => assignment.businessDate).slice(0, 6),
-    ).toEqual(['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06']);
-
-    const approval = await approveLeave('owner-token', context.groupId, leaveRequestId, {
-      expectedPeriodVersions: preview.periodVersions,
-      expectedRulesVersion: context.rulesVersion,
-      expectedVersion: 1,
-      operationId: randomUUID(),
-      strategy: 'shift-forward',
-    });
-    expect(approval.statusCode).toBe(200);
-
-    const planned = await readPlannedNames(context.groupId, context.periodId, 6);
-    expect(planned).toEqual([
-      'B Doctor',
-      'C Doctor',
-      'A Doctor',
-      'B Doctor',
-      'C Doctor',
-      'A Doctor',
-    ]);
-    const [cursor] = await client.database.execute<{ position: number; version: number }>(
-      sql`SELECT current_position AS position, version FROM rotation_rules WHERE schedule_role_id = ${context.roleId}`,
-    );
-    expect(cursor).toEqual([{ position: 1, version: context.rotationRuleVersion + 1 }]);
-    const [nextRulesVersion] = await client.database.execute<{ rulesVersion: number }>(
-      sql`SELECT rules_version AS rulesVersion FROM \`groups\` WHERE id = ${context.groupId}`,
-    );
-    expect(nextRulesVersion).toEqual([{ rulesVersion: context.rulesVersion + 1 }]);
-
-    const staleGeneration = await generatePreview(
-      'owner-token',
-      context.groupId,
-      context.roleId,
-      context.rulesVersion,
-    );
-    expect(staleGeneration.statusCode).toBe(409);
-    const freshGeneration = await generatePreview(
-      'owner-token',
-      context.groupId,
-      context.roleId,
-      context.rulesVersion + 1,
-    );
-    expect(freshGeneration.statusCode).toBe(200);
-  });
-
   it('creates a pending vacancy when no cover exists and blocks unacknowledged approval', async () => {
-    const context = await seedPublishedRotation(['a']);
+    const context = await seedPublishedSchedule(['a']);
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -730,7 +513,7 @@ describeWithDatabase('leave requests and reflow', () => {
 
     const previewResponse = await previewLeave('owner-token', context.groupId, leaveRequestId);
     expect(previewResponse.statusCode).toBe(200);
-    const preview = previewResponse.json() as LeaveReflowPreview;
+    const preview = previewResponse.json() as LeaveApprovalPreview;
     expect(preview.vacancies).toHaveLength(1);
     expect(preview.vacancies[0]).toMatchObject({
       businessDate: '2026-09-01',
@@ -741,20 +524,23 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(preview.affectedAssignments[0]?.nextMemberId).toBeUndefined();
 
     const blocked = await approveLeave('owner-token', context.groupId, leaveRequestId, {
+      acknowledgeBlockers: false,
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
     });
     expect(blocked.statusCode).toBe(409);
     expect(
-      ((blocked.json() as ErrorResponse).error.latestData as { preview: LeaveReflowPreview })
+      ((blocked.json() as ErrorResponse).error.latestData as { preview: LeaveApprovalPreview })
         .preview.vacancies,
     ).toHaveLength(1);
 
     const acknowledged = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       acknowledgeBlockers: true,
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -767,7 +553,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('rejects stale leave versions and stale period versions', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -777,10 +563,11 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
 
     const firstApproval = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -788,6 +575,7 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(firstApproval.statusCode).toBe(200);
     const replay = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -809,12 +597,13 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const secondPreview = (
       await previewLeave('owner-token', context.groupId, secondLeaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     await client.database.execute(
       sql`UPDATE schedule_periods SET version = version + 1 WHERE id = ${context.periodId}`,
     );
     const stalePeriods = await approveLeave('owner-token', context.groupId, secondLeaveRequestId, {
       expectedPeriodVersions: secondPreview.periodVersions,
+      expectedAssignmentVersions: secondPreview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -828,7 +617,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('rejects stale rules versions with the latest rules version', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -838,11 +627,12 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     await changeShiftTypeColor(context.groupId);
 
     const stale = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
@@ -854,7 +644,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('replays the same approval operation id without duplicates', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -864,10 +654,11 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     const operationId = randomUUID();
     const body = {
       expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
       expectedRulesVersion: context.rulesVersion,
       expectedVersion: 1,
       operationId,
@@ -885,11 +676,13 @@ describeWithDatabase('leave requests and reflow', () => {
       )
     )[0] as unknown as readonly { eventType: string }[];
     expect(eventRows.filter((row) => row.eventType === 'leave_request_approved')).toHaveLength(1);
-    expect(eventRows.filter((row) => row.eventType === 'leave_cover_completed')).toHaveLength(1);
+    expect(eventRows.filter((row) => row.eventType === 'leave_assignments_cleared')).toHaveLength(
+      1,
+    );
   });
 
   it('restricts preview and approval permissions', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -905,11 +698,12 @@ describeWithDatabase('leave requests and reflow', () => {
     expect((await previewLeave('a-token', context.groupId, leaveRequestId)).statusCode).toBe(200);
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
+    ).json() as LeaveApprovalPreview;
     expect(
       (
         await approveLeave('b-token', context.groupId, leaveRequestId, {
           expectedPeriodVersions: preview.periodVersions,
+          expectedAssignmentVersions: preview.assignmentVersions,
           expectedRulesVersion: context.rulesVersion,
           expectedVersion: 1,
           operationId: randomUUID(),
@@ -920,6 +714,7 @@ describeWithDatabase('leave requests and reflow', () => {
       (
         await approveLeave('outsider-token', context.groupId, leaveRequestId, {
           expectedPeriodVersions: preview.periodVersions,
+          expectedAssignmentVersions: preview.assignmentVersions,
           expectedRulesVersion: context.rulesVersion,
           expectedVersion: 1,
           operationId: randomUUID(),
@@ -929,7 +724,7 @@ describeWithDatabase('leave requests and reflow', () => {
   });
 
   it('rejects a pending request with an event and blocks later approval', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = await createLeave(context, 'a-token', {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -961,34 +756,550 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(approval.statusCode).toBe(409);
   });
 
-  it('updates the group default strategy and applies it to new requests', async () => {
-    const context = await seedPublishedRotation();
-    expect(
-      (
-        (await getStrategy('owner-token', context.groupId)).json() as {
-          strategy: string;
-        }
-      ).strategy,
-    ).toBe('keep-original-order');
-    expect((await updateStrategy('a-token', context.groupId, 'shift-forward')).statusCode).toBe(
-      403,
-    );
-    expect((await updateStrategy('owner-token', context.groupId, 'shift-forward')).statusCode).toBe(
-      200,
-    );
-
-    const submitted = await submitLeave('a-token', context.groupId, {
-      endsAt: '2026-09-02T00:00:00.000Z',
-      isAllDay: true,
-      leaveType: 'sick',
-      reason: '默认顺延',
-      startsAt: '2026-09-01T00:00:00.000Z',
+  it('finds a previous-month overnight shift overlapping an hourly leave', async () => {
+    const context = await seedPublishedSchedule(['a']);
+    const [assignment] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.businessDate, '2026-09-30'));
+    const assignmentId = assignment?.id as string;
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        startsAt: new Date('2026-09-30T01:00:00Z'),
+        endsAt: new Date('2026-10-01T01:00:00Z'),
+        shiftStartTime: '09:00',
+        shiftEndTime: '09:00',
+      })
+      .where(eq(shiftAssignments.id, assignmentId));
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-10-01T00:30:00Z',
+      endsAt: '2026-10-01T01:30:00Z',
+      leaveType: 'other',
+      reason: 'cross month',
     });
-    expect(submitted.statusCode).toBe(201);
-    expect(submitted.json()).toMatchObject({ reflowStrategy: 'shift-forward' });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(preview.affectedAssignments.map((a) => a.assignmentId)).toEqual([assignmentId]);
+    const result = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(result.statusCode, result.body).toBe(200);
+    const [cleared] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, assignmentId));
+    expect(cleared?.plannedMembershipId).toBeNull();
   });
 
-  async function seedPublishedRotation(
+  it('rolls back clearing when a shift starts during asynchronous approval checks', async () => {
+    const context = await seedPublishedSchedule();
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T00:00:00Z',
+      endsAt: '2026-09-02T00:00:00Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: 'clock boundary',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    const start = new Date('2026-09-01T00:00:00Z');
+    vi.setSystemTime(new Date(start.valueOf() - 1));
+    const original = WorkflowConflictService.prototype.findLeaveWorkflowBlockers;
+    vi.spyOn(WorkflowConflictService.prototype, 'findLeaveWorkflowBlockers').mockImplementation(
+      async function (
+        this: WorkflowConflictService,
+        ...args: Parameters<WorkflowConflictService['findLeaveWorkflowBlockers']>
+      ) {
+        const result = await original.call(this, ...args);
+        vi.setSystemTime(start);
+        return result;
+      },
+    );
+    const result = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      url: `/groups/${context.groupId}/leave-requests/${leaveId}/approve`,
+      payload: {
+        acknowledgeBlockers: true,
+        expectedPeriodVersions: preview.periodVersions,
+        expectedAssignmentVersions: preview.assignmentVersions,
+        expectedRulesVersion: context.rulesVersion,
+        expectedVersion: 1,
+        operationId: randomUUID(),
+      },
+    });
+    expect(result.statusCode).toBe(409);
+    expect(await readPlannedNames(context.groupId, context.periodId, 1)).toEqual(['A Doctor']);
+    const requests = (await listLeaveApprovals('owner-token', context.groupId)).json<
+      LeaveRequest[]
+    >();
+    expect(requests.find((r) => r.id === leaveId)?.status).toBe('pending');
+  });
+
+  it('skips restoring a vacancy when the shift starts during eligibility checks', async () => {
+    const context = await seedPublishedSchedule();
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T00:00:00Z',
+      endsAt: '2026-09-02T00:00:00Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: 'restore clock',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(
+      (
+        await approveLeave('owner-token', context.groupId, leaveId, {
+          expectedPeriodVersions: preview.periodVersions,
+          expectedAssignmentVersions: preview.assignmentVersions,
+          expectedRulesVersion: context.rulesVersion,
+          expectedVersion: 1,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(200);
+    const start = new Date('2026-09-01T00:00:00Z');
+    vi.setSystemTime(new Date(start.valueOf() - 1));
+    const original = WorkflowConflictService.prototype.findMemberEligibilityConflicts;
+    vi.spyOn(
+      WorkflowConflictService.prototype,
+      'findMemberEligibilityConflicts',
+    ).mockImplementation(async function (
+      this: WorkflowConflictService,
+      ...args: Parameters<WorkflowConflictService['findMemberEligibilityConflicts']>
+    ) {
+      const result = await original.call(this, ...args);
+      vi.setSystemTime(start);
+      return result;
+    });
+    const result = await revokeLeave('owner-token', context.groupId, leaveId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(result.statusCode, result.body).toBe(200);
+    expect(result.json().restoration.skippedAssignments).toContainEqual({
+      assignmentId: preview.affectedAssignments[0]?.assignmentId,
+      reason: 'already_started',
+    });
+    expect(await readPlannedNames(context.groupId, context.periodId, 1)).toEqual(['']);
+  });
+
+  it('keeps pending swap requests intact and blocks approval before clearing', async () => {
+    const context = await seedPublishedSchedule();
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T00:00:00Z',
+      endsAt: '2026-09-02T00:00:00Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: 'pending workflow',
+    });
+    const [first] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.businessDate, '2026-09-01'));
+    const [second] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.businessDate, '2026-09-02'));
+    const swapId = randomUUID();
+    await client.database.execute(
+      sql`INSERT INTO swap_requests(id,group_id,initiator_membership_id,target_membership_id,initiator_assignment_id,target_assignment_id,initiator_assignment_version,target_assignment_version,status) VALUES(${swapId},${context.groupId},${context.membershipIds.a!},${context.membershipIds.b!},${first!.id},${second!.id},${first!.version},${second!.version},'pending_target')`,
+    );
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(preview.workflowBlockers.length).toBeGreaterThan(0);
+    const result = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(result.statusCode).toBe(409);
+    expect(await readPlannedNames(context.groupId, context.periodId, 1)).toEqual(['A Doctor']);
+    const [requests] = await client.database.execute(
+      sql`SELECT status FROM swap_requests WHERE id=${swapId}`,
+    );
+    expect(requests).toEqual([{ status: 'pending_target' }]);
+  });
+
+  it('clears only the actual member overlapping the leave without shifting other days', async () => {
+    const context = await seedPublishedSchedule();
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T16:00:00.000Z',
+      endsAt: '2026-09-01T20:00:00.000Z',
+      leaveType: 'training',
+      reason: 'partial leave',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(preview.affectedAssignments).toHaveLength(1);
+    expect(preview.vacancies).toHaveLength(1);
+    expect(preview.affectedAssignments[0]).toMatchObject({
+      businessDate: '2026-09-01',
+      previousMemberId: context.membershipIds.a,
+    });
+    const approved = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect(await readPlannedNames(context.groupId, context.periodId, 4)).toEqual([
+      '',
+      'B Doctor',
+      'C Doctor',
+      'A Doctor',
+    ]);
+    const [events] = await client.database.execute(
+      sql`SELECT before_data,after_data FROM schedule_events WHERE object_id=${leaveId} AND event_type='leave_assignments_cleared'`,
+    );
+    expect(events).toHaveLength(1);
+  });
+
+  it.each(['untouched', 'filled', 'filled-then-cleared'] as const)(
+    'restores only untouched vacancies on revoke: %s',
+    async (scenario) => {
+      const context = await seedPublishedSchedule();
+      const leaveId = await createLeave(context, 'a-token', {
+        startsAt: '2026-09-01T00:00:00.000Z',
+        endsAt: '2026-09-02T00:00:00.000Z',
+        isAllDay: true,
+        leaveType: 'sick',
+        reason: 'restore boundary',
+      });
+      const preview = (
+        await previewLeave('owner-token', context.groupId, leaveId)
+      ).json<LeaveApprovalPreview>();
+      const assignmentId = preview.affectedAssignments[0]?.assignmentId as string;
+      const approved = await approveLeave('owner-token', context.groupId, leaveId, {
+        expectedPeriodVersions: preview.periodVersions,
+        expectedAssignmentVersions: preview.assignmentVersions,
+        expectedRulesVersion: context.rulesVersion,
+        expectedVersion: 1,
+        operationId: randomUUID(),
+      });
+      expect(approved.statusCode, approved.body).toBe(200);
+      if (scenario !== 'untouched') {
+        await withTransaction(client, (t) =>
+          updateShiftAssignments(t, eq(shiftAssignments.id, assignmentId), {
+            plannedMembershipId: context.membershipIds.b as string,
+            plannedMemberName: 'B Doctor',
+          }),
+        );
+      }
+      if (scenario === 'filled-then-cleared') {
+        await withTransaction(client, (t) =>
+          updateShiftAssignments(t, eq(shiftAssignments.id, assignmentId), {
+            plannedMembershipId: null,
+            plannedMemberName: null,
+          }),
+        );
+      }
+      const [before] = await client.database
+        .select()
+        .from(shiftAssignments)
+        .where(eq(shiftAssignments.id, assignmentId));
+      const operationId = randomUUID();
+      const revoked = await revokeLeave('owner-token', context.groupId, leaveId, {
+        expectedVersion: 2,
+        operationId,
+      });
+      expect(revoked.statusCode, revoked.body).toBe(200);
+      const [after] = await client.database
+        .select()
+        .from(shiftAssignments)
+        .where(eq(shiftAssignments.id, assignmentId));
+      if (scenario === 'untouched') {
+        expect(after?.plannedMembershipId).toBe(context.membershipIds.a);
+        expect(revoked.json().restoration.restoredAssignmentIds).toEqual([assignmentId]);
+      } else {
+        expect(after?.plannedMembershipId).toBe(before?.plannedMembershipId);
+        expect(after?.version).toBe(before?.version);
+        expect(revoked.json().restoration.skippedAssignments).toContainEqual({
+          assignmentId,
+          reason: 'assignment_changed',
+        });
+      }
+      const replay = await revokeLeave('owner-token', context.groupId, leaveId, {
+        expectedVersion: 2,
+        operationId,
+      });
+      expect(replay.statusCode).toBe(200);
+      expect(replay.json()).toEqual(revoked.json());
+    },
+  );
+
+  it.each(['member-ineligible', 'period-replaced', 'snapshot-missing'] as const)(
+    'skips restoration after %s without changing vacancies',
+    async (scenario) => {
+      const context = await seedPublishedSchedule();
+      const leaveId = await createLeave(context, 'a-token', {
+        startsAt: '2026-09-01T00:00:00Z',
+        endsAt: '2026-09-02T00:00:00Z',
+        isAllDay: true,
+        leaveType: 'sick',
+        reason: 'restoration restrictions',
+      });
+      const preview = (
+        await previewLeave('owner-token', context.groupId, leaveId)
+      ).json<LeaveApprovalPreview>();
+      const assignmentId = preview.affectedAssignments[0]!.assignmentId;
+      const approved = await approveLeave('owner-token', context.groupId, leaveId, {
+        expectedPeriodVersions: preview.periodVersions,
+        expectedAssignmentVersions: preview.assignmentVersions,
+        expectedRulesVersion: context.rulesVersion,
+        expectedVersion: 1,
+        operationId: randomUUID(),
+      });
+      expect(approved.statusCode, approved.body).toBe(200);
+      if (scenario === 'member-ineligible')
+        await replaceRoleMembers(context.groupId, context.roleId, [
+          context.membershipIds.b!,
+          context.membershipIds.c!,
+        ]);
+      if (scenario === 'period-replaced')
+        await client.database.execute(
+          sql`UPDATE schedule_periods SET status='replaced' WHERE id=${context.periodId}`,
+        );
+      // A synthetic legacy event lacks versioned recovery evidence; never invent the old personnel.
+      if (scenario === 'snapshot-missing')
+        await client.database.execute(
+          sql`UPDATE schedule_events SET before_data=JSON_OBJECT() WHERE object_id=${leaveId} AND event_type='leave_assignments_cleared'`,
+        );
+      const revoked = await revokeLeave('owner-token', context.groupId, leaveId, {
+        expectedVersion: 2,
+        operationId: randomUUID(),
+      });
+      expect(revoked.statusCode, revoked.body).toBe(200);
+      expect(revoked.json().restoration.restoredAssignmentIds).toEqual([]);
+      expect(revoked.json().restoration.skippedAssignments).toContainEqual({
+        assignmentId,
+        reason:
+          scenario === 'member-ineligible'
+            ? 'member_or_workflow_conflict'
+            : scenario === 'period-replaced'
+              ? 'period_changed'
+              : 'snapshot_unavailable',
+      });
+      expect(revoked.json().restoration.restorationUnavailable).toBe(
+        scenario === 'snapshot-missing',
+      );
+      const [after] = await client.database
+        .select()
+        .from(shiftAssignments)
+        .where(eq(shiftAssignments.id, assignmentId));
+      expect(after).toMatchObject({
+        plannedMembershipId: null,
+        plannedMemberName: null,
+        actualMembershipId: null,
+        actualMemberName: null,
+        version: preview.assignmentVersions[assignmentId]! + 1,
+      });
+    },
+  );
+
+  it('restores untouched days while preserving a manually filled and cleared day', async () => {
+    const context = await seedPublishedSchedule();
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T00:00:00Z',
+      endsAt: '2026-09-08T00:00:00Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: 'mixed restoration',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(preview.affectedAssignments).toHaveLength(3);
+    const approved = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode, approved.body).toBe(200);
+    const changed = preview.affectedAssignments[0]!.assignmentId;
+    await withTransaction(client, (t) =>
+      updateShiftAssignments(t, eq(shiftAssignments.id, changed), {
+        plannedMembershipId: context.membershipIds.b!,
+        plannedMemberName: 'B Doctor',
+      }),
+    );
+    await withTransaction(client, (t) =>
+      updateShiftAssignments(t, eq(shiftAssignments.id, changed), {
+        plannedMembershipId: null,
+        plannedMemberName: null,
+      }),
+    );
+    const revoked = await revokeLeave('owner-token', context.groupId, leaveId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    expect(revoked.json().restoration.restoredAssignmentIds.sort()).toEqual(
+      preview.affectedAssignments
+        .slice(1)
+        .map((a) => a.assignmentId)
+        .sort(),
+    );
+    expect(revoked.json().restoration.skippedAssignments).toEqual([
+      { assignmentId: changed, reason: 'assignment_changed' },
+    ]);
+    const [vacancy] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, changed));
+    expect(vacancy).toMatchObject({
+      plannedMembershipId: null,
+      actualMembershipId: null,
+      version: preview.assignmentVersions[changed]! + 3,
+    });
+  });
+
+  it('records valid empty evidence when approval has no affected shifts', async () => {
+    const context = await seedPublishedSchedule(['a']);
+    const leaveId = await createLeave(context, 'b-token', {
+      startsAt: '2026-09-01T00:00:00Z',
+      endsAt: '2026-09-02T00:00:00Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: 'no duty',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(preview.affectedAssignments).toEqual([]);
+    const approved = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode, approved.body).toBe(200);
+    const revoked = await revokeLeave('owner-token', context.groupId, leaveId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    expect(revoked.json().restoration).toEqual({
+      restoredAssignmentIds: [],
+      skippedAssignments: [],
+      restorationUnavailable: false,
+    });
+  });
+
+  it('skips the whole snapshot when its distinct planned member was deleted', async () => {
+    const context = await seedPublishedSchedule(['a']);
+    const [original] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(sql`schedule_period_id=${context.periodId} AND business_date='2026-09-01'`);
+    const assignmentId = original!.id;
+    await withTransaction(client, (t) =>
+      updateShiftAssignments(t, eq(shiftAssignments.id, assignmentId), {
+        plannedMembershipId: context.membershipIds.b!,
+        plannedMemberName: 'B Doctor',
+        actualMembershipId: context.membershipIds.a!,
+        actualMemberName: 'A Doctor',
+      }),
+    );
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T00:00:00Z',
+      endsAt: '2026-09-02T00:00:00Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: 'planned snapshot reference',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    expect(preview.affectedAssignments.map((a) => a.assignmentId)).toEqual([assignmentId]);
+    const approved = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode, approved.body).toBe(200);
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/groups/${context.groupId}/members/${context.membershipIds.b}`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: { expectedVersion: 1, operationId: randomUUID() },
+    });
+    expect(removed.statusCode, removed.body).toBe(200);
+    const revoked = await revokeLeave('owner-token', context.groupId, leaveId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    expect(revoked.json().restoration.skippedAssignments).toContainEqual({
+      assignmentId,
+      reason: 'snapshot_member_missing',
+    });
+    const [after] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, assignmentId));
+    expect(after).toMatchObject({
+      plannedMembershipId: null,
+      plannedMemberName: null,
+      actualMembershipId: null,
+      actualMemberName: null,
+      version: original!.version + 2,
+    });
+  });
+
+  it('rejects approval after a previewed assignment was manually changed', async () => {
+    const context = await seedPublishedSchedule();
+    const leaveId = await createLeave(context, 'a-token', {
+      startsAt: '2026-09-01T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'rotation',
+      reason: 'clinical rotation',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveId)
+    ).json<LeaveApprovalPreview>();
+    const assignmentId = preview.affectedAssignments[0]?.assignmentId as string;
+    await withTransaction(client, (t) =>
+      updateShiftAssignments(t, eq(shiftAssignments.id, assignmentId), {
+        plannedMembershipId: context.membershipIds.b as string,
+        plannedMemberName: 'B Doctor',
+      }),
+    );
+    const response = await approveLeave('owner-token', context.groupId, leaveId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedAssignmentVersions: preview.assignmentVersions,
+      expectedRulesVersion: context.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(response.statusCode).toBe(409);
+    const [assignment] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, assignmentId));
+    expect(assignment?.plannedMembershipId).toBe(context.membershipIds.b);
+  });
+
+  async function seedPublishedSchedule(
     memberKeys: readonly string[] = ['a', 'b', 'c'],
     businessMonth = '2026-09',
   ): Promise<Context> {
@@ -1038,7 +1349,7 @@ describeWithDatabase('leave requests and reflow', () => {
             (member) => member.realName === `${memberKeys[0]?.toUpperCase()} Doctor`,
           )?.id;
     expect(startingMemberScheduleRoleId).toBeDefined();
-    await updateRotationRule(groupId, roleId, {
+    await configureFixturePattern(groupId, roleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -1055,19 +1366,12 @@ describeWithDatabase('leave requests and reflow', () => {
     )[0] as unknown as readonly { id: string }[];
     const periodId = periodRows[0]?.id as string;
     expect(periodId).toBeDefined();
-    const ruleVersionRows = (
-      await client.database.execute(
-        sql`SELECT version FROM rotation_rules WHERE schedule_role_id = ${roleId}`,
-      )
-    )[0] as unknown as readonly { version: number }[];
-    const rotationRuleVersion = ruleVersionRows[0]?.version as number;
 
     return {
       groupId,
       membershipIds,
       periodId,
       roleId,
-      rotationRuleVersion,
       rulesVersion,
     };
   }
@@ -1220,16 +1524,11 @@ describeWithDatabase('leave requests and reflow', () => {
     });
   }
 
-  async function previewLeave(
-    token: string,
-    groupId: string,
-    leaveRequestId: string,
-    strategy?: string,
-  ) {
+  async function previewLeave(token: string, groupId: string, leaveRequestId: string) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: strategy === undefined ? {} : { strategy },
+      payload: {},
       url: `/groups/${groupId}/leave-requests/${leaveRequestId}/preview`,
     });
   }
@@ -1241,16 +1540,24 @@ describeWithDatabase('leave requests and reflow', () => {
     body: {
       readonly acknowledgeBlockers?: boolean;
       readonly expectedPeriodVersions: Readonly<Record<string, number>>;
+      readonly expectedAssignmentVersions?: Readonly<Record<string, number>>;
       readonly expectedRulesVersion: number;
       readonly expectedVersion: number;
       readonly operationId: string;
       readonly strategy?: string;
     },
   ) {
+    const latest = await previewLeave(token, groupId, leaveRequestId);
+    const versions =
+      latest.statusCode === 200 ? latest.json<LeaveApprovalPreview>().assignmentVersions : {};
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: body,
+      payload: {
+        acknowledgeBlockers: true,
+        ...body,
+        expectedAssignmentVersions: body.expectedAssignmentVersions ?? versions,
+      },
       url: `/groups/${groupId}/leave-requests/${leaveRequestId}/approve`,
     });
   }
@@ -1266,31 +1573,6 @@ describeWithDatabase('leave requests and reflow', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/leave-requests/${leaveRequestId}/reject`,
-    });
-  }
-
-  async function getStrategy(token: string, groupId: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'GET',
-      url: `/groups/${groupId}/leave-reflow-strategy`,
-    });
-  }
-
-  async function updateStrategy(token: string, groupId: string, strategy: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'PUT',
-      payload: { strategy },
-      url: `/groups/${groupId}/leave-reflow-strategy`,
-    });
-  }
-
-  async function getCalendar(token: string, groupId: string, businessMonth: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'GET',
-      url: `/groups/${groupId}/calendar?businessMonth=${businessMonth}`,
     });
   }
 
@@ -1319,9 +1601,8 @@ describeWithDatabase('leave requests and reflow', () => {
     rulesVersion: number,
     businessMonth = '2026-09',
   ) {
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth,
         operationId: randomUUID(),
@@ -1329,25 +1610,6 @@ describeWithDatabase('leave requests and reflow', () => {
         rulesVersion,
         scheduleRoleIds: [roleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
-    });
-  }
-
-  async function generatePreview(
-    token: string,
-    groupId: string,
-    roleId: string,
-    rulesVersion: number,
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: {
-        businessMonth: '2026-09',
-        rulesVersion,
-        scheduleRoleIds: [roleId],
-      },
-      url: `/groups/${groupId}/schedules/generate-preview`,
     });
   }
 
@@ -1468,13 +1730,12 @@ describeWithDatabase('leave requests and reflow', () => {
   ): Promise<void> {
     const config = await getConfig('owner-token', groupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -1485,7 +1746,7 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     groupId: string,
     roleId: string,
     payload: {
@@ -1496,23 +1757,7 @@ describeWithDatabase('leave requests and reflow', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
-    const config = await getConfig('owner-token', groupId);
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...payload,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, groupId, roleId, payload);
   }
 });
 
@@ -1521,7 +1766,6 @@ interface Context {
   readonly membershipIds: Readonly<Record<string, string>>;
   readonly periodId: string;
   readonly roleId: string;
-  readonly rotationRuleVersion: number;
   readonly rulesVersion: number;
 }
 
@@ -1539,14 +1783,6 @@ interface ConfigResponse {
   readonly shiftTypes: readonly {
     readonly id: string;
     readonly isEnabled: boolean;
-  }[];
-}
-
-interface CalendarResponse {
-  readonly assignments: readonly {
-    readonly businessDate: string;
-    readonly changeMarkers: readonly string[];
-    readonly plannedMemberName?: string;
   }[];
 }
 

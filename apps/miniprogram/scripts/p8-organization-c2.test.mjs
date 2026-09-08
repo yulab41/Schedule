@@ -31,7 +31,7 @@ describe('P8-C-2 native scheduling configuration', () => {
     });
     expect(page).toContain('班种');
     expect(page).toContain('岗位成员');
-    expect(page).toContain('轮转规则');
+    expect(page).toContain('参与成员');
     expect(page).toContain("largeText ? 'is-large-text' : ''");
     expect(styles).toContain('.is-large-text');
     expect(workbench).toContain('handleOpenSchedulingConfig');
@@ -50,7 +50,7 @@ describe('P8-C-2 native scheduling configuration', () => {
     expect(controller).toContain("requireClientCapability('organization')");
     expect(controller).toContain('operationId');
     expect(controller).toContain('expectedRulesVersion');
-    expect(controller).toContain('expectedRotationRuleVersion');
+    expect(controller).not.toContain('expectedRotationRuleVersion');
     expect(controller).toContain('fontSizeSetting');
   });
 

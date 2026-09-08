@@ -465,9 +465,9 @@ describeWithDatabase('groups and roster claiming', () => {
     });
     expect(contact.statusCode).toBe(200);
     await client.database.execute(
-      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, reason, status, reflow_strategy)
+      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, reason, status)
           VALUES ('00000000-0000-4000-8000-000000000003', ${groupId}, ${outsider?.id}, 'sick',
-                  '2026-08-05 00:00:00', '2026-08-05 23:59:59', 'test', 'pending', 'keep-original-order')`,
+                  '2026-08-05 00:00:00', '2026-08-05 23:59:59', 'test', 'pending')`,
     );
     const [placeholderUser] = await client.database
       .select({ userId: groupMemberships.userId })

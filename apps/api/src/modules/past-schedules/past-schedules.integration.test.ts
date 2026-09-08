@@ -1,3 +1,7 @@
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -76,7 +80,7 @@ describeWithDatabase('past schedule backfill', () => {
     const roleConfig = (
       (await getConfig('owner-token', groupId)).json() as SchedulingConfig
     ).roles.find((candidate) => candidate.id === primaryRoleId)!;
-    await updateRotationRule(groupId, primaryRoleId, {
+    await configureFixturePattern(groupId, primaryRoleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -584,9 +588,8 @@ describeWithDatabase('past schedule backfill', () => {
   });
 
   async function publishMonth(businessMonth: string): Promise<void> {
-    const response = await app.inject({
+    const response = await createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth,
         operationId: randomUUID(),
@@ -594,7 +597,6 @@ describeWithDatabase('past schedule backfill', () => {
         rulesVersion,
         scheduleRoleIds: [primaryRoleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
     expect(response.statusCode, response.body).toBe(200);
   }
@@ -787,13 +789,12 @@ describeWithDatabase('past schedule backfill', () => {
   ): Promise<void> {
     const config = (await getConfig('owner-token', targetGroupId)).json() as SchedulingConfig;
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -803,7 +804,7 @@ describeWithDatabase('past schedule backfill', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     targetGroupId: string,
     roleId: string,
     body: {
@@ -814,22 +815,7 @@ describeWithDatabase('past schedule backfill', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
-    const config = (await getConfig('owner-token', targetGroupId)).json() as SchedulingConfig;
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...body,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${targetGroupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, targetGroupId, roleId, body);
   }
 });
 

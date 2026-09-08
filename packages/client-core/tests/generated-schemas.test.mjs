@@ -12,11 +12,10 @@ import {
   generatedApiErrorCodes,
   groupMobilePhoneConsentJsonSchema,
   groupDutyAdjustmentSettingsJsonSchema,
-  groupLeaveReflowStrategyJsonSchema,
   groupSwapSettingsJsonSchema,
   holidayReadModelJsonSchema,
   leaveAffectedShiftListJsonSchema,
-  leaveReflowPreviewJsonSchema,
+  leaveApprovalPreviewJsonSchema,
   leaveRequestJsonSchema,
   leaveRequestListJsonSchema,
   leaveRequestMutationResultJsonSchema,
@@ -63,12 +62,11 @@ import {
   dutyAdjustmentRequestSchema,
   dutyAdjustmentRequestListSchema,
   groupDutyAdjustmentSettingsSchema,
-  groupLeaveReflowStrategySchema,
   groupMobilePhoneConsentSchema,
   groupSwapSettingsSchema,
   holidayReadModelSchema,
   leaveAffectedShiftListSchema,
-  leaveReflowPreviewSchema,
+  leaveApprovalPreviewSchema,
   leaveRequestSchema,
   leaveRequestListSchema,
   leaveRequestMutationResultSchema,
@@ -158,12 +156,6 @@ describe('client-core generated schemas', () => {
         'groupDutyAdjustmentSettings',
       ),
     );
-    expect(groupLeaveReflowStrategyJsonSchema).toEqual(
-      sanitizeJsonSchema(
-        z.toJSONSchema(groupLeaveReflowStrategySchema),
-        'groupLeaveReflowStrategy',
-      ),
-    );
     expect(groupMobilePhoneConsentJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(groupMobilePhoneConsentSchema), 'groupMobilePhoneConsent'),
     );
@@ -176,8 +168,8 @@ describe('client-core generated schemas', () => {
     expect(leaveAffectedShiftListJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(leaveAffectedShiftListSchema), 'leaveAffectedShiftList'),
     );
-    expect(leaveReflowPreviewJsonSchema).toEqual(
-      sanitizeJsonSchema(z.toJSONSchema(leaveReflowPreviewSchema), 'leaveReflowPreview'),
+    expect(leaveApprovalPreviewJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(leaveApprovalPreviewSchema), 'leaveApprovalPreview'),
     );
     expect(leaveRequestJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(leaveRequestSchema), 'leaveRequest'),

@@ -6,7 +6,7 @@ import type {
   DutyAdjustmentStatus,
   GroupMember,
   GroupSummary,
-  LeaveReflowPreview,
+  LeaveApprovalPreview,
   LeaveRequest,
   LeaveRequestStatus,
   SwapAssignmentSummary,
@@ -214,9 +214,6 @@ export function createP7WorkflowFixtureFetch(
       });
     }
 
-    if (path === `/groups/${groupId}/leave-reflow-strategy`) {
-      return json({ strategy: 'keep-original-order' });
-    }
     if (path === `/groups/${groupId}/leave-requests/affected-shifts` && method === 'POST') {
       return json([
         {
@@ -399,14 +396,13 @@ function leaveRequest(
     memberName,
     membershipId,
     reason: status === 'rejected' ? '与培训安排冲突' : '门诊进修与休整',
-    reflowStrategy: index % 2 === 0 ? 'shift-forward' : 'keep-original-order',
     startsAt: `2026-08-${String(25 + (index % 2)).padStart(2, '0')}T00:00:00.000Z`,
     status,
     version: 1,
   };
 }
 
-function leavePreview(): LeaveReflowPreview {
+function leavePreview(): LeaveApprovalPreview {
   return {
     affectedAssignments: [
       {
@@ -441,28 +437,10 @@ function leavePreview(): LeaveReflowPreview {
         shiftTypeName: '全天班',
       },
     ],
-    conflicts: [
-      {
-        assignmentBusinessKeys: ['2026-08-26:一线值班:1'],
-        code: 'MEMBER_TIME_OVERLAP',
-        memberName: '王医生',
-        membershipId: thirdMembershipId,
-      },
-    ],
-    continuousDutyWarnings: [
-      {
-        assignmentBusinessKeys: ['2026-08-26:一线值班:1', '2026-08-27:一线值班:1'],
-        code: 'CONTINUOUS_DUTY_24_HOURS',
-        endsAt: '2026-08-28T00:00:00.000Z',
-        memberName: '王医生',
-        membershipId: thirdMembershipId,
-        startsAt: '2026-08-26T00:00:00.000Z',
-      },
-    ],
-    groupDefaultStrategy: 'keep-original-order',
     leaveRequestId: leaveApprovals[0].id,
     leaveRequestVersion: 1,
     overlapsUnpublishedPeriod: true,
+    assignmentVersions: {},
     periodVersions: { [periodId]: 5 },
     rulesVersion: 6,
     statisticsDelta: {
@@ -479,7 +457,6 @@ function leavePreview(): LeaveReflowPreview {
       totalCountedDelta: 0,
       totalWeekendDelta: 0,
     },
-    strategy: 'keep-original-order',
     vacancies: [
       {
         assignmentBusinessKey: '2026-08-27:一线值班:1',
@@ -604,7 +581,7 @@ function dutyPreview(conflict: boolean): DutyAdjustmentPreview {
 function isWorkflowRead(path: string, workflow: P7WorkflowKind): boolean {
   const resource =
     workflow === 'leave' ? 'leave-requests' : workflow === 'swap' ? 'swaps' : 'duty-adjustments';
-  return path.includes(`/${resource}`) || (workflow === 'leave' && path.includes('leave-reflow'));
+  return path.includes(`/${resource}`);
 }
 
 function json(body: unknown, status = 200): Response {

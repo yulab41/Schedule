@@ -24,7 +24,6 @@ import {
   leaveRequests,
   memberScheduleRoles,
   rosterEntries,
-  rotationMembers,
   shiftAssignments,
   swapRequests,
   userProfiles,
@@ -693,9 +692,6 @@ export class MembershipService {
       );
     if (roleMembers.length > 0) {
       const roleMemberIds = roleMembers.map((member) => member.id);
-      await transaction
-        .delete(rotationMembers)
-        .where(inArray(rotationMembers.memberScheduleRoleId, roleMemberIds));
       await transaction
         .delete(memberScheduleRoles)
         .where(inArray(memberScheduleRoles.id, roleMemberIds));

@@ -1,15 +1,15 @@
 import type {
   ContinuousDutyWarning,
-  GeneratedRotationAssignment,
-  RotationHardConflict,
-} from './rotation/types.js';
+  ScheduleAssignmentSnapshot,
+  ScheduleHardConflict,
+} from './assignment-types.js';
 
 const continuousDutyWarningThresholdMilliseconds = 24 * 60 * 60 * 1000;
 
-export function findRotationHardConflicts(
-  assignments: readonly GeneratedRotationAssignment[],
-): readonly RotationHardConflict[] {
-  const conflicts: RotationHardConflict[] = [];
+export function findScheduleHardConflicts(
+  assignments: readonly ScheduleAssignmentSnapshot[],
+): readonly ScheduleHardConflict[] {
+  const conflicts: ScheduleHardConflict[] = [];
   for (const [membershipId, memberAssignments] of getAssignmentsByMembership(assignments)) {
     const orderedAssignments = sortAssignments(memberAssignments);
     for (let leftIndex = 0; leftIndex < orderedAssignments.length; leftIndex += 1) {
@@ -42,12 +42,12 @@ export function findRotationHardConflicts(
 }
 
 export function findContinuousDutyWarnings(
-  assignments: readonly GeneratedRotationAssignment[],
+  assignments: readonly ScheduleAssignmentSnapshot[],
 ): readonly ContinuousDutyWarning[] {
   const warnings: ContinuousDutyWarning[] = [];
   for (const [membershipId, memberAssignments] of getAssignmentsByMembership(assignments)) {
     const orderedAssignments = sortAssignments(memberAssignments);
-    let currentChain: GeneratedRotationAssignment[] = [];
+    let currentChain: ScheduleAssignmentSnapshot[] = [];
     let chainEnd: Date | undefined;
 
     for (const assignment of orderedAssignments) {
@@ -70,9 +70,9 @@ export function findContinuousDutyWarnings(
 }
 
 function getAssignmentsByMembership(
-  assignments: readonly GeneratedRotationAssignment[],
-): ReadonlyMap<string, GeneratedRotationAssignment[]> {
-  const assignmentsByMembership = new Map<string, GeneratedRotationAssignment[]>();
+  assignments: readonly ScheduleAssignmentSnapshot[],
+): ReadonlyMap<string, ScheduleAssignmentSnapshot[]> {
+  const assignmentsByMembership = new Map<string, ScheduleAssignmentSnapshot[]>();
   for (const assignment of assignments) {
     if (assignment.plannedMembershipId === null) {
       continue;
@@ -90,8 +90,8 @@ function getAssignmentsByMembership(
 }
 
 function sortAssignments(
-  assignments: readonly GeneratedRotationAssignment[],
-): readonly GeneratedRotationAssignment[] {
+  assignments: readonly ScheduleAssignmentSnapshot[],
+): readonly ScheduleAssignmentSnapshot[] {
   return [...assignments].sort((left, right) => {
     const startDifference = left.startsAt.valueOf() - right.startsAt.valueOf();
     if (startDifference !== 0) {
@@ -110,7 +110,7 @@ function sortAssignments(
 function appendContinuousDutyWarning(
   warnings: ContinuousDutyWarning[],
   membershipId: string,
-  assignments: readonly GeneratedRotationAssignment[],
+  assignments: readonly ScheduleAssignmentSnapshot[],
   chainEnd: Date | undefined,
 ): void {
   const firstAssignment = assignments[0];

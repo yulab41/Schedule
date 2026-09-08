@@ -17,7 +17,7 @@ import type {
   HolidayReadModel,
   LeaveAffectedAssignment,
   LeaveAffectedShift,
-  LeaveReflowPreview,
+  LeaveApprovalPreview,
   LeaveRequest,
   LeaveRequestMutationResult,
   LeaveStatisticsDelta,
@@ -159,18 +159,11 @@ const scheduleRole: ScheduleRole = {
     {
       id: 'role-member-1',
       membershipId: 'membership-1',
-      position: 1,
       realName: '张医生',
       version: 1,
     },
   ],
   name: '一线',
-  rotationRule: {
-    currentPosition: 1,
-    defaultShiftTypeId: 'shift-1',
-    requiredMembersPerDay: 1,
-    version: 1,
-  },
   version: 1,
 };
 
@@ -372,7 +365,6 @@ const leaveRequest: LeaveRequest = {
   isAllDay: true,
   leaveType: 'training',
   membershipId: 'membership-1',
-  reflowStrategy: 'keep-original-order',
   startsAt: '2026-08-01T00:00:00.000Z',
   status: 'pending',
   version: 1,
@@ -411,20 +403,17 @@ const leaveWorkflowBlocker: LeaveWorkflowBlocker = {
   message: '存在后续工作流',
 };
 
-const leaveReflowPreview: LeaveReflowPreview = {
+const leaveApprovalPreview: LeaveApprovalPreview = {
   affectedAssignments: [],
   affectedShiftCount: 0,
   affectedShifts: [],
-  conflicts: [],
-  continuousDutyWarnings: [],
-  groupDefaultStrategy: 'keep-original-order',
   leaveRequestId: 'leave-1',
   leaveRequestVersion: 1,
   overlapsUnpublishedPeriod: false,
+  assignmentVersions: {},
   periodVersions: {},
   rulesVersion: 3,
   statisticsDelta: leaveStatisticsDelta,
-  strategy: 'keep-original-order',
   vacancies: [],
   workflowBlockers: [],
 };
@@ -432,9 +421,8 @@ const leaveReflowPreview: LeaveReflowPreview = {
 const approvedLeaveResult: ApprovedLeaveRequestResult = {
   leaveRequest,
   operationId: 'op-1',
-  preview: leaveReflowPreview,
+  preview: leaveApprovalPreview,
   status: 'approved',
-  strategy: 'keep-original-order',
 };
 
 const leaveRequestMutationResult: LeaveRequestMutationResult = {
@@ -1428,39 +1416,9 @@ describe('Web API client', () => {
     await expect(
       client.replaceScheduleRoleMembers(group.id, scheduleRole.id, {
         expectedRoleVersion: scheduleRole.version,
-        expectedRotationRuleVersion: scheduleRole.rotationRule.version,
         expectedRulesVersion: schedulingConfig.rulesVersion,
         membershipIds: ['membership-1'],
         operationId: organizationOperationId,
-      }),
-    ).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
-  it('rejects a schedule role response whose rotation rule requires zero members per day', async () => {
-    const invalidRole = {
-      ...scheduleRole,
-      rotationRule: { ...scheduleRole.rotationRule, requiredMembersPerDay: 0 },
-    };
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify(invalidRole), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(
-      client.updateRotationRule(group.id, scheduleRole.id, {
-        currentPosition: 1,
-        defaultShiftTypeId: 'shift-1',
-        expectedRoleVersion: scheduleRole.version,
-        expectedRotationRuleVersion: scheduleRole.rotationRule.version,
-        expectedRulesVersion: schedulingConfig.rulesVersion,
-        operationId: organizationOperationId,
-        requiredMembersPerDay: 1,
       }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
@@ -2173,20 +2131,17 @@ describe('Web API client', () => {
     });
   });
 
-  it('accepts a leave reflow preview missing the unvalidated fields', async () => {
+  it('accepts a leave approval preview missing the unvalidated fields', async () => {
     const minimalPreview = {
-      affectedAssignments: leaveReflowPreview.affectedAssignments,
-      conflicts: leaveReflowPreview.conflicts,
-      continuousDutyWarnings: leaveReflowPreview.continuousDutyWarnings,
-      groupDefaultStrategy: leaveReflowPreview.groupDefaultStrategy,
-      leaveRequestId: leaveReflowPreview.leaveRequestId,
-      leaveRequestVersion: leaveReflowPreview.leaveRequestVersion,
-      periodVersions: leaveReflowPreview.periodVersions,
-      rulesVersion: leaveReflowPreview.rulesVersion,
-      statisticsDelta: leaveReflowPreview.statisticsDelta,
-      strategy: leaveReflowPreview.strategy,
-      vacancies: leaveReflowPreview.vacancies,
-      workflowBlockers: leaveReflowPreview.workflowBlockers,
+      affectedAssignments: leaveApprovalPreview.affectedAssignments,
+      leaveRequestId: leaveApprovalPreview.leaveRequestId,
+      leaveRequestVersion: leaveApprovalPreview.leaveRequestVersion,
+      assignmentVersions: {},
+      periodVersions: leaveApprovalPreview.periodVersions,
+      rulesVersion: leaveApprovalPreview.rulesVersion,
+      statisticsDelta: leaveApprovalPreview.statisticsDelta,
+      vacancies: leaveApprovalPreview.vacancies,
+      workflowBlockers: leaveApprovalPreview.workflowBlockers,
     };
     const fetchImplementation = vi
       .fn<typeof fetch>()
@@ -2201,8 +2156,8 @@ describe('Web API client', () => {
     ).resolves.toEqual(minimalPreview);
   });
 
-  it('rejects a leave reflow preview with a non-numeric affected shift count', async () => {
-    const invalidPreview = { ...leaveReflowPreview, affectedShiftCount: '1' };
+  it('rejects a leave approval preview with a non-numeric affected shift count', async () => {
+    const invalidPreview = { ...leaveApprovalPreview, affectedShiftCount: '1' };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
@@ -2219,8 +2174,8 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with non-array affected shifts', async () => {
-    const invalidPreview = { ...leaveReflowPreview, affectedShifts: {} };
+  it('rejects a leave approval preview with non-array affected shifts', async () => {
+    const invalidPreview = { ...leaveApprovalPreview, affectedShifts: {} };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
@@ -2237,8 +2192,8 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with a non-boolean overlaps flag', async () => {
-    const invalidPreview = { ...leaveReflowPreview, overlapsUnpublishedPeriod: 'yes' };
+  it('rejects a leave approval preview with a non-boolean overlaps flag', async () => {
+    const invalidPreview = { ...leaveApprovalPreview, overlapsUnpublishedPeriod: 'yes' };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
@@ -2255,8 +2210,8 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with a non-array conflicts field', async () => {
-    const invalidPreview = { ...leaveReflowPreview, conflicts: {} };
+  it('rejects a leave approval preview with a non-array conflicts field', async () => {
+    const invalidPreview = { ...leaveApprovalPreview, conflicts: {} };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
@@ -2273,8 +2228,8 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with non-numeric period versions', async () => {
-    const invalidPreview = { ...leaveReflowPreview, periodVersions: { 'period-1': 'x' } };
+  it('rejects a leave approval preview with non-numeric period versions', async () => {
+    const invalidPreview = { ...leaveApprovalPreview, periodVersions: { 'period-1': 'x' } };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
@@ -2291,9 +2246,9 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with an empty workflow blocker message', async () => {
+  it('rejects a leave approval preview with an empty workflow blocker message', async () => {
     const invalidPreview = {
-      ...leaveReflowPreview,
+      ...leaveApprovalPreview,
       workflowBlockers: [{ ...leaveWorkflowBlocker, message: '' }],
     };
     const fetchImplementation = vi
@@ -2312,9 +2267,9 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with a malformed affected assignment color', async () => {
+  it('rejects a leave approval preview with a malformed affected assignment color', async () => {
     const invalidPreview = {
-      ...leaveReflowPreview,
+      ...leaveApprovalPreview,
       affectedAssignments: [{ ...leaveAffectedAssignment, shiftTypeColor: 'blue' }],
     };
     const fetchImplementation = vi
@@ -2333,9 +2288,9 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a leave reflow preview with a non-number statistics total', async () => {
+  it('rejects a leave approval preview with a non-number statistics total', async () => {
     const invalidPreview = {
-      ...leaveReflowPreview,
+      ...leaveApprovalPreview,
       statisticsDelta: { ...leaveStatisticsDelta, totalAssignmentDelta: '1' },
     };
     const fetchImplementation = vi
@@ -2354,21 +2309,6 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects group leave reflow strategy with an unknown strategy', async () => {
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify({ strategy: 'manual' }), { status: 200 }));
-    const client = createApiClient({
-      auth: createAuthClient(),
-      fetch: fetchImplementation,
-    });
-
-    await expect(client.getLeaveReflowStrategy(group.id)).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      status: 200,
-    });
-  });
-
   it('rejects an approved leave result with the wrong status', async () => {
     const invalidResult = { ...approvedLeaveResult, status: 'rejected' };
     const fetchImplementation = vi
@@ -2381,6 +2321,7 @@ describe('Web API client', () => {
 
     await expect(
       client.approveLeaveRequest(group.id, leaveRequest.id, {
+        expectedAssignmentVersions: {},
         expectedPeriodVersions: {},
         expectedRulesVersion: 3,
         expectedVersion: 1,
@@ -3679,7 +3620,6 @@ describe('Web API client', () => {
       memberName: '张医生',
       membershipId: 'membership-1',
       reason: '病假',
-      reflowStrategy: 'keep-original-order',
       startsAt: '2026-08-01T00:00:00.000Z',
       status: 'pending',
       version: 1,
@@ -3726,18 +3666,15 @@ describe('Web API client', () => {
       memberName: '张医生',
       membershipId: 'membership-1',
       reason: '病假',
-      reflowStrategy: 'keep-original-order',
       startsAt: '2026-08-01T00:00:00.000Z',
       status: 'approved',
       version: 2,
     } as const;
     const preview = {
       affectedAssignments: [],
-      conflicts: [],
-      continuousDutyWarnings: [],
-      groupDefaultStrategy: 'keep-original-order',
       leaveRequestId: 'leave-1',
       leaveRequestVersion: 1,
+      assignmentVersions: {},
       periodVersions: { 'period-1': 2 },
       rulesVersion: 3,
       statisticsDelta: {
@@ -3746,7 +3683,6 @@ describe('Web API client', () => {
         totalCountedDelta: 0,
         totalWeekendDelta: 0,
       },
-      strategy: 'keep-original-order',
       vacancies: [],
       workflowBlockers: [],
     } as const;
@@ -3755,7 +3691,6 @@ describe('Web API client', () => {
       operationId: 'operation-1',
       preview,
       status: 'approved',
-      strategy: 'keep-original-order',
     } as const;
     const fetchImplementation = vi
       .fn<typeof fetch>()
@@ -3769,6 +3704,7 @@ describe('Web API client', () => {
     const previewed = await client.previewLeaveRequestApproval('group-1', 'leave-1', {});
     expect(previewed.periodVersions).toEqual({ 'period-1': 2 });
     const result = await client.approveLeaveRequest('group-1', 'leave-1', {
+      expectedAssignmentVersions: {},
       expectedPeriodVersions: preview.periodVersions,
       expectedRulesVersion: 3,
       expectedVersion: 1,

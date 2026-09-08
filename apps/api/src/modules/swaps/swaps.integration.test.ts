@@ -1,3 +1,7 @@
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -13,7 +17,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -33,6 +37,8 @@ describeWithDatabase('member shift swaps', () => {
   let client: DatabaseClient;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-31T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -55,6 +61,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -65,7 +72,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('previews a swap pair and completes it after the target accepts manually', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateGroupSettings('owner-token', context.groupId, false);
     await updateMySettings('b-token', context.groupId, false);
 
@@ -162,7 +169,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('previews and completes member and administrator swaps across published months', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateGroupSettings('owner-token', context.groupId, false);
     const rulesVersion = (await getConfig('owner-token', context.groupId)).rulesVersion;
     expect(
@@ -249,7 +256,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('allows swapping today shifts even when they have already started', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const today = getChinaStandardTimeBusinessDate(new Date());
     await client.database
       .update(shiftAssignments)
@@ -277,7 +284,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('rejects swapping shifts on a past day', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const yesterday = getChinaStandardTimeBusinessDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
     await client.database
       .update(shiftAssignments)
@@ -306,7 +313,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('completes immediately when the target auto-accepts and the group does not require approval', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     expect((await updateGroupSettings('owner-token', context.groupId, false)).statusCode).toBe(200);
     expect((await updateMySettings('b-token', context.groupId, true)).statusCode).toBe(200);
 
@@ -373,7 +380,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('treats a target who never set the preference as auto-accepting', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     expect((await getMySettings('b-token', context.groupId)).json()).toEqual({
       autoAcceptSwaps: true,
     });
@@ -403,7 +410,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('does not let automatic acceptance bypass administrator approval', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, true);
     await updateGroupSettings('owner-token', context.groupId, true);
     expect((await getGroupSettings('b-token', context.groupId)).json()).toEqual({
@@ -447,7 +454,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('lets an owner directly swap any two members without approval or consent', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
 
     const previewResponse = await previewSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -505,7 +512,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('lets admins and parties revoke completed swaps in reverse order only', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -594,7 +601,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('revokes a completed swap without a reason and restores both shifts', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -616,7 +623,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('blocks revoking a completed swap whose shifts are already past', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -658,7 +665,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('keeps archived assignment snapshots readable in approval history', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const created = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -680,7 +687,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('revokes active swaps when an archived schedule version is republished', async () => {
-    const archivedContext = await seedPublishedRotation();
+    const archivedContext = await seedPublishedSchedule();
     const rulesVersion = (await getConfig('owner-token', archivedContext.groupId)).rulesVersion;
     expect(
       (await generatePublished(archivedContext.groupId, archivedContext.roleId, rulesVersion))
@@ -795,7 +802,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('lets only one active swap request use the same shift', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, false);
     const first = await createSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -829,7 +836,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('allows swap creation after a completed duty adjustment and preserves the duty relation', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const duty = await createDirectDuty('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -873,7 +880,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('surfaces pending swap requests in swap preview', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, false);
     const first = await createSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -898,7 +905,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('blocks swap creation while a duty adjustment is still pending', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, false);
     const duty = await createDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -931,7 +938,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('blocks swap creation while the receiving member has a pending leave', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leave = await submitLeave('c-token', context.groupId, {
       endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
@@ -952,7 +959,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('enforces reverse-order revocation across swap and duty chains', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const swap = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -993,7 +1000,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('requires swap revocation before revoking an earlier duty adjustment', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const duty = await createDirectDuty('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1035,7 +1042,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('blocks revoking an earlier swap while a later swap still exists', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1076,7 +1083,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('locks stale completed swaps as non-revocable with lingering markers', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const swap = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1117,7 +1124,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('detects stale completed swaps as archiveable candidates', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const swap = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1148,7 +1155,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('keeps earlier chain swaps out of detection while a later swap exists', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1182,7 +1189,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('archives a stale completed swap with a revocation event without touching actual members', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const swap = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1267,7 +1274,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('archives the whole stale swap chain in one run and stays idempotent', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const first = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1320,7 +1327,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('auto-archives a stale completed swap when a later pending swap is cancelled', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const completed = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1369,7 +1376,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('startup sweep archives stale completed workflows across all groups and stays idempotent', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const swap = await directSwap('owner-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -1398,7 +1405,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('invalidates the swap when either assignment version changes', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, false);
     const created = (
       await createSwap('a-token', context.groupId, {
@@ -1433,7 +1440,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('blocks swaps when the receiving member is no longer in the role', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await replaceRoleMembers(context.groupId, context.roleId, [
       context.membershipIds.a,
       context.membershipIds.c,
@@ -1458,7 +1465,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('blocks swaps when the receiving member has approved leave overlap', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const leaveRequestId = (
       await submitLeave('b-token', context.groupId, {
         endsAt: '2026-09-02T00:00:00.000Z',
@@ -1470,11 +1477,16 @@ describeWithDatabase('member shift swaps', () => {
     ).json() as { id: string };
     const leavePreview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId.id)
-    ).json() as { periodVersions: Record<string, number>; rulesVersion: number };
+    ).json() as {
+      periodVersions: Record<string, number>;
+      assignmentVersions: Record<string, number>;
+      rulesVersion: number;
+    };
     expect(
       (
         await approveLeave('owner-token', context.groupId, leaveRequestId.id, {
           expectedPeriodVersions: leavePreview.periodVersions,
+          expectedAssignmentVersions: leavePreview.assignmentVersions,
           expectedRulesVersion: leavePreview.rulesVersion,
           expectedVersion: 1,
           operationId: randomUUID(),
@@ -1501,7 +1513,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('rejects and cancels pending swaps without touching actual members', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     await updateMySettings('b-token', context.groupId, false);
     await updateMySettings('c-token', context.groupId, false);
     const first = (
@@ -1543,7 +1555,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('replays the same create operation id without duplicates', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     const operationId = randomUUID();
     const body = {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -1569,7 +1581,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   it('restricts swap permissions and exposes settings', async () => {
-    const context = await seedPublishedRotation();
+    const context = await seedPublishedSchedule();
     expect(
       (
         await previewSwap('outsider-token', context.groupId, {
@@ -1633,7 +1645,7 @@ describeWithDatabase('member shift swaps', () => {
     });
   });
 
-  async function seedPublishedRotation(): Promise<Context> {
+  async function seedPublishedSchedule(): Promise<Context> {
     const groupId = await createGroup('Swap group', '5678');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
@@ -1668,7 +1680,7 @@ describeWithDatabase('member shift swaps', () => {
       (member) => member.realName === 'A Doctor',
     )?.id;
     expect(startingMemberScheduleRoleId).toBeDefined();
-    await updateRotationRule(groupId, roleId, {
+    await configureFixturePattern(groupId, roleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -1969,6 +1981,7 @@ describeWithDatabase('member shift swaps', () => {
     leaveRequestId: string,
     body: {
       readonly expectedPeriodVersions: Readonly<Record<string, number>>;
+      readonly expectedAssignmentVersions: Readonly<Record<string, number>>;
       readonly expectedRulesVersion: number;
       readonly expectedVersion: number;
       readonly operationId: string;
@@ -2042,9 +2055,8 @@ describeWithDatabase('member shift swaps', () => {
     rulesVersion: number,
     businessMonth = '2026-09',
   ) {
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth,
         operationId: randomUUID(),
@@ -2052,7 +2064,6 @@ describeWithDatabase('member shift swaps', () => {
         rulesVersion,
         scheduleRoleIds: [roleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
   }
 
@@ -2160,13 +2171,12 @@ describeWithDatabase('member shift swaps', () => {
   ): Promise<void> {
     const config = await getConfig('owner-token', groupId);
     const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
         operationId: randomUUID(),
@@ -2177,7 +2187,7 @@ describeWithDatabase('member shift swaps', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     groupId: string,
     roleId: string,
     payload: {
@@ -2188,23 +2198,7 @@ describeWithDatabase('member shift swaps', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
-    const config = await getConfig('owner-token', groupId);
-    const role = config.roles.find((item) => item.id === roleId) as
-      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...payload,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-        operationId: randomUUID(),
-      },
-      url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, groupId, roleId, payload);
   }
 });
 

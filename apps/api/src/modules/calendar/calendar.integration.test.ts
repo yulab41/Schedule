@@ -1,11 +1,13 @@
+import {
+  createScheduleFixture,
+  configureScheduleFixture,
+  type FixtureScheduleResult,
+} from '../../test-support/schedule-fixture.js';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import type {
-  CalendarDutyAssignment,
-  CalendarReadModel,
-  SavedScheduleGeneration,
-} from '@schedule/contracts';
+import type { CalendarDutyAssignment, CalendarReadModel } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   leaveRequests,
@@ -91,7 +93,7 @@ describeWithDatabase('current month calendar read model', () => {
     const role = (await getConfig('owner-token', groupId)).roles.find(
       (candidate) => candidate.id === primaryRoleId,
     );
-    await updateRotationRule(groupId, primaryRoleId, {
+    await configureFixturePattern(groupId, primaryRoleId, {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
@@ -109,6 +111,28 @@ describeWithDatabase('current month calendar read model', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('audits historic backfill differences without calling them ghost assignments', async () => {
+    const published = await savePublished('2026-08');
+    expect(published.statusCode, published.body).toBe(200);
+    const auditSql = await readFile(
+      new URL('../../../../../scripts/audit-calendar-changes.sql', import.meta.url),
+      'utf8',
+    );
+    expect((await client.database.execute(sql.raw(auditSql)))[0]).toEqual([]);
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET planned_membership_id=NULL, planned_member_name=NULL, actual_membership_id=${ownerMembershipId}, actual_member_name='Synthetic member', backfill_at='2026-08-01 00:00:00', starts_at=starts_at WHERE business_date='2026-08-08'`,
+    );
+    const [rows] = await client.database.execute(sql.raw(auditSql));
+    const results = rows as unknown as readonly Record<string, unknown>[];
+    expect(results).toHaveLength(1);
+    const result = results[0] ?? {};
+    expect(Number(result.difference_without_timeline)).toBe(1);
+    expect(Number(result.difference_with_backfill)).toBe(1);
+    expect(Number(result.actual_only_snapshot)).toBe(1);
+    expect(Number(result.unexplained_snapshot_difference)).toBe(0);
+    expect(Object.keys(result).some((key) => /name|phone|membership/i.test(key))).toBe(false);
   });
 
   it('returns the published month with duty names, roles, shift types, and no markers', async () => {
@@ -195,7 +219,7 @@ describeWithDatabase('current month calendar read model', () => {
 
   it('excludes drafts and replaced revisions from the calendar', async () => {
     const draft = await saveDraft('2026-09');
-    expect((draft.json() as SavedScheduleGeneration).periods[0]).toMatchObject({
+    expect((draft.json() as FixtureScheduleResult).periods[0]).toMatchObject({
       status: 'draft',
     });
     const emptyMonth = await readCalendar('owner-token', '2026-09');
@@ -210,8 +234,8 @@ describeWithDatabase('current month calendar read model', () => {
     const first = await savePublished('2026-08');
     vi.setSystemTime(new Date('2026-08-02T00:00:00.000Z'));
     const second = await savePublished('2026-08');
-    const firstPeriodId = (first.json() as SavedScheduleGeneration).periods[0]?.id as string;
-    const latestPeriodId = (second.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const firstPeriodId = (first.json() as FixtureScheduleResult).periods[0]?.id as string;
+    const latestPeriodId = (second.json() as FixtureScheduleResult).periods[0]?.id as string;
     expect(firstPeriodId).not.toBe(latestPeriodId);
 
     const calendar = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
@@ -429,7 +453,7 @@ describeWithDatabase('current month calendar read model', () => {
 
   it('hides workflow change markers from guests even when events exist', async () => {
     const saved = await savePublished('2026-08');
-    const periodId = (saved.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const periodId = (saved.json() as FixtureScheduleResult).periods[0]?.id as string;
     const [assignmentRow] = await client.database
       .select({ id: shiftAssignments.id })
       .from(shiftAssignments)
@@ -520,7 +544,7 @@ describeWithDatabase('current month calendar read model', () => {
   it('reads the exact archived publication version as a calendar', async () => {
     const first = await savePublished('2026-08');
     await savePublished('2026-08');
-    const archivedPeriodId = (first.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const archivedPeriodId = (first.json() as FixtureScheduleResult).periods[0]?.id as string;
 
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -541,7 +565,7 @@ describeWithDatabase('current month calendar read model', () => {
 
   it('marks assignments affected by workflow events', async () => {
     const saved = await savePublished('2026-08');
-    const periodId = (saved.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const periodId = (saved.json() as FixtureScheduleResult).periods[0]?.id as string;
     const [assignmentRow] = await client.database
       .select({ id: shiftAssignments.id })
       .from(shiftAssignments)
@@ -596,7 +620,7 @@ describeWithDatabase('current month calendar read model', () => {
 
   it('does not keep a leave-cover marker after its leave request is cancelled', async () => {
     const saved = await savePublished('2026-08');
-    const periodId = (saved.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const periodId = (saved.json() as FixtureScheduleResult).periods[0]?.id as string;
     const [assignmentRow] = await client.database
       .select({ id: shiftAssignments.id })
       .from(shiftAssignments)
@@ -740,7 +764,6 @@ describeWithDatabase('current month calendar read model', () => {
       method: 'PUT',
       payload: {
         expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
         expectedRulesVersion: config.rulesVersion,
         membershipIds,
       },
@@ -750,7 +773,7 @@ describeWithDatabase('current month calendar read model', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function updateRotationRule(
+  async function configureFixturePattern(
     targetGroupId: string,
     roleId: string,
     body: {
@@ -761,28 +784,13 @@ describeWithDatabase('current month calendar read model', () => {
       readonly startingMemberScheduleRoleId: string | null;
     },
   ): Promise<void> {
-    const config = await getConfig('owner-token', targetGroupId);
-    const role = config.roles.find((item) => item.id === roleId);
-    const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'PUT',
-      payload: {
-        ...body,
-        expectedRoleVersion: role?.version,
-        expectedRotationRuleVersion: role?.rotationRule.version,
-        expectedRulesVersion: config.rulesVersion,
-      },
-      url: `/groups/${targetGroupId}/schedule-roles/${roleId}/rotation-rule`,
-    });
-
-    expect(response.statusCode).toBe(200);
+    await configureScheduleFixture(client, targetGroupId, roleId, body);
   }
 
   async function savePublished(businessMonth: string) {
     const config = await getConfig('owner-token', groupId);
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth,
         operationId: randomUUID(),
@@ -790,22 +798,19 @@ describeWithDatabase('current month calendar read model', () => {
         rulesVersion: config.rulesVersion,
         scheduleRoleIds: [primaryRoleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
   }
 
   async function saveDraft(businessMonth: string) {
     const config = await getConfig('owner-token', groupId);
-    return app.inject({
+    return createScheduleFixture(app, client, {
       headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
       payload: {
         businessMonth,
         operationId: randomUUID(),
         rulesVersion: config.rulesVersion,
         scheduleRoleIds: [primaryRoleId],
       },
-      url: `/groups/${groupId}/schedules/generate`,
     });
   }
 
@@ -872,7 +877,6 @@ interface SchedulingConfigResponse {
   readonly roles: readonly {
     readonly id: string;
     readonly members: readonly { readonly id: string; readonly realName: string }[];
-    readonly rotationRule: { readonly version: number };
     readonly version: number;
   }[];
   readonly rulesVersion: number;

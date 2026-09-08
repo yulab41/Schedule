@@ -11,18 +11,6 @@ export {
   type TimeIntervalInput,
 } from './leave/overlap.js';
 export {
-  reflowLeaveAssignments,
-  type LeaveReflowInput,
-  type LeaveReflowInterval,
-  type LeaveReflowResult,
-  type LeaveReflowStrategy,
-  type ReflowAssignment,
-  type ReflowConflict,
-  type ReflowMember,
-  type ReflowRotationRule,
-  type ReflowVacancy,
-} from './leave/reflow.js';
-export {
   assertSchedulePeriodTransition,
   canTransitionSchedulePeriod,
   schedulePeriodStatuses,
@@ -53,30 +41,7 @@ export {
   type StatisticsMemberNameInput,
   type StatisticsWorkflowCountInput,
 } from './statistics/calculate.js';
-export { findContinuousDutyWarnings, findRotationHardConflicts } from './conflicts.js';
-export {
-  assertBusinessDate,
-  assertRotationRule,
-  findEligibleRotationMember,
-  getBusinessDates,
-  getRotationCursor,
-  isRotationMemberEligible,
-} from './rotation/cursor.js';
-export { createRotationBusinessKey, generateRotation } from './rotation/generate.js';
-export type {
-  ContinuousDutyWarning,
-  GeneratedRotationAssignment,
-  RotationCursor,
-  RotationCursorInput,
-  RotationGenerationInput,
-  RotationGenerationResult,
-  RotationHardConflict,
-  RotationLeaveInterval,
-  RotationMember,
-  RotationRule,
-  RotationShiftType,
-  RotationVacancy,
-} from './rotation/types.js';
+export { findContinuousDutyWarnings, findScheduleHardConflicts } from './conflicts.js';
 export {
   applyManualTemplate,
   createManualAssignmentBusinessKey,
@@ -93,3 +58,12 @@ export {
 export function createDomainSummary(): string {
   return `${workspaceName} domain is ready.`;
 }
+
+export { assertBusinessDate, getBusinessDates } from './business-dates.js';
+export { createAssignmentBusinessKey } from './assignment-key.js';
+export type {
+  ScheduleAssignmentSnapshot,
+  ScheduleHardConflict,
+  ContinuousDutyWarning,
+  ScheduleVacancy,
+} from './assignment-types.js';

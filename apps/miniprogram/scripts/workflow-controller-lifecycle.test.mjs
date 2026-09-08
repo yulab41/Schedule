@@ -290,7 +290,7 @@ describe('workflow controller lifecycle generation', () => {
   });
 
   it.each([
-    { asyncFunctions: 8, awaits: 23, controller: 'workflow-leave-panel' },
+    { asyncFunctions: 7, awaits: 22, controller: 'workflow-leave-panel' },
     // Settings writes/reconciliation use settings-intent, whose lifecycle has behavioral coverage.
     { asyncFunctions: 10, awaits: 32, controller: 'workflow-swap-panel' },
     { asyncFunctions: 10, awaits: 32, controller: 'workflow-duty-panel' },

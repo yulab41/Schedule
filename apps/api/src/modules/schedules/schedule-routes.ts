@@ -1,9 +1,7 @@
 import type {
-  GenerateSchedulePreviewRequest,
   PublishSchedulePeriodBatchRequest,
   PublishSchedulePeriodRequest,
   SchedulePeriodMutationRequest,
-  SaveGeneratedScheduleRequest,
   UpdateGroupSchedulePublishModeRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -11,37 +9,13 @@ import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
 import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
-import { ScheduleGenerateService } from './generate-service.js';
+import { SchedulePublishModeService } from './publish-mode-service.js';
 import { SchedulePublishService } from './publish-service.js';
 
 const groupIdSchema = z.string().uuid();
 const schedulePeriodIdSchema = z.string().uuid();
 const operationIdSchema = z.string().uuid();
-const businessMonthSchema = z.string().regex(/^\d{4}-\d{2}$/);
-const rulesVersionSchema = z.number().int().min(1);
-const scheduleRoleIdsSchema = z.array(z.string().uuid()).min(1).max(50);
 const publishModeSchema = z.enum(['draft', 'published']);
-
-const generatePreviewInputSchema = z
-  .object({
-    businessMonth: businessMonthSchema,
-    publishMode: publishModeSchema.optional(),
-    rulesVersion: rulesVersionSchema,
-    scheduleRoleIds: scheduleRoleIdsSchema,
-  })
-  .strict();
-
-const saveGeneratedInputSchema = z
-  .object({
-    acknowledgeBlockers: z.boolean().optional(),
-    acknowledgeWorkflowRevocations: z.boolean().optional(),
-    businessMonth: businessMonthSchema,
-    operationId: operationIdSchema,
-    publishMode: publishModeSchema.optional(),
-    rulesVersion: rulesVersionSchema,
-    scheduleRoleIds: scheduleRoleIdsSchema,
-  })
-  .strict();
 
 const publishPeriodInputSchema = z
   .object({
@@ -71,7 +45,7 @@ const updatePublishModeInputSchema = z
 
 export function registerScheduleRoutes(
   app: FastifyInstance,
-  generateService: ScheduleGenerateService,
+  publishModeService: SchedulePublishModeService,
   publishService: SchedulePublishService,
 ): void {
   app.get('/groups/:groupId/schedule-periods', { preHandler: app.authenticate }, (request) =>
@@ -86,26 +60,15 @@ export function registerScheduleRoutes(
   );
 
   app.get('/groups/:groupId/schedule-publish-mode', { preHandler: app.authenticate }, (request) =>
-    generateService.getPublishMode(getAuthenticatedIdentity(request), parseGroupId(request)),
+    publishModeService.getPublishMode(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
   app.put('/groups/:groupId/schedule-publish-mode', { preHandler: app.authenticate }, (request) =>
-    generateService.updatePublishMode(
+    publishModeService.updatePublishMode(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseUpdatePublishModeInput(request.body),
     ),
-  );
-
-  app.post(
-    '/groups/:groupId/schedules/generate-preview',
-    { preHandler: app.authenticate },
-    (request) =>
-      generateService.preview(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseGeneratePreviewInput(request.body),
-      ),
   );
 
   app.get(
@@ -130,14 +93,6 @@ export function registerScheduleRoutes(
         parseSchedulePeriodId(request),
         parsePeriodMutationInput(request),
       ),
-  );
-
-  app.post('/groups/:groupId/schedules/generate', { preHandler: app.authenticate }, (request) =>
-    generateService.save(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      parseSaveGeneratedInput(request.body),
-    ),
   );
 
   app.get(
@@ -208,33 +163,6 @@ function parseSchedulePeriodId(request: FastifyRequest): string {
     schedulePeriodIdSchema,
     (request.params as { schedulePeriodId?: unknown }).schedulePeriodId,
   );
-}
-
-function parseGeneratePreviewInput(value: unknown): GenerateSchedulePreviewRequest {
-  const input = parseOrThrow(generatePreviewInputSchema, value);
-  return {
-    businessMonth: input.businessMonth,
-    rulesVersion: input.rulesVersion,
-    scheduleRoleIds: input.scheduleRoleIds,
-    ...(input.publishMode === undefined ? {} : { publishMode: input.publishMode }),
-  };
-}
-
-function parseSaveGeneratedInput(value: unknown): SaveGeneratedScheduleRequest {
-  const input = parseOrThrow(saveGeneratedInputSchema, value);
-  return {
-    ...(input.acknowledgeBlockers === undefined
-      ? {}
-      : { acknowledgeBlockers: input.acknowledgeBlockers }),
-    ...(input.acknowledgeWorkflowRevocations === undefined
-      ? {}
-      : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
-    businessMonth: input.businessMonth,
-    operationId: input.operationId,
-    ...(input.publishMode === undefined ? {} : { publishMode: input.publishMode }),
-    rulesVersion: input.rulesVersion,
-    scheduleRoleIds: input.scheduleRoleIds,
-  };
 }
 
 function parsePublishPeriodInput(request: FastifyRequest): PublishSchedulePeriodRequest {
