@@ -188,6 +188,7 @@ function createStorage() {
     [
       'schedule.wechat.session',
       {
+        clientVersion: 'test',
         expiresAt: new Date(Date.now() + 30 * DAY).toISOString(),
         profile: { id: 'user-1', realName: '林医生', version: 1 },
         token: 'test-token',

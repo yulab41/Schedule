@@ -42,6 +42,8 @@ import {
   writeWorkbenchCache,
 } from '../../platform/workbench-read.js';
 import {
+  awaitWechatSessionRecovery,
+  getIdentityErrorMessage,
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
@@ -1246,6 +1248,18 @@ async function loadWorkbench(
   recordWorkspaceRequest(page, 'calendar');
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
+  try {
+    await awaitWechatSessionRecovery();
+    if (!page.isVisible || page.requestSerial !== requestSerial) return;
+  } catch (error) {
+    if (page.isVisible && page.requestSerial === requestSerial)
+      page.setData({
+        canReLogin: false,
+        state: 'error',
+        errorMessage: getIdentityErrorMessage(error),
+      });
+    return;
+  }
   const ownerId = getStoredWechatProfile()?.id;
   if (page.requestOwnerId !== ownerId) {
     page.calendar = undefined;

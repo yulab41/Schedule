@@ -4,19 +4,15 @@
 
 ## 本地生成 release
 
-服务器不负责安装依赖或编译。Windows 本地发布固定复用项目内 `runtime/release-worktree` 的隔离 detached worktree；普通 release 任务只允许复用已经健康的项目内依赖，依赖指纹不匹配时必须停止并转入明确的 DependencyMaintenance 通道，不能在 release helper 或新对话中自行安装。获授权的维护通道才可针对精确 lockfile 使用离线、项目内 store 的 `scripts/codex/dependency-maintenance.ps1`，并在成功后重新建立指纹；后续切换 commit 时保留该目录的 `node_modules`。项目相关 worktree、release、smoke、日志和临时打包目录禁止写到项目目录之外；凭据/私钥仍必须保留在仓库外受控目录：
+服务器不负责安装依赖或编译。Windows本地使用官方池工具Acquire取得独占健康的runtime/wt槽位，再执行ReuseOnly、bootstrap和定向检查；不得创建或接管已退役的runtime/release-worktree，也不得因新任务或SHA变化安装依赖。
 
-```powershell
-node scripts/prepare-release-worktree.mjs --commit HEAD
-Set-Location .\runtime\release-worktree
+源码与验证完成后，按仓库release-candidate规则冻结已持有的干净槽位。结合Mini上传时使用实际租约和任务ID：
+
+```text
+node scripts/prepare-release-worktree.mjs --path <leased-slot> --commit <full-sha> --lease-token <token> --run-id <lease-taskId> --purpose upload
 ```
 
-直接使用 Node 入口可以避免开发工作区尚未提交的 pnpm 配置触发包管理器自身的依赖预检；`pnpm release:worktree -- --commit HEAD` 是工作区配置已经稳定时的等价别名。
-
-脚本只接管 Git 已登记、detached、状态干净的专用 worktree。目标目录若含用户分支、未提交/未忽略文件，或只是同名普通目录，会失败关闭且绝不删除、清理或覆盖。依赖指纹保存在该 worktree 自己的 Git 元数据目录，不污染 release 源码状态。不要每轮删除这个目录，也不要在其中进行开发。
-
-安装保持仓库 `allowBuilds` 白名单：已批准的 `esbuild` 脚本照常执行，未批准的转依赖脚本继续被阻止；发布 helper 只把 pnpm 的 `strictDepBuilds` 从“未审脚本即非零退出”调整为警告，不会放行这些脚本，也不会使用 `dangerouslyAllowAllBuilds`。
-pnpm 11 会把未审包自动追加为 `set this to true or false` 占位值；helper 只在确认安装后的唯一差异正是这些占位行时恢复安装前原文，出现任何其他 workspace 变化都会失败关闭。
+helper不创建工作树、不安装、不强制checkout，也不接管其他任务。产物、日志和缓存留在项目ignored runtime内；凭据与私钥留在仓库外。打包属于本地候选操作，生产连接/备份/迁移/部署及Mini上传仍分别遵守当次授权。
 
 完成本地验证后，在上述发布 worktree 根目录执行：
 
@@ -109,6 +105,7 @@ sudo schedule-client-version-allowlist verify
 微信网站应用相关变量可以留空，直到将来确实取得网站应用：
 
 ```dotenv
+
 ```
 
 ## 正式入口核验

@@ -159,7 +159,10 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('avatar_checks');
     expect(verifySource).toContain('avatar_cascade_fk');
     expect(verifySource).toContain('invalid_avatar_rows');
-    expect(verifySource).toContain('"54" ] && [ "$latest_backup_table_count" != "55"');
+    expect(verifySource).toContain(
+      'is_valid_backup_table_count "$CURRENT_DATABASE_SCHEMA" "$latest_backup_table_count"',
+    );
+    expect(verifySource).toContain('[ "$tables" = "54" ] || [ "$tables" = "55" ]');
   });
 
   it('verifies the exact schema 53 directory candidate index definition', () => {

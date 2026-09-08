@@ -113,7 +113,7 @@ function hasValidClientVersionConfiguration(environment: {
   const supported = environment.MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS;
   const legacy = environment.MINIPROGRAM_LEGACY_CLIENT_VERSION;
   if (supported.length === 0) return legacy === undefined;
-  return legacy !== undefined && supported.includes(legacy);
+  return legacy !== undefined;
 }
 
 export const environmentSchema = z
@@ -150,7 +150,7 @@ export const environmentSchema = z
   })
   .refine(hasValidClientVersionConfiguration, {
     message:
-      'MINIPROGRAM_LEGACY_CLIENT_VERSION must be included in MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS, or both must be empty',
+      'MINIPROGRAM_LEGACY_CLIENT_VERSION must identify legacy clients when supported versions are configured, or both must be empty',
     path: ['MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS'],
   })
   .refine(hasValidProductionPasswordConfiguration, {
@@ -181,7 +181,7 @@ const testEnvironmentSchema = z
   })
   .refine(hasValidClientVersionConfiguration, {
     message:
-      'MINIPROGRAM_LEGACY_CLIENT_VERSION must be included in MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS, or both must be empty',
+      'MINIPROGRAM_LEGACY_CLIENT_VERSION must identify legacy clients when supported versions are configured, or both must be empty',
     path: ['MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS'],
   });
 

@@ -60,10 +60,6 @@ validate_client_version_configuration() {
   local legacy="$2"
   is_valid_client_version "$legacy" || return 1
   is_valid_client_version_list "$supported" || return 1
-  case ",$supported," in
-    *",$legacy,"*) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 validate_environment_file_security() {
@@ -115,9 +111,9 @@ wait_for_health() {
   fail "API 健康检查超时。"
 }
 
-probe_effective_capabilities() {
+probe_capability_version() {
   local version response global core workflows organization insights external_messages guest
-  version="$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
+  version="$1"
   global="$(env_value MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED)"
   core="$(env_value MINIPROGRAM_CAPABILITY_CORE_ENABLED)"
   workflows="$(env_value MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED)"
@@ -157,6 +153,29 @@ probe_effective_capabilities() {
     });
   ' "$version" "$global" "$core" "$workflows" "$organization" "$insights" \
     "$external_messages" "$guest"
+}
+
+probe_rejected_client_version() {
+  local status
+  status="$(curl -sS --max-time 5 --get -o /dev/null -w '%{http_code}' \
+    --resolve "${DOMAIN}:443:127.0.0.1" --data-urlencode 'platform=miniprogram' \
+    --data-urlencode "version=$1" "https://${DOMAIN}/api/client-capabilities" || true)"
+  [ "$status" = "426" ] || { echo "[capability] 停用/未知版本拒绝检查失败（HTTP ${status:-000}）。" >&2; return 1; }
+}
+
+probe_effective_capabilities() {
+  local supported legacy version unknown suffix=0
+  supported="$(env_value MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS)"
+  legacy="$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
+  local -a versions=()
+  IFS=',' read -r -a versions <<< "$supported"
+  for version in "${versions[@]}"; do probe_capability_version "$version" || return 1; done
+  case ",$supported," in *",$legacy,"*) ;; *) probe_rejected_client_version "$legacy" || return 1 ;; esac
+  while true; do
+    unknown="0.0.0-unsupported.$(date +%s).$$.${suffix}"
+    case ",$supported," in *",$unknown,"*) suffix=$((suffix + 1)) ;; *) break ;; esac
+  done
+  probe_rejected_client_version "$unknown"
 }
 
 recreate_and_probe() {

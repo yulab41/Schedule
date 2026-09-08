@@ -11,6 +11,7 @@ import {
   type ClientCapabilityStore,
 } from '../app/client-capability-store.js';
 import { buildInfo } from './build-info.js';
+import { requestClientUpdate } from './client-update-request.js';
 import { runtimeConfig } from './runtime-config.js';
 import {
   executeWxJsonRequest,
@@ -45,6 +46,7 @@ const capabilityTransport: ClientTransport = {
 export function createRuntimeClientCapabilityStore(): ClientCapabilityStore {
   const client = createClientCapabilityClient(capabilityTransport);
   return createClientCapabilityStore({
+    onUnsupported: requestClientUpdate,
     platform: 'miniprogram',
     read: () => client.get('miniprogram', buildInfo.buildVersion),
     version: buildInfo.buildVersion,

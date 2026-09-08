@@ -1,17 +1,14 @@
 # Project Status
 
-## 当前批次：feedback6 轮转移除已实现，待最终集成
+## 当前批次：feedback6 本地实现与验收完成，待发布授权
 
-- 轮转单元已实现完整前后端/领域/表删除及请假清空与受控恢复；本地检查点标识 `feat(scheduling): retire automatic rotation and guard leave restoration`。0056前向不兼容，不能只回滚旧API。全日期只读聚合结论见docs/audit/feedback6-data-audit.md；边界、验证与失败证据见docs/audit/feedback6-rotation.md。未push/mainmerge/deploy/upload。
-- 轮转最终pnpm verify完整通过：Mini946、root1178（400数据库条件skip），另schema56真实MySQL分批回归、原浏览器smoke、Mini verify和smoke:check-core通过。当前production包5064615字节；API/Web已停止，general-1保持租约交根review。自动化已完成，原生/真机待用户复核。
-- 账号单元已完成自动化与浏览器验证，检查点`feat(accounts): manage profiles and synchronize account phone numbers`；详情docs/audit/feedback6-accounts.md。统一手机号/姓名/密码管理、0055迁移、合并/占位联动已实现，最新真实MySQL49、共享7、Mini25及verify/包审通过；未部署或上传。
-- 浏览器触摸门禁独立提交5e420f2c，500ms内轮询原反馈条件，正式smoke全流程通过，见docs/audit/feedback6-smoke.md。
-
-- 用户已批准日历08:00换日、统一账号手机号、手动排班与补录改版、删除自动轮转（请假批准清空冲突班次）及通讯录首搜排查，完整边界见 docs/audit/feedback6.md。
-- 基线main=4027d0fd，保留a6586326微信换绑修复；独占general-1，DEPENDENCY_MODE=REUSE_ONLY，无安装。其他agent先只读并行审查，未共用可写依赖。
-- 第一检查点完成日历日期/颜色/布局、手排日期/失效修复、补录改版、补录事件修复和readiness等待优化；标识fix(scheduling): align duty dates and compact backfill editing。真实MySQL36、Mini及root定向、构建/类型/lint/包体通过；全量旧断言失败与修正证据详见feedback6.md，未声称一次全量verify通过。
-- 运行/浏览器验证：pnpm smoke:browser 原脚本在本槽位API/Web完整通过；390/320大字号桌面代理通过，不等于真机验收。没有本轮部署、上传或生产数据写入。
-- 唯一下一任务：根review轮转本地检查点，接管独占槽完成schema56失败保护、版本allowlist替换、旧会话迁移与426升级提示，再做最终候选门禁；以根review与交接为本单元停止条件。生产无确证测试账号，未删除；真机首搜尚未测量。
+- 十一项整改结果见docs/audit/feedback6-result.md；详细设计/失败证据分别见feedback6、feedback6-accounts、feedback6-rotation、feedback6-data-audit、feedback6-upgrade报告。自动化已完成，原生/小米14及新版首搜仍待用户复核。
+- main已包含528722f4（日历/补录）、5e420f2c（触摸验证）、98aa0910（账号）、057af270（轮转退役）。最终检查点标识：fix(upgrade): protect sessions and rotation schema transitions。最终pnpm verify完整通过：Mini971、root1208；数据库条件skip不冒充执行，真实MySQL已按变更分批验证。
+- 运行/浏览器验证：pnpm smoke:browser对应原脚本经本地内存适配完整通过，无浏览器错误，临时管理员标记恢复。Mini包审总包5118171字节、主包1749532，Worklet2/2；原生更新、08:00前后台切换和首搜性能仍无同版本真机证明。
+- 9月8日生产只读审计：3721班次/138事件，无悬空引用；22条无单格事件差异均有旧补录时间。35账号中11无用户名，无确证测试账号，未删除。本轮无生产备份、部署、数据写入或体验上传。
+- schema56前向不兼容，必须有备份后迁移；失败后禁止启动旧API，身份不一致禁止普通重试覆盖恢复材料。新版可用后使用精确版本名单停用旧Mini；新微信凭证先迁移，同账号保留偏好，密码仍哈希。
+- 全程独占general-1、DEPENDENCY_MODE=REUSE_ONLY，无安装；其他agent只读review，未共用可写依赖。当前池租约/进程事实以ignored runtime状态为准。
+- 唯一下一任务：取得具体已验证SHA的当次体验上传、生产部署与旧版本停用授权后，重新读取live、冻结候选并按runbook备份/发布/验证，再请用户做小米14验收；以本地检查点review/push和提交发布确认作为当前停止条件。
 
 ## 上一交付：微信换绑修复
 

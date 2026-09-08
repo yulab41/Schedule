@@ -16,10 +16,22 @@ MIGRATION_CONTAINER_NAME="medical-schedule-prod-api-migrate"
 DEPLOY_MUTATION_STARTED="false"
 NEXT_CURRENT_RELEASE=""
 MIGRATION_LOG_PATH=""
+MIGRATION_STARTED="false"
+PREVIOUS_DATABASE_SCHEMA_MAX=""
 
 fail() {
   echo "[deploy] 错误：$*" >&2
   return 1
+}
+
+validate_previous_release_identity() {
+  local manifest="$DEPLOY_DIR/deploy-manifest.json" marker="$DEPLOY_DIR/current-release" declared live
+  if [ ! -e "$manifest" ] && [ ! -e "$marker" ]; then return 0; fi
+  [ -f "$manifest" ] && [ -f "$marker" ] || fail "上一发布身份不完整；禁止覆盖恢复材料。"
+  declared="$(sed -nE 's/.*"releaseId"[[:space:]]*:[[:space:]]*"([0-9a-f]{40})".*/\1/p' "$manifest" | head -1)"
+  live="$(cat "$marker")"
+  [[ "$live" =~ ^[0-9a-f]{40}$ ]] && [ "$declared" = "$live" ] ||
+    fail "上一发布 manifest 与 current-release 不一致；可能有未完成迁移，禁止普通重试覆盖备份。"
 }
 
 manifest_value() {
@@ -78,10 +90,6 @@ validate_client_version_configuration() {
   local legacy="$2"
   is_valid_client_version "$legacy" || return 1
   is_valid_client_version_list "$supported" || return 1
-  case ",$supported," in
-    *",$legacy,"*) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 validate_miniprogram_capability_config() {
@@ -224,6 +232,7 @@ else
 fi
 
 cd "$DEPLOY_DIR"
+validate_previous_release_identity
 if [ -f infra/docker/compose.prod.icp-test.yml ]; then
   echo "[deploy] 清理已停用的 ICP 测试 Compose override" >&2
   rm -f infra/docker/compose.prod.icp-test.yml
@@ -313,6 +322,9 @@ ACTUAL_FLAT_SHA="$(sha256sum "$FLAT_TAR" | awk '{print $1}')"
 RELEASE_DIR="$DEPLOY_DIR/releases/$RELEASE_ID"
 BACKUP_DIR="$RELEASE_DIR/previous"
 CURRENT_MANIFEST="$DEPLOY_DIR/deploy-manifest.json"
+if [ -f "$CURRENT_MANIFEST" ]; then
+  PREVIOUS_DATABASE_SCHEMA_MAX="$(sed -nE 's/.*"databaseSchemaMax"[[:space:]]*:[[:space:]]*"([0-9]+)".*/\1/p' "$CURRENT_MANIFEST" | head -1)"
+fi
 assert_release_path "$RELEASE_DIR"
 assert_release_path "$BACKUP_DIR"
 assert_release_path "$CURRENT_MANIFEST"
@@ -429,7 +441,26 @@ restore_system_controls() {
   tar -xzf "$SYSTEM_CONTROL_BACKUP" -C / || return 1
 }
 
+can_restore_previous_application() {
+  [ "${MIGRATION_STARTED:-false}" = "true" ] || return 0
+  [[ "${PREVIOUS_DATABASE_SCHEMA_MAX:-}" =~ ^[0-9]+$ ]] &&
+    [[ "${DATABASE_SCHEMA_MAX:-}" =~ ^[0-9]+$ ]] &&
+    [ "$DATABASE_SCHEMA_MAX" -le "$PREVIOUS_DATABASE_SCHEMA_MAX" ]
+}
+
 restore_deployment_state() {
+  # Stop a possibly still-running DDL process before considering any application recovery.
+  docker rm -f "$MIGRATION_CONTAINER_NAME" >/dev/null 2>&1 || true
+  if ! can_restore_previous_application; then
+    compose stop api || true
+    [ -z "$NEXT_CURRENT_RELEASE" ] || rm -f -- "$NEXT_CURRENT_RELEASE" || true
+    NEXT_CURRENT_RELEASE=""
+    [ -z "$MIGRATION_LOG_PATH" ] || rm -f -- "$MIGRATION_LOG_PATH" || true
+    MIGRATION_LOG_PATH=""
+    DEPLOY_MUTATION_STARTED="false"
+    echo "[deploy] 已进入与上一版不兼容的数据库迁移，禁止自动启动旧 API。保留候选及备份；需恢复迁移前数据库或前滚修复。" >&2
+    return 0
+  fi
   echo "[deploy] 发布失败，开始恢复上一版应用文件。" >&2
   local application_restored="false"
   if restore_previous; then
@@ -556,6 +587,7 @@ rmdir "$DEPLOY_DIR/runtime/api-flat-new"
 
 echo "[deploy] 4/7 停止旧 API 写入并在容器内执行数据库迁移"
 compose stop api
+MIGRATION_STARTED="true"
 run_database_migrations
 configure_database_privacy_retention
 CURRENT_DATABASE_SCHEMA="$(database_migration_count)"

@@ -1,6 +1,10 @@
 import { runtimeConfig } from './runtime-config.js';
 import { executeWxJsonRequest } from './wx-request-executor.js';
-import { getStoredWechatToken, getWechatRequestAuthentication } from './wechat-identity.js';
+import {
+  awaitWechatSessionRecovery,
+  getStoredWechatToken,
+  getWechatRequestAuthentication,
+} from './wechat-identity.js';
 
 export class WechatDiagnosticHttpError extends Error {
   constructor(public readonly status: number) {
@@ -21,6 +25,7 @@ async function request(
   data?: unknown,
   operationId?: string,
 ): Promise<unknown> {
+  await awaitWechatSessionRecovery();
   const accessToken = getStoredWechatToken();
   if (!accessToken) throw new Error('请先登录。');
   const response = await executeWxJsonRequest({

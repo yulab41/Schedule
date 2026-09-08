@@ -94,6 +94,11 @@ interface MiniProgramNetworkTypeOptions {
 }
 
 declare const wx: {
+  getUpdateManager?(): {
+    onUpdateReady(callback: () => void): void;
+    onUpdateFailed(callback: () => void): void;
+    applyUpdate(): void;
+  };
   getAccountInfoSync?(): {
     readonly miniProgram?: {
       readonly envVersion?: string;

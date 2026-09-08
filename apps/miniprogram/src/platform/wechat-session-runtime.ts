@@ -2,6 +2,7 @@ export interface WechatSessionRuntimeState {
   generation: number;
   invalidated: boolean;
   recoveryPromise: Promise<string | undefined> | undefined;
+  migrationNeedsLogin?: boolean;
 }
 
 interface WechatSessionRuntimeGlobalData {

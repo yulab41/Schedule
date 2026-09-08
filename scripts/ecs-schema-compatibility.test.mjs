@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('group-code retirement release compatibility', () => {
+describe('automatic rotation retirement release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,22 +10,20 @@ describe('group-code retirement release compatibility', () => {
     })),
   });
 
-  it('keeps the sanitized transition release readable before and after expansion', () => {
-    expect(
-      releaseSchemaCompatibility(journal(53, '0053_directory_candidate_covering_index')),
-    ).toEqual({ databaseSchemaMin: '53', databaseSchemaMax: '54' });
-  });
-
-  it('requires expanded schema for the final release', () => {
-    expect(releaseSchemaCompatibility(journal(54, '0054_retire_group_code'))).toEqual({
-      databaseSchemaMin: '54',
-      databaseSchemaMax: '54',
+  it('requires account phone columns and retired rotation tables', () => {
+    expect(releaseSchemaCompatibility(journal(56, '0056_retire_automatic_rotation'))).toEqual({
+      databaseSchemaMin: '56',
+      databaseSchemaMax: '56',
     });
   });
 
   it('fails closed on stale, unknown or malformed migration journals', () => {
     for (const value of [
       journal(52, '0052_old'),
+      journal(53, '0053_directory_candidate_covering_index'),
+      journal(54, '0054_retire_group_code'),
+      journal(55, '0055_account_mobile_phone'),
+      journal(57, '0057_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

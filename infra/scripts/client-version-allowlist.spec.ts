@@ -9,8 +9,8 @@ const source = await readFile(
 );
 
 describe('production Mini client version allowlist control', () => {
-  it('supports only idempotent ensure and read-only verify commands', () => {
-    expect(source).toContain('ensure)');
+  it('supports idempotent ensure, exact replace and read-only verify commands', () => {
+    expect(source).toContain('ensure|replace)');
     expect(source).toContain('verify)');
     expect(source).not.toMatch(/\bremove\)|\bdelete\)/u);
     expect(source).toContain('请求的版本已存在并通过验证；未重建容器');
@@ -50,7 +50,8 @@ describe('production Mini client version allowlist control', () => {
 
   it('restores and re-probes after errors, exits, and termination signals', () => {
     expect(source).toContain('write_version_list "$PREVIOUS_LIST"');
-    expect(source).toContain('recreate_and_probe "$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"');
+    expect(source).toContain('recreate_and_probe || return 1');
+    expect(source).toContain('probe_retired_versions "${FINAL_LIST:-}"');
     expect(source).toContain('trap cleanup_on_exit EXIT');
     expect(source).toContain('trap rollback_on_error ERR');
     expect(source).toContain('trap rollback_on_signal HUP INT QUIT TERM');

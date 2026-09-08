@@ -9,6 +9,7 @@ import type { RuntimeDiagnosticsSlot } from './runtime-diagnostics-types.js';
 import { isTestToolsRuntimeEnabled } from './runtime-environment.js';
 import { runtimeConfig } from './runtime-config.js';
 import {
+  awaitWechatSessionRecovery,
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
@@ -30,6 +31,17 @@ export function canUseDiagnostics(): boolean {
 
 export async function refreshDiagnosticsAccess(): Promise<boolean> {
   const serial = ++accessSerial;
+  if (!isTestToolsRuntimeEnabled()) {
+    invalidateDiagnosticsPermission();
+    return false;
+  }
+  try {
+    await awaitWechatSessionRecovery();
+  } catch {
+    if (serial === accessSerial) invalidateDiagnosticsPermission();
+    return false;
+  }
+  if (serial !== accessSerial) return false;
   const profile = getStoredWechatProfile();
   const accessToken = getStoredWechatToken();
   const generation = getWechatSessionGeneration();

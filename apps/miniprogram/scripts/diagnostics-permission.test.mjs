@@ -20,6 +20,7 @@ describe('trusted diagnostics permission for the current session', () => {
     });
     response = vi.fn().mockResolvedValue({ statusCode: 200, data: { allowed: true } });
     vi.doMock('../src/platform/wechat-identity.ts', () => ({
+      awaitWechatSessionRecovery: async () => undefined,
       getStoredWechatProfile: () => (owner ? { id: owner } : undefined),
       getStoredWechatToken: () => (owner ? 'synthetic-session' : undefined),
       getWechatSessionGeneration: () => generation,
@@ -90,6 +91,7 @@ describe('trusted diagnostics permission for the current session', () => {
       }),
     );
     const old = api.refreshDiagnosticsAccess();
+    await vi.waitFor(() => expect(response).toHaveBeenCalledTimes(1));
     response.mockResolvedValueOnce({ statusCode: 200, data: { allowed: false } });
     expect(await api.refreshDiagnosticsAccess()).toBe(false);
     complete({ statusCode: 200, data: { allowed: true } });
@@ -120,6 +122,7 @@ describe('trusted diagnostics permission for the current session', () => {
       }),
     );
     const pending = api.refreshDiagnosticsAccess();
+    await vi.waitFor(() => expect(response).toHaveBeenCalledTimes(1));
     owner = 'synthetic-member';
     generation += 1;
     complete({ statusCode: 200, data: { allowed: true } });

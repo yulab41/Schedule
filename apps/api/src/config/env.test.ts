@@ -61,7 +61,7 @@ describe('loadEnvironment', () => {
     expect(loadEnvironment(unreadablePlan).DIRECTORY_QUERY_PLAN).toBe('legacy');
   });
 
-  it('accepts only an exact supported Mini version list with an included legacy version', () => {
+  it('accepts exact supported versions with an independently identified retired legacy', () => {
     const environment = loadEnvironment({
       ...validEnvironment,
       MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
@@ -72,6 +72,13 @@ describe('loadEnvironment', () => {
       '0.1.0-p6.20260824.79',
     ]);
 
+    expect(
+      loadEnvironment({
+        ...validEnvironment,
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.79',
+      }).MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS,
+    ).toEqual(['0.1.0-p6.20260824.79']);
     for (const values of [
       {
         MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
@@ -79,10 +86,6 @@ describe('loadEnvironment', () => {
       },
       {
         MINIPROGRAM_LEGACY_CLIENT_VERSION: '',
-        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.79',
-      },
-      {
-        MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
         MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.79',
       },
       {

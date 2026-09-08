@@ -2680,3 +2680,10 @@
 - 批准清空未来实际本人班次；撤销以版本和快照核验，仅恢复未被人工修改的未来空缺，零影响有明确空证据；缺/坏旧快照不猜。DB跨月/临界时刻/工作流/成员删除/部分恢复回归通过。
 - 运行/浏览器验证：pnpm smoke:browser 原脚本经本地内存适配，当前schema56 API/Web与Edge全流程通过；日志runtime/audit/feedback6/rotation-browser-smoke.log，无浏览器错误，合成管理员标记finally恢复。Mini/静态不代表小米14体验版。
 - 全量检查的原始失败和后续定向结果保留，不放松生命周期、并发、外键或日期断言；检查点feat(scheduling): retire automatic rotation and guard leave restoration，本地待根review，无部署/上传/真实通知。
+
+## Feedback6 最终升级集成（2026-09-09）
+
+- 引入点e25878f0（legacy/恢复）、9e3a966c/18498a8b（401）、62e45eb7（跨分包）经git log -S/blame核对。行为变化及原始红绿证据见docs/audit/feedback6-upgrade.md；不宣称语义等价重构。
+- schema56兼容、前向不兼容DDL失败/重试保护、精确名单replace、旧微信会话迁移、迟到登录/401保护及共享更新提示完成。隐私例外保持准确三类请求；普通业务和手机号授予无绕过。
+- 运行/浏览器验证：pnpm smoke:browser对应原scripts/smoke-browser.mjs，经node runtime/audit/feedback6-upgrade/smoke.mjs的本地内存配置适配器执行，全流程通过、无浏览器错误，合成管理员标记恢复。
+- 最终完整pnpm verify退出0，Mini971/root1208通过；真实MySQL回归另见账号/轮转报告。Mini包审5118171字节，Worklet2/2；Bash控制逻辑35项通过。原失败与修正均保留。状态：自动化已完成，待本轮发布授权与真机复核。

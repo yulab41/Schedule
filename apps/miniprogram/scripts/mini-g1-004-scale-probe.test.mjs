@@ -352,6 +352,7 @@ function round(value) {
 
 function session() {
   return {
+    clientVersion: 'test',
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     profile: { id: 'fixture-admin', realName: 'fixture-admin', version: 1 },
     token: 'session-token',

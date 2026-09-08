@@ -5,6 +5,9 @@ import {
 } from '../../app/client-capability-store.js';
 import {
   WechatIdentityClientError,
+  awaitWechatSessionRecovery,
+  getStoredWechatToken,
+  getWechatSessionGeneration,
   getIdentityErrorMessage,
   getStoredWechatProfile,
   linkWechatPassword,
@@ -32,6 +35,8 @@ interface IdentityPageData {
 }
 
 interface IdentityPageInstance {
+  _disposed?: boolean;
+  _loginAttempt?: number;
   data: IdentityPageData;
   setData(patch: Partial<IdentityPageData>): void;
 }
@@ -67,12 +72,31 @@ Page({
   },
 
   onLoad(this: IdentityPageInstance): void {
-    if (getStoredWechatProfile() !== undefined) {
+    this._disposed = false;
+    if (getStoredWechatToken() !== undefined && getStoredWechatProfile() !== undefined) {
       this.setData({ loading: true });
       openWorkbench(this);
       return;
     }
-    void guardIdentityCapability(this);
+    this.setData({ loading: true });
+    void awaitWechatSessionRecovery()
+      .then(() => {
+        if (this._disposed) return;
+        if (getStoredWechatToken() !== undefined && getStoredWechatProfile() !== undefined)
+          openWorkbench(this);
+        else {
+          this.setData({ loading: false });
+          void guardIdentityCapability(this);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!this._disposed)
+          this.setData({ loading: false, errorMessage: getIdentityErrorMessage(error) });
+      });
+  },
+
+  onUnload(this: IdentityPageInstance): void {
+    this._disposed = true;
   },
 
   onShow(this: IdentityPageInstance): void {
@@ -111,9 +135,13 @@ Page({
       return;
     }
     this.setData({ errorMessage: '', loading: true });
+    const isCurrent = beginIdentityAttempt(this);
     void linkWechatPassword(this.data.linkToken, username, this.data.password)
-      .then((result) => completeAuthentication(this, result, 'wechat'))
+      .then((result) => {
+        if (isCurrent()) completeAuthentication(this, result, 'wechat');
+      })
       .catch((error: unknown) => {
+        if (!isCurrent()) return;
         const invalidCredential =
           error instanceof WechatIdentityClientError &&
           [
@@ -140,11 +168,15 @@ Page({
       return;
     }
     this.setData({ errorMessage: '', loading: true });
+    const isCurrent = beginIdentityAttempt(this);
     void loginWithPassword(username, this.data.password)
-      .then((result) => completeAuthentication(this, result, 'password'))
-      .catch((error: unknown) =>
-        this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
-      );
+      .then((result) => {
+        if (isCurrent()) completeAuthentication(this, result, 'password');
+      })
+      .catch((error: unknown) => {
+        if (isCurrent())
+          this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false });
+      });
   },
 
   handlePasswordInput(this: IdentityPageInstance, event: InputEvent): void {
@@ -154,8 +186,10 @@ Page({
   handleWechatLogin(this: IdentityPageInstance): void {
     if (this.data.loading || this.data.bindingOpen) return;
     this.setData({ errorMessage: '', loading: true });
+    const isCurrent = beginIdentityAttempt(this);
     void loginWithWechat()
       .then((result) => {
+        if (!isCurrent()) return;
         if (result.status === 'authenticated') {
           completeAuthentication(this, result, 'wechat');
           return;
@@ -169,9 +203,10 @@ Page({
           linkExpiresAt: result.expiresAt,
         });
       })
-      .catch((error: unknown) =>
-        this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
-      );
+      .catch((error: unknown) => {
+        if (isCurrent())
+          this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false });
+      });
   },
 
   handleUsernameChange(this: IdentityPageInstance, event: InputEvent): void {
@@ -181,6 +216,16 @@ Page({
 
 function normalizeUsername(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function beginIdentityAttempt(page: IdentityPageInstance): () => boolean {
+  const attempt = (page._loginAttempt ?? 0) + 1;
+  page._loginAttempt = attempt;
+  const generation = getWechatSessionGeneration();
+  return () =>
+    !page._disposed &&
+    page._loginAttempt === attempt &&
+    generation === getWechatSessionGeneration();
 }
 
 function isValidUsername(value: string): boolean {

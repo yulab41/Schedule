@@ -113,6 +113,14 @@ export async function executeWxJsonRequest(
       diagnosticStatusCode = response.statusCode;
 
       if (
+        sessionGeneration !== undefined &&
+        input.authentication?.getSessionGeneration !== undefined &&
+        input.authentication.getSessionGeneration() !== sessionGeneration
+      ) {
+        throw new WxRequestStaleSessionError();
+      }
+
+      if (
         accessToken !== undefined &&
         (input.authentication?.isAuthenticationRequired ?? isBearerAuthenticationRequired)(response)
       ) {
@@ -134,14 +142,6 @@ export async function executeWxJsonRequest(
           retryCount,
         );
         return response;
-      }
-
-      if (
-        sessionGeneration !== undefined &&
-        input.authentication?.getSessionGeneration !== undefined &&
-        input.authentication.getSessionGeneration() !== sessionGeneration
-      ) {
-        throw new WxRequestStaleSessionError();
       }
 
       if (

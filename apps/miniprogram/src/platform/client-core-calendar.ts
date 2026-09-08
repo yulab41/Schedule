@@ -63,6 +63,7 @@ import type { RuntimeRequestDiagnosticObserver } from './runtime-diagnostics-typ
 export type { WxJsonRequest, WxJsonRequestOptions, WxJsonRequestSuccess };
 
 export interface RuntimeWechatRequestAuthentication {
+  readonly getPrivacyAccessToken?: () => string | undefined;
   readonly awaitAccessToken: () => Promise<string | undefined>;
   readonly finalizeUnauthorized: (failedToken: string) => void;
   readonly getSessionGeneration: () => number;
@@ -236,9 +237,26 @@ export function createRuntimeGroupMobilePhoneConsentClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
 ): GroupMobilePhoneConsentClient {
-  return createGroupMobilePhoneConsentClient(
-    createRuntimeWxJsonTransport(getAccessToken, authentication, resolvePhoneConsentCapability),
+  const regular = createRuntimeWxJsonTransport(
+    getAccessToken,
+    authentication,
+    resolvePhoneConsentCapability,
   );
+  const privacy = createWxJsonTransport({
+    apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+    capability: 'bypass',
+    getAccessToken: authentication?.getPrivacyAccessToken ?? getAccessToken,
+    getSessionGeneration: authentication?.getSessionGeneration,
+    sessionGeneration: authentication?.getSessionGeneration,
+    request: (options) => wx.request(options),
+  });
+  return createGroupMobilePhoneConsentClient({
+    request(endpoint, input) {
+      return (
+        resolvePhoneConsentCapability(endpoint, input) === 'bypass' ? privacy : regular
+      ).request(endpoint, input);
+    },
+  });
 }
 
 export function createRuntimeSchedulePublicationClient(
@@ -397,12 +415,14 @@ export function createRuntimeWorkflowClient(
 }
 
 function resolvePhoneConsentCapability(
-  endpoint: ClientEndpoint<unknown, unknown>,
+  endpoint: Pick<ClientEndpoint<unknown, unknown>, 'id' | 'method'>,
   input: unknown,
 ): ClientCapabilityRequirement {
-  if (endpoint.id === 'group-mobile-phone-consent.status') return 'bypass';
+  if (endpoint.id === 'group-mobile-phone-consent.status' && endpoint.method === 'GET')
+    return 'bypass';
   if (
     endpoint.id === 'group-mobile-phone-consent.update' &&
+    endpoint.method === 'PUT' &&
     isRecord(input) &&
     isRecord(input['request']) &&
     input['request']['consented'] === false

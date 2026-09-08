@@ -29,12 +29,7 @@ export class ClientCapabilityPolicy {
     if (new Set(versions).size !== versions.length) {
       throw new Error('Supported client versions must be unique exact values.');
     }
-    if (
-      options.legacyVersion !== undefined &&
-      !versions.includes(clientVersionSchema.parse(options.legacyVersion))
-    ) {
-      throw new Error('The legacy client version must be present in supported client versions.');
-    }
+    if (options.legacyVersion !== undefined) clientVersionSchema.parse(options.legacyVersion);
 
     this.capabilities = Object.freeze({ ...options.capabilities });
     this.legacyVersion = options.legacyVersion;

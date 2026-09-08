@@ -2,6 +2,7 @@
 # Atomically ensure exact Mini Program client versions are supported and verify the policy.
 # Usage:
 #   schedule-client-version-allowlist ensure VERSION [VERSION...]
+#   schedule-client-version-allowlist replace VERSION [VERSION...]
 #   schedule-client-version-allowlist verify
 set -Eeuo pipefail
 
@@ -62,10 +63,6 @@ validate_client_version_configuration() {
   local legacy="$2"
   is_valid_client_version "$legacy" || return 1
   is_valid_client_version_list "$supported" || return 1
-  case ",$supported," in
-    *",$legacy,"*) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 validate_environment_file_security() {
@@ -81,7 +78,7 @@ validate_policy_configuration() {
   supported="$(env_value MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS)"
   legacy="$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
   validate_client_version_configuration "$supported" "$legacy" ||
-    fail "支持版本列表格式无效、重复或不包含 legacy。"
+    fail "支持版本列表或 legacy 标识格式无效。"
   for key in \
     MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED \
     MINIPROGRAM_CAPABILITY_CORE_ENABLED \
@@ -179,10 +176,39 @@ probe_unknown_version() {
   [ "$status" = "426" ] || fail "未知版本拒绝探针失败（HTTP ${status:-000}）。"
 }
 
+probe_retired_version() {
+  local version="$1" status
+  status="$(curl -sS --max-time 5 --get -o /dev/null -w '%{http_code}' \
+    --resolve "${DOMAIN}:443:127.0.0.1" --data-urlencode 'platform=miniprogram' \
+    --data-urlencode "version=$version" "https://${DOMAIN}/api/client-capabilities" || true)"
+  [ "$status" = "426" ] || fail "停用版本拒绝探针失败（HTTP ${status:-000}）。"
+}
+
+probe_retired_versions() {
+  local candidate supported version
+  candidate="$1"
+  supported="$(env_value MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS)"
+  local -a candidates=()
+  IFS=',' read -r -a candidates <<< "$candidate"
+  for version in "${candidates[@]}"; do
+    case ",$supported," in *",$version,"*) ;; *) probe_retired_version "$version" || return 1 ;; esac
+  done
+}
+
+probe_policy() {
+  local supported version
+  supported="$(env_value MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS)"
+  local -a versions=()
+  IFS=',' read -r -a versions <<< "$supported"
+  for version in "${versions[@]}"; do probe_version "$version" || return 1; done
+  probe_retired_versions "$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)" || return 1
+  probe_unknown_version
+}
+
 write_version_list() {
   local value="$1"
   umask 077
-  NEXT_ENV="$(mktemp "$DEPLOY_DIR/.env.production.client-versions.XXXXXX")"
+  NEXT_ENV="$(mktemp "$DEPLOY_DIR/.env.production.client-versions.XXXXXX")" || return 1
   awk -v value="$value" '
     /^MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=/ {
       print "MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=" value
@@ -191,28 +217,26 @@ write_version_list() {
     }
     { print }
     END { if (replaced != 1) exit 42 }
-  ' "$ENV_FILE" > "$NEXT_ENV"
-  chown 0:0 "$NEXT_ENV"
-  chmod 0600 "$NEXT_ENV"
-  mv -fT -- "$NEXT_ENV" "$ENV_FILE"
+  ' "$ENV_FILE" > "$NEXT_ENV" || return 1
+  chown 0:0 "$NEXT_ENV" || return 1
+  chmod 0600 "$NEXT_ENV" || return 1
+  mv -fT -- "$NEXT_ENV" "$ENV_FILE" || return 1
   NEXT_ENV=""
 }
 
 recreate_and_probe() {
-  local -a versions=("$@")
-  compose up -d --force-recreate api web
-  wait_for_health
-  local version
-  for version in "${versions[@]}"; do probe_version "$version"; done
-  probe_unknown_version
+  compose up -d --force-recreate api web || return 1
+  wait_for_health || return 1
+  probe_policy
 }
 
 restore_previous_list() {
   [ "$ENV_CHANGED" = "true" ] || return 0
-  write_version_list "$PREVIOUS_LIST"
-  validate_environment_file_security
-  validate_policy_configuration
-  recreate_and_probe "$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
+  write_version_list "$PREVIOUS_LIST" || return 1
+  validate_environment_file_security || return 1
+  validate_policy_configuration || return 1
+  recreate_and_probe || return 1
+  probe_retired_versions "${FINAL_LIST:-}" || return 1
   ENV_CHANGED="false"
 }
 
@@ -228,7 +252,7 @@ rollback_on_error() {
 rollback_on_signal() {
   trap - HUP INT QUIT TERM
   echo "[client-version] 收到终止信号，正在恢复上一份版本列表。" >&2
-  restore_previous_list || true
+  restore_previous_list || echo "[client-version] 自动恢复验证失败，请立即检查生产版本策略。" >&2
   exit 143
 }
 
@@ -236,15 +260,17 @@ cleanup_on_exit() {
   local status=$?
   trap - EXIT ERR HUP INT QUIT TERM
   [ -z "$NEXT_ENV" ] || rm -f -- "$NEXT_ENV"
-  if [ "$ENV_CHANGED" = "true" ]; then restore_previous_list || true; fi
+  if [ "$ENV_CHANGED" = "true" ]; then
+    restore_previous_list || echo "[client-version] 自动恢复验证失败，请立即检查生产版本策略。" >&2
+  fi
   exit "$status"
 }
 
 if [ "$(id -u)" -ne 0 ]; then fail "必须以 root 执行。"; exit 1; fi
 case "$ACTION" in
-  ensure)
+  ensure|replace)
     shift
-    [ "$#" -gt 0 ] || { fail "ensure 至少需要一个版本。"; exit 2; }
+    [ "$#" -gt 0 ] || { fail "${ACTION} 至少需要一个版本。"; exit 2; }
     declare -A requested_seen=()
     for version in "$@"; do
       is_valid_client_version "$version" || { fail "输入版本格式无效。"; exit 2; }
@@ -254,7 +280,7 @@ case "$ACTION" in
     done
     ;;
   verify) shift; [ "$#" -eq 0 ] || { fail "verify 不接受版本参数。"; exit 2; } ;;
-  *) fail "命令必须是 ensure 或 verify。"; exit 2 ;;
+  *) fail "命令必须是 ensure、replace 或 verify。"; exit 2 ;;
 esac
 
 exec 8>/var/lock/schedule-release.lock
@@ -266,8 +292,7 @@ cd "$DEPLOY_DIR"
 validate_environment_file_security
 validate_policy_configuration
 wait_for_health
-probe_version "$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
-probe_unknown_version
+probe_policy
 
 if [ "$ACTION" = "verify" ]; then
   echo "[client-version] 版本白名单与能力策略验证通过。"
@@ -283,10 +308,12 @@ for version in "${REQUESTED_VERSIONS[@]}"; do
     *) FINAL_LIST="$FINAL_LIST,$version"; ADDED_VERSIONS+=("$version") ;;
   esac
 done
+if [ "$ACTION" = "replace" ]; then
+  FINAL_LIST="$(IFS=','; printf '%s' "${REQUESTED_VERSIONS[*]}")"
+fi
 
-if [ "${#ADDED_VERSIONS[@]}" -eq 0 ]; then
-  for version in "${REQUESTED_VERSIONS[@]}"; do probe_version "$version"; done
-  probe_unknown_version
+if [ "$FINAL_LIST" = "$PREVIOUS_LIST" ]; then
+  probe_policy
   echo "[client-version] 请求的版本已存在并通过验证；未重建容器。"
   exit 0
 fi
@@ -298,8 +325,13 @@ ENV_CHANGED="true"
 write_version_list "$FINAL_LIST"
 validate_environment_file_security
 validate_policy_configuration
-recreate_and_probe "${REQUESTED_VERSIONS[@]}"
+recreate_and_probe
+probe_retired_versions "$PREVIOUS_LIST"
 ENV_CHANGED="false"
 trap - ERR HUP INT QUIT TERM
 
-echo "[client-version] 已追加 ${#ADDED_VERSIONS[@]} 个版本并通过健康与策略验证。"
+if [ "$ACTION" = "replace" ]; then
+  echo "[client-version] 已替换为 ${#REQUESTED_VERSIONS[@]} 个准确版本并通过健康与策略验证。"
+else
+  echo "[client-version] 已追加 ${#ADDED_VERSIONS[@]} 个版本并通过健康与策略验证。"
+fi

@@ -341,6 +341,7 @@ function schedulingConfig() {
 
 function session() {
   return {
+    clientVersion: 'test',
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     profile: { id: 'user-1', realName: '林恩宇', version: 1 },
     token: 'session-token',

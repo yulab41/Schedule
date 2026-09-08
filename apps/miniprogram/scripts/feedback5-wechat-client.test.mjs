@@ -5,6 +5,7 @@ vi.mock('../src/platform/runtime-config.ts', () => ({
 }));
 vi.mock('../src/platform/wx-request-executor.ts', () => ({ executeWxJsonRequest: mock.execute }));
 vi.mock('../src/platform/wechat-identity.ts', () => ({
+  awaitWechatSessionRecovery: async () => undefined,
   getStoredWechatToken: () => 'token',
   getWechatRequestAuthentication: () => ({ sessionGeneration: 1 }),
 }));

@@ -5,6 +5,7 @@ import type { RuntimeDiagnosticsSlot } from './platform/runtime-diagnostics-type
 import { createRuntimeClientCapabilityStore } from './platform/client-capabilities.js';
 import { createRuntimeMiniTelemetryEmitter } from './platform/telemetry.js';
 import { createWechatSessionRuntimeState } from './platform/wechat-session-runtime.js';
+import { initializeClientUpdate } from './platform/client-update.js';
 
 const clientCapabilityStore = createRuntimeClientCapabilityStore();
 const telemetryEmitter = createRuntimeMiniTelemetryEmitter(clientCapabilityStore);
@@ -28,6 +29,7 @@ App({
   },
 
   onLaunch(): void {
+    initializeClientUpdate();
     passwordReminderRuntime.checkedAccounts.clear();
     passwordReminderRuntime.activeEditors.clear();
     if (!isTestToolsRuntimeEnabled()) clearRuntimeDirectoryLaunchMarker();

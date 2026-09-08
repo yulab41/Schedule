@@ -16,6 +16,60 @@ afterEach(async () => {
 });
 
 describe('Mini capability guard', () => {
+  it('rejects retired signed and unsigned legacy Mini sessions without trusting a newer request header', async () => {
+    for (const clientVersion of [LEGACY_VERSION, undefined]) {
+      const { app } = await createGuardApp(
+        {
+          clientPlatform: 'miniprogram',
+          cloudbaseUid: 'synthetic-legacy',
+          ...(clientVersion === undefined ? {} : { clientVersion }),
+        },
+        { global: true, core: true, retireLegacy: true },
+      );
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url: '/groups',
+            headers: {
+              'x-schedule-client-platform': 'miniprogram',
+              'x-schedule-client-version': CURRENT_VERSION,
+            },
+          })
+        ).statusCode,
+      ).toBe(426);
+      expect(
+        (await app.inject({ method: 'POST', url: '/me/wechat/miniprogram/unbind' })).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: '/groups/123/mobile-phone-consent',
+            payload: { consented: false },
+          })
+        ).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: '/groups/123/mobile-phone-consent',
+            payload: { consented: true },
+          })
+        ).statusCode,
+      ).toBe(426);
+    }
+    const current = await createGuardApp(
+      {
+        clientPlatform: 'miniprogram',
+        clientVersion: CURRENT_VERSION,
+        cloudbaseUid: 'synthetic-current',
+      },
+      { global: true, core: true, retireLegacy: true },
+    );
+    expect((await current.app.inject({ method: 'GET', url: '/groups' })).statusCode).toBe(200);
+  });
   it('diagnostics GET requires an authenticated exact version and core grant; adjacent routes remain denied', async () => {
     const identity = {
       clientPlatform: 'miniprogram' as const,
@@ -356,6 +410,7 @@ async function createGuardApp(
     readonly insights?: boolean;
     readonly organization?: boolean;
     readonly workflows?: boolean;
+    readonly retireLegacy?: boolean;
   },
 ) {
   const app = Fastify({ logger: false });
@@ -373,7 +428,7 @@ async function createGuardApp(
       workflows: enabled.workflows ?? false,
     },
     legacyVersion: LEGACY_VERSION,
-    supportedVersions: [LEGACY_VERSION, CURRENT_VERSION],
+    supportedVersions: enabled.retireLegacy ? [CURRENT_VERSION] : [LEGACY_VERSION, CURRENT_VERSION],
   });
   registerAuthentication(app, authPort, policy);
   const mutation = vi.fn(async () => ({ ok: true }));

@@ -211,6 +211,7 @@ it('discards feedback from the previous group and retains persistent load errors
 it('ignores both feedback and busy cleanup after the same account signs in again', async () => {
   let token = 'first';
   globalThis.wx.getStorageSync = () => ({
+    clientVersion: 'test',
     expiresAt: new Date(Date.now() + 60000).toISOString(),
     profile: { id: 'same', realName: '示例', version: 1 },
     token,

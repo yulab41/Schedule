@@ -78,6 +78,27 @@ describe('P3 identity login controller', () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(['unload', 'other-login'])(
+    'ignores a late manual WeChat login after %s',
+    async (action) => {
+      let complete;
+      globalThis.wx.request.mockImplementation((options) => {
+        complete = options.success;
+      });
+      const page = createPage(definition);
+      definition.handleWechatLogin.call(page);
+      await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+      const identity = await import('../src/platform/wechat-identity.ts');
+      if (action === 'unload') definition.onUnload.call(page);
+      else identity.persistPasswordSession(authenticated('other', '其他账号', 1, 'other-token'));
+      complete({ statusCode: 200, data: authenticated('old', '迟到账号', 1, 'late-token') });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(reLaunch).not.toHaveBeenCalled();
+      if (action === 'unload') expect(storage.has('schedule.wechat.session')).toBe(false);
+      else expect(storage.get('schedule.wechat.session').profile.id).toBe('other');
+    },
+  );
+
   it('opens binding directly, cancels without a write, and prevents duplicate login requests', async () => {
     wechatLoginResult = {
       status: 'link_required',

@@ -63,10 +63,6 @@ validate_client_version_configuration() {
   local legacy="$2"
   is_valid_client_version "$legacy" || return 1
   is_valid_client_version_list "$supported" || return 1
-  case ",$supported," in
-    *",$legacy,"*) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 validate_miniprogram_capability_config() {
@@ -160,9 +156,9 @@ assert_rejected() {
   echo "[verify] $label 已拒绝（HTTP ${status:-000}）"
 }
 
-verify_miniprogram_capabilities() {
+probe_capability_version() {
   local version response global core workflows organization insights external_messages guest unknown_status supported unknown suffix
-  version="$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
+  version="$1"
   global="$(env_value MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED)"
   core="$(env_value MINIPROGRAM_CAPABILITY_CORE_ENABLED)"
   workflows="$(env_value MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED)"
@@ -203,8 +199,24 @@ verify_miniprogram_capabilities() {
   ' "$version" "$global" "$core" "$workflows" "$organization" "$insights" \
     "$external_messages" "$guest"
 
+}
+
+probe_rejected_client_version() {
+  local status
+  status="$(curl -sS --max-time 5 --get -o /dev/null -w '%{http_code}' \
+    --resolve "${DOMAIN}:443:127.0.0.1" --data-urlencode 'platform=miniprogram' \
+    --data-urlencode "version=$1" "https://${DOMAIN}/api/client-capabilities" || true)"
+  [ "$status" = "426" ] || { echo "[verify] 停用/未知版本拒绝检查失败（HTTP ${status:-000}）。" >&2; return 1; }
+}
+
+verify_miniprogram_capabilities() {
+  local supported legacy version unknown suffix=0
   supported="$(env_value MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS)"
-  suffix=0
+  legacy="$(env_value MINIPROGRAM_LEGACY_CLIENT_VERSION)"
+  local -a versions=()
+  IFS=',' read -r -a versions <<< "$supported"
+  for version in "${versions[@]}"; do probe_capability_version "$version" || return 1; done
+  case ",$supported," in *",$legacy,"*) ;; *) probe_rejected_client_version "$legacy" || return 1 ;; esac
   while true; do
     unknown="0.0.0-unsupported.$(date +%s).$$.${suffix}"
     case ",$supported," in
@@ -212,15 +224,7 @@ verify_miniprogram_capabilities() {
       *) break ;;
     esac
   done
-  unknown_status="$(curl -sS --max-time 5 --get -o /dev/null -w '%{http_code}' \
-    --resolve "${DOMAIN}:443:127.0.0.1" --data-urlencode 'platform=miniprogram' \
-    --data-urlencode "version=$unknown" \
-    "https://${DOMAIN}/api/client-capabilities" || true)"
-  if [ "$unknown_status" != "426" ]; then
-    echo "[verify] 错误：未知小程序版本应返回 HTTP 426，实际为 ${unknown_status:-000}。" >&2
-    exit 1
-  fi
-  echo "[verify] Mini Program capability contract and unknown-version rejection match"
+  probe_rejected_client_version "$unknown"
 }
 
 verify_installed_control_plane() {
@@ -556,6 +560,28 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 50 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 55 ]; then
+  ACCOUNT_PHONE_COLUMNS="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name=\"users\" AND column_name IN (\"mobile_phone\",\"mobile_phone_updated_at\")) OR (table_name=\"group_member_contacts\" AND column_name=\"mobile_phone_before_account_sync\"))"')"
+  [ "$ACCOUNT_PHONE_COLUMNS" = "3" ] || { echo "[verify] 统一账号手机号或迁移留存列缺失。" >&2; exit 1; }
+fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 56 ]; then
+  RETIRED_ROTATION_OBJECTS="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (\"rotation_members\",\"rotation_rules\"))+(SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name=\"groups\" AND column_name=\"leave_reflow_strategy\") OR (table_name=\"leave_requests\" AND column_name=\"reflow_strategy\")))"')"
+  [ "$RETIRED_ROTATION_OBJECTS" = "0" ] || { echo "[verify] 自动轮转专用表或策略列未退出。" >&2; exit 1; }
+fi
+
+is_valid_backup_table_count() {
+  local schema="$1" tables="$2"
+  if [ "$schema" -ge 56 ]; then
+    [ "$tables" = "55" ] || [ "$tables" = "53" ]
+  elif [ "$schema" -ge 52 ]; then
+    [ "$tables" = "54" ] || [ "$tables" = "55" ]
+  else
+    [ "$tables" = "54" ]
+  fi
+}
+
 if [ "$CURRENT_DATABASE_SCHEMA" -ge 51 ]; then
   TELEMETRY_PRIVACY_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
     'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
@@ -567,12 +593,8 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 51 ]; then
         (SELECT COUNT(*) FROM platform_job_runs WHERE job_name = \"privacy-retention\" AND status = \"completed\"),
         COALESCE((SELECT table_count FROM backup_archives WHERE deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1), -1)"')"
   IFS=$'\t' read -r telemetry_table telemetry_indexes telemetry_checks expired_telemetry_rows telemetry_retention_runs latest_backup_table_count <<< "$TELEMETRY_PRIVACY_SCHEMA"
-  if [ "$CURRENT_DATABASE_SCHEMA" -ge 52 ] && [ "$latest_backup_table_count" != "54" ] && [ "$latest_backup_table_count" != "55" ]; then
-    echo "[verify] 错误：schema 52 的最新备份表计数必须来自迁移前 54 表或迁移后 55 表。" >&2
-    exit 1
-  fi
-  if [ "$CURRENT_DATABASE_SCHEMA" -lt 52 ] && [ "$latest_backup_table_count" != "54" ]; then
-    echo "[verify] 错误：schema 51 的最新备份表计数无效。" >&2
+  if ! is_valid_backup_table_count "$CURRENT_DATABASE_SCHEMA" "$latest_backup_table_count"; then
+    echo "[verify] 错误：最新备份表计数与本次迁移前后结构不符。" >&2
     exit 1
   fi
   [ "$telemetry_table" = "1" ] && [ "$telemetry_indexes" = "3" ] &&

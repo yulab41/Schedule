@@ -15,12 +15,21 @@ export type ClientCapabilityRequirement = ClientCapabilityName | 'bypass';
 
 export class ClientCapabilityDisabledError extends Error {
   public readonly capability: string;
-  public readonly code = 'CLIENT_CAPABILITY_DISABLED';
+  public readonly code: string = 'CLIENT_CAPABILITY_DISABLED';
 
   public constructor(capability: string) {
     super('当前版本的这项功能已暂停，请稍后重试。');
     this.name = 'ClientCapabilityDisabledError';
     this.capability = capability;
+  }
+}
+
+export class ClientVersionUnsupportedError extends ClientCapabilityDisabledError {
+  public override readonly code = 'CLIENT_VERSION_UNSUPPORTED';
+  public constructor(capability: string) {
+    super(capability);
+    this.name = 'ClientVersionUnsupportedError';
+    this.message = '当前版本已停用，请保存编辑内容后重新进入小程序，更新到新版。';
   }
 }
 
@@ -35,10 +44,12 @@ export function createClientCapabilityStore(input: {
   readonly platform: 'miniprogram';
   readonly read: () => Promise<unknown>;
   readonly version: string;
+  readonly onUnsupported?: () => void;
 }): ClientCapabilityStore {
   let hasLoaded = false;
   let inFlight: Promise<ClientCapabilityResponse> | undefined;
   let snapshot = createDisabledSnapshot(input.version);
+  let unsupported = false;
 
   const refresh = (
     options: { readonly force?: boolean } = {},
@@ -48,8 +59,24 @@ export function createClientCapabilityStore(input: {
 
     const pending = Promise.resolve()
       .then(input.read)
-      .then((value) => normalizeSnapshot(value, input.platform, input.version))
-      .catch(() => createDisabledSnapshot(input.version))
+      .then((value) => {
+        unsupported = false;
+        return normalizeSnapshot(value, input.platform, input.version);
+      })
+      .catch((error: unknown) => {
+        unsupported =
+          isRecord(error) &&
+          error['status'] === 426 &&
+          error['code'] === 'CLIENT_VERSION_UNSUPPORTED';
+        if (unsupported) {
+          try {
+            input.onUnsupported?.();
+          } catch {
+            /* Update UI cannot block policy. */
+          }
+        }
+        return createDisabledSnapshot(input.version);
+      })
       .then((value) => {
         snapshot = value;
         hasLoaded = true;
@@ -70,6 +97,7 @@ export function createClientCapabilityStore(input: {
     refresh,
     async require(capability) {
       await refresh();
+      if (unsupported) throw new ClientVersionUnsupportedError(capability);
       if (!isKnownCapability(capability) || !snapshot.global || !snapshot[capability]) {
         throw new ClientCapabilityDisabledError(capability);
       }

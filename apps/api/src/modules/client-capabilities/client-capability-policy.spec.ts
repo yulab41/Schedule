@@ -67,22 +67,24 @@ describe('ClientCapabilityPolicy', () => {
     });
   });
 
-  it('fails construction when legacy is not an exact supported version', () => {
-    expect(
-      () =>
-        new ClientCapabilityPolicy({
-          capabilities: {
-            core: false,
-            externalMessages: false,
-            global: false,
-            guest: false,
-            insights: false,
-            organization: false,
-            workflows: false,
-          },
-          legacyVersion: LEGACY_VERSION,
-          supportedVersions: [CURRENT_VERSION],
-        }),
-    ).toThrow(/legacy/i);
+  it('retires legacy without aliasing unsigned old sessions to the new version', () => {
+    const policy = new ClientCapabilityPolicy({
+      capabilities: {
+        core: false,
+        externalMessages: false,
+        global: false,
+        guest: false,
+        insights: false,
+        organization: false,
+        workflows: false,
+      },
+      legacyVersion: LEGACY_VERSION,
+      supportedVersions: [CURRENT_VERSION],
+    });
+    expect(policy.resolveLegacyMini()).toBeUndefined();
+    expect(policy.resolve('miniprogram', LEGACY_VERSION)).toBeUndefined();
+    expect(policy.resolve('miniprogram', CURRENT_VERSION)).toMatchObject({
+      version: CURRENT_VERSION,
+    });
   });
 });
