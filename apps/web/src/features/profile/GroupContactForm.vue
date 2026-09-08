@@ -97,7 +97,7 @@ function emptyToNull(value: string): string | null {
 
 <template>
   <form class="group-contact-form" @submit.prevent="saveContact">
-    <p class="contact-editor-intro">修改后将立即更新成员列表中的联系方式。</p>
+    <p class="contact-editor-intro">手机号同步至所有群组，短号仅修改当前群组。</p>
     <label v-if="canEditMobilePhone" class="contact-field">
       <span>长号</span>
       <input

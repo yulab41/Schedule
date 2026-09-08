@@ -603,7 +603,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(inactiveConsent.statusCode).toBe(403);
   });
 
-  it('keeps default visibility on number or notice changes, supports explicit revoke, and never copies a phone across groups', async () => {
+  it('keeps default visibility and each group explicit revocation while sharing the account phone', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
     const saved = await app.inject({
@@ -730,7 +730,16 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       url: `/groups/${otherGroupId}/mobile-phone-consent`,
     });
     expect(otherStatus.statusCode, otherStatus.body).toBe(200);
-    expect(otherStatus.json()).toMatchObject({ state: 'missing-phone' });
+    expect(otherStatus.json()).toMatchObject({
+      state: 'consented',
+      maskedMobilePhone: '139 **** 0000',
+    });
+    const originalStatus = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(originalStatus.json()).toMatchObject({ state: 'not-consented' });
 
     const [auditRows] = await client.database.execute(
       sql`SELECT action, metadata FROM audit_logs

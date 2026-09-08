@@ -317,7 +317,11 @@ export class MembershipService {
     membershipId: string,
   ): Promise<void> {
     const [membership] = await transaction
-      .select({ realName: userProfiles.realName })
+      .select({
+        realName: userProfiles.realName,
+        mobilePhone: users.mobilePhone,
+        mobilePhoneUpdatedAt: users.mobilePhoneUpdatedAt,
+      })
       .from(groupMemberships)
       .innerJoin(users, eq(users.id, groupMemberships.userId))
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -328,7 +332,12 @@ export class MembershipService {
     }
 
     const placeholderUserId = randomUUID();
-    await transaction.insert(users).values({ id: placeholderUserId, status: 'active' });
+    await transaction.insert(users).values({
+      id: placeholderUserId,
+      status: 'active',
+      mobilePhone: membership.mobilePhone,
+      mobilePhoneUpdatedAt: membership.mobilePhoneUpdatedAt,
+    });
     await transaction.insert(userProfiles).values({
       realName: membership.realName,
       userId: placeholderUserId,

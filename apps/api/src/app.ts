@@ -244,6 +244,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     const platformAdminService = new PlatformAdminService(
       options.databaseClient,
       platformAdminUids,
+      options.wechatSessionSecret,
     );
     const directoryQuery = new DirectoryQuery(options.databaseClient, {
       configuredPlan: options.directoryQueryPlan ?? 'legacy',

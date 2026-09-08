@@ -23,6 +23,11 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { withRetriedTransaction } from '../concurrency/transaction-retry.js';
+import {
+  normalizeAccountMobilePhone,
+  setAccountMobilePhone,
+} from '../users/account-mobile-phone.js';
 import {
   createMobilePhoneConsentFingerprint,
   isMobilePhoneConsentEffective,
@@ -69,7 +74,7 @@ export class ContactService {
           realName: userProfiles.realName,
           isConfirmed: groupMemberContacts.isConfirmed,
           membershipId: groupMemberships.id,
-          mobilePhone: groupMemberContacts.mobilePhone,
+          mobilePhone: users.mobilePhone,
           mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
           mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
           mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
@@ -154,7 +159,7 @@ export class ContactService {
     input: UpdateGroupMobilePhoneConsentRequest,
     operationId: string,
   ): Promise<GroupMobilePhoneConsent> {
-    return withTransaction(this.databaseClient, async (transaction) => {
+    return withRetriedTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
         transaction,
         identity,
@@ -306,6 +311,7 @@ export class ContactService {
     input: UpdateGroupMemberContactRequest,
   ): Promise<GroupMemberContact> {
     return runOrganizationMutation({
+      retryDeadlocks: true,
       databaseClient: this.databaseClient,
       identity,
       operationId: input.operationId,
@@ -395,8 +401,15 @@ export class ContactService {
           objectType: 'group_member_contact',
         });
 
+        const [accountPhone] = await transaction
+          .select({ mobilePhone: users.mobilePhone })
+          .from(users)
+          .where(eq(users.id, target.userId))
+          .limit(1);
         const mobilePhone =
-          input.mobilePhone === undefined ? existing?.mobilePhone : input.mobilePhone;
+          input.mobilePhone === undefined
+            ? accountPhone?.mobilePhone
+            : normalizeAccountMobilePhone(input.mobilePhone);
         const shortPhone = input.shortPhone === undefined ? existing?.shortPhone : input.shortPhone;
         const mobilePhoneChanged = mobilePhone !== (existing?.mobilePhone ?? null);
         const phoneChanged = mobilePhoneChanged || shortPhone !== (existing?.shortPhone ?? null);
@@ -444,6 +457,8 @@ export class ContactService {
             });
           }
 
+          if (input.mobilePhone !== undefined)
+            await setAccountMobilePhone(transaction, target.userId, mobilePhone ?? null, target.id);
           return toGroupMemberContact(created, isCurrentMember);
         }
 
@@ -505,6 +520,8 @@ export class ContactService {
           });
         }
 
+        if (input.mobilePhone !== undefined)
+          await setAccountMobilePhone(transaction, target.userId, mobilePhone ?? null, target.id);
         return toGroupMemberContact(
           updated,
           isCurrentMember ||
@@ -520,24 +537,54 @@ export class ContactService {
     membershipId: string,
     lock = false,
   ): Promise<MobileConsentContactRow | undefined> {
+    if (lock) {
+      const [account] = await transaction
+        .select({ id: users.id, mobilePhone: users.mobilePhone })
+        .from(groupMemberships)
+        .innerJoin(users, eq(users.id, groupMemberships.userId))
+        .where(eq(groupMemberships.id, membershipId))
+        .limit(1)
+        .for('update');
+      const [existing] = await transaction
+        .select({ id: groupMemberContacts.id })
+        .from(groupMemberContacts)
+        .where(
+          and(
+            eq(groupMemberContacts.membershipId, membershipId),
+            isNull(groupMemberContacts.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (account !== undefined && existing === undefined)
+        await transaction.insert(groupMemberContacts).values({
+          id: randomUUID(),
+          membershipId,
+          mobilePhone: account.mobilePhone,
+          version: 0,
+        });
+    }
     const query = transaction
       .select({
-        id: groupMemberContacts.id,
-        membershipId: groupMemberContacts.membershipId,
-        mobilePhone: groupMemberContacts.mobilePhone,
+        id: sql<string>`COALESCE(${groupMemberContacts.id}, ${groupMemberships.id})`,
+        membershipId: groupMemberships.id,
+        mobilePhone: users.mobilePhone,
         mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
         mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
         mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
         mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-        version: groupMemberContacts.version,
+        version: sql<number>`COALESCE(${groupMemberContacts.version}, 0)`,
       })
-      .from(groupMemberContacts)
-      .where(
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .leftJoin(
+        groupMemberContacts,
         and(
-          eq(groupMemberContacts.membershipId, membershipId),
+          eq(groupMemberContacts.membershipId, groupMemberships.id),
           isNull(groupMemberContacts.deletedAt),
         ),
       )
+      .where(and(eq(groupMemberships.id, membershipId), isNull(groupMemberships.deletedAt)))
       .limit(1);
     const [contact] = lock ? await query.for('update') : await query;
     return contact;

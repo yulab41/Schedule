@@ -299,6 +299,12 @@ describeWithDatabase('invite links and identity binding', () => {
 
     const source = await registerUser('merge-source', 'Source User');
     const sourceGroupId = await createGroup(source.token, 'Source group', '7890');
+    await client.database.execute(
+      sql`UPDATE users SET mobile_phone='13800000001',mobile_phone_updated_at='2026-09-01 08:00:00' WHERE id=${target.id}`,
+    );
+    await client.database.execute(
+      sql`UPDATE users SET mobile_phone='13800000002',mobile_phone_updated_at='2026-09-02 08:00:00' WHERE id=${source.id}`,
+    );
     const versionedLogin = await app.inject({
       headers: {
         'x-schedule-client-platform': 'miniprogram',
@@ -325,6 +331,16 @@ describeWithDatabase('invite links and identity binding', () => {
     );
     expect(merged.statusCode, merged.body).toBe(200);
     const mergedBody = merged.json() as { group: { id: string }; token?: string };
+    const [mergedPhone] = await client.database.execute(
+      sql`SELECT mobile_phone AS phone FROM users WHERE id=${target.id}`,
+    );
+    expect((mergedPhone as unknown as { phone: string }[])[0]!.phone).toBe('13800000002');
+    const [contactPhones] = await client.database.execute(
+      sql`SELECT c.mobile_phone AS phone FROM group_member_contacts c JOIN group_memberships m ON m.id=c.membership_id WHERE m.user_id=${target.id} AND m.deleted_at IS NULL`,
+    );
+    expect(
+      (contactPhones as unknown as { phone: string }[]).every((row) => row.phone === '13800000002'),
+    ).toBe(true);
     expect(mergedBody.group.id).toBe(groupId);
     expect(typeof mergedBody.token).toBe('string');
     expect(verifyWechatSessionToken(mergedBody.token, TEST_SESSION_SECRET)).toMatchObject({

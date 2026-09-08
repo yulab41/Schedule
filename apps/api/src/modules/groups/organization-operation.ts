@@ -13,6 +13,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
+import { withRetriedTransaction } from '../concurrency/transaction-retry.js';
 
 export interface OrganizationMutationActor {
   readonly id: string;
@@ -25,6 +26,7 @@ export async function runOrganizationMutation<Result>(options: {
   readonly identity: AuthenticatedIdentity;
   readonly operationId: string;
   readonly requestFingerprint: string;
+  readonly retryDeadlocks?: boolean;
   readonly resultCodec?: {
     readonly deserialize: (
       stored: Record<string, unknown>,
@@ -41,7 +43,8 @@ export async function runOrganizationMutation<Result>(options: {
   ) => Promise<Result>;
   readonly scope: string;
 }): Promise<Result> {
-  return withTransaction(options.databaseClient, async (transaction) => {
+  const transact = options.retryDeadlocks === true ? withRetriedTransaction : withTransaction;
+  return transact(options.databaseClient, async (transaction) => {
     const actor = await lockOrganizationActor(transaction, options.identity);
     const result = await withIdempotentOperation(
       transaction,

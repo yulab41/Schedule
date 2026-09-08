@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  createTestDatabaseClient,
+  createDatabaseClient,
   migrateDatabase,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -38,7 +39,10 @@ describeWithDatabase('platform administration and recovery', () => {
   let temporaryDirectory: string | undefined;
 
   beforeEach(async () => {
-    client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
+    client = createDatabaseClient({
+      ...(databaseOptions as DatabaseConnectionOptions),
+      connectionLimit: 4,
+    });
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
     app = createApp({
@@ -51,6 +55,7 @@ describeWithDatabase('platform administration and recovery', () => {
       databaseClient: client,
       logger: false,
       platformAdminUids: new Set(['cloudbase-admin']),
+      wechatSessionSecret: 'account-test-operation-secret-32-characters',
     });
     await registerUser('admin-token', 'Platform Admin');
     await registerUser('member-token', 'Member Doctor');
@@ -646,6 +651,365 @@ describeWithDatabase('platform administration and recovery', () => {
     )) as unknown as [{ summary: string | null }[], unknown];
     expect(runRows[0]?.summary).toContain('2026-08-01');
     expect(runRows[0]?.summary).toContain('stats rebuild boom');
+  });
+
+  it('maintains account profile and one phone across groups with version checks', async () => {
+    await createGroup('member-token', 'Account group one', '7812');
+    await createGroup('member-token', 'Account group two', '7813');
+    const headers = { authorization: 'Bearer admin-token' };
+    const listed = await app.inject({
+      method: 'GET',
+      url: '/platform-admin/users/details',
+      headers,
+    });
+    expect(listed.statusCode).toBe(200);
+    const member = listed
+      .json()
+      .users.find((user: { realName?: string }) => user.realName === 'Member Doctor');
+    const payload = {
+      operationId: randomUUID(),
+      expectedAccountVersion: member.accountVersion,
+      expectedProfileVersion: member.profileVersion,
+      realName: 'Renamed Doctor',
+      mobilePhone: '13800001111',
+    };
+    const saved = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/profile`,
+      headers,
+      payload,
+    });
+    expect(saved.statusCode).toBe(200);
+    const replay = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/profile`,
+      headers,
+      payload,
+    });
+    expect(replay.json()).toEqual(saved.json());
+    const stale = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/profile`,
+      headers,
+      payload: { ...payload, operationId: randomUUID(), mobilePhone: null },
+    });
+    expect(stale.statusCode, stale.body).toBe(409);
+    const [rows] = await client.database.execute(
+      sql`SELECT c.mobile_phone AS phone FROM group_member_contacts c JOIN group_memberships m ON m.id=c.membership_id WHERE m.user_id=${member.id}`,
+    );
+    expect(rows).toHaveLength(2);
+    expect(
+      (rows as unknown as { phone: string }[]).every((row) => row.phone === '13800001111'),
+    ).toBe(true);
+    const denied = await app.inject({
+      method: 'GET',
+      url: '/platform-admin/users/details',
+      headers: { authorization: 'Bearer member-token' },
+    });
+    expect(denied.statusCode).toBe(403);
+    const old = await app.inject({ method: 'GET', url: '/platform-admin/users', headers });
+    expect(old.json().users[0]).not.toHaveProperty('mobilePhone');
+  });
+
+  it('sets a password once with keyed request binding and invalidates old sessions', async () => {
+    const headers = { authorization: 'Bearer admin-token' };
+    const details = await app.inject({
+      method: 'GET',
+      url: '/platform-admin/users/details',
+      headers,
+    });
+    expect(details.statusCode).toBe(200);
+    const member = details
+      .json()
+      .users.find((user: { realName?: string }) => user.realName === 'Member Doctor');
+    const assigned = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/password-identity`,
+      headers,
+      payload: {
+        operationId: randomUUID(),
+        expectedAuthVersion: member.authVersion,
+        username: 'account.doctor',
+      },
+    });
+    expect(assigned.statusCode).toBe(200);
+    const payload = {
+      operationId: randomUUID(),
+      expectedAuthVersion: assigned.json().authVersion,
+      newPassword: 'new-account-secret',
+    };
+    const { createPasswordSessionToken, createWechatAuthPort } =
+      await import('../../adapters/auth/wechat-auth.js');
+    const secret = 'account-test-operation-secret-32-characters';
+    const oldToken = createPasswordSessionToken(
+      { sub: member.id, username: 'account.doctor', authVersion: assigned.json().authVersion },
+      secret,
+    );
+    const authentication = createWechatAuthPort({
+      allowDevTokens: false,
+      databaseClient: client,
+      sessionSecret: secret,
+    });
+    expect(
+      await authentication.authenticate({ authorization: `Bearer ${oldToken}` }),
+    ).toBeDefined();
+    const reset = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/password`,
+      headers,
+      payload,
+    });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json()).toEqual({
+      authVersion: payload.expectedAuthVersion + 1,
+      passwordConfigured: true,
+    });
+    expect(
+      await authentication.authenticate({ authorization: `Bearer ${oldToken}` }),
+    ).toBeUndefined();
+    const replay = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/password`,
+      headers,
+      payload,
+    });
+    expect(replay.json()).toEqual(reset.json());
+    const mismatch = await app.inject({
+      method: 'PUT',
+      url: `/platform-admin/users/${member.id}/password`,
+      headers,
+      payload: { ...payload, newPassword: 'different-secret' },
+    });
+    expect(mismatch.statusCode).toBe(409);
+    const [rows] = await client.database.execute(
+      sql`SELECT password_hash AS hash FROM user_password_credentials WHERE user_id=${member.id}`,
+    );
+    const { verifyPassword } = await import('../auth/password-auth-service.js');
+    expect(
+      await verifyPassword(payload.newPassword, (rows as unknown as { hash: string }[])[0]!.hash),
+    ).toBe(true);
+    const [operations] = await client.database.execute(
+      sql`SELECT request_fingerprint, result FROM idempotency_keys WHERE operation_key=${payload.operationId}`,
+    );
+    expect(JSON.stringify(operations)).not.toContain(payload.newPassword);
+  });
+
+  it('migrates the latest contact phone with stable ties and preserves originals and visibility', async () => {
+    const groupA = await createGroup('member-token', 'Migration one', '7812');
+    const groupB = await createGroup('member-token', 'Migration two', '7813');
+    const [members] = await client.database.execute(
+      sql`SELECT m.id, m.user_id AS userId, m.group_id AS groupId FROM group_memberships m JOIN users u ON u.id=m.user_id WHERE m.group_id IN (${groupA},${groupB}) AND u.cloudbase_uid='cloudbase-member'`,
+    );
+    const rows = members as unknown as { id: string; userId: string; groupId: string }[];
+    const a = rows.find((row) => row.groupId === groupA)!;
+    const b = rows.find((row) => row.groupId === groupB)!;
+    const firstId = '11111111-0000-4000-8000-000000000001';
+    const secondId = '22222222-0000-4000-8000-000000000002';
+    await client.database
+      .execute(sql`INSERT INTO group_member_contacts (id,membership_id,mobile_phone,short_phone,is_confirmed,version,updated_at,mobile_phone_consent_revoked_at) VALUES
+      (${firstId},${a.id},'13800000001','620001',1,7,'2026-09-01 08:00:00',NULL),
+      (${secondId},${b.id},'13800000002','620002',1,9,'2026-09-02 08:00:00','2026-09-01 09:00:00')`);
+    const statements = readFileSync(
+      fileURLToPath(
+        new URL('../../../../../migrations/0055_account_mobile_phone.sql', import.meta.url),
+      ),
+      'utf8',
+    )
+      .split('--> statement-breakpoint')
+      .slice(2);
+    for (const statement of statements) await client.database.execute(sql.raw(statement));
+    const [after] = await client.database.execute(
+      sql`SELECT mobile_phone AS phone,mobile_phone_before_account_sync AS original,short_phone AS shortPhone,is_confirmed AS confirmed,version,updated_at AS updatedAt,mobile_phone_consent_revoked_at AS revoked FROM group_member_contacts ORDER BY id`,
+    );
+    const contacts = after as unknown as {
+      phone: string;
+      original: string;
+      shortPhone: string;
+      confirmed: number;
+      version: number;
+      updatedAt: Date;
+      revoked: Date | null;
+    }[];
+    expect(contacts.map((row) => row.phone)).toEqual(['13800000002', '13800000002']);
+    expect(contacts.map((row) => row.original)).toEqual(['13800000001', '13800000002']);
+    expect(contacts.map((row) => row.version)).toEqual([8, 9]);
+    expect(contacts.map((row) => row.shortPhone)).toEqual(['620001', '620002']);
+    expect(contacts.every((row) => row.confirmed === 1)).toBe(true);
+    expect(contacts[1]!.revoked).not.toBeNull();
+    const stale = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupA}/members/${a.id}/contact`,
+      headers: { authorization: 'Bearer member-token' },
+      payload: { operationId: randomUUID(), expectedVersion: 7, mobilePhone: '13800000001' },
+    });
+    expect(stale.statusCode, stale.body).toBe(409);
+    await client.database.execute(
+      sql`UPDATE group_member_contacts SET mobile_phone=mobile_phone_before_account_sync,updated_at='2026-09-02 08:00:00'`,
+    );
+    for (const statement of statements) await client.database.execute(sql.raw(statement));
+    const [account] = await client.database.execute(
+      sql`SELECT mobile_phone AS phone FROM users WHERE id=${a.userId}`,
+    );
+    expect((account as unknown as { phone: string }[])[0]!.phone).toBe('13800000001');
+  });
+
+  it('keeps global phone when editing a new group short number and can revoke from version zero', async () => {
+    await client.database.execute(
+      sql`UPDATE users SET mobile_phone='13800001111' WHERE cloudbase_uid='cloudbase-member'`,
+    );
+    const groupId = await createGroup('member-token', 'New phone group', '7812');
+    const headers = { authorization: 'Bearer member-token' };
+    const consent = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+      headers,
+    });
+    expect(consent.json()).toMatchObject({ contactVersion: 0, state: 'consented' });
+    const revoked = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+      headers,
+      payload: {
+        operationId: randomUUID(),
+        expectedContactVersion: 0,
+        consented: false,
+        noticeVersion: 'v1',
+      },
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json().state).toBe('not-consented');
+    const contacts = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/contacts`,
+      headers,
+    });
+    const contact = contacts.json()[0];
+    const edited = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupId}/members/${contact.membershipId}/contact`,
+      headers,
+      payload: {
+        operationId: randomUUID(),
+        expectedVersion: contact.version,
+        shortPhone: '620001',
+      },
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().mobilePhone).toBe('13800001111');
+    const current = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+      headers,
+    });
+    expect(current.json().state).toBe('not-consented');
+  });
+
+  it('retries the complete transaction after an actual database deadlock without double writes', async () => {
+    const { withRetriedTransaction } = await import('../concurrency/transaction-retry.js');
+    const [found] = await client.database.execute(
+      sql`SELECT id,version FROM users WHERE cloudbase_uid IN ('cloudbase-member','cloudbase-outsider') ORDER BY id`,
+    );
+    const rows = found as unknown as { id: string; version: number }[];
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let arrived = 0;
+    async function write(first: string, second: string) {
+      let attempt = 0;
+      return withRetriedTransaction(client, async (transaction) => {
+        attempt += 1;
+        await transaction.execute(sql`SELECT id FROM users WHERE id=${first} FOR UPDATE`);
+        if (attempt === 1) {
+          arrived += 1;
+          if (arrived === 2) release();
+          await barrier;
+        }
+        await transaction.execute(sql`UPDATE users SET version=version+1 WHERE id=${second}`);
+      });
+    }
+    await Promise.all([write(rows[0]!.id, rows[1]!.id), write(rows[1]!.id, rows[0]!.id)]);
+    const [after] = await client.database.execute(
+      sql`SELECT id,version FROM users WHERE cloudbase_uid IN ('cloudbase-member','cloudbase-outsider') ORDER BY id`,
+    );
+    expect((after as unknown as { version: number }[]).map((row) => row.version)).toEqual(
+      rows.map((row) => row.version + 1),
+    );
+  });
+
+  it('preserves a newer explicit phone clear during identity merge', async () => {
+    const { mergeAccountMobilePhone } = await import('../users/account-mobile-phone.js');
+    const [found] = await client.database.execute(
+      sql`SELECT id,cloudbase_uid AS uid FROM users WHERE cloudbase_uid IN ('cloudbase-member','cloudbase-outsider')`,
+    );
+    const rows = found as unknown as { id: string; uid: string }[];
+    const source = rows.find((row) => row.uid === 'cloudbase-outsider')!.id;
+    const target = rows.find((row) => row.uid === 'cloudbase-member')!.id;
+    await client.database.execute(
+      sql`UPDATE users SET mobile_phone='13800000001',mobile_phone_updated_at='2026-09-01 08:00:00' WHERE id=${source}`,
+    );
+    await client.database.execute(
+      sql`UPDATE users SET mobile_phone=NULL,mobile_phone_updated_at='2026-09-02 08:00:00' WHERE id=${target}`,
+    );
+    await client.database.transaction((transaction) =>
+      mergeAccountMobilePhone(transaction, source, target),
+    );
+    const [after] = await client.database.execute(
+      sql`SELECT mobile_phone AS phone FROM users WHERE id=${target}`,
+    );
+    expect((after as unknown as { phone: string | null }[])[0]!.phone).toBeNull();
+  });
+
+  it('serializes platform phone changes with member contact changes without losing the global value', async () => {
+    const group = await createGroup('member-token', 'Concurrent account contacts', '7812');
+    const headers = { authorization: 'Bearer admin-token' };
+    const details = await app.inject({
+      method: 'GET',
+      url: '/platform-admin/users/details',
+      headers,
+    });
+    const account = details
+      .json()
+      .users.find((row: { realName: string }) => row.realName === 'Member Doctor');
+    const contacts = await app.inject({
+      method: 'GET',
+      url: `/groups/${group}/contacts`,
+      headers: { authorization: 'Bearer member-token' },
+    });
+    const contact = contacts.json()[0];
+    const [profile, short] = await Promise.all([
+      app.inject({
+        method: 'PUT',
+        url: `/platform-admin/users/${account.id}/profile`,
+        headers,
+        payload: {
+          operationId: randomUUID(),
+          expectedAccountVersion: account.accountVersion,
+          expectedProfileVersion: account.profileVersion,
+          realName: 'Member Doctor',
+          mobilePhone: '13800003333',
+        },
+      }),
+      app.inject({
+        method: 'PUT',
+        url: `/groups/${group}/members/${contact.membershipId}/contact`,
+        headers: { authorization: 'Bearer member-token' },
+        payload: {
+          operationId: randomUUID(),
+          expectedVersion: contact.version,
+          shortPhone: '620003',
+        },
+      }),
+    ]);
+    expect(profile.statusCode, profile.body).toBe(200);
+    expect([200, 409]).toContain(short.statusCode);
+    const final = await app.inject({
+      method: 'GET',
+      url: `/groups/${group}/contacts`,
+      headers: { authorization: 'Bearer member-token' },
+    });
+    expect(final.json()[0].mobilePhone).toBe('13800003333');
+    if (short.statusCode === 200) expect(final.json()[0].shortPhone).toBe('620003');
   });
 
   async function registerUser(token: string, realName: string): Promise<void> {

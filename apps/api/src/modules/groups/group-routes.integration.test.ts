@@ -612,6 +612,9 @@ describeWithDatabase('groups and roster claiming', () => {
       realName: 'Candidate Doctor',
     });
 
+    await client.database.execute(
+      sql`UPDATE users SET mobile_phone='13800005555',mobile_phone_updated_at='2026-09-01 08:00:00' WHERE cloudbase_uid='cloudbase-candidate'`,
+    );
     const memberLeave = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'POST',
@@ -634,6 +637,10 @@ describeWithDatabase('groups and roster claiming', () => {
 
     const unclaimedMembershipId = memberRows.find((row) => row.realName === 'Candidate Doctor')
       ?.id as string;
+    const [placeholderPhone] = await client.database.execute(
+      sql`SELECT u.mobile_phone AS phone FROM users u JOIN group_memberships m ON m.user_id=u.id WHERE m.id=${unclaimedMembershipId}`,
+    );
+    expect((placeholderPhone as unknown as { phone: string }[])[0]!.phone).toBe('13800005555');
     const unclaimedMembershipVersion = memberRows.find((row) => row.realName === 'Candidate Doctor')
       ?.version as number;
     const invite = await app.inject({

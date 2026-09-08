@@ -52,6 +52,8 @@ export const users = mysqlTable(
   {
     id: identifier(),
     cloudbaseUid: varchar('cloudbase_uid', { length: 128 }),
+    mobilePhone: varchar('mobile_phone', { length: 32 }),
+    mobilePhoneUpdatedAt: timestamp('mobile_phone_updated_at', { fsp: 3 }),
     isDeveloperAdmin: tinyint('is_developer_admin', { unsigned: true }).default(0).notNull(),
     authVersion: int('auth_version', { unsigned: true }).default(1).notNull(),
     wechatOpenid: varchar('wechat_openid', { length: 64 }),
@@ -266,6 +268,7 @@ export const groupMemberContacts = mysqlTable(
       .notNull()
       .references(() => groupMemberships.id),
     mobilePhone: varchar('mobile_phone', { length: 32 }),
+    mobilePhoneBeforeAccountSync: varchar('mobile_phone_before_account_sync', { length: 32 }),
     shortPhone: varchar('short_phone', { length: 32 }),
     isConfirmed: tinyint('is_confirmed', { unsigned: true }).default(0).notNull(),
     mobilePhoneConsentFingerprint: char('mobile_phone_consent_fingerprint', { length: 64 }),

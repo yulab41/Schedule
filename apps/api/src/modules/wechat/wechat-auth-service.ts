@@ -28,6 +28,7 @@ import {
 } from '../../adapters/auth/wechat-auth.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { mergeAccountMobilePhone } from '../users/account-mobile-phone.js';
 import { normalizeUsername, verifyPassword } from '../auth/password-auth-service.js';
 import { toUserProfile } from '../users/user-profile.js';
 import {
@@ -427,6 +428,8 @@ export class WechatAuthService {
       .limit(1)
       .for('update');
     if (legacyIdentity === undefined) throw identityConflictError();
+
+    await mergeAccountMobilePhone(transaction, sourceUserId, account.userId);
 
     await transaction
       .update(userAuthIdentities)

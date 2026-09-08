@@ -156,6 +156,11 @@ export {
   type PlatformIdentityWriteClient,
 } from './platform-identity-write-client.js';
 export {
+  createPlatformAccountClient,
+  platformAccountEndpoints,
+  type PlatformAccountClient,
+} from './platform-account-client.js';
+export {
   createSchedulePublicationClient,
   publishSchedulePeriodBatchResultDecoder,
   publishSchedulePeriodResultDecoder,

@@ -47,7 +47,7 @@ describe('P8-E native platform account administration', () => {
 
     expect(runtime).toContain('createRuntimePlatformIdentityWriteClient');
     expect(runtime).toContain('createPlatformIdentityWriteClient');
-    expect(controller).toContain('listPlatformUserAccounts');
+    expect(controller).toContain('listDetails');
     expect(controller).toContain('createRuntimePlatformIdentityWriteClient');
     expect(controller).toContain("requireClientCapability('organization')");
     expect(controller).toContain('expectedAuthVersion');
@@ -63,7 +63,8 @@ describe('P8-E native platform account administration', () => {
 
     expect(controller).not.toContain('wx.setStorageSync');
     expect(controller).not.toContain('wx.getStorageSync');
-    expect(controller).not.toContain('password:');
+    expect(controller).toContain('newPassword: page.data.newPasswordDraft');
+    expect(controller).toContain('handleSecretCleanup');
     expect(controller).not.toContain('ticket:');
     expect(controller).not.toContain('subject:');
     expect(controller).toContain('bindingUrl');

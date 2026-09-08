@@ -69,6 +69,9 @@ import {
   notificationRecordSchema,
   readAllResultSchema,
   platformAdminUserAccountListSchema,
+  platformAdminUserDetailsListSchema,
+  updatePlatformUserProfileResponseSchema,
+  resetPlatformUserPasswordResponseSchema,
   passwordIdentityAssignmentResponseSchema,
   swapPreviewSchema,
   swapRequestListSchema,
@@ -263,6 +266,18 @@ const source = await format(
       platformAdminUserAccountList: sanitizeJsonSchema(
         z.toJSONSchema(platformAdminUserAccountListSchema),
         'platformAdminUserAccountList',
+      ),
+      platformAdminUserDetailsList: sanitizeJsonSchema(
+        z.toJSONSchema(platformAdminUserDetailsListSchema),
+        'platformAdminUserDetailsList',
+      ),
+      updatePlatformUserProfileResponse: sanitizeJsonSchema(
+        z.toJSONSchema(updatePlatformUserProfileResponseSchema),
+        'updatePlatformUserProfileResponse',
+      ),
+      resetPlatformUserPasswordResponse: sanitizeJsonSchema(
+        z.toJSONSchema(resetPlatformUserPasswordResponseSchema),
+        'resetPlatformUserPasswordResponse',
       ),
       passwordIdentityAssignmentResponse: sanitizeJsonSchema(
         z.toJSONSchema(passwordIdentityAssignmentResponseSchema),

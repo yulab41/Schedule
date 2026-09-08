@@ -10,6 +10,8 @@ import type {
 import {
   groups,
   groupMemberContacts,
+  groupMemberships,
+  users,
   leaveRequests,
   scheduleEvents,
   schedulePeriods,
@@ -334,23 +336,31 @@ export class CalendarQuery {
     const contacts = await transaction
       .select({
         isConfirmed: groupMemberContacts.isConfirmed,
-        membershipId: groupMemberContacts.membershipId,
-        mobilePhone: groupMemberContacts.mobilePhone,
+        membershipId: groupMemberships.id,
+        mobilePhone: users.mobilePhone,
         mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
         mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
         mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
         mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
         shortPhone: groupMemberContacts.shortPhone,
       })
-      .from(groupMemberContacts)
-      .where(
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .leftJoin(
+        groupMemberContacts,
         and(
-          inArray(groupMemberContacts.membershipId, membershipIds),
+          eq(groupMemberContacts.membershipId, groupMemberships.id),
           isNull(groupMemberContacts.deletedAt),
         ),
-      );
+      )
+      .where(and(inArray(groupMemberships.id, membershipIds)));
 
-    return new Map(contacts.map((contact) => [contact.membershipId, contact]));
+    return new Map(
+      contacts.map((contact) => [
+        contact.membershipId,
+        { ...contact, isConfirmed: contact.isConfirmed ?? 0 },
+      ]),
+    );
   }
 }
 

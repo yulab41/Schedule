@@ -33,7 +33,7 @@
           ><text class="section-eyebrow">平台管理员后台</text
           ><text class="page-title">账号与身份</text
           ><text class="page-description"
-            >只显示必要状态，不显示姓名、密码、联系方式或微信身份 subject。</text
+            >管理姓名、统一手机号与登录账号。密码仅显示设置状态。</text
           ></view
         >
         <view class="metrics-row"
@@ -58,9 +58,11 @@
           ><view wx:if="{{accounts.length === 0}}" class="empty-note">暂无可管理账号。</view
           ><view wx:for="{{accounts}}" wx:for-item="account" wx:key="id" class="account-row"
             ><view class="account-main"
+              ><text class="account-name">{{account.realName}}</text
+              ><text class="account-phone">{{account.mobilePhone}}</text
               ><text class="account-id">{{account.idLabel}}</text
               ><text class="account-status"
-                >{{account.statusLabel}} · auth v{{account.authVersion}}</text
+                >{{account.statusLabel}} · {{account.kindLabel}}</text
               ></view
             ><view class="account-username {{account.username ? '' : 'is-muted'}}"
               >{{account.usernameLabel}}</view
@@ -90,15 +92,59 @@
     </view>
   </scroll-view>
   <view wx:if="{{editorOpen}}" class="editor-backdrop" catchtouchmove="preventTouchMove"
-    ><view class="editor-sheet" catchtap="preventTouchMove"
+    ><scroll-view class="editor-sheet" scroll-y enhanced catchtap="preventTouchMove"
       ><view class="sheet-heading"
         ><view
           ><text class="section-eyebrow">账号证明</text
           ><text class="sheet-title">管理 {{selectedAccountLabel}}</text></view
         ><view class="sheet-close" aria-role="button" aria-label="关闭" bindtap="handleCloseEditor"
-          ><image class="sheet-close-icon" src="/assets/icons/ui-close.svg" mode="aspectFit" /></view
-        ></view
-      ><text class="sheet-copy">只修改用户名或生成一次性小程序绑定链接，不设置或显示密码。</text
+          ><image
+            class="sheet-close-icon"
+            src="/assets/icons/ui-close.svg"
+            mode="aspectFit" /></view></view
+      ><text class="sheet-copy">手机号同步至所有群组，群内短号与公开状态分别保留。</text>
+      <ui-alert
+        wx:if="{{managementError}}"
+        tone="danger"
+        title="操作未完成"
+        message="{{managementError}}"
+      ></ui-alert>
+      <ui-button
+        wx:if="{{managementError}}"
+        variant="secondary"
+        label="重新加载账号"
+        bindpress="handleRefresh"
+      ></ui-button>
+      <ui-alert
+        wx:if="{{managementInfo}}"
+        tone="success"
+        title="账号资料"
+        message="{{managementInfo}}"
+      ></ui-alert>
+      <view class="field-block"
+        ><text class="field-label">真实姓名</text
+        ><input
+          class="native-field"
+          maxlength="100"
+          value="{{realNameDraft}}"
+          bindinput="handleRealNameInput"
+      /></view>
+      <view class="field-block"
+        ><text class="field-label">统一手机号</text
+        ><input
+          class="native-field"
+          maxlength="32"
+          value="{{mobilePhoneDraft}}"
+          bindinput="handleMobilePhoneInput"
+      /></view>
+      <ui-button
+        variant="primary"
+        label="保存姓名与手机号"
+        disabled="{{!canManage || !realNameDraft}}"
+        loading="{{managementState === 'loading'}}"
+        bindpress="handleSaveProfile"
+      ></ui-button>
+      <view class="divider"><text>登录账号</text></view
       ><view class="field-block"
         ><text class="field-label">用户名</text
         ><input
@@ -116,7 +162,30 @@
           loading="{{managementState === 'loading'}}"
           bindpress="handleSaveUsername"
         ></ui-button></view
-      ><view class="divider"><text>小程序绑定</text></view
+      ><view class="field-block"
+        ><text class="field-label">设置新密码</text
+        ><input
+          class="native-field"
+          password="{{!passwordVisible}}"
+          value="{{newPasswordDraft}}"
+          bindinput="handlePasswordInput"
+          placeholder="填写新密码，旧密码不会显示"
+      /></view>
+      <view class="sheet-actions"
+        ><ui-button
+          variant="secondary"
+          label="{{passwordVisible ? '隐藏密码' : '显示输入'}}"
+          bindpress="handleTogglePassword"
+        ></ui-button
+        ><ui-button
+          variant="primary"
+          label="保存新密码"
+          disabled="{{!canManage || !newPasswordDraft}}"
+          loading="{{managementState === 'loading'}}"
+          bindpress="handleSavePassword"
+        ></ui-button
+      ></view>
+      <view class="divider"><text>小程序绑定</text></view
       ><ui-button
         variant="secondary"
         label="生成绑定链接（10 分钟）"
@@ -128,7 +197,7 @@
         ><text>请通过受控渠道交给用户，链接不会自动完成绑定。</text
         ><text class="binding-url" user-select="true">{{bindingUrl}}</text
         ><text>有效期：{{bindingExpiresAt}}</text></view
-      ></view
+      ></scroll-view
     ></view
   >
 </view>

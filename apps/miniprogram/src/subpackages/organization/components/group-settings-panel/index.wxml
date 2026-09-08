@@ -405,7 +405,8 @@
               value="{{editingMobilePhone}}"
               maxlength="32"
               bindinput="handleContactMobileInput"
-          /></view>
+            /><text class="field-label">手机号同步至所有群组</text></view
+          >
           <view class="field-block"
             ><text class="field-label">短号</text
             ><input

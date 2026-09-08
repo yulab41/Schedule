@@ -1,5 +1,7 @@
 import {
   passwordIdentityAssignmentRequestSchema,
+  updatePlatformUserProfileRequestSchema,
+  resetPlatformUserPasswordRequestSchema,
   type PasswordIdentityAssignmentRequest,
   type UpdatePlatformUserStatusInput,
 } from '@schedule/contracts';
@@ -35,6 +37,24 @@ export function registerPlatformAdminRoutes(
 
   app.get('/platform-admin/users', { preHandler: app.authenticate }, async (request) =>
     platformAdminService.listUserAccounts(getAuthenticatedIdentity(request)),
+  );
+
+  app.get('/platform-admin/users/details', { preHandler: app.authenticate }, (request) =>
+    platformAdminService.listUserDetails(getAuthenticatedIdentity(request)),
+  );
+  app.put('/platform-admin/users/:userId/profile', { preHandler: app.authenticate }, (request) =>
+    platformAdminService.updateUserProfile(
+      getAuthenticatedIdentity(request),
+      parseUserId(request),
+      parseAccountMutation(request, updatePlatformUserProfileRequestSchema),
+    ),
+  );
+  app.put('/platform-admin/users/:userId/password', { preHandler: app.authenticate }, (request) =>
+    platformAdminService.resetUserPassword(
+      getAuthenticatedIdentity(request),
+      parseUserId(request),
+      parseAccountMutation(request, resetPlatformUserPasswordRequestSchema),
+    ),
   );
 
   app.put(
@@ -118,6 +138,19 @@ function parsePasswordIdentityAssignment(
   const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
   const result = passwordIdentityAssignmentRequestSchema.safeParse({
     ...(body ?? {}),
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      body?.['operationId'] as string | undefined,
+    ),
+  });
+  if (!result.success) throwValidationError();
+  return result.data;
+}
+
+function parseAccountMutation<Output>(request: FastifyRequest, schema: z.ZodType<Output>): Output {
+  const body = request.body as Record<string, unknown> | null | undefined;
+  const result = schema.safeParse({
+    ...body,
     operationId: resolveDangerousOperationId(
       request.headers['idempotency-key'],
       body?.['operationId'] as string | undefined,

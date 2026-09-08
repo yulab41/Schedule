@@ -5,6 +5,19 @@
   color: var(--ui-color-text-primary);
   background: var(--ui-color-background);
 }
+
+.account-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ui-color-text-primary);
+}
+.account-phone {
+  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+}
+.editor-sheet {
+  height: 84vh;
+}
 .mini-header {
   display: flex;
   padding: 0 14px 0 8px;

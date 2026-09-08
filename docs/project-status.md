@@ -2,13 +2,14 @@
 
 ## 当前批次：feedback6 十一项整改实施中
 
-- 账号单元在独占general-1实施验证；浏览器触摸门禁已修复80ms单次采样的不稳定性，500ms内同条件轮询通过完整原smoke，独立检查点`test(smoke): wait for observable calendar press feedback`，见docs/audit/feedback6-smoke.md。账号源码尚未随此测试检查点提交。
+- 账号单元已完成自动化与浏览器验证，检查点`feat(accounts): manage profiles and synchronize account phone numbers`；详情docs/audit/feedback6-accounts.md。统一手机号/姓名/密码管理、0055迁移、合并/占位联动已实现，最新真实MySQL49、共享7、Mini25及verify/包审通过；未部署或上传。
+- 浏览器触摸门禁独立提交5e420f2c，500ms内轮询原反馈条件，正式smoke全流程通过，见docs/audit/feedback6-smoke.md。
 
 - 用户已批准日历08:00换日、统一账号手机号、手动排班与补录改版、删除自动轮转（请假批准清空冲突班次）及通讯录首搜排查，完整边界见 docs/audit/feedback6.md。
 - 基线main=4027d0fd，保留a6586326微信换绑修复；独占general-1，DEPENDENCY_MODE=REUSE_ONLY，无安装。其他agent先只读并行审查，未共用可写依赖。
 - 第一检查点完成日历日期/颜色/布局、手排日期/失效修复、补录改版、补录事件修复和readiness等待优化；标识fix(scheduling): align duty dates and compact backfill editing。真实MySQL36、Mini及root定向、构建/类型/lint/包体通过；全量旧断言失败与修正证据详见feedback6.md，未声称一次全量verify通过。
 - 运行/浏览器验证：pnpm smoke:browser 原脚本在本槽位API/Web完整通过；390/320大字号桌面代理通过，不等于真机验收。没有本轮部署、上传或生产数据写入。
-- 唯一下一任务：实施平台账号统一手机号/姓名/密码管理及自动轮转删除，再集成剩余数据审计和验收。正式库连接资料尚待恢复，未宣称完成数据库审计或真机首搜。本轮不提前分配体验版。
+- 唯一下一任务：根任务review账号提交后删除自动轮转及请假自动补位，再集成报告与最终验收。连接说明已恢复，全日期生产只读审计已完成：旧补录漏事件，未发现幽灵排班；无确证测试账号，未删除。真机首搜尚未测量，本轮不提前分配体验版。
 
 ## 上一交付：微信换绑修复
 

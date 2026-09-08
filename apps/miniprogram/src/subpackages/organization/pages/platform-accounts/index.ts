@@ -13,6 +13,12 @@ type PlatformAccountsPageInstance = ThisParameterType<typeof controller.lifetime
 Page({
   data: { ...controller.data, groupId: '' },
   ...pageMethods,
+  onHide(this: PlatformAccountsPageInstance): void {
+    controller.handleSecretCleanup.call(this);
+  },
+  onUnload(this: PlatformAccountsPageInstance): void {
+    controller.handleDispose.call(this);
+  },
   onLoad(
     this: PlatformAccountsPageInstance,
     query: Readonly<Record<string, string | undefined>>,

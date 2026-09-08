@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 
 import type {
   PlatformBackup,
@@ -9,6 +9,11 @@ import type {
   PlatformJobRun,
   PlatformJobStatusPage,
   PlatformMeResponse,
+  PlatformAdminUserDetailsList,
+  UpdatePlatformUserProfileRequest,
+  UpdatePlatformUserProfileResponse,
+  ResetPlatformUserPasswordRequest,
+  ResetPlatformUserPasswordResponse,
   UpdatePlatformUserStatusInput,
 } from '@schedule/contracts';
 import {
@@ -16,6 +21,7 @@ import {
   groups,
   platformJobRuns,
   userPasswordCredentials,
+  userProfiles,
   users,
   withTransaction,
   type DatabaseClient,
@@ -26,7 +32,12 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { isDuplicateKeyError } from '../../database-error.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
-import { normalizeUsername } from '../auth/password-auth-service.js';
+import { hashPassword, normalizeUsername } from '../auth/password-auth-service.js';
+import {
+  normalizeAccountMobilePhone,
+  setAccountMobilePhone,
+} from '../users/account-mobile-phone.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import {
   assertExpectedAuthVersion,
   createPlatformAdminFingerprint,
@@ -42,6 +53,7 @@ export class PlatformAdminService {
   public constructor(
     private readonly databaseClient: DatabaseClient,
     private readonly allowedCloudbaseUids: ReadonlySet<string>,
+    private readonly operationSecret?: string,
   ) {}
 
   public async listJobRuns(identity: AuthenticatedIdentity): Promise<PlatformJobStatusPage> {
@@ -120,6 +132,215 @@ export class PlatformAdminService {
           ...(row.username === null ? {} : { username: row.username }),
         })),
       };
+    });
+  }
+
+  public async listUserDetails(
+    identity: AuthenticatedIdentity,
+  ): Promise<PlatformAdminUserDetailsList> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await requirePlatformAdmin(transaction, identity, this.allowedCloudbaseUids);
+      const rows = await transaction
+        .select({
+          id: users.id,
+          status: users.status,
+          authVersion: users.authVersion,
+          accountVersion: users.version,
+          profileVersion: userProfiles.version,
+          realName: userProfiles.realName,
+          mobilePhone: users.mobilePhone,
+          username: userPasswordCredentials.username,
+          passwordHash: userPasswordCredentials.passwordHash,
+          hasWechat: sql<number>`EXISTS(SELECT 1 FROM user_auth_identities i WHERE i.user_id = ${users.id} AND i.provider = 'wechat_mini_program')`,
+          hasMembership: sql<number>`EXISTS(SELECT 1 FROM group_memberships m WHERE m.user_id = ${users.id} AND m.deleted_at IS NULL AND m.status = 'active')`,
+          hasHistory: sql<number>`EXISTS(SELECT 1 FROM group_memberships m JOIN shift_assignments s ON s.planned_membership_id = m.id OR s.actual_membership_id = m.id WHERE m.user_id = ${users.id})`,
+        })
+        .from(users)
+        .leftJoin(
+          userProfiles,
+          and(eq(userProfiles.userId, users.id), isNull(userProfiles.deletedAt)),
+        )
+        .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
+        .where(isNull(users.deletedAt))
+        .orderBy(users.createdAt, users.id);
+      return {
+        users: rows.map((row) => ({
+          id: row.id,
+          status: row.status as 'active' | 'suspended',
+          authVersion: row.authVersion,
+          accountVersion: row.accountVersion,
+          profileVersion: row.profileVersion ?? 0,
+          hasPassword: row.passwordHash !== null,
+          ...(row.realName === null ? {} : { realName: row.realName }),
+          ...(row.mobilePhone === null ? {} : { mobilePhone: row.mobilePhone }),
+          ...(row.username === null ? {} : { username: row.username }),
+          accountKind:
+            row.username !== null
+              ? 'password'
+              : Number(row.hasWechat) > 0
+                ? 'wechat'
+                : Number(row.hasMembership) > 0
+                  ? 'unbound-member'
+                  : Number(row.hasHistory) > 0
+                    ? 'history-member'
+                    : 'incomplete',
+        })),
+      };
+    });
+  }
+
+  public async updateUserProfile(
+    identity: AuthenticatedIdentity,
+    userId: string,
+    input: UpdatePlatformUserProfileRequest,
+  ): Promise<UpdatePlatformUserProfileResponse> {
+    return runPlatformAdminMutation({
+      retryDeadlocks: true,
+      allowedCloudbaseUids: this.allowedCloudbaseUids,
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      scope: 'platform_user_profile_update',
+      requestFingerprint: createPlatformAdminFingerprint({
+        userId,
+        ...input,
+        mobilePhone: normalizeAccountMobilePhone(input.mobilePhone),
+      }),
+      run: async (transaction, actorUserId) => {
+        const [account] = await transaction
+          .select({ version: users.version })
+          .from(users)
+          .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+          .limit(1)
+          .for('update');
+        if (account === undefined)
+          throw new ApiError({ code: 'NOT_FOUND', statusCode: 404, userMessage: '账号不存在。' });
+        const [profile] = await transaction
+          .select({ realName: userProfiles.realName, version: userProfiles.version })
+          .from(userProfiles)
+          .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
+          .limit(1)
+          .for('update');
+        assertExpectedVersion({
+          actualVersion: account.version,
+          expectedVersion: input.expectedAccountVersion,
+          id: userId,
+          objectType: 'platform_user',
+        });
+        assertExpectedVersion({
+          actualVersion: profile?.version ?? 0,
+          expectedVersion: input.expectedProfileVersion,
+          id: userId,
+          objectType: 'user_profile',
+        });
+        if (profile === undefined)
+          await transaction.insert(userProfiles).values({ userId, realName: input.realName });
+        else if (profile.realName !== input.realName)
+          await transaction
+            .update(userProfiles)
+            .set({ realName: input.realName, version: sql`${userProfiles.version} + 1` })
+            .where(eq(userProfiles.userId, userId));
+        await setAccountMobilePhone(transaction, userId, input.mobilePhone);
+        const [updated] = await transaction
+          .select({ version: users.version })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        await this.auditWriter.append(transaction, {
+          action: 'platform_user_profile_updated',
+          actorUserId,
+          metadata: { fields: ['realName', 'mobilePhone'] },
+          operationId: input.operationId,
+          outcome: 'completed',
+          targetId: userId,
+          targetType: 'user',
+        });
+        return {
+          accountVersion: updated!.version,
+          profileVersion:
+            profile === undefined
+              ? 1
+              : profile.version + (profile.realName === input.realName ? 0 : 1),
+        };
+      },
+    });
+  }
+
+  public async resetUserPassword(
+    identity: AuthenticatedIdentity,
+    userId: string,
+    input: ResetPlatformUserPasswordRequest,
+  ): Promise<ResetPlatformUserPasswordResponse> {
+    if (this.operationSecret === undefined || this.operationSecret.length < 32)
+      throw new ApiError({
+        code: 'SERVICE_UNAVAILABLE',
+        statusCode: 503,
+        userMessage: '密码管理暂未配置。',
+      });
+    const requestFingerprint = createHmac('sha256', this.operationSecret)
+      .update(
+        JSON.stringify([
+          'platform-password-reset-v1',
+          userId,
+          input.expectedAuthVersion,
+          input.newPassword,
+        ]),
+      )
+      .digest('hex');
+    return runPlatformAdminMutation({
+      retryDeadlocks: true,
+      allowedCloudbaseUids: this.allowedCloudbaseUids,
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      scope: 'platform_user_password_reset',
+      requestFingerprint,
+      run: async (transaction, actorUserId) => {
+        const [account] = await transaction
+          .select({ authVersion: users.authVersion })
+          .from(users)
+          .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+          .limit(1)
+          .for('update');
+        if (account === undefined)
+          throw new ApiError({ code: 'NOT_FOUND', statusCode: 404, userMessage: '账号不存在。' });
+        assertExpectedAuthVersion({
+          actualAuthVersion: account.authVersion,
+          expectedAuthVersion: input.expectedAuthVersion,
+          userId,
+        });
+        const [credential] = await transaction
+          .select({ userId: userPasswordCredentials.userId })
+          .from(userPasswordCredentials)
+          .where(eq(userPasswordCredentials.userId, userId))
+          .limit(1)
+          .for('update');
+        if (credential === undefined)
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '请先为该账号分配用户名。',
+          });
+        const passwordHash = await hashPassword(input.newPassword);
+        await transaction
+          .update(userPasswordCredentials)
+          .set({ passwordHash })
+          .where(eq(userPasswordCredentials.userId, userId));
+        await transaction
+          .update(users)
+          .set({ authVersion: sql`${users.authVersion} + 1`, version: sql`${users.version} + 1` })
+          .where(eq(users.id, userId));
+        await this.auditWriter.append(transaction, {
+          action: 'platform_user_password_reset',
+          actorUserId,
+          metadata: { passwordConfigured: true },
+          operationId: input.operationId,
+          outcome: 'completed',
+          targetId: userId,
+          targetType: 'user',
+        });
+        return { authVersion: account.authVersion + 1, passwordConfigured: true };
+      },
     });
   }
 

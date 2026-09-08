@@ -140,6 +140,8 @@ import {
   createInviteVisitorWriteClient,
   createNotificationPreferencesClient,
   createPlatformIdentityWriteClient,
+  createPlatformAccountClient,
+  type PlatformAccountClient,
   createOrganizationReadClient,
   createOrganizationWriteClient,
   createSchedulingConfigWriteClient,
@@ -195,6 +197,7 @@ import { getAuthenticatedSession, type AuthClient } from '../auth/local-auth.js'
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
 
 export interface ApiClient {
+  readonly platformAccounts: PlatformAccountClient;
   acceptInvite(input: AcceptInviteRequest): Promise<AcceptInviteResponse>;
   acceptDutyAdjustment(
     groupId: string,
@@ -698,9 +701,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const schedulingConfigWriteClient = createSchedulingConfigWriteClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
   const platformIdentityWriteClient = createPlatformIdentityWriteClient(sharedClientTransport);
+  const platformAccounts = createPlatformAccountClient(sharedClientTransport);
   const workflowClient = createWorkflowClient(sharedClientTransport);
 
   return {
+    platformAccounts,
     acceptInvite(input) {
       return inviteVisitorWriteClient.acceptInvite(input);
     },

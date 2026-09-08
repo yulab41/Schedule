@@ -1,27 +1,11 @@
 import {
-  type DatabaseClient,
   type DatabaseTransaction,
   wechatAdminBindingTickets,
   wechatLinkTokens,
-  withTransaction,
 } from '@schedule/database';
 import { and, eq } from 'drizzle-orm';
 
-import { getDatabaseErrorCode } from '../../database-error.js';
-
-// Callers keep external effects outside, or memoize them across attempts (self-unbind).
-export async function withWechatBindingTransaction<T>(
-  client: DatabaseClient,
-  operation: (transaction: DatabaseTransaction) => Promise<T>,
-): Promise<T> {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await withTransaction(client, operation);
-    } catch (error) {
-      if (attempt >= 2 || getDatabaseErrorCode(error) !== 'ER_LOCK_DEADLOCK') throw error;
-    }
-  }
-}
+export { withRetriedTransaction as withWechatBindingTransaction } from '../concurrency/transaction-retry.js';
 
 // Lock the indexed identity range before a single token or account. Also serializes
 // issuing a new token with binding/unbinding, including identities without a user.

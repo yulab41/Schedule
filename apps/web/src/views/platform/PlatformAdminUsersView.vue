@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import type { PlatformAdminUserAccount } from '@schedule/contracts';
+import type { PlatformAdminUserDetails as PlatformAdminUserAccount } from '@schedule/contracts';
 import {
   resolveWorkflowOperationAttempt,
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
-import { computed, onMounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import SharedIcon from '../../components/SharedIcon.vue';
+import { useSessionStore } from '../../stores/session.js';
 
 const api = createApiClient({ auth: localAuth });
+const session = useSessionStore();
+const router = useRouter();
 const operationAttempts = new Map<
   string,
   WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
@@ -25,6 +28,30 @@ const saving = ref(false);
 const modalOpen = ref(false);
 const selectedUser = ref<PlatformAdminUserAccount>();
 const username = ref('');
+const realName = ref('');
+const mobilePhone = ref('');
+const newPassword = ref('');
+const passwordVisible = ref(false);
+let passwordOperationId: string | undefined;
+watch(
+  newPassword,
+  () => {
+    passwordOperationId = undefined;
+  },
+  { flush: 'sync' },
+);
+function clearSecret(): void {
+  newPassword.value = '';
+  passwordVisible.value = false;
+  passwordOperationId = undefined;
+}
+function onVisibilityChange(): void {
+  if (document.hidden) clearSecret();
+}
+onBeforeUnmount(() => {
+  clearSecret();
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+});
 const generatedUrl = ref<string>();
 const generatedExpiry = ref<string>();
 
@@ -56,6 +83,7 @@ function completePlatformIdentityAttempt(key: string): void {
 }
 
 onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibilityChange);
   void refresh();
 });
 
@@ -63,17 +91,44 @@ async function refresh(): Promise<void> {
   loading.value = true;
   errorMessage.value = undefined;
   try {
-    const nextAccounts = await api.listPlatformUserAccounts();
+    const nextAccounts = await api.platformAccounts.listDetails();
     accounts.value = nextAccounts;
     const selectedId = selectedUser.value?.id;
     if (selectedId !== undefined) {
+      const previousAuthVersion = selectedUser.value?.authVersion;
       selectedUser.value = nextAccounts.find((account) => account.id === selectedId);
+      if (selectedUser.value === undefined) {
+        modalOpen.value = false;
+        clearSecret();
+        realName.value = '';
+        mobilePhone.value = '';
+        username.value = '';
+      } else if (selectedUser.value.authVersion !== previousAuthVersion)
+        passwordOperationId = undefined;
+      if (selectedUser.value !== undefined) {
+        realName.value = selectedUser.value.realName ?? '';
+        mobilePhone.value = selectedUser.value.mobilePhone ?? '';
+        username.value = selectedUser.value.username ?? '';
+      }
     }
   } catch (error) {
+    if (error instanceof ApiClientError && error.status === 401) {
+      await returnToLogin();
+      return;
+    }
     errorMessage.value = toUserMessage(error, '平台账号暂时无法加载，请稍后重试。');
   } finally {
     loading.value = false;
   }
+}
+
+async function returnToLogin(): Promise<void> {
+  clearSecret();
+  accounts.value = [];
+  selectedUser.value = undefined;
+  modalOpen.value = false;
+  await session.signOut();
+  await router.replace('/login');
 }
 
 function shortUserId(id: string): string {
@@ -83,6 +138,9 @@ function shortUserId(id: string): string {
 function openAssignment(account: PlatformAdminUserAccount): void {
   selectedUser.value = account;
   username.value = account.username ?? '';
+  realName.value = account.realName ?? '';
+  mobilePhone.value = account.mobilePhone ?? '';
+  clearSecret();
   generatedUrl.value = undefined;
   generatedExpiry.value = undefined;
   feedback.value = undefined;
@@ -92,6 +150,7 @@ function openAssignment(account: PlatformAdminUserAccount): void {
 function closeAssignment(): void {
   if (saving.value) return;
   modalOpen.value = false;
+  clearSecret();
   selectedUser.value = undefined;
 }
 
@@ -108,6 +167,7 @@ async function saveAssignment(): Promise<void> {
       username: username.value.trim(),
     });
     const result = await api.assignPlatformPasswordIdentity(account.id, input);
+    passwordOperationId = undefined;
     completePlatformIdentityAttempt(attemptKey);
     selectedUser.value = {
       ...account,
@@ -124,6 +184,64 @@ async function saveAssignment(): Promise<void> {
       await refresh();
     }
     errorMessage.value = message;
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function saveProfile(): Promise<void> {
+  const account = selectedUser.value;
+  if (saving.value || account === undefined || !realName.value.trim()) return;
+  saving.value = true;
+  errorMessage.value = undefined;
+  try {
+    const key = 'account-profile:' + account.id;
+    const input = resolvePlatformIdentityAttempt(key, {
+      expectedAccountVersion: account.accountVersion,
+      expectedProfileVersion: account.profileVersion,
+      realName: realName.value.trim(),
+      mobilePhone: mobilePhone.value.trim() || null,
+    });
+    await api.platformAccounts.updateProfile(account.id, input);
+    completePlatformIdentityAttempt(key);
+    feedback.value = '姓名与手机号已保存，手机号已同步至所有群组。';
+    await refresh();
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 401) {
+      await returnToLogin();
+      return;
+    }
+    errorMessage.value = toUserMessage(error, '资料没有保存，请刷新后重试。');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function savePassword(): Promise<void> {
+  const account = selectedUser.value;
+  if (saving.value || account === undefined || !newPassword.value) return;
+  saving.value = true;
+  errorMessage.value = undefined;
+  passwordOperationId ??= crypto.randomUUID();
+  try {
+    await api.platformAccounts.resetPassword(account.id, {
+      operationId: passwordOperationId,
+      expectedAuthVersion: account.authVersion,
+      newPassword: newPassword.value,
+    });
+    clearSecret();
+    feedback.value = '新密码已保存，该账号的旧登录已失效。';
+    if (account.id === session.profile?.id) {
+      await returnToLogin();
+      return;
+    }
+    await refresh();
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 401) {
+      await returnToLogin();
+      return;
+    }
+    errorMessage.value = toUserMessage(error, '密码没有保存，请刷新后重试。');
   } finally {
     saving.value = false;
   }
@@ -174,8 +292,8 @@ async function generateBindingLink(): Promise<void> {
       <section class="platform-admin-intro">
         <div>
           <p class="platform-eyebrow">仅平台管理员可见</p>
-          <h2>预置登录账号</h2>
-          <p>为已存在的业务用户分配 Web 用户名，再由用户完成密码证明或小程序身份绑定。</p>
+          <h2>账号资料</h2>
+          <p>统一维护姓名、手机号与登录账号；未绑定成员和微信账号也会出现在这里。</p>
         </div>
         <button
           v-if="accounts[0] !== undefined"
@@ -209,7 +327,7 @@ async function generateBindingLink(): Promise<void> {
         <header class="platform-table-heading">
           <div>
             <h2 id="platform-account-list-title">用户账号</h2>
-            <span>只显示必要状态，不显示姓名、密码或联系方式</span>
+            <span>密码只显示设置状态，手机号同步至所有群组</span>
           </div>
           <button class="platform-refresh" type="button" :disabled="loading" @click="refresh">
             重新加载
@@ -221,18 +339,28 @@ async function generateBindingLink(): Promise<void> {
           <table>
             <thead>
               <tr>
-                <th>用户标识</th>
+                <th>姓名与账号</th>
                 <th>用户名</th>
                 <th>密码证明</th>
-                <th>版本</th>
+                <th>手机号</th>
                 <th><span class="visually-hidden">操作</span></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="account in accounts" :key="account.id">
                 <td>
-                  <code>{{ shortUserId(account.id) }}</code
+                  <strong>{{ account.realName ?? '未填写姓名' }}</strong
+                  ><code>{{ shortUserId(account.id) }}</code
                   ><small>{{ account.status === 'active' ? '账号正常' : '账号已暂停' }}</small>
+                  <small>{{
+                    {
+                      password: '密码账号',
+                      wechat: '微信账号',
+                      'unbound-member': '待绑定成员',
+                      'history-member': '历史成员身份',
+                      incomplete: '未完成账号',
+                    }[account.accountKind]
+                  }}</small>
                 </td>
                 <td>
                   <span v-if="account.username" class="username-chip">{{ account.username }}</span
@@ -244,7 +372,7 @@ async function generateBindingLink(): Promise<void> {
                   >
                 </td>
                 <td>
-                  <span class="version-value">v{{ account.authVersion }}</span>
+                  <span>{{ account.mobilePhone ?? '未填写' }}</span>
                 </td>
                 <td>
                   <button
@@ -284,9 +412,33 @@ async function generateBindingLink(): Promise<void> {
         </button>
         <p class="platform-eyebrow">账号证明</p>
         <h2 id="platform-modal-title">管理用户账号</h2>
-        <p class="platform-modal-copy">
-          只修改用户名或生成一次性小程序绑定链接，不设置或显示密码。
-        </p>
+        <p v-if="errorMessage" class="platform-error" role="alert">{{ errorMessage }}</p>
+        <button
+          v-if="errorMessage"
+          class="platform-secondary-button"
+          type="button"
+          :disabled="saving"
+          @click="refresh"
+        >
+          重新加载账号
+        </button>
+        <p v-if="feedback" class="platform-feedback" role="status">{{ feedback }}</p>
+        <p class="platform-modal-copy">手机号同步至所有群组，群内短号与公开状态分别保留。</p>
+        <label class="platform-field"
+          ><span>真实姓名</span><input v-model="realName" maxlength="100"
+        /></label>
+        <label class="platform-field"
+          ><span>统一手机号</span><input v-model="mobilePhone" maxlength="32" autocomplete="off"
+        /></label>
+        <button
+          class="platform-primary-button"
+          type="button"
+          :disabled="saving || !realName.trim()"
+          @click="saveProfile"
+        >
+          保存姓名与手机号
+        </button>
+        <div class="platform-link-divider"><span>登录账号</span></div>
         <label class="platform-field"
           ><span>用户名</span
           ><input v-model="username" autocomplete="off" maxlength="64" placeholder="3-64 位账号"
@@ -306,6 +458,30 @@ async function generateBindingLink(): Promise<void> {
             @click="saveAssignment"
           >
             保存用户名
+          </button>
+        </div>
+        <label class="platform-field"
+          ><span>设置新密码</span
+          ><input
+            v-model="newPassword"
+            :type="passwordVisible ? 'text' : 'password'"
+            autocomplete="new-password"
+            placeholder="填写新密码，旧密码不会显示"
+        /></label>
+        <div class="platform-modal-actions">
+          <button
+            class="platform-secondary-button"
+            type="button"
+            @click="passwordVisible = !passwordVisible"
+          >
+            {{ passwordVisible ? '隐藏密码' : '显示输入' }}</button
+          ><button
+            class="platform-primary-button"
+            type="button"
+            :disabled="saving || !newPassword"
+            @click="savePassword"
+          >
+            保存新密码
           </button>
         </div>
         <div class="platform-link-divider"><span>小程序绑定</span></div>
@@ -625,6 +801,8 @@ td code {
 }
 
 .platform-modal {
+  max-height: 84vh;
+  overflow-y: auto;
   position: relative;
   width: min(100%, 500px);
   padding: 30px;
@@ -663,6 +841,7 @@ td code {
 }
 
 .platform-field {
+  margin-bottom: 12px;
   display: grid;
   gap: 7px;
   color: var(--ui-color-text-secondary);

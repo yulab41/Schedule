@@ -2664,3 +2664,10 @@
 - 测试行为变更：500ms内轮询原背景+缩放条件，超时仍失败，不改变页面、坐标、禁用或释放后的检查。
 - 运行/浏览器验证：pnpm smoke:browser（原scripts/smoke-browser.mjs，经既有本地内存配置适配器）全流程通过，日志runtime/audit/feedback6/accounts-browser-smoke-final.log，无浏览器错误。
 - 独立检查点test(smoke): wait for observable calendar press feedback；账号源码仍待独立收口，未进行生产写入或上传。
+
+## Feedback6 统一账号资料（2026-09-08）
+
+- 平台姓名/统一手机号/密码状态及编辑，新增兼容详情接口；0055按用户批准的联系方式时间选值、保留迁移前值，变化镜像递增内部版本。无测试账号证据，未删除业务身份。
+- 行为变化、手机号合并/退出、现有公开状态与整事务重试等价审计见docs/audit/feedback6-accounts.md。真实MySQL49、另群权限10/邀请8/日历16、共享7、Mini25通过，原失败与夹具修正保留。
+- 运行/浏览器验证：pnpm smoke:browser 原流程完整通过；专项Web姓名/手机号/用户名/密码保存及390/320四组窗口通过，无浏览器错误。Mini verify/包审通过，原生仍待用户复核。
+- 检查点feat(accounts): manage profiles and synchronize account phone numbers；独占复用依赖无安装，仅本地提交待根review，未部署/上传/生产写入。下一单元为轮转删除。

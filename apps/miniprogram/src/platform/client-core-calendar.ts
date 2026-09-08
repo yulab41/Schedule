@@ -19,6 +19,7 @@ import {
   createSchedulingConfigWriteClient,
   createPastScheduleClient,
   createPlatformIdentityWriteClient,
+  createPlatformAccountClient,
   createSchedulePublicationClient,
   createVisitorAccessReadClient,
   createWorkflowClient,
@@ -327,6 +328,15 @@ export function createRuntimeInviteVisitorWriteClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): InviteVisitorWriteClient {
   return createInviteVisitorWriteClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
+  );
+}
+
+export function createRuntimePlatformAccountClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+) {
+  return createPlatformAccountClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
   );
 }
