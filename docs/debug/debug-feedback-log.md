@@ -2657,3 +2657,10 @@
 - 先失败后通过：日期4例、颜色1例、模板1例、旧补录2例、readiness1例。真实MySQL36通过；旧测试时间固定及源码路径断言同步，未跳过新业务规则。
 - 运行/浏览器验证：pnpm smoke:browser 原脚本完整通过（本地API/Web，配置仅内存提供，合成管理员标记已恢复）。此前环境/繁忙触摸失败保留，未改产品或断言掩盖。
 - 已完成自动化、待用户同版本真机复核；账号/轮转后续实施，生产数据库及首搜仍无本轮实测，未部署或上传。
+
+## Feedback6 浏览器触摸门禁（2026-09-08）
+
+- 引入点0aaa5620：80ms单次采样在同一周切换按钮两次失败；仅加DOM取证后通过，坐标命中且按钮未禁用。保留原失败与诊断日志，详见docs/audit/feedback6-smoke.md。
+- 测试行为变更：500ms内轮询原背景+缩放条件，超时仍失败，不改变页面、坐标、禁用或释放后的检查。
+- 运行/浏览器验证：pnpm smoke:browser（原scripts/smoke-browser.mjs，经既有本地内存配置适配器）全流程通过，日志runtime/audit/feedback6/accounts-browser-smoke-final.log，无浏览器错误。
+- 独立检查点test(smoke): wait for observable calendar press feedback；账号源码仍待独立收口，未进行生产写入或上传。

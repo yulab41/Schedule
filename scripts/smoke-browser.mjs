@@ -1442,20 +1442,28 @@ async function assertTouchPressFeedback(page, locator, label) {
       type: 'touchStart',
       touchPoints: [{ x, y }],
     });
-    await page.waitForTimeout(80);
-    const pressed = await locator.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        background: style.backgroundColor,
-        transform: style.transform,
-      };
-    });
+    const feedbackDeadline = Date.now() + 500;
+    let pressed;
+    do {
+      pressed = await locator.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { background: style.backgroundColor, transform: style.transform };
+      });
+      if (
+        pressed.background !== 'rgba(0, 0, 0, 0)' &&
+        pressed.background !== 'transparent' &&
+        pressed.transform !== 'none'
+      )
+        break;
+      if (Date.now() >= feedbackDeadline) break;
+      await page.waitForTimeout(16);
+    } while (Date.now() < feedbackDeadline);
     if (
       pressed.background === 'rgba(0, 0, 0, 0)' ||
       pressed.background === 'transparent' ||
       pressed.transform === 'none'
     ) {
-      fail(`${label}按下时没有可见的点触反馈。`);
+      fail(`${label}按下时没有可见的点触反馈：${JSON.stringify(pressed)}`);
     }
 
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
