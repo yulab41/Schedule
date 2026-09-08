@@ -33,7 +33,7 @@
       "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial.",
       "equivalentProof": {
         "strategy": "canonical-tree-files",
-        "evidence": "Feedback4 adds only the approved startup password-reminder controller wiring to the previously audited workbench. AST comparison preserves all 62 existing Page methods (onUnload only adds account-security disposal) and all 61 top-level functions; handleCalendarNav and directory navigation remain unchanged, and calendarNavAnimating stays absent. Shared motion source and icon-motion-parity contract blobs are unchanged. See docs/audit/ux-cleanup-10-feedback4-release.md; existing motion and lineage gates remain required.",
+        "evidence": "Feedback6 preserves the accepted icon geometry and navigation motion. The workbench diff adds business-date lifecycle refresh, dynamic date reads, and a session-migration wait before loading; these are approved behavior changes, not whole-file equivalence. handleCalendarNav, handleDirectoryNav, workspace activation, swiper/locate transitions and scroll queues remain unchanged, calendarNavAnimating remains absent, and all other eight proof blobs match. See docs/audit/feedback6-release.md; motion, icon parity and lineage gates remain required.",
         "files": [
           {
             "path": "packages/ui-icons/src/motion.ts",
@@ -45,7 +45,7 @@
           },
           {
             "path": "apps/miniprogram/src/pages/workbench/index.ts",
-            "blob": "bbc1aadcd90799d3b96f524abd581064f8ddc365"
+            "blob": "32e0e95eb5c20f3ed3ffb4e440027a22e4143e8d"
           }
         ]
       }

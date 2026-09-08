@@ -2687,3 +2687,7 @@
 - schema56兼容、前向不兼容DDL失败/重试保护、精确名单replace、旧微信会话迁移、迟到登录/401保护及共享更新提示完成。隐私例外保持准确三类请求；普通业务和手机号授予无绕过。
 - 运行/浏览器验证：pnpm smoke:browser对应原scripts/smoke-browser.mjs，经node runtime/audit/feedback6-upgrade/smoke.mjs的本地内存配置适配器执行，全流程通过、无浏览器错误，合成管理员标记恢复。
 - 最终完整pnpm verify退出0，Mini971/root1208通过；真实MySQL回归另见账号/轮转报告。Mini包审5118171字节，Worklet2/2；Bash控制逻辑35项通过。原失败与修正均保留。状态：自动化已完成，待本轮发布授权与真机复核。
+
+## FEEDBACK6-RELEASE-LINEAGE（2026-09-09）
+
+正式上传3aeaa4c8因5285dd1历史workbench证明过期而失败，未预约版本/上传/迁移。引入点：proof来自bfd1fbbd，业务改动528722f4/3aeaa4c8。仅更新精确blob与有限动效保留证据，详见docs/audit/feedback6-release.md。运行/浏览器验证：复用feedback6-upgrade已通过原pnpm smoke:browser脚本的应用证据；本次仅发布证明及文档变化。
