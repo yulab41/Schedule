@@ -4,6 +4,7 @@ import type {
   CreateManualScheduleTemplateRequest,
   ManualApplyPreview,
   ManualScheduleTemplate,
+  ManualScheduleStartDate,
   PreviewManualTemplateApplyRequest,
   SchedulingConfig,
   UpdateManualScheduleTemplateRequest,
@@ -16,6 +17,7 @@ import {
 import {
   appliedManualScheduleTemplateResultJsonSchema,
   manualApplyPreviewJsonSchema,
+  manualScheduleStartDateJsonSchema,
   manualScheduleTemplateJsonSchema,
   manualScheduleTemplateListJsonSchema,
   schedulingConfigJsonSchema,
@@ -81,6 +83,14 @@ export const schedulingConfigDecoder = refineDecoder(configStructureDecoder, (co
 );
 
 export const manualScheduleEndpoints = {
+  nextStartDate: defineClientEndpoint<GroupInput & { roleId: string }, ManualScheduleStartDate>({
+    auth: 'bearer',
+    decoder: createCompactDecoder<ManualScheduleStartDate>(manualScheduleStartDateJsonSchema),
+    id: 'manual-schedule.next-start-date',
+    method: 'GET',
+    path: ({ groupId, roleId }) =>
+      `/groups/${encodeURIComponent(groupId)}/manual-schedule-start-date/${encodeURIComponent(roleId)}`,
+  }),
   apply: defineClientEndpoint<ApplyInput, AppliedManualScheduleTemplateResult>({
     auth: 'bearer',
     body: ({ request }) => request,
@@ -131,6 +141,7 @@ export const manualScheduleEndpoints = {
 } as const;
 
 export interface ManualScheduleClient {
+  getNextStartDate(groupId: string, roleId: string): Promise<ManualScheduleStartDate>;
   apply(
     groupId: string,
     templateId: string,
@@ -156,6 +167,9 @@ export interface ManualScheduleClient {
 
 export function createManualScheduleClient(transport: ClientTransport): ManualScheduleClient {
   return {
+    getNextStartDate(groupId, roleId) {
+      return transport.request(manualScheduleEndpoints.nextStartDate, { groupId, roleId });
+    },
     apply(groupId, templateId, request) {
       return transport.request(manualScheduleEndpoints.apply, { groupId, request, templateId });
     },

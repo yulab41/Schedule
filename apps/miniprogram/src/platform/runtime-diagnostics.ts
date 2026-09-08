@@ -459,6 +459,7 @@ function sanitizeServerTiming(
     supported: true,
     ...optionalDuration('aliasMs', value.aliasMs),
     ...optionalDuration('authMs', value.authMs),
+    ...optionalDuration('readinessMs', value.readinessMs),
     ...optionalDuration('batchMs', value.batchMs),
     ...(value.cache === 'hit' || value.cache === 'miss' || value.cache === 'none'
       ? { cache: value.cache }

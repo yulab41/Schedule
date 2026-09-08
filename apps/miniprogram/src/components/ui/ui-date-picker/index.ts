@@ -2,7 +2,7 @@ import {
   createRenderedOptions,
   scheduleSelectorPlacement,
   validOptionIndex,
-} from '../../../../components/ui/ui-selector/selector.js';
+} from '../ui-selector/selector.js';
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -19,7 +19,7 @@ import {
   type CalendarPeriodPagerState,
   type CalendarPeriodRelative,
   type CalendarPeriodSlot,
-} from '../../../../components/calendar/calendar-period-pager.js';
+} from '../../calendar/calendar-period-pager.js';
 
 interface WorkflowPickerOption {
   readonly isWeekend?: boolean;

@@ -108,6 +108,39 @@ describe('directory candidate covering-index guard', () => {
     migrationRows: [migrationRow()],
   };
 
+  it('serves the last inspected plan immediately while an expired readiness check runs in background', async () => {
+    let now = 0;
+    let release!: (value: DirectoryCandidateReadiness) => void;
+    const inspect = vi
+      .fn()
+      .mockResolvedValueOnce(exactReadiness)
+      .mockImplementationOnce(
+        () =>
+          new Promise<DirectoryCandidateReadiness>((resolve) => {
+            release = resolve;
+          }),
+      );
+    const guard = new DirectoryCandidateIndexGuard(inspect, undefined, { now: () => now });
+    expect(await guard.refresh()).toBe(true);
+    now = directoryCandidateReadinessTtlMs;
+    let completed = false;
+    const read = guard.isAvailable().then((value) => {
+      completed = true;
+      return value;
+    });
+    const refreshed = guard.refresh();
+    await Promise.resolve();
+    try {
+      expect(completed).toBe(true);
+    } finally {
+      release({ indexRows: [], migrationRows: [] });
+    }
+    expect(await read).toBe(true);
+    await refreshed;
+    expect(await guard.isAvailable()).toBe(false);
+    expect(inspect).toHaveBeenCalledTimes(2);
+  });
+
   it('accepts only the named non-unique index with the exact ordered columns', () => {
     expect(hasCandidateDirectoryIndexDefinition(exactRows)).toBe(true);
     expect(hasCandidateDirectoryIndexDefinition([])).toBe(false);

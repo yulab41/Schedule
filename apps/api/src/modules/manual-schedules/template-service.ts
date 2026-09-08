@@ -20,6 +20,8 @@ import {
   manualScheduleTemplates,
   memberScheduleRoles,
   scheduleRoles,
+  schedulePeriods,
+  shiftAssignments,
   shiftTypes,
   userProfiles,
   users,
@@ -28,6 +30,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -51,6 +54,8 @@ interface CurrentRoleMemberRow {
 }
 
 interface CurrentShiftTypeRow {
+  readonly startTime: string | null;
+  readonly endTime: string | null;
   readonly abbreviation: string;
   readonly color: string;
   readonly configurationVersion: number;
@@ -65,6 +70,53 @@ export class ManualScheduleTemplateService {
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
+
+  public async nextStartDate(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    roleId: string,
+  ): Promise<{ startDate: string }> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const [role] = await transaction
+        .select({ id: scheduleRoles.id })
+        .from(scheduleRoles)
+        .where(
+          and(
+            eq(scheduleRoles.id, roleId),
+            eq(scheduleRoles.groupId, groupId),
+            isNull(scheduleRoles.deletedAt),
+          ),
+        );
+      if (role === undefined) throw validationError('排班岗位不存在或不可用。');
+      const [row] = await transaction
+        .select({ lastDate: sql<string | null>`max(${shiftAssignments.businessDate})` })
+        .from(shiftAssignments)
+        .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+        .where(
+          and(
+            eq(schedulePeriods.groupId, groupId),
+            eq(schedulePeriods.scheduleRoleId, roleId),
+            inArray(schedulePeriods.status, ['published', 'past']),
+            isNull(schedulePeriods.deletedAt),
+            isNull(shiftAssignments.deletedAt),
+          ),
+        );
+      const today = getChinaStandardTimeBusinessDate(new Date());
+      const next =
+        row?.lastDate == null
+          ? today
+          : new Date(Date.parse(`${row.lastDate}T00:00:00Z`) + 86_400_000)
+              .toISOString()
+              .slice(0, 10);
+      return { startDate: next > today ? next : today };
+    });
+  }
 
   public async list(
     identity: AuthenticatedIdentity,
@@ -626,6 +678,8 @@ export class ManualScheduleTemplateService {
     return transaction
       .select({
         abbreviation: shiftTypes.abbreviation,
+        startTime: shiftTypes.startTime,
+        endTime: shiftTypes.endTime,
         color: shiftTypes.color,
         configurationVersion: shiftTypes.configurationVersion,
         id: shiftTypes.id,
@@ -724,7 +778,8 @@ function toTemplate(
         isStale:
           currentShiftType === undefined ||
           currentShiftType.isEnabled !== 1 ||
-          currentShiftType.configurationVersion !== cell.shiftTypeConfigurationVersion,
+          currentShiftType.startTime === null ||
+          currentShiftType.endTime === null,
         membershipId: cell.membershipId,
         shiftTypeAbbreviation: currentShiftType?.abbreviation ?? '',
         shiftTypeColor: currentShiftType?.color ?? '#1F5AA6',
@@ -743,10 +798,7 @@ function toTemplate(
         return {
           currentMemberScheduleRoleVersion: current?.version ?? 0,
           isAvailable: current?.isAvailable ?? false,
-          isStale:
-            current === undefined ||
-            !current.isAvailable ||
-            current.version !== member.memberScheduleRoleVersion,
+          isStale: current === undefined || !current.isAvailable,
           membershipId: member.membershipId,
           memberScheduleRoleVersion: member.memberScheduleRoleVersion,
           realName: memberNamesById.get(member.membershipId) ?? '',

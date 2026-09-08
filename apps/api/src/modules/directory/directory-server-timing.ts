@@ -6,6 +6,7 @@ import type { DirectoryQueryPlan } from './directory-query-plan.js';
 export interface DirectoryServerTimingTrace {
   aliasMs?: number | undefined;
   authMs?: number | undefined;
+  readinessMs?: number | undefined;
   batchMs?: number | undefined;
   contactsMs?: number | undefined;
   countMs?: number | undefined;
@@ -85,7 +86,15 @@ export function getDirectoryServerTimingTrace(
 
 export async function measureDirectoryPhase<Result>(
   trace: DirectoryServerTimingTrace | undefined,
-  key: 'aliasMs' | 'batchMs' | 'contactsMs' | 'countMs' | 'permissionMs' | 'rowsMs' | 'transformMs',
+  key:
+    | 'aliasMs'
+    | 'batchMs'
+    | 'contactsMs'
+    | 'countMs'
+    | 'permissionMs'
+    | 'rowsMs'
+    | 'transformMs'
+    | 'readinessMs',
   operation: () => Promise<Result> | Result,
 ): Promise<Result> {
   const startedAt = performance.now();
@@ -117,6 +126,7 @@ function formatDirectoryServerTiming(trace: DirectoryServerTimingTrace, totalMs:
       ? 'directory_plan;desc="unsupported"'
       : 'directory_plan;desc="' + trace.directoryQueryPlan + '"',
     metric('auth', trace.authMs),
+    metric('readiness', trace.readinessMs),
     metric('db_wait', trace.databaseWaitMs),
     metric('permission', trace.permissionMs),
     metric('batch', trace.batchMs),

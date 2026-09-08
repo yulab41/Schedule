@@ -224,6 +224,8 @@ interface WorkbenchPageData extends AccountSecurityData {
 }
 
 interface WorkbenchPageInstance {
+  _businessDate: string;
+  _businessDateTimer: ReturnType<typeof setTimeout> | undefined;
   _diagnosticsUnsubscribe: (() => void) | undefined;
   _diagnosticsSerial: number;
   _notificationPollTimer: unknown;
@@ -417,9 +419,18 @@ Page({
   _performanceProbe: undefined,
   _diagnosticsUnsubscribe: undefined,
   _diagnosticsSerial: 0,
+  _businessDate: today,
+  _businessDateTimer: undefined,
 
   onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
     this.isVisible = true;
+    this._businessDate = getTodayBusinessDate();
+    this.setData({
+      businessMonth: this._businessDate.slice(0, 7),
+      selectedDate: this._businessDate,
+      selectedLabel: formatDateLabel(this._businessDate),
+      weekStart: getWeekStartDate(this._businessDate),
+    });
     this._performanceDiagnosticsEnabled = options.performance === '1';
     this._performanceProbe = createNativePerformanceProbe();
     this._performanceProbe.start('core-ready');
@@ -443,6 +454,8 @@ Page({
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
+    syncBusinessDate(this);
+    scheduleBusinessDateRefresh(this);
     const diagnosticsSerial = ++this._diagnosticsSerial;
     this.setData({ testCenterEnabled: canUseDiagnostics() });
     void refreshDiagnosticsAccess().then((allowed) => {
@@ -468,6 +481,7 @@ Page({
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    stopBusinessDateRefresh(this);
     this._diagnosticsSerial += 1;
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
@@ -485,6 +499,7 @@ Page({
   onUnload(this: WorkbenchPageInstance): void {
     accountSecurity.dispose.call(this);
     this.isVisible = false;
+    stopBusinessDateRefresh(this);
     this._diagnosticsSerial += 1;
     this._diagnosticsUnsubscribe?.();
     this._diagnosticsUnsubscribe = undefined;
@@ -499,6 +514,8 @@ Page({
   },
 
   handleGroupSelect(this: WorkbenchPageInstance, event: TapEvent): void {
+    const today = getTodayBusinessDate();
+    const initialMonth = today.slice(0, 7);
     const groupId = event.currentTarget.dataset.groupId;
     if (groupId === undefined || groupId === this.data.currentGroupId) {
       this.setData({ groupOpen: false });
@@ -674,6 +691,7 @@ Page({
   },
 
   handleMonthChange(this: WorkbenchPageInstance, event: MonthChangeEvent): void {
+    const today = getTodayBusinessDate();
     const locateTarget = this.monthLocateTarget;
     const businessMonth =
       locateTarget ?? addBusinessMonths(this.data.businessMonth, event.detail.delta);
@@ -721,6 +739,8 @@ Page({
   },
 
   handleLocateToday(this: WorkbenchPageInstance): void {
+    const today = getTodayBusinessDate();
+    const initialMonth = today.slice(0, 7);
     const targetWeekStart = getWeekStartDate(today);
     this.setData(
       {
@@ -1748,6 +1768,42 @@ function refreshView(page: WorkbenchPageInstance): void {
   page.setData(createViewPatch(page));
 }
 
+function syncBusinessDate(page: WorkbenchPageInstance): void {
+  const previous = page._businessDate;
+  const current = getTodayBusinessDate();
+  page._businessDate = current;
+  if (previous === current) return;
+  if (page.data.selectedDate === previous) {
+    page.setData({
+      businessMonth: current.slice(0, 7),
+      selectedDate: current,
+      weekStart: getWeekStartDate(current),
+    });
+  }
+  refreshView(page);
+}
+
+function stopBusinessDateRefresh(page: WorkbenchPageInstance): void {
+  if (page._businessDateTimer !== undefined) clearTimeout(page._businessDateTimer);
+  page._businessDateTimer = undefined;
+}
+
+function scheduleBusinessDateRefresh(page: WorkbenchPageInstance): void {
+  stopBusinessDateRefresh(page);
+  const now = Date.now();
+  const day = 86_400_000;
+  page._businessDateTimer = setTimeout(
+    () => {
+      page._businessDateTimer = undefined;
+      if (!page.isVisible) return;
+      syncBusinessDate(page);
+      void loadWorkbenchWithCapability(page);
+      scheduleBusinessDateRefresh(page);
+    },
+    day - (now % day),
+  );
+}
+
 function createViewPatch(
   page: WorkbenchPageInstance,
   period: Pick<WorkbenchPageData, 'businessMonth' | 'selectedDate' | 'weekStart'> = page.data,
@@ -1802,6 +1858,7 @@ function commitPeriodShift(
   delta: -1 | 1,
   target?: string,
 ): void {
+  const today = getTodayBusinessDate();
   const weekStart =
     view === 'week'
       ? (target ?? addWeeks(page.data.weekStart, delta))
@@ -1847,6 +1904,7 @@ function getRequestedMonths(
   businessMonth: string,
   weekStart: string,
 ): readonly string[] {
+  const initialMonth = getTodayBusinessDate().slice(0, 7);
   const requestedMonths = new Set<string>([initialMonth]);
   if (view === 'week') {
     for (const relative of [-1, 0, 1] as const) {
@@ -1989,6 +2047,8 @@ function selectBusinessDate(page: WorkbenchPageInstance, businessDate: string): 
 }
 
 function applyTodayLocation(page: WorkbenchPageInstance): void {
+  const today = getTodayBusinessDate();
+  const initialMonth = today.slice(0, 7);
   page.monthLocateTarget = undefined;
   page.pendingListTarget = undefined;
   page.pendingScrollTarget = undefined;

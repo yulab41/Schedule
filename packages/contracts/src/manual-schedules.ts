@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+export const manualScheduleStartDateSchema = z
+  .object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+  })
+  .strict();
+export type ManualScheduleStartDate = z.infer<typeof manualScheduleStartDateSchema>;
+
 import {
   MAX_MANUAL_CELLS,
   MAX_MANUAL_DAYS,

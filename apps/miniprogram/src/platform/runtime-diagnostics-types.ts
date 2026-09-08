@@ -12,6 +12,7 @@ export interface RuntimeDiagnosticNetworkProfile {
 export interface RuntimeDiagnosticServerTiming {
   readonly aliasMs?: number | undefined;
   readonly authMs?: number | undefined;
+  readonly readinessMs?: number | undefined;
   readonly batchMs?: number | undefined;
   readonly cache?: 'hit' | 'miss' | 'none' | 'unsupported' | undefined;
   readonly coldStart?: boolean | undefined;

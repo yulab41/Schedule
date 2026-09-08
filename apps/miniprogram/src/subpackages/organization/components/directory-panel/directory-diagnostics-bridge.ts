@@ -347,6 +347,7 @@ function parseServerTiming(headers: unknown): RuntimeDiagnosticServerTiming {
 const serverTimingDurationFields: Readonly<Record<string, string>> = {
   alias: 'aliasMs',
   auth: 'authMs',
+  readiness: 'readinessMs',
   batch: 'batchMs',
   contacts: 'contactsMs',
   count: 'countMs',

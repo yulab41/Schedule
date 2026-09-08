@@ -12,13 +12,14 @@ import {
   migrateDatabase,
   scheduleEvents,
   shiftAssignments,
+  shiftTypes,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import { eq, sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
@@ -46,6 +47,8 @@ describeWithDatabase('current month calendar read model', () => {
   let allDayShiftTypeId: string;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-01T00:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -98,6 +101,7 @@ describeWithDatabase('current month calendar read model', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -139,6 +143,56 @@ describeWithDatabase('current month calendar read model', () => {
     expect(memberResponse.json()).toEqual(calendar);
   });
 
+  it('uses current shift colours for published assignments without rewriting their snapshots', async () => {
+    await savePublished('2026-08');
+    const before = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    await client.database
+      .update(shiftTypes)
+      .set({ color: '#123456', textColor: '#FFFFFF' })
+      .where(eq(shiftTypes.id, allDayShiftTypeId));
+    const after = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    expect(after.assignments[0]?.shiftTypeColor).toBe('#123456');
+    expect(after.shiftTypes[0]?.color).toBe('#123456');
+    const [snapshot] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, before.assignments[0]!.id));
+    expect(snapshot?.shiftTypeColor).toBe(before.assignments[0]?.shiftTypeColor);
+  });
+
+  it('suggests the next date after the last published duty rather than a gap or a draft', async () => {
+    const route = `/groups/${groupId}/manual-schedule-start-date/${primaryRoleId}`;
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: route,
+          headers: { authorization: 'Bearer owner-token' },
+        })
+      ).json(),
+    ).toEqual({ startDate: '2026-08-01' });
+    await savePublished('2026-10');
+    await saveDraft('2026-11');
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: route,
+          headers: { authorization: 'Bearer owner-token' },
+        })
+      ).json(),
+    ).toEqual({ startDate: '2026-11-01' });
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: route,
+          headers: { authorization: 'Bearer outsider-token' },
+        })
+      ).statusCode,
+    ).toBe(403);
+  });
+
   it('excludes drafts and replaced revisions from the calendar', async () => {
     const draft = await saveDraft('2026-09');
     expect((draft.json() as SavedScheduleGeneration).periods[0]).toMatchObject({
@@ -154,6 +208,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
 
     const first = await savePublished('2026-08');
+    vi.setSystemTime(new Date('2026-08-02T00:00:00.000Z'));
     const second = await savePublished('2026-08');
     const firstPeriodId = (first.json() as SavedScheduleGeneration).periods[0]?.id as string;
     const latestPeriodId = (second.json() as SavedScheduleGeneration).periods[0]?.id as string;

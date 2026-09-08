@@ -4,6 +4,7 @@ import {
   buildMonthDisplayGrid,
   filterCalendarAssignments,
   getBusinessMonthOf,
+  getCurrentBusinessDate,
   getWeekDays,
   getWeekLabel,
   getWeekOfMonthLabel,
@@ -210,7 +211,7 @@ const detailMarkerLabels: Readonly<Record<string, string>> = {
 const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'] as const;
 
 export function getTodayBusinessDate(now: Date = new Date()): string {
-  return new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return getCurrentBusinessDate(now);
 }
 
 export function getHorizontalSwipeDelta(

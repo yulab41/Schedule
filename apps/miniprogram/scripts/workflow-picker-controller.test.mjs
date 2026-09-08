@@ -5,7 +5,7 @@ async function loadPickerDefinition() {
   vi.stubGlobal('Component', (value) => {
     definition = value;
   });
-  await import('../src/subpackages/workflows/components/workflow-picker/index.ts');
+  await import('../src/components/ui/ui-date-picker/index.ts');
   return definition;
 }
 

@@ -11,10 +11,8 @@ function read(relativePath) {
 
 describe('production workflow picker WXS wheel integration', () => {
   it('renders exactly two reusable UiWheelColumn instances for month mode', () => {
-    const config = JSON.parse(
-      read('src/subpackages/workflows/components/workflow-picker/index.json'),
-    );
-    const template = read('src/subpackages/workflows/components/workflow-picker/index.wxml');
+    const config = JSON.parse(read('src/components/ui/ui-date-picker/index.json'));
+    const template = read('src/components/ui/ui-date-picker/index.wxml');
     const monthStart = template.indexOf('wx:if="{{mode === \'month\'}}"');
     const monthEnd = template.indexOf('wx:elif="{{mode === \'date\'}}"', monthStart);
     const monthTemplate = template.slice(monthStart, monthEnd);
@@ -34,8 +32,8 @@ describe('production workflow picker WXS wheel integration', () => {
   });
 
   it('removes every legacy month-wheel owner from TypeScript and WXSS', () => {
-    const controller = read('src/subpackages/workflows/components/workflow-picker/index.ts');
-    const styles = read('src/subpackages/workflows/components/workflow-picker/index.wxss');
+    const controller = read('src/components/ui/ui-date-picker/index.ts');
+    const styles = read('src/components/ui/ui-date-picker/index.wxss');
 
     for (const legacy of [
       'wheelIdleSnapMs',
@@ -65,7 +63,7 @@ describe('production workflow picker WXS wheel integration', () => {
   });
 
   it('keeps generation, runtime and sequence ownership in the parent semantic boundary', () => {
-    const controller = read('src/subpackages/workflows/components/workflow-picker/index.ts');
+    const controller = read('src/components/ui/ui-date-picker/index.ts');
     expect(controller).toContain('wheelGeneration');
     expect(controller).toContain('yearWheelRuntimeKey');
     expect(controller).toContain('monthWheelRuntimeKey');

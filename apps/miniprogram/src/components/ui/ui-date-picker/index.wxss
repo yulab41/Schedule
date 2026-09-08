@@ -1,5 +1,5 @@
-@import '../../../../components/ui/ui-selector/index.wxss';
-@import '../../../../styles/ui-icon-motion.wxss';
+@import '../ui-selector/index.wxss';
+@import '../../../styles/ui-icon-motion.wxss';
 
 .workflow-picker-layer {
   position: fixed;

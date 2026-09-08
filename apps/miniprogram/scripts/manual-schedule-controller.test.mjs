@@ -77,14 +77,15 @@ describe('P5 native manual schedule controller', () => {
     expect(instance.data.errorMessage).toContain('先保存模板');
   });
 
-  it('keeps stale cells inert and exposes no undo handler', () => {
+  it('allows replacing stale cells with an available shift and exposes no undo handler', () => {
     const instance = createPageInstance(definition);
     instance.data.rows[0].cells[0].isStale = true;
     definition.handleCellTap.call(instance, {
       currentTarget: { dataset: { columnIndex: 0, key: '1:member-1', rowIndex: 0 } },
     });
 
-    expect(instance._cellValues.get('1:member-1')).toBe('shift-p');
+    expect(instance._cellValues.get('1:member-1')).toBe('shift-a');
+    expect(instance._staleCellKeys.has('1:member-1')).toBe(false);
     expect(definition.handleUndo).toBeUndefined();
   });
 

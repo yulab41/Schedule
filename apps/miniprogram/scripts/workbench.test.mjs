@@ -345,7 +345,7 @@ describe('P4 native workbench', () => {
       /@import ['"]\.\.\/\.\.\/\.\.\/styles\/ui-icon-motion\.wxss['"];?/u,
     );
     expect(monthStyles).not.toContain('@keyframes click-locate');
-    expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
+    expect(monthTemplate).toContain("{{cell.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(
       /\.calendar-cell-slot\.is-selected::after\s*{[^}]*right:\s*-1px;[^}]*bottom:\s*-1px;[^}]*border:\s*2px solid var\(--ui-color-primary\);/s,
     );
@@ -629,7 +629,7 @@ describe('P4 native workbench', () => {
 
   it('keeps today and month navigation in China-standard business dates', () => {
     expect(getTodayBusinessDate(new Date('2026-08-23T00:30:00.000Z'))).toBe('2026-08-23');
-    expect(getTodayBusinessDate(new Date('2026-08-22T16:30:00.000Z'))).toBe('2026-08-23');
+    expect(getTodayBusinessDate(new Date('2026-08-22T16:30:00.000Z'))).toBe('2026-08-22');
   });
 
   it('only turns a predominantly horizontal gesture into one adjacent period', () => {

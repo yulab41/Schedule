@@ -154,7 +154,7 @@ describe('P7 native swap workflow page', () => {
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
     expect(JSON.parse(readPage('json')).usingComponents).toMatchObject({
       'ui-sheet': '/components/ui/ui-sheet/index',
-      'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
+      'workflow-picker': '/components/ui/ui-date-picker/index',
     });
     expect(styles).toContain('.swap-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);

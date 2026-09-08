@@ -67,6 +67,52 @@ describe('P5 native atomic backfill controller', () => {
     expect(instance._staged.size).toBe(0);
   });
 
+  it('previews only the first changed shift and retains its brush across months and roles', () => {
+    const instance = createPageInstance(definition);
+    const base = {
+      businessDate: '2026-07-02',
+      actualMemberName: '原人员',
+      plannedMemberName: '原人员',
+      shiftTypeAbbreviation: '全',
+    };
+    instance._calendarByKey.get('role-1:2026-07').assignments = [
+      { ...base, id: 'slot-2', slotPosition: 2, actualMemberName: '另一班' },
+      { ...base, id: 'slot-1', slotPosition: 1 },
+    ];
+    definition.handleDateTap.call(instance, {
+      currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
+    });
+    const lines = instance.data.calendarCells.find(
+      (cell) => cell.businessDate === '2026-07-02',
+    ).duties;
+    expect(lines.map((line) => [line.name, line.state])).toEqual([
+      ['原人员', 'removed'],
+      ['林医生', 'added'],
+      ['另一班', 'normal'],
+    ]);
+    instance.selectComponent = () => ({ finishPeriodShift() {} });
+    definition.handleCalendarMonthChange.call(instance, { detail: { delta: -1, current: 0 } });
+    expect(instance._staged.size).toBe(1);
+    instance.data.roleId = 'role-2';
+    definition.handleCalendarMonthChange.call(instance, { detail: { delta: 1, current: 1 } });
+    expect(instance.data.pendingCount).toBe(1);
+    expect(instance.data.calendarCells.every((cell) => cell.disabled)).toBe(true);
+    definition.handleDateTap.call(instance, {
+      currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
+    });
+    expect(instance._staged.size).toBe(1);
+  });
+
+  it('does not allow calendar writes while a submission remains in flight', () => {
+    const instance = createPageInstance(definition);
+    instance._submitting = true;
+    instance.data.isBusy = false;
+    definition.handleDateTap.call(instance, {
+      currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
+    });
+    expect(instance._staged.size).toBe(0);
+  });
+
   it('freezes one sorted batch and reuses its operation id after a network failure', async () => {
     const requests = [];
     globalThis.wx.request.mockImplementation((options) => {
@@ -172,6 +218,19 @@ function createPageInstance(definition) {
     _confirmFingerprint: '',
     _confirmOperationId: '',
     _calendar: undefined,
+    _calendarByKey: new Map([
+      [
+        'role-1:2026-07',
+        {
+          assignments: [],
+          businessMonth: '2026-07',
+          groupId: 'group-1',
+          members: [],
+          roles: [{ id: 'role-1', name: '一线' }],
+          shiftTypes: [],
+        },
+      ],
+    ]),
     _config: undefined,
     _currentGroupId: '',
     _holidays: new Map(),
@@ -181,8 +240,9 @@ function createPageInstance(definition) {
     _records: [],
     _staged: new Map(),
     data,
-    setData(patch) {
+    setData(patch, callback) {
       Object.assign(data, patch);
+      callback?.();
     },
   };
   return instance;

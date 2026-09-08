@@ -105,3 +105,9 @@
   font-weight: var(--ui-font-weight-strong);
   line-height: 13px;
 }
+
+.month-duty-lines { width: 100%; }
+.month-duty-line.is-removed .month-person { color: var(--ui-color-text-primary); text-decoration: line-through; }
+.month-duty-line.is-added .month-person, .month-duty-line.is-added .duty-abbreviation { color: var(--ui-color-danger); }
+.duty-abbreviation { flex: none; font-size: 9px; }
+.calendar-cell.is-disabled { color: #a7b0bb; background: #fafbfd; }

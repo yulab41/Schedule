@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "ui-date-picker": "/components/ui/ui-date-picker/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-button": "/components/ui/ui-button/index",
     "ui-checkbox": "/components/ui/ui-checkbox/index",

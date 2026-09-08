@@ -42,6 +42,7 @@ import {
   leaveRequestMutationResultSchema,
   leaveRequestSchema,
   manualApplyPreviewSchema,
+  manualScheduleStartDateSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
   memberSwapSettingsSchema,
@@ -96,6 +97,7 @@ const source = await format(
   renderGeneratedSchemas({
     errorCodes: [...apiErrorCodes],
     schemas: {
+      manualScheduleStartDate: sanitizeJsonSchema(z.toJSONSchema(manualScheduleStartDateSchema)),
       acceptInviteResponse: sanitizeJsonSchema(
         z.toJSONSchema(acceptInviteResponseSchema),
         'acceptInviteResponse',

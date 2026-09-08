@@ -128,6 +128,10 @@ export class DirectoryQuery {
     );
   }
 
+  public async prepare(): Promise<void> {
+    if (this.configuredPlan === 'candidate') await this.candidateIndexGuard.refresh();
+  }
+
   public async list(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -138,7 +142,9 @@ export class DirectoryQuery {
   ): Promise<DirectoryPage> {
     const candidateIndexAvailable =
       this.configuredPlan === 'candidate' && isCandidateDirectoryQueryShape(query)
-        ? await this.candidateIndexGuard.isAvailable()
+        ? await measureDirectoryPhase(timing, 'readinessMs', () =>
+            this.candidateIndexGuard.isAvailable(),
+          )
         : false;
     const effectivePlan = selectDirectoryQueryPlan({
       candidateIndexAvailable,

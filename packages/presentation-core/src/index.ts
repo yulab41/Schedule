@@ -8,6 +8,7 @@ export {
   getBusinessMonthOf,
   getCalendarPanelMonths,
   getCalendarPanelWeeks,
+  getCurrentBusinessDate,
   getDefaultSelectedDate,
   getDutyMemberName,
   getDutyMembershipId,

@@ -19,7 +19,7 @@ async function loadPickerDefinition() {
   vi.stubGlobal('Component', (value) => {
     definition = value;
   });
-  await import('../src/subpackages/workflows/components/workflow-picker/index.ts');
+  await import('../src/components/ui/ui-date-picker/index.ts');
   return definition;
 }
 
@@ -76,7 +76,7 @@ describe('EXP-UX-001 experience feedback contracts', () => {
         expect(template).toContain('<workflow-picker');
         expect(template).not.toMatch(/<picker(?:\s|>)/u);
         expect(config.usingComponents['workflow-picker']).toBe(
-          '/subpackages/workflows/components/workflow-picker/index',
+          '/components/ui/ui-date-picker/index',
         );
       }
     });
@@ -254,7 +254,7 @@ describe('EXP-UX-001 experience feedback contracts', () => {
     const directPageConfig = {
       'ui-sheet': '/components/ui/ui-sheet/index',
       'ui-toast': '/components/ui/ui-toast/index',
-      'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
+      'workflow-picker': '/components/ui/ui-date-picker/index',
     };
     const legacyHandlers = {
       duty: ['handleLeaveNav', 'handleSwapNav', 'handleUnavailable'],

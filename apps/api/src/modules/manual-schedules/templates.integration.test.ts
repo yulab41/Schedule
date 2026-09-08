@@ -185,6 +185,21 @@ describeWithDatabase('manual schedule templates', () => {
     expect(eventCount).toEqual([{ count: 1 }]);
   });
 
+  it('keeps enabled template cells usable after a presentation-only configuration change', async () => {
+    const created = await createTemplate({
+      cells: [{ cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId }],
+      cycleDays: 7,
+      membershipIds: [ownerMembershipId],
+      startDate: '2026-08-01',
+    });
+    expect(created.statusCode).toBe(201);
+    await client.database.execute(
+      sql`UPDATE shift_types SET color = '#123456', configuration_version = configuration_version + 1 WHERE id = ${allDayShiftTypeId}`,
+    );
+    const [template] = (await listTemplates()).json() as ManualScheduleTemplate[];
+    expect(template?.cells[0]).toMatchObject({ isStale: false, shiftTypeColor: '#123456' });
+  });
+
   it('soft-deletes a template and hides it from later lists', async () => {
     const created = await createTemplate({
       cells: [{ cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId }],

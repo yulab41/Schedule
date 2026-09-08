@@ -1,5 +1,7 @@
 import type { CompactJsonSchema } from '../json-decoder.js';
 
+const manualScheduleStartDateSchemaJson =
+  '{"type":"object","properties":{"startDate":{"type":"string","pattern":"^\\\\d{4}-\\\\d{2}-\\\\d{2}$"}},"required":["startDate"],"additionalProperties":false}';
 const acceptInviteResponseSchemaJson =
   '{"type":"object","properties":{"group":{"type":"object","properties":{"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false},"token":{"type":"string","minLength":1}},"required":["group"],"additionalProperties":false}';
 const addGroupMembersResponseSchemaJson =
@@ -145,6 +147,9 @@ const unreadCountResultSchemaJson =
 const apiErrorCodesJson =
   '["AUTHENTICATION_REQUIRED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","UNSUPPORTED_MEDIA_TYPE","CONFLICT","RATE_LIMITED","SERVICE_UNAVAILABLE","INTERNAL_ERROR","WECHAT_LOGIN_FAILED","WECHAT_IDENTITY_IN_USE","WECHAT_ACCOUNT_ALREADY_BOUND","WECHAT_APP_ID_MISMATCH","WECHAT_LINK_TOKEN_INVALID","WECHAT_LINK_TOKEN_USED","WECHAT_LINK_TOKEN_EXPIRED","WECHAT_MESSAGE_SEND_FAILED","INVITE_INVALID","INVITE_USED","INVITE_EXPIRED","VISITOR_KEY_INVALID","CLIENT_VERSION_UNSUPPORTED","CLIENT_CAPABILITY_DISABLED"]';
 
+export const manualScheduleStartDateJsonSchema = JSON.parse(
+  manualScheduleStartDateSchemaJson,
+) as CompactJsonSchema;
 export const acceptInviteResponseJsonSchema = JSON.parse(
   acceptInviteResponseSchemaJson,
 ) as CompactJsonSchema;

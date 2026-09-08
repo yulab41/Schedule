@@ -70,7 +70,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     const pageStyles = readSource('pages/calendar-poc/index.wxss');
 
     expect(monthTemplate).toContain('wx:for="{{panels}}"');
-    expect(monthTemplate).toContain('wx:for="{{item.cells}}"');
+    expect(monthTemplate).toContain('wx:for="{{panel.cells}}"');
     expect(monthTemplate).toContain('<calendar-cell');
     expect(monthStyles).toMatch(
       /\.month-card\s*\{[^}]*overflow:\s*hidden;[^}]*border-radius:\s*18px;/su,
@@ -82,7 +82,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(cellStyles).toMatch(
       /\.calendar-cell\.is-bottom-right\s*\{[^}]*border-bottom-right-radius:\s*17px;/su,
     );
-    expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
+    expect(monthTemplate).toContain("{{cell.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(
       /\.weekday-row\s*\{[^}]*height:\s*28px;[^}]*box-sizing:\s*border-box;[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/su,
     );

@@ -1234,3 +1234,13 @@ ui-alert {
     transition: none;
   }
 }
+
+.manual-date-field {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  background: var(--ui-color-surface-muted);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}

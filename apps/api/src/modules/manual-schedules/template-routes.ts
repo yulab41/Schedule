@@ -18,6 +18,16 @@ export function registerManualScheduleTemplateRoutes(
   templateService: ManualScheduleTemplateService,
 ): void {
   app.get(
+    '/groups/:groupId/manual-schedule-start-date/:roleId',
+    { preHandler: app.authenticate },
+    (request) =>
+      templateService.nextStartDate(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseOrThrow(groupIdSchema, (request.params as { roleId?: unknown }).roleId),
+      ),
+  );
+  app.get(
     '/groups/:groupId/manual-schedule-templates',
     { preHandler: app.authenticate },
     (request) => templateService.list(getAuthenticatedIdentity(request), parseGroupId(request)),

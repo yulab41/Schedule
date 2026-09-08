@@ -30,20 +30,19 @@ describe('native P5 past-schedule backfill page', () => {
   it('mirrors the accepted Web mobile structure and native state surfaces', () => {
     const wxml = readPageFile('wxml');
     for (const expected of [
-      '仅管理员与群主可进入',
+      'calendar-month',
       '排班岗位',
-      '补录说明（选填，作用于本次确认）',
-      '当前配班',
-      '待确认补录（{{pendingCount}}）',
+      '补录说明（选填）',
       '确认补录',
       '清空草稿',
-      '点击整格加入或取消待确认补录',
       '最近补录记录',
     ]) {
       expect(wxml).toContain(expected);
     }
-    expect(wxml).toContain('bindtap="handleDateTap"');
-    expect(wxml).toContain('bindtap="handleRemovePending"');
+    expect(wxml).toContain('bind:select="handleCalendarSelect"');
+    expect(wxml).not.toContain('当前配班');
+    expect(wxml).not.toContain('待确认补录');
+    expect(wxml).toContain('class="backfill-actions"');
     expect(wxml).not.toContain('撤销');
     expect(wxml).not.toContain('undo');
   });
@@ -60,7 +59,9 @@ describe('native P5 past-schedule backfill page', () => {
 
   it('keeps seven full-width columns and Web-sized touch targets at 390 and 320', () => {
     const wxss = readPageFile('wxss');
-    expect(wxss).toContain('width: 14.285714%');
+    expect(JSON.parse(readPageFile('json')).usingComponents['calendar-month']).toBe(
+      '/components/calendar/calendar-month/index',
+    );
     expect(wxss).toContain('min-height: 44px');
     expect(wxss).toContain('.backfill-page.is-compact');
     expect(wxss).not.toContain('display: grid');

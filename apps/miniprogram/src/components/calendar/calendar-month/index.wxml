@@ -69,31 +69,34 @@
     aria-label="月历，可左右滑动切换月份"
   >
     <swiper-item
-      wx:for="{{panels}}"
+      wx:for="{{panels}}" wx:for-item="panel"
       wx:key="slot"
       class="calendar-slide-panel"
-      aria-hidden="{{item.relative !== 0}}"
+      aria-hidden="{{panel.relative !== 0}}"
     >
       <view class="month-grid">
         <view
-          wx:for="{{item.cells}}"
+          wx:for="{{panel.cells}}" wx:for-item="cell"
           wx:key="businessDate"
-          class="calendar-cell-slot {{item.isSelected ? 'is-selected' : ''}} {{item.isBottomRow ? 'is-bottom-row' : ''}} {{item.isBottomLeft ? 'is-bottom-left' : ''}} {{item.isBottomRight ? 'is-bottom-right' : ''}}"
+          style="height:{{panel.rowHeight || 54}}px"
+          class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
         >
           <calendar-cell
-            aria-label="{{item.ariaLabel}}"
-            business-date="{{item.businessDate}}"
-            day="{{item.day}}"
-            holiday="{{item.holiday}}"
-            is-bottom-left="{{item.isBottomLeft}}"
-            is-bottom-right="{{item.isBottomRight}}"
-            is-current-month="{{item.isCurrentMonth}}"
-            is-holiday="{{item.isHoliday}}"
-            is-selected="{{item.isSelected}}"
-            is-today="{{item.isToday}}"
-            is-weekend="{{item.isWeekend}}"
-            marker="{{item.marker}}"
-            person="{{item.person}}"
+            duties="{{cell.duties}}"
+            disabled="{{cell.disabled}}"
+            aria-label="{{cell.ariaLabel}}"
+            business-date="{{cell.businessDate}}"
+            day="{{cell.day}}"
+            holiday="{{cell.holiday}}"
+            is-bottom-left="{{cell.isBottomLeft}}"
+            is-bottom-right="{{cell.isBottomRight}}"
+            is-current-month="{{cell.isCurrentMonth}}"
+            is-holiday="{{cell.isHoliday}}"
+            is-selected="{{cell.isSelected}}"
+            is-today="{{cell.isToday}}"
+            is-weekend="{{cell.isWeekend}}"
+            marker="{{cell.marker}}"
+            person="{{cell.person}}"
             bind:select="handleCellSelect"
           ></calendar-cell>
         </view>

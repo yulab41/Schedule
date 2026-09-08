@@ -5,6 +5,6 @@
     "ui-sheet": "/components/ui/ui-sheet/index",
     "ui-switch": "/components/ui/ui-switch/index",
     "ui-toast": "/components/ui/ui-toast/index",
-    "workflow-picker": "/subpackages/workflows/components/workflow-picker/index"
+    "workflow-picker": "/components/ui/ui-date-picker/index"
   }
 }

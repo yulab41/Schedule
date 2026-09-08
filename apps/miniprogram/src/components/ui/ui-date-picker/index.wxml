@@ -1,4 +1,4 @@
-<import src="../../../../components/ui/ui-selector/options.wxml" />
+<import src="../ui-selector/options.wxml" />
 <view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
   <view
     class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"

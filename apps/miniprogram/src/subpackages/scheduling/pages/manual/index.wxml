@@ -60,9 +60,10 @@
               <picker mode="selector" range="{{roleOptions}}" range-key="label" value="{{roleIndex}}" disabled="{{isBusy}}" bindchange="handleRoleChange">
                 <view class="field-control"><text>排班岗位</text><text class="field-value">{{scheduleRoleName || '请选择'}}</text></view>
               </picker>
-              <picker mode="date" value="{{startDate}}" disabled="{{isBusy}}" bindchange="handleStartDateChange">
-                <view class="field-control"><text>开始日期</text><text class="field-value">{{startDate}}</text></view>
-              </picker>
+              <view class="manual-date-field">
+                <text>开始日期</text>
+                <ui-date-picker mode="date" title="开始日期" value="{{startDate}}" display-value="{{startDate}}" disabled="{{isBusy}}" bindchange="handleStartDateChange" />
+              </view>
               <picker mode="selector" range="{{cycleDayOptions}}" value="{{cycleDayIndex}}" disabled="{{isBusy}}" bindchange="handleCycleDaysChange">
                 <view class="field-control"><text>周期天数</text><text class="field-value">{{cycleDays}} 天</text></view>
               </picker>

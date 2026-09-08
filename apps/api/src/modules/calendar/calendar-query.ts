@@ -15,6 +15,7 @@ import {
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
+  shiftTypes,
   type DatabaseClient,
   type DatabaseTransaction,
   withTransaction,
@@ -236,7 +237,7 @@ export class CalendarQuery {
 
     const periodIds = periods.map((period) => period.id);
     const roleIds = [...new Set(periods.map((period) => period.scheduleRoleId))];
-    const [assignments, roles, markerEvents] = await Promise.all([
+    const [snapshots, roles, markerEvents, currentShiftTypes] = await Promise.all([
       transaction
         .select()
         .from(shiftAssignments)
@@ -283,7 +284,23 @@ export class CalendarQuery {
             )
             .orderBy(asc(scheduleEvents.occurredAt), asc(scheduleEvents.id))
         : Promise.resolve([]),
+      transaction
+        .select({ id: shiftTypes.id, color: shiftTypes.color, textColor: shiftTypes.textColor })
+        .from(shiftTypes)
+        .where(and(eq(shiftTypes.groupId, groupId), isNull(shiftTypes.deletedAt))),
     ]);
+
+    const colours = new Map(currentShiftTypes.map((shiftType) => [shiftType.id, shiftType]));
+    const assignments = snapshots.map((assignment) => {
+      const current = colours.get(assignment.shiftTypeId);
+      return current === undefined
+        ? assignment
+        : {
+            ...assignment,
+            shiftTypeColor: current.color,
+            shiftTypeTextColor: current.textColor,
+          };
+    });
 
     const roleNamesById = new Map(roles.map((role) => [role.id, role.name]));
     const scheduleRoleIdByPeriodId = new Map(

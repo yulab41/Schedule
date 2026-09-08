@@ -104,7 +104,7 @@ describe('workflow direct Page registration', () => {
         'ui-sheet': '/components/ui/ui-sheet/index',
         ...(workflow === 'leave' ? {} : { 'ui-switch': '/components/ui/ui-switch/index' }),
         'ui-toast': '/components/ui/ui-toast/index',
-        'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
+        'workflow-picker': '/components/ui/ui-date-picker/index',
       });
       expect(read(`${root}/index.wxml`).trim()).toBe(
         `<include src="../../components/${panel}/index.wxml" />`,

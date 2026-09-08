@@ -22,6 +22,7 @@ import {
   canConfirmSchedulePeriodMutation,
   createScheduleDraftBatchPublishIntent,
   createSchedulePeriodMutationIntent,
+  getCurrentBusinessDate,
   groupScheduleDraftBatches,
   groupScheduleVersionMonths,
   hasSchedulePeriodMutationBlockers,
@@ -303,6 +304,7 @@ interface ManualPageInstance {
   _history: readonly SchedulePeriodHistoryItem[];
   _isDirty: boolean;
   _loadSerial: number;
+  _startDateSerial: number;
   _matrixGestureRevision: number;
   _memberIds: string[];
   _memberNames: Map<string, string>;
@@ -442,6 +444,7 @@ Page({
   _history: [] as readonly SchedulePeriodHistoryItem[],
   _isDirty: false,
   _loadSerial: 0,
+  _startDateSerial: 0,
   _matrixGestureRevision: 0,
   _memberIds: [] as string[],
   _memberNames: new Map<string, string>(),
@@ -461,6 +464,11 @@ Page({
   onLoad(this: ManualPageInstance): void {
     this.setData(createShellLayoutPatch());
     void loadManualPageWithCapability(this);
+  },
+
+  onUnload(this: ManualPageInstance): void {
+    this._loadSerial += 1;
+    this._startDateSerial += 1;
   },
 
   onShow(this: ManualPageInstance): void {
@@ -518,12 +526,14 @@ Page({
       templateIndex: 0,
       templateLabel: '新建模板',
     });
+    void suggestStartDate(this, role.id);
   },
 
   handleStartDateChange(this: ManualPageInstance, event: PickerChangeEvent): void {
     if (this.data.isBusy) return;
     const startDate = String(event.detail.value);
     if (!isBusinessDate(startDate)) return;
+    this._startDateSerial += 1;
     this._isDirty = true;
     syncEditor(this, { startDate, startMonthLabel: startDate.slice(0, 7) });
     void refreshHolidays(this, startDate);
@@ -590,7 +600,13 @@ Page({
     const shiftType = this.data.shiftTypes.find(
       (candidate) => candidate.id === this.data.activeShiftTypeId,
     );
-    if (cell === undefined || cell.key !== key || cell.isStale || shiftType === undefined) return;
+    if (
+      cell === undefined ||
+      cell.key !== key ||
+      this.data.rows[rowIndex]?.isStale ||
+      shiftType === undefined
+    )
+      return;
 
     const active = assignmentFromShiftType(shiftType);
     const before = assignmentFromCell(cell);
@@ -630,8 +646,9 @@ Page({
         key,
       }),
     );
+    this._staleCellKeys.delete(key);
     patch[cellPath({ columnIndex, rowIndex })] = updateMatrixCell(
-      cell,
+      { ...cell, isStale: false },
       mutation.after,
       nextLocation !== undefined,
       this._memberNames.get(cell.membershipId) ?? '未知成员',
@@ -908,6 +925,7 @@ function setManualCapabilityError(page: ManualPageInstance, error: unknown): voi
 }
 
 function initializeNewTemplate(page: ManualPageInstance): void {
+  const today = getCurrentBusinessDate();
   const role = page._config?.roles[0];
   page._cellValues.clear();
   page._staleCellKeys.clear();
@@ -935,13 +953,16 @@ function initializeNewTemplate(page: ManualPageInstance): void {
     templateLabel: '新建模板',
     templateTitle: '七日循环模板',
   });
+  if (role !== undefined) void suggestStartDate(page, role.id);
 }
 
 function openTemplate(
   page: ManualPageInstance,
   template: ManualScheduleTemplate,
-  startDate = today,
+  startDate?: string,
 ): void {
+  const explicitStartDate = startDate !== undefined;
+  startDate ??= getCurrentBusinessDate();
   const roleIndex = Math.max(
     0,
     (page._config?.roles ?? []).findIndex((role) => role.id === template.scheduleRoleId),
@@ -983,6 +1004,28 @@ function openTemplate(
     templateLabel: templateOptionLabel(template),
     templateTitle: `${template.cycleDays} 日循环模板`,
   });
+  if (!explicitStartDate) void suggestStartDate(page, template.scheduleRoleId);
+}
+
+async function suggestStartDate(page: ManualPageInstance, roleId: string): Promise<void> {
+  const serial = ++page._startDateSerial;
+  if (!page._currentGroupId) return;
+  try {
+    const result = await manualClient.getNextStartDate(page._currentGroupId, roleId);
+    if (
+      serial !== page._startDateSerial ||
+      roleForIndex(page._config, page.data.roleIndex)?.id !== roleId
+    )
+      return;
+    syncEditor(page, {
+      startDate: result.startDate,
+      startMonthLabel: result.startDate.slice(0, 7),
+    });
+    void refreshHolidays(page, result.startDate);
+  } catch {
+    if (serial === page._startDateSerial)
+      page.setData({ infoMessage: '默认开始日期暂时无法读取，请手动选择日期。' });
+  }
 }
 
 function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): void {

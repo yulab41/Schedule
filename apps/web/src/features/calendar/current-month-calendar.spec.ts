@@ -83,7 +83,8 @@ describe('current month calendar logic', () => {
     expect(filterCalendarAssignments(assignments, { membershipIds: ['membership-2'] })).toEqual([
       assignments[1],
     ]);
-    expect(filterCalendarAssignments(assignments, { onlyChanges: true })).toEqual([assignments[0]]);
+    // Legacy backfills can have a changed assignee even without a workflow marker.
+    expect(filterCalendarAssignments(assignments, { onlyChanges: true })).toEqual(assignments);
     expect(filterCalendarAssignments(assignments, {})).toEqual(assignments);
     expect(
       filterCalendarAssignments(assignments, {

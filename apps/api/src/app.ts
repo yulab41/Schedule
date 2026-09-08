@@ -245,21 +245,25 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       options.databaseClient,
       platformAdminUids,
     );
+    const directoryQuery = new DirectoryQuery(options.databaseClient, {
+      configuredPlan: options.directoryQueryPlan ?? 'legacy',
+      onCandidateUnavailable: (reason) => {
+        app.log.warn(
+          {
+            directoryQueryPlan: 'legacy',
+            event: 'directory_candidate_plan_unavailable',
+            reason,
+          },
+          'Directory candidate query plan is unavailable; using legacy.',
+        );
+      },
+    });
+    app.addHook('onReady', async () => {
+      await directoryQuery.prepare();
+    });
     registerDirectoryRoutes(
       app,
-      new DirectoryQuery(options.databaseClient, {
-        configuredPlan: options.directoryQueryPlan ?? 'legacy',
-        onCandidateUnavailable: (reason) => {
-          app.log.warn(
-            {
-              directoryQueryPlan: 'legacy',
-              event: 'directory_candidate_plan_unavailable',
-              reason,
-            },
-            'Directory candidate query plan is unavailable; using legacy.',
-          );
-        },
-      }),
+      directoryQuery,
       async (identity) => (await platformAdminService.diagnosticsAccess(identity)).allowed,
     );
     registerPlatformAdminRoutes(app, platformAdminService);

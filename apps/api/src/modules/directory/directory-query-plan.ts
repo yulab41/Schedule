@@ -55,10 +55,10 @@ export class DirectoryCandidateIndexGuard {
   }
 
   public isAvailable(): Promise<boolean> {
-    if (this.cached !== undefined && this.now() < this.cached.expiresAt) {
-      return Promise.resolve(this.cached.available);
-    }
-    return this.refresh();
+    const cached = this.cached;
+    if (cached === undefined) return this.refresh();
+    if (this.now() >= cached.expiresAt) void this.refresh();
+    return Promise.resolve(cached.available);
   }
 
   public refresh(): Promise<boolean> {
@@ -79,18 +79,26 @@ export class DirectoryCandidateIndexGuard {
       const migrationReady = hasDirectoryCandidateMigrationIdentity(readiness.migrationRows);
       const indexReady = hasCandidateDirectoryIndexDefinition(readiness.indexRows);
       if (!migrationReady) {
-        this.onUnavailable(
+        this.reportUnavailable(
           readiness.indexRows.length > 0
             ? 'migration-index-inconsistent'
             : 'migration-missing-or-invalid',
         );
         return false;
       }
-      if (!indexReady) this.onUnavailable('index-missing-or-invalid');
+      if (!indexReady) this.reportUnavailable('index-missing-or-invalid');
       return indexReady;
     } catch {
-      this.onUnavailable('readiness-inspection-failed');
+      this.reportUnavailable('readiness-inspection-failed');
       return false;
+    }
+  }
+
+  private reportUnavailable(reason: DirectoryCandidateIndexUnavailableReason): void {
+    try {
+      this.onUnavailable(reason);
+    } catch {
+      /* Optional logging cannot reject a background inspection. */
     }
   }
 }

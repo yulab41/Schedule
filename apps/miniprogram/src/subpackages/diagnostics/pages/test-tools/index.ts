@@ -1004,6 +1004,7 @@ function formatServerTiming(timing: RuntimeDirectorySearchDiagnostic['serverTimi
   return [
     `总${duration(timing.totalMs)}`,
     `鉴权${duration(timing.authMs)}`,
+    `索引检查等待${duration(timing.readinessMs)}`,
     `数据库连接等待${duration(timing.databaseWaitMs)}`,
     `权限${duration(timing.permissionMs)}`,
     `发布批次${duration(timing.batchMs)}`,

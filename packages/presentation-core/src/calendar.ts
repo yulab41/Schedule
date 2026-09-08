@@ -2,6 +2,11 @@ const businessMonthPattern = /^\d{4}-\d{2}$/u;
 const businessDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u;
 const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
+/** The China duty day starts at 08:00 (00:00 UTC), independently of device timezone. */
+export function getCurrentBusinessDate(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
 export interface CalendarAssignmentLike {
   readonly actualMemberName?: string | undefined;
   readonly actualMembershipId?: string | undefined;
@@ -106,7 +111,13 @@ export function filterCalendarAssignments<Assignment extends CalendarAssignmentL
   const membershipIds = new Set(filters.membershipIds ?? []);
 
   return assignments.filter((assignment) => {
-    if (filters.onlyChanges === true && assignment.changeMarkers.length === 0) return false;
+    if (
+      filters.onlyChanges === true &&
+      assignment.changeMarkers.length === 0 &&
+      (assignment.actualMembershipId === undefined ||
+        assignment.actualMembershipId === assignment.plannedMembershipId)
+    )
+      return false;
     if (roleIds.size > 0 && !roleIds.has(assignment.scheduleRoleId)) return false;
     if (shiftTypeIds.size > 0 && !shiftTypeIds.has(assignment.shiftTypeId)) return false;
     if (membershipIds.size > 0) {

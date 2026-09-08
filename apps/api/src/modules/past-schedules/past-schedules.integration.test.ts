@@ -18,7 +18,7 @@ import {
 import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import { sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
@@ -38,6 +38,8 @@ describeWithDatabase('past schedule backfill', () => {
   let rulesVersion: number;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-26T04:00:00.000Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -86,6 +88,7 @@ describeWithDatabase('past schedule backfill', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (app !== undefined) {
       await app.close();
     }
@@ -152,7 +155,7 @@ describeWithDatabase('past schedule backfill', () => {
     const [backfillEventCount] = await client.database.execute<{ count: number }>(
       sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id = ${groupId} AND event_type = 'schedule_backfill_completed'`,
     );
-    expect(backfillEventCount).toEqual([{ count: 0 }]);
+    expect(backfillEventCount).toEqual([{ count: 1 }]);
 
     const records = (await listBackfillRecords('owner-token')).json() as readonly {
       readonly assignmentId: string;
@@ -246,7 +249,7 @@ describeWithDatabase('past schedule backfill', () => {
     const [backfillEventCount] = await client.database.execute<{ count: number }>(
       sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id = ${groupId} AND event_type = 'schedule_backfill_completed'`,
     );
-    expect(backfillEventCount).toEqual([{ count: 0 }]);
+    expect(backfillEventCount).toEqual([{ count: 1 }]);
 
     const records = (await listBackfillRecords('owner-token')).json() as readonly {
       readonly assignmentId: string;
@@ -424,7 +427,7 @@ describeWithDatabase('past schedule backfill', () => {
     const first = await backfillBatch('owner-token', { items: [batchItem(1)] }, operationId);
     expect(first.statusCode, first.body).toBe(200);
     await client.database.execute(
-      sql`UPDATE idempotency_keys SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 SECOND)
+      sql`UPDATE idempotency_keys SET expires_at = ${new Date(Date.now() - 1000)}
           WHERE operation_key = ${operationId}
             AND scope = ${`past_schedule_backfill:${groupId}`}`,
     );

@@ -300,6 +300,16 @@ export class PastScheduleService {
         throw new Error('The backfilled assignment could not be read back.');
       }
 
+      if (hasChange) {
+        await this.appendBackfillEvent(
+          transaction,
+          authorization,
+          { assignment: updated, before: assignment, schedulePeriodId: period.id },
+          randomUUID(),
+          input.reason,
+        );
+      }
+
       await this.statisticsService.refreshInTransaction(
         transaction,
         authorization.group.id,
@@ -393,25 +403,13 @@ export class PastScheduleService {
           }
 
           for (const mutation of mutations) {
-            const eventId = await this.eventWriter.append(transaction, {
-              affectedMembershipIds: collectDefinedIds(
-                mutation.before?.actualMembershipId,
-                mutation.assignment.actualMembershipId,
-              ),
-              affectedShiftIds: [mutation.assignment.id],
-              afterData: toBackfillEventState(mutation.assignment),
-              beforeData: toBackfillEventState(mutation.before),
-              eventStatus: 'completed',
-              eventType: 'schedule_backfill_completed',
-              groupId: authorization.group.id,
-              initiatedByUserId: authorization.user.id,
-              objectId: mutation.assignment.id,
-              objectType: 'shift_assignment',
+            const eventId = await this.appendBackfillEvent(
+              transaction,
+              authorization,
+              mutation,
               operationId,
-              operatorUserId: authorization.user.id,
-              ...(parsedInput.data.reason === undefined ? {} : { reason: parsedInput.data.reason }),
-              schedulePeriodId: mutation.schedulePeriodId,
-            });
+              parsedInput.data.reason,
+            );
 
             eventIds.push(eventId);
           }
@@ -469,6 +467,20 @@ export class PastScheduleService {
         input.reason,
       );
 
+      if (
+        toBackfillEventState(mutation.before).actualMembershipId !==
+          mutation.assignment.actualMembershipId ||
+        mutation.before?.shiftTypeId !== mutation.assignment.shiftTypeId
+      ) {
+        await this.appendBackfillEvent(
+          transaction,
+          authorization,
+          mutation,
+          randomUUID(),
+          input.reason,
+        );
+      }
+
       await this.statisticsService.refreshInTransaction(
         transaction,
         authorization.group.id,
@@ -482,6 +494,34 @@ export class PastScheduleService {
       });
 
       return { assignment: toPastScheduleAssignment(mutation.assignment) };
+    });
+  }
+
+  private async appendBackfillEvent(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    mutation: BackfillMutationResult,
+    operationId: string,
+    reason?: string,
+  ): Promise<string> {
+    return this.eventWriter.append(transaction, {
+      affectedMembershipIds: collectDefinedIds(
+        mutation.before?.actualMembershipId,
+        mutation.assignment.actualMembershipId,
+      ),
+      affectedShiftIds: [mutation.assignment.id],
+      afterData: toBackfillEventState(mutation.assignment),
+      beforeData: toBackfillEventState(mutation.before),
+      eventStatus: 'completed',
+      eventType: 'schedule_backfill_completed',
+      groupId: authorization.group.id,
+      initiatedByUserId: authorization.user.id,
+      objectId: mutation.assignment.id,
+      objectType: 'shift_assignment',
+      operationId,
+      operatorUserId: authorization.user.id,
+      ...(reason === undefined ? {} : { reason }),
+      schedulePeriodId: mutation.schedulePeriodId,
     });
   }
 

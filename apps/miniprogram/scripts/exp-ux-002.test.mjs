@@ -76,7 +76,7 @@ describe('EXP-UX-002 workflow sheet contracts', () => {
       const pageConfig = readJson(`src/subpackages/workflows/pages/${workflow}/index.json`);
       expect(pageConfig.usingComponents).toMatchObject({
         'ui-sheet': sharedSheetPath,
-        'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
+        'workflow-picker': '/components/ui/ui-date-picker/index',
       });
     }
   });

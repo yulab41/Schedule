@@ -21,9 +21,26 @@ describe('P6-A workbench runtime coordination', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+
+  it.each(['month', 'week', 'list'])(
+    'locates the current duty day after a long-lived %s page crosses handover',
+    async (viewMode) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-09-07T23:59:59.000Z'));
+      vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+      await import('../src/pages/workbench/index.ts');
+      const instance = createPageInstance(definition);
+      instance.data.viewMode = viewMode;
+      vi.setSystemTime(new Date('2026-10-01T00:00:00.000Z'));
+      definition.handleLocateToday.call(instance);
+      expect(instance.data.selectedDate).toBe('2026-10-01');
+      expect(instance.data.businessMonth).toBe('2026-10');
+    },
+  );
 
   it('defaults each single-member shift open and preserves manual collapse on reselection', async () => {
     vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));

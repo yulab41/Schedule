@@ -2,12 +2,15 @@ interface CalendarCellInstance {
   readonly properties: {
     readonly businessDate: string;
     readonly isCurrentMonth: boolean;
+    readonly disabled: boolean;
   };
   triggerEvent(name: string, detail?: unknown): void;
 }
 
 Component({
   properties: {
+    duties: { type: Array, value: [] },
+    disabled: { type: Boolean, value: false },
     ariaLabel: { type: String, value: '' },
     businessDate: { type: String, value: '' },
     day: { type: String, value: '' },
@@ -24,7 +27,7 @@ Component({
   },
   methods: {
     handleSelect(this: CalendarCellInstance): void {
-      if (!this.properties.isCurrentMonth) return;
+      if (!this.properties.isCurrentMonth || this.properties.disabled) return;
       this.triggerEvent('select', { businessDate: this.properties.businessDate });
     },
   },

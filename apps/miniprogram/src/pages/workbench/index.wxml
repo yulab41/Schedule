@@ -240,17 +240,8 @@
                             <text>{{phone.label}} {{phone.number}}</text></view
                           >
                         </view>
-                        <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                        <view class="staff-event-footer">
                           <view
-                            wx:for="{{row.markerDetails}}"
-                            wx:for-item="markerDetail"
-                            wx:key="key"
-                            class="change-summary-item"
-                            ><text class="detail-change-badge">{{markerDetail.badge}}</text
-                            ><text>{{markerDetail.label}}</text></view
-                          >
-                        </view>
-                        <view
                           class="event-action"
                           data-assignment-id="{{row.key}}"
                           hover-class="is-pressed"
@@ -265,6 +256,17 @@
                           />
                           ><text>事件记录</text></view
                         >
+                          <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                          <view
+                            wx:for="{{row.markerDetails}}"
+                            wx:for-item="markerDetail"
+                            wx:key="key"
+                            class="change-summary-item"
+                            ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                            ><text>{{markerDetail.label}}</text></view
+                          >
+                        </view>
+                        </view>
                       </view>
                     </view>
                   </view>
@@ -474,17 +476,8 @@
                             <text>{{phone.label}} {{phone.number}}</text></view
                           >
                         </view>
-                        <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                        <view class="staff-event-footer">
                           <view
-                            wx:for="{{row.markerDetails}}"
-                            wx:for-item="markerDetail"
-                            wx:key="key"
-                            class="change-summary-item"
-                            ><text class="detail-change-badge">{{markerDetail.badge}}</text
-                            ><text>{{markerDetail.label}}</text></view
-                          >
-                        </view>
-                        <view
                           class="event-action"
                           data-assignment-id="{{row.key}}"
                           hover-class="is-pressed"
@@ -499,6 +492,17 @@
                           />
                           ><text>事件记录</text></view
                         >
+                          <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                          <view
+                            wx:for="{{row.markerDetails}}"
+                            wx:for-item="markerDetail"
+                            wx:key="key"
+                            class="change-summary-item"
+                            ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                            ><text>{{markerDetail.label}}</text></view
+                          >
+                        </view>
+                        </view>
                       </view>
                     </view>
                   </view>

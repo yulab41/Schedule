@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "calendar-month": "/components/calendar/calendar-month/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-loading": "/components/ui/ui-loading/index"
   }

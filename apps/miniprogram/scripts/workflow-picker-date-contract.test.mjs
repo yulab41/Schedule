@@ -12,9 +12,9 @@ function read(relativePath) {
 describe('EXP-CALENDAR-003 date picker contract', () => {
   it('uses the same shared pager state machine and native motion parameters as the home calendar', () => {
     const homePager = read('components/calendar/calendar-month/index.ts');
-    const picker = read('subpackages/workflows/components/workflow-picker/index.ts');
+    const picker = read('components/ui/ui-date-picker/index.ts');
     const homeTemplate = read('components/calendar/calendar-month/index.wxml');
-    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
+    const pickerTemplate = read('components/ui/ui-date-picker/index.wxml');
 
     for (const source of [homePager, picker]) {
       expect(source).toContain('calendar-period-pager');
@@ -31,8 +31,8 @@ describe('EXP-CALENDAR-003 date picker contract', () => {
   });
 
   it('commits date month changes only from animationfinish and keeps one horizontal owner', () => {
-    const template = read('subpackages/workflows/components/workflow-picker/index.wxml');
-    const controller = read('subpackages/workflows/components/workflow-picker/index.ts');
+    const template = read('components/ui/ui-date-picker/index.wxml');
+    const controller = read('components/ui/ui-date-picker/index.ts');
 
     expect(template).toContain('bindchange="handleDateSwiperChangeStart"');
     expect(template).toContain('bindanimationfinish="handleDateSwiperFinish"');
@@ -47,8 +47,8 @@ describe('EXP-CALENDAR-003 date picker contract', () => {
   });
 
   it('uses the existing yellow semantic token and separates today, selected, weekend, and disabled states', () => {
-    const template = read('subpackages/workflows/components/workflow-picker/index.wxml');
-    const styles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const template = read('components/ui/ui-date-picker/index.wxml');
+    const styles = read('components/ui/ui-date-picker/index.wxss');
     const weekendRule = styles.indexOf('.workflow-picker-date-cell.is-weekend:not(.is-muted)');
     const selectedRule = styles.indexOf('.workflow-picker-date-cell.is-selected');
     const selectedCellRule = styles.slice(
