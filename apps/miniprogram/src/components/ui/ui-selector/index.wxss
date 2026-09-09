@@ -4,6 +4,30 @@
   min-width: 0;
 }
 
+.workflow-picker-trigger-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.workflow-picker-trigger.is-field {
+  height: 58px;
+  min-height: 58px;
+  padding: 8px;
+  background: var(--ui-color-surface-muted);
+}
+
+.workflow-picker-field-label {
+  margin-bottom: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.workflow-picker-check { width: 22px; flex: none; }
+.workflow-picker-option.is-disabled { opacity: 0.5; }
+
 .workflow-picker-root.is-open {
   z-index: 30;
 }

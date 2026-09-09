@@ -3,6 +3,11 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "ui-selector": "/components/ui/ui-selector/index",
+    "ui-sheet": "/components/ui/ui-sheet/index",
+    "ui-wheel-column": "/components/ui/ui-wheel-column/index",
+    "ui-toast": "/components/ui/ui-toast/index",
+    "schedule-calendar-preview": "../../components/schedule-calendar-preview/index",
     "ui-date-picker": "/components/ui/ui-date-picker/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-button": "/components/ui/ui-button/index",

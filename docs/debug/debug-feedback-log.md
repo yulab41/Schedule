@@ -2691,3 +2691,11 @@
 ## FEEDBACK6-RELEASE-LINEAGE（2026-09-09）
 
 正式上传3aeaa4c8因5285dd1历史workbench证明过期而失败，未预约版本/上传/迁移。引入点：proof来自bfd1fbbd，业务改动528722f4/3aeaa4c8。仅更新精确blob与有限动效保留证据，详见docs/audit/feedback6-release.md。运行/浏览器验证：复用feedback6-upgrade已通过原pnpm smoke:browser脚本的应用证据；本次仅发布证明及文档变化。
+
+
+## FEEDBACK7-20260909：群组与排班UI
+
+- 用户17项及两个弹窗确认已实现，记录见[feedback7](../audit/feedback7.md)。引入点：手排591ccff6；群组70f9a98f/0d971de1/1725ee7a；岗位column38233039、失效排序残留057af270；补录input及拟变更528722f4。
+- 行为变化：默认空白模板；单选扩展可选多选；周期滚轮确认才提交；阶段点击仅切换页面/只读预览；连续值班>0才要求风险勾选；复用通知/弹窗/月历；删除用户确认的失效排序箭头。API、幂等、版本和发布确认不变。
+- 运行/浏览器验证：pnpm smoke:check-core通过，未触及Web核心；feedback7-layout.mjs通过320/390及大字体桌面CSS检查。不是原生微信证据。
+- Mini verify/确定性/包体、981通过15跳过、format/ESLint及定向红绿测试通过。状态：自动验证完成，UPLOAD_REQUIRED，待用户批准该检查点上传后进行小米14复核。

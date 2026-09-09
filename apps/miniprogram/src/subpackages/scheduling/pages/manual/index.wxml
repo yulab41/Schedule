@@ -1,6 +1,7 @@
 <wxs module="matrixGesture" src="../../../../pages/manual-matrix-poc/matrix-gesture.wxs"></wxs>
 
 <view class="manual-page">
+  <ui-toast visible="{{!!infoMessage}}" message="{{infoMessage}}" tone="{{feedbackTone}}" />
   <view class="mini-header" style="{{shellHeaderStyle}}">
     <view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回排班台" bindtap="handleBack"><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" /></view>
     <view class="header-title">
@@ -22,16 +23,16 @@
       </view>
 
       <block wx:else>
-        <view wx:if="{{state !== 'release'}}" class="handoff-rail" aria-label="排班交接进度">
+        <view class="handoff-rail" aria-label="排班交接进度">
           <view class="handoff-heading">
             <view class="handoff-copy">
               <text>排班交接轨</text>
               <text class="handoff-title">{{scheduleRoleName || '请选择排班岗位'}} · {{startMonthLabel}}</text>
             </view>
-            <text class="handoff-state">{{state === 'preview' ? '风险预览' : '模板编辑'}}</text>
+            <text class="handoff-state">{{state === 'preview' ? '风险预览' : state === 'release' ? '排班草稿' : state === 'history' ? '发布记录' : '模板编辑'}}</text>
           </view>
           <view class="handoff-stages">
-            <view wx:for="{{stages}}" wx:key="label" class="handoff-stage {{item.className}}">
+            <view wx:for="{{stages}}" wx:key="label" class="handoff-stage {{item.className}}" aria-role="button" aria-label="{{item.label}}" aria-disabled="{{isBusy}}" data-index="{{item.index}}" bindtap="handleStageSelect">
               <text class="stage-marker">{{item.marker}}</text>
               <text>{{item.label}}</text>
             </view>
@@ -43,8 +44,7 @@
           </view>
         </view>
 
-        <ui-alert wx:if="{{errorMessage}}" tone="danger" message="{{errorMessage}}"></ui-alert>
-        <ui-alert wx:if="{{infoMessage}}" tone="success" message="{{infoMessage}}"></ui-alert>
+        <ui-alert wx:if="{{errorMessage && state === 'editor'}}" tone="danger" message="{{errorMessage}}"></ui-alert>
 
         <block wx:if="{{state === 'editor'}}">
           <view class="section-card template-context">
@@ -53,31 +53,12 @@
               <text class="status-badge">{{selectedTemplateId ? '编辑中' : '未保存'}}</text>
             </view>
 
-            <picker mode="selector" range="{{templateOptions}}" range-key="label" value="{{templateIndex}}" disabled="{{isBusy}}" bindchange="handleTemplateChange">
-              <view class="field-control"><text>排班模板</text><text class="field-value">{{templateLabel}}</text></view>
-            </picker>
+            <view class="template-selector"><ui-selector class="manual-picker" field-label="排班模板" title="排班模板" options="{{templateOptions}}" selected-index="{{templateIndex}}" display-value="{{templateLabel}}" disabled="{{isBusy}}" bindchange="handleTemplateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
             <view class="field-grid">
-              <picker mode="selector" range="{{roleOptions}}" range-key="label" value="{{roleIndex}}" disabled="{{isBusy}}" bindchange="handleRoleChange">
-                <view class="field-control"><text>排班岗位</text><text class="field-value">{{scheduleRoleName || '请选择'}}</text></view>
-              </picker>
-              <view class="manual-date-field">
-                <text>开始日期</text>
-                <ui-date-picker mode="date" title="开始日期" value="{{startDate}}" display-value="{{startDate}}" disabled="{{isBusy}}" bindchange="handleStartDateChange" />
-              </view>
-              <picker mode="selector" range="{{cycleDayOptions}}" value="{{cycleDayIndex}}" disabled="{{isBusy}}" bindchange="handleCycleDaysChange">
-                <view class="field-control"><text>周期天数</text><text class="field-value">{{cycleDays}} 天</text></view>
-              </picker>
-              <view class="field-control" hover-class="is-pressed" aria-role="button" aria-label="选择值班人员，当前 {{memberCount}} 人" bindtap="handleMemberPanelToggle">
-                <text>值班人员</text><text class="field-value">{{memberCount}} 人</text>
-              </view>
-            </view>
-
-            <view wx:if="{{memberPanelOpen}}" class="member-panel">
-              <text class="member-panel-title">值班人员（最多 20 人）</text>
-              <view class="member-options">
-                <ui-checkbox wx:for="{{memberOptions}}" wx:key="membershipId" label="{{item.realName}}" checked="{{item.checked}}" disabled="{{item.disabled || isBusy}}" data-membership-id="{{item.membershipId}}" bindchange="handleMemberToggle"></ui-checkbox>
-              </view>
-              <ui-button variant="secondary" label="完成" bindpress="handleMemberPanelToggle"></ui-button>
+              <view class="role-field"><ui-selector class="manual-picker" field-label="排班岗位" title="排班岗位" options="{{roleOptions}}" selected-index="{{roleIndex}}" display-value="{{scheduleRoleName}}" disabled="{{isBusy}}" bindchange="handleRoleChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              <view class="date-field"><ui-date-picker class="manual-picker" field-label="开始日期" mode="date" title="开始日期" value="{{startDate}}" display-value="{{startDate}}" disabled="{{isBusy}}" bindchange="handleStartDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              <view class="cycle-field field-control" hover-class="is-pressed" aria-role="button" aria-label="周期天数" aria-disabled="{{isBusy}}" bindtap="handleOpenCyclePicker"><text>周期天数</text><text class="field-value">{{cycleDays}} 天</text></view>
+              <view class="members-field"><ui-selector class="manual-picker" field-label="值班人员" title="值班人员（最多20人）" multiple="{{true}}" options="{{memberSelectOptions}}" display-value="{{memberCount}} 人" disabled="{{isBusy}}" bindchange="handleMembersChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
             </view>
           </view>
 
@@ -85,7 +66,7 @@
 
           <view class="matrix-section">
             <view class="section-heading matrix-title">
-              <view><text class="section-kicker">班种与矩阵</text><text class="section-title">点格排班</text></view>
+              <view><text class="section-kicker">班种与矩阵</text></view>
             </view>
             <view class="shift-palette" aria-label="班种按钮">
               <text class="palette-title">选择班种</text>
@@ -129,14 +110,13 @@
           <view class="preview-metrics"><view><text>班次</text><text class="metric-value">{{previewAssignmentCount}}</text></view><view><text>空缺</text><text class="metric-value {{previewVacancyCount ? 'is-danger' : ''}}">{{previewVacancyCount}}</text></view><view><text>连续值班</text><text class="metric-value is-warning">{{previewWarningCount}}</text></view></view>
           <view wx:if="{{previewConflictCount || previewVacancyCount}}" class="risk-panel is-blocking"><view class="risk-heading"><text>必须处理</text><text>{{previewConflictCount}} 个冲突 · {{previewVacancyCount}} 个空缺</text></view><text>存在阻断项时不能直接保存草稿，请返回矩阵修改。</text></view>
           <view wx:if="{{previewWarningCount}}" class="risk-panel"><view class="risk-heading"><text>需要确认</text><text>连续值班风险</text></view><text>请核对连续值班时长和人员安排。</text></view>
-          <ui-checkbox checked="{{riskAccepted}}" label="我已核对空缺和连续值班风险" bindchange="handleRiskToggle"></ui-checkbox>
+          <view class="section-card preview-calendar-card"><schedule-calendar-preview assignments="{{previewAssignments}}" start-date="{{previewStartDate}}" /></view>
+          <ui-checkbox wx:if="{{previewWarningCount > 0}}" checked="{{riskAccepted}}" label="我已核对空缺和连续值班风险" bindchange="handleRiskToggle"></ui-checkbox>
         </block>
 
-        <block wx:elif="{{state === 'release'}}">
+        <block wx:elif="{{state === 'release' || state === 'history'}}">
           <view class="web-parity-page manual-release-page">
-            <text class="release-page-title">手动排班</text>
-
-            <view class="draft-section">
+            <view wx:if="{{state === 'release'}}" class="draft-section">
               <text class="draft-section-title">排班草稿</text>
               <text class="draft-hint">模板应用后按开始到结束时间保存为一条草稿，可一次发布整个范围；重复应用时可选择覆盖旧草稿。</text>
               <view wx:if="{{releaseDraftBatches.length === 0}}" class="release-empty">暂无待发布草稿</view>
@@ -150,6 +130,7 @@
                     <view class="month-chips"><text wx:for="{{batch.months}}" wx:key="*this" class="month-chip">{{item}}</text></view>
                   </view>
                   <view class="web-row-actions">
+                    <view class="web-button is-outline" hover-class="is-pressed" aria-role="button" aria-disabled="{{isBusy}}" data-batch-key="{{batch.key}}" bindtap="handlePreviewDraftBatch">预览</view>
                     <view class="web-button is-primary" hover-class="is-pressed" aria-role="button" aria-disabled="{{isBusy}}" data-batch-key="{{batch.key}}" bindtap="handlePublishBatch">发布整个排班</view>
                     <view class="web-button is-danger-text" hover-class="is-pressed" aria-role="button" aria-disabled="{{isBusy}}" data-batch-key="{{batch.key}}" bindtap="handleOpenDeleteDialog">删除草稿</view>
                   </view>
@@ -171,7 +152,7 @@
               </view>
             </view>
 
-            <view class="draft-section">
+            <view wx:if="{{state === 'history'}}" class="draft-section">
               <text class="draft-section-title">排班发布记录</text>
               <text class="draft-hint">月份已过的排班自动转为“既往排班（锁定）”，已过日期不可修改；已归档版本会随月份过期自动清理。</text>
               <view wx:if="{{releaseMonthGroups.length === 0}}" class="release-empty">暂无发布记录</view>
@@ -219,6 +200,11 @@
   <view wx:if="{{state === 'editor'}}" class="action-dock"><ui-button variant="secondary" label="保存模板" loading="{{isBusy}}" disabled="{{!canSave || isBusy}}" bindpress="handleSaveTemplate"></ui-button><ui-button variant="primary" label="生成预览" loading="{{isBusy}}" disabled="{{!canPreview || isBusy}}" bindpress="handlePreview"></ui-button></view>
   <view wx:elif="{{state === 'preview'}}" class="action-dock"><ui-button variant="secondary" label="返回修改" disabled="{{isBusy}}" bindpress="handleReturnToEditor"></ui-button><ui-button variant="primary" label="保存为草稿" loading="{{isBusy}}" disabled="{{!canApplyDraft || isBusy}}" bindpress="handleApplyDraft"></ui-button></view>
 
+  <ui-sheet visible="{{cyclePickerOpen}}" title="周期天数" close-label="取消" bindclose="handleCloseCyclePicker">
+    <ui-wheel-column wx:if="{{cyclePickerOpen}}" items="{{cycleWheelItems}}" unit="天" selected-index="{{cycleDraftIndex}}" runtime-key="manual-cycle-days" generation="{{cycleWheelGeneration}}" animate-command="{{false}}" bindpreviewchange="handleCycleWheel" bindsettle="handleCycleWheel" />
+    <view class="cycle-picker-actions"><view class="web-button is-outline" aria-role="button" bindtap="handleCloseCyclePicker">取消</view><view class="web-button is-primary" aria-role="button" bindtap="handleConfirmCyclePicker">确定 {{cycleDraftIndex + 1}} 天</view></view>
+  </ui-sheet>
+
   <view wx:if="{{releaseDialogKind}}" class="release-dialog-layer" catchtouchmove="noop">
     <view class="release-dialog {{releaseDialogDanger ? 'is-danger' : ''}}" aria-role="dialog" aria-modal="true">
       <view class="release-dialog-header">
@@ -226,6 +212,7 @@
         <view class="dialog-close" hover-class="is-pressed" aria-role="button" aria-label="关闭" bindtap="handleCloseReleaseDialog"><image src="/assets/icons/ui-close.svg" mode="aspectFit" /></view>
       </view>
       <text class="release-dialog-meta">{{releaseDialogMeta}}</text>
+      <scroll-view wx:if="{{releaseDialogKind === 'preview'}}" class="release-calendar-scroll" scroll-y type="list"><schedule-calendar-preview assignments="{{releasePreviewAssignments}}" start-date="{{releasePreviewStartDate}}" /></scroll-view>
       <view wx:for="{{releaseCallouts}}" wx:key="message" class="release-callout is-{{item.tone}}">{{item.message}}</view>
       <view wx:if="{{releaseWorkflowImpacts.length}}" class="workflow-impact-list">
         <text class="impact-heading">本次变更将撤销以下事件，撤销原因为“排班变更”：</text>

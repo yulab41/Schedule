@@ -36,7 +36,13 @@ describe('native P5 manual schedule page', () => {
       expect(wxml).toContain(className);
     }
     expect(wxml).toContain('<scroll-view class="manual-page-scroll"');
-    expect(wxml.match(/<scroll-view\b/gu) ?? []).toHaveLength(1);
+    // The separate preview dialog may scroll; the matrix itself must never own a native scroller.
+    const matrix = wxml.slice(
+      wxml.indexOf('<view class="matrix-shell"'),
+      wxml.indexOf('<text class="matrix-note"'),
+    );
+    expect(matrix.match(/<scroll-view\b/gu) ?? []).toHaveLength(0);
+    expect(wxml.match(/<scroll-view\b/gu) ?? []).toHaveLength(2);
     expect(wxml).not.toMatch(/<(?:native-view|pan-gesture-handler)\b/u);
     expect(wxml).not.toContain('bindtap="handleUndo"');
     expect(wxml).not.toContain('label="撤销"');

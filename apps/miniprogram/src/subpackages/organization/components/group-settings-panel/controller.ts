@@ -152,6 +152,7 @@ interface GroupSettingsPageInstance {
   __infoMessageTimer?: unknown;
   __infoMessageToken?: object;
   _calendarVisible: boolean;
+  _managementFeedbackGeneration?: number;
   _currentGroupId: string;
   _loadSerial: number;
   _requestedGroupId: string;
@@ -287,6 +288,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     },
 
     onHide(this: GroupSettingsPageInstance): void {
+      this._managementFeedbackGeneration = (this._managementFeedbackGeneration ?? 0) + 1;
       this._calendarVisible = false;
       this._calendarPreferencesSerial += 1;
       clearInfoMessageTimer(this);
@@ -298,6 +300,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     },
 
     onUnload(this: GroupSettingsPageInstance): void {
+      this._managementFeedbackGeneration = (this._managementFeedbackGeneration ?? 0) + 1;
       this._calendarVisible = false;
       this._calendarPreferencesSerial += 1;
       this._loadSerial += 1;
@@ -434,7 +437,16 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     handleRosterToggle(this: GroupSettingsPageInstance): void {
       if (!this.data.canManageMembers || !this.data.organizationEnabled) return;
-      this.setData({ rosterEditorOpen: !this.data.rosterEditorOpen, managementError: '' });
+      this.setData({
+        rosterEditorOpen: !this.data.rosterEditorOpen,
+        contactEditorOpen: false,
+        managementError: '',
+      });
+    },
+
+    handleCloseRosterEditor(this: GroupSettingsPageInstance): void {
+      if (this.data.managementState === 'loading') return;
+      this.setData({ rosterEditorOpen: false });
     },
 
     handleAddRoster(this: GroupSettingsPageInstance): void {
@@ -927,6 +939,29 @@ function scheduleConsentNoticeClear(
   );
 }
 
+function captureManagementFeedback(page: GroupSettingsPageInstance) {
+  const groupId = page._currentGroupId;
+  const serial = page._loadSerial;
+  const generation = page._managementFeedbackGeneration ?? 0;
+  return {
+    isCurrent: () => page._currentGroupId === groupId && page._loadSerial === serial,
+    canNotify: () =>
+      page._calendarVisible && (page._managementFeedbackGeneration ?? 0) === generation,
+  };
+}
+
+function showManagementFeedback(
+  page: GroupSettingsPageInstance,
+  patch: Partial<GroupSettingsPageData>,
+  scope = captureManagementFeedback(page),
+): void {
+  if (!scope.isCurrent()) return;
+  page.setData(patch);
+  const message = patch.managementError || patch.managementInfo;
+  if (message && scope.canNotify())
+    showCalendarFeedback(page, message, patch.managementError ? 'error' : 'success');
+}
+
 function showCalendarFeedback(
   page: GroupSettingsPageInstance,
   message: string,
@@ -1027,28 +1062,39 @@ function formatDeletedAt(value: string): string {
 }
 
 async function createGroup(page: GroupSettingsPageInstance): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canManageGroupLifecycle || !(await ensureOrganizationCapability(page))) return;
   const name = page.data.createGroupName.trim();
   if (name.length === 0) {
-    page.setData({ managementError: '请输入新群组名称。', managementState: 'error' });
+    report({
+      managementError: '请输入新群组名称。',
+      managementState: 'error',
+    });
     return;
   }
   const operationKey = `group-create:${name}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     await page._organizationWriteClient.createGroup({
       name,
       operationId: resolveOperationId(page, operationKey),
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    page.setData({
+    report({
       createGroupName: '',
       managementInfo: '群组已创建，请继续添加预设成员。',
       managementState: 'ready',
     });
-    await reloadGroupDirectory(page);
+    await reloadGroupDirectory(page, scope);
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '群组没有创建，请稍后重试。')} 可保持内容重试。`,
       managementState: 'error',
     });
@@ -1056,6 +1102,9 @@ async function createGroup(page: GroupSettingsPageInstance): Promise<void> {
 }
 
 async function leaveGroup(page: GroupSettingsPageInstance): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (
     !page.data.canLeaveGroup ||
     page.data.managementState === 'loading' ||
@@ -1065,17 +1114,22 @@ async function leaveGroup(page: GroupSettingsPageInstance): Promise<void> {
   const group = page._group;
   if (group === undefined || !(await showConfirm('退出后将不再收到该群通知，确认退出吗？'))) return;
   const operationKey = `group-leave:${group.id}:${group.version}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     await page._organizationWriteClient.leaveGroup(group.id, {
       operationId: resolveOperationId(page, operationKey),
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    page.setData({ managementInfo: '已退出该群组。', managementState: 'ready' });
-    await reloadGroupDirectory(page);
+    report({ managementInfo: '已退出该群组。', managementState: 'ready' });
+    await reloadGroupDirectory(page, scope);
     if (!page.data.embedded) wx.navigateBack({ delta: 1 });
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '退出群组没有完成，请稍后重试。')} 可保持当前页面重试。`,
       managementState: 'error',
     });
@@ -1083,6 +1137,9 @@ async function leaveGroup(page: GroupSettingsPageInstance): Promise<void> {
 }
 
 async function dissolveGroup(page: GroupSettingsPageInstance): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canDissolveGroup || !(await ensureOrganizationCapability(page))) return;
   const group = page._group;
   if (
@@ -1091,18 +1148,26 @@ async function dissolveGroup(page: GroupSettingsPageInstance): Promise<void> {
   )
     return;
   const operationKey = `group-delete:${group.id}:${group.version}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     await page._organizationWriteClient.deleteGroup(group.id, {
       expectedVersion: group.version,
       operationId: resolveOperationId(page, operationKey),
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    page.setData({ managementInfo: '群组已解散，30 天内可在下方恢复。', managementState: 'ready' });
-    await reloadGroupDirectory(page);
+    report({
+      managementInfo: '群组已解散，30 天内可在下方恢复。',
+      managementState: 'ready',
+    });
+    await reloadGroupDirectory(page, scope);
     if (!page.data.embedded) wx.navigateBack({ delta: 1 });
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '群组没有解散，请稍后重试。')} 可保持当前页面重试。`,
       managementState: 'error',
     });
@@ -1110,67 +1175,90 @@ async function dissolveGroup(page: GroupSettingsPageInstance): Promise<void> {
 }
 
 async function restoreGroup(page: GroupSettingsPageInstance, groupId: string): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canDissolveGroup || !(await ensureOrganizationCapability(page))) return;
   const dissolved = page._dissolvedGroups.find((candidate) => candidate.id === groupId);
   if (dissolved === undefined) return;
   const operationKey = `group-restore:${groupId}:${dissolved.version}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     await page._organizationWriteClient.restoreGroup(groupId, {
       expectedVersion: dissolved.version,
       operationId: resolveOperationId(page, operationKey),
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    page.setData({ managementInfo: '群组已恢复。', managementState: 'ready' });
-    await reloadGroupDirectory(page);
+    report({ managementInfo: '群组已恢复。', managementState: 'ready' });
+    await reloadGroupDirectory(page, scope);
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '群组没有恢复，请稍后重试。')} 可保持当前页面重试。`,
       managementState: 'error',
     });
   }
 }
 
-async function reloadGroupDirectory(page: GroupSettingsPageInstance): Promise<void> {
+async function reloadGroupDirectory(
+  page: GroupSettingsPageInstance,
+  scope = captureManagementFeedback(page),
+): Promise<void> {
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
+  if (!scope.isCurrent()) return;
   if (!page.data.canManageGroupLifecycle) {
     page._dissolvedGroups = [];
-    page.setData(createGroupDirectoryPatch([]));
+    report(createGroupDirectoryPatch([]));
     return;
   }
   try {
     const dissolved = page.data.canDissolveGroup
       ? await page._organizationReadClient.listDissolvedGroups()
       : ([] as DissolvedGroup[]);
+    if (!scope.isCurrent()) return;
     page._dissolvedGroups = dissolved;
-    page.setData(createGroupDirectoryPatch(dissolved));
+    report(createGroupDirectoryPatch(dissolved));
   } catch {
     // A successful write remains visible; directory refresh can be retried on the next load.
   }
 }
 
 async function saveGroupName(page: GroupSettingsPageInstance): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canManageGroup || !(await ensureOrganizationCapability(page))) return;
   const group = page._group;
   const name = page.data.groupNameDraft.trim();
   if (group === undefined || name.length === 0 || name === group.name) return;
   const operationKey = `group-name:${group.id}:${group.version}:${name}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     const result = await page._organizationWriteClient.updateGroupName(group.id, {
       expectedVersion: group.version,
       name,
       operationId: resolveOperationId(page, operationKey),
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
     page._group = result;
-    page.setData({
+    report({
       ...createGroupPatch(result),
       groupNameDraft: result.name,
       managementInfo: '群组名称已更新。',
       managementState: 'ready',
     });
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '群组名称没有保存，请稍后重试。')} 可保持当前内容重试。`,
       managementState: 'error',
     });
@@ -1178,24 +1266,32 @@ async function saveGroupName(page: GroupSettingsPageInstance): Promise<void> {
 }
 
 async function addRosterMembers(page: GroupSettingsPageInstance): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canManageMembers || !(await ensureOrganizationCapability(page))) return;
   const group = page._group;
   const names = uniqueNames(page.data.rosterNames);
   if (group === undefined || names.length === 0) {
-    page.setData({ managementError: '请每行输入一个预设成员姓名。' });
+    report({ managementError: '请每行输入一个预设成员姓名。' });
     return;
   }
   const operationKey = `roster-add:${group.id}:${names.join('|')}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     const result = await page._organizationWriteClient.addGroupMembers(group.id, {
       operationId: resolveOperationId(page, operationKey),
       realNames: names,
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    await reloadOrganizationData(page, `已添加 ${result.added} 位预设成员。`);
+    await reloadOrganizationData(page, `已添加 ${result.added} 位预设成员。`, scope);
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '预设成员没有添加，请稍后重试。')} 可保持内容重试。`,
       managementState: 'error',
     });
@@ -1206,20 +1302,28 @@ async function convertRosterMember(
   page: GroupSettingsPageInstance,
   realName: string,
 ): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canManageMembers || !(await ensureOrganizationCapability(page))) return;
   const group = page._group;
   if (group === undefined) return;
   const operationKey = `roster-convert:${group.id}:${realName}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     const result = await page._organizationWriteClient.convertRosterEntries(group.id, {
       operationId: resolveOperationId(page, operationKey),
       realNames: [realName],
     });
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    await reloadOrganizationData(page, `已转为正式成员 ${result.converted} 位。`);
+    await reloadOrganizationData(page, `已转为正式成员 ${result.converted} 位。`, scope);
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '预设成员没有转正，请稍后重试。')} 可保持当前内容重试。`,
       managementState: 'error',
     });
@@ -1227,6 +1331,9 @@ async function convertRosterMember(
 }
 
 async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canManageMembers || !(await ensureOrganizationCapability(page))) return;
   const group = page._group;
   const member = page._members.find((candidate) => candidate.id === page.data.editingMemberId);
@@ -1236,10 +1343,14 @@ async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void>
   if (group === undefined || member === undefined || contact === undefined) return;
   const name = page.data.editingMemberName.trim();
   if (name.length === 0) {
-    page.setData({ managementError: '成员姓名不能为空。' });
+    report({ managementError: '成员姓名不能为空。' });
     return;
   }
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     let nextMember = member;
     if (name !== member.realName) {
@@ -1249,6 +1360,7 @@ async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void>
         operationId: resolveOperationId(page, nameKey),
         realName: name,
       });
+      if (!scope.isCurrent()) return;
       page._operationIds.delete(nameKey);
     }
     const contactKey = `member-contact:${contact.membershipId}:${contact.version}:${page.data.editingMobilePhone}:${page.data.editingShortPhone}:${page.data.editingIsConfirmed}`;
@@ -1263,6 +1375,7 @@ async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void>
         shortPhone: emptyToNull(page.data.editingShortPhone),
       },
     );
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(contactKey);
     page._members = page._members.map((candidate) =>
       candidate.id === nextMember.id ? nextMember : candidate,
@@ -1270,7 +1383,7 @@ async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void>
     page._contacts = page._contacts.map((candidate) =>
       candidate.membershipId === nextContact.membershipId ? nextContact : candidate,
     );
-    page.setData({
+    report({
       ...createOrganizationPatch(group, page._members, page._contacts),
       contactEditorOpen: false,
       editingMemberId: '',
@@ -1278,7 +1391,7 @@ async function saveMemberContact(page: GroupSettingsPageInstance): Promise<void>
       managementState: 'ready',
     });
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '成员资料没有保存，请稍后重试。')} 可保持内容重试。`,
       managementState: 'error',
     });
@@ -1290,6 +1403,9 @@ async function runMemberAction(
   memberId: string,
   action: string,
 ): Promise<void> {
+  const scope = captureManagementFeedback(page);
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
   if (!page.data.canManageMembers || !(await ensureOrganizationCapability(page))) return;
   const group = page._group;
   const member = page._members.find((candidate) => candidate.id === memberId);
@@ -1297,7 +1413,11 @@ async function runMemberAction(
   if (!['delete', 'administrator', 'member'].includes(action)) return;
   const actionText = action === 'delete' ? '删除这个成员吗？' : '';
   if (actionText !== '' && !(await showConfirm(actionText))) return;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  report({
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
   try {
     const operationKey = `member-${action}:${member.id}:${member.version}`;
     if (action === 'delete') {
@@ -1312,10 +1432,11 @@ async function runMemberAction(
         role: action,
       });
     }
+    if (!scope.isCurrent()) return;
     page._operationIds.delete(operationKey);
-    await reloadOrganizationData(page, '成员状态已更新。');
+    await reloadOrganizationData(page, '成员状态已更新。', scope);
   } catch (error) {
-    page.setData({
+    report({
       managementError: `${toUserMessage(error, '成员操作没有完成，请稍后重试。')} 可保持当前内容重试。`,
       managementState: 'error',
     });
@@ -1325,7 +1446,11 @@ async function runMemberAction(
 async function reloadOrganizationData(
   page: GroupSettingsPageInstance,
   infoMessage: string,
+  scope = captureManagementFeedback(page),
 ): Promise<void> {
+  const report = (patch: Partial<GroupSettingsPageData>) =>
+    showManagementFeedback(page, patch, scope);
+  if (!scope.isCurrent()) return;
   const group = page._group;
   if (group === undefined) return;
   try {
@@ -1333,9 +1458,10 @@ async function reloadOrganizationData(
       page._organizationReadClient.listGroupMembers(group.id),
       page._organizationReadClient.listGroupContacts(group.id),
     ]);
+    if (!scope.isCurrent()) return;
     page._members = members;
     page._contacts = contacts;
-    page.setData({
+    report({
       ...createOrganizationPatch(group, members, contacts),
       managementInfo: infoMessage,
       managementState: 'ready',
@@ -1343,7 +1469,7 @@ async function reloadOrganizationData(
       rosterNames: '',
     });
   } catch (error) {
-    page.setData({
+    report({
       managementError: toUserMessage(error, '最新成员状态暂时无法加载，请重新加载。'),
       managementState: 'error',
     });
@@ -1357,7 +1483,7 @@ async function ensureOrganizationCapability(page: GroupSettingsPageInstance): Pr
   } catch (error) {
     const message =
       error instanceof Error ? error.message : '组织管理能力暂未开放，当前仅可查看已有资料。';
-    page.setData({ managementError: message, managementState: 'error' });
+    showManagementFeedback(page, { managementError: message, managementState: 'error' });
     return false;
   }
 }

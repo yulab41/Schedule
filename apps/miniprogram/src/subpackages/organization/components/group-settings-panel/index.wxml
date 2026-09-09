@@ -181,21 +181,6 @@
           </view>
         </view>
 
-        <view wx:if="{{canDissolveGroup}}" class="group-card group-exit-card">
-          <view class="group-card-header"
-            ><text>当前群组操作</text><text class="card-scope">群主专属</text></view
-          >
-          <view class="group-card-body group-action-row">
-            <view
-              class="web-button is-danger"
-              hover-class="is-pressed"
-              aria-role="button"
-              bindtap="handleDissolveGroup"
-              >解散群组</view
-            >
-          </view>
-        </view>
-
         <view wx:if="{{canManageGroupLifecycle}}" class="group-card group-lifecycle-card">
           <view class="group-card-header"><text>创建群组</text></view>
           <view class="group-card-body mutation-fields">
@@ -337,31 +322,46 @@
           </view>
         </view>
 
-        <ui-alert
-          wx:if="{{managementError}}"
-          tone="danger"
-          title="组织管理操作未完成"
-          message="{{managementError}}"
-        ></ui-alert>
-        <ui-alert
-          wx:if="{{managementInfo}}"
-          tone="success"
-          title="组织管理"
-          message="{{managementInfo}}"
-        ></ui-alert>
+        <view class="group-card contact-disclosure-card">
+          <view class="contact-disclosure-row">
+            <view class="contact-disclosure-copy">
+              <text class="contact-disclosure-title">群内公开手机号</text>
+              <text wx:if="{{consentState === 'missing-phone'}}" class="contact-disclosure-note"
+                >请先设置手机号</text
+              >
+            </view>
+            <ui-switch
+              checked="{{desiredConsent}}"
+              disabled="{{switchDisabled}}"
+              loading="{{isSaving}}"
+              label="群内公开手机号"
+              bind:change="handleConsentToggle"
+            ></ui-switch>
+          </view>
+          <view wx:if="{{errorMessage}}" class="contact-disclosure-error">
+            <text>{{errorMessage}}</text>
+            <view class="web-button compact-button" aria-role="button" bindtap="handleSave"
+              >重试保存</view
+            >
+          </view>
+        </view>
 
-        <view
-          wx:if="{{rosterEditorOpen}}"
-          class="inline-editor-sheet"
-          role="dialog"
-          aria-label="添加预设成员"
-        >
-          <view class="inline-editor-heading"
-            ><text>添加预设成员</text
-            ><view class="editor-close" aria-role="button" bindtap="handleRosterToggle"
-              >完成</view
-            ></view
+        <view wx:if="{{canLeaveGroup}}" class="group-leave-action">
+          <view
+            class="web-button group-leave-button"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-disabled="{{managementState === 'loading'}}"
+            bindtap="handleLeaveGroup"
+            >退出群组</view
           >
+        </view>
+        <view wx:if="{{canDissolveGroup}}" class="group-dissolve-action"><view class="web-button is-danger" aria-role="button" aria-disabled="{{managementState === 'loading'}}" bindtap="handleDissolveGroup">解散群组</view></view>
+      </view>
+      <view class="bottom-spacer"></view>
+    </view>
+  </scroll-view>
+  <ui-sheet visible="{{rosterEditorOpen}}" title="添加预设成员" close-label="取消" bindclose="handleCloseRosterEditor"><scroll-view class="member-editor-scroll" scroll-y type="list"><view class="member-editor-content">
           <text class="inline-editor-copy"
             >每行输入一个姓名。请使用管理员提供的邀请关联成员账号。</text
           >
@@ -375,20 +375,9 @@
           <view class="web-button is-primary" aria-role="button" bindtap="handleAddRoster"
             >添加预设成员</view
           >
-        </view>
 
-        <view
-          wx:if="{{contactEditorOpen}}"
-          class="inline-editor-sheet"
-          role="dialog"
-          aria-label="编辑成员联系方式"
-        >
-          <view class="inline-editor-heading"
-            ><text>编辑成员资料</text
-            ><view class="editor-close" aria-role="button" bindtap="handleCloseContactEditor"
-              >完成</view
-            ></view
-          >
+</view></scroll-view></ui-sheet>
+  <ui-sheet visible="{{contactEditorOpen}}" title="编辑成员资料" close-label="取消" bindclose="handleCloseContactEditor"><scroll-view class="member-editor-scroll" scroll-y type="list"><view class="member-editor-content">
           <view class="field-block"
             ><text class="field-label">成员姓名</text
             ><input
@@ -426,44 +415,6 @@
           <view class="web-button is-primary" aria-role="button" bindtap="handleSaveContact"
             >保存成员资料</view
           >
-        </view>
 
-        <view class="group-card contact-disclosure-card">
-          <view class="contact-disclosure-row">
-            <view class="contact-disclosure-copy">
-              <text class="contact-disclosure-title">群内公开手机号</text>
-              <text wx:if="{{consentState === 'missing-phone'}}" class="contact-disclosure-note"
-                >请先设置手机号</text
-              >
-            </view>
-            <ui-switch
-              checked="{{desiredConsent}}"
-              disabled="{{switchDisabled}}"
-              loading="{{isSaving}}"
-              label="群内公开手机号"
-              bind:change="handleConsentToggle"
-            ></ui-switch>
-          </view>
-          <view wx:if="{{errorMessage}}" class="contact-disclosure-error">
-            <text>{{errorMessage}}</text>
-            <view class="web-button compact-button" aria-role="button" bindtap="handleSave"
-              >重试保存</view
-            >
-          </view>
-        </view>
-
-        <view wx:if="{{canLeaveGroup}}" class="group-leave-action">
-          <view
-            class="web-button group-leave-button"
-            hover-class="is-pressed"
-            aria-role="button"
-            aria-disabled="{{managementState === 'loading'}}"
-            bindtap="handleLeaveGroup"
-            >退出群组</view
-          >
-        </view>
-      </view>
-      <view class="bottom-spacer"></view>
-    </view>
-  </scroll-view>
+</view></scroll-view></ui-sheet>
 </view>

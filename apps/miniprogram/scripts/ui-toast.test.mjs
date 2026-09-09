@@ -228,12 +228,19 @@ describe('controlled root-layer workflow toast', () => {
       ['subpackages/organization/components/scheduling-config-panel', 'managementInfo'],
       ['subpackages/organization/components/invite-visitor-panel', 'managementInfo'],
       ['subpackages/organization/components/platform-accounts-panel', 'managementInfo'],
-      ['subpackages/scheduling/pages/manual', 'infoMessage'],
-      ['subpackages/scheduling/pages/backfill', 'infoMessage'],
     ]) {
       expect(read(`${directory}/index.wxml`)).toContain(`message="{{${field}}}"`);
       expect(read(`${directory}/index.wxml`)).not.toContain('<ui-toast');
     }
+    const manual = read('subpackages/scheduling/pages/manual/index.wxml');
+    expect(manual).toContain('<ui-toast');
+    expect(manual).toContain('visible="{{!!infoMessage}}"');
+    expect(read('subpackages/scheduling/pages/manual/index.ts')).toContain(
+      'scheduleInfoMessageExpiry',
+    );
+    expect(read('subpackages/scheduling/pages/backfill/index.wxml')).not.toContain(
+      'tone="success"',
+    );
     expect(read('pages/workbench/index.wxml')).toContain('aria-live="polite"');
     expect(read('subpackages/diagnostics/pages/test-tools/index.ts')).toContain('wx.showToast');
     expect(read('subpackages/workflows/components/workflow-swap-panel/controller.ts')).toContain(

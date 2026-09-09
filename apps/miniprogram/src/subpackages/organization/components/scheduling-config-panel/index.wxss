@@ -473,7 +473,12 @@
 
 .role-heading{
   min-height: 58px;
+  flex-direction: row;
+  align-items: center;
 }
+
+.role-heading > ui-button { margin-left: auto; flex: none; }
+.role-heading > view { min-width: 0; flex: 1; }
 
 .role-section {
   padding: 10px 12px;

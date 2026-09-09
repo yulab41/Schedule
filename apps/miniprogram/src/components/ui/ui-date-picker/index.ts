@@ -147,6 +147,7 @@ let pickerRuntimeSerial = 0;
 
 Component({
   properties: {
+    fieldLabel: { type: String, value: '' },
     disabled: { type: Boolean, value: false },
     displayValue: { type: String, value: '' },
     max: { type: String, value: '' },

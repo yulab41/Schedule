@@ -10,6 +10,7 @@ interface Instance extends SelectorInstance {
     readonly options: readonly SelectorOption[];
     readonly selectedIndex: number;
     readonly disabled: boolean;
+    readonly multiple: boolean;
   };
   triggerEvent(
     name: string,
@@ -20,6 +21,8 @@ interface Instance extends SelectorInstance {
 const instances = new Set<Instance>();
 Component({
   properties: {
+    fieldLabel: { type: String, value: '' },
+    multiple: { type: Boolean, value: false },
     disabled: { type: Boolean, value: false },
     displayValue: { type: String, value: '' },
     options: { type: Array, value: [] },
@@ -45,6 +48,12 @@ Component({
   pageLifetimes: {
     hide(this: Instance) {
       this.setData({ open: false });
+    },
+  },
+  observers: {
+    options(this: Instance) {
+      if (this.data.open)
+        this.setData({ renderedOptions: createRenderedOptions(this.properties.options) });
     },
   },
   methods: {
@@ -80,7 +89,16 @@ Component({
       if (this.properties.disabled) return;
       const index = Number(event.currentTarget.dataset.index);
       const option = this.properties.options[index];
-      if (!Number.isInteger(index) || option === undefined) return;
+      if (!Number.isInteger(index) || option === undefined || option.disabled) return;
+      if (this.properties.multiple) {
+        this.triggerEvent('change', {
+          index,
+          option,
+          value: option.value,
+          checked: !option.checked,
+        });
+        return;
+      }
       this.triggerEvent('change', { index, option, value: String(index) });
       this.setData({ open: false, selectedOptionIndex: index });
     },

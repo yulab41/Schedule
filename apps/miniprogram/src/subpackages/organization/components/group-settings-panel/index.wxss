@@ -160,9 +160,11 @@ page {
 }
 .web-button {
   display: flex;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
+  width: auto;
+  min-height: 0;
+  padding: 8px;
+  align-self: flex-end;
+  flex: none;
   box-sizing: border-box;
   align-items: center;
   justify-content: center;
@@ -270,6 +272,7 @@ page {
 }
 .member-card-header {
   gap: 8px;
+  justify-content: space-between;
 }
 .member-card-header .card-subtitle {
   margin-left: 0;
@@ -373,15 +376,16 @@ page {
 .member-row-actions,
 .group-record-row-actions {
   display: flex;
-  max-width: 48%;
+  max-width: 100%;
+  align-self: stretch;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
 }
 .compact-button {
   width: auto;
-  min-height: 44px;
-  padding: 0 9px;
+  min-height: 0;
+  padding: 8px;
   font-size: var(--ui-font-size-xs);
 }
 .web-button.is-danger {
@@ -480,7 +484,7 @@ page {
 .group-settings-page.is-compact .member-row-actions,
 .group-settings-page.is-compact .group-record-row-actions {
   max-width: 100%;
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 .group-settings-page.is-large-text .header-title-sub,
 .group-settings-page.is-large-text .group-name,
@@ -531,7 +535,8 @@ page {
   width: 100%;
 }
 .group-settings-page.is-large-text .member-card-header > .web-button {
-  width: 100%;
+  width: auto;
+  align-self: flex-end;
 }
 .group-settings-page.is-large-text .preference-heading {
   align-items: flex-start;
@@ -543,8 +548,7 @@ page {
   line-height: 32px;
 }
 .group-settings-page.is-large-text .native-field,
-.group-settings-page.is-large-text .native-picker,
-.group-settings-page.is-large-text .web-button {
+.group-settings-page.is-large-text .native-picker {
   min-height: 52px;
 }
 .group-settings-page.is-large-text .native-field {
@@ -577,19 +581,19 @@ page {
 .group-settings-page.is-large-text .group-record-row-actions {
   width: 100%;
   max-width: 100%;
-  flex-direction: column;
-  justify-content: flex-start;
+  flex-direction: row;
+  justify-content: flex-end;
 }
 .group-settings-page.is-large-text .member-row-actions .web-button,
 .group-settings-page.is-large-text .group-record-row-actions .web-button,
 .group-settings-page.is-large-text .group-action-row .web-button {
-  width: 100%;
+  width: auto;
 }
 .group-settings-page.is-large-text .group-action-row {
   flex-direction: column;
 }
 .group-settings-page.is-large-text .compact-button {
-  min-height: 52px;
+  min-height: 0;
   font-size: var(--ui-font-size-md);
 }
 .group-settings-page.is-large-text .inline-editor-heading {
@@ -636,7 +640,7 @@ page {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 .member-entry-card {
   display: block;
@@ -658,8 +662,14 @@ page {
 }
 
 .member-management-card .member-row-actions {
-  padding: 0 12px 10px;
+  padding: 0 10px 6px;
+  justify-content: flex-end;
+  gap: 4px;
 }
+
+.member-editor-scroll { max-height: 62vh; height: 380px; }
+.member-editor-content { display: flex; padding: 4px; flex-direction: column; gap: 8px; }
+.group-dissolve-action { display: flex; justify-content: flex-end; padding-top: 8px; }
 
 .contact-disclosure-card {
   padding: 14px 16px;

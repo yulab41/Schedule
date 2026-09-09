@@ -17,13 +17,14 @@
     <view
       wx:for="{{renderedOptions}}"
       wx:key="value"
-      class="workflow-picker-option {{item.isWeekend ? 'is-weekend' : ''}} {{index === selectedOptionIndex ? 'is-selected' : ''}}"
+      class="workflow-picker-option {{item.isWeekend ? 'is-weekend' : ''}} {{(multiple ? item.checked : index === selectedOptionIndex) ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
       data-index="{{index}}"
       aria-role="option"
-      aria-selected="{{index === selectedOptionIndex}}"
+      aria-selected="{{multiple ? item.checked : index === selectedOptionIndex}}"
+      aria-disabled="{{item.disabled}}"
       bindtap="handleOptionTap"
     >
-      <text class="workflow-picker-option-label"
+      <text wx:if="{{multiple}}" class="workflow-picker-check">{{item.checked ? '✓' : '○'}}</text><text class="workflow-picker-option-label"
         ><text>{{item.leadingLabel}}</text
         ><text wx:if="{{item.weekendLabel}}" class="workflow-picker-option-weekend"
           >{{item.weekendLabel}}</text

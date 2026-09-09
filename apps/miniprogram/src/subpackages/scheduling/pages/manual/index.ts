@@ -13,6 +13,11 @@ import type {
   ShiftType,
 } from '@schedule/contracts';
 import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+} from '../../../../platform/info-message-lifetime.js';
+import type { PreviewDuty } from '../../components/schedule-calendar-preview/model.js';
+import {
   MAX_MANUAL_CELLS,
   MAX_MANUAL_DAYS,
   MAX_MANUAL_MEMBERS,
@@ -53,7 +58,7 @@ import {
   writeStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 
-type ManualPageState = 'editor' | 'error' | 'loading' | 'preview' | 'release';
+type ManualPageState = 'editor' | 'error' | 'loading' | 'preview' | 'release' | 'history';
 type ReleaseDialogKind = '' | 'delete' | 'preview' | 'republish' | 'withdraw';
 
 interface SelectorOption {
@@ -186,6 +191,18 @@ interface ReleaseCalloutView {
 }
 
 interface ManualPageData extends MatrixModel {
+  readonly previewAssignments: readonly PreviewDuty[];
+  readonly previewStartDate: string;
+  readonly releasePreviewAssignments: readonly PreviewDuty[];
+  readonly releasePreviewStartDate: string;
+  readonly memberSelectOptions: readonly (SelectorOption & {
+    checked: boolean;
+    disabled: boolean;
+  })[];
+  readonly cyclePickerOpen: boolean;
+  readonly cycleDraftIndex: number;
+  readonly cycleWheelGeneration: number;
+  readonly cycleWheelItems: readonly { label: string; ariaLabel: string }[];
   readonly activeShiftTypeId: string;
   readonly buildLabel: string;
   readonly canApplyDraft: boolean;
@@ -197,6 +214,7 @@ interface ManualPageData extends MatrixModel {
   readonly cycleDays: number;
   readonly errorMessage: string;
   readonly infoMessage: string;
+  readonly feedbackTone: 'success' | 'error';
   readonly isBusy: boolean;
   readonly limitNotice: string;
   readonly logicalCellCount: number;
@@ -296,6 +314,11 @@ interface ReleaseActionEvent {
 }
 
 interface ManualPageInstance {
+  _feedbackVisible?: boolean;
+  _cycleWheelSequence?: number;
+  _previewValid?: boolean;
+  __infoMessageTimer?: unknown;
+  __infoMessageToken?: object;
   _applyOperationId: string;
   _cellValues: Map<string, string>;
   _config: SchedulingConfig | undefined;
@@ -326,6 +349,7 @@ interface ManualPageInstance {
   readonly data: ManualPageData;
   setData(patch: Partial<ManualPageData> & Record<string, unknown>, callback?: () => void): void;
   updateMatrixViewport(): void;
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
 }
 
 const MEMBER_COLUMN_WIDTH = 104;
@@ -367,6 +391,15 @@ const emptyMatrix = createMatrixModel({
 
 Page({
   data: {
+    previewAssignments: [],
+    previewStartDate: '',
+    releasePreviewAssignments: [],
+    releasePreviewStartDate: '',
+    memberSelectOptions: [],
+    cyclePickerOpen: false,
+    cycleDraftIndex: 6,
+    cycleWheelGeneration: 0,
+    cycleWheelItems: cycleDayOptions.map((day) => ({ label: String(day), ariaLabel: `${day}天` })),
     ...emptyMatrix,
     activeShiftTypeId: '',
     buildLabel: buildInfo.buildLabel,
@@ -379,6 +412,7 @@ Page({
     cycleDays: 7,
     errorMessage: '',
     infoMessage: '',
+    feedbackTone: 'success',
     isBusy: false,
     limitNotice: '',
     matrixGestureConfig: createMatrixGestureConfig(emptyMatrix, 0, 'initial'),
@@ -467,11 +501,21 @@ Page({
   },
 
   onUnload(this: ManualPageInstance): void {
+    this._feedbackVisible = false;
+    clearInfoMessageTimer(this);
     this._loadSerial += 1;
     this._startDateSerial += 1;
   },
 
+  onHide(this: ManualPageInstance): void {
+    this._feedbackVisible = false;
+    clearInfoMessageTimer(this);
+    this.setData({ infoMessage: '', cyclePickerOpen: false });
+  },
+
   onShow(this: ManualPageInstance): void {
+    if (this._feedbackVisible === false) this.setData({ infoMessage: '' });
+    this._feedbackVisible = true;
     void requireClientCapability('core').catch((error: unknown) =>
       setManualCapabilityError(this, error),
     );
@@ -490,6 +534,78 @@ Page({
   },
 
   noop(): void {},
+
+  handlePickerRequestOpen(this: ManualPageInstance): void {
+    for (const picker of this.selectAllComponents?.('.manual-picker') ?? [])
+      picker.closeFromParent?.();
+  },
+
+  handleStageSelect(
+    this: ManualPageInstance,
+    event: { currentTarget: { dataset: { index?: number | string } } },
+  ): void {
+    if (this.data.isBusy) return;
+    const index = Number(event.currentTarget.dataset.index);
+    if (index === 0) {
+      this.setData({ state: 'editor', stageIndex: 0, stages: createStages(0) });
+    } else if (index === 1) {
+      if (this._previewValid && !this._isDirty)
+        this.setData({ state: 'preview', stageIndex: 1, stages: createStages(1) });
+      else void openPreview(this);
+    } else if (index === 2 || index === 3) {
+      syncReleaseHistory(this, {
+        state: index === 2 ? 'release' : 'history',
+        stageIndex: index,
+        stages: createStages(index),
+      });
+    }
+  },
+
+  handleOpenCyclePicker(this: ManualPageInstance): void {
+    if (this.data.isBusy) return;
+    this._cycleWheelSequence = 0;
+    this.setData({
+      cyclePickerOpen: true,
+      cycleDraftIndex: this.data.cycleDayIndex,
+      cycleWheelGeneration: this.data.cycleWheelGeneration + 1,
+    });
+  },
+
+  handleCycleWheel(
+    this: ManualPageInstance,
+    event: { detail: { index: number; sequence: number; runtimeKey: string; generation: number } },
+  ): void {
+    const report = event.detail;
+    if (
+      !this.data.cyclePickerOpen ||
+      report.runtimeKey !== 'manual-cycle-days' ||
+      report.generation !== this.data.cycleWheelGeneration ||
+      report.sequence <= (this._cycleWheelSequence ?? 0) ||
+      !Number.isInteger(report.index) ||
+      report.index < 0 ||
+      report.index >= MAX_MANUAL_DAYS
+    )
+      return;
+    this._cycleWheelSequence = report.sequence;
+    this.setData({ cycleDraftIndex: report.index });
+  },
+
+  handleCloseCyclePicker(this: ManualPageInstance): void {
+    this.setData({ cyclePickerOpen: false });
+  },
+
+  handleConfirmCyclePicker(this: ManualPageInstance): void {
+    if (this.data.isBusy || !this.data.cyclePickerOpen) return;
+    applyCycleDays(this, this.data.cycleDraftIndex);
+    this.setData({ cyclePickerOpen: false });
+  },
+
+  handleMembersChange(
+    this: ManualPageInstance,
+    event: { detail: { checked: boolean; option: SelectorOption } },
+  ): void {
+    changeMember(this, event.detail.option.value, event.detail.checked);
+  },
 
   handleTemplateChange(this: ManualPageInstance, event: PickerChangeEvent): void {
     if (this.data.isBusy) return;
@@ -542,14 +658,7 @@ Page({
   handleCycleDaysChange(this: ManualPageInstance, event: PickerChangeEvent): void {
     if (this.data.isBusy) return;
     const index = Number(event.detail.value);
-    const cycleDays = cycleDayOptions[index];
-    if (cycleDays === undefined) return;
-    for (const key of [...this._cellValues.keys()]) {
-      if (Number(key.split(':')[0]) > cycleDays) this._cellValues.delete(key);
-    }
-    this._selectedLocation = undefined;
-    this._isDirty = true;
-    syncEditor(this, { cycleDayIndex: index, cycleDays });
+    applyCycleDays(this, index);
   },
 
   handleMemberPanelToggle(this: ManualPageInstance): void {
@@ -560,25 +669,12 @@ Page({
     if (this.data.isBusy) return;
     const membershipId = event.currentTarget.dataset.membershipId;
     if (membershipId === undefined) return;
-    if (event.detail.checked) {
-      if (this._memberIds.length >= MAX_MANUAL_MEMBERS) {
-        this.setData({ errorMessage: `单个模板最多选择 ${MAX_MANUAL_MEMBERS} 位值班人员。` });
-        return;
-      }
-      if (!this._memberIds.includes(membershipId)) this._memberIds.push(membershipId);
-    } else {
-      this._memberIds = this._memberIds.filter((id) => id !== membershipId);
-      for (const key of [...this._cellValues.keys()]) {
-        if (key.endsWith(`:${membershipId}`)) this._cellValues.delete(key);
-      }
-      this._staleMemberIds.delete(membershipId);
-      for (const key of [...this._staleCellKeys]) {
-        if (key.endsWith(`:${membershipId}`)) this._staleCellKeys.delete(key);
-      }
-    }
-    this._selectedLocation = undefined;
-    this._isDirty = true;
-    syncEditor(this, { errorMessage: '' });
+    changeMember(this, membershipId, event.detail.checked);
+  },
+
+  handlePreviewDraftBatch(this: ManualPageInstance, event: ReleaseActionEvent): void {
+    const key = event.currentTarget.dataset.batchKey;
+    if (key !== undefined) void previewDraftBatch(this, key);
   },
 
   handleShiftSelect(this: ManualPageInstance, event: ShiftTapEvent): void {
@@ -674,6 +770,10 @@ Page({
     this.setData({
       errorMessage: '',
       riskAccepted: false,
+      canApplyDraft:
+        this.data.previewConflictCount === 0 &&
+        this.data.previewVacancyCount === 0 &&
+        this.data.previewWarningCount === 0,
       stageIndex: 0,
       stages: createStages(0),
       state: 'editor',
@@ -897,8 +997,7 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
     page._holidays = holidays;
     writeStoredWorkbenchGroupId(ownerId, group.id);
     page.setData({ currentGroupName: group.name, isBusy: false });
-    if (templates[0] !== undefined) openTemplate(page, templates[0]);
-    else initializeNewTemplate(page);
+    initializeNewTemplate(page);
   } catch (error) {
     if (serial !== page._loadSerial) return;
     page.setData({
@@ -924,7 +1023,79 @@ function setManualCapabilityError(page: ManualPageInstance, error: unknown): voi
   page.setData({ errorMessage: error.message, isBusy: false, state: 'error' });
 }
 
+function applyCycleDays(page: ManualPageInstance, index: number): void {
+  const cycleDays = cycleDayOptions[index];
+  if (page.data.isBusy || cycleDays === undefined) return;
+  for (const key of [...page._cellValues.keys()]) {
+    if (Number(key.split(':')[0]) > cycleDays) page._cellValues.delete(key);
+  }
+  page._selectedLocation = undefined;
+  page._isDirty = true;
+  syncEditor(page, { cycleDayIndex: index, cycleDays });
+}
+
+function changeMember(page: ManualPageInstance, membershipId: string, checked: boolean): void {
+  if (
+    page.data.isBusy ||
+    !page.data.memberOptions.some(
+      (member) => member.membershipId === membershipId && !member.disabled,
+    )
+  )
+    return;
+  if (checked) {
+    if (page._memberIds.length >= MAX_MANUAL_MEMBERS) {
+      page.setData({ errorMessage: `单个模板最多选择 ${MAX_MANUAL_MEMBERS} 位值班人员。` });
+      return;
+    }
+    if (!page._memberIds.includes(membershipId)) page._memberIds.push(membershipId);
+  } else {
+    page._memberIds = page._memberIds.filter((id) => id !== membershipId);
+    for (const key of [...page._cellValues.keys()])
+      if (key.endsWith(`:${membershipId}`)) page._cellValues.delete(key);
+    page._staleMemberIds.delete(membershipId);
+    for (const key of [...page._staleCellKeys])
+      if (key.endsWith(`:${membershipId}`)) page._staleCellKeys.delete(key);
+  }
+  page._selectedLocation = undefined;
+  page._isDirty = true;
+  syncEditor(page, { errorMessage: '' });
+}
+
+async function previewDraftBatch(page: ManualPageInstance, key: string): Promise<void> {
+  if (page.data.isBusy) return;
+  const batch = groupScheduleDraftBatches(page._history).find((item) => item.key === key);
+  if (batch === undefined) return;
+  const serial = page._loadSerial;
+  setReleaseData(page, { isBusy: true, errorMessage: '' });
+  try {
+    const previews = await Promise.all(
+      batch.items.map((item) => publicationClient.getDraftPreview(page._currentGroupId, item.id)),
+    );
+    if (serial !== page._loadSerial) return;
+    const assignments = previews.flatMap((preview) => preview.assignments);
+    setReleaseData(page, {
+      isBusy: false,
+      releaseDialogKind: 'preview',
+      releaseDialogTitle: '草稿预览',
+      releaseDialogKicker: '排班草稿',
+      releaseDialogMeta: `${batch.rangeStart} 至 ${batch.rangeEnd} · ${batch.roleName}`,
+      releasePreviewAssignments: assignments,
+      releasePreviewStartDate: batch.rangeStart,
+      releaseCallouts: [{ message: `${assignments.length} 个班次`, tone: 'info' }],
+      releaseWorkflowImpacts: [],
+      releaseDialogDanger: false,
+    });
+  } catch (error) {
+    if (serial !== page._loadSerial) return;
+    setReleaseData(page, {
+      isBusy: false,
+      errorMessage: toUserMessage(error, '草稿暂时无法预览，请重试。'),
+    });
+  }
+}
+
 function initializeNewTemplate(page: ManualPageInstance): void {
+  page._previewValid = false;
   const today = getCurrentBusinessDate();
   const role = page._config?.roles[0];
   page._cellValues.clear();
@@ -961,6 +1132,7 @@ function openTemplate(
   template: ManualScheduleTemplate,
   startDate?: string,
 ): void {
+  page._previewValid = false;
   const explicitStartDate = startDate !== undefined;
   startDate ??= getCurrentBusinessDate();
   const roleIndex = Math.max(
@@ -1023,8 +1195,11 @@ async function suggestStartDate(page: ManualPageInstance, roleId: string): Promi
     });
     void refreshHolidays(page, result.startDate);
   } catch {
-    if (serial === page._startDateSerial)
-      page.setData({ infoMessage: '默认开始日期暂时无法读取，请手动选择日期。' });
+    if (serial === page._startDateSerial) {
+      const message = '默认开始日期暂时无法读取，请手动选择日期。';
+      page.setData({ infoMessage: message });
+      scheduleInfoMessageExpiry(page, message, () => true);
+    }
   }
 }
 
@@ -1085,6 +1260,13 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
     matrixGestureConfig,
     memberCount: page._memberIds.length,
     memberOptions: createMemberOptions(page, role),
+    memberSelectOptions: createMemberOptions(page, role).map((member) => ({
+      value: member.membershipId,
+      label: member.realName,
+      checked: member.checked,
+      disabled:
+        member.disabled || (!member.checked && page._memberIds.length >= MAX_MANUAL_MEMBERS),
+    })),
     roleOptions: createRoleOptions(page._config),
     scheduleRoleName: patch.scheduleRoleName ?? role?.name ?? data.scheduleRoleName,
     selectedTemplateId: data.selectedTemplateId,
@@ -1132,7 +1314,12 @@ async function persistTemplate(
           });
     page._templates = [saved, ...page._templates.filter((template) => template.id !== saved.id)];
     openTemplate(page, saved, saved.startDate);
-    page.setData({ infoMessage: '模板已保存，尚未创建正式班次。', isBusy: false });
+    page.setData({
+      infoMessage: '模板已保存，尚未创建正式班次。',
+      feedbackTone: 'success',
+      isBusy: false,
+    });
+    scheduleInfoMessageExpiry(page, page.data.infoMessage, () => true);
     return saved;
   } catch (error) {
     page.setData({
@@ -1149,11 +1336,11 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
     (candidate) => candidate.id === page.data.selectedTemplateId,
   );
   if (!page.data.canPreview || page._isDirty || template === undefined) {
-    page.setData({ errorMessage: '请先保存模板，再生成排班预览。' });
+    setReleaseData(page, { errorMessage: '请先保存模板，再生成排班预览。' });
     return;
   }
   if (page._config === undefined) return;
-  page.setData({ errorMessage: '', infoMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
   const endDate = addBusinessDays(page.data.startDate, MAX_MANUAL_DAYS - 1);
   try {
     const preview = await manualClient.preview(page._currentGroupId, template.id, {
@@ -1163,7 +1350,7 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
     });
     applyPreviewData(page, preview);
   } catch (error) {
-    page.setData({
+    setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班预览暂时无法生成，请稍后重试。'),
       isBusy: false,
     });
@@ -1171,10 +1358,13 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
 }
 
 function applyPreviewData(page: ManualPageInstance, preview: ManualApplyPreview): void {
+  page._previewValid = true;
   const dayCount = getInclusiveDayCount(preview.applyStartDate, preview.applyEndDate);
   const blockers = preview.conflicts.length + preview.vacancies.length;
   page._applyOperationId = createOperationId();
   page.setData({
+    previewAssignments: preview.assignments,
+    previewStartDate: preview.applyStartDate,
     canApplyDraft: blockers === 0 && preview.continuousDutyWarnings.length === 0,
     isBusy: false,
     previewAssignmentCount: preview.assignments.length,
@@ -1198,7 +1388,7 @@ async function applyDraft(page: ManualPageInstance): Promise<void> {
   if (page.data.isBusy || !page.data.canApplyDraft || templateId === '' || config === undefined) {
     return;
   }
-  page.setData({ errorMessage: '', infoMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
   const endDate = addBusinessDays(page.data.startDate, MAX_MANUAL_DAYS - 1);
   try {
     const result = await manualClient.apply(page._currentGroupId, templateId, {
@@ -1214,11 +1404,26 @@ async function applyDraft(page: ManualPageInstance): Promise<void> {
       `已保存 ${result.preview.applyStartDate} 至 ${result.preview.applyEndDate} 的排班草稿。`,
     );
   } catch (error) {
-    page.setData({
+    setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班草稿暂时无法保存，请稍后重试。'),
       isBusy: false,
     });
   }
+}
+
+function setReleaseData(page: ManualPageInstance, patch: Partial<ManualPageData>): void {
+  const message = patch.errorMessage || patch.infoMessage;
+  page.setData({
+    ...patch,
+    ...(message
+      ? {
+          infoMessage: message,
+          feedbackTone: patch.errorMessage ? ('error' as const) : ('success' as const),
+        }
+      : {}),
+  });
+  if (page._feedbackVisible === false) page.setData({ infoMessage: '' });
+  else if (message) scheduleInfoMessageExpiry(page, message, () => page._feedbackVisible !== false);
 }
 
 async function reloadReleaseHistory(page: ManualPageInstance, infoMessage = ''): Promise<void> {
@@ -1239,8 +1444,8 @@ async function reloadReleaseHistory(page: ManualPageInstance, infoMessage = ''):
     isBusy: false,
     releaseDialogKind: '',
     riskAccepted: false,
-    stageIndex: 3,
-    state: 'release',
+    stageIndex: page.data.state === 'preview' || page.data.state === 'release' ? 2 : 3,
+    state: page.data.state === 'preview' || page.data.state === 'release' ? 'release' : 'history',
   });
 }
 
@@ -1267,7 +1472,7 @@ function syncReleaseHistory(page: ManualPageInstance, patch: Partial<ManualPageD
       roleName: group.roleName,
     };
   });
-  page.setData({
+  setReleaseData(page, {
     ...patch,
     releaseDraftBatches: draftBatches,
     releaseMonthGroups: monthGroups,
@@ -1304,7 +1509,7 @@ async function publishReleaseBatch(
     (candidate) => candidate.key === batchKey,
   );
   if (batch === undefined) return;
-  page.setData({ errorMessage: '', infoMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
   const operationKey = `publish-batch:${batch.key}`;
   try {
     const intent = createScheduleDraftBatchPublishIntent(batch, options);
@@ -1339,7 +1544,7 @@ async function publishReleaseBatch(
         releaseWorkflowImpacts: workflowImpacts.map(toReleaseImpactView),
       });
     } else {
-      page.setData({
+      setReleaseData(page, {
         errorMessage: toUserMessage(error, '排班草稿暂时无法发布，请稍后重试。'),
         isBusy: false,
       });
@@ -1365,7 +1570,7 @@ function openDeleteDialog(
   message: string,
   isBatch: boolean,
 ): void {
-  page.setData({
+  setReleaseData(page, {
     releaseCallouts: [{ message, tone: 'danger' }],
     releaseConfirmDisabled: false,
     releaseConfirmLabel: isBatch ? '删除草稿' : '删除版本',
@@ -1390,7 +1595,7 @@ async function confirmReleaseDelete(page: ManualPageInstance): Promise<void> {
           ?.items.map((item) => item.id) ?? [])
       : [target.key];
   if (periodIds.length === 0) return;
-  page.setData({ errorMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', isBusy: true });
   try {
     for (const periodId of periodIds) {
       const operationKey = `delete-period:${periodId}`;
@@ -1403,7 +1608,7 @@ async function confirmReleaseDelete(page: ManualPageInstance): Promise<void> {
     }
     await reloadReleaseHistory(page, '排班草稿或归档版本已删除。');
   } catch (error) {
-    page.setData({
+    setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班版本暂时无法删除，请稍后重试。'),
       isBusy: false,
     });
@@ -1422,7 +1627,7 @@ async function prepareReleaseMutation(
   page._releaseMutationAction = action;
   page._releaseImpact = undefined;
   page._releasePublishPreview = undefined;
-  page.setData({ errorMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', isBusy: true });
   try {
     const [impact, preview] = await Promise.all([
       publicationClient.previewChangeImpact(page._currentGroupId, periodId, action),
@@ -1475,7 +1680,7 @@ async function prepareReleaseMutation(
                 ]
               : []),
           ];
-    page.setData({
+    setReleaseData(page, {
       isBusy: false,
       releaseAccepted: false,
       releaseCallouts: callouts,
@@ -1494,7 +1699,7 @@ async function prepareReleaseMutation(
     });
   } catch (error) {
     page._releaseMutationTargetId = '';
-    page.setData({
+    setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班变更影响暂时无法读取，请稍后重试。'),
       isBusy: false,
     });
@@ -1512,7 +1717,7 @@ async function confirmReleaseMutation(page: ManualPageInstance): Promise<void> {
     hasBlockers,
   });
   const operationKey = `${action === 'publish' ? 'publish' : 'withdraw'}-period:${target.id}`;
-  page.setData({ errorMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', isBusy: true });
   try {
     if (intent.action === 'publish') {
       await publicationClient.publish(page._currentGroupId, target.id, {
@@ -1533,7 +1738,7 @@ async function confirmReleaseMutation(page: ManualPageInstance): Promise<void> {
         : `${target.businessMonth.slice(0, 7)} 的当前排班已撤销并归档。`,
     );
   } catch (error) {
-    page.setData({
+    setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班版本暂时无法变更，请稍后重试。'),
       isBusy: false,
     });
@@ -1544,7 +1749,7 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
   if (page.data.isBusy) return;
   const target = page._history.find((item) => item.id === periodId);
   if (target === undefined) return;
-  page.setData({ errorMessage: '', isBusy: true });
+  setReleaseData(page, { errorMessage: '', isBusy: true });
   try {
     const model: ScheduleGenerationPreview | CalendarReadModel =
       target.status === 'draft'
@@ -1554,7 +1759,9 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
       'statistics' in model
         ? `${model.assignments.length} 个班次 · ${model.vacancies.length} 个空缺 · ${model.hardConflicts.length} 个冲突`
         : `${model.assignments.length} 个班次 · ${model.members.length} 位成员`;
-    page.setData({
+    setReleaseData(page, {
+      releasePreviewAssignments: model.assignments,
+      releasePreviewStartDate: `${target.businessMonth.slice(0, 7)}-01`,
       isBusy: false,
       releaseCallouts: [{ message: summary, tone: 'info' }],
       releaseConfirmDisabled: false,
@@ -1568,7 +1775,7 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
       releaseWorkflowImpacts: [],
     });
   } catch (error) {
-    page.setData({
+    setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班版本暂时无法预览，请稍后重试。'),
       isBusy: false,
     });
@@ -1580,7 +1787,7 @@ function closeReleaseDialog(page: ManualPageInstance): void {
   page._releaseImpact = undefined;
   page._releaseMutationTargetId = '';
   page._releasePublishPreview = undefined;
-  page.setData({
+  setReleaseData(page, {
     releaseAccepted: false,
     releaseCallouts: [],
     releaseDialogKind: '',

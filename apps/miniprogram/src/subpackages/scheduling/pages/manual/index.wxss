@@ -273,6 +273,15 @@ ui-alert {
   margin-top: 11px;
 }
 
+.template-selector { margin-top: 11px; }
+.field-grid > .role-field { width: calc(40% - 4px); min-width: 0; }
+.field-grid > .date-field { width: calc(60% - 4px); min-width: 0; }
+.field-grid > .cycle-field,
+.field-grid > .members-field { width: calc(50% - 4px); min-width: 0; }
+.cycle-picker-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.preview-calendar-card { padding: 0; overflow: hidden; }
+.release-calendar-scroll { height: 390px; max-height: 55vh; min-height: 0; }
+
 .field-grid {
   display: flex;
   margin-top: 8px;
@@ -287,8 +296,9 @@ ui-alert {
 
 .field-control {
   display: flex;
-  min-height: 54px;
-  padding: 8px 10px;
+  height: 58px;
+  min-height: 58px;
+  padding: 8px;
   box-sizing: border-box;
   flex-direction: column;
   justify-content: center;
@@ -377,15 +387,16 @@ ui-alert {
   display: flex;
   margin-top: var(--ui-spacing-xs);
   gap: var(--ui-spacing-xs);
+  flex-wrap: wrap;
 }
 
 .palette-button {
   display: flex;
   min-width: 0;
-  min-height: var(--ui-touch-target-minimum);
-  padding: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  min-height: 0;
+  padding: 8px;
   box-sizing: border-box;
-  flex: 1;
+  flex: none;
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
@@ -938,8 +949,8 @@ ui-alert {
 
 .month-chip {
   display: flex;
-  min-height: var(--ui-touch-target-minimum);
-  padding: 2px 8px;
+  min-height: 0;
+  padding: 6px;
   box-sizing: border-box;
   align-items: center;
   color: #1f5aa6;
@@ -968,7 +979,7 @@ ui-alert {
 }
 
 .version-badge {
-  padding: 1px 6px;
+  padding: 4px;
   color: #6b7280;
   background: #e5e7eb;
   border-radius: 4px;
@@ -1003,8 +1014,8 @@ ui-alert {
 
 .web-button {
   display: flex;
-  min-height: var(--ui-touch-target-minimum);
-  padding: 0 var(--ui-spacing-md);
+  min-height: 0;
+  padding: 8px;
   box-sizing: border-box;
   align-items: center;
   justify-content: center;
@@ -1092,7 +1103,7 @@ ui-alert {
 .blocker-actions .web-button,
 .release-dialog-actions .web-button {
   min-width: 0;
-  flex: 1;
+  flex: none;
 }
 
 .release-dialog-layer {
@@ -1217,8 +1228,6 @@ ui-alert {
     padding-left: 10px;
   }
 
-  .field-grid > picker,
-  .field-grid > .field-control,
   .member-options ui-checkbox {
     width: 100%;
   }

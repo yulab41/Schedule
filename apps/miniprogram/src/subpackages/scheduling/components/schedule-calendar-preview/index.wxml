@@ -1,0 +1,2 @@
+<calendar-month id="preview-month" month-label="{{monthLabel}}" panels="{{panels}}" panel-heights="{{panelHeights}}" grid-height="{{gridHeight}}" bindmonthchange="handleMonthChange" bindmonthsettled="handleMonthSettled" bindlocatetoday="handleLocate" bindselect="handleSelect" />
+<view wx:if="{{selectedDate}}" class="preview-day-detail"><text>{{selectedDate}}</text><text wx:for="{{details}}" wx:key="key">{{item.label}}</text><text wx:if="{{details.length === 0}}">当日无排班</text></view>

@@ -97,3 +97,10 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 矩阵性能扁平化不得建立新的视觉基线：页面内 `.manual-schedule-cell`、按压、选中、失效、班次徽标、空态和失效徽标声明与保留组件逐项等价，仍对照原 daily/maximum Storybook 状态。
 
 `pages/gesture-probe/index` 是用于区分 Android Pan Worklet、WXS 视图层与普通逻辑层触摸能力的 diagnostic-only 页面，不是产品 UI，不建立 Storybook 黄金样张，也不参与 98% 视觉门槛。WXS 黄色点已由目标 Android 确认横纵同步跟手，矩阵接入后仍需独立完成 C/D 产品交互验收。
+
+
+## Feedback7（2026-09-09）用户截图修正
+
+沿用P5行的 `miniprogram-parity-p5-scheduling-closure--editor-390` / `--editor-320` / `--preview-390` / `--release-390` / `--backfill-390` 作为既有视觉参考。用户本轮17项及两次明确选择覆盖空白模板、独立内嵌草稿/发布、月历预览、紧凑按钮及删除失效排序箭头的差异；没有新增或声称已更新Storybook黄金。
+
+`feedback7-layout.mjs` 使用当前WXSS及合成非业务fixture检查320×844、390×844与大字体。桌面CSS截图在ignored `runtime/audit/feedback7/`，仅证明几何；最终原生状态为待上传同一检查点后的小米14体验版复核。详细映射与命令见根 `docs/audit/feedback7.md`。

@@ -7,6 +7,7 @@
     "ui-selector": "/components/ui/ui-selector/index",
     "ui-toast": "/components/ui/ui-toast/index",
     "directory-entry-card": "/subpackages/organization/components/directory-entry-card/index",
-    "ui-switch": "/components/ui/ui-switch/index"
+    "ui-switch": "/components/ui/ui-switch/index",
+    "ui-sheet": "/components/ui/ui-sheet/index"
   }
 }

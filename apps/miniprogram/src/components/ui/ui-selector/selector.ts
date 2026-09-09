@@ -1,4 +1,6 @@
 export interface SelectorOption {
+  readonly checked?: boolean;
+  readonly disabled?: boolean;
   readonly value: string;
   readonly label: string;
   readonly isWeekend?: boolean;

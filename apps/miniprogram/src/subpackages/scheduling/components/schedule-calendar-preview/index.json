@@ -1,0 +1,4 @@
+{
+  "component": true,
+  "usingComponents": { "calendar-month": "/components/calendar/calendar-month/index" }
+}

@@ -114,7 +114,41 @@ describe('P8-C-1 native organization management controller', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('expires management results and suppresses a result after hide/show during the request', async () => {
+    const page = await loadReadyPage(definition);
+    let finishWrite;
+    page._organizationWriteClient = {
+      ...page._organizationWriteClient,
+      updateGroupName: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            finishWrite = resolve;
+          }),
+      ),
+    };
+    definition.handleGroupNameInput.call(page, { detail: { value: '新名称' } });
+    definition.handleSaveGroupName.call(page);
+    await vi.waitFor(() => expect(finishWrite).toBeTypeOf('function'));
+    definition.onHide.call(page);
+    definition.onShow.call(page);
+    finishWrite(group({ name: '新名称', version: 2 }));
+    await vi.waitFor(() => expect(page.data.managementState).toBe('ready'));
+    expect(page.data.infoMessage).toBe('');
+    vi.useFakeTimers();
+    definition.handleCreateGroupNameInput.call(page, { detail: { value: '' } });
+    definition.handleCreateGroup.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.infoMessage).toBe('请输入新群组名称。');
+    expect(page.data.feedbackTone).toBe('error');
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(page.data.infoMessage).not.toBe('');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(page.data.infoMessage).toBe('');
+    definition.onUnload.call(page);
   });
 
   it('loads developer-admin member/contact reads without retired claims alongside the P5 consent state', async () => {

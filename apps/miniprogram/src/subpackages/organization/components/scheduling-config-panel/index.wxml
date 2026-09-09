@@ -358,24 +358,6 @@
                   bindtap="handleToggleRoleMember"
                   ><view class="choice-mark">{{member.selected ? '✓' : ''}}</view
                   ><text>{{member.name}}</text></view
-                ><view class="order-actions"
-                  ><view
-                    class="order-button"
-                    data-role-id="{{role.id}}"
-                    data-member-id="{{member.id}}"
-                    data-direction="up"
-                    aria-role="button"
-                    bindtap="handleMoveRoleMember"
-                    ><image class="order-icon order-icon-up" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" /></view
-                  ><view
-                    class="order-button"
-                    data-role-id="{{role.id}}"
-                    data-member-id="{{member.id}}"
-                    data-direction="down"
-                    aria-role="button"
-                    bindtap="handleMoveRoleMember"
-                    ><image class="order-icon order-icon-down" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" /></view
-                  ></view
                 ></view
               ><ui-button
                 variant="secondary"

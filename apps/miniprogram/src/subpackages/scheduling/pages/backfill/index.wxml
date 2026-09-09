@@ -39,7 +39,6 @@
       <view wx:else class="web-parity-page past-schedule-view">
         <text class="page-title">排班补录</text>
         <ui-alert wx:if="{{errorMessage}}" tone="danger" title="操作未完成" message="{{errorMessage}}" />
-        <ui-alert wx:if="{{infoMessage}}" tone="success" title="排班补录" message="{{infoMessage}}" />
         <view class="controls">
           <view class="field-label"><text>排班岗位</text>
             <picker disabled="{{isBusy}}" range="{{roleLabels}}" value="{{roleIndex}}" bindchange="handleRoleChange">

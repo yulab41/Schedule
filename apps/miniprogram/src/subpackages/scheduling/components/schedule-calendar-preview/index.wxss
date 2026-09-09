@@ -1,0 +1,2 @@
+:host { display: block; min-width: 0; }
+.preview-day-detail { display: flex; margin-top: 8px; padding: 8px; flex-direction: column; gap: 4px; color: var(--ui-color-text-secondary); background: var(--ui-color-surface-muted); border-radius: var(--ui-radius-small); font-size: 12px; }

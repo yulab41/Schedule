@@ -1,15 +1,15 @@
 <import src="../ui-selector/options.wxml" />
 <view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
   <view
-    class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"
+    class="workflow-picker-trigger {{fieldLabel ? 'is-field' : ''}} {{disabled ? 'is-disabled' : ''}}"
     aria-role="button"
     aria-disabled="{{disabled}}"
     aria-expanded="{{open}}"
     bindtap="handleOpen"
   >
-    <text class="workflow-picker-trigger-value {{displayValue ? '' : 'is-placeholder'}}"
+    <view class="workflow-picker-trigger-copy"><text wx:if="{{fieldLabel}}" class="workflow-picker-field-label">{{fieldLabel}}</text><text class="workflow-picker-trigger-value {{displayValue ? '' : 'is-placeholder'}}"
       >{{displayValue || placeholder}}</text
-    >
+    ></view>
     <view
       class="workflow-picker-chevron {{mode === 'selector' ? (open ? 'is-up' : 'is-down') : 'is-right'}}"
       aria-hidden="true"

@@ -227,13 +227,16 @@ page {
 .reason-field input {
   width: 100%;
   height: 44px;
-  padding: 10px;
+  padding: 0 10px;
+  line-height: 44px;
   box-sizing: border-box;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-small);
-  font: inherit;
+  font-family: var(--ui-font-family-system);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
 }
 
 .paint-hint {
