@@ -1,11 +1,13 @@
 # 微信小程序审计状态
 
-## 当前批次：feedback9 九项代码修复已验证，待新体验版复核
+## 当前批次：feedback9 体验版102已上传并放行，待小米14复核
 
 - 用户已确认完整方案；独占 general-4/general-5，各自离线校准后复用依赖。
 - 九项代码均已实现并整合，已保留访客101最新基线656a463d。新增回归先失败再通过；最新定向70通过，pnpm verify完整通过（Mini1057/15跳过、root1226/418跳过、依赖保护81）。最终Mini verify与Worklet2/2通过。
 - 详情、引入点、基线和验证见 [feedback9.md](feedback9.md)。桌面 CSS/Node 检查不能代替小米14真机。
-- 检查点消息：fix(miniprogram): repair scheduling layouts and CSV file sharing。唯一下一任务/停止条件：等待具体提交的上传和放行确认，再完成小米14原生滚动、月历与CSV实际下载/发送复核；当前不宣称真实下载故障已闭环。
+- 应用e40c4f9201bd7e79af151508e00e6667b6897a63已推送并经用户授权上传为0.1.0-p10.20260910.102；production/clean，353文件Manifest、receipt、远端tag一致，上传专项30项及候选检查通过。版本绑定主包1646789/总包4441027字节；交付见[feedback9-trial-release.md](feedback9-trial-release.md)。
+- 可信ensure仅追加.102并保留旧版，完整生产verifier/allowlist验证通过；独立HTTPS .102/.101/.99/.98=200、.100/未知=426。服务器应用仍4e0a0d1a/schema57；无新应用部署、数据库备份/迁移、主动通知或正式发布。
+- 文档收口检查点：docs(release): record feedback9 trial 102 delivery。唯一下一任务/停止条件：用户在小米14重开.102/e40c4f9并核对trial/renderer/基础库/微信版本，复核群组偏好、矩阵与月历、日期加载、补录和CSV实际下载/发送/取消。自动化交付完成，待用户原生复核；当前不宣称真实下载故障已闭环，不重复上传或放行。
 
 ## 上一批次：访客修复体验版101已上传并放行，待用户原生复核
 
