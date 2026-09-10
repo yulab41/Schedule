@@ -5,7 +5,7 @@ interface UiSheetInstance {
   _windowResizeHandler: (() => void) | undefined;
   readonly data: { readonly gestureSession: number };
   readonly properties: {
-    readonly size: 'default' | 'half' | 'three-quarter';
+    readonly size: 'default' | 'half' | 'three-quarter' | 'content';
     readonly swipeDismiss: boolean;
     readonly visible: boolean;
   };
@@ -75,6 +75,10 @@ Component({
 });
 
 function updatePanelSize(sheet: UiSheetInstance): void {
+  if (sheet.properties.size === 'content') {
+    sheet.setData({ panelStyle: 'height:auto;max-height:90vh;' });
+    return;
+  }
   const ratio =
     sheet.properties.size === 'half'
       ? 0.5

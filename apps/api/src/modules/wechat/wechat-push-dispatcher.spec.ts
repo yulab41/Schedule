@@ -53,12 +53,20 @@ describe('WeChat push dispatcher', () => {
       notificationType: 'duty_reminder',
       recipientUserId: 'user-1',
       title: '值班提醒',
+      dutyReminder: {
+        businessDate: '2026-11-01',
+        memberName: '测试成员',
+        shiftTypeName: '全天班',
+        changed: false,
+      },
     });
 
     expect(result).toEqual({ messageId: 'mock-message-id' });
     expect(sendSubscribeMessage).toHaveBeenCalledWith('openid-1', 'tpl-duty', {
-      thing1: { value: '值班提醒' },
-      thing2: { value: '您值班将在 2 小时后开始。' },
+      thing6: { value: '否' },
+      character_string7: { value: '2026-11-01' },
+      thing9: { value: '测试成员' },
+      thing8: { value: '全天班' },
     });
   });
 

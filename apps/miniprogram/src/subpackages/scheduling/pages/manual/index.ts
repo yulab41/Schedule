@@ -5,6 +5,7 @@ import type {
   ManualScheduleTemplate,
   ScheduleChangeImpactPreview,
   ScheduleGenerationPreview,
+  SchedulePreviewAssignment,
   SchedulePeriodHistoryItem,
   ScheduleRole,
   ScheduleRoleMember,
@@ -16,7 +17,10 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
-import type { PreviewDuty } from '../../components/schedule-calendar-preview/model.js';
+import {
+  mergePreviewAssignments,
+  type PreviewDuty,
+} from '../../components/schedule-calendar-preview/model.js';
 import {
   MAX_MANUAL_CELLS,
   MAX_MANUAL_DAYS,
@@ -195,6 +199,7 @@ interface ManualPageData extends MatrixModel {
   readonly previewStartDate: string;
   readonly releasePreviewAssignments: readonly PreviewDuty[];
   readonly releasePreviewStartDate: string;
+  readonly releaseCalendarHeight: number;
   readonly memberSelectOptions: readonly (SelectorOption & {
     checked: boolean;
     disabled: boolean;
@@ -342,6 +347,8 @@ interface ManualPageInstance {
   _releaseMutationTargetId: string;
   _releaseOperationIds: Map<string, string>;
   _releasePublishPreview: ScheduleGenerationPreview | undefined;
+  _previewModel?: ManualApplyPreview;
+  _previewCalendarByMonth?: Map<string, CalendarReadModel>;
   _selectedLocation: MatrixLocation | undefined;
   _staleCellKeys: Set<string>;
   _staleMemberIds: Set<string>;
@@ -395,6 +402,7 @@ Page({
     previewStartDate: '',
     releasePreviewAssignments: [],
     releasePreviewStartDate: '',
+    releaseCalendarHeight: 364,
     memberSelectOptions: [],
     cyclePickerOpen: false,
     cycleDraftIndex: 6,
@@ -904,6 +912,17 @@ Page({
     syncReleaseHistory(this);
   },
 
+  handleReleaseCalendarHeight(
+    this: ManualPageInstance,
+    event: { detail: { height: number } },
+  ): void {
+    if (Number.isFinite(event.detail.height) && event.detail.height > 0)
+      this.setData({ releaseCalendarHeight: event.detail.height });
+  },
+  handlePreviewMonthBrowse(this: ManualPageInstance, event: { detail: { month: string } }): void {
+    if (/^\d{4}-\d{2}$/u.test(event.detail.month))
+      void loadPreviewContext(this, event.detail.month);
+  },
   handlePreviewReleaseVersion(this: ManualPageInstance, event: ReleaseActionEvent): void {
     const periodId = event.currentTarget.dataset.periodId;
     if (periodId !== undefined) void previewReleaseVersion(this, periodId);
@@ -1072,7 +1091,9 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
       batch.items.map((item) => publicationClient.getDraftPreview(page._currentGroupId, item.id)),
     );
     if (serial !== page._loadSerial) return;
-    const assignments = previews.flatMap((preview) => preview.assignments);
+    const assignments = previews.flatMap((preview) =>
+      proposedPreviewDuties(page, preview.assignments),
+    );
     setReleaseData(page, {
       isBusy: false,
       releaseDialogKind: 'preview',
@@ -1342,12 +1363,27 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
   if (page._config === undefined) return;
   setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
   const endDate = addBusinessDays(page.data.startDate, MAX_MANUAL_DAYS - 1);
+  const serial = page._loadSerial;
   try {
     const preview = await manualClient.preview(page._currentGroupId, template.id, {
       endDate,
       expectedRulesVersion: page._config.rulesVersion,
       startDate: page.data.startDate,
     });
+    const months = [
+      ...new Set([
+        ...previewContextMonths(preview.applyStartDate.slice(0, 7)),
+        ...previewContextMonths(preview.applyEndDate.slice(0, 7)),
+      ]),
+    ];
+    const calendars = await Promise.all(
+      months.map((month) => workbenchClient.getCalendar(page._currentGroupId, month)),
+    );
+    if (serial !== page._loadSerial) return;
+    page._previewModel = preview;
+    page._previewCalendarByMonth = new Map(
+      months.map((month, index) => [month, calendars[index]!]),
+    );
     applyPreviewData(page, preview);
   } catch (error) {
     setReleaseData(page, {
@@ -1357,13 +1393,69 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
   }
 }
 
+function previewContextMonths(month: string): readonly string[] {
+  const [year, value] = month.split('-').map(Number);
+  return [-1, 0, 1].map((delta) =>
+    new Date(Date.UTC(year!, value! - 1 + delta, 1)).toISOString().slice(0, 7),
+  );
+}
+
+function proposedPreviewDuties(
+  page: ManualPageInstance,
+  assignments: readonly SchedulePreviewAssignment[],
+): readonly PreviewDuty[] {
+  return assignments.map((assignment) => {
+    const shift = page._config?.shiftTypes.find((item) => item.id === assignment.shiftTypeId);
+    return {
+      ...assignment,
+      state: 'added' as const,
+      shiftTypeColor: shift?.color ?? assignment.shiftTypeColor,
+      shiftTypeTextColor: shift?.textColor ?? '#ffffff',
+    };
+  });
+}
+
+function mergedManualPreview(
+  page: ManualPageInstance,
+  preview: ManualApplyPreview,
+): readonly PreviewDuty[] {
+  const existing = new Map(
+    [...(page._previewCalendarByMonth?.values() ?? [])]
+      .flatMap((calendar) => calendar.assignments)
+      .filter((assignment) => assignment.scheduleRoleId === preview.scheduleRoleId)
+      .map((assignment) => [assignment.id, assignment]),
+  );
+  const proposed = proposedPreviewDuties(page, preview.assignments);
+  return mergePreviewAssignments(proposed, [...existing.values()]);
+}
+
+async function loadPreviewContext(page: ManualPageInstance, month: string): Promise<void> {
+  const preview = page._previewModel;
+  const cache = page._previewCalendarByMonth;
+  if (!preview || !cache || page.data.state !== 'preview') return;
+  const serial = page._loadSerial;
+  try {
+    const missing = previewContextMonths(month).filter((key) => !cache.has(key));
+    if (missing.length === 0) return;
+    const calendars = await Promise.all(
+      missing.map((key) => workbenchClient.getCalendar(page._currentGroupId, key)),
+    );
+    if (serial !== page._loadSerial || page._previewModel !== preview) return;
+    missing.forEach((key, index) => cache.set(key, calendars[index]!));
+    page.setData({ previewAssignments: mergedManualPreview(page, preview) });
+  } catch (error) {
+    if (serial === page._loadSerial && page._previewModel === preview)
+      setReleaseData(page, { errorMessage: toUserMessage(error, '已有排班读取失败，请重试。') });
+  }
+}
+
 function applyPreviewData(page: ManualPageInstance, preview: ManualApplyPreview): void {
   page._previewValid = true;
   const dayCount = getInclusiveDayCount(preview.applyStartDate, preview.applyEndDate);
   const blockers = preview.conflicts.length + preview.vacancies.length;
   page._applyOperationId = createOperationId();
   page.setData({
-    previewAssignments: preview.assignments,
+    previewAssignments: mergedManualPreview(page, preview),
     previewStartDate: preview.applyStartDate,
     canApplyDraft: blockers === 0 && preview.continuousDutyWarnings.length === 0,
     isBusy: false,

@@ -1,5 +1,10 @@
 import { ClientCoreError } from '@schedule/client-core';
 import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+} from '../../../../platform/info-message-lifetime.js';
+import { calendarShiftBadge } from '../../../../components/calendar/calendar-duty-view.js';
+import {
   ClientCapabilityDisabledError,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -83,6 +88,7 @@ interface BackfillCalendarCellView {
   readonly day: string;
   readonly duties: readonly {
     readonly abbreviation: string;
+    readonly badgeStyle?: string;
     readonly key: string;
     readonly name: string;
     readonly state: 'normal' | 'removed' | 'added';
@@ -121,6 +127,7 @@ interface BackfillPageData {
   readonly currentGroupName: string;
   readonly errorMessage: string;
   readonly infoMessage: string;
+  readonly feedbackTone: 'info' | 'error';
   readonly isBusy: boolean;
   readonly isPaintReady: boolean;
   readonly members: readonly BackfillMemberView[];
@@ -200,6 +207,7 @@ Page({
     currentGroupName: '正在读取群组',
     errorMessage: '',
     infoMessage: '',
+    feedbackTone: 'info' as const,
     isBusy: false,
     isPaintReady: false,
     members: [],
@@ -275,6 +283,7 @@ Page({
   },
 
   onUnload(this: BackfillPageInstance): void {
+    clearInfoMessageTimer(this);
     this._disposed = true;
     this._loadSerial += 1;
     this._staged.clear();
@@ -377,6 +386,7 @@ Page({
     if (businessDate === '' || cellMonth !== this.data.businessMonth) return;
     if (!this._calendarByKey.has(`${this.data.roleId}:${cellMonth}`)) {
       this.setData({ errorMessage: '排班资料尚未加载，请重新加载后再补录。' });
+      showBackfillFeedback(this, this.data.errorMessage, 'error');
       return;
     }
     const item: PastScheduleBackfillBatchItem = {
@@ -395,12 +405,15 @@ Page({
         errorMessage: '',
         infoMessage: `该日期（${businessDate}）已是此配班，无需重复补录。`,
       });
+      showBackfillFeedback(this, this.data.infoMessage);
       return;
     }
     this._staged = new Map(transition.stages);
+    const errorMessage = stageErrorMessage(transition.outcome, businessDate);
     this.setData({
-      errorMessage: stageErrorMessage(transition.outcome, businessDate),
-      infoMessage: stageInfoMessage(transition.outcome),
+      errorMessage,
+      infoMessage: errorMessage || stageInfoMessage(transition.outcome),
+      feedbackTone: errorMessage ? 'error' : 'info',
     });
     syncBackfillView(this);
   },
@@ -408,7 +421,7 @@ Page({
   handleClear(this: BackfillPageInstance): void {
     if (this.data.isBusy || this._staged.size === 0) return;
     this._staged.clear();
-    this.setData({ errorMessage: '', infoMessage: '已清空待确认的补录项。' });
+    this.setData({ errorMessage: '', infoMessage: '已清空待确认的补录项。', feedbackTone: 'info' });
     syncBackfillView(this);
   },
 
@@ -571,6 +584,7 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
   if (page.data.isBusy || page._submitting) return;
   if (page._staged.size === 0) {
     page.setData({ infoMessage: '没有待确认的补录项。' });
+    showBackfillFeedback(page, page.data.infoMessage);
     return;
   }
   let operationId = page._confirmOperationId || createOperationId();
@@ -606,6 +620,7 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
       infoMessage: '本批尚未确认结果；待确认项已保留，可直接重试。',
       isBusy: false,
     });
+    showBackfillFeedback(page, `${page.data.errorMessage} ${page.data.infoMessage}`, 'error');
     return;
   }
 
@@ -614,6 +629,7 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
   page._confirmFingerprint = '';
   page._confirmOperationId = '';
   page.setData({ infoMessage: successMessage });
+  showBackfillFeedback(page, successMessage);
   syncBackfillView(page);
 
   let refreshFailed = false;
@@ -636,9 +652,22 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
       : successMessage,
     isBusy: false,
   });
+  showBackfillFeedback(page, page.data.infoMessage);
+}
+
+function showBackfillFeedback(
+  page: BackfillPageInstance,
+  message: string,
+  tone: 'info' | 'error' = 'info',
+): void {
+  if (page._disposed) return;
+  page.setData({ infoMessage: message, feedbackTone: tone });
+  scheduleInfoMessageExpiry(page, message, () => !page._disposed);
 }
 
 function syncBackfillView(page: BackfillPageInstance, callback?: () => void): void {
+  if (page.data.infoMessage)
+    scheduleInfoMessageExpiry(page, page.data.infoMessage, () => !page._disposed);
   const monthPanels = createBackfillMonthPanels(page);
   const monthPanelHeights = monthPanels.map((panel) => (panel.cells.length / 7) * panel.rowHeight);
   const memberNames = new Map(
@@ -742,8 +771,12 @@ function createCalendarCells(
     const isCurrentMonth = !cell.isOutsideMonth;
     const duties: Array<BackfillCalendarCellView['duties'][number]> = assignments.map(
       (assignment, i) => ({
-        abbreviation:
-          assignments.length > 1 || draft !== undefined ? assignment.shiftTypeAbbreviation : '',
+        ...calendarShiftBadge(
+          assignment.shiftTypeAbbreviation,
+          assignment.shiftTypeName,
+          assignment.shiftTypeColor,
+          assignment.shiftTypeTextColor,
+        ),
         key: assignment.id,
         name: assignment.actualMemberName ?? assignment.plannedMemberName ?? '待安排',
         state: draft !== undefined && i === 0 ? 'removed' : 'normal',
@@ -752,10 +785,12 @@ function createCalendarCells(
     if (draft !== undefined) {
       const shift = page._config?.shiftTypes.find((value) => value.id === draft.shiftTypeId);
       duties.splice(assignments.length > 0 ? 1 : 0, 0, {
-        abbreviation:
-          shift?.abbreviation ??
-          page.data.shiftTypes.find((value) => value.id === draft.shiftTypeId)?.name ??
-          '',
+        ...calendarShiftBadge(
+          shift?.abbreviation ?? '',
+          shift?.name ?? '',
+          shift?.color,
+          shift?.textColor,
+        ),
         key: `draft:${page.data.roleId}:${cell.businessDate}`,
         name:
           page.data.members.find((value) => value.membershipId === draft.actualMembershipId)

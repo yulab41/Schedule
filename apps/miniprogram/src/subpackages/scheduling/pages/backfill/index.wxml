@@ -48,14 +48,14 @@
         </view>
         <view class="palette-section">
           <view class="palette-row"><text class="palette-label">班种</text>
-            <view wx:for="{{shiftTypes}}" wx:key="id" class="palette-button shift-type-button {{activeShiftTypeId === item.id ? 'is-active' : ''}}" style="background-color:{{item.color}};color:{{item.textColor}}" hover-class="is-pressed" aria-role="button" aria-pressed="{{activeShiftTypeId === item.id}}" data-id="{{item.id}}" bindtap="handleShiftTap">{{item.name}}</view>
+            <view wx:for="{{shiftTypes}}" wx:key="id" class="palette-button shift-type-button {{activeShiftTypeId === item.id ? 'is-active' : ''}}" style="border-color:{{item.color}};background-color:{{activeShiftTypeId === item.id ? item.color : '#ffffff'}};color:{{activeShiftTypeId === item.id ? item.textColor : item.color}}" hover-class="is-pressed" aria-role="button" aria-pressed="{{activeShiftTypeId === item.id}}" data-id="{{item.id}}" bindtap="handleShiftTap">{{item.name}}</view>
           </view>
           <view class="palette-row"><text class="palette-label">成员</text>
             <view wx:for="{{members}}" wx:key="membershipId" class="palette-button member-button {{activeMemberId === item.membershipId ? 'is-active' : ''}}" hover-class="is-pressed" aria-role="button" aria-pressed="{{activeMemberId === item.membershipId}}" data-id="{{item.membershipId}}" bindtap="handleMemberTap">{{item.realName}}</view>
           </view>
           <view class="reason-field"><input value="{{reason}}" maxlength="1000" disabled="{{isBusy}}" placeholder="补录说明（选填）" bindinput="handleReasonInput" /></view>
         </view>
-        <text class="paint-hint">{{isPaintReady ? '点击既往日期配班，再点取消；红字为未确认修改。' : '请先选择班种和成员，再点击既往日期。'}}</text>
+        <text class="paint-hint">{{isPaintReady ? '点击既往日期配班，再点取消；红字为未确认修改。' : paintStatusText}}</text>
         <calendar-month wx:if="{{roleId}}" id="backfill-month" panels="{{monthPanels}}" panel-heights="{{monthPanelHeights}}" grid-height="{{gridHeight}}" month-label="{{monthLabel}}" bind:monthchange="handleCalendarMonthChange" bind:monthsettled="handleCalendarMonthSettled" bind:locatetoday="handleLocateToday" bind:select="handleCalendarSelect" />
         <view class="events-section">
           <text class="events-title">最近补录记录</text>
@@ -66,6 +66,7 @@
       <view class="bottom-spacer"></view>
     </view>
   </scroll-view>
+  <ui-toast visible="{{!!infoMessage}}" message="{{infoMessage}}" tone="{{feedbackTone}}" />
   <view wx:if="{{state === 'ready'}}" class="backfill-actions">
     <view class="web-button is-primary" hover-class="is-pressed" aria-role="button" aria-disabled="{{isBusy || pendingCount === 0}}" bindtap="handleConfirm">{{isBusy ? '正在处理' : '确认补录（' + pendingCount + '）'}}</view>
     <view class="web-button is-outline" hover-class="is-pressed" aria-role="button" aria-disabled="{{isBusy || pendingCount === 0}}" bindtap="handleClear">清空草稿</view>

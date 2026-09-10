@@ -135,11 +135,22 @@ export const scheduleGenerationStatisticsSchema = z
   })
   .strict();
 
-// 旧守卫只校验这两个字段；其余字段由完整契约类型补充。
+// Stored draft previews return the full assignment snapshot. Strict decoding must
+// declare each field instead of rejecting the server's own response.
 export const schedulePreviewAssignmentSchema = z
   .object({
     businessDate: z.string(),
+    endsAt: z.string(),
+    plannedMemberId: z.string().optional(),
+    plannedMemberName: z.string().optional(),
+    scheduleRoleId: z.string(),
+    scheduleRoleName: z.string().optional(),
+    shiftTypeAbbreviation: z.string(),
+    shiftTypeColor: z.string(),
     shiftTypeId: z.string(),
+    shiftTypeName: z.string(),
+    slotPosition: z.number().int().min(1),
+    startsAt: z.string(),
   })
   .strict();
 

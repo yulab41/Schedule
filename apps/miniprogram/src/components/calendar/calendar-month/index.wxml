@@ -82,6 +82,7 @@
           class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
         >
           <calendar-cell
+            compact="{{compact}}"
             duties="{{cell.duties}}"
             disabled="{{cell.disabled}}"
             aria-label="{{cell.ariaLabel}}"

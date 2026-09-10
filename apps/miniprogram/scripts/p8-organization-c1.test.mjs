@@ -22,6 +22,7 @@ describe('P8-C-1 native organization management', () => {
         'pages/group-settings/index',
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
+        'pages/invite-accept/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],

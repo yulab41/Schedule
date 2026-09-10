@@ -321,6 +321,61 @@ export function persistPasswordSession(result: WechatAuthenticatedResult): void 
   persistSession(result, 'password');
 }
 
+/** Refresh a possibly merged account before persisting an invitation's replacement session. */
+export async function refreshWechatSessionAfterInvite(
+  replacementToken: string | undefined,
+  expectedGeneration: number,
+  isCurrent: () => boolean,
+): Promise<{ readonly profile: WechatAuthenticatedProfile; readonly generation: number }> {
+  const previous = readStoredWechatSession(Date.now());
+  const assertCurrent = (): void => {
+    if (
+      !isCurrent() ||
+      !previous ||
+      getWechatSessionGeneration() !== expectedGeneration ||
+      readStoredWechatSession(Date.now())?.token !== previous.token
+    ) {
+      throw new WechatIdentityClientError(
+        '登录状态已变化，请重新登录后在群组列表确认邀请结果。',
+        'INVITE_SESSION_CHANGED',
+      );
+    }
+  };
+  assertCurrent();
+  if (!previous) throw new WechatIdentityClientError('请先登录。');
+  const accessToken = replacementToken ?? previous.token;
+  const response = await executeWxJsonRequest({
+    authentication: {
+      accessToken,
+      getSessionGeneration: getWechatSessionGeneration,
+      sessionGeneration: expectedGeneration,
+    },
+    capability: 'core',
+    method: 'GET',
+    request: (options) => wx.request(options),
+    url: `${runtimeConfig.apiBaseUrl.replace(/\/$/u, '')}/users/me`,
+  });
+  assertCurrent();
+  if (response.statusCode === 401) {
+    finalizeWechatUnauthorized(previous.token);
+    throw new WechatIdentityClientError(
+      '邀请已接受，请重新登录后在群组列表核对结果。',
+      'INVITE_SESSION_REFRESH_UNAUTHORIZED',
+    );
+  }
+  if (response.statusCode < 200 || response.statusCode >= 300)
+    throw new WechatIdentityClientError(
+      '邀请已接受，但账号资料暂时无法刷新，请重试。',
+      'INVITE_SESSION_REFRESH_FAILED',
+    );
+  const profile = decodeProfile(response.data);
+  persistSession(
+    { expiresAt: previous.expiresAt, profile, status: 'authenticated', token: accessToken },
+    replacementToken ? 'wechat' : (previous.authMethod ?? 'wechat'),
+  );
+  return { profile, generation: getWechatSessionGeneration() };
+}
+
 function persistSession(
   result: WechatAuthenticatedResult,
   authMethod: IdentityAuthMethod,

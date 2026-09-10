@@ -364,7 +364,7 @@ export class CalendarQuery {
   }
 }
 
-function collectMarkers(
+export function collectMarkers(
   events: readonly {
     readonly affectedShiftIds: readonly string[];
     readonly eventType: string;

@@ -669,7 +669,22 @@ page {
 
 .member-editor-scroll { max-height: 62vh; height: 380px; }
 .member-editor-content { display: flex; padding: 4px; flex-direction: column; gap: 8px; }
-.group-dissolve-action { display: flex; justify-content: flex-end; padding-top: 8px; }
+.group-dissolve-action { display: flex; justify-content: center; padding-top: 8px; }
+.group-dissolve-action .web-button.is-danger {
+  width: 184px;
+  min-height: 44px;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 18px;
+  box-sizing: border-box;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-normal);
+}
 
 .contact-disclosure-card {
   padding: 14px 16px;

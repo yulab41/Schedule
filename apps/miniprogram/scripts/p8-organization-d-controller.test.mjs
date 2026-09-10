@@ -60,6 +60,50 @@ describe('P8-D native invite and visitor controller', () => {
     vi.unstubAllGlobals();
   });
 
+  it('discards an invitation result that arrives after its page was unloaded', async () => {
+    let pageDefinition;
+    vi.stubGlobal('Page', (value) => {
+      pageDefinition = value;
+    });
+    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
+    const page = createPageInstance(definition);
+    page.properties = { groupId };
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    let complete;
+    const create = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    page._inviteVisitorWriteClient = { createInviteLink: create };
+    definition.handleCreateInvite.call(page);
+    await vi.waitFor(() => expect(create).toHaveBeenCalled());
+    pageDefinition.onUnload.call(page);
+    complete(invite());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(page._inviteToken).toBe('');
+  });
+
+  it('does not share expired invitation material', async () => {
+    let pageDefinition;
+    vi.stubGlobal('Page', (value) => {
+      pageDefinition = value;
+    });
+    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
+    const page = createPageInstance(definition);
+    Object.assign(page.data, {
+      canManage: true,
+      organizationEnabled: true,
+      managementState: 'ready',
+      inviteSharePath: 'pages/invite/invite?t=fixture',
+    });
+    Object.assign(page, { _inviteToken: 'fixture', _inviteExpiresAtMs: Date.now() - 1 });
+    expect(pageDefinition.onShareAppMessage.call(page).path).not.toContain('fixture');
+  });
+
   it('loads member and role targets without persisting invite material', async () => {
     const page = createPageInstance(definition);
     page.properties = { groupId };

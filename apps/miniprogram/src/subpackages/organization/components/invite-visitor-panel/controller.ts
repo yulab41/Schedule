@@ -83,6 +83,9 @@ interface InviteVisitorPageInstance {
   _config: SchedulingConfig | undefined;
   _inviteToken: string;
   _inviteVersion: number;
+  _inviteExpiresAtMs: number;
+  _inviteGeneration: number;
+  _disposed: boolean;
   _operationIds: Map<string, string>;
   setData(patch: Partial<InviteVisitorPageData>, callback?: () => void): void;
 }
@@ -142,6 +145,9 @@ export function createInviteVisitorPanelControllerDefinition() {
     _config: undefined,
     _inviteToken: '',
     _inviteVersion: 0,
+    _inviteExpiresAtMs: 0,
+    _inviteGeneration: 0,
+    _disposed: false,
     _operationIds: new Map<string, string>(),
 
     properties: { groupId: { type: String, value: '' } },
@@ -154,10 +160,27 @@ export function createInviteVisitorPanelControllerDefinition() {
 
     lifetimes: {
       attached(this: InviteVisitorPageInstance): void {
+        this._disposed = false;
         recordMiniTelemetryBoundary('invite-visitor:controller-attached');
         applyPanelLayout(this);
         syncGroupId(this);
       },
+      detached(this: InviteVisitorPageInstance): void {
+        this._disposed = true;
+        this._inviteGeneration = (this._inviteGeneration ?? 0) + 1;
+        this._inviteToken = '';
+        this._inviteVersion = 0;
+        this._inviteExpiresAtMs = 0;
+        this._operationIds?.clear();
+      },
+    },
+
+    handleRefreshInviteExpiry(this: InviteVisitorPageInstance): void {
+      if (!this._inviteToken || this._inviteExpiresAtMs > Date.now()) return;
+      this._inviteToken = '';
+      this._inviteVersion = 0;
+      this._inviteExpiresAtMs = 0;
+      this.setData({ inviteSharePath: '', managementInfo: '邀请已过期，请重新生成邀请。' });
     },
 
     handleBack(): void {
@@ -235,6 +258,11 @@ function syncGroupId(page: InviteVisitorPageInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId === page._groupId) return;
+  page._inviteGeneration = (page._inviteGeneration ?? 0) + 1;
+  page._inviteToken = '';
+  page._inviteVersion = 0;
+  page._inviteExpiresAtMs = 0;
+  page.setData({ inviteSharePath: '', inviteGroupName: '', inviteRealName: '' });
   page._groupId = groupId;
   if (groupId.length === 0) {
     page.setData({
@@ -250,6 +278,8 @@ function syncGroupId(page: InviteVisitorPageInstance): void {
 
 async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
   initializeRuntimeState(page);
+  const groupId = page._groupId;
+  const generation = page._inviteGeneration;
   page.setData({
     state: 'loading',
     errorMessage: '',
@@ -264,13 +294,15 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
   });
   try {
     const groups = await page._organizationReadClient.listGroups();
-    const group = groups.find((candidate) => candidate.id === page._groupId);
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    const group = groups.find((candidate) => candidate.id === groupId);
     if (group === undefined) throw new Error('当前群组不可用。');
     if (group.role === 'guest') throw new Error('访客不能管理邀请和访客入口。');
     const [members, config] = await Promise.all([
       page._organizationReadClient.listGroupMembers(group.id),
       page._organizationReadClient.getSchedulingConfig(group.id),
     ]);
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
     page._group = group;
     page._members = members;
     page._config = config;
@@ -302,6 +334,7 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
       roleLabel: roleOptions[0]?.label ?? '不指定岗位',
     });
   } catch (error) {
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
     page.setData({
       state: 'error',
       managementState: 'error',
@@ -322,7 +355,11 @@ function initializeRuntimeState(page: InviteVisitorPageInstance): void {
 }
 
 async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
+  const groupId = page._groupId;
+  const generation = page._inviteGeneration;
   if (!(await ensureOrganization(page))) return;
+  if (!isCurrentInvitePage(page, groupId, generation) || page.data.managementState === 'loading')
+    return;
   const target = page.data.targets[page.data.targetIndex];
   const config = page._config;
   if (target === undefined || config === undefined) {
@@ -333,7 +370,7 @@ async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
   const key = `invite-create:${target.id}:${target.version}:${page.data.permissionRole}:${role?.id ?? ''}`;
   page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
   try {
-    const response = await page._inviteVisitorWriteClient.createInviteLink(page._groupId, {
+    const response = await page._inviteVisitorWriteClient.createInviteLink(groupId, {
       expectedScheduleRoleVersion: role?.version,
       expectedTargetVersion: target.version,
       operationId: resolveOperationId(page, key),
@@ -343,9 +380,11 @@ async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
         ? { targetRosterEntryId: target.id }
         : { targetMembershipId: target.id }),
     });
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
     page._operationIds.delete(key);
     page._inviteToken = response.token;
     page._inviteVersion = response.version;
+    page._inviteExpiresAtMs = Date.parse(response.expiresAt) || 0;
     page.setData({
       inviteEditorOpen: false,
       inviteSharePath: response.sharePath,
@@ -357,6 +396,7 @@ async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
       managementState: 'ready',
     });
   } catch (error) {
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
     page.setData({
       managementError: `${toUserMessage(error, '邀请没有生成，请稍后重试。')} 可保持当前选择重试。`,
       managementState: 'error',
@@ -365,9 +405,12 @@ async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
 }
 
 async function revokeInvite(page: InviteVisitorPageInstance): Promise<void> {
+  const groupId = page._groupId;
+  const generation = page._inviteGeneration;
   if (!(await ensureOrganization(page))) return;
   if (page._inviteToken === '' || page._inviteVersion < 1) return;
   if (!(await showConfirm('撤销当前邀请吗？撤销后该邀请链接立即失效。'))) return;
+  if (!isCurrentInvitePage(page, groupId, generation)) return;
   const key = `invite-revoke:${page._inviteToken}:${page._inviteVersion}`;
   page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
   try {
@@ -375,9 +418,11 @@ async function revokeInvite(page: InviteVisitorPageInstance): Promise<void> {
       expectedVersion: page._inviteVersion,
       operationId: resolveOperationId(page, key),
     });
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
     page._operationIds.delete(key);
     page._inviteToken = '';
     page._inviteVersion = 0;
+    page._inviteExpiresAtMs = 0;
     page.setData({
       inviteSharePath: '',
       inviteGroupName: '',
@@ -386,11 +431,20 @@ async function revokeInvite(page: InviteVisitorPageInstance): Promise<void> {
       managementState: 'ready',
     });
   } catch (error) {
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
     page.setData({
       managementError: `${toUserMessage(error, '邀请没有撤销，请稍后重试。')} 可保持当前邀请重试。`,
       managementState: 'error',
     });
   }
+}
+
+function isCurrentInvitePage(
+  page: InviteVisitorPageInstance,
+  groupId: string,
+  generation: number,
+): boolean {
+  return !page._disposed && page._groupId === groupId && page._inviteGeneration === generation;
 }
 
 async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<void> {

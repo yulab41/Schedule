@@ -23,6 +23,7 @@ describe('P8-D native invite and visitor access', () => {
         'pages/group-settings/index',
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
+        'pages/invite-accept/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],

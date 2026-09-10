@@ -27,6 +27,7 @@ export interface WechatGateway {
   exchangeCode(code: string): Promise<WechatExchangeCodeResult>;
   getUnlimitedQr(scene: string, page: string, envVersion: string): Promise<Uint8Array>;
   generateUrlLink?(path: string, query: string, envVersion: string): Promise<string>;
+  getSubscribeTemplateFields?(templateId: string): Promise<readonly string[] | undefined>;
   sendSubscribeMessage(
     openid: string,
     templateId: string,
@@ -219,6 +220,27 @@ export class WechatApiGateway implements WechatGateway {
         'WeChat gateway is not configured.',
       );
     }
+  }
+
+  public async getSubscribeTemplateFields(
+    templateId: string,
+  ): Promise<readonly string[] | undefined> {
+    this.assertConfigured();
+    const url = new URL(`${WECHAT_API_BASE_URL}/wxaapi/newtmpl/gettemplate`);
+    url.searchParams.set('access_token', await this.getAccessToken());
+    const payload = await this.requestJson(url);
+    if (!Array.isArray(payload.data)) return undefined;
+    const matches = payload.data.filter(
+      (item): item is { priTmplId: string; content: string } =>
+        typeof item === 'object' &&
+        item !== null &&
+        item.priTmplId === templateId &&
+        typeof item.content === 'string',
+    );
+    if (matches.length !== 1) return undefined;
+    return [...matches[0]!.content.matchAll(/\{\{([a-z_]+\d+)\.DATA\}\}/gu)].map(
+      (match) => match[1]!,
+    );
   }
 
   private async getAccessToken(): Promise<string> {

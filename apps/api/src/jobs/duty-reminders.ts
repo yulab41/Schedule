@@ -1,13 +1,15 @@
 import type { DatabaseClient } from '@schedule/database';
 import {
   groups,
+  groupMemberships,
+  notifications,
   notificationPreferences,
   notificationSettings,
   schedulePeriods,
   shiftAssignments,
   withTransaction,
 } from '@schedule/database';
-import { and, eq, gt, isNull, lte } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte, sql } from 'drizzle-orm';
 
 import { NotificationWriter } from '../modules/notifications/notification-writer.js';
 import { normalizeReminderHours } from '../modules/notifications/reminder-hours.js';
@@ -172,11 +174,28 @@ export class DutyReminderJob {
     membershipId: string,
     leadHours: number,
   ): Promise<'created' | 'duplicate' | 'skipped'> {
-    const batchKey = `duty-reminder:${assignment.id}:${leadHours}`;
+    const batchKey = `duty-reminder:${assignment.id}:${leadHours}:${membershipId}`;
     return withTransaction(this.databaseClient, async (transaction) => {
       if (!(await claimBatch(transaction, batchKey, 'duty_reminder'))) {
         return 'duplicate';
       }
+
+      // Older batches did not include the recipient. Preserve their existing
+      // reminder for this person, while allowing a newly assigned person once.
+      const [existing] = await transaction
+        .select({ id: notifications.id })
+        .from(notifications)
+        .innerJoin(groupMemberships, eq(groupMemberships.userId, notifications.recipientUserId))
+        .where(
+          and(
+            eq(groupMemberships.id, membershipId),
+            eq(notifications.shiftAssignmentId, assignment.id),
+            eq(notifications.notificationType, 'duty_reminder'),
+            sql`JSON_EXTRACT(${notifications.payload}, '$.leadHours') = ${leadHours}`,
+          ),
+        )
+        .limit(1);
+      if (existing) return 'duplicate';
 
       await this.notificationWriter.append(transaction, {
         body: `您在 ${assignment.businessDate} 的 ${assignment.shiftTypeName} 值班将在 ${leadHours} 小时后开始。`,

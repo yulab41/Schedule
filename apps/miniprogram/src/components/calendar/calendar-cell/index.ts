@@ -9,6 +9,7 @@ interface CalendarCellInstance {
 
 Component({
   properties: {
+    compact: { type: Boolean, value: false },
     duties: { type: Array, value: [] },
     disabled: { type: Boolean, value: false },
     ariaLabel: { type: String, value: '' },

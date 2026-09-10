@@ -134,7 +134,10 @@ declare const wx: {
     readonly fail?: (error: unknown) => void;
     readonly success?: () => void;
   }): unknown;
-  navigateBack(options?: { readonly delta?: number }): void;
+  navigateBack(options?: {
+    readonly delta?: number;
+    readonly fail?: (error: unknown) => void;
+  }): void;
   navigateTo(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
   reLaunch(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
   redirectTo(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;

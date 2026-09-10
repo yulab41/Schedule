@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   holidayApiGoldenResponse,
   pastScheduleBackfillBatchGoldenResult,
@@ -52,6 +53,107 @@ describe('P5 native atomic backfill controller', () => {
     });
     expect(instance._staged.has('role-1:2026-07-02')).toBe(false);
   });
+
+  it.each([false, true])(
+    'connects WXML selection and nested calendar events (existing=%s)',
+    async (existing) => {
+      const read = (file) => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
+      const pageXml = read('subpackages/scheduling/pages/backfill/index.wxml');
+      const node = (xml, tag, marker = '') => {
+        const tags = [...xml.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'gu'))]
+          .map(([text]) => text)
+          .filter((text) => text.includes(marker));
+        expect(tags).toHaveLength(1);
+        return Object.fromEntries(
+          [...tags[0].matchAll(/([\w:-]+)="([^"]*)"/gu)].map(([, key, value]) => [key, value]),
+        );
+      };
+      const dispatch = (host, attrs, event, detail = {}, dataset = {}) => {
+        const handler = attrs[`bind:${event}`] ?? attrs[`bind${event}`];
+        expect(typeof host[handler]).toBe('function');
+        host[handler].call(host, { detail, currentTarget: { dataset } });
+      };
+      let cellDef, monthDef;
+      vi.stubGlobal('Component', (value) => {
+        cellDef = value;
+      });
+      await import('../src/components/calendar/calendar-cell/index.ts');
+      vi.stubGlobal('Component', (value) => {
+        monthDef = value;
+      });
+      await import('../src/components/calendar/calendar-month/index.ts');
+      const page = createPageInstance(definition);
+      Object.assign(page.data, { activeMemberId: '', activeShiftTypeId: '' });
+      const date = '2026-07-02';
+      page._calendarByKey.get('role-1:2026-07').assignments = existing
+        ? [
+            {
+              id: 'original',
+              businessDate: date,
+              slotPosition: 1,
+              actualMembershipId: 'old-member',
+              actualMemberName: '原人员',
+              shiftTypeId: 'shift-a',
+              shiftTypeAbbreviation: '白',
+              shiftTypeName: '白班',
+            },
+          ]
+        : [];
+      const shiftNode = node(pageXml, 'view', 'shift-type-button');
+      const memberNode = node(pageXml, 'view', 'member-button');
+      const monthNode = node(pageXml, 'calendar-month', 'id="backfill-month"');
+      const cellNode = node(read('components/calendar/calendar-month/index.wxml'), 'calendar-cell');
+      const cellRoot = node(
+        read('components/calendar/calendar-cell/index.wxml'),
+        'view',
+        'class="calendar-cell ',
+      );
+      const month = {
+        ...monthDef.methods,
+        triggerEvent: (event, detail) => dispatch(page, monthNode, event, detail),
+      };
+      const tapDate = () => {
+        const cell = page.data.monthPanels
+          .find((panel) => panel.relative === 0)
+          .cells.find((cell) => cell.businessDate === date);
+        dispatch(
+          {
+            ...cellDef.methods,
+            properties: {
+              businessDate: cell.businessDate,
+              isCurrentMonth: cell.isCurrentMonth,
+              disabled: cell.disabled,
+            },
+            triggerEvent: (event, detail) => dispatch(month, cellNode, event, detail),
+          },
+          cellRoot,
+          'tap',
+        );
+      };
+      expect(memberNode['data-id']).toBe('{{item.membershipId}}');
+      expect(shiftNode['data-id']).toBe('{{item.id}}');
+      dispatch(page, memberNode, 'tap', {}, { id: page.data.members[0].membershipId });
+      tapDate();
+      expect(page.data.pendingCount).toBe(0);
+      expect(page.data.paintStatusText).toBe('还需选择班种');
+      dispatch(page, shiftNode, 'tap', {}, { id: page.data.shiftTypes[0].id });
+      tapDate();
+      expect(page.data.pendingCount).toBe(1);
+      const duties = page.data.monthPanels
+        .find((panel) => panel.relative === 0)
+        .cells.find((cell) => cell.businessDate === date).duties;
+      expect(duties.map(({ name, state }) => [name, state])).toEqual(
+        existing
+          ? [
+              ['原人员', 'removed'],
+              ['林医生', 'added'],
+            ]
+          : [['林医生', 'added']],
+      );
+      expect(pageXml).toContain(': paintStatusText');
+      definition.onUnload.call(page);
+    },
+  );
 
   it('fails closed for today, future, and adjacent-month cells', () => {
     const instance = createPageInstance(definition);

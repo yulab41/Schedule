@@ -110,6 +110,10 @@
   flex-direction: column;
 }
 
+.ui-sheet__panel.is-content-sized .ui-sheet__content {
+  flex: none;
+}
+
 @keyframes ui-sheet-panel-enter {
   from {
     opacity: 0;

@@ -89,6 +89,7 @@ export const schedulePublicationEndpoints = {
   }),
   deleteDraft: defineClientEndpoint<DeleteDraftInput, void>({
     auth: 'bearer',
+    body: () => ({}),
     decoder: emptyResponseDecoder,
     id: 'schedule-publication.delete-draft',
     idempotencyKey: ({ operationId }) => operationId,

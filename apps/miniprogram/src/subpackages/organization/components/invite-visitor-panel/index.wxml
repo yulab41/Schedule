@@ -109,7 +109,7 @@
             <text class="result-copy"
               >{{inviteRealName}} · {{inviteRoleLabel}} · {{inviteGroupName}}</text
             >
-            <text class="share-path" user-select="true">{{inviteSharePath}}</text>
+            <button class="invite-share-button" open-type="share" disabled="{{!canManage || !organizationEnabled || managementState === 'loading'}}">转发邀请</button>
             <text class="memory-note">链接只保留在当前页面内存中；离开页面后需要重新生成。</text>
             <ui-button
               variant="danger"

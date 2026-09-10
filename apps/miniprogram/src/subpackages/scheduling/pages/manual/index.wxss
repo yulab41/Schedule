@@ -280,7 +280,7 @@ ui-alert {
 .field-grid > .members-field { width: calc(50% - 4px); min-width: 0; }
 .cycle-picker-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .preview-calendar-card { padding: 0; overflow: hidden; }
-.release-calendar-scroll { height: 390px; max-height: 55vh; min-height: 0; }
+.release-calendar-scroll { max-height: 65vh; min-height: 0; flex-shrink: 1; }
 
 .field-grid {
   display: flex;
@@ -1135,6 +1135,20 @@ ui-alert {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-large);
   box-shadow: var(--ui-shadow-elevated);
+}
+
+.release-dialog.is-calendar-preview {
+  overflow: hidden;
+}
+
+.release-dialog.is-calendar-preview > view,
+.release-dialog.is-calendar-preview > text,
+.release-dialog.is-calendar-preview > ui-checkbox {
+  flex-shrink: 0;
+}
+
+@media (max-width: 360px) {
+  .release-dialog { padding: 10px; }
 }
 
 .release-dialog-header {

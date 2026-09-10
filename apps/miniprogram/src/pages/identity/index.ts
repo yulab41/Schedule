@@ -37,6 +37,7 @@ interface IdentityPageData {
 interface IdentityPageInstance {
   _disposed?: boolean;
   _loginAttempt?: number;
+  _returnToInvite?: boolean;
   data: IdentityPageData;
   setData(patch: Partial<IdentityPageData>): void;
 }
@@ -71,8 +72,9 @@ Page({
     username: '',
   },
 
-  onLoad(this: IdentityPageInstance): void {
+  onLoad(this: IdentityPageInstance, options: { readonly returnTo?: string } = {}): void {
     this._disposed = false;
+    this._returnToInvite = options.returnTo === 'invite';
     if (getStoredWechatToken() !== undefined && getStoredWechatProfile() !== undefined) {
       this.setData({ loading: true });
       openWorkbench(this);
@@ -233,6 +235,16 @@ function isValidUsername(value: string): boolean {
 }
 
 function openWorkbench(page: IdentityPageInstance): void {
+  if (page._returnToInvite) {
+    wx.navigateBack({
+      delta: 1,
+      fail: () => {
+        if (!page._disposed)
+          page.setData({ errorMessage: '登录已完成，请返回原邀请卡片继续。', loading: false });
+      },
+    });
+    return;
+  }
   wx.reLaunch({
     fail: () =>
       page.setData({

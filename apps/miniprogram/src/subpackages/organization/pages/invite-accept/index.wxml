@@ -1,0 +1,27 @@
+<scroll-view class="invite-scroll" scroll-y>
+  <view class="invite-page">
+    <text class="invite-eyebrow">群组邀请</text>
+    <text class="invite-title">{{groupName || '加入排班群组'}}</text>
+    <view class="invite-card">
+      <ui-loading wx:if="{{busy}}" label="正在处理邀请" />
+      <ui-alert wx:if="{{errorMessage}}" tone="danger" message="{{errorMessage}}" />
+      <block wx:if="{{state === 'login'}}">
+        <text>登录后查看并确认这条邀请。</text>
+        <ui-button label="登录后继续" bindpress="handleLogin" />
+      </block>
+      <block wx:elif="{{state === 'ready'}}">
+        <view class="invite-row"><text>受邀姓名</text><text>{{inviteeName}}</text></view>
+        <view class="invite-row"><text>群组身份</text><text>{{roleLabel}}</text></view>
+        <view class="invite-row"><text>排班岗位</text><text>{{scheduleRoleName}}</text></view>
+        <text>请确认这条邀请属于你，并输入受邀姓名。</text>
+        <input value="{{confirmName}}" disabled="{{busy}}" maxlength="100" placeholder="输入受邀姓名" bindinput="handleNameInput" />
+        <ui-button label="接受邀请" disabled="{{busy}}" bindpress="handleAccept" />
+      </block>
+      <block wx:elif="{{state === 'accepted'}}">
+        <text>邀请已接受，正在刷新账号资料。</text>
+        <ui-button wx:if="{{!busy}}" label="重试刷新账号" bindpress="handleRetry" />
+      </block>
+      <ui-button wx:elif="{{state === 'error' && !busy}}" label="{{invitationAccepted ? '查看我的群组' : '重试'}}" bindpress="handleRetry" />
+    </view>
+  </view>
+</scroll-view>

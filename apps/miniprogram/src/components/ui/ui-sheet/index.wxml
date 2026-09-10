@@ -11,7 +11,7 @@
   ></view>
   <view
     id="ui-sheet-panel"
-    class="ui-sheet__panel"
+    class="ui-sheet__panel {{size === 'content' ? 'is-content-sized' : ''}}"
     style="{{panelStyle}}"
     gesture-session="{{gestureSession}}"
     change:gesture-session="{{sheetGesture.reset}}"

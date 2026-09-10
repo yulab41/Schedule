@@ -12,6 +12,29 @@ type InviteVisitorPageInstance = ThisParameterType<typeof controller.lifetimes.a
 Page({
   data: controller.data,
   ...pageMethods,
+  onShareAppMessage(this: InviteVisitorPageInstance) {
+    controller.handleRefreshInviteExpiry.call(this);
+    if (
+      this._disposed ||
+      !(this._inviteExpiresAtMs > Date.now()) ||
+      !this.data.canManage ||
+      !this.data.organizationEnabled ||
+      this.data.managementState === 'loading' ||
+      !this._inviteToken ||
+      !this.data.inviteSharePath
+    )
+      return { title: '排班台', path: '/pages/workbench/index' };
+    return {
+      title: '群组邀请',
+      path: `/pages/invite/invite?t=${encodeURIComponent(this._inviteToken)}`,
+    };
+  },
+  onUnload(this: InviteVisitorPageInstance) {
+    controller.lifetimes.detached.call(this);
+  },
+  onShow(this: InviteVisitorPageInstance) {
+    controller.handleRefreshInviteExpiry.call(this);
+  },
   onLoad(
     this: InviteVisitorPageInstance,
     query: Readonly<Record<string, string | undefined>>,

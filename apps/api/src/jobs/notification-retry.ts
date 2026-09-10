@@ -204,6 +204,8 @@ export class NotificationRetryJob {
           id: notification.id,
           notificationType: notification.notificationType,
           recipientUserId: notification.recipientUserId,
+          shiftAssignmentId: notification.shiftAssignmentId,
+          groupId: notification.groupId,
           title: notification.title,
         },
         transaction,

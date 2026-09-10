@@ -1,0 +1,8 @@
+.invite-scroll { height: 100vh; background: var(--ui-color-background); }
+.invite-page { display: flex; padding: 96px 20px calc(24px + env(safe-area-inset-bottom)); flex-direction: column; gap: 16px; }
+.invite-eyebrow { color: var(--ui-color-primary); font-size: var(--ui-font-size-sm); }
+.invite-title { color: var(--ui-color-text-primary); font-size: 24px; font-weight: 600; }
+.invite-card { display: flex; padding: 18px; flex-direction: column; gap: 16px; border: 1px solid var(--ui-color-border); border-radius: var(--ui-radius-large); background: var(--ui-color-surface); color: var(--ui-color-text-secondary); font-size: var(--ui-font-size-sm); }
+.invite-row { display: flex; justify-content: space-between; gap: 12px; }
+.invite-row > text:last-child { color: var(--ui-color-text-primary); }
+.invite-card input { height: 44px; padding: 0 12px; border: 1px solid var(--ui-color-border); border-radius: var(--ui-radius-small); }

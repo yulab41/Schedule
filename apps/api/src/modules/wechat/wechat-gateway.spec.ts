@@ -40,6 +40,33 @@ function createGateway(
 }
 
 describe('mock WeChat gateway', () => {
+  it('reads fields only from the single configured template without sending a message', async () => {
+    const { gateway, fetchFn } = createGateway((input) =>
+      String(input).includes('/cgi-bin/token')
+        ? jsonResponse({ access_token: 'fixture-token', expires_in: 7200 })
+        : jsonResponse({
+            errcode: 0,
+            data: [
+              { priTmplId: 'other', content: '其他:{{thing1.DATA}}' },
+              {
+                priTmplId: 'target',
+                content:
+                  '是否换班:{{thing6.DATA}}\n班次日期:{{character_string7.DATA}}\n员工姓名:{{thing9.DATA}}\n班次类型:{{thing8.DATA}}',
+              },
+            ],
+          }),
+    );
+    await expect(gateway.getSubscribeTemplateFields('target')).resolves.toEqual([
+      'thing6',
+      'character_string7',
+      'thing9',
+      'thing8',
+    ]);
+    await expect(gateway.getSubscribeTemplateFields('missing')).resolves.toBeUndefined();
+    expect(
+      fetchFn.mock.calls.every(([url]) => !String(url).includes('/message/subscribe/send')),
+    ).toBe(true);
+  });
   it('reports per-call token/send phases without credentials', async () => {
     const phases: string[] = [];
     const { gateway } = createGateway((input) =>

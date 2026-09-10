@@ -343,7 +343,17 @@ function serverRows(value: unknown): Row[] {
     label,
     value: item[key] === true ? '是' : item[key] === false ? '否' : '未提供',
   }));
-  rows.push({ label: '模板字段', value: '当前发送 thing1 / thing2；平台实际字段尚未核对' });
+  const fieldKeys = Array.isArray(item['expectedFieldKeys'])
+    ? item['expectedFieldKeys'].filter(
+        (key): key is string => typeof key === 'string' && /^[a-z_]+\d+$/u.test(key),
+      )
+    : [];
+  rows.push({
+    label: '模板字段',
+    value: fieldKeys.length
+      ? `当前发送 ${fieldKeys.join(' / ')}；${item['platformFieldsVerified'] === true ? '平台字段已核对' : '本次未进行平台字段核对'}`
+      : '服务端未提供发送字段',
+  });
   if (Array.isArray(item['deliveries']))
     for (const raw of item['deliveries'].slice(0, 10)) {
       const delivery = record(raw);
@@ -367,6 +377,7 @@ function serverRows(value: unknown): Row[] {
 const categories: Record<string, string> = {
   'wechat-accepted': '微信接口已接受；仍需人工确认手机收到',
   'template-fields': '模板字段不匹配',
+  'template-data-invalid': '发送前校验失败：模板内容缺失、格式错误或超长',
   'template-unavailable': '模板不可用',
   'subscription-unavailable': '订阅额度不足或被拒绝',
   'recipient-invalid': '发送身份不可用',

@@ -386,3 +386,21 @@
 .is-large-text .visitor-actions ui-button {
   width: 100%;
 }
+.invite-share-button {
+  display: flex;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border: 1px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-normal);
+}
+.invite-share-button::after { border: 0; }
+.invite-share-button[disabled] { opacity: 0.6; }

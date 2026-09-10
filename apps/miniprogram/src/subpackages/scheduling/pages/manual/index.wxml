@@ -110,7 +110,7 @@
           <view class="preview-metrics"><view><text>班次</text><text class="metric-value">{{previewAssignmentCount}}</text></view><view><text>空缺</text><text class="metric-value {{previewVacancyCount ? 'is-danger' : ''}}">{{previewVacancyCount}}</text></view><view><text>连续值班</text><text class="metric-value is-warning">{{previewWarningCount}}</text></view></view>
           <view wx:if="{{previewConflictCount || previewVacancyCount}}" class="risk-panel is-blocking"><view class="risk-heading"><text>必须处理</text><text>{{previewConflictCount}} 个冲突 · {{previewVacancyCount}} 个空缺</text></view><text>存在阻断项时不能直接保存草稿，请返回矩阵修改。</text></view>
           <view wx:if="{{previewWarningCount}}" class="risk-panel"><view class="risk-heading"><text>需要确认</text><text>连续值班风险</text></view><text>请核对连续值班时长和人员安排。</text></view>
-          <view class="section-card preview-calendar-card"><schedule-calendar-preview assignments="{{previewAssignments}}" start-date="{{previewStartDate}}" /></view>
+          <view class="section-card preview-calendar-card"><schedule-calendar-preview restrict-to-proposed="{{true}}" assignments="{{previewAssignments}}" start-date="{{previewStartDate}}" bindmonthbrowse="handlePreviewMonthBrowse" /></view>
           <ui-checkbox wx:if="{{previewWarningCount > 0}}" checked="{{riskAccepted}}" label="我已核对空缺和连续值班风险" bindchange="handleRiskToggle"></ui-checkbox>
         </block>
 
@@ -200,19 +200,19 @@
   <view wx:if="{{state === 'editor'}}" class="action-dock"><ui-button variant="secondary" label="保存模板" loading="{{isBusy}}" disabled="{{!canSave || isBusy}}" bindpress="handleSaveTemplate"></ui-button><ui-button variant="primary" label="生成预览" loading="{{isBusy}}" disabled="{{!canPreview || isBusy}}" bindpress="handlePreview"></ui-button></view>
   <view wx:elif="{{state === 'preview'}}" class="action-dock"><ui-button variant="secondary" label="返回修改" disabled="{{isBusy}}" bindpress="handleReturnToEditor"></ui-button><ui-button variant="primary" label="保存为草稿" loading="{{isBusy}}" disabled="{{!canApplyDraft || isBusy}}" bindpress="handleApplyDraft"></ui-button></view>
 
-  <ui-sheet visible="{{cyclePickerOpen}}" title="周期天数" close-label="取消" bindclose="handleCloseCyclePicker">
+  <ui-sheet visible="{{cyclePickerOpen}}" size="content" title="周期天数" close-label="取消" bindclose="handleCloseCyclePicker">
     <ui-wheel-column wx:if="{{cyclePickerOpen}}" items="{{cycleWheelItems}}" unit="天" selected-index="{{cycleDraftIndex}}" runtime-key="manual-cycle-days" generation="{{cycleWheelGeneration}}" animate-command="{{false}}" bindpreviewchange="handleCycleWheel" bindsettle="handleCycleWheel" />
-    <view class="cycle-picker-actions"><view class="web-button is-outline" aria-role="button" bindtap="handleCloseCyclePicker">取消</view><view class="web-button is-primary" aria-role="button" bindtap="handleConfirmCyclePicker">确定 {{cycleDraftIndex + 1}} 天</view></view>
+    <view class="cycle-picker-actions"><view class="web-button is-outline" aria-role="button" bindtap="handleCloseCyclePicker">取消</view><view class="web-button is-primary" aria-role="button" bindtap="handleConfirmCyclePicker">确定</view></view>
   </ui-sheet>
 
   <view wx:if="{{releaseDialogKind}}" class="release-dialog-layer" catchtouchmove="noop">
-    <view class="release-dialog {{releaseDialogDanger ? 'is-danger' : ''}}" aria-role="dialog" aria-modal="true">
+    <view class="release-dialog {{releaseDialogDanger ? 'is-danger' : ''}} {{releaseDialogKind === 'preview' ? 'is-calendar-preview' : ''}}" aria-role="dialog" aria-modal="true">
       <view class="release-dialog-header">
         <view><text>{{releaseDialogKicker}}</text><text class="release-dialog-title">{{releaseDialogTitle}}</text></view>
         <view class="dialog-close" hover-class="is-pressed" aria-role="button" aria-label="关闭" bindtap="handleCloseReleaseDialog"><image src="/assets/icons/ui-close.svg" mode="aspectFit" /></view>
       </view>
       <text class="release-dialog-meta">{{releaseDialogMeta}}</text>
-      <scroll-view wx:if="{{releaseDialogKind === 'preview'}}" class="release-calendar-scroll" scroll-y type="list"><schedule-calendar-preview assignments="{{releasePreviewAssignments}}" start-date="{{releasePreviewStartDate}}" /></scroll-view>
+      <scroll-view wx:if="{{releaseDialogKind === 'preview'}}" class="release-calendar-scroll" style="height:{{releaseCalendarHeight}}px" scroll-y><schedule-calendar-preview compact="{{true}}" assignments="{{releasePreviewAssignments}}" start-date="{{releasePreviewStartDate}}" bindheightchange="handleReleaseCalendarHeight" /></scroll-view>
       <view wx:for="{{releaseCallouts}}" wx:key="message" class="release-callout is-{{item.tone}}">{{item.message}}</view>
       <view wx:if="{{releaseWorkflowImpacts.length}}" class="workflow-impact-list">
         <text class="impact-heading">本次变更将撤销以下事件，撤销原因为“排班变更”：</text>

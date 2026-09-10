@@ -1,4 +1,5 @@
 import { buildMonthDisplayGrid, getCurrentBusinessDate } from '@schedule/presentation-core';
+import { calendarShiftBadge } from '../../../../components/calendar/calendar-duty-view.js';
 import {
   mapCalendarPeriodRing,
   type CalendarPeriodSlot,
@@ -10,7 +11,26 @@ export interface PreviewDuty {
   readonly actualMemberName?: string | undefined;
   readonly shiftTypeAbbreviation: string;
   readonly shiftTypeName: string;
+  readonly shiftTypeColor?: string;
+  readonly shiftTypeTextColor?: string;
+  readonly state?: 'normal' | 'removed' | 'added';
   readonly slotPosition: number;
+}
+
+export function mergePreviewAssignments(
+  proposed: readonly PreviewDuty[],
+  existing: readonly PreviewDuty[],
+): readonly PreviewDuty[] {
+  const replacing = new Set(proposed.map((item) => `${item.businessDate}:${item.slotPosition}`));
+  return [
+    ...existing.map((item) => ({
+      ...item,
+      state: replacing.has(`${item.businessDate}:${item.slotPosition}`)
+        ? ('removed' as const)
+        : ('normal' as const),
+    })),
+    ...proposed.map((item) => ({ ...item, state: 'added' as const })),
+  ];
 }
 
 export function previewCalendarModel(
@@ -18,6 +38,7 @@ export function previewCalendarModel(
   month: string,
   selectedDate: string,
   slot: CalendarPeriodSlot = 1,
+  restrictToProposed = false,
 ) {
   const [year, monthNumber] = month.split('-').map(Number);
   const today = getCurrentBusinessDate();
@@ -34,15 +55,22 @@ export function previewCalendarModel(
           .map((item, i) => ({
             key: `${cell.businessDate}:${item.slotPosition}:${i}`,
             name: item.actualMemberName ?? item.plannedMemberName ?? '待安排',
-            abbreviation: item.shiftTypeAbbreviation,
-            state: 'normal',
+            ...calendarShiftBadge(
+              item.shiftTypeAbbreviation,
+              item.shiftTypeName,
+              item.shiftTypeColor,
+              item.shiftTypeTextColor,
+            ),
+            state: item.state ?? 'normal',
           }));
         return {
           businessDate: cell.businessDate,
           day: cell.businessDate.slice(8),
           duties,
           ariaLabel: `${cell.businessDate}，${duties.map((item) => `${item.name}${item.abbreviation}`).join('，') || '无排班'}`,
-          disabled: false,
+          disabled: restrictToProposed
+            ? !duties.some((duty) => duty.state === 'added')
+            : duties.length === 0,
           isCurrentMonth: !cell.isOutsideMonth,
           isWeekend: index % 7 >= 5,
           isToday: cell.businessDate === today,

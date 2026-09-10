@@ -8,14 +8,22 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
   withTransaction,
+  groupMemberships,
+  scheduleRoles,
+  schedulePeriods,
+  shiftTypes,
+  shiftAssignments,
+  groups,
 } from '@schedule/database';
 import { insertDirectMembership } from '@schedule/test-fixtures';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { NotificationRetryJob } from '../../jobs/notification-retry.js';
+import { DutyReminderJob } from '../../jobs/duty-reminders.js';
+import { claimBatch } from '../../jobs/notification-batch.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { createPushDispatcher } from '../notifications/notification-dispatcher.js';
 import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
@@ -81,8 +89,55 @@ describeWithDatabase('wechat notification deliveries', () => {
     }
   });
 
+  it('does not send a queued duty reminder after its group was dissolved', async () => {
+    await appendDutyReminder(memberUserId);
+    await client.database
+      .update(groups)
+      .set({ deletedAt: new Date() })
+      .where(eq(groups.id, groupId));
+    const gateway = new RecordingGateway();
+    const result = await new NotificationRetryJob(
+      client,
+      createPushDispatcher({}),
+      new WechatPushDispatcher(client, gateway, templateIds),
+    ).run();
+    expect(result.sent).toBe(0);
+    expect(gateway.sends).toHaveLength(0);
+  });
+
+  it('creates one reminder for the new assignee without redirecting or duplicating the old queued reminder', async () => {
+    await appendDutyReminder(memberUserId);
+    const [assignment] = await client.database.select().from(shiftAssignments).limit(1);
+    const [owners] = (await client.database.execute(
+      sql`SELECT u.id user_id,m.id membership_id FROM users u JOIN group_memberships m ON m.user_id=u.id WHERE u.cloudbase_uid='cloudbase-owner' AND m.group_id=${groupId}`,
+    )) as unknown as [{ user_id: string; membership_id: string }[], unknown];
+    const owner = owners[0]!;
+    await withTransaction(client, (tx) =>
+      claimBatch(tx, `duty-reminder:${assignment!.id}:24`, 'duty_reminder'),
+    );
+    await client.database.execute(
+      sql`UPDATE users SET wechat_openid='mock-owner-openid' WHERE id=${owner.user_id}`,
+    );
+    await client.database
+      .update(shiftAssignments)
+      .set({ actualMembershipId: owner.membership_id, actualMemberName: '新值班人' })
+      .where(eq(shiftAssignments.id, assignment!.id));
+    const job = new DutyReminderJob(client);
+    expect((await job.run()).created).toBe(1);
+    expect((await job.run()).created).toBe(0);
+    const gateway = new RecordingGateway();
+    await new NotificationRetryJob(
+      client,
+      createPushDispatcher({}),
+      new WechatPushDispatcher(client, gateway, templateIds),
+    ).run();
+    expect(gateway.sends).toHaveLength(1);
+    expect(gateway.sends[0]!.openid).toBe('mock-owner-openid');
+  });
+
   it('creates wechat deliveries for openid users and sends them through the mock gateway', async () => {
     await appendDutyReminder(memberUserId);
+    expect((await new DutyReminderJob(client).run()).created).toBe(0);
     const [rows] = (await client.database.execute(
       sql`SELECT channel, status FROM notification_deliveries`,
     )) as unknown as [{ channel: string; status: string }[], unknown];
@@ -238,6 +293,60 @@ describeWithDatabase('wechat notification deliveries', () => {
   }
 
   async function appendDutyReminder(recipientUserId: string): Promise<void> {
+    const [member] = await client.database
+      .select({ id: groupMemberships.id })
+      .from(groupMemberships)
+      .where(
+        and(eq(groupMemberships.userId, recipientUserId), eq(groupMemberships.groupId, groupId)),
+      )
+      .limit(1);
+    if (!member) throw new Error('test member missing');
+    const roleId = randomUUID(),
+      shiftId = randomUUID(),
+      periodId = randomUUID(),
+      assignmentId = randomUUID();
+    const startsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const businessDate = startsAt.toISOString().slice(0, 10);
+    await client.database.insert(scheduleRoles).values({ id: roleId, groupId, name: '测试岗位' });
+    await client.database.insert(shiftTypes).values({
+      id: shiftId,
+      groupId,
+      name: '全天班',
+      abbreviation: '全',
+      displayOrder: 99,
+      color: '#267d70',
+      textColor: '#ffffff',
+    });
+    await client.database.insert(schedulePeriods).values({
+      id: periodId,
+      groupId,
+      scheduleRoleId: roleId,
+      businessMonth: `${businessDate.slice(0, 7)}-01`,
+      revision: 1,
+      rulesVersion: 1,
+      status: 'published',
+    });
+    await client.database.insert(shiftAssignments).values({
+      id: assignmentId,
+      schedulePeriodId: periodId,
+      businessDate,
+      slotPosition: 1,
+      shiftTypeId: shiftId,
+      shiftTypeName: '全天班',
+      shiftTypeAbbreviation: '全',
+      shiftTypeColor: '#267d70',
+      shiftTypeTextColor: '#ffffff',
+      shiftTypeConfigurationVersion: 1,
+      shiftStartTime: '08:00:00',
+      shiftEndTime: '08:00:00',
+      crossesMidnight: 1,
+      isAllDay: 1,
+      countsTowardStatistics: 1,
+      startsAt,
+      endsAt: new Date(startsAt.valueOf() + 24 * 60 * 60 * 1000),
+      plannedMembershipId: member.id,
+      plannedMemberName: '测试成员',
+    });
     await withTransaction(client, (transaction) =>
       new NotificationWriter().append(transaction, {
         body: '您值班将在 2 小时后开始。',
@@ -245,6 +354,8 @@ describeWithDatabase('wechat notification deliveries', () => {
         notificationType: 'duty_reminder',
         recipientUserIds: [recipientUserId],
         title: '值班提醒',
+        shiftAssignmentId: assignmentId,
+        payload: { leadHours: 24 },
       }),
     );
   }

@@ -17,7 +17,11 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
-import { WechatPushDispatcher, readWechatTemplateIds } from './wechat-push-dispatcher.js';
+import {
+  WechatPushDispatcher,
+  readWechatTemplateIds,
+  dutyReminderFieldKeys,
+} from './wechat-push-dispatcher.js';
 
 const scope = 'wechat-diagnostic-send';
 const designatedAdmin = '00000000-0000-4000-8000-000000000001';
@@ -29,6 +33,12 @@ export interface WechatDiagnosticResult {
   readonly phase?: 'reserved' | 'preflight' | 'access-token' | 'send';
 }
 export function safeWechatDiagnosticError(error: unknown): WechatDiagnosticResult {
+  if (
+    error instanceof WechatGatewayError &&
+    error.mappedCode === 'VALIDATION_FAILED' &&
+    error.message === 'Duty reminder template data invalid.'
+  )
+    return { outcome: 'rejected', category: 'template-data-invalid' };
   if (!(error instanceof WechatGatewayError) || error.errcode === null)
     return { outcome: 'unknown', category: 'transport-unknown' };
   const code = error.errcode;
@@ -58,7 +68,7 @@ export class WechatDiagnosticsService {
   }
 
   async inspect(identity: AuthenticatedIdentity, groupId: string) {
-    return withTransaction(this.client, async (tx) => {
+    const inspection = await withTransaction(this.client, async (tx) => {
       const user = await this.requireUser(tx, identity, false);
       const readiness = await this.readiness(tx, user, groupId);
       const deliveries = await tx
@@ -88,7 +98,7 @@ export class WechatDiagnosticsService {
         .limit(5);
       return {
         ...readiness,
-        expectedFieldKeys: ['thing1', 'thing2'],
+        expectedFieldKeys: [...dutyReminderFieldKeys],
         platformFieldsVerified: false,
         deliveries: deliveries.map((row) => ({
           status: row.status,
@@ -103,6 +113,20 @@ export class WechatDiagnosticsService {
         })),
       };
     });
+    // Authenticate first, and never hold database locks during the external read.
+    const templateId = readWechatTemplateIds().dutyReminder;
+    if (templateId && this.gateway?.getSubscribeTemplateFields && !this.gateway.isMock) {
+      try {
+        const fields = await this.gateway.getSubscribeTemplateFields(templateId);
+        inspection.platformFieldsVerified =
+          fields !== undefined &&
+          fields.length === dutyReminderFieldKeys.length &&
+          dutyReminderFieldKeys.every((key) => fields.includes(key));
+      } catch {
+        /* Failed reads retain an unverified result. */
+      }
+    }
+    return inspection;
   }
 
   async sendTest(
@@ -187,6 +211,12 @@ export class WechatDiagnosticsService {
           notificationType: 'duty_reminder',
           title: '微信提醒测试',
           body: '这是一条仅发给本人的测试消息',
+          dutyReminder: {
+            businessDate: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            memberName: '本人测试',
+            shiftTypeName: '通知测试（非排班）',
+            changed: false,
+          },
         },
         undefined,
         (currentPhase) => {
@@ -299,6 +329,7 @@ function safeStoredResult(value: unknown): WechatDiagnosticResult {
   const allowedCategories = [
     'transport-unknown',
     'template-fields',
+    'template-data-invalid',
     'template-unavailable',
     'subscription-unavailable',
     'recipient-invalid',
@@ -331,6 +362,7 @@ function safeStoredResult(value: unknown): WechatDiagnosticResult {
 }
 function safeStoredDeliveryError(value: string | null): string | null {
   if (value === null) return null;
+  if (value === 'Duty reminder template data invalid.') return 'template-data-invalid';
   const code = /WeChat API error (\d{1,6}):/u.exec(value)?.[1];
   return code
     ? safeWechatDiagnosticError(new WechatGatewayError(Number(code), null, 'SERVICE_UNAVAILABLE'))
