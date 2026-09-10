@@ -91,6 +91,42 @@ describe('anonymous native visitor calendar', () => {
     definition.onShow.call(instance);
     return instance;
   }
+  it.each([320, 390])(
+    'uses Skyline custom navigation and avoids the capsule at %s px',
+    async (width) => {
+      const config = JSON.parse(
+        readFileSync(new URL('../src/pages/guest/guest.json', import.meta.url), 'utf8'),
+      );
+      expect(config.navigationStyle).toBe('custom');
+      globalThis.wx.getWindowInfo = () => ({
+        statusBarHeight: 32,
+        windowHeight: 844,
+        windowWidth: width,
+      });
+      globalThis.wx.getMenuButtonBoundingClientRect = () => ({
+        width: 88,
+        height: 32,
+        left: width - 96,
+        right: width - 8,
+        top: 36,
+        bottom: 68,
+      });
+      const instance = await page({ scene: '' });
+      expect(instance.data.guestHeaderStyle).toContain('padding-top:32px');
+      expect(instance.data.guestHeaderStyle).toContain('padding-right:104px');
+      expect(instance.data.guestHeaderStyle).toContain('height:76px');
+      expect(instance.data.guestViewportStyle).toBe('height:768px;');
+      globalThis.wx.getWindowInfo = () => ({
+        statusBarHeight: 24,
+        windowHeight: 700,
+        windowWidth: width,
+      });
+      definition.onResize.call(instance);
+      expect(instance.data.guestViewportStyle).toBe('height:624px;');
+      definition.onUnload.call(instance);
+    },
+  );
+
   it('registers the exact server QR route', () => {
     const app = JSON.parse(readFileSync(new URL('../src/app.json', import.meta.url), 'utf8'));
     expect(app.pages).toContain('pages/guest/guest');

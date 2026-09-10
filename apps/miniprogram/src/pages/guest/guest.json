@@ -3,6 +3,6 @@
     "calendar-month": "/components/calendar/calendar-month/index"
   },
   "disableScroll": true,
-  "navigationStyle": "default",
+  "navigationStyle": "custom",
   "navigationBarTitleText": "访客排班"
 }

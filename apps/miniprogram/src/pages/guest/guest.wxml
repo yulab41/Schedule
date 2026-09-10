@@ -1,6 +1,6 @@
 <view class="workbench-page guest-page">
-  <view class="guest-header"><text class="guest-title">{{currentGroupName}} · 访客</text><view class="guest-return" aria-role="button" bindtap="handleReturn">返回</view></view>
-  <scroll-view class="guest-scroll workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}" scroll-y="{{viewMode !== 'list'}}" show-scrollbar="{{false}}">
+  <view class="guest-header" style="{{guestHeaderStyle}}"><text class="guest-title">{{currentGroupName}} · 访客</text><view class="guest-return" aria-role="button" bindtap="handleReturn">返回</view></view>
+  <scroll-view style="{{guestViewportStyle}}" class="guest-scroll workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}" scroll-y="{{viewMode !== 'list'}}" show-scrollbar="{{false}}">
         <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
           <text wx:if="{{currentGroupRoleKind === 'guest'}}" class="offline-note">访客只读 · 仅可查看已发布及历史排班</text>
 

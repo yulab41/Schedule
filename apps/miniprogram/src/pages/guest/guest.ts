@@ -41,6 +41,8 @@ function initialData() {
     ...emptyView(),
     state: 'loading' as 'loading' | 'ready' | 'error',
     errorMessage: '',
+    guestHeaderStyle: 'height:64px;padding-top:20px;padding-right:104px;',
+    guestViewportStyle: 'height:calc(100vh - 64px);',
     currentGroupId: '',
     currentGroupName: '访客排班',
     currentGroupRoleKind: 'guest',
@@ -104,6 +106,7 @@ Page({
     options: { scene?: string; visitorKey?: string; vkey?: string } = {},
   ): void {
     this.visible = true;
+    this.setData(guestLayout());
     this.serial = 0;
     this.shown = false;
     this.monthRingSlot = 1;
@@ -114,6 +117,9 @@ Page({
       this.visitorKey = undefined;
     }
     void loadCalendar(this);
+  },
+  onResize(this: GuestPage): void {
+    this.setData(guestLayout());
   },
   onShow(this: GuestPage): void {
     this.visible = true;
@@ -253,6 +259,24 @@ Page({
     renderCalendar(this);
   },
 });
+
+function guestLayout(): Pick<Data, 'guestHeaderStyle' | 'guestViewportStyle'> {
+  const info = wx.getWindowInfo();
+  const capsule = wx.getMenuButtonBoundingClientRect?.();
+  const status = Math.max(0, info.statusBarHeight ?? info.safeArea?.top ?? 0);
+  const hasCapsule =
+    capsule !== undefined &&
+    capsule.width > 0 &&
+    capsule.height > 0 &&
+    capsule.left > 0 &&
+    capsule.right <= info.windowWidth;
+  const height = Math.ceil(Math.max(status + 44, hasCapsule ? capsule.bottom + 8 : 0));
+  const right = hasCapsule ? Math.ceil(info.windowWidth - capsule.left + 8) : 104;
+  return {
+    guestHeaderStyle: `height:${height}px;padding-top:${status}px;padding-right:${right}px;`,
+    guestViewportStyle: `height:${Math.max(1, Math.floor(info.windowHeight - height))}px;`,
+  };
+}
 
 function selectDate(page: GuestPage, date: string | undefined): void {
   if (date === undefined || !/^\d{4}-\d{2}-\d{2}$/u.test(date)) return;

@@ -108,4 +108,4 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 
 ## 2026-09-10 访客系统修复
 
-`pages/guest/guest`沿用P4工作台的ready/filter/week/list/empty/error日历结构与样式及calendar-month叶组件，移除电话、事件和变更筛选；系统导航栏承载独立扫码页返回，不改变已登录工作台。fixture为guest-runtime合成只读日历；390/320桌面及小米14原生结果单独记录于docs/audit/visitor-system-fix.md。用户已批准本轮完整方案；没有新增视觉方向或认证协议，原生效果待同一新版体验版复核。
+`pages/guest/guest`沿用P4工作台的ready/filter/week/list/empty/error日历结构与样式及calendar-month叶组件，移除电话、事件和变更筛选；Skyline自定义导航栏按状态栏/胶囊安全区承载独立扫码页返回，不改变已登录工作台。fixture为guest-runtime合成只读日历；390/320桌面及小米14原生结果单独记录于docs/audit/visitor-system-fix.md。用户已批准本轮完整方案；没有新增视觉方向或认证协议，原生效果待同一新版体验版复核。
