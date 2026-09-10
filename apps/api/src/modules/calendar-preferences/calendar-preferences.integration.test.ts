@@ -255,6 +255,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'group_member_contacts',
     'leave_requests',
     'swap_requests',
+    'group_visitor_links',
     'group_memberships',
     'roster_entries',
     'idempotency_keys',

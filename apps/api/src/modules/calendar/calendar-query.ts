@@ -157,29 +157,26 @@ export class CalendarQuery {
     groupId: string,
     businessMonth: string,
   ): Promise<GuestCalendarReadModel> {
-    await withTransaction(this.databaseClient, async (transaction) => {
-      await this.permissionService.requirePermission(
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const access = await this.permissionService.requireGuestCalendarAccess(
         transaction,
         identity,
         groupId,
-        'viewGuestCalendar',
       );
+      const result = await this.readGuestMonthForGroup(access.group, businessMonth, transaction);
+      if (!access.linked) return result;
+      return {
+        ...result,
+        calendar: {
+          ...result.calendar,
+          members: result.calendar.members.map((member) => ({
+            membershipId: member.membershipId,
+            realName: member.realName,
+            isConfirmed: false,
+          })),
+        },
+      };
     });
-
-    const [group] = await this.databaseClient.database
-      .select({ id: groups.id, name: groups.name })
-      .from(groups)
-      .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
-      .limit(1);
-    if (group === undefined) {
-      throw new ApiError({
-        code: 'NOT_FOUND',
-        statusCode: 404,
-        userMessage: '群组不存在或不可用。',
-      });
-    }
-
-    return this.readGuestMonthForGroup(group, businessMonth);
   }
 
   public async readGuestMonthByGroupId(
@@ -206,8 +203,9 @@ export class CalendarQuery {
   private async readGuestMonthForGroup(
     group: { readonly id: string; readonly name: string },
     businessMonth: string,
+    activeTransaction?: DatabaseTransaction,
   ): Promise<GuestCalendarReadModel> {
-    const calendar = await withTransaction(this.databaseClient, async (transaction) => {
+    const read = async (transaction: DatabaseTransaction) => {
       const periods = await transaction
         .select({ id: schedulePeriods.id, scheduleRoleId: schedulePeriods.scheduleRoleId })
         .from(schedulePeriods)
@@ -221,7 +219,11 @@ export class CalendarQuery {
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
       return this.buildCalendar(transaction, group.id, businessMonth, periods, 'guest', false);
-    });
+    };
+    const calendar =
+      activeTransaction === undefined
+        ? await withTransaction(this.databaseClient, read)
+        : await read(activeTransaction);
     return { calendar, groupName: group.name };
   }
 

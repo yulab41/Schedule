@@ -26,6 +26,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { toCalendarChangeMarker } from './calendar-query.js';
+import { inspectVisitorLink, setVisitorLink } from '../groups/visitor-link-operations.js';
+import { GroupRecycleJob } from '../../jobs/group-recycle.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -857,6 +859,352 @@ describeWithDatabase('current month calendar read model', () => {
     expect(memberCalendar.statusCode).toBe(403);
   });
 
+  async function linkOutsiderGroup() {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/groups',
+      headers: { authorization: 'Bearer outsider-token' },
+      payload: { name: 'Linked nurses' },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const otherId = (created.json() as { id: string }).id;
+    const pair = [groupId, otherId].sort();
+    await client.database.execute(
+      sql`INSERT INTO group_visitor_links(id,first_group_id,second_group_id) VALUES(${randomUUID()},${pair[0]},${pair[1]})`,
+    );
+    return otherId;
+  }
+
+  const linkedCalendar = () =>
+    app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/guest-calendar?businessMonth=2026-08`,
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+
+  it('previews unique groups and applies versioned, audited, idempotent association operations', async () => {
+    const otherId = await linkOutsiderGroup();
+    const preview = await inspectVisitorLink(client, 'Calendar group', 'Linked nurses');
+    expect(preview.enabled).toBe(true);
+    expect(preview.directions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceGroupId: groupId,
+          targetGroupId: otherId,
+          formalMembers: 3,
+          membersWithoutDirectAccess: 2,
+        }),
+        expect.objectContaining({
+          sourceGroupId: otherId,
+          targetGroupId: groupId,
+          formalMembers: 2,
+          membersWithoutDirectAccess: 1,
+        }),
+      ]),
+    );
+    const input = {
+      firstGroupId: otherId,
+      secondGroupId: groupId,
+      enabled: false,
+      expectedVersion: preview.version,
+      operator: 'integration-test',
+    };
+    expect((await setVisitorLink(client, input)).changed).toBe(true);
+    expect((await setVisitorLink(client, input)).changed).toBe(false);
+    expect((await linkedCalendar()).statusCode).toBe(403);
+    await expect(setVisitorLink(client, { ...input, enabled: true })).rejects.toThrow('版本');
+    expect(
+      (await setVisitorLink(client, { ...input, enabled: true, expectedVersion: 2 })).version,
+    ).toBe(3);
+    expect((await linkedCalendar()).statusCode).toBe(200);
+    const [audit] = await client.database.execute(
+      sql`SELECT action FROM audit_logs WHERE action='group_visitor_link_changed'`,
+    );
+    expect(audit).toHaveLength(2);
+    await client.database.execute(
+      sql`UPDATE \`groups\` SET name='Calendar group' WHERE id=${otherId}`,
+    );
+    await expect(inspectVisitorLink(client, 'Calendar group', 'Linked nurses')).rejects.toThrow(
+      '群名',
+    );
+  });
+
+  it('recycles either association endpoint without deleting the other group', async () => {
+    const otherId = await linkOutsiderGroup();
+    await client.database.execute(
+      sql`UPDATE \`groups\` SET deleted_at='2026-06-01' WHERE id=${otherId}`,
+    );
+    expect((await new GroupRecycleJob(client).run(new Date('2026-08-01T00:00:00Z'))).purged).toBe(
+      1,
+    );
+    const [links] = await client.database.execute(sql`SELECT id FROM group_visitor_links`);
+    expect(links).toEqual([]);
+    const [remaining] = await client.database.execute(
+      sql`SELECT id FROM \`groups\` WHERE id=${groupId}`,
+    );
+    expect(remaining).toEqual([{ id: groupId }]);
+  });
+
+  it('handles future formal members, real leave, non-transitive links and group renames', async () => {
+    const otherId = await linkOutsiderGroup();
+    const third = await app.inject({
+      method: 'POST',
+      url: '/groups',
+      headers: { authorization: 'Bearer candidate-token' },
+      payload: { name: 'Third group' },
+    });
+    expect(third.statusCode).toBe(201);
+    const thirdId = (third.json() as { id: string }).id;
+    await setVisitorLink(client, {
+      firstGroupId: otherId,
+      secondGroupId: thirdId,
+      enabled: true,
+      expectedVersion: 0,
+      operator: 'integration-test',
+    });
+    const ownerList = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer owner-token' },
+    });
+    expect(ownerList.json().some((group: { id: string }) => group.id === thirdId)).toBe(false);
+    await client.database.execute(
+      sql`UPDATE \`groups\` SET name='Renamed nurses' WHERE id=${otherId}`,
+    );
+    const renamed = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer owner-token' },
+    });
+    expect(renamed.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: otherId, name: 'Renamed nurses', role: 'guest' }),
+      ]),
+    );
+    const leave = await app.inject({
+      method: 'POST',
+      url: `/groups/${groupId}/leave`,
+      headers: { authorization: 'Bearer candidate-token' },
+    });
+    expect(leave.statusCode).toBe(204);
+    // Removing the additional third-group source leaves no association path.
+    await setVisitorLink(client, {
+      firstGroupId: otherId,
+      secondGroupId: thirdId,
+      enabled: false,
+      expectedVersion: 1,
+      operator: 'integration-test',
+    });
+    const afterLeave = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer candidate-token' },
+    });
+    expect(afterLeave.json().some((group: { id: string }) => group.id === otherId)).toBe(false);
+    await client.database.execute(
+      sql`INSERT INTO group_memberships(id,group_id,user_id,role) SELECT ${randomUUID()},${groupId},id,'administrator' FROM users WHERE cloudbase_uid='cloudbase-candidate'`,
+    );
+    const afterJoin = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer candidate-token' },
+    });
+    expect(afterJoin.json()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: otherId, role: 'guest' })]),
+    );
+  });
+
+  it('lists reciprocal linked guests without memberships and serves only published guest data', async () => {
+    const otherId = await linkOutsiderGroup();
+    await savePublished('2026-08');
+    await saveDraft('2026-09');
+    await client.database
+      .execute(sql`INSERT INTO group_member_contacts(id,membership_id,mobile_phone,short_phone,is_confirmed)
+      VALUES(${randomUUID()},${candidateMembershipId},'13900139000','67890',1)
+      ON DUPLICATE KEY UPDATE mobile_phone='13900139000',short_phone='67890',is_confirmed=1`);
+    for (const [token, target] of [
+      ['outsider-token', groupId],
+      ['owner-token', otherId],
+      ['candidate-token', otherId],
+    ] as const) {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/groups',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(response.json()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: target, role: 'guest' })]),
+      );
+      const catalog = await app.inject({
+        method: 'GET',
+        url: '/groups/catalog',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(catalog.json()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: target, relation: 'active-guest' })]),
+      );
+    }
+    const response = await linkedCalendar();
+    expect(response.statusCode).toBe(200);
+    const calendar = (response.json() as { calendar: CalendarReadModel }).calendar;
+    expect(calendar.assignments.length).toBeGreaterThan(0);
+    expect(
+      calendar.members.find((member) => member.membershipId === candidateMembershipId),
+    ).toEqual({
+      isConfirmed: false,
+      membershipId: candidateMembershipId,
+      realName: 'Candidate Doctor',
+    });
+    const draft = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/guest-calendar?businessMonth=2026-09`,
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+    expect(draft.statusCode).toBe(200);
+    expect(draft.json().calendar.assignments).toEqual([]);
+    const [rows] = await client.database.execute(
+      sql`SELECT id FROM group_memberships WHERE group_id=${groupId} AND user_id=(SELECT id FROM users WHERE cloudbase_uid='cloudbase-outsider')`,
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it.each([
+    'inactive',
+    'guest',
+    'removed',
+    'disabled-user',
+    'deleted-user',
+    'deleted-profile',
+    'dissolved-source',
+    'dissolved-target',
+    'disabled-link',
+  ])('revokes linked guest access on the next request: %s', async (change) => {
+    const otherId = await linkOutsiderGroup();
+    expect((await linkedCalendar()).statusCode).toBe(200);
+    if (change === 'inactive')
+      await client.database.execute(
+        sql`UPDATE group_memberships SET status='inactive' WHERE group_id=${otherId}`,
+      );
+    if (change === 'guest')
+      await client.database.execute(
+        sql`UPDATE group_memberships SET role='guest' WHERE group_id=${otherId}`,
+      );
+    if (change === 'removed')
+      await client.database.execute(
+        sql`UPDATE group_memberships SET deleted_at=current_timestamp(3) WHERE group_id=${otherId}`,
+      );
+    if (change === 'disabled-user')
+      await client.database.execute(
+        sql`UPDATE users SET status='suspended' WHERE cloudbase_uid='cloudbase-outsider'`,
+      );
+    if (change === 'deleted-user')
+      await client.database.execute(
+        sql`UPDATE users SET deleted_at=current_timestamp(3) WHERE cloudbase_uid='cloudbase-outsider'`,
+      );
+    if (change === 'deleted-profile')
+      await client.database.execute(
+        sql`UPDATE user_profiles SET deleted_at=current_timestamp(3) WHERE user_id=(SELECT id FROM users WHERE cloudbase_uid='cloudbase-outsider')`,
+      );
+    if (change === 'dissolved-source')
+      await client.database.execute(
+        sql`UPDATE \`groups\` SET deleted_at=current_timestamp(3) WHERE id=${otherId}`,
+      );
+    if (change === 'dissolved-target')
+      await client.database.execute(
+        sql`UPDATE \`groups\` SET deleted_at=current_timestamp(3) WHERE id=${groupId}`,
+      );
+    if (change === 'disabled-link')
+      await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=0`);
+    expect([403, 404]).toContain((await linkedCalendar()).statusCode);
+    const list = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+    expect(list.json()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: groupId })]),
+    );
+  });
+
+  it('preserves independent guests and formal memberships when an association is disabled', async () => {
+    const joined = await app.inject({
+      method: 'POST',
+      url: `/groups/${groupId}/join-guest`,
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+    expect(joined.statusCode).toBe(201);
+    const otherId = await linkOutsiderGroup();
+    await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=0`);
+    expect((await linkedCalendar()).statusCode).toBe(200);
+    await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=1`);
+    const list = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+    expect(list.json().filter((group: { id: string }) => group.id === groupId)).toHaveLength(1);
+    expect(list.json()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: otherId, role: 'owner' })]),
+    );
+    await client.database
+      .execute(sql`UPDATE group_memberships SET role='member' WHERE group_id=${groupId}
+      AND user_id=(SELECT id FROM users WHERE cloudbase_uid='cloudbase-outsider')`);
+    const formalList = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+    expect(formalList.json().filter((group: { id: string }) => group.id === groupId)).toEqual([
+      expect.objectContaining({ id: groupId, role: 'member' }),
+    ]);
+  });
+
+  it('rejects leaving or independently joining a derived guest and never grants administrator powers', async () => {
+    await linkOutsiderGroup();
+    for (const action of ['leave', 'join-guest']) {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/groups/${groupId}/${action}`,
+        headers: { authorization: 'Bearer outsider-token' },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.body).toContain('此访问权限来自群组关联，随原群成员资格变更');
+    }
+    await client.database.execute(
+      sql`UPDATE users SET is_developer_admin=1 WHERE cloudbase_uid='cloudbase-outsider'`,
+    );
+    expect((await linkedCalendar()).statusCode).toBe(200);
+    const list = await app.inject({
+      method: 'GET',
+      url: '/groups',
+      headers: { authorization: 'Bearer outsider-token' },
+    });
+    expect(
+      list.json().find((group: { id: string }) => group.id === groupId).isDeveloperAdmin,
+    ).toBeUndefined();
+    for (const suffix of [
+      'members',
+      'contacts',
+      'directory',
+      'scheduling-config',
+      'calendar?businessMonth=2026-08',
+    ]) {
+      const denied = await app.inject({
+        method: 'GET',
+        url: `/groups/${groupId}/${suffix}`,
+        headers: { authorization: 'Bearer outsider-token' },
+      });
+      expect(denied.statusCode, suffix).toBe(403);
+    }
+    const deniedWrite = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupId}/name`,
+      headers: { authorization: 'Bearer outsider-token' },
+      payload: { name: 'Forbidden', expectedVersion: 1 },
+    });
+    expect(deniedWrite.statusCode).toBe(403);
+  });
+
   async function readCalendar(token: string, businessMonth: string | undefined) {
     const query =
       businessMonth === undefined ? '' : `?businessMonth=${encodeURIComponent(businessMonth)}`;
@@ -976,6 +1324,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS swap_requests`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS group_visitor_links`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_memberships`);
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);

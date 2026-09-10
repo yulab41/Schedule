@@ -5,6 +5,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { listLinkedGuestGroups } from './linked-guest-access.js';
 
 export type GroupPermission =
   | 'deleteGroup'
@@ -111,6 +112,42 @@ const permissionsByRole: Readonly<
 };
 
 export class GroupPermissionService {
+  // This narrowly scoped entry point never returns a synthetic membership and
+  // cannot be used by write, member-directory or configuration permissions.
+  public async requireGuestCalendarAccess(
+    transaction: DatabaseTransaction,
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<{ group: ActiveGroup; linked: boolean }> {
+    const user = await this.getActiveUserForUpdate(transaction, identity);
+    const group = await this.getActiveGroupForUpdate(transaction, groupId);
+    const [direct] = await transaction
+      .select({ id: groupMemberships.id })
+      .from(groupMemberships)
+      .where(
+        and(
+          eq(groupMemberships.groupId, group.id),
+          eq(groupMemberships.userId, user.id),
+          eq(groupMemberships.status, 'active'),
+          isNull(groupMemberships.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (direct !== undefined) {
+      await this.requirePermission(transaction, identity, group.id, 'viewGuestCalendar');
+      return { group, linked: false };
+    }
+    if ((await listLinkedGuestGroups(transaction, identity, group.id)).length === 0) {
+      throw new ApiError({
+        code: 'FORBIDDEN',
+        statusCode: 403,
+        userMessage: '当前账号无权查看此群组排班。',
+      });
+    }
+    return { group, linked: true };
+  }
+
   public async requirePermission(
     transaction: DatabaseTransaction,
     identity: AuthenticatedIdentity,

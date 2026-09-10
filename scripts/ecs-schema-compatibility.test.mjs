@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('automatic rotation retirement release compatibility', () => {
+describe('group visitor link release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,10 +10,10 @@ describe('automatic rotation retirement release compatibility', () => {
     })),
   });
 
-  it('requires account phone columns and retired rotation tables', () => {
-    expect(releaseSchemaCompatibility(journal(56, '0056_retire_automatic_rotation'))).toEqual({
-      databaseSchemaMin: '56',
-      databaseSchemaMax: '56',
+  it('requires the group visitor association table', () => {
+    expect(releaseSchemaCompatibility(journal(57, '0057_group_visitor_links'))).toEqual({
+      databaseSchemaMin: '57',
+      databaseSchemaMax: '57',
     });
   });
 
@@ -23,6 +23,7 @@ describe('automatic rotation retirement release compatibility', () => {
       journal(53, '0053_directory_candidate_covering_index'),
       journal(54, '0054_retire_group_code'),
       journal(55, '0055_account_mobile_phone'),
+      journal(56, '0056_retire_automatic_rotation'),
       journal(57, '0057_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),

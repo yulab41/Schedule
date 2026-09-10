@@ -42,6 +42,7 @@ import {
   runOrganizationMutation,
 } from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
+import { listLinkedGuestGroups, linkedGuestMembershipConflict } from './linked-guest-access.js';
 
 export class MembershipService {
   private readonly permissionService = new GroupPermissionService();
@@ -74,13 +75,16 @@ export class MembershipService {
       )
       .orderBy(asc(groups.name), asc(groups.id));
 
-    return memberships.map((membership) => ({
+    const directGroups = memberships.map((membership) => ({
       id: membership.id,
       ...(membership.isDeveloperAdmin === 1 ? { isDeveloperAdmin: true } : {}),
       name: membership.name,
       role: membership.role as GroupRole,
       version: membership.version,
     }));
+    const directIds = new Set(directGroups.map((group) => group.id));
+    const linkedGroups = await listLinkedGuestGroups(this.databaseClient.database, identity);
+    return [...directGroups, ...linkedGroups.filter((group) => !directIds.has(group.id))];
   }
 
   public async listCatalog(identity: AuthenticatedIdentity): Promise<GroupCatalogEntry[]> {
@@ -110,6 +114,11 @@ export class MembershipService {
         ),
       );
 
+    const linkedIds = new Set(
+      (await listLinkedGuestGroups(this.databaseClient.database, identity)).map(
+        (group) => group.id,
+      ),
+    );
     return allGroups.map((group) => {
       const groupMembershipsForGroup = memberships.filter(
         (membership) => membership.groupId === group.id,
@@ -122,6 +131,7 @@ export class MembershipService {
         };
       }
 
+      if (linkedIds.has(group.id)) return { ...group, relation: 'active-guest' };
       const left = groupMembershipsForGroup.some(
         (membership) =>
           membership.userId !== user.id &&
@@ -187,6 +197,9 @@ export class MembershipService {
             userMessage: '您已经加入该群组。',
           });
         }
+        if ((await listLinkedGuestGroups(transaction, identity, group.id)).length > 0) {
+          throw linkedGuestMembershipConflict();
+        }
         const leftMemberPlaceholder = memberships.some(
           (membership) =>
             membership.role !== 'guest' &&
@@ -245,6 +258,24 @@ export class MembershipService {
       requestFingerprint: createOrganizationFingerprint({ groupId }),
       run: async (transaction, user) => {
         if (user.isDeveloperAdmin) {
+          const direct = await transaction
+            .select({ id: groupMemberships.id })
+            .from(groupMemberships)
+            .where(
+              and(
+                eq(groupMemberships.groupId, groupId),
+                eq(groupMemberships.userId, user.id),
+                eq(groupMemberships.status, 'active'),
+                isNull(groupMemberships.deletedAt),
+              ),
+            )
+            .limit(1);
+          if (
+            direct.length === 0 &&
+            (await listLinkedGuestGroups(transaction, identity, groupId)).length > 0
+          ) {
+            throw linkedGuestMembershipConflict();
+          }
           throw new ApiError({
             code: 'CONFLICT',
             statusCode: 409,
@@ -279,6 +310,9 @@ export class MembershipService {
           .limit(1)
           .for('update');
         if (membership === undefined) {
+          if ((await listLinkedGuestGroups(transaction, identity, group.id)).length > 0) {
+            throw linkedGuestMembershipConflict();
+          }
           throw new ApiError({
             code: 'CONFLICT',
             statusCode: 409,

@@ -16,6 +16,11 @@ export interface GroupRecycleDeleteStep {
 
 export const groupRecycleDeleteSteps: readonly GroupRecycleDeleteStep[] = [
   {
+    table: 'group_visitor_links',
+    buildQuery: (groupId) =>
+      sql`DELETE FROM group_visitor_links WHERE first_group_id = ${groupId} OR second_group_id = ${groupId}`,
+  },
+  {
     table: 'visitor_access_monthly_aggregates',
     buildQuery: (groupId) =>
       sql`DELETE FROM visitor_access_monthly_aggregates WHERE group_id = ${groupId}`,

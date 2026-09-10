@@ -220,6 +220,29 @@ export const rosterEntries = mysqlTable(
   ],
 );
 
+export const groupVisitorLinks = mysqlTable(
+  'group_visitor_links',
+  {
+    id: identifier(),
+    firstGroupId: char('first_group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    secondGroupId: char('second_group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    isEnabled: tinyint('is_enabled', { unsigned: true }).default(1).notNull(),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+    version: int('version').default(1).notNull(),
+  },
+  (table) => [
+    uniqueIndex('group_visitor_links_pair_unique').on(table.firstGroupId, table.secondGroupId),
+    index('group_visitor_links_second_idx').on(table.secondGroupId, table.isEnabled),
+    check('group_visitor_links_order_check', sql`${table.firstGroupId} < ${table.secondGroupId}`),
+    check('group_visitor_links_enabled_check', sql`${table.isEnabled} IN (0, 1)`),
+  ],
+);
+
 export const groupMemberships = mysqlTable(
   'group_memberships',
   {
