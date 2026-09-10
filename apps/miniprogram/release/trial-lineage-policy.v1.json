@@ -33,7 +33,7 @@
       "reason": "Preserve the accepted EXP-ICON-004 shared icon geometry and calendar/directory motion checkpoint before any later cumulative trial.",
       "equivalentProof": {
         "strategy": "canonical-tree-files",
-        "evidence": "Feedback6 preserves the accepted icon geometry and navigation motion. The workbench diff adds business-date lifecycle refresh, dynamic date reads, and a session-migration wait before loading; these are approved behavior changes, not whole-file equivalence. handleCalendarNav, handleDirectoryNav, workspace activation, swiper/locate transitions and scroll queues remain unchanged, calendarNavAnimating remains absent, and all other eight proof blobs match. See docs/audit/feedback6-release.md; motion, icon parity and lineage gates remain required.",
+        "evidence": "VIS-01 preserves the accepted icon geometry and navigation motion. The 890efd8b workbench change fixes guest endpoints, permission-scoped caching, observer-safe group switching and request lifecycle; those are approved behavior changes, not whole-file equivalence. A TypeScript AST comparison verifies 15 calendar/directory navigation, swiper/locate and scroll-queue methods unchanged from the previous proof blob; all other eight proof blobs match. See docs/audit/visitor-trial-release.md. All required checkpoints, exact blob checks, motion and icon parity gates remain enforced.",
         "files": [
           {
             "path": "packages/ui-icons/src/motion.ts",
@@ -45,7 +45,7 @@
           },
           {
             "path": "apps/miniprogram/src/pages/workbench/index.ts",
-            "blob": "32e0e95eb5c20f3ed3ffb4e440027a22e4143e8d"
+            "blob": "111c05e295e78b4056af49e022d7a842b0411cf7"
           }
         ]
       }

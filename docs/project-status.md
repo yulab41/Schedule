@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：小程序访客系统修复已完成自动化验证，待上传批准
+## 当前批次：小程序访客系统修复已完成自动化验证，已批准上传并放行
 
 - 已批准登录访客与扫码访客两种入口完整修复。真实属性观察器测试已复现空群回写递归；成员API误用于访客已用403回归确认；固定扫码页面此前缺失。
 - 已实现内部群状态分离、切群同步清理/旧响应失效、同群角色重新授权、访客接口和只读隐私隔离，新增pages/guest/guest；医护关联和生产业务数据保持原状。详见docs/audit/visitor-system-fix.md。
 - 独占general-1，REUSE_ONLY、无安装。静态构建/typecheck/格式/ESLint及定向测试通过；新增页首次超包限制，已通过静态声明裁剪解决，未改变限制或认证协议。
 - Mini全量1014通过/15跳过，最后匿名页13和工作台48通过；root1225通过/418跳过、旧GET断言修正后相关46复测通过，依赖保护81通过。运行/浏览器验证：pnpm smoke:browser全流程通过，本地合成管理员标记已恢复。检查点消息：fix(miniprogram): complete guest calendars and isolate group switching。
-- 唯一下一任务/停止条件：已验证检查点提交推送后，展示具体SHA/干净状态/测试页面并取得该检查点上传批准。UPLOAD_REQUIRED；不预留版本，不操作生产群关联。
+- 用户已明确同意上传并放行890efd8b。首次上传预检发现5285dd1旧工作台blob证明不匹配，尚未分配版本或上传；15个动效相关方法AST及其余8个proof blob核验一致，仅补充policy证明，详见docs/audit/visitor-trial-release.md。
+- 当前检查点消息：chore(release): refresh visitor workbench lineage proof。唯一下一任务/停止条件：推送此元数据补充后按同次授权锁内上传、可信ensure追加版本并生产验证；不操作群关联或退役旧版。
 - 本轮卡死/闪退最终状态为待小米14同一新版体验版复核；Node通过不能替代原生验收。当前尚未上传或宣称真机修复完成。
 
 ## 上一批次：群组互为访客已上线并启用
