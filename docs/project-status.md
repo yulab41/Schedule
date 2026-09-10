@@ -1,15 +1,16 @@
 # Project Status
 
-## 当前批次：群组互为访客已实现，待生产启用
+## 当前批次：群组互为访客已上线并启用
 
 - 新增群组级双向关联，当前及未来正式成员实时获得对方群访客访问；离群/停用自动失效，不创建成员行，不传播第三群，原有身份保留。
 - 登录关联访客只读已发布/历史排班，过滤所有联系方式；平台管理员标记不扩大关联权限。群目录、加入退出冲突提示、群回收和运维预检/幂等启停/审计齐备。
 - 新增0057迁移；发布兼容要求schema57。操作说明见docs/operations/group-visitor-links.md，验证与引入点见docs/audit/group-visitor-links.md。
 - 验证：真实MySQL83项不同用例及13项定向复测，API/数据库Node257通过/411跳过；build/typecheck/ESLint/format通过。完整浏览器冒烟与双向关联专项浏览器均通过；smoke:check-core通过。
 - 独占general-1复用依赖，无安装。Docker残留socket阻塞已排除；合成local-admin的测试标记已恢复。原有未跟踪文件保持不动。
-- 检查点：`feat(groups): add reciprocal guest access between groups`；按用户项目级自动部署要求与本轮实施计划继续生产阶段，不重复索要许可；未上传小程序。
-- 生产只读预检：实时live=8e68a480，schema56；医生群7名、护士群18名有效正式成员；全库37账号/35成员关系/4011排班。真实群ID已核对，关联尚未启用。
-- 唯一下一任务/停止条件：提交推送后，以刚读取的live为候选基线，备份并部署schema57，预检并启用医生群↔护士群关联，验证双向访问与业务数量不变。完成后只收口文档，不再次部署。
+- 应用检查点4e0a0d1a `feat(groups): add reciprocal guest access between groups`已推送并部署。生产备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4已核验文件长度与hash；部署前实际live=8e68a480，部署后schema57。完整生产verifier、版本策略与外部HTTPS健康检查通过。
+- 医生群7名、护士群18名有效正式成员；原有跨群身份优先保留，新增覆盖医生群6账号→护士群、护士群17账号→医生群。生产逐账号验证访客摘要、排班读取、联系方式隐藏及管理权限拒绝全部通过。
+- 生产关联已启用（version1），账号37/成员关系35/排班4011前后不变；未新增个人成员记录、未主动发送通知、未上传小程序。交付细节见docs/audit/group-visitor-links.md。
+- 收口检查点：`docs(ops): record reciprocal guest access activation`。唯一下一任务/停止条件：用户重开现有小程序或刷新Web后查看对方群“访客”入口；小米14原生体验待用户复核。本轮实施及生产配置完成，不再次部署、备份或启停关联。
 
 ## 上一批次：feedback8 九项整改已交付体验版99，待小米14复核
 

@@ -2714,5 +2714,6 @@
 - 变化：新增群关系派生只读访问、撤权判定、联系方式过滤、启停审计、迁移57及回收步骤；原直接成员身份与群排序保留。数据库夹具仅补充新表重置。
 - 红绿：旧列表未显示关联群；旧release兼容门禁拒绝57；新增表触发回收覆盖门禁失败；实现后对应测试通过。
 - 运行/浏览器验证：pnpm smoke:browser通过；真实API/MySQL关联专项浏览器双向切群和撤权通过；pnpm smoke:check-core通过。
-- 真实MySQL83项不同用例、追加13项定向复测；API/数据库Node257通过、411跳过；build/typecheck/ESLint/format通过。小程序真机未验证，生产尚未启用。
-- 详见docs/audit/group-visitor-links.md与docs/operations/group-visitor-links.md。按用户项目级自动部署指令与本轮实施计划，下一任务为生产备份、部署、两群关联配置与验证；实时只读基线8e68a480/schema56已核对。
+- 真实MySQL83项不同用例、追加13项定向复测；API/数据库Node257通过、411跳过；build/typecheck/ESLint/format通过。小程序真机未验证，生产结果见下条。
+- 生产交付：4e0a0d1a已推送/部署，schema57；备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4文件hash通过，前驱实时8e68a480。完整verifier/版本策略/外部HTTPS通过。关联version1已启用，新增6+17账号逐一只读权限核验通过，37账号/35成员关系/4011排班不变。
+- 详见docs/audit/group-visitor-links.md与docs/operations/group-visitor-links.md。本轮完成，待用户重开现有小程序复核；收口文档不重复部署/备份/启停，不上传小程序。

@@ -24,9 +24,18 @@
 - Docker启动被两个残留AF_UNIX socket阻断；保留原socket目录后恢复引擎，只使用现有测试镜像。
 - 证据位于工作树ignored `runtime/audit/group-visitor-links/` 与 `runtime/smoke/group-visitor-links/`。
 
-## 交付状态
+## 生产交付（2026-09-10）
 
-- 实现及本地验证已完成。检查点：`feat(groups): add reciprocal guest access between groups`；生产阶段按用户提供的项目级自动部署指令与当轮实施请求执行。
-- 只读预检live=8e68a480、schema56、全库37账号/35成员关系/4011排班；医生群7、护士群18名有效正式成员，均有登录身份。群名唯一匹配，ID已核对；关联尚未启用。
-- 后续按runbook备份、部署、配置与验证；不把构建或Git推送当作生产验证。
-- Web浏览器与Node测试不替代小米14验收；未操作微信开发者工具或上传小程序。
+- 按用户提供的项目级自动部署指令与当轮实施请求执行。应用4e0a0d1af9d1d3580ab6add1e83f857262852a9d已合入main、推送GitHub并部署；收口文档不重复部署。
+- 部署前实时读取live=8e68a480ba7608025a9af262e7d6fe5369071161，作为manifest的rollbackCandidate；schema56。不是根据历史聊天猜测。
+- 备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4，102918988字节、53表、241617行，SHA-256 `24fb9ee40928444b47d19389839d5517f5702180a234f1b68c3cf64118151428`。登记、时效、实际文件长度及hash一致；已有保留策略淘汰1份旧备份。
+- 官方packager在独占warm槽生成production发布包，manifest绑定应用4e0a0d1a/schema57及实际live前驱。开发依赖ReuseOnly；官方离线产物deploy复用85个生产依赖，下载0，未运行install。
+- 服务器独立目录上传产物与同SHA updater/verifier，固定wrapper复核脚本和manifest hash、实时live与备份后执行ecs-update；健康检查短暂502后恢复，7/7部署完成。
+- 完整生产verifier与版本白名单/能力策略校验通过；独立HTTPS `/api/health` 200/ready=true，未调整小程序允许版本或能力开关。隐私保留任务本轮删除0行。
+- 正式CLI预检唯一匹配“头颈外科医生”与“头颈外科护士”，分别7和18名有效正式成员；其中已有目标群直接身份各1个，保留原身份。
+- 预检version0后执行enable，创建唯一双向关联b98e9d9f-fdd3-43d6-893b-429d6bbafdf2，enabled=true/version1；审计记录随事务写入。
+- 生产服务层只读逐账号验证：医生群6账号→护士群，护士群17账号→医生群；所有派生摘要均为guest且无平台管理标记，排班读取成功，长号/短号均隐藏，管理权限403。
+- 全库账号37、成员关系35、排班4011前后完全一致；只增加群关联与审计记录，无个人访客成员行，不复制本地数据、不主动真实发送通知。
+- 首选回退是按运维文档停用此关联，保留业务数据。旧release声明schema上限56，不绕过现有应用回滚兼容门禁。
+- 用户重开现有小程序/刷新Web即可获取最新群列表。Web浏览器、Node与生产服务层测试不替代小米14验收；未操作微信开发者工具或上传小程序。
+- 收口检查点：`docs(ops): record reciprocal guest access activation`；本轮已完成，停止重复备份、部署、关联启停。
