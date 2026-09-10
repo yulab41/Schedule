@@ -18,6 +18,19 @@
 - 320/390导航配置和安全区回归先失败后通过；匿名页15、Page边界2通过，Mini verify/确定性/包体/Worklet及受影响ESLint通过。未使用开发者工具，最终原生效果仍需小米14。
 - 导航修复检查点消息：fix(miniprogram): use Skyline-safe guest navigation。推送后重新由锁内分配器选择未占用版本，不复用.100。
 
-## 当前状态
+## 已完成交付
 
-上传和放行尚未完成；唯一下一任务为完成导航修复检查点的重新上传、回执/Manifest校验、可信ensure和生产验证。真机卡死/闪退仍须同版小米14复核。
+- 最终源码检查点：f7bc3ccc5d967b5bbeca0493256a7bdce12b49bb，`fix(miniprogram): use Skyline-safe guest navigation`；包含890efd8b完整访客修复及17939041证明补充，均已普通推送main。
+- 正式锁内分配体验版`0.1.0-p10.20260910.101`，说明“访客切群与扫码只读日历修复 f7bc3cc”。production/clean；构建2026-09-10T14:24:30.552Z，上传成功2026-09-10T14:26:33.204Z（香港时间22:26:33）。
+- Manifest `e0e3431ae0c73c70bddf895231e084024a855835190e6cdf9bae79500efe156c`；353个冻结文件逐项大小/SHA256核验通过，receipt与版本、SHA、构建时间、Manifest及远端不可变tag完全一致。
+- 官方Worklet编译通过；版本绑定主包1,646,685字节、总包4,433,783字节，保留已有主包1.5MiB预警。构建前和版本绑定后真实PowerShell候选检查均通过，来源为独占healthy warm槽，依赖复用、没有安装。
+- 生产实时基线及完成后live均为4e0a0d1af9d1d3580ab6add1e83f857262852a9d；可信`ensure .101`追加1个版本，保留旧版本/legacy。API/Web重建期间短暂EOF/502，健康等待后恢复；完整ecs-verifier和allowlist verify通过。
+- 独立正式HTTPS（保留TLS验证）：.101/.99/.98=200；失败的.100及动态未知版本=426。另确认.101的global/core/guest均true。
+- 本轮没有部署新的API/Web应用源码、迁移数据库或新建数据库备份；只上传小程序及授权的允许列表变更。没有启停医护群关联、创建个人访客、发送真实通知、提审或正式发布。
+- ignored证据：general-1/runtime/audit/visitor-upload（最初proof失败与AST证明）、visitor-upload-final（.100编译失败及冻结包）、visitor-upload-nav（.101回执/冻结353文件/生产验证）；canonical runtime/audit/miniprogram-trials保存不可变分配、Manifest和receipt。
+
+## 交接
+
+文档收口检查点：`docs(release): record visitor trial 101 delivery`。只记录已交付的f7bc3ccc/.101，不再上传、生产备份、部署或同步服务器release标识。
+
+唯一下一任务：用户在小米14关闭并重开体验版，确认.101/f7bc3cc、trial、Skyline、基础库/微信版本和构建时间，反复医生群↔护士群切换、验证月/周/列表及筛选，再用现有访客码扫码并后台往返。自动化交付已完成，待用户原生复核；不能把上传成功当作卡死/闪退已消除。
