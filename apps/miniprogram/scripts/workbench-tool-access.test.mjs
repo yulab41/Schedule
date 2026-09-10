@@ -35,12 +35,20 @@ describe('Mini workbench tool access matrix', () => {
     }
   });
 
-  it('lets developer administrators use every tool regardless of their group role', () => {
+  it('lets formal developer administrators use every tool', () => {
     const access = createWorkbenchToolAccess(
-      group('guest', { isDeveloperAdmin: true }),
+      group('member', { isDeveloperAdmin: true }),
       capability(),
     );
     expect(visibleTools(access)).toEqual(workbenchToolIds);
+  });
+
+  it('never escalates a guest through a developer-admin flag', () => {
+    expect(
+      visibleTools(
+        createWorkbenchToolAccess(group('guest', { isDeveloperAdmin: true }), capability()),
+      ),
+    ).toEqual([]);
   });
 
   it('hides every More tool from guests and exposes a real empty state', () => {

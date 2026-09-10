@@ -66,47 +66,51 @@ interface ObjectRequestInput<Request> extends GroupRequestInput<Request> {
   readonly objectId: string;
 }
 
-export const leaveRequestDecoder = createCompactDecoder<LeaveRequest>(leaveRequestJsonSchema);
-export const leaveRequestListDecoder = createCompactDecoder<LeaveRequest[]>(
+export const leaveRequestDecoder =
+  /* @__PURE__ */ createCompactDecoder<LeaveRequest>(leaveRequestJsonSchema);
+export const leaveRequestListDecoder = /* @__PURE__ */ createCompactDecoder<LeaveRequest[]>(
   leaveRequestListJsonSchema,
 );
-export const leaveAffectedShiftListDecoder = createCompactDecoder<readonly LeaveAffectedShift[]>(
-  leaveAffectedShiftListJsonSchema,
-);
-export const leaveApprovalPreviewDecoder = createCompactDecoder<LeaveApprovalPreview>(
-  leaveApprovalPreviewJsonSchema,
-);
-export const approvedLeaveRequestResultDecoder = createCompactDecoder<ApprovedLeaveRequestResult>(
-  approvedLeaveRequestResultJsonSchema,
-);
-export const rejectedLeaveRequestResultDecoder = createCompactDecoder<RejectedLeaveRequestResult>(
-  rejectedLeaveRequestResultJsonSchema,
-);
-export const leaveRequestMutationResultDecoder = createCompactDecoder<LeaveRequestMutationResult>(
-  leaveRequestMutationResultJsonSchema,
-);
-export const swapPreviewDecoder = createCompactDecoder<SwapPreview>(swapPreviewJsonSchema);
-export const swapRequestDecoder = createCompactDecoder<SwapRequest>(swapRequestJsonSchema);
+export const leaveAffectedShiftListDecoder = /* @__PURE__ */ createCompactDecoder<
+  readonly LeaveAffectedShift[]
+>(leaveAffectedShiftListJsonSchema);
+export const leaveApprovalPreviewDecoder =
+  /* @__PURE__ */ createCompactDecoder<LeaveApprovalPreview>(leaveApprovalPreviewJsonSchema);
+export const approvedLeaveRequestResultDecoder =
+  /* @__PURE__ */ createCompactDecoder<ApprovedLeaveRequestResult>(
+    approvedLeaveRequestResultJsonSchema,
+  );
+export const rejectedLeaveRequestResultDecoder =
+  /* @__PURE__ */ createCompactDecoder<RejectedLeaveRequestResult>(
+    rejectedLeaveRequestResultJsonSchema,
+  );
+export const leaveRequestMutationResultDecoder =
+  /* @__PURE__ */ createCompactDecoder<LeaveRequestMutationResult>(
+    leaveRequestMutationResultJsonSchema,
+  );
+export const swapPreviewDecoder =
+  /* @__PURE__ */ createCompactDecoder<SwapPreview>(swapPreviewJsonSchema);
+export const swapRequestDecoder =
+  /* @__PURE__ */ createCompactDecoder<SwapRequest>(swapRequestJsonSchema);
 export const swapRequestListDecoder =
-  createCompactDecoder<SwapRequest[]>(swapRequestListJsonSchema);
-export const groupSwapSettingsDecoder = createCompactDecoder<GroupSwapSettings>(
+  /* @__PURE__ */ createCompactDecoder<SwapRequest[]>(swapRequestListJsonSchema);
+export const groupSwapSettingsDecoder = /* @__PURE__ */ createCompactDecoder<GroupSwapSettings>(
   groupSwapSettingsJsonSchema,
 );
-export const memberSwapSettingsDecoder = createCompactDecoder<MemberSwapSettings>(
+export const memberSwapSettingsDecoder = /* @__PURE__ */ createCompactDecoder<MemberSwapSettings>(
   memberSwapSettingsJsonSchema,
 );
-export const dutyAdjustmentPreviewDecoder = createCompactDecoder<DutyAdjustmentPreview>(
-  dutyAdjustmentPreviewJsonSchema,
-);
-export const dutyAdjustmentRequestDecoder = createCompactDecoder<DutyAdjustmentRequest>(
-  dutyAdjustmentRequestJsonSchema,
-);
-export const dutyAdjustmentRequestListDecoder = createCompactDecoder<DutyAdjustmentRequest[]>(
-  dutyAdjustmentRequestListJsonSchema,
-);
-export const groupDutyAdjustmentSettingsDecoder = createCompactDecoder<GroupDutyAdjustmentSettings>(
-  groupDutyAdjustmentSettingsJsonSchema,
-);
+export const dutyAdjustmentPreviewDecoder =
+  /* @__PURE__ */ createCompactDecoder<DutyAdjustmentPreview>(dutyAdjustmentPreviewJsonSchema);
+export const dutyAdjustmentRequestDecoder =
+  /* @__PURE__ */ createCompactDecoder<DutyAdjustmentRequest>(dutyAdjustmentRequestJsonSchema);
+export const dutyAdjustmentRequestListDecoder = /* @__PURE__ */ createCompactDecoder<
+  DutyAdjustmentRequest[]
+>(dutyAdjustmentRequestListJsonSchema);
+export const groupDutyAdjustmentSettingsDecoder =
+  /* @__PURE__ */ createCompactDecoder<GroupDutyAdjustmentSettings>(
+    groupDutyAdjustmentSettingsJsonSchema,
+  );
 
 const requestBody = <Request>({ request }: GroupRequestInput<Request>): Request => request;
 const operationId = <Request extends { readonly operationId: string }>(
@@ -114,7 +118,10 @@ const operationId = <Request extends { readonly operationId: string }>(
 ): string => input.request.operationId;
 
 export const workflowEndpoints = {
-  leaveCreate: defineClientEndpoint<GroupRequestInput<CreateLeaveRequestInput>, LeaveRequest>({
+  leaveCreate: /* @__PURE__ */ defineClientEndpoint<
+    GroupRequestInput<CreateLeaveRequestInput>,
+    LeaveRequest
+  >({
     auth: 'bearer',
     body: requestBody,
     decoder: leaveRequestDecoder,
@@ -123,14 +130,14 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => leavePath(groupId),
   }),
-  leaveMine: defineClientEndpoint<GroupInput, LeaveRequest[]>({
+  leaveMine: /* @__PURE__ */ defineClientEndpoint<GroupInput, LeaveRequest[]>({
     auth: 'bearer',
     decoder: leaveRequestListDecoder,
     id: 'workflow.leave-mine',
     method: 'GET',
     path: ({ groupId }) => leavePath(groupId),
   }),
-  leaveAffectedShifts: defineClientEndpoint<
+  leaveAffectedShifts: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<LeaveAffectedShiftsInput>,
     readonly LeaveAffectedShift[]
   >({
@@ -141,14 +148,14 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${leavePath(groupId)}/affected-shifts`,
   }),
-  leaveApprovals: defineClientEndpoint<GroupInput, LeaveRequest[]>({
+  leaveApprovals: /* @__PURE__ */ defineClientEndpoint<GroupInput, LeaveRequest[]>({
     auth: 'bearer',
     decoder: leaveRequestListDecoder,
     id: 'workflow.leave-approvals',
     method: 'GET',
     path: ({ groupId }) => `${leavePath(groupId)}/approvals`,
   }),
-  leavePreview: defineClientEndpoint<
+  leavePreview: /* @__PURE__ */ defineClientEndpoint<
     ObjectRequestInput<PreviewLeaveRequestInput>,
     LeaveApprovalPreview
   >({
@@ -159,7 +166,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/preview`,
   }),
-  leaveApprove: defineClientEndpoint<
+  leaveApprove: /* @__PURE__ */ defineClientEndpoint<
     ObjectRequestInput<ApproveLeaveRequestInput>,
     ApprovedLeaveRequestResult
   >({
@@ -171,7 +178,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/approve`,
   }),
-  leaveReject: defineClientEndpoint<
+  leaveReject: /* @__PURE__ */ defineClientEndpoint<
     ObjectRequestInput<RejectLeaveRequestInput>,
     RejectedLeaveRequestResult
   >({
@@ -183,7 +190,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/reject`,
   }),
-  leaveCancel: defineClientEndpoint<
+  leaveCancel: /* @__PURE__ */ defineClientEndpoint<
     ObjectRequestInput<LeaveRequestMutationInput>,
     LeaveRequestMutationResult
   >({
@@ -195,7 +202,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/cancel`,
   }),
-  leaveRevoke: defineClientEndpoint<
+  leaveRevoke: /* @__PURE__ */ defineClientEndpoint<
     ObjectRequestInput<LeaveRequestMutationInput>,
     LeaveRequestMutationResult
   >({
@@ -207,7 +214,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${leaveObjectPath(groupId, objectId)}/revoke`,
   }),
-  swapPreview: defineClientEndpoint<GroupRequestInput<SwapPairInput>, SwapPreview>({
+  swapPreview: /* @__PURE__ */ defineClientEndpoint<GroupRequestInput<SwapPairInput>, SwapPreview>({
     auth: 'bearer',
     body: requestBody,
     decoder: swapPreviewDecoder,
@@ -215,7 +222,10 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${swapPath(groupId)}/preview`,
   }),
-  swapCreate: defineClientEndpoint<GroupRequestInput<CreateSwapRequestInput>, SwapRequest>({
+  swapCreate: /* @__PURE__ */ defineClientEndpoint<
+    GroupRequestInput<CreateSwapRequestInput>,
+    SwapRequest
+  >({
     auth: 'bearer',
     body: requestBody,
     decoder: swapRequestDecoder,
@@ -224,7 +234,10 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => swapPath(groupId),
   }),
-  swapDirectCreate: defineClientEndpoint<GroupRequestInput<CreateDirectSwapInput>, SwapRequest>({
+  swapDirectCreate: /* @__PURE__ */ defineClientEndpoint<
+    GroupRequestInput<CreateDirectSwapInput>,
+    SwapRequest
+  >({
     auth: 'bearer',
     body: requestBody,
     decoder: swapRequestDecoder,
@@ -233,14 +246,14 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${swapPath(groupId)}/direct`,
   }),
-  swapMine: defineClientEndpoint<GroupInput, SwapRequest[]>({
+  swapMine: /* @__PURE__ */ defineClientEndpoint<GroupInput, SwapRequest[]>({
     auth: 'bearer',
     decoder: swapRequestListDecoder,
     id: 'workflow.swap-mine',
     method: 'GET',
     path: ({ groupId }) => swapPath(groupId),
   }),
-  swapApprovals: defineClientEndpoint<GroupInput, SwapRequest[]>({
+  swapApprovals: /* @__PURE__ */ defineClientEndpoint<GroupInput, SwapRequest[]>({
     auth: 'bearer',
     decoder: swapRequestListDecoder,
     id: 'workflow.swap-approvals',
@@ -251,7 +264,10 @@ export const workflowEndpoints = {
   swapApprove: workflowMutationEndpoint('swap-approve', swapRequestDecoder, 'swaps', 'approve'),
   swapReject: workflowMutationEndpoint('swap-reject', swapRequestDecoder, 'swaps', 'reject'),
   swapCancel: workflowMutationEndpoint('swap-cancel', swapRequestDecoder, 'swaps', 'cancel'),
-  swapRevoke: defineClientEndpoint<ObjectRequestInput<RevokeSwapRequestInput>, SwapRequest>({
+  swapRevoke: /* @__PURE__ */ defineClientEndpoint<
+    ObjectRequestInput<RevokeSwapRequestInput>,
+    SwapRequest
+  >({
     auth: 'bearer',
     body: requestBody,
     decoder: swapRequestDecoder,
@@ -260,14 +276,14 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${swapObjectPath(groupId, objectId)}/revoke`,
   }),
-  swapSettings: defineClientEndpoint<GroupInput, GroupSwapSettings>({
+  swapSettings: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupSwapSettings>({
     auth: 'bearer',
     decoder: groupSwapSettingsDecoder,
     id: 'workflow.swap-settings',
     method: 'GET',
     path: ({ groupId }) => `${swapPath(groupId)}/settings`,
   }),
-  swapSettingsUpdate: defineClientEndpoint<
+  swapSettingsUpdate: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<UpdateGroupSwapSettingsInput>,
     GroupSwapSettings
   >({
@@ -278,14 +294,14 @@ export const workflowEndpoints = {
     method: 'PUT',
     path: ({ groupId }) => `${swapPath(groupId)}/settings`,
   }),
-  swapMySettings: defineClientEndpoint<GroupInput, MemberSwapSettings>({
+  swapMySettings: /* @__PURE__ */ defineClientEndpoint<GroupInput, MemberSwapSettings>({
     auth: 'bearer',
     decoder: memberSwapSettingsDecoder,
     id: 'workflow.swap-my-settings',
     method: 'GET',
     path: ({ groupId }) => `${swapPath(groupId)}/my-settings`,
   }),
-  swapMySettingsUpdate: defineClientEndpoint<
+  swapMySettingsUpdate: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<UpdateMemberSwapSettingsInput>,
     MemberSwapSettings
   >({
@@ -296,7 +312,7 @@ export const workflowEndpoints = {
     method: 'PUT',
     path: ({ groupId }) => `${swapPath(groupId)}/my-settings`,
   }),
-  dutyPreview: defineClientEndpoint<
+  dutyPreview: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<DutyAdjustmentPairInput>,
     DutyAdjustmentPreview
   >({
@@ -307,7 +323,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${dutyPath(groupId)}/preview`,
   }),
-  dutyCreate: defineClientEndpoint<
+  dutyCreate: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<CreateDutyAdjustmentRequestInput>,
     DutyAdjustmentRequest
   >({
@@ -319,7 +335,7 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => dutyPath(groupId),
   }),
-  dutyDirectCreate: defineClientEndpoint<
+  dutyDirectCreate: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<CreateDirectDutyAdjustmentInput>,
     DutyAdjustmentRequest
   >({
@@ -331,14 +347,14 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${dutyPath(groupId)}/direct`,
   }),
-  dutyMine: defineClientEndpoint<GroupInput, DutyAdjustmentRequest[]>({
+  dutyMine: /* @__PURE__ */ defineClientEndpoint<GroupInput, DutyAdjustmentRequest[]>({
     auth: 'bearer',
     decoder: dutyAdjustmentRequestListDecoder,
     id: 'workflow.duty-mine',
     method: 'GET',
     path: ({ groupId }) => dutyPath(groupId),
   }),
-  dutyApprovals: defineClientEndpoint<GroupInput, DutyAdjustmentRequest[]>({
+  dutyApprovals: /* @__PURE__ */ defineClientEndpoint<GroupInput, DutyAdjustmentRequest[]>({
     auth: 'bearer',
     decoder: dutyAdjustmentRequestListDecoder,
     id: 'workflow.duty-approvals',
@@ -369,7 +385,7 @@ export const workflowEndpoints = {
     'duty-adjustments',
     'cancel',
   ),
-  dutyRevoke: defineClientEndpoint<
+  dutyRevoke: /* @__PURE__ */ defineClientEndpoint<
     ObjectRequestInput<RevokeDutyAdjustmentInput>,
     DutyAdjustmentRequest
   >({
@@ -381,14 +397,14 @@ export const workflowEndpoints = {
     method: 'POST',
     path: ({ groupId, objectId }) => `${dutyObjectPath(groupId, objectId)}/revoke`,
   }),
-  dutySettings: defineClientEndpoint<GroupInput, GroupDutyAdjustmentSettings>({
+  dutySettings: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupDutyAdjustmentSettings>({
     auth: 'bearer',
     decoder: groupDutyAdjustmentSettingsDecoder,
     id: 'workflow.duty-settings',
     method: 'GET',
     path: ({ groupId }) => `${dutyPath(groupId)}/settings`,
   }),
-  dutySettingsUpdate: defineClientEndpoint<
+  dutySettingsUpdate: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<UpdateGroupDutyAdjustmentSettingsInput>,
     GroupDutyAdjustmentSettings
   >({
@@ -399,7 +415,7 @@ export const workflowEndpoints = {
     method: 'PUT',
     path: ({ groupId }) => `${dutyPath(groupId)}/settings`,
   }),
-  dutyMySettings: defineClientEndpoint<GroupInput, MemberSwapSettings>({
+  dutyMySettings: /* @__PURE__ */ defineClientEndpoint<GroupInput, MemberSwapSettings>({
     auth: 'bearer',
     decoder: memberSwapSettingsDecoder,
     id: 'workflow.duty-my-settings',

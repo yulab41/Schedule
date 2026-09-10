@@ -279,7 +279,13 @@ export function createRuntimeCalendarReadClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
 ): CalendarReadClient {
-  return createCalendarReadClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
+  return createCalendarReadClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, (endpoint) =>
+      endpoint.id.includes('guest') || endpoint.id === 'calendar.resolve-visitor'
+        ? 'guest'
+        : 'core',
+    ),
+  );
 }
 
 export function createRuntimeCalendarPreferencesClient(

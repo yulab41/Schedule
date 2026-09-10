@@ -163,11 +163,11 @@ export function renderGeneratedSchemas({ errorCodes, schemas }) {
     `  ${quoteJson(errorCodes)};`,
     '',
     ...schemaEntries.flatMap(([name]) => [
-      `export const ${name}JsonSchema = JSON.parse(`,
+      `export const ${name}JsonSchema = /* @__PURE__ */ JSON.parse(`,
       `  ${name}SchemaJson,`,
       ') as CompactJsonSchema;',
     ]),
-    'export const generatedApiErrorCodes = JSON.parse(apiErrorCodesJson) as readonly string[];',
+    'export const generatedApiErrorCodes = /* @__PURE__ */ JSON.parse(apiErrorCodesJson) as readonly string[];',
     '',
   ].join('\n');
 }

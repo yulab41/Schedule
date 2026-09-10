@@ -271,6 +271,179 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.workspaceReadyEventCounts.swap).toBe(2);
   });
 
+  it('invalidates old reads synchronously and clears all private surfaces on guest selection', async () => {
+    const storage = createStorage();
+    vi.stubGlobal('wx', createWx(storage, vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendar(activeMonth);
+    instance.holidays = holidayApiGoldenResponse;
+    instance.monthResources.set(activeMonth, {
+      calendar: instance.calendar,
+      holidays: instance.holidays,
+      offline: false,
+    });
+    Object.assign(instance.data, {
+      groups: [
+        groupSummary(),
+        { ...groupSummary(), id: 'guest-group', role: 'guest', isDeveloperAdmin: true },
+      ],
+      currentGroupId: 'group-1',
+      activeWorkspace: 'directory',
+      activeWorkspaceIndex: 1,
+      state: 'ready',
+      selectedDetails: [{ phoneOptions: ['private'] }],
+      monthPanels: [{}],
+      filterOpen: true,
+      filterMemberOptions: [{ label: 'private' }],
+      notificationSheetOpen: true,
+      workspacePreloadQueue: ['directory', 'swap'],
+    });
+    const serial = instance.requestSerial;
+    definition.handleGroupSelect.call(instance, {
+      currentTarget: { dataset: { groupId: 'guest-group' } },
+    });
+    expect(instance.requestSerial).toBeGreaterThan(serial);
+    expect(instance.data).toMatchObject({
+      state: 'loading',
+      selectedDetails: [],
+      monthPanels: [],
+      filterOpen: false,
+      filterMemberOptions: [],
+      notificationSheetOpen: false,
+      activeWorkspace: 'calendar',
+      toolAccess: {
+        groupSettings: false,
+        leave: false,
+        notifications: false,
+        manualSchedule: false,
+      },
+    });
+    expect(instance.monthResources.size).toBe(0);
+    definition.onHide.call(instance);
+  });
+
+  it('reauthorizes a same-group role downgrade without member cache or contacts', async () => {
+    const storage = createStorage();
+    let role = 'member';
+    let guestOffline = false;
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/groups'))
+        return options.success({ data: [{ ...groupSummary(), role }], statusCode: 200 });
+      const month = readBusinessMonth(options.url);
+      if (!month)
+        return options.success({
+          data: options.url.includes('unread') ? { unreadCount: 0 } : holidayApiGoldenResponse,
+          statusCode: 200,
+        });
+      if (role === 'guest' && !options.url.includes('/guest-calendar?'))
+        return options.success({
+          data: { error: { code: 'FORBIDDEN', message: 'guest', requestId: 'forbidden' } },
+          statusCode: 403,
+        });
+      if (guestOffline) return options.fail({ errMsg: 'offline' });
+      const payload = calendar(month);
+      payload.members[0].shortPhone = '1234';
+      payload.members[0].mobilePhone = '13800000000';
+      options.success({
+        data: role === 'guest' ? { calendar: payload, groupName: '访客群' } : payload,
+        statusCode: 200,
+      });
+    });
+    vi.stubGlobal('wx', createWx(storage, request));
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    role = 'guest';
+    definition.onHide.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.currentGroupRoleKind).toBe('guest'));
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    expect(instance.calendar.members.every((m) => !m.mobilePhone && !m.shortPhone)).toBe(true);
+    expect(
+      [...storage.keys()].filter((key) => key.startsWith('schedule.wechat.workbench.cache.v2:')),
+    ).toEqual([]);
+    const memberRequestCount = request.mock.calls.filter(([o]) =>
+      o.url.includes('/calendar?'),
+    ).length;
+    guestOffline = true;
+    definition.onHide.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.state).toBe('error'));
+    expect(instance.data.selectedDetails).toEqual([]);
+    expect(instance.calendar).toBeUndefined();
+    expect(request.mock.calls.filter(([o]) => o.url.includes('/calendar?'))).toHaveLength(
+      memberRequestCount,
+    );
+    definition.onUnload.call(instance);
+  });
+
+  it.each([200, 403])(
+    'discards a late guest response after a rapid member return (%s)',
+    async (status) => {
+      const storage = createStorage();
+      const pendingGuest = [];
+      const groups = [groupSummary(), { ...groupSummary(), id: 'guest-group', role: 'guest' }];
+      const request = vi.fn((options) => {
+        if (options.url.endsWith('/groups'))
+          return options.success({ statusCode: 200, data: groups });
+        if (options.url.includes('/guest-calendar?')) {
+          pendingGuest.push(options);
+          return;
+        }
+        if (options.url.includes('/guest-group/calendar?'))
+          return options.success({
+            statusCode: 403,
+            data: { error: { code: 'FORBIDDEN', message: 'guest', requestId: 'denied' } },
+          });
+        const month = readBusinessMonth(options.url);
+        options.success({
+          statusCode: 200,
+          data: month
+            ? calendar(month)
+            : options.url.includes('unread')
+              ? { unreadCount: 0 }
+              : holidayApiGoldenResponse,
+        });
+      });
+      vi.stubGlobal('wx', createWx(storage, request));
+      await import('../src/pages/workbench/index.ts');
+      await enableTestClientCapabilities();
+      const instance = createPageInstance(definition);
+      definition.onLoad.call(instance);
+      definition.onShow.call(instance);
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      definition.handleGroupSelect.call(instance, {
+        currentTarget: { dataset: { groupId: 'guest-group' } },
+      });
+      await vi.waitFor(() => expect(pendingGuest.length).toBe(1));
+      const guestReads = request.mock.calls.filter(([o]) => o.url.includes('guest-group'));
+      expect(guestReads.every(([o]) => o.url.includes('/guest-calendar?'))).toBe(true);
+      definition.handleGroupSelect.call(instance, {
+        currentTarget: { dataset: { groupId: 'group-1' } },
+      });
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      const before = structuredClone(instance.data);
+      const saved = structuredClone([...storage]);
+      pendingGuest[0].success({
+        statusCode: status,
+        data:
+          status === 200
+            ? { calendar: { ...calendar(activeMonth), groupId: 'guest-group' }, groupName: 'late' }
+            : { error: { code: 'FORBIDDEN', message: 'revoked', requestId: 'late' } },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(instance.data.currentGroupId).toBe('group-1');
+      expect(instance.calendar.groupId).toBe('group-1');
+      expect(instance.data.selectedDetails).toEqual(before.selectedDetails);
+      expect([...storage]).toEqual(saved);
+      definition.onUnload.call(instance);
+    },
+  );
+
   it('skips unauthorized heavy panels without blocking Profile preload', async () => {
     const storage = createStorage();
     const request = vi.fn((options) => {
@@ -283,8 +456,13 @@ describe('P6-A workbench runtime coordination', () => {
       }
       const month = readBusinessMonth(options.url);
       options.success({
-        data: month === undefined ? holidayApiGoldenResponse : calendar(month),
-        statusCode: 200,
+        data:
+          month === undefined
+            ? holidayApiGoldenResponse
+            : options.url.includes('/guest-calendar?')
+              ? { calendar: calendar(month), groupName: '访客群' }
+              : { error: { code: 'FORBIDDEN', message: '仅成员可访问', requestId: 'guest-403' } },
+        statusCode: month === undefined || options.url.includes('/guest-calendar?') ? 200 : 403,
       });
     });
     vi.stubGlobal('wx', createWx(storage, request));

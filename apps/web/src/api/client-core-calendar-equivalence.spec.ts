@@ -26,12 +26,18 @@ describe('client-core calendar vertical slice', () => {
     ).toBe('/groups/group%20%2F%E4%B8%80/calendar?businessMonth=2026-08');
     expect(calendarReadEndpoints.holidays.auth).toBe('bearer');
     expect(calendarReadEndpoints.holidays.path({ year: 2026 })).toBe('/holidays?year=2026');
+    expect(calendarReadEndpoints.resolveVisitor.auth).toBe('public');
+    expect(calendarReadEndpoints.resolveVisitor.path({ visitorKey: 'a'.repeat(32) })).toBe(
+      '/guest/groups/resolve',
+    );
     expect(calendarReadEndpoints.guestHolidays.auth).toBe('public');
     expect(calendarReadEndpoints.guestHolidays.path({ year: 2026 })).toBe(
       '/guest/holidays?year=2026',
     );
     expect(
-      Object.values(calendarReadEndpoints).every((endpoint) => endpoint.method === 'GET'),
+      Object.entries(calendarReadEndpoints).every(
+        ([name, endpoint]) => endpoint.method === (name === 'resolveVisitor' ? 'POST' : 'GET'),
+      ),
     ).toBe(true);
   });
 

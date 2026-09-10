@@ -2717,3 +2717,10 @@
 - 真实MySQL83项不同用例、追加13项定向复测；API/数据库Node257通过、411跳过；build/typecheck/ESLint/format通过。小程序真机未验证，生产结果见下条。
 - 生产交付：4e0a0d1a已推送/部署，schema57；备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4文件hash通过，前驱实时8e68a480。完整verifier/版本策略/外部HTTPS通过。关联version1已启用，新增6+17账号逐一只读权限核验通过，37账号/35成员关系/4011排班不变。
 - 详见docs/audit/group-visitor-links.md与docs/operations/group-visitor-links.md。本轮完成，待用户重开现有小程序复核；收口文档不重复部署/备份/启停，不上传小程序。
+
+
+## 2026-09-10 VIS-01 小程序访客系统修复
+
+基线fe2aa722。空groupId观察器回写源于6b5b30fb（函数沿革ef9ffeb0）；访客误用成员API源于ad4cfb2c。真实miniprogram-simulate复现递归，严格403访客mock及缺失pages/guest/guest注册先红后绿。切群同步失效、角色/账号/月隔离、访客只读入口与匿名Page已实现，详细证据见docs/audit/visitor-system-fix.md。卡死/闪退仍待同SHA新版小米14复核，尚未上传。
+
+VIS-01运行验证补充：pnpm miniprogram:test 1014通过/15跳过，末次匿名13/工作台48通过；共享客户端/Web46复测通过。运行/浏览器验证：pnpm smoke:browser全部通过，本地合成管理员标记已恢复。最终Mini verify/确定性/包体/Worklet通过；待上传同意与小米14同版复核。

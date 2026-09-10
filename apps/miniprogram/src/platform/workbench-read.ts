@@ -63,6 +63,10 @@ function sanitizeCalendarForCache(calendar: CalendarReadModel): CalendarReadMode
 
 export function createWorkbenchReadClient(): {
   readonly getCalendar: (groupId: string, businessMonth: string) => Promise<CalendarReadModel>;
+  readonly getGroupGuestCalendar: (
+    groupId: string,
+    businessMonth: string,
+  ) => Promise<CalendarReadModel>;
   readonly getMembers: (groupId: string) => Promise<readonly WorkbenchMember[]>;
   readonly getHolidays: (year: number) => Promise<HolidayReadModel>;
   readonly listGroups: () => Promise<readonly GroupSummary[]>;
@@ -75,6 +79,12 @@ export function createWorkbenchReadClient(): {
   );
   return {
     getCalendar: (groupId, businessMonth) => calendarClient.getCalendar(groupId, businessMonth),
+    getGroupGuestCalendar: async (groupId, businessMonth) => {
+      const result = await calendarClient.getGroupGuestCalendar(groupId, businessMonth);
+      if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
+        throw new Error('Invalid guest calendar context');
+      return sanitizeGuestCalendar(result.calendar);
+    },
     getMembers: async (groupId) =>
       (await organizationReadClient.listGroupMembers(groupId)).map(
         ({ id, isCurrentUser, realName, role }) => ({ id, isCurrentUser, realName, role }),
@@ -90,6 +100,23 @@ export function createWorkbenchReadClient(): {
       return groups;
     },
   };
+}
+
+export function sanitizeGuestCalendar(calendar: CalendarReadModel): CalendarReadModel {
+  return {
+    ...calendar,
+    members: calendar.members.map((member) => {
+      const safe = { ...member };
+      delete safe.mobilePhone;
+      delete safe.shortPhone;
+      return safe;
+    }),
+  };
+}
+
+export function clearWorkbenchCalendarCache(ownerId: string, groupId: string): void {
+  const prefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:`;
+  for (const key of readStorageKeys()) if (key.startsWith(prefix)) removeStorage(key);
 }
 
 export function getWorkbenchCacheKey(
@@ -260,6 +287,9 @@ export function loadActiveThenAdjacent<T>(
     },
     () => [],
   );
+  // A context switch can abandon this window before the caller subscribes to adjacent.
+  // Observe rejection immediately; the returned promise still rejects for active consumers.
+  void adjacent.catch(() => undefined);
   return { active, adjacent };
 }
 

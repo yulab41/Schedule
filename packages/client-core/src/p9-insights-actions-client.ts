@@ -54,22 +54,23 @@ interface ExportJobIdInput extends ExportGroupInput {
   readonly exportJobId: string;
 }
 
-export const notificationPageDecoder = createCompactDecoder<NotificationPage>(
+export const notificationPageDecoder = /* @__PURE__ */ createCompactDecoder<NotificationPage>(
   notificationPageJsonSchema,
 );
-export const notificationRecordDecoder = createCompactDecoder<NotificationRecord>(
+export const notificationRecordDecoder = /* @__PURE__ */ createCompactDecoder<NotificationRecord>(
   notificationRecordJsonSchema,
 );
-export const unreadCountDecoder = createCompactDecoder<UnreadCountResult>(
+export const unreadCountDecoder = /* @__PURE__ */ createCompactDecoder<UnreadCountResult>(
   unreadCountResultJsonSchema,
 );
-export const readAllResultDecoder = createCompactDecoder<ReadAllResult>(readAllResultJsonSchema);
-export const scheduleExportJobDecoder = createCompactDecoder<ScheduleExportJob>(
+export const readAllResultDecoder =
+  /* @__PURE__ */ createCompactDecoder<ReadAllResult>(readAllResultJsonSchema);
+export const scheduleExportJobDecoder = /* @__PURE__ */ createCompactDecoder<ScheduleExportJob>(
   scheduleExportJobJsonSchema,
 );
 
 export const p9InsightsActionsEndpoints = {
-  createExportJob: defineClientEndpoint<ExportJobInput, ScheduleExportJob>({
+  createExportJob: /* @__PURE__ */ defineClientEndpoint<ExportJobInput, ScheduleExportJob>({
     auth: 'bearer',
     body: ({ input }) => input,
     decoder: scheduleExportJobDecoder,
@@ -77,7 +78,7 @@ export const p9InsightsActionsEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/exports`,
   }),
-  getExportJob: defineClientEndpoint<ExportJobIdInput, ScheduleExportJob>({
+  getExportJob: /* @__PURE__ */ defineClientEndpoint<ExportJobIdInput, ScheduleExportJob>({
     auth: 'bearer',
     decoder: scheduleExportJobDecoder,
     id: 'insights.export-status',
@@ -85,7 +86,7 @@ export const p9InsightsActionsEndpoints = {
     path: ({ exportJobId, groupId }) =>
       `/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}`,
   }),
-  listNotifications: defineClientEndpoint<NotificationListInput, NotificationPage>({
+  listNotifications: /* @__PURE__ */ defineClientEndpoint<NotificationListInput, NotificationPage>({
     auth: 'bearer',
     decoder: notificationPageDecoder,
     id: 'insights.notifications-list',
@@ -98,7 +99,7 @@ export const p9InsightsActionsEndpoints = {
         ['unreadOnly', unreadOnly === true ? 'true' : undefined],
       ]),
   }),
-  markAllNotificationsRead: defineClientEndpoint<MarkAllReadInput, ReadAllResult>({
+  markAllNotificationsRead: /* @__PURE__ */ defineClientEndpoint<MarkAllReadInput, ReadAllResult>({
     auth: 'bearer',
     body: ({ groupId }) => (groupId === undefined ? {} : { groupId }),
     decoder: readAllResultDecoder,
@@ -106,14 +107,17 @@ export const p9InsightsActionsEndpoints = {
     method: 'POST',
     path: () => '/notifications/read-all',
   }),
-  markNotificationRead: defineClientEndpoint<NotificationIdInput, NotificationRecord>({
+  markNotificationRead: /* @__PURE__ */ defineClientEndpoint<
+    NotificationIdInput,
+    NotificationRecord
+  >({
     auth: 'bearer',
     decoder: notificationRecordDecoder,
     id: 'insights.notification-read',
     method: 'POST',
     path: ({ notificationId }) => `/notifications/${encodeURIComponent(notificationId)}/read`,
   }),
-  unreadCount: defineClientEndpoint<NotificationScopeInput, UnreadCountResult>({
+  unreadCount: /* @__PURE__ */ defineClientEndpoint<NotificationScopeInput, UnreadCountResult>({
     auth: 'bearer',
     decoder: unreadCountDecoder,
     id: 'insights.notifications-unread-count',

@@ -64,14 +64,17 @@ export const calendarPreferencesDecoder: CompactDecoder<CalendarPreferences> = {
 };
 
 export const calendarPreferencesEndpoints = {
-  get: defineClientEndpoint<GroupInput, CalendarPreferences>({
+  get: /* @__PURE__ */ defineClientEndpoint<GroupInput, CalendarPreferences>({
     auth: 'bearer',
     decoder: calendarPreferencesDecoder,
     id: 'core.calendar-preferences',
     method: 'GET',
     path: ({ groupId }) => `${groupPath(groupId)}/calendar-preferences`,
   }),
-  updateGroupDefaults: defineClientEndpoint<UpdateGroupDefaultsInput, CalendarPreferences>({
+  updateGroupDefaults: /* @__PURE__ */ defineClientEndpoint<
+    UpdateGroupDefaultsInput,
+    CalendarPreferences
+  >({
     auth: 'bearer',
     body: ({ input }) => input,
     decoder: calendarPreferencesDecoder,
@@ -79,7 +82,7 @@ export const calendarPreferencesEndpoints = {
     method: 'PUT',
     path: ({ groupId }) => `${groupPath(groupId)}/calendar-settings`,
   }),
-  updateMine: defineClientEndpoint<UpdateMineInput, CalendarPreferences>({
+  updateMine: /* @__PURE__ */ defineClientEndpoint<UpdateMineInput, CalendarPreferences>({
     auth: 'bearer',
     body: ({ input }) => input,
     decoder: calendarPreferencesDecoder,

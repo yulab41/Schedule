@@ -27,22 +27,24 @@ interface DirectoryLookupInput extends DirectoryGroupInput {
   readonly entryIds: readonly string[];
 }
 
-export const directoryPageDecoder = createCompactDecoder<DirectoryPage>(directoryPageJsonSchema);
-export const directoryFacetSnapshotDecoder = createCompactDecoder<DirectoryFacetSnapshot>(
-  directoryFacetSnapshotJsonSchema,
-);
+export const directoryPageDecoder =
+  /* @__PURE__ */ createCompactDecoder<DirectoryPage>(directoryPageJsonSchema);
+export const directoryFacetSnapshotDecoder =
+  /* @__PURE__ */ createCompactDecoder<DirectoryFacetSnapshot>(directoryFacetSnapshotJsonSchema);
 export const directoryEntryLookupResponseDecoder =
-  createCompactDecoder<DirectoryEntryLookupResponse>(directoryEntryLookupResponseJsonSchema);
+  /* @__PURE__ */ createCompactDecoder<DirectoryEntryLookupResponse>(
+    directoryEntryLookupResponseJsonSchema,
+  );
 
 export const directoryReadEndpoints = {
-  facets: defineClientEndpoint<DirectoryGroupInput, DirectoryFacetSnapshot>({
+  facets: /* @__PURE__ */ defineClientEndpoint<DirectoryGroupInput, DirectoryFacetSnapshot>({
     auth: 'bearer',
     decoder: directoryFacetSnapshotDecoder,
     id: 'organization.directory-facets',
     method: 'GET',
     path: ({ directoryKind, groupId }) => `${directoryPath(directoryKind, groupId)}/facets`,
   }),
-  list: defineClientEndpoint<DirectoryListInput, DirectoryPage>({
+  list: /* @__PURE__ */ defineClientEndpoint<DirectoryListInput, DirectoryPage>({
     auth: 'bearer',
     decoder: directoryPageDecoder,
     id: 'organization.directory-list',
@@ -61,7 +63,7 @@ export const directoryReadEndpoints = {
         ['subunit', query.subunit],
       ]),
   }),
-  lookup: defineClientEndpoint<DirectoryLookupInput, DirectoryEntryLookupResponse>({
+  lookup: /* @__PURE__ */ defineClientEndpoint<DirectoryLookupInput, DirectoryEntryLookupResponse>({
     auth: 'bearer',
     body: ({ entryIds }) => ({ entryIds }),
     decoder: directoryEntryLookupResponseDecoder,

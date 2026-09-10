@@ -1,6 +1,8 @@
 export {
   calendarReadEndpoints,
   calendarReadModelDecoder,
+  guestCalendarReadModelDecoder,
+  visitorResolveResponseDecoder,
   createCalendarReadClient,
   holidayReadModelDecoder,
   type CalendarReadClient,

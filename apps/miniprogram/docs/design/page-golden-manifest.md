@@ -104,3 +104,8 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 沿用P5行的 `miniprogram-parity-p5-scheduling-closure--editor-390` / `--editor-320` / `--preview-390` / `--release-390` / `--backfill-390` 作为既有视觉参考。用户本轮17项及两次明确选择覆盖空白模板、独立内嵌草稿/发布、月历预览、紧凑按钮及删除失效排序箭头的差异；没有新增或声称已更新Storybook黄金。
 
 `feedback7-layout.mjs` 使用当前WXSS及合成非业务fixture检查320×844、390×844与大字体。桌面CSS截图在ignored `runtime/audit/feedback7/`，仅证明几何；最终原生状态为待上传同一检查点后的小米14体验版复核。详细映射与命令见根 `docs/audit/feedback7.md`。
+
+
+## 2026-09-10 访客系统修复
+
+`pages/guest/guest`沿用P4工作台的ready/filter/week/list/empty/error日历结构与样式及calendar-month叶组件，移除电话、事件和变更筛选；系统导航栏承载独立扫码页返回，不改变已登录工作台。fixture为guest-runtime合成只读日历；390/320桌面及小米14原生结果单独记录于docs/audit/visitor-system-fix.md。用户已批准本轮完整方案；没有新增视觉方向或认证协议，原生效果待同一新版体验版复核。

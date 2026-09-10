@@ -43,19 +43,21 @@ interface MemberRequestInput<Request> extends GroupRequestInput<Request> {
 }
 
 export const groupSummaryMutationDecoder =
-  createCompactDecoder<GroupSummary>(groupSummaryJsonSchema);
-export const groupMemberMutationDecoder = createCompactDecoder<GroupMember>(groupMemberJsonSchema);
-export const groupMemberContactMutationDecoder = createCompactDecoder<GroupMemberContact>(
-  groupMemberContactJsonSchema,
-);
-export const addRosterEntriesResponseDecoder = createCompactDecoder<AddRosterEntriesResponse>(
-  addRosterEntriesResponseJsonSchema,
-);
-export const addGroupMembersResponseDecoder = createCompactDecoder<AddGroupMembersResponse>(
-  addGroupMembersResponseJsonSchema,
-);
+  /* @__PURE__ */ createCompactDecoder<GroupSummary>(groupSummaryJsonSchema);
+export const groupMemberMutationDecoder =
+  /* @__PURE__ */ createCompactDecoder<GroupMember>(groupMemberJsonSchema);
+export const groupMemberContactMutationDecoder =
+  /* @__PURE__ */ createCompactDecoder<GroupMemberContact>(groupMemberContactJsonSchema);
+export const addRosterEntriesResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<AddRosterEntriesResponse>(
+    addRosterEntriesResponseJsonSchema,
+  );
+export const addGroupMembersResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<AddGroupMembersResponse>(addGroupMembersResponseJsonSchema);
 export const convertPendingRosterResponseDecoder =
-  createCompactDecoder<ConvertPendingRosterResponse>(convertPendingRosterResponseJsonSchema);
+  /* @__PURE__ */ createCompactDecoder<ConvertPendingRosterResponse>(
+    convertPendingRosterResponseJsonSchema,
+  );
 const emptyResponseDecoder: CompactDecoder<void> = {
   safeDecode(value) {
     return value === undefined || value === null || value === ''
@@ -88,15 +90,17 @@ export const organizationWriteEndpoints = {
     'roster-entries/convert',
     convertPendingRosterResponseDecoder,
   ),
-  createGroup: defineClientEndpoint<RequestInput<CreateGroupRequest>, GroupSummary>({
-    auth: 'bearer',
-    body,
-    decoder: groupSummaryMutationDecoder,
-    id: 'organization-write.create-group',
-    idempotencyKey: operationId,
-    method: 'POST',
-    path: () => '/groups',
-  }),
+  createGroup: /* @__PURE__ */ defineClientEndpoint<RequestInput<CreateGroupRequest>, GroupSummary>(
+    {
+      auth: 'bearer',
+      body,
+      decoder: groupSummaryMutationDecoder,
+      id: 'organization-write.create-group',
+      idempotencyKey: operationId,
+      method: 'POST',
+      path: () => '/groups',
+    },
+  ),
   deleteGroup: groupEndpoint<GroupVersionMutationRequest, void>(
     'group-delete',
     'DELETE',

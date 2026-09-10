@@ -28,15 +28,16 @@ interface RevokeInviteInput extends GroupRequestInput<RevokeInviteRequest> {
   readonly inviteToken: string;
 }
 
-export const createInviteLinkResponseDecoder = createCompactDecoder<CreateInviteLinkResponse>(
-  createInviteLinkResponseJsonSchema,
-);
-export const acceptInviteResponseDecoder = createCompactDecoder<AcceptInviteResponse>(
-  acceptInviteResponseJsonSchema,
-);
-export const visitorKeyChangedResponseDecoder = createCompactDecoder<VisitorKeyChangedResponse>(
-  visitorKeyChangedResponseJsonSchema,
-);
+export const createInviteLinkResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<CreateInviteLinkResponse>(
+    createInviteLinkResponseJsonSchema,
+  );
+export const acceptInviteResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<AcceptInviteResponse>(acceptInviteResponseJsonSchema);
+export const visitorKeyChangedResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<VisitorKeyChangedResponse>(
+    visitorKeyChangedResponseJsonSchema,
+  );
 
 const emptyResponseDecoder: CompactDecoder<void> = {
   safeDecode(value) {
@@ -51,7 +52,10 @@ const operationId = <Request extends { readonly operationId: string }>(
 ): string => input.request.operationId;
 
 export const inviteVisitorWriteEndpoints = {
-  acceptInvite: defineClientEndpoint<RequestInput<AcceptInviteRequest>, AcceptInviteResponse>({
+  acceptInvite: /* @__PURE__ */ defineClientEndpoint<
+    RequestInput<AcceptInviteRequest>,
+    AcceptInviteResponse
+  >({
     auth: 'bearer',
     body,
     decoder: acceptInviteResponseDecoder,
@@ -60,7 +64,7 @@ export const inviteVisitorWriteEndpoints = {
     method: 'POST',
     path: () => '/invites/accept',
   }),
-  createInviteLink: defineClientEndpoint<
+  createInviteLink: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<CreateInviteLinkRequest>,
     CreateInviteLinkResponse
   >({
@@ -72,7 +76,7 @@ export const inviteVisitorWriteEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${groupPath(groupId)}/invite-links`,
   }),
-  regenerateVisitorKey: defineClientEndpoint<
+  regenerateVisitorKey: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<GroupVersionMutationRequest>,
     VisitorKeyChangedResponse
   >({
@@ -84,7 +88,7 @@ export const inviteVisitorWriteEndpoints = {
     method: 'PUT',
     path: ({ groupId }) => `${groupPath(groupId)}/visitor-key`,
   }),
-  revokeInvite: defineClientEndpoint<RevokeInviteInput, void>({
+  revokeInvite: /* @__PURE__ */ defineClientEndpoint<RevokeInviteInput, void>({
     auth: 'bearer',
     body,
     decoder: emptyResponseDecoder,

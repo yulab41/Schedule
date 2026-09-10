@@ -29,31 +29,36 @@ interface SubmitBackfillBatchInput extends GroupInput {
   readonly request: PastScheduleBackfillBatchSubmission;
 }
 
-export const pastSchedulePeriodListDecoder = createCompactDecoder<readonly PastSchedulePeriod[]>(
-  pastSchedulePeriodListJsonSchema,
-);
-export const pastScheduleBackfillRecordListDecoder = createCompactDecoder<
+export const pastSchedulePeriodListDecoder = /* @__PURE__ */ createCompactDecoder<
+  readonly PastSchedulePeriod[]
+>(pastSchedulePeriodListJsonSchema);
+export const pastScheduleBackfillRecordListDecoder = /* @__PURE__ */ createCompactDecoder<
   readonly PastScheduleBackfillRecord[]
 >(pastScheduleBackfillRecordListJsonSchema);
 export const pastScheduleBackfillBatchResultDecoder =
-  createCompactDecoder<PastScheduleBackfillBatchResult>(pastScheduleBackfillBatchResultJsonSchema);
+  /* @__PURE__ */ createCompactDecoder<PastScheduleBackfillBatchResult>(
+    pastScheduleBackfillBatchResultJsonSchema,
+  );
 
 export const pastScheduleEndpoints = {
-  backfillRecords: defineClientEndpoint<GroupInput, readonly PastScheduleBackfillRecord[]>({
+  backfillRecords: /* @__PURE__ */ defineClientEndpoint<
+    GroupInput,
+    readonly PastScheduleBackfillRecord[]
+  >({
     auth: 'bearer',
     decoder: pastScheduleBackfillRecordListDecoder,
     id: 'past-schedule.backfill-records',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/past-schedules/backfill-records`,
   }),
-  periods: defineClientEndpoint<GroupInput, readonly PastSchedulePeriod[]>({
+  periods: /* @__PURE__ */ defineClientEndpoint<GroupInput, readonly PastSchedulePeriod[]>({
     auth: 'bearer',
     decoder: pastSchedulePeriodListDecoder,
     id: 'past-schedule.periods',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/past-schedules`,
   }),
-  submitBackfillBatch: defineClientEndpoint<
+  submitBackfillBatch: /* @__PURE__ */ defineClientEndpoint<
     SubmitBackfillBatchInput,
     PastScheduleBackfillBatchResult
   >({

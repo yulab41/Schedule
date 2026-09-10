@@ -89,21 +89,24 @@ export const memberNotificationPreferencesDecoder: CompactDecoder<MemberNotifica
 };
 
 export const notificationPreferencesEndpoints = {
-  getGroup: defineClientEndpoint<GroupInput, GroupNotificationSettings>({
+  getGroup: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupNotificationSettings>({
     auth: 'bearer',
     decoder: groupNotificationSettingsDecoder,
     id: 'external-messages.notification-settings-group',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/notification-settings`,
   }),
-  getMine: defineClientEndpoint<GroupInput, MemberNotificationPreferences>({
+  getMine: /* @__PURE__ */ defineClientEndpoint<GroupInput, MemberNotificationPreferences>({
     auth: 'bearer',
     decoder: memberNotificationPreferencesDecoder,
     id: 'external-messages.notification-preferences-mine',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/notification-preferences/mine`,
   }),
-  updateMine: defineClientEndpoint<UpdatePreferencesInput, MemberNotificationPreferences>({
+  updateMine: /* @__PURE__ */ defineClientEndpoint<
+    UpdatePreferencesInput,
+    MemberNotificationPreferences
+  >({
     auth: 'bearer',
     body: ({ input }) => input,
     decoder: memberNotificationPreferencesDecoder,
@@ -111,7 +114,10 @@ export const notificationPreferencesEndpoints = {
     method: 'PUT',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/notification-preferences/mine`,
   }),
-  updateGroup: defineClientEndpoint<UpdateGroupSettingsInput, GroupNotificationSettings>({
+  updateGroup: /* @__PURE__ */ defineClientEndpoint<
+    UpdateGroupSettingsInput,
+    GroupNotificationSettings
+  >({
     auth: 'bearer',
     body: ({ input }) => input,
     decoder: groupNotificationSettingsDecoder,

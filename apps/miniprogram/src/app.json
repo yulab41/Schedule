@@ -8,7 +8,8 @@
     "pages/manual-matrix-poc/index",
     "pages/gesture-probe/index",
     "pages/admin-bind/preview",
-    "pages/invite/invite"
+    "pages/invite/invite",
+    "pages/guest/guest"
   ],
   "subpackages": [
     {

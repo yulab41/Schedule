@@ -46,3 +46,11 @@ the exact runtime object it intends to load. Otherwise several properties updati
 duplicate requests, or an old queued load can mutate the replacement group/permission runtime. Keep
 the instance + context serial + query/page key checks on every directory response and test detach,
 group/permission changes, in-flight sharing, and old queued work explicitly.
+
+The visitor switch regression VIS-01 (2026-09-10) exposed another observer boundary: an empty
+`groupId` branch wrote the same property through `setData`, recursively notifying itself. Keep
+input properties separate from loaded runtime state, and make disabled/empty context cleanup
+idempotent. A test double that only merges `data` cannot prove observer safety: retain the actual
+`miniprogram-simulate` observer test in `p10-directory-controller.test.mjs`, including repeated empty
+notifications and member → guest → member transitions. Native crash acceptance still needs the
+same new Xiaomi 14 trial build; the Node reproduction alone does not establish that all crashes end.

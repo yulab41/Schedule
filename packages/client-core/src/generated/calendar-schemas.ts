@@ -1,5 +1,9 @@
 import type { CompactJsonSchema } from '../json-decoder.js';
 
+const guestCalendarReadModelSchemaJson =
+  '{"type":"object","properties":{"calendar":{"type":"object","properties":{"assignments":{"type":"array","items":{"type":"object","properties":{"actualMemberName":{"type":"string"},"actualMembershipId":{"type":"string"},"businessDate":{"type":"string","pattern":"^\\\\d{4}-\\\\d{2}-\\\\d{2}$"},"changeMarkers":{"type":"array","items":{"type":"string","enum":["swap","leave-cover","overtime"]}},"endsAt":{"type":"string"},"id":{"type":"string","minLength":1},"plannedMemberName":{"type":"string"},"plannedMembershipId":{"type":"string"},"schedulePeriodId":{"type":"string","minLength":1},"scheduleRoleId":{"type":"string","minLength":1},"scheduleRoleName":{"type":"string","minLength":1},"shiftTypeAbbreviation":{"type":"string","minLength":1},"shiftTypeColor":{"type":"string","pattern":"^#[0-9A-Fa-f]{6}$"},"shiftTypeId":{"type":"string","minLength":1},"shiftTypeName":{"type":"string","minLength":1},"shiftTypeTextColor":{"type":"string","pattern":"^#[0-9A-Fa-f]{6}$"},"slotPosition":{"type":"integer","maximum":9007199254740991,"minimum":1},"startsAt":{"type":"string"}},"required":["businessDate","changeMarkers","endsAt","id","schedulePeriodId","scheduleRoleId","scheduleRoleName","shiftTypeAbbreviation","shiftTypeColor","shiftTypeId","shiftTypeName","shiftTypeTextColor","slotPosition","startsAt"],"additionalProperties":false}},"businessMonth":{"type":"string","pattern":"^\\\\d{4}-\\\\d{2}$"},"groupId":{"type":"string"},"members":{"type":"array","items":{"type":"object","properties":{"isConfirmed":{"type":"boolean"},"membershipId":{"type":"string","minLength":1},"mobilePhone":{"type":"string"},"realName":{"type":"string","minLength":1},"shortPhone":{"type":"string"}},"required":["isConfirmed","membershipId","realName"],"additionalProperties":false}},"roles":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string","minLength":1},"name":{"type":"string","minLength":1}},"required":["id","name"],"additionalProperties":false}},"shiftTypes":{"type":"array","items":{"type":"object","properties":{"abbreviation":{"type":"string","minLength":1},"color":{"type":"string","pattern":"^#[0-9A-Fa-f]{6}$"},"crossesMidnight":{"type":"boolean"},"endTime":{"type":"string","pattern":"^\\\\d{2}:\\\\d{2}$"},"id":{"type":"string","minLength":1},"isAllDay":{"type":"boolean"},"name":{"type":"string","minLength":1},"startTime":{"type":"string","pattern":"^\\\\d{2}:\\\\d{2}$"},"textColor":{"type":"string","pattern":"^#[0-9A-Fa-f]{6}$"}},"required":["abbreviation","color","crossesMidnight","id","isAllDay","name","textColor"],"additionalProperties":false}}},"required":["assignments","businessMonth","groupId","members","roles","shiftTypes"],"additionalProperties":false},"groupName":{"type":"string"}},"required":["calendar","groupName"],"additionalProperties":false}';
+const visitorResolveResponseSchemaJson =
+  '{"type":"object","properties":{"groupId":{"type":"string","minLength":1},"groupName":{"type":"string","minLength":1}},"required":["groupId","groupName"],"additionalProperties":false}';
 const manualScheduleStartDateSchemaJson =
   '{"type":"object","properties":{"startDate":{"type":"string","pattern":"^\\\\d{4}-\\\\d{2}-\\\\d{2}$"}},"required":["startDate"],"additionalProperties":false}';
 const acceptInviteResponseSchemaJson =
@@ -151,200 +155,234 @@ const unreadCountResultSchemaJson =
 const apiErrorCodesJson =
   '["AUTHENTICATION_REQUIRED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","UNSUPPORTED_MEDIA_TYPE","CONFLICT","RATE_LIMITED","SERVICE_UNAVAILABLE","INTERNAL_ERROR","WECHAT_LOGIN_FAILED","WECHAT_IDENTITY_IN_USE","WECHAT_ACCOUNT_ALREADY_BOUND","WECHAT_APP_ID_MISMATCH","WECHAT_LINK_TOKEN_INVALID","WECHAT_LINK_TOKEN_USED","WECHAT_LINK_TOKEN_EXPIRED","WECHAT_MESSAGE_SEND_FAILED","INVITE_INVALID","INVITE_USED","INVITE_EXPIRED","VISITOR_KEY_INVALID","CLIENT_VERSION_UNSUPPORTED","CLIENT_CAPABILITY_DISABLED"]';
 
-export const manualScheduleStartDateJsonSchema = JSON.parse(
+export const guestCalendarReadModelJsonSchema = /* @__PURE__ */ JSON.parse(
+  guestCalendarReadModelSchemaJson,
+) as CompactJsonSchema;
+export const visitorResolveResponseJsonSchema = /* @__PURE__ */ JSON.parse(
+  visitorResolveResponseSchemaJson,
+) as CompactJsonSchema;
+export const manualScheduleStartDateJsonSchema = /* @__PURE__ */ JSON.parse(
   manualScheduleStartDateSchemaJson,
 ) as CompactJsonSchema;
-export const acceptInviteResponseJsonSchema = JSON.parse(
+export const acceptInviteResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   acceptInviteResponseSchemaJson,
 ) as CompactJsonSchema;
-export const addGroupMembersResponseJsonSchema = JSON.parse(
+export const addGroupMembersResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   addGroupMembersResponseSchemaJson,
 ) as CompactJsonSchema;
-export const addRosterEntriesResponseJsonSchema = JSON.parse(
+export const addRosterEntriesResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   addRosterEntriesResponseSchemaJson,
 ) as CompactJsonSchema;
-export const approvedLeaveRequestResultJsonSchema = JSON.parse(
+export const approvedLeaveRequestResultJsonSchema = /* @__PURE__ */ JSON.parse(
   approvedLeaveRequestResultSchemaJson,
 ) as CompactJsonSchema;
-export const appliedManualScheduleTemplateResultJsonSchema = JSON.parse(
+export const appliedManualScheduleTemplateResultJsonSchema = /* @__PURE__ */ JSON.parse(
   appliedManualScheduleTemplateResultSchemaJson,
 ) as CompactJsonSchema;
-export const calendarReadModelJsonSchema = JSON.parse(
+export const calendarReadModelJsonSchema = /* @__PURE__ */ JSON.parse(
   calendarReadModelSchemaJson,
 ) as CompactJsonSchema;
-export const clientCapabilityResponseJsonSchema = JSON.parse(
+export const clientCapabilityResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   clientCapabilityResponseSchemaJson,
 ) as CompactJsonSchema;
-export const convertPendingRosterResponseJsonSchema = JSON.parse(
+export const convertPendingRosterResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   convertPendingRosterResponseSchemaJson,
 ) as CompactJsonSchema;
-export const createInviteLinkResponseJsonSchema = JSON.parse(
+export const createInviteLinkResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   createInviteLinkResponseSchemaJson,
 ) as CompactJsonSchema;
-export const createWechatAdminBindingLinkResponseJsonSchema = JSON.parse(
+export const createWechatAdminBindingLinkResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   createWechatAdminBindingLinkResponseSchemaJson,
 ) as CompactJsonSchema;
-export const dissolvedGroupListJsonSchema = JSON.parse(
+export const dissolvedGroupListJsonSchema = /* @__PURE__ */ JSON.parse(
   dissolvedGroupListSchemaJson,
 ) as CompactJsonSchema;
-export const directoryEntryLookupResponseJsonSchema = JSON.parse(
+export const directoryEntryLookupResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   directoryEntryLookupResponseSchemaJson,
 ) as CompactJsonSchema;
-export const directoryFacetSnapshotJsonSchema = JSON.parse(
+export const directoryFacetSnapshotJsonSchema = /* @__PURE__ */ JSON.parse(
   directoryFacetSnapshotSchemaJson,
 ) as CompactJsonSchema;
-export const directoryPageJsonSchema = JSON.parse(directoryPageSchemaJson) as CompactJsonSchema;
-export const dutyAdjustmentPreviewJsonSchema = JSON.parse(
+export const directoryPageJsonSchema = /* @__PURE__ */ JSON.parse(
+  directoryPageSchemaJson,
+) as CompactJsonSchema;
+export const dutyAdjustmentPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
   dutyAdjustmentPreviewSchemaJson,
 ) as CompactJsonSchema;
-export const dutyAdjustmentRequestJsonSchema = JSON.parse(
+export const dutyAdjustmentRequestJsonSchema = /* @__PURE__ */ JSON.parse(
   dutyAdjustmentRequestSchemaJson,
 ) as CompactJsonSchema;
-export const dutyAdjustmentRequestListJsonSchema = JSON.parse(
+export const dutyAdjustmentRequestListJsonSchema = /* @__PURE__ */ JSON.parse(
   dutyAdjustmentRequestListSchemaJson,
 ) as CompactJsonSchema;
-export const groupDutyAdjustmentSettingsJsonSchema = JSON.parse(
+export const groupDutyAdjustmentSettingsJsonSchema = /* @__PURE__ */ JSON.parse(
   groupDutyAdjustmentSettingsSchemaJson,
 ) as CompactJsonSchema;
-export const groupCatalogListJsonSchema = JSON.parse(
+export const groupCatalogListJsonSchema = /* @__PURE__ */ JSON.parse(
   groupCatalogListSchemaJson,
 ) as CompactJsonSchema;
-export const groupMemberContactJsonSchema = JSON.parse(
+export const groupMemberContactJsonSchema = /* @__PURE__ */ JSON.parse(
   groupMemberContactSchemaJson,
 ) as CompactJsonSchema;
-export const groupMobilePhoneConsentJsonSchema = JSON.parse(
+export const groupMobilePhoneConsentJsonSchema = /* @__PURE__ */ JSON.parse(
   groupMobilePhoneConsentSchemaJson,
 ) as CompactJsonSchema;
-export const groupQrResponseJsonSchema = JSON.parse(groupQrResponseSchemaJson) as CompactJsonSchema;
-export const groupMemberContactListJsonSchema = JSON.parse(
+export const groupQrResponseJsonSchema = /* @__PURE__ */ JSON.parse(
+  groupQrResponseSchemaJson,
+) as CompactJsonSchema;
+export const groupMemberContactListJsonSchema = /* @__PURE__ */ JSON.parse(
   groupMemberContactListSchemaJson,
 ) as CompactJsonSchema;
-export const groupMemberListJsonSchema = JSON.parse(groupMemberListSchemaJson) as CompactJsonSchema;
-export const groupMemberJsonSchema = JSON.parse(groupMemberSchemaJson) as CompactJsonSchema;
-export const groupSummaryJsonSchema = JSON.parse(groupSummarySchemaJson) as CompactJsonSchema;
-export const groupSummaryListJsonSchema = JSON.parse(
+export const groupMemberListJsonSchema = /* @__PURE__ */ JSON.parse(
+  groupMemberListSchemaJson,
+) as CompactJsonSchema;
+export const groupMemberJsonSchema = /* @__PURE__ */ JSON.parse(
+  groupMemberSchemaJson,
+) as CompactJsonSchema;
+export const groupSummaryJsonSchema = /* @__PURE__ */ JSON.parse(
+  groupSummarySchemaJson,
+) as CompactJsonSchema;
+export const groupSummaryListJsonSchema = /* @__PURE__ */ JSON.parse(
   groupSummaryListSchemaJson,
 ) as CompactJsonSchema;
-export const groupSwapSettingsJsonSchema = JSON.parse(
+export const groupSwapSettingsJsonSchema = /* @__PURE__ */ JSON.parse(
   groupSwapSettingsSchemaJson,
 ) as CompactJsonSchema;
-export const holidayReadModelJsonSchema = JSON.parse(
+export const holidayReadModelJsonSchema = /* @__PURE__ */ JSON.parse(
   holidayReadModelSchemaJson,
 ) as CompactJsonSchema;
-export const leaveAffectedShiftListJsonSchema = JSON.parse(
+export const leaveAffectedShiftListJsonSchema = /* @__PURE__ */ JSON.parse(
   leaveAffectedShiftListSchemaJson,
 ) as CompactJsonSchema;
-export const leaveApprovalPreviewJsonSchema = JSON.parse(
+export const leaveApprovalPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
   leaveApprovalPreviewSchemaJson,
 ) as CompactJsonSchema;
-export const leaveRequestJsonSchema = JSON.parse(leaveRequestSchemaJson) as CompactJsonSchema;
-export const leaveRequestListJsonSchema = JSON.parse(
+export const leaveRequestJsonSchema = /* @__PURE__ */ JSON.parse(
+  leaveRequestSchemaJson,
+) as CompactJsonSchema;
+export const leaveRequestListJsonSchema = /* @__PURE__ */ JSON.parse(
   leaveRequestListSchemaJson,
 ) as CompactJsonSchema;
-export const leaveRequestMutationResultJsonSchema = JSON.parse(
+export const leaveRequestMutationResultJsonSchema = /* @__PURE__ */ JSON.parse(
   leaveRequestMutationResultSchemaJson,
 ) as CompactJsonSchema;
-export const manualApplyPreviewJsonSchema = JSON.parse(
+export const manualApplyPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
   manualApplyPreviewSchemaJson,
 ) as CompactJsonSchema;
-export const manualScheduleTemplateJsonSchema = JSON.parse(
+export const manualScheduleTemplateJsonSchema = /* @__PURE__ */ JSON.parse(
   manualScheduleTemplateSchemaJson,
 ) as CompactJsonSchema;
-export const manualScheduleTemplateListJsonSchema = JSON.parse(
+export const manualScheduleTemplateListJsonSchema = /* @__PURE__ */ JSON.parse(
   manualScheduleTemplateListSchemaJson,
 ) as CompactJsonSchema;
-export const memberSwapSettingsJsonSchema = JSON.parse(
+export const memberSwapSettingsJsonSchema = /* @__PURE__ */ JSON.parse(
   memberSwapSettingsSchemaJson,
 ) as CompactJsonSchema;
-export const organizationMutationCompletedJsonSchema = JSON.parse(
+export const organizationMutationCompletedJsonSchema = /* @__PURE__ */ JSON.parse(
   organizationMutationCompletedSchemaJson,
 ) as CompactJsonSchema;
-export const pastScheduleBackfillBatchResultJsonSchema = JSON.parse(
+export const pastScheduleBackfillBatchResultJsonSchema = /* @__PURE__ */ JSON.parse(
   pastScheduleBackfillBatchResultSchemaJson,
 ) as CompactJsonSchema;
-export const pastScheduleBackfillRecordListJsonSchema = JSON.parse(
+export const pastScheduleBackfillRecordListJsonSchema = /* @__PURE__ */ JSON.parse(
   pastScheduleBackfillRecordListSchemaJson,
 ) as CompactJsonSchema;
-export const pastSchedulePeriodListJsonSchema = JSON.parse(
+export const pastSchedulePeriodListJsonSchema = /* @__PURE__ */ JSON.parse(
   pastSchedulePeriodListSchemaJson,
 ) as CompactJsonSchema;
-export const publishSchedulePeriodBatchResultJsonSchema = JSON.parse(
+export const publishSchedulePeriodBatchResultJsonSchema = /* @__PURE__ */ JSON.parse(
   publishSchedulePeriodBatchResultSchemaJson,
 ) as CompactJsonSchema;
-export const publishSchedulePeriodResultJsonSchema = JSON.parse(
+export const publishSchedulePeriodResultJsonSchema = /* @__PURE__ */ JSON.parse(
   publishSchedulePeriodResultSchemaJson,
 ) as CompactJsonSchema;
-export const platformAdminUserAccountListJsonSchema = JSON.parse(
+export const platformAdminUserAccountListJsonSchema = /* @__PURE__ */ JSON.parse(
   platformAdminUserAccountListSchemaJson,
 ) as CompactJsonSchema;
-export const platformAdminUserDetailsListJsonSchema = JSON.parse(
+export const platformAdminUserDetailsListJsonSchema = /* @__PURE__ */ JSON.parse(
   platformAdminUserDetailsListSchemaJson,
 ) as CompactJsonSchema;
-export const updatePlatformUserProfileResponseJsonSchema = JSON.parse(
+export const updatePlatformUserProfileResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   updatePlatformUserProfileResponseSchemaJson,
 ) as CompactJsonSchema;
-export const resetPlatformUserPasswordResponseJsonSchema = JSON.parse(
+export const resetPlatformUserPasswordResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   resetPlatformUserPasswordResponseSchemaJson,
 ) as CompactJsonSchema;
-export const passwordIdentityAssignmentResponseJsonSchema = JSON.parse(
+export const passwordIdentityAssignmentResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   passwordIdentityAssignmentResponseSchemaJson,
 ) as CompactJsonSchema;
-export const rejectedLeaveRequestResultJsonSchema = JSON.parse(
+export const rejectedLeaveRequestResultJsonSchema = /* @__PURE__ */ JSON.parse(
   rejectedLeaveRequestResultSchemaJson,
 ) as CompactJsonSchema;
-export const resolveInviteResponseJsonSchema = JSON.parse(
+export const resolveInviteResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   resolveInviteResponseSchemaJson,
 ) as CompactJsonSchema;
-export const scheduleChangeImpactPreviewJsonSchema = JSON.parse(
+export const scheduleChangeImpactPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
   scheduleChangeImpactPreviewSchemaJson,
 ) as CompactJsonSchema;
-export const scheduleEventDetailJsonSchema = JSON.parse(
+export const scheduleEventDetailJsonSchema = /* @__PURE__ */ JSON.parse(
   scheduleEventDetailSchemaJson,
 ) as CompactJsonSchema;
-export const scheduleEventPageJsonSchema = JSON.parse(
+export const scheduleEventPageJsonSchema = /* @__PURE__ */ JSON.parse(
   scheduleEventPageSchemaJson,
 ) as CompactJsonSchema;
-export const scheduleGenerationPreviewJsonSchema = JSON.parse(
+export const scheduleGenerationPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
   scheduleGenerationPreviewSchemaJson,
 ) as CompactJsonSchema;
-export const schedulePeriodHistoryItemListJsonSchema = JSON.parse(
+export const schedulePeriodHistoryItemListJsonSchema = /* @__PURE__ */ JSON.parse(
   schedulePeriodHistoryItemListSchemaJson,
 ) as CompactJsonSchema;
-export const schedulePeriodMutationResultJsonSchema = JSON.parse(
+export const schedulePeriodMutationResultJsonSchema = /* @__PURE__ */ JSON.parse(
   schedulePeriodMutationResultSchemaJson,
 ) as CompactJsonSchema;
-export const scheduleRoleJsonSchema = JSON.parse(scheduleRoleSchemaJson) as CompactJsonSchema;
-export const schedulingConfigJsonSchema = JSON.parse(
+export const scheduleRoleJsonSchema = /* @__PURE__ */ JSON.parse(
+  scheduleRoleSchemaJson,
+) as CompactJsonSchema;
+export const schedulingConfigJsonSchema = /* @__PURE__ */ JSON.parse(
   schedulingConfigSchemaJson,
 ) as CompactJsonSchema;
-export const shiftTypeJsonSchema = JSON.parse(shiftTypeSchemaJson) as CompactJsonSchema;
-export const monthStatisticsSnapshotJsonSchema = JSON.parse(
+export const shiftTypeJsonSchema = /* @__PURE__ */ JSON.parse(
+  shiftTypeSchemaJson,
+) as CompactJsonSchema;
+export const monthStatisticsSnapshotJsonSchema = /* @__PURE__ */ JSON.parse(
   monthStatisticsSnapshotSchemaJson,
 ) as CompactJsonSchema;
-export const notificationPageJsonSchema = JSON.parse(
+export const notificationPageJsonSchema = /* @__PURE__ */ JSON.parse(
   notificationPageSchemaJson,
 ) as CompactJsonSchema;
-export const notificationRecordJsonSchema = JSON.parse(
+export const notificationRecordJsonSchema = /* @__PURE__ */ JSON.parse(
   notificationRecordSchemaJson,
 ) as CompactJsonSchema;
-export const readAllResultJsonSchema = JSON.parse(readAllResultSchemaJson) as CompactJsonSchema;
-export const scheduleExportJobJsonSchema = JSON.parse(
+export const readAllResultJsonSchema = /* @__PURE__ */ JSON.parse(
+  readAllResultSchemaJson,
+) as CompactJsonSchema;
+export const scheduleExportJobJsonSchema = /* @__PURE__ */ JSON.parse(
   scheduleExportJobSchemaJson,
 ) as CompactJsonSchema;
-export const swapPreviewJsonSchema = JSON.parse(swapPreviewSchemaJson) as CompactJsonSchema;
-export const swapRequestJsonSchema = JSON.parse(swapRequestSchemaJson) as CompactJsonSchema;
-export const swapRequestListJsonSchema = JSON.parse(swapRequestListSchemaJson) as CompactJsonSchema;
-export const visitorKeyChangedResponseJsonSchema = JSON.parse(
+export const swapPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
+  swapPreviewSchemaJson,
+) as CompactJsonSchema;
+export const swapRequestJsonSchema = /* @__PURE__ */ JSON.parse(
+  swapRequestSchemaJson,
+) as CompactJsonSchema;
+export const swapRequestListJsonSchema = /* @__PURE__ */ JSON.parse(
+  swapRequestListSchemaJson,
+) as CompactJsonSchema;
+export const visitorKeyChangedResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   visitorKeyChangedResponseSchemaJson,
 ) as CompactJsonSchema;
-export const visitorAccessAggregatePageJsonSchema = JSON.parse(
+export const visitorAccessAggregatePageJsonSchema = /* @__PURE__ */ JSON.parse(
   visitorAccessAggregatePageSchemaJson,
 ) as CompactJsonSchema;
-export const visitorAccessLogPageJsonSchema = JSON.parse(
+export const visitorAccessLogPageJsonSchema = /* @__PURE__ */ JSON.parse(
   visitorAccessLogPageSchemaJson,
 ) as CompactJsonSchema;
-export const yearStatisticsJsonSchema = JSON.parse(yearStatisticsSchemaJson) as CompactJsonSchema;
-export const unreadCountResultJsonSchema = JSON.parse(
+export const yearStatisticsJsonSchema = /* @__PURE__ */ JSON.parse(
+  yearStatisticsSchemaJson,
+) as CompactJsonSchema;
+export const unreadCountResultJsonSchema = /* @__PURE__ */ JSON.parse(
   unreadCountResultSchemaJson,
 ) as CompactJsonSchema;
-export const generatedApiErrorCodes = JSON.parse(apiErrorCodesJson) as readonly string[];
+export const generatedApiErrorCodes = /* @__PURE__ */ JSON.parse(
+  apiErrorCodesJson,
+) as readonly string[];

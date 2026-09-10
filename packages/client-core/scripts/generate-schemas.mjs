@@ -12,6 +12,8 @@ import {
   approvedLeaveRequestResultSchema,
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
+  guestCalendarReadModelSchema,
+  visitorResolveResponseSchema,
   clientCapabilityResponseSchema,
   convertPendingRosterResponseSchema,
   createInviteLinkResponseSchema,
@@ -99,6 +101,14 @@ const source = await format(
   renderGeneratedSchemas({
     errorCodes: [...apiErrorCodes],
     schemas: {
+      guestCalendarReadModel: sanitizeJsonSchema(
+        z.toJSONSchema(guestCalendarReadModelSchema),
+        'guestCalendarReadModel',
+      ),
+      visitorResolveResponse: sanitizeJsonSchema(
+        z.toJSONSchema(visitorResolveResponseSchema),
+        'visitorResolveResponse',
+      ),
       manualScheduleStartDate: sanitizeJsonSchema(z.toJSONSchema(manualScheduleStartDateSchema)),
       acceptInviteResponse: sanitizeJsonSchema(
         z.toJSONSchema(acceptInviteResponseSchema),

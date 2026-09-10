@@ -174,7 +174,7 @@ interface DirectoryPageData {
   readonly employeePane: DirectoryPaneData;
   readonly embedded: boolean;
   readonly filterSheetOpen: boolean;
-  readonly groupId: string;
+  readonly loadedGroupId: string;
   readonly internalPane: DirectoryPaneData;
   readonly largeText: boolean;
   readonly peopleAnimating: boolean;
@@ -349,7 +349,7 @@ export function createDirectoryPanelControllerDefinition(diagnostics?: Directory
     employeePane: createPaneData('employee'),
     embedded: false,
     filterSheetOpen: false,
-    groupId: '',
+    loadedGroupId: '',
     internalPane: createPaneData('internal'),
     largeText: false,
     peopleAnimating: false,
@@ -635,8 +635,8 @@ function initializeRuntimeState(page: DirectoryPageInstance): void {
     page._modeRuntimes.employee === undefined
   ) {
     page._modeRuntimes = {
-      employee: createModeRuntime(page.data.groupId),
-      internal: createModeRuntime(page.data.groupId),
+      employee: createModeRuntime(page.data.loadedGroupId),
+      internal: createModeRuntime(page.data.loadedGroupId),
     };
   }
   if (page._modeIconTimers === undefined || typeof page._modeIconTimers !== 'object') {
@@ -675,12 +675,16 @@ function startLoad(page: DirectoryPageInstance): void {
   const groupId = page.properties.groupId;
   const initialKind = normalizeDirectoryKind(page.properties.directoryKind);
   const contextSignature = createClientContextSignature(page);
-  if (groupId.length === 0) {
+  if (groupId.length === 0 || page.properties.groupRole === 'guest') {
+    if (page._contextSignature === contextSignature && page.data.loadedGroupId === '') return;
+    page._contextSignature = contextSignature;
+    invalidateForegroundRefresh(page);
+    renewDirectoryClient(page);
     setMissingGroupError(page, initialKind);
     return;
   }
   if (
-    page.data.groupId === groupId &&
+    page.data.loadedGroupId === groupId &&
     page._contextSignature === contextSignature &&
     directoryKinds.every((kind) => page._modeRuntimes[kind].groupId === groupId)
   ) {
@@ -703,7 +707,7 @@ function startLoad(page: DirectoryPageInstance): void {
     directoryKind: initialKind,
     employeePane: createPaneData('employee'),
     filterSheetOpen: false,
-    groupId,
+    loadedGroupId: groupId,
     internalPane: createPaneData('internal'),
   });
   for (const kind of directoryKinds) {
@@ -739,7 +743,8 @@ function revalidateForegroundContext(page: DirectoryPageInstance): Promise<void>
   }
   const inFlight = page._foregroundRefreshPromise;
   if (inFlight !== undefined) return inFlight;
-  const groupId = page.data.groupId;
+  const groupId = page.data.loadedGroupId;
+  if (groupId === '') return Promise.resolve();
   const instanceId = page._instanceId;
   const runtimes = {
     employee: page._modeRuntimes.employee,
@@ -800,7 +805,7 @@ function isForegroundRefreshCurrent(
     page._foregroundRefreshSerial === serial &&
     page._contextSignature === contextSignature &&
     createClientContextSignature(page) === contextSignature &&
-    page.data.groupId === groupId &&
+    page.data.loadedGroupId === groupId &&
     page._modeRuntimes.employee === runtimes.employee &&
     page._modeRuntimes.internal === runtimes.internal
   );
@@ -936,7 +941,7 @@ function isContextCurrent(
     page._modeRuntimes[kind] === runtime &&
     runtime.contextSerial === serial &&
     runtime.groupId === groupId &&
-    page.data.groupId === groupId
+    page.data.loadedGroupId === groupId
   );
 }
 
@@ -958,14 +963,18 @@ function isQueryCurrent(
     runtime.querySerial === querySerial &&
     runtime.currentBaseQueryKey === baseQueryKey &&
     runtime.groupId === groupId &&
-    page.data.groupId === groupId
+    page.data.loadedGroupId === groupId
   );
 }
 
 function setMissingGroupError(page: DirectoryPageInstance, initialKind: DirectoryKind): void {
   initializeRuntimeState(page);
   for (const kind of directoryKinds) invalidateRuntime(page._modeRuntimes[kind]);
-  const message = '当前群组信息缺失，请返回工作台后重试。';
+  page._modeRuntimes = { employee: createModeRuntime(), internal: createModeRuntime() };
+  const message =
+    page.properties.groupRole === 'guest'
+      ? '访客仅可查看排班，不能访问通讯录。'
+      : '当前群组信息缺失，请返回工作台后重试。';
   page.setData({
     activeSheet: createSheetData(),
     activeModeIndex: modeIndex(initialKind),
@@ -977,7 +986,7 @@ function setMissingGroupError(page: DirectoryPageInstance, initialKind: Director
       state: 'error',
     },
     filterSheetOpen: false,
-    groupId: '',
+    loadedGroupId: '',
     internalPane: {
       ...createPaneData('internal'),
       errorMessage: message,
@@ -1058,7 +1067,7 @@ async function loadFacets(
   if (page._detached) return;
   const runtime = getRuntime(page, kind);
   if (expectedRuntime !== undefined && runtime !== expectedRuntime) return;
-  const groupId = runtime.groupId || page.data.groupId;
+  const groupId = runtime.groupId || page.data.loadedGroupId;
   if (groupId.length === 0) {
     setMissingGroupError(page, page.data.directoryKind);
     return;
@@ -2099,7 +2108,7 @@ function directoryPreferenceStorageKey(
   const ownerId = getStoredWechatProfile()?.id;
   return ownerId === undefined
     ? undefined
-    : `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${page.data.groupId}:${kind}`;
+    : `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${page.data.loadedGroupId}:${kind}`;
 }
 
 function readDirectoryPreferences(

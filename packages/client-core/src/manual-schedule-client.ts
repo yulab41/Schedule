@@ -48,19 +48,22 @@ interface ApplyInput extends GroupInput {
   readonly templateId: string;
 }
 
-const templateStructureDecoder = createCompactDecoder<ManualScheduleTemplate>(
+const templateStructureDecoder = /* @__PURE__ */ createCompactDecoder<ManualScheduleTemplate>(
   manualScheduleTemplateJsonSchema,
 );
-const templateListStructureDecoder = createCompactDecoder<readonly ManualScheduleTemplate[]>(
-  manualScheduleTemplateListJsonSchema,
-);
-const previewStructureDecoder = createCompactDecoder<ManualApplyPreview>(
+const templateListStructureDecoder = /* @__PURE__ */ createCompactDecoder<
+  readonly ManualScheduleTemplate[]
+>(manualScheduleTemplateListJsonSchema);
+const previewStructureDecoder = /* @__PURE__ */ createCompactDecoder<ManualApplyPreview>(
   manualApplyPreviewJsonSchema,
 );
-const appliedStructureDecoder = createCompactDecoder<AppliedManualScheduleTemplateResult>(
-  appliedManualScheduleTemplateResultJsonSchema,
+const appliedStructureDecoder =
+  /* @__PURE__ */ createCompactDecoder<AppliedManualScheduleTemplateResult>(
+    appliedManualScheduleTemplateResultJsonSchema,
+  );
+const configStructureDecoder = /* @__PURE__ */ createCompactDecoder<SchedulingConfig>(
+  schedulingConfigJsonSchema,
 );
-const configStructureDecoder = createCompactDecoder<SchedulingConfig>(schedulingConfigJsonSchema);
 
 export const manualScheduleTemplateDecoder = refineDecoder(
   templateStructureDecoder,
@@ -83,15 +86,20 @@ export const schedulingConfigDecoder = refineDecoder(configStructureDecoder, (co
 );
 
 export const manualScheduleEndpoints = {
-  nextStartDate: defineClientEndpoint<GroupInput & { roleId: string }, ManualScheduleStartDate>({
+  nextStartDate: /* @__PURE__ */ defineClientEndpoint<
+    GroupInput & { roleId: string },
+    ManualScheduleStartDate
+  >({
     auth: 'bearer',
-    decoder: createCompactDecoder<ManualScheduleStartDate>(manualScheduleStartDateJsonSchema),
+    decoder: /* @__PURE__ */ createCompactDecoder<ManualScheduleStartDate>(
+      manualScheduleStartDateJsonSchema,
+    ),
     id: 'manual-schedule.next-start-date',
     method: 'GET',
     path: ({ groupId, roleId }) =>
       `/groups/${encodeURIComponent(groupId)}/manual-schedule-start-date/${encodeURIComponent(roleId)}`,
   }),
-  apply: defineClientEndpoint<ApplyInput, AppliedManualScheduleTemplateResult>({
+  apply: /* @__PURE__ */ defineClientEndpoint<ApplyInput, AppliedManualScheduleTemplateResult>({
     auth: 'bearer',
     body: ({ request }) => request,
     decoder: appliedManualScheduleTemplateResultDecoder,
@@ -100,22 +108,24 @@ export const manualScheduleEndpoints = {
     method: 'POST',
     path: ({ groupId, templateId }) => templateActionPath(groupId, templateId, 'apply'),
   }),
-  config: defineClientEndpoint<GroupInput, SchedulingConfig>({
+  config: /* @__PURE__ */ defineClientEndpoint<GroupInput, SchedulingConfig>({
     auth: 'bearer',
     decoder: schedulingConfigDecoder,
     id: 'manual-schedule.config',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/scheduling-config`,
   }),
-  createTemplate: defineClientEndpoint<CreateTemplateInput, ManualScheduleTemplate>({
-    auth: 'bearer',
-    body: ({ request }) => request,
-    decoder: manualScheduleTemplateDecoder,
-    id: 'manual-schedule.create-template',
-    method: 'POST',
-    path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates`,
-  }),
-  preview: defineClientEndpoint<PreviewInput, ManualApplyPreview>({
+  createTemplate: /* @__PURE__ */ defineClientEndpoint<CreateTemplateInput, ManualScheduleTemplate>(
+    {
+      auth: 'bearer',
+      body: ({ request }) => request,
+      decoder: manualScheduleTemplateDecoder,
+      id: 'manual-schedule.create-template',
+      method: 'POST',
+      path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates`,
+    },
+  ),
+  preview: /* @__PURE__ */ defineClientEndpoint<PreviewInput, ManualApplyPreview>({
     auth: 'bearer',
     body: ({ request }) => request,
     decoder: manualApplyPreviewDecoder,
@@ -123,21 +133,23 @@ export const manualScheduleEndpoints = {
     method: 'POST',
     path: ({ groupId, templateId }) => templateActionPath(groupId, templateId, 'apply-preview'),
   }),
-  templates: defineClientEndpoint<GroupInput, readonly ManualScheduleTemplate[]>({
+  templates: /* @__PURE__ */ defineClientEndpoint<GroupInput, readonly ManualScheduleTemplate[]>({
     auth: 'bearer',
     decoder: manualScheduleTemplateListDecoder,
     id: 'manual-schedule.templates',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates`,
   }),
-  updateTemplate: defineClientEndpoint<UpdateTemplateInput, ManualScheduleTemplate>({
-    auth: 'bearer',
-    body: ({ request }) => request,
-    decoder: manualScheduleTemplateDecoder,
-    id: 'manual-schedule.update-template',
-    method: 'PUT',
-    path: ({ groupId, templateId }) => templatePath(groupId, templateId),
-  }),
+  updateTemplate: /* @__PURE__ */ defineClientEndpoint<UpdateTemplateInput, ManualScheduleTemplate>(
+    {
+      auth: 'bearer',
+      body: ({ request }) => request,
+      decoder: manualScheduleTemplateDecoder,
+      id: 'manual-schedule.update-template',
+      method: 'PUT',
+      path: ({ groupId, templateId }) => templatePath(groupId, templateId),
+    },
+  ),
 } as const;
 
 export interface ManualScheduleClient {

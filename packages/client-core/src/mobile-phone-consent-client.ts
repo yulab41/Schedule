@@ -21,19 +21,18 @@ interface UpdateConsentInput extends GroupInput {
   readonly request: GroupMobilePhoneConsentSubmission;
 }
 
-export const groupMobilePhoneConsentDecoder = createCompactDecoder<GroupMobilePhoneConsent>(
-  groupMobilePhoneConsentJsonSchema,
-);
+export const groupMobilePhoneConsentDecoder =
+  /* @__PURE__ */ createCompactDecoder<GroupMobilePhoneConsent>(groupMobilePhoneConsentJsonSchema);
 
 export const groupMobilePhoneConsentEndpoints = {
-  status: defineClientEndpoint<GroupInput, GroupMobilePhoneConsent>({
+  status: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupMobilePhoneConsent>({
     auth: 'bearer',
     decoder: groupMobilePhoneConsentDecoder,
     id: 'group-mobile-phone-consent.status',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/mobile-phone-consent`,
   }),
-  update: defineClientEndpoint<UpdateConsentInput, GroupMobilePhoneConsent>({
+  update: /* @__PURE__ */ defineClientEndpoint<UpdateConsentInput, GroupMobilePhoneConsent>({
     auth: 'bearer',
     body: ({ request }) => request,
     decoder: groupMobilePhoneConsentDecoder,

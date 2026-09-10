@@ -35,82 +35,83 @@ interface InviteInput {
   readonly token: string;
 }
 
-export const groupSummaryListDecoder = createCompactDecoder<GroupSummary[]>(
+export const groupSummaryListDecoder = /* @__PURE__ */ createCompactDecoder<GroupSummary[]>(
   groupSummaryListJsonSchema,
 );
-export const groupCatalogListDecoder = createCompactDecoder<GroupCatalogEntry[]>(
+export const groupCatalogListDecoder = /* @__PURE__ */ createCompactDecoder<GroupCatalogEntry[]>(
   groupCatalogListJsonSchema,
 );
-export const dissolvedGroupListDecoder = createCompactDecoder<DissolvedGroup[]>(
+export const dissolvedGroupListDecoder = /* @__PURE__ */ createCompactDecoder<DissolvedGroup[]>(
   dissolvedGroupListJsonSchema,
 );
 export const groupMemberListDecoder =
-  createCompactDecoder<GroupMember[]>(groupMemberListJsonSchema);
-export const groupMemberContactListDecoder = createCompactDecoder<GroupMemberContact[]>(
-  groupMemberContactListJsonSchema,
-);
+  /* @__PURE__ */ createCompactDecoder<GroupMember[]>(groupMemberListJsonSchema);
+export const groupMemberContactListDecoder = /* @__PURE__ */ createCompactDecoder<
+  GroupMemberContact[]
+>(groupMemberContactListJsonSchema);
 export const platformAdminUserAccountListDecoder =
-  createCompactDecoder<PlatformAdminUserAccountList>(platformAdminUserAccountListJsonSchema);
-export const resolveInviteResponseDecoder = createCompactDecoder<ResolveInviteResponse>(
-  resolveInviteResponseJsonSchema,
-);
-export const schedulingConfigReadDecoder = createCompactDecoder<SchedulingConfig>(
+  /* @__PURE__ */ createCompactDecoder<PlatformAdminUserAccountList>(
+    platformAdminUserAccountListJsonSchema,
+  );
+export const resolveInviteResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<ResolveInviteResponse>(resolveInviteResponseJsonSchema);
+export const schedulingConfigReadDecoder = /* @__PURE__ */ createCompactDecoder<SchedulingConfig>(
   schedulingConfigJsonSchema,
 );
 export const groupQrResponseDecoder =
-  createCompactDecoder<GroupQrResponse>(groupQrResponseJsonSchema);
+  /* @__PURE__ */ createCompactDecoder<GroupQrResponse>(groupQrResponseJsonSchema);
 
 export const organizationReadEndpoints = {
-  catalog: defineClientEndpoint<EmptyInput, GroupCatalogEntry[]>({
+  catalog: /* @__PURE__ */ defineClientEndpoint<EmptyInput, GroupCatalogEntry[]>({
     auth: 'bearer',
     decoder: groupCatalogListDecoder,
     id: 'organization.catalog',
     method: 'GET',
     path: () => '/groups/catalog',
   }),
-  contacts: defineClientEndpoint<GroupInput, GroupMemberContact[]>({
+  contacts: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupMemberContact[]>({
     auth: 'bearer',
     decoder: groupMemberContactListDecoder,
     id: 'organization.contacts',
     method: 'GET',
     path: ({ groupId }) => `${groupPath(groupId)}/contacts?includeEmployeeCodes=1`,
   }),
-  dissolvedGroups: defineClientEndpoint<EmptyInput, DissolvedGroup[]>({
+  dissolvedGroups: /* @__PURE__ */ defineClientEndpoint<EmptyInput, DissolvedGroup[]>({
     auth: 'bearer',
     decoder: dissolvedGroupListDecoder,
     id: 'organization.dissolved-groups',
     method: 'GET',
     path: () => '/groups/dissolved',
   }),
-  groups: defineClientEndpoint<EmptyInput, GroupSummary[]>({
+  groups: /* @__PURE__ */ defineClientEndpoint<EmptyInput, GroupSummary[]>({
     auth: 'bearer',
     decoder: groupSummaryListDecoder,
     id: 'organization.groups',
     method: 'GET',
     path: () => '/groups',
   }),
-  groupQr: defineClientEndpoint<GroupInput, GroupQrResponse>({
+  groupQr: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupQrResponse>({
     auth: 'bearer',
     decoder: groupQrResponseDecoder,
     id: 'organization.group-qr',
     method: 'GET',
     path: ({ groupId }) => `${groupPath(groupId)}/group-qr`,
   }),
-  members: defineClientEndpoint<GroupInput, GroupMember[]>({
+  members: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupMember[]>({
     auth: 'bearer',
     decoder: groupMemberListDecoder,
     id: 'organization.members',
     method: 'GET',
     path: ({ groupId }) => `${groupPath(groupId)}/members`,
   }),
-  platformAccounts: defineClientEndpoint<EmptyInput, PlatformAdminUserAccountList>({
+  platformAccounts: /* @__PURE__ */ defineClientEndpoint<EmptyInput, PlatformAdminUserAccountList>({
     auth: 'bearer',
     decoder: platformAdminUserAccountListDecoder,
     id: 'organization.platform-accounts',
     method: 'GET',
     path: () => '/platform-admin/users',
   }),
-  resolveInvite: defineClientEndpoint<InviteInput, ResolveInviteResponse>({
+  resolveInvite: /* @__PURE__ */ defineClientEndpoint<InviteInput, ResolveInviteResponse>({
     auth: 'bearer',
     body: ({ token }) => ({ token }),
     decoder: resolveInviteResponseDecoder,
@@ -118,7 +119,7 @@ export const organizationReadEndpoints = {
     method: 'POST',
     path: () => '/invites/resolve',
   }),
-  schedulingConfig: defineClientEndpoint<GroupInput, SchedulingConfig>({
+  schedulingConfig: /* @__PURE__ */ defineClientEndpoint<GroupInput, SchedulingConfig>({
     auth: 'bearer',
     decoder: schedulingConfigReadDecoder,
     id: 'organization.scheduling-config',

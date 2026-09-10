@@ -46,16 +46,16 @@ export interface InsightsYearStatisticsInput {
   readonly year: number;
 }
 
-export const scheduleEventPageDecoder = createCompactDecoder<ScheduleEventPage>(
+export const scheduleEventPageDecoder = /* @__PURE__ */ createCompactDecoder<ScheduleEventPage>(
   scheduleEventPageJsonSchema,
 );
-export const scheduleEventDetailDecoder = createCompactDecoder<ScheduleEventDetail>(
+export const scheduleEventDetailDecoder = /* @__PURE__ */ createCompactDecoder<ScheduleEventDetail>(
   scheduleEventDetailJsonSchema,
 );
-const strictMonthStatisticsSnapshotDecoder = createCompactDecoder<MonthStatisticsSnapshot>(
-  monthStatisticsSnapshotJsonSchema,
-);
-const strictYearStatisticsDecoder = createCompactDecoder<YearStatistics>(yearStatisticsJsonSchema);
+const strictMonthStatisticsSnapshotDecoder =
+  /* @__PURE__ */ createCompactDecoder<MonthStatisticsSnapshot>(monthStatisticsSnapshotJsonSchema);
+const strictYearStatisticsDecoder =
+  /* @__PURE__ */ createCompactDecoder<YearStatistics>(yearStatisticsJsonSchema);
 export const monthStatisticsSnapshotDecoder = lenientStatisticsDecoder(
   strictMonthStatisticsSnapshotDecoder,
   normalizeMonthStatistics,
@@ -66,7 +66,7 @@ export const yearStatisticsDecoder = lenientStatisticsDecoder(
 );
 
 export const insightsReadEndpoints = {
-  events: defineClientEndpoint<InsightsEventQueryInput, ScheduleEventPage>({
+  events: /* @__PURE__ */ defineClientEndpoint<InsightsEventQueryInput, ScheduleEventPage>({
     auth: 'bearer',
     decoder: scheduleEventPageDecoder,
     id: 'insights.events',
@@ -98,7 +98,7 @@ export const insightsReadEndpoints = {
         ['to', to],
       ]),
   }),
-  eventDetail: defineClientEndpoint<InsightsEventDetailInput, ScheduleEventDetail>({
+  eventDetail: /* @__PURE__ */ defineClientEndpoint<InsightsEventDetailInput, ScheduleEventDetail>({
     auth: 'bearer',
     decoder: scheduleEventDetailDecoder,
     id: 'insights.event-detail',
@@ -106,7 +106,10 @@ export const insightsReadEndpoints = {
     path: ({ eventId, groupId }) =>
       `/groups/${encodeURIComponent(groupId)}/events/${encodeURIComponent(eventId)}`,
   }),
-  monthStatistics: defineClientEndpoint<InsightsMonthStatisticsInput, MonthStatisticsSnapshot>({
+  monthStatistics: /* @__PURE__ */ defineClientEndpoint<
+    InsightsMonthStatisticsInput,
+    MonthStatisticsSnapshot
+  >({
     auth: 'bearer',
     decoder: monthStatisticsSnapshotDecoder,
     id: 'insights.statistics-month',
@@ -114,14 +117,16 @@ export const insightsReadEndpoints = {
     path: ({ businessMonth, groupId }) =>
       `/groups/${encodeURIComponent(groupId)}/statistics?businessMonth=${encodeURIComponent(businessMonth)}`,
   }),
-  yearStatistics: defineClientEndpoint<InsightsYearStatisticsInput, YearStatistics>({
-    auth: 'bearer',
-    decoder: yearStatisticsDecoder,
-    id: 'insights.statistics-year',
-    method: 'GET',
-    path: ({ groupId, year }) =>
-      `/groups/${encodeURIComponent(groupId)}/statistics/year?year=${encodeURIComponent(String(year))}`,
-  }),
+  yearStatistics: /* @__PURE__ */ defineClientEndpoint<InsightsYearStatisticsInput, YearStatistics>(
+    {
+      auth: 'bearer',
+      decoder: yearStatisticsDecoder,
+      id: 'insights.statistics-year',
+      method: 'GET',
+      path: ({ groupId, year }) =>
+        `/groups/${encodeURIComponent(groupId)}/statistics/year?year=${encodeURIComponent(String(year))}`,
+    },
+  ),
 } as const;
 
 export interface InsightsReadClient {

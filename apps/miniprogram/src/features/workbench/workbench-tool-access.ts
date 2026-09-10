@@ -33,7 +33,7 @@ export function createWorkbenchToolAccess(
 ): WorkbenchToolAccess {
   const coreEnabled = capability.global && capability.core;
   const hasGroup = coreEnabled && group !== undefined;
-  const isDeveloperAdmin = hasGroup && group.isDeveloperAdmin === true;
+  const isDeveloperAdmin = hasGroup && group.role !== 'guest' && group.isDeveloperAdmin === true;
   const nonGuest = hasGroup && group.role !== 'guest';
   const canUseGroupTools = nonGuest || isDeveloperAdmin;
   const canManage =

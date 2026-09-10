@@ -19,16 +19,19 @@ interface UserInput<Request> {
 }
 const userPath = (id: string): string => `/platform-admin/users/${encodeURIComponent(id)}`;
 export const platformAccountEndpoints = {
-  details: defineClientEndpoint<Record<string, never>, PlatformAdminUserDetailsList>({
+  details: /* @__PURE__ */ defineClientEndpoint<
+    Record<string, never>,
+    PlatformAdminUserDetailsList
+  >({
     id: 'platform-account.details',
     method: 'GET',
     auth: 'bearer',
     path: () => '/platform-admin/users/details',
-    decoder: createCompactDecoder<PlatformAdminUserDetailsList>(
+    decoder: /* @__PURE__ */ createCompactDecoder<PlatformAdminUserDetailsList>(
       platformAdminUserDetailsListJsonSchema,
     ),
   }),
-  profile: defineClientEndpoint<
+  profile: /* @__PURE__ */ defineClientEndpoint<
     UserInput<UpdatePlatformUserProfileRequest>,
     UpdatePlatformUserProfileResponse
   >({
@@ -38,11 +41,11 @@ export const platformAccountEndpoints = {
     path: ({ userId }) => `${userPath(userId)}/profile`,
     body: ({ request }) => request,
     idempotencyKey: ({ request }) => request.operationId,
-    decoder: createCompactDecoder<UpdatePlatformUserProfileResponse>(
+    decoder: /* @__PURE__ */ createCompactDecoder<UpdatePlatformUserProfileResponse>(
       updatePlatformUserProfileResponseJsonSchema,
     ),
   }),
-  password: defineClientEndpoint<
+  password: /* @__PURE__ */ defineClientEndpoint<
     UserInput<ResetPlatformUserPasswordRequest>,
     ResetPlatformUserPasswordResponse
   >({
@@ -52,7 +55,7 @@ export const platformAccountEndpoints = {
     path: ({ userId }) => `${userPath(userId)}/password`,
     body: ({ request }) => request,
     idempotencyKey: ({ request }) => request.operationId,
-    decoder: createCompactDecoder<ResetPlatformUserPasswordResponse>(
+    decoder: /* @__PURE__ */ createCompactDecoder<ResetPlatformUserPasswordResponse>(
       resetPlatformUserPasswordResponseJsonSchema,
     ),
   }),

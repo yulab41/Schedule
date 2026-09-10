@@ -13,22 +13,25 @@ export interface VisitorAccessPageInput {
   readonly pageSize?: number;
 }
 
-export const visitorAccessLogPageDecoder = createCompactDecoder<VisitorAccessLogPage>(
-  visitorAccessLogPageJsonSchema,
-);
-export const visitorAccessAggregatePageDecoder = createCompactDecoder<VisitorAccessAggregatePage>(
-  visitorAccessAggregatePageJsonSchema,
-);
+export const visitorAccessLogPageDecoder =
+  /* @__PURE__ */ createCompactDecoder<VisitorAccessLogPage>(visitorAccessLogPageJsonSchema);
+export const visitorAccessAggregatePageDecoder =
+  /* @__PURE__ */ createCompactDecoder<VisitorAccessAggregatePage>(
+    visitorAccessAggregatePageJsonSchema,
+  );
 
 export const visitorAccessReadEndpoints = {
-  aggregates: defineClientEndpoint<VisitorAccessPageInput, VisitorAccessAggregatePage>({
+  aggregates: /* @__PURE__ */ defineClientEndpoint<
+    VisitorAccessPageInput,
+    VisitorAccessAggregatePage
+  >({
     auth: 'bearer',
     decoder: visitorAccessAggregatePageDecoder,
     id: 'insights.visitor-access-aggregates',
     method: 'GET',
     path: visitorAccessPagePath('visitor-access-aggregates'),
   }),
-  logs: defineClientEndpoint<VisitorAccessPageInput, VisitorAccessLogPage>({
+  logs: /* @__PURE__ */ defineClientEndpoint<VisitorAccessPageInput, VisitorAccessLogPage>({
     auth: 'bearer',
     decoder: visitorAccessLogPageDecoder,
     id: 'insights.visitor-access-logs',

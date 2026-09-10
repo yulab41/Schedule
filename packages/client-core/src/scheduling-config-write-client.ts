@@ -27,8 +27,9 @@ interface ShiftTypeRequestInput<Request> extends GroupRequestInput<Request> {
 }
 
 export const scheduleRoleMutationDecoder =
-  createCompactDecoder<ScheduleRole>(scheduleRoleJsonSchema);
-export const shiftTypeMutationDecoder = createCompactDecoder<ShiftType>(shiftTypeJsonSchema);
+  /* @__PURE__ */ createCompactDecoder<ScheduleRole>(scheduleRoleJsonSchema);
+export const shiftTypeMutationDecoder =
+  /* @__PURE__ */ createCompactDecoder<ShiftType>(shiftTypeJsonSchema);
 const emptyResponseDecoder: CompactDecoder<void> = {
   safeDecode(value) {
     return value === undefined || value === null || value === ''
@@ -43,7 +44,7 @@ const operationId = <Request extends { readonly operationId: string }>(
 ): string => input.request.operationId;
 
 export const schedulingConfigWriteEndpoints = {
-  createScheduleRole: defineClientEndpoint<
+  createScheduleRole: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<CreateScheduleRoleRequest>,
     ScheduleRole
   >({
@@ -55,7 +56,10 @@ export const schedulingConfigWriteEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${groupPath(groupId)}/schedule-roles`,
   }),
-  createShiftType: defineClientEndpoint<GroupRequestInput<CreateShiftTypeRequest>, ShiftType>({
+  createShiftType: /* @__PURE__ */ defineClientEndpoint<
+    GroupRequestInput<CreateShiftTypeRequest>,
+    ShiftType
+  >({
     auth: 'bearer',
     body,
     decoder: shiftTypeMutationDecoder,

@@ -33,6 +33,7 @@ import {
 import {
   canUseWorkbenchOfflineFallback,
   clearWorkbenchGroupCaches,
+  clearWorkbenchCalendarCache,
   createWorkbenchReadClient,
   loadActiveThenAdjacent,
   readWorkbenchCache,
@@ -129,6 +130,7 @@ interface FilterOption {
 }
 
 interface MonthReadResult {
+  readonly context: string;
   readonly calendar: CalendarReadModel;
   readonly holidays: HolidayReadModel;
   readonly offline: boolean;
@@ -472,17 +474,12 @@ Page({
       this._performanceProbe?.start('foreground-ready');
       this.setData({ profileRefreshRevision: this.data.profileRefreshRevision + 1 });
     }
-    void requireClientCapability('core')
-      .then(() => {
-        syncWorkbenchToolAccess(this);
-        if (isInitialShow) return;
-        return loadWorkbench(this, { forceRefresh: true });
-      })
-      .catch((error: unknown) => setWorkbenchCapabilityError(this, error));
+    if (!isInitialShow) void loadWorkbenchWithCapability(this, { forceRefresh: true });
   },
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
     stopBusinessDateRefresh(this);
     this._diagnosticsSerial += 1;
     stopNotificationPolling(this);
@@ -501,6 +498,7 @@ Page({
   onUnload(this: WorkbenchPageInstance): void {
     accountSecurity.dispose.call(this);
     this.isVisible = false;
+    if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
     stopBusinessDateRefresh(this);
     this._diagnosticsSerial += 1;
     this._diagnosticsUnsubscribe?.();
@@ -527,7 +525,11 @@ Page({
     if (ownerId === undefined) return;
     const selectedGroup = this.data.groups.find((group) => group.id === groupId);
     const toolAccess = createWorkbenchToolAccess(selectedGroup, getClientCapabilitySnapshot());
-    const activeWorkspace = this.data.activeWorkspace;
+    if (selectedGroup === undefined) return;
+    const activeWorkspace = selectedGroup.role === 'guest' ? 'calendar' : this.data.activeWorkspace;
+    this.requestSerial += 1;
+    resetCalendarContext(this);
+    stopNotificationPolling(this);
     writeStoredWorkbenchGroupId(ownerId, groupId);
     this.calendar = undefined;
     this.holidays = undefined;
@@ -537,6 +539,8 @@ Page({
     invalidateShiftEventRequest(this);
     this.setData({
       activeWorkspace,
+      activeWorkspaceIndex: PRIMARY_WORKSPACES.indexOf(activeWorkspace),
+      workspacePreloadQueue: [],
       activeFilterCount: 0,
       businessMonth: initialMonth,
       canManageScheduleTools: toolAccess.manualSchedule,
@@ -566,7 +570,7 @@ Page({
       weekStart: getWeekStartDate(today),
       workflowPanelsMounted: toolAccess.leave,
     });
-    void refreshNotificationUnreadCount(this, groupId);
+    startNotificationPolling(this);
     void loadWorkbenchWithCapability(this);
   },
 
@@ -674,6 +678,7 @@ Page({
   },
 
   handleOnlyChangesToggle(this: WorkbenchPageInstance): void {
+    if (this.data.currentGroupRoleKind === 'guest') return;
     this.setData({ filterOnlyChanges: !this.data.filterOnlyChanges }, () => {
       syncFilterPresentation(this);
       refreshView(this);
@@ -838,6 +843,7 @@ Page({
   },
 
   handleListCall(this: WorkbenchPageInstance, event: TapEvent): void {
+    if (this.data.currentGroupRoleKind === 'guest') return;
     const phoneNumber = event.currentTarget.dataset.phone;
     if (phoneNumber === undefined || phoneNumber.length === 0) return;
     wx.makePhoneCall({
@@ -1040,6 +1046,7 @@ Page({
   },
 
   handleNotification(this: WorkbenchPageInstance): void {
+    if (this.data.currentGroupRoleKind === 'guest') return;
     if (this.data.currentGroupId === '') {
       announceToolNavigationFailure(this, '当前群组尚未准备好，请刷新后重试。');
       return;
@@ -1192,7 +1199,7 @@ function startNotificationPolling(page: WorkbenchPageInstance): void {
 }
 
 function scheduleNotificationPoll(page: WorkbenchPageInstance): void {
-  if (!page.isVisible) return;
+  if (!page.isVisible || page.data.currentGroupRoleKind === 'guest') return;
   page._notificationPollTimer = setTimeout(() => {
     page._notificationPollTimer = undefined;
     void refreshNotificationUnreadCount(page).finally(() => scheduleNotificationPoll(page));
@@ -1211,12 +1218,13 @@ async function refreshNotificationUnreadCount(
 ): Promise<void> {
   const requestSerial = page.notificationRequestSerial + 1;
   page.notificationRequestSerial = requestSerial;
-  if (groupId === '') {
+  if (groupId === '' || page.data.currentGroupRoleKind === 'guest') {
     if (page.data.notificationUnreadCount !== 0) page.setData({ notificationUnreadCount: 0 });
     return;
   }
   try {
     await requireClientCapability('insights');
+    if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     const result = await notificationClient.unreadCount(groupId);
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     page.setData({ notificationUnreadCount: result.unreadCount });
@@ -1237,7 +1245,8 @@ function isNotificationRequestCurrent(
   return (
     page.isVisible &&
     requestSerial === page.notificationRequestSerial &&
-    groupId === page.data.currentGroupId
+    groupId === page.data.currentGroupId &&
+    page.data.currentGroupRoleKind !== 'guest'
   );
 }
 
@@ -1261,12 +1270,7 @@ async function loadWorkbench(
     return;
   }
   const ownerId = getStoredWechatProfile()?.id;
-  if (page.requestOwnerId !== ownerId) {
-    page.calendar = undefined;
-    page.holidays = undefined;
-    page.monthResources.clear();
-    page.setData({ detailExpansion: reconcileDetailExpansion(undefined, [], []) });
-  }
+  if (page.requestOwnerId !== ownerId) resetCalendarContext(page);
   page.requestOwnerId = ownerId;
   const hasLoadedData = page.calendar !== undefined && page.holidays !== undefined;
   page.setData({
@@ -1291,6 +1295,7 @@ async function loadWorkbench(
     }
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
+      resetCalendarContext(page);
       page.notificationRequestSerial += 1;
       invalidateShiftEventRequest(page);
       page.setData({
@@ -1316,10 +1321,13 @@ async function loadWorkbench(
     const storedGroupId = readStoredWorkbenchGroupId(ownerId);
     const selectedGroup = groups.find((group) => group.id === storedGroupId) ?? groups[0];
     if (selectedGroup === undefined) return;
-    const groupChanged = page.data.currentGroupId !== selectedGroup.id;
+    const groupChanged =
+      page.data.currentGroupId !== selectedGroup.id ||
+      page.data.currentGroupRoleKind !== selectedGroup.role;
+    if (selectedGroup.role === 'guest') clearWorkbenchCalendarCache(ownerId, selectedGroup.id);
     const toolAccess = createWorkbenchToolAccess(selectedGroup, getClientCapabilitySnapshot());
     if (groupChanged) {
-      if (page.data.currentGroupId !== '') page.monthResources.clear();
+      resetCalendarContext(page);
       page.notificationRequestSerial += 1;
       invalidateShiftEventRequest(page);
       page.setData({
@@ -1348,8 +1356,18 @@ async function loadWorkbench(
       directoryPermissionContextReady: !groupSnapshotOffline,
       groups,
       toolAccess,
+      ...(selectedGroup.role === 'guest'
+        ? {
+            activeWorkspace: 'calendar' as const,
+            activeWorkspaceIndex: 0,
+            workspacePreloadQueue: [],
+          }
+        : {}),
       workflowPanelsMounted: toolAccess.leave,
     });
+    if (selectedGroup.role === 'guest') stopNotificationPolling(page);
+
+    if (selectedGroup.role === 'guest' && groupSnapshotOffline) throw { code: 'NETWORK_ERROR' };
 
     const requestedMonths = getRequestedMonths(
       page.data.viewMode,
@@ -1411,7 +1429,7 @@ async function loadWorkbench(
         completeCoreReadyProbe(page);
         flushPendingScrollTarget(page);
         if (groupChanged && page.isVisible) {
-          void refreshNotificationUnreadCount(page, selectedGroup.id);
+          startNotificationPolling(page);
         }
       },
     );
@@ -1424,6 +1442,7 @@ async function loadWorkbench(
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
+    resetCalendarContext(page);
     const message = getReadErrorMessage(error);
     page.setData({
       canReLogin: isAuthRequired(error),
@@ -1454,17 +1473,21 @@ async function loadWorkbenchWithCapability(
   page: WorkbenchPageInstance,
   options: { readonly forceRefresh?: boolean } = {},
 ): Promise<void> {
+  const intentSerial = page.requestSerial;
   try {
     await requireClientCapability('core');
+    if (!page.isVisible || page.requestSerial !== intentSerial) return;
     syncWorkbenchToolAccess(page);
     await loadWorkbench(page, options);
   } catch (error) {
-    setWorkbenchCapabilityError(page, error);
+    if (page.isVisible && page.requestSerial === intentSerial)
+      setWorkbenchCapabilityError(page, error);
   }
 }
 
 function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown): void {
   if (!(error instanceof ClientCapabilityDisabledError)) return;
+  resetCalendarContext(page);
   page.notificationRequestSerial += 1;
   page.requestSerial += 1;
   invalidateShiftEventRequest(page);
@@ -1546,7 +1569,7 @@ function canPreloadWorkspace(page: WorkbenchPageInstance, workspace: ActiveWorks
 function mountNextWorkspace(page: WorkbenchPageInstance): void {
   const workspace = page.data.workspacePreloadQueue[0];
   if (workspace === undefined) return;
-  if (page.data.workspaceReady[workspace]) {
+  if (!canPreloadWorkspace(page, workspace) || page.data.workspaceReady[workspace]) {
     page.setData({ workspacePreloadQueue: page.data.workspacePreloadQueue.slice(1) }, () =>
       mountNextWorkspace(page),
     );
@@ -1667,23 +1690,41 @@ async function readMonth(
   readHolidays: HolidayReader,
   options: { readonly forceRefresh: boolean },
 ): Promise<MonthReadResult> {
+  if (!isCurrentRequest(page, requestSerial)) throw new Error('Stale calendar read');
+  const guest = page.data.currentGroupRoleKind === 'guest';
+  const context = calendarContext(page);
   const existing = page.monthResources.get(businessMonth);
-  if (!options.forceRefresh && existing?.offline === false) return existing;
+  if (
+    !guest &&
+    !options.forceRefresh &&
+    existing?.offline === false &&
+    existing.context === context
+  )
+    return existing;
 
   const [calendarResult, holidayResult] = await Promise.allSettled([
-    client.getCalendar(groupId, businessMonth),
+    guest
+      ? client.getGroupGuestCalendar(groupId, businessMonth)
+      : client.getCalendar(groupId, businessMonth),
     readHolidays(Number(businessMonth.slice(0, 4))),
   ]);
   if (calendarResult.status === 'rejected') {
-    if (getErrorStatus(calendarResult.reason) === 403) clearWorkbenchGroupCaches(ownerId, groupId);
-    if (!canUseWorkbenchOfflineFallback(calendarResult.reason)) throw calendarResult.reason;
+    if (
+      getErrorStatus(calendarResult.reason) === 403 &&
+      isCurrentRequest(page, requestSerial) &&
+      calendarContext(page) === context
+    )
+      clearWorkbenchGroupCaches(ownerId, groupId);
+    if (guest || !canUseWorkbenchOfflineFallback(calendarResult.reason))
+      throw calendarResult.reason;
     const cached = readWorkbenchCache(ownerId, groupId, businessMonth);
-    if (cached !== undefined) return { ...cached, offline: true } satisfies MonthReadResult;
+    if (cached !== undefined)
+      return { ...cached, context, offline: true } satisfies MonthReadResult;
     throw calendarResult.reason;
   }
   if (
     holidayResult.status === 'rejected' &&
-    !canUseWorkbenchOfflineFallback(holidayResult.reason)
+    (guest || !canUseWorkbenchOfflineFallback(holidayResult.reason))
   ) {
     throw holidayResult.reason;
   }
@@ -1693,10 +1734,15 @@ async function readMonth(
       : (readWorkbenchCache(ownerId, groupId, businessMonth)?.holidays ??
         emptyHoliday(Number(businessMonth.slice(0, 4))));
   const offline = holidayResult.status === 'rejected';
-  if (!offline && isCurrentRequest(page, requestSerial)) {
+  if (
+    !guest &&
+    !offline &&
+    isCurrentRequest(page, requestSerial) &&
+    calendarContext(page) === context
+  ) {
     writeWorkbenchCache(ownerId, groupId, businessMonth, calendarResult.value, holidays);
   }
-  return { calendar: calendarResult.value, holidays, offline };
+  return { calendar: calendarResult.value, context, holidays, offline };
 }
 
 async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void> {
@@ -1744,6 +1790,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
+    resetCalendarContext(page);
     page.setData({
       canReLogin: isAuthRequired(error),
       errorMessage: getReadErrorMessage(error),
@@ -1757,8 +1804,11 @@ function applyMonthWindow(
   monthResults: readonly MonthReadResult[],
   requestedMonths: readonly string[],
 ): page is WorkbenchPageInstance & { calendar: CalendarReadModel; holidays: HolidayReadModel } {
-  const merged = new Map(page.monthResources);
-  for (const result of monthResults) merged.set(result.calendar.businessMonth, result);
+  const merged = new Map(
+    [...page.monthResources].filter(([, result]) => result.context === calendarContext(page)),
+  );
+  for (const result of monthResults)
+    if (result.context === calendarContext(page)) merged.set(result.calendar.businessMonth, result);
   page.monthResources = new Map(
     requestedMonths.flatMap((businessMonth) => {
       const result = merged.get(businessMonth);
@@ -2264,6 +2314,57 @@ function mergeHolidays(
   };
 }
 
+function calendarContext(page: WorkbenchPageInstance): string {
+  return JSON.stringify([
+    page.requestOwnerId,
+    page.data.currentGroupId,
+    page.data.currentGroupRoleKind,
+  ]);
+}
+
+function resetCalendarContext(page: WorkbenchPageInstance): void {
+  page.calendar = undefined;
+  page.holidays = undefined;
+  page.monthResources.clear();
+  page.monthRingSlot = 1;
+  page.monthLocateTarget = undefined;
+  page.pendingListTarget = undefined;
+  page.pendingScrollTarget = undefined;
+  page.pendingWeekTarget = undefined;
+  page.periodShiftActive = undefined;
+  page.periodShiftCommitPending = false;
+  page.periodShiftQueue = 0;
+  invalidateShiftEventRequest(page);
+  page.setData({
+    state: 'loading',
+    errorMessage: '',
+    offlineNotice: '',
+    announcement: '',
+    monthPanels: [],
+    weekPanels: [],
+    listPanels: [],
+    selectedDetails: [],
+    selectedCountLabel: '0 个班种',
+    detailExpansion: reconcileDetailExpansion(undefined, [], []),
+    activeFilterCount: 0,
+    filterOpen: false,
+    filterOpenField: '',
+    filterOnlyChanges: false,
+    filterMembershipIds: [],
+    filterRoleIds: [],
+    filterShiftTypeIds: [],
+    filterMemberOptions: [],
+    filterRoleOptions: [],
+    filterShiftTypeOptions: [],
+    filterMemberSummary: '全部成员',
+    filterRoleSummary: '全部岗位',
+    filterShiftTypeSummary: '全部班种',
+    notificationSheetOpen: false,
+    notificationUnreadCount: 0,
+    ...emptyShiftEventDataPatch(),
+  });
+}
+
 function isCurrentRequest(page: WorkbenchPageInstance, requestSerial: number): boolean {
   return (
     page.isVisible &&
@@ -2288,9 +2389,7 @@ function failClosedAfterBackgroundRead(
   error: unknown,
 ): void {
   if (!isCurrentRequest(page, requestSerial)) return;
-  page.calendar = undefined;
-  page.holidays = undefined;
-  page.monthResources.clear();
+  resetCalendarContext(page);
   page.setData({
     canReLogin: isAuthRequired(error),
     errorMessage: getReadErrorMessage(error),
@@ -2299,7 +2398,7 @@ function failClosedAfterBackgroundRead(
 }
 
 function formatRole(group: Pick<GroupSummary, 'isDeveloperAdmin' | 'role'>): string {
-  if (group.isDeveloperAdmin === true) return '后台管理员';
+  if (group.role !== 'guest' && group.isDeveloperAdmin === true) return '后台管理员';
   return group.role === 'owner'
     ? '群主'
     : group.role === 'administrator'
@@ -2320,6 +2419,9 @@ function getReadErrorMessage(error: unknown): string {
       return '登录状态已失效，请重新登录。';
     if (code === 'NETWORK_ERROR') return '网络连接失败；没有可用的离线排班缓存。';
   }
+  if (error instanceof ClientCapabilityDisabledError) return error.message;
+  if (getErrorStatus(error) === 403 || getErrorStatus(error) === 404)
+    return '此群的访问权限已失效，请刷新群组后重试。';
   if (getErrorStatus(error) === 401) return '登录状态已失效，请重新登录。';
   return '排班暂时无法加载，请检查网络连接后重试。';
 }

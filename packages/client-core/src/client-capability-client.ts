@@ -9,12 +9,13 @@ import { clientCapabilityResponseJsonSchema } from './generated/calendar-schemas
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
 import { createCompactDecoder } from './json-decoder.js';
 
-export const clientCapabilityResponseDecoder = createCompactDecoder<ClientCapabilityResponse>(
-  clientCapabilityResponseJsonSchema,
-);
+export const clientCapabilityResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<ClientCapabilityResponse>(
+    clientCapabilityResponseJsonSchema,
+  );
 
 export const clientCapabilityEndpoints = {
-  status: defineClientEndpoint<ClientCapabilityQuery, ClientCapabilityResponse>({
+  status: /* @__PURE__ */ defineClientEndpoint<ClientCapabilityQuery, ClientCapabilityResponse>({
     auth: 'public',
     decoder: clientCapabilityResponseDecoder,
     id: 'client-capabilities.read',

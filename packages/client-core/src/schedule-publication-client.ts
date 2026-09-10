@@ -51,25 +51,32 @@ interface DeleteDraftInput extends PeriodInput {
   readonly operationId: string;
 }
 
-export const schedulePeriodHistoryListDecoder = createCompactDecoder<
+export const schedulePeriodHistoryListDecoder = /* @__PURE__ */ createCompactDecoder<
   readonly SchedulePeriodHistoryItem[]
 >(schedulePeriodHistoryItemListJsonSchema);
-export const scheduleGenerationPreviewDecoder = createCompactDecoder<ScheduleGenerationPreview>(
-  scheduleGenerationPreviewJsonSchema,
-);
-export const scheduleChangeImpactPreviewDecoder = createCompactDecoder<ScheduleChangeImpactPreview>(
-  scheduleChangeImpactPreviewJsonSchema,
-);
+export const scheduleGenerationPreviewDecoder =
+  /* @__PURE__ */ createCompactDecoder<ScheduleGenerationPreview>(
+    scheduleGenerationPreviewJsonSchema,
+  );
+export const scheduleChangeImpactPreviewDecoder =
+  /* @__PURE__ */ createCompactDecoder<ScheduleChangeImpactPreview>(
+    scheduleChangeImpactPreviewJsonSchema,
+  );
 export const schedulePeriodMutationResultDecoder =
-  createCompactDecoder<SchedulePeriodMutationResult>(schedulePeriodMutationResultJsonSchema);
+  /* @__PURE__ */ createCompactDecoder<SchedulePeriodMutationResult>(
+    schedulePeriodMutationResultJsonSchema,
+  );
 export const publishSchedulePeriodBatchResultDecoder =
-  createCompactDecoder<PublishSchedulePeriodBatchResult>(
+  /* @__PURE__ */ createCompactDecoder<PublishSchedulePeriodBatchResult>(
     publishSchedulePeriodBatchResultJsonSchema,
   );
-export const publishSchedulePeriodResultDecoder = createCompactDecoder<PublishSchedulePeriodResult>(
-  publishSchedulePeriodResultJsonSchema,
+export const publishSchedulePeriodResultDecoder =
+  /* @__PURE__ */ createCompactDecoder<PublishSchedulePeriodResult>(
+    publishSchedulePeriodResultJsonSchema,
+  );
+const periodCalendarDecoder = /* @__PURE__ */ createCompactDecoder<CalendarReadModel>(
+  calendarReadModelJsonSchema,
 );
-const periodCalendarDecoder = createCompactDecoder<CalendarReadModel>(calendarReadModelJsonSchema);
 const emptyResponseDecoder: CompactDecoder<void> = {
   safeDecode(value) {
     return value === undefined || value === null || value === ''
@@ -79,7 +86,10 @@ const emptyResponseDecoder: CompactDecoder<void> = {
 };
 
 export const schedulePublicationEndpoints = {
-  changeImpact: defineClientEndpoint<ChangeImpactInput, ScheduleChangeImpactPreview>({
+  changeImpact: /* @__PURE__ */ defineClientEndpoint<
+    ChangeImpactInput,
+    ScheduleChangeImpactPreview
+  >({
     auth: 'bearer',
     decoder: scheduleChangeImpactPreviewDecoder,
     id: 'schedule-publication.change-impact',
@@ -87,7 +97,7 @@ export const schedulePublicationEndpoints = {
     path: ({ action, groupId, schedulePeriodId }) =>
       `${schedulePath(groupId, schedulePeriodId)}/change-impact?action=${encodeURIComponent(action)}`,
   }),
-  deleteDraft: defineClientEndpoint<DeleteDraftInput, void>({
+  deleteDraft: /* @__PURE__ */ defineClientEndpoint<DeleteDraftInput, void>({
     auth: 'bearer',
     body: () => ({}),
     decoder: emptyResponseDecoder,
@@ -96,21 +106,21 @@ export const schedulePublicationEndpoints = {
     method: 'DELETE',
     path: ({ groupId, schedulePeriodId }) => schedulePath(groupId, schedulePeriodId),
   }),
-  draftPreview: defineClientEndpoint<PeriodInput, ScheduleGenerationPreview>({
+  draftPreview: /* @__PURE__ */ defineClientEndpoint<PeriodInput, ScheduleGenerationPreview>({
     auth: 'bearer',
     decoder: scheduleGenerationPreviewDecoder,
     id: 'schedule-publication.draft-preview',
     method: 'GET',
     path: ({ groupId, schedulePeriodId }) => `${schedulePath(groupId, schedulePeriodId)}/preview`,
   }),
-  history: defineClientEndpoint<GroupInput, readonly SchedulePeriodHistoryItem[]>({
+  history: /* @__PURE__ */ defineClientEndpoint<GroupInput, readonly SchedulePeriodHistoryItem[]>({
     auth: 'bearer',
     decoder: schedulePeriodHistoryListDecoder,
     id: 'schedule-publication.history',
     method: 'GET',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/schedule-periods/history`,
   }),
-  periodCalendar: defineClientEndpoint<PeriodInput, CalendarReadModel>({
+  periodCalendar: /* @__PURE__ */ defineClientEndpoint<PeriodInput, CalendarReadModel>({
     auth: 'bearer',
     decoder: periodCalendarDecoder,
     id: 'schedule-publication.period-calendar',
@@ -118,7 +128,7 @@ export const schedulePublicationEndpoints = {
     path: ({ groupId, schedulePeriodId }) =>
       `/groups/${encodeURIComponent(groupId)}/calendar/periods/${encodeURIComponent(schedulePeriodId)}`,
   }),
-  publish: defineClientEndpoint<PublishInput, PublishSchedulePeriodResult>({
+  publish: /* @__PURE__ */ defineClientEndpoint<PublishInput, PublishSchedulePeriodResult>({
     auth: 'bearer',
     body: ({ request }) => request,
     decoder: publishSchedulePeriodResultDecoder,
@@ -127,7 +137,10 @@ export const schedulePublicationEndpoints = {
     method: 'POST',
     path: ({ groupId, schedulePeriodId }) => `${schedulePath(groupId, schedulePeriodId)}/publish`,
   }),
-  publishBatch: defineClientEndpoint<PublishBatchInput, PublishSchedulePeriodBatchResult>({
+  publishBatch: /* @__PURE__ */ defineClientEndpoint<
+    PublishBatchInput,
+    PublishSchedulePeriodBatchResult
+  >({
     auth: 'bearer',
     body: ({ request }) => request,
     decoder: publishSchedulePeriodBatchResultDecoder,
@@ -136,7 +149,7 @@ export const schedulePublicationEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/schedules/publish-batch`,
   }),
-  withdraw: defineClientEndpoint<WithdrawInput, SchedulePeriodMutationResult>({
+  withdraw: /* @__PURE__ */ defineClientEndpoint<WithdrawInput, SchedulePeriodMutationResult>({
     auth: 'bearer',
     body: ({ request }) => request,
     decoder: schedulePeriodMutationResultDecoder,

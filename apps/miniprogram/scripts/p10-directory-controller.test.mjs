@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import simulate from 'miniprogram-simulate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
@@ -162,6 +164,43 @@ describe('P10 native directory controller', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('settles actual property observers across member, empty guest context, and member', async () => {
+    let observerCalls = 0;
+    const errors = [];
+    const observed = Object.fromEntries(
+      Object.entries(definition.observers).map(([key, observer]) => [
+        key,
+        function (...args) {
+          observerCalls += 1;
+          // Bound the old recursive failure so the runner itself remains responsive.
+          if (observerCalls > 80) {
+            errors.push('recursive observer updates');
+            return;
+          }
+          return observer.apply(this, args);
+        },
+      ]),
+    );
+    const id = simulate.load({ ...definition, observers: observed, template: '<view />' });
+    const component = simulate.render(id, runtimeProperties());
+    component.attach(globalThis.document.body);
+    await vi.waitFor(() => expect(component.instance.data.internalPane.state).toBe('idle'));
+    component.setData({ groupId: '', groupRole: 'guest' });
+    await flushPromises();
+    expect(errors).toEqual([]);
+    const settledCalls = observerCalls;
+    const requestCount = requests.length;
+    component.setData({ groupId: '' });
+    await flushPromises();
+    expect(observerCalls - settledCalls).toBe(1);
+    expect(requests).toHaveLength(requestCount);
+    expect(component.instance.data.internalPane.entries).toEqual([]);
+    component.setData({ groupId, groupRole: 'member' });
+    await vi.waitFor(() => expect(component.instance.data.internalPane.state).toBe('idle'));
+    expect(errors).toEqual([]);
+    component.detach();
   });
 
   it('waits for 500ms of quiet input and sends only the latest automatic search', async () => {
@@ -727,7 +766,7 @@ describe('P10 native directory controller', () => {
     page.properties = { ...page.properties, groupId: secondGroupId };
     definition.observers.groupId.call(page);
     await vi.waitFor(() => {
-      expect(page.data.groupId).toBe(secondGroupId);
+      expect(page.data.loadedGroupId).toBe(secondGroupId);
       expect(page.data.internalPane.state).toBe('idle');
       expect(page.data.employeePane.state).toBe('idle');
     });
@@ -1319,7 +1358,7 @@ describe('P10 native directory controller', () => {
     definition.observers.groupId.call(page);
 
     resolveCapability(enabledCapabilities());
-    await vi.waitFor(() => expect(page.data.groupId).toBe(secondGroupId));
+    await vi.waitFor(() => expect(page.data.loadedGroupId).toBe(secondGroupId));
     await vi.waitFor(() => expect(page.data.internalPane.state).toBe('idle'));
 
     expect(

@@ -18,11 +18,11 @@ interface UserRequestInput<Request> {
 }
 
 export const passwordIdentityAssignmentResponseDecoder =
-  createCompactDecoder<PasswordIdentityAssignmentResponse>(
+  /* @__PURE__ */ createCompactDecoder<PasswordIdentityAssignmentResponse>(
     passwordIdentityAssignmentResponseJsonSchema,
   );
 export const createWechatAdminBindingLinkResponseDecoder =
-  createCompactDecoder<CreateWechatAdminBindingLinkResponse>(
+  /* @__PURE__ */ createCompactDecoder<CreateWechatAdminBindingLinkResponse>(
     createWechatAdminBindingLinkResponseJsonSchema,
   );
 
@@ -32,7 +32,7 @@ const operationId = <Request extends { readonly operationId: string }>(
 ): string => input.request.operationId;
 
 export const platformIdentityWriteEndpoints = {
-  assignPasswordIdentity: defineClientEndpoint<
+  assignPasswordIdentity: /* @__PURE__ */ defineClientEndpoint<
     UserRequestInput<PasswordIdentityAssignmentRequest>,
     PasswordIdentityAssignmentResponse
   >({
@@ -44,7 +44,7 @@ export const platformIdentityWriteEndpoints = {
     method: 'PUT',
     path: ({ userId }) => `${platformUserPath(userId)}/password-identity`,
   }),
-  createWechatBindingLink: defineClientEndpoint<
+  createWechatBindingLink: /* @__PURE__ */ defineClientEndpoint<
     UserRequestInput<CreateWechatAdminBindingLinkRequest>,
     CreateWechatAdminBindingLinkResponse
   >({
