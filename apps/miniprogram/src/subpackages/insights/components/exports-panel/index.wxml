@@ -1,4 +1,5 @@
 <view class="exports-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
+  <ui-toast visible="{{!!infoMessage}}" message="{{infoMessage}}" tone="{{feedbackTone}}" />
   <view class="mini-header" style="{{shellHeaderStyle}}">
     <view
       class="header-back"
@@ -161,13 +162,6 @@
             ><text>文件默认不包含电话号码和内部审计内容；每次导出都会记录安全审计。</text></view
           >
 
-          <ui-alert
-            wx:if="{{errorMessage}}"
-            tone="danger"
-            title="导出任务未完成"
-            message="{{errorMessage}}"
-          ></ui-alert>
-
           <view wx:if="{{state === 'waiting'}}" class="export-progress" role="status"
             ><ui-loading compact></ui-loading
             ><view class="progress-copy"
@@ -182,28 +176,35 @@
               ><text class="progress-note">可继续检查同一任务，不会重复创建。</text></view
             ><ui-button variant="secondary" label="继续检查" bindpress="handleContinue"></ui-button
           ></view>
-          <view wx:elif="{{state === 'ready'}}" class="ready-result"
+          <view wx:elif="{{state === 'ready' || state === 'download_failed' || state === 'downloaded' || state === 'shared'}}" class="ready-result {{state === 'download_failed' ? 'has-download-error' : ''}}"
             ><view class="ready-heading"
-              ><text class="ready-title">导出已完成</text
+              ><text class="ready-title">{{statusLabel}}</text
               ><text class="ready-file">{{fileLabel}}</text></view
-            ><ui-button
+            ><view class="ready-actions"><ui-button
+              wx:if="{{state === 'downloaded' || state === 'shared'}}"
               variant="primary"
-              label="下载 CSV"
+              label="发送文件"
+              loading="{{shareBusy}}"
+              disabled="{{shareBusy}}"
+              bindpress="handleShare"
+            ></ui-button><ui-button
+              variant="{{state === 'downloaded' || state === 'shared' ? 'secondary' : 'primary'}}"
+              label="{{state === 'downloaded' || state === 'shared' ? '重新下载' : '下载 CSV'}}"
               aria-label="下载文件"
               loading="{{downloadBusy}}"
-              disabled="{{downloadBusy}}"
+              disabled="{{downloadBusy || shareBusy}}"
               bindpress="handleDownload"
             ></ui-button
             ><ui-button
               variant="secondary"
               label="重新开始"
-              disabled="{{downloadBusy}}"
+              disabled="{{shareBusy}}"
               bindpress="handleReset"
             ></ui-button
-          ></view>
+          ></view></view>
 
-          <view wx:if="{{state !== 'ready'}}" class="export-actions"
-            ><ui-button
+          <view wx:if="{{state === 'idle' || state === 'waiting' || state === 'failed' || state === 'timed_out'}}" class="export-actions"
+            ><ui-button wx:if="{{state === 'failed'}}" variant="secondary" label="重新开始" bindpress="handleReset"></ui-button><ui-button wx:else
               variant="secondary"
               label="取消"
               disabled="{{state === 'waiting'}}"
@@ -221,7 +222,7 @@
 
         <view class="security-note"
           ><text class="security-title">下载安全</text
-          ><text>临时文件只交给当前页面打开，不保存到相册、不写入业务缓存。</text></view
+          ><text>下载后点击“发送文件”，自行选择联系人或文件传输助手。临时文件将在离开页面后清理，不写入业务缓存。</text></view
         >
         <view class="bottom-spacer"></view>
       </view>

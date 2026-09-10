@@ -31,7 +31,6 @@ import {
   canConfirmSchedulePeriodMutation,
   createScheduleDraftBatchPublishIntent,
   createSchedulePeriodMutationIntent,
-  getCurrentBusinessDate,
   groupScheduleDraftBatches,
   groupScheduleVersionMonths,
   hasSchedulePeriodMutationBlockers,
@@ -195,6 +194,9 @@ interface ReleaseCalloutView {
 }
 
 interface ManualPageData extends MatrixModel {
+  readonly startDateState: 'loading' | 'ready' | 'error';
+  readonly matrixViewportWidth: number;
+  readonly previewHolidays: readonly ConfirmedHolidayDate[];
   readonly previewAssignments: readonly PreviewDuty[];
   readonly previewStartDate: string;
   readonly releasePreviewAssignments: readonly PreviewDuty[];
@@ -319,6 +321,9 @@ interface ReleaseActionEvent {
 }
 
 interface ManualPageInstance {
+  _matrixMeasureSerial?: number;
+  _holidayRequests?: Map<number, Promise<readonly ConfirmedHolidayDate[]>>;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
   _feedbackVisible?: boolean;
   _cycleWheelSequence?: number;
   _previewValid?: boolean;
@@ -363,10 +368,6 @@ const MEMBER_COLUMN_WIDTH = 104;
 const DATE_COLUMN_WIDTH = 72;
 const MATRIX_HEADER_HEIGHT = 82;
 const MATRIX_ROW_HEIGHT = 44;
-const MATRIX_VISIBLE_ROWS = 7;
-const MATRIX_VIEWPORT_HEIGHT = MATRIX_HEADER_HEIGHT + MATRIX_VISIBLE_ROWS * MATRIX_ROW_HEIGHT;
-const MATRIX_PAGE_HORIZONTAL_CHROME = 30;
-const MATRIX_VIEWPORT_FALLBACK_WIDTH = 290;
 const EMPTY_ASSIGNMENT: MatrixAssignment = {
   abbreviation: '',
   color: '',
@@ -398,6 +399,9 @@ const emptyMatrix = createMatrixModel({
 
 Page({
   data: {
+    startDateState: 'loading' as const,
+    matrixViewportWidth: 0,
+    previewHolidays: [] as readonly ConfirmedHolidayDate[],
     previewAssignments: [],
     previewStartDate: '',
     releasePreviewAssignments: [],
@@ -509,6 +513,7 @@ Page({
   },
 
   onUnload(this: ManualPageInstance): void {
+    this._matrixMeasureSerial = (this._matrixMeasureSerial ?? 0) + 1;
     this._feedbackVisible = false;
     clearInfoMessageTimer(this);
     this._loadSerial += 1;
@@ -533,6 +538,16 @@ Page({
     this.updateMatrixViewport();
   },
 
+  onReady(this: ManualPageInstance): void {
+    this.updateMatrixViewport();
+  },
+
+  handleRetryStartDate(this: ManualPageInstance): void {
+    if (this.data.isBusy || this.data.startDateState === 'loading') return;
+    const role = roleForIndex(this._config, this.data.roleIndex);
+    if (role) void suggestStartDate(this, role.id);
+  },
+
   handleReload(this: ManualPageInstance): void {
     void loadManualPageWithCapability(this);
   },
@@ -555,7 +570,9 @@ Page({
     if (this.data.isBusy) return;
     const index = Number(event.currentTarget.dataset.index);
     if (index === 0) {
-      this.setData({ state: 'editor', stageIndex: 0, stages: createStages(0) });
+      this.setData({ state: 'editor', stageIndex: 0, stages: createStages(0) }, () =>
+        this.updateMatrixViewport(),
+      );
     } else if (index === 1) {
       if (this._previewValid && !this._isDirty)
         this.setData({ state: 'preview', stageIndex: 1, stages: createStages(1) });
@@ -645,6 +662,9 @@ Page({
     this._isDirty = true;
     syncEditor(this, {
       roleIndex: index,
+      startDate: '',
+      startMonthLabel: '',
+      startDateState: 'loading',
       scheduleRoleName: role.name,
       selectedTemplateId: '',
       templateIndex: 0,
@@ -659,7 +679,11 @@ Page({
     if (!isBusinessDate(startDate)) return;
     this._startDateSerial += 1;
     this._isDirty = true;
-    syncEditor(this, { startDate, startMonthLabel: startDate.slice(0, 7) });
+    syncEditor(this, {
+      startDate,
+      startDateState: 'ready',
+      startMonthLabel: startDate.slice(0, 7),
+    });
     void refreshHolidays(this, startDate);
   },
 
@@ -775,17 +799,20 @@ Page({
 
   handleReturnToEditor(this: ManualPageInstance): void {
     if (this.data.isBusy) return;
-    this.setData({
-      errorMessage: '',
-      riskAccepted: false,
-      canApplyDraft:
-        this.data.previewConflictCount === 0 &&
-        this.data.previewVacancyCount === 0 &&
-        this.data.previewWarningCount === 0,
-      stageIndex: 0,
-      stages: createStages(0),
-      state: 'editor',
-    });
+    this.setData(
+      {
+        errorMessage: '',
+        riskAccepted: false,
+        canApplyDraft:
+          this.data.previewConflictCount === 0 &&
+          this.data.previewVacancyCount === 0 &&
+          this.data.previewWarningCount === 0,
+        stageIndex: 0,
+        stages: createStages(0),
+        state: 'editor',
+      },
+      () => this.updateMatrixViewport(),
+    );
   },
 
   handleRiskToggle(this: ManualPageInstance, event: CheckboxChangeEvent): void {
@@ -920,8 +947,14 @@ Page({
       this.setData({ releaseCalendarHeight: event.detail.height });
   },
   handlePreviewMonthBrowse(this: ManualPageInstance, event: { detail: { month: string } }): void {
-    if (/^\d{4}-\d{2}$/u.test(event.detail.month))
+    if (/^\d{4}-\d{2}$/u.test(event.detail.month)) {
       void loadPreviewContext(this, event.detail.month);
+      void loadPreviewHolidays(this, event.detail.month);
+    }
+  },
+  handleReleaseMonthBrowse(this: ManualPageInstance, event: { detail: { month: string } }): void {
+    if (/^\d{4}-\d{2}$/u.test(event.detail.month))
+      void loadPreviewHolidays(this, event.detail.month);
   },
   handlePreviewReleaseVersion(this: ManualPageInstance, event: ReleaseActionEvent): void {
     const periodId = event.currentTarget.dataset.periodId;
@@ -937,16 +970,42 @@ Page({
   },
 
   updateMatrixViewport(this: ManualPageInstance): void {
-    const matrix = createMatrixModelFromPage(this);
-    const matrixGestureConfig = createMatrixGestureConfig(
-      matrix,
-      resolveMaxHorizontalOffset(matrix),
-      createMatrixResetToken(this.data),
-      this.data.matrixGestureConfig.horizontalOffset,
-      this.data.matrixGestureConfig.verticalOffset,
-      this._matrixGestureRevision,
-    );
-    this.setData({ matrixGestureConfig, ...createScrollProgressPatch(matrix.columns.length, 0) });
+    const query =
+      this.createSelectorQuery?.() ??
+      (typeof wx !== 'undefined' ? wx.createSelectorQuery?.() : undefined);
+    if (!query) return;
+    const serial = (this._matrixMeasureSerial = (this._matrixMeasureSerial ?? 0) + 1);
+    query
+      .select('#matrix-touch-surface')
+      .boundingClientRect()
+      .exec(([rect]) => {
+        if (
+          serial !== this._matrixMeasureSerial ||
+          !rect ||
+          Array.isArray(rect) ||
+          !Number.isFinite(rect.width) ||
+          rect.width <= 0
+        )
+          return;
+        const matrix = createMatrixModelFromPage(this);
+        const matrixGestureConfig = createMatrixGestureConfig(
+          matrix,
+          resolveMaxHorizontalOffset(matrix, rect.width),
+          createMatrixResetToken(this.data),
+          this.data.matrixGestureConfig.horizontalOffset,
+          0,
+          this._matrixGestureRevision,
+        );
+        const progress =
+          matrixGestureConfig.maxHorizontalOffset > 0
+            ? -matrixGestureConfig.horizontalOffset / matrixGestureConfig.maxHorizontalOffset
+            : 0;
+        this.setData({
+          matrixViewportWidth: rect.width,
+          matrixGestureConfig,
+          ...createScrollProgressPatch(matrix.columns.length, progress),
+        });
+      });
   },
 
   handleMatrixGestureSettled(this: ManualPageInstance, result: MatrixGestureSettled): void {
@@ -979,6 +1038,7 @@ Page({
 
 async function loadManualPage(page: ManualPageInstance): Promise<void> {
   const serial = ++page._loadSerial;
+  page._startDateSerial += 1;
   page.setData({ errorMessage: '', isBusy: true, state: 'loading' });
   try {
     const groups = await workbenchClient.listGroups();
@@ -1007,13 +1067,13 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
       publicationClient.listHistory(group.id),
     ]);
     if (serial !== page._loadSerial) return;
-    const holidays = await loadHolidayMap(today).catch(() => new Map());
-    if (serial !== page._loadSerial) return;
     page._currentGroupId = group.id;
     page._config = config;
     page._templates = templates;
     page._history = history;
-    page._holidays = holidays;
+    page._holidays = new Map();
+    page._holidayRequests = new Map();
+    page.setData({ previewHolidays: [] });
     writeStoredWorkbenchGroupId(ownerId, group.id);
     page.setData({ currentGroupName: group.name, isBusy: false });
     initializeNewTemplate(page);
@@ -1117,7 +1177,6 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
 
 function initializeNewTemplate(page: ManualPageInstance): void {
   page._previewValid = false;
-  const today = getCurrentBusinessDate();
   const role = page._config?.roles[0];
   page._cellValues.clear();
   page._staleCellKeys.clear();
@@ -1138,8 +1197,9 @@ function initializeNewTemplate(page: ManualPageInstance): void {
     scheduleRoleName: role?.name ?? '',
     selectedTemplateId: '',
     stageIndex: 0,
-    startDate: today,
-    startMonthLabel: today.slice(0, 7),
+    startDate: '',
+    startDateState: role ? 'loading' : 'error',
+    startMonthLabel: '',
     state: 'editor',
     templateIndex: 0,
     templateLabel: '新建模板',
@@ -1155,7 +1215,8 @@ function openTemplate(
 ): void {
   page._previewValid = false;
   const explicitStartDate = startDate !== undefined;
-  startDate ??= getCurrentBusinessDate();
+  page._startDateSerial += 1;
+  startDate ??= '';
   const roleIndex = Math.max(
     0,
     (page._config?.roles ?? []).findIndex((role) => role.id === template.scheduleRoleId),
@@ -1191,6 +1252,7 @@ function openTemplate(
     selectedTemplateId: template.id,
     stageIndex: 0,
     startDate,
+    startDateState: explicitStartDate ? 'ready' : 'loading',
     startMonthLabel: startDate.slice(0, 7),
     state: 'editor',
     templateIndex,
@@ -1203,20 +1265,25 @@ function openTemplate(
 async function suggestStartDate(page: ManualPageInstance, roleId: string): Promise<void> {
   const serial = ++page._startDateSerial;
   if (!page._currentGroupId) return;
+  const groupId = page._currentGroupId;
+  syncEditor(page, { startDate: '', startMonthLabel: '', startDateState: 'loading' });
   try {
-    const result = await manualClient.getNextStartDate(page._currentGroupId, roleId);
+    const result = await manualClient.getNextStartDate(groupId, roleId);
     if (
       serial !== page._startDateSerial ||
+      groupId !== page._currentGroupId ||
       roleForIndex(page._config, page.data.roleIndex)?.id !== roleId
     )
       return;
     syncEditor(page, {
       startDate: result.startDate,
+      startDateState: 'ready',
       startMonthLabel: result.startDate.slice(0, 7),
     });
     void refreshHolidays(page, result.startDate);
   } catch {
     if (serial === page._startDateSerial) {
+      syncEditor(page, { startDateState: 'error' });
       const message = '默认开始日期暂时无法读取，请手动选择日期。';
       page.setData({ infoMessage: message });
       scheduleInfoMessageExpiry(page, message, () => true);
@@ -1258,44 +1325,53 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
   );
   const matrixGestureConfig = createMatrixGestureConfig(
     matrix,
-    resolveMaxHorizontalOffset(matrix),
+    resolveMaxHorizontalOffset(matrix, data.matrixViewportWidth),
     `${data.selectedTemplateId || 'new'}:${data.cycleDays}:${page._memberIds.join(',')}:${data.startDate}`,
     0,
     0,
     ++page._matrixGestureRevision,
   );
-  page.setData({
-    ...matrix,
-    ...patch,
-    activeShiftTypeId,
-    canPreview:
-      withinLimits &&
-      role !== undefined &&
-      shiftTypes.length > 0 &&
-      data.selectedTemplateId !== '' &&
-      !page._isDirty,
-    canSave: withinLimits && role !== undefined && shiftTypes.length > 0,
-    isBusy: false,
-    limitNotice: logicalCellCount === MAX_MANUAL_CELLS ? '已达到 20 人 × 30 天 = 600 格上限。' : '',
-    logicalCellCount,
-    matrixGestureConfig,
-    memberCount: page._memberIds.length,
-    memberOptions: createMemberOptions(page, role),
-    memberSelectOptions: createMemberOptions(page, role).map((member) => ({
-      value: member.membershipId,
-      label: member.realName,
-      checked: member.checked,
-      disabled:
-        member.disabled || (!member.checked && page._memberIds.length >= MAX_MANUAL_MEMBERS),
-    })),
-    roleOptions: createRoleOptions(page._config),
-    scheduleRoleName: patch.scheduleRoleName ?? role?.name ?? data.scheduleRoleName,
-    selectedTemplateId: data.selectedTemplateId,
-    templateIndex,
-    templateLabel: templateOptions[templateIndex]?.label ?? '新建模板',
-    templateOptions,
-    stages: createStages(patch.stageIndex ?? data.stageIndex),
-  });
+  page.setData(
+    {
+      ...matrix,
+      ...patch,
+      activeShiftTypeId,
+      canPreview:
+        data.startDateState === 'ready' &&
+        withinLimits &&
+        role !== undefined &&
+        shiftTypes.length > 0 &&
+        data.selectedTemplateId !== '' &&
+        !page._isDirty,
+      canSave:
+        data.startDateState === 'ready' &&
+        withinLimits &&
+        role !== undefined &&
+        shiftTypes.length > 0,
+      isBusy: false,
+      limitNotice:
+        logicalCellCount === MAX_MANUAL_CELLS ? '已达到 20 人 × 30 天 = 600 格上限。' : '',
+      logicalCellCount,
+      matrixGestureConfig,
+      memberCount: page._memberIds.length,
+      memberOptions: createMemberOptions(page, role),
+      memberSelectOptions: createMemberOptions(page, role).map((member) => ({
+        value: member.membershipId,
+        label: member.realName,
+        checked: member.checked,
+        disabled:
+          member.disabled || (!member.checked && page._memberIds.length >= MAX_MANUAL_MEMBERS),
+      })),
+      roleOptions: createRoleOptions(page._config),
+      scheduleRoleName: patch.scheduleRoleName ?? role?.name ?? data.scheduleRoleName,
+      selectedTemplateId: data.selectedTemplateId,
+      templateIndex,
+      templateLabel: templateOptions[templateIndex]?.label ?? '新建模板',
+      templateOptions,
+      stages: createStages(patch.stageIndex ?? data.stageIndex),
+    },
+    () => page.updateMatrixViewport(),
+  );
 }
 
 async function persistTemplate(
@@ -1385,6 +1461,7 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
       months.map((month, index) => [month, calendars[index]!]),
     );
     applyPreviewData(page, preview);
+    void loadPreviewHolidays(page, preview.applyStartDate.slice(0, 7));
   } catch (error) {
     setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班预览暂时无法生成，请稍后重试。'),
@@ -1516,6 +1593,8 @@ function setReleaseData(page: ManualPageInstance, patch: Partial<ManualPageData>
   });
   if (page._feedbackVisible === false) page.setData({ infoMessage: '' });
   else if (message) scheduleInfoMessageExpiry(page, message, () => page._feedbackVisible !== false);
+  if (patch.releaseDialogKind === 'preview' && patch.releasePreviewStartDate)
+    void loadPreviewHolidays(page, patch.releasePreviewStartDate.slice(0, 7));
 }
 
 async function reloadReleaseHistory(page: ManualPageInstance, infoMessage = ''): Promise<void> {
@@ -1932,8 +2011,9 @@ function createMatrixModel(options: {
   readonly staleMemberIds: ReadonlySet<string>;
   readonly startDate: string;
 }): MatrixModel {
-  const columns = Array.from({ length: options.cycleDays }, (_, index) =>
-    createColumn(options.startDate, index, options.holidays),
+  const columns = Array.from(
+    { length: isBusinessDate(options.startDate) ? options.cycleDays : 0 },
+    (_, index) => createColumn(options.startDate, index, options.holidays),
   );
   const shiftTypesById = new Map(options.shiftTypes.map((shiftType) => [shiftType.id, shiftType]));
   const rows = options.memberIds.map((membershipId, rowIndex) => {
@@ -1967,9 +2047,9 @@ function createMatrixModel(options: {
     columns,
     contentWidth: MEMBER_COLUMN_WIDTH + columns.length * DATE_COLUMN_WIDTH,
     logicalCellCount: rows.length * columns.length,
-    matrixBodyViewportHeight: MATRIX_VIEWPORT_HEIGHT - MATRIX_HEADER_HEIGHT,
+    matrixBodyViewportHeight: rows.length * MATRIX_ROW_HEIGHT,
     matrixContentHeight: MATRIX_HEADER_HEIGHT + rows.length * MATRIX_ROW_HEIGHT,
-    matrixViewportHeight: MATRIX_VIEWPORT_HEIGHT,
+    matrixViewportHeight: MATRIX_HEADER_HEIGHT + rows.length * MATRIX_ROW_HEIGHT,
     rows,
     shiftTypes: options.shiftTypes,
   };
@@ -2133,11 +2213,47 @@ function firstEnabledShiftTypeId(config: SchedulingConfig | undefined): string {
   return config?.shiftTypes.find((shiftType) => shiftType.isEnabled)?.id ?? '';
 }
 
+async function loadPreviewHolidays(page: ManualPageInstance, month: string): Promise<void> {
+  const serial = page._loadSerial;
+  const requests = (page._holidayRequests ??= new Map());
+  const years = [...new Set(previewContextMonths(month).map((value) => Number(value.slice(0, 4))))];
+  try {
+    const results = await Promise.all(
+      years.map((year) => {
+        let request = requests.get(year);
+        if (!request) {
+          request = workbenchClient
+            .getHolidays(year)
+            .then((result) => result.dates)
+            .catch((error: unknown) => {
+              requests.delete(year);
+              throw error;
+            });
+          requests.set(year, request);
+        }
+        return request;
+      }),
+    );
+    if (serial !== page._loadSerial || requests !== page._holidayRequests) return;
+    const dates = new Map(page.data.previewHolidays.map((item) => [item.date, item]));
+    for (const date of results.flat()) dates.set(date.date, date);
+    page.setData({ previewHolidays: [...dates.values()] });
+  } catch {
+    if (serial === page._loadSerial && requests === page._holidayRequests)
+      setReleaseData(page, { errorMessage: '节假日暂时无法读取，请切换月份后重试。' });
+  }
+}
+
 async function refreshHolidays(page: ManualPageInstance, startDate: string): Promise<void> {
+  const serial = page._loadSerial;
+  const dateSerial = page._startDateSerial;
   const holidays = await loadHolidayMap(startDate).catch(() => new Map());
   if (page.data.startDate !== startDate) return;
+  if (serial !== page._loadSerial || dateSerial !== page._startDateSerial) return;
   page._holidays = holidays;
-  syncEditor(page, {});
+  page.setData({
+    columns: page.data.columns.map((_, index) => createColumn(startDate, index, holidays)),
+  });
 }
 
 async function loadHolidayMap(
@@ -2173,18 +2289,8 @@ function createMatrixGestureConfig(
   };
 }
 
-function resolveMaxHorizontalOffset(matrix: MatrixModel): number {
-  return Math.max(0, matrix.contentWidth - resolveMatrixViewportWidth());
-}
-
-function resolveMatrixViewportWidth(): number {
-  if (typeof wx === 'undefined' || typeof wx.getWindowInfo !== 'function') {
-    return MATRIX_VIEWPORT_FALLBACK_WIDTH;
-  }
-  const width = wx.getWindowInfo().windowWidth;
-  return Number.isFinite(width)
-    ? Math.max(1, width - MATRIX_PAGE_HORIZONTAL_CHROME)
-    : MATRIX_VIEWPORT_FALLBACK_WIDTH;
+function resolveMaxHorizontalOffset(matrix: MatrixModel, viewportWidth: number): number {
+  return viewportWidth > 0 ? Math.max(0, matrix.contentWidth - viewportWidth) : 0;
 }
 
 function createScrollProgressPatch(columnCount: number, progress: number): Partial<ManualPageData> {

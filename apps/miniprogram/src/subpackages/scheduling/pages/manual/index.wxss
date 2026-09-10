@@ -279,7 +279,7 @@ ui-alert {
 .field-grid > .cycle-field,
 .field-grid > .members-field { width: calc(50% - 4px); min-width: 0; }
 .cycle-picker-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-.preview-calendar-card { padding: 0; overflow: hidden; }
+.preview-calendar-card { margin-top: 10px; padding: 0; }
 .release-calendar-scroll { max-height: 65vh; min-height: 0; flex-shrink: 1; }
 
 .field-grid {
@@ -468,7 +468,7 @@ ui-alert {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  touch-action: none;
+  touch-action: pan-y;
   background: var(--ui-color-surface);
 }
 

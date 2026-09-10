@@ -105,7 +105,12 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 
 `feedback7-layout.mjs` 使用当前WXSS及合成非业务fixture检查320×844、390×844与大字体。桌面CSS截图在ignored `runtime/audit/feedback7/`，仅证明几何；最终原生状态为待上传同一检查点后的小米14体验版复核。详细映射与命令见根 `docs/audit/feedback7.md`。
 
-
 ## 2026-09-10 访客系统修复
 
 `pages/guest/guest`沿用P4工作台的ready/filter/week/list/empty/error日历结构与样式及calendar-month叶组件，移除电话、事件和变更筛选；Skyline自定义导航栏按状态栏/胶囊安全区承载独立扫码页返回，不改变已登录工作台。fixture为guest-runtime合成只读日历；390/320桌面及小米14原生结果单独记录于docs/audit/visitor-system-fix.md。用户已批准本轮完整方案；没有新增视觉方向或认证协议，原生效果待同一新版体验版复核。
+
+## Feedback9（2026-09-10）用户批准的九项修正
+
+沿用 P5 的 editor/maximum/preview/release/backfill 与 P9-A11 export-ready 的既有 Storybook 参考。群组偏好对应 organization 群组设置页；本轮用户截图和确认方案覆盖分区横线、矩阵按人数展开与实测宽度、正方形班种标识、节假日和无重复装饰的月历、默认日期占位、CSV 下载后主动发送文件。P9-A11 历史行中的 openDocument 在本轮替换为 CSV 文件发送。
+
+合成 fixture 使用 1/6/7/20 人、30 天、三字姓名、五行/六行月历、跨年节假日以及导出生成/下载/发送/失败状态；320×844、390×844及大字体检查详情见根 `docs/audit/feedback9.md`。桌面源 CSS 证据保存在独占工作区的 ignored `runtime/audit/feedback9/`。未更新或声称重新通过 Storybook 黄金比较；小米14同版本真实交互、下载及发送仍待用户复核。

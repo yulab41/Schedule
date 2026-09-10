@@ -49,6 +49,7 @@ interface CalendarMonthInstance {
 
 Component({
   properties: {
+    shadow: { type: Boolean, value: true },
     compact: { type: Boolean, value: false },
     gridHeight: { type: Number, value: 270 },
     monthLabel: { type: String, value: '' },

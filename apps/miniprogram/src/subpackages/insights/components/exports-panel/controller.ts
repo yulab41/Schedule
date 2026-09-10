@@ -24,12 +24,30 @@ import {
   getStoredWechatToken,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
-import { downloadScheduleExport } from '../../../../platform/secure-download.js';
+import {
+  downloadScheduleExport,
+  releaseTemporaryExport,
+  shareScheduleExport,
+} from '../../../../platform/secure-download.js';
+import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+} from '../../../../platform/info-message-lifetime.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 type ExportPeriodType = 'month' | 'year';
 type ExportState =
-  'disabled' | 'error' | 'failed' | 'idle' | 'loading' | 'ready' | 'timed_out' | 'waiting';
+  | 'disabled'
+  | 'error'
+  | 'failed'
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'download_failed'
+  | 'downloaded'
+  | 'shared'
+  | 'timed_out'
+  | 'waiting';
 
 interface SelectOption {
   readonly id: string;
@@ -40,6 +58,9 @@ interface ExportsPageData {
   readonly businessMonth: string;
   readonly downloadBusy: boolean;
   readonly errorMessage: string;
+  readonly infoMessage: string;
+  readonly feedbackTone: 'info' | 'success' | 'error';
+  readonly shareBusy: boolean;
   readonly exportType: ScheduleExportType;
   readonly fileLabel: string;
   readonly groupId: string;
@@ -69,6 +90,9 @@ interface ExportsPageInstance {
   _loadedGroupId: string;
   _organizationReadClient: OrganizationReadClient;
   _pollCancelled: boolean;
+  _attached: boolean;
+  _epoch: number;
+  _tempFilePath: string | undefined;
   setData(patch: Partial<ExportsPageData>, callback?: () => void): void;
 }
 
@@ -87,6 +111,9 @@ export function createExportsPanelControllerDefinition() {
       businessMonth: initialBusinessMonth,
       downloadBusy: false,
       errorMessage: '',
+      infoMessage: '',
+      feedbackTone: 'info' as const,
+      shareBusy: false,
       exportType: 'schedule' as ScheduleExportType,
       fileLabel: '',
       groupId: '',
@@ -115,11 +142,13 @@ export function createExportsPanelControllerDefinition() {
     _pollCancelled: false,
     observers: {
       groupId(this: ExportsPageInstance): void {
-        start(this);
+        if (this._attached) start(this);
       },
     },
     lifetimes: {
       attached(this: ExportsPageInstance): void {
+        this._attached = true;
+        initializeRuntimeState(this);
         recordMiniTelemetryBoundary('exports:component-attached');
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
@@ -135,7 +164,9 @@ export function createExportsPanelControllerDefinition() {
         start(this);
       },
       detached(this: ExportsPageInstance): void {
-        this._pollCancelled = true;
+        this._attached = false;
+        invalidateExport(this);
+        this._loadedGroupId = '';
       },
     },
     methods: {
@@ -143,7 +174,13 @@ export function createExportsPanelControllerDefinition() {
         wx.navigateBack({ delta: 1 });
       },
       handleContinue(this: ExportsPageInstance): void {
-        if (this._jobId === undefined || isWorking(this.data.state)) return;
+        if (
+          this._jobId === undefined ||
+          isWorking(this.data.state) ||
+          this.data.downloadBusy ||
+          this.data.shareBusy
+        )
+          return;
         this._pollCancelled = false;
         void checkExistingJob(this, this._jobId);
       },
@@ -152,6 +189,9 @@ export function createExportsPanelControllerDefinition() {
       },
       handleDownload(this: ExportsPageInstance): void {
         void downloadExport(this);
+      },
+      handleShare(this: ExportsPageInstance): void {
+        void shareExport(this);
       },
       handleMemberChange(this: ExportsPageInstance, event: PickerEvent): void {
         const index = parsePickerIndex(event, this.data.memberOptions.length);
@@ -170,16 +210,16 @@ export function createExportsPanelControllerDefinition() {
         shiftPeriod(this, -1);
       },
       handleRetry(this: ExportsPageInstance): void {
-        this._pollCancelled = true;
-        this._jobId = undefined;
+        invalidateExport(this);
         this._loadedGroupId = '';
         start(this);
       },
       handleReset(this: ExportsPageInstance): void {
-        this._pollCancelled = true;
-        this._jobId = undefined;
+        invalidateExport(this);
         this.setData({
           downloadBusy: false,
+          shareBusy: false,
+          infoMessage: '',
           errorMessage: '',
           fileLabel: '',
           state: 'idle',
@@ -214,23 +254,29 @@ function start(page: ExportsPageInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
+    invalidateExport(page);
     page._loadedGroupId = '';
     page._jobId = undefined;
     page._pollCancelled = true;
     page.setData({
       errorMessage: '当前群组信息缺失，请返回工作台后重试。',
       groupId: '',
+      fileLabel: '',
+      downloadBusy: false,
+      shareBusy: false,
+      infoMessage: '',
       state: 'error',
       statusLabel: '当前群组信息缺失，请返回工作台后重试。',
     });
     return;
   }
   if (groupId === page._loadedGroupId) return;
-  page._pollCancelled = true;
-  page._jobId = undefined;
+  invalidateExport(page);
   page._loadedGroupId = groupId;
   page.setData({
     downloadBusy: false,
+    shareBusy: false,
+    infoMessage: '',
     errorMessage: '',
     fileLabel: '',
     groupId,
@@ -251,16 +297,19 @@ function initializeRuntimeState(page: ExportsPageInstance): void {
   page._organizationReadClient = organizationReadClient;
   if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
   if (typeof page._pollCancelled !== 'boolean') page._pollCancelled = false;
+  if (typeof page._epoch !== 'number') page._epoch = 0;
 }
 
 async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<void> {
+  const epoch = page._epoch;
   try {
     await requireClientCapability('insights');
+    if (!isCurrent(page, groupId, epoch)) return;
     const [config, members] = await Promise.all([
       page._organizationReadClient.getSchedulingConfig(groupId),
       page._organizationReadClient.listGroupMembers(groupId),
     ]);
-    if (page.properties.groupId !== groupId) return;
+    if (!isCurrent(page, groupId, epoch)) return;
     page.setData({
       memberOptions: [
         { id: '', label: '全部成员' },
@@ -276,7 +325,7 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
       statusLabel: '选择内容后创建任务',
     });
   } catch (error) {
-    if (page.properties.groupId !== groupId) return;
+    if (!isCurrent(page, groupId, epoch)) return;
     page.setData({
       errorMessage:
         error instanceof ClientCapabilityDisabledError
@@ -291,7 +340,19 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
 
 async function createExport(page: ExportsPageInstance): Promise<void> {
   initializeRuntimeState(page);
-  if (isWorking(page.data.state) || page.data.state === 'disabled') return;
+  if (
+    !page._attached ||
+    isWorking(page.data.state) ||
+    page.data.state === 'disabled' ||
+    page.data.downloadBusy ||
+    page.data.shareBusy
+  )
+    return;
+  if (page._jobId !== undefined) {
+    page._pollCancelled = false;
+    await checkExistingJob(page, page._jobId);
+    return;
+  }
   if (page.data.groupId.length === 0) {
     page.setData({
       errorMessage: '当前群组信息缺失，请返回工作台后重试。',
@@ -300,27 +361,33 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
     });
     return;
   }
+  invalidateExport(page);
   page._pollCancelled = false;
-  page._jobId = undefined;
+  const epoch = page._epoch;
+  const groupId = page.data.groupId;
+  const selection = page.data;
   page.setData({
     downloadBusy: false,
     errorMessage: '',
+    infoMessage: '',
     fileLabel: '',
     state: 'waiting',
     statusLabel: '正在创建导出任务',
   });
   try {
     await requireClientCapability('insights');
-    const job = await page._actionsClient.createExportJob(page.data.groupId, {
-      exportType: page.data.exportType,
-      ...(page.data.membershipId === '' ? {} : { membershipId: page.data.membershipId }),
-      period: currentPeriod(page.data),
-      ...(page.data.roleId === '' ? {} : { roleId: page.data.roleId }),
+    if (!isCurrent(page, groupId, epoch)) return;
+    const job = await page._actionsClient.createExportJob(groupId, {
+      exportType: selection.exportType,
+      ...(selection.membershipId === '' ? {} : { membershipId: selection.membershipId }),
+      period: currentPeriod(selection),
+      ...(selection.roleId === '' ? {} : { roleId: selection.roleId }),
     });
+    if (!isCurrent(page, groupId, epoch)) return;
     page._jobId = job.id;
     await checkExistingJob(page, job.id);
   } catch (error) {
-    if (page._pollCancelled) return;
+    if (!isCurrent(page, groupId, epoch)) return;
     page.setData({
       errorMessage:
         error instanceof ClientCapabilityDisabledError
@@ -329,18 +396,27 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
       state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'failed',
       statusLabel: '导出未完成',
     });
+    showFeedback(page, page.data.errorMessage, 'error');
   }
 }
 
 async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promise<void> {
-  page.setData({ errorMessage: '', state: 'waiting', statusLabel: '正在生成 CSV' });
+  const epoch = page._epoch;
+  const groupId = page.data.groupId;
+  clearInfoMessageTimer(page);
+  page.setData({
+    errorMessage: '',
+    infoMessage: '',
+    state: 'waiting',
+    statusLabel: '正在生成 CSV',
+  });
   try {
     const result = await pollExportJob(
       jobId,
-      (candidateJobId) => page._actionsClient.getExportJob(page.data.groupId, candidateJobId),
-      { isCancelled: () => page._pollCancelled },
+      (candidateJobId) => page._actionsClient.getExportJob(groupId, candidateJobId),
+      { isCancelled: () => page._pollCancelled || !isCurrent(page, groupId, epoch) },
     );
-    if (result.status === 'cancelled') return;
+    if (result.status === 'cancelled' || !isCurrent(page, groupId, epoch)) return;
     if (result.status === 'timed_out') {
       page.setData({
         state: 'timed_out',
@@ -354,10 +430,10 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
     page.setData({
       fileLabel: buildExportFileName(result.job.exportType, result.job.period),
       state: 'ready',
-      statusLabel: '导出完成，可下载 CSV',
+      statusLabel: '文件已生成，可下载 CSV',
     });
   } catch (error) {
-    if (page._pollCancelled) return;
+    if (!isCurrent(page, groupId, epoch)) return;
     if (error instanceof ClientCapabilityDisabledError) {
       setExportDisabled(page, error);
       return;
@@ -367,14 +443,32 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
       state: 'failed',
       statusLabel: '导出未完成',
     });
+    showFeedback(page, page.data.errorMessage, 'error');
   }
 }
 
 async function downloadExport(page: ExportsPageInstance): Promise<void> {
-  if (page._jobId === undefined || page.data.state !== 'ready' || page.data.downloadBusy) return;
+  if (
+    page._jobId === undefined ||
+    !['ready', 'download_failed', 'downloaded', 'shared'].includes(page.data.state) ||
+    page.data.downloadBusy ||
+    page.data.shareBusy ||
+    !page._attached
+  )
+    return;
   const jobId = page._jobId;
   const groupId = page.data.groupId;
-  page.setData({ downloadBusy: true, errorMessage: '', statusLabel: '正在下载 CSV' });
+  const epoch = page._epoch;
+  releaseTemporaryExport(page._tempFilePath);
+  page._tempFilePath = undefined;
+  clearInfoMessageTimer(page);
+  page.setData({
+    state: 'ready',
+    downloadBusy: true,
+    infoMessage: '',
+    errorMessage: '',
+    statusLabel: '正在下载 CSV',
+  });
   try {
     const tempFilePath = await downloadScheduleExport(
       getStoredWechatToken,
@@ -382,44 +476,85 @@ async function downloadExport(page: ExportsPageInstance): Promise<void> {
       groupId,
       jobId,
     );
-    if (!isDownloadActive(page, groupId, jobId)) return;
-    (
-      wx as unknown as {
-        openDocument: (options: {
-          filePath: string;
-          showMenu: boolean;
-          fail: () => void;
-          success: () => void;
-        }) => unknown;
-      }
-    ).openDocument({
-      filePath: tempFilePath,
-      showMenu: false,
-      fail: () => {
-        if (!isDownloadActive(page, groupId, jobId)) return;
-        page.setData({
-          downloadBusy: false,
-          errorMessage: '文件已下载，但当前设备无法打开该文件。',
-          statusLabel: '文件打开失败，可重新下载',
-        });
-      },
-      success: () => {
-        if (!isDownloadActive(page, groupId, jobId)) return;
-        page.setData({ downloadBusy: false, statusLabel: '导出完成，可下载 CSV' });
-      },
+    if (!isDownloadActive(page, groupId, jobId, epoch)) {
+      releaseTemporaryExport(tempFilePath);
+      return;
+    }
+    page._tempFilePath = tempFilePath;
+    page.setData({
+      downloadBusy: false,
+      state: 'downloaded',
+      statusLabel: '文件已下载，可发送文件',
     });
   } catch (error) {
-    if (!isDownloadActive(page, groupId, jobId)) return;
+    if (!isDownloadActive(page, groupId, jobId, epoch)) return;
     if (error instanceof ClientCapabilityDisabledError) {
       setExportDisabled(page, error);
       return;
     }
     page.setData({
       downloadBusy: false,
-      errorMessage: toUserMessage(error, '文件下载失败，请稍后重试。'),
+      state: 'download_failed',
       statusLabel: '文件下载失败，可重新下载',
     });
+    showFeedback(page, toUserMessage(error, '文件下载失败，请稍后重试。'), 'error');
   }
+}
+
+async function shareExport(page: ExportsPageInstance): Promise<void> {
+  if (
+    !page._attached ||
+    !page._tempFilePath ||
+    !page._jobId ||
+    page.data.shareBusy ||
+    page.data.downloadBusy ||
+    !['downloaded', 'shared'].includes(page.data.state)
+  )
+    return;
+  const { _epoch: epoch, _jobId: jobId, _tempFilePath: filePath } = page;
+  const groupId = page.data.groupId;
+  clearInfoMessageTimer(page);
+  page.setData({ shareBusy: true, infoMessage: '' });
+  try {
+    const result = await shareScheduleExport(filePath, page.data.fileLabel);
+    if (!isDownloadActive(page, groupId, jobId, epoch)) return;
+    page.setData({
+      shareBusy: false,
+      ...(result === 'shared' ? { state: 'shared' as const, statusLabel: '文件已发送' } : {}),
+    });
+    showFeedback(
+      page,
+      result === 'shared' ? '文件已发送。' : '已取消发送。',
+      result === 'shared' ? 'success' : 'info',
+    );
+  } catch (error) {
+    if (!isDownloadActive(page, groupId, jobId, epoch)) return;
+    page.setData({ shareBusy: false });
+    showFeedback(page, toUserMessage(error, '文件发送未完成，请重试。'), 'error');
+  }
+}
+
+function invalidateExport(page: ExportsPageInstance): void {
+  page._epoch = (page._epoch ?? 0) + 1;
+  page._pollCancelled = true;
+  page._jobId = undefined;
+  releaseTemporaryExport(page._tempFilePath);
+  page._tempFilePath = undefined;
+  clearInfoMessageTimer(page);
+}
+
+function isCurrent(page: ExportsPageInstance, groupId: string, epoch: number): boolean {
+  return page._attached && page._epoch === epoch && page.properties.groupId === groupId;
+}
+
+function showFeedback(
+  page: ExportsPageInstance,
+  message: string,
+  tone: ExportsPageData['feedbackTone'],
+): void {
+  const epoch = page._epoch;
+  page.setData({ infoMessage: message, feedbackTone: tone });
+  scheduleInfoMessageExpiry(page, message, () => page._attached && page._epoch === epoch);
 }
 
 function shiftPeriod(page: ExportsPageInstance, delta: -1 | 1): void {
@@ -456,15 +591,26 @@ function isWorking(state: ExportState): boolean {
   return state === 'loading' || state === 'waiting';
 }
 
-function isDownloadActive(page: ExportsPageInstance, groupId: string, jobId: string): boolean {
-  return !page._pollCancelled && page.data.groupId === groupId && page._jobId === jobId;
+function isDownloadActive(
+  page: ExportsPageInstance,
+  groupId: string,
+  jobId: string,
+  epoch: number,
+): boolean {
+  return (
+    isCurrent(page, groupId, epoch) &&
+    !page._pollCancelled &&
+    page.data.groupId === groupId &&
+    page._jobId === jobId
+  );
 }
 
 function setExportDisabled(page: ExportsPageInstance, error: ClientCapabilityDisabledError): void {
-  page._pollCancelled = true;
-  page._jobId = undefined;
+  invalidateExport(page);
   page.setData({
     downloadBusy: false,
+    shareBusy: false,
+    infoMessage: '',
     errorMessage: error.message,
     fileLabel: '',
     state: 'disabled',

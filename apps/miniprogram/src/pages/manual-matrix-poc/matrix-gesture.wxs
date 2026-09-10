@@ -177,6 +177,12 @@ function touchMove(event, ownerInstance) {
     state.axis = chooseAxis(Math.abs(totalX), Math.abs(totalY));
     if (state.axis === AXIS_UNDECIDED) return;
   }
+  // Expanded matrices leave vertical scrolling to the containing page.
+  if (state.axis === AXIS_VERTICAL && state.maxVerticalOffset === 0) {
+    state.tracking = false;
+    state.axis = AXIS_UNDECIDED;
+    return;
+  }
   state.moved = true;
   if (state.axis === AXIS_HORIZONTAL) {
     state.horizontalOffset = clamp(

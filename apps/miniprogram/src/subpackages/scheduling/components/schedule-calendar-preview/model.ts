@@ -1,4 +1,5 @@
 import { buildMonthDisplayGrid, getCurrentBusinessDate } from '@schedule/presentation-core';
+import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import { calendarShiftBadge } from '../../../../components/calendar/calendar-duty-view.js';
 import {
   mapCalendarPeriodRing,
@@ -39,7 +40,9 @@ export function previewCalendarModel(
   selectedDate: string,
   slot: CalendarPeriodSlot = 1,
   restrictToProposed = false,
+  holidays: readonly ConfirmedHolidayDate[] = [],
 ) {
+  const holidayByDate = new Map(holidays.map((holiday) => [holiday.date, holiday]));
   const [year, monthNumber] = month.split('-').map(Number);
   const today = getCurrentBusinessDate();
   const panels = mapCalendarPeriodRing(
@@ -49,6 +52,7 @@ export function previewCalendarModel(
         .slice(0, 7);
       const grid = buildMonthDisplayGrid(target).flat();
       const cells = grid.map((cell, index) => {
+        const holiday = holidayByDate.get(cell.businessDate);
         const duties = assignments
           .filter((item) => item.businessDate === cell.businessDate)
           .sort((a, b) => a.slotPosition - b.slotPosition)
@@ -66,6 +70,8 @@ export function previewCalendarModel(
         return {
           businessDate: cell.businessDate,
           day: cell.businessDate.slice(8),
+          holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
+          isHoliday: !cell.isOutsideMonth && holiday?.isOffDay === true,
           duties,
           ariaLabel: `${cell.businessDate}，${duties.map((item) => `${item.name}${item.abbreviation}`).join('，') || '无排班'}`,
           disabled: restrictToProposed

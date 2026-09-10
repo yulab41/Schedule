@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   ClientCapabilityDisabledError: class ClientCapabilityDisabledError extends Error {},
   createExportJob: vi.fn(),
   downloadScheduleExport: vi.fn(),
+  releaseTemporaryExport: vi.fn(),
+  shareScheduleExport: vi.fn(),
   getExportJob: vi.fn(),
   getSchedulingConfig: vi.fn(),
   listGroupMembers: vi.fn(),
@@ -29,6 +31,8 @@ vi.mock('../src/platform/client-core-calendar.ts', () => ({
 
 vi.mock('../src/platform/secure-download.ts', () => ({
   downloadScheduleExport: mocks.downloadScheduleExport,
+  releaseTemporaryExport: mocks.releaseTemporaryExport,
+  shareScheduleExport: mocks.shareScheduleExport,
 }));
 
 vi.mock('../src/platform/wechat-identity.ts', () => ({
@@ -58,6 +62,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     mocks.createExportJob.mockResolvedValue(exportJob('pending'));
     mocks.getExportJob.mockResolvedValue(exportJob('completed'));
     mocks.downloadScheduleExport.mockResolvedValue('wxfile://export.csv');
+    mocks.shareScheduleExport.mockResolvedValue('shared');
   });
 
   afterEach(() => {
@@ -65,7 +70,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads filters, reads native picker indexes, exports a year and opens the CSV safely', async () => {
+  it('loads filters, exports a year, downloads privately and only shares on a separate click', async () => {
     const definition = await controllerDefinition();
     const page = pageFor(definition);
     definition.lifetimes.attached.call(page);
@@ -94,8 +99,15 @@ describe('Mini export controller mirrors Web selection and polling', () => {
 
     definition.methods.handleDownload.call(page);
     await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1));
-    expect(globalThis.wx.openDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ filePath: 'wxfile://export.csv', showMenu: false }),
+    expect(page.data.state).toBe('downloaded');
+    expect(globalThis.wx.openDocument).not.toHaveBeenCalled();
+    expect(mocks.shareScheduleExport).not.toHaveBeenCalled();
+    expect(JSON.stringify(page.data)).not.toContain('wxfile:');
+    definition.methods.handleShare.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('shared'));
+    expect(mocks.shareScheduleExport).toHaveBeenCalledWith(
+      'wxfile://export.csv',
+      'statistics-export-2026.csv',
     );
   });
 
@@ -130,6 +142,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
   it('continues the same timed-out job without creating a duplicate', async () => {
     const definition = await controllerDefinition();
     const page = await loadedPage(definition);
+    definition.methods.handleReset.call(page);
     vi.useFakeTimers();
     mocks.createExportJob.mockClear();
     mocks.getExportJob.mockClear();
@@ -184,24 +197,22 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(page._jobId).toBeUndefined();
   });
 
-  it('keeps the ready job retryable after download or document-open failure', async () => {
+  it('retries downloading the same generated job without contradictory success state', async () => {
     const definition = await controllerDefinition();
     const page = await loadedPage(definition);
 
     mocks.downloadScheduleExport.mockRejectedValueOnce(new Error('download failed'));
     definition.methods.handleDownload.call(page);
     await vi.waitFor(() => expect(page.data.downloadBusy).toBe(false));
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('download_failed');
     expect(page.data.statusLabel).toBe('文件下载失败，可重新下载');
 
     mocks.downloadScheduleExport.mockResolvedValueOnce('wxfile://export.csv');
     definition.methods.handleDownload.call(page);
-    await vi.waitFor(() => expect(globalThis.wx.openDocument).toHaveBeenCalledTimes(1));
-    globalThis.wx.openDocument.mock.calls[0][0].fail();
-
+    await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
     expect(page.data.downloadBusy).toBe(false);
-    expect(page.data.errorMessage).toBe('文件已下载，但当前设备无法打开该文件。');
-    expect(page.data.statusLabel).toBe('文件打开失败，可重新下载');
+    expect(page.data.errorMessage).toBe('');
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
   });
 
   it('does not open a stale file after detaching or switching groups', async () => {
@@ -221,6 +232,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     resolveDownload('wxfile://stale.csv');
     await flushPromises();
     expect(globalThis.wx.openDocument).not.toHaveBeenCalled();
+    expect(mocks.releaseTemporaryExport).toHaveBeenCalledWith('wxfile://stale.csv');
 
     const nextDefinition = await controllerDefinition();
     const nextPage = await loadedPage(nextDefinition);
@@ -239,6 +251,140 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     await flushPromises();
     expect(globalThis.wx.openDocument).not.toHaveBeenCalled();
     expect(nextPage.data.groupId).toBe('22222222-2222-4222-8222-222222222222');
+    expect(mocks.releaseTemporaryExport).toHaveBeenCalledWith('wxfile://stale-after-switch.csv');
+  });
+
+  it.each(['handleReset', 'detach', 'switch'])(
+    'cleans a downloaded private file on %s',
+    async (action) => {
+      const definition = await controllerDefinition();
+      const page = await loadedPage(definition);
+      definition.methods.handleDownload.call(page);
+      await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
+      if (action === 'detach') definition.lifetimes.detached.call(page);
+      else if (action === 'switch') {
+        page.properties.groupId = '';
+        definition.observers.groupId.call(page);
+      } else definition.methods[action].call(page);
+      expect(mocks.releaseTemporaryExport).toHaveBeenCalledWith('wxfile://export.csv');
+      expect(page._tempFilePath).toBeUndefined();
+    },
+  );
+
+  it('prevents duplicate download/share clicks and leaves cancelled sharing retryable', async () => {
+    const definition = await controllerDefinition();
+    const page = await loadedPage(definition);
+    definition.methods.handleDownload.call(page);
+    definition.methods.handleDownload.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
+    expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1);
+    let finishShare;
+    mocks.shareScheduleExport.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishShare = resolve;
+        }),
+    );
+    definition.methods.handleShare.call(page);
+    definition.methods.handleShare.call(page);
+    expect(mocks.shareScheduleExport).toHaveBeenCalledTimes(1);
+    finishShare('cancelled');
+    await vi.waitFor(() => expect(page.data.shareBusy).toBe(false));
+    expect(page.data.state).toBe('downloaded');
+    expect(page.data.feedbackTone).not.toBe('error');
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores an old create result after reset, even after another operation has started', async () => {
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+    let finishOld;
+    mocks.createExportJob.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishOld = resolve;
+        }),
+    );
+    definition.methods.handleCreate.call(page);
+    await vi.waitFor(() => expect(mocks.createExportJob).toHaveBeenCalledTimes(1));
+    definition.methods.handleReset.call(page);
+    mocks.createExportJob.mockResolvedValueOnce({ ...exportJob('pending'), id: 'new-job' });
+    definition.methods.handleCreate.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    finishOld({ ...exportJob('pending'), id: 'old-job' });
+    await flushPromises();
+    expect(page._jobId).toBe('new-job');
+    expect(mocks.getExportJob).not.toHaveBeenCalledWith(groupId, 'old-job');
+  });
+
+  it('clears transient errors after two seconds and invalidates share callbacks on detach', async () => {
+    const definition = await controllerDefinition();
+    const page = await loadedPage(definition);
+    vi.useFakeTimers();
+    mocks.downloadScheduleExport.mockRejectedValueOnce(new Error('safe download failure'));
+    definition.methods.handleDownload.call(page);
+    await flushPromises();
+    expect(page.data.infoMessage).toBe('safe download failure');
+    expect(page.data.feedbackTone).toBe('error');
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(page.data.infoMessage).toBe('');
+    definition.methods.handleDownload.call(page);
+    await flushPromises();
+    let finishShare;
+    mocks.shareScheduleExport.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishShare = resolve;
+        }),
+    );
+    definition.methods.handleShare.call(page);
+    definition.lifetimes.detached.call(page);
+    const snapshot = { ...page.data };
+    finishShare('shared');
+    await flushPromises();
+    expect(page.data).toEqual(snapshot);
+    expect(mocks.releaseTemporaryExport).toHaveBeenCalledWith('wxfile://export.csv');
+  });
+
+  it('ignores late options after detaching or switching away and back to the same group', async () => {
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    let finishOld;
+    mocks.listGroupMembers.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishOld = resolve;
+        }),
+    );
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(mocks.listGroupMembers).toHaveBeenCalledTimes(1));
+    page.properties.groupId = 'other-group';
+    definition.observers.groupId.call(page);
+    page.properties.groupId = groupId;
+    definition.observers.groupId.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+    finishOld([{ id: 'old', realName: 'OLD' }]);
+    await flushPromises();
+    expect(page.data.memberOptions.map((option) => option.label)).toEqual(['全部成员', 'A 医生']);
+    definition.lifetimes.detached.call(page);
+  });
+
+  it('leaves failed file sharing retryable without downloading or generating again', async () => {
+    const definition = await controllerDefinition();
+    const page = await loadedPage(definition);
+    definition.methods.handleDownload.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
+    mocks.shareScheduleExport.mockRejectedValueOnce(new Error('发送未完成'));
+    definition.methods.handleShare.call(page);
+    await vi.waitFor(() => expect(page.data.shareBusy).toBe(false));
+    expect(page.data.state).toBe('downloaded');
+    expect(page.data.feedbackTone).toBe('error');
+    definition.methods.handleShare.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('shared'));
+    expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1);
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
   });
 });
 

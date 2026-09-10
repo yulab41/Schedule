@@ -1,4 +1,4 @@
-<view class="month-card">
+<view class="month-card {{shadow ? '' : 'is-flat'}}">
   <view class="month-toolbar">
     <view
       class="month-step"

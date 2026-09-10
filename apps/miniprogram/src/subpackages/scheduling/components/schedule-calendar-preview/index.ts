@@ -1,4 +1,5 @@
 import { previewCalendarModel, type PreviewDuty } from './model.js';
+import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import type { CalendarPeriodSlot } from '../../../../components/calendar/calendar-period-pager.js';
 interface Instance {
   _slot: CalendarPeriodSlot;
@@ -8,6 +9,7 @@ interface Instance {
     startDate: string;
     compact: boolean;
     restrictToProposed: boolean;
+    holidays: readonly ConfirmedHolidayDate[];
   };
   data: { month: string; selectedDate: string };
   setData(patch: Record<string, unknown>, callback?: () => void): void;
@@ -27,6 +29,7 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
     selectedDate,
     instance._slot ?? 1,
     instance.properties.restrictToProposed,
+    instance.properties.holidays,
   );
   instance.setData(
     {
@@ -46,6 +49,8 @@ Component({
     startDate: { type: String, value: '' },
     compact: { type: Boolean, value: false },
     restrictToProposed: { type: Boolean, value: false },
+    holidays: { type: Array, value: [] },
+    shadow: { type: Boolean, value: true },
   },
   data: {
     month: '',
@@ -63,6 +68,10 @@ Component({
     },
   },
   observers: {
+    holidays(this: Instance) {
+      const month = this.data.month || this.properties.startDate.slice(0, 7);
+      if (month) sync(this, month, this.data.selectedDate);
+    },
     startDate(this: Instance) {
       if (this.properties.startDate) sync(this, this.properties.startDate.slice(0, 7));
     },
