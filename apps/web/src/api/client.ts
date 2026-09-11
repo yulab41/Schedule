@@ -402,6 +402,17 @@ export interface ApiClient {
   updateGroupName(groupId: string, input: UpdateGroupNameRequest): Promise<GroupSummary>;
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
   restoreGroup(groupId: string, input: GroupVersionMutationRequest): Promise<void>;
+  getGroupGuestShiftEvents(
+    groupId: string,
+    shiftId: string,
+    options?: { readonly cursor?: string; readonly pageSize?: number },
+  ): Promise<ScheduleEventPage>;
+  getGuestShiftEvents(
+    groupId: string,
+    shiftId: string,
+    visitorKey: string,
+    options?: { readonly cursor?: string; readonly pageSize?: number },
+  ): Promise<ScheduleEventPage>;
   getGroupGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   updateProfile(realName: string): Promise<UserProfile>;
   listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]>;
@@ -1448,6 +1459,12 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
     restoreGroup(groupId, input) {
       return organizationWriteClient.restoreGroup(groupId, input);
+    },
+    getGroupGuestShiftEvents(groupId, shiftId, options) {
+      return calendarReadClient.getGroupGuestShiftEvents(groupId, shiftId, options);
+    },
+    getGuestShiftEvents(groupId, shiftId, visitorKey, options) {
+      return calendarReadClient.getGuestShiftEvents(groupId, shiftId, visitorKey, options);
     },
     getGroupGuestCalendar(groupId, businessMonth) {
       return requestJson(

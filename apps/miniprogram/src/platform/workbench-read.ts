@@ -83,7 +83,7 @@ export function createWorkbenchReadClient(): {
       const result = await calendarClient.getGroupGuestCalendar(groupId, businessMonth);
       if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
         throw new Error('Invalid guest calendar context');
-      return sanitizeGuestCalendar(result.calendar);
+      return result.calendar;
     },
     getMembers: async (groupId) =>
       (await organizationReadClient.listGroupMembers(groupId)).map(
@@ -99,18 +99,6 @@ export function createWorkbenchReadClient(): {
       }
       return groups;
     },
-  };
-}
-
-export function sanitizeGuestCalendar(calendar: CalendarReadModel): CalendarReadModel {
-  return {
-    ...calendar,
-    members: calendar.members.map((member) => {
-      const safe = { ...member };
-      delete safe.mobilePhone;
-      delete safe.shortPhone;
-      return safe;
-    }),
   };
 }
 

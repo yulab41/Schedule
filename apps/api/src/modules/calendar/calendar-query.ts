@@ -26,6 +26,7 @@ import { assertBusinessMonthContainsDate } from '@schedule/scheduling-domain';
 import { and, asc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
+import { EventQuery } from '../events/event-query.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { isMobilePhoneConsentEffective } from '../groups/mobile-phone-consent.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
@@ -163,19 +164,7 @@ export class CalendarQuery {
         identity,
         groupId,
       );
-      const result = await this.readGuestMonthForGroup(access.group, businessMonth, transaction);
-      if (!access.linked) return result;
-      return {
-        ...result,
-        calendar: {
-          ...result.calendar,
-          members: result.calendar.members.map((member) => ({
-            membershipId: member.membershipId,
-            realName: member.realName,
-            isConfirmed: false,
-          })),
-        },
-      };
+      return this.readGuestMonthForGroup(access.group, businessMonth, transaction);
     });
   }
 
@@ -200,6 +189,48 @@ export class CalendarQuery {
     return this.readGuestMonthForGroup(group, businessMonth);
   }
 
+  public async readGuestShiftEvents(
+    groupId: string,
+    shiftId: string,
+    options: { readonly cursor?: string | undefined; readonly pageSize?: number | undefined },
+    identity?: AuthenticatedIdentity,
+  ) {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      if (identity !== undefined) {
+        await this.permissionService.requireGuestCalendarAccess(transaction, identity, groupId);
+      }
+      const [visible] = await transaction
+        .select({ id: shiftAssignments.id })
+        .from(shiftAssignments)
+        .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+        .innerJoin(groups, eq(groups.id, schedulePeriods.groupId))
+        .where(
+          and(
+            eq(shiftAssignments.id, shiftId),
+            eq(schedulePeriods.groupId, groupId),
+            isNull(shiftAssignments.deletedAt),
+            isNull(schedulePeriods.deletedAt),
+            isNull(groups.deletedAt),
+            inArray(schedulePeriods.status, ['published', 'past']),
+          ),
+        )
+        .limit(1);
+      if (visible === undefined)
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '班次不存在或当前不可见。',
+        });
+      // Never traverse the group event graph: every page remains scoped to this visible shift.
+      return new EventQuery(this.databaseClient).listInTransaction(transaction, {
+        groupId,
+        shiftId,
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+        ...(options.pageSize === undefined ? {} : { pageSize: options.pageSize }),
+      });
+    });
+  }
+
   private async readGuestMonthForGroup(
     group: { readonly id: string; readonly name: string },
     businessMonth: string,
@@ -218,7 +249,7 @@ export class CalendarQuery {
           ),
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
-      return this.buildCalendar(transaction, group.id, businessMonth, periods, 'guest', false);
+      return this.buildCalendar(transaction, group.id, businessMonth, periods, 'member', true);
     };
     const calendar =
       activeTransaction === undefined

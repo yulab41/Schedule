@@ -1,6 +1,8 @@
 {
   "usingComponents": {
-    "calendar-month": "/components/calendar/calendar-month/index"
+    "calendar-month": "/components/calendar/calendar-month/index",
+    "ui-sheet": "/components/ui/ui-sheet/index",
+    "shift-event-records": "/components/shift-event-records/index"
   },
   "disableScroll": true,
   "navigationStyle": "custom",

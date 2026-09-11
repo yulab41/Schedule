@@ -64,6 +64,27 @@ describe('guest calendar client', () => {
     ]);
     expect(calendarReadEndpoints.guestHolidays.auth).toBe('public');
   });
+  it('reads only shift-scoped guest events with explicit authentication and pagination', async () => {
+    const calls: unknown[] = [];
+    const client = createCalendarReadClient({
+      request: async (endpoint, input) => {
+        calls.push({ auth: endpoint.auth, path: endpoint.path(input) });
+        return { events: [] } as never;
+      },
+    });
+    await client.getGroupGuestShiftEvents('g', 's', { cursor: 'next/1', pageSize: 2 });
+    await client.getGuestShiftEvents('g', 's', 'a'.repeat(32), { pageSize: 2 });
+    expect(calls).toEqual([
+      {
+        auth: 'bearer',
+        path: '/groups/g/guest-calendar/shifts/s/events?pageSize=2&cursor=next%2F1',
+      },
+      {
+        auth: 'public',
+        path: `/guest/groups/g/calendar/shifts/s/events?visitorKey=${'a'.repeat(32)}&pageSize=2`,
+      },
+    ]);
+  });
   it('keeps guest reader declarations within the 100 KB Mini entry budget', async () => {
     const result = await build({
       stdin: {

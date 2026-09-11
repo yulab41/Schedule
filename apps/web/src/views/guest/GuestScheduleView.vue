@@ -1,122 +1,43 @@
 <script setup lang="ts">
-import type { ConfirmedHolidayDate, GuestCalendarReadModel } from '@schedule/contracts';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-
 import { createApiClient } from '../../api/client.js';
-import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import { toUserMessage } from '../../utils/user-message.js';
+import CalendarView from '../calendar/CalendarView.vue';
 import AppStatePanel from '../../components/AppStatePanel.vue';
-import SharedIcon from '../../components/SharedIcon.vue';
-import {
-  addBusinessMonths,
-  createLatestRequestTracker,
-  getBusinessMonthLabel,
-  getCurrentBusinessMonth,
-} from '../../features/calendar/calendar-logic.js';
-import { getBusinessDate } from '../../features/calendar/calendar-views.js';
-import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import { getAppStatePresentation } from '../../pwa/app-state.js';
-
-const api = createApiClient({ auth: localAuth });
-const route = useRoute();
-const router = useRouter();
-const businessMonth = ref(getCurrentBusinessMonth());
-const calendarResult = ref<GuestCalendarReadModel>();
-const errorMessage = ref<string>();
-const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
-const isLoading = ref(false);
-const resolvedGroup = ref<{ readonly groupId: string; readonly groupName: string }>();
-const requestTracker = createLatestRequestTracker();
 const missingGuestLinkState = getAppStatePresentation('guest-link-missing');
 const invalidGuestLinkState = getAppStatePresentation('guest-link-invalid');
-
-const visitorKey = computed(() =>
-  typeof route.query.vkey === 'string' && route.query.vkey.length > 0
-    ? route.query.vkey
-    : undefined,
-);
-const guestErrorDescription = computed(() =>
-  errorMessage.value === undefined
-    ? invalidGuestLinkState.description
-    : `${errorMessage.value} ${invalidGuestLinkState.description}`,
-);
-const assignmentCount = computed(() => calendarResult.value?.calendar.assignments.length ?? 0);
-
-watch(visitorKey, () => {
-  void load();
+const route = useRoute();
+const router = useRouter();
+const api = createApiClient({ auth: localAuth });
+const visitorKey = computed(() => (typeof route.query.vkey === 'string' ? route.query.vkey : ''));
+const group = ref<{ groupId: string; groupName: string }>();
+const error = ref('');
+let serial = 0;
+async function load() {
+  const request = ++serial;
+  const key = visitorKey.value;
+  group.value = undefined;
+  error.value = '';
+  if (!/^[0-9a-f]{32}$/i.test(key)) {
+    error.value = '访客链接无效，请向群管理员重新获取。';
+    return;
+  }
+  try {
+    const result = await api.resolveGuestGroup(key);
+    if (serial === request) group.value = result;
+  } catch (reason) {
+    if (serial === request) error.value = toUserMessage(reason, '访客链接已失效或群组不可用。');
+  }
+}
+watch(visitorKey, () => void load(), { immediate: true });
+onBeforeUnmount(() => {
+  serial++;
+  group.value = undefined;
 });
-
-onMounted(() => void load());
-
-async function load(): Promise<void> {
-  calendarResult.value = undefined;
-  errorMessage.value = undefined;
-  resolvedGroup.value = undefined;
-
-  if (visitorKey.value === undefined) {
-    return;
-  }
-
-  try {
-    resolvedGroup.value = await api.resolveGuestGroup(visitorKey.value);
-    businessMonth.value = getCurrentBusinessMonth();
-    await loadCalendar();
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '访客链接无效或群组不可用。');
-  }
-}
-
-async function loadCalendar(): Promise<void> {
-  if (resolvedGroup.value === undefined || visitorKey.value === undefined) {
-    return;
-  }
-
-  const request = requestTracker.begin();
-  errorMessage.value = undefined;
-  isLoading.value = true;
-  try {
-    const nextCalendar = await api.getGuestGroupCalendarByVisitorKey(
-      resolvedGroup.value.groupId,
-      visitorKey.value,
-      businessMonth.value,
-    );
-    if (requestTracker.isCurrent(request)) {
-      calendarResult.value = nextCalendar;
-      await loadHolidays(request);
-    }
-  } catch (error) {
-    if (requestTracker.isCurrent(request)) {
-      calendarResult.value = undefined;
-      errorMessage.value = toUserMessage(error, '排班暂时无法加载，请稍后重试。');
-    }
-  } finally {
-    if (requestTracker.isCurrent(request)) {
-      isLoading.value = false;
-    }
-  }
-}
-
-async function loadHolidays(request: number): Promise<void> {
-  const year = Number(businessMonth.value.slice(0, 4));
-  try {
-    const nextHolidays = await api.getGuestHolidays(year);
-    if (requestTracker.isCurrent(request)) {
-      holidays.value = new Map(nextHolidays.dates.map((date) => [date.date, date] as const));
-    }
-  } catch {
-    if (requestTracker.isCurrent(request)) {
-      holidays.value = new Map();
-    }
-  }
-}
-
-async function changeMonth(delta: number): Promise<void> {
-  businessMonth.value = addBusinessMonths(businessMonth.value, delta);
-  await loadCalendar();
-}
 </script>
-
 <template>
   <main class="guest-schedule-page">
     <header class="guest-header">
@@ -126,70 +47,31 @@ async function changeMonth(delta: number): Promise<void> {
       </div>
       <t-button variant="text" @click="router.push({ name: 'login' })">返回登录</t-button>
     </header>
-
-    <section v-if="calendarResult === undefined" class="guest-access-panel">
-      <AppStatePanel
-        v-if="errorMessage !== undefined"
-        v-bind="invalidGuestLinkState"
-        :description="guestErrorDescription"
-      >
-        <template #actions>
-          <t-button theme="primary" @click="load">重新验证</t-button>
-          <t-button variant="outline" @click="router.push({ name: 'login' })">返回登录</t-button>
-        </template>
-      </AppStatePanel>
-      <AppStatePanel v-else-if="visitorKey === undefined" v-bind="missingGuestLinkState">
-        <template #actions>
-          <t-button variant="outline" @click="router.push({ name: 'login' })">返回登录</t-button>
-        </template>
-      </AppStatePanel>
-      <section v-else class="guest-access-loading" aria-live="polite">
-        <span>访客排班</span>
-        <h1>正在验证访问权限</h1>
-        <t-loading text="正在验证访客链接" />
-      </section>
+    <section v-if="group" class="guest-calendar">
+      <span class="guest-label">访客排班 · 只读</span>
+      <h1>{{ group.groupName }}</h1>
+      <CalendarView :group="{ id: group.groupId, role: 'guest' }" :visitor-key="visitorKey" />
     </section>
-
-    <section v-else class="guest-calendar" :aria-busy="isLoading">
-      <div class="guest-calendar-title">
-        <div>
-          <span class="guest-label">访客排班 · 只读</span>
-          <h1>{{ calendarResult.groupName }}</h1>
-        </div>
-        <span class="guest-access-badge">共享视图</span>
-      </div>
-
-      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
-      <div class="guest-calendar-toolbar">
-        <t-button variant="outline" @click="changeMonth(-1)">
-          <template #icon><SharedIcon name="chevron-left" /></template>
-          上一月
-        </t-button>
-        <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
-        <t-button variant="outline" @click="changeMonth(1)">
-          下一月
-          <template #icon><SharedIcon name="chevron-right" /></template>
-        </t-button>
-      </div>
-
-      <t-loading v-if="isLoading" text="正在加载排班" />
-      <template v-else>
-        <div class="guest-month-summary" :class="{ 'is-empty': assignmentCount === 0 }">
-          <span>{{ assignmentCount === 0 ? '本月暂无已发布排班' : '本月已发布班次' }}</span>
-          <strong>{{ assignmentCount }} 个班次</strong>
-        </div>
-        <MonthGrid
-          :assignments="calendarResult.calendar.assignments"
-          :business-month="calendarResult.calendar.businessMonth"
-          :holidays="holidays"
-          :members="calendarResult.calendar.members"
-          :today="getBusinessDate()"
-        />
-      </template>
+    <section v-else class="guest-access-panel">
+      <AppStatePanel v-if="!visitorKey" v-bind="missingGuestLinkState"
+        ><template #actions
+          ><t-button variant="outline" @click="router.push({ name: 'login' })"
+            >返回登录</t-button
+          ></template
+        ></AppStatePanel
+      >
+      <AppStatePanel v-else-if="error" v-bind="invalidGuestLinkState" :description="error"
+        ><template #actions
+          ><t-button theme="primary" @click="load">重新验证</t-button
+          ><t-button variant="outline" @click="router.push({ name: 'login' })"
+            >返回登录</t-button
+          ></template
+        ></AppStatePanel
+      >
+      <t-loading v-else text="正在验证访客链接" />
     </section>
   </main>
 </template>
-
 <style scoped>
 .guest-schedule-page {
   display: flex;

@@ -1,4 +1,9 @@
-import type { CalendarReadModel, HolidayReadModel } from '@schedule/contracts';
+import type {
+  CalendarDutyAssignment,
+  ScheduleEvent,
+  CalendarReadModel,
+  HolidayReadModel,
+} from '@schedule/contracts';
 import {
   addBusinessMonths,
   addWeeks,
@@ -7,7 +12,15 @@ import {
   retargetSelectedDateToMonth,
 } from '@schedule/presentation-core';
 import { createRuntimeCalendarReadClient } from '../../platform/client-core-calendar.js';
-import { sanitizeGuestCalendar } from '../../platform/workbench-read.js';
+import {
+  reconcileDetailExpansion,
+  toggleDetailExpansion,
+} from '../../features/workbench/detail-expansion.js';
+import {
+  createShiftEventCards,
+  getShiftEventChangeChain,
+  type ShiftEventCard,
+} from '../../features/workbench/shift-event-model.js';
 import { getStoredWechatProfile } from '../../platform/wechat-identity.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
 import {
@@ -39,6 +52,15 @@ function initialData() {
   const today = getTodayBusinessDate();
   return {
     ...emptyView(),
+    detailExpansion: reconcileDetailExpansion(undefined, [], []),
+    announcement: '',
+    filterOnlyChanges: false,
+    shiftEventCards: [] as readonly ShiftEventCard[],
+    shiftEventChangeChain: '',
+    shiftEventErrorMessage: '',
+    shiftEventMeta: '',
+    shiftEventSheetOpen: false,
+    shiftEventState: 'closed' as 'closed' | 'loading' | 'ready' | 'empty' | 'error',
     state: 'loading' as 'loading' | 'ready' | 'error',
     errorMessage: '',
     guestHeaderStyle: 'height:64px;padding-top:20px;padding-right:104px;',
@@ -84,6 +106,8 @@ interface GuestPage {
   calendar: CalendarReadModel | undefined;
   holidays: HolidayReadModel | undefined;
   serial: number;
+  eventSerial: number;
+  eventAssignment: CalendarDutyAssignment | undefined;
   visible: boolean;
   shown: boolean;
   monthRingSlot: MonthSlot;
@@ -95,6 +119,8 @@ interface GuestPage {
 Page({
   data: initialData(),
   serial: 0,
+  eventSerial: 0,
+  eventAssignment: undefined,
   visible: true,
   shown: false,
   monthRingSlot: 1,
@@ -136,6 +162,38 @@ Page({
     this.serial += 1;
     this.visitorKey = undefined;
     clearCalendar(this);
+  },
+  handleListCall(this: GuestPage, event: Tap): void {
+    const phoneNumber = event.currentTarget.dataset['phone'];
+    if (this.data.state !== 'ready' || !this.visible || !phoneNumber) return;
+    const visible =
+      /^\+?\d[\d ()-]*$/u.test(phoneNumber) &&
+      this.calendar?.members.some(
+        (member) => member.mobilePhone === phoneNumber || member.shortPhone === phoneNumber,
+      );
+    if (!visible) return;
+    wx.makePhoneCall({ phoneNumber, fail: () => this.setData({ announcement: '未能发起通话。' }) });
+  },
+  handleDetailPhoneToggle(this: GuestPage, event: Tap): void {
+    const key = event.currentTarget.dataset['key'];
+    if (key)
+      this.setData({ detailExpansion: toggleDetailExpansion(this.data.detailExpansion, key) });
+  },
+  handleOnlyChangesToggle(this: GuestPage): void {
+    this.setData({ filterOnlyChanges: !this.data.filterOnlyChanges });
+    renderCalendar(this);
+  },
+  handleOpenShiftEvents(this: GuestPage, event: Tap): void {
+    const assignment = this.calendar?.assignments.find(
+      (value) => value.id === event.currentTarget.dataset['assignmentId'],
+    );
+    if (assignment && this.data.state === 'ready') void loadEvents(this, assignment);
+  },
+  handleShiftEventRetry(this: GuestPage): void {
+    if (this.eventAssignment) void loadEvents(this, this.eventAssignment);
+  },
+  handleShiftEventClose(this: GuestPage): void {
+    clearEvents(this);
   },
   handleRetry(this: GuestPage): void {
     void loadCalendar(this);
@@ -251,6 +309,7 @@ Page({
   },
   handleFilterClear(this: GuestPage): void {
     this.setData({
+      filterOnlyChanges: false,
       filterMembershipIds: [],
       filterRoleIds: [],
       filterShiftTypeIds: [],
@@ -299,11 +358,13 @@ function changePeriod(page: GuestPage, view: 'week' | 'list', delta: -1 | 1): vo
   void loadCalendar(page);
 }
 function clearCalendar(page: GuestPage): void {
+  clearEvents(page);
   page.calendar = undefined;
   page.holidays = undefined;
   page.setData({
     ...emptyView(),
     state: 'loading',
+    detailExpansion: reconcileDetailExpansion(undefined, [], []),
     errorMessage: '',
     filterOpen: false,
     filterOpenField: '',
@@ -350,7 +411,7 @@ async function loadCalendar(page: GuestPage): Promise<void> {
         result.calendar.businessMonth !== businessMonth
       )
         throw new Error('Invalid guest calendar context');
-      return sanitizeGuestCalendar(result.calendar);
+      return result.calendar;
     };
     // Commit the active month first; the remaining requests never persist credentials or calendars.
     const active = await read(month);
@@ -397,7 +458,7 @@ function renderCalendar(page: GuestPage): void {
     membershipIds: page.data.filterMembershipIds,
     roleIds: page.data.filterRoleIds,
     shiftTypeIds: page.data.filterShiftTypeIds,
-    onlyChanges: false,
+    onlyChanges: page.data.filterOnlyChanges,
   };
   const view = createWorkbenchViewModel(
     page.calendar,
@@ -433,6 +494,11 @@ function renderCalendar(page: GuestPage): void {
       .join('、') || fallback;
   page.setData({
     ...view,
+    detailExpansion: reconcileDetailExpansion(
+      page.data.detailExpansion,
+      [page.data.currentGroupId, page.data.selectedDate],
+      view.selectedDetails,
+    ),
     ...createMonthRing(
       view.monthPanels,
       view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
@@ -447,6 +513,88 @@ function renderCalendar(page: GuestPage): void {
     filterRoleSummary: summary(roles, '全部岗位'),
     filterShiftTypeSummary: summary(shifts, '全部班种'),
     activeFilterCount:
-      filters.membershipIds.length + filters.roleIds.length + filters.shiftTypeIds.length,
+      Number(filters.onlyChanges) +
+      filters.membershipIds.length +
+      filters.roleIds.length +
+      filters.shiftTypeIds.length,
   });
+}
+
+function clearEvents(page: GuestPage): void {
+  page.eventSerial++;
+  page.eventAssignment = undefined;
+  page.setData({
+    shiftEventSheetOpen: false,
+    shiftEventCards: [],
+    shiftEventChangeChain: '',
+    shiftEventErrorMessage: '',
+    shiftEventMeta: '',
+    shiftEventState: 'closed',
+  });
+}
+async function loadEvents(page: GuestPage, assignment: CalendarDutyAssignment): Promise<void> {
+  const key = page.visitorKey;
+  if (!key || !page.visible || page.data.state !== 'ready') return;
+  const serial = ++page.eventSerial;
+  const calendarSerial = page.serial;
+  const groupId = page.data.currentGroupId;
+  const active = () =>
+    current(page, calendarSerial) &&
+    serial === page.eventSerial &&
+    key === page.visitorKey &&
+    groupId === page.data.currentGroupId &&
+    page.data.shiftEventSheetOpen;
+  page.eventAssignment = assignment;
+  page.setData({
+    shiftEventSheetOpen: true,
+    shiftEventState: 'loading',
+    shiftEventCards: [],
+    shiftEventChangeChain: '',
+    shiftEventErrorMessage: '',
+    shiftEventMeta: `${assignment.businessDate} ${assignment.shiftTypeName} · ${assignment.scheduleRoleName}`,
+  });
+  try {
+    const events: ScheduleEvent[] = [];
+    let cursor: string | undefined;
+    const seen = new Set<string>();
+    do {
+      const result = await client.getGuestShiftEvents(groupId, assignment.id, key, {
+        pageSize: 100,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      if (!active()) return;
+      events.push(...result.events);
+      cursor = result.nextCursor;
+      if (cursor !== undefined && seen.has(cursor)) throw new Error('Invalid event pagination');
+      if (cursor !== undefined) seen.add(cursor);
+    } while (cursor !== undefined);
+    const cards = createShiftEventCards(events, assignment);
+    page.setData({
+      shiftEventCards: cards,
+      shiftEventChangeChain: getShiftEventChangeChain(events, assignment.id) ?? '',
+      shiftEventState: cards.length ? 'ready' : 'empty',
+    });
+  } catch (error) {
+    if (!active()) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      clearCalendar(page);
+      page.setData({ state: 'error', errorMessage: error.message });
+      return;
+    }
+    const status = (error as { status?: number }).status;
+    if (status === 401 || status === 403 || status === 404 || status === 410) {
+      clearCalendar(page);
+      page.setData({
+        state: 'error',
+        errorMessage: '访客码失效、权限撤销或班次已不可见，请重新验证。',
+      });
+      return;
+    }
+    page.setData({
+      shiftEventCards: [],
+      shiftEventChangeChain: '',
+      shiftEventState: 'error',
+      shiftEventErrorMessage: '班次事件暂时无法读取，请检查网络后重试。',
+    });
+  }
 }

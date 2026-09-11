@@ -29,6 +29,7 @@ describe('anonymous native visitor calendar', () => {
       removeStorageSync: (k) => storage.delete(k),
       getStorageInfoSync: () => ({ keys: [...storage.keys()] }),
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
+      makePhoneCall: vi.fn(),
       navigateBack: vi.fn(),
       reLaunch: vi.fn(),
       request: (options) => {
@@ -50,7 +51,9 @@ describe('anonymous native visitor calendar', () => {
             ...holidayApiGoldenResponse,
             year: Number(new URL(options.url).searchParams.get('year')),
           };
-        else if (options.url.includes('/guest/groups/')) {
+        else if (/\/guest\/groups\/[^/]+\/calendar\/shifts\/[^/]+\/events\?/.test(options.url))
+          data = { events: [] };
+        else if (/\/guest\/groups\/[^/]+\/calendar\?/.test(options.url)) {
           const calendar = structuredClone(calendarApiGoldenResponse);
           calendar.groupId = groupId;
           calendar.businessMonth = new URL(options.url).searchParams.get('businessMonth');
@@ -65,6 +68,8 @@ describe('anonymous native visitor calendar', () => {
             : [];
           calendar.members[0].shortPhone = '1234';
           calendar.members[0].mobilePhone = '13800000000';
+          calendar.members[1].mobilePhone = '13800000000';
+          calendar.members[1].shortPhone = '1234';
           data = { calendar, groupName: '访客测试群' };
         } else throw new Error('Unexpected member API');
         options.success({ statusCode: 200, data });
@@ -150,7 +155,7 @@ describe('anonymous native visitor calendar', () => {
       expect(requests.every((o) => !o.header?.Authorization)).toBe(true);
       expect(JSON.stringify(instance.data)).not.toContain(key);
       expect(JSON.stringify(instance.data)).not.toContain('13800000000');
-      expect(instance.calendar.members.every((m) => !m.mobilePhone && !m.shortPhone)).toBe(true);
+      expect(instance.calendar.members[0].mobilePhone).toBe('13800000000');
       expect([...storage]).toEqual(before);
       definition.onUnload.call(instance);
       expect(instance.calendar).toBeUndefined();
@@ -200,14 +205,14 @@ describe('anonymous native visitor calendar', () => {
       definition.onUnload.call(instance);
     },
   );
-  it('renders populated guest duties and applies member, role and shift filters without contacts', async () => {
+  it('renders populated guest duties and applies member, role and shift filters with server-approved contacts', async () => {
     populated = true;
     const instance = await page();
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
     const date = `${instance.data.businessMonth}-22`;
     definition.handleDateSelect.call(instance, { detail: { businessDate: date } });
     expect(instance.data.selectedDetails).toHaveLength(1);
-    expect(instance.data.selectedDetails[0].rows[0].phoneOptions).toEqual([]);
+    expect(instance.data.selectedDetails[0].rows[0].phoneOptions).toHaveLength(2);
     expect(
       instance.data.monthPanels
         .flatMap((panel) => panel.cells)
@@ -262,14 +267,46 @@ describe('anonymous native visitor calendar', () => {
     expect(instance.data.errorMessage).toContain('暂停');
     definition.onUnload.call(instance);
   });
-  it('registers every WXML action and excludes contacts, login, events and write controls', async () => {
+  it('dials only on a user tap and discards events after hiding the page', async () => {
+    populated = true;
+    const instance = await page();
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    definition.handleDateSelect.call(instance, {
+      detail: { businessDate: `${instance.data.businessMonth}-22` },
+    });
+    expect(globalThis.wx.makePhoneCall).not.toHaveBeenCalled();
+    definition.handleListCall.call(instance, {
+      currentTarget: { dataset: { phone: '13800000000' } },
+    });
+    expect(globalThis.wx.makePhoneCall).toHaveBeenCalledTimes(1);
+    globalThis.wx.makePhoneCall.mock.calls[0][0].fail({ errMsg: 'cancel' });
+    expect(instance.data.announcement).toContain('未能');
+    definition.handleListCall.call(instance, { currentTarget: { dataset: { phone: '999999' } } });
+    expect(globalThis.wx.makePhoneCall).toHaveBeenCalledTimes(1);
+    const id = instance.calendar.assignments[0].id;
+    definition.handleOpenShiftEvents.call(instance, {
+      currentTarget: { dataset: { assignmentId: id } },
+    });
+    await vi.waitFor(() => expect(instance.data.shiftEventState).toBe('empty'));
+    expect(requests.some((o) => o.url.includes(`/calendar/shifts/${id}/events?`))).toBe(true);
+    deferred = [];
+    definition.handleShiftEventRetry.call(instance);
+    await vi.waitFor(() => expect(deferred.length).toBe(1));
+    definition.onHide.call(instance);
+    deferred[0].success({ statusCode: 200, data: { events: [] } });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(instance.data.shiftEventSheetOpen).toBe(false);
+    expect(instance.calendar).toBeUndefined();
+    expect([...storage.keys()].some((k) => k.includes('workbench.cache'))).toBe(false);
+    definition.onUnload.call(instance);
+  });
+  it('registers calendar phone and event actions without login or group write controls', async () => {
     const instance = await page({ scene: '' });
     const markup = readFileSync(new URL('../src/pages/guest/guest.wxml', import.meta.url), 'utf8');
     for (const [, handler] of markup.matchAll(/(?:bind|catch)[a-z:]+="([A-Za-z]+)"/g))
       expect(typeof definition[handler], handler).toBe('function');
-    expect(markup).not.toMatch(
-      /handleListCall|handleOpenShiftEvents|phoneOptions|phone.number|handleReLogin|handleOnlyChanges/,
-    );
+    expect(markup).not.toMatch(/handleReLogin|handleSave|handleDelete|handleOpenDirectory/);
     definition.onUnload.call(instance);
   });
   it('retries network failures without persistent fallback and ignores a detached resolve', async () => {

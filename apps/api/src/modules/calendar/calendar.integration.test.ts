@@ -115,6 +115,132 @@ describeWithDatabase('current month calendar read model', () => {
     }
   });
 
+  it('gives linked and anonymous visitors the member calendar and scoped paginated events', async () => {
+    await savePublished('2026-08');
+    const linkedGroupId = await linkOutsiderGroup();
+    const contact = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupId}/members/${ownerMembershipId}/contact`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: { expectedVersion: 0, mobilePhone: '13800138000', shortPhone: '12345' },
+    });
+    expect(contact.statusCode).toBe(200);
+    const member = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    const shiftId = member.assignments[0]!.id;
+    const expected = (await readCalendar('owner-token', '2026-08')).json();
+    expect((await linkedCalendar()).json().calendar).toEqual(expected);
+    const key = await getVisitorKey(groupId);
+    const anonymous = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${key}`,
+    });
+    expect(anonymous.json().calendar).toEqual(expected);
+    expect(anonymous.headers['cache-control']).toBe('no-store');
+    expect((await linkedCalendar()).headers['cache-control']).toBe('no-store');
+    for (let index = 0; index < 3; index++) {
+      await client.database.insert(scheduleEvents).values({
+        id: randomUUID(),
+        groupId,
+        affectedShiftIds: [shiftId],
+        affectedMembershipIds: [],
+        eventStatus: 'completed',
+        eventType: 'swap_completed',
+        objectId: shiftId,
+        objectType: 'shift_assignment',
+        operationId: randomUUID(),
+      });
+    }
+    const base = `/groups/${groupId}/guest-calendar/shifts/${shiftId}/events`;
+    const headers = { authorization: 'Bearer outsider-token' };
+    const first = await app.inject({ method: 'GET', url: base + '?pageSize=2', headers });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.headers['cache-control']).toBe('no-store');
+    expect(first.json().events).toHaveLength(2);
+    const second = await app.inject({
+      method: 'GET',
+      url: base + `?pageSize=2&cursor=${encodeURIComponent(first.json().nextCursor)}`,
+      headers,
+    });
+    expect(second.json().events).toHaveLength(1);
+    const publicEvents = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar/shifts/${shiftId}/events?visitorKey=${key}`,
+    });
+    expect(publicEvents.statusCode, publicEvents.body).toBe(200);
+    expect(publicEvents.json().events).toHaveLength(3);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/groups/${groupId}/events?shiftId=${shiftId}`,
+          headers,
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await app.inject({ method: 'GET', url: base.replace(shiftId, randomUUID()), headers }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/guest/groups/${groupId}/calendar/shifts/${shiftId}/events?visitorKey=${'0'.repeat(32)}`,
+        })
+      ).statusCode,
+    ).not.toBe(200);
+    const memberEvents = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/events?shiftId=${shiftId}`,
+      headers: { authorization: 'Bearer owner-token' },
+    });
+    expect(publicEvents.json()).toEqual(memberEvents.json());
+    const crossGroup = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${linkedGroupId}/calendar/shifts/${shiftId}/events?visitorKey=${await getVisitorKey(linkedGroupId)}`,
+    });
+    expect(crossGroup.statusCode).toBe(404);
+    const periodId = member.assignments[0]!.schedulePeriodId;
+    await client.database.execute(
+      sql`UPDATE schedule_periods SET status='draft' WHERE id=${periodId}`,
+    );
+    expect((await app.inject({ method: 'GET', url: base, headers })).statusCode).toBe(404);
+    await client.database.execute(
+      sql`UPDATE schedule_periods SET status='past' WHERE id=${periodId}`,
+    );
+    expect((await app.inject({ method: 'GET', url: base, headers })).statusCode).toBe(200);
+    await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=0`);
+    expect((await app.inject({ method: 'GET', url: base, headers })).statusCode).toBe(403);
+    await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=1`);
+    const revoke = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: {
+        consented: false,
+        expectedContactVersion: contact.json().version,
+        noticeVersion: 'v1',
+      },
+    });
+    expect(revoke.statusCode, revoke.body).toBe(200);
+    const withdrawn = (await readCalendar('owner-token', '2026-08')).json();
+    expect(
+      withdrawn.members.find(
+        (value: { membershipId: string }) => value.membershipId === ownerMembershipId,
+      ),
+    ).not.toHaveProperty('mobilePhone');
+    expect((await linkedCalendar()).json().calendar).toEqual(withdrawn);
+    const withdrawnGuest = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${key}`,
+    });
+    expect(withdrawnGuest.json().calendar).toEqual(withdrawn);
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET deleted_at=NOW() WHERE id=${shiftId}`,
+    );
+    expect((await app.inject({ method: 'GET', url: base, headers })).statusCode).toBe(404);
+  });
+
   it('audits historic backfill differences without calling them ghost assignments', async () => {
     const published = await savePublished('2026-08');
     expect(published.statusCode, published.body).toBe(200);
@@ -311,7 +437,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
-  it('shows member mobile phones by default, supports explicit control, and never exposes them to guests', async () => {
+  it('shows member mobile phones by default, supports explicit control, and applies the same visibility to valid guests', async () => {
     await savePublished('2026-08');
     const saved = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
@@ -377,10 +503,11 @@ describeWithDatabase('current month calendar read model', () => {
       membershipId: candidateMembershipId,
       realName: 'Candidate Doctor',
       shortPhone: '67890',
+      mobilePhone: '13900139000',
     });
   });
 
-  it('resolves a visitor key and returns only confirmed contacts without event markers', async () => {
+  it('resolves a visitor key and returns the same visible contacts as members', async () => {
     await savePublished('2026-08');
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -439,7 +566,7 @@ describeWithDatabase('current month calendar read model', () => {
       realName: 'Owner Doctor',
       shortPhone: '12345',
     });
-    expect(ownerMember).not.toHaveProperty('mobilePhone');
+    expect(ownerMember).toHaveProperty('mobilePhone', '13800138000');
     const candidateMember = body.calendar.members.find(
       (member) => member.membershipId === candidateMembershipId,
     );
@@ -447,13 +574,15 @@ describeWithDatabase('current month calendar read model', () => {
       isConfirmed: false,
       membershipId: candidateMembershipId,
       realName: 'Candidate Doctor',
+      mobilePhone: '13900139000',
+      shortPhone: '67890',
     });
     expect(
       body.calendar.assignments.every((assignment) => assignment.changeMarkers.length === 0),
     ).toBe(true);
   });
 
-  it('hides workflow change markers from guests even when events exist', async () => {
+  it('shows the same workflow change markers to guests', async () => {
     const saved = await savePublished('2026-08');
     const periodId = (saved.json() as FixtureScheduleResult).periods[0]?.id as string;
     const [assignmentRow] = await client.database
@@ -494,7 +623,7 @@ describeWithDatabase('current month calendar read model', () => {
     expect(
       guest.calendar.assignments.find((assignment) => assignment.id === assignmentId)
         ?.changeMarkers,
-    ).toEqual([]);
+    ).toEqual(['swap']);
   });
 
   it('rejects unknown visitor keys and rate limits repeated failures', async () => {
@@ -843,13 +972,24 @@ describeWithDatabase('current month calendar read model', () => {
       calendar: { assignments: expect.any(Array), groupId },
     });
     const guestBody = guestCalendar.json() as { calendar: CalendarReadModel };
-    expect(
-      guestBody.calendar.members.find((member) => member.membershipId === candidateMembershipId),
-    ).toEqual({
-      isConfirmed: false,
-      membershipId: candidateMembershipId,
-      realName: 'Candidate Doctor',
+    expect(guestBody.calendar).toEqual((await readCalendar('owner-token', '2026-08')).json());
+
+    const shiftId = guestBody.calendar.assignments[0]!.id;
+    const guestEvents = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/guest-calendar/shifts/${shiftId}/events`,
+      headers: { authorization: 'Bearer outsider-token' },
     });
+    expect(guestEvents.statusCode, guestEvents.body).toBe(200);
+    expect(guestEvents.json()).toEqual(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/groups/${groupId}/events?shiftId=${shiftId}`,
+          headers: { authorization: 'Bearer owner-token' },
+        })
+      ).json(),
+    );
 
     const memberCalendar = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
@@ -1048,13 +1188,7 @@ describeWithDatabase('current month calendar read model', () => {
     expect(response.statusCode).toBe(200);
     const calendar = (response.json() as { calendar: CalendarReadModel }).calendar;
     expect(calendar.assignments.length).toBeGreaterThan(0);
-    expect(
-      calendar.members.find((member) => member.membershipId === candidateMembershipId),
-    ).toEqual({
-      isConfirmed: false,
-      membershipId: candidateMembershipId,
-      realName: 'Candidate Doctor',
-    });
+    expect(calendar).toEqual((await readCalendar('owner-token', '2026-08')).json());
     const draft = await app.inject({
       method: 'GET',
       url: `/groups/${groupId}/guest-calendar?businessMonth=2026-09`,
@@ -1079,7 +1213,16 @@ describeWithDatabase('current month calendar read model', () => {
     'dissolved-target',
     'disabled-link',
   ])('revokes linked guest access on the next request: %s', async (change) => {
+    await savePublished('2026-08');
+    const shiftId = (await readCalendar('owner-token', '2026-08')).json().assignments[0].id;
+    const readEvents = () =>
+      app.inject({
+        method: 'GET',
+        url: `/groups/${groupId}/guest-calendar/shifts/${shiftId}/events`,
+        headers: { authorization: 'Bearer outsider-token' },
+      });
     const otherId = await linkOutsiderGroup();
+    expect((await readEvents()).statusCode).toBe(200);
     expect((await linkedCalendar()).statusCode).toBe(200);
     if (change === 'inactive')
       await client.database.execute(
@@ -1116,6 +1259,7 @@ describeWithDatabase('current month calendar read model', () => {
     if (change === 'disabled-link')
       await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=0`);
     expect([403, 404]).toContain((await linkedCalendar()).statusCode);
+    expect([403, 404]).toContain((await readEvents()).statusCode);
     const list = await app.inject({
       method: 'GET',
       url: '/groups',

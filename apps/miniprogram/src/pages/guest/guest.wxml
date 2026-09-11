@@ -1,4 +1,5 @@
 <view class="workbench-page guest-page">
+  <text wx:if="{{announcement}}" class="offline-note" aria-live="polite">{{announcement}}</text>
   <view class="guest-header" style="{{guestHeaderStyle}}"><text class="guest-title">{{currentGroupName}} · 访客</text><view class="guest-return" aria-role="button" bindtap="handleReturn">返回</view></view>
   <scroll-view style="{{guestViewportStyle}}" class="guest-scroll workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}" scroll-y="{{viewMode !== 'list'}}" show-scrollbar="{{false}}">
         <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
@@ -102,21 +103,88 @@
                     </view>
                     <view class="grouped-staff-list">
                       <view
-                        wx:for="{{group.rows}}"
+                        wx:for="{{ group.rows }}"
                         wx:for-item="row"
                         wx:key="key"
                         class="staff-duty-row"
                       >
                         <view class="staff-duty-heading">
-
-                          <view class="staff-name-static"
+                          <view
+                            wx:if="{{row.phoneOptions.length > 0}}"
+                            class="staff-name-button"
+                            data-key="{{row.key}}"
+                            hover-class="is-pressed"
+                            aria-role="button"
+                            aria-label="{{row.name}}，展开电话"
+                            aria-expanded="{{detailExpansion.expanded[row.key]}}"
+                            bindtap="handleDetailPhoneToggle"
+                          >
+                            <view class="staff-name-copy"
+                              ><text class="staff-name">{{row.name}}</text
+                              ><text class="staff-role">{{row.role}}</text></view
+                            >
+                            <image
+                              class="detail-phone-icon"
+                              src="/assets/icons/ui-phone-success.svg"
+                              mode="aspectFit"
+                            />
+                            <image
+                              class="detail-disclosure {{detailExpansion.expanded[row.key] ? 'is-expanded' : ''}}"
+                              src="/assets/icons/ui-chevron-right.svg"
+                              mode="aspectFit"
+                            />
+                          </view>
+                          <view wx:else class="staff-name-static"
                             ><text class="staff-name">{{row.name}}</text
                             ><text class="staff-role">{{row.role}}</text></view
                           >
                           <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
                         </view>
-
-
+                        <view
+                          wx:if="{{detailExpansion.expanded[row.key] && row.phoneOptions.length > 0}}"
+                          class="phone-split-actions"
+                        >
+                          <view
+                            wx:for="{{row.phoneOptions}}"
+                            wx:for-item="phone"
+                            wx:key="number"
+                            class="detail-phone-action"
+                            data-phone="{{phone.number}}"
+                            hover-class="is-pressed"
+                            aria-role="button"
+                            aria-label="拨打{{phone.label}} {{phone.number}}"
+                            catchtap="handleListCall"
+                            ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit" />
+                            <text>{{phone.label}} {{phone.number}}</text></view
+                          >
+                        </view>
+                        <view class="staff-event-footer">
+                          <view
+                          class="event-action"
+                          data-assignment-id="{{row.key}}"
+                          hover-class="is-pressed"
+                          aria-role="button"
+                          aria-label="查看事件记录"
+                          aria-disabled="{{state !== 'ready'}}"
+                          bindtap="handleOpenShiftEvents"
+                          ><image
+                            class="event-history-icon"
+                            src="/assets/icons/ui-history.svg"
+                            mode="aspectFit"
+                          />
+                          ><text>事件记录</text></view
+                        >
+                          <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                          <view
+                            wx:for="{{row.markerDetails}}"
+                            wx:for-item="markerDetail"
+                            wx:key="key"
+                            class="change-summary-item"
+                            ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                            ><text>{{markerDetail.label}}</text></view
+                          >
+                        </view>
+                        </view>
                       </view>
                     </view>
                   </view>
@@ -271,21 +339,88 @@
                     </view>
                     <view class="grouped-staff-list">
                       <view
-                        wx:for="{{group.rows}}"
+                        wx:for="{{ group.rows }}"
                         wx:for-item="row"
                         wx:key="key"
                         class="staff-duty-row"
                       >
                         <view class="staff-duty-heading">
-
-                          <view class="staff-name-static"
+                          <view
+                            wx:if="{{row.phoneOptions.length > 0}}"
+                            class="staff-name-button"
+                            data-key="{{row.key}}"
+                            hover-class="is-pressed"
+                            aria-role="button"
+                            aria-label="{{row.name}}，展开电话"
+                            aria-expanded="{{detailExpansion.expanded[row.key]}}"
+                            bindtap="handleDetailPhoneToggle"
+                          >
+                            <view class="staff-name-copy"
+                              ><text class="staff-name">{{row.name}}</text
+                              ><text class="staff-role">{{row.role}}</text></view
+                            >
+                            <image
+                              class="detail-phone-icon"
+                              src="/assets/icons/ui-phone-success.svg"
+                              mode="aspectFit"
+                            />
+                            <image
+                              class="detail-disclosure {{detailExpansion.expanded[row.key] ? 'is-expanded' : ''}}"
+                              src="/assets/icons/ui-chevron-right.svg"
+                              mode="aspectFit"
+                            />
+                          </view>
+                          <view wx:else class="staff-name-static"
                             ><text class="staff-name">{{row.name}}</text
                             ><text class="staff-role">{{row.role}}</text></view
                           >
                           <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
                         </view>
-
-
+                        <view
+                          wx:if="{{detailExpansion.expanded[row.key] && row.phoneOptions.length > 0}}"
+                          class="phone-split-actions"
+                        >
+                          <view
+                            wx:for="{{row.phoneOptions}}"
+                            wx:for-item="phone"
+                            wx:key="number"
+                            class="detail-phone-action"
+                            data-phone="{{phone.number}}"
+                            hover-class="is-pressed"
+                            aria-role="button"
+                            aria-label="拨打{{phone.label}} {{phone.number}}"
+                            catchtap="handleListCall"
+                            ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit" />
+                            <text>{{phone.label}} {{phone.number}}</text></view
+                          >
+                        </view>
+                        <view class="staff-event-footer">
+                          <view
+                          class="event-action"
+                          data-assignment-id="{{row.key}}"
+                          hover-class="is-pressed"
+                          aria-role="button"
+                          aria-label="查看事件记录"
+                          aria-disabled="{{state !== 'ready'}}"
+                          bindtap="handleOpenShiftEvents"
+                          ><image
+                            class="event-history-icon"
+                            src="/assets/icons/ui-history.svg"
+                            mode="aspectFit"
+                          />
+                          ><text>事件记录</text></view
+                        >
+                          <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                          <view
+                            wx:for="{{row.markerDetails}}"
+                            wx:for-item="markerDetail"
+                            wx:key="key"
+                            class="change-summary-item"
+                            ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                            ><text>{{markerDetail.label}}</text></view
+                          >
+                        </view>
+                        </view>
                       </view>
                     </view>
                   </view>
@@ -417,7 +552,16 @@
                                     >{{marker}}</text
                                   ></view
                                 ><text class="list-duty-details">{{duty.details}}</text></view
-                              >
+                              ><view
+                                wx:if="{{duty.phone}}"
+                                class="list-call-action"
+                                data-phone="{{duty.phone}}"
+                                hover-class="is-pressed"
+                                aria-role="button"
+                                aria-label="联系{{duty.name}}"
+                                catchtap="handleListCall"
+                                ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit"
+                              /></view>
 
                             </view>
                           </view>
@@ -609,7 +753,17 @@
         </scroll-view>
       </view>
 
-      <view class="filter-sheet-actions">
+      <view class="changes-filter" catchtap="handleOnlyChangesToggle">
+        <text>只看有变更的班次</text>
+        <view
+          class="compact-switch {{filterOnlyChanges ? 'is-on' : ''}}"
+          aria-role="switch"
+          aria-checked="{{filterOnlyChanges}}"
+        >
+          <view></view>
+        </view>
+      </view>
+<view class="filter-sheet-actions">
         <view class="filter-clear" aria-role="button" catchtap="handleFilterClear">清除筛选</view>
         <view class="filter-apply" aria-role="button" catchtap="handleFilterApply">查看结果</view>
       </view>
@@ -617,4 +771,22 @@
   </view>
 
 
+<ui-sheet
+    visible="{{shiftEventSheetOpen}}"
+    size="half"
+    title="班次事件记录"
+    close-label="完成"
+    swipe-dismiss="{{true}}"
+    bind:close="handleShiftEventClose"
+  >
+    <shift-event-records
+      wx:if="{{shiftEventSheetOpen}}"
+      cards="{{shiftEventCards}}"
+      change-chain="{{shiftEventChangeChain}}"
+      error-message="{{shiftEventErrorMessage}}"
+      meta="{{shiftEventMeta}}"
+      state="{{shiftEventState}}"
+      bind:retry="handleShiftEventRetry"
+    ></shift-event-records>
+  </ui-sheet>
 </view>

@@ -53,10 +53,41 @@ import WeekGrid from '../../features/calendar/WeekGrid.vue';
 import EventTimeline from '../../features/events/EventTimeline.vue';
 
 const props = defineProps<{
-  readonly group: GroupSummary;
+  readonly group: Pick<GroupSummary, 'id' | 'role'>;
+  readonly visitorKey?: string;
 }>();
 
 const api = createApiClient({ auth: localAuth });
+const isGuest = computed(() => props.group.role === 'guest');
+const accessScope = computed(() =>
+  JSON.stringify([props.group.id, props.group.role, props.visitorKey]),
+);
+let eventRequest = 0;
+let disposed = false;
+let sessionScope = '';
+async function readCalendarMonth(groupId: string, month: string): Promise<CalendarReadModel> {
+  if (!isGuest.value) return api.getCalendar(groupId, month);
+  const response =
+    props.visitorKey === undefined
+      ? await api.getGroupGuestCalendar(groupId, month)
+      : await api.getGuestGroupCalendarByVisitorKey(groupId, props.visitorKey, month);
+  if (response.calendar.groupId !== groupId || response.calendar.businessMonth !== month)
+    throw new Error('Invalid calendar context');
+  return response.calendar;
+}
+function clearPrivateCalendar(): void {
+  calendar.value = undefined;
+  calendarResourceCache.clear();
+  holidayResourceCache.clear();
+  assignmentEvents.value = [];
+  eventErrorMessage.value = '';
+  selectedAssignment.value = undefined;
+  eventDialogVisible.value = false;
+  filterSheetVisible.value = false;
+  eventRequest++;
+  clearFilters();
+}
+
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendar = shallowRef<CalendarReadModel>();
 const calendarPreferences = shallowRef<CalendarPreferences>();
@@ -67,6 +98,7 @@ const conflictSummary = ref<string>();
 const conflictVisible = ref(false);
 const isLoading = ref(false);
 const isLoadingEvents = ref(false);
+const eventErrorMessage = ref('');
 const selectedDate = ref<string>();
 const selectedAssignment = ref<CalendarDutyAssignment>();
 const assignmentEvents = ref<readonly ScheduleEvent[]>([]);
@@ -179,18 +211,19 @@ const calendarRequestKey = computed(() =>
 );
 
 watch(
-  () => [props.group.id, calendarRequestKey.value],
+  () => accessScope.value,
   () => {
-    void loadCalendar();
+    clearPrivateCalendar();
+    calendarPreferences.value = undefined;
+    void loadCalendarPreferences();
   },
   { immediate: true },
 );
 
 watch(
-  () => props.group.id,
+  () => [accessScope.value, calendarRequestKey.value],
   () => {
-    calendarPreferences.value = undefined;
-    void loadCalendarPreferences();
+    void loadCalendar();
   },
   { immediate: true },
 );
@@ -227,19 +260,36 @@ watch(
 onMounted(() => {
   weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   window.addEventListener('focus', onWindowFocus);
+  document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('resize', onWindowResize);
   void recenterSwipeViewport();
 });
 
 onBeforeUnmount(() => {
+  disposed = true;
+  requestTracker.begin();
+  clearPrivateCalendar();
   window.removeEventListener('focus', onWindowFocus);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
   window.removeEventListener('resize', onWindowResize);
   clearSwipeScrollTimer();
   if (swipeLayoutFrame !== undefined) window.cancelAnimationFrame(swipeLayoutFrame);
 });
 
 function onWindowFocus(): void {
+  if (isGuest.value) {
+    requestTracker.begin();
+    clearPrivateCalendar();
+  }
   void loadCalendar({ forceRefresh: true });
+}
+
+function onVisibilityChange(): void {
+  if (!isGuest.value) return;
+  if (document.hidden) {
+    requestTracker.begin();
+    clearPrivateCalendar();
+  } else onWindowFocus();
 }
 
 function onWindowResize(): void {
@@ -247,10 +297,12 @@ function onWindowResize(): void {
 }
 
 async function loadCalendarPreferences(): Promise<void> {
+  if (isGuest.value) return;
+  const scope = accessScope.value;
   const groupId = props.group.id;
   try {
     const preferences = await api.getCalendarPreferences(props.group.id);
-    if (props.group.id !== groupId) return;
+    if (disposed || accessScope.value !== scope || props.group.id !== groupId) return;
     calendarPreferences.value = preferences;
     viewMode.value = preferences.effectiveView;
     if (viewMode.value === 'week' && weekStart.value === '') {
@@ -263,6 +315,15 @@ async function loadCalendarPreferences(): Promise<void> {
 
 async function loadCalendar(options: { readonly forceRefresh?: boolean } = {}): Promise<void> {
   const request = requestTracker.begin();
+  const scope = accessScope.value;
+  const groupId = props.group.id;
+  const token =
+    props.visitorKey === undefined
+      ? ((await localAuth.getSession()).data?.session?.access_token ?? '')
+      : '';
+  if (disposed || scope !== accessScope.value || !requestTracker.isCurrent(request)) return;
+  if (sessionScope !== token || (isGuest.value && options.forceRefresh)) clearPrivateCalendar();
+  sessionScope = token;
   errorMessage.value = undefined;
   isLoading.value = true;
   ensureResourceCacheGroup();
@@ -274,9 +335,16 @@ async function loadCalendar(options: { readonly forceRefresh?: boolean } = {}): 
   try {
     const monthCalendars = await Promise.all(
       requestedMonths.map((month) =>
-        calendarResourceCache.get(month, () => api.getCalendar(props.group.id, month), options),
+        calendarResourceCache.get(month, () => readCalendarMonth(groupId, month), options),
       ),
     );
+    if (
+      disposed ||
+      scope !== accessScope.value ||
+      (props.visitorKey === undefined &&
+        token !== ((await localAuth.getSession()).data?.session?.access_token ?? ''))
+    )
+      return;
     const activeMonth =
       viewMode.value === 'week' ? weekStart.value.slice(0, 7) : businessMonth.value;
     const activeCalendar =
@@ -304,6 +372,7 @@ async function loadCalendar(options: { readonly forceRefresh?: boolean } = {}): 
     }
   } catch (error) {
     if (requestTracker.isCurrent(request)) {
+      if (isGuest.value) clearPrivateCalendar();
       if (isDataConflictError(error)) {
         conflictMessage.value = getConflictMessage(error);
         conflictSummary.value = getVersionConflictSummary(getConflictLatestData(error));
@@ -325,10 +394,10 @@ async function loadCalendar(options: { readonly forceRefresh?: boolean } = {}): 
 }
 
 function ensureResourceCacheGroup(): void {
-  if (resourceCacheGroupId === props.group.id) return;
+  if (resourceCacheGroupId === accessScope.value) return;
   calendarResourceCache.clear();
   holidayResourceCache.clear();
-  resourceCacheGroupId = props.group.id;
+  resourceCacheGroupId = accessScope.value;
 }
 
 function getRequestedCalendarMonths(): readonly string[] {
@@ -350,7 +419,11 @@ async function loadHolidays(
   try {
     const holidayYears = await Promise.all(
       years.map((year) =>
-        holidayResourceCache.get(String(year), () => api.getHolidays(year), options),
+        holidayResourceCache.get(
+          String(year),
+          () => (isGuest.value ? api.getGuestHolidays(year) : api.getHolidays(year)),
+          options,
+        ),
       ),
     );
     if (requestTracker.isCurrent(request)) {
@@ -673,27 +746,75 @@ function shiftWeek(direction: -1 | 1): void {
 }
 
 async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise<void> {
+  if (!calendar.value?.assignments.some((value) => value.id === assignment.id)) return;
+  const request = ++eventRequest;
+  const scope = accessScope.value;
+  const groupId = props.group.id;
+  const key = props.visitorKey;
+  const guest = isGuest.value;
+  const token =
+    key === undefined ? ((await localAuth.getSession()).data?.session?.access_token ?? '') : '';
+  if (disposed || scope !== accessScope.value || request !== eventRequest) return;
+  const current = () =>
+    !disposed &&
+    request === eventRequest &&
+    scope === accessScope.value &&
+    eventDialogVisible.value;
   selectedAssignment.value = assignment;
+  eventErrorMessage.value = '';
   assignmentEvents.value = [];
   eventDialogVisible.value = true;
   isLoadingEvents.value = true;
   try {
-    const page = await api.getGroupEvents(props.group.id, {
-      pageSize: 100,
-      shiftId: assignment.id,
-    });
-    assignmentEvents.value = page.events;
+    const events: ScheduleEvent[] = [];
+    let cursor: string | undefined;
+    const seen = new Set<string>();
+    do {
+      const options = { pageSize: 100, ...(cursor === undefined ? {} : { cursor }) };
+      const page = guest
+        ? key === undefined
+          ? await api.getGroupGuestShiftEvents(groupId, assignment.id, options)
+          : await api.getGuestShiftEvents(groupId, assignment.id, key, options)
+        : await api.getGroupEvents(groupId, { ...options, shiftId: assignment.id });
+      if (!current()) return;
+      if (
+        key === undefined &&
+        token !== ((await localAuth.getSession()).data?.session?.access_token ?? '')
+      ) {
+        clearPrivateCalendar();
+        return;
+      }
+      if (!current()) return;
+      events.push(...page.events);
+      cursor = page.nextCursor;
+      if (cursor !== undefined && seen.has(cursor)) throw new Error('Invalid event pagination');
+      if (cursor !== undefined) seen.add(cursor);
+    } while (cursor !== undefined);
+    assignmentEvents.value = events;
   } catch (error) {
-    errorMessage.value = toUserMessage(error, '排班日历暂时无法加载，请稍后重试。');
+    if (!current()) return;
+    assignmentEvents.value = [];
+    if (guest && [401, 403, 404, 410].includes((error as { status?: number }).status ?? 0)) {
+      clearPrivateCalendar();
+      errorMessage.value = toUserMessage(error, '访客权限或班次已不可用，请重新加载。');
+    } else eventErrorMessage.value = toUserMessage(error, '班次事件暂时无法加载，请稍后重试。');
   } finally {
-    isLoadingEvents.value = false;
+    if (current()) isLoadingEvents.value = false;
   }
 }
 </script>
 
 <template>
   <section class="calendar-view" :aria-busy="isLoading">
-    <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+    <div v-if="errorMessage !== undefined">
+      <t-alert theme="error" :message="errorMessage" /><button
+        class="calendar-retry"
+        type="button"
+        @click="loadCalendar({ forceRefresh: true })"
+      >
+        重新加载
+      </button>
+    </div>
     <div ref="calendarToolbar" class="calendar-toolbar">
       <div class="calendar-view-switch">
         <div class="view-mode-switch" role="tablist" aria-label="日历视图">
@@ -1060,6 +1181,15 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           {{ selectedAssignment.scheduleRoleName }}
         </p>
         <t-loading v-if="isLoadingEvents" text="正在加载事件记录" />
+        <div v-else-if="eventErrorMessage" class="assignment-events-error">
+          <t-alert theme="error" :message="eventErrorMessage" /><button
+            class="calendar-retry"
+            type="button"
+            @click="openAssignmentEvents(selectedAssignment)"
+          >
+            重试读取
+          </button>
+        </div>
         <EventTimeline
           v-else-if="assignmentEvents.length > 0"
           :assignment="selectedAssignment"
@@ -1072,6 +1202,11 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 </template>
 
 <style scoped>
+.calendar-retry {
+  min-height: 44px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
 .calendar-view {
   display: grid;
   gap: 12px;

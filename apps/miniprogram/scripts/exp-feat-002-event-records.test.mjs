@@ -65,6 +65,73 @@ describe('EXP-FEAT-002 shift event records', () => {
     expect(pageSource).not.toContain('handleUnavailable');
   });
 
+  it('reads paginated guest shift events without enabling insights and denies stale guest reads', async () => {
+    const calls = [];
+    let revoke = false;
+    const request = vi.fn((options) => {
+      calls.push(options.url);
+      expect(options.url).toContain('/groups/group-1/guest-calendar/shifts/assignment-1/events?');
+      if (revoke)
+        return options.success({
+          statusCode: 403,
+          data: { error: { code: 'FORBIDDEN', message: 'revoked', requestId: 'synthetic' } },
+        });
+      const second = options.url.includes('cursor=');
+      options.success({
+        statusCode: 200,
+        data: {
+          events: [
+            eventRecord(
+              second ? 'second' : 'first',
+              second ? '2026-08-22T03:00:00.000Z' : '2026-08-21T03:00:00.000Z',
+            ),
+          ],
+          ...(second ? {} : { nextCursor: 'next-page' }),
+        },
+      });
+    });
+    vi.stubGlobal('wx', createWx(request));
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const page = pageFor(definition);
+    page.calendar = structuredClone(calendarApiGoldenResponse);
+    page.monthResources = new Map();
+    page.data.currentGroupId = 'group-1';
+    page.data.currentGroupRoleKind = 'guest';
+    page.data.toolAccess = { ...page.data.toolAccess, insights: false, calendarEvents: true };
+    definition.handleOpenShiftEvents.call(page, tapFor('assignment-1'));
+    await vi.waitFor(() => expect(page.data.shiftEventState).toBe('ready'));
+    expect(calls).toHaveLength(2);
+    expect(page.data.shiftEventCards).toHaveLength(2);
+    expect(page.data.toolAccess.insights).toBe(false);
+    revoke = true;
+    definition.handleShiftEventRetry.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('error'));
+    expect(page.calendar).toBeUndefined();
+    expect(page.data.shiftEventCards).toEqual([]);
+    expect(page.data.selectedDetails).toEqual([]);
+  });
+
+  it('blocks stale and non-displayed phone taps after a group switch', async () => {
+    const wx = createWx(vi.fn());
+    wx.makePhoneCall = vi.fn();
+    vi.stubGlobal('wx', wx);
+    await import('../src/pages/workbench/index.ts');
+    const page = pageFor(definition);
+    page.calendar = structuredClone(calendarApiGoldenResponse);
+    page.data.state = 'ready';
+    page.data.currentGroupId = 'group-1';
+    page.data.currentGroupRoleKind = 'guest';
+    definition.handleListCall.call(page, { currentTarget: { dataset: { phone: '999999' } } });
+    expect(wx.makePhoneCall).not.toHaveBeenCalled();
+    definition.handleListCall.call(page, { currentTarget: { dataset: { phone: '13800138000' } } });
+    expect(wx.makePhoneCall).toHaveBeenCalledTimes(1);
+    page.calendar = undefined;
+    page.data.state = 'loading';
+    definition.handleListCall.call(page, { currentTarget: { dataset: { phone: '13800138000' } } });
+    expect(wx.makePhoneCall).toHaveBeenCalledTimes(1);
+  });
+
   it('maps the Web event timeline rules without exposing raw event data', () => {
     const assignment = calendarApiGoldenResponse.assignments[0];
     const cards = createShiftEventCards(
@@ -114,7 +181,7 @@ describe('EXP-FEAT-002 shift event records', () => {
     const page = pageFor(definition);
     page.calendar = { ...calendarApiGoldenResponse };
     page.data.currentGroupId = 'group-1';
-    page.data.toolAccess = { ...page.data.toolAccess, insights: true };
+    page.data.toolAccess = { ...page.data.toolAccess, insights: true, calendarEvents: true };
 
     definition.handleOpenShiftEvents.call(page, tapFor('assignment-1'));
     expect(page.data).toMatchObject({
@@ -142,7 +209,7 @@ describe('EXP-FEAT-002 shift event records', () => {
     const page = pageFor(definition);
     page.calendar = { ...calendarApiGoldenResponse };
     page.data.currentGroupId = 'group-1';
-    page.data.toolAccess = { ...page.data.toolAccess, insights: false };
+    page.data.toolAccess = { ...page.data.toolAccess, insights: false, calendarEvents: false };
 
     definition.handleOpenShiftEvents.call(page, tapFor('assignment-1'));
 
@@ -180,7 +247,7 @@ describe('EXP-FEAT-002 shift event records', () => {
       assignments: [calendarApiGoldenResponse.assignments[0], secondAssignment],
     };
     page.data.currentGroupId = 'group-1';
-    page.data.toolAccess = { ...page.data.toolAccess, insights: true };
+    page.data.toolAccess = { ...page.data.toolAccess, insights: true, calendarEvents: true };
 
     definition.handleOpenShiftEvents.call(page, tapFor('assignment-1'));
     await vi.waitFor(() => expect(page.data.shiftEventState).toBe('error'));

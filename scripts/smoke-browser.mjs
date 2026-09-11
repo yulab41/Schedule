@@ -2187,7 +2187,9 @@ async function assertGuestStateResponsive(page, mode) {
       const root = document.querySelector(
         currentMode === 'calendar' ? '.guest-calendar' : '.guest-access-panel',
       );
-      const calendarGrid = document.querySelector('.guest-calendar .month-grid');
+      const calendarGrid = document.querySelector(
+        '.guest-calendar .calendar-swipe-panel[aria-hidden="false"] .month-grid',
+      );
       const gridRect = calendarGrid?.getBoundingClientRect();
       const controls = [
         ...document.querySelectorAll(
@@ -2214,7 +2216,8 @@ async function assertGuestStateResponsive(page, mode) {
           .map(
             (element) => element.textContent?.trim() || element.getAttribute('aria-label') || '',
           ),
-        weekdayCount: document.querySelectorAll('.guest-calendar .weekday-row > span').length,
+        weekdayCount: document.querySelectorAll('.guest-calendar .calendar-weekday-row > span')
+          .length,
       };
     }, mode);
     if (metrics.overflow)

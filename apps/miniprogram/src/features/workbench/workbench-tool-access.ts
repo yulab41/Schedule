@@ -20,6 +20,7 @@ export type WorkbenchToolId = (typeof workbenchToolIds)[number];
 
 export type WorkbenchToolAccess = Readonly<
   Record<WorkbenchToolId, boolean> & {
+    readonly calendarEvents: boolean;
     readonly accessSection: boolean;
     readonly groupSection: boolean;
     readonly hasAny: boolean;
@@ -74,6 +75,7 @@ export function createWorkbenchToolAccess(
 
   return Object.freeze({
     ...tools,
+    calendarEvents: hasGroup && (group.role === 'guest' ? capability.guest : capability.insights),
     accessSection,
     groupSection,
     hasAny: groupSection || informationSection || accessSection,

@@ -177,7 +177,7 @@ function formatConsentTime(value: string): string {
       <header>
         <div>
           <strong>我的手机号公开设置</strong>
-          <span>仅决定当前群组成员能否查看您的完整手机号。</span>
+          <span>决定本群组成员及有效访客在排班详情中能否查看您的完整手机号。</span>
         </div>
         <span class="preference-scope is-personal">仅自己</span>
       </header>

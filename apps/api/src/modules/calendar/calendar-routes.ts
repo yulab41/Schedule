@@ -22,12 +22,29 @@ const guestCalendarQuerySchema = z
   })
   .strict();
 
+const shiftEventQuerySchema = z
+  .object({
+    cursor: z.string().min(1).max(1024).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+const publicShiftEventQuerySchema = shiftEventQuerySchema
+  .extend({ visitorKey: z.string().regex(/^[0-9a-f]{32}$/i) })
+  .strict();
+
 export function registerCalendarRoutes(
   app: FastifyInstance,
   calendarQuery: CalendarQuery,
   visitorAccessLogService: VisitorAccessLogService,
   clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
 ): void {
+  app.addHook('onSend', async (request, reply, payload) => {
+    const route = request.routeOptions.url ?? '';
+    if (route.includes('/guest-calendar') || route.startsWith('/guest/groups/'))
+      reply.header('cache-control', 'no-store');
+    return payload;
+  });
+
   app.get('/groups/:groupId/calendar', { preHandler: app.authenticate }, (request) =>
     calendarQuery.readMonth(
       getAuthenticatedIdentity(request),
@@ -56,6 +73,28 @@ export function registerCalendarRoutes(
   );
 
   const publicMiniGuestGuard = createPublicMiniCapabilityGuard(clientCapabilityPolicy);
+
+  app.get(
+    '/groups/:groupId/guest-calendar/shifts/:shiftId/events',
+    { preHandler: app.authenticate },
+    (request) =>
+      calendarQuery.readGuestShiftEvents(
+        parseGroupId(request),
+        parseShiftId(request),
+        parseOrThrow(shiftEventQuerySchema, request.query),
+        getAuthenticatedIdentity(request),
+      ),
+  );
+  app.get(
+    '/guest/groups/:groupId/calendar/shifts/:shiftId/events',
+    { preHandler: publicMiniGuestGuard },
+    async (request) => {
+      const groupId = parseGroupId(request);
+      const { visitorKey, ...options } = parseOrThrow(publicShiftEventQuerySchema, request.query);
+      await visitorAccessLogService.resolveGroup(visitorKey, groupId);
+      return calendarQuery.readGuestShiftEvents(groupId, parseShiftId(request), options);
+    },
+  );
 
   app.post(
     '/guest/groups/resolve',
@@ -133,4 +172,8 @@ function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output
   }
 
   return result.data;
+}
+
+function parseShiftId(request: FastifyRequest): string {
+  return parseOrThrow(groupIdSchema, (request.params as { shiftId?: unknown }).shiftId);
 }

@@ -326,6 +326,7 @@
           <view class="contact-disclosure-row">
             <view class="contact-disclosure-copy">
               <text class="contact-disclosure-title">群内公开手机号</text>
+              <text class="contact-disclosure-note">成员及有效访客可在排班详情中查看和拨打</text>
               <text wx:if="{{consentState === 'missing-phone'}}" class="contact-disclosure-note"
                 >请先设置手机号</text
               >

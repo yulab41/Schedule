@@ -242,14 +242,14 @@
                             <text>{{phone.label}} {{phone.number}}</text></view
                           >
                         </view>
-                        <view wx:if="{{currentGroupRoleKind !== 'guest'}}" class="staff-event-footer">
+                        <view class="staff-event-footer">
                           <view
                           class="event-action"
                           data-assignment-id="{{row.key}}"
                           hover-class="is-pressed"
                           aria-role="button"
                           aria-label="查看事件记录"
-                          aria-disabled="{{!toolAccess.insights}}"
+                          aria-disabled="{{!toolAccess.calendarEvents}}"
                           bindtap="handleOpenShiftEvents"
                           ><image
                             class="event-history-icon"
@@ -478,14 +478,14 @@
                             <text>{{phone.label}} {{phone.number}}</text></view
                           >
                         </view>
-                        <view wx:if="{{currentGroupRoleKind !== 'guest'}}" class="staff-event-footer">
+                        <view class="staff-event-footer">
                           <view
                           class="event-action"
                           data-assignment-id="{{row.key}}"
                           hover-class="is-pressed"
                           aria-role="button"
                           aria-label="查看事件记录"
-                          aria-disabled="{{!toolAccess.insights}}"
+                          aria-disabled="{{!toolAccess.calendarEvents}}"
                           bindtap="handleOpenShiftEvents"
                           ><image
                             class="event-history-icon"
@@ -1065,7 +1065,7 @@
         /></view>
       </view>
 
-      <view wx:if="{{currentGroupRoleKind !== 'guest'}}" class="changes-filter" catchtap="handleOnlyChangesToggle">
+      <view class="changes-filter" catchtap="handleOnlyChangesToggle">
         <text>只看有变更的班次</text>
         <view
           class="compact-switch {{filterOnlyChanges ? 'is-on' : ''}}"

@@ -323,7 +323,7 @@ describe('P6-A workbench runtime coordination', () => {
     definition.onHide.call(instance);
   });
 
-  it('reauthorizes a same-group role downgrade without member cache or contacts', async () => {
+  it('reauthorizes a same-group role downgrade with guest contacts and no member cache', async () => {
     const storage = createStorage();
     let role = 'member';
     let guestOffline = false;
@@ -362,7 +362,7 @@ describe('P6-A workbench runtime coordination', () => {
     definition.onShow.call(instance);
     await vi.waitFor(() => expect(instance.data.currentGroupRoleKind).toBe('guest'));
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
-    expect(instance.calendar.members.every((m) => !m.mobilePhone && !m.shortPhone)).toBe(true);
+    expect(instance.calendar.members[0].mobilePhone).toBe('13800000000');
     expect(
       [...storage.keys()].filter((key) => key.startsWith('schedule.wechat.workbench.cache.v2:')),
     ).toEqual([]);

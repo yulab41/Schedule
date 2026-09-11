@@ -2734,3 +2734,12 @@
 VIS-01运行验证补充：pnpm miniprogram:test 1014通过/15跳过，末次匿名13/工作台48通过；共享客户端/Web46复测通过。运行/浏览器验证：pnpm smoke:browser全部通过，本地合成管理员标记已恢复。最终Mini verify/确定性/包体/Worklet通过；待上传同意与小米14同版复核。
 
 VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不兼容；.100失败未放行，f7bc3ccc修复custom安全区后17项/静态构建通过。.101成功上传并追加放行，353文件回执/Manifest/tag一致，生产verifier及HTTPS新旧版本策略通过。服务器live仍4e0a0d1a，无关联变更；小米14卡死/闪退仍待同版验收。详见docs/audit/visitor-trial-release.md。
+
+
+## 2026-09-11 VIS-02 访客月历电话及班次事件
+
+- 用户批准变更：所有有效访客与成员浏览同一已发布/历史日历详情，含电话、变更标记、班次事件。引入点：4e0a0d1a关联删号、890efd8b客户端删号；7ac2a07a事件弹层错误/分页路径。git log -S 与 blame 已定位。
+- 完整行为清单/权限/回归/基线见 docs/audit/visitor-calendar-parity.md。新接口只授权指定群的可见班次，不扩展群级查询。Web复用CalendarView，Mini复用详情与事件叶组件，保持身份缓存隔离。
+- 红灯：真实MySQL旧接口404、共享方法不存在、旧删号、Web503弹层无重试、旧群号码点击；均修复后通过。运行/浏览器验证：pnpm smoke:browser 通过；node scripts/smoke-guest-calendar-parity.mjs 通过（合成数据/拦截拨号）。
+- root1227/419条件跳过、Mini全量1059/15条件跳过、最后定向47、真实MySQL33及补充复测、发布保护28通过。静态/Node/浏览器证据，不是小米14原生证据。
+- 状态：已完成本地运行验证，待交付及用户真机复核。提交消息 feat(calendar): align guest calendar details with members；未进行生产或上传，待具体检查点授权。保留现有群关联及业务数据。

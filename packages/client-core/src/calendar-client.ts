@@ -1,4 +1,5 @@
 import type {
+  ScheduleEventPage,
   CalendarReadModel,
   GuestCalendarReadModel,
   VisitorResolveResponse,
@@ -6,6 +7,7 @@ import type {
 } from '@schedule/contracts';
 
 import {
+  scheduleEventPageJsonSchema,
   calendarReadModelJsonSchema,
   guestCalendarReadModelJsonSchema,
   visitorResolveResponseJsonSchema,
@@ -26,7 +28,47 @@ export const guestCalendarReadModelDecoder =
 export const visitorResolveResponseDecoder =
   /* @__PURE__ */ createCompactDecoder<VisitorResolveResponse>(visitorResolveResponseJsonSchema);
 
+export interface GuestShiftEventOptions {
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+const guestShiftEventDecoder = /* @__PURE__ */ createCompactDecoder<ScheduleEventPage>(
+  scheduleEventPageJsonSchema,
+);
+function eventQuery(options: GuestShiftEventOptions, visitorKey?: string): string {
+  const parts: string[] = [];
+  if (visitorKey !== undefined) parts.push(`visitorKey=${encodeURIComponent(visitorKey)}`);
+  if (options.pageSize !== undefined) parts.push(`pageSize=${options.pageSize}`);
+  if (options.cursor !== undefined) parts.push(`cursor=${encodeURIComponent(options.cursor)}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+}
 export const calendarReadEndpoints = {
+  groupGuestShiftEvents: /* @__PURE__ */ defineClientEndpoint<
+    GuestShiftEventOptions & { readonly groupId: string; readonly shiftId: string },
+    ScheduleEventPage
+  >({
+    auth: 'bearer',
+    decoder: guestShiftEventDecoder,
+    id: 'calendar.group-guest-shift-events',
+    method: 'GET',
+    path: (input) =>
+      `/groups/${encodeURIComponent(input.groupId)}/guest-calendar/shifts/${encodeURIComponent(input.shiftId)}/events${eventQuery(input)}`,
+  }),
+  guestShiftEvents: /* @__PURE__ */ defineClientEndpoint<
+    GuestShiftEventOptions & {
+      readonly groupId: string;
+      readonly shiftId: string;
+      readonly visitorKey: string;
+    },
+    ScheduleEventPage
+  >({
+    auth: 'public',
+    decoder: guestShiftEventDecoder,
+    id: 'calendar.guest-shift-events',
+    method: 'GET',
+    path: (input) =>
+      `/guest/groups/${encodeURIComponent(input.groupId)}/calendar/shifts/${encodeURIComponent(input.shiftId)}/events${eventQuery(input, input.visitorKey)}`,
+  }),
   groupGuestCalendar: /* @__PURE__ */ defineClientEndpoint<
     { readonly groupId: string; readonly businessMonth: string },
     GuestCalendarReadModel
@@ -88,6 +130,17 @@ export const calendarReadEndpoints = {
 } as const;
 
 export interface CalendarReadClient {
+  getGroupGuestShiftEvents(
+    groupId: string,
+    shiftId: string,
+    options?: GuestShiftEventOptions,
+  ): Promise<ScheduleEventPage>;
+  getGuestShiftEvents(
+    groupId: string,
+    shiftId: string,
+    visitorKey: string,
+    options?: GuestShiftEventOptions,
+  ): Promise<ScheduleEventPage>;
   getGroupGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   resolveVisitor(visitorKey: string): Promise<VisitorResolveResponse>;
   getGuestCalendar(
@@ -102,6 +155,21 @@ export interface CalendarReadClient {
 
 export function createCalendarReadClient(transport: ClientTransport): CalendarReadClient {
   return {
+    getGroupGuestShiftEvents(groupId, shiftId, options = {}) {
+      return transport.request(calendarReadEndpoints.groupGuestShiftEvents, {
+        groupId,
+        shiftId,
+        ...options,
+      });
+    },
+    getGuestShiftEvents(groupId, shiftId, visitorKey, options = {}) {
+      return transport.request(calendarReadEndpoints.guestShiftEvents, {
+        groupId,
+        shiftId,
+        visitorKey,
+        ...options,
+      });
+    },
     getGroupGuestCalendar(groupId, businessMonth) {
       return transport.request(calendarReadEndpoints.groupGuestCalendar, {
         groupId,

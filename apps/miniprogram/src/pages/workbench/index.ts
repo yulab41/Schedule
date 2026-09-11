@@ -1,6 +1,7 @@
 import { createRuntimeAccountSecurityController } from '../../components/account-security/runtime.js';
 import type { AccountSecurityData } from '../../components/account-security/controller.js';
 import type {
+  ScheduleEvent,
   CalendarDutyAssignment,
   CalendarReadModel,
   GroupSummary,
@@ -27,6 +28,7 @@ import {
   requireClientCapability,
 } from '../../app/client-capability-store.js';
 import {
+  createRuntimeCalendarReadClient,
   createRuntimeInsightsReadClient,
   createRuntimeP9InsightsActionsClient,
 } from '../../platform/client-core-calendar.js';
@@ -265,6 +267,10 @@ interface WorkbenchPageInstance {
 }
 
 const client = createWorkbenchReadClient();
+const calendarReadClient = createRuntimeCalendarReadClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
 const accountSecurity = createRuntimeAccountSecurityController();
 const insightsReadClient = createRuntimeInsightsReadClient(
   getStoredWechatToken,
@@ -678,7 +684,6 @@ Page({
   },
 
   handleOnlyChangesToggle(this: WorkbenchPageInstance): void {
-    if (this.data.currentGroupRoleKind === 'guest') return;
     this.setData({ filterOnlyChanges: !this.data.filterOnlyChanges }, () => {
       syncFilterPresentation(this);
       refreshView(this);
@@ -843,9 +848,18 @@ Page({
   },
 
   handleListCall(this: WorkbenchPageInstance, event: TapEvent): void {
-    if (this.data.currentGroupRoleKind === 'guest') return;
     const phoneNumber = event.currentTarget.dataset.phone;
-    if (phoneNumber === undefined || phoneNumber.length === 0) return;
+    if (
+      !this.isVisible ||
+      this.calendar?.groupId !== this.data.currentGroupId ||
+      (this.data.state !== 'ready' && this.data.state !== 'offline') ||
+      phoneNumber === undefined ||
+      !/^\+?\d[\d ()-]*$/u.test(phoneNumber) ||
+      !this.calendar.members.some(
+        (member) => member.mobilePhone === phoneNumber || member.shortPhone === phoneNumber,
+      )
+    )
+      return;
     wx.makePhoneCall({
       fail: () => this.setData({ announcement: '未能发起通话。' }),
       phoneNumber,
@@ -865,7 +879,7 @@ Page({
       this.setData({ announcement: '当前群组尚未准备好，请刷新后重试。' });
       return;
     }
-    if (!this.data.toolAccess.insights) {
+    if (!this.data.toolAccess.calendarEvents) {
       this.setData({ announcement: '当前账号无权查看事件记录。' });
       return;
     }
@@ -880,7 +894,7 @@ Page({
   handleShiftEventRetry(this: WorkbenchPageInstance): void {
     const assignment = this.shiftEventAssignment;
     if (!this.data.shiftEventSheetOpen || assignment === undefined) return;
-    if (!this.data.toolAccess.insights) {
+    if (!this.data.toolAccess.calendarEvents) {
       this.setData({
         shiftEventErrorMessage: '当前账号无权查看事件记录。',
         shiftEventState: 'error',
@@ -1112,12 +1126,30 @@ async function loadShiftEvents(
   assignment: CalendarDutyAssignment,
 ): Promise<void> {
   try {
-    await requireClientCapability('insights');
-    const result = await insightsReadClient.listEvents(groupId, {
-      pageSize: 100,
-      shiftId: assignment.id,
-    });
-    if (!isShiftEventRequestCurrent(page, requestSerial, groupId, assignment.id)) return;
+    const guest = page.data.currentGroupRoleKind === 'guest';
+    const generation = getWechatSessionGeneration();
+    const role = page.data.currentGroupRoleKind;
+    await requireClientCapability(guest ? 'guest' : 'insights');
+    const events: ScheduleEvent[] = [];
+    let cursor: string | undefined;
+    const seen = new Set<string>();
+    do {
+      const options = { pageSize: 100, ...(cursor === undefined ? {} : { cursor }) };
+      const result = guest
+        ? await calendarReadClient.getGroupGuestShiftEvents(groupId, assignment.id, options)
+        : await insightsReadClient.listEvents(groupId, { ...options, shiftId: assignment.id });
+      if (
+        !isShiftEventRequestCurrent(page, requestSerial, groupId, assignment.id) ||
+        generation !== getWechatSessionGeneration() ||
+        role !== page.data.currentGroupRoleKind
+      )
+        return;
+      events.push(...result.events);
+      cursor = result.nextCursor;
+      if (cursor !== undefined && seen.has(cursor)) throw new Error('Invalid event pagination');
+      if (cursor !== undefined) seen.add(cursor);
+    } while (cursor !== undefined);
+    const result = { events };
     const cards = createShiftEventCards(result.events, assignment);
     page.setData({
       shiftEventCards: cards,
@@ -1127,6 +1159,16 @@ async function loadShiftEvents(
     });
   } catch (error) {
     if (!isShiftEventRequestCurrent(page, requestSerial, groupId, assignment.id)) return;
+    if (
+      page.data.currentGroupRoleKind === 'guest' &&
+      (error instanceof ClientCapabilityDisabledError ||
+        [401, 403, 404, 410].includes(getErrorStatus(error) ?? 0))
+    ) {
+      page.requestSerial++;
+      resetCalendarContext(page);
+      page.setData({ state: 'error', errorMessage: '访客权限或班次已不可用，请重新加载。' });
+      return;
+    }
     page.setData({
       shiftEventCards: [],
       shiftEventChangeChain: '',
@@ -1512,7 +1554,7 @@ function syncWorkbenchToolAccess(page: WorkbenchPageInstance): WorkbenchToolAcce
     (candidate) => candidate.id === page.data.currentGroupId,
   );
   const toolAccess = createWorkbenchToolAccess(currentGroup, capability);
-  if (!toolAccess.insights && page.data.shiftEventSheetOpen) {
+  if (!toolAccess.calendarEvents && page.data.shiftEventSheetOpen) {
     invalidateShiftEventRequest(page);
     page.setData(emptyShiftEventDataPatch());
   }
