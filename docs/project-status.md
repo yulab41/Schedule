@@ -1,15 +1,15 @@
 # Project Status
 
-## 当前批次：feedback10/VIS-02 服务端已部署，体验版上传受微信网络配置阻塞
+## 当前批次：feedback10/VIS-02 服务端与体验版已交付
 
 - 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
 - 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。
 - 最终部署前备份e011c56b-699e-422d-9b30-24b2282279f4，实际104354272字节、54表，SHA-256 6fcb93a4d09413a789abbd198eaaea4c0240ed82047968d03dae7b95abbadeb2与登记一致。应用与控制产物hash验证通过；回滚候选来自本次即时live 0565f023。
-- .103仅分配/冻结后取消；.104=0.1.0-p10.20260911.104绑定b618d938、production/clean、354文件Manifest 544af28f787a5e06644a64d595105f6e0602f8e8c7314fced23428fe46c2370a及不可变远端tag。微信首次拒绝-10008 invalid ip；沿用已记录IPv4/TLS路线重试同一三元组，getrandstr连接ECONNRESET；独立请求复现。两版均无成功receipt、未放行，不得复用号码给其他源码/Manifest。
+- .103/.104分别保留失败记录；直连IPv4出口120.230.6.0加入微信CI白名单后，.106=0.1.0-p10.20260911.106以63877b5e、production/clean、354文件Manifest c4bf033e252a94927000c6489fabb9f33f679c608c2abb6104606c5f3cc44ceb上传成功，receipt与不可变远端tag一致。
 - 独立HTTPS核验：.102仍200，.103/.104均426；不修改微信平台配置、不关闭IP白名单、不改系统网络。浏览器库存读取失败，无法核对公众平台配置。已归档冻结包/错误/备份/发布证据到ignored runtime/audit/feedback10-delivery-final-20260911及feedback10-delivery-initial-20260911；确认上传进程退出后清理本任务孤立操作锁，不改预约记录。
 - 应用验证复用feedback10.md和visitor-calendar-parity.md：合并MySQL45、Mini联合146、共享/API33及访客浏览器通过，Mini/Worklet和专项上传30项通过；不把自动化算作原生验收。CSV真实发送、相册扫码、瞬时通知、新消息点入及访客显示均待小米14。
 - 独占general-4全程复用依赖；官方ECS flat导出复用85包、downloaded0，最终重打包命中flat缓存。无workspace依赖安装、无本地数据库上传、无真实通知、无正式发布、无新增放行或旧版退役。
-- 文档收口检查点：docs(release): record deployment and blocked trial 104 upload；仅记录现状，不再次同步服务器release。唯一下一任务：用户恢复微信CI允许的上传出口/核对IP白名单后，按正式锁及不可变三元组规则续传并取得成功receipt，再追加放行和完整验证；若正式preflight不允许原三元组重试则新分配版本，不能盲目重建复用.104。完成前不重复部署或备份。
+- 独立HTTPS核验：.106/.102=200，.105/.104/.100/未知版本=426；可信ensure仅追加.106，保留旧版。上传和放行已完成，后续只待小米14原生复核，不重复部署或上传。
 
 ## 上一批次：feedback9 体验版102已上传并放行，待小米14复核
 

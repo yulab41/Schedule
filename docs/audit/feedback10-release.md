@@ -1,4 +1,4 @@
-# feedback10 / VIS-02 服务端交付与体验版上传阻塞
+# feedback10 / VIS-02 服务端与体验版交付
 
 日期：2026-09-11。用户授权体验版上传、追加放行，以及必要服务端部署。
 
@@ -12,7 +12,7 @@
 - 最终live为b618d938，schema仍57，无新迁移。官方updater校验产物并重建API/Web，启动阶段短暂502由内置健康等待恢复；完整ecs-verify.sh与allowlist verify均零退出，包含入口隔离、产物/控制脚本hash、schema及备份规则。隐私保留任务删除0行；未人工触发通知。
 - 最终dist归档SHA-256 b09a75efcf925b48f0d9649ec1b669b247f10a005919257678845f2e06ab6835；API runtime归档1a597dc0581158b0504a4770218f81fd832038bc24715aa838c9b6612acdaa53；新可信verifier a494d0d2a1d710a9b2a9b9844214d23382444ce881fa580df2bb2ead70df2c44。
 
-## 尚未交付体验版
+## 体验版交付
 
 - .103官方分配并冻结0565f023后，因生产校验阻塞在调用真实上传前主动取消。号码与Manifest记录保留，不复用。
 - 最终候选0.1.0-p10.20260911.104，源码b618d938，production/clean，构建时间2026-09-11T09:15:50.097Z；说明为“CSV等待、二维码保存、通知入口及访客日历 b618d93”。候选前后检查通过。
@@ -20,7 +20,9 @@
 - 首次官方编译完成后微信明确拒绝上传：-10008 invalid ip，当前出口不在平台CI白名单。没有成功receipt。不是成功上传后服务端拒绝，也不是可用体验版。
 - 项目既有微信专用IPv4路线TLS握手授权通过；用相同版本、源码、Manifest和构建时间幂等重试，复用原始构建，不新分配/重建。真实getrandstr请求ECONNRESET，随后独立HTTPS请求也复现；停止继续尝试。没有更改平台白名单、系统hosts/VPN/DNS或证书验证。
 - CI非正常退出后遗留的本任务锁已核对runId/nonce和PID退出，归档owner后只删除该owner文件与空锁目录；预约、tag、Manifest及所有冻结产物保留。浏览器工具库存读取失败，无法检查公众平台现有白名单。
-- 未运行ensure追加。独立HTTPS证明.102=200、.103/.104=426；旧版本保持可用，当前仍无新版成功上传/放行。
+- 用户补充授权后强制IPv4直连、禁用miniprogram-ci代理，独立出口查询与微信-10008回显均确认公网IPv4为120.230.6.0。用户加入CI白名单后，正式锁内重新分配.106；不可变tag、allocation、manifest和成功receipt全部绑定63877b5e。上传请求无拒绝，平台返回成功。
+- .106回执：0.1.0-p10.20260911.106，buildTime 2026-09-11T13:57:35.872Z，Manifest c4bf033e252a94927000c6489fabb9f33f679c608c2abb6104606c5f3cc44ceb，上传时间2026-09-11T14:03:06.594Z，354文件。旧.105仍永久占用但未上传，不复用。
+- trusted ensure只追加.106并保留旧版；完整verifier与allowlist verify通过。独立HTTPS：.106/.102=200，.105/.104/.100/未知=426。
 
 ## 验证与边界
 
@@ -28,7 +30,7 @@
 - 复用累计候选真实MySQL45、Mini联合146、共享/API33及访客浏览器专项；此前Mini verify、Worklet2/2及上传保护30项通过。控制面修复不改变Mini/Web/API业务行为，不重复全部应用测试。
 - 两次官方ECS打包成功；首次flat导出复用85包、downloaded0，最终打包命中flat缓存。无workspace依赖安装。保留Web大chunk、Mini内部主包/矩阵节点及Node DEP0190既有预警。
 - 证据：ignored runtime/audit/feedback10-delivery-initial-20260911和runtime/audit/feedback10-delivery-final-20260911；台账在runtime/audit/miniprogram-trials。未上传本地数据库/凭据、未进行账户删除/群关联操作、未主动发通知、未提审或正式发布。
-- 下一步：恢复微信CI允许的上传出口或由用户核对白名单。重新检查最新状态和正式候选约束；仅当相同三元组幂等规则仍允许时续传.104，否则正式分配新号码，不能改写.104。拿到成功receipt并核对冻结文件/tag后再追加放行、完整验证。无需再次部署或备份已交付服务端。
+- 下一步：小米14复核同一.106版本的CSV真实下载/发送、相册扫码、瞬时通知、新消息点入和访客显示。无需再次部署、备份或上传。
 - 原生验收仍待用户：小米14真实CSV下载/发送、保存图片可扫码、瞬时通知、新通知点入日历和访客显示。旧通知不会增加跳转入口，测试需使用修复后新消息；代理不主动发送。
 
-文档收口提交消息：docs(release): record deployment and blocked trial 104 upload。文档提交不代表新的生产发布。
+文档收口提交消息：docs(release): record successful trial 106 delivery。文档提交不代表新的生产发布。
