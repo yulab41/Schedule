@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：feedback10/VIS-02 服务端与体验版已交付
+## 当前批次：feedback10/VIS-02 服务端与体验版107已交付
 
 - 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
 - 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。
@@ -10,6 +10,8 @@
 - 应用验证复用feedback10.md和visitor-calendar-parity.md：合并MySQL45、Mini联合146、共享/API33及访客浏览器通过，Mini/Worklet和专项上传30项通过；不把自动化算作原生验收。CSV真实发送、相册扫码、瞬时通知、新消息点入及访客显示均待小米14。
 - 独占general-4全程复用依赖；官方ECS flat导出复用85包、downloaded0，最终重打包命中flat缓存。无workspace依赖安装、无本地数据库上传、无真实通知、无正式发布、无新增放行或旧版退役。
 - 独立HTTPS核验：.106/.102=200，.105/.104/.100/未知版本=426；可信ensure仅追加.106，保留旧版。上传和放行已完成，后续只待小米14原生复核，不重复部署或上传。
+- 106 已占用后，107 以 clean production 累积候选 `4b4af0a233f1a3ab06e4178333181747a6250e25` 上传成功；Manifest `ed36fd07a1266a33875f101b85d486c180a0bba60351b6cf0e1168c12794bfc4`、receipt、远端不可变 tag 和 add-only allowlist ensure/verify 均一致。生产 live 仍 `b618d938`/schema57，本轮无需重复部署或备份。首次网络 ECONNRESET 后通过已验证 IPv4/TLS 路线对同一三元组重试成功。
+- 体验版107说明“访客日历电话事件 4b4af0a”，主包1679405、总包4501599；保留既有内部主包预警。自动化和生产验证完成，CSV真实发送、相册扫码、通知点入和访客原生显示待小米14。
 
 ## 上一批次：feedback9 体验版102已上传并放行，待小米14复核
 

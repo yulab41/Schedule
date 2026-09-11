@@ -2763,3 +2763,5 @@ VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不
 
 
 VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保留全部业务源码，只协调状态文档冲突。合并后真实MySQL45、Mini联合146、共享/API/连续性33通过；运行/浏览器验证：node scripts/smoke-guest-calendar-parity.mjs通过，pnpm smoke:browser原完整运行证据有效，smoke:check-core通过。合并Mini主包1681844/总包4504816字节，Worklet2/2。提交消息 merge: preserve feedback10 alongside guest calendar parity；待新累积SHA部署/上传授权及小米14复核，未生产写入或真实通知。
+
+2026-09-11 体验版107：用户授权“106已占用，可以使用107”。服务端即时 live b618d938/schema57 已核对，无需重复部署或备份。候选 4b4af0a clean production，Mini verify/包体/血缘/上传锁门禁通过；主包1679405、总包4501599。首次微信 getrandstr ECONNRESET，无 receipt；版本107按规则保留，使用同一 SHA/Manifest 和已验证 IPv4/TLS 直连路线、关闭代理幂等重试成功。receipt/tag/Manifest `ed36fd07…94bfc4` 一致；add-only allowlist ensure/verify 通过，107 公网能力端点200。未提审、未正式发布、未退役旧版；待小米14原生复核。

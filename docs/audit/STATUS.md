@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：feedback10/VIS-02 服务端与体验版已交付
+## 当前批次：feedback10/VIS-02 服务端与体验版107已交付
 
 - 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
 - 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。
@@ -10,6 +10,7 @@
 - 应用验证复用feedback10.md和visitor-calendar-parity.md：合并MySQL45、Mini联合146、共享/API33及访客浏览器通过，Mini/Worklet和专项上传30项通过；不把自动化算作原生验收。CSV真实发送、相册扫码、瞬时通知、新消息点入及访客显示均待小米14。
 - 独立HTTPS核验：.106/.102=200，.105/.104/.100/未知版本=426；trusted ensure仅追加.106并保留旧版。无workspace依赖安装、无本地数据库上传、无真实通知、无正式发布或旧版退役。
 - 文档收口检查点：docs(release): record successful trial 106 delivery。唯一下一任务：小米14复核CSV下载/发送、相册扫码、通知点入日历和访客显示。
+- 体验版107已成功上传并追加放行：SHA `4b4af0a`，Manifest `ed36fd07…94bfc4`，receipt/tag/allowlist 一致；服务端 live `b618d938`/schema57，无重复部署。首次 ECONNRESET 已用同一不可变三元组和已验证 IPv4/TLS 路线重试成功。唯一下一任务：小米14复核107的 CSV 下载/发送、相册扫码、通知点入日历和访客显示。
 
 ## 上一批次：feedback9 体验版102已上传并放行，待小米14复核
 

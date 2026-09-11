@@ -23,6 +23,9 @@
 - 用户补充授权后强制IPv4直连、禁用miniprogram-ci代理，独立出口查询与微信-10008回显均确认公网IPv4为120.230.6.0。用户加入CI白名单后，正式锁内重新分配.106；不可变tag、allocation、manifest和成功receipt全部绑定63877b5e。上传请求无拒绝，平台返回成功。
 - .106回执：0.1.0-p10.20260911.106，buildTime 2026-09-11T13:57:35.872Z，Manifest c4bf033e252a94927000c6489fabb9f33f679c608c2abb6104606c5f3cc44ceb，上传时间2026-09-11T14:03:06.594Z，354文件。旧.105仍永久占用但未上传，不复用。
 - trusted ensure只追加.106并保留旧版；完整verifier与allowlist verify通过。独立HTTPS：.106/.102=200，.105/.104/.100/未知=426。
+- 106 已占用后，按用户授权在同一 clean production 累积候选上分配 107。候选 SHA 为 `4b4af0a233f1a3ab06e4178333181747a6250e25`，说明“访客日历电话事件 4b4af0a”，buildTime `2026-09-11T14:16:49.548Z`，354 文件 Manifest `ed36fd07a1266a33875f101b85d486c180a0bba60351b6cf0e1168c12794bfc4`。
+- 首次 107 上传在微信 `getrandstr` 阶段遭遇 `ECONNRESET`，没有 receipt；版本按规则永久保留。沿用已验证 IPv4/TLS 路线、关闭 miniprogram-ci 代理，对同一 SHA/Manifest 幂等重试成功：receipt `2026-09-11T14:17:49.661Z`，远端不可变 tag `miniprogram-trial/0.1.0-p10.20260911.107` 指向该 SHA。
+- 已执行 add-only `schedule-client-version-allowlist ensure 0.1.0-p10.20260911.107`，保留旧版本；allowlist verify 通过，生产 live 仍为 `b618d938`，schema57，未重复部署、备份、迁移或退役旧版。107 公网能力端点返回200，未知版本策略由既有 verifier/allowlist 门禁复核。
 
 ## 验证与边界
 
@@ -30,7 +33,7 @@
 - 复用累计候选真实MySQL45、Mini联合146、共享/API33及访客浏览器专项；此前Mini verify、Worklet2/2及上传保护30项通过。控制面修复不改变Mini/Web/API业务行为，不重复全部应用测试。
 - 两次官方ECS打包成功；首次flat导出复用85包、downloaded0，最终打包命中flat缓存。无workspace依赖安装。保留Web大chunk、Mini内部主包/矩阵节点及Node DEP0190既有预警。
 - 证据：ignored runtime/audit/feedback10-delivery-initial-20260911和runtime/audit/feedback10-delivery-final-20260911；台账在runtime/audit/miniprogram-trials。未上传本地数据库/凭据、未进行账户删除/群关联操作、未主动发通知、未提审或正式发布。
-- 下一步：小米14复核同一.106版本的CSV真实下载/发送、相册扫码、瞬时通知、新消息点入和访客显示。无需再次部署、备份或上传。
+- 下一步：小米14复核同一.107版本的CSV真实下载/发送、相册扫码、瞬时通知、新消息点入和访客显示。无需再次部署、备份或上传。
 - 原生验收仍待用户：小米14真实CSV下载/发送、保存图片可扫码、瞬时通知、新通知点入日历和访客显示。旧通知不会增加跳转入口，测试需使用修复后新消息；代理不主动发送。
 
-文档收口提交消息：docs(release): record successful trial 106 delivery。文档提交不代表新的生产发布。
+文档收口提交消息：docs(release): record successful trial 107 delivery。文档提交不代表新的生产发布。
