@@ -15,6 +15,7 @@ import {
   type WechatGateway,
   type WechatSubscribeMessageData,
   type WechatSendPhaseObserver,
+  type WechatMessageTargetVersion,
 } from './wechat-gateway.js';
 
 export type WechatTemplateKind = 'dutyReminder';
@@ -77,6 +78,7 @@ export class WechatPushDispatcher {
     notification: WechatNotificationRecord,
     database?: ScheduleDatabase | DatabaseTransaction,
     observe?: WechatSendPhaseObserver,
+    targetVersion: WechatMessageTargetVersion = 'formal',
   ): Promise<{ readonly messageId: string | null }> {
     if (!this.gateway.isConfigured) {
       throw new WechatGatewayError(
@@ -110,6 +112,8 @@ export class WechatPushDispatcher {
 
     const duty = notification.dutyReminder ?? (await this.readDuty(notification, database));
     const data = buildSubscribeMessageData(duty);
+    if (targetVersion !== 'formal')
+      return this.gateway.sendSubscribeMessage(openid, templateId, data, observe, targetVersion);
     if (observe === undefined) return this.gateway.sendSubscribeMessage(openid, templateId, data);
     return this.gateway.sendSubscribeMessage(openid, templateId, data, observe);
   }

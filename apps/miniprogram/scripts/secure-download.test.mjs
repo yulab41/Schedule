@@ -46,6 +46,48 @@ describe('Mini secure export download bridge', () => {
       }),
     );
   });
+  it('bounds capability preflight and never downloads after it expires', async () => {
+    let resolveCapability;
+    mocks.requireClientCapability.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCapability = resolve;
+        }),
+    );
+    const { downloadScheduleExport } = await import('../src/platform/secure-download.ts');
+    let error;
+    void downloadScheduleExport(() => 'token', undefined, 'g', 'j').catch((value) => {
+      error = value;
+    });
+    await vi.advanceTimersByTimeAsync(30_001);
+    expect(error?.category).toBe('timeout');
+    resolveCapability();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(globalThis.wx.downloadFile).not.toHaveBeenCalled();
+  });
+  it('does not issue a native download when the page was invalidated during session recovery', async () => {
+    let finishSession;
+    let current = true;
+    const { downloadScheduleExport } = await import('../src/platform/secure-download.ts');
+    const result = downloadScheduleExport(
+      () => undefined,
+      {
+        awaitAccessToken: () =>
+          new Promise((resolve) => {
+            finishSession = resolve;
+          }),
+      },
+      'g',
+      'j',
+      () => current,
+    ).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(0);
+    current = false;
+    finishSession('token');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(globalThis.wx.downloadFile).not.toHaveBeenCalled();
+    expect(await result).toBeInstanceOf(Error);
+  });
 
   it('settles the first download callback once and clears the JS timeout', async () => {
     let callbacks;

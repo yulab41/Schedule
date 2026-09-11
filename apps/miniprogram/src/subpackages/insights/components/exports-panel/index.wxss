@@ -368,6 +368,14 @@
   gap: 2px;
 }
 
+.export-timeout {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.export-timeout .timeout-copy {
+  flex: 0 0 100%;
+}
+
 .progress-title {
   color: var(--ui-color-text-primary);
   font-size: var(--ui-font-size-sm);

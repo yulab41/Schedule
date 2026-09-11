@@ -5,6 +5,7 @@ import {
   getExportPeriodLabel,
   getExportSelectionSummary,
   pollExportJob,
+  createExportCancellation,
 } from './export.js';
 
 describe('Mini export adapter mirrors Web export rules', () => {
@@ -44,6 +45,39 @@ describe('Mini export adapter mirrors Web export rules', () => {
       }),
     ).resolves.toEqual({ exportJobId: job.id, status: 'timed_out' });
     expect(getJob).toHaveBeenCalledTimes(3);
+  });
+
+  it('enforces the deadline while a status request never returns', async () => {
+    vi.useFakeTimers();
+    try {
+      const getJob = vi.fn(() => new Promise<ReturnType<typeof exportJob>>(() => {}));
+      let result: unknown;
+      void pollExportJob('job-1', getJob, { timeoutMs: 90_000 }).then((value) => {
+        result = value;
+      });
+      await vi.advanceTimersByTimeAsync(90_001);
+      expect(result).toEqual({ status: 'timed_out', exportJobId: 'job-1' });
+      expect(getJob).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels an unresolved request and clears the independent deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const cancellation = createExportCancellation();
+      const result = pollExportJob(
+        'job-1',
+        () => new Promise<ReturnType<typeof exportJob>>(() => {}),
+        { cancellation },
+      );
+      cancellation.cancel();
+      await expect(result).resolves.toEqual({ status: 'cancelled' });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

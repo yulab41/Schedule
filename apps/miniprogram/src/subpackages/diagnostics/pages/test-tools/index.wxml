@@ -359,6 +359,7 @@
         <text class="row-value">{{wechatReceived}}</text>
       </view>
       <view class="wechat-diagnostic-actions">
+        <picker class="wechat-target-picker" mode="selector" range="{{wechatTargetLabels}}" value="{{wechatTargetVersion === 'formal' ? 1 : 0}}" disabled="{{wechatBusy}}" bindchange="handleWechatTargetVersion"><view class="wechat-target-control">测试打开：{{wechatTargetVersion === 'formal' ? '正式版' : '体验版'}} · 日历首页</view></picker>
         <ui-button label="刷新只读检查" variant="secondary" disabled="{{wechatBusy}}" bindpress="handleRefreshWechat"></ui-button>
         <ui-button label="开始本次订阅诊断" disabled="{{wechatBusy || !wechatReady}}" loading="{{wechatBusy}}" bindpress="handleWechatSubscribe"></ui-button>
         <ui-button label="打开微信设置" variant="secondary" bindpress="handleWechatSettings"></ui-button>

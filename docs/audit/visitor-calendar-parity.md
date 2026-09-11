@@ -39,7 +39,7 @@
 | 浏览器真实本地 API | 运行/浏览器验证：`pnpm smoke:browser` 通过，登录/管理员/成员/访客与访客访问记录全流程；合成管理员标记已恢复。访客响应布局在1280/390/320宽度验证 |
 | 浏览器合成 API | `node scripts/smoke-guest-calendar-parity.mjs` 通过：号码/拦截拨号、事件503错误及重试、分页、三视图、权限撤销清空及日历重试；没有成员接口请求 |
 | 构建/静态 | API/共享客户端构建与类型检查、Web生产构建、Mini verify、ESLint、格式、icon parity均通过 |
-| 包体 | 最终 Mini 主包1679888、总包4492767字节；Worklet2/2；Manifest 0af18ea398573ffd2ca42f7aee3e032aefa91014d9e13a40b44bd0eed52a55fd。保留既有1.5M内部预警与矩阵节点预警，硬预算通过 |
+| 包体（访客实现合并前） | Mini 主包1679888、总包4492767字节；Worklet2/2；Manifest 0af18ea398573ffd2ca42f7aee3e032aefa91014d9e13a40b44bd0eed52a55fd。保留既有1.5M内部预警与矩阵节点预警，硬预算通过 |
 | 发布证明 | 动效/lineage/候选路径/上传锁28项通过；lineage audit 3个必需检查点有效。正式版本绑定构建/上传尚未执行 |
 
 ## 动效证明与后续门禁
@@ -49,3 +49,11 @@
 检查点消息 `feat(calendar): align guest calendar details with members`。先提交并普通推送；生产 LIVE_RELEASE_VERIFIED=false，未经本轮实际查询不拿旧状态作回滚候选。无迁移。用户批准具体 SHA 后按项目流程重新读 live、备份及校验、部署并验证，再使用干净独占候选动态分配体验版本、上传和只追加放行；不退役旧版。
 
 唯一下一任务：批准具体检查点部署/上传后交付体验版，小米14在同一新版本上核对 SHA、trial、Skyline、基础库、微信版本与构建时间，复核双向切群、扫码、电话取消/失败及事件。当前工具无法测量原生卡死/闪退/实际拨号体验，暂未验证；不得记为真机通过。
+
+
+## 主线并发集成
+
+访客功能检查点0a8bcba722619481394d83abc84c338406ae21f3完成后，主线新增9bae5beb14adc4338cd28f08ca1dadd361aa7c6d。普通快进因分叉停止，未强制推送；在独占槽合并并保留反馈10全部CSV、二维码保存及通知跳转改动。只有两份状态文档冲突，业务源码无冲突。原访客验证绑定0a8bcba7应用内容；合并后只补跑变化影响的producer构建、交叉测试、包体和运行检查，不把旧包体伪标为合并后产物。合并消息 merge: preserve feedback10 alongside guest calendar parity；最终批准/部署/上传使用累积检查点SHA。
+
+
+合并后证据：真实MySQL日历/CSV/微信诊断45通过（全部通知gateway为fixture）、Mini访客/切群/事件/CSV/QR/通知联合146通过、共享/网关/路由/连续性33通过；访客浏览器专项再次通过。Web/API构建与类型、格式、icon parity和核心运行记录检查通过。仅重建client-core/presentation-core受影响producer；6个其他producer复用，无安装。Mini verify主包1681844、总包4504816字节，Worklet2/2，Manifest fd34eaca3726d8397919e8b1232f492830ed8e15a81fabed3fa149c2fb5b40df；原有预警不变。受保护动效源码与proof未受主线合并影响。

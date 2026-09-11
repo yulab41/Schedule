@@ -10,6 +10,9 @@ import {
   getExportPeriodLabel,
   getExportSelectionSummary,
   pollExportJob,
+  createExportCancellation,
+  waitForExportOperation,
+  type ExportCancellation,
 } from '@schedule/presentation-core/export';
 import { getCurrentStatisticsMonth } from '@schedule/presentation-core/statistics';
 import {
@@ -34,6 +37,7 @@ import {
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
 
 type ExportPeriodType = 'month' | 'year';
 type ExportState =
@@ -47,6 +51,7 @@ type ExportState =
   | 'downloaded'
   | 'shared'
   | 'timed_out'
+  | 'paused'
   | 'waiting';
 
 interface SelectOption {
@@ -80,6 +85,8 @@ interface ExportsPageData {
   readonly statusLabel: string;
   readonly viewportClass: string;
   readonly year: number;
+  readonly canCheckJob: boolean;
+  readonly canRetryCreate: boolean;
 }
 
 interface ExportsPageInstance {
@@ -93,6 +100,10 @@ interface ExportsPageInstance {
   _attached: boolean;
   _epoch: number;
   _tempFilePath: string | undefined;
+  _wait: ExportCancellation | undefined;
+  _visible: boolean;
+  _resumePolling: boolean;
+  _creating: boolean;
   setData(patch: Partial<ExportsPageData>, callback?: () => void): void;
 }
 
@@ -133,6 +144,8 @@ export function createExportsPanelControllerDefinition() {
       statusLabel: '正在加载导出选项',
       viewportClass: '',
       year: initialYear,
+      canCheckJob: false,
+      canRetryCreate: true,
     } satisfies ExportsPageData,
     properties: { groupId: { type: String, value: '' } },
     _actionsClient: actionsClient,
@@ -148,6 +161,9 @@ export function createExportsPanelControllerDefinition() {
     lifetimes: {
       attached(this: ExportsPageInstance): void {
         this._attached = true;
+        this._visible = true;
+        this._resumePolling = false;
+        this._creating = false;
         initializeRuntimeState(this);
         recordMiniTelemetryBoundary('exports:component-attached');
         const windowInfo = wx.getWindowInfo();
@@ -169,6 +185,22 @@ export function createExportsPanelControllerDefinition() {
         this._loadedGroupId = '';
       },
     },
+    pageLifetimes: {
+      hide(this: ExportsPageInstance): void {
+        this._visible = false;
+        if (this.data.state === 'waiting') {
+          this._resumePolling = true;
+          pauseExport(this);
+        }
+      },
+      show(this: ExportsPageInstance): void {
+        this._visible = true;
+        if (this._resumePolling && this._jobId) {
+          this._resumePolling = false;
+          void checkExistingJob(this, this._jobId);
+        }
+      },
+    },
     methods: {
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
@@ -183,6 +215,16 @@ export function createExportsPanelControllerDefinition() {
           return;
         this._pollCancelled = false;
         void checkExistingJob(this, this._jobId);
+      },
+      handleStopWaiting(this: ExportsPageInstance): void {
+        this._resumePolling = false;
+        pauseExport(this);
+      },
+      handleCancel(this: ExportsPageInstance): void {
+        if (this.data.state === 'waiting') {
+          this._resumePolling = false;
+          pauseExport(this);
+        } else wx.navigateBack({ delta: 1 });
       },
       handleCreate(this: ExportsPageInstance): void {
         void createExport(this);
@@ -222,6 +264,7 @@ export function createExportsPanelControllerDefinition() {
           infoMessage: '',
           errorMessage: '',
           fileLabel: '',
+          canCheckJob: false,
           state: 'idle',
           statusLabel: '选择内容后创建任务',
         });
@@ -279,6 +322,7 @@ function start(page: ExportsPageInstance): void {
     infoMessage: '',
     errorMessage: '',
     fileLabel: '',
+    canCheckJob: false,
     groupId,
     memberIndex: 0,
     memberOptions: [{ id: '', label: '全部成员' }],
@@ -341,6 +385,12 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
 async function createExport(page: ExportsPageInstance): Promise<void> {
   initializeRuntimeState(page);
   if (
+    (page.data.state === 'timed_out' || page.data.state === 'paused') &&
+    !page._jobId &&
+    !page.data.canRetryCreate
+  )
+    return;
+  if (
     !page._attached ||
     isWorking(page.data.state) ||
     page.data.state === 'disabled' ||
@@ -366,6 +416,12 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
   const epoch = page._epoch;
   const groupId = page.data.groupId;
   const selection = page.data;
+  let creationRequested = false;
+  const wait = createExportCancellation();
+  page._wait = wait;
+  page._creating = true;
+  const startedAt = Date.now();
+  recordExportProgress('create-start', startedAt);
   page.setData({
     downloadBusy: false,
     errorMessage: '',
@@ -373,21 +429,78 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
     fileLabel: '',
     state: 'waiting',
     statusLabel: '正在创建导出任务',
+    canRetryCreate: false,
   });
   try {
-    await requireClientCapability('insights');
-    if (!isCurrent(page, groupId, epoch)) return;
-    const job = await page._actionsClient.createExportJob(groupId, {
-      exportType: selection.exportType,
-      ...(selection.membershipId === '' ? {} : { membershipId: selection.membershipId }),
-      period: currentPeriod(selection),
-      ...(selection.roleId === '' ? {} : { roleId: selection.roleId }),
-    });
-    if (!isCurrent(page, groupId, epoch)) return;
-    page._jobId = job.id;
-    await checkExistingJob(page, job.id);
+    const result = await waitForExportOperation(
+      async (isStopped) => {
+        await requireClientCapability('insights');
+        if (isStopped() || !isCurrent(page, groupId, epoch)) return undefined;
+        recordExportProgress('create-request', startedAt);
+        creationRequested = true;
+        const job = await page._actionsClient.createExportJob(groupId, {
+          exportType: selection.exportType,
+          ...(selection.membershipId === '' ? {} : { membershipId: selection.membershipId }),
+          period: currentPeriod(selection),
+          ...(selection.roleId === '' ? {} : { roleId: selection.roleId }),
+        });
+        // A late create may recover its ID, but never start another task or overwrite a new epoch.
+        if (isCurrent(page, groupId, epoch)) {
+          page._jobId = job.id;
+          page.setData({ canCheckJob: true });
+          if (isStopped() && page._visible && page._resumePolling) {
+            page._resumePolling = false;
+            void checkExistingJob(page, job.id);
+          }
+        }
+        return job;
+      },
+      30_000,
+      wait,
+    );
+    if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
+    page._creating = false;
+    recordExportProgress(`create-${result.status}`, startedAt);
+    if (result.status === 'cancelled') {
+      if (!creationRequested) {
+        page._resumePolling = false;
+        page.setData({
+          state: 'idle',
+          canRetryCreate: true,
+          statusLabel: '已停止等待，可重新生成',
+        });
+      }
+      return;
+    }
+    if (result.status === 'timed_out') {
+      page.setData({
+        state: 'timed_out',
+        canRetryCreate: !creationRequested,
+        statusLabel: creationRequested
+          ? '暂未获取创建结果，请勿重复提交'
+          : '创建前检查超时，可重试生成',
+      });
+      return;
+    }
+    if (result.value) await checkExistingJob(page, result.value.id);
   } catch (error) {
     if (!isCurrent(page, groupId, epoch)) return;
+    const explicitlyRejected =
+      error instanceof ClientCapabilityDisabledError ||
+      (error instanceof ClientCoreError &&
+        error.status !== undefined &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        error.status !== 408);
+    if (creationRequested && !explicitlyRejected) {
+      page.setData({
+        state: 'timed_out',
+        canRetryCreate: false,
+        statusLabel: '创建结果未知，请勿重复提交',
+      });
+      recordExportProgress('create-unknown', startedAt);
+      return;
+    }
     page.setData({
       errorMessage:
         error instanceof ClientCapabilityDisabledError
@@ -397,12 +510,19 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
       statusLabel: '导出未完成',
     });
     showFeedback(page, page.data.errorMessage, 'error');
+  } finally {
+    if (isCurrent(page, groupId, epoch)) page._creating = false;
   }
 }
 
 async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promise<void> {
   const epoch = page._epoch;
   const groupId = page.data.groupId;
+  page._wait?.cancel();
+  const wait = createExportCancellation();
+  page._wait = wait;
+  page._pollCancelled = false;
+  const startedAt = Date.now();
   clearInfoMessageTimer(page);
   page.setData({
     errorMessage: '',
@@ -414,13 +534,23 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
     const result = await pollExportJob(
       jobId,
       (candidateJobId) => page._actionsClient.getExportJob(groupId, candidateJobId),
-      { isCancelled: () => page._pollCancelled || !isCurrent(page, groupId, epoch) },
+      {
+        cancellation: wait,
+        isCancelled: () => page._pollCancelled || !isCurrent(page, groupId, epoch),
+        onProgress: ({ phase, count, status }) =>
+          recordExportProgress(
+            `poll-${phase}-${count}-${['pending', 'running', 'completed', 'failed'].includes(status ?? '') ? status : 'unknown'}`,
+            startedAt,
+          ),
+      },
     );
-    if (result.status === 'cancelled' || !isCurrent(page, groupId, epoch)) return;
+    if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
+    recordExportProgress(`poll-${result.status}`, startedAt);
+    if (result.status === 'cancelled') return;
     if (result.status === 'timed_out') {
       page.setData({
         state: 'timed_out',
-        statusLabel: '任务仍在服务器生成，可继续检查同一任务',
+        statusLabel: '暂未获取完成结果，可检查同一任务',
       });
       return;
     }
@@ -433,7 +563,8 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
       statusLabel: '文件已生成，可下载 CSV',
     });
   } catch (error) {
-    if (!isCurrent(page, groupId, epoch)) return;
+    if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
+    recordExportProgress('poll-failed', startedAt);
     if (error instanceof ClientCapabilityDisabledError) {
       setExportDisabled(page, error);
       return;
@@ -475,6 +606,7 @@ async function downloadExport(page: ExportsPageInstance): Promise<void> {
       authentication,
       groupId,
       jobId,
+      () => isDownloadActive(page, groupId, jobId, epoch),
     );
     if (!isDownloadActive(page, groupId, jobId, epoch)) {
       releaseTemporaryExport(tempFilePath);
@@ -535,12 +667,33 @@ async function shareExport(page: ExportsPageInstance): Promise<void> {
 }
 
 function invalidateExport(page: ExportsPageInstance): void {
+  page._wait?.cancel();
+  page._wait = undefined;
+  page._resumePolling = false;
+  page._creating = false;
   page._epoch = (page._epoch ?? 0) + 1;
   page._pollCancelled = true;
   page._jobId = undefined;
   releaseTemporaryExport(page._tempFilePath);
   page._tempFilePath = undefined;
   clearInfoMessageTimer(page);
+}
+
+function pauseExport(page: ExportsPageInstance): void {
+  if (page.data.state !== 'waiting') return;
+  page._wait?.cancel();
+  page._pollCancelled = true;
+  page.setData({ state: 'paused', statusLabel: '已停止等待，服务器任务不受影响' });
+  recordExportProgress('paused', Date.now());
+}
+
+function recordExportProgress(metric: string, startedAt: number): void {
+  recordRuntimeDiagnosticPerformance({
+    metric,
+    page: 'exports',
+    recordedAt: Date.now(),
+    durationMs: Math.max(0, Date.now() - startedAt),
+  });
 }
 
 function isCurrent(page: ExportsPageInstance, groupId: string, epoch: number): boolean {

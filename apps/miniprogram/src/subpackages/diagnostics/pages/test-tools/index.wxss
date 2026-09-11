@@ -666,3 +666,12 @@ page {
   width: 100%;
   min-width: 0;
 }
+.wechat-target-picker { width: 100%; }
+.wechat-target-control {
+  padding: 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  line-height: 1.4;
+}

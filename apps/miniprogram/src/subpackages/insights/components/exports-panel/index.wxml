@@ -167,14 +167,16 @@
             ><view class="progress-copy"
               ><text class="progress-title"
                 >{{statusLabel === '正在创建导出任务' ? '正在创建导出任务' : statusLabel}}</text
-              ><text class="progress-note">通常 1 分钟内完成，请保持此页面打开。</text></view
+              ><text class="progress-note">正在检查结果；你可以随时停止等待。</text></view
             ></view
           >
-          <view wx:elif="{{state === 'timed_out'}}" class="export-timeout" role="status"
+          <view wx:elif="{{state === 'timed_out' || state === 'paused'}}" class="export-timeout" role="status"
             ><view class="timeout-copy"
-              ><text class="progress-title">任务仍在服务器生成</text
-              ><text class="progress-note">可继续检查同一任务，不会重复创建。</text></view
-            ><ui-button variant="secondary" label="继续检查" bindpress="handleContinue"></ui-button
+              ><text class="progress-title">{{statusLabel}}</text
+              ><text class="progress-note">{{canCheckJob ? '继续检查同一任务，不会重复创建。' : canRetryCreate ? '创建请求尚未发出，可以安全重试。' : '暂未取得任务编号，请勿重复提交；可返回稍后再试。'}}</text></view
+            ><ui-button wx:if="{{canCheckJob}}" variant="secondary" label="检查同一任务" bindpress="handleContinue"></ui-button
+            ><ui-button wx:elif="{{canRetryCreate}}" variant="secondary" label="重试生成" bindpress="handleCreate"></ui-button
+            ><ui-button variant="secondary" label="返回" bindpress="handleBack"></ui-button
           ></view>
           <view wx:elif="{{state === 'ready' || state === 'download_failed' || state === 'downloaded' || state === 'shared'}}" class="ready-result {{state === 'download_failed' ? 'has-download-error' : ''}}"
             ><view class="ready-heading"
@@ -203,12 +205,11 @@
             ></ui-button
           ></view></view>
 
-          <view wx:if="{{state === 'idle' || state === 'waiting' || state === 'failed' || state === 'timed_out'}}" class="export-actions"
+          <view wx:if="{{state === 'idle' || state === 'waiting' || state === 'failed'}}" class="export-actions"
             ><ui-button wx:if="{{state === 'failed'}}" variant="secondary" label="重新开始" bindpress="handleReset"></ui-button><ui-button wx:else
               variant="secondary"
-              label="取消"
-              disabled="{{state === 'waiting'}}"
-              bindpress="handleBack"
+              label="{{state === 'waiting' ? '停止等待' : '取消'}}"
+              bindpress="handleCancel"
             ></ui-button
             ><ui-button
               variant="primary"

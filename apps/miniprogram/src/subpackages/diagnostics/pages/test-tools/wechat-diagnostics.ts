@@ -1,4 +1,5 @@
 import { canUseDiagnostics } from '../../../../platform/diagnostics-access.js';
+import { readMiniProgramRuntimeIdentity } from '../../../../platform/runtime-environment.js';
 import {
   getStoredWechatProfile,
   getWechatSessionGeneration,
@@ -33,13 +34,16 @@ export const wechatDiagnosticData = {
   wechatSendReady: false,
   wechatReceived: '尚未人工确认',
   wechatTestResult: '',
+  wechatTargetVersion: 'trial' as 'trial' | 'formal',
+  wechatTargetLabels: ['体验版', '正式版'],
 };
 interface Host {
   readonly data: typeof wechatDiagnosticData;
   _wechatEpoch?: object;
   _wechatTemplates?: readonly string[];
   _wechatGroup?: string | undefined;
-  _wechatOperation?: { id: string; issuedAt: number };
+  _wechatOperation?: { id: string; issuedAt: number; targetVersion: 'trial' | 'formal' };
+  _wechatTargetVersion?: 'trial' | 'formal';
   setData(patch: Partial<typeof wechatDiagnosticData>): void;
 }
 function guard(page: Host): () => boolean {
@@ -58,16 +62,20 @@ export function clearWechatDiagnosticPage(page: Host): void {
   delete page._wechatTemplates;
   delete page._wechatGroup;
   delete page._wechatOperation;
+  delete page._wechatTargetVersion;
   page.setData({ ...wechatDiagnosticData });
 }
 export async function prepareWechatDiagnosticPage(page: Host): Promise<void> {
   if (!canUseDiagnostics()) return;
   page._wechatEpoch = {};
+  page._wechatTargetVersion ??=
+    readMiniProgramRuntimeIdentity().envVersion === 'release' ? 'formal' : 'trial';
   const current = guard(page);
   const owner = getStoredWechatProfile()?.id;
   const group = owner ? readStoredWorkbenchGroupId(owner) : undefined;
   page._wechatGroup = group;
   page.setData({
+    wechatTargetVersion: page._wechatTargetVersion,
     wechatReady: false,
     wechatGranted: false,
     wechatSendReady: false,
@@ -180,6 +188,20 @@ function append(page: Host, label: string, value: string): void {
   page.setData({ wechatRows: [...page.data.wechatRows.slice(-35), { label, value }] });
 }
 export const wechatDiagnosticMethods = {
+  handleWechatTargetVersion(this: Host, event: { detail: { value?: unknown } }): void {
+    if (!canUseDiagnostics() || this.data.wechatBusy) return;
+    const index = String(event.detail.value);
+    if (index !== '0' && index !== '1') return;
+    const targetVersion = index === '1' ? 'formal' : 'trial';
+    if (targetVersion === this.data.wechatTargetVersion) return;
+    this._wechatTargetVersion = targetVersion;
+    delete this._wechatOperation;
+    this.setData({
+      wechatTargetVersion: targetVersion,
+      wechatTestResult: '',
+      wechatReceived: '尚未人工确认',
+    });
+  },
   handleRefreshWechat(this: Host): void {
     if (!this.data.wechatBusy) void prepareWechatDiagnosticPage(this);
   },
@@ -265,7 +287,11 @@ export const wechatDiagnosticMethods = {
       return;
     const current = guard(this);
     const group = this._wechatGroup;
-    this._wechatOperation ??= { id: operationId(), issuedAt: Date.now() };
+    this._wechatOperation ??= {
+      id: operationId(),
+      issuedAt: Date.now(),
+      targetVersion: this.data.wechatTargetVersion,
+    };
     const operation = this._wechatOperation;
     this.setData({
       wechatBusy: true,
@@ -273,7 +299,17 @@ export const wechatDiagnosticMethods = {
       wechatTestResult: '正在发送一次本人测试；不会自动重试',
       wechatReceived: '尚未人工确认',
     });
-    void sendWechatNotificationTest(group, operation.id, operation.issuedAt)
+    append(
+      this,
+      '本次跳转目标',
+      `${operation.targetVersion === 'trial' ? '体验版' : '正式版'} · 日历首页（pages/workbench/index）`,
+    );
+    void sendWechatNotificationTest(
+      group,
+      operation.id,
+      operation.issuedAt,
+      operation.targetVersion,
+    )
       .then((value) => {
         if (!current()) return;
         this.setData({ wechatTestResult: formatTestResult(value) });
@@ -403,7 +439,11 @@ function formatTestResult(value: unknown): string {
     `${row['recordedAt'] ? `${safeTime(row['recordedAt'])} / ` : ''}${phaseLabels[String(row['phase'])] ?? '阶段未提供'} / ${category}` +
     (typeof code === 'number' && Number.isInteger(code) && Math.abs(code) < 1_000_000
       ? ` / 错误码 ${code}`
-      : '')
+      : '') +
+    (row['targetVersion'] === 'trial' || row['targetVersion'] === 'formal'
+      ? ` / ${row['targetVersion'] === 'trial' ? '体验版' : '正式版'}`
+      : '') +
+    (row['page'] === 'pages/workbench/index' ? ' / 日历首页（pages/workbench/index）' : '')
   );
 }
 export function wechatDiagnosticReport(page: Host): string {

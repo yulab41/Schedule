@@ -88,6 +88,17 @@ const flush = async () => {
   for (let i = 0; i < 15; i++) await Promise.resolve();
 };
 describe('self subscription diagnostic workflow', () => {
+  it('defaults to the runtime version and passes the selected target to the single send', async () => {
+    globalThis.wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'trial' } });
+    const host = page();
+    await module.prepareWechatDiagnosticPage(host);
+    expect(host.data.wechatTargetVersion).toBe('trial');
+    module.wechatDiagnosticMethods.handleWechatTargetVersion.call(host, { detail: { value: '1' } });
+    host.data.wechatGranted = true;
+    module.wechatDiagnosticMethods.handleWechatTestSend.call(host);
+    await flush();
+    expect(mock.send.mock.calls[0][3]).toBe('formal');
+  });
   it.each([400, 403, 429])(
     'reports explicit server refusal %s separately from unknown delivery',
     async (status) => {

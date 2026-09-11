@@ -5,7 +5,10 @@ import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import type { WechatDiagnosticsService } from './wechat-diagnostics-service.js';
 
 const groupInput = z.object({ groupId: z.string().uuid() }).strict();
-const sendInput = groupInput.extend({ issuedAt: z.number().int().nonnegative() });
+const sendInput = groupInput.extend({
+  issuedAt: z.number().int().nonnegative(),
+  targetVersion: z.enum(['trial', 'formal']).optional(),
+});
 export function registerWechatDiagnosticsRoutes(
   app: FastifyInstance,
   service: WechatDiagnosticsService,
@@ -29,6 +32,7 @@ export function registerWechatDiagnosticsRoutes(
       result.data.groupId,
       resolveDangerousOperationId(request.headers['idempotency-key']),
       result.data.issuedAt,
+      result.data.targetVersion,
     );
   });
 }
