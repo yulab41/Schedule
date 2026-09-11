@@ -573,7 +573,10 @@ fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 56 ]; then
+  if [ "$schema" -ge 57 ]; then
+    # 0057 adds group_visitor_links; allow the pre-migration backup or a fresh one.
+    [ "$tables" = "53" ] || [ "$tables" = "54" ]
+  elif [ "$schema" -ge 56 ]; then
     [ "$tables" = "55" ] || [ "$tables" = "53" ]
   elif [ "$schema" -ge 52 ]; then
     [ "$tables" = "54" ] || [ "$tables" = "55" ]
