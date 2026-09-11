@@ -1,30 +1,15 @@
 # 微信小程序审计状态
 
-## 当前批次：feedback10/VIS-02 授权交付，schema57 校验修复后继续
+## 当前批次：feedback10/VIS-02 服务端已部署，体验版上传受微信网络配置阻塞
 
-- 用户授权上传、追加放行和必要部署。0565f023已备份部署、健康正常；完整verifier拒绝54表的新备份，原因是0057新增访客关联表后备份计数仍沿用schema56规则。
-- 仅修正schema57允许迁移前53/迁移后54表，保留旧schema规则。先失败2项、修复后发布/回滚35项通过。备份实际文件hash/长度验证一致，未改变业务表或备份登记。
-- .103在官方上传前主动取消，无成功receipt、未放行，号码保留不用。检查点消息：fix(ops): validate schema57 backup table counts。
-- 唯一下一任务：提交推送控制面修复并部署完整验证，重新分配体验版上传和追加放行。真实CSV发送、相册扫码、通知点入及访客原生效果仍待小米14复核。
-
-## 合入范围：VIS-02 与 feedback10 累积检查点
-
-- 用户已批准两端及三类访客开放已发布/历史排班中的电话、班次事件和变更详情；独立只读授权不开放通讯录/管理/群级事件中心。无数据库迁移、群关联或成员记录变更。
-- 集成更新：访客实现0a8bcba7完成后，主线推进到9bae5beb（CSV截止/恢复、二维码保存/toast、通知首页跳转）。保留两者全部源码；仅状态文档冲突，已按当前累积交付任务协调。合并检查点消息 merge: preserve feedback10 alongside guest calendar parity。
-- 基于最新 d5d2ebb1，独占 general-1、ReuseOnly，无依赖安装。详情与引入点、行为变化、基线见 docs/audit/visitor-calendar-parity.md。
-- 真实MySQL日历33通过，补充撤销/独立访客10项和边界1项复测通过；root1227/419条件跳过、依赖保护81；Mini全量1059/15条件跳过，最后定向47通过。Web/API/客户端构建和类型、Mini verify、ESLint/格式/icon parity通过；动效/lineage/上传保护28项通过。
-- 运行/浏览器验证：pnpm smoke:browser 全流程通过；额外访客电话/事件分页、错误重试、三视图和撤销清空浏览器验证通过。所有拨号仅模拟；本地合成管理员标记已恢复。
-- 合并后Mini主包1681844/总包4504816字节，Worklet2/2；原有主包内部和矩阵节点预警保留。15个受保护导航方法及其余8个证明文件未变，工作台发布证明同步更新。
-- 合并复核：真实MySQL45项、Mini访客/CSV/二维码/通知联合146项、共享与API交叉33项及访客浏览器专项通过；Web/API构建、Mini verify/包体、类型及格式/icon门禁通过。依赖仅重建受影响producer，没有安装。
-- 检查点消息：feat(calendar): align guest calendar details with members。Git检查点以该消息识别；尚未连接生产、备份、部署、上传、追加放行或退役旧版；LIVE_RELEASE_VERIFIED=false。
-- 唯一下一任务与停止条件：取得本检查点的项目部署/上传放行授权，交付新体验版；之后小米14同一新版本复核。自动化实现完成，原生未验证，不重复旧群关联操作。
-
-## 同期合入：feedback10 四项代码已验证，待部署及体验版确认
-
-- 基线d5d2ebb1/.102，用户批准CSV截止与恢复、二维码保存及toast、通知首页跳转和测试版本选择；不自动部署/上传/放行。
-- CSV原查询超时只在getJob返回后执行，已用前台26次成功后第27次悬挂复现；这证明无限等待防护缺陷，不证明实体机原生桥接中断原因已确定。通知发送缺少page已由源码确认，用户已明确本人测试能收信。
-- 四项代码及自动化运行验证完成，详情见[feedback10.md](feedback10.md)。Mini1099通过/15跳过、root1234通过/420跳过、MySQL12通过，依赖保护首次80/1失败后原代码复测81通过；format/lint/build/typecheck/icon及最终Mini verify/确定性/Worklet2/2通过。36种桌面布局通过，仍非原生证据。
-- 检查点消息：fix: bound CSV exports and add QR saving and notification links。唯一下一任务：就该具体提交确认服务器部署及体验版上传/放行，再完成小米14下载/发送、相册扫码和通知点入复核。不重复规划阶段只读生产操作，不主动发通知。
+- 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
+- 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。
+- 最终部署前备份e011c56b-699e-422d-9b30-24b2282279f4，实际104354272字节、54表，SHA-256 6fcb93a4d09413a789abbd198eaaea4c0240ed82047968d03dae7b95abbadeb2与登记一致。应用与控制产物hash验证通过；回滚候选来自本次即时live 0565f023。
+- .103仅分配/冻结后取消；.104=0.1.0-p10.20260911.104绑定b618d938、production/clean、354文件Manifest 544af28f787a5e06644a64d595105f6e0602f8e8c7314fced23428fe46c2370a及不可变远端tag。微信首次拒绝-10008 invalid ip；沿用已记录IPv4/TLS路线重试同一三元组，getrandstr连接ECONNRESET；独立请求复现。两版均无成功receipt、未放行，不得复用号码给其他源码/Manifest。
+- 独立HTTPS核验：.102仍200，.103/.104均426；不修改微信平台配置、不关闭IP白名单、不改系统网络。浏览器库存读取失败，无法核对公众平台配置。已归档冻结包/错误/备份/发布证据到ignored runtime/audit/feedback10-delivery-final-20260911及feedback10-delivery-initial-20260911；确认上传进程退出后清理本任务孤立操作锁，不改预约记录。
+- 应用验证复用feedback10.md和visitor-calendar-parity.md：合并MySQL45、Mini联合146、共享/API33及访客浏览器通过，Mini/Worklet和专项上传30项通过；不把自动化算作原生验收。CSV真实发送、相册扫码、瞬时通知、新消息点入及访客显示均待小米14。
+- 独占general-4全程复用依赖；官方ECS flat导出复用85包、downloaded0，最终重打包命中flat缓存。无workspace依赖安装、无本地数据库上传、无真实通知、无正式发布、无新增放行或旧版退役。
+- 文档收口检查点：docs(release): record deployment and blocked trial 104 upload；仅记录现状，不再次同步服务器release。唯一下一任务：用户恢复微信CI允许的上传出口/核对IP白名单后，按正式锁及不可变三元组规则续传并取得成功receipt，再追加放行和完整验证；若正式preflight不允许原三元组重试则新分配版本，不能盲目重建复用.104。完成前不重复部署或备份。
 
 ## 上一批次：feedback9 体验版102已上传并放行，待小米14复核
 

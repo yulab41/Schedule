@@ -7,8 +7,9 @@
 - 用户授权本轮上传/放行及必要生产部署。0565f023部署健康成功后完整verifier拒绝54表备份；真实备份文件长度104344460和SHA-256 8d846c6c16075d900073b818d8a56c2c33d5db690fd0b99bb0ee08c90be98135均与任务登记一致。
 - git log -S/is_valid_backup_table_count与git blame定位规则来自3aeaa4c8；4e0a0d1a新增0057_group_visitor_links.sql却未更新规则。生产只读结构计数schema57、扣除两类隐私表后55张、其中迁移日志1张，实际备份54张；没有未知业务表。
 - 新增schema57迁移前53/迁移后54接受及52/55/56拒绝用例。pnpm exec vitest run scripts/ecs-retirement-rollback.test.mjs在旧实现23通过/2失败，修复后与scripts/package-ecs-release.test.mjs共35通过；实际Bash函数参与测试。只新增schema分支，不更改异步、凭据、备份、数据库、调用次数或API行为。
-- 运行验证：服务健康通过，完整线上verifier待修复提交部署后重跑。pnpm smoke:check-core按控制脚本范围检查；无Web核心改动，不重复浏览器冒烟。直接ESLint该既有.mjs超出项目lint配置报旧URL/process全局错误，改用项目pnpm lint，不改无关源文件。
+- 运行验证：b618d938修复提交部署后完整线上verifier及既有allowlist verify通过，schema57不变。pnpm smoke:check-core按控制脚本范围检查；无Web核心改动，不重复浏览器冒烟。直接ESLint该既有.mjs超出项目lint配置报旧URL/process全局错误，改用项目pnpm lint通过，不改无关源文件。
 - .103分配冻结后在调用真实上传前取消，无成功receipt，未放行；下一候选使用新号码。检查点消息fix(ops): validate schema57 backup table counts。证据位于ignored runtime/audit/feedback10-delivery。
+- 交付收口：.104=b618d938官方上传被微信以-10008 invalid ip拒绝；已记录IPv4路线TLS通过，但同三元组重试及独立getrandstr请求均ECONNRESET。无成功receipt、未追加放行，.102保持200、.103/.104均426。部署和两份真实备份证据见[feedback10-release.md](../audit/feedback10-release.md)；下一步仅处理允许的微信上传出口并续传，不重复服务器部署。
 
 ## 2026-09-11 FEEDBACK10 CSV等待、二维码相册与通知查看入口
 
