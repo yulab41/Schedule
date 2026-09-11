@@ -1,6 +1,12 @@
 # 微信小程序审计状态
 
-## 当前批次：feedback10/VIS-02 服务端与体验版107已交付
+## 当前批次：feedback11 二维码与已读代码验证完成，导出空白待定位
+
+- 当前版本基线72ea0ab0；用户截图体验版号未知。QR-11和NOTIFY-11已复现并实现，EXPORT-11本地未复现，保持待定位；详情见[feedback11.md](feedback11.md)。
+- 复用general-4依赖；RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过。最终Mini verify/Worklet/包体/确定性、打包入口检查和smoke:check-core通过。未上传、部署或发送真实通知。
+- 两项独立检查点消息：`fix: accept JPEG QR images and send valid notification reads`；UPLOAD_REQUIRED，不预留版本。唯一下一任务：取得导出空白的版本及安全诊断继续定位；两项修复待原生复核。没有同版本小米14反馈，不宣称原生通过或三项全部修复。
+
+## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
 
 - 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
 - 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。

@@ -96,6 +96,35 @@ describe('feedback10 QR image adapter', () => {
     const { saveVisitorQrImage } = await import('../src/platform/visitor-qr-image.ts');
     return saveVisitorQrImage(image, isCurrent);
   }
+  it.each(['image/jpeg', 'image/png'])(
+    'saves original JPEG bytes even when the legacy data URI claims %s',
+    async (mime) => {
+      const bytes = '/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==';
+      expect(await save(() => true, `data:${mime};base64,${bytes}`)).toBe('saved');
+      expect(fs.writeFile.mock.calls[0][0]).toMatchObject({ data: bytes, encoding: 'base64' });
+      expect(fs.writeFile.mock.calls[0][0].filePath).toMatch(/\.jpg$/);
+    },
+  );
+  it.each(['AAAA', 'iVBORw0KGgo===', '/9j/@@', ''])(
+    'rejects invalid image bytes %s',
+    async (bytes) => {
+      expect(await save(() => true, `data:image/png;base64,${bytes}`)).toBe('invalid-image');
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    },
+  );
+  it('displays JPEG with its detected MIME before saving the same bytes', async () => {
+    mocks.read.getGroupQr.mockResolvedValue({ imageBase64: '/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==' });
+    await loadQr();
+    expect(page.data.qrImageSrc).toBe('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==');
+  });
+  it('does not display an unsupported response as a ready QR', async () => {
+    mocks.read.getGroupQr.mockResolvedValue({ imageBase64: 'AAAA' });
+    await loadQr();
+    expect(page.data.qrVisible).toBe(false);
+    expect(page.data.qrImageSrc).toBe('');
+    expect(page.data.visitorState).toBe('error');
+    expect(page.data.infoMessage).toBe('二维码图片无效，请重新读取。');
+  });
   it('saves the original displayed PNG bytes and removes its unique file', async () => {
     expect(await save()).toBe('saved');
     const file = fs.writeFile.mock.calls[0][0];

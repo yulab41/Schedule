@@ -1,6 +1,12 @@
 # Project Status
 
-## 当前批次：feedback10/VIS-02 服务端与体验版107已交付
+## 当前批次：feedback11 二维码与已读代码验证完成，导出空白待定位
+
+- 用户批准三项故障修复计划；基线72ea0ab0，独占general-4复用依赖，无安装。二维码PNG/JPEG格式与通知空JSON正文缺陷已复现修复；导出真实Page/模板检查通过但原生空白未复现，未猜测修改。
+- RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过；最终Mini verify、Worklet2/2、包体/确定性和smoke:check-core通过。主包1679971/总包4502798，保留已有内部警告。详情见docs/audit/feedback11.md。
+- 两项独立检查点消息：`fix: accept JPEG QR images and send valid notification reads`。唯一下一任务：取得导出空白的版本及安全诊断继续定位；两项修复待用户原生复核。UPLOAD_REQUIRED，未上传或连接生产，不预留版本；不得写三项全部完成。
+
+## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
 
 - 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
 - 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。

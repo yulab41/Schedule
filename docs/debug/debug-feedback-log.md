@@ -2765,3 +2765,12 @@ VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不
 VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保留全部业务源码，只协调状态文档冲突。合并后真实MySQL45、Mini联合146、共享/API/连续性33通过；运行/浏览器验证：node scripts/smoke-guest-calendar-parity.mjs通过，pnpm smoke:browser原完整运行证据有效，smoke:check-core通过。合并Mini主包1681844/总包4504816字节，Worklet2/2。提交消息 merge: preserve feedback10 alongside guest calendar parity；待新累积SHA部署/上传授权及小米14复核，未生产写入或真实通知。
 
 2026-09-11 体验版107：用户授权“106已占用，可以使用107”。服务端即时 live b618d938/schema57 已核对，无需重复部署或备份。候选 4b4af0a clean production，Mini verify/包体/血缘/上传锁门禁通过；主包1679405、总包4501599。首次微信 getrandstr ECONNRESET，无 receipt；版本107按规则保留，使用同一 SHA/Manifest 和已验证 IPv4/TLS 直连路线、关闭代理幂等重试成功。receipt/tag/Manifest `ed36fd07…94bfc4` 一致；add-only allowlist ensure/verify 通过，107 公网能力端点200。未提审、未正式发布、未退役旧版；待小米14原生复核。
+
+## 2026-09-11 Feedback11 二维码格式与单条通知已读
+
+- 基线72ea0ab0。git log -S/blame确认：PNG-only保存来自9bae5beb，固定PNG MIME来自ddd5c107；无正文通知已读来自a60b57fc。
+- 行为修复：检测原始PNG/JPEG签名并匹配显示MIME/文件扩展名；单条已读发送空JSON对象。接收者绑定、异步清理、切群失效、权限和通知状态处理不变；无网络层重构。
+- 旧实现RED 4失败/38通过；修复后相关99项通过，另导出/通知/P9联合60项通过。小程序全量1122通过/15跳过；完整其余门禁见docs/audit/feedback11.md。
+- 运行/浏览器验证：pnpm smoke:check-core通过，未触及规定核心链路，不要求pnpm smoke:browser；真实Mini transport与Fastify路由/JSON解析器联测通过（业务服务fixture，无DB或真实通知）。
+- EXPORT-11导出空白未在真实Page控制器生命周期、打包入口和七状态WXML测试中复现；页面已有高度声明，未修改布局或业务代码。保持待定位，需版本一致的安全诊断和小米14现象证据。
+- QR-11/NOTIFY-11代码检查点与原生验收分开；未上传、未部署、未连接生产。检查点消息：fix: accept JPEG QR images and send valid notification reads。

@@ -20,7 +20,7 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
-import { saveVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
+import { parseVisitorQrImage, saveVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
@@ -594,8 +594,10 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
       return;
     const response = await page._organizationReadClient.getGroupQr(groupId);
     if (!isCurrent()) return;
+    const image = parseVisitorQrImage(response.imageBase64);
+    if (!image) throw new Error('二维码图片无效，请重新读取。');
     updatePanel(page, {
-      qrImageSrc: `data:image/png;base64,${response.imageBase64}`,
+      qrImageSrc: image.imageSrc,
       qrVisible: true,
       visitorState: 'ready',
       visitorMessage: '二维码已读取，可点击保存到相册。',

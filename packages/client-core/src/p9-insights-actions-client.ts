@@ -112,6 +112,7 @@ export const p9InsightsActionsEndpoints = {
     NotificationRecord
   >({
     auth: 'bearer',
+    body: () => ({}),
     decoder: notificationRecordDecoder,
     id: 'insights.notification-read',
     method: 'POST',

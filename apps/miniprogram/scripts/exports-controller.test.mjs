@@ -70,6 +70,51 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     vi.unstubAllGlobals();
   });
 
+  it('runs the actual direct Page controller through cold entry, show, hide, unload and re-entry', async () => {
+    vi.stubGlobal('Page', vi.fn());
+    await import('../src/subpackages/insights/pages/exports/index.ts');
+    const definition = globalThis.Page.mock.calls[0][0];
+    for (let entry = 0; entry < 2; entry++) {
+      const page = {
+        data: structuredClone(definition.data),
+        setData(patch) {
+          Object.assign(this.data, patch);
+        },
+      };
+      expect(() => definition.onLoad.call(page, { groupId })).not.toThrow();
+      expect(() => definition.onShow.call(page)).not.toThrow();
+      await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+      expect(page.data.roleOptions).toHaveLength(2);
+      definition.onHide.call(page);
+      expect(page._visible).toBe(false);
+      definition.onShow.call(page);
+      expect(page._visible).toBe(true);
+      definition.onUnload.call(page);
+      expect(page._attached).toBe(false);
+    }
+    expect(mocks.getSchedulingConfig).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows load failures through the actual Page and recovers on retry', async () => {
+    mocks.getSchedulingConfig.mockRejectedValueOnce(new Error('fixture'));
+    vi.stubGlobal('Page', vi.fn());
+    await import('../src/subpackages/insights/pages/exports/index.ts');
+    const definition = globalThis.Page.mock.calls[0][0];
+    const page = {
+      data: structuredClone(definition.data),
+      setData(patch) {
+        Object.assign(this.data, patch);
+      },
+    };
+    definition.onLoad.call(page, { groupId });
+    definition.onShow.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('error'));
+    expect(page.data.errorMessage).not.toBe('');
+    definition.handleRetry.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+    definition.onUnload.call(page);
+  });
+
   it('loads filters, exports a year, downloads privately and only shares on a separate click', async () => {
     const definition = await controllerDefinition();
     const page = pageFor(definition);
