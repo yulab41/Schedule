@@ -283,6 +283,19 @@ describe('real WeChat API gateway', () => {
       data: { thing1: { value: '值班' } },
       template_id: 'template-1',
       touser: 'openid-1',
+      page: 'pages/workbench/index',
+      miniprogram_state: 'formal',
+    });
+    await gateway.sendSubscribeMessage(
+      'openid-1',
+      'template-1',
+      { thing1: { value: '值班' } },
+      undefined,
+      'trial',
+    );
+    expect(subscribeBody).toMatchObject({
+      page: 'pages/workbench/index',
+      miniprogram_state: 'trial',
     });
 
     const refused = createGateway((input) => {

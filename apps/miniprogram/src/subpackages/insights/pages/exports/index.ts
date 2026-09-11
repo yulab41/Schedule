@@ -17,6 +17,12 @@ Page({
   onUnload(this: ExportsPageInstance): void {
     controller.lifetimes.detached.call(this);
   },
+  onHide(this: ExportsPageInstance): void {
+    controller.pageLifetimes.hide.call(this);
+  },
+  onShow(this: ExportsPageInstance): void {
+    controller.pageLifetimes.show.call(this);
+  },
 } as never);
 
 function decodeGroupId(value: string | undefined): string {

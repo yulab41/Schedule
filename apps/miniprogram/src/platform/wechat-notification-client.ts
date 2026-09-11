@@ -81,6 +81,12 @@ export async function sendWechatNotificationTest(
   groupId: string,
   operationId: string,
   issuedAt: number,
+  targetVersion?: 'trial' | 'formal',
 ): Promise<unknown> {
-  return request('/me/wechat-notification-test', 'POST', { groupId, issuedAt }, operationId);
+  return request(
+    '/me/wechat-notification-test',
+    'POST',
+    { groupId, issuedAt, ...(targetVersion === undefined ? {} : { targetVersion }) },
+    operationId,
+  );
 }

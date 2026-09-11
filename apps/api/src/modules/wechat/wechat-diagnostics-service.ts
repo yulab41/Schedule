@@ -16,7 +16,12 @@ import { and, desc, eq, gte, isNull } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
-import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
+import {
+  WechatGatewayError,
+  WECHAT_MESSAGE_PAGE,
+  type WechatGateway,
+  type WechatMessageTargetVersion,
+} from './wechat-gateway.js';
 import {
   WechatPushDispatcher,
   readWechatTemplateIds,
@@ -26,6 +31,8 @@ import {
 const scope = 'wechat-diagnostic-send';
 const designatedAdmin = '00000000-0000-4000-8000-000000000001';
 export interface WechatDiagnosticResult {
+  readonly targetVersion?: WechatMessageTargetVersion;
+  readonly page?: typeof WECHAT_MESSAGE_PAGE;
   readonly outcome: 'accepted' | 'rejected' | 'unknown';
   readonly category: string;
   readonly code?: number;
@@ -134,6 +141,7 @@ export class WechatDiagnosticsService {
     groupId: string,
     operationId: string,
     issuedAt: number,
+    targetVersion: WechatMessageTargetVersion = 'formal',
   ): Promise<WechatDiagnosticResult> {
     if (
       !Number.isSafeInteger(issuedAt) ||
@@ -148,7 +156,14 @@ export class WechatDiagnosticsService {
     let claimed = false;
     let recipientUserId = '';
     const fingerprint = createHash('sha256')
-      .update(JSON.stringify({ groupId, issuedAt }))
+      // Formal is the legacy canonical default; old request replays keep the same fingerprint.
+      .update(
+        JSON.stringify({
+          groupId,
+          issuedAt,
+          ...(targetVersion === 'formal' ? {} : { targetVersion }),
+        }),
+      )
       .digest('hex');
     // Commit the reservation BEFORE the external call. A crash or unknown result must never resend.
     const reserved = await withTransaction(this.client, async (tx) => {
@@ -195,6 +210,8 @@ export class WechatDiagnosticsService {
             category: 'reserved-no-retry',
             phase: 'reserved' as const,
             recordedAt: new Date().toISOString(),
+            targetVersion,
+            page: WECHAT_MESSAGE_PAGE,
           };
         },
       );
@@ -222,12 +239,19 @@ export class WechatDiagnosticsService {
         (currentPhase) => {
           phase = currentPhase;
         },
+        targetVersion,
       );
       result = { outcome: 'accepted', category: 'wechat-accepted' };
     } catch (error) {
       result = safeWechatDiagnosticError(error);
     }
-    const completed = { ...result, phase, recordedAt: new Date().toISOString() };
+    const completed = {
+      ...result,
+      phase,
+      recordedAt: new Date().toISOString(),
+      targetVersion,
+      page: WECHAT_MESSAGE_PAGE,
+    } satisfies WechatDiagnosticResult;
     // If this update fails, the durable unknown reservation still prevents repeat delivery.
     await this.client.database
       .update(idempotencyKeys)
@@ -342,6 +366,10 @@ function safeStoredResult(value: unknown): WechatDiagnosticResult {
     'reserved-no-retry',
   ];
   return {
+    ...(row?.targetVersion === 'trial' || row?.targetVersion === 'formal'
+      ? { targetVersion: row.targetVersion }
+      : {}),
+    ...(row?.page === WECHAT_MESSAGE_PAGE ? { page: WECHAT_MESSAGE_PAGE } : {}),
     outcome: row?.outcome === 'accepted' || row?.outcome === 'rejected' ? row.outcome : 'unknown',
     category:
       typeof row?.category === 'string' && allowedCategories.includes(row.category)

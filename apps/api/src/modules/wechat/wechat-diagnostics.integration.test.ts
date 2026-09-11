@@ -141,6 +141,33 @@ suite('persistent self-only WeChat diagnostics (local MySQL)', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(send).toHaveBeenCalledTimes(1);
   });
+  it('binds target version to durable idempotency and reports the actual destination', async () => {
+    const key = randomUUID();
+    const issuedAt = Date.now();
+    const result = await service.sendTest(identity, group, key, issuedAt, 'trial');
+    expect(result).toMatchObject({
+      outcome: 'accepted',
+      targetVersion: 'trial',
+      page: 'pages/workbench/index',
+    });
+    expect(send.mock.calls[0]?.[4]).toBe('trial');
+    const replay = await service.sendTest(identity, group, key, issuedAt, 'trial');
+    expect(replay).toMatchObject({ targetVersion: 'trial', page: 'pages/workbench/index' });
+    await expect(service.sendTest(identity, group, key, issuedAt, 'formal')).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+  it('treats omitted and explicit formal targets as the same legacy-compatible request', async () => {
+    const key = randomUUID();
+    const issuedAt = Date.now();
+    await service.sendTest(identity, group, key, issuedAt);
+    expect(await service.sendTest(identity, group, key, issuedAt, 'formal')).toMatchObject({
+      targetVersion: 'formal',
+      page: 'pages/workbench/index',
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
   it('durably replays transport unknown without another external attempt', async () => {
     send.mockRejectedValue(
       new WechatGatewayError(null, null, 'SERVICE_UNAVAILABLE', 'PRIVATE URL'),

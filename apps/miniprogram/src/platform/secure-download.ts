@@ -126,15 +126,8 @@ export async function downloadScheduleExport(
   authentication: RuntimeWechatRequestAuthentication | undefined,
   groupId: string,
   exportJobId: string,
+  isCurrent: () => boolean = () => true,
 ): Promise<string> {
-  await requireClientCapability('insights');
-  let accessToken = getAccessToken();
-  if ((accessToken === undefined || accessToken.length === 0) && authentication !== undefined) {
-    accessToken = await authentication.awaitAccessToken();
-  }
-  if (accessToken === undefined || accessToken.length === 0) {
-    throw new Error('请先登录后再下载导出文件。');
-  }
   return new Promise((resolve, reject) => {
     let settled = false;
     let acceptedPath: string | undefined;
@@ -162,6 +155,11 @@ export async function downloadScheduleExport(
         if (result.tempFilePath !== acceptedPath) releaseTemporaryExport(result.tempFilePath);
         return;
       }
+      if (!isCurrent()) {
+        releaseTemporaryExport(result.tempFilePath);
+        settleFailure(new Error('已取消下载。'));
+        return;
+      }
       if (result.statusCode < 200 || result.statusCode >= 300) {
         releaseTemporaryExport(result.tempFilePath);
         settleFailure(new ScheduleExportDownloadError('http', result.statusCode));
@@ -175,24 +173,38 @@ export async function downloadScheduleExport(
       settle(() => resolve(result.tempFilePath));
     };
 
-    try {
-      task = (
-        wx as unknown as {
-          downloadFile: (options: WxDownloadFileOptions) => { abort?: () => void } | undefined;
-        }
-      ).downloadFile({
-        fail: (error) => settleFailure(downloadFailure(error)),
-        header: {
-          Authorization: `Bearer ${accessToken}`,
-          'X-Schedule-Client-Platform': 'miniprogram',
-          'X-Schedule-Client-Version': buildInfo.buildVersion,
-        },
-        success: settleSuccess,
-        timeout: DOWNLOAD_TIMEOUT_MS,
-        url: `${__MINIPROGRAM_API_BASE_URL__}/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}/download`,
-      } satisfies WxDownloadFileOptions);
-    } catch (error) {
-      settleFailure(downloadFailure(error));
-    }
+    void (async () => {
+      await requireClientCapability('insights');
+      if (settled) return;
+      let accessToken = getAccessToken();
+      if ((accessToken === undefined || accessToken.length === 0) && authentication !== undefined) {
+        accessToken = await authentication.awaitAccessToken();
+      }
+      if (settled) return;
+      if (!isCurrent()) throw new Error('已取消下载。');
+      if (accessToken === undefined || accessToken.length === 0)
+        throw new Error('请先登录后再下载导出文件。');
+      try {
+        task = (
+          wx as unknown as {
+            downloadFile: (options: WxDownloadFileOptions) => { abort?: () => void } | undefined;
+          }
+        ).downloadFile({
+          fail: (error) => settleFailure(downloadFailure(error)),
+          header: {
+            Authorization: `Bearer ${accessToken}`,
+            'X-Schedule-Client-Platform': 'miniprogram',
+            'X-Schedule-Client-Version': buildInfo.buildVersion,
+          },
+          success: settleSuccess,
+          timeout: DOWNLOAD_TIMEOUT_MS,
+          url: `${__MINIPROGRAM_API_BASE_URL__}/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}/download`,
+        } satisfies WxDownloadFileOptions);
+      } catch (error) {
+        settleFailure(downloadFailure(error));
+      }
+    })().catch((error: unknown) =>
+      settleFailure(error instanceof Error ? error : downloadFailure(error)),
+    );
   });
 }

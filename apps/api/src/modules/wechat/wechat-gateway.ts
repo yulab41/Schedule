@@ -19,6 +19,8 @@ export interface WechatSubscribeMessageResult {
   readonly messageId: string | null;
 }
 export type WechatSendPhaseObserver = (phase: 'access-token' | 'send') => void;
+export type WechatMessageTargetVersion = 'trial' | 'formal';
+export const WECHAT_MESSAGE_PAGE = 'pages/workbench/index';
 
 export interface WechatGateway {
   readonly isMock?: boolean;
@@ -33,6 +35,7 @@ export interface WechatGateway {
     templateId: string,
     data: WechatSubscribeMessageData,
     observe?: WechatSendPhaseObserver,
+    targetVersion?: WechatMessageTargetVersion,
   ): Promise<WechatSubscribeMessageResult>;
 }
 
@@ -189,6 +192,7 @@ export class WechatApiGateway implements WechatGateway {
     templateId: string,
     data: WechatSubscribeMessageData,
     observe?: WechatSendPhaseObserver,
+    targetVersion: WechatMessageTargetVersion = 'formal',
   ): Promise<WechatSubscribeMessageResult> {
     this.assertConfigured();
 
@@ -198,7 +202,13 @@ export class WechatApiGateway implements WechatGateway {
     const payload = await this.requestJson(
       `${WECHAT_API_BASE_URL}/cgi-bin/message/subscribe/send?access_token=${encodeURIComponent(accessToken)}`,
       {
-        body: JSON.stringify({ data, template_id: templateId, touser: openid }),
+        body: JSON.stringify({
+          data,
+          template_id: templateId,
+          touser: openid,
+          page: WECHAT_MESSAGE_PAGE,
+          miniprogram_state: targetVersion,
+        }),
         headers: { 'content-type': 'application/json' },
         method: 'POST',
       },

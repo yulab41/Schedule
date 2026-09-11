@@ -166,6 +166,151 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(mocks.getExportJob).toHaveBeenLastCalledWith(groupId, 'job-1');
   });
 
+  it('stops foreground waiting if a status request stalls after 26 successful polls', async () => {
+    vi.useFakeTimers();
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    let calls = 0;
+    mocks.getExportJob.mockImplementation(() =>
+      ++calls <= 26 ? Promise.resolve(exportJob('pending')) : new Promise(() => {}),
+    );
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(90_001);
+    expect(page.data.state).toBe('timed_out');
+    expect(page._jobId).toBe('job-1');
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds creation preflight even when capability checking never settles', async () => {
+    vi.useFakeTimers();
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    mocks.requireClientCapability.mockImplementationOnce(() => new Promise(() => {}));
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(30_001);
+    expect(page.data.state).toBe('timed_out');
+    expect(mocks.createExportJob).not.toHaveBeenCalled();
+  });
+  it('allows safe retry when stopped before the create request was issued', async () => {
+    vi.useFakeTimers();
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    mocks.requireClientCapability.mockImplementationOnce(() => new Promise(() => {}));
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    definition.methods.handleStopWaiting.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('idle');
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('ready');
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+  });
+  it('does not offer another POST after a transport failure made creation uncertain', async () => {
+    vi.useFakeTimers();
+    const { ClientCoreError } = await import('@schedule/client-core');
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    mocks.createExportJob.mockRejectedValueOnce(
+      new ClientCoreError({ code: 'NETWORK_ERROR', message: '网络未知' }),
+    );
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('timed_out');
+    expect(page.data.canRetryCreate).toBe(false);
+    definition.methods.handleCreate.call(page);
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops immediately and ignores a late status result after checking the same job again', async () => {
+    vi.useFakeTimers();
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    let finishOld;
+    mocks.getExportJob.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishOld = resolve;
+        }),
+    );
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    definition.methods.handleStopWaiting.call(page);
+    expect(page.data.state).toBe('paused');
+    await vi.advanceTimersByTimeAsync(0);
+    definition.methods.handleContinue.call(page);
+    definition.methods.handleContinue.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('ready');
+    finishOld(exportJob('failed'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('ready');
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+    expect(mocks.getExportJob).toHaveBeenCalledTimes(2);
+  });
+
+  it('pauses in the background and resumes one existing task on return', async () => {
+    vi.useFakeTimers();
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    mocks.getExportJob.mockResolvedValue(exportJob('pending'));
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(2_000);
+    definition.pageLifetimes.hide.call(page);
+    const count = mocks.getExportJob.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(page.data.state).toBe('paused');
+    expect(mocks.getExportJob).toHaveBeenCalledTimes(count);
+    mocks.getExportJob.mockResolvedValue(exportJob('completed'));
+    definition.pageLifetimes.show.call(page);
+    definition.pageLifetimes.show.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('ready');
+    expect(mocks.getExportJob).toHaveBeenCalledTimes(count + 1);
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+    definition.lifetimes.detached.call(page);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('recovers a late create ID after timeout without reissuing the POST', async () => {
+    vi.useFakeTimers();
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    let finishCreate;
+    mocks.createExportJob.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCreate = resolve;
+        }),
+    );
+    definition.methods.handleCreate.call(page);
+    await vi.advanceTimersByTimeAsync(30_001);
+    expect(page.data.state).toBe('timed_out');
+    definition.methods.handleCreate.call(page);
+    expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
+    finishCreate(exportJob('pending'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.canCheckJob).toBe(true);
+    expect(page.data.state).toBe('timed_out');
+    definition.methods.handleContinue.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.state).toBe('ready');
+  });
+
   it('closes a ready job when insights is disabled during status polling', async () => {
     const definition = await controllerDefinition();
     const page = await loadedPage(definition);

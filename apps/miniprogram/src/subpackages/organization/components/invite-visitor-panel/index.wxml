@@ -1,3 +1,4 @@
+<ui-toast visible="{{!!infoMessage}}" message="{{infoMessage}}" tone="{{infoTone}}"></ui-toast>
 <view class="invite-visitor-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}">
     <view
@@ -109,7 +110,13 @@
             <text class="result-copy"
               >{{inviteRealName}} · {{inviteRoleLabel}} · {{inviteGroupName}}</text
             >
-            <button class="invite-share-button" open-type="share" disabled="{{!canManage || !organizationEnabled || managementState === 'loading'}}">转发邀请</button>
+            <button
+              class="invite-share-button"
+              open-type="share"
+              disabled="{{!canManage || !organizationEnabled || managementState === 'loading'}}"
+            >
+              转发邀请
+            </button>
             <text class="memory-note">链接只保留在当前页面内存中；离开页面后需要重新生成。</text>
             <ui-button
               variant="danger"
@@ -132,25 +139,19 @@
           >
           <view class="visitor-body"
             ><text class="visitor-copy"
-              >访客码不会显示完整密钥；轮换后旧二维码立即失效。二维码内容只在本页面内存中加载。</text
-            ><ui-alert
-              wx:if="{{visitorMessage}}"
-              tone="{{visitorState === 'error' ? 'danger' : 'success'}}"
-              title="访客入口"
-              message="{{visitorMessage}}"
-            ></ui-alert
+              >访客码不会显示完整密钥；轮换后旧二维码立即失效。二维码仅在本页加载，点击保存后才写入相册。</text
             ><view class="visitor-actions"
               ><ui-button
                 variant="secondary"
                 label="读取群组二维码"
-                disabled="{{!guestEnabled || !organizationEnabled}}"
+                disabled="{{!canManage || !guestEnabled || !organizationEnabled || qrSaving}}"
                 loading="{{visitorState === 'loading'}}"
                 bindpress="handleLoadQr"
               ></ui-button
               ><ui-button
                 variant="danger"
                 label="轮换访客码"
-                disabled="{{!canManageVisitorKey}}"
+                disabled="{{!canManageVisitorKey || visitorState === 'loading'}}"
                 bindpress="handleRegenerateVisitorKey"
               ></ui-button></view
           ></view>
@@ -160,23 +161,26 @@
               ><view class="qr-close" aria-role="button" bindtap="handleHideQr">完成</view></view
             ><image class="qr-image" src="{{qrImageSrc}}" mode="aspectFit" /><text
               class="memory-note"
-              >二维码不会写入缓存、相册或日志。</text
-            ></view
+              >点击保存后写入相册；访客码轮换后，已保存的旧二维码失效。</text
+            ><ui-button
+              variant="primary"
+              label="保存到相册"
+              loading="{{qrSaving}}"
+              disabled="{{!canManage || !organizationEnabled || !guestEnabled || visitorState === 'loading'}}"
+              bindpress="handleSaveQr"
+            ></ui-button
+            ><button
+              wx:if="{{albumPermissionDenied}}"
+              class="invite-share-button"
+              open-type="openSetting"
+              bindopensetting="handleAlbumSettings"
+              disabled="{{qrSaving}}"
+            >
+              相册设置
+            </button></view
           >
         </view>
 
-        <ui-alert
-          wx:if="{{managementError}}"
-          tone="danger"
-          title="邀请与访客操作未完成"
-          message="{{managementError}}"
-        ></ui-alert
-        ><ui-alert
-          wx:if="{{managementInfo}}"
-          tone="success"
-          title="邀请与访客"
-          message="{{managementInfo}}"
-        ></ui-alert>
         <view class="bottom-spacer"></view>
       </view>
     </view>
