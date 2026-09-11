@@ -1,10 +1,11 @@
 # 微信小程序审计状态
 
-## 当前批次：feedback11 二维码与已读代码验证完成，导出空白待定位
+## 当前批次：feedback11 体验版108已上传放行，导出空白待定位
 
-- 当前版本基线72ea0ab0；用户截图体验版号未知。QR-11和NOTIFY-11已复现并实现，EXPORT-11本地未复现，保持待定位；详情见[feedback11.md](feedback11.md)。
-- 复用general-4依赖；RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过。最终Mini verify/Worklet/包体/确定性、打包入口检查和smoke:check-core通过。未上传、部署或发送真实通知。
-- 两项独立检查点消息：`fix: accept JPEG QR images and send valid notification reads`；UPLOAD_REQUIRED，不预留版本。唯一下一任务：取得导出空白的版本及安全诊断继续定位；两项修复待原生复核。没有同版本小米14反馈，不宣称原生通过或三项全部修复。
+- 代码实施基线72ea0ab0；用户原截图体验版号未知。QR-11和NOTIFY-11已复现并实现，EXPORT-11本地未复现，保持待定位；详情见[feedback11.md](feedback11.md)。
+- 复用general-4依赖；RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过。最终Mini verify/Worklet/包体/确定性、打包入口检查和smoke:check-core通过。上述为代码实施轮证据，体验版交付见下条。
+- 用户明确授权后，c563afff上传为108，production/clean、Manifest/receipt/tag一致；上传专项30项和候选检查通过。可信ensure追加108、保留旧版，完整生产verifier及公网108/107=200、未知426通过；服务器仍b618d938，无新应用部署/备份/迁移。见[feedback11-trial-release.md](feedback11-trial-release.md)。
+- 文档检查点：`docs(release): record feedback11 trial 108 delivery`。唯一下一任务：小米14重开108/c563aff复核两项修复，复制导出空白的安全诊断继续定位。没有同版本小米14反馈，不宣称原生通过或三项全部修复，不重复上传或放行。
 
 ## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
 

@@ -2774,3 +2774,5 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 - 运行/浏览器验证：pnpm smoke:check-core通过，未触及规定核心链路，不要求pnpm smoke:browser；真实Mini transport与Fastify路由/JSON解析器联测通过（业务服务fixture，无DB或真实通知）。
 - EXPORT-11导出空白未在真实Page控制器生命周期、打包入口和七状态WXML测试中复现；页面已有高度声明，未修改布局或业务代码。保持待定位，需版本一致的安全诊断和小米14现象证据。
 - QR-11/NOTIFY-11代码检查点与原生验收分开；未上传、未部署、未连接生产。检查点消息：fix: accept JPEG QR images and send valid notification reads。
+
+2026-09-12 Feedback11体验版108：用户明确授权“上传并放行”。c563afff production/clean上传成功，354文件Manifest 3fbff2efaf53d8b8de935e777cab456770b620b2b821a1b6c28e51799e3aed07与receipt/tag/冻结包一致。独占general-4复用依赖，上传专项30项及前后候选门禁通过。旧微信地址重置后，当前公网DNS/IPv4/TLS/nonce通路验证成功；确认trial107残留锁原PID、子进程和上传进程均不存在后归档清理，只删除操作锁，保留全部版本预约。可信ensure追加108并保留旧版；完整生产verifier及版本策略通过，独立公网108/107=200、未知426。服务器live仍b618d938，无新代码部署、备份、迁移或真实通知。二维码与通知修复待小米14复核，EXPORT-11导出空白仍待定位，见docs/audit/feedback11-trial-release.md。

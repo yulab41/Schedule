@@ -1,10 +1,12 @@
 # Project Status
 
-## 当前批次：feedback11 二维码与已读代码验证完成，导出空白待定位
+## 当前批次：feedback11 体验版108已上传放行，导出空白待定位
 
 - 用户批准三项故障修复计划；基线72ea0ab0，独占general-4复用依赖，无安装。二维码PNG/JPEG格式与通知空JSON正文缺陷已复现修复；导出真实Page/模板检查通过但原生空白未复现，未猜测修改。
 - RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过；最终Mini verify、Worklet2/2、包体/确定性和smoke:check-core通过。主包1679971/总包4502798，保留已有内部警告。详情见docs/audit/feedback11.md。
-- 两项独立检查点消息：`fix: accept JPEG QR images and send valid notification reads`。唯一下一任务：取得导出空白的版本及安全诊断继续定位；两项修复待用户原生复核。UPLOAD_REQUIRED，未上传或连接生产，不预留版本；不得写三项全部完成。
+- 用户明确授权上传并放行；c563afff已交付`0.1.0-p10.20260912.108`，production/clean，354文件Manifest/receipt/远端不可变tag一致。上传专项30项及候选前后检查通过，主包1681039/总包4505008。详情见docs/audit/feedback11-trial-release.md。
+- 可信ensure只追加108并保留旧版；完整生产verifier与版本策略验证通过，公网108/107=200、未知版本426。即时服务器仍b618d938，本轮没有新应用部署、备份、迁移或真实通知；网络及107残留操作锁已验证处理，版本预约记录全部保留。
+- 文档检查点：`docs(release): record feedback11 trial 108 delivery`。唯一下一任务：小米14重开108/c563aff复核二维码和通知，并取得导出空白安全诊断继续定位。不得写三项全部完成，不重复上传/放行或部署。
 
 ## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
 
