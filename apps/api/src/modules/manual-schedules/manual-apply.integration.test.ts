@@ -18,6 +18,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { ManualScheduleTemplateService } from './template-service.js';
+import { ManualScheduleApplyService } from './apply-service.js';
+import { PastScheduleService } from '../past-schedules/past-schedule-service.js';
+import { ScheduleRepository } from '../schedules/schedule-repository.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -78,6 +82,107 @@ describeWithDatabase('manual schedule template apply', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('publishes silently with events and idempotency but no notifications', async () => {
+    const templateId = await createTemplate();
+    const input = {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      publishMode: 'published',
+      notifyMembers: false,
+    };
+    const response = await app.inject({
+      method: 'POST',
+      url: `/groups/${groupId}/manual-schedule-templates/${templateId}/apply`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: input,
+    });
+    expect(response.statusCode).toBe(200);
+    const [notifications] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM notifications WHERE group_id=${groupId}`,
+    );
+    expect(notifications).toEqual([{ count: 0 }]);
+    const [events] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id=${groupId} AND event_type='manual_schedule_template_applied'`,
+    );
+    expect(events).toEqual([{ count: 1 }]);
+    const replay = await app.inject({
+      method: 'POST',
+      url: `/groups/${groupId}/manual-schedule-templates/${templateId}/apply`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: input,
+    });
+    expect(replay.json()).toEqual(response.json());
+    const changed = await app.inject({
+      method: 'POST',
+      url: `/groups/${groupId}/manual-schedule-templates/${templateId}/apply`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: { ...input, notifyMembers: true },
+    });
+    expect(changed.statusCode).toBe(409);
+  });
+
+  it('rolls back a combined silent publication and member backfill as one transaction', async () => {
+    const rollback = new Error('import verification failed');
+    await expect(
+      client.database.transaction(async (transaction) => {
+        const scoped = {
+          database: transaction as unknown as DatabaseClient['database'],
+          close: async () => {},
+        };
+        const identity = { cloudbaseUid: 'cloudbase-owner' };
+        const template = await new ManualScheduleTemplateService(scoped).create(identity, groupId, {
+          startDate: '2026-09-01',
+          cycleDays: 1,
+          scheduleRoleId: primaryRoleId,
+          membershipIds: [ownerMembershipId, candidateMembershipId],
+          cells: [ownerMembershipId, candidateMembershipId].map((membershipId) => ({
+            cycleDay: 1,
+            membershipId,
+            shiftTypeId: allDayShiftTypeId,
+          })),
+        });
+        await new ManualScheduleApplyService(scoped, new ScheduleRepository(scoped)).apply(
+          identity,
+          groupId,
+          template.id,
+          {
+            expectedRulesVersion: rulesVersion,
+            operationId: randomUUID(),
+            publishMode: 'published',
+            notifyMembers: false,
+          },
+        );
+        await new PastScheduleService(scoped).backfillBatch(
+          identity,
+          groupId,
+          {
+            matchByMember: true,
+            items: [ownerMembershipId, candidateMembershipId].map((actualMembershipId) => ({
+              actualMembershipId,
+              businessDate: '2026-08-30',
+              scheduleRoleId: primaryRoleId,
+              shiftTypeId: allDayShiftTypeId,
+            })),
+          },
+          randomUUID(),
+        );
+        const [inside] = await transaction.execute<{ count: number }>(
+          sql`SELECT COUNT(*) AS count FROM shift_assignments`,
+        );
+        expect(inside).toEqual([{ count: 4 }]);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
+    const [outside] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments`,
+    );
+    expect(outside).toEqual([{ count: 0 }]);
+    const [notifications] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM notifications`,
+    );
+    expect(notifications).toEqual([{ count: 0 }]);
   });
 
   it('previews a single cycle without persisting any period', async () => {

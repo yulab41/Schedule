@@ -2776,3 +2776,8 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 - QR-11/NOTIFY-11代码检查点与原生验收分开；未上传、未部署、未连接生产。检查点消息：fix: accept JPEG QR images and send valid notification reads。
 
 2026-09-12 Feedback11体验版108：用户明确授权“上传并放行”。c563afff production/clean上传成功，354文件Manifest 3fbff2efaf53d8b8de935e777cab456770b620b2b821a1b6c28e51799e3aed07与receipt/tag/冻结包一致。独占general-4复用依赖，上传专项30项及前后候选门禁通过。旧微信地址重置后，当前公网DNS/IPv4/TLS/nonce通路验证成功；确认trial107残留锁原PID、子进程和上传进程均不存在后归档清理，只删除操作锁，保留全部版本预约。可信ensure追加108并保留旧版；完整生产verifier及版本策略通过，独立公网108/107=200、未知426。服务器live仍b618d938，无新代码部署、备份、迁移或真实通知。二维码与通知修复待小米14复核，EXPORT-11导出空白仍待定位，见docs/audit/feedback11-trial-release.md。
+
+## 2026-09-12 护士139条导入支持
+- 引入点27992c758，原补录按岗位/日期首槽；新增显式成员匹配及静默手排，保持旧行为。详见docs/audit/nurse-schedule-import.md。
+- 运行/浏览器验证：pnpm smoke:browser（SMOKE_BASE_URL=http://127.0.0.1:4173）通过登录/管理员/成员/访客/访问记录，无浏览器错误；本地合成管理员标记已恢复。
+- 无真机结论；正式部署与数据录入另行核验。

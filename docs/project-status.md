@@ -1,6 +1,14 @@
 # Project Status
 
-## 当前批次：feedback11 体验版108已上传放行，导出空白待定位
+## 当前批次：护士照片139条导入支持
+
+- 用户明确批准多人补录及静默导入修复、代码修改和生产部署，最终继续139条已确认数据导入。只匹配已有成员/班次，D5电脑，指定跳过项不写；资料留ignored runtime。
+- 基线fe505ee9，独占general-4依赖复用，无安装。新增可选成员匹配补录和静默手排，旧行为/旧请求幂等指纹保持，无数据库迁移或小程序上传。详情docs/audit/nurse-schedule-import.md。
+- 旧版两项MySQL回归失败；修复后32个不同MySQL用例、契约/路由10项通过。pnpm verify通过：Mini1122/15跳过、根1241/424跳过、依赖保护81；浏览器完整冒烟及smoke:check-core通过。代码及运行验证已完成。
+- 生产备份542b8bcb-9796-4cb2-92b0-25d740229594（54表、105228472字节）已核验文件hash；数据尚未录入。
+- 检查点标识：fix(schedules): support member backfill and silent imports。下一步完成浏览器及发布验证，推送后备份部署、导入并独立核对139条；正式写入完成前不标交付。
+
+## 上一批次：feedback11 体验版108已上传放行，导出空白待定位
 
 - 用户批准三项故障修复计划；基线72ea0ab0，独占general-4复用依赖，无安装。二维码PNG/JPEG格式与通知空JSON正文缺陷已复现修复；导出真实Page/模板检查通过但原生空白未复现，未猜测修改。
 - RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过；最终Mini verify、Worklet2/2、包体/确定性和smoke:check-core通过。主包1679971/总包4502798，保留已有内部警告。详情见docs/audit/feedback11.md。

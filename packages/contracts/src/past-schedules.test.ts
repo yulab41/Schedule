@@ -17,6 +17,22 @@ function item(day: number, scheduleRoleId = randomUUID()) {
 }
 
 describe('past schedule backfill batch contracts', () => {
+  it('allows distinct members on one role/date only in explicit member mode', () => {
+    const first = item(1);
+    const second = { ...first, actualMembershipId: randomUUID() };
+    expect(
+      pastScheduleBackfillBatchRequestSchema.safeParse({
+        matchByMember: true,
+        items: [first, second],
+      }).success,
+    ).toBe(true);
+    expect(
+      pastScheduleBackfillBatchRequestSchema.safeParse({
+        matchByMember: true,
+        items: [first, first],
+      }).success,
+    ).toBe(false);
+  });
   it('accepts one and thirty-one strictly dated items and trims the shared reason', () => {
     const one = pastScheduleBackfillBatchRequestSchema.safeParse({ items: [item(1)] });
     const maximum = pastScheduleBackfillBatchRequestSchema.safeParse({

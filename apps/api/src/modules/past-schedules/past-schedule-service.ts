@@ -376,6 +376,7 @@ export class PastScheduleService {
           actorUserId: authorization.user.id,
           operationId,
           requestFingerprint: createBackfillBatchFingerprint({
+            ...(parsedInput.data.matchByMember === true ? { matchByMember: true } : {}),
             groupId: authorization.group.id,
             items: sortedItems,
             reason: parsedInput.data.reason ?? null,
@@ -395,6 +396,7 @@ export class PastScheduleService {
               authorization,
               item,
               parsedInput.data.reason,
+              parsedInput.data.matchByMember === true,
             );
             mutations.push(mutation);
             assignments.push(toPastScheduleAssignment(mutation.assignment));
@@ -530,6 +532,7 @@ export class PastScheduleService {
     authorization: GroupAuthorization,
     input: PastScheduleBackfillBatchItem,
     reason: string | undefined,
+    matchByMember = false,
   ): Promise<BackfillMutationResult> {
     const period = await this.findOrCreatePastPeriod(
       transaction,
@@ -563,19 +566,46 @@ export class PastScheduleService {
       countsTowardStatistics: shiftType.countsTowardStatistics,
     };
 
-    const [existing] = await transaction
+    const matchingAssignments = await transaction
       .select()
       .from(shiftAssignments)
       .where(
         and(
           eq(shiftAssignments.schedulePeriodId, period.id),
           eq(shiftAssignments.businessDate, input.businessDate),
+          ...(matchByMember
+            ? [eq(shiftAssignments.actualMembershipId, input.actualMembershipId)]
+            : []),
           isNull(shiftAssignments.deletedAt),
         ),
       )
       .orderBy(asc(shiftAssignments.slotPosition), asc(shiftAssignments.id))
-      .limit(1)
+      .limit(matchByMember ? 2 : 1)
       .for('update');
+    if (matchingAssignments.length > 1) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该成员当天存在多个班次，请按具体班次修改，不能自动覆盖。',
+      });
+    }
+    const existing = matchingAssignments[0];
+    const [lastSlot] =
+      matchByMember && existing === undefined
+        ? await transaction
+            .select({ slot: shiftAssignments.slotPosition })
+            .from(shiftAssignments)
+            .where(
+              and(
+                eq(shiftAssignments.schedulePeriodId, period.id),
+                eq(shiftAssignments.businessDate, input.businessDate),
+              ),
+            )
+            .orderBy(desc(shiftAssignments.slotPosition))
+            .limit(1)
+            .for('update')
+        : [];
+    const newSlotPosition = matchByMember ? (lastSlot?.slot ?? 0) + 1 : 1;
     let before = existing;
     let assignmentId: string;
     if (existing !== undefined) {
@@ -617,7 +647,7 @@ export class PastScheduleService {
           and(
             eq(shiftAssignments.schedulePeriodId, period.id),
             eq(shiftAssignments.businessDate, input.businessDate),
-            eq(shiftAssignments.slotPosition, 1),
+            eq(shiftAssignments.slotPosition, newSlotPosition),
             eq(shiftAssignments.startsAt, timeRange.startsAt),
             isNotNull(shiftAssignments.deletedAt),
           ),
@@ -637,7 +667,7 @@ export class PastScheduleService {
           plannedMembershipId: input.actualMembershipId,
           plannedMemberName: memberName,
           schedulePeriodId: period.id,
-          slotPosition: 1,
+          slotPosition: newSlotPosition,
           ...shiftSnapshot,
           endsAt: timeRange.endsAt,
           startsAt: timeRange.startsAt,
@@ -940,6 +970,7 @@ function compareText(left: string, right: string): number {
 }
 
 function createBackfillBatchFingerprint(input: {
+  readonly matchByMember?: true;
   readonly groupId: string;
   readonly items: readonly PastScheduleBackfillBatchItem[];
   readonly reason: string | null;
@@ -947,6 +978,7 @@ function createBackfillBatchFingerprint(input: {
   return createHash('sha256')
     .update(
       JSON.stringify({
+        ...(input.matchByMember === true ? { matchByMember: true } : {}),
         groupId: input.groupId,
         items: input.items.map((item) => ({
           actualMembershipId: item.actualMembershipId,

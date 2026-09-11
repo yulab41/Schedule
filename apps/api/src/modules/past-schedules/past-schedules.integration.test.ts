@@ -102,6 +102,54 @@ describeWithDatabase('past schedule backfill', () => {
     }
   });
 
+  it('backfills two members on one day without overwriting and replays safely', async () => {
+    const request = {
+      matchByMember: true,
+      items: [batchItem(1), { ...batchItem(1), actualMembershipId: candidateMembershipId }],
+    };
+    const operationId = randomUUID();
+    const first = await backfillBatch('owner-token', request, operationId);
+    expect(first.statusCode).toBe(200);
+    const body = first.json() as PastScheduleBackfillBatchResult;
+    expect(new Set(body.assignments.map((a) => a.assignmentId)).size).toBe(2);
+    expect(new Set(body.assignments.map((a) => a.actualMemberId))).toEqual(
+      new Set([ownerMembershipId, candidateMembershipId]),
+    );
+    const replay = await backfillBatch('owner-token', request, operationId);
+    expect(replay.json()).toEqual(body);
+    const repeat = await backfillBatch('owner-token', request, randomUUID());
+    expect(repeat.statusCode).toBe(200);
+    const [rows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments WHERE business_date='2026-07-01' AND deleted_at IS NULL`,
+    );
+    expect(rows).toEqual([{ count: 2 }]);
+    const singleId = randomUUID();
+    const single = { matchByMember: true, items: [batchItem(2)] };
+    expect((await backfillBatch('owner-token', single, singleId)).statusCode).toBe(200);
+    expect(
+      (await backfillBatch('owner-token', { ...single, matchByMember: false }, singleId))
+        .statusCode,
+    ).toBe(409);
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET actual_membership_id=${ownerMembershipId} WHERE business_date='2026-07-01'`,
+    );
+    const ambiguous = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [batchItem(1)] },
+      randomUUID(),
+    );
+    expect(ambiguous.statusCode).toBe(409);
+    expect(
+      (
+        await backfillBatch(
+          'candidate-token',
+          { matchByMember: true, items: [batchItem(3)] },
+          randomUUID(),
+        )
+      ).statusCode,
+    ).toBe(403);
+  });
+
   it('lists past periods and only past-date assignments for administrators', async () => {
     await publishMonth('2026-08');
     const pastPeriodId = await findPastPeriodId();

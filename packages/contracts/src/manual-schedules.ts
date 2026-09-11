@@ -208,6 +208,7 @@ export const previewManualTemplateApplyRequestSchema =
   previewManualTemplateApplyRequestBaseSchema.superRefine(validateExplicitManualApplyRange);
 
 export interface ApplyManualScheduleTemplateRequest {
+  readonly notifyMembers?: boolean;
   readonly acknowledgeBlockers?: boolean;
   readonly acknowledgeWorkflowRevocations?: boolean;
   readonly endDate?: string;
@@ -221,6 +222,7 @@ export interface ApplyManualScheduleTemplateRequest {
 
 export const applyManualScheduleTemplateRequestSchema = previewManualTemplateApplyRequestBaseSchema
   .extend({
+    notifyMembers: z.boolean().optional(),
     acknowledgeBlockers: z.boolean().optional(),
     acknowledgeWorkflowRevocations: z.boolean().optional(),
     operationId: manualScheduleUuidSchema,

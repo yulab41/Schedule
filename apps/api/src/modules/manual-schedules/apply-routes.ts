@@ -74,6 +74,7 @@ function parsePreviewInput(value: unknown): PreviewManualTemplateApplyRequest {
 function parseApplyInput(value: unknown): ApplyManualScheduleTemplateRequest {
   const input = parseOrThrow(applyManualScheduleTemplateRequestSchema, value);
   return {
+    ...(input.notifyMembers === undefined ? {} : { notifyMembers: input.notifyMembers }),
     ...(input.acknowledgeBlockers === undefined
       ? {}
       : { acknowledgeBlockers: input.acknowledgeBlockers }),

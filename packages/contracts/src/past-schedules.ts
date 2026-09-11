@@ -69,6 +69,7 @@ export type PastScheduleBackfillBatchItem = z.infer<typeof pastScheduleBackfillB
 
 export const pastScheduleBackfillBatchRequestSchema = z
   .object({
+    matchByMember: z.boolean().optional(),
     items: z
       .array(pastScheduleBackfillBatchItemSchema)
       .min(1)
@@ -80,11 +81,14 @@ export const pastScheduleBackfillBatchRequestSchema = z
   .superRefine((request, context) => {
     const seenBusinessKeys = new Set<string>();
     for (const [index, item] of request.items.entries()) {
-      const businessKey = `${item.scheduleRoleId}|${item.businessDate}`;
+      const businessKey = `${item.scheduleRoleId}|${item.businessDate}${request.matchByMember === true ? `|${item.actualMembershipId}` : ''}`;
       if (seenBusinessKeys.has(businessKey)) {
         context.addIssue({
           code: 'custom',
-          message: '同一批次不能重复补录相同岗位和业务日期。',
+          message:
+            request.matchByMember === true
+              ? '同一批次不能重复补录相同岗位、业务日期和成员。'
+              : '同一批次不能重复补录相同岗位和业务日期。',
           path: ['items', index],
         });
       }

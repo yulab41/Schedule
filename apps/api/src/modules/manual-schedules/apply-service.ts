@@ -154,6 +154,7 @@ export class ManualScheduleApplyService {
             actorUserId: authorization.user.id,
             operationId: input.operationId,
             requestFingerprint: createApplyFingerprint({
+              ...(input.notifyMembers === false ? { notifyMembers: false } : {}),
               acknowledgeBlockers: input.acknowledgeBlockers === true,
               acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
               endDate: input.endDate ?? null,
@@ -171,7 +172,11 @@ export class ManualScheduleApplyService {
         );
       });
     } catch (error) {
-      if (error instanceof ApiError && isConflictBlockedError(error)) {
+      if (
+        input.notifyMembers !== false &&
+        error instanceof ApiError &&
+        isConflictBlockedError(error)
+      ) {
         await writeConflictNotification(this.databaseClient, {
           groupId,
           identity,
@@ -293,6 +298,7 @@ export class ManualScheduleApplyService {
           businessMonth,
           cycleDays: context.template.cycleDays,
           publishMode,
+          notifyMembers: input.notifyMembers !== false,
           rulesVersion: context.preview.rulesVersion,
           templateId: context.template.id,
           templateVersion: context.template.version,
@@ -318,7 +324,11 @@ export class ManualScheduleApplyService {
       }
     }
     const firstAppliedEventId = appliedEventIds[0];
-    if (publishMode === 'published' && firstAppliedEventId !== undefined) {
+    if (
+      publishMode === 'published' &&
+      firstAppliedEventId !== undefined &&
+      input.notifyMembers !== false
+    ) {
       await this.notificationWriter.append(transaction, {
         body: '手动模板已应用并发布，您的班次已更新。',
         groupId: authorization.group.id,
@@ -1029,6 +1039,7 @@ function toManualApplyShiftType(shiftType: typeof shiftTypes.$inferSelect): Manu
 }
 
 function createApplyFingerprint(input: {
+  readonly notifyMembers?: false;
   readonly acknowledgeBlockers: boolean;
   readonly acknowledgeWorkflowRevocations: boolean;
   readonly endDate: string | null;
