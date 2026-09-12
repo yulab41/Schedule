@@ -1,12 +1,15 @@
 # Project Status
 
-## 当前批次：Feedback16 设计检查点，准备实现 A/B/C
+## 当前批次：Feedback16 A 已完成，进入 B：导出启动证据与二维码交互
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
 - 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
 - 外部边界：不控制微信开发者工具；未授权体验版上传、生产部署或数据库操作。
-- 下一批次：先建立 A 的全天元数据/单次高度 RED 回归；停止条件为回归覆盖旧行为后再进入实现。
+- A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
+- 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
+- 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
+- 下一批次：新增 B 的导出血缘/冷入口与二维码预览、轮换自动读取 RED 回归；停止条件为不修改已完整的导出业务链路，除非测试找到具体缺失边界。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

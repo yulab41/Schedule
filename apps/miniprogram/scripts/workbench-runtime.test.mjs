@@ -909,19 +909,11 @@ describe('P6-A workbench runtime coordination', () => {
   });
 
   it.each(['2026-09-07', '2026-08-31'])(
-    'keeps measured week height on date selection and leaves space below the lowest card (%s)',
+    'keeps deterministic week height on date selection (%s)',
     async (weekStart) => {
-      const ticks = [];
-      const measurements = [];
       const runtime = createWx(createStorage(), vi.fn());
-      runtime.nextTick = (callback) => ticks.push(callback);
-      runtime.createSelectorQuery = () => ({
-        in: () => ({
-          selectAll: () => ({
-            boundingClientRect: (callback) => ({ exec: () => measurements.push(callback) }),
-          }),
-        }),
-      });
+      runtime.nextTick = vi.fn();
+      runtime.createSelectorQuery = vi.fn();
       vi.stubGlobal('wx', runtime);
       await import('../src/pages/workbench/index.ts');
       const instance = createPageInstance(definition);
@@ -932,9 +924,8 @@ describe('P6-A workbench runtime coordination', () => {
       instance.data.businessMonth = weekStart.slice(0, 7);
       instance.data.selectedDate = weekStart;
       definition.onResize.call(instance);
-      ticks.splice(0).forEach((callback) => callback());
-      measurements.splice(0).forEach((callback) => callback([{ height: 500 }]));
-      expect(instance.data.weekGridHeight).toBe(528);
+      const height = instance.data.weekGridHeight;
+      expect(height).toBeGreaterThanOrEqual(112);
       const heights = [];
       const selectionPatches = [];
       const setData = instance.setData;
@@ -948,18 +939,16 @@ describe('P6-A workbench runtime coordination', () => {
           dataset: { businessDate: instance.data.weekPanels[1].days[1].businessDate },
         },
       });
-      expect(instance.data.weekGridHeight).toBe(528);
-      expect(heights.every((height) => height === 528)).toBe(true);
+      expect(instance.data.weekGridHeight).toBe(height);
+      expect(heights).toEqual([]);
       expect(
         selectionPatches.some((patch) => 'weekPanels' in patch || 'weekGridHeight' in patch),
       ).toBe(false);
       expect(instance.data.monthPanels.every((panel) => panel.rowHeight === 62)).toBe(true);
-      expect(ticks).toHaveLength(0);
+      expect(runtime.nextTick).not.toHaveBeenCalled();
+      expect(runtime.createSelectorQuery).not.toHaveBeenCalled();
       definition.onResize.call(instance);
-      const resizeEstimate = instance.data.weekGridHeight;
-      ticks.splice(0).forEach((callback) => callback());
-      measurements.splice(0).forEach((callback) => callback([]));
-      expect(instance.data.weekGridHeight).toBe(resizeEstimate);
+      expect(instance.data.weekGridHeight).toBe(height);
     },
   );
 
@@ -1007,23 +996,10 @@ describe('P6-A workbench runtime coordination', () => {
     expect(storage.has('schedule.wechat.workbench.groups.v2:user-1')).toBe(false);
   });
 
-  it('measures only the current week after rendering and discards old content measurements', async () => {
-    const ticks = [],
-      measurements = [],
-      selectors = [],
-      rendered = [];
+  it('uses only the current week content for deterministic height', async () => {
     const runtime = createWx(createStorage(), vi.fn());
-    runtime.nextTick = (callback) => ticks.push(callback);
-    runtime.createSelectorQuery = () => ({
-      in: () => ({
-        selectAll: (selector) => {
-          selectors.push(selector);
-          return {
-            boundingClientRect: (callback) => ({ exec: () => measurements.push(callback) }),
-          };
-        },
-      }),
-    });
+    runtime.nextTick = vi.fn();
+    runtime.createSelectorQuery = vi.fn();
     vi.stubGlobal('wx', runtime);
     await import('../src/pages/workbench/index.ts');
     const instance = createPageInstance(definition);
@@ -1042,36 +1018,27 @@ describe('P6-A workbench runtime coordination', () => {
       selectedDate: '2026-09-07',
       businessMonth: '2026-09',
     });
-    const baseSetData = instance.setData;
-    instance.setData = function (patch, callback) {
-      baseSetData.call(this, patch);
-      if (callback) rendered.push(callback);
-    };
     definition.onResize.call(instance);
-    expect(instance.data.weekGridHeight).toBeLessThan(200);
-    expect(ticks).toHaveLength(0);
-    rendered.splice(0).forEach((callback) => callback());
-    ticks.splice(0).forEach((callback) => callback());
-    expect(selectors).toEqual(['.week-panel-current .week-day-content']);
-    const old = measurements.shift();
-    instance.calendar.assignments.push({ ...sample, id: 'current', businessDate: '2026-09-07' });
+    const initialHeight = instance.data.weekGridHeight;
+    expect(initialHeight).toBeLessThan(200);
+    instance.calendar.assignments.push(...Array.from({ length: 4 }, (_, index) => ({
+      ...sample,
+      id: `current-${index}`,
+      actualMemberName: '当前周长姓名',
+      businessDate: '2026-09-07',
+    })));
     definition.onResize.call(instance);
-    const estimate = instance.data.weekGridHeight;
-    old([{ height: 2000 }]);
-    expect(instance.data.weekGridHeight).toBe(estimate);
-    rendered.splice(0).forEach((callback) => callback());
-    ticks.splice(0).forEach((callback) => callback());
-    measurements.shift()([{ height: 180 }]);
-    expect(instance.data.weekGridHeight).toBe(208);
+    const currentHeight = instance.data.weekGridHeight;
+    expect(currentHeight).toBeGreaterThan(initialHeight);
     instance.calendar.assignments.push({
       ...sample,
       id: 'neighbor-new',
       businessDate: '2026-09-15',
     });
     definition.onResize.call(instance);
-    expect(instance.data.weekGridHeight).toBe(208);
-    rendered.splice(0).forEach((callback) => callback());
-    expect(ticks).toHaveLength(0);
+    expect(instance.data.weekGridHeight).toBe(currentHeight);
+    expect(runtime.nextTick).not.toHaveBeenCalled();
+    expect(runtime.createSelectorQuery).not.toHaveBeenCalled();
     definition.handleWeekDaySelect.call(instance, {
       currentTarget: { dataset: { businessDate: '2026-09-08' } },
     });
