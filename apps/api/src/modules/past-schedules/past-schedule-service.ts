@@ -574,7 +574,15 @@ export class PastScheduleService {
           eq(shiftAssignments.schedulePeriodId, period.id),
           eq(shiftAssignments.businessDate, input.businessDate),
           ...(matchByMember
-            ? [eq(shiftAssignments.actualMembershipId, input.actualMembershipId)]
+            ? [
+                or(
+                  eq(shiftAssignments.actualMembershipId, input.actualMembershipId),
+                  and(
+                    isNull(shiftAssignments.actualMembershipId),
+                    eq(shiftAssignments.plannedMembershipId, input.actualMembershipId),
+                  ),
+                ),
+              ]
             : []),
           isNull(shiftAssignments.deletedAt),
         ),

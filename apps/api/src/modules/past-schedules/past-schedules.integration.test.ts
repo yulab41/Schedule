@@ -123,6 +123,19 @@ describeWithDatabase('past schedule backfill', () => {
       sql`SELECT COUNT(*) AS count FROM shift_assignments WHERE business_date='2026-07-01' AND deleted_at IS NULL`,
     );
     expect(rows).toEqual([{ count: 2 }]);
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET actual_membership_id=NULL, actual_member_name=NULL WHERE business_date='2026-07-01' AND planned_membership_id=${ownerMembershipId}`,
+    );
+    const plannedOnly = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [batchItem(1)] },
+      randomUUID(),
+    );
+    expect(plannedOnly.statusCode).toBe(200);
+    const [afterPlanned] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments WHERE business_date='2026-07-01' AND deleted_at IS NULL`,
+    );
+    expect(afterPlanned).toEqual([{ count: 2 }]);
     const singleId = randomUUID();
     const single = { matchByMember: true, items: [batchItem(2)] };
     expect((await backfillBatch('owner-token', single, singleId)).statusCode).toBe(200);
