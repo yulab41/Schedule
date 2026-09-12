@@ -25,12 +25,22 @@ import {
   businessNotificationTypes,
   readBusinessTemplateConfiguration,
 } from './wechat-business-template.js';
+import {
+  buildProfileTemplateData,
+  readProfileTemplate,
+  resolveBusinessKind,
+  type BusinessTemplateKind,
+  type NotificationSnapshot,
+} from './wechat-template-profiles.js';
 
-export type WechatTemplateKind = 'dutyReminder' | 'business';
+export type WechatTemplateKind = 'dutyReminder' | BusinessTemplateKind;
 
 export interface WechatTemplateIds {
   readonly dutyReminder: string | undefined;
   readonly business?: string;
+  readonly swap?: string;
+  readonly dutyAdjustment?: string;
+  readonly leave?: string;
 }
 
 export function getWechatTemplateKind(notificationType: string): WechatTemplateKind | undefined {
@@ -42,14 +52,23 @@ export function getWechatTemplateKind(notificationType: string): WechatTemplateK
 }
 
 export function readWechatTemplateIds(values: NodeJS.ProcessEnv = process.env): WechatTemplateIds {
-  const business = readBusinessTemplateConfiguration(values);
+  const legacy = readBusinessTemplateConfiguration(values);
+  const business = readProfileTemplate('business', values) ?? legacy;
+  const workflows = Object.fromEntries(
+    (['swap', 'dutyAdjustment', 'leave'] as const).flatMap((kind) => {
+      const id = readProfileTemplate(kind, values)?.id ?? legacy?.id;
+      return id ? [[kind, id]] : [];
+    }),
+  );
   return {
     dutyReminder: values.WECHAT_DUTY_REMINDER_TEMPLATE_ID,
     ...(business ? { business: business.id } : {}),
+    ...workflows,
   };
 }
 
 export interface WechatNotificationRecord {
+  readonly objectType?: string | null;
   readonly shiftAssignmentId?: string | null;
   readonly groupId?: string | null;
   readonly dutyReminder?: WechatDutyReminder;
@@ -113,7 +132,15 @@ export class WechatPushDispatcher {
       );
     }
 
-    const kind = getWechatTemplateKind(notification.notificationType);
+    const category = getWechatTemplateKind(notification.notificationType);
+    const kind =
+      category === 'business'
+        ? resolveBusinessKind(
+            notification.notificationType,
+            notification.payload,
+            notification.objectType,
+          )
+        : category;
     const templateId = kind === undefined ? undefined : this.templateIds[kind];
     if (templateId === undefined || templateId.length === 0) {
       throw new WechatGatewayError(
@@ -125,8 +152,13 @@ export class WechatPushDispatcher {
     }
 
     const data =
-      kind === 'business'
-        ? await this.readBusinessData(notification, templateId, database)
+      kind !== 'dutyReminder'
+        ? await this.readBusinessData(
+            notification,
+            templateId,
+            database,
+            kind as BusinessTemplateKind,
+          )
         : buildSubscribeMessageData(
             notification.dutyReminder ?? (await this.readDuty(notification, database)),
           );
@@ -141,8 +173,10 @@ export class WechatPushDispatcher {
     notification: WechatNotificationRecord,
     templateId: string,
     database?: ScheduleDatabase | DatabaseTransaction,
+    kind: BusinessTemplateKind = 'business',
   ): Promise<WechatSubscribeMessageData> {
-    const configuration = readBusinessTemplateConfiguration();
+    const profile = readProfileTemplate(kind);
+    const configuration = profile ?? readBusinessTemplateConfiguration();
     if (
       !configuration ||
       configuration.id !== templateId ||
@@ -185,6 +219,17 @@ export class WechatPushDispatcher {
       )
       .limit(1);
     if (!recipient || recipient.enabled === 0) throw missingBusinessData();
+    if (profile) {
+      const snapshot = notification.payload?.wechatBusinessSnapshot;
+      if (
+        !snapshot ||
+        typeof snapshot !== 'object' ||
+        Array.isArray(snapshot) ||
+        !Object.values(snapshot).every((value) => typeof value === 'string')
+      )
+        throw missingBusinessData();
+      return buildProfileTemplateData(profile, snapshot as NotificationSnapshot);
+    }
     return buildBusinessTemplateData(configuration, {
       ...notification,
       ...recipient,

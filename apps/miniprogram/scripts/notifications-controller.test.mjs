@@ -39,7 +39,16 @@ vi.mock('../src/platform/client-core-calendar.ts', () => ({
 }));
 
 vi.mock('../src/platform/wechat-notification-client.ts', () => ({
-  loadWechatSubscriptionTemplates: mocks.templates,
+  loadWechatSubscriptionConfiguration: async () => {
+    const ids = await mocks.templates();
+    return {
+      dutyReminder: ids[0] ?? null,
+      business: ids[1] ?? null,
+      swap: ids[2] ?? null,
+      dutyAdjustment: ids[3] ?? null,
+      leave: ids[4] ?? null,
+    };
+  },
 }));
 vi.mock('../src/platform/diagnostics-access.ts', () => ({ canUseDiagnostics: () => false }));
 
@@ -102,6 +111,57 @@ describe('notification parity controller', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('offers five independent choices and requests only the chosen template', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    expect(page.data.subscriptionChoices).toHaveLength(5);
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+    for (const [kind, id] of [
+      ['dutyReminder', 'duty'],
+      ['business', 'business'],
+      ['swap', 'swap'],
+      ['dutyAdjustment', 'adjustment'],
+      ['leave', 'leave'],
+    ]) {
+      mocks.requestSubscriptions.mockResolvedValue([{ status: 'accepted', templateId: id }]);
+      definition.methods.handleSubscribe.call(page, { currentTarget: { dataset: { kind } } });
+      expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith([id]);
+      await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    }
+    expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(5);
+  });
+
+  it('never requests an absent or unknown template and leaves the other choices available', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    expect(page.data.subscriptionChoices.filter((item) => item.configured)).toHaveLength(1);
+    definition.methods.handleSubscribe.call(page, {
+      currentTarget: { dataset: { kind: 'leave' } },
+    });
+    definition.methods.handleSubscribe.call(page, {
+      currentTarget: { dataset: { kind: '__proto__' } },
+    });
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+    expect(mocks.updateMine).not.toHaveBeenCalled();
+    expect(page.data.busy).toBe(false);
+  });
+
+  it('enables receiving without triggering a native consent prompt', async () => {
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    definition.methods.handleToggle.call(page, { detail: { checked: true } });
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: true });
   });
 
   it('uses a two-second error capsule and retains input on invalid settings', async () => {
@@ -271,7 +331,7 @@ describe('notification parity controller', () => {
     expect(page.data.notifications.map((item) => item.id)).not.toContain('stale');
   });
 
-  it('requests the approved duty reminder subscription only after an explicit toggle', async () => {
+  it('requests the approved duty reminder subscription only after an explicit button', async () => {
     mocks.requestSubscriptions.mockResolvedValue([
       {
         granted: true,
@@ -286,7 +346,7 @@ describe('notification parity controller', () => {
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
 
-    definition.methods.handleToggle.call(page, { detail: { checked: true } });
+    definition.methods.handleSubscribe.call(page);
     await vi.waitFor(() => expect(page.data.busy).toBe(false));
 
     expect(mocks.requestSubscriptions).toHaveBeenCalledWith([
@@ -297,20 +357,21 @@ describe('notification parity controller', () => {
     });
   });
 
-  it('preserves accepted duty reminders when the business template is rejected', async () => {
+  it('preserves enabled receiving and other native choices when a separately requested template is rejected', async () => {
     mocks.templates.mockResolvedValueOnce(['duty', 'business']);
-    mocks.requestSubscriptions.mockResolvedValue([
-      { status: 'accepted', templateId: 'duty' },
-      { status: 'rejected', templateId: 'business' },
-    ]);
+    mocks.requestSubscriptions.mockResolvedValue([{ status: 'rejected', templateId: 'business' }]);
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    definition.methods.handleSubscribe.call(page);
+    page.setData({ enabled: true });
+    definition.methods.handleSubscribe.call(page, {
+      currentTarget: { dataset: { kind: 'business' } },
+    });
     await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: true });
-    expect(page.data.infoMessage).toContain('部分提醒已获授权');
+    expect(mocks.requestSubscriptions).toHaveBeenCalledWith(['business']);
+    expect(mocks.updateMine).not.toHaveBeenCalled();
+    expect(page.data.enabled).toBe(true);
   });
 
   it('marks the page as large text when the system font setting requests it', async () => {
@@ -375,7 +436,7 @@ describe('notification parity controller', () => {
         resolveGrant = resolve;
       }),
     );
-    definition.methods.handleToggle.call(page, { detail: { checked: true } });
+    definition.methods.handleSubscribe.call(page);
     definition.pageLifetimes.hide.call(page);
     definition.pageLifetimes.show.call(page);
     resolveGrant([{ status: 'accepted' }]);

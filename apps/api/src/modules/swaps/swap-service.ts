@@ -624,6 +624,7 @@ export class SwapService {
       });
     }
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '换班已撤销，双方实际班次已恢复。',
       groupId: authorization.group.id,
       notificationType: 'swap_revoked',
@@ -705,6 +706,7 @@ export class SwapService {
     });
     if (status === 'completed') {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '换班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -715,6 +717,7 @@ export class SwapService {
       });
     } else {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '有人向您发起换班申请，请及时处理。',
         groupId: authorization.group.id,
         notificationType: 'swap_request_created',
@@ -727,6 +730,7 @@ export class SwapService {
       });
       if (status === 'pending_approval') {
         await this.services.notificationWriter.append(transaction, {
+          actorUserId: authorization.user.id,
           administratorRecipients: true,
           body: '成员提交了换班申请，等待您审批。',
           excludeRecipientUserIds: [authorization.user.id],
@@ -811,6 +815,7 @@ export class SwapService {
       schedulePeriodId: context.initiatorPeriod.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '管理员已为您完成换班，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -893,6 +898,7 @@ export class SwapService {
     });
     if (nextStatus === 'completed') {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '换班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -903,6 +909,7 @@ export class SwapService {
       });
     } else {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '对方已接受换班申请，等待管理员审批。',
         groupId: authorization.group.id,
         notificationType: 'swap_request_accepted',
@@ -913,6 +920,7 @@ export class SwapService {
         title: '换班申请已接受',
       });
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         administratorRecipients: true,
         body: '换班申请已被双方接受，等待您审批。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -1001,6 +1009,7 @@ export class SwapService {
       schedulePeriodId: context.initiatorPeriod.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '换班已审批通过，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -1083,6 +1092,7 @@ export class SwapService {
       operatorUserId: authorization.user.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '换班申请已被驳回。',
       groupId: authorization.group.id,
       notificationType: 'swap_request_rejected',
@@ -1152,6 +1162,7 @@ export class SwapService {
       operatorUserId: authorization.user.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '换班申请已取消。',
       excludeRecipientUserIds: [authorization.user.id],
       groupId: authorization.group.id,

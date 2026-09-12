@@ -13,8 +13,11 @@ import {
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { getWechatTemplateKind, readWechatTemplateIds } from '../wechat/wechat-push-dispatcher.js';
+import { readProfileTemplate, resolveBusinessKind } from '../wechat/wechat-template-profiles.js';
+import { snapshotWechatNotification } from '../wechat/wechat-notification-snapshot.js';
 
 export interface NotificationWriteInput {
+  readonly actorUserId?: string;
   readonly administratorRecipients?: boolean;
   readonly body: string;
   readonly browserDelivery?: boolean;
@@ -38,6 +41,23 @@ export class NotificationWriter {
   ): Promise<readonly string[]> {
     const recipientUserIds = await this.resolveRecipientUserIds(transaction, input);
     const notificationIds: string[] = [];
+    const category = getWechatTemplateKind(input.notificationType);
+    const kind =
+      category === 'business'
+        ? resolveBusinessKind(input.notificationType, input.payload, input.objectType)
+        : category;
+    const profile = kind && kind !== 'dutyReminder' ? readProfileTemplate(kind) : undefined;
+    const payload =
+      profile && recipientUserIds.length
+        ? {
+            ...input.payload,
+            wechatBusinessSnapshot: await snapshotWechatNotification(
+              transaction,
+              input,
+              profile.kind,
+            ),
+          }
+        : input.payload;
 
     for (const recipientUserId of recipientUserIds) {
       const notificationId = randomUUID();
@@ -48,7 +68,7 @@ export class NotificationWriter {
         notificationType: input.notificationType,
         ...(input.objectId === undefined ? {} : { objectId: input.objectId }),
         ...(input.objectType === undefined ? {} : { objectType: input.objectType }),
-        ...(input.payload === undefined ? {} : { payload: input.payload }),
+        ...(payload === undefined ? {} : { payload }),
         recipientUserId,
         ...(input.scheduleEventId === undefined ? {} : { scheduleEventId: input.scheduleEventId }),
         ...(input.shiftAssignmentId === undefined
@@ -76,6 +96,8 @@ export class NotificationWriter {
           recipientUserId,
           input.groupId,
           input.notificationType,
+          input.payload,
+          input.objectType,
         )
       ) {
         await transaction.insert(notificationDeliveries).values({
@@ -199,15 +221,21 @@ export class NotificationWriter {
     userId: string,
     groupId: string | undefined,
     notificationType: string,
+    payload?: JsonObject,
+    objectType?: string,
   ): Promise<boolean> {
-    const kind = getWechatTemplateKind(notificationType);
+    const category = getWechatTemplateKind(notificationType);
+    const kind =
+      category === 'business'
+        ? resolveBusinessKind(notificationType, payload, objectType)
+        : category;
     if (kind === undefined) {
       return false;
     }
     const templateIds = readWechatTemplateIds();
     if (
       templateIds[kind] === undefined &&
-      (kind === 'business' || process.env.WECHAT_MOCK_MODE !== 'true')
+      (kind !== 'dutyReminder' || process.env.WECHAT_MOCK_MODE !== 'true')
     ) {
       return false;
     }

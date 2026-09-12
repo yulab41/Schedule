@@ -359,6 +359,7 @@ export class ManualScheduleApplyService {
       input.notifyMembers !== false
     ) {
       await this.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: `${context.preview.applyStartDate}至${context.preview.applyEndDate}排班已发布，请查看日历。`,
         groupId: authorization.group.id,
         notificationType: 'schedule_generated',

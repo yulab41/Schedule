@@ -431,6 +431,7 @@ export class DutyAdjustmentService {
     });
     if (status === 'completed') {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '加扣班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -441,6 +442,7 @@ export class DutyAdjustmentService {
       });
     } else {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '有人向您发起加扣班申请，请及时处理。',
         groupId: authorization.group.id,
         notificationType: 'duty_adjustment_request_created',
@@ -453,6 +455,7 @@ export class DutyAdjustmentService {
       });
       if (status === 'pending_approval') {
         await this.services.notificationWriter.append(transaction, {
+          actorUserId: authorization.user.id,
           administratorRecipients: true,
           body: '成员提交了加扣班申请，等待您审批。',
           excludeRecipientUserIds: [authorization.user.id],
@@ -537,6 +540,7 @@ export class DutyAdjustmentService {
       schedulePeriodId: context.period.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '管理员已为您调整加扣班，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -626,6 +630,7 @@ export class DutyAdjustmentService {
     });
     if (nextStatus === 'completed') {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '加扣班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -636,6 +641,7 @@ export class DutyAdjustmentService {
       });
     } else {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: '对方已接受加扣班申请，等待管理员审批。',
         groupId: authorization.group.id,
         notificationType: 'duty_adjustment_request_accepted',
@@ -646,6 +652,7 @@ export class DutyAdjustmentService {
         title: '加扣班申请已接受',
       });
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         administratorRecipients: true,
         body: '加扣班申请已被双方接受，等待您审批。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -739,6 +746,7 @@ export class DutyAdjustmentService {
       schedulePeriodId: context.period.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '加扣班已审批通过，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -825,6 +833,7 @@ export class DutyAdjustmentService {
       ...(request.reason === null ? {} : { reason: request.reason }),
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '加扣班申请已被驳回。',
       groupId: authorization.group.id,
       notificationType: 'duty_adjustment_request_rejected',
@@ -898,6 +907,7 @@ export class DutyAdjustmentService {
       ...(request.reason === null ? {} : { reason: request.reason }),
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '加扣班申请已取消。',
       excludeRecipientUserIds: [authorization.user.id],
       groupId: authorization.group.id,
@@ -1065,6 +1075,7 @@ export class DutyAdjustmentService {
       schedulePeriodId: context.period.id,
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '加扣班已撤销，原排班已恢复。',
       groupId: authorization.group.id,
       notificationType: 'duty_adjustment_revoked',

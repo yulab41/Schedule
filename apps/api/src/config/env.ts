@@ -38,6 +38,12 @@ const wechatSettings = {
   WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
   WECHAT_BUSINESS_TEMPLATE_ID: optionalTextSchema,
   WECHAT_BUSINESS_TEMPLATE_FIELDS: optionalTextSchema,
+  WECHAT_SWAP_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_SWAP_TEMPLATE_FIELDS: optionalTextSchema,
+  WECHAT_DUTY_ADJUSTMENT_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_DUTY_ADJUSTMENT_TEMPLATE_FIELDS: optionalTextSchema,
+  WECHAT_LEAVE_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_LEAVE_TEMPLATE_FIELDS: optionalTextSchema,
   WECHAT_TRIAL_GROUP_IDS: optionalTextSchema.refine(
     (value) =>
       value === undefined ||

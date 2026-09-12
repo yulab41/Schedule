@@ -203,6 +203,7 @@ export class NotificationRetryJob {
           body: notification.body,
           id: notification.id,
           notificationType: notification.notificationType,
+          objectType: notification.objectType,
           recipientUserId: notification.recipientUserId,
           shiftAssignmentId: notification.shiftAssignmentId,
           groupId: notification.groupId,

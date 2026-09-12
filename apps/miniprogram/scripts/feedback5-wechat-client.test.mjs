@@ -60,6 +60,43 @@ describe('small WeChat diagnostic clients', () => {
     await expect(loadWechatSubscriptionTemplates()).rejects.toThrow('响应无效');
   });
 
+  it('keeps five configured IDs distinct and supports selective grants without assuming old optional fields exist', async () => {
+    const { loadWechatSubscriptionTemplates, loadWechatSubscriptionConfiguration } =
+      await import('../src/platform/wechat-notification-client.ts');
+    mock.execute.mockResolvedValue({
+      statusCode: 200,
+      data: {
+        dutyReminderTemplateId: 'duty',
+        businessTemplateId: 'business',
+        swapTemplateId: 'swap',
+        dutyAdjustmentTemplateId: 'adjustment',
+        leaveTemplateId: 'leave',
+      },
+    });
+    expect(await loadWechatSubscriptionConfiguration()).toEqual({
+      dutyReminder: 'duty',
+      business: 'business',
+      swap: 'swap',
+      dutyAdjustment: 'adjustment',
+      leave: 'leave',
+    });
+    expect(await loadWechatSubscriptionTemplates('leave')).toEqual(['leave']);
+    expect(await loadWechatSubscriptionTemplates('dutyReminder')).toEqual(['duty']);
+    mock.execute.mockResolvedValue({ statusCode: 200, data: { dutyReminderTemplateId: 'duty' } });
+    expect(await loadWechatSubscriptionConfiguration()).toEqual({
+      dutyReminder: 'duty',
+      business: null,
+      swap: null,
+      dutyAdjustment: null,
+      leave: null,
+    });
+    mock.execute.mockResolvedValue({
+      statusCode: 200,
+      data: { dutyReminderTemplateId: 'duty', leaveTemplateId: 'unsafe value' },
+    });
+    await expect(loadWechatSubscriptionConfiguration()).rejects.toThrow();
+  });
+
   it('requires a positive preference acknowledgement and retains session handling', async () => {
     const { saveWechatReceivingPreference } =
       await import('../src/platform/wechat-notification-client.ts');

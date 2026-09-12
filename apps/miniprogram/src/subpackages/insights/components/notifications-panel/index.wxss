@@ -572,3 +572,9 @@
     flex-direction: column;
   }
 }
+
+.subscription-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

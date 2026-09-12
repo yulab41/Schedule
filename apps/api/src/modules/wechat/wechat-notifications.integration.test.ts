@@ -14,6 +14,11 @@ import {
   shiftTypes,
   shiftAssignments,
   groups,
+  notifications,
+  userProfiles,
+  swapRequests,
+  dutyAdjustments,
+  leaveRequests,
 } from '@schedule/database';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import { and, eq, sql } from 'drizzle-orm';
@@ -149,6 +154,175 @@ describeWithDatabase('wechat notification deliveries', () => {
       ).sent,
     ).toBe(0);
     expect(gateway.sends).toHaveLength(0);
+  });
+
+  it('snapshots four workflow-specific templates in the operation transaction and retries the original facts', async () => {
+    const mappings = {
+      BUSINESS: { dateRange: 'date2', status: 'thing7', summary: 'thing4', actorName: 'name3' },
+      SWAP: {
+        actorName: 'short_thing1',
+        participantsHint: 'short_thing4',
+        dateRange: 'time2',
+        swapSummary: 'thing3',
+        reason: 'thing5',
+      },
+      DUTY_ADJUSTMENT: {
+        shiftName: 'thing3',
+        dateRange: 'time4',
+        remarks: 'thing5',
+        actorName: 'thing2',
+      },
+      LEAVE: {
+        subjectName: 'name1',
+        leaveType: 'thing2',
+        reason: 'thing3',
+        appliedAt: 'time9',
+        tip: 'thing16',
+      },
+    };
+    for (const [key, mapping] of Object.entries(mappings)) {
+      process.env[`WECHAT_${key}_TEMPLATE_ID`] = `tpl-${key}`;
+      process.env[`WECHAT_${key}_TEMPLATE_FIELDS`] = JSON.stringify(mapping);
+    }
+    process.env.WECHAT_TRIAL_GROUP_IDS = groupId;
+    const members = await client.database
+      .select()
+      .from(groupMemberships)
+      .where(eq(groupMemberships.groupId, groupId));
+    const member = members.find((row) => row.userId === memberUserId)!;
+    const owner = members.find((row) => row.role === 'owner')!;
+    await client.database
+      .update(userProfiles)
+      .set({ realName: '操作甲' })
+      .where(eq(userProfiles.userId, owner.userId!));
+    await client.database
+      .update(userProfiles)
+      .set({ realName: '成员乙' })
+      .where(eq(userProfiles.userId, memberUserId));
+    await appendDutyReminder(memberUserId, false);
+    const [first] = await client.database.select().from(shiftAssignments);
+    const secondId = randomUUID();
+    await client.database
+      .insert(shiftAssignments)
+      .values({ ...first!, id: secondId, slotPosition: 2 });
+    const swapId = randomUUID(),
+      adjustmentId = randomUUID(),
+      leaveId = randomUUID();
+    await client.database.insert(swapRequests).values({
+      id: swapId,
+      groupId,
+      initiatorMembershipId: owner.id,
+      targetMembershipId: member.id,
+      initiatorAssignmentId: first!.id,
+      targetAssignmentId: secondId,
+      initiatorAssignmentVersion: 1,
+      targetAssignmentVersion: 1,
+    });
+    await client.database.insert(dutyAdjustments).values({
+      id: adjustmentId,
+      groupId,
+      coveredAssignmentId: first!.id,
+      overtimeMembershipId: member.id,
+      deductedMembershipId: owner.id,
+      assignmentVersion: 1,
+      reason: '个人事务',
+    });
+    await client.database.insert(leaveRequests).values({
+      id: leaveId,
+      groupId,
+      membershipId: member.id,
+      leaveType: 'sick',
+      startsAt: new Date('2026-09-13T00:00:00Z'),
+      endsAt: new Date('2026-09-14T00:00:00Z'),
+      reason: '身体不适',
+      createdAt: new Date('2026-09-12T01:00:00Z'),
+    });
+    const writer = new NotificationWriter();
+    for (const value of [
+      {
+        notificationType: 'schedule_published',
+        payload: { startDate: '2026-09-07', endDate: '2026-09-20' },
+      },
+      {
+        notificationType: 'approval_pending',
+        objectId: swapId,
+        objectType: 'swap_request',
+        payload: { requestType: 'swap' },
+      },
+      {
+        notificationType: 'duty_adjustment_request_accepted',
+        objectId: adjustmentId,
+        objectType: 'duty_adjustment',
+      },
+      {
+        notificationType: 'leave_request_approved',
+        objectId: leaveId,
+        objectType: 'leave_request',
+      },
+    ])
+      await withTransaction(client, (tx) =>
+        writer.append(tx, {
+          ...value,
+          groupId,
+          actorUserId: owner.userId!,
+          recipientUserIds: [memberUserId, memberUserId],
+          title: '业务通知',
+          body: '详情',
+        }),
+      );
+    expect(await client.database.select().from(notifications)).toHaveLength(4);
+    await client.database
+      .update(userProfiles)
+      .set({ realName: '后来改名' })
+      .where(eq(userProfiles.userId, owner.userId!));
+    await client.database
+      .update(leaveRequests)
+      .set({ reason: '后来改动' })
+      .where(eq(leaveRequests.id, leaveId));
+    const gateway = new RecordingGateway();
+    const job = new NotificationRetryJob(
+      client,
+      createPushDispatcher({}),
+      new WechatPushDispatcher(client, gateway),
+    );
+    expect((await job.run()).sent).toBe(4);
+    expect(gateway.sends.find((row) => row.templateId === 'tpl-BUSINESS')?.data).toMatchObject({
+      name3: { value: '操作甲' },
+      date2: { value: '2026-09-07~2026-09-20' },
+    });
+    expect(gateway.sends.find((row) => row.templateId === 'tpl-SWAP')?.data).toMatchObject({
+      short_thing1: { value: '操作甲' },
+      short_thing4: { value: '见换班岗位' },
+      thing3: {
+        value: `操作甲${first!.businessDate.slice(5).replace('-', '')}全→成员乙${first!.businessDate.slice(5).replace('-', '')}全`,
+      },
+      thing5: { value: '待审批：未填写原因' },
+    });
+    expect(
+      gateway.sends.find((row) => row.templateId === 'tpl-DUTY_ADJUSTMENT')?.data,
+    ).toMatchObject({ thing2: { value: '操作甲' }, thing5: { value: '已接受：个人事务' } });
+    expect(gateway.sends.find((row) => row.templateId === 'tpl-LEAVE')?.data).toMatchObject({
+      name1: { value: '成员乙' },
+      thing2: { value: '病假' },
+      thing3: { value: '身体不适' },
+      time9: { value: '2026-09-12 09:00' },
+    });
+    expect((await job.run()).attempted).toBe(0);
+    await expect(
+      withTransaction(client, async (tx) => {
+        await writer.append(tx, {
+          groupId,
+          actorUserId: owner.userId!,
+          recipientUserIds: [memberUserId],
+          notificationType: 'schedule_published',
+          title: '回滚',
+          body: '回滚',
+          payload: { businessMonth: '2026-09-01' },
+        });
+        throw new Error('rollback');
+      }),
+    ).rejects.toThrow('rollback');
+    expect(await client.database.select().from(notifications)).toHaveLength(4);
   });
 
   it.each(['preference', 'membership', 'group'])(
@@ -563,6 +737,12 @@ class FlakyGateway implements WechatGateway {
 }
 
 const wechatEnvKeys = [
+  'WECHAT_SWAP_TEMPLATE_ID',
+  'WECHAT_SWAP_TEMPLATE_FIELDS',
+  'WECHAT_DUTY_ADJUSTMENT_TEMPLATE_ID',
+  'WECHAT_DUTY_ADJUSTMENT_TEMPLATE_FIELDS',
+  'WECHAT_LEAVE_TEMPLATE_ID',
+  'WECHAT_LEAVE_TEMPLATE_FIELDS',
   'WECHAT_DUTY_REMINDER_TEMPLATE_ID',
   'WECHAT_MOCK_MODE',
   'WECHAT_BUSINESS_TEMPLATE_ID',

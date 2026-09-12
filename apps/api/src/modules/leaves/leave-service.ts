@@ -146,6 +146,7 @@ export class LeaveService {
           ...(input.reason === undefined ? {} : { reason: input.reason }),
         });
         await this.services.notificationWriter.append(transaction, {
+          actorUserId: authorization.user.id,
           administratorRecipients: true,
           body: '成员提交了新的请假申请，请及时审批。',
           excludeRecipientUserIds: [authorization.user.id],
@@ -467,6 +468,7 @@ export class LeaveService {
       eventId,
     );
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '您的请假申请已批准，受影响班次已设为待安排。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_approved',
@@ -550,6 +552,7 @@ export class LeaveService {
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '您的请假申请已被驳回。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_rejected',
@@ -638,6 +641,7 @@ export class LeaveService {
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: '请假申请已取消。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_cancelled',
@@ -649,6 +653,7 @@ export class LeaveService {
     });
     if (isOwner) {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         administratorRecipients: true,
         body: '成员取消了请假申请。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -750,6 +755,7 @@ export class LeaveService {
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.services.notificationWriter.append(transaction, {
+      actorUserId: authorization.user.id,
       body: `请假已撤销，恢复 ${restoration.restoredAssignmentIds.length} 个未修改空缺；其余班次保留现状。`,
       groupId: authorization.group.id,
       notificationType: 'leave_request_revoked',
@@ -761,6 +767,7 @@ export class LeaveService {
     });
     if (isOwner) {
       await this.services.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         administratorRecipients: true,
         body: '成员撤销了已批准的请假。',
         excludeRecipientUserIds: [authorization.user.id],

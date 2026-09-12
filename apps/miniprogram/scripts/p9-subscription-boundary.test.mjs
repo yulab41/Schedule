@@ -48,8 +48,8 @@ describe('P9 external message subscription boundary', () => {
       'src/subpackages/insights/components/notifications-panel/controller.ts',
     );
 
-    expect(controller).toContain('loadWechatSubscriptionTemplates()');
-    expect(controller).toContain('requestWechatSubscriptions(page._subscriptionTemplates)');
+    expect(controller).toContain('loadWechatSubscriptionConfiguration()');
+    expect(controller).toContain('requestWechatSubscriptions([templateId])');
     expect(controller).not.toContain('Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI');
   });
 });

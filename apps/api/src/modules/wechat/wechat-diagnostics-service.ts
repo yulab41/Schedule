@@ -75,6 +75,9 @@ export class WechatDiagnosticsService {
     return {
       dutyReminderTemplateId: templates.dutyReminder?.trim() || null,
       ...(templates.business ? { businessTemplateId: templates.business } : {}),
+      ...(templates.swap ? { swapTemplateId: templates.swap } : {}),
+      ...(templates.dutyAdjustment ? { dutyAdjustmentTemplateId: templates.dutyAdjustment } : {}),
+      ...(templates.leave ? { leaveTemplateId: templates.leave } : {}),
     };
   }
 

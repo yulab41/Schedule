@@ -26,8 +26,8 @@ describe('P9 native notification settings', () => {
         'pages/notification-settings/index',
       ],
     });
-    expect(page).toContain('微信值班提醒');
-    expect(page).toContain('微信订阅仅在你点击开启或“订阅微信提醒”时申请');
+    expect(page).toContain('值班提醒');
+    expect(page).toContain('微信订阅仅在你点击对应通知的授权按钮时申请');
     expect(workbench).toContain('handleOpenNotificationSettings');
     expect(workbench).toContain('wx:if="{{toolAccess.notificationSettings}}"');
     expect(read('src/pages/workbench/index.ts')).toContain("'notificationSettings'");

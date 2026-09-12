@@ -118,7 +118,7 @@
           ><view class="page-heading"
             ><text class="section-eyebrow">提醒节奏</text><text class="page-title">通知设置</text
             ><text class="page-description"
-              >站内通知始终可用；微信订阅仅在你点击开启或“订阅微信提醒”时申请。</text
+              >站内通知始终可用；微信订阅仅在你点击对应通知的授权按钮时申请。</text
             ></view
           ><view wx:if="{{canManageGroupSettings}}" class="settings-card"
             ><text class="settings-title">群组默认提醒时间</text
@@ -189,17 +189,20 @@
                 loading="{{busy}}"
                 bind:change="handleToggle"
               ></ui-switch></view
-            ><ui-button
-              variant="secondary"
-              label="订阅微信提醒"
-              loading="{{busy}}"
-              disabled="{{busy || !templateConfigured}}"
-              bindpress="handleSubscribe"
-            ></ui-button
+            ><view class="subscription-buttons"
+              ><ui-button
+                wx:for="{{subscriptionChoices}}"
+                wx:key="kind"
+                variant="secondary"
+                label="{{item.configured ? '授权' + item.label : item.label + '（暂未配置）'}}"
+                data-kind="{{item.kind}}"
+                disabled="{{busy || !item.configured}}"
+                bindpress="handleSubscribe"
+              ></ui-button></view
             ><view class="audit-note"
               ><text class="audit-mark">⌁</text
               ><text
-                >微信值班提醒与排班、审批消息分别授权。开启接收偏好不代表微信已授权；可点击“订阅微信提醒”再次授权。一次性订阅每个模板每次授权可发送一条提醒。</text
+                >值班提醒、排班更新、换班通知、加扣班通知和请假通知分别授权。开启接收偏好不代表微信已授权；每次点击只申请对应通知，保留其他通知已有选择。一次性订阅每个模板每次授权可发送一条提醒。</text
               ></view
             ></view
           ><ui-alert
@@ -216,9 +219,7 @@
           ></ui-button
           ><view wx:if="{{!templateConfigured}}" class="template-note"
             ><text class="template-note-title">订阅暂未就绪</text
-            ><text class="template-note-copy"
-              >{{templateNotice}}</text
-            ></view
+            ><text class="template-note-copy">{{templateNotice}}</text></view
           ><view class="bottom-spacer"></view
         ></view>
       </block>

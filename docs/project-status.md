@@ -1,13 +1,11 @@
 # Project Status
 
-## 当前批次：feedback12服务器与109已交付，业务模板待补充
+## 当前批次：五类通知模板代码与验证完成，待部署配置
 
-- 用户已授权并完成API/Web部署和两群trial路由配置。已验证应用release为37d752b5、schema57；前驱a90e3b0a，备份fdb247e7-bed8-46ec-8f7a-44c9cb2a505c文件hash验证通过。详情docs/audit/feedback12-server-release.md。
-- 完整生产verifier与allowlist verify通过，109/108公网200、未知426。通知cron正常，两群自动消息trial、其他群formal；未触发真实测试发送或重发历史通知。新访客显示设置API已部署。
-- 微信实际账号仅有原值班“排班提醒”模板；独立业务模板ID/字段缺失，新业务微信通道保持关闭。已弹窗索取，不能标记全部通知能力启用。唯一下一任务是取得实际模板ID/字段并配置验证。
-- 体验版保持0.1.0-p10.20260912.109/a9d5a1e，未重复上传或改放行。二维码保存及导出整页白屏仍待同版本小米14安全诊断，十项状态见docs/audit/feedback12.md。
-- 验证沿用Mini1160/15跳过、根1247/433跳过、依赖保护81、隔离MySQL71、390/320及本地浏览器；本轮增加发布4+37项和生产验证。生产浏览器工具打开超时，不计通过。全程复用依赖，无安装。
-- 文档检查点docs(ops): record feedback12 server deployment and template blocker；文档release同步仅可通过可信hash-identical复用，无再次部署应用/迁移。最新current-release与Manifest保留实际身份。
+- 用户已提供四个实际业务模板并确认五个独立授权按钮；换班状态前缀、完整姓名MMDD班种缩写紧凑摘要及超长查看提示均已确认。设计/行为/证据详见docs/audit/feedback12-template-integration.md。
+- 五类模板分别路由，原业务事务记录操作人和业务快照；重试不漂移，保留接收人/权限/静默/去重，未补发旧通知。新增配置透传，无迁移或依赖新增。
+- pnpm verify完整通过：Mini1164/15跳过、根1251/434跳过、依赖保护81；独立MySQL132通过，390/320五按钮CSS几何及完整本地浏览器冒烟通过。无原生或真实收信通过结论。
+- 代码检查点feat(notifications): separate five subscription templates；当前服务器仍上一轮d1d7a7a3，体验版109/a9d5a1e。唯一下一任务：部署已授权API/Web并原子配置四模板，取得新体验版上传授权使五按钮可用；不重复护士导入或重发历史通知。
 
 ## 上一批次：护士照片139条已录入，待用户查看
 

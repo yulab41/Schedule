@@ -381,6 +381,7 @@ export class SchedulePublishService {
     ];
     if (affectedMembershipIds.length > 0) {
       await this.notificationWriter.append(transaction, {
+        actorUserId: authorization.user.id,
         body: `您的 ${period.businessMonth} 排班已发布，请查看日历。`,
         groupId: authorization.group.id,
         notificationType: 'schedule_published',

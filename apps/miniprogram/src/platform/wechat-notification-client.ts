@@ -51,24 +51,46 @@ async function request(
   }
   return response.data;
 }
-export async function loadWechatSubscriptionTemplates(
-  kind: 'all' | 'dutyReminder' = 'all',
-): Promise<readonly string[]> {
-  const value = (await request('/notifications/wechat-subscription-config')) as {
-    dutyReminderTemplateId?: unknown;
-    businessTemplateId?: unknown;
-  } | null;
-  const id = value?.dutyReminderTemplateId;
-  const ids = kind === 'dutyReminder' ? [id] : [id, value?.businessTemplateId ?? null];
+export type WechatSubscriptionKind =
+  'dutyReminder' | 'business' | 'swap' | 'dutyAdjustment' | 'leave';
+export type WechatSubscriptionConfiguration = Readonly<
+  Record<WechatSubscriptionKind, string | null>
+>;
+
+export async function loadWechatSubscriptionConfiguration(): Promise<WechatSubscriptionConfiguration> {
+  const value = (await request('/notifications/wechat-subscription-config')) as Record<
+    string,
+    unknown
+  > | null;
   if (
-    ids.some(
-      (template) =>
-        template !== null &&
-        (typeof template !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(template)),
-    )
-  )
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !('dutyReminderTemplateId' in value)
+  ) {
     throw new Error('微信订阅配置响应无效，请刷新重试。');
-  return [...new Set(ids.filter((template): template is string => typeof template === 'string'))];
+  }
+  const configuration = {
+    dutyReminder: value.dutyReminderTemplateId,
+    business: value.businessTemplateId ?? null,
+    swap: value.swapTemplateId ?? null,
+    dutyAdjustment: value.dutyAdjustmentTemplateId ?? null,
+    leave: value.leaveTemplateId ?? null,
+  };
+  for (const id of Object.values(configuration)) {
+    if (id !== null && (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(id))) {
+      throw new Error('微信订阅配置响应无效，请刷新重试。');
+    }
+  }
+  return configuration as WechatSubscriptionConfiguration;
+}
+
+export async function loadWechatSubscriptionTemplates(
+  kind: 'all' | WechatSubscriptionKind = 'all',
+): Promise<readonly string[]> {
+  const configuration = await loadWechatSubscriptionConfiguration();
+  const ids = kind === 'all' ? Object.values(configuration) : [configuration[kind]];
+  return [...new Set(ids.filter((id): id is string => typeof id === 'string'))];
 }
 export async function inspectWechatNotifications(groupId: string): Promise<unknown> {
   return request(`/me/wechat-notification-diagnostics?groupId=${encodeURIComponent(groupId)}`);

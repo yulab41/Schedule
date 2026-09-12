@@ -2788,3 +2788,8 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 - 二维码/导出9bae5beb后续安全分类及初始化截止见feedback12-export-qr.md；原生相册与整页白屏仍未证实根因。通知旧/新接收人52e9e1f4问题与双模板实现见feedback12-notifications.md，未触生产/真发送。
 - 运行/浏览器验证：pnpm smoke:browser（当前集成源码，SMOKE_BASE_URL=http://127.0.0.1:4175，本地API3105，canonical本地.env只读内存适配）通过登录、管理员、成员、访客及访问记录；无浏览器错误。既有local-admin测试标记回读恢复，两个自建服务已停止。
 - Native状态：已实现待小米14复核；桌面几何、Node和隔离MySQL不替代微信原生验收。外部操作仍需精确候选授权。
+
+## Feedback12 五类通知模板接入（2026-09-12）
+
+引入点7842c4da（git log -S buildBusinessTemplateData / blame核对）：旧通用业务模板无法表达本次用户提供的日期、操作者、换班双方及请假资料。用户批准五按钮独立订阅和换班紧凑/超长提示。现按族映射并在原业务事务内记录快照，保留权限/原接收人/去重/静默/重试，无历史重发。UI RED2、换班紧凑RED1，修复后59/4通过；隔离MySQL六文件132通过。
+运行/浏览器验证：pnpm smoke:browser（等价node入口、本地API3105/Web4175、只读本地env适配）完整登录/管理员/成员/访客/访问记录通过；合成local-admin已恢复并回读，服务停止。实现及本地运行验证完成，部署/配置及原生订阅、实际自动收信分别记录，不将mock当真机。详见docs/audit/feedback12-template-integration.md。
