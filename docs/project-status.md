@@ -1,6 +1,14 @@
 # Project Status
 
-## 当前批次：Feedback15 已部署并放行112，待小米14复核
+## 当前批次：Feedback16 设计检查点，准备实现 A/B/C
+
+- 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
+- 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
+- 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
+- 外部边界：不控制微信开发者工具；未授权体验版上传、生产部署或数据库操作。
+- 下一批次：先建立 A 的全天元数据/单次高度 RED 回归；停止条件为回归覆盖旧行为后再进入实现。
+
+## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
 - 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情docs/audit/feedback15.md。
 - 当前周独立测量/点选局部更新、before折叠、岗位改名接口与弹窗、月历顺延/62px、三视图补班、单按钮两步授权及日期文字盒居中已实现。
