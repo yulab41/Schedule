@@ -98,7 +98,6 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 
 `pages/gesture-probe/index` 是用于区分 Android Pan Worklet、WXS 视图层与普通逻辑层触摸能力的 diagnostic-only 页面，不是产品 UI，不建立 Storybook 黄金样张，也不参与 98% 视觉门槛。WXS 黄色点已由目标 Android 确认横纵同步跟手，矩阵接入后仍需独立完成 C/D 产品交互验收。
 
-
 ## Feedback7（2026-09-09）用户截图修正
 
 沿用P5行的 `miniprogram-parity-p5-scheduling-closure--editor-390` / `--editor-320` / `--preview-390` / `--release-390` / `--backfill-390` 作为既有视觉参考。用户本轮17项及两次明确选择覆盖空白模板、独立内嵌草稿/发布、月历预览、紧凑按钮及删除失效排序箭头的差异；没有新增或声称已更新Storybook黄金。
@@ -114,3 +113,13 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 沿用 P5 的 editor/maximum/preview/release/backfill 与 P9-A11 export-ready 的既有 Storybook 参考。群组偏好对应 organization 群组设置页；本轮用户截图和确认方案覆盖分区横线、矩阵按人数展开与实测宽度、正方形班种标识、节假日和无重复装饰的月历、默认日期占位、CSV 下载后主动发送文件。P9-A11 历史行中的 openDocument 在本轮替换为 CSV 文件发送。
 
 合成 fixture 使用 1/6/7/20 人、30 天、三字姓名、五行/六行月历、跨年节假日以及导出生成/下载/发送/失败状态；320×844、390×844及大字体检查详情见根 `docs/audit/feedback9.md`。桌面源 CSS 证据保存在独占工作区的 ignored `runtime/audit/feedback9/`。未更新或声称重新通过 Storybook 黄金比较；小米14同版本真实交互、下载及发送仍待用户复核。
+
+## Feedback12 护士日历批准差异（2026-09-12）
+
+沿用P4工作台的真实story映射；本批护士显示差异由用户确认的样张及其修正覆盖，不改Web业务页面。390×844及320px几何使用生产ViewModel/CSS和合成人员，通过apps/miniprogram/scripts/feedback12-layout.mjs生成，证据位于ignored runtime/audit/feedback12/layout。
+
+| 视图      | 状态/fixture                       | 桌面几何                      | 用户确认                               | 原生证据       |
+| --------- | ---------------------------------- | ----------------------------- | -------------------------------------- | -------------- |
+| 月历      | 群组单一默认、无班留空、姓名+人数  | 390/320通过                   | 保留原徽标与图标                       | 待同版本小米14 |
+| 周历/详情 | 六班种多人、长姓名、分段休息、折叠 | 390/320通过                   | 实色徽标叠浅色框、状态无箭头、整头触控 | 待同版本小米14 |
+| 列表      | 固定排序、工作状态、原电话按钮     | 390/320通过，电话间距至少12px | 不改无关UI                             | 待同版本小米14 |

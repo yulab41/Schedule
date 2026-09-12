@@ -1,5 +1,11 @@
 import type { CalendarReadModel, HolidayReadModel } from '@schedule/contracts';
 import {
+  getNurseDutyState,
+  nurseShiftCode,
+  nurseShiftOrder,
+  type DutyStateView,
+} from './nurse-duty-state.js';
+import {
   buildDayList,
   buildMonthDisplayGrid,
   filterCalendarAssignments,
@@ -30,6 +36,9 @@ export interface WorkbenchFilters {
 }
 
 export interface WorkbenchCell {
+  readonly extraPersonCount: number;
+  readonly shiftAbbreviation: string;
+  readonly shiftBadgeStyle: string;
   readonly ariaLabel: string;
   readonly businessDate: string;
   readonly day: string;
@@ -53,7 +62,7 @@ export interface WorkbenchPanel {
   readonly slot: MonthSlot;
 }
 
-export interface WorkbenchDetail {
+export interface WorkbenchDetail extends DutyStateView {
   readonly key: string;
   readonly rows: readonly WorkbenchDetailRow[];
   readonly shiftAbbreviation: string;
@@ -86,7 +95,7 @@ export interface WorkbenchPhoneOption {
   readonly number: string;
 }
 
-export interface WorkbenchDuty {
+export interface WorkbenchDuty extends DutyStateView {
   readonly details: string;
   readonly key: string;
   readonly markers: readonly string[];
@@ -98,6 +107,7 @@ export interface WorkbenchDuty {
 }
 
 export interface WorkbenchWeekDay {
+  readonly shiftGroups: readonly WorkbenchWeekShiftGroup[];
   readonly businessDate: string;
   readonly day: string;
   readonly duties: readonly WorkbenchDuty[];
@@ -111,6 +121,7 @@ export interface WorkbenchWeekDay {
 }
 
 export interface WorkbenchWeekPanel {
+  readonly height: number;
   readonly days: readonly WorkbenchWeekDay[];
   readonly key: string;
   readonly rangeLabel: string;
@@ -139,12 +150,28 @@ export interface WorkbenchListPanel {
 }
 
 export interface WorkbenchViewModel {
+  readonly nextDutyBoundary: number;
   readonly listPanels: readonly WorkbenchListPanel[];
   readonly monthLabel: string;
   readonly monthPanels: readonly WorkbenchPanel[];
   readonly selectedDetails: readonly WorkbenchDetail[];
   readonly selectedLabel: string;
   readonly weekPanels: readonly WorkbenchWeekPanel[];
+}
+
+export interface WorkbenchWeekShiftGroup {
+  readonly textColor: string;
+  readonly key: string;
+  readonly abbreviation: string;
+  readonly color: string;
+  readonly tint: string;
+  readonly duties: readonly WorkbenchDuty[];
+}
+export interface WorkbenchDisplayOptions {
+  readonly monthPreferencePending?: boolean;
+  readonly nursePreset?: boolean;
+  readonly effectiveMonthShiftTypeId?: string | null;
+  readonly now?: Date;
 }
 
 export interface MonthRing {
@@ -249,14 +276,36 @@ export function createWorkbenchViewModel(
   weekStart: string,
   filters: WorkbenchFilters = emptyWorkbenchFilters,
   today = getTodayBusinessDate(),
+  options: WorkbenchDisplayOptions = {},
 ): WorkbenchViewModel {
+  const now = options.now ?? new Date();
+  const order = new Map(calendar.shiftTypes.map((shift, index) => [shift.id, index]));
+  const rank = (assignment: CalendarReadModel['assignments'][number]): number => {
+    const code =
+      nurseShiftCode(assignment.shiftTypeName) ?? nurseShiftCode(assignment.shiftTypeAbbreviation);
+    const nurseIndex = code === undefined ? -1 : nurseShiftOrder.indexOf(code);
+    return options.nursePreset && nurseIndex >= 0
+      ? nurseIndex
+      : 6 + (order.get(assignment.shiftTypeId) ?? order.size);
+  };
   const holidayByDate = new Map(holidays.dates.map((holiday) => [holiday.date, holiday]));
-  const assignments = filterCalendarAssignments(calendar.assignments, {
+  const filtered = filterCalendarAssignments(calendar.assignments, {
     membershipIds: filters.membershipIds,
     onlyChanges: filters.onlyChanges,
     roleIds: filters.roleIds,
     shiftTypeIds: filters.shiftTypeIds,
   });
+  const assignments = options.nursePreset
+    ? [...filtered].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition)
+    : filtered;
+  const duty = (assignment: CalendarReadModel['assignments'][number]) =>
+    createDuty(
+      assignment,
+      memberById,
+      allDayShiftTypeIds.has(assignment.shiftTypeId),
+      options.nursePreset === true,
+      now,
+    );
   const monthLabel = formatMonthLabel(businessMonth);
   const memberById = new Map(calendar.members.map((member) => [member.membershipId, member]));
   const allDayShiftTypeIds = new Set(
@@ -267,10 +316,11 @@ export function createWorkbenchViewModel(
     return {
       cells: createMonthCells(
         panelMonth,
-        assignments,
+        options.monthPreferencePending ? [] : assignments,
         holidayByDate,
         relative === 0 ? selectedDate : '',
         today,
+        options.effectiveMonthShiftTypeId,
       ),
       key: panelMonth,
       relative,
@@ -280,27 +330,47 @@ export function createWorkbenchViewModel(
   const weekPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelWeekStart = addWeek(weekStart, relative);
     const weekDates = getWeekDays(panelWeekStart);
+    const days = weekDates.map((businessDate) => {
+      const dayAssignments = assignments.filter(
+        (assignment) => assignment.businessDate === businessDate,
+      );
+      const holiday = holidayByDate.get(businessDate);
+      return {
+        businessDate,
+        day: businessDate.slice(8),
+        duties: dayAssignments.map(duty),
+        shiftGroups: createWeekShiftGroups(dayAssignments, duty),
+        holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
+        isHoliday: holiday?.isOffDay === true,
+        isPast: businessDate < today,
+        isSelected: relative === 0 && businessDate === selectedDate,
+        isToday: businessDate === today,
+        isWeekend: isWeekend(businessDate),
+        weekday: getWeekdayLabel(businessDate).slice(1),
+      } satisfies WorkbenchWeekDay;
+    });
     return {
-      days: weekDates.map((businessDate) => {
-        const dayAssignments = assignments.filter(
-          (assignment) => assignment.businessDate === businessDate,
-        );
-        const holiday = holidayByDate.get(businessDate);
-        return {
-          businessDate,
-          day: businessDate.slice(8),
-          duties: dayAssignments.map((assignment) =>
-            createDuty(assignment, memberById, allDayShiftTypeIds.has(assignment.shiftTypeId)),
-          ),
-          holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
-          isHoliday: holiday?.isOffDay === true,
-          isPast: businessDate < today,
-          isSelected: relative === 0 && businessDate === selectedDate,
-          isToday: businessDate === today,
-          isWeekend: isWeekend(businessDate),
-          weekday: getWeekdayLabel(businessDate).slice(1),
-        } satisfies WorkbenchWeekDay;
-      }),
+      days,
+      height: Math.max(
+        112,
+        ...days.map(
+          (day) =>
+            30 +
+            day.shiftGroups.reduce(
+              (sum, group) =>
+                sum +
+                28 +
+                group.duties.reduce(
+                  (size, row) =>
+                    size +
+                    Math.max(1, Math.ceil(Array.from(row.name).length / 3)) * 16 +
+                    (row.markers.length > 0 ? 16 : 0),
+                  0,
+                ),
+              0,
+            ),
+        ),
+      ),
       key: panelWeekStart,
       rangeLabel: getWeekLabel(panelWeekStart),
       relative,
@@ -310,7 +380,11 @@ export function createWorkbenchViewModel(
   const selectedDetails = createSelectedDetails(
     assignments.filter((assignment) => assignment.businessDate === selectedDate),
     memberById,
-    calendar.shiftTypes.map((shiftType) => shiftType.id),
+    options.nursePreset
+      ? [...new Set(assignments.map((a) => a.shiftTypeId))]
+      : calendar.shiftTypes.map((shiftType) => shiftType.id),
+    options.nursePreset === true,
+    now,
   );
   const listPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
@@ -323,9 +397,12 @@ export function createWorkbenchViewModel(
         return {
           businessDate: entry.businessDate,
           dateLabel: entry.businessDate.slice(5),
-          duties: entry.assignments.map((assignment) =>
-            createDuty(assignment, memberById, allDayShiftTypeIds.has(assignment.shiftTypeId)),
-          ),
+          duties: (options.nursePreset
+            ? [...entry.assignments].sort(
+                (a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition,
+              )
+            : entry.assignments
+          ).map(duty),
           dutyCountLabel: `${entry.assignments.length} 班`,
           holiday: holiday?.isOffDay === true ? holiday.holidayName : '',
           isHoliday: holiday?.isOffDay === true,
@@ -342,6 +419,14 @@ export function createWorkbenchViewModel(
   });
 
   return {
+    nextDutyBoundary: assignments.reduce((next, assignment) => {
+      const boundary = getNurseDutyState(
+        assignment,
+        options.nursePreset === true,
+        now,
+      ).nextBoundary;
+      return boundary > 0 && (next === 0 || boundary < next) ? boundary : next;
+    }, 0),
     listPanels,
     monthLabel,
     monthPanels,
@@ -355,10 +440,13 @@ function createDuty(
   assignment: CalendarReadModel['assignments'][number],
   memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
   isAllDay: boolean,
+  nursePreset: boolean,
+  now: Date,
 ): WorkbenchDuty {
   const membershipId = assignment.actualMembershipId ?? assignment.plannedMembershipId ?? '';
   const member = memberById.get(membershipId);
   return {
+    ...getNurseDutyState(assignment, nursePreset, now),
     details: `${assignment.shiftTypeName} · ${formatClock(assignment.startsAt)}–${formatClock(assignment.endsAt)} · ${assignment.scheduleRoleName}`,
     key: assignment.id,
     markers: createMarkerList(assignment.changeMarkers),
@@ -384,6 +472,7 @@ function createMonthCells(
   holidayByDate: ReadonlyMap<string, HolidayReadModel['dates'][number]>,
   selectedDate: string,
   today: string,
+  preferredShiftTypeId?: string | null,
 ): readonly WorkbenchCell[] {
   const assignmentsByDate = new Map<string, CalendarReadModel['assignments'][number][]>();
   for (const assignment of assignments) {
@@ -395,11 +484,25 @@ function createMonthCells(
   return grid.map((cell, index) => {
     const holiday = holidayByDate.get(cell.businessDate);
     const dayAssignments = assignmentsByDate.get(cell.businessDate) ?? [];
-    const firstAssignment = dayAssignments[0];
+    const firstAssignment = preferredShiftTypeId
+      ? dayAssignments.find((assignment) => assignment.shiftTypeId === preferredShiftTypeId)
+      : dayAssignments[0];
     const marker = firstAssignment === undefined ? '' : createMarker(firstAssignment.changeMarkers);
+    const count =
+      firstAssignment === undefined
+        ? 0
+        : dayAssignments.filter(
+            (assignment) => assignment.shiftTypeId === firstAssignment.shiftTypeId,
+          ).length;
     const person = firstAssignment === undefined ? '' : getAssignmentName(firstAssignment);
     const state = [holiday?.holidayName ?? '', person, marker].filter(Boolean).join('，');
     return {
+      extraPersonCount: Math.max(0, count - 1),
+      shiftAbbreviation: firstAssignment?.shiftTypeAbbreviation ?? '',
+      shiftBadgeStyle:
+        firstAssignment === undefined
+          ? ''
+          : `color:${firstAssignment.shiftTypeTextColor};background:${firstAssignment.shiftTypeColor}`,
       ariaLabel: state.length > 0 ? `${cell.businessDate}，${state}` : cell.businessDate,
       businessDate: cell.businessDate,
       day: cell.businessDate.slice(8),
@@ -422,6 +525,8 @@ function createSelectedDetails(
   assignments: readonly CalendarReadModel['assignments'][number][],
   memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
   shiftTypeOrder: readonly string[],
+  nursePreset: boolean,
+  now: Date,
 ): readonly WorkbenchDetail[] {
   const grouped = new Map<string, CalendarReadModel['assignments'][number][]>();
   for (const assignment of assignments) {
@@ -438,6 +543,7 @@ function createSelectedDetails(
       if (first === undefined) return [];
       return [
         {
+          ...getNurseDutyState(first, nursePreset, now),
           key: shiftTypeId,
           rows: rows.map((assignment) => createDetailRow(assignment, memberById)),
           shiftAbbreviation: first.shiftTypeAbbreviation,
@@ -451,12 +557,32 @@ function createSelectedDetails(
     })
     .sort((left, right) => {
       const timeComparison = left.timeRange.localeCompare(right.timeRange);
-      if (timeComparison !== 0) return timeComparison;
+      if (!nursePreset && timeComparison !== 0) return timeComparison;
       return (
         (orderByShiftTypeId.get(left.key) ?? Number.MAX_SAFE_INTEGER) -
         (orderByShiftTypeId.get(right.key) ?? Number.MAX_SAFE_INTEGER)
       );
     });
+}
+
+function createWeekShiftGroups(
+  assignments: readonly CalendarReadModel['assignments'][number][],
+  create: (assignment: CalendarReadModel['assignments'][number]) => WorkbenchDuty,
+): readonly WorkbenchWeekShiftGroup[] {
+  const groups = new Map<string, CalendarReadModel['assignments'][number][]>();
+  for (const assignment of assignments) {
+    const rows = groups.get(assignment.shiftTypeId) ?? [];
+    rows.push(assignment);
+    groups.set(assignment.shiftTypeId, rows);
+  }
+  return [...groups.entries()].map(([key, rows]) => ({
+    key,
+    abbreviation: rows[0]!.shiftTypeAbbreviation,
+    color: rows[0]!.shiftTypeColor,
+    textColor: rows[0]!.shiftTypeTextColor,
+    tint: createColorTint(rows[0]!.shiftTypeColor),
+    duties: rows.map(create),
+  }));
 }
 
 function createDetailRow(

@@ -13,14 +13,20 @@
     <text class="date-number calendar-date-text">{{day}}</text>
   </view>
   <text wx:if="{{holiday}}" class="holiday-chip">{{holiday}}</text>
+  <view wx:if="{{shiftAbbreviation}}" class="month-shift-line"
+    ><text class="month-shift-badge" style="{{shiftBadgeStyle}}">{{shiftAbbreviation}}</text></view
+  >
   <view wx:if="{{duties.length > 0}}" class="month-duty-lines">
     <view wx:for="{{duties}}" wx:key="key" class="month-duty-line is-{{item.state}}">
       <text class="month-person">{{item.name}}</text>
-      <text wx:if="{{item.abbreviation}}" class="duty-abbreviation" style="{{item.badgeStyle}}">{{item.abbreviation}}</text>
+      <text wx:if="{{item.abbreviation}}" class="duty-abbreviation" style="{{item.badgeStyle}}"
+        >{{item.abbreviation}}</text
+      >
     </view>
   </view>
   <view wx:elif="{{person || marker}}" class="month-duty-line">
     <text wx:if="{{person}}" class="month-person">{{person}}</text>
+    <text wx:if="{{extraPersonCount > 0}}" class="month-person-count">+{{extraPersonCount}}</text>
     <text wx:if="{{marker}}" class="change-mark">{{marker}}</text>
   </view>
 </view>

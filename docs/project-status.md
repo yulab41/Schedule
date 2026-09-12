@@ -1,13 +1,13 @@
 # Project Status
 
-## 当前批次：feedback12通知检查点，日历待独立提交
+## 当前批次：feedback12代码与本地验证完成，待外部交付
 
 - 用户批准108十项计划，并确认样张方向：状态无箭头、保留原色徽标及原电话图标、月历严格群组默认且无班留空。设计见docs/superpowers/specs/2026-09-12-feedback12-design.md。
-- 基线5f79236f；general-4/5独占复用，未安装依赖。二维码/导出检查点f1f44849已在集成分支；通知检查点标识feat(notifications): add business subscriptions and guest display settings；日历已验证改动留本槽待下一检查点。通知证据见docs/audit/feedback12-notifications.md。
+- 基线5f79236f；general-4/5独占复用，未安装依赖。二维码/导出检查点f1f44849已在集成分支；通知检查点7842c4da；日历检查点标识feat(calendar): align nurse views and duty states。十项完整状态见docs/audit/feedback12.md。
 - 护士三视图排序、分段状态、临时折叠、周历完整分组与实测高度、默认班种和访客只读显示设置已实现；通知双模板/接收人/版本路由已实现。二维码手机失败与导出整页白屏仍待新版安全诊断，不宣称原生通过。
 - Node定向及隔离MySQL71项通过；390/320生产CSS几何通过。运行/浏览器验证：pnpm smoke:browser（本地4175，当前集成API3105，canonical本地.env内存适配）通过完整登录/管理员/成员/访客/访问记录；合成local-admin标记已回读确认恢复，服务已停止。
 - format/lint/build/typecheck通过，Mini1160/15跳过、根1247/433跳过、依赖保护81通过；无生产连接、部署、迁移、体验上传或真实消息。业务模板ID/字段及两群ID待配置。
-- 唯一下一任务：提交已验证的日历检查点并一起推送，随后对精确检查点申请必要外部授权；不重复护士数据导入。
+- 唯一下一任务：对本轮精确检查点申请生产只读诊断/部署及体验上传授权，并取得实际业务模板ID/映射；不重复护士数据导入。
 
 ## 上一批次：护士照片139条已录入，待用户查看
 

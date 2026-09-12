@@ -9,6 +9,9 @@ interface CalendarCellInstance {
 
 Component({
   properties: {
+    extraPersonCount: { type: Number, value: 0 },
+    shiftAbbreviation: { type: String, value: '' },
+    shiftBadgeStyle: { type: String, value: '' },
     compact: { type: Boolean, value: false },
     duties: { type: Array, value: [] },
     disabled: { type: Boolean, value: false },

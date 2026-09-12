@@ -69,14 +69,16 @@
     aria-label="月历，可左右滑动切换月份"
   >
     <swiper-item
-      wx:for="{{panels}}" wx:for-item="panel"
+      wx:for="{{panels}}"
+      wx:for-item="panel"
       wx:key="slot"
       class="calendar-slide-panel"
       aria-hidden="{{panel.relative !== 0}}"
     >
       <view class="month-grid">
         <view
-          wx:for="{{panel.cells}}" wx:for-item="cell"
+          wx:for="{{panel.cells}}"
+          wx:for-item="cell"
           wx:key="businessDate"
           style="height:{{panel.rowHeight || 54}}px"
           class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
@@ -97,7 +99,10 @@
             is-today="{{cell.isToday}}"
             is-weekend="{{cell.isWeekend}}"
             marker="{{cell.marker}}"
+            shift-abbreviation="{{cell.shiftAbbreviation}}"
+            shift-badge-style="{{cell.shiftBadgeStyle}}"
             person="{{cell.person}}"
+            extra-person-count="{{cell.extraPersonCount}}"
             bind:select="handleCellSelect"
           ></calendar-cell>
         </view>

@@ -42,7 +42,11 @@ describe('EXP-FEAT-002 shift event records', () => {
     expect(
       template.match(/class="event-action"[\s\S]*?bindtap="handleOpenShiftEvents"/gu),
     ).toHaveLength(2);
-    expect(template.match(/data-assignment-id="\{\{row\.key\}\}"/gu)).toHaveLength(2);
+    expect(template.match(/data-assignment-id="\{\{row\.key\}\}"/gu)).toHaveLength(4);
+    expect(template.match(/catchtap="handleOpenShiftEvents"/gu)).toHaveLength(2);
+    expect(
+      template.match(/wx:if="\{\{!compactEvents\}\}" class="staff-event-footer"/gu),
+    ).toHaveLength(2);
     expect(template).toContain('visible="{{shiftEventSheetOpen}}"');
     expect(template).toContain('title="班次事件记录"');
     expect(template).toContain('bind:close="handleShiftEventClose"');

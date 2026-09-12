@@ -5,11 +5,13 @@ import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
 const activeMonth = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
+let livePages = [];
 
 describe('P6-A workbench runtime coordination', () => {
   let definition;
 
   beforeEach(() => {
+    livePages = [];
     vi.resetModules();
     vi.stubGlobal('Page', (value) => {
       definition = value;
@@ -20,8 +22,11 @@ describe('P6-A workbench runtime coordination', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Invalidate pending reads before replacing the global wx transport for the next case.
+    for (const instance of livePages) instance.onHide?.call(instance);
     vi.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -421,7 +426,13 @@ describe('P6-A workbench runtime coordination', () => {
       });
       await vi.waitFor(() => expect(pendingGuest.length).toBe(1));
       const guestReads = request.mock.calls.filter(([o]) => o.url.includes('guest-group'));
-      expect(guestReads.every(([o]) => o.url.includes('/guest-calendar?'))).toBe(true);
+      expect(
+        guestReads.every(
+          ([o]) =>
+            o.url.includes('/guest-calendar?') ||
+            o.url.endsWith('/guest-calendar/display-settings'),
+        ),
+      ).toBe(true);
       definition.handleGroupSelect.call(instance, {
         currentTarget: { dataset: { groupId: 'group-1' } },
       });
@@ -659,6 +670,10 @@ describe('P6-A workbench runtime coordination', () => {
     const adjacentStartStates = [];
     let groupReadCount = 0;
     const request = vi.fn((options) => {
+      if (options.url.endsWith('/calendar-preferences')) {
+        options.fail({ errMsg: 'request:fail test preferences unavailable' });
+        return;
+      }
       if (options.url.endsWith('/groups')) {
         groupReadCount += 1;
         options.success({ data: [groupSummary()], statusCode: 200 });
@@ -709,6 +724,156 @@ describe('P6-A workbench runtime coordination', () => {
     definition.onShow.call(instance);
     await vi.waitFor(() => expect(groupReadCount).toBeGreaterThan(1));
     expect(instance.isVisible).toBe(true);
+  });
+
+  it.each(['switch', 'hide'])(
+    'scopes a slow group preference independently of calendar navigation (%s)',
+    async (action) => {
+      const groupId = '00000000-0000-4000-8000-000000000001';
+      const officeId = '00000000-0000-4000-8000-000000000002';
+      const aId = '00000000-0000-4000-8000-000000000003';
+      let preferencesRequest;
+      const request = vi.fn((options) => {
+        if (options.url.endsWith('/groups'))
+          return options.success({
+            statusCode: 200,
+            data: [{ ...groupSummary(), id: groupId, name: '头颈外科护士' }],
+          });
+        if (options.url.endsWith('/calendar-preferences')) {
+          preferencesRequest = options;
+          return;
+        }
+        const month = readBusinessMonth(options.url);
+        if (month)
+          return options.success({
+            statusCode: 200,
+            data: {
+              ...calendar(month),
+              groupId,
+              shiftTypes: [
+                {
+                  ...calendarApiGoldenResponse.shiftTypes[0],
+                  id: aId,
+                  name: 'A班',
+                  abbreviation: 'A',
+                },
+                {
+                  ...calendarApiGoldenResponse.shiftTypes[0],
+                  id: officeId,
+                  name: '电脑班',
+                  abbreviation: '电脑',
+                },
+              ],
+              assignments: [
+                {
+                  ...calendarApiGoldenResponse.assignments[0],
+                  businessDate: `${month}-12`,
+                  shiftTypeId: aId,
+                  shiftTypeName: 'A班',
+                  shiftTypeAbbreviation: 'A',
+                  actualMemberName: '人员甲',
+                },
+                {
+                  ...calendarApiGoldenResponse.assignments[0],
+                  id: 'office-row',
+                  businessDate: `${month}-12`,
+                  shiftTypeId: officeId,
+                  shiftTypeName: '电脑班',
+                  shiftTypeAbbreviation: '电脑',
+                  actualMemberName: '人员乙',
+                },
+              ],
+            },
+          });
+        return options.success({ statusCode: 200, data: holidayApiGoldenResponse });
+      });
+      vi.stubGlobal('wx', createWx(createStorage(), request));
+      await import('../src/pages/workbench/index.ts');
+      await enableTestClientCapabilities();
+      const instance = createPageInstance(definition);
+      definition.onLoad.call(instance);
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      const response = {
+        canManageGroupDefaults: false,
+        effectiveMonthShiftTypeId: aId,
+        effectiveView: 'month',
+        groupDefaultMonthShiftTypeId: officeId,
+        groupDefaultView: 'month',
+        groupId,
+        memberDefaultMonthShiftTypeId: aId,
+        memberDefaultView: 'month',
+        membershipId: groupId,
+      };
+      if (action === 'hide') {
+        definition.onHide.call(instance);
+        preferencesRequest.success({ statusCode: 200, data: response });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(instance._groupMonthShiftTypeId).toBeUndefined();
+        return;
+      }
+      definition.handleViewChange.call(instance, { currentTarget: { dataset: { view: 'week' } } });
+      preferencesRequest.success({ statusCode: 200, data: response });
+      await vi.waitFor(() => expect(instance._groupMonthShiftTypeId).toBe(officeId));
+      await vi.waitFor(() =>
+        expect(
+          instance.data.monthPanels
+            .flatMap((p) => p.cells)
+            .find((c) => c.businessDate === `${activeMonth}-12`).person,
+        ).toBe('人员乙'),
+      );
+      definition.onHide.call(instance);
+    },
+  );
+
+  it('refreshes nurse status at the next boundary, clears timers on hide and resets manual card expansion', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-12T11:59:59+08:00'));
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.requestOwnerId = 'user-1';
+    instance.calendar = {
+      ...calendarApiGoldenResponse,
+      assignments: [
+        {
+          ...calendarApiGoldenResponse.assignments[0],
+          businessDate: '2026-09-12',
+          shiftTypeId: 'D',
+          shiftTypeName: 'D班',
+          shiftTypeAbbreviation: 'D',
+        },
+      ],
+    };
+    instance.holidays = holidayApiGoldenResponse;
+    instance.data.currentGroupName = '头颈外科护士';
+    instance.data.currentGroupId = 'group-1';
+    definition.handleWeekDaySelect.call(instance, {
+      currentTarget: { dataset: { businessDate: '2026-09-12' } },
+    });
+    expect(instance.data.selectedDetails[0].dutyState).toBe('working');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(instance.data.selectedDetails[0].dutyState).toBe('rest');
+    expect(instance.data.shiftCardExpansion.expanded.D).toBe(false);
+    definition.handleShiftCardToggle.call(instance, { currentTarget: { dataset: { key: 'D' } } });
+    expect(instance.data.shiftCardExpansion.expanded.D).toBe(true);
+    definition.onHide.call(instance);
+    expect(instance._dutyTimer).toBeUndefined();
+    definition.onShow.call(instance);
+    expect(instance.data.shiftCardExpansion.expanded.D).toBe(false);
+    definition.onHide.call(instance);
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
+  it('clears the previous account before the foreground status refresh', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.requestOwnerId = 'previous-account';
+    instance.calendar = calendar(activeMonth);
+    instance.holidays = holidayApiGoldenResponse;
+    definition.onShow.call(instance);
+    expect(instance.calendar).toBeUndefined();
+    expect(instance.data.selectedDetails).toEqual([]);
   });
 
   it('never serves a cached month after an online 403 and removes the departed group snapshot', async () => {
@@ -874,7 +1039,7 @@ function createWx(storage, request, diagnosticsAllowed = false) {
 
 function createPageInstance(pageDefinition) {
   const data = structuredClone(pageDefinition.data);
-  return {
+  const instance = {
     ...pageDefinition,
     calendar: undefined,
     hasShown: false,
@@ -893,6 +1058,8 @@ function createPageInstance(pageDefinition) {
       callback?.();
     },
   };
+  livePages.push(instance);
+  return instance;
 }
 
 function groupSummary() {

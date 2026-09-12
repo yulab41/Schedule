@@ -79,6 +79,23 @@
   gap: 2px;
 }
 
+.month-shift-line {
+  display: flex;
+  height: 14px;
+  margin-top: 1px;
+}
+.month-shift-badge {
+  padding: 0 3px;
+  border-radius: 3px;
+  font-size: 8px;
+  line-height: 14px;
+}
+.month-person-count {
+  flex: none;
+  font-size: 9px;
+  line-height: 14px;
+}
+
 .month-person {
   display: block;
   min-width: 0;
@@ -106,18 +123,65 @@
   line-height: 13px;
 }
 
-.month-duty-lines { width: 100%; }
-.month-duty-line.is-removed .month-person { color: var(--ui-color-text-primary); text-decoration: line-through; }
-.month-duty-line.is-added .month-person { color: #a42620; }
-.duty-abbreviation { display: flex; width: 13px; height: 13px; box-sizing: border-box; flex: 0 0 13px; align-items: center; justify-content: center; border: 1px solid; border-radius: 3px; font-size: 8px; line-height: 11px; }
-.calendar-cell.has-duties { padding-right: 1px; padding-left: 1px; }
-.calendar-cell.has-duties .month-duty-line { gap: 1px; }
-.calendar-cell.is-compact .month-person { font-size: 9px; line-height: 14px; }
-@media (max-width: 360px) {
-  .duty-abbreviation { width: 11px; height: 11px; flex-basis: 11px; line-height: 9px; }
-  .calendar-cell.is-compact.has-duties { padding-right: 0; padding-left: 0; }
-  .holiday-chip { right: 1px; max-width: 22px; padding: 0 2px; font-size: 8px; }
-  .calendar-cell.has-duties .month-person { font-size: 9px; }
-  .calendar-cell.is-compact .month-person { font-size: 8px; }
+.month-duty-lines {
+  width: 100%;
 }
-.calendar-cell.is-disabled { color: #a7b0bb; background: #fafbfd; }
+.month-duty-line.is-removed .month-person {
+  color: var(--ui-color-text-primary);
+  text-decoration: line-through;
+}
+.month-duty-line.is-added .month-person {
+  color: #a42620;
+}
+.duty-abbreviation {
+  display: flex;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  flex: 0 0 13px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid;
+  border-radius: 3px;
+  font-size: 8px;
+  line-height: 11px;
+}
+.calendar-cell.has-duties {
+  padding-right: 1px;
+  padding-left: 1px;
+}
+.calendar-cell.has-duties .month-duty-line {
+  gap: 1px;
+}
+.calendar-cell.is-compact .month-person {
+  font-size: 9px;
+  line-height: 14px;
+}
+@media (max-width: 360px) {
+  .duty-abbreviation {
+    width: 11px;
+    height: 11px;
+    flex-basis: 11px;
+    line-height: 9px;
+  }
+  .calendar-cell.is-compact.has-duties {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  .holiday-chip {
+    right: 1px;
+    max-width: 22px;
+    padding: 0 2px;
+    font-size: 8px;
+  }
+  .calendar-cell.has-duties .month-person {
+    font-size: 9px;
+  }
+  .calendar-cell.is-compact .month-person {
+    font-size: 8px;
+  }
+}
+.calendar-cell.is-disabled {
+  color: #a7b0bb;
+  background: #fafbfd;
+}

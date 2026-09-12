@@ -17,6 +17,12 @@ import {
 } from '@schedule/presentation-core';
 
 import { buildInfo } from '../../platform/build-info.js';
+import { isNurseCalendarGroup } from '../../features/workbench/nurse-duty-state.js';
+import {
+  reconcileShiftCardExpansion,
+  toggleShiftCardExpansion,
+  type ShiftCardExpansion,
+} from '../../features/workbench/shift-card-expansion.js';
 import {
   canUseDiagnostics,
   refreshDiagnosticsAccess,
@@ -29,6 +35,8 @@ import {
 } from '../../app/client-capability-store.js';
 import {
   createRuntimeCalendarReadClient,
+  createRuntimeCalendarPreferencesClient,
+  createRuntimeGuestCalendarDisplaySettingsClient,
   createRuntimeInsightsReadClient,
   createRuntimeP9InsightsActionsClient,
 } from '../../platform/client-core-calendar.js';
@@ -141,6 +149,9 @@ interface MonthReadResult {
 type HolidayReader = (year: number) => Promise<HolidayReadModel>;
 
 interface WorkbenchPageData extends AccountSecurityData {
+  readonly compactEvents: boolean;
+  readonly shiftCardExpansion: ShiftCardExpansion;
+  readonly weekGridHeight: number;
   readonly activeWorkspace: ActiveWorkspace;
   readonly activeWorkspaceIndex: number;
   readonly activeFilterCount: number;
@@ -230,6 +241,10 @@ interface WorkbenchPageData extends AccountSecurityData {
 }
 
 interface WorkbenchPageInstance {
+  _weekMeasureSerial: number;
+  _calendarPreferenceSerial: number;
+  _groupMonthShiftTypeId: string | null | undefined;
+  _dutyTimer: ReturnType<typeof setTimeout> | undefined;
   _businessDate: string;
   _businessDateTimer: ReturnType<typeof setTimeout> | undefined;
   _diagnosticsUnsubscribe: (() => void) | undefined;
@@ -267,6 +282,14 @@ interface WorkbenchPageInstance {
 }
 
 const client = createWorkbenchReadClient();
+const guestDisplaySettingsClient = createRuntimeGuestCalendarDisplaySettingsClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
+const calendarPreferencesClient = createRuntimeCalendarPreferencesClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
 const calendarReadClient = createRuntimeCalendarReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
@@ -287,6 +310,9 @@ const initialMonth = today.slice(0, 7);
 Page({
   ...accountSecurity.methods,
   data: {
+    compactEvents: false,
+    shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []),
+    weekGridHeight: 112,
     ...accountSecurity.data,
     activeWorkspace: 'calendar' as ActiveWorkspace,
     activeWorkspaceIndex: 0,
@@ -431,6 +457,10 @@ Page({
   _diagnosticsSerial: 0,
   _businessDate: today,
   _businessDateTimer: undefined,
+  _groupMonthShiftTypeId: undefined,
+  _calendarPreferenceSerial: 0,
+  _weekMeasureSerial: 0,
+  _dutyTimer: undefined,
 
   onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
     this.isVisible = true;
@@ -460,10 +490,14 @@ Page({
 
   onResize(this: WorkbenchPageInstance): void {
     this.setData(createShellLayoutPatch());
+    refreshView(this);
   },
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
+    if (this.requestOwnerId !== getStoredWechatProfile()?.id) resetCalendarContext(this);
+    this.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
+    refreshView(this);
     syncBusinessDate(this);
     scheduleBusinessDateRefresh(this);
     const diagnosticsSerial = ++this._diagnosticsSerial;
@@ -485,6 +519,8 @@ Page({
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    this._calendarPreferenceSerial += 1;
+    stopDutyRefresh(this);
     if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
     stopBusinessDateRefresh(this);
     this._diagnosticsSerial += 1;
@@ -504,6 +540,8 @@ Page({
   onUnload(this: WorkbenchPageInstance): void {
     accountSecurity.dispose.call(this);
     this.isVisible = false;
+    this._calendarPreferenceSerial += 1;
+    stopDutyRefresh(this);
     if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
     stopBusinessDateRefresh(this);
     this._diagnosticsSerial += 1;
@@ -593,6 +631,7 @@ Page({
     if (view !== 'month' && view !== 'week' && view !== 'list') return;
     const nextView = view as WorkbenchView;
     if (nextView === this.data.viewMode) return;
+    this.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
     const nextWeekStart =
       nextView === 'week' ? getWeekStartDate(this.data.selectedDate) : this.data.weekStart;
     const period = {
@@ -618,6 +657,15 @@ Page({
       weekSwiperCurrent: 1,
     });
     if (nextView === 'week') void refreshWorkbenchWindow(this);
+  },
+
+  handleShiftCardToggle(this: WorkbenchPageInstance, event: TapEvent): void {
+    if (!isNurseCalendarGroup(this.data.currentGroupName)) return;
+    const key = event.currentTarget.dataset.key;
+    if (!key) return;
+    this.setData({
+      shiftCardExpansion: toggleShiftCardExpansion(this.data.shiftCardExpansion, key),
+    });
   },
 
   handleFilterToggle(this: WorkbenchPageInstance): void {
@@ -1408,6 +1456,7 @@ async function loadWorkbench(
       workflowPanelsMounted: toolAccess.leave,
     });
     if (selectedGroup.role === 'guest') stopNotificationPolling(page);
+    if (!groupSnapshotOffline) void loadCalendarPreferences(page, selectedGroup.id);
 
     if (selectedGroup.role === 'guest' && groupSnapshotOffline) throw { code: 'NETWORK_ERROR' };
 
@@ -1573,6 +1622,10 @@ function activatePrimaryWorkspace(
   workspace: ActiveWorkspace,
   patch: Partial<WorkbenchPageData> = {},
 ): void {
+  if (workspace !== page.data.activeWorkspace) {
+    page.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
+    stopDutyRefresh(page);
+  }
   const index = PRIMARY_WORKSPACES.indexOf(workspace);
   const workspaceMounted = page.data.workspaceMounted[workspace]
     ? page.data.workspaceMounted
@@ -1586,6 +1639,7 @@ function activatePrimaryWorkspace(
       (candidate) => candidate !== workspace,
     ),
   });
+  if (workspace === 'calendar') refreshView(page);
 }
 
 function startPrimaryWorkspacePreload(page: WorkbenchPageInstance): void {
@@ -1889,6 +1943,91 @@ function syncBusinessDate(page: WorkbenchPageInstance): void {
   refreshView(page);
 }
 
+async function loadCalendarPreferences(
+  page: WorkbenchPageInstance,
+  groupId: string,
+): Promise<void> {
+  const serial = ++page._calendarPreferenceSerial;
+  const owner = getStoredWechatProfile()?.id;
+  const guest = page.data.currentGroupRoleKind === 'guest';
+  const current = () =>
+    page.isVisible &&
+    page._calendarPreferenceSerial === serial &&
+    page.data.currentGroupId === groupId &&
+    (page.data.currentGroupRoleKind === 'guest') === guest &&
+    owner === getStoredWechatProfile()?.id;
+  try {
+    const preferences = guest
+      ? await guestDisplaySettingsClient.get(groupId)
+      : await calendarPreferencesClient.get(groupId);
+    if (!current()) return;
+    page._groupMonthShiftTypeId = preferences.groupDefaultMonthShiftTypeId;
+    refreshView(page);
+  } catch (error) {
+    if (current() && guest && getErrorStatus(error) === 403) {
+      failClosedAfterBackgroundRead(page, page.requestSerial, error);
+      return;
+    }
+    // Keep a same-context preference during an offline refresh; it is cleared on account/group changes.
+    if (current() && page._groupMonthShiftTypeId === undefined)
+      page.setData({
+        announcement: '群组默认班种暂未读取，月历人员暂不显示；可切换周历或列表查看。',
+      });
+  }
+}
+
+function scheduleWeekMeasurement(page: WorkbenchPageInstance): void {
+  const serial = ++page._weekMeasureSerial;
+  const runtime = wx as unknown as {
+    nextTick?: (callback: () => void) => void;
+    createSelectorQuery?: () => {
+      in: (page: unknown) => {
+        selectAll: (selector: string) => {
+          boundingClientRect: (callback: (rects: readonly { height: number }[]) => void) => {
+            exec: () => void;
+          };
+        };
+      };
+    };
+  };
+  runtime.nextTick?.(() => {
+    if (!page.isVisible || page.data.viewMode !== 'week' || page._weekMeasureSerial !== serial)
+      return;
+    runtime
+      .createSelectorQuery?.()
+      .in(page)
+      .selectAll('.week-day-content')
+      .boundingClientRect((rects) => {
+        if (!page.isVisible || page._weekMeasureSerial !== serial || !Array.isArray(rects)) return;
+        const height = Math.ceil(
+          Math.max(
+            112,
+            ...rects.map((rect) => (Number.isFinite(rect.height) ? rect.height + 8 : 0)),
+          ),
+        );
+        if (height !== page.data.weekGridHeight) page.setData({ weekGridHeight: height });
+      })
+      .exec();
+  });
+}
+
+function stopDutyRefresh(page: WorkbenchPageInstance): void {
+  if (page._dutyTimer !== undefined) clearTimeout(page._dutyTimer);
+  page._dutyTimer = undefined;
+}
+
+function scheduleDutyRefresh(page: WorkbenchPageInstance, boundary: number): void {
+  stopDutyRefresh(page);
+  if (!page.isVisible || page.data.activeWorkspace !== 'calendar' || boundary <= 0) return;
+  page._dutyTimer = setTimeout(
+    () => {
+      page._dutyTimer = undefined;
+      if (page.isVisible && page.data.activeWorkspace === 'calendar') refreshView(page);
+    },
+    Math.max(1, Math.min(86400000, boundary - Date.now())),
+  );
+}
+
 function stopBusinessDateRefresh(page: WorkbenchPageInstance): void {
   if (page._businessDateTimer !== undefined) clearTimeout(page._businessDateTimer);
   page._businessDateTimer = undefined;
@@ -1928,11 +2067,32 @@ function createViewPatch(
     period.businessMonth,
     period.weekStart,
     filters,
+    getTodayBusinessDate(),
+    {
+      nursePreset: isNurseCalendarGroup(page.data.currentGroupName),
+      effectiveMonthShiftTypeId: page._groupMonthShiftTypeId ?? null,
+      monthPreferencePending: page._groupMonthShiftTypeId === undefined,
+    },
   );
-  const logicalMonthPanelHeights = view.monthPanels.map((panel) => (panel.cells.length / 7) * 54);
+  scheduleDutyRefresh(page, view.nextDutyBoundary);
+  scheduleWeekMeasurement(page);
+  const logicalMonthPanelHeights = view.monthPanels.map((panel) => (panel.cells.length / 7) * 62);
   const monthRing = createMonthRing(view.monthPanels, logicalMonthPanelHeights, page.monthRingSlot);
   return {
-    gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
+    compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
+    shiftCardExpansion: reconcileShiftCardExpansion(
+      page.data.shiftCardExpansion,
+      [
+        getStoredWechatProfile()?.id ?? '',
+        page.data.currentGroupId,
+        period.selectedDate,
+        page.data.viewMode,
+        page.data.activeWorkspace,
+      ],
+      view.selectedDetails,
+    ),
+    weekGridHeight: Math.max(112, ...view.weekPanels.map((panel) => panel.height)),
+    gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
     listPanels: view.listPanels,
     monthLabel: view.monthLabel,
     ...monthRing,
@@ -2365,6 +2525,10 @@ function calendarContext(page: WorkbenchPageInstance): string {
 }
 
 function resetCalendarContext(page: WorkbenchPageInstance): void {
+  page._groupMonthShiftTypeId = undefined;
+  page._weekMeasureSerial += 1;
+  page._calendarPreferenceSerial += 1;
+  stopDutyRefresh(page);
   page.calendar = undefined;
   page.holidays = undefined;
   page.monthResources.clear();

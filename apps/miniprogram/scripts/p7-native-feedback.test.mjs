@@ -247,7 +247,7 @@ describe('P7 physical-device feedback regressions', () => {
     );
   });
 
-  it('uses one larger single-line name scale in month and week cells', () => {
+  it('preserves name scales with compact month names and fully wrapping week names', () => {
     const monthTemplate = read('components/calendar/calendar-cell/index.wxml');
     const monthStyles = read('components/calendar/calendar-cell/index.wxss');
     const workbenchTemplate = read('pages/workbench/index.wxml');
@@ -257,7 +257,7 @@ describe('P7 physical-device feedback regressions', () => {
       /\.month-person\s*\{[^}]*font-size:\s*11px;[^}]*white-space:\s*nowrap;/su,
     );
     expect(workbenchStyles).toMatch(
-      /\.week-duty-name\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*var\(--ui-font-weight-semibold\);[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
+      /\.week-duty-name\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*var\(--ui-font-weight-semibold\);[^}]*white-space:\s*normal;[^}]*word-break:\s*break-all;/su,
     );
     expect(monthTemplate).not.toMatch(/person\.length|name-length/u);
     expect(workbenchTemplate).not.toMatch(/duty\.name\.length|name-length/u);
