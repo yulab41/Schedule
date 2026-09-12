@@ -18,7 +18,7 @@
 
 ## 交付边界
 
-基线3864b275，general-4/5独占复用，无安装、新依赖或迁移。代码检查点fix(calendar): sync abbreviations and stabilize week layout。本轮未连接生产、未部署/上传/放行。下一任务是在明确候选通过后申请API/Web部署及累计体验版上传；累计版本应保留已完成的五类通知独立授权入口，当前手机109不含五按钮。原二维码/导出真机待复核状态继续保留。
+基线3864b275，general-4/5独占复用，无安装、新依赖或迁移。代码检查点fix(calendar): sync abbreviations and stabilize week layout。实施阶段未连接生产。随后用户明确批准部署、上传及追加放行，已交付累计110/8f441d2d，含五类独立授权入口；证据见[feedback13-release.md](feedback13-release.md)。原二维码/导出真机待复核状态继续保留。
 
 ## 最终联合验证
 
