@@ -5,7 +5,7 @@
 - 代码范围仅限 `apps/miniprogram/**` 及本轮测试、审计文档；未修改后端 API、数据库、排班接口或权限语义。
 - 使用独占 `runtime/wt/general-5` warm worktree，`DEPENDENCY_MODE=REUSE_ONLY`；依赖复用成功，未运行安装命令。
 - 设计检查点为 `516e2719`；A 实现检查点为 `42e644a4`；B/C 最终检查点为 `84ae20f8`（`fix(miniprogram): complete feedback16 stability fixes`）。本次发布策略证明补充提交的消息为 `chore(release): refresh Feedback16 trial lineage proof`。
-- 未控制微信开发者工具 GUI/CLI；用户已在当前消息授权体验版上传和追加放行，仍不授权生产部署、数据库操作或真实通知。
+- 未控制微信开发者工具 GUI/CLI；用户已在当前消息授权体验版上传和追加放行，仍不授权生产代码部署、数据库操作或真实通知。
 
 ## 引入点与实现
 
@@ -35,8 +35,12 @@
 - `git diff --check` 已通过；390px/320px 与大字号已通过控制器布局标记和 CSS 约束的合成检查。该结果不是 Skyline 或小米14原生验收。
 - `pnpm format:check`、`pnpm lint`、`pnpm --filter @schedule/miniprogram verify`、`check:package`、`check:determinism` 和 `pnpm smoke:check-core` 均通过。Mini verify 为 source/output Worklet 2/2、包体 4,550,584 字节；保留既有主包 1,708,504 字节内部预警及矩阵节点警告。
 
-## 未验证与下一步
+## 体验版交付与下一步
 
 - 用户提供的 112/`83d8a03` 报告只出现 `exports · open-requested` 和运行时错误指纹，没有 `page-load`、`page-ready` 或页面标题；这支持“页面装载/缓存/原生边界”假设，但不能证明本轮修复后的体验版结果。
 - 必须在同一干净 SHA 上传后，由用户在小米14 Android 微信客户端体验版复核：导出直接进入是否出现标题/返回/loading，二维码点击预览与长按保存，轮换后新码是否自动出现，平台账号弹窗在 390/320/大字号下是否碰撞。
-- 当前状态：代码与自动化验证完成，原生待用户复核；`UPLOAD_REQUIRED`。
+- 候选提交 `905171cfa96b20e0158c39819a96795192d74108` 已以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；上传时间 `2026-09-12T11:44:01.543Z`，说明为 `Feedback16 Mini stability release 905171c`。冻结 Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`，receipt 与远端不可变 tag 一致。
+- 首次上传命中微信 CI `-10008 invalid ip`（IPv6）；没有改变版本、源码或冻结产物，使用同一不可变元组和已验证代理 IPv4 路由重试成功。此网络路径为进程级路由事实，未改系统网络或平台配置。
+- 服务器端仅执行 add-only `schedule-client-version-allowlist ensure`，追加 `.113` 并保留 `.112`；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，线上应用 release 指针仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行流程重建了 API/Web 容器，但这不是本轮生产代码部署；健康检查已恢复，未做数据库备份/迁移。
+- 当前状态：代码、自动化验证、体验版上传和版本放行完成；原生待用户复核。未提审、未正式发布、未发送真实通知。
+- 必须在同一体验版由用户在小米14 Android 微信客户端复核：导出直接进入的标题/返回/loading，二维码点击预览与长按保存，轮换后自动出现新码，平台账号弹窗在 390/320/大字号下不碰撞，以及月历全天班首帧和周历切周高度稳定。

@@ -1,19 +1,21 @@
 # Project Status
 
-## 当前批次：Feedback16 A/B/C 已完成，等待最终验证与同 SHA 体验版授权
+## 当前批次：Feedback16 已上传并追加放行113，待小米14原生复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
 - 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
-- 外部边界：不控制微信开发者工具；用户已授权体验版上传和追加放行，未授权生产部署或数据库操作。
+- 外部边界：不控制微信开发者工具；用户已授权本轮体验版上传和追加放行，未授权生产代码部署或数据库操作。
 - A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
 - 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
 - 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
 - B/C 结果：导出增加精确 Page/include/panel 血缘回归并补齐 panel 的 `ui-toast` 注册；二维码支持点击预览、长按系统菜单、预览失败保存回退和轮换后自动读取；平台账号操作统一使用 `ui-toast`/`scheduleInfoMessageExpiry`，管理弹窗补齐字段/操作/安全区间距。详情见 `docs/audit/feedback16.md`。
 - 验证：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项通过；A workbench联合58项通过、1项跳过。390/320/大字号为合成检查，非小米14验收。
-- 导出白屏本地仍未复现；用户报告缺少 `page-load/page-ready` 阶段，保留原生/缓存装载待验证。外部边界：未授权体验版上传、生产操作或微信开发者工具控制。
-- 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。当前停止条件：`UPLOAD_REQUIRED`，等待同一干净 SHA 的体验版上传授权与小米14复核。
-- 最终检查点：`84ae20f8 fix(miniprogram): complete feedback16 stability fixes`，已推送 `origin/codex/feedback16-20260912`；发布策略补充检查点消息为 `chore(release): refresh Feedback16 trial lineage proof`。本次用户已授权体验版上传和追加放行，Mini-only 不触发 ECS 部署、数据库备份或生产发布。
+- 导出白屏本地仍未复现；用户报告缺少 `page-load/page-ready` 阶段，保留原生/缓存装载待验证。体验版上传与放行完成，白屏仍待小米14同版本证据。
+- 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。上传前冻结产物与候选检查通过。
+- 发布结果：候选提交 `905171cfa96b20e0158c39819a96795192d74108` 以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`、receipt、远端不可变 tag 一致。首次同一不可变元组因微信侧 IPv6 `-10008 invalid ip` 拒绝，改用已验证代理 IPv4 路由后成功，未改变系统网络或候选内容。
+- 放行结果：服务器 `schedule-client-version-allowlist ensure` 仅追加 `.113`，`.112` 及既有版本保留；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
+- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。用户需在小米14同版本复核导出入口、二维码预览/长按保存、轮换自动显示、平台账号弹窗布局及日历闪烁/高度；未提审、未正式发布、未发送真实通知。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
