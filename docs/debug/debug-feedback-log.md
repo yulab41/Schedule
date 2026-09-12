@@ -2817,3 +2817,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - `git log -S`/`git blame` 将直接 Page 复用组件控制器并写入 `this.properties` 定位到 `49b6841e`。新增只读 Page `properties` 宿主回归在旧实现上复现：`TypeError: Cannot assign to read only property 'properties'`。
 - 修复：直接 Page 写 `data.groupId`，控制器用 `_directPage` 区分 Page/Component 上下文，组件仍读 `properties.groupId`；缺少 query 时进入可见错误状态。API、鉴权、导出请求、任务轮询和下载语义不变。
 - 验证：定向39项、Mini全量169文件/1197项、Mini verify通过；新体验版未上传，待同一干净 SHA 上传后小米14原生复核。
+
+## 2026-09-12 Feedback16 `.114` 同版本复测：导出首帧面板边界
+
+- 用户提供 `.114@f7b1709` 小米14报告，确认旧 `this.properties` 修复已进入实际体验版；报告仍只有 `exports · open-requested`，没有 `page-load/page-ready`，错误指纹未变。用户补充问题从 `.106` 及以后出现。
+- 版本差分：`.106` 已包含导出页面和 `/subpackages/insights/pages/exports/index` 路由；当前源码、`app.json`、构建产物和 `wx.navigateTo` URL 仍一致，未证实路径设置回归，精确引入提交需要原生栈信息。
+- 新回归先失败：要求导出页不是首帧直接注入完整 panel，而是存在 `panelReady` 门控。新实现首帧显示轻量标题/加载壳，下一渲染周期挂载 panel；卸载取消延迟任务。
+- 运行/浏览器验证：`pnpm --filter @schedule/miniprogram test` 169文件/1197项通过、2文件/16项跳过；Mini verify、WXML官方编译、determinism、format、lint、package、`pnpm smoke:check-core`均通过。该结果不替代小米14原生验证。
+- 状态：`UPLOAD_REQUIRED_FOR_NEW_SHA`。当前未上传、未放行、未执行生产部署；待用户明确授权当前新干净 SHA 后再生成体验版并复核。

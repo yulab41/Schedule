@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 导出白屏修复已上传并放行114，待小米14复核
+## 当前批次：Feedback16 导出白屏首帧边界修复，待新体验版验证
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -11,14 +11,17 @@
 - 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
 - B/C 结果：导出增加精确 Page/include/panel 血缘回归并补齐 panel 的 `ui-toast` 注册；二维码支持点击预览、长按系统菜单、预览失败保存回退和轮换后自动读取；平台账号操作统一使用 `ui-toast`/`scheduleInfoMessageExpiry`，管理弹窗补齐字段/操作/安全区间距。详情见 `docs/audit/feedback16.md`。
 - 验证：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项通过；A workbench联合58项通过、1项跳过。390/320/大字号为合成检查，非小米14验收。
-- 导出白屏本地仍未复现；用户报告缺少 `page-load/page-ready` 阶段，保留原生/缓存装载待验证。体验版上传与放行完成，白屏仍待小米14同版本证据。
+- `.114@f7b1709` 小米14报告确认版本一致，但仍只有 `exports · open-requested` 和同一 `MINI_RUNTIME_ERROR` 指纹，没有 `page-load/page-ready`；用户补充该现象从 `.106` 及以后出现。`.106` 代码已包含该导出入口，当前未发现 URL 或 app.json 路径变更，精确引入提交仍待原生栈信息。
 - 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。上传前冻结产物与候选检查通过。
 - 发布结果：候选提交 `905171cfa96b20e0158c39819a96795192d74108` 以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`、receipt、远端不可变 tag 一致。首次同一不可变元组因微信侧 IPv6 `-10008 invalid ip` 拒绝，改用已验证代理 IPv4 路由后成功，未改变系统网络或候选内容。
 - 放行结果：服务器 `schedule-client-version-allowlist ensure` 仅追加 `.113`，`.112` 及既有版本保留；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
 - 导出白屏复现：旧实现把直接 Page 的群组 ID写入 `this.properties`；只读 Page 宿主回归稳定复现 `TypeError: Cannot assign to read only property 'properties'`。`app.json`、源码/构建产物路由和 `wx.navigateTo` 路径均一致，因此根因在 Page 初始化宿主边界，不是跳转路径。
 - 导出修复：直接 Page 改写自身 `data.groupId`，控制器按 Page/Component 宿主分别读取上下文；缺少 query 时显示可重试错误。定向39项、Mini全量169文件/1197项、Mini verify均通过。
 - 发布结果：修复提交 `f7b1709aa471562f15caab2b6c83db1c94383de1` 以 production/clean 上传为 `0.1.0-p10.20260912.114`，Manifest `66ab569cacb1f1384cc38da6b1c4c586c23c3b0c8ecf35032760bce9a4917f9a`，receipt 与不可变 tag 一致；服务器 add-only ensure 仅追加 `.114`，`.113` 保留，allowlist verify 与完整 `ecs-verify.sh` 通过，线上 release 未改变。
-- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。需在小米14复核导出页标题/内容、直接进入、返回和导出操作；不提前宣称白屏已闭环。
+- 新修复：导出页首帧先显示轻量标题/加载壳，下一渲染周期再挂载完整 panel；卸载时取消延迟任务，保留原有 controller、权限、请求和导出语义。首帧边界回归、WXML 编译和构建产物检查通过。
+- 检查点提交消息：`fix(miniprogram): defer export panel first paint`。
+- 新修复验证：Mini 全量169文件/1197项通过、2文件/16项跳过；Mini verify、determinism、format、lint、package、`smoke:check-core`通过，包体4,551,852字节，主包1,708,505字节仍为既有warning。
+- 当前停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮只提交/推送修复，未擅自上传新体验版；需用户明确授权当前干净 SHA 的体验版上传后，再在小米14复核标题/返回/loading、面板内容和导出操作。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

@@ -57,3 +57,10 @@
 修复将直接 Page 的群组上下文写入 `data.groupId`，控制器以 `_directPage` 区分 Page 与 Component：Page 读取 `data.groupId`，组件继续读取 `properties.groupId`；无 query 冷入口显示“当前群组信息缺失，请返回工作台后重试。”不改变导出 API、请求参数、鉴权或任务语义。
 
 修复验证：定向导出/页面/血缘回归39项通过；Mini 全量169文件通过、2文件跳过，1197项通过、16项跳过；Mini verify通过，Worklet 2/2、包体4,550,652字节。修复已上传为体验版114并完成 add-only 放行，状态为 `WAITING_XIAOMI14_NATIVE_REVIEW`。
+
+### `.114` 同版本报告后的首帧边界修复
+
+- 小米14报告确认实际打开的是 `.114@f7b1709`，但仍只有 `exports · open-requested` 和 `MINI_RUNTIME_ERROR`，没有 `page-load/page-ready`。用户补充该现象从 `.106` 及以后出现；静态差分确认 `.106` 已包含导出路由，当前未发现导航 URL 或 `app.json` 路径变更，精确引入提交仍不能仅靠脱敏报告确定。
+- 失败优先回归先要求导出页存在 `panelReady` 首帧门控，旧模板失败；修复后 Page 首帧只挂载标题/加载壳，在下一渲染周期再挂载完整 panel，并在卸载时取消延迟任务。控制器 receiver、权限、请求、任务轮询和下载语义保持不变。
+- 当前修复验证：定向导出10项通过；Mini 全量169文件/1197项通过、2文件/16项跳过；WXML 官方编译、Mini verify、determinism、format、lint、package 和 `smoke:check-core` 均通过。包体4,551,852字节，主包warning延续既有状态。
+- 当前状态：修复只完成源码、自动化检查、提交和推送，未上传新体验版。下一步必须取得当前干净 SHA 的上传授权，再让用户在小米14同版本复核；自动化结果不替代原生验收。

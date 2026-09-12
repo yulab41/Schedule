@@ -10,7 +10,7 @@ const controller = createExportsPanelControllerDefinition();
 type ExportsPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
 
 Page({
-  data: controller.data,
+  data: { ...controller.data, panelReady: false },
   ...controller.methods,
   onLoad(
     this: ExportsPageInstance,
@@ -19,10 +19,20 @@ Page({
     recordExportRenderStage('page-load');
     recordMiniTelemetryBoundary('exports:page-onload');
     this._directPage = true;
-    this.setData({ groupId: decodeGroupId(query['groupId']) });
+    this._panelReadyToken = {};
+    this.setData({ groupId: decodeGroupId(query['groupId']), panelReady: false });
     controller.lifetimes.attached.call(this);
+    const token = this._panelReadyToken;
+    const revealPanel = (): void => {
+      if (this._panelReadyToken !== token || this._attached === false) return;
+      this.setData({ panelReady: true }, () => measureExportFirstPaint(this));
+    };
+    this._panelReadyTimer = setTimeout(revealPanel, 0);
   },
   onUnload(this: ExportsPageInstance): void {
+    clearTimeout(this._panelReadyTimer);
+    this._panelReadyTimer = undefined;
+    this._panelReadyToken = undefined;
     endExportRenderDiagnostics(this);
     controller.lifetimes.detached.call(this);
   },

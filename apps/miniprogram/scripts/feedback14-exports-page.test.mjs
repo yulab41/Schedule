@@ -62,11 +62,13 @@ describe('feedback14 real export Page first-entry lifecycle', () => {
     const { definition, page } = await realPage();
 
     definition.onLoad.call(page, { groupId: encodeURIComponent(groupId) });
+    expect(page.data.panelReady).toBe(false);
     definition.onShow.call(page);
     definition.onReady.call(page);
     expectShell(page);
     expect(page.data.state).toBe('loading');
     await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.panelReady).toBe(true);
     definition.onHide.call(page);
     definition.onShow.call(page);
     expectShell(page);

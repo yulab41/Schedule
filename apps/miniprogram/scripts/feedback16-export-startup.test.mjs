@@ -19,9 +19,10 @@ describe('Feedback16 export Page artifact lineage', () => {
     ]) {
       expect(existsSync(file), file).toBe(true);
     }
-    expect(readFileSync(`${pageRoot}/index.wxml`, 'utf8').trim()).toBe(
-      '<include src="../../components/exports-panel/index.wxml" />',
-    );
+    const pageTemplate = readFileSync(`${pageRoot}/index.wxml`, 'utf8');
+    expect(pageTemplate).toContain('panelReady');
+    expect(pageTemplate).toContain('导出排班与统计');
+    expect(pageTemplate).toContain('<include src="../../components/exports-panel/index.wxml" />');
 
     const page = readFileSync(`${pageRoot}/index.ts`, 'utf8');
     expect(page).toContain('Page({');
@@ -50,7 +51,10 @@ describe('Feedback16 export Page artifact lineage', () => {
     ]) {
       expect(existsSync(file), file).toBe(true);
     }
-    expect(readFileSync(`${builtPageRoot}/index.wxml`, 'utf8').trim()).toBe(
+    const builtPageTemplate = readFileSync(`${builtPageRoot}/index.wxml`, 'utf8');
+    expect(builtPageTemplate).toContain('panelReady');
+    expect(builtPageTemplate).toContain('导出排班与统计');
+    expect(builtPageTemplate).toContain(
       '<include src="../../components/exports-panel/index.wxml" />',
     );
     const builtPage = readFileSync(`${builtPageRoot}/index.js`, 'utf8');

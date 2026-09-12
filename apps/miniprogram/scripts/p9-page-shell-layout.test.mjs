@@ -74,9 +74,16 @@ describe('P9 native page shells', () => {
           'ui-switch': '/components/ui/ui-switch/index',
         });
       }
-      expect(template.trim()).toBe(
-        `<include src="../../components/${componentName}/index.wxml" />`,
-      );
+      if (pageName === 'exports') {
+        expect(template).toContain('panelReady');
+        expect(template).toContain(
+          `<include src="../../components/${componentName}/index.wxml" />`,
+        );
+      } else {
+        expect(template.trim()).toBe(
+          `<include src="../../components/${componentName}/index.wxml" />`,
+        );
+      }
       expect(styles).toMatch(
         new RegExp(
           `@import\\s+['"]\\.\\.\\/\\.\\.\\/components\\/${componentName}\\/index\\.wxss['"];`,

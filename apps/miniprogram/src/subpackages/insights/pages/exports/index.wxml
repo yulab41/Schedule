@@ -1,1 +1,26 @@
-<include src="../../components/exports-panel/index.wxml" />
+<block wx:if="{{panelReady}}">
+  <include src="../../components/exports-panel/index.wxml" />
+</block>
+<view wx:else class="exports-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+    >
+      <image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" />
+    </view>
+    <view class="header-title">
+      <text class="header-title-main">导出排班与统计</text>
+      <text class="header-title-sub">正在准备页面</text>
+    </view>
+  </view>
+  <scroll-view class="exports-scroll" style="{{pageScrollStyle}}" scroll-y show-scrollbar="{{false}}">
+    <view class="page-content">
+      <view class="page-state-card">
+        <ui-loading label="正在加载导出选项"></ui-loading>
+      </view>
+    </view>
+  </scroll-view>
+</view>
