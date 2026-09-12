@@ -2811,3 +2811,9 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 MORE-14：git log -S及blame定位7923262d的onHide删除底部诊断区域。新回归RED1后修复，普通隐藏保留已授权区域、撤销仍及时隐藏、后台迟到授权/跳转仍被拒绝。运行/浏览器验证：node apps/miniprogram/scripts/feedback14-more-layout.mjs，390×844/320px生产模板/CSS复现旧删除导致滚动夹紧107px，保留节点后位置稳定。页面与图标样式未改，待小米14复核。
 
 EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数据及已有CSV回归可运行，未证实原生白屏根因。新增真实Page30秒截止/迟到隔离5项、固定阶段及一次首屏几何分类的本地安全报告；匿名UNKNOWN阶段原本不进入手机报告。CSV语义不变，保持待定位，不能把诊断补齐写成白屏已修复。联合69项通过；初次联合中既有群组偏好异步用例瞬时失败，暂停完整检查后定向及完整联合重跑均通过，未修改断言。详情见docs/audit/feedback14.md。
+## 2026-09-12 Feedback16 导出入口白屏：Page 宿主属性写入边界
+
+- 用户反馈体验版导出排班仍点击后空白。现有诊断只有 `exports · open-requested`，没有 `page-load/page-ready`；静态 `app.json`、源码/构建产物页面文件和导航 URL 均核对一致，先排除路径设置缺失。
+- `git log -S`/`git blame` 将直接 Page 复用组件控制器并写入 `this.properties` 定位到 `49b6841e`。新增只读 Page `properties` 宿主回归在旧实现上复现：`TypeError: Cannot assign to read only property 'properties'`。
+- 修复：直接 Page 写 `data.groupId`，控制器用 `_directPage` 区分 Page/Component 上下文，组件仍读 `properties.groupId`；缺少 query 时进入可见错误状态。API、鉴权、导出请求、任务轮询和下载语义不变。
+- 验证：定向39项、Mini全量169文件/1197项、Mini verify通过；新体验版未上传，待同一干净 SHA 上传后小米14原生复核。

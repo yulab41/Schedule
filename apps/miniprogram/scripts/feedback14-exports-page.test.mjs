@@ -84,6 +84,26 @@ describe('feedback14 real export Page first-entry lifecycle', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('does not mutate a Page-reserved read-only properties object on direct entry', async () => {
+    const { definition, page } = await realPage();
+    Object.defineProperty(page, 'properties', {
+      configurable: false,
+      value: Object.freeze({}),
+      writable: false,
+    });
+
+    expect(() => definition.onLoad.call(page, { groupId })).not.toThrow();
+    expect(page.data.groupId).toBe(groupId);
+  });
+
+  it('turns a direct cold entry without a group query into a visible retryable error', async () => {
+    const { definition, page } = await realPage();
+
+    expect(() => definition.onLoad.call(page)).not.toThrow();
+    expect(page.data.state).toBe('error');
+    expect(page.data.errorMessage).toContain('群组信息缺失');
+  });
+
   it.each(['requireClientCapability', 'getSchedulingConfig', 'listGroupMembers'])(
     'keeps the shell while %s hangs, times out at 30 seconds, and ignores late completion',
     async (method) => {
@@ -150,7 +170,7 @@ async function realPage() {
 function expectShell(page) {
   expect(page.data.shellHeaderStyle).toBe('height:84px;min-height:84px;padding-top:32px;');
   expect(page.data.pageScrollStyle).toBe('height:calc(100% - 84px);');
-  expect(page.properties.groupId).toBe(groupId);
+  expect(page.data.groupId).toBe(groupId);
   expect(typeof page.handleBack).toBe('function');
 }
 

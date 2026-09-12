@@ -44,3 +44,13 @@
 - 服务器端仅执行 add-only `schedule-client-version-allowlist ensure`，追加 `.113` 并保留 `.112`；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，线上应用 release 指针仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行流程重建了 API/Web 容器，但这不是本轮生产代码部署；健康检查已恢复，未做数据库备份/迁移。
 - 当前状态：代码、自动化验证、体验版上传和版本放行完成；原生待用户复核。未提审、未正式发布、未发送真实通知。
 - 必须在同一体验版由用户在小米14 Android 微信客户端复核：导出直接进入的标题/返回/loading，二维码点击预览与长按保存，轮换后自动出现新码，平台账号弹窗在 390/320/大字号下不碰撞，以及月历全天班首帧和周历切周高度稳定。
+
+## 后续导出白屏定位
+
+用户反馈体验版导出入口仍显示空白。基于现有诊断报告，`exports · open-requested` 已记录但没有 `page-load/page-ready`；同时源码、`app.json`、构建产物和 `wx.navigateTo` 的 `/subpackages/insights/pages/exports/index?groupId=...` 完全一致，路径设置不是缺失项。
+
+`git blame` 将直接 Page 复用组件控制器的 `this.properties` 写入定位到 `49b6841e`。新增失败优先回归后，在只读 Page 保留属性的宿主模型下稳定得到 `TypeError: Cannot assign to read only property 'properties'`，确认白屏根因是 Page 初始化宿主边界。
+
+修复将直接 Page 的群组上下文写入 `data.groupId`，控制器以 `_directPage` 区分 Page 与 Component：Page 读取 `data.groupId`，组件继续读取 `properties.groupId`；无 query 冷入口显示“当前群组信息缺失，请返回工作台后重试。”不改变导出 API、请求参数、鉴权或任务语义。
+
+修复验证：定向导出/页面/血缘回归39项通过；Mini 全量169文件通过、2文件跳过，1197项通过、16项跳过；Mini verify通过，Worklet 2/2、包体4,550,652字节。尚未上传新体验版，状态为 `UPLOAD_REQUIRED_THEN_XIAOMI14_NATIVE_REVIEW`。

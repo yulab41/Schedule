@@ -77,7 +77,8 @@ describe('remaining P9 direct Page registration', () => {
 
     definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
 
-    expect(instance.properties).toEqual({ groupId });
+    if (testCase.panel === mocks.exports) expect(instance.data.groupId).toBe(groupId);
+    else expect(instance.properties).toEqual({ groupId });
     expect(mocks.recordBoundary).toHaveBeenCalledWith(testCase.marker);
     expect(testCase.panel.attached.mock.instances[0]).toBe(instance);
     definition.handleBack.call(instance);

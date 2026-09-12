@@ -93,6 +93,7 @@ interface ExportsPageData {
 interface ExportsPageInstance {
   readonly data: ExportsPageData;
   readonly properties: { readonly groupId: string };
+  _directPage?: boolean;
   _actionsClient: P9InsightsActionsClient;
   _jobId: string | undefined;
   _loadedGroupId: string;
@@ -296,7 +297,7 @@ interface TapEvent {
 
 function start(page: ExportsPageInstance): void {
   initializeRuntimeState(page);
-  const groupId = page.properties.groupId;
+  const groupId = getGroupId(page);
   if (groupId.length === 0) {
     invalidateExport(page);
     page._loadedGroupId = '';
@@ -726,7 +727,11 @@ function recordExportProgress(metric: string, startedAt: number): void {
 }
 
 function isCurrent(page: ExportsPageInstance, groupId: string, epoch: number): boolean {
-  return page._attached && page._epoch === epoch && page.properties.groupId === groupId;
+  return page._attached && page._epoch === epoch && getGroupId(page) === groupId;
+}
+
+function getGroupId(page: ExportsPageInstance): string {
+  return page._directPage === true ? page.data.groupId : page.properties.groupId;
 }
 
 function showFeedback(

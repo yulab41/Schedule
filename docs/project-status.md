@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 已上传并追加放行113，待小米14原生复核
+## 当前批次：Feedback16 导出白屏修复待重新上传与小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -15,7 +15,9 @@
 - 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。上传前冻结产物与候选检查通过。
 - 发布结果：候选提交 `905171cfa96b20e0158c39819a96795192d74108` 以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`、receipt、远端不可变 tag 一致。首次同一不可变元组因微信侧 IPv6 `-10008 invalid ip` 拒绝，改用已验证代理 IPv4 路由后成功，未改变系统网络或候选内容。
 - 放行结果：服务器 `schedule-client-version-allowlist ensure` 仅追加 `.113`，`.112` 及既有版本保留；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
-- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。用户需在小米14同版本复核导出入口、二维码预览/长按保存、轮换自动显示、平台账号弹窗布局及日历闪烁/高度；未提审、未正式发布、未发送真实通知。
+- 导出白屏复现：旧实现把直接 Page 的群组 ID写入 `this.properties`；只读 Page 宿主回归稳定复现 `TypeError: Cannot assign to read only property 'properties'`。`app.json`、源码/构建产物路由和 `wx.navigateTo` 路径均一致，因此根因在 Page 初始化宿主边界，不是跳转路径。
+- 导出修复：直接 Page 改写自身 `data.groupId`，控制器按 Page/Component 宿主分别读取上下文；缺少 query 时显示可重试错误。定向39项、Mini全量169文件/1197项、Mini verify均通过，当前修改尚未上传体验版。
+- 当前停止条件：`UPLOAD_REQUIRED_THEN_XIAOMI14_NATIVE_REVIEW`。需基于本次修复生成新体验版后，在小米14复核导出页标题/内容、直接进入、返回和导出操作；不提前宣称白屏已闭环。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

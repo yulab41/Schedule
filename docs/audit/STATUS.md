@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：Feedback16 已上传并追加放行113，待小米14原生复核
+## 当前批次：Feedback16 导出白屏修复待重新上传与小米14复核
 
 - 设计检查点 `516e2719`；A 检查点 `42e644a4`；最终 B/C 检查点 `84ae20f8`；当前为上传策略证明补充阶段。详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
 - A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
@@ -10,7 +10,9 @@
 - 外部边界：不控制微信开发者工具 GUI/CLI；用户已授权本轮体验版上传和追加放行，未授权生产代码部署、数据库操作或真实通知。
 - 体验版交付：`905171cfa96b20e0158c39819a96795192d74108` / `0.1.0-p10.20260912.113` / production-clean；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`，receipt 与远端 tag 一致。首次微信 CI 因 IPv6 `-10008 invalid ip` 失败，同一冻结元组经已验证代理 IPv4 路由重试成功。
 - 放行与生产边界：`schedule-client-version-allowlist ensure` 仅追加 `.113`，旧版 `.112` 保留；独立 allowlist verify 和完整 `ecs-verify.sh` 通过，线上 release 指针仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未部署生产应用、未备份/修改数据库。
-- 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。仅等待用户在小米14同版本复核导出、二维码、轮换、平台账号弹窗及日历视觉；不提前写原生通过，不重复上传或放行。
+- 导出白屏根因：直接 Page 在 `onLoad` 将群组 ID赋给只读 `this.properties`；回归测试复现 `TypeError: Cannot assign to read only property 'properties'`。静态路由、app.json、构建产物和导航 URL 一致，排除路径设置错误。
+- 修复：Page 使用 `data.groupId`，控制器用宿主标记区分 Page/Component 上下文；无 query 冷入口转为可见错误。新增回归后定向39项、全量Mini169文件/1197项、Mini verify通过；尚未上传新体验版。
+- 唯一下一任务/停止条件：`UPLOAD_REQUIRED_THEN_XIAOMI14_NATIVE_REVIEW`。上传新版本后只等待小米14同版本复核，不提前写原生通过。
 
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 
