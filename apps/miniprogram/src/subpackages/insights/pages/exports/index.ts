@@ -1,4 +1,9 @@
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import {
+  endExportRenderDiagnostics,
+  measureExportFirstPaint,
+  recordExportRenderStage,
+} from '../../../../platform/export-render-diagnostics.js';
 import { createExportsPanelControllerDefinition } from '../../components/exports-panel/controller.js';
 
 const controller = createExportsPanelControllerDefinition();
@@ -8,6 +13,7 @@ Page({
   data: controller.data,
   ...controller.methods,
   onLoad(this: ExportsPageInstance, query: Readonly<Record<string, string | undefined>>): void {
+    recordExportRenderStage('page-load');
     recordMiniTelemetryBoundary('exports:page-onload');
     (this as unknown as { properties: { groupId: string } }).properties = {
       groupId: decodeGroupId(query['groupId']),
@@ -15,18 +21,24 @@ Page({
     controller.lifetimes.attached.call(this);
   },
   onUnload(this: ExportsPageInstance): void {
+    endExportRenderDiagnostics(this);
     controller.lifetimes.detached.call(this);
   },
   onReady(): void {
+    recordExportRenderStage('page-ready');
+    measureExportFirstPaint(this);
     recordMiniTelemetryBoundary('exports:page-ready');
   },
   onHide(this: ExportsPageInstance): void {
+    endExportRenderDiagnostics(this);
     controller.pageLifetimes.hide.call(this);
   },
   onShow(this: ExportsPageInstance): void {
+    recordExportRenderStage('page-show');
     controller.pageLifetimes.show.call(this);
   },
 } as never);
+recordExportRenderStage('module-registered');
 
 function decodeGroupId(value: string | undefined): string {
   if (value === undefined) return '';

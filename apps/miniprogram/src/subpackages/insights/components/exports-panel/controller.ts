@@ -37,6 +37,7 @@ import {
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import { recordExportRenderStage } from '../../../../platform/export-render-diagnostics.js';
 import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
 
 type ExportPeriodType = 'month' | 'year';
@@ -349,6 +350,7 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
   const wait = createExportCancellation();
   page._wait = wait;
   recordMiniTelemetryBoundary('exports:options-start');
+  recordExportRenderStage('options-start');
   try {
     const result = await waitForExportOperation(
       async (isStopped) => {
@@ -365,6 +367,7 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
     if (!isCurrent(page, groupId, epoch) || result.status === 'cancelled') return;
     if (result.status === 'timed_out') {
       recordMiniTelemetryBoundary('exports:options-timeout');
+      recordExportRenderStage('options-timeout');
       page.setData({
         state: 'error',
         errorMessage: '导出选项加载超时，请重新加载。',
@@ -389,9 +392,11 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
       statusLabel: '选择内容后创建任务',
     });
     recordMiniTelemetryBoundary('exports:options-ready');
+    recordExportRenderStage('options-ready');
   } catch (error) {
     if (!isCurrent(page, groupId, epoch)) return;
     recordMiniTelemetryBoundary('exports:options-error');
+    recordExportRenderStage('options-error');
     page.setData({
       errorMessage:
         error instanceof ClientCapabilityDisabledError

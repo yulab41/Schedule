@@ -145,6 +145,38 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.testCenterEnabled).toBe(false);
   });
 
+  it('keeps a granted More section mounted across navigation but revokes it on permission loss', async () => {
+    const runtime = createWx(createStorage(), vi.fn(), true);
+    runtime.navigateTo = vi.fn();
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.testCenterEnabled).toBe(true));
+    const { refreshDiagnosticsAccess } = await import('../src/platform/diagnostics-access.ts');
+    const { invalidateDiagnosticsPermission } =
+      await import('../src/platform/diagnostics-permission-state.ts');
+    instance.data.activeWorkspace = 'more';
+    definition.onHide.call(instance);
+    // wx:if removing this final section clamps a scrolled More viewport during the route animation.
+    expect(instance.data.testCenterEnabled).toBe(true);
+    await refreshDiagnosticsAccess();
+    expect(instance.data.testCenterEnabled).toBe(true);
+    await definition.handleOpenTestCenter.call(instance);
+    expect(runtime.navigateTo).not.toHaveBeenCalled();
+    definition.onShow.call(instance);
+    expect(instance.data.testCenterEnabled).toBe(true);
+    definition.onHide.call(instance);
+    invalidateDiagnosticsPermission();
+    expect(instance.data.testCenterEnabled).toBe(false);
+    await refreshDiagnosticsAccess();
+    // A newly granted hidden page must not mount a new section either.
+    expect(instance.data.testCenterEnabled).toBe(false);
+    definition.onUnload.call(instance);
+  });
+
   it('switches primary destinations in place and pushes secondary tools onto the Page stack', async () => {
     const storage = createStorage();
     const navigateTo = vi.fn();

@@ -66,6 +66,7 @@ import {
   type NativePerformanceProbe,
 } from '../../platform/performance-probe.js';
 import { recordMiniTelemetryPerformance } from '../../platform/telemetry.js';
+import { recordExportRenderStage } from '../../platform/export-render-diagnostics.js';
 import {
   createMonthRing,
   createWorkbenchViewModel,
@@ -481,7 +482,12 @@ Page({
     this._performanceProbe = createNativePerformanceProbe();
     this._performanceProbe.start('core-ready');
     this._diagnosticsUnsubscribe = subscribeDiagnosticsPermission((allowed) => {
-      this.setData({ testCenterEnabled: this.isVisible && allowed && canUseDiagnostics() });
+      // Retain an existing section while covered by another Page so scroll height stays stable.
+      // Permission revocation still removes it immediately; hidden pages cannot acquire a new one.
+      this.setData({
+        testCenterEnabled:
+          (this.isVisible || this.data.testCenterEnabled) && allowed && canUseDiagnostics(),
+      });
     });
     this.setData({ ...createShellLayoutPatch(), testCenterEnabled: false });
     void loadWorkbenchWithCapability(this);
@@ -537,7 +543,6 @@ Page({
     this.requestSerial += 1;
     invalidateShiftEventRequest(this);
     this.setData({
-      testCenterEnabled: false,
       filterOpen: false,
       groupOpen: false,
       notificationSheetOpen: false,
@@ -1769,6 +1774,7 @@ function navigateGroupTool(
     return;
   }
   const groupId = encodeURIComponent(page.data.currentGroupId);
+  if (toolId === 'exports') recordExportRenderStage('open-requested');
   wx.navigateTo({
     fail: () => announceToolNavigationFailure(page, '页面暂时无法打开，请稍后重试。'),
     url: `${route}?groupId=${groupId}`,
