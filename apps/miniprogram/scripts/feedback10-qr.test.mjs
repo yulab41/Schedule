@@ -276,7 +276,7 @@ describe('feedback10 invitation visitor lifecycle', () => {
     expect(page.data.qrImageSrc).toBe('');
     expect(page.setData.mock.calls.length).toBe(calls);
   });
-  it('rotation immediately clears displayed QR and defeats earlier reads', async () => {
+  it('rotation immediately clears displayed QR and shows the automatically refreshed code', async () => {
     await loadQr();
     const pending = deferred();
     mocks.read.getGroupQr.mockReturnValue(pending.promise);
@@ -287,11 +287,12 @@ describe('feedback10 invitation visitor lifecycle', () => {
     expect(page.data.qrVisible).toBe(false);
     pending.resolve({ imageBase64: 'iVBORw0KGgo=' });
     await flush();
-    expect(page.data.qrImageSrc).toBe('');
-    expect(page.data.infoMessage).toContain('已轮换');
+    expect(page.data.qrImageSrc).toBe('data:image/png;base64,iVBORw0KGgo=');
+    expect(page.data.qrVisible).toBe(true);
+    expect(page.data.infoMessage).toContain('二维码已读取');
     definition.handleSaveQr.call(page);
     await flush();
-    expect(fs.writeFile).not.toHaveBeenCalled();
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
   });
   it.each(['switch', 'rotate', 'hide', 'detach'])(
     'cancels pending save before album write after %s',
@@ -420,7 +421,7 @@ describe('feedback10 invitation visitor lifecycle', () => {
       expect(page.data.infoMessage).toBe('');
     },
   );
-  it('deduplicates QR reads and rotations and prevents reading during a rotation', async () => {
+  it('deduplicates QR reads and rotations and isolates an automatic read failure', async () => {
     const read = deferred();
     mocks.read.getGroupQr.mockReturnValue(read.promise);
     definition.handleLoadQr.call(page);
@@ -440,14 +441,14 @@ describe('feedback10 invitation visitor lifecycle', () => {
     rotate.resolve({ visitorKeyChanged: true });
     await flush();
     expect(page.data.qrImageSrc).toBe('');
-    expect(page.data.infoMessage).toContain('已轮换');
+    expect(page.data.infoMessage).toContain('old read');
   });
   it('shows create, revoke, read, rotate and failure feedback for two seconds, replacing old expiry', async () => {
     for (const [handler, text] of [
       ['handleCreateInvite', '邀请已生成'],
       ['handleRevokeInvite', '已撤销'],
       ['handleLoadQr', '二维码'],
-      ['handleRegenerateVisitorKey', '已轮换'],
+      ['handleRegenerateVisitorKey', '二维码'],
     ]) {
       definition[handler].call(page);
       await flush();

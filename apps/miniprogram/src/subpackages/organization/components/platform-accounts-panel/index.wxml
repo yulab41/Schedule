@@ -1,3 +1,4 @@
+<ui-toast visible="{{!!infoMessage}}" message="{{infoMessage}}" tone="{{infoTone}}"></ui-toast>
 <view class="platform-accounts-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}"
     ><view
@@ -75,18 +76,6 @@
               bindpress="handleOpenEditor"
             ></ui-button></view
         ></view>
-        <ui-alert
-          wx:if="{{managementError}}"
-          tone="danger"
-          title="平台账号操作未完成"
-          message="{{managementError}}"
-        ></ui-alert
-        ><ui-alert
-          wx:if="{{managementInfo}}"
-          tone="success"
-          title="平台账号"
-          message="{{managementInfo}}"
-        ></ui-alert>
         <view class="bottom-spacer"></view>
       </view>
     </view>
@@ -103,24 +92,6 @@
             src="/assets/icons/ui-close.svg"
             mode="aspectFit" /></view></view
       ><text class="sheet-copy">手机号同步至所有群组，群内短号与公开状态分别保留。</text>
-      <ui-alert
-        wx:if="{{managementError}}"
-        tone="danger"
-        title="操作未完成"
-        message="{{managementError}}"
-      ></ui-alert>
-      <ui-button
-        wx:if="{{managementError}}"
-        variant="secondary"
-        label="重新加载账号"
-        bindpress="handleRefresh"
-      ></ui-button>
-      <ui-alert
-        wx:if="{{managementInfo}}"
-        tone="success"
-        title="账号资料"
-        message="{{managementInfo}}"
-      ></ui-alert>
       <view class="field-block"
         ><text class="field-label">真实姓名</text
         ><input
@@ -138,6 +109,7 @@
           bindinput="handleMobilePhoneInput"
       /></view>
       <ui-button
+        class="profile-save-button"
         variant="primary"
         label="保存姓名与手机号"
         disabled="{{!canManage || !realNameDraft}}"

@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  calendarApiGoldenResponse,
-  holidayApiGoldenResponse,
-} from '@schedule/client-core/testing';
+import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/client-core/testing';
 import {
   createWorkbenchViewModel,
   mergeCalendarShiftTypes,
@@ -49,7 +46,9 @@ describe('Feedback16 calendar stability', () => {
       '2026-11-30',
     );
 
-    const cell = view.monthPanels[1].cells.find((candidate) => candidate.businessDate === '2026-11-30');
+    const cell = view.monthPanels[1].cells.find(
+      (candidate) => candidate.businessDate === '2026-11-30',
+    );
     expect(cell).toMatchObject({ shiftAbbreviation: '', shiftBadgeStyle: '', person: '李医生' });
   });
 
@@ -111,8 +110,8 @@ describe('Feedback16 calendar stability', () => {
       definition.onResize.call(page);
 
       expect(page.data.weekGridHeight).toBeGreaterThanOrEqual(112);
-      expect(wx.nextTick).not.toHaveBeenCalled();
-      expect(wx.createSelectorQuery).not.toHaveBeenCalled();
+      expect(globalThis.wx.nextTick).not.toHaveBeenCalled();
+      expect(globalThis.wx.createSelectorQuery).not.toHaveBeenCalled();
     });
   });
 });

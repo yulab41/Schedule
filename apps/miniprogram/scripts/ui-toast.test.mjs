@@ -226,11 +226,17 @@ describe('controlled root-layer workflow toast', () => {
     expect(notificationsTemplate).not.toContain('title="设置状态"');
     for (const [directory, field] of [
       ['subpackages/organization/components/scheduling-config-panel', 'managementInfo'],
-      ['subpackages/organization/components/platform-accounts-panel', 'managementInfo'],
     ]) {
       expect(read(`${directory}/index.wxml`)).toContain(`message="{{${field}}}"`);
       expect(read(`${directory}/index.wxml`)).not.toContain('<ui-toast');
     }
+    const platformAccounts = read(
+      'subpackages/organization/components/platform-accounts-panel/index.wxml',
+    );
+    expect(platformAccounts).toContain('<ui-toast');
+    expect(platformAccounts).toContain('message="{{infoMessage}}"');
+    expect(platformAccounts).not.toContain('message="{{managementInfo}}"');
+    expect(platformAccounts).not.toContain('message="{{managementError}}"');
     const inviteVisitor = read(
       'subpackages/organization/components/invite-visitor-panel/index.wxml',
     );

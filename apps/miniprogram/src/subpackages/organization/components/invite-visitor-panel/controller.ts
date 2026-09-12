@@ -259,6 +259,10 @@ export function createInviteVisitorPanelControllerDefinition() {
       void saveQr(this);
     },
 
+    handlePreviewQr(this: InviteVisitorPageInstance): void {
+      previewQr(this);
+    },
+
     handleAlbumSettings(
       this: InviteVisitorPageInstance,
       event: {
@@ -535,6 +539,7 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
   const isCurrent = qrContext(page);
   const group = page._group;
   const groupId = page._groupId;
+  let shouldLoadNewQr = false;
   updatePanel(page, {
     visitorState: 'loading',
     visitorMessage: '',
@@ -556,6 +561,7 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
     });
     if (!isCurrent()) return;
     page._operationIds.delete(key);
+    shouldLoadNewQr = true;
     updatePanel(page, { visitorState: 'ready', visitorMessage: '访客码已轮换，旧入口立即失效。' });
   } catch (error) {
     if (!isCurrent()) return;
@@ -566,9 +572,43 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
   } finally {
     if (page._qrRotating === task) {
       delete page._qrRotating;
-      if (isCurrent() && page.data.visitorState === 'loading')
+      if (shouldLoadNewQr && isCurrent()) {
+        // Release the rotation lock before starting the read; loadQr uses the
+        // new QR generation to invalidate every pre-rotation read result.
+        void loadQr(page);
+      } else if (isCurrent() && page.data.visitorState === 'loading')
         updatePanel(page, { visitorState: 'idle' });
     }
+  }
+}
+
+function previewQr(page: InviteVisitorPageInstance): void {
+  if (page._disposed || !page.data.qrVisible || !page.data.qrImageSrc) return;
+  const imageSrc = page.data.qrImageSrc;
+  const isCurrent = qrContext(page);
+  const previewImage = (
+    wx as unknown as {
+      previewImage?: (options: {
+        current: string;
+        urls: readonly string[];
+        fail?: () => void;
+      }) => void;
+    }
+  ).previewImage;
+  const fallback = (): void => {
+    if (isCurrent())
+      updatePanel(page, {
+        managementError: '二维码预览暂不可用，请使用保存到相册。',
+      });
+  };
+  if (typeof previewImage !== 'function') {
+    fallback();
+    return;
+  }
+  try {
+    previewImage({ current: imageSrc, urls: [imageSrc], fail: fallback });
+  } catch {
+    fallback();
   }
 }
 

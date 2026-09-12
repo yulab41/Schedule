@@ -17,6 +17,7 @@
 }
 .editor-sheet {
   height: 84vh;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 .mini-header {
   display: flex;
@@ -290,6 +291,13 @@
 }
 .field-block {
   gap: 5px;
+}
+.field-block + .field-block {
+  margin-top: 12px;
+}
+.profile-save-button {
+  display: block;
+  margin-top: 10px;
 }
 .native-field {
   width: 100%;

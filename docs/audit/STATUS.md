@@ -1,5 +1,15 @@
 # 微信小程序审计状态
 
+## 当前批次：Feedback16 A/B/C 已实现，等待同 SHA 体验版与小米14复核
+
+- 设计检查点 `516e2719`；A 检查点 `42e644a4`；详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
+- A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
+- 定向与相关回归均通过：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项；A workbench联合58项通过、1项跳过。全量 Mini 测试169文件通过、2文件跳过，1195项通过、16项跳过。合成390/320/大字号布局检查通过，非原生证据。
+- 最终门禁：`format:check`、`lint`、Mini verify、包体、Worklet、确定性及 `smoke:check-core` 通过；Mini verify source/output Worklet 2/2，包体4,550,584字节。既有主包和矩阵节点仅为内部 warning，不是本轮回归失败。
+- 导出白屏尚未能在本地 Node/精确源码血缘中复现；用户报告只有 `open-requested` 和 `MINI_RUNTIME_ERROR`，没有 Page 生命周期阶段。已做的 `ui-toast` 注册是发现的具体边界修复，仍不得宣称手机白屏已闭环。
+- 外部边界：不控制微信开发者工具 GUI/CLI；本轮未授权体验版上传、版本放行、生产部署、数据库操作或真实通知。
+- 唯一下一任务/停止条件：取得用户当次上传授权后，使用当前干净 SHA 上传体验版；上传后只等待同 SHA 小米14复核，不提前写原生通过。
+
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 
 - 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情feedback15.md。

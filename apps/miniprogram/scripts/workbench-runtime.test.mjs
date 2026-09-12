@@ -1021,12 +1021,14 @@ describe('P6-A workbench runtime coordination', () => {
     definition.onResize.call(instance);
     const initialHeight = instance.data.weekGridHeight;
     expect(initialHeight).toBeLessThan(200);
-    instance.calendar.assignments.push(...Array.from({ length: 4 }, (_, index) => ({
-      ...sample,
-      id: `current-${index}`,
-      actualMemberName: '当前周长姓名',
-      businessDate: '2026-09-07',
-    })));
+    instance.calendar.assignments.push(
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...sample,
+        id: `current-${index}`,
+        actualMemberName: '当前周长姓名',
+        businessDate: '2026-09-07',
+      })),
+    );
     definition.onResize.call(instance);
     const currentHeight = instance.data.weekGridHeight;
     expect(currentHeight).toBeGreaterThan(initialHeight);

@@ -159,7 +159,13 @@
             ><view class="qr-heading"
               ><text>群组二维码</text
               ><view class="qr-close" aria-role="button" bindtap="handleHideQr">完成</view></view
-            ><image class="qr-image" src="{{qrImageSrc}}" mode="aspectFit" /><text
+            ><image
+              class="qr-image"
+              src="{{qrImageSrc}}"
+              mode="aspectFit"
+              show-menu-by-longpress="{{true}}"
+              bindtap="handlePreviewQr"
+            /><text
               class="memory-note"
               >点击保存后写入相册；访客码轮换后，已保存的旧二维码失效。</text
             ><ui-button
