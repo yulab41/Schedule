@@ -70,6 +70,51 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(['requireClientCapability', 'getSchedulingConfig', 'listGroupMembers'])(
+    'bounds initial options when %s hangs and ignores late completion',
+    async (method) => {
+      vi.useFakeTimers();
+      let complete;
+      mocks[method].mockReturnValueOnce(
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+      );
+      const definition = await controllerDefinition();
+      const page = pageFor(definition);
+      definition.lifetimes.attached.call(page);
+      await vi.advanceTimersByTimeAsync(30_001);
+      expect(page.data.state).toBe('error');
+      expect(page.data.errorMessage).toContain('超时');
+      complete(method === 'getSchedulingConfig' ? { roles: [] } : []);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(page.data.state).toBe('error');
+      definition.methods.handleRetry.call(page);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(page.data.state).toBe('idle');
+      definition.lifetimes.detached.call(page);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+  it('cancels initial options on unload and never starts requests after late capability', async () => {
+    vi.useFakeTimers();
+    let complete;
+    mocks.requireClientCapability.mockReturnValueOnce(
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+    definition.lifetimes.detached.call(page);
+    complete();
+    await vi.advanceTimersByTimeAsync(30_001);
+    expect(mocks.getSchedulingConfig).not.toHaveBeenCalled();
+    expect(mocks.listGroupMembers).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('runs the actual direct Page controller through cold entry, show, hide, unload and re-entry', async () => {
     vi.stubGlobal('Page', vi.fn());
     await import('../src/subpackages/insights/pages/exports/index.ts');

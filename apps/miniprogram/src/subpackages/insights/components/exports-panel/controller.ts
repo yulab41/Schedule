@@ -346,14 +346,34 @@ function initializeRuntimeState(page: ExportsPageInstance): void {
 
 async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<void> {
   const epoch = page._epoch;
+  const wait = createExportCancellation();
+  page._wait = wait;
+  recordMiniTelemetryBoundary('exports:options-start');
   try {
-    await requireClientCapability('insights');
-    if (!isCurrent(page, groupId, epoch)) return;
-    const [config, members] = await Promise.all([
-      page._organizationReadClient.getSchedulingConfig(groupId),
-      page._organizationReadClient.listGroupMembers(groupId),
-    ]);
-    if (!isCurrent(page, groupId, epoch)) return;
+    const result = await waitForExportOperation(
+      async (isStopped) => {
+        await requireClientCapability('insights');
+        if (isStopped() || !isCurrent(page, groupId, epoch)) return undefined;
+        return Promise.all([
+          page._organizationReadClient.getSchedulingConfig(groupId),
+          page._organizationReadClient.listGroupMembers(groupId),
+        ]);
+      },
+      30_000,
+      wait,
+    );
+    if (!isCurrent(page, groupId, epoch) || result.status === 'cancelled') return;
+    if (result.status === 'timed_out') {
+      recordMiniTelemetryBoundary('exports:options-timeout');
+      page.setData({
+        state: 'error',
+        errorMessage: '导出选项加载超时，请重新加载。',
+        statusLabel: '导出选项加载超时',
+      });
+      return;
+    }
+    if (result.value === undefined) return;
+    const [config, members] = result.value;
     page.setData({
       memberOptions: [
         { id: '', label: '全部成员' },
@@ -368,8 +388,10 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
       state: 'idle',
       statusLabel: '选择内容后创建任务',
     });
+    recordMiniTelemetryBoundary('exports:options-ready');
   } catch (error) {
     if (!isCurrent(page, groupId, epoch)) return;
+    recordMiniTelemetryBoundary('exports:options-error');
     page.setData({
       errorMessage:
         error instanceof ClientCapabilityDisabledError
@@ -379,6 +401,8 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
       statusLabel:
         error instanceof ClientCapabilityDisabledError ? '导出暂未开放' : '导出选项加载失败',
     });
+  } finally {
+    if (page._wait === wait) page._wait = undefined;
   }
 }
 

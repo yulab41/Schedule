@@ -168,7 +168,47 @@ describe('feedback10 QR image adapter', () => {
     });
     expect(await save()).toBe('save-failed');
     fs.unlink.mockImplementation((o) => o.fail({ errMsg: 'sensitive' }));
-    expect(await save()).toBe('cleanup-failed');
+    expect(await save()).toBe('save-failed');
+  });
+  it('keeps confirmed album success separate from cleanup failure', async () => {
+    fs.unlink.mockImplementation((o) => o.fail({ errMsg: 'sensitive path' }));
+    expect(await save()).toBe('saved-cleanup-failed');
+  });
+  it('classifies privacy rejection without exposing native text or paths', async () => {
+    const slot = { errors: [], performance: [] };
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: slot } }));
+    runtime.saveImageToPhotosAlbum.mockImplementation((o) =>
+      o.fail({
+        errMsg: 'saveImageToPhotosAlbum:fail privacy permission is not authorized /secret',
+      }),
+    );
+    expect(await save()).toBe('privacy-denied');
+    expect(slot.errors).toContainEqual(expect.objectContaining({ code: 'QR_PRIVACY_DENIED' }));
+    expect(JSON.stringify(slot)).not.toContain('/secret');
+  });
+  it('retains both primary failure and cleanup diagnosis', async () => {
+    const slot = { errors: [], performance: [] };
+    vi.stubGlobal('getApp', () => ({ globalData: { runtimeDiagnostics: slot } }));
+    runtime.saveImageToPhotosAlbum.mockImplementation((o) =>
+      o.fail({ errMsg: 'unknown /private' }),
+    );
+    fs.unlink.mockImplementation((o) => o.fail({ errMsg: 'cleanup /private' }));
+    expect(await save()).toBe('save-failed');
+    expect(slot.errors.map((error) => error.code)).toEqual(['QR_SAVE_FAILED', 'QR_CLEANUP_FAILED']);
+    expect(slot.performance.map((entry) => entry.metric)).toEqual([
+      'qr:write-start',
+      'qr:write-finished',
+      'qr:album-start',
+    ]);
+    expect(JSON.stringify(slot)).not.toContain('/private');
+  });
+  it('shows confirmed save with cleanup warning instead of asking to save again', async () => {
+    await loadQr();
+    fs.unlink.mockImplementation((o) => o.fail({ errMsg: 'fixture' }));
+    definition.handleSaveQr.call(page);
+    await flush();
+    expect(page.data.infoMessage).toBe('二维码已保存到相册，但临时文件清理失败，请联系管理员。');
+    expect(runtime.saveImageToPhotosAlbum).toHaveBeenCalledTimes(1);
   });
   it('does not write stale or unsupported image material', async () => {
     expect(await save(() => false)).toBe('stale');

@@ -657,23 +657,28 @@ async function saveQr(page: InviteVisitorPageInstance): Promise<void> {
         page.data.qrImageSrc === imageSrc,
     );
     if (!isCurrent() || result === 'stale') return;
-    if (result === 'saved' || result === 'cancelled') {
+    if (result === 'saved' || result === 'saved-cleanup-failed' || result === 'cancelled') {
       updatePanel(page, {
         albumPermissionDenied: false,
-        infoTone: result === 'saved' ? 'success' : 'info',
-        managementInfo: result === 'saved' ? '二维码已保存到相册。' : '已取消保存二维码。',
+        infoTone: result === 'cancelled' ? 'info' : 'success',
+        managementInfo:
+          result === 'saved-cleanup-failed'
+            ? '二维码已保存到相册，但临时文件清理失败，请联系管理员。'
+            : result === 'saved'
+              ? '二维码已保存到相册。'
+              : '已取消保存二维码。',
       });
     } else {
       const message =
-        result === 'permission-denied'
-          ? '未获相册权限，请点击相册设置后重新保存。'
-          : result === 'write-failed'
-            ? '二维码临时文件写入失败，请稍后重试。'
-            : result === 'cleanup-failed'
-              ? '二维码临时文件清理失败，请联系管理员。'
+        result === 'privacy-denied'
+          ? '微信隐私检查未通过，二维码未保存。请前往测试工具复制简化报告。'
+          : result === 'permission-denied'
+            ? '未获相册权限，请点击相册设置后重新保存。'
+            : result === 'write-failed'
+              ? '二维码临时文件写入失败，请稍后重试。'
               : result === 'invalid-image'
                 ? '二维码图片无效，请重新读取。'
-                : '二维码未保存，请稍后重试。';
+                : '二维码未保存，请前往测试工具复制简化报告。';
       updatePanel(page, {
         albumPermissionDenied: result === 'permission-denied',
         managementError: message,

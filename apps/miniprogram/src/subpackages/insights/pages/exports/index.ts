@@ -17,6 +17,9 @@ Page({
   onUnload(this: ExportsPageInstance): void {
     controller.lifetimes.detached.call(this);
   },
+  onReady(): void {
+    recordMiniTelemetryBoundary('exports:page-ready');
+  },
   onHide(this: ExportsPageInstance): void {
     controller.pageLifetimes.hide.call(this);
   },
