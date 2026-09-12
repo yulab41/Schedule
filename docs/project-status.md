@@ -5,7 +5,7 @@
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
 - 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
-- 外部边界：不控制微信开发者工具；未授权体验版上传、生产部署或数据库操作。
+- 外部边界：不控制微信开发者工具；用户已授权体验版上传和追加放行，未授权生产部署或数据库操作。
 - A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
 - 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
 - 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
@@ -13,7 +13,7 @@
 - 验证：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项通过；A workbench联合58项通过、1项跳过。390/320/大字号为合成检查，非小米14验收。
 - 导出白屏本地仍未复现；用户报告缺少 `page-load/page-ready` 阶段，保留原生/缓存装载待验证。外部边界：未授权体验版上传、生产操作或微信开发者工具控制。
 - 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。当前停止条件：`UPLOAD_REQUIRED`，等待同一干净 SHA 的体验版上传授权与小米14复核。
-- 最终检查点：`84ae20f8 fix(miniprogram): complete feedback16 stability fixes`，已推送 `origin/codex/feedback16-20260912`。Mini-only 范围不触发 ECS 部署、数据库备份或生产发布。
+- 最终检查点：`84ae20f8 fix(miniprogram): complete feedback16 stability fixes`，已推送 `origin/codex/feedback16-20260912`；发布策略补充检查点消息为 `chore(release): refresh Feedback16 trial lineage proof`。本次用户已授权体验版上传和追加放行，Mini-only 不触发 ECS 部署、数据库备份或生产发布。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
