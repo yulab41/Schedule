@@ -50,3 +50,7 @@
 - 非法WECHAT_TRIAL_GROUP_IDS列表增加启动和发送双重验证，RED2后env/业务函数25项通过，不静默退回formal。
 - 主任务同源集成完成format/lint/build/typecheck、Mini1160通过/15跳过、根1247通过/433跳过及依赖保护81；相关隔离MySQL71项证据复用。
 - 运行/浏览器验证：pnpm smoke:browser通过当前集成API与Web完整流程，pnpm smoke:check-core通过；开发合成local-admin标记已回读恢复，未触生产/真实消息。
+
+## 生产交付更新
+
+API/Web及两群trial已部署验证；实际微信账号只有原值班模板，独立业务模板缺失，业务通道未启用。具体备份、cron和错误码证据见feedback12-server-release.md。下一任务取得实际业务模板ID和字段后配置，不重发历史通知。

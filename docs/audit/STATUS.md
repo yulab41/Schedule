@@ -1,13 +1,13 @@
 # 微信小程序审计状态
 
-## 当前批次：feedback12体验版109已上传放行，待小米14复核
+## 当前批次：feedback12服务器与109已交付，业务模板待补充
 
-- 用户批准十项计划及修正样张：状态无箭头、保留原徽标和电话图标、月历严格群组默认班种。三项应用提交f1f44849/7842c4da/e94a54ca已推送；a9d5a1ee仅刷新经AST核对的旧日历血缘证明。
-- 已上传0.1.0-p10.20260912.109，production/clean，356文件Manifest、receipt和不可变tag一致；可信ensure仅追加109，完整生产verifier与allowlist verify通过，公网109/108=200、未知426。详情docs/audit/feedback12-trial-release.md。
-- 实现验证：Mini1160/15跳过、根1247/433跳过、依赖保护81、隔离MySQL71通过；390/320布局和完整本地浏览器冒烟通过。上传专项30、补充动效/日历/血缘49通过；全程复用依赖，无安装。
-- 服务器live保持a90e3b0a；本轮未部署API/Web、迁移、导入或发送真实消息。访客默认班种新接口与通知能力仍需后续服务端部署及实际业务模板ID/字段、群组ID配置。
-- 二维码保存和导出整页白屏仍待新版安全诊断，无同版本小米14通过结论；十项状态见docs/audit/feedback12.md。
-- 文档检查点：docs(release): record feedback12 trial 109 delivery。唯一下一任务：小米14重开109/a9d5a1e复核日历/二维码/导出；失败返回安全诊断。服务端部署与真实通知验证另行授权；不重复上传、放行或护士数据导入。
+- 用户已授权并完成API/Web部署和两群trial路由配置。已验证应用release为37d752b5、schema57；前驱a90e3b0a，备份fdb247e7-bed8-46ec-8f7a-44c9cb2a505c文件hash验证通过。详情docs/audit/feedback12-server-release.md。
+- 完整生产verifier与allowlist verify通过，109/108公网200、未知426。通知cron正常，两群自动消息trial、其他群formal；未触发真实测试发送或重发历史通知。新访客显示设置API已部署。
+- 微信实际账号仅有原值班“排班提醒”模板；独立业务模板ID/字段缺失，新业务微信通道保持关闭。已弹窗索取，不能标记全部通知能力启用。唯一下一任务是取得实际模板ID/字段并配置验证。
+- 体验版保持0.1.0-p10.20260912.109/a9d5a1e，未重复上传或改放行。二维码保存及导出整页白屏仍待同版本小米14安全诊断，十项状态见docs/audit/feedback12.md。
+- 验证沿用Mini1160/15跳过、根1247/433跳过、依赖保护81、隔离MySQL71、390/320及本地浏览器；本轮增加发布4+37项和生产验证。生产浏览器工具打开超时，不计通过。全程复用依赖，无安装。
+- 文档检查点docs(ops): record feedback12 server deployment and template blocker；文档release同步仅可通过可信hash-identical复用，无再次部署应用/迁移。最新current-release与Manifest保留实际身份。
 
 ## 上一批次：feedback11 体验版108已上传放行，导出空白待定位
 
