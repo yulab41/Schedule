@@ -71,7 +71,11 @@ export class WechatDiagnosticsService {
   ) {}
 
   configuration() {
-    return { dutyReminderTemplateId: readWechatTemplateIds().dutyReminder?.trim() || null };
+    const templates = readWechatTemplateIds();
+    return {
+      dutyReminderTemplateId: templates.dutyReminder?.trim() || null,
+      ...(templates.business ? { businessTemplateId: templates.business } : {}),
+    };
   }
 
   async inspect(identity: AuthenticatedIdentity, groupId: string) {

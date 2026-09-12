@@ -89,6 +89,53 @@ describeWithDatabase('draft preview and publishing', () => {
     }
   });
 
+  it('notifies removed and new assignees once when a draft replaces a published period', async () => {
+    const config = await getConfig('owner-token', groupId);
+    const makeDraft = async (membershipId: string) => {
+      const saved = (
+        await saveSchedule(groupId, {
+          businessMonth: '2026-08',
+          operationId: randomUUID(),
+          rulesVersion: config.rulesVersion,
+          scheduleRoleIds: [primaryRoleId],
+        })
+      ).json() as FixtureScheduleResult;
+      const id = saved.periods[0]!.id;
+      await client.database.execute(
+        sql`UPDATE shift_assignments SET planned_membership_id=${membershipId}, actual_membership_id=NULL WHERE schedule_period_id=${id}`,
+      );
+      return id;
+    };
+    const first = await makeDraft(candidateMembershipId);
+    expect(
+      (
+        await publishSchedule(groupId, first, {
+          acknowledgeBlockers: true,
+          expectedVersion: 1,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(200);
+    const second = await makeDraft(ownerMembershipId);
+    const input = {
+      acknowledgeBlockers: true,
+      replacePublished: true,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    };
+    const result = await publishSchedule(groupId, second, input);
+    expect(result.statusCode).toBe(200);
+    const [rows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(DISTINCT recipient_user_id) AS count FROM notifications WHERE object_id=${second} AND notification_type='schedule_published'`,
+    );
+    expect(rows).toEqual([{ count: 2 }]);
+    expect((await publishSchedule(groupId, second, input)).json()).toEqual(result.json());
+    const [counts] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM notifications WHERE object_id=${second} AND notification_type='schedule_published'`,
+    );
+    expect(counts).toEqual([{ count: 2 }]);
+  });
+
   it('blocks publishing a draft whose month is fully past', async () => {
     const config = await getConfig('owner-token', groupId);
     const saved = (

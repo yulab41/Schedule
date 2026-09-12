@@ -2781,3 +2781,10 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 - 引入点27992c758，原补录按岗位/日期首槽；新增显式成员匹配及静默手排，保持旧行为。详见docs/audit/nurse-schedule-import.md。
 - 运行/浏览器验证：pnpm smoke:browser（SMOKE_BASE_URL=http://127.0.0.1:4173）通过登录/管理员/成员/访客/访问记录，无浏览器错误；本地合成管理员标记已恢复。
 - 无真机结论；正式部署与数据录入另行核验。
+
+## Feedback12 108十项反馈（2026-09-12）
+
+- 月历首条排班引入ad4cfb2c，周历112px引入50c6d1ed；本轮按批准规格增加群组默认班种读取、护士预设排序/分段状态、临时展开、完整周历分组及安全事件入口。详细行为变化与RED/GREEN见docs/audit/feedback12.md。
+- 二维码/导出9bae5beb后续安全分类及初始化截止见feedback12-export-qr.md；原生相册与整页白屏仍未证实根因。通知旧/新接收人52e9e1f4问题与双模板实现见feedback12-notifications.md，未触生产/真发送。
+- 运行/浏览器验证：pnpm smoke:browser（当前集成源码，SMOKE_BASE_URL=http://127.0.0.1:4175，本地API3105，canonical本地.env只读内存适配）通过登录、管理员、成员、访客及访问记录；无浏览器错误。既有local-admin测试标记回读恢复，两个自建服务已停止。
+- Native状态：已实现待小米14复核；桌面几何、Node和隔离MySQL不替代微信原生验收。外部操作仍需精确候选授权。

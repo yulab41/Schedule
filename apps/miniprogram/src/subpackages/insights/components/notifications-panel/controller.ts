@@ -625,6 +625,7 @@ async function toggleSubscription(
     }
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     let enabled = checked;
+    let partiallyGranted = false;
     if (checked) {
       if (!page._subscriptionTemplates?.length) {
         if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
@@ -634,7 +635,8 @@ async function toggleSubscription(
       }
       const grants = await requestWechatSubscriptions(page._subscriptionTemplates);
       if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
-      enabled = grants.length > 0 && grants.every((grant) => grant.status === 'accepted');
+      enabled = grants.some((grant) => grant.status === 'accepted');
+      partiallyGranted = enabled && grants.some((grant) => grant.status !== 'accepted');
       if (!enabled) {
         const blocked = grants.some((grant) => grant.status === 'blocked');
         page.setData({
@@ -665,7 +667,11 @@ async function toggleSubscription(
     });
     showNotificationInfo(
       page,
-      enabled ? '已完成本次微信订阅授权。' : '微信值班提醒已关闭，应用内通知仍可用。',
+      enabled
+        ? partiallyGranted
+          ? '部分提醒已获授权，其余提醒尚未授权，可再次点击订阅。'
+          : '已完成本次微信订阅授权。'
+        : '微信提醒已关闭，应用内通知仍可用。',
       feedback,
     );
   } catch (error) {

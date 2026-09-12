@@ -6,6 +6,7 @@ import type {
   CalendarRoleSummary,
   CalendarShiftTypeSummary,
   GuestCalendarReadModel,
+  GuestCalendarDisplaySettings,
 } from '@schedule/contracts';
 import {
   groups,
@@ -187,6 +188,30 @@ export class CalendarQuery {
     }
 
     return this.readGuestMonthForGroup(group, businessMonth);
+  }
+
+  public async readGuestDisplaySettings(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<GuestCalendarDisplaySettings> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requireGuestCalendarAccess(transaction, identity, groupId);
+      const [row] = await transaction
+        .select({ id: shiftTypes.id })
+        .from(groups)
+        .innerJoin(
+          shiftTypes,
+          and(
+            eq(shiftTypes.id, groups.defaultMonthShiftTypeId),
+            eq(shiftTypes.groupId, groups.id),
+            eq(shiftTypes.isEnabled, 1),
+            isNull(shiftTypes.deletedAt),
+          ),
+        )
+        .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+        .limit(1);
+      return { groupId, groupDefaultMonthShiftTypeId: row?.id ?? null };
+    });
   }
 
   public async readGuestShiftEvents(

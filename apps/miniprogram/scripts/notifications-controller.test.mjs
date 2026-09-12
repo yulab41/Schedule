@@ -297,6 +297,22 @@ describe('notification parity controller', () => {
     });
   });
 
+  it('preserves accepted duty reminders when the business template is rejected', async () => {
+    mocks.templates.mockResolvedValueOnce(['duty', 'business']);
+    mocks.requestSubscriptions.mockResolvedValue([
+      { status: 'accepted', templateId: 'duty' },
+      { status: 'rejected', templateId: 'business' },
+    ]);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    definition.methods.handleSubscribe.call(page);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: true });
+    expect(page.data.infoMessage).toContain('部分提醒已获授权');
+  });
+
   it('marks the page as large text when the system font setting requests it', async () => {
     globalThis.wx.getWindowInfo = () => ({
       fontSizeSetting: 20,

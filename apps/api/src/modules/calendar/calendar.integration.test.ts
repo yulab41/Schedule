@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import type { CalendarDutyAssignment, CalendarReadModel } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
+  groups,
   leaveRequests,
   migrateDatabase,
   scheduleEvents,
@@ -113,6 +114,47 @@ describeWithDatabase('current month calendar read model', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('reads only validated group display settings for linked guests and revokes access live', async () => {
+    const linkedGroupId = await linkOutsiderGroup();
+    const read = () =>
+      app.inject({
+        method: 'GET',
+        headers: { authorization: 'Bearer outsider-token' },
+        url: `/groups/${groupId}/guest-calendar/display-settings`,
+      });
+    const shiftId = allDayShiftTypeId;
+    await client.database
+      .update(groups)
+      .set({ defaultMonthShiftTypeId: shiftId })
+      .where(eq(groups.id, groupId));
+    const result = await read();
+    expect(result.statusCode).toBe(200);
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(result.json()).toEqual({ groupId, groupDefaultMonthShiftTypeId: shiftId });
+    await client.database.execute(sql`UPDATE shift_types SET is_enabled=0 WHERE id=${shiftId}`);
+    expect((await read()).json()).toEqual({ groupId, groupDefaultMonthShiftTypeId: null });
+    const [foreignShift] = await client.database
+      .select({ id: shiftTypes.id })
+      .from(shiftTypes)
+      .where(eq(shiftTypes.groupId, linkedGroupId))
+      .limit(1);
+    await client.database
+      .update(groups)
+      .set({ defaultMonthShiftTypeId: foreignShift!.id })
+      .where(eq(groups.id, groupId));
+    expect((await read()).json()).toEqual({ groupId, groupDefaultMonthShiftTypeId: null });
+    await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=0`);
+    expect((await read()).statusCode).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/groups/${groupId}/guest-calendar/display-settings`,
+        })
+      ).statusCode,
+    ).toBe(401);
   });
 
   it('gives linked and anonymous visitors the member calendar and scoped paginated events', async () => {

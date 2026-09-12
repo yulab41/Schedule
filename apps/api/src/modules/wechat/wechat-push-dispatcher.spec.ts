@@ -11,10 +11,10 @@ import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
 describe('WeChat push dispatcher', () => {
   it('maps notification types to template kinds', () => {
     expect(getWechatTemplateKind('duty_reminder')).toBe('dutyReminder');
-    expect(getWechatTemplateKind('leave_request_approved')).toBeUndefined();
-    expect(getWechatTemplateKind('swap_request_rejected')).toBeUndefined();
-    expect(getWechatTemplateKind('duty_adjustment_request_accepted')).toBeUndefined();
-    expect(getWechatTemplateKind('schedule_published')).toBeUndefined();
+    expect(getWechatTemplateKind('leave_request_approved')).toBe('business');
+    expect(getWechatTemplateKind('swap_request_rejected')).toBe('business');
+    expect(getWechatTemplateKind('duty_adjustment_request_accepted')).toBe('business');
+    expect(getWechatTemplateKind('schedule_published')).toBe('business');
     expect(getWechatTemplateKind('unknown_type')).toBeUndefined();
   });
 

@@ -3,6 +3,8 @@ import {
   calendarReadModelDecoder,
   createAuthenticationRequiredError,
   createCalendarPreferencesClient,
+  createGuestCalendarDisplaySettingsClient,
+  type GuestCalendarDisplaySettingsClient,
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
   createInsightsReadClient,
@@ -294,6 +296,15 @@ export function createRuntimeCalendarPreferencesClient(
 ): CalendarPreferencesClient {
   return createCalendarPreferencesClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication),
+  );
+}
+
+export function createRuntimeGuestCalendarDisplaySettingsClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): GuestCalendarDisplaySettingsClient {
+  return createGuestCalendarDisplaySettingsClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'guest'),
   );
 }
 

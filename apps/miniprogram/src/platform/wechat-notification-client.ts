@@ -51,14 +51,24 @@ async function request(
   }
   return response.data;
 }
-export async function loadWechatSubscriptionTemplates(): Promise<readonly string[]> {
+export async function loadWechatSubscriptionTemplates(
+  kind: 'all' | 'dutyReminder' = 'all',
+): Promise<readonly string[]> {
   const value = (await request('/notifications/wechat-subscription-config')) as {
     dutyReminderTemplateId?: unknown;
+    businessTemplateId?: unknown;
   } | null;
   const id = value?.dutyReminderTemplateId;
-  if (id === null) return [];
-  if (typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(id)) return [id];
-  throw new Error('微信订阅配置响应无效，请刷新重试。');
+  const ids = kind === 'dutyReminder' ? [id] : [id, value?.businessTemplateId ?? null];
+  if (
+    ids.some(
+      (template) =>
+        template !== null &&
+        (typeof template !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(template)),
+    )
+  )
+    throw new Error('微信订阅配置响应无效，请刷新重试。');
+  return [...new Set(ids.filter((template): template is string => typeof template === 'string'))];
 }
 export async function inspectWechatNotifications(groupId: string): Promise<unknown> {
   return request(`/me/wechat-notification-diagnostics?groupId=${encodeURIComponent(groupId)}`);

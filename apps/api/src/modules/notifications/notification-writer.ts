@@ -205,7 +205,10 @@ export class NotificationWriter {
       return false;
     }
     const templateIds = readWechatTemplateIds();
-    if (templateIds[kind] === undefined && process.env.WECHAT_MOCK_MODE !== 'true') {
+    if (
+      templateIds[kind] === undefined &&
+      (kind === 'business' || process.env.WECHAT_MOCK_MODE !== 'true')
+    ) {
       return false;
     }
 

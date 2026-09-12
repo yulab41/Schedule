@@ -86,7 +86,7 @@ export async function prepareWechatDiagnosticPage(page: Host): Promise<void> {
     page.setData({ wechatRows: [{ label: '当前群组', value: '请先在工作台选择群组。' }] });
     return;
   }
-  const templateRequest = loadWechatSubscriptionTemplates();
+  const templateRequest = loadWechatSubscriptionTemplates('dutyReminder');
   const [templates, server, settings] = await Promise.allSettled([
     templateRequest,
     inspectWechatNotifications(group),

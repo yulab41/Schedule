@@ -36,6 +36,20 @@ const wechatSettings = {
   WECHAT_MOCK_MODE: z.enum(['true', 'false']).default('false'),
   WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
   WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_BUSINESS_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_BUSINESS_TEMPLATE_FIELDS: optionalTextSchema,
+  WECHAT_TRIAL_GROUP_IDS: optionalTextSchema.refine(
+    (value) =>
+      value === undefined ||
+      value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .every((id) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(id),
+        ),
+    'trial group IDs must be valid UUIDs',
+  ),
 };
 const authSettings = {
   AUTH_PASSWORD_ENABLED: z.enum(['true', 'false']).default('false'),

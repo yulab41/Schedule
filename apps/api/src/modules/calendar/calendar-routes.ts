@@ -75,6 +75,16 @@ export function registerCalendarRoutes(
   const publicMiniGuestGuard = createPublicMiniCapabilityGuard(clientCapabilityPolicy);
 
   app.get(
+    '/groups/:groupId/guest-calendar/display-settings',
+    { preHandler: app.authenticate },
+    (request) =>
+      calendarQuery.readGuestDisplaySettings(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+      ),
+  );
+
+  app.get(
     '/groups/:groupId/guest-calendar/shifts/:shiftId/events',
     { preHandler: app.authenticate },
     (request) =>

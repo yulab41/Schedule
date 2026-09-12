@@ -5,6 +5,14 @@ export type CalendarPreferenceView = z.infer<typeof calendarPreferenceViewSchema
 
 const nullableShiftTypeIdSchema = z.string().uuid().nullable();
 
+export const guestCalendarDisplaySettingsSchema = z
+  .object({
+    groupId: z.string().uuid(),
+    groupDefaultMonthShiftTypeId: nullableShiftTypeIdSchema,
+  })
+  .strict();
+export type GuestCalendarDisplaySettings = z.infer<typeof guestCalendarDisplaySettingsSchema>;
+
 export const calendarPreferencesSchema = z
   .object({
     canManageGroupDefaults: z.boolean(),

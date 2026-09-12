@@ -28,6 +28,7 @@ import { NotificationWriter } from '../notifications/notification-writer.js';
 import { createPushDispatcher } from '../notifications/notification-dispatcher.js';
 import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
 import { WechatPushDispatcher, type WechatTemplateIds } from './wechat-push-dispatcher.js';
+import { businessNotificationTypes } from './wechat-business-template.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -87,6 +88,124 @@ describeWithDatabase('wechat notification deliveries', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('automatically delivers business events once through the retry job and keeps duty reminders separate', async () => {
+    process.env.WECHAT_BUSINESS_TEMPLATE_ID = 'tpl-business';
+    process.env.WECHAT_BUSINESS_TEMPLATE_FIELDS =
+      '{"title":"thing1","summary":"thing2","occurredAt":"time3"}';
+    process.env.WECHAT_TRIAL_GROUP_IDS = groupId;
+    for (const type of businessNotificationTypes)
+      await withTransaction(client, (tx) =>
+        new NotificationWriter().append(tx, {
+          groupId,
+          notificationType: type,
+          recipientUserIds: [memberUserId, memberUserId],
+          title: '排班消息',
+          body: '应用内详情',
+          payload: { businessMonth: '2026-09-01' },
+        }),
+      );
+    await appendDutyReminder(memberUserId);
+    const gateway = new RecordingGateway();
+    const job = new NotificationRetryJob(
+      client,
+      createPushDispatcher({}),
+      new WechatPushDispatcher(client, gateway),
+    );
+    expect((await job.run()).sent).toBe(businessNotificationTypes.size + 1);
+    expect(gateway.sends.filter((send) => send.templateId === 'tpl-business')).toHaveLength(
+      businessNotificationTypes.size,
+    );
+    expect(gateway.sends.filter((send) => send.templateId === 'tpl-duty')).toHaveLength(1);
+    expect(gateway.sends.every((send) => send.targetVersion === 'trial')).toBe(true);
+    expect(gateway.sends[0]?.data).toMatchObject({ thing2: { value: '2026-09排班已发布' } });
+    expect((await job.run()).sent).toBe(0);
+  });
+
+  it('fails closed without a valid business template and never replays old in-app notices on configuration', async () => {
+    delete process.env.WECHAT_BUSINESS_TEMPLATE_ID;
+    delete process.env.WECHAT_BUSINESS_TEMPLATE_FIELDS;
+    await withTransaction(client, (tx) =>
+      new NotificationWriter().append(tx, {
+        groupId,
+        notificationType: 'schedule_published',
+        recipientUserIds: [memberUserId],
+        title: '排班已发布',
+        body: '旧通知',
+      }),
+    );
+    expect(await client.database.select().from(notificationDeliveries)).toHaveLength(0);
+    process.env.WECHAT_BUSINESS_TEMPLATE_ID = 'tpl-business';
+    process.env.WECHAT_BUSINESS_TEMPLATE_FIELDS = '{"title":"thing1"}';
+    const gateway = new RecordingGateway();
+    expect(
+      (
+        await new NotificationRetryJob(
+          client,
+          createPushDispatcher({}),
+          new WechatPushDispatcher(client, gateway),
+        ).run()
+      ).sent,
+    ).toBe(0);
+    expect(gateway.sends).toHaveLength(0);
+  });
+
+  it.each(['preference', 'membership', 'group'])(
+    'rechecks %s before queued business delivery',
+    async (changed) => {
+      process.env.WECHAT_BUSINESS_TEMPLATE_ID = 'tpl-business';
+      process.env.WECHAT_BUSINESS_TEMPLATE_FIELDS = '{"title":"thing1"}';
+      await withTransaction(client, (tx) =>
+        new NotificationWriter().append(tx, {
+          groupId,
+          notificationType: 'approval_pending',
+          recipientUserIds: [memberUserId],
+          title: '请审批',
+          body: 'b',
+        }),
+      );
+      if (changed === 'preference')
+        await app.inject({
+          headers: { authorization: 'Bearer member-token' },
+          method: 'PUT',
+          url: `/groups/${groupId}/notification-preferences/mine`,
+          payload: { wechatNotificationsEnabled: false },
+        });
+      else if (changed === 'membership')
+        await client.database.execute(
+          sql`UPDATE group_memberships SET deleted_at=NOW() WHERE group_id=${groupId} AND user_id=${memberUserId}`,
+        );
+      else
+        await client.database
+          .update(groups)
+          .set({ deletedAt: new Date() })
+          .where(eq(groups.id, groupId));
+      const gateway = new RecordingGateway();
+      const result = await new NotificationRetryJob(
+        client,
+        createPushDispatcher({}),
+        new WechatPushDispatcher(client, gateway),
+      ).run();
+      expect(result.skipped).toBe(1);
+      expect(gateway.sends).toHaveLength(0);
+    },
+  );
+
+  it('generates and sends automatic duty reminders in trial through both scheduled jobs without a test endpoint', async () => {
+    process.env.WECHAT_TRIAL_GROUP_IDS = groupId;
+    await appendDutyReminder(memberUserId, false);
+    expect((await new DutyReminderJob(client).run()).created).toBe(1);
+    const gateway = new RecordingGateway();
+    const job = new NotificationRetryJob(
+      client,
+      createPushDispatcher({}),
+      new WechatPushDispatcher(client, gateway),
+    );
+    expect((await job.run()).sent).toBe(1);
+    expect(gateway.sends[0]).toMatchObject({ templateId: 'tpl-duty', targetVersion: 'trial' });
+    expect((await new DutyReminderJob(client).run()).created).toBe(0);
+    expect((await job.run()).sent).toBe(0);
   });
 
   it('does not send a queued duty reminder after its group was dissolved', async () => {
@@ -292,7 +411,7 @@ describeWithDatabase('wechat notification deliveries', () => {
     return response.json() as { id: string };
   }
 
-  async function appendDutyReminder(recipientUserId: string): Promise<void> {
+  async function appendDutyReminder(recipientUserId: string, enqueue = true): Promise<void> {
     const [member] = await client.database
       .select({ id: groupMemberships.id })
       .from(groupMemberships)
@@ -347,6 +466,7 @@ describeWithDatabase('wechat notification deliveries', () => {
       plannedMembershipId: member.id,
       plannedMemberName: '测试成员',
     });
+    if (!enqueue) return;
     await withTransaction(client, (transaction) =>
       new NotificationWriter().append(transaction, {
         body: '您值班将在 2 小时后开始。',
@@ -370,7 +490,12 @@ describeWithDatabase('wechat notification deliveries', () => {
 
 class RecordingGateway implements WechatGateway {
   public readonly isConfigured = true;
-  public readonly sends: Array<{ data: unknown; openid: string; templateId: string }> = [];
+  public readonly sends: Array<{
+    data: unknown;
+    openid: string;
+    templateId: string;
+    targetVersion?: string;
+  }> = [];
 
   public async exchangeCode(code: string) {
     return { openid: `mock-openid-${code}`, sessionKey: undefined, unionid: undefined };
@@ -380,8 +505,14 @@ class RecordingGateway implements WechatGateway {
     return new Uint8Array();
   }
 
-  public async sendSubscribeMessage(openid: string, templateId: string, data: unknown) {
-    this.sends.push({ data, openid, templateId });
+  public async sendSubscribeMessage(
+    openid: string,
+    templateId: string,
+    data: unknown,
+    _observe?: unknown,
+    targetVersion?: 'trial' | 'formal',
+  ) {
+    this.sends.push({ data, openid, templateId, ...(targetVersion ? { targetVersion } : {}) });
     return { messageId: 'mock-message-id' };
   }
 }
@@ -431,7 +562,13 @@ class FlakyGateway implements WechatGateway {
   }
 }
 
-const wechatEnvKeys = ['WECHAT_DUTY_REMINDER_TEMPLATE_ID', 'WECHAT_MOCK_MODE'] as const;
+const wechatEnvKeys = [
+  'WECHAT_DUTY_REMINDER_TEMPLATE_ID',
+  'WECHAT_MOCK_MODE',
+  'WECHAT_BUSINESS_TEMPLATE_ID',
+  'WECHAT_BUSINESS_TEMPLATE_FIELDS',
+  'WECHAT_TRIAL_GROUP_IDS',
+] as const;
 
 function createFakeAuthPort(tokens: Readonly<Record<string, string>>): AuthPort {
   return {

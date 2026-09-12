@@ -32,6 +32,7 @@ import {
   scheduleRoles,
   schedulePeriods,
   shiftTypes,
+  shiftAssignments,
   userProfiles,
   users,
   withTransaction,
@@ -263,6 +264,34 @@ export class ManualScheduleApplyService {
       });
     }
     const periods: SchedulePeriodSummary[] = [];
+    const replacedAssignments =
+      existingPublishedPeriods.length === 0
+        ? []
+        : await transaction
+            .select({
+              plannedMembershipId: shiftAssignments.plannedMembershipId,
+              actualMembershipId: shiftAssignments.actualMembershipId,
+            })
+            .from(shiftAssignments)
+            .where(
+              and(
+                inArray(
+                  shiftAssignments.schedulePeriodId,
+                  existingPublishedPeriods.map((period) => period.id),
+                ),
+                isNull(shiftAssignments.deletedAt),
+              ),
+            );
+    const notificationMembershipIds = [
+      ...new Set([
+        ...getAffectedMembershipIds(context.assignments),
+        ...replacedAssignments.flatMap((assignment) =>
+          [assignment.plannedMembershipId, assignment.actualMembershipId].filter(
+            (id): id is string => id !== null,
+          ),
+        ),
+      ]),
+    ];
     const appliedEventIds: string[] = [];
     for (const businessMonth of [...assignmentsByMonth.keys()].sort()) {
       const assignments = assignmentsByMonth.get(businessMonth);
@@ -330,13 +359,19 @@ export class ManualScheduleApplyService {
       input.notifyMembers !== false
     ) {
       await this.notificationWriter.append(transaction, {
-        body: '手动模板已应用并发布，您的班次已更新。',
+        body: `${context.preview.applyStartDate}至${context.preview.applyEndDate}排班已发布，请查看日历。`,
         groupId: authorization.group.id,
         notificationType: 'schedule_generated',
         objectId: context.template.id,
         objectType: 'manual_schedule_template',
-        payload: { publishMode, source: 'manual_template', templateId: context.template.id },
-        recipientMembershipIds: getAffectedMembershipIds(context.assignments),
+        payload: {
+          publishMode,
+          source: 'manual_template',
+          templateId: context.template.id,
+          startDate: context.preview.applyStartDate,
+          endDate: context.preview.applyEndDate,
+        },
+        recipientMembershipIds: notificationMembershipIds,
         scheduleEventId: firstAppliedEventId,
         title: '排班已生成',
       });

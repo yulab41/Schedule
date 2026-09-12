@@ -22,6 +22,7 @@ import { ManualScheduleTemplateService } from './template-service.js';
 import { ManualScheduleApplyService } from './apply-service.js';
 import { PastScheduleService } from '../past-schedules/past-schedule-service.js';
 import { ScheduleRepository } from '../schedules/schedule-repository.js';
+import { DutyReminderJob } from '../../jobs/duty-reminders.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -84,6 +85,39 @@ describeWithDatabase('manual schedule template apply', () => {
     }
   });
 
+  it('notifies both removed and new members once when replacing a published manual schedule', async () => {
+    const firstTemplate = await createTemplate([
+      { cycleDay: 1, membershipId: candidateMembershipId, shiftTypeId: allDayShiftTypeId },
+    ]);
+    const first = await applyTemplate(firstTemplate, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      publishMode: 'published',
+    });
+    expect(first.statusCode).toBe(200);
+    const secondTemplate = await createTemplate([
+      { cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId },
+    ]);
+    const input = {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      publishMode: 'published' as const,
+      replacePublished: true,
+    };
+    const second = await applyTemplate(secondTemplate, input);
+    expect(second.statusCode).toBe(200);
+    const [rows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(DISTINCT recipient_user_id) AS count FROM notifications WHERE group_id=${groupId} AND object_id=${secondTemplate}`,
+    );
+    expect(rows).toEqual([{ count: 2 }]);
+    const replay = await applyTemplate(secondTemplate, input);
+    expect(replay.json()).toEqual(second.json());
+    const [counts] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM notifications WHERE group_id=${groupId} AND object_id=${secondTemplate}`,
+    );
+    expect(counts).toEqual([{ count: 2 }]);
+  });
+
   it('publishes silently with events and idempotency but no notifications', async () => {
     const templateId = await createTemplate();
     const input = {
@@ -121,6 +155,12 @@ describeWithDatabase('manual schedule template apply', () => {
       payload: { ...input, notifyMembers: true },
     });
     expect(changed.statusCode).toBe(409);
+    const reminderResult = await new DutyReminderJob(client).run();
+    expect(reminderResult.created).toBeGreaterThan(0);
+    const [reminders] = await client.database.execute<{ type: string }>(
+      sql`SELECT DISTINCT notification_type AS type FROM notifications WHERE group_id=${groupId}`,
+    );
+    expect(reminders).toEqual([{ type: 'duty_reminder' }]);
   });
 
   it('rolls back a combined silent publication and member backfill as one transaction', async () => {

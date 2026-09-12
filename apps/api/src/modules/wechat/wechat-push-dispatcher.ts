@@ -1,11 +1,13 @@
 import type { DatabaseClient, DatabaseTransaction, ScheduleDatabase } from '@schedule/database';
 import {
   users,
+  userProfiles,
   shiftAssignments,
   schedulePeriods,
   groupMemberships,
   scheduleEvents,
   groups,
+  notificationPreferences,
 } from '@schedule/database';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { collectMarkers } from '../calendar/calendar-query.js';
@@ -17,23 +19,33 @@ import {
   type WechatSendPhaseObserver,
   type WechatMessageTargetVersion,
 } from './wechat-gateway.js';
+import {
+  automaticWechatTargetVersion,
+  buildBusinessTemplateData,
+  businessNotificationTypes,
+  readBusinessTemplateConfiguration,
+} from './wechat-business-template.js';
 
-export type WechatTemplateKind = 'dutyReminder';
+export type WechatTemplateKind = 'dutyReminder' | 'business';
 
 export interface WechatTemplateIds {
   readonly dutyReminder: string | undefined;
+  readonly business?: string;
 }
 
 export function getWechatTemplateKind(notificationType: string): WechatTemplateKind | undefined {
   if (notificationType === 'duty_reminder') {
     return 'dutyReminder';
   }
+  if (businessNotificationTypes.has(notificationType)) return 'business';
   return undefined;
 }
 
 export function readWechatTemplateIds(values: NodeJS.ProcessEnv = process.env): WechatTemplateIds {
+  const business = readBusinessTemplateConfiguration(values);
   return {
     dutyReminder: values.WECHAT_DUTY_REMINDER_TEMPLATE_ID,
+    ...(business ? { business: business.id } : {}),
   };
 }
 
@@ -46,6 +58,8 @@ export interface WechatNotificationRecord {
   readonly notificationType: string;
   readonly recipientUserId: string;
   readonly title: string;
+  readonly payload?: Readonly<Record<string, unknown>> | null;
+  readonly createdAt?: Date;
 }
 
 export interface WechatDutyReminder {
@@ -78,7 +92,7 @@ export class WechatPushDispatcher {
     notification: WechatNotificationRecord,
     database?: ScheduleDatabase | DatabaseTransaction,
     observe?: WechatSendPhaseObserver,
-    targetVersion: WechatMessageTargetVersion = 'formal',
+    targetVersion?: WechatMessageTargetVersion,
   ): Promise<{ readonly messageId: string | null }> {
     if (!this.gateway.isConfigured) {
       throw new WechatGatewayError(
@@ -110,12 +124,72 @@ export class WechatPushDispatcher {
       );
     }
 
-    const duty = notification.dutyReminder ?? (await this.readDuty(notification, database));
-    const data = buildSubscribeMessageData(duty);
-    if (targetVersion !== 'formal')
-      return this.gateway.sendSubscribeMessage(openid, templateId, data, observe, targetVersion);
+    const data =
+      kind === 'business'
+        ? await this.readBusinessData(notification, templateId, database)
+        : buildSubscribeMessageData(
+            notification.dutyReminder ?? (await this.readDuty(notification, database)),
+          );
+    const resolvedTarget = targetVersion ?? automaticWechatTargetVersion(notification.groupId);
+    if (resolvedTarget !== 'formal')
+      return this.gateway.sendSubscribeMessage(openid, templateId, data, observe, resolvedTarget);
     if (observe === undefined) return this.gateway.sendSubscribeMessage(openid, templateId, data);
     return this.gateway.sendSubscribeMessage(openid, templateId, data, observe);
+  }
+
+  private async readBusinessData(
+    notification: WechatNotificationRecord,
+    templateId: string,
+    database?: ScheduleDatabase | DatabaseTransaction,
+  ): Promise<WechatSubscribeMessageData> {
+    const configuration = readBusinessTemplateConfiguration();
+    if (
+      !configuration ||
+      configuration.id !== templateId ||
+      !notification.groupId ||
+      !notification.createdAt
+    )
+      throw missingBusinessData();
+    const db = database ?? this.databaseClient.database;
+    const [recipient] = await db
+      .select({
+        groupName: groups.name,
+        memberName: userProfiles.realName,
+        enabled: notificationPreferences.wechatNotificationsEnabled,
+      })
+      .from(groupMemberships)
+      .innerJoin(groups, and(eq(groups.id, groupMemberships.groupId), isNull(groups.deletedAt)))
+      .innerJoin(
+        users,
+        and(
+          eq(users.id, groupMemberships.userId),
+          eq(users.status, 'active'),
+          isNull(users.deletedAt),
+        ),
+      )
+      .innerJoin(
+        userProfiles,
+        and(eq(userProfiles.userId, users.id), isNull(userProfiles.deletedAt)),
+      )
+      .leftJoin(
+        notificationPreferences,
+        eq(notificationPreferences.membershipId, groupMemberships.id),
+      )
+      .where(
+        and(
+          eq(groupMemberships.groupId, notification.groupId),
+          eq(groupMemberships.userId, notification.recipientUserId),
+          eq(groupMemberships.status, 'active'),
+          isNull(groupMemberships.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!recipient || recipient.enabled === 0) throw missingBusinessData();
+    return buildBusinessTemplateData(configuration, {
+      ...notification,
+      ...recipient,
+      createdAt: notification.createdAt,
+    });
   }
 
   private async readDuty(
@@ -207,6 +281,15 @@ function missingDutyData(): WechatGatewayError {
     null,
     'WECHAT_MESSAGE_SEND_FAILED',
     'Duty reminder data is missing or invalid.',
+  );
+}
+
+function missingBusinessData(): WechatGatewayError {
+  return new WechatGatewayError(
+    null,
+    null,
+    'WECHAT_MESSAGE_SEND_FAILED',
+    'Business notification configuration or recipient is unavailable.',
   );
 }
 

@@ -348,6 +348,21 @@ export class SchedulePublishService {
       });
     }
 
+    const replacedAssignments =
+      existingPublished === undefined
+        ? []
+        : await transaction
+            .select({
+              plannedMembershipId: shiftAssignments.plannedMembershipId,
+              actualMembershipId: shiftAssignments.actualMembershipId,
+            })
+            .from(shiftAssignments)
+            .where(
+              and(
+                eq(shiftAssignments.schedulePeriodId, existingPublished.id),
+                isNull(shiftAssignments.deletedAt),
+              ),
+            );
     const published = await this.repository.publishInTransaction(transaction, {
       actorUserId: authorization.user.id,
       acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
@@ -357,7 +372,7 @@ export class SchedulePublishService {
     });
     const affectedMembershipIds = [
       ...new Set(
-        assignments.flatMap((assignment) =>
+        [...assignments, ...replacedAssignments].flatMap((assignment) =>
           [assignment.plannedMembershipId, assignment.actualMembershipId].filter(
             (membershipId): membershipId is string => membershipId !== null,
           ),

@@ -207,6 +207,8 @@ export class NotificationRetryJob {
           shiftAssignmentId: notification.shiftAssignmentId,
           groupId: notification.groupId,
           title: notification.title,
+          payload: notification.payload,
+          createdAt: notification.createdAt,
         },
         transaction,
       );

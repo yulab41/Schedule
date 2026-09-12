@@ -39,6 +39,27 @@ describe('small WeChat diagnostic clients', () => {
       await expect(loadWechatSubscriptionTemplates()).rejects.toThrow('响应无效');
     }
   });
+  it('loads both independent templates while duty diagnostics retain their original grant', async () => {
+    const { loadWechatSubscriptionTemplates } =
+      await import('../src/platform/wechat-notification-client.ts');
+    mock.execute.mockResolvedValue({
+      statusCode: 200,
+      data: { dutyReminderTemplateId: 'duty', businessTemplateId: 'business' },
+    });
+    expect(await loadWechatSubscriptionTemplates()).toEqual(['duty', 'business']);
+    expect(await loadWechatSubscriptionTemplates('dutyReminder')).toEqual(['duty']);
+    mock.execute.mockResolvedValue({
+      statusCode: 200,
+      data: { dutyReminderTemplateId: null, businessTemplateId: 'business' },
+    });
+    expect(await loadWechatSubscriptionTemplates()).toEqual(['business']);
+    mock.execute.mockResolvedValue({
+      statusCode: 200,
+      data: { dutyReminderTemplateId: 'duty', businessTemplateId: 'invalid value' },
+    });
+    await expect(loadWechatSubscriptionTemplates()).rejects.toThrow('响应无效');
+  });
+
   it('requires a positive preference acknowledgement and retains session handling', async () => {
     const { saveWechatReceivingPreference } =
       await import('../src/platform/wechat-notification-client.ts');

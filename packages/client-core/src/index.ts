@@ -11,6 +11,10 @@ export {
   calendarPreferencesDecoder,
   calendarPreferencesEndpoints,
   createCalendarPreferencesClient,
+  guestCalendarDisplaySettingsDecoder,
+  guestCalendarDisplaySettingsEndpoint,
+  createGuestCalendarDisplaySettingsClient,
+  type GuestCalendarDisplaySettingsClient,
   type CalendarPreferencesClient,
 } from './calendar-preferences-client.js';
 export {

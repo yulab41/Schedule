@@ -9,6 +9,16 @@ const validEnvironment = {
 };
 
 describe('loadEnvironment', () => {
+  it('rejects an invalid trial group list instead of silently routing configured groups to formal', () => {
+    const groupId = '11111111-1111-4111-8111-111111111111';
+    expect(
+      loadEnvironment({ ...validEnvironment, WECHAT_TRIAL_GROUP_IDS: groupId })
+        .WECHAT_TRIAL_GROUP_IDS,
+    ).toBe(groupId);
+    expect(() =>
+      loadEnvironment({ ...validEnvironment, WECHAT_TRIAL_GROUP_IDS: `${groupId},not-a-group` }),
+    ).toThrow(EnvironmentValidationError);
+  });
   it('uses local defaults for optional network settings', () => {
     expect(loadEnvironment(validEnvironment)).toMatchObject({
       API_HOST: '127.0.0.1',

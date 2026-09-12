@@ -1,10 +1,13 @@
-import { calendarPreferencesSchema } from '@schedule/contracts';
+import { calendarPreferencesSchema, guestCalendarDisplaySettingsSchema } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   calendarPreferencesDecoder,
   calendarPreferencesEndpoints,
   createCalendarPreferencesClient,
+  guestCalendarDisplaySettingsDecoder,
+  guestCalendarDisplaySettingsEndpoint,
+  createGuestCalendarDisplaySettingsClient,
 } from './calendar-preferences-client.js';
 import type { ClientTransport } from './endpoint.js';
 
@@ -25,6 +28,35 @@ const preferences = {
 } as const;
 
 describe('calendar preferences client boundary', () => {
+  it('reads minimal guest display settings through a bearer-only endpoint and strict decoder', async () => {
+    const value = { groupId, groupDefaultMonthShiftTypeId: shiftTypeId };
+    expect(guestCalendarDisplaySettingsSchema.safeParse(value).success).toBe(true);
+    expect(guestCalendarDisplaySettingsDecoder.safeDecode(value)).toEqual({
+      success: true,
+      data: value,
+    });
+    expect(
+      guestCalendarDisplaySettingsDecoder.safeDecode({
+        groupId,
+        groupDefaultMonthShiftTypeId: null,
+      }).success,
+    ).toBe(true);
+    for (const invalid of [
+      { ...value, secret: 'unexpected' },
+      { groupId },
+      { ...value, groupDefaultMonthShiftTypeId: 'bad' },
+      { ...value, groupId: 'bad' },
+    ])
+      expect(guestCalendarDisplaySettingsDecoder.safeDecode(invalid).success).toBe(false);
+    expect(guestCalendarDisplaySettingsEndpoint.auth).toBe('bearer');
+    expect(guestCalendarDisplaySettingsEndpoint.path({ groupId: 'group /一' })).toBe(
+      '/groups/group%20%2F%E4%B8%80/guest-calendar/display-settings',
+    );
+    const request = vi.fn(async () => value);
+    const client = createGuestCalendarDisplaySettingsClient({ request } as ClientTransport);
+    expect(await client.get(groupId)).toEqual(value);
+    expect(request).toHaveBeenCalledWith(guestCalendarDisplaySettingsEndpoint, { groupId });
+  });
   it('encodes all paths and keeps the three operations bearer protected', () => {
     expect(calendarPreferencesEndpoints.get.path({ groupId: 'group /一' })).toBe(
       '/groups/group%20%2F%E4%B8%80/calendar-preferences',

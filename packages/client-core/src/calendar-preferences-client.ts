@@ -1,5 +1,6 @@
 import type {
   CalendarPreferences,
+  GuestCalendarDisplaySettings,
   UpdateGroupCalendarDefaults,
   UpdateMemberCalendarPreferences,
 } from '@schedule/contracts';
@@ -33,6 +34,37 @@ const expectedKeys = [
 
 const uuidPattern =
   /^(?:00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff|[\da-f]{8}-[\da-f]{4}-[1-8][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12})$/iu;
+
+export const guestCalendarDisplaySettingsDecoder: CompactDecoder<GuestCalendarDisplaySettings> = {
+  safeDecode(value): CompactDecodeResult<GuestCalendarDisplaySettings> {
+    if (
+      !isRecord(value) ||
+      Object.keys(value).length !== 2 ||
+      !isUuid(value.groupId) ||
+      (value.groupDefaultMonthShiftTypeId !== null && !isUuid(value.groupDefaultMonthShiftTypeId))
+    )
+      return { success: false };
+    return { success: true, data: value as unknown as GuestCalendarDisplaySettings };
+  },
+};
+export const guestCalendarDisplaySettingsEndpoint = /* @__PURE__ */ defineClientEndpoint<
+  GroupInput,
+  GuestCalendarDisplaySettings
+>({
+  auth: 'bearer',
+  decoder: guestCalendarDisplaySettingsDecoder,
+  id: 'calendar.guest-display-settings',
+  method: 'GET',
+  path: ({ groupId }) => `${groupPath(groupId)}/guest-calendar/display-settings`,
+});
+export interface GuestCalendarDisplaySettingsClient {
+  get(groupId: string): Promise<GuestCalendarDisplaySettings>;
+}
+export function createGuestCalendarDisplaySettingsClient(
+  transport: ClientTransport,
+): GuestCalendarDisplaySettingsClient {
+  return { get: (groupId) => transport.request(guestCalendarDisplaySettingsEndpoint, { groupId }) };
+}
 
 export const calendarPreferencesDecoder: CompactDecoder<CalendarPreferences> = {
   safeDecode(value): CompactDecodeResult<CalendarPreferences> {
