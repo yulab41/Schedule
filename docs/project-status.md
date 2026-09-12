@@ -113,3 +113,7 @@
 - 无依赖环境安装/冷槽新建。general-1上传租约已释放并用于文档收口；general-3历史释放仍受PID重用阻挡，不终止无关进程。
 - 收口提交标识：docs(release): record WeChat rebind trial 96 delivery。只记录已交付应用a6586326，不再部署文档提交。
 - 上一交付保留待复核项（非当前下一任务）：小米14确认.96/a6586326后测试个人账号↔admin换绑、微信登录及诊断身份一致，再主动本人订阅/发送并返回脱敏报告。未主动发送真实测试通知，未提审或正式发布，原生与收信效果待用户复核。
+
+## Feedback12上传进行中
+
+用户已授权上传和追加放行；e94a54ca上传前校验发现旧工作台证明，尚未上传。chore(release): refresh approved calendar lineage proof仅补充批准行为的AST证明，详见docs/audit/feedback12-trial-release.md。下一任务冻结新候选后上传放行；API/Web部署及模板配置仍未授权。
