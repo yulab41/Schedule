@@ -1,14 +1,15 @@
 # Project Status
 
-## 当前批次：Feedback15 已上传112，部署与放行待授权
+## 当前批次：Feedback15 已部署并放行112，待小米14复核
 
 - 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情docs/audit/feedback15.md。
 - 当前周独立测量/点选局部更新、before折叠、岗位改名接口与弹窗、月历顺延/62px、三视图补班、单按钮两步授权及日期文字盒居中已实现。
 - pnpm verify通过：Mini1184/16跳过、根1252/439跳过、依赖保护81；MySQL模式集成套件46项通过。收口额外通知保存失败回归RED1→联合35通过，最终Mini verify/Worklet2/2/包体通过（主包1708859/总4550421字节）。
 - 390/320真实WXML/生产CSS几何及运行/浏览器验证：pnpm smoke:browser通过；smoke:check-core通过。本地synthetic管理员标记已回读恢复、3105/4175服务已停止；小米14原生待同版本复核。
-- 83d8a03b已推送；用户授权上传/放行后，112/83d8a03已上传成功，357文件冻结包/receipt/远端tag一致，主包1709858/总4552499。上传专项30项及候选前后检查通过，见docs/audit/feedback15-trial-release.md。
-- 只读live仍e163fde8，尚无岗位改名接口；112=426、111=200。依发布手册须先部署服务端再放行，部署授权已请求但尚未收到。本轮没有ensure/replace、备份/部署/迁移或真实通知。
-- 唯一下一任务：取得83d8a03b部署授权后重新核对live，备份/部署/验证，再仅追加112放行并保留111；不重复上传或分配版本。文档检查点docs(release): record feedback15 trial 112 pending activation；原生待112同版本小米14。
+- 83d8a03b已推送；112/83d8a03已上传成功，357文件冻结包/receipt/远端tag一致，主包1709858/总4552499。上传专项30项及候选前后检查通过，见docs/audit/feedback15-trial-release.md。
+- 用户随后授权生产操作：备份d89f173b-8b76-463c-b560-3e0726ff3d5d成功（54表、106182176字节）；服务端83d8a03b部署完成，schema57，独立ecs-verify通过。生产健康探测首段短暂502后恢复，未改变业务数据。
+- 可信ensure仅追加112并保留111；allowlist verifier、再次ecs-verify及公网策略探针通过：112/111=200，动态未知=426。未执行replace、版本退役或真实通知。
+- 唯一下一任务：小米14重开体验版112/83d8a03b，复核八项交互和视觉。自动化与生产验证完成，原生待用户复核；不重复上传、放行或部署。文档检查点docs(release): record feedback15 trial 112 delivery。
 
 ## 上一批次：Feedback14 已交付111，导出白屏待同版本报告
 
