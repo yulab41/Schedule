@@ -39,11 +39,14 @@
 
 - 用户提供的 112/`83d8a03` 报告只出现 `exports · open-requested` 和运行时错误指纹，没有 `page-load`、`page-ready` 或页面标题；这支持“页面装载/缓存/原生边界”假设，但不能证明本轮修复后的体验版结果。
 - 必须在同一干净 SHA 上传后，由用户在小米14 Android 微信客户端体验版复核：导出直接进入是否出现标题/返回/loading，二维码点击预览与长按保存，轮换后新码是否自动出现，平台账号弹窗在 390/320/大字号下是否碰撞。
-- 候选提交 `905171cfa96b20e0158c39819a96795192d74108` 已以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；上传时间 `2026-09-12T11:44:01.543Z`，说明为 `Feedback16 Mini stability release 905171c`。冻结 Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`，receipt 与远端不可变 tag 一致。
+- 候选提交 `905171cfa96b20e0158c39819a96795192d74108` 已以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；该版本作为修复前基线保留，receipt 与远端不可变 tag 一致。
 - 首次上传命中微信 CI `-10008 invalid ip`（IPv6）；没有改变版本、源码或冻结产物，使用同一不可变元组和已验证代理 IPv4 路由重试成功。此网络路径为进程级路由事实，未改系统网络或平台配置。
-- 服务器端仅执行 add-only `schedule-client-version-allowlist ensure`，追加 `.113` 并保留 `.112`；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，线上应用 release 指针仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行流程重建了 API/Web 容器，但这不是本轮生产代码部署；健康检查已恢复，未做数据库备份/迁移。
+- 服务器端此前仅执行 add-only `schedule-client-version-allowlist ensure` 追加 `.113` 并保留 `.112`；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，线上应用 release 指针未改变。
 - 当前状态：代码、自动化验证、体验版上传和版本放行完成；原生待用户复核。未提审、未正式发布、未发送真实通知。
-- 必须在同一体验版由用户在小米14 Android 微信客户端复核：导出直接进入的标题/返回/loading，二维码点击预览与长按保存，轮换后自动出现新码，平台账号弹窗在 390/320/大字号下不碰撞，以及月历全天班首帧和周历切周高度稳定。
+- 修复提交 `f7b1709aa471562f15caab2b6c83db1c94383de1` 已以 production/clean 上传为体验版 `0.1.0-p10.20260912.114`；上传时间以 receipt 为准，说明为 `Feedback16 export startup fix f7b1709`，Manifest `66ab569cacb1f1384cc38da6b1c4c586c23c3b0c8ecf35032760bce9a4917f9a`，receipt 与远端不可变 tag 一致。
+- 服务器端仅 add-only 追加 `.114`，`.113` 保留；allowlist verify 与完整 `ecs-verify.sh` 通过，线上应用 release 指针仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行流程重建了 API/Web 容器，但不是本轮生产代码部署；健康检查已恢复，未做数据库备份/迁移。
+- 当前状态：代码、自动化验证、体验版上传和版本放行完成；原生待用户复核。未提审、未正式发布、未发送真实通知。
+- 必须在同一体验版114由用户在小米14 Android 微信客户端复核：导出直接进入的标题/返回/loading，二维码点击预览与长按保存，轮换后自动显示新码，平台账号弹窗在 390/320/大字号下不碰撞，以及月历全天班首帧和周历切周高度稳定。
 
 ## 后续导出白屏定位
 
@@ -53,4 +56,4 @@
 
 修复将直接 Page 的群组上下文写入 `data.groupId`，控制器以 `_directPage` 区分 Page 与 Component：Page 读取 `data.groupId`，组件继续读取 `properties.groupId`；无 query 冷入口显示“当前群组信息缺失，请返回工作台后重试。”不改变导出 API、请求参数、鉴权或任务语义。
 
-修复验证：定向导出/页面/血缘回归39项通过；Mini 全量169文件通过、2文件跳过，1197项通过、16项跳过；Mini verify通过，Worklet 2/2、包体4,550,652字节。尚未上传新体验版，状态为 `UPLOAD_REQUIRED_THEN_XIAOMI14_NATIVE_REVIEW`。
+修复验证：定向导出/页面/血缘回归39项通过；Mini 全量169文件通过、2文件跳过，1197项通过、16项跳过；Mini verify通过，Worklet 2/2、包体4,550,652字节。修复已上传为体验版114并完成 add-only 放行，状态为 `WAITING_XIAOMI14_NATIVE_REVIEW`。

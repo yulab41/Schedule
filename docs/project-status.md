@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 导出白屏修复待重新上传与小米14复核
+## 当前批次：Feedback16 导出白屏修复已上传并放行114，待小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -16,8 +16,9 @@
 - 发布结果：候选提交 `905171cfa96b20e0158c39819a96795192d74108` 以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`、receipt、远端不可变 tag 一致。首次同一不可变元组因微信侧 IPv6 `-10008 invalid ip` 拒绝，改用已验证代理 IPv4 路由后成功，未改变系统网络或候选内容。
 - 放行结果：服务器 `schedule-client-version-allowlist ensure` 仅追加 `.113`，`.112` 及既有版本保留；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
 - 导出白屏复现：旧实现把直接 Page 的群组 ID写入 `this.properties`；只读 Page 宿主回归稳定复现 `TypeError: Cannot assign to read only property 'properties'`。`app.json`、源码/构建产物路由和 `wx.navigateTo` 路径均一致，因此根因在 Page 初始化宿主边界，不是跳转路径。
-- 导出修复：直接 Page 改写自身 `data.groupId`，控制器按 Page/Component 宿主分别读取上下文；缺少 query 时显示可重试错误。定向39项、Mini全量169文件/1197项、Mini verify均通过，当前修改尚未上传体验版。
-- 当前停止条件：`UPLOAD_REQUIRED_THEN_XIAOMI14_NATIVE_REVIEW`。需基于本次修复生成新体验版后，在小米14复核导出页标题/内容、直接进入、返回和导出操作；不提前宣称白屏已闭环。
+- 导出修复：直接 Page 改写自身 `data.groupId`，控制器按 Page/Component 宿主分别读取上下文；缺少 query 时显示可重试错误。定向39项、Mini全量169文件/1197项、Mini verify均通过。
+- 发布结果：修复提交 `f7b1709aa471562f15caab2b6c83db1c94383de1` 以 production/clean 上传为 `0.1.0-p10.20260912.114`，Manifest `66ab569cacb1f1384cc38da6b1c4c586c23c3b0c8ecf35032760bce9a4917f9a`，receipt 与不可变 tag 一致；服务器 add-only ensure 仅追加 `.114`，`.113` 保留，allowlist verify 与完整 `ecs-verify.sh` 通过，线上 release 未改变。
+- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。需在小米14复核导出页标题/内容、直接进入、返回和导出操作；不提前宣称白屏已闭环。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
