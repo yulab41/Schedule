@@ -13,6 +13,7 @@
 - 验证：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项通过；A workbench联合58项通过、1项跳过。390/320/大字号为合成检查，非小米14验收。
 - 导出白屏本地仍未复现；用户报告缺少 `page-load/page-ready` 阶段，保留原生/缓存装载待验证。外部边界：未授权体验版上传、生产操作或微信开发者工具控制。
 - 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。当前停止条件：`UPLOAD_REQUIRED`，等待同一干净 SHA 的体验版上传授权与小米14复核。
+- 最终检查点：`84ae20f8 fix(miniprogram): complete feedback16 stability fixes`，已推送 `origin/codex/feedback16-20260912`。Mini-only 范围不触发 ECS 部署、数据库备份或生产发布。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

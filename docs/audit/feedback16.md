@@ -4,7 +4,7 @@
 
 - 代码范围仅限 `apps/miniprogram/**` 及本轮测试、审计文档；未修改后端 API、数据库、排班接口或权限语义。
 - 使用独占 `runtime/wt/general-5` warm worktree，`DEPENDENCY_MODE=REUSE_ONLY`；依赖复用成功，未运行安装命令。
-- 设计检查点为 `516e2719`；A 实现检查点为 `42e644a4`；B/C 最终检查点待本轮提交后写入。
+- 设计检查点为 `516e2719`；A 实现检查点为 `42e644a4`；B/C 最终检查点为 `84ae20f8`（`fix(miniprogram): complete feedback16 stability fixes`）。
 - 未控制微信开发者工具 GUI/CLI，未上传体验版、未放行、未部署生产、未备份数据库、未发送真实通知。
 
 ## 引入点与实现
