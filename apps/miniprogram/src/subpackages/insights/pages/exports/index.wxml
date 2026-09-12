@@ -19,7 +19,9 @@
   <scroll-view class="exports-scroll" style="{{pageScrollStyle}}" scroll-y show-scrollbar="{{false}}">
     <view class="page-content">
       <view class="page-state-card">
-        <ui-loading label="正在加载导出选项"></ui-loading>
+        <ui-alert wx:if="{{startupError}}" tone="danger" title="导出页面暂时无法加载" message="{{startupError}}"></ui-alert>
+        <ui-button wx:if="{{startupError}}" variant="primary" label="重新加载" bindpress="handleRetry"></ui-button>
+        <ui-loading wx:else label="正在加载导出选项"></ui-loading>
       </view>
     </view>
   </scroll-view>

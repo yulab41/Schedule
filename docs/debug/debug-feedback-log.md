@@ -2831,3 +2831,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - `93c660b3cb38c19ff98758529b1c329b37189954` / `production/clean` 上传为 `0.1.0-p10.20260912.115`，说明 `Feedback16 export first-paint fix 93c660b`，Manifest `f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`，receipt 与远端不可变 tag 一致。
 - 服务器 `schedule-client-version-allowlist ensure` 仅追加 `.115`，`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，退出码0，线上 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。重建期间短暂 TLS/502 由健康等待恢复。
 - 状态：未提审、未正式发布、未发送真实通知、未执行生产代码部署/数据库操作；等待用户在小米14体验版115复核导出页。
+
+## 2026-09-12 Feedback16 `.115` 报告后的导出依赖边界
+
+- 证据：同版本 `.115@93c660b` 报告重复出现 `exports · open-requested`，没有 `page-load/page-ready`；路由静态检查通过，问题仍在 Page 注册/首屏装载边界。
+- 引入点审计：`git log -S`/`git blame` 已确认本轮新增 `initial-data.ts` 的 `import { type ScheduleExportType }` 被构建链识别为运行时模块导入。构建 metafile 显示导出页因此带入 `packages/contracts/src/index.ts` 与 Zod；输出审计发现 `globalThis`、`navigator`。这是比路径猜测更具体的可复现证据。
+- RED→GREEN：新增 controller 工厂失败仍注册 Page 的回归；Page 注册前改用纯壳数据，controller 工厂延迟到 `onLoad` 微任务；类型导入改为 `import type`。导出页产物从约436KB回落至119,713字节，且不含上述两个运行时标识。
+- 运行验证：导出/页面/边界、日历、二维码/账号定向29项通过；Mini verify、包体、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 169文件通过、2跳过，另有既有 manual-schedule-limits 断言失败，与本轮无关。
+- 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setImmediate as waitImmediate } from 'node:timers/promises';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const config = { roles: [{ id: 'role-1', name: 'fixture role' }], shiftTypes: [] };
@@ -63,6 +64,7 @@ describe('feedback14 real export Page first-entry lifecycle', () => {
 
     definition.onLoad.call(page, { groupId: encodeURIComponent(groupId) });
     expect(page.data.panelReady).toBe(false);
+    await settlePageController();
     definition.onShow.call(page);
     definition.onReady.call(page);
     expectShell(page);
@@ -102,6 +104,7 @@ describe('feedback14 real export Page first-entry lifecycle', () => {
     const { definition, page } = await realPage();
 
     expect(() => definition.onLoad.call(page)).not.toThrow();
+    await settlePageController();
     expect(page.data.state).toBe('error');
     expect(page.data.errorMessage).toContain('群组信息缺失');
   });
@@ -113,6 +116,7 @@ describe('feedback14 real export Page first-entry lifecycle', () => {
       mocks[method].mockReturnValueOnce(pending.promise);
       const { definition, page } = await realPage();
       definition.onLoad.call(page, { groupId });
+      await settlePageController();
       definition.onShow.call(page);
       definition.onReady.call(page);
       await vi.advanceTimersByTimeAsync(29_999);
@@ -141,6 +145,7 @@ describe('feedback14 real export Page first-entry lifecycle', () => {
     mocks.requireClientCapability.mockReturnValueOnce(pending.promise);
     const { definition, page } = await realPage();
     definition.onLoad.call(page, { groupId });
+    await settlePageController();
     definition.onShow.call(page);
     definition.onReady.call(page);
     definition.onHide.call(page);
@@ -182,4 +187,12 @@ function deferred() {
     resolve = complete;
   });
   return { promise, resolve };
+}
+
+async function settlePageController() {
+  for (let index = 0; index < 20; index += 1) await waitImmediate();
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
+  await vi.advanceTimersByTimeAsync(0);
+  for (let index = 0; index < 20; index += 1) await waitImmediate();
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
 }

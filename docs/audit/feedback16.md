@@ -71,3 +71,11 @@
 - 上传时间：`2026-09-12T14:01:44.752Z`；Manifest：`f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`；receipt 与远端不可变 tag 一致。
 - 服务器仅 add-only 追加 `.115`，`.114`、`.113` 及旧版保留；allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行期间短暂 TLS/502 由既有健康等待恢复，未执行生产代码部署、数据库备份或迁移。
 - 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。自动化和服务器结果不替代小米14原生验收；请复核导出页首帧标题/返回/loading、面板内容和导出操作。
+
+## `.115` 报告后的导出运行时依赖边界修复
+
+- 用户提供 `.115@93c660b` 报告，导出重复记录 `open-requested`，仍无 `page-load/page-ready`，确认上一版 panel 首帧门控没有覆盖注册前依赖边界。`app.json`、工作台 `wx.navigateTo` URL、源码和 dist 路由继续一致，未发现路径设置错误。
+- 失败优先回归先验证 controller 工厂失败时 Page 仍注册并显示可重试错误。静态依赖审计进一步发现 `initial-data.ts` 使用 `import { type ScheduleExportType }`，被 Mini 构建链保留为运行时导入，连带 `@schedule/contracts`/Zod 进入导出页 bundle；产物含 `globalThis`、`navigator`，触发 Mini 禁止运行时标识检查。这是本轮的具体高置信引入点。
+- 修复将导出 Page 注册前数据缩减为纯壳字段，controller 工厂改为 `onLoad` 微任务执行；controller 初始化异常不再导致白屏，而是显示标题、返回、错误和重试按钮。类型导入改为真正的 `import type`，initial-data 保持 controller bundled-only，控制器 receiver、权限、请求、任务轮询、下载和路径语义不变。
+- 定向29项通过；Mini verify通过，导出页构建产物119,713字节且不含 `globalThis`/`navigator`，无独立 initial-data 资源；包体4,554,110字节、Worklet2/2、确定性、format、lint和`smoke:check-core`通过。完整 Mini 测试169文件通过、2文件跳过；`manual-schedule-limits` 仍有既有 contracts 输入数量断言失败（2对28），未修改该无关范围。
+- 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD`。本轮只完成源码与自动化验证，未上传/放行新体验版；必须取得针对新 SHA 的明确上传授权，再做同一干净 SHA 的体验版和小米14复核。Node/静态结果不替代 Skyline 原生验收。

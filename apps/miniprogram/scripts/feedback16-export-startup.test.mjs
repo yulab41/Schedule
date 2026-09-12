@@ -12,6 +12,7 @@ describe('Feedback16 export Page artifact lineage', () => {
       `${pageRoot}/index.wxml`,
       `${pageRoot}/index.wxss`,
       `${panelRoot}/controller.ts`,
+      `${panelRoot}/initial-data.ts`,
       `${panelRoot}/index.ts`,
       `${panelRoot}/index.json`,
       `${panelRoot}/index.wxml`,
@@ -29,7 +30,10 @@ describe('Feedback16 export Page artifact lineage', () => {
     expect(page).toContain("recordExportRenderStage('page-load')");
     expect(page).toContain("recordExportRenderStage('page-ready')");
     expect(page).toContain("recordExportRenderStage('page-show')");
-    expect(page).toContain('controller.lifetimes.attached.call(this)');
+    expect(page).toContain('Promise.resolve()');
+    expect(page).toContain('createExportsPanelControllerDefinition()');
+    expect(page).toContain('startupError');
+    expect(page).not.toContain('data: controller.data');
 
     const componentTemplate = readFileSync(`${panelRoot}/index.wxml`, 'utf8');
     const componentConfig = JSON.parse(readFileSync(`${panelRoot}/index.json`, 'utf8'));

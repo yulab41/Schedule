@@ -175,6 +175,7 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
     `subpackages/insights/components/${panel}/controller.ts`,
     `subpackages/insights/components/${panel}/index.ts`,
   ]),
+  'subpackages/insights/components/exports-panel/initial-data.ts',
   'subpackages/insights/components/notifications-panel/controller.ts',
   'components/profile-panel/controller.ts',
   'components/profile-panel/index.ts',

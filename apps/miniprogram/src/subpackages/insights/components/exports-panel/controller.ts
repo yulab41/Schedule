@@ -14,7 +14,6 @@ import {
   waitForExportOperation,
   type ExportCancellation,
 } from '@schedule/presentation-core/export';
-import { getCurrentStatisticsMonth } from '@schedule/presentation-core/statistics';
 import {
   ClientCapabilityDisabledError,
   requireClientCapability,
@@ -39,6 +38,7 @@ import {
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { recordExportRenderStage } from '../../../../platform/export-render-diagnostics.js';
 import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
+import { createExportsPanelInitialData } from './initial-data.js';
 
 type ExportPeriodType = 'month' | 'year';
 type ExportState =
@@ -89,6 +89,7 @@ interface ExportsPageData {
   readonly canCheckJob: boolean;
   readonly canRetryCreate: boolean;
   readonly panelReady?: boolean;
+  readonly startupError?: string;
 }
 
 interface ExportsPageInstance {
@@ -118,40 +119,9 @@ const organizationReadClient = createRuntimeOrganizationReadClient(
   getStoredWechatToken,
   authentication,
 );
-const initialBusinessMonth = getCurrentStatisticsMonth(new Date());
-const initialYear = Number(initialBusinessMonth.slice(0, 4));
-
 export function createExportsPanelControllerDefinition() {
   return {
-    data: {
-      businessMonth: initialBusinessMonth,
-      downloadBusy: false,
-      errorMessage: '',
-      infoMessage: '',
-      feedbackTone: 'info' as const,
-      shareBusy: false,
-      exportType: 'schedule' as ScheduleExportType,
-      fileLabel: '',
-      groupId: '',
-      largeText: false,
-      memberIndex: 0,
-      memberOptions: [{ id: '', label: '全部成员' }],
-      membershipId: '',
-      pageScrollStyle: 'height:calc(100% - 76px);',
-      periodLabel: getExportPeriodLabel(initialBusinessMonth),
-      periodType: 'month' as ExportPeriodType,
-      roleId: '',
-      roleIndex: 0,
-      roleOptions: [{ id: '', label: '全部岗位' }],
-      selectionSummary: getExportSelectionSummary('schedule', initialBusinessMonth),
-      shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
-      state: 'loading' as ExportState,
-      statusLabel: '正在加载导出选项',
-      viewportClass: '',
-      year: initialYear,
-      canCheckJob: false,
-      canRetryCreate: true,
-    } satisfies ExportsPageData,
+    data: createExportsPanelInitialData() satisfies ExportsPageData,
     properties: { groupId: { type: String, value: '' } },
     _actionsClient: actionsClient,
     _jobId: undefined as string | undefined,

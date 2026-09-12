@@ -62,7 +62,9 @@ describe('P9 native page shells', () => {
       const styles = readFileSync(path.join(pageRoot, 'index.wxss'), 'utf8');
 
       expect(source).toContain(controllerFactory);
-      expect(source).toContain('controller.lifetimes.attached.call(this)');
+      if (pageName === 'exports')
+        expect(source).toContain('controller.lifetimes.attached.call(page)');
+      else expect(source).toContain('controller.lifetimes.attached.call(this)');
       expect(config.usingComponents).not.toHaveProperty(componentName);
       expect(config.usingComponents).toMatchObject({
         'ui-alert': '/components/ui/ui-alert/index',
