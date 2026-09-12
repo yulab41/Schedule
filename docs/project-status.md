@@ -1,6 +1,14 @@
 # Project Status
 
-## 当前批次：Feedback14 已交付111，导出白屏待同版本报告
+## 当前批次：Feedback15 八项已完成自动验证，待发布授权与真机复核
+
+- 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情docs/audit/feedback15.md。
+- 当前周独立测量/点选局部更新、before折叠、岗位改名接口与弹窗、月历顺延/62px、三视图补班、单按钮两步授权及日期文字盒居中已实现。
+- pnpm verify通过：Mini1184/16跳过、根1252/439跳过、依赖保护81；MySQL模式集成套件46项通过。收口额外通知保存失败回归RED1→联合35通过，最终Mini verify/Worklet2/2/包体通过（主包1708859/总4550421字节）。
+- 390/320真实WXML/生产CSS几何及运行/浏览器验证：pnpm smoke:browser通过；smoke:check-core通过。本地synthetic管理员标记已回读恢复、3105/4175服务已停止；小米14原生待同版本复核。
+- 检查点fix(calendar): resolve feedback15 calendar and notification issues。唯一下一任务：提交推送精确SHA后取得服务端部署、体验上传及仅追加放行授权；本轮未连接生产、未上传、未分配版本。
+
+## 上一批次：Feedback14 已交付111，导出白屏待同版本报告
 
 - 本轮限定两项反馈；实现与引入点见docs/audit/feedback14.md。基线e163fde8，独占general-4/5依赖复用、无安装。
 - 更多页位移来自7923262d的onHide删除底部诊断区域、返回再插入。现在普通遮盖保留已授权区域，权限撤销仍即时生效，后台不能新授权或跳转；没有WXML/WXSS或无关UI修改。

@@ -95,6 +95,7 @@
             is-bottom-right="{{cell.isBottomRight}}"
             is-current-month="{{cell.isCurrentMonth}}"
             is-holiday="{{cell.isHoliday}}"
+            is-workday="{{cell.isWorkday}}"
             is-selected="{{cell.isSelected}}"
             is-today="{{cell.isToday}}"
             is-weekend="{{cell.isWeekend}}"

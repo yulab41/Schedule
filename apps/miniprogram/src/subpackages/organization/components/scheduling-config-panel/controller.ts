@@ -14,8 +14,10 @@ import {
 } from '../../../../platform/client-core-calendar.js';
 import {
   getStoredWechatToken,
+  getStoredWechatProfile,
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
+import { clearWorkbenchCalendarCache } from '../../../../platform/workbench-read.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { normalizeHex, shiftColorPresentation } from '../shift-color-picker/color.js';
 
@@ -58,6 +60,10 @@ interface RoleCardView {
 }
 
 interface SchedulingConfigPageData {
+  readonly roleEditId: string;
+  readonly roleEditName: string;
+  readonly roleEditError: string;
+  readonly roleEditBusy: boolean;
   readonly state: 'error' | 'loading' | 'ready';
   readonly errorMessage: string;
   readonly managementError: string;
@@ -86,6 +92,9 @@ interface SchedulingConfigPageData {
 }
 
 interface SchedulingConfigPageInstance {
+  _roleEditContext?:
+    | { groupId: string; ownerId: string; roleId: string; version: number; rulesVersion: number }
+    | undefined;
   readonly data: SchedulingConfigPageData;
   readonly properties: { readonly groupId: string };
   _organizationReadClient: OrganizationReadClient;
@@ -114,6 +123,10 @@ const schedulingWriteClient = createRuntimeSchedulingConfigWriteClient(
 export function createSchedulingConfigPanelControllerDefinition() {
   return {
     data: {
+      roleEditId: '',
+      roleEditName: '',
+      roleEditError: '',
+      roleEditBusy: false,
       state: 'loading',
       errorMessage: '',
       managementError: '',
@@ -163,6 +176,10 @@ export function createSchedulingConfigPanelControllerDefinition() {
         recordMiniTelemetryBoundary('scheduling-config:controller-attached');
         applyPanelLayout(this);
         syncGroupId(this);
+      },
+      detached(this: SchedulingConfigPageInstance): void {
+        this._roleEditContext = undefined;
+        this._loadSerial += 1;
       },
     },
 
@@ -293,6 +310,40 @@ export function createSchedulingConfigPanelControllerDefinition() {
       void saveRoleMembers(this, roleId);
     },
 
+    handleRoleRename(this: SchedulingConfigPageInstance, event: TapEvent): void {
+      if (
+        !this.data.canManage ||
+        !this.data.organizationEnabled ||
+        this.data.managementState === 'loading' ||
+        this.data.roleEditBusy
+      )
+        return;
+      const role = this._config?.roles.find(
+        (value) => value.id === event.currentTarget.dataset.roleId,
+      );
+      if (!role || !this._config) return;
+      this._roleEditContext = {
+        groupId: this._groupId,
+        ownerId: getStoredWechatProfile()?.id ?? '',
+        roleId: role.id,
+        version: role.version,
+        rulesVersion: this._config.rulesVersion,
+      };
+      this.setData({ roleEditId: role.id, roleEditName: role.name, roleEditError: '' });
+    },
+    handleRoleEditInput(this: SchedulingConfigPageInstance, event: ValueInputEvent): void {
+      if (!this.data.roleEditBusy)
+        this.setData({ roleEditName: readString(event), roleEditError: '' });
+    },
+    handleRoleRenameCancel(this: SchedulingConfigPageInstance): void {
+      if (this.data.roleEditBusy) return;
+      this._roleEditContext = undefined;
+      this.setData({ roleEditId: '', roleEditError: '', roleEditName: '' });
+    },
+    handleRoleRenameSave(this: SchedulingConfigPageInstance): void {
+      void renameRole(this);
+    },
+    handleRoleDialogTouch(): void {},
     handleRoleDelete(this: SchedulingConfigPageInstance, event: TapEvent): void {
       const roleId = event.currentTarget.dataset.roleId;
       if (roleId === undefined) return;
@@ -320,6 +371,8 @@ function syncGroupId(page: SchedulingConfigPageInstance): void {
   const groupId = page.properties.groupId;
   if (groupId === page._groupId) return;
   page._groupId = groupId;
+  page._roleEditContext = undefined;
+  page.setData({ roleEditId: '', roleEditName: '', roleEditError: '', roleEditBusy: false });
   if (groupId.length === 0) {
     page._loadSerial += 1;
     page.setData({
@@ -534,6 +587,64 @@ async function createRole(page: SchedulingConfigPageInstance): Promise<void> {
     page._operationIds.delete(key);
     page.setData({ newRoleName: '', managementInfo: '排班岗位已创建，请配置参与成员。' });
   });
+}
+
+async function renameRole(page: SchedulingConfigPageInstance): Promise<void> {
+  const context = page._roleEditContext;
+  if (!context || page.data.roleEditBusy || !page.data.canManage || !page.data.organizationEnabled)
+    return;
+  const current = () =>
+    page._roleEditContext === context &&
+    page._groupId === context.groupId &&
+    (getStoredWechatProfile()?.id ?? '') === context.ownerId;
+  const name = page.data.roleEditName.trim();
+  if (!name || name.length > 100) {
+    page.setData({ roleEditError: '岗位名称须为1–100字。' });
+    return;
+  }
+  if (name === page._config?.roles.find((role) => role.id === context.roleId)?.name) {
+    page._roleEditContext = undefined;
+    page.setData({ roleEditId: '', roleEditError: '' });
+    return;
+  }
+  page.setData({ roleEditBusy: true, roleEditError: '' });
+  const key = `role-rename:${context.roleId}:${context.version}:${context.rulesVersion}:${name}`;
+  try {
+    await requireClientCapability('organization');
+    if (!current()) return;
+    const updated = await page._schedulingWriteClient.updateScheduleRole(
+      context.groupId,
+      context.roleId,
+      {
+        name,
+        expectedVersion: context.version,
+        expectedRulesVersion: context.rulesVersion,
+        operationId: resolveOperationId(page, key),
+      },
+    );
+    if (!current() || !page._config) return;
+    page._operationIds.delete(key);
+    page._config = {
+      ...page._config,
+      rulesVersion: context.rulesVersion + 1,
+      roles: page._config.roles.map((role) => (role.id === updated.id ? updated : role)),
+    };
+    clearWorkbenchCalendarCache(context.ownerId, context.groupId);
+    page._roleEditContext = undefined;
+    page.setData({
+      roleCards: createRoleCards(page),
+      roleEditId: '',
+      roleEditBusy: false,
+      roleEditError: '',
+      managementInfo: '岗位名称已更新，返回日历后同步显示。',
+    });
+  } catch (error) {
+    if (!current()) return;
+    page.setData({
+      roleEditBusy: false,
+      roleEditError: toUserMessage(error, '名称暂未保存，请重试。'),
+    });
+  }
 }
 
 async function saveRoleMembers(page: SchedulingConfigPageInstance, roleId: string): Promise<void> {

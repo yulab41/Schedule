@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   requireClientCapability: vi.fn(),
   snapshot: vi.fn(),
   templates: vi.fn(),
+  token: vi.fn(),
 }));
 
 vi.mock('../src/app/client-capability-store.ts', () => ({
@@ -57,7 +58,7 @@ vi.mock('../src/platform/workbench-read.ts', () => ({
 }));
 
 vi.mock('../src/platform/wechat-identity.ts', () => ({
-  getStoredWechatToken: () => 'token',
+  getStoredWechatToken: () => mocks.token(),
   getWechatRequestAuthentication: () => undefined,
 }));
 
@@ -75,6 +76,7 @@ describe('notification parity controller', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    mocks.token.mockReturnValue('token');
     vi.stubGlobal('wx', {
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
@@ -136,6 +138,43 @@ describe('notification parity controller', () => {
     expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(5);
   });
 
+  it('uses one button for 3 then 2 templates, retaining partial grants on second-step rejection', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    mocks.requestSubscriptions.mockResolvedValueOnce([
+      { templateId: 'duty', status: 'accepted' },
+      { templateId: 'business', status: 'rejected' },
+      { templateId: 'swap', status: 'accepted' },
+    ]);
+    definition.methods.handleSubscribe.call(page);
+    expect(mocks.requestSubscriptions).toHaveBeenCalledWith(['duty', 'business', 'swap']);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.subscriptionButtonLabel).toBe('继续授权剩余2类');
+    expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
+    mocks.requestSubscriptions.mockRejectedValueOnce(new Error('offline'));
+    definition.methods.handleSubscribe.call(page);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.subscriptionButtonLabel).toBe('继续授权剩余2类');
+    mocks.requestSubscriptions.mockResolvedValueOnce([
+      { templateId: 'adjustment', status: 'rejected' },
+      { templateId: 'leave', status: 'blocked' },
+    ]);
+    definition.methods.handleSubscribe.call(page);
+    expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith(['adjustment', 'leave']);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.enabled).toBe(true);
+    expect(mocks.updateMine).toHaveBeenCalledTimes(1);
+    expect(page.data.subscriptionButtonLabel).toBe('再次授权微信通知');
+    expect(
+      page.data.subscriptionResults.filter((item) => item.statusLabel === '本次已授权'),
+    ).toHaveLength(2);
+    definition.lifetimes.detached.call(page);
+    expect(page.data.subscriptionResults).toEqual([]);
+  });
+
   it('never requests an absent or unknown template and leaves the other choices available', async () => {
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
@@ -162,6 +201,49 @@ describe('notification parity controller', () => {
     await vi.waitFor(() => expect(page.data.busy).toBe(false));
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
     expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: true });
+  });
+
+  it('keeps the first authorization step retryable if saving its receiving preference fails', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    mocks.requestSubscriptions.mockResolvedValue([{ templateId: 'duty', status: 'accepted' }]);
+    mocks.updateMine.mockRejectedValueOnce(new Error('保存失败'));
+    definition.methods.handleSubscribe.call(page);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.subscriptionStep).toBe(0);
+    expect(page.data.subscriptionButtonLabel).toBe('授权微信通知');
+    definition.methods.handleSubscribe.call(page);
+    expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith(['duty', 'business', 'swap']);
+    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    expect(page.data.subscriptionStep).toBe(1);
+  });
+
+  it('resets two-step progress and discards an old grant after an account change on return', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    let complete;
+    mocks.requestSubscriptions.mockReturnValueOnce(
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    );
+    definition.methods.handleSubscribe.call(page);
+    definition.pageLifetimes.hide.call(page);
+    mocks.token.mockReturnValue('new-account');
+    definition.pageLifetimes.show.call(page);
+    complete([{ templateId: 'duty', status: 'accepted' }]);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    await flushPromises();
+    expect(page.data.subscriptionStep).toBe(0);
+    expect(page.data.subscriptionResults).toEqual([]);
+    expect(page.data.busy).toBe(false);
+    expect(mocks.updateMine).not.toHaveBeenCalled();
   });
 
   it('uses a two-second error capsule and retains input on invalid settings', async () => {

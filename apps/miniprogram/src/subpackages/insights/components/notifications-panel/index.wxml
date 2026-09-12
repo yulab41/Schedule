@@ -191,18 +191,16 @@
               ></ui-switch></view
             ><view class="subscription-buttons"
               ><ui-button
-                wx:for="{{subscriptionChoices}}"
-                wx:key="kind"
                 variant="secondary"
-                label="{{item.configured ? '授权' + item.label : item.label + '（暂未配置）'}}"
-                data-kind="{{item.kind}}"
-                disabled="{{busy || !item.configured}}"
+                label="{{subscriptionButtonLabel}}"
+                disabled="{{busy || !templateConfigured}}"
                 bindpress="handleSubscribe"
-              ></ui-button></view
+              ></ui-button>
+              <view wx:for="{{subscriptionResults}}" wx:key="kind" class="subscription-result"><text>{{item.label}}</text><text>{{item.statusLabel}}</text></view></view
             ><view class="audit-note"
               ><text class="audit-mark">⌁</text
               ><text
-                >值班提醒、排班更新、换班通知、加扣班通知和请假通知分别授权。开启接收偏好不代表微信已授权；每次点击只申请对应通知，保留其他通知已有选择。一次性订阅每个模板每次授权可发送一条提醒。</text
+                >分两步授权：先申请值班提醒、排班更新和换班通知，再点击同一按钮申请加扣班和请假通知。开启接收偏好不代表微信已授权。每个一次性模板每次授权可发送一条提醒，可再次点击授权。</text
               ></view
             ></view
           ><ui-alert

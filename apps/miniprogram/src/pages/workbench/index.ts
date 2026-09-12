@@ -242,6 +242,7 @@ interface WorkbenchPageData extends AccountSecurityData {
 }
 
 interface WorkbenchPageInstance {
+  _weekHeightCache?: Map<string, number>;
   _weekLayoutSignature: string;
   _weekLayoutHeight: number;
   _weekLayoutMeasured: boolean;
@@ -501,14 +502,12 @@ Page({
   },
 
   onResize(this: WorkbenchPageInstance): void {
-    this._weekLayoutSignature = '';
     this.setData(createShellLayoutPatch());
     refreshView(this);
   },
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
-    this._weekLayoutSignature = '';
     if (this.requestOwnerId !== getStoredWechatProfile()?.id) resetCalendarContext(this);
     this.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
     refreshView(this);
@@ -656,7 +655,7 @@ Page({
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
-    this.setData({
+    setCalendarData(this, {
       ...createViewPatch(this, period),
       announcement:
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
@@ -790,7 +789,7 @@ Page({
             ? '已切换到上个月。'
             : '已切换到下个月。',
     };
-    this.setData(finalPatch, () => {
+    setCalendarData(this, finalPatch, () => {
       const month = this.selectComponent('#workbench-month');
       if (month?.finishPeriodShift !== undefined) month.finishPeriodShift();
       else finishMonthShift(this, false);
@@ -1505,7 +1504,8 @@ async function loadWorkbench(
       })),
       page.data.filterShiftTypeIds,
     );
-    page.setData(
+    setCalendarData(
+      page,
       {
         ...createViewPatch(page),
         canReLogin: false,
@@ -1541,7 +1541,7 @@ async function loadWorkbench(
       .then((adjacentResults) => {
         if (!isCurrentRequest(page, requestSerial) || adjacentResults.length === 0) return;
         if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
-        page.setData(createViewPatch(page));
+        setCalendarData(page, createViewPatch(page));
       })
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
@@ -1883,7 +1883,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
     const activeResult = await staged.active;
     if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
     if (!applyMonthWindow(page, [activeResult], requestedMonths)) return;
-    page.setData({
+    setCalendarData(page, {
       ...createViewPatch(page),
       canReLogin: false,
       errorMessage: '',
@@ -1895,7 +1895,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
         if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
         if (adjacentResults.length === 0) return;
         if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
-        page.setData(createViewPatch(page));
+        setCalendarData(page, createViewPatch(page));
       })
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
@@ -1939,7 +1939,18 @@ function applyMonthWindow(
 }
 
 function refreshView(page: WorkbenchPageInstance): void {
-  page.setData(createViewPatch(page));
+  setCalendarData(page, createViewPatch(page));
+}
+
+function setCalendarData(
+  page: WorkbenchPageInstance,
+  patch: Partial<WorkbenchPageData>,
+  callback?: () => void,
+): void {
+  page.setData(patch, () => {
+    if (page.data.viewMode === 'week' && !page._weekLayoutMeasured) scheduleWeekMeasurement(page);
+    callback?.();
+  });
 }
 
 function syncBusinessDate(page: WorkbenchPageInstance): void {
@@ -1992,6 +2003,8 @@ async function loadCalendarPreferences(
 
 function scheduleWeekMeasurement(page: WorkbenchPageInstance): void {
   const serial = ++page._weekMeasureSerial;
+  const signature = page._weekLayoutSignature;
+  const weekStart = page.data.weekStart;
   const runtime = wx as unknown as {
     nextTick?: (callback: () => void) => void;
     createSelectorQuery?: () => {
@@ -2010,9 +2023,17 @@ function scheduleWeekMeasurement(page: WorkbenchPageInstance): void {
     runtime
       .createSelectorQuery?.()
       .in(page)
-      .selectAll('.week-day-content')
+      .selectAll('.week-panel-current .week-day-content')
       .boundingClientRect((rects) => {
-        if (!page.isVisible || page._weekMeasureSerial !== serial || !Array.isArray(rects)) return;
+        if (
+          !page.isVisible ||
+          page.data.viewMode !== 'week' ||
+          page.data.weekStart !== weekStart ||
+          page._weekLayoutSignature !== signature ||
+          page._weekMeasureSerial !== serial ||
+          !Array.isArray(rects)
+        )
+          return;
         const measuredRects = rects.filter(
           (rect) => Number.isFinite(rect.height) && rect.height > 0,
         );
@@ -2020,6 +2041,10 @@ function scheduleWeekMeasurement(page: WorkbenchPageInstance): void {
         const height = Math.ceil(Math.max(112, ...measuredRects.map((rect) => rect.height + 28)));
         page._weekLayoutHeight = height;
         page._weekLayoutMeasured = true;
+        page._weekHeightCache ??= new Map();
+        page._weekHeightCache.set(signature, height);
+        if (page._weekHeightCache.size > 24)
+          page._weekHeightCache.delete(page._weekHeightCache.keys().next().value!);
         if (height !== page.data.weekGridHeight) page.setData({ weekGridHeight: height });
       })
       .exec();
@@ -2067,6 +2092,7 @@ function scheduleBusinessDateRefresh(page: WorkbenchPageInstance): void {
 function createViewPatch(
   page: WorkbenchPageInstance,
   period: Pick<WorkbenchPageData, 'businessMonth' | 'selectedDate' | 'weekStart'> = page.data,
+  selectionOnly = false,
 ): Partial<WorkbenchPageData> {
   if (page.calendar === undefined || page.holidays === undefined) return {};
   const filters: WorkbenchFilters = {
@@ -2090,29 +2116,80 @@ function createViewPatch(
     },
   );
   scheduleDutyRefresh(page, view.nextDutyBoundary);
+  const detailsPatch: Partial<WorkbenchPageData> = {
+    compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
+    selectedCountLabel: `${view.selectedDetails.length} 个班种`,
+    selectedDetails: view.selectedDetails,
+    selectedLabel: view.selectedLabel,
+    shiftCardExpansion: reconcileShiftCardExpansion(
+      page.data.shiftCardExpansion,
+      [
+        getStoredWechatProfile()?.id ?? '',
+        page.data.currentGroupId,
+        period.selectedDate,
+        page.data.viewMode,
+        page.data.activeWorkspace,
+      ],
+      view.selectedDetails,
+    ),
+    detailExpansion: reconcileDetailExpansion(
+      page.data.detailExpansion,
+      [getStoredWechatProfile()?.id ?? '', page.data.currentGroupId, period.selectedDate],
+      view.selectedDetails,
+    ),
+  };
+  if (selectionOnly) {
+    const selectionPatch: Record<string, unknown> = {};
+    page.data.weekPanels.forEach((panel, i) =>
+      panel.days.forEach((day, j) => {
+        const selected = panel.relative === 0 && day.businessDate === period.selectedDate;
+        if (selected !== day.isSelected)
+          selectionPatch[`weekPanels[${i}].days[${j}].isSelected`] = selected;
+      }),
+    );
+    page.data.monthPanels.forEach((panel, i) =>
+      panel.cells.forEach((cell, j) => {
+        const selected =
+          panel.relative === 0 && cell.isCurrentMonth && cell.businessDate === period.selectedDate;
+        if (selected !== cell.isSelected)
+          selectionPatch[`monthPanels[${i}].cells[${j}].isSelected`] = selected;
+      }),
+    );
+    return { ...detailsPatch, ...selectionPatch };
+  }
   // Selection and work-state refreshes do not change the intrinsic weekly content.
   // Keep the measured height until content/width actually changes, rather than
   // flashing the conservative estimate again before every selector-query result.
-  const weekSignature = JSON.stringify(
-    view.weekPanels.map((panel) => [
-      panel.key,
-      panel.days.map((day) => [
-        day.holiday,
-        day.shiftGroups.map((group) => [
-          group.abbreviation,
-          group.duties.map((duty) => [duty.name, duty.markers]),
+  const weekSignature = JSON.stringify([
+    page.data.currentGroupId,
+    getStoredWechatProfile()?.id ?? '',
+    wx.getWindowInfo().windowWidth,
+    view.weekPanels
+      .filter((panel) => panel.relative === 0)
+      .map((panel) => [
+        panel.key,
+        panel.days.map((day) => [
+          day.holiday,
+          day.isWorkday,
+          day.shiftGroups.map((group) => [
+            group.abbreviation,
+            group.duties.map((duty) => [duty.name, duty.markers]),
+          ]),
         ]),
       ]),
-    ]),
-  );
+  ]);
   if (weekSignature !== page._weekLayoutSignature) {
     page._weekLayoutSignature = weekSignature;
-    page._weekLayoutMeasured = false;
-    page._weekLayoutHeight = Math.max(112, ...view.weekPanels.map((panel) => panel.height + 20));
+    const cached = page._weekHeightCache?.get(weekSignature);
+    page._weekLayoutMeasured = cached !== undefined;
+    page._weekLayoutHeight = cached ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
   }
-  if (!page._weekLayoutMeasured) scheduleWeekMeasurement(page);
   const logicalMonthPanelHeights = view.monthPanels.map((panel) => (panel.cells.length / 7) * 62);
-  const monthRing = createMonthRing(view.monthPanels, logicalMonthPanelHeights, page.monthRingSlot);
+  const monthRing = createMonthRing(
+    view.monthPanels.map((panel) => ({ ...panel, rowHeight: 62 })),
+    logicalMonthPanelHeights,
+    page.monthRingSlot,
+  );
   return {
     compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
     shiftCardExpansion: reconcileShiftCardExpansion(
@@ -2175,7 +2252,8 @@ function commitPeriodShift(
         ? addWeeks(page.data.selectedDate, delta)
         : retargetSelectedDateToMonth(page.data.selectedDate, businessMonth);
   const period = { businessMonth, selectedDate, weekStart };
-  page.setData(
+  setCalendarData(
+    page,
     {
       ...createViewPatch(page, period),
       announcement:
@@ -2341,7 +2419,7 @@ function selectBusinessDate(page: WorkbenchPageInstance, businessDate: string): 
     weekStart: page.data.weekStart,
   };
   page.setData({
-    ...createViewPatch(page, period),
+    ...createViewPatch(page, period, true),
     announcement: `已选择 ${formatDateLabel(businessDate)}。`,
     selectedDate: businessDate,
   });
@@ -2359,7 +2437,8 @@ function applyTodayLocation(page: WorkbenchPageInstance): void {
     selectedDate: today,
     weekStart: getWeekStartDate(today),
   };
-  page.setData(
+  setCalendarData(
+    page,
     {
       ...createViewPatch(page, period),
       ...period,
@@ -2561,6 +2640,7 @@ function calendarContext(page: WorkbenchPageInstance): string {
 
 function resetCalendarContext(page: WorkbenchPageInstance): void {
   page._weekLayoutSignature = '';
+  page._weekHeightCache?.clear();
   page._groupMonthShiftTypeId = undefined;
   page._weekMeasureSerial += 1;
   page._calendarPreferenceSerial += 1;

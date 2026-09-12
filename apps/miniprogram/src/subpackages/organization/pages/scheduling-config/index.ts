@@ -22,6 +22,9 @@ Page({
     };
     controller.lifetimes.attached.call(this);
   },
+  onUnload(this: SchedulingConfigPageInstance): void {
+    controller.lifetimes.detached.call(this);
+  },
 } as never);
 
 function decodeGroupId(value: string | undefined): string {

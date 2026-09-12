@@ -12,6 +12,22 @@ const shiftTypeId = 'shift /一';
 const operationId = '11111111-1111-4111-8111-111111111111';
 
 describe('P8 scheduling configuration shared write boundary', () => {
+  it('renames the existing role using a versioned idempotent PUT', async () => {
+    const requestSpy = vi.fn<ClientTransport['request']>();
+    requestSpy.mockResolvedValue({ id: roleId, name: '新岗位', version: 3, members: [] });
+    const transport = { request: requestSpy } as unknown as ClientTransport;
+    const client = createSchedulingConfigWriteClient(transport);
+    const input = { expectedRulesVersion: 4, expectedVersion: 2, operationId, name: '新岗位' };
+    const result = await client.updateScheduleRole(groupId, roleId, input);
+    expect(result.id).toBe(roleId);
+    const [endpoint, request] = requestSpy.mock.calls[0]!;
+    expect(endpoint.method).toBe('PUT');
+    expect(endpoint.path(request)).toBe(
+      '/groups/group%20%2F%E4%B8%80/schedule-roles/role%20%2F%E4%B8%80',
+    );
+    expect(endpoint.body?.(request)).toEqual(input);
+    expect(endpoint.idempotencyKey?.(request)).toBe(operationId);
+  });
   it('sets bearer auth, encoded paths, request bodies, and idempotency keys for all 6 writes', () => {
     expect(
       schedulingConfigWriteEndpoints.replaceScheduleRoleMembers.path({

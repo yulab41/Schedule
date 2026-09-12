@@ -7,6 +7,7 @@ import type {
   ShiftType,
   ShiftTypeVersionMutationRequest,
   UpdateShiftTypeRequest,
+  UpdateScheduleRoleRequest,
 } from '@schedule/contracts';
 
 import { scheduleRoleJsonSchema, shiftTypeJsonSchema } from './generated/calendar-schemas.js';
@@ -44,6 +45,12 @@ const operationId = <Request extends { readonly operationId: string }>(
 ): string => input.request.operationId;
 
 export const schedulingConfigWriteEndpoints = {
+  updateScheduleRole: roleEndpoint<UpdateScheduleRoleRequest, ScheduleRole>(
+    'schedule-role-update',
+    'PUT',
+    '',
+    scheduleRoleMutationDecoder,
+  ),
   createScheduleRole: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<CreateScheduleRoleRequest>,
     ScheduleRole
@@ -93,6 +100,11 @@ export const schedulingConfigWriteEndpoints = {
 } as const;
 
 export interface SchedulingConfigWriteClient {
+  updateScheduleRole(
+    groupId: string,
+    roleId: string,
+    request: UpdateScheduleRoleRequest,
+  ): Promise<ScheduleRole>;
   createScheduleRole(groupId: string, request: CreateScheduleRoleRequest): Promise<ScheduleRole>;
   createShiftType(groupId: string, request: CreateShiftTypeRequest): Promise<ShiftType>;
   deleteScheduleRole(
@@ -121,6 +133,8 @@ export function createSchedulingConfigWriteClient(
   transport: ClientTransport,
 ): SchedulingConfigWriteClient {
   return {
+    updateScheduleRole: (groupId, roleId, request) =>
+      role(schedulingConfigWriteEndpoints.updateScheduleRole, groupId, roleId, request),
     createScheduleRole: (groupId, request) =>
       group(schedulingConfigWriteEndpoints.createScheduleRole, groupId, request),
     createShiftType: (groupId, request) =>

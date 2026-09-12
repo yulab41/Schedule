@@ -125,21 +125,21 @@ describe('feedback12 nurse calendar', () => {
     ]);
     expect(result.weekPanels[1].height).toBeGreaterThan(112);
   });
-  it('keeps only the group-configured month shift, including empty days and conflicting filters', () => {
+  it('falls back within the active filters when the preferred shift is absent', () => {
     const calendar = fixture();
     calendar.assignments = calendar.assignments.filter((a) => a.shiftTypeId !== '电脑');
     expect(
       view(calendar, { effectiveMonthShiftTypeId: '电脑' }).monthPanels[1].cells.find(
         (c) => c.businessDate === '2026-09-12',
       ).shiftAbbreviation,
-    ).toBe('');
+    ).toBe('D');
     expect(
       view(
         calendar,
         { effectiveMonthShiftTypeId: '电脑' },
         { ...emptyWorkbenchFilters, shiftTypeIds: ['P'] },
       ).monthPanels[1].cells.find((c) => c.businessDate === '2026-09-12').shiftAbbreviation,
-    ).toBe('');
+    ).toBe('P');
   });
   it.each([
     ['D', '2026-09-12T07:59:59', 'before'],
@@ -164,7 +164,7 @@ describe('feedback12 nurse calendar', () => {
     const result = view(fixture(), { now: new Date(time + '+08:00') });
     const group = result.selectedDetails.find((g) => g.key === code);
     expect(group.dutyState).toBe(state);
-    expect(group.defaultCollapsed).toBe(state === 'rest' || state === 'done');
+    expect(group.defaultCollapsed).toBe(state !== 'working');
     expect(result.listPanels[1].days[0].duties.find((d) => d.key === code + '-1').dutyState).toBe(
       state,
     );
@@ -175,5 +175,28 @@ describe('feedback12 nurse calendar', () => {
     );
     expect(group.dutyState).toBe('');
     expect(group.defaultCollapsed).toBe(false);
+  });
+  it('carries statutory working days through month, week and list even on a Sunday', () => {
+    const calendar = fixture();
+    calendar.assignments = calendar.assignments.map((a) => ({ ...a, businessDate: '2026-09-20' }));
+    const result = createWorkbenchViewModel(
+      calendar,
+      {
+        year: 2026,
+        confirmed: true,
+        dates: [{ date: '2026-09-20', holidayName: '国庆补班', isOffDay: false, isWorkday: true }],
+      },
+      '2026-09-20',
+      '2026-09',
+      '2026-09-14',
+      emptyWorkbenchFilters,
+      '2026-09-20',
+    );
+    expect(result.monthPanels[1].cells.find((c) => c.businessDate === '2026-09-20')).toMatchObject({
+      isWorkday: true,
+      isHoliday: false,
+    });
+    expect(result.weekPanels[1].days[6]).toMatchObject({ isWorkday: true, isHoliday: false });
+    expect(result.listPanels[1].days[0]).toMatchObject({ isWorkday: true, isHoliday: false });
   });
 });

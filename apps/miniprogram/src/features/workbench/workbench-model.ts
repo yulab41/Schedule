@@ -48,6 +48,7 @@ export interface WorkbenchCell {
   readonly isBottomRow: boolean;
   readonly isCurrentMonth: boolean;
   readonly isHoliday: boolean;
+  readonly isWorkday: boolean;
   readonly isSelected: boolean;
   readonly isToday: boolean;
   readonly isWeekend: boolean;
@@ -56,6 +57,7 @@ export interface WorkbenchCell {
 }
 
 export interface WorkbenchPanel {
+  readonly rowHeight?: number;
   readonly cells: readonly WorkbenchCell[];
   readonly key: string;
   readonly relative: WorkbenchRelativePanel;
@@ -113,6 +115,7 @@ export interface WorkbenchWeekDay {
   readonly duties: readonly WorkbenchDuty[];
   readonly holiday: string;
   readonly isHoliday: boolean;
+  readonly isWorkday: boolean;
   readonly isPast: boolean;
   readonly isSelected: boolean;
   readonly isToday: boolean;
@@ -136,6 +139,7 @@ export interface WorkbenchListDay {
   readonly dutyCountLabel: string;
   readonly holiday: string;
   readonly isHoliday: boolean;
+  readonly isWorkday: boolean;
   readonly isToday: boolean;
   readonly isWeekend: boolean;
   readonly weekday: string;
@@ -310,7 +314,9 @@ export function createWorkbenchViewModel(
     return {
       cells: createMonthCells(
         panelMonth,
-        options.monthPreferencePending ? [] : assignments,
+        options.monthPreferencePending
+          ? []
+          : [...assignments].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition),
         holidayByDate,
         relative === 0 ? selectedDate : '',
         today,
@@ -337,6 +343,7 @@ export function createWorkbenchViewModel(
         shiftGroups: createWeekShiftGroups(dayAssignments, duty),
         holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
         isHoliday: holiday?.isOffDay === true,
+        isWorkday: holiday?.isWorkday === true,
         isPast: businessDate < today,
         isSelected: relative === 0 && businessDate === selectedDate,
         isToday: businessDate === today,
@@ -401,6 +408,7 @@ export function createWorkbenchViewModel(
           dutyCountLabel: `${entry.assignments.length} 班`,
           holiday: holiday?.isOffDay === true ? holiday.holidayName : '',
           isHoliday: holiday?.isOffDay === true,
+          isWorkday: holiday?.isWorkday === true,
           isToday: entry.businessDate === today,
           isWeekend: isWeekend(entry.businessDate),
           weekday: entry.weekdayLabel,
@@ -478,7 +486,8 @@ function createMonthCells(
     const holiday = holidayByDate.get(cell.businessDate);
     const dayAssignments = assignmentsByDate.get(cell.businessDate) ?? [];
     const firstAssignment = preferredShiftTypeId
-      ? dayAssignments.find((assignment) => assignment.shiftTypeId === preferredShiftTypeId)
+      ? (dayAssignments.find((assignment) => assignment.shiftTypeId === preferredShiftTypeId) ??
+        dayAssignments[0])
       : dayAssignments[0];
     const marker = firstAssignment === undefined ? '' : createMarker(firstAssignment.changeMarkers);
     const count =
@@ -508,6 +517,7 @@ function createMonthCells(
       isBottomRow: index >= grid.length - 7,
       isCurrentMonth: !cell.isOutsideMonth,
       isHoliday: holiday?.isOffDay === true,
+      isWorkday: holiday?.isWorkday === true,
       isSelected: !cell.isOutsideMonth && cell.businessDate === selectedDate,
       isToday: cell.businessDate === today,
       isWeekend: isWeekend(cell.businessDate),

@@ -354,6 +354,49 @@ describeWithDatabase('current month calendar read model', () => {
     expect(snapshot?.shiftTypeColor).toBe(before.assignments[0]?.shiftTypeColor);
   });
 
+  it('shows renamed roles in historic calendars and guest calendars without rewriting assignments', async () => {
+    await savePublished('2026-08');
+    const before = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    const config = (
+      await app.inject({
+        method: 'GET',
+        url: `/groups/${groupId}/scheduling-config`,
+        headers: { authorization: 'Bearer owner-token' },
+      })
+    ).json();
+    const role = config.roles.find((item: { id: string }) => item.id === primaryRoleId);
+    const operationId = randomUUID();
+    const snapshots = await client.database.execute(
+      sql`SELECT * FROM shift_assignments ORDER BY id`,
+    );
+    const response = await app.inject({
+      method: 'PUT',
+      url: `/groups/${groupId}/schedule-roles/${primaryRoleId}`,
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': operationId },
+      payload: {
+        name: '改名后岗位',
+        expectedVersion: role.version,
+        expectedRulesVersion: config.rulesVersion,
+        operationId,
+      },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    const after = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    expect(after.roles).toContainEqual({ id: primaryRoleId, name: '改名后岗位' });
+    expect(after.assignments).toEqual(
+      before.assignments.map((assignment) => ({ ...assignment, scheduleRoleName: '改名后岗位' })),
+    );
+    expect(await client.database.execute(sql`SELECT * FROM shift_assignments ORDER BY id`)).toEqual(
+      snapshots,
+    );
+    const guest = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${await getVisitorKey(groupId)}`,
+    });
+    expect(guest.statusCode, guest.body).toBe(200);
+    expect(guest.json().calendar.roles).toContainEqual({ id: primaryRoleId, name: '改名后岗位' });
+  });
+
   it('uses the current abbreviation for every snapshot and preserves assignment history', async () => {
     await savePublished('2026-08');
     const before = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;

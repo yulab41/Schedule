@@ -1400,6 +1400,17 @@ page {
   background: #f3f4f6;
 }
 
+.week-day-content {
+  flex: none;
+  width: 100%;
+}
+
+.week-holiday.is-workday,
+.list-holiday.is-workday {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+}
+
 .week-day.is-selected {
   box-shadow: none;
 }

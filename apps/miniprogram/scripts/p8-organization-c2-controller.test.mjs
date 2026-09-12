@@ -73,6 +73,35 @@ describe('P8-C-2 native scheduling configuration controller', () => {
     });
   });
 
+  it('renames in a prefilled dialog, preserving unsaved member selections and retry identity', async () => {
+    const page = await createReadyPage({ memberCount: 2 });
+    definition.handleToggleRoleMember.call(page, {
+      currentTarget: { dataset: { roleId: 'role-1', membershipId: 'membership-1' } },
+    });
+    const selected = [...page._roleMemberIds.get('role-1')];
+    definition.handleRoleRename.call(page, { currentTarget: { dataset: { roleId: 'role-1' } } });
+    expect(page.data.roleEditName).toBe('一线');
+    definition.handleRoleEditInput.call(page, { detail: { value: '  新岗位  ' } });
+    const update = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('网络中断'))
+      .mockResolvedValue({ ...fixtureConfig.roles[0], name: '新岗位', version: 3 });
+    page._schedulingWriteClient.updateScheduleRole = update;
+    definition.handleRoleRenameSave.call(page);
+    await vi.waitFor(() => expect(page.data.roleEditError).toContain('网络中断'));
+    expect(page.data.roleEditName).toBe('  新岗位  ');
+    definition.handleRoleRenameSave.call(page);
+    await vi.waitFor(() => expect(page.data.roleEditId).toBe(''));
+    expect(update.mock.calls[0]).toEqual(update.mock.calls[1]);
+    expect(update.mock.calls[1][2]).toMatchObject({
+      name: '新岗位',
+      expectedVersion: 2,
+      expectedRulesVersion: 4,
+    });
+    expect(page.data.roleCards[0].name).toBe('新岗位');
+    expect(page._roleMemberIds.get('role-1')).toEqual(selected);
+  });
+
   it('uses one operation id and expected rules version for role creation', async () => {
     const page = createPageInstance(definition);
     page.properties = { groupId };

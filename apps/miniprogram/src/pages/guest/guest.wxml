@@ -278,6 +278,7 @@
                             <text class="day-number calendar-date-text">{{day.day}}</text> </view
                           ><text wx:if="{{day.holiday}}" class="week-holiday"
                             >{{day.holiday}}</text
+                          ><text wx:elif="{{day.isWorkday}}" class="week-holiday is-workday" aria-label="法定补班日">班</text
                           ></view
                         >
                         <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
@@ -525,6 +526,7 @@
                                   >{{day.weekday}}</text
                                 ><text wx:if="{{day.holiday}}" class="list-holiday"
                                   >{{day.holiday}}</text
+                                ><text wx:elif="{{day.isWorkday}}" class="list-holiday is-workday" aria-label="法定补班日">班</text
                                 ><text wx:if="{{day.isToday}}" class="list-today-badge"
                                   >今天</text
                                 ></view

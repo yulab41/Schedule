@@ -86,6 +86,10 @@ export interface ScheduleRoleVersionMutationRequest {
   readonly operationId: string;
 }
 
+export interface UpdateScheduleRoleRequest extends ScheduleRoleVersionMutationRequest {
+  readonly name: string;
+}
+
 export interface ShiftTypeInput {
   readonly abbreviation: string;
   readonly color: string;

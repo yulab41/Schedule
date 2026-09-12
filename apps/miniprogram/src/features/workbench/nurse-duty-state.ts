@@ -69,7 +69,7 @@ export function getNurseDutyState(
   return {
     dutyState,
     dutyStateLabel: labels[dutyState],
-    defaultCollapsed: dutyState === 'rest' || dutyState === 'done',
+    defaultCollapsed: dutyState !== 'working',
     nextBoundary: intervals.flat().find((boundary) => boundary > current) ?? 0,
   };
 }

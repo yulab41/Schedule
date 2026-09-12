@@ -5,6 +5,7 @@ import type {
   ScheduleRoleVersionMutationRequest,
   ShiftTypeVersionMutationRequest,
   UpdateShiftTypeRequest,
+  UpdateScheduleRoleRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -74,6 +75,8 @@ const entityVersionMutationInputSchema = z
   })
   .strict();
 
+const updateRoleInputSchema = entityVersionMutationInputSchema.extend({ name: roleNameSchema });
+
 export function registerSchedulingConfigRoutes(
   app: FastifyInstance,
   schedulingConfigService: SchedulingConfigService,
@@ -90,6 +93,20 @@ export function registerSchedulingConfigRoutes(
         parseCreateRoleInput(request),
       )
       .then((role) => reply.code(201).send(role)),
+  );
+
+  app.put(
+    '/groups/:groupId/schedule-roles/:roleId',
+    { preHandler: app.authenticate },
+    (request) => {
+      const input: UpdateScheduleRoleRequest = parseDangerousBody(request, updateRoleInputSchema);
+      return schedulingConfigService.updateRole(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseRoleId(request),
+        input,
+      );
+    },
   );
 
   app.put(

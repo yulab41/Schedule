@@ -334,13 +334,19 @@
               ><view
                 ><text class="role-title">{{role.name}}</text
                 ></view
-              ><ui-button
+              ><view class="role-actions"><ui-button
+                variant="secondary"
+                label="修改名称"
+                data-role-id="{{role.id}}"
+                disabled="{{!canManage || managementState === 'loading' || roleEditBusy}}"
+                bindpress="handleRoleRename"
+              ></ui-button><ui-button
                 variant="danger"
                 label="删除岗位"
                 data-role-id="{{role.id}}"
                 disabled="{{!canManage}}"
                 bindpress="handleRoleDelete"
-              ></ui-button
+              ></ui-button></view
             ></view>
             <view class="role-section"
               ><text class="field-label">参与成员</text
@@ -387,4 +393,18 @@
       </view>
     </view>
   </scroll-view>
+  <root-portal wx:if="{{roleEditId}}">
+    <view class="role-edit-layer" catchtouchmove="handleRoleDialogTouch">
+      <view class="role-edit-backdrop" bindtap="handleRoleRenameCancel"></view>
+      <view class="role-edit-dialog" aria-role="dialog" aria-label="修改岗位名称" catchtap="handleRoleDialogTouch">
+        <text class="role-edit-title">修改岗位名称</text>
+        <input class="role-edit-input" value="{{roleEditName}}" maxlength="100" placeholder="请输入岗位名称" aria-label="岗位名称" focus="{{true}}" disabled="{{roleEditBusy}}" confirm-type="done" bindinput="handleRoleEditInput" bindconfirm="handleRoleRenameSave" />
+        <text wx:if="{{roleEditError}}" class="role-edit-error">{{roleEditError}}</text>
+        <view class="role-edit-actions">
+          <ui-button variant="secondary" label="取消" disabled="{{roleEditBusy}}" bindpress="handleRoleRenameCancel" />
+          <ui-button variant="primary" label="{{roleEditBusy ? '正在保存…' : '保存'}}" disabled="{{roleEditBusy}}" bindpress="handleRoleRenameSave" />
+        </view>
+      </view>
+    </view>
+  </root-portal>
 </view>

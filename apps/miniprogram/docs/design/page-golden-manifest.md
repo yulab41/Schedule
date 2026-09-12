@@ -131,3 +131,9 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 ## Feedback13 日历反馈（用户指定变更）
 
 月历仅隐藏全天班badge，保留人员/人数/变更；周历保持原色徽标与浅色班种框，下留24px避免圆角碰撞。其他UI/图标保持。390×844/320px生产CSS与ViewModel样张、事件高度稳定回归通过；同版本小米14原生仍待复核，详见docs/audit/feedback13-calendar.md。
+
+## Feedback15 八项批准差异（2026-09-12）
+
+沿用P4日历、P8岗位配置及P9通知设置的既有story映射。用户批准：当前周单独定高、最长列底留24px；月历格子统一62px、默认班种缺失顺延；未上班折叠；三视图蓝底班徽标；修改名称位于删除岗位左侧、弹窗输入；单按钮3+2授权与逐类结果；18px今日文字盒居中。本节最新选择替代Feedback12的无班留空及五个独立授权按钮。
+
+`scripts/feedback15-layout.test.mjs`使用真实WXML、工作台控制器数据、ui-button及生产CSS验证390×844/320px，合成fixture包括多人/长姓名、补班、1/12日期、岗位弹窗及第二步授权。几何与样张位于ignored `runtime/audit/feedback15/layout`；桌面已通过，同版本小米14原生仍待复核。未改变图标资产、主导航或Web业务页面。

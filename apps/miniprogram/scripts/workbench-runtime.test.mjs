@@ -936,8 +936,10 @@ describe('P6-A workbench runtime coordination', () => {
       measurements.splice(0).forEach((callback) => callback([{ height: 500 }]));
       expect(instance.data.weekGridHeight).toBe(528);
       const heights = [];
+      const selectionPatches = [];
       const setData = instance.setData;
       instance.setData = function (patch, callback) {
+        selectionPatches.push(patch);
         if ('weekGridHeight' in patch) heights.push(patch.weekGridHeight);
         setData.call(this, patch, callback);
       };
@@ -948,6 +950,10 @@ describe('P6-A workbench runtime coordination', () => {
       });
       expect(instance.data.weekGridHeight).toBe(528);
       expect(heights.every((height) => height === 528)).toBe(true);
+      expect(
+        selectionPatches.some((patch) => 'weekPanels' in patch || 'weekGridHeight' in patch),
+      ).toBe(false);
+      expect(instance.data.monthPanels.every((panel) => panel.rowHeight === 62)).toBe(true);
       expect(ticks).toHaveLength(0);
       definition.onResize.call(instance);
       const resizeEstimate = instance.data.weekGridHeight;
@@ -999,6 +1005,84 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.offlineNotice).toBe('');
     expect([...storage.keys()].some((key) => key.includes('cache.v2:user-1:group-1'))).toBe(false);
     expect(storage.has('schedule.wechat.workbench.groups.v2:user-1')).toBe(false);
+  });
+
+  it('measures only the current week after rendering and discards old content measurements', async () => {
+    const ticks = [],
+      measurements = [],
+      selectors = [],
+      rendered = [];
+    const runtime = createWx(createStorage(), vi.fn());
+    runtime.nextTick = (callback) => ticks.push(callback);
+    runtime.createSelectorQuery = () => ({
+      in: () => ({
+        selectAll: (selector) => {
+          selectors.push(selector);
+          return {
+            boundingClientRect: (callback) => ({ exec: () => measurements.push(callback) }),
+          };
+        },
+      }),
+    });
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendar('2026-09');
+    const sample = structuredClone(calendarApiGoldenResponse.assignments[0]);
+    instance.calendar.assignments = Array.from({ length: 50 }, (_, i) => ({
+      ...sample,
+      id: `neighbor-${i}`,
+      actualMemberName: '邻周长姓名',
+      businessDate: '2026-09-15',
+    }));
+    instance.holidays = { year: 2026, confirmed: true, dates: [] };
+    Object.assign(instance.data, {
+      viewMode: 'week',
+      weekStart: '2026-09-07',
+      selectedDate: '2026-09-07',
+      businessMonth: '2026-09',
+    });
+    const baseSetData = instance.setData;
+    instance.setData = function (patch, callback) {
+      baseSetData.call(this, patch);
+      if (callback) rendered.push(callback);
+    };
+    definition.onResize.call(instance);
+    expect(instance.data.weekGridHeight).toBeLessThan(200);
+    expect(ticks).toHaveLength(0);
+    rendered.splice(0).forEach((callback) => callback());
+    ticks.splice(0).forEach((callback) => callback());
+    expect(selectors).toEqual(['.week-panel-current .week-day-content']);
+    const old = measurements.shift();
+    instance.calendar.assignments.push({ ...sample, id: 'current', businessDate: '2026-09-07' });
+    definition.onResize.call(instance);
+    const estimate = instance.data.weekGridHeight;
+    old([{ height: 2000 }]);
+    expect(instance.data.weekGridHeight).toBe(estimate);
+    rendered.splice(0).forEach((callback) => callback());
+    ticks.splice(0).forEach((callback) => callback());
+    measurements.shift()([{ height: 180 }]);
+    expect(instance.data.weekGridHeight).toBe(208);
+    instance.calendar.assignments.push({
+      ...sample,
+      id: 'neighbor-new',
+      businessDate: '2026-09-15',
+    });
+    definition.onResize.call(instance);
+    expect(instance.data.weekGridHeight).toBe(208);
+    rendered.splice(0).forEach((callback) => callback());
+    expect(ticks).toHaveLength(0);
+    definition.handleWeekDaySelect.call(instance, {
+      currentTarget: { dataset: { businessDate: '2026-09-08' } },
+    });
+    definition.handleWeekDaySelect.call(instance, {
+      currentTarget: { dataset: { businessDate: '2026-09-09' } },
+    });
+    expect(
+      instance.data.weekPanels[1].days
+        .filter((day) => day.isSelected)
+        .map((day) => day.businessDate),
+    ).toEqual(['2026-09-09']);
   });
 
   it('cold-starts from the same-owner 24-hour snapshot when every network read fails', async () => {
@@ -1135,7 +1219,12 @@ function createPageInstance(pageDefinition) {
     selectComponent: () => undefined,
     data,
     setData(patch, callback) {
-      Object.assign(data, patch);
+      for (const [key, value] of Object.entries(patch)) {
+        const segments = key.replace(/\[(\d+)\]/gu, '.$1').split('.');
+        let target = data;
+        for (const segment of segments.slice(0, -1)) target = target[segment];
+        target[segments.at(-1)] = value;
+      }
       callback?.();
     },
   };

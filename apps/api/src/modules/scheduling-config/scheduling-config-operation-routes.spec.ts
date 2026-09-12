@@ -37,6 +37,7 @@ describe('P8 scheduling configuration route operation and version boundary', () 
     const serviceCall = (result: unknown) => vi.fn(async () => result);
     calls = {
       createRole: serviceCall(role()),
+      updateRole: serviceCall(role()),
       createShiftType: serviceCall(shiftType()),
       deleteRole: serviceCall({ completed: true }),
       deleteShiftType: serviceCall({ completed: true }),
@@ -78,7 +79,7 @@ describe('P8 scheduling configuration route operation and version boundary', () 
     );
 
     expect(responses.map((response) => response.statusCode)).toEqual([
-      201, 200, 200, 201, 200, 200,
+      201, 200, 200, 200, 201, 200, 200,
     ]);
     for (const call of Object.values(calls)) {
       expect(call).toHaveBeenCalledOnce();
@@ -124,6 +125,11 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
     request('POST', `/groups/${groupId}/schedule-roles`, {
       expectedRulesVersion: 4,
       name: '一线',
+    }),
+    request('PUT', `/groups/${groupId}/schedule-roles/${roleId}`, {
+      expectedRulesVersion: 4,
+      expectedVersion: 2,
+      name: '护士岗位',
     }),
     request('PUT', `/groups/${groupId}/schedule-roles/${roleId}/members`, {
       ...roleVersions,

@@ -130,6 +130,109 @@ describeWithDatabase('scheduling configuration', () => {
     });
   });
 
+  it('renames roles with idempotency, membership preservation and version conflict protection', async () => {
+    const groupId = await createClaimedGroup();
+    const role = await createRole(groupId, '一线');
+    const config = await getConfig('owner-token', groupId);
+    const operationId = randomUUID();
+    const payload = {
+      name: '  护士排班  ',
+      expectedVersion: role.version,
+      expectedRulesVersion: config.rulesVersion,
+      operationId,
+    };
+    const request = {
+      method: 'PUT' as const,
+      url: `/groups/${groupId}/schedule-roles/${role.id}`,
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': operationId },
+      payload,
+    };
+    const before = await client.database.execute(
+      sql`SELECT * FROM member_schedule_roles WHERE schedule_role_id=${role.id}`,
+    );
+    const changed = await app.inject(request);
+    expect(changed.statusCode, changed.body).toBe(200);
+    expect(changed.json()).toMatchObject({
+      id: role.id,
+      name: '护士排班',
+      version: role.version + 1,
+      members: role.members,
+    });
+    expect((await app.inject(request)).json()).toEqual(changed.json());
+    expect(
+      await client.database.execute(
+        sql`SELECT * FROM member_schedule_roles WHERE schedule_role_id=${role.id}`,
+      ),
+    ).toEqual(before);
+    expect((await getConfig('owner-token', groupId)).rulesVersion).toBe(config.rulesVersion + 1);
+    const changedPayload = await app.inject({
+      ...request,
+      payload: { ...payload, name: '重复ID不同内容' },
+    });
+    expect(changedPayload.statusCode).toBe(409);
+    const stale = await app.inject({
+      ...request,
+      headers: { authorization: 'Bearer owner-token' },
+      payload: { ...payload, operationId: undefined, name: '旧版本' },
+    });
+    expect(stale.statusCode).toBe(409);
+    const current = await getConfig('owner-token', groupId);
+    const updates = await Promise.all(
+      ['并发甲', '并发乙'].map((name) =>
+        app.inject({
+          ...request,
+          headers: { authorization: 'Bearer owner-token' },
+          payload: {
+            name,
+            expectedVersion: role.version + 1,
+            expectedRulesVersion: current.rulesVersion,
+          },
+        }),
+      ),
+    );
+    expect(updates.map((result) => result.statusCode).sort()).toEqual([200, 409]);
+  });
+
+  it('rejects invalid role names, non-manager access, cross-group ids and deleted roles', async () => {
+    const groupId = await createClaimedGroup();
+    const role = await createRole(groupId, '一线');
+    const config = await getConfig('owner-token', groupId);
+    const payload = {
+      expectedVersion: role.version,
+      expectedRulesVersion: config.rulesVersion,
+      name: '新岗位',
+    };
+    const request = {
+      method: 'PUT' as const,
+      url: `/groups/${groupId}/schedule-roles/${role.id}`,
+      headers: { authorization: 'Bearer owner-token' },
+      payload,
+    };
+    for (const name of ['', '   ', '长'.repeat(101)])
+      expect((await app.inject({ ...request, payload: { ...payload, name } })).statusCode).toBe(
+        400,
+      );
+    expect(
+      (await app.inject({ ...request, headers: { authorization: 'Bearer candidate-token' } }))
+        .statusCode,
+    ).toBe(403);
+    const otherGroupId = await createGroup();
+    const other = await getConfig('owner-token', otherGroupId);
+    expect(
+      (
+        await app.inject({
+          ...request,
+          url: `/groups/${otherGroupId}/schedule-roles/${role.id}`,
+          payload: { ...payload, expectedRulesVersion: other.rulesVersion },
+        })
+      ).statusCode,
+    ).toBe(404);
+    await client.database.execute(
+      sql`UPDATE schedule_roles SET deleted_at=NOW() WHERE id=${role.id}`,
+    );
+    expect((await app.inject(request)).statusCode).toBe(404);
+  });
+
   it('allows a member in multiple roles and persists only contiguous rotation positions', async () => {
     const groupId = await createClaimedGroup();
     const members = await listGroupMembers(groupId);

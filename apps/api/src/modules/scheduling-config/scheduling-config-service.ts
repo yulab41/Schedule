@@ -12,6 +12,7 @@ import type {
   ShiftTypeInput,
   ShiftTypeVersionMutationRequest,
   UpdateShiftTypeRequest,
+  UpdateScheduleRoleRequest,
 } from '@schedule/contracts';
 import {
   type DatabaseClient,
@@ -185,6 +186,55 @@ export class SchedulingConfigService {
         return this.readRole(transaction, roleId);
       },
       scope: 'scheduling_role_create',
+    });
+  }
+
+  public async updateRole(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    roleId: string,
+    input: UpdateScheduleRoleRequest,
+  ): Promise<ScheduleRole> {
+    const name = input.name.trim();
+    if (name.length === 0 || name.length > 100) throw validationError('岗位名称须为1–100字。');
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        groupId,
+        roleId,
+        name,
+        expectedVersion: input.expectedVersion,
+        expectedRulesVersion: input.expectedRulesVersion,
+      }),
+      scope: 'scheduling_role_update',
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+        assertExpectedVersion({
+          actualVersion: role.version,
+          expectedVersion: input.expectedVersion,
+          id: role.id,
+          objectType: 'schedule_role',
+        });
+        await transaction
+          .update(scheduleRoles)
+          .set({ name, version: sql`${scheduleRoles.version} + 1` })
+          .where(eq(scheduleRoles.id, role.id));
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return this.readRole(transaction, role.id);
+      },
     });
   }
 

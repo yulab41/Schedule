@@ -13,6 +13,7 @@
     <text class="date-number calendar-date-text">{{day}}</text>
   </view>
   <text wx:if="{{holiday}}" class="holiday-chip">{{holiday}}</text>
+  <text wx:elif="{{isWorkday}}" class="holiday-chip is-workday" aria-label="法定补班日">班</text>
   <view wx:if="{{shiftAbbreviation}}" class="month-shift-line"
     ><text class="month-shift-badge" style="{{shiftBadgeStyle}}">{{shiftAbbreviation}}</text></view
   >

@@ -79,6 +79,11 @@
   gap: 2px;
 }
 
+.holiday-chip.is-workday {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+}
+
 .month-shift-line {
   display: flex;
   height: 14px;

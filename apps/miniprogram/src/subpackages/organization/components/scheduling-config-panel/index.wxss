@@ -641,3 +641,13 @@
 .is-large-text .row-actions {
   grid-column: 2;
 }
+/* The two actions retain their order on narrow phones. */
+.role-heading { flex-wrap: wrap; gap: 10px; }
+.role-heading > .role-actions { display: flex; flex: none; flex-direction: row; gap: 8px; margin-left: auto; }
+.role-edit-layer { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.role-edit-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.4); }
+.role-edit-dialog { position: relative; width: calc(100% - 40px); max-width: 380px; padding: 20px; box-sizing: border-box; background: #ffffff; border-radius: 18px; }
+.role-edit-title { display: block; margin-bottom: 16px; color: #17212b; font-size: 18px; font-weight: 600; }
+.role-edit-input { height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; color: #17212b; font-size: 16px; }
+.role-edit-error { display: block; margin-top: 10px; color: #b42318; font-size: 13px; }
+.role-edit-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
