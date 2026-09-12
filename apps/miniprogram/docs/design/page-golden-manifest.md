@@ -127,3 +127,7 @@ P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-conf
 ## Feedback12 五类通知授权入口（用户已确认）
 
 通知设置采用五个独立授权按钮：值班提醒、排班更新、换班、加扣班、请假；沿用ui-button及页面滚动，不改变图标。生产CSS浏览器夹具390×844/320×844的已配置与未配置状态标签完整、无横向溢出、第五项可滚动到达，非原生验收。细节与证据见docs/audit/feedback12-template-integration.md。
+
+## Feedback13 日历反馈（用户指定变更）
+
+月历仅隐藏全天班badge，保留人员/人数/变更；周历保持原色徽标与浅色班种框，下留24px避免圆角碰撞。其他UI/图标保持。390×844/320px生产CSS与ViewModel样张、事件高度稳定回归通过；同版本小米14原生仍待复核，详见docs/audit/feedback13-calendar.md。

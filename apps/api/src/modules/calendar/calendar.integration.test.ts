@@ -354,6 +354,42 @@ describeWithDatabase('current month calendar read model', () => {
     expect(snapshot?.shiftTypeColor).toBe(before.assignments[0]?.shiftTypeColor);
   });
 
+  it('uses the current abbreviation for every snapshot and preserves assignment history', async () => {
+    await savePublished('2026-08');
+    const before = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    await client.database
+      .update(shiftAssignments)
+      .set({ shiftTypeAbbreviation: '旧' })
+      .where(eq(shiftAssignments.id, before.assignments[0]!.id));
+    const snapshots = await client.database.select().from(shiftAssignments);
+    await client.database
+      .update(shiftTypes)
+      .set({ abbreviation: '全天' })
+      .where(eq(shiftTypes.id, allDayShiftTypeId));
+    for (const token of ['owner-token', 'candidate-token']) {
+      const after = (await readCalendar(token, '2026-08')).json() as CalendarReadModel;
+      expect(after.assignments.length).toBeGreaterThan(1);
+      expect(after.assignments.every((row) => row.shiftTypeAbbreviation === '全天')).toBe(true);
+      expect(after.shiftTypes[0]?.abbreviation).toBe('全天');
+      expect(after.assignments.map((row) => ({ ...row, shiftTypeAbbreviation: '' }))).toEqual(
+        before.assignments.map((row) => ({ ...row, shiftTypeAbbreviation: '' })),
+      );
+    }
+    expect(await client.database.select().from(shiftAssignments)).toEqual(snapshots);
+  });
+
+  it('retains snapshot abbreviations when the configured shift has been deleted', async () => {
+    await savePublished('2026-08');
+    const before = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    await client.database
+      .update(shiftTypes)
+      .set({ abbreviation: '新', deletedAt: new Date() })
+      .where(eq(shiftTypes.id, allDayShiftTypeId));
+    const after = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    expect(after.assignments).toEqual(before.assignments);
+    expect(after.shiftTypes).toEqual(before.shiftTypes);
+  });
+
   it('suggests the next date after the last published duty rather than a gap or a draft', async () => {
     const route = `/groups/${groupId}/manual-schedule-start-date/${primaryRoleId}`;
     expect(

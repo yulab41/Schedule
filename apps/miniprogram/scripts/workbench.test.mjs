@@ -510,7 +510,7 @@ describe('P4 native workbench', () => {
       mixedAllDayView.weekPanels[1]?.days.flatMap((day) =>
         day.duties.map((duty) => duty.shiftAbbreviation),
       ),
-    ).toEqual(['全', '全']);
+    ).toEqual(['全天', '全']);
 
     const contactView = createWorkbenchViewModel(
       {

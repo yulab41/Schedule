@@ -876,6 +876,55 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.selectedDetails).toEqual([]);
   });
 
+  it.each(['2026-09-07', '2026-08-31'])(
+    'keeps measured week height on date selection and leaves space below the lowest card (%s)',
+    async (weekStart) => {
+      const ticks = [];
+      const measurements = [];
+      const runtime = createWx(createStorage(), vi.fn());
+      runtime.nextTick = (callback) => ticks.push(callback);
+      runtime.createSelectorQuery = () => ({
+        in: () => ({
+          selectAll: () => ({
+            boundingClientRect: (callback) => ({ exec: () => measurements.push(callback) }),
+          }),
+        }),
+      });
+      vi.stubGlobal('wx', runtime);
+      await import('../src/pages/workbench/index.ts');
+      const instance = createPageInstance(definition);
+      instance.calendar = calendar(activeMonth);
+      instance.holidays = holidayApiGoldenResponse;
+      instance.data.viewMode = 'week';
+      instance.data.weekStart = weekStart;
+      instance.data.businessMonth = weekStart.slice(0, 7);
+      instance.data.selectedDate = weekStart;
+      definition.onResize.call(instance);
+      ticks.splice(0).forEach((callback) => callback());
+      measurements.splice(0).forEach((callback) => callback([{ height: 500 }]));
+      expect(instance.data.weekGridHeight).toBe(528);
+      const heights = [];
+      const setData = instance.setData;
+      instance.setData = function (patch, callback) {
+        if ('weekGridHeight' in patch) heights.push(patch.weekGridHeight);
+        setData.call(this, patch, callback);
+      };
+      definition.handleWeekDaySelect.call(instance, {
+        currentTarget: {
+          dataset: { businessDate: instance.data.weekPanels[1].days[1].businessDate },
+        },
+      });
+      expect(instance.data.weekGridHeight).toBe(528);
+      expect(heights.every((height) => height === 528)).toBe(true);
+      expect(ticks).toHaveLength(0);
+      definition.onResize.call(instance);
+      const resizeEstimate = instance.data.weekGridHeight;
+      ticks.splice(0).forEach((callback) => callback());
+      measurements.splice(0).forEach((callback) => callback([]));
+      expect(instance.data.weekGridHeight).toBe(resizeEstimate);
+    },
+  );
+
   it('never serves a cached month after an online 403 and removes the departed group snapshot', async () => {
     const now = Date.now();
     const sanitizedCalendar = calendar(activeMonth);

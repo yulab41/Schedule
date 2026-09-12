@@ -2793,3 +2793,8 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 
 引入点7842c4da（git log -S buildBusinessTemplateData / blame核对）：旧通用业务模板无法表达本次用户提供的日期、操作者、换班双方及请假资料。用户批准五按钮独立订阅和换班紧凑/超长提示。现按族映射并在原业务事务内记录快照，保留权限/原接收人/去重/静默/重试，无历史重发。UI RED2、换班紧凑RED1，修复后59/4通过；隔离MySQL六文件132通过。
 运行/浏览器验证：pnpm smoke:browser（等价node入口、本地API3105/Web4175、只读本地env适配）完整登录/管理员/成员/访客/访问记录通过；合成local-admin已恢复并回读，服务停止。实现及本地运行验证完成，部署/配置及原生订阅、实际自动收信分别记录，不将mock当真机。详见docs/audit/feedback12-template-integration.md。
+
+## Feedback13 四项日历反馈（2026-09-12）
+
+简称覆盖遗漏引入528722f4，全天“全”硬编码6ba2c72c；e94a54ca分组渲染和每次createViewPatch重置估算高度导致当前症状。配置简称仅覆盖日历只读响应、不改历史排班；月历仅隐藏isAllDay标识；周历下留24px并按实际内容缓存实测高度、拒绝空测量。API RED1/Mini简称RED4/高度与空测量RED，修复后隔离MySQL36、相关Mini联合验证及390/320几何通过。
+运行/浏览器验证：pnpm smoke:browser（等价node入口，API3105/Web4175）完整登录/管理员/成员/访客/访问记录通过；本地测试标记恢复、服务停止。四项代码修复与本地运行验证完成，尚未生产部署或原生验收。细节见docs/audit/feedback13-calendar.md。

@@ -299,13 +299,7 @@ export function createWorkbenchViewModel(
     ? [...filtered].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition)
     : filtered;
   const duty = (assignment: CalendarReadModel['assignments'][number]) =>
-    createDuty(
-      assignment,
-      memberById,
-      allDayShiftTypeIds.has(assignment.shiftTypeId),
-      options.nursePreset === true,
-      now,
-    );
+    createDuty(assignment, memberById, options.nursePreset === true, now);
   const monthLabel = formatMonthLabel(businessMonth);
   const memberById = new Map(calendar.members.map((member) => [member.membershipId, member]));
   const allDayShiftTypeIds = new Set(
@@ -320,6 +314,7 @@ export function createWorkbenchViewModel(
         holidayByDate,
         relative === 0 ? selectedDate : '',
         today,
+        allDayShiftTypeIds,
         options.effectiveMonthShiftTypeId,
       ),
       key: panelMonth,
@@ -439,7 +434,6 @@ export function createWorkbenchViewModel(
 function createDuty(
   assignment: CalendarReadModel['assignments'][number],
   memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
-  isAllDay: boolean,
   nursePreset: boolean,
   now: Date,
 ): WorkbenchDuty {
@@ -452,9 +446,7 @@ function createDuty(
     markers: createMarkerList(assignment.changeMarkers),
     name: getAssignmentName(assignment),
     phone: member?.mobilePhone ?? member?.shortPhone ?? '',
-    shiftAbbreviation: isAllDay
-      ? '全'
-      : truncateCalendarBadgeLabel(assignment.shiftTypeAbbreviation),
+    shiftAbbreviation: truncateCalendarBadgeLabel(assignment.shiftTypeAbbreviation),
     shiftColor: assignment.shiftTypeColor,
     shiftTextColor: assignment.shiftTypeTextColor,
   };
@@ -472,6 +464,7 @@ function createMonthCells(
   holidayByDate: ReadonlyMap<string, HolidayReadModel['dates'][number]>,
   selectedDate: string,
   today: string,
+  allDayShiftTypeIds: ReadonlySet<string>,
   preferredShiftTypeId?: string | null,
 ): readonly WorkbenchCell[] {
   const assignmentsByDate = new Map<string, CalendarReadModel['assignments'][number][]>();
@@ -498,7 +491,10 @@ function createMonthCells(
     const state = [holiday?.holidayName ?? '', person, marker].filter(Boolean).join('，');
     return {
       extraPersonCount: Math.max(0, count - 1),
-      shiftAbbreviation: firstAssignment?.shiftTypeAbbreviation ?? '',
+      shiftAbbreviation:
+        firstAssignment === undefined || allDayShiftTypeIds.has(firstAssignment.shiftTypeId)
+          ? ''
+          : firstAssignment.shiftTypeAbbreviation,
       shiftBadgeStyle:
         firstAssignment === undefined
           ? ''

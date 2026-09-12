@@ -1386,7 +1386,7 @@ page {
 .week-day {
   position: relative;
   min-height: 112px;
-  padding: 4px 3px;
+  padding: 4px 3px 24px;
   align-items: stretch;
 }
 

@@ -345,18 +345,26 @@ export class CalendarQuery {
             .orderBy(asc(scheduleEvents.occurredAt), asc(scheduleEvents.id))
         : Promise.resolve([]),
       transaction
-        .select({ id: shiftTypes.id, color: shiftTypes.color, textColor: shiftTypes.textColor })
+        .select({
+          id: shiftTypes.id,
+          abbreviation: shiftTypes.abbreviation,
+          color: shiftTypes.color,
+          textColor: shiftTypes.textColor,
+        })
         .from(shiftTypes)
         .where(and(eq(shiftTypes.groupId, groupId), isNull(shiftTypes.deletedAt))),
     ]);
 
-    const colours = new Map(currentShiftTypes.map((shiftType) => [shiftType.id, shiftType]));
+    const displayByShiftId = new Map(
+      currentShiftTypes.map((shiftType) => [shiftType.id, shiftType]),
+    );
     const assignments = snapshots.map((assignment) => {
-      const current = colours.get(assignment.shiftTypeId);
+      const current = displayByShiftId.get(assignment.shiftTypeId);
       return current === undefined
         ? assignment
         : {
             ...assignment,
+            shiftTypeAbbreviation: current.abbreviation,
             shiftTypeColor: current.color,
             shiftTypeTextColor: current.textColor,
           };

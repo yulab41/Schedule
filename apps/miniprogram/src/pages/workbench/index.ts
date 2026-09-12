@@ -241,6 +241,9 @@ interface WorkbenchPageData extends AccountSecurityData {
 }
 
 interface WorkbenchPageInstance {
+  _weekLayoutSignature: string;
+  _weekLayoutHeight: number;
+  _weekLayoutMeasured: boolean;
   _weekMeasureSerial: number;
   _calendarPreferenceSerial: number;
   _groupMonthShiftTypeId: string | null | undefined;
@@ -460,6 +463,9 @@ Page({
   _groupMonthShiftTypeId: undefined,
   _calendarPreferenceSerial: 0,
   _weekMeasureSerial: 0,
+  _weekLayoutSignature: '',
+  _weekLayoutHeight: 112,
+  _weekLayoutMeasured: false,
   _dutyTimer: undefined,
 
   onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
@@ -489,12 +495,14 @@ Page({
   },
 
   onResize(this: WorkbenchPageInstance): void {
+    this._weekLayoutSignature = '';
     this.setData(createShellLayoutPatch());
     refreshView(this);
   },
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
+    this._weekLayoutSignature = '';
     if (this.requestOwnerId !== getStoredWechatProfile()?.id) resetCalendarContext(this);
     this.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
     refreshView(this);
@@ -1999,12 +2007,13 @@ function scheduleWeekMeasurement(page: WorkbenchPageInstance): void {
       .selectAll('.week-day-content')
       .boundingClientRect((rects) => {
         if (!page.isVisible || page._weekMeasureSerial !== serial || !Array.isArray(rects)) return;
-        const height = Math.ceil(
-          Math.max(
-            112,
-            ...rects.map((rect) => (Number.isFinite(rect.height) ? rect.height + 8 : 0)),
-          ),
+        const measuredRects = rects.filter(
+          (rect) => Number.isFinite(rect.height) && rect.height > 0,
         );
+        if (measuredRects.length === 0) return;
+        const height = Math.ceil(Math.max(112, ...measuredRects.map((rect) => rect.height + 28)));
+        page._weekLayoutHeight = height;
+        page._weekLayoutMeasured = true;
         if (height !== page.data.weekGridHeight) page.setData({ weekGridHeight: height });
       })
       .exec();
@@ -2075,7 +2084,27 @@ function createViewPatch(
     },
   );
   scheduleDutyRefresh(page, view.nextDutyBoundary);
-  scheduleWeekMeasurement(page);
+  // Selection and work-state refreshes do not change the intrinsic weekly content.
+  // Keep the measured height until content/width actually changes, rather than
+  // flashing the conservative estimate again before every selector-query result.
+  const weekSignature = JSON.stringify(
+    view.weekPanels.map((panel) => [
+      panel.key,
+      panel.days.map((day) => [
+        day.holiday,
+        day.shiftGroups.map((group) => [
+          group.abbreviation,
+          group.duties.map((duty) => [duty.name, duty.markers]),
+        ]),
+      ]),
+    ]),
+  );
+  if (weekSignature !== page._weekLayoutSignature) {
+    page._weekLayoutSignature = weekSignature;
+    page._weekLayoutMeasured = false;
+    page._weekLayoutHeight = Math.max(112, ...view.weekPanels.map((panel) => panel.height + 20));
+  }
+  if (!page._weekLayoutMeasured) scheduleWeekMeasurement(page);
   const logicalMonthPanelHeights = view.monthPanels.map((panel) => (panel.cells.length / 7) * 62);
   const monthRing = createMonthRing(view.monthPanels, logicalMonthPanelHeights, page.monthRingSlot);
   return {
@@ -2091,7 +2120,7 @@ function createViewPatch(
       ],
       view.selectedDetails,
     ),
-    weekGridHeight: Math.max(112, ...view.weekPanels.map((panel) => panel.height)),
+    weekGridHeight: page._weekLayoutHeight,
     gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
     listPanels: view.listPanels,
     monthLabel: view.monthLabel,
@@ -2525,6 +2554,7 @@ function calendarContext(page: WorkbenchPageInstance): string {
 }
 
 function resetCalendarContext(page: WorkbenchPageInstance): void {
+  page._weekLayoutSignature = '';
   page._groupMonthShiftTypeId = undefined;
   page._weekMeasureSerial += 1;
   page._calendarPreferenceSerial += 1;
