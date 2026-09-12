@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：Feedback16 导出白屏运行时依赖边界修复待上传116
+## 当前批次：Feedback16 导出白屏运行时依赖边界修复已上传并放行116，待小米14复核
 
 - 设计检查点 `516e2719`；A 检查点 `42e644a4`；最终 B/C 检查点 `84ae20f8`；当前为上传策略证明补充阶段。详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
 - A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
@@ -21,7 +21,9 @@
 - `.115` 同版本报告仍只有 `exports · open-requested`，无 `page-load/page-ready`；静态复核已确认工作台导航 URL 与 `app.json` 注册一致。新失败优先回归显示：`initial-data.ts` 的 `import { type ScheduleExportType }` 进入了构建产物运行时依赖，导出页 bundle 带入 contracts/Zod，并触发 `globalThis`/`navigator` 禁止边界。
 - 新修复：导出 Page 注册前只使用纯壳数据，controller 工厂延迟至 `onLoad` 微任务；controller 工厂/初始化失败显示可重试错误。将类型导入改成 `import type`，initial-data 仅作为 controller bundled-only 模块，不改变 API、鉴权、任务、下载或路径。
 - 本地证据：导出页119,713字节，不含 `globalThis`/`navigator`，无独立 initial-data 资源；定向29项、Mini verify、包体、Worklet2/2、确定性、format、lint和`smoke:check-core`通过。完整 Mini 测试169文件通过、2跳过，另有与本轮无关的 manual-schedule-limits 既有断言失败。
-- 唯一下一任务/停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传/放行新 SHA；用户需重新明确授权后才可生成116并追加放行，随后等待小米14同版本原生复核。
+- `.116` 已从 clean detached candidate 上传：SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9`，production/clean，说明 `Feedback16 export dependency fix 9269ed2`，Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`，receipt/tag 一致。
+- 可信 allowlist `ensure` 仅追加 `.116`，旧版保留；独立 allowlist verify 和完整 `ecs-verify.sh` 通过。线上应用 release 未改变；放行期间短暂 TLS/502 后恢复，未部署生产应用、未备份/修改数据库。
+- 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14同版本体验版116复核导出页；自动化、上传、白名单及服务器证据不替代 Skyline 原生验收。
 
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 

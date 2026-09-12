@@ -79,3 +79,10 @@
 - 修复将导出 Page 注册前数据缩减为纯壳字段，controller 工厂改为 `onLoad` 微任务执行；controller 初始化异常不再导致白屏，而是显示标题、返回、错误和重试按钮。类型导入改为真正的 `import type`，initial-data 保持 controller bundled-only，控制器 receiver、权限、请求、任务轮询、下载和路径语义不变。
 - 定向29项通过；Mini verify通过，导出页构建产物119,713字节且不含 `globalThis`/`navigator`，无独立 initial-data 资源；包体4,554,110字节、Worklet2/2、确定性、format、lint和`smoke:check-core`通过。完整 Mini 测试169文件通过、2文件跳过；`manual-schedule-limits` 仍有既有 contracts 输入数量断言失败（2对28），未修改该无关范围。
 - 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD`。本轮只完成源码与自动化验证，未上传/放行新体验版；必须取得针对新 SHA 的明确上传授权，再做同一干净 SHA 的体验版和小米14复核。Node/静态结果不替代 Skyline 原生验收。
+
+## `.116` 体验版上传与追加放行
+
+- 用户随后明确授权“上传并放行”。候选为 clean detached SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9`，版本 `0.1.0-p10.20260913.116`，说明 `Feedback16 export dependency fix 9269ed2`，production profile。
+- 上传成功：官方 CI 返回 234 个代码文件、ZIP 2,611,272 字节；Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`；receipt 上传时间 `2026-09-12T16:02:19.307Z`，与不可变 trial tag 和 allocation 绑定一致。
+- 放行成功：可信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260913.116` 仅追加 `.116`；独立 allowlist verify、完整 `ecs-verify.sh` 均通过。放行期间 API/Web 容器按既有控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未执行生产代码部署、数据库备份或迁移。
+- 状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。仅待用户在小米14体验版116复核导出页首屏和导出操作；未提审、未正式发布、未发送真实通知。

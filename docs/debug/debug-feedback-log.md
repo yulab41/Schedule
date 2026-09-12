@@ -2839,3 +2839,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - RED→GREEN：新增 controller 工厂失败仍注册 Page 的回归；Page 注册前改用纯壳数据，controller 工厂延迟到 `onLoad` 微任务；类型导入改为 `import type`。导出页产物从约436KB回落至119,713字节，且不含上述两个运行时标识。
 - 运行验证：导出/页面/边界、日历、二维码/账号定向29项通过；Mini verify、包体、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 169文件通过、2跳过，另有既有 manual-schedule-limits 断言失败，与本轮无关。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
+
+## 2026-09-13 Feedback16 `.116` 上传与白名单放行
+
+- 用户明确授权上传并放行。候选 clean detached SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9`，production，版本 `0.1.0-p10.20260913.116`，说明 `Feedback16 export dependency fix 9269ed2`。
+- 上传：微信 CI 成功，234 code files、ZIP 2,611,272 bytes，Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`；receipt/tag/allocation 绑定一致，receipt 时间 `2026-09-12T16:02:19.307Z`。
+- 放行：正式 SSH 采用生产域名作为 HostKeyAlias、StrictHostKeyChecking，可信 `schedule-client-version-allowlist ensure` 仅追加 `.116`；独立 verify 与完整 `ecs-verify.sh` 通过。放行重建 API/Web，短暂 TLS/502 后恢复；生产 release 未改变，未触数据库或生产应用部署。
+- 状态：体验版已上传并放行，转为 `WAITING_XIAOMI14_NATIVE_REVIEW`；不把 CI/静态/服务器结果写成小米14原生验收。

@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 导出白屏运行时依赖边界修复待上传116
+## 当前批次：Feedback16 导出白屏运行时依赖边界修复已上传并放行116，待小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -26,7 +26,9 @@
 - `.115` 同版本报告仍只有 `exports · open-requested`、没有 `page-load/page-ready`，确认上一版首帧门控仍未跨过注册前依赖边界。新增失败优先回归后定位到 `initial-data.ts` 的 `import { type ScheduleExportType }` 被构建链保留为运行时导入，导致 contracts/Zod 整树进入导出页 bundle；构建产物出现 `globalThis`/`navigator`，与 Mini 运行时禁用边界冲突。
 - 新修复：Page 注册前仅保留纯壳数据；controller 工厂延迟到 `onLoad` 微任务执行，失败显示可见重试壳；`ScheduleExportType` 改为真正的 `import type`，并将 initial-data 作为 controller 内部 bundled-only 模块。导航 URL、app.json、权限、API、导出任务及下载语义不变。
 - 新修复验证：导出页产物119,713字节且不含 `globalThis`/`navigator`，initial-data 未生成独立资源；定向29项、Mini verify、包体4554110字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 测试为169文件通过、2文件跳过；另有既有 `manual-schedule-limits` 边界断言失败（期望 contracts 输入2个、实际28个），与本轮导出修改无关。
-- 当前停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮未上传、未放行；需用户针对新干净 SHA 重新明确授权后，才能生成116体验版并追加放行，再由小米14同版本复核。115及旧版保持可用。
+- `.116` 已使用独占 detached warm candidate 从 clean SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9` 上传；版本说明为 `Feedback16 export dependency fix 9269ed2`，production/clean，Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`，receipt 与远端不可变 tag 一致。
+- 放行结果：服务器可信 `schedule-client-version-allowlist ensure` 仅追加 `.116`，`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未做生产代码部署、数据库备份或迁移。
+- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版116复核导出页标题/返回/loading、完整面板和导出操作；Node、上传、白名单和服务器验证均不替代原生验收。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
