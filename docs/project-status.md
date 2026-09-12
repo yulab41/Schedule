@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 导出白屏首帧边界修复，待新体验版验证
+## 当前批次：Feedback16 导出白屏首帧边界修复已上传并放行115，待小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -21,7 +21,9 @@
 - 新修复：导出页首帧先显示轻量标题/加载壳，下一渲染周期再挂载完整 panel；卸载时取消延迟任务，保留原有 controller、权限、请求和导出语义。首帧边界回归、WXML 编译和构建产物检查通过。
 - 检查点提交消息：`fix(miniprogram): defer export panel first paint`。
 - 新修复验证：Mini 全量169文件/1197项通过、2文件/16项跳过；Mini verify、determinism、format、lint、package、`smoke:check-core`通过，包体4,551,852字节，主包1,708,505字节仍为既有warning。
-- 当前停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮只提交/推送修复，未擅自上传新体验版；需用户明确授权当前干净 SHA 的体验版上传后，再在小米14复核标题/返回/loading、面板内容和导出操作。
+- 新体验版交付：`93c660b3cb38c19ff98758529b1c329b37189954` 以 production/clean 上传为 `0.1.0-p10.20260912.115`；Manifest `f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`，receipt 与远端不可变 tag 一致。说明为 `Feedback16 export first-paint fix 93c660b`，上传时间以 ignored receipt 为准。
+- 放行结果：服务器 add-only ensure 仅追加 `.115`，`.114`、`.113` 及旧版保留；allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
+- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14打开体验版115，复核导出页首帧标题/返回/loading、完整面板内容和导出操作；自动化、上传和服务器验证均不替代原生验收。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

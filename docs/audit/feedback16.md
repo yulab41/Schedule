@@ -63,4 +63,11 @@
 - 小米14报告确认实际打开的是 `.114@f7b1709`，但仍只有 `exports · open-requested` 和 `MINI_RUNTIME_ERROR`，没有 `page-load/page-ready`。用户补充该现象从 `.106` 及以后出现；静态差分确认 `.106` 已包含导出路由，当前未发现导航 URL 或 `app.json` 路径变更，精确引入提交仍不能仅靠脱敏报告确定。
 - 失败优先回归先要求导出页存在 `panelReady` 首帧门控，旧模板失败；修复后 Page 首帧只挂载标题/加载壳，在下一渲染周期再挂载完整 panel，并在卸载时取消延迟任务。控制器 receiver、权限、请求、任务轮询和下载语义保持不变。
 - 当前修复验证：定向导出10项通过；Mini 全量169文件/1197项通过、2文件/16项跳过；WXML 官方编译、Mini verify、determinism、format、lint、package 和 `smoke:check-core` 均通过。包体4,551,852字节，主包warning延续既有状态。
-- 当前状态：修复只完成源码、自动化检查、提交和推送，未上传新体验版。下一步必须取得当前干净 SHA 的上传授权，再让用户在小米14同版本复核；自动化结果不替代原生验收。
+- 当前修复状态：源码、自动化检查、提交和推送已完成；随后用户明确授权当前 SHA 上传并放行。
+
+### `.115` 体验版上传与追加放行
+
+- 候选提交：`93c660b3cb38c19ff98758529b1c329b37189954`；体验版：`0.1.0-p10.20260912.115`；说明：`Feedback16 export first-paint fix 93c660b`；`production/clean`。
+- 上传时间：`2026-09-12T14:01:44.752Z`；Manifest：`f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`；receipt 与远端不可变 tag 一致。
+- 服务器仅 add-only 追加 `.115`，`.114`、`.113` 及旧版保留；allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行期间短暂 TLS/502 由既有健康等待恢复，未执行生产代码部署、数据库备份或迁移。
+- 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。自动化和服务器结果不替代小米14原生验收；请复核导出页首帧标题/返回/loading、面板内容和导出操作。

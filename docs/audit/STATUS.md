@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：Feedback16 导出白屏首帧边界修复，待新体验版验证
+## 当前批次：Feedback16 导出白屏首帧边界修复已上传并放行115，待小米14复核
 
 - 设计检查点 `516e2719`；A 检查点 `42e644a4`；最终 B/C 检查点 `84ae20f8`；当前为上传策略证明补充阶段。详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
 - A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
@@ -16,7 +16,9 @@
 - 新修复：导出 Page 首帧改为轻量标题/加载壳，下一渲染周期再挂载完整 panel；卸载取消延迟任务，不改变 controller、权限、请求或导出语义。相关回归和构建检查已通过。
 - 检查点提交消息：`fix(miniprogram): defer export panel first paint`。
 - 新修复验证：Mini 全量169文件/1197项通过、2文件/16项跳过；Mini verify、determinism、format、lint、package、`smoke:check-core`通过，包体4,551,852字节。
-- 唯一下一任务/停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。只等待当前新干净 SHA 获得明确上传授权，随后由用户在小米14同版本复核；不提前宣称原生通过，不自动上传或放行。
+- 新体验版交付：`93c660b3cb38c19ff98758529b1c329b37189954` / `0.1.0-p10.20260912.115` / production-clean；Manifest `f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`，receipt 与远端 tag 一致，说明为 `Feedback16 export first-paint fix 93c660b`。
+- 放行结果：服务器 add-only ensure 仅追加 `.115`，`.114`、`.113` 及旧版保留；allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），线上 release 未改变，未做生产代码部署、数据库备份或迁移。
+- 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。只等待用户在小米14同版本复核；不提前写原生通过，不提交审核或正式发布。
 
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 

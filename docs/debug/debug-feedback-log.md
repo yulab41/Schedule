@@ -2824,4 +2824,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 版本差分：`.106` 已包含导出页面和 `/subpackages/insights/pages/exports/index` 路由；当前源码、`app.json`、构建产物和 `wx.navigateTo` URL 仍一致，未证实路径设置回归，精确引入提交需要原生栈信息。
 - 新回归先失败：要求导出页不是首帧直接注入完整 panel，而是存在 `panelReady` 门控。新实现首帧显示轻量标题/加载壳，下一渲染周期挂载 panel；卸载取消延迟任务。
 - 运行/浏览器验证：`pnpm --filter @schedule/miniprogram test` 169文件/1197项通过、2文件/16项跳过；Mini verify、WXML官方编译、determinism、format、lint、package、`pnpm smoke:check-core`均通过。该结果不替代小米14原生验证。
-- 状态：`UPLOAD_REQUIRED_FOR_NEW_SHA`。当前未上传、未放行、未执行生产部署；待用户明确授权当前新干净 SHA 后再生成体验版并复核。
+- 状态：用户已明确授权当前新干净 SHA 上传并放行。体验版 `.115` 已上传，服务器 add-only 放行、allowlist verify 和完整 `ecs-verify.sh` 均通过；`.114` 及旧版保留，未执行生产代码部署、数据库备份或迁移。当前等待小米14同版本原生复核。
+
+## 2026-09-12 Feedback16 `.115` 体验版交付
+
+- `93c660b3cb38c19ff98758529b1c329b37189954` / `production/clean` 上传为 `0.1.0-p10.20260912.115`，说明 `Feedback16 export first-paint fix 93c660b`，Manifest `f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`，receipt 与远端不可变 tag 一致。
+- 服务器 `schedule-client-version-allowlist ensure` 仅追加 `.115`，`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，退出码0，线上 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。重建期间短暂 TLS/502 由健康等待恢复。
+- 状态：未提审、未正式发布、未发送真实通知、未执行生产代码部署/数据库操作；等待用户在小米14体验版115复核导出页。

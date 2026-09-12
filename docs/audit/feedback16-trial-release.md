@@ -43,3 +43,19 @@
 5. 平台账号反馈为瞬时通知；管理弹窗在 390px、320px 和大字号下输入框、保存按钮及绑定按钮不碰撞、不截断。
 
 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。本记录不代表小米14、微信原生运行时或所有 Android 设备已验收通过。
+
+## Feedback16 体验版115上传与追加放行
+
+用户随后明确授权当前修复 SHA 上传体验版并放行。本次只追加新版本，保留 `.114`、`.113` 及更早版本；未提审、未正式发布、未发送真实通知，也未执行生产应用代码部署或数据库操作。
+
+- 候选提交：`93c660b3cb38c19ff98758529b1c329b37189954`
+- 体验版：`0.1.0-p10.20260912.115`
+- 说明：`Feedback16 export first-paint fix 93c660b`
+- 构建档案：`production/clean`
+- 上传时间：`2026-09-12T14:01:44.752Z`（以 ignored receipt 为准）
+- Manifest：`f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`
+- 证据：ignored `.115` receipt、冻结构建清单和远端不可变 tag 绑定同一版本、SHA 与 Manifest。
+
+服务器端 `schedule-client-version-allowlist ensure` 仅追加 `.115`；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行期间短暂 TLS/502 由既有健康等待恢复。
+
+当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14打开体验版115复核导出页首帧标题/返回/loading、完整面板内容和导出操作；上传和自动化结果不替代原生验收。
