@@ -29,3 +29,12 @@
 - 全量检查结果由收口状态补充。提交标识feat(notifications): separate five subscription templates；随后按已授权服务器部署/配置，体验版上传需具体候选授权。不得用模拟网关通过声称真实自动收信通过。
 
 全量pnpm verify已完整通过：format/lint/build/typecheck/icon parity、Mini1164通过/15跳过、根1251通过/434跳过、依赖保护81通过；434包括未配置本地隔离数据库时跳过的用例，相关132已另行真实MySQL验证。原生和实际微信发送仍未验证。
+
+## 服务器已部署并启用五类模板
+
+- 代码22707cf61e8c0247755eb17a85d9c0dfbe37e0fb已提交推送并完整部署API/Web，schema57，无新增迁移。部署前即时live为d1d7a7a3；新配置仅原子修改四类业务模板的8个ID/FIELDS键，其余配置及root:root/0600保持。
+- 备份a62363df-2e39-4bf6-95c3-8a6f057f8889，54表、105975620字节，SHA256 80b8da25c0d8f25eb61978631067b57b741d970ebe7f99c4b213dd237bd84346与服务器实际加密文件一致。未上传本地数据库、会话或凭据。
+- 实际运行API确认5个唯一模板，business/swap/dutyAdjustment/leave各自配置有效；通过现有WeChat网关只读逐项核对全部实际模板字段，合成数据构造通过，realSends=0。换班沿用用户原ID，通过已确认的thing3紧凑摘要和short_thing4“见换班岗位”解决，不修改微信平台模板。
+- 完整生产verifier及allowlist verify通过；公网109/108=200，未知426。最近自然cron两轮：值班created0/duplicate11/skipped0、retry attempted0/sent0/failed0/skipped0；未补发历史通知，未人为制造业务事件或发测试消息。
+- 新界面五按钮尚未上传。已对22707cf6应用候选弹窗申请新体验版上传及追加放行，当前未收到该项回复，未分配版本或预约tag；现有109仅原订阅入口。实际自动收信和原生五按钮仍待后续授权/验收。
+- 文档收口标识docs(ops): record five-template activation；若按项目规则同步文档release，仅通过可信hash-identical复用，应用内容仍22707cf6，无重复应用重建/迁移。运行证据位于本槽ignored runtime/audit/feedback12-five-release。
