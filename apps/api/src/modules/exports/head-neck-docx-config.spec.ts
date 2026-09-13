@@ -6,30 +6,23 @@ const ids = Array.from(
   { length: 6 },
   (_, index) => `0000000${index + 1}-0000-4000-8000-00000000000${index + 1}`,
 );
-const [groupId, firstOne, firstTwo, roleId, secondDuty, thirdDuty] = ids as [
-  string,
-  string,
-  string,
-  string,
-  string,
-  string,
-];
+const [groupId, firstOne, firstTwo, roleId] = ids as [string, string, string, string];
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe('head-neck DOCX configuration', () => {
-  it('accepts one exact group and complete member-ID mappings', () => {
+  it('accepts one exact group, first-duty IDs and fixed display-name mappings', () => {
     vi.stubEnv(
       'HEAD_NECK_DOCX_EXPORT_CONFIG',
       JSON.stringify({
         groupId,
         firstDutyMembershipIds: [firstOne, firstTwo],
         firstDutyRoleId: roleId,
-        secondDutyByFirstMembershipId: { [firstOne]: secondDuty, [firstTwo]: secondDuty },
-        thirdDutyMembershipIds: [secondDuty, thirdDuty],
+        secondDutyNameByFirstMembershipId: { [firstOne]: 'Second A', [firstTwo]: 'Second B' },
+        thirdDutyNames: ['Third A', 'Third B'],
       }),
     );
-    expect(getHeadNeckDocxConfig(groupId)?.thirdDutyMembershipIds).toEqual([secondDuty, thirdDuty]);
+    expect(getHeadNeckDocxConfig(groupId)?.thirdDutyNames).toEqual(['Third A', 'Third B']);
     expect(getHeadNeckDocxConfig(firstOne)).toBeUndefined();
   });
 
@@ -42,8 +35,19 @@ describe('head-neck DOCX configuration', () => {
         groupId,
         firstDutyMembershipIds: [firstOne],
         firstDutyRoleId: roleId,
-        secondDutyByFirstMembershipId: {},
-        thirdDutyMembershipIds: [secondDuty, thirdDuty],
+        secondDutyNameByFirstMembershipId: {},
+        thirdDutyNames: ['Third A', 'Third B'],
+      }),
+    );
+    expect(readHeadNeckDocxConfig()).toBeUndefined();
+    vi.stubEnv(
+      'HEAD_NECK_DOCX_EXPORT_CONFIG',
+      JSON.stringify({
+        groupId,
+        firstDutyMembershipIds: [firstOne],
+        firstDutyRoleId: roleId,
+        secondDutyNameByFirstMembershipId: { [firstOne]: ' ' },
+        thirdDutyNames: ['Third A', 'Third B'],
       }),
     );
     expect(readHeadNeckDocxConfig()).toBeUndefined();

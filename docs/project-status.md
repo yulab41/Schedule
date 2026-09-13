@@ -7,6 +7,8 @@
 - 合并后定向测试：DOCX/配置/schema兼容6项、Mini导出控制器29项、client-core 3项通过。`pnpm verify`通过：Mini1165/16跳过、根1261/441跳过、依赖保护81；MySQL迁移28项和导出集成7项因本机未配置测试库跳过。Mini production verify通过，主包1721898、总包4574638字节、Worklet2/2和确定性通过，保留既有1.5M及矩阵告警。
 - 运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；提交前继续运行`pnpm smoke:check-core`。视觉证据沿用同一DOCX实现的Microsoft Word月度/缺勤/年度渲染：关键几何一致、年度12页、显著像素差1.32%，不代替小米14验收。
 - Compose 透传专项20项、API/Mini typecheck及format门禁通过。当前唯一下一动作：形成并推送最终干净候选；实时读取生产live/schema及目标群成员ID，备份后部署schema60与API配置，完整verifier通过后动态分配体验版、上传并只追加放行。任一release/hash/schema/配置不一致立即停止。
+- 生产只读核对确认目标实际名称为“头颈外科医生”、一值岗位实际名称为“一线”。当前有效一值为许少伟、徐漫彬、黄耿杰、洪晨善、冯钦、林恩宇；徐敏当前为inactive，因此不进入当前配置。截图二值对应关系按上述实际一值保留，三值固定彭汉伟、郭海鹏；二值/三值改为仅排版显示文本，不新增、恢复或授权成员。
+- 固定姓名配置回归先1项失败后通过；最终`pnpm verify`通过：Mini1165/16跳过、根1261/441跳过、依赖保护81，格式/lint/build/typecheck/icon parity通过。生产明细和UUID仅保存在ignored runtime。下一动作更新为提交推送最终候选，然后执行备份、schema60/API/配置部署与验证。
 
 ## 当前批次：Feedback23 已部署并放行126，待小米14复核
 

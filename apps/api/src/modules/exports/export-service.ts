@@ -56,12 +56,7 @@ export class ExportService {
             userMessage: '当前群组未开放 Word 排班导出。',
           });
         await this.assertRoleInGroup(transaction, groupId, docxConfig.firstDutyRoleId);
-        const configuredMembershipIds = [
-          ...docxConfig.firstDutyMembershipIds,
-          ...Object.values(docxConfig.secondDutyByFirstMembershipId),
-          ...docxConfig.thirdDutyMembershipIds,
-        ];
-        for (const configuredMembershipId of new Set(configuredMembershipIds))
+        for (const configuredMembershipId of new Set(docxConfig.firstDutyMembershipIds))
           await this.assertMembershipInGroup(transaction, groupId, configuredMembershipId);
         if (
           (input.membershipIds?.length ?? 0) > 0 ||
