@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const scheduleExportTypeSchema = z.enum(['schedule', 'statistics']);
 export type ScheduleExportType = z.infer<typeof scheduleExportTypeSchema>;
-export const scheduleExportFormatSchema = z.enum(['csv', 'xlsx']);
+export const scheduleExportFormatSchema = z.enum(['csv', 'xlsx', 'docx']);
 export type ScheduleExportFormat = z.infer<typeof scheduleExportFormatSchema>;
 export const scheduleExportPeriodTypeSchema = z.enum(['month', 'year']);
 export type ScheduleExportPeriodType = z.infer<typeof scheduleExportPeriodTypeSchema>;
@@ -40,3 +40,11 @@ export const scheduleExportJobSchema = z
   })
   .strict();
 export type ScheduleExportJob = z.infer<typeof scheduleExportJobSchema>;
+
+export const scheduleExportOptionsSchema = z
+  .object({
+    scheduleFormats: z.array(scheduleExportFormatSchema),
+    statisticsFormats: z.array(scheduleExportFormatSchema),
+  })
+  .strict();
+export type ScheduleExportOptions = z.infer<typeof scheduleExportOptionsSchema>;

@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import type { CreateScheduleExportInput, ScheduleExportJob } from '@schedule/contracts';
+import type {
+  CreateScheduleExportInput,
+  ScheduleExportJob,
+  ScheduleExportOptions,
+} from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import { exportJobs, groupMemberships, scheduleRoles, withTransaction } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -10,6 +14,7 @@ import { ExportJobProcessor } from '../../jobs/export-jobs.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
+import { getHeadNeckDocxConfig } from './head-neck-docx-config.js';
 
 export interface ExportDownloadResult {
   readonly content: string | Buffer;
@@ -36,6 +41,40 @@ export class ExportService {
         'manageScheduleConfiguration',
       );
       const periodType = getPeriodType(input.period);
+      if (input.format === 'docx') {
+        if (input.exportType !== 'schedule')
+          throw new ApiError({
+            code: 'VALIDATION_FAILED',
+            statusCode: 400,
+            userMessage: '统计数据不支持 Word 导出，请选择 Excel 或 CSV。',
+          });
+        const docxConfig = getHeadNeckDocxConfig(groupId);
+        if (docxConfig === undefined)
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '当前群组未开放 Word 排班导出。',
+          });
+        await this.assertRoleInGroup(transaction, groupId, docxConfig.firstDutyRoleId);
+        const configuredMembershipIds = [
+          ...docxConfig.firstDutyMembershipIds,
+          ...Object.values(docxConfig.secondDutyByFirstMembershipId),
+          ...docxConfig.thirdDutyMembershipIds,
+        ];
+        for (const configuredMembershipId of new Set(configuredMembershipIds))
+          await this.assertMembershipInGroup(transaction, groupId, configuredMembershipId);
+        if (
+          (input.membershipIds?.length ?? 0) > 0 ||
+          (input.roleIds?.length ?? 0) > 0 ||
+          input.membershipId !== undefined ||
+          input.roleId !== undefined
+        )
+          throw new ApiError({
+            code: 'VALIDATION_FAILED',
+            statusCode: 400,
+            userMessage: 'Word 排班按完整值班表生成，请选择全部岗位和全部成员。',
+          });
+      }
       const roleIds = uniqueIds(input.roleIds ?? (input.roleId ? [input.roleId] : []));
       const membershipIds = uniqueIds(
         input.membershipIds ?? (input.membershipId ? [input.membershipId] : []),
@@ -81,6 +120,25 @@ export class ExportService {
     });
     await new ExportJobProcessor(this.databaseClient).process(created.id);
     return this.getJob(identity, groupId, created.id);
+  }
+
+  public async getOptions(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<ScheduleExportOptions> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      return {
+        scheduleFormats:
+          getHeadNeckDocxConfig(groupId) === undefined ? ['csv', 'xlsx'] : ['csv', 'docx'],
+        statisticsFormats: ['csv', 'xlsx'],
+      };
+    });
   }
 
   public async getJob(
@@ -164,11 +222,15 @@ export class ExportService {
 
       return {
         content:
-          job.fileFormat === 'xlsx' ? Buffer.from(job.fileContent, 'base64') : job.fileContent,
+          job.fileFormat === 'xlsx' || job.fileFormat === 'docx'
+            ? Buffer.from(job.fileContent, 'base64')
+            : job.fileContent,
         contentType:
           job.fileFormat === 'xlsx'
             ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            : 'text/csv; charset=utf-8',
+            : job.fileFormat === 'docx'
+              ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              : 'text/csv; charset=utf-8',
         fileName: `${job.exportType}-export-${job.period}.${job.fileFormat}`,
       };
     });

@@ -1,5 +1,13 @@
 import type { DatabaseTransaction } from '@schedule/database';
-import { exportJobs, schedulePeriods, scheduleRoles, shiftAssignments } from '@schedule/database';
+import {
+  exportJobs,
+  groupMemberships,
+  leaveRequests,
+  schedulePeriods,
+  scheduleRoles,
+  shiftAssignments,
+  userProfiles,
+} from '@schedule/database';
 import { mergeMonthStatistics } from '@schedule/scheduling-domain';
 import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 
@@ -11,6 +19,8 @@ import {
   buildStatisticsTable,
 } from './csv-builder.js';
 import { buildXlsx } from './xlsx-builder.js';
+import { buildHeadNeckDocx, type HeadNeckDocxPage } from './docx-builder.js';
+import { getHeadNeckDocxConfig } from './head-neck-docx-config.js';
 
 type ExportJobRow = typeof exportJobs.$inferSelect;
 
@@ -32,6 +42,7 @@ async function buildScheduleContent(
   transaction: DatabaseTransaction,
   job: ExportJobRow,
 ): Promise<ExportContentResult> {
+  if (job.fileFormat === 'docx') return buildHeadNeckScheduleDocxContent(transaction, job);
   const monthRange = getPeriodRange(job.periodType, job.period);
   const periodConditions = [
     eq(schedulePeriods.groupId, job.groupId),
@@ -113,6 +124,154 @@ async function buildScheduleContent(
         : buildScheduleCsv(rows),
     rowCount: rows.length,
   };
+}
+
+async function buildHeadNeckScheduleDocxContent(
+  transaction: DatabaseTransaction,
+  job: ExportJobRow,
+): Promise<ExportContentResult> {
+  const config = getHeadNeckDocxConfig(job.groupId);
+  if (config === undefined) throw new Error('当前群组未配置 Word 排班导出。');
+  const months = getPeriodMonths(job.periodType, job.period);
+  const membershipIds = [
+    ...config.firstDutyMembershipIds,
+    ...Object.values(config.secondDutyByFirstMembershipId),
+    ...config.thirdDutyMembershipIds,
+  ];
+  const members = await transaction
+    .select({ id: groupMemberships.id, name: userProfiles.realName })
+    .from(groupMemberships)
+    .innerJoin(userProfiles, eq(userProfiles.userId, groupMemberships.userId))
+    .where(
+      and(
+        eq(groupMemberships.groupId, job.groupId),
+        inArray(groupMemberships.id, [...new Set(membershipIds)]),
+        eq(groupMemberships.status, 'active'),
+        isNull(groupMemberships.deletedAt),
+      ),
+    );
+  const names = new Map(members.map((member) => [member.id, member.name]));
+  if (membershipIds.some((id) => !names.has(id)))
+    throw new Error('Word 排班人员配置不完整，请联系管理员。');
+
+  const pages: HeadNeckDocxPage[] = [];
+  let rowCount = 0;
+  for (const monthStart of months) {
+    const businessMonth = monthStart.slice(0, 7);
+    const end = getMonthEnd(`${businessMonth}-01`);
+    const periods = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, job.groupId),
+          eq(schedulePeriods.scheduleRoleId, config.firstDutyRoleId),
+          inArray(schedulePeriods.status, ['published', 'past']),
+          isNull(schedulePeriods.deletedAt),
+          eq(schedulePeriods.businessMonth, `${businessMonth}-01`),
+        ),
+      );
+    const periodIds = periods.map((period) => period.id);
+    const assignments =
+      periodIds.length === 0
+        ? []
+        : await transaction
+            .select()
+            .from(shiftAssignments)
+            .where(
+              and(
+                inArray(shiftAssignments.schedulePeriodId, periodIds),
+                isNull(shiftAssignments.deletedAt),
+              ),
+            );
+    const leaves = await transaction
+      .select()
+      .from(leaveRequests)
+      .where(
+        and(
+          eq(leaveRequests.groupId, job.groupId),
+          eq(leaveRequests.status, 'approved'),
+          isNull(leaveRequests.deletedAt),
+          inArray(leaveRequests.membershipId, config.firstDutyMembershipIds),
+          lte(leaveRequests.startsAt, new Date(`${end}T15:59:59.999Z`)),
+          gte(leaveRequests.endsAt, new Date(`${businessMonth}-01T00:00:00.000Z`)),
+        ),
+      );
+    const actualCounts = config.firstDutyMembershipIds.map(
+      (id) => assignments.filter((a) => a.actualMembershipId === id).length,
+    );
+    const slotCount = Math.max(1, ...actualCounts);
+    const firstDuty = config.firstDutyMembershipIds.map((membershipId) => {
+      const memberLeaves = leaves.filter((leave) => leave.membershipId === membershipId);
+      const leaveCovers = (dateValue: string) =>
+        memberLeaves.some((leave) => {
+          const dayStart = new Date(`${dateValue}T00:00:00.000Z`).valueOf();
+          const dayEnd = new Date(`${dateValue}T23:59:59.999Z`).valueOf();
+          return leave.startsAt.valueOf() <= dayEnd && leave.endsAt.valueOf() >= dayStart;
+        });
+      const entries = assignments
+        .filter(
+          (a) =>
+            a.actualMembershipId === membershipId ||
+            (a.plannedMembershipId === membershipId && leaveCovers(a.businessDate)),
+        )
+        .sort(
+          (a, b) => a.businessDate.localeCompare(b.businessDate) || a.slotPosition - b.slotPosition,
+        )
+        .map((assignment) =>
+          assignment.actualMembershipId === membershipId
+            ? {
+                text: Number(assignment.businessDate.slice(-2)),
+                weekend: isWeekend(assignment.businessDate),
+              }
+            : { text: '-' as const },
+        );
+      while (entries.length < slotCount && (entries.length === 0 || memberLeaves.length > 0))
+        entries.push({ text: '-' as const });
+      const absenceTypes = [
+        ...new Set(memberLeaves.map((leave) => leaveTypeLabel(leave.leaveType))),
+      ];
+      return {
+        memberName: names.get(membershipId)!,
+        tokens: entries,
+        ...(absenceTypes.length === 0 ? {} : { absenceTypes }),
+      };
+    });
+    rowCount += assignments.length;
+    pages.push({
+      firstDuty,
+      month: Number(businessMonth.slice(5, 7)),
+      roster: config.firstDutyMembershipIds.map((id) => ({
+        first: names.get(id)!,
+        second: names.get(config.secondDutyByFirstMembershipId[id]!)!,
+      })),
+      thirdDuty: [
+        names.get(config.thirdDutyMembershipIds[0])!,
+        names.get(config.thirdDutyMembershipIds[1])!,
+      ],
+      year: Number(businessMonth.slice(0, 4)),
+    });
+  }
+  return { content: await buildHeadNeckDocx(pages), rowCount };
+}
+
+function isWeekend(businessDate: string): boolean {
+  const day = new Date(`${businessDate}T00:00:00.000Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function leaveTypeLabel(type: string): string {
+  return (
+    (
+      {
+        training: '进修',
+        rotation: '轮转',
+        sick: '病假',
+        maternity: '产假',
+        other: '请假',
+      } as Record<string, string>
+    )[type] ?? type
+  );
 }
 
 async function buildStatisticsContent(

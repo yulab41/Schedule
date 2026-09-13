@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-13 头颈外科医生群 DOCX 排班导出
+
+- 引入点：`git log -S`与`git blame`确认Excel/CSV格式、`buildXlsx`和`scheduleExportFormatSchema`均由`f0c46078`引入。本轮以独立DOCX格式扩展替换目标群排班Excel，不改变其他群或统计的既有Excel/CSV行为。
+- 运行/浏览器验证：`pnpm smoke:browser` 已实际运行；warm槽未启动`localhost:5173`，浏览器在登录页导航前返回`ERR_CONNECTION_REFUSED`，没有浏览器运行通过证据。本轮无Web UI改动；完整静态、Node和Word视觉证据另见`docs/audit/head-neck-docx-export.md`。
+- 完整`pnpm verify`通过：Mini1162通过/16跳过，根1261通过/441跳过，依赖保护81通过；Mini production verify通过，主包1715321、总包4559861字节，Worklet2/2。MySQL迁移/导出集成因测试库未配置跳过，不写成通过。
+
 ## 2026-09-13 FEEDBACK19 导出页面真实上传转换失败
 
 - git log -S / blame定位9bae5beb共享export.ts循环内Promise闭包，.106包含此改动；.102无缺失helper。

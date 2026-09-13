@@ -7,6 +7,7 @@ export function createExportsPanelInitialData() {
   return {
     businessMonth,
     downloadBusy: false,
+    docxAvailable: false,
     errorMessage: '',
     infoMessage: '',
     feedbackTone: 'info' as const,
@@ -16,7 +17,9 @@ export function createExportsPanelInitialData() {
       { value: 'schedule', label: '排班' },
       { value: 'statistics', label: '统计' },
     ],
-    format: 'xlsx' as const,
+    format: 'xlsx' as 'csv' | 'xlsx' | 'docx',
+    scheduleFormats: ['csv', 'xlsx'] as readonly ('csv' | 'xlsx' | 'docx')[],
+    statisticsFormats: ['csv', 'xlsx'] as readonly ('csv' | 'xlsx' | 'docx')[],
     fileLabel: '',
     groupId: '',
     largeText: false,

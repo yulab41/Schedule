@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('member binding QR release compatibility', () => {
+describe('head-neck DOCX release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,10 +10,10 @@ describe('member binding QR release compatibility', () => {
     })),
   });
 
-  it('requires member binding QR context columns', () => {
-    expect(releaseSchemaCompatibility(journal(59, '0059_member_wechat_binding_qr'))).toEqual({
-      databaseSchemaMin: '59',
-      databaseSchemaMax: '59',
+  it('requires the DOCX export format column enum', () => {
+    expect(releaseSchemaCompatibility(journal(60, '0060_head_neck_docx_export'))).toEqual({
+      databaseSchemaMin: '60',
+      databaseSchemaMax: '60',
     });
   });
 
@@ -29,6 +29,8 @@ describe('member binding QR release compatibility', () => {
       journal(58, '0058_unknown'),
       journal(58, '0058_export_formats_and_multi_select'),
       journal(59, '0059_unknown'),
+      journal(59, '0059_member_wechat_binding_qr'),
+      journal(60, '0060_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

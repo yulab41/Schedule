@@ -414,6 +414,13 @@
       "when": 1785542400059,
       "tag": "0059_member_wechat_binding_qr",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1785542400060,
+      "tag": "0060_head_neck_docx_export",
+      "breakpoints": true
     }
   ]
 }
