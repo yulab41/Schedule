@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   releaseTemporaryExport: vi.fn(),
   shareScheduleExport: vi.fn(),
   getExportJob: vi.fn(),
+  getExportOptions: vi.fn(),
   getSchedulingConfig: vi.fn(),
   listGroupMembers: vi.fn(),
   requireClientCapability: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock('../src/platform/client-core-calendar.ts', () => ({
   createRuntimeP9InsightsActionsClient: () => ({
     createExportJob: mocks.createExportJob,
     getExportJob: mocks.getExportJob,
+    getExportOptions: mocks.getExportOptions,
   }),
 }));
 
@@ -54,6 +56,10 @@ describe('Mini export controller mirrors Web selection and polling', () => {
       groupMembers: [],
       roles: [{ id: 'role-1', name: '住院总' }],
       shiftTypes: [],
+    });
+    mocks.getExportOptions.mockResolvedValue({
+      scheduleFormats: ['csv', 'xlsx'],
+      statisticsFormats: ['csv', 'xlsx'],
     });
     mocks.listGroupMembers.mockResolvedValue([
       { id: 'member-1', isPendingRoster: false, realName: 'A 医生' },
@@ -205,6 +211,28 @@ describe('Mini export controller mirrors Web selection and polling', () => {
       currentTarget: { dataset: { format: 'csv' } },
     });
     expect(page.data.format).toBe('csv');
+  });
+
+  it('offers Word only for an eligible schedule and resets statistics to Excel', async () => {
+    mocks.getExportOptions.mockResolvedValueOnce({
+      scheduleFormats: ['csv', 'docx'],
+      statisticsFormats: ['csv', 'xlsx'],
+    });
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.optionsLoading).toBe(false));
+    expect(page.data.docxAvailable).toBe(true);
+    expect(page.data.format).toBe('docx');
+    definition.methods.handleTypeChange.call(page, { detail: { value: '1' } });
+    expect(page.data.exportType).toBe('statistics');
+    expect(page.data.format).toBe('xlsx');
+    definition.methods.handleFormatChange.call(page, {
+      currentTarget: { dataset: { format: 'docx' } },
+    });
+    expect(page.data.format).toBe('xlsx');
+    definition.methods.handleTypeChange.call(page, { detail: { value: '0' } });
+    expect(page.data.format).toBe('docx');
   });
 
   it('checks insights before loading role or member options', async () => {

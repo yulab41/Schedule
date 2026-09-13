@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-13 Feedback24 与 DOCX 累计合并
+
+- 运行/浏览器验证：pnpm smoke:browser 已实际运行；warm槽未启动`localhost:5173`，返回`ERR_CONNECTION_REFUSED`，不记浏览器通过。累计候选完整静态、Node与Mini production验证通过，小米14仍待体验版验收。
+
+## 2026-09-13 头颈外科医生群 DOCX 排班导出
+
+- 引入点：`git log -S`与`git blame`确认Excel/CSV格式、`buildXlsx`和`scheduleExportFormatSchema`均由`f0c46078`引入。本轮以独立DOCX格式扩展替换目标群排班Excel，不改变其他群或统计的既有Excel/CSV行为。
+- 运行/浏览器验证：`pnpm smoke:browser` 已实际运行；warm槽未启动`localhost:5173`，浏览器在登录页导航前返回`ERR_CONNECTION_REFUSED`，没有浏览器运行通过证据。本轮无Web UI改动；完整静态、Node和Word视觉证据另见`docs/audit/head-neck-docx-export.md`。
+- 完整`pnpm verify`通过：Mini1162通过/16跳过，根1261通过/441跳过，依赖保护81通过；Mini production verify通过，主包1715321、总包4559861字节，Worklet2/2。MySQL迁移/导出集成因测试库未配置跳过，不写成通过。
+
 ## 2026-09-13 FEEDBACK19 导出页面真实上传转换失败
 
 - git log -S / blame定位9bae5beb共享export.ts循环内Promise闭包，.106包含此改动；.102无缺失helper。
@@ -2896,3 +2906,8 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 复核结论：`.116` 页面仍静态导入 controller 模块，工厂延迟并不能阻止模块顶层依赖在 `Page()` 注册前执行。新增模块失败回归后，Page 改为类型导入 controller 并在 `onLoad` 后异步加载；失败显示标题、返回、错误和重试壳，卸载时隔离迟到结果。
 - RED→GREEN：定向20项通过；Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。导出页122,748字节且不含`globalThis`/`navigator`。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
+
+## 2026-09-13 头颈 DOCX 合并后的浏览器冒烟
+
+- 运行/浏览器验证：`pnpm smoke:browser` 已执行；候选 warm 槽未启动 `localhost:5173`，在登录页导航阶段返回 `ERR_CONNECTION_REFUSED`。
+- 该结果只说明本地服务未运行，不记为浏览器通过，也未据此修改产品代码。完整 `pnpm verify` 与 Mini production verify 已通过；使用 `pnpm smoke:check-core` 校验本条记录存在。

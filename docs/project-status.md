@@ -1,10 +1,12 @@
 # Project Status
 
-## 当前批次：Feedback24 已提交推送，待体验版与API部署授权
+## 当前批次：Feedback24 与头颈 DOCX 累计候选验证中
 
 - 小米14体验版126确认：导出成员选择器弹层被表单卡片裁剪，文件类型仍为原生picker；护士匿名访客缺少成员护士预设/群组月历班种偏好，周/列表swiper归中使用260ms造成反向跳动，启动时先渲染持久缓存造成旧班种闪现。
 - 修复限定在导出宿主、匿名访客和独立安全显示设置端点：文件类型复用`ui-selector`，卡片允许弹层显示；旧访客日历响应不加字段。访客从群组设置读取默认视图（当前护士周/医生月）和月历班种，接入护士排序/状态/折叠、62px月格、compact详情和0ms归中提交锁/队列，持久缓存只作网络失败兜底。成员日历页面未修改。
-- RED回归旧代码4/4失败；定向Mini/上传转换54项通过。最终`pnpm verify`通过（Mini 1168/16跳过、根1258/441跳过），Mini production verify主包1726528、总包4574757字节，Worklet 2/2及确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。本地warm槽无`.env`，MySQL访客集成未运行。独占general-3，REUSE_ONLY且未安装依赖；逐行diff和成员页面零修改检查通过。应用检查点`79438d7b`已快进推送`origin/main`；当前停止于待体验版上传及API部署的本次明确授权。详情`docs/audit/feedback24.md`。
+- Feedback24修复限定在导出宿主、匿名访客和独立安全显示设置端点：文件类型复用`ui-selector`，卡片允许弹层显示；访客读取群组默认视图/月历班种并接入护士排序、状态、折叠、62px月格和0ms归中提交锁。成员日历页面未修改。详情`docs/audit/feedback24.md`。
+- 同时保留生产刚部署的头颈外科医生群 DOCX/schema60 功能：目标群排班为Word/CSV，统计及其他群为Excel/CSV，固定姓名配置与生产Compose透传不回退。详情`docs/audit/head-neck-docx-export.md`。
+- 两条分支共同基于`40723a1d`且生产当前live为`ececc967`。旧Feedback24候选在写入前因真实并发锁停止；生产备份`2030fa67-056f-4329-8f62-0fdc986e21a5`已完成（54表、256153行、108168992字节、SHA-256 `f3f5837c…09477`）。合并保留双方行为，完整`pnpm verify`通过（Mini1169/16跳过、根1262/442跳过、依赖保护81），Mini production verify主包1727549、总包4579238字节、Worklet2/2及确定性通过；浏览器冒烟仍因localhost:5173未启动而`ERR_CONNECTION_REFUSED`，`smoke:check-core`通过。下一步形成累计检查点并推送，再以实时live为唯一回滚候选重新打包、部署、上传体验版并只追加放行。旧版本保留，小米14验收仍单独记录。
 
 ## 当前批次：Feedback23 已部署并放行126，待小米14复核
 

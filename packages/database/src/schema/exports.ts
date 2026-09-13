@@ -19,7 +19,7 @@ export const exportJobs = mysqlTable(
     groupId: char('group_id', { length: 36 }).notNull(),
     requestedByUserId: char('requested_by_user_id', { length: 36 }).notNull(),
     exportType: mysqlEnum('export_type', ['schedule', 'statistics']).notNull(),
-    fileFormat: mysqlEnum('file_format', ['csv', 'xlsx']).default('csv').notNull(),
+    fileFormat: mysqlEnum('file_format', ['csv', 'xlsx', 'docx']).default('csv').notNull(),
     periodType: mysqlEnum('period_type', ['month', 'year']).notNull(),
     period: varchar('period', { length: 7 }).notNull(),
     scheduleRoleId: char('schedule_role_id', { length: 36 }),

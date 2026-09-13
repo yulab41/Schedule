@@ -13,7 +13,7 @@ const periodSchema = z.string().regex(/^(19|20)\d{2}(-(0[1-9]|1[0-2]))?$/u);
 const createExportSchema = z
   .object({
     exportType: z.enum(['schedule', 'statistics']),
-    format: z.enum(['csv', 'xlsx']).optional(),
+    format: z.enum(['csv', 'xlsx', 'docx']).optional(),
     membershipId: uuidSchema.optional(),
     membershipIds: z.array(uuidSchema).max(500).optional(),
     period: periodSchema,
@@ -23,6 +23,9 @@ const createExportSchema = z
   .strict();
 
 export function registerExportRoutes(app: FastifyInstance, exportService: ExportService): void {
+  app.get('/groups/:groupId/exports/options', { preHandler: app.authenticate }, (request) =>
+    exportService.getOptions(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
   app.post('/groups/:groupId/exports', { preHandler: app.authenticate }, (request, reply) =>
     exportService
       .create(
