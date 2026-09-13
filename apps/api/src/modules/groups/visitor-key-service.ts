@@ -1,8 +1,13 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import type { GroupVersionMutationRequest, VisitorKeyChangedResponse } from '@schedule/contracts';
-import { type DatabaseClient, groups, withTransaction } from '@schedule/database';
-import { eq, sql } from 'drizzle-orm';
+import {
+  type DatabaseClient,
+  groups,
+  groupVisitorQrAssets,
+  withTransaction,
+} from '@schedule/database';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -16,15 +21,21 @@ import {
 } from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
 
-const QR_CACHE_TTL_MS = 5 * 60 * 1000;
+type QrEnvironment = 'release' | 'trial';
+type QrResult = {
+  readonly bytes: Uint8Array;
+  readonly generatedMs: number;
+  readonly persisted: boolean;
+};
 
 export class VisitorKeyService {
   private readonly auditWriter = new AuditWriter();
   private readonly permissionService = new GroupPermissionService();
   private readonly qrCache = new Map<
     string,
-    { readonly bytes: Uint8Array; readonly expiresAt: number; readonly visitorKey: string }
+    { readonly bytes: Uint8Array; readonly visitorKey: string }
   >();
+  private readonly qrReads = new Map<string, Promise<QrResult>>();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
@@ -59,6 +70,9 @@ export class VisitorKeyService {
           .update(groups)
           .set({ visitorKey, version: sql`${groups.version} + 1` })
           .where(eq(groups.id, authorization.group.id));
+        await transaction
+          .delete(groupVisitorQrAssets)
+          .where(eq(groupVisitorQrAssets.groupId, authorization.group.id));
         await this.auditWriter.append(transaction, {
           action: 'visitor_key_regenerated',
           actorUserId: authorization.user.id,
@@ -75,6 +89,9 @@ export class VisitorKeyService {
     });
     this.qrCache.delete(`${groupId}:release`);
     this.qrCache.delete(`${groupId}:trial`);
+    for (const key of this.qrReads.keys()) {
+      if (key.startsWith(`${groupId}:`)) this.qrReads.delete(key);
+    }
 
     return result;
   }
@@ -85,6 +102,7 @@ export class VisitorKeyService {
     gateway: WechatGateway,
     includeTrial: boolean,
   ): Promise<{ readonly imageBase64: string; readonly trialImageBase64?: string }> {
+    const startedAt = Date.now();
     const authorization = await withTransaction(this.databaseClient, async (transaction) =>
       this.permissionService.requirePermission(transaction, identity, groupId, 'viewGroupQr'),
     );
@@ -102,34 +120,25 @@ export class VisitorKeyService {
       });
     }
 
-    const releaseCacheKey = `${groupId}:release`;
-    const cached = this.qrCache.get(releaseCacheKey);
-    const now = Date.now();
-    if (cached === undefined || cached.visitorKey !== group.visitorKey || cached.expiresAt <= now) {
-      let bytes: Uint8Array;
-      try {
-        // scene is limited to 32 visible characters by WeChat; the visitor key
-        // itself is exactly 32 hex chars, so it is passed without a prefix.
-        bytes = await gateway.getUnlimitedQr(group.visitorKey, 'pages/guest/guest', 'release');
-      } catch (error) {
-        if (error instanceof WechatGatewayError) {
-          throw toWechatGatewayApiError(error);
-        }
-        throw error;
-      }
-      this.qrCache.set(releaseCacheKey, {
-        bytes,
-        expiresAt: now + QR_CACHE_TTL_MS,
-        visitorKey: group.visitorKey,
-      });
-    }
+    const environments: readonly QrEnvironment[] = includeTrial
+      ? ['release', 'trial']
+      : ['release'];
+    const results = await Promise.all(
+      environments.map((environment) =>
+        this.readOrGenerateQr(authorization.group.id, group.visitorKey, environment, gateway),
+      ),
+    );
 
     await withTransaction(this.databaseClient, async (transaction) => {
       await this.auditWriter.append(transaction, {
         action: 'group_qr_generated',
         actorUserId: authorization.user.id,
         groupId: authorization.group.id,
-        metadata: {},
+        metadata: {
+          generatedCount: results.filter((result) => !result.persisted).length,
+          generationMs: Math.max(0, ...results.map((result) => result.generatedMs)),
+          totalMs: Date.now() - startedAt,
+        },
         operationId: randomUUID(),
         outcome: 'completed',
         targetId: authorization.group.id,
@@ -137,27 +146,142 @@ export class VisitorKeyService {
       });
     });
 
-    const qrBytes = this.qrCache.get(releaseCacheKey)?.bytes ?? new Uint8Array();
-    if (!includeTrial) return { imageBase64: Buffer.from(qrBytes).toString('base64') };
-    const trialCacheKey = `${groupId}:trial`;
-    const trialCached = this.qrCache.get(trialCacheKey);
-    if (
-      trialCached === undefined ||
-      trialCached.visitorKey !== group.visitorKey ||
-      trialCached.expiresAt <= now
-    ) {
-      const bytes = await gateway.getUnlimitedQr(group.visitorKey, 'pages/guest/guest', 'trial');
-      this.qrCache.set(trialCacheKey, {
-        bytes,
-        expiresAt: now + QR_CACHE_TTL_MS,
-        visitorKey: group.visitorKey,
-      });
-    }
+    const release = results[0]?.bytes ?? new Uint8Array();
+    if (!includeTrial) return { imageBase64: Buffer.from(release).toString('base64') };
     return {
-      imageBase64: Buffer.from(qrBytes).toString('base64'),
-      trialImageBase64: Buffer.from(this.qrCache.get(trialCacheKey)?.bytes ?? []).toString(
-        'base64',
-      ),
+      imageBase64: Buffer.from(release).toString('base64'),
+      trialImageBase64: Buffer.from(results[1]?.bytes ?? []).toString('base64'),
     };
   }
+
+  private async readOrGenerateQr(
+    groupId: string,
+    visitorKey: string,
+    environment: QrEnvironment,
+    gateway: WechatGateway,
+  ): Promise<QrResult> {
+    const cacheKey = `${groupId}:${environment}`;
+    const cached = this.qrCache.get(cacheKey);
+    if (cached?.visitorKey === visitorKey) {
+      return { bytes: cached.bytes, generatedMs: 0, persisted: true };
+    }
+    const [stored] = await this.databaseClient.database
+      .select({
+        byteLength: groupVisitorQrAssets.byteLength,
+        content: groupVisitorQrAssets.content,
+        sha256: groupVisitorQrAssets.sha256,
+        visitorKey: groupVisitorQrAssets.visitorKey,
+      })
+      .from(groupVisitorQrAssets)
+      .where(
+        and(
+          eq(groupVisitorQrAssets.groupId, groupId),
+          eq(groupVisitorQrAssets.environment, environment),
+        ),
+      )
+      .limit(1);
+    if (
+      stored?.visitorKey === visitorKey &&
+      stored.byteLength === stored.content.byteLength &&
+      sha256(stored.content) === stored.sha256
+    ) {
+      this.qrCache.set(cacheKey, { bytes: stored.content, visitorKey });
+      return { bytes: stored.content, generatedMs: 0, persisted: true };
+    }
+    // A mismatched row can belong to a newer refresh. Only remove corruption for this exact key;
+    // the locked save below rejects a late request whose key is no longer current.
+    if (stored?.visitorKey === visitorKey) {
+      await this.databaseClient.database
+        .delete(groupVisitorQrAssets)
+        .where(
+          and(
+            eq(groupVisitorQrAssets.groupId, groupId),
+            eq(groupVisitorQrAssets.environment, environment),
+          ),
+        );
+    }
+    const readKey = `${cacheKey}:${visitorKey}`;
+    const existing = this.qrReads.get(readKey);
+    if (existing !== undefined) return existing;
+    const read = this.generateAndPersistQr(groupId, visitorKey, environment, gateway);
+    this.qrReads.set(readKey, read);
+    void read.then(
+      () => {
+        if (this.qrReads.get(readKey) === read) this.qrReads.delete(readKey);
+      },
+      () => {
+        if (this.qrReads.get(readKey) === read) this.qrReads.delete(readKey);
+      },
+    );
+    return read;
+  }
+
+  private async generateAndPersistQr(
+    groupId: string,
+    visitorKey: string,
+    environment: QrEnvironment,
+    gateway: WechatGateway,
+  ): Promise<QrResult> {
+    const startedAt = Date.now();
+    let bytes: Uint8Array;
+    try {
+      // The 32-character scene is the permanent visitor key; refreshing it invalidates old images.
+      bytes = await gateway.getUnlimitedQr(visitorKey, 'pages/guest/guest', environment);
+    } catch (error) {
+      if (error instanceof WechatGatewayError) throw toWechatGatewayApiError(error);
+      throw error;
+    }
+    const content = Buffer.from(bytes);
+    const saved = await withTransaction(this.databaseClient, async (transaction) => {
+      const [current] = await transaction
+        .select({ visitorKey: groups.visitorKey })
+        .from(groups)
+        .where(eq(groups.id, groupId))
+        .limit(1)
+        .for('update');
+      if (current?.visitorKey !== visitorKey) return false;
+      await transaction
+        .insert(groupVisitorQrAssets)
+        .values({
+          byteLength: content.byteLength,
+          content,
+          contentType: detectQrContentType(content),
+          environment,
+          generatedAt: new Date(),
+          groupId,
+          sha256: sha256(content),
+          visitorKey,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            byteLength: content.byteLength,
+            content,
+            contentType: detectQrContentType(content),
+            generatedAt: new Date(),
+            sha256: sha256(content),
+            visitorKey,
+          },
+        });
+      return true;
+    });
+    if (!saved) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '访客码已刷新，请重新读取二维码。',
+      });
+    }
+    this.qrCache.set(`${groupId}:${environment}`, { bytes: content, visitorKey });
+    return { bytes: content, generatedMs: Date.now() - startedAt, persisted: false };
+  }
+}
+
+function sha256(value: Uint8Array): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function detectQrContentType(value: Uint8Array): 'image/jpeg' | 'image/png' {
+  return value[0] === 0x89 && value[1] === 0x50 && value[2] === 0x4e && value[3] === 0x47
+    ? 'image/png'
+    : 'image/jpeg';
 }

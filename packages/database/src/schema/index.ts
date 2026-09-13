@@ -153,6 +153,34 @@ export const groups = mysqlTable(
   ],
 );
 
+export const groupVisitorQrAssets = mysqlTable(
+  'group_visitor_qr_assets',
+  {
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    environment: mysqlEnum('environment', ['release', 'trial']).notNull(),
+    visitorKey: varchar('visitor_key', { length: 64 }).notNull(),
+    content: mediumblob('content').notNull(),
+    contentType: varchar('content_type', { length: 32 }).notNull(),
+    byteLength: int('byte_length', { unsigned: true }).notNull(),
+    sha256: char('sha256', { length: 64 }).notNull(),
+    generatedAt: timestamp('generated_at', { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.groupId, table.environment] }),
+    index('group_visitor_qr_assets_visitor_key_idx').on(table.visitorKey),
+    check(
+      'group_visitor_qr_assets_byte_length_check',
+      sql`${table.byteLength} BETWEEN 1 AND 1048576`,
+    ),
+    check(
+      'group_visitor_qr_assets_content_type_check',
+      sql`${table.contentType} IN ('image/jpeg', 'image/png')`,
+    ),
+  ],
+);
+
 export const visitorAccessLogs = mysqlTable(
   'visitor_access_logs',
   {

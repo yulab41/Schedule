@@ -421,6 +421,13 @@
       "when": 1785542400060,
       "tag": "0060_head_neck_docx_export",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785542400061,
+      "tag": "0061_group_visitor_qr_assets",
+      "breakpoints": true
     }
   ]
 }

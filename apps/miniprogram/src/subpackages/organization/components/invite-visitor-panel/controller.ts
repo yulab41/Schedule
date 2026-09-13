@@ -638,12 +638,12 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
     if (!isCurrent()) return;
     page._operationIds.delete(key);
     shouldLoadNewQr = true;
-    updatePanel(page, { visitorState: 'ready', visitorMessage: '访客码已轮换，旧入口立即失效。' });
+    updatePanel(page, { visitorState: 'ready', visitorMessage: '访客码已刷新，旧入口立即失效。' });
   } catch (error) {
     if (!isCurrent()) return;
     updatePanel(page, {
       visitorState: 'error',
-      visitorMessage: toUserMessage(error, '访客码没有轮换，请稍后重试。'),
+      visitorMessage: toUserMessage(error, '访客码没有刷新，请稍后重试。'),
     });
   } finally {
     if (page._qrRotating === task) {

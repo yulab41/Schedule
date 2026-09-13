@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('head-neck DOCX release compatibility', () => {
+describe('persistent visitor QR release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,10 +10,10 @@ describe('head-neck DOCX release compatibility', () => {
     })),
   });
 
-  it('requires the DOCX export format column enum', () => {
-    expect(releaseSchemaCompatibility(journal(60, '0060_head_neck_docx_export'))).toEqual({
-      databaseSchemaMin: '60',
-      databaseSchemaMax: '60',
+  it('requires the persistent visitor QR asset table', () => {
+    expect(releaseSchemaCompatibility(journal(61, '0061_group_visitor_qr_assets'))).toEqual({
+      databaseSchemaMin: '61',
+      databaseSchemaMax: '61',
     });
   });
 
@@ -31,6 +31,8 @@ describe('head-neck DOCX release compatibility', () => {
       journal(59, '0059_unknown'),
       journal(59, '0059_member_wechat_binding_qr'),
       journal(60, '0060_unknown'),
+      journal(60, '0060_head_neck_docx_export'),
+      journal(61, '0061_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },
