@@ -83,8 +83,17 @@ Page({
     this.setData({ errorMessage: '', loading: false, mode: 'confirm' });
   },
 
-  onLoad(this: AdminBindingPageInstance, options: { readonly ticket?: string } = {}): void {
-    const ticket = typeof options.ticket === 'string' ? options.ticket : undefined;
+  onLoad(
+    this: AdminBindingPageInstance,
+    options: { readonly scene?: string; readonly ticket?: string } = {},
+  ): void {
+    const scene = typeof options.scene === 'string' ? decodeScene(options.scene) : undefined;
+    const ticket =
+      typeof options.ticket === 'string'
+        ? options.ticket
+        : scene?.startsWith('b=')
+          ? scene.slice(2)
+          : undefined;
     this._ticket = ticket;
     if (ticket === undefined || ticket.length === 0) {
       this.setData({ errorMessage: '没有找到绑定链接。', loading: false, mode: 'error' });
@@ -103,6 +112,14 @@ Page({
     );
   },
 });
+
+function decodeScene(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 function setAdminBindingCapabilityError(page: AdminBindingPageInstance, error: unknown): void {
   page.setData({

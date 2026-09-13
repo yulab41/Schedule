@@ -17,6 +17,7 @@ import {
   clientCapabilityResponseSchema,
   convertPendingRosterResponseSchema,
   createInviteLinkResponseSchema,
+  createMemberWechatBindingQrResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
   dissolvedGroupListSchema,
   directoryEntryLookupResponseSchema,
@@ -145,6 +146,10 @@ const source = await format(
       createInviteLinkResponse: sanitizeJsonSchema(
         z.toJSONSchema(createInviteLinkResponseSchema),
         'createInviteLinkResponse',
+      ),
+      createMemberWechatBindingQrResponse: sanitizeJsonSchema(
+        z.toJSONSchema(createMemberWechatBindingQrResponseSchema),
+        'createMemberWechatBindingQrResponse',
       ),
       createWechatAdminBindingLinkResponse: sanitizeJsonSchema(
         z.toJSONSchema(createWechatAdminBindingLinkResponseSchema),

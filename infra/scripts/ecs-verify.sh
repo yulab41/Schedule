@@ -575,6 +575,16 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 58 ]; then
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"export_jobs\" AND column_name IN (\"file_format\",\"schedule_role_ids\",\"membership_ids\")"')"
   [ "$EXPORT_FORMAT_COLUMNS" = "3" ] || { echo "[verify] 导出格式或多选筛选列缺失。" >&2; exit 1; }
 fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 59 ]; then
+  MEMBER_BINDING_QR_COLUMNS="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"wechat_admin_binding_tickets\" AND column_name IN (\"group_id\",\"target_membership_id\",\"target_auth_version\",\"created_by_user_id\",\"initiated_by\")"')"
+  MEMBER_BINDING_QR_REVOKED="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"wechat_admin_binding_tickets\" AND column_name=\"status\" AND column_type LIKE \"%revoked%\""')"
+  [ "$MEMBER_BINDING_QR_COLUMNS" = "5" ] && [ "$MEMBER_BINDING_QR_REVOKED" = "1" ] || {
+    echo "[verify] 成员微信绑定二维码上下文列或撤销状态缺失。" >&2
+    exit 1
+  }
+fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"

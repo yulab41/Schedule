@@ -84,8 +84,15 @@ export const wechatAdminBindingTickets = mysqlTable(
     id: identifier(),
     ticketHash: char('ticket_hash', { length: 64 }).notNull(),
     targetUserId: char('target_user_id', { length: 36 }).notNull(),
+    groupId: char('group_id', { length: 36 }),
+    targetMembershipId: char('target_membership_id', { length: 36 }),
+    targetAuthVersion: int('target_auth_version', { unsigned: true }),
+    createdByUserId: char('created_by_user_id', { length: 36 }),
+    initiatedBy: mysqlEnum('initiated_by', ['platform_admin', 'group_admin'])
+      .default('platform_admin')
+      .notNull(),
     appId: varchar('app_id', { length: 64 }).notNull(),
-    status: mysqlEnum('status', ['pending', 'consumed']).default('pending').notNull(),
+    status: mysqlEnum('status', ['pending', 'consumed', 'revoked']).default('pending').notNull(),
     expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
     consumedAt: timestamp('consumed_at', { fsp: 3 }),
     createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
@@ -94,6 +101,10 @@ export const wechatAdminBindingTickets = mysqlTable(
   (table) => [
     uniqueIndex('wechat_admin_binding_tickets_ticket_hash_unique').on(table.ticketHash),
     index('wechat_admin_binding_tickets_target_status_idx').on(table.targetUserId, table.status),
+    index('wechat_admin_binding_tickets_group_membership_idx').on(
+      table.groupId,
+      table.targetMembershipId,
+    ),
     index('wechat_admin_binding_tickets_expires_at_idx').on(table.expiresAt),
   ],
 );

@@ -2,9 +2,10 @@
 
 ## 当前批次：Feedback23 已批准，实施中
 
-- 已确认导出选择器溢出来自导出页缺少本地字段内边距容器；共享`ui-selector`无须修改。访客与成员使用同一ViewModel，成员在e94a54ca后使用`shiftGroups/tint`，访客模板仍循环旧`duties`，属于模板同步遗漏。
+- 已确认导出选择器溢出来自导出页缺少本地字段内边距容器；共享`ui-selector`无须修改。访客与成员使用同一ViewModel且访客WXSS已导入成员样式，成员在e94a54ca后使用`shiftGroups/tint`，访客模板仍循环旧`duties`，属于展示模板同步遗漏。
 - 用户确认访客开放电话和事件，但完整手机号继续受当前群组有效同意门槛。绑定二维码允许群主/群管理员为本群待绑定成员生成，平台管理员也可生成；生成前必须检查未绑定，图片显示群组名/群组码/姓名/工号/有效期，scene只含一次性随机票据。
-- 设计已获用户批准，实施计划见`docs/superpowers/plans/2026-09-13-feedback23-selector-guest-binding-qr-plan.md`。独占general-1，基线e349a43c，REUSE_ONLY且未安装依赖。当前先建立失败回归，再实施Mini局部修复、访客权限和一次性绑定二维码。
+- 用户授权以视觉/交互匹配、减少重复、包体和加载为目标；实时追随未来成员日历更新不是验收项。当前访客已接入`shiftGroups/tint`、公共详情折叠/班种自动折叠和成员同口径周高，成员日历文件尚未修改；导出选择器已加本地边界容器。Mini typecheck及定向48项通过，QR定向19项通过；API绑定集成因本机未配置测试MySQL而7项明确跳过，不能记为通过。
+- 一次性成员绑定二维码API/schema59/client-core和Mini信息卡已实现；幂等记录不保存Base64图片，平台/群组管理员来源分别审计。最终`pnpm verify`通过（Mini1164/16跳过、根1257/440跳过）；Mini production verify主包1720876、总包4570156字节、Worklet2/2、确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。MySQL集成因本机测试库未配置而跳过。独占general-1，REUSE_ONLY且未安装依赖；下一步为逐行diff、检查点提交推送，再按授权执行生产备份/schema59部署/verifier和体验版追加放行。证据见`docs/audit/feedback23.md`。
 
 ## 当前批次：Feedback22 已部署并放行124，待小米14复核
 

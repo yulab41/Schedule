@@ -17,6 +17,10 @@ import {
   toggleDetailExpansion,
 } from '../../features/workbench/detail-expansion.js';
 import {
+  reconcileShiftCardExpansion,
+  toggleShiftCardExpansion,
+} from '../../features/workbench/shift-card-expansion.js';
+import {
   createShiftEventCards,
   getShiftEventChangeChain,
   type ShiftEventCard,
@@ -57,6 +61,7 @@ function initialData() {
   const today = getTodayBusinessDate();
   return {
     ...emptyView(),
+    shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []),
     detailExpansion: reconcileDetailExpansion(undefined, [], []),
     announcement: '',
     filterOnlyChanges: false,
@@ -85,6 +90,7 @@ function initialData() {
     gridHeight: 270,
     monthPanelHeights: [270, 270, 270] as readonly number[],
     weekSwiperCurrent: 1,
+    weekGridHeight: 112,
     listSwiperCurrent: 1,
     periodSwiperDuration: 260,
     listScrollTarget: '',
@@ -123,6 +129,8 @@ interface GuestPage {
   monthReads: Map<string, Promise<CalendarReadModel>>;
   holidayReads: Map<number, Promise<HolidayReadModel>>;
   contextGeneration: number;
+  _weekLayoutHeight: number;
+  _weekHeightCache?: Map<string, number>;
   setData(patch: Partial<Data>, callback?: () => void): void;
   selectComponent(
     selector: string,
@@ -143,6 +151,7 @@ Page({
   monthReads: new Map(),
   holidayReads: new Map(),
   contextGeneration: 0,
+  _weekLayoutHeight: 112,
   visitorKey: undefined,
   calendar: undefined,
   holidays: undefined,
@@ -197,6 +206,13 @@ Page({
     const key = event.currentTarget.dataset['key'];
     if (key)
       this.setData({ detailExpansion: toggleDetailExpansion(this.data.detailExpansion, key) });
+  },
+  handleShiftCardToggle(this: GuestPage, event: Tap): void {
+    const key = event.currentTarget.dataset['key'];
+    if (key)
+      this.setData({
+        shiftCardExpansion: toggleShiftCardExpansion(this.data.shiftCardExpansion, key),
+      });
   },
   handleOnlyChangesToggle(this: GuestPage): void {
     this.setData({ filterOnlyChanges: !this.data.filterOnlyChanges });
@@ -623,8 +639,33 @@ function renderCalendar(page: GuestPage): void {
       .filter((value) => value.selected)
       .map((value) => value.label)
       .join('、') || fallback;
+  const weekSignature = JSON.stringify(
+    view.weekPanels.flatMap((panel) =>
+      panel.days.map((day) => [
+        day.businessDate,
+        day.shiftGroups.map((group) => [
+          group.key,
+          group.duties.map((duty) => [duty.name, duty.markers]),
+        ]),
+      ]),
+    ),
+  );
+  const cachedWeekHeight = page._weekHeightCache?.get(weekSignature);
+  page._weekLayoutHeight =
+    cachedWeekHeight ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
+  if (cachedWeekHeight === undefined) {
+    page._weekHeightCache ??= new Map();
+    page._weekHeightCache.set(weekSignature, page._weekLayoutHeight);
+    if (page._weekHeightCache.size > 24)
+      page._weekHeightCache.delete(page._weekHeightCache.keys().next().value!);
+  }
   page.setData({
     ...view,
+    shiftCardExpansion: reconcileShiftCardExpansion(
+      page.data.shiftCardExpansion,
+      [page.data.currentGroupId, page.data.selectedDate],
+      view.selectedDetails,
+    ),
     detailExpansion: reconcileDetailExpansion(
       page.data.detailExpansion,
       [page.data.currentGroupId, page.data.selectedDate],
@@ -636,6 +677,7 @@ function renderCalendar(page: GuestPage): void {
       page.monthRingSlot,
     ),
     gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
+    weekGridHeight: page._weekLayoutHeight,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     filterMemberOptions: members,
     filterRoleOptions: roles,

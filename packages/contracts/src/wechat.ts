@@ -135,6 +135,32 @@ export type WechatAdminBindingConfirmResponse = z.infer<
   typeof wechatAdminBindingConfirmResponseSchema
 >;
 
+export const createMemberWechatBindingQrRequestSchema = z
+  .object({
+    expectedMembershipVersion: z.number().int().min(1),
+    operationId: z.string().uuid(),
+  })
+  .strict();
+export type CreateMemberWechatBindingQrRequest = z.infer<
+  typeof createMemberWechatBindingQrRequestSchema
+>;
+
+export const createMemberWechatBindingQrResponseSchema = z
+  .object({
+    employeeCode: z.string().min(1).optional(),
+    expiresAt: z.string().datetime({ offset: true }),
+    groupCode: z.string().min(1),
+    groupName: z.string().min(1),
+    imageBase64: z.string().min(1),
+    membershipId: z.string().min(1),
+    realName: z.string().min(1),
+    trialImageBase64: z.string().min(1).optional(),
+  })
+  .strict();
+export type CreateMemberWechatBindingQrResponse = z.infer<
+  typeof createMemberWechatBindingQrResponseSchema
+>;
+
 export const visitorResolveRequestSchema = z
   .object({
     visitorKey: z.string().regex(/^[0-9a-f]{32}$/iu),

@@ -3,6 +3,8 @@ import type {
   AcceptInviteResponse,
   CreateInviteLinkRequest,
   CreateInviteLinkResponse,
+  CreateMemberWechatBindingQrRequest,
+  CreateMemberWechatBindingQrResponse,
   GroupVersionMutationRequest,
   RevokeInviteRequest,
   VisitorKeyChangedResponse,
@@ -11,6 +13,7 @@ import type {
 import {
   acceptInviteResponseJsonSchema,
   createInviteLinkResponseJsonSchema,
+  createMemberWechatBindingQrResponseJsonSchema,
   visitorKeyChangedResponseJsonSchema,
 } from './generated/calendar-schemas.js';
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
@@ -28,6 +31,10 @@ interface RevokeInviteInput extends GroupRequestInput<RevokeInviteRequest> {
   readonly inviteToken: string;
 }
 
+interface MemberQrInput extends GroupRequestInput<CreateMemberWechatBindingQrRequest> {
+  readonly membershipId: string;
+}
+
 export const createInviteLinkResponseDecoder =
   /* @__PURE__ */ createCompactDecoder<CreateInviteLinkResponse>(
     createInviteLinkResponseJsonSchema,
@@ -37,6 +44,10 @@ export const acceptInviteResponseDecoder =
 export const visitorKeyChangedResponseDecoder =
   /* @__PURE__ */ createCompactDecoder<VisitorKeyChangedResponse>(
     visitorKeyChangedResponseJsonSchema,
+  );
+export const createMemberWechatBindingQrResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<CreateMemberWechatBindingQrResponse>(
+    createMemberWechatBindingQrResponseJsonSchema,
   );
 
 const emptyResponseDecoder: CompactDecoder<void> = {
@@ -76,6 +87,19 @@ export const inviteVisitorWriteEndpoints = {
     method: 'POST',
     path: ({ groupId }) => `${groupPath(groupId)}/invite-links`,
   }),
+  createMemberWechatBindingQr: /* @__PURE__ */ defineClientEndpoint<
+    MemberQrInput,
+    CreateMemberWechatBindingQrResponse
+  >({
+    auth: 'bearer',
+    body,
+    decoder: createMemberWechatBindingQrResponseDecoder,
+    id: 'invite-visitor-write.member-binding-qr-create',
+    idempotencyKey: operationId,
+    method: 'POST',
+    path: ({ groupId, membershipId }) =>
+      `${groupPath(groupId)}/members/${encodeURIComponent(membershipId)}/wechat-miniprogram-binding-qr`,
+  }),
   regenerateVisitorKey: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<GroupVersionMutationRequest>,
     VisitorKeyChangedResponse
@@ -106,6 +130,11 @@ export interface InviteVisitorWriteClient {
     groupId: string,
     request: CreateInviteLinkRequest,
   ): Promise<CreateInviteLinkResponse>;
+  createMemberWechatBindingQr(
+    groupId: string,
+    membershipId: string,
+    request: CreateMemberWechatBindingQrRequest,
+  ): Promise<CreateMemberWechatBindingQrResponse>;
   regenerateVisitorKey(
     groupId: string,
     request: GroupVersionMutationRequest,
@@ -121,6 +150,12 @@ export function createInviteVisitorWriteClient(
       transport.request(inviteVisitorWriteEndpoints.acceptInvite, { request }),
     createInviteLink: (groupId, request) =>
       transport.request(inviteVisitorWriteEndpoints.createInviteLink, { groupId, request }),
+    createMemberWechatBindingQr: (groupId, membershipId, request) =>
+      transport.request(inviteVisitorWriteEndpoints.createMemberWechatBindingQr, {
+        groupId,
+        membershipId,
+        request,
+      }),
     regenerateVisitorKey: (groupId, request) =>
       transport.request(inviteVisitorWriteEndpoints.regenerateVisitorKey, { groupId, request }),
     revokeInvite: (groupId, inviteToken, request) =>

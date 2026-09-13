@@ -22,6 +22,7 @@ import {
 } from '../../../../platform/info-message-lifetime.js';
 import { parseVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
 import { composeVisitorQrCard } from '../../../../platform/visitor-qr-card.js';
+import { composeMemberBindingQrCard } from '../../../../platform/member-binding-qr-card.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
@@ -70,6 +71,11 @@ interface InviteVisitorPageData {
   readonly inviteRealName: string;
   readonly inviteRoleLabel: string;
   readonly inviteExpiresAt: string;
+  readonly bindingQrImageSrc: string;
+  readonly bindingTrialQrImageSrc: string;
+  readonly bindingQrVisible: boolean;
+  readonly bindingQrExpiresAt: string;
+  readonly bindingQrSummary: string;
   readonly largeText: boolean;
   readonly qrImageSrc: string;
   readonly trialQrImageSrc: string;
@@ -143,6 +149,11 @@ export function createInviteVisitorPanelControllerDefinition() {
       inviteRealName: '',
       inviteRoleLabel: '',
       inviteExpiresAt: '',
+      bindingQrImageSrc: '',
+      bindingTrialQrImageSrc: '',
+      bindingQrVisible: false,
+      bindingQrExpiresAt: '',
+      bindingQrSummary: '',
       largeText: false,
       qrImageSrc: '',
       trialQrImageSrc: '',
@@ -241,6 +252,10 @@ export function createInviteVisitorPanelControllerDefinition() {
       void createInvite(this);
     },
 
+    handleCreateBindingQr(this: InviteVisitorPageInstance): void {
+      void createBindingQr(this);
+    },
+
     handleRevokeInvite(this: InviteVisitorPageInstance): void {
       void revokeInvite(this);
     },
@@ -261,6 +276,9 @@ export function createInviteVisitorPanelControllerDefinition() {
     },
     handleHideQr(this: InviteVisitorPageInstance): void {
       invalidateQr(this);
+    },
+    handleHideBindingQr(this: InviteVisitorPageInstance): void {
+      this.setData({ bindingQrVisible: false });
     },
   };
 }
@@ -297,6 +315,11 @@ function syncGroupId(page: InviteVisitorPageInstance): void {
     inviteSharePath: '',
     inviteGroupName: '',
     inviteRealName: '',
+    bindingQrImageSrc: '',
+    bindingTrialQrImageSrc: '',
+    bindingQrVisible: false,
+    bindingQrExpiresAt: '',
+    bindingQrSummary: '',
     canManage: false,
     canManageVisitorKey: false,
     infoMessage: '',
@@ -442,6 +465,79 @@ async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
     if (!isCurrentInvitePage(page, groupId, generation)) return;
     updatePanel(page, {
       managementError: `${toUserMessage(error, '邀请没有生成，请稍后重试。')} 可保持当前选择重试。`,
+      managementState: 'error',
+    });
+  }
+}
+
+async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
+  const groupId = page._groupId;
+  const generation = page._inviteGeneration;
+  if (!(await ensureOrganization(page, () => isCurrentInvitePage(page, groupId, generation))))
+    return;
+  if (!isCurrentInvitePage(page, groupId, generation) || page.data.managementState === 'loading')
+    return;
+  const target = page.data.targets[page.data.targetIndex];
+  if (target === undefined || target.kind !== 'membership') {
+    updatePanel(page, {
+      managementError: '待认领名单尚无账号，请选择已创建账号的群成员。',
+      managementState: 'error',
+    });
+    return;
+  }
+  const key = `member-binding-qr:${target.id}:${target.version}`;
+  updatePanel(page, {
+    bindingQrImageSrc: '',
+    bindingTrialQrImageSrc: '',
+    bindingQrVisible: false,
+    managementError: '',
+    managementInfo: '',
+    managementState: 'loading',
+  });
+  try {
+    const response = await page._inviteVisitorWriteClient.createMemberWechatBindingQr(
+      groupId,
+      target.id,
+      {
+        expectedMembershipVersion: target.version,
+        operationId: resolveOperationId(page, key),
+      },
+    );
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    const formal = parseVisitorQrImage(response.imageBase64);
+    if (formal === undefined) throw new Error('微信绑定二维码资料无效。');
+    const trial =
+      response.trialImageBase64 === undefined
+        ? undefined
+        : parseVisitorQrImage(response.trialImageBase64);
+    const details = {
+      ...(response.employeeCode === undefined ? {} : { employeeCode: response.employeeCode }),
+      expiresAt: response.expiresAt,
+      groupCode: response.groupCode,
+      groupName: response.groupName,
+      realName: response.realName,
+    };
+    const [formalCard, trialCard] = await Promise.all([
+      composeMemberBindingQrCard(formal.imageSrc, details),
+      trial === undefined
+        ? Promise.resolve('')
+        : composeMemberBindingQrCard(trial.imageSrc, details),
+    ]);
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    page._operationIds.delete(key);
+    updatePanel(page, {
+      bindingQrExpiresAt: formatDate(response.expiresAt),
+      bindingQrImageSrc: formalCard,
+      bindingQrSummary: `${response.groupName} · ${response.realName} · 工号 ${response.employeeCode ?? '未设置'}`,
+      bindingQrVisible: true,
+      bindingTrialQrImageSrc: trialCard,
+      managementInfo: '一次性微信绑定二维码已生成。',
+      managementState: 'ready',
+    });
+  } catch (error) {
+    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    updatePanel(page, {
+      managementError: toUserMessage(error, '绑定二维码没有生成，请稍后重试。'),
       managementState: 'error',
     });
   }

@@ -24,6 +24,8 @@ const convertPendingRosterResponseSchemaJson =
   '{"type":"object","properties":{"converted":{"type":"integer","maximum":9007199254740991,"minimum":0},"skipped":{"type":"integer","maximum":9007199254740991,"minimum":0}},"required":["converted","skipped"],"additionalProperties":false}';
 const createInviteLinkResponseSchemaJson =
   '{"type":"object","properties":{"expiresAt":{"type":"string"},"groupName":{"type":"string","minLength":1},"permissionRole":{"type":"string","enum":["member","administrator"]},"realName":{"type":"string","minLength":1},"scheduleRoleName":{"type":"string"},"sharePath":{"type":"string","minLength":1},"token":{"type":"string","minLength":1},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["expiresAt","groupName","permissionRole","realName","sharePath","token","version"],"additionalProperties":false}';
+const createMemberWechatBindingQrResponseSchemaJson =
+  '{"type":"object","properties":{"employeeCode":{"type":"string","minLength":1},"expiresAt":{"type":"string","format":"date-time","pattern":"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))T(?:(?:[01]\\\\d|2[0-3]):[0-5]\\\\d(?::[0-5]\\\\d(?:\\\\.\\\\d+)?)?(?:Z|([+-](?:[01]\\\\d|2[0-3]):[0-5]\\\\d)))$"},"groupCode":{"type":"string","minLength":1},"groupName":{"type":"string","minLength":1},"imageBase64":{"type":"string","minLength":1},"membershipId":{"type":"string","minLength":1},"realName":{"type":"string","minLength":1},"trialImageBase64":{"type":"string","minLength":1}},"required":["expiresAt","groupCode","groupName","imageBase64","membershipId","realName"],"additionalProperties":false}';
 const createWechatAdminBindingLinkResponseSchemaJson =
   '{"type":"object","properties":{"authVersion":{"type":"integer","maximum":9007199254740991,"minimum":1},"expiresAt":{"type":"string","format":"date-time","pattern":"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))T(?:(?:[01]\\\\d|2[0-3]):[0-5]\\\\d(?::[0-5]\\\\d(?:\\\\.\\\\d+)?)?(?:Z|([+-](?:[01]\\\\d|2[0-3]):[0-5]\\\\d)))$"},"urlLink":{"type":"string","pattern":"^https:\\\\/\\\\/[^\\\\s]+$"}},"required":["authVersion","expiresAt","urlLink"],"additionalProperties":false}';
 const dissolvedGroupListSchemaJson =
@@ -190,6 +192,9 @@ export const convertPendingRosterResponseJsonSchema = /* @__PURE__ */ JSON.parse
 ) as CompactJsonSchema;
 export const createInviteLinkResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   createInviteLinkResponseSchemaJson,
+) as CompactJsonSchema;
+export const createMemberWechatBindingQrResponseJsonSchema = /* @__PURE__ */ JSON.parse(
+  createMemberWechatBindingQrResponseSchemaJson,
 ) as CompactJsonSchema;
 export const createWechatAdminBindingLinkResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   createWechatAdminBindingLinkResponseSchemaJson,

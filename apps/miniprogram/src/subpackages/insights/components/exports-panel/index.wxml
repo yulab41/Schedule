@@ -131,25 +131,29 @@
             </view>
           </view>
 
-          <ui-selector
-            field-label="排班岗位"
-            title="排班岗位（可多选）"
-            multiple="{{true}}"
-            options="{{roleOptions}}"
-            display-value="{{optionsLoading ? '正在读取…' : roleSummary}}"
-            disabled="{{optionsLoading || state === 'waiting'}}"
-            bindchange="handleRoleChange"
-          />
+          <view class="selector-field">
+            <ui-selector
+              field-label="排班岗位"
+              title="排班岗位（可多选）"
+              multiple="{{true}}"
+              options="{{roleOptions}}"
+              display-value="{{optionsLoading ? '正在读取…' : roleSummary}}"
+              disabled="{{optionsLoading || state === 'waiting'}}"
+              bindchange="handleRoleChange"
+            />
+          </view>
 
-          <ui-selector
-            field-label="成员"
-            title="成员（可多选）"
-            multiple="{{true}}"
-            options="{{memberOptions}}"
-            display-value="{{optionsLoading ? '正在读取…' : memberSummary}}"
-            disabled="{{optionsLoading || state === 'waiting'}}"
-            bindchange="handleMemberChange"
-          />
+          <view class="selector-field">
+            <ui-selector
+              field-label="成员"
+              title="成员（可多选）"
+              multiple="{{true}}"
+              options="{{memberOptions}}"
+              display-value="{{optionsLoading ? '正在读取…' : memberSummary}}"
+              disabled="{{optionsLoading || state === 'waiting'}}"
+              bindchange="handleMemberChange"
+            />
+          </view>
 
           <view class="export-hint"
             ><text class="hint-mark" aria-hidden="true">i</text

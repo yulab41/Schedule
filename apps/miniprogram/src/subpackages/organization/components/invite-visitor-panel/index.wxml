@@ -101,6 +101,12 @@
               disabled="{{!canManage}}"
               bindpress="handleCreateInvite"
             ></ui-button>
+            <ui-button
+              variant="secondary"
+              label="为该成员生成微信绑定二维码"
+              disabled="{{!canManage || managementState === 'loading'}}"
+              bindpress="handleCreateBindingQr"
+            ></ui-button>
           </view>
           <view wx:if="{{inviteSharePath}}" class="invite-result">
             <view class="result-heading"
@@ -127,6 +133,33 @@
           </view>
           <view wx:else class="empty-note"
             >还没有当前页面内的邀请。生成后可在本页查看有效期和撤销。</view
+          >
+          <view wx:if="{{bindingQrVisible && bindingQrImageSrc}}" class="qr-sheet"
+            ><view class="qr-heading"
+              ><text>成员微信绑定二维码</text
+              ><view class="qr-close" aria-role="button" bindtap="handleHideBindingQr">完成</view></view
+            ><text class="result-copy">{{bindingQrSummary}}</text
+            ><text class="result-expiry">有效期至 {{bindingQrExpiresAt}}</text
+            ><text class="qr-version-label">正式版</text
+            ><image
+              class="qr-image"
+              src="{{bindingQrImageSrc}}"
+              data-src="{{bindingQrImageSrc}}"
+              mode="aspectFit"
+              show-menu-by-longpress="{{true}}"
+              bindtap="handlePreviewQr"
+            /><block wx:if="{{bindingTrialQrImageSrc}}"
+              ><text class="qr-version-label">体验版</text
+              ><image
+                class="qr-image"
+                src="{{bindingTrialQrImageSrc}}"
+                data-src="{{bindingTrialQrImageSrc}}"
+                mode="aspectFit"
+                show-menu-by-longpress="{{true}}"
+                bindtap="handlePreviewQr" /></block
+            ><text class="memory-note"
+              >扫码者确认后才会绑定；二维码一次有效，请勿公开。</text
+            ></view
           >
         </view>
 

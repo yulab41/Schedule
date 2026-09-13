@@ -105,18 +105,32 @@
                       class="shift-detail-accent"
                       style="background:{{group.shiftColor}}"
                     ></view>
-                    <view class="shift-card-heading">
+                    <view
+                      class="shift-card-heading"
+                      data-key="{{group.key}}"
+                      catchtap="handleShiftCardToggle"
+                      aria-role="{{group.dutyState ? 'button' : ''}}"
+                      aria-expanded="{{shiftCardExpansion.expanded[group.key]}}"
+                    >
                       <text
                         class="shift-code"
                         style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
                         >{{group.shiftAbbreviation}}</text
                       >
-                      <view
+                      <view class="shift-heading-copy"
                         ><text class="shift-name">{{group.shiftName}}</text
                         ><text class="shift-time">{{group.timeRange}}</text></view
                       >
+                      <text
+                        wx:if="{{group.dutyState}}"
+                        class="duty-work-state is-{{group.dutyState}}"
+                        >{{group.dutyStateLabel}}</text
+                      >
                     </view>
-                    <view class="grouped-staff-list">
+                    <view
+                      wx:if="{{shiftCardExpansion.expanded[group.key]}}"
+                      class="grouped-staff-list"
+                    >
                       <view
                         wx:for="{{ group.rows }}"
                         wx:for-item="row"
@@ -271,6 +285,7 @@
                 >
                 <swiper
                   class="period-swiper week-swiper"
+                  style="height:{{weekGridHeight}}px"
                   current="{{weekSwiperCurrent}}"
                   duration="{{periodSwiperDuration}}"
                   easing-function="easeOutCubic"
@@ -298,25 +313,36 @@
                         >
                         <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
                         <view
-                          wx:for="{{day.duties}}"
-                          wx:for-item="duty"
+                          wx:for="{{day.shiftGroups}}"
+                          wx:for-item="shiftGroup"
                           wx:key="key"
-                          class="week-duty-item"
+                          class="week-shift-group"
+                          style="background:{{shiftGroup.tint}}"
                         >
-                          <text class="week-duty-name">{{duty.name}}</text>
-                          <view class="week-duty-badges"
+                          <view class="week-group-title"
                             ><text
                               class="week-shift-badge"
-                              style="color:{{duty.shiftTextColor}};background:{{duty.shiftColor}}"
-                              >{{duty.shiftAbbreviation}}</text
-                            ><text
-                              wx:for="{{duty.markers}}"
-                              wx:for-item="marker"
-                              wx:key="*this"
-                              class="week-change-badge"
-                              >{{marker}}</text
+                              style="color:{{shiftGroup.textColor}};background:{{shiftGroup.color}}"
+                              >{{shiftGroup.abbreviation}}</text
                             ></view
                           >
+                          <view
+                            wx:for="{{shiftGroup.duties}}"
+                            wx:for-item="duty"
+                            wx:key="key"
+                            class="week-duty-item"
+                          >
+                            <text class="week-duty-name">{{duty.name}}</text>
+                            <view wx:if="{{duty.markers.length > 0}}" class="week-duty-badges"
+                              ><text
+                                wx:for="{{duty.markers}}"
+                                wx:for-item="marker"
+                                wx:key="*this"
+                                class="week-change-badge"
+                                >{{marker}}</text
+                              ></view
+                            >
+                          </view>
                         </view>
                       </view>
                     </view>
@@ -342,18 +368,32 @@
                       class="shift-detail-accent"
                       style="background:{{group.shiftColor}}"
                     ></view>
-                    <view class="shift-card-heading">
+                    <view
+                      class="shift-card-heading"
+                      data-key="{{group.key}}"
+                      catchtap="handleShiftCardToggle"
+                      aria-role="{{group.dutyState ? 'button' : ''}}"
+                      aria-expanded="{{shiftCardExpansion.expanded[group.key]}}"
+                    >
                       <text
                         class="shift-code"
                         style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
                         >{{group.shiftAbbreviation}}</text
                       >
-                      <view
+                      <view class="shift-heading-copy"
                         ><text class="shift-name">{{group.shiftName}}</text
                         ><text class="shift-time">{{group.timeRange}}</text></view
                       >
+                      <text
+                        wx:if="{{group.dutyState}}"
+                        class="duty-work-state is-{{group.dutyState}}"
+                        >{{group.dutyStateLabel}}</text
+                      >
                     </view>
-                    <view class="grouped-staff-list">
+                    <view
+                      wx:if="{{shiftCardExpansion.expanded[group.key]}}"
+                      class="grouped-staff-list"
+                    >
                       <view
                         wx:for="{{ group.rows }}"
                         wx:for-item="row"

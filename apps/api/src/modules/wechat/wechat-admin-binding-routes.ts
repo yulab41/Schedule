@@ -1,4 +1,5 @@
 import {
+  createMemberWechatBindingQrRequestSchema,
   createWechatAdminBindingLinkRequestSchema,
   wechatAdminBindingConfirmRequestSchema,
   wechatAdminBindingPreviewRequestSchema,
@@ -14,6 +15,8 @@ import { resolveMiniClientVersion } from '../client-capabilities/client-version-
 import type { WechatAdminBindingService } from './wechat-admin-binding-service.js';
 
 const userIdSchema = z.string().uuid();
+const groupIdSchema = z.string().uuid();
+const membershipIdSchema = z.string().uuid();
 
 export function registerWechatAdminBindingRoutes(
   app: FastifyInstance,
@@ -28,6 +31,19 @@ export function registerWechatAdminBindingRoutes(
         getAuthenticatedIdentity(request),
         parseUserId(request),
         parseCreateLinkInput(request),
+        request.id,
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/members/:membershipId/wechat-miniprogram-binding-qr',
+    { preHandler: app.authenticate },
+    async (request) =>
+      service.createMemberQr(
+        getAuthenticatedIdentity(request),
+        parseId(request, 'groupId', groupIdSchema),
+        parseId(request, 'membershipId', membershipIdSchema),
+        parseMemberQrInput(request),
         request.id,
       ),
   );
@@ -83,6 +99,29 @@ function parseConfirmInput(value: unknown) {
 
 function parseUserId(request: FastifyRequest): string {
   const result = userIdSchema.safeParse((request.params as { userId?: unknown }).userId);
+  if (!result.success) throw validationError();
+  return result.data;
+}
+
+function parseId(
+  request: FastifyRequest,
+  key: 'groupId' | 'membershipId',
+  schema: z.ZodString,
+): string {
+  const result = schema.safeParse((request.params as Record<string, unknown>)[key]);
+  if (!result.success) throw validationError();
+  return result.data;
+}
+
+function parseMemberQrInput(request: FastifyRequest) {
+  const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
+  const result = createMemberWechatBindingQrRequestSchema.safeParse({
+    ...(body ?? {}),
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      body?.['operationId'] as string | undefined,
+    ),
+  });
   if (!result.success) throw validationError();
   return result.data;
 }
