@@ -30,7 +30,7 @@ describe('Feedback16 export Page artifact lineage', () => {
     expect(page).toContain("recordExportRenderStage('page-load')");
     expect(page).toContain("recordExportRenderStage('page-ready')");
     expect(page).toContain("recordExportRenderStage('page-show')");
-    expect(page).toContain('Promise.resolve()');
+    expect(page).toContain("import('../../components/exports-panel/controller.js')");
     expect(page).toContain('createExportsPanelControllerDefinition()');
     expect(page).toContain('startupError');
     expect(page).not.toContain('data: controller.data');

@@ -86,3 +86,10 @@
 - 上传成功：官方 CI 返回 234 个代码文件、ZIP 2,611,272 字节；Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`；receipt 上传时间 `2026-09-12T16:02:19.307Z`，与不可变 trial tag 和 allocation 绑定一致。
 - 放行成功：可信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260913.116` 仅追加 `.116`；独立 allowlist verify、完整 `ecs-verify.sh` 均通过。放行期间 API/Web 容器按既有控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未执行生产代码部署、数据库备份或迁移。
 - 状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。仅待用户在小米14体验版116复核导出页首屏和导出操作；未提审、未正式发布、未发送真实通知。
+
+## `.116` 复测后的模块装载边界修复
+
+- 用户反馈 `.116` 仍无法打开，截图继续显示相同 `MINI_RUNTIME_ERROR` 指纹；没有新的原生 Console 原文。由于报告未出现 `page-load/page-ready`，继续按 Page 注册前边界审计，不把问题归因到导出 API 或跳转 URL。
+- 失败优先回归将 controller 模块本身替换为同步抛错，要求导出 Page 仍完成注册并显示可见重试壳。静态导入 controller 改为类型导入，controller 模块改为 `onLoad` 后异步加载；加载 token、卸载隔离、receiver binding 和 controller 生命周期保持有效。
+- 构建验证：定向20项通过；Mini verify、Worklet2/2、确定性、包体4,557,145字节、format、lint和`smoke:check-core`通过。导出页产物122,748字节，不含`globalThis`/`navigator`；未改变导出 API、鉴权、任务、下载和路径。
+- 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD`。本轮未上传/放行新版本；新 SHA 需用户明确授权后才能生成117并进行小米14同版本复核。

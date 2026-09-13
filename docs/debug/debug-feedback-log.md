@@ -2846,3 +2846,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 上传：微信 CI 成功，234 code files、ZIP 2,611,272 bytes，Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`；receipt/tag/allocation 绑定一致，receipt 时间 `2026-09-12T16:02:19.307Z`。
 - 放行：正式 SSH 采用生产域名作为 HostKeyAlias、StrictHostKeyChecking，可信 `schedule-client-version-allowlist ensure` 仅追加 `.116`；独立 verify 与完整 `ecs-verify.sh` 通过。放行重建 API/Web，短暂 TLS/502 后恢复；生产 release 未改变，未触数据库或生产应用部署。
 - 状态：体验版已上传并放行，转为 `WAITING_XIAOMI14_NATIVE_REVIEW`；不把 CI/静态/服务器结果写成小米14原生验收。
+
+## 2026-09-13 Feedback16 `.116` 复测后的模块装载边界
+
+- 用户反馈 `.116` 仍无法打开，截图仍为同一 `MINI_RUNTIME_ERROR` 指纹；报告没有新的原生 Console 原文，因而只确认“原生失败仍存在”，不宣称指纹已解码。
+- 复核结论：`.116` 页面仍静态导入 controller 模块，工厂延迟并不能阻止模块顶层依赖在 `Page()` 注册前执行。新增模块失败回归后，Page 改为类型导入 controller 并在 `onLoad` 后异步加载；失败显示标题、返回、错误和重试壳，卸载时隔离迟到结果。
+- RED→GREEN：定向20项通过；Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。导出页122,748字节且不含`globalThis`/`navigator`。
+- 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。

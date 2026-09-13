@@ -16,14 +16,10 @@ vi.mock('../src/platform/export-render-diagnostics.ts', () => ({
 }));
 
 vi.mock('../src/subpackages/insights/components/exports-panel/controller.ts', () => {
-  return {
-    createExportsPanelControllerDefinition: () => {
-      throw new Error('synthetic controller factory failure');
-    },
-  };
+  throw new Error('synthetic controller module failure');
 });
 
-describe('Feedback16 export Page factory boundary', () => {
+describe('Feedback16 export Page module boundary', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -31,7 +27,7 @@ describe('Feedback16 export Page factory boundary', () => {
     vi.stubGlobal('wx', { navigateBack: vi.fn() });
   });
 
-  it('registers a Page and keeps a visible startup error when the controller factory fails', async () => {
+  it('registers a Page and keeps a visible startup error when the controller module fails', async () => {
     await expect(
       import('../src/subpackages/insights/pages/exports/index.ts'),
     ).resolves.toBeDefined();
@@ -46,6 +42,7 @@ describe('Feedback16 export Page factory boundary', () => {
     };
 
     definition.onLoad.call(page, { groupId: 'group-1' });
+    await vi.dynamicImportSettled();
     await new Promise((resolve) => setImmediate(resolve));
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
 

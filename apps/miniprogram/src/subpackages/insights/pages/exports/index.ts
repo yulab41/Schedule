@@ -4,7 +4,7 @@ import {
   measureExportFirstPaint,
   recordExportRenderStage,
 } from '../../../../platform/export-render-diagnostics.js';
-import { createExportsPanelControllerDefinition } from '../../components/exports-panel/controller.js';
+import type { createExportsPanelControllerDefinition } from '../../components/exports-panel/controller.js';
 
 type ExportsController = ReturnType<typeof createExportsPanelControllerDefinition>;
 type ExportsPageInstance = ThisParameterType<ExportsController['lifetimes']['attached']>;
@@ -15,6 +15,9 @@ type ExportPageRuntime = ExportsPageInstance & {
   _pageActive?: boolean;
 };
 type ExportMethodName = keyof ExportsController['methods'];
+type ExportsControllerModule = typeof import('../../components/exports-panel/controller.js');
+
+let controllerModulePromise: Promise<ExportsControllerModule> | undefined;
 
 const pageMethods = {
   handleBack(this: ExportPageRuntime): void {
@@ -116,12 +119,22 @@ Page({
 } as never);
 recordExportRenderStage('module-registered');
 
+function loadControllerModule(): Promise<ExportsControllerModule> {
+  if (controllerModulePromise !== undefined) return controllerModulePromise;
+  const pending = import('../../components/exports-panel/controller.js');
+  controllerModulePromise = pending;
+  void pending.catch(() => {
+    if (controllerModulePromise === pending) controllerModulePromise = undefined;
+  });
+  return pending;
+}
+
 function ensureController(page: ExportPageRuntime): Promise<ExportsController | undefined> {
   if (page._controller !== undefined) return Promise.resolve(page._controller);
   if (page._controllerReadyPromise !== undefined) return page._controllerReadyPromise;
   const token = page._controllerLoadToken;
-  const pending = Promise.resolve()
-    .then(() => createExportsPanelControllerDefinition())
+  const pending = loadControllerModule()
+    .then(({ createExportsPanelControllerDefinition }) => createExportsPanelControllerDefinition())
     .then((controller) => {
       if (page._pageActive !== true || page._controllerLoadToken !== token) return undefined;
       controller.lifetimes.attached.call(page);

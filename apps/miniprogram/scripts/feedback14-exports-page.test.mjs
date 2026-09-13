@@ -190,6 +190,7 @@ function deferred() {
 }
 
 async function settlePageController() {
+  await vi.dynamicImportSettled();
   for (let index = 0; index < 20; index += 1) await waitImmediate();
   for (let index = 0; index < 8; index += 1) await Promise.resolve();
   await vi.advanceTimersByTimeAsync(0);
