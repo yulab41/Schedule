@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 导出页注册前装载边界与诊断增强，待新体验版复核
+## 当前批次：Feedback16 `.118` 复测后的子组件挂载与冷入口修复，待新体验版复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -42,6 +42,14 @@
 - 测试工具新增“导出页启动边界”卡片和无群组参数冷入口，固定记录 `module-registered → page-load → page-mount-requested → panel-component-attached`，按首个缺失阶段给出页面资源、原生生命周期、组件资源或业务初始化方向；不记录 query、群组数据、请求体或原始异常。
 - 本轮验证：Mini 全量171文件通过、2文件跳过，1197项通过、16项跳过；Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过。包体约4,559,918字节，既有主包和矩阵节点 warning 保留。
 - 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传或放行新 SHA，也未控制微信开发者工具、部署生产或修改后端；下一停止条件是授权新 SHA 上传后，用同版本小米14报告的启动边界字段继续判定。
+
+## `.118` 报告后的第二层挂载修复
+
+- 用户提供 `.118@b6db156` 报告：冷入口首次能显示“暂时无法加载”，点击重新加载后变为空白；启动记录已有 `page-load/page-show/page-ready/panel-mount-requested`，但没有 `panel-component-attached`。这排除了跳转路径和 Page 注册失败，但保留子组件资源/生命周期边界待原生复核。
+- 失败优先回归复现了冷入口重试缺陷：`groupId` 为空时 `handleRetry` 仍会把 `panelReady` 置为 true；同时页面在 panel attached 前使用 `wx:else` 移除整个错误/加载壳。修复为缺少群组上下文时保持可见错误，并在 panel attached 前保留 native fallback。
+- WXML 将 panel 放入 native host，新增 `panelAttached` 状态；组件未挂载或迟到时页面不再变成空白，5 秒后显示可重试错误。未改变导出 API、鉴权、请求、任务、下载或导航语义。
+- 新增模拟器挂载回归和冷入口回归；Mini 全量172文件/1200项通过、2文件/16项跳过。Mini verify、package、source、determinism、format、lint和 `smoke:check-core`均通过；模拟器结果不替代 Skyline 原生验收。
+- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传或放行新 SHA，也未部署生产或控制微信开发者工具；下一停止条件是新版本同 SHA 小米14复核启动边界和导出内容。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

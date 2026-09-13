@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：Feedback16 导出页注册前装载边界与诊断增强，待新体验版复核
+## 当前批次：Feedback16 `.118` 复测后的子组件挂载与冷入口修复，待新体验版复核
 
 - 设计检查点 `516e2719`；A 检查点 `42e644a4`；最终 B/C 检查点 `84ae20f8`；当前为上传策略证明补充阶段。详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
 - A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
@@ -37,6 +37,13 @@
 - 新诊断：测试工具新增“导出页启动边界”卡片和无群组参数冷入口，固定记录 `module-registered → page-load → page-mount-requested → panel-component-attached`，按首个缺失阶段提示页面/原生生命周期/组件资源/业务初始化方向；不采集敏感 query、群组数据、请求体或原始异常。
 - RED→GREEN：新增边界回归4项；兼容回归后 Mini 全量171文件/1197项通过、2文件/16项跳过；Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过。包体约4,559,918字节，既有 warning 保留；这些均不是 Skyline/小米14原生验收。
 - 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮未上传、未放行、未部署生产或控制微信开发者工具；只有取得新 SHA 上传授权并取得同版本小米14报告后，才能判断是否跨过原生装载边界。
+
+## `.118` 报告后的第二层挂载修复
+
+- `.118@b6db156` 报告确认 Page 已到达 `page-load/page-show/page-ready`，并记录 `panel-mount-requested`，但没有 `panel-component-attached`；冷入口首次显示可见错误，点击重新加载后空白。当前证据支持子组件挂载/生命周期边界，不支持导航 URL 或 Page 注册失败。
+- 失败优先回归先复现冷入口 `groupId` 为空仍进入 panel 挂载分支，以及 panel attached 前 `wx:else` 移除整个 fallback 的问题。修复加入 `panelAttached`，缺少 group 时 retry 保持错误壳；panel 未 attached 时持续显示 native fallback，超时转为可重试错误。
+- 新增 `feedback18-export-panel-mount.test.mjs`，使用 `miniprogram-simulate` 验证 host 下自定义组件的动态挂载和 startup 事件；这只能验证 WXML/事件模型，不能代替 Skyline 小米14验收。
+- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。Mini 全量172文件/1200项通过、2文件/16项跳过；Mini verify、package、source、determinism、format、lint和 `smoke:check-core`通过。本轮未上传或放行新版本。
 
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 

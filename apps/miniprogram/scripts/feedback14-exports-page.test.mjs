@@ -68,6 +68,30 @@ describe('Feedback17 real export Page native shell lifecycle', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('keeps the cold-entry error visible when retry has no group context', async () => {
+    const { definition, page } = await realPage();
+
+    definition.onLoad.call(page);
+    definition.handleRetry.call(page);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(page.data.panelReady).toBe(false);
+    expect(page.data.startupError).toContain('群组信息缺失');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps the native fallback visible until the panel reports attached', async () => {
+    const { definition, page } = await realPage();
+
+    definition.onLoad.call(page, { groupId });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(page.data.panelReady).toBe(true);
+    expect(page.data.panelAttached).toBe(false);
+    definition.handlePanelStartupReady.call(page);
+    expect(page.data.panelAttached).toBe(true);
+  });
+
   it('shows a retryable timeout when the child component does not report attached', async () => {
     const { definition, page } = await realPage();
 

@@ -2840,6 +2840,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 运行验证：导出/页面/边界、日历、二维码/账号定向29项通过；Mini verify、包体、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 169文件通过、2跳过，另有既有 manual-schedule-limits 断言失败，与本轮无关。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
 
+## 2026-09-13 Feedback16 `.118` 报告后的第二层挂载修复
+
+- 小米14 `.118@b6db156` 报告显示：Page 已记录 `page-load/page-show/page-ready`，随后记录 `panel-mount-requested`，但没有 `panel-component-attached`；冷入口首次显示错误壳，点击“重新加载”后出现空白。错误指纹 `c276a638…` 仍不可逆，不能据此补写原生 Console 原文。
+- RED→GREEN：旧 `handleRetry` 在 `groupId` 为空时仍调度 panel；旧 WXML 在 `panelReady` 为 true 时用 `wx:else` 移除 fallback。新增回归先失败，修复为缺少上下文时保持错误壳，并用 `panelAttached` 保持 native fallback 直到子组件 startup 事件到达。
+- WXML 同时把 panel 放入 native host；新增 `miniprogram-simulate` 挂载测试，验证自定义组件动态创建和 `startupready` 事件。该模拟器仅验证 WXML/事件模型，不能证明 Skyline 真机装载成功。
+- 运行验证：Mini 全量172文件/1200项通过、2文件/16项跳过；TypeScript、Mini verify、包体、Worklet2/2、确定性、format、lint和 `smoke:check-core`通过。未控制微信开发者工具 GUI/CLI。
+- 语义边界：未修改导出 API、鉴权、请求参数、任务轮询、下载、导航 URL、后端或数据库；未上传/放行新 SHA。状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。
+
 ## 2026-09-13 Feedback16 `.117` 复测后的页面注册前装载诊断增强
 
 - 用户提供 `.117@1031da2a` 同版本报告，导出仍为空白；脱敏证据仍只有 `exports · open-requested` 和 `MINI_RUNTIME_ERROR`，没有 `module-registered/page-load/page-ready`。该证据不能解码原生指纹，但将失败范围稳定留在 Page 生命周期之前或资源装载阶段。

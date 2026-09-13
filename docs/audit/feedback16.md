@@ -109,3 +109,11 @@
 - RED→GREEN：新增边界回归4项；兼容回归后 Mini 全量171文件/1197项通过、2文件/16项跳过。Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过；包体约4,559,918字节。该证据不等同于 Skyline 或小米14验收。
 - 对旧轮次的复盘：此前测试覆盖了 Page/Controller 业务逻辑和静态路径，却没有把“直接 include 的完整 WXML 是否在 Page 注册前可被原生装载”作为独立边界，也没有 `page-load` 之前的阶段证据。因此旧测试能通过但无法发现本次原生装载失败；本轮已把该边界变成失败优先回归和可复制诊断。
 - 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮只完成源码、测试和诊断增强，未上传或放行新版本，未部署生产或控制微信开发者工具；下一步需针对新 SHA 上传后，在小米14同版本复制带有“导出页启动边界”段落的报告。
+
+## `.118` 报告后的第二层挂载修复
+
+- 用户提供 `.118@b6db156` 复测证据：冷入口首次显示错误壳，点击重新加载后变为空白；启动阶段已经有 `page-load/page-show/page-ready/panel-mount-requested`，但没有 `panel-component-attached`。因此 Page 路由和注册已实际通过，剩余范围是子组件资源、条件挂载或 attached 生命周期。
+- 失败优先回归复现了两个源码问题：无 `groupId` 的冷入口点击 retry 仍会调度 panel；`panelReady` 为 true 时页面用 `wx:else` 删除整个 fallback，子组件挂载失败即表现为空白。
+- 修复加入 `panelAttached` 数据状态；缺少群组时 retry 继续显示“群组信息缺失”，有群组时 panel mounted 但未 attached 前保持 native fallback，超时显示可重试错误。panel 放入 native host，降低 Skyline 对页面根节点条件自定义组件的风险。
+- 新增 `feedback18-export-panel-mount.test.mjs`，以 `miniprogram-simulate` 验证 native host 下自定义组件动态挂载和 startup 事件；新增/更新冷入口回归。完整 Mini 172文件/1200项通过、2文件/16项跳过；Mini verify、package、source、determinism、format、lint和 `smoke:check-core`均通过。
+- 本轮不改变导出 API、鉴权、导航 URL、请求、任务轮询、下载和后端；尚未上传/放行新版本。状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`，下一步为新版本小米14同版本复核并复制启动边界报告。

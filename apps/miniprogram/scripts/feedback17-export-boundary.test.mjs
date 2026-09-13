@@ -13,6 +13,9 @@ describe('Feedback17 export page native startup boundary', () => {
     const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
 
     expect(template).not.toContain('<include src="../../components/exports-panel/index.wxml" />');
+    expect(template).toContain('class="exports-root"');
+    expect(template).toContain('class="exports-panel-host"');
+    expect(template).toContain('wx:if="{{!panelAttached}}"');
     expect(template).toContain('<exports-panel');
     expect(config.usingComponents).toEqual({
       'exports-panel': '/subpackages/insights/components/exports-panel/index',
@@ -28,6 +31,7 @@ describe('Feedback17 export page native startup boundary', () => {
     expect(page).toContain("recordPageStartupStage('module-registered')");
     expect(page).toContain("recordPageStartupStage('panel-mount-requested')");
     expect(page).toContain("recordPageStartupStage('panel-component-attached')");
+    expect(page).toContain('panelAttached');
   });
 
   it('exposes a component attached event for the page boundary diagnosis', () => {

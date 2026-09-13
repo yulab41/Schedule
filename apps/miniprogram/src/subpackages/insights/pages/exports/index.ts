@@ -1,6 +1,7 @@
 type ExportPageData = {
   readonly groupId: string;
   readonly largeText: boolean;
+  readonly panelAttached: boolean;
   readonly panelReady: boolean;
   readonly startupError: string;
   readonly viewportClass: string;
@@ -32,6 +33,7 @@ Page({
   data: {
     groupId: '',
     largeText: false,
+    panelAttached: false,
     panelReady: false,
     startupError: '',
     viewportClass: '',
@@ -48,13 +50,22 @@ Page({
     this._panelAttached = true;
     clearTimeout(this._panelTimeoutTimer);
     this._panelTimeoutTimer = undefined;
+    this.setData({ panelAttached: true });
     recordPageStartupStage('panel-component-attached');
   },
 
   handleRetry(this: ExportPageRuntime): void {
     if (this._pageActive !== true) return;
     this._panelAttached = false;
-    this.setData({ panelReady: false, startupError: '' });
+    if (this.data.groupId.length === 0) {
+      this.setData({
+        panelAttached: false,
+        panelReady: false,
+        startupError: '当前群组信息缺失，请返回工作台后重试。',
+      });
+      return;
+    }
+    this.setData({ panelAttached: false, panelReady: false, startupError: '' });
     schedulePanelMount(this);
   },
 
@@ -66,6 +77,7 @@ Page({
     if (groupId.length === 0) {
       this.setData({
         groupId: '',
+        panelAttached: false,
         panelReady: false,
         startupError: '当前群组信息缺失，请返回工作台后重试。',
       });
@@ -73,6 +85,7 @@ Page({
     }
     this.setData({
       groupId,
+      panelAttached: false,
       panelReady: false,
       startupError: '',
     });
@@ -107,12 +120,13 @@ function schedulePanelMount(page: ExportPageRuntime): void {
     page._panelRevealTimer = undefined;
     if (page._pageActive !== true) return;
     recordPageStartupStage('panel-mount-requested');
-    page.setData({ panelReady: true, startupError: '' });
+    page.setData({ panelAttached: false, panelReady: true, startupError: '' });
     page._panelTimeoutTimer = setTimeout(() => {
       page._panelTimeoutTimer = undefined;
       if (page._pageActive !== true || page._panelAttached === true) return;
       recordPageStartupStage('panel-mount-timeout');
       page.setData({
+        panelAttached: false,
         panelReady: false,
         startupError: '导出内容组件未完成装载，请点击重新加载；若重复出现请复制诊断报告。',
       });
