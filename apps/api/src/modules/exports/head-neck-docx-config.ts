@@ -1,13 +1,14 @@
 import { z } from 'zod';
 
 const uuid = z.string().uuid();
+const displayName = z.string().trim().min(1).max(100);
 const configSchema = z
   .object({
     groupId: uuid,
     firstDutyMembershipIds: z.array(uuid).min(1).max(7),
     firstDutyRoleId: uuid,
-    secondDutyByFirstMembershipId: z.record(uuid, uuid),
-    thirdDutyMembershipIds: z.tuple([uuid, uuid]),
+    secondDutyNameByFirstMembershipId: z.record(uuid, displayName),
+    thirdDutyNames: z.tuple([displayName, displayName]),
   })
   .strict();
 
@@ -22,7 +23,7 @@ export function readHeadNeckDocxConfig(): HeadNeckDocxConfig | undefined {
     if (first.size !== config.firstDutyMembershipIds.length) return undefined;
     if (
       config.firstDutyMembershipIds.some(
-        (id) => config.secondDutyByFirstMembershipId[id] === undefined,
+        (id) => config.secondDutyNameByFirstMembershipId[id] === undefined,
       )
     )
       return undefined;

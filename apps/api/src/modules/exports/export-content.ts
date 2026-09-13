@@ -133,11 +133,7 @@ async function buildHeadNeckScheduleDocxContent(
   const config = getHeadNeckDocxConfig(job.groupId);
   if (config === undefined) throw new Error('当前群组未配置 Word 排班导出。');
   const months = getPeriodMonths(job.periodType, job.period);
-  const membershipIds = [
-    ...config.firstDutyMembershipIds,
-    ...Object.values(config.secondDutyByFirstMembershipId),
-    ...config.thirdDutyMembershipIds,
-  ];
+  const membershipIds = config.firstDutyMembershipIds;
   const members = await transaction
     .select({ id: groupMemberships.id, name: userProfiles.realName })
     .from(groupMemberships)
@@ -243,12 +239,9 @@ async function buildHeadNeckScheduleDocxContent(
       month: Number(businessMonth.slice(5, 7)),
       roster: config.firstDutyMembershipIds.map((id) => ({
         first: names.get(id)!,
-        second: names.get(config.secondDutyByFirstMembershipId[id]!)!,
+        second: config.secondDutyNameByFirstMembershipId[id]!,
       })),
-      thirdDuty: [
-        names.get(config.thirdDutyMembershipIds[0])!,
-        names.get(config.thirdDutyMembershipIds[1])!,
-      ],
+      thirdDuty: config.thirdDutyNames,
       year: Number(businessMonth.slice(0, 4)),
     });
   }

@@ -219,11 +219,11 @@ describeWithDatabase('schedule exports', () => {
         groupId: context.groupId,
         firstDutyMembershipIds: [context.membershipIds.a, context.membershipIds.b],
         firstDutyRoleId: context.roleId,
-        secondDutyByFirstMembershipId: {
-          [context.membershipIds.a]: context.membershipIds.b,
-          [context.membershipIds.b]: context.membershipIds.a,
+        secondDutyNameByFirstMembershipId: {
+          [context.membershipIds.a]: 'Second B',
+          [context.membershipIds.b]: 'Second A',
         },
-        thirdDutyMembershipIds: [context.membershipIds.a, context.membershipIds.b],
+        thirdDutyNames: ['Third A', 'Third B'],
       }),
     );
     const options = await app.inject({
