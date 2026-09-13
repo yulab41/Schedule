@@ -587,7 +587,7 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 59 ]; then
 fi
 if [ "$CURRENT_DATABASE_SCHEMA" -ge 61 ]; then
   VISITOR_QR_ASSET_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
-    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT CONCAT((SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\"), \"\\t\", (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\" AND column_name IN (\"group_id\",\"environment\",\"visitor_key\",\"content\",\"content_type\",\"byte_length\",\"sha256\",\"generated_at\")), \"\\t\", (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\" AND index_name=\"PRIMARY\"))"')"
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\"), (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\" AND column_name IN (\"group_id\",\"environment\",\"visitor_key\",\"content\",\"content_type\",\"byte_length\",\"sha256\",\"generated_at\")), (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\" AND index_name=\"PRIMARY\")"')"
   [ "$VISITOR_QR_ASSET_SCHEMA" = $'1\t8\t2' ] || {
     echo "[verify] 永久访客二维码资源表、列或复合主键缺失。" >&2
     exit 1
