@@ -14,6 +14,9 @@ describe('feedback9 export result layout', () => {
     expect(template).toContain('bindpress="handleShare"');
     expect(template).toContain('class="ready-actions"');
     expect(template).toContain("state === 'download_failed'");
+    expect(JSON.parse(read('pages/exports/index.json')).usingComponents).not.toHaveProperty(
+      'exports-panel',
+    );
     expect(JSON.parse(read('pages/exports/index.json')).usingComponents['ui-toast']).toBe(
       '/components/ui/ui-toast/index',
     );

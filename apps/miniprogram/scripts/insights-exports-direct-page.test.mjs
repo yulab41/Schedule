@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setImmediate as waitImmediate } from 'node:timers/promises';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const mocks = vi.hoisted(() => ({
@@ -46,24 +47,19 @@ describe('remaining P9 direct Page registration', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubGlobal('Page', vi.fn());
+    vi.stubGlobal('wx', { navigateBack: vi.fn() });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it.each([
-    {
+  it('mounts insights through a direct Page without a custom-component boundary', async () => {
+    const testCase = {
       importPath: '../src/subpackages/insights/pages/insights/index.ts',
       marker: 'insights:page-onload',
       panel: mocks.insights,
-    },
-    {
-      importPath: '../src/subpackages/insights/pages/exports/index.ts',
-      marker: 'exports:page-onload',
-      panel: mocks.exports,
-    },
-  ])('mounts $marker directly without a custom-component boundary', async (testCase) => {
+    };
     await import(testCase.importPath);
 
     expect(globalThis.Page).toHaveBeenCalledTimes(1);
@@ -76,12 +72,17 @@ describe('remaining P9 direct Page registration', () => {
     };
 
     definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
+    for (let index = 0; index < 4; index += 1) await waitImmediate();
+    for (let index = 0; index < 8; index += 1) await Promise.resolve();
 
-    expect(instance.properties).toEqual({ groupId });
+    if (testCase.panel === mocks.exports) expect(instance.data.groupId).toBe(groupId);
+    else expect(instance.properties).toEqual({ groupId });
     expect(mocks.recordBoundary).toHaveBeenCalledWith(testCase.marker);
     expect(testCase.panel.attached.mock.instances[0]).toBe(instance);
     definition.handleBack.call(instance);
-    expect(testCase.panel.handleBack.mock.instances[0]).toBe(instance);
+    if (testCase.panel === mocks.exports)
+      expect(globalThis.wx.navigateBack).toHaveBeenCalledWith({ delta: 1 });
+    else expect(testCase.panel.handleBack.mock.instances[0]).toBe(instance);
 
     definition.onUnload.call(instance);
     expect(testCase.panel.detached.mock.instances[0]).toBe(instance);

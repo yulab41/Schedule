@@ -127,6 +127,12 @@ export async function pollExportJob<Job extends ScheduleExportJobLike>(
   const deadline = now() + timeoutMs;
 
   let sleepTimer: ReturnType<typeof setTimeout> | undefined;
+  // Keep the timer closure outside the loop: WeChat CI's ES6 transform otherwise
+  // emits a delegated-generator helper that its bundled runtime cannot supply.
+  const sleepWithTimer = (milliseconds: number): Promise<void> =>
+    new Promise((resolve) => {
+      sleepTimer = setTimeout(resolve, milliseconds);
+    });
   try {
     const result = await waitForExportOperation<ExportPollResult<Job>>(
       async (isStopped) => {
@@ -142,10 +148,7 @@ export async function pollExportJob<Job extends ScheduleExportJobLike>(
           const remaining = deadline - now();
           if (remaining <= 0) return { exportJobId, status: 'timed_out' };
           if (options.sleep) await sleep(Math.min(pollIntervalMs, remaining));
-          else
-            await new Promise<void>((resolve) => {
-              sleepTimer = setTimeout(resolve, Math.min(pollIntervalMs, remaining));
-            });
+          else await sleepWithTimer(Math.min(pollIntervalMs, remaining));
         }
       },
       timeoutMs,

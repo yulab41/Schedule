@@ -171,10 +171,12 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
   'platform/runtime-diagnostics-types.ts',
   'platform/runtime-diagnostics.ts',
   'platform/runtime-environment.ts',
-  ...['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel'].flatMap((panel) => [
-    `subpackages/insights/components/${panel}/controller.ts`,
-    `subpackages/insights/components/${panel}/index.ts`,
-  ]),
+  ...['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel'].map(
+    (panel) => `subpackages/insights/components/${panel}/controller.ts`,
+  ),
+  'subpackages/insights/components/insights-dashboard-panel/index.ts',
+  'subpackages/insights/components/visitor-access-panel/index.ts',
+  'subpackages/insights/components/exports-panel/initial-data.ts',
   'subpackages/insights/components/notifications-panel/controller.ts',
   'components/profile-panel/controller.ts',
   'components/profile-panel/index.ts',

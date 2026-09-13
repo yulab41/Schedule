@@ -164,8 +164,9 @@
               src="{{qrImageSrc}}"
               mode="aspectFit"
               show-menu-by-longpress="{{true}}"
+              bindtap="handlePreviewQr"
             /><text class="memory-note"
-              >长按二维码保存或转发；访客码轮换后，已保存的旧二维码失效。</text
+              >点击可预览，长按二维码保存或转发；访客码轮换后，已保存的旧二维码失效。</text
             ></view
           >
         </view>

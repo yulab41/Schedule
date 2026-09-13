@@ -9,6 +9,42 @@ import {
 } from './export.js';
 
 describe('Mini export adapter mirrors Web export rules', () => {
+  it('uses native timer intervals and clears timers after completion', async () => {
+    vi.useFakeTimers();
+    try {
+      const completed = exportJob({ status: 'completed' });
+      const getJob = vi
+        .fn()
+        .mockResolvedValueOnce(exportJob({ status: 'running' }))
+        .mockResolvedValueOnce(completed);
+      const result = pollExportJob('job-1', getJob);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(getJob).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toEqual({ status: 'finished', job: completed });
+      expect(getJob).toHaveBeenCalledTimes(2);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels during the native sleep without another request or surviving timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const cancellation = createExportCancellation();
+      const getJob = vi.fn().mockResolvedValue(exportJob({ status: 'running' }));
+      const result = pollExportJob('job-1', getJob, { cancellation });
+      await vi.advanceTimersByTimeAsync(500);
+      cancellation.cancel();
+      await expect(result).resolves.toEqual({ status: 'cancelled' });
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(getJob).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('uses the Web file, period and selection labels', () => {
     expect(buildExportFileName('schedule', '2026-08')).toBe('schedule-export-2026-08.csv');
     expect(getExportPeriodLabel('2026-08')).toBe('2026年8月');

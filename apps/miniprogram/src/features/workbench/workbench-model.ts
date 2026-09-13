@@ -163,6 +163,19 @@ export interface WorkbenchViewModel {
   readonly weekPanels: readonly WorkbenchWeekPanel[];
 }
 
+export function mergeCalendarShiftTypes(
+  activeCalendar: Pick<CalendarReadModel, 'shiftTypes'>,
+  calendars: readonly Pick<CalendarReadModel, 'shiftTypes'>[],
+): CalendarReadModel['shiftTypes'] {
+  const merged = new Map(activeCalendar.shiftTypes.map((shiftType) => [shiftType.id, shiftType]));
+  for (const calendar of calendars) {
+    for (const shiftType of calendar.shiftTypes) {
+      if (!merged.has(shiftType.id)) merged.set(shiftType.id, shiftType);
+    }
+  }
+  return [...merged.values()];
+}
+
 export interface WorkbenchWeekShiftGroup {
   readonly textColor: string;
   readonly key: string;
@@ -505,7 +518,7 @@ function createMonthCells(
           ? ''
           : firstAssignment.shiftTypeAbbreviation,
       shiftBadgeStyle:
-        firstAssignment === undefined
+        firstAssignment === undefined || allDayShiftTypeIds.has(firstAssignment.shiftTypeId)
           ? ''
           : `color:${firstAssignment.shiftTypeTextColor};background:${firstAssignment.shiftTypeColor}`,
       ariaLabel: state.length > 0 ? `${cell.businessDate}，${state}` : cell.businessDate,

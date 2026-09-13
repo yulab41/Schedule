@@ -35,7 +35,7 @@ describe('Mini Program deterministic toolchain guards', () => {
     ).toThrow(/duplicate routes/u);
   });
 
-  it('keeps direct P9-only wrappers bundle-only while emitting the embedded notification component', () => {
+  it('keeps direct P9-only controllers bundle-only while emitting component wrappers', () => {
     const buildTools = readFileSync(new URL('./build-tools.mjs', import.meta.url), 'utf8');
 
     for (const panel of ['exports-panel', 'insights-dashboard-panel', 'visitor-access-panel']) {
@@ -43,7 +43,11 @@ describe('Mini Program deterministic toolchain guards', () => {
     }
     expect(buildTools).toContain('BUNDLED_ONLY_TYPESCRIPT_MODULES');
     expect(buildTools).toContain('`subpackages/insights/components/${panel}/controller.ts`');
-    expect(buildTools).toContain('`subpackages/insights/components/${panel}/index.ts`');
+    expect(buildTools).not.toContain("'subpackages/insights/components/exports-panel/index.ts'");
+    expect(buildTools).toContain(
+      "'subpackages/insights/components/insights-dashboard-panel/index.ts'",
+    );
+    expect(buildTools).toContain("'subpackages/insights/components/visitor-access-panel/index.ts'");
     expect(buildTools).toContain(
       "'subpackages/insights/components/notifications-panel/controller.ts'",
     );

@@ -74,6 +74,7 @@ import {
   formatMonthLabel,
   getAdjacentMonthSlot,
   getTodayBusinessDate,
+  mergeCalendarShiftTypes,
   type MonthSlot,
   type WorkbenchFilters,
   type WorkbenchViewModel,
@@ -245,8 +246,6 @@ interface WorkbenchPageInstance {
   _weekHeightCache?: Map<string, number>;
   _weekLayoutSignature: string;
   _weekLayoutHeight: number;
-  _weekLayoutMeasured: boolean;
-  _weekMeasureSerial: number;
   _calendarPreferenceSerial: number;
   _groupMonthShiftTypeId: string | null | undefined;
   _dutyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -464,10 +463,8 @@ Page({
   _businessDateTimer: undefined,
   _groupMonthShiftTypeId: undefined,
   _calendarPreferenceSerial: 0,
-  _weekMeasureSerial: 0,
   _weekLayoutSignature: '',
   _weekLayoutHeight: 112,
-  _weekLayoutMeasured: false,
   _dutyTimer: undefined,
 
   onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
@@ -1933,6 +1930,10 @@ function applyMonthWindow(
   page.calendar = {
     ...activeResult.calendar,
     assignments: loadedResults.flatMap((result) => result.calendar.assignments),
+    shiftTypes: mergeCalendarShiftTypes(
+      activeResult.calendar,
+      loadedResults.map((result) => result.calendar),
+    ),
   };
   page.holidays = mergeHolidays(loadedResults, activeResult.holidays.year);
   return true;
@@ -1948,7 +1949,6 @@ function setCalendarData(
   callback?: () => void,
 ): void {
   page.setData(patch, () => {
-    if (page.data.viewMode === 'week' && !page._weekLayoutMeasured) scheduleWeekMeasurement(page);
     callback?.();
   });
 }
@@ -1999,56 +1999,6 @@ async function loadCalendarPreferences(
         announcement: '群组默认班种暂未读取，月历人员暂不显示；可切换周历或列表查看。',
       });
   }
-}
-
-function scheduleWeekMeasurement(page: WorkbenchPageInstance): void {
-  const serial = ++page._weekMeasureSerial;
-  const signature = page._weekLayoutSignature;
-  const weekStart = page.data.weekStart;
-  const runtime = wx as unknown as {
-    nextTick?: (callback: () => void) => void;
-    createSelectorQuery?: () => {
-      in: (page: unknown) => {
-        selectAll: (selector: string) => {
-          boundingClientRect: (callback: (rects: readonly { height: number }[]) => void) => {
-            exec: () => void;
-          };
-        };
-      };
-    };
-  };
-  runtime.nextTick?.(() => {
-    if (!page.isVisible || page.data.viewMode !== 'week' || page._weekMeasureSerial !== serial)
-      return;
-    runtime
-      .createSelectorQuery?.()
-      .in(page)
-      .selectAll('.week-panel-current .week-day-content')
-      .boundingClientRect((rects) => {
-        if (
-          !page.isVisible ||
-          page.data.viewMode !== 'week' ||
-          page.data.weekStart !== weekStart ||
-          page._weekLayoutSignature !== signature ||
-          page._weekMeasureSerial !== serial ||
-          !Array.isArray(rects)
-        )
-          return;
-        const measuredRects = rects.filter(
-          (rect) => Number.isFinite(rect.height) && rect.height > 0,
-        );
-        if (measuredRects.length === 0) return;
-        const height = Math.ceil(Math.max(112, ...measuredRects.map((rect) => rect.height + 28)));
-        page._weekLayoutHeight = height;
-        page._weekLayoutMeasured = true;
-        page._weekHeightCache ??= new Map();
-        page._weekHeightCache.set(signature, height);
-        if (page._weekHeightCache.size > 24)
-          page._weekHeightCache.delete(page._weekHeightCache.keys().next().value!);
-        if (height !== page.data.weekGridHeight) page.setData({ weekGridHeight: height });
-      })
-      .exec();
-  });
 }
 
 function stopDutyRefresh(page: WorkbenchPageInstance): void {
@@ -2181,8 +2131,13 @@ function createViewPatch(
   if (weekSignature !== page._weekLayoutSignature) {
     page._weekLayoutSignature = weekSignature;
     const cached = page._weekHeightCache?.get(weekSignature);
-    page._weekLayoutMeasured = cached !== undefined;
     page._weekLayoutHeight = cached ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
+    if (cached === undefined) {
+      page._weekHeightCache ??= new Map();
+      page._weekHeightCache.set(weekSignature, page._weekLayoutHeight);
+      if (page._weekHeightCache.size > 24)
+        page._weekHeightCache.delete(page._weekHeightCache.keys().next().value!);
+    }
   }
   const logicalMonthPanelHeights = view.monthPanels.map((panel) => (panel.cells.length / 7) * 62);
   const monthRing = createMonthRing(
@@ -2642,7 +2597,6 @@ function resetCalendarContext(page: WorkbenchPageInstance): void {
   page._weekLayoutSignature = '';
   page._weekHeightCache?.clear();
   page._groupMonthShiftTypeId = undefined;
-  page._weekMeasureSerial += 1;
   page._calendarPreferenceSerial += 1;
   stopDutyRefresh(page);
   page.calendar = undefined;

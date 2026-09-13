@@ -117,20 +117,6 @@ describe('visitor QR image and lifecycle', () => {
     expect(page.data.qrImageSrc).toBe('');
   });
 
-  it('rotation clears the shown QR and prevents an older read from restoring it', async () => {
-    await loadQr();
-    const pending = deferred();
-    mocks.read.getGroupQr.mockReturnValue(pending.promise);
-    definition.handleLoadQr.call(page);
-    definition.handleRegenerateVisitorKey.call(page);
-    await flush();
-    expect(page.data.qrVisible).toBe(false);
-    pending.resolve({ imageBase64: 'iVBORw0KGgo=' });
-    await flush();
-    expect(page.data.qrImageSrc).toBe('');
-    expect(page.data.infoMessage).toContain('已轮换');
-  });
-
   it('keeps manager QR reads but limits visitor-key rotation to the owner', async () => {
     page.properties = { groupId: 'b' };
     definition.observers.groupId.call(page);

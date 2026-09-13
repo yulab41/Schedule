@@ -17,6 +17,7 @@ export type MiniTelemetryPage =
   | 'manual-schedule'
   | 'backfill'
   | 'group-settings'
+  | 'exports'
   | 'unknown';
 
 export type MiniTelemetryDeviceTier = 'low' | 'medium' | 'high' | 'unknown';
@@ -268,6 +269,7 @@ export function resolveTelemetryPage(route: string): MiniTelemetryPage {
   if (route === 'subpackages/scheduling/pages/manual/index') return 'manual-schedule';
   if (route === 'subpackages/scheduling/pages/backfill/index') return 'backfill';
   if (route === 'subpackages/organization/pages/group-settings/index') return 'group-settings';
+  if (route === 'subpackages/insights/pages/exports/index') return 'exports';
   return 'unknown';
 }
 

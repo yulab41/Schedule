@@ -143,7 +143,7 @@ describe('P8-D native invite and visitor controller', () => {
     expect(page.data.qrImageSrc).toBe('data:image/png;base64,iVBORw0KGgo=');
 
     definition.handleRegenerateVisitorKey.call(page);
-    await vi.waitFor(() => expect(page.data.visitorMessage).toContain('访客码已轮换'));
+    await vi.waitFor(() => expect(page.data.visitorMessage).toContain('二维码已读取'));
     const regenerate = requests.find((candidate) => candidate.url.endsWith('/visitor-key'));
     expect(regenerate?.header['Idempotency-Key']).toBe(regenerate?.data.operationId);
     expect(regenerate?.data.expectedVersion).toBe(3);

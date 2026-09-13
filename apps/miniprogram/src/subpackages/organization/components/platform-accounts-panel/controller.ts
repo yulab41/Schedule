@@ -21,6 +21,10 @@ import {
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+} from '../../../../platform/info-message-lifetime.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -47,6 +51,8 @@ interface AccountCardView {
 interface PlatformAccountsPageData {
   readonly state: 'error' | 'loading' | 'ready';
   readonly errorMessage: string;
+  readonly infoMessage: string;
+  readonly infoTone: 'success' | 'info' | 'error';
   readonly managementError: string;
   readonly managementInfo: string;
   readonly managementState: 'error' | 'loading' | 'ready';
@@ -82,6 +88,8 @@ interface PlatformAccountsPageInstance {
   _accounts: readonly PlatformAdminUserAccount[];
   _selectedAccount: PlatformAdminUserAccount | undefined;
   _operationIds: Map<string, string>;
+  __infoMessageTimer?: unknown;
+  __infoMessageToken?: object;
   setData(patch: Partial<PlatformAccountsPageData>, callback?: () => void): void;
 }
 
@@ -103,6 +111,8 @@ export function createPlatformAccountsPanelControllerDefinition() {
     data: {
       state: 'loading',
       errorMessage: '',
+      infoMessage: '',
+      infoTone: 'info',
       managementError: '',
       managementInfo: '',
       managementState: 'loading',
@@ -148,6 +158,7 @@ export function createPlatformAccountsPanelControllerDefinition() {
       this.setData({ newPasswordDraft: '', passwordVisible: false });
     },
     handleDispose(this: PlatformAccountsPageInstance): void {
+      clearInfoMessageTimer(this);
       this._disposed = true;
       this._passwordOperationId = undefined;
       this._operationIds?.clear();
@@ -186,8 +197,8 @@ export function createPlatformAccountsPanelControllerDefinition() {
         usernameDraft: account.username ?? '',
         bindingUrl: '',
         bindingExpiresAt: '',
-        managementError: '',
       });
+      clearManagementFeedback(this);
     },
 
     handleCloseEditor(this: PlatformAccountsPageInstance): void {
@@ -254,6 +265,7 @@ function applyPanelLayout(page: PlatformAccountsPageInstance): void {
 
 async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {
   initializeRuntimeState(page);
+  clearManagementFeedback(page);
   page.setData({
     state: 'loading',
     errorMessage: '',
@@ -339,11 +351,11 @@ async function saveUsername(page: PlatformAccountsPageInstance): Promise<void> {
   const account = page._selectedAccount;
   const username = page.data.usernameDraft.trim();
   if (account === undefined || username.length === 0) {
-    page.setData({ managementError: '请输入用户名。', managementState: 'error' });
+    showManagementFeedback(page, '请输入用户名。', 'error', { managementState: 'error' });
     return;
   }
   const key = `password-identity:${account.id}:${account.authVersion}:${username}`;
-  page.setData({ managementError: '', managementInfo: '', managementState: 'loading' });
+  clearManagementFeedback(page, { managementState: 'loading' });
   try {
     const result = await page._platformIdentityWriteClient.assignPasswordIdentity(account.id, {
       expectedAuthVersion: account.authVersion,
@@ -358,16 +370,18 @@ async function saveUsername(page: PlatformAccountsPageInstance): Promise<void> {
       hasPassword: result.passwordConfigured,
       username: result.username,
     };
-    page.setData({
-      managementInfo: '用户名已保存；用户可继续完成密码证明。',
-      managementState: 'ready',
-    });
     await loadAccounts(page);
+    if (!page._disposed)
+      showManagementFeedback(page, '用户名已保存；用户可继续完成密码证明。', 'success', {
+        managementState: 'ready',
+      });
   } catch (error) {
-    page.setData({
-      managementError: `${toUserMessage(error, '用户名没有保存，请稍后重试。')} 可保持当前输入重试。`,
-      managementState: 'error',
-    });
+    showManagementFeedback(
+      page,
+      `${toUserMessage(error, '用户名没有保存，请稍后重试。')} 可保持当前输入重试。`,
+      'error',
+      { managementState: 'error' },
+    );
   }
 }
 
@@ -376,9 +390,7 @@ async function generateBinding(page: PlatformAccountsPageInstance): Promise<void
   const account = page._selectedAccount;
   if (account === undefined) return;
   const key = `wechat-binding-link:${account.id}:${account.authVersion}`;
-  page.setData({
-    managementError: '',
-    managementInfo: '',
+  clearManagementFeedback(page, {
     managementState: 'loading',
     bindingUrl: '',
   });
@@ -388,17 +400,17 @@ async function generateBinding(page: PlatformAccountsPageInstance): Promise<void
       operationId: resolveOperationId(page, key),
     });
     page._operationIds.delete(key);
-    page.setData({
-      bindingUrl: result.urlLink,
-      bindingExpiresAt: formatDate(result.expiresAt),
-      managementInfo: '绑定链接已生成，仅在当前页面内存中展示。',
+    page.setData({ bindingUrl: result.urlLink, bindingExpiresAt: formatDate(result.expiresAt) });
+    showManagementFeedback(page, '绑定链接已生成，仅在当前页面内存中展示。', 'success', {
       managementState: 'ready',
     });
   } catch (error) {
-    page.setData({
-      managementError: `${toUserMessage(error, '绑定链接没有生成，请稍后重试。')} 可保持当前账号重试。`,
-      managementState: 'error',
-    });
+    showManagementFeedback(
+      page,
+      `${toUserMessage(error, '绑定链接没有生成，请稍后重试。')} 可保持当前账号重试。`,
+      'error',
+      { managementState: 'error' },
+    );
   }
 }
 
@@ -407,10 +419,12 @@ async function ensureManage(page: PlatformAccountsPageInstance): Promise<boolean
     await requireClientCapability('organization');
     return page.data.canManage;
   } catch (error) {
-    page.setData({
-      managementError: error instanceof Error ? error.message : '组织管理能力暂未开放。',
-      managementState: 'error',
-    });
+    showManagementFeedback(
+      page,
+      error instanceof Error ? error.message : '组织管理能力暂未开放。',
+      'error',
+      { managementState: 'error' },
+    );
     return false;
   }
 }
@@ -480,7 +494,7 @@ async function saveProfile(page: PlatformAccountsPageInstance): Promise<void> {
     mobilePhone: page.data.mobilePhoneDraft.trim() || null,
   };
   const key = 'profile:' + account.id + ':' + JSON.stringify(payload);
-  page.setData({ managementState: 'loading', managementError: '', managementInfo: '' });
+  clearManagementFeedback(page, { managementState: 'loading' });
   try {
     await page._accountClient.updateProfile(account.id, {
       ...payload,
@@ -488,20 +502,19 @@ async function saveProfile(page: PlatformAccountsPageInstance): Promise<void> {
     });
     page._operationIds.delete(key);
     if (page._disposed) return;
-    page.setData({
-      managementState: 'ready',
-      managementInfo: '姓名与手机号已保存，手机号已同步至所有群组。',
-    });
     await loadAccounts(page);
+    if (!page._disposed)
+      showManagementFeedback(page, '姓名与手机号已保存，手机号已同步至所有群组。', 'success', {
+        managementState: 'ready',
+      });
   } catch (error) {
     if (error instanceof ClientCoreError && error.status === 401) {
       returnToLogin(page);
       return;
     }
     if (!page._disposed)
-      page.setData({
+      showManagementFeedback(page, toUserMessage(error, '资料没有保存，请刷新后重试。'), 'error', {
         managementState: 'error',
-        managementError: toUserMessage(error, '资料没有保存，请刷新后重试。'),
       });
   }
 }
@@ -516,40 +529,70 @@ async function savePassword(page: PlatformAccountsPageInstance): Promise<void> {
     expectedAuthVersion: account.authVersion,
     newPassword: page.data.newPasswordDraft,
   };
-  page.setData({ managementState: 'loading', managementError: '', managementInfo: '' });
+  clearManagementFeedback(page, { managementState: 'loading' });
   try {
     await page._accountClient.resetPassword(account.id, request);
     page._passwordOperationId = undefined;
     if (page._disposed) return;
-    page.setData({
-      managementState: 'ready',
-      managementInfo: '新密码已保存，该账号的旧登录已失效。',
-      newPasswordDraft: '',
-      passwordVisible: false,
-    });
+    page.setData({ newPasswordDraft: '', passwordVisible: false });
     if (account.id === getStoredWechatProfile()?.id) {
       returnToLogin(page);
       return;
     }
     await loadAccounts(page);
+    if (!page._disposed)
+      showManagementFeedback(page, '新密码已保存，该账号的旧登录已失效。', 'success', {
+        managementState: 'ready',
+      });
   } catch (error) {
     if (error instanceof ClientCoreError && error.status === 401) {
       returnToLogin(page);
       return;
     }
     if (!page._disposed)
-      page.setData({
+      showManagementFeedback(page, toUserMessage(error, '密码没有保存，请刷新后重试。'), 'error', {
         managementState: 'error',
-        managementError: toUserMessage(error, '密码没有保存，请刷新后重试。'),
       });
   }
 }
 
 function returnToLogin(page: PlatformAccountsPageInstance): void {
+  clearInfoMessageTimer(page);
   clearWechatSession(true);
   page._accounts = [];
   page._selectedAccount = undefined;
   page._passwordOperationId = undefined;
   page.setData({ editorOpen: false, accounts: [], newPasswordDraft: '', passwordVisible: false });
   wx.reLaunch({ url: '/pages/login/index' });
+}
+
+function clearManagementFeedback(
+  page: PlatformAccountsPageInstance,
+  patch: Partial<PlatformAccountsPageData> = {},
+): void {
+  clearInfoMessageTimer(page);
+  page.setData({
+    ...patch,
+    infoMessage: '',
+    managementError: '',
+    managementInfo: '',
+  });
+}
+
+function showManagementFeedback(
+  page: PlatformAccountsPageInstance,
+  message: string,
+  tone: 'success' | 'info' | 'error',
+  patch: Partial<PlatformAccountsPageData> = {},
+): void {
+  if (page._disposed) return;
+  clearInfoMessageTimer(page);
+  page.setData({
+    ...patch,
+    infoMessage: message,
+    infoTone: tone,
+    managementError: tone === 'error' ? message : '',
+    managementInfo: tone === 'error' ? '' : message,
+  });
+  scheduleInfoMessageExpiry(page, message, () => !page._disposed);
 }

@@ -11,9 +11,9 @@ const diagnosticBoundaries = [
   ['exports', 'exports-panel'],
 ];
 const directPageShells = [
+  ['exports', 'exports-panel', 'createExportsPanelControllerDefinition'],
   ['visitor-access', 'visitor-access-panel', 'createVisitorAccessPanelControllerDefinition'],
   ['insights', 'insights-dashboard-panel', 'createInsightsDashboardPanelControllerDefinition'],
-  ['exports', 'exports-panel', 'createExportsPanelControllerDefinition'],
   ['notifications', 'notifications-panel', 'createNotificationsPanelControllerDefinition'],
   ['notification-settings', 'notifications-panel', 'createNotificationsPanelControllerDefinition'],
 ];
@@ -45,7 +45,9 @@ describe('P9 native page shells', () => {
         'utf8',
       );
 
-      expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
+      if (pageName === 'exports')
+        expect(pageSource).toContain("recordExportRenderStage('page-load')");
+      else expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
       expect(controllerSource).toContain(
         `recordMiniTelemetryBoundary('${pageName}:component-attached')`,
       );
@@ -74,9 +76,16 @@ describe('P9 native page shells', () => {
           'ui-switch': '/components/ui/ui-switch/index',
         });
       }
-      expect(template.trim()).toBe(
-        `<include src="../../components/${componentName}/index.wxml" />`,
-      );
+      if (pageName === 'exports') {
+        expect(template).not.toContain('panelReady');
+        expect(template).toContain(
+          `<include src="../../components/${componentName}/index.wxml" />`,
+        );
+      } else {
+        expect(template.trim()).toBe(
+          `<include src="../../components/${componentName}/index.wxml" />`,
+        );
+      }
       expect(styles).toMatch(
         new RegExp(
           `@import\\s+['"]\\.\\.\\/\\.\\.\\/components\\/${componentName}\\/index\\.wxss['"];`,
@@ -85,4 +94,17 @@ describe('P9 native page shells', () => {
       );
     },
   );
+
+  it('keeps exports on one Page lifecycle without delayed component injection', () => {
+    const pageRoot = path.join(appRoot, 'src', 'subpackages', 'insights', 'pages', 'exports');
+    const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
+    const source = readFileSync(path.join(pageRoot, 'index.ts'), 'utf8');
+    const template = readFileSync(path.join(pageRoot, 'index.wxml'), 'utf8');
+
+    expect(config.usingComponents).not.toHaveProperty('exports-panel');
+    expect(template).not.toContain('<exports-panel');
+    expect(template).toContain('<include src="../../components/exports-panel/index.wxml" />');
+    expect(source).not.toContain('setTimeout');
+    expect(source).toContain('createExportsPanelControllerDefinition');
+  });
 });

@@ -88,6 +88,7 @@ interface PerformanceView extends RuntimeDiagnosticPerformance {
   readonly metricLabel: string;
   readonly normalText: string;
   readonly screenshot: string;
+  readonly timeLabel: string;
 }
 
 interface DirectorySearchView extends RuntimeDirectorySearchDiagnostic {
@@ -111,6 +112,7 @@ interface TestToolsPageData extends Readonly<typeof wechatDiagnosticData> {
   readonly networkType: string;
   readonly nextLaunchDirectoryDiagnosticArmed: boolean;
   readonly pageReadyMs: number;
+  readonly exportBoundaryRows: readonly PerformanceView[];
   readonly performanceRows: readonly PerformanceView[];
   readonly requestRows: readonly RequestView[];
   readonly scenarios: readonly DiagnosticScenario[];
@@ -309,6 +311,7 @@ Page({
     networkType: '读取中',
     nextLaunchDirectoryDiagnosticArmed: false,
     pageReadyMs: 0,
+    exportBoundaryRows: [],
     performanceRows: [],
     requestRows: [],
     scenarios: scenarioDefaults,
@@ -422,6 +425,11 @@ Page({
 
   handleOpenWorkspace(): void {
     wx.reLaunch({ url: '/pages/workbench/index' });
+  },
+
+  handleOpenExportColdEntry(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    wx.navigateTo({ url: '/subpackages/insights/pages/exports/index' });
   },
 
   handleOpenGestureProbe(this: TestToolsPageInstance): void {
@@ -811,6 +819,9 @@ function refreshRuntimeDiagnostics(page: TestToolsPageInstance): void {
     directoryRecording: snapshot.directorySearchRecording,
     directorySearchRows: [...snapshot.directorySearches].reverse().map(toDirectorySearchView),
     errorRows: [...snapshot.errors].reverse().map(toErrorView),
+    exportBoundaryRows: [...snapshot.performance]
+      .filter((entry) => entry.page === 'exports' && isExportStartupStage(entry.metric))
+      .map(toPerformanceView),
     generatedAt: formatTimestamp(Date.now()),
     performanceRows: [...snapshot.performance].reverse().map(toPerformanceView),
     requestRows: [...snapshot.requests].reverse().map(toRequestView),
@@ -871,7 +882,24 @@ function toPerformanceView(entry: RuntimeDiagnosticPerformance, index: number): 
     metricLabel: `${entry.page} · ${entry.metric}`,
     normalText: '这是单次辅助计时，没有经过手机多轮统计，不能单独判断卡顿。',
     screenshot: '卡顿时截本条并录制对应操作。',
+    timeLabel: formatTimestamp(entry.recordedAt),
   };
+}
+
+const exportStartupStages = new Set([
+  'module-registered',
+  'page-load',
+  'page-show',
+  'page-ready',
+  'options-start',
+  'options-ready',
+  'options-error',
+  'options-timeout',
+  'page-unload',
+]);
+
+function isExportStartupStage(metric: string): boolean {
+  return exportStartupStages.has(metric);
 }
 
 function createCheckReport(data: TestToolsPageData): string {
@@ -914,6 +942,9 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
       : data.performanceRows
           .slice(0, simplified ? 6 : 12)
           .map((item) => `${item.metricLabel}=${item.durationMs}ms`)),
+    '',
+    '[导出页启动边界]',
+    ...createExportBoundaryReportLines(data.exportBoundaryRows),
     '',
     '[通讯录性能诊断]',
     `记录状态=${data.directoryRecording ? '记录中' : '已停止'}`,
@@ -962,6 +993,30 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
     );
   }
   return lines.join('\n');
+}
+
+function createExportBoundaryReportLines(rows: readonly PerformanceView[]): string[] {
+  if (rows.length === 0) {
+    return [
+      '暂无导出页边界记录；请从工作台进入“更多 → 导出排班”，返回本页后点刷新。',
+      '判读：没有 module-registered 重点检查页面资源/静态依赖；有 module-registered 但没有 page-load 重点检查原生页面装载。',
+    ];
+  }
+  const stages = rows.map((item) => item.metric);
+  const conclusion = stages.includes('options-ready')
+    ? '导出选项已加载完成；该记录不代表原生绘制或文件导出已完成。'
+    : stages.includes('options-start')
+      ? 'Page 已开始加载导出选项，请结合 options-error/options-timeout 与网络结果判断。'
+      : stages.includes('page-load')
+        ? 'Page 已进入 onLoad，尚未加载导出选项；无群组参数冷入口会显示缺少群组提示。'
+        : stages.includes('module-registered')
+          ? '页面模块已注册但没有 onLoad，重点检查原生页面装载和 WXML 边界。'
+          : '没有完成 Page 模块注册，重点检查页面 JS 静态依赖或页面资源装载。';
+  return [
+    `记录=${rows.length} 条（按时间正序）`,
+    `阶段=${rows.map((item) => `${item.metric}@${item.timeLabel}`).join(' → ')}`,
+    `判读=${conclusion}`,
+  ];
 }
 
 function createDirectorySearchReport(rows: readonly DirectorySearchView[]): string {

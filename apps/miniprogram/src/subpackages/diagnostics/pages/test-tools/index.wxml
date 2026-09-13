@@ -268,6 +268,28 @@
         </view>
       </view>
       <view class="diagnostic-card compact-list">
+        <view class="export-boundary-card">
+          <view class="directory-diagnostic-heading">
+            <view>
+              <text class="directory-diagnostic-title">导出页启动边界</text>
+              <text class="directory-diagnostic-state">只记录固定阶段，不记录原始错误或业务参数</text>
+            </view>
+            <text>用于区分页面未注册、未进入 onLoad、子组件未挂载和业务请求失败。</text>
+          </view>
+          <view wx:if="{{exportBoundaryRows.length === 0}}" class="empty-diagnostic"
+            >暂无导出页边界记录；操作导出页后回来点“刷新”。</view
+          >
+          <view wx:for="{{exportBoundaryRows}}" wx:key="key" class="compact-item">
+            <text>{{item.metricLabel}}</text><text>{{item.timeLabel}}</text>
+            <text>应截图：版本条、导出页和本条阶段记录。</text>
+          </view>
+          <text class="directory-next-launch-state"
+            >启动阶段：module-registered → page-load → options-start → options-ready；无群组参数冷入口停留在提示页属于预期行为。</text
+          >
+          <view class="diagnostic-action is-primary" aria-role="button" bindtap="handleOpenExportColdEntry"
+            >打开导出页冷入口（无群组参数）</view
+          >
+        </view>
         <view wx:if="{{performanceRows.length === 0}}" class="empty-diagnostic"
           >暂时没有性能记录。打开并操作业务页面后再回来刷新。</view
         >

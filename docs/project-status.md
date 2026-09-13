@@ -1,14 +1,30 @@
 # Project Status
 
-## 当前批次：Feedback16 已实现，待体验版上传与追加放行
+## 当前批次：Feedback20 正在整合最新体验版血缘
 
-- 基线6ede7d33，独占general-5复用依赖、无安装。CSV 真机错误已定位为微信 `downloadFile` 合法域名配置，不是账号权限、CSV内容或API代码；production URL 回归锁定 `https://hosp.schedule.eylinhome.top/api/.../download`，外部平台配置待核对。
-- 匿名访客三视图现在复用仅驻内存的群组/月窗/节假日，合并重复请求，只有当前月缺失才全页加载；hide/unload/重试/访客码失效清空全部访客内存。成员页、共享组件、API/DB未改。
-- 访客页独有“返回登录”描边动效按钮位于视图切换和筛选之间；二维码删除相册按钮/权限/临时文件链路，改为图片长按保存或转发。
-- RED3失败后GREEN定向51通过；`pnpm verify`通过：Mini1154/16跳过、根1252/439跳过、依赖保护81。icon parity、Mini verify、Worklet2/2、确定性、包体及smoke:check-core通过；主包1708198/总4545686字节，较上一检查点减少661/4735。
-- 详情见docs/audit/feedback16.md。检查点消息：`fix(miniprogram): streamline visitor calendar and QR access`。下一步：提交推送最终代码检查点，按用户本次授权动态分配并上传体验版、仅追加放行且保留旧版；不部署API/Web、不改数据库、不提审/正式发布。停止条件为上传/放行/验证结果记录完成，小米14同版本原生验收仍待用户。
+- 原始访客/二维码检查点325f82ea已推送；RED3、定向51、完整verify与Mini最终门禁通过。详情docs/audit/feedback20-visitor-export.md。
+- 上传前发现最新累计体验版121/960e11c1不在325f82ea祖先链，`.122`在微信调用前被门禁拒绝且不复用。现已合并121：保留其导出真实上传转换修复、二维码点击预览/轮换自动刷新，并按本次要求删除相册按钮/API；访客月窗和返回登录保持。
+- 合并后完整verify通过：Mini1159/16跳过、根1254/439跳过、依赖保护81；Mini verify/Worklet2/2/确定性/包体/smoke:check-core通过，主包1709746/总4549449字节。检查点消息：`merge: preserve latest trial before visitor fixes`。
+- 下一步：提交推送新的累计clean SHA，再动态分配新版本上传并仅追加放行。停止条件为上传/allowlist/完整verifier记录完成；不部署API/Web、不改数据库、不提审或正式发布，小米14原生待用户。
 
-## 当前批次：Feedback15 已部署并放行112，待小米14复核
+## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
+
+- 基线3d83d236（体验版120源码c2dbe4c3）；独占general-5，REUSE_ONLY，未安装依赖。
+- 根因：106已包含的9bae5beb在共享CSV轮询循环中增加捕获remaining的Promise闭包，
+  微信SDK ES6转换生成regeneratorValues，但SDK既未识别也未附带此模块，导致页面载入即失败。
+- 本轮运行真实miniprogram-ci转换及仅含其自带helper的VM，旧产物缺模块失败，新产物注册和初始化通过。
+  详细引入点、语义审计与旧测试盲区见docs/audit/feedback19-export-runtime.md。
+- 修复等待函数作用域，保留轮询/超时/取消语义；导出恢复单一Page及静态模板，
+  保留data群组上下文。删除临时组件wrapper、重复加载壳/样式、挂载计时器和未调用测量代码。
+- 替换临时结构测试为上传转换后Page运行测试；Mini verify增加SDK helper可打包性门禁。
+- 验证：Mini全量168文件1191项通过、2文件16项跳过；共享presentation-core32项通过。
+  Mini verify/Worklet2/2/包体4,551,833字节/确定性、typecheck、lint、format、icon parity、
+  smoke:check-core通过。既有主包和矩阵内部预警保留；未控制微信开发者工具。
+- 检查点：fix(miniprogram): repair export upload transform and remove startup scaffolding。
+- 下一任务：交付此修复的干净体验版，再由小米14验证真实导出入口及CSV下载/发送。
+  尚无修复后同SHA真机证据，不将Node执行等同于原生通过。生产应用与数据库不在本轮修复范围。
+
+## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
 - 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情docs/audit/feedback15.md。
 - 当前周独立测量/点选局部更新、before折叠、岗位改名接口与弹窗、月历顺延/62px、三视图补班、单按钮两步授权及日期文字盒居中已实现。
