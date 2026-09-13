@@ -1,10 +1,10 @@
 # Project Status
 
-## 当前批次：Feedback24 已实现，待提交推送
+## 当前批次：Feedback24 已提交推送，待体验版与API部署授权
 
 - 小米14体验版126确认：导出成员选择器弹层被表单卡片裁剪，文件类型仍为原生picker；护士匿名访客缺少成员护士预设/群组月历班种偏好，周/列表swiper归中使用260ms造成反向跳动，启动时先渲染持久缓存造成旧班种闪现。
 - 修复限定在导出宿主、匿名访客和独立安全显示设置端点：文件类型复用`ui-selector`，卡片允许弹层显示；旧访客日历响应不加字段。访客从群组设置读取默认视图（当前护士周/医生月）和月历班种，接入护士排序/状态/折叠、62px月格、compact详情和0ms归中提交锁/队列，持久缓存只作网络失败兜底。成员日历页面未修改。
-- RED回归旧代码4/4失败；定向Mini/上传转换54项通过。最终`pnpm verify`通过（Mini 1168/16跳过、根1258/441跳过），Mini production verify主包1726528、总包4574757字节，Worklet 2/2及确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。本地warm槽无`.env`，MySQL访客集成未运行。独占general-3，REUSE_ONLY且未安装依赖；逐行diff和成员页面零修改检查通过，下一步提交并快进推送，停止于待体验版/生产授权。详情`docs/audit/feedback24.md`。
+- RED回归旧代码4/4失败；定向Mini/上传转换54项通过。最终`pnpm verify`通过（Mini 1168/16跳过、根1258/441跳过），Mini production verify主包1726528、总包4574757字节，Worklet 2/2及确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。本地warm槽无`.env`，MySQL访客集成未运行。独占general-3，REUSE_ONLY且未安装依赖；逐行diff和成员页面零修改检查通过。应用检查点`79438d7b`已快进推送`origin/main`；当前停止于待体验版上传及API部署的本次明确授权。详情`docs/audit/feedback24.md`。
 
 ## 当前批次：Feedback23 已部署并放行126，待小米14复核
 
