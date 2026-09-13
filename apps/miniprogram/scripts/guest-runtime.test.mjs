@@ -53,6 +53,12 @@ describe('anonymous native visitor calendar', () => {
           };
         else if (/\/guest\/groups\/[^/]+\/calendar\/shifts\/[^/]+\/events\?/.test(options.url))
           data = { events: [] };
+        else if (/\/guest\/groups\/[^/]+\/calendar\/display-settings\?/.test(options.url))
+          data = {
+            groupId,
+            groupDefaultMonthShiftTypeId: null,
+            groupDefaultView: 'month',
+          };
         else if (/\/guest\/groups\/[^/]+\/calendar\?/.test(options.url)) {
           const calendar = structuredClone(calendarApiGoldenResponse);
           calendar.groupId = groupId;
@@ -179,6 +185,8 @@ describe('anonymous native visitor calendar', () => {
     instance.data.businessMonth = '2026-12';
     instance.data.selectedDate = '2026-12-31';
     definition.handleListMonthChange.call(instance, { currentTarget: { dataset: { delta: '1' } } });
+    expect(instance.data.listSwiperCurrent).toBe(2);
+    definition.handleListSwiperFinish.call(instance, { detail: { current: 2 } });
     await vi.waitFor(() => expect(instance.data.businessMonth).toBe('2027-01'));
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
     for (const view of ['week', 'list', 'month']) {

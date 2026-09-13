@@ -21,6 +21,9 @@ const guestCalendarQuerySchema = z
     visitorKey: z.string().regex(/^[0-9a-f]{32}$/i),
   })
   .strict();
+const guestDisplaySettingsQuerySchema = z
+  .object({ visitorKey: z.string().regex(/^[0-9a-f]{32}$/i) })
+  .strict();
 
 const shiftEventQuerySchema = z
   .object({
@@ -112,6 +115,17 @@ export function registerCalendarRoutes(
     async (request, reply) => {
       const input = parseOrThrow(visitorResolveRequestSchema, request.body);
       return reply.code(200).send(await visitorAccessLogService.resolveGroup(input.visitorKey));
+    },
+  );
+
+  app.get(
+    '/guest/groups/:groupId/calendar/display-settings',
+    { preHandler: publicMiniGuestGuard },
+    async (request) => {
+      const groupId = parseGroupId(request);
+      const input = parseOrThrow(guestDisplaySettingsQuerySchema, request.query);
+      const resolved = await visitorAccessLogService.resolveGroup(input.visitorKey, groupId);
+      return calendarQuery.readPublicGuestDisplaySettings(resolved.groupId);
     },
   );
 

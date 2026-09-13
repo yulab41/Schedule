@@ -104,6 +104,26 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(groupCodeCalendar.statusCode).toBe(404);
   });
 
+  it('returns only display-safe group calendar settings for a valid visitor key', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    const response = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar/display-settings?visitorKey=${visitorKey}`,
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json()).toEqual({
+      groupId,
+      groupDefaultMonthShiftTypeId: null,
+      groupDefaultView: 'month',
+    });
+
+    const denied = await app.inject({
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar/display-settings?visitorKey=${'f'.repeat(32)}`,
+    });
+    expect(denied.statusCode).toBe(404);
+  });
+
   it('regenerates the visitor key only for the owner and invalidates the old key', async () => {
     const oldKey = await getVisitorKey(groupId);
     const expectedVersion = await getGroupVersion(groupId);

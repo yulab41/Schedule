@@ -7,6 +7,7 @@ import {
   createCalendarPreferencesClient,
   guestCalendarDisplaySettingsDecoder,
   guestCalendarDisplaySettingsEndpoint,
+  publicGuestCalendarDisplaySettingsEndpoint,
   createGuestCalendarDisplaySettingsClient,
 } from './calendar-preferences-client.js';
 import type { ClientTransport } from './endpoint.js';
@@ -52,10 +53,19 @@ describe('calendar preferences client boundary', () => {
     expect(guestCalendarDisplaySettingsEndpoint.path({ groupId: 'group /一' })).toBe(
       '/groups/group%20%2F%E4%B8%80/guest-calendar/display-settings',
     );
-    const request = vi.fn(async () => value);
+    const publicValue = { ...value, groupDefaultView: 'week' as const };
+    const request = vi.fn(async (endpoint) =>
+      endpoint === publicGuestCalendarDisplaySettingsEndpoint ? publicValue : value,
+    );
     const client = createGuestCalendarDisplaySettingsClient({ request } as ClientTransport);
     expect(await client.get(groupId)).toEqual(value);
     expect(request).toHaveBeenCalledWith(guestCalendarDisplaySettingsEndpoint, { groupId });
+    expect(await client.getPublic(groupId, 'a'.repeat(32))).toEqual(publicValue);
+    expect(publicGuestCalendarDisplaySettingsEndpoint.auth).toBe('public');
+    expect(request).toHaveBeenCalledWith(publicGuestCalendarDisplaySettingsEndpoint, {
+      groupId,
+      visitorKey: 'a'.repeat(32),
+    });
   });
   it('encodes all paths and keeps the three operations bearer protected', () => {
     expect(calendarPreferencesEndpoints.get.path({ groupId: 'group /一' })).toBe(

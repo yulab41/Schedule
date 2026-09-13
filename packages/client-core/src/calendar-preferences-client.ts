@@ -1,6 +1,7 @@
 import type {
   CalendarPreferences,
   GuestCalendarDisplaySettings,
+  PublicGuestCalendarDisplaySettings,
   UpdateGroupCalendarDefaults,
   UpdateMemberCalendarPreferences,
 } from '@schedule/contracts';
@@ -10,6 +11,9 @@ import type { CompactDecodeResult, CompactDecoder } from './json-decoder.js';
 
 interface GroupInput {
   readonly groupId: string;
+}
+interface PublicGuestInput extends GroupInput {
+  readonly visitorKey: string;
 }
 
 interface UpdateGroupDefaultsInput extends GroupInput {
@@ -57,13 +61,41 @@ export const guestCalendarDisplaySettingsEndpoint = /* @__PURE__ */ defineClient
   method: 'GET',
   path: ({ groupId }) => `${groupPath(groupId)}/guest-calendar/display-settings`,
 });
+export const publicGuestCalendarDisplaySettingsEndpoint = /* @__PURE__ */ defineClientEndpoint<
+  PublicGuestInput,
+  PublicGuestCalendarDisplaySettings
+>({
+  auth: 'public',
+  decoder: {
+    safeDecode(value): CompactDecodeResult<PublicGuestCalendarDisplaySettings> {
+      if (
+        !isRecord(value) ||
+        Object.keys(value).length !== 3 ||
+        !isUuid(value.groupId) ||
+        !isCalendarView(value.groupDefaultView) ||
+        (value.groupDefaultMonthShiftTypeId !== null && !isUuid(value.groupDefaultMonthShiftTypeId))
+      )
+        return { success: false };
+      return { success: true, data: value as unknown as PublicGuestCalendarDisplaySettings };
+    },
+  },
+  id: 'calendar.public-guest-display-settings',
+  method: 'GET',
+  path: ({ groupId, visitorKey }) =>
+    `/guest/groups/${encodeURIComponent(groupId)}/calendar/display-settings?visitorKey=${encodeURIComponent(visitorKey)}`,
+});
 export interface GuestCalendarDisplaySettingsClient {
   get(groupId: string): Promise<GuestCalendarDisplaySettings>;
+  getPublic(groupId: string, visitorKey: string): Promise<PublicGuestCalendarDisplaySettings>;
 }
 export function createGuestCalendarDisplaySettingsClient(
   transport: ClientTransport,
 ): GuestCalendarDisplaySettingsClient {
-  return { get: (groupId) => transport.request(guestCalendarDisplaySettingsEndpoint, { groupId }) };
+  return {
+    get: (groupId) => transport.request(guestCalendarDisplaySettingsEndpoint, { groupId }),
+    getPublic: (groupId, visitorKey) =>
+      transport.request(publicGuestCalendarDisplaySettingsEndpoint, { groupId, visitorKey }),
+  };
 }
 
 export const calendarPreferencesDecoder: CompactDecoder<CalendarPreferences> = {

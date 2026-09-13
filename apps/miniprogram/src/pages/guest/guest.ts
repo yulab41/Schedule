@@ -12,6 +12,7 @@ import {
   retargetSelectedDateToMonth,
 } from '@schedule/presentation-core';
 import { createRuntimeCalendarReadClient } from '../../platform/client-core-calendar.js';
+import { createRuntimeGuestCalendarDisplaySettingsClient } from '../../platform/client-core-calendar.js';
 import {
   reconcileDetailExpansion,
   toggleDetailExpansion,
@@ -20,6 +21,7 @@ import {
   reconcileShiftCardExpansion,
   toggleShiftCardExpansion,
 } from '../../features/workbench/shift-card-expansion.js';
+import { isNurseCalendarGroup } from '../../features/workbench/nurse-duty-state.js';
 import {
   createShiftEventCards,
   getShiftEventChangeChain,
@@ -49,6 +51,7 @@ type Tap = {
   readonly detail?: { readonly businessDate?: string };
 };
 const client = createRuntimeCalendarReadClient(() => undefined);
+const displaySettingsClient = createRuntimeGuestCalendarDisplaySettingsClient(() => undefined);
 function emptyView() {
   return {
     monthPanels: [] as WorkbenchViewModel['monthPanels'],
@@ -61,6 +64,7 @@ function initialData() {
   const today = getTodayBusinessDate();
   return {
     ...emptyView(),
+    compactEvents: false,
     shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []),
     detailExpansion: reconcileDetailExpansion(undefined, [], []),
     announcement: '',
@@ -129,6 +133,12 @@ interface GuestPage {
   monthReads: Map<string, Promise<CalendarReadModel>>;
   holidayReads: Map<number, Promise<HolidayReadModel>>;
   contextGeneration: number;
+  groupMonthShiftTypeId: string | null | undefined;
+  groupDefaultView: View | undefined;
+  displaySettingsRead: Promise<void> | undefined;
+  periodShiftActive: 'list' | 'week' | undefined;
+  periodShiftCommitPending: boolean;
+  periodShiftQueue: number;
   _weekLayoutHeight: number;
   _weekHeightCache?: Map<string, number>;
   setData(patch: Partial<Data>, callback?: () => void): void;
@@ -151,6 +161,12 @@ Page({
   monthReads: new Map(),
   holidayReads: new Map(),
   contextGeneration: 0,
+  groupMonthShiftTypeId: undefined,
+  groupDefaultView: undefined,
+  displaySettingsRead: undefined,
+  periodShiftActive: undefined,
+  periodShiftCommitPending: false,
+  periodShiftQueue: 0,
   _weekLayoutHeight: 112,
   visitorKey: undefined,
   calendar: undefined,
@@ -177,7 +193,7 @@ Page({
   },
   onShow(this: GuestPage): void {
     this.visible = true;
-    if (this.shown) void loadCalendar(this);
+    if (this.shown) void loadCalendar(this, true);
     this.shown = true;
   },
   onHide(this: GuestPage): void {
@@ -284,16 +300,24 @@ Page({
     else void loadCalendar(this);
   },
   handleWeekChange(this: GuestPage, event: Tap): void {
-    changePeriod(this, 'week', event.currentTarget.dataset['delta'] === '-1' ? -1 : 1);
+    startPeriodSwiper(this, 'week', event.currentTarget.dataset['delta'] === '-1' ? -1 : 1);
   },
   handleListMonthChange(this: GuestPage, event: Tap): void {
-    changePeriod(this, 'list', event.currentTarget.dataset['delta'] === '-1' ? -1 : 1);
+    startPeriodSwiper(this, 'list', event.currentTarget.dataset['delta'] === '-1' ? -1 : 1);
   },
   handleWeekSwiperFinish(this: GuestPage, event: { detail: { current: number } }): void {
-    if (event.detail.current !== 1) changePeriod(this, 'week', event.detail.current === 0 ? -1 : 1);
+    const delta = getSwiperDelta(event.detail.current);
+    if (delta === 0 || this.periodShiftCommitPending) return;
+    this.periodShiftActive = 'week';
+    this.periodShiftCommitPending = true;
+    commitPeriodShift(this, 'week', delta);
   },
   handleListSwiperFinish(this: GuestPage, event: { detail: { current: number } }): void {
-    if (event.detail.current !== 1) changePeriod(this, 'list', event.detail.current === 0 ? -1 : 1);
+    const delta = getSwiperDelta(event.detail.current);
+    if (delta === 0 || this.periodShiftCommitPending) return;
+    this.periodShiftActive = 'list';
+    this.periodShiftCommitPending = true;
+    commitPeriodShift(this, 'list', delta);
   },
   handleLocateToday(this: GuestPage): void {
     const today = getTodayBusinessDate();
@@ -379,20 +403,58 @@ function selectDate(page: GuestPage, date: string | undefined): void {
   page.setData({ selectedDate: date });
   renderCalendar(page);
 }
-function changePeriod(page: GuestPage, view: 'week' | 'list', delta: -1 | 1): void {
+function commitPeriodShift(page: GuestPage, view: 'week' | 'list', delta: -1 | 1): void {
   const weekStart = view === 'week' ? addWeeks(page.data.weekStart, delta) : page.data.weekStart;
   const month =
     view === 'week' ? weekStart.slice(0, 7) : addBusinessMonths(page.data.businessMonth, delta);
-  page.setData({
-    businessMonth: month,
-    weekStart,
-    selectedDate:
-      view === 'week' ? weekStart : retargetSelectedDateToMonth(page.data.selectedDate, month),
-    weekSwiperCurrent: 1,
-    listSwiperCurrent: 1,
-  });
+  const selectedDate =
+    view === 'week'
+      ? addWeeks(page.data.selectedDate, delta)
+      : retargetSelectedDateToMonth(page.data.selectedDate, month);
+  page.setData(
+    {
+      businessMonth: month,
+      weekStart,
+      selectedDate,
+      periodSwiperDuration: 0,
+      ...(view === 'week' ? { weekSwiperCurrent: 1 } : { listSwiperCurrent: 1 }),
+    },
+    () => {
+      applyCachedWindow(page, requestedMonths(page));
+      continuePeriodShift(page, view);
+    },
+  );
   page.monthRingSlot = 1;
-  void loadCalendar(page);
+}
+function getSwiperDelta(current: number): -1 | 0 | 1 {
+  return current === 0 ? -1 : current === 2 ? 1 : 0;
+}
+function startPeriodSwiper(page: GuestPage, view: 'week' | 'list', delta: -1 | 1): void {
+  const current = view === 'week' ? page.data.weekSwiperCurrent : page.data.listSwiperCurrent;
+  if (page.periodShiftActive !== undefined || current !== 1) {
+    page.periodShiftQueue = Math.max(-6, Math.min(6, page.periodShiftQueue + delta));
+    return;
+  }
+  page.periodShiftActive = view;
+  page.setData({
+    periodSwiperDuration: 260,
+    ...(view === 'week'
+      ? { weekSwiperCurrent: delta < 0 ? 0 : 2 }
+      : { listSwiperCurrent: delta < 0 ? 0 : 2 }),
+  });
+}
+function continuePeriodShift(page: GuestPage, view: 'week' | 'list'): void {
+  page.periodShiftActive = undefined;
+  page.periodShiftCommitPending = false;
+  const queued = page.periodShiftQueue;
+  if (queued === 0) {
+    page.setData({ periodSwiperDuration: 260 });
+    void loadCalendar(page);
+    return;
+  }
+  const delta: -1 | 1 = queued < 0 ? -1 : 1;
+  page.periodShiftQueue = queued - delta;
+  page.setData({ periodSwiperDuration: 260 }, () => startPeriodSwiper(page, view, delta));
 }
 function clearCalendar(page: GuestPage): void {
   clearEvents(page);
@@ -400,6 +462,8 @@ function clearCalendar(page: GuestPage): void {
   page.holidays = undefined;
   page.setData({
     ...emptyView(),
+    compactEvents: false,
+    shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []),
     state: 'loading',
     detailExpansion: reconcileDetailExpansion(undefined, [], []),
     errorMessage: '',
@@ -418,6 +482,12 @@ function resetGuestContext(page: GuestPage): void {
   clearCalendar(page);
   page.resolvedGroup = undefined;
   page.resolvingGroup = undefined;
+  page.groupMonthShiftTypeId = undefined;
+  page.groupDefaultView = undefined;
+  page.displaySettingsRead = undefined;
+  page.periodShiftActive = undefined;
+  page.periodShiftCommitPending = false;
+  page.periodShiftQueue = 0;
   page.monthResources.clear();
   page.holidayResources.clear();
   page.monthReads.clear();
@@ -432,12 +502,42 @@ function requestedMonths(page: GuestPage): readonly string[] {
   return page.data.viewMode === 'week'
     ? [
         ...new Set(
-          [-1, 0, 1].flatMap((delta) =>
+          [-2, -1, 0, 1, 2].flatMap((delta) =>
             getWeekBusinessMonths(addWeeks(page.data.weekStart, delta)),
           ),
         ),
       ]
-    : [addBusinessMonths(activeMonth, -1), activeMonth, addBusinessMonths(activeMonth, 1)];
+    : [-2, -1, 0, 1, 2].map((delta) => addBusinessMonths(activeMonth, delta));
+}
+function readDisplaySettings(
+  page: GuestPage,
+  groupId: string,
+  key: string,
+  refresh = false,
+): Promise<void> {
+  if (page.groupMonthShiftTypeId !== undefined && !refresh) return Promise.resolve();
+  if (page.displaySettingsRead) return page.displaySettingsRead;
+  const generation = page.contextGeneration;
+  const read = displaySettingsClient.getPublic(groupId, key).then((result) => {
+    if (result.groupId !== groupId) throw new Error('Invalid guest display settings context');
+    if (page.contextGeneration === generation) {
+      const previousDefault = page.groupDefaultView;
+      page.groupMonthShiftTypeId = result.groupDefaultMonthShiftTypeId;
+      page.groupDefaultView = result.groupDefaultView;
+      if (previousDefault === undefined || page.data.viewMode === previousDefault)
+        page.setData({ viewMode: result.groupDefaultView });
+    }
+  });
+  page.displaySettingsRead = read;
+  void read.then(
+    () => {
+      if (page.displaySettingsRead === read) page.displaySettingsRead = undefined;
+    },
+    () => {
+      if (page.displaySettingsRead === read) page.displaySettingsRead = undefined;
+    },
+  );
+  return read;
 }
 function applyCachedWindow(page: GuestPage, months: readonly string[]): boolean {
   const activeMonth =
@@ -526,7 +626,7 @@ function readHolidays(page: GuestPage, year: number): Promise<HolidayReadModel> 
   );
   return read;
 }
-async function loadCalendar(page: GuestPage): Promise<void> {
+async function loadCalendar(page: GuestPage, refreshDisplaySettings = false): Promise<void> {
   if (!page.visible) return;
   const serial = ++page.serial;
   const key = page.visitorKey;
@@ -535,12 +635,7 @@ async function loadCalendar(page: GuestPage): Promise<void> {
     page.setData({ state: 'error', errorMessage: '访客码无效，请向群管理员重新获取。' });
     return;
   }
-  const activeMonth =
-    page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
-  const months = requestedMonths(page);
-  if (!applyCachedWindow(page, months)) {
-    clearCalendar(page);
-  }
+  let months = requestedMonths(page);
   try {
     const group = await resolveGuest(page, key);
     if (!current(page, serial)) return;
@@ -549,8 +644,12 @@ async function loadCalendar(page: GuestPage): Promise<void> {
       const persisted = readGuestPublicCache(group.groupId);
       page.monthResources = persisted.months;
       page.holidayResources = persisted.holidays;
-      applyCachedWindow(page, months);
     }
+    await readDisplaySettings(page, group.groupId, key, refreshDisplaySettings);
+    if (!current(page, serial)) return;
+    const activeMonth =
+      page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+    months = requestedMonths(page);
     await Promise.all([
       readMonth(page, group.groupId, activeMonth, key, true),
       readHolidays(page, Number(activeMonth.slice(0, 4))),
@@ -614,6 +713,12 @@ function renderCalendar(page: GuestPage): void {
     page.data.businessMonth,
     page.data.weekStart,
     filters,
+    getTodayBusinessDate(),
+    {
+      nursePreset: isNurseCalendarGroup(page.data.currentGroupName),
+      effectiveMonthShiftTypeId: page.groupMonthShiftTypeId ?? null,
+      monthPreferencePending: page.groupMonthShiftTypeId === undefined,
+    },
   );
   const options = (
     values: readonly { label: string; value: string }[],
@@ -661,6 +766,7 @@ function renderCalendar(page: GuestPage): void {
   }
   page.setData({
     ...view,
+    compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
     shiftCardExpansion: reconcileShiftCardExpansion(
       page.data.shiftCardExpansion,
       [page.data.currentGroupId, page.data.selectedDate],
@@ -673,10 +779,10 @@ function renderCalendar(page: GuestPage): void {
     ),
     ...createMonthRing(
       view.monthPanels,
-      view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
+      view.monthPanels.map((panel) => (panel.cells.length / 7) * 62),
       page.monthRingSlot,
     ),
-    gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
+    gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
     weekGridHeight: page._weekLayoutHeight,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     filterMemberOptions: members,

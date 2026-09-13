@@ -12,6 +12,10 @@ export function createExportsPanelInitialData() {
     feedbackTone: 'info' as const,
     shareBusy: false,
     exportType: 'schedule' as ScheduleExportType,
+    exportTypeOptions: [
+      { value: 'schedule', label: '排班' },
+      { value: 'statistics', label: '统计' },
+    ],
     format: 'xlsx' as const,
     fileLabel: '',
     groupId: '',

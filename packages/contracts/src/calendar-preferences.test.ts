@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calendarPreferencesSchema,
+  publicGuestCalendarDisplaySettingsSchema,
   updateGroupCalendarDefaultsSchema,
   updateMemberCalendarPreferencesSchema,
 } from './calendar-preferences.js';
@@ -39,5 +40,17 @@ describe('calendar preferences contracts', () => {
         defaultView: null,
       }),
     ).toEqual({ defaultMonthShiftTypeId: null, defaultView: null });
+  });
+
+  it('keeps anonymous guest display settings minimal and strict', () => {
+    const value = {
+      groupId: '00000000-0000-4000-8000-000000000001',
+      groupDefaultMonthShiftTypeId: null,
+      groupDefaultView: 'week',
+    };
+    expect(publicGuestCalendarDisplaySettingsSchema.parse(value)).toEqual(value);
+    expect(
+      publicGuestCalendarDisplaySettingsSchema.safeParse({ ...value, internal: true }).success,
+    ).toBe(false);
   });
 });

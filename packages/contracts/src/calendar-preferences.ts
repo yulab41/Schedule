@@ -13,6 +13,13 @@ export const guestCalendarDisplaySettingsSchema = z
   .strict();
 export type GuestCalendarDisplaySettings = z.infer<typeof guestCalendarDisplaySettingsSchema>;
 
+export const publicGuestCalendarDisplaySettingsSchema = guestCalendarDisplaySettingsSchema
+  .extend({ groupDefaultView: calendarPreferenceViewSchema })
+  .strict();
+export type PublicGuestCalendarDisplaySettings = z.infer<
+  typeof publicGuestCalendarDisplaySettingsSchema
+>;
+
 export const calendarPreferencesSchema = z
   .object({
     canManageGroupDefaults: z.boolean(),

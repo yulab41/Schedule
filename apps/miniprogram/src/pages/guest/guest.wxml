@@ -167,7 +167,19 @@
                             ><text class="staff-name">{{row.name}}</text
                             ><text class="staff-role">{{row.role}}</text></view
                           >
-                          <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
+                          <text
+                            wx:if="{{compactEvents && row.status !== 'pending'}}"
+                            class="duty-status is-{{row.status}}"
+                            data-assignment-id="{{row.key}}"
+                            aria-role="button"
+                            aria-label="{{row.statusLabel}}，查看事件记录"
+                            aria-disabled="{{state !== 'ready'}}"
+                            catchtap="handleOpenShiftEvents"
+                            >{{row.statusLabel}}</text
+                          >
+                          <text wx:else class="duty-status is-{{row.status}}"
+                            >{{row.statusLabel}}</text
+                          >
                         </view>
                         <view
                           wx:if="{{detailExpansion.expanded[row.key] && row.phoneOptions.length > 0}}"
@@ -187,7 +199,7 @@
                             <text>{{phone.label}} {{phone.number}}</text></view
                           >
                         </view>
-                        <view class="staff-event-footer">
+                        <view wx:if="{{!compactEvents}}" class="staff-event-footer">
                           <view
                           class="event-action"
                           data-assignment-id="{{row.key}}"
@@ -291,7 +303,7 @@
                   easing-function="easeOutCubic"
                   bindanimationfinish="handleWeekSwiperFinish"
                 >
-                  <swiper-item wx:for="{{weekPanels}}" wx:key="key">
+                  <swiper-item wx:for="{{weekPanels}}" wx:key="key" class="{{item.relative === 0 ? 'week-panel-current' : ''}}">
                     <view class="week-day-grid">
                       <view
                         wx:for="{{item.days}}"
@@ -430,7 +442,19 @@
                             ><text class="staff-name">{{row.name}}</text
                             ><text class="staff-role">{{row.role}}</text></view
                           >
-                          <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
+                          <text
+                            wx:if="{{compactEvents && row.status !== 'pending'}}"
+                            class="duty-status is-{{row.status}}"
+                            data-assignment-id="{{row.key}}"
+                            aria-role="button"
+                            aria-label="{{row.statusLabel}}，查看事件记录"
+                            aria-disabled="{{state !== 'ready'}}"
+                            catchtap="handleOpenShiftEvents"
+                            >{{row.statusLabel}}</text
+                          >
+                          <text wx:else class="duty-status is-{{row.status}}"
+                            >{{row.statusLabel}}</text
+                          >
                         </view>
                         <view
                           wx:if="{{detailExpansion.expanded[row.key] && row.phoneOptions.length > 0}}"
@@ -450,7 +474,7 @@
                             <text>{{phone.label}} {{phone.number}}</text></view
                           >
                         </view>
-                        <view class="staff-event-footer">
+                        <view wx:if="{{!compactEvents}}" class="staff-event-footer">
                           <view
                           class="event-action"
                           data-assignment-id="{{row.key}}"

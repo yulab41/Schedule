@@ -57,25 +57,16 @@
             ></view
           >
 
-          <view class="field-block">
-            <text class="field-label">文件类型</text>
-            <picker
-              mode="selector"
-              range="{{['排班', '统计']}}"
-              value="{{exportType === 'statistics' ? 1 : 0}}"
+          <view class="selector-field">
+            <ui-selector
+              field-label="文件类型"
+              title="文件类型"
+              options="{{exportTypeOptions}}"
+              selected-index="{{exportType === 'statistics' ? 1 : 0}}"
+              display-value="{{exportType === 'statistics' ? '统计' : '排班'}}"
+              disabled="{{state === 'waiting'}}"
               bindchange="handleTypeChange"
-            >
-              <view
-                class="native-picker"
-                aria-role="button"
-                aria-label="文件类型，{{exportType === 'statistics' ? '统计' : '排班'}}"
-                ><text>{{exportType === 'statistics' ? '统计' : '排班'}}</text
-                ><image
-                  class="picker-chevron"
-                  src="/assets/icons/ui-chevron-right.svg"
-                  mode="aspectFit"
-                  aria-hidden="true" /></view
-            ></picker>
+            />
           </view>
 
           <view class="field-block period-field">

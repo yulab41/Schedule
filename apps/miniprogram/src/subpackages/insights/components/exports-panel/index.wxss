@@ -201,7 +201,7 @@
 
 .export-form-card {
   display: flex;
-  overflow: hidden;
+  overflow: visible;
   flex-direction: column;
   gap: 14px;
 }

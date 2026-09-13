@@ -5,10 +5,10 @@ const miniRoot = new URL('../src/', import.meta.url);
 const read = (name) => readFileSync(new URL(name, miniRoot), 'utf8');
 
 describe('Feedback23 layout parity', () => {
-  it('keeps both export selectors inside the same padded field boundary', () => {
+  it('keeps all export selectors inside the same padded field boundary', () => {
     const template = read('subpackages/insights/components/exports-panel/index.wxml');
     const styles = read('subpackages/insights/components/exports-panel/index.wxss');
-    expect(template.match(/class="selector-field"/gu)).toHaveLength(2);
+    expect(template.match(/class="selector-field"/gu)).toHaveLength(3);
     expect(styles).toMatch(/\.selector-field\s*\{[^}]*padding:\s*0 12px;/su);
     expect(styles).toMatch(/\.selector-field\s*\{[^}]*min-width:\s*0;/su);
     expect(styles).not.toContain('.workflow-picker-trigger');
