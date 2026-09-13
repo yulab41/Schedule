@@ -3,10 +3,10 @@
 ## 当前批次：头颈外科医生群 DOCX 待生产部署与体验版交付
 
 - 用户已批准生产 API 部署、数据库迁移、目标群真实成员配置、体验版上传及只追加放行；旧体验版必须保留，小米14原生验收仍单独记录。
-- 已把头颈 DOCX 功能叠加到最新 `origin/main`（包含 Feedback23）。主线已占用 schema59，因此 DOCX 迁移顺延为 schema60，保留成员绑定二维码迁移与界面改动；配置仍只允许头颈外科医生群，排班为 Word/CSV，统计及其他群为 Excel/CSV。
+- 已把头颈 DOCX 功能叠加到最新 `origin/main`（包含 Feedback23）。主线已占用 schema59，因此 DOCX 迁移顺延为 schema60，保留成员绑定二维码迁移与界面改动；生产 Compose 已显式透传头颈 DOCX 配置。配置仍只允许头颈外科医生群，排班为 Word/CSV，统计及其他群为 Excel/CSV。
 - 合并后定向测试：DOCX/配置/schema兼容6项、Mini导出控制器29项、client-core 3项通过。`pnpm verify`通过：Mini1165/16跳过、根1261/441跳过、依赖保护81；MySQL迁移28项和导出集成7项因本机未配置测试库跳过。Mini production verify通过，主包1721898、总包4574638字节、Worklet2/2和确定性通过，保留既有1.5M及矩阵告警。
 - 运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；提交前继续运行`pnpm smoke:check-core`。视觉证据沿用同一DOCX实现的Microsoft Word月度/缺勤/年度渲染：关键几何一致、年度12页、显著像素差1.32%，不代替小米14验收。
-- 当前唯一下一动作：形成并推送干净候选；实时读取生产live/schema及目标群成员ID，备份后部署schema60与API配置，完整verifier通过后动态分配体验版、上传并只追加放行。任一release/hash/schema/配置不一致立即停止。
+- Compose 透传专项20项、API/Mini typecheck及format门禁通过。当前唯一下一动作：形成并推送最终干净候选；实时读取生产live/schema及目标群成员ID，备份后部署schema60与API配置，完整verifier通过后动态分配体验版、上传并只追加放行。任一release/hash/schema/配置不一致立即停止。
 
 ## 当前批次：Feedback23 已部署并放行126，待小米14复核
 

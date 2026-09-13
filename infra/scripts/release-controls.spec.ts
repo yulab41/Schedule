@@ -246,6 +246,7 @@ describe('production directory query-plan control', () => {
 
     expect(compose).toContain('DIRECTORY_QUERY_PLAN: ${DIRECTORY_QUERY_PLAN:-legacy}');
     expect(environment).toContain('DIRECTORY_QUERY_PLAN=legacy');
+    expect(compose).toContain('HEAD_NECK_DOCX_EXPORT_CONFIG: ${HEAD_NECK_DOCX_EXPORT_CONFIG:-}');
   });
 
   it('uses a root-owned atomic global switch and recreates every compose API instance', async () => {
