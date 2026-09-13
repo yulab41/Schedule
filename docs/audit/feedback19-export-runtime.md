@@ -55,5 +55,24 @@
 - 第一轮 Mini 全套1190通过、1条旧 wrapper 断言失败、16跳过；已改成直接 Page 控件断言，
   对应17项复测通过；最终完整复测168文件1191项通过、2文件16项跳过（129.84秒）。
 
-尚未获得修复后同 SHA 的小米14证据。完成提交后交付体验版以验证实际导出入口；
+尚未获得修复后同 SHA 的小米14证据。已交付体验版121以验证实际导出入口；
 不能把旧挂载超时提示消失单独当作 CSV 创建/下载/发送全流程验收。
+
+## 体验版交付
+
+- 延续本会话用户对该导出故障修复的上传并放行授权；应用提交960e11c1已推送。
+- 版本0.1.0-p10.20260913.121，SHA960e11c1a6aa69dd369212801ad1346d3be936f6，
+  production/clean，说明Fix export CI runtime dependency 960e11c。
+- 构建2026-09-13T03:53:14.656Z，上传2026-09-13T03:58:06.070Z。
+  Manifest 6a854d2f28a141912889166435b0d11fdf96b4bbf7a06ce9234df06549c1ba12，
+  ignored receipt/allocation/manifest与远端不可变tag一致；此版234代码文件。
+- 首两次旧固定IPv4入口在getrandstr出现ECONNRESET；检查退出进程后将本任务崩溃锁归档。
+  当前系统IPv4/TLS校验通过后，使用原构建时间重建同一清单，通过全部原有候选/血缘/清单门禁，
+  幂等重试成功。没有换号、覆盖Manifest、修改系统网络或放宽TLS。
+- 版本绑定产物重新运行真实上传转换Page测试5项通过；候选前后检查PASS。
+- 可信ensure仅追加121并保留120与旧版本。独立allowlist verify和完整ecs-verify退出码0；
+  API ready、MySQL healthy、制品哈希一致。ECS_PUBLIC_IP未设置，公网IP主动探测明确跳过。
+  生产应用release仍83d8a03b；未部署应用、备份/迁移/修改数据库或提交审核。
+- 放行控制按既有行为重建API/Web配置，短暂SSL EOF/502后恢复。
+  文档检查点：docs(release): record export runtime fix trial 121。
+- 唯一下一任务：小米14体验版121真实进入导出，验证选项、生成、下载和用户主动发送文件。

@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
+## 当前批次：Feedback19 导出页根因修复已交付121，待小米14复核
 
 - 基线3d83d236（体验版120源码c2dbe4c3）；独占general-5，REUSE_ONLY，未安装依赖。
 - 根因：106已包含的9bae5beb在共享CSV轮询循环中增加捕获remaining的Promise闭包，
@@ -14,7 +14,11 @@
   Mini verify/Worklet2/2/包体4,551,833字节/确定性、typecheck、lint、format、icon parity、
   smoke:check-core通过。既有主包和矩阵内部预警保留；未控制微信开发者工具。
 - 检查点：fix(miniprogram): repair export upload transform and remove startup scaffolding。
-- 下一任务：交付此修复的干净体验版，再由小米14验证真实导出入口及CSV下载/发送。
+- 已交付0.1.0-p10.20260913.121/960e11c，production/clean，receipt/Manifest/tag一致；
+  首两次固定网络入口ECONNRESET，保留同一冻结身份，当前系统IPv4路线第三次成功。
+- 可信ensure仅追加121并保留旧版；独立allowlist及完整ecs-verify通过，生产应用仍83d8a03b，
+  未部署应用或修改数据库。放行容器配置重建期间短暂502已恢复。
+- 下一任务：小米14重开121/960e11c验证真实导出入口及CSV下载/发送；WAITING_XIAOMI14_NATIVE_REVIEW。
   尚无修复后同SHA真机证据，不将Node执行等同于原生通过。生产应用与数据库不在本轮修复范围。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核

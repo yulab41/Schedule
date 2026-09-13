@@ -13,6 +13,8 @@
   Worklet2/2/包体/确定性、typecheck、lint、format、icon parity通过。
   运行/浏览器验证：pnpm smoke:check-core通过，无Web核心链路改动，无需核心浏览器冒烟。
 - 未取得修复后同SHA小米14证据；本轮保留原下载/发送与缺少群组提示语义，未操作生产应用或数据库。
+- 交付：960e11c1已推送并上传121；同一冻结Manifest重试成功，receipt/tag一致。
+  trusted ensure追加121保留旧版，独立allowlist与ecs-verify通过；仍待小米14原生复核。
 
 ## 2026-09-13 FEEDBACK18 体验版120上传与追加放行
 
