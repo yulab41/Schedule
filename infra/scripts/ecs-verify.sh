@@ -585,10 +585,21 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 59 ]; then
     exit 1
   }
 fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 61 ]; then
+  VISITOR_QR_ASSET_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT CONCAT((SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\"), \"\\t\", (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\" AND column_name IN (\"group_id\",\"environment\",\"visitor_key\",\"content\",\"content_type\",\"byte_length\",\"sha256\",\"generated_at\")), \"\\t\", (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"group_visitor_qr_assets\" AND index_name=\"PRIMARY\"))"')"
+  [ "$VISITOR_QR_ASSET_SCHEMA" = $'1\t8\t2' ] || {
+    echo "[verify] 永久访客二维码资源表、列或复合主键缺失。" >&2
+    exit 1
+  }
+fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 57 ]; then
+  if [ "$schema" -ge 61 ]; then
+    # 0061 adds the backed-up QR asset table; accept the immediately preceding or fresh backup.
+    [ "$tables" = "54" ] || [ "$tables" = "55" ]
+  elif [ "$schema" -ge 57 ]; then
     # 0057 adds group_visitor_links; allow the pre-migration backup or a fresh one.
     [ "$tables" = "53" ] || [ "$tables" = "54" ]
   elif [ "$schema" -ge 56 ]; then

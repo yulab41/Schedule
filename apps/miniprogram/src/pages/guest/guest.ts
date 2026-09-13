@@ -778,7 +778,7 @@ function renderCalendar(page: GuestPage): void {
       view.selectedDetails,
     ),
     ...createMonthRing(
-      view.monthPanels,
+      view.monthPanels.map((panel) => ({ ...panel, rowHeight: 62 })),
       view.monthPanels.map((panel) => (panel.cells.length / 7) * 62),
       page.monthRingSlot,
     ),

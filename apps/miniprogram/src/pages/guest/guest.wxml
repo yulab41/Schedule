@@ -633,6 +633,10 @@
                                     >{{marker}}</text
                                   ></view
                                 ><text class="list-duty-details">{{duty.details}}</text></view
+                              ><text
+                                wx:if="{{duty.dutyState}}"
+                                class="duty-work-state list-work-state is-{{duty.dutyState}}"
+                                >{{duty.dutyStateLabel}}</text
                               ><view
                                 wx:if="{{duty.phone}}"
                                 class="list-call-action"

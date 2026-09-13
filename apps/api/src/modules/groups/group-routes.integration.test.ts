@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import type { WechatGateway } from '../wechat/wechat-gateway.js';
 import { GroupService } from './group-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
@@ -26,9 +27,11 @@ const describeWithDatabase = databaseOptions === undefined ? describe.skip : des
 describeWithDatabase('groups and roster claiming', () => {
   let app: ReturnType<typeof createApp>;
   let client: DatabaseClient;
+  let qrGatewayCalls: string[];
 
   beforeEach(async () => {
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
+    qrGatewayCalls = [];
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
     app = createApp({
@@ -41,6 +44,7 @@ describeWithDatabase('groups and roster claiming', () => {
       }),
       databaseClient: client,
       logger: false,
+      wechatGateway: createQrGateway((environment) => qrGatewayCalls.push(environment)),
       wechatSessionSecret: 'group-routes-invite-secret-0123456789abcdef',
     });
     app.addHook('preValidation', (request, _reply, done) => {
@@ -109,6 +113,50 @@ describeWithDatabase('groups and roster claiming', () => {
 
     expect(storedGroup).toEqual({ groupCode: null, name: expect.stringContaining('Concurrent') });
     expect(ownerMembership).toEqual({ role: 'owner' });
+  });
+
+  it('persists permanent release and trial visitor QR assets until the key is refreshed', async () => {
+    const created = await createGroup('Permanent QR group', '2468');
+    const group = created.json() as { id: string; version: number };
+    const first = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${group.id}/group-qr`,
+    });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(qrGatewayCalls.sort()).toEqual(['release', 'trial']);
+
+    await app.close();
+    app = createApp({
+      authPort: createFakeAuthPort({ 'owner-token': 'cloudbase-owner' }),
+      databaseClient: client,
+      logger: false,
+      wechatGateway: createQrGateway((environment) => qrGatewayCalls.push(environment)),
+      wechatSessionSecret: 'group-routes-invite-secret-0123456789abcdef',
+    });
+    const persisted = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${group.id}/group-qr`,
+    });
+    expect(persisted.statusCode, persisted.body).toBe(200);
+    expect(qrGatewayCalls).toHaveLength(2);
+
+    const refreshed = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': randomUUID() },
+      method: 'PUT',
+      payload: { expectedVersion: group.version },
+      url: `/groups/${group.id}/visitor-key`,
+    });
+    expect(refreshed.statusCode, refreshed.body).toBe(200);
+    const regenerated = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${group.id}/group-qr`,
+    });
+    expect(regenerated.statusCode, regenerated.body).toBe(200);
+    expect(qrGatewayCalls.slice(2).sort()).toEqual(['release', 'trial']);
+    expect(regenerated.json()).not.toEqual(first.json());
   });
 
   it('replays group and roster writes while rejecting changed fingerprints and stale versions', async () => {
@@ -841,6 +889,24 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
   };
 }
 
+function createQrGateway(onQr: (environment: string) => void): WechatGateway {
+  let sequence = 0;
+  return {
+    isConfigured: true,
+    async exchangeCode() {
+      throw new Error('not used');
+    },
+    async getUnlimitedQr(scene, _page, environment) {
+      onQr(environment);
+      sequence += 1;
+      return Uint8Array.from([0x89, 0x50, 0x4e, 0x47, ...Buffer.from(scene), sequence]);
+    },
+    async sendSubscribeMessage() {
+      throw new Error('not used');
+    },
+  };
+}
+
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_search_aliases`);
@@ -887,6 +953,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS swap_requests`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS group_visitor_qr_assets`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_visitor_links`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_memberships`);
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);

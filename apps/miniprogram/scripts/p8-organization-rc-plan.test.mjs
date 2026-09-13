@@ -93,7 +93,7 @@ describe('P8 organization RC and production release contract', () => {
       'operationId',
       'expectedVersion',
       'organization=false',
-      '二维码内容只存在当前页面内存',
+      '访客二维码由服务器永久保存',
       '关闭 `organization`',
       '不能进入 P9',
     ]) {

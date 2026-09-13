@@ -37,14 +37,14 @@
         <view class="page-heading"
           ><text class="section-eyebrow">安全入口</text><text class="page-title">邀请与访客</text
           ><text class="page-description"
-            >邀请只用于加入当前群组；访客码只开放已发布排班，旧码轮换后立即失效。</text
+            >邀请只用于加入当前群组；访客码只开放已发布排班，旧码刷新后立即失效。</text
           ></view
         >
         <view wx:if="{{!organizationEnabled || !guestEnabled}}" class="capability-note"
           ><text class="capability-title">部分入口暂未开放</text
           ><text wx:if="{{!organizationEnabled}}">组织管理写入能力关闭，无法生成或撤销邀请。</text
           ><text wx:if="{{!guestEnabled}}"
-            >访客入口能力关闭，无法轮换访客码或读取二维码。</text
+            >访客入口能力关闭，无法刷新访客码或读取二维码。</text
           ></view
         >
 
@@ -137,7 +137,9 @@
           <view wx:if="{{bindingQrVisible && bindingQrImageSrc}}" class="qr-sheet"
             ><view class="qr-heading"
               ><text>成员微信绑定二维码</text
-              ><view class="qr-close" aria-role="button" bindtap="handleHideBindingQr">完成</view></view
+              ><view class="qr-close" aria-role="button" bindtap="handleHideBindingQr"
+                >完成</view
+              ></view
             ><text class="result-copy">{{bindingQrSummary}}</text
             ><text class="result-expiry">有效期至 {{bindingQrExpiresAt}}</text
             ><text class="qr-version-label">正式版</text
@@ -157,9 +159,7 @@
                 mode="aspectFit"
                 show-menu-by-longpress="{{true}}"
                 bindtap="handlePreviewQr" /></block
-            ><text class="memory-note"
-              >扫码者确认后才会绑定；二维码一次有效，请勿公开。</text
-            ></view
+            ><text class="memory-note">扫码者确认后才会绑定；二维码一次有效，请勿公开。</text></view
           >
         </view>
 
@@ -172,7 +172,7 @@
           >
           <view class="visitor-body"
             ><text class="visitor-copy"
-              >访客码不会显示完整密钥；轮换后旧二维码立即失效。二维码仅在本页加载，可长按二维码保存或转发。</text
+              >访客码不会显示完整密钥；刷新后旧二维码立即失效。已生成二维码永久保存，可长按保存或转发。</text
             ><view class="visitor-actions"
               ><ui-button
                 variant="secondary"
@@ -183,7 +183,7 @@
               ></ui-button
               ><ui-button
                 variant="danger"
-                label="轮换访客码"
+                label="刷新访客码"
                 disabled="{{!canManageVisitorKey || visitorState === 'loading'}}"
                 bindpress="handleRegenerateVisitorKey"
               ></ui-button></view
@@ -210,7 +210,7 @@
                 show-menu-by-longpress="{{true}}"
                 bindtap="handlePreviewQr" /></block
             ><text class="memory-note"
-              >点击可预览，长按二维码保存或转发；访客码轮换后，已保存的旧二维码失效。</text
+              >点击可预览，长按二维码保存或转发；访客码刷新后，已保存的旧二维码失效。</text
             ></view
           >
         </view>
