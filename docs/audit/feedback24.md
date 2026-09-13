@@ -26,3 +26,11 @@
 - `pnpm smoke:check-core` passed after the browser outcome was recorded.
 - MySQL visitor integration requires a configured local test database; the warm slot has no `.env`, so it is not claimed as run.
 - Xiaomi 14 acceptance is pending a future uploaded checkpoint; Node/static tests do not establish native gesture or layout acceptance.
+
+## Cumulative production and trial delivery
+
+- A concurrent production release was verified as real and allowed to finish. Its DOCX/schema60 branch was merged with Feedback24 instead of being overwritten; cumulative application checkpoint `463f4512` was pushed to `origin/main`.
+- Post-concurrency encrypted backup `f2ade922-8942-44fd-8cf9-5351489ee66d` completed with 54 tables, 256201 rows, 108185080 bytes and SHA-256 `aaa2095a01672f1b9c7153100e462f60f40168cca4e6a637f359e6e0ad8584f5`.
+- Schema60/API deployment and the full production verifier passed. Trial `0.1.0-p10.20260913.127` uploaded from clean production SHA `463f4512` with Manifest `f570cb98b0cf9ebb05c5db4f30831c61a1f04cd108ec1fd3f21aa37a834c9812`.
+- Trusted add-only allowlisting retained every prior version. The allowlist verifier, full ECS verifier and public probes passed: 127 and 126 returned 200; a dynamic unknown version returned 426.
+- No review submission, formal Mini Program publication or old-version retirement was performed. Xiaomi 14 acceptance remains pending.
