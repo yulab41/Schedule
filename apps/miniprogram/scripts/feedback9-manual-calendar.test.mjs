@@ -138,15 +138,17 @@ describe('feedback9 manual geometry and dates', () => {
     await vi.waitFor(() => expect(p.data.startDate).toBe('2026-12-01'));
     expect(p.data.startDateState).toBe('ready');
   });
-  it('uses the selected end date and rejects reversed or over-30-day ranges', () => {
+  it('uses the selected end date and rejects reversed or over-366-day ranges', () => {
     const p = page();
     p.handleEndDateChange({ detail: { value: '2026-11-20' } });
     expect(p.data.endDate).toBe('2026-11-20');
     expect(p.data.limitNotice).toBe('');
     p.handleEndDateChange({ detail: { value: '2026-10-31' } });
     expect(p.data.canSave).toBe(false);
-    expect(p.data.limitNotice).toContain('最多 30 天');
-    p.handleEndDateChange({ detail: { value: '2026-12-01' } });
+    expect(p.data.limitNotice).toContain('最多 366 天');
+    p.handleEndDateChange({ detail: { value: '2027-11-01' } });
+    expect(p.data.limitNotice).toBe('');
+    p.handleEndDateChange({ detail: { value: '2027-11-02' } });
     expect(p.data.canSave).toBe(false);
   });
   it('does not clear a save lock or reset scroll when date holidays arrive', async () => {

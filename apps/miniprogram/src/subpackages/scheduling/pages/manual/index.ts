@@ -23,6 +23,7 @@ import {
 } from '../../components/schedule-calendar-preview/model.js';
 import {
   MAX_MANUAL_CELLS,
+  MAX_MANUAL_APPLY_DAYS,
   MAX_MANUAL_DAYS,
   MAX_MANUAL_MEMBERS,
 } from '@schedule/contracts/manual-schedule-limits';
@@ -1318,7 +1319,7 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
     isBusinessDate(data.startDate) && isBusinessDate(data.endDate)
       ? getInclusiveDayCount(data.startDate, data.endDate)
       : 0;
-  const withinDateRange = rangeDayCount >= 1 && rangeDayCount <= MAX_MANUAL_DAYS;
+  const withinDateRange = rangeDayCount >= 1 && rangeDayCount <= MAX_MANUAL_APPLY_DAYS;
   const withinLimits =
     page._memberIds.length > 0 &&
     page._memberIds.length <= MAX_MANUAL_MEMBERS &&
@@ -1359,7 +1360,7 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
         shiftTypes.length > 0,
       isBusy: false,
       limitNotice: !withinDateRange
-        ? '结束日期不能早于开始日期，且排班范围最多 30 天。'
+        ? `结束日期不能早于开始日期，且排班范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`
         : logicalCellCount === MAX_MANUAL_CELLS
           ? '已达到 20 人 × 30 天 = 600 格上限。'
           : '',

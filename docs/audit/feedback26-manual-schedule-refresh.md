@@ -11,10 +11,11 @@
 
 - 四个阶段每次点击均执行对应读取：编辑重载页面配置，预览重新生成，草稿/发布重新读取发布历史。
 - 草稿发布成功后刷新历史并进入“发布”阶段；失败或冲突仍留在当前操作上下文。
-- 编辑表单按三行排列：模板+岗位、开始+结束、周期+人员。结束日期成为预览与草稿应用的真实 `endDate`，限制为含首尾 1–30 天。
+- 编辑表单按三行排列：模板+岗位、开始+结束、周期+人员。结束日期成为预览与草稿应用的真实 `endDate`。
+- 后续确认将应用范围放宽到含首尾最长 366 天；模板周期仍为 1–30 天、最多20人和600个模板格。共享契约、领域生成、API校验与Mini校验使用独立的应用范围常量，服务端沿用既有按月份拆分草稿/发布周期的事务流程。
 
 ## 验证层级
 
-- 回归测试先失败后通过：`manual-schedule-page.test.mjs`、`feedback9-manual-calendar.test.mjs`。
-- TypeScript：`pnpm --filter @schedule/miniprogram typecheck` 通过。
+- 回归测试先失败后通过：共享契约、领域生成、API月度草稿集成用例、`manual-schedule-page.test.mjs`、`feedback9-manual-calendar.test.mjs`。API集成命令已执行，但当前warm槽缺少`.env`，未启动测试数据库，因此13个月草稿写库用例当前未运行，不能记为通过。
+- TypeScript：Contracts、Scheduling Domain、API 与 Mini Program 检查通过。
 - 微信开发者工具未调用；小米 14 原生视觉与交互仍待同一体验版验证。

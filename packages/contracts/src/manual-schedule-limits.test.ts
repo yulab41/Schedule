@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MAX_MANUAL_APPLY_DAYS,
   MAX_MANUAL_CELLS,
   MAX_MANUAL_DAYS,
   MAX_MANUAL_MEMBERS,
@@ -15,6 +16,7 @@ describe('manual schedule limits contract', () => {
     expect(MAX_MANUAL_DAYS).toBe(30);
     expect(MAX_MANUAL_CELLS).toBe(600);
     expect(MAX_MANUAL_CELLS).toBe(MAX_MANUAL_MEMBERS * MAX_MANUAL_DAYS);
+    expect(MAX_MANUAL_APPLY_DAYS).toBe(366);
   });
 
   it('accepts only real calendar dates in strict YYYY-MM-DD form', () => {
@@ -54,10 +56,10 @@ describe('manual schedule limits contract', () => {
     );
   });
 
-  it('accepts at most thirty inclusive days and fails closed otherwise', () => {
-    expect(isManualScheduleDateRangeWithinLimit('2026-01-01', '2026-01-30')).toBe(true);
-    expect(isManualScheduleDateRangeWithinLimit('2028-02-01', '2028-03-01')).toBe(true);
-    expect(isManualScheduleDateRangeWithinLimit('2026-01-01', '2026-01-31')).toBe(false);
+  it('accepts at most 366 inclusive days and fails closed otherwise', () => {
+    expect(isManualScheduleDateRangeWithinLimit('2026-01-01', '2027-01-01')).toBe(true);
+    expect(isManualScheduleDateRangeWithinLimit('2028-01-01', '2028-12-31')).toBe(true);
+    expect(isManualScheduleDateRangeWithinLimit('2026-01-01', '2027-01-02')).toBe(false);
     expect(isManualScheduleDateRangeWithinLimit('2026-03-02', '2026-03-01')).toBe(false);
     expect(isManualScheduleDateRangeWithinLimit('2026-02-29', '2026-03-01')).toBe(false);
   });

@@ -308,12 +308,25 @@ describeWithDatabase('manual schedule template apply', () => {
     );
   });
 
-  it('rejects 31-day and invalid apply ranges with no write side effects', async () => {
+  it('applies a 366-day range as monthly draft periods', async () => {
+    const templateId = await createTemplate();
+    const applied = await applyTemplate(templateId, {
+      endDate: '2027-09-01',
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(applied.statusCode, applied.body).toBe(200);
+    const body = applied.json() as AppliedManualScheduleTemplateResult;
+    expect(body.preview.applyEndDate).toBe('2027-09-01');
+    expect(body.periods).toHaveLength(13);
+  });
+
+  it('rejects ranges over 366 days and invalid dates with no write side effects', async () => {
     const templateId = await createTemplate();
     const before = await readManualApplySideEffectCounts();
 
     const tooLongPreview = await applyPreview(templateId, {
-      endDate: '2026-10-01',
+      endDate: '2027-09-02',
       expectedRulesVersion: rulesVersion,
     });
     expect(tooLongPreview.statusCode).toBe(400);
@@ -325,7 +338,7 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(invalidPreview.statusCode).toBe(400);
 
     const tooLongApply = await applyTemplate(templateId, {
-      endDate: '2026-10-01',
+      endDate: '2027-09-02',
       expectedRulesVersion: rulesVersion,
       operationId: randomUUID(),
     });
