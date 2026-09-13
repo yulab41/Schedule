@@ -60,12 +60,15 @@ interface SelectOption {
 interface ExportsPageData {
   readonly businessMonth: string;
   readonly downloadBusy: boolean;
+  readonly docxAvailable: boolean;
   readonly errorMessage: string;
   readonly infoMessage: string;
   readonly feedbackTone: 'info' | 'success' | 'error';
   readonly shareBusy: boolean;
   readonly exportType: ScheduleExportType;
-  readonly format: 'csv' | 'xlsx';
+  readonly format: 'csv' | 'xlsx' | 'docx';
+  readonly scheduleFormats: readonly ('csv' | 'xlsx' | 'docx')[];
+  readonly statisticsFormats: readonly ('csv' | 'xlsx' | 'docx')[];
   readonly fileLabel: string;
   readonly groupId: string;
   readonly largeText: boolean;
@@ -240,11 +243,37 @@ export function createExportsPanelControllerDefinition() {
       },
       handleFormatChange(this: ExportsPageInstance, event: TapEvent): void {
         const format = event.currentTarget.dataset['format'];
-        if (format === 'csv' || format === 'xlsx') this.setData({ format });
+        if (format !== 'csv' && format !== 'xlsx' && format !== 'docx') return;
+        const allowed =
+          this.data.exportType === 'schedule'
+            ? this.data.scheduleFormats
+            : this.data.statisticsFormats;
+        if (allowed.includes(format))
+          this.setData({
+            format,
+            ...(format === 'docx'
+              ? {
+                  membershipIds: [],
+                  roleIds: [],
+                  memberSummary: '全部成员',
+                  roleSummary: '全部岗位',
+                }
+              : {}),
+          });
       },
       handleTypeChange(this: ExportsPageInstance, event: PickerEvent): void {
+        const exportType = parsePickerIndex(event, 2) === 1 ? 'statistics' : 'schedule';
+        const formats =
+          exportType === 'statistics' ? this.data.statisticsFormats : this.data.scheduleFormats;
         setSelection(this, {
-          exportType: parsePickerIndex(event, 2) === 1 ? 'statistics' : 'schedule',
+          exportType,
+          format: formats.includes(this.data.format)
+            ? this.data.format
+            : exportType === 'schedule' && formats.includes('docx')
+              ? 'docx'
+              : formats.includes('xlsx')
+                ? 'xlsx'
+                : (formats[0] ?? 'csv'),
         });
       },
     },
@@ -294,6 +323,8 @@ function start(page: ExportsPageInstance): void {
     errorMessage: '',
     fileLabel: '',
     canCheckJob: false,
+    docxAvailable: false,
+    format: 'xlsx',
     groupId,
     memberOptions: [{ value: '', label: '全部成员', checked: true }],
     membershipIds: [],
@@ -301,6 +332,8 @@ function start(page: ExportsPageInstance): void {
     roleIds: [],
     roleOptions: [{ value: '', label: '全部岗位', checked: true }],
     roleSummary: '全部岗位',
+    scheduleFormats: ['csv', 'xlsx'],
+    statisticsFormats: ['csv', 'xlsx'],
     optionsLoading: true,
     state: 'idle',
     statusLabel: '选择内容后创建任务',
@@ -328,6 +361,7 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
         return Promise.all([
           page._organizationReadClient.getSchedulingConfig(groupId),
           page._organizationReadClient.listGroupMembers(groupId),
+          page._actionsClient.getExportOptions(groupId),
         ]);
       },
       10_000,
@@ -343,8 +377,17 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
       showFeedback(page, '岗位和成员读取超时，可重新加载。', 'error');
       return;
     }
-    const [config, members] = result.value;
+    const [config, members, exportOptions] = result.value;
+    const scheduleFormat = exportOptions.scheduleFormats.includes('docx')
+      ? 'docx'
+      : exportOptions.scheduleFormats.includes('xlsx')
+        ? 'xlsx'
+        : 'csv';
     page.setData({
+      format: scheduleFormat,
+      docxAvailable: exportOptions.scheduleFormats.includes('docx'),
+      scheduleFormats: exportOptions.scheduleFormats,
+      statisticsFormats: exportOptions.statisticsFormats,
       memberOptions: [
         { value: '', label: '全部成员', checked: true },
         ...members
@@ -434,11 +477,13 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
         const job = await page._actionsClient.createExportJob(groupId, {
           exportType: selection.exportType,
           format: selection.format,
-          ...(selection.membershipIds.length === 0
+          ...(selection.format === 'docx' || selection.membershipIds.length === 0
             ? {}
             : { membershipIds: selection.membershipIds }),
           period: currentPeriod(selection),
-          ...(selection.roleIds.length === 0 ? {} : { roleIds: selection.roleIds }),
+          ...(selection.format === 'docx' || selection.roleIds.length === 0
+            ? {}
+            : { roleIds: selection.roleIds }),
         });
         // A late create may recover its ID, but never start another task or overwrite a new epoch.
         if (isCurrent(page, groupId, epoch)) {
@@ -521,7 +566,7 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
     errorMessage: '',
     infoMessage: '',
     state: 'waiting',
-    statusLabel: `正在生成${page.data.format === 'xlsx' ? ' Excel' : ' CSV'}`,
+    statusLabel: `正在生成${formatLabel(page.data.format)}`,
   });
   try {
     const result = await pollExportJob(
@@ -588,7 +633,7 @@ async function downloadExport(page: ExportsPageInstance): Promise<void> {
     downloadBusy: true,
     infoMessage: '',
     errorMessage: '',
-    statusLabel: `正在准备${page.data.format === 'xlsx' ? ' Excel' : ' CSV'}文件`,
+    statusLabel: `正在准备${formatLabel(page.data.format)}文件`,
   });
   try {
     const tempFilePath = await downloadScheduleExport(
@@ -755,6 +800,10 @@ function parsePickerIndex(event: PickerEvent, length: number): number {
 
 function isWorking(state: ExportState): boolean {
   return state === 'loading' || state === 'waiting';
+}
+
+function formatLabel(format: ExportsPageData['format']): string {
+  return format === 'docx' ? ' Word' : format === 'xlsx' ? ' Excel' : ' CSV';
 }
 
 function isDownloadActive(

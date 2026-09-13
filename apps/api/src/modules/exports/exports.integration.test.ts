@@ -53,6 +53,7 @@ describeWithDatabase('schedule exports', () => {
 
   afterEach(async () => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     if (app !== undefined) {
       await app.close();
     }
@@ -206,6 +207,52 @@ describeWithDatabase('schedule exports', () => {
     expect(download.statusCode).toBe(200);
     expect(download.headers['content-type']).toContain(
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(download.rawPayload.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  });
+
+  it('offers and generates Word only for the configured group schedule', async () => {
+    const context = await seedPublishedSeptember();
+    vi.stubEnv(
+      'HEAD_NECK_DOCX_EXPORT_CONFIG',
+      JSON.stringify({
+        groupId: context.groupId,
+        firstDutyMembershipIds: [context.membershipIds.a, context.membershipIds.b],
+        firstDutyRoleId: context.roleId,
+        secondDutyByFirstMembershipId: {
+          [context.membershipIds.a]: context.membershipIds.b,
+          [context.membershipIds.b]: context.membershipIds.a,
+        },
+        thirdDutyMembershipIds: [context.membershipIds.a, context.membershipIds.b],
+      }),
+    );
+    const options = await app.inject({
+      headers: { authorization: 'Bearer admin-token' },
+      method: 'GET',
+      url: `/groups/${context.groupId}/exports/options`,
+    });
+    expect(options.json()).toEqual({
+      scheduleFormats: ['csv', 'docx'],
+      statisticsFormats: ['csv', 'xlsx'],
+    });
+    const rejectedStatistics = await createExport('admin-token', context.groupId, {
+      exportType: 'statistics',
+      format: 'docx',
+      period: '2026-09',
+    });
+    expect(rejectedStatistics.statusCode).toBe(400);
+
+    const created = await createExport('admin-token', context.groupId, {
+      exportType: 'schedule',
+      format: 'docx',
+      period: '2026-09',
+    });
+    expect(created.statusCode).toBe(201);
+    const job = created.json() as ScheduleExportJob;
+    const download = await downloadExport('admin-token', context.groupId, job.id);
+    expect(download.statusCode).toBe(200);
+    expect(download.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     );
     expect(download.rawPayload.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
   });
