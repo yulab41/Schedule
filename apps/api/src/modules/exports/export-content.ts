@@ -21,6 +21,10 @@ import {
 import { buildXlsx } from './xlsx-builder.js';
 import { buildHeadNeckDocx, type HeadNeckDocxPage } from './docx-builder.js';
 import { getHeadNeckDocxConfig } from './head-neck-docx-config.js';
+import {
+  buildHeadNeckRotationGrid,
+  resolveHeadNeckDutyMembershipId,
+} from './head-neck-docx-grid.js';
 
 type ExportJobRow = typeof exportJobs.$inferSelect;
 
@@ -135,7 +139,11 @@ async function buildHeadNeckScheduleDocxContent(
   const months = getPeriodMonths(job.periodType, job.period);
   const membershipIds = config.firstDutyMembershipIds;
   const members = await transaction
-    .select({ id: groupMemberships.id, name: userProfiles.realName })
+    .select({
+      id: groupMemberships.id,
+      name: userProfiles.realName,
+      userId: groupMemberships.userId,
+    })
     .from(groupMemberships)
     .innerJoin(userProfiles, eq(userProfiles.userId, groupMemberships.userId))
     .where(
@@ -149,6 +157,22 @@ async function buildHeadNeckScheduleDocxContent(
   const names = new Map(members.map((member) => [member.id, member.name]));
   if (membershipIds.some((id) => !names.has(id)))
     throw new Error('Word 排班人员配置不完整，请联系管理员。');
+  const canonicalByUserId = new Map(members.map((member) => [member.userId, member.id]));
+  const membershipAliases = await transaction
+    .select({ id: groupMemberships.id, userId: groupMemberships.userId })
+    .from(groupMemberships)
+    .where(
+      and(
+        eq(groupMemberships.groupId, job.groupId),
+        inArray(groupMemberships.userId, [...canonicalByUserId.keys()]),
+      ),
+    );
+  const canonicalByMembershipId = new Map(
+    membershipAliases.map((membership) => [
+      membership.id,
+      canonicalByUserId.get(membership.userId)!,
+    ]),
+  );
 
   const pages: HeadNeckDocxPage[] = [];
   let rowCount = 0;
@@ -188,48 +212,40 @@ async function buildHeadNeckScheduleDocxContent(
           eq(leaveRequests.groupId, job.groupId),
           eq(leaveRequests.status, 'approved'),
           isNull(leaveRequests.deletedAt),
-          inArray(leaveRequests.membershipId, config.firstDutyMembershipIds),
+          inArray(leaveRequests.membershipId, [...canonicalByMembershipId.keys()]),
           lte(leaveRequests.startsAt, new Date(`${end}T15:59:59.999Z`)),
           gte(leaveRequests.endsAt, new Date(`${businessMonth}-01T00:00:00.000Z`)),
         ),
       );
-    const actualCounts = config.firstDutyMembershipIds.map(
-      (id) => assignments.filter((a) => a.actualMembershipId === id).length,
-    );
-    const slotCount = Math.max(1, ...actualCounts);
-    const firstDuty = config.firstDutyMembershipIds.map((membershipId) => {
-      const memberLeaves = leaves.filter((leave) => leave.membershipId === membershipId);
-      const leaveCovers = (dateValue: string) =>
-        memberLeaves.some((leave) => {
-          const dayStart = new Date(`${dateValue}T00:00:00.000Z`).valueOf();
-          const dayEnd = new Date(`${dateValue}T23:59:59.999Z`).valueOf();
-          return leave.startsAt.valueOf() <= dayEnd && leave.endsAt.valueOf() >= dayStart;
-        });
-      const entries = assignments
-        .filter(
-          (a) =>
-            a.actualMembershipId === membershipId ||
-            (a.plannedMembershipId === membershipId && leaveCovers(a.businessDate)),
-        )
-        .sort(
-          (a, b) => a.businessDate.localeCompare(b.businessDate) || a.slotPosition - b.slotPosition,
-        )
-        .map((assignment) =>
-          assignment.actualMembershipId === membershipId
-            ? {
-                text: Number(assignment.businessDate.slice(-2)),
-                weekend: isWeekend(assignment.businessDate),
-              }
-            : { text: '-' as const },
-        );
-      while (entries.length < slotCount && (entries.length === 0 || memberLeaves.length > 0))
-        entries.push({ text: '-' as const });
+    const normalizedAssignments = assignments.map((assignment) => {
+      const membershipId = resolveHeadNeckDutyMembershipId(assignment, canonicalByMembershipId);
+      if (membershipId === undefined) throw new Error('Word 排班包含未配置的一值人员。');
+      return { businessDate: assignment.businessDate, membershipId };
+    });
+    const normalizedLeaves = leaves.map((leave) => ({
+      ...leave,
+      membershipId: canonicalByMembershipId.get(leave.membershipId)!,
+    }));
+    const grid = buildHeadNeckRotationGrid(config.firstDutyMembershipIds, normalizedAssignments);
+    const firstDuty = grid.map((row) => {
+      const memberLeaves = normalizedLeaves.filter(
+        (leave) => leave.membershipId === row.membershipId,
+      );
       const absenceTypes = [
         ...new Set(memberLeaves.map((leave) => leaveTypeLabel(leave.leaveType))),
       ];
       return {
-        memberName: names.get(membershipId)!,
-        tokens: entries,
+        memberName: names.get(row.membershipId)!,
+        tokens: row.tokens.map((token) =>
+          typeof token === 'number'
+            ? {
+                text: token,
+                weekend: isWeekend(`${businessMonth}-${String(token).padStart(2, '0')}`),
+              }
+            : token === '-'
+              ? { text: '-' as const }
+              : undefined,
+        ),
         ...(absenceTypes.length === 0 ? {} : { absenceTypes }),
       };
     });
