@@ -10,6 +10,8 @@ import {
   verifyDeterministicBuild,
 } from './build-tools.mjs';
 import { auditMiniProgramPerformance } from './performance-budget.mjs';
+import { readFileSync } from 'node:fs';
+import { compileUploadScript } from './upload-script-compatibility.mjs';
 
 const profile = readProfileArgument();
 const source = auditSourceTree();
@@ -17,6 +19,8 @@ printIssues('miniprogram-source', source.issues);
 if (source.issues.length > 0) process.exit(1);
 
 await buildMiniProgram({ profile });
+const exportPage = 'subpackages/insights/pages/exports/index.js';
+await compileUploadScript(readFileSync('dist/' + exportPage, 'utf8'), exportPage);
 const built = auditBuiltTree();
 if (built.workletCount < source.workletCount) {
   built.issues.push(

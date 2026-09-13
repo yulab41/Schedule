@@ -1,58 +1,21 @@
 # Project Status
 
-## 当前批次：Feedback16 子组件挂载与冷入口修复已上传放行 `.120`，待小米14复核
+## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
 
-- 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
-- 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
-- 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
-- 外部边界：不控制微信开发者工具；用户已明确授权本轮上传并放行，仍未授权生产代码部署或数据库操作。
-- `.120` 已从 clean SHA `c2dbe4c377aec311e60e24fc5f4196d4748a707c` 以 production/clean 上传并追加放行；Manifest `848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`，receipt/allocation/tag 一致。`.119` 的 IPv6 失败预占保留且未放行。
-- allowlist verify 与完整 `ecs-verify.sh` 通过；线上应用 release 未改变，版本策略容器重建后的短暂健康等待已恢复。上传、服务器校验均不替代小米14原生验收。
-- 唯一下一任务：小米14体验版 `.120` 复核导出真实入口及冷入口重试不白屏，状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
-- A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
-- 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
-- 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
-- B/C 结果：导出增加精确 Page/include/panel 血缘回归并补齐 panel 的 `ui-toast` 注册；二维码支持点击预览、长按系统菜单、预览失败保存回退和轮换后自动读取；平台账号操作统一使用 `ui-toast`/`scheduleInfoMessageExpiry`，管理弹窗补齐字段/操作/安全区间距。详情见 `docs/audit/feedback16.md`。
-- 验证：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项通过；A workbench联合58项通过、1项跳过。390/320/大字号为合成检查，非小米14验收。
-- `.114@f7b1709` 小米14报告确认版本一致，但仍只有 `exports · open-requested` 和同一 `MINI_RUNTIME_ERROR` 指纹，没有 `page-load/page-ready`；用户补充该现象从 `.106` 及以后出现。`.106` 代码已包含该导出入口，当前未发现 URL 或 app.json 路径变更，精确引入提交仍待原生栈信息。
-- 最终验证：`pnpm format:check`、`pnpm lint`、Mini verify、包体、Worklet、确定性、核心 smoke 及 Mini 全量测试均通过；Mini 全量为169文件/1195项通过、2文件/16项跳过，包体4,550,584字节、Worklet2/2。上传前冻结产物与候选检查通过。
-- 发布结果：候选提交 `905171cfa96b20e0158c39819a96795192d74108` 以 production/clean 上传为体验版 `0.1.0-p10.20260912.113`；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`、receipt、远端不可变 tag 一致。首次同一不可变元组因微信侧 IPv6 `-10008 invalid ip` 拒绝，改用已验证代理 IPv4 路由后成功，未改变系统网络或候选内容。
-- 放行结果：服务器 `schedule-client-version-allowlist ensure` 仅追加 `.113`，`.112` 及既有版本保留；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
-- 导出白屏复现：旧实现把直接 Page 的群组 ID写入 `this.properties`；只读 Page 宿主回归稳定复现 `TypeError: Cannot assign to read only property 'properties'`。`app.json`、源码/构建产物路由和 `wx.navigateTo` 路径均一致，因此根因在 Page 初始化宿主边界，不是跳转路径。
-- 导出修复：直接 Page 改写自身 `data.groupId`，控制器按 Page/Component 宿主分别读取上下文；缺少 query 时显示可重试错误。定向39项、Mini全量169文件/1197项、Mini verify均通过。
-- 发布结果：修复提交 `f7b1709aa471562f15caab2b6c83db1c94383de1` 以 production/clean 上传为 `0.1.0-p10.20260912.114`，Manifest `66ab569cacb1f1384cc38da6b1c4c586c23c3b0c8ecf35032760bce9a4917f9a`，receipt 与不可变 tag 一致；服务器 add-only ensure 仅追加 `.114`，`.113` 保留，allowlist verify 与完整 `ecs-verify.sh` 通过，线上 release 未改变。
-- 新修复：导出页首帧先显示轻量标题/加载壳，下一渲染周期再挂载完整 panel；卸载时取消延迟任务，保留原有 controller、权限、请求和导出语义。首帧边界回归、WXML 编译和构建产物检查通过。
-- 检查点提交消息：`fix(miniprogram): defer export panel first paint`。
-- 新修复验证：Mini 全量169文件/1197项通过、2文件/16项跳过；Mini verify、determinism、format、lint、package、`smoke:check-core`通过，包体4,551,852字节，主包1,708,505字节仍为既有warning。
-- 新体验版交付：`93c660b3cb38c19ff98758529b1c329b37189954` 以 production/clean 上传为 `0.1.0-p10.20260912.115`；Manifest `f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`，receipt 与远端不可变 tag 一致。说明为 `Feedback16 export first-paint fix 93c660b`，上传时间以 ignored receipt 为准。
-- 放行结果：服务器 add-only ensure 仅追加 `.115`，`.114`、`.113` 及旧版保留；allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
-- `.115` 同版本报告仍只有 `exports · open-requested`、没有 `page-load/page-ready`，确认上一版首帧门控仍未跨过注册前依赖边界。新增失败优先回归后定位到 `initial-data.ts` 的 `import { type ScheduleExportType }` 被构建链保留为运行时导入，导致 contracts/Zod 整树进入导出页 bundle；构建产物出现 `globalThis`/`navigator`，与 Mini 运行时禁用边界冲突。
-- 新修复：Page 注册前仅保留纯壳数据；controller 工厂延迟到 `onLoad` 微任务执行，失败显示可见重试壳；`ScheduleExportType` 改为真正的 `import type`，并将 initial-data 作为 controller 内部 bundled-only 模块。导航 URL、app.json、权限、API、导出任务及下载语义不变。
-- 新修复验证：导出页产物119,713字节且不含 `globalThis`/`navigator`，initial-data 未生成独立资源；定向29项、Mini verify、包体4554110字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 测试为169文件通过、2文件跳过；另有既有 `manual-schedule-limits` 边界断言失败（期望 contracts 输入2个、实际28个），与本轮导出修改无关。
-- `.116` 已使用独占 detached warm candidate 从 clean SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9` 上传；版本说明为 `Feedback16 export dependency fix 9269ed2`，production/clean，Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`，receipt 与远端不可变 tag 一致。
-- 放行结果：服务器可信 `schedule-client-version-allowlist ensure` 仅追加 `.116`，`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未做生产代码部署、数据库备份或迁移。
-- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版116复核导出页标题/返回/loading、完整面板和导出操作；Node、上传、白名单和服务器验证均不替代原生验收。
-- 用户反馈 `.116` 修复后仍无法打开，截图仍显示同一 `MINI_RUNTIME_ERROR` 指纹。当前新回归确认 `.116` Page 仍静态导入 controller 模块；即使工厂延迟，模块顶层运行时依赖仍可能在 `Page()` 注册前执行。新修复将 controller 模块改为 `onLoad` 后异步加载，并在模块失败时显示可见重试壳；保留真正的 `import type`，不把 contracts/Zod 带入页面。
-- 新修复验证：定向导出/页面边界20项、Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过；导出页产物122,748字节且不含`globalThis`/`navigator`。完整 Mini 测试尚未因本轮重复运行；此前169文件通过、2文件跳过，另有既有 `manual-schedule-limits` 无关断言失败。
-- 新体验版交付：`1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a` 以 production/clean 上传为 `0.1.0-p10.20260913.117`；Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`，234 个代码文件、上传 ZIP 2,620,518 字节，receipt/allocation 绑定一致。
-- 放行结果：服务器可信 `schedule-client-version-allowlist ensure` 仅追加 `.117`，`.116`、`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
-- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版117复核导出页首屏、返回、完整面板和导出操作；自动化、上传、白名单及服务器验证均不替代 Skyline 原生验收。
-
-## Feedback16 当前修复状态
-
-- 用户反馈 `.117` 同版本报告仍只有 `exports · open-requested`、没有 `module-registered/page-load/page-ready`，错误指纹未变；本轮继续排查页面注册前的 WXML/组件资源装载边界，不重复修改已核对一致的导航 URL 或导出 API。
-- 新修复：导出 Page 注册前只保留 native-only 壳；完整 panel 改为独立 `exports-panel` wrapper，在 onLoad 后挂载，wrapper attached 后回报 `startupready`。页面失败会保留标题、返回、错误和重试，不改变 controller、权限、请求、任务与下载语义。
-- 测试工具新增“导出页启动边界”卡片和无群组参数冷入口，固定记录 `module-registered → page-load → page-mount-requested → panel-component-attached`，按首个缺失阶段给出页面资源、原生生命周期、组件资源或业务初始化方向；不记录 query、群组数据、请求体或原始异常。
-- 本轮验证：Mini 全量171文件通过、2文件跳过，1197项通过、16项跳过；Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过。包体约4,559,918字节，既有主包和矩阵节点 warning 保留。
-- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传或放行新 SHA，也未控制微信开发者工具、部署生产或修改后端；下一停止条件是授权新 SHA 上传后，用同版本小米14报告的启动边界字段继续判定。
-
-## `.118` 报告后的第二层挂载修复
-
-- 用户提供 `.118@b6db156` 报告：冷入口首次能显示“暂时无法加载”，点击重新加载后变为空白；启动记录已有 `page-load/page-show/page-ready/panel-mount-requested`，但没有 `panel-component-attached`。这排除了跳转路径和 Page 注册失败，但保留子组件资源/生命周期边界待原生复核。
-- 失败优先回归复现了冷入口重试缺陷：`groupId` 为空时 `handleRetry` 仍会把 `panelReady` 置为 true；同时页面在 panel attached 前使用 `wx:else` 移除整个错误/加载壳。修复为缺少群组上下文时保持可见错误，并在 panel attached 前保留 native fallback。
-- WXML 将 panel 放入 native host，新增 `panelAttached` 状态；组件未挂载或迟到时页面不再变成空白，5 秒后显示可重试错误。未改变导出 API、鉴权、请求、任务、下载或导航语义。
-- 新增模拟器挂载回归和冷入口回归；Mini 全量172文件/1200项通过、2文件/16项跳过。Mini verify、package、source、determinism、format、lint和 `smoke:check-core`均通过；模拟器结果不替代 Skyline 原生验收。
-- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传或放行新 SHA，也未部署生产或控制微信开发者工具；下一停止条件是新版本同 SHA 小米14复核启动边界和导出内容。
+- 基线3d83d236（体验版120源码c2dbe4c3）；独占general-5，REUSE_ONLY，未安装依赖。
+- 根因：106已包含的9bae5beb在共享CSV轮询循环中增加捕获remaining的Promise闭包，
+  微信SDK ES6转换生成regeneratorValues，但SDK既未识别也未附带此模块，导致页面载入即失败。
+- 本轮运行真实miniprogram-ci转换及仅含其自带helper的VM，旧产物缺模块失败，新产物注册和初始化通过。
+  详细引入点、语义审计与旧测试盲区见docs/audit/feedback19-export-runtime.md。
+- 修复等待函数作用域，保留轮询/超时/取消语义；导出恢复单一Page及静态模板，
+  保留data群组上下文。删除临时组件wrapper、重复加载壳/样式、挂载计时器和未调用测量代码。
+- 替换临时结构测试为上传转换后Page运行测试；Mini verify增加SDK helper可打包性门禁。
+- 验证：Mini全量168文件1191项通过、2文件16项跳过；共享presentation-core32项通过。
+  Mini verify/Worklet2/2/包体4,551,833字节/确定性、typecheck、lint、format、icon parity、
+  smoke:check-core通过。既有主包和矩阵内部预警保留；未控制微信开发者工具。
+- 检查点：fix(miniprogram): repair export upload transform and remove startup scaffolding。
+- 下一任务：交付此修复的干净体验版，再由小米14验证真实导出入口及CSV下载/发送。
+  尚无修复后同SHA真机证据，不将Node执行等同于原生通过。生产应用与数据库不在本轮修复范围。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

@@ -88,16 +88,12 @@ interface ExportsPageData {
   readonly year: number;
   readonly canCheckJob: boolean;
   readonly canRetryCreate: boolean;
-  readonly panelReady?: boolean;
-  readonly startupError?: string;
 }
 
 interface ExportsPageInstance {
   readonly data: ExportsPageData;
   readonly properties: { readonly groupId: string };
   _directPage?: boolean;
-  _panelReadyTimer?: ReturnType<typeof setTimeout> | undefined;
-  _panelReadyToken?: object | undefined;
   _actionsClient: P9InsightsActionsClient;
   _jobId: string | undefined;
   _loadedGroupId: string;

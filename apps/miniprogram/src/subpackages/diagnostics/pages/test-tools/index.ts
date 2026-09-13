@@ -891,9 +891,10 @@ const exportStartupStages = new Set([
   'page-load',
   'page-show',
   'page-ready',
-  'panel-mount-requested',
-  'panel-component-attached',
-  'panel-mount-timeout',
+  'options-start',
+  'options-ready',
+  'options-error',
+  'options-timeout',
   'page-unload',
 ]);
 
@@ -1002,12 +1003,12 @@ function createExportBoundaryReportLines(rows: readonly PerformanceView[]): stri
     ];
   }
   const stages = rows.map((item) => item.metric);
-  const conclusion = stages.includes('panel-component-attached')
-    ? 'Page 与导出子组件均已到达，继续根据 options-start/options-error 和网络结果排查业务初始化。'
-    : stages.includes('panel-mount-requested')
-      ? 'Page 已注册并进入 onLoad，但导出子组件未完成挂载，重点检查 usingComponents、组件资源和 requiredComponents。'
+  const conclusion = stages.includes('options-ready')
+    ? '导出选项已加载完成；该记录不代表原生绘制或文件导出已完成。'
+    : stages.includes('options-start')
+      ? 'Page 已开始加载导出选项，请结合 options-error/options-timeout 与网络结果判断。'
       : stages.includes('page-load')
-        ? 'Page 已进入 onLoad，尚未发起子组件挂载，重点检查首帧调度或 setData。'
+        ? 'Page 已进入 onLoad，尚未加载导出选项；无群组参数冷入口会显示缺少群组提示。'
         : stages.includes('module-registered')
           ? '页面模块已注册但没有 onLoad，重点检查原生页面装载和 WXML 边界。'
           : '没有完成 Page 模块注册，重点检查页面 JS 静态依赖或页面资源装载。';

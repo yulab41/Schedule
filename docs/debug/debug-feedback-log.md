@@ -2,6 +2,18 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-13 FEEDBACK19 导出页面真实上传转换失败
+
+- git log -S / blame定位9bae5beb共享export.ts循环内Promise闭包，.106包含此改动；.102无缺失helper。
+  miniprogram-ci 2.1.31实际ES6转换生成SDK不识别且未附带的regeneratorValues，载入即失败。
+  之前只测转换前源码/假组件，错误地把初始化失败一概归为Skyline挂载问题。详见docs/audit/feedback19-export-runtime.md。
+- 等待工厂移到循环外后真实转换执行RED→GREEN；超时、取消和timer所有权保留。
+  删除wrapper、两套加载壳、挂载计时器、重复样式及无调用测量函数，恢复单一Page生命周期。
+- 运行验证：Mini全量1191通过/16跳过，共享32通过；Mini verify含新增上传转换门禁，
+  Worklet2/2/包体/确定性、typecheck、lint、format、icon parity通过。
+  运行/浏览器验证：pnpm smoke:check-core通过，无Web核心链路改动，无需核心浏览器冒烟。
+- 未取得修复后同SHA小米14证据；本轮保留原下载/发送与缺少群组提示语义，未操作生产应用或数据库。
+
 ## 2026-09-13 FEEDBACK18 体验版120上传与追加放行
 
 - 当前修复 SHA `c2dbe4c377aec311e60e24fc5f4196d4748a707c` 已经用户授权，以 production/clean 上传为 `0.1.0-p10.20260913.120`；Manifest `848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`，receipt、allocation、远端 tag 一致。

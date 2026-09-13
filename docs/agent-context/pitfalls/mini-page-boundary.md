@@ -1,5 +1,13 @@
 # Mini Page boundary
 
+Export regression from trial106 (9bae5beb) was an upload ES6-transform failure, not
+proven Skyline layout failure. miniprogram-ci 2.1.31 emitted regeneratorValues for
+an async loop with a closure over a block variable, but did not ship that helper.
+Run scripts/upload-script-compatibility.mjs through Mini verify and the actual
+transformed Page regression before adding lazy wrappers or mount timers.
+Source-only VM and mock-component passes do not cover upload transformation.
+See docs/audit/feedback19-export-runtime.md. Native acceptance remains separate.
+
 Android Skyline proved that a Page whose entire template injects one large business panel can fail
 before `Page.onLoad` under `requiredComponents`. Height, upload trimming, API, and capability were
 ruled out; direct Page registration restored the visitor page on device.

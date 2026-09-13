@@ -14,12 +14,12 @@ describe('feedback9 export result layout', () => {
     expect(template).toContain('bindpress="handleShare"');
     expect(template).toContain('class="ready-actions"');
     expect(template).toContain("state === 'download_failed'");
-    expect(JSON.parse(read('pages/exports/index.json')).usingComponents['exports-panel']).toBe(
-      '/subpackages/insights/components/exports-panel/index',
+    expect(JSON.parse(read('pages/exports/index.json')).usingComponents).not.toHaveProperty(
+      'exports-panel',
     );
-    expect(
-      JSON.parse(read('components/exports-panel/index.json')).usingComponents['ui-toast'],
-    ).toBe('/components/ui/ui-toast/index');
+    expect(JSON.parse(read('pages/exports/index.json')).usingComponents['ui-toast']).toBe(
+      '/components/ui/ui-toast/index',
+    );
   });
 
   it('gives filenames a full separate row and equal compact button padding', () => {

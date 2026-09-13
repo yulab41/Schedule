@@ -1,62 +1,21 @@
 # 微信小程序审计状态
 
-## 当前批次：Feedback16 子组件挂载与冷入口修复已上传放行 `.120`，待小米14复核
+## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
 
-- 设计检查点 `516e2719`；A 检查点 `42e644a4`；最终 B/C 检查点 `84ae20f8`；当前为上传策略证明补充阶段。详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
-- A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
-- 定向与相关回归均通过：Feedback16 日历2、导出1、二维码/账号7，相关 Feedback10/14、导出、组织账号、ui-toast 测试合计71项；A workbench联合58项通过、1项跳过。全量 Mini 测试169文件通过、2文件跳过，1195项通过、16项跳过。合成390/320/大字号布局检查通过，非原生证据。
-- 最终门禁：`format:check`、`lint`、Mini verify、包体、Worklet、确定性及 `smoke:check-core` 通过；Mini verify source/output Worklet 2/2，包体4,550,584字节。既有主包和矩阵节点仅为内部 warning，不是本轮回归失败。
-- `.114@f7b1709` 小米14报告确认版本一致，但仍只有 `open-requested` 和 `MINI_RUNTIME_ERROR`，没有 Page 生命周期阶段；用户补充现象从 `.106` 及以后出现。`.106` 已有导出路由，当前未发现 URL/app.json 路径回归，精确引入提交仍待原生栈信息。
-- 外部边界：不控制微信开发者工具 GUI/CLI；用户已明确授权本轮上传并放行，未授权生产代码部署、数据库操作或真实通知。
-- `.120` 已从 clean SHA `c2dbe4c377aec311e60e24fc5f4196d4748a707c` 以 production/clean 上传并追加放行；Manifest `848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`，receipt/allocation/tag 一致。`.119` 失败预占保留且未放行。
-- allowlist verify 与完整 `ecs-verify.sh` 通过；线上 release 未改变，放行脚本造成的短暂健康等待已恢复。唯一下一任务是小米14同版本 `.120` 原生复核，状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
-- 体验版交付：`905171cfa96b20e0158c39819a96795192d74108` / `0.1.0-p10.20260912.113` / production-clean；Manifest `962af5a88b793f124f3c7f7e3f6761e54d73d16e6bd61428d1e03cb33d274ba8`，receipt 与远端 tag 一致。首次微信 CI 因 IPv6 `-10008 invalid ip` 失败，同一冻结元组经已验证代理 IPv4 路由重试成功。
-- 放行与生产边界：`schedule-client-version-allowlist ensure` 仅追加 `.113`，旧版 `.112` 保留；独立 allowlist verify 和完整 `ecs-verify.sh` 通过，线上 release 指针仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未部署生产应用、未备份/修改数据库。
-- 导出白屏根因：直接 Page 在 `onLoad` 将群组 ID赋给只读 `this.properties`；回归测试复现 `TypeError: Cannot assign to read only property 'properties'`。静态路由、app.json、构建产物和导航 URL 一致，排除路径设置错误。
-- 修复：Page 使用 `data.groupId`，控制器用宿主标记区分 Page/Component 上下文；无 query 冷入口转为可见错误。新增回归后定向39项、全量Mini169文件/1197项、Mini verify通过。
-- 新体验版交付：`f7b1709aa471562f15caab2b6c83db1c94383de1` / `0.1.0-p10.20260912.114` / production-clean；Manifest `66ab569cacb1f1384cc38da6b1c4c586c23c3b0c8ecf35032760bce9a4917f9a`，receipt 与不可变 tag 一致。服务器仅 add-only 追加 `.114`，`.113` 保留；allowlist verify 与完整 `ecs-verify.sh` 通过，线上 release 指针未改变。
-- 新修复：导出 Page 首帧改为轻量标题/加载壳，下一渲染周期再挂载完整 panel；卸载取消延迟任务，不改变 controller、权限、请求或导出语义。相关回归和构建检查已通过。
-- 检查点提交消息：`fix(miniprogram): defer export panel first paint`。
-- 新修复验证：Mini 全量169文件/1197项通过、2文件/16项跳过；Mini verify、determinism、format、lint、package、`smoke:check-core`通过，包体4,551,852字节。
-- 新体验版交付：`93c660b3cb38c19ff98758529b1c329b37189954` / `0.1.0-p10.20260912.115` / production-clean；Manifest `f94fcfc5d313e9c3eb46e3f5f7ce2fac7f5cb672cace786eac37df10835d1c53`，receipt 与远端 tag 一致，说明为 `Feedback16 export first-paint fix 93c660b`。
-- 放行结果：服务器 add-only ensure 仅追加 `.115`，`.114`、`.113` 及旧版保留；allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），线上 release 未改变，未做生产代码部署、数据库备份或迁移。
-- `.115` 同版本报告仍只有 `exports · open-requested`，无 `page-load/page-ready`；静态复核已确认工作台导航 URL 与 `app.json` 注册一致。新失败优先回归显示：`initial-data.ts` 的 `import { type ScheduleExportType }` 进入了构建产物运行时依赖，导出页 bundle 带入 contracts/Zod，并触发 `globalThis`/`navigator` 禁止边界。
-- 新修复：导出 Page 注册前只使用纯壳数据，controller 工厂延迟至 `onLoad` 微任务；controller 工厂/初始化失败显示可重试错误。将类型导入改成 `import type`，initial-data 仅作为 controller bundled-only 模块，不改变 API、鉴权、任务、下载或路径。
-- 本地证据：导出页119,713字节，不含 `globalThis`/`navigator`，无独立 initial-data 资源；定向29项、Mini verify、包体、Worklet2/2、确定性、format、lint和`smoke:check-core`通过。完整 Mini 测试169文件通过、2跳过，另有与本轮无关的 manual-schedule-limits 既有断言失败。
-- `.116` 已从 clean detached candidate 上传：SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9`，production/clean，说明 `Feedback16 export dependency fix 9269ed2`，Manifest `26feb241a3bdf5133f66b6ee4ee65cb0b9e720eafe1cd5fa5bb7a2ef3234ec26`，receipt/tag 一致。
-- 可信 allowlist `ensure` 仅追加 `.116`，旧版保留；独立 allowlist verify 和完整 `ecs-verify.sh` 通过。线上应用 release 未改变；放行期间短暂 TLS/502 后恢复，未部署生产应用、未备份/修改数据库。
-- 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14同版本体验版116复核导出页；自动化、上传、白名单及服务器证据不替代 Skyline 原生验收。
-- 用户反馈 `.116` 仍无法进入，错误指纹未变。新回归确认 Page 静态导入 controller 模块，模块顶层运行时依赖仍可能在 Page 注册前执行；路径和 `app.json` 注册仍一致。新修复改为 `onLoad` 后异步加载 controller 模块，失败显示标题/返回/错误/重试壳，并保留 `import type` 的 bundle 边界修复。
-- 新修复本地证据：定向20项、Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint和`smoke:check-core`通过；导出页122,748字节且不含`globalThis`/`navigator`。完整 Mini 测试本轮未重复，既有结果为169文件通过、2跳过，另有无关 manual-schedule-limits 断言失败。
-- 新体验版交付：clean detached SHA `1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a`，版本 `0.1.0-p10.20260913.117`，production/clean，说明 `Feedback16 export module fix 1031da2a`；234 个代码文件，上传 ZIP 2,620,518 字节，Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`，receipt/allocation 绑定一致。
-- 放行成功：可信 allowlist `ensure` 仅追加 `.117`，`.116` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未部署生产应用、未备份/修改数据库。
-- 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14同版本体验版117复核导出页；自动化、上传、白名单及服务器证据不替代 Skyline 原生验收。
-
-## Feedback16 当前修复状态
-
-- `.117` 同版本复测仍只有 `exports · open-requested` 和 `MINI_RUNTIME_ERROR`，没有 `module-registered/page-load/page-ready`；新增静态/回归证据将范围收窄到页面注册前的 WXML/组件资源装载边界，未发现导航 URL 或 `app.json` 路径错误。
-- 新修复：Page 注册前只保留 native-only 壳；完整导出 panel 改为独立 `exports-panel` wrapper，在 Page 首次加载后再挂载，wrapper attached 后回报 `startupready`。页面保留标题、返回、错误和重试壳；controller、权限、API、任务和下载语义不变。
-- 新诊断：测试工具新增“导出页启动边界”卡片和无群组参数冷入口，固定记录 `module-registered → page-load → page-mount-requested → panel-component-attached`，按首个缺失阶段提示页面/原生生命周期/组件资源/业务初始化方向；不采集敏感 query、群组数据、请求体或原始异常。
-- RED→GREEN：新增边界回归4项；兼容回归后 Mini 全量171文件/1197项通过、2文件/16项跳过；Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过。包体约4,559,918字节，既有 warning 保留；这些均不是 Skyline/小米14原生验收。
-- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮未上传、未放行、未部署生产或控制微信开发者工具；只有取得新 SHA 上传授权并取得同版本小米14报告后，才能判断是否跨过原生装载边界。
-
-## `.118` 报告后的第二层挂载修复
-
-- `.118@b6db156` 报告确认 Page 已到达 `page-load/page-show/page-ready`，并记录 `panel-mount-requested`，但没有 `panel-component-attached`；冷入口首次显示可见错误，点击重新加载后空白。当前证据支持子组件挂载/生命周期边界，不支持导航 URL 或 Page 注册失败。
-- 失败优先回归先复现冷入口 `groupId` 为空仍进入 panel 挂载分支，以及 panel attached 前 `wx:else` 移除整个 fallback 的问题。修复加入 `panelAttached`，缺少 group 时 retry 保持错误壳；panel 未 attached 时持续显示 native fallback，超时转为可重试错误。
-- 新增 `feedback18-export-panel-mount.test.mjs`，使用 `miniprogram-simulate` 验证 host 下自定义组件的动态挂载和 startup 事件；这只能验证 WXML/事件模型，不能代替 Skyline 小米14验收。
-- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。Mini 全量172文件/1200项通过、2文件/16项跳过；Mini verify、package、source、determinism、format、lint和 `smoke:check-core`通过。本轮未上传或放行新版本。
-
-## 当前批次：Feedback15 已部署并放行112，待小米14复核
-
-- 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情feedback15.md。
-- 周历测量/点选、未上班折叠、岗位改名、月历顺延/62px、补班、两步授权及日期文字盒居中已实现。
-- pnpm verify通过：Mini1184/16跳过、根1252/439跳过、依赖保护81；MySQL模式集成套件46项通过。额外通知保存失败RED1→联合35通过；最终Mini verify/Worklet2/2/包体通过（主包1708859/总4550421）。
-- 390/320真实WXML/生产CSS几何、完整本地浏览器冒烟及smoke:check-core通过。合成管理员标记恢复，临时服务停止；小米14原生待同版本复核。
-- 用户授权上传后又授权部署并继续放行；112/83d8a03上传成功，冻结包/receipt/远端tag一致，上传30项和候选前后检查通过。交付见feedback15-trial-release.md。
-- 部署前实时live=e163fde8，回滚候选为8f441d2d；备份d89f173b-8b76-463c-b560-3e0726ff3d5d成功（54表、106182176字节）。83d8a03b部署完成，schema57，独立ecs-verify通过。
-- 可信ensure仅追加112并保留111；allowlist verifier、再次ecs-verify和公网探针通过：112/111=200，动态未知=426。未发送真实通知或执行版本退役。
-- 唯一下一任务：小米14最终复核112同版本的八项反馈；自动化和生产验证已完成，原生证据仍待用户提供。不重复上传、放行或部署。
+- 基线3d83d236（体验版120源码c2dbe4c3）；独占general-5，REUSE_ONLY，未安装依赖。
+- 根因：106已包含的9bae5beb在共享CSV轮询循环中增加捕获remaining的Promise闭包，
+  微信SDK ES6转换生成regeneratorValues，但SDK既未识别也未附带此模块，导致页面载入即失败。
+- 本轮运行真实miniprogram-ci转换及仅含其自带helper的VM，旧产物缺模块失败，新产物注册和初始化通过。
+  详细引入点、语义审计与旧测试盲区见docs/audit/feedback19-export-runtime.md。
+- 修复等待函数作用域，保留轮询/超时/取消语义；导出恢复单一Page及静态模板，
+  保留data群组上下文。删除临时组件wrapper、重复加载壳/样式、挂载计时器和未调用测量代码。
+- 替换临时结构测试为上传转换后Page运行测试；Mini verify增加SDK helper可打包性门禁。
+- 验证：Mini全量168文件1191项通过、2文件16项跳过；共享presentation-core32项通过。
+  Mini verify/Worklet2/2/包体4,551,833字节/确定性、typecheck、lint、format、icon parity、
+  smoke:check-core通过。既有主包和矩阵内部预警保留；未控制微信开发者工具。
+- 检查点：fix(miniprogram): repair export upload transform and remove startup scaffolding。
+- 下一任务：交付此修复的干净体验版，再由小米14验证真实导出入口及CSV下载/发送。
+  尚无修复后同SHA真机证据，不将Node执行等同于原生通过。生产应用与数据库不在本轮修复范围。
 
 ## 上一批次：Feedback14 已交付111，导出白屏待同版本报告
 

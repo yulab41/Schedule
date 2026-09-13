@@ -284,7 +284,7 @@
             <text>应截图：版本条、导出页和本条阶段记录。</text>
           </view>
           <text class="directory-next-launch-state"
-            >判读顺序：module-registered → page-load → panel-mount-requested → panel-component-attached；缺失的第一个阶段就是下一步重点。</text
+            >启动阶段：module-registered → page-load → options-start → options-ready；无群组参数冷入口停留在提示页属于预期行为。</text
           >
           <view class="diagnostic-action is-primary" aria-role="button" bindtap="handleOpenExportColdEntry"
             >打开导出页冷入口（无群组参数）</view
