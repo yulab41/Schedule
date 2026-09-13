@@ -46,6 +46,21 @@ describe('Mini secure export download bridge', () => {
       }),
     );
   });
+  it('builds the production download URL on the configured HTTPS API origin', async () => {
+    vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://hosp.schedule.eylinhome.top/api');
+    globalThis.wx.downloadFile.mockImplementation((options) =>
+      options.success({ statusCode: 200, tempFilePath: 'wxfile://export.csv' }),
+    );
+    const { downloadScheduleExport } = await import('../src/platform/secure-download.ts');
+    await expect(downloadScheduleExport(() => 'token', undefined, 'group', 'job')).resolves.toBe(
+      'wxfile://export.csv',
+    );
+    expect(globalThis.wx.downloadFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'https://hosp.schedule.eylinhome.top/api/groups/group/exports/job/download',
+      }),
+    );
+  });
   it('bounds capability preflight and never downloads after it expires', async () => {
     let resolveCapability;
     mocks.requireClientCapability.mockImplementationOnce(

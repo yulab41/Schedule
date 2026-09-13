@@ -20,7 +20,7 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
-import { parseVisitorQrImage, saveVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
+import { parseVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
@@ -46,8 +46,6 @@ interface InviteVisitorPageData {
   readonly errorMessage: string;
   readonly infoMessage: string;
   readonly infoTone: 'success' | 'info' | 'error';
-  readonly qrSaving: boolean;
-  readonly albumPermissionDenied: boolean;
   readonly managementError: string;
   readonly managementInfo: string;
   readonly managementState: 'error' | 'loading' | 'ready';
@@ -98,7 +96,6 @@ interface InviteVisitorPageInstance {
   _qrGeneration: number;
   _qrReading?: object;
   _qrRotating?: object;
-  _qrSaveTask?: object;
   __infoMessageTimer?: unknown;
   __infoMessageToken?: object;
   _operationIds: Map<string, string>;
@@ -121,8 +118,6 @@ export function createInviteVisitorPanelControllerDefinition() {
       errorMessage: '',
       infoMessage: '',
       infoTone: 'info',
-      qrSaving: false,
-      albumPermissionDenied: false,
       managementError: '',
       managementInfo: '',
       managementState: 'loading',
@@ -253,27 +248,6 @@ export function createInviteVisitorPanelControllerDefinition() {
 
     handleRegenerateVisitorKey(this: InviteVisitorPageInstance): void {
       void regenerateVisitorKey(this);
-    },
-
-    handleSaveQr(this: InviteVisitorPageInstance): void {
-      void saveQr(this);
-    },
-
-    handleAlbumSettings(
-      this: InviteVisitorPageInstance,
-      event: {
-        detail?: { authSetting?: Readonly<Record<string, boolean>> };
-      },
-    ): void {
-      if (this._disposed || !this.data.albumPermissionDenied || !this.data.qrVisible) return;
-      const enabled = event.detail?.authSetting?.['scope.writePhotosAlbum'] === true;
-      updatePanel(this, {
-        albumPermissionDenied: !enabled,
-        infoTone: 'info',
-        managementInfo: enabled
-          ? '相册权限已开启，请再次点击保存到相册。'
-          : '未开启相册权限，二维码未保存。',
-      });
     },
 
     handleHideQr(this: InviteVisitorPageInstance): void {
@@ -514,7 +488,6 @@ function invalidateQr(page: InviteVisitorPageInstance): void {
   updatePanel(page, {
     qrImageSrc: '',
     qrVisible: false,
-    albumPermissionDenied: false,
     visitorState: 'idle',
   });
 }
@@ -600,7 +573,7 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
       qrImageSrc: image.imageSrc,
       qrVisible: true,
       visitorState: 'ready',
-      visitorMessage: '二维码已读取，可点击保存到相册。',
+      visitorMessage: '二维码已读取，可长按二维码保存或转发。',
     });
   } catch (error) {
     if (!isCurrent()) return;
@@ -613,82 +586,6 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
       delete page._qrReading;
       if (isCurrent() && page.data.visitorState === 'loading')
         updatePanel(page, { visitorState: 'idle' });
-    }
-  }
-}
-
-async function saveQr(page: InviteVisitorPageInstance): Promise<void> {
-  if (
-    page._disposed ||
-    page._qrSaveTask ||
-    !page.data.qrVisible ||
-    !page.data.qrImageSrc ||
-    !page.data.canManage ||
-    !page.data.organizationEnabled ||
-    !page.data.guestEnabled ||
-    page.data.visitorState === 'loading'
-  )
-    return;
-  const task = {};
-  page._qrSaveTask = task;
-  const isCurrent = qrContext(page);
-  const imageSrc = page.data.qrImageSrc;
-  updatePanel(page, {
-    qrSaving: true,
-    managementError: '',
-    managementInfo: '',
-    visitorMessage: '',
-  });
-  try {
-    if (
-      !(await ensureGuest(page, isCurrent)) ||
-      !(await ensureOrganization(page, isCurrent)) ||
-      !isCurrent()
-    )
-      return;
-    const result = await saveVisitorQrImage(
-      imageSrc,
-      () =>
-        isCurrent() &&
-        page.data.canManage &&
-        page.data.organizationEnabled &&
-        page.data.guestEnabled &&
-        page.data.qrVisible &&
-        page.data.qrImageSrc === imageSrc,
-    );
-    if (!isCurrent() || result === 'stale') return;
-    if (result === 'saved' || result === 'saved-cleanup-failed' || result === 'cancelled') {
-      updatePanel(page, {
-        albumPermissionDenied: false,
-        infoTone: result === 'cancelled' ? 'info' : 'success',
-        managementInfo:
-          result === 'saved-cleanup-failed'
-            ? '二维码已保存到相册，但临时文件清理失败，请联系管理员。'
-            : result === 'saved'
-              ? '二维码已保存到相册。'
-              : '已取消保存二维码。',
-      });
-    } else {
-      const message =
-        result === 'privacy-denied'
-          ? '微信隐私检查未通过，二维码未保存。请前往测试工具复制简化报告。'
-          : result === 'permission-denied'
-            ? '未获相册权限，请点击相册设置后重新保存。'
-            : result === 'write-failed'
-              ? '二维码临时文件写入失败，请稍后重试。'
-              : result === 'invalid-image'
-                ? '二维码图片无效，请重新读取。'
-                : '二维码未保存，请前往测试工具复制简化报告。';
-      updatePanel(page, {
-        albumPermissionDenied: result === 'permission-denied',
-        managementError: message,
-      });
-    }
-  } finally {
-    // Keep the lock across group changes until native completion and unlink have settled.
-    if (page._qrSaveTask === task) {
-      delete page._qrSaveTask;
-      if (!page._disposed) updatePanel(page, { qrSaving: false });
     }
   }
 }

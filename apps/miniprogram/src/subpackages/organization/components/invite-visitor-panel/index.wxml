@@ -139,12 +139,12 @@
           >
           <view class="visitor-body"
             ><text class="visitor-copy"
-              >访客码不会显示完整密钥；轮换后旧二维码立即失效。二维码仅在本页加载，点击保存后才写入相册。</text
+              >访客码不会显示完整密钥；轮换后旧二维码立即失效。二维码仅在本页加载，可长按二维码保存或转发。</text
             ><view class="visitor-actions"
               ><ui-button
                 variant="secondary"
                 label="读取群组二维码"
-                disabled="{{!canManage || !guestEnabled || !organizationEnabled || qrSaving}}"
+                disabled="{{!canManage || !guestEnabled || !organizationEnabled}}"
                 loading="{{visitorState === 'loading'}}"
                 bindpress="handleLoadQr"
               ></ui-button
@@ -159,25 +159,14 @@
             ><view class="qr-heading"
               ><text>群组二维码</text
               ><view class="qr-close" aria-role="button" bindtap="handleHideQr">完成</view></view
-            ><image class="qr-image" src="{{qrImageSrc}}" mode="aspectFit" /><text
-              class="memory-note"
-              >点击保存后写入相册；访客码轮换后，已保存的旧二维码失效。</text
-            ><ui-button
-              variant="primary"
-              label="保存到相册"
-              loading="{{qrSaving}}"
-              disabled="{{!canManage || !organizationEnabled || !guestEnabled || visitorState === 'loading'}}"
-              bindpress="handleSaveQr"
-            ></ui-button
-            ><button
-              wx:if="{{albumPermissionDenied}}"
-              class="invite-share-button"
-              open-type="openSetting"
-              bindopensetting="handleAlbumSettings"
-              disabled="{{qrSaving}}"
-            >
-              相册设置
-            </button></view
+            ><image
+              class="qr-image"
+              src="{{qrImageSrc}}"
+              mode="aspectFit"
+              show-menu-by-longpress="{{true}}"
+            /><text class="memory-note"
+              >长按二维码保存或转发；访客码轮换后，已保存的旧二维码失效。</text
+            ></view
           >
         </view>
 

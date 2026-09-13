@@ -1,5 +1,13 @@
 # Project Status
 
+## 当前批次：Feedback16 已实现，待体验版上传与追加放行
+
+- 基线6ede7d33，独占general-5复用依赖、无安装。CSV 真机错误已定位为微信 `downloadFile` 合法域名配置，不是账号权限、CSV内容或API代码；production URL 回归锁定 `https://hosp.schedule.eylinhome.top/api/.../download`，外部平台配置待核对。
+- 匿名访客三视图现在复用仅驻内存的群组/月窗/节假日，合并重复请求，只有当前月缺失才全页加载；hide/unload/重试/访客码失效清空全部访客内存。成员页、共享组件、API/DB未改。
+- 访客页独有“返回登录”描边动效按钮位于视图切换和筛选之间；二维码删除相册按钮/权限/临时文件链路，改为图片长按保存或转发。
+- RED3失败后GREEN定向51通过；`pnpm verify`通过：Mini1154/16跳过、根1252/439跳过、依赖保护81。icon parity、Mini verify、Worklet2/2、确定性、包体及smoke:check-core通过；主包1708198/总4545686字节，较上一检查点减少661/4735。
+- 详情见docs/audit/feedback16.md。检查点消息：`fix(miniprogram): streamline visitor calendar and QR access`。下一步：提交推送最终代码检查点，按用户本次授权动态分配并上传体验版、仅追加放行且保留旧版；不部署API/Web、不改数据库、不提审/正式发布。停止条件为上传/放行/验证结果记录完成，小米14同版本原生验收仍待用户。
+
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 
 - 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情docs/audit/feedback15.md。

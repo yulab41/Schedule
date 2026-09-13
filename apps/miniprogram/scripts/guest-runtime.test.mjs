@@ -190,6 +190,27 @@ describe('anonymous native visitor calendar', () => {
     expect(instance.data.activeFilterCount).toBe(0);
     definition.onUnload.call(instance);
   });
+  it('reuses the loaded month window across view switches without returning to full-page loading', async () => {
+    const instance = await page();
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    const initialResolveCount = requests.filter((request) =>
+      request.url.endsWith('/resolve'),
+    ).length;
+    const initialCalendarCount = requests.filter((request) =>
+      /\/guest\/groups\/[^/]+\/calendar\?/.test(request.url),
+    ).length;
+    for (const view of ['week', 'list', 'month']) {
+      definition.handleViewChange.call(instance, { currentTarget: { dataset: { view } } });
+      expect(instance.data.state).toBe('ready');
+    }
+    expect(requests.filter((request) => request.url.endsWith('/resolve'))).toHaveLength(
+      initialResolveCount,
+    );
+    expect(
+      requests.filter((request) => /\/guest\/groups\/[^/]+\/calendar\?/.test(request.url)),
+    ).toHaveLength(initialCalendarCount);
+    definition.onUnload.call(instance);
+  });
   it.each([403, 404, 410])(
     'clears prior data when the visitor code is rotated/revoked (%s)',
     async (status) => {

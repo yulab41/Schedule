@@ -1,5 +1,91 @@
 @import '../workbench/index.wxss';
-.guest-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; gap:12px; height:56px; box-sizing:border-box; }
-.guest-title { font-size:16px; font-weight:600; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.guest-return { flex-shrink:0; color:var(--ui-color-primary); padding:10px 12px; font-size:14px; }
-.guest-scroll { height:calc(100vh - 56px); }
+.guest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 12px;
+  height: 56px;
+  box-sizing: border-box;
+}
+.guest-title {
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.guest-scroll {
+  height: calc(100vh - 56px);
+}
+.guest-page .view-controls {
+  gap: 8px;
+  justify-content: flex-start;
+}
+.guest-page .view-switch {
+  flex: 1;
+  min-width: 0;
+}
+.guest-page .view-tab {
+  flex: 1;
+  min-width: 0;
+  padding: 0 6px;
+}
+.guest-return-login {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 12px;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.guest-return-login-icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.guest-return-login.is-pressed .guest-return-login-icon {
+  transform: translateX(-3px);
+}
+.guest-page .filter-button {
+  flex: 0 0 auto;
+  min-width: 72px;
+  margin-left: 0;
+  padding: 0 8px;
+}
+@media (max-width: 340px) {
+  .guest-page .view-controls {
+    gap: 5px;
+  }
+  .guest-return-login {
+    padding: 0 7px;
+    gap: 2px;
+    font-size: 12px;
+  }
+  .guest-return-login-icon {
+    width: 16px;
+    height: 16px;
+  }
+  .guest-page .filter-button {
+    min-width: 64px;
+    padding: 0 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guest-return-login-icon {
+    transition: none;
+  }
+  .guest-return-login.is-pressed .guest-return-login-icon {
+    transform: none;
+  }
+}

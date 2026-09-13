@@ -1,6 +1,6 @@
 <view class="workbench-page guest-page">
   <text wx:if="{{announcement}}" class="offline-note" aria-live="polite">{{announcement}}</text>
-  <view class="guest-header" style="{{guestHeaderStyle}}"><text class="guest-title">{{currentGroupName}} · 访客</text><view class="guest-return" aria-role="button" bindtap="handleReturn">返回</view></view>
+  <view class="guest-header" style="{{guestHeaderStyle}}"><text class="guest-title">{{currentGroupName}} · 访客</text></view>
   <scroll-view style="{{guestViewportStyle}}" class="guest-scroll workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}" scroll-y="{{viewMode !== 'list'}}" show-scrollbar="{{false}}">
         <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
           <text wx:if="{{currentGroupRoleKind === 'guest'}}" class="offline-note">访客只读 · 仅可查看已发布及历史排班</text>
@@ -18,6 +18,21 @@
                 bindtap="handleViewChange"
                 >{{item === 'month' ? '月' : item === 'week' ? '周' : '列表'}}</view
               >
+            </view>
+            <view
+              class="guest-return-login"
+              hover-class="is-pressed"
+              aria-role="button"
+              aria-label="返回登录"
+              bindtap="handleReturn"
+            >
+              <image
+                class="guest-return-login-icon"
+                src="/assets/icons/ui-chevron-left.svg"
+                mode="aspectFit"
+                aria-hidden="true"
+              />
+              <text>返回登录</text>
             </view>
             <view
               class="filter-button {{activeFilterCount > 0 ? 'has-filter' : ''}}"

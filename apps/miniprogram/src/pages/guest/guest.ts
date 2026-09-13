@@ -111,6 +111,13 @@ interface GuestPage {
   visible: boolean;
   shown: boolean;
   monthRingSlot: MonthSlot;
+  resolvedGroup: { readonly groupId: string; readonly groupName: string } | undefined;
+  resolvingGroup: Promise<{ readonly groupId: string; readonly groupName: string }> | undefined;
+  monthResources: Map<string, CalendarReadModel>;
+  holidayResources: Map<number, HolidayReadModel>;
+  monthReads: Map<string, Promise<CalendarReadModel>>;
+  holidayReads: Map<number, Promise<HolidayReadModel>>;
+  contextGeneration: number;
   setData(patch: Partial<Data>, callback?: () => void): void;
   selectComponent(
     selector: string,
@@ -124,6 +131,13 @@ Page({
   visible: true,
   shown: false,
   monthRingSlot: 1,
+  resolvedGroup: undefined,
+  resolvingGroup: undefined,
+  monthResources: new Map(),
+  holidayResources: new Map(),
+  monthReads: new Map(),
+  holidayReads: new Map(),
+  contextGeneration: 0,
   visitorKey: undefined,
   calendar: undefined,
   holidays: undefined,
@@ -155,13 +169,13 @@ Page({
   onHide(this: GuestPage): void {
     this.visible = false;
     this.serial += 1;
-    clearCalendar(this);
+    resetGuestContext(this);
   },
   onUnload(this: GuestPage): void {
     this.visible = false;
     this.serial += 1;
     this.visitorKey = undefined;
-    clearCalendar(this);
+    resetGuestContext(this);
   },
   handleListCall(this: GuestPage, event: Tap): void {
     const phoneNumber = event.currentTarget.dataset['phone'];
@@ -196,6 +210,7 @@ Page({
     clearEvents(this);
   },
   handleRetry(this: GuestPage): void {
+    resetGuestContext(this);
     void loadCalendar(this);
   },
   handleReturn(): void {
@@ -212,6 +227,7 @@ Page({
   handleViewChange(this: GuestPage, event: Tap): void {
     const view = event.currentTarget.dataset['view'];
     if (view !== 'month' && view !== 'week' && view !== 'list') return;
+    if (view === this.data.viewMode) return;
     this.setData({ viewMode: view, filterOpen: false });
     this.monthRingSlot = 1;
     void loadCalendar(this);
@@ -376,68 +392,165 @@ function clearCalendar(page: GuestPage): void {
     filterShiftTypeSummary: '全部班种',
   });
 }
+function resetGuestContext(page: GuestPage): void {
+  page.contextGeneration += 1;
+  clearCalendar(page);
+  page.resolvedGroup = undefined;
+  page.resolvingGroup = undefined;
+  page.monthResources.clear();
+  page.holidayResources.clear();
+  page.monthReads.clear();
+  page.holidayReads.clear();
+}
 function current(page: GuestPage, serial: number): boolean {
   return page.visible && page.serial === serial;
+}
+function requestedMonths(page: GuestPage): readonly string[] {
+  const activeMonth =
+    page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+  return page.data.viewMode === 'week'
+    ? [
+        ...new Set(
+          [-1, 0, 1].flatMap((delta) =>
+            getWeekBusinessMonths(addWeeks(page.data.weekStart, delta)),
+          ),
+        ),
+      ]
+    : [addBusinessMonths(activeMonth, -1), activeMonth, addBusinessMonths(activeMonth, 1)];
+}
+function applyCachedWindow(page: GuestPage, months: readonly string[]): boolean {
+  const activeMonth =
+    page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+  const active = page.monthResources.get(activeMonth);
+  const years = [...new Set(months.map((value) => Number(value.slice(0, 4))))];
+  const holidays = years.flatMap((year) => {
+    const result = page.holidayResources.get(year);
+    return result === undefined ? [] : [result];
+  });
+  if (!active || !page.holidayResources.has(Number(activeMonth.slice(0, 4)))) return false;
+  page.calendar = {
+    ...active,
+    assignments: months.flatMap(
+      (businessMonth) => page.monthResources.get(businessMonth)?.assignments ?? [],
+    ),
+  };
+  page.holidays = {
+    year: Number(activeMonth.slice(0, 4)),
+    confirmed: holidays.every((value) => value.confirmed),
+    dates: holidays.flatMap((value) => value.dates),
+  };
+  renderCalendar(page);
+  page.setData({ state: 'ready', errorMessage: '' });
+  return true;
+}
+async function resolveGuest(page: GuestPage, key: string) {
+  if (page.resolvedGroup) return page.resolvedGroup;
+  if (!page.resolvingGroup) {
+    const generation = page.contextGeneration;
+    page.resolvingGroup = client.resolveVisitor(key).then((group) => {
+      if (page.contextGeneration === generation) page.resolvedGroup = group;
+      return group;
+    });
+    void page.resolvingGroup.then(
+      () => {
+        page.resolvingGroup = undefined;
+      },
+      () => {
+        page.resolvingGroup = undefined;
+      },
+    );
+  }
+  return page.resolvingGroup;
+}
+function readMonth(
+  page: GuestPage,
+  groupId: string,
+  businessMonth: string,
+  key: string,
+): Promise<CalendarReadModel> {
+  const cached = page.monthResources.get(businessMonth);
+  if (cached) return Promise.resolve(cached);
+  const pending = page.monthReads.get(businessMonth);
+  if (pending) return pending;
+  const generation = page.contextGeneration;
+  const read = client.getGuestCalendar(groupId, businessMonth, key).then((result) => {
+    if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
+      throw new Error('Invalid guest calendar context');
+    if (page.contextGeneration === generation)
+      page.monthResources.set(businessMonth, result.calendar);
+    return result.calendar;
+  });
+  page.monthReads.set(businessMonth, read);
+  void read.then(
+    () => page.monthReads.delete(businessMonth),
+    () => page.monthReads.delete(businessMonth),
+  );
+  return read;
+}
+function readHolidays(page: GuestPage, year: number): Promise<HolidayReadModel> {
+  const cached = page.holidayResources.get(year);
+  if (cached) return Promise.resolve(cached);
+  const pending = page.holidayReads.get(year);
+  if (pending) return pending;
+  const generation = page.contextGeneration;
+  const read = client.getGuestHolidays(year).then((result) => {
+    if (page.contextGeneration === generation) page.holidayResources.set(year, result);
+    return result;
+  });
+  page.holidayReads.set(year, read);
+  void read.then(
+    () => page.holidayReads.delete(year),
+    () => page.holidayReads.delete(year),
+  );
+  return read;
 }
 async function loadCalendar(page: GuestPage): Promise<void> {
   if (!page.visible) return;
   const serial = ++page.serial;
   const key = page.visitorKey;
-  clearCalendar(page);
   if (!key) {
+    resetGuestContext(page);
     page.setData({ state: 'error', errorMessage: '访客码无效，请向群管理员重新获取。' });
     return;
   }
-  const month =
+  const activeMonth =
     page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+  const months = requestedMonths(page);
+  if (!applyCachedWindow(page, months)) {
+    clearCalendar(page);
+  }
   try {
-    const group = await client.resolveVisitor(key);
+    const group = await resolveGuest(page, key);
     if (!current(page, serial)) return;
     page.setData({ currentGroupId: group.groupId, currentGroupName: group.groupName });
-    const months =
-      page.data.viewMode === 'week'
-        ? [
-            ...new Set(
-              [-1, 0, 1].flatMap((delta) =>
-                getWeekBusinessMonths(addWeeks(page.data.weekStart, delta)),
-              ),
-            ),
-          ]
-        : [addBusinessMonths(month, -1), month, addBusinessMonths(month, 1)];
-    const read = async (businessMonth: string) => {
-      const result = await client.getGuestCalendar(group.groupId, businessMonth, key);
-      if (
-        result.calendar.groupId !== group.groupId ||
-        result.calendar.businessMonth !== businessMonth
-      )
-        throw new Error('Invalid guest calendar context');
-      return result.calendar;
-    };
-    // Commit the active month first; the remaining requests never persist credentials or calendars.
-    const active = await read(month);
+    await Promise.all([
+      readMonth(page, group.groupId, activeMonth, key),
+      readHolidays(page, Number(activeMonth.slice(0, 4))),
+    ]);
     if (!current(page, serial)) return;
+    applyCachedWindow(page, months);
     const years = [...new Set(months.map((value) => Number(value.slice(0, 4))))];
-    const holidays = await Promise.all(years.map((year) => client.getGuestHolidays(year)));
+    await Promise.all([
+      ...months
+        .filter((value) => value !== activeMonth)
+        .map((value) => readMonth(page, group.groupId, value, key)),
+      ...years
+        .filter((value) => value !== Number(activeMonth.slice(0, 4)))
+        .map((value) => readHolidays(page, value)),
+    ]);
     if (!current(page, serial)) return;
-    page.calendar = active;
-    page.holidays = {
-      year: Number(month.slice(0, 4)),
-      confirmed: holidays.every((value) => value.confirmed),
-      dates: holidays.flatMap((value) => value.dates),
-    };
-    renderCalendar(page);
-    page.setData({ state: 'ready' });
-    const adjacent = await Promise.all(months.filter((value) => value !== month).map(read));
-    if (!current(page, serial)) return;
-    page.calendar = {
-      ...active,
-      assignments: [active, ...adjacent].flatMap((value) => value.assignments),
-    };
-    renderCalendar(page);
+    applyCachedWindow(page, months);
   } catch (error) {
     if (!current(page, serial)) return;
-    clearCalendar(page);
     const status = (error as { status?: number })?.status;
+    if (
+      status === 403 ||
+      status === 404 ||
+      status === 410 ||
+      (error as { code?: string })?.code === 'VISITOR_KEY_INVALID'
+    )
+      resetGuestContext(page);
+    else clearCalendar(page);
     page.setData({
       state: 'error',
       errorMessage:
