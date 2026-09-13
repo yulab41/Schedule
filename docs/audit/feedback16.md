@@ -117,3 +117,10 @@
 - 修复加入 `panelAttached` 数据状态；缺少群组时 retry 继续显示“群组信息缺失”，有群组时 panel mounted 但未 attached 前保持 native fallback，超时显示可重试错误。panel 放入 native host，降低 Skyline 对页面根节点条件自定义组件的风险。
 - 新增 `feedback18-export-panel-mount.test.mjs`，以 `miniprogram-simulate` 验证 native host 下自定义组件动态挂载和 startup 事件；新增/更新冷入口回归。完整 Mini 172文件/1200项通过、2文件/16项跳过；Mini verify、package、source、determinism、format、lint和 `smoke:check-core`均通过。
 - 本轮不改变导出 API、鉴权、导航 URL、请求、任务轮询、下载和后端；尚未上传/放行新版本。状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`，下一步为新版本小米14同版本复核并复制启动边界报告。
+
+## `.120` 上传放行记录
+
+- 当前代码 checkpoint `c2dbe4c377aec311e60e24fc5f4196d4748a707c` 已按用户授权以 production/clean 上传为 `0.1.0-p10.20260913.120`，Manifest `848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`，receipt/allocation/远端 tag 一致。
+- `.119` 的 IPv6 `-10008 invalid ip` 失败和同版本不可变清单冲突均保留；未覆盖该预占。`.120` 使用同一 SHA 的 IPv4 进程路线上传成功，说明 `Feedback18 export fallback fix c2dbe4c`。
+- trusted allowlist ensure 仅追加 `.120`，旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过，线上应用 release 未改变。放行流程的容器重建短暂健康等待后恢复；未部署生产应用、未操作数据库。
+- 状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。自动化/WXML 事件模型仅证明页面不会主动移除 fallback 的预期结构，仍需小米14同版本真实入口验收。

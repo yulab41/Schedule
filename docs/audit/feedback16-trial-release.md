@@ -59,3 +59,28 @@
 服务器端 `schedule-client-version-allowlist ensure` 仅追加 `.115`；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行期间短暂 TLS/502 由既有健康等待恢复。
 
 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14打开体验版115复核导出页首帧标题/返回/loading、完整面板内容和导出操作；上传和自动化结果不替代原生验收。
+
+## Feedback16 体验版120上传与追加放行
+
+用户明确授权当前修复 SHA 上传体验版并放行。本次只追加新版本，保留已放行旧版；未提审、未正式发布、未发送真实通知，也未执行生产应用代码部署或数据库操作。
+
+- 候选提交：`c2dbe4c377aec311e60e24fc5f4196d4748a707c`
+- 体验版：`0.1.0-p10.20260913.120`
+- 说明：`Feedback18 export fallback fix c2dbe4c`
+- 构建档案：`production/clean`
+- 构建时间：`2026-09-13T03:04:29.704Z`
+- 上传时间：`2026-09-13T03:05:28.553Z`（以 ignored receipt 为准）
+- Manifest：`848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`
+- 证据：ignored `runtime/audit/miniprogram-trials/0.1.0-p10.20260913.120.json`、allocation、冻结构建清单和远端不可变 tag；均绑定同一版本、SHA 与 Manifest。
+
+### 上传与版本边界
+
+`.119` 的首次请求被微信以 IPv6 `-10008 invalid ip` 拒绝，没有成功 receipt；同版本重试因构建清单时间变化触发不可变 tuple 保护，未覆盖 `.119`。随后同一 SHA 动态分配 `.120`，Node 上传进程清除仅本进程代理并强制 `servicewechat.com` IPv4；上传请求成功，期间白名单读取接口一次 `ECONNRESET` 不影响最终上传。
+
+### 版本放行
+
+服务器端可信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260913.120` 仅追加 `.120`；`.119` 未放行，`.118`、`.117`、`.116`、`.115`、`.114`、`.113` 及旧版继续保留。独立 `schedule-client-version-allowlist verify` 通过，完整 `ecs-verify.sh` 通过并返回退出码 `0`。放行期间 API/Web 容器按版本策略重建，短暂 SSL EOF/502 后健康检查恢复；线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，无生产应用发布、数据库备份、迁移或业务写入。
+
+### 待用户复核
+
+当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14 Android 微信客户端打开体验版 `.120`，从工作台真实入口进入导出排班；同时可从测试工具使用无群组参数冷入口，确认首次显示提示，点击重试仍保留提示而不是空白。若真实入口仍异常，请等待约5秒让 `panel-mount-timeout` 记录落盘，再回到测试工具刷新并复制“导出页启动边界”诊断。自动化、上传、白名单和 ECS 验证不替代 Skyline 原生验收。

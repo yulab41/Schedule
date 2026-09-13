@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-13 FEEDBACK18 体验版120上传与追加放行
+
+- 当前修复 SHA `c2dbe4c377aec311e60e24fc5f4196d4748a707c` 已经用户授权，以 production/clean 上传为 `0.1.0-p10.20260913.120`；Manifest `848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`，receipt、allocation、远端 tag 一致。
+- `.119` 首次官方请求收到 IPv6 `-10008 invalid ip`，无成功 receipt；同版本第二次因不可变 Manifest tuple 冲突被工具拒绝，未覆盖或放行 `.119`。同一 SHA 动态分配 `.120`，以进程级 `servicewechat.com` IPv4 路线重试成功；上传期间 `getwhiteextlist` 一次 `ECONNRESET`，不影响最终上传退出码0。
+- 用户授权的可信 `schedule-client-version-allowlist ensure` 仅追加 `.120`，旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过。放行期间 API/Web 容器重建伴随短暂 SSL EOF/502，最终 API ready、容器/MySQL healthy；线上 release 未改变，未执行生产应用部署、数据库备份/迁移或业务写入。
+- 运行证据：上传前候选门禁 `ready-clean-detached`、`production-clean` PASS；不控制微信开发者工具 GUI/CLI。当前状态 `WAITING_XIAOMI14_NATIVE_REVIEW`，`.120` 需小米14真实入口复核导出页；自动化和服务器验证不替代原生验收。
+
 ## 2026-09-12 FEEDBACK15 日历与通知设置八项
 
 - 用户批准八项计划，实施a8695f2a；引入点与逐项行为见docs/audit/feedback15.md。e94a54ca的三周高度/62与54不一致/严格默认班种、8f441d2d的全量选中更新均按本轮要求修正；新增岗位版本化改名，22707cf6独立授权入口改为同按钮3+2。

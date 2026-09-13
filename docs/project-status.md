@@ -1,11 +1,14 @@
 # Project Status
 
-## 当前批次：Feedback16 `.118` 复测后的子组件挂载与冷入口修复，待新体验版复核
+## 当前批次：Feedback16 子组件挂载与冷入口修复已上传放行 `.120`，待小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
 - 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
-- 外部边界：不控制微信开发者工具；此前版本的上传/放行已完成，本轮新 SHA 尚未获得上传授权，仍未授权生产代码部署或数据库操作。
+- 外部边界：不控制微信开发者工具；用户已明确授权本轮上传并放行，仍未授权生产代码部署或数据库操作。
+- `.120` 已从 clean SHA `c2dbe4c377aec311e60e24fc5f4196d4748a707c` 以 production/clean 上传并追加放行；Manifest `848e91c695ce67c27f2284779818db444b530e06b350c4b5f3e0fa9d49726d2f`，receipt/allocation/tag 一致。`.119` 的 IPv6 失败预占保留且未放行。
+- allowlist verify 与完整 `ecs-verify.sh` 通过；线上应用 release 未改变，版本策略容器重建后的短暂健康等待已恢复。上传、服务器校验均不替代小米14原生验收。
+- 唯一下一任务：小米14体验版 `.120` 复核导出真实入口及冷入口重试不白屏，状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
 - A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
 - 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
 - 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
