@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：Feedback25 已部署 schema61/API，待最终验证与体验版交付
+## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 
 - 小米14 `.127` 证据确认：访客五行月历因 viewport 62px/行而 panel 仍54px/行产生底部留白；访客列表模板漏掉成员列表已有的班种状态。需继续核对医生/护士月周列表结构与交互，成员日历页面禁止修改。
 - 访客二维码当前只有5分钟进程缓存，冷路径串行生成正式/体验两码并在客户端二次绘制；用户确认二维码永久保存，只有手动“刷新访客码”才更换 visitorKey 并废除旧码。设计采用独立持久资源表、双码并行、同请求合并和分段脱敏耗时证据。
 - 设计与计划见`docs/superpowers/specs/2026-09-13-feedback25-guest-calendar-qr-performance-design.md`及对应plan。访客month panel已补齐62px rowHeight，列表主体结构与成员一致；成员日历文件零修改。schema61永久保存正式/体验访客二维码，冷生成并行且合并重复请求，刷新事务内废除旧资源，界面统一“刷新访客码”。
 - RED旧代码Mini 4/5失败且0061缺失；Feedback25/guest/导出/布局55项、schema兼容与备份表计数32项通过。完整门禁根1266项通过/443跳过、Mini1175项通过/16跳过；Windows release-cache rename曾一次`EPERM`，独立复跑4/4通过。Mini production verify主包1728134、总包4580599字节、Worklet2/2及确定性通过，`smoke:check-core`无需Web冒烟。MySQL持久化集成已加入但warm槽无测试库而14项跳过。独占general-1，REUSE_ONLY且未安装依赖；成员日历零修改和逐行diff通过。
-- 应用检查点`21fe6591 fix(visitor): persist QR assets and align guest calendar`已推送并部署；部署前生产备份`ef3a25ea-0180-462b-819c-fa75ad5081f4`为54表/256555行/108369352字节，SHA-256 `949ad08e…b3aab7`。schema61迁移及容器健康成功；末次verifier因SQL `CONCAT`输出字面量`\\t`而误报，生产实查为表1/列8/复合主键2。验证器已改为三列SELECT并补40项回归通过；下一步提交该修正、部署最终检查点并跑通完整verifier，然后冻结并上传下一体验版、仅追加放行且保留旧版。详情`docs/audit/feedback25.md`。
+- 应用检查点`21fe6591`及验证器检查点`590aebb4`已推送；schema61/API与最终可信控制面已部署。首次备份`ef3a25ea-0180-462b-819c-fa75ad5081f4`为54表/256555行，最终部署前备份`9a29cb36-fe58-44c3-a933-6114e6a6c16b`为55表/256584行/108379344字节，SHA-256 `2981b347…05d558`。完整生产verifier通过。
+- `0.1.0-p10.20260914.129`以production/clean绑定`590aebb4`上传成功，Manifest `21075b8e…fdb360`；可信ensure仅追加129并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：129/128=200，动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开129复核医生/护士访客月周列表、首次/再次读取二维码及“刷新访客码”速度。
 
 ## 当前批次：Feedback24 与头颈 DOCX 已部署并放行128，待小米14复核
 
