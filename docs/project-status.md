@@ -1,11 +1,11 @@
 # Project Status
 
-## 当前批次：Feedback20 正在整合最新体验版血缘
+## 当前批次：Feedback20 已上传并放行122，待小米14复核
 
-- 原始访客/二维码检查点325f82ea已推送；RED3、定向51、完整verify与Mini最终门禁通过。详情docs/audit/feedback20-visitor-export.md。
-- 上传前发现最新累计体验版121/960e11c1不在325f82ea祖先链，`.122`在微信调用前被门禁拒绝且不复用。现已合并121：保留其导出真实上传转换修复、二维码点击预览/轮换自动刷新，并按本次要求删除相册按钮/API；访客月窗和返回登录保持。
-- 合并后完整verify通过：Mini1159/16跳过、根1254/439跳过、依赖保护81；Mini verify/Worklet2/2/确定性/包体/smoke:check-core通过，主包1709746/总4549449字节。检查点消息：`merge: preserve latest trial before visitor fixes`。
-- 下一步：提交推送新的累计clean SHA，再动态分配新版本上传并仅追加放行。停止条件为上传/allowlist/完整verifier记录完成；不部署API/Web、不改数据库、不提审或正式发布，小米14原生待用户。
+- 原始访客/二维码检查点325f82ea与累计合并检查点66b18b26均已推送；后者包含体验版121的导出真实上传转换修复、二维码点击预览/轮换自动刷新，以及本轮删除相册按钮/API、访客月窗和返回登录。详情docs/audit/feedback20-visitor-export.md及feedback20-trial-release.md。
+- 完整verify通过：Mini1159/16跳过、根1254/439跳过、依赖保护81；Mini verify/Worklet2/2/确定性/包体/smoke:check-core通过，主包1709746/总4549449字节。
+- 0.1.0-p10.20260913.122/66b18b26 production/clean上传成功，Manifest fd736127…bece5，build-profile/receipt/远端tag一致。可信ensure仅追加122并保留121；allowlist verify、完整ecs-verify、DoH/TLS/strict SSH和公网122/121=200、动态未知=426通过。服务器应用release仍83d8a03b，未部署代码、备份/迁移数据库或退役旧版。
+- 微信公众平台浏览器执行面不可用，无法代配置downloadFile合法域名。唯一下一任务：管理员在公众平台加入`https://hosp.schedule.eylinhome.top`为downloadFile合法域名，然后用户在小米14重开122/66b18b2复核CSV下载、访客三控件/切换、二维码点击预览与长按。未提审或正式发布。
 
 ## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
 
