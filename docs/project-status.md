@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：Feedback16 导出白屏模块装载边界修复待上传117
+## 当前批次：Feedback16 导出白屏模块装载边界修复已放行117，待小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
@@ -31,7 +31,9 @@
 - 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版116复核导出页标题/返回/loading、完整面板和导出操作；Node、上传、白名单和服务器验证均不替代原生验收。
 - 用户反馈 `.116` 修复后仍无法打开，截图仍显示同一 `MINI_RUNTIME_ERROR` 指纹。当前新回归确认 `.116` Page 仍静态导入 controller 模块；即使工厂延迟，模块顶层运行时依赖仍可能在 `Page()` 注册前执行。新修复将 controller 模块改为 `onLoad` 后异步加载，并在模块失败时显示可见重试壳；保留真正的 `import type`，不把 contracts/Zod 带入页面。
 - 新修复验证：定向导出/页面边界20项、Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过；导出页产物122,748字节且不含`globalThis`/`navigator`。完整 Mini 测试尚未因本轮重复运行；此前169文件通过、2文件跳过，另有既有 `manual-schedule-limits` 无关断言失败。
-- 当前停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传/放行117；需用户针对新干净 SHA 明确授权后，再上传体验版并追加白名单，随后由小米14同版本复核。
+- 新体验版交付：`1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a` 以 production/clean 上传为 `0.1.0-p10.20260913.117`；Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`，234 个代码文件、上传 ZIP 2,620,518 字节，receipt/allocation 绑定一致。
+- 放行结果：服务器可信 `schedule-client-version-allowlist ensure` 仅追加 `.117`，`.116`、`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
+- 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版117复核导出页首屏、返回、完整面板和导出操作；自动化、上传、白名单及服务器验证均不替代 Skyline 原生验收。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：Feedback16 导出白屏模块装载边界修复待上传117
+## 当前批次：Feedback16 导出白屏模块装载边界修复已放行117，待小米14复核
 
 - 设计检查点 `516e2719`；A 检查点 `42e644a4`；最终 B/C 检查点 `84ae20f8`；当前为上传策略证明补充阶段。详情见 [feedback16.md](feedback16.md)。本轮使用 `general-5` 独占 warm worktree，`REUSE_ONLY`，未安装依赖。
 - A 已修复跨月全天班徽标首帧闪烁和周历高度二次回写；B 已补齐导出 panel 的 `ui-toast` 血缘注册、二维码点击预览/长按菜单及轮换后自动读取；C 已将平台账号操作改为统一瞬时 toast，并增加弹窗间距与底部安全区留白。
@@ -26,7 +26,9 @@
 - 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14同版本体验版116复核导出页；自动化、上传、白名单及服务器证据不替代 Skyline 原生验收。
 - 用户反馈 `.116` 仍无法进入，错误指纹未变。新回归确认 Page 静态导入 controller 模块，模块顶层运行时依赖仍可能在 Page 注册前执行；路径和 `app.json` 注册仍一致。新修复改为 `onLoad` 后异步加载 controller 模块，失败显示标题/返回/错误/重试壳，并保留 `import type` 的 bundle 边界修复。
 - 新修复本地证据：定向20项、Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint和`smoke:check-core`通过；导出页122,748字节且不含`globalThis`/`navigator`。完整 Mini 测试本轮未重复，既有结果为169文件通过、2跳过，另有无关 manual-schedule-limits 断言失败。
-- 唯一下一任务/停止条件：`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮未上传/放行117；待用户明确授权后才执行体验版上传、追加放行和小米14复核。
+- 新体验版交付：clean detached SHA `1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a`，版本 `0.1.0-p10.20260913.117`，production/clean，说明 `Feedback16 export module fix 1031da2a`；234 个代码文件，上传 ZIP 2,620,518 字节，Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`，receipt/allocation 绑定一致。
+- 放行成功：可信 allowlist `ensure` 仅追加 `.117`，`.116` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未部署生产应用、未备份/修改数据库。
+- 唯一下一任务/停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14同版本体验版117复核导出页；自动化、上传、白名单及服务器证据不替代 Skyline 原生验收。
 
 ## 当前批次：Feedback15 已部署并放行112，待小米14复核
 

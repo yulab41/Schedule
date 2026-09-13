@@ -93,3 +93,10 @@
 - 失败优先回归将 controller 模块本身替换为同步抛错，要求导出 Page 仍完成注册并显示可见重试壳。静态导入 controller 改为类型导入，controller 模块改为 `onLoad` 后异步加载；加载 token、卸载隔离、receiver binding 和 controller 生命周期保持有效。
 - 构建验证：定向20项通过；Mini verify、Worklet2/2、确定性、包体4,557,145字节、format、lint和`smoke:check-core`通过。导出页产物122,748字节，不含`globalThis`/`navigator`；未改变导出 API、鉴权、任务、下载和路径。
 - 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD`。本轮未上传/放行新版本；新 SHA 需用户明确授权后才能生成117并进行小米14同版本复核。
+
+## 2026-09-13 `.117` 体验版上传与追加放行
+
+- 用户明确授权上传并放行。候选为 clean detached SHA `1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a`，版本 `0.1.0-p10.20260913.117`，说明 `Feedback16 export module fix 1031da2a`，production profile。
+- 上传成功：官方 CI 返回 234 个代码文件、ZIP 2,620,518 字节；Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`；receipt/allocation 与 SHA、版本绑定一致。
+- 放行成功：可信 `schedule-client-version-allowlist ensure` 仅追加 `.117`，`.116`、`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify、完整 `ecs-verify.sh` 均通过。放行期间 API/Web 容器按既有控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未执行生产代码部署、数据库备份或迁移。
+- 状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。仅待用户在小米14体验版117复核导出页首屏、返回、完整面板和导出操作；未提审、未正式发布、未发送真实通知。Node/静态、上传、白名单和服务器结果均不替代 Skyline 原生验收。

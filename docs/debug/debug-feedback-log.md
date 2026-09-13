@@ -2840,6 +2840,13 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 运行验证：导出/页面/边界、日历、二维码/账号定向29项通过；Mini verify、包体、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 169文件通过、2跳过，另有既有 manual-schedule-limits 断言失败，与本轮无关。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
 
+## 2026-09-13 Feedback16 `.117` 上传与白名单放行
+
+- 用户明确授权上传并放行。候选 clean detached SHA `1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a`，production，版本 `0.1.0-p10.20260913.117`，说明 `Feedback16 export module fix 1031da2a`。
+- 上传：微信 CI 成功，234 code files、ZIP 2,620,518 bytes，Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`；receipt/allocation 与 SHA、版本绑定一致。
+- 放行：正式 SSH 下可信 `schedule-client-version-allowlist ensure` 仅追加 `.117`；首次健康探测遇到短暂 TLS EOF/502，等待恢复后独立 allowlist verify 与完整 `ecs-verify.sh` 均通过。放行重建 API/Web，生产 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未触数据库或生产应用部署。
+- 状态：体验版117已上传并放行，转为 `WAITING_XIAOMI14_NATIVE_REVIEW`；不能把自动化、上传、白名单或服务器验证写成小米14原生验收，仍待同版本真机复核。
+
 ## 2026-09-13 Feedback16 `.116` 上传与白名单放行
 
 - 用户明确授权上传并放行。候选 clean detached SHA `9269ed21adfa7b3545de9dcde9286a882cfdadb9`，production，版本 `0.1.0-p10.20260913.116`，说明 `Feedback16 export dependency fix 9269ed2`。
