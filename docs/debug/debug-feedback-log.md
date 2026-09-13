@@ -2902,3 +2902,8 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 复核结论：`.116` 页面仍静态导入 controller 模块，工厂延迟并不能阻止模块顶层依赖在 `Page()` 注册前执行。新增模块失败回归后，Page 改为类型导入 controller 并在 `onLoad` 后异步加载；失败显示标题、返回、错误和重试壳，卸载时隔离迟到结果。
 - RED→GREEN：定向20项通过；Mini verify、包体4,557,145字节、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。导出页122,748字节且不含`globalThis`/`navigator`。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
+
+## 2026-09-13 头颈 DOCX 合并后的浏览器冒烟
+
+- 运行/浏览器验证：`pnpm smoke:browser` 已执行；候选 warm 槽未启动 `localhost:5173`，在登录页导航阶段返回 `ERR_CONNECTION_REFUSED`。
+- 该结果只说明本地服务未运行，不记为浏览器通过，也未据此修改产品代码。完整 `pnpm verify` 与 Mini production verify 已通过；使用 `pnpm smoke:check-core` 校验本条记录存在。
