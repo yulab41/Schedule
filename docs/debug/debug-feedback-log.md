@@ -2849,6 +2849,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 语义边界：未修改导出 API、鉴权、请求参数、任务轮询、下载、导航 URL、后端或数据库；controller 的 receiver binding、迟到结果隔离和错误路径保留。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
 
+## 2026-09-13 Feedback16 `.118` 上传与追加放行
+
+- 用户明确授权当前检查点上传并放行。clean production SHA `b6db15672e56bf41d389c7641bee4a95aeb090bd` 上传为 `0.1.0-p10.20260913.118`，说明 `Feedback16 export boundary fix b6db156`；receipt 时间 `2026-09-13T01:16:19.431Z`，Manifest digest `9aa9d60f182a7931f86283ec2800c5a025d13803531716141afcb153f3656746`，allocation/Manifest/receipt/tag 绑定一致。
+- 上传后检查：候选为 clean detached、`production-clean`、`VERSION_LOCAL=absent`；远端 `miniprogram-trial/0.1.0-p10.20260913.118` 指向同一完整 SHA。没有控制微信开发者工具 GUI/CLI。
+- 放行：第一次可信 ensure 健康探测 5 秒超时且返回 JSON 解析错误，未据此宣称成功；读取 verify 通过后，同一版本幂等 ensure 完成并明确返回“版本已存在并通过验证；未重建容器”。最终 allowlist verify 和完整 `ecs-verify.sh` 通过，API ready，`.117`及旧版保留。
+- 服务器复核：ECS verifier 退出码0；生产应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，控制面/产物哈希、未知 Host 拒绝、容器和 MySQL 健康检查通过；ECS_PUBLIC_IP 未设置，公网 IP 主动探测跳过。未部署生产应用、未改数据库、未退役旧版。
+- 状态：体验版已上传并放行，转为 `WAITING_XIAOMI14_NATIVE_REVIEW`；请在小米14同版本118复核导出页，并复制带 `[导出页启动边界]` 的诊断报告。自动化、CI、allowlist 和服务器结果不等同于原生验收。
+
 ## 2026-09-13 Feedback16 `.117` 上传与白名单放行
 
 - 用户明确授权上传并放行。候选 clean detached SHA `1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a`，production，版本 `0.1.0-p10.20260913.117`，说明 `Feedback16 export module fix 1031da2a`。

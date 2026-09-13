@@ -59,3 +59,19 @@
 服务器端 `schedule-client-version-allowlist ensure` 仅追加 `.115`；独立 allowlist verify 与完整 `ecs-verify.sh` 均通过（退出码0），线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`。放行期间短暂 TLS/502 由既有健康等待恢复。
 
 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14打开体验版115复核导出页首帧标题/返回/loading、完整面板内容和导出操作；上传和自动化结果不替代原生验收。
+
+## Feedback16 体验版118上传与追加放行
+
+用户明确授权当前检查点上传体验版并放行。本次只追加新版本，保留 `.117`、`.116`、`.115` 及更早版本；未提审、未正式发布、未发送真实通知，也未执行生产应用代码部署或数据库操作。
+
+- 候选提交：`b6db15672e56bf41d389c7641bee4a95aeb090bd`
+- 体验版：`0.1.0-p10.20260913.118`
+- 说明：`Feedback16 export boundary fix b6db156`
+- 构建档案：`production/clean`
+- 上传 receipt：`2026-09-13T01:16:19.431Z`（以 ignored receipt 为准）
+- Manifest digest：`9aa9d60f182a7931f86283ec2800c5a025d13803531716141afcb153f3656746`
+- 证据：候选 checker 通过，`VERSION_LOCAL=absent`；远端不可变 tag `miniprogram-trial/0.1.0-p10.20260913.118` 指向同一完整 SHA；allocation、Manifest、receipt 与版本/SHA/production 身份一致。
+
+服务器放行先遇到一次健康探测超时，未据此判定成功；读取可信 allowlist verify 通过后，对同一版本执行幂等 ensure，明确返回版本已存在并通过验证、未重建容器。最终独立 allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），API ready，线上应用 release 未改变。放行期间未执行生产代码部署、数据库备份/迁移或版本退役；ECS_PUBLIC_IP 未设置，公网 IP 主动探测按规则跳过。
+
+当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14 Android 微信客户端打开体验版118，复核导出页首屏、返回、完整 panel 和导出操作；如仍空白，请在测试工具打开“导出页启动边界”冷入口/真实入口并复制完整报告。上传、自动化和服务器验证不替代 Skyline 原生验收。

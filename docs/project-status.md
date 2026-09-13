@@ -1,11 +1,11 @@
 # Project Status
 
-## 当前批次：Feedback16 导出页注册前装载边界与诊断增强，待新体验版复核
+## 当前批次：Feedback16 导出页注册前装载边界已上传放行118，待小米14复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
 - 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
-- 外部边界：不控制微信开发者工具；此前版本的上传/放行已完成，本轮新 SHA 尚未获得上传授权，仍未授权生产代码部署或数据库操作。
+- 外部边界：不控制微信开发者工具；本轮已按当前授权上传并追加放行 `.118`，未授权生产代码部署或数据库操作。
 - A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
 - 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
 - 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
@@ -41,7 +41,9 @@
 - 新修复：导出 Page 注册前只保留 native-only 壳；完整 panel 改为独立 `exports-panel` wrapper，在 onLoad 后挂载，wrapper attached 后回报 `startupready`。页面失败会保留标题、返回、错误和重试，不改变 controller、权限、请求、任务与下载语义。
 - 测试工具新增“导出页启动边界”卡片和无群组参数冷入口，固定记录 `module-registered → page-load → page-mount-requested → panel-component-attached`，按首个缺失阶段给出页面资源、原生生命周期、组件资源或业务初始化方向；不记录 query、群组数据、请求体或原始异常。
 - 本轮验证：Mini 全量171文件通过、2文件跳过，1197项通过、16项跳过；Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过。包体约4,559,918字节，既有主包和矩阵节点 warning 保留。
-- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传或放行新 SHA，也未控制微信开发者工具、部署生产或修改后端；下一停止条件是授权新 SHA 上传后，用同版本小米14报告的启动边界字段继续判定。
+- `.118` 交付：clean production 候选 SHA `b6db15672e56bf41d389c7641bee4a95aeb090bd`，版本 `0.1.0-p10.20260913.118`，说明 `Feedback16 export boundary fix b6db156`；Manifest digest `9aa9d60f182a7931f86283ec2800c5a025d13803531716141afcb153f3656746`，receipt/allocation 与远端不可变 tag 绑定一致。
+- `.118` 放行：首次 ensure 的健康探测超时并未据此判成功；随后同版本幂等 ensure 完成，最后返回“版本已存在并通过验证；未重建容器”。独立 allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），`.117` 及旧版保留；API ready，线上应用 release 未改变，未做数据库操作。
+- 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版118复核导出页首屏、返回、完整面板和导出操作，并在测试工具复制 `[导出页启动边界]` 报告；自动化、上传、白名单和服务器验证均不替代 Skyline 原生验收。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

@@ -109,3 +109,12 @@
 - RED→GREEN：新增边界回归4项；兼容回归后 Mini 全量171文件/1197项通过、2文件/16项跳过。Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过；包体约4,559,918字节。该证据不等同于 Skyline 或小米14验收。
 - 对旧轮次的复盘：此前测试覆盖了 Page/Controller 业务逻辑和静态路径，却没有把“直接 include 的完整 WXML 是否在 Page 注册前可被原生装载”作为独立边界，也没有 `page-load` 之前的阶段证据。因此旧测试能通过但无法发现本次原生装载失败；本轮已把该边界变成失败优先回归和可复制诊断。
 - 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮只完成源码、测试和诊断增强，未上传或放行新版本，未部署生产或控制微信开发者工具；下一步需针对新 SHA 上传后，在小米14同版本复制带有“导出页启动边界”段落的报告。
+
+## 2026-09-13 `.118` 体验版上传与追加放行
+
+- 用户明确授权上传并放行。候选为 clean production SHA `b6db15672e56bf41d389c7641bee4a95aeb090bd`，版本 `0.1.0-p10.20260913.118`，说明 `Feedback16 export boundary fix b6db156`。
+- 上传成功：receipt 记录 `uploadedAt=2026-09-13T01:16:19.431Z`；Manifest digest 为 `9aa9d60f182a7931f86283ec2800c5a025d13803531716141afcb153f3656746`，allocation、Manifest、receipt 与远端不可变 tag 绑定同一版本/SHA/production 身份。
+- 上传后候选检查通过：`state=ready-clean-detached`、`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`；远端 tag `miniprogram-trial/0.1.0-p10.20260913.118` 指向 `b6db15672e56bf41d389c7641bee4a95aeb090bd`。
+- 放行过程：第一次 ensure 因服务器健康探测超时而未判定成功；先执行独立 allowlist verify，随后对同一版本执行幂等 ensure，返回“请求的版本已存在并通过验证；未重建容器”。最终独立 allowlist verify 与完整 `ecs-verify.sh` 通过（退出码0），API ready，`.117`及旧版保留。
+- 生产边界：放行期间可能按既有控制面重建 API/Web；线上应用 release 仍未改变，未执行生产代码部署、数据库备份/迁移或真实通知。公网 IP 主动探测因服务器未设置 `ECS_PUBLIC_IP` 跳过。
+- 当前状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版118复核导出页首屏、返回、完整 panel 和导出操作，并从测试工具复制 `[导出页启动边界]` 报告；上传、静态、自动化和服务器验证不替代 Skyline 原生验收。
