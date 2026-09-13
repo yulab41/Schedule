@@ -165,6 +165,16 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('[ "$tables" = "54" ] || [ "$tables" = "55" ]');
   });
 
+  it('reads the schema 61 visitor QR shape as separate mysql columns', () => {
+    const visitorQrCheck = verifySource.match(
+      /VISITOR_QR_ASSET_SCHEMA=.*?\n\s*\[ "\$VISITOR_QR_ASSET_SCHEMA" = \$'1\\t8\\t2' \]/s,
+    )?.[0];
+
+    expect(visitorQrCheck).toBeTruthy();
+    expect(visitorQrCheck).toContain('SELECT (SELECT COUNT(*)');
+    expect(visitorQrCheck).not.toContain('SELECT CONCAT(');
+  });
+
   it('verifies the exact schema 53 directory candidate index definition', () => {
     expect(verifySource).toContain('directory_search_aliases_entry_type_normalized_idx');
     expect(verifySource).toContain('entry_id,type,normalized_value');
