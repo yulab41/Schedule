@@ -1,5 +1,12 @@
 # Project Status
 
+## 并行设计批次：头颈外科医生群 DOCX 导出待用户复核
+
+- 用户提供并最终微调的9月Word作为视觉权威；只读提取确认A4、页边距、字体、上部姓名/日期分布列、底部一值/二值等分列及独立三值列宽。原文件含真实姓名，仅留ignored runtime，不提交Git。
+- 设计限定头颈外科医生群：排班Excel改为Word，月度一页、年度十二页；一值来自实际人员，二值按成员ID配置映射，三值固定配置；统计和其他群组在客户端与API双重禁止DOCX。
+- 设计规格：`docs/superpowers/specs/2026-09-13-head-neck-surgery-docx-export-design.md`。独占general-3，基线50e9983d，REUSE_ONLY且未安装依赖。
+- 当前停止条件：设计文档提交并由用户复核；未获复核前不写业务代码。生产配置、部署、小程序体验上传和放行均未授权。
+
 ## 当前批次：Feedback23 已批准，实施中
 
 - 已确认导出选择器溢出来自导出页缺少本地字段内边距容器；共享`ui-selector`无须修改。访客与成员使用同一ViewModel，成员在e94a54ca后使用`shiftGroups/tint`，访客模板仍循环旧`duties`，属于模板同步遗漏。
