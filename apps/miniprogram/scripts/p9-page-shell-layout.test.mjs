@@ -13,7 +13,6 @@ const diagnosticBoundaries = [
 const directPageShells = [
   ['visitor-access', 'visitor-access-panel', 'createVisitorAccessPanelControllerDefinition'],
   ['insights', 'insights-dashboard-panel', 'createInsightsDashboardPanelControllerDefinition'],
-  ['exports', 'exports-panel', 'createExportsPanelControllerDefinition'],
   ['notifications', 'notifications-panel', 'createNotificationsPanelControllerDefinition'],
   ['notification-settings', 'notifications-panel', 'createNotificationsPanelControllerDefinition'],
 ];
@@ -45,7 +44,9 @@ describe('P9 native page shells', () => {
         'utf8',
       );
 
-      expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
+      if (pageName === 'exports')
+        expect(pageSource).toContain("recordPageStartupStage('page-load')");
+      else expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
       expect(controllerSource).toContain(
         `recordMiniTelemetryBoundary('${pageName}:component-attached')`,
       );
@@ -94,4 +95,19 @@ describe('P9 native page shells', () => {
       );
     },
   );
+
+  it('mounts exports through a delayed custom-component boundary', () => {
+    const pageRoot = path.join(appRoot, 'src', 'subpackages', 'insights', 'pages', 'exports');
+    const config = JSON.parse(readFileSync(path.join(pageRoot, 'index.json'), 'utf8'));
+    const source = readFileSync(path.join(pageRoot, 'index.ts'), 'utf8');
+    const template = readFileSync(path.join(pageRoot, 'index.wxml'), 'utf8');
+
+    expect(config.usingComponents).toEqual({
+      'exports-panel': '/subpackages/insights/components/exports-panel/index',
+    });
+    expect(template).toContain('<exports-panel');
+    expect(template).not.toContain('<include src="../../components/exports-panel/index.wxml" />');
+    expect(source).toContain("recordPageStartupStage('panel-mount-requested')");
+    expect(source).not.toContain('createExportsPanelControllerDefinition');
+  });
 });

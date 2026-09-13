@@ -1,33 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  recordBoundary: vi.fn(),
-  recordStage: vi.fn(),
-}));
-
-vi.mock('../src/platform/telemetry.ts', () => ({
-  recordMiniTelemetryBoundary: mocks.recordBoundary,
-}));
-
-vi.mock('../src/platform/export-render-diagnostics.ts', () => ({
-  endExportRenderDiagnostics: vi.fn(),
-  measureExportFirstPaint: vi.fn(),
-  recordExportRenderStage: mocks.recordStage,
-}));
-
-vi.mock('../src/subpackages/insights/components/exports-panel/controller.ts', () => {
-  throw new Error('synthetic controller module failure');
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Feedback16 export Page module boundary', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.useFakeTimers();
     vi.stubGlobal('Page', vi.fn());
     vi.stubGlobal('wx', { navigateBack: vi.fn() });
   });
 
-  it('registers a Page and keeps a visible startup error when the controller module fails', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('registers a Page without importing the business controller', async () => {
     await expect(
       import('../src/subpackages/insights/pages/exports/index.ts'),
     ).resolves.toBeDefined();
@@ -42,11 +29,12 @@ describe('Feedback16 export Page module boundary', () => {
     };
 
     definition.onLoad.call(page, { groupId: 'group-1' });
-    await vi.dynamicImportSettled();
-    await new Promise((resolve) => setImmediate(resolve));
-    for (let index = 0; index < 8; index += 1) await Promise.resolve();
-
-    expect(page.data.startupError).toContain('页面暂时无法加载');
     expect(page.data.panelReady).toBe(false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.data.panelReady).toBe(true);
+    expect(page.data.startupError).toBe('');
+    definition.handlePanelStartupReady.call(page);
+    definition.onUnload.call(page);
+    expect(page.data.panelReady).toBe(true);
   });
 });

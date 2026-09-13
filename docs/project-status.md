@@ -1,11 +1,11 @@
 # Project Status
 
-## 当前批次：Feedback16 导出白屏模块装载边界修复已放行117，待小米14复核
+## 当前批次：Feedback16 导出页注册前装载边界与诊断增强，待新体验版复核
 
 - 已批准范围：日历全天班闪烁与周历高度、导出页启动诊断、二维码预览/轮换、平台账号瞬时反馈与弹窗间距。
 - 基线：`6ede7d33`；独占 `runtime/wt/general-5`，`DEPENDENCY_MODE=REUSE_ONLY`，依赖复用成功，无安装。
 - 设计文档：`docs/superpowers/specs/2026-09-12-feedback16-miniprogram-stability-design.md`。
-- 外部边界：不控制微信开发者工具；用户已授权本轮体验版上传和追加放行，未授权生产代码部署或数据库操作。
+- 外部边界：不控制微信开发者工具；此前版本的上传/放行已完成，本轮新 SHA 尚未获得上传授权，仍未授权生产代码部署或数据库操作。
 - A 结果：`applyMonthWindow` 先合并已加载月份的班种元数据；月历 ViewModel 首次生成即清除全天班徽标文字与样式；周历改为当前周 ViewModel 的一次性稳定高度公式，移除 `nextTick + createSelectorQuery` 二次回写。`feedback16-calendar.test.mjs` 与既有 workbench 58 项通过、1 项跳过。
 - 引入点审计：跨月合并来自 `9e3a966c` 的 `applyMonthWindow`，周历测量来自 `9fdf659a` 的 `scheduleWeekMeasurement`；本轮未改接口、数据库或排班业务语义。
 - 检查点提交消息：`fix(miniprogram): stabilize calendar rendering`（提交前已运行 `git diff --check`）。
@@ -34,6 +34,14 @@
 - 新体验版交付：`1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a` 以 production/clean 上传为 `0.1.0-p10.20260913.117`；Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`，234 个代码文件、上传 ZIP 2,620,518 字节，receipt/allocation 绑定一致。
 - 放行结果：服务器可信 `schedule-client-version-allowlist ensure` 仅追加 `.117`，`.116`、`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify 与完整 `ecs-verify.sh` 通过。放行期间 API/Web 容器按控制面重建，短暂 TLS/502 后恢复；线上应用 release 仍为 `83d8a03bfa64817f1ada6afd7c801fc642000978`，未执行生产代码部署、数据库备份或迁移。
 - 当前停止条件：`WAITING_XIAOMI14_NATIVE_REVIEW`。请在小米14体验版117复核导出页首屏、返回、完整面板和导出操作；自动化、上传、白名单及服务器验证均不替代 Skyline 原生验收。
+
+## Feedback16 当前修复状态
+
+- 用户反馈 `.117` 同版本报告仍只有 `exports · open-requested`、没有 `module-registered/page-load/page-ready`，错误指纹未变；本轮继续排查页面注册前的 WXML/组件资源装载边界，不重复修改已核对一致的导航 URL 或导出 API。
+- 新修复：导出 Page 注册前只保留 native-only 壳；完整 panel 改为独立 `exports-panel` wrapper，在 onLoad 后挂载，wrapper attached 后回报 `startupready`。页面失败会保留标题、返回、错误和重试，不改变 controller、权限、请求、任务与下载语义。
+- 测试工具新增“导出页启动边界”卡片和无群组参数冷入口，固定记录 `module-registered → page-load → page-mount-requested → panel-component-attached`，按首个缺失阶段给出页面资源、原生生命周期、组件资源或业务初始化方向；不记录 query、群组数据、请求体或原始异常。
+- 本轮验证：Mini 全量171文件通过、2文件跳过，1197项通过、16项跳过；Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过。包体约4,559,918字节，既有主包和矩阵节点 warning 保留。
+- 当前状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮尚未上传或放行新 SHA，也未控制微信开发者工具、部署生产或修改后端；下一停止条件是授权新 SHA 上传后，用同版本小米14报告的启动边界字段继续判定。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 

@@ -2840,6 +2840,15 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 运行验证：导出/页面/边界、日历、二维码/账号定向29项通过；Mini verify、包体、Worklet2/2、确定性、format、lint及`smoke:check-core`通过。完整 Mini 169文件通过、2跳过，另有既有 manual-schedule-limits 断言失败，与本轮无关。
 - 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
 
+## 2026-09-13 Feedback16 `.117` 复测后的页面注册前装载诊断增强
+
+- 用户提供 `.117@1031da2a` 同版本报告，导出仍为空白；脱敏证据仍只有 `exports · open-requested` 和 `MINI_RUNTIME_ERROR`，没有 `module-registered/page-load/page-ready`。该证据不能解码原生指纹，但将失败范围稳定留在 Page 生命周期之前或资源装载阶段。
+- 根因排查：旧 exports Page WXML 直接 include 完整 panel，且 Page 注册前存在 runtime/controller 依赖。`wx:if` 不是编译期 include 隔离；在 Skyline/`requiredComponents` 边界下，完整 panel 的模板和叶子组件仍可能先被装载。此前只修 JS 初始化和首帧门控，未覆盖这一层。
+- RED→GREEN：新增 `feedback17-export-boundary.test.mjs` 先在旧代码上失败，再要求 native-only Page、独立 exports-panel wrapper、attached 通知和测试工具诊断卡片后通过。完整 Mini 测试171文件通过、2跳过，1197项通过、16跳过；Mini verify、package、Worklet2/2、determinism、format、lint和 `smoke:check-core`通过。该结果不替代小米14原生验证。
+- 实现：Page 注册前不导入 controller/runtime；Page 只绘制标题、返回、加载/错误/重试壳，onLoad 后再挂载 exports-panel；wrapper attached 后回报固定低基数阶段。测试工具增加无群组参数冷入口和“导出页启动边界”报告，按首个缺失阶段给出页面/组件/业务方向，避免只看匿名 SHA-256 指纹猜测。
+- 语义边界：未修改导出 API、鉴权、请求参数、任务轮询、下载、导航 URL、后端或数据库；controller 的 receiver binding、迟到结果隔离和错误路径保留。
+- 状态：已实现待新体验版复核；`UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮未上传、未放行、未部署生产或控制微信开发者工具 GUI/CLI。
+
 ## 2026-09-13 Feedback16 `.117` 上传与白名单放行
 
 - 用户明确授权上传并放行。候选 clean detached SHA `1031da2a43ee2c713a4e6af8bd62312aa9e9ca5a`，production，版本 `0.1.0-p10.20260913.117`，说明 `Feedback16 export module fix 1031da2a`。

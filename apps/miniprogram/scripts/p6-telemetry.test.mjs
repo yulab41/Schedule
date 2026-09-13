@@ -262,6 +262,7 @@ describe('P6 anonymous Mini telemetry', () => {
     expect(resolveTelemetryPage('subpackages/organization/pages/group-settings/index')).toBe(
       'group-settings',
     );
+    expect(resolveTelemetryPage('subpackages/insights/pages/exports/index')).toBe('exports');
     expect(resolveTelemetryPage('unmapped/private-route')).toBe('unknown');
   });
 

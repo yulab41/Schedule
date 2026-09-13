@@ -5,7 +5,7 @@ const pageRoot = 'src/subpackages/insights/pages/exports';
 const panelRoot = 'src/subpackages/insights/components/exports-panel';
 
 describe('Feedback16 export Page artifact lineage', () => {
-  it('keeps the direct Page, include, panel resources, and component registrations complete', () => {
+  it('keeps a native-only direct Page shell and complete lazy panel resources', () => {
     for (const file of [
       `${pageRoot}/index.ts`,
       `${pageRoot}/index.json`,
@@ -23,15 +23,18 @@ describe('Feedback16 export Page artifact lineage', () => {
     const pageTemplate = readFileSync(`${pageRoot}/index.wxml`, 'utf8');
     expect(pageTemplate).toContain('panelReady');
     expect(pageTemplate).toContain('导出排班与统计');
-    expect(pageTemplate).toContain('<include src="../../components/exports-panel/index.wxml" />');
+    expect(pageTemplate).toContain('<exports-panel');
+    expect(pageTemplate).not.toContain(
+      '<include src="../../components/exports-panel/index.wxml" />',
+    );
 
     const page = readFileSync(`${pageRoot}/index.ts`, 'utf8');
     expect(page).toContain('Page({');
-    expect(page).toContain("recordExportRenderStage('page-load')");
-    expect(page).toContain("recordExportRenderStage('page-ready')");
-    expect(page).toContain("recordExportRenderStage('page-show')");
-    expect(page).toContain("import('../../components/exports-panel/controller.js')");
-    expect(page).toContain('createExportsPanelControllerDefinition()');
+    expect(page).toContain("recordPageStartupStage('page-load')");
+    expect(page).toContain("recordPageStartupStage('page-ready')");
+    expect(page).toContain("recordPageStartupStage('page-show')");
+    expect(page).toContain("recordPageStartupStage('panel-mount-requested')");
+    expect(page).not.toContain("import('../../components/exports-panel/controller.js')");
     expect(page).toContain('startupError');
     expect(page).not.toContain('data: controller.data');
 
@@ -49,6 +52,7 @@ describe('Feedback16 export Page artifact lineage', () => {
       `${builtPageRoot}/index.json`,
       `${builtPageRoot}/index.wxml`,
       `${builtPageRoot}/index.wxss`,
+      `${builtPanelRoot}/index.js`,
       `${builtPanelRoot}/index.json`,
       `${builtPanelRoot}/index.wxml`,
       `${builtPanelRoot}/index.wxss`,
@@ -58,12 +62,13 @@ describe('Feedback16 export Page artifact lineage', () => {
     const builtPageTemplate = readFileSync(`${builtPageRoot}/index.wxml`, 'utf8');
     expect(builtPageTemplate).toContain('panelReady');
     expect(builtPageTemplate).toContain('导出排班与统计');
-    expect(builtPageTemplate).toContain(
+    expect(builtPageTemplate).toContain('<exports-panel');
+    expect(builtPageTemplate).not.toContain(
       '<include src="../../components/exports-panel/index.wxml" />',
     );
     const builtPage = readFileSync(`${builtPageRoot}/index.js`, 'utf8');
-    expect(builtPage).toContain('exports:page-onload');
-    expect(builtPage).toContain('exports:page-ready');
+    expect(builtPage).toContain('panel-mount-requested');
+    expect(builtPage).toContain('module-registered');
     const builtPanelTemplate = readFileSync(`${builtPanelRoot}/index.wxml`, 'utf8');
     const builtPanelConfig = JSON.parse(readFileSync(`${builtPanelRoot}/index.json`, 'utf8'));
     for (const tag of ['ui-toast', 'ui-alert', 'ui-button', 'ui-loading']) {

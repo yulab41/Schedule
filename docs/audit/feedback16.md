@@ -100,3 +100,12 @@
 - 上传成功：官方 CI 返回 234 个代码文件、ZIP 2,620,518 字节；Manifest `3e331e443e6135c557dded4d00cc10c27056f227e854fddf768c8f289fa64d59`；receipt/allocation 与 SHA、版本绑定一致。
 - 放行成功：可信 `schedule-client-version-allowlist ensure` 仅追加 `.117`，`.116`、`.115`、`.114`、`.113` 及旧版保留；独立 allowlist verify、完整 `ecs-verify.sh` 均通过。放行期间 API/Web 容器按既有控制面重建，短暂 TLS/502 后恢复；线上应用 release 未改变，未执行生产代码部署、数据库备份或迁移。
 - 状态：`WAITING_XIAOMI14_NATIVE_REVIEW`。仅待用户在小米14体验版117复核导出页首屏、返回、完整面板和导出操作；未提审、未正式发布、未发送真实通知。Node/静态、上传、白名单和服务器结果均不替代 Skyline 原生验收。
+
+## `.117` 同版本复测后的注册前装载边界与诊断增强
+
+- 用户反馈 `.117` 仍显示空白，报告仍只有 `exports · open-requested` 与相同 `MINI_RUNTIME_ERROR`，没有 `module-registered/page-load/page-ready`。这说明失败发生在 Page 生命周期之前或页面资源装载阶段；静态核对仍未发现 `wx.navigateTo`、`app.json` 或分包路由不一致。
+- 失败优先回归验证了旧模板的两个危险边界：页面 WXML 直接 include 完整 exports panel，以及 Page 注册前存在 controller/runtime 依赖。新实现将 Page WXML 缩减为 native-only 壳，完整 panel 改为独立 `exports-panel` wrapper；wrapper attached 后通过 `startupready` 通知父 Page，Page 对迟到/失败结果做 token 和 unload 隔离。
+- 测试工具新增“导出页启动边界”诊断卡片和无群组参数冷入口。冷入口预期显示可见“群组信息缺失”错误，用于验证 Page 是否完成注册；真实导出入口按固定阶段记录首个缺失点，帮助区分页面资源、原生生命周期、组件资源和 controller/业务初始化问题。
+- RED→GREEN：新增边界回归4项；兼容回归后 Mini 全量171文件/1197项通过、2文件/16项跳过。Mini verify、package、Worklet2/2、determinism、format、lint及 `smoke:check-core`通过；包体约4,559,918字节。该证据不等同于 Skyline 或小米14验收。
+- 对旧轮次的复盘：此前测试覆盖了 Page/Controller 业务逻辑和静态路径，却没有把“直接 include 的完整 WXML 是否在 Page 注册前可被原生装载”作为独立边界，也没有 `page-load` 之前的阶段证据。因此旧测试能通过但无法发现本次原生装载失败；本轮已把该边界变成失败优先回归和可复制诊断。
+- 状态：`IMPLEMENTED_PENDING_NEW_TRIAL_UPLOAD` / `UPLOAD_REQUIRED_FOR_NEW_SHA`。本轮只完成源码、测试和诊断增强，未上传或放行新版本，未部署生产或控制微信开发者工具；下一步需针对新 SHA 上传后，在小米14同版本复制带有“导出页启动边界”段落的报告。

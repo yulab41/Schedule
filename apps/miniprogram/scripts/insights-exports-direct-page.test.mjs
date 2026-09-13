@@ -54,18 +54,12 @@ describe('remaining P9 direct Page registration', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each([
-    {
+  it('mounts insights through a direct Page without a custom-component boundary', async () => {
+    const testCase = {
       importPath: '../src/subpackages/insights/pages/insights/index.ts',
       marker: 'insights:page-onload',
       panel: mocks.insights,
-    },
-    {
-      importPath: '../src/subpackages/insights/pages/exports/index.ts',
-      marker: 'exports:page-onload',
-      panel: mocks.exports,
-    },
-  ])('mounts $marker directly without a custom-component boundary', async (testCase) => {
+    };
     await import(testCase.importPath);
 
     expect(globalThis.Page).toHaveBeenCalledTimes(1);

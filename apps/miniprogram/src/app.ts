@@ -3,9 +3,11 @@ import { clearRuntimeDirectoryLaunchMarker } from './platform/runtime-diagnostic
 import { isTestToolsRuntimeEnabled } from './platform/runtime-environment.js';
 import type { RuntimeDiagnosticsSlot } from './platform/runtime-diagnostics-types.js';
 import { createRuntimeClientCapabilityStore } from './platform/client-capabilities.js';
-import { createRuntimeMiniTelemetryEmitter } from './platform/telemetry.js';
+import { createRuntimeMiniTelemetryEmitter, resolveTelemetryPage } from './platform/telemetry.js';
 import { createWechatSessionRuntimeState } from './platform/wechat-session-runtime.js';
 import { initializeClientUpdate } from './platform/client-update.js';
+
+declare function getCurrentPages(): Array<{ readonly route?: string }>;
 
 const clientCapabilityStore = createRuntimeClientCapabilityStore();
 const telemetryEmitter = createRuntimeMiniTelemetryEmitter(clientCapabilityStore);
@@ -50,10 +52,24 @@ App({
   },
 
   onError(error: string): void {
-    telemetryEmitter.recordError('app', 'MINI_RUNTIME_ERROR', error);
+    telemetryEmitter.recordError(resolveCurrentRuntimeErrorPage(), 'MINI_RUNTIME_ERROR', error);
   },
 
   onUnhandledRejection(event: { readonly reason?: unknown }): void {
-    telemetryEmitter.recordError('app', 'MINI_RUNTIME_ERROR', event.reason);
+    telemetryEmitter.recordError(
+      resolveCurrentRuntimeErrorPage(),
+      'MINI_RUNTIME_ERROR',
+      event.reason,
+    );
   },
 });
+
+function resolveCurrentRuntimeErrorPage() {
+  try {
+    const pages = getCurrentPages();
+    const currentRouteEntry = pages[pages.length - 1];
+    return resolveTelemetryPage(currentRouteEntry?.route ?? '');
+  } catch {
+    return 'app' as const;
+  }
+}
