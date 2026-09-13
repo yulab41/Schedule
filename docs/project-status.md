@@ -1,12 +1,14 @@
 # Project Status
 
-## 并行设计批次：头颈外科医生群 DOCX 导出待用户复核
+## 并行批次：头颈外科医生群 DOCX 导出已实现待检查点
 
 - 用户提供并最终微调的9月Word作为视觉权威；只读提取确认A4、页边距、字体、上部姓名/日期分布列、底部一值/二值等分列及独立三值列宽。原文件含真实姓名，仅留ignored runtime，不提交Git。
 - 用户补充3月视觉规则：在岗一值即使因轮空、请假或进修无排班也保留；对应轮转槽显示短横线，姓名右下角以小号下标标注实际请假/进修类型。当前真实月份无此数据，实施必须用去标识化合成夹具覆盖，不宣称真实导出验收。
 - 设计限定头颈外科医生群：排班Excel改为Word，月度一页、年度十二页；一值来自实际人员，二值按成员ID配置映射，三值固定配置；统计和其他群组在客户端与API双重禁止DOCX。
 - 设计规格：`docs/superpowers/specs/2026-09-13-head-neck-surgery-docx-export-design.md`。独占general-3，基线50e9983d，REUSE_ONLY且未安装依赖。
-- 当前停止条件：设计文档提交并由用户复核；未获复核前不写业务代码。生产配置、部署、小程序体验上传和放行均未授权。
+- 用户已批准实施和视觉确认。DOCX生成、schema59、目标群服务端配置/API限制、小程序Word/统计Excel切换及合成缺勤规则已实现；完整verify和Mini production verify通过。Microsoft Word确认月度1页、年度12页，同数据9月关键几何一致，显著差异像素1.32%。详情见`docs/audit/head-neck-docx-export.md`。
+- MySQL迁移28项和导出集成7项因本地未配置测试库跳过；浏览器冒烟因5173未启动而`ERR_CONNECTION_REFUSED`，均未冒充通过。`smoke:check-core`已确认记录完整。行为审查确认：旧CSV/Excel、Bearer下载、临时清理、异步/取消路径保持；新增格式只在目标群完整排班生效，统计/其他群/API绕过均关闭。
+- 检查点以`feat(exports): add head-neck Word schedule`识别；完成提交推送后唯一下一任务是取得生产部署与目标群配置授权，随后才可迁移schema59、配置真实成员ID、上传体验版并在小米14打开同一DOCX验收。本轮未获上述外部操作授权。
 
 ## 当前批次：Feedback23 已批准，实施中
 

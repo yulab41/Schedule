@@ -3,6 +3,7 @@ import type {
   NotificationPage,
   NotificationRecord,
   ScheduleExportJob,
+  ScheduleExportOptions,
 } from '@schedule/contracts';
 
 import {
@@ -54,6 +55,18 @@ interface ExportJobIdInput extends ExportGroupInput {
   readonly exportJobId: string;
 }
 
+const scheduleExportOptionsJsonSchema = {
+  type: 'object',
+  properties: {
+    scheduleFormats: { type: 'array', items: { type: 'string', enum: ['csv', 'xlsx', 'docx'] } },
+    statisticsFormats: { type: 'array', items: { type: 'string', enum: ['csv', 'xlsx', 'docx'] } },
+  },
+  required: ['scheduleFormats', 'statisticsFormats'],
+  additionalProperties: false,
+} as const;
+export const scheduleExportOptionsDecoder =
+  /* @__PURE__ */ createCompactDecoder<ScheduleExportOptions>(scheduleExportOptionsJsonSchema);
+
 export const notificationPageDecoder = /* @__PURE__ */ createCompactDecoder<NotificationPage>(
   notificationPageJsonSchema,
 );
@@ -70,6 +83,13 @@ export const scheduleExportJobDecoder = /* @__PURE__ */ createCompactDecoder<Sch
 );
 
 export const p9InsightsActionsEndpoints = {
+  getExportOptions: /* @__PURE__ */ defineClientEndpoint<ExportGroupInput, ScheduleExportOptions>({
+    auth: 'bearer',
+    decoder: scheduleExportOptionsDecoder,
+    id: 'insights.export-options',
+    method: 'GET',
+    path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/exports/options`,
+  }),
   createExportJob: /* @__PURE__ */ defineClientEndpoint<ExportJobInput, ScheduleExportJob>({
     auth: 'bearer',
     body: ({ input }) => input,
@@ -130,6 +150,7 @@ export const p9InsightsActionsEndpoints = {
 export interface P9InsightsActionsClient {
   createExportJob(groupId: string, input: CreateScheduleExportInput): Promise<ScheduleExportJob>;
   getExportJob(groupId: string, exportJobId: string): Promise<ScheduleExportJob>;
+  getExportOptions(groupId: string): Promise<ScheduleExportOptions>;
   listNotifications(options?: NotificationListInput): Promise<NotificationPage>;
   markAllNotificationsRead(groupId?: string): Promise<ReadAllResult>;
   markNotificationRead(notificationId: string): Promise<NotificationRecord>;
@@ -143,6 +164,9 @@ export function createP9InsightsActionsClient(transport: ClientTransport): P9Ins
     },
     getExportJob(groupId, exportJobId) {
       return transport.request(p9InsightsActionsEndpoints.getExportJob, { exportJobId, groupId });
+    },
+    getExportOptions(groupId) {
+      return transport.request(p9InsightsActionsEndpoints.getExportOptions, { groupId });
     },
     listNotifications(options = {}) {
       return transport.request(p9InsightsActionsEndpoints.listNotifications, options);

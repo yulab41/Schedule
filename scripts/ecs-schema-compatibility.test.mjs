@@ -10,13 +10,11 @@ describe('export format release compatibility', () => {
     })),
   });
 
-  it('requires export format and multi-selection columns', () => {
-    expect(releaseSchemaCompatibility(journal(58, '0058_export_formats_and_multi_select'))).toEqual(
-      {
-        databaseSchemaMin: '58',
-        databaseSchemaMax: '58',
-      },
-    );
+  it('requires the DOCX export format column enum', () => {
+    expect(releaseSchemaCompatibility(journal(59, '0059_head_neck_docx_export'))).toEqual({
+      databaseSchemaMin: '59',
+      databaseSchemaMax: '59',
+    });
   });
 
   it('fails closed on stale, unknown or malformed migration journals', () => {
@@ -29,6 +27,8 @@ describe('export format release compatibility', () => {
       journal(57, '0057_unknown'),
       journal(57, '0057_group_visitor_links'),
       journal(58, '0058_unknown'),
+      journal(58, '0058_export_formats_and_multi_select'),
+      journal(59, '0059_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },
