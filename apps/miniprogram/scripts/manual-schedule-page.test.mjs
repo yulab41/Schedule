@@ -35,7 +35,7 @@ describe('native P5 manual schedule page', () => {
     for (const className of ['matrix-corner', 'matrix-dates', 'matrix-members', 'matrix-body']) {
       expect(wxml).toContain(className);
     }
-    expect(wxml).toContain('<scroll-view class="manual-page-scroll"');
+    expect(wxml).toMatch(/<scroll-view\s+class="manual-page-scroll"/u);
     // The separate preview dialog may scroll; the matrix itself must never own a native scroller.
     const matrix = wxml.slice(
       wxml.indexOf('<view class="matrix-shell"'),
@@ -72,6 +72,24 @@ describe('native P5 manual schedule page', () => {
     const source = readPageFile('ts');
     expect(source).toContain('openTemplate(page, saved, saved.startDate);');
     expect(source).toContain('if (page.data.isBusy) return undefined;');
+  });
+
+  it('refreshes every handoff stage and exposes an explicit end date row', () => {
+    const source = readPageFile('ts');
+    const wxml = readPageFile('wxml');
+    expect(source).toContain('void refreshSelectedStage(this, index);');
+    expect(source).toContain("await reloadReleaseHistory(page, '', 'history');");
+    expect(source).toContain('handleEndDateChange');
+    expect(wxml).toContain('field-label="结束日期"');
+    expect(wxml.indexOf('field-label="排班模板"')).toBeLessThan(
+      wxml.indexOf('field-label="排班岗位"'),
+    );
+    expect(wxml.indexOf('field-label="排班岗位"')).toBeLessThan(
+      wxml.indexOf('field-label="开始日期"'),
+    );
+    expect(wxml.indexOf('field-label="开始日期"')).toBeLessThan(
+      wxml.indexOf('field-label="结束日期"'),
+    );
   });
 
   it('keeps the fixed seven-row matrix viewport and disables page scrolling', () => {

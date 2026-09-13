@@ -194,6 +194,7 @@ interface ReleaseCalloutView {
 }
 
 interface ManualPageData extends MatrixModel {
+  readonly endDate: string;
   readonly startDateState: 'loading' | 'ready' | 'error';
   readonly matrixViewportWidth: number;
   readonly previewHolidays: readonly ConfirmedHolidayDate[];
@@ -423,6 +424,7 @@ Page({
     cycleDayOptions,
     cycleDays: 7,
     errorMessage: '',
+    endDate: addBusinessDays(today, MAX_MANUAL_DAYS - 1),
     infoMessage: '',
     feedbackTone: 'success',
     isBusy: false,
@@ -569,21 +571,8 @@ Page({
   ): void {
     if (this.data.isBusy) return;
     const index = Number(event.currentTarget.dataset.index);
-    if (index === 0) {
-      this.setData({ state: 'editor', stageIndex: 0, stages: createStages(0) }, () =>
-        this.updateMatrixViewport(),
-      );
-    } else if (index === 1) {
-      if (this._previewValid && !this._isDirty)
-        this.setData({ state: 'preview', stageIndex: 1, stages: createStages(1) });
-      else void openPreview(this);
-    } else if (index === 2 || index === 3) {
-      syncReleaseHistory(this, {
-        state: index === 2 ? 'release' : 'history',
-        stageIndex: index,
-        stages: createStages(index),
-      });
-    }
+    if (!Number.isInteger(index) || index < 0 || index > 3) return;
+    void refreshSelectedStage(this, index);
   },
 
   handleOpenCyclePicker(this: ManualPageInstance): void {
@@ -663,6 +652,7 @@ Page({
     syncEditor(this, {
       roleIndex: index,
       startDate: '',
+      endDate: '',
       startMonthLabel: '',
       startDateState: 'loading',
       scheduleRoleName: role.name,
@@ -681,10 +671,19 @@ Page({
     this._isDirty = true;
     syncEditor(this, {
       startDate,
+      endDate: addBusinessDays(startDate, MAX_MANUAL_DAYS - 1),
       startDateState: 'ready',
       startMonthLabel: startDate.slice(0, 7),
     });
     void refreshHolidays(this, startDate);
+  },
+
+  handleEndDateChange(this: ManualPageInstance, event: PickerChangeEvent): void {
+    if (this.data.isBusy) return;
+    const endDate = String(event.detail.value);
+    if (!isBusinessDate(endDate)) return;
+    this._isDirty = true;
+    syncEditor(this, { endDate });
   },
 
   handleCycleDaysChange(this: ManualPageInstance, event: PickerChangeEvent): void {
@@ -1198,6 +1197,7 @@ function initializeNewTemplate(page: ManualPageInstance): void {
     selectedTemplateId: '',
     stageIndex: 0,
     startDate: '',
+    endDate: '',
     startDateState: role ? 'loading' : 'error',
     startMonthLabel: '',
     state: 'editor',
@@ -1252,6 +1252,7 @@ function openTemplate(
     selectedTemplateId: template.id,
     stageIndex: 0,
     startDate,
+    endDate: explicitStartDate ? addBusinessDays(startDate, MAX_MANUAL_DAYS - 1) : '',
     startDateState: explicitStartDate ? 'ready' : 'loading',
     startMonthLabel: startDate.slice(0, 7),
     state: 'editor',
@@ -1266,7 +1267,7 @@ async function suggestStartDate(page: ManualPageInstance, roleId: string): Promi
   const serial = ++page._startDateSerial;
   if (!page._currentGroupId) return;
   const groupId = page._currentGroupId;
-  syncEditor(page, { startDate: '', startMonthLabel: '', startDateState: 'loading' });
+  syncEditor(page, { startDate: '', endDate: '', startMonthLabel: '', startDateState: 'loading' });
   try {
     const result = await manualClient.getNextStartDate(groupId, roleId);
     if (
@@ -1277,6 +1278,7 @@ async function suggestStartDate(page: ManualPageInstance, roleId: string): Promi
       return;
     syncEditor(page, {
       startDate: result.startDate,
+      endDate: addBusinessDays(result.startDate, MAX_MANUAL_DAYS - 1),
       startDateState: 'ready',
       startMonthLabel: result.startDate.slice(0, 7),
     });
@@ -1312,6 +1314,11 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
     startDate: data.startDate,
   });
   const logicalCellCount = page._memberIds.length * data.cycleDays;
+  const rangeDayCount =
+    isBusinessDate(data.startDate) && isBusinessDate(data.endDate)
+      ? getInclusiveDayCount(data.startDate, data.endDate)
+      : 0;
+  const withinDateRange = rangeDayCount >= 1 && rangeDayCount <= MAX_MANUAL_DAYS;
   const withinLimits =
     page._memberIds.length > 0 &&
     page._memberIds.length <= MAX_MANUAL_MEMBERS &&
@@ -1338,6 +1345,7 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
       activeShiftTypeId,
       canPreview:
         data.startDateState === 'ready' &&
+        withinDateRange &&
         withinLimits &&
         role !== undefined &&
         shiftTypes.length > 0 &&
@@ -1345,12 +1353,16 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
         !page._isDirty,
       canSave:
         data.startDateState === 'ready' &&
+        withinDateRange &&
         withinLimits &&
         role !== undefined &&
         shiftTypes.length > 0,
       isBusy: false,
-      limitNotice:
-        logicalCellCount === MAX_MANUAL_CELLS ? '已达到 20 人 × 30 天 = 600 格上限。' : '',
+      limitNotice: !withinDateRange
+        ? '结束日期不能早于开始日期，且排班范围最多 30 天。'
+        : logicalCellCount === MAX_MANUAL_CELLS
+          ? '已达到 20 人 × 30 天 = 600 格上限。'
+          : '',
       logicalCellCount,
       matrixGestureConfig,
       memberCount: page._memberIds.length,
@@ -1438,7 +1450,7 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
   }
   if (page._config === undefined) return;
   setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
-  const endDate = addBusinessDays(page.data.startDate, MAX_MANUAL_DAYS - 1);
+  const endDate = page.data.endDate;
   const serial = page._loadSerial;
   try {
     const preview = await manualClient.preview(page._currentGroupId, template.id, {
@@ -1558,7 +1570,7 @@ async function applyDraft(page: ManualPageInstance): Promise<void> {
     return;
   }
   setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
-  const endDate = addBusinessDays(page.data.startDate, MAX_MANUAL_DAYS - 1);
+  const endDate = page.data.endDate;
   try {
     const result = await manualClient.apply(page._currentGroupId, templateId, {
       acknowledgeBlockers: page.data.riskAccepted,
@@ -1597,7 +1609,25 @@ function setReleaseData(page: ManualPageInstance, patch: Partial<ManualPageData>
     void loadPreviewHolidays(page, patch.releasePreviewStartDate.slice(0, 7));
 }
 
-async function reloadReleaseHistory(page: ManualPageInstance, infoMessage = ''): Promise<void> {
+async function refreshSelectedStage(page: ManualPageInstance, index: number): Promise<void> {
+  if (index === 0) {
+    await loadManualPageWithCapability(page);
+    page.updateMatrixViewport();
+    return;
+  }
+  if (index === 1) {
+    page._previewValid = false;
+    await openPreview(page);
+    return;
+  }
+  await reloadReleaseHistory(page, '', index === 2 ? 'release' : 'history');
+}
+
+async function reloadReleaseHistory(
+  page: ManualPageInstance,
+  infoMessage = '',
+  targetState?: 'release' | 'history',
+): Promise<void> {
   let refreshError = '';
   try {
     page._history = await publicationClient.listHistory(page._currentGroupId);
@@ -1615,8 +1645,17 @@ async function reloadReleaseHistory(page: ManualPageInstance, infoMessage = ''):
     isBusy: false,
     releaseDialogKind: '',
     riskAccepted: false,
-    stageIndex: page.data.state === 'preview' || page.data.state === 'release' ? 2 : 3,
-    state: page.data.state === 'preview' || page.data.state === 'release' ? 'release' : 'history',
+    stageIndex:
+      targetState === 'history'
+        ? 3
+        : targetState === 'release' ||
+            page.data.state === 'preview' ||
+            page.data.state === 'release'
+          ? 2
+          : 3,
+    state:
+      targetState ??
+      (page.data.state === 'preview' || page.data.state === 'release' ? 'release' : 'history'),
   });
 }
 
@@ -1689,10 +1728,10 @@ async function publishReleaseBatch(
       operationId: getReleaseOperationId(page, operationKey),
     });
     page._releaseOperationIds.delete(operationKey);
-    await reloadReleaseHistory(
-      page,
-      `已发布 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班（共 ${result.periods.length} 个月）。`,
-    );
+    await reloadReleaseHistory(page, '', 'history');
+    setReleaseData(page, {
+      infoMessage: `已发布 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班（共 ${result.periods.length} 个月）。`,
+    });
   } catch (error) {
     if (error instanceof ClientCoreError && error.code === 'CONFLICT') {
       const latest = error.latestData;
