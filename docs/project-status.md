@@ -1,5 +1,11 @@
 # Project Status
 
+## 当前批次：Feedback23 设计待用户复核
+
+- 已确认导出选择器溢出来自导出页缺少本地字段内边距容器；共享`ui-selector`无须修改。访客与成员使用同一ViewModel，成员在e94a54ca后使用`shiftGroups/tint`，访客模板仍循环旧`duties`，属于模板同步遗漏。
+- 用户确认访客开放电话和事件，但完整手机号继续受当前群组有效同意门槛。绑定二维码允许群主/群管理员为本群待绑定成员生成，平台管理员也可生成；生成前必须检查未绑定，图片显示群组名/群组码/姓名/工号/有效期，scene只含一次性随机票据。
+- 设计见`docs/superpowers/specs/2026-09-13-feedback23-selector-guest-binding-qr-design.md`。停止条件：用户复核规格后再编写实施计划；当前未修改业务代码、API或数据库，未上传、部署或放行。
+
 ## 当前批次：Feedback22 已部署并放行124，待小米14复核
 
 - 独占general-5，基线ea0db36c；依赖采用锁内已有`archiver@5.3.1`生成标准OOXML Excel，稳定store维护下载0。访客码故障根因为client-core严格生成schema遗漏`trialImageBase64`，已修复并回归。
