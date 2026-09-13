@@ -159,13 +159,24 @@
             ><view class="qr-heading"
               ><text>群组二维码</text
               ><view class="qr-close" aria-role="button" bindtap="handleHideQr">完成</view></view
+            ><text class="qr-version-label">正式版</text
             ><image
               class="qr-image"
               src="{{qrImageSrc}}"
+              data-src="{{qrImageSrc}}"
               mode="aspectFit"
               show-menu-by-longpress="{{true}}"
               bindtap="handlePreviewQr"
-            /><text class="memory-note"
+            /><block wx:if="{{trialQrImageSrc}}"
+              ><text class="qr-version-label">体验版</text
+              ><image
+                class="qr-image"
+                src="{{trialQrImageSrc}}"
+                data-src="{{trialQrImageSrc}}"
+                mode="aspectFit"
+                show-menu-by-longpress="{{true}}"
+                bindtap="handlePreviewQr" /></block
+            ><text class="memory-note"
               >点击可预览，长按二维码保存或转发；访客码轮换后，已保存的旧二维码失效。</text
             ></view
           >

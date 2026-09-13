@@ -192,6 +192,7 @@ export type VisitorAccessAggregatePage = z.infer<typeof visitorAccessAggregatePa
 export const groupQrResponseSchema = z
   .object({
     imageBase64: z.string().min(1),
+    trialImageBase64: z.string().min(1).optional(),
   })
   .strict();
 export type GroupQrResponse = z.infer<typeof groupQrResponseSchema>;

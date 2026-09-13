@@ -23,6 +23,10 @@ const emptySummary: StatisticsSummary = {
 };
 
 describe('csv builder', () => {
+  it('prefixes UTF-8 CSV with a BOM for Microsoft Excel', () => {
+    expect(toCsv([['中文']])).toBe('\uFEFF中文\r\n');
+  });
+
   it('builds schedule CSV without phone or audit columns and escapes cells', () => {
     const csv = buildScheduleCsv([
       {
@@ -87,6 +91,6 @@ describe('csv builder', () => {
   });
 
   it('escapes quotes and newlines in CSV cells', () => {
-    expect(toCsv([['a"b', 'c\nd']])).toBe('"a""b","c\nd"\r\n');
+    expect(toCsv([['a"b', 'c\nd']])).toBe('\uFEFF"a""b","c\nd"\r\n');
   });
 });

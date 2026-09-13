@@ -6,6 +6,7 @@ import { exportJobs, groupMemberships, scheduleRoles, withTransaction } from '@s
 import { and, eq, isNull } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
+import { ExportJobProcessor } from '../../jobs/export-jobs.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
@@ -26,7 +27,7 @@ export class ExportService {
     groupId: string,
     input: CreateScheduleExportInput,
   ): Promise<ScheduleExportJob> {
-    return withTransaction(this.databaseClient, async (transaction) => {
+    const created = await withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
         transaction,
         identity,
@@ -72,6 +73,8 @@ export class ExportService {
 
       return this.readJob(transaction, groupId, exportJobId);
     });
+    await new ExportJobProcessor(this.databaseClient).process(created.id);
+    return this.getJob(identity, groupId, created.id);
   }
 
   public async getJob(

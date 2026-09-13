@@ -305,6 +305,13 @@
   border-radius: var(--ui-radius-small);
 }
 
+.qr-version-label {
+  margin: 8px 0 6px;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
 .empty-note {
   margin: 10px 12px;
   padding: 10px;
@@ -402,5 +409,9 @@
   font-weight: var(--ui-font-weight-semibold);
   line-height: var(--ui-line-height-normal);
 }
-.invite-share-button::after { border: 0; }
-.invite-share-button[disabled] { opacity: 0.6; }
+.invite-share-button::after {
+  border: 0;
+}
+.invite-share-button[disabled] {
+  opacity: 0.6;
+}

@@ -21,6 +21,7 @@ import {
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
 import { parseVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
+import { composeVisitorQrCard } from '../../../../platform/visitor-qr-card.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 
 interface ValueInputEvent {
@@ -71,6 +72,7 @@ interface InviteVisitorPageData {
   readonly inviteExpiresAt: string;
   readonly largeText: boolean;
   readonly qrImageSrc: string;
+  readonly trialQrImageSrc: string;
   readonly qrVisible: boolean;
   readonly visitorState: 'idle' | 'loading' | 'ready' | 'error';
   readonly visitorMessage: string;
@@ -143,6 +145,7 @@ export function createInviteVisitorPanelControllerDefinition() {
       inviteExpiresAt: '',
       largeText: false,
       qrImageSrc: '',
+      trialQrImageSrc: '',
       qrVisible: false,
       visitorState: 'idle',
       visitorMessage: '',
@@ -250,8 +253,11 @@ export function createInviteVisitorPanelControllerDefinition() {
       void regenerateVisitorKey(this);
     },
 
-    handlePreviewQr(this: InviteVisitorPageInstance): void {
-      previewQr(this);
+    handlePreviewQr(
+      this: InviteVisitorPageInstance,
+      event?: { readonly currentTarget: { readonly dataset: { readonly src?: string } } },
+    ): void {
+      previewQr(this, event?.currentTarget.dataset.src ?? this.data.qrImageSrc);
     },
     handleHideQr(this: InviteVisitorPageInstance): void {
       invalidateQr(this);
@@ -322,6 +328,7 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
     inviteEditorOpen: false,
     qrVisible: false,
     qrImageSrc: '',
+    trialQrImageSrc: '',
     visitorState: 'idle',
     visitorMessage: '',
   });
@@ -490,6 +497,7 @@ function invalidateQr(page: InviteVisitorPageInstance): void {
   delete page._qrRotating;
   updatePanel(page, {
     qrImageSrc: '',
+    trialQrImageSrc: '',
     qrVisible: false,
     visitorState: 'idle',
   });
@@ -554,9 +562,9 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
   }
 }
 
-function previewQr(page: InviteVisitorPageInstance): void {
-  if (page._disposed || !page.data.qrVisible || !page.data.qrImageSrc) return;
-  const imageSrc = page.data.qrImageSrc;
+function previewQr(page: InviteVisitorPageInstance, source?: string): void {
+  if (page._disposed || !page.data.qrVisible || !source) return;
+  const imageSrc = source;
   const isCurrent = qrContext(page);
   const previewImage = (
     wx as unknown as {
@@ -608,8 +616,19 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
     if (!isCurrent()) return;
     const image = parseVisitorQrImage(response.imageBase64);
     if (!image) throw new Error('二维码图片无效，请重新读取。');
+    const trialImage = response.trialImageBase64
+      ? parseVisitorQrImage(response.trialImageBase64)
+      : undefined;
+    const [releaseCard, trialCard] = await Promise.all([
+      composeVisitorQrCard(image.imageSrc, page.data.currentGroupName),
+      trialImage
+        ? composeVisitorQrCard(trialImage.imageSrc, page.data.currentGroupName)
+        : Promise.resolve(''),
+    ]);
+    if (!isCurrent()) return;
     updatePanel(page, {
-      qrImageSrc: image.imageSrc,
+      qrImageSrc: releaseCard,
+      trialQrImageSrc: trialCard,
       qrVisible: true,
       visitorState: 'ready',
       visitorMessage: '二维码已读取，可长按二维码保存或转发。',

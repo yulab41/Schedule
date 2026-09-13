@@ -1,8 +1,5 @@
 import type { ScheduleExportType } from '@schedule/contracts';
-import {
-  getExportPeriodLabel,
-  getExportSelectionSummary,
-} from '@schedule/presentation-core/export';
+import { getExportPeriodLabel } from '@schedule/presentation-core/export';
 import { getCurrentStatisticsMonth } from '@schedule/presentation-core/statistics';
 
 export function createExportsPanelInitialData() {
@@ -27,7 +24,6 @@ export function createExportsPanelInitialData() {
     roleId: '',
     roleIndex: 0,
     roleOptions: [{ id: '', label: '全部岗位' }],
-    selectionSummary: getExportSelectionSummary('schedule', businessMonth),
     shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
     state: 'loading' as const,
     statusLabel: '正在加载导出选项',

@@ -47,6 +47,13 @@ export class ExportJobProcessor {
     return { completed, failed, processed: pendingJobs.length, skipped };
   }
 
+  public async process(
+    exportJobId: string,
+    now = new Date(),
+  ): Promise<'completed' | 'failed' | 'skipped'> {
+    return this.processOne(exportJobId, now);
+  }
+
   private async processOne(
     exportJobId: string,
     now: Date,

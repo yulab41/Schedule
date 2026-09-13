@@ -73,7 +73,8 @@ export class VisitorKeyService {
       },
       scope: 'organization_visitor_key_regenerate',
     });
-    this.qrCache.delete(groupId);
+    this.qrCache.delete(`${groupId}:release`);
+    this.qrCache.delete(`${groupId}:trial`);
 
     return result;
   }
@@ -82,8 +83,8 @@ export class VisitorKeyService {
     identity: AuthenticatedIdentity,
     groupId: string,
     gateway: WechatGateway,
-    envVersion: string,
-  ): Promise<{ readonly imageBase64: string }> {
+    includeTrial: boolean,
+  ): Promise<{ readonly imageBase64: string; readonly trialImageBase64?: string }> {
     const authorization = await withTransaction(this.databaseClient, async (transaction) =>
       this.permissionService.requirePermission(transaction, identity, groupId, 'viewGroupQr'),
     );
@@ -101,21 +102,22 @@ export class VisitorKeyService {
       });
     }
 
-    const cached = this.qrCache.get(groupId);
+    const releaseCacheKey = `${groupId}:release`;
+    const cached = this.qrCache.get(releaseCacheKey);
     const now = Date.now();
     if (cached === undefined || cached.visitorKey !== group.visitorKey || cached.expiresAt <= now) {
       let bytes: Uint8Array;
       try {
         // scene is limited to 32 visible characters by WeChat; the visitor key
         // itself is exactly 32 hex chars, so it is passed without a prefix.
-        bytes = await gateway.getUnlimitedQr(group.visitorKey, 'pages/guest/guest', envVersion);
+        bytes = await gateway.getUnlimitedQr(group.visitorKey, 'pages/guest/guest', 'release');
       } catch (error) {
         if (error instanceof WechatGatewayError) {
           throw toWechatGatewayApiError(error);
         }
         throw error;
       }
-      this.qrCache.set(groupId, {
+      this.qrCache.set(releaseCacheKey, {
         bytes,
         expiresAt: now + QR_CACHE_TTL_MS,
         visitorKey: group.visitorKey,
@@ -135,7 +137,27 @@ export class VisitorKeyService {
       });
     });
 
-    const qrBytes = this.qrCache.get(groupId)?.bytes ?? new Uint8Array();
-    return { imageBase64: Buffer.from(qrBytes).toString('base64') };
+    const qrBytes = this.qrCache.get(releaseCacheKey)?.bytes ?? new Uint8Array();
+    if (!includeTrial) return { imageBase64: Buffer.from(qrBytes).toString('base64') };
+    const trialCacheKey = `${groupId}:trial`;
+    const trialCached = this.qrCache.get(trialCacheKey);
+    if (
+      trialCached === undefined ||
+      trialCached.visitorKey !== group.visitorKey ||
+      trialCached.expiresAt <= now
+    ) {
+      const bytes = await gateway.getUnlimitedQr(group.visitorKey, 'pages/guest/guest', 'trial');
+      this.qrCache.set(trialCacheKey, {
+        bytes,
+        expiresAt: now + QR_CACHE_TTL_MS,
+        visitorKey: group.visitorKey,
+      });
+    }
+    return {
+      imageBase64: Buffer.from(qrBytes).toString('base64'),
+      trialImageBase64: Buffer.from(this.qrCache.get(trialCacheKey)?.bytes ?? []).toString(
+        'base64',
+      ),
+    };
   }
 }

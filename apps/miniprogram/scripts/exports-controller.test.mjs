@@ -129,10 +129,10 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     });
     definition.methods.handleRoleChange.call(page, { detail: { value: '1' } });
     definition.methods.handleMemberChange.call(page, { detail: { value: '1' } });
-    expect(page.data.selectionSummary).toBe('统计 · 2026年');
+    expect(page.data.periodLabel).toBe('2026年');
 
     definition.methods.handleCreate.call(page);
-    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
     expect(mocks.createExportJob).toHaveBeenCalledWith(groupId, {
       exportType: 'statistics',
       membershipId: 'member-1',
@@ -142,7 +142,6 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(mocks.getExportJob).toHaveBeenCalledWith(groupId, 'job-1');
     expect(page.data.fileLabel).toBe('statistics-export-2026.csv');
 
-    definition.methods.handleDownload.call(page);
     await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1));
     expect(page.data.state).toBe('downloaded');
     expect(globalThis.wx.openDocument).not.toHaveBeenCalled();
@@ -206,7 +205,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     definition.methods.handleContinue.call(page);
     await flushPromises();
 
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('downloaded');
     expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
     expect(mocks.getExportJob).toHaveBeenLastCalledWith(groupId, 'job-1');
   });
@@ -254,7 +253,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(page.data.state).toBe('idle');
     definition.methods.handleCreate.call(page);
     await vi.advanceTimersByTimeAsync(0);
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('downloaded');
     expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
   });
   it('does not offer another POST after a transport failure made creation uncertain', async () => {
@@ -296,10 +295,10 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     definition.methods.handleContinue.call(page);
     definition.methods.handleContinue.call(page);
     await vi.advanceTimersByTimeAsync(0);
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('downloaded');
     finishOld(exportJob('failed'));
     await vi.advanceTimersByTimeAsync(0);
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('downloaded');
     expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
     expect(mocks.getExportJob).toHaveBeenCalledTimes(2);
   });
@@ -322,7 +321,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     definition.pageLifetimes.show.call(page);
     definition.pageLifetimes.show.call(page);
     await vi.advanceTimersByTimeAsync(0);
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('downloaded');
     expect(mocks.getExportJob).toHaveBeenCalledTimes(count + 1);
     expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
     definition.lifetimes.detached.call(page);
@@ -353,7 +352,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(page.data.state).toBe('timed_out');
     definition.methods.handleContinue.call(page);
     await vi.advanceTimersByTimeAsync(0);
-    expect(page.data.state).toBe('ready');
+    expect(page.data.state).toBe('downloaded');
   });
 
   it('closes a ready job when insights is disabled during status polling', async () => {
@@ -417,7 +416,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     );
 
     definition.methods.handleDownload.call(page);
-    await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(2));
     definition.lifetimes.detached.call(page);
     resolveDownload('wxfile://stale.csv');
     await flushPromises();
@@ -434,7 +433,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
         }),
     );
     nextDefinition.methods.handleDownload.call(nextPage);
-    await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(4));
     nextPage.properties.groupId = '22222222-2222-4222-8222-222222222222';
     nextDefinition.observers.groupId.call(nextPage);
     resolveNextDownload('wxfile://stale-after-switch.csv');
@@ -467,7 +466,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     definition.methods.handleDownload.call(page);
     definition.methods.handleDownload.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
-    expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1);
+    expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(2);
     let finishShare;
     mocks.shareScheduleExport.mockImplementationOnce(
       () =>
@@ -502,7 +501,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     definition.methods.handleReset.call(page);
     mocks.createExportJob.mockResolvedValueOnce({ ...exportJob('pending'), id: 'new-job' });
     definition.methods.handleCreate.call(page);
-    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
     finishOld({ ...exportJob('pending'), id: 'old-job' });
     await flushPromises();
     expect(page._jobId).toBe('new-job');
@@ -573,7 +572,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(page.data.feedbackTone).toBe('error');
     definition.methods.handleShare.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('shared'));
-    expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1);
+    expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(2);
     expect(mocks.createExportJob).toHaveBeenCalledTimes(1);
   });
 });
@@ -598,7 +597,7 @@ async function loadedPage(definition) {
   definition.lifetimes.attached.call(page);
   await vi.waitFor(() => expect(page.data.state).toBe('idle'));
   definition.methods.handleCreate.call(page);
-  await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+  await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
   return page;
 }
 

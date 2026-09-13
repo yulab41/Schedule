@@ -95,7 +95,7 @@ export function buildStatisticsCsv(summary: StatisticsSummary): string {
 }
 
 export function toCsv(rows: readonly (readonly (number | string | null)[])[]): string {
-  return `${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
+  return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }
 
 function escapeCsvCell(value: number | string | null): string {

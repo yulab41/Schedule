@@ -50,9 +50,11 @@ describe('P9 native export download boundary', () => {
     expect(template).toContain('导出任务');
     expect(template).toContain('正在创建导出任务');
     expect(template).toContain('继续检查');
-    expect(template).toContain('下载 CSV');
+    expect(template).not.toContain('label="下载 CSV"');
+    expect(template).toContain('发送文件');
+    expect(template).toContain('重新获取文件');
     expect(template).toContain('insights');
-    expect(template).toContain('重新开始');
+    expect(template).toContain('label="取消"');
     expect(controller).toContain("from '@schedule/presentation-core/export'");
     expect(controller).not.toContain('function pollJob');
     expect(controller).not.toContain('function currentBusinessMonth');

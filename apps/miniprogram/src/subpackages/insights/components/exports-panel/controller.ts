@@ -8,7 +8,6 @@ import { addBusinessMonths } from '@schedule/presentation-core';
 import {
   buildExportFileName,
   getExportPeriodLabel,
-  getExportSelectionSummary,
   pollExportJob,
   createExportCancellation,
   waitForExportOperation,
@@ -80,7 +79,6 @@ interface ExportsPageData {
   readonly roleId: string;
   readonly roleIndex: number;
   readonly roleOptions: readonly SelectOption[];
-  readonly selectionSummary: string;
   readonly shellHeaderStyle: string;
   readonly state: ExportState;
   readonly statusLabel: string;
@@ -559,8 +557,9 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
     page.setData({
       fileLabel: buildExportFileName(result.job.exportType, result.job.period),
       state: 'ready',
-      statusLabel: '文件已生成，可下载 CSV',
+      statusLabel: '文件已生成，正在准备发送',
     });
+    await downloadExport(page);
   } catch (error) {
     if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
     recordExportProgress('poll-failed', startedAt);
@@ -728,7 +727,6 @@ function setSelection(page: ExportsPageInstance, patch: Partial<ExportsPageData>
   page.setData({
     ...patch,
     periodLabel: getExportPeriodLabel(currentPeriod(next)),
-    selectionSummary: getExportSelectionSummary(next.exportType, currentPeriod(next)),
   });
 }
 

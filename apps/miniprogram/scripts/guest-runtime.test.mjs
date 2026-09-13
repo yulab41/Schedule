@@ -156,7 +156,13 @@ describe('anonymous native visitor calendar', () => {
       expect(JSON.stringify(instance.data)).not.toContain(key);
       expect(JSON.stringify(instance.data)).not.toContain('13800000000');
       expect(instance.calendar.members[0].mobilePhone).toBe('13800000000');
-      expect([...storage]).toEqual(before);
+      expect([...storage].slice(0, before.length)).toEqual(before);
+      const publicCache = [...storage].find(([storageKey]) =>
+        storageKey.startsWith('schedule.guest.public.v1:'),
+      );
+      expect(publicCache).toBeDefined();
+      expect(publicCache[1]).not.toContain(key);
+      expect(publicCache[1]).not.toContain('13800000000');
       definition.onUnload.call(instance);
       expect(instance.calendar).toBeUndefined();
       expect(instance.visitorKey).toBeUndefined();
@@ -259,7 +265,7 @@ describe('anonymous native visitor calendar', () => {
     expect(instance.data.selectedDetails).toEqual([]);
     definition.onUnload.call(instance);
   });
-  it('ignores queued refresh actions while hidden and clears filter labels', async () => {
+  it('ignores queued refresh actions while hidden and preserves the public calendar view', async () => {
     const instance = await page();
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
     definition.handleFilterOptionToggle.call(instance, {
@@ -267,7 +273,7 @@ describe('anonymous native visitor calendar', () => {
     });
     expect(instance.data.filterMemberSummary).not.toBe('全部成员');
     definition.onHide.call(instance);
-    expect(instance.data.filterMemberSummary).toBe('全部成员');
+    expect(instance.data.filterMemberSummary).toBe('张医生');
     const count = requests.length;
     definition.handleRetry.call(instance);
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -318,7 +324,7 @@ describe('anonymous native visitor calendar', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(instance.data.shiftEventSheetOpen).toBe(false);
-    expect(instance.calendar).toBeUndefined();
+    expect(instance.calendar).toBeDefined();
     expect([...storage.keys()].some((k) => k.includes('workbench.cache'))).toBe(false);
     definition.onUnload.call(instance);
   });

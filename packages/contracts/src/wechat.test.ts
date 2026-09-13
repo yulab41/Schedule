@@ -218,6 +218,12 @@ describe('wechat mini program contracts', () => {
 
   it('requires a non-empty group QR image payload', () => {
     expect(groupQrResponseSchema.safeParse({ imageBase64: 'iVBORw0KGgo=' }).success).toBe(true);
+    expect(
+      groupQrResponseSchema.safeParse({
+        imageBase64: 'iVBORw0KGgo=',
+        trialImageBase64: 'iVBORw0KGgo=',
+      }).success,
+    ).toBe(true);
     expect(groupQrResponseSchema.safeParse({ imageBase64: '' }).success).toBe(false);
   });
 

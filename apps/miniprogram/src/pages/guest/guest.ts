@@ -22,6 +22,11 @@ import {
   type ShiftEventCard,
 } from '../../features/workbench/shift-event-model.js';
 import { getStoredWechatProfile } from '../../platform/wechat-identity.js';
+import {
+  clearGuestPublicCache,
+  readGuestPublicCache,
+  writeGuestPublicCache,
+} from '../../platform/guest-public-cache.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
 import {
   createMonthRing,
@@ -169,13 +174,13 @@ Page({
   onHide(this: GuestPage): void {
     this.visible = false;
     this.serial += 1;
-    resetGuestContext(this);
+    clearEvents(this);
   },
   onUnload(this: GuestPage): void {
     this.visible = false;
     this.serial += 1;
     this.visitorKey = undefined;
-    resetGuestContext(this);
+    clearCalendar(this);
   },
   handleListCall(this: GuestPage, event: Tap): void {
     const phoneNumber = event.currentTarget.dataset['phone'];
@@ -467,9 +472,10 @@ function readMonth(
   groupId: string,
   businessMonth: string,
   key: string,
+  refresh = false,
 ): Promise<CalendarReadModel> {
   const cached = page.monthResources.get(businessMonth);
-  if (cached) return Promise.resolve(cached);
+  if (cached && !refresh) return Promise.resolve(cached);
   const pending = page.monthReads.get(businessMonth);
   if (pending) return pending;
   const generation = page.contextGeneration;
@@ -523,12 +529,19 @@ async function loadCalendar(page: GuestPage): Promise<void> {
     const group = await resolveGuest(page, key);
     if (!current(page, serial)) return;
     page.setData({ currentGroupId: group.groupId, currentGroupName: group.groupName });
+    if (page.monthResources.size === 0 && page.holidayResources.size === 0) {
+      const persisted = readGuestPublicCache(group.groupId);
+      page.monthResources = persisted.months;
+      page.holidayResources = persisted.holidays;
+      applyCachedWindow(page, months);
+    }
     await Promise.all([
-      readMonth(page, group.groupId, activeMonth, key),
+      readMonth(page, group.groupId, activeMonth, key, true),
       readHolidays(page, Number(activeMonth.slice(0, 4))),
     ]);
     if (!current(page, serial)) return;
     applyCachedWindow(page, months);
+    writeGuestPublicCache(group.groupId, page.monthResources, page.holidayResources);
     const years = [...new Set(months.map((value) => Number(value.slice(0, 4))))];
     await Promise.all([
       ...months
@@ -540,6 +553,7 @@ async function loadCalendar(page: GuestPage): Promise<void> {
     ]);
     if (!current(page, serial)) return;
     applyCachedWindow(page, months);
+    writeGuestPublicCache(group.groupId, page.monthResources, page.holidayResources);
   } catch (error) {
     if (!current(page, serial)) return;
     const status = (error as { status?: number })?.status;
@@ -548,9 +562,13 @@ async function loadCalendar(page: GuestPage): Promise<void> {
       status === 404 ||
       status === 410 ||
       (error as { code?: string })?.code === 'VISITOR_KEY_INVALID'
-    )
+    ) {
+      if (page.data.currentGroupId) clearGuestPublicCache(page.data.currentGroupId);
       resetGuestContext(page);
-    else clearCalendar(page);
+    } else if (applyCachedWindow(page, months)) {
+      page.setData({ announcement: '网络暂不可用，正在显示最近一次公开排班。' });
+      return;
+    } else clearCalendar(page);
     page.setData({
       state: 'error',
       errorMessage:

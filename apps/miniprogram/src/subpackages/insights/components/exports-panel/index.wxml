@@ -35,19 +35,6 @@
         ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
       ></view>
       <view wx:else class="exports-content">
-        <view class="page-heading"
-          ><text class="section-eyebrow">离线文件 / 安全导出</text
-          ><text class="page-title">导出排班与统计</text
-          ><text class="page-description"
-            >文件通过登录态下载，不在 URL 中携带 token；生成期间可以安全离开页面。</text
-          ></view
-        >
-
-        <view class="export-selection-summary" aria-label="导出选择摘要" aria-live="polite"
-          ><text class="summary-label">将要导出</text
-          ><text class="summary-value">{{selectionSummary}}</text></view
-        >
-
         <view class="surface-card export-form-card">
           <view class="card-header"
             ><view
@@ -69,9 +56,12 @@
                 aria-role="button"
                 aria-label="文件类型，{{exportType === 'statistics' ? '统计' : '排班'}}"
                 ><text>{{exportType === 'statistics' ? '统计' : '排班'}}</text
-                ><image class="picker-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
-              ></picker
-            >
+                ><image
+                  class="picker-chevron"
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                  aria-hidden="true" /></view
+            ></picker>
           </view>
 
           <view class="field-block period-field">
@@ -101,8 +91,12 @@
                 aria-role="button"
                 aria-label="上一导出周期"
                 bindtap="handlePreviousPeriod"
-                ><image class="period-step-icon" src="/assets/icons/ui-chevron-left.svg" mode="aspectFit" aria-hidden="true" /></view
-              >
+                ><image
+                  class="period-step-icon"
+                  src="/assets/icons/ui-chevron-left.svg"
+                  mode="aspectFit"
+                  aria-hidden="true"
+              /></view>
               <view class="period-readout"
                 ><text class="period-value">{{periodLabel}}</text
                 ><text class="period-caption"
@@ -114,8 +108,12 @@
                 aria-role="button"
                 aria-label="下一导出周期"
                 bindtap="handleNextPeriod"
-                ><image class="period-step-icon" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
-              >
+                ><image
+                  class="period-step-icon"
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                  aria-hidden="true"
+              /></view>
             </view>
           </view>
 
@@ -133,9 +131,12 @@
                 aria-role="button"
                 aria-label="排班岗位，{{roleOptions[roleIndex].label}}"
                 ><text>{{roleOptions[roleIndex].label}}</text
-                ><image class="picker-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
-              ></picker
-            >
+                ><image
+                  class="picker-chevron"
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                  aria-hidden="true" /></view
+            ></picker>
           </view>
 
           <view class="field-block">
@@ -152,9 +153,12 @@
                 aria-role="button"
                 aria-label="成员，{{memberOptions[memberIndex].label}}"
                 ><text>{{memberOptions[memberIndex].label}}</text
-                ><image class="picker-chevron" src="/assets/icons/ui-chevron-right.svg" mode="aspectFit" aria-hidden="true" /></view
-              ></picker
-            >
+                ><image
+                  class="picker-chevron"
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                  aria-hidden="true" /></view
+            ></picker>
           </view>
 
           <view class="export-hint"
@@ -170,43 +174,74 @@
               ><text class="progress-note">正在检查结果；你可以随时停止等待。</text></view
             ></view
           >
-          <view wx:elif="{{state === 'timed_out' || state === 'paused'}}" class="export-timeout" role="status"
+          <view
+            wx:elif="{{state === 'timed_out' || state === 'paused'}}"
+            class="export-timeout"
+            role="status"
             ><view class="timeout-copy"
               ><text class="progress-title">{{statusLabel}}</text
-              ><text class="progress-note">{{canCheckJob ? '继续检查同一任务，不会重复创建。' : canRetryCreate ? '创建请求尚未发出，可以安全重试。' : '暂未取得任务编号，请勿重复提交；可返回稍后再试。'}}</text></view
-            ><ui-button wx:if="{{canCheckJob}}" variant="secondary" label="检查同一任务" bindpress="handleContinue"></ui-button
-            ><ui-button wx:elif="{{canRetryCreate}}" variant="secondary" label="重试生成" bindpress="handleCreate"></ui-button
+              ><text class="progress-note"
+                >{{canCheckJob ? '继续检查同一任务，不会重复创建。' : canRetryCreate ?
+                '创建请求尚未发出，可以安全重试。' :
+                '暂未取得任务编号，请勿重复提交；可返回稍后再试。'}}</text
+              ></view
+            ><ui-button
+              wx:if="{{canCheckJob}}"
+              variant="secondary"
+              label="检查同一任务"
+              bindpress="handleContinue"
+            ></ui-button
+            ><ui-button
+              wx:elif="{{canRetryCreate}}"
+              variant="secondary"
+              label="重试生成"
+              bindpress="handleCreate"
+            ></ui-button
             ><ui-button variant="secondary" label="返回" bindpress="handleBack"></ui-button
           ></view>
-          <view wx:elif="{{state === 'ready' || state === 'download_failed' || state === 'downloaded' || state === 'shared'}}" class="ready-result {{state === 'download_failed' ? 'has-download-error' : ''}}"
+          <view
+            wx:elif="{{state === 'ready' || state === 'download_failed' || state === 'downloaded' || state === 'shared'}}"
+            class="ready-result {{state === 'download_failed' ? 'has-download-error' : ''}}"
             ><view class="ready-heading"
               ><text class="ready-title">{{statusLabel}}</text
               ><text class="ready-file">{{fileLabel}}</text></view
-            ><view class="ready-actions"><ui-button
-              wx:if="{{state === 'downloaded' || state === 'shared'}}"
-              variant="primary"
-              label="发送文件"
-              loading="{{shareBusy}}"
-              disabled="{{shareBusy}}"
-              bindpress="handleShare"
-            ></ui-button><ui-button
-              variant="{{state === 'downloaded' || state === 'shared' ? 'secondary' : 'primary'}}"
-              label="{{state === 'downloaded' || state === 'shared' ? '重新下载' : '下载 CSV'}}"
-              aria-label="下载文件"
-              loading="{{downloadBusy}}"
-              disabled="{{downloadBusy || shareBusy}}"
-              bindpress="handleDownload"
-            ></ui-button
+            ><view class="ready-actions"
+              ><ui-button
+                wx:if="{{state === 'downloaded' || state === 'shared'}}"
+                variant="primary"
+                label="发送文件"
+                loading="{{shareBusy}}"
+                disabled="{{shareBusy}}"
+                bindpress="handleShare"
+              ></ui-button
+              ><ui-button
+                wx:if="{{state === 'download_failed'}}"
+                variant="primary"
+                label="重新获取文件"
+                aria-label="下载文件"
+                loading="{{downloadBusy}}"
+                disabled="{{downloadBusy || shareBusy}}"
+                bindpress="handleDownload"
+              ></ui-button
+              ><ui-button
+                variant="secondary"
+                label="取消"
+                disabled="{{shareBusy}}"
+                bindpress="handleReset"
+              ></ui-button></view
+          ></view>
+
+          <view
+            wx:if="{{state === 'idle' || state === 'waiting' || state === 'failed'}}"
+            class="export-actions"
             ><ui-button
+              wx:if="{{state === 'failed'}}"
               variant="secondary"
               label="重新开始"
-              disabled="{{shareBusy}}"
               bindpress="handleReset"
             ></ui-button
-          ></view></view>
-
-          <view wx:if="{{state === 'idle' || state === 'waiting' || state === 'failed'}}" class="export-actions"
-            ><ui-button wx:if="{{state === 'failed'}}" variant="secondary" label="重新开始" bindpress="handleReset"></ui-button><ui-button wx:else
+            ><ui-button
+              wx:else
               variant="secondary"
               label="{{state === 'waiting' ? '停止等待' : '取消'}}"
               bindpress="handleCancel"
@@ -223,7 +258,9 @@
 
         <view class="security-note"
           ><text class="security-title">下载安全</text
-          ><text>下载后点击“发送文件”，自行选择联系人或文件传输助手。临时文件将在离开页面后清理，不写入业务缓存。</text></view
+          ><text
+            >下载后点击“发送文件”，自行选择联系人或文件传输助手。临时文件将在离开页面后清理，不写入业务缓存。</text
+          ></view
         >
         <view class="bottom-spacer"></view>
       </view>

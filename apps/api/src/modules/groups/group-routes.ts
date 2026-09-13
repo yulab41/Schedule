@@ -252,7 +252,7 @@ export function registerGroupRoutes(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       gateway,
-      process.env.WECHAT_QR_ENV_VERSION ?? 'release',
+      process.env.WECHAT_TRIAL_VISITOR_QR_ENABLED !== 'false',
     );
   });
 
