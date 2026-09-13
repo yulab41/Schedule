@@ -84,14 +84,13 @@ describe('Mini export controller mirrors Web selection and polling', () => {
       const page = pageFor(definition);
       definition.lifetimes.attached.call(page);
       await vi.advanceTimersByTimeAsync(30_001);
-      expect(page.data.state).toBe('error');
+      expect(page.data.state).toBe('idle');
+      expect(page.data.optionsLoading).toBe(false);
       expect(page.data.errorMessage).toContain('超时');
       complete(method === 'getSchedulingConfig' ? { roles: [] } : []);
       await vi.advanceTimersByTimeAsync(0);
-      expect(page.data.state).toBe('error');
-      definition.methods.handleRetry.call(page);
-      await vi.advanceTimersByTimeAsync(0);
       expect(page.data.state).toBe('idle');
+      expect(page.data.optionsLoading).toBe(false);
       definition.lifetimes.detached.call(page);
       expect(vi.getTimerCount()).toBe(0);
     },
@@ -119,7 +118,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     const definition = await controllerDefinition();
     const page = pageFor(definition);
     definition.lifetimes.attached.call(page);
-    await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+    await vi.waitFor(() => expect(page.data.optionsLoading).toBe(false));
 
     expect(page.data.roleOptions.map((option) => option.label)).toEqual(['全部岗位', '住院总']);
     expect(page.data.memberOptions.map((option) => option.label)).toEqual(['全部成员', 'A 医生']);
@@ -127,20 +126,25 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     definition.methods.handlePeriodType.call(page, {
       currentTarget: { dataset: { periodType: 'year' } },
     });
-    definition.methods.handleRoleChange.call(page, { detail: { value: '1' } });
-    definition.methods.handleMemberChange.call(page, { detail: { value: '1' } });
+    definition.methods.handleRoleChange.call(page, {
+      detail: { option: page.data.roleOptions[1] },
+    });
+    definition.methods.handleMemberChange.call(page, {
+      detail: { option: page.data.memberOptions[1] },
+    });
     expect(page.data.periodLabel).toBe('2026年');
 
     definition.methods.handleCreate.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
     expect(mocks.createExportJob).toHaveBeenCalledWith(groupId, {
       exportType: 'statistics',
-      membershipId: 'member-1',
+      format: 'xlsx',
+      membershipIds: ['member-1'],
       period: '2026',
-      roleId: 'role-1',
+      roleIds: ['role-1'],
     });
     expect(mocks.getExportJob).toHaveBeenCalledWith(groupId, 'job-1');
-    expect(page.data.fileLabel).toBe('statistics-export-2026.csv');
+    expect(page.data.fileLabel).toBe('statistics-export-2026.xlsx');
 
     await vi.waitFor(() => expect(mocks.downloadScheduleExport).toHaveBeenCalledTimes(1));
     expect(page.data.state).toBe('downloaded');
@@ -151,7 +155,7 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     await vi.waitFor(() => expect(page.data.state).toBe('shared'));
     expect(mocks.shareScheduleExport).toHaveBeenCalledWith(
       'wxfile://export.csv',
-      'statistics-export-2026.csv',
+      'statistics-export-2026.xlsx',
     );
   });
 
@@ -169,6 +173,38 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     await vi.waitFor(() => expect(page.data.state).toBe('idle'));
     expect(page.data.largeText).toBe(true);
     expect(page.data.viewportClass).toBe('is-compact');
+  });
+
+  it('keeps all mutually exclusive with multi-selected roles and members and switches formats', async () => {
+    const definition = await controllerDefinition();
+    const page = await loadedPage(definition);
+
+    definition.methods.handleRoleChange.call(page, {
+      detail: { option: page.data.roleOptions[1] },
+    });
+    definition.methods.handleMemberChange.call(page, {
+      detail: { option: page.data.memberOptions[1] },
+    });
+    expect(page.data.roleIds).toEqual(['role-1']);
+    expect(page.data.membershipIds).toEqual(['member-1']);
+    expect(page.data.roleOptions[0].checked).toBe(false);
+    expect(page.data.memberOptions[0].checked).toBe(false);
+
+    definition.methods.handleRoleChange.call(page, {
+      detail: { option: page.data.roleOptions[0] },
+    });
+    definition.methods.handleMemberChange.call(page, {
+      detail: { option: page.data.memberOptions[0] },
+    });
+    expect(page.data.roleIds).toEqual([]);
+    expect(page.data.membershipIds).toEqual([]);
+    expect(page.data.roleSummary).toBe('全部岗位');
+    expect(page.data.memberSummary).toBe('全部成员');
+
+    definition.methods.handleFormatChange.call(page, {
+      currentTarget: { dataset: { format: 'csv' } },
+    });
+    expect(page.data.format).toBe('csv');
   });
 
   it('checks insights before loading role or member options', async () => {
@@ -595,7 +631,7 @@ function pageFor(definition) {
 async function loadedPage(definition) {
   const page = pageFor(definition);
   definition.lifetimes.attached.call(page);
-  await vi.waitFor(() => expect(page.data.state).toBe('idle'));
+  await vi.waitFor(() => expect(page.data.optionsLoading).toBe(false));
   definition.methods.handleCreate.call(page);
   await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
   return page;
@@ -609,6 +645,7 @@ function exportJob(status) {
   return {
     createdAt: '2026-08-26T00:00:00.000Z',
     exportType: 'statistics',
+    format: 'xlsx',
     groupId,
     id: 'job-1',
     period: '2026',

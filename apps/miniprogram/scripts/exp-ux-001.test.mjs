@@ -323,8 +323,10 @@ describe('EXP-UX-001 experience feedback contracts', () => {
 
       const exportsTemplate = read('src/subpackages/insights/components/exports-panel/index.wxml');
       const exportsStyles = read('src/subpackages/insights/components/exports-panel/index.wxss');
-      expect(exportsTemplate).toContain('class="format-chip">CSV');
-      expect(exportsStyles).toContain('.format-chip');
+      expect(exportsTemplate).toContain('class="format-switch"');
+      expect(exportsTemplate).toContain('data-format="xlsx"');
+      expect(exportsTemplate).toContain('data-format="csv"');
+      expect(exportsStyles).toContain('.format-switch');
       expect(read('src/platform/build-info.ts')).toContain('buildLabel');
       expect(read('src/subpackages/diagnostics/pages/test-tools/index.wxml')).toContain(
         '{{buildRows[0].value}}',

@@ -80,7 +80,10 @@ export class ExportJobProcessor {
           .set({
             completedAt: now,
             expiresAt: new Date(now.valueOf() + downloadTtlMinutes * 60_000),
-            fileContent: result.content,
+            fileContent:
+              typeof result.content === 'string'
+                ? result.content
+                : result.content.toString('base64'),
             rowCount: result.rowCount,
             status: 'completed',
           })

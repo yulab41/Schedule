@@ -39,8 +39,22 @@
           <view class="card-header"
             ><view
               ><text class="card-title">导出内容</text
-              ><text class="card-subtitle">当前群组 · CSV 文件</text></view
-            ><text class="format-chip">CSV</text></view
+              ><text class="card-subtitle"
+                >当前群组 · {{format === 'xlsx' ? 'Excel' : 'CSV'}} 文件</text
+              ></view
+            ><view class="format-switch" aria-label="导出格式"
+              ><view
+                class="format-option {{format === 'xlsx' ? 'is-active' : ''}}"
+                data-format="xlsx"
+                bindtap="handleFormatChange"
+                >Excel</view
+              ><view
+                class="format-option {{format === 'csv' ? 'is-active' : ''}}"
+                data-format="csv"
+                bindtap="handleFormatChange"
+                >CSV</view
+              ></view
+            ></view
           >
 
           <view class="field-block">
@@ -117,49 +131,25 @@
             </view>
           </view>
 
-          <view class="field-block">
-            <text class="field-label">排班岗位</text>
-            <picker
-              mode="selector"
-              range="{{roleOptions}}"
-              range-key="label"
-              value="{{roleIndex}}"
-              bindchange="handleRoleChange"
-            >
-              <view
-                class="native-picker"
-                aria-role="button"
-                aria-label="排班岗位，{{roleOptions[roleIndex].label}}"
-                ><text>{{roleOptions[roleIndex].label}}</text
-                ><image
-                  class="picker-chevron"
-                  src="/assets/icons/ui-chevron-right.svg"
-                  mode="aspectFit"
-                  aria-hidden="true" /></view
-            ></picker>
-          </view>
+          <ui-selector
+            field-label="排班岗位"
+            title="排班岗位（可多选）"
+            multiple="{{true}}"
+            options="{{roleOptions}}"
+            display-value="{{optionsLoading ? '正在读取…' : roleSummary}}"
+            disabled="{{optionsLoading || state === 'waiting'}}"
+            bindchange="handleRoleChange"
+          />
 
-          <view class="field-block">
-            <text class="field-label">成员</text>
-            <picker
-              mode="selector"
-              range="{{memberOptions}}"
-              range-key="label"
-              value="{{memberIndex}}"
-              bindchange="handleMemberChange"
-            >
-              <view
-                class="native-picker"
-                aria-role="button"
-                aria-label="成员，{{memberOptions[memberIndex].label}}"
-                ><text>{{memberOptions[memberIndex].label}}</text
-                ><image
-                  class="picker-chevron"
-                  src="/assets/icons/ui-chevron-right.svg"
-                  mode="aspectFit"
-                  aria-hidden="true" /></view
-            ></picker>
-          </view>
+          <ui-selector
+            field-label="成员"
+            title="成员（可多选）"
+            multiple="{{true}}"
+            options="{{memberOptions}}"
+            display-value="{{optionsLoading ? '正在读取…' : memberSummary}}"
+            disabled="{{optionsLoading || state === 'waiting'}}"
+            bindchange="handleMemberChange"
+          />
 
           <view class="export-hint"
             ><text class="hint-mark" aria-hidden="true">i</text
@@ -248,7 +238,7 @@
             ></ui-button
             ><ui-button
               variant="primary"
-              label="{{state === 'waiting' ? '正在生成' : '导出 CSV'}}"
+              label="{{state === 'waiting' ? '正在生成' : (format === 'xlsx' ? '导出 Excel' : '导出 CSV')}}"
               loading="{{state === 'waiting'}}"
               disabled="{{state === 'waiting'}}"
               bindpress="handleCreate"

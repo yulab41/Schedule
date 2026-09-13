@@ -41,6 +41,17 @@ describe('P8 organization shared read boundary', () => {
     expect(groupMemberContactListSchema.safeParse(malformed).success).toBe(false);
     expect(groupMemberContactListDecoder.safeDecode(malformed).success).toBe(false);
   });
+
+  it('accepts the optional trial visitor QR returned by the API', () => {
+    const response = {
+      ...golden.groupQr,
+      trialImageBase64: golden.groupQr.imageBase64,
+    };
+    expect(groupQrResponseSchema.safeParse(response).success).toBe(true);
+    const decoded = groupQrResponseDecoder.safeDecode(response);
+    expect(decoded.success).toBe(true);
+    if (decoded.success) expect(decoded.data).toBe(response);
+  });
   it('keeps authentication, methods, encoded paths, and lookup bodies exact', () => {
     const groupId = 'group /一';
     expect(organizationReadEndpoints.groups.path({})).toBe('/groups');

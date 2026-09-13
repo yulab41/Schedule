@@ -43,7 +43,6 @@ function openPage(query = {}) {
   Object.defineProperty(page, 'properties', { value: Object.freeze({}), writable: false });
   page.onLoad(query);
   page.onShow();
-  page.onReady();
   return { page, wx, stages: () => diagnostics.performance.map((row) => row.metric) };
 }
 
@@ -58,15 +57,7 @@ it('runs the uploaded Page through registration and initialization without reser
   try {
     await vi.waitFor(() => expect(page.data.state).toBe('disabled'));
     expect(page.data.groupId).toBe('group-1');
-    expect(stages()).toEqual(
-      expect.arrayContaining([
-        'module-registered',
-        'page-load',
-        'page-ready',
-        'options-start',
-        'options-error',
-      ]),
-    );
+    expect(stages()).toEqual([]);
     expect(page.data).not.toHaveProperty('panelReady');
   } finally {
     page.onUnload();

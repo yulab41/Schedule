@@ -1,4 +1,3 @@
-import { recordExportRenderStage } from '../../../../platform/export-render-diagnostics.js';
 import { createExportsPanelControllerDefinition } from '../../components/exports-panel/controller.js';
 
 const controller = createExportsPanelControllerDefinition();
@@ -11,16 +10,11 @@ Page({
     this: ExportsPageInstance,
     query: Readonly<Record<string, string | undefined>> = {},
   ): void {
-    recordExportRenderStage('page-load');
     this._directPage = true;
     this.setData({ groupId: decodeGroupId(query['groupId']) });
     controller.lifetimes.attached.call(this);
   },
-  onReady(): void {
-    recordExportRenderStage('page-ready');
-  },
   onShow(this: ExportsPageInstance): void {
-    recordExportRenderStage('page-show');
     controller.pageLifetimes.show.call(this);
   },
   onHide(this: ExportsPageInstance): void {
@@ -28,11 +22,8 @@ Page({
   },
   onUnload(this: ExportsPageInstance): void {
     controller.lifetimes.detached.call(this);
-    recordExportRenderStage('page-unload');
   },
 });
-
-recordExportRenderStage('module-registered');
 
 function decodeGroupId(value: string | undefined): string {
   if (value === undefined) return '';

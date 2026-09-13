@@ -14,6 +14,10 @@ export interface ScheduleCsvRowInput {
 }
 
 export function buildScheduleCsv(rows: readonly ScheduleCsvRowInput[]): string {
+  return toCsv(buildScheduleTable(rows));
+}
+
+export function buildScheduleTable(rows: readonly ScheduleCsvRowInput[]) {
   const header = [
     '日期',
     '星期',
@@ -41,10 +45,14 @@ export function buildScheduleCsv(rows: readonly ScheduleCsvRowInput[]): string {
     row.plannedMemberName === null ? '是' : '否',
   ]);
 
-  return toCsv([header, ...data]);
+  return [header, ...data];
 }
 
 export function buildStatisticsCsv(summary: StatisticsSummary): string {
+  return toCsv(buildStatisticsTable(summary));
+}
+
+export function buildStatisticsTable(summary: StatisticsSummary) {
   const header = [
     '成员',
     '计划班次',
@@ -91,7 +99,7 @@ export function buildStatisticsCsv(summary: StatisticsSummary): string {
     summary.manualAdjustmentCount,
   ];
 
-  return toCsv([header, ...rows, totals]);
+  return [header, ...rows, totals];
 }
 
 export function toCsv(rows: readonly (readonly (number | string | null)[])[]): string {

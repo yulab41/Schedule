@@ -12,7 +12,8 @@ import { AuditWriter } from '../audit/audit-writer.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
 
 export interface ExportDownloadResult {
-  readonly content: string;
+  readonly content: string | Buffer;
+  readonly contentType: string;
   readonly fileName: string;
 }
 
@@ -35,23 +36,27 @@ export class ExportService {
         'manageScheduleConfiguration',
       );
       const periodType = getPeriodType(input.period);
-      if (input.roleId !== undefined) {
-        await this.assertRoleInGroup(transaction, groupId, input.roleId);
-      }
-      if (input.membershipId !== undefined) {
-        await this.assertMembershipInGroup(transaction, groupId, input.membershipId);
-      }
+      const roleIds = uniqueIds(input.roleIds ?? (input.roleId ? [input.roleId] : []));
+      const membershipIds = uniqueIds(
+        input.membershipIds ?? (input.membershipId ? [input.membershipId] : []),
+      );
+      for (const roleId of roleIds) await this.assertRoleInGroup(transaction, groupId, roleId);
+      for (const membershipId of membershipIds)
+        await this.assertMembershipInGroup(transaction, groupId, membershipId);
 
       const exportJobId = randomUUID();
       await transaction.insert(exportJobs).values({
         exportType: input.exportType,
+        fileFormat: input.format ?? 'csv',
         groupId,
         id: exportJobId,
         membershipId: input.membershipId ?? null,
+        membershipIds: membershipIds.length === 0 ? null : membershipIds,
         period: input.period,
         periodType,
         requestedByUserId: authorization.user.id,
         scheduleRoleId: input.roleId ?? null,
+        scheduleRoleIds: roleIds.length === 0 ? null : roleIds,
         status: 'pending',
       });
       await this.auditWriter.append(transaction, {
@@ -60,6 +65,7 @@ export class ExportService {
         groupId,
         metadata: {
           exportType: input.exportType,
+          format: input.format ?? 'csv',
           ...(input.membershipId === undefined ? {} : { membershipId: input.membershipId }),
           period: input.period,
           periodType,
@@ -157,8 +163,13 @@ export class ExportService {
       });
 
       return {
-        content: job.fileContent,
-        fileName: `${job.exportType}-export-${job.period}.csv`,
+        content:
+          job.fileFormat === 'xlsx' ? Buffer.from(job.fileContent, 'base64') : job.fileContent,
+        contentType:
+          job.fileFormat === 'xlsx'
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv; charset=utf-8',
+        fileName: `${job.exportType}-export-${job.period}.${job.fileFormat}`,
       };
     });
   }
@@ -241,15 +252,22 @@ function toExportJob(row: typeof exportJobs.$inferSelect): ScheduleExportJob {
     ...(row.error === null ? {} : { error: row.error }),
     ...(row.expiresAt === null ? {} : { expiresAt: row.expiresAt.toISOString() }),
     exportType: row.exportType,
+    format: row.fileFormat,
     groupId: row.groupId,
     id: row.id,
     ...(row.membershipId === null ? {} : { membershipId: row.membershipId }),
+    ...(row.membershipIds === null ? {} : { membershipIds: row.membershipIds }),
     period: row.period,
     periodType: row.periodType,
     ...(row.scheduleRoleId === null ? {} : { roleId: row.scheduleRoleId }),
+    ...(row.scheduleRoleIds === null ? {} : { roleIds: row.scheduleRoleIds }),
     ...(row.rowCount === null ? {} : { rowCount: row.rowCount }),
     status: row.status,
   };
+}
+
+function uniqueIds(values: readonly string[]): string[] {
+  return [...new Set(values)];
 }
 
 function getPeriodType(period: string): 'month' | 'year' {

@@ -5,7 +5,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type { ScheduleExportJob } from '@schedule/contracts';
+import type { CreateScheduleExportInput, ScheduleExportJob } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -69,11 +69,11 @@ describeWithDatabase('schedule exports', () => {
     });
     expect(created.statusCode).toBe(201);
     const job = created.json() as ScheduleExportJob;
-    expect(job.status).toBe('pending');
+    expect(job.status).toBe('completed');
     expect(job.periodType).toBe('month');
 
     const processed = await new ExportJobProcessor(client).run();
-    expect(processed).toMatchObject({ processed: 1, completed: 1, failed: 0 });
+    expect(processed).toMatchObject({ processed: 0, completed: 0, failed: 0 });
 
     const fetched = (
       await getExportJob('admin-token', context.groupId, job.id)
@@ -184,6 +184,32 @@ describeWithDatabase('schedule exports', () => {
     expect(roleDownload.body).toContain('Primary');
   });
 
+  it('creates a real Excel workbook with multi-select filters', async () => {
+    const context = await seedPublishedSeptember();
+    const created = await createExport('admin-token', context.groupId, {
+      exportType: 'schedule',
+      format: 'xlsx',
+      membershipIds: [context.membershipIds.a],
+      period: '2026-09',
+      roleIds: [context.roleId],
+    });
+    expect(created.statusCode).toBe(201);
+    const job = created.json() as ScheduleExportJob;
+    expect(job).toMatchObject({
+      format: 'xlsx',
+      membershipIds: [context.membershipIds.a],
+      roleIds: [context.roleId],
+      status: 'completed',
+    });
+
+    const download = await downloadExport('admin-token', context.groupId, job.id);
+    expect(download.statusCode).toBe(200);
+    expect(download.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(download.rawPayload.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  });
+
   it('rejects downloads of expired or unfinished exports', async () => {
     const context = await seedPublishedSeptember();
     const created = await createExport('admin-token', context.groupId, {
@@ -191,6 +217,10 @@ describeWithDatabase('schedule exports', () => {
       period: '2026-09',
     });
     const job = created.json() as ScheduleExportJob;
+
+    await client.database.execute(
+      sql`UPDATE export_jobs SET status = 'pending' WHERE id = ${job.id}`,
+    );
 
     const unfinished = await downloadExport('admin-token', context.groupId, job.id);
     expect(unfinished.statusCode).toBe(409);
@@ -394,16 +424,7 @@ describeWithDatabase('schedule exports', () => {
     return response;
   }
 
-  async function createExport(
-    token: string,
-    groupId: string,
-    body: {
-      readonly exportType: 'schedule' | 'statistics';
-      readonly membershipId?: string;
-      readonly period: string;
-      readonly roleId?: string;
-    },
-  ) {
+  async function createExport(token: string, groupId: string, body: CreateScheduleExportInput) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',

@@ -34,9 +34,6 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
-import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
-import { recordExportRenderStage } from '../../../../platform/export-render-diagnostics.js';
-import { recordRuntimeDiagnosticPerformance } from '../../../../platform/runtime-diagnostics-bridge.js';
 import { createExportsPanelInitialData } from './initial-data.js';
 
 type ExportPeriodType = 'month' | 'year';
@@ -55,8 +52,9 @@ type ExportState =
   | 'waiting';
 
 interface SelectOption {
-  readonly id: string;
+  readonly value: string;
   readonly label: string;
+  readonly checked: boolean;
 }
 
 interface ExportsPageData {
@@ -67,18 +65,20 @@ interface ExportsPageData {
   readonly feedbackTone: 'info' | 'success' | 'error';
   readonly shareBusy: boolean;
   readonly exportType: ScheduleExportType;
+  readonly format: 'csv' | 'xlsx';
   readonly fileLabel: string;
   readonly groupId: string;
   readonly largeText: boolean;
-  readonly memberIndex: number;
   readonly memberOptions: readonly SelectOption[];
-  readonly membershipId: string;
+  readonly membershipIds: readonly string[];
+  readonly memberSummary: string;
+  readonly optionsLoading: boolean;
   readonly pageScrollStyle: string;
   readonly periodLabel: string;
   readonly periodType: ExportPeriodType;
-  readonly roleId: string;
-  readonly roleIndex: number;
+  readonly roleIds: readonly string[];
   readonly roleOptions: readonly SelectOption[];
+  readonly roleSummary: string;
   readonly shellHeaderStyle: string;
   readonly state: ExportState;
   readonly statusLabel: string;
@@ -134,7 +134,6 @@ export function createExportsPanelControllerDefinition() {
         this._resumePolling = false;
         this._creating = false;
         initializeRuntimeState(this);
-        recordMiniTelemetryBoundary('exports:component-attached');
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
@@ -204,10 +203,8 @@ export function createExportsPanelControllerDefinition() {
       handleShare(this: ExportsPageInstance): void {
         void shareExport(this);
       },
-      handleMemberChange(this: ExportsPageInstance, event: PickerEvent): void {
-        const index = parsePickerIndex(event, this.data.memberOptions.length);
-        const option = this.data.memberOptions[index] ?? this.data.memberOptions[0]!;
-        this.setData({ memberIndex: index, membershipId: option.id });
+      handleMemberChange(this: ExportsPageInstance, event: SelectorChangeEvent): void {
+        toggleMultiSelection(this, 'member', event.detail.option.value);
       },
       handleNextPeriod(this: ExportsPageInstance): void {
         shiftPeriod(this, 1);
@@ -238,10 +235,12 @@ export function createExportsPanelControllerDefinition() {
           statusLabel: '选择内容后创建任务',
         });
       },
-      handleRoleChange(this: ExportsPageInstance, event: PickerEvent): void {
-        const index = parsePickerIndex(event, this.data.roleOptions.length);
-        const option = this.data.roleOptions[index] ?? this.data.roleOptions[0]!;
-        this.setData({ roleId: option.id, roleIndex: index });
+      handleRoleChange(this: ExportsPageInstance, event: SelectorChangeEvent): void {
+        toggleMultiSelection(this, 'role', event.detail.option.value);
+      },
+      handleFormatChange(this: ExportsPageInstance, event: TapEvent): void {
+        const format = event.currentTarget.dataset['format'];
+        if (format === 'csv' || format === 'xlsx') this.setData({ format });
       },
       handleTypeChange(this: ExportsPageInstance, event: PickerEvent): void {
         setSelection(this, {
@@ -254,6 +253,9 @@ export function createExportsPanelControllerDefinition() {
 
 interface PickerEvent {
   readonly detail: { readonly value?: unknown };
+}
+interface SelectorChangeEvent {
+  readonly detail: { readonly option: SelectOption };
 }
 
 interface TapEvent {
@@ -293,14 +295,15 @@ function start(page: ExportsPageInstance): void {
     fileLabel: '',
     canCheckJob: false,
     groupId,
-    memberIndex: 0,
-    memberOptions: [{ id: '', label: '全部成员' }],
-    membershipId: '',
-    roleId: '',
-    roleIndex: 0,
-    roleOptions: [{ id: '', label: '全部岗位' }],
-    state: 'loading',
-    statusLabel: '正在加载导出选项',
+    memberOptions: [{ value: '', label: '全部成员', checked: true }],
+    membershipIds: [],
+    memberSummary: '全部成员',
+    roleIds: [],
+    roleOptions: [{ value: '', label: '全部岗位', checked: true }],
+    roleSummary: '全部岗位',
+    optionsLoading: true,
+    state: 'idle',
+    statusLabel: '选择内容后创建任务',
   });
   void loadOptions(page, groupId);
 }
@@ -317,8 +320,6 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
   const epoch = page._epoch;
   const wait = createExportCancellation();
   page._wait = wait;
-  recordMiniTelemetryBoundary('exports:options-start');
-  recordExportRenderStage('options-start');
   try {
     const result = await waitForExportOperation(
       async (isStopped) => {
@@ -329,51 +330,49 @@ async function loadOptions(page: ExportsPageInstance, groupId: string): Promise<
           page._organizationReadClient.listGroupMembers(groupId),
         ]);
       },
-      30_000,
+      10_000,
       wait,
     );
     if (!isCurrent(page, groupId, epoch) || result.status === 'cancelled') return;
-    if (result.status === 'timed_out') {
-      recordMiniTelemetryBoundary('exports:options-timeout');
-      recordExportRenderStage('options-timeout');
+    if (result.status === 'timed_out' || result.value === undefined) {
       page.setData({
-        state: 'error',
-        errorMessage: '导出选项加载超时，请重新加载。',
-        statusLabel: '导出选项加载超时',
+        optionsLoading: false,
+        errorMessage: '岗位和成员读取超时，可重新加载。',
+        statusLabel: '导出选项暂不可用',
       });
+      showFeedback(page, '岗位和成员读取超时，可重新加载。', 'error');
       return;
     }
-    if (result.value === undefined) return;
     const [config, members] = result.value;
     page.setData({
       memberOptions: [
-        { id: '', label: '全部成员' },
+        { value: '', label: '全部成员', checked: true },
         ...members
           .filter((member) => member.isPendingRoster !== true)
-          .map((member) => ({ id: member.id, label: member.realName })),
+          .map((member) => ({ value: member.id, label: member.realName, checked: false })),
       ],
       roleOptions: [
-        { id: '', label: '全部岗位' },
-        ...config.roles.map((role) => ({ id: role.id, label: role.name })),
+        { value: '', label: '全部岗位', checked: true },
+        ...config.roles.map((role) => ({ value: role.id, label: role.name, checked: false })),
       ],
+      optionsLoading: false,
       state: 'idle',
       statusLabel: '选择内容后创建任务',
     });
-    recordMiniTelemetryBoundary('exports:options-ready');
-    recordExportRenderStage('options-ready');
   } catch (error) {
     if (!isCurrent(page, groupId, epoch)) return;
-    recordMiniTelemetryBoundary('exports:options-error');
-    recordExportRenderStage('options-error');
     page.setData({
+      optionsLoading: false,
       errorMessage:
         error instanceof ClientCapabilityDisabledError
           ? error.message
           : toUserMessage(error, '导出选项暂时无法加载，请稍后重试。'),
-      state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
+      state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'idle',
       statusLabel:
-        error instanceof ClientCapabilityDisabledError ? '导出暂未开放' : '导出选项加载失败',
+        error instanceof ClientCapabilityDisabledError ? '导出暂未开放' : '导出选项暂不可用',
     });
+    if (!(error instanceof ClientCapabilityDisabledError))
+      showFeedback(page, '岗位和成员暂时无法读取，可重试加载。', 'error');
   } finally {
     if (page._wait === wait) page._wait = undefined;
   }
@@ -417,8 +416,6 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
   const wait = createExportCancellation();
   page._wait = wait;
   page._creating = true;
-  const startedAt = Date.now();
-  recordExportProgress('create-start', startedAt);
   page.setData({
     downloadBusy: false,
     errorMessage: '',
@@ -433,13 +430,15 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
       async (isStopped) => {
         await requireClientCapability('insights');
         if (isStopped() || !isCurrent(page, groupId, epoch)) return undefined;
-        recordExportProgress('create-request', startedAt);
         creationRequested = true;
         const job = await page._actionsClient.createExportJob(groupId, {
           exportType: selection.exportType,
-          ...(selection.membershipId === '' ? {} : { membershipId: selection.membershipId }),
+          format: selection.format,
+          ...(selection.membershipIds.length === 0
+            ? {}
+            : { membershipIds: selection.membershipIds }),
           period: currentPeriod(selection),
-          ...(selection.roleId === '' ? {} : { roleId: selection.roleId }),
+          ...(selection.roleIds.length === 0 ? {} : { roleIds: selection.roleIds }),
         });
         // A late create may recover its ID, but never start another task or overwrite a new epoch.
         if (isCurrent(page, groupId, epoch)) {
@@ -457,7 +456,6 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
     );
     if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
     page._creating = false;
-    recordExportProgress(`create-${result.status}`, startedAt);
     if (result.status === 'cancelled') {
       if (!creationRequested) {
         page._resumePolling = false;
@@ -495,7 +493,6 @@ async function createExport(page: ExportsPageInstance): Promise<void> {
         canRetryCreate: false,
         statusLabel: '创建结果未知，请勿重复提交',
       });
-      recordExportProgress('create-unknown', startedAt);
       return;
     }
     page.setData({
@@ -519,13 +516,12 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
   const wait = createExportCancellation();
   page._wait = wait;
   page._pollCancelled = false;
-  const startedAt = Date.now();
   clearInfoMessageTimer(page);
   page.setData({
     errorMessage: '',
     infoMessage: '',
     state: 'waiting',
-    statusLabel: '正在生成 CSV',
+    statusLabel: `正在生成${page.data.format === 'xlsx' ? ' Excel' : ' CSV'}`,
   });
   try {
     const result = await pollExportJob(
@@ -534,15 +530,9 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
       {
         cancellation: wait,
         isCancelled: () => page._pollCancelled || !isCurrent(page, groupId, epoch),
-        onProgress: ({ phase, count, status }) =>
-          recordExportProgress(
-            `poll-${phase}-${count}-${['pending', 'running', 'completed', 'failed'].includes(status ?? '') ? status : 'unknown'}`,
-            startedAt,
-          ),
       },
     );
     if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
-    recordExportProgress(`poll-${result.status}`, startedAt);
     if (result.status === 'cancelled') return;
     if (result.status === 'timed_out') {
       page.setData({
@@ -555,14 +545,16 @@ async function checkExistingJob(page: ExportsPageInstance, jobId: string): Promi
       throw new Error(result.job.error ?? '导出失败，请稍后重试。');
     }
     page.setData({
-      fileLabel: buildExportFileName(result.job.exportType, result.job.period),
+      fileLabel: buildExportFileName(result.job.exportType, result.job.period).replace(
+        /\.csv$/u,
+        `.${result.job.format ?? page.data.format}`,
+      ),
       state: 'ready',
       statusLabel: '文件已生成，正在准备发送',
     });
     await downloadExport(page);
   } catch (error) {
     if (!isCurrent(page, groupId, epoch) || page._wait !== wait) return;
-    recordExportProgress('poll-failed', startedAt);
     if (error instanceof ClientCapabilityDisabledError) {
       setExportDisabled(page, error);
       return;
@@ -596,7 +588,7 @@ async function downloadExport(page: ExportsPageInstance): Promise<void> {
     downloadBusy: true,
     infoMessage: '',
     errorMessage: '',
-    statusLabel: '正在下载 CSV',
+    statusLabel: `正在准备${page.data.format === 'xlsx' ? ' Excel' : ' CSV'}文件`,
   });
   try {
     const tempFilePath = await downloadScheduleExport(
@@ -682,16 +674,6 @@ function pauseExport(page: ExportsPageInstance): void {
   page._wait?.cancel();
   page._pollCancelled = true;
   page.setData({ state: 'paused', statusLabel: '已停止等待，服务器任务不受影响' });
-  recordExportProgress('paused', Date.now());
-}
-
-function recordExportProgress(metric: string, startedAt: number): void {
-  recordRuntimeDiagnosticPerformance({
-    metric,
-    page: 'exports',
-    recordedAt: Date.now(),
-    durationMs: Math.max(0, Date.now() - startedAt),
-  });
 }
 
 function isCurrent(page: ExportsPageInstance, groupId: string, epoch: number): boolean {
@@ -727,6 +709,36 @@ function setSelection(page: ExportsPageInstance, patch: Partial<ExportsPageData>
   page.setData({
     ...patch,
     periodLabel: getExportPeriodLabel(currentPeriod(next)),
+  });
+}
+
+function toggleMultiSelection(
+  page: ExportsPageInstance,
+  kind: 'member' | 'role',
+  value: string,
+): void {
+  const idsKey = kind === 'member' ? 'membershipIds' : 'roleIds';
+  const optionsKey = kind === 'member' ? 'memberOptions' : 'roleOptions';
+  const summaryKey = kind === 'member' ? 'memberSummary' : 'roleSummary';
+  const allLabel = kind === 'member' ? '全部成员' : '全部岗位';
+  const currentIds = page.data[idsKey];
+  const nextIds =
+    value === ''
+      ? []
+      : currentIds.includes(value)
+        ? currentIds.filter((id) => id !== value)
+        : [...currentIds, value];
+  const options = page.data[optionsKey].map((option) => ({
+    ...option,
+    checked: option.value === '' ? nextIds.length === 0 : nextIds.includes(option.value),
+  }));
+  const selectedLabels = options
+    .filter((option) => option.value !== '' && option.checked)
+    .map((option) => option.label);
+  page.setData({
+    [idsKey]: nextIds,
+    [optionsKey]: options,
+    [summaryKey]: selectedLabels.length === 0 ? allLabel : selectedLabels.join('、'),
   });
 }
 

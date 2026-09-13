@@ -8,7 +8,6 @@ const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const diagnosticBoundaries = [
   ['visitor-access', 'visitor-access-panel'],
   ['insights', 'insights-dashboard-panel'],
-  ['exports', 'exports-panel'],
 ];
 const directPageShells = [
   ['exports', 'exports-panel', 'createExportsPanelControllerDefinition'],
@@ -45,14 +44,34 @@ describe('P9 native page shells', () => {
         'utf8',
       );
 
-      if (pageName === 'exports')
-        expect(pageSource).toContain("recordExportRenderStage('page-load')");
-      else expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
+      expect(pageSource).toContain(`recordMiniTelemetryBoundary('${pageName}:page-onload')`);
       expect(controllerSource).toContain(
         `recordMiniTelemetryBoundary('${pageName}:component-attached')`,
       );
     },
   );
+
+  it('keeps retired export render diagnostics out of the production page path', () => {
+    const pageSource = readFileSync(
+      path.join(appRoot, 'src', 'subpackages', 'insights', 'pages', 'exports', 'index.ts'),
+      'utf8',
+    );
+    const controllerSource = readFileSync(
+      path.join(
+        appRoot,
+        'src',
+        'subpackages',
+        'insights',
+        'components',
+        'exports-panel',
+        'controller.ts',
+      ),
+      'utf8',
+    );
+    expect(pageSource).not.toContain('recordExportRenderStage');
+    expect(controllerSource).not.toContain('recordMiniTelemetryBoundary');
+    expect(controllerSource).not.toContain('recordRuntimeDiagnosticPerformance');
+  });
 
   it.each(directPageShells)(
     'mounts %s through a direct Page include instead of %s injection',

@@ -570,6 +570,11 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 56 ]; then
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (\"rotation_members\",\"rotation_rules\"))+(SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name=\"groups\" AND column_name=\"leave_reflow_strategy\") OR (table_name=\"leave_requests\" AND column_name=\"reflow_strategy\")))"')"
   [ "$RETIRED_ROTATION_OBJECTS" = "0" ] || { echo "[verify] 自动轮转专用表或策略列未退出。" >&2; exit 1; }
 fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 58 ]; then
+  EXPORT_FORMAT_COLUMNS="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"export_jobs\" AND column_name IN (\"file_format\",\"schedule_role_ids\",\"membership_ids\")"')"
+  [ "$EXPORT_FORMAT_COLUMNS" = "3" ] || { echo "[verify] 导出格式或多选筛选列缺失。" >&2; exit 1; }
+fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"

@@ -4,12 +4,18 @@ import { mergeMonthStatistics } from '@schedule/scheduling-domain';
 import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 
 import { StatisticsComputation } from '../statistics/statistics-computation.js';
-import { buildScheduleCsv, buildStatisticsCsv } from './csv-builder.js';
+import {
+  buildScheduleCsv,
+  buildScheduleTable,
+  buildStatisticsCsv,
+  buildStatisticsTable,
+} from './csv-builder.js';
+import { buildXlsx } from './xlsx-builder.js';
 
 type ExportJobRow = typeof exportJobs.$inferSelect;
 
 export interface ExportContentResult {
-  readonly content: string;
+  readonly content: Buffer | string;
   readonly rowCount: number;
 }
 
@@ -34,8 +40,10 @@ async function buildScheduleContent(
     gte(schedulePeriods.businessMonth, monthRange.start),
     lte(schedulePeriods.businessMonth, monthRange.end),
   ];
-  if (job.scheduleRoleId !== null) {
-    periodConditions.push(eq(schedulePeriods.scheduleRoleId, job.scheduleRoleId));
+  const selectedRoleIds =
+    job.scheduleRoleIds ?? (job.scheduleRoleId === null ? [] : [job.scheduleRoleId]);
+  if (selectedRoleIds.length > 0) {
+    periodConditions.push(inArray(schedulePeriods.scheduleRoleId, selectedRoleIds));
   }
   const periods = await transaction
     .select()
@@ -65,13 +73,17 @@ async function buildScheduleContent(
   const roleNames = new Map(roles.map((role) => [role.id, role.name]));
   const periodById = new Map(periods.map((period) => [period.id, period]));
   const filteredAssignments =
-    job.membershipId === null
+    (job.membershipIds ?? (job.membershipId === null ? [] : [job.membershipId])).length === 0
       ? assignments
-      : assignments.filter(
-          (assignment) =>
-            assignment.plannedMembershipId === job.membershipId ||
-            assignment.actualMembershipId === job.membershipId,
-        );
+      : assignments.filter((assignment) => {
+          const membershipIds = job.membershipIds ?? [job.membershipId!];
+          return (
+            (assignment.plannedMembershipId !== null &&
+              membershipIds.includes(assignment.plannedMembershipId)) ||
+            (assignment.actualMembershipId !== null &&
+              membershipIds.includes(assignment.actualMembershipId))
+          );
+        });
   const rows = filteredAssignments
     .sort(
       (first, second) =>
@@ -94,7 +106,13 @@ async function buildScheduleContent(
       };
     });
 
-  return { content: buildScheduleCsv(rows), rowCount: rows.length };
+  return {
+    content:
+      job.fileFormat === 'xlsx'
+        ? await buildXlsx(buildScheduleTable(rows), '排班')
+        : buildScheduleCsv(rows),
+    rowCount: rows.length,
+  };
 }
 
 async function buildStatisticsContent(
@@ -106,14 +124,26 @@ async function buildStatisticsContent(
   const summaries = await Promise.all(
     months.map((businessMonth) =>
       computation.computeMonth(transaction, job.groupId, businessMonth, {
-        ...(job.scheduleRoleId === null ? {} : { roleIds: [job.scheduleRoleId] }),
-        ...(job.membershipId === null ? {} : { membershipIds: [job.membershipId] }),
+        ...((job.scheduleRoleIds ?? (job.scheduleRoleId === null ? [] : [job.scheduleRoleId]))
+          .length === 0
+          ? {}
+          : { roleIds: job.scheduleRoleIds ?? [job.scheduleRoleId!] }),
+        ...((job.membershipIds ?? (job.membershipId === null ? [] : [job.membershipId])).length ===
+        0
+          ? {}
+          : { membershipIds: job.membershipIds ?? [job.membershipId!] }),
       }),
     ),
   );
   const summary = mergeMonthStatistics(summaries.map((month) => month.summary));
 
-  return { content: buildStatisticsCsv(summary), rowCount: summary.members.length };
+  return {
+    content:
+      job.fileFormat === 'xlsx'
+        ? await buildXlsx(buildStatisticsTable(summary), '统计')
+        : buildStatisticsCsv(summary),
+    rowCount: summary.members.length,
+  };
 }
 
 function getPeriodRange(

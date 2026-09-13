@@ -23,14 +23,14 @@ const id = simulate.load({
     'ui-loading': leaf,
     'ui-alert': leaf,
     'ui-button': leaf,
+    'ui-selector': leaf,
   },
   data: {
     state: 'loading',
-    roleOptions: [{ id: '', label: '全部岗位' }],
-    roleIndex: 0,
-    memberOptions: [{ id: '', label: '全部成员' }],
-    memberIndex: 0,
+    roleOptions: [{ value: '', label: '全部岗位', checked: true }],
+    memberOptions: [{ value: '', label: '全部成员', checked: true }],
     exportType: 'schedule',
+    format: 'xlsx',
     periodType: 'month',
     periodLabel: '2026年9月',
   },
@@ -48,7 +48,7 @@ describe('feedback11 actual export WXML state tree', () => {
       component.setData({ state, statusLabel: 'fixture', errorMessage: 'fixture' });
       expect(component.dom.textContent).toContain('导出排班与统计');
       expect(component.querySelector('.exports-scroll')).toBeTruthy();
-      if (state === 'idle') expect(component.dom.textContent).toContain('导出 CSV');
+      if (state === 'idle') expect(component.dom.textContent).toContain('导出 Excel');
     },
   );
 });

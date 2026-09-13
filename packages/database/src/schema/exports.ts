@@ -2,6 +2,7 @@ import {
   char,
   index,
   int,
+  json,
   longtext,
   mysqlEnum,
   mysqlTable,
@@ -18,10 +19,13 @@ export const exportJobs = mysqlTable(
     groupId: char('group_id', { length: 36 }).notNull(),
     requestedByUserId: char('requested_by_user_id', { length: 36 }).notNull(),
     exportType: mysqlEnum('export_type', ['schedule', 'statistics']).notNull(),
+    fileFormat: mysqlEnum('file_format', ['csv', 'xlsx']).default('csv').notNull(),
     periodType: mysqlEnum('period_type', ['month', 'year']).notNull(),
     period: varchar('period', { length: 7 }).notNull(),
     scheduleRoleId: char('schedule_role_id', { length: 36 }),
+    scheduleRoleIds: json('schedule_role_ids').$type<string[]>(),
     membershipId: char('membership_id', { length: 36 }),
+    membershipIds: json('membership_ids').$type<string[]>(),
     status: mysqlEnum('status', ['pending', 'running', 'completed', 'failed'])
       .default('pending')
       .notNull(),

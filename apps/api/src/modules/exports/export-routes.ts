@@ -13,9 +13,12 @@ const periodSchema = z.string().regex(/^(19|20)\d{2}(-(0[1-9]|1[0-2]))?$/u);
 const createExportSchema = z
   .object({
     exportType: z.enum(['schedule', 'statistics']),
+    format: z.enum(['csv', 'xlsx']).optional(),
     membershipId: uuidSchema.optional(),
+    membershipIds: z.array(uuidSchema).max(500).optional(),
     period: periodSchema,
     roleId: uuidSchema.optional(),
+    roleIds: z.array(uuidSchema).max(100).optional(),
   })
   .strict();
 
@@ -48,13 +51,18 @@ export function registerExportRoutes(app: FastifyInstance, exportService: Export
           parseGroupId(request),
           parseExportJobId(request),
         )
-        .then((result) => sendCsv(reply, result.fileName, result.content)),
+        .then((result) => sendExport(reply, result.fileName, result.content, result.contentType)),
   );
 }
 
-function sendCsv(reply: FastifyReply, fileName: string, content: string): FastifyReply {
+function sendExport(
+  reply: FastifyReply,
+  fileName: string,
+  content: string | Buffer,
+  contentType: string,
+): FastifyReply {
   return reply
-    .header('Content-Type', 'text/csv; charset=utf-8')
+    .header('Content-Type', contentType)
     .header('Content-Disposition', `attachment; filename="${fileName.replaceAll('"', '')}"`)
     .send(content);
 }
@@ -81,10 +89,13 @@ function parseExportJobId(request: FastifyRequest): string {
 function parseCreateExportInput(value: unknown): CreateScheduleExportInput {
   const parsed = parseOrThrow(createExportSchema, value);
   return {
+    ...(parsed.format === undefined ? {} : { format: parsed.format }),
     ...(parsed.membershipId === undefined ? {} : { membershipId: parsed.membershipId }),
+    ...(parsed.membershipIds === undefined ? {} : { membershipIds: parsed.membershipIds }),
     exportType: parsed.exportType,
     period: parsed.period,
     ...(parsed.roleId === undefined ? {} : { roleId: parsed.roleId }),
+    ...(parsed.roleIds === undefined ? {} : { roleIds: parsed.roleIds }),
   };
 }
 

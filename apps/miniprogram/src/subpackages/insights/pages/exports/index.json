@@ -6,6 +6,7 @@
     "ui-toast": "/components/ui/ui-toast/index",
     "ui-alert": "/components/ui/ui-alert/index",
     "ui-button": "/components/ui/ui-button/index",
-    "ui-loading": "/components/ui/ui-loading/index"
+    "ui-loading": "/components/ui/ui-loading/index",
+    "ui-selector": "/components/ui/ui-selector/index"
   }
 }
