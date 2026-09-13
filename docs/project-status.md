@@ -5,6 +5,7 @@
 - 手动排班四阶段点击现均重新读取对应数据；草稿发布成功后进入发布记录页，避免继续显示旧草稿。
 - 编辑表单改为模板+岗位、开始+结束、周期+人员三行；结束日期用于真实预览/草稿范围。应用范围最长366天，模板周期仍为30天、20人和600格，服务端按月份拆分草稿。详情见`docs/audit/feedback26-manual-schedule-refresh.md`。
 - 共享契约/领域27项与Mini定向21项通过，Contracts/Domain/API/Mini TypeScript通过；API月度草稿集成命令因warm槽缺少`.env`未启动测试数据库，不能记为通过。独占general-5，REUSE_ONLY且未安装依赖。微信开发者工具未调用，小米14原生待后续同SHA体验版复核。
+- 运行/浏览器验证：`pnpm smoke:browser` 已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记为浏览器通过；API与Mini production构建通过，后续`smoke:check-core`复核通过。
 - 当前消息未授权体验版上传、生产部署或数据库操作。唯一下一任务：完成检查点并由用户决定是否另行授权上传体验版。
 
 ## 当前批次：Feedback25 已实现，待提交推送

@@ -18,4 +18,5 @@
 
 - 回归测试先失败后通过：共享契约、领域生成、API月度草稿集成用例、`manual-schedule-page.test.mjs`、`feedback9-manual-calendar.test.mjs`。API集成命令已执行，但当前warm槽缺少`.env`，未启动测试数据库，因此13个月草稿写库用例当前未运行，不能记为通过。
 - TypeScript：Contracts、Scheduling Domain、API 与 Mini Program 检查通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 已执行；warm槽未启动 `localhost:5173`，结果为 `ERR_CONNECTION_REFUSED`，因此没有浏览器运行证据。该修改不触及Web界面，小程序原生验证边界保持不变。
 - 微信开发者工具未调用；小米 14 原生视觉与交互仍待同一体验版验证。
