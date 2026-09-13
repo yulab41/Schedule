@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：Feedback21 访客缓存、双二维码与CSV导出修复
+## 当前批次：Feedback21 代码与体验版123已交付，追加放行受阻
 
 - 基线2d63e5a3，独占general-5，REUSE_ONLY且未安装依赖。访客公开排班改为7天持久缓存和后台刷新，完整手机号、访客密钥及Guest token不落盘；切后台/卸载不再全量清除，明确失效仅清对应群组。
 - 正式版/体验版二维码分环境生成与缓存，客户端合成为二维码加群名的PNG供长按保存；服务端开关可关闭体验版生成。导出CSV增加UTF-8 BOM，创建后立即处理，分钟任务保留兜底；Mini自动下载后仅显示发送文件/取消，失败时显示重新获取文件，并删除导出页冗余说明区。
 - 附件证据：9月CSV 2562字节/30行，无BOM；9月8—9日源快照为全天班/全，其余28行为全天班/全天。换班只变实际成员，导出未截断字段。详见docs/audit/feedback21-visitor-export.md。
 - 最终`pnpm verify`通过：Mini 1160通过/16跳过、根1255通过/439跳过，格式、lint、构建、typecheck和icon parity通过；另有Mini定向53项、契约/API定向23项。Mini production verify主包1713723、总包4554857字节。首次Web构建完成后遇Windows libuv退出断言，单独及最终全量Web build均通过。运行/浏览器验证：`pnpm smoke:browser`登录页通过后因warm槽无`.env`、本地API未启动而停在管理员登录；未复制凭据，结果已记录。
-- 唯一下一任务：完成最终门禁、提交推送、冻结干净SHA并按当前授权动态上传体验版和追加放行。API/contract/compose变更未获本轮L4生产部署授权，不连接生产；小米14原生验收待上传后用户复核。
+- 应用检查点9e603fdb已推送；0.1.0-p10.20260913.123上传成功，production/clean，Manifest 03986dd5…f5495c，receipt/tag同一SHA。追加放行前两个DoH一致，但公网地址ED25519 host key与正式域名记录不匹配，严格门禁在SSH前停止，未执行ensure或改变生产；公网122=200、123=426。
+- 唯一下一任务：管理员独立核对并修复正式域名/公网地址host key关系后，重新执行123的add-only allowlist。API/contract/compose变更未获本轮生产部署授权，双二维码与即时导出尚未在生产API生效；小米14验收待123放行及API部署后进行。
 
 ## 当前批次：Feedback20 已上传并放行122，待小米14复核
 
