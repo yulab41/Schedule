@@ -6,7 +6,14 @@
     aria-role="status"
     aria-label="{{displayTitle + ' ' + displayMessage}}"
   >
-    <view class="ui-toast ui-toast--{{displayTone}}">
+    <view
+      class="ui-toast ui-toast--{{displayTone}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
+    >
+      <view
+        wx:if="{{skyline3172UiCompatibility}}"
+        class="ui-toast__accent"
+        aria-hidden="true"
+      ></view>
       <text wx:if="{{displayTitle}}" class="ui-toast__title">{{displayTitle}}</text>
       <text wx:if="{{displayMessage}}" class="ui-toast__message" max-lines="2"
         >{{displayMessage}}</text

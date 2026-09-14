@@ -38,16 +38,44 @@
   font-family: var(--ui-font-family-system);
 }
 
+.ui-toast.is-skyline-3172-ui {
+  position: relative;
+  overflow: hidden;
+  border-left-width: 1px;
+}
+
+.ui-toast__accent {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--ui-color-primary);
+  border-radius: var(--ui-radius-large) 0 0 var(--ui-radius-large);
+}
+
 .ui-toast--success {
   border-left-color: var(--ui-color-success);
+}
+
+.ui-toast--success .ui-toast__accent {
+  background: var(--ui-color-success);
 }
 
 .ui-toast--warning {
   border-left-color: var(--ui-color-warning);
 }
 
+.ui-toast--warning .ui-toast__accent {
+  background: var(--ui-color-warning);
+}
+
 .ui-toast--error {
   border-left-color: var(--ui-color-danger);
+}
+
+.ui-toast--error .ui-toast__accent {
+  background: var(--ui-color-danger);
 }
 
 .ui-toast__title {

@@ -18,6 +18,20 @@ import {
 
 import { buildInfo } from '../../platform/build-info.js';
 import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../platform/runtime-ui-compatibility.js';
+import {
+  CALENDAR_PERIOD_SWIPER_DURATION_MS,
+  cancelCalendarPeriodShift,
+  commitCalendarPeriodSwipe,
+  finishCalendarPeriodShift,
+  getAdjacentCalendarPeriodSlot,
+  isCalendarPeriodSlot,
+  mapCalendarPeriodRing,
+  prepareCalendarPeriodChange,
+  requestCalendarPeriodShift,
+  takeQueuedCalendarPeriodShift,
+  type CalendarPeriodPagerState,
+  type CalendarPeriodSlot,
+} from '../../components/calendar/calendar-period-pager.js';
 import { isNurseCalendarGroup } from '../../features/workbench/nurse-duty-state.js';
 import {
   reconcileShiftCardExpansion,
@@ -269,6 +283,8 @@ interface WorkbenchPageInstance {
   pendingListTarget: string | undefined;
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
+  weekRingSlot: CalendarPeriodSlot;
+  weekShiftTargetSlot: CalendarPeriodSlot | undefined;
   periodShiftActive: 'list' | 'week' | undefined;
   periodShiftCommitPending: boolean;
   periodShiftQueue: number;
@@ -449,6 +465,8 @@ Page({
   pendingListTarget: undefined,
   pendingScrollTarget: undefined,
   pendingWeekTarget: undefined,
+  weekRingSlot: 1,
+  weekShiftTargetSlot: undefined,
   periodShiftActive: undefined,
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
@@ -590,6 +608,8 @@ Page({
     this.calendar = undefined;
     this.holidays = undefined;
     this.monthRingSlot = 1;
+    this.weekRingSlot = 1;
+    this.weekShiftTargetSlot = undefined;
     this.monthResources.clear();
     this.notificationRequestSerial += 1;
     invalidateShiftEventRequest(this);
@@ -652,6 +672,8 @@ Page({
       weekStart: nextWeekStart,
     };
     this.monthRingSlot = 1;
+    this.weekRingSlot = 1;
+    this.weekShiftTargetSlot = undefined;
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
@@ -870,6 +892,10 @@ Page({
   },
 
   handleWeekSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
+    if (this.data.skyline3172UiCompatibility) {
+      handleCompatibleWeekSwiperFinish(this, event.detail.current);
+      return;
+    }
     const delta = getSwiperDelta(event.detail.current);
     if (delta === 0 || this.periodShiftCommitPending) return;
     const target = this.pendingWeekTarget;
@@ -877,6 +903,13 @@ Page({
     this.periodShiftActive = 'week';
     this.periodShiftCommitPending = true;
     commitPeriodShift(this, 'week', delta, target);
+  },
+
+  handleWeekSwiperChange(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
+    if (!this.data.skyline3172UiCompatibility) return;
+    const state = readCompatibleWeekPagerState(this);
+    if (!prepareCalendarPeriodChange(state, event.detail.current)) return;
+    writeCompatibleWeekPagerState(this, state);
   },
 
   handleListSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
@@ -2174,7 +2207,9 @@ function createViewPatch(
       view.selectedDetails,
     ),
     selectedLabel: view.selectedLabel,
-    weekPanels: view.weekPanels,
+    weekPanels: page.data.skyline3172UiCompatibility
+      ? mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot)
+      : view.weekPanels,
   };
 }
 
@@ -2210,6 +2245,22 @@ function commitPeriodShift(
         ? addWeeks(page.data.selectedDate, delta)
         : retargetSelectedDateToMonth(page.data.selectedDate, businessMonth);
   const period = { businessMonth, selectedDate, weekStart };
+  if (view === 'week' && page.data.skyline3172UiCompatibility) {
+    setCalendarData(
+      page,
+      {
+        ...createViewPatch(page, period),
+        announcement: delta < 0 ? '已切换到上一周。' : '已切换到下一周。',
+        businessMonth,
+        periodSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+        selectedDate,
+        weekStart,
+        weekSwiperCurrent: page.weekRingSlot,
+      },
+      () => finishCompatibleWeekShift(page),
+    );
+    return;
+  }
   setCalendarData(
     page,
     {
@@ -2281,6 +2332,10 @@ function startPeriodSwiper(
   view: 'list' | 'week',
   delta: -1 | 1,
 ): void {
+  if (view === 'week' && page.data.skyline3172UiCompatibility) {
+    startCompatibleWeekSwiper(page, delta);
+    return;
+  }
   const current = view === 'week' ? page.data.weekSwiperCurrent : page.data.listSwiperCurrent;
   if (page.periodShiftActive !== undefined || current !== 1) {
     page.periodShiftQueue = clampPeriodShiftQueue(page.periodShiftQueue + delta);
@@ -2293,6 +2348,71 @@ function startPeriodSwiper(
       ? { weekSwiperCurrent: delta < 0 ? 0 : 2 }
       : { listSwiperCurrent: delta < 0 ? 0 : 2 }),
   });
+}
+
+function readCompatibleWeekPagerState(page: WorkbenchPageInstance): CalendarPeriodPagerState {
+  return {
+    activeSlot: page.weekRingSlot,
+    queuedDelta: page.periodShiftQueue,
+    shiftPending: page.periodShiftCommitPending,
+    targetSlot: page.weekShiftTargetSlot,
+  };
+}
+
+function writeCompatibleWeekPagerState(
+  page: WorkbenchPageInstance,
+  state: CalendarPeriodPagerState,
+): void {
+  page.weekRingSlot = state.activeSlot;
+  page.periodShiftQueue = state.queuedDelta;
+  page.periodShiftCommitPending = state.shiftPending;
+  page.weekShiftTargetSlot = state.targetSlot;
+  page.periodShiftActive =
+    state.targetSlot === undefined && !state.shiftPending ? undefined : 'week';
+}
+
+function startCompatibleWeekSwiper(page: WorkbenchPageInstance, delta: -1 | 1): void {
+  const state = readCompatibleWeekPagerState(page);
+  const request = requestCalendarPeriodShift(state, delta);
+  writeCompatibleWeekPagerState(page, state);
+  if (!request.started) return;
+  page.setData({
+    periodSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    weekSwiperCurrent: request.targetSlot,
+  });
+}
+
+function handleCompatibleWeekSwiperFinish(page: WorkbenchPageInstance, current: number): void {
+  if (!isCalendarPeriodSlot(current)) return;
+  const state = readCompatibleWeekPagerState(page);
+  if (current === state.activeSlot) {
+    if (state.targetSlot === undefined) return;
+    cancelCalendarPeriodShift(state);
+    writeCompatibleWeekPagerState(page, state);
+    return;
+  }
+  const committed = commitCalendarPeriodSwipe(state, current);
+  if (committed === undefined) return;
+  writeCompatibleWeekPagerState(page, state);
+  const target = page.pendingWeekTarget;
+  page.pendingWeekTarget = undefined;
+  commitPeriodShift(page, 'week', committed.delta, target);
+}
+
+function finishCompatibleWeekShift(page: WorkbenchPageInstance): void {
+  const state = readCompatibleWeekPagerState(page);
+  const settled = finishCalendarPeriodShift(state);
+  writeCompatibleWeekPagerState(page, state);
+  flushPendingScrollTarget(page);
+  if (settled.continues) {
+    const delta = takeQueuedCalendarPeriodShift(state);
+    writeCompatibleWeekPagerState(page, state);
+    if (delta !== 0) {
+      startCompatibleWeekSwiper(page, delta);
+      return;
+    }
+  }
+  void refreshWorkbenchWindow(page);
 }
 
 function continuePeriodShift(page: WorkbenchPageInstance, view: 'list' | 'week'): void {
@@ -2349,12 +2469,19 @@ function startLocateTransition(
   }
 
   if (view === 'week') {
-    const targetPanel = patch.weekPanels?.[1];
+    const sourceIndex = page.data.skyline3172UiCompatibility ? page.weekRingSlot : 1;
+    const targetPanel = patch.weekPanels?.[sourceIndex];
     if (targetPanel === undefined || page.data.weekPanels.length !== 3) {
       applyTodayLocation(page);
       return;
     }
     const weekPanels = [...page.data.weekPanels];
+    if (page.data.skyline3172UiCompatibility) {
+      const targetSlot = getAdjacentCalendarPeriodSlot(page.weekRingSlot, delta);
+      weekPanels[targetSlot] = { ...targetPanel, relative: delta };
+      page.setData({ weekPanels }, () => startPeriodSwiper(page, 'week', delta));
+      return;
+    }
     weekPanels[targetIndex] = { ...targetPanel, relative: delta };
     page.setData({ weekPanels }, () => startPeriodSwiper(page, 'week', delta));
     return;
@@ -2606,6 +2733,8 @@ function resetCalendarContext(page: WorkbenchPageInstance): void {
   page.holidays = undefined;
   page.monthResources.clear();
   page.monthRingSlot = 1;
+  page.weekRingSlot = 1;
+  page.weekShiftTargetSlot = undefined;
   page.monthLocateTarget = undefined;
   page.pendingListTarget = undefined;
   page.pendingScrollTarget = undefined;

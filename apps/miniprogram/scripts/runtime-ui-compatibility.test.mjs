@@ -71,6 +71,36 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     );
   });
 
+  it('keeps normal workbench visuals and scopes the confirmed 3.17.2 fallbacks', () => {
+    const template = readSource('pages/workbench/index.wxml');
+    const styles = readSource('pages/workbench/index.wxss');
+
+    expect(template).toContain('circular="{{skyline3172UiCompatibility}}"');
+    expect(template).toContain('bindchange="handleWeekSwiperChange"');
+    expect(template).toContain('skyline3172UiCompatibility ? weekSwiperCurrent :');
+    expect(styles).toMatch(/\.week-day\.is-selected::after\s*\{[^}]*box-shadow:/su);
+    expect(styles).toMatch(
+      /\.is-skyline-3172-ui \.week-day\.is-selected\s*\{[^}]*box-shadow:\s*inset 0 0 0 2px/su,
+    );
+    expect(styles).toMatch(
+      /\.is-skyline-3172-ui \.week-day\.is-selected::after\s*\{[^}]*display:\s*none/su,
+    );
+    expect(styles).toMatch(/\.is-skyline-3172-ui \.group-switcher\s*\{[^}]*width:\s*100%/su);
+  });
+
+  it('keeps the normal toast border and uses an element accent only on 3.17.2', () => {
+    const component = readSource('components/ui/ui-toast/index.ts');
+    const template = readSource('components/ui/ui-toast/index.wxml');
+    const styles = readSource('components/ui/ui-toast/index.wxss');
+
+    expect(component).toContain('needsCurrentRuntimeSkyline3172UiCompatibility');
+    expect(template).toContain("{{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}");
+    expect(template).toContain('wx:if="{{skyline3172UiCompatibility}}"');
+    expect(template).toContain('class="ui-toast__accent"');
+    expect(styles).toMatch(/\.ui-toast\s*\{[^}]*border-left:\s*4px solid/su);
+    expect(styles).toMatch(/\.ui-toast\.is-skyline-3172-ui\s*\{[^}]*border-left-width:\s*1px/su);
+  });
+
   it('scopes every production Grid fallback to the affected runtime class', () => {
     const fixtures = [
       {

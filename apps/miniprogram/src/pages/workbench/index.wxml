@@ -324,8 +324,13 @@
                         mode="aspectFit" /></view
                   ></view>
                   <view class="calendar-heading"
-                    ><text>{{weekPanels[1].weekOrdinalLabel}}</text
-                    ><text>{{weekPanels[1].rangeLabel}}</text></view
+                    ><text
+                      >{{weekPanels[skyline3172UiCompatibility ? weekSwiperCurrent :
+                      1].weekOrdinalLabel}}</text
+                    ><text
+                      >{{weekPanels[skyline3172UiCompatibility ? weekSwiperCurrent :
+                      1].rangeLabel}}</text
+                    ></view
                   >
                   <view
                     class="calendar-locator"
@@ -360,7 +365,7 @@
                 </view>
                 <view class="week-day-row" aria-hidden="true"
                   ><text
-                    wx:for="{{weekPanels[1].days}}"
+                    wx:for="{{weekPanels[skyline3172UiCompatibility ? weekSwiperCurrent : 1].days}}"
                     wx:key="businessDate"
                     class="{{item.isWeekend ? 'is-weekend' : ''}}"
                     >{{item.weekday}}</text
@@ -372,6 +377,8 @@
                   current="{{weekSwiperCurrent}}"
                   duration="{{periodSwiperDuration}}"
                   easing-function="easeOutCubic"
+                  circular="{{skyline3172UiCompatibility}}"
+                  bindchange="handleWeekSwiperChange"
                   bindanimationfinish="handleWeekSwiperFinish"
                 >
                   <swiper-item wx:for="{{weekPanels}}" wx:key="key" class="{{item.relative === 0 ? 'week-panel-current' : ''}}">

@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-15 Skyline 3.17.2 周视图交互与圆角兼容
+
+- 引入点：`733e3af6`引入周视图动画后归中与页头固有尺寸，`50c6d1ed`引入周选中伪元素，
+  `cdb759b9`引入Toast粗左边框加父圆角。`.134`同角色真机证据排除账号、权限和数据差异。
+- RED旧实现3失败；3.17.2周视图改为复用月视图的共享环形分页器后，连续按钮、手势回退和重复
+  animationfinish回归通过。正常运行时继续旧路径；样式后备也仅匹配3.17.2。
+- Mini完整1196项通过/16跳过；typecheck/build/source/package/determinism/format/lint/smoke:check-core通过。
+  `pnpm miniprogram:verify`仅被本轮未改手排节点预算1507>1506阻断。运行/浏览器验证：本轮不触及Web
+  核心；`pnpm smoke:check-core`已执行并通过。小米14新版本验收待上传后进行。
+
 ## 2026-09-13 Feedback24 与 DOCX 累计合并
 
 - 运行/浏览器验证：pnpm smoke:browser 已实际运行；warm槽未启动`localhost:5173`，返回`ERR_CONNECTION_REFUSED`，不记浏览器通过。累计候选完整静态、Node与Mini production验证通过，小米14仍待体验版验收。
