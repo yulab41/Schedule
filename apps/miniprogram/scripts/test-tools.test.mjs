@@ -270,7 +270,7 @@ describe('safe Mini test tools', () => {
     definition.handleCopyCodexReport.call(instance);
 
     const report = clipboard.mock.calls.at(-1)?.[0].data;
-    expect(report).toContain('[Codex 简化诊断报告 v1]');
+    expect(report).toContain('[Codex 简化诊断报告 v2]');
     expect(report).toContain('[设备与屏幕]');
     expect(report).toContain('[脱敏网络结果]');
     expect(report).toContain('/api/groups/:value/calendar');
@@ -468,14 +468,126 @@ describe('safe Mini test tools', () => {
     });
   });
 
+  it('classifies the isolated Grid, CSS token, and explicit scroll probes in the first-screen report', async () => {
+    let definition;
+    const clipboard = vi.fn((options) => options.success?.());
+    const runtime = createWx('trial', vi.fn());
+    runtime.createSelectorQuery = () =>
+      createRuntimeProbeQuery({
+        contentRect: { height: 1_200, width: 390 },
+        gridRects: [
+          { left: -1_000, right: -992, top: 0 },
+          { left: -988, right: -980, top: 0 },
+        ],
+        scrollRect: { height: 360, width: 390 },
+      });
+    runtime.setClipboardData = clipboard;
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
+
+    definition.handleRuntimeTokenMeasure.call(instance, { detail: { width: 44 } });
+    definition.onReady.call(instance);
+    await vi.waitFor(() => expect(instance.data.runtimeProbeSummary).toBe('自动测量正常'));
+
+    expect(instance.data.runtimeProbeRows.map((item) => item.status)).toEqual([
+      'good',
+      'good',
+      'good',
+    ]);
+    definition.handleCopyRuntimeReport.call(instance);
+    const report = clipboard.mock.calls.at(-1)?.[0].data;
+    expect(report).toContain('[首屏运行时兼容性诊断 v1]');
+    expect(report).toContain('[运行时兼容性]');
+    expect(report).toContain('Grid 双列=同行双列');
+    expect(report).toContain('CSS 变量继承=44px');
+    expect(report).not.toMatch(/Authorization|Cookie|openid|request body|response body/iu);
+  });
+
+  it('reports a block-flow Grid fallback and token fallback without changing business state', async () => {
+    let definition;
+    const runtime = createWx('trial', vi.fn());
+    runtime.createSelectorQuery = () =>
+      createRuntimeProbeQuery({
+        contentRect: { height: 1_200, width: 390 },
+        gridRects: [
+          { left: -1_000, right: -992, top: 0 },
+          { left: -1_000, right: -992, top: 12 },
+        ],
+        scrollRect: { height: 360, width: 390 },
+      });
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
+
+    definition.handleRuntimeTokenMeasure.call(instance, { detail: { width: 7 } });
+    definition.onReady.call(instance);
+    await vi.waitFor(() => expect(instance.data.runtimeProbeSummary).toBe('发现兼容性差异'));
+
+    expect(instance.data.runtimeProbeRows.slice(0, 2).map((item) => item.status)).toEqual([
+      'notice',
+      'notice',
+    ]);
+    expect(instance.data.runtimeProbeRows[0].value).toContain('已退化');
+    expect(instance.data.runtimeProbeRows[1].value).toContain('7px');
+    expect(instance.data.displayChecks).toEqual(definition.data.displayChecks);
+    expect(runtime.request).not.toHaveBeenCalled();
+  });
+
+  it('discards a late compatibility measurement after the diagnostics page is hidden', async () => {
+    let definition;
+    let completeQuery;
+    const runtime = createWx('trial', vi.fn());
+    runtime.createSelectorQuery = () =>
+      createDeferredRuntimeProbeQuery((complete) => {
+        completeQuery = complete;
+      });
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
+    definition.onReady.call(instance);
+    expect(instance.data.runtimeProbeSummary).toBe('正在自动测量');
+
+    definition.onHide.call(instance);
+    completeQuery();
+    await Promise.resolve();
+
+    expect(instance.data.authorized).toBe(false);
+    expect(instance._runtimeTokenWidth).toBeUndefined();
+    expect(instance.data.runtimeProbeSummary).toBe('等待自动测量');
+    expect(instance.data.runtimeProbeRows.every((item) => item.status === 'unavailable')).toBe(
+      true,
+    );
+  });
+
   it('keeps the current diagnostics additions within the verified Skyline-safe layout contract', () => {
     const template = readSource('subpackages/diagnostics/pages/test-tools/index.wxml');
     const styles = readSource('subpackages/diagnostics/pages/test-tools/index.wxss');
+    const pageSource = readSource('subpackages/diagnostics/pages/test-tools/index.ts');
     const pageConfig = JSON.parse(
       readSource('subpackages/diagnostics/pages/test-tools/index.json'),
     );
 
-    expect(styles).not.toMatch(/display:\s*grid|grid-template-columns/iu);
+    expect(styles.match(/display:\s*grid/giu)).toHaveLength(1);
+    expect(styles.match(/grid-template-columns/giu)).toHaveLength(1);
+    expect(cssRule(styles, '.runtime-grid-probe')).toMatch(
+      /display:\s*grid[\s\S]*grid-template-columns:\s*repeat\(2,\s*8px\)/iu,
+    );
     expect(styles).not.toContain('overflow-wrap: anywhere');
     expect(styles).not.toContain(':last-of-type');
     expect(styles.match(/word-break:\s*break-all/gu)).toHaveLength(4);
@@ -516,7 +628,16 @@ describe('safe Mini test tools', () => {
     expect(template).toMatch(
       /data-result="issue"\s+bindtap="handleScenarioResult"\s*>异常<\/view\s*>/u,
     );
-    expect(pageConfig.disableScroll).toBe(false);
+    expect(pageConfig.disableScroll).toBe(true);
+    expect(template).toContain(
+      '<scroll-view class="test-tools-scroll" scroll-y type="list" enhanced show-scrollbar="{{false}}">',
+    );
+    expect(template.indexOf('bindtap="handleCopyRuntimeReport"')).toBeGreaterThanOrEqual(0);
+    expect(template.indexOf('bindtap="handleCopyRuntimeReport"')).toBeLessThan(
+      template.indexOf('<scroll-view class="test-tools-scroll"'),
+    );
+    expect(template).toContain('bind:measure="handleRuntimeTokenMeasure"');
+    expect(pageSource).toContain("'[运行时兼容性]'");
   });
 });
 
@@ -647,6 +768,67 @@ function createWx(envVersion, request) {
     setStorageSync: (key, value) => storage.set(key, value),
     showToast: vi.fn(),
   };
+}
+
+function createRuntimeProbeQuery({ contentRect, gridRects, scrollRect }) {
+  const query = {
+    exec(callback) {
+      callback?.();
+    },
+    select(selector) {
+      return {
+        boundingClientRect(callback) {
+          callback(selector === '.test-tools-scroll' ? scrollRect : contentRect);
+          return query;
+        },
+      };
+    },
+    selectAll() {
+      return {
+        boundingClientRect(callback) {
+          callback(gridRects);
+          return query;
+        },
+      };
+    },
+  };
+  return query;
+}
+
+function createDeferredRuntimeProbeQuery(registered) {
+  const callbacks = { content: undefined, grid: undefined, scroll: undefined };
+  let done;
+  const query = {
+    exec(callback) {
+      done = callback;
+      registered(() => {
+        callbacks.grid?.([
+          { left: -1_000, right: -992, top: 0 },
+          { left: -988, right: -980, top: 0 },
+        ]);
+        callbacks.scroll?.({ height: 360, width: 390 });
+        callbacks.content?.({ height: 1_200, width: 390 });
+        done?.();
+      });
+    },
+    select(selector) {
+      return {
+        boundingClientRect(callback) {
+          callbacks[selector === '.test-tools-scroll' ? 'scroll' : 'content'] = callback;
+          return query;
+        },
+      };
+    },
+    selectAll() {
+      return {
+        boundingClientRect(callback) {
+          callbacks.grid = callback;
+          return query;
+        },
+      };
+    },
+  };
+  return query;
 }
 
 function createPageInstance(definition) {

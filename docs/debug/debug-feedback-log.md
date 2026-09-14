@@ -2571,7 +2571,7 @@
 - 官方依赖检查在血缘 package script 纳入后返回 `MISS`，完整指纹为
   `b392a5b881360c1aa0bac89bfdbd8f45c9e928c9d0a1ab17e6dedbaca0dbc48e`。current-message L2 wrapper 的第一次
   child 在解析前被既有 tripwire 拒绝；修正临时授权转发后只完成一次有效 `pnpm install --frozen-lockfile
-  --offline`，0 下载；随后 ReuseOnly 为 `READY_REUSE`，tracked tree hash 未变。ignored audit 记录
+--offline`，0 下载；随后 ReuseOnly 为 `READY_REUSE`，tracked tree hash 未变。ignored audit 记录
   `authorizationSource=current-message`、attemptCount=2、tripwire recovery 和最终状态，所有临时授权文件已清理。
 - 运行/浏览器验证：`pnpm smoke:browser` 真实打开 Edge 后因本地 API `127.0.0.1:3000` 未运行停在
   `/login?redirect=/`；独立 `/icon-parity.html` gallery 真实加载 55 catalog、13 context、44 binding cards，
@@ -2733,7 +2733,6 @@
 - 运行/浏览器验证：pnpm smoke:browser 原流程完整通过；专项Web姓名/手机号/用户名/密码保存及390/320四组窗口通过，无浏览器错误。Mini verify/包审通过，原生仍待用户复核。
 - 检查点feat(accounts): manage profiles and synchronize account phone numbers；独占复用依赖无安装，仅本地提交待根review，未部署/上传/生产写入。下一单元为轮转删除。
 
-
 ## Feedback6 移除自动轮转（2026-09-08）
 
 - 用户批准删除轮转规则、顺序、自动生成和请假自动补位；引入点04c7da36/0d5ec55c/94dc6cac，git log -S与blame核对。业务变化及保留边界见docs/audit/feedback6-rotation.md。
@@ -2752,7 +2751,6 @@
 ## FEEDBACK6-RELEASE-LINEAGE（2026-09-09）
 
 正式上传3aeaa4c8因5285dd1历史workbench证明过期而失败，未预约版本/上传/迁移。引入点：proof来自bfd1fbbd，业务改动528722f4/3aeaa4c8。仅更新精确blob与有限动效保留证据，详见docs/audit/feedback6-release.md。运行/浏览器验证：复用feedback6-upgrade已通过原pnpm smoke:browser脚本的应用证据；本次仅发布证明及文档变化。
-
 
 ## FEEDBACK7-20260909：群组与排班UI
 
@@ -2779,7 +2777,6 @@
 - 生产交付：4e0a0d1a已推送/部署，schema57；备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4文件hash通过，前驱实时8e68a480。完整verifier/版本策略/外部HTTPS通过。关联version1已启用，新增6+17账号逐一只读权限核验通过，37账号/35成员关系/4011排班不变。
 - 详见docs/audit/group-visitor-links.md与docs/operations/group-visitor-links.md。本轮完成，待用户重开现有小程序复核；收口文档不重复部署/备份/启停，不上传小程序。
 
-
 ## 2026-09-10 VIS-01 小程序访客系统修复
 
 基线fe2aa722。空groupId观察器回写源于6b5b30fb（函数沿革ef9ffeb0）；访客误用成员API源于ad4cfb2c。真实miniprogram-simulate复现递归，严格403访客mock及缺失pages/guest/guest注册先红后绿。切群同步失效、角色/账号/月隔离、访客只读入口与匿名Page已实现，详细证据见docs/audit/visitor-system-fix.md。卡死/闪退仍待同SHA新版小米14复核，尚未上传。
@@ -2788,7 +2785,6 @@ VIS-01运行验证补充：pnpm miniprogram:test 1014通过/15跳过，末次匿
 
 VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不兼容；.100失败未放行，f7bc3ccc修复custom安全区后17项/静态构建通过。.101成功上传并追加放行，353文件回执/Manifest/tag一致，生产verifier及HTTPS新旧版本策略通过。服务器live仍4e0a0d1a，无关联变更；小米14卡死/闪退仍待同版验收。详见docs/audit/visitor-trial-release.md。
 
-
 ## 2026-09-11 VIS-02 访客月历电话及班次事件
 
 - 用户批准变更：所有有效访客与成员浏览同一已发布/历史日历详情，含电话、变更标记、班次事件。引入点：4e0a0d1a关联删号、890efd8b客户端删号；7ac2a07a事件弹层错误/分页路径。git log -S 与 blame 已定位。
@@ -2796,7 +2792,6 @@ VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不
 - 红灯：真实MySQL旧接口404、共享方法不存在、旧删号、Web503弹层无重试、旧群号码点击；均修复后通过。运行/浏览器验证：pnpm smoke:browser 通过；node scripts/smoke-guest-calendar-parity.mjs 通过（合成数据/拦截拨号）。
 - root1227/419条件跳过、Mini全量1059/15条件跳过、最后定向47、真实MySQL33及补充复测、发布保护28通过。静态/Node/浏览器证据，不是小米14原生证据。
 - 状态：已完成本地运行验证，待交付及用户真机复核。提交消息 feat(calendar): align guest calendar details with members；未进行生产或上传，待具体检查点授权。保留现有群关联及业务数据。
-
 
 VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保留全部业务源码，只协调状态文档冲突。合并后真实MySQL45、Mini联合146、共享/API/连续性33通过；运行/浏览器验证：node scripts/smoke-guest-calendar-parity.mjs通过，pnpm smoke:browser原完整运行证据有效，smoke:check-core通过。合并Mini主包1681844/总包4504816字节，Worklet2/2。提交消息 merge: preserve feedback10 alongside guest calendar parity；待新累积SHA部署/上传授权及小米14复核，未生产写入或真实通知。
 
@@ -2814,6 +2809,7 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 2026-09-12 Feedback11体验版108：用户明确授权“上传并放行”。c563afff production/clean上传成功，354文件Manifest 3fbff2efaf53d8b8de935e777cab456770b620b2b821a1b6c28e51799e3aed07与receipt/tag/冻结包一致。独占general-4复用依赖，上传专项30项及前后候选门禁通过。旧微信地址重置后，当前公网DNS/IPv4/TLS/nonce通路验证成功；确认trial107残留锁原PID、子进程和上传进程均不存在后归档清理，只删除操作锁，保留全部版本预约。可信ensure追加108并保留旧版；完整生产verifier及版本策略通过，独立公网108/107=200、未知426。服务器live仍b618d938，无新代码部署、备份、迁移或真实通知。二维码与通知修复待小米14复核，EXPORT-11导出空白仍待定位，见docs/audit/feedback11-trial-release.md。
 
 ## 2026-09-12 护士139条导入支持
+
 - 引入点27992c758，原补录按岗位/日期首槽；新增显式成员匹配及静默手排，保持旧行为。详见docs/audit/nurse-schedule-import.md。
 - 运行/浏览器验证：pnpm smoke:browser（SMOKE_BASE_URL=http://127.0.0.1:4173）通过登录/管理员/成员/访客/访问记录，无浏览器错误；本地合成管理员标记已恢复。
 - 无真机结论；正式部署与数据录入另行核验。
@@ -2840,6 +2836,7 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 MORE-14：git log -S及blame定位7923262d的onHide删除底部诊断区域。新回归RED1后修复，普通隐藏保留已授权区域、撤销仍及时隐藏、后台迟到授权/跳转仍被拒绝。运行/浏览器验证：node apps/miniprogram/scripts/feedback14-more-layout.mjs，390×844/320px生产模板/CSS复现旧删除导致滚动夹紧107px，保留节点后位置稳定。页面与图标样式未改，待小米14复核。
 
 EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数据及已有CSV回归可运行，未证实原生白屏根因。新增真实Page30秒截止/迟到隔离5项、固定阶段及一次首屏几何分类的本地安全报告；匿名UNKNOWN阶段原本不进入手机报告。CSV语义不变，保持待定位，不能把诊断补齐写成白屏已修复。联合69项通过；初次联合中既有群组偏好异步用例瞬时失败，暂停完整检查后定向及完整联合重跑均通过，未修改断言。详情见docs/audit/feedback14.md。
+
 ## 2026-09-12 Feedback16 导出入口白屏：Page 宿主属性写入边界
 
 - 用户反馈体验版导出排班仍点击后空白。现有诊断只有 `exports · open-requested`，没有 `page-load/page-ready`；静态 `app.json`、源码/构建产物页面文件和导航 URL 均核对一致，先排除路径设置缺失。
@@ -2919,3 +2916,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 修复与语义：实际成员优先、实际为空时才回退计划成员；同一用户的历史成员记录归一到当前配置行。全月记录按日期推进固定轮转游标，月首/月尾未覆盖格为空，中途跨过的槽为 `-`，未知人员 fail closed。二值映射、固定三值、缺勤姓名下标、周末下划线和下载权限边界未改。
 - 视觉检查：用 Microsoft Word 实际渲染 9 月 30 天夹具，确认第一列仅林恩宇行显示 `1`，最后一列显示 `26–30` 且林恩宇行为空；轮空夹具确认许少伟对应槽显示 `-` 后日期顺延。两份均为 A4 单页、底部表和三值位置无漂移。标准文档渲染脚本因本机无 LibreOffice 停止，使用 Word COM 导出 PDF 与 bundled `pypdfium2` 渲染 PNG 完成逐页检查。
 - 完整验证：`pnpm verify` 通过，Mini 172 文件通过/2 跳过（1169/16），根 269 文件通过/37 跳过（1266/442）；format、lint、build、typecheck 与 icon parity 均通过。当前仅代码与视觉验证完成，未部署生产、未上传或放行新体验版，不能替代小米 14 原生验收。
+
+## 2026-09-14 跨微信实例 UI 差异诊断增强
+
+- 引入点与证据：`git log -S`/`git blame`确认测试工具页面全局滚动由`18498a8b`引入；工作台电话Grid来自`d9296df0`，基础加载圈来自`24bc2c4b`。同一132/44034fcc在不同微信实例的截图分别符合Grid块流退化、边框圆角绘制差异和页面全局滚动失效，但异常实例基础库仍未知。
+- RED→GREEN：旧版结构合同17项中1项失败；实现固定首屏、显式scroll-view、Grid/CSS变量/滚动自动探针、CSS/SVG可视对照和首屏复制后test-tools20、页面边界/遥测联合33及Mini完整1180项通过/16跳过。迟到测量、刷新、隐私报告和业务零请求均有回归。
+- 视觉与构建：Mini/Web TypeScript、production build363文件、Web黄金2项与Storybook build通过；包体主1728648B/总4591358B、确定性Manifest`846e53b0…1d6219d`。390/320/大字号实际浏览器复核无横溢，按钮44px。Mini verify被未改手排节点预算1507>1506阻断，本轮未修改手排或放宽测试；lint与smoke:check-core通过。
+- 行为变化仅限诊断页滚动载体和只读报告；登录、工作台、成员日历、API、权限、数据和生产均不变。当前为已实现待候选门禁，未上传、放行、部署、提审或正式发布。

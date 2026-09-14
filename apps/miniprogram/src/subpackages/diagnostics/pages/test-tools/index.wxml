@@ -1,6 +1,7 @@
 <block wx:if="{{authorized}}">
-  <view class="test-tools-page">
-    <view class="test-tools-header">
+  <view class="test-tools-shell">
+    <view class="test-tools-first-screen">
+      <view class="test-tools-header">
       <view
         class="header-back"
         hover-class="is-pressed"
@@ -32,6 +33,29 @@
       <text class="build-strip-note">先截这一区域。它用来确认手机截图对应哪一版代码。</text>
     </view>
 
+      <view class="runtime-compat-card">
+        <view class="runtime-compat-heading">
+          <view><text class="runtime-compat-kicker">无需下滑 · 一次复制</text><text class="runtime-compat-title">运行时兼容性</text></view>
+          <text class="runtime-compat-summary is-{{runtimeProbeTone}}">{{runtimeProbeSummary}}</text>
+        </view>
+        <view class="runtime-compat-results">
+          <view wx:for="{{runtimeProbeRows}}" wx:key="label" class="runtime-compat-result">
+            <text>{{item.label}}</text><text class="is-{{item.status}}">{{item.statusLabel}}</text><text>{{item.value}}</text>
+          </view>
+        </view>
+        <view class="runtime-visual-check">
+          <view class="runtime-css-spinner" aria-hidden="true"></view>
+          <image src="/assets/icons/ui-info-circle.svg" mode="aspectFit" aria-hidden="true" />
+          <text>左侧应为圆形缺口，右侧应为完整圆形。若左侧像尖角，请截图本卡片。</text>
+        </view>
+        <view class="runtime-copy-action" hover-class="is-pressed" aria-role="button" bindtap="handleCopyRuntimeReport">复制首屏诊断</view>
+        <view class="runtime-grid-probe" aria-hidden="true"><view class="runtime-grid-probe__cell"></view><view class="runtime-grid-probe__cell"></view></view>
+        <runtime-style-probe class="runtime-token-probe" bind:measure="handleRuntimeTokenMeasure"></runtime-style-probe>
+      </view>
+    </view>
+
+    <scroll-view class="test-tools-scroll" scroll-y type="list" enhanced show-scrollbar="{{false}}">
+      <view class="test-tools-page test-tools-scroll-content">
     <view class="safety-note">
       <text>本页不会显示或复制账号、姓名、手机号、群组成员、凭证、请求正文或原始堆栈。</text>
       <text>微信开发者工具和视觉黄金只能辅助检查；最终以小米 14 体验版为准。</text>
@@ -408,5 +432,7 @@
       ></view>
       <text class="report-time">页面最近刷新：{{generatedAt}}</text>
     </view>
+      </view>
+    </scroll-view>
   </view>
 </block>

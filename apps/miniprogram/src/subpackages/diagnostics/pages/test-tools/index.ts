@@ -115,6 +115,9 @@ interface TestToolsPageData extends Readonly<typeof wechatDiagnosticData> {
   readonly exportBoundaryRows: readonly PerformanceView[];
   readonly performanceRows: readonly PerformanceView[];
   readonly requestRows: readonly RequestView[];
+  readonly runtimeProbeRows: readonly DiagnosticRow[];
+  readonly runtimeProbeSummary: string;
+  readonly runtimeProbeTone: RowStatus;
   readonly scenarios: readonly DiagnosticScenario[];
   readonly storageRows: readonly DiagnosticRow[];
 }
@@ -122,7 +125,10 @@ interface TestToolsPageData extends Readonly<typeof wechatDiagnosticData> {
 interface TestToolsPageInstance {
   _active: boolean;
   _live: boolean;
+  _ready: boolean;
   _accessSerial: number;
+  _probeSerial: number;
+  _runtimeTokenWidth: number | undefined;
   _unsubscribe?: () => void;
   _loadStartedAt: number;
   readonly data: TestToolsPageData;
@@ -140,7 +146,42 @@ interface ScenarioResultEvent {
   };
 }
 
+interface RuntimeTokenMeasureEvent {
+  readonly detail?: { readonly width?: unknown };
+}
+
+interface RuntimeProbeRect {
+  readonly bottom?: number;
+  readonly height?: number;
+  readonly left?: number;
+  readonly right?: number;
+  readonly top?: number;
+  readonly width?: number;
+}
+
+interface RuntimeSelectorQuery {
+  exec(callback?: () => void): void;
+  select(selector: string): {
+    boundingClientRect(
+      callback: (rect: RuntimeProbeRect | undefined) => void,
+    ): RuntimeSelectorQuery;
+  };
+  selectAll(selector: string): {
+    boundingClientRect(
+      callback: (rects: readonly RuntimeProbeRect[] | undefined) => void,
+    ): RuntimeSelectorQuery;
+  };
+}
+
+interface RuntimeProbeSnapshot {
+  readonly contentRect: RuntimeProbeRect | undefined;
+  readonly gridRects: readonly RuntimeProbeRect[] | undefined;
+  readonly scrollRect: RuntimeProbeRect | undefined;
+  readonly tokenWidth: number | undefined;
+}
+
 interface RuntimeSystemApi {
+  readonly createSelectorQuery?: () => RuntimeSelectorQuery;
   readonly getAppBaseInfo?: () => {
     readonly SDKVersion?: unknown;
     readonly fontSizeSetting?: unknown;
@@ -314,6 +355,9 @@ Page({
     exportBoundaryRows: [],
     performanceRows: [],
     requestRows: [],
+    runtimeProbeRows: createPendingRuntimeProbeRows(),
+    runtimeProbeSummary: '等待自动测量',
+    runtimeProbeTone: 'unavailable',
     scenarios: scenarioDefaults,
     storageRows: [],
   },
@@ -321,6 +365,9 @@ Page({
   onLoad(this: TestToolsPageInstance): void {
     this._loadStartedAt = Date.now();
     this._accessSerial = 0;
+    this._probeSerial = 0;
+    this._ready = false;
+    this._runtimeTokenWidth = undefined;
     this._live = true;
     this._active = false;
     this._unsubscribe = subscribeDiagnosticsPermission((allowed) => {
@@ -333,6 +380,7 @@ Page({
   },
 
   onReady(this: TestToolsPageInstance): void {
+    this._ready = true;
     if (!this._active || !canUseDiagnostics()) return;
     const pageReadyMs = Date.now() - this._loadStartedAt;
     recordRuntimeDiagnosticPerformance({
@@ -341,7 +389,7 @@ Page({
       page: 'test-tools',
       recordedAt: Date.now(),
     });
-    this.setData({ pageReadyMs });
+    this.setData({ pageReadyMs }, () => runRuntimeCompatibilityProbe(this));
     refreshRuntimeDiagnostics(this);
   },
 
@@ -353,12 +401,14 @@ Page({
   onHide(this: TestToolsPageInstance): void {
     this._live = false;
     this._accessSerial += 1;
+    this._probeSerial += 1;
     clearTestToolsPage(this);
   },
 
   onUnload(this: TestToolsPageInstance): void {
     this._live = false;
     this._accessSerial += 1;
+    this._probeSerial += 1;
     this._unsubscribe?.();
     clearTestToolsPage(this);
   },
@@ -375,6 +425,7 @@ Page({
       storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
     });
     refreshRuntimeDiagnostics(this);
+    runRuntimeCompatibilityProbe(this);
     const serial = this._accessSerial;
     void collectDeviceRows(wx as unknown as RuntimeSystemApi).then(({ networkType, rows }) => {
       if (!this._active || serial !== this._accessSerial || !canUseDiagnostics()) return;
@@ -421,6 +472,17 @@ Page({
           : item,
       ),
     });
+  },
+
+  handleRuntimeTokenMeasure(this: TestToolsPageInstance, event: RuntimeTokenMeasureEvent): void {
+    const width = event.detail?.width;
+    this._runtimeTokenWidth =
+      typeof width === 'number' && Number.isFinite(width)
+        ? Math.round(width * 100) / 100
+        : undefined;
+    if (this._ready && this._active && canUseDiagnostics()) {
+      runRuntimeCompatibilityProbe(this);
+    }
   },
 
   handleOpenWorkspace(): void {
@@ -503,6 +565,11 @@ Page({
     copyText(createCheckReport(this.data), '检查结果已复制');
   },
 
+  handleCopyRuntimeReport(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    copyText(createRuntimeCompatibilityReport(this.data), '首屏诊断已复制');
+  },
+
   handleCopyFullReport(this: TestToolsPageInstance): void {
     if (!this._active || !canUseDiagnostics()) return;
     copyText(
@@ -531,7 +598,9 @@ async function authorizeTestToolsPage(page: TestToolsPageInstance): Promise<void
     return;
   }
   page._active = true;
-  page.setData({ authorized: true });
+  page.setData({ authorized: true }, () => {
+    if (page._ready) runRuntimeCompatibilityProbe(page);
+  });
   void prepareWechatDiagnosticPage(page);
   loadAuthorizedTestTools(page);
 }
@@ -539,6 +608,8 @@ async function authorizeTestToolsPage(page: TestToolsPageInstance): Promise<void
 function clearTestToolsPage(page: TestToolsPageInstance): void {
   clearWechatDiagnosticPage(page);
   page._active = false;
+  page._probeSerial += 1;
+  page._runtimeTokenWidth = undefined;
   stopRuntimeDirectorySearchRecording();
   page.setData({
     authorized: false,
@@ -546,6 +617,9 @@ function clearTestToolsPage(page: TestToolsPageInstance): void {
     deviceRows: [],
     storageRows: [],
     requestRows: [],
+    runtimeProbeRows: createPendingRuntimeProbeRows(),
+    runtimeProbeSummary: '等待自动测量',
+    runtimeProbeTone: 'unavailable',
     errorRows: [],
     performanceRows: [],
     directorySearchRows: [],
@@ -574,6 +648,208 @@ function loadAuthorizedTestTools(page: TestToolsPageInstance): void {
     page.setData({ deviceRows: rows, networkType });
   });
   refreshRuntimeDiagnostics(page);
+}
+
+function createPendingRuntimeProbeRows(): readonly DiagnosticRow[] {
+  return [
+    row(
+      'Grid 双列',
+      '等待页面测量',
+      '判断两列布局是否退化为纵排。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    ),
+    row(
+      'CSS 变量继承',
+      '等待组件测量',
+      '判断页面令牌能否进入隔离自定义组件。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    ),
+    row(
+      '纵向滚动容器',
+      '等待页面测量',
+      '判断显式 scroll-view 是否获得有效尺寸。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    ),
+  ];
+}
+
+function runRuntimeCompatibilityProbe(page: TestToolsPageInstance): void {
+  if (!page._active || !page._ready || !canUseDiagnostics()) return;
+  const serial = ++page._probeSerial;
+  page.setData({
+    runtimeProbeRows: createPendingRuntimeProbeRows(),
+    runtimeProbeSummary: '正在自动测量',
+    runtimeProbeTone: 'unavailable',
+  });
+  void collectRuntimeProbe(wx as unknown as RuntimeSystemApi, page._runtimeTokenWidth).then(
+    (snapshot) => {
+      if (!page._active || !page._live || serial !== page._probeSerial || !canUseDiagnostics()) {
+        return;
+      }
+      const runtimeProbeRows = createRuntimeProbeRows(snapshot);
+      const runtimeProbeTone: RowStatus = runtimeProbeRows.some((item) => item.status === 'notice')
+        ? 'notice'
+        : runtimeProbeRows.some((item) => item.status === 'unavailable')
+          ? 'unavailable'
+          : 'good';
+      page.setData({
+        runtimeProbeRows,
+        runtimeProbeSummary:
+          runtimeProbeTone === 'good'
+            ? '自动测量正常'
+            : runtimeProbeTone === 'notice'
+              ? '发现兼容性差异'
+              : '部分暂未验证',
+        runtimeProbeTone,
+      });
+    },
+  );
+}
+
+function collectRuntimeProbe(
+  runtime: RuntimeSystemApi,
+  tokenWidth: number | undefined,
+): Promise<RuntimeProbeSnapshot> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let gridRects: readonly RuntimeProbeRect[] | undefined;
+    let scrollRect: RuntimeProbeRect | undefined;
+    let contentRect: RuntimeProbeRect | undefined;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ contentRect, gridRects, scrollRect, tokenWidth });
+    };
+    const timer = setTimeout(finish, 500);
+    try {
+      const query = runtime.createSelectorQuery?.();
+      if (query === undefined) {
+        finish();
+        return;
+      }
+      query.selectAll('.runtime-grid-probe__cell').boundingClientRect((rects) => {
+        gridRects = rects;
+      });
+      query.select('.test-tools-scroll').boundingClientRect((rect) => {
+        scrollRect = rect;
+      });
+      query.select('.test-tools-scroll-content').boundingClientRect((rect) => {
+        contentRect = rect;
+      });
+      query.exec(finish);
+    } catch {
+      finish();
+    }
+  });
+}
+
+function createRuntimeProbeRows(snapshot: RuntimeProbeSnapshot): readonly DiagnosticRow[] {
+  return [
+    createGridProbeRow(snapshot.gridRects),
+    createTokenProbeRow(snapshot.tokenWidth),
+    createScrollProbeRow(snapshot),
+  ];
+}
+
+function createGridProbeRow(rects: readonly RuntimeProbeRect[] | undefined): DiagnosticRow {
+  const first = rects?.[0];
+  const second = rects?.[1];
+  if (!hasFiniteRect(first) || !hasFiniteRect(second)) {
+    return row(
+      'Grid 双列',
+      '未取得两个探针矩形',
+      '当前工具无法测量，不能据此判断 Grid。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    );
+  }
+  const topDelta = Math.abs(first.top - second.top);
+  const horizontal = topDelta <= 1 && second.left >= first.right - 1;
+  return row(
+    'Grid 双列',
+    horizontal
+      ? `同行双列（顶部差 ${roundProbe(topDelta)}px）`
+      : `已退化（顶部差 ${roundProbe(topDelta)}px）`,
+    horizontal ? '受控 Grid 当前按两列呈现。' : '受控 Grid 未按两列呈现，符合业务按钮纵排现象。',
+    '异常时截本行和业务页面。',
+    horizontal ? 'good' : 'notice',
+  );
+}
+
+function createTokenProbeRow(width: number | undefined): DiagnosticRow {
+  if (typeof width !== 'number' || !Number.isFinite(width)) {
+    return row(
+      'CSS 变量继承',
+      '隔离组件未返回宽度',
+      '当前工具无法测量，不能据此判断 CSS 变量。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    );
+  }
+  const inherited = Math.abs(width - 44) <= 1;
+  return row(
+    'CSS 变量继承',
+    `${roundProbe(width)}px（预期 44px）`,
+    inherited ? '页面设计令牌已进入隔离组件。' : '隔离组件使用了回退宽度或错误宽度。',
+    '异常时截本行和加载圈。',
+    inherited ? 'good' : 'notice',
+  );
+}
+
+function createScrollProbeRow(snapshot: RuntimeProbeSnapshot): DiagnosticRow {
+  const viewport = snapshot.scrollRect;
+  const content = snapshot.contentRect;
+  if (!hasPositiveSize(viewport) || !hasPositiveSize(content)) {
+    return row(
+      '纵向滚动容器',
+      '未取得有效尺寸',
+      '显式 scroll-view 或内容尺寸不可测量。',
+      '截首屏和无法滚动的位置。',
+      viewport === undefined && content === undefined ? 'unavailable' : 'notice',
+    );
+  }
+  const scrollable = content.height > viewport.height + 1;
+  return row(
+    '纵向滚动容器',
+    `${roundProbe(viewport.height)}px / 内容 ${roundProbe(content.height)}px`,
+    scrollable ? '显式 scroll-view 已形成可滚动区域。' : '内容没有超过 viewport，暂时不需要滚动。',
+    '若仍不能下滑，截本行。',
+    'good',
+  );
+}
+
+function hasFiniteRect(
+  rect: RuntimeProbeRect | undefined,
+): rect is Required<Pick<RuntimeProbeRect, 'left' | 'right' | 'top'>> & RuntimeProbeRect {
+  return (
+    typeof rect?.left === 'number' &&
+    Number.isFinite(rect.left) &&
+    typeof rect.right === 'number' &&
+    Number.isFinite(rect.right) &&
+    typeof rect.top === 'number' &&
+    Number.isFinite(rect.top)
+  );
+}
+
+function hasPositiveSize(
+  rect: RuntimeProbeRect | undefined,
+): rect is Required<Pick<RuntimeProbeRect, 'height' | 'width'>> & RuntimeProbeRect {
+  return (
+    typeof rect?.width === 'number' &&
+    Number.isFinite(rect.width) &&
+    rect.width > 0 &&
+    typeof rect.height === 'number' &&
+    Number.isFinite(rect.height) &&
+    rect.height > 0
+  );
+}
+
+function roundProbe(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function createBuildRows(miniProgramVersion: string): readonly DiagnosticRow[] {
@@ -914,10 +1190,28 @@ function createCheckReport(data: TestToolsPageData): string {
   ].join('\n');
 }
 
+function createRuntimeCompatibilityReport(data: TestToolsPageData): string {
+  return [
+    '[首屏运行时兼容性诊断 v1]',
+    '安全说明：只含固定环境字段和受控布局测量，不含身份、联系方式、群组、排班、请求正文、响应正文、Header、凭证或原始堆栈。',
+    `构建=${buildInfo.buildLabel}`,
+    `环境=${data.environmentLabel}`,
+    `生成时间=${formatTimestamp(Date.now())}`,
+    '',
+    '[设备与屏幕]',
+    ...reportRows(data.deviceRows, data.deviceRows.length),
+    '',
+    '[运行时兼容性]',
+    `汇总=${data.runtimeProbeSummary}`,
+    ...reportRows(data.runtimeProbeRows, data.runtimeProbeRows.length),
+    '可视检查=左侧 CSS 缺口圆与右侧 SVG 完整圆；自动测量不能判断圆弧像素形状，请附首屏截图。',
+  ].join('\n');
+}
+
 function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): string {
   const generatedAt = formatTimestamp(Date.now());
   const lines = [
-    simplified ? '[Codex 简化诊断报告 v1]' : '[测试工具完整诊断报告 v1]',
+    simplified ? '[Codex 简化诊断报告 v2]' : '[测试工具完整诊断报告 v2]',
     '安全说明：本报告不含请求体、响应体、Header、凭证、身份、联系方式、成员信息或原始堆栈。',
     '口径说明：记录总耗时包含诊断附加开销；setData 提交和下一渲染周期不代表用户已实际看到结果。',
     '',
@@ -935,6 +1229,11 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
     '[当前页面]',
     `路径=${currentPagePath}`,
     `测试工具首屏=${data.pageReadyMs}ms（单次辅助值）`,
+    '',
+    '[运行时兼容性]',
+    `汇总=${data.runtimeProbeSummary}`,
+    ...reportRows(data.runtimeProbeRows, data.runtimeProbeRows.length),
+    '可视检查=左侧 CSS 缺口圆与右侧 SVG 完整圆；自动测量不能判断圆弧像素形状，请附首屏截图。',
     '',
     '[关键性能]',
     ...(data.performanceRows.length === 0

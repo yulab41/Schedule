@@ -1,5 +1,12 @@
 # 微信小程序审计状态
 
+## 当前批次：跨微信实例 UI 差异诊断增强已实现，待候选门禁
+
+- 故障基线为体验版132/44034fcc；同一包在不同微信实例出现Grid纵排、加载圈尖角和测试工具无法滚动。异常实例尚无基础库报告，不宣称最终根因。
+- 仅诊断页改为固定首屏加显式scroll-view，增加Grid/CSS变量/滚动自动探针、CSS/SVG对照和首屏复制；业务页面、API、权限与数据零修改。详情见`runtime-ui-diagnostics-20260914.md`。
+- RED 1；GREEN test-tools20、联合33、Mini完整1180/16跳过。Mini/Web TypeScript、production build、Storybook build和390/320/大字号辅助复核通过；均非微信原生验收。
+- Mini verify被既有未改手排节点预算1507>1506阻断，本轮不放宽预算。唯一下一任务：完成干净checkpoint并进入L3候选核验；上传前报告精确身份并再次确认。未执行上传、allowlist、生产、提审或正式发布。
+
 ## 当前批次：Feedback22 已部署并放行124，待小米14复核
 
 - 双二维码API响应被Mini严格解码器误拒绝，已补齐`trialImageBase64`生成schema回归。导出页删除旧白屏诊断链，改为首屏立即呈现和后台选项读取。
