@@ -1,5 +1,11 @@
 # 微信小程序审计状态
 
+## 当前批次：Feedback26 导出筛选切换重置文件状态
+
+- 导出文件生成后，月份、年份、周期模式、岗位、人员、文件格式或导出类型发生实际变化时，统一清理旧任务/临时文件并回到“选择内容后创建任务”；相同值点击不重置。
+- RED 7失败/29通过，GREEN控制器36通过，导出相邻边界联合43通过；Mini production verify通过，包体4579789字节、Worklet2/2。
+- 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。本轮只有静态/Node/Mini构建证据，未操作开发者工具、未上传或部署，原生验收未进行。
+
 ## 当前批次：Feedback22 已部署并放行124，待小米14复核
 
 - 双二维码API响应被Mini严格解码器误拒绝，已补齐`trialImageBase64`生成schema回归。导出页删除旧白屏诊断链，改为首屏立即呈现和后台选项读取。

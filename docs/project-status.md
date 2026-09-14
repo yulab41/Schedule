@@ -1,5 +1,12 @@
 # Project Status
 
+## 当前批次：Feedback26 导出筛选切换重置文件状态
+
+- 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
+- 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
+- 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
+- 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。未操作微信开发者工具、未上传体验版、未部署生产。唯一下一任务：如需小米14原生复核，先对最终干净SHA另行授权体验版上传。
+
 ## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 
 - 小米14 `.127` 证据确认：访客五行月历因 viewport 62px/行而 panel 仍54px/行产生底部留白；访客列表模板漏掉成员列表已有的班种状态。需继续核对医生/护士月周列表结构与交互，成员日历页面禁止修改。

@@ -214,7 +214,11 @@ export function createExportsPanelControllerDefinition() {
       },
       handlePeriodType(this: ExportsPageInstance, event: TapEvent): void {
         const periodType = event.currentTarget.dataset.periodType;
-        if (periodType !== 'month' && periodType !== 'year') return;
+        if (
+          (periodType !== 'month' && periodType !== 'year') ||
+          periodType === this.data.periodType
+        )
+          return;
         setSelection(this, { periodType });
       },
       handlePreviousPeriod(this: ExportsPageInstance): void {
@@ -248,8 +252,8 @@ export function createExportsPanelControllerDefinition() {
           this.data.exportType === 'schedule'
             ? this.data.scheduleFormats
             : this.data.statisticsFormats;
-        if (allowed.includes(format))
-          this.setData({
+        if (allowed.includes(format) && format !== this.data.format)
+          setSelection(this, {
             format,
             ...(format === 'docx'
               ? {
@@ -263,6 +267,7 @@ export function createExportsPanelControllerDefinition() {
       },
       handleTypeChange(this: ExportsPageInstance, event: PickerEvent): void {
         const exportType = parsePickerIndex(event, 2) === 1 ? 'statistics' : 'schedule';
+        if (exportType === this.data.exportType) return;
         const formats =
           exportType === 'statistics' ? this.data.statisticsFormats : this.data.scheduleFormats;
         setSelection(this, {
@@ -750,9 +755,20 @@ function shiftPeriod(page: ExportsPageInstance, delta: -1 | 1): void {
 }
 
 function setSelection(page: ExportsPageInstance, patch: Partial<ExportsPageData>): void {
+  if (isWorking(page.data.state)) return;
   const next = { ...page.data, ...patch };
+  invalidateExport(page);
   page.setData({
     ...patch,
+    downloadBusy: false,
+    shareBusy: false,
+    infoMessage: '',
+    errorMessage: '',
+    fileLabel: '',
+    canCheckJob: false,
+    canRetryCreate: true,
+    state: 'idle',
+    statusLabel: '选择内容后创建任务',
     periodLabel: getExportPeriodLabel(currentPeriod(next)),
   });
 }
@@ -780,7 +796,7 @@ function toggleMultiSelection(
   const selectedLabels = options
     .filter((option) => option.value !== '' && option.checked)
     .map((option) => option.label);
-  page.setData({
+  setSelection(page, {
     [idsKey]: nextIds,
     [optionsKey]: options,
     [summaryKey]: selectedLabels.length === 0 ? allLabel : selectedLabels.join('、'),
