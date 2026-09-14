@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildHeadNeckRotationGrid,
-  resolveHeadNeckDutyMembershipId,
+  resolveHeadNeckPublishedMembershipId,
 } from './head-neck-docx-grid.js';
 
 const members = ['xu', 'xu-man', 'huang', 'hong', 'feng', 'lin'] as const;
@@ -47,27 +47,27 @@ describe('head-neck DOCX column-major rotation grid', () => {
     ).toThrow('Word 排班包含未配置的一值人员');
   });
 
-  it('normalizes historical membership IDs by user and falls back to planned duty', () => {
+  it('uses only the published planned member even after the actual duty member changes', () => {
     const aliases = new Map([
       ['old-lin', 'lin'],
       ['lin', 'lin'],
       ['old-feng', 'feng'],
     ]);
     expect(
-      resolveHeadNeckDutyMembershipId(
+      resolveHeadNeckPublishedMembershipId(
         { actualMembershipId: 'old-lin', plannedMembershipId: 'old-feng' },
-        aliases,
-      ),
-    ).toBe('lin');
-    expect(
-      resolveHeadNeckDutyMembershipId(
-        { actualMembershipId: null, plannedMembershipId: 'old-feng' },
         aliases,
       ),
     ).toBe('feng');
     expect(
-      resolveHeadNeckDutyMembershipId(
-        { actualMembershipId: 'outside', plannedMembershipId: null },
+      resolveHeadNeckPublishedMembershipId(
+        { actualMembershipId: 'outside', plannedMembershipId: 'old-lin' },
+        aliases,
+      ),
+    ).toBe('lin');
+    expect(
+      resolveHeadNeckPublishedMembershipId(
+        { actualMembershipId: 'old-lin', plannedMembershipId: null },
         aliases,
       ),
     ).toBeUndefined();

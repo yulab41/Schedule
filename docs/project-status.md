@@ -8,10 +8,10 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记为浏览器通过；API与Mini production构建通过，后续`smoke:check-core`复核通过。
 - 当前消息未授权体验版上传、生产部署或数据库操作。唯一下一任务：完成检查点并由用户决定是否另行授权上传体验版。
 
-## 当前批次：头颈 DOCX 轮转矩阵已部署并放行131
+## 当前批次：头颈 DOCX 发布基础版导出与历史换班补记
 
 - 修复漏日/错列：一值先上后下、先左后右，首尾留空，中途缺位为`-`；历史ID归一，二/三值及Word视觉不变。
-- 累计`.130`形成`66b0adda`并部署；备份`278a53b2…`。`.131`上传并追加放行，旧版保留、完整verifier通过；待小米14复核。详见`docs/audit/head-neck-docx-export.md`。
+- Word只读planned基础人员，忽略换班/加扣班actual；历史换班补记不改排班、不通知。全量verify通过，待部署、补记及新体验版。详见`docs/audit/head-neck-docx-export.md`。
 
 ## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 

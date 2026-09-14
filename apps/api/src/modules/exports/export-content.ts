@@ -23,7 +23,7 @@ import { buildHeadNeckDocx, type HeadNeckDocxPage } from './docx-builder.js';
 import { getHeadNeckDocxConfig } from './head-neck-docx-config.js';
 import {
   buildHeadNeckRotationGrid,
-  resolveHeadNeckDutyMembershipId,
+  resolveHeadNeckPublishedMembershipId,
 } from './head-neck-docx-grid.js';
 
 type ExportJobRow = typeof exportJobs.$inferSelect;
@@ -218,7 +218,10 @@ async function buildHeadNeckScheduleDocxContent(
         ),
       );
     const normalizedAssignments = assignments.map((assignment) => {
-      const membershipId = resolveHeadNeckDutyMembershipId(assignment, canonicalByMembershipId);
+      const membershipId = resolveHeadNeckPublishedMembershipId(
+        assignment,
+        canonicalByMembershipId,
+      );
       if (membershipId === undefined) throw new Error('Word 排班包含未配置的一值人员。');
       return { businessDate: assignment.businessDate, membershipId };
     });

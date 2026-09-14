@@ -8,6 +8,7 @@
 
 ## 行为变化
 
+- 2026-09-14 Word 数据源固定为 `plannedMembershipId`；换班、加班、扣班对 `actualMembershipId` 的修改不进入 Word。历史换班补记服务仅在基础/实际状态已构成完整交换且不存在申请时写入 completed 换班链，不改排班、不写补录事件、不发通知。
 - 新增 `docx` 导出格式和 schema60。服务端通过 `HEAD_NECK_DOCX_EXPORT_CONFIG` 的稳定群组 ID、角色 ID 和一值成员 ID 判定资格；二值按一值 ID 映射固定显示姓名，三值为两个固定显示姓名，均不创建或授权成员。
 - 目标群排班格式为 Word/CSV；统计格式为 Excel/CSV。其他群组仍为 Excel/CSV。小程序切到统计时自动离开 Word；服务端拒绝 `statistics + docx`、非目标群 DOCX、DOCX 局部岗位/成员筛选和不完整配置。
 - 月度 DOCX 一页；年度 DOCX 十二页。页面度量、表格列宽、居中、字体、字号、周末下划线和底部三值间距来自用户最终版。

@@ -8,14 +8,14 @@ export interface HeadNeckRotationRow {
   readonly tokens: readonly (number | '-' | undefined)[];
 }
 
-export function resolveHeadNeckDutyMembershipId(
+export function resolveHeadNeckPublishedMembershipId(
   assignment: {
     readonly actualMembershipId: string | null;
     readonly plannedMembershipId: string | null;
   },
   canonicalByMembershipId: ReadonlyMap<string, string>,
 ): string | undefined {
-  const membershipId = assignment.actualMembershipId ?? assignment.plannedMembershipId;
+  const membershipId = assignment.plannedMembershipId;
   return membershipId === null ? undefined : canonicalByMembershipId.get(membershipId);
 }
 
