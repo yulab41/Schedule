@@ -1,5 +1,13 @@
 # Project Status
 
+## 当前批次：小程序 Skyline 运行时诊断增强设计待复核
+
+- 用户选择先发布诊断增强版，不先修改业务 UI。故障基线为体验版`0.1.0-p10.20260914.132@44034fcc`；正常与异常截图显示 Grid 横排、加载圈绘制和测试工具滚动存在运行时差异。
+- 已确认 Mini 无第三方运行时组件库；测试工具依赖 Skyline 不支持的页面全局滚动，工作台等仍含 CSS Grid。当前只形成首屏自包含诊断设计，不把静态分析写成异常实例根因已最终确认。
+- 设计见`docs/superpowers/specs/2026-09-14-miniprogram-runtime-diagnostics-enhancement-design.md`。独占general-2，依赖复用、无安装；当前未改程序、未运行应用门禁、未上传体验版或执行生产操作。设计检查点以`docs(design): specify Mini runtime diagnostics enhancement`识别。
+- 文档验证：任务文件`prettier --check`与`git diff --check`通过；书面自查无TBD/TODO、范围冲突或未决实现选择。
+- 唯一下一任务：用户复核并批准书面设计后，先红后绿实现首屏复制、显式纵向scroll-view、Grid/CSS变量自动探针和加载圈/SVG可视对照；在精确候选上传前再次确认。
+
 ## 当前批次：Feedback26 手动排班刷新与最长一年范围已实现
 
 - 手动排班四阶段点击现均重新读取对应数据；草稿发布成功后进入发布记录页，避免继续显示旧草稿。
