@@ -7,7 +7,8 @@
 - RED 17项中1失败；合并后诊断/导出联合69、Mini完整173文件1187项通过/16跳过。Mini/Web TypeScript、production build363文件、Storybook build及390/320/大字号辅助复核通过；包体主1728648B/总4591628B、确定性Manifest`fb649413…5f2f7`，320无横溢，按钮44px。lint与smoke:check-core通过；独占general-2复用依赖，无安装。
 - Mini verify在诊断源码/构建/包体后仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试；独立typecheck、build、package和determinism均通过。检查点以`feat(miniprogram): add first-screen runtime diagnostics`识别。
 - 诊断检查点`c694345c`已推送，并按发布血缘要求合并最新`origin/main@4179f05a`形成累计提交`2d7f685a`。`0.1.0-p10.20260914.133`已用production/clean上传成功，Manifest`eb302276…16b90b0`，远端不可变tag、allocation、Manifest和receipt一致；详情见`docs/audit/runtime-ui-diagnostics-trial-release-20260914.md`。
-- 未追加服务器allowlist，未部署生产、修改数据库、提审或正式发布。唯一下一任务：正常与异常微信实例都确认`.133/2d7f685`，在“更多 → 测试工具”返回首屏截图、复制首屏诊断和滚动结果；两份同版本证据齐全前不判断最终根因、不修改业务UI。
+- 用户单独授权后，可信ensure已只追加`.133`并保留旧版；allowlist verify和完整`ecs-verify.sh`通过，独立公网`.133/.132=200`、动态未知`=426`。API重建健康窗口内三次短暂502后自行恢复；live前后均为`44034fcc`，未部署代码、迁移或修改数据库。未提审或正式发布。
+- 唯一下一任务：正常与异常微信实例都确认`.133/2d7f685`，在“更多 → 测试工具”返回首屏截图、复制首屏诊断和滚动结果；两份同版本证据齐全前不判断最终根因、不修改业务UI。
 
 ## 当前批次：Feedback26 手动排班刷新与最长一年范围已实现
 

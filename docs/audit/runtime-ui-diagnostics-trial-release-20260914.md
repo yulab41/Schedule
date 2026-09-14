@@ -28,7 +28,9 @@
 ## 发布边界
 
 - 已上传体验版；未提交审核、未正式发布。
-- 未追加服务器版本 allowlist，未部署 API/Web，未连接或修改生产数据库。
+- 用户随后单独授权 add-only 生产白名单操作；可信 `schedule-client-version-allowlist ensure` 已追加 `.133`，保留 `.132` 及其他旧版本。控制器等待 API 重建期间出现三次短暂 HTTP 502，随后在既定健康窗口内自行恢复并报告 PASS。
+- `schedule-client-version-allowlist verify` 与完整 `/usr/local/lib/schedule/ecs-verify.sh` 均通过；独立公网探针为 `.133=200`、保留 `.132=200`、动态未知版本 `=426`。
+- 生产 live release 操作前后均为 `44034fcc342b7ac9994b8222022c64118d276df9`；未部署应用代码、未迁移或修改生产数据库，也未创建部署备份。
 - 旧体验版本及其远端 tag 均保留。
 
 ## 同版本真机取证
