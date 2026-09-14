@@ -1,4 +1,4 @@
-<view class="workbench-page">
+<view class="workbench-page {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}">
   <view class="workbench-shell-header" style="{{shellHeaderStyle}}">
     <view class="workbench-shell-heading">
       <view class="group-switcher">
@@ -736,7 +736,17 @@
               wx:elif="{{state === 'loading'}}"
               class="state-card state-loading"
               aria-live="polite"
-              ><view class="state-mark"><view class="state-spinner"></view></view
+              ><view class="state-mark"
+                ><view
+                  wx:if="{{!skyline3172UiCompatibility}}"
+                  class="state-spinner"
+                ></view
+                ><image
+                  wx:else
+                  class="state-spinner-image"
+                  src="/assets/icons/ui-loading-primary.svg"
+                  mode="aspectFit"
+                /></view
               ><text class="state-title">正在读取排班</text
               ><text class="state-description">正在读取当前群组的月历和班次。</text></view
             >

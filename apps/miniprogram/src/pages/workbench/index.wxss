@@ -651,6 +651,25 @@ page {
   border-radius: var(--ui-radius-medium);
 }
 
+.is-skyline-3172-ui .duty-group-grid,
+.is-skyline-3172-ui .grouped-staff-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.is-skyline-3172-ui .staff-duty-heading,
+.is-skyline-3172-ui .staff-name-button,
+.is-skyline-3172-ui .phone-split-actions {
+  display: flex;
+}
+
+.is-skyline-3172-ui .staff-name-button,
+.is-skyline-3172-ui .staff-name-static,
+.is-skyline-3172-ui .staff-name-copy,
+.is-skyline-3172-ui .detail-phone-action {
+  flex: 1;
+}
+
 .detail-phone-action {
   display: flex;
   min-width: 0;
@@ -977,6 +996,18 @@ page {
   border: 2px solid var(--ui-color-primary-border);
   border-top-color: var(--ui-color-primary);
   border-radius: 50%;
+}
+
+.state-spinner-image {
+  width: 24px;
+  height: 24px;
+  animation: state-spinner-rotate 700ms linear infinite;
+}
+
+@keyframes state-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .bottom-nav {

@@ -1,4 +1,4 @@
-<view class="workbench-page guest-page">
+<view class="workbench-page guest-page {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}">
   <text wx:if="{{announcement}}" class="offline-note" aria-live="polite">{{announcement}}</text>
   <view class="guest-header" style="{{guestHeaderStyle}}"><text class="guest-title">{{currentGroupName}} · 访客</text></view>
   <scroll-view style="{{guestViewportStyle}}" class="guest-scroll workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}" scroll-y="{{viewMode !== 'list'}}" show-scrollbar="{{false}}">
@@ -662,7 +662,17 @@
               wx:elif="{{state === 'loading'}}"
               class="state-card state-loading"
               aria-live="polite"
-              ><view class="state-mark"><view class="state-spinner"></view></view
+              ><view class="state-mark"
+                ><view
+                  wx:if="{{!skyline3172UiCompatibility}}"
+                  class="state-spinner"
+                ></view
+                ><image
+                  wx:else
+                  class="state-spinner-image"
+                  src="/assets/icons/ui-loading-primary.svg"
+                  mode="aspectFit"
+                /></view
               ><text class="state-title">正在读取排班</text
               ><text class="state-description">正在读取当前群组的月历和班次。</text></view
             >

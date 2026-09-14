@@ -6,7 +6,7 @@
 />
 
 <view
-  class="leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
+  class="leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
   bindtap="handlePanelBackgroundTap"
   bind:pickerrequestopen="handlePickerRequestOpen"
 >
@@ -35,7 +35,8 @@
   >
     <view class="page-content">
       <view wx:if="{{state === 'loading'}}" class="page-state-card">
-        <view class="native-spinner"></view>
+        <view wx:if="{{!skyline3172UiCompatibility}}" class="native-spinner"></view>
+        <image wx:else class="native-spinner-image" src="/assets/icons/ui-loading-primary.svg" mode="aspectFit" />
         <text class="state-title">正在加载请假数据</text>
         <text class="state-copy">正在同步申请、审批和清空策略。</text>
       </view>
@@ -314,7 +315,10 @@
             ><text>{{approvalErrorMessage}}</text></view
           >
           <view wx:if="{{approvalBusy && !approvalPreviewReady}}" class="preview-loading"
-            ><view class="native-spinner"></view><text>正在生成请假预览</text></view
+            ><view wx:if="{{!skyline3172UiCompatibility}}" class="native-spinner"></view
+            ><image wx:else class="native-spinner-image" src="/assets/icons/ui-loading-primary.svg" mode="aspectFit" /><text
+              >正在生成请假预览</text
+            ></view
           >
           <view wx:if="{{approvalPreviewReady}}" class="approval-preview">
             <view class="impact-count">请假期间涉及 {{approvalShiftCount}} 个已发布班次。</view>

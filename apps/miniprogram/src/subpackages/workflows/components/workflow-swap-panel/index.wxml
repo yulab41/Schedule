@@ -6,7 +6,7 @@
 />
 
 <view
-  class="swap-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
+  class="swap-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
   bindtap="handlePanelBackgroundTap"
   bind:pickerrequestopen="handlePickerRequestOpen"
 >
@@ -29,7 +29,8 @@
   >
     <view class="page-content">
       <view wx:if="{{state === 'loading'}}" class="page-state-card">
-        <view class="native-spinner"></view>
+        <view wx:if="{{!skyline3172UiCompatibility}}" class="native-spinner"></view>
+        <image wx:else class="native-spinner-image" src="/assets/icons/ui-loading-primary.svg" mode="aspectFit" />
         <text class="state-title">正在加载换班数据</text>
         <text class="state-copy">正在同步班次、申请和审批设置。</text>
       </view>

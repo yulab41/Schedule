@@ -348,6 +348,14 @@
   border-bottom: 1px solid var(--ui-color-border);
 }
 
+.scheduling-config-page.is-skyline-3172-ui .shift-row {
+  display: flex;
+}
+
+.scheduling-config-page.is-skyline-3172-ui .shift-summary {
+  flex: 1;
+}
+
 .shift-row.is-editing {
   background: #fbfdff;
   box-shadow: inset 3px 0 var(--ui-color-primary);

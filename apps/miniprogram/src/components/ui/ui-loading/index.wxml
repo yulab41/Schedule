@@ -3,6 +3,17 @@
   aria-role="progressbar"
   aria-label="{{label || '加载中'}}"
 >
-  <view class="ui-loading__spinner" aria-hidden="true"></view>
+  <view
+    wx:if="{{!skyline3172UiCompatibility}}"
+    class="ui-loading__spinner"
+    aria-hidden="true"
+  ></view>
+  <image
+    wx:else
+    class="ui-loading__spinner-image"
+    src="{{inheritColor ? '/assets/icons/ui-loading-muted.svg' : '/assets/icons/ui-loading-primary.svg'}}"
+    mode="aspectFit"
+    aria-hidden="true"
+  />
   <text wx:if="{{label}}" class="ui-loading__label">{{label}}</text>
 </view>

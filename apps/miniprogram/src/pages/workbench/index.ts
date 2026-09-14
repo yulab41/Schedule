@@ -17,6 +17,7 @@ import {
 } from '@schedule/presentation-core';
 
 import { buildInfo } from '../../platform/build-info.js';
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../platform/runtime-ui-compatibility.js';
 import { isNurseCalendarGroup } from '../../features/workbench/nurse-duty-state.js';
 import {
   reconcileShiftCardExpansion,
@@ -211,6 +212,7 @@ interface WorkbenchPageData extends AccountSecurityData {
   readonly shellActionsStyle: string;
   readonly shellHeaderHeight: number;
   readonly shellHeaderStyle: string;
+  readonly skyline3172UiCompatibility: boolean;
   readonly selectedDate: string;
   readonly selectedDetails: WorkbenchViewModel['selectedDetails'];
   readonly selectedLabel: string;
@@ -375,6 +377,7 @@ Page({
     shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
     shellHeaderHeight: 64,
     shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;padding-right:102px;',
+    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     selectedDate: today,
     selectedDetails: [],
     selectedLabel: formatDateLabel(today),

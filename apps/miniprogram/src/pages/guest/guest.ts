@@ -34,6 +34,7 @@ import {
   writeGuestPublicCache,
 } from '../../platform/guest-public-cache.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../platform/runtime-ui-compatibility.js';
 import {
   createMonthRing,
   createWorkbenchViewModel,
@@ -89,6 +90,7 @@ function initialData() {
     monthLabel: formatMonthLabel(today.slice(0, 7)),
     selectedLabel: formatDateLabel(today),
     selectedCountLabel: '0 个班种',
+    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     viewMode: 'month' as View,
     viewOptions: ['month', 'week', 'list'],
     gridHeight: 270,

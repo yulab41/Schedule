@@ -24,9 +24,20 @@
   animation: ui-loading-spin 700ms linear infinite;
 }
 
+.ui-loading__spinner-image {
+  width: 24px;
+  height: 24px;
+  animation: ui-loading-spin 700ms linear infinite;
+}
+
 .ui-loading.is-compact .ui-loading__spinner {
   width: 14px;
   height: 14px;
+}
+
+.ui-loading.is-compact .ui-loading__spinner-image {
+  width: 18px;
+  height: 18px;
 }
 
 .ui-loading__label {

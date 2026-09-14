@@ -6,6 +6,7 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../platform/info-message-lifetime.js';
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 
 type ControllerMethod = (this: WorkflowPanelHost, ...arguments_: unknown[]) => unknown;
 
@@ -101,7 +102,11 @@ export function createWorkflowPageDefinition(
   );
 
   return {
-    data: { ...prototype.data, embedded: false },
+    data: {
+      ...prototype.data,
+      embedded: false,
+      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
+    },
     ...delegatedMethods,
     onLoad(this: WorkflowPageHost, query: Readonly<Record<string, string | undefined>>): void {
       if (boundaries !== undefined) recordMiniTelemetryBoundary(boundaries.page);
@@ -156,7 +161,11 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
       embedded: { type: Boolean, value: true },
       groupId: { type: String, value: '' },
     },
-    data: { ...prototype.data, embedded: true },
+    data: {
+      ...prototype.data,
+      embedded: true,
+      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
+    },
     lifetimes: {
       attached(this: WorkflowPanelHost): void {
         const attachmentToken = attachWorkflowHost(this);
