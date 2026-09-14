@@ -75,9 +75,9 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     const template = readSource('pages/workbench/index.wxml');
     const styles = readSource('pages/workbench/index.wxss');
 
-    expect(template).toContain('circular="{{skyline3172UiCompatibility}}"');
+    expect(template).toContain('circular="{{true}}"');
     expect(template).toContain('bindchange="handleWeekSwiperChange"');
-    expect(template).toContain('skyline3172UiCompatibility ? weekSwiperCurrent :');
+    expect(template).toContain('weekPanels[weekSwiperCurrent].weekOrdinalLabel');
     expect(styles).toMatch(/\.week-day\.is-selected::after\s*\{[^}]*box-shadow:/su);
     expect(styles).toMatch(
       /\.is-skyline-3172-ui \.week-day\.is-selected\s*\{[^}]*box-shadow:\s*inset 0 0 0 2px/su,

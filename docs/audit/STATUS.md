@@ -3,8 +3,8 @@
 ## 当前批次：Skyline 3.17.2 周视图交互与圆角兼容修复待上传
 
 - `.134@5c02393`同角色双实例确认3.17.2周选中框、环形切周、群名尺寸和Toast组合圆角均异常；同机3.17.3及3.17.2月视图正常，排除账号、权限和排班数据。
-- 只在3.17.2周视图复用月视图已有`calendar-period-pager`，不再强制归中；保留240ms/easeOutCubic、提交锁和有界队列。选中框、页头及Toast均为3.17.2局部后备，3.17.3+原路径不变。详情见`runtime-ui-compatibility-week-fix-20260915.md`。
-- RED 3失败；GREEN联合47项、Mini完整1196项通过/16跳过。typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；主包1737329B/总4604983B，较`.134`增4486B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 所有版本周视图统一复用月视图已有`calendar-period-pager`，不再维护第二套强制归中机制；保留周视图原260ms/easeOutCubic、提交锁和有界队列。选中框、页头及Toast仍为3.17.2局部后备，3.17.3+视觉和动画时长不变。详情见`runtime-ui-compatibility-week-fix-20260915.md`。
+- RED 3失败；GREEN联合47项、Mini完整1197项通过/16跳过。typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；主包1736356B/总4604267B，较`.134`增3770B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
 - 当前消息已授权上传及追加放行，尚未上传、放行、提审或正式发布。唯一下一任务：提交clean精确SHA并完成体验版上传/可信追加allowlist，再由两个实例做同版本原生复核。
 
 ## 当前批次：Skyline 3.17.2 专属 UI 兼容体验版134已上传并放行，待双实例验收

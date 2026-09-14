@@ -120,7 +120,7 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.weekStart).toBe('2026-09-14');
   });
 
-  it('keeps the existing centered week pager on unaffected runtimes', async () => {
+  it('uses the same circular week pager on unaffected runtimes without changing motion duration', async () => {
     vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
     await import('../src/pages/workbench/index.ts');
     const instance = createPageInstance(definition);
@@ -143,7 +143,7 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.periodSwiperDuration).toBe(260);
     definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
     expect(instance.data.weekStart).toBe('2026-09-14');
-    expect(instance.data.weekSwiperCurrent).toBe(1);
+    expect(instance.data.weekSwiperCurrent).toBe(2);
     expect(instance.data.periodSwiperDuration).toBe(260);
   });
 

@@ -6,9 +6,10 @@
 
 - 引入点：`733e3af6`引入周视图动画后归中与页头固有尺寸，`50c6d1ed`引入周选中伪元素，
   `cdb759b9`引入Toast粗左边框加父圆角。`.134`同角色真机证据排除账号、权限和数据差异。
-- RED旧实现3失败；3.17.2周视图改为复用月视图的共享环形分页器后，连续按钮、手势回退和重复
-  animationfinish回归通过。正常运行时继续旧路径；样式后备也仅匹配3.17.2。
-- Mini完整1196项通过/16跳过；typecheck/build/source/package/determinism/format/lint/smoke:check-core通过。
+- RED旧实现3失败；所有版本周视图统一复用月视图的共享环形分页器后，连续按钮、手势回退和重复
+  animationfinish回归通过。周视图原260ms动画不变；视觉样式后备仅匹配3.17.2。
+- Mini完整1197项通过/16跳过；typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；
+  主包1736356B、总包4604267B，较`.134`增加3770B（约0.08%），无新增依赖。
   `pnpm miniprogram:verify`仅被本轮未改手排节点预算1507>1506阻断。运行/浏览器验证：本轮不触及Web
   核心；`pnpm smoke:check-core`已执行并通过。小米14新版本验收待上传后进行。
 

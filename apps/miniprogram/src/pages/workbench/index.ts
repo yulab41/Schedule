@@ -19,7 +19,6 @@ import {
 import { buildInfo } from '../../platform/build-info.js';
 import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../platform/runtime-ui-compatibility.js';
 import {
-  CALENDAR_PERIOD_SWIPER_DURATION_MS,
   cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
@@ -892,24 +891,13 @@ Page({
   },
 
   handleWeekSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
-    if (this.data.skyline3172UiCompatibility) {
-      handleCompatibleWeekSwiperFinish(this, event.detail.current);
-      return;
-    }
-    const delta = getSwiperDelta(event.detail.current);
-    if (delta === 0 || this.periodShiftCommitPending) return;
-    const target = this.pendingWeekTarget;
-    this.pendingWeekTarget = undefined;
-    this.periodShiftActive = 'week';
-    this.periodShiftCommitPending = true;
-    commitPeriodShift(this, 'week', delta, target);
+    handleCircularWeekSwiperFinish(this, event.detail.current);
   },
 
   handleWeekSwiperChange(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
-    if (!this.data.skyline3172UiCompatibility) return;
-    const state = readCompatibleWeekPagerState(this);
+    const state = readCircularWeekPagerState(this);
     if (!prepareCalendarPeriodChange(state, event.detail.current)) return;
-    writeCompatibleWeekPagerState(this, state);
+    writeCircularWeekPagerState(this, state);
   },
 
   handleListSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
@@ -2207,9 +2195,7 @@ function createViewPatch(
       view.selectedDetails,
     ),
     selectedLabel: view.selectedLabel,
-    weekPanels: page.data.skyline3172UiCompatibility
-      ? mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot)
-      : view.weekPanels,
+    weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
   };
 }
 
@@ -2245,19 +2231,19 @@ function commitPeriodShift(
         ? addWeeks(page.data.selectedDate, delta)
         : retargetSelectedDateToMonth(page.data.selectedDate, businessMonth);
   const period = { businessMonth, selectedDate, weekStart };
-  if (view === 'week' && page.data.skyline3172UiCompatibility) {
+  if (view === 'week') {
     setCalendarData(
       page,
       {
         ...createViewPatch(page, period),
         announcement: delta < 0 ? '已切换到上一周。' : '已切换到下一周。',
         businessMonth,
-        periodSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+        periodSwiperDuration: 260,
         selectedDate,
         weekStart,
         weekSwiperCurrent: page.weekRingSlot,
       },
-      () => finishCompatibleWeekShift(page),
+      () => finishCircularWeekShift(page),
     );
     return;
   }
@@ -2265,20 +2251,13 @@ function commitPeriodShift(
     page,
     {
       ...createViewPatch(page, period),
-      announcement:
-        view === 'week'
-          ? delta < 0
-            ? '已切换到上一周。'
-            : '已切换到下一周。'
-          : delta < 0
-            ? '已切换到上个月。'
-            : '已切换到下个月。',
+      announcement: delta < 0 ? '已切换到上个月。' : '已切换到下个月。',
       businessMonth,
-      listSwiperCurrent: view === 'list' ? 1 : page.data.listSwiperCurrent,
+      listSwiperCurrent: 1,
       periodSwiperDuration: 0,
       selectedDate,
       weekStart,
-      weekSwiperCurrent: view === 'week' ? 1 : page.data.weekSwiperCurrent,
+      weekSwiperCurrent: page.data.weekSwiperCurrent,
     },
     () => {
       flushPendingScrollTarget(page);
@@ -2332,25 +2311,23 @@ function startPeriodSwiper(
   view: 'list' | 'week',
   delta: -1 | 1,
 ): void {
-  if (view === 'week' && page.data.skyline3172UiCompatibility) {
-    startCompatibleWeekSwiper(page, delta);
+  if (view === 'week') {
+    startCircularWeekSwiper(page, delta);
     return;
   }
-  const current = view === 'week' ? page.data.weekSwiperCurrent : page.data.listSwiperCurrent;
+  const current = page.data.listSwiperCurrent;
   if (page.periodShiftActive !== undefined || current !== 1) {
     page.periodShiftQueue = clampPeriodShiftQueue(page.periodShiftQueue + delta);
     return;
   }
-  page.periodShiftActive = view;
+  page.periodShiftActive = 'list';
   page.setData({
     periodSwiperDuration: 260,
-    ...(view === 'week'
-      ? { weekSwiperCurrent: delta < 0 ? 0 : 2 }
-      : { listSwiperCurrent: delta < 0 ? 0 : 2 }),
+    listSwiperCurrent: delta < 0 ? 0 : 2,
   });
 }
 
-function readCompatibleWeekPagerState(page: WorkbenchPageInstance): CalendarPeriodPagerState {
+function readCircularWeekPagerState(page: WorkbenchPageInstance): CalendarPeriodPagerState {
   return {
     activeSlot: page.weekRingSlot,
     queuedDelta: page.periodShiftQueue,
@@ -2359,7 +2336,7 @@ function readCompatibleWeekPagerState(page: WorkbenchPageInstance): CalendarPeri
   };
 }
 
-function writeCompatibleWeekPagerState(
+function writeCircularWeekPagerState(
   page: WorkbenchPageInstance,
   state: CalendarPeriodPagerState,
 ): void {
@@ -2371,44 +2348,44 @@ function writeCompatibleWeekPagerState(
     state.targetSlot === undefined && !state.shiftPending ? undefined : 'week';
 }
 
-function startCompatibleWeekSwiper(page: WorkbenchPageInstance, delta: -1 | 1): void {
-  const state = readCompatibleWeekPagerState(page);
+function startCircularWeekSwiper(page: WorkbenchPageInstance, delta: -1 | 1): void {
+  const state = readCircularWeekPagerState(page);
   const request = requestCalendarPeriodShift(state, delta);
-  writeCompatibleWeekPagerState(page, state);
+  writeCircularWeekPagerState(page, state);
   if (!request.started) return;
   page.setData({
-    periodSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    periodSwiperDuration: 260,
     weekSwiperCurrent: request.targetSlot,
   });
 }
 
-function handleCompatibleWeekSwiperFinish(page: WorkbenchPageInstance, current: number): void {
+function handleCircularWeekSwiperFinish(page: WorkbenchPageInstance, current: number): void {
   if (!isCalendarPeriodSlot(current)) return;
-  const state = readCompatibleWeekPagerState(page);
+  const state = readCircularWeekPagerState(page);
   if (current === state.activeSlot) {
     if (state.targetSlot === undefined) return;
     cancelCalendarPeriodShift(state);
-    writeCompatibleWeekPagerState(page, state);
+    writeCircularWeekPagerState(page, state);
     return;
   }
   const committed = commitCalendarPeriodSwipe(state, current);
   if (committed === undefined) return;
-  writeCompatibleWeekPagerState(page, state);
+  writeCircularWeekPagerState(page, state);
   const target = page.pendingWeekTarget;
   page.pendingWeekTarget = undefined;
   commitPeriodShift(page, 'week', committed.delta, target);
 }
 
-function finishCompatibleWeekShift(page: WorkbenchPageInstance): void {
-  const state = readCompatibleWeekPagerState(page);
+function finishCircularWeekShift(page: WorkbenchPageInstance): void {
+  const state = readCircularWeekPagerState(page);
   const settled = finishCalendarPeriodShift(state);
-  writeCompatibleWeekPagerState(page, state);
+  writeCircularWeekPagerState(page, state);
   flushPendingScrollTarget(page);
   if (settled.continues) {
     const delta = takeQueuedCalendarPeriodShift(state);
-    writeCompatibleWeekPagerState(page, state);
+    writeCircularWeekPagerState(page, state);
     if (delta !== 0) {
-      startCompatibleWeekSwiper(page, delta);
+      startCircularWeekSwiper(page, delta);
       return;
     }
   }
@@ -2469,20 +2446,14 @@ function startLocateTransition(
   }
 
   if (view === 'week') {
-    const sourceIndex = page.data.skyline3172UiCompatibility ? page.weekRingSlot : 1;
-    const targetPanel = patch.weekPanels?.[sourceIndex];
+    const targetPanel = patch.weekPanels?.[page.weekRingSlot];
     if (targetPanel === undefined || page.data.weekPanels.length !== 3) {
       applyTodayLocation(page);
       return;
     }
     const weekPanels = [...page.data.weekPanels];
-    if (page.data.skyline3172UiCompatibility) {
-      const targetSlot = getAdjacentCalendarPeriodSlot(page.weekRingSlot, delta);
-      weekPanels[targetSlot] = { ...targetPanel, relative: delta };
-      page.setData({ weekPanels }, () => startPeriodSwiper(page, 'week', delta));
-      return;
-    }
-    weekPanels[targetIndex] = { ...targetPanel, relative: delta };
+    const targetSlot = getAdjacentCalendarPeriodSlot(page.weekRingSlot, delta);
+    weekPanels[targetSlot] = { ...targetPanel, relative: delta };
     page.setData({ weekPanels }, () => startPeriodSwiper(page, 'week', delta));
     return;
   }

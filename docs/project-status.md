@@ -3,10 +3,12 @@
 ## 当前批次：Skyline 3.17.2 周视图交互与圆角兼容修复待上传
 
 - `.134@5c02393`同角色双实例证据确认：3.17.2 周选中框缺失、周切换跳周/反向回弹、群名省略及Toast左圆弧变竖条；同机3.17.3正常，且3.17.2月视图正常。根因不是账号、权限或排班数据。
-- 仅3.17.2周视图复用月视图现有`calendar-period-pager`三槽环形状态机，保留240ms动画、提交锁和有界队列；直接绘制选中框，页头使用明确宽度，Toast使用实体圆角色条。3.17.3+和未知版本继续原路径；API、数据、权限、月/列表视图及依赖不变。详情见`docs/audit/runtime-ui-compatibility-week-fix-20260915.md`。
-- RED 3失败；GREEN兼容/分页/工作台联合47项、Mini完整174文件1196项通过/16跳过。typecheck、production build366文件、source/package/determinism、format、lint、smoke:check-core通过。主包1737329B/总4604983B，较`.134`仅增4486B（约0.10%），无新增依赖。
+- 所有版本的周视图统一复用月视图现有`calendar-period-pager`三槽环形状态机，保留周视图原260ms动画、提交锁和有界队列；蓝框、页头明确宽度和Toast实体圆角色条仍只匹配3.17.2。3.17.3+仅同步内部分页机制，视觉和动画时长不变；API、数据、权限、月/列表视图及依赖不变。详情见`docs/audit/runtime-ui-compatibility-week-fix-20260915.md`。
+- RED 3失败；GREEN兼容/分页/工作台联合47项、Mini完整174文件1197项通过/16跳过。typecheck、production build366文件、source/package/determinism、format、lint、smoke:check-core通过。主包1736356B/总4604267B，较`.134`仅增3770B（约0.08%），无新增依赖。
 - Mini verify仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试。当前消息已授权上传和追加放行；尚未调用微信平台或生产控制面。
-- 检查点以`fix(miniprogram): reuse circular pager on Skyline 3.17.2`识别。唯一下一任务：形成clean精确SHA、分配新体验版、上传并可信追加allowlist；随后由小米14的3.17.2/3.17.3实例分别复核恢复与零视觉回归。
+- 实现检查点由`fix(miniprogram): reuse circular pager on Skyline 3.17.2`与后续
+  `refactor(miniprogram): unify circular week paging`共同识别。唯一下一任务：形成clean精确SHA、
+  分配新体验版、上传并可信追加allowlist；随后由小米14的3.17.2/3.17.3实例分别复核恢复与零视觉回归。
 
 ## 当前批次：Skyline 3.17.2 专属 UI 兼容体验版134已上传并放行，待双实例验收
 
