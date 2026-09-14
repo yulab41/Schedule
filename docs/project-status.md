@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：小程序 Skyline 运行时诊断增强已实现
+## 当前批次：小程序 Skyline 运行时诊断体验版133已交付
 
 - 用户选择先发布诊断增强版，不先修改业务UI。故障基线为体验版`0.1.0-p10.20260914.132@44034fcc`；异常实例尚无基础库报告，不把环境推断写成最终根因。
 - 诊断页已改为固定首屏加显式纵向scroll-view；增加Grid、跨组件CSS变量、滚动尺寸自动探针，CSS/SVG图形对照和首屏复制。登录、工作台、成员日历、API、权限及数据均未修改。详情见`docs/audit/runtime-ui-diagnostics-20260914.md`。
 - RED 17项中1失败；合并后诊断/导出联合69、Mini完整173文件1187项通过/16跳过。Mini/Web TypeScript、production build363文件、Storybook build及390/320/大字号辅助复核通过；包体主1728648B/总4591628B、确定性Manifest`fb649413…5f2f7`，320无横溢，按钮44px。lint与smoke:check-core通过；独占general-2复用依赖，无安装。
 - Mini verify在诊断源码/构建/包体后仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试；独立typecheck、build、package和determinism均通过。检查点以`feat(miniprogram): add first-screen runtime diagnostics`识别。
-- 诊断检查点`c694345c`已推送，并按发布血缘要求合并最新`origin/main@4179f05a`；待冻结L3候选。在精确SHA、动态版本、Manifest和测试页面明确后再次取得上传确认。当前未上传、allowlist、部署、数据库、提审或正式发布。
+- 诊断检查点`c694345c`已推送，并按发布血缘要求合并最新`origin/main@4179f05a`形成累计提交`2d7f685a`。`0.1.0-p10.20260914.133`已用production/clean上传成功，Manifest`eb302276…16b90b0`，远端不可变tag、allocation、Manifest和receipt一致；详情见`docs/audit/runtime-ui-diagnostics-trial-release-20260914.md`。
+- 未追加服务器allowlist，未部署生产、修改数据库、提审或正式发布。唯一下一任务：正常与异常微信实例都确认`.133/2d7f685`，在“更多 → 测试工具”返回首屏截图、复制首屏诊断和滚动结果；两份同版本证据齐全前不判断最终根因、不修改业务UI。
 
 ## 当前批次：Feedback26 手动排班刷新与最长一年范围已实现
 
