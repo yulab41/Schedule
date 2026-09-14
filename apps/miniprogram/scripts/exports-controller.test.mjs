@@ -213,6 +213,76 @@ describe('Mini export controller mirrors Web selection and polling', () => {
     expect(page.data.format).toBe('csv');
   });
 
+  it.each([
+    ['month', undefined, (definition, page) => definition.methods.handleNextPeriod.call(page)],
+    [
+      'year',
+      (definition, page) =>
+        definition.methods.handlePeriodType.call(page, {
+          currentTarget: { dataset: { periodType: 'year' } },
+        }),
+      (definition, page) => definition.methods.handleNextPeriod.call(page),
+    ],
+    [
+      'period type',
+      undefined,
+      (definition, page) =>
+        definition.methods.handlePeriodType.call(page, {
+          currentTarget: { dataset: { periodType: 'year' } },
+        }),
+    ],
+    [
+      'role',
+      undefined,
+      (definition, page) =>
+        definition.methods.handleRoleChange.call(page, {
+          detail: { option: page.data.roleOptions[1] },
+        }),
+    ],
+    [
+      'member',
+      undefined,
+      (definition, page) =>
+        definition.methods.handleMemberChange.call(page, {
+          detail: { option: page.data.memberOptions[1] },
+        }),
+    ],
+    [
+      'format',
+      undefined,
+      (definition, page) =>
+        definition.methods.handleFormatChange.call(page, {
+          currentTarget: { dataset: { format: 'csv' } },
+        }),
+    ],
+    [
+      'export type',
+      undefined,
+      (definition, page) =>
+        definition.methods.handleTypeChange.call(page, { detail: { value: '1' } }),
+    ],
+  ])('requires generating a new file after changing %s', async (_label, prepare, change) => {
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.optionsLoading).toBe(false));
+    prepare?.(definition, page);
+    definition.methods.handleCreate.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('downloaded'));
+    mocks.releaseTemporaryExport.mockClear();
+
+    change(definition, page);
+
+    expect(page.data.state).toBe('idle');
+    expect(page.data.statusLabel).toBe('选择内容后创建任务');
+    expect(page.data.fileLabel).toBe('');
+    expect(page.data.canCheckJob).toBe(false);
+    expect(page.data.canRetryCreate).toBe(true);
+    expect(page._jobId).toBeUndefined();
+    expect(page._tempFilePath).toBeUndefined();
+    expect(mocks.releaseTemporaryExport).toHaveBeenCalledWith('wxfile://export.csv');
+  });
+
   it('offers Word only for an eligible schedule and resets statistics to Excel', async () => {
     mocks.getExportOptions.mockResolvedValueOnce({
       scheduleFormats: ['csv', 'docx'],

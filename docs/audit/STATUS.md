@@ -4,8 +4,14 @@
 
 - 故障基线为体验版132/44034fcc；同一包在不同微信实例出现Grid纵排、加载圈尖角和测试工具无法滚动。异常实例尚无基础库报告，不宣称最终根因。
 - 仅诊断页改为固定首屏加显式scroll-view，增加Grid/CSS变量/滚动自动探针、CSS/SVG对照和首屏复制；业务页面、API、权限与数据零修改。详情见`runtime-ui-diagnostics-20260914.md`。
-- RED 1；GREEN test-tools20、联合33、Mini完整1180/16跳过。Mini/Web TypeScript、production build、Storybook build和390/320/大字号辅助复核通过；均非微信原生验收。
-- Mini verify被既有未改手排节点预算1507>1506阻断，本轮不放宽预算。唯一下一任务：完成干净checkpoint并进入L3候选核验；上传前报告精确身份并再次确认。未执行上传、allowlist、生产、提审或正式发布。
+- RED 1；合并后诊断/导出联合69、Mini完整1187通过/16跳过。Mini/Web TypeScript、production build、Storybook build和390/320/大字号辅助复核通过；均非微信原生验收。
+- Mini verify仍仅被既有未改手排节点预算1507>1506阻断，本轮不放宽预算。诊断检查点已合并最新主线导出状态修复；production包363文件、主包1728648B/总4591628B，确定性Manifest`fb649413…5f2f7`。待冻结L3候选；上传前报告精确身份并再次确认。未执行上传、allowlist、生产、提审或正式发布。
+
+## 当前批次：Feedback26 导出筛选切换重置文件状态
+
+- 导出文件生成后，月份、年份、周期模式、岗位、人员、文件格式或导出类型发生实际变化时，统一清理旧任务/临时文件并回到“选择内容后创建任务”；相同值点击不重置。
+- RED 7失败/29通过，GREEN控制器36通过，导出相邻边界联合43通过；Mini production verify通过，包体4579789字节、Worklet2/2。
+- 检查点：`4179f05a fix(miniprogram): reset generated export after selection changes`。本轮只有静态/Node/Mini构建证据，未操作开发者工具、未上传或部署，原生验收未进行。
 
 ## 当前批次：Feedback22 已部署并放行124，待小米14复核
 

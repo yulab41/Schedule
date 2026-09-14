@@ -4,9 +4,9 @@
 
 - 用户选择先发布诊断增强版，不先修改业务UI。故障基线为体验版`0.1.0-p10.20260914.132@44034fcc`；异常实例尚无基础库报告，不把环境推断写成最终根因。
 - 诊断页已改为固定首屏加显式纵向scroll-view；增加Grid、跨组件CSS变量、滚动尺寸自动探针，CSS/SVG图形对照和首屏复制。登录、工作台、成员日历、API、权限及数据均未修改。详情见`docs/audit/runtime-ui-diagnostics-20260914.md`。
-- RED 17项中1失败；GREEN test-tools20、联合33、Mini完整173文件1180项通过/16跳过。Mini/Web TypeScript、production build363文件、Storybook build及390/320/大字号辅助复核通过；包体主1728648B/总4591358B、确定性Manifest`846e53b0…1d6219d`，320无横溢，按钮44px。lint与smoke:check-core通过；独占general-2复用依赖，无安装。
-- Mini verify在诊断源码/构建/包体后被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试。检查点以`feat(miniprogram): add first-screen runtime diagnostics`识别。
-- 唯一下一任务：完成干净checkpoint后进入L3候选核验；在精确SHA、动态版本、Manifest和测试页面明确后再次取得上传确认。当前未上传、allowlist、部署、数据库、提审或正式发布。
+- RED 17项中1失败；合并后诊断/导出联合69、Mini完整173文件1187项通过/16跳过。Mini/Web TypeScript、production build363文件、Storybook build及390/320/大字号辅助复核通过；包体主1728648B/总4591628B、确定性Manifest`fb649413…5f2f7`，320无横溢，按钮44px。lint与smoke:check-core通过；独占general-2复用依赖，无安装。
+- Mini verify在诊断源码/构建/包体后仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试；独立typecheck、build、package和determinism均通过。检查点以`feat(miniprogram): add first-screen runtime diagnostics`识别。
+- 诊断检查点`c694345c`已推送，并按发布血缘要求合并最新`origin/main@4179f05a`；待冻结L3候选。在精确SHA、动态版本、Manifest和测试页面明确后再次取得上传确认。当前未上传、allowlist、部署、数据库、提审或正式发布。
 
 ## 当前批次：Feedback26 手动排班刷新与最长一年范围已实现
 
@@ -20,6 +20,13 @@
 
 - 修复漏日/错列：一值先上后下、先左后右，首尾留空，中途缺位为`-`；历史ID归一，二/三值及Word视觉不变。
 - Word只读planned基础人员，忽略换班/加扣班actual；历史换班补记不改排班、不通知。全量verify通过，待部署、补记及新体验版。详见`docs/audit/head-neck-docx-export.md`。
+
+## 当前批次：Feedback26 导出筛选切换重置文件状态
+
+- 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
+- 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
+- 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
+- 检查点`4179f05a fix(miniprogram): reset generated export after selection changes`已进入累计体验版候选。未操作微信开发者工具、未上传体验版、未部署生产；原生效果待同SHA体验版复核。
 
 ## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 
