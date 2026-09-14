@@ -11,7 +11,11 @@
 - Mini完整1197项通过/16跳过；typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；
   主包1736356B、总包4604267B，较`.134`增加3770B（约0.08%），无新增依赖。
   `pnpm miniprogram:verify`仅被本轮未改手排节点预算1507>1506阻断。运行/浏览器验证：本轮不触及Web
-  核心；`pnpm smoke:check-core`已执行并通过。小米14新版本验收待上传后进行。
+  核心；`pnpm smoke:check-core`已执行并通过。
+- `.135@c7025b93`已production/clean上传，Manifest `1aec459f…45b3bf8`，远端tag及ignored
+  allocation/Manifest/receipt一致。L4可信ensure只追加`.135`并保留旧版；allowlist与完整ECS
+  verifier通过，公网`.135/.134=200`、动态未知`=426`。未提审、正式发布或部署新应用制品；
+  小米14双实例原生验收待用户完成。
 
 ## 2026-09-13 Feedback24 与 DOCX 累计合并
 
