@@ -1,13 +1,14 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 访客周视图分页已叠加到累积基线，待交付体验版
+## 当前批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
 
 - 用户复核`.137@09e6398`：3.17.2访客页面周视图滑动乱跳、切到非本周后点单元格无反应；同实例月视图、成员周视图与3.17.3正常。
 - 根因：访客页仍使用成员页在`.135`废弃的强制归中（`weekSwiperCurrent=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；3.17.2对该0ms回跳会反向动画或补发`animationfinish`，并使原生swiper停在2号页、数据停在1号，可见单元格属于另一周，点击后选中态落在不可见面板。
 - 修复：访客页直接导入成员页同一个`calendar-period-pager`环形状态机，渲染用`mapCalendarPeriodRing`，模板加`circular`/`bindchange`并读取`weekPanels[weekSwiperCurrent]`；260ms、easeOutCubic、±6有界队列与提交锁不变，月/列表视图与成员页面零差异。
 - 血缘：并行会话的`.138@09c100d5`（3.17.2选择器浮层与页头箭头）是当前最新累积体验版；本分支以它为基线线性叠加访客周视图修复，不改写对方分支、不产生合并冲突。若上传前基线再次前进，必须重新叠加。
 - RED 2项失败；GREEN定向42项、Mini完整174文件1206项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1741484B/总4609138B，较`.138`增2337B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
-- 唯一下一任务：取得当前消息上传授权后交付新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2访客周视图滑动与点击，并确认`.138`的箭头/选择器修复与3.17.3均无回归。详情见`docs/audit/runtime-ui-compatibility-guest-week-pager-20260915.md`。
+- `.139@a9c3204`已以production/clean上传，Manifest`a2491815…d91e4d7b`与tag/allocation/receipt一致；可信ensure只追加`.139`并保留`.135/.136/.137/.138`，allowlist与完整ECS verifier通过，公网`.139/.138/.137/.136`均200、动态未知版本426。live release仍`44034fcc…d276df9`，未部署应用或修改数据库。
+- 唯一下一任务：小米14双实例重开`.139@a9c3204`，复核3.17.2访客周视图滑动不乱跳、切周后点单元格立即选中，并确认`.138`箭头/选择器与月/列表/成员页面无回归。详情见`docs/audit/runtime-ui-compatibility-guest-week-pager-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头已实现，待体验版交付
 
