@@ -1,6 +1,14 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 3.17.2 访客按压反馈对齐体验版137已上传并放行，待双实例复核
+## 当前批次：Skyline 3.17.2 访客周视图分页已对齐，待体验版交付
+
+- 用户复核`.137@09e6398`：3.17.2访客页面周视图乱跳、切到非本周后点单元格无反应；月视图、成员周视图与3.17.3正常。
+- 根因：访客页仍使用成员页在`.135`废弃的强制归中（`current=1`+`duration:0`回跳）；3.17.2对该回跳反向动画或补发事件，并使原生页与数据槽位错位，点击落到不可见面板。
+- 修复：访客页导入同一个`calendar-period-pager`环形状态机，`renderCalendar`用`mapCalendarPeriodRing`，模板加`circular`/`bindchange`并读取`weekPanels[weekSwiperCurrent]`；260ms、easeOutCubic、±6队列与提交锁不变，成员页面零差异。
+- RED2项失败；GREEN访客运行时20项、联合73项、Mini完整174文件1203项通过/16跳过、根270文件1273项通过/444跳过。typecheck/build366文件/source/determinism/format/lint/smoke:check-core通过；主包1739401B/总4607055B，较`.137`增2337B。Mini verify仍仅被既有未改手排1507>1506阻断。
+- 唯一下一任务：取得上传授权后交付新体验版并add-only放行保留旧版，再由双实例复核访客周视图滑动与点击。详情见`runtime-ui-compatibility-guest-week-pager-20260915.md`。
+
+## 上一批次：Skyline 3.17.2 访客按压反馈对齐体验版137已上传并放行，待双实例复核
 
 - 用户复核`.136@efda88f`：成员页面四项修复通过，但3.17.2访客页面仍出现周格灰色闪烁和月格蓝色反馈滞留。
 - 访客页面已有`.is-skyline-3172-ui`根类并继承成员页面的Grid/Flex后备样式，缺的是两项条件参数：月历未传`runtime-pressed-feedback-compatibility`、周格无条件`hover-class="is-pressed"`。

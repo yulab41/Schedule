@@ -1,6 +1,14 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 访客按压反馈对齐体验版137已上传并放行，待双实例复核
+## 当前批次：Skyline 3.17.2 访客周视图分页已对齐，待体验版交付
+
+- 用户复核`.137@09e6398`：3.17.2访客页面周视图滑动乱跳、切到非本周后点单元格无反应；同实例月视图、成员周视图和3.17.3均正常。
+- 根因是访客页仍在用成员页在`.135`废弃的“动画后强制归中”（`current=1`+`duration:0`回跳）。3.17.2对该0ms回跳会反向动画或补发`animationfinish`，并把原生页停在2号、数据停在1号，导致点击落在不可见面板。
+- 访客页现直接导入成员页同一个`calendar-period-pager`环形状态机，模板改为`circular`+`bindchange`+`weekPanels[weekSwiperCurrent]`；260ms、`easeOutCubic`、±6有界队列与提交锁不变，月/列表视图和成员页面零差异。
+- RED新增2项（模板环形契约、环形行为，覆盖3.17.2与正常运行时）在旧实现上失败；GREEN访客运行时20项、联合73项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck/build366文件/source/determinism/format/lint/smoke:check-core通过；主包1739401B/总4607055B，较`.137`增2337B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 唯一下一任务：取得当前消息上传授权后交付新体验版并add-only放行、保留旧版，再由3.17.2/3.17.3双实例复核访客周视图滑动与点击。详情见`docs/audit/runtime-ui-compatibility-guest-week-pager-20260915.md`。
+
+## 上一批次：Skyline 3.17.2 访客按压反馈对齐体验版137已上传并放行，待双实例复核
 
 - 用户复核`.136@efda88f`：四项修复在成员页面通过，但3.17.2访客页面仍出现周格灰色闪烁和月格蓝色反馈滞留。
 - 根因是访客页面已继承成员页面的`.is-skyline-3172-ui`根类与Grid/Flex后备样式，却漏接两项条件参数：`pages/guest/guest.wxml`的月历未传`runtime-pressed-feedback-compatibility`，周格仍无条件使用`hover-class="is-pressed"`。

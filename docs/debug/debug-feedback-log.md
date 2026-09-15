@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-15 Skyline 3.17.2 访客周视图分页对齐
+
+- 反馈/引入点：`.137@09e6398`上3.17.2访客页面周视图滑动乱跳、切到非本周后点单元格无反应，月视图/成员周视图/3.17.3正常。访客页仍在用成员页于`c7025b93`（`.135`）废弃的强制归中（`weekSwiperCurrent=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；成员页已改为共享`calendar-period-pager`环形槽位。
+- 根因：3.17.2对0ms回跳产生反向动画或补发`animationfinish`，并让原生swiper停在2号页而数据为1号，可见单元格属于下一周，点击后选中态落在不可见面板，表现为“点不到”。
+- RED新增2项在旧实现上失败（模板缺`circular`/`bindchange`、提交后槽位回1而非目标槽位）；GREEN访客运行时20项、联合73项、Mini完整174文件1203项通过/16跳过、根270文件1273项通过/444跳过；typecheck、production build366文件、source/package/determinism、format、lint通过。主包1739401B、总4607055B，较`.137`增2337B。Mini verify仍仅被未改手排节点1507>1506阻断。
+- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过。访客页未上传、未放行、未部署生产应用；3.17.2/3.17.3真机复核待用户授权与验证。
+
 ## 2026-09-15 Skyline 3.17.2 访客页面按压反馈对齐
 
 - 反馈/引入点：`.136@efda88f`成员页面四项修复通过，但3.17.2访客页面仍周格灰闪、月格蓝反馈滞留。访客页面`pages/guest/guest.wxml`已有`is-skyline-3172-ui`根类并`@import`成员页面样式，缺的是上月格`runtime-pressed-feedback-compatibility`参数和上周格的`hover-class`条件；周格灰闪来自`ad4cfb2c`的通用`.is-pressed { opacity: 0.72 }`，月格滞留来自`1f715c96`的70ms。
