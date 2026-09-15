@@ -1,11 +1,13 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 页头与按压反馈修复已实现，正在交付体验版
+## 当前批次：Skyline 页头与按压反馈体验版136已上传并放行，待双实例验收
 
 - `.135@c7025b93`真机确认周切换已正常；3.17.2仍有群名省略、下拉菜单被日历文字覆盖、周格灰闪和月格蓝色反馈滞留，3.17.3正常。
 - 根因是`.134`兼容宽度仍被父Flex百分比上限压回、旧Skyline滚动合成层高于页内菜单，以及3.17.2对既有hover透明度/70ms保留时间表现不同。菜单已收敛为所有版本共用的一份root-portal、一份选项模板和一个事件；仅3.17.2保留确定宽度、周格无灰色按压类和月格松手0ms参数。3.17.3的菜单几何/视觉、周格反馈和月格70ms不变。详情见`docs/audit/runtime-ui-compatibility-header-press-fix-20260915.md`。
 - 累计RED 4失败，单菜单收敛RED 1失败；GREEN定向30项、Mini完整174文件1199项通过/16跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过。主包1736932B/总4604586B，较`.135`总包仅增319B（约0.007%），无新增依赖；Mini verify仍仅被既有未改手排节点1507>1506阻断。
-- 用户已在当前消息授权上传与追加放行。实现检查点`890c50a9 refactor(miniprogram): share Skyline group menu portal`已推送；首次冻结上传在版本分配前被过期的`workbench/index.ts` canonical blob拒绝，精确diff仅含根层菜单定位字段/默认值/布局patch返回值，未占号、未建tag、未调用微信上传。刷新policy并通过lineage门禁后重新冻结上传；可信放行只追加新版本并保留`.135/.134`等旧版，不部署生产应用或迁移数据库。
+- `.136@efda88f`已以production/clean上传；tag、allocation、Manifest `27702a1c…f908a32b`和receipt一致。首次`890c50a9`候选因过期canonical blob在占号/上传前停止，policy刷新后lineage/上传门禁通过。
+- 可信allowlist ensure只追加`.136`并保留`.135/.134`等旧版；allowlist verifier、完整ECS verifier通过，公网`.136/.135`为200、动态未知版本为426。live release仍为`44034fcc…d276df9`，未部署应用、备份或迁移数据库。
+- 自动证据不能代替真机。唯一下一任务：同一小米14双实例均核对`.136@efda88f`；3.17.2复核群名、菜单遮挡、周格灰闪、月格反馈，3.17.3复核页头/菜单/通知胶囊、单元格反馈和260ms动画均不变。详情见`docs/audit/runtime-ui-compatibility-header-press-trial-release-20260915.md`。
 
 ## 当前批次：Skyline 周视图兼容体验版135已上传并放行，待双实例验收
 

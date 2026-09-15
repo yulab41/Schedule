@@ -7,7 +7,7 @@
 - 反馈/引入点：`.135@c7025b93`周切换已恢复，但3.17.2仍有群名省略、菜单被日历文字覆盖、周格灰闪和月格蓝色反馈偏长。`git log -S`/`git blame`定位页头约束/菜单到`733e3af6`、3.17.2仍受百分比上限的补丁到`47c294ba`、周格透明度到`ad4cfb2c`、月格70ms到`1f715c96`。
 - RED旧实现累计4失败；用户要求避免重复菜单后，新增单菜单断言在双分支实现上准确失败1项。所有版本现共用一份root-portal菜单、一份选项模板和一个选择事件；仅3.17.2保留220px确定宽度、周格无灰色hover类和月格松手0ms。3.17.3的216px/12px/顶部34px换算、颜色/圆角/阴影、周格按压和月格70ms不变；分页状态机和动画时长未改。
 - GREEN定向30项、Mini完整1199项通过/16跳过；typecheck/build/source/package/determinism/format/lint通过。主包1736932B、总4604586B，较`.135`总包仅增319B。Mini verify仅被未改手排节点预算1507>1506阻断。
-- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过。首次冻结上传在版本分配前被过期的`workbench/index.ts` canonical blob拒绝；精确diff仅有根层菜单定位字段/默认值/布局patch返回值，刷新policy后重新执行正式门禁。该次失败未占号、未建tag、未调用微信上传。root-portal原生合成和四项真机结果仍待同SHA体验版复核。
+- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过。首次冻结上传在版本分配前被过期的`workbench/index.ts` canonical blob拒绝；精确diff仅有根层菜单定位字段/默认值/布局patch返回值，该次失败未占号、未建tag、未调用微信上传。刷新policy后lineage/上传门禁通过，`.136@efda88f`已上传并add-only放行；公网`.136/.135`为200、动态未知版本426，完整ECS verifier通过。root-portal原生合成和双版本视觉仍待同SHA真机复核。
 
 ## 2026-09-15 Skyline 3.17.2 周视图交互与圆角兼容
 

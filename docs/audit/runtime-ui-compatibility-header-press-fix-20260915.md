@@ -58,6 +58,7 @@ Toast token 只同步重命名选择器与引用，并由构建测试证明恢�
 
 ## 验收边界
 
-当前只有静态、Node 和 production 构建证据，未调用微信开发者工具，也没有新的小米 14 原生
-证据。用户已在当前消息授权上传和追加放行；下一步形成干净检查点后冻结并上传新体验版，放行仍
-只做 add-only ensure 并保留旧版。随后分别复核 3.17.2 四项恢复及 3.17.3 外观与交互不变。
+体验版 `.136@efda88f` 已以 production/clean 上传并追加放行；远端 tag、allocation、Manifest 与
+receipt 一致，放行后 `.136/.135` 均为 HTTP 200、动态未知版本为 426，完整生产 verifier 通过。
+未调用微信开发者工具，也没有新的小米 14 原生证据。随后须分别复核 3.17.2 四项恢复及 3.17.3
+外观与交互不变；详见 `runtime-ui-compatibility-header-press-trial-release-20260915.md`。
