@@ -1177,18 +1177,6 @@ page {
   letter-spacing: -0.25px;
 }
 
-.workbench-shell-header .group-menu {
-  position: absolute;
-  z-index: 120;
-  top: 34px;
-  left: 0;
-  width: 216px;
-  max-width: calc(100vw - 24px);
-  margin: 0;
-  padding: 4px;
-  box-sizing: border-box;
-}
-
 .is-skyline-3172-ui .group-switcher {
   width: 220px;
   max-width: none;
@@ -1224,18 +1212,6 @@ page {
 }
 
 .group-menu-portal .group-option.is-selected {
-  background: var(--ui-color-primary-light);
-}
-
-.workbench-shell-header .group-option {
-  min-height: 48px;
-  padding: 5px 8px;
-  box-sizing: border-box;
-  border: 0;
-  border-radius: 8px;
-}
-
-.workbench-shell-header .group-option.is-selected {
   background: var(--ui-color-primary-light);
 }
 

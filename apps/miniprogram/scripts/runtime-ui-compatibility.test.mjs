@@ -96,21 +96,26 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     );
   });
 
-  it('elevates only the affected runtime group menu above the Skyline scroll layer', () => {
+  it('uses one shared root-layer group menu across Skyline runtimes', () => {
     const template = readSource('pages/workbench/index.wxml');
     const styles = readSource('pages/workbench/index.wxss');
     const page = readSource('pages/workbench/index.ts');
     const buildTools = readFileSync(new URL('./build-tools.mjs', import.meta.url), 'utf8');
 
-    expect(template).toContain('wx:if="{{groupOpen && !skyline3172UiCompatibility}}"');
+    expect(template.match(/class="group-menu(?:\s|")/gu)).toHaveLength(1);
+    expect(template.match(/bindtap="handleGroupSelect"/gu)).toHaveLength(1);
+    expect(template).not.toContain('groupOpen && !skyline3172UiCompatibility');
+    expect(template).not.toContain('groupOpen && skyline3172UiCompatibility');
     expect(template).toMatch(
-      /<root-portal\s+wx:if="\{\{groupOpen && skyline3172UiCompatibility\}\}"\s+enable="\{\{true\}\}"\s*>/u,
+      /<root-portal\s+wx:if="\{\{groupOpen\}\}"\s+enable="\{\{true\}\}"\s*>/u,
     );
     expect(template).toContain('class="group-menu group-menu-portal ui-root-portal-token-scope"');
     expect(template).toContain('style="{{groupMenuPortalStyle}}"');
     expect(styles).toContain("@import '../../styles/ui-root-portal-tokens.wxss';");
     expect(styles).toMatch(/\.group-menu-portal\s*\{[^}]*position:\s*fixed/su);
     expect(styles).toMatch(/\.group-menu-portal\s*\{[^}]*z-index:\s*200/su);
+    expect(styles).not.toContain('.workbench-shell-header .group-menu');
+    expect(styles).not.toContain('.workbench-shell-header .group-option');
     expect(page).toContain('readonly groupMenuPortalStyle: string;');
     expect(page).toContain('groupMenuPortalStyle: `top:${contentTop + 34}px;left:12px;`');
     expect(buildTools).toContain(

@@ -14,32 +14,6 @@
             ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit"
           /></view>
         </view>
-        <view
-          wx:if="{{groupOpen && !skyline3172UiCompatibility}}"
-          class="group-menu"
-          aria-label="选择当前群组"
-        >
-          <view
-            wx:for="{{groups}}"
-            wx:key="id"
-            class="group-option {{item.id === currentGroupId ? 'is-selected' : ''}}"
-            data-group-id="{{item.id}}"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleGroupSelect"
-          >
-            <view class="group-option-copy"
-              ><text>{{item.name}}</text
-              ><text
-                >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
-                item.role === 'guest' ? '访客' : '成员'}}</text
-              ></view
-            >
-            <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
-              >✓</text
-            >
-          </view>
-        </view>
       </view>
       <text class="shell-page-title"
         >{{activeWorkspace === 'calendar' ? '日历' : activeWorkspace === 'directory' ? '通讯录' :
@@ -79,10 +53,7 @@
     </view>
   </view>
 
-  <root-portal
-    wx:if="{{groupOpen && skyline3172UiCompatibility}}"
-    enable="{{true}}"
-  >
+  <root-portal wx:if="{{groupOpen}}" enable="{{true}}">
     <view
       class="group-menu group-menu-portal ui-root-portal-token-scope"
       style="{{groupMenuPortalStyle}}"
