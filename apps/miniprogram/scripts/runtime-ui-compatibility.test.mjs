@@ -150,6 +150,26 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     );
   });
 
+  it('applies the same 3.17.2 press-feedback boundary to guest calendar views', () => {
+    const workbenchTemplate = readSource('pages/workbench/index.wxml');
+    const guestTemplate = readSource('pages/guest/guest.wxml');
+    const pressedFeedbackBoundary =
+      "hover-class=\"{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}\"";
+
+    expect(workbenchTemplate).toContain(
+      'runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"',
+    );
+    expect(guestTemplate).toContain(
+      'runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"',
+    );
+    expect(workbenchTemplate).toContain(pressedFeedbackBoundary);
+    expect(guestTemplate).toContain(pressedFeedbackBoundary);
+    expect(guestTemplate.match(/class="week-day /gu)).toHaveLength(1);
+    expect(guestTemplate.slice(guestTemplate.indexOf('class="week-day ')).slice(0, 400)).toContain(
+      pressedFeedbackBoundary,
+    );
+  });
+
   it('keeps the normal toast border and uses an element accent only on 3.17.2', () => {
     const component = readSource('components/ui/ui-toast/index.ts');
     const template = readSource('components/ui/ui-toast/index.wxml');

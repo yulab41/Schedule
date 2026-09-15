@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-15 Skyline 3.17.2 访客页面按压反馈对齐
+
+- 反馈/引入点：`.136@efda88f`成员页面四项修复通过，但3.17.2访客页面仍周格灰闪、月格蓝反馈滞留。访客页面`pages/guest/guest.wxml`已有`is-skyline-3172-ui`根类并`@import`成员页面样式，缺的是上月格`runtime-pressed-feedback-compatibility`参数和上周格的`hover-class`条件；周格灰闪来自`ad4cfb2c`的通用`.is-pressed { opacity: 0.72 }`，月格滞留来自`1f715c96`的70ms。
+- RED新增1项并在该双分支缺口上准确失败；GREEN复用成员页面同一表达式后，兼容/布局/访客运行31项、Mini完整174文件1200项通过/16跳过、根套件270文件1273项通过/444跳过。
+- 源码只改`pages/guest/guest.wxml`两行，成员页面零差异；typecheck、production build366文件、source/package/determinism、format/lint通过。主包1737064B、总4604718B，较`.136`仅增132B。Mini verify仍仅被未改手排节点预算1507>1506阻断。
+- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过；同时把`docs/project-status.md`收敛回40KB/250行策略上限。访客页面的3.17.2/3.17.3真机结果与上传仍待用户授权与复核，当前未上传、未放行、未部署生产应用。
+
 ## 2026-09-15 Skyline 3.17.2 页头遮挡与单元格反馈兼容
 
 - 反馈/引入点：`.135@c7025b93`周切换已恢复，但3.17.2仍有群名省略、菜单被日历文字覆盖、周格灰闪和月格蓝色反馈偏长。`git log -S`/`git blame`定位页头约束/菜单到`733e3af6`、3.17.2仍受百分比上限的补丁到`47c294ba`、周格透明度到`ad4cfb2c`、月格70ms到`1f715c96`。

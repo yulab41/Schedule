@@ -56,9 +56,31 @@ Toast token 只同步重命名选择器与引用，并由构建测试证明恢�
 `createShellLayoutPatch` 返回值；分页、选择、请求与生命周期方法均未改变。血缘 policy 已更新为
 当前 blob，并须经 lineage/上传门禁重新验证；该次失败未分配版本、未创建 tag、未调用微信上传。
 
+## 访客页面按压反馈对齐（`.136` 复核后）
+
+用户复核 `.136@efda88f` 后确认：成员页面四项修复通过，但 3.17.2 访客页面仍出现周格灰色闪烁和月格
+蓝色反馈滞留。访客页面 `pages/guest/guest.wxml` 第 1 行已带 `is-skyline-3172-ui` 根类，并通过
+`@import '../workbench/index.wxss'` 继承成员页面的 Grid/Flex 后备与选中样式，但漏接两项条件参数：
+
+- 访客月历 `<calendar-month>` 未传 `runtime-pressed-feedback-compatibility`，3.17.2 仍按 70ms 保留蓝反馈；
+- 访客周格仍无条件使用 `hover-class="is-pressed"`，点击后出现 `.is-pressed { opacity: 0.72 }` 灰闪。
+
+修复复用成员页面完全相同的参数名与表达式，没有新增第二套机制。源码改动只有两行：访客月历新增
+`runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"`，访客周格改为
+`hover-class="{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}"`。成员页面、月/周分页状态机、
+动画时长、数据、权限与 API 均无改动；3.17.3 和无法读取版本的取值与外观不变。
+
+RED 新增 1 项并在该双分支缺口上准确失败；GREEN 兼容/布局/访客运行定向 31 项、Mini 完整 174 文件
+1200 项通过、16 项跳过，根套件 270 文件 1273 项通过、444 项跳过。TypeScript、production build（366 文件）、source audit、determinism、
+format、lint、`smoke:check-core` 通过；主包 1,737,064 B、总包 4,604,718 B，较 `.136` 仅增 132 B。
+`pnpm --filter @schedule/miniprogram verify` 仍只被未修改的手排节点预算 `1507 > 1506` 阻断。
+
 ## 验收边界
 
 体验版 `.136@efda88f` 已以 production/clean 上传并追加放行；远端 tag、allocation、Manifest 与
 receipt 一致，放行后 `.136/.135` 均为 HTTP 200、动态未知版本为 426，完整生产 verifier 通过。
 未调用微信开发者工具，也没有新的小米 14 原生证据。随后须分别复核 3.17.2 四项恢复及 3.17.3
 外观与交互不变；详见 `runtime-ui-compatibility-header-press-trial-release-20260915.md`。
+
+访客页面对齐尚未上传：必须取得用户对本次检查点的当次明确上传授权后才能分配版本并上传，
+不把成员页面的 `.136` 通过或本轮本地证据当作访客页面的原生验收。

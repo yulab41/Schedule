@@ -78,6 +78,7 @@
               <calendar-month
                 id="workbench-month"
                 grid-height="{{gridHeight}}"
+                runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"
                 month-label="{{monthLabel}}"
                 panel-heights="{{monthPanelHeights}}"
                 panels="{{monthPanels}}"
@@ -311,7 +312,7 @@
                         wx:key="businessDate"
                         class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
                         data-business-date="{{day.businessDate}}"
-                        hover-class="is-pressed"
+                        hover-class="{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}"
                         aria-role="button"
                         bindtap="handleWeekDaySelect"
                       >
