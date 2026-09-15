@@ -1,13 +1,14 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 访客页面按压反馈对齐已实现，待体验版交付
+## 当前批次：Skyline 3.17.2 访客按压反馈对齐体验版137已上传并放行，待双实例复核
 
 - 用户复核`.136@efda88f`：四项修复在成员页面通过，但3.17.2访客页面仍出现周格灰色闪烁和月格蓝色反馈滞留。
 - 根因是访客页面已继承成员页面的`.is-skyline-3172-ui`根类与Grid/Flex后备样式，却漏接两项条件参数：`pages/guest/guest.wxml`的月历未传`runtime-pressed-feedback-compatibility`，周格仍无条件使用`hover-class="is-pressed"`。
 - 访客页面现复用成员页面完全相同的机制与同一表达式；源码改动仅`pages/guest/guest.wxml`两行，成员页面零差异，3.17.3与无法读取版本的数值和外观不变，未新增依赖或第二套机制。
 - RED新增1项并在该双分支缺口上准确失败；GREEN定向31项、Mini完整174文件1200项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck、production build366文件、source/determinism、format/lint/smoke:check-core通过。主包1737064B/总4604718B，较`.136`仅增132B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
 - 同时修复既有`docs/project-status.md`超出40KB/250行策略上限：只保留最近批次，旧批次细节继续留在Git历史与`docs/audit/`。详情见`docs/audit/runtime-ui-compatibility-header-press-fix-20260915.md`。
-- 唯一下一任务：获当前消息授权后上传新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2访客页面与成员页面按压反馈一致。
+- `.137@09e63980`已以production/clean上传，Manifest`cede600c…336768c5`与tag/allocation/receipt一致；可信ensure只追加`.137`并保留`.135/.136`，allowlist与完整ECS verifier通过，公网`.137/.136/.135`均为200、动态未知版本426。live release仍`44034fcc…d276df9`，未部署应用或修改数据库。
+- 唯一下一任务：小米14双实例重开`.137@09e6398`，复核3.17.2访客页面周格不灰闪、月格蓝反馈及时消失，且成员页面与3.17.3外观及260ms动画不变。详情见`docs/audit/runtime-ui-compatibility-guest-parity-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 页头与按压反馈体验版136已上传并放行，待双实例验收
 

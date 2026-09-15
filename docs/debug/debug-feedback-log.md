@@ -7,7 +7,8 @@
 - 反馈/引入点：`.136@efda88f`成员页面四项修复通过，但3.17.2访客页面仍周格灰闪、月格蓝反馈滞留。访客页面`pages/guest/guest.wxml`已有`is-skyline-3172-ui`根类并`@import`成员页面样式，缺的是上月格`runtime-pressed-feedback-compatibility`参数和上周格的`hover-class`条件；周格灰闪来自`ad4cfb2c`的通用`.is-pressed { opacity: 0.72 }`，月格滞留来自`1f715c96`的70ms。
 - RED新增1项并在该双分支缺口上准确失败；GREEN复用成员页面同一表达式后，兼容/布局/访客运行31项、Mini完整174文件1200项通过/16跳过、根套件270文件1273项通过/444跳过。
 - 源码只改`pages/guest/guest.wxml`两行，成员页面零差异；typecheck、production build366文件、source/package/determinism、format/lint通过。主包1737064B、总4604718B，较`.136`仅增132B。Mini verify仍仅被未改手排节点预算1507>1506阻断。
-- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过；同时把`docs/project-status.md`收敛回40KB/250行策略上限。访客页面的3.17.2/3.17.3真机结果与上传仍待用户授权与复核，当前未上传、未放行、未部署生产应用。
+- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过；同时把`docs/project-status.md`收敛回40KB/250行策略上限。
+- 交付：用户当次授权后，独占general-3依赖复用冻结`09e63980`为production/clean候选，两次worktree safety通过。`0.1.0-p10.20260915.137`上传成功，Manifest`cede600ca4bf7f45904c61ae716b9d70e9c92ea06020364a8289182e336768c5`与远端tag、allocation、receipt一致；可信ensure只追加`.137`并保留`.135/.136`等旧版，allowlist与完整ECS verifier通过，公网`.137/.136/.135`=200、动态未知=426。生产live release仍`44034fcc…d276df9`，未部署应用、未备份或迁移数据库、未提审或正式发布。3.17.2/3.17.3访客与成员页面的按压反馈真机结果待用户复核。
 
 ## 2026-09-15 Skyline 3.17.2 页头遮挡与单元格反馈兼容
 

@@ -1,13 +1,14 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 3.17.2 访客页面按压反馈对齐已实现，待体验版交付
+## 当前批次：Skyline 3.17.2 访客按压反馈对齐体验版137已上传并放行，待双实例复核
 
 - 用户复核`.136@efda88f`：成员页面四项修复通过，但3.17.2访客页面仍出现周格灰色闪烁和月格蓝色反馈滞留。
 - 访客页面已有`.is-skyline-3172-ui`根类并继承成员页面的Grid/Flex后备样式，缺的是两项条件参数：月历未传`runtime-pressed-feedback-compatibility`、周格无条件`hover-class="is-pressed"`。
 - 现复用成员页面同一参数名与表达式，源码只改`pages/guest/guest.wxml`两行；成员页面零差异，3.17.3与无法读取版本不变，无新增依赖或第二套机制。
 - RED新增1项并在该缺口准确失败；GREEN定向31项、Mini完整174文件1200项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck/build366文件/source/determinism/format/lint/smoke:check-core通过；主包1737064B/总4604718B，较`.136`仅增132B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
 - 同时把`docs/project-status.md`收敛回40KB/250行预算内，旧批次细节保留在Git历史与`docs/audit/`。详情见`runtime-ui-compatibility-header-press-fix-20260915.md`。
-- 唯一下一任务：取得当前消息上传授权后交付新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2访客与成员页面按压反馈一致。
+- `.137@09e63980`已以production/clean上传，Manifest`cede600c…336768c5`与tag/allocation/receipt一致；可信ensure只追加`.137`并保留旧版，allowlist与完整ECS verifier通过，公网`.137/.136/.135`=200、动态未知版本=426；live release未变，未部署应用或修改数据库。
+- 唯一下一任务：小米14双实例重开`.137@09e6398`，复核3.17.2访客页面按压反馈与成员页面一致、3.17.3外观与260ms动画不变。详情见`runtime-ui-compatibility-guest-parity-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 页头与按压反馈体验版136已上传并放行，待双实例验收
 
