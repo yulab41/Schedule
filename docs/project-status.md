@@ -6,8 +6,9 @@
 - 引入点：旧小程序`1343f4c6^`的`components/calendar-grid`用`day.isPast`+`.calendar-grid__day--past{background:#f3f4f6}`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用；`1343f4c6`删除旧小程序后，`1f715c96`新建`calendar-month`/`calendar-cell`、`ad4cfb2c`接入工作台月视图时都没有携带该状态。周视图由`50c6d1ed`补齐、Web端`MonthGrid.vue`一直保留，因此只有月视图看起来“某次更新后没了”。日历路径无`SDKVersion`分支，不是基础库差异。
 - 修复只补月视图唯一复用的一个状态与一条样式：`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`，`calendar-month`转发`is-past`，`calendar-cell`属性/类/`.is-past{background:#f3f4f6}`。灰底放在`.is-pressed`之前保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件、零额外改动；预览/补录/POC默认`false`不变。
 - 实现检查点`3a9ccca9`（分支`codex/runtime-3172-past-month-gray-20260915`，基线`.138`记录`d56ecba2`）已推送；上载体在独占warm槽`codex/runtime-3172-past-month-gray-upload-20260915`把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`之上，不改写并行分支、不创建合并提交。
-- RED 3失败/26通过；`.139`基线叠加后定向49项通过，Mini完整与构建门禁见交付记录。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-20260915.md`。
-- 用户在当前消息明确授权“上传并放行”。唯一下一任务：按runbook完成`.140`候选冻结、上传与add-only放行，再由小米14双实例复核首页与访客月视图已过日期灰底，并确认今天/未来、假期粉底、选中框与按压反馈不变。
+- RED 3失败/26通过；`.139`基线叠加后定向49项通过、Mini完整174文件1210项通过/16跳过、determinism通过；主包1741761B（`.139`为1741484B，+277B），Mini verify仍只被既有未改手排1507>1506阻断。
+- `.140@c6cbb6a`已以production/clean上传，Manifest`7ae7c623…4acbc9044db`与tag/allocation/receipt一致；候选检查器上传前后均PASS（ready-clean-detached、production-clean、VERSION_LOCAL=absent）。可信ensure只追加`.140`并保留`.136/.137/.138/.139`，allowlist与完整ECS verifier通过，公网`.140/.139/.138/.137/.136`均200、动态未知版本426；live release仍`44034fcc…d276df9`，未部署应用或修改数据库。
+- 唯一下一任务：小米14双实例重开`.140@c6cbb6a`，复核首页与访客月视图已过日期灰底，并确认今天/未来、假期粉底、选中框与按压反馈不变、`.139`访客周视图分页与`.138`页头箭头/选择器无回归。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
 

@@ -50,8 +50,19 @@
   今天/未来/月外格 `false`）、simulate 类名断言与来源合同断言后，旧代码 3 项失败 / 26 项通过
   （`runtime/audit/past-month-gray-20260915/red.log`）。
 - GREEN：`.139` 基线叠加后定向 49 项通过（workbench / calendar-simulate / guest-runtime）；
-  完整套件与构建门禁结果见本文件末尾的交付记录。
+  Mini 完整 174 文件 1210 项通过/16 跳过；`determinism.mjs` 通过；主包 1,741,761 B
+  （`.139` 为 1,741,484 B，+277 B）；Mini verify 仍只被既有未改手排节点 `1507 > 1506` 阻断。
 - 证据日志统一放在 ignored `runtime/audit/past-month-gray-20260915/`。
+
+## 交付
+
+- 体验版 `0.1.0-p10.20260915.140`（说明 `Skyline past-day month gray c6cbb6a`）以
+  `production/clean` 上传成功，Manifest `7ae7c623…4acbc9044db`，远端 tag、allocation、Manifest
+  与 receipt 一致；候选检查器在上传前与上传后均 `RESULT=PASS`。
+- 可信 allowlist 只追加 `.140`，保留 `.136/.137/.138/.139`；allowlist verifier 与完整
+  `ecs-verify.sh` 通过，live release 未变，公网 `.140/.139/.138/.137/.136 = 200`、
+  动态未知版本 `= 426`。详见
+  `runtime-ui-compatibility-past-month-gray-trial-release-20260915.md`。
 
 ## 血缘
 

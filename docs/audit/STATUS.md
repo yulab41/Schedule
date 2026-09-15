@@ -5,8 +5,9 @@
 - 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有，怀疑某次更新后丢失。
 - 引入点：旧小程序`1343f4c6^`的`components/calendar-grid/index.wxml`用`day.isPast`输出`calendar-grid__day--past`、`index.wxss`定义`#f3f4f6`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用。`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)把工作台月视图接到新组件时都没有携带该状态、类或样式；周视图由`50c6d1ed`补齐，Web端`MonthGrid.vue`一直保留`.day-cell.is-past`。日历路径无`SDKVersion`分支。
 - 修复复用月视图唯一链路：`WorkbenchCell`/`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`（与周视图同款比较语义、排除月外格），`calendar-month/index.wxml`转发`is-past`，`calendar-cell`新增属性、`is-past`类与`.calendar-cell.is-past{background:#f3f4f6}`。灰底规则在`.is-pressed`之前以保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件零额外改动；预览/补录/POC默认`false`不变；未新增依赖、token或版本分支。
-- RED 3失败/26通过；上载体把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`（记录`3c8ea88d`）之上，定向49项通过。Mini完整与构建门禁、版本绑定与放行结果见下方交付记录。
-- 用户在当前消息明确授权上传并放行。详情见`runtime-ui-compatibility-past-month-gray-20260915.md`。
+- RED 3失败/26通过；上载体把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`（记录`3c8ea88d`）之上，定向49项通过、Mini完整174文件1210项通过/16跳过、determinism通过、主包1741761B（+277B）。Mini verify仍只被既有未改手排1507>1506阻断。
+- `.140@c6cbb6a`已以production/clean上传（说明`Skyline past-day month gray c6cbb6a`），Manifest`7ae7c623…4acbc9044db`与tag/allocation/receipt一致，候选检查器上传前后PASS；可信ensure只追加`.140`并保留旧版，allowlist与完整ECS verifier通过，公网`.140/.139/.138/.137/.136`=200、动态未知426，live release未变。
+- 唯一下一任务：小米14双实例重开`.140@c6cbb6a`，复核首页/访客月视图已过日期灰底与今天/未来、假期、选中框、按压反馈无回归。详情见`runtime-ui-compatibility-past-month-gray-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
 
