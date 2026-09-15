@@ -17,6 +17,6 @@
   </view>
   <template
     is="selector-options"
-    data="{{open, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options, multiple}}"
+    data="{{open, popoverPlacement, popoverPlacementReady, popoverStyle, renderedOptions, selectedOptionIndex, options, multiple}}"
   />
 </view>

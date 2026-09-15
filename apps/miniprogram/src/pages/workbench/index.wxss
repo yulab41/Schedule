@@ -1186,7 +1186,16 @@ page {
 .is-skyline-3172-ui .group-switcher-trigger {
   width: 220px;
   max-width: none;
+  padding-right: 0;
   box-sizing: border-box;
+}
+
+.is-skyline-3172-ui .group-switcher-arrow {
+  position: static;
+  top: auto;
+  right: auto;
+  margin-left: 2px;
+  flex: none;
 }
 
 .is-skyline-3172-ui .group-switcher-copy {

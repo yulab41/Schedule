@@ -229,4 +229,52 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
       expect(template).toContain('/assets/icons/ui-loading-primary.svg');
     }
   });
+
+  it('keeps the group dropdown arrow beside the group name on 3.17.2 only', () => {
+    const styles = readSource('pages/workbench/index.wxss');
+
+    expect(styles).toMatch(/\.group-switcher-arrow\s*\{[^}]*position:\s*absolute/su);
+    expect(styles).toMatch(
+      /\.is-skyline-3172-ui \.group-switcher-trigger\s*\{[^}]*padding-right:\s*0/su,
+    );
+    expect(styles).toMatch(
+      /\.is-skyline-3172-ui \.group-switcher-arrow\s*\{[^}]*position:\s*static/su,
+    );
+  });
+
+  it('gives the selector popover an explicit height on 3.17.2 scroll containers', async () => {
+    const { createSelectorPopoverStyle } =
+      await import('../src/components/ui/ui-selector/selector.ts');
+    const optionsTemplate = readSource('components/ui/ui-selector/options.wxml');
+    const selectorTemplate = readSource('components/ui/ui-selector/index.wxml');
+    const selectorComponent = readSource('components/ui/ui-selector/index.ts');
+    const pickerTemplate = readSource('components/ui/ui-date-picker/index.wxml');
+    const pickerComponent = readSource('components/ui/ui-date-picker/index.ts');
+
+    expect(createSelectorPopoverStyle(3, false)).toBe('');
+    expect(createSelectorPopoverStyle(0, true)).toBe('height:56px;');
+    expect(createSelectorPopoverStyle(3, true)).toBe('height:100px;');
+    expect(createSelectorPopoverStyle(20, true)).toBe('height:300px;');
+    expect(optionsTemplate).toContain('style="{{popoverStyle}}"');
+    expect(selectorTemplate).toContain('popoverStyle');
+    expect(pickerTemplate).toContain('popoverStyle');
+    expect(selectorComponent).toContain('needsCurrentRuntimeSkyline3172UiCompatibility');
+    expect(pickerComponent).toContain('needsCurrentRuntimeSkyline3172UiCompatibility');
+  });
+
+  it('renders the shared workflow picker dialog from the root layer on 3.17.2', () => {
+    const template = readSource('components/ui/ui-date-picker/index.wxml');
+    const styles = readSource('components/ui/ui-date-picker/index.wxss');
+
+    expect(template.match(/class="workflow-picker-layer/gu)).toHaveLength(1);
+    expect(template).toMatch(
+      /<root-portal\s+wx:if="\{\{open && mode !== 'selector'\}\}"\s+enable="\{\{skyline3172UiCompatibility\}\}"\s*>/u,
+    );
+    expect(template).toContain('class="workflow-picker-layer ui-root-portal-token-scope"');
+    expect(styles).toContain("@import '../../../styles/ui-root-portal-tokens.wxss';");
+    expect(styles).toMatch(/\.workflow-picker-layer\s*\{[^}]*position:\s*fixed/su);
+    expect(styles).toMatch(
+      /\.workflow-picker-layer\s*\{[^}]*z-index:\s*var\(--ui-z-index-dialog\)/su,
+    );
+  });
 });

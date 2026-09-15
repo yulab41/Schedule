@@ -1,8 +1,10 @@
 import {
+  createSelectorPopoverStyle,
   createRenderedOptions,
   scheduleSelectorPlacement,
   validOptionIndex,
 } from '../ui-selector/selector.js';
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -114,6 +116,8 @@ interface WorkflowPickerInstance {
     readonly monthWheelSettledIndex: number;
     readonly popoverPlacement: 'down' | 'up';
     readonly popoverPlacementReady: boolean;
+    readonly popoverStyle: string;
+    readonly skyline3172UiCompatibility: boolean;
     readonly wheelGeneration: number;
     readonly yearWheelCommandRevision: number;
     readonly yearWheelItems: readonly WorkflowPickerWheelOption[];
@@ -180,8 +184,10 @@ Component({
     open: false,
     popoverPlacement: 'down' as const,
     popoverPlacementReady: true,
+    popoverStyle: '',
     renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
+    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     weekdays,
     wheelGeneration: 0,
     yearWheelCommandRevision: 0,
@@ -234,6 +240,10 @@ Component({
           open: true,
           popoverPlacement: 'down',
           popoverPlacementReady: false,
+          popoverStyle: createSelectorPopoverStyle(
+            this.properties.options.length,
+            this.data.skyline3172UiCompatibility,
+          ),
           renderedOptions: createRenderedOptions(this.properties.options),
           selectedOptionIndex,
           ...wheelRuntime,

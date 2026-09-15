@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-15 Skyline 3.17.2 选择器浮层与页头箭头
+
+- 反馈/引入点：用户小米14的3.17.2实例在`.136@efda88f`上报告页头群组箭头偏右约40px、换班sheet的月份/日期选择器点按无反应、班次/人员下拉只剩约12px白色空框，同时3.17.3正常。`git log -S`/`git blame`定位箭头到`733e3af6`的绝对定位箭头与`47c294ba`/`ed06031f`的3.17.2 220px确定宽度，弹层到`6d0575d0`的`.workflow-picker-selector-popover`与内嵌`scroll-view`，对话框层到`bc32a4f1`/`528722f4`的`position: fixed`层。
+- RED新增3项在旧实现上准确失败（兼容14项中11通过）。修复严格限定3.17.2：箭头改为Flex流内紧跟群名并保留220px上限与196px省略阈值；弹层新增`createSelectorPopoverStyle`显式高度（30n+10、空态56、上限300）；对话框层用`root-portal enable="{{skyline3172UiCompatibility}}"`提升到根层并复用根层令牌作用域。3.17.3与未知版本`popoverStyle`为空串、`enable=false`，仍走内容自适应与原位置渲染。
+- GREEN兼容/定向14项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过；typecheck、production build366文件、source/package/determinism、format/lint通过。主包1739147B、总4606801B，较访客修复基线增2083B（含约508B弹层缩进），无新增依赖。Mini verify仍仅被未改手排节点预算1507>1506阻断。
+- 运行/浏览器验证：本轮不触及Web核心链路，`pnpm smoke:check-core`执行并通过（其核心链路标记来自基线feedback26的contracts变更，已有既有浏览器记录）。`root-portal`原生合成、WXS年月滚轮在根层的响应、弹层选项真机可见性，以及3.17.3页头与四类选择器不变，都仍待同SHA小米14双实例复核；本轮未使用微信开发者工具，未上传、未放行、未部署。
+
 ## 2026-09-15 Skyline 3.17.2 访客页面按压反馈对齐
 
 - 反馈/引入点：`.136@efda88f`成员页面四项修复通过，但3.17.2访客页面仍周格灰闪、月格蓝反馈滞留。访客页面`pages/guest/guest.wxml`已有`is-skyline-3172-ui`根类并`@import`成员页面样式，缺的是上月格`runtime-pressed-feedback-compatibility`参数和上周格的`hover-class`条件；周格灰闪来自`ad4cfb2c`的通用`.is-pressed { opacity: 0.72 }`，月格滞留来自`1f715c96`的70ms。
