@@ -1,12 +1,15 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 选择器就地展开后备已实现，待体验版交付
+## 当前批次：Skyline 3.17.2 选择器就地展开体验版142已上传并放行，待双实例验收
 
 - 用户复核`.138@09c100d`：3.17.2下拉已渲染出选项但被后续字段遮挡；月份/日期面板点按后仍不出现；3.17.3正常。`.138`的显式高度修复被证明有效，剩余两项是层级与提升问题。
 - 遮挡沿用`.136`已记录“3.17.2同层z-index不能提升浮层”（引入点`6d0575d0`）；面板不出现是因为`.138`的“从ui-sheet插槽内容root-portal到根层”在3.17.2不生效（冻结产物确有root-portal、令牌导入与`--ui-z-index-dialog:1000`，而该机制在页面级/组件级真机均可用）。本轮不再押注portal或叠加z-index。
 - 修复只在3.17.2生效且改为就地展开：下拉`is-inline`（static、去遮罩、覆盖`is-measuring`隐藏、保留显式高度）；月份/日期层与面板`is-inline`（就地卡片、去遮罩与把手）；撤销`.138`的root-portal与根层令牌导入，3.17.3与未知版本恢复与`.136`逐字相同的覆盖层路径。
 - RED 2失败；GREEN兼容14项、Mini完整174文件1203项通过/16跳过、typecheck、build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1739791B/总4607445B，较`.138`增644B，无新增依赖。
-- 唯一下一任务：取得当次上传授权后交付新体验版并add-only放行、保留`.138`，再由小米14双实例复核。本轮未上传、未放行、未部署。详情见`docs/audit/runtime-ui-compatibility-picker-inline-fallback-20260915.md`。
+- 用户当次授权“上传并放行”。候选先合并`.140`来源`c6cbb6a6`保证血缘连续（`.139`访客周分页与`.140`过日期灰底随之包含）；首次候选`46eee448`占用`.141`后被微信官方`summer-wxss`拒绝（WXSS里的`//`行注释，code 10037），该号码不复用；随后改为`/* */`并在`validateWxss`增加本地守卫与用例。
+- 修复后源码`8988afe6`已推送，体验版`0.1.0-p10.20260915.142`（说明“Skyline 3.17.2 picker inline 8988afe”）production/clean上传成功，Manifest `2b8d0f3f…d4317a`；候选前置与上传后绑定检查`RESULT=PASS`。合并后复测：Mini1211项通过/16跳过、typecheck、build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1742411B/总4610065B。
+- 放行：可信ensure只追加`.142`并保留`.140`；allowlist verify与`ecs-verify.sh`通过，release仍`44034fcc`，无应用部署或数据库操作；公网`.142=200`、`.140=200`、`.141=426`、未知`=426`。
+- 唯一下一任务：小米14双实例核对`.142/8988afe`（3.17.2箭头、下拉就地展开、月份/日期面板；3.17.3不变），并复核`.139/.140`的访客周分页与过日期灰底。详情见`docs/audit/runtime-ui-compatibility-picker-inline-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
 ## 上一批次：Skyline 月视图已过日期灰底恢复，体验版140已上传并放行
