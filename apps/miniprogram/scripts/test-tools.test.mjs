@@ -214,6 +214,51 @@ describe('safe Mini test tools', () => {
     expect(runtime.getStorageInfoSync).not.toHaveBeenCalled();
   });
 
+  it('reports the real Skyline renderer version and support state from wx.getSkylineInfo', async () => {
+    const runtime = createWx('trial', vi.fn());
+    runtime.getSkylineInfo = (options) => options.success({ isSupported: true, version: '1.4.22' });
+
+    const instance = await bootTestTools(runtime);
+
+    expect(deviceRow(instance, 'Skyline 支持')).toMatchObject({ status: 'good', value: '支持' });
+    expect(deviceRow(instance, 'Skyline 版本')).toMatchObject({
+      status: 'good',
+      value: '1.4.22',
+    });
+  });
+
+  it('fails closed when Skyline info is missing, fails, or carries no version', async () => {
+    const withoutApi = createWx('trial', vi.fn());
+    delete withoutApi.getSkylineInfo;
+    const missing = await bootTestTools(withoutApi);
+    expect(deviceRow(missing, 'Skyline 支持')).toMatchObject({
+      status: 'unavailable',
+      value: '当前微信版本不支持读取',
+    });
+    expect(deviceRow(missing, 'Skyline 版本')).toMatchObject({
+      status: 'unavailable',
+      value: '当前微信版本不支持读取',
+    });
+
+    const failing = createWx('trial', vi.fn());
+    failing.getSkylineInfo = (options) => options.fail();
+    const failed = await bootTestTools(failing);
+    expect(deviceRow(failed, 'Skyline 版本').value).toBe('当前微信版本不支持读取');
+
+    const webview = createWx('trial', vi.fn());
+    webview.getSkylineInfo = (options) =>
+      options.success({ isSupported: false, reason: 'client not supported' });
+    const unsupported = await bootTestTools(webview);
+    expect(deviceRow(unsupported, 'Skyline 支持')).toMatchObject({
+      status: 'notice',
+      value: '当前微信客户端不支持 Skyline',
+    });
+    expect(deviceRow(unsupported, 'Skyline 版本')).toMatchObject({
+      status: 'unavailable',
+      value: '当前微信版本不支持读取',
+    });
+  });
+
   it('blocks the workbench handler in release without attempting navigation', async () => {
     let definition;
     const navigateTo = vi.fn();
@@ -750,6 +795,7 @@ function createWx(envVersion, request) {
       width: 80,
     }),
     getNetworkType: (options) => options.success({ networkType: 'wifi' }),
+    getSkylineInfo: (options) => options.success({ isSupported: true, version: '1.4.22' }),
     getStorageInfoSync: () => ({ currentSize: 12, keys: ['cache.v2:private'], limitSize: 10240 }),
     getStorageSync: (key) => storage.get(key),
     getSystemSetting: () => ({ deviceOrientation: 'portrait' }),
@@ -840,4 +886,22 @@ function createPageInstance(definition) {
       callback?.();
     },
   };
+}
+
+async function bootTestTools(runtime) {
+  let definition;
+  vi.resetModules();
+  vi.stubGlobal('wx', runtime);
+  vi.stubGlobal('Page', (value) => {
+    definition = value;
+  });
+  await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+  const instance = createPageInstance(definition);
+  definition.onLoad.call(instance);
+  await vi.waitFor(() => expect(instance.data.deviceRows.length).toBeGreaterThan(0));
+  return instance;
+}
+
+function deviceRow(instance, label) {
+  return instance.data.deviceRows.find((row) => row.label === label);
 }

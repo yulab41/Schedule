@@ -1,5 +1,13 @@
 # Project Status
 
+## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
+
+- 用户要求把“更多 → 测试工具”的“Skyline 版本”从硬编码“当前微信版本不支持单独读取”改为真实读取，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`；审计主计划 §8B 本就要求“Skyline 支持与版本（API 支持时）”。
+- 实现只改`apps/miniprogram/src/subpackages/diagnostics/pages/test-tools/index.ts`与`apps/miniprogram/scripts/test-tools.test.mjs`：`isSupported` 映射官方五种原因文案，未识别原因写“不支持（原因未识别）”，`version` 显示真实版本号；缺 API、`fail` 回调或 500ms 超时统一失败关闭为“当前微信版本不支持读取”，与网络类型并行读取、不阻塞页面。未改 WXML/WXSS、页面配置、渲染器契约或业务语义，未新增依赖。
+- 血缘：原检查点`c7a96a0b`（基线`4179f05a`）不含并行线体验版137–145，按体验版累计血缘要求整合到最新 tag `145@6e31eed8` 上形成本候选；未改动、未覆盖并行线的任何更新，冲突只出现在两个状态文档且以并行线版本为准。
+- 候选门禁：定向22/22通过；Mini 完整174文件1213项通过/16跳过；typecheck通过。两处继承门禁失败仍存在且与本次改动无关：`pnpm icon:parity:check` 报“generated manifest and Mini SVG directory are not bidirectionally closed”（`ui-loading-primary/muted.svg` 由并行线`70c51353`加入，未进入 `packages/ui-icons` canonical manifest），`pnpm miniprogram:verify` 报手排矩阵节点`1507>1506` no-growth 上限；icon parity 在并行线 tip `09e63980` 与本候选均复现。本轮按用户指示继续交付，不改动其图标系统或手排预算。
+- 独占general-3，REUSE_ONLY且无安装；未操作微信开发者工具。唯一下一任务：按本轮授权上传体验版并 add-only 放行，再由小米14在“更多 → 测试工具”复核 Skyline 支持与版本两行、以及原有九项页面显示检查不受影响。
+
 ## 当前批次：Skyline 3.17.2 年月/日期选择器改由面板根层托管弹窗，待体验版交付
 
 - 用户复核`.142@8988afe`：3.17.2月份弹窗就地展开、滚轮被外层滚动抢占，请假日期选择器被两列挤压，且点弹窗外不关闭（3.17.3会）。
