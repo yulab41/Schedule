@@ -5,7 +5,7 @@
 - `.135@c7025b93`真机确认周切换已恢复；3.17.2仍有群名省略、菜单被日历文字覆盖、周格灰闪及月格蓝色反馈滞留，3.17.3正常。
 - 群组菜单已收敛为所有版本共用的一份root-portal、一份模板和一个事件；仅3.17.2解除群名220px宽度的父级上限、移除周格灰色按压类并把月格松手保留从70ms缩为0ms。3.17.3的菜单几何/视觉、原周格反馈和原70ms不变，月/周分页动画完全不改。详情见`runtime-ui-compatibility-header-press-fix-20260915.md`。
 - 累计RED 4失败，单菜单收敛RED 1失败；GREEN定向30项、Mini完整1199项通过/16跳过。typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；主包1736932B/总4604586B，较`.135`总包仅增319B，无新增依赖。Mini verify仍只被既有未改手排节点1507>1506阻断。
-- 用户已在当前消息授权上传与追加放行；检查点以`refactor(miniprogram): share Skyline group menu portal`识别。唯一下一任务是冻结干净SHA、上传并add-only放行新体验版且保留旧版，再做3.17.2/3.17.3同版本原生复核。
+- 用户已在当前消息授权上传与追加放行；实现检查点为`890c50a9`。首次冻结上传在版本分配前被过期的`workbench/index.ts` canonical blob拒绝；精确diff仅含根层菜单定位字段/默认值/布局patch返回值，未占号、未建tag、未调用微信上传。唯一下一任务是刷新policy后重新冻结、上传并add-only放行新体验版且保留旧版，再做3.17.2/3.17.3同版本原生复核。
 
 ## 当前批次：Skyline 周视图兼容体验版135已上传并放行，待双实例验收
 
