@@ -24,6 +24,7 @@ Component({
     isBottomRight: { type: Boolean, value: false },
     isCurrentMonth: { type: Boolean, value: true },
     isHoliday: { type: Boolean, value: false },
+    isPast: { type: Boolean, value: false },
     isWorkday: { type: Boolean, value: false },
     isSelected: { type: Boolean, value: false },
     isToday: { type: Boolean, value: false },

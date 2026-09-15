@@ -9,6 +9,25 @@
 - 唯一下一任务：取得当前消息的上传授权后交付新体验版并add-only放行、保留`.138`等旧版，再由小米14双实例复核3.17.2下拉与月份/日期面板就地可见可选，且3.17.3外观与交互不变。详情见`runtime-ui-compatibility-picker-inline-fallback-20260915.md`。
 
 ## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
+## 上一批次：Skyline 月视图已过日期灰底恢复，体验版140已上传并放行
+
+- 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有，怀疑某次更新后丢失。
+- 引入点：旧小程序`1343f4c6^`的`components/calendar-grid/index.wxml`用`day.isPast`输出`calendar-grid__day--past`、`index.wxss`定义`#f3f4f6`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用。`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)把工作台月视图接到新组件时都没有携带该状态、类或样式；周视图由`50c6d1ed`补齐，Web端`MonthGrid.vue`一直保留`.day-cell.is-past`。日历路径无`SDKVersion`分支。
+- 修复复用月视图唯一链路：`WorkbenchCell`/`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`（与周视图同款比较语义、排除月外格），`calendar-month/index.wxml`转发`is-past`，`calendar-cell`新增属性、`is-past`类与`.calendar-cell.is-past{background:#f3f4f6}`。灰底规则在`.is-pressed`之前以保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件零额外改动；预览/补录/POC默认`false`不变；未新增依赖、token或版本分支。
+- RED 3失败/26通过；上载体把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`（记录`3c8ea88d`）之上，定向49项通过。Mini完整与构建门禁、版本绑定与放行结果见下方交付记录。
+- 用户在当前消息明确授权上传并放行。详情见`runtime-ui-compatibility-past-month-gray-20260915.md`。
+
+## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
+
+- 用户复核`.137@09e6398`：3.17.2访客页面周视图乱跳、切到非本周后点单元格无反应；月视图、成员周视图与3.17.3正常。
+- 根因：访客页仍在用成员页于`.135`废弃的强制归中（`current=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；3.17.2对该回跳反向动画或补发事件，并使原生页与数据槽位错位，点击落到不可见面板。
+- 修复：访客页导入同一个`calendar-period-pager`环形状态机，`renderCalendar`用`mapCalendarPeriodRing`，模板加`circular`/`bindchange`并读取`weekPanels[weekSwiperCurrent]`；260ms、easeOutCubic、±6队列与提交锁不变，成员页面零差异。
+- 血缘：`.138@09c100d5`（并行会话的选择器浮层与页头箭头修复）是当前最新累积体验版，本分支以它为基线线性叠加；不改写对方分支。基线若再次前进必须重新叠加。
+- RED2项失败；GREEN定向42项、Mini完整174文件1206项通过/16跳过、根270文件1273项通过/444跳过。typecheck/build366文件/source/determinism/format/lint/smoke:check-core通过；主包1741484B/总4609138B，较`.138`增2337B。Mini verify仍仅被既有未改手排1507>1506阻断。
+- `.139@a9c3204`已以production/clean上传，Manifest`a2491815…d91e4d7b`与tag/allocation/receipt一致；可信ensure只追加`.139`并保留旧版，allowlist与完整ECS verifier通过，公网`.139/.138/.137/.136`=200、动态未知426；live release未变。
+- 唯一下一任务：小米14双实例重开`.139@a9c3204`，复核3.17.2访客周视图滑动/点击与`.138`箭头/选择器无回归。详情见`runtime-ui-compatibility-guest-week-pager-trial-release-20260915.md`。
+
+## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头已实现，待体验版交付
 
 - 小米14的3.17.2实例复核`.136@efda88f`：成员页面四项修复通过、3.17.3正常，但页头群组箭头比3.17.3偏右约40px；换班sheet的“我的班次月份/对方班次月份”点按后没有任何遮罩或面板；班次/人员下拉只剩约12px高的白色空框。
 - 箭头是本轮自己造成的：`ed06031f`把3.17.2群组容器固定为220px，而箭头一直是相对该盒子的绝对定位元素，于是贴到盒子右缘。选择器则是旧Skyline在滚动容器内的布局差异：内嵌`scroll-view`弹层不按内容推导高度，`position: fixed`对话框层不在可见视口；同页`ui-sheet`不在滚动容器内所以正常。

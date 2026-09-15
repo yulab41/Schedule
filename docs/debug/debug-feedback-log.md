@@ -8,6 +8,14 @@
 - RED 2项在`.138`基线上准确失败（就地展开类与就地卡片规则）。修复只在3.17.2生效：下拉容器`is-inline`改为`position: static`并去掉遮罩、覆盖`is-measuring`隐藏、保留显式高度；月份/日期层与面板`is-inline`改为就地卡片、去遮罩与拖拽把手；撤销`root-portal`与根层令牌导入后，3.17.3与未知版本恢复为与`.136`逐字相同的覆盖层结构与几何。
 - GREEN兼容14项、Mini完整174文件1203项通过/16跳过；typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过。主包1739791B、总4607445B，较`.138`增644B，无新增依赖。既有`p7-native-feedback`源码契约断言随标记变化改为匹配`class="workflow-picker-sheet `前缀，仍验证自绘面板存在，未掩盖行为回归。
 - 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过。就地展开在3.17.2真机的可见性、WXS年月滚轮响应、选项与面板可点按性，以及3.17.3外观不变，仍待同SHA小米14双实例复核；本轮未使用微信开发者工具，未上传、未放行、未部署。
+## 2026-09-15 Skyline 3.17.2 访客周视图叠加到累积基线
+
+- 反馈/引入点：`.137@09e6398`上3.17.2访客页面周视图滑动乱跳、切到非本周后点单元格无反应；月视图、成员周视图与3.17.3正常。访客页仍在用成员页于`c7025b93`（`.135`）废弃的强制归中（`weekSwiperCurrent=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；成员页已改为共享`calendar-period-pager`环形槽位。
+- 根因：3.17.2对0ms回跳产生反向动画或补发`animationfinish`，并让原生swiper停在2号页而数据为1号，可见单元格属于下一周，点击后选中态落在不可见面板。
+- 血缘处理：并行会话已上传`.138@09c100d5`（3.17.2选择器浮层与页头箭头）。首次上传尝试在版本分配前被血缘门禁拒绝（最新累积体验版必须是候选祖先），未占号、未建tag、未调用微信上传；随后在`09c100d5`上线性叠加访客周视图修复，不改写对方分支、不做合并。
+- RED 2项在旧实现上失败（模板缺`circular`/`bindchange`、提交后槽位回1而非目标槽位）；GREEN定向42项、Mini完整174文件1206项通过/16跳过、根270文件1273项通过/444跳过；typecheck、production build366文件、source/package/determinism、format、lint通过。主包1741484B、总4609138B，较`.138`增2337B。Mini verify仍仅被未改手排节点1507>1506阻断。
+- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过。
+- 交付：`0.1.0-p10.20260915.139`上传成功，Manifest`a249181529719b47f6c659b7e045c6e23fa4feac2b8895497ce18a34d91e4d7b`与远端tag、allocation、receipt一致；可信ensure只追加`.139`并保留`.135/.136/.137/.138`，allowlist与完整ECS verifier通过，公网`.139/.138/.137/.136`=200、动态未知=426。生产live release仍`44034fcc…d276df9`，未部署应用、未备份或迁移数据库、未提审或正式发布。3.17.2/3.17.3访客周视图真机结果待用户复核。
 
 ## 2026-09-15 Skyline 3.17.2 选择器浮层与页头箭头
 
@@ -2968,3 +2976,12 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - RED→GREEN：旧版结构合同17项中1项失败；实现固定首屏、显式scroll-view、Grid/CSS变量/滚动自动探针、CSS/SVG可视对照和首屏复制后test-tools20、页面边界/遥测联合33及Mini完整1180项通过/16跳过。迟到测量、刷新、隐私报告和业务零请求均有回归。
 - 视觉与构建：Mini/Web TypeScript、production build363文件、Web黄金2项与Storybook build通过；包体主1728648B/总4591358B、确定性Manifest`846e53b0…1d6219d`。390/320/大字号实际浏览器复核无横溢，按钮44px。Mini verify被未改手排节点预算1507>1506阻断，本轮未修改手排或放宽测试；lint与smoke:check-core通过。
 - 行为变化仅限诊断页滚动载体和只读报告；登录、工作台、成员日历、API、权限、数据和生产均不变。当前为已实现待候选门禁，未上传、放行、部署、提审或正式发布。
+
+## 2026-09-15 月视图已过日期灰底丢失（首页 + 访客）
+
+- 引入点：`git log -S`/`git blame`确认旧小程序`1343f4c6^`的`apps/miniprogram/components/calendar-grid`用`day.isPast`输出`calendar-grid__day--past`并以`#f3f4f6`绘制，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用；`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)接入工作台月视图都没有携带该状态。周视图由`50c6d1ed`补齐`isPast`，Web端`apps/web/src/features/calendar/MonthGrid.vue`一直保留`.day-cell.is-past`，因此只有月视图呈现回归。日历路径无`SDKVersion`分支，3.17.2与3.17.3是同一处缺失。
+- 测试先行：新增模型断言（当月已过`true`、今天/未来/月外格`false`）、simulate类名断言与来源合同断言；旧代码3项失败/26通过。
+- 修复与语义：`features/workbench/workbench-model.ts`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`并转发到`calendar-cell`，新增`.calendar-cell.is-past{background:#f3f4f6}`且放在`.is-pressed`之前；`.is-holiday`粉底、今天/未来、月外格、选中框与按压反馈不变；访客页复用同一模型与组件，零额外改动。
+- 运行/浏览器验证：本轮改动仅`apps/miniprogram/**`，不触发`smoke:browser`核心链路清单；`pnpm smoke:check-core`通过并确认既有“运行/浏览器验证：pnpm smoke:browser”记录仍然有效。RED与基线对比用`git stash push/pop`在独占租约槽内完成并核对diff一致；PowerShell全程`$PSNativeCommandUseErrorActionPreference=$true`。
+- 验证结果：定向`scripts/workbench.test.mjs`+`scripts/calendar-simulate.test.mjs` 29项通过（`.138`基线）、叠加到`.139`基线后联合`guest-runtime`49项通过；完整套件与包体见交付记录。
+- 状态：已实现并按当前消息授权进入上传流程；未部署生产应用、未控制微信开发者工具。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-20260915.md`。

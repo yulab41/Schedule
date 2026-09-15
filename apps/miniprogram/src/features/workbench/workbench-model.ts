@@ -49,6 +49,7 @@ export interface WorkbenchCell {
   readonly isCurrentMonth: boolean;
   readonly isHoliday: boolean;
   readonly isWorkday: boolean;
+  readonly isPast: boolean;
   readonly isSelected: boolean;
   readonly isToday: boolean;
   readonly isWeekend: boolean;
@@ -531,6 +532,7 @@ function createMonthCells(
       isCurrentMonth: !cell.isOutsideMonth,
       isHoliday: holiday?.isOffDay === true,
       isWorkday: holiday?.isWorkday === true,
+      isPast: !cell.isOutsideMonth && cell.businessDate < today,
       isSelected: !cell.isOutsideMonth && cell.businessDate === selectedDate,
       isToday: cell.businessDate === today,
       isWeekend: isWeekend(cell.businessDate),
