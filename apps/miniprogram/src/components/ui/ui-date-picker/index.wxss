@@ -7,9 +7,9 @@
   inset: 0;
 }
 
-// The affected Skyline runtime neither lifts a nested overlay above later
-// siblings nor reparents a portal from a sheet slot, so the picker expands in
-// place there instead of opening as an overlay. Other runtimes keep the sheet.
+/* The affected Skyline runtime neither lifts a nested overlay above later
+   siblings nor reparents a portal from a sheet slot, so the picker expands in
+   place there instead of opening as an overlay. Other runtimes keep the sheet. */
 .workflow-picker-layer.is-inline {
   position: static;
   z-index: auto;

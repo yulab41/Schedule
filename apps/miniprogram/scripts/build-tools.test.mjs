@@ -10,6 +10,7 @@ import {
   findWorkletIssues,
   listRegisteredPages,
   resolveBuildProfile,
+  validateWxss,
 } from './build-tools.mjs';
 
 describe('Mini Program deterministic toolchain guards', () => {
@@ -21,6 +22,20 @@ describe('Mini Program deterministic toolchain guards', () => {
     expect(resolveBuildProfile('staging')).toBe('staging');
     expect(resolveBuildProfile('production')).toBe('production');
     expect(() => resolveBuildProfile('development')).toThrow(/profile must be one of/u);
+  });
+
+  it('rejects the line comments that the official WXSS compiler refuses', () => {
+    expect(validateWxss('a {\n  // comment\n  color: red;\n}\n', 'a.wxss')).toEqual([
+      'a.wxss:2: WXSS does not support // comments; use /* */ instead',
+    ]);
+    expect(validateWxss('a {\n  color: red; // trailing\n}\n', 'a.wxss')).toHaveLength(1);
+    expect(validateWxss('a {\n  /* comment */\n  color: red;\n}\n', 'a.wxss')).toEqual([]);
+    expect(
+      validateWxss('a {\n  background: url(https://example.com/x.png);\n}\n', 'a.wxss'),
+    ).toEqual([]);
+    expect(validateWxss('a {\n  color: red;\n', 'a.wxss')).toEqual([
+      'a.wxss: unclosed style block',
+    ]);
   });
 
   it('lists main and subpackage routes without duplicates', () => {

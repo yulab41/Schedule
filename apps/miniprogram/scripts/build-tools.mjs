@@ -640,14 +640,26 @@ function validateWxml(source, relativePath) {
   return issues;
 }
 
-function validateWxss(source, relativePath) {
+export function validateWxss(source, relativePath) {
+  const issues = [];
+  source.split(/\r?\n/u).forEach((line, index) => {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) return;
+    // The official summer-wxss compiler rejects line comments, so fail locally
+    // instead of discovering it during the experience upload.
+    if (trimmed.startsWith('//') || /;\s*\/\//u.test(line)) {
+      issues.push(
+        `${relativePath}:${index + 1}: WXSS does not support // comments; use /* */ instead`,
+      );
+    }
+  });
   let depth = 0;
   for (const character of source.replace(/\/\*[\s\S]*?\*\//gu, '')) {
     if (character === '{') depth += 1;
     if (character === '}') depth -= 1;
-    if (depth < 0) return [`${relativePath}: unmatched closing brace`];
+    if (depth < 0) return [...issues, `${relativePath}: unmatched closing brace`];
   }
-  return depth === 0 ? [] : [`${relativePath}: unclosed style block`];
+  return depth === 0 ? issues : [...issues, `${relativePath}: unclosed style block`];
 }
 
 function auditTree(rootDirectory, { built }) {
