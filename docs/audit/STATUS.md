@@ -1,13 +1,15 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 3.17.2 选择器浮层与页头箭头已实现，待体验版交付
+## 当前批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
 
 - 小米14的3.17.2实例复核`.136@efda88f`：成员页面四项修复通过、3.17.3正常，但页头群组箭头比3.17.3偏右约40px；换班sheet的“我的班次月份/对方班次月份”点按后没有任何遮罩或面板；班次/人员下拉只剩约12px高的白色空框。
 - 箭头是本轮自己造成的：`ed06031f`把3.17.2群组容器固定为220px，而箭头一直是相对该盒子的绝对定位元素，于是贴到盒子右缘。选择器则是旧Skyline在滚动容器内的布局差异：内嵌`scroll-view`弹层不按内容推导高度，`position: fixed`对话框层不在可见视口；同页`ui-sheet`不在滚动容器内所以正常。
 - 修复只在3.17.2生效：箭头改为Flex流内跟随群名（220px上限与196px省略阈值逐字保留）；弹层按选项数写入显式高度（30n+10、空态56px、上限300px）；对话框层用`root-portal`提升到根层并复用根层令牌作用域，`enable`仅在3.17.2为true。3.17.3与未知版本的`popoverStyle`为空串、`enable=false`，走原路径。
 - RED 3失败；GREEN定向14项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck/build366文件/source/package/determinism/format/lint/smoke:check-core通过；主包1739147B/总4606801B，较访客修复基线增2083B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
 - 分支`codex/runtime-3172-picker-overlay-20260915`基于访客修复`09e63980`；两份3.17.2修复在后续合并时必须保持同一血缘。详情见`runtime-ui-compatibility-picker-overlay-fix-20260915.md`。
-- 唯一下一任务：取得当前消息的上传授权后交付新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2箭头与四类选择器恢复正常，且3.17.3页头、下拉与面板不变。
+- 用户当次明确授权“上传并放行”。源码`09c100d5`已推送，分支`codex/runtime-3172-picker-overlay-20260915`基线为访客修复`09e63980`，`origin/main`(4179f05a)仍是祖先。体验版`0.1.0-p10.20260915.138`说明“Skyline 3.17.2 picker overlays 09c100d”，production/clean，Manifest `1eb3d61b…a17e40a`，构建`13:52:36.805Z`、上传`13:54:26.399Z`；`.137`由同机另一任务占用，本轮顺序取得`.138`。
+- 候选前置与上传后版本绑定检查`RESULT=PASS`（ready-clean-detached、production-clean、VERSION_LOCAL=absent）；冻结包/回执/分配记录及远端不可变tag一致。可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260915.138`只追加并保留`.137`，独立allowlist verifier与`ecs-verify.sh`通过，release仍`44034fcc`、无应用部署或数据库操作。公网`.138=200`、`.137=200`、动态未知版本`=426`。
+- 唯一下一任务：小米14双实例核对`.138/09c100d`，3.17.2复核箭头位置、下拉选项可见与月份/日期面板可弹出，3.17.3确认页头与四类选择器与`.136`一致。自动化与生产验证不构成原生验收。详情见`runtime-ui-compatibility-picker-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 3.17.2 访客页面按压反馈对齐已实现，待体验版交付
 

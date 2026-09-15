@@ -9,6 +9,8 @@
 - GREEN兼容/定向14项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过；typecheck、production build366文件、source/package/determinism、format/lint通过。主包1739147B、总4606801B，较访客修复基线增2083B（含约508B弹层缩进），无新增依赖。Mini verify仍仅被未改手排节点预算1507>1506阻断。
 - 运行/浏览器验证：本轮不触及Web核心链路，`pnpm smoke:check-core`执行并通过（其核心链路标记来自基线feedback26的contracts变更，已有既有浏览器记录）。`root-portal`原生合成、WXS年月滚轮在根层的响应、弹层选项真机可见性，以及3.17.3页头与四类选择器不变，都仍待同SHA小米14双实例复核；本轮未使用微信开发者工具，未上传、未放行、未部署。
 
+- 交付（用户当次授权“上传并放行”）：源码`09c100d5`已推送；体验版`0.1.0-p10.20260915.138`（说明“Skyline 3.17.2 picker overlays 09c100d”）production/clean上传成功，Manifest `1eb3d61b…a17e40a`，`dist/build-profile.json`与候选逐字段一致；候选前置及上传后版本绑定检查`RESULT=PASS`。可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260915.138`只追加并保留`.137`；独立allowlist verify、`ecs-verify.sh`通过，release仍`44034fcc`，无应用部署或数据库操作；公网`.138=200`、`.137=200`、动态未知版本`=426`。未使用微信开发者工具，未提审或正式发布。详见`docs/audit/runtime-ui-compatibility-picker-trial-release-20260915.md`。
+
 ## 2026-09-15 Skyline 3.17.2 访客页面按压反馈对齐
 
 - 反馈/引入点：`.136@efda88f`成员页面四项修复通过，但3.17.2访客页面仍周格灰闪、月格蓝反馈滞留。访客页面`pages/guest/guest.wxml`已有`is-skyline-3172-ui`根类并`@import`成员页面样式，缺的是上月格`runtime-pressed-feedback-compatibility`参数和上周格的`hover-class`条件；周格灰闪来自`ad4cfb2c`的通用`.is-pressed { opacity: 0.72 }`，月格滞留来自`1f715c96`的70ms。

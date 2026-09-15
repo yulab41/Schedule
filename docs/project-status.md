@@ -1,13 +1,15 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 选择器浮层与页头箭头已实现，待体验版交付
+## 当前批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
 
 - 用户用小米14复核`.136@efda88f`：成员页面四项修复通过、3.17.3正常，但3.17.2页头群组箭头比3.17.3偏右约40px；换班sheet的月份/日期选择器点按无任何反应；班次/人员下拉只剩约12px高的白色空框。
 - 箭头来自本项目`.136`自身：`ed06031f`把3.17.2群组容器固定为220px，而箭头一直相对该盒子绝对定位，于是贴到盒子右缘（`git log -S`/`git blame`核对）。选择器来自旧Skyline滚动容器差异：`6d0575d0`的内嵌`scroll-view`弹层不按内容推导高度（塌成内边距），`bc32a4f1`/`528722f4`的`position: fixed`对话框层在滚动容器内不再按视口定位，同页不在滚动容器内的`ui-sheet`仍正常。
 - 修复只在3.17.2生效：箭头改为Flex流内跟随群名（220px上限与196px省略阈值逐字保留）；弹层按选项数写入显式高度（30n+10、空态56、上限300）；对话框层用`root-portal`提升到根层并`@import`根层令牌作用域，`enable`仅在3.17.2为true。3.17.3与未知版本继续内容自适应高度与同位置渲染。
 - RED 3失败；GREEN定向14项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1739147B/总4606801B，较访客修复基线增2083B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
 - 分支`codex/runtime-3172-picker-overlay-20260915`基于访客修复`09e63980`；两份3.17.2修复在后续合并时必须保持同一血缘。本轮未上传、未放行、未部署生产应用。详情见`docs/audit/runtime-ui-compatibility-picker-overlay-fix-20260915.md`。
-- 唯一下一任务：取得当前消息的上传授权后交付新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2箭头、下拉选项与月份/日期面板恢复，并确认3.17.3页头与四类选择器不变。
+- 用户当次明确授权“上传并放行”：源码`09c100d5`已推送，体验版`0.1.0-p10.20260915.138`（说明“Skyline 3.17.2 picker overlays 09c100d”）production/clean上传成功，Manifest `1eb3d61b…a17e40a`；候选前置与上传后版本绑定检查通过（ready-clean-detached、production-clean、VERSION_LOCAL=absent），冻结包/回执/分配记录与远端不可变tag一致。
+- 可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260915.138`只追加并保留`.137`；独立allowlist verifier、`ecs-verify.sh`与公网策略（`.138=200`、`.137=200`、未知`=426`）通过；release仍`44034fcc`，无应用部署、数据库备份或迁移。
+- 唯一下一任务：小米14双实例核对`.138/09c100d`，3.17.2复核页头箭头、下拉选项可见与月份/日期面板可弹出，3.17.3确认页头与四类选择器不变。详情见`docs/audit/runtime-ui-compatibility-picker-trial-release-20260915.md`。
 
 ## 上一批次：Skyline 3.17.2 访客页面按压反馈对齐已实现，待体验版交付
 
