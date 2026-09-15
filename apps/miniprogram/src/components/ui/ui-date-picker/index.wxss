@@ -1,11 +1,19 @@
 @import '../ui-selector/index.wxss';
 @import '../../../styles/ui-icon-motion.wxss';
-@import '../../../styles/ui-root-portal-tokens.wxss';
 
 .workflow-picker-layer {
   position: fixed;
   z-index: var(--ui-z-index-dialog);
   inset: 0;
+}
+
+// The affected Skyline runtime neither lifts a nested overlay above later
+// siblings nor reparents a portal from a sheet slot, so the picker expands in
+// place there instead of opening as an overlay. Other runtimes keep the sheet.
+.workflow-picker-layer.is-inline {
+  position: static;
+  z-index: auto;
+  margin-top: 6px;
 }
 
 .workflow-picker-scrim {
@@ -28,6 +36,16 @@
   border: 1px solid rgba(220, 227, 235, 0.9);
   border-radius: 22px;
   box-shadow: 0 16px 36px rgba(22, 32, 42, 0.14);
+}
+
+.workflow-picker-sheet.is-inline {
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  max-height: none;
+  border-radius: 18px;
+  box-shadow: 0 6px 18px rgba(22, 32, 42, 0.08);
 }
 
 .workflow-picker-handle {

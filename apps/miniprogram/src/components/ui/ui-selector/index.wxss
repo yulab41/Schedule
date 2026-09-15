@@ -136,6 +136,24 @@
   bottom: calc(100% + 6px);
 }
 
+// See the date picker note: the affected Skyline runtime cannot lift this
+// nested overlay above later fields, so the options expand in place.
+.workflow-picker-selector-popover.is-inline {
+  position: static;
+  top: auto;
+  right: auto;
+  left: auto;
+  margin-top: 6px;
+}
+
+.workflow-picker-selector-popover.is-inline,
+.workflow-picker-selector-popover.is-inline.is-measuring {
+  visibility: visible;
+  opacity: 1;
+  animation: none;
+  pointer-events: auto;
+}
+
 .workflow-picker-selector-popover.is-measuring {
   visibility: hidden;
   opacity: 0;

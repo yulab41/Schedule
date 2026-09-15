@@ -20,136 +20,134 @@
   <template
     wx:if="{{mode === 'selector'}}"
     is="selector-options"
-    data="{{open, popoverPlacement, popoverPlacementReady, popoverStyle, renderedOptions, selectedOptionIndex, options}}"
+    data="{{open, popoverPlacement, popoverPlacementReady, popoverStyle, skyline3172UiCompatibility, renderedOptions, selectedOptionIndex, options}}"
   />
 </view>
 
-<root-portal wx:if="{{open && mode !== 'selector'}}" enable="{{skyline3172UiCompatibility}}">
-    <view class="workflow-picker-layer ui-root-portal-token-scope">
-      <view class="workflow-picker-scrim" aria-role="button" bindtap="handleClose"></view>
-      <view class="workflow-picker-sheet" aria-role="dialog" aria-label="{{title}}">
-        <view class="workflow-picker-handle"></view>
-        <view class="workflow-picker-heading">
-          <view>
-            <text>{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : '选择'}}</text>
-            <text>{{draftDisplayValue}}</text>
-          </view>
-          <view class="workflow-picker-close" aria-role="button" aria-label="关闭" bindtap="handleClose"
-            ><image src="/assets/icons/ui-close.svg" mode="aspectFit"
-          /></view>
-        </view>
-    
-        <view wx:if="{{mode === 'month'}}" class="workflow-picker-wheel">
-          <ui-wheel-column
-            class="workflow-picker-wheel-column workflow-picker-year-column"
-            aria-label="年份滚轮"
-            items="{{yearWheelItems}}"
-            unit="年"
-            selected-index="{{draftIndices[0]}}"
-            runtime-key="{{yearWheelRuntimeKey}}"
-            generation="{{wheelGeneration}}"
-            command-revision="{{yearWheelCommandRevision}}"
-            animate-command="{{false}}"
-            bindpreviewchange="handleYearWheelPreview"
-            bindsettle="handleYearWheelSettled"
-          ></ui-wheel-column>
-          <ui-wheel-column
-            class="workflow-picker-wheel-column workflow-picker-month-column"
-            aria-label="月份滚轮"
-            items="{{monthWheelItems}}"
-            unit="月"
-            selected-index="{{draftIndices[1]}}"
-            runtime-key="{{monthWheelRuntimeKey}}"
-            generation="{{wheelGeneration}}"
-            command-revision="{{monthWheelCommandRevision}}"
-            animate-command="{{false}}"
-            bindpreviewchange="handleMonthWheelPreview"
-            bindsettle="handleMonthWheelSettled"
-          ></ui-wheel-column>
-          <view class="workflow-picker-wheel-rails"></view>
-          <view class="workflow-picker-wheel-mask"></view>
-        </view>
-    
-        <view wx:elif="{{mode === 'date'}}" class="workflow-picker-date-panel">
-          <view class="workflow-picker-date-navigation">
-            <view
-              class="workflow-picker-date-step"
-              data-offset="-1"
-              aria-role="button"
-              aria-label="上一月"
-              hover-class="is-pressed"
-              hover-start-time="0"
-              hover-stay-time="60"
-              bindtap="handleDateNavigate"
-              ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
-            /></view>
-            <text>{{draftYear}}年{{draftMonth}}月</text>
-            <view
-              class="workflow-picker-date-today"
-              aria-role="button"
-              aria-label="定位今天"
-              hover-class="is-pressed"
-              hover-start-time="0"
-              hover-stay-time="60"
-              bindtap="handleDateToday"
-              ><view
-                class="workflow-picker-date-locate-icon {{dateLocateAnimating ? 'is-animating' : ''}}"
-                ><image src="/assets/icons/ui-locate.svg" mode="aspectFit" /></view
-            ></view>
-            <view
-              class="workflow-picker-date-step"
-              data-offset="1"
-              aria-role="button"
-              aria-label="下一月"
-              hover-class="is-pressed"
-              hover-start-time="0"
-              hover-stay-time="60"
-              bindtap="handleDateNavigate"
-              ><image src="/assets/icons/ui-chevron-right.svg" mode="aspectFit"
-            /></view>
-          </view>
-          <view class="workflow-picker-weekdays">
-            <text wx:for="{{weekdays}}" wx:key="*this" class="{{index >= 5 ? 'is-weekend' : ''}}"
-              >{{item}}</text
-            >
-          </view>
-          <swiper
-            class="workflow-picker-date-swiper"
-            current="{{dateSwiperIndex}}"
-            duration="{{dateSwiperDuration}}"
-            easing-function="{{dateSwiperEasingFunction}}"
-            circular="{{true}}"
-            skip-hidden-item-layout="{{false}}"
-            bindchange="handleDateSwiperChangeStart"
-            bindanimationfinish="handleDateSwiperFinish"
-          >
-            <swiper-item wx:for="{{datePanels}}" wx:key="slot" wx:for-item="panel">
-              <view class="workflow-picker-date-grid">
-                <view
-                  wx:for="{{panel.cells}}"
-                  wx:key="value"
-                  class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
-                  data-value="{{item.value}}"
-                  aria-role="button"
-                  aria-disabled="{{item.disabled}}"
-                  aria-pressed="{{item.isSelected}}"
-                  bindtap="handleDateSelect"
-                >
-                  <text>{{item.day}}</text>
-                </view>
-              </view>
-            </swiper-item>
-          </swiper>
-        </view>
-    
-        <view class="workflow-picker-actions">
-          <view class="workflow-picker-button is-secondary" aria-role="button" bindtap="handleClose"
-            >取消</view
-          >
-          <view class="workflow-picker-button is-primary" aria-role="button" bindtap="handleConfirm"
-            >完成</view
-          >
-        </view>
+<view wx:if="{{open && mode !== 'selector'}}" class="workflow-picker-layer {{skyline3172UiCompatibility ? 'is-inline' : ''}}">
+  <view wx:if="{{!skyline3172UiCompatibility}}" class="workflow-picker-scrim" aria-role="button" bindtap="handleClose"></view>
+  <view class="workflow-picker-sheet {{skyline3172UiCompatibility ? 'is-inline' : ''}}" aria-role="dialog" aria-label="{{title}}">
+    <view wx:if="{{!skyline3172UiCompatibility}}" class="workflow-picker-handle"></view>
+    <view class="workflow-picker-heading">
+      <view>
+        <text>{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : '选择'}}</text>
+        <text>{{draftDisplayValue}}</text>
       </view>
+      <view class="workflow-picker-close" aria-role="button" aria-label="关闭" bindtap="handleClose"
+        ><image src="/assets/icons/ui-close.svg" mode="aspectFit"
+      /></view>
     </view>
-</root-portal>
+
+    <view wx:if="{{mode === 'month'}}" class="workflow-picker-wheel">
+      <ui-wheel-column
+        class="workflow-picker-wheel-column workflow-picker-year-column"
+        aria-label="年份滚轮"
+        items="{{yearWheelItems}}"
+        unit="年"
+        selected-index="{{draftIndices[0]}}"
+        runtime-key="{{yearWheelRuntimeKey}}"
+        generation="{{wheelGeneration}}"
+        command-revision="{{yearWheelCommandRevision}}"
+        animate-command="{{false}}"
+        bindpreviewchange="handleYearWheelPreview"
+        bindsettle="handleYearWheelSettled"
+      ></ui-wheel-column>
+      <ui-wheel-column
+        class="workflow-picker-wheel-column workflow-picker-month-column"
+        aria-label="月份滚轮"
+        items="{{monthWheelItems}}"
+        unit="月"
+        selected-index="{{draftIndices[1]}}"
+        runtime-key="{{monthWheelRuntimeKey}}"
+        generation="{{wheelGeneration}}"
+        command-revision="{{monthWheelCommandRevision}}"
+        animate-command="{{false}}"
+        bindpreviewchange="handleMonthWheelPreview"
+        bindsettle="handleMonthWheelSettled"
+      ></ui-wheel-column>
+      <view class="workflow-picker-wheel-rails"></view>
+      <view class="workflow-picker-wheel-mask"></view>
+    </view>
+
+    <view wx:elif="{{mode === 'date'}}" class="workflow-picker-date-panel">
+      <view class="workflow-picker-date-navigation">
+        <view
+          class="workflow-picker-date-step"
+          data-offset="-1"
+          aria-role="button"
+          aria-label="上一月"
+          hover-class="is-pressed"
+          hover-start-time="0"
+          hover-stay-time="60"
+          bindtap="handleDateNavigate"
+          ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
+        /></view>
+        <text>{{draftYear}}年{{draftMonth}}月</text>
+        <view
+          class="workflow-picker-date-today"
+          aria-role="button"
+          aria-label="定位今天"
+          hover-class="is-pressed"
+          hover-start-time="0"
+          hover-stay-time="60"
+          bindtap="handleDateToday"
+          ><view
+            class="workflow-picker-date-locate-icon {{dateLocateAnimating ? 'is-animating' : ''}}"
+            ><image src="/assets/icons/ui-locate.svg" mode="aspectFit" /></view
+        ></view>
+        <view
+          class="workflow-picker-date-step"
+          data-offset="1"
+          aria-role="button"
+          aria-label="下一月"
+          hover-class="is-pressed"
+          hover-start-time="0"
+          hover-stay-time="60"
+          bindtap="handleDateNavigate"
+          ><image src="/assets/icons/ui-chevron-right.svg" mode="aspectFit"
+        /></view>
+      </view>
+      <view class="workflow-picker-weekdays">
+        <text wx:for="{{weekdays}}" wx:key="*this" class="{{index >= 5 ? 'is-weekend' : ''}}"
+          >{{item}}</text
+        >
+      </view>
+      <swiper
+        class="workflow-picker-date-swiper"
+        current="{{dateSwiperIndex}}"
+        duration="{{dateSwiperDuration}}"
+        easing-function="{{dateSwiperEasingFunction}}"
+        circular="{{true}}"
+        skip-hidden-item-layout="{{false}}"
+        bindchange="handleDateSwiperChangeStart"
+        bindanimationfinish="handleDateSwiperFinish"
+      >
+        <swiper-item wx:for="{{datePanels}}" wx:key="slot" wx:for-item="panel">
+          <view class="workflow-picker-date-grid">
+            <view
+              wx:for="{{panel.cells}}"
+              wx:key="value"
+              class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+              data-value="{{item.value}}"
+              aria-role="button"
+              aria-disabled="{{item.disabled}}"
+              aria-pressed="{{item.isSelected}}"
+              bindtap="handleDateSelect"
+            >
+              <text>{{item.day}}</text>
+            </view>
+          </view>
+        </swiper-item>
+      </swiper>
+    </view>
+
+    <view class="workflow-picker-actions">
+      <view class="workflow-picker-button is-secondary" aria-role="button" bindtap="handleClose"
+        >取消</view
+      >
+      <view class="workflow-picker-button is-primary" aria-role="button" bindtap="handleConfirm"
+        >完成</view
+      >
+    </view>
+  </view>
+</view>

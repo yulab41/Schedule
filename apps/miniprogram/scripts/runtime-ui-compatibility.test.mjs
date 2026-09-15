@@ -242,12 +242,13 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     );
   });
 
-  it('gives the selector popover an explicit height on 3.17.2 scroll containers', async () => {
+  it('gives the selector popover a fixed height and in-place expansion on 3.17.2', async () => {
     const { createSelectorPopoverStyle } =
       await import('../src/components/ui/ui-selector/selector.ts');
     const optionsTemplate = readSource('components/ui/ui-selector/options.wxml');
     const selectorTemplate = readSource('components/ui/ui-selector/index.wxml');
     const selectorComponent = readSource('components/ui/ui-selector/index.ts');
+    const selectorStyles = readSource('components/ui/ui-selector/index.wxss');
     const pickerTemplate = readSource('components/ui/ui-date-picker/index.wxml');
     const pickerComponent = readSource('components/ui/ui-date-picker/index.ts');
 
@@ -256,25 +257,43 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(createSelectorPopoverStyle(3, true)).toBe('height:100px;');
     expect(createSelectorPopoverStyle(20, true)).toBe('height:300px;');
     expect(optionsTemplate).toContain('style="{{popoverStyle}}"');
+    expect(optionsTemplate).toContain("{{skyline3172UiCompatibility ? 'is-inline' : ''}}");
+    expect(optionsTemplate).toContain('wx:if="{{open && !skyline3172UiCompatibility}}"');
     expect(selectorTemplate).toContain('popoverStyle');
+    expect(selectorTemplate).toContain('skyline3172UiCompatibility');
     expect(pickerTemplate).toContain('popoverStyle');
+    expect(pickerTemplate).toContain('skyline3172UiCompatibility');
+    expect(selectorStyles).toMatch(
+      /\.workflow-picker-selector-popover\.is-inline\s*\{[^}]*position:\s*static/su,
+    );
+    expect(selectorStyles).toMatch(
+      /\.workflow-picker-selector-popover\.is-inline\.is-measuring\s*\{[^}]*visibility:\s*visible/su,
+    );
     expect(selectorComponent).toContain('needsCurrentRuntimeSkyline3172UiCompatibility');
     expect(pickerComponent).toContain('needsCurrentRuntimeSkyline3172UiCompatibility');
   });
 
-  it('renders the shared workflow picker dialog from the root layer on 3.17.2', () => {
+  it('expands the workflow picker dialog in place on 3.17.2 and keeps the overlay elsewhere', () => {
     const template = readSource('components/ui/ui-date-picker/index.wxml');
     const styles = readSource('components/ui/ui-date-picker/index.wxss');
 
     expect(template.match(/class="workflow-picker-layer/gu)).toHaveLength(1);
-    expect(template).toMatch(
-      /<root-portal\s+wx:if="\{\{open && mode !== 'selector'\}\}"\s+enable="\{\{skyline3172UiCompatibility\}\}"\s*>/u,
+    expect(template).not.toContain('<root-portal');
+    expect(template).toContain(
+      `class="workflow-picker-layer {{skyline3172UiCompatibility ? 'is-inline' : ''}}"`,
     );
-    expect(template).toContain('class="workflow-picker-layer ui-root-portal-token-scope"');
-    expect(styles).toContain("@import '../../../styles/ui-root-portal-tokens.wxss';");
+    expect(template).toContain(
+      `class="workflow-picker-sheet {{skyline3172UiCompatibility ? 'is-inline' : ''}}"`,
+    );
+    expect(template).toContain(
+      'wx:if="{{!skyline3172UiCompatibility}}" class="workflow-picker-scrim"',
+    );
+    expect(template).toContain(
+      'wx:if="{{!skyline3172UiCompatibility}}" class="workflow-picker-handle"',
+    );
+    expect(styles).not.toContain('ui-root-portal-tokens.wxss');
     expect(styles).toMatch(/\.workflow-picker-layer\s*\{[^}]*position:\s*fixed/su);
-    expect(styles).toMatch(
-      /\.workflow-picker-layer\s*\{[^}]*z-index:\s*var\(--ui-z-index-dialog\)/su,
-    );
+    expect(styles).toMatch(/\.workflow-picker-layer\.is-inline\s*\{[^}]*position:\s*static/su);
+    expect(styles).toMatch(/\.workflow-picker-sheet\.is-inline\s*\{[^}]*position:\s*static/su);
   });
 });

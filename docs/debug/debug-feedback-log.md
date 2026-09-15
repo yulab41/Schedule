@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-15 Skyline 3.17.2 选择器就地展开后备
+
+- 反馈/引入点：用户复核`.138@09c100d`，3.17.2下拉已能渲染选项但被后续字段遮挡，月份/日期面板点按后仍不出现，3.17.3正常。遮挡沿用`.136`记录的3.17.2同层z-index不能提升浮层，引入点为`6d0575d0`的绝对定位弹层与`.workflow-picker-root.is-open`的`z-index: 30`；面板不出现是因为`.138`的“ui-sheet插槽内容root-portal到根层”在3.17.2不生效：冻结产物确有`root-portal`、令牌导入与`--ui-z-index-dialog:1000`，而同一机制在页面级（群组菜单）和组件级（ui-toast）真机均可用。
+- RED 2项在`.138`基线上准确失败（就地展开类与就地卡片规则）。修复只在3.17.2生效：下拉容器`is-inline`改为`position: static`并去掉遮罩、覆盖`is-measuring`隐藏、保留显式高度；月份/日期层与面板`is-inline`改为就地卡片、去遮罩与拖拽把手；撤销`root-portal`与根层令牌导入后，3.17.3与未知版本恢复为与`.136`逐字相同的覆盖层结构与几何。
+- GREEN兼容14项、Mini完整174文件1203项通过/16跳过；typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过。主包1739791B、总4607445B，较`.138`增644B，无新增依赖。既有`p7-native-feedback`源码契约断言随标记变化改为匹配`class="workflow-picker-sheet `前缀，仍验证自绘面板存在，未掩盖行为回归。
+- 运行/浏览器验证：本轮不触及Web核心，`pnpm smoke:check-core`执行并通过。就地展开在3.17.2真机的可见性、WXS年月滚轮响应、选项与面板可点按性，以及3.17.3外观不变，仍待同SHA小米14双实例复核；本轮未使用微信开发者工具，未上传、未放行、未部署。
+
 ## 2026-09-15 Skyline 3.17.2 选择器浮层与页头箭头
 
 - 反馈/引入点：用户小米14的3.17.2实例在`.136@efda88f`上报告页头群组箭头偏右约40px、换班sheet的月份/日期选择器点按无反应、班次/人员下拉只剩约12px白色空框，同时3.17.3正常。`git log -S`/`git blame`定位箭头到`733e3af6`的绝对定位箭头与`47c294ba`/`ed06031f`的3.17.2 220px确定宽度，弹层到`6d0575d0`的`.workflow-picker-selector-popover`与内嵌`scroll-view`，对话框层到`bc32a4f1`/`528722f4`的`position: fixed`层。
