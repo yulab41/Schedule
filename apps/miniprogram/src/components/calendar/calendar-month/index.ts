@@ -51,6 +51,7 @@ Component({
   properties: {
     shadow: { type: Boolean, value: true },
     compact: { type: Boolean, value: false },
+    runtimePressedFeedbackCompatibility: { type: Boolean, value: false },
     gridHeight: { type: Number, value: 270 },
     monthLabel: { type: String, value: '' },
     panelHeights: { type: Array, value: [270, 270, 270] },

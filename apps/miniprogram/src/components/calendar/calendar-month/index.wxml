@@ -85,6 +85,7 @@
         >
           <calendar-cell
             compact="{{compact}}"
+            runtime-pressed-feedback-compatibility="{{runtimePressedFeedbackCompatibility}}"
             duties="{{cell.duties}}"
             disabled="{{cell.disabled}}"
             aria-label="{{cell.ariaLabel}}"

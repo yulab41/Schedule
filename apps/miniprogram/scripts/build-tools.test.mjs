@@ -157,11 +157,11 @@ describe('Mini Program deterministic toolchain guards', () => {
         'utf8',
       );
       const portalTokens = readFileSync(
-        path.join(outdir, 'styles', 'ui-toast-tokens.wxss'),
+        path.join(outdir, 'styles', 'ui-root-portal-tokens.wxss'),
         'utf8',
       );
-      expect(portalTokens).toMatch(/^\.ui-toast__layer\s*\{/u);
-      expect(portalTokens.replace(/^\.ui-toast__layer/u, 'page')).toBe(tokenSource);
+      expect(portalTokens).toMatch(/^\.ui-root-portal-token-scope\s*\{/u);
+      expect(portalTokens.replace(/^\.ui-root-portal-token-scope/u, 'page')).toBe(tokenSource);
     } finally {
       rmSync(fixtureRoot, { force: true, recursive: true });
     }

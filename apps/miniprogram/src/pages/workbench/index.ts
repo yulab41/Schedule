@@ -205,6 +205,7 @@ interface WorkbenchPageData extends AccountSecurityData {
   readonly groupOpen: boolean;
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
+  readonly groupMenuPortalStyle: string;
   readonly listPanels: WorkbenchViewModel['listPanels'];
   readonly listScrollTarget: string;
   readonly listSwiperCurrent: number;
@@ -372,6 +373,7 @@ Page({
     groupOpen: false,
     groups: [],
     gridHeight: 270,
+    groupMenuPortalStyle: 'top:42px;left:12px;',
     listPanels: [],
     listScrollTarget: '',
     listSwiperCurrent: 1,
@@ -2554,7 +2556,11 @@ function resolveFilterDropdownDirection(
 
 function createShellLayoutPatch(): Pick<
   WorkbenchPageData,
-  'shellActionsStyle' | 'shellHeaderHeight' | 'shellHeaderStyle' | 'workspaceViewportStyle'
+  | 'groupMenuPortalStyle'
+  | 'shellActionsStyle'
+  | 'shellHeaderHeight'
+  | 'shellHeaderStyle'
+  | 'workspaceViewportStyle'
 > {
   const windowInfo = wx.getWindowInfo();
   const capsule = wx.getMenuButtonBoundingClientRect();
@@ -2579,6 +2585,7 @@ function createShellLayoutPatch(): Pick<
     Math.floor(windowInfo.windowHeight - shellHeaderHeight - bottomNavHeight),
   );
   return {
+    groupMenuPortalStyle: `top:${contentTop + 34}px;left:12px;`,
     shellActionsStyle: `right:${actionsRight}px;top:${actionsTop}px;bottom:auto;`,
     shellHeaderHeight,
     shellHeaderStyle: `height:${shellHeaderHeight}px;min-height:${shellHeaderHeight}px;padding-top:${contentTop}px;padding-right:${headerRightPadding}px;`,

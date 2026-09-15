@@ -85,7 +85,64 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(styles).toMatch(
       /\.is-skyline-3172-ui \.week-day\.is-selected::after\s*\{[^}]*display:\s*none/su,
     );
-    expect(styles).toMatch(/\.is-skyline-3172-ui \.group-switcher\s*\{[^}]*width:\s*100%/su);
+    expect(styles).toMatch(
+      /\.is-skyline-3172-ui \.group-switcher\s*\{[^}]*width:\s*220px[^}]*max-width:\s*none/su,
+    );
+    expect(styles).toMatch(
+      /\.is-skyline-3172-ui \.group-switcher-trigger\s*\{[^}]*width:\s*220px[^}]*max-width:\s*none/su,
+    );
+    expect(template).toContain(
+      "hover-class=\"{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}\"",
+    );
+  });
+
+  it('elevates only the affected runtime group menu above the Skyline scroll layer', () => {
+    const template = readSource('pages/workbench/index.wxml');
+    const styles = readSource('pages/workbench/index.wxss');
+    const page = readSource('pages/workbench/index.ts');
+    const buildTools = readFileSync(new URL('./build-tools.mjs', import.meta.url), 'utf8');
+
+    expect(template).toContain('wx:if="{{groupOpen && !skyline3172UiCompatibility}}"');
+    expect(template).toMatch(
+      /<root-portal\s+wx:if="\{\{groupOpen && skyline3172UiCompatibility\}\}"\s+enable="\{\{true\}\}"\s*>/u,
+    );
+    expect(template).toContain('class="group-menu group-menu-portal ui-root-portal-token-scope"');
+    expect(template).toContain('style="{{groupMenuPortalStyle}}"');
+    expect(styles).toContain("@import '../../styles/ui-root-portal-tokens.wxss';");
+    expect(styles).toMatch(/\.group-menu-portal\s*\{[^}]*position:\s*fixed/su);
+    expect(styles).toMatch(/\.group-menu-portal\s*\{[^}]*z-index:\s*200/su);
+    expect(page).toContain('readonly groupMenuPortalStyle: string;');
+    expect(page).toContain('groupMenuPortalStyle: `top:${contentTop + 34}px;left:12px;`');
+    expect(buildTools).toContain(
+      "path.join(outputDirectory, 'styles', 'ui-root-portal-tokens.wxss')",
+    );
+    expect(buildTools).toContain(
+      "tokens.replace(/^page(?=\\s*\\{)/u, '.ui-root-portal-token-scope')",
+    );
+  });
+
+  it('shortens pressed feedback only on 3.17.2 month cells', () => {
+    const workbenchTemplate = readSource('pages/workbench/index.wxml');
+    const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
+    const monthComponent = readSource('components/calendar/calendar-month/index.ts');
+    const cellTemplate = readSource('components/calendar/calendar-cell/index.wxml');
+    const cellComponent = readSource('components/calendar/calendar-cell/index.ts');
+
+    expect(workbenchTemplate).toContain(
+      'runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"',
+    );
+    expect(monthComponent).toContain(
+      'runtimePressedFeedbackCompatibility: { type: Boolean, value: false }',
+    );
+    expect(monthTemplate).toContain(
+      'runtime-pressed-feedback-compatibility="{{runtimePressedFeedbackCompatibility}}"',
+    );
+    expect(cellComponent).toContain(
+      'runtimePressedFeedbackCompatibility: { type: Boolean, value: false }',
+    );
+    expect(cellTemplate).toContain(
+      'hover-stay-time="{{runtimePressedFeedbackCompatibility ? 0 : 70}}"',
+    );
   });
 
   it('keeps the normal toast border and uses an element accent only on 3.17.2', () => {

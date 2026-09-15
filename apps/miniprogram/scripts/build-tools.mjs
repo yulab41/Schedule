@@ -325,8 +325,8 @@ function copyGeneratedUiTokens(outputDirectory) {
   // A root portal cannot depend on its former page ancestor. Rebind the same
   // generated tokens locally instead of copying values or adding a runtime package.
   writeFileSync(
-    path.join(outputDirectory, 'styles', 'ui-toast-tokens.wxss'),
-    tokens.replace(/^page(?=\s*\{)/u, '.ui-toast__layer'),
+    path.join(outputDirectory, 'styles', 'ui-root-portal-tokens.wxss'),
+    tokens.replace(/^page(?=\s*\{)/u, '.ui-root-portal-token-scope'),
     'utf8',
   );
 }

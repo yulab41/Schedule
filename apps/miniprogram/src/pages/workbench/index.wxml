@@ -14,7 +14,11 @@
             ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit"
           /></view>
         </view>
-        <view wx:if="{{groupOpen}}" class="group-menu" aria-label="选择当前群组">
+        <view
+          wx:if="{{groupOpen && !skyline3172UiCompatibility}}"
+          class="group-menu"
+          aria-label="选择当前群组"
+        >
           <view
             wx:for="{{groups}}"
             wx:key="id"
@@ -74,6 +78,38 @@
       </view>
     </view>
   </view>
+
+  <root-portal
+    wx:if="{{groupOpen && skyline3172UiCompatibility}}"
+    enable="{{true}}"
+  >
+    <view
+      class="group-menu group-menu-portal ui-root-portal-token-scope"
+      style="{{groupMenuPortalStyle}}"
+      aria-label="选择当前群组"
+    >
+      <view
+        wx:for="{{groups}}"
+        wx:key="id"
+        class="group-option {{item.id === currentGroupId ? 'is-selected' : ''}}"
+        data-group-id="{{item.id}}"
+        hover-class="is-pressed"
+        aria-role="button"
+        bindtap="handleGroupSelect"
+      >
+        <view class="group-option-copy"
+          ><text>{{item.name}}</text
+          ><text
+            >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
+            item.role === 'guest' ? '访客' : '成员'}}</text
+          ></view
+        >
+        <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
+          >✓</text
+        >
+      </view>
+    </view>
+  </root-portal>
 
   <view class="workspace-host" style="{{workspaceViewportStyle}}">
     <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'calendar'}}">
@@ -149,6 +185,7 @@
               <calendar-month
                 id="workbench-month"
                 grid-height="{{gridHeight}}"
+                runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"
                 month-label="{{monthLabel}}"
                 panel-heights="{{monthPanelHeights}}"
                 panels="{{monthPanels}}"
@@ -384,7 +421,7 @@
                         wx:key="businessDate"
                         class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
                         data-business-date="{{day.businessDate}}"
-                        hover-class="is-pressed"
+                        hover-class="{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}"
                         aria-role="button"
                         bindtap="handleWeekDaySelect"
                       >
