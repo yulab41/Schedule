@@ -16,6 +16,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.calendar-cell.is-past {
+  background: #f3f4f6;
+}
+
 .calendar-cell.is-pressed {
   background: var(--ui-color-primary-light);
 }

@@ -2968,3 +2968,12 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - RED→GREEN：旧版结构合同17项中1项失败；实现固定首屏、显式scroll-view、Grid/CSS变量/滚动自动探针、CSS/SVG可视对照和首屏复制后test-tools20、页面边界/遥测联合33及Mini完整1180项通过/16跳过。迟到测量、刷新、隐私报告和业务零请求均有回归。
 - 视觉与构建：Mini/Web TypeScript、production build363文件、Web黄金2项与Storybook build通过；包体主1728648B/总4591358B、确定性Manifest`846e53b0…1d6219d`。390/320/大字号实际浏览器复核无横溢，按钮44px。Mini verify被未改手排节点预算1507>1506阻断，本轮未修改手排或放宽测试；lint与smoke:check-core通过。
 - 行为变化仅限诊断页滚动载体和只读报告；登录、工作台、成员日历、API、权限、数据和生产均不变。当前为已实现待候选门禁，未上传、放行、部署、提审或正式发布。
+
+## 2026-09-15 月视图已过日期灰底丢失（首页 + 访客）
+
+- 引入点：`git log -S`/`git blame`确认旧小程序`1343f4c6^`的`apps/miniprogram/components/calendar-grid`用`day.isPast`输出`calendar-grid__day--past`并以`#f3f4f6`绘制，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用；`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)接入工作台月视图都没有携带该状态。周视图由`50c6d1ed`补齐`isPast`，Web端`apps/web/src/features/calendar/MonthGrid.vue`一直保留`.day-cell.is-past`，因此只有月视图呈现回归。日历路径无`SDKVersion`分支，3.17.2与3.17.3是同一处缺失。
+- 测试先行：新增模型断言（当月已过`true`、今天/未来/月外格`false`）、simulate类名断言与来源合同断言；旧代码3项失败/26通过。
+- 修复与语义：`features/workbench/workbench-model.ts`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`并转发到`calendar-cell`，新增`.calendar-cell.is-past{background:#f3f4f6}`且放在`.is-pressed`之前；`.is-holiday`粉底、今天/未来、月外格、选中框与按压反馈不变；访客页复用同一模型与组件，零额外改动。
+- 运行/浏览器验证：本轮改动仅`apps/miniprogram/**`，不触发`smoke:browser`核心链路清单；`pnpm smoke:check-core`通过并确认既有“运行/浏览器验证：pnpm smoke:browser”记录仍然有效。RED与基线对比用`git stash push/pop`在独占租约槽内完成并核对diff一致；PowerShell全程`$PSNativeCommandUseErrorActionPreference=$true`。
+- 验证结果：定向`scripts/workbench.test.mjs`+`scripts/calendar-simulate.test.mjs` 29项通过（`.138`基线）、叠加到`.139`基线后联合`guest-runtime`49项通过；完整套件与包体见交付记录。
+- 状态：已实现并按当前消息授权进入上传流程；未部署生产应用、未控制微信开发者工具。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-20260915.md`。

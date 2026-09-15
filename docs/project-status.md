@@ -1,6 +1,15 @@
 # Project Status
 
-## 当前批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
+## 当前批次：Skyline 月视图已过日期灰底恢复，已获上传授权待交付
+
+- 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有；要求最小改动、两处全面修复、不牵连其他外观。
+- 引入点：旧小程序`1343f4c6^`的`components/calendar-grid`用`day.isPast`+`.calendar-grid__day--past{background:#f3f4f6}`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用；`1343f4c6`删除旧小程序后，`1f715c96`新建`calendar-month`/`calendar-cell`、`ad4cfb2c`接入工作台月视图时都没有携带该状态。周视图由`50c6d1ed`补齐、Web端`MonthGrid.vue`一直保留，因此只有月视图看起来“某次更新后没了”。日历路径无`SDKVersion`分支，不是基础库差异。
+- 修复只补月视图唯一复用的一个状态与一条样式：`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`，`calendar-month`转发`is-past`，`calendar-cell`属性/类/`.is-past{background:#f3f4f6}`。灰底放在`.is-pressed`之前保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件、零额外改动；预览/补录/POC默认`false`不变。
+- 实现检查点`3a9ccca9`（分支`codex/runtime-3172-past-month-gray-20260915`，基线`.138`记录`d56ecba2`）已推送；上载体在独占warm槽`codex/runtime-3172-past-month-gray-upload-20260915`把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`之上，不改写并行分支、不创建合并提交。
+- RED 3失败/26通过；`.139`基线叠加后定向49项通过，Mini完整与构建门禁见交付记录。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-20260915.md`。
+- 用户在当前消息明确授权“上传并放行”。唯一下一任务：按runbook完成`.140`候选冻结、上传与add-only放行，再由小米14双实例复核首页与访客月视图已过日期灰底，并确认今天/未来、假期粉底、选中框与按压反馈不变。
+
+## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
 
 - 用户复核`.137@09e6398`：3.17.2访客页面周视图滑动乱跳、切到非本周后点单元格无反应；同实例月视图、成员周视图与3.17.3正常。
 - 根因：访客页仍使用成员页在`.135`废弃的强制归中（`weekSwiperCurrent=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；3.17.2对该0ms回跳会反向动画或补发`animationfinish`，并使原生swiper停在2号页、数据停在1号，可见单元格属于另一周，点击后选中态落在不可见面板。

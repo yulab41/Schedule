@@ -1,6 +1,14 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
+## 当前批次：Skyline 月视图已过日期灰底恢复，已获上传授权待交付
+
+- 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有，怀疑某次更新后丢失。
+- 引入点：旧小程序`1343f4c6^`的`components/calendar-grid/index.wxml`用`day.isPast`输出`calendar-grid__day--past`、`index.wxss`定义`#f3f4f6`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用。`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)把工作台月视图接到新组件时都没有携带该状态、类或样式；周视图由`50c6d1ed`补齐，Web端`MonthGrid.vue`一直保留`.day-cell.is-past`。日历路径无`SDKVersion`分支。
+- 修复复用月视图唯一链路：`WorkbenchCell`/`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`（与周视图同款比较语义、排除月外格），`calendar-month/index.wxml`转发`is-past`，`calendar-cell`新增属性、`is-past`类与`.calendar-cell.is-past{background:#f3f4f6}`。灰底规则在`.is-pressed`之前以保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件零额外改动；预览/补录/POC默认`false`不变；未新增依赖、token或版本分支。
+- RED 3失败/26通过；上载体把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`（记录`3c8ea88d`）之上，定向49项通过。Mini完整与构建门禁、版本绑定与放行结果见下方交付记录。
+- 用户在当前消息明确授权上传并放行。详情见`runtime-ui-compatibility-past-month-gray-20260915.md`。
+
+## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
 
 - 用户复核`.137@09e6398`：3.17.2访客页面周视图乱跳、切到非本周后点单元格无反应；月视图、成员周视图与3.17.3正常。
 - 根因：访客页仍在用成员页于`.135`废弃的强制归中（`current=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；3.17.2对该回跳反向动画或补发事件，并使原生页与数据槽位错位，点击落到不可见面板。
