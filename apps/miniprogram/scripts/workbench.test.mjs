@@ -424,6 +424,40 @@ describe('P4 native workbench', () => {
     );
   });
 
+  it('marks only current-month past days so the month grid keeps its gray', () => {
+    const view = createWorkbenchViewModel(
+      calendarApiGoldenResponse,
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+      undefined,
+      '2026-08-22',
+    );
+    const cells = view.monthPanels[1].cells;
+    const cell = (businessDate) => cells.find((item) => item.businessDate === businessDate);
+
+    expect(cell('2026-08-01')?.isPast).toBe(true);
+    expect(cell('2026-08-21')?.isPast).toBe(true);
+    expect(cell('2026-08-22')?.isPast).toBe(false);
+    expect(cell('2026-08-23')?.isPast).toBe(false);
+    expect(cell('2026-07-31')?.isCurrentMonth).toBe(false);
+    expect(cell('2026-07-31')?.isPast).toBe(false);
+  });
+
+  it('forwards the past-day state into the shared month cell gray', () => {
+    const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
+    const cellTemplate = readSource('components/calendar/calendar-cell/index.wxml');
+    const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
+
+    expect(monthTemplate).toContain('is-past="{{cell.isPast}}"');
+    expect(cellTemplate).toContain("{{isPast ? 'is-past' : ''}}");
+    expect(cellStyles).toMatch(/\.calendar-cell\.is-past\s*\{[^}]*background:\s*#f3f4f6;/su);
+    expect(cellStyles.indexOf('.calendar-cell.is-past')).toBeLessThan(
+      cellStyles.indexOf('.calendar-cell.is-pressed'),
+    );
+  });
+
   it('maps the real calendar read model into month, week and list data', () => {
     const view = createWorkbenchViewModel(
       calendarApiGoldenResponse,

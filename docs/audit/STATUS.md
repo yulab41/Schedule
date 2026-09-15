@@ -1,6 +1,15 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
+## 当前批次：Skyline 3.17.2 月视图已过日期灰底已恢复，待体验版交付
+
+- 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有，怀疑某次更新后丢失。
+- 引入点：旧小程序`1343f4c6^`的`components/calendar-grid/index.wxml`用`day.isPast`输出`calendar-grid__day--past`、`index.wxss`定义`#f3f4f6`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用。`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)把工作台月视图接到新组件时都没有携带该状态、类或样式；周视图由`50c6d1ed`补齐，Web端`MonthGrid.vue`一直保留`.day-cell.is-past`。
+- 修复复用月视图唯一链路：`WorkbenchCell`/`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`（与周视图同款比较语义、排除月外格），`calendar-month/index.wxml`转发`is-past`，`calendar-cell`新增属性、`is-past`类与`.calendar-cell.is-past{background:#f3f4f6}`。灰底规则在`.is-pressed`之前以保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件零额外改动；预览/补录/POC默认`false`不变；未新增依赖、token或版本分支。
+- RED 3失败/26通过；GREEN定向123项通过/1跳过、Mini完整174文件1207项通过/16跳过、determinism通过（Manifest`d2f1f0c0…c3e9ee79`）；包体主包1739148→1739424B（+276B）。Mini verify改动前后同样只被既有未改手排节点1507>1506阻断，未放宽预算。format/lint/smoke:check-core通过；改动仅`apps/miniprogram/**`，未运行`smoke:browser`。
+- 分支`codex/runtime-3172-past-month-gray-20260915`基于`.138`源码`d56ecba2`；未上传、未放行、未部署生产、未操作微信开发者工具。详情见`runtime-ui-compatibility-past-month-gray-20260915.md`。
+- 唯一下一任务：取得当前消息上传授权后交付含本修复的体验版并add-only放行，再由小米14双实例复核首页与访客月视图已过日期灰底、今天/未来、假期、选中框与按压反馈。未取得同版本真机证据前不宣称原生通过。
+
+## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
 
 - 小米14的3.17.2实例复核`.136@efda88f`：成员页面四项修复通过、3.17.3正常，但页头群组箭头比3.17.3偏右约40px；换班sheet的“我的班次月份/对方班次月份”点按后没有任何遮罩或面板；班次/人员下拉只剩约12px高的白色空框。
 - 箭头是本轮自己造成的：`ed06031f`把3.17.2群组容器固定为220px，而箭头一直是相对该盒子的绝对定位元素，于是贴到盒子右缘。选择器则是旧Skyline在滚动容器内的布局差异：内嵌`scroll-view`弹层不按内容推导高度，`position: fixed`对话框层不在可见视口；同页`ui-sheet`不在滚动容器内所以正常。
