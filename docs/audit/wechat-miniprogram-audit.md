@@ -1187,3 +1187,21 @@ performance/determinism/verify、format/lint 与 `smoke:check-core` 均通过。
 
 本批未运行微信开发者工具、未上传新体验版、未连接或部署 production。下一候选必须重新取得精确上传批准，
 并在 Xiaomi 14 核对日历颜色/循环/重复点击滚动复位、人员 1.8 线宽/颜色/520ms destination-only 动效与 reduced-motion。
+
+## 15. 2026-09-15 测试工具真实读取 Skyline 渲染引擎版本
+
+用户要求消除“更多 → 测试工具”里“Skyline 版本：当前微信版本不支持单独读取”的硬编码。核对官方文档后确认：微信自
+基础库 2.26.2 起提供 `wx.getSkylineInfo`，返回 `isSupported`、`version`（形如 `1.4.22`）与 `reason`（合法值
+`client not supported`、`baselib not supported`、`a-b test not enabled`、`SwitchRender option set to webview`），
+审计主计划 §8B 本已要求“Skyline 支持与版本（API 支持时）”。原实现的“没有可靠 API”理由不成立。
+
+改动只在测试工具页读取与对应契约测试内：`isSupported` 映射上述官方原因文案，`reason` 未识别时只写“不支持（原因未识别）”，
+`version` 显示真实版本号；缺少 API、`fail` 回调或 500 ms 超时统一失败关闭为“当前微信版本不支持读取”，不猜测、不阻塞页面
+（与网络类型并行读取）。未改 WXML/WXSS、页面配置、渲染器契约或业务语义，也未新增依赖。
+
+证据：基线 `4179f05a`，独占 general-4 依赖复用、无安装。新契约先失败后通过：RED 2 失败/17 通过，GREEN 19/19；Mini 全量
+1184 通过/16 跳过；Mini production verify 通过（包体 `4,580,887 B`、Worklet 2/2、Manifest `7400f685…c407`，保留既有
+主包与矩阵内部预警）；`format:check`、受影响文件 prettier/eslint、Mini typecheck 与 `smoke:check-core` 通过。
+
+本批未操作微信开发者工具、未上传体验版、未部署生产；“Skyline 版本”字段的真实取值仍属“当前工具无法测量”，需要小米 14
+体验版人工复核。停止条件：未对最终干净 SHA 明确授权上传时，停在已推送的干净检查点。

@@ -167,6 +167,14 @@ interface RuntimeSystemApi {
     readonly fail: () => void;
     readonly success: (result: { readonly networkType?: unknown }) => void;
   }) => unknown;
+  readonly getSkylineInfo?: (options: {
+    readonly fail?: () => void;
+    readonly success?: (result: {
+      readonly isSupported?: unknown;
+      readonly reason?: unknown;
+      readonly version?: unknown;
+    }) => void;
+  }) => unknown;
   readonly getStorageInfoSync?: () => {
     readonly currentSize?: unknown;
     readonly keys?: unknown;
@@ -190,6 +198,22 @@ interface RuntimeSystemApi {
 }
 
 const currentPagePath = 'subpackages/diagnostics/pages/test-tools/index';
+
+interface SkylineRuntimeInfo {
+  readonly reason: string;
+  readonly supported: boolean | undefined;
+  readonly version: string;
+}
+
+const skylineUnavailableValue = '当前微信版本不支持读取';
+
+const skylineReasonLabels: Readonly<Record<string, string>> = Object.freeze({
+  'SwitchRender option set to webview': '调试开关强制使用 WebView',
+  'a-b test not enabled': '命中 We 分析 AB 实验关闭',
+  'baselib not supported': '当前基础库不支持 Skyline',
+  'client not supported': '当前微信客户端不支持 Skyline',
+});
+
 const displayCheckDefaults: readonly DisplayCheck[] = [
   check(
     'top-navigation',
@@ -647,7 +671,10 @@ async function collectDeviceRows(
   const windowInfo = safeCall(runtime.getWindowInfo);
   const menu = safeCall(runtime.getMenuButtonBoundingClientRect);
   const setting = safeCall(runtime.getSystemSetting);
-  const networkType = await readNetworkType(runtime);
+  const [networkType, skyline] = await Promise.all([
+    readNetworkType(runtime),
+    readSkylineInfo(runtime),
+  ]);
   const safeArea = isRecord(windowInfo?.safeArea) ? windowInfo.safeArea : undefined;
   const deviceName = joinKnown([textValue(device?.brand), textValue(device?.model)]);
   return {
@@ -689,16 +716,17 @@ async function collectDeviceRows(
       ),
       row(
         'Skyline 支持',
-        '当前页面已按 Skyline 构建',
-        '能打开本页说明当前渲染链路已工作，但不代表所有交互已验收。',
+        skylineSupportValue(skyline),
+        '当前运行环境对 Skyline 的支持情况；不支持时页面可能由 WebView 渲染，需按渲染器区分视觉差异。',
         '截本卡片。',
+        skylineStatus(skyline),
       ),
       row(
         'Skyline 版本',
-        '当前微信版本不支持单独读取',
-        '没有可靠 API 时不猜测 Skyline 版本。',
-        '无需单独截图。',
-        'unavailable',
+        skyline.version.length > 0 ? skyline.version : skylineUnavailableValue,
+        'Skyline 渲染引擎有独立版本号；版本不同可能出现文本、滚动或层级的布局差异。',
+        '截本卡片。',
+        skyline.version.length > 0 ? 'good' : 'unavailable',
       ),
       row(
         '屏幕',
@@ -1207,9 +1235,48 @@ function readNetworkType(runtime: RuntimeSystemApi): Promise<string> {
   });
 }
 
+function readSkylineInfo(runtime: RuntimeSystemApi): Promise<SkylineRuntimeInfo> {
+  const unavailable: SkylineRuntimeInfo = Object.freeze({
+    reason: '',
+    supported: undefined,
+    version: '',
+  });
+  return new Promise((resolve) => {
+    if (runtime.getSkylineInfo === undefined) {
+      resolve(unavailable);
+      return;
+    }
+    let settled = false;
+    const finish = (value: SkylineRuntimeInfo): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(unavailable), 500);
+    try {
+      runtime.getSkylineInfo({
+        fail: () => finish(unavailable),
+        success: (result) =>
+          finish({
+            reason: optionalText(result.reason),
+            supported: typeof result.isSupported === 'boolean' ? result.isSupported : undefined,
+            version: optionalText(result.version),
+          }),
+      });
+    } catch {
+      finish(unavailable);
+    }
+  });
+}
+
 function textValue(value: unknown): string {
   if (typeof value === 'string' && value.trim().length > 0) return value.trim().slice(0, 80);
   return '当前微信版本不支持读取';
+}
+
+function optionalText(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim().slice(0, 80) : '';
 }
 
 function numberValue(value: unknown): string {
@@ -1240,6 +1307,19 @@ function joinKnown(values: readonly string[]): string {
 
 function availability(value: string): RowStatus {
   return value === '当前微信版本不支持读取' ? 'unavailable' : 'good';
+}
+
+function skylineSupportValue(skyline: SkylineRuntimeInfo): string {
+  if (skyline.supported === true) return '支持';
+  if (skyline.supported === false) {
+    return skylineReasonLabels[skyline.reason] ?? '不支持（原因未识别）';
+  }
+  return skylineUnavailableValue;
+}
+
+function skylineStatus(skyline: SkylineRuntimeInfo): RowStatus {
+  if (skyline.supported === true) return 'good';
+  return skyline.supported === false ? 'notice' : 'unavailable';
 }
 
 function formatTimestamp(value: number): string {

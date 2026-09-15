@@ -1,5 +1,14 @@
 # Project Status
 
+## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-15）
+
+- 用户要求把“更多 → 测试工具”的“Skyline 版本”从硬编码“当前微信版本不支持单独读取”改为真实读取。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`，原“没有可靠 API”的写法不成立；审计主计划 §8B 本来就要求“Skyline 支持与版本（API 支持时）”。
+- 基线`4179f05a`；独占general-4，REUSE_ONLY且无安装。只改`apps/miniprogram/src/subpackages/diagnostics/pages/test-tools/index.ts`与`apps/miniprogram/scripts/test-tools.test.mjs`，未改 WXML/WXSS、页面配置或业务语义。
+- 契约先失败后通过：RED 2失败/17通过；GREEN 该文件19/19；Mini 全量1184通过/16跳过（173文件通过/2跳过）；Mini production verify 通过（包体4580887字节、Worklet2/2、manifest`7400f685…c407`），保留既有主包与矩阵内部预警。
+- 呈现按官方字段：`isSupported` 映射“支持 / 当前微信客户端不支持 / 当前基础库不支持 / 命中 We 分析 AB 实验关闭 / 调试开关强制使用 WebView”，未识别原因只写“不支持（原因未识别）”；`version` 显示真实 Skyline 版本号。缺 API、`fail` 回调或 500ms 超时统一失败关闭为“当前微信版本不支持读取”，不猜测。
+- 同一轮读取与网络类型并行，失败关闭不阻塞页面；未新增依赖、未改渲染器契约。`format:check`、受影响文件 prettier/eslint、Mini typecheck、`smoke:check-core` 通过。
+- 待提交检查点：`feat(miniprogram): read real Skyline renderer version in test tools`。未操作微信开发者工具、未上传体验版、未部署生产。唯一下一任务与停止条件：本批无必须的原生验收项；如需在小米14核对，先对最终干净 SHA 另行明确授权体验版上传，未授权时停在已推送的干净检查点。
+
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
 - 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
@@ -198,19 +207,8 @@
 
 ## 上一交付：feedback6 体验版97
 
-- 十一项整改已进入应用36fae3d145982d793c1dee243a6eb12867962fb6及体验版0.1.0-p10.20260909.97。3aeaa4c8业务修改完整保留；36fae3d1仅补充历史导航动效证明。结果见feedback6-result.md，发布证据见docs/audit/feedback6-release.md。
-- 用户当次授权上传、备份、0055/0056迁移部署及旧版本停用；全部完成。最终schema56，完整生产verifier和版本控制验证通过，外部HTTPS .97=200、.96及未知版本=426。仅.97在允许列表，legacy标识保持原值。
-- 备份8ed1f840-8a23-4eff-ae0b-43a1123c862f实际文件hash核验通过。迁移前后账号/排班/事件/模板总数不变，手机号镜像差异0；未删账号或补造历史事件。生产仍为权威数据库，无本地业务数据复制。
-- 应用证据复用3aeaa4c8全量verify（Mini971/root1208）、真实MySQL分批回归及原pnpm smoke:browser流程；本轮发布保护35、动效/血缘/候选锁28项通过。最终上传335文件，Manifest与receipt/冻结包/远端tag一致；版本绑定主包1751101、总包5121308字节，Worklet2/2。
-- 独占general-1顺序复用，无依赖安装。文档收口检查点：docs(release): record feedback6 trial 97 delivery；只记录已发布36fae3d1，不再次部署/上传/备份。lease状态以ignored runtime官方状态为准。
-- 唯一下一任务与停止条件：用户在小米14重开.97/36fae3d后复核日历08:00、手动排班/补录、账号管理及通讯录首搜。原生交互/更新提示/搜索耗时未验证；未提审、正式发布或主动发送通知。当前自动化交付完成，待用户复核。
+- 应用`36fae3d1`与体验版`.97`已交付：十一项整改、schema56迁移、备份hash与生产verifier当时均通过；结果见`docs/audit/feedback6-result.md`，发布证据见`docs/audit/feedback6-release.md`。
 
 ## 上一交付：微信换绑修复
 
-- 应用a6586326b8bccc91fe7cf4f46b89e6296108e869已部署，体验版0.1.0-p10.20260908.96已上传并放行。用户本轮分别明确授权上传及生产部署/版本放行，最终生产verifier通过。
-- 换绑修复、旧凭证失效、并发/事务保护、网页微信登录退役及诊断提示已交付；原账号业务数据保留，无新迁移。旧网页微信授权入口实际HTTP404。
-- 备份9168aa6d-2fd1-4f8c-9f14-458face592ee及加密文件hash核验通过；部署前回滚候选实际读取为657f6ef5，最终live=a6586326，查询方案candidate保持开启。
-- 实现证据见docs/audit/wechat-rebind.md：全量verify、65项真实MySQL和浏览器检查通过；本轮上传门禁24项、候选版本绑定/归档/标签校验通过。交付详情见docs/audit/wechat-rebind-release.md。
-- 无依赖环境安装/冷槽新建。general-1上传租约已释放并用于文档收口；general-3历史释放仍受PID重用阻挡，不终止无关进程。
-- 收口提交标识：docs(release): record WeChat rebind trial 96 delivery。只记录已交付应用a6586326，不再部署文档提交。
-- 上一交付保留待复核项（非当前下一任务）：小米14确认.96/a6586326后测试个人账号↔admin换绑、微信登录及诊断身份一致，再主动本人订阅/发送并返回脱敏报告。未主动发送真实测试通知，未提审或正式发布，原生与收信效果待用户复核。
+- 应用`a6586326`与体验版`.96`已交付：换绑修复、旧凭证失效、并发/事务保护、网页微信登录退役已上线，原账号数据保留、无新迁移；实现见`docs/audit/wechat-rebind.md`，交付见`docs/audit/wechat-rebind-release.md`。
