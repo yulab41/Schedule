@@ -98,8 +98,10 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(config).toMatchObject({ component: true, styleIsolation: 'shared' });
     expect(template).toContain('<wxs module="wheelGesture" src="./wheel-gesture.wxs"></wxs>');
     expect(template).toContain('change:wheel-config="{{wheelGesture.configure}}"');
-    expect(template).toContain('bindtouchstart="{{wheelGesture.touchStart}}"');
-    expect(template).toContain('bindtouchmove="{{wheelGesture.touchMove}}"');
+    // The affected runtime ignores `touch-action` for pan arbitration, so the
+    // wheel claims start/move instead of letting an ancestor take the gesture.
+    expect(template).toContain('catchtouchstart="{{wheelGesture.touchStart}}"');
+    expect(template).toContain('catchtouchmove="{{wheelGesture.touchMove}}"');
     expect(template).toContain('bindtouchend="{{wheelGesture.touchEnd}}"');
     expect(template).toContain('bindtouchcancel="{{wheelGesture.touchCancel}}"');
     expect(template).toContain('id="ui-wheel-track"');

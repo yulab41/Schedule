@@ -8,8 +8,8 @@
   data-generation="{{wheelConfig.generation}}"
   wheel-config="{{wheelConfig}}"
   change:wheel-config="{{wheelGesture.configure}}"
-  bindtouchstart="{{wheelGesture.touchStart}}"
-  bindtouchmove="{{wheelGesture.touchMove}}"
+  catchtouchstart="{{wheelGesture.touchStart}}"
+  catchtouchmove="{{wheelGesture.touchMove}}"
   bindtouchend="{{wheelGesture.touchEnd}}"
   bindtouchcancel="{{wheelGesture.touchCancel}}"
 >

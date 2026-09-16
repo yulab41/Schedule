@@ -364,7 +364,7 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.lifetimes.detached.call(instance);
   });
 
-  it('locates today through adjacent prepared panels across a year boundary', async () => {
+  it('locates today as one prepared panel jump across a year boundary', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2027-01-02T00:00:00.000Z'));
     const definition = await loadPickerDefinition();
@@ -379,15 +379,20 @@ describe('P7 Web-parity workflow picker controller', () => {
 
     definition.methods.handleDateToday.call(instance);
     expect(instance.data.draftDisplayValue).toBe('2026年11月30日');
-    expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-12', slot: 2 });
+    // Today's own month is prepared as the single incoming slide.
+    expect(instance.data.datePanels[2]).toMatchObject({ key: '2027-01', slot: 2 });
     definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
-
-    expect(instance.data.draftDisplayValue).toBe('2026年12月2日');
-    expect(instance.data.datePanels[0]).toMatchObject({ key: '2027-01', slot: 0 });
-    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 0 } });
-
+    // One settle reaches today; the picker must never replay the month-by-month walk.
     expect(instance.data.draftDisplayValue).toBe('2027年1月2日');
-    expect(instance.data.dateSwiperIndex).toBe(0);
+    expect(instance.data.draftYear).toBe(2027);
+    expect(instance.data.draftMonth).toBe(1);
+    expect(instance.data.dateSwiperIndex).toBe(2);
+    expect(instance.data.datePanels.map((panel) => panel.key)).toEqual([
+      '2027-02',
+      '2026-12',
+      '2027-01',
+    ]);
+    expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
     definition.lifetimes.detached.call(instance);
   });
 

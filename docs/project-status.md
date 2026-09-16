@@ -1,6 +1,16 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 弹窗点击误关修复体验版148已上传并放行，待小米14复核
+## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日已修复，待体验版交付
+
+- 用户真机复核`.148`：3.17.2 弹窗内点击不再误关，但换班年月滚轮**仍不能滚动**（3.17.3 正常）；点左右切月（换班弹窗与日历页月历）播放**反向**滑动动效而最终月份正确；请假弹窗“定位当日”会**逐月**回退（3.17.2/3.17.3 都有），日历页定位当日一次到位。
+- A 滚动：滚轮依赖`touch-action: none`争抢纵向手势，3.17.2 不按该属性判定归属，手势被祖先容器拿走（同款组件+遮罩在 gesture-probe 真机曾可用，故不是遮罩命中或 WXS 子节点样式通道）。`ui-wheel-column` 根节点改为`catchtouchstart`/`catchtouchmove` 自行消费纵向手势；位移仍写在内层`#ui-wheel-track`（写到会裁剪自身的列容器上不会滚动）。
+- B 动效：三槽环形 swiper 的`current`在 3.17.2 按“最近逻辑槽位”归一，环形 0↔2 跳变被渲染成反向一步。受影响运行时的程序化切月改用`duration:0`（与工作台月份列表`listSwiperCurrent:1 + duration:0`既有先例一致），并抽出`finishMonthSwipeAt`/`finishDateSwiperAt`在零时长跳变后直接结算一次（幂等，`animationfinish`再到达即早退）；3.17.3 仍走 240ms 动画。
+- C 定位当日：改为像日历页那样把“今天的月份面板”作为唯一入场面板放进相邻槽位，一次结算即落在当天，删除逐月续走分支。
+- 门禁：定向53项、Mini完整174文件1215项通过/16跳过；typecheck、build366文件、package(主包1744335B/总4618740B)、determinism(2286365b)、format、lint、smoke:check-core通过。改动仅`ui-wheel-column/index.wxml`、`calendar-month/index.ts`、`ui-date-picker/index.ts`与3个回归测试；同时把本文件收敛回40KB预算内（旧批次细节保留在Git历史与`docs/audit/`）。
+- 开发者工具（3.17.2/Skyline）：宿主管弹窗可打开且无异常；该渲染器下元素与组件自动化不可用（`querySelectorAll`返回空、组件方法调用报`this.handleDateNavigate is not a function`），触摸级滚动与动效方向只能由小米14复核。
+- 本轮未上传、未放行、未部署。唯一下一任务：取得当次授权后交付体验版并add-only放行，由小米14双实例复核 A/B/C；若滚轮仍不能滚动，请回复“点滚轮中间那一项有无反应”以区分手势抢占与遮罩命中。详情见`docs/audit/runtime-ui-compatibility-wheel-pager-and-locate-20260916.md`。
+
+## 上一批次：Skyline 3.17.2 弹窗点击误关修复体验版148已上传并放行，待小米14复核
 
 - 用户真机反馈：3.17.2 日期弹窗内任意点击（定位今天/切月/日期格/弹窗内外）都会关闭弹窗；3.17.3 正常。根因是 3.17.2 的弹窗挂在页面根层，卡片内点击冒泡到页面根的关闭回调（3.17.3 的弹窗在 sheet 内被 catchtap 挡住）。
 - 修复 1 行：.workflow-picker-layer 增加 catchtap="handleInternalTap"（复用已有 no-op），加 1 条回归断言（RED 1 失败→GREEN 15/15）。未新增机制，3.17.3 路径不变。
@@ -180,38 +190,3 @@
 - 检查点4cdfdbbd和f0c46078已推送main。生产即时回滚候选ea0db36c；加密备份cb765202-9d82-4199-aa62-d83b44e6bf2c（54表、107939924字节、SHA-256 0d8c20f1…6153c3）完成后，f0c46078部署及schema58迁移成功，完整ecs-verify通过。
 - 体验版`0.1.0-p10.20260913.124`绑定f0c46078上传成功，Manifest `e28a01c5…2d3a`、receipt/远端tag一致。可信ensure仅追加124并保留旧版；allowlist与ecs verifier通过，公网124/123=200、动态未知=426。未提审、未正式发布、未退役旧版。
 - 唯一下一任务：小米14重开124，复核正式/体验访客二维码读取和带群名保存、导出页首屏、自绘岗位/成员多选，以及Excel/CSV生成和发送。自动化与生产验证完成，原生验收仍待用户。
-
-## 当前批次：Feedback21 已部署并放行123，待小米14复核
-
-- 基线2d63e5a3，独占general-5，REUSE_ONLY且未安装依赖。访客公开排班改为7天持久缓存和后台刷新，完整手机号、访客密钥及Guest token不落盘；切后台/卸载不再全量清除，明确失效仅清对应群组。
-- 正式版/体验版二维码分环境生成与缓存，客户端合成为二维码加群名的PNG供长按保存；服务端开关可关闭体验版生成。导出CSV增加UTF-8 BOM，创建后立即处理，分钟任务保留兜底；Mini自动下载后仅显示发送文件/取消，失败时显示重新获取文件，并删除导出页冗余说明区。
-- 附件证据：9月CSV 2562字节/30行，无BOM；9月8—9日源快照为全天班/全，其余28行为全天班/全天。换班只变实际成员，导出未截断字段。详见docs/audit/feedback21-visitor-export.md。
-- 最终`pnpm verify`通过：Mini 1160通过/16跳过、根1255通过/439跳过，格式、lint、构建、typecheck和icon parity通过；另有Mini定向53项、契约/API定向23项。Mini production verify主包1713723、总包4554857字节。首次Web构建完成后遇Windows libuv退出断言，单独及最终全量Web build均通过。运行/浏览器验证：`pnpm smoke:browser`登录页通过后因warm槽无`.env`、本地API未启动而停在管理员登录；未复制凭据，结果已记录。
-- 应用检查点9e603fdb及文档检查点be6ff2ac已推送；0.1.0-p10.20260913.123上传成功，production/clean，Manifest 03986dd5…f5495c，receipt/tag同一应用SHA。
-- 用户随后授权生产部署与放行。两个DoH、直连TLS、既有公网IP ED25519严格SSH认证后，正式域名host key安全协调且有ignored备份。备份b0bbc0cc-bcf2-4c29-96c5-4eff80274bd1成功（54表、107823088字节、SHA-256 90b69342…db7f1）。
-- be6ff2ac已部署，实时回滚候选83d8a03b；预热3次502后恢复，更新器及完整ecs-verify通过。可信ensure仅追加123并保留旧版；allowlist verifier、再次ecs-verify和公网123/122=200、动态未知=426通过。
-- 唯一下一任务：小米14打开体验版123，复核访客缓存/返回登录、正式与体验二维码带群名长按保存，以及医生群CSV速度、自动发送和Microsoft Excel中文显示。未提审或正式发布。
-
-## 当前批次：Feedback20 已上传并放行122，待小米14复核
-
-- 原始访客/二维码检查点325f82ea与累计合并检查点66b18b26均已推送；后者包含体验版121的导出真实上传转换修复、二维码点击预览/轮换自动刷新，以及本轮删除相册按钮/API、访客月窗和返回登录。详情docs/audit/feedback20-visitor-export.md及feedback20-trial-release.md。
-- 完整verify通过：Mini1159/16跳过、根1254/439跳过、依赖保护81；Mini verify/Worklet2/2/确定性/包体/smoke:check-core通过，主包1709746/总4549449字节。
-- 0.1.0-p10.20260913.122/66b18b26 production/clean上传成功，Manifest fd736127…bece5，build-profile/receipt/远端tag一致。可信ensure仅追加122并保留121；allowlist verify、完整ecs-verify、DoH/TLS/strict SSH和公网122/121=200、动态未知=426通过。服务器应用release仍83d8a03b，未部署代码、备份/迁移数据库或退役旧版。
-- 微信公众平台浏览器执行面不可用，无法代配置downloadFile合法域名。唯一下一任务：管理员在公众平台加入`https://hosp.schedule.eylinhome.top`为downloadFile合法域名，然后用户在小米14重开122/66b18b2复核CSV下载、访客三控件/切换、二维码点击预览与长按。未提审或正式发布。
-
-## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
-
-- 基线3d83d236（体验版120源码c2dbe4c3）；独占general-5，REUSE_ONLY，未安装依赖。
-- 根因：106已包含的9bae5beb在共享CSV轮询循环中增加捕获remaining的Promise闭包，
-  微信SDK ES6转换生成regeneratorValues，但SDK既未识别也未附带此模块，导致页面载入即失败。
-- 本轮运行真实miniprogram-ci转换及仅含其自带helper的VM，旧产物缺模块失败，新产物注册和初始化通过。
-  详细引入点、语义审计与旧测试盲区见docs/audit/feedback19-export-runtime.md。
-- 修复等待函数作用域，保留轮询/超时/取消语义；导出恢复单一Page及静态模板，
-  保留data群组上下文。删除临时组件wrapper、重复加载壳/样式、挂载计时器和未调用测量代码。
-- 替换临时结构测试为上传转换后Page运行测试；Mini verify增加SDK helper可打包性门禁。
-- 验证：Mini全量168文件1191项通过、2文件16项跳过；共享presentation-core32项通过。
-  Mini verify/Worklet2/2/包体4,551,833字节/确定性、typecheck、lint、format、icon parity、
-  smoke:check-core通过。既有主包和矩阵内部预警保留；未控制微信开发者工具。
-- 检查点：fix(miniprogram): repair export upload transform and remove startup scaffolding。
-- 下一任务：交付此修复的干净体验版，再由小米14验证真实导出入口及CSV下载/发送。
-  尚无修复后同SHA真机证据，不将Node执行等同于原生通过。生产应用与数据库不在本轮修复范围。

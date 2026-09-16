@@ -11,6 +11,7 @@ import {
   type CalendarPeriodPagerState,
   type CalendarPeriodSlot,
 } from '../calendar-period-pager.js';
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 
 interface MonthSwipeEvent {
   readonly detail: { readonly current: number };
@@ -34,6 +35,7 @@ interface CalendarMonthInstance {
   readonly data: {
     readonly locateAnimating: boolean;
     readonly panelHeights?: readonly number[];
+    readonly skyline3172UiCompatibility: boolean;
     readonly stepMotion: string;
     readonly swiperCurrent: number;
     readonly swiperDuration: number;
@@ -59,6 +61,7 @@ Component({
   },
   data: {
     locateAnimating: false,
+    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     stepMotion: '',
     swiperCurrent: 1,
     swiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
@@ -94,23 +97,7 @@ Component({
       if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
     },
     handleMonthSwipe(this: CalendarMonthInstance, event: MonthSwipeEvent): void {
-      const { current } = event.detail;
-      const state = readMonthPagerState(this);
-      if (!isCalendarPeriodSlot(current)) return;
-      if (current === state.activeSlot) {
-        if (state.targetSlot === undefined) return;
-        cancelCalendarPeriodShift(state);
-        writeMonthPagerState(this, state);
-        const viewportHeight = this.data.panelHeights?.[state.activeSlot] ?? 270;
-        if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
-        return;
-      }
-      const committed = commitCalendarPeriodSwipe(state, current);
-      if (committed === undefined) return;
-      writeMonthPagerState(this, state);
-      this.setData({ swiperCurrent: current }, () => {
-        this.triggerEvent('monthchange', committed);
-      });
+      finishMonthSwipeAt(this, event.detail.current);
     },
     startProgrammaticShift(
       this: CalendarMonthInstance,
@@ -123,12 +110,23 @@ Component({
       if (!request.started) return;
       const targetIndex = request.targetSlot;
       this.setData({ stepMotion: '' }, () => {
-        this.setData({
-          stepMotion: delta < 0 ? 'previous' : 'next',
-          swiperCurrent: targetIndex,
-          swiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
-          viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
-        });
+        this.setData(
+          {
+            stepMotion: delta < 0 ? 'previous' : 'next',
+            swiperCurrent: targetIndex,
+            // The affected runtime replays a reversed circular slide for
+            // programmatic paging, so it switches without the slide.
+            swiperDuration: this.data.skyline3172UiCompatibility
+              ? 0
+              : CALENDAR_PERIOD_SWIPER_DURATION_MS,
+            viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
+          },
+          () => {
+            // A zero-duration jump does not reliably report animationfinish, so
+            // the already-applied shift is finished here instead of waiting.
+            if (this.data.skyline3172UiCompatibility) finishMonthSwipeAt(this, targetIndex);
+          },
+        );
       });
     },
     finishPeriodShift(this: CalendarMonthInstance): void {
@@ -169,6 +167,25 @@ function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPag
     shiftPending: instance._monthShiftPending ?? false,
     targetSlot: instance._monthHeightTargetIndex,
   };
+}
+
+function finishMonthSwipeAt(instance: CalendarMonthInstance, current: number): void {
+  const state = readMonthPagerState(instance);
+  if (!isCalendarPeriodSlot(current)) return;
+  if (current === state.activeSlot) {
+    if (state.targetSlot === undefined) return;
+    cancelCalendarPeriodShift(state);
+    writeMonthPagerState(instance, state);
+    const viewportHeight = instance.data.panelHeights?.[state.activeSlot] ?? 270;
+    if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
+    return;
+  }
+  const committed = commitCalendarPeriodSwipe(state, current);
+  if (committed === undefined) return;
+  writeMonthPagerState(instance, state);
+  instance.setData({ swiperCurrent: current }, () => {
+    instance.triggerEvent('monthchange', committed);
+  });
 }
 
 function writeMonthPagerState(

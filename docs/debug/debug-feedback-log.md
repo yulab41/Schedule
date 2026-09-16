@@ -3001,3 +3001,15 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 运行/浏览器验证：本轮改动仅`apps/miniprogram/**`，不触发`smoke:browser`核心链路清单；`pnpm smoke:check-core`通过并确认既有“运行/浏览器验证：pnpm smoke:browser”记录仍然有效。RED与基线对比用`git stash push/pop`在独占租约槽内完成并核对diff一致；PowerShell全程`$PSNativeCommandUseErrorActionPreference=$true`。
 - 验证结果：定向`scripts/workbench.test.mjs`+`scripts/calendar-simulate.test.mjs` 29项通过（`.138`基线）、叠加到`.139`基线后联合`guest-runtime`49项通过；完整套件与包体见交付记录。
 - 状态：已实现并按当前消息授权进入上传流程；未部署生产应用、未控制微信开发者工具。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-20260915.md`。
+
+## 2026-09-16 Skyline 3.17.2 滚轮不能滚动、切月动效反向、定位当日逐月回退
+
+- 用户真机复核`.148`：3.17.2 弹窗点击不再误关，但换班年月滚轮**仍不能滚动**；点左右切月（换班弹窗与日历页月历）播放**反向**动效而最终月份正确；请假弹窗“定位当日”**逐月**回退（3.17.2/3.17.3 均有），日历页定位当日一次到位。3.17.3 三项均正常。
+- 引入点（`git log -S`）：滚轮事件绑定与`touch-action: none`来自`57e10cdc`（WXS 滚轮能力探针，Phase A）；`_dateLocateTarget`逐月续走来自`528722f4`；程序化切月时长来自`calendar-period-pager`接入（`9045dc02`、`3ed0e31b`）。三者代码本身未变，是 3.17.2 渲染器差异被旧写法放大，属运行时回归而非源码回归。
+- 根因：A 滚轮用`touch-action: none`争夺纵向手势，3.17.2 不按该属性判定手势归属，拖动被祖先容器拿走——同款组件与同款遮罩在 gesture-probe 页面真机验证可用，排除“遮罩`pointer-events`吞触摸”与“WXS 子节点`selectComponent`取样式失败”；B 三槽环形 swiper 在 3.17.2 按“最近等价逻辑槽位”归一`current`，环形 0↔2 跳变被渲染成反向一步（落点正确）；C 定位当日每结算一步才前进一个月并递归续走。
+- 测试先行：新增/改写断言覆盖“位移写在内层`#ui-wheel-track`而列根节点持有`catchtouchstart/catchtouchmove`”“受影响运行时程序化切月`duration:0`且随后直接结算”“定位当日把今天的月份面板作为唯一入场面板且不再续走”。旧实现下这些断言失败（`ui-wheel-column.test.mjs` 1 项、`runtime-ui-compatibility` 1 项、`workflow-picker-controller` 2 项、`workflow-picker-date-contract` 1 项），修改后定向 53 项全绿。
+- 语义等价审计：`finishMonthSwipeAt`/`finishDateSwiperAt`由原`bindanimationfinish`处理器原样抽出，接收者绑定、早退分支、`cancelCalendarPeriodShift`与排队续走语义逐行不变；零时长跳变后由组件自己调用一次，`animationfinish`若随后到达因`targetSlot`已清而早退，重复结算幂等。`handleMonthSwipe`/`handleDateSwiperFinish`对外行为不变；3.17.3 仍走 240ms 动画与事件驱动结算。
+- 运行/浏览器验证：本轮只改`apps/miniprogram/**`，不触发`smoke:browser`核心链路清单；`pnpm smoke:check-core`通过。
+- 开发者工具（3.17.2/Skyline/本提交）：经页面方法可打开宿主管弹窗（`pickerDialog.open=true`、`hostKey=leave-start-date`）且无异常；该渲染器下元素与组件自动化不可用（`querySelectorAll`对页面与组件节点均返回空；`callMethod`指向组件方法报`this.handleDateNavigate is not a function`），故触摸级滚动与动效方向未取得模拟器证据。
+- 验证结果：定向 53 项、Mini 完整 174 文件 1215 项通过/16 跳过；typecheck、production build366 文件、package（主包 1744335B/总 4618740B）、determinism `2286365b…0973`、format、lint 通过。`wheel-gesture.wxs` 保持原样未改（曾误跑 prettier 造成格式噪声，已逐处还原）。同时把`docs/project-status.md`收敛回 40KB 预算内（39,695B/152 行，`scripts/agent-context-policy.test.mjs` 3 项通过），旧批次细节保留在 Git 历史与`docs/audit/`。
+- 状态：已实现待小米14复核；本轮未上传体验版、未放行、未部署生产，未读取账号或凭证。唯一建议下一任务：取得当次授权后上传体验版并 add-only 放行，复核 A/B/C；若滚轮仍不能滚动，请回复“点滚轮中间那一项有无反应”。详情见`docs/audit/runtime-ui-compatibility-wheel-pager-and-locate-20260916.md`。

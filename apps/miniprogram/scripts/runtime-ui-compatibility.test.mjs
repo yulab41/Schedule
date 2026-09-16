@@ -340,4 +340,43 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     // A safe-area value must keep a plain fallback for the affected runtime.
     expect(pickerStyles).toMatch(/bottom:\s*12px;\s*\n\s*bottom:\s*max\(/su);
   });
+
+  it('keeps wheel paging and programmatic month jumps working on the affected runtime', () => {
+    const wheelTemplate = readSource('components/ui/ui-wheel-column/index.wxml');
+    const wheelGesture = readFileSync(
+      new URL('../src/components/ui/ui-wheel-column/wheel-gesture.wxs', import.meta.url),
+      'utf8',
+    );
+    const monthComponent = readSource('components/calendar/calendar-month/index.ts');
+    const picker = readSource('components/ui/ui-date-picker/index.ts');
+
+    // The wheel offset belongs to the clipped track, never to the clipping column.
+    expect(wheelTemplate).toMatch(/id="ui-wheel-track"[\s\S]{0,120}wheelInitialOffset/u);
+    expect(wheelTemplate).not.toMatch(/class="ui-wheel-column"[\s\S]{0,90}wheelInitialOffset/u);
+    expect(wheelGesture).toContain("selectComponent('#ui-wheel-track')");
+    // The affected runtime does not honour `touch-action` for pan arbitration,
+    // so the wheel must claim the vertical gesture before an ancestor can.
+    expect(wheelTemplate).toContain('catchtouchstart="{{wheelGesture.touchStart}}"');
+    expect(wheelTemplate).toContain('catchtouchmove="{{wheelGesture.touchMove}}"');
+    expect(wheelTemplate).not.toContain('bindtouchmove="{{wheelGesture.touchMove}}"');
+    // Programmatic month paging must not replay a reversed circular animation.
+    expect(monthComponent).toMatch(
+      /swiperDuration: this\.data\.skyline3172UiCompatibility[\s\S]{0,60}0/su,
+    );
+    expect(picker).toMatch(
+      /dateSwiperDuration: instance\.data\.skyline3172UiCompatibility[\s\S]{0,60}0/su,
+    );
+    // A zero-duration jump must still settle the pager on the affected runtime.
+    expect(monthComponent).toMatch(
+      /skyline3172UiCompatibility\) finishMonthSwipeAt\(this, targetIndex\)/u,
+    );
+    expect(picker).toMatch(/finishDateSwiperAt\(instance, request\.targetSlot\)/u);
+    // Locate-today prepares today's own month as one slide and never walks back
+    // through the pager one month per settle.
+    expect(picker).toMatch(
+      /const anchorYear = locateTarget\?\.year \?\? instance\.data\.draftYear/u,
+    );
+    expect(picker).toMatch(/startDateProgrammaticShift\(this, delta, today\)/u);
+    expect(picker).not.toMatch(/startDateProgrammaticShift\(instance, delta, locateTarget\)/u);
+  });
 });
