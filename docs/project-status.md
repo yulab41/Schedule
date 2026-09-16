@@ -1,14 +1,16 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日已修复，待体验版交付
+## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
 
 - 用户真机复核`.148`：3.17.2 弹窗内点击不再误关，但换班年月滚轮**仍不能滚动**（3.17.3 正常）；点左右切月（换班弹窗与日历页月历）播放**反向**滑动动效而最终月份正确；请假弹窗“定位当日”会**逐月**回退（3.17.2/3.17.3 都有），日历页定位当日一次到位。
 - A 滚动：滚轮依赖`touch-action: none`争抢纵向手势，3.17.2 不按该属性判定归属，手势被祖先容器拿走（同款组件+遮罩在 gesture-probe 真机曾可用，故不是遮罩命中或 WXS 子节点样式通道）。`ui-wheel-column` 根节点改为`catchtouchstart`/`catchtouchmove` 自行消费纵向手势；位移仍写在内层`#ui-wheel-track`（写到会裁剪自身的列容器上不会滚动）。
 - B 动效：三槽环形 swiper 的`current`在 3.17.2 按“最近逻辑槽位”归一，环形 0↔2 跳变被渲染成反向一步。受影响运行时的程序化切月改用`duration:0`（与工作台月份列表`listSwiperCurrent:1 + duration:0`既有先例一致），并抽出`finishMonthSwipeAt`/`finishDateSwiperAt`在零时长跳变后直接结算一次（幂等，`animationfinish`再到达即早退）；3.17.3 仍走 240ms 动画。
 - C 定位当日：改为像日历页那样把“今天的月份面板”作为唯一入场面板放进相邻槽位，一次结算即落在当天，删除逐月续走分支。
-- 门禁：定向53项、Mini完整174文件1215项通过/16跳过；typecheck、build366文件、package(主包1744335B/总4618740B)、determinism(2286365b)、format、lint、smoke:check-core通过。改动仅`ui-wheel-column/index.wxml`、`calendar-month/index.ts`、`ui-date-picker/index.ts`与3个回归测试；同时把本文件收敛回40KB预算内（旧批次细节保留在Git历史与`docs/audit/`）。
-- 开发者工具（3.17.2/Skyline）：宿主管弹窗可打开且无异常；该渲染器下元素与组件自动化不可用（`querySelectorAll`返回空、组件方法调用报`this.handleDateNavigate is not a function`），触摸级滚动与动效方向只能由小米14复核。
-- 本轮未上传、未放行、未部署。唯一下一任务：取得当次授权后交付体验版并add-only放行，由小米14双实例复核 A/B/C；若滚轮仍不能滚动，请回复“点滚轮中间那一项有无反应”以区分手势抢占与遮罩命中。详情见`docs/audit/runtime-ui-compatibility-wheel-pager-and-locate-20260916.md`。
+- 门禁：定向53项、Mini完整174文件1215项通过/16跳过；typecheck、build366文件、package(主包1744335B/总4618740B)、determinism(2286365b)、format、lint、smoke:check-core通过。改动仅`ui-wheel-column/index.wxml`、`calendar-month/index.ts`、`ui-date-picker/index.ts`与3个回归测试。
+- 交付：体验版`0.1.0-p10.20260916.149`（说明“Skyline 3.17.2 wheel pan and month paging 7e215a2”）production/clean上传成功，Manifest`442f8933…36fc8`，远端不可变tag指向`7e215a28`；候选前置与上传后绑定检查PASS（ready-clean-detached、production-clean、VERSION_LOCAL=absent）。
+- 放行：可信ensure只追加`.149`（白名单45项，保留`.146/.147/.148`），独立verify与`ecs-verify.sh`通过；公网`.149=200`、`.148=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
+- 开发者工具（3.17.2/Skyline）只能验证宿主管弹窗可打开且无异常；该渲染器下元素与组件自动化不可用，触摸级滚动与动效方向由小米14复核。
+- 唯一下一任务：小米14双实例复核 A/B/C（滚轮可滚动、切月动效方向、定位当日一次到位），3.17.3不变；若滚轮仍不能滚动，请回复“点滚轮中间那一项有无反应”。详情见`docs/audit/runtime-ui-compatibility-wheel-pager-trial-release-20260916.md`。
 
 ## 上一批次：Skyline 3.17.2 弹窗点击误关修复体验版148已上传并放行，待小米14复核
 
@@ -17,14 +19,6 @@
 - 体验版 0.1.0-p10.20260916.148（说明"Skyline 3.17.2 dialog tap fix c5f06e5"）production/clean 上传成功，Manifest 1f64d195…f9e7；候选前置与上传后绑定检查 PASS。门禁：Mini 全量、typecheck、build366、package、determinism(4410f7fb)、format、lint 通过；主包1744039B/总4618444B。
 - 放行：可信 ensure 只追加 .148 并保留 .147 等旧版；allowlist verify 与 ecs-verify 通过，release 仍 44034fcc，无部署/数据库操作；公网 .148=200、.147=200、动态未知=426。
 - 唯一下一任务：小米14 3.17.2 复核日期弹窗点击不再关闭且可选，年月滚轮是否可滚动（若不可，反馈具体现象以定方向）；3.17.3 不变。详情见 docs/audit/runtime-ui-compatibility-dialog-tap-trial-release-20260916.md。
-## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复已实现，待体验版交付
-
-- 用户反馈：3.17.2 年月/日期选择器点开后无弹窗；换班等 sheet 点外部不关闭。用开发者工具（3.17.2/Skyline/同提交 d526252b）复现并定位。
-- 根因：覆盖层使用 inset:0（及 max()/env() 组合），该渲染器不解析 —— 弹窗层无偏移被排到视口外（渲染树有节点但不绘制）；ui-sheet 遮罩同样无偏移，点弹窗外落在页面上，handleBackdropClose 不触发。
-- 修复（语义等价、无版本分支）：ui-date-picker 的 layer/scrim/wheel-mask、ui-selector 的 backdrop、ui-sheet 的 scrim 改为显式 top/right/bottom/left:0；sheet 安全区保留 bottom:12px 回退；新增覆盖层偏移回归断言。
-- 证据：开发者工具内对照截图（修复前 layer 在渲染树但不绘制；改显式偏移后"选择月份"卡片立即正常绘制）。门禁：Mini 1214 项通过/16 跳过、typecheck/build366/package/determinism/format/lint 通过；主包1744003B/总4618408B。
-- 开发者工具复测（3.17.2/c9ad7c0）：弹窗正常出现（截图）、遮罩关闭弹窗、sheet 遮罩关闭表单；切 3.17.3 复测一致。
-- 边界：模拟器无法完成完整交互链（该实例 app 业务请求报网络错误），原生交互须由小米14体验版复核；本轮未上传、未放行、未部署。详情见 docs/audit/runtime-ui-compatibility-overlay-inset-20260916.md。
 ## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
 
 - 用户要求把“更多 → 测试工具”的“Skyline 版本”从硬编码“当前微信版本不支持单独读取”改为真实读取，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`；审计主计划 §8B 本就要求“Skyline 支持与版本（API 支持时）”。
