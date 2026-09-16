@@ -1,3 +1,4 @@
+- 追加修复（体验版 147 真机反馈）：3.17.2 弹窗内任意点击会误关弹窗（因弹窗在页面根层，点击冒泡到页面根的关闭回调；3.17.3 的弹窗在 sheet 内被 catchtap 挡住）。修复为 `.workflow-picker-layer` 增加 `catchtap="handleInternalTap"`（1 行，复用已有 no-op），并加回归断言（RED 1 失败→GREEN）。门禁：Mini 全量通过、typecheck/build366/package/determinism(4410f7fb)/format/lint 通过；主包1744039B/总4618444B。
 ## 2026-09-16 Skyline 3.17.2 弹窗层 inset 兼容修复
 
 - 反馈：3.17.2 年月/日期选择器无弹窗、sheet 点外部不关闭。开发者工具（基础库 3.17.2、Skyline、提交 d526252b）复现：弹窗层与 sheet 遮罩都在渲染树中但不绘制/不接收点击。

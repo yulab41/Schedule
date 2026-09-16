@@ -284,6 +284,11 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(template).toContain(
       `wx:if="{{open && mode !== 'selector' && (dialogOnly || !hostedLocally)}}"`,
     );
+    // The hosted dialog lives at page level, so it must swallow its own taps;
+    // otherwise the panel-root close handler would dismiss it on every tap.
+    expect(template).toMatch(
+      /class="workflow-picker-layer[^"]*"\s*\n?\s*catchtap="handleInternalTap"/su,
+    );
     expect(template).toContain(`{{hostedLocally ? 'is-inline' : ''}}`);
     expect(template).toContain('wx:if="{{!dialogOnly}}"');
     expect(template).toContain('wx:if="{{!hostedLocally}}" class="workflow-picker-scrim"');
