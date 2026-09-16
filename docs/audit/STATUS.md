@@ -1,5 +1,12 @@
 # 微信小程序审计状态
 
+## 当前批次：Skyline 3.17.2 弹窗点击误关修复体验版148已上传并放行，待小米14复核
+
+- 用户真机反馈：3.17.2 日期弹窗内任意点击（定位今天/切月/日期格/弹窗内外）都会关闭弹窗；3.17.3 正常。根因是 3.17.2 的弹窗挂在页面根层，卡片内点击冒泡到页面根的关闭回调（3.17.3 的弹窗在 sheet 内被 catchtap 挡住）。
+- 修复 1 行：.workflow-picker-layer 增加 catchtap="handleInternalTap"（复用已有 no-op），加 1 条回归断言（RED 1 失败→GREEN 15/15）。未新增机制，3.17.3 路径不变。
+- 体验版 0.1.0-p10.20260916.148（说明"Skyline 3.17.2 dialog tap fix c5f06e5"）production/clean 上传成功，Manifest 1f64d195…f9e7；候选前置与上传后绑定检查 PASS。门禁：Mini 全量、typecheck、build366、package、determinism(4410f7fb)、format、lint 通过；主包1744039B/总4618444B。
+- 放行：可信 ensure 只追加 .148 并保留 .147 等旧版；allowlist verify 与 ecs-verify 通过，release 仍 44034fcc，无部署/数据库操作；公网 .148=200、.147=200、动态未知=426。
+- 唯一下一任务：小米14 3.17.2 复核日期弹窗点击不再关闭且可选，年月滚轮是否可滚动（若不可，反馈具体现象以定方向）；3.17.3 不变。详情见 docs/audit/runtime-ui-compatibility-dialog-tap-trial-release-20260916.md。
 ## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复已实现，待体验版交付
 
 - 用户反馈：3.17.2 年月/日期选择器点开后无弹窗；换班等 sheet 点外部不关闭。用开发者工具（3.17.2/Skyline/同提交 d526252b）复现并定位。
