@@ -1,5 +1,12 @@
 # Project Status
 
+## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复已实现，待体验版交付
+
+- 用户反馈：3.17.2 年月/日期选择器点开后无弹窗；换班等 sheet 点外部不关闭。用开发者工具（3.17.2/Skyline/同提交 d526252b）复现并定位。
+- 根因：覆盖层使用 inset:0（及 max()/env() 组合），该渲染器不解析 —— 弹窗层无偏移被排到视口外（渲染树有节点但不绘制）；ui-sheet 遮罩同样无偏移，点弹窗外落在页面上，handleBackdropClose 不触发。
+- 修复（语义等价、无版本分支）：ui-date-picker 的 layer/scrim/wheel-mask、ui-selector 的 backdrop、ui-sheet 的 scrim 改为显式 top/right/bottom/left:0；sheet 安全区保留 bottom:12px 回退；新增覆盖层偏移回归断言。
+- 证据：开发者工具内对照截图（修复前 layer 在渲染树但不绘制；改显式偏移后"选择月份"卡片立即正常绘制）。门禁：Mini 1214 项通过/16 跳过、typecheck/build366/package/determinism/format/lint 通过；主包1744003B/总4618408B。
+- 边界：模拟器无法完成完整交互链（该实例 app 业务请求报网络错误），原生交互须由小米14体验版复核；本轮未上传、未放行、未部署。详情见 docs/audit/runtime-ui-compatibility-overlay-inset-20260916.md。
 ## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
 
 - 用户要求把“更多 → 测试工具”的“Skyline 版本”从硬编码“当前微信版本不支持单独读取”改为真实读取，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`；审计主计划 §8B 本就要求“Skyline 支持与版本（API 支持时）”。

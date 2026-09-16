@@ -315,4 +315,24 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(styles).toMatch(/\.workflow-picker-layer\.is-inline\s*\{[^}]*position:\s*static/su);
     expect(styles).toMatch(/\.workflow-picker-sheet\.is-inline\s*\{[^}]*position:\s*static/su);
   });
+
+  it('positions every overlay layer with explicit offsets for the affected runtime', () => {
+    const files = [
+      'components/ui/ui-date-picker/index.wxss',
+      'components/ui/ui-selector/index.wxss',
+      'components/ui/ui-sheet/index.wxss',
+    ];
+    for (const file of files) {
+      const styles = readSource(file);
+      expect(styles).toContain('top: 0;');
+      expect(styles).toContain('right: 0;');
+      expect(styles).toContain('bottom: 0;');
+      expect(styles).toContain('left: 0;');
+    }
+    const pickerStyles = readSource('components/ui/ui-date-picker/index.wxss');
+    expect(pickerStyles).toMatch(/\.workflow-picker-layer\s*\{[^}]*top:\s*0;/su);
+    expect(pickerStyles).toMatch(/\.workflow-picker-layer\s*\{[^}]*left:\s*0;/su);
+    // A safe-area value must keep a plain fallback for the affected runtime.
+    expect(pickerStyles).toMatch(/bottom:\s*12px;\s*\n\s*bottom:\s*max\(/su);
+  });
 });

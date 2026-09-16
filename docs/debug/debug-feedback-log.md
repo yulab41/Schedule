@@ -1,3 +1,10 @@
+## 2026-09-16 Skyline 3.17.2 弹窗层 inset 兼容修复
+
+- 反馈：3.17.2 年月/日期选择器无弹窗、sheet 点外部不关闭。开发者工具（基础库 3.17.2、Skyline、提交 d526252b）复现：弹窗层与 sheet 遮罩都在渲染树中但不绘制/不接收点击。
+- 根因：覆盖层使用 inset:0（含 max()/env() 组合），该渲染器不解析 → 层无偏移、被排到视口外；遮罩不成片，点外部落到页面。
+- 修复：ui-date-picker（layer/scrim/wheel-mask）、ui-selector（backdrop）、ui-sheet（scrim）改用显式 top/right/bottom/left:0，并给 sheet 的 max(12px, env(...)) 加 bottom:12px 回退；新增回归断言。语义等价，无版本分支，3.17.3 几何与交互不变。
+- 开发者工具对照证据：改显式偏移后"选择月份"弹窗立即正常绘制（修复前 layer 在渲染树但不可见）。门禁：Mini1214项通过/16跳过、typecheck/build366/package/determinism/format/lint通过；主包1744003B/总4618408B。
+- 运行/浏览器验证：未触及 Web 核心。模拟器对 app 业务请求报网络错误，未能完成完整交互链，原生交互待小米14同版本体验版复核；本轮未上传、未放行、未部署。
 # Web 1.0 调试与验证记录
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
