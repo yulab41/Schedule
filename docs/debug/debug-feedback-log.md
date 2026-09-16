@@ -3040,3 +3040,15 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 上传（脚本在独占锁内分配版本、构建、建不可变 tag）：`0.1.0-p10.20260917.150`，说明「Skyline 3.17.2 wheel track transform ownership a0707b0」，production，Manifest`45598d45181bd0d55d5f8fced70c874a98de33c6f83fcc5552d6d4622ec90e69`；分配`23:27:30Z`、构建`23:27:17Z`、上传`23:28:41Z`；上传后同一 checker 加`-ForMiniprogramUpload -MiniProgramVersion 0.1.0-p10.20260917.150`返回`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`、`RESULT=PASS`。远端轻量 tag`miniprogram-trial/0.1.0-p10.20260917.150`指向同一 SHA，三份 allocation/receipt/manifest 记录字段一致。
 - 放行：`root@hosp.schedule.eylinhome.top`（`IdentitiesOnly=yes`、`StrictHostKeyChecking=yes`、仓库外密钥）执行可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260917.150`——只追加1项、白名单共46项并保留`.149/.148/.147`，重建API/Web容器期间出现既有短暂502后按健康等待恢复；独立`verify`与`/usr/local/lib/schedule/ecs-verify.sh`（`[verify] complete`）通过。公网HTTPS：`.150=200`、`.149=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布，也未声明 production live release（`LIVE_RELEASE_VERIFIED=false`）。
 - 状态：已交付待小米14原生复核。唯一建议下一任务：复核3.17.2换班年月滚轮能否跟手滚动、请假定位当日是否每次一次到位；若滚轮仍不动，请回复“拖动时中间那一项高亮是否跟着换”或“非中间项数字是否比中间更小更淡”，以区分样式通道与事件通道。详情见`docs/audit/runtime-ui-compatibility-wheel-style-trial-release-20260917.md`。
+
+## 2026-09-17 滚轮初始定位停在最前端与重开失效（3.17.2 不交付 WXS config observer）
+
+- 用户真机复核`.150`：换班年月滚轮**首次打开可以滚动**（"模板覆盖 WXS 位移"的修复生效），但**初始停在最前端 2021年/1月**而非当前年月；**关掉弹窗再打开又完全不能滚动**。
+- 引入点：`57e10cdc`引入 WXS 滚轮与`wheelInitialOffset`内联绑定；`a0707b0c`（体验版`.150`）删除该绑定并加入"缺 state 时按 dataset 自建基线"。该轮首次暴露"初始位移只由`configure`写入"的依赖。
+- 根因（同一原因）：3.17.2 不把 WXS 的`change:wheel-config`观察器交给滚轮 → ① `configure`从不执行，轨道从未应用初始位移，首屏停在原点；② dataset 自建基线只在没有 state 时生效，重开时 state 已存在而 generation 已推进 → `eventState`因代际不一致返回`null`，手势全部被忽略。
+- 修复：初始定位交给模板/布局——轨道`style="margin-top:{{wheelLayoutOffset}}px"`（组件按选中项算`-index*44`），WXS 只画增量`translateY(offset - baseOffset)`；两者写不同属性，重渲染不再覆盖 WXS 的 transform。手势按代际自我刷新：dataset 的 generation 比 state 新时按`data-base-index`/`data-item-count`重新播种、按新基线落位并在`touchStart`重置上一轮行样式；比 state 旧时仍返回`null`（保留 stale 语义）。
+- 测试先行：新增`re-seeds from the dataset when the host re-opens the wheel without the observer`；用`git stash push/pop`回退 WXS 后该用例失败（`expected 'translateY(-44px)' to be 'translateY(0px)'`，与真机"重开不能滚"一致），修复后通过。已有"轨道位移"断言按新语义从绝对值改为相对基线的增量（`0px`=停在代际基线）。
+- 语义等价审计：WXS 绝对坐标系（`offset`、索引换算、`minimumOffset`、动画目标与端点）逐行未改，只有写出的 transform 减去`baseOffset`；`configure`正常到达时（3.17.3）baseOffset 与模板同源（同一`selectedIndex`），基线 transform 仍为 0、动画范围不变；`eventState`对更旧代际仍返回`null`，原 stale 语义保留。
+- 验证结果：定向55项、Mini完整174文件1217项通过/16跳过；typecheck、production build366文件、package（主包1745352B/总4619757B）、determinism`95f7825e…390d1`、format、lint、smoke:check-core、agent-context-policy通过；`pnpm miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。运行/浏览器验证：本轮只改`apps/miniprogram/**`，不触发`smoke:browser`核心链路清单。
+- 3.17.2 已知局限（观察器不交付导致，本轮未改）：未触摸前没有中间大/两端小与淡出的渐变（触摸一次恢复）；点击某一项直接选中（tap-to-select）仍不生效，拖动选择正常。
+- 状态：已实现待小米14复核；本轮**未上传体验版、未放行、未部署**（当前消息未含上传授权）。唯一建议下一任务：取得当次授权后上传体验版并 add-only 放行，复核"打开即在当前年月、可滚动、重开仍可滚动"。详情见`docs/audit/runtime-ui-compatibility-wheel-layout-base-20260917.md`。

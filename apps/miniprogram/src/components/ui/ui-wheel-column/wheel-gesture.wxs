@@ -37,6 +37,7 @@ function createState(key) {
   return {
     animationToken: 0,
     axis: AXIS_UNDECIDED,
+    baseOffset: 0,
     commandRevision: -1,
     generation: -1,
     itemCount: 0,
@@ -51,6 +52,7 @@ function createState(key) {
     sequence: 0,
     startX: 0,
     startY: 0,
+    seeded: false,
     tracking: false,
     velocityY: 0
   };
@@ -71,21 +73,29 @@ function eventState(event) {
     ? event.currentTarget.dataset
     : {};
   var state = states[runtimeKey(dataset.runtimeKey)];
-  // The affected runtime does not always deliver the config observer, so a
-  // missing state is seeded from the node's own dataset instead of failing shut.
-  if (!state) state = seedStateFromDataset(dataset);
-  if (state.generation !== finiteNumber(dataset.generation)) return null;
-  return state;
+  var generation = finiteNumber(dataset.generation);
+  // The affected runtime does not deliver the config observer, so the node's own
+  // dataset seeds the state; a newer generation means the host re-opened the wheel.
+  if (!state) return seedStateFromDataset(dataset);
+  if (state.generation === generation) return state;
+  if (generation > state.generation) return seedStateFromDataset(dataset);
+  return null;
 }
 
 function seedStateFromDataset(dataset) {
   var state = stateForKey(runtimeKey(dataset.runtimeKey));
-  var selectedIndex = Math.max(0, Math.round(finiteNumber(dataset.selectedIndex)));
+  var baseIndex = Math.max(0, Math.round(finiteNumber(dataset.baseIndex)));
+  state.animationToken += 1;
+  state.axis = AXIS_UNDECIDED;
   state.commandRevision = -1;
   state.generation = finiteNumber(dataset.generation);
   state.itemCount = Math.max(0, Math.round(finiteNumber(dataset.itemCount)));
-  state.lastPreviewIndex = Math.min(selectedIndex, maximumIndex(state));
-  state.offset = -state.lastPreviewIndex * ITEM_HEIGHT;
+  state.lastPreviewIndex = Math.min(baseIndex, maximumIndex(state));
+  state.baseOffset = -state.lastPreviewIndex * ITEM_HEIGHT;
+  state.offset = state.baseOffset;
+  state.seeded = true;
+  state.tracking = false;
+  state.velocityY = 0;
   return state;
 }
 
@@ -141,7 +151,10 @@ function styleRow(ownerInstance, index, selection) {
 
 function applyStyles(ownerInstance, state) {
   var track = ownerInstance.selectComponent('#ui-wheel-track');
-  if (track) track.setStyle({ transform: 'translateY(' + state.offset + 'px)' });
+  // The template lays out the base position, so the gesture paints only its delta.
+  if (track) {
+    track.setStyle({ transform: 'translateY(' + (state.offset - state.baseOffset) + 'px)' });
+  }
   if (state.itemCount <= 0) return;
   var position = clamp(-state.offset / ITEM_HEIGHT, 0, maximumIndex(state));
   var baseIndex = Math.floor(position);
@@ -252,7 +265,8 @@ function configure(value, oldValue, ownerInstance) {
     state.lastPreviewIndex = selectedIndex;
     state.lastStyledIndices = [];
     state.moved = false;
-    state.offset = -selectedIndex * ITEM_HEIGHT;
+    state.baseOffset = -selectedIndex * ITEM_HEIGHT;
+    state.offset = state.baseOffset;
     state.sequence = 0;
     state.tracking = false;
     state.velocityY = 0;
@@ -301,8 +315,12 @@ function touchStart(event, ownerInstance) {
   var touch = firstTouch(event);
   var state = eventState(event);
   if (!touch || !state) return;
-  // The runtime may not deliver the config observer, so the seeded baseline is
-  // applied here too; with a live observer this re-applies the same offset.
+  // A freshly seeded state has no row styling from the observer, so the previous
+  // paint is reset before the wheel is drawn from the dataset baseline.
+  if (state.seeded) {
+    state.seeded = false;
+    resetAllRows(ownerInstance, state.itemCount);
+  }
   applyStyles(ownerInstance, state);
   state.animationToken += 1;
   state.axis = AXIS_UNDECIDED;

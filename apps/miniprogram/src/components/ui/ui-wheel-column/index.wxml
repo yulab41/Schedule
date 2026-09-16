@@ -7,7 +7,7 @@
   data-runtime-key="{{wheelConfig.runtimeKey}}"
   data-generation="{{wheelConfig.generation}}"
   data-item-count="{{items.length}}"
-  data-selected-index="{{wheelConfig.selectedIndex}}"
+  data-base-index="{{wheelLayoutIndex}}"
   wheel-config="{{wheelConfig}}"
   change:wheel-config="{{wheelGesture.configure}}"
   catchtouchstart="{{wheelGesture.touchStart}}"
@@ -15,7 +15,7 @@
   bindtouchend="{{wheelGesture.touchEnd}}"
   bindtouchcancel="{{wheelGesture.touchCancel}}"
 >
-  <view id="ui-wheel-track" class="ui-wheel-track">
+  <view id="ui-wheel-track" class="ui-wheel-track" style="margin-top:{{wheelLayoutOffset}}px">
     <view class="ui-wheel-spacer"></view>
     <view
       wx:for="{{items}}"

@@ -1,5 +1,14 @@
 # Project Status
 
+## 当前批次：Skyline 3.17.2 滚轮初始定位与重开失效已修复，待体验版交付
+
+- 用户真机复核`.150`：换班年月滚轮**首次打开可以滚动**（上一轮"模板覆盖 WXS 位移"的修复生效），但**初始停在最前端（2021年/1月）**而非当前年月；**关掉弹窗再打开又变回不能滚动**。
+- 根因（同一原因）：3.17.2 不把 WXS 的`change:wheel-config`观察器交给滚轮。① 初始位移只由`configure`写入 → 从未应用 → 停在轨道原点；② 上一轮"缺 state 时按 dataset 自建基线"只在第一次生效，重开时 state 已存在但 generation 已推进 → `eventState`因代际不一致返回`null`，手势全被忽略。
+- 修复：初始定位交给模板（轨道`margin-top:{{wheelLayoutOffset}}`= `-index*44`），WXS 只画增量`translateY(offset - baseOffset)`，两者不同属性不再互相覆盖；手势按代际自我刷新（dataset 的 generation 更新时按`data-base-index`/`data-item-count`重新播种并重置行样式，更旧仍忽略）。
+- 证据：RED（回退 WXS 后"重开"用例失败`expected 'translateY(-44px)' to be 'translateY(0px)'`）；GREEN 定向55项、Mini完整174文件1217项通过/16跳过；typecheck、build366文件、package(主包1745352B/总4619757B)、determinism(95f7825e)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 3.17.2 已知局限：打开后未触摸前没有大小/淡出渐变（触摸一次恢复）；点击某一项选中仍不生效，拖动选择正常。
+- 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后交付体验版并add-only放行，由小米14复核“打开即在当前年月、可滚动、重开仍可滚动”。详情见`docs/audit/runtime-ui-compatibility-wheel-layout-base-20260917.md`。
+
 ## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
 
 - 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（`catch` 手势隔离无效，说明不是祖先滚动容器抢占）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份离当月越远越容易遇到。
@@ -175,12 +184,3 @@
 - 完整`pnpm verify`通过（Mini1169/16跳过、根1262/442跳过、依赖保护81）；Mini production verify主包1727549、总包4579238字节、Worklet2/2及确定性通过。浏览器冒烟因localhost:5173未启动而`ERR_CONNECTION_REFUSED`，`smoke:check-core`通过。
 - `0.1.0-p10.20260913.127`绑定`463f4512`以production/clean上传成功，Manifest `f570cb98…c9812`；可信ensure仅追加127并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：127/126=200，动态未知=426。未提审、未正式发布、未退役旧版本；唯一下一任务为小米14复核访客三视图与导出选择器/DOCX入口。
 - 用户确认127已被占用并精确授权改用128。同一累计应用以主线发布记录提交`0e7fc6c7`、production/clean上传`0.1.0-p10.20260913.128`，Manifest `71109555…8297`，receipt与远端轻量tag均绑定同一SHA。可信ensure只追加128；完整ecs verifier及公网探针通过：128/127/126=200，动态未知=426。未提审、未正式发布、未退役旧版本；唯一下一任务仍为小米14打开128复核。
-
-## 当前批次：Feedback23 已部署并放行126，待小米14复核
-
-- 已确认导出选择器溢出来自导出页缺少本地字段内边距容器；共享`ui-selector`无须修改。访客与成员使用同一ViewModel且访客WXSS已导入成员样式，成员在e94a54ca后使用`shiftGroups/tint`，访客模板仍循环旧`duties`，属于展示模板同步遗漏。
-- 用户确认访客开放电话和事件，但完整手机号继续受当前群组有效同意门槛。绑定二维码允许群主/群管理员为本群待绑定成员生成，平台管理员也可生成；生成前必须检查未绑定，图片显示群组名/群组码/姓名/工号/有效期，scene只含一次性随机票据。
-- 用户授权以视觉/交互匹配、减少重复、包体和加载为目标；实时追随未来成员日历更新不是验收项。当前访客已接入`shiftGroups/tint`、公共详情折叠/班种自动折叠和成员同口径周高，成员日历文件尚未修改；导出选择器已加本地边界容器。Mini typecheck及定向48项通过，QR定向19项通过；API绑定集成因本机未配置测试MySQL而7项明确跳过，不能记为通过。
-- 一次性成员绑定二维码API/schema59/client-core和Mini信息卡已实现；幂等记录不保存Base64图片，平台/群组管理员来源分别审计。最终`pnpm verify`通过（Mini1164/16跳过、根1257/440跳过）；Mini production verify主包1720876、总包4570156字节、Worklet2/2、确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。MySQL集成因本机测试库未配置而跳过。
-- 应用检查点87475d51已推送并部署，schema59；备份cc678008-9368-4332-a7f7-0e7bc070fe19（54表、108086228字节、SHA-256 4e14781b…d8e0）完成，完整ecs-verify通过。125因预构建时间戳冲突在微信上传前失败，永久保留占用且未放行；126/87475d51 production-clean上传成功，359文件Manifest 66e8d858…18b32c，receipt/tag一致。
-- 可信ensure仅追加126并保留旧版本；allowlist verifier、完整ecs-verify与公网探针通过：126/124=200，125/动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开126，复核访客三视图/电话/事件、成员绑定二维码扫码确认及导出选择器边界；自动化和生产验证不代替原生验收。证据见`docs/audit/feedback23.md`。

@@ -372,11 +372,13 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
       /skyline3172UiCompatibility\) finishMonthSwipeAt\(this, targetIndex\)/u,
     );
     expect(picker).toMatch(/finishDateSwiperAt\(instance, request\.targetSlot\)/u);
-    // The gesture must survive a missing config observer by seeding its own
-    // baseline instead of failing shut.
+    // The gesture must survive a missing config observer: the template carries the
+    // base position, and the node dataset re-seeds the state per generation.
     expect(wheelTemplate).toContain('data-item-count="{{items.length}}"');
-    expect(wheelTemplate).toContain('data-selected-index="{{wheelConfig.selectedIndex}}"');
+    expect(wheelTemplate).toContain('data-base-index="{{wheelLayoutIndex}}"');
+    expect(wheelTemplate).toContain('style="margin-top:{{wheelLayoutOffset}}px"');
     expect(wheelGesture).toContain('seedStateFromDataset');
+    expect(wheelGesture).toContain('state.offset - state.baseOffset');
     // Locate-today re-centers in one step no matter what the pager was doing.
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}resetDatePager\(this\)/u);
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}createDateDraftPatch/u);
