@@ -6,6 +6,7 @@
 - 根因：覆盖层使用 inset:0（及 max()/env() 组合），该渲染器不解析 —— 弹窗层无偏移被排到视口外（渲染树有节点但不绘制）；ui-sheet 遮罩同样无偏移，点弹窗外落在页面上，handleBackdropClose 不触发。
 - 修复（语义等价、无版本分支）：ui-date-picker 的 layer/scrim/wheel-mask、ui-selector 的 backdrop、ui-sheet 的 scrim 改为显式 top/right/bottom/left:0；sheet 安全区保留 bottom:12px 回退；新增覆盖层偏移回归断言。
 - 证据：开发者工具内对照截图（修复前 layer 在渲染树但不绘制；改显式偏移后"选择月份"卡片立即正常绘制）。门禁：Mini 1214 项通过/16 跳过、typecheck/build366/package/determinism/format/lint 通过；主包1744003B/总4618408B。
+- 开发者工具复测（3.17.2/c9ad7c0）：弹窗正常出现（截图）、遮罩关闭弹窗、sheet 遮罩关闭表单；切 3.17.3 复测一致。
 - 边界：模拟器无法完成完整交互链（该实例 app 业务请求报网络错误），原生交互须由小米14体验版复核；本轮未上传、未放行、未部署。详情见 docs/audit/runtime-ui-compatibility-overlay-inset-20260916.md。
 ## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
 

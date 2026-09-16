@@ -5,6 +5,7 @@
 - 修复：ui-date-picker（layer/scrim/wheel-mask）、ui-selector（backdrop）、ui-sheet（scrim）改用显式 top/right/bottom/left:0，并给 sheet 的 max(12px, env(...)) 加 bottom:12px 回退；新增回归断言。语义等价，无版本分支，3.17.3 几何与交互不变。
 - 开发者工具对照证据：改显式偏移后"选择月份"弹窗立即正常绘制（修复前 layer 在渲染树但不可见）。门禁：Mini1214项通过/16跳过、typecheck/build366/package/determinism/format/lint通过；主包1744003B/总4618408B。
 - 运行/浏览器验证：未触及 Web 核心。模拟器对 app 业务请求报网络错误，未能完成完整交互链，原生交互待小米14同版本体验版复核；本轮未上传、未放行、未部署。
+- 开发者工具复测（3.17.2，同提交 c9ad7c0）：请假 sheet 打开 → 触发开始日期 → 弹窗正常出现（全屏遮罩 + 底部"选择日期"卡片，截图）；遮罩关闭处理器 → 弹窗关闭且 sheet 保留；sheet 遮罩处理器 → formVisible=false（"点外部关闭"链路可用）。基础库切 3.17.3 复测外观一致（未受影响）。
 # Web 1.0 调试与验证记录
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
