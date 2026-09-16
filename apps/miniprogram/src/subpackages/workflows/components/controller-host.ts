@@ -250,21 +250,28 @@ function pickerDialogMethods(): Readonly<Record<string, unknown>> {
           },
         },
         () => {
-          this.selectComponent?.('.workflow-picker-host')?.openFromParent?.();
+          this.selectComponent?.('#workflow-picker-host')?.openFromParent?.();
         },
       );
     },
     handleHostedPickerChange(this: WorkflowPanelHost, event?: { readonly detail?: unknown }): void {
-      this.selectComponent?.('.workflow-picker-host')?.forwardHostedChange?.(event?.detail);
+      this.selectComponent?.('#workflow-picker-host')?.forwardHostedChange?.(event?.detail);
       this.setData({ pickerDialog: closedPickerDialog() });
     },
     handleHostedPickerClose(this: WorkflowPanelHost): void {
-      this.selectComponent?.('.workflow-picker-host')?.forwardHostedClose?.();
+      this.selectComponent?.('#workflow-picker-host')?.forwardHostedClose?.();
       this.setData({ pickerDialog: closedPickerDialog() });
     },
     handlePanelBackgroundTap(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);
-      this.selectComponent?.('.workflow-picker-host')?.forwardHostedClose?.();
+      this.selectComponent?.('#workflow-picker-host')?.forwardHostedClose?.();
+      // The affected runtime paints the sheet scrim without hit-testing it, so
+      // the panel root owns "tap outside" and asks open sheets to dismiss.
+      if (this.data['skyline3172UiCompatibility'] === true) {
+        for (const sheet of this.selectAllComponents?.('ui-sheet') ?? []) {
+          (sheet as { requestCloseFromParent?(): void }).requestCloseFromParent?.();
+        }
+      }
       this.setData({ pickerDialog: closedPickerDialog() });
     },
   };

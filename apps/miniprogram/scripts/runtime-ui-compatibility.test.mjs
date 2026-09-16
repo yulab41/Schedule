@@ -293,13 +293,19 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(component).toContain('function needsHostedDialog');
     expect(component).toContain('forwardHostedChange');
     expect(component).toContain('forwardHostedClose');
-    expect(host).toContain("'.workflow-picker-host'");
+    expect(host).toContain("'#workflow-picker-host'");
     expect(host).toContain('pickerDialog: closedPickerDialog()');
+    expect(host).toContain("selectComponent?.('#workflow-picker-host')");
+    expect(host).toContain('requestCloseFromParent');
+    expect(readSource('components/ui/ui-sheet/index.ts')).toContain(
+      'requestCloseFromParent(this: UiSheetInstance): void',
+    );
     for (const panel of ['leave', 'swap', 'duty']) {
       const panelTemplate = readSource(
         `subpackages/workflows/components/workflow-${panel}-panel/index.wxml`,
       );
       expect(panelTemplate).toContain('dialog-only="{{true}}"');
+      expect(panelTemplate).toContain('id="workflow-picker-host"');
       expect(panelTemplate).toContain('host-key="');
       expect(panelTemplate).toContain('bindchange="handleHostedPickerChange"');
       expect(panelTemplate).toContain('bindclose="handleHostedPickerClose"');

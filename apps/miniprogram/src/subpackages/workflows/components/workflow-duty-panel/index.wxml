@@ -471,6 +471,7 @@
 
   <workflow-picker
     wx:if="{{skyline3172UiCompatibility}}"
+    id="workflow-picker-host"
     class="workflow-picker-host"
     dialog-only="{{true}}"
     host-key="{{pickerDialog.hostKey}}"
