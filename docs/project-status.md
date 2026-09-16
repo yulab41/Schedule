@@ -1,12 +1,14 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位已修复，待体验版交付
+## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
 
 - 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（`catch` 手势隔离无效，说明不是祖先滚动容器抢占）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份离当月越远越容易遇到。
 - A 根因：滚轮位移由 WXS 写在`#ui-wheel-track`的 transform 上，但同一节点还挂着内联`style="transform:translateY({{wheelInitialOffset}}px)"`；拖动时每次预览都`setData`重渲染并把内联样式整条下发，3.17.2 因此覆盖掉 WXS 刚写的 transform（内部 offset/高亮仍在变，像素不动）。修复：删除该内联绑定，位移完全由 WXS 拥有；组件侧删掉`wheelInitialOffset`；并让手势在`touchStart`用节点 dataset（新增`data-item-count`/`data-selected-index`）自建基线，避免运行时没交付 config observer 时滚轮直接失效。
 - C 根因：`.149`的定位当日依赖"准备相邻面板 + 等 pager 结算"，只要还有未结算位移（连点箭头/快速连点）就被守卫吞掉。修复：改为一步重定中心（`resetDatePager` + 一次`setData`，3.17.2 仍`duration: 0`），并删除已死的`_dateLocateTarget`机制与`formatMonthValue`。
 - 证据：RED（回退 WXS 后新用例失败`expected undefined to be 'translateY(-264px)'`）；GREEN 定向53项+新增用例、Mini完整174文件1216项通过/16跳过；typecheck、build366文件、package(主包1744556B/总4618961B)、determinism(21cae2df)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改的手排矩阵`1507>1506`阻断。
-- 本轮未上传、未放行、未部署；开发者工具无法驱动触摸，真机拖动与定位灵敏度只能由小米14复核。唯一下一任务：取得当次上传授权后交付体验版并add-only放行；若滚轮仍不动，请回复“拖动时中间那一项的高亮有没有跟着换”或“非中间项的数字是否比中间小且更淡”，据此判断是样式通道还是事件通道问题。详情见`docs/audit/runtime-ui-compatibility-wheel-style-channel-20260917.md`。
+- 交付：体验版`0.1.0-p10.20260917.150`（说明“Skyline 3.17.2 wheel track transform ownership a0707b0”）production/clean上传成功，Manifest`45598d45…90e69`，远端不可变tag指向`a0707b0c`；候选前置与上传后绑定检查PASS。
+- 放行：可信ensure只追加`.150`（白名单46项，保留`.149/.148/.147`），独立verify与`ecs-verify.sh`通过；公网`.150=200`、`.149=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
+- 唯一下一任务：小米14复核3.17.2换班年月滚轮能否跟手滚动、请假定位当日是否每次一次到位；若滚轮仍不动，请回复“拖动时中间那一项高亮是否跟着换”或“非中间项数字是否比中间更小更淡”，以区分样式通道与事件通道。详情见`docs/audit/runtime-ui-compatibility-wheel-style-trial-release-20260917.md`。
 
 ## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
 
@@ -182,13 +184,3 @@
 - 一次性成员绑定二维码API/schema59/client-core和Mini信息卡已实现；幂等记录不保存Base64图片，平台/群组管理员来源分别审计。最终`pnpm verify`通过（Mini1164/16跳过、根1257/440跳过）；Mini production verify主包1720876、总包4570156字节、Worklet2/2、确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。MySQL集成因本机测试库未配置而跳过。
 - 应用检查点87475d51已推送并部署，schema59；备份cc678008-9368-4332-a7f7-0e7bc070fe19（54表、108086228字节、SHA-256 4e14781b…d8e0）完成，完整ecs-verify通过。125因预构建时间戳冲突在微信上传前失败，永久保留占用且未放行；126/87475d51 production-clean上传成功，359文件Manifest 66e8d858…18b32c，receipt/tag一致。
 - 可信ensure仅追加126并保留旧版本；allowlist verifier、完整ecs-verify与公网探针通过：126/124=200，125/动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开126，复核访客三视图/电话/事件、成员绑定二维码扫码确认及导出选择器边界；自动化和生产验证不代替原生验收。证据见`docs/audit/feedback23.md`。
-
-## 当前批次：Feedback22 已部署并放行124，待小米14复核
-
-- 独占general-5，基线ea0db36c；依赖采用锁内已有`archiver@5.3.1`生成标准OOXML Excel，稳定store维护下载0。访客码故障根因为client-core严格生成schema遗漏`trialImageBase64`，已修复并回归。
-- 导出页移除Feedback14遗留的生产诊断链，表单立即呈现、筛选后台读取；右上角改为Excel/CSV二选一。岗位/成员复用手动排班`ui-selector`多选，“全部”与具体项互斥。
-- API与schema58支持xlsx及岗位/成员数组并兼容旧CSV/单选请求。测试库迁移28项、导出集成6项通过；完整`pnpm verify`通过（Mini1161/16跳过，根1338/440跳过）。Mini production verify主包1714300、总包4555475字节，Worklet2/2，确定性及包体通过。
-- 运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，无浏览器运行证据；静态/Node/MySQL自动化不代替小米14验收。详情见docs/audit/feedback22-export-xlsx.md。
-- 检查点4cdfdbbd和f0c46078已推送main。生产即时回滚候选ea0db36c；加密备份cb765202-9d82-4199-aa62-d83b44e6bf2c（54表、107939924字节、SHA-256 0d8c20f1…6153c3）完成后，f0c46078部署及schema58迁移成功，完整ecs-verify通过。
-- 体验版`0.1.0-p10.20260913.124`绑定f0c46078上传成功，Manifest `e28a01c5…2d3a`、receipt/远端tag一致。可信ensure仅追加124并保留旧版；allowlist与ecs verifier通过，公网124/123=200、动态未知=426。未提审、未正式发布、未退役旧版。
-- 唯一下一任务：小米14重开124，复核正式/体验访客二维码读取和带群名保存、导出页首屏、自绘岗位/成员多选，以及Excel/CSV生成和发送。自动化与生产验证完成，原生验收仍待用户。

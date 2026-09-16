@@ -1,12 +1,13 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位已修复，待体验版交付
+## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
 
 - 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（上一轮`catch`手势隔离无效）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份越远越容易遇到。
 - A 根因：滚轮位移由 WXS 写在`#ui-wheel-track`的 transform 上，而同一节点还有内联`style`绑定`wheelInitialOffset`；拖动时每次预览`setData`重渲染，3.17.2 会把内联样式整条重新下发并覆盖 WXS 的 transform → 内部 offset/高亮变化但像素不动。修复：删除内联绑定，位移完全由 WXS 拥有（符合既有"WXS 独占像素样式"约定）；手势在`touchStart`用节点 dataset 自建基线（新增`data-item-count`/`data-selected-index`），避免运行时未交付 config observer 时直接失效。
 - C 根因：`.149`的定位当日等共享 pager 结算，未结算位移（连点箭头/连点）会被守卫吞掉 → "偶尔没反应"。修复：一步重定中心（`resetDatePager` + 一次`setData`；3.17.2 仍`duration:0`），删除已死的`_dateLocateTarget`与`formatMonthValue`。
 - 证据：RED（回退 WXS 后新用例`expected undefined to be 'translateY(-264px)'`）；GREEN 定向53项+新增用例、Mini完整174文件1216项通过/16跳过；typecheck/build366/package(主包1744556B/总4618961B)/determinism(21cae2df)/format/lint/smoke:check-core/agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
-- 本轮未上传、未放行、未部署。唯一下一任务：取得当次授权后交付体验版并 add-only 放行，小米14复核滚轮拖动与定位灵敏度；若滚轮仍不动，请回复"拖动时中间那一项高亮是否跟着换"或"非中间项数字是否比中间小且更淡"，以区分样式通道与事件通道。详情见`runtime-ui-compatibility-wheel-style-channel-20260917.md`。
+- 交付与放行：`a0707b0c` 以 production/clean 上传为 `0.1.0-p10.20260917.150`（说明“Skyline 3.17.2 wheel track transform ownership a0707b0”，Manifest`45598d45…90e69`），远端不可变 tag 指向同一 SHA；可信 ensure 只追加 `.150`（白名单46项，保留`.149/.148/.147`），独立 verify 与 `/usr/local/lib/schedule/ecs-verify.sh` 通过，公网 `.150=200`、`.149=200`、动态未知 `=426`。未部署应用制品、未备份或迁移数据库、未声明 production live release。
+- 唯一下一任务：小米14复核3.17.2换班年月滚轮能否跟手滚动、请假定位当日是否每次一次到位；若滚轮仍不动，请回复“拖动时中间那一项高亮是否跟着换”或“非中间项数字是否比中间更小更淡”，以区分样式通道与事件通道。详情见`runtime-ui-compatibility-wheel-style-trial-release-20260917.md`。
 
 ## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
 
