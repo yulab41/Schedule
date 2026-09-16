@@ -5,7 +5,8 @@
 - 用户要求消除“更多 → 测试工具”里“Skyline 版本：当前微信版本不支持单独读取”的硬编码，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`，原来“没有可靠 API”的写法不成立，审计主计划 §8B 本就要求该项。
 - 只改测试工具页读取与对应契约测试：`isSupported` 映射官方五种原因文案，`version` 显示真实 Skyline 版本号；缺少 API、`fail` 或 500ms 超时失败关闭为“当前微信版本不支持读取”，与网络类型并行读取、不猜测、不崩溃。未改 WXML/WXSS、页面配置或业务语义。
 - 血缘与证据：原检查点`c7a96a0b`按累计血缘要求整合到最新体验版 tag `145@6e31eed8`；定向22/22、Mini 完整174文件1213项通过/16跳过、typecheck通过。两处继承门禁失败未消除且与本次改动无关（icon parity 的 `ui-loading-primary/muted.svg` 未进 canonical manifest；手排矩阵`1507>1506`上限），本轮按用户指示继续交付并在报告中明确归属。
-- 唯一下一任务：上传体验版并 add-only 放行，记录版本号、Manifest 与 receipt；小米 14 复核“更多 → 测试工具”的 Skyline 支持/版本两行。未操作开发者工具。
+- 已交付体验版`0.1.0-p10.20260916.146`（production/clean，Manifest`903dfccf…a9`，tag/receipt 绑定`d526252b`），可信`ensure`仅追加146并保留145等旧版；独立 verify、完整`ecs-verify.sh`、公网探针146/145=200及动态未知426通过，本轮未部署应用制品。详情见`docs/audit/skyline-version-diagnostics-trial-release-20260916.md`。
+- 唯一下一任务：小米 14 打开`0.1.0-p10.20260916.146`复核“更多 → 测试工具”的 Skyline 支持/版本两行并确认其余九项显示检查不受影响。未操作开发者工具。
 
 ## 当前批次：Skyline 3.17.2 年月/日期选择器改由面板根层托管弹窗，待体验版交付
 

@@ -6,7 +6,8 @@
 - 实现只改`apps/miniprogram/src/subpackages/diagnostics/pages/test-tools/index.ts`与`apps/miniprogram/scripts/test-tools.test.mjs`：`isSupported` 映射官方五种原因文案，未识别原因写“不支持（原因未识别）”，`version` 显示真实版本号；缺 API、`fail` 回调或 500ms 超时统一失败关闭为“当前微信版本不支持读取”，与网络类型并行读取、不阻塞页面。未改 WXML/WXSS、页面配置、渲染器契约或业务语义，未新增依赖。
 - 血缘：原检查点`c7a96a0b`（基线`4179f05a`）不含并行线体验版137–145，按体验版累计血缘要求整合到最新 tag `145@6e31eed8` 上形成本候选；未改动、未覆盖并行线的任何更新，冲突只出现在两个状态文档且以并行线版本为准。
 - 候选门禁：定向22/22通过；Mini 完整174文件1213项通过/16跳过；typecheck通过。两处继承门禁失败仍存在且与本次改动无关：`pnpm icon:parity:check` 报“generated manifest and Mini SVG directory are not bidirectionally closed”（`ui-loading-primary/muted.svg` 由并行线`70c51353`加入，未进入 `packages/ui-icons` canonical manifest），`pnpm miniprogram:verify` 报手排矩阵节点`1507>1506` no-growth 上限；icon parity 在并行线 tip `09e63980` 与本候选均复现。本轮按用户指示继续交付，不改动其图标系统或手排预算。
-- 独占general-3，REUSE_ONLY且无安装；未操作微信开发者工具。唯一下一任务：按本轮授权上传体验版并 add-only 放行，再由小米14在“更多 → 测试工具”复核 Skyline 支持与版本两行、以及原有九项页面显示检查不受影响。
+- 交付：体验版`0.1.0-p10.20260916.146`（说明“测试工具真实读取 Skyline 版本 d526252”）production/clean 上传成功，独占分配器在锁内选号、未覆盖145；远端不可变 tag 与 receipt 绑定`d526252b`，Manifest`903dfccf…a9`。可信`ensure`仅追加146并保留145等旧版，独立 verify、完整`ecs-verify.sh`及公网探针146/145=200、动态未知=426通过；本轮未部署应用制品。详情见`docs/audit/skyline-version-diagnostics-trial-release-20260916.md`。
+- 独占general-3，REUSE_ONLY且无安装；未操作微信开发者工具。唯一下一任务：小米14打开146进入“更多 → 测试工具 → 手机与微信环境”，复核新增的“Skyline 支持/版本”两行并确认其余九项显示检查不受影响；不重复上传或放行。
 
 ## 当前批次：Skyline 3.17.2 年月/日期选择器改由面板根层托管弹窗，待体验版交付
 

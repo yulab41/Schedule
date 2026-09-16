@@ -1210,4 +1210,9 @@ directory are not bidirectionally closed`（`ui-loading-primary/muted.svg` 由�
 `packages/ui-icons` canonical manifest，在并行线 tip `09e63980` 与本候选均复现）与 `pnpm miniprogram:verify` 的手排矩阵
 `1507>1506` no-growth 上限。本轮不改动并行线的图标系统与手排预算，按用户指示继续交付并在交付记录中标注归属。
 
+交付：体验版 `0.1.0-p10.20260916.146`（说明“测试工具真实读取 Skyline 版本 d526252”，production/clean，Manifest
+`903dfccf…a9`，远端不可变 tag 与 receipt 绑定 `d526252b`）由独占分配器在锁内选号，未覆盖 145；可信
+`schedule-client-version-allowlist ensure` 仅追加 146，独立 verify、完整 `ecs-verify.sh` 与公网探针 146/145=200、
+动态未知 426 通过，本轮未部署应用制品。详见 `docs/audit/skyline-version-diagnostics-trial-release-20260916.md`。
+
 本批未操作微信开发者工具；“Skyline 版本”字段的真实取值仍属“当前工具无法测量”，需要小米 14 体验版人工复核。
