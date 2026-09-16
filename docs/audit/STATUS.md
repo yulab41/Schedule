@@ -1,5 +1,12 @@
 # 微信小程序审计状态
 
+## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复体验版147已上传并放行，待双实例验收
+
+- 用户当次授权"上传并放行"并重申"最小改动、不重复造轮子、不堆屎山"。源码 18ed6f69（修复 c9ad7c0e + 验证记录）已推送，血缘含 origin/main 与 .146 来源 d526252b。
+- 体验版 0.1.0-p10.20260916.147（说明"Skyline 3.17.2 overlay inset fix 18ed6f6"）production/clean 上传成功，Manifest d818c348…527644；候选前置与上传后绑定检查 PASS。
+- 放行：可信 ensure 只追加 .147 并保留 .146 等旧版；独立 allowlist verify 与 ecs-verify.sh 通过，release 仍 44034fcc，无应用部署/数据库操作；公网 .147=200、.146=200、动态未知=426。
+- 修复面最小：3 个 wxss 把 inset:0 换成等价显式四向偏移 + 安全区 bottom:12px 回退 + 1 条回归断言；未新增组件或第二套机制。
+- 唯一下一任务：小米14双实例复核 .147/18ed6f6（3.17.2 月份/日期弹窗与点外部关闭；3.17.3 不变）。详情见 docs/audit/runtime-ui-compatibility-overlay-inset-trial-release-20260916.md。
 ## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复已实现，待体验版交付
 
 - 用户反馈：3.17.2 年月/日期选择器点开后无弹窗；换班等 sheet 点外部不关闭。用开发者工具（3.17.2/Skyline/同提交 d526252b）复现并定位。
