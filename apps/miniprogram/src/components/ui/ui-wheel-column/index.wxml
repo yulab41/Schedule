@@ -6,6 +6,8 @@
   aria-label="{{ariaLabel}}"
   data-runtime-key="{{wheelConfig.runtimeKey}}"
   data-generation="{{wheelConfig.generation}}"
+  data-item-count="{{items.length}}"
+  data-selected-index="{{wheelConfig.selectedIndex}}"
   wheel-config="{{wheelConfig}}"
   change:wheel-config="{{wheelGesture.configure}}"
   catchtouchstart="{{wheelGesture.touchStart}}"
@@ -13,11 +15,7 @@
   bindtouchend="{{wheelGesture.touchEnd}}"
   bindtouchcancel="{{wheelGesture.touchCancel}}"
 >
-  <view
-    id="ui-wheel-track"
-    class="ui-wheel-track"
-    style="transform:translateY({{wheelInitialOffset}}px)"
-  >
+  <view id="ui-wheel-track" class="ui-wheel-track">
     <view class="ui-wheel-spacer"></view>
     <view
       wx:for="{{items}}"

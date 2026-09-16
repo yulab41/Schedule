@@ -1,5 +1,13 @@
 # 微信小程序审计状态
 
+## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位已修复，待体验版交付
+
+- 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（上一轮`catch`手势隔离无效）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份越远越容易遇到。
+- A 根因：滚轮位移由 WXS 写在`#ui-wheel-track`的 transform 上，而同一节点还有内联`style`绑定`wheelInitialOffset`；拖动时每次预览`setData`重渲染，3.17.2 会把内联样式整条重新下发并覆盖 WXS 的 transform → 内部 offset/高亮变化但像素不动。修复：删除内联绑定，位移完全由 WXS 拥有（符合既有"WXS 独占像素样式"约定）；手势在`touchStart`用节点 dataset 自建基线（新增`data-item-count`/`data-selected-index`），避免运行时未交付 config observer 时直接失效。
+- C 根因：`.149`的定位当日等共享 pager 结算，未结算位移（连点箭头/连点）会被守卫吞掉 → "偶尔没反应"。修复：一步重定中心（`resetDatePager` + 一次`setData`；3.17.2 仍`duration:0`），删除已死的`_dateLocateTarget`与`formatMonthValue`。
+- 证据：RED（回退 WXS 后新用例`expected undefined to be 'translateY(-264px)'`）；GREEN 定向53项+新增用例、Mini完整174文件1216项通过/16跳过；typecheck/build366/package(主包1744556B/总4618961B)/determinism(21cae2df)/format/lint/smoke:check-core/agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 本轮未上传、未放行、未部署。唯一下一任务：取得当次授权后交付体验版并 add-only 放行，小米14复核滚轮拖动与定位灵敏度；若滚轮仍不动，请回复"拖动时中间那一项高亮是否跟着换"或"非中间项数字是否比中间小且更淡"，以区分样式通道与事件通道。详情见`runtime-ui-compatibility-wheel-style-channel-20260917.md`。
+
 ## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
 
 - 用户真机复核`.148`：3.17.2 弹窗内点击不再误关，但换班年月滚轮**仍不能滚动**；点左右切月（换班弹窗与日历页月历）播放**反向**滑动动效而最终月份正确（3.17.3 正常）；请假弹窗“定位当日”会**逐月**回退（3.17.2/3.17.3 都有），日历页定位当日一次到位。

@@ -71,7 +71,21 @@ function eventState(event) {
     ? event.currentTarget.dataset
     : {};
   var state = states[runtimeKey(dataset.runtimeKey)];
-  if (!state || state.generation !== finiteNumber(dataset.generation)) return null;
+  // The affected runtime does not always deliver the config observer, so a
+  // missing state is seeded from the node's own dataset instead of failing shut.
+  if (!state) state = seedStateFromDataset(dataset);
+  if (state.generation !== finiteNumber(dataset.generation)) return null;
+  return state;
+}
+
+function seedStateFromDataset(dataset) {
+  var state = stateForKey(runtimeKey(dataset.runtimeKey));
+  var selectedIndex = Math.max(0, Math.round(finiteNumber(dataset.selectedIndex)));
+  state.commandRevision = -1;
+  state.generation = finiteNumber(dataset.generation);
+  state.itemCount = Math.max(0, Math.round(finiteNumber(dataset.itemCount)));
+  state.lastPreviewIndex = Math.min(selectedIndex, maximumIndex(state));
+  state.offset = -state.lastPreviewIndex * ITEM_HEIGHT;
   return state;
 }
 
@@ -283,10 +297,13 @@ function chooseAxis(totalX, totalY) {
   return AXIS_UNDECIDED;
 }
 
-function touchStart(event) {
+function touchStart(event, ownerInstance) {
   var touch = firstTouch(event);
   var state = eventState(event);
   if (!touch || !state) return;
+  // The runtime may not deliver the config observer, so the seeded baseline is
+  // applied here too; with a live observer this re-applies the same offset.
+  applyStyles(ownerInstance, state);
   state.animationToken += 1;
   state.axis = AXIS_UNDECIDED;
   state.moved = false;

@@ -89,8 +89,6 @@ interface WorkflowPickerInstance {
   forwardHostedChange?(detail: unknown): void;
   forwardHostedClose?(): void;
   openFromParent?(): void;
-  _dateLocateTarget?:
-    { readonly day: number; readonly month: number; readonly year: number } | undefined;
   _datePager?: CalendarPeriodPagerState;
   _datePendingSelection?:
     { readonly day: number; readonly month: number; readonly year: number } | undefined;
@@ -365,7 +363,6 @@ Component({
     handleDateNavigate(this: WorkflowPickerInstance, event: DateNavigateEvent): void {
       const offset = Number(event.currentTarget.dataset.offset);
       if (offset !== -1 && offset !== 1) return;
-      if (this._dateLocateTarget !== undefined) return;
       startDateProgrammaticShift(this, offset);
     },
 
@@ -395,23 +392,18 @@ Component({
       const today = currentChinaDateParts();
       const value = formatDateValue(today);
       if (isOutsideRange(value, this.properties.min, this.properties.max)) return;
-      const state = readDatePagerState(this);
-      if (state.targetSlot !== undefined || state.shiftPending) return;
       startDateLocateMotion(this);
-      if (today.year === this.data.draftYear && today.month === this.data.draftMonth) {
-        this._dateLocateTarget = undefined;
-        this._datePendingSelection = undefined;
-        this.setData(createDateDraftPatch(this, today.year, today.month, today.day));
-        return;
-      }
-      // Prepare today's own panel as the single incoming slide. The previous
-      // chain walked one month per settle, which replayed that walk on screen.
-      this._dateLocateTarget = today;
-      const targetMonth = `${today.year}-${pad(today.month)}`;
-      const currentMonth = `${this.data.draftYear}-${pad(this.data.draftMonth)}`;
-      const delta: -1 | 1 = targetMonth < currentMonth ? -1 : 1;
+      // Re-center on today in one step, whatever the pager was doing. Reading
+      // the pending/prepared panel made this tap a silent no-op whenever a
+      // shift or a queued arrow tap was still settling.
+      resetDatePager(this);
       this._datePendingSelection = undefined;
-      startDateProgrammaticShift(this, delta, today);
+      this.setData({
+        ...createDateDraftPatch(this, today.year, today.month, today.day),
+        dateSwiperDuration: this.data.skyline3172UiCompatibility
+          ? 0
+          : CALENDAR_PERIOD_SWIPER_DURATION_MS,
+      });
     },
 
     handleDateSelect(this: WorkflowPickerInstance, event: DateTapEvent): void {
@@ -427,7 +419,6 @@ Component({
       }
       const state = readDatePagerState(this);
       if (state.targetSlot !== undefined || state.shiftPending) return;
-      this._dateLocateTarget = undefined;
       this._datePendingSelection = undefined;
       this.setData(createDateDraftPatch(this, selected.year, selected.month, selected.day));
     },
@@ -498,7 +489,6 @@ function finishDateSwiperAt(instance: WorkflowPickerInstance, current: number): 
     if (state.targetSlot === undefined) return;
     cancelCalendarPeriodShift(state);
     writeDatePagerState(instance, state);
-    instance._dateLocateTarget = undefined;
     instance._datePendingSelection = undefined;
     return;
   }
@@ -510,31 +500,19 @@ function finishDateSwiperAt(instance: WorkflowPickerInstance, current: number): 
 
 function resetDatePager(instance: WorkflowPickerInstance): void {
   instance._datePager = createCalendarPeriodPagerState();
-  instance._dateLocateTarget = undefined;
   instance._datePendingSelection = undefined;
 }
 
-function startDateProgrammaticShift(
-  instance: WorkflowPickerInstance,
-  delta: -1 | 1,
-  locateTarget?: { readonly day: number; readonly month: number; readonly year: number },
-): void {
+function startDateProgrammaticShift(instance: WorkflowPickerInstance, delta: -1 | 1): void {
   const state = readDatePagerState(instance);
   const request = requestCalendarPeriodShift(state, delta);
   writeDatePagerState(instance, state);
   if (!request.started) return;
 
-  const anchorYear = locateTarget?.year ?? instance.data.draftYear;
-  const anchorMonth = locateTarget?.month ?? instance.data.draftMonth;
-  const next = new Date(
-    Date.UTC(anchorYear, anchorMonth - 1 + (locateTarget === undefined ? delta : 0), 1),
-  );
+  const next = new Date(Date.UTC(instance.data.draftYear, instance.data.draftMonth - 1 + delta, 1));
   const year = next.getUTCFullYear();
   const month = next.getUTCMonth() + 1;
-  const day = Math.min(
-    locateTarget?.day ?? instance.data.draftDay,
-    createDayValues(year, month).length,
-  );
+  const day = Math.min(instance.data.draftDay, createDayValues(year, month).length);
   const targetPanel = createDatePanel(
     year,
     month,
@@ -557,8 +535,6 @@ function startDateProgrammaticShift(
         );
   const datePanels = placeCalendarPeriodTarget(currentPanels, state.activeSlot, delta, targetPanel);
   instance._datePendingSelection = { day, month, year };
-  if (locateTarget !== undefined) instance._dateLocateTarget = locateTarget;
-  else instance._dateLocateTarget = undefined;
   const generation = instance.data.wheelGeneration;
   instance.setData({ datePanels }, () => {
     const currentState = readDatePagerState(instance);
@@ -607,8 +583,6 @@ function finishDatePeriodShift(instance: WorkflowPickerInstance): void {
   const state = readDatePagerState(instance);
   const settled = finishCalendarPeriodShift(state);
   writeDatePagerState(instance, state);
-  // The locate already landed on its prepared panel, so it never walks again.
-  instance._dateLocateTarget = undefined;
   if (!settled.continues) return;
   const delta = takeQueuedCalendarPeriodShift(state);
   writeDatePagerState(instance, state);

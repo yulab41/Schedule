@@ -31,7 +31,6 @@ interface UiWheelColumnInstance {
   readonly data: {
     readonly internalSelectedIndex: number;
     readonly wheelConfig: UiWheelConfig;
-    readonly wheelInitialOffset: number;
   };
   readonly properties: {
     readonly animateCommand: boolean;
@@ -71,7 +70,6 @@ Component({
       runtimeKey: 'ui-wheel',
       selectedIndex: 0,
     } as UiWheelConfig,
-    wheelInitialOffset: 0,
   },
 
   observers: {
@@ -121,11 +119,6 @@ Component({
 
 function syncWheelConfig(instance: UiWheelColumnInstance): void {
   const nextConfig = createWheelConfig(instance);
-  const previousConfig = instance.data.wheelConfig;
-  const shouldReposition =
-    previousConfig.runtimeKey !== nextConfig.runtimeKey ||
-    previousConfig.generation !== nextConfig.generation ||
-    previousConfig.commandRevision !== nextConfig.commandRevision;
   if (instance._acceptedGeneration !== nextConfig.generation) {
     instance._acceptedGeneration = nextConfig.generation;
     instance._acceptedSequence = 0;
@@ -138,7 +131,6 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
     internalSelectedIndex: nextConfig.selectedIndex,
     wheelConfig: nextConfig,
   };
-  if (shouldReposition) patch.wheelInitialOffset = -nextConfig.selectedIndex * uiWheelItemHeight;
   instance.setData(patch);
 }
 

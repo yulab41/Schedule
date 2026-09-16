@@ -53,13 +53,15 @@ function touchEvent({
   clientX = 100,
   clientY,
   generation = 1,
+  itemCount,
   runtimeKey = 'probe-year',
+  selectedIndex,
   timeStamp,
 }) {
   const touch = { clientX, clientY };
   return {
     changedTouches: changed ? [touch] : [],
-    currentTarget: { dataset: { generation, runtimeKey } },
+    currentTarget: { dataset: { generation, itemCount, runtimeKey, selectedIndex } },
     timeStamp,
     touches: changed ? [] : [touch],
   };
@@ -105,6 +107,11 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(template).toContain('bindtouchend="{{wheelGesture.touchEnd}}"');
     expect(template).toContain('bindtouchcancel="{{wheelGesture.touchCancel}}"');
     expect(template).toContain('id="ui-wheel-track"');
+    // The WXS owns the pixel offset: no inline style may be re-applied on render.
+    expect(template).not.toContain('wheelInitialOffset');
+    expect(template).toContain('data-item-count="{{items.length}}"');
+    expect(template).toContain('data-selected-index="{{wheelConfig.selectedIndex}}"');
+    expect(gesture).toContain('seedStateFromDataset');
     expect(template).toContain('id="ui-wheel-item-{{index}}"');
     expect(template).toContain('id="ui-wheel-number-{{index}}"');
     expect(template).toContain('aria-role="listbox"');
@@ -215,6 +222,25 @@ describe('native UiWheelColumn WXS candidate', () => {
       'items,selectedIndex,runtimeKey,generation,commandRevision,animateCommand'
     ].call(instance);
     expect(instance.data.wheelConfig.commandRevision).toBe(localRevision);
+  });
+
+  it('seeds its own baseline when the config observer never reaches the wheel', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const track = owner.elements.get('#ui-wheel-track');
+    const dataset = { itemCount: 11, selectedIndex: 6 };
+
+    // No configure() call at all: the runtime dropped the config observer, so
+    // the gesture has to derive its own starting offset and item count.
+    handlers.touchStart(touchEvent({ ...dataset, clientY: 400, timeStamp: 0 }), owner);
+    expect(lastTransform(track)).toBe('translateY(-264px)');
+
+    handlers.touchMove(touchEvent({ ...dataset, clientY: 356, timeStamp: 16 }), owner);
+    expect(lastTransform(track)).toBe('translateY(-308px)');
+    expect(owner.callMethod).toHaveBeenCalledWith(
+      'handleWheelPreview',
+      expect.objectContaining({ index: 7, offset: -308 }),
+    );
   });
 
   it('tracks slow one-row down/up gestures and keeps exact visual endpoints', () => {

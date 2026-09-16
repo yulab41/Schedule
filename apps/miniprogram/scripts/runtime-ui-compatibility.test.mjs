@@ -350,9 +350,10 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     const monthComponent = readSource('components/calendar/calendar-month/index.ts');
     const picker = readSource('components/ui/ui-date-picker/index.ts');
 
-    // The wheel offset belongs to the clipped track, never to the clipping column.
-    expect(wheelTemplate).toMatch(/id="ui-wheel-track"[\s\S]{0,120}wheelInitialOffset/u);
-    expect(wheelTemplate).not.toMatch(/class="ui-wheel-column"[\s\S]{0,90}wheelInitialOffset/u);
+    // The WXS owns the track transform, so the template must not bind a style
+    // that a re-render could use to clobber it.
+    expect(wheelTemplate).toContain('id="ui-wheel-track"');
+    expect(wheelTemplate).not.toContain('wheelInitialOffset');
     expect(wheelGesture).toContain("selectComponent('#ui-wheel-track')");
     // The affected runtime does not honour `touch-action` for pan arbitration,
     // so the wheel must claim the vertical gesture before an ancestor can.
@@ -371,12 +372,14 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
       /skyline3172UiCompatibility\) finishMonthSwipeAt\(this, targetIndex\)/u,
     );
     expect(picker).toMatch(/finishDateSwiperAt\(instance, request\.targetSlot\)/u);
-    // Locate-today prepares today's own month as one slide and never walks back
-    // through the pager one month per settle.
-    expect(picker).toMatch(
-      /const anchorYear = locateTarget\?\.year \?\? instance\.data\.draftYear/u,
-    );
-    expect(picker).toMatch(/startDateProgrammaticShift\(this, delta, today\)/u);
-    expect(picker).not.toMatch(/startDateProgrammaticShift\(instance, delta, locateTarget\)/u);
+    // The gesture must survive a missing config observer by seeding its own
+    // baseline instead of failing shut.
+    expect(wheelTemplate).toContain('data-item-count="{{items.length}}"');
+    expect(wheelTemplate).toContain('data-selected-index="{{wheelConfig.selectedIndex}}"');
+    expect(wheelGesture).toContain('seedStateFromDataset');
+    // Locate-today re-centers in one step no matter what the pager was doing.
+    expect(picker).toMatch(/handleDateToday[\s\S]{0,600}resetDatePager\(this\)/u);
+    expect(picker).toMatch(/handleDateToday[\s\S]{0,600}createDateDraftPatch/u);
+    expect(picker).not.toContain('_dateLocateTarget');
   });
 });

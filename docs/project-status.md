@@ -1,5 +1,13 @@
 # Project Status
 
+## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位已修复，待体验版交付
+
+- 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（`catch` 手势隔离无效，说明不是祖先滚动容器抢占）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份离当月越远越容易遇到。
+- A 根因：滚轮位移由 WXS 写在`#ui-wheel-track`的 transform 上，但同一节点还挂着内联`style="transform:translateY({{wheelInitialOffset}}px)"`；拖动时每次预览都`setData`重渲染并把内联样式整条下发，3.17.2 因此覆盖掉 WXS 刚写的 transform（内部 offset/高亮仍在变，像素不动）。修复：删除该内联绑定，位移完全由 WXS 拥有；组件侧删掉`wheelInitialOffset`；并让手势在`touchStart`用节点 dataset（新增`data-item-count`/`data-selected-index`）自建基线，避免运行时没交付 config observer 时滚轮直接失效。
+- C 根因：`.149`的定位当日依赖"准备相邻面板 + 等 pager 结算"，只要还有未结算位移（连点箭头/快速连点）就被守卫吞掉。修复：改为一步重定中心（`resetDatePager` + 一次`setData`，3.17.2 仍`duration: 0`），并删除已死的`_dateLocateTarget`机制与`formatMonthValue`。
+- 证据：RED（回退 WXS 后新用例失败`expected undefined to be 'translateY(-264px)'`）；GREEN 定向53项+新增用例、Mini完整174文件1216项通过/16跳过；typecheck、build366文件、package(主包1744556B/总4618961B)、determinism(21cae2df)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改的手排矩阵`1507>1506`阻断。
+- 本轮未上传、未放行、未部署；开发者工具无法驱动触摸，真机拖动与定位灵敏度只能由小米14复核。唯一下一任务：取得当次上传授权后交付体验版并add-only放行；若滚轮仍不动，请回复“拖动时中间那一项的高亮有没有跟着换”或“非中间项的数字是否比中间小且更淡”，据此判断是样式通道还是事件通道问题。详情见`docs/audit/runtime-ui-compatibility-wheel-style-channel-20260917.md`。
+
 ## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
 
 - 用户真机复核`.148`：3.17.2 弹窗内点击不再误关，但换班年月滚轮**仍不能滚动**（3.17.3 正常）；点左右切月（换班弹窗与日历页月历）播放**反向**滑动动效而最终月份正确；请假弹窗“定位当日”会**逐月**回退（3.17.2/3.17.3 都有），日历页定位当日一次到位。
