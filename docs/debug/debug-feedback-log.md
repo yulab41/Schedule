@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-16 Skyline 3.17.2 年月/日期弹窗改由面板根层托管
+
+- 反馈/引入点：用户复核`.142@8988afe`，3.17.2月份弹窗就地展开后滚轮无法独立滚动（滚动带动整个换班弹窗）、请假日期选择器被两列布局挤压，且点弹窗外不关闭（3.17.3会）。第二点由上轮“就地展开+去遮罩”直接造成；根因仍是3.17.2不能把`scroll-view`内浮层抬到内容之上，`.138`的“slot内root-portal”也不生效。
+- 修复：`ui-date-picker`新增`dialog-only`/`host-key`与`openFromParent`/`applyChange`/`forwardHostedChange`/`forwardHostedClose`；被托管触发器改为上抛配置，面板用根层宿主`.workflow-picker-host`渲染弹窗，确认后经模块内实例表找回原触发器触发既有`change`（面板处理器零改动）；三个工作流面板各加宿主并给8个月/日期触发器加`host-key`，遮罩恢复。
+- 验证：定向23项通过；Mini完整174文件1211项通过/16跳过；typecheck、production build366文件、source/package/determinism（manifest `c13f7cb9…4515c`）、format、lint通过；主包1743699B、总4616396B。未触及Web核心，`smoke:check-core`在本轮较早的同一候选上通过。
+- 运行/浏览器验证：本轮不触及Web核心。3.17.2根层宿主的原生合成、滚轮独立滚动与遮罩点击关闭仍待同SHA小米14双实例复核；本轮未使用微信开发者工具，未上传、未放行、未部署。
+
 ## 2026-09-15 Skyline 3.17.2 选择器就地展开后备
 
 - 反馈/引入点：用户复核`.138@09c100d`，3.17.2下拉已能渲染选项但被后续字段遮挡，月份/日期面板点按后仍不出现，3.17.3正常。遮挡沿用`.136`记录的3.17.2同层z-index不能提升浮层，引入点为`6d0575d0`的绝对定位弹层与`.workflow-picker-root.is-open`的`z-index: 30`；面板不出现是因为`.138`的“ui-sheet插槽内容root-portal到根层”在3.17.2不生效：冻结产物确有`root-portal`、令牌导入与`--ui-z-index-dialog:1000`，而同一机制在页面级（群组菜单）和组件级（ui-toast）真机均可用。

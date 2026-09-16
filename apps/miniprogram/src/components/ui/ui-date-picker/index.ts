@@ -84,6 +84,11 @@ interface DateSwiperEvent {
 }
 
 interface WorkflowPickerInstance {
+  applyChange?(detail: unknown): void;
+  closeFromParent?(): void;
+  forwardHostedChange?(detail: unknown): void;
+  forwardHostedClose?(): void;
+  openFromParent?(): void;
   _dateLocateTarget?:
     { readonly day: number; readonly month: number; readonly year: number } | undefined;
   _datePager?: CalendarPeriodPagerState;
@@ -107,6 +112,7 @@ interface WorkflowPickerInstance {
     readonly draftIndices: readonly number[];
     readonly draftMonth: number;
     readonly draftYear: number;
+    readonly hostedLocally: boolean;
     readonly open: boolean;
     readonly renderedOptions: readonly WorkflowPickerRenderedOption[];
     readonly selectedOptionIndex: number;
@@ -127,6 +133,8 @@ interface WorkflowPickerInstance {
   };
   readonly properties: {
     readonly disabled: boolean;
+    readonly dialogOnly: boolean;
+    readonly hostKey: string;
     readonly max: string;
     readonly min: string;
     readonly mode: 'date' | 'month' | 'selector';
@@ -154,6 +162,8 @@ Component({
     fieldLabel: { type: String, value: '' },
     disabled: { type: Boolean, value: false },
     displayValue: { type: String, value: '' },
+    dialogOnly: { type: Boolean, value: false },
+    hostKey: { type: String, value: '' },
     max: { type: String, value: '' },
     min: { type: String, value: '' },
     mode: { type: String, value: 'selector' },
@@ -166,6 +176,7 @@ Component({
 
   data: {
     dateCells: [] as readonly WorkflowPickerDateCell[],
+    hostedLocally: false,
     dateLocateAnimating: false,
     datePanels: [] as readonly WorkflowPickerDatePanel[],
     dateSwiperIndex: 1,
@@ -201,7 +212,10 @@ Component({
     attached(this: WorkflowPickerInstance): void {
       pickerInstances.add(this);
       resetDatePager(this);
-      this.setData(createWheelRuntimePatch(this));
+      this.setData({
+        ...createWheelRuntimePatch(this),
+        hostedLocally: needsHostedDialog(this),
+      });
     },
     detached(this: WorkflowPickerInstance): void {
       clearPickerTimer(this);
@@ -211,9 +225,16 @@ Component({
     },
   },
 
+  observers: {
+    hostKey(this: WorkflowPickerInstance): void {
+      const hostedLocally = needsHostedDialog(this);
+      if (hostedLocally !== this.data.hostedLocally) this.setData({ hostedLocally });
+    },
+  },
+
   methods: {
     handleOpen(this: WorkflowPickerInstance): void {
-      if (this.properties.disabled) return;
+      if (this.properties.disabled || this.properties.dialogOnly) return;
       if (this.data.open) {
         closePicker(this);
         return;
@@ -222,6 +243,26 @@ Component({
         if (picker !== this && picker.data.open) {
           closePicker(picker);
         }
+      }
+      if (this.data.hostedLocally) {
+        // The affected runtime cannot lift an overlay out of a sheet's scroll
+        // area, so the hosting panel renders the dialog on its own root layer.
+        this.triggerEvent(
+          'pickerrequestopen',
+          {
+            hostKey: this.properties.hostKey,
+            max: this.properties.max,
+            min: this.properties.min,
+            mode: this.properties.mode,
+            options: this.properties.options,
+            selectedIndex: this.properties.selectedIndex,
+            title: this.properties.title,
+            value: this.properties.value,
+          },
+          { bubbles: true, composed: true },
+        );
+        this.setData({ open: true });
+        return;
       }
       clearPickerTimer(this);
       resetDatePager(this);
@@ -252,57 +293,38 @@ Component({
         return;
       }
 
-      const fallback = currentChinaDateParts();
-      const temporal = parseTemporalValue(this.properties.value) ?? fallback;
-      const centerYear = temporal.year;
-      const years = createYearValues(centerYear);
-      const yearIndex = Math.max(0, years.indexOf(centerYear));
-      const monthIndex = temporal.month - 1;
-      const days = createDayValues(centerYear, temporal.month);
-      const draftDay = Math.min(temporal.day ?? 1, days.length);
-      this.setData({
-        dateCells: createDateCells(
-          centerYear,
-          temporal.month,
-          draftDay,
-          this.properties.min,
-          this.properties.max,
-        ),
-        datePanels: createDatePanels(
-          centerYear,
-          temporal.month,
-          draftDay,
-          this.properties.min,
-          this.properties.max,
-        ),
-        dateSwiperIndex: 1,
-        dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
-        dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
-        dateLocateAnimating: false,
-        days,
-        draftDay,
-        draftDisplayValue: formatTemporalDisplay(
-          this.properties.mode,
-          centerYear,
-          temporal.month,
-          draftDay,
-        ),
-        draftIndices: [yearIndex, monthIndex, draftDay - 1],
-        draftMonth: temporal.month,
-        draftYear: centerYear,
-        monthWheelItems: createWheelOptions(monthValues, '月'),
-        monthWheelSettledIndex: monthIndex,
-        open: true,
-        popoverPlacement: 'down',
-        yearWheelItems: createWheelOptions(years, '年'),
-        yearWheelSettledIndex: yearIndex,
-        years,
-        ...wheelRuntime,
-      });
+      this.setData(createTemporalDraft(this, wheelRuntime));
+    },
+
+    openFromParent(this: WorkflowPickerInstance): void {
+      if (!this.properties.dialogOnly || this.data.open) return;
+      clearPickerTimer(this);
+      resetDatePager(this);
+      this.setData(createTemporalDraft(this, beginWheelGeneration(this)));
+    },
+
+    applyChange(this: WorkflowPickerInstance, detail: unknown): void {
+      this.triggerEvent('change', detail);
+      closePicker(this);
+    },
+
+    forwardHostedChange(this: WorkflowPickerInstance, detail: unknown): void {
+      findHostedTrigger(this.properties.hostKey)?.applyChange?.(detail);
+      closePicker(this);
+    },
+
+    forwardHostedClose(this: WorkflowPickerInstance): void {
+      findHostedTrigger(this.properties.hostKey)?.closeFromParent?.();
+      closePicker(this);
     },
 
     handleClose(this: WorkflowPickerInstance): void {
       closePicker(this);
+      if (this.properties.dialogOnly) this.triggerEvent('close');
+    },
+
+    handleHostedClose(this: WorkflowPickerInstance): void {
+      this.forwardHostedClose?.();
     },
 
     closeFromParent(this: WorkflowPickerInstance): void {
@@ -612,6 +634,75 @@ function beginWheelGeneration(instance: WorkflowPickerInstance): Readonly<Record
     ...createWheelRuntimePatch(instance),
     wheelGeneration: nextWheelGeneration(instance),
   };
+}
+
+function createTemporalDraft(
+  instance: WorkflowPickerInstance,
+  wheelRuntime: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const fallback = currentChinaDateParts();
+  const temporal = parseTemporalValue(instance.properties.value) ?? fallback;
+  const centerYear = temporal.year;
+  const years = createYearValues(centerYear);
+  const yearIndex = Math.max(0, years.indexOf(centerYear));
+  const monthIndex = temporal.month - 1;
+  const days = createDayValues(centerYear, temporal.month);
+  const draftDay = Math.min(temporal.day ?? 1, days.length);
+  return {
+    dateCells: createDateCells(
+      centerYear,
+      temporal.month,
+      draftDay,
+      instance.properties.min,
+      instance.properties.max,
+    ),
+    datePanels: createDatePanels(
+      centerYear,
+      temporal.month,
+      draftDay,
+      instance.properties.min,
+      instance.properties.max,
+    ),
+    dateSwiperIndex: 1,
+    dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
+    dateLocateAnimating: false,
+    days,
+    draftDay,
+    draftDisplayValue: formatTemporalDisplay(
+      instance.properties.mode === 'date' ? 'date' : 'month',
+      centerYear,
+      temporal.month,
+      draftDay,
+    ),
+    draftIndices: [yearIndex, monthIndex, draftDay - 1],
+    draftMonth: temporal.month,
+    draftYear: centerYear,
+    monthWheelItems: createWheelOptions(monthValues, '月'),
+    monthWheelSettledIndex: monthIndex,
+    open: true,
+    popoverPlacement: 'down',
+    yearWheelItems: createWheelOptions(years, '年'),
+    yearWheelSettledIndex: yearIndex,
+    years,
+    ...wheelRuntime,
+  };
+}
+
+function needsHostedDialog(instance: WorkflowPickerInstance): boolean {
+  return (
+    !instance.properties.dialogOnly &&
+    instance.properties.hostKey !== '' &&
+    instance.data.skyline3172UiCompatibility
+  );
+}
+
+function findHostedTrigger(hostKey: string): WorkflowPickerInstance | undefined {
+  if (hostKey === '') return undefined;
+  for (const picker of pickerInstances) {
+    if (!picker.properties.dialogOnly && picker.properties.hostKey === hostKey) return picker;
+  }
+  return undefined;
 }
 
 function closePicker(instance: WorkflowPickerInstance): void {

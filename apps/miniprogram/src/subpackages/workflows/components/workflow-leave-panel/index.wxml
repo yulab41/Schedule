@@ -238,8 +238,9 @@
                 min="{{todayDate}}"
                 value="{{startDate}}"
                 display-value="{{startDateDisplay}}"
-                title="开始日期"
-                bindchange="handleStartDateChange"
+            title="开始日期"
+            host-key="leave-start-date"
+            bindchange="handleStartDateChange"
               ></workflow-picker>
             </view>
             <view class="field-block">
@@ -249,8 +250,9 @@
                 min="{{endDateMin}}"
                 value="{{endDate}}"
                 display-value="{{endDateDisplay}}"
-                title="结束日期"
-                bindchange="handleEndDateChange"
+            title="结束日期"
+            host-key="leave-end-date"
+            bindchange="handleEndDateChange"
               ></workflow-picker>
             </view>
           </view>
@@ -359,4 +361,18 @@
       </view>
     </view>
   </ui-sheet>
+
+  <workflow-picker
+    wx:if="{{skyline3172UiCompatibility}}"
+    class="workflow-picker-host"
+    dialog-only="{{true}}"
+    host-key="{{pickerDialog.hostKey}}"
+    mode="{{pickerDialog.mode}}"
+    min="{{pickerDialog.min}}"
+    max="{{pickerDialog.max}}"
+    title="{{pickerDialog.title}}"
+    value="{{pickerDialog.value}}"
+    bindchange="handleHostedPickerChange"
+    bindclose="handleHostedPickerClose"
+  />
 </view>

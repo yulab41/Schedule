@@ -273,24 +273,37 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(pickerComponent).toContain('needsCurrentRuntimeSkyline3172UiCompatibility');
   });
 
-  it('expands the workflow picker dialog in place on 3.17.2 and keeps the overlay elsewhere', () => {
+  it('hosts the 3.17.2 workflow picker dialog on the panel root layer', () => {
     const template = readSource('components/ui/ui-date-picker/index.wxml');
     const styles = readSource('components/ui/ui-date-picker/index.wxss');
+    const component = readSource('components/ui/ui-date-picker/index.ts');
+    const host = readSource('subpackages/workflows/components/controller-host.ts');
 
     expect(template.match(/class="workflow-picker-layer/gu)).toHaveLength(1);
     expect(template).not.toContain('<root-portal');
     expect(template).toContain(
-      `class="workflow-picker-layer {{skyline3172UiCompatibility ? 'is-inline' : ''}}"`,
+      `wx:if="{{open && mode !== 'selector' && (dialogOnly || !hostedLocally)}}"`,
     );
-    expect(template).toContain(
-      `class="workflow-picker-sheet {{skyline3172UiCompatibility ? 'is-inline' : ''}}"`,
-    );
-    expect(template).toContain(
-      'wx:if="{{!skyline3172UiCompatibility}}" class="workflow-picker-scrim"',
-    );
-    expect(template).toContain(
-      'wx:if="{{!skyline3172UiCompatibility}}" class="workflow-picker-handle"',
-    );
+    expect(template).toContain(`{{hostedLocally ? 'is-inline' : ''}}`);
+    expect(template).toContain('wx:if="{{!dialogOnly}}"');
+    expect(template).toContain('wx:if="{{!hostedLocally}}" class="workflow-picker-scrim"');
+    expect(template).toContain('wx:if="{{!hostedLocally}}" class="workflow-picker-handle"');
+    expect(component).toContain('dialogOnly: { type: Boolean, value: false }');
+    expect(component).toContain("hostKey: { type: String, value: '' }");
+    expect(component).toContain('function needsHostedDialog');
+    expect(component).toContain('forwardHostedChange');
+    expect(component).toContain('forwardHostedClose');
+    expect(host).toContain("'.workflow-picker-host'");
+    expect(host).toContain('pickerDialog: closedPickerDialog()');
+    for (const panel of ['leave', 'swap', 'duty']) {
+      const panelTemplate = readSource(
+        `subpackages/workflows/components/workflow-${panel}-panel/index.wxml`,
+      );
+      expect(panelTemplate).toContain('dialog-only="{{true}}"');
+      expect(panelTemplate).toContain('host-key="');
+      expect(panelTemplate).toContain('bindchange="handleHostedPickerChange"');
+      expect(panelTemplate).toContain('bindclose="handleHostedPickerClose"');
+    }
     expect(styles).not.toContain('ui-root-portal-tokens.wxss');
     expect(styles).toMatch(/\.workflow-picker-layer\s*\{[^}]*position:\s*fixed/su);
     expect(styles).toMatch(/\.workflow-picker-layer\.is-inline\s*\{[^}]*position:\s*static/su);

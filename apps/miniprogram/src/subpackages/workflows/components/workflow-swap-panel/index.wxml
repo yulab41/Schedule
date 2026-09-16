@@ -290,6 +290,7 @@
             value="{{myAssignmentMonth}}"
             display-value="{{myAssignmentMonth}}"
             title="我的班次月份"
+            host-key="swap-my-month"
             bindchange="handleMyMonthChange"
           ></workflow-picker
         ></view>
@@ -312,6 +313,7 @@
             value="{{targetAssignmentMonth}}"
             display-value="{{targetAssignmentMonth}}"
             title="对方班次月份"
+            host-key="swap-target-month"
             bindchange="handleTargetMonthChange"
           ></workflow-picker
         ></view>
@@ -382,6 +384,7 @@
             value="{{adminInitiatorMonth}}"
             display-value="{{adminInitiatorMonth}}"
             title="成员一月份"
+            host-key="swap-admin-initiator-month"
             bindchange="handleAdminInitiatorMonthChange"
           ></workflow-picker
         ></view>
@@ -416,6 +419,7 @@
             value="{{adminTargetMonth}}"
             display-value="{{adminTargetMonth}}"
             title="成员二月份"
+            host-key="swap-admin-target-month"
             bindchange="handleAdminTargetMonthChange"
           ></workflow-picker
         ></view>
@@ -492,4 +496,18 @@
       >
     </view>
   </ui-sheet>
+
+  <workflow-picker
+    wx:if="{{skyline3172UiCompatibility}}"
+    class="workflow-picker-host"
+    dialog-only="{{true}}"
+    host-key="{{pickerDialog.hostKey}}"
+    mode="{{pickerDialog.mode}}"
+    min="{{pickerDialog.min}}"
+    max="{{pickerDialog.max}}"
+    title="{{pickerDialog.title}}"
+    value="{{pickerDialog.value}}"
+    bindchange="handleHostedPickerChange"
+    bindclose="handleHostedPickerClose"
+  />
 </view>

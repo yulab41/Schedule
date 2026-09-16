@@ -300,6 +300,7 @@
             value="{{businessMonth}}"
             display-value="{{businessMonth}}"
             title="月份"
+            host-key="duty-my-month"
             bindchange="handleMonthChange"
           ></workflow-picker
         ></view>
@@ -380,6 +381,7 @@
             value="{{businessMonth}}"
             display-value="{{businessMonth}}"
             title="月份"
+            host-key="duty-admin-month"
             bindchange="handleMonthChange"
           ></workflow-picker
         ></view>
@@ -466,4 +468,18 @@
       >
     </view>
   </ui-sheet>
+
+  <workflow-picker
+    wx:if="{{skyline3172UiCompatibility}}"
+    class="workflow-picker-host"
+    dialog-only="{{true}}"
+    host-key="{{pickerDialog.hostKey}}"
+    mode="{{pickerDialog.mode}}"
+    min="{{pickerDialog.min}}"
+    max="{{pickerDialog.max}}"
+    title="{{pickerDialog.title}}"
+    value="{{pickerDialog.value}}"
+    bindchange="handleHostedPickerChange"
+    bindclose="handleHostedPickerClose"
+  />
 </view>

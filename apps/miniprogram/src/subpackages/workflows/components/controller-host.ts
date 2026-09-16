@@ -35,6 +35,13 @@ interface WorkflowPanelHost {
     readonly groupId: string;
   };
   selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
+  selectComponent?(selector: string):
+    | {
+        forwardHostedChange?(detail: unknown): void;
+        forwardHostedClose?(): void;
+        openFromParent?(): void;
+      }
+    | undefined;
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
   triggerEvent?(name: string): void;
 }
@@ -105,9 +112,11 @@ export function createWorkflowPageDefinition(
     data: {
       ...prototype.data,
       embedded: false,
+      pickerDialog: closedPickerDialog(),
       skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     },
     ...delegatedMethods,
+    ...pickerDialogMethods(),
     onLoad(this: WorkflowPageHost, query: Readonly<Record<string, string | undefined>>): void {
       if (boundaries !== undefined) recordMiniTelemetryBoundary(boundaries.page);
       attachWorkflowPageHost(this);
@@ -125,12 +134,6 @@ export function createWorkflowPageDefinition(
     },
     onUnload(this: WorkflowPageHost): void {
       detachWorkflowPageHost(this);
-    },
-    handlePickerRequestOpen(this: WorkflowPageHost): void {
-      closeWorkflowPickers(this);
-    },
-    handlePanelBackgroundTap(this: WorkflowPageHost): void {
-      closeWorkflowPickers(this);
     },
   };
 }
@@ -164,6 +167,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     data: {
       ...prototype.data,
       embedded: true,
+      pickerDialog: closedPickerDialog(),
       skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     },
     lifetimes: {
@@ -204,14 +208,66 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     },
     methods: {
       ...delegatedMethods,
-      handlePickerRequestOpen(this: WorkflowPanelHost): void {
-        closeWorkflowPickers(this);
-      },
-      handlePanelBackgroundTap(this: WorkflowPanelHost): void {
-        closeWorkflowPickers(this);
-      },
+      ...pickerDialogMethods(),
     },
   });
+}
+
+interface PickerDialogDetail {
+  readonly detail?: Record<string, unknown>;
+}
+
+function closedPickerDialog(): Readonly<Record<string, unknown>> {
+  return {
+    open: false,
+    hostKey: '',
+    max: '',
+    min: '',
+    mode: 'month',
+    title: '',
+    value: '',
+  };
+}
+
+function pickerDialogMethods(): Readonly<Record<string, unknown>> {
+  return {
+    handlePickerRequestOpen(this: WorkflowPanelHost, event?: PickerDialogDetail): void {
+      closeWorkflowPickers(this);
+      if (this.data['skyline3172UiCompatibility'] !== true) return;
+      const detail = event?.detail ?? {};
+      const hostKey = String(detail['hostKey'] ?? '');
+      if (hostKey === '') return;
+      this.setData(
+        {
+          pickerDialog: {
+            open: true,
+            hostKey,
+            max: String(detail['max'] ?? ''),
+            min: String(detail['min'] ?? ''),
+            mode: String(detail['mode'] ?? 'month'),
+            title: String(detail['title'] ?? ''),
+            value: String(detail['value'] ?? ''),
+          },
+        },
+        () => {
+          this.selectComponent?.('.workflow-picker-host')?.openFromParent?.();
+        },
+      );
+    },
+    handleHostedPickerChange(this: WorkflowPanelHost, event?: { readonly detail?: unknown }): void {
+      this.selectComponent?.('.workflow-picker-host')?.forwardHostedChange?.(event?.detail);
+      this.setData({ pickerDialog: closedPickerDialog() });
+    },
+    handleHostedPickerClose(this: WorkflowPanelHost): void {
+      this.selectComponent?.('.workflow-picker-host')?.forwardHostedClose?.();
+      this.setData({ pickerDialog: closedPickerDialog() });
+    },
+    handlePanelBackgroundTap(this: WorkflowPanelHost): void {
+      closeWorkflowPickers(this);
+      this.selectComponent?.('.workflow-picker-host')?.forwardHostedClose?.();
+      this.setData({ pickerDialog: closedPickerDialog() });
+    },
+  };
 }
 
 function attachWorkflowPageHost(host: WorkflowPageHost): void {
