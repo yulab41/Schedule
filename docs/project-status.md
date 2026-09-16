@@ -1,5 +1,12 @@
 # Project Status
 
+## 当前批次：开发者工具调试授权政策修订
+
+- 用户当次确认允许"人工授权临时调用开发者工具 debug"，并确认上传体验版/预览发布/提交审核/正式发布/读取账号或凭证/生产操作一律先询问取得当次确认。
+- 已改：AGENTS.md、.agents/skills/schedule-project-guardrails/references/miniprogram.md、apps/miniprogram/docs/runbooks/miniprogram-ci.md，并在调试日志留痕；apps/miniprogram/AGENTS.md 无对应禁令文本，未改。
+- 边界：开发者工具结果仅为"用户授权的人工工具层"证据，不替代小米14体验版验收；凭证/二维码/AppID 不进仓库与日志；无授权自动调用仍禁止。
+- 唯一下一任务：用开发者工具（基础库3.17.2）定位年月选择器不弹窗与 sheet 点外部不关闭，并做 3.17.3 对照。
+
 ## 当前批次：Skyline 3.17.2 年月/日期选择器改由面板根层托管弹窗，待体验版交付
 
 - 用户复核`.142@8988afe`：3.17.2月份弹窗就地展开、滚轮被外层滚动抢占，请假日期选择器被两列挤压，且点弹窗外不关闭（3.17.3会）。

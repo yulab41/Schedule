@@ -17,7 +17,16 @@ For a Mini modification, pair this reference with [testing/evidence](testing-and
 
 ## Execution boundary
 
-Load `$miniprogram-development` for Mini tasks, but do not invoke its WeChat DevTools actions. This repository forbids an agent from starting, waking, closing, inspecting, controlling, or automating the DevTools GUI/CLI. Node-based repository scripts remain available within the selected task level.
+Load `$miniprogram-development` for Mini tasks. By default an agent must not start, wake, close, inspect,
+control, or automate the DevTools GUI/CLI. Exception (user-confirmed 2026-09-16): when the current user
+message explicitly authorizes temporary DevTools debugging, read-only debugging actions are allowed
+(opening the project, switching the base library, compiling, Console/Network, screenshots, element and
+layer inspection); record the authorization, purpose, actions, results, and any external state change in
+the round record, and never treat DevTools evidence as native acceptance. Uploading a trial build,
+preview/publishing, submitting for review, formal release, reading accounts or credentials, and any
+production action require asking the user first and getting explicit confirmation in that message; formal
+uploads still go through the Node `miniprogram-ci` flow. Node-based repository scripts remain available
+within the selected task level.
 
 Mini source lives in `src/`; generated `dist/` is ignored and never hand-edited. A Mini build or upload must come from the target SHA in the independent clean managed worktree. Never mix main-worktree `dist` with candidate source.
 

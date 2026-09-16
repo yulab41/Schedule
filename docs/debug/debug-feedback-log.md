@@ -4,6 +4,12 @@
 
 ## 2026-09-16 Skyline 3.17.2 年月/日期弹窗改由面板根层托管
 
+## 2026-09-16 开发者工具调试授权政策修订
+
+- 授权来源：用户在当次消息确认“临时调用微信开发者工具用于 debug”，并确认上传体验版、预览发布、提交审核、正式发布、读取账号或凭证、生产操作一律先询问取得当次确认。
+- 改动：`AGENTS.md`（小程序审计章节，把一律禁止改为“默认禁止 + 当次人工授权例外 + 受限动作先问后做”）、`.agents/skills/schedule-project-guardrails/references/miniprogram.md`（Execution boundary 同步例外）、`apps/miniprogram/docs/runbooks/miniprogram-ci.md`（同步例外并保留正式上传必须走 Node 版 `miniprogram-ci`）。`apps/miniprogram/AGENTS.md` 无对应禁令文本，未改动。
+- 边界：开发者工具结果仅属“用户授权的人工工具层”证据，不替代小米 14 体验版验收；凭证、二维码、AppID 一律不进仓库与日志；无授权的自动调用仍禁止。
+
 - 反馈/引入点：用户复核`.142@8988afe`，3.17.2月份弹窗就地展开后滚轮无法独立滚动（滚动带动整个换班弹窗）、请假日期选择器被两列布局挤压，且点弹窗外不关闭（3.17.3会）。第二点由上轮“就地展开+去遮罩”直接造成；根因仍是3.17.2不能把`scroll-view`内浮层抬到内容之上，`.138`的“slot内root-portal”也不生效。
 - 修复：`ui-date-picker`新增`dialog-only`/`host-key`与`openFromParent`/`applyChange`/`forwardHostedChange`/`forwardHostedClose`；被托管触发器改为上抛配置，面板用根层宿主`.workflow-picker-host`渲染弹窗，确认后经模块内实例表找回原触发器触发既有`change`（面板处理器零改动）；三个工作流面板各加宿主并给8个月/日期触发器加`host-key`，遮罩恢复。
 - 验证：定向23项通过；Mini完整174文件1211项通过/16跳过；typecheck、production build366文件、source/package/determinism（manifest `c13f7cb9…4515c`）、format、lint通过；主包1743699B、总4616396B。未触及Web核心，`smoke:check-core`在本轮较早的同一候选上通过。
