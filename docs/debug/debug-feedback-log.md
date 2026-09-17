@@ -3161,3 +3161,13 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 门禁：typecheck、Mini **1222 项通过/16 跳过**、package 总 **4644990B**、determinism`64d70ef5…`、format、lint、smoke:check-core 全通过。
 - 交付与放行：候选 `f7155b4b`（在 `general-5` 新租约上，先把当前 `origin/main` 并入——该区间只有一个文档策略提交 `9fb00a6a`，未触及小程序代码，故代码内容与已验证的 `ddfdaeb5` 等价），`check-worktree-safety` 两次 `RESULT=PASS`；`.156` 上传成功（说明「Skyline 3.17.2 pager pane width f7155b4」，Manifest`6cc5901b…7a60`）；可信 `ensure` 追加 `.156` 保留旧版并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.156=200`、`.155=200`、未知`=426`。`.155` 含该回归，已被 `.156` 取代。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 状态：已交付待小米14复核。唯一下一任务：小米14 打开 **`.156`** 复核月历显示与请假选择器（单元格 7 列正常、定位/左右切换单月动画不反跳、落到当月），并确认 3.17.3 无变化。
+
+## 2026-09-17 原生分页手势/方向修复与 `.157` 交付
+
+- 用户回传 `.156`：宽度已正常；但**手势左右滑动不能按月切换**（滑过 3 个月份的内容）、**左右按钮动画方向相反**；定位按钮正常。
+- 根因：环形槽位会轮转，而原生滚动按**物理位置**走。`getAdjacentCalendarPeriodSlot` 环绕（active=2 时"下一月"落在槽 0），于是"下一月"出现在左边 → 动画反向；同时一次手势可拖过 3 个面板 → 看到 3 个月内容。
+- 修复：兼容分支改为**物理顺序固定**——按 `relative` 固定为 `前 | 当前 | 后`（新增 `compatPanes` 数据 + `syncCompatPanes`/`syncCompatDatePanes`），滚动目标按**月份方向**取 `pane-0`/`pane-2`；结算后内容轮转 + **无感归位**到 `pane-1`（关闭动画）并同步重置滚动度量（避免下次结算读到旧位置）。环形槽位仍由宿主维护，两者不再冲突。
+- 验证（3.17.2 模拟器逐项取样）：首页月历 `compatPanes.relative=[-1,0,1]`，Next→2026-10、Prev→2026-09，模拟手势（滚到 pane-2 抬手）→只前进 1 月；请假选择器 Next→2027-01、Prev→2026-12，手势→只前进 1 月；两者每次结算后 `target=pane-1` 且度量回中；选择器日期网格仍 7 列（截图）。
+- 门禁：typecheck、Mini **1222 项通过/16 跳过**、package 总 **4646206B**、determinism`1f933a47…`、format、lint、smoke:check-core 全通过。
+- 交付与放行：候选 `12d1a00e`（`general-5` 新租约，`git merge --ff-only` 到该候选；`prepare-release-worktree` 冻结、`check-worktree-safety` 两次 `RESULT=PASS`）；`.157` 上传成功（说明「Skyline 3.17.2 pager pane order 12d1a00」，Manifest`536497b3…ed2a`）；可信 `ensure` 追加 `.157` 保留旧版并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.157=200`、`.156=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 状态：已交付待小米14复核。唯一下一任务：小米14 打开 **`.157`** 复核月历显示与请假选择器（单元格 7 列、左右切换/手势各跨 1 月且方向正确、定位落到当月、跟手），并确认 3.17.3 无变化。

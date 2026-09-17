@@ -59,3 +59,15 @@
 - **门禁**：typecheck、Mini **1222 项通过 / 16 跳过**、package 总 **4644990B**、determinism `64d70ef5…`、format、lint、smoke:check-core 全通过。
 - **交付**：`.156`（说明「Skyline 3.17.2 pager pane width f7155b4」，Manifest `6cc5901b…7a60`）由合并了当前 `origin/main`（仅含一个文档策略提交，未触及小程序代码）的候选 `f7155b4b` 上传，前后检查 `RESULT=PASS`；可信 ensure 追加 `.156` 保留旧版；`ecs-verify.sh` `[verify] complete`；公网 `.156=200`、`.155=200`、未知 `=426`。
 - **注意**：`.155` 含本回归，请以 `.156` 为准（`.155` 仍在白名单中，但已被 `.156` 取代）。
+
+## 追加：`.156` 的手势/方向问题与 `.157` 修复
+
+用户回传：宽度已正常，但**手势左右滑动不能按月切换**，而是滑过 3 个月份的内容；定位按钮正常；左右按钮能跳月，但**动画方向相反**（3.17.3 正常）。
+
+- **根因**：环形槽位会轮转，而原生滚动是按**物理位置**走的。`getAdjacentCalendarPeriodSlot` 会环绕（active=2 时"下一月"落到槽 0），于是"下一月"可能出现在左边 → 动画反向；同时一次手势可以拖过 3 个面板 → 看到 3 个月份内容。
+- **修复**：兼容分支改为**物理顺序固定**——三块面板按 `relative` 固定为 `前 | 当前 | 后`（新增 `compatPanes`/`syncCompatPanes`、`syncCompatDatePanes`），滚动目标按 **月份方向** 取 `pane-0`（上）/`pane-2`（下）而不是槽位；每次结算后把内容轮转到中间并**无感归位**（`scroll-into-view` 到 `pane-1`、关闭动画、同步重置滚动度量）。于是：一次手势最多跨一个面板（= 一个月），方向永远与月份一致，环形槽位继续由宿主维护、互不干扰。
+- **验证（3.17.2 模拟器，逐项取样）**：
+  - 首页月历：`compatPanes.relative=[-1,0,1]`；按钮 Next → **2026-10**、Prev → **2026-09**，每次结算后 `pagerTarget=month-pane-1`、度量回中；模拟手势（滚到 pane-2 后抬手）→ **只前进 1 个月**（2026-09→2026-10）。
+  - 请假选择器：`compatPanes.relative=[-1,0,1]`；Next → **2027-01**、Prev → **2026-12**，手势 → **只前进 1 个月**；每次归位中间、度量同步；日期网格仍为 7 列（截图确认）。
+- **门禁**：typecheck、Mini **1222 项通过 / 16 跳过**、package 总 **4646206B**、determinism `1f933a47…`、format、lint、smoke:check-core 全通过。
+- **交付**：`.157`（说明「Skyline 3.17.2 pager pane order 12d1a00」，Manifest `536497b3…ed2a`）上传，前后检查 `RESULT=PASS`；可信 ensure 追加 `.157` 保留旧版；`ecs-verify.sh` `[verify] complete`；公网 `.157=200`、`.156=200`、未知 `=426`。**请以 `.157` 复核。**
