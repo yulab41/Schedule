@@ -3086,3 +3086,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 覆盖面：①页面级 WXS 的 setStyle 是否到达渲染器；②滚轮 WXS 是否收到手势并把 preview/settle 回报到逻辑层（含 index/offset/sequence/generation/runtimeKey）；③组件作用域查询在该版本是否可用；④渲染器实际拿到的样式与期望数据的差异。报告中仍不含身份、联系方式、群组、排班、请求正文或凭证。
 - 验证：定向`scripts/test-tools.test.mjs` 23项通过（新增探针接线契约）；Mini完整174文件1220项通过/16跳过；typecheck、production build367文件（新增`wheel-probe.wxs`）、package（主包1746707B/总4632789B，diagnostics分包114031B）、determinism`677e0ed7…760a5`、format、lint、smoke:check-core通过。
 - 状态：已实现待体验版交付；本轮未上传、未放行、未部署（当前消息未含上传授权）。唯一下一任务：授权后上传并 add-only 放行，小米14先执行"滚轮通道探针"三步（拖方块→拖滚轮→采集）并回传复制内容，据此一次性判定通道，再复核单位/放大/范围/重开。详情见`docs/audit/runtime-ui-compatibility-wheel-channel-probe-20260917.md`。
+
+## 2026-09-17 滚轮通道探针 体验版152上传与放行
+
+- 用户在当前消息授权「上传体验版并放行」。候选 = `61e81e07e92fdfce771525e7e6ff985953ca79a8`（分支`codex/runtime-3172-wheel-and-pager-20260916`），独占warm槽`runtime/wt/general-3`（lease token`9613fb09…`、RUN_ID`runtime-3172-wheel-probe-upload-20260917`、REUSE_ONLY、无安装）。
+- 血缘与前置：fetch 后`origin/main@4179f05a`与远端最新体验版 tag`.151@d33da54b`都是候选祖先；`prepare-release-worktree.mjs --purpose upload`冻结候选，checker 返回`STATE=ready-clean-detached RESULT=PASS`（槽位任务分支先 fast-forward 到候选，未改写已推送历史）。
+- 上传：`0.1.0-p10.20260917.152`，说明「Skyline 3.17.2 wheel channel probe 61e81e0」，production，Manifest`e02b6f6c83f4a1de90b6d9851e59ac3cde6c54900230a985ac81952379904545`；构建`05:13:52Z`、上传`05:14:48Z`；上传后同一 checker 加`-ForMiniprogramUpload`返回`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`、`RESULT=PASS`；远端轻量 tag`miniprogram-trial/0.1.0-p10.20260917.152`指向同一 SHA。
+- 放行：可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260917.152`只追加1项（白名单48项，保留`.151`），`verify`与`/usr/local/lib/schedule/ecs-verify.sh`（`[verify] complete`）通过；公网`.152=200`、`.151=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布，未声明 production live release。
+- 状态：已交付待小米14复核。唯一下一任务：打开`.152` → `更多 → 测试工具 → 滚轮通道探针`三步（拖方块→拖滚轮→采集）并回传复制内容，用于一次性判定页面级WXS样式通道/滚轮WXS手势回报/渲染器是否应用WXS样式/组件作用域查询可用性；随后复核单位、选中放大、范围到底、重开正常与3.17.3不变。详情见`docs/audit/runtime-ui-compatibility-wheel-channel-probe-trial-release-20260917.md`。

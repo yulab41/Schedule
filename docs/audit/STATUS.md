@@ -6,7 +6,8 @@
 - 修复：① 单位随条目数据走（item 带 `unit`，模板`wx:if="{{item.unit || unit}}"`）；② 条目总数改由组件自身 data 承载（`data-item-count="{{wheelConfig.itemCount}}"`，与已验证可用的`data-base-index`同路径）；③ 同一次打开内条目数只增不减（`refreshItemCount` 忽略瞬时更小值），避免一次瞬时渲染剪短可滚动范围；④ 仅在 3.17.2 给滚轮根节点加`is-skyline-3172-ui`，用 CSS 兜底选中行放大/不透明（WXS 行内样式优先，写不进时 CSS 生效；3.17.3 外观不变）。
 - 证据：新增`does not let a transient count shrink the wheel range`与既有全范围用例通过；Mini完整174文件1219项通过/16跳过；typecheck、build366、package(主包1746516B/总4620921B)、determinism(3bacb648)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
 - 诊断增强（按用户建议）：测试工具新增二级卡片"滚轮通道探针"（页面级WXS拖动方块 + 真实`ui-wheel-column`），一次采集即可拿到：页面级WXS是否取到节点/移动偏移、滚轮WXS的preview/settle次数与最后index/offset/sequence/generation/runtimeKey、以及`query.in(selectComponent(...))`组件作用域实测的`computedStyle.transform/marginTop/fontSize`与dataset期望值——用于判明样式通道/手势回报通道/渲染器是否真的应用WXS样式。定向23项、Mini完整1220项通过/16跳过；build367文件、package(主包1746707B/总4632789B)、determinism(677e0ed7)、format/lint/smoke通过。
-- 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后交付体验版并 add-only 放行；小米14先跑"滚轮通道探针"回传复制内容，再复核单位显示、选中放大、能滚到列表末尾与重开正常。详情见`runtime-ui-compatibility-wheel-channel-probe-20260917.md`。
+- 交付与放行：`61e81e07` 以 production/clean 上传为 `0.1.0-p10.20260917.152`（说明“Skyline 3.17.2 wheel channel probe 61e81e0”，Manifest`e02b6f6c…904545`）；远端不可变tag指向同一SHA；可信ensure只追加`.152`（白名单48项，保留`.151`），独立verify与`ecs-verify.sh`通过，公网`.152=200`、`.151=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
+- 唯一下一任务：小米14打开`.152`跑`测试工具 → 滚轮通道探针`三步并回传复制内容（据此一次性判定通道），再复核单位显示、选中放大、能否滚到年2031/月12月、重开正常、3.17.3不变。详情见`runtime-ui-compatibility-wheel-channel-probe-trial-release-20260917.md`。
 
 ## 当前批次：Skyline 3.17.2 滚轮初始定位与重开失效，体验版151已上传并放行，待小米14复核
 
