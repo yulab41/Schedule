@@ -1,5 +1,14 @@
 # 微信小程序审计状态
 
+## 当前批次：滚轮修复已用开发者工具复现验证（授权清单第2项），待小米14复核
+
+- 用户当次授权：`fullMode` 重开项目窗口 + 测试账号登录，重跑第2项——在开发者工具里验证 `.153` 滚轮修复。只验证，未改业务代码；未上传、未放行、未部署、未提审。
+- 环境打通：窗口必须 `fullMode`；基础库由 `apps/miniprogram/project.private.config.json` 的 `libVersion` 决定。**构建未设 `WECHAT_CI_VERSION` 时版本是 `local`** → `client-capabilities?version=local` 返回 400 → 工作台永久“正在读取排班”；设成 `.153` 后 200，真实生产数据全量加载（控制台 `WeChatLib: 3.17.2`，Skyline 1.4.23，iPhone 12/13 Pro 390×844）。
+- A/B（同一构建只切基础库；向真实 `ui-wheel-column` 注入一次 index=3/offset=−132 上报）：3.17.2 `compat=true`、`margin-top:0px;transform:translateY(-132px)`、轨道渲染矩形 top `11642→11510`（正好 −132px）、单位 8/8、选中数字高≈25.2px vs 未选中≈17.9px、选中项盒子 127.2×46.64（=44×1.06）；3.17.3 `compat=false`、样式串只有 `margin-top:0px`、轨道 top 不变。→ 修复在 3.17.2 真实运行时生效，3.17.3 零副作用。
+- 工具边界（已在报告标注）：DevTools 的 `fields({computedStyle})` 对 3.17.2/3.17.3 **都返回空**（display/color/transform/marginTop 复核），故模拟器不能复现也不能否证真机“3.17.2 丢弃 WXS `setStyle`”；`trigger` 不触发 WXS 绑定、合成触摸不能驱动 Skyline 滚动、`pageScrollTo` 超时，探针的“拖方块/拖滚轮”未在模拟器执行。结论层级=DevTools 模拟器，不等于小米14原生验收。
+- 证据：定向 31 项（wheel/runtime-compat/picker/wxs 集成）通过；截图与探针剪贴板记录在 ignored `runtime/audit/devtools-153/`。详情见 `runtime-ui-compatibility-devtools-3172-verification-20260917.md`。
+- 唯一下一任务：小米14打开 `.153` 复核按行滚动/单位/中间项放大/范围到底/重开正常/3.17.3不变；之后做授权清单第3项（AI 开发模式 generate→validate，需“开发模式”+服务端口，且不得合入提审版本）。
+
 ## 当前批次：Skyline 3.17.2 滚轮单位/选中放大/范围修复已实现，待体验版交付
 
 - 真机对照截图（图一=3.17.2"发起换班"/2031年12月，图二=3.17.3"管理员直接换班"/2025年9月）：3.17.2 缺"年/月"单位、中间选中项不变大、向下只能到 2027 与 5月且抬手再拖不能继续向下（可向上回滚），草稿值（2031年12月）与可见位置（2024..2028）不一致；3.17.3 全部正常。**读图边界**：初稿把 3.17.2 截图读成"行样式通道可用"，与用户文字"没有选中字体放大效果"冲突，属未证实假设，不作为依据；本轮修复不依赖该判断。

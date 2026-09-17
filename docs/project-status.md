@@ -1,27 +1,17 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 滚轮单位/选中放大/范围修复已实现，待体验版交付
+## 当前批次：Skyline 3.17.2 滚轮修复已用开发者工具复现验证，待小米14复核
 
-- 用户真机复核`.150`：换班年月滚轮**首次打开可以滚动**（上一轮"模板覆盖 WXS 位移"的修复生效），但**初始停在最前端（2021年/1月）**而非当前年月；**关掉弹窗再打开又变回不能滚动**。
-- 根因（同一原因）：3.17.2 不把 WXS 的`change:wheel-config`观察器交给滚轮。① 初始位移只由`configure`写入 → 从未应用 → 停在轨道原点；② 上一轮"缺 state 时按 dataset 自建基线"只在第一次生效，重开时 state 已存在但 generation 已推进 → `eventState`因代际不一致返回`null`，手势全被忽略。
-- 修复：初始定位交给模板（轨道`margin-top:{{wheelLayoutOffset}}`= `-index*44`），WXS 只画增量`translateY(offset - baseOffset)`，两者不同属性不再互相覆盖；手势按代际自我刷新（dataset 的 generation 更新时按`data-base-index`/`data-item-count`重新播种并重置行样式，更旧仍忽略）。
-- 证据：RED（回退 WXS 后"重开"用例失败`expected 'translateY(-44px)' to be 'translateY(0px)'`）；GREEN 定向55项、Mini完整174文件1217项通过/16跳过；typecheck、build366文件、package(主包1745352B/总4619757B)、determinism(95f7825e)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
-- 3.17.2 已知局限：打开后未触摸前没有大小/淡出渐变（触摸一次恢复）；点击某一项选中仍不生效，拖动选择正常。
-- 交付：体验版`0.1.0-p10.20260917.151`（说明“Skyline 3.17.2 wheel layout base d33da54”）production/clean上传成功，Manifest`c8378346…2e55b`，远端不可变tag指向`d33da54b`；候选前置与上传后绑定检查PASS。
-- 放行：可信ensure只追加`.151`（白名单47项，保留`.150/.149`），独立verify与`ecs-verify.sh`通过；公网`.151=200`、`.150=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
-- 真机对照截图（图一=3.17.2"发起换班"/2031年12月，图二=3.17.3"管理员直接换班"/2025年9月）：3.17.2 缺"年/月"单位、中间选中项不变大、向下只能到 2027 与 5月且抬手再拖不能继续向下（可向上回滚），草稿值（2031年12月）与可见位置（2024..2028）不一致。**读图边界**：初稿曾把 3.17.2 截图读成"行样式通道可用"，与用户文字"没有选中字体放大效果"冲突，属未证实假设，不作为修复依据；本轮修复不依赖该判断。
-- **探针真机测量结论（`.152`，两台实例对照）**：3.17.2 **丢弃 WXS 的 `setStyle` 写入**（页级探针节点实测无`transform`字段，3.17.3 为`matrix(...,-88)`），该版本`fields({computedStyle})`也不可用（组件作用域 track 只有 rect）；但`callMethod`上报与模板数据通道正常（preview19/settle8、index7、offset−308 与 3.17.3 一致）。→"数字不动/无放大/无渐变"同一原因：像素只能由模板/数据驱动；此前"手势被抢占/观察器/作用域查询"假设均被排除。
-- 修复（只改受影响的像素通道）：轨道位移改由组件 data 承载（`wheelTrackOffset`/`wheelTrackStyle`，随每次 WXS 上报与换代更新，`style="{{wheelTrackStyle}}"`），仅 3.17.2 的样式串包含`transform:translateY(...)`，3.17.3 仍只写`margin-top`、由 WXS 平滑驱动；单位改`wx:if="{{item.unit}}"`+`wx:else`。3.17.2 滚动为**按行推进**。证据：定向65项、Mini完整174文件1220项通过/16跳过；build367、package(主包1747172B/总4633254B)、determinism(51bc6941)、format/lint/smoke通过。
-- 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后上传体验版并add-only放行，复核3.17.2滚轮能按行滚动/单位出现/中间项放大，且3.17.3完全不变。详情见`docs/audit/runtime-ui-compatibility-wheel-data-motion-20260917.md`。
-- 规则变更（用户当次要求）：`apps/miniprogram/AGENTS.md` 与仓库 guardrails skill 由"禁止 LLM 驱动开发者工具"改为**默认同意**（可启动/唤醒/控制/自动化 DevTools 与 `wechatide` CLI）；保留边界：无当前消息授权时只读、上传/提审/正式发布/生产凭证仍需当次明确批准、证据必须标注层级（DevTools ≠ 小米14原生验收）。`validate-project-skill.ps1` RESULT=PASS、`agent-context-policy` 3项通过。
-- 工具链：安装官方 `wechatide-skill` v0.3.11（覆盖 v0.3.9，旧版备份 `~/.codex/skills/wechatide-skill.bak-20260917-144202`）；MCP 配置注册到 `~/.codex/config.toml` 的 `[mcp_servers.wechat-devtools]`（token 存仓库外），状态检查 `versionRelation=equal`、`loginExpired=false`；按官方文档安装 SkillHub 两个 skill `@tencent-adm/wxa-skills-generate`、`@tencent-adm/wxa-skills-validate` 到 `~/.codex/skills/@tencent-adm/`。
-- 交付（授权"1，2，3"第1项）：`.153`（说明"Skyline 3.17.2 wheel data channel a18f869"，Manifest`72b7dcb4…da79fd`）上传并放行，前后检查PASS、verify与`ecs-verify`通过、`.153/.152=200`、未知`=426`；待小米14复核"按行滚动/单位/中间项放大"。第2项（模拟器白屏→DevTools 验证，需 Nightly 版）与第3项（AI 开发模式 generate→validate，需公众平台"开发模式"+服务端口，不得合入提审版本）待执行。详情见`docs/audit/runtime-ui-compatibility-wheel-data-motion-trial-release-20260917.md`。
-- 修复：① 单位随条目数据走（`createWheelOptions` 给 item 带`unit`，模板`wx:if="{{item.unit || unit}}"`）；② 条目总数改用组件自身 data 承载（`data-item-count="{{wheelConfig.itemCount}}"`，与已验证可用的`data-base-index`同路径）；③ 同一打开周期内条目数只增不减（`refreshItemCount` 忽略瞬时更小值），避免一次瞬时渲染剪短可滚动范围；④ 仅在 3.17.2 给滚轮根节点加`is-skyline-3172-ui`，用 CSS 兜底选中行的放大/不透明（WXS 行内样式优先，写不进时 CSS 生效；3.17.3 不匹配该选择器，外观不变）。
-- 证据：新增`does not let a transient count shrink the wheel range`与既有全范围用例通过；Mini完整174文件1219项通过/16跳过；typecheck、build366文件、package(主包1746516B/总4620921B)、determinism(3bacb648)、format、lint、smoke:check-core、agent-context-policy通过。
-- 诊断增强（按用户建议）：`更多 → 测试工具`新增二级卡片**"滚轮通道探针"**——左侧页面级WXS拖动方块、右侧真实`ui-wheel-column`（8项/`unit="号"`），【采集滚轮探针】会实测页面节点与组件作用域（`query.in(selectComponent(...))`）的`computedStyle.transform/marginTop/fontSize`并连同WXS上报（preview/settle次数、index/offset/sequence/generation/runtimeKey）与dataset期望值一起复制给维护者，用于一次判明"页面级WXS样式通道、滚轮WXS手势与回报通道、渲染器是否真的应用WXS样式"。新增`wheel-probe.wxs`与`ui-wheel-column`注册；定向23项、Mini完整174文件1220项通过/16跳过；build367文件、package(主包1746707B/总4632789B)、determinism(677e0ed7)、format、lint、smoke:check-core通过。
-- 交付：体验版`0.1.0-p10.20260917.152`（说明“Skyline 3.17.2 wheel channel probe 61e81e0”）production/clean上传成功，Manifest`e02b6f6c…904545`，远端不可变tag指向`61e81e07`；候选前置与上传后绑定检查PASS。
-- 放行：可信ensure只追加`.152`（白名单48项，保留`.151`等旧版），独立verify与`ecs-verify.sh`通过；公网`.152=200`、`.151=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
-- 唯一下一任务：小米14打开`.152`，`更多 → 测试工具 → 滚轮通道探针`按三步（拖方块→拖滚轮→采集）把复制内容发回；再复核单位、选中放大、能否滚到年2031/月12月、重开仍正常、3.17.3不变。详情见`docs/audit/runtime-ui-compatibility-wheel-channel-probe-trial-release-20260917.md`。
+- 本轮用户授权：用 `fullMode` 重开项目窗口、以测试账号登录，执行授权清单第2项——在开发者工具里复现并验证滚轮修复，替代读截图推断。只做验证，未改业务代码。
+- `.153`（`a18f8692`，构建 `0.1.0-p10.20260917.153@a18f869`）已上传并 add-only 放行（说明"Skyline 3.17.2 wheel data channel a18f869"，Manifest`72b7dcb4…da79fd`）；`.153/.152=200`、未知`=426`。
+- 环境打通（此前"模拟器白屏"的真实原因）：必须`--window-mode fullMode`；基础库由`apps/miniprogram/project.private.config.json`的`libVersion`决定（本轮在 3.17.2/3.17.3 间切换同一份构建）。**构建未设`WECHAT_CI_VERSION`时版本为`local`**，`client-capabilities?version=local`返回 400，工作台永久停在"正在读取排班"；设成`.153`后返回 200，真实生产数据全部加载（控制台`WeChatLib: 3.17.2`、Skyline 1.4.23）。
+- A/B 实测（同构建只切基础库；向真实`ui-wheel-column`注入一次 index=3/offset=−132 上报，走已验证可用的 callMethod+data 通道）：3.17.2 `compat=true`、样式串`margin-top:0px;transform:translateY(-132px)`、轨道渲染矩形 top `11642→11510`（正好−132px）、单位节点 8/8、选中数字高≈25.2px vs 未选中≈17.9px、选中项盒子 127.2×46.64（=44×1.06）；3.17.3 `compat=false`、样式串只有`margin-top:0px`、轨道 top 不变。
+- 结论：修复在真实 3.17.2 运行时生效（数据通道确实推动轨道、单位出现、中间项放大），且对 3.17.3 渲染零副作用。
+- 工具边界：DevTools 的`fields({computedStyle})`对 **3.17.2 与 3.17.3 都返回空**（已用 display/color/transform/marginTop 复核），故模拟器不能复现也不能否证真机"3.17.2 丢弃 WXS `setStyle`"；该条仍是设备级证据，本轮刻意不依赖它（`rect` 两版本都可用）。自动化`trigger`不触发 WXS 绑定、合成触摸不能驱动 Skyline 滚动、`pageScrollTo`超时 → 探针卡片的"拖方块/拖滚轮"未在模拟器执行。
+- 证据：定向 31 项（wheel/runtime-compat/picker/wxs 集成）通过；截图与探针剪贴板记录留在 ignored `runtime/audit/devtools-153/`。本轮未上传、未放行、未部署、未提审。
+- 修复回顾（`cf6fbf40`）：轨道位移改由组件 data 承载（`wheelTrackOffset`/`wheelTrackStyle`，样式串只在 3.17.2 含`transform:translateY(...)`）；单位走`item.unit`+`wx:if/wx:else`；3.17.2 滚动为按行推进。真机`.152`测量仍成立：该版本丢弃 WXS`setStyle`、`computedStyle`不可用，但`callMethod`与模板数据通道正常。
+- 规则与工具链：`apps/miniprogram/AGENTS.md`与 guardrails skill 默认同意 LLM 驱动开发者工具（保留"无当次授权只读、上传/提审/发布/生产凭证需当次批准、DevTools≠小米14原生验收"）；`wechatide-skill` v0.3.11；SkillHub 的`wxa-skills-generate`/`wxa-skills-validate`已装。
+- 唯一下一任务：小米14打开`.153`，复核滚轮按行滚动/单位出现/中间项放大/范围到底、重开正常、3.17.3不变；随后执行授权清单第3项（AI 开发模式 generate→validate，需"开发模式"+服务端口，且不得合入提审版本）。详情见`docs/audit/runtime-ui-compatibility-devtools-3172-verification-20260917.md`。
 
 ## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
 
@@ -138,40 +128,3 @@
 - 实现检查点为`47c294ba`与`c7025b93`；发布记录检查点以
   `docs(release): record Skyline week trial 135 delivery`识别。唯一下一任务：小米14的
   3.17.2/3.17.3实例分别复核恢复与零视觉回归。
-
-## 当前批次：Skyline 3.17.2 专属 UI 兼容体验版134已上传并放行，待双实例验收
-
-- 同一体验版`.133@2d7f685`在同一小米14的两微信实例完成对照：基础库3.17.2的受控Grid退化（顶部差8px）且CSS圆环成尖角；3.17.3 Grid顶部差0px且圆环正常。CSS变量及显式scroll-view均正常，根因确定为实例基础库/Skyline运行时差异，不是第三方组件库。
-- 仅`SDKVersion === 3.17.2`启用局部Flex和SVG加载圈后备；3.17.3、后续/未知版本继续走原Grid与CSS圆环。覆盖工作台/访客、通讯录、平台账号、排班配置、统计及工作流；诊断探针保留。无依赖、API、数据、权限或业务逻辑变化。详情见`docs/audit/runtime-ui-compatibility-fix-20260914.md`。
-- RED先后为3失败及扩展后1失败；GREEN兼容6、工作流65、相关联合46项通过。Mini完整174文件1193项通过/16跳过；typecheck、production build366文件、包体、determinism、format、lint、smoke:check-core通过。主包1732843B/总4600497B，较`.133`总包仅增8869B（约0.19%），无新增依赖。
-- Mini verify仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试。首次正式上传在调用微信平台前因工作台TS blob变化使`5285dd1`等价血缘证明失效而安全停止，未占用版本；确认兼容改动未触及受保护方法后，以`5c023931`更新精确blob证明并复跑血缘及上传专项门禁。
-- `0.1.0-p10.20260914.134`已用production/clean上传，绑定`5c023931`，Manifest `1669cf39…60bf55`，tag/allocation/Manifest/receipt一致。可信ensure仅追加`.134`并保留旧版；allowlist verifier、完整ECS verifier及公网`.134/.133=200`、动态未知`=426`通过。服务器应用release仍`44034fcc`，未部署应用、备份/迁移数据库、提审或正式发布。详情见`docs/audit/runtime-ui-compatibility-trial-release-20260914.md`。
-- 发布记录检查点以`docs(release): record Skyline compatibility trial 134 delivery`识别；文档格式与`git diff --check`通过。
-- 唯一下一任务：同一小米14的3.17.2与3.17.3微信实例均确认`.134@5c02393`，分别复核异常实例恢复及正常实例视觉不变；自动化不代替原生验收。
-
-## 当前批次：小程序 Skyline 运行时诊断体验版133已交付
-
-- 用户选择先发布诊断增强版，不先修改业务UI。故障基线为体验版`0.1.0-p10.20260914.132@44034fcc`；异常实例尚无基础库报告，不把环境推断写成最终根因。
-- 诊断页已改为固定首屏加显式纵向scroll-view；增加Grid、跨组件CSS变量、滚动尺寸自动探针，CSS/SVG图形对照和首屏复制。登录、工作台、成员日历、API、权限及数据均未修改。详情见`docs/audit/runtime-ui-diagnostics-20260914.md`。
-- RED 17项中1失败；合并后诊断/导出联合69、Mini完整173文件1187项通过/16跳过。Mini/Web TypeScript、production build363文件、Storybook build及390/320/大字号辅助复核通过；包体主1728648B/总4591628B、确定性Manifest`fb649413…5f2f7`，320无横溢，按钮44px。lint与smoke:check-core通过；独占general-2复用依赖，无安装。
-- Mini verify在诊断源码/构建/包体后仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试；独立typecheck、build、package和determinism均通过。检查点以`feat(miniprogram): add first-screen runtime diagnostics`识别。
-- 诊断检查点`c694345c`已推送，并按发布血缘要求合并最新`origin/main@4179f05a`形成累计提交`2d7f685a`。`0.1.0-p10.20260914.133`已用production/clean上传成功，Manifest`eb302276…16b90b0`，远端不可变tag、allocation、Manifest和receipt一致；详情见`docs/audit/runtime-ui-diagnostics-trial-release-20260914.md`。
-- 用户单独授权后，可信ensure已只追加`.133`并保留旧版；allowlist verify和完整`ecs-verify.sh`通过，独立公网`.133/.132=200`、动态未知`=426`。API重建健康窗口内三次短暂502后自行恢复；live前后均为`44034fcc`，未部署代码、迁移或修改数据库。未提审或正式发布。
-- 唯一下一任务：正常与异常微信实例都确认`.133/2d7f685`，在“更多 → 测试工具”返回首屏截图、复制首屏诊断和滚动结果；两份同版本证据齐全前不判断最终根因、不修改业务UI。
-
-## 当前批次：Feedback26 手动排班刷新与最长一年范围已实现
-
-- 手动排班四阶段点击现均重新读取对应数据；草稿发布成功后进入发布记录页，避免继续显示旧草稿。
-- 编辑表单改为模板+岗位、开始+结束、周期+人员三行；结束日期用于真实预览/草稿范围。应用范围最长366天，模板周期仍为30天、20人和600格，服务端按月份拆分草稿。详情见`docs/audit/feedback26-manual-schedule-refresh.md`。
-- 共享契约/领域27项与Mini定向21项通过，Contracts/Domain/API/Mini TypeScript通过；API月度草稿集成命令因warm槽缺少`.env`未启动测试数据库，不能记为通过。独占general-5，REUSE_ONLY且未安装依赖。微信开发者工具未调用，小米14原生待后续同SHA体验版复核。
-- 运行/浏览器验证：`pnpm smoke:browser` 已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记为浏览器通过；API与Mini production构建通过，后续`smoke:check-core`复核通过。
-- 当前消息未授权体验版上传、生产部署或数据库操作。唯一下一任务：完成检查点并由用户决定是否另行授权上传体验版。
-
-## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
-
-- 小米14 `.127` 证据确认：访客五行月历因 viewport 62px/行而 panel 仍54px/行产生底部留白；访客列表模板漏掉成员列表已有的班种状态。需继续核对医生/护士月周列表结构与交互，成员日历页面禁止修改。
-- 访客二维码当前只有5分钟进程缓存，冷路径串行生成正式/体验两码并在客户端二次绘制；用户确认二维码永久保存，只有手动“刷新访客码”才更换 visitorKey 并废除旧码。设计采用独立持久资源表、双码并行、同请求合并和分段脱敏耗时证据。
-- 设计与计划见`docs/superpowers/specs/2026-09-13-feedback25-guest-calendar-qr-performance-design.md`及对应plan。访客month panel已补齐62px rowHeight，列表主体结构与成员一致；成员日历文件零修改。schema61永久保存正式/体验访客二维码，冷生成并行且合并重复请求，刷新事务内废除旧资源，界面统一“刷新访客码”。
-- RED旧代码Mini 4/5失败且0061缺失；Feedback25/guest/导出/布局55项、schema兼容与备份表计数32项通过。完整门禁根1266项通过/443跳过、Mini1175项通过/16跳过；Windows release-cache rename曾一次`EPERM`，独立复跑4/4通过。Mini production verify主包1728134、总包4580599字节、Worklet2/2及确定性通过，`smoke:check-core`无需Web冒烟。MySQL持久化集成已加入但warm槽无测试库而14项跳过。独占general-1，REUSE_ONLY且未安装依赖；成员日历零修改和逐行diff通过。
-- 应用检查点`21fe6591`及验证器检查点`590aebb4`已推送；schema61/API与最终可信控制面已部署。首次备份`ef3a25ea-0180-462b-819c-fa75ad5081f4`为54表/256555行，最终部署前备份`9a29cb36-fe58-44c3-a933-6114e6a6c16b`为55表/256584行/108379344字节，SHA-256 `2981b347…05d558`。完整生产verifier通过。
-- `0.1.0-p10.20260914.129`以production/clean绑定`590aebb4`上传成功，Manifest `21075b8e…fdb360`；可信ensure仅追加129并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：129/128=200，动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开129复核医生/护士访客月周列表、首次/再次读取二维码及“刷新访客码”速度。
