@@ -38,6 +38,7 @@ interface WorkflowPickerRenderedOption extends WorkflowPickerOption {
 interface WorkflowPickerWheelOption {
   readonly ariaLabel: string;
   readonly label: string;
+  readonly unit: string;
 }
 
 interface WorkflowPickerDateCell {
@@ -762,6 +763,7 @@ function createWheelOptions(
   return values.map((value) => ({
     ariaLabel: `${value}${unit}`,
     label: String(value),
+    unit,
   }));
 }
 

@@ -109,7 +109,8 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(template).toContain('id="ui-wheel-track"');
     // The WXS owns the pixel offset: no inline style may be re-applied on render.
     expect(template).not.toContain('wheelInitialOffset');
-    expect(template).toContain('data-item-count="{{items.length}}"');
+    expect(template).toContain('data-item-count="{{wheelConfig.itemCount}}"');
+    expect(template).toContain('{{item.unit || unit}}');
     expect(template).toContain('data-base-index="{{wheelLayoutIndex}}"');
     expect(template).toContain('style="margin-top:{{wheelLayoutOffset}}px"');
     expect(gesture).toContain('seedStateFromDataset');
@@ -243,6 +244,58 @@ describe('native UiWheelColumn WXS candidate', () => {
       'handleWheelPreview',
       expect.objectContaining({ index: 7, offset: -308 }),
     );
+  });
+
+  it('does not let a transient count shrink the wheel range', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const track = owner.elements.get('#ui-wheel-track');
+    let timeStamp = 0;
+
+    handlers.touchStart(
+      touchEvent({ baseIndex: 5, clientY: 400, itemCount: 11, timeStamp }),
+      owner,
+    );
+    // Slow drags keep the projected target on the row the finger reached.
+    timeStamp += 200;
+    // The host re-renders with a stale, much shorter list while the drag is live.
+    handlers.touchMove(touchEvent({ baseIndex: 5, clientY: 356, itemCount: 3, timeStamp }), owner);
+    timeStamp += 200;
+    handlers.touchEnd(
+      touchEvent({ baseIndex: 5, changed: true, clientY: 356, itemCount: 3, timeStamp }),
+      owner,
+    );
+    flushFrames(owner);
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleWheelSettled',
+      expect.objectContaining({ index: 6 }),
+    );
+
+    for (let step = 0; step < 6; step += 1) {
+      handlers.touchStart(
+        touchEvent({ baseIndex: 5, clientY: 400, itemCount: 3, timeStamp }),
+        owner,
+      );
+      timeStamp += 200;
+      handlers.touchMove(
+        touchEvent({ baseIndex: 5, clientY: 356, itemCount: 3, timeStamp }),
+        owner,
+      );
+      timeStamp += 200;
+      handlers.touchEnd(
+        touchEvent({ baseIndex: 5, changed: true, clientY: 356, itemCount: 3, timeStamp }),
+        owner,
+      );
+      timeStamp += 200;
+      flushFrames(owner);
+    }
+
+    // The full eleven-item range survives the stale render.
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleWheelSettled',
+      expect.objectContaining({ index: 10, offset: -440 }),
+    );
+    expect(lastTransform(track)).toBe('translateY(-220px)');
   });
 
   it('keeps the whole range reachable from a dataset-seeded baseline', () => {

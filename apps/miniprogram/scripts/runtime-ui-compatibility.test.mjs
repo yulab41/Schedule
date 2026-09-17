@@ -374,11 +374,16 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(picker).toMatch(/finishDateSwiperAt\(instance, request\.targetSlot\)/u);
     // The gesture must survive a missing config observer: the template carries the
     // base position, and the node dataset re-seeds the state per generation.
-    expect(wheelTemplate).toContain('data-item-count="{{items.length}}"');
+    // Both carriers go through the component's own data: the renderer on the
+    // affected runtime does not deliver property/observer reads reliably.
+    expect(wheelTemplate).toContain('data-item-count="{{wheelConfig.itemCount}}"');
     expect(wheelTemplate).toContain('data-base-index="{{wheelLayoutIndex}}"');
     expect(wheelTemplate).toContain('style="margin-top:{{wheelLayoutOffset}}px"');
     expect(wheelGesture).toContain('seedStateFromDataset');
     expect(wheelGesture).toContain('state.offset - state.baseOffset');
+    expect(wheelGesture).toContain('refreshItemCount');
+    // The 年/月 unit travels with the item, not only with the component property.
+    expect(wheelTemplate).toContain('{{item.unit || unit}}');
     // Locate-today re-centers in one step no matter what the pager was doing.
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}resetDatePager\(this\)/u);
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}createDateDraftPatch/u);

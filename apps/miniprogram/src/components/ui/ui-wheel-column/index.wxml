@@ -6,7 +6,7 @@
   aria-label="{{ariaLabel}}"
   data-runtime-key="{{wheelConfig.runtimeKey}}"
   data-generation="{{wheelConfig.generation}}"
-  data-item-count="{{items.length}}"
+  data-item-count="{{wheelConfig.itemCount}}"
   data-base-index="{{wheelLayoutIndex}}"
   wheel-config="{{wheelConfig}}"
   change:wheel-config="{{wheelGesture.configure}}"
@@ -32,7 +32,7 @@
       bindtap="handleItemTap"
     >
       <text id="ui-wheel-number-{{index}}" class="ui-wheel-number">{{item.label}}</text>
-      <text wx:if="{{unit}}" class="ui-wheel-unit">{{unit}}</text>
+      <text wx:if="{{item.unit || unit}}" class="ui-wheel-unit">{{item.unit || unit}}</text>
     </view>
     <view class="ui-wheel-spacer"></view>
   </view>

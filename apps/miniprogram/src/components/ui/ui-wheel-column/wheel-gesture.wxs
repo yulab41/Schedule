@@ -77,9 +77,21 @@ function eventState(event) {
   // The affected runtime does not deliver the config observer, so the node's own
   // dataset seeds the state; a newer generation means the host re-opened the wheel.
   if (!state) return seedStateFromDataset(dataset);
-  if (state.generation === generation) return state;
+  if (state.generation === generation) {
+    refreshItemCount(state, dataset);
+    return state;
+  }
   if (generation > state.generation) return seedStateFromDataset(dataset);
   return null;
+}
+
+function refreshItemCount(state, dataset) {
+  var observed = Math.max(0, Math.round(finiteNumber(dataset.itemCount)));
+  // One render must not shrink the wheel: the host may report a transient count
+  // before its item list settles, which would otherwise cut the scroll range short.
+  if (observed <= state.itemCount) return;
+  state.itemCount = observed;
+  state.offset = clamp(state.offset, minimumOffset(state), 0);
 }
 
 function seedStateFromDataset(dataset) {

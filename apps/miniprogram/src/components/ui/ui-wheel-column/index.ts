@@ -1,6 +1,7 @@
 interface UiWheelColumnItem {
   readonly ariaLabel?: string;
   readonly label: string;
+  readonly unit?: string;
 }
 
 interface UiWheelReport {

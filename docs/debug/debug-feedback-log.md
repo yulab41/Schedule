@@ -3068,3 +3068,13 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 已排除：`createYearValues` 固定返回 11 项（2021..2031）、`monthValues` 固定 12 项，列表本身没有被截断；`unit="年"`/`unit="月"` 属性与`wx:if="{{unit}}"`模板均在源码中确认存在。
 - 工具边界：本轮开发者工具在 3.17.2 下模拟器渲染不出页面内容（数据层可读、截图全白），无法用截图自查；也未在模拟器里获得可用的元素/组件触摸通道。
 - 下一步（需要真机截图）：用 3.17.2 与 3.17.3 各一张换班年月选择器截图 + 拖动极限现象，区分两种原因：① WXS 对`wx:for`动态生成 id 的行`setStyle`在 3.17.2 不到达渲染器（→ 改为数据驱动选中态）；② `margin-top` 承载的布局基线在 3.17.2 被裁剪或漏绘（→ 改回由 WXS 承担基线并在`touchStart`后立即绘制）。本轮未上传、未放行、未部署。
+
+## 2026-09-17 滚轮缺单位/无放大/到不了底：真机截图定性为数据交付通道问题
+
+- 用户提供 3.17.2 与 3.17.3 对照截图并补充现象：3.17.2 缺"年/月"单位、中间选中项不变大、向下只能到 2027 与 5月且抬手再拖不能继续向下（可向上回滚）；草稿值显示 2031年12月而滚轮可见位置是 2024..2028（两者不一致）。3.17.3 四项全部正常。
+- **关键反证**：3.17.2 截图里行与行之间**存在**大小/浓淡渐变 → WXS 的 `setStyle`（行样式）在该版本是到达渲染器的；因此上一轮设想的"样式通道失效"被排除，问题落在**数据交付通道**：组件属性（`unit`、`items.length`）与 WXS config 观察器在 3.17.2 不可靠，而组件自身 `data`（如 `wheelLayoutIndex`，已被"初始定位正确"证明可用）与条目数据可靠。
+- 修复（全部走数据通道，最小改动）：① `createWheelOptions` 给每个条目带上 `unit`，模板渲染`wx:if="{{item.unit || unit}}"`（条目优先、组件属性兜底）；② `data-item-count` 由`{{items.length}}`改为组件自身 data `{{wheelConfig.itemCount}}`，与已验证可用的`data-base-index`同路径；③ 新增 `refreshItemCount`：同一打开周期内条目数只增不减，忽略 host 报出的瞬时更短列表，避免一次瞬时渲染把可滚动范围剪短。
+- 测试先行：新增`does not let a transient count shrink the wheel range`（拖动中 host 报出 3 项的更短列表，滚轮仍必须落到 index 10 / offset -440），与既有`keeps the whole range reachable from a dataset-seeded baseline`一起通过；同步更新两处模板断言（条目单位、条目总数来源）与条目类型（`unit`）。
+- 语义等价审计：WXS 的绝对坐标系、clamp 与动画端点未改，只在同一代际内拒绝"更小的条目数"；`configure`路径与 3.17.3 行为不变。单位渲染改为`item.unit || unit`，对已经携带`unit`的条目与仅靠属性传参的用法都成立。
+- 验证结果：定向55项+新增用例、Mini完整174文件1219项通过/16跳过；typecheck、production build366文件、package（主包1745866B/总4620271B）、determinism`634e0dca…66c3f`、format、lint、smoke:check-core、agent-context-policy通过；`pnpm miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 状态：已实现待小米14复核；本轮未上传、未放行、未部署（当前消息未含上传授权）。唯一建议下一任务：授权后上传并 add-only 放行，复核单位显示、选中放大、能滚到年 2031 / 月 12月 且重开仍正常。详情见`docs/audit/runtime-ui-compatibility-wheel-units-and-range-20260917.md`。

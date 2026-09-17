@@ -1,5 +1,12 @@
 # 微信小程序审计状态
 
+## 当前批次：Skyline 3.17.2 滚轮单位/选中放大/范围修复已实现，待体验版交付
+
+- 真机对照截图（3.17.2 vs 3.17.3）：3.17.2 缺"年/月"单位、中间选中项不变大、向下只能到 2027 与 5月且抬手再拖不能继续向下（可向上回滚），草稿值（2031年12月）与可见位置（2024..2028）不一致；3.17.3 全部正常。截图里行间**有**大小/浓淡渐变 → WXS 行样式通道在 3.17.2 可用，问题在**数据交付通道**（属性/观察器不可靠，组件 data 与条目数据可靠）。
+- 修复：① 单位随条目数据走（item 带 `unit`，模板`wx:if="{{item.unit || unit}}"`）；② 条目总数改由组件自身 data 承载（`data-item-count="{{wheelConfig.itemCount}}"`，与已验证可用的`data-base-index`同路径）；③ 同一次打开内条目数只增不减（`refreshItemCount` 忽略瞬时更小值），避免一次瞬时渲染剪短可滚动范围。
+- 证据：新增`does not let a transient count shrink the wheel range`与既有全范围用例通过；Mini完整174文件1219项通过/16跳过；typecheck、build366、package(主包1745866B/总4620271B)、determinism(634e0dca)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后交付体验版并 add-only 放行，由小米14复核单位显示、选中放大、能滚到 2029/12月 与 12月 且重开仍正常。详情见`runtime-ui-compatibility-wheel-units-and-range-20260917.md`。
+
 ## 当前批次：Skyline 3.17.2 滚轮初始定位与重开失效，体验版151已上传并放行，待小米14复核
 
 - 用户真机复核`.150`：首次打开滚轮**可以滚动**（模板覆盖位移的修复生效），但**初始停在 2021年/1月**而非当前年月；**关掉再打开又无法滚动**。
