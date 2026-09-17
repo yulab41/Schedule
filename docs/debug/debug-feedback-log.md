@@ -3150,3 +3150,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 交付与放行：`a402d01f` 以新租约槽 `general-5` 冻结为 upload 候选，`check-worktree-safety` 两次 `RESULT=PASS`；`.155` 上传成功（说明「Skyline 3.17.2 native scroll pager a402d01`，Manifest`683b76f3…9b63`）；可信 `ensure` 追加 `.155` 保留 `.154` 并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.155=200`、`.154=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 原则更新（用户当次）：最小改动优先；当低版本无法在原实现上适配时，为它设计匹配的实现而不是硬打补丁，但要有条理、不影响 3.17.3、不占用过多包体积、尽量复用。已写入 `apps/miniprogram/AGENTS.md`。
 - 状态：已交付待小米14复核。唯一下一任务：小米14 打开 `.155` 复核请假选择器与首页月历的定位/左右切换，并确认 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
+
+## 2026-09-17 `.155` 单元格宽度回归修复与 `.156` 交付
+
+- 用户回传：月历页面单元格宽度严重错误、无法正常显示月历（可在开发者工具目视复现）。目视复现确认：每行只显示一列、日期为 31/7/14/21/28（每周一），单元格宽度=整卡宽度；请假页日期网格同样。
+- 根因：在原生横向 `scroll-view` 里，3.17.2 无法为环轨道/面板解析百分比宽度链（面板宽度退化为不确定），于是 `.month-grid{width:100%}` 与 `.calendar-cell-slot{width:14.285714%}` 双双落到 `auto`，单元格按内容撑满整行。
+- 排查过程（都留证）：先试 `.pane{flex:0 0 100%}` 无效；`outline` 在 Skyline 不渲染（四层描边全无）；改用 `background` 上色也不可见，说明该路径下 WXSS 变更不可靠、百分比无法解析 → 放弃纯 CSS 方案。
+- 修复：新增共享助手 `measureCalendarPeriodPaneWidth`（`calendar-period-pager.ts`，`createSelectorQuery().select(...).boundingClientRect().exec(...)`，带"缺失/0 宽度不覆盖"的保护），在 `calendar-month` 与 `ui-date-picker` 的兼容分支各自量一次容器宽度，并以 `style="{{paneStyle}}"` / `style="{{datePaneStyle}}"` **内联 px** 应用到面板；CSS 只保留 `display:flex` + `flex:none`。内联值与百分比链、WXSS 刷新都无关。
+- 验证（3.17.2 模拟器目视）：`pages/calendar-poc` 月历恢复 7 列（1–30 + 国庆灰格、周末红字、选中日高亮）；手动排班页"开始日期"`mode="date"` 选择器日期网格恢复 7 列、31 号高亮正确。新增单测钉住助手行为（321/0/null/无 wx 四种情况）；契约测试补断言两个面板的内联样式绑定与测量调用。
+- 门禁：typecheck、Mini **1222 项通过/16 跳过**、package 总 **4644990B**、determinism`64d70ef5…`、format、lint、smoke:check-core 全通过。
+- 交付与放行：候选 `f7155b4b`（在 `general-5` 新租约上，先把当前 `origin/main` 并入——该区间只有一个文档策略提交 `9fb00a6a`，未触及小程序代码，故代码内容与已验证的 `ddfdaeb5` 等价），`check-worktree-safety` 两次 `RESULT=PASS`；`.156` 上传成功（说明「Skyline 3.17.2 pager pane width f7155b4」，Manifest`6cc5901b…7a60`）；可信 `ensure` 追加 `.156` 保留旧版并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.156=200`、`.155=200`、未知`=426`。`.155` 含该回归，已被 `.156` 取代。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 状态：已交付待小米14复核。唯一下一任务：小米14 打开 **`.156`** 复核月历显示与请假选择器（单元格 7 列正常、定位/左右切换单月动画不反跳、落到当月），并确认 3.17.3 无变化。
