@@ -1,170 +1,150 @@
 # Project Status
 
-## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
+## 当前批次：Skyline 3.17.2 月历/日期分页改原生滚动，体验版155已上传并放行，待小米14复核
 
-- 用户明确要求：允许 Agent 调用微信开发者工具（`wechatide` CLI 与开发者工具 MCP），且编译、预览、上传不再需要用户逐次确认。
-- 已移除禁令与逐次批准门禁的位置：根`AGENTS.md`、`apps/miniprogram/AGENTS.md`、`schedule-project-guardrails`（`SKILL.md`、`references/miniprogram.md`、`references/task-levels.md`、`references/release-candidate.md`）、小程序迁移计划、`architecture/runtime-and-build.md`、`runbooks/manual-native-testing.md`、`runbooks/p6-core-rc.md`、`p7-workflow-rc.md`、`p8-organization-rc.md`、`runbooks/miniprogram-ci.md`、`testing/device-matrix.md`、`testing/test-plan.md`、`docs/audit/AUDIT_MASTER_PLAN.md`、`docs/audit/XIAOMI14_TEST_PROTOCOL.md`。
-- 守卫与历史记录处理：`validate-project-skill.ps1` 原先断言运行手册含“当前消息已明确授权上传”，该审批要求正是本次取消的策略，故改为断言“不需要用户逐次批准”并复核其余版本分配/血缘 token 仍全部成立；这是策略变更的同步，不是用改测试掩盖失败。`wechat-miniprogram-audit.md` 与`exp-icon-004`计划只加日期化的“当时/现已解除”说明，不改写历史结论。
-- `docs/project-status.md` 原为40551字节，已接近`agent-context-policy.test.mjs`的40960字节硬门槛，加一轮记录必然越界。按根`AGENTS.md`“保持简洁、Git历史才是持久历史”的要求，裁掉访客修复101及以前的历史批次（保留当前与近期批次，并在文末指向`docs/audit/`），现为32047字节/168行。
-- ADR：ADR-0002 的执行边界部分由新增`apps/miniprogram/docs/decisions/ADR-0006-agent-devtools-automation.md`取代，其余部分（日常主循环不依赖开发者工具）仍有效。
-- 保留不变的边界：提交审核、撤回审核、正式发布，以及删除云资源、生产数据库破坏性写入、真实支付等其他不可逆操作仍需用户当次明确批准；体验版上传仍走版本分配、冻结干净候选、Manifest/receipt/远端tag血缘与只追加allowlist；模拟器、自动化与截图不得冒充实体设备验收。
-- 环境事实（本轮实测）：开发者工具`2.02.2609162`（Nightly，高于门槛`2.02.2607152`）；`wechatide -h`退出码0；agent侧skill`0.3.11`与工具内置版逐文件一致且`versionRelation: equal`；MCP `wechat-devtools`带独立Token调用`check_wechatide_status`成功，`loginExpired: false`。
-- 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
-- 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
+- 用户真机确认 `.154` 的年月选择器"已和 3.17.3 基本一样"，且低速末尾更顺滑（**该优点本轮不动**）；同时新报仅在 3.17.2 出现的四项：请假年月日选择器定位落到临近月且无动画、左右切换反跳；首页月历定位同样、左右切换无动画且不跟手。要求"跨多个月也只做一个月的跳转动画"。
+- 根因：两处都是"3 槽环形 `swiper` + 改 `current`"；3.17.2 无法动画化程序化跳转，此前一轮设成 `duration:0` 并手动补结算 → 没动画；手动结算依赖槽位匹配，错过即丢 → 环形与画面错位 → 临近月/反跳。
+- 实现（3.17.3 分支逐字未改）：3.17.2 的分页换成原生横向 `scroll-view`（与滚轮同一条已真机验证的通道）。面板体抽成 WXML `template` 两分支共用；`scroll-into-view`+`scroll-with-animation` 动画一个面板，`bindscroll` 驱动结算，手势与程序化切换共用同一结算代码；定位今天先无感归位再单面板滑到当月。共享助手落在 `calendar-period-pager.ts`，无第二套实现。
+- 验证（3.17.2 模拟器）：请假页下一月 250ms `left=8391.9` → 结算 `9072=2×4536`、草稿 2027-01；定位今天跨 4 月 250ms `left=488.8` → 结算 `left=0`、草稿 2026-09-17；首页月历连按 3 次正好 2026-10/11/12；定位今天 2026-12→2026-09，视口高度 310 不变。门禁：Mini 1221 项通过/16 跳过、package 总 4643899B（+11KB）、determinism`6ea2af8f…`、typecheck/format/lint/smoke:check-core 全通过。
+- 交付与放行：`.155`（Manifest`683b76f3…9b63`）production/clean 上传，前后检查 PASS；可信 ensure 追加 `.155` 保留 `.154`，verify 与 `ecs-verify.sh` 通过；公网 `.155=200`、`.154=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 原则更新（用户当次）：最小改动优先；当低版本无法在原实现上适配时为它设计匹配实现而非硬打补丁，但要有条理、不影响 3.17.3、不占过多包体积、尽量复用。已写入 `apps/miniprogram/AGENTS.md`。
+- 唯一下一任务：小米14 打开 `.155` 复核请假选择器与首页月历的定位/左右切换（单月动画、不反跳、落到当月、跟手），并确认 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
 
-## 当前批次：Feedback26 导出筛选切换重置文件状态
+## 上一批次：Skyline 3.17.2 滚轮改原生滚动实现，体验版154已上传并放行
 
-- 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
-- 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
-- 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
-- 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。未操作微信开发者工具、未上传体验版、未部署生产。如需小米14原生复核，由 Agent 在最终干净SHA上自主上传体验版（不再需要另行授权）。
+- 用户当次授权「继续至全部完成并验证通过并上传放行」，并授权以后由 LLM 直接在模拟器用测试账号登录（已代登录一次）。
+- 定因（同构建切基础库）：① 3.17.2 内联 `margin-top` 不当位移用，只有 `transform` 移动轨道 → 起始位置丢失；② WXS `setStyle` 写入不到渲染器 → 无逐像素位移、无行强调；③ `.ui-wheel-unit` 样式送不到该节点且继承色解析不出来 → 字形透明。第③条的对照实验证明唯一变量是"有没有显式颜色"，与字号无关。
+- 实现：`ui-wheel-column` 内新增仅 3.17.2 使用的分支——原生 `scroll-view` 滚轮；`bindscroll` 逐像素 → 逻辑层按与 WXS 相同的插值公式产出行/数字/单位样式经数据下发，松手 `scroll-top` 吸附；单位带显式颜色（`#9aa4ae`/`#16202a`）。3.17.3 仍走原 WXS 分支，逐字未改。
+- 验证：3.17.2 `compat=true`、`scrollTop 220→308` 行位移正好 88px、`midIndex 5→7`、选中行 `opacity:1;scale(1)`、单位 12 行全部出墨；3.17.3 `compat=false`、`margin-top:0px`、`#ui-wheel-track` 在、scroll-view 分支不存在。门禁全通过（typecheck、Mini 174/1220、package 4637088B、determinism、format、lint、smoke:check-core）。
+- 交付与放行：`.154`（Manifest`076a83ba…304a`）production/clean 上传，前后检查 PASS；可信 ensure 追加 `.154` 保留旧版，verify 与 `ecs-verify.sh` 通过；公网 `.154=200`、`.153=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 唯一下一任务：小米14 打开 `.154` 复核滚轮跟手/吸附、单位、中间项放大、滚到 2031年/12月、重开正常，且 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-wheel-native-scroll-20260917.md`。
 
-## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
+## 上一批次：滚轮修复已用开发者工具复现验证
 
-- 小米14 `.127` 证据确认：访客五行月历因 viewport 62px/行而 panel 仍54px/行产生底部留白；访客列表模板漏掉成员列表已有的班种状态。需继续核对医生/护士月周列表结构与交互，成员日历页面禁止修改。
-- 访客二维码当前只有5分钟进程缓存，冷路径串行生成正式/体验两码并在客户端二次绘制；用户确认二维码永久保存，只有手动“刷新访客码”才更换 visitorKey 并废除旧码。设计采用独立持久资源表、双码并行、同请求合并和分段脱敏耗时证据。
-- 设计与计划见`docs/superpowers/specs/2026-09-13-feedback25-guest-calendar-qr-performance-design.md`及对应plan。访客month panel已补齐62px rowHeight，列表主体结构与成员一致；成员日历文件零修改。schema61永久保存正式/体验访客二维码，冷生成并行且合并重复请求，刷新事务内废除旧资源，界面统一“刷新访客码”。
-- RED旧代码Mini 4/5失败且0061缺失；Feedback25/guest/导出/布局55项、schema兼容与备份表计数32项通过。完整门禁根1266项通过/443跳过、Mini1175项通过/16跳过；Windows release-cache rename曾一次`EPERM`，独立复跑4/4通过。Mini production verify主包1728134、总包4580599字节、Worklet2/2及确定性通过，`smoke:check-core`无需Web冒烟。MySQL持久化集成已加入但warm槽无测试库而14项跳过。独占general-1，REUSE_ONLY且未安装依赖；成员日历零修改和逐行diff通过。
-- 应用检查点`21fe6591`及验证器检查点`590aebb4`已推送；schema61/API与最终可信控制面已部署。首次备份`ef3a25ea-0180-462b-819c-fa75ad5081f4`为54表/256555行，最终部署前备份`9a29cb36-fe58-44c3-a933-6114e6a6c16b`为55表/256584行/108379344字节，SHA-256 `2981b347…05d558`。完整生产verifier通过。
-- `0.1.0-p10.20260914.129`以production/clean绑定`590aebb4`上传成功，Manifest `21075b8e…fdb360`；可信ensure仅追加129并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：129/128=200，动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开129复核医生/护士访客月周列表、首次/再次读取二维码及“刷新访客码”速度。
+- 本轮用户授权：用 `fullMode` 重开项目窗口、以测试账号登录，执行授权清单第2项——在开发者工具里复现并验证滚轮修复，替代读截图推断。只做验证，未改业务代码。
+- `.153`（`a18f8692`，构建 `0.1.0-p10.20260917.153@a18f869`）已上传并 add-only 放行（说明"Skyline 3.17.2 wheel data channel a18f869"，Manifest`72b7dcb4…da79fd`）；`.153/.152=200`、未知`=426`。
+- 环境打通（此前"模拟器白屏"的真实原因）：必须`--window-mode fullMode`；基础库由`apps/miniprogram/project.private.config.json`的`libVersion`决定（本轮在 3.17.2/3.17.3 间切换同一份构建）。**构建未设`WECHAT_CI_VERSION`时版本为`local`**，`client-capabilities?version=local`返回 400，工作台永久停在"正在读取排班"；设成`.153`后返回 200，真实生产数据全部加载（控制台`WeChatLib: 3.17.2`、Skyline 1.4.23）。
+- A/B 实测（同构建只切基础库；向真实`ui-wheel-column`注入一次 index=3/offset=−132 上报，走已验证可用的 callMethod+data 通道）：3.17.2 `compat=true`、样式串`margin-top:0px;transform:translateY(-132px)`、轨道渲染矩形 top `11642→11510`（正好−132px）、单位节点 8/8、选中数字高≈25.2px vs 未选中≈17.9px、选中项盒子 127.2×46.64（=44×1.06）；3.17.3 `compat=false`、样式串只有`margin-top:0px`、轨道 top 不变。
+- 结论：修复在真实 3.17.2 运行时生效（数据通道确实推动轨道、单位出现、中间项放大），且对 3.17.3 渲染零副作用。
+- 工具边界：DevTools 的`fields({computedStyle})`对 **3.17.2 与 3.17.3 都返回空**（已用 display/color/transform/marginTop 复核），故模拟器不能复现也不能否证真机"3.17.2 丢弃 WXS `setStyle`"；该条仍是设备级证据，本轮刻意不依赖它（`rect` 两版本都可用）。自动化`trigger`不触发 WXS 绑定、合成触摸不能驱动 Skyline 滚动、`pageScrollTo`超时 → 探针卡片的"拖方块/拖滚轮"未在模拟器执行。
+- 放行确认（用户当次授权"提交并放行"）：`.153` 已在白名单，可信`ensure`返回"版本已存在并通过验证；未重建容器"（幂等、只追加），`verify`通过，`ecs-verify.sh`输出`[verify] complete`（api/web Up、mysql healthy），公网探针`.153=200`、`.152=200`、未知`=426`；未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 证据：定向 31 项（wheel/runtime-compat/picker/wxs 集成）通过；截图与探针剪贴板记录留在 ignored `runtime/audit/devtools-153/`。
+- 修复回顾（`cf6fbf40`）：轨道位移改由组件 data 承载（`wheelTrackOffset`/`wheelTrackStyle`，样式串只在 3.17.2 含`transform:translateY(...)`）；单位走`item.unit`+`wx:if/wx:else`；3.17.2 滚动为按行推进。真机`.152`测量仍成立：该版本丢弃 WXS`setStyle`、`computedStyle`不可用，但`callMethod`与模板数据通道正常。
+- 规则与工具链：`apps/miniprogram/AGENTS.md`与 guardrails skill 默认同意 LLM 驱动开发者工具（保留"无当次授权只读、上传/提审/发布/生产凭证需当次批准、DevTools≠小米14原生验收"）；`wechatide-skill` v0.3.11；SkillHub 的`wxa-skills-generate`/`wxa-skills-validate`已装。
+- 唯一下一任务：小米14打开`.153`，复核滚轮按行滚动/单位出现/中间项放大/范围到底、重开正常、3.17.3不变；随后执行授权清单第3项（AI 开发模式 generate→validate，需"开发模式"+服务端口，且不得合入提审版本）。详情见`docs/audit/runtime-ui-compatibility-devtools-3172-verification-20260917.md`。
 
-## 当前批次：Feedback24 与头颈 DOCX 已部署并放行128，待小米14复核
+## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
 
-- 小米14体验版126确认：导出成员选择器弹层被表单卡片裁剪，文件类型仍为原生picker；护士匿名访客缺少成员护士预设/群组月历班种偏好，周/列表swiper归中使用260ms造成反向跳动，启动时先渲染持久缓存造成旧班种闪现。
-- 修复限定在导出宿主、匿名访客和独立安全显示设置端点：文件类型复用`ui-selector`，卡片允许弹层显示；旧访客日历响应不加字段。访客从群组设置读取默认视图（当前护士周/医生月）和月历班种，接入护士排序/状态/折叠、62px月格、compact详情和0ms归中提交锁/队列，持久缓存只作网络失败兜底。成员日历页面未修改。
-- Feedback24修复限定在导出宿主、匿名访客和独立安全显示设置端点：文件类型复用`ui-selector`，卡片允许弹层显示；访客读取群组默认视图/月历班种并接入护士排序、状态、折叠、62px月格和0ms归中提交锁。成员日历页面未修改。详情`docs/audit/feedback24.md`。
-- 同时保留生产刚部署的头颈外科医生群 DOCX/schema60 功能：目标群排班为Word/CSV，统计及其他群为Excel/CSV，固定姓名配置与生产Compose透传不回退。详情`docs/audit/head-neck-docx-export.md`。
-- 两条分支共同基于`40723a1d`；检测到真实并发发布后未抢锁，合并生产`ececc967`并形成累计检查点`463f4512`。锁空闲后重新备份`f2ade922-8942-44fd-8cf9-5351489ee66d`（54表、256201行、108185080字节、SHA-256 `aaa2095a…584f5`），schema60/API部署及完整verifier通过。
-- 完整`pnpm verify`通过（Mini1169/16跳过、根1262/442跳过、依赖保护81）；Mini production verify主包1727549、总包4579238字节、Worklet2/2及确定性通过。浏览器冒烟因localhost:5173未启动而`ERR_CONNECTION_REFUSED`，`smoke:check-core`通过。
-- `0.1.0-p10.20260913.127`绑定`463f4512`以production/clean上传成功，Manifest `f570cb98…c9812`；可信ensure仅追加127并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：127/126=200，动态未知=426。未提审、未正式发布、未退役旧版本；唯一下一任务为小米14复核访客三视图与导出选择器/DOCX入口。
-- 用户确认127已被占用并精确授权改用128。同一累计应用以主线发布记录提交`0e7fc6c7`、production/clean上传`0.1.0-p10.20260913.128`，Manifest `71109555…8297`，receipt与远端轻量tag均绑定同一SHA。可信ensure只追加128；完整ecs verifier及公网探针通过：128/127/126=200，动态未知=426。未提审、未正式发布、未退役旧版本；唯一下一任务仍为小米14打开128复核。
+- 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（`catch` 手势隔离无效，说明不是祖先滚动容器抢占）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份离当月越远越容易遇到。
+- A 根因：滚轮位移由 WXS 写在`#ui-wheel-track`的 transform 上，但同一节点还挂着内联`style="transform:translateY({{wheelInitialOffset}}px)"`；拖动时每次预览都`setData`重渲染并把内联样式整条下发，3.17.2 因此覆盖掉 WXS 刚写的 transform（内部 offset/高亮仍在变，像素不动）。修复：删除该内联绑定，位移完全由 WXS 拥有；组件侧删掉`wheelInitialOffset`；并让手势在`touchStart`用节点 dataset（新增`data-item-count`/`data-selected-index`）自建基线，避免运行时没交付 config observer 时滚轮直接失效。
+- C 根因：`.149`的定位当日依赖"准备相邻面板 + 等 pager 结算"，只要还有未结算位移（连点箭头/快速连点）就被守卫吞掉。修复：改为一步重定中心（`resetDatePager` + 一次`setData`，3.17.2 仍`duration: 0`），并删除已死的`_dateLocateTarget`机制与`formatMonthValue`。
+- 证据：RED（回退 WXS 后新用例失败`expected undefined to be 'translateY(-264px)'`）；GREEN 定向53项+新增用例、Mini完整174文件1216项通过/16跳过；typecheck、build366文件、package(主包1744556B/总4618961B)、determinism(21cae2df)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改的手排矩阵`1507>1506`阻断。
+- 交付：体验版`0.1.0-p10.20260917.150`（说明“Skyline 3.17.2 wheel track transform ownership a0707b0”）production/clean上传成功，Manifest`45598d45…90e69`，远端不可变tag指向`a0707b0c`；候选前置与上传后绑定检查PASS。
+- 放行：可信ensure只追加`.150`（白名单46项，保留`.149/.148/.147`），独立verify与`ecs-verify.sh`通过；公网`.150=200`、`.149=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
+- 唯一下一任务：小米14复核3.17.2换班年月滚轮能否跟手滚动、请假定位当日是否每次一次到位；若滚轮仍不动，请回复“拖动时中间那一项高亮是否跟着换”或“非中间项数字是否比中间更小更淡”，以区分样式通道与事件通道。详情见`docs/audit/runtime-ui-compatibility-wheel-style-trial-release-20260917.md`。
 
-## 当前批次：Feedback23 已部署并放行126，待小米14复核
+## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
 
-- 已确认导出选择器溢出来自导出页缺少本地字段内边距容器；共享`ui-selector`无须修改。访客与成员使用同一ViewModel且访客WXSS已导入成员样式，成员在e94a54ca后使用`shiftGroups/tint`，访客模板仍循环旧`duties`，属于展示模板同步遗漏。
-- 用户确认访客开放电话和事件，但完整手机号继续受当前群组有效同意门槛。绑定二维码允许群主/群管理员为本群待绑定成员生成，平台管理员也可生成；生成前必须检查未绑定，图片显示群组名/群组码/姓名/工号/有效期，scene只含一次性随机票据。
-- 用户授权以视觉/交互匹配、减少重复、包体和加载为目标；实时追随未来成员日历更新不是验收项。当前访客已接入`shiftGroups/tint`、公共详情折叠/班种自动折叠和成员同口径周高，成员日历文件尚未修改；导出选择器已加本地边界容器。Mini typecheck及定向48项通过，QR定向19项通过；API绑定集成因本机未配置测试MySQL而7项明确跳过，不能记为通过。
-- 一次性成员绑定二维码API/schema59/client-core和Mini信息卡已实现；幂等记录不保存Base64图片，平台/群组管理员来源分别审计。最终`pnpm verify`通过（Mini1164/16跳过、根1257/440跳过）；Mini production verify主包1720876、总包4570156字节、Worklet2/2、确定性通过。运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记浏览器通过；`pnpm smoke:check-core`通过。MySQL集成因本机测试库未配置而跳过。
-- 应用检查点87475d51已推送并部署，schema59；备份cc678008-9368-4332-a7f7-0e7bc070fe19（54表、108086228字节、SHA-256 4e14781b…d8e0）完成，完整ecs-verify通过。125因预构建时间戳冲突在微信上传前失败，永久保留占用且未放行；126/87475d51 production-clean上传成功，359文件Manifest 66e8d858…18b32c，receipt/tag一致。
-- 可信ensure仅追加126并保留旧版本；allowlist verifier、完整ecs-verify与公网探针通过：126/124=200，125/动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开126，复核访客三视图/电话/事件、成员绑定二维码扫码确认及导出选择器边界；自动化和生产验证不代替原生验收。证据见`docs/audit/feedback23.md`。
+- 用户真机复核`.148`：3.17.2 弹窗内点击不再误关，但换班年月滚轮**仍不能滚动**（3.17.3 正常）；点左右切月（换班弹窗与日历页月历）播放**反向**滑动动效而最终月份正确；请假弹窗“定位当日”会**逐月**回退（3.17.2/3.17.3 都有），日历页定位当日一次到位。
+- A 滚动：滚轮依赖`touch-action: none`争抢纵向手势，3.17.2 不按该属性判定归属，手势被祖先容器拿走（同款组件+遮罩在 gesture-probe 真机曾可用，故不是遮罩命中或 WXS 子节点样式通道）。`ui-wheel-column` 根节点改为`catchtouchstart`/`catchtouchmove` 自行消费纵向手势；位移仍写在内层`#ui-wheel-track`（写到会裁剪自身的列容器上不会滚动）。
+- B 动效：三槽环形 swiper 的`current`在 3.17.2 按“最近逻辑槽位”归一，环形 0↔2 跳变被渲染成反向一步。受影响运行时的程序化切月改用`duration:0`（与工作台月份列表`listSwiperCurrent:1 + duration:0`既有先例一致），并抽出`finishMonthSwipeAt`/`finishDateSwiperAt`在零时长跳变后直接结算一次（幂等，`animationfinish`再到达即早退）；3.17.3 仍走 240ms 动画。
+- C 定位当日：改为像日历页那样把“今天的月份面板”作为唯一入场面板放进相邻槽位，一次结算即落在当天，删除逐月续走分支。
+- 门禁：定向53项、Mini完整174文件1215项通过/16跳过；typecheck、build366文件、package(主包1744335B/总4618740B)、determinism(2286365b)、format、lint、smoke:check-core通过。改动仅`ui-wheel-column/index.wxml`、`calendar-month/index.ts`、`ui-date-picker/index.ts`与3个回归测试。
+- 交付：体验版`0.1.0-p10.20260916.149`（说明“Skyline 3.17.2 wheel pan and month paging 7e215a2”）production/clean上传成功，Manifest`442f8933…36fc8`，远端不可变tag指向`7e215a28`；候选前置与上传后绑定检查PASS（ready-clean-detached、production-clean、VERSION_LOCAL=absent）。
+- 放行：可信ensure只追加`.149`（白名单45项，保留`.146/.147/.148`），独立verify与`ecs-verify.sh`通过；公网`.149=200`、`.148=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
+- 开发者工具（3.17.2/Skyline）只能验证宿主管弹窗可打开且无异常；该渲染器下元素与组件自动化不可用，触摸级滚动与动效方向由小米14复核。
+- 唯一下一任务：小米14双实例复核 A/B/C（滚轮可滚动、切月动效方向、定位当日一次到位），3.17.3不变；若滚轮仍不能滚动，请回复“点滚轮中间那一项有无反应”。详情见`docs/audit/runtime-ui-compatibility-wheel-pager-trial-release-20260916.md`。
 
-## 当前批次：Feedback22 已部署并放行124，待小米14复核
+## 上一批次：Skyline 3.17.2 弹窗点击误关修复体验版148已上传并放行，待小米14复核
 
-- 独占general-5，基线ea0db36c；依赖采用锁内已有`archiver@5.3.1`生成标准OOXML Excel，稳定store维护下载0。访客码故障根因为client-core严格生成schema遗漏`trialImageBase64`，已修复并回归。
-- 导出页移除Feedback14遗留的生产诊断链，表单立即呈现、筛选后台读取；右上角改为Excel/CSV二选一。岗位/成员复用手动排班`ui-selector`多选，“全部”与具体项互斥。
-- API与schema58支持xlsx及岗位/成员数组并兼容旧CSV/单选请求。测试库迁移28项、导出集成6项通过；完整`pnpm verify`通过（Mini1161/16跳过，根1338/440跳过）。Mini production verify主包1714300、总包4555475字节，Worklet2/2，确定性及包体通过。
-- 运行/浏览器验证：`pnpm smoke:browser`已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，无浏览器运行证据；静态/Node/MySQL自动化不代替小米14验收。详情见docs/audit/feedback22-export-xlsx.md。
-- 检查点4cdfdbbd和f0c46078已推送main。生产即时回滚候选ea0db36c；加密备份cb765202-9d82-4199-aa62-d83b44e6bf2c（54表、107939924字节、SHA-256 0d8c20f1…6153c3）完成后，f0c46078部署及schema58迁移成功，完整ecs-verify通过。
-- 体验版`0.1.0-p10.20260913.124`绑定f0c46078上传成功，Manifest `e28a01c5…2d3a`、receipt/远端tag一致。可信ensure仅追加124并保留旧版；allowlist与ecs verifier通过，公网124/123=200、动态未知=426。未提审、未正式发布、未退役旧版。
-- 唯一下一任务：小米14重开124，复核正式/体验访客二维码读取和带群名保存、导出页首屏、自绘岗位/成员多选，以及Excel/CSV生成和发送。自动化与生产验证完成，原生验收仍待用户。
+- 用户真机反馈：3.17.2 日期弹窗内任意点击（定位今天/切月/日期格/弹窗内外）都会关闭弹窗；3.17.3 正常。根因是 3.17.2 的弹窗挂在页面根层，卡片内点击冒泡到页面根的关闭回调（3.17.3 的弹窗在 sheet 内被 catchtap 挡住）。
+- 修复 1 行：.workflow-picker-layer 增加 catchtap="handleInternalTap"（复用已有 no-op），加 1 条回归断言（RED 1 失败→GREEN 15/15）。未新增机制，3.17.3 路径不变。
+- 体验版 0.1.0-p10.20260916.148（说明"Skyline 3.17.2 dialog tap fix c5f06e5"）production/clean 上传成功，Manifest 1f64d195…f9e7；候选前置与上传后绑定检查 PASS。门禁：Mini 全量、typecheck、build366、package、determinism(4410f7fb)、format、lint 通过；主包1744039B/总4618444B。
+- 放行：可信 ensure 只追加 .148 并保留 .147 等旧版；allowlist verify 与 ecs-verify 通过，release 仍 44034fcc，无部署/数据库操作；公网 .148=200、.147=200、动态未知=426。
+- 唯一下一任务：小米14 3.17.2 复核日期弹窗点击不再关闭且可选，年月滚轮是否可滚动（若不可，反馈具体现象以定方向）；3.17.3 不变。详情见 docs/audit/runtime-ui-compatibility-dialog-tap-trial-release-20260916.md。
+## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
 
-## 当前批次：Feedback21 已部署并放行123，待小米14复核
+- 用户要求把“更多 → 测试工具”的“Skyline 版本”从硬编码“当前微信版本不支持单独读取”改为真实读取，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`；审计主计划 §8B 本就要求“Skyline 支持与版本（API 支持时）”。
+- 实现只改`apps/miniprogram/src/subpackages/diagnostics/pages/test-tools/index.ts`与`apps/miniprogram/scripts/test-tools.test.mjs`：`isSupported` 映射官方五种原因文案，未识别原因写“不支持（原因未识别）”，`version` 显示真实版本号；缺 API、`fail` 回调或 500ms 超时统一失败关闭为“当前微信版本不支持读取”，与网络类型并行读取、不阻塞页面。未改 WXML/WXSS、页面配置、渲染器契约或业务语义，未新增依赖。
+- 血缘：原检查点`c7a96a0b`（基线`4179f05a`）不含并行线体验版137–145，按体验版累计血缘要求整合到最新 tag `145@6e31eed8` 上形成本候选；未改动、未覆盖并行线的任何更新，冲突只出现在两个状态文档且以并行线版本为准。
+- 候选门禁：定向22/22通过；Mini 完整174文件1213项通过/16跳过；typecheck通过。两处继承门禁失败仍存在且与本次改动无关：`pnpm icon:parity:check` 报“generated manifest and Mini SVG directory are not bidirectionally closed”（`ui-loading-primary/muted.svg` 由并行线`70c51353`加入，未进入 `packages/ui-icons` canonical manifest），`pnpm miniprogram:verify` 报手排矩阵节点`1507>1506` no-growth 上限；icon parity 在并行线 tip `09e63980` 与本候选均复现。本轮按用户指示继续交付，不改动其图标系统或手排预算。
+- 独占general-3，REUSE_ONLY且无安装；未操作微信开发者工具。唯一下一任务：按本轮授权上传体验版并 add-only 放行，再由小米14在“更多 → 测试工具”复核 Skyline 支持与版本两行、以及原有九项页面显示检查不受影响。
 
-- 基线2d63e5a3，独占general-5，REUSE_ONLY且未安装依赖。访客公开排班改为7天持久缓存和后台刷新，完整手机号、访客密钥及Guest token不落盘；切后台/卸载不再全量清除，明确失效仅清对应群组。
-- 正式版/体验版二维码分环境生成与缓存，客户端合成为二维码加群名的PNG供长按保存；服务端开关可关闭体验版生成。导出CSV增加UTF-8 BOM，创建后立即处理，分钟任务保留兜底；Mini自动下载后仅显示发送文件/取消，失败时显示重新获取文件，并删除导出页冗余说明区。
-- 附件证据：9月CSV 2562字节/30行，无BOM；9月8—9日源快照为全天班/全，其余28行为全天班/全天。换班只变实际成员，导出未截断字段。详见docs/audit/feedback21-visitor-export.md。
-- 最终`pnpm verify`通过：Mini 1160通过/16跳过、根1255通过/439跳过，格式、lint、构建、typecheck和icon parity通过；另有Mini定向53项、契约/API定向23项。Mini production verify主包1713723、总包4554857字节。首次Web构建完成后遇Windows libuv退出断言，单独及最终全量Web build均通过。运行/浏览器验证：`pnpm smoke:browser`登录页通过后因warm槽无`.env`、本地API未启动而停在管理员登录；未复制凭据，结果已记录。
-- 应用检查点9e603fdb及文档检查点be6ff2ac已推送；0.1.0-p10.20260913.123上传成功，production/clean，Manifest 03986dd5…f5495c，receipt/tag同一应用SHA。
-- 用户随后授权生产部署与放行。两个DoH、直连TLS、既有公网IP ED25519严格SSH认证后，正式域名host key安全协调且有ignored备份。备份b0bbc0cc-bcf2-4c29-96c5-4eff80274bd1成功（54表、107823088字节、SHA-256 90b69342…db7f1）。
-- be6ff2ac已部署，实时回滚候选83d8a03b；预热3次502后恢复，更新器及完整ecs-verify通过。可信ensure仅追加123并保留旧版；allowlist verifier、再次ecs-verify和公网123/122=200、动态未知=426通过。
-- 唯一下一任务：小米14打开体验版123，复核访客缓存/返回登录、正式与体验二维码带群名长按保存，以及医生群CSV速度、自动发送和Microsoft Excel中文显示。未提审或正式发布。
+## 当前批次：Skyline 3.17.2 年月/日期选择器改由面板根层托管弹窗，待体验版交付
 
-## 当前批次：Feedback20 已上传并放行122，待小米14复核
+- 用户复核`.142@8988afe`：3.17.2月份弹窗就地展开、滚轮被外层滚动抢占，请假日期选择器被两列挤压，且点弹窗外不关闭（3.17.3会）。
+- 改法：弹窗不再留在sheet滚动容器内，改由面板在**根层**渲染（与`ui-sheet`同级、3.17.2真机验证可用的fixed覆盖层）。`ui-date-picker`新增`dialog-only`/`host-key`，被托管触发器把配置上抛、面板调用宿主打开，确认后由宿主找回原触发器`applyChange()`，面板既有`bindchange`未改；换班/请假/加扣班共8个触发器接入，遮罩恢复（点外部关闭）。
+- 验证：定向23项、Mini完整1211项通过/16跳过；typecheck、build366、source/package/determinism、format/lint通过；主包1743699B/总4616396B。3.17.3路径未改。详情见`docs/audit/runtime-ui-compatibility-picker-host-dialog-20260916.md`。
+- 唯一下一任务：取得当次上传授权后交付体验版并add-only放行，由小米14双实例复核。本轮未上传、未放行、未部署。
 
-- 原始访客/二维码检查点325f82ea与累计合并检查点66b18b26均已推送；后者包含体验版121的导出真实上传转换修复、二维码点击预览/轮换自动刷新，以及本轮删除相册按钮/API、访客月窗和返回登录。详情docs/audit/feedback20-visitor-export.md及feedback20-trial-release.md。
-- 完整verify通过：Mini1159/16跳过、根1254/439跳过、依赖保护81；Mini verify/Worklet2/2/确定性/包体/smoke:check-core通过，主包1709746/总4549449字节。
-- 0.1.0-p10.20260913.122/66b18b26 production/clean上传成功，Manifest fd736127…bece5，build-profile/receipt/远端tag一致。可信ensure仅追加122并保留121；allowlist verify、完整ecs-verify、DoH/TLS/strict SSH和公网122/121=200、动态未知=426通过。服务器应用release仍83d8a03b，未部署代码、备份/迁移数据库或退役旧版。
-- 微信公众平台浏览器执行面不可用，无法代配置downloadFile合法域名。唯一下一任务：管理员在公众平台加入`https://hosp.schedule.eylinhome.top`为downloadFile合法域名，然后用户在小米14重开122/66b18b2复核CSV下载、访客三控件/切换、二维码点击预览与长按。未提审或正式发布。
+## 上一批次：Skyline 3.17.2 选择器就地展开后备已实现，待体验版交付
 
-## 当前批次：Feedback19 导出页真实上传转换故障已修复，待体验版交付
+- 用户复核`.138@09c100d`：3.17.2下拉已渲染出选项但被后续字段遮挡；月份/日期面板点按后仍不出现；3.17.3正常。`.138`的显式高度修复被证明有效，剩余两项是层级与提升问题。
+- 遮挡沿用`.136`已记录“3.17.2同层z-index不能提升浮层”（引入点`6d0575d0`）；面板不出现是因为`.138`的“从ui-sheet插槽内容root-portal到根层”在3.17.2不生效（冻结产物确有root-portal、令牌导入与`--ui-z-index-dialog:1000`，而该机制在页面级/组件级真机均可用）。本轮不再押注portal或叠加z-index。
+- 修复只在3.17.2生效且改为就地展开：下拉`is-inline`（static、去遮罩、覆盖`is-measuring`隐藏、保留显式高度）；月份/日期层与面板`is-inline`（就地卡片、去遮罩与把手）；撤销`.138`的root-portal与根层令牌导入，3.17.3与未知版本恢复与`.136`逐字相同的覆盖层路径。
+- RED 2失败；GREEN兼容14项、Mini完整174文件1203项通过/16跳过、typecheck、build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1739791B/总4607445B，较`.138`增644B，无新增依赖。
+- 唯一下一任务：取得当次上传授权后交付新体验版并add-only放行、保留`.138`，再由小米14双实例复核。本轮未上传、未放行、未部署。详情见`docs/audit/runtime-ui-compatibility-picker-inline-fallback-20260915.md`。
 
-- 基线3d83d236（体验版120源码c2dbe4c3）；独占general-5，REUSE_ONLY，未安装依赖。
-- 根因：106已包含的9bae5beb在共享CSV轮询循环中增加捕获remaining的Promise闭包，
-  微信SDK ES6转换生成regeneratorValues，但SDK既未识别也未附带此模块，导致页面载入即失败。
-- 本轮运行真实miniprogram-ci转换及仅含其自带helper的VM，旧产物缺模块失败，新产物注册和初始化通过。
-  详细引入点、语义审计与旧测试盲区见docs/audit/feedback19-export-runtime.md。
-- 修复等待函数作用域，保留轮询/超时/取消语义；导出恢复单一Page及静态模板，
-  保留data群组上下文。删除临时组件wrapper、重复加载壳/样式、挂载计时器和未调用测量代码。
-- 替换临时结构测试为上传转换后Page运行测试；Mini verify增加SDK helper可打包性门禁。
-- 验证：Mini全量168文件1191项通过、2文件16项跳过；共享presentation-core32项通过。
-  Mini verify/Worklet2/2/包体4,551,833字节/确定性、typecheck、lint、format、icon parity、
-  smoke:check-core通过。既有主包和矩阵内部预警保留；未控制微信开发者工具。
-- 检查点：fix(miniprogram): repair export upload transform and remove startup scaffolding。
-- 下一任务：交付此修复的干净体验版，再由小米14验证真实导出入口及CSV下载/发送。
-  尚无修复后同SHA真机证据，不将Node执行等同于原生通过。生产应用与数据库不在本轮修复范围。
+## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
+## 上一批次：Skyline 月视图已过日期灰底恢复，体验版140已上传并放行
 
-## 上一批次：Feedback15 已部署并放行112，待小米14复核
+- 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有；要求最小改动、两处全面修复、不牵连其他外观。
+- 引入点：旧小程序`1343f4c6^`的`components/calendar-grid`用`day.isPast`+`.calendar-grid__day--past{background:#f3f4f6}`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用；`1343f4c6`删除旧小程序后，`1f715c96`新建`calendar-month`/`calendar-cell`、`ad4cfb2c`接入工作台月视图时都没有携带该状态。周视图由`50c6d1ed`补齐、Web端`MonthGrid.vue`一直保留，因此只有月视图看起来“某次更新后没了”。日历路径无`SDKVersion`分支，不是基础库差异。
+- 修复只补月视图唯一复用的一个状态与一条样式：`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`，`calendar-month`转发`is-past`，`calendar-cell`属性/类/`.is-past{background:#f3f4f6}`。灰底放在`.is-pressed`之前保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件、零额外改动；预览/补录/POC默认`false`不变。
+- 实现检查点`3a9ccca9`（分支`codex/runtime-3172-past-month-gray-20260915`，基线`.138`记录`d56ecba2`）已推送；上载体在独占warm槽`codex/runtime-3172-past-month-gray-upload-20260915`把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`之上，不改写并行分支、不创建合并提交。
+- RED 3失败/26通过；`.139`基线叠加后定向49项通过，Mini完整与构建门禁见交付记录。详情见`docs/audit/runtime-ui-compatibility-past-month-gray-20260915.md`。
+- 用户在当前消息明确授权“上传并放行”。唯一下一任务：按runbook完成`.140`候选冻结、上传与add-only放行，再由小米14双实例复核首页与访客月视图已过日期灰底，并确认今天/未来、假期粉底、选中框与按压反馈不变。
 
-- 用户批准八项计划；基线a8695f2a，独占general-4依赖复用、无安装。详情docs/audit/feedback15.md。
-- 当前周独立测量/点选局部更新、before折叠、岗位改名接口与弹窗、月历顺延/62px、三视图补班、单按钮两步授权及日期文字盒居中已实现。
-- pnpm verify通过：Mini1184/16跳过、根1252/439跳过、依赖保护81；MySQL模式集成套件46项通过。收口额外通知保存失败回归RED1→联合35通过，最终Mini verify/Worklet2/2/包体通过（主包1708859/总4550421字节）。
-- 390/320真实WXML/生产CSS几何及运行/浏览器验证：pnpm smoke:browser通过；smoke:check-core通过。本地synthetic管理员标记已回读恢复、3105/4175服务已停止；小米14原生待同版本复核。
-- 83d8a03b已推送；112/83d8a03已上传成功，357文件冻结包/receipt/远端tag一致，主包1709858/总4552499。上传专项30项及候选前后检查通过，见docs/audit/feedback15-trial-release.md。
-- 用户随后授权生产操作：备份d89f173b-8b76-463c-b560-3e0726ff3d5d成功（54表、106182176字节）；服务端83d8a03b部署完成，schema57，独立ecs-verify通过。生产健康探测首段短暂502后恢复，未改变业务数据。
-- 可信ensure仅追加112并保留111；allowlist verifier、再次ecs-verify及公网策略探针通过：112/111=200，动态未知=426。未执行replace、版本退役或真实通知。
-- 唯一下一任务：小米14重开体验版112/83d8a03b，复核八项交互和视觉。自动化与生产验证完成，原生待用户复核；不重复上传、放行或部署。文档检查点docs(release): record feedback15 trial 112 delivery。
+## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
 
-## 上一批次：Feedback14 已交付111，导出白屏待同版本报告
+- 用户复核`.137@09e6398`：3.17.2访客页面周视图滑动乱跳、切到非本周后点单元格无反应；同实例月视图、成员周视图与3.17.3正常。
+- 根因：访客页仍使用成员页在`.135`废弃的强制归中（`weekSwiperCurrent=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；3.17.2对该0ms回跳会反向动画或补发`animationfinish`，并使原生swiper停在2号页、数据停在1号，可见单元格属于另一周，点击后选中态落在不可见面板。
+- 修复：访客页直接导入成员页同一个`calendar-period-pager`环形状态机，渲染用`mapCalendarPeriodRing`，模板加`circular`/`bindchange`并读取`weekPanels[weekSwiperCurrent]`；260ms、easeOutCubic、±6有界队列与提交锁不变，月/列表视图与成员页面零差异。
+- 血缘：并行会话的`.138@09c100d5`（3.17.2选择器浮层与页头箭头）是当前最新累积体验版；本分支以它为基线线性叠加访客周视图修复，不改写对方分支、不产生合并冲突。若上传前基线再次前进，必须重新叠加。
+- RED 2项失败；GREEN定向42项、Mini完整174文件1206项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1741484B/总4609138B，较`.138`增2337B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- `.139@a9c3204`已以production/clean上传，Manifest`a2491815…d91e4d7b`与tag/allocation/receipt一致；可信ensure只追加`.139`并保留`.135/.136/.137/.138`，allowlist与完整ECS verifier通过，公网`.139/.138/.137/.136`均200、动态未知版本426。live release仍`44034fcc…d276df9`，未部署应用或修改数据库。
+- 唯一下一任务：小米14双实例重开`.139@a9c3204`，复核3.17.2访客周视图滑动不乱跳、切周后点单元格立即选中，并确认`.138`箭头/选择器与月/列表/成员页面无回归。详情见`docs/audit/runtime-ui-compatibility-guest-week-pager-trial-release-20260915.md`。
 
-- 本轮限定两项反馈；实现与引入点见docs/audit/feedback14.md。基线e163fde8，独占general-4/5依赖复用、无安装。
-- 更多页位移来自7923262d的onHide删除底部诊断区域、返回再插入。现在普通遮盖保留已授权区域，权限撤销仍即时生效，后台不能新授权或跳转；没有WXML/WXSS或无关UI修改。
-- 新位移回归先失败后通过；workbench31、联合真实导出及诊断69项通过。390×844/320生产样式浏览器复现旧内容缩短107px、修复布局保持不变，原生效果待同版本验收。
-- 导出已对照102/106及9bae5beb、执行110真实冻结JS与真实Page测试，未证实原生白屏根因。新增可复制的固定首屏阶段与root/header/scroll分类诊断；不改CSV操作语义，不宣称白屏已修复。
-- 检查点fix(miniprogram): stabilize More navigation and expose export render stages；完整pnpm verify通过：Mini1179/15跳过、根1251/436跳过、依赖保护81；最终Mini verify、Worklet2/2及包体通过。用户随后批准上传并追加放行，已交付111/6b8a9e9，保留110；完整生产verifier/allowlist及公网111/110=200、未知426通过。服务器仍e163fde8，无新应用部署。
-- 唯一下一任务：小米14重开111/6b8a9e9，复核更多位移，进入导出停留5秒返回，再到测试工具刷新并复制完整诊断报告。交付见docs/audit/feedback14-trial-release.md；不重复上传、放行或部署，白屏仍待定位。二维码及自动收信待用户原生复核状态保留。
+## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头已实现，待体验版交付
 
-## 上一批次：Feedback13 已部署并上传110，待用户真机复核
+- 用户用小米14复核`.136@efda88f`：成员页面四项修复通过、3.17.3正常，但3.17.2页头群组箭头比3.17.3偏右约40px；换班sheet的月份/日期选择器点按无任何反应；班次/人员下拉只剩约12px高的白色空框。
+- 箭头来自本项目`.136`自身：`ed06031f`把3.17.2群组容器固定为220px，而箭头一直相对该盒子绝对定位，于是贴到盒子右缘（`git log -S`/`git blame`核对）。选择器来自旧Skyline滚动容器差异：`6d0575d0`的内嵌`scroll-view`弹层不按内容推导高度（塌成内边距），`bc32a4f1`/`528722f4`的`position: fixed`对话框层在滚动容器内不再按视口定位，同页不在滚动容器内的`ui-sheet`仍正常。
+- 修复只在3.17.2生效：箭头改为Flex流内跟随群名（220px上限与196px省略阈值逐字保留）；弹层按选项数写入显式高度（30n+10、空态56、上限300）；对话框层用`root-portal`提升到根层并`@import`根层令牌作用域，`enable`仅在3.17.2为true。3.17.3与未知版本继续内容自适应高度与同位置渲染。
+- RED 3失败；GREEN定向14项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1739147B/总4606801B，较访客修复基线增2083B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 分支`codex/runtime-3172-picker-overlay-20260915`基于访客修复`09e63980`；两份3.17.2修复在后续合并时必须保持同一血缘。本轮未上传、未放行、未部署生产应用。详情见`docs/audit/runtime-ui-compatibility-picker-overlay-fix-20260915.md`。
+- 用户当次明确授权“上传并放行”：源码`09c100d5`已推送，体验版`0.1.0-p10.20260915.138`（说明“Skyline 3.17.2 picker overlays 09c100d”）production/clean上传成功，Manifest `1eb3d61b…a17e40a`；候选前置与上传后版本绑定检查通过（ready-clean-detached、production-clean、VERSION_LOCAL=absent），冻结包/回执/分配记录与远端不可变tag一致。
+- 可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260915.138`只追加并保留`.137`；独立allowlist verifier、`ecs-verify.sh`与公网策略（`.138=200`、`.137=200`、未知`=426`）通过；release仍`44034fcc`，无应用部署、数据库备份或迁移。
+- 唯一下一任务：小米14双实例核对`.138/09c100d`，3.17.2复核页头箭头、下拉选项可见与月份/日期面板可弹出，3.17.3确认页头与四类选择器不变。详情见`docs/audit/runtime-ui-compatibility-picker-trial-release-20260915.md`。
 
-- 应用8f441d2d已推送部署，累计体验版0.1.0-p10.20260912.110上传成功并仅追加放行，109继续可用。四项日历修复和五类通知独立授权入口均包含；交付证据见docs/audit/feedback13-release.md。
-- 加密备份0e13bb85-dabe-40b4-ae94-a7beb6fafefc（54表、106020632字节）实际hash核验一致；schema57，无新增迁移。完整生产verifier/allowlist通过，公网110/109=200、未知426。
-- 五模板配置、四业务模板实际字段和外部消息能力复核通过。未主动发送真实消息、不重放历史通知。上传30项、356文件Manifest/receipt/远端tag一致，主包1704137/总包4535157字节。
-- 实现验证沿用完整pnpm verify：Mini1170/15跳过、根1251/436跳过、依赖保护81；额外跨月高度2项、MySQL calendar36及390/320生产CSS/ViewModel几何和本地浏览器通过。均非小米14验收。
-- general-4/5独占复用，无依赖安装。文档检查点docs(release): record feedback13 delivery，在本次部署授权内以可信哈希复用流程同步文档release身份，应用及体验包仍绑定8f441d2d。
-- 唯一下一任务/停止条件：小米14重开110/8f441d2，复核四项日历交互及五个通知授权按钮、自然自动收信；二维码相册保存、导出白屏和发送文件仍待当前版本真机证据，不提前标记完成。不重复上传、放行、模板配置或护士导入。
+## 上一批次：Skyline 3.17.2 访客页面按压反馈对齐已实现，待体验版交付
 
-## 上一批次：护士照片139条已录入，待用户查看
+- 用户复核`.136@efda88f`：四项修复在成员页面通过，但3.17.2访客页面仍出现周格灰色闪烁和月格蓝色反馈滞留。
+- 根因是访客页面已继承成员页面的`.is-skyline-3172-ui`根类与Grid/Flex后备样式，却漏接两项条件参数：`pages/guest/guest.wxml`的月历未传`runtime-pressed-feedback-compatibility`，周格仍无条件使用`hover-class="is-pressed"`。
+- 访客页面现复用成员页面完全相同的机制与同一表达式；源码改动仅`pages/guest/guest.wxml`两行，成员页面零差异，3.17.3与无法读取版本的数值和外观不变，未新增依赖或第二套机制。
+- RED新增1项并在该双分支缺口上准确失败；GREEN定向31项、Mini完整174文件1200项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck、production build366文件、source/determinism、format/lint/smoke:check-core通过。主包1737064B/总4604718B，较`.136`仅增132B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 同时修复既有`docs/project-status.md`超出40KB/250行策略上限：只保留最近批次，旧批次细节继续留在Git历史与`docs/audit/`。详情见`docs/audit/runtime-ui-compatibility-header-press-fix-20260915.md`。
+- 唯一下一任务：获当前消息授权后上传新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2访客页面与成员页面按压反馈一致。
 
-- 用户明确批准多人补录及静默导入修复、代码修改和生产部署，最终继续139条已确认数据导入。只匹配已有成员/班次，D5电脑，指定跳过项不写；资料留ignored runtime。
-- 基线fe505ee9，独占general-4依赖复用，无安装。新增可选成员匹配补录和静默手排，旧行为/旧请求幂等指纹保持，无数据库迁移或小程序上传。详情docs/audit/nurse-schedule-import.md。
-- 旧版两项MySQL回归失败；修复后32个不同MySQL用例、契约/路由10项通过。pnpm verify通过：Mini1122/15跳过、根1241/424跳过、依赖保护81；浏览器完整冒烟及smoke:check-core通过。代码及运行验证已完成。
-- 生产备份542b8bcb-9796-4cb2-92b0-25d740229594（54表、105228472字节）已核验文件hash；数据尚未录入。
-- c4a9b67f及补充修复a90e3b0a均已推送部署，最终live=a90e3b0a2b1db4eb252eb73e3940964bbf83813d、schema57；完整生产verifier通过。计划人员回退查找回归RED为3条而非2条，修复后MySQL12项复测通过，API build/lint/格式与smoke:check-core通过。
-- 最终部署前备份f2cca68a-7547-4b16-8d0a-841019f55cce（54表、105250592字节）文件hash与登记一致；即时回滚候选c4a9b67f。两次打包均85包复用、downloaded0，无依赖安装。
-- 2026-09-12北京时间08:08事务提交139条：历史54、当前/未来85；独立回读139一致、重复0；原有287条有效排班不变，其中9月1—6日59条保留。成员、岗位、班次配置不变，通知/投递新增0，无小程序上传或新增迁移。
-- 原照片1处NP到次日11:00、A次日08:00的3小时重叠按确认原样保留，不自行改班。报告与个人明细仅存ignored runtime/audit/nurse-import-20260911。
-- 文档收口：docs(ops): record verified nurse schedule import；仅记录已交付应用与数据，不重复部署或导入。唯一下一任务：用户刷新护士群日历查看9月7—20日；自动交付已完成，真机显示待用户复核。
+## 上一批次：Skyline 页头与按压反馈体验版136已上传并放行，待双实例验收
 
-## 上一批次：feedback11 体验版108已上传放行，导出空白待定位
+- `.135@c7025b93`真机确认周切换已正常；3.17.2仍有群名省略、下拉菜单被日历文字覆盖、周格灰闪和月格蓝色反馈滞留，3.17.3正常。
+- 根因是`.134`兼容宽度仍被父Flex百分比上限压回、旧Skyline滚动合成层高于页内菜单，以及3.17.2对既有hover透明度/70ms保留时间表现不同。菜单已收敛为所有版本共用的一份root-portal、一份选项模板和一个事件；仅3.17.2保留确定宽度、周格无灰色按压类和月格松手0ms参数。3.17.3的菜单几何/视觉、周格反馈和月格70ms不变。详情见`docs/audit/runtime-ui-compatibility-header-press-fix-20260915.md`。
+- 累计RED 4失败，单菜单收敛RED 1失败；GREEN定向30项、Mini完整174文件1199项通过/16跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过。主包1736932B/总4604586B，较`.135`总包仅增319B（约0.007%），无新增依赖；Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- `.136@efda88f`已以production/clean上传；tag、allocation、Manifest `27702a1c…f908a32b`和receipt一致。首次`890c50a9`候选因过期canonical blob在占号/上传前停止，policy刷新后lineage/上传门禁通过。
+- 可信allowlist ensure只追加`.136`并保留`.135/.134`等旧版；allowlist verifier、完整ECS verifier通过，公网`.136/.135`为200、动态未知版本为426。live release仍为`44034fcc…d276df9`，未部署应用、备份或迁移数据库。
+- 自动证据不能代替真机。唯一下一任务：同一小米14双实例均核对`.136@efda88f`；3.17.2复核群名、菜单遮挡、周格灰闪、月格反馈，3.17.3复核页头/菜单/通知胶囊、单元格反馈和260ms动画均不变。详情见`docs/audit/runtime-ui-compatibility-header-press-trial-release-20260915.md`。
 
-- 用户批准三项故障修复计划；基线72ea0ab0，独占general-4复用依赖，无安装。二维码PNG/JPEG格式与通知空JSON正文缺陷已复现修复；导出真实Page/模板检查通过但原生空白未复现，未猜测修改。
-- RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过；最终Mini verify、Worklet2/2、包体/确定性和smoke:check-core通过。主包1679971/总包4502798，保留已有内部警告。详情见docs/audit/feedback11.md。
-- 用户明确授权上传并放行；c563afff已交付`0.1.0-p10.20260912.108`，production/clean，354文件Manifest/receipt/远端不可变tag一致。上传专项30项及候选前后检查通过，主包1681039/总包4505008。详情见docs/audit/feedback11-trial-release.md。
-- 可信ensure只追加108并保留旧版；完整生产verifier与版本策略验证通过，公网108/107=200、未知版本426。即时服务器仍b618d938，本轮没有新应用部署、备份、迁移或真实通知；网络及107残留操作锁已验证处理，版本预约记录全部保留。
-- 文档检查点：`docs(release): record feedback11 trial 108 delivery`。唯一下一任务：小米14重开108/c563aff复核二维码和通知，并取得导出空白安全诊断继续定位。不得写三项全部完成，不重复上传/放行或部署。
+## 当前批次：Skyline 周视图兼容体验版135已上传并放行，待双实例验收
 
-## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
-
-- 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
-- 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。
-- 最终部署前备份e011c56b-699e-422d-9b30-24b2282279f4，实际104354272字节、54表，SHA-256 6fcb93a4d09413a789abbd198eaaea4c0240ed82047968d03dae7b95abbadeb2与登记一致。应用与控制产物hash验证通过；回滚候选来自本次即时live 0565f023。
-- .103/.104分别保留失败记录；直连IPv4出口120.230.6.0加入微信CI白名单后，.106=0.1.0-p10.20260911.106以63877b5e、production/clean、354文件Manifest c4bf033e252a94927000c6489fabb9f33f679c608c2abb6104606c5f3cc44ceb上传成功，receipt与不可变远端tag一致。
-- 独立HTTPS核验：.102仍200，.103/.104均426；不修改微信平台配置、不关闭IP白名单、不改系统网络。浏览器库存读取失败，无法核对公众平台配置。已归档冻结包/错误/备份/发布证据到ignored runtime/audit/feedback10-delivery-final-20260911及feedback10-delivery-initial-20260911；确认上传进程退出后清理本任务孤立操作锁，不改预约记录。
-- 应用验证复用feedback10.md和visitor-calendar-parity.md：合并MySQL45、Mini联合146、共享/API33及访客浏览器通过，Mini/Worklet和专项上传30项通过；不把自动化算作原生验收。CSV真实发送、相册扫码、瞬时通知、新消息点入及访客显示均待小米14。
-- 独占general-4全程复用依赖；官方ECS flat导出复用85包、downloaded0，最终重打包命中flat缓存。无workspace依赖安装、无本地数据库上传、无真实通知、无正式发布、无新增放行或旧版退役。
-- 独立HTTPS核验：.106/.102=200，.105/.104/.100/未知版本=426；可信ensure仅追加.106，保留旧版。上传和放行已完成，后续只待小米14原生复核，不重复部署或上传。
-- 106 已占用后，107 以 clean production 累积候选 `4b4af0a233f1a3ab06e4178333181747a6250e25` 上传成功；Manifest `ed36fd07a1266a33875f101b85d486c180a0bba60351b6cf0e1168c12794bfc4`、receipt、远端不可变 tag 和 add-only allowlist ensure/verify 均一致。生产 live 仍 `b618d938`/schema57，本轮无需重复部署或备份。首次网络 ECONNRESET 后通过已验证 IPv4/TLS 路线对同一三元组重试成功。
-- 体验版107说明“访客日历电话事件 4b4af0a”，主包1679405、总包4501599；保留既有内部主包预警。自动化和生产验证完成，CSV真实发送、相册扫码、通知点入和访客原生显示待小米14。
-
-## 上一批次：feedback9 体验版102已上传并放行，待小米14复核
-
-- 用户已批准方案：矩阵随人数完全展开、纵向页面滚动；默认日期占位后直接显示首个未排班日期；CSV 保留并增加用户主动发送文件。
-- 使用独占 general-4，导出并行任务独占 general-5；用户另行授权两槽离线锁文件校准，已完成并回到 ReuseOnly，无依赖升级。
-- 群组分区、班种选择、矩阵实测边界/高度、月历正方形标识/节假日/圆角/阴影、日期加载与竞态修复已实现；CSV 下载后发送、错误分类和临时文件清理已整合。已保留并行访客101交付（656a463d）。
-- 基线与回归、行为变化、槽位恢复结果见 docs/audit/feedback9.md；不重复旧批次账户删除、通知测试或生产操作。
-- pnpm verify通过：Mini1057/15跳过、root1226/418跳过、依赖保护81；最终Mini verify、Worklet2/2及320/390桌面布局通过。真实下载原因、文件发送和原生手势待用户复核。
-- 应用检查点e40c4f9201bd7e79af151508e00e6667b6897a63已推送main；用户明确授权上传并放行，已交付0.1.0-p10.20260910.102。production/clean，353文件冻结Manifest、成功receipt与远端不可变tag一致；详情见docs/audit/feedback9-trial-release.md。
-- 上传专项30项与候选前后检查通过；版本绑定主包1646789/总包4441027字节，保留既有内部主包预警。可信ensure仅追加.102，完整生产verifier及allowlist验证通过；独立HTTPS .102/.101/.99/.98=200、.100/未知版本=426。服务器应用仍4e0a0d1a/schema57，没有新应用部署、数据库备份/迁移或真实通知。
-- 文档收口检查点：docs(release): record feedback9 trial 102 delivery。唯一下一任务/停止条件：用户在小米14重开.102/e40c4f9，复核群组偏好、手排矩阵/日期/月历、补录和CSV下载后发送/取消；失败时保留新版分类提示。自动化交付完成，真实下载原因与原生效果待用户复核；不重复上传、放行、部署或同步服务器release标识。
-- general-4/5已恢复；general-2/3历史改动保留，general-6精确路径恢复/删除被自动审批以blocked by policy拒绝而未执行，归档及原文件保留。
-
-- 更早批次（访客修复101及以前）的交付记录见 Git 历史与 `docs/audit/` 对应文档；本文件只保留当前与近期批次。
+- `.134@5c02393`同角色双实例证据确认：3.17.2 周选中框缺失、周切换跳周/反向回弹、群名省略及Toast左圆弧变竖条；同机3.17.3正常，且3.17.2月视图正常。根因不是账号、权限或排班数据。
+- 所有版本的周视图统一复用月视图现有`calendar-period-pager`三槽环形状态机，保留周视图原260ms动画、提交锁和有界队列；蓝框、页头明确宽度和Toast实体圆角色条仍只匹配3.17.2。3.17.3+仅同步内部分页机制，视觉和动画时长不变；API、数据、权限、月/列表视图及依赖不变。详情见`docs/audit/runtime-ui-compatibility-week-fix-20260915.md`。
+- RED 3失败；GREEN兼容/分页/工作台联合47项、Mini完整174文件1197项通过/16跳过。typecheck、production build366文件、source/package/determinism、format、lint、smoke:check-core通过。主包1736356B/总4604267B，较`.134`仅增3770B（约0.08%），无新增依赖。
+- Mini verify仍仅被既有未改手排节点预算`1507>1506`阻断，本轮不修改手排或放宽测试。
+- `0.1.0-p10.20260915.135`已用production/clean上传并绑定`c7025b93`，Manifest
+  `1aec459f…45b3bf8`且tag/allocation/Manifest/receipt一致。L4可信ensure仅追加`.135`并保留
+  `.134`等旧版；allowlist verifier、完整ECS verifier和公网`.135/.134=200`、动态未知`=426`
+  通过。未提审、正式发布、部署新应用制品、备份或迁移数据库。详情见
+  `docs/audit/runtime-ui-compatibility-week-trial-release-20260915.md`。
+- 实现检查点为`47c294ba`与`c7025b93`；发布记录检查点以
+  `docs(release): record Skyline week trial 135 delivery`识别。唯一下一任务：小米14的
+  3.17.2/3.17.3实例分别复核恢复与零视觉回归。

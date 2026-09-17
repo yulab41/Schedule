@@ -17,6 +17,12 @@ describe('Mini test-tools visual golden', () => {
     expect(stories).toContain("viewport: 'mobile320'");
     expect(stories).toContain('export const LargeText390');
     expect(preview).toContain('内存有界 · 已脱敏');
+    expect(preview).toContain('无需下滑 · 一次复制');
+    expect(preview).toContain('运行时兼容性');
+    expect(preview).toContain('Grid 双列');
+    expect(preview).toContain('CSS 变量继承');
+    expect(preview).toContain('纵向滚动容器');
+    expect(preview).toContain('复制首屏诊断');
     expect(preview).toContain('最终以小米 14 体验版为准');
     expect(preview).toContain('@media (max-width: 340px)');
     expect(preview).toContain('overflow-x: hidden');

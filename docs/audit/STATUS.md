@@ -1,11 +1,193 @@
 # 微信小程序审计状态
 
+## 当前批次：月历/日期分页改原生滚动，体验版155已上传并放行，待小米14复核
+
+- 用户报障（仅 3.17.2）：请假年月日选择器定位落到临近月且无动画、左右切换反跳；首页月历定位同样、左右切换无动画且不跟手。要求"跨多个月也只做一个月的跳转动画"。用户同时确认 3.17.2 滚轮已与 3.17.3 基本一致且低速更顺，**该优点本轮不动**。
+- 根因：两处都是"3 槽环形 `swiper` + 改 `current`"；3.17.2 无法动画化程序化跳转，此前一轮设成 `duration:0` 并手动补结算 → 没动画；手动结算依赖槽位匹配，错过即丢 → 环形与画面错位 → 临近月/反跳。
+- 实现（3.17.3 分支逐字未改）：3.17.2 的分页换成原生横向 `scroll-view`（与滚轮同一条已真机验证的通道）。面板体抽成 WXML `template` 两分支共用；`scroll-into-view`+`scroll-with-animation` 动画一个面板，`bindscroll` 驱动结算，手势与程序化切换共用同一结算代码；定位今天先无感归位再单面板滑到当月。共享助手（度量合并/最近槽/面板 id/结算延时）落在 `calendar-period-pager.ts`，无第二套实现。
+- 验证（3.17.2 模拟器）：请假页下一月 250ms `left=8391.9`→结算 `9072=2×4536`、草稿 2027-01；定位今天跨 4 月 250ms `left=488.8`→结算 `left=0`、草稿 2026-09-17；首页月历连按 3 次正好 2026-10/11/12；定位今天 2026-12→2026-09，视口高度 310 不变。
+- 门禁：typecheck、Mini 1221 项通过/16 跳过、package 总 4643899B（+11KB）、determinism`6ea2af8f…`、format、lint、smoke:check-core 全通过。
+- 交付与放行：`.155`（Manifest`683b76f3…9b63`）production/clean 上传，前后检查 PASS；可信 ensure 追加 `.155` 保留 `.154`，verify 与 `ecs-verify.sh` 通过；公网 `.155=200`、`.154=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 原则更新（用户当次）：最小改动优先；当低版本无法在原实现上适配时，为它设计匹配的实现而非硬打补丁，但要有条理、不影响 3.17.3、不占用过多包体积、尽量复用。已写入 `apps/miniprogram/AGENTS.md`。
+- 唯一下一任务：小米14 打开 `.155` 复核请假选择器与首页月历的定位/左右切换（单月动画、不反跳、落到当月、跟手），并确认 3.17.3 无变化。详情见 `runtime-ui-compatibility-period-pager-20260917.md`。
+
+## 当前批次：滚轮在 3.17.2 改原生滚动实现，体验版154已上传并放行，待小米14复核
+
+- 用户当次授权「继续至全部完成并验证通过并上传放行」，并授权以后由 LLM 直接在模拟器用测试账号登录。
+- 三条症状一次定因（同构建切基础库实测）：① 该版本内联 `margin-top` 不当位移用（只有 `transform` 移动轨道）→ 起始停在最前端；② WXS `setStyle` 写入不到渲染器 → 无逐像素位移、无行强调；③ `.ui-wheel-unit` 样式送不到节点且继承色解析不出来 → 字形透明（对照组证明"有没有显式颜色"是唯一变量，与字号无关）。
+- 实现：`ui-wheel-column` 内新增仅 3.17.2 走的分支——原生 `scroll-view` 滚轮，`bindscroll` 逐像素反馈，逻辑层按**与 WXS 相同的插值公式**产出行/数字/单位样式经数据下发，松手 `scroll-top` 吸附；静止帧亦由数据绘制。3.17.3 仍走原 WXS 分支（`wx:else`），模板/类名/WXS/样式串逐字未改。
+- 验证：3.17.2 `compat=true`、`scrollTop 220→308` 行位移正好 88px、`midIndex 5→7`、选中行 `opacity:1;scale(1)`、单位 12 行全部出墨；3.17.3 `compat=false`、`margin-top:0px`、`#ui-wheel-track` 在、scroll-view 分支不存在。
+- 门禁：typecheck、Mini 174 文件/1220 项、package（总 4637088B）、determinism、format、lint、smoke:check-core 全通过。
+- 交付与放行：`.154`（Manifest`076a83ba…304a`）production/clean 上传，前后检查 PASS；可信 ensure 追加 `.154` 保留旧版，verify 与 `ecs-verify.sh` 通过；公网 `.154=200`、`.153=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 唯一下一任务：小米14 打开 `.154` 复核滚轮跟手/吸附、单位、中间项放大、滚到 2031年/12月、重开正常，且 3.17.3 无变化。详情见 `runtime-ui-compatibility-wheel-native-scroll-20260917.md`。
+
+## 当前批次：滚轮修复已用开发者工具复现验证（授权清单第2项），待小米14复核
+
+- 用户当次授权：`fullMode` 重开项目窗口 + 测试账号登录，重跑第2项——在开发者工具里验证 `.153` 滚轮修复。只验证，未改业务代码。
+- 复核与放行确认（用户授权“提交并放行”）：`.153` 已在白名单，可信 `ensure` 返回“版本已存在并通过验证；未重建容器”（幂等、只追加），`schedule-client-version-allowlist verify` 通过，`/usr/local/lib/schedule/ecs-verify.sh` 输出 `[verify] complete`（api/web 容器 Up 52 分钟，mysql healthy），公网探针 `.153=200`、`.152=200`、未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 环境打通：窗口必须 `fullMode`；基础库由 `apps/miniprogram/project.private.config.json` 的 `libVersion` 决定。**构建未设 `WECHAT_CI_VERSION` 时版本是 `local`** → `client-capabilities?version=local` 返回 400 → 工作台永久“正在读取排班”；设成 `.153` 后 200，真实生产数据全量加载（控制台 `WeChatLib: 3.17.2`，Skyline 1.4.23，iPhone 12/13 Pro 390×844）。
+- A/B（同一构建只切基础库；向真实 `ui-wheel-column` 注入一次 index=3/offset=−132 上报）：3.17.2 `compat=true`、`margin-top:0px;transform:translateY(-132px)`、轨道渲染矩形 top `11642→11510`（正好 −132px）、单位 8/8、选中数字高≈25.2px vs 未选中≈17.9px、选中项盒子 127.2×46.64（=44×1.06）；3.17.3 `compat=false`、样式串只有 `margin-top:0px`、轨道 top 不变。→ 修复在 3.17.2 真实运行时生效，3.17.3 零副作用。
+- 工具边界（已在报告标注）：DevTools 的 `fields({computedStyle})` 对 3.17.2/3.17.3 **都返回空**（display/color/transform/marginTop 复核），故模拟器不能复现也不能否证真机“3.17.2 丢弃 WXS `setStyle`”；`trigger` 不触发 WXS 绑定、合成触摸不能驱动 Skyline 滚动、`pageScrollTo` 超时，探针的“拖方块/拖滚轮”未在模拟器执行。结论层级=DevTools 模拟器，不等于小米14原生验收。
+- 证据：定向 31 项（wheel/runtime-compat/picker/wxs 集成）通过；截图与探针剪贴板记录在 ignored `runtime/audit/devtools-153/`。详情见 `runtime-ui-compatibility-devtools-3172-verification-20260917.md`。
+- 唯一下一任务：小米14打开 `.153` 复核按行滚动/单位/中间项放大/范围到底/重开正常/3.17.3不变；之后做授权清单第3项（AI 开发模式 generate→validate，需“开发模式”+服务端口，且不得合入提审版本）。
+
+## 当前批次：Skyline 3.17.2 滚轮单位/选中放大/范围修复已实现，待体验版交付
+
+- 真机对照截图（图一=3.17.2"发起换班"/2031年12月，图二=3.17.3"管理员直接换班"/2025年9月）：3.17.2 缺"年/月"单位、中间选中项不变大、向下只能到 2027 与 5月且抬手再拖不能继续向下（可向上回滚），草稿值（2031年12月）与可见位置（2024..2028）不一致；3.17.3 全部正常。**读图边界**：初稿把 3.17.2 截图读成"行样式通道可用"，与用户文字"没有选中字体放大效果"冲突，属未证实假设，不作为依据；本轮修复不依赖该判断。
+- 修复：① 单位随条目数据走（item 带 `unit`，模板`wx:if="{{item.unit || unit}}"`）；② 条目总数改由组件自身 data 承载（`data-item-count="{{wheelConfig.itemCount}}"`，与已验证可用的`data-base-index`同路径）；③ 同一次打开内条目数只增不减（`refreshItemCount` 忽略瞬时更小值），避免一次瞬时渲染剪短可滚动范围；④ 仅在 3.17.2 给滚轮根节点加`is-skyline-3172-ui`，用 CSS 兜底选中行放大/不透明（WXS 行内样式优先，写不进时 CSS 生效；3.17.3 外观不变）。
+- 证据：新增`does not let a transient count shrink the wheel range`与既有全范围用例通过；Mini完整174文件1219项通过/16跳过；typecheck、build366、package(主包1746516B/总4620921B)、determinism(3bacb648)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 诊断增强（按用户建议）：测试工具新增二级卡片"滚轮通道探针"（页面级WXS拖动方块 + 真实`ui-wheel-column`），一次采集即可拿到：页面级WXS是否取到节点/移动偏移、滚轮WXS的preview/settle次数与最后index/offset/sequence/generation/runtimeKey、以及`query.in(selectComponent(...))`组件作用域实测的`computedStyle.transform/marginTop/fontSize`与dataset期望值——用于判明样式通道/手势回报通道/渲染器是否真的应用WXS样式。定向23项、Mini完整1220项通过/16跳过；build367文件、package(主包1746707B/总4632789B)、determinism(677e0ed7)、format/lint/smoke通过。
+- **探针结论（`.152`真机）**：3.17.2 **丢弃 WXS `setStyle` 写入**（页级探针无`transform`字段 vs 3.17.3 `matrix(...,-88)`），`fields({computedStyle})`不可用；`callMethod`上报与模板数据通道正常。→ 像素只能由模板/数据驱动，是"数字不动/无放大/无渐变"的唯一原因。
+- 修复：轨道位移改由组件 data 承载（`wheelTrackOffset`/`wheelTrackStyle`，随每次 WXS 上报与换代更新；仅 3.17.2 含`transform`）；单位改`wx:if="{{item.unit}}"`+`wx:else`；3.17.2 滚动为**按行推进**。定向65项、Mini完整1220项通过/16跳过；build367、package(1747172B/4633254B)、determinism(51bc6941)、format/lint/smoke通过。
+- 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后上传体验版并 add-only 放行，复核3.17.2滚轮按行滚动/单位出现/中间项放大，3.17.3不变。详情见`runtime-ui-compatibility-wheel-data-motion-20260917.md`。
+- 规则与工具链（用户当次要求）：`apps/miniprogram/AGENTS.md` 与仓库 guardrails skill 改为**默认同意 LLM 驱动开发者工具**（保留"无当次授权只读；上传/提审/发布/生产凭证需当次批准；DevTools 证据≠小米14原生验收"边界），skill 校验 RESULT=PASS；安装 `wechatide-skill` v0.3.11（旧版已备份）、注册 `[mcp_servers.wechat-devtools]`（token 在仓库外）、状态检查 `versionRelation=equal`；按官方文档装入 SkillHub 的 `wxa-skills-generate` 与 `wxa-skills-validate`（用于小程序 AI 开发模式的原子接口生成/校验，官方要求该模式代码不得合入正式提审版本）。
+- 交付（授权"1，2，3"第1项）：`a18f8692` 上传为体验版 `0.1.0-p10.20260917.153`（Manifest`72b7dcb4…da79fd`）production/clean，前后检查 PASS；可信 ensure 只追加 `.153`，verify 与 `ecs-verify.sh` 通过，公网 `.153=200`、`.152=200`、未知`=426`。第2项（模拟器白屏→DevTools 验证，需 Nightly 版）与第3项（AI 开发模式 generate→validate，需公众平台"开发模式"+服务端口）待执行。
+- 交付与放行：`61e81e07` 以 production/clean 上传为 `0.1.0-p10.20260917.152`（说明“Skyline 3.17.2 wheel channel probe 61e81e0”，Manifest`e02b6f6c…904545`）；远端不可变tag指向同一SHA；可信ensure只追加`.152`（白名单48项，保留`.151`），独立verify与`ecs-verify.sh`通过，公网`.152=200`、`.151=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
+- 唯一下一任务：小米14打开`.152`跑`测试工具 → 滚轮通道探针`三步并回传复制内容（据此一次性判定通道），再复核单位显示、选中放大、能否滚到年2031/月12月、重开正常、3.17.3不变。详情见`runtime-ui-compatibility-wheel-channel-probe-trial-release-20260917.md`。
+
+## 当前批次：Skyline 3.17.2 滚轮初始定位与重开失效，体验版151已上传并放行，待小米14复核
+
+- 用户真机复核`.150`：首次打开滚轮**可以滚动**（模板覆盖位移的修复生效），但**初始停在 2021年/1月**而非当前年月；**关掉再打开又无法滚动**。
+- 根因（同一原因）：3.17.2 不把 WXS 的`change:wheel-config`观察器交给滚轮。① 初始位移只由`configure`写入 → 从未应用 → 停在轨道原点；② 上一轮的"缺 state 时按 dataset 自建基线"只在第一次生效，重开时 state 已存在但 generation 已推进 → `eventState`因代际不一致返回`null` → 手势全被忽略。
+- 修复：初始定位改由模板承担（轨道`margin-top:{{wheelLayoutOffset}}`= `-index*44`，WXS 只画增量`translateY(offset - baseOffset)`，两者不同属性不再互相覆盖）；手势按代际自我刷新（dataset 的 generation 更新时按`data-base-index`/`data-item-count`重新播种并重置行样式，更旧仍忽略）。
+- 证据：RED（回退 WXS 后"重开"用例失败`expected 'translateY(-44px)' to be 'translateY(0px)'`）；GREEN 定向55项、Mini完整174文件1217项通过/16跳过；typecheck、build366、package(主包1745352B/总4619757B)、determinism(95f7825e)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 3.17.2 已知局限（观察器不交付）：打开后未触摸前没有大小/淡出渐变（触摸一次即恢复）；点击某一项选中（tap-to-select）仍不生效，拖动选择正常。
+- 交付与放行：`d33da54b` 以 production/clean 上传为 `0.1.0-p10.20260917.151`（说明“Skyline 3.17.2 wheel layout base d33da54”，Manifest`c8378346…2e55b`），远端不可变tag指向同一SHA；可信 ensure 只追加 `.151`（白名单47项，保留`.150/.149`），独立 verify 与 `/usr/local/lib/schedule/ecs-verify.sh` 通过，公网 `.151=200`、`.150=200`、动态未知 `=426`。未部署应用制品、未备份或迁移数据库、未声明 production live release。
+- 唯一下一任务：小米14复核3.17.2滚轮“打开即在当前年月、可滚动、重开仍可滚动”，并确认请假定位当日仍一次到位；已知局限保持（未触摸前无渐变、点击单项选中不生效）。详情见`runtime-ui-compatibility-wheel-layout-base-trial-release-20260917.md`。
+
+## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
+
+- 用户真机复核`.149`：换班年月滚轮**仍无法滚动**（上一轮`catch`手势隔离无效）；请假左右切月**不再乱跳**；定位当日**偶尔没反应**，月份越远越容易遇到。
+- A 根因：滚轮位移由 WXS 写在`#ui-wheel-track`的 transform 上，而同一节点还有内联`style`绑定`wheelInitialOffset`；拖动时每次预览`setData`重渲染，3.17.2 会把内联样式整条重新下发并覆盖 WXS 的 transform → 内部 offset/高亮变化但像素不动。修复：删除内联绑定，位移完全由 WXS 拥有（符合既有"WXS 独占像素样式"约定）；手势在`touchStart`用节点 dataset 自建基线（新增`data-item-count`/`data-selected-index`），避免运行时未交付 config observer 时直接失效。
+- C 根因：`.149`的定位当日等共享 pager 结算，未结算位移（连点箭头/连点）会被守卫吞掉 → "偶尔没反应"。修复：一步重定中心（`resetDatePager` + 一次`setData`；3.17.2 仍`duration:0`），删除已死的`_dateLocateTarget`与`formatMonthValue`。
+- 证据：RED（回退 WXS 后新用例`expected undefined to be 'translateY(-264px)'`）；GREEN 定向53项+新增用例、Mini完整174文件1216项通过/16跳过；typecheck/build366/package(主包1744556B/总4618961B)/determinism(21cae2df)/format/lint/smoke:check-core/agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
+- 交付与放行：`a0707b0c` 以 production/clean 上传为 `0.1.0-p10.20260917.150`（说明“Skyline 3.17.2 wheel track transform ownership a0707b0”，Manifest`45598d45…90e69`），远端不可变 tag 指向同一 SHA；可信 ensure 只追加 `.150`（白名单46项，保留`.149/.148/.147`），独立 verify 与 `/usr/local/lib/schedule/ecs-verify.sh` 通过，公网 `.150=200`、`.149=200`、动态未知 `=426`。未部署应用制品、未备份或迁移数据库、未声明 production live release。
+- 唯一下一任务：小米14复核3.17.2换班年月滚轮能否跟手滚动、请假定位当日是否每次一次到位；若滚轮仍不动，请回复“拖动时中间那一项高亮是否跟着换”或“非中间项数字是否比中间更小更淡”，以区分样式通道与事件通道。详情见`runtime-ui-compatibility-wheel-style-trial-release-20260917.md`。
+
+## 当前批次：Skyline 3.17.2 滚轮手势、切月动效与定位当日体验版149已上传并放行，待小米14复核
+
+- 用户真机复核`.148`：3.17.2 弹窗内点击不再误关，但换班年月滚轮**仍不能滚动**；点左右切月（换班弹窗与日历页月历）播放**反向**滑动动效而最终月份正确（3.17.3 正常）；请假弹窗“定位当日”会**逐月**回退（3.17.2/3.17.3 都有），日历页定位当日一次到位。
+- 引入点：滚轮事件绑定与`touch-action: none`来自`57e10cdc`（WXS 滚轮能力探针）；`_dateLocateTarget`逐月续走来自`528722f4`；程序化切月时长来自`calendar-period-pager`接入（`9045dc02`等）。三者都不是本项目状态机错误，而是 3.17.2 渲染器差异被旧写法放大。
+- 根因：A 滚轮依赖`touch-action`争抢纵向手势，3.17.2 不按该属性判定归属，手势被祖先容器拿走（同款组件+遮罩在 gesture-probe 真机曾验证可用，故不是遮罩命中或 WXS 子节点样式通道）；B 三槽环形 swiper 在 3.17.2 按“最近逻辑槽位”归一`current`，环形 0↔2 跳变被渲染成反向一步；C 定位当日每结算一步才前进一个月。
+- 修复：`ui-wheel-column` 根节点改为`catchtouchstart`/`catchtouchmove` 自持纵向手势（位移仍写内层`#ui-wheel-track`）；受影响运行时程序化切月`duration:0`并抽出`finishMonthSwipeAt`/`finishDateSwiperAt`在零时长跳变后直接结算一次（幂等）；定位当日改为把今天的月份面板作为唯一入场面板放进相邻槽位，删除逐月续走分支。3.17.3 动画与路径不变。
+- 证据：定向53项、Mini完整174文件1215项通过/16跳过；typecheck、build366、package(主包1744335B/总4618740B)、determinism(2286365b)、format、lint、smoke:check-core通过。开发者工具（3.17.2/Skyline）仅能验证宿主管弹窗可打开且无异常，元素/组件自动化在该渲染器不可用，触摸级结论只能由小米14提供。
+- 交付与放行：`7e215a28` 以 production/clean 上传为 `0.1.0-p10.20260916.149`（说明“Skyline 3.17.2 wheel pan and month paging 7e215a2”，Manifest`442f8933…36fc8`），远端不可变tag指向同一SHA；可信 ensure 只追加 `.149`（白名单45项，保留`.146/.147/.148`），独立 verify 与 `/usr/local/lib/schedule/ecs-verify.sh` 通过，公网 `.149=200`、`.148=200`、动态未知 `=426`。未部署应用制品、未备份或迁移数据库、未声明 production live release。
+- 唯一下一任务：小米14双实例复核 A/B/C（年月滚轮可滚动、左右切月动效方向、请假弹窗定位当日一次到位），3.17.3 三项不变；若滚轮仍不能滚动，请回复“点滚轮中间那一项有无反应”。详情见`runtime-ui-compatibility-wheel-pager-trial-release-20260916.md`。
+
+## 上一批次：Skyline 3.17.2 弹窗点击误关修复体验版148已上传并放行，待小米14复核
+
+- 用户真机反馈：3.17.2 日期弹窗内任意点击（定位今天/切月/日期格/弹窗内外）都会关闭弹窗；3.17.3 正常。根因是 3.17.2 的弹窗挂在页面根层，卡片内点击冒泡到页面根的关闭回调（3.17.3 的弹窗在 sheet 内被 catchtap 挡住）。
+- 修复 1 行：.workflow-picker-layer 增加 catchtap="handleInternalTap"（复用已有 no-op），加 1 条回归断言（RED 1 失败→GREEN 15/15）。未新增机制，3.17.3 路径不变。
+- 体验版 0.1.0-p10.20260916.148（说明"Skyline 3.17.2 dialog tap fix c5f06e5"）production/clean 上传成功，Manifest 1f64d195…f9e7；候选前置与上传后绑定检查 PASS。门禁：Mini 全量、typecheck、build366、package、determinism(4410f7fb)、format、lint 通过；主包1744039B/总4618444B。
+- 放行：可信 ensure 只追加 .148 并保留 .147 等旧版；allowlist verify 与 ecs-verify 通过，release 仍 44034fcc，无部署/数据库操作；公网 .148=200、.147=200、动态未知=426。
+- 唯一下一任务：小米14 3.17.2 复核日期弹窗点击不再关闭且可选，年月滚轮是否可滚动（若不可，反馈具体现象以定方向）；3.17.3 不变。详情见 docs/audit/runtime-ui-compatibility-dialog-tap-trial-release-20260916.md。
+## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复已实现，待体验版交付
+
+- 用户反馈：3.17.2 年月/日期选择器点开后无弹窗；换班等 sheet 点外部不关闭。用开发者工具（3.17.2/Skyline/同提交 d526252b）复现并定位。
+- 根因：覆盖层使用 inset:0（及 max()/env() 组合），该渲染器不解析 —— 弹窗层无偏移被排到视口外（渲染树有节点但不绘制）；ui-sheet 遮罩同样无偏移，点弹窗外落在页面上，handleBackdropClose 不触发。
+- 修复（语义等价、无版本分支）：ui-date-picker 的 layer/scrim/wheel-mask、ui-selector 的 backdrop、ui-sheet 的 scrim 改为显式 top/right/bottom/left:0；sheet 安全区保留 bottom:12px 回退；新增覆盖层偏移回归断言。
+- 证据：开发者工具内对照截图（修复前 layer 在渲染树但不绘制；改显式偏移后"选择月份"卡片立即正常绘制）。门禁：Mini 1214 项通过/16 跳过、typecheck/build366/package/determinism/format/lint 通过；主包1744003B/总4618408B。
+- 开发者工具复测（3.17.2/c9ad7c0）：弹窗正常出现（截图）、遮罩关闭弹窗、sheet 遮罩关闭表单；切 3.17.3 复测一致。
+- 边界：模拟器无法完成完整交互链（该实例 app 业务请求报网络错误），原生交互须由小米14体验版复核；本轮未上传、未放行、未部署。详情见 docs/audit/runtime-ui-compatibility-overlay-inset-20260916.md。
+## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
+
+- 用户要求消除“更多 → 测试工具”里“Skyline 版本：当前微信版本不支持单独读取”的硬编码，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`，原来“没有可靠 API”的写法不成立，审计主计划 §8B 本就要求该项。
+- 只改测试工具页读取与对应契约测试：`isSupported` 映射官方五种原因文案，`version` 显示真实 Skyline 版本号；缺少 API、`fail` 或 500ms 超时失败关闭为“当前微信版本不支持读取”，与网络类型并行读取、不猜测、不崩溃。未改 WXML/WXSS、页面配置或业务语义。
+- 血缘与证据：原检查点`c7a96a0b`按累计血缘要求整合到最新体验版 tag `145@6e31eed8`；定向22/22、Mini 完整174文件1213项通过/16跳过、typecheck通过。两处继承门禁失败未消除且与本次改动无关（icon parity 的 `ui-loading-primary/muted.svg` 未进 canonical manifest；手排矩阵`1507>1506`上限），本轮按用户指示继续交付并在报告中明确归属。
+- 唯一下一任务：上传体验版并 add-only 放行，记录版本号、Manifest 与 receipt；小米 14 复核“更多 → 测试工具”的 Skyline 支持/版本两行。未操作开发者工具。
+
+## 当前批次：Skyline 3.17.2 年月/日期选择器改由面板根层托管弹窗，待体验版交付
+
+- 用户复核`.142@8988afe`：3.17.2年月选择器就地展开且滚轮无法独立滚动（滚动会带动整个换班弹窗），请假弹窗日期选择器被两列布局挤压；且3.17.2点弹窗外不关闭（3.17.3会）。第二点由上一轮就地展开去掉遮罩直接造成。
+- 结论：不再让弹窗待在sheet的滚动容器里。3.17.2由面板把弹窗挂在面板根层（与`ui-sheet`同级的`position: fixed`覆盖层，该层在3.17.2真机验证可用）。
+- 实现：`ui-date-picker`新增`dialog-only`（只渲染弹窗）与`host-key`（触发器/宿主配对）；被托管的触发器不再本地渲染弹窗，改为把配置随`pickerrequestopen`上抛，面板调用宿主`openFromParent()`，确认后`forwardHostedChange()`通过模块内实例表找回原触发器并调用`applyChange()`——面板既有`bindchange`处理器一行未改。三个工作流面板在根层各加一个宿主并给8个月/日期触发器加`host-key`；遮罩恢复，点弹窗外即关闭。
+- 定向23项通过；Mini完整174文件1211项通过/16跳过；typecheck、build366文件、source/package/determinism、format/lint通过；主包1743699B/总4616396B。详情见`runtime-ui-compatibility-picker-host-dialog-20260916.md`。
+- 唯一下一任务：取得当次上传授权后交付体验版并add-only放行，再由小米14双实例复核3.17.2月份/日期弹窗独立滚动、点外部关闭，及3.17.3不变。本轮未上传、未放行、未部署。
+
+## 上一批次：Skyline 3.17.2 选择器就地展开后备已实现，待体验版交付
+
+- 用户复核`.138@09c100d`：3.17.2下拉已能渲染选项但被后续字段遮挡；月份/日期面板点按后仍不出现；3.17.3正常。说明`.138`的显式高度修复有效，剩余两项是层级与提升问题。
+- 遮挡沿用`.136`已记录的“3.17.2同层z-index不能提升浮层”（引入点`6d0575d0`）；面板不出现是因为`.138`采用的“从ui-sheet插槽内容root-portal到根层”在3.17.2不生效——冻结产物核对确有root-portal、令牌导入与`--ui-z-index-dialog:1000`，而同一机制在页面级与组件级真机均可用。本轮不再押注portal或叠加z-index。
+- 修复只在3.17.2生效且全部改为就地展开：下拉容器`is-inline`（`position: static`、去遮罩、覆盖`is-measuring`隐藏、保留显式高度）；月份/日期层与面板`is-inline`（就地卡片、去遮罩与拖拽把手）；同时撤销`.138`的root-portal与根层令牌导入，3.17.3与未知版本恢复为与`.136`逐字相同的覆盖层路径。
+- RED 2失败；GREEN兼容14项、Mini完整174文件1203项通过/16跳过。typecheck、production build366文件、source/package/determinism、format/lint/smoke:check-core通过；主包1739791B/总4607445B，较`.138`增644B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 唯一下一任务：取得当前消息的上传授权后交付新体验版并add-only放行、保留`.138`等旧版，再由小米14双实例复核3.17.2下拉与月份/日期面板就地可见可选，且3.17.3外观与交互不变。详情见`runtime-ui-compatibility-picker-inline-fallback-20260915.md`。
+
+## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
+## 上一批次：Skyline 月视图已过日期灰底恢复，体验版140已上传并放行
+
+- 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有，怀疑某次更新后丢失。
+- 引入点：旧小程序`1343f4c6^`的`components/calendar-grid/index.wxml`用`day.isPast`输出`calendar-grid__day--past`、`index.wxss`定义`#f3f4f6`，首页`pages/calendar/index.wxml`与访客`pages/guest/guest.wxml`共用。`1343f4c6`(2026-08-13)删除旧小程序后，`1f715c96`(2026-08-18)新建`calendar-month`/`calendar-cell`、`ad4cfb2c`(2026-08-23)把工作台月视图接到新组件时都没有携带该状态、类或样式；周视图由`50c6d1ed`补齐，Web端`MonthGrid.vue`一直保留`.day-cell.is-past`。日历路径无`SDKVersion`分支。
+- 修复复用月视图唯一链路：`WorkbenchCell`/`createMonthCells`新增`isPast: !cell.isOutsideMonth && cell.businessDate < today`（与周视图同款比较语义、排除月外格），`calendar-month/index.wxml`转发`is-past`，`calendar-cell`新增属性、`is-past`类与`.calendar-cell.is-past{background:#f3f4f6}`。灰底规则在`.is-pressed`之前以保留按压反馈，`.is-holiday`粉底优先级不变；访客页复用同一模型与组件零额外改动；预览/补录/POC默认`false`不变；未新增依赖、token或版本分支。
+- RED 3失败/26通过；上载体把同样7个文件线性叠加到最新累积体验版`.139@a9c3204f`（记录`3c8ea88d`）之上，定向49项通过。Mini完整与构建门禁、版本绑定与放行结果见下方交付记录。
+- 用户在当前消息明确授权上传并放行。详情见`runtime-ui-compatibility-past-month-gray-20260915.md`。
+
+## 上一批次：Skyline 访客周视图分页体验版139已上传并放行，待双实例复核
+
+- 用户复核`.137@09e6398`：3.17.2访客页面周视图乱跳、切到非本周后点单元格无反应；月视图、成员周视图与3.17.3正常。
+- 根因：访客页仍在用成员页于`.135`废弃的强制归中（`current=1`+`duration:0`回跳）与`weekPanels[1]`固定索引；3.17.2对该回跳反向动画或补发事件，并使原生页与数据槽位错位，点击落到不可见面板。
+- 修复：访客页导入同一个`calendar-period-pager`环形状态机，`renderCalendar`用`mapCalendarPeriodRing`，模板加`circular`/`bindchange`并读取`weekPanels[weekSwiperCurrent]`；260ms、easeOutCubic、±6队列与提交锁不变，成员页面零差异。
+- 血缘：`.138@09c100d5`（并行会话的选择器浮层与页头箭头修复）是当前最新累积体验版，本分支以它为基线线性叠加；不改写对方分支。基线若再次前进必须重新叠加。
+- RED2项失败；GREEN定向42项、Mini完整174文件1206项通过/16跳过、根270文件1273项通过/444跳过。typecheck/build366文件/source/determinism/format/lint/smoke:check-core通过；主包1741484B/总4609138B，较`.138`增2337B。Mini verify仍仅被既有未改手排1507>1506阻断。
+- `.139@a9c3204`已以production/clean上传，Manifest`a2491815…d91e4d7b`与tag/allocation/receipt一致；可信ensure只追加`.139`并保留旧版，allowlist与完整ECS verifier通过，公网`.139/.138/.137/.136`=200、动态未知426；live release未变。
+- 唯一下一任务：小米14双实例重开`.139@a9c3204`，复核3.17.2访客周视图滑动/点击与`.138`箭头/选择器无回归。详情见`runtime-ui-compatibility-guest-week-pager-trial-release-20260915.md`。
+
+## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头已实现，待体验版交付
+
+- 小米14的3.17.2实例复核`.136@efda88f`：成员页面四项修复通过、3.17.3正常，但页头群组箭头比3.17.3偏右约40px；换班sheet的“我的班次月份/对方班次月份”点按后没有任何遮罩或面板；班次/人员下拉只剩约12px高的白色空框。
+- 箭头是本轮自己造成的：`ed06031f`把3.17.2群组容器固定为220px，而箭头一直是相对该盒子的绝对定位元素，于是贴到盒子右缘。选择器则是旧Skyline在滚动容器内的布局差异：内嵌`scroll-view`弹层不按内容推导高度，`position: fixed`对话框层不在可见视口；同页`ui-sheet`不在滚动容器内所以正常。
+- 修复只在3.17.2生效：箭头改为Flex流内跟随群名（220px上限与196px省略阈值逐字保留）；弹层按选项数写入显式高度（30n+10、空态56px、上限300px）；对话框层用`root-portal`提升到根层并复用根层令牌作用域，`enable`仅在3.17.2为true。3.17.3与未知版本的`popoverStyle`为空串、`enable=false`，走原路径。
+- RED 3失败；GREEN定向14项、Mini完整174文件1203项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck/build366文件/source/package/determinism/format/lint/smoke:check-core通过；主包1739147B/总4606801B，较访客修复基线增2083B，无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 分支`codex/runtime-3172-picker-overlay-20260915`基于访客修复`09e63980`；两份3.17.2修复在后续合并时必须保持同一血缘。详情见`runtime-ui-compatibility-picker-overlay-fix-20260915.md`。
+- 用户当次明确授权“上传并放行”。源码`09c100d5`已推送，分支`codex/runtime-3172-picker-overlay-20260915`基线为访客修复`09e63980`，`origin/main`(4179f05a)仍是祖先。体验版`0.1.0-p10.20260915.138`说明“Skyline 3.17.2 picker overlays 09c100d”，production/clean，Manifest `1eb3d61b…a17e40a`，构建`13:52:36.805Z`、上传`13:54:26.399Z`；`.137`由同机另一任务占用，本轮顺序取得`.138`。
+- 候选前置与上传后版本绑定检查`RESULT=PASS`（ready-clean-detached、production-clean、VERSION_LOCAL=absent）；冻结包/回执/分配记录及远端不可变tag一致。可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260915.138`只追加并保留`.137`，独立allowlist verifier与`ecs-verify.sh`通过，release仍`44034fcc`、无应用部署或数据库操作。公网`.138=200`、`.137=200`、动态未知版本`=426`。
+- 唯一下一任务：小米14双实例核对`.138/09c100d`，3.17.2复核箭头位置、下拉选项可见与月份/日期面板可弹出，3.17.3确认页头与四类选择器与`.136`一致。自动化与生产验证不构成原生验收。详情见`runtime-ui-compatibility-picker-trial-release-20260915.md`。
+
+## 上一批次：Skyline 3.17.2 访客页面按压反馈对齐已实现，待体验版交付
+
+- 用户复核`.136@efda88f`：成员页面四项修复通过，但3.17.2访客页面仍出现周格灰色闪烁和月格蓝色反馈滞留。
+- 访客页面已有`.is-skyline-3172-ui`根类并继承成员页面的Grid/Flex后备样式，缺的是两项条件参数：月历未传`runtime-pressed-feedback-compatibility`、周格无条件`hover-class="is-pressed"`。
+- 现复用成员页面同一参数名与表达式，源码只改`pages/guest/guest.wxml`两行；成员页面零差异，3.17.3与无法读取版本不变，无新增依赖或第二套机制。
+- RED新增1项并在该缺口准确失败；GREEN定向31项、Mini完整174文件1200项通过/16跳过、根套件270文件1273项通过/444跳过。typecheck/build366文件/source/determinism/format/lint/smoke:check-core通过；主包1737064B/总4604718B，较`.136`仅增132B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 同时把`docs/project-status.md`收敛回40KB/250行预算内，旧批次细节保留在Git历史与`docs/audit/`。详情见`runtime-ui-compatibility-header-press-fix-20260915.md`。
+- 唯一下一任务：取得当前消息上传授权后交付新体验版并add-only放行、保留旧版，再由小米14双实例复核3.17.2访客与成员页面按压反馈一致。
+
+## 上一批次：Skyline 页头与按压反馈体验版136已上传并放行，待双实例验收
+
+- `.135@c7025b93`真机确认周切换已恢复；3.17.2仍有群名省略、菜单被日历文字覆盖、周格灰闪及月格蓝色反馈滞留，3.17.3正常。
+- 群组菜单已收敛为所有版本共用的一份root-portal、一份模板和一个事件；仅3.17.2解除群名220px宽度的父级上限、移除周格灰色按压类并把月格松手保留从70ms缩为0ms。3.17.3的菜单几何/视觉、原周格反馈和原70ms不变，月/周分页动画完全不改。详情见`runtime-ui-compatibility-header-press-fix-20260915.md`。
+- 累计RED 4失败，单菜单收敛RED 1失败；GREEN定向30项、Mini完整1199项通过/16跳过。typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；主包1736932B/总4604586B，较`.135`总包仅增319B，无新增依赖。Mini verify仍只被既有未改手排节点1507>1506阻断。
+- `.136@efda88f`已以production/clean上传；tag、allocation、Manifest `27702a1c…f908a32b`和receipt一致。首次`890c50a9`候选因过期canonical blob在占号/上传前停止，policy刷新后lineage/上传门禁通过。
+- 可信allowlist ensure只追加`.136`且保留旧版；allowlist verifier、完整ECS verifier通过，公网`.136/.135`为200、动态未知版本为426。live release未变，未部署应用或修改数据库。
+- 唯一下一任务：小米14双实例均核对`.136@efda88f`；3.17.2复核四项修复，3.17.3复核页头/菜单/通知胶囊、单元格反馈和260ms动画均不变。详情见`runtime-ui-compatibility-header-press-trial-release-20260915.md`。
+
+## 当前批次：Skyline 周视图兼容体验版135已上传并放行，待双实例验收
+
+- `.134@5c02393`同角色双实例确认3.17.2周选中框、环形切周、群名尺寸和Toast组合圆角均异常；同机3.17.3及3.17.2月视图正常，排除账号、权限和排班数据。
+- 所有版本周视图统一复用月视图已有`calendar-period-pager`，不再维护第二套强制归中机制；保留周视图原260ms/easeOutCubic、提交锁和有界队列。选中框、页头及Toast仍为3.17.2局部后备，3.17.3+视觉和动画时长不变。详情见`runtime-ui-compatibility-week-fix-20260915.md`。
+- RED 3失败；GREEN联合47项、Mini完整1197项通过/16跳过。typecheck/build/source/package/determinism/format/lint/smoke:check-core通过；主包1736356B/总4604267B，较`.134`增3770B。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- `0.1.0-p10.20260915.135@c7025b93`已production/clean上传，Manifest `1aec459f…45b3bf8`，tag/allocation/Manifest/receipt一致。可信ensure仅追加`.135`并保留`.134`等旧版；allowlist与完整ECS verifier通过，公网`.135/.134=200`、动态未知`=426`。未提审、正式发布或部署新应用制品；唯一下一任务是两个实例做同版本原生复核。详情见`runtime-ui-compatibility-week-trial-release-20260915.md`。
+
+## 当前批次：Skyline 3.17.2 专属 UI 兼容体验版134已上传并放行，待双实例验收
+
+- 同一`.133@2d7f685`的小米14对照确认：异常实例基础库3.17.2、Grid顶部差8px且CSS圆环尖角；正常实例3.17.3、Grid顶部差0px且圆环正常。CSS变量和显式滚动均正常，根因是实例基础库/Skyline运行时差异。
+- 只在`SDKVersion === 3.17.2`时为生产Grid启用局部Flex、为CSS加载圈启用本地SVG；3.17.3及后续/未知版本保留原WXML、Grid和CSS圆环路径。诊断探针不替换；API、数据、权限和交互语义不变。详情见`runtime-ui-compatibility-fix-20260914.md`。
+- Mini完整174文件1193项通过/16跳过，typecheck/build/package/determinism/format/lint/smoke:check-core通过；主包1732843B、总4600497B，较`.133`增8869B（约0.19%），无新增依赖。Mini verify仍仅被既有未改手排节点1507>1506阻断。
+- 首次正式上传在调用微信平台前被`5285dd1`等价血缘证明安全拒绝，未占用版本；兼容提交只为工作台TS增加精确版本判定的import、data类型和初始字段，未修改受保护方法。更新精确blob证明并复跑门禁后，`0.1.0-p10.20260914.134@5c023931`已production/clean上传，Manifest `1669cf39…60bf55`且tag/receipt一致。
+- 可信ensure仅追加`.134`并保留旧版；allowlist verifier、完整ECS verifier和公网`.134/.133=200`、动态未知`=426`通过，服务器release仍`44034fcc`。未部署应用、备份/迁移数据库、提审或正式发布。详情见`runtime-ui-compatibility-trial-release-20260914.md`。唯一下一任务：两个微信实例确认同一`.134`后，原生复核3.17.2恢复和3.17.3视觉不变。
+
+## 当前批次：跨微信实例 UI 诊断体验版133已上传，待同版本取证
+
+- 故障基线为体验版132/44034fcc；同一包在不同微信实例出现Grid纵排、加载圈尖角和测试工具无法滚动。异常实例尚无基础库报告，不宣称最终根因。
+- 仅诊断页改为固定首屏加显式scroll-view，增加Grid/CSS变量/滚动自动探针、CSS/SVG对照和首屏复制；业务页面、API、权限与数据零修改。详情见`runtime-ui-diagnostics-20260914.md`。
+- RED 1；合并后诊断/导出联合69、Mini完整1187通过/16跳过。Mini/Web TypeScript、production build、Storybook build和390/320/大字号辅助复核通过；均非微信原生验收。
+- Mini verify仍仅被既有未改手排节点预算1507>1506阻断，本轮不放宽预算。累计候选`2d7f685a`已上传为`0.1.0-p10.20260914.133`，上传Manifest`eb302276…16b90b0`，receipt/tag/Manifest一致。用户单独授权后已可信追加allowlist并保留旧版；完整生产verifier通过，公网`.133/.132=200`、动态未知`=426`，live仍`44034fcc`。未提审或正式发布。
+- 唯一下一任务：正常与异常微信实例均确认`.133/2d7f685`，进入“更多 → 测试工具”，返回首屏截图、复制首屏诊断和能否继续滚动。收到两份同版本证据前不宣称最终根因、不修改业务UI。
+
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
 - 导出文件生成后，月份、年份、周期模式、岗位、人员、文件格式或导出类型发生实际变化时，统一清理旧任务/临时文件并回到“选择内容后创建任务”；相同值点击不重置。
 - RED 7失败/29通过，GREEN控制器36通过，导出相邻边界联合43通过；Mini production verify通过，包体4579789字节、Worklet2/2。
-- 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。本轮只有静态/Node/Mini构建证据，未操作开发者工具、未上传或部署，原生验收未进行。
-- 策略更新（2026-09-17）：Agent 已获准调用 `wechatide`/开发者工具 MCP，编译、预览、上传不再需要逐次确认；如需小米14复核，由 Agent 在最终干净SHA上自主上传体验版。模拟器/自动化证据仍不得冒充实体设备验收，提交审核与正式发布仍需明确批准。
+- 检查点：`4179f05a fix(miniprogram): reset generated export after selection changes`。本轮只有静态/Node/Mini构建证据，未操作开发者工具、未上传或部署，原生验收未进行。
 
 ## 当前批次：Feedback22 已部署并放行124，待小米14复核
 

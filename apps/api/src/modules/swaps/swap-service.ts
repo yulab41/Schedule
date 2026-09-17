@@ -75,6 +75,171 @@ export class SwapService {
     this.services = new WorkflowServices(databaseClient);
   }
 
+  public async recordHistoricalCompleted(input: {
+    readonly groupId: string;
+    readonly initiatorAssignmentId: string;
+    readonly initiatorMembershipId: string;
+    readonly targetAssignmentId: string;
+    readonly targetMembershipId: string;
+  }): Promise<{ readonly id: string; readonly status: 'completed' }> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const assignments = await transaction
+        .select()
+        .from(shiftAssignments)
+        .where(
+          and(
+            inArray(shiftAssignments.id, [input.initiatorAssignmentId, input.targetAssignmentId]),
+            isNull(shiftAssignments.deletedAt),
+          ),
+        )
+        .for('update');
+      const initiatorAssignment = assignments.find(
+        (assignment) => assignment.id === input.initiatorAssignmentId,
+      );
+      const targetAssignment = assignments.find(
+        (assignment) => assignment.id === input.targetAssignmentId,
+      );
+      if (initiatorAssignment === undefined || targetAssignment === undefined) {
+        throw new Error('Historical swap assignments are missing.');
+      }
+      const periods = await transaction
+        .select()
+        .from(schedulePeriods)
+        .where(
+          and(
+            inArray(schedulePeriods.id, [
+              initiatorAssignment.schedulePeriodId,
+              targetAssignment.schedulePeriodId,
+            ]),
+            eq(schedulePeriods.groupId, input.groupId),
+            inArray(schedulePeriods.status, ['published', 'past']),
+            isNull(schedulePeriods.deletedAt),
+          ),
+        );
+      if (periods.length === 0 || periods.some((period) => period.groupId !== input.groupId)) {
+        throw new Error('Historical swap periods are outside the requested group.');
+      }
+      if (
+        initiatorAssignment.plannedMembershipId !== input.initiatorMembershipId ||
+        targetAssignment.plannedMembershipId !== input.targetMembershipId ||
+        initiatorAssignment.actualMembershipId !== input.targetMembershipId ||
+        targetAssignment.actualMembershipId !== input.initiatorMembershipId
+      ) {
+        throw new Error('Historical swap assignment state does not match a completed exchange.');
+      }
+      const members = await transaction
+        .select({
+          id: groupMemberships.id,
+          realName: userProfiles.realName,
+          userId: groupMemberships.userId,
+        })
+        .from(groupMemberships)
+        .innerJoin(userProfiles, eq(userProfiles.userId, groupMemberships.userId))
+        .where(
+          and(
+            eq(groupMemberships.groupId, input.groupId),
+            inArray(groupMemberships.id, [input.initiatorMembershipId, input.targetMembershipId]),
+            isNull(groupMemberships.deletedAt),
+          ),
+        );
+      const initiator = members.find((member) => member.id === input.initiatorMembershipId);
+      const target = members.find((member) => member.id === input.targetMembershipId);
+      if (initiator === undefined || target === undefined) {
+        throw new Error('Historical swap members are missing.');
+      }
+      const existing = await transaction
+        .select({ id: swapRequests.id })
+        .from(swapRequests)
+        .where(
+          and(
+            eq(swapRequests.groupId, input.groupId),
+            or(
+              and(
+                eq(swapRequests.initiatorAssignmentId, input.initiatorAssignmentId),
+                eq(swapRequests.targetAssignmentId, input.targetAssignmentId),
+              ),
+              and(
+                eq(swapRequests.initiatorAssignmentId, input.targetAssignmentId),
+                eq(swapRequests.targetAssignmentId, input.initiatorAssignmentId),
+              ),
+            ),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (existing.length > 0) throw new Error('Historical swap request already exists.');
+
+      const swapRequestId = randomUUID();
+      const workflowSequence = await allocateWorkflowSequence(transaction);
+      const decidedAt = new Date();
+      await transaction.insert(swapRequests).values({
+        approverUserId: null,
+        decidedAt,
+        groupId: input.groupId,
+        id: swapRequestId,
+        initiatorAssignmentId: input.initiatorAssignmentId,
+        initiatorAssignmentVersion: initiatorAssignment.version,
+        initiatorMembershipId: input.initiatorMembershipId,
+        status: 'completed',
+        targetAssignmentId: input.targetAssignmentId,
+        targetAssignmentVersion: targetAssignment.version,
+        targetMembershipId: input.targetMembershipId,
+        version: 2,
+        workflowSequence,
+      });
+      const createdEventId = await this.services.eventWriter.append(transaction, {
+        affectedMembershipIds: [initiator.id, target.id],
+        affectedShiftIds: [initiatorAssignment.id, targetAssignment.id],
+        afterData: toLatestData({ status: 'pending_target' }),
+        eventStatus: 'completed',
+        eventType: 'swap_request_created',
+        groupId: input.groupId,
+        initiatedByUserId: initiator.userId,
+        objectId: swapRequestId,
+        objectType: 'swap_request',
+        operationId: randomUUID(),
+        operatorUserId: initiator.userId,
+        schedulePeriodId: initiatorAssignment.schedulePeriodId,
+      });
+      const acceptedEventId = await this.services.eventWriter.append(transaction, {
+        affectedMembershipIds: [initiator.id, target.id],
+        affectedShiftIds: [initiatorAssignment.id, targetAssignment.id],
+        afterData: toLatestData({ status: 'completed' }),
+        beforeData: toLatestData({ status: 'pending_target' }),
+        eventStatus: 'completed',
+        eventType: 'swap_request_accepted',
+        groupId: input.groupId,
+        initiatedByUserId: initiator.userId,
+        objectId: swapRequestId,
+        objectType: 'swap_request',
+        operationId: randomUUID(),
+        operatorUserId: target.userId,
+        parentEventId: createdEventId,
+        schedulePeriodId: initiatorAssignment.schedulePeriodId,
+      });
+      await this.services.eventWriter.append(transaction, {
+        affectedMembershipIds: [initiator.id, target.id],
+        affectedShiftIds: [initiatorAssignment.id, targetAssignment.id],
+        afterData: toLatestData({
+          initiatorAssignmentId: initiatorAssignment.id,
+          initiatorMemberName: initiator.realName,
+          targetAssignmentId: targetAssignment.id,
+        }),
+        eventStatus: 'completed',
+        eventType: 'swap_completed',
+        groupId: input.groupId,
+        initiatedByUserId: initiator.userId,
+        objectId: swapRequestId,
+        objectType: 'swap_request',
+        operationId: randomUUID(),
+        operatorUserId: target.userId,
+        parentEventId: acceptedEventId,
+        schedulePeriodId: initiatorAssignment.schedulePeriodId,
+      });
+      return { id: swapRequestId, status: 'completed' };
+    });
+  }
+
   public async preview(
     identity: AuthenticatedIdentity,
     groupId: string,

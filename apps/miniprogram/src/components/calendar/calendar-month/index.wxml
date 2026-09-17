@@ -1,3 +1,41 @@
+<template name="calendar-month-grid">
+  <view class="month-grid">
+    <view
+      wx:for="{{panel.cells}}"
+      wx:for-item="cell"
+      wx:key="businessDate"
+      style="height:{{panel.rowHeight || 54}}px"
+      class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
+    >
+      <calendar-cell
+        compact="{{compact}}"
+        runtime-pressed-feedback-compatibility="{{runtimePressedFeedbackCompatibility}}"
+        duties="{{cell.duties}}"
+        disabled="{{cell.disabled}}"
+        aria-label="{{cell.ariaLabel}}"
+        business-date="{{cell.businessDate}}"
+        day="{{cell.day}}"
+        holiday="{{cell.holiday}}"
+        is-bottom-left="{{cell.isBottomLeft}}"
+        is-bottom-right="{{cell.isBottomRight}}"
+        is-current-month="{{cell.isCurrentMonth}}"
+        is-holiday="{{cell.isHoliday}}"
+        is-past="{{cell.isPast}}"
+        is-workday="{{cell.isWorkday}}"
+        is-selected="{{cell.isSelected}}"
+        is-today="{{cell.isToday}}"
+        is-weekend="{{cell.isWeekend}}"
+        marker="{{cell.marker}}"
+        shift-abbreviation="{{cell.shiftAbbreviation}}"
+        shift-badge-style="{{cell.shiftBadgeStyle}}"
+        person="{{cell.person}}"
+        extra-person-count="{{cell.extraPersonCount}}"
+        bind:select="handleCellSelect"
+      ></calendar-cell>
+    </view>
+  </view>
+</template>
+
 <view class="month-card {{shadow ? '' : 'is-flat'}}">
   <view class="month-toolbar">
     <view
@@ -56,7 +94,40 @@
     <text class="is-weekend">六</text><text class="is-weekend">日</text>
   </view>
 
+  <!-- The affected runtime cannot animate a programmatic swiper jump, so the
+       same three-panel ring is paged by a native horizontal scroller there: the
+       platform animates the month and the grid follows the finger itself. -->
+  <scroll-view
+    wx:if="{{skyline3172UiCompatibility}}"
+    class="calendar-motion-viewport is-compat"
+    style="height:{{viewportHeight}}px"
+    scroll-x
+    enhanced
+    show-scrollbar="{{false}}"
+    scroll-with-animation="{{pagerAnimated}}"
+    scroll-into-view="{{pagerTarget}}"
+    bindtouchstart="handlePagerTouchStart"
+    bindscroll="handlePagerScroll"
+    bindtouchend="handlePagerTouchEnd"
+    bindtouchcancel="handlePagerTouchEnd"
+    aria-label="月历，可左右滑动切换月份"
+  >
+    <view class="calendar-pager-track">
+      <view
+        class="calendar-pager-pane"
+        style="{{paneStyle}}"
+        wx:for="{{panels}}"
+        wx:for-item="panel"
+        wx:key="slot"
+        id="month-pane-{{panel.slot}}"
+        aria-hidden="{{panel.relative !== 0}}"
+      >
+        <template is="calendar-month-grid" data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility}}" />
+      </view>
+    </view>
+  </scroll-view>
   <swiper
+    wx:else
     class="calendar-motion-viewport"
     style="height:{{viewportHeight}}px"
     current="{{swiperCurrent}}"
@@ -75,39 +146,7 @@
       class="calendar-slide-panel"
       aria-hidden="{{panel.relative !== 0}}"
     >
-      <view class="month-grid">
-        <view
-          wx:for="{{panel.cells}}"
-          wx:for-item="cell"
-          wx:key="businessDate"
-          style="height:{{panel.rowHeight || 54}}px"
-          class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
-        >
-          <calendar-cell
-            compact="{{compact}}"
-            duties="{{cell.duties}}"
-            disabled="{{cell.disabled}}"
-            aria-label="{{cell.ariaLabel}}"
-            business-date="{{cell.businessDate}}"
-            day="{{cell.day}}"
-            holiday="{{cell.holiday}}"
-            is-bottom-left="{{cell.isBottomLeft}}"
-            is-bottom-right="{{cell.isBottomRight}}"
-            is-current-month="{{cell.isCurrentMonth}}"
-            is-holiday="{{cell.isHoliday}}"
-            is-workday="{{cell.isWorkday}}"
-            is-selected="{{cell.isSelected}}"
-            is-today="{{cell.isToday}}"
-            is-weekend="{{cell.isWeekend}}"
-            marker="{{cell.marker}}"
-            shift-abbreviation="{{cell.shiftAbbreviation}}"
-            shift-badge-style="{{cell.shiftBadgeStyle}}"
-            person="{{cell.person}}"
-            extra-person-count="{{cell.extraPersonCount}}"
-            bind:select="handleCellSelect"
-          ></calendar-cell>
-        </view>
-      </view>
+      <template is="calendar-month-grid" data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility}}" />
     </swiper-item>
   </swiper>
 </view>

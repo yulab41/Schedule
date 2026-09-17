@@ -1,6 +1,7 @@
 @import '../../components/account-security/index.wxss';
 @import '../../styles/ui-icon-motion.wxss';
 @import '../../styles/calendar-date-marker.wxss';
+@import '../../styles/ui-root-portal-tokens.wxss';
 
 page {
   height: 100%;
@@ -651,6 +652,25 @@ page {
   border-radius: var(--ui-radius-medium);
 }
 
+.is-skyline-3172-ui .duty-group-grid,
+.is-skyline-3172-ui .grouped-staff-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.is-skyline-3172-ui .staff-duty-heading,
+.is-skyline-3172-ui .staff-name-button,
+.is-skyline-3172-ui .phone-split-actions {
+  display: flex;
+}
+
+.is-skyline-3172-ui .staff-name-button,
+.is-skyline-3172-ui .staff-name-static,
+.is-skyline-3172-ui .staff-name-copy,
+.is-skyline-3172-ui .detail-phone-action {
+  flex: 1;
+}
+
 .detail-phone-action {
   display: flex;
   min-width: 0;
@@ -979,6 +999,18 @@ page {
   border-radius: 50%;
 }
 
+.state-spinner-image {
+  width: 24px;
+  height: 24px;
+  animation: state-spinner-rotate 700ms linear infinite;
+}
+
+@keyframes state-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .bottom-nav {
   position: fixed;
   z-index: var(--ui-z-index-navigation);
@@ -1145,11 +1177,34 @@ page {
   letter-spacing: -0.25px;
 }
 
-.workbench-shell-header .group-menu {
-  position: absolute;
-  z-index: 120;
-  top: 34px;
-  left: 0;
+.is-skyline-3172-ui .group-switcher {
+  width: 220px;
+  max-width: none;
+  overflow: visible;
+}
+
+.is-skyline-3172-ui .group-switcher-trigger {
+  width: 220px;
+  max-width: none;
+  padding-right: 0;
+  box-sizing: border-box;
+}
+
+.is-skyline-3172-ui .group-switcher-arrow {
+  position: static;
+  top: auto;
+  right: auto;
+  margin-left: 2px;
+  flex: none;
+}
+
+.is-skyline-3172-ui .group-switcher-copy {
+  max-width: calc(100% - 24px);
+}
+
+.group-menu-portal {
+  position: fixed;
+  z-index: 200;
   width: 216px;
   max-width: calc(100vw - 24px);
   margin: 0;
@@ -1157,7 +1212,7 @@ page {
   box-sizing: border-box;
 }
 
-.workbench-shell-header .group-option {
+.group-menu-portal .group-option {
   min-height: 48px;
   padding: 5px 8px;
   box-sizing: border-box;
@@ -1165,7 +1220,7 @@ page {
   border-radius: 8px;
 }
 
-.workbench-shell-header .group-option.is-selected {
+.group-menu-portal .group-option.is-selected {
   background: var(--ui-color-primary-light);
 }
 
@@ -1423,6 +1478,14 @@ page {
   box-shadow: inset 0 0 0 2px var(--ui-color-primary);
   content: '';
   pointer-events: none;
+}
+
+.is-skyline-3172-ui .week-day.is-selected {
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+}
+
+.is-skyline-3172-ui .week-day.is-selected::after {
+  display: none;
 }
 
 .week-day.is-today .day-number {

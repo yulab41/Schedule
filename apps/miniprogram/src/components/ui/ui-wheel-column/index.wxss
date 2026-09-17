@@ -34,6 +34,15 @@
   font-weight: var(--ui-font-weight-semibold);
 }
 
+/* The affected runtime scrolls natively instead of owning a transform, so the
+   wheel body is a scroll-view there; every visual value still comes from the
+   same interpolation, delivered through data. */
+.ui-wheel-compat-scroll {
+  width: 100%;
+  height: 188px;
+}
+
+
 .ui-wheel-item.is-pressed {
   color: var(--ui-color-primary);
 }

@@ -11,6 +11,11 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Hard prohibitions
 
+- An LLM may start, wake, control, and automate the local WeChat DevTools GUI and `wechatide` CLI by default
+  (`默认同意 LLM 驱动开发者工具`). Keep this boundary: DevTools access is read-only unless the current user message
+  authorizes a write; never upload, submit for review, publish, or read production credentials without explicit
+  current-turn approval; label every claim by evidence layer (DevTools / Node / Xiaomi 14 trial) and never present
+  DevTools results as native acceptance.
 - Do not restore the historical Mini Program implementation as a whole. Historical code may only be consulted for isolated algorithms, fixtures, test ideas, and CI wrapper patterns after revalidation against the current Web/API.
 - Do not add TDesign MiniProgram or another third-party UI component library.
 - Do not add WebView fallback, uni-app, or an H5 runtime as the production Mini Program implementation.
@@ -19,11 +24,13 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Allowed automation and release authority
 
-- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison scripts are allowed.
-- WeChat DevTools is an allowed execution surface. An LLM may call the `wechatide` CLI and the DevTools MCP to check status, log in, open or close a project window, compile, build npm, drive the simulator, run page automation, read Console/Network, capture screenshots, generate or push previews, and upload an experience build. Compile, preview, and experience-upload operations do not require per-operation user confirmation.
-- Development/preview and experience uploads may be automated. A production build, package audit, or preview/upload dry-run is still not an upload. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready; record the upload route (Node `miniprogram-ci` or DevTools) and the resulting Manifest, receipt, and tag identity.
-- If a required WeChat platform credential is unavailable, record the exact checkpoint as `UPLOAD_REQUIRED` instead of claiming success, and upload that same checkpoint before starting the next implementation step.
-- Submission for review, review withdrawal, and formal publication always require explicit user approval.
+- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison
+  scripts are allowed, and driving WeChat DevTools (simulator, screenshots, console/network, automation) is allowed by
+  default under the boundary above.
+- Development/preview and experience uploads may be automated when credentials are available outside the repository.
+- An experience upload requires the user's explicit approval for that exact checkpoint in the current turn. A production build, package audit, preview/upload dry-run, or earlier approval is not an upload and does not authorize one. When approval is absent or the user prohibits upload, stop at the pushed clean checkpoint and record `UPLOAD_REQUIRED`; do not propose or reserve the next version. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready.
+- If the repository-external upload key or another required WeChat platform credential is unavailable, do not substitute DevTools automation or claim success. Record the exact checkpoint as upload-blocked, request the missing external input, and upload that same checkpoint before starting the next implementation step.
+- Submission for review and formal publication always require explicit user approval.
 - ECS deployment remains the repository-root release track. A Mini Program upload is a separate track and never happens merely because Git/ECS advanced.
 
 ## Visual work
@@ -35,6 +42,12 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Runtime and code boundaries
 
+- Fix with the smallest change first. When a target base library cannot be adapted on top of the
+  existing implementation (its runtime drops the primitives that implementation relies on), redesign
+  a path that matches that library instead of forcing patches onto it. Such a path must still be
+  organised rather than accreted, must not change the behaviour or markup that the newer base
+  libraries already render correctly, must not bloat the package, and must reuse the existing ring,
+  panel, template, interpolation, and shared-helper code wherever it can.
 - Production pages use native WXML, WXSS, TypeScript, JSON, Skyline, and glass-easel. Minimum base library is 3.3.0; there is no WebView fallback. This compatibility floor is required by the approved UI-thread `worklet.scrollViewContext` matrix synchronization architecture.
 - Source lives in `src/`; generated output lives in ignored `dist/`. Do not hand-edit `dist/`.
 - Shared runtime code must be DOM-free, Node-free, database-free, and Zod-free in the Mini Program bundle.

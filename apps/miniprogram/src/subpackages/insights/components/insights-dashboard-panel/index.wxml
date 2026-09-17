@@ -1,4 +1,4 @@
-<view class="insights-dashboard-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
+<view class="insights-dashboard-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}"
     ><view
       class="header-back"

@@ -1,0 +1,10 @@
+.runtime-style-probe {
+  width: 52px;
+  height: 2px;
+  overflow: hidden;
+}
+
+.runtime-style-probe__meter {
+  width: var(--ui-touch-target-minimum, 7px);
+  height: 2px;
+}

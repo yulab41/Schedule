@@ -1,21 +1,29 @@
 import {
+  createSelectorPopoverStyle,
   createRenderedOptions,
   scheduleSelectorPlacement,
   validOptionIndex,
 } from '../ui-selector/selector.js';
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 import {
+  CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
   cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
+  createCalendarPeriodPaneId,
   createCalendarPeriodPagerState,
   finishCalendarPeriodShift,
   isCalendarPeriodSlot,
   mapCalendarPeriodRing,
+  measureCalendarPeriodPaneWidth,
+  mergeCalendarPeriodScrollMetrics,
+  nearestCalendarPeriodScrollSlot,
   placeCalendarPeriodTarget,
   prepareCalendarPeriodChange,
   requestCalendarPeriodShift,
   takeQueuedCalendarPeriodShift,
+  type CalendarPeriodScrollMetrics,
   type CalendarPeriodPagerState,
   type CalendarPeriodRelative,
   type CalendarPeriodSlot,
@@ -36,6 +44,7 @@ interface WorkflowPickerRenderedOption extends WorkflowPickerOption {
 interface WorkflowPickerWheelOption {
   readonly ariaLabel: string;
   readonly label: string;
+  readonly unit: string;
 }
 
 interface WorkflowPickerDateCell {
@@ -81,13 +90,24 @@ interface DateSwiperEvent {
   readonly detail: { readonly current: number };
 }
 
+interface DateScrollEvent {
+  readonly detail: { readonly scrollLeft?: number; readonly scrollWidth?: number };
+}
+
 interface WorkflowPickerInstance {
-  _dateLocateTarget?:
-    { readonly day: number; readonly month: number; readonly year: number } | undefined;
+  applyChange?(detail: unknown): void;
+  closeFromParent?(): void;
+  forwardHostedChange?(detail: unknown): void;
+  forwardHostedClose?(): void;
+  openFromParent?(): void;
   _datePager?: CalendarPeriodPagerState;
   _datePendingSelection?:
     { readonly day: number; readonly month: number; readonly year: number } | undefined;
   _dateLocateTimer?: unknown;
+  _dateCompatGesture?: boolean;
+  _dateCompatRequestedSlot?: CalendarPeriodSlot | undefined;
+  _dateCompatTimer?: ReturnType<typeof setTimeout>;
+  _dateCompatMetrics?: CalendarPeriodScrollMetrics | undefined;
   _monthWheelSequence?: number;
   _wheelRuntimeId?: string;
   _yearWheelSequence?: number;
@@ -95,6 +115,9 @@ interface WorkflowPickerInstance {
   readonly data: {
     readonly dateCells: readonly WorkflowPickerDateCell[];
     readonly dateLocateAnimating: boolean;
+    readonly datePagerAnimated: boolean;
+    readonly datePagerTarget: string;
+    readonly datePaneStyle: string;
     readonly datePanels: readonly WorkflowPickerDatePanel[];
     readonly dateSwiperIndex: number;
     readonly dateSwiperDuration: number;
@@ -105,6 +128,7 @@ interface WorkflowPickerInstance {
     readonly draftIndices: readonly number[];
     readonly draftMonth: number;
     readonly draftYear: number;
+    readonly hostedLocally: boolean;
     readonly open: boolean;
     readonly renderedOptions: readonly WorkflowPickerRenderedOption[];
     readonly selectedOptionIndex: number;
@@ -114,6 +138,8 @@ interface WorkflowPickerInstance {
     readonly monthWheelSettledIndex: number;
     readonly popoverPlacement: 'down' | 'up';
     readonly popoverPlacementReady: boolean;
+    readonly popoverStyle: string;
+    readonly skyline3172UiCompatibility: boolean;
     readonly wheelGeneration: number;
     readonly yearWheelCommandRevision: number;
     readonly yearWheelItems: readonly WorkflowPickerWheelOption[];
@@ -123,6 +149,8 @@ interface WorkflowPickerInstance {
   };
   readonly properties: {
     readonly disabled: boolean;
+    readonly dialogOnly: boolean;
+    readonly hostKey: string;
     readonly max: string;
     readonly min: string;
     readonly mode: 'date' | 'month' | 'selector';
@@ -150,6 +178,8 @@ Component({
     fieldLabel: { type: String, value: '' },
     disabled: { type: Boolean, value: false },
     displayValue: { type: String, value: '' },
+    dialogOnly: { type: Boolean, value: false },
+    hostKey: { type: String, value: '' },
     max: { type: String, value: '' },
     min: { type: String, value: '' },
     mode: { type: String, value: 'selector' },
@@ -162,11 +192,15 @@ Component({
 
   data: {
     dateCells: [] as readonly WorkflowPickerDateCell[],
+    hostedLocally: false,
     dateLocateAnimating: false,
     datePanels: [] as readonly WorkflowPickerDatePanel[],
     dateSwiperIndex: 1,
     dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
     dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
+    datePagerAnimated: false,
+    datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+    datePaneStyle: '',
     days: Array.from({ length: 31 }, (_, index) => index + 1),
     draftDay: 1,
     draftDisplayValue: '',
@@ -180,8 +214,10 @@ Component({
     open: false,
     popoverPlacement: 'down' as const,
     popoverPlacementReady: true,
+    popoverStyle: '',
     renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
+    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     weekdays,
     wheelGeneration: 0,
     yearWheelCommandRevision: 0,
@@ -195,7 +231,10 @@ Component({
     attached(this: WorkflowPickerInstance): void {
       pickerInstances.add(this);
       resetDatePager(this);
-      this.setData(createWheelRuntimePatch(this));
+      this.setData({
+        ...createWheelRuntimePatch(this),
+        hostedLocally: needsHostedDialog(this),
+      });
     },
     detached(this: WorkflowPickerInstance): void {
       clearPickerTimer(this);
@@ -205,9 +244,16 @@ Component({
     },
   },
 
+  observers: {
+    hostKey(this: WorkflowPickerInstance): void {
+      const hostedLocally = needsHostedDialog(this);
+      if (hostedLocally !== this.data.hostedLocally) this.setData({ hostedLocally });
+    },
+  },
+
   methods: {
     handleOpen(this: WorkflowPickerInstance): void {
-      if (this.properties.disabled) return;
+      if (this.properties.disabled || this.properties.dialogOnly) return;
       if (this.data.open) {
         closePicker(this);
         return;
@@ -216,6 +262,26 @@ Component({
         if (picker !== this && picker.data.open) {
           closePicker(picker);
         }
+      }
+      if (this.data.hostedLocally) {
+        // The affected runtime cannot lift an overlay out of a sheet's scroll
+        // area, so the hosting panel renders the dialog on its own root layer.
+        this.triggerEvent(
+          'pickerrequestopen',
+          {
+            hostKey: this.properties.hostKey,
+            max: this.properties.max,
+            min: this.properties.min,
+            mode: this.properties.mode,
+            options: this.properties.options,
+            selectedIndex: this.properties.selectedIndex,
+            title: this.properties.title,
+            value: this.properties.value,
+          },
+          { bubbles: true, composed: true },
+        );
+        this.setData({ open: true });
+        return;
       }
       clearPickerTimer(this);
       resetDatePager(this);
@@ -234,6 +300,10 @@ Component({
           open: true,
           popoverPlacement: 'down',
           popoverPlacementReady: false,
+          popoverStyle: createSelectorPopoverStyle(
+            this.properties.options.length,
+            this.data.skyline3172UiCompatibility,
+          ),
           renderedOptions: createRenderedOptions(this.properties.options),
           selectedOptionIndex,
           ...wheelRuntime,
@@ -242,57 +312,42 @@ Component({
         return;
       }
 
-      const fallback = currentChinaDateParts();
-      const temporal = parseTemporalValue(this.properties.value) ?? fallback;
-      const centerYear = temporal.year;
-      const years = createYearValues(centerYear);
-      const yearIndex = Math.max(0, years.indexOf(centerYear));
-      const monthIndex = temporal.month - 1;
-      const days = createDayValues(centerYear, temporal.month);
-      const draftDay = Math.min(temporal.day ?? 1, days.length);
-      this.setData({
-        dateCells: createDateCells(
-          centerYear,
-          temporal.month,
-          draftDay,
-          this.properties.min,
-          this.properties.max,
-        ),
-        datePanels: createDatePanels(
-          centerYear,
-          temporal.month,
-          draftDay,
-          this.properties.min,
-          this.properties.max,
-        ),
-        dateSwiperIndex: 1,
-        dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
-        dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
-        dateLocateAnimating: false,
-        days,
-        draftDay,
-        draftDisplayValue: formatTemporalDisplay(
-          this.properties.mode,
-          centerYear,
-          temporal.month,
-          draftDay,
-        ),
-        draftIndices: [yearIndex, monthIndex, draftDay - 1],
-        draftMonth: temporal.month,
-        draftYear: centerYear,
-        monthWheelItems: createWheelOptions(monthValues, '月'),
-        monthWheelSettledIndex: monthIndex,
-        open: true,
-        popoverPlacement: 'down',
-        yearWheelItems: createWheelOptions(years, '年'),
-        yearWheelSettledIndex: yearIndex,
-        years,
-        ...wheelRuntime,
+      this.setData(createTemporalDraft(this, wheelRuntime), () => {
+        measureCompatPanes(this);
       });
+    },
+
+    openFromParent(this: WorkflowPickerInstance): void {
+      if (!this.properties.dialogOnly || this.data.open) return;
+      clearPickerTimer(this);
+      resetDatePager(this);
+      this.setData(createTemporalDraft(this, beginWheelGeneration(this)), () => {
+        measureCompatPanes(this);
+      });
+    },
+
+    applyChange(this: WorkflowPickerInstance, detail: unknown): void {
+      this.triggerEvent('change', detail);
+      closePicker(this);
+    },
+
+    forwardHostedChange(this: WorkflowPickerInstance, detail: unknown): void {
+      findHostedTrigger(this.properties.hostKey)?.applyChange?.(detail);
+      closePicker(this);
+    },
+
+    forwardHostedClose(this: WorkflowPickerInstance): void {
+      findHostedTrigger(this.properties.hostKey)?.closeFromParent?.();
+      closePicker(this);
     },
 
     handleClose(this: WorkflowPickerInstance): void {
       closePicker(this);
+      if (this.properties.dialogOnly) this.triggerEvent('close');
+    },
+
+    handleHostedClose(this: WorkflowPickerInstance): void {
+      this.forwardHostedClose?.();
     },
 
     closeFromParent(this: WorkflowPickerInstance): void {
@@ -333,7 +388,6 @@ Component({
     handleDateNavigate(this: WorkflowPickerInstance, event: DateNavigateEvent): void {
       const offset = Number(event.currentTarget.dataset.offset);
       if (offset !== -1 && offset !== 1) return;
-      if (this._dateLocateTarget !== undefined) return;
       startDateProgrammaticShift(this, offset);
     },
 
@@ -356,41 +410,48 @@ Component({
     },
 
     handleDateSwiperFinish(this: WorkflowPickerInstance, event: DateSwiperEvent): void {
-      const current = Number(event.detail.current);
-      const state = readDatePagerState(this);
-      if (!isCalendarPeriodSlot(current)) return;
-      if (current === state.activeSlot) {
-        if (state.targetSlot === undefined) return;
-        cancelCalendarPeriodShift(state);
-        writeDatePagerState(this, state);
-        this._dateLocateTarget = undefined;
-        this._datePendingSelection = undefined;
-        return;
-      }
-      const committed = commitCalendarPeriodSwipe(state, current);
-      if (committed === undefined) return;
-      writeDatePagerState(this, state);
-      applyDatePeriodChange(this, committed.delta);
+      finishDateSwiperAt(this, Number(event.detail.current));
+    },
+
+    handleDateCompatTouchStart(this: WorkflowPickerInstance): void {
+      this._dateCompatGesture = true;
+    },
+
+    measurePanes(this: WorkflowPickerInstance): void {
+      measureCompatPanes(this);
+    },
+
+    handleDateCompatScroll(this: WorkflowPickerInstance, event: DateScrollEvent): void {
+      this._dateCompatMetrics = mergeCalendarPeriodScrollMetrics(
+        this._dateCompatMetrics,
+        event.detail,
+      );
+      if (this._dateCompatGesture === true) prepareCompatDateTarget(this);
+      scheduleDateCompatSettle(this);
+    },
+
+    handleDateCompatTouchEnd(this: WorkflowPickerInstance): void {
+      this._dateCompatGesture = false;
+      scheduleDateCompatSettle(this);
     },
 
     handleDateToday(this: WorkflowPickerInstance): void {
       const today = currentChinaDateParts();
       const value = formatDateValue(today);
       if (isOutsideRange(value, this.properties.min, this.properties.max)) return;
-      const state = readDatePagerState(this);
-      if (state.targetSlot !== undefined || state.shiftPending) return;
       startDateLocateMotion(this);
-      if (today.year === this.data.draftYear && today.month === this.data.draftMonth) {
-        this._dateLocateTarget = undefined;
-        this._datePendingSelection = undefined;
-        this.setData(createDateDraftPatch(this, today.year, today.month, today.day));
+      if (this.data.skyline3172UiCompatibility) {
+        startDateCompatLocate(this, today);
         return;
       }
-      this._dateLocateTarget = today;
-      const targetMonth = `${today.year}-${pad(today.month)}`;
-      const currentMonth = `${this.data.draftYear}-${pad(this.data.draftMonth)}`;
-      const delta: -1 | 1 = targetMonth < currentMonth ? -1 : 1;
-      startDateProgrammaticShift(this, delta, today);
+      // Re-center on today in one step, whatever the pager was doing. Reading
+      // the pending/prepared panel made this tap a silent no-op whenever a
+      // shift or a queued arrow tap was still settling.
+      resetDatePager(this);
+      this._datePendingSelection = undefined;
+      this.setData({
+        ...createDateDraftPatch(this, today.year, today.month, today.day),
+      });
     },
 
     handleDateSelect(this: WorkflowPickerInstance, event: DateTapEvent): void {
@@ -406,7 +467,6 @@ Component({
       }
       const state = readDatePagerState(this);
       if (state.targetSlot !== undefined || state.shiftPending) return;
-      this._dateLocateTarget = undefined;
       this._datePendingSelection = undefined;
       this.setData(createDateDraftPatch(this, selected.year, selected.month, selected.day));
     },
@@ -470,29 +530,47 @@ function writeDatePagerState(
   instance._datePager = state;
 }
 
+function finishDateSwiperAt(instance: WorkflowPickerInstance, current: number): void {
+  const state = readDatePagerState(instance);
+  if (!isCalendarPeriodSlot(current)) return;
+  if (current === state.activeSlot) {
+    if (state.targetSlot === undefined) return;
+    cancelCalendarPeriodShift(state);
+    writeDatePagerState(instance, state);
+    instance._datePendingSelection = undefined;
+    return;
+  }
+  const committed = commitCalendarPeriodSwipe(state, current);
+  if (committed === undefined) return;
+  writeDatePagerState(instance, state);
+  applyDatePeriodChange(instance, committed.delta);
+}
+
 function resetDatePager(instance: WorkflowPickerInstance): void {
   instance._datePager = createCalendarPeriodPagerState();
-  instance._dateLocateTarget = undefined;
   instance._datePendingSelection = undefined;
 }
 
-function startDateProgrammaticShift(
+function startDateProgrammaticShift(instance: WorkflowPickerInstance, delta: -1 | 1): void {
+  const next = new Date(Date.UTC(instance.data.draftYear, instance.data.draftMonth - 1 + delta, 1));
+  const year = next.getUTCFullYear();
+  const month = next.getUTCMonth() + 1;
+  const day = Math.min(instance.data.draftDay, createDayValues(year, month).length);
+  startDatePeriodShift(instance, delta, year, month, day);
+}
+
+function startDatePeriodShift(
   instance: WorkflowPickerInstance,
   delta: -1 | 1,
-  locateTarget?: { readonly day: number; readonly month: number; readonly year: number },
+  year: number,
+  month: number,
+  day: number,
 ): void {
   const state = readDatePagerState(instance);
   const request = requestCalendarPeriodShift(state, delta);
   writeDatePagerState(instance, state);
   if (!request.started) return;
 
-  const next = new Date(Date.UTC(instance.data.draftYear, instance.data.draftMonth - 1 + delta, 1));
-  const year = next.getUTCFullYear();
-  const month = next.getUTCMonth() + 1;
-  const day = Math.min(
-    locateTarget?.day ?? instance.data.draftDay,
-    createDayValues(year, month).length,
-  );
   const targetPanel = createDatePanel(
     year,
     month,
@@ -515,8 +593,6 @@ function startDateProgrammaticShift(
         );
   const datePanels = placeCalendarPeriodTarget(currentPanels, state.activeSlot, delta, targetPanel);
   instance._datePendingSelection = { day, month, year };
-  if (locateTarget !== undefined) instance._dateLocateTarget = locateTarget;
-  else instance._dateLocateTarget = undefined;
   const generation = instance.data.wheelGeneration;
   instance.setData({ datePanels }, () => {
     const currentState = readDatePagerState(instance);
@@ -527,11 +603,110 @@ function startDateProgrammaticShift(
     ) {
       return;
     }
+    if (instance.data.skyline3172UiCompatibility) {
+      // The affected runtime cannot animate a programmatic swiper jump, so the
+      // month slides one native panel instead and settles when the scroll stops.
+      instance._dateCompatRequestedSlot = request.targetSlot;
+      instance.setData({
+        datePagerAnimated: true,
+        datePagerTarget: createCalendarPeriodPaneId('date-pane-', request.targetSlot),
+      });
+      return;
+    }
     instance.setData({
       dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
       dateSwiperIndex: request.targetSlot,
     });
   });
+}
+
+// One slide, whatever the distance: the ring is re-centred on the month that is
+// already on screen, then the platform animates a single panel over to today.
+function startDateCompatLocate(
+  instance: WorkflowPickerInstance,
+  today: { readonly day: number; readonly month: number; readonly year: number },
+): void {
+  const days = createDayValues(today.year, today.month);
+  const day = Math.min(today.day, days.length);
+  clearDateCompatSettle(instance);
+  instance._dateCompatRequestedSlot = undefined;
+  instance._dateCompatGesture = false;
+  const currentIndex = instance.data.draftYear * 12 + instance.data.draftMonth - 1;
+  const targetIndex = today.year * 12 + today.month - 1;
+  const draftYear = instance.data.draftYear;
+  const draftMonth = instance.data.draftMonth;
+  const draftDay = instance.data.draftDay;
+  resetDatePager(instance);
+  instance._datePendingSelection = undefined;
+  instance.setData(createDateDraftPatch(instance, draftYear, draftMonth, draftDay), () => {
+    if (targetIndex === currentIndex) {
+      instance.setData(createDateDraftPatch(instance, today.year, today.month, day));
+      return;
+    }
+    startDatePeriodShift(
+      instance,
+      targetIndex < currentIndex ? -1 : 1,
+      today.year,
+      today.month,
+      day,
+    );
+  });
+}
+
+function measureCompatPanes(instance: WorkflowPickerInstance): void {
+  if (!instance.data.skyline3172UiCompatibility) return;
+  measureCalendarPeriodPaneWidth(instance, '.workflow-picker-date-swiper.is-compat', (width) => {
+    const datePaneStyle = `width:${width}px`;
+    if (instance.data.datePaneStyle !== datePaneStyle) instance.setData({ datePaneStyle });
+  });
+}
+
+function clearDateCompatSettle(instance: WorkflowPickerInstance): void {
+  if (instance._dateCompatTimer !== undefined) {
+    clearTimeout(instance._dateCompatTimer);
+    instance._dateCompatTimer = undefined;
+  }
+}
+
+function scheduleDateCompatSettle(instance: WorkflowPickerInstance): void {
+  clearDateCompatSettle(instance);
+  instance._dateCompatTimer = setTimeout(() => {
+    instance._dateCompatTimer = undefined;
+    settleDateCompatScroll(instance);
+  }, CALENDAR_PERIOD_SCROLL_SETTLE_MS);
+}
+
+function nearestDateCompatSlot(instance: WorkflowPickerInstance): CalendarPeriodSlot | undefined {
+  return nearestCalendarPeriodScrollSlot(instance._dateCompatMetrics);
+}
+
+// A gesture swipe has no queued target, so the panel the scroll settled on is
+// prepared here — the same preparation the swiper gets from its change event.
+function prepareCompatDateTarget(instance: WorkflowPickerInstance): void {
+  const slot = nearestDateCompatSlot(instance);
+  if (slot === undefined) return;
+  const state = readDatePagerState(instance);
+  if (!prepareCalendarPeriodChange(state, slot)) return;
+  writeDatePagerState(instance, state);
+  const panel = instance.data.datePanels[slot];
+  if (panel === undefined) return;
+  const days = createDayValues(panel.year, panel.month);
+  instance._datePendingSelection = {
+    day: Math.min(instance.data.draftDay, days.length),
+    month: panel.month,
+    year: panel.year,
+  };
+}
+
+function settleDateCompatScroll(instance: WorkflowPickerInstance): void {
+  if (!instance.data.open || !instance.data.skyline3172UiCompatibility) return;
+  const requested = instance._dateCompatRequestedSlot;
+  instance._dateCompatRequestedSlot = undefined;
+  prepareCompatDateTarget(instance);
+  const slot = requested ?? nearestDateCompatSlot(instance);
+  const state = readDatePagerState(instance);
+  if (slot === undefined || slot === state.activeSlot) return;
+  finishDateSwiperAt(instance, slot);
 }
 
 function applyDatePeriodChange(instance: WorkflowPickerInstance, delta: -1 | 1): void {
@@ -552,17 +727,6 @@ function finishDatePeriodShift(instance: WorkflowPickerInstance): void {
   const state = readDatePagerState(instance);
   const settled = finishCalendarPeriodShift(state);
   writeDatePagerState(instance, state);
-  const locateTarget = instance._dateLocateTarget;
-  if (locateTarget !== undefined) {
-    const targetMonth = formatMonthValue(locateTarget.year, locateTarget.month);
-    const currentMonth = formatMonthValue(instance.data.draftYear, instance.data.draftMonth);
-    if (currentMonth !== targetMonth) {
-      const delta: -1 | 1 = targetMonth < currentMonth ? -1 : 1;
-      startDateProgrammaticShift(instance, delta, locateTarget);
-      return;
-    }
-    instance._dateLocateTarget = undefined;
-  }
   if (!settled.continues) return;
   const delta = takeQueuedCalendarPeriodShift(state);
   writeDatePagerState(instance, state);
@@ -602,6 +766,75 @@ function beginWheelGeneration(instance: WorkflowPickerInstance): Readonly<Record
     ...createWheelRuntimePatch(instance),
     wheelGeneration: nextWheelGeneration(instance),
   };
+}
+
+function createTemporalDraft(
+  instance: WorkflowPickerInstance,
+  wheelRuntime: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const fallback = currentChinaDateParts();
+  const temporal = parseTemporalValue(instance.properties.value) ?? fallback;
+  const centerYear = temporal.year;
+  const years = createYearValues(centerYear);
+  const yearIndex = Math.max(0, years.indexOf(centerYear));
+  const monthIndex = temporal.month - 1;
+  const days = createDayValues(centerYear, temporal.month);
+  const draftDay = Math.min(temporal.day ?? 1, days.length);
+  return {
+    dateCells: createDateCells(
+      centerYear,
+      temporal.month,
+      draftDay,
+      instance.properties.min,
+      instance.properties.max,
+    ),
+    datePanels: createDatePanels(
+      centerYear,
+      temporal.month,
+      draftDay,
+      instance.properties.min,
+      instance.properties.max,
+    ),
+    dateSwiperIndex: 1,
+    dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
+    dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
+    dateLocateAnimating: false,
+    days,
+    draftDay,
+    draftDisplayValue: formatTemporalDisplay(
+      instance.properties.mode === 'date' ? 'date' : 'month',
+      centerYear,
+      temporal.month,
+      draftDay,
+    ),
+    draftIndices: [yearIndex, monthIndex, draftDay - 1],
+    draftMonth: temporal.month,
+    draftYear: centerYear,
+    monthWheelItems: createWheelOptions(monthValues, '月'),
+    monthWheelSettledIndex: monthIndex,
+    open: true,
+    popoverPlacement: 'down',
+    yearWheelItems: createWheelOptions(years, '年'),
+    yearWheelSettledIndex: yearIndex,
+    years,
+    ...wheelRuntime,
+  };
+}
+
+function needsHostedDialog(instance: WorkflowPickerInstance): boolean {
+  return (
+    !instance.properties.dialogOnly &&
+    instance.properties.hostKey !== '' &&
+    instance.data.skyline3172UiCompatibility
+  );
+}
+
+function findHostedTrigger(hostKey: string): WorkflowPickerInstance | undefined {
+  if (hostKey === '') return undefined;
+  for (const picker of pickerInstances) {
+    if (!picker.properties.dialogOnly && picker.properties.hostKey === hostKey) return picker;
+  }
+  return undefined;
 }
 
 function closePicker(instance: WorkflowPickerInstance): void {
@@ -673,6 +906,7 @@ function createWheelOptions(
   return values.map((value) => ({
     ariaLabel: `${value}${unit}`,
     label: String(value),
+    unit,
   }));
 }
 
@@ -695,6 +929,8 @@ function createDateDraftPatch(
     ),
     dateSwiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
     dateSwiperIndex: activeSlot,
+    datePagerAnimated: false,
+    datePagerTarget: createCalendarPeriodPaneId('date-pane-', activeSlot),
     days: createDayValues(year, month),
     draftDay: day,
     draftDisplayValue: formatTemporalDisplay('date', year, month, day),
@@ -816,10 +1052,6 @@ function formatDateValue(value: {
   readonly year: number;
 }): string {
   return `${value.year}-${pad(value.month)}-${pad(value.day)}`;
-}
-
-function formatMonthValue(year: number, month: number): string {
-  return `${year}-${pad(month)}`;
 }
 
 function parseTemporalValue(

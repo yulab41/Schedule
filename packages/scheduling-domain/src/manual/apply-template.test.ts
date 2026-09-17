@@ -175,7 +175,7 @@ describe('applyManualTemplate', () => {
     expect(result.assignments.at(-1)?.businessDate).toBe('2026-08-30');
   });
 
-  it('rejects 21 members, 31 days, 601 cells, and a 31-day apply range', () => {
+  it('rejects 21 members, 31-day templates, and 601 template cells', () => {
     const members = maximumMembers();
     const cells = maximumCells(members);
     const extraMember: ManualApplyMember = {
@@ -200,9 +200,6 @@ describe('applyManualTemplate', () => {
         }),
       ),
     ).toThrow(/cells/u);
-    expect(() =>
-      applyManualTemplate(baseInput({ endDate: '2026-08-31', startDate: '2026-08-01' })),
-    ).toThrow(/30 days/u);
   });
 
   it('truncates correctly when the end date falls inside a cycle', () => {
@@ -482,6 +479,28 @@ describe('applyManualTemplate', () => {
       '2028-02-29',
       '2028-03-01',
     ]);
+  });
+
+  it('repeats a short template across a full year but rejects longer ranges', () => {
+    const result = applyManualTemplate(
+      baseInput({
+        cells: [cell(1, owner.membershipId, allDayShift.id)],
+        cycleDays: 1,
+        endDate: '2027-01-01',
+        startDate: '2026-01-01',
+      }),
+    );
+    expect(result.assignments).toHaveLength(366);
+    expect(() =>
+      applyManualTemplate(
+        baseInput({
+          cells: [cell(1, owner.membershipId, allDayShift.id)],
+          cycleDays: 1,
+          endDate: '2027-01-02',
+          startDate: '2026-01-01',
+        }),
+      ),
+    ).toThrow(/366 days/u);
   });
 
   it('rejects invalid cycles, dates, and duplicate cells', () => {

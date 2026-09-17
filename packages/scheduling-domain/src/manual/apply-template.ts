@@ -1,5 +1,6 @@
 import {
   MAX_MANUAL_CELLS,
+  MAX_MANUAL_APPLY_DAYS,
   MAX_MANUAL_DAYS,
   MAX_MANUAL_MEMBERS,
   isManualScheduleDateRangeWithinLimit,
@@ -189,7 +190,7 @@ function assertApplyTemplateInput(input: ManualApplyTemplateInput): void {
     throw new Error('The apply end date cannot precede the template start date.');
   }
   if (!isManualScheduleDateRangeWithinLimit(input.startDate, applyEndDate)) {
-    throw new Error(`The manual apply date range must not exceed ${MAX_MANUAL_DAYS} days.`);
+    throw new Error(`The manual apply date range must not exceed ${MAX_MANUAL_APPLY_DAYS} days.`);
   }
 
   const memberIds = new Set(input.members.map((member) => member.membershipId));

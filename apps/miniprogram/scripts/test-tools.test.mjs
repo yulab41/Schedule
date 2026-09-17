@@ -214,6 +214,51 @@ describe('safe Mini test tools', () => {
     expect(runtime.getStorageInfoSync).not.toHaveBeenCalled();
   });
 
+  it('reports the real Skyline renderer version and support state from wx.getSkylineInfo', async () => {
+    const runtime = createWx('trial', vi.fn());
+    runtime.getSkylineInfo = (options) => options.success({ isSupported: true, version: '1.4.22' });
+
+    const instance = await bootTestTools(runtime);
+
+    expect(deviceRow(instance, 'Skyline 支持')).toMatchObject({ status: 'good', value: '支持' });
+    expect(deviceRow(instance, 'Skyline 版本')).toMatchObject({
+      status: 'good',
+      value: '1.4.22',
+    });
+  });
+
+  it('fails closed when Skyline info is missing, fails, or carries no version', async () => {
+    const withoutApi = createWx('trial', vi.fn());
+    delete withoutApi.getSkylineInfo;
+    const missing = await bootTestTools(withoutApi);
+    expect(deviceRow(missing, 'Skyline 支持')).toMatchObject({
+      status: 'unavailable',
+      value: '当前微信版本不支持读取',
+    });
+    expect(deviceRow(missing, 'Skyline 版本')).toMatchObject({
+      status: 'unavailable',
+      value: '当前微信版本不支持读取',
+    });
+
+    const failing = createWx('trial', vi.fn());
+    failing.getSkylineInfo = (options) => options.fail();
+    const failed = await bootTestTools(failing);
+    expect(deviceRow(failed, 'Skyline 版本').value).toBe('当前微信版本不支持读取');
+
+    const webview = createWx('trial', vi.fn());
+    webview.getSkylineInfo = (options) =>
+      options.success({ isSupported: false, reason: 'client not supported' });
+    const unsupported = await bootTestTools(webview);
+    expect(deviceRow(unsupported, 'Skyline 支持')).toMatchObject({
+      status: 'notice',
+      value: '当前微信客户端不支持 Skyline',
+    });
+    expect(deviceRow(unsupported, 'Skyline 版本')).toMatchObject({
+      status: 'unavailable',
+      value: '当前微信版本不支持读取',
+    });
+  });
+
   it('blocks the workbench handler in release without attempting navigation', async () => {
     let definition;
     const navigateTo = vi.fn();
@@ -270,7 +315,7 @@ describe('safe Mini test tools', () => {
     definition.handleCopyCodexReport.call(instance);
 
     const report = clipboard.mock.calls.at(-1)?.[0].data;
-    expect(report).toContain('[Codex 简化诊断报告 v1]');
+    expect(report).toContain('[Codex 简化诊断报告 v2]');
     expect(report).toContain('[设备与屏幕]');
     expect(report).toContain('[脱敏网络结果]');
     expect(report).toContain('/api/groups/:value/calendar');
@@ -468,14 +513,126 @@ describe('safe Mini test tools', () => {
     });
   });
 
+  it('classifies the isolated Grid, CSS token, and explicit scroll probes in the first-screen report', async () => {
+    let definition;
+    const clipboard = vi.fn((options) => options.success?.());
+    const runtime = createWx('trial', vi.fn());
+    runtime.createSelectorQuery = () =>
+      createRuntimeProbeQuery({
+        contentRect: { height: 1_200, width: 390 },
+        gridRects: [
+          { left: -1_000, right: -992, top: 0 },
+          { left: -988, right: -980, top: 0 },
+        ],
+        scrollRect: { height: 360, width: 390 },
+      });
+    runtime.setClipboardData = clipboard;
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
+
+    definition.handleRuntimeTokenMeasure.call(instance, { detail: { width: 44 } });
+    definition.onReady.call(instance);
+    await vi.waitFor(() => expect(instance.data.runtimeProbeSummary).toBe('自动测量正常'));
+
+    expect(instance.data.runtimeProbeRows.map((item) => item.status)).toEqual([
+      'good',
+      'good',
+      'good',
+    ]);
+    definition.handleCopyRuntimeReport.call(instance);
+    const report = clipboard.mock.calls.at(-1)?.[0].data;
+    expect(report).toContain('[首屏运行时兼容性诊断 v1]');
+    expect(report).toContain('[运行时兼容性]');
+    expect(report).toContain('Grid 双列=同行双列');
+    expect(report).toContain('CSS 变量继承=44px');
+    expect(report).not.toMatch(/Authorization|Cookie|openid|request body|response body/iu);
+  });
+
+  it('reports a block-flow Grid fallback and token fallback without changing business state', async () => {
+    let definition;
+    const runtime = createWx('trial', vi.fn());
+    runtime.createSelectorQuery = () =>
+      createRuntimeProbeQuery({
+        contentRect: { height: 1_200, width: 390 },
+        gridRects: [
+          { left: -1_000, right: -992, top: 0 },
+          { left: -1_000, right: -992, top: 12 },
+        ],
+        scrollRect: { height: 360, width: 390 },
+      });
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
+
+    definition.handleRuntimeTokenMeasure.call(instance, { detail: { width: 7 } });
+    definition.onReady.call(instance);
+    await vi.waitFor(() => expect(instance.data.runtimeProbeSummary).toBe('发现兼容性差异'));
+
+    expect(instance.data.runtimeProbeRows.slice(0, 2).map((item) => item.status)).toEqual([
+      'notice',
+      'notice',
+    ]);
+    expect(instance.data.runtimeProbeRows[0].value).toContain('已退化');
+    expect(instance.data.runtimeProbeRows[1].value).toContain('7px');
+    expect(instance.data.displayChecks).toEqual(definition.data.displayChecks);
+    expect(runtime.request).not.toHaveBeenCalled();
+  });
+
+  it('discards a late compatibility measurement after the diagnostics page is hidden', async () => {
+    let definition;
+    let completeQuery;
+    const runtime = createWx('trial', vi.fn());
+    runtime.createSelectorQuery = () =>
+      createDeferredRuntimeProbeQuery((complete) => {
+        completeQuery = complete;
+      });
+    vi.stubGlobal('wx', runtime);
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+    const instance = createPageInstance(definition);
+    definition.onLoad.call(instance);
+    await vi.waitFor(() => expect(instance.data.authorized).toBe(true));
+    definition.onReady.call(instance);
+    expect(instance.data.runtimeProbeSummary).toBe('正在自动测量');
+
+    definition.onHide.call(instance);
+    completeQuery();
+    await Promise.resolve();
+
+    expect(instance.data.authorized).toBe(false);
+    expect(instance._runtimeTokenWidth).toBeUndefined();
+    expect(instance.data.runtimeProbeSummary).toBe('等待自动测量');
+    expect(instance.data.runtimeProbeRows.every((item) => item.status === 'unavailable')).toBe(
+      true,
+    );
+  });
+
   it('keeps the current diagnostics additions within the verified Skyline-safe layout contract', () => {
     const template = readSource('subpackages/diagnostics/pages/test-tools/index.wxml');
     const styles = readSource('subpackages/diagnostics/pages/test-tools/index.wxss');
+    const pageSource = readSource('subpackages/diagnostics/pages/test-tools/index.ts');
     const pageConfig = JSON.parse(
       readSource('subpackages/diagnostics/pages/test-tools/index.json'),
     );
 
-    expect(styles).not.toMatch(/display:\s*grid|grid-template-columns/iu);
+    expect(styles.match(/display:\s*grid/giu)).toHaveLength(1);
+    expect(styles.match(/grid-template-columns/giu)).toHaveLength(1);
+    expect(cssRule(styles, '.runtime-grid-probe')).toMatch(
+      /display:\s*grid[\s\S]*grid-template-columns:\s*repeat\(2,\s*8px\)/iu,
+    );
     expect(styles).not.toContain('overflow-wrap: anywhere');
     expect(styles).not.toContain(':last-of-type');
     expect(styles.match(/word-break:\s*break-all/gu)).toHaveLength(4);
@@ -516,7 +673,53 @@ describe('safe Mini test tools', () => {
     expect(template).toMatch(
       /data-result="issue"\s+bindtap="handleScenarioResult"\s*>异常<\/view\s*>/u,
     );
-    expect(pageConfig.disableScroll).toBe(false);
+    expect(pageConfig.disableScroll).toBe(true);
+    expect(template).toContain(
+      '<scroll-view class="test-tools-scroll" scroll-y type="list" enhanced show-scrollbar="{{false}}">',
+    );
+    expect(template.indexOf('bindtap="handleCopyRuntimeReport"')).toBeGreaterThanOrEqual(0);
+    expect(template.indexOf('bindtap="handleCopyRuntimeReport"')).toBeLessThan(
+      template.indexOf('<scroll-view class="test-tools-scroll"'),
+    );
+    expect(template).toContain('bind:measure="handleRuntimeTokenMeasure"');
+    expect(pageSource).toContain("'[运行时兼容性]'");
+  });
+
+  it('keeps the wheel channel probe wired to the real wheel component and a page-level WXS', () => {
+    const template = readSource('subpackages/diagnostics/pages/test-tools/index.wxml');
+    const styles = readSource('subpackages/diagnostics/pages/test-tools/index.wxss');
+    const pageSource = readSource('subpackages/diagnostics/pages/test-tools/index.ts');
+    const gesture = readSource('subpackages/diagnostics/pages/test-tools/wheel-probe.wxs');
+    const pageConfig = JSON.parse(
+      readSource('subpackages/diagnostics/pages/test-tools/index.json'),
+    );
+
+    expect(pageConfig.usingComponents['ui-wheel-column']).toBe(
+      '/components/ui/ui-wheel-column/index',
+    );
+    expect(template).toContain('<wxs module="wheelProbe" src="./wheel-probe.wxs"></wxs>');
+    expect(template).toContain('bindtouchstart="{{wheelProbe.touchStart}}"');
+    expect(template).toContain('catchtouchmove="{{wheelProbe.touchMove}}"');
+    expect(template).toContain('bindtouchend="{{wheelProbe.touchEnd}}"');
+    expect(template).toContain('id="wheel-drag-probe-dot"');
+    expect(template).toContain('id="wheel-probe-column"');
+    expect(template).toContain('unit="号"');
+    expect(template).toContain('runtime-key="diagnostics-wheel-probe"');
+    expect(template).toContain('bindpreviewchange="handleWheelProbePreview"');
+    expect(template).toContain('bindsettle="handleWheelProbeSettle"');
+    expect(template).toContain('bindpress="handleCollectWheelProbe"');
+
+    expect(gesture).toContain("selectComponent('#wheel-drag-probe-dot')");
+    expect(gesture).toContain("callMethod('handleWheelDragProbeMove'");
+    expect(gesture).toContain("callMethod('handleWheelDragProbeEnd'");
+
+    expect(pageSource).toContain('function collectWheelChannelProbe');
+    expect(pageSource).toContain('function finishWheelChannelProbe');
+    expect(pageSource).toContain("select('#ui-wheel-track')");
+    expect(pageSource).toContain("selectAll('.ui-wheel-number')");
+    expect(pageSource).toContain('createSelectorQuery?.()');
+    expect(pageSource).toContain("copyText(report, '滚轮探针已复制')");
+    expect(cssRule(styles, '.wheel-drag-probe')).toMatch(/touch-action:\s*none/iu);
   });
 });
 
@@ -629,6 +832,7 @@ function createWx(envVersion, request) {
       width: 80,
     }),
     getNetworkType: (options) => options.success({ networkType: 'wifi' }),
+    getSkylineInfo: (options) => options.success({ isSupported: true, version: '1.4.22' }),
     getStorageInfoSync: () => ({ currentSize: 12, keys: ['cache.v2:private'], limitSize: 10240 }),
     getStorageSync: (key) => storage.get(key),
     getSystemSetting: () => ({ deviceOrientation: 'portrait' }),
@@ -649,6 +853,67 @@ function createWx(envVersion, request) {
   };
 }
 
+function createRuntimeProbeQuery({ contentRect, gridRects, scrollRect }) {
+  const query = {
+    exec(callback) {
+      callback?.();
+    },
+    select(selector) {
+      return {
+        boundingClientRect(callback) {
+          callback(selector === '.test-tools-scroll' ? scrollRect : contentRect);
+          return query;
+        },
+      };
+    },
+    selectAll() {
+      return {
+        boundingClientRect(callback) {
+          callback(gridRects);
+          return query;
+        },
+      };
+    },
+  };
+  return query;
+}
+
+function createDeferredRuntimeProbeQuery(registered) {
+  const callbacks = { content: undefined, grid: undefined, scroll: undefined };
+  let done;
+  const query = {
+    exec(callback) {
+      done = callback;
+      registered(() => {
+        callbacks.grid?.([
+          { left: -1_000, right: -992, top: 0 },
+          { left: -988, right: -980, top: 0 },
+        ]);
+        callbacks.scroll?.({ height: 360, width: 390 });
+        callbacks.content?.({ height: 1_200, width: 390 });
+        done?.();
+      });
+    },
+    select(selector) {
+      return {
+        boundingClientRect(callback) {
+          callbacks[selector === '.test-tools-scroll' ? 'scroll' : 'content'] = callback;
+          return query;
+        },
+      };
+    },
+    selectAll() {
+      return {
+        boundingClientRect(callback) {
+          callbacks.grid = callback;
+          return query;
+        },
+      };
+    },
+  };
+  return query;
+}
+
 function createPageInstance(definition) {
   const data = structuredClone(definition.data);
   return {
@@ -658,4 +923,22 @@ function createPageInstance(definition) {
       callback?.();
     },
   };
+}
+
+async function bootTestTools(runtime) {
+  let definition;
+  vi.resetModules();
+  vi.stubGlobal('wx', runtime);
+  vi.stubGlobal('Page', (value) => {
+    definition = value;
+  });
+  await import('../src/subpackages/diagnostics/pages/test-tools/index.ts');
+  const instance = createPageInstance(definition);
+  definition.onLoad.call(instance);
+  await vi.waitFor(() => expect(instance.data.deviceRows.length).toBeGreaterThan(0));
+  return instance;
+}
+
+function deviceRow(instance, label) {
+  return instance.data.deviceRows.find((row) => row.label === label);
 }

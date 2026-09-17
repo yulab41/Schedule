@@ -1,9 +1,11 @@
 {
-  "disableScroll": false,
+  "disableScroll": true,
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "runtime-style-probe": "../../components/runtime-style-probe/index",
     "ui-button": "/components/ui/ui-button/index",
-    "ui-checkbox": "/components/ui/ui-checkbox/index"
+    "ui-checkbox": "/components/ui/ui-checkbox/index",
+    "ui-wheel-column": "/components/ui/ui-wheel-column/index"
   }
 }

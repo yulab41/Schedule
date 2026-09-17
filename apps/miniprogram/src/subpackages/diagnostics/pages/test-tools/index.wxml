@@ -1,412 +1,584 @@
+<wxs module="wheelProbe" src="./wheel-probe.wxs"></wxs>
 <block wx:if="{{authorized}}">
-  <view class="test-tools-page">
-    <view class="test-tools-header">
-      <view
-        class="header-back"
-        hover-class="is-pressed"
-        aria-role="button"
-        aria-label="返回更多"
-        bindtap="handleBack"
-        ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
-      /></view>
-      <view class="header-copy">
-        <text class="header-kicker">安全诊断</text>
-        <text class="header-title">测试工具</text>
-      </view>
-      <view
-        class="header-refresh"
-        hover-class="is-pressed"
-        aria-role="button"
-        bindtap="handleRefresh"
-        >刷新</view
-      >
-    </view>
-
-    <view class="build-strip">
-      <view class="build-strip-top">
-        <text class="build-status-dot"></text>
-        <text>{{environmentLabel}}</text>
-        <text class="build-safe-label">内存有界 · 已脱敏</text>
-      </view>
-      <text class="build-strip-version">{{buildRows[0].value}}</text>
-      <text class="build-strip-note">先截这一区域。它用来确认手机截图对应哪一版代码。</text>
-    </view>
-
-    <view class="safety-note">
-      <text>本页不会显示或复制账号、姓名、手机号、群组成员、凭证、请求正文或原始堆栈。</text>
-      <text>微信开发者工具和视觉黄金只能辅助检查；最终以小米 14 体验版为准。</text>
-    </view>
-
-    <view class="diagnostic-section">
-      <view class="section-heading">
+  <view class="test-tools-shell">
+    <view class="test-tools-first-screen">
+      <view class="test-tools-header">
         <view
-          ><text class="section-index">01</text><text class="section-title">当前版本</text></view
+          class="header-back"
+          hover-class="is-pressed"
+          aria-role="button"
+          aria-label="返回更多"
+          bindtap="handleBack"
+          ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
+        /></view>
+        <view class="header-copy">
+          <text class="header-kicker">安全诊断</text>
+          <text class="header-title">测试工具</text>
+        </view>
+        <view
+          class="header-refresh"
+          hover-class="is-pressed"
+          aria-role="button"
+          bindtap="handleRefresh"
+          >刷新</view
         >
-        <text class="section-note">是否正常：SHA、环境和构建时间应与本轮说明一致。</text>
       </view>
-      <view class="diagnostic-card">
-        <view wx:for="{{buildRows}}" wx:key="label" class="diagnostic-row">
-          <view class="row-top">
-            <text class="row-status is-{{item.status}}">{{item.statusLabel}}</text>
-            <text class="row-label">{{item.label}}</text>
+
+      <view class="build-strip">
+        <view class="build-strip-top">
+          <text class="build-status-dot"></text>
+          <text>{{environmentLabel}}</text>
+          <text class="build-safe-label">内存有界 · 已脱敏</text>
+        </view>
+        <text class="build-strip-version">{{buildRows[0].value}}</text>
+        <text class="build-strip-note">先截这一区域。它用来确认手机截图对应哪一版代码。</text>
+      </view>
+
+      <view class="runtime-compat-card">
+        <view class="runtime-compat-heading">
+          <view
+            ><text class="runtime-compat-kicker">无需下滑 · 一次复制</text
+            ><text class="runtime-compat-title">运行时兼容性</text></view
+          >
+          <text class="runtime-compat-summary is-{{runtimeProbeTone}}"
+            >{{runtimeProbeSummary}}</text
+          >
+        </view>
+        <view class="runtime-compat-results">
+          <view wx:for="{{runtimeProbeRows}}" wx:key="label" class="runtime-compat-result">
+            <text>{{item.label}}</text><text class="is-{{item.status}}">{{item.statusLabel}}</text
+            ><text>{{item.value}}</text>
           </view>
-          <text class="row-value">{{item.value}}</text>
-          <text class="row-explanation">可能影响：{{item.explanation}}</text>
-          <text class="row-screenshot">应截图：{{item.screenshot}}</text>
         </view>
+        <view class="runtime-visual-check">
+          <view class="runtime-css-spinner" aria-hidden="true"></view>
+          <image src="/assets/icons/ui-info-circle.svg" mode="aspectFit" aria-hidden="true" />
+          <text>左侧应为圆形缺口，右侧应为完整圆形。若左侧像尖角，请截图本卡片。</text>
+        </view>
+        <view
+          class="runtime-copy-action"
+          hover-class="is-pressed"
+          aria-role="button"
+          bindtap="handleCopyRuntimeReport"
+          >复制首屏诊断</view
+        >
+        <view class="runtime-grid-probe" aria-hidden="true"
+          ><view class="runtime-grid-probe__cell"></view
+          ><view class="runtime-grid-probe__cell"></view
+        ></view>
+        <runtime-style-probe
+          class="runtime-token-probe"
+          bind:measure="handleRuntimeTokenMeasure"
+        ></runtime-style-probe>
       </view>
     </view>
 
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">02</text
-          ><text class="section-title">手机与微信环境</text></view
-        >
-        <text class="section-note"
-          >是否正常：能读取到的字段用于定位机型差异；“暂未验证”不会导致页面崩溃。</text
-        >
-      </view>
-      <view class="diagnostic-card">
-        <view wx:for="{{deviceRows}}" wx:key="label" class="diagnostic-row">
-          <view class="row-top">
-            <text class="row-status is-{{item.status}}">{{item.statusLabel}}</text>
-            <text class="row-label">{{item.label}}</text>
-          </view>
-          <text class="row-value">{{item.value}}</text>
-          <text class="row-explanation">可能影响：{{item.explanation}}</text>
-          <text class="row-screenshot">应截图：{{item.screenshot}}</text>
+    <scroll-view class="test-tools-scroll" scroll-y type="list" enhanced show-scrollbar="{{false}}">
+      <view class="test-tools-page test-tools-scroll-content">
+        <view class="safety-note">
+          <text>本页不会显示或复制账号、姓名、手机号、群组成员、凭证、请求正文或原始堆栈。</text>
+          <text>微信开发者工具和视觉黄金只能辅助检查；最终以小米 14 体验版为准。</text>
         </view>
-      </view>
-    </view>
 
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">03</text
-          ><text class="section-title">页面显示检查</text></view
-        >
-        <text class="section-note">勾选代表发现异常；没有异常时点“全部正常”。</text>
-      </view>
-      <view
-        class="check-summary {{checkSummary === '全部正常' ? 'is-good' : checkSummary === '尚未检查' ? '' : 'is-issue'}}"
-        >{{checkSummary}}</view
-      >
-      <view class="diagnostic-card check-card">
-        <view wx:for="{{displayChecks}}" wx:key="id" class="check-item" data-check-id="{{item.id}}">
-          <ui-checkbox
-            label="{{item.label}}"
-            checked="{{item.checked}}"
-            data-check-id="{{item.id}}"
-            bindchange="handleCheckChange"
-          ></ui-checkbox>
-          <text>可能影响：{{item.impact}}</text>
-          <text>应截图：{{item.screenshot}}</text>
-        </view>
-        <view class="two-actions">
-          <ui-button label="全部正常" variant="secondary" bindpress="handleAllNormal"></ui-button>
-          <ui-button label="发现异常" variant="danger" bindpress="handleIssueMode"></ui-button>
-        </view>
-        <ui-button label="复制检查结果" variant="ghost" bindpress="handleCopyChecks"></ui-button>
-      </view>
-    </view>
-
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">04</text
-          ><text class="section-title">关键测试场景</text></view
-        >
-        <text class="section-note">每项先按路径操作，再标记正常或异常；异常时按指定位置截图。</text>
-      </view>
-      <view wx:for="{{scenarios}}" wx:key="id" class="scenario-card">
-        <view class="scenario-title-row"
-          ><text>{{item.title}}</text
-          ><text class="scenario-result is-{{item.result}}">{{item.resultLabel}}</text></view
-        >
-        <text class="scenario-path">点击路径：{{item.path}}</text>
-        <text>观察：{{item.observe}}</text>
-        <text>正常结果：{{item.normal}}</text>
-        <text class="scenario-screenshot">应截图：{{item.screenshot}}</text>
-        <view class="scenario-actions">
-          <view
-            wx:if="{{item.action === 'gesture'}}"
-            class="scenario-link"
-            hover-class="is-pressed"
-            bindtap="handleOpenGestureProbe"
-            >{{item.actionLabel}}</view
-          >
-          <view wx:else class="scenario-link" hover-class="is-pressed" bindtap="handleOpenWorkspace"
-            >{{item.actionLabel}}</view
-          >
-          <view
-            class="scenario-mark is-pass"
-            data-scenario-id="{{item.id}}"
-            data-result="passed"
-            bindtap="handleScenarioResult"
-            >正常</view
-          >
-          <view
-            class="scenario-mark is-fail"
-            data-scenario-id="{{item.id}}"
-            data-result="issue"
-            bindtap="handleScenarioResult"
-            >异常</view
-          >
-        </view>
-      </view>
-    </view>
-
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">05</text><text class="section-title">性能信息</text></view
-        >
-        <text class="section-note">这些是少量单次辅助值，不是手机端性能验收结论。</text>
-      </view>
-      <view class="metric-lead"><text>测试工具首屏</text><text>{{pageReadyMs}} ms</text></view>
-      <view class="diagnostic-card directory-diagnostic-card">
-        <view class="directory-diagnostic-heading">
-          <view>
-            <text class="directory-diagnostic-title">通讯录性能诊断</text>
-            <text class="directory-diagnostic-state {{directoryRecording ? 'is-recording' : ''}}"
-              >{{directoryRecording ? '正在记录' : '已停止'}}</text
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">01</text
+              ><text class="section-title">当前版本</text></view
             >
+            <text class="section-note">是否正常：SHA、环境和构建时间应与本轮说明一致。</text>
           </view>
-          <text>只在开发版和体验版的内存中保存最近 20 次，不写入本地存储。</text>
-        </view>
-        <view class="directory-diagnostic-actions">
-          <view
-            class="diagnostic-action is-primary {{directoryRecording ? 'is-disabled' : ''}}"
-            aria-role="button"
-            aria-disabled="{{directoryRecording}}"
-            bindtap="handleStartDirectoryRecording"
-            >开始记录</view
-          >
-          <view
-            class="diagnostic-action {{directoryRecording ? '' : 'is-disabled'}}"
-            aria-role="button"
-            aria-disabled="{{!directoryRecording}}"
-            bindtap="handleStopDirectoryRecording"
-            >停止记录</view
-          >
-          <view class="diagnostic-action" aria-role="button" bindtap="handleClearDirectoryRecords"
-            >清空记录</view
-          >
-          <view
-            class="diagnostic-action"
-            aria-role="button"
-            bindtap="handleCopyLatestDirectorySearch"
-            >复制最近一次</view
-          >
-          <view
-            class="diagnostic-action"
-            aria-role="button"
-            bindtap="handleCopyRecentDirectorySearches"
-            >复制最近 10 次</view
-          >
-          <view
-            class="diagnostic-action is-primary {{nextLaunchDirectoryDiagnosticArmed ? 'is-disabled' : ''}}"
-            aria-role="button"
-            aria-disabled="{{nextLaunchDirectoryDiagnosticArmed}}"
-            bindtap="handleArmNextLaunchDirectoryRecording"
-            >下次 App 启动首次搜索诊断</view
-          >
-          <view
-            class="diagnostic-action {{nextLaunchDirectoryDiagnosticArmed ? '' : 'is-disabled'}}"
-            aria-role="button"
-            aria-disabled="{{!nextLaunchDirectoryDiagnosticArmed}}"
-            bindtap="handleCancelNextLaunchDirectoryRecording"
-            >取消下次启动诊断</view
-          >
-        </view>
-        <text class="directory-next-launch-state"
-          >{{nextLaunchDirectoryDiagnosticArmed ? '已设置：完全关闭后重新进入小程序，标记会在新的
-          App.onLaunch 中立即消费' : '未设置下次 App 启动诊断'}}</text
-        >
-        <view class="directory-diagnostic-steps">
-          <text>标准步骤</text>
-          <text>1. 页面会话诊断可点“开始记录”；下次启动首搜请点“下次 App 启动首次搜索诊断”。</text>
-          <text>2. 完全关闭并重新进入小程序，直接打开通讯录完成第一次搜索。</text>
-          <text
-            >3. 再做相同条件第二次、不同关键词、带筛选和科室搜索；条件允许时比较
-            Wi-Fi/移动网络。</text
-          >
-          <text>4. 回到“更多 → 测试工具”，点“停止记录”，再复制最近 10 次发给 Codex。</text>
-        </view>
-        <view class="directory-diagnostic-recent">
-          <text class="directory-diagnostic-subtitle"
-            >最近搜索（{{directorySearchRows.length}}）</text
-          >
-          <view wx:if="{{directorySearchRows.length === 0}}" class="empty-diagnostic"
-            >尚无记录。开始记录后去通讯录完成一次搜索。</view
-          >
-          <view wx:for="{{directorySearchRows}}" wx:key="key" class="directory-search-record">
-            <view>
-              <text>{{item.modeLabel}} · {{item.searchTypeLabel}} · {{item.outcomeLabel}}</text>
-              <text>{{item.totalMs}} ms</text>
+          <view class="diagnostic-card">
+            <view wx:for="{{buildRows}}" wx:key="label" class="diagnostic-row">
+              <view class="row-top">
+                <text class="row-status is-{{item.status}}">{{item.statusLabel}}</text>
+                <text class="row-label">{{item.label}}</text>
+              </view>
+              <text class="row-value">{{item.value}}</text>
+              <text class="row-explanation">可能影响：{{item.explanation}}</text>
+              <text class="row-screenshot">应截图：{{item.screenshot}}</text>
             </view>
-            <text
-              >序号 {{item.diagnosticId}} · 长度 {{item.searchTermLength}} · 返回
-              {{item.resultCount}} 条 · 筛选 {{item.hasFilters ? '有' : '无'}}</text
-            >
-            <text
-              >请求前 {{item.facetsOrReleaseWaitMs}} ms · 网络响应 {{item.networkResponseMs}} ms ·
-              转换 {{item.responseToConversionMs}} ms · 卡片 {{item.cardBuildMs}} ms ·
-              下一渲染周期完成 {{item.nextRenderCycleMs}} ms</text
-            >
-            <text
-              >setData {{item.setDataCallCount}} 次 / {{item.setDataTotalBytes}} B（估算） ·
-              profileEnabled {{item.profileEnabled ? '是' : '否'}} · 诊断序列化
-              {{item.diagnosticSerializationMs}} ms · request ID {{item.requestId}}</text
-            >
-            <text
-              >记录总耗时包含诊断附加开销；setData 提交和 wx.nextTick
-              都不代表用户已看到首张卡片。{{item.truncated ? '本条已安全截断。' : ''}}</text
-            >
           </view>
         </view>
-      </view>
-      <view class="diagnostic-card compact-list">
-        <view class="export-boundary-card">
-          <view class="directory-diagnostic-heading">
-            <view>
-              <text class="directory-diagnostic-title">导出页启动边界</text>
-              <text class="directory-diagnostic-state">只记录固定阶段，不记录原始错误或业务参数</text>
+
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">02</text
+              ><text class="section-title">手机与微信环境</text></view
+            >
+            <text class="section-note"
+              >是否正常：能读取到的字段用于定位机型差异；“暂未验证”不会导致页面崩溃。</text
+            >
+          </view>
+          <view class="diagnostic-card">
+            <view wx:for="{{deviceRows}}" wx:key="label" class="diagnostic-row">
+              <view class="row-top">
+                <text class="row-status is-{{item.status}}">{{item.statusLabel}}</text>
+                <text class="row-label">{{item.label}}</text>
+              </view>
+              <text class="row-value">{{item.value}}</text>
+              <text class="row-explanation">可能影响：{{item.explanation}}</text>
+              <text class="row-screenshot">应截图：{{item.screenshot}}</text>
             </view>
-            <text>用于区分页面未注册、未进入 onLoad、子组件未挂载和业务请求失败。</text>
           </view>
-          <view wx:if="{{exportBoundaryRows.length === 0}}" class="empty-diagnostic"
-            >暂无导出页边界记录；操作导出页后回来点“刷新”。</view
-          >
-          <view wx:for="{{exportBoundaryRows}}" wx:key="key" class="compact-item">
-            <text>{{item.metricLabel}}</text><text>{{item.timeLabel}}</text>
-            <text>应截图：版本条、导出页和本条阶段记录。</text>
-          </view>
-          <text class="directory-next-launch-state"
-            >启动阶段：module-registered → page-load → options-start → options-ready；无群组参数冷入口停留在提示页属于预期行为。</text
-          >
-          <view class="diagnostic-action is-primary" aria-role="button" bindtap="handleOpenExportColdEntry"
-            >打开导出页冷入口（无群组参数）</view
-          >
         </view>
-        <view wx:if="{{performanceRows.length === 0}}" class="empty-diagnostic"
-          >暂时没有性能记录。打开并操作业务页面后再回来刷新。</view
-        >
-        <view wx:for="{{performanceRows}}" wx:key="key" class="compact-item">
-          <text>{{item.metricLabel}}</text><text>{{item.durationMs}} ms</text>
-          <text>{{item.normalText}}</text><text>应截图：{{item.screenshot}}</text>
-        </view>
-      </view>
-    </view>
 
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">06</text><text class="section-title">网络诊断</text></view
-        >
-        <text class="section-note"
-          >当前网络：{{networkType}}。只保留脱敏路径、耗时、状态和重试次数；缓存命中和主动取消没有可靠统一数据，因此不伪造。</text
-        >
-      </view>
-      <view class="diagnostic-card compact-list">
-        <view wx:if="{{requestRows.length === 0}}" class="empty-diagnostic"
-          >暂时没有请求记录。操作业务页面后回来点“刷新”。</view
-        >
-        <view wx:for="{{requestRows}}" wx:key="key" class="request-item">
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">03</text
+              ><text class="section-title">页面显示检查</text></view
+            >
+            <text class="section-note">勾选代表发现异常；没有异常时点“全部正常”。</text>
+          </view>
           <view
-            ><text class="method-chip">{{item.method}}</text
-            ><text class="request-endpoint">{{item.endpoint}}</text></view
+            class="check-summary {{checkSummary === '全部正常' ? 'is-good' : checkSummary === '尚未检查' ? '' : 'is-issue'}}"
+            >{{checkSummary}}</view
           >
-          <text
-            >{{item.outcomeLabel}} · HTTP {{item.statusCode || '-'}} · {{item.durationMs}} ms · 重试
-            {{item.retryCount}} · 重复 {{item.duplicate ? '是' : '否'}}</text
+          <view class="diagnostic-card check-card">
+            <view
+              wx:for="{{displayChecks}}"
+              wx:key="id"
+              class="check-item"
+              data-check-id="{{item.id}}"
+            >
+              <ui-checkbox
+                label="{{item.label}}"
+                checked="{{item.checked}}"
+                data-check-id="{{item.id}}"
+                bindchange="handleCheckChange"
+              ></ui-checkbox>
+              <text>可能影响：{{item.impact}}</text>
+              <text>应截图：{{item.screenshot}}</text>
+            </view>
+            <view class="two-actions">
+              <ui-button
+                label="全部正常"
+                variant="secondary"
+                bindpress="handleAllNormal"
+              ></ui-button>
+              <ui-button label="发现异常" variant="danger" bindpress="handleIssueMode"></ui-button>
+            </view>
+            <ui-button
+              label="复制检查结果"
+              variant="ghost"
+              bindpress="handleCopyChecks"
+            ></ui-button>
+          </view>
+        </view>
+
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">04</text
+              ><text class="section-title">关键测试场景</text></view
+            >
+            <text class="section-note"
+              >每项先按路径操作，再标记正常或异常；异常时按指定位置截图。</text
+            >
+          </view>
+          <view wx:for="{{scenarios}}" wx:key="id" class="scenario-card">
+            <view class="scenario-title-row"
+              ><text>{{item.title}}</text
+              ><text class="scenario-result is-{{item.result}}">{{item.resultLabel}}</text></view
+            >
+            <text class="scenario-path">点击路径：{{item.path}}</text>
+            <text>观察：{{item.observe}}</text>
+            <text>正常结果：{{item.normal}}</text>
+            <text class="scenario-screenshot">应截图：{{item.screenshot}}</text>
+            <view class="scenario-actions">
+              <view
+                wx:if="{{item.action === 'gesture'}}"
+                class="scenario-link"
+                hover-class="is-pressed"
+                bindtap="handleOpenGestureProbe"
+                >{{item.actionLabel}}</view
+              >
+              <view
+                wx:else
+                class="scenario-link"
+                hover-class="is-pressed"
+                bindtap="handleOpenWorkspace"
+                >{{item.actionLabel}}</view
+              >
+              <view
+                class="scenario-mark is-pass"
+                data-scenario-id="{{item.id}}"
+                data-result="passed"
+                bindtap="handleScenarioResult"
+                >正常</view
+              >
+              <view
+                class="scenario-mark is-fail"
+                data-scenario-id="{{item.id}}"
+                data-result="issue"
+                bindtap="handleScenarioResult"
+                >异常</view
+              >
+            </view>
+          </view>
+        </view>
+
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">05</text
+              ><text class="section-title">性能信息</text></view
+            >
+            <text class="section-note">这些是少量单次辅助值，不是手机端性能验收结论。</text>
+          </view>
+          <view class="metric-lead"><text>测试工具首屏</text><text>{{pageReadyMs}} ms</text></view>
+          <view class="diagnostic-card directory-diagnostic-card">
+            <view class="directory-diagnostic-heading">
+              <view>
+                <text class="directory-diagnostic-title">通讯录性能诊断</text>
+                <text
+                  class="directory-diagnostic-state {{directoryRecording ? 'is-recording' : ''}}"
+                  >{{directoryRecording ? '正在记录' : '已停止'}}</text
+                >
+              </view>
+              <text>只在开发版和体验版的内存中保存最近 20 次，不写入本地存储。</text>
+            </view>
+            <view class="directory-diagnostic-actions">
+              <view
+                class="diagnostic-action is-primary {{directoryRecording ? 'is-disabled' : ''}}"
+                aria-role="button"
+                aria-disabled="{{directoryRecording}}"
+                bindtap="handleStartDirectoryRecording"
+                >开始记录</view
+              >
+              <view
+                class="diagnostic-action {{directoryRecording ? '' : 'is-disabled'}}"
+                aria-role="button"
+                aria-disabled="{{!directoryRecording}}"
+                bindtap="handleStopDirectoryRecording"
+                >停止记录</view
+              >
+              <view
+                class="diagnostic-action"
+                aria-role="button"
+                bindtap="handleClearDirectoryRecords"
+                >清空记录</view
+              >
+              <view
+                class="diagnostic-action"
+                aria-role="button"
+                bindtap="handleCopyLatestDirectorySearch"
+                >复制最近一次</view
+              >
+              <view
+                class="diagnostic-action"
+                aria-role="button"
+                bindtap="handleCopyRecentDirectorySearches"
+                >复制最近 10 次</view
+              >
+              <view
+                class="diagnostic-action is-primary {{nextLaunchDirectoryDiagnosticArmed ? 'is-disabled' : ''}}"
+                aria-role="button"
+                aria-disabled="{{nextLaunchDirectoryDiagnosticArmed}}"
+                bindtap="handleArmNextLaunchDirectoryRecording"
+                >下次 App 启动首次搜索诊断</view
+              >
+              <view
+                class="diagnostic-action {{nextLaunchDirectoryDiagnosticArmed ? '' : 'is-disabled'}}"
+                aria-role="button"
+                aria-disabled="{{!nextLaunchDirectoryDiagnosticArmed}}"
+                bindtap="handleCancelNextLaunchDirectoryRecording"
+                >取消下次启动诊断</view
+              >
+            </view>
+            <text class="directory-next-launch-state"
+              >{{nextLaunchDirectoryDiagnosticArmed ?
+              '已设置：完全关闭后重新进入小程序，标记会在新的 App.onLaunch 中立即消费' : '未设置下次
+              App 启动诊断'}}</text
+            >
+            <view class="directory-diagnostic-steps">
+              <text>标准步骤</text>
+              <text
+                >1. 页面会话诊断可点“开始记录”；下次启动首搜请点“下次 App 启动首次搜索诊断”。</text
+              >
+              <text>2. 完全关闭并重新进入小程序，直接打开通讯录完成第一次搜索。</text>
+              <text
+                >3. 再做相同条件第二次、不同关键词、带筛选和科室搜索；条件允许时比较
+                Wi-Fi/移动网络。</text
+              >
+              <text>4. 回到“更多 → 测试工具”，点“停止记录”，再复制最近 10 次发给 Codex。</text>
+            </view>
+            <view class="directory-diagnostic-recent">
+              <text class="directory-diagnostic-subtitle"
+                >最近搜索（{{directorySearchRows.length}}）</text
+              >
+              <view wx:if="{{directorySearchRows.length === 0}}" class="empty-diagnostic"
+                >尚无记录。开始记录后去通讯录完成一次搜索。</view
+              >
+              <view wx:for="{{directorySearchRows}}" wx:key="key" class="directory-search-record">
+                <view>
+                  <text>{{item.modeLabel}} · {{item.searchTypeLabel}} · {{item.outcomeLabel}}</text>
+                  <text>{{item.totalMs}} ms</text>
+                </view>
+                <text
+                  >序号 {{item.diagnosticId}} · 长度 {{item.searchTermLength}} · 返回
+                  {{item.resultCount}} 条 · 筛选 {{item.hasFilters ? '有' : '无'}}</text
+                >
+                <text
+                  >请求前 {{item.facetsOrReleaseWaitMs}} ms · 网络响应 {{item.networkResponseMs}} ms
+                  · 转换 {{item.responseToConversionMs}} ms · 卡片 {{item.cardBuildMs}} ms ·
+                  下一渲染周期完成 {{item.nextRenderCycleMs}} ms</text
+                >
+                <text
+                  >setData {{item.setDataCallCount}} 次 / {{item.setDataTotalBytes}} B（估算） ·
+                  profileEnabled {{item.profileEnabled ? '是' : '否'}} · 诊断序列化
+                  {{item.diagnosticSerializationMs}} ms · request ID {{item.requestId}}</text
+                >
+                <text
+                  >记录总耗时包含诊断附加开销；setData 提交和 wx.nextTick
+                  都不代表用户已看到首张卡片。{{item.truncated ? '本条已安全截断。' : ''}}</text
+                >
+              </view>
+            </view>
+          </view>
+          <view class="diagnostic-card compact-list">
+            <view class="export-boundary-card">
+              <view class="directory-diagnostic-heading">
+                <view>
+                  <text class="directory-diagnostic-title">导出页启动边界</text>
+                  <text class="directory-diagnostic-state"
+                    >只记录固定阶段，不记录原始错误或业务参数</text
+                  >
+                </view>
+                <text>用于区分页面未注册、未进入 onLoad、子组件未挂载和业务请求失败。</text>
+              </view>
+              <view wx:if="{{exportBoundaryRows.length === 0}}" class="empty-diagnostic"
+                >暂无导出页边界记录；操作导出页后回来点“刷新”。</view
+              >
+              <view wx:for="{{exportBoundaryRows}}" wx:key="key" class="compact-item">
+                <text>{{item.metricLabel}}</text><text>{{item.timeLabel}}</text>
+                <text>应截图：版本条、导出页和本条阶段记录。</text>
+              </view>
+              <text class="directory-next-launch-state"
+                >启动阶段：module-registered → page-load → options-start →
+                options-ready；无群组参数冷入口停留在提示页属于预期行为。</text
+              >
+              <view
+                class="diagnostic-action is-primary"
+                aria-role="button"
+                bindtap="handleOpenExportColdEntry"
+                >打开导出页冷入口（无群组参数）</view
+              >
+            </view>
+            <view wx:if="{{performanceRows.length === 0}}" class="empty-diagnostic"
+              >暂时没有性能记录。打开并操作业务页面后再回来刷新。</view
+            >
+            <view wx:for="{{performanceRows}}" wx:key="key" class="compact-item">
+              <text>{{item.metricLabel}}</text><text>{{item.durationMs}} ms</text>
+              <text>{{item.normalText}}</text><text>应截图：{{item.screenshot}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">06</text
+              ><text class="section-title">网络诊断</text></view
+            >
+            <text class="section-note"
+              >当前网络：{{networkType}}。只保留脱敏路径、耗时、状态和重试次数；缓存命中和主动取消没有可靠统一数据，因此不伪造。</text
+            >
+          </view>
+          <view class="diagnostic-card compact-list">
+            <view wx:if="{{requestRows.length === 0}}" class="empty-diagnostic"
+              >暂时没有请求记录。操作业务页面后回来点“刷新”。</view
+            >
+            <view wx:for="{{requestRows}}" wx:key="key" class="request-item">
+              <view
+                ><text class="method-chip">{{item.method}}</text
+                ><text class="request-endpoint">{{item.endpoint}}</text></view
+              >
+              <text
+                >{{item.outcomeLabel}} · HTTP {{item.statusCode || '-'}} · {{item.durationMs}} ms ·
+                重试 {{item.retryCount}} · 重复 {{item.duplicate ? '是' : '否'}}</text
+              >
+              <text>是否正常：{{item.normalText}}</text>
+              <text>应截图：{{item.screenshot}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">07</text
+              ><text class="section-title">错误信息</text></view
+            >
+            <text class="section-note"
+              >只显示既有 App/Page 错误分类和不可逆推出原文的 SHA-256
+              指纹；资源失败、卸载后更新和重复提交尚无统一只读入口时保持“暂未验证”。</text
+            >
+          </view>
+          <view class="diagnostic-card compact-list">
+            <view wx:if="{{errorRows.length === 0}}" class="empty-diagnostic"
+              >当前内存中没有错误指纹。这不等于 Console 已验收。</view
+            >
+            <view wx:for="{{errorRows}}" wx:key="key" class="error-item">
+              <text>{{item.page}} · {{item.code}}</text><text>指纹 {{item.fingerprintLabel}}…</text>
+              <text>是否正常：{{item.normalText}}</text><text>应截图：{{item.screenshot}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="diagnostic-section">
+          <view class="section-heading">
+            <view
+              ><text class="section-index">08</text
+              ><text class="section-title">缓存和存储摘要</text></view
+            >
+            <text class="section-note"
+              >只统计数量和容量，不读取值、不列出键名，也不提供清空登录态的操作。</text
+            >
+          </view>
+          <view class="diagnostic-card">
+            <view wx:for="{{storageRows}}" wx:key="label" class="diagnostic-row">
+              <view class="row-top"
+                ><text class="row-status is-{{item.status}}">{{item.statusLabel}}</text
+                ><text class="row-label">{{item.label}}</text></view
+              >
+              <text class="row-value">{{item.value}}</text
+              ><text class="row-explanation">可能影响：{{item.explanation}}</text
+              ><text class="row-screenshot">应截图：{{item.screenshot}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="diagnostic-section">
+          <view class="section-heading"><text class="section-title">微信提醒诊断</text></view>
+          <text class="section-note"
+            >先检查并订阅，再主动发送一次本人测试。发送会消耗一次订阅额度；不自动重试、不向其他人发送。</text
           >
-          <text>是否正常：{{item.normalText}}</text>
-          <text>应截图：{{item.screenshot}}</text>
+          <view class="diagnostic-card">
+            <view wx:for="{{wechatRows}}" wx:key="index" class="diagnostic-row"
+              ><text class="row-label">{{item.label}}</text
+              ><text class="row-value">{{item.value}}</text></view
+            >
+            <text class="row-value">{{wechatTestResult}}</text>
+            <text class="row-value">{{wechatReceived}}</text>
+          </view>
+          <view class="wechat-diagnostic-actions">
+            <picker
+              class="wechat-target-picker"
+              mode="selector"
+              range="{{wechatTargetLabels}}"
+              value="{{wechatTargetVersion === 'formal' ? 1 : 0}}"
+              disabled="{{wechatBusy}}"
+              bindchange="handleWechatTargetVersion"
+              ><view class="wechat-target-control"
+                >测试打开：{{wechatTargetVersion === 'formal' ? '正式版' : '体验版'}} ·
+                日历首页</view
+              ></picker
+            >
+            <ui-button
+              label="刷新只读检查"
+              variant="secondary"
+              disabled="{{wechatBusy}}"
+              bindpress="handleRefreshWechat"
+            ></ui-button>
+            <ui-button
+              label="开始本次订阅诊断"
+              disabled="{{wechatBusy || !wechatReady}}"
+              loading="{{wechatBusy}}"
+              bindpress="handleWechatSubscribe"
+            ></ui-button>
+            <ui-button
+              label="打开微信设置"
+              variant="secondary"
+              bindpress="handleWechatSettings"
+            ></ui-button>
+            <ui-button
+              label="发送一条本人测试消息"
+              disabled="{{wechatBusy || !wechatGranted || !wechatSendReady}}"
+              bindpress="handleWechatTestSend"
+            ></ui-button>
+            <ui-button
+              label="我已收到"
+              variant="secondary"
+              disabled="{{wechatBusy || !wechatTestResult}}"
+              bindpress="handleWechatReceived"
+            ></ui-button>
+            <ui-button
+              label="暂未收到"
+              variant="secondary"
+              disabled="{{wechatBusy || !wechatTestResult}}"
+              bindpress="handleWechatNotReceived"
+            ></ui-button>
+          </view>
+        </view>
+        <view class="diagnostic-section">
+          <view class="section-heading"><text class="section-title">滚轮通道探针</text></view>
+          <text class="section-note"
+            >① 上下拖动左边的方块 ② 上下拖动右边滚轮 ③
+            点【采集滚轮探针】并把复制内容发给维护者。只记录通道是否生效与偏移量，不含身份或业务数据。</text
+          >
+          <view class="wheel-probe-stage">
+            <view
+              class="wheel-drag-probe"
+              bindtouchstart="{{wheelProbe.touchStart}}"
+              catchtouchmove="{{wheelProbe.touchMove}}"
+              bindtouchend="{{wheelProbe.touchEnd}}"
+            >
+              <view id="wheel-drag-probe-dot" class="wheel-drag-probe__dot"></view>
+            </view>
+            <ui-wheel-column
+              id="wheel-probe-column"
+              class="wheel-probe-column"
+              aria-label="滚轮通道探针"
+              items="{{wheelProbeItems}}"
+              unit="号"
+              selected-index="{{wheelProbeIndex}}"
+              runtime-key="diagnostics-wheel-probe"
+              generation="{{wheelProbeGeneration}}"
+              bindpreviewchange="handleWheelProbePreview"
+              bindsettle="handleWheelProbeSettle"
+            ></ui-wheel-column>
+          </view>
+          <view class="diagnostic-card">
+            <view wx:for="{{wheelProbeRows}}" wx:key="label" class="diagnostic-row"
+              ><text class="row-label">{{item.label}}</text
+              ><text class="row-value">{{item.value}}</text></view
+            >
+          </view>
+          <view class="wheel-probe-actions">
+            <ui-button
+              label="采集滚轮探针"
+              variant="primary"
+              bindpress="handleCollectWheelProbe"
+            ></ui-button>
+            <ui-button
+              label="重置探针"
+              variant="secondary"
+              bindpress="handleResetWheelProbe"
+            ></ui-button>
+          </view>
+        </view>
+        <view class="report-card">
+          <text class="report-kicker">一次复制 · 稳定结构</text>
+          <text class="report-title">生成安全测试报告</text>
+          <text>完整报告和 Codex 简化报告都不包含业务正文、身份信息或原始错误内容。</text>
+          <view class="report-actions"
+            ><ui-button
+              label="复制完整诊断报告"
+              variant="primary"
+              bindpress="handleCopyFullReport"
+            ></ui-button
+            ><ui-button
+              label="复制给 Codex 的简化报告"
+              variant="secondary"
+              bindpress="handleCopyCodexReport"
+            ></ui-button
+          ></view>
+          <text class="report-time">页面最近刷新：{{generatedAt}}</text>
         </view>
       </view>
-    </view>
-
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">07</text><text class="section-title">错误信息</text></view
-        >
-        <text class="section-note"
-          >只显示既有 App/Page 错误分类和不可逆推出原文的 SHA-256
-          指纹；资源失败、卸载后更新和重复提交尚无统一只读入口时保持“暂未验证”。</text
-        >
-      </view>
-      <view class="diagnostic-card compact-list">
-        <view wx:if="{{errorRows.length === 0}}" class="empty-diagnostic"
-          >当前内存中没有错误指纹。这不等于 Console 已验收。</view
-        >
-        <view wx:for="{{errorRows}}" wx:key="key" class="error-item">
-          <text>{{item.page}} · {{item.code}}</text><text>指纹 {{item.fingerprintLabel}}…</text>
-          <text>是否正常：{{item.normalText}}</text><text>应截图：{{item.screenshot}}</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="diagnostic-section">
-      <view class="section-heading">
-        <view
-          ><text class="section-index">08</text
-          ><text class="section-title">缓存和存储摘要</text></view
-        >
-        <text class="section-note"
-          >只统计数量和容量，不读取值、不列出键名，也不提供清空登录态的操作。</text
-        >
-      </view>
-      <view class="diagnostic-card">
-        <view wx:for="{{storageRows}}" wx:key="label" class="diagnostic-row">
-          <view class="row-top"
-            ><text class="row-status is-{{item.status}}">{{item.statusLabel}}</text
-            ><text class="row-label">{{item.label}}</text></view
-          >
-          <text class="row-value">{{item.value}}</text
-          ><text class="row-explanation">可能影响：{{item.explanation}}</text
-          ><text class="row-screenshot">应截图：{{item.screenshot}}</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="diagnostic-section">
-      <view class="section-heading"><text class="section-title">微信提醒诊断</text></view>
-      <text class="section-note">先检查并订阅，再主动发送一次本人测试。发送会消耗一次订阅额度；不自动重试、不向其他人发送。</text>
-      <view class="diagnostic-card">
-        <view wx:for="{{wechatRows}}" wx:key="index" class="diagnostic-row"><text class="row-label">{{item.label}}</text><text class="row-value">{{item.value}}</text></view>
-        <text class="row-value">{{wechatTestResult}}</text>
-        <text class="row-value">{{wechatReceived}}</text>
-      </view>
-      <view class="wechat-diagnostic-actions">
-        <picker class="wechat-target-picker" mode="selector" range="{{wechatTargetLabels}}" value="{{wechatTargetVersion === 'formal' ? 1 : 0}}" disabled="{{wechatBusy}}" bindchange="handleWechatTargetVersion"><view class="wechat-target-control">测试打开：{{wechatTargetVersion === 'formal' ? '正式版' : '体验版'}} · 日历首页</view></picker>
-        <ui-button label="刷新只读检查" variant="secondary" disabled="{{wechatBusy}}" bindpress="handleRefreshWechat"></ui-button>
-        <ui-button label="开始本次订阅诊断" disabled="{{wechatBusy || !wechatReady}}" loading="{{wechatBusy}}" bindpress="handleWechatSubscribe"></ui-button>
-        <ui-button label="打开微信设置" variant="secondary" bindpress="handleWechatSettings"></ui-button>
-        <ui-button label="发送一条本人测试消息" disabled="{{wechatBusy || !wechatGranted || !wechatSendReady}}" bindpress="handleWechatTestSend"></ui-button>
-        <ui-button label="我已收到" variant="secondary" disabled="{{wechatBusy || !wechatTestResult}}" bindpress="handleWechatReceived"></ui-button>
-        <ui-button label="暂未收到" variant="secondary" disabled="{{wechatBusy || !wechatTestResult}}" bindpress="handleWechatNotReceived"></ui-button>
-      </view>
-    </view>
-    <view class="report-card">
-      <text class="report-kicker">一次复制 · 稳定结构</text>
-      <text class="report-title">生成安全测试报告</text>
-      <text>完整报告和 Codex 简化报告都不包含业务正文、身份信息或原始错误内容。</text>
-      <view class="report-actions"
-        ><ui-button
-          label="复制完整诊断报告"
-          variant="primary"
-          bindpress="handleCopyFullReport"
-        ></ui-button
-        ><ui-button
-          label="复制给 Codex 的简化报告"
-          variant="secondary"
-          bindpress="handleCopyCodexReport"
-        ></ui-button
-      ></view>
-      <text class="report-time">页面最近刷新：{{generatedAt}}</text>
-    </view>
+    </scroll-view>
   </view>
 </block>

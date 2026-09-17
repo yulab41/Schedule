@@ -324,12 +324,20 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.dateSwiperIndex).toBe(2);
     expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
     definition.methods.handleDateToday.call(instance);
-    expect(instance.data.draftDisplayValue).toBe('2026年9月24日');
+    // Locate re-centers on today immediately, even after a committed swipe.
+    expect(instance.data.draftDisplayValue).toBe('2026年8月24日');
+    expect(instance.data.draftMonth).toBe(8);
     expect(instance.data.dateSwiperIndex).toBe(1);
-    expect(instance.data.datePanels[1]).toMatchObject({ key: '2026-08', relative: -1, slot: 1 });
+    expect(instance.data.datePanels.map((panel) => panel.key)).toEqual([
+      '2026-07',
+      '2026-08',
+      '2026-09',
+    ]);
+    // A late animation finish for the already-active slot stays inert.
     definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 1 } });
     expect(instance.data.draftDisplayValue).toBe('2026年8月24日');
     expect(instance.data.draftMonth).toBe(8);
+    expect(instance.data.dateSwiperIndex).toBe(1);
     expect(instance.data.dateLocateAnimating).toBe(true);
     vi.advanceTimersByTime(519);
     expect(instance.data.dateLocateAnimating).toBe(true);
@@ -364,7 +372,7 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.lifetimes.detached.call(instance);
   });
 
-  it('locates today through adjacent prepared panels across a year boundary', async () => {
+  it('re-centers on today in one step across a year boundary', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2027-01-02T00:00:00.000Z'));
     const definition = await loadPickerDefinition();
@@ -378,16 +386,21 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.methods.handleOpen.call(instance);
 
     definition.methods.handleDateToday.call(instance);
-    expect(instance.data.draftDisplayValue).toBe('2026年11月30日');
-    expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-12', slot: 2 });
-    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
-
-    expect(instance.data.draftDisplayValue).toBe('2026年12月2日');
-    expect(instance.data.datePanels[0]).toMatchObject({ key: '2027-01', slot: 0 });
-    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 0 } });
-
+    // One tap reaches today, however far the picker had travelled.
     expect(instance.data.draftDisplayValue).toBe('2027年1月2日');
-    expect(instance.data.dateSwiperIndex).toBe(0);
+    expect(instance.data.draftYear).toBe(2027);
+    expect(instance.data.draftMonth).toBe(1);
+    expect(instance.data.dateSwiperIndex).toBe(1);
+    expect(instance.data.datePanels.map((panel) => panel.key)).toEqual([
+      '2026-12',
+      '2027-01',
+      '2027-02',
+    ]);
+    // No pending shift is left for a stale animation finish to resolve.
+    definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 1 } });
+    expect(instance.data.draftDisplayValue).toBe('2027年1月2日');
+    expect(instance.data.dateSwiperIndex).toBe(1);
+    expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
     definition.lifetimes.detached.call(instance);
   });
 

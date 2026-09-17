@@ -1,4 +1,4 @@
-<view class="workbench-page guest-page">
+<view class="workbench-page guest-page {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}">
   <text wx:if="{{announcement}}" class="offline-note" aria-live="polite">{{announcement}}</text>
   <view class="guest-header" style="{{guestHeaderStyle}}"><text class="guest-title">{{currentGroupName}} · 访客</text></view>
   <scroll-view style="{{guestViewportStyle}}" class="guest-scroll workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}" scroll-y="{{viewMode !== 'list'}}" show-scrollbar="{{false}}">
@@ -78,6 +78,7 @@
               <calendar-month
                 id="workbench-month"
                 grid-height="{{gridHeight}}"
+                runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"
                 month-label="{{monthLabel}}"
                 panel-heights="{{monthPanelHeights}}"
                 panels="{{monthPanels}}"
@@ -253,8 +254,8 @@
                         mode="aspectFit" /></view
                   ></view>
                   <view class="calendar-heading"
-                    ><text>{{weekPanels[1].weekOrdinalLabel}}</text
-                    ><text>{{weekPanels[1].rangeLabel}}</text></view
+                    ><text>{{weekPanels[weekSwiperCurrent].weekOrdinalLabel}}</text
+                    ><text>{{weekPanels[weekSwiperCurrent].rangeLabel}}</text></view
                   >
                   <view
                     class="calendar-locator"
@@ -289,7 +290,7 @@
                 </view>
                 <view class="week-day-row" aria-hidden="true"
                   ><text
-                    wx:for="{{weekPanels[1].days}}"
+                    wx:for="{{weekPanels[weekSwiperCurrent].days}}"
                     wx:key="businessDate"
                     class="{{item.isWeekend ? 'is-weekend' : ''}}"
                     >{{item.weekday}}</text
@@ -301,6 +302,8 @@
                   current="{{weekSwiperCurrent}}"
                   duration="{{periodSwiperDuration}}"
                   easing-function="easeOutCubic"
+                  circular="{{true}}"
+                  bindchange="handleWeekSwiperChange"
                   bindanimationfinish="handleWeekSwiperFinish"
                 >
                   <swiper-item wx:for="{{weekPanels}}" wx:key="key" class="{{item.relative === 0 ? 'week-panel-current' : ''}}">
@@ -311,7 +314,7 @@
                         wx:key="businessDate"
                         class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
                         data-business-date="{{day.businessDate}}"
-                        hover-class="is-pressed"
+                        hover-class="{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}"
                         aria-role="button"
                         bindtap="handleWeekDaySelect"
                       >
@@ -662,7 +665,17 @@
               wx:elif="{{state === 'loading'}}"
               class="state-card state-loading"
               aria-live="polite"
-              ><view class="state-mark"><view class="state-spinner"></view></view
+              ><view class="state-mark"
+                ><view
+                  wx:if="{{!skyline3172UiCompatibility}}"
+                  class="state-spinner"
+                ></view
+                ><image
+                  wx:else
+                  class="state-spinner-image"
+                  src="/assets/icons/ui-loading-primary.svg"
+                  mode="aspectFit"
+                /></view
               ><text class="state-title">正在读取排班</text
               ><text class="state-description">正在读取当前群组的月历和班次。</text></view
             >

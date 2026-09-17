@@ -83,6 +83,70 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.detailExpansion.expanded).toEqual({ 'day-row': false, 'night-row': true });
   });
 
+  it('uses the shared circular pager for consecutive 3.17.2 week shifts', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendarApiGoldenResponse;
+    instance.holidays = holidayApiGoldenResponse;
+    Object.assign(instance.data, {
+      currentGroupId: 'group-1',
+      currentGroupName: '急诊科',
+      skyline3172UiCompatibility: true,
+      viewMode: 'week',
+      weekStart: '2026-09-07',
+      selectedDate: '2026-09-07',
+      businessMonth: '2026-09',
+    });
+
+    const next = { currentTarget: { dataset: { delta: '1' } } };
+    definition.handleWeekChange.call(instance, next);
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+
+    definition.handleWeekChange.call(instance, next);
+    expect(instance.data.weekSwiperCurrent).toBe(0);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 0 } });
+    expect(instance.data.weekStart).toBe('2026-09-21');
+    expect(instance.data.weekSwiperCurrent).toBe(0);
+
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 2 } });
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+  });
+
+  it('uses the same circular week pager on unaffected runtimes without changing motion duration', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendarApiGoldenResponse;
+    instance.holidays = holidayApiGoldenResponse;
+    Object.assign(instance.data, {
+      currentGroupId: 'group-1',
+      currentGroupName: '急诊科',
+      skyline3172UiCompatibility: false,
+      viewMode: 'week',
+      weekStart: '2026-09-07',
+      selectedDate: '2026-09-07',
+      businessMonth: '2026-09',
+    });
+
+    definition.handleWeekChange.call(instance, {
+      currentTarget: { dataset: { delta: '1' } },
+    });
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    expect(instance.data.periodSwiperDuration).toBe(260);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    expect(instance.data.periodSwiperDuration).toBe(260);
+  });
+
   it('discards an old account calendar response before committing any group state', async () => {
     const storage = createStorage();
     let pendingGroups;

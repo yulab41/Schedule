@@ -1,5 +1,22 @@
 <import src="../ui-selector/options.wxml" />
-<view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
+
+<template name="workflow-date-grid">
+  <view class="workflow-picker-date-grid">
+    <view
+      wx:for="{{panel.cells}}"
+      wx:key="value"
+      class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+      data-value="{{item.value}}"
+      aria-role="button"
+      aria-disabled="{{item.disabled}}"
+      aria-pressed="{{item.isSelected}}"
+      bindtap="handleDateSelect"
+    >
+      <text>{{item.day}}</text>
+    </view>
+  </view>
+</template>
+<view wx:if="{{!dialogOnly}}" class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
   <view
     class="workflow-picker-trigger {{fieldLabel ? 'is-field' : ''}} {{disabled ? 'is-disabled' : ''}}"
     aria-role="button"
@@ -20,14 +37,18 @@
   <template
     wx:if="{{mode === 'selector'}}"
     is="selector-options"
-    data="{{open, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
+    data="{{open, popoverPlacement, popoverPlacementReady, popoverStyle, skyline3172UiCompatibility, renderedOptions, selectedOptionIndex, options}}"
   />
 </view>
 
-<view wx:if="{{open && mode !== 'selector'}}" class="workflow-picker-layer">
-  <view class="workflow-picker-scrim" aria-role="button" bindtap="handleClose"></view>
-  <view class="workflow-picker-sheet" aria-role="dialog" aria-label="{{title}}">
-    <view class="workflow-picker-handle"></view>
+<view
+  wx:if="{{open && mode !== 'selector' && (dialogOnly || !hostedLocally)}}"
+  class="workflow-picker-layer {{hostedLocally ? 'is-inline' : ''}}"
+  catchtap="handleInternalTap"
+>
+  <view wx:if="{{!hostedLocally}}" class="workflow-picker-scrim" aria-role="button" bindtap="handleClose"></view>
+  <view class="workflow-picker-sheet {{hostedLocally ? 'is-inline' : ''}}" aria-role="dialog" aria-label="{{title}}">
+    <view wx:if="{{!hostedLocally}}" class="workflow-picker-handle"></view>
     <view class="workflow-picker-heading">
       <view>
         <text>{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : '选择'}}</text>
@@ -112,7 +133,38 @@
           >{{item}}</text
         >
       </view>
+      <!-- The affected runtime cannot animate a programmatic swiper jump, so the
+           same three-panel ring is paged by a native horizontal scroller there:
+           one panel per month, animated by the platform, and it tracks the
+           finger on its own. -->
+      <scroll-view
+        wx:if="{{skyline3172UiCompatibility}}"
+        class="workflow-picker-date-swiper is-compat"
+        scroll-x
+        enhanced
+        show-scrollbar="{{false}}"
+        scroll-with-animation="{{datePagerAnimated}}"
+        scroll-into-view="{{datePagerTarget}}"
+        bindtouchstart="handleDateCompatTouchStart"
+        bindscroll="handleDateCompatScroll"
+        bindtouchend="handleDateCompatTouchEnd"
+        bindtouchcancel="handleDateCompatTouchEnd"
+      >
+        <view class="workflow-picker-date-track">
+          <view
+            class="workflow-picker-date-pane"
+            style="{{datePaneStyle}}"
+            wx:for="{{datePanels}}"
+            wx:key="slot"
+            wx:for-item="panel"
+            id="date-pane-{{panel.slot}}"
+          >
+            <template is="workflow-date-grid" data="{{panel: panel}}" />
+          </view>
+        </view>
+      </scroll-view>
       <swiper
+        wx:else
         class="workflow-picker-date-swiper"
         current="{{dateSwiperIndex}}"
         duration="{{dateSwiperDuration}}"
@@ -123,20 +175,7 @@
         bindanimationfinish="handleDateSwiperFinish"
       >
         <swiper-item wx:for="{{datePanels}}" wx:key="slot" wx:for-item="panel">
-          <view class="workflow-picker-date-grid">
-            <view
-              wx:for="{{panel.cells}}"
-              wx:key="value"
-              class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
-              data-value="{{item.value}}"
-              aria-role="button"
-              aria-disabled="{{item.disabled}}"
-              aria-pressed="{{item.isSelected}}"
-              bindtap="handleDateSelect"
-            >
-              <text>{{item.day}}</text>
-            </view>
-          </view>
+          <template is="workflow-date-grid" data="{{panel: panel}}" />
         </swiper-item>
       </swiper>
     </view>

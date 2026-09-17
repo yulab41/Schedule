@@ -1,4 +1,4 @@
-<view class="workbench-page">
+<view class="workbench-page {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}">
   <view class="workbench-shell-header" style="{{shellHeaderStyle}}">
     <view class="workbench-shell-heading">
       <view class="group-switcher">
@@ -13,28 +13,6 @@
           <view class="group-switcher-arrow {{groupOpen ? 'is-open' : ''}}" aria-hidden="true"
             ><image src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit"
           /></view>
-        </view>
-        <view wx:if="{{groupOpen}}" class="group-menu" aria-label="选择当前群组">
-          <view
-            wx:for="{{groups}}"
-            wx:key="id"
-            class="group-option {{item.id === currentGroupId ? 'is-selected' : ''}}"
-            data-group-id="{{item.id}}"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleGroupSelect"
-          >
-            <view class="group-option-copy"
-              ><text>{{item.name}}</text
-              ><text
-                >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
-                item.role === 'guest' ? '访客' : '成员'}}</text
-              ></view
-            >
-            <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
-              >✓</text
-            >
-          </view>
         </view>
       </view>
       <text class="shell-page-title"
@@ -74,6 +52,35 @@
       </view>
     </view>
   </view>
+
+  <root-portal wx:if="{{groupOpen}}" enable="{{true}}">
+    <view
+      class="group-menu group-menu-portal ui-root-portal-token-scope"
+      style="{{groupMenuPortalStyle}}"
+      aria-label="选择当前群组"
+    >
+      <view
+        wx:for="{{groups}}"
+        wx:key="id"
+        class="group-option {{item.id === currentGroupId ? 'is-selected' : ''}}"
+        data-group-id="{{item.id}}"
+        hover-class="is-pressed"
+        aria-role="button"
+        bindtap="handleGroupSelect"
+      >
+        <view class="group-option-copy"
+          ><text>{{item.name}}</text
+          ><text
+            >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
+            item.role === 'guest' ? '访客' : '成员'}}</text
+          ></view
+        >
+        <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
+          >✓</text
+        >
+      </view>
+    </view>
+  </root-portal>
 
   <view class="workspace-host" style="{{workspaceViewportStyle}}">
     <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'calendar'}}">
@@ -149,6 +156,7 @@
               <calendar-month
                 id="workbench-month"
                 grid-height="{{gridHeight}}"
+                runtime-pressed-feedback-compatibility="{{skyline3172UiCompatibility}}"
                 month-label="{{monthLabel}}"
                 panel-heights="{{monthPanelHeights}}"
                 panels="{{monthPanels}}"
@@ -324,8 +332,8 @@
                         mode="aspectFit" /></view
                   ></view>
                   <view class="calendar-heading"
-                    ><text>{{weekPanels[1].weekOrdinalLabel}}</text
-                    ><text>{{weekPanels[1].rangeLabel}}</text></view
+                    ><text>{{weekPanels[weekSwiperCurrent].weekOrdinalLabel}}</text
+                    ><text>{{weekPanels[weekSwiperCurrent].rangeLabel}}</text></view
                   >
                   <view
                     class="calendar-locator"
@@ -360,7 +368,7 @@
                 </view>
                 <view class="week-day-row" aria-hidden="true"
                   ><text
-                    wx:for="{{weekPanels[1].days}}"
+                    wx:for="{{weekPanels[weekSwiperCurrent].days}}"
                     wx:key="businessDate"
                     class="{{item.isWeekend ? 'is-weekend' : ''}}"
                     >{{item.weekday}}</text
@@ -372,6 +380,8 @@
                   current="{{weekSwiperCurrent}}"
                   duration="{{periodSwiperDuration}}"
                   easing-function="easeOutCubic"
+                  circular="{{true}}"
+                  bindchange="handleWeekSwiperChange"
                   bindanimationfinish="handleWeekSwiperFinish"
                 >
                   <swiper-item wx:for="{{weekPanels}}" wx:key="key" class="{{item.relative === 0 ? 'week-panel-current' : ''}}">
@@ -382,7 +392,7 @@
                         wx:key="businessDate"
                         class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
                         data-business-date="{{day.businessDate}}"
-                        hover-class="is-pressed"
+                        hover-class="{{skyline3172UiCompatibility ? 'none' : 'is-pressed'}}"
                         aria-role="button"
                         bindtap="handleWeekDaySelect"
                       >
@@ -736,7 +746,17 @@
               wx:elif="{{state === 'loading'}}"
               class="state-card state-loading"
               aria-live="polite"
-              ><view class="state-mark"><view class="state-spinner"></view></view
+              ><view class="state-mark"
+                ><view
+                  wx:if="{{!skyline3172UiCompatibility}}"
+                  class="state-spinner"
+                ></view
+                ><image
+                  wx:else
+                  class="state-spinner-image"
+                  src="/assets/icons/ui-loading-primary.svg"
+                  mode="aspectFit"
+                /></view
               ><text class="state-title">正在读取排班</text
               ><text class="state-description">正在读取当前群组的月历和班次。</text></view
             >

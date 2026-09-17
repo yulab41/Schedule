@@ -1,21 +1,65 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+  CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
   cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
+  createCalendarPeriodPaneId,
   createCalendarPeriodPagerState,
   finishCalendarPeriodShift,
   getAdjacentCalendarPeriodSlot,
   getCalendarPeriodSlotDelta,
   mapCalendarPeriodRing,
+  measureCalendarPeriodPaneWidth,
+  mergeCalendarPeriodScrollMetrics,
+  nearestCalendarPeriodScrollSlot,
   prepareCalendarPeriodChange,
   requestCalendarPeriodShift,
   takeQueuedCalendarPeriodShift,
 } from '../src/components/calendar/calendar-period-pager.ts';
 
 describe('shared calendar period pager', () => {
+  it('settles a native period scroll on the pane it actually reached', () => {
+    expect(CALENDAR_PERIOD_SCROLL_SETTLE_MS).toBe(140);
+    const first = mergeCalendarPeriodScrollMetrics(undefined, {
+      scrollLeft: 4536,
+      scrollWidth: 13608,
+    });
+    expect(first).toEqual({ left: 4536, width: 4536 });
+    expect(nearestCalendarPeriodScrollSlot(first)).toBe(1);
+    // The ratio is unit-agnostic, so a later event only needs one axis.
+    const snapped = mergeCalendarPeriodScrollMetrics(first, { scrollLeft: 0 });
+    expect(snapped).toEqual({ left: 0, width: 4536 });
+    expect(nearestCalendarPeriodScrollSlot(snapped)).toBe(0);
+    expect(nearestCalendarPeriodScrollSlot(undefined)).toBeUndefined();
+    expect(mergeCalendarPeriodScrollMetrics(undefined, {})).toBeUndefined();
+    expect(createCalendarPeriodPaneId('date-pane-', 2)).toBe('date-pane-2');
+  });
+
+  it('measures the native pane width instead of trusting percentages', () => {
+    vi.stubGlobal('wx', {});
+    const applied = [];
+    const host = (rects) => ({
+      createSelectorQuery: () => ({
+        select: () => ({ boundingClientRect: () => ({ exec: (cb) => cb(rects) }) }),
+      }),
+    });
+    measureCalendarPeriodPaneWidth(host([{ width: 320.6 }]), '.pane', (width) =>
+      applied.push(width),
+    );
+    expect(applied).toEqual([321]);
+    // A missing or degenerate rect must not collapse the panes to zero.
+    measureCalendarPeriodPaneWidth(host([null]), '.pane', (width) => applied.push(width));
+    measureCalendarPeriodPaneWidth(host([{ width: 0 }]), '.pane', (width) => applied.push(width));
+    expect(applied).toEqual([321]);
+    // Without the runtime query API the helper stays inert.
+    measureCalendarPeriodPaneWidth({}, '.pane', (width) => applied.push(width));
+    expect(applied).toEqual([321]);
+    vi.unstubAllGlobals();
+  });
+
   it('centralizes the native animation contract', () => {
     expect(CALENDAR_PERIOD_SWIPER_DURATION_MS).toBe(240);
     expect(CALENDAR_PERIOD_SWIPER_EASING_FUNCTION).toBe('easeOutCubic');

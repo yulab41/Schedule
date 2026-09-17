@@ -4,6 +4,72 @@ export type CalendarPeriodRelative = -1 | 0 | 1;
 export const CALENDAR_PERIOD_SWIPER_DURATION_MS = 240;
 export const CALENDAR_PERIOD_SWIPER_EASING_FUNCTION = 'easeOutCubic';
 export const CALENDAR_PERIOD_HEIGHT_TRANSITION = 'cubic-bezier(0.33, 1, 0.68, 1)';
+/** How long a native period scroll may be still before it is settled. */
+export const CALENDAR_PERIOD_SCROLL_SETTLE_MS = 140;
+
+export interface CalendarPeriodScrollMetrics {
+  readonly left: number;
+  readonly width: number;
+}
+
+export interface CalendarPeriodScrollDetail {
+  readonly scrollLeft?: number;
+  readonly scrollWidth?: number;
+}
+
+/**
+ * The affected runtime cannot animate a programmatic swiper jump, so the same
+ * ring is paged by a native scroller there: the scroll metrics are kept only as
+ * a ratio, which makes the pane index unit-agnostic.
+ */
+export function mergeCalendarPeriodScrollMetrics(
+  previous: CalendarPeriodScrollMetrics | undefined,
+  detail: CalendarPeriodScrollDetail,
+): CalendarPeriodScrollMetrics | undefined {
+  const left = Number(detail.scrollLeft);
+  const width = Number(detail.scrollWidth);
+  const nextLeft = Number.isFinite(left) ? left : previous?.left;
+  const nextWidth = Number.isFinite(width) && width > 0 ? width / 3 : previous?.width;
+  if (nextLeft === undefined || nextWidth === undefined) return undefined;
+  return { left: nextLeft, width: nextWidth };
+}
+
+export function nearestCalendarPeriodScrollSlot(
+  metrics: CalendarPeriodScrollMetrics | undefined,
+): CalendarPeriodSlot | undefined {
+  if (metrics === undefined) return undefined;
+  const slot = Math.round(metrics.left / metrics.width);
+  return isCalendarPeriodSlot(slot) ? slot : undefined;
+}
+
+export function createCalendarPeriodPaneId(prefix: string, slot: CalendarPeriodSlot): string {
+  return `${prefix}${slot}`;
+}
+
+export interface CalendarPeriodMeasuredHost {
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+}
+
+/**
+ * The affected runtime resolves the ring's percentage widths against an
+ * indefinite scroller box, which collapses the panel grid, so the pane width is
+ * measured once and handed to the panes as an explicit pixel value instead.
+ */
+export function measureCalendarPeriodPaneWidth(
+  host: CalendarPeriodMeasuredHost,
+  selector: string,
+  apply: (width: number) => void,
+): void {
+  if (typeof wx === 'undefined' || host.createSelectorQuery === undefined) return;
+  host
+    .createSelectorQuery()
+    .select(selector)
+    .boundingClientRect()
+    .exec((results) => {
+      const width = Number(results[0]?.width);
+      if (Number.isFinite(width) && width > 0) apply(Math.round(width));
+    });
+}
 
 export interface CalendarPeriodPagerState {
   activeSlot: CalendarPeriodSlot;

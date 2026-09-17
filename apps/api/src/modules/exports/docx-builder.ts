@@ -10,7 +10,7 @@ export interface DutyToken {
 export interface DutyRow {
   readonly absenceTypes?: readonly string[];
   readonly memberName: string;
-  readonly tokens: readonly DutyToken[];
+  readonly tokens: readonly (DutyToken | undefined)[];
 }
 
 export interface HeadNeckDocxPage {

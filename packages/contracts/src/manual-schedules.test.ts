@@ -68,9 +68,9 @@ describe('manual schedule input contracts', () => {
     ).toBe(false);
   });
 
-  it('accepts 30 inclusive apply days and rejects 31 days or invalid dates', () => {
+  it('accepts a year-long apply range and rejects more than 366 days or invalid dates', () => {
     const previewBase = {
-      endDate: '2026-01-30',
+      endDate: '2027-01-01',
       expectedRulesVersion: 1,
       startDate: '2026-01-01',
     };
@@ -85,7 +85,7 @@ describe('manual schedule input contracts', () => {
     expect(
       previewManualTemplateApplyRequestSchema.safeParse({
         ...previewBase,
-        endDate: '2026-01-31',
+        endDate: '2027-01-02',
       }).success,
     ).toBe(false);
     expect(
@@ -97,7 +97,7 @@ describe('manual schedule input contracts', () => {
     expect(
       applyManualScheduleTemplateRequestSchema.safeParse({
         ...previewBase,
-        endDate: '2026-01-31',
+        endDate: '2027-01-02',
         operationId: randomUUID(),
       }).success,
     ).toBe(false);
@@ -139,7 +139,7 @@ describe('manual schedule input contracts', () => {
     ).toBe(false);
 
     const preview = {
-      applyEndDate: '2026-01-30',
+      applyEndDate: '2027-01-01',
       applyStartDate: '2026-01-01',
       assignments: [],
       conflicts: [],
@@ -161,7 +161,7 @@ describe('manual schedule input contracts', () => {
     };
     expect(manualApplyPreviewSchema.safeParse(preview).success).toBe(true);
     expect(
-      manualApplyPreviewSchema.safeParse({ ...preview, applyEndDate: '2026-01-31' }).success,
+      manualApplyPreviewSchema.safeParse({ ...preview, applyEndDate: '2027-01-02' }).success,
     ).toBe(false);
     expect(
       manualApplyPreviewSchema.safeParse({ ...preview, cycleDays: MAX_MANUAL_DAYS + 1 }).success,
