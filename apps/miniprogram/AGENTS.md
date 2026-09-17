@@ -11,7 +11,11 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Hard prohibitions
 
-- An LLM must never start, wake, restart, control, or automate the local WeChat DevTools GUI or its CLI.
+- An LLM may start, wake, control, and automate the local WeChat DevTools GUI and `wechatide` CLI by default
+  (`默认同意 LLM 驱动开发者工具`). Keep this boundary: DevTools access is read-only unless the current user message
+  authorizes a write; never upload, submit for review, publish, or read production credentials without explicit
+  current-turn approval; label every claim by evidence layer (DevTools / Node / Xiaomi 14 trial) and never present
+  DevTools results as native acceptance.
 - Do not restore the historical Mini Program implementation as a whole. Historical code may only be consulted for isolated algorithms, fixtures, test ideas, and CI wrapper patterns after revalidation against the current Web/API.
 - Do not add TDesign MiniProgram or another third-party UI component library.
 - Do not add WebView fallback, uni-app, or an H5 runtime as the production Mini Program implementation.
@@ -20,7 +24,9 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Allowed automation and release authority
 
-- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison scripts are allowed without opening WeChat DevTools.
+- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison
+  scripts are allowed, and driving WeChat DevTools (simulator, screenshots, console/network, automation) is allowed by
+  default under the boundary above.
 - Development/preview and experience uploads may be automated when credentials are available outside the repository.
 - An experience upload requires the user's explicit approval for that exact checkpoint in the current turn. A production build, package audit, preview/upload dry-run, or earlier approval is not an upload and does not authorize one. When approval is absent or the user prohibits upload, stop at the pushed clean checkpoint and record `UPLOAD_REQUIRED`; do not propose or reserve the next version. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready.
 - If the repository-external upload key or another required WeChat platform credential is unavailable, do not substitute DevTools automation or claim success. Record the exact checkpoint as upload-blocked, request the missing external input, and upload that same checkpoint before starting the next implementation step.

@@ -17,7 +17,12 @@ For a Mini modification, pair this reference with [testing/evidence](testing-and
 
 ## Execution boundary
 
-Load `$miniprogram-development` for Mini tasks, but do not invoke its WeChat DevTools actions. This repository forbids an agent from starting, waking, closing, inspecting, controlling, or automating the DevTools GUI/CLI. Node-based repository scripts remain available within the selected task level.
+Load `$miniprogram-development` for Mini tasks. Driving the WeChat DevTools GUI/CLI is allowed by default
+(`默认同意 LLM 驱动开发者工具`): the agent may start, wake, close, inspect, control and automate DevTools, and use
+captured screenshots, console/network logs and simulator automation as supporting evidence. Boundaries stay: DevTools
+actions are read-only unless the current user message authorizes a write; uploads, review submission, publishing and
+production-credential reads always need explicit current-turn approval; DevTools evidence never substitutes for Xiaomi 14
+native acceptance. Node-based repository scripts remain available within the selected task level.
 
 Mini source lives in `src/`; generated `dist/` is ignored and never hand-edited. A Mini build or upload must come from the target SHA in the independent clean managed worktree. Never mix main-worktree `dist` with candidate source.
 

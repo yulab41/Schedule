@@ -9,6 +9,7 @@
 - **探针结论（`.152`真机）**：3.17.2 **丢弃 WXS `setStyle` 写入**（页级探针无`transform`字段 vs 3.17.3 `matrix(...,-88)`），`fields({computedStyle})`不可用；`callMethod`上报与模板数据通道正常。→ 像素只能由模板/数据驱动，是"数字不动/无放大/无渐变"的唯一原因。
 - 修复：轨道位移改由组件 data 承载（`wheelTrackOffset`/`wheelTrackStyle`，随每次 WXS 上报与换代更新；仅 3.17.2 含`transform`）；单位改`wx:if="{{item.unit}}"`+`wx:else`；3.17.2 滚动为**按行推进**。定向65项、Mini完整1220项通过/16跳过；build367、package(1747172B/4633254B)、determinism(51bc6941)、format/lint/smoke通过。
 - 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后上传体验版并 add-only 放行，复核3.17.2滚轮按行滚动/单位出现/中间项放大，3.17.3不变。详情见`runtime-ui-compatibility-wheel-data-motion-20260917.md`。
+- 规则与工具链（用户当次要求）：`apps/miniprogram/AGENTS.md` 与仓库 guardrails skill 改为**默认同意 LLM 驱动开发者工具**（保留"无当次授权只读；上传/提审/发布/生产凭证需当次批准；DevTools 证据≠小米14原生验收"边界），skill 校验 RESULT=PASS；安装 `wechatide-skill` v0.3.11（旧版已备份）、注册 `[mcp_servers.wechat-devtools]`（token 在仓库外）、状态检查 `versionRelation=equal`；按官方文档装入 SkillHub 的 `wxa-skills-generate` 与 `wxa-skills-validate`（用于小程序 AI 开发模式的原子接口生成/校验，官方要求该模式代码不得合入正式提审版本）。
 - 交付与放行：`61e81e07` 以 production/clean 上传为 `0.1.0-p10.20260917.152`（说明“Skyline 3.17.2 wheel channel probe 61e81e0”，Manifest`e02b6f6c…904545`）；远端不可变tag指向同一SHA；可信ensure只追加`.152`（白名单48项，保留`.151`），独立verify与`ecs-verify.sh`通过，公网`.152=200`、`.151=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未声明production live release。
 - 唯一下一任务：小米14打开`.152`跑`测试工具 → 滚轮通道探针`三步并回传复制内容（据此一次性判定通道），再复核单位显示、选中放大、能否滚到年2031/月12月、重开正常、3.17.3不变。详情见`runtime-ui-compatibility-wheel-channel-probe-trial-release-20260917.md`。
 
