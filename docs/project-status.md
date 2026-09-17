@@ -1,6 +1,15 @@
 # Project Status
 
-## 当前批次：Skyline 3.17.2 滚轮修复已用开发者工具复现验证，待小米14复核
+## 当前批次：Skyline 3.17.2 滚轮改原生滚动实现，体验版154已上传并放行，待小米14复核
+
+- 用户当次授权「继续至全部完成并验证通过并上传放行」，并授权以后由 LLM 直接在模拟器用测试账号登录（已代登录一次）。
+- 定因（同构建切基础库）：① 3.17.2 内联 `margin-top` 不当位移用，只有 `transform` 移动轨道 → 起始位置丢失；② WXS `setStyle` 写入不到渲染器 → 无逐像素位移、无行强调；③ `.ui-wheel-unit` 样式送不到该节点且继承色解析不出来 → 字形透明。第③条的对照实验证明唯一变量是"有没有显式颜色"，与字号无关。
+- 实现：`ui-wheel-column` 内新增仅 3.17.2 使用的分支——原生 `scroll-view` 滚轮；`bindscroll` 逐像素 → 逻辑层按与 WXS 相同的插值公式产出行/数字/单位样式经数据下发，松手 `scroll-top` 吸附；单位带显式颜色（`#9aa4ae`/`#16202a`）。3.17.3 仍走原 WXS 分支，逐字未改。
+- 验证：3.17.2 `compat=true`、`scrollTop 220→308` 行位移正好 88px、`midIndex 5→7`、选中行 `opacity:1;scale(1)`、单位 12 行全部出墨；3.17.3 `compat=false`、`margin-top:0px`、`#ui-wheel-track` 在、scroll-view 分支不存在。门禁全通过（typecheck、Mini 174/1220、package 4637088B、determinism、format、lint、smoke:check-core）。
+- 交付与放行：`.154`（Manifest`076a83ba…304a`）production/clean 上传，前后检查 PASS；可信 ensure 追加 `.154` 保留旧版，verify 与 `ecs-verify.sh` 通过；公网 `.154=200`、`.153=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 唯一下一任务：小米14 打开 `.154` 复核滚轮跟手/吸附、单位、中间项放大、滚到 2031年/12月、重开正常，且 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-wheel-native-scroll-20260917.md`。
+
+## 上一批次：滚轮修复已用开发者工具复现验证
 
 - 本轮用户授权：用 `fullMode` 重开项目窗口、以测试账号登录，执行授权清单第2项——在开发者工具里复现并验证滚轮修复，替代读截图推断。只做验证，未改业务代码。
 - `.153`（`a18f8692`，构建 `0.1.0-p10.20260917.153@a18f869`）已上传并 add-only 放行（说明"Skyline 3.17.2 wheel data channel a18f869"，Manifest`72b7dcb4…da79fd`）；`.153/.152=200`、未知`=426`。

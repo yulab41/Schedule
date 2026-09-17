@@ -3126,3 +3126,16 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 放行侧（只读+幂等）：可信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260917.153` 返回"请求的版本已存在并通过验证；未重建容器"，即 `.153` 已在白名单、本次未新增条目、未重建容器；`schedule-client-version-allowlist verify` 通过；`/usr/local/lib/schedule/ecs-verify.sh` 输出 `[verify] complete`（api/web 容器 Up 52 分钟、mysql healthy、迁移计数正常）；公网探针 `.153=200`、`.152=200`、动态未知 `=426`。
 - 边界：未部署应用制品、未备份或迁移数据库、未提审、未正式发布；未读取生产业务数据。`放行` 仅指体验版白名单，不等于小米14原生验收。
 - 状态：`.153` 复核的 DevTools 侧与放行侧均完成。唯一剩余项是小米14原生复核（滚轮按行滚动/单位出现/中间项放大/范围到底/重开正常，3.17.3 不变），该证据只能由用户设备提供。
+
+## 2026-09-17 滚轮在 3.17.2 改原生滚动实现，体验版154上传与放行
+
+- 用户当次授权「继续至全部完成并验证通过并上传放行」，并授权以后由 LLM 直接在模拟器用测试账号登录（本轮清缓存把会话清掉后已代登录）。
+- 三条症状一次性定因（同一构建、只切基础库，开发者工具 fullMode）：
+  - ① 内联 `margin-top` 在该版本不当位移用：`margin-top:0;translateY(0)`→top 11642；`margin-top:-220px;translateY(0)`→**仍 11642**；再加 `translateY(-220px)`→11422。→ 基准位置丢失，轮子停在最前端。
+  - ② WXS `setStyle` 写入不到渲染器（`.152` 真机探针与行为症状互证）→ 逐像素位移与行强调都画不出来。
+  - ③ `.ui-wheel-unit` 的样式规则送不到该节点、继承色在该路径解析不出来 → 字形全透明。用可见对照轮按行给不同变量定因：12px+显式颜色出墨、18px+无颜色不出墨、10px+无颜色不出墨 → **唯一变量是"有没有显式颜色"**，与字号无关（此前"10px 光栅化阈值"的猜测被自己的实验否掉）。
+- 实现：`ui-wheel-column` 内新增仅 3.17.2 使用的 `wx:if` 分支——原生 `scroll-view` 滚轮；`bindscroll` 给逐像素 `scrollTop`，逻辑层用**与 WXS 完全相同的插值公式**（`selection=clamp(1-|i-position|)`、行 `0.58+0.42s`/`scale(0.94+0.06s)`、数字 `scale((19+5s)/24)`）产出行/数字/单位样式经数据下发，松手去抖后用 `scroll-top` 吸附，静止帧也由数据绘制；单位带显式颜色（未选中`#9aa4ae`／选中`#16202a`）。3.17.3 仍走原 WXS 分支（`wx:else`），模板/类名/WXS/样式串逐字未改。
+- 验证：3.17.2 `compat=true`、基准 `scrollTop=220`、`scrollTop 220→308` 行位移**正好 88px**（2 行）、`midIndex 5→7`、选中行 `opacity:1;scale(1)`、邻行 `0.58/0.94`、单位 12 行全部出墨（截图 `runtime/audit/devtools-153/zoom-97.png`）；3.17.3 `compat=false`、`wheelTrackStyle='margin-top:0px'`、`#ui-wheel-track` 存在、`ui-wheel-compat-scroll` 不存在。门禁：typecheck、Mini 174 文件/1220 项、package（总 4637088B）、determinism`7f45f7dc…`、format、lint、smoke:check-core 全通过。
+- 交付与放行（用户当次授权）：`a7937a7a` 冻结为 upload 候选，`check-worktree-safety` 两次 `RESULT=PASS`（`STATE=ready-clean-detached`、`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`）；`.154` 上传成功（说明「Skyline 3.17.2 native-scroll wheel a7937a7」，Manifest`076a83ba…304a`）；可信 `ensure` 追加 `.154` 保留旧版并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.154=200`、`.153=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 工具教训（本轮踩三次）：开发者工具的编译缓存会喂旧包（JS/WXML/WXSS 分开缓存，表现为"新 JS 字段读得到、WXML 改动不生效"）。可靠做法：构建后统一刷新 `dist` 文件时间戳 → 整窗关闭再打开 → 用页面里的构建号核对 SHA。
+- 状态：已交付待小米14复核。唯一下一任务：小米14 打开 `.154` 复核滚轮跟手/吸附、单位、中间项放大、滚到 2031年/12月、重开正常，且 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-wheel-native-scroll-20260917.md`。
