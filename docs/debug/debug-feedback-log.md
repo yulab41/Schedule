@@ -3052,3 +3052,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 验证结果：定向55项、Mini完整174文件1217项通过/16跳过；typecheck、production build366文件、package（主包1745352B/总4619757B）、determinism`95f7825e…390d1`、format、lint、smoke:check-core、agent-context-policy通过；`pnpm miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。运行/浏览器验证：本轮只改`apps/miniprogram/**`，不触发`smoke:browser`核心链路清单。
 - 3.17.2 已知局限（观察器不交付导致，本轮未改）：未触摸前没有中间大/两端小与淡出的渐变（触摸一次恢复）；点击某一项直接选中（tap-to-select）仍不生效，拖动选择正常。
 - 状态：已实现待小米14复核；本轮**未上传体验版、未放行、未部署**（当前消息未含上传授权）。唯一建议下一任务：取得当次授权后上传体验版并 add-only 放行，复核"打开即在当前年月、可滚动、重开仍可滚动"。详情见`docs/audit/runtime-ui-compatibility-wheel-layout-base-20260917.md`。
+
+## 2026-09-17 滚轮初始定位/重开修复 体验版151上传与放行
+
+- 用户在当前消息授权「确认上传并放行」。候选 = `d33da54bb91d8cc3b8faa2c20f34da4f4126acd6`（分支`codex/runtime-3172-wheel-and-pager-20260916`），独占warm槽`runtime/wt/general-3`（lease token`db08aaaa…`、RUN_ID`runtime-3172-wheel-base-upload-20260917`、REUSE_ONLY、无安装）。
+- 血缘与前置：fetch 后`origin/main@4179f05a`与远端最新体验版 tag`.150@a0707b0c`都是候选祖先；`prepare-release-worktree.mjs --purpose upload`冻结候选，`check-worktree-safety.ps1 -RequireReady -ExpectedCommit … -LeaseToken … -RunId …`返回`STATE=ready-clean-detached RESULT=PASS`（槽位任务分支先 fast-forward 到候选，未改写已推送历史）。
+- 上传（脚本在独占锁内分配版本、构建、建不可变 tag）：`0.1.0-p10.20260917.151`，说明「Skyline 3.17.2 wheel layout base d33da54」，production，Manifest`c837834697def927ca13d70ca9b992b874da6cf1a2eabdbacb9254d7a882e55b`；分配`23:58:46Z`、构建`23:58:35Z`、上传`23:59:32Z`；上传后同一 checker 加`-ForMiniprogramUpload -MiniProgramVersion 0.1.0-p10.20260917.151`返回`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`、`RESULT=PASS`。远端轻量 tag`miniprogram-trial/0.1.0-p10.20260917.151`指向同一 SHA，三份 allocation/receipt/manifest 记录字段一致。
+- 放行：`root@hosp.schedule.eylinhome.top`（`IdentitiesOnly=yes`、`StrictHostKeyChecking=yes`、仓库外密钥）执行可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260917.151`——只追加1项、白名单共47项并保留`.150/.149`，重建API/Web容器期间出现既有短暂502后按健康等待恢复；独立`verify`与`/usr/local/lib/schedule/ecs-verify.sh`（`[verify] complete`）通过。公网HTTPS：`.151=200`、`.150=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布，也未声明 production live release（`LIVE_RELEASE_VERIFIED=false`）。
+- 状态：已交付待小米14原生复核。唯一建议下一任务：复核3.17.2滚轮“打开即在当前年月、可滚动、重开仍可滚动”，并确认请假定位当日仍一次到位；已知局限保持（未触摸前无渐变、点击单项选中不生效）。详情见`docs/audit/runtime-ui-compatibility-wheel-layout-base-trial-release-20260917.md`。

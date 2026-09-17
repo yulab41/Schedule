@@ -1,13 +1,14 @@
 # 微信小程序审计状态
 
-## 当前批次：Skyline 3.17.2 滚轮初始定位与重开失效已修复，待体验版交付
+## 当前批次：Skyline 3.17.2 滚轮初始定位与重开失效，体验版151已上传并放行，待小米14复核
 
 - 用户真机复核`.150`：首次打开滚轮**可以滚动**（模板覆盖位移的修复生效），但**初始停在 2021年/1月**而非当前年月；**关掉再打开又无法滚动**。
 - 根因（同一原因）：3.17.2 不把 WXS 的`change:wheel-config`观察器交给滚轮。① 初始位移只由`configure`写入 → 从未应用 → 停在轨道原点；② 上一轮的"缺 state 时按 dataset 自建基线"只在第一次生效，重开时 state 已存在但 generation 已推进 → `eventState`因代际不一致返回`null` → 手势全被忽略。
 - 修复：初始定位改由模板承担（轨道`margin-top:{{wheelLayoutOffset}}`= `-index*44`，WXS 只画增量`translateY(offset - baseOffset)`，两者不同属性不再互相覆盖）；手势按代际自我刷新（dataset 的 generation 更新时按`data-base-index`/`data-item-count`重新播种并重置行样式，更旧仍忽略）。
 - 证据：RED（回退 WXS 后"重开"用例失败`expected 'translateY(-44px)' to be 'translateY(0px)'`）；GREEN 定向55项、Mini完整174文件1217项通过/16跳过；typecheck、build366、package(主包1745352B/总4619757B)、determinism(95f7825e)、format、lint、smoke:check-core、agent-context-policy通过。`miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
 - 3.17.2 已知局限（观察器不交付）：打开后未触摸前没有大小/淡出渐变（触摸一次即恢复）；点击某一项选中（tap-to-select）仍不生效，拖动选择正常。
-- 本轮未上传、未放行、未部署。唯一下一任务：取得当次上传授权后交付体验版并 add-only 放行，由小米14复核"打开即在当前年月、可滚动、重开仍可滚动"；详情见`runtime-ui-compatibility-wheel-layout-base-20260917.md`。
+- 交付与放行：`d33da54b` 以 production/clean 上传为 `0.1.0-p10.20260917.151`（说明“Skyline 3.17.2 wheel layout base d33da54”，Manifest`c8378346…2e55b`），远端不可变tag指向同一SHA；可信 ensure 只追加 `.151`（白名单47项，保留`.150/.149`），独立 verify 与 `/usr/local/lib/schedule/ecs-verify.sh` 通过，公网 `.151=200`、`.150=200`、动态未知 `=426`。未部署应用制品、未备份或迁移数据库、未声明 production live release。
+- 唯一下一任务：小米14复核3.17.2滚轮“打开即在当前年月、可滚动、重开仍可滚动”，并确认请假定位当日仍一次到位；已知局限保持（未触摸前无渐变、点击单项选中不生效）。详情见`runtime-ui-compatibility-wheel-layout-base-trial-release-20260917.md`。
 
 ## 当前批次：Skyline 3.17.2 滚轮位移通道与定位当日一次到位，体验版150已上传并放行，待小米14复核
 
