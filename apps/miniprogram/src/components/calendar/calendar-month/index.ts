@@ -247,10 +247,19 @@ function prepareCompatPagerTarget(instance: CalendarMonthInstance): void {
   if (delta === 0) return;
   const state = readMonthPagerState(instance);
   const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
-  if (!prepareCalendarPeriodChange(state, slot)) return;
+  prepareCalendarPeriodChange(state, slot);
   writeMonthPagerState(instance, state);
-  const viewportHeight = instance.data.panelHeights?.[slot] ?? 270;
-  if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
+}
+
+// Re-centring is a `setData` of the scroll target only; doing it while a drag is
+// still reporting would fight the finger and re-render on every frame.
+function recenterCompatPanes(instance: CalendarMonthInstance): void {
+  const width = instance._compatMetrics?.width;
+  if (width !== undefined) instance._compatMetrics = { left: width, width };
+  instance.setData({
+    pagerAnimated: false,
+    pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
+  });
 }
 
 function clearCompatPagerSettle(instance: CalendarMonthInstance): void {
@@ -275,18 +284,24 @@ function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
   prepareCompatPagerTarget(instance);
   const delta = requested ?? instance._compatGestureDelta ?? compatPaneDelta(instance);
   instance._compatGestureDelta = undefined;
-  if (delta === 0) return;
+  if (delta === 0) {
+    recenterCompatPanes(instance);
+    return;
+  }
   const state = readMonthPagerState(instance);
   const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
+  if (state.targetSlot !== slot) {
+    // A previous step is still loading: queue this one so a fast series of
+    // swipes keeps stepping as soon as the content arrives, then re-centre so
+    // the scroll is never stranded on a side pane.
+    requestCalendarPeriodShift(state, delta);
+    writeMonthPagerState(instance, state);
+    recenterCompatPanes(instance);
+    return;
+  }
+  const viewportHeight = instance.data.panelHeights?.[slot] ?? 270;
+  if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
   finishMonthSwipeAt(instance, slot);
-  // The ring rotated behind the scenes; land back on the middle pane so the next
-  // step always travels the way a month does.
-  const width = instance._compatMetrics?.width;
-  if (width !== undefined) instance._compatMetrics = { left: width, width };
-  instance.setData({
-    pagerAnimated: false,
-    pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
-  });
 }
 
 function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPagerState {

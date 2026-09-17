@@ -720,7 +720,7 @@ function prepareCompatDateTarget(instance: WorkflowPickerInstance): void {
   if (delta === 0) return;
   const state = readDatePagerState(instance);
   const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
-  if (!prepareCalendarPeriodChange(state, slot)) return;
+  prepareCalendarPeriodChange(state, slot);
   writeDatePagerState(instance, state);
   const panel = instance.data.compatPanes?.[delta < 0 ? 0 : 2];
   if (panel === undefined) return;
@@ -732,6 +732,17 @@ function prepareCompatDateTarget(instance: WorkflowPickerInstance): void {
   };
 }
 
+// Re-centring is a `setData` of the scroll target only; doing it while a drag is
+// still reporting would fight the finger and re-render on every frame.
+function recenterCompatDatePanes(instance: WorkflowPickerInstance): void {
+  const width = instance._dateCompatMetrics?.width;
+  if (width !== undefined) instance._dateCompatMetrics = { left: width, width };
+  instance.setData({
+    datePagerAnimated: false,
+    datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+  });
+}
+
 function settleDateCompatScroll(instance: WorkflowPickerInstance): void {
   if (!instance.data.open || !instance.data.skyline3172UiCompatibility) return;
   const requested = instance._dateCompatRequestedDelta;
@@ -739,18 +750,22 @@ function settleDateCompatScroll(instance: WorkflowPickerInstance): void {
   prepareCompatDateTarget(instance);
   const delta = requested ?? instance._dateCompatGestureDelta ?? compatDatePaneDelta(instance);
   instance._dateCompatGestureDelta = undefined;
-  if (delta === 0) return;
+  if (delta === 0) {
+    recenterCompatDatePanes(instance);
+    return;
+  }
   const state = readDatePagerState(instance);
   const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
+  if (state.targetSlot !== slot) {
+    // A previous step is still loading: queue this one so a fast series of
+    // swipes keeps stepping as soon as the content arrives, then re-centre so
+    // the scroll is never stranded on a side pane.
+    requestCalendarPeriodShift(state, delta);
+    writeDatePagerState(instance, state);
+    recenterCompatDatePanes(instance);
+    return;
+  }
   finishDateSwiperAt(instance, slot);
-  // The ring rotated behind the scenes; land back on the middle pane so the next
-  // step always travels the way a month does.
-  const width = instance._dateCompatMetrics?.width;
-  if (width !== undefined) instance._dateCompatMetrics = { left: width, width };
-  instance.setData({
-    datePagerAnimated: false,
-    datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
-  });
 }
 
 function applyDatePeriodChange(instance: WorkflowPickerInstance, delta: -1 | 1): void {
