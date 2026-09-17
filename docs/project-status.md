@@ -166,18 +166,6 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 已执行，warm槽未启动localhost:5173，结果`ERR_CONNECTION_REFUSED`，不记为浏览器通过；API与Mini production构建通过，后续`smoke:check-core`复核通过。
 - 当前消息未授权体验版上传、生产部署或数据库操作。唯一下一任务：完成检查点并由用户决定是否另行授权上传体验版。
 
-## 当前批次：头颈 DOCX 发布基础版导出与历史换班补记
-
-- 修复漏日/错列：一值先上后下、先左后右，首尾留空，中途缺位为`-`；历史ID归一，二/三值及Word视觉不变。
-- Word只读planned基础人员，忽略换班/加扣班actual；历史换班补记不改排班、不通知。全量verify通过，待部署、补记及新体验版。详见`docs/audit/head-neck-docx-export.md`。
-
-## 当前批次：Feedback26 导出筛选切换重置文件状态
-
-- 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
-- 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
-- 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
-- 检查点`4179f05a fix(miniprogram): reset generated export after selection changes`已进入累计体验版候选。未操作微信开发者工具、未上传体验版、未部署生产；原生效果待同SHA体验版复核。
-
 ## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 
 - 小米14 `.127` 证据确认：访客五行月历因 viewport 62px/行而 panel 仍54px/行产生底部留白；访客列表模板漏掉成员列表已有的班种状态。需继续核对医生/护士月周列表结构与交互，成员日历页面禁止修改。
