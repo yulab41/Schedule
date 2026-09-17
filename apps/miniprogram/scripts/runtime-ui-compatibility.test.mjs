@@ -360,18 +360,26 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(wheelTemplate).toContain('catchtouchstart="{{wheelGesture.touchStart}}"');
     expect(wheelTemplate).toContain('catchtouchmove="{{wheelGesture.touchMove}}"');
     expect(wheelTemplate).not.toContain('bindtouchmove="{{wheelGesture.touchMove}}"');
-    // Programmatic month paging must not replay a reversed circular animation.
-    expect(monthComponent).toMatch(
-      /swiperDuration: this\.data\.skyline3172UiCompatibility[\s\S]{0,60}0/su,
-    );
-    expect(picker).toMatch(
-      /dateSwiperDuration: instance\.data\.skyline3172UiCompatibility[\s\S]{0,60}0/su,
-    );
-    // A zero-duration jump must still settle the pager on the affected runtime.
-    expect(monthComponent).toMatch(
-      /skyline3172UiCompatibility\) finishMonthSwipeAt\(this, targetIndex\)/u,
-    );
-    expect(picker).toMatch(/finishDateSwiperAt\(instance, request\.targetSlot\)/u);
+    // Programmatic month paging must not replay a reversed circular animation:
+    // on the affected runtime the same ring is paged by a native horizontal
+    // scroller, which the platform animates and which tracks the finger itself.
+    expect(picker).toContain('datePagerAnimated: true');
+    expect(picker).toContain('handleDateCompatScroll');
+    const pickerTemplate = readSource('components/ui/ui-date-picker/index.wxml');
+    expect(pickerTemplate).toContain('scroll-into-view="{{datePagerTarget}}"');
+    expect(pickerTemplate).toContain('bindscroll="handleDateCompatScroll"');
+    expect(pickerTemplate).toContain('wx:if="{{skyline3172UiCompatibility}}"');
+    // A settled native scroll must still commit the ring shift.
+    expect(picker).toMatch(/finishDateSwiperAt\(instance, slot\)/u);
+    // The home month calendar pages the same way there, so its arrows animate
+    // and its locate button slides a single panel instead of jumping.
+    const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
+    expect(monthTemplate).toContain('scroll-into-view="{{pagerTarget}}"');
+    expect(monthTemplate).toContain('bindscroll="handlePagerScroll"');
+    expect(monthTemplate).toContain('wx:if="{{skyline3172UiCompatibility}}"');
+    expect(monthComponent).toContain('pagerAnimated = true');
+    expect(monthComponent).toContain('function settleCompatPagerScroll');
+    expect(monthComponent).not.toContain('swiperDuration: this.data.skyline3172UiCompatibility');
     // The gesture must survive a missing config observer: the template carries the
     // base position, and the node dataset re-seeds the state per generation.
     // Both carriers go through the component's own data: the renderer on the
@@ -410,8 +418,8 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(wheelComponent).toContain('function compatNumberStyle');
     expect(wheelComponent).toContain('function compatRowStyle');
     // Locate-today re-centers in one step no matter what the pager was doing.
-    expect(picker).toMatch(/handleDateToday[\s\S]{0,600}resetDatePager\(this\)/u);
-    expect(picker).toMatch(/handleDateToday[\s\S]{0,600}createDateDraftPatch/u);
+    expect(picker).toMatch(/handleDateToday[\s\S]{0,900}resetDatePager\(this\)/u);
+    expect(picker).toMatch(/handleDateToday[\s\S]{0,900}createDateDraftPatch/u);
     expect(picker).not.toContain('_dateLocateTarget');
   });
 });

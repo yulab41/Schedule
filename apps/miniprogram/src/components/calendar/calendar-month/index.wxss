@@ -190,6 +190,22 @@
   transition: height 240ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
+/* The affected runtime pages the same three panels with a native horizontal
+   scroller, so the ring rides the platform's own momentum and follow-through. */
+.calendar-motion-viewport.is-compat {
+  white-space: nowrap;
+}
+
+.calendar-pager-track {
+  display: flex;
+  width: 300%;
+}
+
+.calendar-pager-pane {
+  width: 33.333333%;
+  flex: none;
+}
+
 .calendar-slide-panel {
   width: 100%;
 }

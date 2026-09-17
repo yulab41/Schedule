@@ -215,6 +215,23 @@
   height: 252px;
 }
 
+/* The affected runtime pages the same three panels with a native horizontal
+   scroller, so the ring rides the platform's own momentum and follow-through. */
+.workflow-picker-date-swiper.is-compat {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.workflow-picker-date-track {
+  display: flex;
+  width: 300%;
+}
+
+.workflow-picker-date-pane {
+  width: 33.333333%;
+  flex: none;
+}
+
 .workflow-picker-date-navigation > text {
   flex: 1;
   font-size: 15px;

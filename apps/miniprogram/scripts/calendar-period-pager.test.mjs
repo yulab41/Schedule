@@ -1,21 +1,42 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
   cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
+  createCalendarPeriodPaneId,
   createCalendarPeriodPagerState,
   finishCalendarPeriodShift,
   getAdjacentCalendarPeriodSlot,
   getCalendarPeriodSlotDelta,
   mapCalendarPeriodRing,
+  mergeCalendarPeriodScrollMetrics,
+  nearestCalendarPeriodScrollSlot,
   prepareCalendarPeriodChange,
   requestCalendarPeriodShift,
   takeQueuedCalendarPeriodShift,
 } from '../src/components/calendar/calendar-period-pager.ts';
 
 describe('shared calendar period pager', () => {
+  it('settles a native period scroll on the pane it actually reached', () => {
+    expect(CALENDAR_PERIOD_SCROLL_SETTLE_MS).toBe(140);
+    const first = mergeCalendarPeriodScrollMetrics(undefined, {
+      scrollLeft: 4536,
+      scrollWidth: 13608,
+    });
+    expect(first).toEqual({ left: 4536, width: 4536 });
+    expect(nearestCalendarPeriodScrollSlot(first)).toBe(1);
+    // The ratio is unit-agnostic, so a later event only needs one axis.
+    const snapped = mergeCalendarPeriodScrollMetrics(first, { scrollLeft: 0 });
+    expect(snapped).toEqual({ left: 0, width: 4536 });
+    expect(nearestCalendarPeriodScrollSlot(snapped)).toBe(0);
+    expect(nearestCalendarPeriodScrollSlot(undefined)).toBeUndefined();
+    expect(mergeCalendarPeriodScrollMetrics(undefined, {})).toBeUndefined();
+    expect(createCalendarPeriodPaneId('date-pane-', 2)).toBe('date-pane-2');
+  });
+
   it('centralizes the native animation contract', () => {
     expect(CALENDAR_PERIOD_SWIPER_DURATION_MS).toBe(240);
     expect(CALENDAR_PERIOD_SWIPER_EASING_FUNCTION).toBe('easeOutCubic');

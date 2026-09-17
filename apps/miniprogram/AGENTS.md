@@ -42,6 +42,12 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Runtime and code boundaries
 
+- Fix with the smallest change first. When a target base library cannot be adapted on top of the
+  existing implementation (its runtime drops the primitives that implementation relies on), redesign
+  a path that matches that library instead of forcing patches onto it. Such a path must still be
+  organised rather than accreted, must not change the behaviour or markup that the newer base
+  libraries already render correctly, must not bloat the package, and must reuse the existing ring,
+  panel, template, interpolation, and shared-helper code wherever it can.
 - Production pages use native WXML, WXSS, TypeScript, JSON, Skyline, and glass-easel. Minimum base library is 3.3.0; there is no WebView fallback. This compatibility floor is required by the approved UI-thread `worklet.scrollViewContext` matrix synchronization architecture.
 - Source lives in `src/`; generated output lives in ignored `dist/`. Do not hand-edit `dist/`.
 - Shared runtime code must be DOM-free, Node-free, database-free, and Zod-free in the Mini Program bundle.
