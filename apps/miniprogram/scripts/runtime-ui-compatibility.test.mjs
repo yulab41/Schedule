@@ -380,6 +380,7 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(wheelTemplate).toContain('data-base-index="{{wheelLayoutIndex}}"');
     expect(wheelTemplate).toContain('style="{{wheelTrackStyle}}"');
     expect(wheelGesture).toContain('seedStateFromDataset');
+    // 3.17.3 keeps its original split: template base + gesture delta.
     expect(wheelGesture).toContain('state.offset - state.baseOffset');
     expect(wheelGesture).toContain('refreshItemCount');
     // The 年/月 unit prefers item data and falls back to the component property.
@@ -390,8 +391,10 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     // Pixel motion must not depend on WXS style writes on the affected runtime.
     const wheelComponent = readSource('components/ui/ui-wheel-column/index.ts');
     expect(wheelComponent).toContain('function createWheelTrackStylePatch');
-    expect(wheelComponent).toContain('transform:translateY(${delta}px)');
-    expect(wheelComponent).toContain('wheelTrackStyle: instance.data.skyline3172UiCompatibility');
+    // The affected runtime gets the whole absolute offset in the transform, while
+    // 3.17.3 keeps the template-owned base and must stay byte-identical.
+    expect(wheelComponent).toContain('transform:translateY(${absoluteOffset}px)');
+    expect(wheelComponent).toContain('margin-top:${layoutOffset}px');
     // Selected-row emphasis must not depend on the WXS reaching the renderer.
     const wheelStyles = readSource('components/ui/ui-wheel-column/index.wxss');
     expect(wheelTemplate).toContain('is-skyline-3172-ui');

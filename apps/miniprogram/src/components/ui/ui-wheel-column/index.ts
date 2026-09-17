@@ -154,9 +154,11 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
     patch.wheelLayoutIndex = nextConfig.selectedIndex;
     patch.wheelLayoutOffset = -nextConfig.selectedIndex * uiWheelItemHeight;
     patch.wheelTrackOffset = 0;
-    patch.wheelTrackStyle = instance.data.skyline3172UiCompatibility
-      ? `margin-top:${-nextConfig.selectedIndex * uiWheelItemHeight}px;transform:translateY(0px)`
-      : `margin-top:${-nextConfig.selectedIndex * uiWheelItemHeight}px`;
+    patch.wheelTrackStyle = createWheelTrackStyle(
+      -nextConfig.selectedIndex * uiWheelItemHeight,
+      -nextConfig.selectedIndex * uiWheelItemHeight,
+      instance.data.skyline3172UiCompatibility,
+    );
   }
   instance.setData(patch);
 }
@@ -229,10 +231,26 @@ function createWheelTrackStylePatch(
   const delta = absoluteOffset + baseIndex * uiWheelItemHeight;
   return {
     wheelTrackOffset: delta,
-    wheelTrackStyle: instance.data.skyline3172UiCompatibility
-      ? `margin-top:${layoutOffset}px;transform:translateY(${delta}px)`
-      : `margin-top:${layoutOffset}px`,
+    wheelTrackStyle: createWheelTrackStyle(
+      absoluteOffset,
+      layoutOffset,
+      instance.data.skyline3172UiCompatibility,
+    ),
   };
+}
+
+// 3.17.3 keeps its original split untouched: the template owns the base through
+// `margin-top` and the gesture paints only the delta. 3.17.2 drops the gesture's
+// style writes and ignores an inline `margin-top`, so only there the transform
+// has to carry the whole absolute offset.
+function createWheelTrackStyle(
+  absoluteOffset: number,
+  layoutOffset: number,
+  skyline3172UiCompatibility: boolean,
+): string {
+  return skyline3172UiCompatibility
+    ? `transform:translateY(${absoluteOffset}px)`
+    : `margin-top:${layoutOffset}px`;
 }
 
 function boundedIndex(value: unknown, itemCount: number): number | undefined {
