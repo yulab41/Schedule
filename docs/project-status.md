@@ -8,7 +8,8 @@
 - A/B 实测（同构建只切基础库；向真实`ui-wheel-column`注入一次 index=3/offset=−132 上报，走已验证可用的 callMethod+data 通道）：3.17.2 `compat=true`、样式串`margin-top:0px;transform:translateY(-132px)`、轨道渲染矩形 top `11642→11510`（正好−132px）、单位节点 8/8、选中数字高≈25.2px vs 未选中≈17.9px、选中项盒子 127.2×46.64（=44×1.06）；3.17.3 `compat=false`、样式串只有`margin-top:0px`、轨道 top 不变。
 - 结论：修复在真实 3.17.2 运行时生效（数据通道确实推动轨道、单位出现、中间项放大），且对 3.17.3 渲染零副作用。
 - 工具边界：DevTools 的`fields({computedStyle})`对 **3.17.2 与 3.17.3 都返回空**（已用 display/color/transform/marginTop 复核），故模拟器不能复现也不能否证真机"3.17.2 丢弃 WXS `setStyle`"；该条仍是设备级证据，本轮刻意不依赖它（`rect` 两版本都可用）。自动化`trigger`不触发 WXS 绑定、合成触摸不能驱动 Skyline 滚动、`pageScrollTo`超时 → 探针卡片的"拖方块/拖滚轮"未在模拟器执行。
-- 证据：定向 31 项（wheel/runtime-compat/picker/wxs 集成）通过；截图与探针剪贴板记录留在 ignored `runtime/audit/devtools-153/`。本轮未上传、未放行、未部署、未提审。
+- 放行确认（用户当次授权"提交并放行"）：`.153` 已在白名单，可信`ensure`返回"版本已存在并通过验证；未重建容器"（幂等、只追加），`verify`通过，`ecs-verify.sh`输出`[verify] complete`（api/web Up、mysql healthy），公网探针`.153=200`、`.152=200`、未知`=426`；未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 证据：定向 31 项（wheel/runtime-compat/picker/wxs 集成）通过；截图与探针剪贴板记录留在 ignored `runtime/audit/devtools-153/`。
 - 修复回顾（`cf6fbf40`）：轨道位移改由组件 data 承载（`wheelTrackOffset`/`wheelTrackStyle`，样式串只在 3.17.2 含`transform:translateY(...)`）；单位走`item.unit`+`wx:if/wx:else`；3.17.2 滚动为按行推进。真机`.152`测量仍成立：该版本丢弃 WXS`setStyle`、`computedStyle`不可用，但`callMethod`与模板数据通道正常。
 - 规则与工具链：`apps/miniprogram/AGENTS.md`与 guardrails skill 默认同意 LLM 驱动开发者工具（保留"无当次授权只读、上传/提审/发布/生产凭证需当次批准、DevTools≠小米14原生验收"）；`wechatide-skill` v0.3.11；SkillHub 的`wxa-skills-generate`/`wxa-skills-validate`已装。
 - 唯一下一任务：小米14打开`.153`，复核滚轮按行滚动/单位出现/中间项放大/范围到底、重开正常、3.17.3不变；随后执行授权清单第3项（AI 开发模式 generate→validate，需"开发模式"+服务端口，且不得合入提审版本）。详情见`docs/audit/runtime-ui-compatibility-devtools-3172-verification-20260917.md`。

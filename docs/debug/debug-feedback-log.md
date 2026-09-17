@@ -3119,3 +3119,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 工具边界（必须标注）：DevTools 的 `fields({computedStyle})` 对 3.17.2 与 3.17.3 **都返回空**（用 display/color/transform/marginTop 直接复核），因此模拟器不能复现也不能否证真机"3.17.2 丢弃 WXS `setStyle`"这一条，该结论仍是设备级证据；本轮改用 `rect`（两版本都可用的通道）取证，所以结论不依赖它。另外自动化 `trigger` 不触发 WXS 绑定（探针"移动次数"保持 0）、合成触摸不能驱动 Skyline 页面滚动、`wx.pageScrollTo` 与 `automation_viewport_action pageScrollTo` 均超时，探针卡片位于内容坐标约 11600px 处无法滚入可视区，故探针自身的"拖方块/拖滚轮"两步未在模拟器执行。
 - 验证：定向 `ui-wheel-column`/`runtime-ui-compatibility`/`workflow-picker-wxs-integration`/`ui-wheel-column-simulate` 共 31 项通过；`agent-context-policy` 3 项通过。
 - 状态：已实现待小米14复核。本轮未上传、未放行、未部署、未提审（当前消息未含这些授权）。唯一下一任务：小米14打开 `.153`，复核 3.17.2 滚轮按行滚动/单位出现/中间项放大/范围到底/重开正常且 3.17.3 不变；随后做授权清单第3项。详情见 `docs/audit/runtime-ui-compatibility-devtools-3172-verification-20260917.md`。
+
+## 2026-09-17 `.153` 放行确认（用户授权"提交并放行"）
+
+- 用户当次授权"把153复核完，授权你提交并放行"。提交侧：本次 DevTools 验证记录为检查点 `5c70d751`，已推送到 `origin/codex/runtime-3172-wheel-and-pager-20260916`。
+- 放行侧（只读+幂等）：可信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260917.153` 返回"请求的版本已存在并通过验证；未重建容器"，即 `.153` 已在白名单、本次未新增条目、未重建容器；`schedule-client-version-allowlist verify` 通过；`/usr/local/lib/schedule/ecs-verify.sh` 输出 `[verify] complete`（api/web 容器 Up 52 分钟、mysql healthy、迁移计数正常）；公网探针 `.153=200`、`.152=200`、动态未知 `=426`。
+- 边界：未部署应用制品、未备份或迁移数据库、未提审、未正式发布；未读取生产业务数据。`放行` 仅指体验版白名单，不等于小米14原生验收。
+- 状态：`.153` 复核的 DevTools 侧与放行侧均完成。唯一剩余项是小米14原生复核（滚轮按行滚动/单位出现/中间项放大/范围到底/重开正常，3.17.3 不变），该证据只能由用户设备提供。
