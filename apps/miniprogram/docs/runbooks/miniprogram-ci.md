@@ -2,7 +2,7 @@
 
 ## 目的
 
-在不打开本地微信开发者工具的条件下完成构建、预览码和开发/体验上传。它不渲染原生页面，也不提供视觉验收。
+在不打开本地微信开发者工具的条件下完成构建、预览码和开发/体验上传。它不渲染原生页面，也不提供视觉验收。Agent 操作开发者工具的另一条路线见 `wechatide-skill`；两条路线共用本文的版本分配、血缘和 receipt 要求。
 
 ## 凭证边界
 
@@ -15,8 +15,8 @@
 - 允许：本地编译、生成预览码、上传开发版/体验版。
 - 禁止自动：提交审核、撤回审核、正式发布、修改公众平台配置。
 - 审核或正式发布脚本即使存在，也必须在执行前取得用户本次明确批准。
-- 对当前消息已明确授权上传、且已经完成验证并推送 Git 的小程序修改 checkpoint，必须使用 Node 版 `miniprogram-ci` 上传开发版/体验版；这里的“一步”指可追溯、可回滚的 checkpoint，不是每次保存单个文件。未获上传授权时按下文记录 `UPLOAD_REQUIRED`，不得从“已验证”推导上传权限。
-- `ci:dry-run` 只验证配置和构建边界，不能替代真实上传。缺少仓库外私钥时，必须把该提交记录为“微信上传阻塞”，向用户索取私钥绝对路径，并在开始下一实施步骤前补传同一提交；不得改用本地微信开发者工具 CLI。
+- 对已经完成验证并推送 Git 的小程序修改 checkpoint，必须上传开发版/体验版；这里的“一步”指可追溯、可回滚的 checkpoint，不是每次保存单个文件。上传不需要用户逐次批准；开发者工具路线见 `wechatide-skill`，两条路线都必须记录版本、Manifest/receipt 和提交身份。
+- `ci:dry-run` 只验证配置和构建边界，不能替代真实上传。缺少必需平台凭证或上传失败时，必须把该提交记录为“微信上传阻塞”，并在开始下一实施步骤前补传同一提交。
 
 ## P1 必备命令形态
 
@@ -92,10 +92,10 @@ pnpm --filter @schedule/miniprogram ci:dry-run
 新版本。`pnpm miniprogram:trial-lineage` 只校验 tracked 账本/policy 与 required commit 的本地存在性，不 fetch、
 不 push。`pnpm miniprogram:ci:dry-run` 同样不读取上传凭证、不创建 tag、不写 receipt、不调用微信上传。
 
-真实命令同时包含“永久占用远端 tag”和“上传体验版”两个外部动作。执行前必须披露 exact full SHA、动态选出的完整
-版本、description、clean/profile 和测试页面，并取得用户对该 exact checkpoint 的当次明确批准。上传不会自动放行
-服务器 allowlist；allowlist 仍是独立 L4 操作。
+真实命令同时包含“永久占用远端 tag”和“上传体验版”两个外部动作。执行前必须在轮次记录中披露 exact full SHA、
+动态选出的完整版本、description、clean/profile 和测试页面。上传不需要用户逐次批准，但版本号一经上传即永久占用。
+上传不会自动放行服务器 allowlist；allowlist 仍是独立 L4 操作。
 
-预览和体验上传会改变微信平台外部状态。虽然属于用户已批准的自动化范围，执行者仍须在轮次记录中写明 profile、Git 提交和结果；不得把审核或正式发布动作加入此脚本。二维码固定写入已忽略的 `.artifacts/preview/<profile>.png`，日志只输出相对路径，不输出二维码内容。
+预览和体验上传会改变微信平台外部状态。虽然属于已批准的自动化范围，执行者仍须在轮次记录中写明 profile、Git 提交、上传路线和结果；不得把审核或正式发布动作加入此脚本。二维码固定写入已忽略的 `.artifacts/preview/<profile>.png`，日志只输出相对路径，不输出二维码内容。
 
-若本地 DevTools 正在运行或假死，自动流程仍不得唤醒、关闭、重启或控制它；直接使用 Node 版 `miniprogram-ci` 或报告外部阻塞。
+若本地 DevTools 正在运行或假死，Node 路线不得把它当成依赖；直接使用 Node 版 `miniprogram-ci`，或按 `wechatide-skill` 的 `installer` scene 诊断后报告外部阻塞。

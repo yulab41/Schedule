@@ -1,11 +1,23 @@
 # Project Status
 
+## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
+
+- 用户明确要求：允许 Agent 调用微信开发者工具（`wechatide` CLI 与开发者工具 MCP），且编译、预览、上传不再需要用户逐次确认。
+- 已移除禁令与逐次批准门禁的位置：根`AGENTS.md`、`apps/miniprogram/AGENTS.md`、`schedule-project-guardrails`（`SKILL.md`、`references/miniprogram.md`、`references/task-levels.md`、`references/release-candidate.md`）、小程序迁移计划、`architecture/runtime-and-build.md`、`runbooks/manual-native-testing.md`、`runbooks/p6-core-rc.md`、`p7-workflow-rc.md`、`p8-organization-rc.md`、`runbooks/miniprogram-ci.md`、`testing/device-matrix.md`、`testing/test-plan.md`、`docs/audit/AUDIT_MASTER_PLAN.md`、`docs/audit/XIAOMI14_TEST_PROTOCOL.md`。
+- 守卫与历史记录处理：`validate-project-skill.ps1` 原先断言运行手册含“当前消息已明确授权上传”，该审批要求正是本次取消的策略，故改为断言“不需要用户逐次批准”并复核其余版本分配/血缘 token 仍全部成立；这是策略变更的同步，不是用改测试掩盖失败。`wechat-miniprogram-audit.md` 与`exp-icon-004`计划只加日期化的“当时/现已解除”说明，不改写历史结论。
+- `docs/project-status.md` 原为40551字节，已接近`agent-context-policy.test.mjs`的40960字节硬门槛，加一轮记录必然越界。按根`AGENTS.md`“保持简洁、Git历史才是持久历史”的要求，裁掉访客修复101及以前的历史批次（保留当前与近期批次，并在文末指向`docs/audit/`），现为32047字节/168行。
+- ADR：ADR-0002 的执行边界部分由新增`apps/miniprogram/docs/decisions/ADR-0006-agent-devtools-automation.md`取代，其余部分（日常主循环不依赖开发者工具）仍有效。
+- 保留不变的边界：提交审核、撤回审核、正式发布，以及删除云资源、生产数据库破坏性写入、真实支付等其他不可逆操作仍需用户当次明确批准；体验版上传仍走版本分配、冻结干净候选、Manifest/receipt/远端tag血缘与只追加allowlist；模拟器、自动化与截图不得冒充实体设备验收。
+- 环境事实（本轮实测）：开发者工具`2.02.2609162`（Nightly，高于门槛`2.02.2607152`）；`wechatide -h`退出码0；agent侧skill`0.3.11`与工具内置版逐文件一致且`versionRelation: equal`；MCP `wechat-devtools`带独立Token调用`check_wechatide_status`成功，`loginExpired: false`。
+- 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
+- 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
+
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
 - 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
 - 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
 - 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
-- 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。未操作微信开发者工具、未上传体验版、未部署生产。唯一下一任务：如需小米14原生复核，先对最终干净SHA另行授权体验版上传。
+- 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。未操作微信开发者工具、未上传体验版、未部署生产。如需小米14原生复核，由 Agent 在最终干净SHA上自主上传体验版（不再需要另行授权）。
 
 ## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 
@@ -155,62 +167,4 @@
 - 文档收口检查点：docs(release): record feedback9 trial 102 delivery。唯一下一任务/停止条件：用户在小米14重开.102/e40c4f9，复核群组偏好、手排矩阵/日期/月历、补录和CSV下载后发送/取消；失败时保留新版分类提示。自动化交付完成，真实下载原因与原生效果待用户复核；不重复上传、放行、部署或同步服务器release标识。
 - general-4/5已恢复；general-2/3历史改动保留，general-6精确路径恢复/删除被自动审批以blocked by policy拒绝而未执行，归档及原文件保留。
 
-## 上一批次：访客修复体验版101已上传并放行，待小米14复核
-
-- 最终体验版0.1.0-p10.20260910.101，源码f7bc3ccc5d967b5bbeca0493256a7bdce12b49bb，包含890efd8b访客完整修复、17939041历史动效证明补充及Skyline导航兼容修复。均已推送main；详情见docs/audit/visitor-trial-release.md。
-- 用户明确同意上传并放行，正式锁内分配，production/clean。receipt、353文件冻结Manifest及不可变远端tag一致；主包1646685/总包4433783字节。此前.100因官方编译拒绝default导航而失败，号码永久占用且未放行。
-- 可信ensure追加.101并保留旧版；完整生产verifier与allowlist验证通过，外部HTTPS .101/.99/.98=200、.100/未知版本=426。服务器应用仍4e0a0d1a/schema57，本轮没有新应用部署、数据库备份/迁移或医护关联变更。
-- 应用证据复用visitor-system-fix.md；本轮动效/lineage/候选/锁28及CI封装6通过，扫码导航17项、Mini verify/确定性/包体/Worklet通过。独占general-1顺序Acquire/Release，依赖复用、无安装。
-- 文档收口检查点：docs(release): record visitor trial 101 delivery。只记录交付，不重复上传、放行、备份或同步服务器release标识。
-- 唯一下一任务/停止条件：用户在小米14重开.101/f7bc3cc，核对trial/renderer/基础库/微信版本后复核反复医护群切换、三视图与筛选、扫码及后台恢复。自动化交付完成，待用户原生复核；未提审/正式发布或主动发送通知，未宣称卡死/闪退真机验收通过。
-
-## 上一批次：群组互为访客已上线并启用
-
-- 新增群组级双向关联，当前及未来正式成员实时获得对方群访客访问；离群/停用自动失效，不创建成员行，不传播第三群，原有身份保留。
-- 登录关联访客只读已发布/历史排班，过滤所有联系方式；平台管理员标记不扩大关联权限。群目录、加入退出冲突提示、群回收和运维预检/幂等启停/审计齐备。
-- 新增0057迁移；发布兼容要求schema57。操作说明见docs/operations/group-visitor-links.md，验证与引入点见docs/audit/group-visitor-links.md。
-- 验证：真实MySQL83项不同用例及13项定向复测，API/数据库Node257通过/411跳过；build/typecheck/ESLint/format通过。完整浏览器冒烟与双向关联专项浏览器均通过；smoke:check-core通过。
-- 独占general-1复用依赖，无安装。Docker残留socket阻塞已排除；合成local-admin的测试标记已恢复。原有未跟踪文件保持不动。
-- 应用检查点4e0a0d1a `feat(groups): add reciprocal guest access between groups`已推送并部署。生产备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4已核验文件长度与hash；部署前实际live=8e68a480，部署后schema57。完整生产verifier、版本策略与外部HTTPS健康检查通过。
-- 医生群7名、护士群18名有效正式成员；原有跨群身份优先保留，新增覆盖医生群6账号→护士群、护士群17账号→医生群。生产逐账号验证访客摘要、排班读取、联系方式隐藏及管理权限拒绝全部通过。
-- 生产关联已启用（version1），账号37/成员关系35/排班4011前后不变；未新增个人成员记录、未主动发送通知、未上传小程序。交付细节见docs/audit/group-visitor-links.md。
-- 收口检查点：`docs(ops): record reciprocal guest access activation`。唯一下一任务/停止条件：Web可查看对方群访客入口；小程序现有包未接通专用接口，已转入当前访客修复批次。本轮实施及生产配置完成，不再次部署、备份或启停关联。
-
-## 上一批次：feedback8 九项整改已交付体验版99，待小米14复核
-
-- 上传提交ca634116925f2ad708ec07b2edbfcd531e9a0bf6（应用8e68a480）已上传为0.1.0-p10.20260910.99。用户明确批准该提交上传及新版放行；上传receipt、349文件冻结Manifest、远端不可变tag一致，见docs/audit/feedback8-trial-release.md。
-- 只追加.99到服务器允许列表并保留旧版，完整生产verifier与allowlist验证通过；独立HTTPS：.99/.98/.97均200，动态未知版本426。服务器应用仍8e68a480，未重复部署代码或新建数据库备份。
-- 九项实现见docs/audit/feedback8.md。完整验证Mini996/15跳过、root1215/402跳过、依赖保护81；额外弹窗21项、最终Mini verify和320/390几何通过，浏览器与同API源码MySQL15项证据复用。本轮上传专项30项通过，版本绑定主包1765638/总包5328015字节，保留既有内部警告。
-- 账户按用户最终条件仅删除3个确认账户；清理备份e03aba70-d331-48f0-a865-e383b625dd15、操作及校验见feedback8-account-cleanup.md。剩32账户（24已设置、8历史待设置），4011排班及成员归属保留，不重复执行。
-- 服务器应用8e68a480已在上一阶段部署，部署备份d5dac482-6607-434e-94cc-8e1711738942及hash核验通过，回滚候选36fae3d1，详情见feedback8-server-release.md。四字段通知经部署模块模拟网关验证，尚无用户本人实际收信结论。
-- 独占general-1依赖复用，工作区无安装。Docker自身socket故障使末次MySQL复测未运行；不能把跳过项或上传成功当作原生验收。可选唯一班种自动选中未获选择，保留原手动行为。
-- 文档收口检查点：`docs(release): record feedback8 trial 99 delivery`；只记录已交付ca634116/.99，不再次上传、部署、备份、清理账户或同步服务器release标识。
-- 唯一下一任务/停止条件：用户在小米14重开体验版，确认.99/ca63411后复核群组按钮、周期弹窗、预览/草稿/发布月历、补录、好友/群聊邀请及本人通知测试。九项实现和自动化交付已完成，待用户原生复核；未提审、正式发布或主动发送通知。
-
-## 上一批次：feedback7 体验版98已上传并放行，待小米14复核
-
-- 17项交互整改应用507443024bb883a35cbea2b27f20ba933cbdc9a3已上传为0.1.0-p10.20260909.98；用户确认的默认空白模板、删除失效排序箭头均已包含。实现见docs/audit/feedback7.md，交付见docs/audit/feedback7-release.md。
-- 用户当次批准上传，随后另行批准只追加新版到服务端并保留旧版；已完成。正式上传receipt、340文件冻结Manifest及远端tag一致。
-- 服务端可信ensure追加1个版本；完整生产verifier与allowlist验证通过，外部HTTPS .98=200、.97=200、未知版本=426。服务器live仍36fae3d1，本轮不部署应用代码或迁移数据库。
-- 实现证据981通过/15跳过；本轮上传专项30通过，版本绑定包主包1753208/总包5135578字节，保留已有主包内部预警。独占warm槽顺序复用，无依赖安装。
-- 文档收口检查点：docs(release): record feedback7 trial 98 delivery。只记录已交付应用50744302/.98，不重复上传、部署、备份或同步服务器元数据。
-- 唯一下一任务与停止条件：用户在小米14重开体验版，确认.98/5074430后复核群组管理、手排模板/预览/草稿/发布、补录、岗位成员。当前自动化交付完成，待用户原生复核；未提审、正式发布或主动发送通知。
-
-## 上一交付：feedback6 体验版97
-
-- 十一项整改已进入应用36fae3d145982d793c1dee243a6eb12867962fb6及体验版0.1.0-p10.20260909.97。3aeaa4c8业务修改完整保留；36fae3d1仅补充历史导航动效证明。结果见feedback6-result.md，发布证据见docs/audit/feedback6-release.md。
-- 用户当次授权上传、备份、0055/0056迁移部署及旧版本停用；全部完成。最终schema56，完整生产verifier和版本控制验证通过，外部HTTPS .97=200、.96及未知版本=426。仅.97在允许列表，legacy标识保持原值。
-- 备份8ed1f840-8a23-4eff-ae0b-43a1123c862f实际文件hash核验通过。迁移前后账号/排班/事件/模板总数不变，手机号镜像差异0；未删账号或补造历史事件。生产仍为权威数据库，无本地业务数据复制。
-- 应用证据复用3aeaa4c8全量verify（Mini971/root1208）、真实MySQL分批回归及原pnpm smoke:browser流程；本轮发布保护35、动效/血缘/候选锁28项通过。最终上传335文件，Manifest与receipt/冻结包/远端tag一致；版本绑定主包1751101、总包5121308字节，Worklet2/2。
-- 独占general-1顺序复用，无依赖安装。文档收口检查点：docs(release): record feedback6 trial 97 delivery；只记录已发布36fae3d1，不再次部署/上传/备份。lease状态以ignored runtime官方状态为准。
-- 唯一下一任务与停止条件：用户在小米14重开.97/36fae3d后复核日历08:00、手动排班/补录、账号管理及通讯录首搜。原生交互/更新提示/搜索耗时未验证；未提审、正式发布或主动发送通知。当前自动化交付完成，待用户复核。
-
-## 上一交付：微信换绑修复
-
-- 应用a6586326b8bccc91fe7cf4f46b89e6296108e869已部署，体验版0.1.0-p10.20260908.96已上传并放行。用户本轮分别明确授权上传及生产部署/版本放行，最终生产verifier通过。
-- 换绑修复、旧凭证失效、并发/事务保护、网页微信登录退役及诊断提示已交付；原账号业务数据保留，无新迁移。旧网页微信授权入口实际HTTP404。
-- 备份9168aa6d-2fd1-4f8c-9f14-458face592ee及加密文件hash核验通过；部署前回滚候选实际读取为657f6ef5，最终live=a6586326，查询方案candidate保持开启。
-- 实现证据见docs/audit/wechat-rebind.md：全量verify、65项真实MySQL和浏览器检查通过；本轮上传门禁24项、候选版本绑定/归档/标签校验通过。交付详情见docs/audit/wechat-rebind-release.md。
-- 无依赖环境安装/冷槽新建。general-1上传租约已释放并用于文档收口；general-3历史释放仍受PID重用阻挡，不终止无关进程。
-- 收口提交标识：docs(release): record WeChat rebind trial 96 delivery。只记录已交付应用a6586326，不再部署文档提交。
-- 上一交付保留待复核项（非当前下一任务）：小米14确认.96/a6586326后测试个人账号↔admin换绑、微信登录及诊断身份一致，再主动本人订阅/发送并返回脱敏报告。未主动发送真实测试通知，未提审或正式发布，原生与收信效果待用户复核。
+- 更早批次（访客修复101及以前）的交付记录见 Git 历史与 `docs/audit/` 对应文档；本文件只保留当前与近期批次。

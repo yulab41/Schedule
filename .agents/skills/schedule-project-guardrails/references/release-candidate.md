@@ -36,7 +36,7 @@ Use the canonical [candidate preflight and application evidence rules](testing-a
 
 All candidate manifests and evidence stay under preconfirmed ignored `runtime/` paths. A candidate operation must finish with the source worktree clean. Runtime disabling of diagnostics is not evidence that diagnostic code is absent; package-content claims need source/output audit evidence.
 
-For Mini upload candidates, also read [Mini Program routing](miniprogram.md), reject `version=local`, and obtain the current-message upload approval. For an ECS candidate, packaging remains local `L3`; connecting, backing up, migrating, deploying, rolling back, or verifying production is `L4` and requires separate explicit authorization.
+For Mini upload candidates, also read [Mini Program routing](miniprogram.md) and reject `version=local`. A Mini upload needs no current-message approval; record the version, upload route, and resulting identity instead. For an ECS candidate, packaging remains local `L3`; connecting, backing up, migrating, deploying, rolling back, or verifying production is `L4` and requires separate explicit authorization.
 
 ## Release cutoff
 

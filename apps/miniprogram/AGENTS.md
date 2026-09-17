@@ -11,7 +11,6 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Hard prohibitions
 
-- An LLM must never start, wake, restart, control, or automate the local WeChat DevTools GUI or its CLI.
 - Do not restore the historical Mini Program implementation as a whole. Historical code may only be consulted for isolated algorithms, fixtures, test ideas, and CI wrapper patterns after revalidation against the current Web/API.
 - Do not add TDesign MiniProgram or another third-party UI component library.
 - Do not add WebView fallback, uni-app, or an H5 runtime as the production Mini Program implementation.
@@ -20,11 +19,11 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Allowed automation and release authority
 
-- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison scripts are allowed without opening WeChat DevTools.
-- Development/preview and experience uploads may be automated when credentials are available outside the repository.
-- An experience upload requires the user's explicit approval for that exact checkpoint in the current turn. A production build, package audit, preview/upload dry-run, or earlier approval is not an upload and does not authorize one. When approval is absent or the user prohibits upload, stop at the pushed clean checkpoint and record `UPLOAD_REQUIRED`; do not propose or reserve the next version. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready.
-- If the repository-external upload key or another required WeChat platform credential is unavailable, do not substitute DevTools automation or claim success. Record the exact checkpoint as upload-blocked, request the missing external input, and upload that same checkpoint before starting the next implementation step.
-- Submission for review and formal publication always require explicit user approval.
+- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison scripts are allowed.
+- WeChat DevTools is an allowed execution surface. An LLM may call the `wechatide` CLI and the DevTools MCP to check status, log in, open or close a project window, compile, build npm, drive the simulator, run page automation, read Console/Network, capture screenshots, generate or push previews, and upload an experience build. Compile, preview, and experience-upload operations do not require per-operation user confirmation.
+- Development/preview and experience uploads may be automated. A production build, package audit, or preview/upload dry-run is still not an upload. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready; record the upload route (Node `miniprogram-ci` or DevTools) and the resulting Manifest, receipt, and tag identity.
+- If a required WeChat platform credential is unavailable, record the exact checkpoint as `UPLOAD_REQUIRED` instead of claiming success, and upload that same checkpoint before starting the next implementation step.
+- Submission for review, review withdrawal, and formal publication always require explicit user approval.
 - ECS deployment remains the repository-root release track. A Mini Program upload is a separate track and never happens merely because Git/ECS advanced.
 
 ## Visual work
@@ -46,4 +45,4 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 - Run the root gates plus the Mini Program static, simulate, boundary, Worklet, determinism, secret, and package-size gates required by the active phase.
 - Update the root status before a checkpoint, review both unstaged and staged diffs, stage explicit task paths, commit, and push. Mini-only or documentation-only checkpoints do not trigger ECS backup, deployment, or release-metadata synchronization without explicit current production authorization.
-- Never claim native visual or interaction acceptance from Storybook, `miniprogram-simulate`, or `miniprogram-ci`; only the user's explicit feedback after operating the agreed physical device provides native-runtime acceptance.
+- Never claim native visual or interaction acceptance from Storybook, `miniprogram-simulate`, `miniprogram-ci`, or DevTools simulator/automation; only the user's explicit feedback after operating the agreed physical device provides native-runtime acceptance.

@@ -258,7 +258,7 @@ try {
         '版本号 + 源码 SHA + 上传 Manifest',
         '`UPLOAD_VERSION_ALLOCATION_BLOCKED`',
         '`UPLOAD_REQUIRED`',
-        '当前消息已明确授权上传',
+        '不需要用户逐次批准',
         '幂等重试'
     )) {
         if (-not $miniRunbook.Contains($requiredAllocationToken)) {

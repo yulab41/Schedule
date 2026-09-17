@@ -17,11 +17,11 @@ For a Mini modification, pair this reference with [testing/evidence](testing-and
 
 ## Execution boundary
 
-Load `$miniprogram-development` for Mini tasks, but do not invoke its WeChat DevTools actions. This repository forbids an agent from starting, waking, closing, inspecting, controlling, or automating the DevTools GUI/CLI. Node-based repository scripts remain available within the selected task level.
+Load `$miniprogram-development` for Mini tasks. WeChat DevTools is an allowed execution surface: the agent may call the `wechatide` CLI and the DevTools MCP for status, login, project windows, compile, npm build, simulator, page automation, Console/Network, screenshots, preview, and experience upload. Compile, preview, and experience upload need no per-operation user confirmation. Node-based repository scripts remain available within the selected task level.
 
 Mini source lives in `src/`; generated `dist/` is ignored and never hand-edited. A Mini build or upload must come from the target SHA in the independent clean managed worktree. Never mix main-worktree `dist` with candidate source.
 
-When a task needs trial evidence but does not authorize an upload, select only the latest eligible existing upload defined by the miniprogram-ci runbook. If no eligible candidate can be proven, report `UPLOAD_REQUIRED`; do not allocate a version or upload. A task that does not need trial evidence does not select a trial at all.
+When a task needs trial evidence but does not include an upload, select only the latest eligible existing upload defined by the miniprogram-ci runbook. If no eligible candidate can be proven, report `UPLOAD_REQUIRED`; do not allocate a version or upload. A task that does not need trial evidence does not select a trial at all.
 
 For an authorized upload, allocate the version only through the runbook's exclusive allocation procedure after the final clean SHA and required source/test gates are fixed. If the current checkout has no executable upload/version-allocation lock helper, stop with `UPLOAD_VERSION_ALLOCATION_BLOCKED` rather than choosing a version manually.
 
@@ -30,9 +30,9 @@ Before an experience upload:
 1. Enter `L3`, establish the exact clean SHA, complete the required version-independent gates, promote the owned warm lease through the existing release helper, and run the worktree checker with `-RequireReady -ExpectedCommit <sha> -WorktreePath <slot> -LeaseToken <token> -RunId <taskId>`.
 2. Apply the canonical locked version-allocation procedure. Stop on an unavailable lock, uncertain occupied-version state, or tuple conflict.
 3. Build the version-bound production artifact in that slot's own `apps/miniprogram/dist`, then repeat the same checker arguments plus `-ForMiniprogramUpload -MiniProgramVersion <version>`. Confirm `build-profile.json` binds the same version and SHA, reports a clean build newer than lease preparation, and contains no `version=local` fallback; bind its upload Manifest to the same immutable identity.
-4. Report the change, short SHA, allocated version/description, dirty-tree state, Manifest, and test pages; obtain the user's explicit approval for this upload in the current message.
+4. Report the change, short SHA, allocated version/description, dirty-tree state, Manifest, and test pages. No per-upload user approval is required; record the upload route and the resulting identity instead.
 5. Revalidate the allocation and relevant dynamic baseline immediately before using the existing Node `miniprogram-ci` runbook. An upload does not authorize review submission or formal publication.
 
 A Mini-only change must not automatically deploy a server, migrate a database, create a production backup, or change production capabilities. Those are separate `L4` actions requiring explicit current-message authorization.
 
-Web golden images and user-operated DevTools are supporting evidence. Xiaomi 14 Android `trial` evidence tied to the same SHA/version is the final visual and interaction acceptance source. Never generalize it to iOS, all Android devices, or all platforms.
+Web golden images and DevTools simulator/automation results are supporting evidence, as is user-operated DevTools. Xiaomi 14 Android `trial` evidence tied to the same SHA/version is the final visual and interaction acceptance source. Never generalize it to iOS, all Android devices, or all platforms.

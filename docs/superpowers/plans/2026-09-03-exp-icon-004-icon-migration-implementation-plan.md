@@ -4,7 +4,7 @@
 
 - 基于最新 `origin/main@8e6a4a320a69fee9f1ca0471d8f9b140e3d4dd39` 的独立 worktree 执行。
 - 本计划覆盖审计、B1 静态修复、候选构建和体验版上传门禁；不重跑阶段 0，不提交审核，不正式发布，不部署 production。
-- 微信开发者工具 GUI/CLI 不在本仓库自动化边界内；Mini 只用 Node 静态构建、测试和 `miniprogram-ci`。
+- 本批次未使用微信开发者工具 GUI/CLI；Mini 只用 Node 静态构建、测试和 `miniprogram-ci`。（2026-09-17 起仓库已允许 Agent 操作开发者工具 GUI/CLI，见 ADR-0006；本条仅为该批次的历史边界。）
 
 ## 批次
 

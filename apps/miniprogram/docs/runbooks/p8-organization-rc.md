@@ -2,7 +2,7 @@
 
 ## 状态与边界
 
-本清单只由用户在实体 Android 微信原生运行时执行。Storybook、Vitest、`miniprogram-simulate`、`miniprogram-ci` 和桌面浏览器不能替代原生视觉、触控与系统行为结论；Codex 不启动、控制或自动化微信开发者工具 GUI/CLI。
+本清单只由用户在实体 Android 微信原生运行时执行。Storybook、Vitest、`miniprogram-simulate`、`miniprogram-ci` 和桌面浏览器不能替代原生视觉、触控与系统行为结论；Codex 可以操作微信开发者工具 GUI/CLI 做编译与截图预检，但预检结果不是本清单的一部分。
 
 验收候选固定为 `0.1.0-p9.20260826.15`。生产 `organization=false`，所以本轮只在专用测试环境/专用测试群组验证写入；正式生产入口和 API 必须保持失败关闭。邀请 token、visitor key、二维码内容、绑定 URL、完整联系方式、密码和 subject 不得写入 Mini storage、相册、日志或离线队列。
 

@@ -33,7 +33,7 @@
 - staging 与 production 是两个编译期 profile，应用中没有隐藏环境切换入口。
 - base URL 只能来自受审构建配置；AppSecret、Bearer、上传私钥和本地会话不得成为编译输入。
 - CI 可以运行 build、simulate、包体和静态门禁；`miniprogram-ci` 可以生成预览/上传开发或体验版本。
-- LLM 不得调用本地微信开发者工具 GUI 或 CLI。用户人工打开 GUI 只用于诊断，不构成自动验证链路。
+- LLM 可以调用本地微信开发者工具的 CLI/MCP 完成编译、构建 npm、模拟器、页面自动化、Console/Network、截图、预览和上传；这些属于开发期证据，构成自动验证链路的一部分，但仍不等于实体设备验收。
 
 ## 当前 P0/P1 状态
 

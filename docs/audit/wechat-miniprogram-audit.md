@@ -55,13 +55,14 @@
   已关闭的 test-tools 问题。
 - 已在改动前完整读取并应用 `systematic-debugging`、`miniprogram-development` 与 `brainstorming`；按
   前者完成引入点、调用链和红灯调查，按小程序技能完成变更安全与 Mini 静态验证，设计技能只用于把
-  方案限制为稳定 ID 的最小路径更新。仓库政策优先禁用微信开发者工具执行面。
+  方案限制为稳定 ID 的最小路径更新。当时仓库政策优先禁用微信开发者工具执行面（该禁令已于 2026-09-17 解除，见 ADR-0006）。
 - `apps/miniprogram/AGENTS.md` 中的 `docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`
   按该规则文件所在目录解析后，对应实际受版本控制的
   `apps/miniprogram/docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`；仓库根没有同名文件。
   这是规则中的历史路径失效；实际文件内容可用，因此不是本任务 blocker，本轮按实际 Git 文件执行。
-- 仓库禁止代理调用微信开发者工具 GUI/CLI；本轮未调用 `wechatide`、模拟器、Console、Network、
-  截图、预览或上传。原审计临时探针已删除、未入 Git；本轮把复现转为永久 Node/Vitest 回归。
+- 当轮仓库政策禁止代理调用微信开发者工具 GUI/CLI；本轮未调用 `wechatide`、模拟器、Console、Network、
+  截图、预览或上传。该禁令已于 2026-09-17 解除（见 ADR-0006），后续轮次可取得模拟器与 Console 证据。
+  原审计临时探针已删除、未入 Git；本轮把复现转为永久 Node/Vitest 回归。
 
 ### 专业审计总表
 
@@ -720,7 +721,7 @@ test-tools Console/Skyline/390px 与历史 `.74` 小米 14 证据以本文顶部
 | 根 workspace TypeScript  | 通过         | 19.48s；10 projects                           | `pnpm typecheck`                                                                                    |
 | ESLint                   | 未通过       | 约 30.0s；1 error/0 warning                   | `wx-request-executor.ts:141:9` 的 `prefer-const`；阶段 0 未修复                                     |
 | Prettier format check    | 未通过       | 16.30s；387 files                             | 既有全仓格式差异；未运行写格式化                                                                    |
-| DevTools Console         | 暂未验证     | error/warning 均无数据                        | 仓库禁止代理调用开发者工具 GUI/CLI                                                                  |
+| DevTools Console         | 暂未验证     | error/warning 均无数据                        | 当轮仓库禁止代理调用（2026-09-17 起解禁），尚未测量                                                 |
 
 Mini 静态验证的 3 个预警：
 
@@ -1040,7 +1041,7 @@ P8×4、insights P9×4。对应 standalone/合并 badge 的 `.phase-chip` 样式
 已完成的自动化层级包括 EXP 定向合同、bottom-sheet/ui-sheet、workflow picker、workflow page/controller/
 lifecycle、P7 相关测试、Mini 全量、Mini TypeScript、production build、`miniprogram:verify`、source audit、
 包体审计、根仓库 TypeScript、ESLint、全仓 Prettier、`pnpm test` 和 `git diff --check`；微信开发者工具 GUI/CLI
-按仓库政策未调用。`pnpm smoke:browser` 已实际运行，但第一次因 5173 未监听失败；按正式启动方式重试时该
+按当时仓库政策未调用（2026-09-17 起该禁令解除，见 ADR-0006）。`pnpm smoke:browser` 已实际运行，但第一次因 5173 未监听失败；按正式启动方式重试时该
 worktree 缺少本地 `.env`，API 无法启动，未进入产品断言，端口也已确认无残留；该环境结果不替代 production
 verifier。
 

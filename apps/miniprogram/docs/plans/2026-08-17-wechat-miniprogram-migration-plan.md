@@ -12,7 +12,7 @@
 2. 原生栈固定为 WXML、WXSS、TypeScript、JSON、Skyline 和 glass-easel；最低基础库 3.3.0，不提供 WebView 回退。
 3. `rendererOptions.skyline.disableABTest=true`，正式范围为 `3.3.0` 至 `15.255.255`。正式发布前记录实际 Stable 编译基础库。
 4. 禁止 TDesign MiniProgram 和第三方 UI 库；基础控件、月历、排班格、弹层、导航和状态全部自绘。
-5. Web Storybook 是视觉黄金源；原生运行真值由用户人工操作微信开发者工具 GUI 和实体 Android 提供。LLM 永不启动、控制或自动化本地微信开发者工具。
+5. Web Storybook 是视觉黄金源；原生运行真值由实体 Android 微信客户端提供。LLM 可以使用微信开发者工具 CLI/MCP 完成编译、构建 npm、模拟器、页面自动化、Console/Network、截图、预览和上传；模拟器与自动化结果不得冒充实体设备验收。
 6. 源码采用确定性 `src → dist`；`dist`、私有配置、二维码、人工测试截图和上传私钥不进入 Git。
 7. 账号不提供注销。解绑只移除当前正式小程序 AppID 的身份，不影响业务用户、用户名、群组、排班、审计或其他微信渠道。
 8. 匿名访客继续存在；完整电话只有在成员针对该群组给出可审计的单独同意后才公开。
@@ -163,9 +163,9 @@ MAX_MANUAL_CELLS = 600;
 
 ## 8. 预览和视觉流程
 
-`frontend-design` + Web Storybook 负责意图、390×844 黄金和 320 边界；`miniprogram-simulate` 只验证属性/事件/状态/组件树；`miniprogram-ci` 只编译和上传；用户人工操作微信开发者工具 GUI 与实体设备验证原生渲染、交互和性能。
+`frontend-design` + Web Storybook 负责意图、390×844 黄金和 320 边界；`miniprogram-simulate` 只验证属性/事件/状态/组件树；`miniprogram-ci` 与开发者工具负责编译、预览和上传；开发者工具模拟器与自动化用于快速预检，实体设备验证原生渲染、交互和性能。
 
-每页顺序：设计意图与状态矩阵 → Storybook 390 黄金 → 320/大字号 → 用户确认 → 原生 WXML/WXSS → simulate/静态门禁 → 用户人工 GUI/实体机测试 → 必要时用截图与自有比较器诊断 → 修正 → 用户最终确认。
+每页顺序：设计意图与状态矩阵 → Storybook 390 黄金 → 320/大字号 → 用户确认 → 原生 WXML/WXSS → simulate/静态门禁 → Agent 开发者工具编译与截图预检 → 用户实体机测试 → 必要时用截图与自有比较器诊断 → 修正 → 用户最终确认。
 
 ## 9. 阶段和停止条件
 
@@ -195,7 +195,7 @@ MAX_MANUAL_CELLS = 600;
 - 回归先查引入点并测试先行；视觉批次强制使用 `frontend-design` 和截图批评。
 - 默认使用 GPT‑5.6 Sol、推理强度 xhigh；具体会话模型由 Codex 项目组配置保障。
 - 每个完整 checkpoint 更新状态、显式暂存、提交、推送，并按根规则完成 ECS 备份/部署/验证；Mini 发布是独立轨道。
-- 每个完成验证并推送的小程序修改 checkpoint 都必须用 Node 版 `miniprogram-ci` 上传微信开发/体验轨道；缺少仓库外上传私钥时必须记录阻塞并在下一实施步骤前补传同一提交，不能用 dry-run 或本地开发者工具 CLI 冒充上传。
+- 每个完成验证并推送的小程序修改 checkpoint 都必须上传微信开发/体验轨道，可用 Node 版 `miniprogram-ci` 或开发者工具；上传不需要用户逐次批准，但必须记录上传路线、版本、Manifest/receipt 和提交身份。缺少必需平台凭证或上传失败时必须记录阻塞，并在下一实施步骤前补传同一提交，不能用 dry-run 冒充上传。
 - 提交审核、撤回审核和正式发布不包含在上述自动上传中，仍须取得用户当次明确批准。
 - 遇到未覆盖的产品、安全、隐私或公共接口选择立即停止询问，不自行决定。
 

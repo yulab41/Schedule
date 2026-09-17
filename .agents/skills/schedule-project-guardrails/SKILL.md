@@ -76,7 +76,7 @@ Load conditional references only when their trigger matches:
 
 Load other skills only on these triggers:
 
-- `$miniprogram-development`: Mini Program tasks only. Repository prohibitions on WeChat DevTools GUI/CLI remain controlling.
+- `$miniprogram-development`: Mini Program tasks only. WeChat DevTools GUI/CLI automation is allowed by the repository rules; compile, preview, and experience upload need no per-operation user confirmation.
 - `$frontend-design`: visible UI or interaction-structure work only.
 - `$systematic-debugging`: failures whose root cause is not already established.
 - `$brainstorming`: unresolved requirements or architecture only. Do not repeat it when the user has approved a complete design.

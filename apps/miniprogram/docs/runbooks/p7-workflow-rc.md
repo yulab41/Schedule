@@ -2,7 +2,7 @@
 
 ## 状态与边界
 
-本清单只由用户在实体 Android 微信运行时执行。Storybook、Vitest、`miniprogram-simulate`、`miniprogram-ci` 和桌面浏览器不能替代原生视觉与交互结论；Codex 不启动、控制或自动化微信开发者工具 GUI/CLI。
+本清单只由用户在实体 Android 微信运行时执行。Storybook、Vitest、`miniprogram-simulate`、`miniprogram-ci` 和桌面浏览器不能替代原生视觉与交互结论；Codex 可以操作微信开发者工具 GUI/CLI 做编译与截图预检，但预检结果不是本清单的一部分。
 
 ## 2026-08-28 WXS 年月滚轮探针 E
 

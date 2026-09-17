@@ -1,11 +1,11 @@
 # ADR-0002：日常预览不依赖本地微信开发者工具
 
-- 状态：已修订并接受
+- 状态：执行边界部分已被 [ADR-0006](ADR-0006-agent-devtools-automation.md) 取代；其余部分仍有效
 - 日期：2026-08-18
 
 ## 决策
 
-日常循环使用 Web Storybook、`miniprogram-simulate` 和 Node 版 `miniprogram-ci`。不使用 MiniTest/Minium 云测。LLM 永不启动、唤醒、重启、控制或自动化本地微信开发者工具 GUI/CLI；用户人工打开 GUI 并在实体设备完成原生验收。
+日常循环使用 Web Storybook、`miniprogram-simulate` 和 Node 版 `miniprogram-ci`。不使用 MiniTest/Minium 云测。日常主循环仍不依赖本地微信开发者工具（见下方理由）；Agent 的开发者工具调用权限由 [ADR-0006](ADR-0006-agent-devtools-automation.md) 规定。原生验收仍由用户在实体设备完成。
 
 ## 理由与后果
 

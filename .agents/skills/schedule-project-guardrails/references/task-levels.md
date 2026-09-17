@@ -19,7 +19,7 @@ Default edits and debugging to `L1`. Choose `L2` only when the requested claim c
 - `L0`–`L3` cannot infer `L4` from repository policy, prior chat, a status file, approval of a design, approval of code, successful tests, a commit, a push, or an upload.
 - Enter `L4` only when the current user message explicitly authorizes the exact production action. Ambiguous words such as “release”, “finish”, or “publish” are insufficient when the target is unclear.
 - Mini-only changes do not authorize server deployment, database migration, a production backup, or a capability change.
-- Experience upload changes external state and requires the current-message approval required by the Mini audit rules. Review submission and formal publication always require separate explicit approval.
+- Experience upload changes WeChat platform external state but no longer requires per-operation user approval; record the version, upload route, and result. Review submission, review withdrawal, and formal publication always require separate explicit approval.
 - An exact-lockfile, offline dependency reconciliation after a health `MISS` is an L2 local operation only
   when the current user message explicitly authorizes it; use the official wrapper and its one-per-fingerprint
   audit. It does not escalate to production or formal publication.
