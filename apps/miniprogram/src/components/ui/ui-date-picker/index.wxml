@@ -142,6 +142,7 @@
         class="workflow-picker-date-swiper is-compat"
         scroll-x
         enhanced
+        bounces="{{false}}"
         show-scrollbar="{{false}}"
         scroll-with-animation="{{datePagerAnimated}}"
         scroll-into-view="{{datePagerTarget}}"

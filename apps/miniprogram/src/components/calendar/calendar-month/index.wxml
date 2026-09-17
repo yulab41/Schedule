@@ -103,6 +103,7 @@
     style="height:{{viewportHeight}}px"
     scroll-x
     enhanced
+    bounces="{{false}}"
     show-scrollbar="{{false}}"
     scroll-with-animation="{{pagerAnimated}}"
     scroll-into-view="{{pagerTarget}}"

@@ -42,6 +42,9 @@ type MonthSlot = CalendarPeriodSlot;
 interface CalendarMonthInstance {
   _compatGesture?: boolean;
   _compatGestureDelta?: -1 | 0 | 1 | undefined;
+  _compatCommittedDelta?: -1 | 0 | 1 | undefined;
+  _compatCleanupPanes?: readonly unknown[] | undefined;
+  _compatPendingDelta?: -1 | 0 | 1 | undefined;
   _compatMetrics?: CalendarPeriodScrollMetrics | undefined;
   _compatRequestedDelta?: -1 | 0 | 1 | undefined;
   _compatTimer?: ReturnType<typeof setTimeout>;
@@ -171,6 +174,12 @@ Component({
     },
     handlePagerScroll(this: CalendarMonthInstance, event: MonthScrollEvent): void {
       this._compatMetrics = mergeCalendarPeriodScrollMetrics(this._compatMetrics, event.detail);
+      const cleanup = this._compatCleanupPanes;
+      if (cleanup !== undefined && nearestCalendarPeriodScrollSlot(this._compatMetrics) === 1) {
+        this._compatCleanupPanes = undefined;
+        this._compatPendingDelta = undefined;
+        this.setData({ compatPanes: cleanup });
+      }
       if (this._compatGesture === true) prepareCompatPagerTarget(this);
       scheduleCompatPagerSettle(this);
     },
@@ -217,10 +226,28 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
   const panels = instance.properties.panels as readonly { readonly relative: number }[];
   const byRelative = new Map(panels.map((panel) => [panel.relative, panel]));
   const ordered = [-1, 0, 1].map((relative, index) => byRelative.get(relative) ?? panels[index]);
-  instance.setData({
-    compatPanes: ordered,
-    pagerAnimated: false,
-    pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
+  // The pane the user is actually looking at keeps its month through the commit
+  // and the jump home, so no frame can ever show a neighbouring month's cells:
+  // a step right leaves the right pane on the new month, a step left the left one.
+  const delta = instance._compatCommittedDelta ?? instance._compatPendingDelta ?? 0;
+  instance._compatCommittedDelta = undefined;
+  const cleanupPending = instance._compatCleanupPanes !== undefined;
+  const panes =
+    delta === 1
+      ? [ordered[0], ordered[1], ordered[1]]
+      : delta === -1
+        ? [ordered[1], ordered[1], ordered[2]]
+        : ordered;
+  // The clean ring is swapped in only once the scroll has actually landed home,
+  // so the pane the user can still see never changes month underneath them.
+  if (delta !== 0) {
+    instance._compatCleanupPanes = ordered;
+    instance._compatPendingDelta = delta;
+  }
+  instance.setData({ compatPanes: panes }, () => {
+    if (cleanupPending) return;
+    if (instance._compatRequestedDelta !== undefined) return;
+    recenterCompatPanes(instance);
   });
 }
 
@@ -243,6 +270,14 @@ function measureCompatPanes(instance: CalendarMonthInstance): void {
 // event — and the grid height follows it.
 function prepareCompatPagerTarget(instance: CalendarMonthInstance): void {
   const delta = compatPaneDelta(instance);
+  if (delta !== instance._compatGestureDelta && delta !== 0) {
+    // Height follows the swipe instead of trailing it: the platform transitions it
+    // while the finger is still moving, so it lands together with the month.
+    const current = readMonthPagerState(instance);
+    const targetSlot = getAdjacentCalendarPeriodSlot(current.activeSlot, delta);
+    const viewportHeight = instance.data.panelHeights?.[targetSlot] ?? 270;
+    if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
+  }
   instance._compatGestureDelta = delta;
   if (delta === 0) return;
   const state = readMonthPagerState(instance);
@@ -301,6 +336,7 @@ function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
   }
   const viewportHeight = instance.data.panelHeights?.[slot] ?? 270;
   if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
+  instance._compatCommittedDelta = delta;
   finishMonthSwipeAt(instance, slot);
 }
 

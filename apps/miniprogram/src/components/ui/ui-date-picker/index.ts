@@ -107,6 +107,9 @@ interface WorkflowPickerInstance {
   _dateLocateTimer?: unknown;
   _dateCompatGesture?: boolean;
   _dateCompatGestureDelta?: -1 | 0 | 1 | undefined;
+  _dateCompatCommittedDelta?: -1 | 0 | 1 | undefined;
+  _dateCompatCleanupPanes?: readonly unknown[] | undefined;
+  _dateCompatPendingDelta?: -1 | 0 | 1 | undefined;
   _dateCompatRequestedDelta?: -1 | 0 | 1 | undefined;
   _dateCompatTimer?: ReturnType<typeof setTimeout>;
   _dateCompatMetrics?: CalendarPeriodScrollMetrics | undefined;
@@ -433,6 +436,12 @@ Component({
         this._dateCompatMetrics,
         event.detail,
       );
+      const cleanup = this._dateCompatCleanupPanes;
+      if (cleanup !== undefined && nearestCalendarPeriodScrollSlot(this._dateCompatMetrics) === 1) {
+        this._dateCompatCleanupPanes = undefined;
+        this._dateCompatPendingDelta = undefined;
+        this.setData({ compatPanes: cleanup });
+      }
       if (this._dateCompatGesture === true) prepareCompatDateTarget(this);
       scheduleDateCompatSettle(this);
     },
@@ -699,10 +708,28 @@ function syncCompatDatePanes(instance: WorkflowPickerInstance): void {
   const ordered = ([-1, 0, 1] as const).map(
     (relative, index) => byRelative.get(relative) ?? panels[index],
   );
-  instance.setData({
-    compatPanes: ordered,
-    datePagerAnimated: false,
-    datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+  // The pane the user is actually looking at keeps its month through the commit
+  // and the jump home, so no frame can ever show a neighbouring month's cells:
+  // a step right leaves the right pane on the new month, a step left the left one.
+  const delta = instance._dateCompatCommittedDelta ?? instance._dateCompatPendingDelta ?? 0;
+  instance._dateCompatCommittedDelta = undefined;
+  const cleanupPending = instance._dateCompatCleanupPanes !== undefined;
+  const panes =
+    delta === 1
+      ? [ordered[0], ordered[1], ordered[1]]
+      : delta === -1
+        ? [ordered[1], ordered[1], ordered[2]]
+        : ordered;
+  // The clean ring is swapped in only once the scroll has actually landed home,
+  // so the pane the user can still see never changes month underneath them.
+  if (delta !== 0) {
+    instance._dateCompatCleanupPanes = ordered;
+    instance._dateCompatPendingDelta = delta;
+  }
+  instance.setData({ compatPanes: panes }, () => {
+    if (cleanupPending) return;
+    if (instance._dateCompatRequestedDelta !== undefined) return;
+    recenterCompatDatePanes(instance);
   });
 }
 
@@ -765,6 +792,7 @@ function settleDateCompatScroll(instance: WorkflowPickerInstance): void {
     recenterCompatDatePanes(instance);
     return;
   }
+  instance._dateCompatCommittedDelta = delta;
   finishDateSwiperAt(instance, slot);
 }
 
