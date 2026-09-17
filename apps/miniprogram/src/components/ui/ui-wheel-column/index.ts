@@ -36,6 +36,7 @@ interface UiWheelColumnInstance {
   readonly data: {
     readonly compatNumberStyles: readonly string[];
     readonly compatStyles: readonly string[];
+    readonly compatUnitStyles: readonly string[];
     readonly internalSelectedIndex: number;
     readonly skyline3172UiCompatibility: boolean;
     readonly scrollTop: number;
@@ -77,6 +78,7 @@ Component({
   data: {
     compatNumberStyles: [] as readonly string[],
     compatStyles: [] as readonly string[],
+    compatUnitStyles: [] as readonly string[],
     internalSelectedIndex: 0,
     scrollTop: 0,
     scrollWithAnimation: false,
@@ -110,7 +112,10 @@ Component({
   },
 
   methods: {
-    handleCompatScroll(this: UiWheelColumnInstance, event?: { detail?: { scrollTop?: number } }): void {
+    handleCompatScroll(
+      this: UiWheelColumnInstance,
+      event?: { detail?: { scrollTop?: number } },
+    ): void {
       if (!this.data.skyline3172UiCompatibility) return;
       const top = Number(event?.detail?.scrollTop);
       if (!Number.isFinite(top)) return;
@@ -191,8 +196,12 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
         sequence: 0,
         top: nextConfig.selectedIndex * uiWheelItemHeight,
       };
-      patch.compatStyles = [];
-      patch.compatNumberStyles = [];
+      // The resting frame is painted from data too: a stylesheet-only unit never
+      // reaches this runtime, so it has to be styled on the very first render.
+      const seededFrame = compatFrame(nextConfig.itemCount, instance._compatState.top);
+      patch.compatStyles = seededFrame.rowStyles;
+      patch.compatNumberStyles = seededFrame.numberStyles;
+      patch.compatUnitStyles = seededFrame.unitStyles;
       patch.scrollTop = nextConfig.selectedIndex * uiWheelItemHeight;
       patch.scrollWithAnimation = false;
     }
@@ -302,14 +311,36 @@ function compatNumberStyle(selection: number): string {
   return `transform:scale(${(19 + 5 * selection) / 24})`;
 }
 
-function compatOffset(value: unknown): number {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.max(0, number) : 0;
+function compatUnitStyle(selected: boolean): string {
+  // The affected runtime neither applies the `.ui-wheel-unit` stylesheet rule to
+  // this node nor resolves `currentColor` there, which leaves the glyph fully
+  // transparent. Carrying the same declaration inline paints it again.
+  return `color:${selected ? '#16202a' : '#9aa4ae'};font-size:10px;font-weight:500;opacity:0.72`;
 }
 
-function compatStateOf(
-  instance: UiWheelColumnInstance,
-): { index: number; sequence: number; top: number } {
+function compatFrame(
+  itemCount: number,
+  top: number,
+): { numberStyles: string[]; rowStyles: string[]; unitStyles: string[] } {
+  const position = top / uiWheelItemHeight;
+  const selected = Math.round(position);
+  const numberStyles: string[] = [];
+  const rowStyles: string[] = [];
+  const unitStyles: string[] = [];
+  for (let index = 0; index < itemCount; index += 1) {
+    const selection = compatSelection(position, index);
+    rowStyles.push(compatRowStyle(selection));
+    numberStyles.push(compatNumberStyle(selection));
+    unitStyles.push(compatUnitStyle(index === selected));
+  }
+  return { numberStyles, rowStyles, unitStyles };
+}
+
+function compatStateOf(instance: UiWheelColumnInstance): {
+  index: number;
+  sequence: number;
+  top: number;
+} {
   if (instance._compatState === undefined)
     instance._compatState = { index: -1, sequence: 0, top: 0 };
   return instance._compatState;
@@ -323,15 +354,13 @@ function paintCompatFrame(instance: UiWheelColumnInstance, top: number): void {
   state.top = top;
   const itemCount = instance.properties.items.length;
   const position = top / uiWheelItemHeight;
-  const styles: string[] = [];
-  const numberStyles: string[] = [];
-  for (let index = 0; index < itemCount; index += 1) {
-    const selection = compatSelection(position, index);
-    styles.push(compatRowStyle(selection));
-    numberStyles.push(compatNumberStyle(selection));
-  }
+  const frame = compatFrame(itemCount, top);
   const index = Math.min(itemCount - 1, Math.max(0, Math.round(position)));
-  const patch: Record<string, unknown> = { compatNumberStyles: numberStyles, compatStyles: styles };
+  const patch: Record<string, unknown> = {
+    compatNumberStyles: frame.numberStyles,
+    compatStyles: frame.rowStyles,
+    compatUnitStyles: frame.unitStyles,
+  };
   if (itemCount > 0 && index !== instance.data.internalSelectedIndex) {
     patch.internalSelectedIndex = index;
   }
