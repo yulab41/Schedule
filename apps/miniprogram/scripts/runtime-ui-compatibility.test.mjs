@@ -384,6 +384,13 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(wheelGesture).toContain('refreshItemCount');
     // The 年/月 unit travels with the item, not only with the component property.
     expect(wheelTemplate).toContain('{{item.unit || unit}}');
+    // Selected-row emphasis must not depend on the WXS reaching the renderer.
+    const wheelStyles = readSource('components/ui/ui-wheel-column/index.wxss');
+    expect(wheelTemplate).toContain('is-skyline-3172-ui');
+    expect(wheelStyles).toContain(
+      '.ui-wheel-column.is-skyline-3172-ui .ui-wheel-item.is-selected {',
+    );
+    expect(wheelStyles).toContain('font-size: 30px;');
     // Locate-today re-centers in one step no matter what the pager was doing.
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}resetDatePager\(this\)/u);
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}createDateDraftPatch/u);

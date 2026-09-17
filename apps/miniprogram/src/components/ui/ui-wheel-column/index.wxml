@@ -1,7 +1,7 @@
 <wxs module="wheelGesture" src="./wheel-gesture.wxs"></wxs>
 
 <view
-  class="ui-wheel-column"
+  class="ui-wheel-column {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
   aria-role="listbox"
   aria-label="{{ariaLabel}}"
   data-runtime-key="{{wheelConfig.runtimeKey}}"

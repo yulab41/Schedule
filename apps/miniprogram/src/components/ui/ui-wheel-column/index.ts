@@ -1,3 +1,5 @@
+import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
+
 interface UiWheelColumnItem {
   readonly ariaLabel?: string;
   readonly label: string;
@@ -31,6 +33,7 @@ interface UiWheelColumnInstance {
   _localCommandRevision?: number;
   readonly data: {
     readonly internalSelectedIndex: number;
+    readonly skyline3172UiCompatibility: boolean;
     readonly wheelConfig: UiWheelConfig;
     readonly wheelLayoutIndex: number;
     readonly wheelLayoutOffset: number;
@@ -73,6 +76,7 @@ Component({
       runtimeKey: 'ui-wheel',
       selectedIndex: 0,
     } as UiWheelConfig,
+    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     wheelLayoutIndex: 0,
     wheelLayoutOffset: 0,
   },

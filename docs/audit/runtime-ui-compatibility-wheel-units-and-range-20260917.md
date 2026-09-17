@@ -18,14 +18,18 @@
    3.17.2 上取不到值导致范围被截断。
 3. 同一次打开内条目数只增不减：新增 `refreshItemCount`，dataset 报出更小的瞬时值时忽略并保持既有范围，
    避免一次瞬时渲染把滚轮的可滚动范围剪短（对应"再抬手也不能继续向下"）。
+4. 选中强调不再只依赖 WXS 行样式：只在 3.17.2 上给滚轮根节点加 `is-skyline-3172-ui`
+   （由组件自己按 `SDKVersion` 判定），并用 CSS 给 `.is-selected` 行与数字兜底放大
+   （`opacity: 1; transform: scale(1.06)`，数字 `font-size: 30px`）。WXS 能写行内样式时它仍优先，
+   写不进时 CSS 兜底；3.17.3 不匹配该选择器，外观与动画不变。
 
 ## 验证
 
 - 新增回归：`does not let a transient count shrink the wheel range`（拖动过程中 host 报出更短的列表，
   滚轮仍必须能落到最后一格 index 10 / offset -440）与既有 `keeps the whole range reachable from a
   dataset-seeded baseline`；两者通过。
-- 定向 55 项 + 新增用例、Mini 完整 174 文件 1219 项通过/16 跳过；typecheck、production build（366 文件）、
-  package（主包 1745866B / 总包 4620271B）、determinism（`634e0dca…66c3f`）、`pnpm format:check`、
+- 定向 51 项 + 新增用例、Mini 完整 174 文件 1219 项通过/16 跳过；typecheck、production build（366 文件）、
+  package（主包 1746516B / 总包 4620921B）、determinism（`3bacb648…98c9d`）、`pnpm format:check`、
   `pnpm lint`、`pnpm smoke:check-core`、`agent-context-policy` 通过。`pnpm miniprogram:verify` 仍只被
   既有未改的手排矩阵节点预算 `1507>1506` 阻断。
 

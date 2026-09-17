@@ -34,6 +34,17 @@
   font-weight: var(--ui-font-weight-semibold);
 }
 
+/* The affected runtime may not deliver the WXS row styling, so the selected row
+   keeps a data-driven emphasis there; 3.17.3 keeps the interpolated look. */
+.ui-wheel-column.is-skyline-3172-ui .ui-wheel-item.is-selected {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.ui-wheel-column.is-skyline-3172-ui .ui-wheel-item.is-selected .ui-wheel-number {
+  font-size: 30px;
+}
+
 .ui-wheel-item.is-pressed {
   color: var(--ui-color-primary);
 }
