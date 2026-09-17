@@ -37,6 +37,8 @@ interface UiWheelColumnInstance {
     readonly wheelConfig: UiWheelConfig;
     readonly wheelLayoutIndex: number;
     readonly wheelLayoutOffset: number;
+    readonly wheelTrackOffset: number;
+    readonly wheelTrackStyle: string;
   };
   readonly properties: {
     readonly animateCommand: boolean;
@@ -79,6 +81,8 @@ Component({
     skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     wheelLayoutIndex: 0,
     wheelLayoutOffset: 0,
+    wheelTrackOffset: 0,
+    wheelTrackStyle: '',
   },
 
   observers: {
@@ -149,6 +153,10 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
   if (shouldReposition) {
     patch.wheelLayoutIndex = nextConfig.selectedIndex;
     patch.wheelLayoutOffset = -nextConfig.selectedIndex * uiWheelItemHeight;
+    patch.wheelTrackOffset = 0;
+    patch.wheelTrackStyle = instance.data.skyline3172UiCompatibility
+      ? `margin-top:${-nextConfig.selectedIndex * uiWheelItemHeight}px;transform:translateY(0px)`
+      : `margin-top:${-nextConfig.selectedIndex * uiWheelItemHeight}px`;
   }
   instance.setData(patch);
 }
@@ -203,8 +211,28 @@ function acceptWheelReport(
     runtimeKey: detail.runtimeKey,
     sequence,
   } as const;
-  instance.setData({ internalSelectedIndex: index });
+  // The affected runtime drops every WXS style write, so the pixel motion has to
+  // travel through data there; 3.17.3 keeps the WXS-owned transform.
+  instance.setData({
+    internalSelectedIndex: index,
+    ...createWheelTrackStylePatch(instance, normalizedDetail.offset),
+  });
   instance.triggerEvent(eventName, normalizedDetail);
+}
+
+function createWheelTrackStylePatch(
+  instance: UiWheelColumnInstance,
+  absoluteOffset: number,
+): { wheelTrackOffset: number; wheelTrackStyle: string } {
+  const baseIndex = normalizedInteger(instance.data.wheelLayoutIndex);
+  const layoutOffset = -baseIndex * uiWheelItemHeight;
+  const delta = absoluteOffset + baseIndex * uiWheelItemHeight;
+  return {
+    wheelTrackOffset: delta,
+    wheelTrackStyle: instance.data.skyline3172UiCompatibility
+      ? `margin-top:${layoutOffset}px;transform:translateY(${delta}px)`
+      : `margin-top:${layoutOffset}px`,
+  };
 }
 
 function boundedIndex(value: unknown, itemCount: number): number | undefined {

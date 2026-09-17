@@ -110,9 +110,14 @@ describe('native UiWheelColumn WXS candidate', () => {
     // The WXS owns the pixel offset: no inline style may be re-applied on render.
     expect(template).not.toContain('wheelInitialOffset');
     expect(template).toContain('data-item-count="{{wheelConfig.itemCount}}"');
-    expect(template).toContain('{{item.unit || unit}}');
+    expect(template).toContain(
+      '<text wx:if="{{item.unit}}" class="ui-wheel-unit">{{item.unit}}</text>',
+    );
+    expect(template).toContain('<text wx:else class="ui-wheel-unit">{{unit}}</text>');
+    expect(template).toContain('style="{{wheelTrackStyle}}"');
+    expect(source).toContain('createWheelTrackStylePatch');
     expect(template).toContain('data-base-index="{{wheelLayoutIndex}}"');
-    expect(template).toContain('style="margin-top:{{wheelLayoutOffset}}px"');
+    expect(template).toContain('style="{{wheelTrackStyle}}"');
     expect(gesture).toContain('seedStateFromDataset');
     expect(template).toContain('id="ui-wheel-item-{{index}}"');
     expect(template).toContain('id="ui-wheel-number-{{index}}"');

@@ -3094,3 +3094,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 上传：`0.1.0-p10.20260917.152`，说明「Skyline 3.17.2 wheel channel probe 61e81e0」，production，Manifest`e02b6f6c83f4a1de90b6d9851e59ac3cde6c54900230a985ac81952379904545`；构建`05:13:52Z`、上传`05:14:48Z`；上传后同一 checker 加`-ForMiniprogramUpload`返回`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`、`RESULT=PASS`；远端轻量 tag`miniprogram-trial/0.1.0-p10.20260917.152`指向同一 SHA。
 - 放行：可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260917.152`只追加1项（白名单48项，保留`.151`），`verify`与`/usr/local/lib/schedule/ecs-verify.sh`（`[verify] complete`）通过；公网`.152=200`、`.151=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布，未声明 production live release。
 - 状态：已交付待小米14复核。唯一下一任务：打开`.152` → `更多 → 测试工具 → 滚轮通道探针`三步（拖方块→拖滚轮→采集）并回传复制内容，用于一次性判定页面级WXS样式通道/滚轮WXS手势回报/渲染器是否应用WXS样式/组件作用域查询可用性；随后复核单位、选中放大、范围到底、重开正常与3.17.3不变。详情见`docs/audit/runtime-ui-compatibility-wheel-channel-probe-trial-release-20260917.md`。
+
+## 2026-09-17 探针给出定论：3.17.2 丢弃 WXS 样式写入，像素改走数据通道
+
+- 用户回传两台实例的"滚轮通道探针"结果（`.152@61e81e0`），并确认 3.17.2 仍缺单位/无选中放大/到不了底，3.17.3 无变化。
+- **测量事实**：3.17.2 页级探针 `WXS 取到目标节点=是`、`preview 19/settle 8`、`index 7/offset −308`、`callMethod` 正常，但**页级探针节点实测样式里没有 `transform` 字段**（3.17.3 同一位置为`matrix(1,0,0,1,0,-88)`）；3.17.2 组件作用域 `track` 只有 rect、**没有 computedStyle**（3.17.3 有`transform -308`/`marginTop 0px`），而组件作用域查询本身可用（`.ui-wheel-number` 返回 8 项）。→ **该版本丢弃 WXS 的 `setStyle` 写入，且 `fields({computedStyle})` 不可用**；逻辑通道（callMethod）与模板数据通道正常。此前"手势被抢占 / 观察器未交付 / 组件作用域查询不可用"三种假设全部被排除。
+- 修复：① 轨道位移改由组件自身 data 承载（新增`wheelTrackOffset`/`wheelTrackStyle`，在每次 WXS 上报与换代时更新，轨道`style="{{wheelTrackStyle}}"`），样式串**只在 3.17.2** 含`transform:translateY(...)`，3.17.3 仍只写`margin-top`、像素继续由 WXS 平滑驱动；② 单位改`wx:if="{{item.unit}}"`+`wx:else`回退组件属性，去掉`||`表达式。3.17.2 的滚动因此是**按行推进**（该版本唯一可用通道）；逐像素跟手需要另开架构讨论（native `scroll-view` 回退），本轮不做。
+- 验证：定向65项（wheel/runtime-compat/test-tools/picker）、Mini完整174文件1220项通过/16跳过；typecheck、production build367文件、package（主包1747172B/总4633254B）、determinism`51bc6941…4321`、format、lint、smoke:check-core通过。
+- 状态：已实现待体验版交付；本轮未上传、未放行、未部署。唯一下一任务：授权后上传并 add-only 放行，复核3.17.2滚轮能按行滚动、单位出现、中间项放大，且3.17.3完全不变。详情见`docs/audit/runtime-ui-compatibility-wheel-data-motion-20260917.md`。

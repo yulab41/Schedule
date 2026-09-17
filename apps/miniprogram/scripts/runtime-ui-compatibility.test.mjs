@@ -378,12 +378,20 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     // affected runtime does not deliver property/observer reads reliably.
     expect(wheelTemplate).toContain('data-item-count="{{wheelConfig.itemCount}}"');
     expect(wheelTemplate).toContain('data-base-index="{{wheelLayoutIndex}}"');
-    expect(wheelTemplate).toContain('style="margin-top:{{wheelLayoutOffset}}px"');
+    expect(wheelTemplate).toContain('style="{{wheelTrackStyle}}"');
     expect(wheelGesture).toContain('seedStateFromDataset');
     expect(wheelGesture).toContain('state.offset - state.baseOffset');
     expect(wheelGesture).toContain('refreshItemCount');
-    // The 年/月 unit travels with the item, not only with the component property.
-    expect(wheelTemplate).toContain('{{item.unit || unit}}');
+    // The 年/月 unit prefers item data and falls back to the component property.
+    expect(wheelTemplate).toContain(
+      '<text wx:if="{{item.unit}}" class="ui-wheel-unit">{{item.unit}}</text>',
+    );
+    expect(wheelTemplate).toContain('<text wx:else class="ui-wheel-unit">{{unit}}</text>');
+    // Pixel motion must not depend on WXS style writes on the affected runtime.
+    const wheelComponent = readSource('components/ui/ui-wheel-column/index.ts');
+    expect(wheelComponent).toContain('function createWheelTrackStylePatch');
+    expect(wheelComponent).toContain('transform:translateY(${delta}px)');
+    expect(wheelComponent).toContain('wheelTrackStyle: instance.data.skyline3172UiCompatibility');
     // Selected-row emphasis must not depend on the WXS reaching the renderer.
     const wheelStyles = readSource('components/ui/ui-wheel-column/index.wxss');
     expect(wheelTemplate).toContain('is-skyline-3172-ui');

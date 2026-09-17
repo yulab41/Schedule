@@ -15,7 +15,7 @@
   bindtouchend="{{wheelGesture.touchEnd}}"
   bindtouchcancel="{{wheelGesture.touchCancel}}"
 >
-  <view id="ui-wheel-track" class="ui-wheel-track" style="margin-top:{{wheelLayoutOffset}}px">
+  <view id="ui-wheel-track" class="ui-wheel-track" style="{{wheelTrackStyle}}">
     <view class="ui-wheel-spacer"></view>
     <view
       wx:for="{{items}}"
@@ -32,7 +32,8 @@
       bindtap="handleItemTap"
     >
       <text id="ui-wheel-number-{{index}}" class="ui-wheel-number">{{item.label}}</text>
-      <text wx:if="{{item.unit || unit}}" class="ui-wheel-unit">{{item.unit || unit}}</text>
+      <text wx:if="{{item.unit}}" class="ui-wheel-unit">{{item.unit}}</text>
+      <text wx:else class="ui-wheel-unit">{{unit}}</text>
     </view>
     <view class="ui-wheel-spacer"></view>
   </view>
