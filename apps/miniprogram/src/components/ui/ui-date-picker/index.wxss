@@ -224,11 +224,9 @@
 
 .workflow-picker-date-track {
   display: flex;
-  width: 300%;
 }
 
 .workflow-picker-date-pane {
-  width: 33.333333%;
   flex: none;
 }
 

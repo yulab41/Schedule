@@ -46,6 +46,31 @@ export function createCalendarPeriodPaneId(prefix: string, slot: CalendarPeriodS
   return `${prefix}${slot}`;
 }
 
+export interface CalendarPeriodMeasuredHost {
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+}
+
+/**
+ * The affected runtime resolves the ring's percentage widths against an
+ * indefinite scroller box, which collapses the panel grid, so the pane width is
+ * measured once and handed to the panes as an explicit pixel value instead.
+ */
+export function measureCalendarPeriodPaneWidth(
+  host: CalendarPeriodMeasuredHost,
+  selector: string,
+  apply: (width: number) => void,
+): void {
+  if (typeof wx === 'undefined' || host.createSelectorQuery === undefined) return;
+  host
+    .createSelectorQuery()
+    .select(selector)
+    .boundingClientRect()
+    .exec((results) => {
+      const width = Number(results[0]?.width);
+      if (Number.isFinite(width) && width > 0) apply(Math.round(width));
+    });
+}
+
 export interface CalendarPeriodPagerState {
   activeSlot: CalendarPeriodSlot;
   targetSlot: CalendarPeriodSlot | undefined;

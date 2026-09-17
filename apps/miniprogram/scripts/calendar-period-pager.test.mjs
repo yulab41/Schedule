@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
@@ -12,6 +12,7 @@ import {
   getAdjacentCalendarPeriodSlot,
   getCalendarPeriodSlotDelta,
   mapCalendarPeriodRing,
+  measureCalendarPeriodPaneWidth,
   mergeCalendarPeriodScrollMetrics,
   nearestCalendarPeriodScrollSlot,
   prepareCalendarPeriodChange,
@@ -35,6 +36,28 @@ describe('shared calendar period pager', () => {
     expect(nearestCalendarPeriodScrollSlot(undefined)).toBeUndefined();
     expect(mergeCalendarPeriodScrollMetrics(undefined, {})).toBeUndefined();
     expect(createCalendarPeriodPaneId('date-pane-', 2)).toBe('date-pane-2');
+  });
+
+  it('measures the native pane width instead of trusting percentages', () => {
+    vi.stubGlobal('wx', {});
+    const applied = [];
+    const host = (rects) => ({
+      createSelectorQuery: () => ({
+        select: () => ({ boundingClientRect: () => ({ exec: (cb) => cb(rects) }) }),
+      }),
+    });
+    measureCalendarPeriodPaneWidth(host([{ width: 320.6 }]), '.pane', (width) =>
+      applied.push(width),
+    );
+    expect(applied).toEqual([321]);
+    // A missing or degenerate rect must not collapse the panes to zero.
+    measureCalendarPeriodPaneWidth(host([null]), '.pane', (width) => applied.push(width));
+    measureCalendarPeriodPaneWidth(host([{ width: 0 }]), '.pane', (width) => applied.push(width));
+    expect(applied).toEqual([321]);
+    // Without the runtime query API the helper stays inert.
+    measureCalendarPeriodPaneWidth({}, '.pane', (width) => applied.push(width));
+    expect(applied).toEqual([321]);
+    vi.unstubAllGlobals();
   });
 
   it('centralizes the native animation contract', () => {

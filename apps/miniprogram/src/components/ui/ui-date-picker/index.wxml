@@ -153,6 +153,7 @@
         <view class="workflow-picker-date-track">
           <view
             class="workflow-picker-date-pane"
+            style="{{datePaneStyle}}"
             wx:for="{{datePanels}}"
             wx:key="slot"
             wx:for-item="panel"

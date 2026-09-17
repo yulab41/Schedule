@@ -7,6 +7,7 @@ import {
   createCalendarPeriodPaneId,
   finishCalendarPeriodShift,
   isCalendarPeriodSlot,
+  measureCalendarPeriodPaneWidth,
   mergeCalendarPeriodScrollMetrics,
   nearestCalendarPeriodScrollSlot,
   prepareCalendarPeriodChange,
@@ -46,10 +47,12 @@ interface CalendarMonthInstance {
   _monthHeightTargetIndex: MonthSlot | undefined;
   _monthShiftPending: boolean;
   _queuedMonthDelta: number;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
   readonly data: {
     readonly locateAnimating: boolean;
     readonly pagerAnimated: boolean;
     readonly pagerTarget: string;
+    readonly paneStyle: string;
     readonly panelHeights?: readonly number[];
     readonly skyline3172UiCompatibility: boolean;
     readonly stepMotion: string;
@@ -79,6 +82,7 @@ Component({
     locateAnimating: false,
     pagerAnimated: false,
     pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
+    paneStyle: '',
     skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     stepMotion: '',
     swiperCurrent: 1,
@@ -103,9 +107,13 @@ Component({
       this._monthHeightTargetIndex = undefined;
       this._monthShiftPending = false;
       this._queuedMonthDelta = 0;
+      measureCompatPanes(this);
     },
   },
   methods: {
+    measurePanes(this: CalendarMonthInstance): void {
+      measureCompatPanes(this);
+    },
     handleMonthChangeStart(this: CalendarMonthInstance, event: MonthChangeStartEvent): void {
       const { current } = event.detail;
       const state = readMonthPagerState(this);
@@ -190,6 +198,14 @@ Component({
     },
   },
 });
+
+function measureCompatPanes(instance: CalendarMonthInstance): void {
+  if (!instance.data.skyline3172UiCompatibility) return;
+  measureCalendarPeriodPaneWidth(instance, '.calendar-motion-viewport.is-compat', (width) => {
+    const paneStyle = `width:${width}px`;
+    if (instance.data.paneStyle !== paneStyle) instance.setData({ paneStyle });
+  });
+}
 
 // A gesture swipe has no queued target, so the panel the native scroll settled
 // on is prepared here — the same preparation the swiper gets from its change

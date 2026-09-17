@@ -115,6 +115,7 @@
     <view class="calendar-pager-track">
       <view
         class="calendar-pager-pane"
+        style="{{paneStyle}}"
         wx:for="{{panels}}"
         wx:for-item="panel"
         wx:key="slot"

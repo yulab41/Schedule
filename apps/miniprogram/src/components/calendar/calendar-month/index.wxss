@@ -198,13 +198,12 @@
 
 .calendar-pager-track {
   display: flex;
-  width: 300%;
 }
 
 .calendar-pager-pane {
-  width: 33.333333%;
   flex: none;
 }
+
 
 .calendar-slide-panel {
   width: 100%;

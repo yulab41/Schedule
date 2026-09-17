@@ -16,6 +16,7 @@ import {
   finishCalendarPeriodShift,
   isCalendarPeriodSlot,
   mapCalendarPeriodRing,
+  measureCalendarPeriodPaneWidth,
   mergeCalendarPeriodScrollMetrics,
   nearestCalendarPeriodScrollSlot,
   placeCalendarPeriodTarget,
@@ -116,6 +117,7 @@ interface WorkflowPickerInstance {
     readonly dateLocateAnimating: boolean;
     readonly datePagerAnimated: boolean;
     readonly datePagerTarget: string;
+    readonly datePaneStyle: string;
     readonly datePanels: readonly WorkflowPickerDatePanel[];
     readonly dateSwiperIndex: number;
     readonly dateSwiperDuration: number;
@@ -198,6 +200,7 @@ Component({
     dateSwiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
     datePagerAnimated: false,
     datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+    datePaneStyle: '',
     days: Array.from({ length: 31 }, (_, index) => index + 1),
     draftDay: 1,
     draftDisplayValue: '',
@@ -309,14 +312,18 @@ Component({
         return;
       }
 
-      this.setData(createTemporalDraft(this, wheelRuntime));
+      this.setData(createTemporalDraft(this, wheelRuntime), () => {
+        measureCompatPanes(this);
+      });
     },
 
     openFromParent(this: WorkflowPickerInstance): void {
       if (!this.properties.dialogOnly || this.data.open) return;
       clearPickerTimer(this);
       resetDatePager(this);
-      this.setData(createTemporalDraft(this, beginWheelGeneration(this)));
+      this.setData(createTemporalDraft(this, beginWheelGeneration(this)), () => {
+        measureCompatPanes(this);
+      });
     },
 
     applyChange(this: WorkflowPickerInstance, detail: unknown): void {
@@ -408,6 +415,10 @@ Component({
 
     handleDateCompatTouchStart(this: WorkflowPickerInstance): void {
       this._dateCompatGesture = true;
+    },
+
+    measurePanes(this: WorkflowPickerInstance): void {
+      measureCompatPanes(this);
     },
 
     handleDateCompatScroll(this: WorkflowPickerInstance, event: DateScrollEvent): void {
@@ -639,6 +650,14 @@ function startDateCompatLocate(
       today.month,
       day,
     );
+  });
+}
+
+function measureCompatPanes(instance: WorkflowPickerInstance): void {
+  if (!instance.data.skyline3172UiCompatibility) return;
+  measureCalendarPeriodPaneWidth(instance, '.workflow-picker-date-swiper.is-compat', (width) => {
+    const datePaneStyle = `width:${width}px`;
+    if (instance.data.datePaneStyle !== datePaneStyle) instance.setData({ datePaneStyle });
   });
 }
 
