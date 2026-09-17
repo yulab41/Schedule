@@ -154,10 +154,10 @@
           <view
             class="workflow-picker-date-pane"
             style="{{datePaneStyle}}"
-            wx:for="{{datePanels}}"
-            wx:key="slot"
+            wx:for="{{compatPanes}}"
+            wx:key="relative"
             wx:for-item="panel"
-            id="date-pane-{{panel.slot}}"
+            id="date-pane-{{index}}"
           >
             <template is="workflow-date-grid" data="{{panel: panel}}" />
           </view>

@@ -6,6 +6,7 @@ import {
   commitCalendarPeriodSwipe,
   createCalendarPeriodPaneId,
   finishCalendarPeriodShift,
+  getAdjacentCalendarPeriodSlot,
   isCalendarPeriodSlot,
   measureCalendarPeriodPaneWidth,
   mergeCalendarPeriodScrollMetrics,
@@ -40,8 +41,9 @@ type MonthSlot = CalendarPeriodSlot;
 
 interface CalendarMonthInstance {
   _compatGesture?: boolean;
+  _compatGestureDelta?: -1 | 0 | 1 | undefined;
   _compatMetrics?: CalendarPeriodScrollMetrics | undefined;
-  _compatRequestedSlot?: MonthSlot | undefined;
+  _compatRequestedDelta?: -1 | 0 | 1 | undefined;
   _compatTimer?: ReturnType<typeof setTimeout>;
   _monthActiveSlot: MonthSlot;
   _monthHeightTargetIndex: MonthSlot | undefined;
@@ -50,6 +52,7 @@ interface CalendarMonthInstance {
   createSelectorQuery?(): MiniProgramSelectorQuery;
   readonly data: {
     readonly locateAnimating: boolean;
+    readonly compatPanes: readonly unknown[];
     readonly pagerAnimated: boolean;
     readonly pagerTarget: string;
     readonly paneStyle: string;
@@ -63,6 +66,7 @@ interface CalendarMonthInstance {
   };
   continueQueuedShift(): void;
   finishPeriodShift(): void;
+  readonly properties: { readonly panels: readonly { readonly relative: number }[] };
   startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail?: unknown): void;
@@ -80,6 +84,7 @@ Component({
   },
   data: {
     locateAnimating: false,
+    compatPanes: [] as readonly unknown[],
     pagerAnimated: false,
     pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
     paneStyle: '',
@@ -91,6 +96,9 @@ Component({
     viewportHeight: 270,
   },
   observers: {
+    'panels, skyline3172UiCompatibility'(this: CalendarMonthInstance): void {
+      syncCompatPanes(this);
+    },
     gridHeight(this: CalendarMonthInstance, value: number): void {
       if (
         !this._monthShiftPending &&
@@ -143,9 +151,11 @@ Component({
         if (this.data.skyline3172UiCompatibility) {
           // The affected runtime cannot animate a programmatic swiper jump, so
           // the month slides one native panel and settles when the scroll stops.
-          this._compatRequestedSlot = targetIndex;
+          // The panes are laid out physically (previous | current | next), so the
+          // slide always travels the way the month does.
+          this._compatRequestedDelta = delta;
           next.pagerAnimated = true;
-          next.pagerTarget = createCalendarPeriodPaneId('month-pane-', targetIndex);
+          next.pagerTarget = createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2);
           this.setData(next);
           return;
         }
@@ -199,6 +209,27 @@ Component({
   },
 });
 
+// The native scroller pages by position, not by ring slot, so the affected
+// runtime keeps its three panes in a fixed physical order (previous | current |
+// next) and is re-centred on the middle pane after every committed step.
+function syncCompatPanes(instance: CalendarMonthInstance): void {
+  if (!instance.data.skyline3172UiCompatibility) return;
+  const panels = instance.properties.panels as readonly { readonly relative: number }[];
+  const byRelative = new Map(panels.map((panel) => [panel.relative, panel]));
+  const ordered = [-1, 0, 1].map((relative, index) => byRelative.get(relative) ?? panels[index]);
+  instance.setData({
+    compatPanes: ordered,
+    pagerAnimated: false,
+    pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
+  });
+}
+
+function compatPaneDelta(instance: CalendarMonthInstance): -1 | 0 | 1 {
+  const pane = nearestCalendarPeriodScrollSlot(instance._compatMetrics);
+  if (pane === undefined || pane === 1) return 0;
+  return pane === 0 ? -1 : 1;
+}
+
 function measureCompatPanes(instance: CalendarMonthInstance): void {
   if (!instance.data.skyline3172UiCompatibility) return;
   measureCalendarPeriodPaneWidth(instance, '.calendar-motion-viewport.is-compat', (width) => {
@@ -211,9 +242,11 @@ function measureCompatPanes(instance: CalendarMonthInstance): void {
 // on is prepared here — the same preparation the swiper gets from its change
 // event — and the grid height follows it.
 function prepareCompatPagerTarget(instance: CalendarMonthInstance): void {
-  const slot = nearestCalendarPeriodScrollSlot(instance._compatMetrics);
-  if (slot === undefined) return;
+  const delta = compatPaneDelta(instance);
+  instance._compatGestureDelta = delta;
+  if (delta === 0) return;
   const state = readMonthPagerState(instance);
+  const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
   if (!prepareCalendarPeriodChange(state, slot)) return;
   writeMonthPagerState(instance, state);
   const viewportHeight = instance.data.panelHeights?.[slot] ?? 270;
@@ -237,18 +270,22 @@ function scheduleCompatPagerSettle(instance: CalendarMonthInstance): void {
 
 function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
   if (!instance.data.skyline3172UiCompatibility) return;
-  const requested = instance._compatRequestedSlot;
-  instance._compatRequestedSlot = undefined;
+  const requested = instance._compatRequestedDelta;
+  instance._compatRequestedDelta = undefined;
   prepareCompatPagerTarget(instance);
-  const slot = requested ?? nearestCalendarPeriodScrollSlot(instance._compatMetrics);
-  if (slot === undefined) return;
+  const delta = requested ?? instance._compatGestureDelta ?? compatPaneDelta(instance);
+  instance._compatGestureDelta = undefined;
+  if (delta === 0) return;
+  const state = readMonthPagerState(instance);
+  const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
   finishMonthSwipeAt(instance, slot);
+  // The ring rotated behind the scenes; land back on the middle pane so the next
+  // step always travels the way a month does.
+  const width = instance._compatMetrics?.width;
+  if (width !== undefined) instance._compatMetrics = { left: width, width };
   instance.setData({
     pagerAnimated: false,
-    pagerTarget: createCalendarPeriodPaneId(
-      'month-pane-',
-      readMonthPagerState(instance).activeSlot,
-    ),
+    pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
   });
 }
 

@@ -14,6 +14,7 @@ import {
   createCalendarPeriodPaneId,
   createCalendarPeriodPagerState,
   finishCalendarPeriodShift,
+  getAdjacentCalendarPeriodSlot,
   isCalendarPeriodSlot,
   mapCalendarPeriodRing,
   measureCalendarPeriodPaneWidth,
@@ -105,7 +106,8 @@ interface WorkflowPickerInstance {
     { readonly day: number; readonly month: number; readonly year: number } | undefined;
   _dateLocateTimer?: unknown;
   _dateCompatGesture?: boolean;
-  _dateCompatRequestedSlot?: CalendarPeriodSlot | undefined;
+  _dateCompatGestureDelta?: -1 | 0 | 1 | undefined;
+  _dateCompatRequestedDelta?: -1 | 0 | 1 | undefined;
   _dateCompatTimer?: ReturnType<typeof setTimeout>;
   _dateCompatMetrics?: CalendarPeriodScrollMetrics | undefined;
   _monthWheelSequence?: number;
@@ -114,6 +116,7 @@ interface WorkflowPickerInstance {
   createSelectorQuery?(): MiniProgramSelectorQuery;
   readonly data: {
     readonly dateCells: readonly WorkflowPickerDateCell[];
+    readonly compatPanes: readonly WorkflowPickerDatePanel[];
     readonly dateLocateAnimating: boolean;
     readonly datePagerAnimated: boolean;
     readonly datePagerTarget: string;
@@ -192,6 +195,7 @@ Component({
 
   data: {
     dateCells: [] as readonly WorkflowPickerDateCell[],
+    compatPanes: [] as readonly WorkflowPickerDatePanel[],
     hostedLocally: false,
     dateLocateAnimating: false,
     datePanels: [] as readonly WorkflowPickerDatePanel[],
@@ -245,6 +249,9 @@ Component({
   },
 
   observers: {
+    'datePanels, skyline3172UiCompatibility'(this: WorkflowPickerInstance): void {
+      syncCompatDatePanes(this);
+    },
     hostKey(this: WorkflowPickerInstance): void {
       const hostedLocally = needsHostedDialog(this);
       if (hostedLocally !== this.data.hostedLocally) this.setData({ hostedLocally });
@@ -606,10 +613,11 @@ function startDatePeriodShift(
     if (instance.data.skyline3172UiCompatibility) {
       // The affected runtime cannot animate a programmatic swiper jump, so the
       // month slides one native panel instead and settles when the scroll stops.
-      instance._dateCompatRequestedSlot = request.targetSlot;
+      // Panes keep a fixed physical order, so the slide follows the month.
+      instance._dateCompatRequestedDelta = delta;
       instance.setData({
         datePagerAnimated: true,
-        datePagerTarget: createCalendarPeriodPaneId('date-pane-', request.targetSlot),
+        datePagerTarget: createCalendarPeriodPaneId('date-pane-', delta < 0 ? 0 : 2),
       });
       return;
     }
@@ -629,7 +637,8 @@ function startDateCompatLocate(
   const days = createDayValues(today.year, today.month);
   const day = Math.min(today.day, days.length);
   clearDateCompatSettle(instance);
-  instance._dateCompatRequestedSlot = undefined;
+  instance._dateCompatRequestedDelta = undefined;
+  instance._dateCompatGestureDelta = undefined;
   instance._dateCompatGesture = false;
   const currentIndex = instance.data.draftYear * 12 + instance.data.draftMonth - 1;
   const targetIndex = today.year * 12 + today.month - 1;
@@ -680,15 +689,40 @@ function nearestDateCompatSlot(instance: WorkflowPickerInstance): CalendarPeriod
   return nearestCalendarPeriodScrollSlot(instance._dateCompatMetrics);
 }
 
+// The native scroller pages by position, not by ring slot, so the affected
+// runtime keeps its three date panes in a fixed physical order (previous |
+// current | next) and is re-centred on the middle pane after every step.
+function syncCompatDatePanes(instance: WorkflowPickerInstance): void {
+  if (!instance.data.skyline3172UiCompatibility) return;
+  const panels = instance.data.datePanels;
+  const byRelative = new Map(panels.map((panel) => [panel.relative, panel]));
+  const ordered = ([-1, 0, 1] as const).map(
+    (relative, index) => byRelative.get(relative) ?? panels[index],
+  );
+  instance.setData({
+    compatPanes: ordered,
+    datePagerAnimated: false,
+    datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+  });
+}
+
+function compatDatePaneDelta(instance: WorkflowPickerInstance): -1 | 0 | 1 {
+  const pane = nearestDateCompatSlot(instance);
+  if (pane === undefined || pane === 1) return 0;
+  return pane === 0 ? -1 : 1;
+}
+
 // A gesture swipe has no queued target, so the panel the scroll settled on is
 // prepared here — the same preparation the swiper gets from its change event.
 function prepareCompatDateTarget(instance: WorkflowPickerInstance): void {
-  const slot = nearestDateCompatSlot(instance);
-  if (slot === undefined) return;
+  const delta = compatDatePaneDelta(instance);
+  instance._dateCompatGestureDelta = delta;
+  if (delta === 0) return;
   const state = readDatePagerState(instance);
+  const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
   if (!prepareCalendarPeriodChange(state, slot)) return;
   writeDatePagerState(instance, state);
-  const panel = instance.data.datePanels[slot];
+  const panel = instance.data.compatPanes?.[delta < 0 ? 0 : 2];
   if (panel === undefined) return;
   const days = createDayValues(panel.year, panel.month);
   instance._datePendingSelection = {
@@ -700,13 +734,23 @@ function prepareCompatDateTarget(instance: WorkflowPickerInstance): void {
 
 function settleDateCompatScroll(instance: WorkflowPickerInstance): void {
   if (!instance.data.open || !instance.data.skyline3172UiCompatibility) return;
-  const requested = instance._dateCompatRequestedSlot;
-  instance._dateCompatRequestedSlot = undefined;
+  const requested = instance._dateCompatRequestedDelta;
+  instance._dateCompatRequestedDelta = undefined;
   prepareCompatDateTarget(instance);
-  const slot = requested ?? nearestDateCompatSlot(instance);
+  const delta = requested ?? instance._dateCompatGestureDelta ?? compatDatePaneDelta(instance);
+  instance._dateCompatGestureDelta = undefined;
+  if (delta === 0) return;
   const state = readDatePagerState(instance);
-  if (slot === undefined || slot === state.activeSlot) return;
+  const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
   finishDateSwiperAt(instance, slot);
+  // The ring rotated behind the scenes; land back on the middle pane so the next
+  // step always travels the way a month does.
+  const width = instance._dateCompatMetrics?.width;
+  if (width !== undefined) instance._dateCompatMetrics = { left: width, width };
+  instance.setData({
+    datePagerAnimated: false,
+    datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+  });
 }
 
 function applyDatePeriodChange(instance: WorkflowPickerInstance, delta: -1 | 1): void {

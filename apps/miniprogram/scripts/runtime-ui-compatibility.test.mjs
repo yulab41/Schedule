@@ -386,6 +386,12 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(monthComponent).toContain('measureCalendarPeriodPaneWidth');
     expect(pickerTemplate).toContain('style="{{datePaneStyle}}"');
     expect(picker).toContain('measureCalendarPeriodPaneWidth');
+    // Both rings keep a fixed physical pane order there, so a step always travels
+    // the way a month does and one swipe never crosses more than one month.
+    expect(monthTemplate).toContain('wx:for="{{compatPanes}}"');
+    expect(pickerTemplate).toContain('wx:for="{{compatPanes}}"');
+    expect(monthComponent).toContain('function syncCompatPanes');
+    expect(picker).toContain('function syncCompatDatePanes');
     // The gesture must survive a missing config observer: the template carries the
     // base position, and the node dataset re-seeds the state per generation.
     // Both carriers go through the component's own data: the renderer on the

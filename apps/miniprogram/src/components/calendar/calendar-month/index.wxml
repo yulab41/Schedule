@@ -116,10 +116,10 @@
       <view
         class="calendar-pager-pane"
         style="{{paneStyle}}"
-        wx:for="{{panels}}"
+        wx:for="{{compatPanes}}"
         wx:for-item="panel"
-        wx:key="slot"
-        id="month-pane-{{panel.slot}}"
+        wx:key="relative"
+        id="month-pane-{{index}}"
         aria-hidden="{{panel.relative !== 0}}"
       >
         <template is="calendar-month-grid" data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility}}" />
