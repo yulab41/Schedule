@@ -3078,3 +3078,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 语义等价审计：WXS 的绝对坐标系、clamp 与动画端点未改，只在同一代际内拒绝"更小的条目数"；`configure`路径与 3.17.3 行为不变。单位渲染改为`item.unit || unit`，对已经携带`unit`的条目与仅靠属性传参的用法都成立。
 - 验证结果：定向51项+新增用例、Mini完整174文件1219项通过/16跳过；typecheck、production build366文件、package（主包1746516B/总4620921B）、determinism`3bacb648…98c9d`、format、lint、smoke:check-core、agent-context-policy通过；`pnpm miniprogram:verify`仍只被既有未改手排矩阵`1507>1506`阻断。
 - 状态：已实现待小米14复核；本轮未上传、未放行、未部署（当前消息未含上传授权）。唯一建议下一任务：授权后上传并 add-only 放行，复核单位显示、选中放大、能滚到年 2031 / 月 12月 且重开仍正常。详情见`docs/audit/runtime-ui-compatibility-wheel-units-and-range-20260917.md`。
+
+## 2026-09-17 测试工具新增"滚轮通道探针"（用测量取代推理）
+
+- 背景：滚轮问题连续多轮都靠推理（属性通道/观察器/样式通道/范围 clamp 各有假设），用户建议把需要的事实做成测试工具探针，一次采集再判断。
+- 实现：`测试工具`页新增二级卡片"滚轮通道探针"——新增`wheel-probe.wxs`（页面级 WXS：`selectComponent('#wheel-drag-probe-dot').setStyle(...)` + `callMethod('handleWheelDragProbeMove'/'End')`）驱动左侧拖动方块；右侧放真实`ui-wheel-column`（8项、`unit="号"`、`runtime-key="diagnostics-wheel-probe"`），`bindpreviewchange`/`bindsettle`累计 WXS 上报；【采集滚轮探针】用`createSelectorQuery`（页面级）与`query.in(selectComponent('#wheel-probe-column'))`（组件作用域）实测`computedStyle.transform/marginTop/fontSize`与 rect，并与`dataset 期望值`（baseIndex/itemCount）一起复制。
+- 覆盖面：①页面级 WXS 的 setStyle 是否到达渲染器；②滚轮 WXS 是否收到手势并把 preview/settle 回报到逻辑层（含 index/offset/sequence/generation/runtimeKey）；③组件作用域查询在该版本是否可用；④渲染器实际拿到的样式与期望数据的差异。报告中仍不含身份、联系方式、群组、排班、请求正文或凭证。
+- 验证：定向`scripts/test-tools.test.mjs` 23项通过（新增探针接线契约）；Mini完整174文件1220项通过/16跳过；typecheck、production build367文件（新增`wheel-probe.wxs`）、package（主包1746707B/总4632789B，diagnostics分包114031B）、determinism`677e0ed7…760a5`、format、lint、smoke:check-core通过。
+- 状态：已实现待体验版交付；本轮未上传、未放行、未部署（当前消息未含上传授权）。唯一下一任务：授权后上传并 add-only 放行，小米14先执行"滚轮通道探针"三步（拖方块→拖滚轮→采集）并回传复制内容，据此一次性判定通道，再复核单位/放大/范围/重开。详情见`docs/audit/runtime-ui-compatibility-wheel-channel-probe-20260917.md`。

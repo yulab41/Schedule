@@ -120,6 +120,10 @@ interface TestToolsPageData extends Readonly<typeof wechatDiagnosticData> {
   readonly runtimeProbeTone: RowStatus;
   readonly scenarios: readonly DiagnosticScenario[];
   readonly storageRows: readonly DiagnosticRow[];
+  readonly wheelProbeItems: readonly { readonly label: string; readonly unit: string }[];
+  readonly wheelProbeIndex: number;
+  readonly wheelProbeGeneration: number;
+  readonly wheelProbeRows: readonly DiagnosticRow[];
 }
 
 interface TestToolsPageInstance {
@@ -129,9 +133,25 @@ interface TestToolsPageInstance {
   _accessSerial: number;
   _probeSerial: number;
   _runtimeTokenWidth: number | undefined;
+  _wheelDragProbe: {
+    moves: number;
+    offset: number;
+    styled: number;
+  };
+  _wheelProbe: {
+    previews: number;
+    settles: number;
+    lastGeneration: number;
+    lastIndex: number;
+    lastOffset: number;
+    lastRuntimeKey: string;
+    lastSequence: number;
+  };
   _unsubscribe?: () => void;
   _loadStartedAt: number;
   readonly data: TestToolsPageData;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectComponent?(selector: string): unknown;
   setData(patch: Partial<TestToolsPageData>, callback?: () => void): void;
 }
 
@@ -384,12 +404,26 @@ Page({
     runtimeProbeTone: 'unavailable',
     scenarios: scenarioDefaults,
     storageRows: [],
+    wheelProbeGeneration: 1,
+    wheelProbeIndex: 0,
+    wheelProbeItems: createWheelProbeItems(),
+    wheelProbeRows: createPendingWheelProbeRows(),
   },
 
   onLoad(this: TestToolsPageInstance): void {
     this._loadStartedAt = Date.now();
     this._accessSerial = 0;
     this._probeSerial = 0;
+    this._wheelDragProbe = { moves: 0, offset: 0, styled: 0 };
+    this._wheelProbe = {
+      lastGeneration: -1,
+      lastIndex: -1,
+      lastOffset: 0,
+      lastRuntimeKey: '',
+      lastSequence: -1,
+      previews: 0,
+      settles: 0,
+    };
     this._ready = false;
     this._runtimeTokenWidth = undefined;
     this._live = true;
@@ -592,6 +626,32 @@ Page({
   handleCopyRuntimeReport(this: TestToolsPageInstance): void {
     if (!this._active || !canUseDiagnostics()) return;
     copyText(createRuntimeCompatibilityReport(this.data), '首屏诊断已复制');
+  },
+
+  handleWheelDragProbeMove(this: TestToolsPageInstance, detail?: WheelDragProbeDetail): void {
+    recordWheelDragProbe(this, detail, false);
+  },
+
+  handleWheelDragProbeEnd(this: TestToolsPageInstance, detail?: WheelDragProbeDetail): void {
+    recordWheelDragProbe(this, detail, true);
+  },
+
+  handleWheelProbePreview(this: TestToolsPageInstance, event?: WheelProbeReportEvent): void {
+    recordWheelProbeReport(this, event, false);
+  },
+
+  handleWheelProbeSettle(this: TestToolsPageInstance, event?: WheelProbeReportEvent): void {
+    recordWheelProbeReport(this, event, true);
+  },
+
+  handleResetWheelProbe(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    resetWheelProbe(this);
+  },
+
+  handleCollectWheelProbe(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    collectWheelChannelProbe(this);
   },
 
   handleCopyFullReport(this: TestToolsPageInstance): void {
@@ -1418,6 +1478,215 @@ function yesNo(value: boolean): string {
 
 function reportRows(rows: readonly DiagnosticRow[], limit: number): string[] {
   return rows.slice(0, limit).map((item) => `${item.label}=${item.value}（${item.statusLabel}）`);
+}
+
+interface WheelDragProbeDetail {
+  readonly moves?: number;
+  readonly offset?: number;
+  readonly styled?: number;
+}
+
+interface WheelProbeReportEvent {
+  readonly detail?: {
+    readonly generation?: number;
+    readonly index?: number;
+    readonly offset?: number;
+    readonly runtimeKey?: string;
+    readonly sequence?: number;
+  };
+}
+
+interface ProbeQueryNode {
+  boundingClientRect(callback: (rect: unknown) => void): ProbeQueryNode;
+  exec?(callback?: () => void): unknown;
+  fields(options: Record<string, unknown>, callback: (value: unknown) => void): ProbeQueryNode;
+}
+
+interface ProbeQuery {
+  exec?(callback?: () => void): unknown;
+  in(component: unknown): ProbeQuery;
+  select(selector: string): ProbeQueryNode;
+  selectAll(selector: string): ProbeQueryNode;
+}
+
+function createWheelProbeItems(): readonly { readonly label: string; readonly unit: string }[] {
+  return [1, 2, 3, 4, 5, 6, 7, 8].map((value) => ({ label: String(value), unit: '号' }));
+}
+
+function wheelProbeRows(
+  dragValue: string,
+  dragStatus: RowStatus,
+  reportValue: string,
+  reportStatus: RowStatus,
+): readonly DiagnosticRow[] {
+  return [
+    row(
+      '页级 WXS 通道',
+      dragValue,
+      '页面级 WXS 的 setStyle 是否到达渲染器。',
+      '截本卡片。',
+      dragStatus,
+    ),
+    row(
+      '滚轮 WXS 通道',
+      reportValue,
+      '滚轮 WXS 是否收到手势并回报给逻辑层。',
+      '截本卡片。',
+      reportStatus,
+    ),
+  ];
+}
+
+function createPendingWheelProbeRows(): readonly DiagnosticRow[] {
+  return wheelProbeRows('待拖动方块', 'unavailable', '待拖动滚轮', 'unavailable');
+}
+
+function resetWheelProbe(page: TestToolsPageInstance): void {
+  page._wheelDragProbe = { moves: 0, offset: 0, styled: 0 };
+  page._wheelProbe = {
+    lastGeneration: -1,
+    lastIndex: -1,
+    lastOffset: 0,
+    lastRuntimeKey: '',
+    lastSequence: -1,
+    previews: 0,
+    settles: 0,
+  };
+  page.setData({
+    wheelProbeGeneration: page.data.wheelProbeGeneration + 1,
+    wheelProbeRows: createPendingWheelProbeRows(),
+  });
+}
+
+function recordWheelDragProbe(
+  page: TestToolsPageInstance,
+  detail: WheelDragProbeDetail | undefined,
+  settled: boolean,
+): void {
+  const moves = Number(detail?.moves);
+  const offset = Number(detail?.offset);
+  const styled = Number(detail?.styled);
+  page._wheelDragProbe = {
+    moves: Number.isFinite(moves) ? moves : page._wheelDragProbe.moves,
+    offset: Number.isFinite(offset) ? offset : page._wheelDragProbe.offset,
+    styled: Number.isFinite(styled) ? styled : page._wheelDragProbe.styled,
+  };
+  if (!settled) return;
+  page.setData({ wheelProbeRows: buildWheelProbeRows(page, '页面级 WXS 已完成一次拖动') });
+}
+
+function recordWheelProbeReport(
+  page: TestToolsPageInstance,
+  event: WheelProbeReportEvent | undefined,
+  settled: boolean,
+): void {
+  const detail = event?.detail ?? {};
+  const index = Number(detail.index);
+  const offset = Number(detail.offset);
+  const generation = Number(detail.generation);
+  const sequence = Number(detail.sequence);
+  page._wheelProbe = {
+    lastGeneration: Number.isFinite(generation) ? generation : page._wheelProbe.lastGeneration,
+    lastIndex: Number.isFinite(index) ? index : page._wheelProbe.lastIndex,
+    lastOffset: Number.isFinite(offset) ? offset : page._wheelProbe.lastOffset,
+    lastRuntimeKey:
+      typeof detail.runtimeKey === 'string' ? detail.runtimeKey : page._wheelProbe.lastRuntimeKey,
+    lastSequence: Number.isFinite(sequence) ? sequence : page._wheelProbe.lastSequence,
+    previews: page._wheelProbe.previews + (settled ? 0 : 1),
+    settles: page._wheelProbe.settles + (settled ? 1 : 0),
+  };
+  page.setData({
+    wheelProbeRows: buildWheelProbeRows(page, settled ? '滚轮已完成一次结算' : '滚轮正在拖动'),
+  });
+}
+
+function buildWheelProbeRows(page: TestToolsPageInstance, note: string): readonly DiagnosticRow[] {
+  const drag = page._wheelDragProbe;
+  const wheel = page._wheelProbe;
+  return wheelProbeRows(
+    `${note}；移动 ${drag.moves} 次，偏移 ${Math.round(drag.offset)}px，取到目标节点 ${
+      drag.styled === 1 ? '是' : '否'
+    }`,
+    drag.moves > 0 && drag.styled === 1 ? 'good' : 'unavailable',
+    `preview ${wheel.previews} 次，settle ${wheel.settles} 次；最后 index ${wheel.lastIndex}，offset ${wheel.lastOffset}，sequence ${wheel.lastSequence}，generation ${wheel.lastGeneration}`,
+    wheel.previews > 0 || wheel.settles > 0 ? 'good' : 'unavailable',
+  );
+}
+
+function collectWheelChannelProbe(page: TestToolsPageInstance): void {
+  const measured: string[] = [];
+  const wheel = page.selectComponent?.('#wheel-probe-column');
+  const query = page.createSelectorQuery?.() as unknown as ProbeQuery | undefined;
+  if (query === undefined) {
+    measured.push('测量=createSelectorQuery 不可用');
+  } else {
+    query
+      .select('#wheel-drag-probe-dot')
+      .fields({ computedStyle: ['transform'], rect: true }, (value) => {
+        measured.push(`页级探针节点=${describeMeasured(value)}`);
+      });
+    query.exec?.(() => undefined);
+    if (wheel === undefined || typeof query.in !== 'function') {
+      measured.push('组件作用域查询=未取得滚轮实例');
+    } else {
+      const scoped = query.in(wheel);
+      scoped
+        .select('#ui-wheel-track')
+        .fields({ computedStyle: ['transform', 'marginTop'], rect: true }, (value) => {
+          measured.push(`组件作用域 track=${describeMeasured(value)}`);
+        });
+      scoped
+        .selectAll('.ui-wheel-number')
+        .fields({ computedStyle: ['transform', 'fontSize'] }, (value) => {
+          measured.push(`组件作用域 number=${describeMeasured(value)}`);
+        });
+      scoped.exec?.(() => undefined);
+    }
+  }
+  measured.push(
+    `dataset 期望值=${JSON.stringify({
+      baseIndex: page.data.wheelProbeIndex,
+      itemCount: page.data.wheelProbeItems.length,
+    })}`,
+  );
+  // Selector queries resolve asynchronously; report after they settle.
+  setTimeout(() => finishWheelChannelProbe(page, measured), 160);
+}
+
+function describeMeasured(value: unknown): string {
+  if (value === null || value === undefined) return '空';
+  if (Array.isArray(value))
+    return value.length === 0 ? '空数组' : `${value.length} 项 ${JSON.stringify(value[0])}`;
+  return JSON.stringify(value);
+}
+
+function finishWheelChannelProbe(page: TestToolsPageInstance, measured: readonly string[]): void {
+  const drag = page._wheelDragProbe;
+  const wheel = page._wheelProbe;
+  const report = [
+    '[滚轮通道探针 v1]',
+    '安全说明：只含固定环境字段、通道状态与偏移量，不含身份、联系方式、群组、排班、请求正文或凭证。',
+    `构建=${buildInfo.buildLabel}`,
+    `环境=${page.data.environmentLabel}`,
+    `生成时间=${formatTimestamp(Date.now())}`,
+    ...page.data.deviceRows.map((entry) => `${entry.label}=${entry.value}`),
+    '',
+    '[页级 WXS 通道]',
+    `移动次数=${drag.moves}`,
+    `WXS 计算偏移=${Math.round(drag.offset)}px`,
+    `WXS 取到目标节点=${drag.styled === 1 ? '是' : '否'}`,
+    '',
+    '[滚轮 WXS 上报]',
+    `preview 次数=${wheel.previews}`,
+    `settle 次数=${wheel.settles}`,
+    `最后 index=${wheel.lastIndex}，offset=${wheel.lastOffset}，sequence=${wheel.lastSequence}`,
+    `最后 generation=${wheel.lastGeneration}，runtimeKey=${wheel.lastRuntimeKey}`,
+    '',
+    '[渲染器实测]',
+    ...measured,
+  ].join('\n');
+  page.setData({ wheelProbeRows: buildWheelProbeRows(page, '已采集') });
+  copyText(report, '滚轮探针已复制');
 }
 
 function copyText(value: string, successTitle: string): void {

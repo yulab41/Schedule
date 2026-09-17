@@ -858,3 +858,45 @@ page {
   background: var(--ui-color-surface);
   line-height: 1.4;
 }
+
+.wheel-probe-stage {
+  display: flex;
+  align-items: stretch;
+  padding: 8px;
+  box-sizing: border-box;
+  gap: 12px;
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.wheel-drag-probe {
+  position: relative;
+  display: flex;
+  width: 88px;
+  height: 188px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--ui-color-surface);
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-medium);
+  touch-action: none;
+}
+
+.wheel-drag-probe__dot {
+  width: 32px;
+  height: 32px;
+  background: var(--ui-color-primary);
+  border-radius: 50%;
+}
+
+.wheel-probe-column {
+  width: 120px;
+}
+
+.wheel-probe-actions {
+  display: flex;
+  margin-top: 8px;
+  gap: 8px;
+}

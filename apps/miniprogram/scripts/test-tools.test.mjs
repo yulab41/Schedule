@@ -684,6 +684,43 @@ describe('safe Mini test tools', () => {
     expect(template).toContain('bind:measure="handleRuntimeTokenMeasure"');
     expect(pageSource).toContain("'[运行时兼容性]'");
   });
+
+  it('keeps the wheel channel probe wired to the real wheel component and a page-level WXS', () => {
+    const template = readSource('subpackages/diagnostics/pages/test-tools/index.wxml');
+    const styles = readSource('subpackages/diagnostics/pages/test-tools/index.wxss');
+    const pageSource = readSource('subpackages/diagnostics/pages/test-tools/index.ts');
+    const gesture = readSource('subpackages/diagnostics/pages/test-tools/wheel-probe.wxs');
+    const pageConfig = JSON.parse(
+      readSource('subpackages/diagnostics/pages/test-tools/index.json'),
+    );
+
+    expect(pageConfig.usingComponents['ui-wheel-column']).toBe(
+      '/components/ui/ui-wheel-column/index',
+    );
+    expect(template).toContain('<wxs module="wheelProbe" src="./wheel-probe.wxs"></wxs>');
+    expect(template).toContain('bindtouchstart="{{wheelProbe.touchStart}}"');
+    expect(template).toContain('catchtouchmove="{{wheelProbe.touchMove}}"');
+    expect(template).toContain('bindtouchend="{{wheelProbe.touchEnd}}"');
+    expect(template).toContain('id="wheel-drag-probe-dot"');
+    expect(template).toContain('id="wheel-probe-column"');
+    expect(template).toContain('unit="号"');
+    expect(template).toContain('runtime-key="diagnostics-wheel-probe"');
+    expect(template).toContain('bindpreviewchange="handleWheelProbePreview"');
+    expect(template).toContain('bindsettle="handleWheelProbeSettle"');
+    expect(template).toContain('bindpress="handleCollectWheelProbe"');
+
+    expect(gesture).toContain("selectComponent('#wheel-drag-probe-dot')");
+    expect(gesture).toContain("callMethod('handleWheelDragProbeMove'");
+    expect(gesture).toContain("callMethod('handleWheelDragProbeEnd'");
+
+    expect(pageSource).toContain('function collectWheelChannelProbe');
+    expect(pageSource).toContain('function finishWheelChannelProbe');
+    expect(pageSource).toContain("select('#ui-wheel-track')");
+    expect(pageSource).toContain("selectAll('.ui-wheel-number')");
+    expect(pageSource).toContain('createSelectorQuery?.()');
+    expect(pageSource).toContain("copyText(report, '滚轮探针已复制')");
+    expect(cssRule(styles, '.wheel-drag-probe')).toMatch(/touch-action:\s*none/iu);
+  });
 });
 
 function cssRule(styles, selector) {
