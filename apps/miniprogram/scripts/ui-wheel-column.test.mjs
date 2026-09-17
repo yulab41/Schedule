@@ -125,7 +125,11 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(template).toContain('aria-role="option"');
     expect(template).toContain('aria-selected="{{index === internalSelectedIndex}}"');
     expect(template).toContain('bindtap="handleItemTap"');
-    expect(template).not.toContain('<scroll-view');
+    // 3.17.3 keeps one plain-view WXS owner. The affected runtime drops every
+    // WXS style write, so it gets a native scroll-view twin instead of a second
+    // set of visuals: same markup, same classes, same interpolation maths.
+    expect(template).toContain('wx:if="{{skyline3172UiCompatibility}}"');
+    expect(template).toContain('class="ui-wheel-compat-scroll"');
     expect(template).not.toContain('worklet:');
     expect(styles).toMatch(
       /\.ui-wheel-column\s*\{[^}]*height:\s*188px;[^}]*touch-action:\s*none;/su,
@@ -134,7 +138,9 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(styles).toMatch(/\.ui-wheel-item\s*\{[^}]*height:\s*44px;[^}]*opacity:\s*0\.58;/su);
     expect(styles).toMatch(/\.ui-wheel-number\s*\{[^}]*font-size:\s*24px;/su);
     expect(source).not.toContain('wx.worklet');
-    expect(source).not.toContain('setTimeout');
+    // The gesture still paints every pixel without timers for 3.17.3; only the
+    // compatible twin debounces a native scroll before snapping onto a row.
+    expect(gesture).not.toContain('setTimeout');
     expect(gesture).toContain('requestAnimationFrame');
     expect(gesture).toContain("callMethod('handleWheelPreview'");
     expect(gesture).toContain("callMethod('handleWheelSettled'");

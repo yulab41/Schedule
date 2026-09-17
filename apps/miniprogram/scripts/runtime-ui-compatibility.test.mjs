@@ -398,10 +398,17 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     // Selected-row emphasis must not depend on the WXS reaching the renderer.
     const wheelStyles = readSource('components/ui/ui-wheel-column/index.wxss');
     expect(wheelTemplate).toContain('is-skyline-3172-ui');
-    expect(wheelStyles).toContain(
-      '.ui-wheel-column.is-skyline-3172-ui .ui-wheel-item.is-selected {',
-    );
-    expect(wheelStyles).toContain('font-size: 30px;');
+    // On the affected runtime the emphasis is transported through data too, so
+    // the wheel scrolls natively and every row style comes from the frame.
+    expect(wheelTemplate).toContain('style="{{compatStyles[index]}}"');
+    expect(wheelTemplate).toContain('style="{{compatNumberStyles[index]}}"');
+    expect(wheelTemplate).toContain('bindscroll="handleCompatScroll"');
+    expect(wheelStyles).toContain('.ui-wheel-compat-scroll {');
+    expect(wheelComponent).toContain('function paintCompatFrame');
+    // The emphasised row is interpolated from the scroll frame now, so the
+    // discrete font-size bump is gone from the compatible path.
+    expect(wheelComponent).toContain('function compatNumberStyle');
+    expect(wheelComponent).toContain('function compatRowStyle');
     // Locate-today re-centers in one step no matter what the pager was doing.
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}resetDatePager\(this\)/u);
     expect(picker).toMatch(/handleDateToday[\s\S]{0,600}createDateDraftPatch/u);

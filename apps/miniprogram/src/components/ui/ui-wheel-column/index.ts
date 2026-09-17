@@ -30,10 +30,16 @@ interface UiWheelConfig {
 interface UiWheelColumnInstance {
   _acceptedGeneration?: number;
   _acceptedSequence?: number;
+  _compatSnapTimer?: ReturnType<typeof setTimeout>;
+  _compatState?: { index: number; sequence: number; top: number };
   _localCommandRevision?: number;
   readonly data: {
+    readonly compatNumberStyles: readonly string[];
+    readonly compatStyles: readonly string[];
     readonly internalSelectedIndex: number;
     readonly skyline3172UiCompatibility: boolean;
+    readonly scrollTop: number;
+    readonly scrollWithAnimation: boolean;
     readonly wheelConfig: UiWheelConfig;
     readonly wheelLayoutIndex: number;
     readonly wheelLayoutOffset: number;
@@ -69,7 +75,11 @@ Component({
   },
 
   data: {
+    compatNumberStyles: [] as readonly string[],
+    compatStyles: [] as readonly string[],
     internalSelectedIndex: 0,
+    scrollTop: 0,
+    scrollWithAnimation: false,
     wheelConfig: {
       animateCommand: false,
       commandRevision: 0,
@@ -100,6 +110,19 @@ Component({
   },
 
   methods: {
+    handleCompatScroll(this: UiWheelColumnInstance, event?: { detail?: { scrollTop?: number } }): void {
+      if (!this.data.skyline3172UiCompatibility) return;
+      const top = Number(event?.detail?.scrollTop);
+      if (!Number.isFinite(top)) return;
+      paintCompatFrame(this, Math.max(0, top));
+      scheduleCompatSnap(this);
+    },
+
+    handleCompatTouchEnd(this: UiWheelColumnInstance): void {
+      if (!this.data.skyline3172UiCompatibility) return;
+      scheduleCompatSnap(this);
+    },
+
     handleItemTap(this: UiWheelColumnInstance, event: UiWheelTapEvent): void {
       const index = boundedIndex(event.currentTarget.dataset.index, this.properties.items.length);
       if (index === undefined) return;
@@ -159,6 +182,20 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
       -nextConfig.selectedIndex * uiWheelItemHeight,
       instance.data.skyline3172UiCompatibility,
     );
+    if (instance.data.skyline3172UiCompatibility) {
+      // The compatible wheel scrolls natively, so its base position is a scroll
+      // offset rather than a transform; re-seed it whenever the host re-opens.
+      clearCompatSnap(instance);
+      instance._compatState = {
+        index: nextConfig.selectedIndex,
+        sequence: 0,
+        top: nextConfig.selectedIndex * uiWheelItemHeight,
+      };
+      patch.compatStyles = [];
+      patch.compatNumberStyles = [];
+      patch.scrollTop = nextConfig.selectedIndex * uiWheelItemHeight;
+      patch.scrollWithAnimation = false;
+    }
   }
   instance.setData(patch);
 }
@@ -251,6 +288,100 @@ function createWheelTrackStyle(
   return skyline3172UiCompatibility
     ? `transform:translateY(${absoluteOffset}px)`
     : `margin-top:${layoutOffset}px`;
+}
+
+function compatSelection(position: number, index: number): number {
+  return Math.min(1, Math.max(0, 1 - Math.abs(index - position)));
+}
+
+function compatRowStyle(selection: number): string {
+  return `opacity:${0.58 + 0.42 * selection};transform:scale(${0.94 + 0.06 * selection})`;
+}
+
+function compatNumberStyle(selection: number): string {
+  return `transform:scale(${(19 + 5 * selection) / 24})`;
+}
+
+function compatOffset(value: unknown): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
+function compatStateOf(
+  instance: UiWheelColumnInstance,
+): { index: number; sequence: number; top: number } {
+  if (instance._compatState === undefined)
+    instance._compatState = { index: -1, sequence: 0, top: 0 };
+  return instance._compatState;
+}
+
+// The compatible runtime drops the gesture's style writes, so the very same
+// interpolation the gesture applies is transported through data instead: one
+// frame value per scroll event, nothing version-specific about the maths.
+function paintCompatFrame(instance: UiWheelColumnInstance, top: number): void {
+  const state = compatStateOf(instance);
+  state.top = top;
+  const itemCount = instance.properties.items.length;
+  const position = top / uiWheelItemHeight;
+  const styles: string[] = [];
+  const numberStyles: string[] = [];
+  for (let index = 0; index < itemCount; index += 1) {
+    const selection = compatSelection(position, index);
+    styles.push(compatRowStyle(selection));
+    numberStyles.push(compatNumberStyle(selection));
+  }
+  const index = Math.min(itemCount - 1, Math.max(0, Math.round(position)));
+  const patch: Record<string, unknown> = { compatNumberStyles: numberStyles, compatStyles: styles };
+  if (itemCount > 0 && index !== instance.data.internalSelectedIndex) {
+    patch.internalSelectedIndex = index;
+  }
+  instance.setData(patch);
+  if (itemCount <= 0) return;
+  if (index === state.index) return;
+  state.index = index;
+  state.sequence += 1;
+  instance.triggerEvent('previewchange', {
+    generation: normalizedInteger(instance.properties.generation),
+    index,
+    offset: -index * uiWheelItemHeight,
+    runtimeKey: instance.properties.runtimeKey,
+    sequence: state.sequence,
+  });
+}
+
+function clearCompatSnap(instance: UiWheelColumnInstance): void {
+  if (instance._compatSnapTimer !== undefined) {
+    clearTimeout(instance._compatSnapTimer);
+    instance._compatSnapTimer = undefined;
+  }
+}
+
+function scheduleCompatSnap(instance: UiWheelColumnInstance): void {
+  clearCompatSnap(instance);
+  instance._compatSnapTimer = setTimeout(() => {
+    instance._compatSnapTimer = undefined;
+    snapCompat(instance);
+  }, 140);
+}
+
+function snapCompat(instance: UiWheelColumnInstance): void {
+  const itemCount = instance.properties.items.length;
+  if (itemCount <= 0) return;
+  const state = compatStateOf(instance);
+  const index = Math.min(itemCount - 1, Math.max(0, Math.round(state.top / uiWheelItemHeight)));
+  const target = index * uiWheelItemHeight;
+  const patch: Record<string, unknown> = { scrollWithAnimation: true };
+  if (target !== instance.data.scrollTop) patch.scrollTop = target;
+  instance.setData(patch);
+  paintCompatFrame(instance, target);
+  state.sequence += 1;
+  instance.triggerEvent('settle', {
+    generation: normalizedInteger(instance.properties.generation),
+    index,
+    offset: -index * uiWheelItemHeight,
+    runtimeKey: instance.properties.runtimeKey,
+    sequence: state.sequence,
+  });
 }
 
 function boundedIndex(value: unknown, itemCount: number): number | undefined {

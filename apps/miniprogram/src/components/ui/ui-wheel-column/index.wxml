@@ -1,6 +1,46 @@
 <wxs module="wheelGesture" src="./wheel-gesture.wxs"></wxs>
 
+<!-- The affected runtime drops every WXS style write, so there the wheel scrolls
+     natively and the identical interpolation arrives through data instead. -->
 <view
+  wx:if="{{skyline3172UiCompatibility}}"
+  class="ui-wheel-column is-skyline-3172-ui"
+  aria-role="listbox"
+  aria-label="{{ariaLabel}}"
+>
+  <scroll-view
+    class="ui-wheel-compat-scroll"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    scroll-top="{{scrollTop}}"
+    scroll-with-animation="{{scrollWithAnimation}}"
+    bindscroll="handleCompatScroll"
+    bindtouchend="handleCompatTouchEnd"
+    bindtouchcancel="handleCompatTouchEnd"
+  >
+    <view class="ui-wheel-spacer"></view>
+    <view
+      wx:for="{{items}}"
+      wx:key="label"
+      class="ui-wheel-item {{index === internalSelectedIndex ? 'is-selected' : ''}}"
+      style="{{compatStyles[index]}}"
+      data-index="{{index}}"
+      aria-role="option"
+      aria-label="{{item.ariaLabel || item.label}}"
+      aria-selected="{{index === internalSelectedIndex}}"
+      bindtap="handleItemTap"
+    >
+      <text class="ui-wheel-number" style="{{compatNumberStyles[index]}}">{{item.label}}</text>
+      <text wx:if="{{item.unit}}" class="ui-wheel-unit">{{item.unit}}</text>
+      <text wx:else class="ui-wheel-unit">{{unit}}</text>
+    </view>
+    <view class="ui-wheel-spacer"></view>
+  </scroll-view>
+</view>
+
+<view
+  wx:else
   class="ui-wheel-column {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
   aria-role="listbox"
   aria-label="{{ariaLabel}}"
