@@ -245,6 +245,31 @@ describe('native UiWheelColumn WXS candidate', () => {
     );
   });
 
+  it('keeps the whole range reachable from a dataset-seeded baseline', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const dataset = { baseIndex: 5, itemCount: 11 };
+    let timeStamp = 0;
+
+    const dragOneRow = () => {
+      handlers.touchStart(touchEvent({ ...dataset, clientY: 400, timeStamp }), owner);
+      timeStamp += 16;
+      handlers.touchMove(touchEvent({ ...dataset, clientY: 356, timeStamp }), owner);
+      timeStamp += 16;
+      handlers.touchEnd(touchEvent({ ...dataset, changed: true, clientY: 356, timeStamp }), owner);
+      timeStamp += 16;
+      flushFrames(owner);
+    };
+
+    // Repeated drags must reach the last entry (index 10) instead of stopping early.
+    for (let step = 0; step < 12; step += 1) dragOneRow();
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleWheelSettled',
+      expect.objectContaining({ index: 10, offset: -440 }),
+    );
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-220px)');
+  });
+
   it('re-seeds from the dataset when the host re-opens the wheel without the observer', () => {
     const handlers = loadWheelHandlers();
     const owner = createOwner();

@@ -3060,3 +3060,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 上传（脚本在独占锁内分配版本、构建、建不可变 tag）：`0.1.0-p10.20260917.151`，说明「Skyline 3.17.2 wheel layout base d33da54」，production，Manifest`c837834697def927ca13d70ca9b992b874da6cf1a2eabdbacb9254d7a882e55b`；分配`23:58:46Z`、构建`23:58:35Z`、上传`23:59:32Z`；上传后同一 checker 加`-ForMiniprogramUpload -MiniProgramVersion 0.1.0-p10.20260917.151`返回`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`、`RESULT=PASS`。远端轻量 tag`miniprogram-trial/0.1.0-p10.20260917.151`指向同一 SHA，三份 allocation/receipt/manifest 记录字段一致。
 - 放行：`root@hosp.schedule.eylinhome.top`（`IdentitiesOnly=yes`、`StrictHostKeyChecking=yes`、仓库外密钥）执行可信`schedule-client-version-allowlist ensure 0.1.0-p10.20260917.151`——只追加1项、白名单共47项并保留`.150/.149`，重建API/Web容器期间出现既有短暂502后按健康等待恢复；独立`verify`与`/usr/local/lib/schedule/ecs-verify.sh`（`[verify] complete`）通过。公网HTTPS：`.151=200`、`.150=200`、动态未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布，也未声明 production live release（`LIVE_RELEASE_VERIFIED=false`）。
 - 状态：已交付待小米14原生复核。唯一建议下一任务：复核3.17.2滚轮“打开即在当前年月、可滚动、重开仍可滚动”，并确认请假定位当日仍一次到位；已知局限保持（未触摸前无渐变、点击单项选中不生效）。详情见`docs/audit/runtime-ui-compatibility-wheel-layout-base-trial-release-20260917.md`。
+
+## 2026-09-17 滚轮缺放大/缺单位/到不了底（`.151` 真机复核，等待截图定位）
+
+- 用户真机复核`.151`：初始定位与"关掉重开仍可滚动"已正常，但 3.17.2 仍有三点与 3.17.3 不同：① 滚动时没有选中项的字体放大；② 年月数字旁边缺少"年/月"单位；③ 滚轮最多只能滚到 2027 与 5月，到不了底（3.17.3 三项都正常）。
+- 本轮先做范围归因：新增回归断言`keeps the whole range reachable from a dataset-seeded baseline`——在"没有 config observer、只按 dataset 自建基线"的条件下连续拖动，必须能落到最后一格（index 10 / offset -440）。**该断言通过**，说明 WXS 的取值域与 clamp 不是"到不了底"的原因；限制只可能来自渲染器侧的实际渲染行或布局承载。
+- 已排除：`createYearValues` 固定返回 11 项（2021..2031）、`monthValues` 固定 12 项，列表本身没有被截断；`unit="年"`/`unit="月"` 属性与`wx:if="{{unit}}"`模板均在源码中确认存在。
+- 工具边界：本轮开发者工具在 3.17.2 下模拟器渲染不出页面内容（数据层可读、截图全白），无法用截图自查；也未在模拟器里获得可用的元素/组件触摸通道。
+- 下一步（需要真机截图）：用 3.17.2 与 3.17.3 各一张换班年月选择器截图 + 拖动极限现象，区分两种原因：① WXS 对`wx:for`动态生成 id 的行`setStyle`在 3.17.2 不到达渲染器（→ 改为数据驱动选中态）；② `margin-top` 承载的布局基线在 3.17.2 被裁剪或漏绘（→ 改回由 WXS 承担基线并在`touchStart`后立即绘制）。本轮未上传、未放行、未部署。
