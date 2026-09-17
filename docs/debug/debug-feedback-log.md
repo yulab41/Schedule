@@ -3139,3 +3139,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 交付与放行（用户当次授权）：`a7937a7a` 冻结为 upload 候选，`check-worktree-safety` 两次 `RESULT=PASS`（`STATE=ready-clean-detached`、`VERSION_LOCAL=absent`、`MINIPROGRAM_PROFILE=production-clean`）；`.154` 上传成功（说明「Skyline 3.17.2 native-scroll wheel a7937a7」，Manifest`076a83ba…304a`）；可信 `ensure` 追加 `.154` 保留旧版并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.154=200`、`.153=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 工具教训（本轮踩三次）：开发者工具的编译缓存会喂旧包（JS/WXML/WXSS 分开缓存，表现为"新 JS 字段读得到、WXML 改动不生效"）。可靠做法：构建后统一刷新 `dist` 文件时间戳 → 整窗关闭再打开 → 用页面里的构建号核对 SHA。
 - 状态：已交付待小米14复核。唯一下一任务：小米14 打开 `.154` 复核滚轮跟手/吸附、单位、中间项放大、滚到 2031年/12月、重开正常，且 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-wheel-native-scroll-20260917.md`。
+
+## 2026-09-17 月历/日期分页改原生滚动（体验版155）
+
+- 用户真机确认 `.154` 的年月选择器已与 3.17.3 基本一致，且低速末尾更顺滑；明确这是优点，本轮不动。新报四项（仅 3.17.2）：请假年月日选择器定位落到临近月且无动画、左右切换反跳；首页月历定位同样、左右切换无动画且不跟手。要求"跨多个月也只做一个月的跳转动画"。
+- 根因：两处都是"3 槽环形 `swiper` + 改 `current`"。3.17.2 无法动画化程序化跳转（并会反向重播圆形滑动），此前一轮把 `duration` 设成 0 并手动补一次结算；手动结算要求"当前槽==目标槽"，错过即丢结算 → 环形状态与画面错位 → 临近月/反跳；`duration:0` 同时造成"无动画"。
+- 实现（3.17.3 分支逐字未改）：按当轮确立的新原则，3.17.2 的分页换成**原生横向 `scroll-view`**（与滚轮同一条已真机验证的通道）。① 面板体抽成 WXML `template`，swiper 与 scroll-view 两分支共用同一份标记；② `scroll-into-view` + `scroll-with-animation` 由平台动画**一个面板**；③ `bindscroll` 提供度量并驱动结算，手势滑动与程序化切换走**同一套结算代码**；④ 定位今天先"无感归位"（同月内容，视觉不变）再单面板滑到当月，跨多少月都只滑一格。共享助手 `CALENDAR_PERIOD_SCROLL_SETTLE_MS` / `mergeCalendarPeriodScrollMetrics` / `nearestCalendarPeriodScrollSlot` / `createCalendarPeriodPaneId` 落在 `calendar-period-pager.ts`，两个组件共用，无第二套实现。
+- 验证（3.17.2 模拟器逐帧取样）：请假页打开 `compat=true`、`target=date-pane-1`、环形正确；下一月 250ms `left=8391.9`（动画中）→ 结算 `left=9072=2×4536`、草稿 2026-12→**2027-01**；定位今天（2027-01→2026-09，跨 4 月）250ms `left=488.8` → 结算 `left=0`、草稿 **2026-09-17**，只滑一个面板。首页月历连按 3 次 → **2026-10/11/12**（每次正好一个月，度量 8728/4364、0/4285、4206/4206）；定位今天（2026-12→2026-09）250ms `left=623.7` → 结算 `left=0`、月份 **2026-09**、视口高度 310 不变。
+- 门禁：typecheck、Mini 1221 项通过/16 跳过、package 总 **4643899B**（较上一版 +11KB）、determinism`6ea2af8f…`、format、lint、smoke:check-core 全通过。
+- 交付与放行：`a402d01f` 以新租约槽 `general-5` 冻结为 upload 候选，`check-worktree-safety` 两次 `RESULT=PASS`；`.155` 上传成功（说明「Skyline 3.17.2 native scroll pager a402d01`，Manifest`683b76f3…9b63`）；可信 `ensure` 追加 `.155` 保留 `.154` 并通过健康与策略验证；`ecs-verify.sh` `[verify] complete`；公网 `.155=200`、`.154=200`、未知`=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 原则更新（用户当次）：最小改动优先；当低版本无法在原实现上适配时，为它设计匹配的实现而不是硬打补丁，但要有条理、不影响 3.17.3、不占用过多包体积、尽量复用。已写入 `apps/miniprogram/AGENTS.md`。
+- 状态：已交付待小米14复核。唯一下一任务：小米14 打开 `.155` 复核请假选择器与首页月历的定位/左右切换，并确认 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
