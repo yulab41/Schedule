@@ -3215,3 +3215,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - **环境陷阱一（构建版本）**：`check:determinism`/`check:package` 等门禁会重建 `dist/` 且**不带 `WECHAT_CI_VERSION`**，版本落成 `local`。模拟器加载 `local` 构建时服务端按未知版本拒绝，工作台永久停在 `state=loading`（控制台只有 `WeChatLib`/`Page.onLoad took N ms`，无报错，也没有自己的网络请求）。排查时曾误判为"基础库坏了/代码回归"，用 `pages/calendar-poc` 的 `buildLabel` 才确认加载的是 `local@a15969f`。**每次模拟器调试前必须用已放行版本重建 `dist`。**
 - **环境陷阱二（工程绑定）**：DevTools 窗口此前一直指向另一个已打开工程（列表里的 `runtime/debug-worktrees/same-version-18498a8`），改 `dist` 后模拟器仍跑旧代码。可靠流程：`project_import` 目标路径 → `close_project_window` → `open_project_window --window-mode fullMode` → 用 `pages/calendar-poc` 的 `buildLabel` 核对（应为本次构建版本）。DevTools 首次打开还会改写 `apps/miniprogram/project.config.json`（追加默认 setting、换行变 CRLF），需恢复 HEAD 内容并 `prettier --write` 归一到 LF。
 - 状态不变：`.160` 已上传并放行，等待小米14 复核三项。
+
+## 2026-09-18 分页"快速连按卡死"定因与 `.161` 交付（高度改由外层容器承担）
+
+- 用户回传 `.160`：高度仍两段式；定位不再推动整页 ✓；切月仍不够流畅；**快速连按后整页卡死不动**。
+- 卡死定因（DevTools 探针，决定性）：兼容分页器提交后靠"滚动事件恰好落在中间面板"换回干净环。事件不来 → `_compatCleanupPanes` 永久挂起 → 重定位被跳过 → 容器停在侧面板 pane-2 → 下一步 `scroll-into-view` 目标与当前位相同 → 平台不再产生滚动事件 → `scheduleCompatPagerSettle` 永不触发 → **步骤永不结算、队列无法排空**（＝卡死）；同一挂起让 `gridHeight` 观察器持续让位（＝高度不更新）。`.160` 实测：连按 6 次后 `target` 恒为 `month-pane-2`、`cleanup=true` 持续数秒。
+- 修法：①`CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS=600` 兜底结算（到达窗口 48ms 仍优先）；②`finishCompatPaneCleanup` 支持定时兜底、必要时"先归位再重试"、换环时对齐宿主 `gridHeight`；③步骤开始若容器仍在侧面板则先无动画归位、下一帧再滑（否则目标不变＝不滑动）；同一套保障镜像到请假页日期分页器；3.17.3 的 swiper 分支逐字未改。
+- 高度两段式改法：动画高度移到外层容器 `.calendar-motion-frame`（仅兼容分支），滚动节点只做横向分页。实测该容器 310→348.4→…→372（≈250ms）落在滑动期间；`.calendar-motion-viewport.is-compat` 恒为 364×310，布局与单元格（52×62、7 列）未回归。
+- 验证（3.17.2 模拟器）：连按 10 次 → 队列 6 → 2027-02→…→2027-09 逐步推进，结束态 `cleanup=false`/`target=month-pane-1`/`viewportHeight==gridHeight`，且每步仍有完整逐帧滑动（步长≈520ms）；手势 Sep→Oct 正好一月。RED：新断言在旧源码上两项失败。
+- 门禁：typecheck、Mini **1224 项通过/16 跳过**、package 总 **4649613B**（+2.1KB）、determinism `e0a68e30…`、format、lint、smoke:check-core 全通过；本轮未改 `workbench/index.ts`，血缘证明无需刷新。
+- 交付与放行：`94af3e56` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`.161` 上传成功（说明「Skyline 3.17.2 pager burst fix 94af3e5」，Manifest `00cdd539…0567`）；可信 `ensure` 追加 `.161` 保留 `.160`；`ecs-verify.sh` `[verify] complete`；公网 `.161=200`、`.160=200`、未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 状态：已交付待小米14复核。唯一下一任务：小米14 打开 **`.161`** 复核 ①快速连按不再卡死且每步有滑动动画；②高度是否与滑动同步；③定位仍不推动整页；并确认 3.17.3 无变化。

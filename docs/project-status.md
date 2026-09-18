@@ -1,17 +1,20 @@
 # Project Status
 
-## 当前批次：3.17.2 分页高度/定位/流畅三项修复，体验版160已放行，待小米14复核
+## 当前批次：3.17.2 分页"快速切换卡死/高度仍两段式"修复，体验版161已放行，待小米14复核
 
-- 用户回传 `.159`（仅 3.17.2）三项：①高度要等滑动动画归位后才开始（两段式，3.17.3 同步）；②定位按钮把整页上推、月历与顶部导航间隙变小（左右滑动/按钮不会）；③切月仍略卡。
-- ① 定因与修法：切月时高度与滚动目标写在**同一次 `setData`**，平台会把正在平滑滚动节点上的高度过渡推迟到滚动结束 → 表现为"先滑动、后变高"。改为**高度单独先写一次**、滚动目标在下一次更新设置；保留"一次步骤只写一次高度"的单写者约束（删掉结算期二次写高度，`gridHeight` 观察器在步骤期间让位）。实测 `setVh` t=17 → `setPager{pane-2,animated}` t=35 → 首滚动 t=84，DOM 高度过渡（240ms）完整落在滑动（≈280ms）内；提交 t=511→435。
-- ② 定因与修法（DevTools 逐帧）：`scroll-into-view` 把 `#workbench-content-top` 顶端对齐到滚动容器顶端，页面固定上移 14px（内容上内边距）。**同一测量在基础库 3.17.3 上完全相同**（`anchorTop 125→111`），是共用缺陷而非版本差异；定位按钮本就在月历卡片内，故移除月/周定位后的页面滚动，列表仍保留 `list-day-<today>` 行定位。回归：`workbench-runtime.test.mjs` 新增"月/周不得设置页面滚动"与"列表仍设置行定位"两项。
-- ③ 修法：程序化步骤已知目标面板，新增共享常量 `CALENDAR_PERIOD_ARRIVAL_SETTLE_MS=48`，滚到目标面板后再等 48ms 即结算；手势保留 140ms 以防动量在慢帧上停顿。
-- 验证（3.17.2 + fullMode 模拟器）：定位前后 `anchorTop` 均 125、`scrollTarget` 为空；按钮切月高度在滑动内完成；手势 Sep→Oct 正好一月且 `viewportHeight` 与 `gridHeight` 一致（10 月 310、11 月 372）；`.159` 不变量（物理面板顺序、可见面板不变月）未回归。新断言在旧源码上先失败（RED 2/3，第三项为"不要过度修复"守卫）。
-- 工具教训：DevTools 此前一直跑**另一个已打开工程**（改 `dist` 不生效）；必须 `project_import` 目标路径 → `close_project_window` → `open_project_window --window-mode fullMode`，再用 `pages/calendar-poc` 的 `buildLabel` 核对实际构建。DevTools 首次打开会改写 `apps/miniprogram/project.config.json`（追加默认 setting、换行变 CRLF），已恢复 HEAD 内容并 `prettier --write` 归一到 LF。
-- 门禁：typecheck、Mini **1224 项通过/16 跳过**（新增 2 项）、package 总 **4647504B**（较 `.159` +92B）、determinism `c987ad48…`、format、lint、smoke:check-core 全通过。
-- 交付：代码检查点 `32ecee11`；因改了 `workbench/index.ts`，同步刷新 `release/trial-lineage-policy.v1.json` 中 `5285dd1` 检查点的等价证明（blob `35147c76…2ca6` + 说明），检查点 `0036c03f`；两个检查点均已推送（`codex/runtime-3172-wheel-and-pager-20260916`、`codex/schedule-38620-14399cf4bd9f`）。候选 `0036c03f` 在独占 `general-5` 冻结，`check-worktree-safety` 前后两次 `RESULT=PASS`；`0.1.0-p10.20260918.160` 上传（说明「Skyline 3.17.2 pager height+locate 0036c03」，Manifest `eda7ea2e…b0601`）；可信 `ensure` 追加 `.160` 保留 `.159`；`ecs-verify.sh` `[verify] complete`；公网 `.160=200`、`.159=200`、未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
-- 说明：② 的修复对 3.17.3 同样生效（该缺陷两版本都在）。本轮按"两个实例保持一致"处理；若需 3.17.3 保留旧位移需另行确认。
-- 唯一下一任务：小米14 打开 `.160` 复核三项（高度与滑动同步、定位不再推动整页、切月手感）并确认 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
+- 用户回传 `.160`：①高度**仍两段式**；②定位不再推动整页 ✓；③切月仍不够流畅；④**快速连按后整页卡死不动**。
+- 定因（模拟器探针）：分页器的"干净环替换"只靠"滚动事件恰好落在中间面板"触发；该事件一旦不来，`_compatCleanupPanes` 永久挂起 → 重定位被跳过 → 滚动目标不再变化 → 也不再产生滚动事件 → **步骤永不结算、队列无法排空**（表现为卡死），同时高度观察器一直被让位（表现为高度不更新）。
+- 修法（3.17.3 的 swiper 分支逐字未改）：①新增 `CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS=600` 兜底结算，任何情况下程序化步骤都会结算；②清理增加定时兜底、"不在中间面板就先归位再重试"、归位后把宿主 `gridHeight` 一次性对齐；③步骤开始时若滚动容器仍停在侧面板则**先归位再滑**（否则目标不变＝不滑动），保证连按期间每步都有滑动动画；同一套保障镜像到请假页日期分页器。
+- 高度两段式（本轮结构性修改）：把**动画高度移到外层容器** `.calendar-motion-frame`（仅兼容分支），滚动节点只做横向分页，高度过渡不再挂在正在跑平滑滚动的节点上。实测该容器过渡 310→348→360→366→372（≈250ms，落在滑动期间）。
+- 验证（3.17.2 模拟器）：连按 10 次 → 队列 6，随后 2027-02→…→2027-09 逐步推进，结束态 `cleanup=false`、`target=month-pane-1`、`viewportHeight==gridHeight`，**不再卡死**，且每步仍有完整滑动（scrollLeft 364→728 逐帧）；布局回归 frame 364×310、面板 364px、单元格 52×62（7 列）✓；手势 Sep→Oct 正好一月 ✓。
+- 门禁：typecheck、Mini **1224 项通过/16 跳过**、package 总 **4649613B**（+2.1KB）、determinism `e0a68e30…`、format、lint、smoke:check-core 全通过；新增断言在旧源码上先失败（RED）。本轮未改 `workbench/index.ts`，血缘证明无需刷新。
+- 交付：检查点 `94af3e56` 已推送；候选在独占 `general-5` 冻结（`check-worktree-safety` 前后 `RESULT=PASS`）；`0.1.0-p10.20260918.161` 上传（Manifest `00cdd539…0567`），可信 `ensure` 追加并保留 `.160`；`ecs-verify.sh` `[verify] complete`；公网 `.161=200`/`.160=200`/未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 唯一下一任务：小米14 打开 `.161` 复核 ①快速连按不再卡死且每步都有滑动动画；②高度是否与滑动同步（不再两段式）；③定位仍不推动整页；并确认 3.17.3 无变化。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
+
+## 上一批次：3.17.2 分页高度/定位/到达即结算修复（体验版160）
+
+- 三项报障与定因：①高度"两段式"来自高度与滚动目标写在**同一次 `setData`**（平台把正在平滑滚动节点上的高度过渡推迟到滚动结束）；②定位后整页上移 14px 来自 `scroll-into-view` 把 `#workbench-content-top` 顶端对齐到滚动容器顶端，**基础库 3.17.3 上测量完全相同**，是共用缺陷；③切月慢来自"原生滚动后固定等满 140ms 结算窗口"。
+- 修法与交付：高度单独先写一次并保留"一步只写一次高度"；移除月/周定位后的页面滚动（定位按钮在月历卡片内），列表保留 `list-day-<today>`；新增 `CALENDAR_PERIOD_ARRIVAL_SETTLE_MS=48`。检查点 `32ecee11` + 血缘证明 `0036c03f`（改了 `workbench/index.ts` 需刷新 `5285dd1` 等价证明）；`.160` 上传（Manifest `eda7ea2e…b0601`）并放行。工具教训（DevTools 曾长期指向另一个已打开工程；门禁命令会用 `local` 版本重建 `dist`）见 debug 日志。
 
 ## 当前批次：Skyline 3.17.2 月历/日期分页改原生滚动，体验版155已上传并放行，待小米14复核
 
