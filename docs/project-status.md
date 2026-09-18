@@ -1,6 +1,11 @@
 # Project Status
 
-## 当前批次：把"保住可见面板"做对（标志只在真提交消费）+ 高度与滑动同时落位 + 手势不再重排，体验版167已放行
+## 当前批次：渲染器改 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用，体验版168已放行
+
+- 真机证据：两台设备都是 3.17.3，差别在引擎（WebView/Grid 0px vs Skyline/Grid 退化 8px）；旧补丁按 `SDKVersion === '3.17.2'` 硬编码，灰度后整体失效。按用户要求先强制 WebView：`app.json`+17 页 JSON → `webview`，`build-tools.mjs` 注入 `__MINIPROGRAM_RENDERER__`，判定改为"请求 Skyline 且 SDK=3.17.2"，门禁接受两种值，测试与诊断文案同步，新增 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`（取代 ADR-0001，回滚=改回 skyline）。
+- 验证：产物 `dist/app.json`=webview；workbench `ready`/`sdk=3.17.2`/**`compat=false`**/页头群组名完整；门禁 typecheck、Mini 1224/16 跳过、package 4653854B、determinism `abbb3658…`、format、lint、smoke 全通过。矩阵滚动同步与首屏性能待小米14 复核。
+
+## 上一批次：把"保住可见面板"做对 + 高度与滑动同时落位 + 手势不再重排（体验版167）
 
 - 用户回传 `.164`：滑动比 `.163` 顺滑 ✓；仍**轻微横向抖动**；高度**仍慢半拍**（要跟滑动同时结束）；**定位是生硬跳转无动画**，且跳转后单元格"正确本月内容 → 闪一下 → 又是正确本月内容"（= 节点重建，不是别的月份）；不方便录屏。
 - 定位"无动画"澄清：从别的月份定位**确实有 364px 轨道滑动**；当前月就是本月时走 `applyTodayLocation` 直接重渲染（无动画），这是"生硬跳转"的来源。

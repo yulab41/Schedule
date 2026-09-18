@@ -226,6 +226,23 @@ export function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
+/**
+ * The renderer the shipped app requests (`src/app.json`), injected into the bundle so
+ * the Skyline compatibility surface stays off whenever the build asks for WebView.
+ * Falls back to `skyline` when the config cannot be read, which keeps the historical
+ * behaviour for scripts that build without a full project tree.
+ */
+export function readRequestedRenderer(sourceRoot = SOURCE_ROOT) {
+  try {
+    const config = readJson(path.join(sourceRoot, 'app.json'));
+    return typeof config.renderer === 'string' && config.renderer.length > 0
+      ? config.renderer
+      : 'skyline';
+  } catch {
+    return 'skyline';
+  }
+}
+
 function isInside(rootDirectory, candidatePath) {
   const relative = path.relative(rootDirectory, candidatePath);
   return (
@@ -405,6 +422,9 @@ export async function buildMiniProgram({
       __MINIPROGRAM_BUILD_PROFILE__: JSON.stringify(resolvedProfile),
       __MINIPROGRAM_BUILD_TIME__: JSON.stringify(buildTime),
       __MINIPROGRAM_BUILD_VERSION__: JSON.stringify(buildVersion),
+      // The renderer the shipped app requests: the Skyline compatibility surface must
+      // not run when the build asks for WebView.
+      __MINIPROGRAM_RENDERER__: JSON.stringify(readRequestedRenderer()),
     },
     entryNames: '[dir]/[name]',
     entryPoints,
@@ -747,15 +767,24 @@ export function auditSourceTree() {
   }
 
   if (appJson !== undefined) {
-    if (appJson.renderer !== 'skyline') issues.push('src/app.json renderer must be skyline');
+    // The renderer is a product decision recorded in
+    // apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md: the app requests WebView so
+    // every user gets the same layout engine, with Skyline kept as a documented
+    // fallback option. Either value is accepted, but it must be one of the two and
+    // the Skyline options stay validated for the day we switch back.
+    if (appJson.renderer !== 'webview' && appJson.renderer !== 'skyline') {
+      issues.push('src/app.json renderer must be webview or skyline');
+    }
     if (appJson.componentFramework !== 'glass-easel') {
       issues.push('src/app.json componentFramework must be glass-easel');
     }
     const skyline = appJson.rendererOptions?.skyline;
-    if (skyline?.disableABTest !== true) issues.push('Skyline AB test must be disabled');
-    if (skyline?.sdkVersionBegin !== '3.3.0') issues.push('Skyline minimum must be 3.3.0');
-    if (skyline?.sdkVersionEnd !== '15.255.255') {
-      issues.push('Skyline maximum must be 15.255.255');
+    if (skyline !== undefined) {
+      if (skyline.disableABTest !== true) issues.push('Skyline AB test must be disabled');
+      if (skyline.sdkVersionBegin !== '3.3.0') issues.push('Skyline minimum must be 3.3.0');
+      if (skyline.sdkVersionEnd !== '15.255.255') {
+        issues.push('Skyline maximum must be 15.255.255');
+      }
     }
     try {
       for (const route of listRegisteredPages(appJson)) {

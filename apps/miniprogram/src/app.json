@@ -52,7 +52,7 @@
     "navigationStyle": "custom"
   },
   "style": "v2",
-  "renderer": "skyline",
+  "renderer": "webview",
   "rendererOptions": {
     "skyline": {
       "defaultDisplayBlock": true,

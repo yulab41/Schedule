@@ -1,7 +1,7 @@
 {
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "runtime-style-probe": "../../components/runtime-style-probe/index",
     "ui-button": "/components/ui/ui-button/index",

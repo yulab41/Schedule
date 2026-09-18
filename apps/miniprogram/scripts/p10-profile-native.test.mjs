@@ -37,7 +37,7 @@ describe('P10 native profile parity', () => {
     expect(pageConfig).toMatchObject({
       disableScroll: true,
       navigationStyle: 'custom',
-      renderer: 'skyline',
+      renderer: 'webview',
       usingComponents: {
         'ui-sheet': '/components/ui/ui-sheet/index',
       },

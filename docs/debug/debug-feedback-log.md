@@ -3269,3 +3269,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 网络事故（重要，供后续复核）：出口改走 IPv6，微信 CI 报 `invalid ip: 2409:8a55:4012:db10:59c8:6c76:3bb1:f391` → `.165`/`.166` 烧号且无收据（不可再用）。按 `references/network-and-vpn.md` 改用**进程级直连 IPv4**（清 `HTTPS_PROXY`/`HTTP_PROXY`、`NODE_OPTIONS=--dns-result-order=ipv4first`；不改系统 DNS/VPN，TLS 校验保持），`.167` 上传成功（Manifest `74cd9485…acf4`，收据齐全）。
 - 交付与放行：`03587690` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`.167` 放行，可信 ensure 追加并保留 `.164`，`ecs-verify.sh` `[verify] complete`；公网 `.167=200`、`.164=200`、未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 状态：已交付待小米14复核。唯一下一任务：小米14 打开 **`.167`** 复核 ①闪动；②高度与滑动同时结束；③手势横向抖动；④连按不假死。若③仍在，下一步把归位再推迟一个结算窗口。
+
+## 2026-09-18 渲染器改 WebView（ADR-0007）与 `.168` 交付
+
+- 用户提供两台真机诊断（同一构建 `.167`）：**两台基础库都是 3.17.3**，差别在引擎——正常那台 `Skyline 支持=不支持`（跑 WebView，`Grid 双列 0px`），异常那台 `Skyline 支持=支持`（跑 Skyline，`Grid 双列 退化 8px`）。结论：界面回退的根因是**渲染引擎**，不是基础库版本；旧兼容分支硬编码 `SDKVersion === '3.17.2'`，灰度到 3.17.3 后整体失效。
+- 用户决定顺序倒过来：先试强制 WebView（WebView 作金标准），再回头修 Skyline。按此执行：`src/app.json` + 17 个页面 JSON `renderer` → `webview`；`build-tools.mjs` 新增 `readRequestedRenderer()` 注入 `__MINIPROGRAM_RENDERER__`；`runtime-ui-compatibility.ts` 判定改为"**请求 Skyline 且 SDK=3.17.2**"（满足用户"3.17.2 用户在 WebView 上不要套 Skyline 补丁"）；构建门禁改为接受 `webview|skyline`（仅 skyline 时校验 Skyline 版本区间/AB 开关）；8 个页面/构建测试同步；`build-info.ts` 不再硬编码 `Skyline（项目固定）`。
+- 决策记录：新增 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`，**取代 ADR-0001 的"仅 Skyline"限制**，回滚方式=把 `renderer` 改回 `skyline`。
+- 验证（开发者工具 fullMode，整窗重开 + 清编译缓存）：`dist/app.json` = webview；workbench `state=ready`、`sdk=3.17.2`、`compat=false`（3.17.2+WebView 下补丁已关）、截图页头群组名完整、箭头紧贴、排版与金标准一致。门禁：typecheck、Mini 1224 通过/16 跳过、package 4653854B、determinism `abbb3658…`、format、lint、smoke:check-core 全通过。
+- 未验证：手工排班矩阵滚动同步、首屏性能 `foreground-ready`/`core-ready`（模拟器未产出标记）——需小米 14 体验版复核；不将模拟器证据当作原生验收。

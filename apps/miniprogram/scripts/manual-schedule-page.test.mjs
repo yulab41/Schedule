@@ -95,7 +95,7 @@ describe('native P5 manual schedule page', () => {
   it('keeps the fixed seven-row matrix viewport and disables page scrolling', () => {
     const pageJson = JSON.parse(readPageFile('json'));
     expect(pageJson.disableScroll).toBe(true);
-    expect(pageJson.renderer).toBe('skyline');
+    expect(pageJson.renderer).toBe('webview');
     const wxss = readPageFile('wxss');
     expect(wxss).toContain('height: 390px');
     expect(wxss).toContain('height: 44px');

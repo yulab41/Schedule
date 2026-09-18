@@ -1,7 +1,7 @@
 {
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "ui-toast": "/components/ui/ui-toast/index",
     "ui-alert": "/components/ui/ui-alert/index",

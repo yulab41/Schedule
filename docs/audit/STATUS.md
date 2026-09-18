@@ -1,5 +1,14 @@
 # 微信小程序审计状态
 
+## 当前批次：渲染器改为 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用
+
+- 用户真机证据：两台设备**都是 3.17.3**，差别在引擎——正常那台 `Skyline 支持=不支持`（WebView，Grid 0px），异常那台 `Skyline 支持=支持`（Skyline，Grid 退化 8px）。因此界面回退的根因是**引擎**，不是基础库版本；旧兼容分支硬编码 `SDKVersion === '3.17.2'`，灰度后整体失效。
+- 决定与实现（ADR-0007，取代 ADR-0001 的"仅 Skyline"）：`src/app.json` + 17 个页面 JSON 的 `renderer` → `webview`；`build-tools.mjs` 新增 `readRequestedRenderer()` 并注入 `__MINIPROGRAM_RENDERER__`；`runtime-ui-compatibility.ts` 判定改为"请求 Skyline 且 SDK=3.17.2"；构建门禁接受 `webview|skyline`（仅在 skyline 时校验 Skyline 版本区间）；8 个页面/构建测试同步更新；`build-info.ts` 不再硬编码 `Skyline（项目固定）`。
+- 验证（开发者工具 fullMode，整窗重开 + 清编译缓存）：`src/app.json`/产物 `dist/app.json` 均为 `webview`；workbench 页 `state=ready`、`sdk=3.17.2`、**`compat=false`**（证明 3.17.2 + WebView 下 Skyline 补丁已关闭）、截图显示页头群组名完整、下拉箭头紧贴、布局与"金标准"一致。
+- 门禁：typecheck、Mini **1224 项通过/16 跳过**、package 总 **4653854B**、determinism `abbb3658…`、format、lint、smoke:check-core 全通过。
+- 未验证（不代替原生验收）：手工排班矩阵滚动同步、首屏性能 `foreground-ready`/`core-ready`（模拟器本次未产出该标记），需小米 14 体验版复核；Skyline 专用代码原样保留，回滚只需把 `renderer` 改回 `skyline`。
+- 唯一下一任务：小米 14 打开 `.168` 复核页头/详情卡四处排版、日历交互与整体手感，并确认矩阵滚动同步正常。
+
 ## 当前批次：把"保住可见面板"做对 + 高度与滑动同时落位 + 手势不再重排，体验版167已放行
 
 - 用户回传 `.164`：滑动比 `.163` 顺滑 ✓；仍轻微横向抖动；高度仍慢半拍；**定位生硬无动画**且跳转后单元格"正确本月内容 → 闪一下 → 又是正确本月内容"（节点重建）；不方便录屏。
