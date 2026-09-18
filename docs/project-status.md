@@ -1,11 +1,10 @@
 # Project Status
 
-## 当前批次：渲染器改 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用，体验版168已放行
+## 当前批次：渲染器改 WebView（ADR-0007），体验版168已放行
 
-- 真机证据：两台设备都是 3.17.3，差别在引擎（WebView/Grid 0px vs Skyline/Grid 退化 8px）；旧补丁按 `SDKVersion === '3.17.2'` 硬编码，灰度后整体失效。按用户要求先强制 WebView：`app.json`+17 页 JSON → `webview`，`build-tools.mjs` 注入 `__MINIPROGRAM_RENDERER__`，判定改为"请求 Skyline 且 SDK=3.17.2"，门禁接受两种值，测试与诊断文案同步，新增 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`（取代 ADR-0001，回滚=改回 skyline）。
-- 验证：产物 `dist/app.json`=webview；workbench `ready`/`sdk=3.17.2`/**`compat=false`**/页头群组名完整；门禁 typecheck、Mini 1224/16 跳过、package 4653854B、determinism `abbb3658…`、format、lint、smoke 全通过。矩阵滚动同步与首屏性能待小米14 复核。
+- 详见 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`（取代 ADR-0001；回滚=把 renderer 改回 skyline）与 `docs/audit/STATUS.md` 当前批次（验证结果、门禁与待小米14 复核项）。
 
-## 上一批次：把"保住可见面板"做对 + 高度与滑动同时落位 + 手势不再重排（体验版167）
+## 上一批次：保住可见面板 + 高度同步（体验版167）
 
 - 用户回传 `.164`：滑动比 `.163` 顺滑 ✓；仍**轻微横向抖动**；高度**仍慢半拍**（要跟滑动同时结束）；**定位是生硬跳转无动画**，且跳转后单元格"正确本月内容 → 闪一下 → 又是正确本月内容"（= 节点重建，不是别的月份）；不方便录屏。
 - 定位"无动画"澄清：从别的月份定位**确实有 364px 轨道滑动**；当前月就是本月时走 `applyTodayLocation` 直接重渲染（无动画），这是"生硬跳转"的来源。
@@ -15,9 +14,6 @@
 - 交付：检查点 `03587690` 已推送；候选在独占 `general-5` 冻结（`check-worktree-safety` 前后 `RESULT=PASS`）；`.165`/`.166` 因**上传时出口走 IPv6 被微信 CI 拒绝**（`invalid ip: 2409:8a55:…`）而烧号、无收据；改用进程级直连 IPv4（清 `HTTPS_PROXY/HTTP_PROXY` + `NODE_OPTIONS=--dns-result-order=ipv4first`）后 **`0.1.0-p10.20260918.167` 上传成功**（Manifest `74cd9485…acf4`）。可信 `ensure` 追加 `.167` 并保留 `.164`；`ecs-verify.sh` `[verify] complete`；公网 `.167=200`/`.164=200`/未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 唯一下一任务：小米14 打开 `.167` 复核 ①箭头/定位是否不再闪动（定位若从本月出发无动画属预期）；②高度是否与滑动**同时**结束；③手势横向抖动是否消失；④连按是否仍不假死。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
 
-## 上一批次：撤回 `.163` 延迟归零 + 排队手势就地提交（体验版164）
-
-- 撤回 `.163` 的延迟归零与高度拆帧，排队手势改为保留手指位置、上一步结束后就地提交。交付 `4bd30e5e`、`.164` 放行。
 
 ## 上一批次：分页提交期保住可见面板（体验版163，已撤回）
 
