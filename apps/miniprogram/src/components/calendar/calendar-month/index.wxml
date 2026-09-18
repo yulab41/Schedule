@@ -119,7 +119,7 @@
       bindtouchcancel="handlePagerTouchEnd"
       aria-label="月历，可左右滑动切换月份"
     >
-      <view class="calendar-pager-track">
+      <view class="calendar-pager-track" style="{{trackStyle}}">
         <view
           class="calendar-pager-pane"
           style="{{paneStyle}}"

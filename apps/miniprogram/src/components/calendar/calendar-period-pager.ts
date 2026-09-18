@@ -4,6 +4,13 @@ export type CalendarPeriodRelative = -1 | 0 | 1;
 export const CALENDAR_PERIOD_SWIPER_DURATION_MS = 240;
 export const CALENDAR_PERIOD_SWIPER_EASING_FUNCTION = 'easeOutCubic';
 export const CALENDAR_PERIOD_HEIGHT_TRANSITION = 'cubic-bezier(0.33, 1, 0.68, 1)';
+/**
+ * A programmatic step on the affected runtime slides the pager track with a CSS
+ * transition instead of a native smooth scroll: the track transition and the
+ * calendar height transition then start in the same frame, share one duration,
+ * and no platform scroll animation can hold the layout back.
+ */
+export const CALENDAR_PERIOD_SLIDE_SETTLE_MS = CALENDAR_PERIOD_SWIPER_DURATION_MS + 48;
 /** How long a native period scroll may be still before it is settled. */
 export const CALENDAR_PERIOD_SCROLL_SETTLE_MS = 140;
 /**

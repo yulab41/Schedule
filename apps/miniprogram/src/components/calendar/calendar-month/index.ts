@@ -1,6 +1,7 @@
 import {
   CALENDAR_PERIOD_ARRIVAL_SETTLE_MS,
-  CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS,
+  CALENDAR_PERIOD_HEIGHT_TRANSITION,
+  CALENDAR_PERIOD_SLIDE_SETTLE_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -50,6 +51,8 @@ interface CalendarMonthInstance {
   _compatPendingDelta?: -1 | 0 | 1 | undefined;
   _compatMetrics?: CalendarPeriodScrollMetrics | undefined;
   _compatRequestedDelta?: -1 | 0 | 1 | undefined;
+  _compatPaneWidth?: number;
+  _compatSlideCommitted?: boolean | undefined;
   _compatTimer?: ReturnType<typeof setTimeout>;
   _monthActiveSlot: MonthSlot;
   _monthHeightTargetIndex: MonthSlot | undefined;
@@ -62,6 +65,7 @@ interface CalendarMonthInstance {
     readonly pagerAnimated: boolean;
     readonly pagerTarget: string;
     readonly paneStyle: string;
+    readonly trackStyle: string;
     readonly panelHeights?: readonly number[];
     readonly skyline3172UiCompatibility: boolean;
     readonly stepMotion: string;
@@ -99,6 +103,7 @@ Component({
     paneStyle: '',
     skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     stepMotion: '',
+    trackStyle: '',
     swiperCurrent: 1,
     swiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
     swiperEasingFunction: CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -167,51 +172,35 @@ Component({
           viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
         };
         if (this.data.skyline3172UiCompatibility) {
-          // The affected runtime cannot animate a programmatic swiper jump, so
-          // the month slides one native panel and settles when the scroll stops.
-          // The panes are laid out physically (previous | current | next), so the
-          // slide always travels the way the month does.
+          // The affected runtime cannot animate a programmatic swiper jump, and a
+          // native smooth scroll holds the surrounding layout until it lands (the
+          // calendar height visibly follows only after the slide). The month
+          // therefore slides as a CSS transition on the pager track, sharing one
+          // duration and easing with the height transition, exactly like the
+          // 3.17.3 swiper jump: both animations start in the same frame and land
+          // together, and no platform scroll animation is involved.
           this._compatRequestedDelta = delta;
-          // A step must never depend on a scroll event that may not arrive: the
-          // native scroller only reports while it actually moves, so a step whose
-          // scroll target did not change would never settle and the queue would
-          // wedge. The arrival window still wins whenever the slide does report.
-          scheduleCompatPagerSettle(this, CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS);
-          // The height lands in its own update, before the scroll target is set:
-          // the platform defers a height transition on a node that is already
-          // running a smooth scroll, which reads as the height settling only
-          // after the slide is home. Writing it first keeps the two in step.
-          this.setData({ viewportHeight: next.viewportHeight }, () => {
-            const startSlide = (): void => {
-              this.setData({
-                stepMotion: next.stepMotion,
-                pagerAnimated: true,
-                pagerTarget: createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2),
-              });
-            };
-            // Both leads go through the next frame: the height has to be rendering
-            // before the scroll animation starts, and a scroller that is still
-            // stranded on a side pane has to be home first, otherwise the step
-            // re-issues a scroll target it already sits on and travels nowhere.
-            const nextTick = (
-              wx as unknown as { readonly nextTick?: (callback: () => void) => void }
-            ).nextTick;
-            const nextFrame = (action: () => void): void => {
-              if (nextTick === undefined) action();
-              else nextTick(action);
-            };
-            // A step that starts while the scroller is still on a side pane would
-            // re-issue the same scroll target and travel nowhere, so it is sent
-            // home first; a queued burst keeps animating one panel per step.
-            if (compatPaneDelta(this) !== 0) {
-              this.setData(
-                { pagerAnimated: false, pagerTarget: createCalendarPeriodPaneId('month-pane-', 1) },
-                () => nextFrame(startSlide),
-              );
-              return;
-            }
-            nextFrame(startSlide);
-          });
+          const width = this._compatPaneWidth ?? 0;
+          const shiftBy = delta < 0 ? width : -width;
+          const startSlide = (): void => {
+            this.setData({
+              stepMotion: next.stepMotion,
+              viewportHeight: next.viewportHeight,
+              trackStyle: createCompatTrackStyle(shiftBy, true),
+            });
+            scheduleCompatPagerSettle(this, CALENDAR_PERIOD_SLIDE_SETTLE_MS);
+          };
+          // A scroller that is still stranded on a side pane (a re-centre that was
+          // skipped) would put the shifted track out of view, so it goes home
+          // first; the slide still travels exactly one panel from there.
+          if (compatPaneDelta(this) !== 0) {
+            this.setData(
+              { pagerAnimated: false, pagerTarget: createCalendarPeriodPaneId('month-pane-', 1) },
+              startSlide,
+            );
+            return;
+          }
+          startSlide();
           return;
         }
         this.setData({
@@ -222,6 +211,13 @@ Component({
       });
     },
     handlePagerTouchStart(this: CalendarMonthInstance): void {
+      // A finger landing mid-slide takes over: snap the track (no motion) so the
+      // drag and the pending commit both work from the middle pane.
+      if (this.data.trackStyle !== '') {
+        this.setData({ trackStyle: '' });
+        clearCompatPagerSettle(this);
+        settleCompatPagerScroll(this);
+      }
       this._compatGesture = true;
     },
     handlePagerScroll(this: CalendarMonthInstance, event: MonthScrollEvent): void {
@@ -289,6 +285,20 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
   const delta = instance._compatCommittedDelta ?? instance._compatPendingDelta ?? 0;
   instance._compatCommittedDelta = undefined;
   const cleanupPending = instance._compatCleanupPanes !== undefined;
+  const slideCommitted = instance._compatSlideCommitted === true;
+  instance._compatSlideCommitted = undefined;
+  if (delta !== 0 && slideCommitted) {
+    // A programmatic step slid the track, never the scroller: the rotated ring and
+    // the snap home go out in one update, so the pane the user is looking at keeps
+    // its month and nothing has to wait for a scroll event.
+    instance._compatCleanupPanes = undefined;
+    instance._compatPendingDelta = undefined;
+    clearCompatPaneCleanup(instance);
+    instance.setData({ compatPanes: ordered, trackStyle: '' }, () => {
+      applyCompatGridHeight(instance);
+    });
+    return;
+  }
   const panes =
     delta === 1
       ? [ordered[0], ordered[1], ordered[1]]
@@ -321,9 +331,20 @@ function compatPaneDelta(instance: CalendarMonthInstance): -1 | 0 | 1 {
 function measureCompatPanes(instance: CalendarMonthInstance): void {
   if (!instance.data.skyline3172UiCompatibility) return;
   measureCalendarPeriodPaneWidth(instance, '.calendar-motion-viewport.is-compat', (width) => {
+    instance._compatPaneWidth = width;
     const paneStyle = `width:${width}px`;
     if (instance.data.paneStyle !== paneStyle) instance.setData({ paneStyle });
   });
+}
+
+// The track carries the programmatic slide as a transform so the height can
+// transition in the same frame; `motion: false` is the instant snap home.
+function createCompatTrackStyle(shift: number, motion: boolean): string {
+  if (!motion && shift === 0) return '';
+  const transform = `transform:translateX(${shift}px)`;
+  return motion
+    ? `${transform};transition:transform ${CALENDAR_PERIOD_SWIPER_DURATION_MS}ms ${CALENDAR_PERIOD_HEIGHT_TRANSITION}`
+    : `${transform};transition:none`;
 }
 
 // A gesture swipe has no queued target, so the panel the native scroll settled
@@ -397,11 +418,17 @@ function finishCompatPaneCleanup(instance: CalendarMonthInstance): void {
   instance._compatCleanupPanes = undefined;
   instance._compatPendingDelta = undefined;
   instance.setData({ compatPanes: cleanup }, () => {
-    const gridHeight = instance.properties.gridHeight;
-    if (gridHeight !== undefined && gridHeight !== instance.data.viewportHeight) {
-      instance.setData({ viewportHeight: gridHeight });
-    }
+    applyCompatGridHeight(instance);
   });
+}
+
+// A compat step owns the height while it runs, so the observer stays parked and the
+// host value can be missed; the settled ring applies it once the step is over.
+function applyCompatGridHeight(instance: CalendarMonthInstance): void {
+  const gridHeight = instance.properties.gridHeight;
+  if (gridHeight !== undefined && gridHeight !== instance.data.viewportHeight) {
+    instance.setData({ viewportHeight: gridHeight });
+  }
 }
 
 function clearCompatPagerSettle(instance: CalendarMonthInstance): void {
@@ -445,6 +472,9 @@ function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
     return;
   }
   instance._compatCommittedDelta = delta;
+  // Remember whether this commit belongs to a programmatic slide: those swaps the
+  // ring in place instead of waiting for a scroll event to land home.
+  instance._compatSlideCommitted = requested !== undefined;
   finishMonthSwipeAt(instance, slot);
 }
 

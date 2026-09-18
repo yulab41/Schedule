@@ -377,26 +377,33 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(monthTemplate).toContain('scroll-into-view="{{pagerTarget}}"');
     expect(monthTemplate).toContain('bindscroll="handlePagerScroll"');
     expect(monthTemplate).toContain('wx:if="{{skyline3172UiCompatibility}}"');
-    expect(monthComponent).toContain('pagerAnimated: true');
+    // Re-centring the compat scroller stays an instant jump; only the programmatic
+    // slide animates, and it does so on the track.
+    expect(monthComponent).toContain('pagerAnimated: false');
     expect(monthComponent).toContain('function settleCompatPagerScroll');
     expect(monthComponent).not.toContain('swiperDuration: this.data.skyline3172UiCompatibility');
-    // The height lands in its own update before the scroll target is set: the
-    // platform defers a height transition on a node that is already running a
-    // smooth scroll, which would read as the height settling after the slide.
-    const heightWrite = monthComponent.indexOf('setData({ viewportHeight: next.viewportHeight }');
-    const slideTarget = monthComponent.indexOf(
-      "pagerTarget: createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2)",
-    );
-    expect(heightWrite).toBeGreaterThan(-1);
-    expect(slideTarget).toBeGreaterThan(-1);
-    expect(heightWrite).toBeLessThan(slideTarget);
+    // The programmatic slide is a CSS transition on the pager track that carries
+    // the height in the same update: one duration, one easing, one frame, with no
+    // native scroll animation for the platform to hold the layout behind — the
+    // 3.17.3 swiper jump has exactly that shape.
+    expect(monthComponent).toContain('function createCompatTrackStyle');
+    expect(monthComponent).toContain('CALENDAR_PERIOD_SLIDE_SETTLE_MS');
+    expect(monthComponent).toContain('CALENDAR_PERIOD_HEIGHT_TRANSITION');
+    expect(monthTemplate).toContain('style="{{trackStyle}}"');
+    const slideWrite = monthComponent.indexOf('trackStyle: createCompatTrackStyle(shiftBy, true)');
+    expect(slideWrite).toBeGreaterThan(-1);
+    expect(monthComponent.indexOf('viewportHeight: next.viewportHeight')).toBeLessThan(slideWrite);
+    // The ring rotates in place for a slide (the scroller never moved), so no
+    // scroll event has to land home before the swap; a gesture commit keeps the
+    // scroller-based path with its re-centre and clean-up.
+    expect(monthComponent).toContain('_compatSlideCommitted');
+    expect(monthComponent).toContain("trackStyle: ''");
     // A programmatic step settles as soon as the slide reaches its target pane,
     // instead of waiting out the longer gesture window.
     expect(monthComponent).toContain('requested === compatPaneDelta(this)');
     // A step must never depend on a scroll event that may not arrive: the native
     // scroller only reports while it moves, so a step whose target did not change
     // would otherwise never settle and the arrow queue would wedge the calendar.
-    expect(monthComponent).toContain('CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS');
     expect(monthComponent).toContain('scheduleCompatPaneCleanup');
     expect(monthComponent).toContain('function finishCompatPaneCleanup');
     expect(picker).toContain('CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS');

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CALENDAR_PERIOD_ARRIVAL_SETTLE_MS,
   CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS,
+  CALENDAR_PERIOD_SLIDE_SETTLE_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -34,6 +35,10 @@ describe('shared calendar period pager', () => {
     expect(CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS).toBeGreaterThan(
       CALENDAR_PERIOD_SCROLL_SETTLE_MS,
     );
+    // A track-transition slide is settled just after its own duration, so the
+    // commit lands with the height transition instead of after a scroll event.
+    expect(CALENDAR_PERIOD_SLIDE_SETTLE_MS).toBeGreaterThan(240);
+    expect(CALENDAR_PERIOD_SLIDE_SETTLE_MS).toBeLessThan(CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS);
     const first = mergeCalendarPeriodScrollMetrics(undefined, {
       scrollLeft: 4536,
       scrollWidth: 13608,
