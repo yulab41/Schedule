@@ -308,21 +308,11 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
   const delta = instance._compatCommittedDelta ?? instance._compatPendingDelta ?? 0;
   instance._compatCommittedDelta = undefined;
   const cleanupPending = instance._compatCleanupPanes !== undefined;
-  const slideCommitted = instance._compatSlideCommitted === true;
-  instance._compatSlideCommitted = undefined;
-  if (delta !== 0 && slideCommitted) {
-    // A programmatic step slid the track, never the scroller: the rotated ring and
-    // the snap home go out in one update, so nothing has to wait for a scroll event
-    // and the pane that becomes visible already holds the new month.
-    instance._compatSlideActive = false;
-    instance._compatCleanupPanes = undefined;
-    instance._compatPendingDelta = undefined;
-    clearCompatPaneCleanup(instance);
-    instance.setData({ compatPanes: ordered, trackStyle: '' }, () => {
-      applyCompatGridHeight(instance);
-    });
-    return;
-  }
+  // The flag is only consumed by a real commit: a `panels` update that carries no
+  // delta must not eat it, otherwise the snap home is lost and the track stays on a
+  // side pane for good (that is what made `.163` look frozen and late).
+  const slideCommitted = delta !== 0 && instance._compatSlideCommitted === true;
+  if (delta !== 0) instance._compatSlideCommitted = undefined;
   const panes =
     delta === 1
       ? [ordered[0], ordered[1], ordered[1]]
@@ -340,6 +330,22 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
     scheduleCompatPaneCleanup(instance);
   }
   instance.setData({ compatPanes: panes }, () => {
+    if (slideCommitted) {
+      // The step slid the track, not the scroller, and the pane the user is looking
+      // at now holds the new month (same panel object as the middle pane, so its cells
+      // are already painted). Snapping home on the next tick therefore moves the
+      // window onto identical content: no cell is ever created in view, which is what
+      // made the arrows and the locate jump flash.
+      instance._compatSlideActive = false;
+      const nextTick = (wx as unknown as { readonly nextTick?: (callback: () => void) => void })
+        .nextTick;
+      const snapHome = (): void =>
+        instance.setData({ trackStyle: '' }, () => {
+          applyCompatGridHeight(instance);
+        });
+      if (nextTick === undefined) snapHome();
+      else nextTick(snapHome);
+    }
     if (cleanupPending) return;
     if (instance._compatRequestedDelta !== undefined) return;
     recenterCompatPanes(instance);
@@ -383,14 +389,9 @@ function createCompatTrackStyle(shift: number, motion: boolean): string {
 // event — and the grid height follows it.
 function prepareCompatPagerTarget(instance: CalendarMonthInstance): void {
   const delta = compatPaneDelta(instance);
-  if (delta !== instance._compatGestureDelta && delta !== 0) {
-    // Height follows the swipe instead of trailing it: the platform transitions it
-    // while the finger is still moving, so it lands together with the month.
-    const current = readMonthPagerState(instance);
-    const targetSlot = getAdjacentCalendarPeriodSlot(current.activeSlot, delta);
-    const viewportHeight = instance.data.panelHeights?.[targetSlot] ?? 270;
-    if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
-  }
+  // The height is deliberately not written while the finger is moving: re-laying the
+  // calendar out inside the native scroller re-resolved the grid and made the cells
+  // jitter sideways. It is applied once the swipe has landed (see the settle).
   instance._compatGestureDelta = delta;
   if (delta === 0) return;
   const state = readMonthPagerState(instance);
@@ -493,6 +494,12 @@ function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
   }
   const state = readMonthPagerState(instance);
   const slot = getAdjacentCalendarPeriodSlot(state.activeSlot, delta);
+  if (requested === undefined) {
+    // A gesture step applies its height here, once, instead of re-laying the calendar
+    // out under the finger: the mid-drag layout was what made the cells jitter.
+    const viewportHeight = instance.data.panelHeights?.[slot] ?? 270;
+    if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
+  }
   if (state.targetSlot !== slot) {
     // A previous step is still loading. The swipe is queued and the finger's own
     // travel is kept — jumping home here is what made the gesture feel dropped —

@@ -348,6 +348,7 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
       'utf8',
     );
     const monthComponent = readSource('components/calendar/calendar-month/index.ts');
+    const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
     const picker = readSource('components/ui/ui-date-picker/index.ts');
 
     // The WXS owns the track transform, so the template must not bind a style
@@ -391,12 +392,30 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(monthComponent).toContain('CALENDAR_PERIOD_HEIGHT_TRANSITION');
     expect(monthTemplate).toContain('style="{{trackStyle}}"');
     // The height rides in the same update as the slide, so both transitions start in
-    // one frame; a commit that belongs to a slide swaps the ring in place rather than
-    // waiting for a scroll event to land home.
+    // one frame; the frame's own transition is a touch shorter than the pane slide so
+    // the layout cost cannot leave the height trailing behind.
     const slideWrite = monthComponent.indexOf('trackStyle: createCompatTrackStyle(shiftBy, true)');
     expect(slideWrite).toBeGreaterThan(-1);
     expect(monthComponent.indexOf('viewportHeight: next.viewportHeight')).toBeLessThan(slideWrite);
     expect(monthComponent).toContain('_compatSlideCommitted');
+    const frameHeight = /\.calendar-motion-frame\s*\{[^}]*transition:\s*height\s*(\d+)ms/su.exec(
+      monthStyles,
+    );
+    expect(frameHeight).not.toBeNull();
+    expect(Number(frameHeight[1])).toBeLessThan(240);
+    // A slide commit snaps the track home on the next tick, after the held panes are
+    // painted, so the pane that becomes visible keeps its month and its cells.
+    expect(monthComponent).toContain('if (slideCommitted)');
+    expect(monthComponent).toContain('snapHome');
+    // A gesture must not re-lay the calendar out under the finger: its height lands
+    // with the settle, which is what stopped the cells jittering sideways.
+    const prepareSwipe = monthComponent.slice(
+      monthComponent.indexOf('function prepareCompatPagerTarget'),
+      monthComponent.indexOf('function recenterCompatPanes'),
+    );
+    expect(prepareSwipe).toContain('_compatGestureDelta = delta');
+    expect(prepareSwipe).not.toContain('viewportHeight');
+    expect(monthComponent).toContain('if (requested === undefined) {');
     // A swipe that lands while the previous step is still settling is queued and then
     // committed in place (the finger already travelled that panel), instead of being
     // snapped home first, which is what made the gesture feel dropped.
@@ -430,7 +449,6 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(picker).toContain('compatDatePaneDelta(instance) !== 0');
     // The animated height lives on a wrapper so the platform cannot defer it
     // behind the smooth scroll that the scroller itself is running.
-    const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
     expect(monthTemplate).toContain('class="calendar-motion-frame"');
     expect(monthTemplate).toContain('style="height:{{viewportHeight}}px"');
     expect(monthStyles).toContain('.calendar-motion-frame');
