@@ -2,7 +2,7 @@
 
 ## 当前批次：渲染器改 WebView（ADR-0007），体验版168已放行
 
-- 详见 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`（取代 ADR-0001；回滚=把 renderer 改回 skyline）与 `docs/audit/STATUS.md` 当前批次（验证结果、门禁与待小米14 复核项）。
+- 交付：`1f2dcf61` + `64788ee4` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260918.168` 上传成功（Manifest `1edea299…100e`，收据齐全），可信 ensure 追加并保留 `.167`，`ecs-verify.sh` `[verify] complete`；公网 `.168=200`/`.167=200`/未知 `=426`。细节/回滚见 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`、`docs/audit/STATUS.md`、`docs/debug/debug-feedback-log.md`。上传路由：GitHub 走进程代理、微信 CI 直连 IPv4（`.165`/`.166` 因 IPv6 出口烧号）。
 
 ## 上一批次：保住可见面板 + 高度同步（体验版167）
 
@@ -14,16 +14,9 @@
 - 交付：检查点 `03587690` 已推送；候选在独占 `general-5` 冻结（`check-worktree-safety` 前后 `RESULT=PASS`）；`.165`/`.166` 因**上传时出口走 IPv6 被微信 CI 拒绝**（`invalid ip: 2409:8a55:…`）而烧号、无收据；改用进程级直连 IPv4（清 `HTTPS_PROXY/HTTP_PROXY` + `NODE_OPTIONS=--dns-result-order=ipv4first`）后 **`0.1.0-p10.20260918.167` 上传成功**（Manifest `74cd9485…acf4`）。可信 `ensure` 追加 `.167` 并保留 `.164`；`ecs-verify.sh` `[verify] complete`；公网 `.167=200`/`.164=200`/未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 唯一下一任务：小米14 打开 `.167` 复核 ①箭头/定位是否不再闪动（定位若从本月出发无动画属预期）；②高度是否与滑动**同时**结束；③手势横向抖动是否消失；④连按是否仍不假死。详情见 `docs/audit/runtime-ui-compatibility-period-pager-20260917.md`。
 
-
 ## 上一批次：分页提交期保住可见面板（体验版163，已撤回）
 
 - `76712d29` 试做"提交后下一 tick 再归零轨道"+高度提前一帧，真机回传更卡、高度约 1 秒后才落、快速切月内容假死；判定为延迟归零标志被提前消费导致的回归，`.164` 已撤回该做法。
-
-## 上一批次：3.17.2 分页 160–162 修复
-
-- `.160`：高度在滚动目标之前单独写一次；移除月/周定位后的页面滚动，列表保留 `list-day-<today>`；加 `CALENDAR_PERIOD_ARRIVAL_SETTLE_MS=48`。交付 `32ecee11`（+血缘证明 `0036c03f`）、`.160` 放行。
-- `.161`：干净环替换只靠滚动事件触发，事件不来即挂起 → 步骤永不结算（卡死）；加兜底结算、清理定时兜底、先归位再滑，并镜像到请假页分页器。交付 `94af3e56`、`.161` 放行。
-- `.162`：3.17.3 的同步来自"滑动与高度都是元素自身的同帧动画"，而兼容路径用原生平滑滚动会被真机把布局压后；改为轨道 `transform` 过渡（与高度同一条 240ms 缓动）。交付 `076c897f`、`.162` 放行。工具教训（DevTools 曾指向另一个工程；门禁会用 `local` 版本重建 `dist`）见 debug 日志。
 
 ## 当前批次：Skyline 3.17.2 月历/日期分页改原生滚动，体验版155已上传并放行，待小米14复核
 

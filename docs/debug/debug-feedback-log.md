@@ -3277,3 +3277,4 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 决策记录：新增 `apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`，**取代 ADR-0001 的"仅 Skyline"限制**，回滚方式=把 `renderer` 改回 `skyline`。
 - 验证（开发者工具 fullMode，整窗重开 + 清编译缓存）：`dist/app.json` = webview；workbench `state=ready`、`sdk=3.17.2`、`compat=false`（3.17.2+WebView 下补丁已关）、截图页头群组名完整、箭头紧贴、排版与金标准一致。门禁：typecheck、Mini 1224 通过/16 跳过、package 4653854B、determinism `abbb3658…`、format、lint、smoke:check-core 全通过。
 - 未验证：手工排班矩阵滚动同步、首屏性能 `foreground-ready`/`core-ready`（模拟器未产出标记）——需小米 14 体验版复核；不将模拟器证据当作原生验收。
+- 交付与放行：代码 `1f2dcf61` + `64788ee4` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260918.168` 上传成功（说明「Webview renderer 64788ee」，Manifest `1edea299…100e`），可信 ensure 追加并保留 `.167`，`ecs-verify.sh` `[verify] complete`；公网 `.168=200`/`.167=200`/未知 `=426`；槽位已释放。上传用「GitHub 走进程代理、微信 CI 直连 IPv4」双路由（`.165`/`.166` 因 IPv6 出口烧号）。未提审、未正式发布、未部署生产。

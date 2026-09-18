@@ -7,6 +7,8 @@
 - 验证（开发者工具 fullMode，整窗重开 + 清编译缓存）：`src/app.json`/产物 `dist/app.json` 均为 `webview`；workbench 页 `state=ready`、`sdk=3.17.2`、**`compat=false`**（证明 3.17.2 + WebView 下 Skyline 补丁已关闭）、截图显示页头群组名完整、下拉箭头紧贴、布局与"金标准"一致。
 - 门禁：typecheck、Mini **1224 项通过/16 跳过**、package 总 **4653854B**、determinism `abbb3658…`、format、lint、smoke:check-core 全通过。
 - 未验证（不代替原生验收）：手工排班矩阵滚动同步、首屏性能 `foreground-ready`/`core-ready`（模拟器本次未产出该标记），需小米 14 体验版复核；Skyline 专用代码原样保留，回滚只需把 `renderer` 改回 `skyline`。
+- 交付与放行：代码 `1f2dcf61`（渲染器改 WebView）+ `64788ee4`（状态文件压回上下文预算）已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260918.168` 上传成功（说明「Webview renderer 64788ee」，Manifest `1edea299…100e`，收据三件套齐全），可信 ensure 追加并保留 `.167`，`ecs-verify.sh` `[verify] complete`；公网 `.168=200`/`.167=200`/未知 `=426`。未提审、未正式发布、未部署生产。
+- 上传路由（供后续复用）：GitHub 需要进程代理、微信 CI 必须直连 IPv4 → 用「清 `HTTPS_PROXY/HTTP_PROXY` + `NODE_OPTIONS=--dns-result-order=ipv4first` + 仅给 git 配 `GIT_CONFIG_*` 代理」；`.165`/`.166` 已因 IPv6 出口烧号。
 - 唯一下一任务：小米 14 打开 `.168` 复核页头/详情卡四处排版、日历交互与整体手感，并确认矩阵滚动同步正常。
 
 ## 当前批次：把"保住可见面板"做对 + 高度与滑动同时落位 + 手势不再重排，体验版167已放行
