@@ -382,22 +382,29 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(monthComponent).toContain('pagerAnimated: false');
     expect(monthComponent).toContain('function settleCompatPagerScroll');
     expect(monthComponent).not.toContain('swiperDuration: this.data.skyline3172UiCompatibility');
-    // The programmatic slide is a CSS transition on the pager track that carries
-    // the height in the same update: one duration, one easing, one frame, with no
-    // native scroll animation for the platform to hold the layout behind — the
-    // 3.17.3 swiper jump has exactly that shape.
+    // The programmatic slide is a CSS transition on the pager track that shares one
+    // duration and easing with the height transition, with no native scroll
+    // animation for the platform to hold the layout behind — the 3.17.3 swiper jump
+    // has exactly that shape.
     expect(monthComponent).toContain('function createCompatTrackStyle');
     expect(monthComponent).toContain('CALENDAR_PERIOD_SLIDE_SETTLE_MS');
     expect(monthComponent).toContain('CALENDAR_PERIOD_HEIGHT_TRANSITION');
     expect(monthTemplate).toContain('style="{{trackStyle}}"');
-    const slideWrite = monthComponent.indexOf('trackStyle: createCompatTrackStyle(shiftBy, true)');
-    expect(slideWrite).toBeGreaterThan(-1);
-    expect(monthComponent.indexOf('viewportHeight: next.viewportHeight')).toBeLessThan(slideWrite);
-    // The ring rotates in place for a slide (the scroller never moved), so no
-    // scroll event has to land home before the swap; a gesture commit keeps the
-    // scroller-based path with its re-centre and clean-up.
-    expect(monthComponent).toContain('_compatSlideCommitted');
+    // The height goes out one frame ahead of the slide (re-laying the calendar out
+    // costs a frame on the device), and the track snaps home only after the rotated
+    // panes are painted, so the pane being looked at keeps its month through the
+    // commit and no cell is ever re-created in view.
+    expect(monthComponent).toContain('nextFrame(leadHeight)');
+    expect(monthComponent).toContain('() => nextFrame(startSlide)');
+    expect(monthComponent).toContain('_compatSlideResetPending');
     expect(monthComponent).toContain("trackStyle: ''");
+    // Cells carry an explicit pixel width in the compat branch as well: the affected
+    // runtime cannot resolve the percentage chain inside its native scroller, so a
+    // re-layout during a swipe re-resolves it and the cells jitter sideways.
+    expect(monthComponent).toContain('cellWidthStyle');
+    expect(monthTemplate).toContain('{{cellWidthStyle}}');
+    expect(picker).toContain('dateCellStyle');
+    expect(pickerTemplate).toContain('style="{{cellStyle}}"');
     // A programmatic step settles as soon as the slide reaches its target pane,
     // instead of waiting out the longer gesture window.
     expect(monthComponent).toContain('requested === compatPaneDelta(this)');

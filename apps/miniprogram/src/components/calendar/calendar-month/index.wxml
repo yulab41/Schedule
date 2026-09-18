@@ -4,7 +4,7 @@
       wx:for="{{panel.cells}}"
       wx:for-item="cell"
       wx:key="businessDate"
-      style="height:{{panel.rowHeight || 54}}px"
+      style="height:{{panel.rowHeight || 54}}px;{{cellWidthStyle}}"
       class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
     >
       <calendar-cell
@@ -131,7 +131,7 @@
         >
           <template
             is="calendar-month-grid"
-            data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility}}"
+            data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility, cellWidthStyle: cellWidthStyle}}"
           />
         </view>
       </view>
@@ -159,7 +159,7 @@
     >
       <template
         is="calendar-month-grid"
-        data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility}}"
+        data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility, cellWidthStyle: ''}}"
       />
     </swiper-item>
   </swiper>

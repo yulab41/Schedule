@@ -122,6 +122,7 @@ interface WorkflowPickerInstance {
   readonly data: {
     readonly dateCells: readonly WorkflowPickerDateCell[];
     readonly compatPanes: readonly WorkflowPickerDatePanel[];
+    readonly dateCellStyle: string;
     readonly dateLocateAnimating: boolean;
     readonly datePagerAnimated: boolean;
     readonly datePagerTarget: string;
@@ -210,6 +211,7 @@ Component({
     datePagerAnimated: false,
     datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
     datePaneStyle: '',
+    dateCellStyle: '',
     days: Array.from({ length: 31 }, (_, index) => index + 1),
     draftDay: 1,
     draftDisplayValue: '',
@@ -700,6 +702,11 @@ function measureCompatPanes(instance: WorkflowPickerInstance): void {
   measureCalendarPeriodPaneWidth(instance, '.workflow-picker-date-swiper.is-compat', (width) => {
     const datePaneStyle = `width:${width}px`;
     if (instance.data.datePaneStyle !== datePaneStyle) instance.setData({ datePaneStyle });
+    // Same reason as the month calendar: the affected runtime cannot resolve the
+    // cells' percentage width chain inside its native scroller.
+    const cellWidth = Math.round((width / 7) * 100) / 100;
+    const dateCellStyle = `width:${cellWidth}px;`;
+    if (instance.data.dateCellStyle !== dateCellStyle) instance.setData({ dateCellStyle });
   });
 }
 

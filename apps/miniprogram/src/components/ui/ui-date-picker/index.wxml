@@ -6,6 +6,7 @@
       wx:for="{{panel.cells}}"
       wx:key="value"
       class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+      style="{{cellStyle}}"
       data-value="{{item.value}}"
       aria-role="button"
       aria-disabled="{{item.disabled}}"
@@ -160,7 +161,7 @@
             wx:for-item="panel"
             id="date-pane-{{index}}"
           >
-            <template is="workflow-date-grid" data="{{panel: panel}}" />
+            <template is="workflow-date-grid" data="{{panel: panel, cellStyle: dateCellStyle}}" />
           </view>
         </view>
       </scroll-view>
@@ -176,7 +177,7 @@
         bindanimationfinish="handleDateSwiperFinish"
       >
         <swiper-item wx:for="{{datePanels}}" wx:key="slot" wx:for-item="panel">
-          <template is="workflow-date-grid" data="{{panel: panel}}" />
+          <template is="workflow-date-grid" data="{{panel: panel, cellStyle: ''}}" />
         </swiper-item>
       </swiper>
     </view>

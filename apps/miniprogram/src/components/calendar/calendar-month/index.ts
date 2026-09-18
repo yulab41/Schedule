@@ -52,7 +52,8 @@ interface CalendarMonthInstance {
   _compatMetrics?: CalendarPeriodScrollMetrics | undefined;
   _compatRequestedDelta?: -1 | 0 | 1 | undefined;
   _compatPaneWidth?: number;
-  _compatSlideCommitted?: boolean | undefined;
+  _compatSlideActive?: boolean | undefined;
+  _compatSlideResetPending?: boolean | undefined;
   _compatTimer?: ReturnType<typeof setTimeout>;
   _monthActiveSlot: MonthSlot;
   _monthHeightTargetIndex: MonthSlot | undefined;
@@ -62,6 +63,7 @@ interface CalendarMonthInstance {
   readonly data: {
     readonly locateAnimating: boolean;
     readonly compatPanes: readonly unknown[];
+    readonly cellWidthStyle: string;
     readonly pagerAnimated: boolean;
     readonly pagerTarget: string;
     readonly paneStyle: string;
@@ -96,6 +98,7 @@ Component({
     panels: { type: Array, value: [] },
   },
   data: {
+    cellWidthStyle: '',
     locateAnimating: false,
     compatPanes: [] as readonly unknown[],
     pagerAnimated: false,
@@ -180,27 +183,39 @@ Component({
           // 3.17.3 swiper jump: both animations start in the same frame and land
           // together, and no platform scroll animation is involved.
           this._compatRequestedDelta = delta;
+          this._compatSlideActive = true;
           const width = this._compatPaneWidth ?? 0;
           const shiftBy = delta < 0 ? width : -width;
           const startSlide = (): void => {
+            // A finger can land inside the lead frame: the touch handler settles the
+            // step and clears the flag, so nothing must move the track afterwards.
+            if (this._compatSlideActive !== true) return;
             this.setData({
               stepMotion: next.stepMotion,
-              viewportHeight: next.viewportHeight,
               trackStyle: createCompatTrackStyle(shiftBy, true),
             });
             scheduleCompatPagerSettle(this, CALENDAR_PERIOD_SLIDE_SETTLE_MS);
           };
-          // A scroller that is still stranded on a side pane (a re-centre that was
-          // skipped) would put the shifted track out of view, so it goes home
-          // first; the slide still travels exactly one panel from there.
-          if (compatPaneDelta(this) !== 0) {
-            this.setData(
-              { pagerAnimated: false, pagerTarget: createCalendarPeriodPaneId('month-pane-', 1) },
-              startSlide,
-            );
-            return;
-          }
-          startSlide();
+          const nextTick = (wx as unknown as { readonly nextTick?: (callback: () => void) => void })
+            .nextTick;
+          const nextFrame = (action: () => void): void => {
+            if (nextTick === undefined) action();
+            else nextTick(action);
+          };
+          // The height goes out one frame ahead: re-laying the calendar out costs a
+          // frame or two on the device, so starting it first makes both transitions
+          // land together. A scroller that is still stranded on a side pane (a
+          // re-centre that was skipped) is sent home in the same lead, otherwise the
+          // shifted track would sit out of view.
+          const leadHeight = (): void => {
+            const patch: Record<string, unknown> = { viewportHeight: next.viewportHeight };
+            if (compatPaneDelta(this) !== 0) {
+              patch.pagerAnimated = false;
+              patch.pagerTarget = createCalendarPeriodPaneId('month-pane-', 1);
+            }
+            this.setData(patch, () => nextFrame(startSlide));
+          };
+          nextFrame(leadHeight);
           return;
         }
         this.setData({
@@ -213,7 +228,8 @@ Component({
     handlePagerTouchStart(this: CalendarMonthInstance): void {
       // A finger landing mid-slide takes over: snap the track (no motion) so the
       // drag and the pending commit both work from the middle pane.
-      if (this.data.trackStyle !== '') {
+      if (this._compatSlideActive === true) {
+        this._compatSlideActive = false;
         this.setData({ trackStyle: '' });
         clearCompatPagerSettle(this);
         settleCompatPagerScroll(this);
@@ -285,20 +301,8 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
   const delta = instance._compatCommittedDelta ?? instance._compatPendingDelta ?? 0;
   instance._compatCommittedDelta = undefined;
   const cleanupPending = instance._compatCleanupPanes !== undefined;
-  const slideCommitted = instance._compatSlideCommitted === true;
-  instance._compatSlideCommitted = undefined;
-  if (delta !== 0 && slideCommitted) {
-    // A programmatic step slid the track, never the scroller: the rotated ring and
-    // the snap home go out in one update, so the pane the user is looking at keeps
-    // its month and nothing has to wait for a scroll event.
-    instance._compatCleanupPanes = undefined;
-    instance._compatPendingDelta = undefined;
-    clearCompatPaneCleanup(instance);
-    instance.setData({ compatPanes: ordered, trackStyle: '' }, () => {
-      applyCompatGridHeight(instance);
-    });
-    return;
-  }
+  const slideReset = instance._compatSlideResetPending === true;
+  instance._compatSlideResetPending = undefined;
   const panes =
     delta === 1
       ? [ordered[0], ordered[1], ordered[1]]
@@ -316,6 +320,21 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
     scheduleCompatPaneCleanup(instance);
   }
   instance.setData({ compatPanes: panes }, () => {
+    if (slideReset) {
+      // The programmatic step slid the track rather than the scroller. The pane the
+      // user is looking at keeps the new month (same as the middle pane) and is
+      // already painted, so the track can snap home now; the clean ring follows
+      // through the regular clean-up once the scroller reports home.
+      instance._compatSlideActive = false;
+      const nextTick = (wx as unknown as { readonly nextTick?: (callback: () => void) => void })
+        .nextTick;
+      const snapHome = (): void =>
+        instance.setData({ trackStyle: '' }, () => {
+          applyCompatGridHeight(instance);
+        });
+      if (nextTick === undefined) snapHome();
+      else nextTick(snapHome);
+    }
     if (cleanupPending) return;
     if (instance._compatRequestedDelta !== undefined) return;
     recenterCompatPanes(instance);
@@ -334,6 +353,13 @@ function measureCompatPanes(instance: CalendarMonthInstance): void {
     instance._compatPaneWidth = width;
     const paneStyle = `width:${width}px`;
     if (instance.data.paneStyle !== paneStyle) instance.setData({ paneStyle });
+    // The affected runtime cannot resolve the cells' percentage width chain inside
+    // the native scroller either: a re-layout (for example a height change during a
+    // swipe) re-resolves it and the cells visibly jitter. The cell width is handed
+    // over as an explicit pixel value for the same reason as the pane width.
+    const cellWidth = Math.round((width / 7) * 100) / 100;
+    const cellWidthStyle = `width:${cellWidth}px;`;
+    if (instance.data.cellWidthStyle !== cellWidthStyle) instance.setData({ cellWidthStyle });
   });
 }
 
@@ -472,9 +498,9 @@ function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
     return;
   }
   instance._compatCommittedDelta = delta;
-  // Remember whether this commit belongs to a programmatic slide: those swaps the
-  // ring in place instead of waiting for a scroll event to land home.
-  instance._compatSlideCommitted = requested !== undefined;
+  // A programmatic step slid the track instead of the scroller, so the commit has to
+  // snap the track home once the rotated panes are painted.
+  instance._compatSlideResetPending = requested !== undefined;
   finishMonthSwipeAt(instance, slot);
 }
 
