@@ -12,6 +12,12 @@ export const CALENDAR_PERIOD_SCROLL_SETTLE_MS = 140;
  * window because its momentum events can pause across a slow frame.
  */
 export const CALENDAR_PERIOD_ARRIVAL_SETTLE_MS = 48;
+/**
+ * The native scroller only reports scroll events while it actually moves, so a
+ * step whose scroll target did not change would never settle. This bounds a
+ * programmatic step: it is settled anyway once the bound passes.
+ */
+export const CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS = 600;
 
 export interface CalendarPeriodScrollMetrics {
   readonly left: number;

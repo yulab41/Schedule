@@ -1,4 +1,4 @@
-@import "../../../styles/ui-icon-motion.wxss";
+@import '../../../styles/ui-icon-motion.wxss';
 
 .month-card {
   overflow: hidden;
@@ -8,7 +8,9 @@
   box-shadow: 0 5px 16px rgba(21, 43, 67, 0.07);
 }
 
-.month-card.is-flat { box-shadow: none; }
+.month-card.is-flat {
+  box-shadow: none;
+}
 
 .month-toolbar {
   display: flex;
@@ -192,7 +194,16 @@
 
 /* The affected runtime pages the same three panels with a native horizontal
    scroller, so the ring rides the platform's own momentum and follow-through. */
+.calendar-motion-frame {
+  width: 100%;
+  overflow: hidden;
+  /* The height is animated here rather than on the scroller: the platform
+     defers a height transition on the node that runs the smooth scroll. */
+  transition: height 240ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
 .calendar-motion-viewport.is-compat {
+  height: 100%;
   white-space: nowrap;
 }
 
@@ -203,7 +214,6 @@
 .calendar-pager-pane {
   flex: none;
 }
-
 
 .calendar-slide-panel {
   width: 100%;

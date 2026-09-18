@@ -393,6 +393,29 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     // A programmatic step settles as soon as the slide reaches its target pane,
     // instead of waiting out the longer gesture window.
     expect(monthComponent).toContain('requested === compatPaneDelta(this)');
+    // A step must never depend on a scroll event that may not arrive: the native
+    // scroller only reports while it moves, so a step whose target did not change
+    // would otherwise never settle and the arrow queue would wedge the calendar.
+    expect(monthComponent).toContain('CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS');
+    expect(monthComponent).toContain('scheduleCompatPaneCleanup');
+    expect(monthComponent).toContain('function finishCompatPaneCleanup');
+    expect(picker).toContain('CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS');
+    expect(picker).toContain('scheduleDateCompatPaneCleanup');
+    expect(picker).toContain('function finishDateCompatPaneCleanup');
+    // A scroller left on a side pane is sent home before the slide starts, so a
+    // queued burst keeps animating one panel per step instead of travelling
+    // nowhere; the swap of the clean ring also applies the host height, which
+    // stays parked while a settle is pending.
+    expect(monthComponent).toContain('compatPaneDelta(this) !== 0');
+    expect(monthComponent).toContain('gridHeight !== instance.data.viewportHeight');
+    expect(picker).toContain('compatDatePaneDelta(instance) !== 0');
+    // The animated height lives on a wrapper so the platform cannot defer it
+    // behind the smooth scroll that the scroller itself is running.
+    const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
+    expect(monthTemplate).toContain('class="calendar-motion-frame"');
+    expect(monthTemplate).toContain('style="height:{{viewportHeight}}px"');
+    expect(monthStyles).toContain('.calendar-motion-frame');
+    expect(monthStyles).toMatch(/\.calendar-motion-viewport\.is-compat\s*\{[^}]*height:\s*100%/su);
     // Inside a native scroller the affected runtime cannot resolve percentage
     // widths, so both rings measure the pane once and apply it inline.
     expect(monthTemplate).toContain('style="{{paneStyle}}"');

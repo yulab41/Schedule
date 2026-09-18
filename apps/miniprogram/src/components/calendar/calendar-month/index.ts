@@ -1,5 +1,6 @@
 import {
   CALENDAR_PERIOD_ARRIVAL_SETTLE_MS,
+  CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -45,6 +46,7 @@ interface CalendarMonthInstance {
   _compatGestureDelta?: -1 | 0 | 1 | undefined;
   _compatCommittedDelta?: -1 | 0 | 1 | undefined;
   _compatCleanupPanes?: readonly unknown[] | undefined;
+  _compatCleanupTimer?: ReturnType<typeof setTimeout>;
   _compatPendingDelta?: -1 | 0 | 1 | undefined;
   _compatMetrics?: CalendarPeriodScrollMetrics | undefined;
   _compatRequestedDelta?: -1 | 0 | 1 | undefined;
@@ -70,7 +72,10 @@ interface CalendarMonthInstance {
   };
   continueQueuedShift(): void;
   finishPeriodShift(): void;
-  readonly properties: { readonly panels: readonly { readonly relative: number }[] };
+  readonly properties: {
+    readonly gridHeight: number;
+    readonly panels: readonly { readonly relative: number }[];
+  };
   startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail?: unknown): void;
@@ -167,16 +172,45 @@ Component({
           // The panes are laid out physically (previous | current | next), so the
           // slide always travels the way the month does.
           this._compatRequestedDelta = delta;
+          // A step must never depend on a scroll event that may not arrive: the
+          // native scroller only reports while it actually moves, so a step whose
+          // scroll target did not change would never settle and the queue would
+          // wedge. The arrival window still wins whenever the slide does report.
+          scheduleCompatPagerSettle(this, CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS);
           // The height lands in its own update, before the scroll target is set:
           // the platform defers a height transition on a node that is already
           // running a smooth scroll, which reads as the height settling only
           // after the slide is home. Writing it first keeps the two in step.
           this.setData({ viewportHeight: next.viewportHeight }, () => {
-            this.setData({
-              stepMotion: next.stepMotion,
-              pagerAnimated: true,
-              pagerTarget: createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2),
-            });
+            const startSlide = (): void => {
+              this.setData({
+                stepMotion: next.stepMotion,
+                pagerAnimated: true,
+                pagerTarget: createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2),
+              });
+            };
+            // Both leads go through the next frame: the height has to be rendering
+            // before the scroll animation starts, and a scroller that is still
+            // stranded on a side pane has to be home first, otherwise the step
+            // re-issues a scroll target it already sits on and travels nowhere.
+            const nextTick = (
+              wx as unknown as { readonly nextTick?: (callback: () => void) => void }
+            ).nextTick;
+            const nextFrame = (action: () => void): void => {
+              if (nextTick === undefined) action();
+              else nextTick(action);
+            };
+            // A step that starts while the scroller is still on a side pane would
+            // re-issue the same scroll target and travel nowhere, so it is sent
+            // home first; a queued burst keeps animating one panel per step.
+            if (compatPaneDelta(this) !== 0) {
+              this.setData(
+                { pagerAnimated: false, pagerTarget: createCalendarPeriodPaneId('month-pane-', 1) },
+                () => nextFrame(startSlide),
+              );
+              return;
+            }
+            nextFrame(startSlide);
           });
           return;
         }
@@ -192,11 +226,8 @@ Component({
     },
     handlePagerScroll(this: CalendarMonthInstance, event: MonthScrollEvent): void {
       this._compatMetrics = mergeCalendarPeriodScrollMetrics(this._compatMetrics, event.detail);
-      const cleanup = this._compatCleanupPanes;
-      if (cleanup !== undefined && nearestCalendarPeriodScrollSlot(this._compatMetrics) === 1) {
-        this._compatCleanupPanes = undefined;
-        this._compatPendingDelta = undefined;
-        this.setData({ compatPanes: cleanup });
+      if (nearestCalendarPeriodScrollSlot(this._compatMetrics) === 1) {
+        finishCompatPaneCleanup(this);
       }
       if (this._compatGesture === true) prepareCompatPagerTarget(this);
       // A programmatic step knows the pane it is travelling to, so it settles as
@@ -269,6 +300,10 @@ function syncCompatPanes(instance: CalendarMonthInstance): void {
   if (delta !== 0) {
     instance._compatCleanupPanes = ordered;
     instance._compatPendingDelta = delta;
+    // A missing scroll event must not wedge the ring on a side pane: the host
+    // height stays parked for as long as a settle is pending, and a wedged ring
+    // would leave the next step with an unchanged scroll target (no slide at all).
+    scheduleCompatPaneCleanup(instance);
   }
   instance.setData({ compatPanes: panes }, () => {
     if (cleanupPending) return;
@@ -320,6 +355,52 @@ function recenterCompatPanes(instance: CalendarMonthInstance): void {
   instance.setData({
     pagerAnimated: false,
     pagerTarget: createCalendarPeriodPaneId('month-pane-', 1),
+  });
+  scheduleCompatPaneCleanup(instance);
+}
+
+function clearCompatPaneCleanup(instance: CalendarMonthInstance): void {
+  if (instance._compatCleanupTimer !== undefined) {
+    clearTimeout(instance._compatCleanupTimer);
+    instance._compatCleanupTimer = undefined;
+  }
+}
+
+function scheduleCompatPaneCleanup(instance: CalendarMonthInstance): void {
+  if (!instance.data.skyline3172UiCompatibility) return;
+  if (instance._compatCleanupPanes === undefined) return;
+  clearCompatPaneCleanup(instance);
+  instance._compatCleanupTimer = setTimeout(() => {
+    instance._compatCleanupTimer = undefined;
+    finishCompatPaneCleanup(instance);
+  }, CALENDAR_PERIOD_SCROLL_SETTLE_MS);
+}
+
+// Swapping the clean ring in is only safe once the scroller is home, because the
+// pane the user is looking at must keep its month through the swap. A step that
+// is still in flight owns the scroller, and a re-centre that was skipped while a
+// settle was pending leaves it on a side pane; both cases are retried instead of
+// swapping. When the swap does happen the host height is applied as well, because
+// its observer stays parked for as long as a settle is pending.
+function finishCompatPaneCleanup(instance: CalendarMonthInstance): void {
+  const cleanup = instance._compatCleanupPanes;
+  if (cleanup === undefined) return;
+  if (instance._compatRequestedDelta !== undefined || instance._compatGesture === true) {
+    scheduleCompatPaneCleanup(instance);
+    return;
+  }
+  if (compatPaneDelta(instance) !== 0) {
+    recenterCompatPanes(instance);
+    return;
+  }
+  clearCompatPaneCleanup(instance);
+  instance._compatCleanupPanes = undefined;
+  instance._compatPendingDelta = undefined;
+  instance.setData({ compatPanes: cleanup }, () => {
+    const gridHeight = instance.properties.gridHeight;
+    if (gridHeight !== undefined && gridHeight !== instance.data.viewportHeight) {
+      instance.setData({ viewportHeight: gridHeight });
+    }
   });
 }
 

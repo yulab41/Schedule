@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   CALENDAR_PERIOD_ARRIVAL_SETTLE_MS,
+  CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -28,6 +29,11 @@ describe('shared calendar period pager', () => {
     // slide arrives; a gesture keeps the longer window for momentum gaps.
     expect(CALENDAR_PERIOD_ARRIVAL_SETTLE_MS).toBeGreaterThan(0);
     expect(CALENDAR_PERIOD_ARRIVAL_SETTLE_MS).toBeLessThan(CALENDAR_PERIOD_SCROLL_SETTLE_MS);
+    // A programmatic step is settled by this bound even if the scroller reports no
+    // scroll event at all, so the arrow queue can never wedge the calendar.
+    expect(CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS).toBeGreaterThan(
+      CALENDAR_PERIOD_SCROLL_SETTLE_MS,
+    );
     const first = mergeCalendarPeriodScrollMetrics(undefined, {
       scrollLeft: 4536,
       scrollWidth: 13608,

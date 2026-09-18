@@ -6,6 +6,7 @@ import {
 } from '../ui-selector/selector.js';
 import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 import {
+  CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -109,6 +110,7 @@ interface WorkflowPickerInstance {
   _dateCompatGestureDelta?: -1 | 0 | 1 | undefined;
   _dateCompatCommittedDelta?: -1 | 0 | 1 | undefined;
   _dateCompatCleanupPanes?: readonly unknown[] | undefined;
+  _dateCompatCleanupTimer?: ReturnType<typeof setTimeout>;
   _dateCompatPendingDelta?: -1 | 0 | 1 | undefined;
   _dateCompatRequestedDelta?: -1 | 0 | 1 | undefined;
   _dateCompatTimer?: ReturnType<typeof setTimeout>;
@@ -438,9 +440,7 @@ Component({
       );
       const cleanup = this._dateCompatCleanupPanes;
       if (cleanup !== undefined && nearestCalendarPeriodScrollSlot(this._dateCompatMetrics) === 1) {
-        this._dateCompatCleanupPanes = undefined;
-        this._dateCompatPendingDelta = undefined;
-        this.setData({ compatPanes: cleanup });
+        finishDateCompatPaneCleanup(this);
       }
       if (this._dateCompatGesture === true) prepareCompatDateTarget(this);
       scheduleDateCompatSettle(this);
@@ -624,10 +624,34 @@ function startDatePeriodShift(
       // month slides one native panel instead and settles when the scroll stops.
       // Panes keep a fixed physical order, so the slide follows the month.
       instance._dateCompatRequestedDelta = delta;
-      instance.setData({
-        datePagerAnimated: true,
-        datePagerTarget: createCalendarPeriodPaneId('date-pane-', delta < 0 ? 0 : 2),
-      });
+      // A step must never depend on a scroll event that may not arrive: the
+      // native scroller only reports while it actually moves, so a step whose
+      // scroll target did not change would otherwise never settle.
+      scheduleDateCompatSettle(instance, CALENDAR_PERIOD_PROGRAMMATIC_FALLBACK_MS);
+      const startSlide = (): void => {
+        instance.setData({
+          datePagerAnimated: true,
+          datePagerTarget: createCalendarPeriodPaneId('date-pane-', delta < 0 ? 0 : 2),
+        });
+      };
+      // A step that starts while the scroller is still on a side pane would
+      // re-issue the scroll target it already sits on and travel nowhere.
+      if (compatDatePaneDelta(instance) !== 0) {
+        const nextTick = (wx as unknown as { readonly nextTick?: (callback: () => void) => void })
+          .nextTick;
+        instance.setData(
+          {
+            datePagerAnimated: false,
+            datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
+          },
+          () => {
+            if (nextTick === undefined) startSlide();
+            else nextTick(startSlide);
+          },
+        );
+        return;
+      }
+      startSlide();
       return;
     }
     instance.setData({
@@ -686,12 +710,15 @@ function clearDateCompatSettle(instance: WorkflowPickerInstance): void {
   }
 }
 
-function scheduleDateCompatSettle(instance: WorkflowPickerInstance): void {
+function scheduleDateCompatSettle(
+  instance: WorkflowPickerInstance,
+  delay = CALENDAR_PERIOD_SCROLL_SETTLE_MS,
+): void {
   clearDateCompatSettle(instance);
   instance._dateCompatTimer = setTimeout(() => {
     instance._dateCompatTimer = undefined;
     settleDateCompatScroll(instance);
-  }, CALENDAR_PERIOD_SCROLL_SETTLE_MS);
+  }, delay);
 }
 
 function nearestDateCompatSlot(instance: WorkflowPickerInstance): CalendarPeriodSlot | undefined {
@@ -725,6 +752,9 @@ function syncCompatDatePanes(instance: WorkflowPickerInstance): void {
   if (delta !== 0) {
     instance._dateCompatCleanupPanes = ordered;
     instance._dateCompatPendingDelta = delta;
+    // A missing scroll event must not wedge the ring on a side pane, which would
+    // leave the next step with an unchanged scroll target (no slide at all).
+    scheduleDateCompatPaneCleanup(instance);
   }
   instance.setData({ compatPanes: panes }, () => {
     if (cleanupPending) return;
@@ -768,6 +798,50 @@ function recenterCompatDatePanes(instance: WorkflowPickerInstance): void {
     datePagerAnimated: false,
     datePagerTarget: createCalendarPeriodPaneId('date-pane-', 1),
   });
+  scheduleDateCompatPaneCleanup(instance);
+}
+
+function clearDateCompatPaneCleanup(instance: WorkflowPickerInstance): void {
+  if (instance._dateCompatCleanupTimer !== undefined) {
+    clearTimeout(instance._dateCompatCleanupTimer);
+    instance._dateCompatCleanupTimer = undefined;
+  }
+}
+
+function scheduleDateCompatPaneCleanup(instance: WorkflowPickerInstance): void {
+  if (!instance.data.open || !instance.data.skyline3172UiCompatibility) return;
+  if (instance._dateCompatCleanupPanes === undefined) return;
+  clearDateCompatPaneCleanup(instance);
+  instance._dateCompatCleanupTimer = setTimeout(() => {
+    instance._dateCompatCleanupTimer = undefined;
+    finishDateCompatPaneCleanup(instance);
+  }, CALENDAR_PERIOD_SCROLL_SETTLE_MS);
+}
+
+// Swapping the clean ring in is only safe once the scroller is home, because the
+// pane the user is looking at must keep its month through the swap. A step that
+// is still in flight owns the scroller, and a re-centre that was skipped while a
+// settle was pending leaves it on a side pane; both cases are retried instead of
+// swapping.
+function finishDateCompatPaneCleanup(instance: WorkflowPickerInstance): void {
+  const cleanup = instance._dateCompatCleanupPanes;
+  if (cleanup === undefined) return;
+  if (!instance.data.open) {
+    clearDateCompatPaneCleanup(instance);
+    return;
+  }
+  if (instance._dateCompatRequestedDelta !== undefined || instance._dateCompatGesture === true) {
+    scheduleDateCompatPaneCleanup(instance);
+    return;
+  }
+  if (compatDatePaneDelta(instance) !== 0) {
+    recenterCompatDatePanes(instance);
+    return;
+  }
+  clearDateCompatPaneCleanup(instance);
+  instance._dateCompatCleanupPanes = undefined;
+  instance._dateCompatPendingDelta = undefined;
+  instance.setData({ compatPanes: cleanup });
 }
 
 function settleDateCompatScroll(instance: WorkflowPickerInstance): void {
