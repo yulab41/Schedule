@@ -6,6 +6,12 @@ export const CALENDAR_PERIOD_SWIPER_EASING_FUNCTION = 'easeOutCubic';
 export const CALENDAR_PERIOD_HEIGHT_TRANSITION = 'cubic-bezier(0.33, 1, 0.68, 1)';
 /** How long a native period scroll may be still before it is settled. */
 export const CALENDAR_PERIOD_SCROLL_SETTLE_MS = 140;
+/**
+ * A programmatic step already knows the pane it is travelling to, so it only
+ * has to wait for the platform to arrive there. A gesture keeps the longer
+ * window because its momentum events can pause across a slow frame.
+ */
+export const CALENDAR_PERIOD_ARRIVAL_SETTLE_MS = 48;
 
 export interface CalendarPeriodScrollMetrics {
   readonly left: number;

@@ -377,9 +377,22 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(monthTemplate).toContain('scroll-into-view="{{pagerTarget}}"');
     expect(monthTemplate).toContain('bindscroll="handlePagerScroll"');
     expect(monthTemplate).toContain('wx:if="{{skyline3172UiCompatibility}}"');
-    expect(monthComponent).toContain('pagerAnimated = true');
+    expect(monthComponent).toContain('pagerAnimated: true');
     expect(monthComponent).toContain('function settleCompatPagerScroll');
     expect(monthComponent).not.toContain('swiperDuration: this.data.skyline3172UiCompatibility');
+    // The height lands in its own update before the scroll target is set: the
+    // platform defers a height transition on a node that is already running a
+    // smooth scroll, which would read as the height settling after the slide.
+    const heightWrite = monthComponent.indexOf('setData({ viewportHeight: next.viewportHeight }');
+    const slideTarget = monthComponent.indexOf(
+      "pagerTarget: createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2)",
+    );
+    expect(heightWrite).toBeGreaterThan(-1);
+    expect(slideTarget).toBeGreaterThan(-1);
+    expect(heightWrite).toBeLessThan(slideTarget);
+    // A programmatic step settles as soon as the slide reaches its target pane,
+    // instead of waiting out the longer gesture window.
+    expect(monthComponent).toContain('requested === compatPaneDelta(this)');
     // Inside a native scroller the affected runtime cannot resolve percentage
     // widths, so both rings measure the pane once and apply it inline.
     expect(monthTemplate).toContain('style="{{paneStyle}}"');

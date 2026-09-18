@@ -1,4 +1,5 @@
 import {
+  CALENDAR_PERIOD_ARRIVAL_SETTLE_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -103,6 +104,15 @@ Component({
       syncCompatPanes(this);
     },
     gridHeight(this: CalendarMonthInstance, value: number): void {
+      // A compat step owns the height for its whole duration: the swipe sets the
+      // target height up front so the platform can transition it while the month
+      // is still moving, and a second writer would restart that transition.
+      if (
+        this.data.skyline3172UiCompatibility &&
+        (this._compatRequestedDelta !== undefined || this._compatCleanupPanes !== undefined)
+      ) {
+        return;
+      }
       if (
         !this._monthShiftPending &&
         this._monthHeightTargetIndex === undefined &&
@@ -157,9 +167,17 @@ Component({
           // The panes are laid out physically (previous | current | next), so the
           // slide always travels the way the month does.
           this._compatRequestedDelta = delta;
-          next.pagerAnimated = true;
-          next.pagerTarget = createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2);
-          this.setData(next);
+          // The height lands in its own update, before the scroll target is set:
+          // the platform defers a height transition on a node that is already
+          // running a smooth scroll, which reads as the height settling only
+          // after the slide is home. Writing it first keeps the two in step.
+          this.setData({ viewportHeight: next.viewportHeight }, () => {
+            this.setData({
+              stepMotion: next.stepMotion,
+              pagerAnimated: true,
+              pagerTarget: createCalendarPeriodPaneId('month-pane-', delta < 0 ? 0 : 2),
+            });
+          });
           return;
         }
         this.setData({
@@ -181,6 +199,14 @@ Component({
         this.setData({ compatPanes: cleanup });
       }
       if (this._compatGesture === true) prepareCompatPagerTarget(this);
+      // A programmatic step knows the pane it is travelling to, so it settles as
+      // soon as the slide has arrived there instead of waiting out the longer
+      // gesture window.
+      const requested = this._compatRequestedDelta;
+      if (requested !== undefined && requested === compatPaneDelta(this)) {
+        scheduleCompatPagerSettle(this, CALENDAR_PERIOD_ARRIVAL_SETTLE_MS);
+        return;
+      }
       scheduleCompatPagerSettle(this);
     },
     handlePagerTouchEnd(this: CalendarMonthInstance): void {
@@ -304,12 +330,15 @@ function clearCompatPagerSettle(instance: CalendarMonthInstance): void {
   }
 }
 
-function scheduleCompatPagerSettle(instance: CalendarMonthInstance): void {
+function scheduleCompatPagerSettle(
+  instance: CalendarMonthInstance,
+  delay = CALENDAR_PERIOD_SCROLL_SETTLE_MS,
+): void {
   clearCompatPagerSettle(instance);
   instance._compatTimer = setTimeout(() => {
     instance._compatTimer = undefined;
     settleCompatPagerScroll(instance);
-  }, CALENDAR_PERIOD_SCROLL_SETTLE_MS);
+  }, delay);
 }
 
 function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
@@ -334,8 +363,6 @@ function settleCompatPagerScroll(instance: CalendarMonthInstance): void {
     recenterCompatPanes(instance);
     return;
   }
-  const viewportHeight = instance.data.panelHeights?.[slot] ?? 270;
-  if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
   instance._compatCommittedDelta = delta;
   finishMonthSwipeAt(instance, slot);
 }

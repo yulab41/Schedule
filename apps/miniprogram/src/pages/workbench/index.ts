@@ -850,7 +850,6 @@ Page({
 
     if (this.data.viewMode === 'month' && this.data.businessMonth !== initialMonth) {
       this.monthLocateTarget = initialMonth;
-      this.pendingScrollTarget = 'workbench-content-top';
       const direction: -1 | 1 = initialMonth < this.data.businessMonth ? -1 : 1;
       startLocateTransition(this, 'month', direction, {
         businessMonth: initialMonth,
@@ -861,7 +860,6 @@ Page({
     }
     if (this.data.viewMode === 'week' && this.data.weekStart !== targetWeekStart) {
       this.pendingWeekTarget = targetWeekStart;
-      this.pendingScrollTarget = 'workbench-content-top';
       startLocateTransition(this, 'week', targetWeekStart < this.data.weekStart ? -1 : 1, {
         businessMonth: initialMonth,
         selectedDate: today,
@@ -2502,8 +2500,10 @@ function applyTodayLocation(page: WorkbenchPageInstance): void {
       ...period,
     },
     () => {
-      const target = page.data.viewMode === 'list' ? `list-day-${today}` : 'workbench-content-top';
-      scrollToTarget(page, target);
+      // The locate button sits inside the calendar card, so the calendar is
+      // already on screen; scrolling the page here only pulled the content up by
+      // the content's top padding. Only the list view has a row to reveal.
+      if (page.data.viewMode === 'list') scrollToTarget(page, `list-day-${today}`);
     },
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  CALENDAR_PERIOD_ARRIVAL_SETTLE_MS,
   CALENDAR_PERIOD_SCROLL_SETTLE_MS,
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -23,6 +24,10 @@ import {
 describe('shared calendar period pager', () => {
   it('settles a native period scroll on the pane it actually reached', () => {
     expect(CALENDAR_PERIOD_SCROLL_SETTLE_MS).toBe(140);
+    // A programmatic step knows its destination, so it may settle as soon as the
+    // slide arrives; a gesture keeps the longer window for momentum gaps.
+    expect(CALENDAR_PERIOD_ARRIVAL_SETTLE_MS).toBeGreaterThan(0);
+    expect(CALENDAR_PERIOD_ARRIVAL_SETTLE_MS).toBeLessThan(CALENDAR_PERIOD_SCROLL_SETTLE_MS);
     const first = mergeCalendarPeriodScrollMetrics(undefined, {
       scrollLeft: 4536,
       scrollWidth: 13608,

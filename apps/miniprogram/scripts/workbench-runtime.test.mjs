@@ -47,6 +47,42 @@ describe('P6-A workbench runtime coordination', () => {
     },
   );
 
+  it('locates today without nudging the page content in month and week views', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-07T23:59:59.000Z'));
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    vi.setSystemTime(new Date('2026-10-01T00:00:00.000Z'));
+    for (const viewMode of ['month', 'week']) {
+      const instance = createPageInstance(definition);
+      instance.data.viewMode = viewMode;
+      instance.data.businessMonth = '2026-09';
+      instance.data.weekStart = '2026-09-21';
+      instance.data.scrollTarget = '';
+      definition.handleLocateToday.call(instance);
+      // The locate button sits inside the calendar card, so the calendar is
+      // already visible: scrolling the page only pulled the content up by its
+      // top padding on the Skyline renderer.
+      expect(instance.pendingScrollTarget).toBeUndefined();
+      expect(instance.data.scrollTarget).toBe('');
+    }
+  });
+
+  it('still reveals today inside the list view when locating across handover', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-07T23:59:59.000Z'));
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    vi.setSystemTime(new Date('2026-10-01T00:00:00.000Z'));
+    const instance = createPageInstance(definition);
+    instance.data.viewMode = 'list';
+    instance.data.businessMonth = '2026-09';
+    definition.handleLocateToday.call(instance);
+    // The list keeps its own row reveal; only the page-content scroll is gone.
+    expect(instance.data.listScrollTarget).toBe('list-day-2026-10-01');
+    expect(instance.data.scrollTarget).toBe('');
+  });
+
   it('defaults each single-member shift open and preserves manual collapse on reselection', async () => {
     vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
     await import('../src/pages/workbench/index.ts');
