@@ -390,13 +390,18 @@ describe('Skyline 3.17.2 UI compatibility boundary', () => {
     expect(monthComponent).toContain('CALENDAR_PERIOD_SLIDE_SETTLE_MS');
     expect(monthComponent).toContain('CALENDAR_PERIOD_HEIGHT_TRANSITION');
     expect(monthTemplate).toContain('style="{{trackStyle}}"');
-    // The height goes out one frame ahead of the slide (re-laying the calendar out
-    // costs a frame on the device), and the track snaps home only after the rotated
-    // panes are painted, so the pane being looked at keeps its month through the
-    // commit and no cell is ever re-created in view.
-    expect(monthComponent).toContain('nextFrame(leadHeight)');
-    expect(monthComponent).toContain('() => nextFrame(startSlide)');
-    expect(monthComponent).toContain('_compatSlideResetPending');
+    // The height rides in the same update as the slide, so both transitions start in
+    // one frame; a commit that belongs to a slide swaps the ring in place rather than
+    // waiting for a scroll event to land home.
+    const slideWrite = monthComponent.indexOf('trackStyle: createCompatTrackStyle(shiftBy, true)');
+    expect(slideWrite).toBeGreaterThan(-1);
+    expect(monthComponent.indexOf('viewportHeight: next.viewportHeight')).toBeLessThan(slideWrite);
+    expect(monthComponent).toContain('_compatSlideCommitted');
+    // A swipe that lands while the previous step is still settling is queued and then
+    // committed in place (the finger already travelled that panel), instead of being
+    // snapped home first, which is what made the gesture feel dropped.
+    expect(monthComponent).toContain('_compatQueuedInPlace');
+    expect(monthComponent).toContain('finishMonthSwipeAt(this, slot)');
     expect(monthComponent).toContain("trackStyle: ''");
     // Cells carry an explicit pixel width in the compat branch as well: the affected
     // runtime cannot resolve the percentage chain inside its native scroller, so a
