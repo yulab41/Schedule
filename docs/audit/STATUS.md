@@ -1,5 +1,18 @@
 # 微信小程序审计状态
 
+## 当前批次：3.17.2 分页高度/定位/流畅三项修复，体验版160已放行，待小米14复核
+
+- 用户回传 `.159`（仅 3.17.2）三项：高度要等滑动动画归位后才开始（两段式，3.17.3 是同步的）；按定位按钮后整页上滑、月历与顶部导航间隙变小（只有定位按钮会）；切月仍略卡。
+- ① 定因：切月时高度与滚动目标写在**同一次 `setData`**，平台会把正在平滑滚动节点上的高度过渡推迟到滚动结束。改为**高度单独先写一次**（实测 `setVh` t=17 → `setPager{pane-2}` t=35，DOM 高度过渡完整落在滑动内），保留"一步只写一次高度"的单写者约束；程序化提交由 t=511 提前到 t=435。
+- ② 定因（DevTools 逐帧）：`scroll-into-view` 把 `#workbench-content-top` 顶端对齐到滚动容器顶端，页面因此固定上移 14px（内容上内边距）；**基础库 3.17.3 上测量完全相同**，因此是共用缺陷而非版本差异。定位按钮本就在月历卡片内，故移除月/周定位后的页面滚动（列表保留 `list-day-<today>` 行定位），并加两项回归测试（含"列表不要被过度修复"守卫）。
+- ③ 修复：程序化步骤已知目标面板，新增共享常量 `CALENDAR_PERIOD_ARRIVAL_SETTLE_MS=48`——滚到目标面板后再等 48ms 即结算；手势仍保留 140ms 以防动量在慢帧上停顿。
+- 验证（3.17.2 + fullMode 模拟器）：定位前后 `anchorTop` 均 125、`scrollTarget` 为空；按钮切月高度在滑动内完成；手势 Sep→Oct 正好一个月且 `viewportHeight` 与 `gridHeight` 一致；`.159` 不变量未回归。新断言在旧源码上先失败（RED）。
+- 工具教训：DevTools 此前一直跑**另一个已打开工程**；必须 `project_import` 目标路径 → 关闭/重开窗口 → 用 `pages/calendar-poc` 的 `buildLabel` 核对实际构建。DevTools 改写的 `project.config.json`（追加默认 setting、换行变 CRLF）已恢复 HEAD 并归一到 LF。
+- 门禁：typecheck、Mini **1224 项通过/16 跳过**、package 总 **4647504B**、determinism `c987ad48…`、format、lint、smoke:check-core 全通过。
+- 交付：检查点 `32ecee11`，血缘证明刷新 `0036c03f`（改动 `workbench/index.ts` 触发 `trial-lineage-policy.v1.json` 的 blob/证据更新）。候选 `0036c03f` 在独占 `general-5` 冻结，前后 `check-worktree-safety` `RESULT=PASS`；`.160` 上传（Manifest `eda7ea2e…b0601`），可信 ensure 追加并保留 `.159`，`ecs-verify.sh` `[verify] complete`；公网 `.160=200`/`.159=200`/未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
+- 说明：② 的修复对 3.17.3 同样生效（该缺陷在两版本都在）。本轮按"两个实例保持一致"处理；若需 3.17.3 保留旧位移需另行确认。
+- 唯一下一任务：小米14 打开 `.160` 复核高度是否与滑动同步、定位是否不再推动整页、切月手感，并确认 3.17.3 无变化。详情见 `runtime-ui-compatibility-period-pager-20260917.md`。
+
 ## 当前批次：月历/日期分页改原生滚动，体验版155已上传并放行，待小米14复核
 
 > 追加：`.155` 出现"月历单元格宽度错误"回归（原生滚动容器里百分比宽度链在 3.17.2 无法解析）。已改为**测量容器宽度 + 内联 px**（共享助手 `measureCalendarPeriodPaneWidth`），并在 3.17.2 模拟器目视确认月历恢复 7 列、请假选择器日期网格正常；交付 `.156`（候选 `f7155b4b`，Manifest`6cc5901b…7a60`），前后检查 PASS、verify 与 `ecs-verify.sh` 通过、公网 `.156=200`/`.155=200`/未知`=426`。**`.155` 含该回归，请用 `.156` 复核。**
@@ -89,6 +102,7 @@
 - 体验版 0.1.0-p10.20260916.148（说明"Skyline 3.17.2 dialog tap fix c5f06e5"）production/clean 上传成功，Manifest 1f64d195…f9e7；候选前置与上传后绑定检查 PASS。门禁：Mini 全量、typecheck、build366、package、determinism(4410f7fb)、format、lint 通过；主包1744039B/总4618444B。
 - 放行：可信 ensure 只追加 .148 并保留 .147 等旧版；allowlist verify 与 ecs-verify 通过，release 仍 44034fcc，无部署/数据库操作；公网 .148=200、.147=200、动态未知=426。
 - 唯一下一任务：小米14 3.17.2 复核日期弹窗点击不再关闭且可选，年月滚轮是否可滚动（若不可，反馈具体现象以定方向）；3.17.3 不变。详情见 docs/audit/runtime-ui-compatibility-dialog-tap-trial-release-20260916.md。
+
 ## 当前批次：Skyline 3.17.2 弹窗层 inset 兼容修复已实现，待体验版交付
 
 - 用户反馈：3.17.2 年月/日期选择器点开后无弹窗；换班等 sheet 点外部不关闭。用开发者工具（3.17.2/Skyline/同提交 d526252b）复现并定位。
@@ -97,6 +111,7 @@
 - 证据：开发者工具内对照截图（修复前 layer 在渲染树但不绘制；改显式偏移后"选择月份"卡片立即正常绘制）。门禁：Mini 1214 项通过/16 跳过、typecheck/build366/package/determinism/format/lint 通过；主包1744003B/总4618408B。
 - 开发者工具复测（3.17.2/c9ad7c0）：弹窗正常出现（截图）、遮罩关闭弹窗、sheet 遮罩关闭表单；切 3.17.3 复测一致。
 - 边界：模拟器无法完成完整交互链（该实例 app 业务请求报网络错误），原生交互须由小米14体验版复核；本轮未上传、未放行、未部署。详情见 docs/audit/runtime-ui-compatibility-overlay-inset-20260916.md。
+
 ## 当前批次：Mini 诊断真实读取 Skyline 版本（2026-09-16 累计候选）
 
 - 用户要求消除“更多 → 测试工具”里“Skyline 版本：当前微信版本不支持单独读取”的硬编码，并授权本次上传与 add-only 放行。官方 `wx.getSkylineInfo`（基础库 2.26.2 起）返回 `isSupported`/`version`/`reason`，原来“没有可靠 API”的写法不成立，审计主计划 §8B 本就要求该项。
@@ -121,6 +136,7 @@
 - 唯一下一任务：取得当前消息的上传授权后交付新体验版并add-only放行、保留`.138`等旧版，再由小米14双实例复核3.17.2下拉与月份/日期面板就地可见可选，且3.17.3外观与交互不变。详情见`runtime-ui-compatibility-picker-inline-fallback-20260915.md`。
 
 ## 上一批次：Skyline 3.17.2 选择器浮层与页头箭头体验版138已上传并放行，待双实例验收
+
 ## 上一批次：Skyline 月视图已过日期灰底恢复，体验版140已上传并放行
 
 - 用户反馈3.17.2/3.17.3两个实例的首页月视图与访客月视图都缺少“该月已过日期单元格灰底”，以前版本有，怀疑某次更新后丢失。
