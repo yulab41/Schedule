@@ -3208,3 +3208,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 门禁：typecheck、Mini **1224 项通过/16 跳过**、package 总 **4647504B**、determinism `c987ad48…`、format、lint、smoke:check-core 全通过。
 - 交付与放行：`32ecee11`（`workbench/index.ts` 变更同时刷新 `release/trial-lineage-policy.v1.json` 的 `5285dd1` 等价证明 blob/证据 → `0036c03f`）已推送；候选 `0036c03f` 在独占 `general-5` 冻结，`check-worktree-safety` 前后两次 `RESULT=PASS`；`.160` 上传成功（说明「Skyline 3.17.2 pager height+locate 0036c03」，Manifest `eda7ea2e…b0601`）；可信 `ensure` 追加 `.160` 保留 `.159`；`ecs-verify.sh` `[verify] complete`；公网 `.160=200`、`.159=200`、未知 `=426`。未部署应用制品、未备份或迁移数据库、未提审、未正式发布。
 - 状态：已交付待小米14复核。唯一下一任务：小米14 打开 **`.160`** 复核高度是否与滑动同步、定位是否不再推动整页、切月手感，并确认 3.17.3 无变化。注意 ② 的修复对 3.17.3 同样生效（缺陷两版本都在），本轮按"两个实例保持一致"处理。
+
+## 2026-09-18 `.160` 的 3.17.3 复测与两处环境陷阱
+
+- **3.17.3 改动后复测**（同一构建仅切基础库）：`compat=false`、`state=ready`、群组正常加载；定位前后 `anchorTop` 均为 125（修改前是 125→111）、`scrollTarget` 为空；`handleNext`→2026 年 10 月、`handlePrevious`→2026 年 9 月（swiper 分支正常）。兼容分支的改动全部由 `skyline3172UiCompatibility` 门控，3.17.3 走 `wx:else` 的 swiper 分支，除②的定位位移（缺陷两版本都在，用户已确认要修）外行为未变。
+- **环境陷阱一（构建版本）**：`check:determinism`/`check:package` 等门禁会重建 `dist/` 且**不带 `WECHAT_CI_VERSION`**，版本落成 `local`。模拟器加载 `local` 构建时服务端按未知版本拒绝，工作台永久停在 `state=loading`（控制台只有 `WeChatLib`/`Page.onLoad took N ms`，无报错，也没有自己的网络请求）。排查时曾误判为"基础库坏了/代码回归"，用 `pages/calendar-poc` 的 `buildLabel` 才确认加载的是 `local@a15969f`。**每次模拟器调试前必须用已放行版本重建 `dist`。**
+- **环境陷阱二（工程绑定）**：DevTools 窗口此前一直指向另一个已打开工程（列表里的 `runtime/debug-worktrees/same-version-18498a8`），改 `dist` 后模拟器仍跑旧代码。可靠流程：`project_import` 目标路径 → `close_project_window` → `open_project_window --window-mode fullMode` → 用 `pages/calendar-poc` 的 `buildLabel` 核对（应为本次构建版本）。DevTools 首次打开还会改写 `apps/miniprogram/project.config.json`（追加默认 setting、换行变 CRLF），需恢复 HEAD 内容并 `prettier --write` 归一到 LF。
+- 状态不变：`.160` 已上传并放行，等待小米14 复核三项。
