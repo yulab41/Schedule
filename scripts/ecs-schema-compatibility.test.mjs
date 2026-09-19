@@ -10,10 +10,10 @@ describe('persistent visitor QR release compatibility', () => {
     })),
   });
 
-  it('requires the persistent visitor QR asset table', () => {
-    expect(releaseSchemaCompatibility(journal(61, '0061_group_visitor_qr_assets'))).toEqual({
-      databaseSchemaMin: '61',
-      databaseSchemaMax: '61',
+  it('requires the group calendar change ledger', () => {
+    expect(releaseSchemaCompatibility(journal(62, '0062_group_calendar_changes'))).toEqual({
+      databaseSchemaMin: '62',
+      databaseSchemaMax: '62',
     });
   });
 
@@ -33,6 +33,8 @@ describe('persistent visitor QR release compatibility', () => {
       journal(60, '0060_unknown'),
       journal(60, '0060_head_neck_docx_export'),
       journal(61, '0061_unknown'),
+      journal(61, '0061_group_visitor_qr_assets'),
+      journal(62, '0062_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { OrganizationMutationCompleted } from '@schedule/contracts';
+import type { CalendarChangeKind, OrganizationMutationCompleted } from '@schedule/contracts';
 import {
   type DatabaseClient,
   type DatabaseTransaction,
@@ -13,6 +13,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
+import { recordCalendarChange } from '../calendar/calendar-change-log.js';
 import { withRetriedTransaction } from '../concurrency/transaction-retry.js';
 
 export interface OrganizationMutationActor {
@@ -22,6 +23,16 @@ export interface OrganizationMutationActor {
 }
 
 export async function runOrganizationMutation<Result>(options: {
+  /**
+   * Declares that a successful (non-replayed) mutation changes what the group
+   * calendar renders. The change is recorded in the same transaction, so the
+   * incremental calendar cursor can never advance past an uncommitted write.
+   */
+  readonly calendarChange?: {
+    readonly businessMonth?: string | null | undefined;
+    readonly groupId: string;
+    readonly kind: CalendarChangeKind;
+  };
   readonly databaseClient: DatabaseClient;
   readonly identity: AuthenticatedIdentity;
   readonly operationId: string;
@@ -54,7 +65,16 @@ export async function runOrganizationMutation<Result>(options: {
         requestFingerprint: options.requestFingerprint,
         scope: options.scope,
       },
-      () => options.run(transaction, actor),
+      async () => {
+        const result = await options.run(transaction, actor);
+        if (options.calendarChange !== undefined) {
+          await recordCalendarChange(transaction, options.calendarChange.groupId, {
+            businessMonth: options.calendarChange.businessMonth,
+            kind: options.calendarChange.kind,
+          });
+        }
+        return result;
+      },
       options.resultCodec === undefined
         ? undefined
         : {

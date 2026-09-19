@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerErrorHandler } from '../../plugins/error-handler.js';
 import { registerCalendarRoutes } from '../calendar/calendar-routes.js';
 import type { CalendarQuery } from '../calendar/calendar-query.js';
+import type { CalendarChangeQuery } from '../calendar/calendar-change-log.js';
 import type { VisitorAccessLogService } from '../calendar/visitor-access-log.js';
 import { registerHolidayRoutes } from '../holidays/holiday-routes.js';
 import type { HolidayService } from '../holidays/holiday-service.js';
@@ -145,6 +146,7 @@ function createPublicRouteApp(
       recordAccess: vi.fn(),
       resolveGroup: spies.resolveGroup,
     } as unknown as VisitorAccessLogService,
+    {} as unknown as CalendarChangeQuery,
     policy,
   );
   registerHolidayRoutes(

@@ -7,6 +7,7 @@ import {
 } from '@schedule/database';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { ApiError } from '../../plugins/error-handler.js';
+import { recordCalendarChange } from '../calendar/calendar-change-log.js';
 
 export function normalizeAccountMobilePhone(value: string | null): string | null {
   return value === null
@@ -43,11 +44,12 @@ export async function setAccountMobilePhone(
       })
       .where(eq(users.id, userId));
   const memberships = await transaction
-    .select({ id: groupMemberships.id })
+    .select({ groupId: groupMemberships.groupId, id: groupMemberships.id })
     .from(groupMemberships)
     .where(and(eq(groupMemberships.userId, userId), isNull(groupMemberships.deletedAt)))
     .orderBy(asc(groupMemberships.id))
     .for('update');
+  const touchedGroupIds = new Set<string>();
   for (const membership of memberships) {
     if (membership.id === skipMembershipId) continue;
     const [contact] = await transaction
@@ -66,6 +68,7 @@ export async function setAccountMobilePhone(
       await transaction
         .insert(groupMemberContacts)
         .values({ id: randomUUID(), membershipId: membership.id, mobilePhone: phone });
+      touchedGroupIds.add(membership.groupId);
     } else if (contact.mobilePhone !== phone) {
       await transaction
         .update(groupMemberContacts)
@@ -75,7 +78,18 @@ export async function setAccountMobilePhone(
           version: sql`${groupMemberContacts.version} + 1`,
         })
         .where(eq(groupMemberContacts.id, contact.id));
+      touchedGroupIds.add(membership.groupId);
+    } else if (account.mobilePhone !== phone) {
+      // The calendar renders the account phone, so even an already-synced
+      // contact row means this membership's calendar payload changed.
+      touchedGroupIds.add(membership.groupId);
     }
+  }
+  for (const touchedGroupId of touchedGroupIds) {
+    await recordCalendarChange(transaction, touchedGroupId, {
+      businessMonth: null,
+      kind: 'member',
+    });
   }
 }
 

@@ -185,6 +185,7 @@ export class SchedulingConfigService {
 
         return this.readRole(transaction, roleId);
       },
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_role_create',
     });
   }
@@ -208,6 +209,7 @@ export class SchedulingConfigService {
         expectedVersion: input.expectedVersion,
         expectedRulesVersion: input.expectedRulesVersion,
       }),
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_role_update',
       run: async (transaction) => {
         const authorization = await this.permissionService.requirePermission(
@@ -335,6 +337,7 @@ export class SchedulingConfigService {
         await this.bumpGroupRulesVersion(transaction, authorization.group.id);
         return this.readRole(transaction, role.id);
       },
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_role_members_replace',
     });
   }
@@ -424,6 +427,7 @@ export class SchedulingConfigService {
         await this.bumpGroupRulesVersion(transaction, authorization.group.id);
         return organizationMutationCompleted();
       },
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_role_delete',
     });
   }
@@ -476,6 +480,7 @@ export class SchedulingConfigService {
         await this.bumpGroupRulesVersion(transaction, authorization.group.id);
         return this.readShiftType(transaction, shiftTypeId);
       },
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_shift_type_create',
     });
   }
@@ -539,6 +544,7 @@ export class SchedulingConfigService {
         await this.bumpGroupRulesVersion(transaction, authorization.group.id);
         return this.readShiftType(transaction, existing.id);
       },
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_shift_type_update',
     });
   }
@@ -611,6 +617,7 @@ export class SchedulingConfigService {
         await this.bumpGroupRulesVersion(transaction, authorization.group.id);
         return organizationMutationCompleted();
       },
+      calendarChange: { groupId, kind: 'config' },
       scope: 'scheduling_shift_type_delete',
     });
   }

@@ -22,6 +22,7 @@ import { SchedulePublishService } from './modules/schedules/publish-service.js';
 import { ScheduleRepository } from './modules/schedules/schedule-repository.js';
 import { registerCalendarRoutes } from './modules/calendar/calendar-routes.js';
 import { CalendarQuery } from './modules/calendar/calendar-query.js';
+import { CalendarChangeQuery } from './modules/calendar/calendar-change-log.js';
 import { VisitorAccessLogService } from './modules/calendar/visitor-access-log.js';
 import { registerManualScheduleTemplateRoutes } from './modules/manual-schedules/template-routes.js';
 import { ManualScheduleTemplateService } from './modules/manual-schedules/template-service.js';
@@ -206,6 +207,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       app,
       new CalendarQuery(options.databaseClient),
       visitorAccessLogService,
+      new CalendarChangeQuery(options.databaseClient),
       clientCapabilityPolicy,
     );
     registerCalendarPreferencesRoutes(app, new CalendarPreferencesService(options.databaseClient));

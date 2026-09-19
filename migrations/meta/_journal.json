@@ -428,6 +428,13 @@
       "when": 1785542400061,
       "tag": "0061_group_visitor_qr_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785542400062,
+      "tag": "0062_group_calendar_changes",
+      "breakpoints": true
     }
   ]
 }

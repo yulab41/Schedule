@@ -6,9 +6,15 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { createPublicMiniCapabilityGuard } from '../../plugins/client-capability-guard.js';
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { CalendarQuery } from './calendar-query.js';
+import { CalendarChangeQuery } from './calendar-change-log.js';
 import type { VisitorAccessLogService } from './visitor-access-log.js';
 
 const groupIdSchema = z.string().uuid();
+const calendarChangesQuerySchema = z
+  .object({
+    since: z.coerce.number().int().min(0).optional(),
+  })
+  .strict();
 const calendarQuerySchema = z
   .object({
     businessMonth: z.string().regex(/^\d{4}-\d{2}$/),
@@ -39,6 +45,7 @@ export function registerCalendarRoutes(
   app: FastifyInstance,
   calendarQuery: CalendarQuery,
   visitorAccessLogService: VisitorAccessLogService,
+  calendarChangeQuery: CalendarChangeQuery,
   clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
 ): void {
   app.addHook('onSend', async (request, reply, payload) => {
@@ -53,6 +60,14 @@ export function registerCalendarRoutes(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseBusinessMonth(request.query),
+    ),
+  );
+
+  app.get('/groups/:groupId/calendar-changes', { preHandler: app.authenticate }, (request) =>
+    calendarChangeQuery.readChanges(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseOrThrow(calendarChangesQuerySchema, request.query).since ?? 0,
     ),
   );
 

@@ -1,4 +1,5 @@
 import type {
+  CalendarChangesReadModel,
   ScheduleEventPage,
   CalendarReadModel,
   GuestCalendarReadModel,
@@ -7,6 +8,7 @@ import type {
 } from '@schedule/contracts';
 
 import {
+  calendarChangesReadModelJsonSchema,
   scheduleEventPageJsonSchema,
   calendarReadModelJsonSchema,
   guestCalendarReadModelJsonSchema,
@@ -22,6 +24,11 @@ export const calendarReadModelDecoder = /* @__PURE__ */ createCompactDecoder<Cal
 export const holidayReadModelDecoder = /* @__PURE__ */ createCompactDecoder<HolidayReadModel>(
   holidayReadModelJsonSchema,
 );
+
+export const calendarChangesReadModelDecoder =
+  /* @__PURE__ */ createCompactDecoder<CalendarChangesReadModel>(
+    calendarChangesReadModelJsonSchema,
+  );
 
 export const guestCalendarReadModelDecoder =
   /* @__PURE__ */ createCompactDecoder<GuestCalendarReadModel>(guestCalendarReadModelJsonSchema);
@@ -43,6 +50,17 @@ function eventQuery(options: GuestShiftEventOptions, visitorKey?: string): strin
   return parts.length ? `?${parts.join('&')}` : '';
 }
 export const calendarReadEndpoints = {
+  calendarChanges: /* @__PURE__ */ defineClientEndpoint<
+    { readonly groupId: string; readonly since: number },
+    CalendarChangesReadModel
+  >({
+    auth: 'bearer',
+    decoder: calendarChangesReadModelDecoder,
+    id: 'calendar.changes',
+    method: 'GET',
+    path: ({ groupId, since }) =>
+      `/groups/${encodeURIComponent(groupId)}/calendar-changes?since=${encodeURIComponent(String(since))}`,
+  }),
   groupGuestShiftEvents: /* @__PURE__ */ defineClientEndpoint<
     GuestShiftEventOptions & { readonly groupId: string; readonly shiftId: string },
     ScheduleEventPage
@@ -130,6 +148,7 @@ export const calendarReadEndpoints = {
 } as const;
 
 export interface CalendarReadClient {
+  getCalendarChanges(groupId: string, since: number): Promise<CalendarChangesReadModel>;
   getGroupGuestShiftEvents(
     groupId: string,
     shiftId: string,
@@ -155,6 +174,9 @@ export interface CalendarReadClient {
 
 export function createCalendarReadClient(transport: ClientTransport): CalendarReadClient {
   return {
+    getCalendarChanges(groupId, since) {
+      return transport.request(calendarReadEndpoints.calendarChanges, { groupId, since });
+    },
     getGroupGuestShiftEvents(groupId, shiftId, options = {}) {
       return transport.request(calendarReadEndpoints.groupGuestShiftEvents, {
         groupId,

@@ -312,6 +312,7 @@ export class ContactService {
   ): Promise<GroupMemberContact> {
     return runOrganizationMutation({
       retryDeadlocks: true,
+      calendarChange: { groupId, kind: 'member' },
       databaseClient: this.databaseClient,
       identity,
       operationId: input.operationId,

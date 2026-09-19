@@ -1,7 +1,6 @@
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
-  cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
   isCalendarPeriodSlot,

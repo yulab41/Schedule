@@ -592,6 +592,7 @@ export class MembershipService {
         }
         return organizationMutationCompleted();
       },
+      calendarChange: { groupId, kind: 'member' },
       scope: 'organization_member_delete',
     });
   }
@@ -839,6 +840,7 @@ export class MembershipService {
           version: target.version + 1,
         };
       },
+      calendarChange: { groupId, kind: 'member' },
       scope: 'organization_member_name_update',
     });
   }
@@ -920,6 +922,7 @@ export class MembershipService {
           version: target.version + 1,
         };
       },
+      calendarChange: { groupId, kind: 'member' },
       scope: 'organization_member_role_update',
     });
   }
@@ -1001,6 +1004,7 @@ export class MembershipService {
           version: authorization.group.version + 1,
         };
       },
+      calendarChange: { groupId, kind: 'member' },
       scope: 'organization_owner_transfer',
     });
   }

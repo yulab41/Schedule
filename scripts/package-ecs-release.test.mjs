@@ -181,4 +181,15 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('BTREE');
     expect(verifySource).toContain('YES');
   });
+
+  it('verifies the schema 62 calendar change ledger shape', () => {
+    const ledgerCheck = verifySource.match(
+      /CALENDAR_CHANGE_LEDGER_SCHEMA=.*?\n\s*\[ "\$CALENDAR_CHANGE_LEDGER_SCHEMA" = \$'1\\t6\\t2\\t1\\t1' \]/s,
+    )?.[0];
+
+    expect(ledgerCheck).toBeTruthy();
+    expect(ledgerCheck).toContain('group_calendar_changes');
+    expect(ledgerCheck).toContain('group_calendar_changes_group_seq_unique');
+    expect(ledgerCheck).toContain('calendar_revision');
+  });
 });

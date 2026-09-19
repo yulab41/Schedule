@@ -593,10 +593,21 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 61 ]; then
     exit 1
   }
 fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 62 ]; then
+  CALENDAR_CHANGE_LEDGER_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"group_calendar_changes\"), (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"group_calendar_changes\" AND column_name IN (\"id\",\"group_id\",\"seq\",\"business_month\",\"kind\",\"changed_at\")), (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"group_calendar_changes\" AND index_name=\"group_calendar_changes_group_seq_unique\"), (SELECT COUNT(*) FROM information_schema.referential_constraints WHERE constraint_schema=DATABASE() AND table_name=\"group_calendar_changes\" AND delete_rule=\"CASCADE\"), (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"\`groups\`\" AND column_name=\"calendar_revision\")"')"
+  [ "$CALENDAR_CHANGE_LEDGER_SCHEMA" = $'1\t6\t2\t1\t1' ] || {
+    echo "[verify] 错误：日历增量变更表、列、唯一键、级联外键或 groups.calendar_revision 缺失。" >&2
+    exit 1
+  }
+fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 61 ]; then
+  if [ "$schema" -ge 62 ]; then
+    # 0062 adds the calendar change ledger; accept the pre-migration or fresh backup.
+    [ "$tables" = "55" ] || [ "$tables" = "56" ]
+  elif [ "$schema" -ge 61 ]; then
     # 0061 adds the backed-up QR asset table; accept the immediately preceding or fresh backup.
     [ "$tables" = "54" ] || [ "$tables" = "55" ]
   elif [ "$schema" -ge 57 ]; then

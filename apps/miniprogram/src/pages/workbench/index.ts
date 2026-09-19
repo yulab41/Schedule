@@ -2,6 +2,7 @@ import { createRuntimeAccountSecurityController } from '../../components/account
 import type { AccountSecurityData } from '../../components/account-security/controller.js';
 import type {
   ScheduleEvent,
+  CalendarChangesReadModel,
   CalendarDutyAssignment,
   CalendarReadModel,
   GroupSummary,
@@ -18,7 +19,6 @@ import {
 
 import { buildInfo } from '../../platform/build-info.js';
 import {
-  cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
   getAdjacentCalendarPeriodSlot,
@@ -60,9 +60,11 @@ import {
   createWorkbenchReadClient,
   loadActiveThenAdjacent,
   readPersistentHolidays,
+  readWorkbenchCalendarCursor,
   readWorkbenchCache,
   readWorkbenchGroupSnapshot,
   readStoredWorkbenchGroupId,
+  writeWorkbenchCalendarCursor,
   writeStoredWorkbenchGroupId,
   writeWorkbenchCache,
   writePersistentHolidays,
@@ -162,6 +164,8 @@ interface MonthReadResult {
   readonly calendar: CalendarReadModel;
   readonly holidays: HolidayReadModel;
   readonly offline: boolean;
+  /** True only for a first-paint copy taken from storage before validation. */
+  readonly prerendered?: boolean;
 }
 
 type HolidayReader = (year: number) => Promise<HolidayReadModel>;
@@ -1418,6 +1422,19 @@ async function loadWorkbench(
     errorMessage: '',
     state: hasLoadedData ? page.data.state : 'loading',
   });
+  // The group id is persisted locally, so the first frame can already be the
+  // cached calendar instead of a loading placeholder while /groups resolves.
+  if (ownerId !== undefined && page.monthResources.size === 0) {
+    const preRenderedGroupId = readStoredWorkbenchGroupId(ownerId);
+    if (preRenderedGroupId !== undefined) {
+      applyCachedMonthWindow(
+        page,
+        ownerId,
+        preRenderedGroupId,
+        getRequestedMonths(page.data.viewMode, page.data.businessMonth, page.data.weekStart),
+      );
+    }
+  }
   try {
     if (ownerId === undefined) {
       throw { code: 'AUTH_REQUIRED', status: 401 };
@@ -1515,13 +1532,26 @@ async function loadWorkbench(
       page.data.businessMonth,
       page.data.weekStart,
     );
+    if (selectedGroup.role !== 'guest') {
+      applyCachedMonthWindow(page, ownerId, selectedGroup.id, requestedMonths);
+    }
+    const plan =
+      selectedGroup.role === 'guest'
+        ? UNAVAILABLE_CALENDAR_WINDOW_PLAN
+        : await planCalendarWindow(page, ownerId, selectedGroup.id, requestedMonths, requestSerial);
+    if (!isCurrentRequest(page, requestSerial)) return;
+    const monthReadOptions = (businessMonth: string) => ({
+      forceRefresh: options.forceRefresh === true && !plan.freshMonths.has(businessMonth),
+      preferCache: plan.freshMonths.has(businessMonth),
+    });
     const readHolidays = createHolidayReader(page, requestedMonths, {
-      forceRefresh: options.forceRefresh === true,
+      forceRefresh: options.forceRefresh === true && !plan.available,
+      versions: plan.holidayVersions,
     });
     const activeMonth = getActiveBusinessMonth(page);
     const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
       readMonth(page, ownerId, selectedGroup.id, businessMonth, requestSerial, readHolidays, {
-        forceRefresh: options.forceRefresh === true,
+        ...monthReadOptions(businessMonth),
       }),
     );
     const activeResult = await staged.active;
@@ -1529,6 +1559,16 @@ async function loadWorkbench(
     if (!applyMonthWindow(page, [activeResult], requestedMonths)) {
       throw new Error('Calendar month data is unavailable.');
     }
+    const commitCursor = () => {
+      if (plan.cursor !== undefined) {
+        writeWorkbenchCalendarCursor(ownerId, selectedGroup.id, plan.cursor);
+      }
+    };
+    // The cursor may only advance once every month it covers has been read. A
+    // still-pending or failed background read must leave it where it was so the
+    // next validation asks for the same months again.
+    const everyMonthAlreadyFresh = requestedMonths.every((month) => plan.freshMonths.has(month));
+    if (everyMonthAlreadyFresh) commitCursor();
     const filterMemberOptions = createFilterOptions(
       page.calendar.members.map((member) => ({
         label: member.realName,
@@ -1581,6 +1621,7 @@ async function loadWorkbench(
       .then((adjacentResults) => {
         if (!isCurrentRequest(page, requestSerial) || adjacentResults.length === 0) return;
         if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
+        commitCursor();
         setCalendarData(page, createViewPatch(page));
       })
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
@@ -1831,6 +1872,105 @@ function announceToolNavigationFailure(page: WorkbenchPageInstance, message: str
   showToast?.({ icon: 'none', title: message });
 }
 
+interface CalendarWindowPlan {
+  /** Cached months the server still considers current. */
+  readonly freshMonths: ReadonlySet<string>;
+  /** Holiday year → server version, so a republished calendar busts the cache. */
+  readonly holidayVersions: ReadonlyMap<number, number>;
+  /** Set when the incremental endpoint answered; false falls back to today's reads. */
+  readonly available: boolean;
+  readonly cursor: { readonly lastSeq: number; readonly revision: number } | undefined;
+}
+
+const UNAVAILABLE_CALENDAR_WINDOW_PLAN: CalendarWindowPlan = {
+  available: false,
+  cursor: undefined,
+  freshMonths: new Set<string>(),
+  holidayVersions: new Map<number, number>(),
+};
+
+/**
+ * Paints the window from the persisted cache before any network round trip.
+ *
+ * This is what makes a cold start or a foreground return feel instant: the
+ * cached months are already on screen while the incremental validation (and any
+ * real refresh) happens behind them.
+ */
+function applyCachedMonthWindow(
+  page: WorkbenchPageInstance,
+  ownerId: string,
+  groupId: string,
+  requestedMonths: readonly string[],
+): boolean {
+  if (page.data.currentGroupRoleKind === 'guest' || groupId === '') return false;
+  const context = calendarContext(page);
+  const cached: MonthReadResult[] = [];
+  for (const businessMonth of requestedMonths) {
+    const entry = readWorkbenchCache(ownerId, groupId, businessMonth, Date.now(), {
+      ignoreAge: true,
+    });
+    if (entry !== undefined) {
+      cached.push({ ...entry, context, offline: false, prerendered: true });
+    }
+  }
+  if (cached.length === 0) return false;
+  if (!applyMonthWindow(page, cached, requestedMonths)) return false;
+  applyChangedViewPatch(page, { ...createViewPatch(page), state: 'ready' });
+  return true;
+}
+
+/**
+ * Asks the server ledger which cached months are still current.
+ *
+ * The endpoint is optional by contract: any failure (404 from an older API
+ * deployment, offline, capability gate) returns the unavailable plan and every
+ * caller falls back to the previous TTL/window behaviour.
+ */
+async function planCalendarWindow(
+  page: WorkbenchPageInstance,
+  ownerId: string,
+  groupId: string,
+  requestedMonths: readonly string[],
+  requestSerial: number,
+): Promise<CalendarWindowPlan> {
+  const stored = readWorkbenchCalendarCursor(ownerId, groupId);
+  const cachedMonths = new Set(
+    requestedMonths.filter(
+      (businessMonth) =>
+        readWorkbenchCache(ownerId, groupId, businessMonth, Date.now(), { ignoreAge: true }) !==
+        undefined,
+    ),
+  );
+  let changes: CalendarChangesReadModel;
+  try {
+    changes = await client.getCalendarChanges(groupId, stored?.lastSeq ?? 0);
+  } catch {
+    return UNAVAILABLE_CALENDAR_WINDOW_PLAN;
+  }
+  if (!isCurrentRequest(page, requestSerial)) return UNAVAILABLE_CALENDAR_WINDOW_PLAN;
+
+  const requested = new Set(requestedMonths);
+  const stale = new Set<string>();
+  const affectsEveryMonth =
+    changes.resync || changes.changes.some((change) => change.businessMonth === undefined);
+  if (affectsEveryMonth) {
+    for (const businessMonth of requestedMonths) stale.add(businessMonth);
+  } else {
+    for (const change of changes.changes) {
+      const businessMonth = change.businessMonth;
+      if (businessMonth !== undefined && requested.has(businessMonth)) stale.add(businessMonth);
+    }
+  }
+
+  const freshMonths = new Set([...cachedMonths].filter((month) => !stale.has(month)));
+  return {
+    available: true,
+    cursor: { lastSeq: changes.revision, revision: changes.revision },
+    freshMonths,
+    holidayVersions: new Map(changes.holidayVersions.map((entry) => [entry.year, entry.version])),
+  };
+}
+
 async function readMonth(
   page: WorkbenchPageInstance,
   ownerId: string,
@@ -1838,7 +1978,7 @@ async function readMonth(
   businessMonth: string,
   requestSerial: number,
   readHolidays: HolidayReader,
-  options: { readonly forceRefresh: boolean },
+  options: { readonly forceRefresh: boolean; readonly preferCache?: boolean },
 ): Promise<MonthReadResult> {
   if (!isCurrentRequest(page, requestSerial)) throw new Error('Stale calendar read');
   const guest = page.data.currentGroupRoleKind === 'guest';
@@ -1847,10 +1987,24 @@ async function readMonth(
   if (
     !guest &&
     !options.forceRefresh &&
+    // A first-paint copy from storage is not evidence: it must survive the
+    // server's own verdict before it can be reused without a read.
+    !(existing?.prerendered === true && options.preferCache !== true) &&
     existing?.offline === false &&
     existing.context === context
   )
     return rememberMonthRead(page, businessMonth, existing);
+
+  // Incremental validation already proved this month is unchanged, so the
+  // persisted copy is authoritative even if it is older than the offline TTL.
+  if (!guest && !options.forceRefresh && options.preferCache === true) {
+    const persisted = readWorkbenchCache(ownerId, groupId, businessMonth, Date.now(), {
+      ignoreAge: true,
+    });
+    if (persisted !== undefined) {
+      return rememberMonthRead(page, businessMonth, { ...persisted, context, offline: false });
+    }
+  }
 
   const [calendarResult, holidayResult] = await Promise.allSettled([
     guest
@@ -2418,7 +2572,10 @@ function getRequestedMonths(
 function createHolidayReader(
   page: WorkbenchPageInstance,
   requestedMonths: readonly string[],
-  options: { readonly forceRefresh: boolean } = { forceRefresh: false },
+  options: {
+    readonly forceRefresh: boolean;
+    readonly versions?: ReadonlyMap<number, number> | undefined;
+  } = { forceRefresh: false },
 ): HolidayReader {
   const requestsByYear = new Map<number, Promise<HolidayReadModel> | undefined>(
     [...new Set(requestedMonths.map((businessMonth) => Number(businessMonth.slice(0, 4))))].map(
@@ -2429,7 +2586,10 @@ function createHolidayReader(
     const existing = requestsByYear.get(year) ?? page.holidayReads.get(year);
     if (existing !== undefined) return existing;
     if (!options.forceRefresh) {
-      const persisted = readPersistentHolidays(year);
+      const expectedVersion = options.versions?.get(year);
+      const persisted = readPersistentHolidays(year, Date.now(), {
+        ...(expectedVersion === undefined ? {} : { expectedVersion }),
+      });
       if (persisted !== undefined) {
         const resolved = Promise.resolve(persisted);
         requestsByYear.set(year, resolved);
@@ -2438,7 +2598,7 @@ function createHolidayReader(
       }
     }
     const request = client.getHolidays(year).then((holidays) => {
-      writePersistentHolidays(year, holidays);
+      writePersistentHolidays(year, holidays, Date.now(), options.versions?.get(year));
       return holidays;
     });
     requestsByYear.set(year, request);

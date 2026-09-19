@@ -35,7 +35,6 @@ import {
 } from '../../platform/guest-public-cache.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
 import {
-  cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
   isCalendarPeriodSlot,

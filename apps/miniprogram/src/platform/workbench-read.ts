@@ -1,4 +1,5 @@
 import type {
+  CalendarChangesReadModel,
   CalendarReadModel,
   GroupRole,
   GroupSummary,
@@ -23,6 +24,7 @@ import {
   clearLegacyWorkbenchStorage,
   clearPrivateBusinessStorageForGroup,
   readStorageKeys,
+  WORKBENCH_CALENDAR_CURSOR_PREFIX,
   WORKBENCH_CACHE_V2_PREFIX,
   WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX,
   WORKBENCH_GROUP_STORAGE_KEY,
@@ -62,6 +64,10 @@ function sanitizeCalendarForCache(calendar: CalendarReadModel): CalendarReadMode
 }
 
 export function createWorkbenchReadClient(): {
+  readonly getCalendarChanges: (
+    groupId: string,
+    since: number,
+  ) => Promise<CalendarChangesReadModel>;
   readonly getCalendar: (groupId: string, businessMonth: string) => Promise<CalendarReadModel>;
   readonly getGroupGuestCalendar: (
     groupId: string,
@@ -78,6 +84,7 @@ export function createWorkbenchReadClient(): {
     authentication,
   );
   return {
+    getCalendarChanges: (groupId, since) => calendarClient.getCalendarChanges(groupId, since),
     getCalendar: (groupId, businessMonth) => calendarClient.getCalendar(groupId, businessMonth),
     getGroupGuestCalendar: async (groupId, businessMonth) => {
       const result = await calendarClient.getGroupGuestCalendar(groupId, businessMonth);
@@ -126,11 +133,13 @@ export const WORKBENCH_HOLIDAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 interface StoredHolidayEntry {
   readonly savedAt: number;
   readonly holidays: HolidayReadModel;
+  readonly version?: number;
 }
 
 export function readPersistentHolidays(
   year: number,
   now = Date.now(),
+  options: { readonly expectedVersion?: number } = {},
 ): HolidayReadModel | undefined {
   const value = readStorage(WORKBENCH_HOLIDAY_CACHE_KEY);
   if (!isRecord(value)) return undefined;
@@ -138,12 +147,20 @@ export function readPersistentHolidays(
   if (!isRecord(entry)) return undefined;
   const savedAt = entry.savedAt;
   const holidays = entry.holidays;
+  const version = entry.version;
   if (
     typeof savedAt !== 'number' ||
     !Number.isFinite(savedAt) ||
     savedAt > now ||
     now - savedAt >= WORKBENCH_HOLIDAY_CACHE_TTL_MS ||
     !isRecord(holidays)
+  )
+    return undefined;
+  // A published revision invalidates the cached copy immediately; the 24h TTL
+  // below only bounds how long a version-less copy may be trusted.
+  if (
+    options.expectedVersion !== undefined &&
+    (typeof version !== 'number' || version !== options.expectedVersion)
   )
     return undefined;
   return holidays as unknown as HolidayReadModel;
@@ -153,10 +170,15 @@ export function writePersistentHolidays(
   year: number,
   holidays: HolidayReadModel,
   now = Date.now(),
+  version?: number,
 ): void {
   const value = readStorage(WORKBENCH_HOLIDAY_CACHE_KEY);
   const stored = isRecord(value) ? { ...(value as Record<string, unknown>) } : {};
-  stored[String(year)] = { holidays, savedAt: now } satisfies StoredHolidayEntry;
+  stored[String(year)] = {
+    holidays,
+    savedAt: now,
+    ...(version === undefined ? {} : { version }),
+  } satisfies StoredHolidayEntry;
   writeStorage(WORKBENCH_HOLIDAY_CACHE_KEY, stored);
 }
 
@@ -165,6 +187,7 @@ export function readWorkbenchCache(
   groupId: string,
   businessMonth: string,
   now = Date.now(),
+  options: { readonly ignoreAge?: boolean } = {},
 ): WorkbenchCacheEntry | undefined {
   clearLegacyWorkbenchStorage();
   const key = getWorkbenchCacheKey(ownerId, groupId, businessMonth);
@@ -180,7 +203,7 @@ export function readWorkbenchCache(
     typeof savedAt !== 'number' ||
     !Number.isFinite(savedAt) ||
     savedAt > now ||
-    now - savedAt >= WORKBENCH_CACHE_TTL_MS ||
+    (options.ignoreAge !== true && now - savedAt >= WORKBENCH_CACHE_TTL_MS) ||
     !isRecord(calendar) ||
     !isRecord(holidays)
   ) {
@@ -203,6 +226,73 @@ export function readWorkbenchCache(
     holidays: decodedHolidays.data,
     savedAt,
   };
+}
+
+/**
+ * Validated calendar incremental cursor for one owner+group pair.
+ *
+ * `lastSeq` is the last server revision this device has already merged, so the
+ * next validation only has to ask for what happened after it.
+ */
+export interface WorkbenchCalendarCursor {
+  readonly lastSeq: number;
+  readonly revision: number;
+  readonly savedAt: number;
+}
+
+export function getWorkbenchCalendarCursorKey(ownerId: string, groupId: string): string {
+  return `${WORKBENCH_CALENDAR_CURSOR_PREFIX}${ownerId}:${groupId}`;
+}
+
+export function readWorkbenchCalendarCursor(
+  ownerId: string,
+  groupId: string,
+  now = Date.now(),
+): WorkbenchCalendarCursor | undefined {
+  const key = getWorkbenchCalendarCursorKey(ownerId, groupId);
+  const value = readStorage(key);
+  if (!isRecord(value)) {
+    if (value !== undefined) removeStorage(key);
+    return undefined;
+  }
+  const lastSeq = value.lastSeq;
+  const revision = value.revision;
+  const savedAt = value.savedAt;
+  if (
+    typeof lastSeq !== 'number' ||
+    !Number.isSafeInteger(lastSeq) ||
+    lastSeq < 0 ||
+    typeof revision !== 'number' ||
+    !Number.isSafeInteger(revision) ||
+    revision < 0 ||
+    typeof savedAt !== 'number' ||
+    !Number.isFinite(savedAt) ||
+    savedAt > now
+  ) {
+    removeStorage(key);
+    return undefined;
+  }
+  return { lastSeq, revision, savedAt };
+}
+
+export function writeWorkbenchCalendarCursor(
+  ownerId: string,
+  groupId: string,
+  cursor: { readonly lastSeq: number; readonly revision: number },
+  now = Date.now(),
+): void {
+  if (
+    !Number.isSafeInteger(cursor.lastSeq) ||
+    cursor.lastSeq < 0 ||
+    !Number.isSafeInteger(cursor.revision) ||
+    cursor.revision < 0
+  )
+    return;
+  writeStorage(getWorkbenchCalendarCursorKey(ownerId, groupId), {
+    lastSeq: cursor.lastSeq,
+    revision: cursor.revision,
+    savedAt: now,
+  } satisfies WorkbenchCalendarCursor);
 }
 
 export function writeWorkbenchCache(

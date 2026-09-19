@@ -95,4 +95,52 @@ export const guestGroupSummarySchema = z
   .strict();
 export type GuestGroupSummary = z.infer<typeof guestGroupSummarySchema>;
 
+export const calendarChangeKindSchema = z.enum(['schedule', 'event', 'config', 'member']);
+export type CalendarChangeKind = z.infer<typeof calendarChangeKindSchema>;
+
+/**
+ * One entry of the per-group calendar change ledger.
+ *
+ * A missing `businessMonth` means the write was not scoped to a single business
+ * month (configuration, membership or contact changes), so every cached month
+ * may be stale.
+ */
+export const calendarChangeEntrySchema = z
+  .object({
+    businessMonth: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/u)
+      .optional(),
+    changedAt: z.string(),
+    kind: calendarChangeKindSchema,
+    seq: z.number().int().nonnegative(),
+  })
+  .strict();
+export type CalendarChangeEntry = z.infer<typeof calendarChangeEntrySchema>;
+
+export const calendarHolidayVersionSchema = z
+  .object({
+    version: z.number().int().nonnegative(),
+    year: z.number().int(),
+  })
+  .strict();
+export type CalendarHolidayVersion = z.infer<typeof calendarHolidayVersionSchema>;
+
+/**
+ * Incremental calendar validation payload.
+ *
+ * The client keeps `revision` as its cursor. An empty `changes` array means the
+ * cached window is still current. `resync: true` asks the client to re-read the
+ * visible window because the delta cannot be expressed against its cursor.
+ */
+export const calendarChangesReadModelSchema = z
+  .object({
+    changes: z.readonly(z.array(calendarChangeEntrySchema)),
+    holidayVersions: z.readonly(z.array(calendarHolidayVersionSchema)),
+    resync: z.boolean(),
+    revision: z.number().int().nonnegative(),
+  })
+  .strict();
+export type CalendarChangesReadModel = z.infer<typeof calendarChangesReadModelSchema>;
+
 export const guestGroupSummaryListSchema = z.readonly(z.array(guestGroupSummarySchema));

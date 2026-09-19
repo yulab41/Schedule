@@ -23,7 +23,7 @@ export function createPanelRingPatch(
     const previous = previousPanels?.[slot];
     const nextChildren = readChildren(panel, childArrayKey);
     const previousChildren = previous === undefined ? [] : readChildren(previous, childArrayKey);
-    if (requiresWholeSlot(previous, panel, previousChildren, nextChildren, childArrayKey)) {
+    if (requiresWholeSlot(previous, panel, previousChildren, nextChildren)) {
       patch[`${prefix}[${slot}]`] = panel;
       return;
     }
@@ -50,7 +50,6 @@ function requiresWholeSlot(
   next: PanelRecord,
   previousChildren: readonly PanelRecord[],
   nextChildren: readonly PanelRecord[],
-  childArrayKey: 'cells' | 'days',
 ): boolean {
   if (previous === undefined) return true;
   if (previous.key !== next.key) return true;

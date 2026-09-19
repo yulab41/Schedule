@@ -144,12 +144,43 @@ export const groups = mysqlTable(
       .default('month')
       .notNull(),
     defaultMonthShiftTypeId: char('default_month_shift_type_id', { length: 36 }),
+    // Monotonic per-group counter for the calendar change ledger below. The
+    // value is opaque to clients; it only orders "everything after my cursor".
+    calendarRevision: bigint('calendar_revision', { mode: 'number', unsigned: true })
+      .default(0)
+      .notNull(),
     ...auditableColumns(),
   },
   (table) => [
     uniqueIndex('groups_group_code_unique').on(table.groupCode),
     uniqueIndex('groups_visitor_key_unique').on(table.visitorKey),
     index('groups_owner_user_id_idx').on(table.ownerUserId),
+  ],
+);
+
+/**
+ * Append-only per-group calendar change ledger.
+ *
+ * `seq` mirrors `groups.calendar_revision` at the moment of the write, so a
+ * client can ask for everything after the cursor it last saw. Rows are pruned
+ * to a bounded retention window; a cursor older than the retained window is
+ * answered with a resync instead of an incomplete delta.
+ */
+export const groupCalendarChanges = mysqlTable(
+  'group_calendar_changes',
+  {
+    id: identifier(),
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    seq: bigint('seq', { mode: 'number', unsigned: true }).notNull(),
+    businessMonth: char('business_month', { length: 7 }),
+    kind: mysqlEnum('kind', ['schedule', 'event', 'config', 'member']).notNull(),
+    changedAt: timestamp('changed_at', { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('group_calendar_changes_group_seq_unique').on(table.groupId, table.seq),
+    index('group_calendar_changes_group_changed_at_idx').on(table.groupId, table.changedAt),
   ],
 );
 

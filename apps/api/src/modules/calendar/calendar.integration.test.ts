@@ -1470,6 +1470,82 @@ describeWithDatabase('current month calendar read model', () => {
     expect(deniedWrite.statusCode).toBe(403);
   });
 
+  it('serves an incremental calendar cursor to members and refuses guests', async () => {
+    await savePublished('2026-08');
+    const cold = await readChanges('owner-token', 0);
+    expect(cold.statusCode, cold.body).toBe(200);
+    expect(cold.json().revision).toBeGreaterThan(0);
+    expect(cold.json().resync).toBe(true);
+    expect(Array.isArray(cold.json().holidayVersions)).toBe(true);
+
+    const current = await readChanges('owner-token', cold.json().revision as number);
+    expect(current.json()).toMatchObject({
+      changes: [],
+      resync: false,
+      revision: cold.json().revision,
+    });
+
+    expect((await readChanges('outsider-token', 0)).statusCode).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/groups/${groupId}/calendar-changes?since=0`,
+        })
+      ).statusCode,
+    ).toBe(401);
+  });
+
+  it('reports the affected business month when a schedule is published', async () => {
+    const before = await readChanges('owner-token', 0);
+    const published = await savePublished('2026-08');
+    expect(published.statusCode, published.body).toBe(200);
+    const after = await readChanges('owner-token', before.json().revision as number);
+    expect(after.json().revision).toBeGreaterThan(before.json().revision);
+    expect(after.json().resync).toBe(false);
+    expect(after.json().changes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ businessMonth: '2026-08' })]),
+    );
+  });
+
+  it('degrades to a resync when a calendar write never reached the ledger', async () => {
+    await savePublished('2026-08');
+    const settled = await readChanges('owner-token', 0);
+    const current = await readChanges('owner-token', settled.json().revision as number);
+    expect(current.json()).toMatchObject({ changes: [], resync: false });
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET planned_member_name='Synthetic bump miss' WHERE business_date='2026-08-08'`,
+    );
+    const diverged = await readChanges('owner-token', current.json().revision as number);
+    expect(diverged.json().resync).toBe(true);
+    expect(diverged.json().revision).toBeGreaterThan(current.json().revision);
+    // The divergence is absorbed, so the following validation settles again.
+    const repaired = await readChanges('owner-token', diverged.json().revision as number);
+    expect(repaired.json()).toMatchObject({ changes: [], resync: false });
+  });
+
+  it('asks for a resync when the cursor predates the retained ledger window', async () => {
+    await savePublished('2026-08');
+    await client.database.execute(
+      sql`UPDATE group_calendar_changes SET changed_at=TIMESTAMPADD(DAY, -120, CURRENT_TIMESTAMP(3))`,
+    );
+    const published = await savePublished('2026-09');
+    expect(published.statusCode, published.body).toBe(200);
+    const [retained] = await client.database.execute(
+      sql`SELECT MIN(seq) AS minSeq FROM group_calendar_changes WHERE group_id=${groupId}`,
+    );
+    expect(Number((retained as unknown as { minSeq: number }[])[0]?.minSeq)).toBeGreaterThan(2);
+    expect((await readChanges('owner-token', 1)).json().resync).toBe(true);
+  });
+
+  function readChanges(token: string, since: number) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/calendar-changes?since=${since}`,
+    });
+  }
+
   async function readCalendar(token: string, businessMonth: string | undefined) {
     const query =
       businessMonth === undefined ? '' : `?businessMonth=${encodeURIComponent(businessMonth)}`;
@@ -1590,6 +1666,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS swap_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_visitor_qr_assets`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS group_calendar_changes`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_visitor_links`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_memberships`);
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);

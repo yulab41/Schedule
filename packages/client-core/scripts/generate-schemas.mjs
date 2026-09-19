@@ -11,6 +11,7 @@ import {
   apiErrorCodes,
   approvedLeaveRequestResultSchema,
   appliedManualScheduleTemplateResultSchema,
+  calendarChangesReadModelSchema,
   calendarReadModelSchema,
   guestCalendarReadModelSchema,
   visitorResolveResponseSchema,
@@ -134,6 +135,10 @@ const source = await format(
       calendarReadModel: sanitizeJsonSchema(
         z.toJSONSchema(calendarReadModelSchema),
         'calendarReadModel',
+      ),
+      calendarChangesReadModel: sanitizeJsonSchema(
+        z.toJSONSchema(calendarChangesReadModelSchema),
+        'calendarChangesReadModel',
       ),
       clientCapabilityResponse: sanitizeJsonSchema(
         z.toJSONSchema(clientCapabilityResponseSchema),

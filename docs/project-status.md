@@ -12,12 +12,17 @@
 - 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
 - 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
-## 当前批次：月历快速滑动修复与读缓存优化（体验版 .173 → .177）
+## 当前批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
 
-- 用户反馈与修复链路：①月历快速左滑内容回退（`9045dc02`+`4e5cb461` 引入，锚点与原生索引分离）→ 修复并交付`.173`；②`.173`误用 main 内容丢失运行线 199 文件 → 重建候选并把修复移植到该线，交付`.174`；③150ms 快速滑动 5 次只前进 1 个月（提交门禁按模 3 单格差、丢弃中间 finish）→ 改为按 change 事件累计有符号步数 + settle 一次性 adopt，交付`.175`；④下发性能四条（可见视图裁剪、面板环路径级 patch、月格字段精简、预取 ±2→±3）→ 单次换月 **3 次/约313KB → 1 次/16KB**，交付`.176`；⑤预取窗口重复读取与节假日重复请求 → 页面级有界月份缓存 + 会话内/持久化(TTL 24h)节假日缓存，实测同一往返 **返回段 0 请求、holidays 0 次**，交付`.177`。
-- 缓存策略结论（用户第二问）：节假日适合常驻（配 TTL/版本）；**已过排班**同样适合常驻（`past-schedule-limits` 已限制历史编辑，只有补录/换班/后台导入会改），但服务端 `groups.version` **不覆盖**手工排班/补录/排班周期修改，不能当失效信号；C 步（已过排班常驻缓存）需先为排班读接口增加轻量 `calendarRevision`（如该群 assignment 最大 `updated_at`），再由客户端按版本静默校验。
-- 状态：全部批次已合入 `main`（`44b98811` 为最新候选）；`.177` 已上传并放行（`verify`、公网探针 `.177/.176`=200、未知=426、完整 `ecs-verify.sh`，release `44034fcc` 未变）。未部署生产应用、未备份生产库、未提审/正式发布；`.173` 仍待用户批准退役。Mini 1210 项、`tsc`、production verify 通过；UI/交互/视觉按用户要求保持不变。
-- 唯一下一任务/停止条件：用户在小米14打开体验版`0.1.0-p10.20260919.177`，确认快速滑动=按月数前进、换月内容出现更快、跨会话首次进入更快；继续 C 步前需先批准为排班读接口增加 `calendarRevision`。未取得与 `44b98811` 一致的真机结论前，不得写“小米14验收通过”。详见 `docs/debug/debug-feedback-log.md` 2026-09-19 各条。
+- 用户批准的方案：服务端**群级变更日志 + 单调 `calendar_revision` 游标**，客户端按 `(owner, group)` 持久化"日历快照 + lastSeq"，切月/切周永不等待网络；增量只重取受影响月份。上一批（`.173`–`.177` 快速滑动与读缓存）已合入 `main`，本轮在其之上继续。
+- 契约决定（重要偏差）：`calendarReadModelSchema` / `holidayReadModelSchema` 是 `.strict()`，生成解码器为 `additionalProperties:false`；给**已发布**的 `/groups/:id/calendar`、`/holidays` 直接加 `revision` / `version` 会让 `.177` 及更早的体验版与线上 Web 解码失败。故本轮**不改动任何既有响应形状**，改由新端点 `GET /api/groups/:groupId/calendar-changes?since=<seq>` 返回 `{revision, resync, changes[], holidayVersions[]}`；节假日版本也随该响应下发，避免二级通道。
+- 服务端：`0062_group_calendar_changes` 迁移（`groups.calendar_revision` + `group_calendar_changes(id, group_id, seq, business_month, kind, changed_at)`，唯一键 `(group_id, seq)`、级联外键、`(group_id, changed_at)` 索引，含 `rollback/`）。`EventWriter.append` 是排班/补录/换班/休假替班/加班/手排的**共同事务汇点**，在此统一记录变更并解析 `businessMonth`；排班配置（班种/岗位）与成员/联系方式/账号手机号走 `runOrganizationMutation` 的 `calendarChange` 声明或显式调用。保留窗口每群最近 500 条或 90 天。
+- 兜底（防漏 bump）：读取时用一条 join 聚合比较"排班/班次/事件/班种/岗位/成员/联系方式的 `max(updated_at/deleted_at)`"与"最新变更 `changed_at`"；一旦发现未入账的写入，服务端**当场补记一条 config 变更并返回 `resync:true`**，把"永久陈旧"收敛为"一次整窗重读"。这也是本轮未逐个调用点插桩仍能保证正确性的原因。
+- Mini 端：`workbench-read` 复用既有存储边界新增游标 `schedule.wechat.workbench.calendar-cursor.v1:<owner>:<group>`（读/写/校验、账号或退群整体清除）；月份缓存沿用既有 `...cache.v2` 条目但新增"忽略 24h TTL"的读取模式。进入页面先用本地群 ID 同步铺缓存帧（`prerendered` 标记），再发**一次** `calendar-changes`：空增量 → 立刻结束；有增量 → 只重取受影响月份（`resync`/`businessMonth` 缺省 → 可见窗口 ±3）；游标只在所有需要重读的月份都成功后才前进。节假日按 `(year, version)` 校验，版本前进才重取，仍保留 24h TTL 兜底。端点 404/离线/降级时完全回落到今天的行为。
+- 明确不做：不做本地写入失效标记。写操作成功后清缓存会让游标归零并触发**整窗 ±3 重读**，比服务端日志驱动的单月增量更慢；服务端 `seq` 严格单调，回到前台必有该变更。
+- 顺手修复的阻塞：`main` 上 `pnpm lint` 因 `44b98811`/`9ac4a301` 遗留的 4 处未使用导入（`cancelCalendarPeriodShift`×3、`childArrayKey`）而**长期为红**，本轮一并移除，使 `pnpm verify` 的 lint 段恢复绿色。
+- 验证：Mini production verify 通过（主包 1695589 / 总包 4593769 字节）；新增 Mini 增量用例 5/5、API 游标判定 5/5、schema/发布门禁 49/49 通过；根 `vitest` 1279 通过 / 448 跳过（MySQL 集成在本槽无测试库，全部跳过且**不计通过**）；`format:check`、`lint`、`pnpm build`（含 Web）通过。已如实记录两处未验证项：`packages/ui-icons/src/catalog.test.ts` 因本槽 `apps/web/node_modules/tdesign-icons-vue-next` 未链接而失败（环境缺链，非本轮改动，未安装依赖）；MySQL 集成用例（含本轮新增 4 条）本轮跳过。
+- 下一任务：合入并推送 `main` 后，按 L4 备份生产库 → 应用 `0062` 迁移 → 部署 API/Web → 完整 `ecs-verify.sh` 与公网探针；随后上传放行体验版并做"后台改一条历史排班 → 客户端静默更新"的端到端验证。小米 14 原生验收仍由用户执行。
 
 - 更早批次（Feedback19 及以前，以及 Feedback20–26 细节）见 Git 历史与 `docs/audit/` 对应文档；本文件只保留策略变更、当前月历批次与近期交付指针。
 
