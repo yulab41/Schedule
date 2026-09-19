@@ -176,6 +176,33 @@ describe('MINI calendar incremental sync', () => {
     expect(findMonthCell(instance, '2026-10-01')).toMatchObject({ isHoliday: true });
     expect(storage.get(HOLIDAY_KEY)['2026']).toMatchObject({ version: 2 });
   });
+
+  it('bounds the persisted month cache so it cannot grow without limit', async () => {
+    const storage = createStorage();
+    vi.stubGlobal('wx', createWx(storage, vi.fn()));
+    const platform = await import('../src/platform/workbench-read.ts');
+    const holidays = holidayYear(2026, []);
+    const months = [];
+    for (let offset = 0; offset < 26; offset += 1) {
+      const month = monthAt(offset);
+      months.push(month);
+      platform.writeWorkbenchCache(
+        OWNER_ID,
+        GROUP_ID,
+        month,
+        calendar(month),
+        holidays,
+        Date.now() + offset,
+      );
+    }
+
+    const cached = [...storage.keys()].filter((key) => key.startsWith(MONTH_PREFIX));
+    expect(cached).toHaveLength(platform.WORKBENCH_MONTH_CACHE_LIMIT);
+    // The two oldest months fall off; the newest ones stay.
+    expect(storage.has(`${MONTH_PREFIX}${months[0]}`)).toBe(false);
+    expect(storage.has(`${MONTH_PREFIX}${months[1]}`)).toBe(false);
+    expect(storage.has(`${MONTH_PREFIX}${months.at(-1)}`)).toBe(true);
+  });
 });
 
 async function startWorkbench(request, storage) {
@@ -332,4 +359,10 @@ function readBusinessMonths(urls) {
     const businessMonth = readBusinessMonth(url);
     return businessMonth === undefined ? [] : [businessMonth];
   });
+}
+
+function monthAt(offset) {
+  const year = 2026 + Math.floor(offset / 12);
+  const month = (offset % 12) + 1;
+  return `${year}-${String(month).padStart(2, '0')}`;
 }

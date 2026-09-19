@@ -310,6 +310,44 @@ export function writeWorkbenchCache(
     holidays,
     savedAt: now,
   } satisfies WorkbenchCacheEntry);
+  pruneWorkbenchMonthCache(ownerId, groupId);
+}
+
+/**
+ * How many months of one owner+group stay on the device.
+ *
+ * A cached month only stays trustworthy while the incremental cursor keeps
+ * confirming it, so the cache would otherwise grow forever. Keeping two years
+ * covers every realistic "scroll back to check last year" trip while bounding
+ * both storage use and the work of validating a group.
+ */
+export const WORKBENCH_MONTH_CACHE_LIMIT = 24;
+
+/**
+ * Drops the oldest cached months for one owner+group beyond the limit.
+ *
+ * Recency is the last successful write, which for this read pattern is the same
+ * as the last time the month was fetched. Served-from-cache reads deliberately
+ * do not refresh the timestamp: touching seven keys on every foreground return
+ * would cost more than the eviction it would prevent.
+ */
+export function pruneWorkbenchMonthCache(ownerId: string, groupId: string): void {
+  const prefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:`;
+  const entries: { key: string; savedAt: number }[] = [];
+  for (const key of readStorageKeys()) {
+    if (!key.startsWith(prefix)) continue;
+    const value = readStorage(key);
+    const savedAt =
+      isRecord(value) && typeof value.savedAt === 'number' && Number.isFinite(value.savedAt)
+        ? value.savedAt
+        : 0;
+    entries.push({ key, savedAt });
+  }
+  if (entries.length <= WORKBENCH_MONTH_CACHE_LIMIT) return;
+  entries.sort(
+    (first, second) => second.savedAt - first.savedAt || first.key.localeCompare(second.key),
+  );
+  for (const entry of entries.slice(WORKBENCH_MONTH_CACHE_LIMIT)) removeStorage(entry.key);
 }
 
 export function writeWorkbenchGroupSnapshot(
