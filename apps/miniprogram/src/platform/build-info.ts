@@ -10,9 +10,6 @@ const buildTime =
   typeof __MINIPROGRAM_BUILD_TIME__ === 'string' ? __MINIPROGRAM_BUILD_TIME__ : '未提供';
 const buildProfile =
   typeof __MINIPROGRAM_BUILD_PROFILE__ === 'string' ? __MINIPROGRAM_BUILD_PROFILE__ : 'production';
-const requestedRenderer =
-  typeof __MINIPROGRAM_RENDERER__ === 'string' ? __MINIPROGRAM_RENDERER__ : 'skyline';
-
 export const buildInfo = Object.freeze({
   apiEnvironment: buildProfile,
   buildCommit,
@@ -26,7 +23,7 @@ export const buildInfo = Object.freeze({
   cloudEnvironment: '未使用 CloudBase',
   npmBuildArtifact: '未使用独立小程序 npm 构建产物',
   primaryWorkspaceSwipeEnabled: false,
-  // Report what the shipped app actually asks the platform for: the diagnostics are
-  // used to judge real-device rendering, so a stale hard-coded value misleads.
-  renderer: requestedRenderer === 'webview' ? 'WebView（应用请求）' : 'Skyline（应用请求）',
+  // The app requests WebView and the build gate enforces it (ADR-0007), so the label is
+  // the shipped fact rather than a build-time switch.
+  renderer: 'WebView（应用请求）',
 });

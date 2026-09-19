@@ -87,3 +87,7 @@
   ui-selector options、group-settings-panel ×2、directory-panel ×2）。它是 Skyline 侧的性能提示属性，在 WebView 下被忽略；
   当前 WebView 构建（`.167`–`.170`）的滚动行为都是在带该属性的情况下验收通过的，删除它属于跨 8 个调用点的滚动行为改动，
   必须重新做一轮多页面滚动视觉复核，收益为零。因此本轮不动；若将来要清理，按"一次改动 + 一轮滚动复核 + 一次上传"独立成批。
+- **把渲染器决定变成门禁**：`build-tools.mjs` 不再注入 `__MINIPROGRAM_RENDERER__`、也不再接受 `skyline`；
+  `src/app.json` 的 `renderer` 必须是 `webview`（ADR-0007），否则构建失败；`build-info.ts` 直接报告
+  `WebView（应用请求）`，`build-env.d.ts` 删除对应全局声明。此前"两种值都接受 + 读不到就默认 skyline"的写法
+  是本仓库最后一处 Skyline 默认值，现在不存在了。

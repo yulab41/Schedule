@@ -5,9 +5,6 @@ declare const __MINIPROGRAM_BUILD_DIRTY__: boolean;
 declare const __MINIPROGRAM_BUILD_PROFILE__: 'staging' | 'production';
 declare const __MINIPROGRAM_BUILD_TIME__: string;
 declare const __MINIPROGRAM_BUILD_VERSION__: string;
-/** Requested renderer from `src/app.json`: 'webview' | 'skyline'. */
-declare const __MINIPROGRAM_RENDERER__: string;
-
 declare function App<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function Component<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function getApp<TApp = Record<string, unknown>>(): TApp;

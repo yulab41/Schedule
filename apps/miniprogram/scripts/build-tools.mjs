@@ -226,23 +226,6 @@ export function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
-/**
- * The renderer the shipped app requests (`src/app.json`), injected into the bundle so
- * the Skyline compatibility surface stays off whenever the build asks for WebView.
- * Falls back to `skyline` when the config cannot be read, which keeps the historical
- * behaviour for scripts that build without a full project tree.
- */
-export function readRequestedRenderer(sourceRoot = SOURCE_ROOT) {
-  try {
-    const config = readJson(path.join(sourceRoot, 'app.json'));
-    return typeof config.renderer === 'string' && config.renderer.length > 0
-      ? config.renderer
-      : 'skyline';
-  } catch {
-    return 'skyline';
-  }
-}
-
 function isInside(rootDirectory, candidatePath) {
   const relative = path.relative(rootDirectory, candidatePath);
   return (
@@ -422,9 +405,6 @@ export async function buildMiniProgram({
       __MINIPROGRAM_BUILD_PROFILE__: JSON.stringify(resolvedProfile),
       __MINIPROGRAM_BUILD_TIME__: JSON.stringify(buildTime),
       __MINIPROGRAM_BUILD_VERSION__: JSON.stringify(buildVersion),
-      // The renderer the shipped app requests: the Skyline compatibility surface must
-      // not run when the build asks for WebView.
-      __MINIPROGRAM_RENDERER__: JSON.stringify(readRequestedRenderer()),
     },
     entryNames: '[dir]/[name]',
     entryPoints,
@@ -769,10 +749,11 @@ export function auditSourceTree() {
   if (appJson !== undefined) {
     // The renderer is a product decision recorded in
     // apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md: the app requests WebView so
-    // every user gets the same layout engine. Either value is accepted so a future
-    // experiment can flip the config, but it must be one of the two.
-    if (appJson.renderer !== 'webview' && appJson.renderer !== 'skyline') {
-      issues.push('src/app.json renderer must be webview or skyline');
+    // every user gets the same layout engine. The gate enforces that decision instead of
+    // merely permitting it; a different renderer needs a new ADR and a rerun of the
+    // renderer-specific acceptance evidence.
+    if (appJson.renderer !== 'webview') {
+      issues.push('src/app.json renderer must be webview (ADR-0007)');
     }
     if (appJson.componentFramework !== 'glass-easel') {
       issues.push('src/app.json componentFramework must be glass-easel');
