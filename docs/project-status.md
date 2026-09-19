@@ -22,7 +22,10 @@
 - 本批为 Mini-only：不触发生产部署、生产备份或 release-metadata 同步。检查点：`e149c9fd`（修复）与 `263ee95f`（刷新 `.5285dd17` 血缘证明中 `pages/workbench/index.ts` 的 blob 并记录等价证据）。
 - 首次上传被血缘门禁阻塞（`.172`及`.130`起体验版都不在 main 血统上）。用户确认并行`runtime-3172`线已下令撤回并选择方案 B：main 执行`git merge --no-ff -s ours 44a25885`（`48102b9a`），内容保持 main、`.172`成为祖先；合并前后本批 11 个文件 blob mismatch=0，滑动修复未被抹掉。
 - 已上传并放行：候选`48102b9a`、general-5 upload 用途 lease、checker `PASS`，动态分配`0.1.0-p10.20260919.173`（description `calendar swipe fix 48102b9`、production、Manifest `5a31d053…46522`、远端tag同一SHA、receipt 在 ignored 目录）；L4 放行按运维笔记物理路线校验后执行可信`ensure`（只增不删、API/Web 重建、预热502后恢复）并通过`verify`、公网探针`.173/.172`=200、未知=426、`ECS_PUBLIC_IP`完整`ecs-verify.sh`（release `44034fcc` 未变）。未部署生产应用、未备份生产库、未提审/正式发布；general-5 已释放。
-- 唯一下一任务/停止条件：用户在小米14打开体验版`0.1.0-p10.20260919.173`，月视图连续快速左滑确认月份单调向前、内容不回退、无旧月份闪现；未取得与`48102b9a`一致的真机结论前，不得写“小米14验收通过”。详情见`docs/debug/debug-feedback-log.md`2026-09-19第三条。
+- `.173`复查为**错误交付**：其内容与`.172`差199个文件（用了 main 内容，丢了`runtime-3172`运行线），而生产 live release`44034fcc`属于那条线，故客户端与服务器 API 不匹配。已按“`.172`内容 + 滑动修复”重建候选`697795eb`（`read-tree`切到`44a25885`后移植修复：pager/月组件/日期选择器 + 该线独有的周历环形 pager 同步 adopt；刷新该线血缘证明blob），`tsc`、Mini 1205项、production verify通过，分支已推送`codex/schedule-65704-00e7c79fd459`。
+- 已重发并放行体验版`0.1.0-p10.20260919.174`（description`swipe fix on 172 line 697795e`、Manifest`80967ffa…3d251`、233 code files、远端tag同一SHA、receipt在ignored目录）；`ensure .174`+`verify`+公网探针`.174/.173/.172`=200、未知=426+完整`ecs-verify.sh`（release`44034fcc`未变）全部通过。未部署生产应用、未备份生产库、未提审/正式发布；`.173`仍被放行，退役需另行批准。
+- 遗留决策：候选内容目前只在`codex/*`分支与`.174`tag上，尚未并入 main；是否把这条199文件内容线正式落到 main，等用户决定。general-5 已释放。
+- 唯一下一任务/停止条件：用户在小米14打开体验版`0.1.0-p10.20260919.174`，确认内容与`.172`一致、月视图/周视图连续快速滑动月份单调向前不回退；未取得与`697795eb`一致的真机结论前，不得写“小米14验收通过”。详情见`docs/debug/debug-feedback-log.md`2026-09-19第四条。
 
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
