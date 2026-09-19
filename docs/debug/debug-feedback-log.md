@@ -2959,3 +2959,15 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 交付：候选 `17b63aa21dd0622452ad2c3e90dfa14f8085f4e1`（含血缘证明 blob 刷新）已推送 `main`；体验版 `0.1.0-p10.20260919.175`（description `rapid swipe + refresh fix 17b63aa`、production、Manifest `680384e6dc821dacb8ee015ad19e90bae44d4da55f76d23d2fe7d6e6e0ac0131`、233 code files、ZIP 2,610,280B、远端 tag 同一 SHA、receipt 在 ignored 目录）。放行按运维笔记物理路线校验后 `ensure .175` 通过，`verify`、公网探针 `.175/.174`=200、未知=426、完整 `ecs-verify.sh`（release `44034fcc` 未变）全部通过。
 - 运维提示（本轮实测）：开发者工具会缓存编译产物，重建 `dist` 后必须 `debug_clear_cache --action cleanCompileCache` 再刷新，否则模拟器仍在跑旧代码。
 - 唯一下一任务/停止条件：用户在小米 14 打开体验版 `0.1.0-p10.20260919.175`，确认（1）150ms 连续快速左滑 5–6 次应前进 5–6 个月；（2）月/周视图内容不回退、无旧月份闪现；（3）换月时排班内容出现更快、不再先空一下；未取得与 `17b63aa2` 一致的真机结论前，不得写“小米 14 验收通过”。
+
+## 2026-09-19 换月下发性能四条优化（`.176`）
+
+- 用户要求四条一起做，原则是 UI/交互/视觉不变、只提升体验、避免堆砌。基线测量（月视图 112 格）：一次换月触发 3 次页面 patch ≈ 104KB/143ms + 104KB/98ms + 104KB/88ms（约 313KB、约 330ms 视图工作），其中 `monthPanels` 41KB、`listPanels` 43KB、`weekPanels` 20KB，且环形面板 41KB 里约 24KB 只是字段名。
+- ① 可见视图裁剪：`createViewPatch` 新增视图作用域，只生成当前分支的面板（切视图时按目标分支重建，用户可见行为不变）。
+- ② 面板环增量：新增 `features/workbench/panel-patch.ts`，把三个面板环展开成路径级 patch——环旋转时只重发旋转到的槽位，刷新时只重发内容变化的格子。
+- ③ 精简每格字段：月格不再下发 `day`/`isWeekend`，改由 `calendar-cell` 从 `businessDate` 推导（渲染与 aria 结构不变）。`ariaLabel` 曾评估可推导，但会改变无障碍文本（完整节日名→两字），按“不可有可见/交互变化”原则保留。
+- ④ 预取窗口：月视图从 ±2 月扩到 ±3 月，且仍走后台读取，首屏不受影响。
+- 效果（同一环境同一换月）：**3 次 patch/约313KB → 1 次 patch/16KB（-95%）**，第二次/第三次刷新因内容未变化被整包跳过；同一 5 次快速滑动仿真（150ms 间隔）仍为 +5 个月（10 月→2027-02），环锚点与原生索引一致。
+- 回归：完整 Mini 174 文件/1209 项通过（16 跳过，含更新的“隐藏分支数据在切视图后重建”用例）、`tsc`、Mini production verify 通过（包体 4567118、manifest `32248585…`）；颜色/尺寸/交互未改。运维提示：开发者工具编译缓存需 `debug_clear_cache --action cleanCompileCache` 才会加载新构建。
+- 交付：候选 `9ac4a30191cad316a78621c8fac2304016a24cbc` 已推送 `main`；体验版 `0.1.0-p10.20260919.176`（description `calendar patch perf 9ac4a30`、production、Manifest `064658e3f58d9009261d3978aa1c7584710a77277061252b6a1043c86996ca59`、234 code files、ZIP 2,611,760B、远端 tag 同一 SHA、receipt 在 ignored 目录）。放行 `ensure .176`、`verify`、公网探针 `.176/.175`=200、未知=426、完整 `ecs-verify.sh`（release `44034fcc` 未变）全部通过。
+- 唯一下一任务/停止条件：用户在小米 14 打开体验版 `0.1.0-p10.20260919.176`，确认（1）150ms 连续快速左滑 5–6 次前进 5–6 个月；（2）换月内容出现更快、无空窗；（3）颜色/尺寸/交互与上一版观感一致；未取得与 `9ac4a301` 一致的真机结论前，不得写“小米 14 验收通过”。
