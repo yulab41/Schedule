@@ -354,7 +354,7 @@ describe('P4 native workbench', () => {
     expect(pageSource).not.toContain('activeResult.calendar.assignments.length === 0');
     expect(pageSource).toContain('commitPeriodShift');
     expect(pageSource).not.toContain('recenterPeriodSwiper');
-    expect(pageSource).toContain('[-2, -1, 0, 1, 2]');
+    expect(pageSource).toContain('[-3, -2, -1, 0, 1, 2, 3]');
     expect(pageSource).toContain('function applyMonthWindow(');
     expect(template).toContain('class="list-panel-scroll"');
     expect(template).toContain('scroll-into-view="{{listScrollTarget}}"');

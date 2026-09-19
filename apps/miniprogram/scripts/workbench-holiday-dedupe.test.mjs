@@ -37,25 +37,29 @@ describe('MINI-G1-002 workbench holiday request plan', () => {
     });
     const instance = await startWorkbench(request);
 
-    await vi.waitFor(() => expect(instance.monthResources.size).toBe(5));
+    await vi.waitFor(() => expect(instance.monthResources.size).toBe(7));
 
     expect(readCalendarMonths(request)).toEqual([
       '2026-09',
+      '2026-06',
       '2026-07',
       '2026-08',
       '2026-10',
       '2026-11',
+      '2026-12',
     ]);
     expect(readHolidayYears(request)).toEqual([2026]);
     expect([...instance.monthResources.keys()]).toEqual([
       '2026-09',
+      '2026-06',
       '2026-07',
       '2026-08',
       '2026-10',
       '2026-11',
+      '2026-12',
     ]);
     expect([...instance.monthResources.values()].map((result) => result.holidays)).toEqual(
-      Array.from({ length: 5 }, () => holidays2026),
+      Array.from({ length: 7 }, () => holidays2026),
     );
     expect(instance.holidays).toEqual(holidays2026);
     expect(findMonthCell(instance, '2026-10-01')).toMatchObject({
@@ -78,22 +82,24 @@ describe('MINI-G1-002 workbench holiday request plan', () => {
     });
     const instance = await startWorkbench(request);
 
-    await vi.waitFor(() => expect(readCalendarMonths(request)).toHaveLength(5));
+    await vi.waitFor(() => expect(readCalendarMonths(request)).toHaveLength(7));
     await vi.waitFor(() => expect(pending2027.length).toBeGreaterThan(0));
     const peakConcurrent2027Requests = pending2027.length;
     for (const options of pending2027) {
       options.success({ data: holidays2027, statusCode: 200 });
     }
-    await vi.waitFor(() => expect(instance.monthResources.size).toBe(5));
+    await vi.waitFor(() => expect(instance.monthResources.size).toBe(7));
 
     expect(readHolidayYears(request)).toEqual([2026, 2027]);
     expect(peakConcurrent2027Requests).toBe(1);
     expect([...instance.monthResources.keys()]).toEqual([
       '2026-12',
+      '2026-09',
       '2026-10',
       '2026-11',
       '2027-01',
       '2027-02',
+      '2027-03',
     ]);
     expect(
       [...instance.monthResources].map(([businessMonth, result]) => [
@@ -102,10 +108,12 @@ describe('MINI-G1-002 workbench holiday request plan', () => {
       ]),
     ).toEqual([
       ['2026-12', 2026],
+      ['2026-09', 2026],
       ['2026-10', 2026],
       ['2026-11', 2026],
       ['2027-01', 2027],
       ['2027-02', 2027],
+      ['2027-03', 2027],
     ]);
     expect(instance.holidays).toEqual({
       confirmed: true,
@@ -141,17 +149,46 @@ describe('MINI-G1-002 workbench holiday request plan', () => {
     expect(holidayRequestCount).toBe(1);
 
     definition.handleRetry.call(instance);
-    await vi.waitFor(() => expect(instance.monthResources.size).toBe(5));
+    await vi.waitFor(() => expect(instance.monthResources.size).toBe(7));
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
 
     expect(holidayRequestCount).toBe(2);
     expect(instance.data.errorMessage).toBe('');
     expect(instance.holidays).toEqual(holidays2026);
   });
+
+  it('reuses the persisted holiday payload across sessions until it expires', async () => {
+    vi.setSystemTime(new Date('2026-09-15T04:00:00.000Z'));
+    const holidays2026 = holidayYear(2026, [holidayDate('2026-10-01', '国庆节')]);
+    const storage = createStorage();
+    let holidayRequestCount = 0;
+    const request = createRequest(({ options }) => {
+      holidayRequestCount += 1;
+      options.success({ data: holidays2026, statusCode: 200 });
+    });
+
+    const first = await startWorkbench(request, storage);
+    await vi.waitFor(() => expect(first.data.state).toBe('ready'));
+    expect(holidayRequestCount).toBe(1);
+
+    // A brand new page instance in the same client reuses the stored payload.
+    vi.resetModules();
+    const second = await startWorkbench(request, storage);
+    await vi.waitFor(() => expect(second.data.state).toBe('ready'));
+    expect(holidayRequestCount).toBe(1);
+    expect(second.holidays).toEqual(holidays2026);
+
+    // After the one-day TTL the payload is revalidated exactly once.
+    vi.setSystemTime(new Date('2026-09-16T06:00:00.000Z'));
+    vi.resetModules();
+    const third = await startWorkbench(request, storage);
+    await vi.waitFor(() => expect(third.data.state).toBe('ready'));
+    expect(holidayRequestCount).toBe(2);
+  });
 });
 
-async function startWorkbench(request) {
-  vi.stubGlobal('wx', createWx(createStorage(), request));
+async function startWorkbench(request, storage = createStorage()) {
+  vi.stubGlobal('wx', createWx(storage, request));
   await import('../src/pages/workbench/index.ts');
   await enableTestClientCapabilities();
   const instance = createPageInstance(definition);

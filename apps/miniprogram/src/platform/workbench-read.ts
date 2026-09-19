@@ -115,6 +115,51 @@ export function getWorkbenchCacheKey(
   return `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:${businessMonth}`;
 }
 
+/**
+ * Holidays and make-up workdays are published per year and cannot change within
+ * a day, so the last read is reused across sessions until it expires. Only the
+ * holiday payload is stored here; schedules keep their own per-owner cache.
+ */
+export const WORKBENCH_HOLIDAY_CACHE_KEY = 'schedule.workbench.holidays.v1';
+export const WORKBENCH_HOLIDAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface StoredHolidayEntry {
+  readonly savedAt: number;
+  readonly holidays: HolidayReadModel;
+}
+
+export function readPersistentHolidays(
+  year: number,
+  now = Date.now(),
+): HolidayReadModel | undefined {
+  const value = readStorage(WORKBENCH_HOLIDAY_CACHE_KEY);
+  if (!isRecord(value)) return undefined;
+  const entry = (value as Record<string, unknown>)[String(year)];
+  if (!isRecord(entry)) return undefined;
+  const savedAt = entry.savedAt;
+  const holidays = entry.holidays;
+  if (
+    typeof savedAt !== 'number' ||
+    !Number.isFinite(savedAt) ||
+    savedAt > now ||
+    now - savedAt >= WORKBENCH_HOLIDAY_CACHE_TTL_MS ||
+    !isRecord(holidays)
+  )
+    return undefined;
+  return holidays as unknown as HolidayReadModel;
+}
+
+export function writePersistentHolidays(
+  year: number,
+  holidays: HolidayReadModel,
+  now = Date.now(),
+): void {
+  const value = readStorage(WORKBENCH_HOLIDAY_CACHE_KEY);
+  const stored = isRecord(value) ? { ...(value as Record<string, unknown>) } : {};
+  stored[String(year)] = { holidays, savedAt: now } satisfies StoredHolidayEntry;
+  writeStorage(WORKBENCH_HOLIDAY_CACHE_KEY, stored);
+}
+
 export function readWorkbenchCache(
   ownerId: string,
   groupId: string,

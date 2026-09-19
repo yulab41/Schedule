@@ -59,11 +59,13 @@ import {
   clearWorkbenchCalendarCache,
   createWorkbenchReadClient,
   loadActiveThenAdjacent,
+  readPersistentHolidays,
   readWorkbenchCache,
   readWorkbenchGroupSnapshot,
   readStoredWorkbenchGroupId,
   writeStoredWorkbenchGroupId,
   writeWorkbenchCache,
+  writePersistentHolidays,
 } from '../../platform/workbench-read.js';
 import {
   awaitWechatSessionRecovery,
@@ -277,6 +279,13 @@ interface WorkbenchPageInstance {
   monthLocateTarget: string | undefined;
   monthRingSlot: MonthSlot;
   monthResources: Map<string, MonthReadResult>;
+  /**
+   * Bounded read cache that survives window pruning, so scrolling back to a month
+   * that just left the prefetch window does not need another round trip.
+   */
+  monthCache: Map<string, MonthReadResult>;
+  /** Holiday reads are per year and never change within a session. */
+  holidayReads: Map<number, Promise<HolidayReadModel>>;
   hasShown: boolean;
   isVisible: boolean;
   pendingListTarget: string | undefined;
@@ -461,6 +470,8 @@ Page({
   monthLocateTarget: undefined,
   monthRingSlot: 1,
   monthResources: new Map<string, MonthReadResult>(),
+  monthCache: new Map<string, MonthReadResult>(),
+  holidayReads: new Map<number, Promise<HolidayReadModel>>(),
   hasShown: false,
   isVisible: true,
   pendingListTarget: undefined,
@@ -1504,7 +1515,9 @@ async function loadWorkbench(
       page.data.businessMonth,
       page.data.weekStart,
     );
-    const readHolidays = createHolidayReader(requestedMonths);
+    const readHolidays = createHolidayReader(page, requestedMonths, {
+      forceRefresh: options.forceRefresh === true,
+    });
     const activeMonth = getActiveBusinessMonth(page);
     const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
       readMonth(page, ownerId, selectedGroup.id, businessMonth, requestSerial, readHolidays, {
@@ -1830,14 +1843,14 @@ async function readMonth(
   if (!isCurrentRequest(page, requestSerial)) throw new Error('Stale calendar read');
   const guest = page.data.currentGroupRoleKind === 'guest';
   const context = calendarContext(page);
-  const existing = page.monthResources.get(businessMonth);
+  const existing = page.monthResources.get(businessMonth) ?? page.monthCache.get(businessMonth);
   if (
     !guest &&
     !options.forceRefresh &&
     existing?.offline === false &&
     existing.context === context
   )
-    return existing;
+    return rememberMonthRead(page, businessMonth, existing);
 
   const [calendarResult, holidayResult] = await Promise.allSettled([
     guest
@@ -1879,7 +1892,34 @@ async function readMonth(
   ) {
     writeWorkbenchCache(ownerId, groupId, businessMonth, calendarResult.value, holidays);
   }
-  return { calendar: calendarResult.value, context, holidays, offline };
+  return rememberMonthRead(page, businessMonth, {
+    calendar: calendarResult.value,
+    context,
+    holidays,
+    offline,
+  });
+}
+
+const MONTH_CACHE_LIMIT = 12;
+
+/**
+ * Remembers an online month read in the bounded cache (bounded so that a long
+ * session cannot grow without limit) and returns the same result to the caller.
+ */
+function rememberMonthRead(
+  page: WorkbenchPageInstance,
+  businessMonth: string,
+  result: MonthReadResult,
+): MonthReadResult {
+  if (result.offline) return result;
+  page.monthCache.delete(businessMonth);
+  page.monthCache.set(businessMonth, result);
+  while (page.monthCache.size > MONTH_CACHE_LIMIT) {
+    const oldest = page.monthCache.keys().next().value;
+    if (oldest === undefined) break;
+    page.monthCache.delete(oldest);
+  }
+  return result;
 }
 
 async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void> {
@@ -1900,7 +1940,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
   page.requestSerial = requestSerial;
   page.requestOwnerId = ownerId;
   try {
-    const readHolidays = createHolidayReader(requestedMonths);
+    const readHolidays = createHolidayReader(page, requestedMonths);
     const activeMonth = getActiveBusinessMonth(page);
     const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
       readMonth(page, ownerId, groupId, businessMonth, requestSerial, readHolidays, {
@@ -2375,17 +2415,39 @@ function getRequestedMonths(
   return [...requestedMonths];
 }
 
-function createHolidayReader(requestedMonths: readonly string[]): HolidayReader {
+function createHolidayReader(
+  page: WorkbenchPageInstance,
+  requestedMonths: readonly string[],
+  options: { readonly forceRefresh: boolean } = { forceRefresh: false },
+): HolidayReader {
   const requestsByYear = new Map<number, Promise<HolidayReadModel> | undefined>(
     [...new Set(requestedMonths.map((businessMonth) => Number(businessMonth.slice(0, 4))))].map(
       (year) => [year, undefined],
     ),
   );
   return (year) => {
-    const existing = requestsByYear.get(year);
+    const existing = requestsByYear.get(year) ?? page.holidayReads.get(year);
     if (existing !== undefined) return existing;
-    const request = client.getHolidays(year);
+    if (!options.forceRefresh) {
+      const persisted = readPersistentHolidays(year);
+      if (persisted !== undefined) {
+        const resolved = Promise.resolve(persisted);
+        requestsByYear.set(year, resolved);
+        page.holidayReads.set(year, resolved);
+        return resolved;
+      }
+    }
+    const request = client.getHolidays(year).then((holidays) => {
+      writePersistentHolidays(year, holidays);
+      return holidays;
+    });
     requestsByYear.set(year, request);
+    page.holidayReads.set(year, request);
+    // A failed year must stay retryable; the original promise still rejects for
+    // whoever awaits it.
+    void request.catch(() => {
+      if (page.holidayReads.get(year) === request) page.holidayReads.delete(year);
+    });
     return request;
   };
 }
@@ -2802,6 +2864,8 @@ function resetCalendarContext(page: WorkbenchPageInstance): void {
   page.calendar = undefined;
   page.holidays = undefined;
   page.monthResources.clear();
+  page.monthCache.clear();
+  page.holidayReads.clear();
   page.monthRingSlot = 1;
   page.weekRingSlot = 1;
   page.weekShiftTargetSlot = undefined;
