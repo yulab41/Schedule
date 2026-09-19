@@ -1,6 +1,6 @@
 ALTER TABLE `groups`
   ADD COLUMN `calendar_revision` bigint unsigned NOT NULL DEFAULT 0;
-
+--> statement-breakpoint
 CREATE TABLE `group_calendar_changes` (
   `id` char(36) NOT NULL,
   `group_id` char(36) NOT NULL,
