@@ -677,9 +677,9 @@ test-tools Console/Skyline/390px 与历史 `.74` 小米 14 证据以本文顶部
 | 源码目录   | `apps/miniprogram/src/`                                               | `scripts/build-tools.mjs`                 |
 | 构建目录   | ignored 的 `apps/miniprogram/dist/`                                   | `miniprogramRoot: "dist/"`                |
 | 构建器     | esbuild，CJS/ES2020、压缩、tree-shake；另跑 `tsc --noEmit`            | `scripts/build-tools.mjs`                 |
-| renderer   | 全局 Skyline，`disableABTest: true`，范围 3.3.0–15.255.255            | `src/app.json`                            |
+| renderer   | 全局 WebView（2026-09-19 起为唯一渲染器；此前的 Skyline 配置已删除）  | `src/app.json`、ADR-0007                  |
 | 组件框架   | `glass-easel`                                                         | `src/app.json`                            |
-| WebView    | 无 fallback                                                           | `src/app.json`、小程序架构文档            |
+| WebView    | 唯一渲染器，不按基础库版本分叉                                        | `src/app.json`、小程序架构文档            |
 | 懒加载     | `requiredComponents`                                                  | `src/app.json`                            |
 | 导航栏     | 全局 `navigationStyle: "custom"`                                      | `src/app.json`                            |
 | tabBar     | 无原生 `app.json.tabBar`；工作台自绘五入口                            | `pages/workbench/index.wxml`              |

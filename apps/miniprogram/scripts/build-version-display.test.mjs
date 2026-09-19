@@ -37,7 +37,7 @@ describe('Mini Program visible build identity', () => {
 
     expect(config.disableScroll).toBe(false);
     expect(template.indexOf('C · 真机运行信息')).toBeLessThan(
-      template.indexOf('A · Skyline Pan Worklet'),
+      template.indexOf('D · WXS 视图层触摸'),
     );
     expect(template).toContain('代码版本');
   });

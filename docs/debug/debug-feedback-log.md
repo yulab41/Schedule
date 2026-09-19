@@ -3289,3 +3289,23 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 未验证：小米 14 真机的日历、换班/请假选择器、页头与详情卡排版；模拟器/自动化证据不代替原生验收。
 - 保留（需单独审计）：`pages/gesture-probe`、`pages/calendar-poc`、`pages/manual-matrix-poc` 仍注册在主包，`wx.worklet` 在 WebView 下不会执行；删除已发布页面属产品可见变更，另行评估。
 - 回滚：`git revert` 本批次并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚。详情见 `docs/audit/webview-only-cleanup-20260919.md`。
+
+## 2026-09-19 WebView-only 收口：删除全部 Skyline 兼容层（取消按引擎/基础库分叉）
+
+- 用户提问："异常既然不是组件库版本引起的，按版本分叉的代码是否也应该清掉？"→ 先取证再动手：全源码核对确认生产代码里**只有一处**会因基础库版本改变行为（`src/platform/runtime-ui-compatibility.ts` 的"请求 Skyline 且 SDK=3.17.2"），其余 `SDKVersion` 只出现在诊断页的设备信息展示里，仓库内没有 `wx.canIUse` 或版本比较工具。删除这一层即可让渲染器/基础库版本不再影响任何代码路径。
+- 删除范围（全部是"请求 WebView 时不可达"的死代码）：兼容层模块+16 项门禁测试；`.is-skyline-3172-ui` 规则 25 条（6 个 WXSS）；`ui-wheel-column` 原生滚动孪生及 `compatFrame`/`paintCompatFrame`/`snapCompat`；`calendar-month`/`ui-date-picker` 原生分页器孪生、度量与清理定时器、`_compat*`/`_dateCompat*` 状态；工作流宿主对话框（`workflow-picker-host`/`host-key`/`dialog-only`/`openFromParent`/`forwardHosted*`）与 sheet 点击外部兜底；`ui-toast` 描边、选择器内联弹层、`ui-loading`/工作流 SVG spinner 回退、`runtimePressedFeedbackCompatibility`；`calendar-period-pager` 的滚动度量与兜底常量；`app.json` 的 `rendererOptions.skyline` 与构建校验；两个只服务该分支的 spinner SVG。
+- 删除方式：脚本按行/选择器机械匹配 + 逐文件人工复核。首轮 WXSS 脚本把多行选择器合并成一行（把 prelude 数组当成单个元素 push，再 join 成逗号串），已改为从 `HEAD` 重新推导并校验非空行完全一致后再写回，`git diff -- '*.wxss'` 现为纯删除（129 删除 / 0 新增）。
+- 顺带修掉 3 处失效的门禁断言（`manual-matrix-poc` 断言 `rendererOptions.skyline.sdkVersionBegin`、`p7-native-feedback` 断言 sheet 类的旧插值形式、`guest-runtime`/`workbench-runtime` 里传入已不存在的 `skyline3172UiCompatibility` 数据字段），并删除两段只针对原生滚动孪生的分页器测试。
+- 门禁：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**（删除 19 项失效断言）；package 总 **4614093 B**、主包 **1737017 B**（基线 4653854 B，**−39761 B**）；determinism `743c22d2…`。
+- 未验证：小米 14 真机的日历、换班/请假选择器、页头与详情卡排版；模拟器/自动化证据不代替原生验收。
+- 保留（需单独审计）：`pages/gesture-probe`、`pages/calendar-poc`、`pages/manual-matrix-poc` 仍注册在主包，`wx.worklet` 在 WebView 下不会执行；删除已发布页面属产品可见变更，另行评估。
+- 回滚：`git revert` 本批次并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚。详情见 `docs/audit/webview-only-cleanup-20260919.md`。
+
+## 2026-09-19 WebView-only 批次 2：删除最后的 Skyline 专用面并同步文档
+
+- 取证后修正了上一轮的判断：三个 PoC/诊断页里**只有** `pages/gesture-probe` 真正依赖 Skyline（A 区 `pan-gesture-handler` + `worklet:ongesture` + `wx.worklet`）；`calendar-poc` 与 `manual-matrix-poc` 已不含 worklet，且 `pages/manual-matrix-poc/matrix-gesture.wxs` 被生产页 `subpackages/scheduling/pages/manual/index.wxml` 直接 import，因此该目录**不能整体删除**。
+- 删除：A 区 Pan Worklet 探针（wxml 卡片、`handleProbePan`／`initializeProbe` 的 worklet 初始化、`.worklet-probe-*`／`.gesture-probe-dot` 样式）；`src/types/build-env.d.ts` 的 `worklet`／`MiniProgramSharedValue`／`MiniProgramWorkletAnimationConfig` 声明；`app.json` 的 `rendererOptions.skyline` 与 `build-tools.mjs` 的 Skyline 选项校验。保留该页 D 区 WXS、B 区触摸计数、C 区设备信息、E 区滚轮、F 区工作台压力探针。
+- 顺带修正 3 处失效断言：`gesture-probe.test.mjs`（不再断言 worklet 数量=2，改为断言仓库内 0 个 worklet 指令）、`build-version-display.test.mjs`（卡片顺序断言改用 D 区标题）、`manual-matrix-poc.test.mjs`（不再断言 `rendererOptions.skyline.sdkVersionBegin`，改断言 `renderer==='webview'`）。
+- 文档同步：迁移计划"已冻结边界"第 2/3 条、ADR-0001（标注被取代）、ADR-0005（标注 Skyline 前提作废）、ADR-0007（记录收尾）、架构 `runtime-and-build.md`、组件清单、黄金清单、测试计划、审计主计划与审计快照环境表。
+- 门禁：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**；package 总 **4612161 B**、主包 **1735085 B**（批次 1 后 4614093 B，本轮再减 1932 B）；determinism `b485ae09…`。
+- 未验证：小米 14 真机复核仍需用户完成；模拟器/自动化证据不代替原生验收。

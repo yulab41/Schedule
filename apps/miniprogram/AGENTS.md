@@ -52,7 +52,7 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 - Skyline-only surfaces (`wx.worklet`, `worklet:ongesture`, `.is-skyline-3172-ui` styling, `scroll-view type="list"` twins) are not executed under the requested renderer. Keep new work on the WebView path; the diagnostic probe pages stay out of product navigation.
 - Source lives in `src/`; generated output lives in ignored `dist/`. Do not hand-edit `dist/`.
 - Shared runtime code must be DOM-free, Node-free, database-free, and Zod-free in the Mini Program bundle.
-- If a Skyline-only probe page is touched, preserve `'worklet'` as the first statement of each Worklet function and run the Worklet output audit after that build change.
+- The bundle must not contain `'worklet'` directives any more (the last one was removed with the Skyline probe in 2026-09-19); the existing source audit fails the build if one reappears, so add Worklet code only together with a new ADR that changes the renderer decision.
 - Write requests are retried only when protected by a valid idempotency key. Offline mode is read-only and has no write queue.
 
 ## Checkpoints

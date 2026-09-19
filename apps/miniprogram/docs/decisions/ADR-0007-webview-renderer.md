@@ -6,4 +6,5 @@
 - 影响：所有用户落到同一个布局引擎，界面不再随基础库灰度整体回退；主包因此减少约 39 KB，且不存在渲染器/基础库版本分支。
 - 回滚：回滚需要一个提交（`git revert` 删除兼容层的提交）恢复兼容层，并把 `renderer` 与页面 JSON 改回 `skyline`。
 - 待原生复核（不代替）：手工排班矩阵的滚动同步、日历/滚轮/选择器交互、首屏性能（`foreground-ready`/`core-ready`）需在小米 14 体验版上确认。
-- 相关：ADR-0005-worklet-matrix-engine.md（矩阵引擎的前置假设需在 WebView 下重新确认）。
+- 相关：ADR-0005-worklet-matrix-engine.md（矩阵仍用其四层 WXS 方案；其中"Skyline 提供 UI 线程手势/SharedValue"的前提已作废）。
+- 2026-09-19 收尾：仓库内最后一个 `wx.worklet` 使用点（`pages/gesture-probe` A 区 Pan Worklet 探针）与 `src/types/build-env.d.ts` 的 Worklet 类型声明一并删除；`app.json` 的 `rendererOptions.skyline` 与构建校验同时删除。现在源码里没有任何渲染器或基础库版本分支。

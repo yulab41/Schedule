@@ -3,9 +3,10 @@
 ## 当前批次：WebView-only 收口——删除全部 Skyline 兼容层
 
 - 核对结论：生产源码里**只有一处**按基础库版本分叉（`platform/runtime-ui-compatibility.ts` 的"请求 Skyline 且 SDK=3.17.2"），其余 `SDKVersion` 只用于诊断页展示；按 ADR-0007 把渲染器定为 WebView 后，把只为 Skyline 写的整层补丁删除（宿主对话框、原生滚动孪生、`.is-skyline-3172-ui` 样式、`rendererOptions.skyline`、兼容层模块与其 16 项门禁测试）。
-- 验证：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**；determinism `743c22d2…`；package 总 **4614093 B**（基线 4653854 B，**−39761 B**；主包 1777035 → 1737017）。
+- 批次 2 收尾：删除最后一个 Skyline 专用面（`pages/gesture-probe` A 区 Pan Worklet 探针 + `build-env.d.ts` 的 `worklet` 类型声明），并把迁移计划冻结边界、ADR-0001/0005 状态、架构/设计/测试计划/审计快照中的 Skyline 表述改为 WebView-only；`rendererOptions.skyline` 与对应构建校验已在批次 1 删除。
+- 验证：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**；determinism `b485ae09…`；package 总 **4612161 B**（清理前基线 4653854 B，**−41693 B**；主包 1735085 B）。
 - 未验证（不代替真机验收）：小米 14 的日历、换班/请假选择器、页头群组名与下拉箭头、详情卡排版。
-- 保留项（需单独审计）：`pages/gesture-probe`、`pages/calendar-poc`、`pages/manual-matrix-poc` 仍在主包注册，`wx.worklet` 在 WebView 下不会执行；删除已发布页面属产品可见变更。
+- 保留项（有证据，非待办）：`pages/manual-matrix-poc/matrix-gesture.wxs` 被生产页 `subpackages/scheduling/pages/manual/index.wxml` import，不能整体删除；`calendar-poc`/`manual-matrix-poc` 已无 worklet 且仍可从开发入口页与"更多 → 测试入口"到达。
 - 回滚：`git revert` 本批次并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚（兼容层已不存在）。
 - 详情见 `docs/audit/webview-only-cleanup-20260919.md`、`docs/audit/STATUS.md`、`apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`。
 - 唯一下一任务与停止条件：小米 14 打开 `.169` 复核两台设备的上述界面；无回归即停止，出现回归以 `.168` 为对照。
@@ -31,4 +32,3 @@
 ## 历史批次（135–162，已并入本批次删除的 Skyline 兼容层）
 
 - 这些批次记录的是当时的 Skyline 3.17.2 兼容层修复；该层已在本批次整体删除，结论与证据保留在 `docs/audit/STATUS.md`、`docs/audit/runtime-ui-compatibility-*.md` 与 Git 提交历史中，不再常驻本文件。
-

@@ -68,3 +68,18 @@
 
 回滚 = `git revert` 本批次提交（恢复兼容层）并把 `renderer` 与页面 JSON 改回 `skyline`。
 **不要**只改 `renderer` 就当作回滚：兼容层已不存在，Skyline 下会缺少已修复的布局分支。
+
+## 批次 2：收尾清理（同一天完成）
+
+- 删除仓库内最后一个 Skyline 专用面：`pages/gesture-probe` 的 A 区 Pan Worklet 探针（`pan-gesture-handler` +
+  `worklet:ongesture` + 蓝点样式 + `wx.worklet` 初始化）、`src/types/build-env.d.ts` 的 `worklet` 类型声明、
+  以及对应测试断言（该页的 D 区 WXS 探针、B 区触摸计数、C 区设备信息、E 区滚轮、F 区工作台压力探针保留）。
+  依据：渲染器固定为 WebView 后 `worklet:ongesture` 永不执行；源码审计（`findWorkletIssues`）现在是"仓库内不得出现
+  `'worklet'` 指令"的反向守卫。
+- 删除 `app.json` 的 `rendererOptions.skyline` 与 `build-tools.mjs` 中对应的 Skyline 选项校验。
+- 文档同步：迁移计划"已冻结边界"第 2/3 条改为 WebView-only；ADR-0001 标注被 ADR-0007 取代；ADR-0005 标注 Skyline 前提作废；
+  架构、设计（组件清单 / 黄金清单）、测试计划、审计主计划与审计快照中把"Skyline"改为渲染器无关表述。
+- **保留决定（有证据，不删）**：`pages/manual-matrix-poc/` 目录内的 `matrix-gesture.wxs` 被生产页
+  `subpackages/scheduling/pages/manual/index.wxml` 直接 import，因此该目录不能整体删除；`calendar-poc` 与
+  `manual-matrix-poc` 页面本身不再使用 worklet（渲染器无关），且仍可从开发入口页 `pages/index/index` 与
+  "更多 → 测试入口"到达，属于仍在使用的诊断/PoC 入口，本轮保留。三个页面合计约 82 KB 主包体积，若将来确认入口不再需要，可单独作为一个删除批次（需同时迁移 `matrix-gesture.wxs`）。

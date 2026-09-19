@@ -9,8 +9,8 @@
 ## 1. 已冻结边界
 
 1. 小程序与 Web/API 共用当前 monorepo，不建立第二个 Git 仓库；后端继续由 `apps/api` 和现有 ECS 提供 HTTPS API。
-2. 原生栈固定为 WXML、WXSS、TypeScript、JSON、Skyline 和 glass-easel；最低基础库 3.3.0，不提供 WebView 回退。
-3. `rendererOptions.skyline.disableABTest=true`，正式范围为 `3.3.0` 至 `15.255.255`。正式发布前记录实际 Stable 编译基础库。
+2. 原生栈固定为 WXML、WXSS、TypeScript、JSON 和 glass-easel，由 `src/app.json` 请求的 WebView 渲染器渲染（ADR-0007，2026-09-19 起为唯一渲染器）；最低基础库 3.3.0。
+3. 不保留 `rendererOptions`，也不按渲染器或基础库版本分叉行为；正式发布前记录实际 Stable 编译基础库。
 4. 禁止 TDesign MiniProgram 和第三方 UI 库；基础控件、月历、排班格、弹层、导航和状态全部自绘。
 5. Web Storybook 是视觉黄金源；原生运行真值由实体 Android 微信客户端提供。LLM 可以使用微信开发者工具 CLI/MCP 完成编译、构建 npm、模拟器、页面自动化、Console/Network、截图、预览和上传；模拟器与自动化结果不得冒充实体设备验收。
 6. 源码采用确定性 `src → dist`；`dist`、私有配置、二维码、人工测试截图和上传私钥不进入 Git。
