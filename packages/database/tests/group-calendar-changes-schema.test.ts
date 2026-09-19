@@ -1,9 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { getTableConfig } from 'drizzle-orm/mysql-core';
 import { describe, expect, it } from 'vitest';
 
+import { scheduleEvents, schedulePeriods, shiftAssignments } from '../src/schema/index.js';
+
 const root = fileURLToPath(new URL('../../..', import.meta.url));
+
+function columnNames(): readonly string[] {
+  return getTableConfig(scheduleEvents).columns.map((column) => column.name);
+}
 
 describe('group calendar change ledger schema', () => {
   it('keeps one monotonic cursor per group and cascades on group deletion', () => {
@@ -29,5 +36,21 @@ describe('group calendar change ledger schema', () => {
     );
     expect(rollback).toContain('DROP TABLE IF EXISTS `group_calendar_changes`');
     expect(rollback).toContain('DROP COLUMN `calendar_revision`');
+  });
+
+  /**
+   * The calendar divergence probe compares the newest write per table. The
+   * first production attempt assumed every table had `updated_at`; events do
+   * not, and the probe threw. Pin the shapes the probe relies on.
+   */
+  it('keeps the auditable columns the divergence probe reads', () => {
+    for (const table of [schedulePeriods, shiftAssignments]) {
+      const names = getTableConfig(table).columns.map((column) => column.name);
+      expect(names).toContain('updated_at');
+      expect(names).toContain('deleted_at');
+    }
+    expect(columnNames()).toContain('occurred_at');
+    expect(columnNames()).not.toContain('updated_at');
+    expect(columnNames()).not.toContain('deleted_at');
   });
 });

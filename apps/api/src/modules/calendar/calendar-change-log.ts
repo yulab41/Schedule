@@ -203,7 +203,10 @@ export function needsResync(
  * newest such timestamp against the newest ledger row is a cheap safety net: a
  * missed bump degrades one client to a full window read instead of leaving it
  * permanently stale. Deletions count too, which a plain "max updated_at on live
- * rows" comparison would miss.
+ * rows" comparison would miss. `schedule_events` is append-only and has neither
+ * `updated_at` nor `deleted_at`, so it contributes `occurred_at`; that value is
+ * clamped to the current timestamp so a source clock running ahead can never
+ * keep a group permanently divergent.
  */
 export async function calendarLedgerDiverged(
   transaction: DatabaseTransaction,
@@ -214,7 +217,7 @@ export async function calendarLedgerDiverged(
       GREATEST(
         COALESCE((SELECT MAX(GREATEST(updated_at, COALESCE(deleted_at, updated_at))) FROM schedule_periods WHERE group_id = ${groupId}), '1970-01-01 00:00:00.000'),
         COALESCE((SELECT MAX(GREATEST(sa.updated_at, COALESCE(sa.deleted_at, sa.updated_at))) FROM shift_assignments sa JOIN schedule_periods sp ON sp.id = sa.schedule_period_id WHERE sp.group_id = ${groupId}), '1970-01-01 00:00:00.000'),
-        COALESCE((SELECT MAX(GREATEST(updated_at, COALESCE(deleted_at, updated_at))) FROM schedule_events WHERE group_id = ${groupId}), '1970-01-01 00:00:00.000'),
+        LEAST(COALESCE((SELECT MAX(occurred_at) FROM schedule_events WHERE group_id = ${groupId}), '1970-01-01 00:00:00.000'), CURRENT_TIMESTAMP(3)),
         COALESCE((SELECT MAX(GREATEST(updated_at, COALESCE(deleted_at, updated_at))) FROM shift_types WHERE group_id = ${groupId}), '1970-01-01 00:00:00.000'),
         COALESCE((SELECT MAX(GREATEST(updated_at, COALESCE(deleted_at, updated_at))) FROM schedule_roles WHERE group_id = ${groupId}), '1970-01-01 00:00:00.000'),
         COALESCE((SELECT MAX(GREATEST(gm.updated_at, COALESCE(gm.deleted_at, gm.updated_at))) FROM group_memberships gm WHERE gm.group_id = ${groupId}), '1970-01-01 00:00:00.000'),
@@ -254,7 +257,7 @@ async function pruneCalendarChanges(
     sql`DELETE FROM group_calendar_changes
       WHERE group_id = ${groupId}
         AND (
-          seq <= ${currentSeq - CALENDAR_CHANGE_RETENTION}
+          seq <= ${Math.max(currentSeq - CALENDAR_CHANGE_RETENTION, 0)}
           OR changed_at < TIMESTAMPADD(DAY, -${CALENDAR_CHANGE_MAX_AGE_DAYS}, CURRENT_TIMESTAMP(3))
         )`,
   );
