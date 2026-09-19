@@ -108,6 +108,7 @@ import {
   toggleDetailExpansion,
   type DetailExpansion,
 } from '../../features/workbench/detail-expansion.js';
+import { createPanelRingPatch } from '../../features/workbench/panel-patch.js';
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type ShiftEventState = 'closed' | 'empty' | 'error' | 'loading' | 'ready';
@@ -684,7 +685,7 @@ Page({
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
     setCalendarData(this, {
-      ...createViewPatch(this, period),
+      ...createViewPatch(this, period, false, nextView),
       announcement:
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
       filterOpen: false,
@@ -2009,12 +2010,47 @@ function applyChangedViewPatch(
   patch: Partial<WorkbenchPageData>,
   callback?: () => void,
 ): void {
-  const changed = createChangedViewPatch(page, patch);
+  const changed = createPanelScopedPatch(page, createChangedViewPatch(page, patch));
   if (Object.keys(changed).length === 0) {
     callback?.();
     return;
   }
   setCalendarData(page, changed, callback);
+}
+
+/**
+ * Turns the three panel rings inside a patch into path-scoped updates.
+ *
+ * The view model is rebuilt as a whole, but only the rotated slot or the cells
+ * whose content changed need to cross the bridge; everything else stays as the
+ * user currently sees it.
+ */
+function createPanelScopedPatch(
+  page: WorkbenchPageInstance,
+  patch: Partial<WorkbenchPageData>,
+): Record<string, unknown> {
+  const scoped: Record<string, unknown> = { ...patch };
+  const rings = [
+    ['monthPanels', 'cells'],
+    ['weekPanels', 'days'],
+    ['listPanels', 'days'],
+  ] as const;
+  for (const [field, childArrayKey] of rings) {
+    const next = patch[field];
+    if (!Array.isArray(next) || next.length === 0) continue;
+    delete scoped[field];
+    const previous = (page.data as unknown as Record<string, unknown>)[field];
+    Object.assign(
+      scoped,
+      createPanelRingPatch(
+        field,
+        Array.isArray(previous) ? (previous as readonly Record<string, unknown>[]) : undefined,
+        next as readonly Record<string, unknown>[],
+        childArrayKey,
+      ),
+    );
+  }
+  return scoped;
 }
 
 function syncBusinessDate(page: WorkbenchPageInstance): void {
@@ -2107,6 +2143,7 @@ function createViewPatch(
   page: WorkbenchPageInstance,
   period: Pick<WorkbenchPageData, 'businessMonth' | 'selectedDate' | 'weekStart'> = page.data,
   selectionOnly = false,
+  viewScope: WorkbenchView = page.data.viewMode,
 ): Partial<WorkbenchPageData> {
   if (page.calendar === undefined || page.holidays === undefined) return {};
   const filters: WorkbenchFilters = {
@@ -2209,6 +2246,18 @@ function createViewPatch(
     logicalMonthPanelHeights,
     page.monthRingSlot,
   );
+  // Only the visible branch renders its panels; the other branches are rebuilt
+  // whenever the user switches views, so carrying them here only slows the patch
+  // that the current gesture depends on.
+  const panelPatch: Partial<WorkbenchPageData> =
+    viewScope === 'month'
+      ? { gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62, ...monthRing }
+      : viewScope === 'week'
+        ? {
+            weekGridHeight: page._weekLayoutHeight,
+            weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
+          }
+        : { listPanels: view.listPanels };
   return {
     compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
     shiftCardExpansion: reconcileShiftCardExpansion(
@@ -2222,11 +2271,8 @@ function createViewPatch(
       ],
       view.selectedDetails,
     ),
-    weekGridHeight: page._weekLayoutHeight,
-    gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
-    listPanels: view.listPanels,
+    ...panelPatch,
     monthLabel: view.monthLabel,
-    ...monthRing,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,
     detailExpansion: reconcileDetailExpansion(
@@ -2235,7 +2281,6 @@ function createViewPatch(
       view.selectedDetails,
     ),
     selectedLabel: view.selectedLabel,
-    weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
   };
 }
 
@@ -2275,7 +2320,7 @@ function commitPeriodShift(
     setCalendarData(
       page,
       {
-        ...createViewPatch(page, period),
+        ...createViewPatch(page, period, false, 'week'),
         announcement: delta < 0 ? '已切换到上一周。' : '已切换到下一周。',
         businessMonth,
         periodSwiperDuration: 260,
@@ -2290,7 +2335,7 @@ function commitPeriodShift(
   setCalendarData(
     page,
     {
-      ...createViewPatch(page, period),
+      ...createViewPatch(page, period, false, 'list'),
       announcement: delta < 0 ? '已切换到上个月。' : '已切换到下个月。',
       businessMonth,
       listSwiperCurrent: 1,
@@ -2320,7 +2365,10 @@ function getRequestedMonths(
       }
     }
   } else {
-    for (const relative of [-2, -1, 0, 1, 2] as const) {
+    // One more month on each side than the ring renders: a fast burst can cross
+    // the whole ring before the settle refresh runs, and the extra months are
+    // read in the background so the first paint is not delayed.
+    for (const relative of [-3, -2, -1, 0, 1, 2, 3] as const) {
       requestedMonths.add(addBusinessMonths(businessMonth, relative));
     }
   }
@@ -2460,7 +2508,7 @@ function startLocateTransition(
   delta: -1 | 1,
   period: Pick<WorkbenchPageData, 'businessMonth' | 'selectedDate' | 'weekStart'>,
 ): void {
-  const patch = createViewPatch(page, period);
+  const patch = createViewPatch(page, period, false, view);
   const targetIndex: 0 | 2 = delta < 0 ? 0 : 2;
   if (view === 'month') {
     const monthTargetSlot = getAdjacentMonthSlot(page.monthRingSlot, delta);

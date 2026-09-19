@@ -948,6 +948,9 @@ describe('P6-A workbench runtime coordination', () => {
       definition.handleViewChange.call(instance, { currentTarget: { dataset: { view: 'week' } } });
       preferencesRequest.success({ statusCode: 200, data: response });
       await vi.waitFor(() => expect(instance._groupMonthShiftTypeId).toBe(officeId));
+      // Only the visible branch keeps its panels patched; switching to the month
+      // view rebuilds them from the same view model the preference feeds.
+      definition.handleViewChange.call(instance, { currentTarget: { dataset: { view: 'month' } } });
       await vi.waitFor(() =>
         expect(
           instance.data.monthPanels

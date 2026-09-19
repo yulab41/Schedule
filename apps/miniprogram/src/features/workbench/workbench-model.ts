@@ -41,7 +41,6 @@ export interface WorkbenchCell {
   readonly shiftBadgeStyle: string;
   readonly ariaLabel: string;
   readonly businessDate: string;
-  readonly day: string;
   readonly holiday: string;
   readonly isBottomLeft: boolean;
   readonly isBottomRight: boolean;
@@ -52,7 +51,6 @@ export interface WorkbenchCell {
   readonly isPast: boolean;
   readonly isSelected: boolean;
   readonly isToday: boolean;
-  readonly isWeekend: boolean;
   readonly marker: string;
   readonly person: string;
 }
@@ -524,7 +522,6 @@ function createMonthCells(
           : `color:${firstAssignment.shiftTypeTextColor};background:${firstAssignment.shiftTypeColor}`,
       ariaLabel: state.length > 0 ? `${cell.businessDate}，${state}` : cell.businessDate,
       businessDate: cell.businessDate,
-      day: cell.businessDate.slice(8),
       holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
       isBottomLeft: index === grid.length - 7,
       isBottomRight: index === grid.length - 1,
@@ -535,7 +532,6 @@ function createMonthCells(
       isPast: !cell.isOutsideMonth && cell.businessDate < today,
       isSelected: !cell.isOutsideMonth && cell.businessDate === selectedDate,
       isToday: cell.businessDate === today,
-      isWeekend: isWeekend(cell.businessDate),
       marker,
       person,
     } satisfies WorkbenchCell;
