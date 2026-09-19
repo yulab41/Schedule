@@ -41,7 +41,7 @@ describe('MINI calendar incremental sync', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders a warm cache without any month read and validates with one ledger request', async () => {
+  it('renders a warm cache, validates with one ledger request and refreshes only the viewed month', async () => {
     const holidays = holidayYear(2026, [holidayDate('2026-10-01', '国庆节')]);
     const storage = warmStorage(VISIBLE_WINDOW, holidays);
     const requests = [];
@@ -56,11 +56,47 @@ describe('MINI calendar incremental sync', () => {
     const instance = await startWorkbench(request, storage);
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
 
-    expect(readBusinessMonths(requests)).toEqual([]);
+    // Every month renders straight from storage, but the *viewed* month is
+    // re-read once because the stored copy deliberately has no mobile numbers.
+    await vi.waitFor(() => expect(readBusinessMonths(requests)).toEqual(['2026-09']));
     expect(requests.filter((url) => url.includes('/calendar-changes'))).toHaveLength(1);
     expect(instance.monthResources.size).toBe(VISIBLE_WINDOW.length);
     expect(findMonthCell(instance, '2026-10-01')).toMatchObject({ isHoliday: true });
     expect(storage.get(CURSOR_KEY)).toMatchObject({ lastSeq: 12, revision: 12 });
+  });
+
+  it('re-reads the viewed month so a cache-rendered detail card keeps its mobile number', async () => {
+    const holidays = holidayYear(2026, []);
+    const storage = warmStorage(VISIBLE_WINDOW, holidays);
+    storage.set(CURSOR_KEY, { lastSeq: 5, revision: 5, savedAt: Date.now() });
+    const requests = [];
+    const request = createRequest((options) => {
+      requests.push(options.url);
+      if (options.url.includes('/calendar-changes')) {
+        options.success({ data: changes(5, false, [holidayVersion(2026, 1)]), statusCode: 200 });
+        return true;
+      }
+      return false;
+    });
+    const instance = await startWorkbench(request, storage);
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    await vi.waitFor(() => expect(readBusinessMonths(requests)).toEqual(['2026-09']));
+
+    const refreshed = instance.monthResources.get('2026-09');
+    expect(refreshed?.contactsIncomplete).toBeUndefined();
+    expect(
+      refreshed?.calendar.members.find((member) => member.membershipId === 'membership-1')
+        ?.mobilePhone,
+    ).toBe('13800138000');
+    // Adjacent months keep their instant cache render and are not re-read.
+    expect(instance.monthResources.get('2026-10')?.contactsIncomplete).toBe(true);
+    // Storage stays sanitized and keeps only a reference to the shared year.
+    const stored = storage.get(`${MONTH_PREFIX}2026-09`);
+    expect(stored.holidayYear).toBe(2026);
+    expect(stored.holidays).toBeUndefined();
+    expect(
+      stored.calendar.members.find((member) => member.membershipId === 'membership-1')?.mobilePhone,
+    ).toBeUndefined();
   });
 
   it('re-reads only the business month the ledger reports as changed', async () => {
@@ -95,7 +131,9 @@ describe('MINI calendar incremental sync', () => {
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
 
     expect(new Set(readBusinessMonths(requests))).toEqual(
-      new Set(['2026-06', '2026-07', '2026-10', '2026-12']),
+      // Uncached months, the month the ledger reports as changed, and the
+      // viewed month (whose stored copy has no mobile numbers).
+      new Set(['2026-06', '2026-07', '2026-09', '2026-10', '2026-12']),
     );
     expect(storage.get(CURSOR_KEY)).toMatchObject({ lastSeq: 6, revision: 6 });
   });
@@ -181,19 +219,11 @@ describe('MINI calendar incremental sync', () => {
     const storage = createStorage();
     vi.stubGlobal('wx', createWx(storage, vi.fn()));
     const platform = await import('../src/platform/workbench-read.ts');
-    const holidays = holidayYear(2026, []);
     const months = [];
     for (let offset = 0; offset < 26; offset += 1) {
       const month = monthAt(offset);
       months.push(month);
-      platform.writeWorkbenchCache(
-        OWNER_ID,
-        GROUP_ID,
-        month,
-        calendar(month),
-        holidays,
-        Date.now() + offset,
-      );
+      platform.writeWorkbenchCache(OWNER_ID, GROUP_ID, month, calendar(month), Date.now() + offset);
     }
 
     const cached = [...storage.keys()].filter((key) => key.startsWith(MONTH_PREFIX));
@@ -240,10 +270,14 @@ function createRequest(handleSpecial) {
 
 function warmStorage(businessMonths, holidays) {
   const storage = createStorage();
+  // Holidays live once per year next to the months that point at them.
+  storage.set(HOLIDAY_KEY, {
+    [String(holidays.year)]: { holidays, savedAt: Date.now(), version: 1 },
+  });
   for (const businessMonth of businessMonths) {
     storage.set(`${MONTH_PREFIX}${businessMonth}`, {
       calendar: calendar(businessMonth),
-      holidays,
+      holidayYear: holidays.year,
       savedAt: Date.now(),
     });
   }

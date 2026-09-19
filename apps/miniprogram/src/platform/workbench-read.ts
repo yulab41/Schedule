@@ -38,6 +38,11 @@ export { readStoredWorkbenchGroupId };
 export interface WorkbenchCacheEntry {
   readonly calendar: CalendarReadModel;
   readonly holidays: HolidayReadModel;
+  /**
+   * Set when the shared per-year holiday cache could not supply this month.
+   * The caller must re-read (or fetch) that year before trusting the badges.
+   */
+  readonly holidaysMissing?: boolean;
   readonly savedAt: number;
 }
 
@@ -182,6 +187,25 @@ export function writePersistentHolidays(
   writeStorage(WORKBENCH_HOLIDAY_CACHE_KEY, stored);
 }
 
+/**
+ * The version this device already holds for a year, or undefined when it holds
+ * nothing. Lets a caller compare the server's published version cheaply.
+ */
+export function readPersistentHolidayVersion(year: number, now = Date.now()): number | undefined {
+  const value = readStorage(WORKBENCH_HOLIDAY_CACHE_KEY);
+  if (!isRecord(value)) return undefined;
+  const entry = (value as Record<string, unknown>)[String(year)];
+  if (!isRecord(entry)) return undefined;
+  const savedAt = entry.savedAt;
+  const version = entry.version;
+  if (typeof savedAt !== 'number' || !Number.isFinite(savedAt) || savedAt > now) return undefined;
+  return typeof version === 'number' ? version : undefined;
+}
+
+function emptyHolidayForYear(year: number): HolidayReadModel {
+  return { confirmed: false, dates: [], year };
+}
+
 export function readWorkbenchCache(
   ownerId: string,
   groupId: string,
@@ -199,31 +223,45 @@ export function readWorkbenchCache(
   const savedAt = value.savedAt;
   const calendar = value.calendar;
   const holidays = value.holidays;
+  const hasEmbeddedHolidays = isRecord(holidays);
+  const hasHolidayYear =
+    typeof value.holidayYear === 'number' && Number.isInteger(value.holidayYear);
   if (
     typeof savedAt !== 'number' ||
     !Number.isFinite(savedAt) ||
     savedAt > now ||
     (options.ignoreAge !== true && now - savedAt >= WORKBENCH_CACHE_TTL_MS) ||
     !isRecord(calendar) ||
-    !isRecord(holidays)
+    (!hasEmbeddedHolidays && !hasHolidayYear)
   ) {
     removeStorage(key);
     return undefined;
   }
   const decodedCalendar = calendarReadModelDecoder.safeDecode(calendar);
-  const decodedHolidays = holidayReadModelDecoder.safeDecode(holidays);
   if (
     !decodedCalendar.success ||
-    !decodedHolidays.success ||
     decodedCalendar.data.groupId !== groupId ||
     decodedCalendar.data.businessMonth !== businessMonth
   ) {
     removeStorage(key);
     return undefined;
   }
+
+  // Holidays live once per year in their own cache; a month only records which
+  // year it needs. Entries written before that split still carry their own copy
+  // and stay readable so an upgrade does not throw away a warm window.
+  const storedYear = value.holidayYear;
+  const holidayYear =
+    typeof storedYear === 'number' && Number.isInteger(storedYear)
+      ? storedYear
+      : Number(businessMonth.slice(0, 4));
+  const embedded = holidayReadModelDecoder.safeDecode(holidays);
+  const shared = embedded.success ? undefined : readPersistentHolidays(holidayYear, now);
+  const resolvedHolidays = embedded.success ? embedded.data : shared;
   return {
     calendar: sanitizeCalendarForCache(decodedCalendar.data),
-    holidays: decodedHolidays.data,
+    holidays: resolvedHolidays ?? emptyHolidayForYear(holidayYear),
+    ...(resolvedHolidays === undefined ? { holidaysMissing: true } : {}),
     savedAt,
   };
 }
@@ -300,16 +338,18 @@ export function writeWorkbenchCache(
   groupId: string,
   businessMonth: string,
   calendar: CalendarReadModel,
-  holidays: HolidayReadModel,
   now = Date.now(),
 ): void {
   if (calendar.groupId !== groupId || calendar.businessMonth !== businessMonth) return;
   clearLegacyWorkbenchStorage();
   writeStorage(getWorkbenchCacheKey(ownerId, groupId, businessMonth), {
     calendar: sanitizeCalendarForCache(calendar),
-    holidays,
+    // Holidays are cached once per year in WORKBENCH_HOLIDAY_CACHE_KEY; the
+    // month entry only records which year it needs. Storing a copy per month
+    // duplicated the same year up to 24 times.
+    holidayYear: Number(businessMonth.slice(0, 4)),
     savedAt: now,
-  } satisfies WorkbenchCacheEntry);
+  });
   pruneWorkbenchMonthCache(ownerId, groupId);
 }
 

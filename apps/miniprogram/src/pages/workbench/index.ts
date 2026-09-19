@@ -60,6 +60,7 @@ import {
   createWorkbenchReadClient,
   loadActiveThenAdjacent,
   readPersistentHolidays,
+  readPersistentHolidayVersion,
   readWorkbenchCalendarCursor,
   readWorkbenchCache,
   readWorkbenchGroupSnapshot,
@@ -166,6 +167,11 @@ interface MonthReadResult {
   readonly offline: boolean;
   /** True only for a first-paint copy taken from storage before validation. */
   readonly prerendered?: boolean;
+  /**
+   * True when this month came from the persisted cache, which deliberately
+   * drops `mobilePhone`. The viewed month is re-read to restore it.
+   */
+  readonly contactsIncomplete?: boolean;
 }
 
 type HolidayReader = (year: number) => Promise<HolidayReadModel>;
@@ -290,6 +296,11 @@ interface WorkbenchPageInstance {
   monthCache: Map<string, MonthReadResult>;
   /** Holiday reads are per year and never change within a session. */
   holidayReads: Map<number, Promise<HolidayReadModel>>;
+  /**
+   * `<groupId>:<businessMonth>` keys already re-read to restore the mobile
+   * numbers the persisted cache strips, so each month costs at most one.
+   */
+  contactsRefreshRequested: Set<string>;
   hasShown: boolean;
   isVisible: boolean;
   pendingListTarget: string | undefined;
@@ -476,6 +487,7 @@ Page({
   monthResources: new Map<string, MonthReadResult>(),
   monthCache: new Map<string, MonthReadResult>(),
   holidayReads: new Map<number, Promise<HolidayReadModel>>(),
+  contactsRefreshRequested: new Set<string>(),
   hasShown: false,
   isVisible: true,
   pendingListTarget: undefined,
@@ -1569,6 +1581,7 @@ async function loadWorkbench(
     // next validation asks for the same months again.
     const everyMonthAlreadyFresh = requestedMonths.every((month) => plan.freshMonths.has(month));
     if (everyMonthAlreadyFresh) commitCursor();
+    ensureMonthContacts(page);
     const filterMemberOptions = createFilterOptions(
       page.calendar.members.map((member) => ({
         label: member.realName,
@@ -1910,7 +1923,13 @@ function applyCachedMonthWindow(
       ignoreAge: true,
     });
     if (entry !== undefined) {
-      cached.push({ ...entry, context, offline: false, prerendered: true });
+      cached.push({
+        ...entry,
+        context,
+        contactsIncomplete: true,
+        offline: false,
+        prerendered: true,
+      });
     }
   }
   if (cached.length === 0) return false;
@@ -1961,14 +1980,78 @@ async function planCalendarWindow(
       if (businessMonth !== undefined && requested.has(businessMonth)) stale.add(businessMonth);
     }
   }
+  // Holidays are published per year and are not part of the group ledger, so a
+  // confirmed revision would otherwise never reach a month that is already
+  // cached. This only widens the window when the device can prove the year it
+  // holds is out of date; a device with no stored version is corrected by the
+  // version-aware read of whichever month it actually displays.
+  const holidayVersions = new Map(
+    changes.holidayVersions.map((entry) => [entry.year, entry.version]),
+  );
+  for (const businessMonth of requestedMonths) {
+    const year = Number(businessMonth.slice(0, 4));
+    const published = holidayVersions.get(year);
+    const storedVersion = readPersistentHolidayVersion(year);
+    if (published !== undefined && storedVersion !== undefined && storedVersion !== published) {
+      stale.add(businessMonth);
+    }
+  }
 
   const freshMonths = new Set([...cachedMonths].filter((month) => !stale.has(month)));
   return {
     available: true,
     cursor: { lastSeq: changes.revision, revision: changes.revision },
     freshMonths,
-    holidayVersions: new Map(changes.holidayVersions.map((entry) => [entry.year, entry.version])),
+    holidayVersions,
   };
+}
+
+/**
+ * Restores the mobile numbers that the persisted cache deliberately strips.
+ *
+ * `sanitizeCalendarForCache` removes `mobilePhone` before a month reaches
+ * storage, which is the right call for what is kept on the device but leaves a
+ * month served from storage able to show only the short phone — and nothing at
+ * all for a member who has none. Re-reading just the month the user is looking
+ * at costs one request per month per session, leaves the swipe path untouched,
+ * and does not move the cursor the ledger already validated.
+ */
+function ensureMonthContacts(page: WorkbenchPageInstance): void {
+  const groupId = page.data.currentGroupId;
+  const ownerId = getStoredWechatProfile()?.id;
+  if (ownerId === undefined || groupId === '' || page.data.currentGroupRoleKind === 'guest') return;
+  if (page.data.state !== 'ready') return;
+  const businessMonth = getActiveBusinessMonth(page);
+  const existing = page.monthResources.get(businessMonth) ?? page.monthCache.get(businessMonth);
+  if (existing?.contactsIncomplete !== true) return;
+  const refreshKey = `${groupId}:${businessMonth}`;
+  if (page.contactsRefreshRequested.has(refreshKey)) return;
+  page.contactsRefreshRequested.add(refreshKey);
+
+  const requestSerial = page.requestSerial;
+  void readMonth(
+    page,
+    ownerId,
+    groupId,
+    businessMonth,
+    requestSerial,
+    createHolidayReader(page, [businessMonth]),
+    { forceRefresh: true },
+  )
+    .then((result) => {
+      if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
+      const requestedMonths = getRequestedMonths(
+        page.data.viewMode,
+        page.data.businessMonth,
+        page.data.weekStart,
+      );
+      if (!applyMonthWindow(page, [result], requestedMonths)) return;
+      applyChangedViewPatch(page, createViewPatch(page));
+    })
+    .catch(() => {
+      // The month is already on screen; a failed refresh only means the detail
+      // card keeps showing the short phone instead of becoming an error page.
+    });
 }
 
 async function readMonth(
@@ -2002,7 +2085,19 @@ async function readMonth(
       ignoreAge: true,
     });
     if (persisted !== undefined) {
-      return rememberMonthRead(page, businessMonth, { ...persisted, context, offline: false });
+      // Resolve the year through the version-aware reader: it answers from the
+      // shared per-year cache without a request while the published version is
+      // unchanged, and refetches the moment it is not.
+      const holidays = await readHolidays(Number(businessMonth.slice(0, 4)));
+      return rememberMonthRead(page, businessMonth, {
+        ...persisted,
+        context,
+        // The stored copy is intentionally stripped of mobile numbers; the
+        // caller refreshes the viewed month to restore them.
+        contactsIncomplete: true,
+        holidays,
+        offline: false,
+      });
     }
   }
 
@@ -2044,7 +2139,7 @@ async function readMonth(
     isCurrentRequest(page, requestSerial) &&
     calendarContext(page) === context
   ) {
-    writeWorkbenchCache(ownerId, groupId, businessMonth, calendarResult.value, holidays);
+    writeWorkbenchCache(ownerId, groupId, businessMonth, calendarResult.value);
   }
   return rememberMonthRead(page, businessMonth, {
     calendar: calendarResult.value,
@@ -2111,6 +2206,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
       offlineNotice: activeResult.offline ? '离线只读 · 显示最近一次成功读取的排班' : '',
       state: activeResult.offline ? 'offline' : 'ready',
     });
+    ensureMonthContacts(page);
     void staged.adjacent
       .then((adjacentResults) => {
         if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
@@ -3026,6 +3122,7 @@ function resetCalendarContext(page: WorkbenchPageInstance): void {
   page.monthResources.clear();
   page.monthCache.clear();
   page.holidayReads.clear();
+  page.contactsRefreshRequested.clear();
   page.monthRingSlot = 1;
   page.weekRingSlot = 1;
   page.weekShiftTargetSlot = undefined;
