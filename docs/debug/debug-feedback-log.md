@@ -3020,3 +3020,24 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 观察到的既有不稳定（非本批引入，如实记录）：完整根套件第一次出现 2 个失败，其中 `apps/api/src/plugins/client-capability-guard.spec.ts`（Fastify inject + afterEach close 的用例）单独运行 11/11 通过、`apps/api/src` 全量通过、完整复跑也通过；判定为间歇性 flake，未修改该测试。另一个失败仍是 `packages/ui-icons/src/catalog.test.ts` 的 warm 槽依赖未链接（REUSE_ONLY 不安装）。
 - 追加体验版：`0.1.0-p10.20260919.179`（候选 `063bb67a`，234 个代码文件，ZIP 2628279 字节，Manifest `73351d99c7cfc8cfb4840786dd233e336cb6d683d79746c00f7f6c7e4c01118c`）已上传并放行；公网探针 `.179`/`.178`/`.177`=200、未知 `.7777`=426。lineage 门禁这次无需改 policy（本批没有触碰 `apps/miniprogram/src/pages/workbench/index.ts`）。
 - 仍未闭环（不得写成已完成）：MySQL 集成用例（含本轮新增的 calendar-changes 用例）因本机/本槽无测试库仍全部跳过；开发者工具的请求数探针与"后台改一条历史排班 → 客户端静默更新"的端到端观察未做；小米 14 原生验收由用户执行。
+
+## 2026-09-19 闭环第 1 项：用本地 Docker MySQL 跑通集成套件（并抓到 3 个真实问题）
+
+- 起因：用户授权闭环"MySQL 集成用例一直跳过"。先用生产 MySQL 临时库 + SSH 隧道跑过一轮，确认能跑通但极慢（每个 `beforeEach` 重建 56 表 + 62 个迁移，跨公网 + 该机长期 70% iowait）。按用户指示改为**本地 Docker**：`mysql:8.4`（与生产同版本 8.4.11）容器，`--innodb-flush-log-at-trx-commit=0 --sync-binlog=0 --skip-log-bin --innodb-flush-method=nosync` 关掉一次性测试库的落盘，零生产负载。生产临时库 `schedule_itest_20260919212928` 与专用账号 `itest_20260919212928` 已 **DROP**，SSH 隧道已终止，本地临时口令文件已删除。
+- 环境坑（值得记）：仓库根/包的 vitest 配置都没有设 `hookTimeout`，默认 10 秒。本仓库的集成用例每个 `beforeEach` 都要重建全库，在 Docker Desktop(WSL2) 上约 10 秒，恰好在阈值上，表现为大面积 `Hook timed out in 10000ms` 假失败。本地跑必须显式 `--hookTimeout=180000 --testTimeout=180000`。
+- 结果：本地共跑约 **263 个 MySQL 集成用例**，覆盖 `migrations`(28)、`calendar`(全部通过，含本批新增 4 条)、`schedule-publication`、`schedule-repository`、`events`、`scheduling-config`、`past-schedules`、`leaves`、`group-routes`、`user-routes`、`holidays`、`swaps`(34)、`duty-adjustments`(26)、`manual-apply`(22)、`group-permissions`(10)。除下面 2 个既有失败外全绿。
+- **抓到并修复的 3 个真实问题（都是我这一批的东西）**：
+  1. `migrations.test.ts` 的"迁移计数"断言：真实值 `SELECT COUNT(*) FROM __drizzle_migrations` = **62**（与迁移文件数一致），我此前按"文件数 -1"猜成 61。更关键的是：改动前的断言是 **60**，而当时文件数已是 61 —— 说明**这条断言在本批之前就已经 stale 失败**，即仓库的 MySQL 套件当时并不是全绿的。
+  2. `migrations.test.ts` 两个 legacy 夹具（`createLegacyMigrationsDirectory(55)/(56)`）用 drizzle 往 `groups` 插值，drizzle 会把新列 `calendar_revision` 写进 INSERT，而旧 schema 没有该列 → `ER_BAD_FIELD_ERROR`。改为与相邻代码一致的裸 SQL，并补上 `visitor_key`（该列 NOT NULL 且无库级默认，drizzle 靠 JS 默认值填充）。
+  3. 我自己写的 `asks for a resync when the cursor predates the retained ledger window` 断言错：我断言"把 `changed_at` 改老后会被剪枝"，但剪枝只在 `seq > 500` 时触发（不足 500 条的群不会跑剪枝，行数本来就被 500 封顶）。改为按保留窗口的本意——只留最新一条，再断言旧游标必然 `resync`、最新游标不 `resync`。
+- **2 个既有失败，与本批无关（已用实验证明）**：`schedule-repository.integration.test.ts` 的 "moves draft periods through publication, replacement, and withdrawal with linked events"（多出一条 `past` 周期）与 "locks past dates into a past period when publishing or withdrawing a current month"（抛"该月份已过…无法撤销发布"）。原因：用例硬编码 `2026-08`/`2026-09`，而今天是 `2026-09-19`，`isPastBusinessMonth('2026-08')` 已为 `true`。证明方式：**临时注释掉我在 `EventWriter.append` 里加的记账写入后，这 2 个失败一字不差地复现**，随即还原代码。修它们需要把夹具月份改成相对当前业务月，属独立改动，未在本批顺手改。
+
+## 2026-09-19 闭环第 2 项：开发者工具请求数探针（受阻，已定位原因）+ 服务器体检与减负
+
+- 探针尝试：`wechatide` 可用且开发者工具已登录（`versionRelation: equal`、`loginExpired: false`、`cliTokenRequired: false`），已 `project_import` + `open_project_window` + `simulator_refresh`，生产 dist 构建成功（355 文件）。**阻断点**：DevTools 里的运行态上报 `version=local`，生产 API 的能力门禁按设计拒绝（`400 VALIDATION_FAILED 客户端能力查询参数不符合要求`），因此工作台停在"正在读取排班"，拿不到日历请求数。网络缓冲区的原始记录已取证（`GET /api/client-capabilities?platform=miniprogram&version=local` → 400）。
+  结论：这不是代码问题，而是**仓库有意的安全边界**（`release-candidate` 规则明确拒绝 `version=local`）。要真正跑通探针有两条路，都需要单独的一批工作：①本地起 API（本地 MySQL 已有）+ dev profile 指向本地、并在本地放行 `local`；②把 DevTools 的 `local` 加进生产白名单 —— **这条我不会做**（等于在生产上开一个未审计入口）。
+  已清理：`project_remove` 已发起（开发者工具要求人工确认，处于 pending）；本地 `schedule-itest-mysql` 容器已 `stop`（保留以便复用，未删除）。
+- 服务器体检（回答"是否被我放入过度垃圾/屎山"）：**没有**。核对结果：`/tmp/schedule-release-*` 残留 **0** 个、`/tmp` 合计 100K、`/opt/schedule` 174M、`/opt/schedule/releases` 仅 2 个目录 31M；容器只有 3 个生产容器（`api`/`mysql`/`web`），**没有任何遗留的 `api-run-*`**（部署期间的临时容器都已自动回收）；docker images 3 个全部 active、可回收 0B。
+- 顺手做的标准减负（都是宿主机层面的历史占用，与本项目代码无关）：①systemd journal 3.8G → 537M（新增 `/etc/systemd/journald.conf.d/99-schedule-cap.conf`：`SystemMaxUse=500M`、`SystemKeepFree=2G`、`MaxRetentionSec=14day`，防止再次无限增长）；②apt 列表/缓存 313M → 72K；③移除 snap 里已禁用的旧 `lxd` revision。**磁盘 `/` 从 17G/44% → 13G/33%，可用 25G**。全程未动 docker 卷（`schedule_backups` 3.2G 加密备份 + `schedule_mysql_data` 679M 都是必要数据）。
+- 真正的瓶颈（如实报告，未擅自改）：这台是 2 vCPU / **1.6GB 内存** 的共享机型，`free` 显示仅 ~190MB free、**swap 已用 1.1G/2G**，`vmstat` 长期 70–98% iowait。主要内存项是 MySQL（`innodb_buffer_pool_size` 已是保守的 128M，容器 RSS 约 266MB）+ host 侧 snapd/云监控 agent + `performance_schema=ON`（在 8.x 上通常占 200–400MB）。可选的下一步（需要你同意，因为要重启 MySQL 容器、会有短暂 DB 中断）：关闭 `performance_schema` 或给实例升内存。**我没有动 swap**：`swapoff -a` 在只剩 ~190MB free 的机器上可能直接触发 OOM，风险高于收益。
+- 生产健康复查：3 个容器 Up，`/api/health`=200。
