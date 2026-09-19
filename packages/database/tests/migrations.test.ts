@@ -21,6 +21,14 @@ import {
 } from '../src/index.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../migrations', import.meta.url));
+
+/**
+ * `groups.visitor_key` is NOT NULL without a database default: the drizzle
+ * column fills it in JS, so raw-SQL fixtures on a legacy schema must supply it.
+ */
+function visitorKey(): string {
+  return randomUUID().replaceAll('-', '');
+}
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 
@@ -50,7 +58,8 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 61 }]);
+    // One journal entry per applied migration: 62 after 0062_group_calendar_changes.
+    expect(migrations).toEqual([{ count: 62 }]);
     expect(tables).toEqual([{ count: 57 }]);
   });
 
@@ -64,10 +73,11 @@ describeWithDatabase('identity and group migrations', () => {
       await client.database
         .insert(users)
         .values({ id: owner, cloudbaseUid: 'link-migration-owner' });
-      await client.database.insert(groups).values([
-        { id: first, name: 'First', ownerUserId: owner },
-        { id: second, name: 'Second', ownerUserId: owner },
-      ]);
+      // Raw SQL on purpose: a legacy schema predates later columns, and the
+      // drizzle table would name them in the INSERT and fail here.
+      await client.database.execute(
+        sql`INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key) VALUES (${first}, 'First', ${owner}, ${visitorKey()}), (${second}, 'Second', ${owner}, ${visitorKey()})`,
+      );
       const membershipId = randomUUID();
       await client.database
         .insert(groupMemberships)
@@ -124,9 +134,11 @@ describeWithDatabase('identity and group migrations', () => {
       await client.database
         .insert(users)
         .values({ id: owner, cloudbaseUid: `retirement-${owner}` });
-      await client.database
-        .insert(groups)
-        .values({ id: groupId, name: 'Migration fixture', ownerUserId: owner });
+      // Raw SQL on purpose: this fixture predates later group columns, which a
+      // drizzle insert would name and the legacy schema does not have yet.
+      await client.database.execute(
+        sql`INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key) VALUES (${groupId}, 'Migration fixture', ${owner}, ${visitorKey()})`,
+      );
       await client.database
         .insert(groupMemberships)
         .values({ id: memberId, groupId, userId: owner, role: 'owner', status: 'active' });

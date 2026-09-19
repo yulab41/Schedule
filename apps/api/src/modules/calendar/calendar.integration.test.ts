@@ -1526,16 +1526,24 @@ describeWithDatabase('current month calendar read model', () => {
 
   it('asks for a resync when the cursor predates the retained ledger window', async () => {
     await savePublished('2026-08');
-    await client.database.execute(
-      sql`UPDATE group_calendar_changes SET changed_at=TIMESTAMPADD(DAY, -120, CURRENT_TIMESTAMP(3))`,
+    await savePublished('2026-09');
+    // Retention is a rolling window; simulate it by dropping everything except
+    // the newest change, then ask from a cursor that can no longer be satisfied.
+    const [latest] = await client.database.execute(
+      sql`SELECT MAX(seq) AS maxSeq FROM group_calendar_changes WHERE group_id=${groupId}`,
     );
-    const published = await savePublished('2026-09');
-    expect(published.statusCode, published.body).toBe(200);
+    const newest = Number((latest as unknown as { maxSeq: number }[])[0]?.maxSeq);
+    expect(newest).toBeGreaterThan(2);
+    await client.database.execute(
+      sql`DELETE FROM group_calendar_changes WHERE group_id=${groupId} AND seq < ${newest}`,
+    );
     const [retained] = await client.database.execute(
       sql`SELECT MIN(seq) AS minSeq FROM group_calendar_changes WHERE group_id=${groupId}`,
     );
-    expect(Number((retained as unknown as { minSeq: number }[])[0]?.minSeq)).toBeGreaterThan(2);
-    expect((await readChanges('owner-token', 1)).json().resync).toBe(true);
+    expect(Number((retained as unknown as { minSeq: number }[])[0]?.minSeq)).toBe(newest);
+    const stale = await readChanges('owner-token', 1);
+    expect(stale.json().resync).toBe(true);
+    expect((await readChanges('owner-token', newest)).json().resync).toBe(false);
   });
 
   function readChanges(token: string, since: number) {
