@@ -24,7 +24,8 @@
 - 已上传并放行：候选`48102b9a`、general-5 upload 用途 lease、checker `PASS`，动态分配`0.1.0-p10.20260919.173`（description `calendar swipe fix 48102b9`、production、Manifest `5a31d053…46522`、远端tag同一SHA、receipt 在 ignored 目录）；L4 放行按运维笔记物理路线校验后执行可信`ensure`（只增不删、API/Web 重建、预热502后恢复）并通过`verify`、公网探针`.173/.172`=200、未知=426、`ECS_PUBLIC_IP`完整`ecs-verify.sh`（release `44034fcc` 未变）。未部署生产应用、未备份生产库、未提审/正式发布；general-5 已释放。
 - `.173`复查为**错误交付**：其内容与`.172`差199个文件（用了 main 内容，丢了`runtime-3172`运行线），而生产 live release`44034fcc`属于那条线，故客户端与服务器 API 不匹配。已按“`.172`内容 + 滑动修复”重建候选`697795eb`（`read-tree`切到`44a25885`后移植修复：pager/月组件/日期选择器 + 该线独有的周历环形 pager 同步 adopt；刷新该线血缘证明blob），`tsc`、Mini 1205项、production verify通过，分支已推送`codex/schedule-65704-00e7c79fd459`。
 - 已重发并放行体验版`0.1.0-p10.20260919.174`（description`swipe fix on 172 line 697795e`、Manifest`80967ffa…3d251`、233 code files、远端tag同一SHA、receipt在ignored目录）；`ensure .174`+`verify`+公网探针`.174/.173/.172`=200、未知=426+完整`ecs-verify.sh`（release`44034fcc`未变）全部通过。未部署生产应用、未备份生产库、未提审/正式发布；`.173`仍被放行，退役需另行批准。
-- 遗留决策：候选内容目前只在`codex/*`分支与`.174`tag上，尚未并入 main；是否把这条199文件内容线正式落到 main，等用户决定。general-5 已释放。
+- 内容线已正式落到 main：`git merge --no-ff 697795eb` 产生 `a28cd528`（main 内容 = 该运行线内容 + 滑动修复；合并结果与候选仅差两份交付文档），已推送。main 工作区重建 `contracts/client-core/presentation-core` 产物后 Mini typecheck 通过；候选槽内的完整证据（tsc、Mini 1205 项、production verify）对同一内容继续有效。
+- 生产边界：服务器 live release `44034fcc` 属于这条内容线的更早提交，已在 main 历史内；main 现在比服务器应用代码多出该线最后几个提交（WebView-only 强制、PoC 页面删除等）。本次**未部署生产应用**（L4 需当次明确授权），也未退役 `.173`（仍在放行）。general-5 已释放。
 - 唯一下一任务/停止条件：用户在小米14打开体验版`0.1.0-p10.20260919.174`，确认内容与`.172`一致、月视图/周视图连续快速滑动月份单调向前不回退；未取得与`697795eb`一致的真机结论前，不得写“小米14验收通过”。详情见`docs/debug/debug-feedback-log.md`2026-09-19第四条。
 
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
