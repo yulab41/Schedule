@@ -12,7 +12,18 @@
 - 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
 - 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
-## 当前批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
+## 当前批次：小程序首屏变慢的服务器根因治理（2C/1.6G 资源铁律）
+
+- 用户报告小程序首次打开日历/通讯录/换班/我的经常转圈 5–10 秒，要求核查小程序与 API 链路并清理服务器垃圾。结论：根因在服务器侧，不是小程序包体或"屎山代码"。
+- 生产实测证据：web nginx `$request_time` 与 api `pino responseTime` 同时记录 5–12.0 秒真实请求（`/calendar` 8.078s、`/auth/wechat/login` 8.896s、`/client-capabilities` 6.482s、`/directory/facets` 10.038s），并有一批正好 12.004–12.015s 的 HTTP 499 客户端放弃；`/proc/pressure/io` full avg300≈35%、memory≈17%；swap 已用 1080MB（mysqld 754MB 被换出）。
+- 根因：宿主 cron 每分钟用 `docker compose run --rm` 为 export-jobs/duty-reminders/notification-retry 各起一个一次性容器（≈4320 次/天），privacy-retention 每 15 分钟再起一个；2 vCPU/1.6GB 上持续读镜像层、反复分配内存并挤出页缓存，把同一时刻的所有 API 请求一起拖慢。
+- 修复：`schedule-notifications.sh`/`schedule-privacy-retention.sh` 改为优先在常驻 `medical-schedule-prod-api-1` 内 `docker exec` 跑作业（频率与作业语义不变），只有常驻容器不可用才回退一次性容器；两个 spec 新增"默认路径不得是一次性容器"断言。
+- 服务器清理（同轮用户授权）：`/opt/schedule/releases` 642→2（只保留 current `e4b8d1f6` 与 manifest rollbackCandidate `44034fcc`），释放 ≈7.97GB；`/tmp` 992MB→88KB（清掉历史 `schedule-release-*`、`api-flat*`、`deploy-manifest-*` 与 token 残留）；`/root` 下 `$DIR` 与空垃圾目录已删；根分区 25G/67% → 17G/46%。
+- 已完成验证：`vitest infra/scripts/schedule-notifications.spec.ts infra/scripts/privacy-retention.spec.ts` 6/6、`release-controls.spec.ts`+`package-ecs-release.test.mjs` 32/32、prettier/eslint/`smoke:check-core` 通过；服务器上用同一份脚本 `bash -n` 通过、实跑三个作业成功且容器数保持 3。
+- 待办：提交推送 → `ecs:package` → 生产备份/部署 → `ecs-verify` → 重启 mysql/api 回收 swap 后复测首屏。小程序侧本轮只报告不改：首屏约 30–40 个请求、主包 1.7MB 未超 2MB 限制，不是本次根因。
+- 停止条件：部署后 `ecs-verify.sh` 通过、公网 `/api/health` 200、磁盘与 swap 回落，并给出可复现的首屏复测数据。
+
+## 上一批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
 
 - 用户批准的方案：服务端**群级变更日志 + 单调 `calendar_revision` 游标**，客户端按 `(owner, group)` 持久化"日历快照 + lastSeq"，切月/切周永不等待网络；增量只重取受影响月份。上一批（`.173`–`.177` 快速滑动与读缓存）已合入 `main`，本轮在其之上继续。
 - 契约决定（重要偏差）：`calendarReadModelSchema` / `holidayReadModelSchema` 是 `.strict()`，生成解码器为 `additionalProperties:false`；给**已发布**的 `/groups/:id/calendar`、`/holidays` 直接加 `revision` / `version` 会让 `.177` 及更早的体验版与线上 Web 解码失败。故本轮**不改动任何既有响应形状**，改由新端点 `GET /api/groups/:groupId/calendar-changes?since=<seq>` 返回 `{revision, resync, changes[], holidayVersions[]}`；节假日版本也随该响应下发，避免二级通道。

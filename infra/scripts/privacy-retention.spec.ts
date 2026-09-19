@@ -17,6 +17,11 @@ describe('production privacy retention controls', () => {
 
     expect(scheduler).toContain('/var/lock/schedule-privacy-retention.lock');
     expect(scheduler).toContain('--job=privacy-retention');
+    // 保留 15 分钟频率，但默认在常驻 api 容器内执行，避免额外的一次性容器。
+    expect(scheduler).toContain('API_CONTAINER=medical-schedule-prod-api-1');
+    expect(scheduler).toContain(
+      'exec docker exec "$API_CONTAINER" node apps/api/dist/jobs/run-job.js --job=privacy-retention',
+    );
     expect(update).toContain(
       '*/15 * * * * root /usr/local/lib/schedule/schedule-privacy-retention.sh',
     );
