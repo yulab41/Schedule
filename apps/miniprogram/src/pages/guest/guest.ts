@@ -280,7 +280,7 @@ Page({
   },
   handleMonthChange(
     this: GuestPage,
-    event: { detail: { delta: -1 | 1; current: MonthSlot } },
+    event: { detail: { delta: number; current: MonthSlot } },
   ): void {
     this.monthRingSlot = event.detail.current;
     const month = addBusinessMonths(this.data.businessMonth, event.detail.delta);

@@ -47,6 +47,38 @@ describe('P6-A workbench runtime coordination', () => {
     },
   );
 
+  it('rotates the month ring around the slot the native swiper reported', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendar('2026-09');
+    instance.holidays = holidayApiGoldenResponse;
+    instance.data.currentGroupId = 'group-1';
+    instance.data.viewMode = 'month';
+    instance.data.businessMonth = '2026-09';
+    instance.data.selectedDate = '2026-09-20';
+    instance.data.weekStart = '2026-09-14';
+    instance.monthRingSlot = 1;
+    const patches = [];
+    const setData = instance.setData.bind(instance);
+    instance.setData = (patch, callback) => {
+      patches.push(patch);
+      setData(patch, callback);
+    };
+
+    definition.handleMonthChange.call(instance, { detail: { current: 2, delta: 1 } });
+
+    const patch = patches[0];
+    expect(patch.monthPanels).toHaveLength(3);
+    expect(patch.monthLabel).toBe('2026 年 10 月');
+    expect(patch.selectedDetails).toBeDefined();
+    expect(instance.monthRingSlot).toBe(2);
+    expect(instance.data.businessMonth).toBe('2026-10');
+    expect(instance.data.monthPanels[2]).toMatchObject({ key: '2026-10', relative: 0, slot: 2 });
+    expect(instance.data.monthPanels[1]).toMatchObject({ key: '2026-09', relative: -1 });
+    expect(instance.data.monthPanels[0]).toMatchObject({ key: '2026-11', relative: 1 });
+  });
+
   it('defaults each single-member shift open and preserves manual collapse on reselection', async () => {
     vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
     await import('../src/pages/workbench/index.ts');

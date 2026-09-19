@@ -2911,3 +2911,13 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 
 - 运行/浏览器验证：`pnpm smoke:browser` 已执行；候选 warm 槽未启动 `localhost:5173`，在登录页导航阶段返回 `ERR_CONNECTION_REFUSED`。
 - 该结果只说明本地服务未运行，不记为浏览器通过，也未据此修改产品代码。完整 `pnpm verify` 与 Mini production verify 已通过；使用 `pnpm smoke:check-core` 校验本条记录存在。
+
+## 2026-09-19 月历快速滑动内容回退（用户体验反馈）
+
+- 现象：日历首页月视图连续快速左滑时，动画一直向前，但可见月份与已提交月份偶发回退（用户描述 `9-10-9-10-11`）。
+- 引入点：`git log -S`/`git blame` 确认环形槽位与“滑动锚点随原生索引移动”的设计来自 `9045dc02`（remove native calendar recentering），`shiftPending` 期间丢弃新滑动的判定在 `4e5cb461` 抽成共享 `calendar-period-pager`，两者叠加造成锚点与原生索引分离。
+- 根因：换月 patch 在途（`shiftPending`）时旧实现直接丢弃新的原生滑动，既不记录原生槽位也不排队；环仍按旧锚点映射月份，下一次向前的滑动落到环的“上个月”槽，于是内容与 `businessMonth` 都倒退一格。
+- 修复：原生 swiper 槽位成为唯一事实源（`swiperSlot`/`pendingDelta`）；在途滑动改为排队，settle 时以“无动画 adopt”补提交；`prepare` 区分 locked/tracked，stale/replay 的 animationfinish 仍被忽略；`delta` 放开为可跨多格的整数并同步 guest 页与日期选择器。去掉 `swiperCurrent` 回调等待，使 Page 处理器提前约 28ms 启动。
+- 验证（开发者工具，非实体设备）：同环境同节奏（350ms 连续 5 次左滑）基线 `9→10→9→10→10`，修复后 `9→10→11→12→2027-01` 单调向前；故障注入 250ms 放大窗口下提交月份仍不回退。RED→GREEN：基线源码运行新测试 8 失败/44 通过，修复后全绿；Mini 173 文件/1188 项通过（16 跳过）、`tsc`、Mini production verify（包体 4581614 字节、Worklet 2/2、manifest `c13a5d88…`）、`format:check`、`lint`、`icon:parity:check`、`smoke:check-core` 通过。证据见 ignored `runtime/audit/calendar-month-swipe-20260919/`。
+- 性能旁证：一次换月的 Page patch 40.8KB/往返 115～120ms；settle 阶段另有 2 次约 100KB patch（91ms/75ms）。已尝试的两项 patch 瘦身（去掉未挂载视图数据、按槽位路径下发）无可靠收益或更慢，按“收益不明确即回滚”未纳入。
+- 状态：代码修复与静态/运行时证据完成，属 Mini-only 批次，未部署生产、未上传体验版；小米 14 实体设备手势手感仍待用户复核。未经实体设备证据不得写“小米 14 验收通过”。

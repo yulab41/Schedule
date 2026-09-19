@@ -28,6 +28,8 @@ type MonthSlot = CalendarPeriodSlot;
 
 interface CalendarMonthInstance {
   _monthActiveSlot: MonthSlot;
+  _monthPendingDelta: number;
+  _monthSwiperSlot: MonthSlot;
   _monthHeightTargetIndex: MonthSlot | undefined;
   _monthShiftPending: boolean;
   _queuedMonthDelta: number;
@@ -78,6 +80,8 @@ Component({
   lifetimes: {
     attached(this: CalendarMonthInstance): void {
       this._monthActiveSlot = 1;
+      this._monthPendingDelta = 0;
+      this._monthSwiperSlot = 1;
       this._monthHeightTargetIndex = undefined;
       this._monthShiftPending = false;
       this._queuedMonthDelta = 0;
@@ -87,8 +91,10 @@ Component({
     handleMonthChangeStart(this: CalendarMonthInstance, event: MonthChangeStartEvent): void {
       const { current } = event.detail;
       const state = readMonthPagerState(this);
-      if (!prepareCalendarPeriodChange(state, current)) return;
+      const prepared = prepareCalendarPeriodChange(state, current);
+      if (prepared === 'ignored') return;
       writeMonthPagerState(this, state);
+      if (prepared === 'tracked') return;
       const viewportHeight = this.data.panelHeights?.[current] ?? 270;
       if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
     },
@@ -96,7 +102,7 @@ Component({
       const { current } = event.detail;
       const state = readMonthPagerState(this);
       if (!isCalendarPeriodSlot(current)) return;
-      if (current === state.activeSlot) {
+      if (current === state.swiperSlot) {
         if (state.targetSlot === undefined) return;
         cancelCalendarPeriodShift(state);
         writeMonthPagerState(this, state);
@@ -105,11 +111,15 @@ Component({
         return;
       }
       const committed = commitCalendarPeriodSwipe(state, current);
-      if (committed === undefined) return;
       writeMonthPagerState(this, state);
-      this.setData({ swiperCurrent: current }, () => {
-        this.triggerEvent('monthchange', committed);
-      });
+      // Keep the bound index aligned with the native swiper without delaying the
+      // month patch behind an extra render round trip.
+      const patch: Record<string, unknown> = { swiperCurrent: current };
+      const viewportHeight = this.data.panelHeights?.[current] ?? 270;
+      if (viewportHeight !== this.data.viewportHeight) patch.viewportHeight = viewportHeight;
+      this.setData(patch);
+      if (committed === undefined) return;
+      this.triggerEvent('monthchange', committed);
     },
     startProgrammaticShift(
       this: CalendarMonthInstance,
@@ -134,6 +144,12 @@ Component({
       const state = readMonthPagerState(this);
       const settled = finishCalendarPeriodShift(state);
       writeMonthPagerState(this, state);
+      if (settled.adopt !== undefined) {
+        const viewportHeight = this.data.panelHeights?.[settled.adopt.current] ?? 270;
+        if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
+        this.triggerEvent('monthchange', settled.adopt);
+        return;
+      }
       this.triggerEvent('monthsettled', { continues: settled.continues });
     },
     continueQueuedShift(this: CalendarMonthInstance): void {
@@ -164,8 +180,10 @@ Component({
 function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPagerState {
   return {
     activeSlot: instance._monthActiveSlot ?? 1,
+    pendingDelta: instance._monthPendingDelta ?? 0,
     queuedDelta: instance._queuedMonthDelta ?? 0,
     shiftPending: instance._monthShiftPending ?? false,
+    swiperSlot: instance._monthSwiperSlot ?? instance._monthActiveSlot ?? 1,
     targetSlot: instance._monthHeightTargetIndex,
   };
 }
@@ -175,6 +193,8 @@ function writeMonthPagerState(
   state: CalendarPeriodPagerState,
 ): void {
   instance._monthActiveSlot = state.activeSlot;
+  instance._monthPendingDelta = state.pendingDelta;
+  instance._monthSwiperSlot = state.swiperSlot;
   instance._monthHeightTargetIndex = state.targetSlot;
   instance._monthShiftPending = state.shiftPending;
   instance._queuedMonthDelta = state.queuedDelta;

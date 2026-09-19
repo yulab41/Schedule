@@ -112,7 +112,7 @@ interface TapEvent {
 }
 
 interface MonthChangeEvent {
-  readonly detail: { readonly current: MonthSlot; readonly delta: -1 | 1 };
+  readonly detail: { readonly current: MonthSlot; readonly delta: number };
 }
 
 interface MonthSettledEvent {

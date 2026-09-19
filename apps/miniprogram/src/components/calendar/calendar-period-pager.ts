@@ -6,10 +6,23 @@ export const CALENDAR_PERIOD_SWIPER_EASING_FUNCTION = 'easeOutCubic';
 export const CALENDAR_PERIOD_HEIGHT_TRANSITION = 'cubic-bezier(0.33, 1, 0.68, 1)';
 
 export interface CalendarPeriodPagerState {
+  /** Ring slot that currently renders the logical current period. */
   activeSlot: CalendarPeriodSlot;
+  /**
+   * Latest slot reported by the native swiper. It may lead `activeSlot` while a
+   * period patch is still being applied, because the user can keep swiping.
+   */
+  swiperSlot: CalendarPeriodSlot;
+  /** Signed month steps the native swiper moved past `activeSlot` during a pending patch. */
+  pendingDelta: number;
   targetSlot: CalendarPeriodSlot | undefined;
   shiftPending: boolean;
   queuedDelta: number;
+}
+
+export interface CalendarPeriodCommit {
+  readonly current: CalendarPeriodSlot;
+  readonly delta: number;
 }
 
 export function createCalendarPeriodPagerState(
@@ -17,8 +30,10 @@ export function createCalendarPeriodPagerState(
 ): CalendarPeriodPagerState {
   return {
     activeSlot,
+    pendingDelta: 0,
     queuedDelta: 0,
     shiftPending: false,
+    swiperSlot: activeSlot,
     targetSlot: undefined,
   };
 }
@@ -43,22 +58,26 @@ export function getCalendarPeriodSlotDelta(
   return 0;
 }
 
+export type CalendarPeriodPrepareResult = 'ignored' | 'locked' | 'tracked';
+
+/**
+ * Records the slot the native swiper reported through its change event.
+ *
+ * `locked` engages the height transition as well. `tracked` only remembers the
+ * reported slot, which is what a swipe that arrives during an in-flight month
+ * patch needs: its animation finish must still be able to queue a step instead of
+ * being discarded as a replay. Nothing is recorded when the swiper did not move,
+ * so stale/replayed events cannot move the ring.
+ */
 export function prepareCalendarPeriodChange(
   state: CalendarPeriodPagerState,
   targetSlot: number,
-): boolean {
-  if (
-    !isCalendarPeriodSlot(targetSlot) ||
-    state.shiftPending ||
-    state.targetSlot !== undefined ||
-    targetSlot === state.activeSlot
-  ) {
-    return false;
-  }
-  const delta = getCalendarPeriodSlotDelta(state.activeSlot, targetSlot);
-  if (delta === 0) return false;
+): CalendarPeriodPrepareResult {
+  if (!isCalendarPeriodSlot(targetSlot) || targetSlot === state.swiperSlot) return 'ignored';
+  if (state.targetSlot === targetSlot) return 'ignored';
+  const lockable = !state.shiftPending && state.targetSlot === undefined;
   state.targetSlot = targetSlot;
-  return true;
+  return lockable ? 'locked' : 'tracked';
 }
 
 export function requestCalendarPeriodShift(
@@ -82,28 +101,55 @@ export function requestCalendarPeriodShift(
 export function commitCalendarPeriodSwipe(
   state: CalendarPeriodPagerState,
   current: number,
-): { readonly current: CalendarPeriodSlot; readonly delta: -1 | 1 } | undefined {
-  if (!isCalendarPeriodSlot(current) || state.shiftPending || state.targetSlot !== current) {
+): CalendarPeriodCommit | undefined {
+  if (!isCalendarPeriodSlot(current) || current === state.swiperSlot) return undefined;
+  // Only a slot the native swiper actually reported can commit; this keeps
+  // replayed animation events after a reset from moving the ring.
+  if (state.targetSlot !== current) return undefined;
+  const delta = getCalendarPeriodSlotDelta(state.swiperSlot, current);
+  state.swiperSlot = current;
+  state.targetSlot = undefined;
+  if (delta === 0) return undefined;
+  if (state.shiftPending) {
+    // The previous month patch is still in flight. Keep the native position and
+    // queue the step so it is adopted on settle instead of being dropped, which
+    // would desynchronize the ring anchor from the visible slot.
+    state.pendingDelta = clampCalendarPeriodQueue(state.pendingDelta + delta);
     return undefined;
   }
-  const delta = getCalendarPeriodSlotDelta(state.activeSlot, current);
-  if (delta === 0) return undefined;
   state.activeSlot = current;
+  state.pendingDelta = 0;
   state.shiftPending = true;
   return { current, delta };
 }
 
 export function cancelCalendarPeriodShift(state: CalendarPeriodPagerState): void {
+  // Only the prepared height transition is cancelled here; an in-flight month
+  // patch keeps `shiftPending` until the page reports it has applied the data.
   state.targetSlot = undefined;
-  state.shiftPending = false;
 }
 
-export function finishCalendarPeriodShift(state: CalendarPeriodPagerState): {
-  readonly continues: boolean;
-} {
+export type CalendarPeriodSettle =
+  | { readonly adopt: CalendarPeriodCommit; readonly continues: false }
+  | { readonly adopt: undefined; readonly continues: boolean };
+
+export function finishCalendarPeriodShift(state: CalendarPeriodPagerState): CalendarPeriodSettle {
   state.targetSlot = undefined;
   state.shiftPending = false;
-  return { continues: state.queuedDelta !== 0 };
+  if (state.swiperSlot !== state.activeSlot) {
+    const delta =
+      state.pendingDelta !== 0
+        ? state.pendingDelta
+        : getCalendarPeriodSlotDelta(state.activeSlot, state.swiperSlot);
+    state.activeSlot = state.swiperSlot;
+    state.pendingDelta = 0;
+    if (delta !== 0) {
+      state.shiftPending = true;
+      return { adopt: { current: state.activeSlot, delta }, continues: false };
+    }
+  }
+  state.pendingDelta = 0;
+  return { adopt: undefined, continues: state.queuedDelta !== 0 };
 }
 
 export function takeQueuedCalendarPeriodShift(state: CalendarPeriodPagerState): -1 | 0 | 1 {

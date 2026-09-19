@@ -12,6 +12,16 @@
 - 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
 - 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
+## 当前批次：月历快速滑动内容回退修复（Mini-only）
+
+- 用户反馈日历首页月视图快速左滑时动画向前但内容/月份偶发回退（`9-10-9-10-11`）。基线`9fb00a6a`，独占general-5，REUSE_ONLY且未安装依赖；引入点`9045dc02`（移除原生回中后的环形槽位设计）+`4e5cb461`（共享 pager 在`shiftPending`期间丢弃新滑动）。
+- 根因：换月 patch 在途时旧实现丢弃新的原生滑动，原生 swiper 索引与环锚点分离；环按旧锚点映射月份，下一次向前滑动落到“上个月”槽，内容与`businessMonth`同时倒一格。
+- 修复：`calendar-period-pager`以原生槽位为唯一事实源（`swiperSlot`/`pendingDelta`），在途滑动排队并在 settle 时无动画 adopt；`prepare`区分 locked/tracked，stale/replay 事件仍忽略；`delta`放开为整数并同步 guest 与 `ui-date-picker`；去掉`swiperCurrent`回调等待（Page 处理器提前约28ms）。
+- 验证（Agent 操作的开发者工具，非实体设备）：同环境同节奏350ms连续5次左滑，基线`9→10→9→10→10`，修复后`9→10→11→12→2027-01`单调向前；250ms故障注入下提交月份不回退。RED→GREEN：基线源码跑新测试8失败/44通过，修复后全绿；Mini 173文件/1188项通过（16跳过）、`tsc`、Mini production verify（包体4581614字节、Worklet2/2、manifest`c13a5d88…`）、`format:check`、`lint`、`icon:parity:check`、`smoke:check-core`通过；证据见 ignored `runtime/audit/calendar-month-swipe-20260919/`。
+- 性能旁证与决策：一次换月 Page patch 40.8KB/往返115～120ms，settle 另有2次约100KB patch（91ms/75ms）；已试的两项 patch 瘦身（去掉未挂载视图数据、按槽位路径下发）无可靠收益或更慢，按“收益不明确即回滚”未纳入。
+- 本批为 Mini-only：不触发生产部署、生产备份或 release-metadata 同步；未上传体验版。检查点：`fix(miniprogram): keep fast month swipes advancing forward`。
+- 唯一下一任务/停止条件：如需原生手感复核，由 Agent 在干净候选上上传体验版（记录短SHA、版本、Manifest 与测试页面），用户在小米14微信客户端连续快速左滑确认；未取得与当前构建一致的真机结论前，不得写“小米14验收通过”。
+
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
 - 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。

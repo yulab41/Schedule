@@ -340,8 +340,10 @@ Component({
     handleDateSwiperChangeStart(this: WorkflowPickerInstance, event: DateSwiperEvent): void {
       const current = Number(event.detail.current);
       const state = readDatePagerState(this);
-      if (!prepareCalendarPeriodChange(state, current)) return;
+      const prepared = prepareCalendarPeriodChange(state, current);
+      if (prepared === 'ignored') return;
       writeDatePagerState(this, state);
+      if (prepared === 'tracked') return;
       const targetPanel = this.data.datePanels[current];
       if (targetPanel !== undefined) {
         this._datePendingSelection = {
@@ -359,7 +361,7 @@ Component({
       const current = Number(event.detail.current);
       const state = readDatePagerState(this);
       if (!isCalendarPeriodSlot(current)) return;
-      if (current === state.activeSlot) {
+      if (current === state.swiperSlot) {
         if (state.targetSlot === undefined) return;
         cancelCalendarPeriodShift(state);
         writeDatePagerState(this, state);
@@ -368,8 +370,8 @@ Component({
         return;
       }
       const committed = commitCalendarPeriodSwipe(state, current);
-      if (committed === undefined) return;
       writeDatePagerState(this, state);
+      if (committed === undefined) return;
       applyDatePeriodChange(this, committed.delta);
     },
 
@@ -534,7 +536,7 @@ function startDateProgrammaticShift(
   });
 }
 
-function applyDatePeriodChange(instance: WorkflowPickerInstance, delta: -1 | 1): void {
+function applyDatePeriodChange(instance: WorkflowPickerInstance, delta: number): void {
   const pending = instance._datePendingSelection;
   const next = new Date(Date.UTC(instance.data.draftYear, instance.data.draftMonth - 1 + delta, 1));
   const year = pending?.year ?? next.getUTCFullYear();
@@ -552,6 +554,12 @@ function finishDatePeriodShift(instance: WorkflowPickerInstance): void {
   const state = readDatePagerState(instance);
   const settled = finishCalendarPeriodShift(state);
   writeDatePagerState(instance, state);
+  if (settled.adopt !== undefined) {
+    // The user shifted months again while this patch was applying; adopt the
+    // queued step so the picker does not stay anchored on a stale slot.
+    applyDatePeriodChange(instance, settled.adopt.delta);
+    return;
+  }
   const locateTarget = instance._dateLocateTarget;
   if (locateTarget !== undefined) {
     const targetMonth = formatMonthValue(locateTarget.year, locateTarget.month);
