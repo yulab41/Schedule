@@ -23,7 +23,7 @@ describe('Mini Program visible build identity', () => {
   });
 
   it('shows the build label on every P1 page used for device testing', () => {
-    for (const page of ['index', 'calendar-poc', 'manual-matrix-poc', 'gesture-probe']) {
+    for (const page of ['index', 'gesture-probe']) {
       const template = readSource(`pages/${page}/index.wxml`);
       const source = readSource(`pages/${page}/index.ts`);
       expect(template, page).toContain('{{buildLabel}}');
@@ -37,7 +37,7 @@ describe('Mini Program visible build identity', () => {
 
     expect(config.disableScroll).toBe(false);
     expect(template.indexOf('C · 真机运行信息')).toBeLessThan(
-      template.indexOf('A · Skyline Pan Worklet'),
+      template.indexOf('D · WXS 视图层触摸'),
     );
     expect(template).toContain('代码版本');
   });

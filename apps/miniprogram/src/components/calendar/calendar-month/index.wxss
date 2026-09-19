@@ -1,4 +1,4 @@
-@import "../../../styles/ui-icon-motion.wxss";
+@import '../../../styles/ui-icon-motion.wxss';
 
 .month-card {
   overflow: hidden;
@@ -8,7 +8,9 @@
   box-shadow: 0 5px 16px rgba(21, 43, 67, 0.07);
 }
 
-.month-card.is-flat { box-shadow: none; }
+.month-card.is-flat {
+  box-shadow: none;
+}
 
 .month-toolbar {
   display: flex;

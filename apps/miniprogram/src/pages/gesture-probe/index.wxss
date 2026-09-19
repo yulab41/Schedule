@@ -64,33 +64,6 @@ page {
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.worklet-probe-handler {
-  display: block;
-  align-self: center;
-}
-
-.worklet-probe-surface {
-  position: relative;
-  overflow: hidden;
-  background: var(--ui-color-primary-light);
-  border: 1px solid var(--ui-color-primary-border);
-  border-radius: var(--ui-radius-medium);
-}
-
-.gesture-probe-dot {
-  position: absolute;
-  top: 82px;
-  left: 112px;
-  width: 56px;
-  height: 56px;
-  transform: translate(0, 0);
-  background: var(--ui-color-primary);
-  border: 4px solid var(--ui-color-surface);
-  border-radius: 50%;
-  box-shadow: 0 8px 20px rgba(10, 102, 213, 0.28);
-  box-sizing: border-box;
-}
-
 .wxs-probe-surface {
   position: relative;
   overflow: hidden;

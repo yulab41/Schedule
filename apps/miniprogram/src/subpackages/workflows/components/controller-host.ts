@@ -101,8 +101,12 @@ export function createWorkflowPageDefinition(
   );
 
   return {
-    data: { ...prototype.data, embedded: false },
+    data: {
+      ...prototype.data,
+      embedded: false,
+    },
     ...delegatedMethods,
+    ...panelDismissMethods(),
     onLoad(this: WorkflowPageHost, query: Readonly<Record<string, string | undefined>>): void {
       if (boundaries !== undefined) recordMiniTelemetryBoundary(boundaries.page);
       attachWorkflowPageHost(this);
@@ -120,12 +124,6 @@ export function createWorkflowPageDefinition(
     },
     onUnload(this: WorkflowPageHost): void {
       detachWorkflowPageHost(this);
-    },
-    handlePickerRequestOpen(this: WorkflowPageHost): void {
-      closeWorkflowPickers(this);
-    },
-    handlePanelBackgroundTap(this: WorkflowPageHost): void {
-      closeWorkflowPickers(this);
     },
   };
 }
@@ -156,7 +154,10 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
       embedded: { type: Boolean, value: true },
       groupId: { type: String, value: '' },
     },
-    data: { ...prototype.data, embedded: true },
+    data: {
+      ...prototype.data,
+      embedded: true,
+    },
     lifetimes: {
       attached(this: WorkflowPanelHost): void {
         const attachmentToken = attachWorkflowHost(this);
@@ -195,14 +196,21 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     },
     methods: {
       ...delegatedMethods,
-      handlePickerRequestOpen(this: WorkflowPanelHost): void {
-        closeWorkflowPickers(this);
-      },
-      handlePanelBackgroundTap(this: WorkflowPanelHost): void {
-        closeWorkflowPickers(this);
-      },
+      ...panelDismissMethods(),
     },
   });
+}
+
+function panelDismissMethods(): Readonly<Record<string, unknown>> {
+  return {
+    // Selecting or opening one picker closes every other open picker.
+    handlePickerRequestOpen(this: WorkflowPanelHost): void {
+      closeWorkflowPickers(this);
+    },
+    handlePanelBackgroundTap(this: WorkflowPanelHost): void {
+      closeWorkflowPickers(this);
+    },
+  };
 }
 
 function attachWorkflowPageHost(host: WorkflowPageHost): void {

@@ -151,7 +151,7 @@ describe('P7 native swap workflow page', () => {
       'utf8',
     );
 
-    expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
+    expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'webview' });
     expect(JSON.parse(readPage('json')).usingComponents).toMatchObject({
       'ui-sheet': '/components/ui/ui-sheet/index',
       'workflow-picker': '/components/ui/ui-date-picker/index',

@@ -47,36 +47,40 @@ describe('P6-A workbench runtime coordination', () => {
     },
   );
 
-  it('rotates the month ring around the slot the native swiper reported', async () => {
+  it('locates today without nudging the page content in month and week views', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-07T23:59:59.000Z'));
     vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
     await import('../src/pages/workbench/index.ts');
+    vi.setSystemTime(new Date('2026-10-01T00:00:00.000Z'));
+    for (const viewMode of ['month', 'week']) {
+      const instance = createPageInstance(definition);
+      instance.data.viewMode = viewMode;
+      instance.data.businessMonth = '2026-09';
+      instance.data.weekStart = '2026-09-21';
+      instance.data.scrollTarget = '';
+      definition.handleLocateToday.call(instance);
+      // The locate button sits inside the calendar card, so the calendar is
+      // already visible: scrolling the page only pulled the content up by its
+      // top padding on the Skyline renderer.
+      expect(instance.pendingScrollTarget).toBeUndefined();
+      expect(instance.data.scrollTarget).toBe('');
+    }
+  });
+
+  it('still reveals today inside the list view when locating across handover', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-07T23:59:59.000Z'));
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    vi.setSystemTime(new Date('2026-10-01T00:00:00.000Z'));
     const instance = createPageInstance(definition);
-    instance.calendar = calendar('2026-09');
-    instance.holidays = holidayApiGoldenResponse;
-    instance.data.currentGroupId = 'group-1';
-    instance.data.viewMode = 'month';
+    instance.data.viewMode = 'list';
     instance.data.businessMonth = '2026-09';
-    instance.data.selectedDate = '2026-09-20';
-    instance.data.weekStart = '2026-09-14';
-    instance.monthRingSlot = 1;
-    const patches = [];
-    const setData = instance.setData.bind(instance);
-    instance.setData = (patch, callback) => {
-      patches.push(patch);
-      setData(patch, callback);
-    };
-
-    definition.handleMonthChange.call(instance, { detail: { current: 2, delta: 1 } });
-
-    const patch = patches[0];
-    expect(patch.monthPanels).toHaveLength(3);
-    expect(patch.monthLabel).toBe('2026 年 10 月');
-    expect(patch.selectedDetails).toBeDefined();
-    expect(instance.monthRingSlot).toBe(2);
-    expect(instance.data.businessMonth).toBe('2026-10');
-    expect(instance.data.monthPanels[2]).toMatchObject({ key: '2026-10', relative: 0, slot: 2 });
-    expect(instance.data.monthPanels[1]).toMatchObject({ key: '2026-09', relative: -1 });
-    expect(instance.data.monthPanels[0]).toMatchObject({ key: '2026-11', relative: 1 });
+    definition.handleLocateToday.call(instance);
+    // The list keeps its own row reveal; only the page-content scroll is gone.
+    expect(instance.data.listScrollTarget).toBe('list-day-2026-10-01');
+    expect(instance.data.scrollTarget).toBe('');
   });
 
   it('defaults each single-member shift open and preserves manual collapse on reselection', async () => {
@@ -113,6 +117,69 @@ describe('P6-A workbench runtime coordination', () => {
     });
     definition.handleWeekDaySelect.call(instance, event);
     expect(instance.data.detailExpansion.expanded).toEqual({ 'day-row': false, 'night-row': true });
+  });
+
+  it('uses the shared circular pager for consecutive week shifts', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendarApiGoldenResponse;
+    instance.holidays = holidayApiGoldenResponse;
+    Object.assign(instance.data, {
+      currentGroupId: 'group-1',
+      currentGroupName: '急诊科',
+      viewMode: 'week',
+      weekStart: '2026-09-07',
+      selectedDate: '2026-09-07',
+      businessMonth: '2026-09',
+    });
+
+    const next = { currentTarget: { dataset: { delta: '1' } } };
+    definition.handleWeekChange.call(instance, next);
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+
+    definition.handleWeekChange.call(instance, next);
+    expect(instance.data.weekSwiperCurrent).toBe(0);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 0 } });
+    expect(instance.data.weekStart).toBe('2026-09-21');
+    expect(instance.data.weekSwiperCurrent).toBe(0);
+
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 2 } });
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+  });
+
+  it('uses the same circular week pager on unaffected runtimes without changing motion duration', async () => {
+    vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
+    await import('../src/pages/workbench/index.ts');
+    const instance = createPageInstance(definition);
+    instance.calendar = calendarApiGoldenResponse;
+    instance.holidays = holidayApiGoldenResponse;
+    Object.assign(instance.data, {
+      currentGroupId: 'group-1',
+      currentGroupName: '急诊科',
+      skyline3172UiCompatibility: false,
+      viewMode: 'week',
+      weekStart: '2026-09-07',
+      selectedDate: '2026-09-07',
+      businessMonth: '2026-09',
+    });
+
+    definition.handleWeekChange.call(instance, {
+      currentTarget: { dataset: { delta: '1' } },
+    });
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    expect(instance.data.periodSwiperDuration).toBe(260);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-09-14');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    expect(instance.data.periodSwiperDuration).toBe(260);
   });
 
   it('discards an old account calendar response before committing any group state', async () => {

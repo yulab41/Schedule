@@ -2,7 +2,7 @@
   "componentFramework": "glass-easel",
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "ui-sheet": "/components/ui/ui-sheet/index",
     "ui-switch": "/components/ui/ui-switch/index",

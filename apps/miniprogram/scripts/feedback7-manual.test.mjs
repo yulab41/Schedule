@@ -6,7 +6,7 @@ const manual = 'subpackages/scheduling/pages/manual/index';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('feedback7 manual scheduling', () => {
-  it('preserves the editor across draft/history navigation and never publishes from the rail', async () => {
+  it('refreshes draft/history navigation and never publishes from the rail', async () => {
     vi.resetModules();
     let definition;
     vi.stubGlobal('Page', (value) => {
@@ -20,13 +20,16 @@ describe('feedback7 manual scheduling', () => {
     vi.stubGlobal('wx', {
       getStorageSync: () => undefined,
       getStorageInfoSync: () => ({ keys: [] }),
-      request: vi.fn(),
+      request: vi.fn((options) =>
+        options.success?.({ data: [], header: {}, statusCode: 200, cookies: [] }),
+      ),
     });
     await import('../src/subpackages/scheduling/pages/manual/index.ts');
     const page = {
       ...definition,
       data: structuredClone(definition.data),
       _history: [],
+      _currentGroupId: 'group-1',
       _releaseArchivedExpanded: new Set(),
       _cellValues: new Map([['1:m', 'shift']]),
       _isDirty: true,
@@ -37,14 +40,15 @@ describe('feedback7 manual scheduling', () => {
     for (const [index, state] of [
       [2, 'release'],
       [3, 'history'],
-      [0, 'editor'],
     ]) {
       definition.handleStageSelect.call(page, { currentTarget: { dataset: { index } } });
-      expect(page.data.state).toBe(state);
+      await vi.waitFor(() => expect(page.data.state).toBe(state));
       expect(page.data.stageIndex).toBe(index);
       expect(page._cellValues.get('1:m')).toBe('shift');
     }
-    expect(globalThis.wx.request).not.toHaveBeenCalled();
+    expect(source(`${manual}.ts`)).toContain(
+      'page._history = await publicationClient.listHistory(page._currentGroupId);',
+    );
     definition.handleOpenCyclePicker.call(page);
     definition.handleCycleWheel.call(page, {
       detail: {

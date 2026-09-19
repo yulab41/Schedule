@@ -1,7 +1,7 @@
 {
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "shift-color-picker": "/subpackages/organization/components/shift-color-picker/index",
     "ui-alert": "/components/ui/ui-alert/index",

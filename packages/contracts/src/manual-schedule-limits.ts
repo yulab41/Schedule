@@ -1,6 +1,8 @@
 export const MAX_MANUAL_MEMBERS = 20;
 export const MAX_MANUAL_DAYS = 30;
 export const MAX_MANUAL_CELLS = 600;
+export const MAX_MANUAL_APPLY_DAYS = 366;
+export const MAX_MANUAL_APPLY_ASSIGNMENTS = MAX_MANUAL_MEMBERS * MAX_MANUAL_APPLY_DAYS;
 
 const manualScheduleDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u;
 const millisecondsPerDay = 24 * 60 * 60 * 1_000;
@@ -27,7 +29,7 @@ export function isManualScheduleDateRangeWithinLimit(startDate: string, endDate:
   if (startEpochDay === undefined || endEpochDay === undefined || endEpochDay < startEpochDay) {
     return false;
   }
-  return endEpochDay - startEpochDay + 1 <= MAX_MANUAL_DAYS;
+  return endEpochDay - startEpochDay + 1 <= MAX_MANUAL_APPLY_DAYS;
 }
 
 function getManualScheduleEpochDay(value: string): number | undefined {

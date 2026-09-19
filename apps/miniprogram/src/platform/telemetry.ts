@@ -265,7 +265,6 @@ export function resolveTelemetryPage(route: string): MiniTelemetryPage {
     return 'identity';
   }
   if (route === 'pages/workbench/index') return 'workbench';
-  if (route === 'pages/manual-matrix-poc/index') return 'manual-matrix';
   if (route === 'subpackages/scheduling/pages/manual/index') return 'manual-schedule';
   if (route === 'subpackages/scheduling/pages/backfill/index') return 'backfill';
   if (route === 'subpackages/organization/pages/group-settings/index') return 'group-settings';

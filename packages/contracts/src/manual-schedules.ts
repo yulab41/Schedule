@@ -9,6 +9,8 @@ export type ManualScheduleStartDate = z.infer<typeof manualScheduleStartDateSche
 
 import {
   MAX_MANUAL_CELLS,
+  MAX_MANUAL_APPLY_ASSIGNMENTS,
+  MAX_MANUAL_APPLY_DAYS,
   MAX_MANUAL_DAYS,
   MAX_MANUAL_MEMBERS,
   isManualScheduleDateRangeWithinLimit,
@@ -151,7 +153,7 @@ export const manualApplyPreviewSchema = z
   .object({
     applyEndDate: manualScheduleDateSchema,
     applyStartDate: manualScheduleDateSchema,
-    assignments: z.readonly(z.array(manualApplyAssignmentSchema).max(MAX_MANUAL_CELLS)),
+    assignments: z.readonly(z.array(manualApplyAssignmentSchema).max(MAX_MANUAL_APPLY_ASSIGNMENTS)),
     conflicts: z.readonly(z.array(manualApplyConflictSchema)),
     continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)),
     cycleDays: z.number().int().min(1).max(MAX_MANUAL_DAYS),
@@ -168,7 +170,7 @@ export const manualApplyPreviewSchema = z
     if (!isManualScheduleDateRangeWithinLimit(value.applyStartDate, value.applyEndDate)) {
       context.addIssue({
         code: 'custom',
-        message: `手动排班应用范围最多 ${MAX_MANUAL_DAYS} 天。`,
+        message: `手动排班应用范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`,
         path: ['applyEndDate'],
       });
     }
@@ -355,7 +357,7 @@ function validateExplicitManualApplyRange(
   ) {
     context.addIssue({
       code: 'custom',
-      message: `手动排班应用范围最多 ${MAX_MANUAL_DAYS} 天。`,
+      message: `手动排班应用范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`,
       path: ['endDate'],
     });
   }

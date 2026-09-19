@@ -1,87 +1,20 @@
-import {
-  MAX_MANUAL_CELLS,
-  MAX_MANUAL_DAYS,
-  MAX_MANUAL_MEMBERS,
-} from '@schedule/contracts/manual-schedule-limits';
+// Deterministic synthetic manual-schedule matrices shared by the performance budget and the
+// matrix/WXS tests. Plain JavaScript so the standalone `check:performance` script and the vitest
+// suites can both use one source; the product limits themselves stay in
+// `@schedule/contracts/manual-schedule-limits` and `manual-schedule-limits.test.mjs` asserts that
+// this fixture mirrors them.
 
-export type ManualMatrixMode = 'daily' | 'maximum';
+export const MANUAL_MATRIX_MODE_LIMITS = Object.freeze({
+  daily: Object.freeze({ days: 7, members: 7 }),
+  maximum: Object.freeze({ days: 30, members: 20 }),
+});
 
-export interface ManualMatrixShiftType {
-  readonly abbreviation: string;
-  readonly color: string;
-  readonly id: string;
-  readonly name: string;
-  readonly textColor: string;
-}
-
-export interface ManualMatrixCellAssignment {
-  readonly abbreviation: string;
-  readonly color: string;
-  readonly shiftTypeId: string;
-  readonly textColor: string;
-}
-
-export interface ManualMatrixCell extends ManualMatrixCellAssignment {
-  readonly ariaLabel: string;
-  readonly businessDate: string;
-  readonly columnIndex: number;
-  readonly isSelected: boolean;
-  readonly isStale: boolean;
-  readonly key: string;
-  readonly membershipId: string;
-  readonly rowIndex: number;
-}
-
-export interface ManualMatrixColumn {
-  readonly businessDate: string;
-  readonly cycleDay: number;
-  readonly dateLabel: string;
-  readonly holidayLabel: string;
-  readonly isWeekend: boolean;
-  readonly isWorkday: boolean;
-  readonly weekdayLabel: string;
-}
-
-export interface ManualMatrixRow {
-  readonly cells: readonly ManualMatrixCell[];
-  readonly isStale: boolean;
-  readonly membershipId: string;
-  readonly realName: string;
-  readonly rowIndex: number;
-}
-
-export interface ManualMatrixLocation {
-  readonly columnIndex: number;
-  readonly rowIndex: number;
-}
-
-export interface ManualMatrixPocViewModel {
-  readonly activeShiftTypeId: string;
-  readonly canUndo: boolean;
-  readonly columns: readonly ManualMatrixColumn[];
-  readonly contentWidth: number;
-  readonly dimensionLabel: string;
-  readonly logicalCellCount: number;
-  readonly matrixBodyViewportHeight: number;
-  readonly matrixContentHeight: number;
-  readonly matrixViewportHeight: number;
-  readonly mode: ManualMatrixMode;
-  readonly modeLabel: string;
-  readonly rows: readonly ManualMatrixRow[];
-  readonly scrollHint: string;
-  readonly scrollProgressOffset: number;
-  readonly scrollProgressPercent: number;
-  readonly selectedLocation: ManualMatrixLocation;
-  readonly shiftTypes: readonly ManualMatrixShiftType[];
-  readonly title: string;
-}
-
-const MEMBER_COLUMN_WIDTH = 104;
-const DATE_COLUMN_WIDTH = 72;
 export const MANUAL_MATRIX_HEADER_HEIGHT = 82;
 export const MANUAL_MATRIX_ROW_HEIGHT = 44;
 export const MANUAL_MATRIX_VISIBLE_ROWS = 7;
 
+const MEMBER_COLUMN_WIDTH = 104;
+const DATE_COLUMN_WIDTH = 72;
 const memberNames = [
   '林医生',
   '陈护士',
@@ -103,43 +36,41 @@ const memberNames = [
   '罗护士',
   '梁医生',
   '宋护士',
-] as const;
+];
+const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
 
-const weekdays = ['日', '一', '二', '三', '四', '五', '六'] as const;
-
-export const manualMatrixPocShiftTypes: readonly ManualMatrixShiftType[] = [
-  {
+export const manualMatrixShiftTypes = Object.freeze([
+  Object.freeze({
     abbreviation: 'A',
     color: '#DCEEFF',
     id: 'shift-a',
     name: '白班',
     textColor: '#084FA6',
-  },
-  {
+  }),
+  Object.freeze({
     abbreviation: 'P',
     color: '#EAF8EF',
     id: 'shift-p',
     name: '夜班',
     textColor: '#17672C',
-  },
-  {
+  }),
+  Object.freeze({
     abbreviation: '备',
     color: '#FFF4D6',
     id: 'shift-standby',
     name: '备班',
     textColor: '#8A5200',
-  },
-];
+  }),
+]);
 
-export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMatrixPocViewModel {
-  const memberCount = mode === 'daily' ? 7 : MAX_MANUAL_MEMBERS;
-  const dayCount = mode === 'daily' ? 7 : MAX_MANUAL_DAYS;
-  const logicalCellCount = memberCount * dayCount;
-  if (mode === 'maximum' && logicalCellCount !== MAX_MANUAL_CELLS) {
-    throw new Error('The maximum manual matrix does not match the shared logical-cell limit.');
+export function createManualMatrixViewModel(mode) {
+  if (mode !== 'daily' && mode !== 'maximum') {
+    throw new Error(`unknown manual matrix mode: ${mode}`);
   }
+  const { days: dayCount, members: memberCount } = MANUAL_MATRIX_MODE_LIMITS[mode];
+  const logicalCellCount = memberCount * dayCount;
   const columns = Array.from({ length: dayCount }, (_, columnIndex) => createColumn(columnIndex));
-  const selectedLocation = { columnIndex: 2, rowIndex: 1 } as const;
+  const selectedLocation = { columnIndex: 2, rowIndex: 1 };
   const rows = memberNames.slice(0, memberCount).map((realName, rowIndex) => {
     const membershipId = `member-${rowIndex + 1}`;
     const isStale = mode === 'maximum' && rowIndex === memberCount - 1;
@@ -185,12 +116,12 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
     scrollProgressOffset: 0,
     scrollProgressPercent: 0,
     selectedLocation,
-    shiftTypes: manualMatrixPocShiftTypes,
+    shiftTypes: manualMatrixShiftTypes,
     title: mode === 'daily' ? '日常手工排班' : '最大手工排班',
   };
 }
 
-export function getManualMatrixCellAssignment(cell: ManualMatrixCell): ManualMatrixCellAssignment {
+export function getManualMatrixCellAssignment(cell) {
   return {
     abbreviation: cell.abbreviation,
     color: cell.color,
@@ -199,12 +130,8 @@ export function getManualMatrixCellAssignment(cell: ManualMatrixCell): ManualMat
   };
 }
 
-export function updateManualMatrixCell(
-  cell: ManualMatrixCell,
-  assignment: ManualMatrixCellAssignment,
-  isSelected: boolean,
-): ManualMatrixCell {
-  const shiftType = manualMatrixPocShiftTypes.find(
+export function updateManualMatrixCell(cell, assignment, isSelected) {
+  const shiftType = manualMatrixShiftTypes.find(
     (candidate) => candidate.id === assignment.shiftTypeId,
   );
   const state = shiftType === undefined ? '未排班' : `已排${shiftType.name}`;
@@ -217,18 +144,10 @@ export function updateManualMatrixCell(
   };
 }
 
-function createCell(options: {
-  readonly column: ManualMatrixColumn;
-  readonly columnIndex: number;
-  readonly isSelected: boolean;
-  readonly isStale: boolean;
-  readonly membershipId: string;
-  readonly realName: string;
-  readonly rowIndex: number;
-}): ManualMatrixCell {
+function createCell(options) {
   const seed = options.rowIndex + options.column.cycleDay;
   const shiftType =
-    seed % 5 === 0 ? undefined : manualMatrixPocShiftTypes[seed % manualMatrixPocShiftTypes.length];
+    seed % 5 === 0 ? undefined : manualMatrixShiftTypes[seed % manualMatrixShiftTypes.length];
   const state = shiftType === undefined ? '未排班' : `已排${shiftType.name}`;
   const stale = options.isStale ? '，配置失效' : '';
   return {
@@ -247,7 +166,7 @@ function createCell(options: {
   };
 }
 
-function createColumn(columnIndex: number): ManualMatrixColumn {
+function createColumn(columnIndex) {
   const cycleDay = columnIndex + 1;
   const date = new Date(Date.UTC(2026, 9, cycleDay));
   const dateLabel = `${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
@@ -264,7 +183,7 @@ function createColumn(columnIndex: number): ManualMatrixColumn {
   };
 }
 
-function findMemberName(membershipId: string): string {
+function findMemberName(membershipId) {
   const memberIndex = Number(membershipId.slice('member-'.length)) - 1;
   return memberNames[memberIndex] ?? '未知成员';
 }

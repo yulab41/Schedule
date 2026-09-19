@@ -35,6 +35,18 @@ import {
 } from '../../platform/guest-public-cache.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
 import {
+  cancelCalendarPeriodShift,
+  commitCalendarPeriodSwipe,
+  finishCalendarPeriodShift,
+  isCalendarPeriodSlot,
+  mapCalendarPeriodRing,
+  prepareCalendarPeriodChange,
+  requestCalendarPeriodShift,
+  takeQueuedCalendarPeriodShift,
+  type CalendarPeriodPagerState,
+  type CalendarPeriodSlot,
+} from '../../components/calendar/calendar-period-pager.js';
+import {
   createMonthRing,
   createWorkbenchViewModel,
   formatDateLabel,
@@ -139,6 +151,10 @@ interface GuestPage {
   periodShiftActive: 'list' | 'week' | undefined;
   periodShiftCommitPending: boolean;
   periodShiftQueue: number;
+  weekRingSlot: CalendarPeriodSlot;
+  weekShiftTargetSlot: CalendarPeriodSlot | undefined;
+  weekSwiperSlot: CalendarPeriodSlot;
+  weekPendingDelta: number;
   _weekLayoutHeight: number;
   _weekHeightCache?: Map<string, number>;
   setData(patch: Partial<Data>, callback?: () => void): void;
@@ -167,6 +183,10 @@ Page({
   periodShiftActive: undefined,
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
+  weekRingSlot: 1,
+  weekShiftTargetSlot: undefined,
+  weekSwiperSlot: 1,
+  weekPendingDelta: 0,
   _weekLayoutHeight: 112,
   visitorKey: undefined,
   calendar: undefined,
@@ -265,8 +285,15 @@ Page({
     const view = event.currentTarget.dataset['view'];
     if (view !== 'month' && view !== 'week' && view !== 'list') return;
     if (view === this.data.viewMode) return;
-    this.setData({ viewMode: view, filterOpen: false });
+    this.setData({ listSwiperCurrent: 1, viewMode: view, weekSwiperCurrent: 1, filterOpen: false });
     this.monthRingSlot = 1;
+    this.weekRingSlot = 1;
+    this.weekShiftTargetSlot = undefined;
+    this.weekSwiperSlot = 1;
+    this.weekPendingDelta = 0;
+    this.periodShiftActive = undefined;
+    this.periodShiftCommitPending = false;
+    this.periodShiftQueue = 0;
     void loadCalendar(this);
   },
   handleDateSelect(this: GuestPage, event: Tap): void {
@@ -306,11 +333,12 @@ Page({
     startPeriodSwiper(this, 'list', event.currentTarget.dataset['delta'] === '-1' ? -1 : 1);
   },
   handleWeekSwiperFinish(this: GuestPage, event: { detail: { current: number } }): void {
-    const delta = getSwiperDelta(event.detail.current);
-    if (delta === 0 || this.periodShiftCommitPending) return;
-    this.periodShiftActive = 'week';
-    this.periodShiftCommitPending = true;
-    commitPeriodShift(this, 'week', delta);
+    handleCircularWeekSwiperFinish(this, event.detail.current);
+  },
+  handleWeekSwiperChange(this: GuestPage, event: { detail: { current: number } }): void {
+    const state = readCircularWeekPagerState(this);
+    if (!prepareCalendarPeriodChange(state, event.detail.current)) return;
+    writeCircularWeekPagerState(this, state);
   },
   handleListSwiperFinish(this: GuestPage, event: { detail: { current: number } }): void {
     const delta = getSwiperDelta(event.detail.current);
@@ -322,10 +350,19 @@ Page({
   handleLocateToday(this: GuestPage): void {
     const today = getTodayBusinessDate();
     this.monthRingSlot = 1;
+    this.weekRingSlot = 1;
+    this.weekShiftTargetSlot = undefined;
+    this.weekSwiperSlot = 1;
+    this.weekPendingDelta = 0;
+    this.periodShiftActive = undefined;
+    this.periodShiftCommitPending = false;
+    this.periodShiftQueue = 0;
     this.setData({
       selectedDate: today,
       businessMonth: today.slice(0, 7),
       weekStart: getWeekStartDate(today),
+      weekSwiperCurrent: 1,
+      listSwiperCurrent: 1,
       listScrollTarget: `list-day-${today}`,
     });
     void loadCalendar(this);
@@ -403,7 +440,7 @@ function selectDate(page: GuestPage, date: string | undefined): void {
   page.setData({ selectedDate: date });
   renderCalendar(page);
 }
-function commitPeriodShift(page: GuestPage, view: 'week' | 'list', delta: -1 | 1): void {
+function commitPeriodShift(page: GuestPage, view: 'week' | 'list', delta: number): void {
   const weekStart = view === 'week' ? addWeeks(page.data.weekStart, delta) : page.data.weekStart;
   const month =
     view === 'week' ? weekStart.slice(0, 7) : addBusinessMonths(page.data.businessMonth, delta);
@@ -411,13 +448,30 @@ function commitPeriodShift(page: GuestPage, view: 'week' | 'list', delta: -1 | 1
     view === 'week'
       ? addWeeks(page.data.selectedDate, delta)
       : retargetSelectedDateToMonth(page.data.selectedDate, month);
+  if (view === 'week') {
+    page.setData(
+      {
+        businessMonth: month,
+        periodSwiperDuration: 260,
+        selectedDate,
+        weekStart,
+        weekSwiperCurrent: page.weekRingSlot,
+      },
+      () => {
+        applyCachedWindow(page, requestedMonths(page));
+        finishCircularWeekShift(page);
+      },
+    );
+    page.monthRingSlot = 1;
+    return;
+  }
   page.setData(
     {
       businessMonth: month,
       weekStart,
       selectedDate,
       periodSwiperDuration: 0,
-      ...(view === 'week' ? { weekSwiperCurrent: 1 } : { listSwiperCurrent: 1 }),
+      listSwiperCurrent: 1,
     },
     () => {
       applyCachedWindow(page, requestedMonths(page));
@@ -430,18 +484,78 @@ function getSwiperDelta(current: number): -1 | 0 | 1 {
   return current === 0 ? -1 : current === 2 ? 1 : 0;
 }
 function startPeriodSwiper(page: GuestPage, view: 'week' | 'list', delta: -1 | 1): void {
-  const current = view === 'week' ? page.data.weekSwiperCurrent : page.data.listSwiperCurrent;
+  if (view === 'week') {
+    startCircularWeekSwiper(page, delta);
+    return;
+  }
+  const current = page.data.listSwiperCurrent;
   if (page.periodShiftActive !== undefined || current !== 1) {
     page.periodShiftQueue = Math.max(-6, Math.min(6, page.periodShiftQueue + delta));
     return;
   }
   page.periodShiftActive = view;
-  page.setData({
-    periodSwiperDuration: 260,
-    ...(view === 'week'
-      ? { weekSwiperCurrent: delta < 0 ? 0 : 2 }
-      : { listSwiperCurrent: delta < 0 ? 0 : 2 }),
-  });
+  page.setData({ periodSwiperDuration: 260, listSwiperCurrent: delta < 0 ? 0 : 2 });
+}
+function readCircularWeekPagerState(page: GuestPage): CalendarPeriodPagerState {
+  return {
+    activeSlot: page.weekRingSlot,
+    pendingDelta: page.weekPendingDelta,
+    queuedDelta: page.periodShiftQueue,
+    shiftPending: page.periodShiftCommitPending,
+    swiperSlot: page.weekSwiperSlot,
+    targetSlot: page.weekShiftTargetSlot,
+  };
+}
+function writeCircularWeekPagerState(page: GuestPage, state: CalendarPeriodPagerState): void {
+  page.weekRingSlot = state.activeSlot;
+  page.weekPendingDelta = state.pendingDelta;
+  page.periodShiftQueue = state.queuedDelta;
+  page.periodShiftCommitPending = state.shiftPending;
+  page.weekSwiperSlot = state.swiperSlot;
+  page.weekShiftTargetSlot = state.targetSlot;
+  page.periodShiftActive =
+    state.targetSlot === undefined && !state.shiftPending ? undefined : 'week';
+}
+function startCircularWeekSwiper(page: GuestPage, delta: -1 | 1): void {
+  const state = readCircularWeekPagerState(page);
+  const request = requestCalendarPeriodShift(state, delta);
+  writeCircularWeekPagerState(page, state);
+  if (!request.started) return;
+  page.setData({ periodSwiperDuration: 260, weekSwiperCurrent: request.targetSlot });
+}
+function handleCircularWeekSwiperFinish(page: GuestPage, current: number): void {
+  if (!isCalendarPeriodSlot(current)) return;
+  const state = readCircularWeekPagerState(page);
+  if (current === state.swiperSlot) {
+    if (state.targetSlot === undefined) return;
+    cancelCalendarPeriodShift(state);
+    writeCircularWeekPagerState(page, state);
+    return;
+  }
+  const committed = commitCalendarPeriodSwipe(state, current);
+  writeCircularWeekPagerState(page, state);
+  if (committed === undefined) return;
+  commitPeriodShift(page, 'week', committed.delta);
+}
+function finishCircularWeekShift(page: GuestPage): void {
+  const state = readCircularWeekPagerState(page);
+  const settled = finishCalendarPeriodShift(state);
+  writeCircularWeekPagerState(page, state);
+  if (settled.adopt !== undefined) {
+    // Adopt the queued week step so the ring stays aligned with the native swiper.
+    commitPeriodShift(page, 'week', settled.adopt.delta);
+    return;
+  }
+  if (settled.continues) {
+    const delta = takeQueuedCalendarPeriodShift(state);
+    writeCircularWeekPagerState(page, state);
+    if (delta !== 0) {
+      startCircularWeekSwiper(page, delta);
+      return;
+    }
+  }
+  page.setData({ periodSwiperDuration: 260 });
+  void loadCalendar(page);
 }
 function continuePeriodShift(page: GuestPage, view: 'week' | 'list'): void {
   page.periodShiftActive = undefined;
@@ -766,6 +880,7 @@ function renderCalendar(page: GuestPage): void {
   }
   page.setData({
     ...view,
+    weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
     compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
     shiftCardExpansion: reconcileShiftCardExpansion(
       page.data.shiftCardExpansion,

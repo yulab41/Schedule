@@ -1,6 +1,7 @@
 @import '../../components/account-security/index.wxss';
 @import '../../styles/ui-icon-motion.wxss';
 @import '../../styles/calendar-date-marker.wxss';
+@import '../../styles/ui-root-portal-tokens.wxss';
 
 page {
   height: 100%;
@@ -1145,11 +1146,9 @@ page {
   letter-spacing: -0.25px;
 }
 
-.workbench-shell-header .group-menu {
-  position: absolute;
-  z-index: 120;
-  top: 34px;
-  left: 0;
+.group-menu-portal {
+  position: fixed;
+  z-index: 200;
   width: 216px;
   max-width: calc(100vw - 24px);
   margin: 0;
@@ -1157,7 +1156,7 @@ page {
   box-sizing: border-box;
 }
 
-.workbench-shell-header .group-option {
+.group-menu-portal .group-option {
   min-height: 48px;
   padding: 5px 8px;
   box-sizing: border-box;
@@ -1165,7 +1164,7 @@ page {
   border-radius: 8px;
 }
 
-.workbench-shell-header .group-option.is-selected {
+.group-menu-portal .group-option.is-selected {
   background: var(--ui-color-primary-light);
 }
 

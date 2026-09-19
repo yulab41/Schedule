@@ -140,7 +140,7 @@ describe('P7 native duty-adjustment workflow page', () => {
     );
     const styles = readPage('wxss');
 
-    expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
+    expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'webview' });
     expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
     expect(styles).toContain('.duty-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);

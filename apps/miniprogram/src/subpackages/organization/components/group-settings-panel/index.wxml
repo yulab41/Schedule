@@ -362,7 +362,7 @@
       <view class="bottom-spacer"></view>
     </view>
   </scroll-view>
-  <ui-sheet visible="{{rosterEditorOpen}}" title="添加预设成员" close-label="取消" bindclose="handleCloseRosterEditor"><scroll-view class="member-editor-scroll" scroll-y type="list"><view class="member-editor-content">
+  <ui-sheet visible="{{rosterEditorOpen}}" title="添加预设成员" close-label="取消" bindclose="handleCloseRosterEditor"><scroll-view class="member-editor-scroll" scroll-y><view class="member-editor-content">
           <text class="inline-editor-copy"
             >每行输入一个姓名。请使用管理员提供的邀请关联成员账号。</text
           >
@@ -378,7 +378,7 @@
           >
 
 </view></scroll-view></ui-sheet>
-  <ui-sheet visible="{{contactEditorOpen}}" title="编辑成员资料" close-label="取消" bindclose="handleCloseContactEditor"><scroll-view class="member-editor-scroll" scroll-y type="list"><view class="member-editor-content">
+  <ui-sheet visible="{{contactEditorOpen}}" title="编辑成员资料" close-label="取消" bindclose="handleCloseContactEditor"><scroll-view class="member-editor-scroll" scroll-y><view class="member-editor-content">
           <view class="field-block"
             ><text class="field-label">成员姓名</text
             ><input

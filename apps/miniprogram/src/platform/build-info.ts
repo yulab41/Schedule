@@ -10,7 +10,6 @@ const buildTime =
   typeof __MINIPROGRAM_BUILD_TIME__ === 'string' ? __MINIPROGRAM_BUILD_TIME__ : '未提供';
 const buildProfile =
   typeof __MINIPROGRAM_BUILD_PROFILE__ === 'string' ? __MINIPROGRAM_BUILD_PROFILE__ : 'production';
-
 export const buildInfo = Object.freeze({
   apiEnvironment: buildProfile,
   buildCommit,
@@ -24,5 +23,7 @@ export const buildInfo = Object.freeze({
   cloudEnvironment: '未使用 CloudBase',
   npmBuildArtifact: '未使用独立小程序 npm 构建产物',
   primaryWorkspaceSwipeEnabled: false,
-  renderer: 'Skyline（项目固定）',
+  // The app requests WebView and the build gate enforces it (ADR-0007), so the label is
+  // the shipped fact rather than a build-time switch.
+  renderer: 'WebView（应用请求）',
 });

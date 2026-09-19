@@ -255,7 +255,7 @@ describe('organization direct Page registration', () => {
       expect(config).toMatchObject({
         disableScroll: true,
         navigationStyle: 'custom',
-        renderer: 'skyline',
+        renderer: 'webview',
         usingComponents: components,
       });
       expect(config.usingComponents[panel]).toBeUndefined();

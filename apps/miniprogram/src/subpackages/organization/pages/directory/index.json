@@ -1,7 +1,7 @@
 {
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "directory-entry-card": "/subpackages/organization/components/directory-entry-card/index",
     "ui-alert": "/components/ui/ui-alert/index",

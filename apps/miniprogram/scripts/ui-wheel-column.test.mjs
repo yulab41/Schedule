@@ -53,13 +53,15 @@ function touchEvent({
   clientX = 100,
   clientY,
   generation = 1,
+  baseIndex,
+  itemCount,
   runtimeKey = 'probe-year',
   timeStamp,
 }) {
   const touch = { clientX, clientY };
   return {
     changedTouches: changed ? [touch] : [],
-    currentTarget: { dataset: { generation, runtimeKey } },
+    currentTarget: { dataset: { baseIndex, generation, itemCount, runtimeKey } },
     timeStamp,
     touches: changed ? [] : [touch],
   };
@@ -98,18 +100,34 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(config).toMatchObject({ component: true, styleIsolation: 'shared' });
     expect(template).toContain('<wxs module="wheelGesture" src="./wheel-gesture.wxs"></wxs>');
     expect(template).toContain('change:wheel-config="{{wheelGesture.configure}}"');
-    expect(template).toContain('bindtouchstart="{{wheelGesture.touchStart}}"');
-    expect(template).toContain('bindtouchmove="{{wheelGesture.touchMove}}"');
+    // The affected runtime ignores `touch-action` for pan arbitration, so the
+    // wheel claims start/move instead of letting an ancestor take the gesture.
+    expect(template).toContain('catchtouchstart="{{wheelGesture.touchStart}}"');
+    expect(template).toContain('catchtouchmove="{{wheelGesture.touchMove}}"');
     expect(template).toContain('bindtouchend="{{wheelGesture.touchEnd}}"');
     expect(template).toContain('bindtouchcancel="{{wheelGesture.touchCancel}}"');
     expect(template).toContain('id="ui-wheel-track"');
+    // The WXS owns the pixel offset: no inline style may be re-applied on render.
+    expect(template).not.toContain('wheelInitialOffset');
+    expect(template).toContain('data-item-count="{{wheelConfig.itemCount}}"');
+    expect(template).toContain(
+      '<text wx:if="{{item.unit}}" class="ui-wheel-unit">{{item.unit}}</text>',
+    );
+    expect(template).toContain('<text wx:else class="ui-wheel-unit">{{unit}}</text>');
+    expect(template).toContain('style="{{wheelTrackStyle}}"');
+    expect(source).toContain('createWheelTrackStylePatch');
+    expect(template).toContain('data-base-index="{{wheelLayoutIndex}}"');
+    expect(template).toContain('style="{{wheelTrackStyle}}"');
+    expect(gesture).toContain('seedStateFromDataset');
     expect(template).toContain('id="ui-wheel-item-{{index}}"');
     expect(template).toContain('id="ui-wheel-number-{{index}}"');
     expect(template).toContain('aria-role="listbox"');
     expect(template).toContain('aria-role="option"');
     expect(template).toContain('aria-selected="{{index === internalSelectedIndex}}"');
     expect(template).toContain('bindtap="handleItemTap"');
-    expect(template).not.toContain('<scroll-view');
+    // The wheel has one owner: a plain view whose transform the WXS paints.
+    expect(template).not.toContain('scroll-view');
+    expect(template).not.toContain('compat');
     expect(template).not.toContain('worklet:');
     expect(styles).toMatch(
       /\.ui-wheel-column\s*\{[^}]*height:\s*188px;[^}]*touch-action:\s*none;/su,
@@ -118,7 +136,8 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(styles).toMatch(/\.ui-wheel-item\s*\{[^}]*height:\s*44px;[^}]*opacity:\s*0\.58;/su);
     expect(styles).toMatch(/\.ui-wheel-number\s*\{[^}]*font-size:\s*24px;/su);
     expect(source).not.toContain('wx.worklet');
-    expect(source).not.toContain('setTimeout');
+    // The gesture paints every pixel on its own: no timers, no debounced snap.
+    expect(gesture).not.toContain('setTimeout');
     expect(gesture).toContain('requestAnimationFrame');
     expect(gesture).toContain("callMethod('handleWheelPreview'");
     expect(gesture).toContain("callMethod('handleWheelSettled'");
@@ -215,12 +234,142 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(instance.data.wheelConfig.commandRevision).toBe(localRevision);
   });
 
+  it('seeds its own baseline when the config observer never reaches the wheel', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const track = owner.elements.get('#ui-wheel-track');
+    const dataset = { baseIndex: 6, itemCount: 11 };
+
+    // No configure() call at all: the runtime dropped the config observer, so
+    // the gesture has to derive its own base offset and item count. The template
+    // places the base position, so the gesture paints only its delta.
+    handlers.touchStart(touchEvent({ ...dataset, clientY: 400, timeStamp: 0 }), owner);
+    expect(lastTransform(track)).toBe('translateY(0px)');
+
+    handlers.touchMove(touchEvent({ ...dataset, clientY: 356, timeStamp: 16 }), owner);
+    expect(lastTransform(track)).toBe('translateY(-44px)');
+    expect(owner.callMethod).toHaveBeenCalledWith(
+      'handleWheelPreview',
+      expect.objectContaining({ index: 7, offset: -308 }),
+    );
+  });
+
+  it('does not let a transient count shrink the wheel range', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const track = owner.elements.get('#ui-wheel-track');
+    let timeStamp = 0;
+
+    handlers.touchStart(
+      touchEvent({ baseIndex: 5, clientY: 400, itemCount: 11, timeStamp }),
+      owner,
+    );
+    // Slow drags keep the projected target on the row the finger reached.
+    timeStamp += 200;
+    // The host re-renders with a stale, much shorter list while the drag is live.
+    handlers.touchMove(touchEvent({ baseIndex: 5, clientY: 356, itemCount: 3, timeStamp }), owner);
+    timeStamp += 200;
+    handlers.touchEnd(
+      touchEvent({ baseIndex: 5, changed: true, clientY: 356, itemCount: 3, timeStamp }),
+      owner,
+    );
+    flushFrames(owner);
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleWheelSettled',
+      expect.objectContaining({ index: 6 }),
+    );
+
+    for (let step = 0; step < 6; step += 1) {
+      handlers.touchStart(
+        touchEvent({ baseIndex: 5, clientY: 400, itemCount: 3, timeStamp }),
+        owner,
+      );
+      timeStamp += 200;
+      handlers.touchMove(
+        touchEvent({ baseIndex: 5, clientY: 356, itemCount: 3, timeStamp }),
+        owner,
+      );
+      timeStamp += 200;
+      handlers.touchEnd(
+        touchEvent({ baseIndex: 5, changed: true, clientY: 356, itemCount: 3, timeStamp }),
+        owner,
+      );
+      timeStamp += 200;
+      flushFrames(owner);
+    }
+
+    // The full eleven-item range survives the stale render.
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleWheelSettled',
+      expect.objectContaining({ index: 10, offset: -440 }),
+    );
+    expect(lastTransform(track)).toBe('translateY(-220px)');
+  });
+
+  it('keeps the whole range reachable from a dataset-seeded baseline', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const dataset = { baseIndex: 5, itemCount: 11 };
+    let timeStamp = 0;
+
+    const dragOneRow = () => {
+      handlers.touchStart(touchEvent({ ...dataset, clientY: 400, timeStamp }), owner);
+      timeStamp += 16;
+      handlers.touchMove(touchEvent({ ...dataset, clientY: 356, timeStamp }), owner);
+      timeStamp += 16;
+      handlers.touchEnd(touchEvent({ ...dataset, changed: true, clientY: 356, timeStamp }), owner);
+      timeStamp += 16;
+      flushFrames(owner);
+    };
+
+    // Repeated drags must reach the last entry (index 10) instead of stopping early.
+    for (let step = 0; step < 12; step += 1) dragOneRow();
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleWheelSettled',
+      expect.objectContaining({ index: 10, offset: -440 }),
+    );
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-220px)');
+  });
+
+  it('re-seeds from the dataset when the host re-opens the wheel without the observer', () => {
+    const handlers = loadWheelHandlers();
+    const owner = createOwner();
+    const track = owner.elements.get('#ui-wheel-track');
+
+    handlers.touchStart(
+      touchEvent({ baseIndex: 6, clientY: 400, itemCount: 11, timeStamp: 0 }),
+      owner,
+    );
+    handlers.touchMove(
+      touchEvent({ baseIndex: 6, clientY: 356, itemCount: 11, timeStamp: 16 }),
+      owner,
+    );
+    expect(lastTransform(track)).toBe('translateY(-44px)');
+
+    // Re-open: same runtime key, newer generation, still no config observer.
+    handlers.touchStart(
+      touchEvent({ baseIndex: 8, clientY: 400, generation: 2, itemCount: 11, timeStamp: 40 }),
+      owner,
+    );
+    expect(lastTransform(track)).toBe('translateY(0px)');
+    handlers.touchMove(
+      touchEvent({ baseIndex: 8, clientY: 356, generation: 2, itemCount: 11, timeStamp: 56 }),
+      owner,
+    );
+    expect(lastTransform(track)).toBe('translateY(-44px)');
+    expect(owner.callMethod).toHaveBeenCalledWith(
+      'handleWheelPreview',
+      expect.objectContaining({ generation: 2, index: 9 }),
+    );
+  });
+
   it('tracks slow one-row down/up gestures and keeps exact visual endpoints', () => {
     const handlers = loadWheelHandlers();
     const owner = createOwner();
     handlers.configure(wheelConfig(), undefined, owner);
 
-    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-220px)');
+    // The template lays out the base position, so the gesture transform starts at 0.
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(0px)');
     expect(owner.elements.get('#ui-wheel-item-5').setStyle).toHaveBeenLastCalledWith(
       expect.objectContaining({ opacity: '1', transform: 'scale(1)' }),
     );
@@ -243,7 +392,7 @@ describe('native UiWheelColumn WXS candidate', () => {
       'handleWheelSettled',
       expect.objectContaining({ index: 5, offset: -220 }),
     );
-    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-220px)');
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(0px)');
   });
 
   it('interpolates midpoint typography and keeps same-row pixel updates inside WXS', () => {
@@ -278,14 +427,15 @@ describe('native UiWheelColumn WXS candidate', () => {
     expect(lastTransform(owner.elements.get('#ui-wheel-item-5'))).toBe('scale(1)');
 
     handlers.configure(wheelConfig({ commandRevision: 1, selectedIndex: 0 }), undefined, owner);
-    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-220px)');
+    // An older command is ignored, so the wheel stays on its generation base.
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(0px)');
 
     handlers.configure(
       wheelConfig({ commandRevision: 1, generation: 2, selectedIndex: 2 }),
       undefined,
       owner,
     );
-    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-88px)');
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(0px)');
     expect(owner.elements.get('#ui-wheel-item-5').setStyle).toHaveBeenLastCalledWith({
       opacity: '0.58',
       transform: 'scale(0.94)',
@@ -353,7 +503,8 @@ describe('native UiWheelColumn WXS candidate', () => {
 
     handlers.touchStart(touchEvent({ clientY: 100, runtimeKey: 'wheel-b', timeStamp: 300 }), owner);
     handlers.touchMove(touchEvent({ clientY: 144, runtimeKey: 'wheel-b', timeStamp: 400 }), owner);
-    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(-308px)');
+    // wheel-b is based at index 8, so one row up is a +44px delta from that base.
+    expect(lastTransform(owner.elements.get('#ui-wheel-track'))).toBe('translateY(44px)');
 
     const writes = owner.elements.get('#ui-wheel-track').setStyle.mock.calls.length;
     handlers.touchMove(

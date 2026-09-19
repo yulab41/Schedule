@@ -69,6 +69,6 @@ describe('native P5 past-schedule backfill page', () => {
     expect(readPageFile('ts')).toContain("windowInfo.windowWidth <= 340 ? 'is-compact' : ''");
     const pageJson = JSON.parse(readPageFile('json'));
     expect(pageJson.disableScroll).toBe(true);
-    expect(pageJson.renderer).toBe('skyline');
+    expect(pageJson.renderer).toBe('webview');
   });
 });

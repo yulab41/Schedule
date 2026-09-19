@@ -325,8 +325,8 @@ function copyGeneratedUiTokens(outputDirectory) {
   // A root portal cannot depend on its former page ancestor. Rebind the same
   // generated tokens locally instead of copying values or adding a runtime package.
   writeFileSync(
-    path.join(outputDirectory, 'styles', 'ui-toast-tokens.wxss'),
-    tokens.replace(/^page(?=\s*\{)/u, '.ui-toast__layer'),
+    path.join(outputDirectory, 'styles', 'ui-root-portal-tokens.wxss'),
+    tokens.replace(/^page(?=\s*\{)/u, '.ui-root-portal-token-scope'),
     'utf8',
   );
 }
@@ -640,14 +640,26 @@ function validateWxml(source, relativePath) {
   return issues;
 }
 
-function validateWxss(source, relativePath) {
+export function validateWxss(source, relativePath) {
+  const issues = [];
+  source.split(/\r?\n/u).forEach((line, index) => {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) return;
+    // The official summer-wxss compiler rejects line comments, so fail locally
+    // instead of discovering it during the experience upload.
+    if (trimmed.startsWith('//') || /;\s*\/\//u.test(line)) {
+      issues.push(
+        `${relativePath}:${index + 1}: WXSS does not support // comments; use /* */ instead`,
+      );
+    }
+  });
   let depth = 0;
   for (const character of source.replace(/\/\*[\s\S]*?\*\//gu, '')) {
     if (character === '{') depth += 1;
     if (character === '}') depth -= 1;
-    if (depth < 0) return [`${relativePath}: unmatched closing brace`];
+    if (depth < 0) return [...issues, `${relativePath}: unmatched closing brace`];
   }
-  return depth === 0 ? [] : [`${relativePath}: unclosed style block`];
+  return depth === 0 ? issues : [...issues, `${relativePath}: unclosed style block`];
 }
 
 function auditTree(rootDirectory, { built }) {
@@ -735,15 +747,16 @@ export function auditSourceTree() {
   }
 
   if (appJson !== undefined) {
-    if (appJson.renderer !== 'skyline') issues.push('src/app.json renderer must be skyline');
+    // The renderer is a product decision recorded in
+    // apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md: the app requests WebView so
+    // every user gets the same layout engine. The gate enforces that decision instead of
+    // merely permitting it; a different renderer needs a new ADR and a rerun of the
+    // renderer-specific acceptance evidence.
+    if (appJson.renderer !== 'webview') {
+      issues.push('src/app.json renderer must be webview (ADR-0007)');
+    }
     if (appJson.componentFramework !== 'glass-easel') {
       issues.push('src/app.json componentFramework must be glass-easel');
-    }
-    const skyline = appJson.rendererOptions?.skyline;
-    if (skyline?.disableABTest !== true) issues.push('Skyline AB test must be disabled');
-    if (skyline?.sdkVersionBegin !== '3.3.0') issues.push('Skyline minimum must be 3.3.0');
-    if (skyline?.sdkVersionEnd !== '15.255.255') {
-      issues.push('Skyline maximum must be 15.255.255');
     }
     try {
       for (const route of listRegisteredPages(appJson)) {

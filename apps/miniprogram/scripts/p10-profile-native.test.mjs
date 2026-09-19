@@ -37,7 +37,7 @@ describe('P10 native profile parity', () => {
     expect(pageConfig).toMatchObject({
       disableScroll: true,
       navigationStyle: 'custom',
-      renderer: 'skyline',
+      renderer: 'webview',
       usingComponents: {
         'ui-sheet': '/components/ui/ui-sheet/index',
       },
@@ -81,8 +81,6 @@ describe('P10 native profile parity', () => {
     expect(styles).toContain('.is-large-text .profile-name');
     expect(styles).toContain('white-space: normal');
     expect(styles).not.toContain('display: grid');
-    for (const scrollView of template.matchAll(/<scroll-view\b[\s\S]*?>/gu)) {
-      expect(scrollView[0]).toContain('type="list"');
-    }
+    expect(template).not.toContain('type="list"');
   });
 });

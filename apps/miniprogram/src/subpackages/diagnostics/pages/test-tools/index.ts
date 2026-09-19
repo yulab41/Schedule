@@ -115,17 +115,43 @@ interface TestToolsPageData extends Readonly<typeof wechatDiagnosticData> {
   readonly exportBoundaryRows: readonly PerformanceView[];
   readonly performanceRows: readonly PerformanceView[];
   readonly requestRows: readonly RequestView[];
+  readonly runtimeProbeRows: readonly DiagnosticRow[];
+  readonly runtimeProbeSummary: string;
+  readonly runtimeProbeTone: RowStatus;
   readonly scenarios: readonly DiagnosticScenario[];
   readonly storageRows: readonly DiagnosticRow[];
+  readonly wheelProbeItems: readonly { readonly label: string; readonly unit: string }[];
+  readonly wheelProbeIndex: number;
+  readonly wheelProbeGeneration: number;
+  readonly wheelProbeRows: readonly DiagnosticRow[];
 }
 
 interface TestToolsPageInstance {
   _active: boolean;
   _live: boolean;
+  _ready: boolean;
   _accessSerial: number;
+  _probeSerial: number;
+  _runtimeTokenWidth: number | undefined;
+  _wheelDragProbe: {
+    moves: number;
+    offset: number;
+    styled: number;
+  };
+  _wheelProbe: {
+    previews: number;
+    settles: number;
+    lastGeneration: number;
+    lastIndex: number;
+    lastOffset: number;
+    lastRuntimeKey: string;
+    lastSequence: number;
+  };
   _unsubscribe?: () => void;
   _loadStartedAt: number;
   readonly data: TestToolsPageData;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectComponent?(selector: string): unknown;
   setData(patch: Partial<TestToolsPageData>, callback?: () => void): void;
 }
 
@@ -140,7 +166,42 @@ interface ScenarioResultEvent {
   };
 }
 
+interface RuntimeTokenMeasureEvent {
+  readonly detail?: { readonly width?: unknown };
+}
+
+interface RuntimeProbeRect {
+  readonly bottom?: number;
+  readonly height?: number;
+  readonly left?: number;
+  readonly right?: number;
+  readonly top?: number;
+  readonly width?: number;
+}
+
+interface RuntimeSelectorQuery {
+  exec(callback?: () => void): void;
+  select(selector: string): {
+    boundingClientRect(
+      callback: (rect: RuntimeProbeRect | undefined) => void,
+    ): RuntimeSelectorQuery;
+  };
+  selectAll(selector: string): {
+    boundingClientRect(
+      callback: (rects: readonly RuntimeProbeRect[] | undefined) => void,
+    ): RuntimeSelectorQuery;
+  };
+}
+
+interface RuntimeProbeSnapshot {
+  readonly contentRect: RuntimeProbeRect | undefined;
+  readonly gridRects: readonly RuntimeProbeRect[] | undefined;
+  readonly scrollRect: RuntimeProbeRect | undefined;
+  readonly tokenWidth: number | undefined;
+}
+
 interface RuntimeSystemApi {
+  readonly createSelectorQuery?: () => RuntimeSelectorQuery;
   readonly getAppBaseInfo?: () => {
     readonly SDKVersion?: unknown;
     readonly fontSizeSetting?: unknown;
@@ -167,6 +228,14 @@ interface RuntimeSystemApi {
     readonly fail: () => void;
     readonly success: (result: { readonly networkType?: unknown }) => void;
   }) => unknown;
+  readonly getSkylineInfo?: (options: {
+    readonly fail?: () => void;
+    readonly success?: (result: {
+      readonly isSupported?: unknown;
+      readonly reason?: unknown;
+      readonly version?: unknown;
+    }) => void;
+  }) => unknown;
   readonly getStorageInfoSync?: () => {
     readonly currentSize?: unknown;
     readonly keys?: unknown;
@@ -190,6 +259,22 @@ interface RuntimeSystemApi {
 }
 
 const currentPagePath = 'subpackages/diagnostics/pages/test-tools/index';
+
+interface SkylineRuntimeInfo {
+  readonly reason: string;
+  readonly supported: boolean | undefined;
+  readonly version: string;
+}
+
+const skylineUnavailableValue = '当前微信版本不支持读取';
+
+const skylineReasonLabels: Readonly<Record<string, string>> = Object.freeze({
+  'SwitchRender option set to webview': '调试开关强制使用 WebView',
+  'a-b test not enabled': '命中 We 分析 AB 实验关闭',
+  'baselib not supported': '当前基础库不支持 Skyline',
+  'client not supported': '当前微信客户端不支持 Skyline',
+});
+
 const displayCheckDefaults: readonly DisplayCheck[] = [
   check(
     'top-navigation',
@@ -314,13 +399,33 @@ Page({
     exportBoundaryRows: [],
     performanceRows: [],
     requestRows: [],
+    runtimeProbeRows: createPendingRuntimeProbeRows(),
+    runtimeProbeSummary: '等待自动测量',
+    runtimeProbeTone: 'unavailable',
     scenarios: scenarioDefaults,
     storageRows: [],
+    wheelProbeGeneration: 1,
+    wheelProbeIndex: 0,
+    wheelProbeItems: createWheelProbeItems(),
+    wheelProbeRows: createPendingWheelProbeRows(),
   },
 
   onLoad(this: TestToolsPageInstance): void {
     this._loadStartedAt = Date.now();
     this._accessSerial = 0;
+    this._probeSerial = 0;
+    this._wheelDragProbe = { moves: 0, offset: 0, styled: 0 };
+    this._wheelProbe = {
+      lastGeneration: -1,
+      lastIndex: -1,
+      lastOffset: 0,
+      lastRuntimeKey: '',
+      lastSequence: -1,
+      previews: 0,
+      settles: 0,
+    };
+    this._ready = false;
+    this._runtimeTokenWidth = undefined;
     this._live = true;
     this._active = false;
     this._unsubscribe = subscribeDiagnosticsPermission((allowed) => {
@@ -333,6 +438,7 @@ Page({
   },
 
   onReady(this: TestToolsPageInstance): void {
+    this._ready = true;
     if (!this._active || !canUseDiagnostics()) return;
     const pageReadyMs = Date.now() - this._loadStartedAt;
     recordRuntimeDiagnosticPerformance({
@@ -341,7 +447,7 @@ Page({
       page: 'test-tools',
       recordedAt: Date.now(),
     });
-    this.setData({ pageReadyMs });
+    this.setData({ pageReadyMs }, () => runRuntimeCompatibilityProbe(this));
     refreshRuntimeDiagnostics(this);
   },
 
@@ -353,12 +459,14 @@ Page({
   onHide(this: TestToolsPageInstance): void {
     this._live = false;
     this._accessSerial += 1;
+    this._probeSerial += 1;
     clearTestToolsPage(this);
   },
 
   onUnload(this: TestToolsPageInstance): void {
     this._live = false;
     this._accessSerial += 1;
+    this._probeSerial += 1;
     this._unsubscribe?.();
     clearTestToolsPage(this);
   },
@@ -375,6 +483,7 @@ Page({
       storageRows: createStorageRows(wx as unknown as RuntimeSystemApi),
     });
     refreshRuntimeDiagnostics(this);
+    runRuntimeCompatibilityProbe(this);
     const serial = this._accessSerial;
     void collectDeviceRows(wx as unknown as RuntimeSystemApi).then(({ networkType, rows }) => {
       if (!this._active || serial !== this._accessSerial || !canUseDiagnostics()) return;
@@ -421,6 +530,17 @@ Page({
           : item,
       ),
     });
+  },
+
+  handleRuntimeTokenMeasure(this: TestToolsPageInstance, event: RuntimeTokenMeasureEvent): void {
+    const width = event.detail?.width;
+    this._runtimeTokenWidth =
+      typeof width === 'number' && Number.isFinite(width)
+        ? Math.round(width * 100) / 100
+        : undefined;
+    if (this._ready && this._active && canUseDiagnostics()) {
+      runRuntimeCompatibilityProbe(this);
+    }
   },
 
   handleOpenWorkspace(): void {
@@ -503,6 +623,37 @@ Page({
     copyText(createCheckReport(this.data), '检查结果已复制');
   },
 
+  handleCopyRuntimeReport(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    copyText(createRuntimeCompatibilityReport(this.data), '首屏诊断已复制');
+  },
+
+  handleWheelDragProbeMove(this: TestToolsPageInstance, detail?: WheelDragProbeDetail): void {
+    recordWheelDragProbe(this, detail, false);
+  },
+
+  handleWheelDragProbeEnd(this: TestToolsPageInstance, detail?: WheelDragProbeDetail): void {
+    recordWheelDragProbe(this, detail, true);
+  },
+
+  handleWheelProbePreview(this: TestToolsPageInstance, event?: WheelProbeReportEvent): void {
+    recordWheelProbeReport(this, event, false);
+  },
+
+  handleWheelProbeSettle(this: TestToolsPageInstance, event?: WheelProbeReportEvent): void {
+    recordWheelProbeReport(this, event, true);
+  },
+
+  handleResetWheelProbe(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    resetWheelProbe(this);
+  },
+
+  handleCollectWheelProbe(this: TestToolsPageInstance): void {
+    if (!this._active || !canUseDiagnostics()) return;
+    collectWheelChannelProbe(this);
+  },
+
   handleCopyFullReport(this: TestToolsPageInstance): void {
     if (!this._active || !canUseDiagnostics()) return;
     copyText(
@@ -531,7 +682,9 @@ async function authorizeTestToolsPage(page: TestToolsPageInstance): Promise<void
     return;
   }
   page._active = true;
-  page.setData({ authorized: true });
+  page.setData({ authorized: true }, () => {
+    if (page._ready) runRuntimeCompatibilityProbe(page);
+  });
   void prepareWechatDiagnosticPage(page);
   loadAuthorizedTestTools(page);
 }
@@ -539,6 +692,8 @@ async function authorizeTestToolsPage(page: TestToolsPageInstance): Promise<void
 function clearTestToolsPage(page: TestToolsPageInstance): void {
   clearWechatDiagnosticPage(page);
   page._active = false;
+  page._probeSerial += 1;
+  page._runtimeTokenWidth = undefined;
   stopRuntimeDirectorySearchRecording();
   page.setData({
     authorized: false,
@@ -546,6 +701,9 @@ function clearTestToolsPage(page: TestToolsPageInstance): void {
     deviceRows: [],
     storageRows: [],
     requestRows: [],
+    runtimeProbeRows: createPendingRuntimeProbeRows(),
+    runtimeProbeSummary: '等待自动测量',
+    runtimeProbeTone: 'unavailable',
     errorRows: [],
     performanceRows: [],
     directorySearchRows: [],
@@ -574,6 +732,208 @@ function loadAuthorizedTestTools(page: TestToolsPageInstance): void {
     page.setData({ deviceRows: rows, networkType });
   });
   refreshRuntimeDiagnostics(page);
+}
+
+function createPendingRuntimeProbeRows(): readonly DiagnosticRow[] {
+  return [
+    row(
+      'Grid 双列',
+      '等待页面测量',
+      '判断两列布局是否退化为纵排。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    ),
+    row(
+      'CSS 变量继承',
+      '等待组件测量',
+      '判断页面令牌能否进入隔离自定义组件。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    ),
+    row(
+      '纵向滚动容器',
+      '等待页面测量',
+      '判断显式 scroll-view 是否获得有效尺寸。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    ),
+  ];
+}
+
+function runRuntimeCompatibilityProbe(page: TestToolsPageInstance): void {
+  if (!page._active || !page._ready || !canUseDiagnostics()) return;
+  const serial = ++page._probeSerial;
+  page.setData({
+    runtimeProbeRows: createPendingRuntimeProbeRows(),
+    runtimeProbeSummary: '正在自动测量',
+    runtimeProbeTone: 'unavailable',
+  });
+  void collectRuntimeProbe(wx as unknown as RuntimeSystemApi, page._runtimeTokenWidth).then(
+    (snapshot) => {
+      if (!page._active || !page._live || serial !== page._probeSerial || !canUseDiagnostics()) {
+        return;
+      }
+      const runtimeProbeRows = createRuntimeProbeRows(snapshot);
+      const runtimeProbeTone: RowStatus = runtimeProbeRows.some((item) => item.status === 'notice')
+        ? 'notice'
+        : runtimeProbeRows.some((item) => item.status === 'unavailable')
+          ? 'unavailable'
+          : 'good';
+      page.setData({
+        runtimeProbeRows,
+        runtimeProbeSummary:
+          runtimeProbeTone === 'good'
+            ? '自动测量正常'
+            : runtimeProbeTone === 'notice'
+              ? '发现兼容性差异'
+              : '部分暂未验证',
+        runtimeProbeTone,
+      });
+    },
+  );
+}
+
+function collectRuntimeProbe(
+  runtime: RuntimeSystemApi,
+  tokenWidth: number | undefined,
+): Promise<RuntimeProbeSnapshot> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let gridRects: readonly RuntimeProbeRect[] | undefined;
+    let scrollRect: RuntimeProbeRect | undefined;
+    let contentRect: RuntimeProbeRect | undefined;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ contentRect, gridRects, scrollRect, tokenWidth });
+    };
+    const timer = setTimeout(finish, 500);
+    try {
+      const query = runtime.createSelectorQuery?.();
+      if (query === undefined) {
+        finish();
+        return;
+      }
+      query.selectAll('.runtime-grid-probe__cell').boundingClientRect((rects) => {
+        gridRects = rects;
+      });
+      query.select('.test-tools-scroll').boundingClientRect((rect) => {
+        scrollRect = rect;
+      });
+      query.select('.test-tools-scroll-content').boundingClientRect((rect) => {
+        contentRect = rect;
+      });
+      query.exec(finish);
+    } catch {
+      finish();
+    }
+  });
+}
+
+function createRuntimeProbeRows(snapshot: RuntimeProbeSnapshot): readonly DiagnosticRow[] {
+  return [
+    createGridProbeRow(snapshot.gridRects),
+    createTokenProbeRow(snapshot.tokenWidth),
+    createScrollProbeRow(snapshot),
+  ];
+}
+
+function createGridProbeRow(rects: readonly RuntimeProbeRect[] | undefined): DiagnosticRow {
+  const first = rects?.[0];
+  const second = rects?.[1];
+  if (!hasFiniteRect(first) || !hasFiniteRect(second)) {
+    return row(
+      'Grid 双列',
+      '未取得两个探针矩形',
+      '当前工具无法测量，不能据此判断 Grid。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    );
+  }
+  const topDelta = Math.abs(first.top - second.top);
+  const horizontal = topDelta <= 1 && second.left >= first.right - 1;
+  return row(
+    'Grid 双列',
+    horizontal
+      ? `同行双列（顶部差 ${roundProbe(topDelta)}px）`
+      : `已退化（顶部差 ${roundProbe(topDelta)}px）`,
+    horizontal ? '受控 Grid 当前按两列呈现。' : '受控 Grid 未按两列呈现，符合业务按钮纵排现象。',
+    '异常时截本行和业务页面。',
+    horizontal ? 'good' : 'notice',
+  );
+}
+
+function createTokenProbeRow(width: number | undefined): DiagnosticRow {
+  if (typeof width !== 'number' || !Number.isFinite(width)) {
+    return row(
+      'CSS 变量继承',
+      '隔离组件未返回宽度',
+      '当前工具无法测量，不能据此判断 CSS 变量。',
+      '截首屏兼容性卡。',
+      'unavailable',
+    );
+  }
+  const inherited = Math.abs(width - 44) <= 1;
+  return row(
+    'CSS 变量继承',
+    `${roundProbe(width)}px（预期 44px）`,
+    inherited ? '页面设计令牌已进入隔离组件。' : '隔离组件使用了回退宽度或错误宽度。',
+    '异常时截本行和加载圈。',
+    inherited ? 'good' : 'notice',
+  );
+}
+
+function createScrollProbeRow(snapshot: RuntimeProbeSnapshot): DiagnosticRow {
+  const viewport = snapshot.scrollRect;
+  const content = snapshot.contentRect;
+  if (!hasPositiveSize(viewport) || !hasPositiveSize(content)) {
+    return row(
+      '纵向滚动容器',
+      '未取得有效尺寸',
+      '显式 scroll-view 或内容尺寸不可测量。',
+      '截首屏和无法滚动的位置。',
+      viewport === undefined && content === undefined ? 'unavailable' : 'notice',
+    );
+  }
+  const scrollable = content.height > viewport.height + 1;
+  return row(
+    '纵向滚动容器',
+    `${roundProbe(viewport.height)}px / 内容 ${roundProbe(content.height)}px`,
+    scrollable ? '显式 scroll-view 已形成可滚动区域。' : '内容没有超过 viewport，暂时不需要滚动。',
+    '若仍不能下滑，截本行。',
+    'good',
+  );
+}
+
+function hasFiniteRect(
+  rect: RuntimeProbeRect | undefined,
+): rect is Required<Pick<RuntimeProbeRect, 'left' | 'right' | 'top'>> & RuntimeProbeRect {
+  return (
+    typeof rect?.left === 'number' &&
+    Number.isFinite(rect.left) &&
+    typeof rect.right === 'number' &&
+    Number.isFinite(rect.right) &&
+    typeof rect.top === 'number' &&
+    Number.isFinite(rect.top)
+  );
+}
+
+function hasPositiveSize(
+  rect: RuntimeProbeRect | undefined,
+): rect is Required<Pick<RuntimeProbeRect, 'height' | 'width'>> & RuntimeProbeRect {
+  return (
+    typeof rect?.width === 'number' &&
+    Number.isFinite(rect.width) &&
+    rect.width > 0 &&
+    typeof rect.height === 'number' &&
+    Number.isFinite(rect.height) &&
+    rect.height > 0
+  );
+}
+
+function roundProbe(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function createBuildRows(miniProgramVersion: string): readonly DiagnosticRow[] {
@@ -647,7 +1007,10 @@ async function collectDeviceRows(
   const windowInfo = safeCall(runtime.getWindowInfo);
   const menu = safeCall(runtime.getMenuButtonBoundingClientRect);
   const setting = safeCall(runtime.getSystemSetting);
-  const networkType = await readNetworkType(runtime);
+  const [networkType, skyline] = await Promise.all([
+    readNetworkType(runtime),
+    readSkylineInfo(runtime),
+  ]);
   const safeArea = isRecord(windowInfo?.safeArea) ? windowInfo.safeArea : undefined;
   const deviceName = joinKnown([textValue(device?.brand), textValue(device?.model)]);
   return {
@@ -689,16 +1052,17 @@ async function collectDeviceRows(
       ),
       row(
         'Skyline 支持',
-        '当前页面已按 Skyline 构建',
-        '能打开本页说明当前渲染链路已工作，但不代表所有交互已验收。',
+        skylineSupportValue(skyline),
+        '当前运行环境对 Skyline 的支持情况；不支持时页面可能由 WebView 渲染，需按渲染器区分视觉差异。',
         '截本卡片。',
+        skylineStatus(skyline),
       ),
       row(
         'Skyline 版本',
-        '当前微信版本不支持单独读取',
-        '没有可靠 API 时不猜测 Skyline 版本。',
-        '无需单独截图。',
-        'unavailable',
+        skyline.version.length > 0 ? skyline.version : skylineUnavailableValue,
+        'Skyline 渲染引擎有独立版本号；版本不同可能出现文本、滚动或层级的布局差异。',
+        '截本卡片。',
+        skyline.version.length > 0 ? 'good' : 'unavailable',
       ),
       row(
         '屏幕',
@@ -914,10 +1278,28 @@ function createCheckReport(data: TestToolsPageData): string {
   ].join('\n');
 }
 
+function createRuntimeCompatibilityReport(data: TestToolsPageData): string {
+  return [
+    '[首屏运行时兼容性诊断 v1]',
+    '安全说明：只含固定环境字段和受控布局测量，不含身份、联系方式、群组、排班、请求正文、响应正文、Header、凭证或原始堆栈。',
+    `构建=${buildInfo.buildLabel}`,
+    `环境=${data.environmentLabel}`,
+    `生成时间=${formatTimestamp(Date.now())}`,
+    '',
+    '[设备与屏幕]',
+    ...reportRows(data.deviceRows, data.deviceRows.length),
+    '',
+    '[运行时兼容性]',
+    `汇总=${data.runtimeProbeSummary}`,
+    ...reportRows(data.runtimeProbeRows, data.runtimeProbeRows.length),
+    '可视检查=左侧 CSS 缺口圆与右侧 SVG 完整圆；自动测量不能判断圆弧像素形状，请附首屏截图。',
+  ].join('\n');
+}
+
 function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): string {
   const generatedAt = formatTimestamp(Date.now());
   const lines = [
-    simplified ? '[Codex 简化诊断报告 v1]' : '[测试工具完整诊断报告 v1]',
+    simplified ? '[Codex 简化诊断报告 v2]' : '[测试工具完整诊断报告 v2]',
     '安全说明：本报告不含请求体、响应体、Header、凭证、身份、联系方式、成员信息或原始堆栈。',
     '口径说明：记录总耗时包含诊断附加开销；setData 提交和下一渲染周期不代表用户已实际看到结果。',
     '',
@@ -935,6 +1317,11 @@ function createDiagnosticReport(data: TestToolsPageData, simplified: boolean): s
     '[当前页面]',
     `路径=${currentPagePath}`,
     `测试工具首屏=${data.pageReadyMs}ms（单次辅助值）`,
+    '',
+    '[运行时兼容性]',
+    `汇总=${data.runtimeProbeSummary}`,
+    ...reportRows(data.runtimeProbeRows, data.runtimeProbeRows.length),
+    '可视检查=左侧 CSS 缺口圆与右侧 SVG 完整圆；自动测量不能判断圆弧像素形状，请附首屏截图。',
     '',
     '[关键性能]',
     ...(data.performanceRows.length === 0
@@ -1093,6 +1480,215 @@ function reportRows(rows: readonly DiagnosticRow[], limit: number): string[] {
   return rows.slice(0, limit).map((item) => `${item.label}=${item.value}（${item.statusLabel}）`);
 }
 
+interface WheelDragProbeDetail {
+  readonly moves?: number;
+  readonly offset?: number;
+  readonly styled?: number;
+}
+
+interface WheelProbeReportEvent {
+  readonly detail?: {
+    readonly generation?: number;
+    readonly index?: number;
+    readonly offset?: number;
+    readonly runtimeKey?: string;
+    readonly sequence?: number;
+  };
+}
+
+interface ProbeQueryNode {
+  boundingClientRect(callback: (rect: unknown) => void): ProbeQueryNode;
+  exec?(callback?: () => void): unknown;
+  fields(options: Record<string, unknown>, callback: (value: unknown) => void): ProbeQueryNode;
+}
+
+interface ProbeQuery {
+  exec?(callback?: () => void): unknown;
+  in(component: unknown): ProbeQuery;
+  select(selector: string): ProbeQueryNode;
+  selectAll(selector: string): ProbeQueryNode;
+}
+
+function createWheelProbeItems(): readonly { readonly label: string; readonly unit: string }[] {
+  return [1, 2, 3, 4, 5, 6, 7, 8].map((value) => ({ label: String(value), unit: '号' }));
+}
+
+function wheelProbeRows(
+  dragValue: string,
+  dragStatus: RowStatus,
+  reportValue: string,
+  reportStatus: RowStatus,
+): readonly DiagnosticRow[] {
+  return [
+    row(
+      '页级 WXS 通道',
+      dragValue,
+      '页面级 WXS 的 setStyle 是否到达渲染器。',
+      '截本卡片。',
+      dragStatus,
+    ),
+    row(
+      '滚轮 WXS 通道',
+      reportValue,
+      '滚轮 WXS 是否收到手势并回报给逻辑层。',
+      '截本卡片。',
+      reportStatus,
+    ),
+  ];
+}
+
+function createPendingWheelProbeRows(): readonly DiagnosticRow[] {
+  return wheelProbeRows('待拖动方块', 'unavailable', '待拖动滚轮', 'unavailable');
+}
+
+function resetWheelProbe(page: TestToolsPageInstance): void {
+  page._wheelDragProbe = { moves: 0, offset: 0, styled: 0 };
+  page._wheelProbe = {
+    lastGeneration: -1,
+    lastIndex: -1,
+    lastOffset: 0,
+    lastRuntimeKey: '',
+    lastSequence: -1,
+    previews: 0,
+    settles: 0,
+  };
+  page.setData({
+    wheelProbeGeneration: page.data.wheelProbeGeneration + 1,
+    wheelProbeRows: createPendingWheelProbeRows(),
+  });
+}
+
+function recordWheelDragProbe(
+  page: TestToolsPageInstance,
+  detail: WheelDragProbeDetail | undefined,
+  settled: boolean,
+): void {
+  const moves = Number(detail?.moves);
+  const offset = Number(detail?.offset);
+  const styled = Number(detail?.styled);
+  page._wheelDragProbe = {
+    moves: Number.isFinite(moves) ? moves : page._wheelDragProbe.moves,
+    offset: Number.isFinite(offset) ? offset : page._wheelDragProbe.offset,
+    styled: Number.isFinite(styled) ? styled : page._wheelDragProbe.styled,
+  };
+  if (!settled) return;
+  page.setData({ wheelProbeRows: buildWheelProbeRows(page, '页面级 WXS 已完成一次拖动') });
+}
+
+function recordWheelProbeReport(
+  page: TestToolsPageInstance,
+  event: WheelProbeReportEvent | undefined,
+  settled: boolean,
+): void {
+  const detail = event?.detail ?? {};
+  const index = Number(detail.index);
+  const offset = Number(detail.offset);
+  const generation = Number(detail.generation);
+  const sequence = Number(detail.sequence);
+  page._wheelProbe = {
+    lastGeneration: Number.isFinite(generation) ? generation : page._wheelProbe.lastGeneration,
+    lastIndex: Number.isFinite(index) ? index : page._wheelProbe.lastIndex,
+    lastOffset: Number.isFinite(offset) ? offset : page._wheelProbe.lastOffset,
+    lastRuntimeKey:
+      typeof detail.runtimeKey === 'string' ? detail.runtimeKey : page._wheelProbe.lastRuntimeKey,
+    lastSequence: Number.isFinite(sequence) ? sequence : page._wheelProbe.lastSequence,
+    previews: page._wheelProbe.previews + (settled ? 0 : 1),
+    settles: page._wheelProbe.settles + (settled ? 1 : 0),
+  };
+  page.setData({
+    wheelProbeRows: buildWheelProbeRows(page, settled ? '滚轮已完成一次结算' : '滚轮正在拖动'),
+  });
+}
+
+function buildWheelProbeRows(page: TestToolsPageInstance, note: string): readonly DiagnosticRow[] {
+  const drag = page._wheelDragProbe;
+  const wheel = page._wheelProbe;
+  return wheelProbeRows(
+    `${note}；移动 ${drag.moves} 次，偏移 ${Math.round(drag.offset)}px，取到目标节点 ${
+      drag.styled === 1 ? '是' : '否'
+    }`,
+    drag.moves > 0 && drag.styled === 1 ? 'good' : 'unavailable',
+    `preview ${wheel.previews} 次，settle ${wheel.settles} 次；最后 index ${wheel.lastIndex}，offset ${wheel.lastOffset}，sequence ${wheel.lastSequence}，generation ${wheel.lastGeneration}`,
+    wheel.previews > 0 || wheel.settles > 0 ? 'good' : 'unavailable',
+  );
+}
+
+function collectWheelChannelProbe(page: TestToolsPageInstance): void {
+  const measured: string[] = [];
+  const wheel = page.selectComponent?.('#wheel-probe-column');
+  const query = page.createSelectorQuery?.() as unknown as ProbeQuery | undefined;
+  if (query === undefined) {
+    measured.push('测量=createSelectorQuery 不可用');
+  } else {
+    query
+      .select('#wheel-drag-probe-dot')
+      .fields({ computedStyle: ['transform'], rect: true }, (value) => {
+        measured.push(`页级探针节点=${describeMeasured(value)}`);
+      });
+    query.exec?.(() => undefined);
+    if (wheel === undefined || typeof query.in !== 'function') {
+      measured.push('组件作用域查询=未取得滚轮实例');
+    } else {
+      const scoped = query.in(wheel);
+      scoped
+        .select('#ui-wheel-track')
+        .fields({ computedStyle: ['transform', 'marginTop'], rect: true }, (value) => {
+          measured.push(`组件作用域 track=${describeMeasured(value)}`);
+        });
+      scoped
+        .selectAll('.ui-wheel-number')
+        .fields({ computedStyle: ['transform', 'fontSize'] }, (value) => {
+          measured.push(`组件作用域 number=${describeMeasured(value)}`);
+        });
+      scoped.exec?.(() => undefined);
+    }
+  }
+  measured.push(
+    `dataset 期望值=${JSON.stringify({
+      baseIndex: page.data.wheelProbeIndex,
+      itemCount: page.data.wheelProbeItems.length,
+    })}`,
+  );
+  // Selector queries resolve asynchronously; report after they settle.
+  setTimeout(() => finishWheelChannelProbe(page, measured), 160);
+}
+
+function describeMeasured(value: unknown): string {
+  if (value === null || value === undefined) return '空';
+  if (Array.isArray(value))
+    return value.length === 0 ? '空数组' : `${value.length} 项 ${JSON.stringify(value[0])}`;
+  return JSON.stringify(value);
+}
+
+function finishWheelChannelProbe(page: TestToolsPageInstance, measured: readonly string[]): void {
+  const drag = page._wheelDragProbe;
+  const wheel = page._wheelProbe;
+  const report = [
+    '[滚轮通道探针 v1]',
+    '安全说明：只含固定环境字段、通道状态与偏移量，不含身份、联系方式、群组、排班、请求正文或凭证。',
+    `构建=${buildInfo.buildLabel}`,
+    `环境=${page.data.environmentLabel}`,
+    `生成时间=${formatTimestamp(Date.now())}`,
+    ...page.data.deviceRows.map((entry) => `${entry.label}=${entry.value}`),
+    '',
+    '[页级 WXS 通道]',
+    `移动次数=${drag.moves}`,
+    `WXS 计算偏移=${Math.round(drag.offset)}px`,
+    `WXS 取到目标节点=${drag.styled === 1 ? '是' : '否'}`,
+    '',
+    '[滚轮 WXS 上报]',
+    `preview 次数=${wheel.previews}`,
+    `settle 次数=${wheel.settles}`,
+    `最后 index=${wheel.lastIndex}，offset=${wheel.lastOffset}，sequence=${wheel.lastSequence}`,
+    `最后 generation=${wheel.lastGeneration}，runtimeKey=${wheel.lastRuntimeKey}`,
+    '',
+    '[渲染器实测]',
+    ...measured,
+  ].join('\n');
+  page.setData({ wheelProbeRows: buildWheelProbeRows(page, '已采集') });
+  copyText(report, '滚轮探针已复制');
+}
+
 function copyText(value: string, successTitle: string): void {
   if (wx.setClipboardData === undefined) {
     wx.showToast?.({ icon: 'none', title: '当前微信版本不支持复制' });
@@ -1207,9 +1803,48 @@ function readNetworkType(runtime: RuntimeSystemApi): Promise<string> {
   });
 }
 
+function readSkylineInfo(runtime: RuntimeSystemApi): Promise<SkylineRuntimeInfo> {
+  const unavailable: SkylineRuntimeInfo = Object.freeze({
+    reason: '',
+    supported: undefined,
+    version: '',
+  });
+  return new Promise((resolve) => {
+    if (runtime.getSkylineInfo === undefined) {
+      resolve(unavailable);
+      return;
+    }
+    let settled = false;
+    const finish = (value: SkylineRuntimeInfo): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(unavailable), 500);
+    try {
+      runtime.getSkylineInfo({
+        fail: () => finish(unavailable),
+        success: (result) =>
+          finish({
+            reason: optionalText(result.reason),
+            supported: typeof result.isSupported === 'boolean' ? result.isSupported : undefined,
+            version: optionalText(result.version),
+          }),
+      });
+    } catch {
+      finish(unavailable);
+    }
+  });
+}
+
 function textValue(value: unknown): string {
   if (typeof value === 'string' && value.trim().length > 0) return value.trim().slice(0, 80);
   return '当前微信版本不支持读取';
+}
+
+function optionalText(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim().slice(0, 80) : '';
 }
 
 function numberValue(value: unknown): string {
@@ -1240,6 +1875,19 @@ function joinKnown(values: readonly string[]): string {
 
 function availability(value: string): RowStatus {
   return value === '当前微信版本不支持读取' ? 'unavailable' : 'good';
+}
+
+function skylineSupportValue(skyline: SkylineRuntimeInfo): string {
+  if (skyline.supported === true) return '支持';
+  if (skyline.supported === false) {
+    return skylineReasonLabels[skyline.reason] ?? '不支持（原因未识别）';
+  }
+  return skylineUnavailableValue;
+}
+
+function skylineStatus(skyline: SkylineRuntimeInfo): RowStatus {
+  if (skyline.supported === true) return 'good';
+  return skyline.supported === false ? 'notice' : 'unavailable';
 }
 
 function formatTimestamp(value: number): string {

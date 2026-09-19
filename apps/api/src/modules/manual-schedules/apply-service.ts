@@ -16,6 +16,7 @@ import type {
 } from '@schedule/contracts';
 import {
   MAX_MANUAL_CELLS,
+  MAX_MANUAL_APPLY_DAYS,
   MAX_MANUAL_DAYS,
   MAX_MANUAL_MEMBERS,
   isManualScheduleDateRangeWithinLimit,
@@ -781,7 +782,7 @@ function assertProvidedManualApplyDates(startDate?: string, endDate?: string): v
       throw manualApplyValidationError('应用结束日期不能早于开始日期。');
     }
     if (!isManualScheduleDateRangeWithinLimit(startDate, endDate)) {
-      throw manualApplyValidationError(`手动排班应用范围最多 ${MAX_MANUAL_DAYS} 天。`);
+      throw manualApplyValidationError(`手动排班应用范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`);
     }
   }
 }

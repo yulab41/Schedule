@@ -97,23 +97,6 @@
 
   <view class="probe-card">
     <view class="probe-card-heading">
-      <text class="probe-card-title">A · Skyline Pan Worklet</text>
-      <text class="probe-card-note">拖动蓝点</text>
-    </view>
-    <pan-gesture-handler
-      class="worklet-probe-handler"
-      style="width: 280px; height: 220px"
-      worklet:ongesture="handleProbePan"
-    >
-      <view class="worklet-probe-surface" style="width: 280px; height: 220px">
-        <view id="gesture-probe-dot" class="gesture-probe-dot"></view>
-      </view>
-    </pan-gesture-handler>
-    <text class="probe-instruction">蓝点能跟手移动：gesture-handler Worklet 正常。</text>
-  </view>
-
-  <view class="probe-card">
-    <view class="probe-card-heading">
       <text class="probe-card-title">D · WXS 视图层触摸</text>
       <text class="probe-card-note">拖动黄色点</text>
     </view>

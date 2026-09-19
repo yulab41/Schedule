@@ -344,6 +344,62 @@ describe('anonymous native visitor calendar', () => {
     expect(markup).not.toMatch(/handleReLogin|handleSave|handleDelete|handleOpenDirectory/);
     definition.onUnload.call(instance);
   });
+  it('renders the guest week swiper through the same circular slot contract as members', () => {
+    const guest = readFileSync(new URL('../src/pages/guest/guest.wxml', import.meta.url), 'utf8');
+    const member = readFileSync(
+      new URL('../src/pages/workbench/index.wxml', import.meta.url),
+      'utf8',
+    );
+
+    for (const contract of [
+      'circular="{{true}}"',
+      'bindchange="handleWeekSwiperChange"',
+      'bindanimationfinish="handleWeekSwiperFinish"',
+      'weekPanels[weekSwiperCurrent].weekOrdinalLabel',
+      'weekPanels[weekSwiperCurrent].rangeLabel',
+    ]) {
+      expect(member, `member: ${contract}`).toContain(contract);
+      expect(guest, `guest: ${contract}`).toContain(contract);
+    }
+    expect(guest).not.toContain('weekPanels[1].weekOrdinalLabel');
+  });
+  it('keeps the guest week pager on the shared circular ring', async () => {
+    const instance = await page();
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    Object.assign(instance.data, {
+      businessMonth: '2026-08',
+      selectedDate: '2026-08-03',
+      viewMode: 'week',
+      weekStart: '2026-08-03',
+    });
+
+    const next = { currentTarget: { dataset: { delta: '1' } } };
+    definition.handleWeekChange.call(instance, next);
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+    expect(instance.data.periodSwiperDuration).toBe(260);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-08-10');
+    expect(instance.data.weekSwiperCurrent).toBe(2);
+
+    definition.handleWeekChange.call(instance, next);
+    expect(instance.data.weekSwiperCurrent).toBe(0);
+    definition.handleWeekSwiperFinish.call(instance, { detail: { current: 0 } });
+    expect(instance.data.weekStart).toBe('2026-08-17');
+    expect(instance.data.weekSwiperCurrent).toBe(0);
+
+    const panel = instance.data.weekPanels[instance.data.weekSwiperCurrent];
+    expect(panel.days).toHaveLength(7);
+    const target = panel.days[3];
+    definition.handleWeekDaySelect.call(instance, {
+      currentTarget: { dataset: { businessDate: target.businessDate } },
+    });
+    expect(instance.data.selectedDate).toBe(target.businessDate);
+    const settled = instance.data.weekPanels[instance.data.weekSwiperCurrent];
+    expect(settled.days.filter((day) => day.isSelected)).toHaveLength(1);
+    expect(settled.days.find((day) => day.isSelected).businessDate).toBe(target.businessDate);
+    definition.onUnload.call(instance);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
   it('retries network failures without persistent fallback and ignores a detached resolve', async () => {
     offline = true;
     const instance = await page();

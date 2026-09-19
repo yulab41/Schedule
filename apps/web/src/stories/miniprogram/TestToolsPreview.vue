@@ -29,6 +29,24 @@ const checks = [
       <p>先截这一区域。它用来确认手机截图对应哪一版代码。</p>
     </section>
 
+    <section class="runtime-compat-card">
+      <div class="runtime-compat-heading">
+        <div><span>无需下滑 · 一次复制</span><strong>运行时兼容性</strong></div>
+        <b>自动测量正常</b>
+      </div>
+      <div class="runtime-compat-results">
+        <article><small>Grid 双列</small><strong>正常</strong><small>同行双列</small></article>
+        <article><small>CSS 变量继承</small><strong>正常</strong><small>44px</small></article>
+        <article>
+          <small>纵向滚动容器</small><strong>正常</strong><small>360 / 1200px</small>
+        </article>
+      </div>
+      <div class="runtime-visual-check">
+        <i></i><span>ⓘ</span><small>左侧应为圆形缺口，右侧应为完整圆形。</small>
+      </div>
+      <button type="button">复制首屏诊断</button>
+    </section>
+
     <aside class="safety-note">
       本页不会显示或复制账号、姓名、手机号、群组成员、凭证、请求正文或原始堆栈。<br />
       微信开发者工具和视觉黄金只能辅助检查；最终以小米 14 体验版为准。
@@ -150,6 +168,12 @@ const checks = [
 </template>
 
 <style scoped>
+:global(html),
+:global(body) {
+  max-width: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
 .test-tools-golden {
   min-height: 100vh;
   padding: 0 16px 32px;
@@ -252,6 +276,98 @@ const checks = [
   color: rgba(255, 255, 255, 0.82);
   font-size: 12px;
   line-height: 1.55;
+}
+.runtime-compat-card {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid #bfd8ea;
+  border-radius: 16px;
+  background: #f7fbfd;
+}
+.runtime-compat-heading,
+.runtime-compat-heading > div,
+.runtime-compat-results,
+.runtime-compat-results article,
+.runtime-visual-check {
+  display: flex;
+}
+.runtime-compat-heading {
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.runtime-compat-heading > div,
+.runtime-compat-results article {
+  flex-direction: column;
+}
+.runtime-compat-heading span {
+  color: #1d668d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.runtime-compat-heading strong {
+  margin-top: 2px;
+  font-size: 17px;
+}
+.runtime-compat-heading > b {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e6f6ec;
+  color: #247244;
+  font-size: 10px;
+}
+.runtime-compat-results {
+  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.runtime-compat-results article {
+  min-width: 82px;
+  padding: 7px 8px;
+  flex: 1;
+  gap: 2px;
+  border-radius: 10px;
+  background: #eef4f8;
+}
+.runtime-compat-results strong {
+  color: #247244;
+  font-size: 12px;
+}
+.runtime-compat-results small,
+.runtime-visual-check small {
+  color: #5e6a78;
+  font-size: 9px;
+}
+.runtime-visual-check {
+  min-height: 26px;
+  margin-top: 9px;
+  align-items: center;
+  gap: 8px;
+}
+.runtime-visual-check i {
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 2px solid #5e6a78;
+  border-right-color: transparent;
+  border-radius: 999px;
+  transform: rotate(45deg);
+}
+.runtime-visual-check span {
+  color: #5e6a78;
+  font-size: 20px;
+  line-height: 1;
+}
+.runtime-compat-card > button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 11px;
+  background: #0f5b92;
+  color: #fff;
+  font-weight: 750;
 }
 .safety-note {
   margin-top: 12px;

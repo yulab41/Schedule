@@ -64,4 +64,26 @@ describe('P1 native calendar simulate smoke', () => {
     expect(selectListener).toHaveBeenCalledOnce();
     expect(selectListener.mock.calls[0][0].detail).toEqual({ businessDate: '2026-10-14' });
   });
+
+  it('marks a past current-month cell with the shared gray class', async () => {
+    const component = await renderCalendarCell({
+      businessDate: '2026-10-01',
+      day: '01',
+      isCurrentMonth: true,
+      isPast: true,
+    });
+
+    expect(component.querySelector('.calendar-cell').dom.classList.contains('is-past')).toBe(true);
+  });
+
+  it('leaves today and future cells without the past class', async () => {
+    const component = await renderCalendarCell({
+      businessDate: '2026-10-14',
+      day: '14',
+      isCurrentMonth: true,
+      isPast: false,
+    });
+
+    expect(component.querySelector('.calendar-cell').dom.classList.contains('is-past')).toBe(false);
+  });
 });
