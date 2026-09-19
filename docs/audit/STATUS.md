@@ -18,7 +18,13 @@
 - 政策（长期有效）：WebView 是唯一允许的渲染器——构建拒绝其他 `renderer` 值，`apps/miniprogram/scripts/webview-only-policy.test.mjs` 在任何渲染器开关／Skyline 兼容标记／`'worklet'` 指令回归时失败；改渲染器必须先写新 ADR 并重跑真机验收。
 - 组件库/基础库注意点：基础库升级不再影响渲染分支，但仍会改变 API 可用性与真机表现；每轮真机验收记录 `基础库版本`、`Skyline 支持`（须为"不支持"＝WebView）、`renderer` 与构建标签，基础库换代后重跑工作台月/周/列表、换班+请假弹层与选择器、手排矩阵。
 - 复用的踩坑记录：`docs/agent-context/pitfalls/mini-renderer-webview-only.md`（引擎 vs 基础库版本误判、组件库升级注意事项）、`docs/agent-context/pitfalls/mini-trial-upload-route.md`（GitHub 代理 vs 微信 CI 直连 IPv4、血缘等价证明刷新、upload 用途绑定 RUN_ID/SHA、DevTools 占用导致 Release 被拒）。
-- 唯一下一任务：无（批次 1/2 已交付并真机通过）；后续工作请开新批次并把结论写回本文件。
+## 冗余清理批次（2026-09-19，`44a25885`）：删除 PoC 页面与 Skyline 属性
+
+- 方案与证据见 `docs/audit/redundancy-cleanup-plan-20260919.md`。删除 `pages/manual-matrix-poc/**`、`pages/calendar-poc/**`、两个 PoC 夹具；`matrix-gesture.wxs` 移入生产页目录，合成 7×7/20×30 数据移到 `scripts/fixtures/manual-matrix.mjs`（普通 Node 与测试共用）；9 处 `scroll-view type="list"` 删除；`app.json` 路由、开发入口链接、`telemetry.ts` 映射同步移除；RC 文档与手工验收步骤改指生产页。
+- 门禁：typecheck、format、lint、`check:performance` 通过（`maximumViewModelBytes=171340` 与基线一致、`tapCellPaths=2`）；Mini **1200 通过 / 16 跳过**（减少的 9 项全部是被删页面的专用断言）；package 主包 **1678555 B**（原 1733863，**−55308 B**）、总包 **4562801 B**（原 4609767，**−46966 B**）；determinism `1a594b01…`。20×30 宿主节点基线由 1,506 重定为 1,507（合成输入换源，已在 runbook 记录）。
+- 开发者工具复核（基础库 3.17.2 + WebView，`.172`）：工作台月视图、更多工作台（含滚动）、生产手排页矩阵渲染正常；合成触摸无法驱动 WXS 矩阵拖动（工具限制，非回归），矩阵交互留待真机。
+- 交付：`0.1.0-p10.20260919.172` 上传成功（说明「PoC cleanup 44a2588」，Manifest `8e4426bb…f3bd`），白名单放行并保留 `.171`，`ecs-verify.sh` `[verify] complete`；公网 `.172=200`/`.171=200`/未知 `=426`。未提审、未正式发布、未部署生产。
+- 唯一下一任务：小米 14 打开 `.172` 复核主包精简后的五入口滚动与手动排班矩阵拖动/回调。
 - 停止条件：两台设备复核无回归；若出现回归，以 `.168` 构建为对照定位。详情见 `docs/audit/webview-only-cleanup-20260919.md`。
 
 ## 当前批次：渲染器改为 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用

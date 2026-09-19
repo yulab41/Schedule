@@ -3332,3 +3332,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 踩坑记录（已进 `docs/agent-context/pitfall-index.json`，共 15 条）：新增 `mini-renderer-webview-only`（根因是渲染器而非基础库版本；诊断看 `Skyline 支持`；不要再写 `SDKVersion` 分支）与 `mini-trial-upload-route`（GitHub 走 git-only 代理、微信 CI 直连 IPv4；受保护文件的等价证明 blob+reason 必须刷新；upload 用途绑定 RUN_ID/SHA 需重租；DevTools 持有路径时 Release 被拒）。
 - 组件库/基础库注意点：基础库换代不再影响渲染分支，但仍会改变 API 可用性与真机表现；每轮真机验收记录 `基础库版本`／`Skyline 支持`（须为"不支持"＝WebView）／`renderer`／构建标签，基础库升级后重跑工作台月/周/列表、换班+请假弹层与选择器、手排矩阵，再判定"无影响"。
 - 本轮验证：新增守卫 4 项通过；`scripts/agent-context-policy.test.mjs` 3 项通过（坑索引 12151 B ≤ 12 KiB）；未改 `src/` 与 `dist/`，因此本轮为纯文档/工具检查点，不触发小程序上传或生产部署。
+
+## 2026-09-19 冗余清理：删除开发期 PoC 页面与最后一批 Skyline 属性（`.172`）
+
+- 方案（`docs/audit/redundancy-cleanup-plan-20260919.md`）先取证再动手：生产页 `subpackages/scheduling/pages/manual` 已实现完整矩阵并复用同一套 `@schedule/presentation-core` 手排助手；`calendar-poc.test.mjs` 的 10 个用例里 7 个本来就在测生产 `calendar-month` 组件；两个 PoC 页只从开发入口页链接，不在产品导航内。
+- 结构修正：`matrix-gesture.wxs` 从 PoC 页目录移到生产页目录（原来生产 WXML 跨目录 import 一个 PoC 资产）；合成 7×7/20×30 数据从 `src/testing/fixtures/manual-matrix-poc.ts` 搬到 `scripts/fixtures/manual-matrix.mjs`（普通 Node 性能脚本与 vitest 共用，且不再放进 app 源码树）。
+- 删除：`pages/manual-matrix-poc/**`、`pages/calendar-poc/**`、两个 PoC 夹具、`app.json` 两条路由、开发入口三条链接、`telemetry.ts` 的 PoC 路由映射、9 处 `scroll-view type="list"`。测试改名并保留有效覆盖：`manual-matrix-poc.test.mjs`→`matrix-gesture.test.mjs`（WXS 行为 + 夹具上限）、`calendar-poc.test.mjs`→`calendar-month.test.mjs`（组件/分页器）；`performance-budget` 改为夹具驱动（模型构造耗时 + 共享契约的点格写入路径数）。
+- 门禁：typecheck、format、lint 通过；Mini **1200 通过 / 16 跳过**（减少 9 项=被删页面专用断言）；`check:performance` 通过（`maximumViewModelBytes=171340` 与基线一致、`desktopMatrixLogicMs=0.62`、`tapCellPaths=2`）；package 主包 **1678555 B**（原 1733863，**−55308 B**）、总包 **4562801 B**（−46966 B；`subpackages/scheduling` +8300 B 是 WXS 迁入）；determinism `1a594b01…`。20×30 宿主节点基线 1506→1507（合成输入换源），已在 runbook 与阈值注释中记录原因。
+- 设备侧变化：`maximum-matrix-render` 与 `tap-feedback` 两条手工性能标记随 PoC 页删除，同一指标已由 `check:performance` 自动化覆盖，RC 文档已同步。
+- 开发者工具复核（基础库 3.17.2 + WebView，`.172`，构建标签 `0.1.0-p10.20260919.172@44a2588`）：工作台月视图正常；更多工作台渲染并可滚动；生产手排页矩阵渲染正常（表头固定列 + 日期列 + 节假日行 + 成员行）。合成触摸无法驱动 WXS 矩阵拖动（工具限制，历轮同样如此），拖动交互留待真机。截图 `runtime/audit/devtools-172/`。
+- 交付：`44a25885` 已推送（两条跟踪分支）；候选在独占 `general-6` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.172` 上传成功（Manifest `8e4426bb…f3bd`），白名单放行并保留 `.171`，`ecs-verify.sh` `[verify] complete`；公网 `.172=200`/`.171=200`/未知 `=426`。未提审、未正式发布、未部署生产。
+- 唯一下一任务：小米 14 打开 `.172` 复核五入口滚动与手动排班矩阵拖动/回调。

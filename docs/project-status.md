@@ -12,7 +12,12 @@
 - 交付：`ca673d0c`／`56781b13`／`7e2f3b01`／`d201ab97`／`566ceed5` 已推送；`.169`（批次 1）、`.170`（批次 2）与 `.171`（渲染器门禁）均在独占 `general-5` 冻结后上传并放行，可信 ensure 追加并保留旧版，`ecs-verify.sh` 完成，公网 `.171=200`/`.170=200`/`.169=200`/`.168=200`/未知 `=426`；未提审、未正式发布、未部署生产。
 - 真机验收（2026-09-19）：小米 14 打开 `.171` 未发现问题，批次 1/2 全部完成。WebView 自此为唯一允许的渲染器（构建门禁 + `scripts/webview-only-policy.test.mjs`）；组件库/基础库升级仍需重跑主路径并记录 `基础库版本`/`Skyline 支持`/`renderer`/构建标签。
 - 踩坑记录：`docs/agent-context/pitfalls/mini-renderer-webview-only.md`、`docs/agent-context/pitfalls/mini-trial-upload-route.md`。
-- 唯一下一任务：无；新工作开新批次并把结论写回本文件与 `docs/audit/STATUS.md`。
+## 冗余清理批次：删除开发期 PoC 页面与 Skyline 属性（`.172`）
+
+- 删除 `pages/manual-matrix-poc`、`pages/calendar-poc`、两个 PoC 夹具；`matrix-gesture.wxs` 移入生产页目录；合成矩阵数据移到 `scripts/fixtures/manual-matrix.mjs`；9 处 `scroll-view type="list"` 删除；路由/入口/遥测映射与 RC 文档同步更新。
+- 验证：typecheck、format、lint、`check:performance` 通过；Mini **1200 通过 / 16 跳过**；主包 **1678555 B**（−55308 B）、总包 **4562801 B**（−46966 B）；determinism `1a594b01…`。开发者工具在 3.17.2 + WebView 下复核工作台/更多/生产手排矩阵渲染正常。
+- 交付：`44a25885` 已推送；`0.1.0-p10.20260919.172` 上传并放行（Manifest `8e4426bb…`），公网 `.172/.171=200`、未知 `=426`。
+- 唯一下一任务：小米 14 打开 `.172` 复核五入口滚动与手动排班矩阵拖动。
 
 ## 上一批次：渲染器改 WebView（ADR-0007），体验版168已放行
 
