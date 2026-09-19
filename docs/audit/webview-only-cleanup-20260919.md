@@ -47,6 +47,15 @@
 | `pnpm --filter @schedule/miniprogram check:determinism` | 通过，manifest `743c22d2b1c81e2e73bbab4b49e18b01d8cbac52bfc2f74f04675995bc4cb865` |
 | `pnpm format:check` / `pnpm lint` / `pnpm smoke:check-core` | 通过 |
 
+开发者工具复核（fullMode 项目窗口指向冻结候选 `runtime/wt/general-5`，基础库 **3.17.2**、renderer=WebView，
+身份页构建标签显示 `0.1.0-p10.20260919.169@56781b1`，即模拟器跑的就是本次上传的 `.169`）：
+
+- workbench：页头群组名完整（`头颈外科医生 · 后台管理员`）且下拉箭头紧贴名称，月历 7 列宽度正常，无 Grid 退化。
+- 换班页：正常加载并显示"换班管理"与已受理记录；`发起换班` sheet 正常打开；点击`我的班次月份`后月份选择器以**覆盖层弹窗**打开，
+  年份/月份滚轮带`年`/`月`单位、中间项加粗高亮——即 WebView 路径（不再是 3.17.2 曾经的"就地展开"）。
+- 截图（ignored，不提交）：`runtime/audit/devtools-169/webview-only-169.png`、`after-relogin.png`、`workbench-169.png`、
+  `swap-169.png`、`swap-loaded-169.png`、`swap-sheet-169.png`、`swap-month-picker-169.png`。
+
 未验证（不得当作通过）：小米 14 真机的日历、换班/请假选择器、页头与详情卡排版；模拟器与自动化结果不能代替真机验收。
 
 ## 保留项（本轮不动，需单独审计）
