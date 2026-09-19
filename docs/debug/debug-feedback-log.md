@@ -3052,3 +3052,15 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 前后实测（如实区分口径，避免夸大）：**受控对照**是本地 A/B 的 ~297MB 分配差额；**生产**上 MySQL 自报优化前总占用 506.3MB（其中 P_S 233.7MB），优化后 mysqld RSS 空闲约 **174MB**、跑完一次全库备份后约 **210MB**（优化前在同等重活下测到 507MB）。需要说明的是：重启前的**常驻**数字只有 169.5MiB，因为那 340MB 左右已被换到 swap 里——正是这次要消除的病症，宿主机 swap 从 1.1G 降到约 **0.2–0.25G**。
 - 回滚方式：把 compose 的两个参数去掉并重新部署 + 再重建一次 mysql 容器即可，无数据迁移、无 schema 影响。
 - 仍需用户决定的部分（我做不了）：给实例**升内存**需要在阿里云控制台操作；这台 1.6GB 的机器上 MySQL 之外还有 snapd/云监控 agent 等固定占用，长期最优解是换更大的实例规格。
+
+## 2026-09-20 联系方式丢失（本批回归）+ 节假日版本漏判 + 节假日存储去重（体验版 .180）
+
+- 用户反馈：详情卡片的联系方式"偶尔丢失、偶尔又出现"，切换群组时最明显。
+- 根因（**是我上一批引入的回归**）：`features/workbench/workbench-model.ts` 与 `platform/workbench-read.ts` 里的 `sanitizeCalendarForCache`（出自 `9e3a966c fix(miniprogram): harden session and offline runtime`，同时会剥掉群快照里的 `groupCode`）会在**落盘前**删除 `members[].mobilePhone`。它本意是"落盘最小化"，而当时持久月份缓存**只用于离线兜底**——离线看不到手机号是可以接受的。但我把持久缓存改成了**在线主渲染路径**后，"从缓存渲染的月份"就再也没有手机号：详情卡片 `phone: member?.mobilePhone ?? member?.shortPhone ?? ''` 退化成短号，短号也没有（如 golden 里的 membership-2）就**整行消失**；一旦该月重新联网读取又出现。切群组会清空内存缓存、全部走落盘缓存，所以那里最明显。
+- 修法（**不削弱既有的落盘最小化**）：`readMonth` 从持久缓存命中时把结果标记为 `contactsIncomplete`，新增 `ensureMonthContacts()` 在**页面进入/回前台/滑月落定后**（`loadWorkbench` 与 `refreshWorkbenchWindow`）对**当前正在看的那一个月**补一次网络读取并重渲染，`contactsRefreshRequested` 保证每个 (群, 月) 每会话至多一次，且**不动游标**（该月已被账本确认未变）。代价与收益都写在代码注释里：换来联系方式正确，代价是每次进入/切群后多 **1 个后台月份请求**（相邻月份仍是瞬时缓存渲染、不重读）。没有把手机号写进本地存储——那是另一条路（更快但削弱隐私最小化），需要你明确同意才会走。
+- 另外两处按你的选择一并做掉：①**节假日版本漏判**（`readHolidays` 只在某月走网络时被调用；服务端"确认新版本"不进群账本，所以已缓存月份永远发现不了）→ 被查看月份现在**始终**经版本感知的 `readHolidays` 解析（版本一致时**零请求**），另外在 `planCalendarWindow` 里"只有当本地已有版本且与发布版本不同"时才整窗标脏（本地无版本时不会误判成整窗脏）。②**节假日存储去重** → 月份条目只留 `holidayYear`，节假日只在 `schedule.workbench.holidays.v1` 里按年存一份，并对旧形态（内嵌 holidays）保持向后兼容读取。
+- 诚实说明 #3 的实际收益：golden 里 2 个节日的年载荷仅 192 字节，真实一年约 30–40 条、约 2–3KB，24 个月去重约省几十 KB（小程序 10MB 配额下占比很小）。真正的大头是**每个月都重复存一份 members/shiftTypes**，那属于更大的重构，我没有动。
+- 验证：Mini production verify 通过（主包 1698241 / 总包 4596421 字节）；`workbench-calendar-sync` 7/7（新增"被查看月份补读后 membership-1 手机号恢复、相邻月份仍瞬时缓存渲染、落盘条目只剩 holidayYear 且无手机号"）、`workbench-holiday-dedupe` 4/4；`format:check`、`lint` 通过。
+- 顺带修的测试脆弱点：`workbench-holiday-dedupe` 的"TTL 后重新校验"用例原本等 `state === 'ready'`，而缓存预渲染会先把状态置 ready，属于竞态——改为等待被测行为本身（holiday 请求计数）。另外 `apps/miniprogram/project.config.json` 曾被开发者工具改写（补了 setting 字段并去掉行尾换行），已还原为仓库内容（仅行尾形式差异，`git diff` 为空）。
+- 交付：`0.1.0-p10.20260920.180`（候选 `5b9c2e21`、234 代码文件、ZIP 2630896 字节、Manifest `e8e896d952070b0fa7019423cbcac4f32c3fc546cda7223c10fe6793d25957ff`）上传并放行，`ensure`+`verify` 通过，公网探针 `.180`/`.179`=200、未知 `.8888`=426，生产 `/api/health`=200。lineage 策略同步刷新了 `workbench/index.ts` 的 proof blob（`3e405c23`→`89b381bb`）。
+- 待用户确认：小米 14 打开 `.180`，重点看（1）切换群组后详情卡片的手机号是否稳定出现；（2）节假日/补班角标是否与后台一致；（3）整体手感与 `.179` 一致。若你更希望"手机号立刻显示、不额外发请求"，需要同意把手机号写入本机持久缓存（会削弱落盘最小化）。
