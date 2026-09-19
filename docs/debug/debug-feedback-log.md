@@ -2921,3 +2921,13 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 验证（开发者工具，非实体设备）：同环境同节奏（350ms 连续 5 次左滑）基线 `9→10→9→10→10`，修复后 `9→10→11→12→2027-01` 单调向前；故障注入 250ms 放大窗口下提交月份仍不回退。RED→GREEN：基线源码运行新测试 8 失败/44 通过，修复后全绿；Mini 173 文件/1188 项通过（16 跳过）、`tsc`、Mini production verify（包体 4581614 字节、Worklet 2/2、manifest `c13a5d88…`）、`format:check`、`lint`、`icon:parity:check`、`smoke:check-core` 通过。证据见 ignored `runtime/audit/calendar-month-swipe-20260919/`。
 - 性能旁证：一次换月的 Page patch 40.8KB/往返 115～120ms；settle 阶段另有 2 次约 100KB patch（91ms/75ms）。已尝试的两项 patch 瘦身（去掉未挂载视图数据、按槽位路径下发）无可靠收益或更慢，按“收益不明确即回滚”未纳入。
 - 状态：代码修复与静态/运行时证据完成，属 Mini-only 批次，未部署生产、未上传体验版；小米 14 实体设备手势手感仍待用户复核。未经实体设备证据不得写“小米 14 验收通过”。
+
+## 2026-09-19 月历修复体验版上传被血缘门禁阻塞
+
+- 用户明确授权“上传并放行”。候选：`263ee95f`（月历修复 + 该检查点的血缘证明刷新），独占 general-5、lease `e76ae755`、upload 用途、`check-worktree-safety.ps1` 返回 `PASS/ready-clean-detached`，上传锁空闲。
+- 阻塞：真实入口 `pnpm miniprogram:upload-experience` 在分配/构建前返回
+  `Latest cumulative trial 0.1.0-p10.20260919.172 must be an ancestor of trial HEAD unless it is a tracked observation and every required feature has a verified canonical equivalence proof.`
+- 事实：远端 `miniprogram-trial/*` 最新为 `.172`（commit `44a25885`），且 **.130 起全部体验版都不在 main 血统上**（.126–.129 仍在）。这些提交来自并行任务线（general-3/4，如 `runtime-3172-devtools-fullmode-20260917`），本机对象存在但不被 main 包含，也未被 tracked 账本记录。
+- 门禁第二条路径要求 `.172` 是 tracked observation：`apps/miniprogram/release/trial-history.v1.json` 目前只维护到序号 .88（`sequenceRange.to` 必须等于 policy `lastSequence`，且 .74..to 必须连续），记录 .172 需要补 .89–.172 共 84 条。其中 74 条有本地成功 receipt（`runtime/audit/miniprogram-trials/<version>.json`），10 条只有 allocation/manifest 证据、没有成功 receipt：100、103、104、105、119、125、141、144、165、166（文档明示失败的：103/104、119、125；其余为 426 或未记录）。账本动作枚举仅 `uploaded`/`dry-run-only`，对这 10 条无法在不写假值的前提下如实表达，因此未擅自改写账本。
+- 外部状态：失败发生在候选检查阶段，**未分配新版本号、未创建新 tag、未写 receipt、未改服务器 allowlist**（本机最新仍是 `.172` 的 allocation/manifest/receipt；公网探针 `.172`/`.129`=200、未知=426）。general-5 已释放，依赖 REUSE_ONLY、未安装。
+- 可选下一步（需用户选择）：①批准扩展账本（如需新增 `reserved-unverified` 之类动作并补测试）后重跑上传；②让并行线把其提交落到 main 使 `.172` 成为祖先，再上传（无需改账本）；③暂不上传体验版。

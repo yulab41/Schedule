@@ -19,8 +19,9 @@
 - 修复：`calendar-period-pager`以原生槽位为唯一事实源（`swiperSlot`/`pendingDelta`），在途滑动排队并在 settle 时无动画 adopt；`prepare`区分 locked/tracked，stale/replay 事件仍忽略；`delta`放开为整数并同步 guest 与 `ui-date-picker`；去掉`swiperCurrent`回调等待（Page 处理器提前约28ms）。
 - 验证（Agent 操作的开发者工具，非实体设备）：同环境同节奏350ms连续5次左滑，基线`9→10→9→10→10`，修复后`9→10→11→12→2027-01`单调向前；250ms故障注入下提交月份不回退。RED→GREEN：基线源码跑新测试8失败/44通过，修复后全绿；Mini 173文件/1188项通过（16跳过）、`tsc`、Mini production verify（包体4581614字节、Worklet2/2、manifest`c13a5d88…`）、`format:check`、`lint`、`icon:parity:check`、`smoke:check-core`通过；证据见 ignored `runtime/audit/calendar-month-swipe-20260919/`。
 - 性能旁证与决策：一次换月 Page patch 40.8KB/往返115～120ms，settle 另有2次约100KB patch（91ms/75ms）；已试的两项 patch 瘦身（去掉未挂载视图数据、按槽位路径下发）无可靠收益或更慢，按“收益不明确即回滚”未纳入。
-- 本批为 Mini-only：不触发生产部署、生产备份或 release-metadata 同步；未上传体验版。检查点：`fix(miniprogram): keep fast month swipes advancing forward`。
-- 唯一下一任务/停止条件：如需原生手感复核，由 Agent 在干净候选上上传体验版（记录短SHA、版本、Manifest 与测试页面），用户在小米14微信客户端连续快速左滑确认；未取得与当前构建一致的真机结论前，不得写“小米14验收通过”。
+- 本批为 Mini-only：不触发生产部署、生产备份或 release-metadata 同步。检查点：`e149c9fd`（修复）与 `263ee95f`（刷新 `.5285dd17` 血缘证明中 `pages/workbench/index.ts` 的 blob 并记录等价证据）。
+- 体验版上传被血缘门禁阻塞（用户已授权上传并放行）：候选`263ee95f`在 general-5 以 upload 用途通过 `check-worktree-safety.ps1`（`PASS/ready-clean-detached`），但 `pnpm miniprogram:upload-experience` 在分配版本前失败：`Latest cumulative trial 0.1.0-p10.20260919.172 must be an ancestor of trial HEAD unless it is a tracked observation and every required feature has a verified canonical equivalence proof.`远端`.172`(`44a25885`)及`.130`起全部体验版均不在 main 血统上（并行任务线产物）。记账本路径需补`.89-.172`共84条，其中10条（100/103/104/105/119/125/141/144/165/166）只有 allocation/manifest、无成功 receipt，而账本动作只有`uploaded`/`dry-run-only`，无法如实表达；未擅自改写。上传失败发生在候选检查阶段：未分配新版本、未建 tag、未写 receipt、未改 allowlist；general-5 已释放。详情见`docs/debug/debug-feedback-log.md`2026-09-19第二条。
+- 唯一下一任务/停止条件：用户选择解除阻塞的方式——①批准扩展血缘账本（含所需动作与测试）后重跑上传；②并行线提交落到 main 使`.172`成为祖先；③暂不体验版。解除后再上传`.173+`并在小米14连续快速左滑复核；未取得与当前构建一致的真机结论前，不得写“小米14验收通过”。
 
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
