@@ -12,8 +12,14 @@
 - 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
 - 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
+## 当前批次：月历快速滑动修复与读缓存优化（体验版 .173 → .177）
 
-- 更早批次（Feedback19 及以前、以及本文件曾列出的 Feedback20–26 细节）见 Git 历史与 `docs/audit/` 对应文档；本文件只保留策略变更、当前月历批次与近期交付指针。
+- 用户反馈与修复链路：①月历快速左滑内容回退（`9045dc02`+`4e5cb461` 引入，锚点与原生索引分离）→ 修复并交付`.173`；②`.173`误用 main 内容丢失运行线 199 文件 → 重建候选并把修复移植到该线，交付`.174`；③150ms 快速滑动 5 次只前进 1 个月（提交门禁按模 3 单格差、丢弃中间 finish）→ 改为按 change 事件累计有符号步数 + settle 一次性 adopt，交付`.175`；④下发性能四条（可见视图裁剪、面板环路径级 patch、月格字段精简、预取 ±2→±3）→ 单次换月 **3 次/约313KB → 1 次/16KB**，交付`.176`；⑤预取窗口重复读取与节假日重复请求 → 页面级有界月份缓存 + 会话内/持久化(TTL 24h)节假日缓存，实测同一往返 **返回段 0 请求、holidays 0 次**，交付`.177`。
+- 缓存策略结论（用户第二问）：节假日适合常驻（配 TTL/版本）；**已过排班**同样适合常驻（`past-schedule-limits` 已限制历史编辑，只有补录/换班/后台导入会改），但服务端 `groups.version` **不覆盖**手工排班/补录/排班周期修改，不能当失效信号；C 步（已过排班常驻缓存）需先为排班读接口增加轻量 `calendarRevision`（如该群 assignment 最大 `updated_at`），再由客户端按版本静默校验。
+- 状态：全部批次已合入 `main`（`44b98811` 为最新候选）；`.177` 已上传并放行（`verify`、公网探针 `.177/.176`=200、未知=426、完整 `ecs-verify.sh`，release `44034fcc` 未变）。未部署生产应用、未备份生产库、未提审/正式发布；`.173` 仍待用户批准退役。Mini 1210 项、`tsc`、production verify 通过；UI/交互/视觉按用户要求保持不变。
+- 唯一下一任务/停止条件：用户在小米14打开体验版`0.1.0-p10.20260919.177`，确认快速滑动=按月数前进、换月内容出现更快、跨会话首次进入更快；继续 C 步前需先批准为排班读接口增加 `calendarRevision`。未取得与 `44b98811` 一致的真机结论前，不得写“小米14验收通过”。详见 `docs/debug/debug-feedback-log.md` 2026-09-19 各条。
+
+- 更早批次（Feedback19 及以前，以及 Feedback20–26 细节）见 Git 历史与 `docs/audit/` 对应文档；本文件只保留策略变更、当前月历批次与近期交付指针。
 
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
