@@ -3316,3 +3316,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 上传路由（再次踩坑）：清 `HTTPS_PROXY/HTTP_PROXY/ALL_PROXY` 后 git 无法访问 GitHub，CI 报 `Git fetch failed with exit code 128`；必须**同时**给 git 配 `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.proxy GIT_CONFIG_VALUE_0=http://127.0.0.1:7892`，微信 CI 侧保持直连 IPv4（`NODE_OPTIONS=--dns-result-order=ipv4first`）。该失败发生在版本分配前，未烧号。
 - 开发者工具复核（fullMode，基础库 3.17.2）：`pages/gesture-probe` 正常渲染，构建标签 `0.1.0-p10.20260919.170@d201ab9`（即模拟器跑的是本次上传物）；A 区已消失，E/D/B/F 区（滚轮、WXS 黄点、普通触摸计数、五入口工作台）均正常。截图 `runtime/audit/devtools-170/`。
 - 评估后不动的项：`scroll-view type="list"` 仍有 8 处调用点（Skyline 侧性能提示，WebView 下被忽略）；已在带该属性的构建上验收过滚动行为，删除它需要跨 8 个调用点重做一轮滚动视觉复核且收益为零，因此记录为"独立成批的候选"，本轮不顺手改。
+
+## 2026-09-19 WebView-only 收尾：渲染器门禁与体验版 `.171` 放行
+
+- 变更：`build-tools.mjs` 不再注入 `__MINIPROGRAM_RENDERER__`，`src/app.json` 的 `renderer` 必须是 `webview`（ADR-0007）否则构建失败，`build-info.ts` 直接报告 `WebView（应用请求）`，`build-env.d.ts` 删除对应全局声明。此前"两种值都接受 + 读不到默认 skyline"是本仓库最后一处 Skyline 默认值。
+- 门禁：typecheck、format:check、lint 通过；Mini **1205 通过 / 16 跳过**；package 总 **4609767 B**、主包 **1733863 B**（清理前基线 4653854 B，累计 **−44087 B**）；determinism `d2f7e530…`。
+- 交付：`566ceed5` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.171` 上传成功（Manifest `3a09d985…3e75`），可信 ensure 追加并保留 `.170`，`ecs-verify.sh` `[verify] complete`；公网 `.171=200`／`.170=200`／未知 `=426`。未提审、未正式发布、未部署生产。
+- 开发者工具复核（fullMode，基础库 3.17.2 + WebView）：workbench 与 `.169` 渲染一致（页头群组名完整、下拉箭头紧贴、月历 7 列正常），截图 `runtime/audit/devtools-171/`。
+- 状态：批次 1（删除 Skyline 兼容层）与批次 2（删除最后 Worklet 探针 + 文档同步 + 渲染器门禁）全部完成并放行；唯一下一任务=小米 14 真机复核 `.171`。
