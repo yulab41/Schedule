@@ -83,3 +83,7 @@
   `subpackages/scheduling/pages/manual/index.wxml` 直接 import，因此该目录不能整体删除；`calendar-poc` 与
   `manual-matrix-poc` 页面本身不再使用 worklet（渲染器无关），且仍可从开发入口页 `pages/index/index` 与
   "更多 → 测试入口"到达，属于仍在使用的诊断/PoC 入口，本轮保留。三个页面合计约 82 KB 主包体积，若将来确认入口不再需要，可单独作为一个删除批次（需同时迁移 `matrix-gesture.wxs`）。
+- **评估后不动的项**：`scroll-view type="list"` 仍有 8 处调用点（workbench、shift-event-records、profile-panel、
+  ui-selector options、group-settings-panel ×2、directory-panel ×2）。它是 Skyline 侧的性能提示属性，在 WebView 下被忽略；
+  当前 WebView 构建（`.167`–`.170`）的滚动行为都是在带该属性的情况下验收通过的，删除它属于跨 8 个调用点的滚动行为改动，
+  必须重新做一轮多页面滚动视觉复核，收益为零。因此本轮不动；若将来要清理，按"一次改动 + 一轮滚动复核 + 一次上传"独立成批。

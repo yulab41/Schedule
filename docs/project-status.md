@@ -9,7 +9,8 @@
 - 保留项（有证据，非待办）：`pages/manual-matrix-poc/matrix-gesture.wxs` 被生产页 `subpackages/scheduling/pages/manual/index.wxml` import，不能整体删除；`calendar-poc`/`manual-matrix-poc` 已无 worklet 且仍可从开发入口页与"更多 → 测试入口"到达。
 - 回滚：`git revert` 本批次并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚（兼容层已不存在）。
 - 详情见 `docs/audit/webview-only-cleanup-20260919.md`、`docs/audit/STATUS.md`、`apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md`。
-- 唯一下一任务与停止条件：小米 14 打开 `.169` 复核两台设备的上述界面；无回归即停止，出现回归以 `.168` 为对照。
+- 交付：`ca673d0c`／`56781b13`／`7e2f3b01`／`d201ab97` 已推送；`.169`（批次 1）与 `.170`（批次 2）均在独占 `general-5` 冻结后上传并放行，可信 ensure 追加并保留旧版，`ecs-verify.sh` 完成，公网 `.170=200`/`.169=200`/`.168=200`/未知 `=426`；未提审、未正式发布、未部署生产。
+- 唯一下一任务与停止条件：小米 14 打开 `.170` 复核两台设备的上述界面；无回归即停止，出现回归以 `.168` 为对照。
 
 ## 上一批次：渲染器改 WebView（ADR-0007），体验版168已放行
 

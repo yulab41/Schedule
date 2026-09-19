@@ -3309,3 +3309,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 文档同步：迁移计划"已冻结边界"第 2/3 条、ADR-0001（标注被取代）、ADR-0005（标注 Skyline 前提作废）、ADR-0007（记录收尾）、架构 `runtime-and-build.md`、组件清单、黄金清单、测试计划、审计主计划与审计快照环境表。
 - 门禁：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**；package 总 **4612161 B**、主包 **1735085 B**（批次 1 后 4614093 B，本轮再减 1932 B）；determinism `b485ae09…`。
 - 未验证：小米 14 真机复核仍需用户完成；模拟器/自动化证据不代替原生验收。
+
+## 2026-09-19 WebView-only 批次 2 交付：体验版 `.170` 放行
+
+- 交付：`d201ab97` 已推送（两条跟踪分支同步）；候选在独占 `general-5` 冻结，`check-worktree-safety` 前后 `RESULT=PASS`；`0.1.0-p10.20260919.170` 上传成功（说明「WebView-only batch2 d201ab9」，Manifest `4e8f3ccf…be19`），可信 ensure 追加并保留 `.169`，`ecs-verify.sh` `[verify] complete`；公网 `.170=200`／`.169=200`／未知 `=426`。未提审、未正式发布、未部署生产。
+- 上传路由（再次踩坑）：清 `HTTPS_PROXY/HTTP_PROXY/ALL_PROXY` 后 git 无法访问 GitHub，CI 报 `Git fetch failed with exit code 128`；必须**同时**给 git 配 `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.proxy GIT_CONFIG_VALUE_0=http://127.0.0.1:7892`，微信 CI 侧保持直连 IPv4（`NODE_OPTIONS=--dns-result-order=ipv4first`）。该失败发生在版本分配前，未烧号。
+- 开发者工具复核（fullMode，基础库 3.17.2）：`pages/gesture-probe` 正常渲染，构建标签 `0.1.0-p10.20260919.170@d201ab9`（即模拟器跑的是本次上传物）；A 区已消失，E/D/B/F 区（滚轮、WXS 黄点、普通触摸计数、五入口工作台）均正常。截图 `runtime/audit/devtools-170/`。
+- 评估后不动的项：`scroll-view type="list"` 仍有 8 处调用点（Skyline 侧性能提示，WebView 下被忽略）；已在带该属性的构建上验收过滚动行为，删除它需要跨 8 个调用点重做一轮滚动视觉复核且收益为零，因此记录为"独立成批的候选"，本轮不顺手改。

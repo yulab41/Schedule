@@ -11,7 +11,9 @@
 - 回滚：`git revert` 本批次提交并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚（兼容层已删除）。
 - 交付与放行：`ca673d0c`（删除兼容层）+ `56781b13`（刷新 workbench 血缘等价证明）已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.169` 上传成功（说明「WebView-only cleanup 56781b1」，Manifest `524fdea0…4eae`），可信 ensure 追加并保留 `.168`，`ecs-verify.sh` `[verify] complete`；公网 `.169=200`/`.168=200`/未知 `=426`。未提审、未正式发布、未部署生产。
 - 开发者工具复核（fullMode，基础库 3.17.2 + WebView，身份页构建标签 `0.1.0-p10.20260919.169@56781b1`）：workbench 群组名完整、箭头紧贴、月历 7 列正常；换班页正常加载、`发起换班` sheet 与月份选择器均以覆盖层弹窗打开（滚轮带`年`/`月`单位、中间项高亮）。截图在 ignored `runtime/audit/devtools-169/`。
-- 唯一下一任务：小米 14 打开 `.169`，在原先异常（Skyline）与正常（WebView）两台设备上复核日历、换班/请假选择器、页头群组名与下拉箭头、详情卡排版是否与 `.168` 一致。
+- 批次 2 交付：`d201ab97` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.170` 上传成功（说明「WebView-only batch2 d201ab9」，Manifest `4e8f3ccf…be19`），可信 ensure 追加并保留 `.169`，`ecs-verify.sh` `[verify] complete`；公网 `.170=200`/`.169=200`/未知 `=426`。开发者工具复核：`pages/gesture-probe` 在基础库 3.17.2 下正常渲染，构建标签 `0.1.0-p10.20260919.170@d201ab9`，A 区已消失，D/B/E/F 区正常（截图 `runtime/audit/devtools-170/`）。
+- 上传路由补充：清理代理后 GitHub fetch 会失败（`Git fetch failed with exit code 128`），必须同时给 git 配 `GIT_CONFIG_*` 代理、并让微信 CI 直连 IPv4。
+- 唯一下一任务：小米 14 打开 `.170`（或 `.169`，两者界面等价），在原先异常（Skyline）与正常（WebView）两台设备上复核日历、换班/请假选择器、页头群组名与下拉箭头、详情卡排版是否与 `.168` 一致。
 - 停止条件：两台设备复核无回归；若出现回归，以 `.168` 构建为对照定位。详情见 `docs/audit/webview-only-cleanup-20260919.md`。
 
 ## 当前批次：渲染器改为 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用
