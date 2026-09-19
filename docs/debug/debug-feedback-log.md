@@ -3041,3 +3041,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 顺手做的标准减负（都是宿主机层面的历史占用，与本项目代码无关）：①systemd journal 3.8G → 537M（新增 `/etc/systemd/journald.conf.d/99-schedule-cap.conf`：`SystemMaxUse=500M`、`SystemKeepFree=2G`、`MaxRetentionSec=14day`，防止再次无限增长）；②apt 列表/缓存 313M → 72K；③移除 snap 里已禁用的旧 `lxd` revision。**磁盘 `/` 从 17G/44% → 13G/33%，可用 25G**。全程未动 docker 卷（`schedule_backups` 3.2G 加密备份 + `schedule_mysql_data` 679M 都是必要数据）。
 - 真正的瓶颈（如实报告，未擅自改）：这台是 2 vCPU / **1.6GB 内存** 的共享机型，`free` 显示仅 ~190MB free、**swap 已用 1.1G/2G**，`vmstat` 长期 70–98% iowait。主要内存项是 MySQL（`innodb_buffer_pool_size` 已是保守的 128M，容器 RSS 约 266MB）+ host 侧 snapd/云监控 agent + `performance_schema=ON`（在 8.x 上通常占 200–400MB）。可选的下一步（需要你同意，因为要重启 MySQL 容器、会有短暂 DB 中断）：关闭 `performance_schema` 或给实例升内存。**我没有动 swap**：`swapoff -a` 在只剩 ~190MB free 的机器上可能直接触发 OOM，风险高于收益。
 - 生产健康复查：3 个容器 Up，`/api/health`=200。
+
+## 2026-09-19 生产 MySQL 内存优化：关闭 performance_schema（release `318b275d`）
+
+- 起因与定位：用户追问"测试过久是否服务器过载"，体检发现真机是 2 vCPU / **1.6GB 内存**、swap 已用 1.1G、长期高 iowait。逐进程查内存后定位到 `mysqld` 是唯一大户，并直接用 MySQL 自己的账本量出 **`performance_schema` 占 233.7MB / MySQL 总占用 506.3MB（46%）**。另测出 `vm.swappiness` **本来就是 10**（我先前提议的这条杠杆早已生效，无需再动），`innodb_buffer_pool_size` 也已是保守的 128M。
+- 本地先验证（零生产风险）：①同镜像跑启动参数探针，确认 `--performance-schema=OFF` 与 `--innodb-log-buffer-size=16M` 被 MySQL 8.4 接受，`SELECT @@performance_schema` 返回 0；②同镜像全新库 A/B：**P_S 默认 ON = 441.1MiB，OFF(+log buffer 16M) = 143.7MiB，省约 297MB**。
+- 仓库改动（必须落在仓库才能扛住部署，compose 每次部署都会被替换）：`infra/docker/compose.prod.yml` 的 mysql `command` 增加 `--performance-schema=OFF` 与 `--innodb-log-buffer-size=16M`，并写明测量依据。已核对：**没有任何生产代码读 performance_schema**（只有本地 `scripts/directory-query-readiness/*` 基准脚本用它，那些跑的是自己的库；若将来要对生产跑这些基准，需临时开回 P_S），备份/校验走 `information_schema`，不受影响。
+- 上线顺序（L4）：提交推送 `318b275d` → `ecs:package`（应用产物命中缓存，只有 compose 哈希变化）→ **备份** `9e716397-26ae-4f09-b3d2-64dfe550e69b`（56 表 / 283214 行 / 119455664 字节 / SHA-256 `ac36cdfb…`）→ `ecs-update.sh` 部署（脚本只重建 api/web，**不会**重建 mysql，这是设计如此）→ 再显式 `docker compose up -d --force-recreate mysql` 让新参数生效（DB 中断约 15 秒，期间 API 短暂 502）→ 完整 `ecs-verify.sh` 通过 → 再跑一遍全库备份与隐私保留任务作业务冒烟，两者均成功。
+- pre-flight 关键项：先确认 `/var/lib/mysql/mysqld-auto.cnf` 里**没有** `performance_schema`（`SET PERSIST` 的优先级高于命令行，若有会覆盖我的参数）；确认当时无并行生产会话、DB 无活跃查询，才做重启。
+- 前后实测（如实区分口径，避免夸大）：**受控对照**是本地 A/B 的 ~297MB 分配差额；**生产**上 MySQL 自报优化前总占用 506.3MB（其中 P_S 233.7MB），优化后 mysqld RSS 空闲约 **174MB**、跑完一次全库备份后约 **210MB**（优化前在同等重活下测到 507MB）。需要说明的是：重启前的**常驻**数字只有 169.5MiB，因为那 340MB 左右已被换到 swap 里——正是这次要消除的病症，宿主机 swap 从 1.1G 降到约 **0.2–0.25G**。
+- 回滚方式：把 compose 的两个参数去掉并重新部署 + 再重建一次 mysql 容器即可，无数据迁移、无 schema 影响。
+- 仍需用户决定的部分（我做不了）：给实例**升内存**需要在阿里云控制台操作；这台 1.6GB 的机器上 MySQL 之外还有 snapd/云监控 agent 等固定占用，长期最优解是换更大的实例规格。
