@@ -769,22 +769,13 @@ export function auditSourceTree() {
   if (appJson !== undefined) {
     // The renderer is a product decision recorded in
     // apps/miniprogram/docs/decisions/ADR-0007-webview-renderer.md: the app requests WebView so
-    // every user gets the same layout engine, with Skyline kept as a documented
-    // fallback option. Either value is accepted, but it must be one of the two and
-    // the Skyline options stay validated for the day we switch back.
+    // every user gets the same layout engine. Either value is accepted so a future
+    // experiment can flip the config, but it must be one of the two.
     if (appJson.renderer !== 'webview' && appJson.renderer !== 'skyline') {
       issues.push('src/app.json renderer must be webview or skyline');
     }
     if (appJson.componentFramework !== 'glass-easel') {
       issues.push('src/app.json componentFramework must be glass-easel');
-    }
-    const skyline = appJson.rendererOptions?.skyline;
-    if (skyline !== undefined) {
-      if (skyline.disableABTest !== true) issues.push('Skyline AB test must be disabled');
-      if (skyline.sdkVersionBegin !== '3.3.0') issues.push('Skyline minimum must be 3.3.0');
-      if (skyline.sdkVersionEnd !== '15.255.255') {
-        issues.push('Skyline maximum must be 15.255.255');
-      }
     }
     try {
       for (const route of listRegisteredPages(appJson)) {

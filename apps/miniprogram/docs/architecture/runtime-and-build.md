@@ -5,11 +5,10 @@
 | 项目           | 决策                                                                         |
 | -------------- | ---------------------------------------------------------------------------- |
 | 模板/样式/逻辑 | WXML、WXSS、TypeScript、JSON                                                 |
-| 渲染           | 所有页面 Skyline                                                             |
+| 渲染           | 所有页面 WebView（`renderer: "webview"`，ADR-0007）                          |
 | 组件框架       | `glass-easel`                                                                |
 | 最低基础库     | `3.3.0`                                                                      |
-| 回退           | 不提供 WebView 回退                                                          |
-| Skyline 发布   | `disableABTest: true`，`sdkVersionBegin: 3.3.0`，`sdkVersionEnd: 15.255.255` |
+| 渲染回退       | 无：`app.json` 未声明 `rendererOptions`，也不按基础库版本切换渲染行为        |
 
 `project.config.json` 的 `miniprogramRoot` 固定为 `dist/`。正式发布前将实际 Stable 编译基础库和微信客户端范围记录进 release 证据。
 

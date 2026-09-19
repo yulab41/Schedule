@@ -2,7 +2,7 @@
   class="calendar-cell {{duties.length ? 'has-duties' : ''}} {{compact ? 'is-compact' : ''}} {{disabled ? 'is-disabled' : ''}} {{isCurrentMonth ? '' : 'is-outside'}} {{isWeekend ? 'is-weekend' : ''}} {{isHoliday ? 'is-holiday' : ''}} {{isPast ? 'is-past' : ''}} {{isSelected ? 'is-selected' : ''}} {{isToday ? 'is-today' : ''}} {{isBottomLeft ? 'is-bottom-left' : ''}} {{isBottomRight ? 'is-bottom-right' : ''}}"
   hover-class="{{isCurrentMonth && !disabled ? 'is-pressed' : 'none'}}"
   hover-start-time="0"
-  hover-stay-time="{{runtimePressedFeedbackCompatibility ? 0 : 70}}"
+  hover-stay-time="70"
   aria-role="button"
   aria-label="{{ariaLabel}}"
   aria-pressed="{{isSelected}}"

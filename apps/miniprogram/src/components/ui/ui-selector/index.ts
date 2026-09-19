@@ -1,14 +1,12 @@
 import {
-  createSelectorPopoverStyle,
   createRenderedOptions,
   scheduleSelectorPlacement,
   validOptionIndex,
   type SelectorInstance,
   type SelectorOption,
 } from './selector.js';
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 interface Instance extends SelectorInstance {
-  readonly data: { readonly open: boolean; readonly skyline3172UiCompatibility: boolean };
+  readonly data: { readonly open: boolean };
   readonly properties: {
     readonly options: readonly SelectorOption[];
     readonly selectedIndex: number;
@@ -35,12 +33,10 @@ Component({
   },
   data: {
     open: false,
-    popoverStyle: '',
     renderedOptions: [],
     selectedOptionIndex: -1,
     popoverPlacement: 'down',
     popoverPlacementReady: true,
-    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
   },
   lifetimes: {
     attached(this: Instance) {
@@ -59,10 +55,6 @@ Component({
     options(this: Instance) {
       if (this.data.open)
         this.setData({
-          popoverStyle: createSelectorPopoverStyle(
-            this.properties.options.length,
-            this.data.skyline3172UiCompatibility,
-          ),
           renderedOptions: createRenderedOptions(this.properties.options),
         });
     },
@@ -79,10 +71,6 @@ Component({
       this.triggerEvent('pickerrequestopen', {}, { bubbles: true, composed: true });
       this.setData({
         open: true,
-        popoverStyle: createSelectorPopoverStyle(
-          this.properties.options.length,
-          this.data.skyline3172UiCompatibility,
-        ),
         selectedOptionIndex: validOptionIndex(
           this.properties.options,
           this.properties.selectedIndex,

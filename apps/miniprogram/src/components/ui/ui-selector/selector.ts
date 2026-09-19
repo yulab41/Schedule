@@ -46,24 +46,6 @@ export function scheduleSelectorPlacement(instance: SelectorInstance): void {
     });
 }
 
-const selectorPopoverEmptyHeight = 56;
-const selectorPopoverOptionHeight = 30;
-const selectorPopoverOptionPadding = 10;
-const selectorPopoverMaxHeight = 300;
-
-// The affected Skyline runtime does not derive a scroll container height from its
-// content inside another scroll container, so the popover collapsed to its padding.
-// Other runtimes keep their content-driven height and receive an empty style.
-export function createSelectorPopoverStyle(optionCount: number, compatibility: boolean): string {
-  if (!compatibility) return '';
-  const count = Number.isInteger(optionCount) && optionCount > 0 ? optionCount : 0;
-  if (count === 0) return `height:${selectorPopoverEmptyHeight}px;`;
-  return `height:${Math.min(
-    selectorPopoverMaxHeight,
-    selectorPopoverOptionHeight * count + selectorPopoverOptionPadding,
-  )}px;`;
-}
-
 export function validOptionIndex(
   options: readonly SelectorOption[],
   selectedIndex: number,

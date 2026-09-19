@@ -138,7 +138,7 @@ describe('P7 physical-device feedback regressions', () => {
       read('components/ui/ui-date-picker/index.wxss') +
       read('components/ui/ui-selector/index.wxss');
     expect(read('components/ui/ui-date-picker/index.wxss')).toContain('../ui-selector/index.wxss');
-    expect(pickerTemplate).toMatch(/class="workflow-picker-sheet(?:\s|\{)/u);
+    expect(pickerTemplate).toContain('class="workflow-picker-sheet"');
     expect(pickerTemplate).toContain('workflow-picker-selector-popover');
     expect(pickerTemplate).toContain("open && mode !== 'selector'");
     expect(pickerTemplate).not.toContain('workflow-picker-summary');

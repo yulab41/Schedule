@@ -6,7 +6,7 @@
 />
 
 <view
-  class="leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
+  class="leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
   bindtap="handlePanelBackgroundTap"
   bind:pickerrequestopen="handlePickerRequestOpen"
 >
@@ -35,8 +35,7 @@
   >
     <view class="page-content">
       <view wx:if="{{state === 'loading'}}" class="page-state-card">
-        <view wx:if="{{!skyline3172UiCompatibility}}" class="native-spinner"></view>
-        <image wx:else class="native-spinner-image" src="/assets/icons/ui-loading-primary.svg" mode="aspectFit" />
+        <view class="native-spinner"></view>
         <text class="state-title">正在加载请假数据</text>
         <text class="state-copy">正在同步申请、审批和清空策略。</text>
       </view>
@@ -239,7 +238,6 @@
                 value="{{startDate}}"
                 display-value="{{startDateDisplay}}"
             title="开始日期"
-            host-key="leave-start-date"
             bindchange="handleStartDateChange"
               ></workflow-picker>
             </view>
@@ -251,7 +249,6 @@
                 value="{{endDate}}"
                 display-value="{{endDateDisplay}}"
             title="结束日期"
-            host-key="leave-end-date"
             bindchange="handleEndDateChange"
               ></workflow-picker>
             </view>
@@ -317,8 +314,8 @@
             ><text>{{approvalErrorMessage}}</text></view
           >
           <view wx:if="{{approvalBusy && !approvalPreviewReady}}" class="preview-loading"
-            ><view wx:if="{{!skyline3172UiCompatibility}}" class="native-spinner"></view
-            ><image wx:else class="native-spinner-image" src="/assets/icons/ui-loading-primary.svg" mode="aspectFit" /><text
+            ><view class="native-spinner"></view
+            ><text
               >正在生成请假预览</text
             ></view
           >
@@ -362,18 +359,4 @@
     </view>
   </ui-sheet>
 
-  <workflow-picker
-    wx:if="{{skyline3172UiCompatibility}}"
-    id="workflow-picker-host"
-    class="workflow-picker-host"
-    dialog-only="{{true}}"
-    host-key="{{pickerDialog.hostKey}}"
-    mode="{{pickerDialog.mode}}"
-    min="{{pickerDialog.min}}"
-    max="{{pickerDialog.max}}"
-    title="{{pickerDialog.title}}"
-    value="{{pickerDialog.value}}"
-    bindchange="handleHostedPickerChange"
-    bindclose="handleHostedPickerClose"
-  />
 </view>

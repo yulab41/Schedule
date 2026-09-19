@@ -1,5 +1,16 @@
 # 微信小程序审计状态
 
+## 当前批次：WebView-only 收口——删除全部 Skyline 兼容层，体验版169待验收
+
+- 用户提问："异常既然不是组件库版本引起的，按版本分叉的代码是否也该清掉？"→ 已核对：生产源码里**只有一处**按基础库版本分叉（`platform/runtime-ui-compatibility.ts` 的"请求 Skyline 且 SDK=3.17.2"），其余 `SDKVersion` 仅用于诊断页展示，仓库内无 `wx.canIUse` 或版本比较工具。删除该兼容层即可让渲染器/基础库版本不再影响任何代码路径。
+- 删除清单（全部在请求 WebView 时不可达）：兼容层模块与 16 项门禁测试；`.is-skyline-3172-ui` 规则 25 条（6 个 WXSS）；`ui-wheel-column` 原生滚动孪生；`calendar-month`/`ui-date-picker` 原生分页器孪生与 `_compat*`/`_dateCompat*` 状态；工作流宿主对话框（`workflow-picker-host`/`host-key`/`dialog-only`/`openFromParent`/`forwardHosted*` 与 sheet 点击外部兜底）；`ui-toast` 描边、`ui-selector`/`ui-date-picker` 内联弹层、`ui-loading` 与工作流 spinner 的 SVG 回退、`runtimePressedFeedbackCompatibility`；`calendar-period-pager` 的滚动度量与兜底常量；`app.json` 的 `rendererOptions.skyline` 与对应构建校验；两个只服务该分支的 spinner SVG。
+- 门禁：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**；determinism `743c22d2…`；package 总 **4614093 B**（基线 4653854 B，**−39761 B**，主包 1777035 → 1737017）。
+- WXSS 复核：首轮脚本把多行选择器合并成一行，已从 `HEAD` 重新推导修正，`git diff -- '*.wxss'` 为纯删除（129 行删除、0 新增）。
+- 保留（本轮不动，需单独审计）：`pages/gesture-probe`、`pages/calendar-poc`、`pages/manual-matrix-poc` 仍在主包注册，`wx.worklet` 在 WebView 下不会执行；删除已发布页面属产品可见变更。
+- 回滚：`git revert` 本批次提交并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚（兼容层已删除）。
+- 唯一下一任务：小米 14 打开 `.169`，在原先异常（Skyline）与正常（WebView）两台设备上复核日历、换班/请假选择器、页头群组名与下拉箭头、详情卡排版是否与 `.168` 一致。
+- 停止条件：两台设备复核无回归；若出现回归，以 `.168` 构建为对照定位。详情见 `docs/audit/webview-only-cleanup-20260919.md`。
+
 ## 当前批次：渲染器改为 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用
 
 - 用户真机证据：两台设备**都是 3.17.3**，差别在引擎——正常那台 `Skyline 支持=不支持`（WebView，Grid 0px），异常那台 `Skyline 支持=支持`（Skyline，Grid 退化 8px）。因此界面回退的根因是**引擎**，不是基础库版本；旧兼容分支硬编码 `SDKVersion === '3.17.2'`，灰度后整体失效。

@@ -1,6 +1,6 @@
 <template name="selector-options">
   <view
-    wx:if="{{open && !skyline3172UiCompatibility}}"
+    wx:if="{{open}}"
     class="workflow-picker-selector-backdrop"
     aria-role="button"
     aria-label="关闭选项"
@@ -8,8 +8,7 @@
   ></view>
   <scroll-view
     wx:if="{{open}}"
-    class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}} {{popoverPlacementReady ? 'is-ready' : 'is-measuring'}} {{skyline3172UiCompatibility ? 'is-inline' : ''}}"
-    style="{{popoverStyle}}"
+    class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}} {{popoverPlacementReady ? 'is-ready' : 'is-measuring'}}"
     type="list"
     scroll-y
     enhanced

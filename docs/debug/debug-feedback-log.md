@@ -3278,3 +3278,14 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 验证（开发者工具 fullMode，整窗重开 + 清编译缓存）：`dist/app.json` = webview；workbench `state=ready`、`sdk=3.17.2`、`compat=false`（3.17.2+WebView 下补丁已关）、截图页头群组名完整、箭头紧贴、排版与金标准一致。门禁：typecheck、Mini 1224 通过/16 跳过、package 4653854B、determinism `abbb3658…`、format、lint、smoke:check-core 全通过。
 - 未验证：手工排班矩阵滚动同步、首屏性能 `foreground-ready`/`core-ready`（模拟器未产出标记）——需小米 14 体验版复核；不将模拟器证据当作原生验收。
 - 交付与放行：代码 `1f2dcf61` + `64788ee4` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260918.168` 上传成功（说明「Webview renderer 64788ee」，Manifest `1edea299…100e`），可信 ensure 追加并保留 `.167`，`ecs-verify.sh` `[verify] complete`；公网 `.168=200`/`.167=200`/未知 `=426`；槽位已释放。上传用「GitHub 走进程代理、微信 CI 直连 IPv4」双路由（`.165`/`.166` 因 IPv6 出口烧号）。未提审、未正式发布、未部署生产。
+
+## 2026-09-19 WebView-only 收口：删除全部 Skyline 兼容层（取消按引擎/基础库分叉）
+
+- 用户提问："异常既然不是组件库版本引起的，按版本分叉的代码是否也应该清掉？"→ 先取证再动手：全源码核对确认生产代码里**只有一处**会因基础库版本改变行为（`src/platform/runtime-ui-compatibility.ts` 的"请求 Skyline 且 SDK=3.17.2"），其余 `SDKVersion` 只出现在诊断页的设备信息展示里，仓库内没有 `wx.canIUse` 或版本比较工具。删除这一层即可让渲染器/基础库版本不再影响任何代码路径。
+- 删除范围（全部是"请求 WebView 时不可达"的死代码）：兼容层模块+16 项门禁测试；`.is-skyline-3172-ui` 规则 25 条（6 个 WXSS）；`ui-wheel-column` 原生滚动孪生及 `compatFrame`/`paintCompatFrame`/`snapCompat`；`calendar-month`/`ui-date-picker` 原生分页器孪生、度量与清理定时器、`_compat*`/`_dateCompat*` 状态；工作流宿主对话框（`workflow-picker-host`/`host-key`/`dialog-only`/`openFromParent`/`forwardHosted*`）与 sheet 点击外部兜底；`ui-toast` 描边、选择器内联弹层、`ui-loading`/工作流 SVG spinner 回退、`runtimePressedFeedbackCompatibility`；`calendar-period-pager` 的滚动度量与兜底常量；`app.json` 的 `rendererOptions.skyline` 与构建校验；两个只服务该分支的 spinner SVG。
+- 删除方式：脚本按行/选择器机械匹配 + 逐文件人工复核。首轮 WXSS 脚本把多行选择器合并成一行（把 prelude 数组当成单个元素 push，再 join 成逗号串），已改为从 `HEAD` 重新推导并校验非空行完全一致后再写回，`git diff -- '*.wxss'` 现为纯删除（129 删除 / 0 新增）。
+- 顺带修掉 3 处失效的门禁断言（`manual-matrix-poc` 断言 `rendererOptions.skyline.sdkVersionBegin`、`p7-native-feedback` 断言 sheet 类的旧插值形式、`guest-runtime`/`workbench-runtime` 里传入已不存在的 `skyline3172UiCompatibility` 数据字段），并删除两段只针对原生滚动孪生的分页器测试。
+- 门禁：typecheck、format:check、lint、smoke:check-core 通过；Mini **1205 通过 / 16 跳过**（删除 19 项失效断言）；package 总 **4614093 B**、主包 **1737017 B**（基线 4653854 B，**−39761 B**）；determinism `743c22d2…`。
+- 未验证：小米 14 真机的日历、换班/请假选择器、页头与详情卡排版；模拟器/自动化证据不代替原生验收。
+- 保留（需单独审计）：`pages/gesture-probe`、`pages/calendar-poc`、`pages/manual-matrix-poc` 仍注册在主包，`wx.worklet` 在 WebView 下不会执行；删除已发布页面属产品可见变更，另行评估。
+- 回滚：`git revert` 本批次并把 `renderer` 与页面 JSON 改回 `skyline`；只改 `renderer` 不是有效回滚。详情见 `docs/audit/webview-only-cleanup-20260919.md`。

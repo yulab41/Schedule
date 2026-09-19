@@ -1,5 +1,4 @@
 import { readTopOverlayOffset } from '../../../platform/top-overlay.js';
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 
 type ToastTone = 'success' | 'info' | 'warning' | 'error';
 
@@ -56,7 +55,6 @@ Component({
     displayMessage: '',
     displayTone: 'info',
     safeTopOffset: 0,
-    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
   },
   observers: {
     'visible,title,message,tone,topOffset'(this: ToastInstance): void {

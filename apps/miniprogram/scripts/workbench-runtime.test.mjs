@@ -119,7 +119,7 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.detailExpansion.expanded).toEqual({ 'day-row': false, 'night-row': true });
   });
 
-  it('uses the shared circular pager for consecutive 3.17.2 week shifts', async () => {
+  it('uses the shared circular pager for consecutive week shifts', async () => {
     vi.stubGlobal('wx', createWx(createStorage(), vi.fn()));
     await import('../src/pages/workbench/index.ts');
     const instance = createPageInstance(definition);
@@ -128,7 +128,6 @@ describe('P6-A workbench runtime coordination', () => {
     Object.assign(instance.data, {
       currentGroupId: 'group-1',
       currentGroupName: '急诊科',
-      skyline3172UiCompatibility: true,
       viewMode: 'week',
       weekStart: '2026-09-07',
       selectedDate: '2026-09-07',

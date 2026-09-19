@@ -18,7 +18,7 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
   DevTools results as native acceptance.
 - Do not restore the historical Mini Program implementation as a whole. Historical code may only be consulted for isolated algorithms, fixtures, test ideas, and CI wrapper patterns after revalidation against the current Web/API.
 - Do not add TDesign MiniProgram or another third-party UI component library.
-- Do not add WebView fallback, uni-app, or an H5 runtime as the production Mini Program implementation.
+- Do not add uni-app or an H5 runtime as the production Mini Program implementation.
 - Do not place AppSecret, CI upload private keys, tokens, sessions, private project settings, screenshots, QR codes, or production data in Git.
 - Do not make an unrecorded product, security, privacy, public API, or compatibility choice. Stop and ask the user when a new material choice is not resolved by the approved plan or an ADR.
 
@@ -48,10 +48,11 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
   organised rather than accreted, must not change the behaviour or markup that the newer base
   libraries already render correctly, must not bloat the package, and must reuse the existing ring,
   panel, template, interpolation, and shared-helper code wherever it can.
-- Production pages use native WXML, WXSS, TypeScript, JSON, Skyline, and glass-easel. Minimum base library is 3.3.0; there is no WebView fallback. This compatibility floor is required by the approved UI-thread `worklet.scrollViewContext` matrix synchronization architecture.
+- Production pages use native WXML, WXSS, TypeScript, JSON, and glass-easel, rendered by the WebView renderer requested in `src/app.json` (`"renderer": "webview"`, ADR-0007). Minimum base library is 3.3.0. Do not add renderer-specific or base-library-version-specific branches without a new ADR.
+- Skyline-only surfaces (`wx.worklet`, `worklet:ongesture`, `.is-skyline-3172-ui` styling, `scroll-view type="list"` twins) are not executed under the requested renderer. Keep new work on the WebView path; the diagnostic probe pages stay out of product navigation.
 - Source lives in `src/`; generated output lives in ignored `dist/`. Do not hand-edit `dist/`.
 - Shared runtime code must be DOM-free, Node-free, database-free, and Zod-free in the Mini Program bundle.
-- Preserve `'worklet'` as the first statement of each Worklet function and run the Worklet output audit after every relevant build change.
+- If a Skyline-only probe page is touched, preserve `'worklet'` as the first statement of each Worklet function and run the Worklet output audit after that build change.
 - Write requests are retried only when protected by a valid idempotency key. Offline mode is read-only and has no write queue.
 
 ## Checkpoints

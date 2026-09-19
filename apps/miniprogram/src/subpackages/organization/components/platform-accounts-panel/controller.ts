@@ -21,7 +21,6 @@ import {
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../../platform/runtime-ui-compatibility.js';
 import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
@@ -76,7 +75,6 @@ interface PlatformAccountsPageData {
   readonly largeText: boolean;
   readonly pageScrollStyle: string;
   readonly shellHeaderStyle: string;
-  readonly skyline3172UiCompatibility: boolean;
   readonly viewportClass: string;
 }
 
@@ -137,7 +135,6 @@ export function createPlatformAccountsPanelControllerDefinition() {
       largeText: false,
       pageScrollStyle: 'height:calc(100% - 76px);',
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
-      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
       viewportClass: '',
     } satisfies PlatformAccountsPageData,
 

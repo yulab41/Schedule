@@ -60,9 +60,6 @@ Component({
     },
   },
   methods: {
-    requestCloseFromParent(this: UiSheetInstance): void {
-      if (this.properties.visible) emitClose(this, 'backdrop');
-    },
     handleBackdropClose(this: UiSheetInstance): void {
       emitClose(this, 'backdrop');
     },

@@ -6,7 +6,6 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../platform/info-message-lifetime.js';
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../platform/runtime-ui-compatibility.js';
 
 type ControllerMethod = (this: WorkflowPanelHost, ...arguments_: unknown[]) => unknown;
 
@@ -35,13 +34,6 @@ interface WorkflowPanelHost {
     readonly groupId: string;
   };
   selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
-  selectComponent?(selector: string):
-    | {
-        forwardHostedChange?(detail: unknown): void;
-        forwardHostedClose?(): void;
-        openFromParent?(): void;
-      }
-    | undefined;
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
   triggerEvent?(name: string): void;
 }
@@ -112,11 +104,9 @@ export function createWorkflowPageDefinition(
     data: {
       ...prototype.data,
       embedded: false,
-      pickerDialog: closedPickerDialog(),
-      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     },
     ...delegatedMethods,
-    ...pickerDialogMethods(),
+    ...panelDismissMethods(),
     onLoad(this: WorkflowPageHost, query: Readonly<Record<string, string | undefined>>): void {
       if (boundaries !== undefined) recordMiniTelemetryBoundary(boundaries.page);
       attachWorkflowPageHost(this);
@@ -167,8 +157,6 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     data: {
       ...prototype.data,
       embedded: true,
-      pickerDialog: closedPickerDialog(),
-      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
     },
     lifetimes: {
       attached(this: WorkflowPanelHost): void {
@@ -208,71 +196,19 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     },
     methods: {
       ...delegatedMethods,
-      ...pickerDialogMethods(),
+      ...panelDismissMethods(),
     },
   });
 }
 
-interface PickerDialogDetail {
-  readonly detail?: Record<string, unknown>;
-}
-
-function closedPickerDialog(): Readonly<Record<string, unknown>> {
+function panelDismissMethods(): Readonly<Record<string, unknown>> {
   return {
-    open: false,
-    hostKey: '',
-    max: '',
-    min: '',
-    mode: 'month',
-    title: '',
-    value: '',
-  };
-}
-
-function pickerDialogMethods(): Readonly<Record<string, unknown>> {
-  return {
-    handlePickerRequestOpen(this: WorkflowPanelHost, event?: PickerDialogDetail): void {
+    // Selecting or opening one picker closes every other open picker.
+    handlePickerRequestOpen(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);
-      if (this.data['skyline3172UiCompatibility'] !== true) return;
-      const detail = event?.detail ?? {};
-      const hostKey = String(detail['hostKey'] ?? '');
-      if (hostKey === '') return;
-      this.setData(
-        {
-          pickerDialog: {
-            open: true,
-            hostKey,
-            max: String(detail['max'] ?? ''),
-            min: String(detail['min'] ?? ''),
-            mode: String(detail['mode'] ?? 'month'),
-            title: String(detail['title'] ?? ''),
-            value: String(detail['value'] ?? ''),
-          },
-        },
-        () => {
-          this.selectComponent?.('#workflow-picker-host')?.openFromParent?.();
-        },
-      );
-    },
-    handleHostedPickerChange(this: WorkflowPanelHost, event?: { readonly detail?: unknown }): void {
-      this.selectComponent?.('#workflow-picker-host')?.forwardHostedChange?.(event?.detail);
-      this.setData({ pickerDialog: closedPickerDialog() });
-    },
-    handleHostedPickerClose(this: WorkflowPanelHost): void {
-      this.selectComponent?.('#workflow-picker-host')?.forwardHostedClose?.();
-      this.setData({ pickerDialog: closedPickerDialog() });
     },
     handlePanelBackgroundTap(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);
-      this.selectComponent?.('#workflow-picker-host')?.forwardHostedClose?.();
-      // The affected runtime paints the sheet scrim without hit-testing it, so
-      // the panel root owns "tap outside" and asks open sheets to dismiss.
-      if (this.data['skyline3172UiCompatibility'] === true) {
-        for (const sheet of this.selectAllComponents?.('ui-sheet') ?? []) {
-          (sheet as { requestCloseFromParent?(): void }).requestCloseFromParent?.();
-        }
-      }
-      this.setData({ pickerDialog: closedPickerDialog() });
     },
   };
 }

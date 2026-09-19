@@ -1,5 +1,5 @@
 <view
-  class="directory-entry {{currentUser ? 'is-current-user' : ''}} {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}} {{disabled ? 'is-disabled' : ''}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
+  class="directory-entry {{currentUser ? 'is-current-user' : ''}} {{entry.merged ? 'is-merged' : ''}} {{showDivider ? 'has-divider' : ''}} {{largeText ? 'is-large-text' : ''}} {{disabled ? 'is-disabled' : ''}}"
   aria-disabled="{{disabled}}"
 >
   <view class="entry-accent"></view>

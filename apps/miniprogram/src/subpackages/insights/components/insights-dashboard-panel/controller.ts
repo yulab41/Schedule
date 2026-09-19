@@ -37,7 +37,6 @@ import {
   getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../../platform/runtime-ui-compatibility.js';
 
 type DashboardState = 'disabled' | 'error' | 'loading' | 'ready';
 type DashboardTab = 'events' | 'statistics';
@@ -95,7 +94,6 @@ interface InsightsDashboardData {
   readonly roleRows: readonly BreakdownCard[];
   readonly secondaryStatistics: readonly StatisticsSummaryItem[];
   readonly shellHeaderStyle: string;
-  readonly skyline3172UiCompatibility: boolean;
   readonly shiftTypeRows: readonly BreakdownCard[];
   readonly state: DashboardState;
   readonly statisticsBusy: boolean;
@@ -144,7 +142,6 @@ export function createInsightsDashboardPanelControllerDefinition() {
       roleRows: [],
       secondaryStatistics: [],
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
-      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
       shiftTypeRows: [],
       state: 'loading' as DashboardState,
       statisticsBusy: false,

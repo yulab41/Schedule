@@ -1,5 +1,3 @@
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../../platform/runtime-ui-compatibility.js';
-
 interface DirectoryEntryCardValue {
   readonly favorite: boolean;
   readonly id: string;
@@ -31,7 +29,6 @@ Component({
   },
   data: {
     animatingNumberId: '',
-    skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
   },
   lifetimes: {
     attached(this: DirectoryEntryCardInstance): void {

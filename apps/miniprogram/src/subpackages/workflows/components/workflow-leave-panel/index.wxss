@@ -121,12 +121,6 @@ page {
   animation: native-spin 0.8s linear infinite;
 }
 
-.native-spinner-image {
-  width: 28px;
-  height: 28px;
-  animation: native-spin 0.8s linear infinite;
-}
-
 @keyframes native-spin {
   to {
     transform: rotate(360deg);

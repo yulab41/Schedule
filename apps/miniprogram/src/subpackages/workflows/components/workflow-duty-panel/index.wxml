@@ -6,7 +6,7 @@
 />
 
 <view
-  class="duty-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}} {{skyline3172UiCompatibility ? 'is-skyline-3172-ui' : ''}}"
+  class="duty-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
   bindtap="handlePanelBackgroundTap"
   bind:pickerrequestopen="handlePickerRequestOpen"
 >
@@ -29,8 +29,7 @@
   >
     <view class="page-content">
       <view wx:if="{{state === 'loading'}}" class="page-state-card">
-        <view wx:if="{{!skyline3172UiCompatibility}}" class="native-spinner"></view>
-        <image wx:else class="native-spinner-image" src="/assets/icons/ui-loading-primary.svg" mode="aspectFit" />
+        <view class="native-spinner"></view>
         <text class="state-title">正在加载加扣班数据</text>
         <text class="state-copy">正在同步班次、申请和审批设置。</text>
       </view>
@@ -300,7 +299,6 @@
             value="{{businessMonth}}"
             display-value="{{businessMonth}}"
             title="月份"
-            host-key="duty-my-month"
             bindchange="handleMonthChange"
           ></workflow-picker
         ></view>
@@ -381,7 +379,6 @@
             value="{{businessMonth}}"
             display-value="{{businessMonth}}"
             title="月份"
-            host-key="duty-admin-month"
             bindchange="handleMonthChange"
           ></workflow-picker
         ></view>
@@ -469,18 +466,4 @@
     </view>
   </ui-sheet>
 
-  <workflow-picker
-    wx:if="{{skyline3172UiCompatibility}}"
-    id="workflow-picker-host"
-    class="workflow-picker-host"
-    dialog-only="{{true}}"
-    host-key="{{pickerDialog.hostKey}}"
-    mode="{{pickerDialog.mode}}"
-    min="{{pickerDialog.min}}"
-    max="{{pickerDialog.max}}"
-    title="{{pickerDialog.title}}"
-    value="{{pickerDialog.value}}"
-    bindchange="handleHostedPickerChange"
-    bindclose="handleHostedPickerClose"
-  />
 </view>

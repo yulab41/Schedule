@@ -13,7 +13,6 @@ Component({
     shiftAbbreviation: { type: String, value: '' },
     shiftBadgeStyle: { type: String, value: '' },
     compact: { type: Boolean, value: false },
-    runtimePressedFeedbackCompatibility: { type: Boolean, value: false },
     duties: { type: Array, value: [] },
     disabled: { type: Boolean, value: false },
     ariaLabel: { type: String, value: '' },

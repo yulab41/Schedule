@@ -115,7 +115,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     );
 
     expect(appConfig.pages).toContain('pages/manual-matrix-poc/index');
-    expect(appConfig.rendererOptions.skyline.sdkVersionBegin).toBe('3.3.0');
+    expect(appConfig.renderer).toBe('webview');
     expect(pageConfig.disableScroll).toBe(true);
     expect(pageConfig.usingComponents).toEqual({});
     expect(cellConfig).toMatchObject({ component: true });

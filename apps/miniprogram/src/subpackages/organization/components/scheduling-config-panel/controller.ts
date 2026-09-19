@@ -19,7 +19,6 @@ import {
 } from '../../../../platform/wechat-identity.js';
 import { clearWorkbenchCalendarCache } from '../../../../platform/workbench-read.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
-import { needsCurrentRuntimeSkyline3172UiCompatibility } from '../../../../platform/runtime-ui-compatibility.js';
 import { normalizeHex, shiftColorPresentation } from '../shift-color-picker/color.js';
 
 interface ValueInputEvent {
@@ -89,7 +88,6 @@ interface SchedulingConfigPageData {
   readonly largeText: boolean;
   readonly pageScrollStyle: string;
   readonly shellHeaderStyle: string;
-  readonly skyline3172UiCompatibility: boolean;
   readonly viewportClass: string;
 }
 
@@ -153,7 +151,6 @@ export function createSchedulingConfigPanelControllerDefinition() {
       largeText: false,
       pageScrollStyle: 'height:calc(100% - 76px);',
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
-      skyline3172UiCompatibility: needsCurrentRuntimeSkyline3172UiCompatibility(),
       viewportClass: '',
     } satisfies SchedulingConfigPageData,
 

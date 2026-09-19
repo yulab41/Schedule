@@ -192,31 +192,6 @@
   transition: height 240ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* The affected runtime pages the same three panels with a native horizontal
-   scroller, so the ring rides the platform's own momentum and follow-through. */
-.calendar-motion-frame {
-  width: 100%;
-  overflow: hidden;
-  /* The height is animated here rather than on the scroller: the platform
-     defers a height transition on the node that runs the smooth scroll. It runs a
-     touch shorter than the 240ms pane slide, because the height change also has to
-     be laid out — that makes both land together instead of the height trailing. */
-  transition: height 200ms cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.calendar-motion-viewport.is-compat {
-  height: 100%;
-  white-space: nowrap;
-}
-
-.calendar-pager-track {
-  display: flex;
-}
-
-.calendar-pager-pane {
-  flex: none;
-}
-
 .calendar-slide-panel {
   width: 100%;
 }

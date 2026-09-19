@@ -6,27 +6,6 @@
   white-space: normal;
 }
 
-.insights-dashboard-page.is-skyline-3172-ui .primary-statistics,
-.insights-dashboard-page.is-skyline-3172-ui .secondary-statistics {
-  display: flex;
-}
-
-.insights-dashboard-page.is-skyline-3172-ui .primary-statistic {
-  min-width: 0;
-  flex: 1;
-}
-
-.insights-dashboard-page.is-skyline-3172-ui .secondary-statistics {
-  flex-wrap: wrap;
-}
-
-.insights-dashboard-page.is-skyline-3172-ui .secondary-statistic {
-  width: calc(50% - 1px);
-}
-
-.insights-dashboard-page.is-skyline-3172-ui.is-compact .secondary-statistic {
-  width: 100%;
-}
 .is-large-text .page-title {
   font-size: 26px;
 }

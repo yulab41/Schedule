@@ -4,7 +4,7 @@
       wx:for="{{panel.cells}}"
       wx:for-item="cell"
       wx:key="businessDate"
-      style="height:{{panel.rowHeight || 54}}px;{{cellWidthStyle}}"
+      style="height:{{panel.rowHeight || 54}}px"
       class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
     >
       <calendar-cell
@@ -94,51 +94,7 @@
     <text class="is-weekend">六</text><text class="is-weekend">日</text>
   </view>
 
-  <!-- The affected runtime cannot animate a programmatic swiper jump, so the
-       same three-panel ring is paged by a native horizontal scroller there: the
-       platform animates the month and the grid follows the finger itself. -->
-  <!-- The platform defers a height transition on the node that is running a
-       smooth scroll, so on the affected runtime the animated height lives on a
-       wrapper and only the horizontal paging happens on the scroller itself. -->
-  <view
-    wx:if="{{skyline3172UiCompatibility}}"
-    class="calendar-motion-frame"
-    style="height:{{viewportHeight}}px"
-  >
-    <scroll-view
-      class="calendar-motion-viewport is-compat"
-      scroll-x
-      enhanced
-      bounces="{{false}}"
-      show-scrollbar="{{false}}"
-      scroll-with-animation="{{pagerAnimated}}"
-      scroll-into-view="{{pagerTarget}}"
-      bindtouchstart="handlePagerTouchStart"
-      bindscroll="handlePagerScroll"
-      bindtouchend="handlePagerTouchEnd"
-      bindtouchcancel="handlePagerTouchEnd"
-      aria-label="月历，可左右滑动切换月份"
-    >
-      <view class="calendar-pager-track" style="{{trackStyle}}">
-        <view
-          class="calendar-pager-pane"
-          style="{{paneStyle}}"
-          wx:for="{{compatPanes}}"
-          wx:for-item="panel"
-          wx:key="relative"
-          id="month-pane-{{index}}"
-          aria-hidden="{{panel.relative !== 0}}"
-        >
-          <template
-            is="calendar-month-grid"
-            data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility, cellWidthStyle: cellWidthStyle}}"
-          />
-        </view>
-      </view>
-    </scroll-view>
-  </view>
   <swiper
-    wx:else
     class="calendar-motion-viewport"
     style="height:{{viewportHeight}}px"
     current="{{swiperCurrent}}"
@@ -159,7 +115,7 @@
     >
       <template
         is="calendar-month-grid"
-        data="{{panel: panel, compact: compact, runtimePressedFeedbackCompatibility: runtimePressedFeedbackCompatibility, cellWidthStyle: ''}}"
+        data="{{panel: panel, compact: compact}}"
       />
     </swiper-item>
   </swiper>
