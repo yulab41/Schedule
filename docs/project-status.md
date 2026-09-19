@@ -19,9 +19,11 @@
 - 根因：宿主 cron 每分钟用 `docker compose run --rm` 为 export-jobs/duty-reminders/notification-retry 各起一个一次性容器（≈4320 次/天），privacy-retention 每 15 分钟再起一个；2 vCPU/1.6GB 上持续读镜像层、反复分配内存并挤出页缓存，把同一时刻的所有 API 请求一起拖慢。
 - 修复：`schedule-notifications.sh`/`schedule-privacy-retention.sh` 改为优先在常驻 `medical-schedule-prod-api-1` 内 `docker exec` 跑作业（频率与作业语义不变），只有常驻容器不可用才回退一次性容器；两个 spec 新增"默认路径不得是一次性容器"断言。
 - 服务器清理（同轮用户授权）：`/opt/schedule/releases` 642→2（只保留 current `e4b8d1f6` 与 manifest rollbackCandidate `44034fcc`），释放 ≈7.97GB；`/tmp` 992MB→88KB（清掉历史 `schedule-release-*`、`api-flat*`、`deploy-manifest-*` 与 token 残留）；`/root` 下 `$DIR` 与空垃圾目录已删；根分区 25G/67% → 17G/46%。
-- 已完成验证：`vitest infra/scripts/schedule-notifications.spec.ts infra/scripts/privacy-retention.spec.ts` 6/6、`release-controls.spec.ts`+`package-ecs-release.test.mjs` 32/32、prettier/eslint/`smoke:check-core` 通过；服务器上用同一份脚本 `bash -n` 通过、实跑三个作业成功且容器数保持 3。
-- 待办：提交推送 → `ecs:package` → 生产备份/部署 → `ecs-verify` → 重启 mysql/api 回收 swap 后复测首屏。小程序侧本轮只报告不改：首屏约 30–40 个请求、主包 1.7MB 未超 2MB 限制，不是本次根因。
-- 停止条件：部署后 `ecs-verify.sh` 通过、公网 `/api/health` 200、磁盘与 swap 回落，并给出可复现的首屏复测数据。
+- 本地验证：`vitest infra/scripts/schedule-notifications.spec.ts infra/scripts/privacy-retention.spec.ts` 6/6、`release-controls.spec.ts`+`package-ecs-release.test.mjs` 32/32、prettier/eslint/`smoke:check-core` 通过；服务器上用同一份脚本 `bash -n` 通过、实跑三个作业成功且容器数保持 3。
+- 生产部署（用户同轮授权）：`main`=`c45c54b5`（应用+调度脚本），部署前加密备份 `88b5f2f2-491b-44ed-84ce-2d9ac186dfb3`（56 表 / 283148 行 / 119433792 字节，SHA-256 `72ddef06…3f7f`）；live release `c45c54b5a021c26c455596393670332d86844b74`、schema 62、rollback candidate 换成 `e4b8d1f6`；完整 `ecs-verify.sh` 通过（`[verify] complete`），公网 health=200。
+- 服务器复测（23:40–23:55）：磁盘 25G/67% → 13G/33%（可用 25G）；`/opt/schedule` 8.1G → 174M；`/opt/schedule/releases` 只留 current 与 rollback candidate 两个；swap 1080MB → 201MB（mysqld 换出页归零，仅剩 fwupd 131MB）；IO pressure full avg300 34.8% → 2.2%、memory 16.7% → 1.3%；对 `/api/health` 70 次采样 min 7ms / p50 8ms / p90 9ms / max 15ms；210 秒观察窗内新建容器 0 个（此前约 7–8 个/150 秒），通知与隐私保留作业仍按每分钟/每 15 分钟执行。
+- 小程序侧结论（本轮只诊断未改）：主包 1,709,420 字节（dist 总量 4,551,662），未超 2MB；正常路径冷启动约 25–30 个请求。卡顿窗口实测 91 个请求，其中 41 个是 `<G>/calendar`（±3 月窗口 + 12 秒超时后重试放大），10 个请求被客户端 12 秒超时放弃。故"屎山代码"不是根因，但客户端重试会在服务器变慢时把流量放大数倍，值得后续单独批次评估。
+- 停止条件已满足。唯一下一任务：小米 14 打开体验版 `0.1.0-p10.20260919.179` 复测日历/通讯录/换班/我的首屏是否恢复秒开；若仍慢，按"客户端请求放大"方向单独立项，不重复清理服务器。
 
 ## 上一批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
 
