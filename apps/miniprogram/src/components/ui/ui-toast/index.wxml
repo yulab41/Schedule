@@ -1,6 +1,6 @@
 <root-portal enable="{{true}}">
   <view
-    class="ui-toast__layer {{isVisible ? 'is-visible' : ''}}"
+    class="ui-toast__layer ui-root-portal-token-scope {{isVisible ? 'is-visible' : ''}}"
     style="top:{{safeTopOffset}}px;"
     aria-hidden="{{!isVisible}}"
     aria-role="status"

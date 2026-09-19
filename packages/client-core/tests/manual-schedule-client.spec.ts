@@ -182,10 +182,14 @@ describe('manual schedule client', () => {
     ).toBe(false);
   });
 
-  it('accepts a 30-day preview response and rejects a 31-day response', () => {
+  it('accepts a 366-day preview response and rejects a 367-day response', () => {
     expect(manualApplyPreviewDecoder.safeDecode(decodedPreview).success).toBe(true);
     expect(
-      manualApplyPreviewDecoder.safeDecode({ ...decodedPreview, applyEndDate: '2026-01-31' })
+      manualApplyPreviewDecoder.safeDecode({ ...decodedPreview, applyEndDate: '2027-01-01' })
+        .success,
+    ).toBe(true);
+    expect(
+      manualApplyPreviewDecoder.safeDecode({ ...decodedPreview, applyEndDate: '2027-01-02' })
         .success,
     ).toBe(false);
     expect(

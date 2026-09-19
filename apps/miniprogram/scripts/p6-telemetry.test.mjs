@@ -254,7 +254,6 @@ describe('P6 anonymous Mini telemetry', () => {
     expect(normalizeNetworkType('ethernet')).toBe('unknown');
     expect(resolveTelemetryPage('pages/identity/unbind')).toBe('identity');
     expect(resolveTelemetryPage('pages/workbench/index')).toBe('workbench');
-    expect(resolveTelemetryPage('pages/manual-matrix-poc/index')).toBe('manual-matrix');
     expect(resolveTelemetryPage('subpackages/scheduling/pages/manual/index')).toBe(
       'manual-schedule',
     );
@@ -312,17 +311,12 @@ describe('P6 anonymous Mini telemetry', () => {
 
   it('emits existing callback-delimited performance metrics without default visual patches', () => {
     const workbench = readSource('pages/workbench/index.ts');
-    const matrix = readSource('pages/manual-matrix-poc/index.ts');
-    for (const source of [workbench, matrix]) {
+    for (const source of [workbench]) {
       expect(source).toContain('_performanceDiagnosticsEnabled');
       expect(source).toContain('recordMiniTelemetryPerformance');
     }
     expect(workbench).toContain("recordMiniTelemetryPerformance('workbench'");
-    expect(matrix).toContain("recordMiniTelemetryPerformance('manual-matrix'");
     expect(workbench).toMatch(
-      /recordMiniTelemetryPerformance[\s\S]*if \(!page\._performanceDiagnosticsEnabled\) return;[\s\S]*performanceEvidence/u,
-    );
-    expect(matrix).toMatch(
       /recordMiniTelemetryPerformance[\s\S]*if \(!page\._performanceDiagnosticsEnabled\) return;[\s\S]*performanceEvidence/u,
     );
   });

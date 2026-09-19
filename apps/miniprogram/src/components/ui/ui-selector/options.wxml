@@ -9,7 +9,6 @@
   <scroll-view
     wx:if="{{open}}"
     class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}} {{popoverPlacementReady ? 'is-ready' : 'is-measuring'}}"
-    type="list"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"

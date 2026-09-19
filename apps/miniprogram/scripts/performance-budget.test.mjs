@@ -59,12 +59,6 @@ describe('P6 Mini Program performance budget', () => {
       maximumMatrixViewModelBytes: 171341,
       maximumMatrixStructures: [
         {
-          maxDepth: 30,
-          maxDirectChildren: 60,
-          nodeCount: 1400,
-          path: 'pages/manual-matrix-poc/index.wxml',
-        },
-        {
           maxDepth: 29,
           maxDirectChildren: 59,
           nodeCount: 1600,
@@ -94,8 +88,7 @@ describe('P6 Mini Program performance budget', () => {
       tapPatchPaths: 2,
     });
     expect(MAXIMUM_MATRIX_NODE_NO_GROWTH_CEILINGS).toEqual({
-      'pages/manual-matrix-poc/index.wxml': 1445,
-      'subpackages/scheduling/pages/manual/index.wxml': 1506,
+      'subpackages/scheduling/pages/manual/index.wxml': 1507,
     });
     expect(DESKTOP_LOGIC_SMOKE_CEILINGS).toEqual({
       maximumMatrixModelMs: 1000,
@@ -105,8 +98,6 @@ describe('P6 Mini Program performance budget', () => {
       expect.arrayContaining([
         expect.stringContaining('desktop matrix model logic'),
         expect.stringContaining('matrix view-model payload'),
-        expect.stringContaining('pages/manual-matrix-poc/index.wxml depth'),
-        expect.stringContaining('pages/manual-matrix-poc/index.wxml direct children'),
         expect.stringContaining('desktop tap handler logic'),
         expect.stringContaining('tap patch paths'),
         expect.stringContaining('WXS hot path'),
@@ -114,9 +105,6 @@ describe('P6 Mini Program performance budget', () => {
       ]),
     );
     expect(result.warnings).toEqual([
-      expect.stringContaining(
-        'pages/manual-matrix-poc/index.wxml expanded host-element lower bound is 1400',
-      ),
       expect.stringContaining(
         'subpackages/scheduling/pages/manual/index.wxml expanded host-element lower bound is 1600',
       ),
@@ -126,24 +114,17 @@ describe('P6 Mini Program performance budget', () => {
 
   it('keeps verify wired to the performance audit and the WXS matrix hot path free of setData', async () => {
     const verifySource = await readFile(new URL('./verify.mjs', import.meta.url), 'utf8');
-    const matrixSource = await readFile(
-      new URL('../src/pages/manual-matrix-poc/index.ts', import.meta.url),
-      'utf8',
-    );
     const workbenchSource = await readFile(
       new URL('../src/pages/workbench/index.ts', import.meta.url),
       'utf8',
     );
     const wxsSource = await readFile(
-      new URL('../src/pages/manual-matrix-poc/matrix-gesture.wxs', import.meta.url),
+      new URL('../src/subpackages/scheduling/pages/manual/matrix-gesture.wxs', import.meta.url),
       'utf8',
     );
 
     expect(verifySource).toContain('auditMiniProgramPerformance');
     expect(verifySource).toContain('miniprogram-performance');
-    expect(matrixSource).toContain("options.performance === '1'");
-    expect(matrixSource).toContain("complete('maximum-matrix-render')");
-    expect(matrixSource).toContain("complete('tap-feedback')");
     expect(workbenchSource).toContain("options.performance === '1'");
     expect(workbenchSource).toContain("complete('core-ready')");
     expect(workbenchSource).toContain("complete('foreground-ready')");

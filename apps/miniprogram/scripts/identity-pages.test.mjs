@@ -19,8 +19,6 @@ describe('P3 native identity pages', () => {
       'pages/identity/index',
       'pages/workbench/index',
       'pages/index/index',
-      'pages/calendar-poc/index',
-      'pages/manual-matrix-poc/index',
       'pages/gesture-probe/index',
       'pages/admin-bind/preview',
     ];

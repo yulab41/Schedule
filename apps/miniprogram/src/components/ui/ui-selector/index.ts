@@ -6,6 +6,7 @@ import {
   type SelectorOption,
 } from './selector.js';
 interface Instance extends SelectorInstance {
+  readonly data: { readonly open: boolean };
   readonly properties: {
     readonly options: readonly SelectorOption[];
     readonly selectedIndex: number;
@@ -53,7 +54,9 @@ Component({
   observers: {
     options(this: Instance) {
       if (this.data.open)
-        this.setData({ renderedOptions: createRenderedOptions(this.properties.options) });
+        this.setData({
+          renderedOptions: createRenderedOptions(this.properties.options),
+        });
     },
   },
   methods: {

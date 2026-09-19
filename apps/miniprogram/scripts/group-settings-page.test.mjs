@@ -126,7 +126,7 @@ describe('native P5 group mobile-phone consent page', () => {
     const styles = readFileSync(path.join(componentRoot, 'index.wxss'), 'utf8');
     const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
     const pageJson = JSON.parse(readPageFile('json'));
-    expect(pageJson.renderer).toBe('skyline');
+    expect(pageJson.renderer).toBe('webview');
     expect(pageJson.usingComponents['ui-switch']).toBe('/components/ui/ui-switch/index');
     expect(template).toContain('checked="{{desiredConsent}}"');
     expect(template).toContain('loading="{{isSaving}}"');

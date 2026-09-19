@@ -27,9 +27,9 @@ Storybook、静态构建和 `miniprogram-simulate` 负责开发期快速回归�
 | 编译模式 | 页面路径                        | query          |
 | -------- | ------------------------------- | -------------- |
 | 基础控件 | `pages/index/index`             | 留空           |
-| 月历     | `pages/calendar-poc/index`      | 留空           |
-| 日常矩阵 | `pages/manual-matrix-poc/index` | `mode=daily`   |
-| 最大矩阵 | `pages/manual-matrix-poc/index` | `mode=maximum` |
+| 月历     | `pages/workbench/index`         | 月视图         |
+| 日常矩阵 | `subpackages/scheduling/pages/manual/index` | 7 人左右群组 |
+| 最大矩阵 | `subpackages/scheduling/pages/manual/index` | 20 人 × 30 天群组 |
 | 手势探针 | `pages/gesture-probe/index`     | 留空           |
 
 本轮都是确定性 PoC，不登录、不调用业务 API、不修改正式排班。

@@ -1,4 +1,4 @@
-@import '../../../styles/ui-toast-tokens.wxss';
+@import '../../../styles/ui-root-portal-tokens.wxss';
 
 .ui-toast__layer {
   position: fixed;

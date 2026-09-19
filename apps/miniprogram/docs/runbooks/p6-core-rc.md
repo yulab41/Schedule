@@ -9,7 +9,7 @@
 ## 交付前自动证据
 
 - 20×30 view-model 为 171,340 bytes，作为不得增长的自动门禁。
-- PoC 展开后的宿主元素下界为 1,445，正式手排 editor 为 1,506；两者都明确未达到“节点尽量少于 1,000”。当前处置是公开警告并冻结各自基线，不把它写成通过项。
+- 正式手排 editor 展开后的宿主元素下界为 1,507，明确未达到“节点尽量少于 1,000”。当前处置是公开警告并冻结基线，不把它写成通过项。该值在 2026-09-19 由 1,506 重定基线：开发期 PoC 页已删除，20×30 的合成输入改由 `scripts/fixtures/manual-matrix.mjs` 提供（同一生产模板在合成输入下多渲染 1 个节点），模型构造与点格写入路径同时改为 `check:performance` 自动化测量。
 - PoC/正式手排的深度和最大直接子项分别为 `8/31`、`11/31`，满足 `<30/<60`。
 - WXS 滚动热路径 `setData` 为 0；点击只允许最多两个动态 cell path。
 - 桌面模型与 handler 计时只作为算法烟测，不作为下列 Android 阈值证据。
@@ -27,8 +27,8 @@
 | ------------ | ------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------- | ---: | -------------: |
 | 工作台冷启动 | `pages/workbench/index`，`performance=1`                      | `onLoad` 中 shell/capability 读取前            | 首个 `ready/offline` 数据的 `setData` callback |    5 | 最大值 ≤2500ms |
 | 前台恢复     | 同上                                                          | 非首次 `onShow` 中 capability 读取前           | 刷新后 `ready/offline` 的 `setData` callback   |    5 | 最大值 ≤2500ms |
-| 20×30 渲染   | `pages/manual-matrix-poc/index`，`mode=maximum&performance=1` | maximum view-model 构造完成、调用 `setData` 前 | 承载 600 格的 `setData` callback               |    5 | 最大值 ≤1000ms |
-| 点格反馈     | 同上                                                          | 合法 tap 已解析、单格 mutation 前              | 目标 cell patch 的 `setData` callback          |   10 |  最大值 ≤100ms |
+| 20×30 渲染   | 自动化（`pnpm --filter @schedule/miniprogram check:performance`） | 20×30 视图模型构造开始                         | 构造完成（同一 `maximumMatrixRenderMs` 阈值）  |    5 | 最大值 ≤1000ms |
+| 点格反馈     | 自动化（同上，走共享 `@schedule/presentation-core` 契约）      | 合法 tap 解析开始                              | mutation/selection 完成（≤2 个 cell 路径）      |   10 |  最大值 ≤100ms |
 
 ## 操作步骤
 
@@ -52,8 +52,6 @@ buildLabel:
 deviceModel / Android / WeChat / baseLibrary / fontScale:
 core-ready samplesMs: [,,,,] maxMs: /2500 result:
 foreground-ready samplesMs: [,,,,] maxMs: /2500 result:
-maximum-matrix-render samplesMs: [,,,,] maxMs: /1000 result:
-tap-feedback samplesMs: [,,,,,,,,,] maxMs: /100 result:
 weak-network / offline / foreground / scroll-jank result:
 symptomOnFailure:
 ```

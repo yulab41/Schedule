@@ -237,8 +237,8 @@
                 min="{{todayDate}}"
                 value="{{startDate}}"
                 display-value="{{startDateDisplay}}"
-                title="开始日期"
-                bindchange="handleStartDateChange"
+            title="开始日期"
+            bindchange="handleStartDateChange"
               ></workflow-picker>
             </view>
             <view class="field-block">
@@ -248,8 +248,8 @@
                 min="{{endDateMin}}"
                 value="{{endDate}}"
                 display-value="{{endDateDisplay}}"
-                title="结束日期"
-                bindchange="handleEndDateChange"
+            title="结束日期"
+            bindchange="handleEndDateChange"
               ></workflow-picker>
             </view>
           </view>
@@ -314,7 +314,10 @@
             ><text>{{approvalErrorMessage}}</text></view
           >
           <view wx:if="{{approvalBusy && !approvalPreviewReady}}" class="preview-loading"
-            ><view class="native-spinner"></view><text>正在生成请假预览</text></view
+            ><view class="native-spinner"></view
+            ><text
+              >正在生成请假预览</text
+            ></view
           >
           <view wx:if="{{approvalPreviewReady}}" class="approval-preview">
             <view class="impact-count">请假期间涉及 {{approvalShiftCount}} 个已发布班次。</view>
@@ -355,4 +358,5 @@
       </view>
     </view>
   </ui-sheet>
+
 </view>

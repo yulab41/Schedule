@@ -5,6 +5,7 @@
   text-overflow: clip;
   white-space: normal;
 }
+
 .is-large-text .page-title {
   font-size: 26px;
 }

@@ -1,6 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "calendar-month": "/components/calendar/calendar-month/index"
-  }
-}

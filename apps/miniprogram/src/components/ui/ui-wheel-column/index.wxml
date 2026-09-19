@@ -6,18 +6,16 @@
   aria-label="{{ariaLabel}}"
   data-runtime-key="{{wheelConfig.runtimeKey}}"
   data-generation="{{wheelConfig.generation}}"
+  data-item-count="{{wheelConfig.itemCount}}"
+  data-base-index="{{wheelLayoutIndex}}"
   wheel-config="{{wheelConfig}}"
   change:wheel-config="{{wheelGesture.configure}}"
-  bindtouchstart="{{wheelGesture.touchStart}}"
-  bindtouchmove="{{wheelGesture.touchMove}}"
+  catchtouchstart="{{wheelGesture.touchStart}}"
+  catchtouchmove="{{wheelGesture.touchMove}}"
   bindtouchend="{{wheelGesture.touchEnd}}"
   bindtouchcancel="{{wheelGesture.touchCancel}}"
 >
-  <view
-    id="ui-wheel-track"
-    class="ui-wheel-track"
-    style="transform:translateY({{wheelInitialOffset}}px)"
-  >
+  <view id="ui-wheel-track" class="ui-wheel-track" style="{{wheelTrackStyle}}">
     <view class="ui-wheel-spacer"></view>
     <view
       wx:for="{{items}}"
@@ -34,7 +32,8 @@
       bindtap="handleItemTap"
     >
       <text id="ui-wheel-number-{{index}}" class="ui-wheel-number">{{item.label}}</text>
-      <text wx:if="{{unit}}" class="ui-wheel-unit">{{unit}}</text>
+      <text wx:if="{{item.unit}}" class="ui-wheel-unit">{{item.unit}}</text>
+      <text wx:else class="ui-wheel-unit">{{unit}}</text>
     </view>
     <view class="ui-wheel-spacer"></view>
   </view>

@@ -1,7 +1,6 @@
 <scroll-view
   class="shift-event-sheet-scroll"
   scroll-y
-  type="list"
   enhanced
   show-scrollbar="{{false}}"
 >

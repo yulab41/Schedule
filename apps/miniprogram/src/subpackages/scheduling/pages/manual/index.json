@@ -1,7 +1,7 @@
 {
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "ui-selector": "/components/ui/ui-selector/index",
     "ui-sheet": "/components/ui/ui-sheet/index",

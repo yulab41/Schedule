@@ -42,7 +42,9 @@ describe('EXP-CALENDAR-003 date picker contract', () => {
     expect(template).not.toContain('<wxs');
     expect(controller).toContain('handleDateSwiperChangeStart');
     expect(controller).toContain('handleDateSwiperFinish');
-    expect(controller).toContain('dateLocateTarget');
+    // The today locator is an explicit one-step re-center, not a queued shift.
+    expect(controller).toMatch(/handleDateToday[\s\S]{0,700}resetDatePager\(this\)/u);
+    expect(controller).not.toContain('dateLocateTarget');
     expect(controller).not.toContain('dateSwiperIndex: 1 });');
   });
 

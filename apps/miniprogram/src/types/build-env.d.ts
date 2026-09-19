@@ -5,22 +5,12 @@ declare const __MINIPROGRAM_BUILD_DIRTY__: boolean;
 declare const __MINIPROGRAM_BUILD_PROFILE__: 'staging' | 'production';
 declare const __MINIPROGRAM_BUILD_TIME__: string;
 declare const __MINIPROGRAM_BUILD_VERSION__: string;
-
 declare function App<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function Component<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function getApp<TApp = Record<string, unknown>>(): TApp;
 declare function Page<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function setTimeout(callback: () => void, milliseconds: number): unknown;
 declare function clearTimeout(timeout: unknown): void;
-
-interface MiniProgramSharedValue<T> {
-  value: T;
-}
-
-interface MiniProgramWorkletAnimationConfig {
-  readonly duration: number;
-  readonly easing: unknown;
-}
 
 interface MiniProgramWindowInfo {
   readonly screenHeight: number;
@@ -150,38 +140,4 @@ declare const wx: {
     readonly title?: string;
   }): void;
   showToast?(options: { readonly icon: 'none' | 'success'; readonly title: string }): void;
-  readonly worklet: {
-    readonly Easing: {
-      bezier(x1: number, y1: number, x2: number, y2: number): unknown;
-    };
-    cancelAnimation<T>(sharedValue: MiniProgramSharedValue<T>): void;
-    decay(
-      options: {
-        readonly clamp?: readonly [number, number];
-        readonly deceleration?: number;
-        readonly velocity?: number;
-      },
-      callback?: (finished: boolean) => void,
-    ): number;
-    runOnJS<TArguments extends readonly unknown[]>(
-      callback: (...arguments_: TArguments) => void,
-    ): (...arguments_: TArguments) => void;
-    readonly scrollViewContext: {
-      scrollTo(
-        reference: unknown,
-        options: {
-          readonly animated?: boolean;
-          readonly duration?: number;
-          readonly left?: number;
-          readonly top?: number;
-        },
-      ): void;
-    };
-    shared<T>(initialValue: T): MiniProgramSharedValue<T>;
-    timing(
-      target: number,
-      config: MiniProgramWorkletAnimationConfig,
-      callback?: (finished: boolean) => void,
-    ): number;
-  };
 };

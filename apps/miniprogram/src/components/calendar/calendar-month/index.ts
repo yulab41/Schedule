@@ -44,6 +44,10 @@ interface CalendarMonthInstance {
   };
   continueQueuedShift(): void;
   finishPeriodShift(): void;
+  readonly properties: {
+    readonly gridHeight: number;
+    readonly panels: readonly { readonly relative: number }[];
+  };
   startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail?: unknown): void;
@@ -99,27 +103,7 @@ Component({
       if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
     },
     handleMonthSwipe(this: CalendarMonthInstance, event: MonthSwipeEvent): void {
-      const { current } = event.detail;
-      const state = readMonthPagerState(this);
-      if (!isCalendarPeriodSlot(current)) return;
-      if (current === state.swiperSlot) {
-        if (state.targetSlot === undefined) return;
-        cancelCalendarPeriodShift(state);
-        writeMonthPagerState(this, state);
-        const viewportHeight = this.data.panelHeights?.[state.activeSlot] ?? 270;
-        if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
-        return;
-      }
-      const committed = commitCalendarPeriodSwipe(state, current);
-      writeMonthPagerState(this, state);
-      // Keep the bound index aligned with the native swiper without delaying the
-      // month patch behind an extra render round trip.
-      const patch: Record<string, unknown> = { swiperCurrent: current };
-      const viewportHeight = this.data.panelHeights?.[current] ?? 270;
-      if (viewportHeight !== this.data.viewportHeight) patch.viewportHeight = viewportHeight;
-      this.setData(patch);
-      if (committed === undefined) return;
-      this.triggerEvent('monthchange', committed);
+      finishMonthSwipeAt(this, event.detail.current);
     },
     startProgrammaticShift(
       this: CalendarMonthInstance,
@@ -134,9 +118,9 @@ Component({
       this.setData({ stepMotion: '' }, () => {
         this.setData({
           stepMotion: delta < 0 ? 'previous' : 'next',
+          viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
           swiperCurrent: targetIndex,
           swiperDuration: CALENDAR_PERIOD_SWIPER_DURATION_MS,
-          viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
         });
       });
     },
@@ -186,6 +170,29 @@ function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPag
     swiperSlot: instance._monthSwiperSlot ?? instance._monthActiveSlot ?? 1,
     targetSlot: instance._monthHeightTargetIndex,
   };
+}
+
+function finishMonthSwipeAt(instance: CalendarMonthInstance, current: number): void {
+  const state = readMonthPagerState(instance);
+  if (!isCalendarPeriodSlot(current)) return;
+  if (current === state.swiperSlot) {
+    if (state.targetSlot === undefined) return;
+    cancelCalendarPeriodShift(state);
+    writeMonthPagerState(instance, state);
+    const viewportHeight = instance.data.panelHeights?.[state.activeSlot] ?? 270;
+    if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
+    return;
+  }
+  const committed = commitCalendarPeriodSwipe(state, current);
+  writeMonthPagerState(instance, state);
+  // Keep the bound index aligned with the native swiper without delaying the
+  // month patch behind an extra render round trip.
+  const patch: Record<string, unknown> = { swiperCurrent: current };
+  const viewportHeight = instance.data.panelHeights?.[current] ?? 270;
+  if (viewportHeight !== instance.data.viewportHeight) patch.viewportHeight = viewportHeight;
+  instance.setData(patch);
+  if (committed === undefined) return;
+  instance.triggerEvent('monthchange', committed);
 }
 
 function writeMonthPagerState(

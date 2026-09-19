@@ -34,6 +34,7 @@
   font-weight: var(--ui-font-weight-semibold);
 }
 
+
 .ui-wheel-item.is-pressed {
   color: var(--ui-color-primary);
 }

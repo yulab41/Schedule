@@ -1,6 +1,7 @@
 interface UiWheelColumnItem {
   readonly ariaLabel?: string;
   readonly label: string;
+  readonly unit?: string;
 }
 
 interface UiWheelReport {
@@ -31,7 +32,10 @@ interface UiWheelColumnInstance {
   readonly data: {
     readonly internalSelectedIndex: number;
     readonly wheelConfig: UiWheelConfig;
-    readonly wheelInitialOffset: number;
+    readonly wheelLayoutIndex: number;
+    readonly wheelLayoutOffset: number;
+    readonly wheelTrackOffset: number;
+    readonly wheelTrackStyle: string;
   };
   readonly properties: {
     readonly animateCommand: boolean;
@@ -71,7 +75,10 @@ Component({
       runtimeKey: 'ui-wheel',
       selectedIndex: 0,
     } as UiWheelConfig,
-    wheelInitialOffset: 0,
+    wheelLayoutIndex: 0,
+    wheelLayoutOffset: 0,
+    wheelTrackOffset: 0,
+    wheelTrackStyle: '',
   },
 
   observers: {
@@ -124,8 +131,7 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
   const previousConfig = instance.data.wheelConfig;
   const shouldReposition =
     previousConfig.runtimeKey !== nextConfig.runtimeKey ||
-    previousConfig.generation !== nextConfig.generation ||
-    previousConfig.commandRevision !== nextConfig.commandRevision;
+    previousConfig.generation !== nextConfig.generation;
   if (instance._acceptedGeneration !== nextConfig.generation) {
     instance._acceptedGeneration = nextConfig.generation;
     instance._acceptedSequence = 0;
@@ -138,7 +144,14 @@ function syncWheelConfig(instance: UiWheelColumnInstance): void {
     internalSelectedIndex: nextConfig.selectedIndex,
     wheelConfig: nextConfig,
   };
-  if (shouldReposition) patch.wheelInitialOffset = -nextConfig.selectedIndex * uiWheelItemHeight;
+  // The template carries the wheel's base position and the gesture only paints its
+  // delta, so a re-render can never clobber the WXS-owned transform.
+  if (shouldReposition) {
+    patch.wheelLayoutIndex = nextConfig.selectedIndex;
+    patch.wheelLayoutOffset = -nextConfig.selectedIndex * uiWheelItemHeight;
+    patch.wheelTrackOffset = 0;
+    patch.wheelTrackStyle = createWheelTrackStyle(-nextConfig.selectedIndex * uiWheelItemHeight);
+  }
   instance.setData(patch);
 }
 
@@ -192,8 +205,30 @@ function acceptWheelReport(
     runtimeKey: detail.runtimeKey,
     sequence,
   } as const;
-  instance.setData({ internalSelectedIndex: index });
+  instance.setData({
+    internalSelectedIndex: index,
+    ...createWheelTrackStylePatch(instance, normalizedDetail.offset),
+  });
   instance.triggerEvent(eventName, normalizedDetail);
+}
+
+function createWheelTrackStylePatch(
+  instance: UiWheelColumnInstance,
+  absoluteOffset: number,
+): { wheelTrackOffset: number; wheelTrackStyle: string } {
+  const baseIndex = normalizedInteger(instance.data.wheelLayoutIndex);
+  const layoutOffset = -baseIndex * uiWheelItemHeight;
+  const delta = absoluteOffset + baseIndex * uiWheelItemHeight;
+  return {
+    wheelTrackOffset: delta,
+    wheelTrackStyle: createWheelTrackStyle(layoutOffset),
+  };
+}
+
+// The wheel's resting position rides the template through `margin-top`; the
+// gesture owns only the delta, so a re-render can never clobber its transform.
+function createWheelTrackStyle(layoutOffset: number): string {
+  return `margin-top:${layoutOffset}px`;
 }
 
 function boundedIndex(value: unknown, itemCount: number): number | undefined {

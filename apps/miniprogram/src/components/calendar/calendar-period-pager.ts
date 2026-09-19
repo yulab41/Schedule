@@ -3,8 +3,6 @@ export type CalendarPeriodRelative = -1 | 0 | 1;
 
 export const CALENDAR_PERIOD_SWIPER_DURATION_MS = 240;
 export const CALENDAR_PERIOD_SWIPER_EASING_FUNCTION = 'easeOutCubic';
-export const CALENDAR_PERIOD_HEIGHT_TRANSITION = 'cubic-bezier(0.33, 1, 0.68, 1)';
-
 export interface CalendarPeriodPagerState {
   /** Ring slot that currently renders the logical current period. */
   activeSlot: CalendarPeriodSlot;

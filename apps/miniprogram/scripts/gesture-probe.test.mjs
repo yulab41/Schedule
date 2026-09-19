@@ -44,18 +44,21 @@ describe('P1 Android gesture capability probe', () => {
     expect(appConfig.pages).toContain('pages/gesture-probe/index');
     expect(pageConfig).toMatchObject({ disableScroll: false, navigationStyle: 'custom' });
     expect(entryTemplate).toContain('url="/pages/gesture-probe/index"');
-    expect(entryTemplate).toContain('Android 手势能力探针');
+    expect(entryTemplate).toContain('诊断探针');
   });
 
-  it('uses the official minimal plain-view Pan pattern beside an ordinary touch-event probe', () => {
+  it('keeps the renderer-agnostic touch and WXS probes without any Worklet surface', () => {
     const template = readSource('pages/gesture-probe/index.wxml');
     const styles = readSource('pages/gesture-probe/index.wxss');
     const source = readSource('pages/gesture-probe/index.ts');
     const worklets = findWorkletIssues(source, 'pages/gesture-probe/index.ts');
 
-    expect(template).toMatch(
-      /<pan-gesture-handler[\s\S]*?class="worklet-probe-handler"[\s\S]*?style="width:\s*280px;\s*height:\s*220px"[\s\S]*?worklet:ongesture="handleProbePan"[\s\S]*?id="gesture-probe-dot"/u,
-    );
+    // The app requests the WebView renderer, so the Skyline Worklet probe is gone:
+    // a `worklet:ongesture` handler never runs there and only kept dead weight in
+    // the main package.
+    expect(template).not.toContain('pan-gesture-handler');
+    expect(template).not.toContain('worklet:');
+    expect(source).not.toContain('wx.worklet');
     expect(template).not.toContain('native-view');
     expect(template).not.toContain('<scroll-view');
     expect(template).toContain('bindtouchstart="handleTouchStart"');
@@ -64,21 +67,20 @@ describe('P1 Android gesture capability probe', () => {
     expect(template).toContain('{{sdkVersion}}');
     expect(template).toContain('{{platform}}');
     expect(template).toContain('{{model}}');
-    expect(styles).toMatch(/\.worklet-probe-handler\s*\{[^}]*display:\s*block;/su);
-    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#gesture-probe-dot['"]/u);
+    expect(styles).not.toContain('.worklet-probe-handler');
+    expect(styles).not.toContain('.gesture-probe-dot');
     expect(source).toContain('wx.getAppBaseInfo');
     expect(source).toContain('wx.getDeviceInfo');
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBe(2);
+    expect(worklets.count).toBe(0);
   });
 
-  it('moves the shared dot on ACTIVE while ordinary touch events update only diagnostic state', async () => {
+  it('updates only diagnostic state from ordinary touch events', async () => {
     let definition;
     vi.stubGlobal('wx', {
       getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop', version: 'test' } }),
       getAppBaseInfo: () => ({ SDKVersion: '3.17.1', version: '8.0.60' }),
       getDeviceInfo: () => ({ model: 'Android probe', platform: 'android' }),
-      worklet: { shared: (value) => ({ value }) },
     });
     vi.stubGlobal('Page', (value) => {
       definition = value;
@@ -88,7 +90,6 @@ describe('P1 Android gesture capability probe', () => {
     const setData = vi.fn();
     const instance = {
       data: structuredClone(definition.data),
-      applyAnimatedStyle: vi.fn(),
       setData(patch, callback) {
         Object.assign(this.data, patch);
         setData(patch);
@@ -99,9 +100,6 @@ describe('P1 Android gesture capability probe', () => {
     await definition.onShow.call(instance);
     setData.mockClear();
 
-    definition.handleProbePan.call(instance, { deltaX: 24, deltaY: -18, state: 2 });
-    expect(instance._probeX.value).toBe(24);
-    expect(instance._probeY.value).toBe(-18);
     expect(setData).not.toHaveBeenCalled();
 
     definition.handleTouchStart.call(instance);
@@ -116,12 +114,12 @@ describe('P1 Android gesture capability probe', () => {
   it('fails closed before initializing probe state in release', async () => {
     let definition;
     const redirectTo = vi.fn();
-    const shared = vi.fn((value) => ({ value }));
+    const getDeviceInfo = vi.fn();
     vi.stubGlobal('wx', {
       getAccountInfoSync: () => ({ miniProgram: { envVersion: 'release', version: '1.0.0' } }),
+      getDeviceInfo,
       redirectTo,
       showToast: vi.fn(),
-      worklet: { shared },
     });
     vi.stubGlobal('Page', (value) => {
       definition = value;
@@ -135,7 +133,7 @@ describe('P1 Android gesture capability probe', () => {
     await definition.onShow.call(instance);
 
     expect(redirectTo).toHaveBeenCalledWith({ url: '/pages/workbench/index' });
-    expect(shared).not.toHaveBeenCalled();
+    expect(getDeviceInfo).not.toHaveBeenCalled();
   });
 
   it('keeps direct-entry data blank until grant and cancels pending grant after hide', async () => {
@@ -179,7 +177,6 @@ describe('P1 Android gesture capability probe', () => {
     vi.stubGlobal('wx', {
       getAppBaseInfo: () => ({ version: 'test' }),
       getDeviceInfo: () => ({ model: 'synthetic device' }),
-      worklet: { shared: (value) => ({ value }) },
     });
     vi.stubGlobal('Page', (value) => {
       definition = value;
@@ -187,7 +184,6 @@ describe('P1 Android gesture capability probe', () => {
     await import('../src/pages/gesture-probe/index.ts');
     const instance = {
       data: structuredClone(definition.data),
-      applyAnimatedStyle: vi.fn(),
       setData(patch, callback) {
         Object.assign(this.data, patch);
         callback?.();
@@ -213,7 +209,7 @@ describe('P1 Android gesture capability probe', () => {
     const template = readSource('pages/gesture-probe/index.wxml');
     const styles = readSource('pages/gesture-probe/index.wxss');
     const wxsSource = readSource('pages/gesture-probe/drag-probe.wxs');
-    const matrixTemplate = readSource('pages/manual-matrix-poc/index.wxml');
+    const matrixTemplate = readSource('subpackages/scheduling/pages/manual/index.wxml');
 
     expect(template).toContain('<wxs module="wxsProbe" src="./drag-probe.wxs"></wxs>');
     expect(template).toContain('bindtouchstart="{{wxsProbe.touchStart}}"');
@@ -285,7 +281,6 @@ describe('P1 Android gesture capability probe', () => {
     vi.stubGlobal('wx', {
       getAppBaseInfo: () => ({ SDKVersion: '3.17.1', version: '8.0.60' }),
       getDeviceInfo: () => ({ model: 'Android probe', platform: 'android' }),
-      worklet: { shared: (value) => ({ value }) },
     });
     vi.stubGlobal('Page', (value) => {
       definition = value;

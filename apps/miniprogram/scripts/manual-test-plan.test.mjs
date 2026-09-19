@@ -17,9 +17,9 @@ describe('P1 user-operated native test plan', () => {
     });
     expect(plan.cases.map((entry) => entry.route)).toEqual([
       'pages/index/index',
-      'pages/calendar-poc/index',
-      'pages/manual-matrix-poc/index?mode=daily',
-      'pages/manual-matrix-poc/index?mode=maximum',
+      'pages/workbench/index',
+      'subpackages/scheduling/pages/manual/index',
+      'subpackages/scheduling/pages/manual/index',
       'pages/gesture-probe/index',
     ]);
     expect(plan.cases.map((entry) => entry.states)).toEqual([
@@ -45,7 +45,13 @@ describe('P1 user-operated native test plan', () => {
         'cell-selected',
         'undo',
       ],
-      ['worklet-pan', 'wxs-view-layer-touch', 'ordinary-touch', 'device-runtime'],
+      [
+        'wxs-view-layer-touch',
+        'ordinary-touch',
+        'wheel-column',
+        'workspace-stress',
+        'device-runtime',
+      ],
     ]);
     expect(plan.cases.at(-1)).toMatchObject({ diagnosticOnly: true });
     expect(plan.completion).toMatchObject({ screenshotsRequiredOnPass: false });

@@ -11,19 +11,26 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Hard prohibitions
 
+- An LLM may start, wake, control, and automate the local WeChat DevTools GUI and `wechatide` CLI by default
+  (`默认同意 LLM 驱动开发者工具`). Keep this boundary: DevTools access is read-only unless the current user message
+  authorizes a write; never upload, submit for review, publish, or read production credentials without explicit
+  current-turn approval; label every claim by evidence layer (DevTools / Node / Xiaomi 14 trial) and never present
+  DevTools results as native acceptance.
 - Do not restore the historical Mini Program implementation as a whole. Historical code may only be consulted for isolated algorithms, fixtures, test ideas, and CI wrapper patterns after revalidation against the current Web/API.
 - Do not add TDesign MiniProgram or another third-party UI component library.
-- Do not add WebView fallback, uni-app, or an H5 runtime as the production Mini Program implementation.
+- Do not add uni-app or an H5 runtime as the production Mini Program implementation.
 - Do not place AppSecret, CI upload private keys, tokens, sessions, private project settings, screenshots, QR codes, or production data in Git.
 - Do not make an unrecorded product, security, privacy, public API, or compatibility choice. Stop and ask the user when a new material choice is not resolved by the approved plan or an ADR.
 
 ## Allowed automation and release authority
 
-- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison scripts are allowed.
-- WeChat DevTools is an allowed execution surface. An LLM may call the `wechatide` CLI and the DevTools MCP to check status, log in, open or close a project window, compile, build npm, drive the simulator, run page automation, read Console/Network, capture screenshots, generate or push previews, and upload an experience build. Compile, preview, and experience-upload operations do not require per-operation user confirmation.
-- Development/preview and experience uploads may be automated. A production build, package audit, or preview/upload dry-run is still not an upload. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready; record the upload route (Node `miniprogram-ci` or DevTools) and the resulting Manifest, receipt, and tag identity.
-- If a required WeChat platform credential is unavailable, record the exact checkpoint as `UPLOAD_REQUIRED` instead of claiming success, and upload that same checkpoint before starting the next implementation step.
-- Submission for review, review withdrawal, and formal publication always require explicit user approval.
+- Local Node-based `miniprogram-ci`, `miniprogram-simulate`, static builds, tests, package audits, and visual comparison
+  scripts are allowed, and driving WeChat DevTools (simulator, screenshots, console/network, automation) is allowed by
+  default under the boundary above.
+- Development/preview and experience uploads may be automated when credentials are available outside the repository.
+- An experience upload requires the user's explicit approval for that exact checkpoint in the current turn. A production build, package audit, preview/upload dry-run, or earlier approval is not an upload and does not authorize one. When approval is absent or the user prohibits upload, stop at the pushed clean checkpoint and record `UPLOAD_REQUIRED`; do not propose or reserve the next version. Version allocation occurs only through the repository runbook after the final clean SHA, required gates, and exclusive allocation lock are ready.
+- If the repository-external upload key or another required WeChat platform credential is unavailable, do not substitute DevTools automation or claim success. Record the exact checkpoint as upload-blocked, request the missing external input, and upload that same checkpoint before starting the next implementation step.
+- Submission for review and formal publication always require explicit user approval.
 - ECS deployment remains the repository-root release track. A Mini Program upload is a separate track and never happens merely because Git/ECS advanced.
 
 ## Visual work
@@ -35,10 +42,18 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Runtime and code boundaries
 
-- Production pages use native WXML, WXSS, TypeScript, JSON, Skyline, and glass-easel. Minimum base library is 3.3.0; there is no WebView fallback. This compatibility floor is required by the approved UI-thread `worklet.scrollViewContext` matrix synchronization architecture.
+- Fix with the smallest change first. When a target base library cannot be adapted on top of the
+  existing implementation (its runtime drops the primitives that implementation relies on), redesign
+  a path that matches that library instead of forcing patches onto it. Such a path must still be
+  organised rather than accreted, must not change the behaviour or markup that the newer base
+  libraries already render correctly, must not bloat the package, and must reuse the existing ring,
+  panel, template, interpolation, and shared-helper code wherever it can.
+- Production pages use native WXML, WXSS, TypeScript, JSON, and glass-easel, rendered by the WebView renderer requested in `src/app.json` (`"renderer": "webview"`, ADR-0007; user-confirmed on the Xiaomi 14 with trial `.171`). **WebView is the only permitted renderer**: the build fails when `renderer` is anything else, and `scripts/webview-only-policy.test.mjs` fails if a renderer switch, a Skyline compatibility marker or a Worklet directive reappears. Changing this needs a new ADR plus a rerun of the device acceptance checklist.
+- The renderer, not the base library, decides layout. Base-library upgrades can still change API availability and real-device behaviour, so every device round records base library, `Skyline 支持` (must read "不支持" = WebView), `renderer` and the build label, and a base-library move reruns the main paths (workbench month/week/list, swap + leave sheets and pickers, manual matrix) before being treated as no-op. Prefer capability detection or the server capability flags over version comparisons.
+- The diagnostic probe pages (`pages/gesture-probe`, `pages/calendar-poc`, `pages/manual-matrix-poc`) stay reachable from the dev entry page and 更多 → 测试工具, and stay out of product navigation. `pages/manual-matrix-poc/matrix-gesture.wxs` is imported by the production manual schedule page: never delete that directory without moving the file first.
 - Source lives in `src/`; generated output lives in ignored `dist/`. Do not hand-edit `dist/`.
 - Shared runtime code must be DOM-free, Node-free, database-free, and Zod-free in the Mini Program bundle.
-- Preserve `'worklet'` as the first statement of each Worklet function and run the Worklet output audit after every relevant build change.
+- The bundle must not contain `'worklet'` directives any more (the last one was removed with the Skyline probe in 2026-09-19); the existing source audit fails the build if one reappears, so add Worklet code only together with a new ADR that changes the renderer decision.
 - Write requests are retried only when protected by a valid idempotency key. Offline mode is read-only and has no write queue.
 
 ## Checkpoints

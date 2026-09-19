@@ -1,7 +1,7 @@
 {
   "disableScroll": true,
   "navigationStyle": "custom",
-  "renderer": "skyline",
+  "renderer": "webview",
   "usingComponents": {
     "calendar-month": "/components/calendar/calendar-month/index",
     "ui-alert": "/components/ui/ui-alert/index",
