@@ -98,10 +98,7 @@ describe('P1 native foundation component boundary', () => {
     const template = readSource('pages/index/index.wxml');
     const stylesheet = readSource('pages/index/index.wxss');
 
-    expect(template.match(/<navigator/gu)).toHaveLength(4);
-    expect(template).toContain('url="/pages/calendar-poc/index"');
-    expect(template).toContain('url="/pages/manual-matrix-poc/index?mode=daily"');
-    expect(template).toContain('url="/pages/manual-matrix-poc/index?mode=maximum"');
+    expect(template.match(/<navigator/gu)).toHaveLength(1);
     expect(template).toContain('url="/pages/gesture-probe/index"');
     expect(template).toContain('人工测试入口');
     expect(stylesheet).toMatch(/\.test-route\s*\{[^}]*min-height:\s*52px;/su);

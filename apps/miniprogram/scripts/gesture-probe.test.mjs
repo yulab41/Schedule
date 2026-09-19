@@ -44,7 +44,7 @@ describe('P1 Android gesture capability probe', () => {
     expect(appConfig.pages).toContain('pages/gesture-probe/index');
     expect(pageConfig).toMatchObject({ disableScroll: false, navigationStyle: 'custom' });
     expect(entryTemplate).toContain('url="/pages/gesture-probe/index"');
-    expect(entryTemplate).toContain('Android 手势能力探针');
+    expect(entryTemplate).toContain('诊断探针');
   });
 
   it('keeps the renderer-agnostic touch and WXS probes without any Worklet surface', () => {
@@ -209,7 +209,7 @@ describe('P1 Android gesture capability probe', () => {
     const template = readSource('pages/gesture-probe/index.wxml');
     const styles = readSource('pages/gesture-probe/index.wxss');
     const wxsSource = readSource('pages/gesture-probe/drag-probe.wxs');
-    const matrixTemplate = readSource('pages/manual-matrix-poc/index.wxml');
+    const matrixTemplate = readSource('subpackages/scheduling/pages/manual/index.wxml');
 
     expect(template).toContain('<wxs module="wxsProbe" src="./drag-probe.wxs"></wxs>');
     expect(template).toContain('bindtouchstart="{{wxsProbe.touchStart}}"');

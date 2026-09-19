@@ -73,7 +73,7 @@
       </view>
     </view>
 
-    <scroll-view class="test-tools-scroll" scroll-y type="list" enhanced show-scrollbar="{{false}}">
+    <scroll-view class="test-tools-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view class="test-tools-page test-tools-scroll-content">
         <view class="safety-note">
           <text>本页不会显示或复制账号、姓名、手机号、群组成员、凭证、请求正文或原始堆栈。</text>

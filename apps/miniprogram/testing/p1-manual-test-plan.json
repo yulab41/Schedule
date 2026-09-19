@@ -29,7 +29,7 @@
     },
     {
       "id": "calendar-month",
-      "route": "pages/calendar-poc/index",
+      "route": "pages/workbench/index",
       "storybookStoryId": "miniprogram-parity-p1-calendar--month-390",
       "states": [
         "five-week-month",
@@ -42,13 +42,14 @@
     },
     {
       "id": "manual-matrix-daily",
-      "route": "pages/manual-matrix-poc/index?mode=daily",
+      "route": "subpackages/scheduling/pages/manual/index",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--daily-390",
       "states": ["initial", "horizontal-header-sync", "cell-selected", "undo"]
     },
     {
       "id": "manual-matrix-maximum",
-      "route": "pages/manual-matrix-poc/index?mode=maximum",
+      "route": "subpackages/scheduling/pages/manual/index",
+      "precondition": "使用 20 名成员、30 天的群组进入手动排班",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--maximum-390",
       "states": [
         "initial",
@@ -67,7 +68,13 @@
       "id": "android-gesture-probe",
       "route": "pages/gesture-probe/index",
       "diagnosticOnly": true,
-      "states": ["worklet-pan", "wxs-view-layer-touch", "ordinary-touch", "device-runtime"]
+      "states": [
+        "wxs-view-layer-touch",
+        "ordinary-touch",
+        "wheel-column",
+        "workspace-stress",
+        "device-runtime"
+      ]
     }
   ]
 }

@@ -675,7 +675,7 @@ describe('safe Mini test tools', () => {
     );
     expect(pageConfig.disableScroll).toBe(true);
     expect(template).toContain(
-      '<scroll-view class="test-tools-scroll" scroll-y type="list" enhanced show-scrollbar="{{false}}">',
+      '<scroll-view class="test-tools-scroll" scroll-y enhanced show-scrollbar="{{false}}">',
     );
     expect(template.indexOf('bindtap="handleCopyRuntimeReport"')).toBeGreaterThanOrEqual(0);
     expect(template.indexOf('bindtap="handleCopyRuntimeReport"')).toBeLessThan(

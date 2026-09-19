@@ -868,7 +868,6 @@
     <view class="workspace-pane-slot" hidden="{{activeWorkspace !== 'more'}}">
       <scroll-view
         class="more-workspace {{activeWorkspace === 'more' ? 'is-active' : ''}}"
-        type="list"
         scroll-y
         enhanced
         show-scrollbar="{{false}}"

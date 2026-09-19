@@ -171,9 +171,8 @@ describe('P10 native directory parity', () => {
     expect(styles).not.toContain('display: grid');
     expect(styles).not.toMatch(/\.directory-mode-swiper\s*{[^}]*height:\s*0;/s);
     expect(styles).toMatch(/\.directory-mode-swiper\s*{[^}]*flex:\s*1/s);
-    for (const scrollView of template.matchAll(/<scroll-view\b[\s\S]*?>/gu)) {
-      expect(scrollView[0]).toContain('type="list"');
-    }
+    // The renderer is fixed to WebView (ADR-0007), so the Skyline-only `type="list"` hint is gone.
+    expect(template).not.toContain('type="list"');
     expect(styles).toMatch(/\.wayfinding-ribbon\s*{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap/s);
     expect(styles).toContain('line-height: var(--ui-line-height-normal)');
     expect(styles).not.toContain('--ui-line-height-body');

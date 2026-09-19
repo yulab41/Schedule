@@ -15,60 +15,10 @@ describe('P1 native dynamic month calendar PoC', () => {
     vi.unstubAllGlobals();
   });
 
-  it('matches the Web month grid by rendering only the required five or six weeks', async () => {
-    const { createCalendarPocViewModel } = await import('../src/testing/fixtures/calendar-poc.ts');
-    const viewModel = createCalendarPocViewModel(0);
-    const currentPanel = viewModel.panels.find((panel) => panel.relative === 0);
-
-    expect(viewModel.monthLabel).toBe('2026年10月');
-    expect(viewModel.selectedLabel).toBe('10月14日 · 周三');
-    expect(viewModel.panels).toHaveLength(3);
-    expect(viewModel.panels.map((panel) => panel.cells.length)).toEqual([35, 35, 42]);
-    expect(viewModel.gridHeight).toBe(270);
-    expect(currentPanel?.cells.at(0)?.businessDate).toBe('2026-09-28');
-    expect(currentPanel?.cells.at(-1)?.businessDate).toBe('2026-11-01');
-    expect(currentPanel?.cells[28]).toMatchObject({ isBottomLeft: true });
-    expect(currentPanel?.cells.at(-1)).toMatchObject({ isBottomRight: true });
-    expect(currentPanel?.cells.find((cell) => cell.businessDate === '2026-10-14')).toMatchObject({
-      isCurrentMonth: true,
-      isSelected: true,
-      isToday: true,
-    });
-    expect(currentPanel?.cells.find((cell) => cell.businessDate === '2026-10-01')).toMatchObject({
-      holiday: '国庆',
-      isHoliday: true,
-    });
-    expect(currentPanel?.cells.some((cell) => cell.marker === '加')).toBe(true);
-    expect(currentPanel?.cells.some((cell) => cell.marker === '换')).toBe(true);
-    expect(currentPanel?.cells.some((cell) => !cell.isCurrentMonth)).toBe(true);
-  });
-
-  it('registers a dedicated calendar route and calendar components', () => {
-    const appConfig = JSON.parse(readSource('app.json'));
-    const pageConfig = JSON.parse(readSource('pages/calendar-poc/index.json'));
-    const monthConfig = JSON.parse(readSource('components/calendar/calendar-month/index.json'));
-    const cellConfig = JSON.parse(readSource('components/calendar/calendar-cell/index.json'));
-
-    expect(appConfig.pages).toContain('pages/calendar-poc/index');
-    expect(pageConfig.usingComponents).toEqual({
-      'calendar-month': '/components/calendar/calendar-month/index',
-    });
-    expect(monthConfig).toMatchObject({
-      component: true,
-      usingComponents: {
-        'calendar-cell': '/components/calendar/calendar-cell/index',
-      },
-    });
-    expect(cellConfig.component).toBe(true);
-  });
-
   it('keeps the Web bottom-corner selection treatment inside one 18px clipping frame', () => {
     const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
     const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
     const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
-    const pageTemplate = readSource('pages/calendar-poc/index.wxml');
-    const pageStyles = readSource('pages/calendar-poc/index.wxss');
-
     expect(monthTemplate).toContain('wx:for="{{panels}}"');
     expect(monthTemplate).toContain('wx:for="{{panel.cells}}"');
     expect(monthTemplate).toContain('<calendar-cell');
@@ -95,8 +45,6 @@ describe('P1 native dynamic month calendar PoC', () => {
       /\.calendar-cell-slot\.is-bottom-(?:left|right)\s*\{[^}]*overflow:\s*hidden;/su,
     );
     expect(cellStyles).not.toContain('.calendar-cell.is-selected::after');
-    expect(pageTemplate).toContain('class="selected-summary month-selected-summary"');
-    expect(pageStyles).toMatch(/\.month-selected-summary\s*\{[^}]*margin-top:\s*12px;/su);
   });
 
   it('starts one locked height transition when the native swiper commits its target', () => {

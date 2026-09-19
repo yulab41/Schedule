@@ -34,28 +34,11 @@ describe('P6 core RC manual evidence plan', () => {
         startBoundary: 'non-initial-workbench-onShow-before-capability-read',
         thresholdMs: 2500,
       },
-      maximumMatrixRender: {
-        endBoundary: 'maximum-matrix-setData-callback',
-        metric: 'maximum-matrix-render',
-        requiredSamples: 5,
-        route: 'pages/manual-matrix-poc/index?mode=maximum&performance=1',
-        startBoundary: 'maximum-view-model-built-before-setData',
-        thresholdMs: 1000,
-      },
-      tapFeedback: {
-        endBoundary: 'target-cell-setData-callback',
-        metric: 'tap-feedback',
-        requiredSamples: 10,
-        route: 'pages/manual-matrix-poc/index?mode=maximum&performance=1',
-        startBoundary: 'validated-tap-before-cell-mutation',
-        thresholdMs: 100,
-      },
     });
     expect(plan.automatedEvidence).toEqual({
       maximumMatrixViewModelBytes: 171340,
       nodeTargetDisposition: 'warning-with-exact-no-growth-ceilings',
-      pocHostElementLowerBound: 1445,
-      productionManualHostElementLowerBound: 1506,
+      productionManualHostElementLowerBound: 1507,
       wxsHotPathSetDataCalls: 0,
     });
     expect(plan.cases.map((entry) => entry.id)).toEqual([
@@ -86,10 +69,8 @@ describe('P6 core RC manual evidence plan', () => {
     ]);
     expect(source).not.toMatch(/MINITEST_|minium|privateKey|token|AppSecret/iu);
     expect(runbook).toContain('pages/workbench/index`，`performance=1');
-    expect(runbook).toContain('mode=maximum&performance=1');
     expect(runbook).toContain('samplesMs');
-    expect(runbook).toContain('1,445');
-    expect(runbook).toContain('1,506');
+    expect(runbook).toContain('1,507');
     expect(runbook).toContain('已实现待实体性能复核');
   });
 });

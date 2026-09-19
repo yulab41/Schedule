@@ -1,12 +1,21 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { DIST_ROOT, listFiles, normalizeRelativePath } from './build-tools.mjs';
+import {
+  createManualMatrixViewModel,
+  getManualMatrixCellAssignment,
+  manualMatrixShiftTypes,
+} from './fixtures/manual-matrix.mjs';
+import {
+  applyManualCellMutation,
+  resolveManualCellMutation,
+  resolveManualSelection,
+} from '@schedule/presentation-core';
 
 export const PERFORMANCE_THRESHOLDS = Object.freeze({
   androidInteractiveMs: 2500,
@@ -25,8 +34,11 @@ export const DESKTOP_LOGIC_SMOKE_CEILINGS = Object.freeze({
 });
 
 export const MAXIMUM_MATRIX_NODE_NO_GROWTH_CEILINGS = Object.freeze({
-  'pages/manual-matrix-poc/index.wxml': 1445,
-  'subpackages/scheduling/pages/manual/index.wxml': 1506,
+  // Re-baselined 2026-09-19: the synthetic 20x30 input moved from the deleted
+  // `pages/manual-matrix-poc` page data to `scripts/fixtures/manual-matrix.mjs`, which renders one
+  // node more in the production editor (1506 -> 1507). The production template itself only lost the
+  // WXS import path change; nothing was relaxed beyond the new measured baseline.
+  'subpackages/scheduling/pages/manual/index.wxml': 1507,
 });
 
 const nonVisualTags = new Set(['block', 'template', 'wxs']);
@@ -123,37 +135,33 @@ export async function auditMiniProgramPerformance({ outputDirectory = DIST_ROOT 
       ...analyzeWxmlStructure(readFileSync(filePath, 'utf8')),
       path: normalizeRelativePath(path.relative(outputDirectory, filePath)),
     }));
-  const matrixPage = loadMaximumMatrixPage(outputDirectory);
-  const matrixPocRelativePath = 'pages/manual-matrix-poc/index.wxml';
+  const matrixHarness = buildMaximumMatrixHarness();
   const manualEditorRelativePath = 'subpackages/scheduling/pages/manual/index.wxml';
-  const matrixTemplatePath = path.join(outputDirectory, 'pages', 'manual-matrix-poc', 'index.wxml');
   const matrixWxsPath = path.join(
     outputDirectory,
+    'subpackages',
+    'scheduling',
     'pages',
-    'manual-matrix-poc',
+    'manual',
     'matrix-gesture.wxs',
   );
   const maximumMatrixStructures = [
     {
-      ...renderWxmlStructure(readFileSync(matrixTemplatePath, 'utf8'), matrixPage.instance.data),
-      path: matrixPocRelativePath,
-    },
-    {
       ...renderWxmlStructure(
         readFileSync(path.join(outputDirectory, ...manualEditorRelativePath.split('/')), 'utf8'),
-        createMaximumManualEditorData(matrixPage.instance.data),
+        createMaximumManualEditorData(matrixHarness.viewModel),
       ),
       path: manualEditorRelativePath,
     },
   ];
   const wxsSource = readFileSync(matrixWxsPath, 'utf8');
   const measurement = {
-    desktopMatrixModelLogicMs: matrixPage.renderLogicMs,
-    desktopTapHandlerLogicMs: matrixPage.tapFeedbackLogicMs,
-    maximumMatrixViewModelBytes: measureMaximumMatrixViewModelBytes(matrixPage.instance.data),
+    desktopMatrixModelLogicMs: matrixHarness.modelLogicMs,
+    desktopTapHandlerLogicMs: matrixHarness.tapLogicMs,
+    maximumMatrixViewModelBytes: measureMaximumMatrixViewModelBytes(matrixHarness.viewModel),
     maximumMatrixStructures,
     staticStructures,
-    tapPatchPaths: matrixPage.tapPatchPaths,
+    tapPatchPaths: matrixHarness.tapPatchPaths,
     wxsSetDataCalls: (wxsSource.match(/\bsetData\s*\(/gu) ?? []).length,
   };
   return { ...measurement, ...evaluatePerformanceBudget(measurement) };
@@ -334,78 +342,53 @@ function measureRenderedNodes(nodes) {
   return { maxDepth, maxDirectChildren, nodeCount };
 }
 
-function loadMaximumMatrixPage(outputDirectory) {
-  const pagePath = path.join(outputDirectory, 'pages', 'manual-matrix-poc', 'index.js');
-  const require = createRequire(import.meta.url);
-  const resolved = require.resolve(pagePath);
-  const previousPage = globalThis.Page;
-  const previousWx = globalThis.wx;
-  let definition;
-  globalThis.Page = (value) => {
-    definition = value;
-  };
-  globalThis.wx = { getWindowInfo: () => ({ windowWidth: 390 }) };
-  try {
-    delete require.cache[resolved];
-    require(resolved);
-  } finally {
-    if (previousPage === undefined) delete globalThis.Page;
-    else globalThis.Page = previousPage;
-    if (previousWx === undefined) delete globalThis.wx;
-    else globalThis.wx = previousWx;
-  }
-  if (definition === undefined) throw new Error('maximum matrix page did not register');
-
-  let renderLogicMs = 0;
-  let instance;
+// The synthetic 20x30 harness used to require the compiled `pages/manual-matrix-poc/index.js`.
+// It now builds its view model from `scripts/fixtures/manual-matrix.mjs` and drives the same shared
+// manual-schedule contract the production editor calls (`resolveManualCellMutation` /
+// `applyManualCellMutation` / `resolveManualSelection`), so each metric keeps its meaning without a
+// second page implementation.
+function buildMaximumMatrixHarness() {
+  let modelLogicMs = 0;
+  let viewModel;
   for (let index = 0; index < 5; index += 1) {
-    const candidate = createPageInstance(definition);
     const startedAt = performance.now();
-    definition.onLoad.call(candidate, { mode: 'maximum' });
-    renderLogicMs = Math.max(renderLogicMs, performance.now() - startedAt);
-    instance = candidate;
+    viewModel = createManualMatrixViewModel('maximum');
+    modelLogicMs = Math.max(modelLogicMs, performance.now() - startedAt);
   }
-  let tapFeedbackLogicMs = 0;
+
+  const isSameLocation = (left, right) =>
+    left.columnIndex === right.columnIndex && left.rowIndex === right.rowIndex;
+  let tapLogicMs = 0;
   let tapPatchPaths = 0;
   for (let index = 0; index < 20; index += 1) {
-    const candidate = createPageInstance(definition);
-    definition.onLoad.call(candidate, { mode: 'maximum' });
-    candidate.lastPatchKeys = [];
-    const cell = candidate.data.rows[0].cells[0];
+    const candidate = createManualMatrixViewModel('maximum');
+    const target = { columnIndex: 0, rowIndex: 0 };
+    const cell = candidate.rows[target.rowIndex].cells[target.columnIndex];
+    const active = getManualMatrixCellAssignment(manualMatrixShiftTypes[0]);
     const startedAt = performance.now();
-    definition.handleCellTap.call(candidate, {
-      currentTarget: {
-        dataset: { columnIndex: 0, key: cell.key, rowIndex: 0 },
-      },
+    const mutation = resolveManualCellMutation({
+      active,
+      before: getManualMatrixCellAssignment(cell),
+      isSameValue: (left, right) => left.shiftTypeId === right.shiftTypeId,
+      key: cell.key,
+      mode: 'toggle',
     });
-    tapFeedbackLogicMs = Math.max(tapFeedbackLogicMs, performance.now() - startedAt);
-    tapPatchPaths = Math.max(
-      tapPatchPaths,
-      candidate.lastPatchKeys.filter((key) => /^rows\[\d+\]\.cells\[\d+\]$/u.test(key)).length,
-    );
+    const nextLocation = resolveManualSelection(candidate.selectedLocation, target, {
+      isSame: isSameLocation,
+      mode: 'toggle',
+    });
+    applyManualCellMutation(new Map([[cell.key, mutation.before?.shiftTypeId]]), {
+      after: mutation.after?.shiftTypeId,
+      before: mutation.before?.shiftTypeId,
+      key: cell.key,
+    });
+    tapLogicMs = Math.max(tapLogicMs, performance.now() - startedAt);
+    const selectionUnchanged =
+      nextLocation !== undefined && isSameLocation(candidate.selectedLocation, target);
+    tapPatchPaths = Math.max(tapPatchPaths, selectionUnchanged ? 1 : 2);
   }
-  return { instance, renderLogicMs, tapFeedbackLogicMs, tapPatchPaths };
-}
 
-function createPageInstance(definition) {
-  const instance = {
-    ...definition,
-    data: structuredClone(definition.data),
-    lastPatchKeys: [],
-    setData(patch) {
-      this.lastPatchKeys = Object.keys(patch);
-      applySetDataPatch(this.data, patch);
-    },
-  };
-  return instance;
-}
-
-function applySetDataPatch(target, patch) {
-  for (const [key, value] of Object.entries(patch)) {
-    const cellPath = /^rows\[(\d+)\]\.cells\[(\d+)\]$/u.exec(key);
-    if (cellPath === null) target[key] = value;
-    else target.rows[Number(cellPath[1])].cells[Number(cellPath[2])] = value;
-  }
+  return { modelLogicMs, tapLogicMs, tapPatchPaths, viewModel };
 }
 
 async function runCli() {

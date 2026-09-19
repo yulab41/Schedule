@@ -1,4 +1,4 @@
-<wxs module="matrixGesture" src="../../../../pages/manual-matrix-poc/matrix-gesture.wxs"></wxs>
+<wxs module="matrixGesture" src="./matrix-gesture.wxs"></wxs>
 
 <view class="manual-page">
   <ui-toast visible="{{!!infoMessage}}" message="{{infoMessage}}" tone="{{feedbackTone}}" />

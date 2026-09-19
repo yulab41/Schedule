@@ -9,20 +9,20 @@ import {
 } from '@schedule/contracts/manual-schedule-limits';
 import { describe, expect, it } from 'vitest';
 
-import { createManualMatrixPocViewModel } from '../src/testing/fixtures/manual-matrix-poc.js';
+import { createManualMatrixViewModel } from './fixtures/manual-matrix.mjs';
 import { ARTIFACT_ROOT, buildMiniProgram } from './build-tools.mjs';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(readFileSync(path.join(appRoot, 'package.json'), 'utf8'));
 const buildTools = readFileSync(path.join(appRoot, 'scripts', 'build-tools.mjs'), 'utf8');
-const fixtureSource = readFileSync(
-  path.join(appRoot, 'src', 'testing', 'fixtures', 'manual-matrix-poc.ts'),
+const manualPageSource = readFileSync(
+  path.join(appRoot, 'src', 'subpackages', 'scheduling', 'pages', 'manual', 'index.ts'),
   'utf8',
 );
 
 describe('P5 manual scheduling limit boundary', () => {
   it('keeps the maximum native matrix on the shared 20 by 30 by 600 contract', () => {
-    const maximum = createManualMatrixPocViewModel('maximum');
+    const maximum = createManualMatrixViewModel('maximum');
 
     expect(MAX_MANUAL_MEMBERS).toBe(20);
     expect(MAX_MANUAL_DAYS).toBe(30);
@@ -34,7 +34,7 @@ describe('P5 manual scheduling limit boundary', () => {
 
   it('imports only the Zod-free contracts leaf from Mini source and its source alias', () => {
     expect(packageJson.dependencies?.['@schedule/contracts']).toBe('workspace:*');
-    expect(fixtureSource).toContain("from '@schedule/contracts/manual-schedule-limits'");
+    expect(manualPageSource).toContain("from '@schedule/contracts/manual-schedule-limits'");
     expect(buildTools).toContain(
       "'@schedule/contracts/manual-schedule-limits': CONTRACTS_MANUAL_SCHEDULE_LIMITS_ENTRY",
     );

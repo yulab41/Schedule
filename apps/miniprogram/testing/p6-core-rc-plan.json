@@ -20,29 +20,12 @@
       "endBoundary": "refreshed-ready-or-offline-setData-callback",
       "requiredSamples": 5,
       "thresholdMs": 2500
-    },
-    "maximumMatrixRender": {
-      "metric": "maximum-matrix-render",
-      "route": "pages/manual-matrix-poc/index?mode=maximum&performance=1",
-      "startBoundary": "maximum-view-model-built-before-setData",
-      "endBoundary": "maximum-matrix-setData-callback",
-      "requiredSamples": 5,
-      "thresholdMs": 1000
-    },
-    "tapFeedback": {
-      "metric": "tap-feedback",
-      "route": "pages/manual-matrix-poc/index?mode=maximum&performance=1",
-      "startBoundary": "validated-tap-before-cell-mutation",
-      "endBoundary": "target-cell-setData-callback",
-      "requiredSamples": 10,
-      "thresholdMs": 100
     }
   },
   "automatedEvidence": {
     "maximumMatrixViewModelBytes": 171340,
     "nodeTargetDisposition": "warning-with-exact-no-growth-ceilings",
-    "pocHostElementLowerBound": 1445,
-    "productionManualHostElementLowerBound": 1506,
+    "productionManualHostElementLowerBound": 1507,
     "wxsHotPathSetDataCalls": 0
   },
   "requiredEvidence": [

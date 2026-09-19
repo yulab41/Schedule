@@ -170,7 +170,9 @@ describe('feedback9 manual geometry and dates', () => {
   });
   it('passes vertical swipes through when the matrix has no vertical scroll range', () => {
     const module = { exports: {} };
-    vm.runInNewContext(source('pages/manual-matrix-poc/matrix-gesture.wxs'), { module });
+    vm.runInNewContext(source('subpackages/scheduling/pages/manual/matrix-gesture.wxs'), {
+      module,
+    });
     const handlers = module.exports;
     const owner = {
       getState: () => ({}),
