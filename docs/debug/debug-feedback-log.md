@@ -3324,3 +3324,11 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 交付：`566ceed5` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.171` 上传成功（Manifest `3a09d985…3e75`），可信 ensure 追加并保留 `.170`，`ecs-verify.sh` `[verify] complete`；公网 `.171=200`／`.170=200`／未知 `=426`。未提审、未正式发布、未部署生产。
 - 开发者工具复核（fullMode，基础库 3.17.2 + WebView）：workbench 与 `.169` 渲染一致（页头群组名完整、下拉箭头紧贴、月历 7 列正常），截图 `runtime/audit/devtools-171/`。
 - 状态：批次 1（删除 Skyline 兼容层）与批次 2（删除最后 Worklet 探针 + 文档同步 + 渲染器门禁）全部完成并放行；唯一下一任务=小米 14 真机复核 `.171`。
+
+## 2026-09-19 WebView-only 收口验收：小米 14 打开 `.171` 未发现问题
+
+- 真机结果：用户反馈 `.171` 未发现问题；此前"异常"的那台设备在同一构建下同样正常。批次 1（删除 Skyline 兼容层）与批次 2（删除最后 Worklet 探针、文档同步、渲染器门禁）至此全部完成。
+- 长期政策：WebView 是唯一允许的渲染器。`src/app.json` 的 `renderer` 不是 `webview` 时构建失败；新增守卫 `apps/miniprogram/scripts/webview-only-policy.test.mjs` 会在渲染器开关、Skyline 兼容标记（`skyline3172UiCompatibility`／`is-skyline-3172-ui`／`is-compat`）或 `'worklet'`／`wx.worklet`／`pan-gesture-handler`／`__MINIPROGRAM_RENDERER__`／`rendererOptions` 重新出现时让测试失败；诊断页 `build-info` 固定报告 `WebView（应用请求）`。
+- 踩坑记录（已进 `docs/agent-context/pitfall-index.json`，共 15 条）：新增 `mini-renderer-webview-only`（根因是渲染器而非基础库版本；诊断看 `Skyline 支持`；不要再写 `SDKVersion` 分支）与 `mini-trial-upload-route`（GitHub 走 git-only 代理、微信 CI 直连 IPv4；受保护文件的等价证明 blob+reason 必须刷新；upload 用途绑定 RUN_ID/SHA 需重租；DevTools 持有路径时 Release 被拒）。
+- 组件库/基础库注意点：基础库换代不再影响渲染分支，但仍会改变 API 可用性与真机表现；每轮真机验收记录 `基础库版本`／`Skyline 支持`（须为"不支持"＝WebView）／`renderer`／构建标签，基础库升级后重跑工作台月/周/列表、换班+请假弹层与选择器、手排矩阵，再判定"无影响"。
+- 本轮验证：新增守卫 4 项通过；`scripts/agent-context-policy.test.mjs` 3 项通过（坑索引 12151 B ≤ 12 KiB）；未改 `src/` 与 `dist/`，因此本轮为纯文档/工具检查点，不触发小程序上传或生产部署。

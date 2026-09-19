@@ -6,6 +6,12 @@
 所以上一轮把小程序固定为 WebView 请求（ADR-0007）；这一轮把只为 Skyline 写的那套补丁**整段删掉**，
 让代码里不再存在"按引擎或按基础库版本分叉"的分支。主包因此减少约 39 KB，界面按既有 WebView 表现为准，没有功能变化。
 
+**2026-09-19 真机验收：小米 14 打开 `.171` 未发现问题**（此前"异常"的那台手机在同一构建下也正常）。
+自本批次起，WebView 是小程序唯一允许的渲染器；构建会拒绝其他值，`apps/miniprogram/scripts/webview-only-policy.test.mjs`
+会在任何渲染器开关、Skyline 兼容标记或 `'worklet'` 指令重新出现时让测试失败。
+可复用的诊断经验与踩坑记录见 `docs/agent-context/pitfalls/mini-renderer-webview-only.md`（引擎 vs 基础库版本、组件库升级注意事项）
+与 `docs/agent-context/pitfalls/mini-trial-upload-route.md`（上传路由、血缘等价证明、租约释放）。
+
 ## 事实核对：仓库里到底有几处按基础库版本分叉
 
 | 检查项 | 结果 |

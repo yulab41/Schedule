@@ -14,7 +14,11 @@
 - 批次 2 交付：`d201ab97` 已推送；候选在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.170` 上传成功（说明「WebView-only batch2 d201ab9」，Manifest `4e8f3ccf…be19`），可信 ensure 追加并保留 `.169`，`ecs-verify.sh` `[verify] complete`；公网 `.170=200`/`.169=200`/未知 `=426`。开发者工具复核：`pages/gesture-probe` 在基础库 3.17.2 下正常渲染，构建标签 `0.1.0-p10.20260919.170@d201ab9`，A 区已消失，D/B/E/F 区正常（截图 `runtime/audit/devtools-170/`）。
 - 渲染器门禁交付：`566ceed5` 已推送；候选同样在独占 `general-5` 冻结（前后 `RESULT=PASS`）；`0.1.0-p10.20260919.171` 上传成功（说明「WebView-only enforce 566ceed」，Manifest `3a09d985…3e75`），可信 ensure 追加并保留 `.170`，`ecs-verify.sh` `[verify] complete`；公网 `.171=200`/`.170=200`/未知 `=426`。开发者工具复核：workbench 在基础库 3.17.2 下与 `.169` 渲染一致（截图 `runtime/audit/devtools-171/`）。
 - 上传路由补充：清理代理后 GitHub fetch 会失败（`Git fetch failed with exit code 128`），必须同时给 git 配 `GIT_CONFIG_*` 代理、并让微信 CI 直连 IPv4。
-- 唯一下一任务：小米 14 打开 `.171`（与 `.169`/`.170` 界面等价），在原先异常（Skyline）与正常（WebView）两台设备上复核日历、换班/请假选择器、页头群组名与下拉箭头、详情卡排版是否与 `.168` 一致。
+- **真机验收通过（2026-09-19）**：小米 14 打开 `.171` 未发现问题；此前"异常"的那台设备在同一构建下同样正常。批次 1（删除 Skyline 兼容层）与批次 2（删除最后 Worklet 探针、文档同步、渲染器门禁）全部完成。
+- 政策（长期有效）：WebView 是唯一允许的渲染器——构建拒绝其他 `renderer` 值，`apps/miniprogram/scripts/webview-only-policy.test.mjs` 在任何渲染器开关／Skyline 兼容标记／`'worklet'` 指令回归时失败；改渲染器必须先写新 ADR 并重跑真机验收。
+- 组件库/基础库注意点：基础库升级不再影响渲染分支，但仍会改变 API 可用性与真机表现；每轮真机验收记录 `基础库版本`、`Skyline 支持`（须为"不支持"＝WebView）、`renderer` 与构建标签，基础库换代后重跑工作台月/周/列表、换班+请假弹层与选择器、手排矩阵。
+- 复用的踩坑记录：`docs/agent-context/pitfalls/mini-renderer-webview-only.md`（引擎 vs 基础库版本误判、组件库升级注意事项）、`docs/agent-context/pitfalls/mini-trial-upload-route.md`（GitHub 代理 vs 微信 CI 直连 IPv4、血缘等价证明刷新、upload 用途绑定 RUN_ID/SHA、DevTools 占用导致 Release 被拒）。
+- 唯一下一任务：无（批次 1/2 已交付并真机通过）；后续工作请开新批次并把结论写回本文件。
 - 停止条件：两台设备复核无回归；若出现回归，以 `.168` 构建为对照定位。详情见 `docs/audit/webview-only-cleanup-20260919.md`。
 
 ## 当前批次：渲染器改为 WebView（ADR-0007），Skyline 补丁只在"请求 Skyline 且 3.17.2"启用

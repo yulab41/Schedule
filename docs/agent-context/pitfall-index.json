@@ -236,6 +236,28 @@
         "WXML/WXSS production icon references change",
         "Web or Mini renderer/toolchain changes"
       ]
+    },
+    {
+      "id": "mini-renderer-webview-only",
+      "state": "fixed-guarded",
+      "signals": ["Skyline", "WebView", "renderer", "Grid 双列", "渲染引擎差异"],
+      "paths": ["apps/miniprogram/src/app.json", "apps/miniprogram/scripts/webview-only-policy.test.mjs"],
+      "detail": "docs/agent-context/pitfalls/mini-renderer-webview-only.md",
+      "guard": "apps/miniprogram/scripts/webview-only-policy.test.mjs",
+      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/webview-only-policy.test.mjs",
+      "lastVerifiedAt": "2026-09-19",
+      "staleWhen": ["a new ADR changes the renderer decision", "app.json renderer/rendererOptions or the build gate changes"]
+    },
+    {
+      "id": "mini-trial-upload-route",
+      "state": "fixed-guarded",
+      "signals": ["Git fetch failed with exit code 128", "invalid ip", "IPv4", "等价证明", "Refusing to release"],
+      "paths": ["apps/miniprogram/release/trial-lineage-policy.v1.json", "scripts/prepare-release-worktree.mjs"],
+      "detail": "docs/agent-context/pitfalls/mini-trial-upload-route.md",
+      "guard": "apps/miniprogram/scripts/trial-lineage.test.mjs",
+      "validation": "pnpm --filter @schedule/miniprogram exec vitest run scripts/trial-lineage.test.mjs",
+      "lastVerifiedAt": "2026-09-19",
+      "staleWhen": ["the proxy/IPv4 upload route or CI entry changes", "trial-lineage required checkpoints change"]
     }
   ]
 }
