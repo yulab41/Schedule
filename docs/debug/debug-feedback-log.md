@@ -2571,7 +2571,7 @@
 - 官方依赖检查在血缘 package script 纳入后返回 `MISS`，完整指纹为
   `b392a5b881360c1aa0bac89bfdbd8f45c9e928c9d0a1ab17e6dedbaca0dbc48e`。current-message L2 wrapper 的第一次
   child 在解析前被既有 tripwire 拒绝；修正临时授权转发后只完成一次有效 `pnpm install --frozen-lockfile
-  --offline`，0 下载；随后 ReuseOnly 为 `READY_REUSE`，tracked tree hash 未变。ignored audit 记录
+--offline`，0 下载；随后 ReuseOnly 为 `READY_REUSE`，tracked tree hash 未变。ignored audit 记录
   `authorizationSource=current-message`、attemptCount=2、tripwire recovery 和最终状态，所有临时授权文件已清理。
 - 运行/浏览器验证：`pnpm smoke:browser` 真实打开 Edge 后因本地 API `127.0.0.1:3000` 未运行停在
   `/login?redirect=/`；独立 `/icon-parity.html` gallery 真实加载 55 catalog、13 context、44 binding cards，
@@ -2733,7 +2733,6 @@
 - 运行/浏览器验证：pnpm smoke:browser 原流程完整通过；专项Web姓名/手机号/用户名/密码保存及390/320四组窗口通过，无浏览器错误。Mini verify/包审通过，原生仍待用户复核。
 - 检查点feat(accounts): manage profiles and synchronize account phone numbers；独占复用依赖无安装，仅本地提交待根review，未部署/上传/生产写入。下一单元为轮转删除。
 
-
 ## Feedback6 移除自动轮转（2026-09-08）
 
 - 用户批准删除轮转规则、顺序、自动生成和请假自动补位；引入点04c7da36/0d5ec55c/94dc6cac，git log -S与blame核对。业务变化及保留边界见docs/audit/feedback6-rotation.md。
@@ -2752,7 +2751,6 @@
 ## FEEDBACK6-RELEASE-LINEAGE（2026-09-09）
 
 正式上传3aeaa4c8因5285dd1历史workbench证明过期而失败，未预约版本/上传/迁移。引入点：proof来自bfd1fbbd，业务改动528722f4/3aeaa4c8。仅更新精确blob与有限动效保留证据，详见docs/audit/feedback6-release.md。运行/浏览器验证：复用feedback6-upgrade已通过原pnpm smoke:browser脚本的应用证据；本次仅发布证明及文档变化。
-
 
 ## FEEDBACK7-20260909：群组与排班UI
 
@@ -2779,7 +2777,6 @@
 - 生产交付：4e0a0d1a已推送/部署，schema57；备份a4c0aff8-c461-45e3-98a0-a69ef6c0d3c4文件hash通过，前驱实时8e68a480。完整verifier/版本策略/外部HTTPS通过。关联version1已启用，新增6+17账号逐一只读权限核验通过，37账号/35成员关系/4011排班不变。
 - 详见docs/audit/group-visitor-links.md与docs/operations/group-visitor-links.md。本轮完成，待用户重开现有小程序复核；收口文档不重复部署/备份/启停，不上传小程序。
 
-
 ## 2026-09-10 VIS-01 小程序访客系统修复
 
 基线fe2aa722。空groupId观察器回写源于6b5b30fb（函数沿革ef9ffeb0）；访客误用成员API源于ad4cfb2c。真实miniprogram-simulate复现递归，严格403访客mock及缺失pages/guest/guest注册先红后绿。切群同步失效、角色/账号/月隔离、访客只读入口与匿名Page已实现，详细证据见docs/audit/visitor-system-fix.md。卡死/闪退仍待同SHA新版小米14复核，尚未上传。
@@ -2788,7 +2785,6 @@ VIS-01运行验证补充：pnpm miniprogram:test 1014通过/15跳过，末次匿
 
 VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不兼容；.100失败未放行，f7bc3ccc修复custom安全区后17项/静态构建通过。.101成功上传并追加放行，353文件回执/Manifest/tag一致，生产verifier及HTTPS新旧版本策略通过。服务器live仍4e0a0d1a，无关联变更；小米14卡死/闪退仍待同版验收。详见docs/audit/visitor-trial-release.md。
 
-
 ## 2026-09-11 VIS-02 访客月历电话及班次事件
 
 - 用户批准变更：所有有效访客与成员浏览同一已发布/历史日历详情，含电话、变更标记、班次事件。引入点：4e0a0d1a关联删号、890efd8b客户端删号；7ac2a07a事件弹层错误/分页路径。git log -S 与 blame 已定位。
@@ -2796,7 +2792,6 @@ VIS-01交付补充：官方上传暴露890efd8b扫码页Skyline/default导航不
 - 红灯：真实MySQL旧接口404、共享方法不存在、旧删号、Web503弹层无重试、旧群号码点击；均修复后通过。运行/浏览器验证：pnpm smoke:browser 通过；node scripts/smoke-guest-calendar-parity.mjs 通过（合成数据/拦截拨号）。
 - root1227/419条件跳过、Mini全量1059/15条件跳过、最后定向47、真实MySQL33及补充复测、发布保护28通过。静态/Node/浏览器证据，不是小米14原生证据。
 - 状态：已完成本地运行验证，待交付及用户真机复核。提交消息 feat(calendar): align guest calendar details with members；未进行生产或上传，待具体检查点授权。保留现有群关联及业务数据。
-
 
 VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保留全部业务源码，只协调状态文档冲突。合并后真实MySQL45、Mini联合146、共享/API/连续性33通过；运行/浏览器验证：node scripts/smoke-guest-calendar-parity.mjs通过，pnpm smoke:browser原完整运行证据有效，smoke:check-core通过。合并Mini主包1681844/总包4504816字节，Worklet2/2。提交消息 merge: preserve feedback10 alongside guest calendar parity；待新累积SHA部署/上传授权及小米14复核，未生产写入或真实通知。
 
@@ -2814,6 +2809,7 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 2026-09-12 Feedback11体验版108：用户明确授权“上传并放行”。c563afff production/clean上传成功，354文件Manifest 3fbff2efaf53d8b8de935e777cab456770b620b2b821a1b6c28e51799e3aed07与receipt/tag/冻结包一致。独占general-4复用依赖，上传专项30项及前后候选门禁通过。旧微信地址重置后，当前公网DNS/IPv4/TLS/nonce通路验证成功；确认trial107残留锁原PID、子进程和上传进程均不存在后归档清理，只删除操作锁，保留全部版本预约。可信ensure追加108并保留旧版；完整生产verifier及版本策略通过，独立公网108/107=200、未知426。服务器live仍b618d938，无新代码部署、备份、迁移或真实通知。二维码与通知修复待小米14复核，EXPORT-11导出空白仍待定位，见docs/audit/feedback11-trial-release.md。
 
 ## 2026-09-12 护士139条导入支持
+
 - 引入点27992c758，原补录按岗位/日期首槽；新增显式成员匹配及静默手排，保持旧行为。详见docs/audit/nurse-schedule-import.md。
 - 运行/浏览器验证：pnpm smoke:browser（SMOKE_BASE_URL=http://127.0.0.1:4173）通过登录/管理员/成员/访客/访问记录，无浏览器错误；本地合成管理员标记已恢复。
 - 无真机结论；正式部署与数据录入另行核验。
@@ -2840,6 +2836,7 @@ VIS-02集成补充：0a8bcba7访客实现与主线9bae5beb反馈10合并，保�
 MORE-14：git log -S及blame定位7923262d的onHide删除底部诊断区域。新回归RED1后修复，普通隐藏保留已授权区域、撤销仍及时隐藏、后台迟到授权/跳转仍被拒绝。运行/浏览器验证：node apps/miniprogram/scripts/feedback14-more-layout.mjs，390×844/320px生产模板/CSS复现旧删除导致滚动夹紧107px，保留节点后位置稳定。页面与图标样式未改，待小米14复核。
 
 EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数据及已有CSV回归可运行，未证实原生白屏根因。新增真实Page30秒截止/迟到隔离5项、固定阶段及一次首屏几何分类的本地安全报告；匿名UNKNOWN阶段原本不进入手机报告。CSV语义不变，保持待定位，不能把诊断补齐写成白屏已修复。联合69项通过；初次联合中既有群组偏好异步用例瞬时失败，暂停完整检查后定向及完整联合重跑均通过，未修改断言。详情见docs/audit/feedback14.md。
+
 ## 2026-09-12 Feedback16 导出入口白屏：Page 宿主属性写入边界
 
 - 用户反馈体验版导出排班仍点击后空白。现有诊断只有 `exports · open-requested`，没有 `page-load/page-ready`；静态 `app.json`、源码/构建产物页面文件和导航 URL 均核对一致，先排除路径设置缺失。
@@ -2993,13 +2990,22 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 顺手修复：`main` 上 `pnpm lint` 因 `44b98811`/`9ac4a301` 遗留的 4 处未使用导入而红（`calendar-month/index.ts`、`guest.ts`、`workbench/index.ts` 的 `cancelCalendarPeriodShift`，`panel-patch.ts` 的 `requiresWholeSlot(childArrayKey)` 形参）。仅删除死引用，不改行为，`pnpm lint --max-warnings=0` 恢复通过。
 - 验证（分层如实记录）：新增 `apps/miniprogram/scripts/workbench-calendar-sync.test.mjs` 5 项（暖缓存 0 次月份读取+1 次 changes、只重取受影响月份、resync 整窗、端点不可用回落、节假日版本前进重取）全部通过；`apps/api/.../calendar-change-log.spec.ts` 5 项通过；`scripts/ecs-schema-compatibility`、`scripts/package-ecs-release`、`scripts/ecs-retirement-rollback`、新增 `packages/database/tests/group-calendar-changes-schema.test.ts` 共 49 项通过；Mini `verify`（profile=production，主包 1695589 / 总包 4593769 字节）通过；根 `vitest` 1279 通过 / 448 跳过；`pnpm build`（含 Web）通过；`format:check` 通过。**未验证项**：①MySQL 集成用例（含本轮新增的 4 条 calendar-changes 用例）在本 warm 槽无测试库，全部跳过，不计通过；②`packages/ui-icons/src/catalog.test.ts` 失败于 `apps/web/node_modules/tdesign-icons-vue-next` 未链接（本槽依赖链接缺口，REUSE_ONLY 下不安装，非本轮改动）。
 - 归因与防回归：本轮定位了"给已发布响应加字段会打断旧客户端解码"这一契约陷阱，直接用新端点规避；`groups.version` 不覆盖手工排班/补录的旧结论（`.177` 记录）仍是本轮设计动机，`EventWriter` 汇点 + 指纹自愈共同替代了不可靠的 `version`。
+
 ## 2026-09-19 生产部署：0062 迁移 + API/Web 上线（三次尝试）
 
 - 首次部署即失败，`ecs-update.sh` 在第 4 步报"已进入与上一版不兼容的数据库迁移，禁止自动启动旧 API"，API 容器处于 Exited(137)。**立即核对数据库**：`__drizzle_migrations`=61、无 `group_calendar_changes`、`groups` 无 `calendar_revision` → 迁移根本没执行，旧代码与 schema 61 完全兼容。
 - 根因①：`migrations/0062_group_calendar_changes.sql` 里 `ALTER` 与 `CREATE TABLE` 之间缺 `--> statement-breakpoint`。drizzle 迁移器在 `breakpoints: true` 下把整份文件当**一条**语句发给 MySQL，于是被拒绝。核对仓库里所有"无 breakpoint"的迁移后发现它们都是单语句，只有 0062 是多语句 —— 这是一个此前从未触发过的约定。修复：补上标记（`dist` 之外只有这一行变化）。
 - 根因②（第二次部署后才暴露）：失败恢复没有自动还原上一版应用文件（`can_restore_previous_application` 因新 manifest 的 `databaseSchemaMax=62 > 61` 判为不可恢复），于是 `/opt/schedule` 里已是新代码而 `current-release` 还是旧值，`validate_previous_release_identity` 拒绝普通重试。修复方式是**只把被覆盖的 manifest 复位**：`/opt/schedule/deploy-manifest.json` ← `/opt/schedule/releases/44034fcc…/deploy-manifest.json`（同一脚本在第 2 步刚覆盖的文件），另存 `deploy-manifest.json.failed-7470efb1`；随后正常前滚。第二次部署成功把 schema 迁到 62，但 `ecs-verify.sh` 新增的 62 段失败。
-- 根因③：verifier 里写成了 `table_name="\`groups\`"`。`information_schema` 的 `table_name` **从不含反引号**，所以匹配 0 行。修复后（第三次部署）verifier `[verify] complete`。目录里现成的写法都是不带反引号的 `table_name="groups"`。
+- 根因③：verifier 里写成了 `table_name="\`groups\`"`。`information_schema`的`table_name`**从不含反引号**，所以匹配 0 行。修复后（第三次部署）verifier`[verify] complete`。目录里现成的写法都是不带反引号的 `table_name="groups"`。
 - 根因④（用真库演练才发现）：`calendarLedgerDiverged()` 对 `schedule_events` 取 `GREATEST(updated_at, COALESCE(deleted_at, updated_at))`，但该表是**追加表**：只有 `occurred_at`，没有 `updated_at`/`deleted_at`。上线后会 500。核对 information_schema 后确认其余六张表都有可审计列。修复：改取 `occurred_at`，并用 `LEAST(..., CURRENT_TIMESTAMP(3))` 夹住（微信模板时间戳可能来自对端时钟，若超前会造成永久 resync）；剪枝下界改成 `Math.max(currentSeq - 500, 0)`；同时新增 `packages/database/tests/group-calendar-changes-schema.test.ts` 的形状断言，把这个错误钉死在单测层。
 - 真库只读演练（本轮最重要的证据）：把记账 `UPDATE`/`INSERT`、增量 `SELECT`、剪枝 `DELETE`、指纹 `GREATEST(...)`、节假日版本 `GROUP BY` 五段 SQL 放进 `START TRANSACTION … ROLLBACK` 在**生产 MySQL 8.4.11** 上跑通，返回 `delta_rows=1`、`rows_after_prune=0`、`diverged=1`（该群有排班但账本为空，符合设计）、`holiday_years=10`；`ROLLBACK` 后 `group_calendar_changes`=0 行、`calendar_revision`=0，未改动任何生产数据。演练还顺带抓出 `seq <= @rev - 500` 在无符号 BIGINT 下溢出的 1690 报错（应用侧是 JS 计算后传参，不会触发，但已加 clamp 防御）。
 - 交付状态：`main`=`e4b8d1f6`；部署前备份 `8121099c-329e-43a9-8c81-bb05c8946275`（daily，56 表 / 282559 行 / 119241208 字节 / SHA-256 `da69407f1f6bb5ba4010b0912a23b75cbef2f09cbf0b364f1786ca48c08815d3`）；live release `e4b8d1f613d985d058bc5afca2b16cbb818ad799`、schema 62；`ecs-verify.sh` 完整通过；公网 `/api/health`=200；未鉴权 `GET /api/groups/<uuid>/calendar-changes?since=0`=401（证明路由已上线），直连公网 IP 被 TLS 拒绝。未提审、未正式发布、未退役旧版本。
 - 停机窗口：三次部署各让 API 停约 10–60 秒（首次失败后一直停到修复部署完成）；`web` 容器全程存活，期间网页 502。健康等待循环在第二次需要 4 轮、第三次 13 轮。未做数据恢复（数据库始终一致）。
+
+## 2026-09-19 体验版 `0.1.0-p10.20260919.178` 上传并放行
+
+- 候选：`373ae35484fbba1d2f592fd57e6438a8fdc9268e`（clean、detached、profile=production、LeaseToken `304095e0-…`、RUN_ID `calendar-delta-upload-20260919`），lineage 门禁先在 `e4b8d1f6` 上失败于 "Required checkpoint 5285dd1 … equivalence proof"——该 policy 把 `apps/miniprogram/src/pages/workbench/index.ts` 的 blob 钉死，任何对该页的改动都必须刷新 proof blob + 证据文本。本轮按既有流程把 blob 从 `79385d27` 刷到 `3e405c23` 并在 evidence 里追加本批次的说明（只改 policy 与文档，属 Mini/文档范围，故未触发新的生产部署）。
+- 过程坑（记录以免重犯）：`prepare-release-worktree.mjs` 会把工作树切成 detached，因此在 detached 状态下 `git commit` 不会推进 lease 记录的 task 分支，下一次 freeze 报 "Candidate no longer belongs to its leased task branch/base"；且同一 lease 只允许冻结**一个**上传候选（"Upload purpose is bound to a different RUN_ID/SHA"）。处理：把 task 分支快进到当前 HEAD 后仍不够，最终 `Release` + 重新 `Acquire` 取得新 lease 再冻结。
+- 上传结果：`miniprogram-ci`（Node 路线，proxy 127.0.0.1:7892）上传成功，版本 `0.1.0-p10.20260919.178`、description `calendar delta sync 373ae35`、234 个代码文件、ZIP 2626758 字节、Manifest `d1e6439dfca1b5096974c4295572cceb2460844a979bc711bcf25deb9d7c841f`；不可变版本 tag 与 receipt 见 ignored `runtime/audit/miniprogram-trials/`。
+- 放行：`sudo schedule-client-version-allowlist ensure 0.1.0-p10.20260919.178` 成功（只追加，内部健康与七维能力策略验证通过），`verify` 通过；独立公网探针 `/api/client-capabilities`：`.178`=200、`.177`=200、未知版本 `.4242`=426。未提审、未正式发布、未退役旧版本。
+- 待用户验收（不得由 Agent 代替）：小米 14 打开 `0.1.0-p10.20260919.178`，确认（1）切月/切周不出网、无等待；（2）进入页面/回前台只有一次 `calendar-changes` 请求；（3）后台改一条历史排班后回前台能静默更新；（4）配色/尺寸/手感与 `.177` 观感一致。

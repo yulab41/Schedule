@@ -25,7 +25,8 @@
 - 生产部署（L4，本轮已授权）发现并修掉两个"只在真库上才暴露"的缺陷，三次部署后才稳定：①`0062` 缺 `--> statement-breakpoint`，drizzle 把 `ALTER`+`CREATE` 当一条语句执行 → 迁移失败（此时**数据库未被改动**，核对 `__drizzle_migrations`=61、无新表新列）；②指纹 SQL 用了 `schedule_events.updated_at`，而该表是追加表只有 `occurred_at` → 端点 500。修复方式：补 breakpoint；改读 `occurred_at` 并用 `LEAST(..., CURRENT_TIMESTAMP(3))` 夹住未来时间戳；剪枝下界用 `Math.max(..., 0)`；并新增 schema 形状测试钉住"事件表没有 updated_at/deleted_at"。
 - 生产现状：`main`=`e4b8d1f6`（应用代码）、部署前备份 `8121099c-329e-43a9-8c81-bb05c8946275`（56 表 / 282559 行 / 119241208 字节，SHA-256 `da69407f…815d3`）、live release `e4b8d1f613d985d058bc5afca2b16cbb818ad799`、数据库 schema 62；完整 `ecs-verify.sh` 通过（`[verify] complete`），公网探针 `/api/health`=200、直连公网 IP 被拒、未鉴权 `/api/groups/<uuid>/calendar-changes`=401（路由已上线而非 404）。生产 MySQL 上以 `START TRANSACTION … ROLLBACK` 只读演练了记账、剪枝、指纹、增量与节假日版本五段 SQL，全部执行成功且回滚后 `group_calendar_changes`=0 行、`calendar_revision`=0。
 - 遗留过程风险（已记录）：首次失败时 `ecs-update.sh` 会把 `deploy-manifest.json` 覆盖成新 manifest 而 `current-release` 仍是旧值，导致它自己的重试守卫报"上一发布身份不一致"。本轮的处理是把该文件从 `/opt/schedule/releases/44034fcc…/deploy-manifest.json` 复制回原位（同一脚本刚覆盖的文件，可核验可回滚），再正常前滚；另存了一份 `deploy-manifest.json.failed-7470efb1` 备查。
-- 下一任务：上传并放行体验版（记录版本/Manifest/tag），再请用户在小米 14 上验证"切月/切周 0 请求、进入页面 1 次 changes、后台改一条历史排班后回前台静默更新"。小米 14 原生验收仍由用户执行。
+- 体验版：`0.1.0-p10.20260919.178` 已上传并放行（候选 `373ae354`、234 个代码文件、ZIP 2626758 字节、Manifest `d1e6439d…c841f`、不可变 tag 与 receipt 在 ignored `runtime/audit/miniprogram-trials/`）；`schedule-client-version-allowlist ensure` + `verify` 通过，公网探针 `.178`=200、`.177`=200、未知 `.4242`=426。为通过 lineage 门禁，本轮把 policy 里 `apps/miniprogram/src/pages/workbench/index.ts` 的 proof blob 从 `79385d27` 刷新到 `3e405c23` 并追加证据——该文件改动只属 Mini/文档范围，故未触发新的生产部署。
+- 下一任务/停止条件：小米 14 打开体验版 `0.1.0-p10.20260919.178`，确认（1）切月/切周不出网无等待；（2）进入页面/回前台只发一次 `calendar-changes`；（3）后台改一条历史排班后回前台静默更新；（4）观感与 `.177` 一致。未取得与 `373ae354` 一致的真机结论前，不得写"小米 14 验收通过"。MySQL 集成用例仍需在有测试库的环境补跑（本轮无测试库，全部跳过）。
 
 - 更早批次（Feedback19 及以前，以及 Feedback20–26 细节）见 Git 历史与 `docs/audit/` 对应文档；本文件只保留策略变更、当前月历批次与近期交付指针。
 
@@ -35,7 +36,6 @@
 - 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
 - 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
 - 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。未操作微信开发者工具、未上传体验版、未部署生产。如需小米14原生复核，由 Agent 在最终干净SHA上自主上传体验版（不再需要另行授权）。
-
 
 ## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
 
