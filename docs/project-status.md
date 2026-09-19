@@ -20,8 +20,9 @@
 - 验证（Agent 操作的开发者工具，非实体设备）：同环境同节奏350ms连续5次左滑，基线`9→10→9→10→10`，修复后`9→10→11→12→2027-01`单调向前；250ms故障注入下提交月份不回退。RED→GREEN：基线源码跑新测试8失败/44通过，修复后全绿；Mini 173文件/1188项通过（16跳过）、`tsc`、Mini production verify（包体4581614字节、Worklet2/2、manifest`c13a5d88…`）、`format:check`、`lint`、`icon:parity:check`、`smoke:check-core`通过；证据见 ignored `runtime/audit/calendar-month-swipe-20260919/`。
 - 性能旁证与决策：一次换月 Page patch 40.8KB/往返115～120ms，settle 另有2次约100KB patch（91ms/75ms）；已试的两项 patch 瘦身（去掉未挂载视图数据、按槽位路径下发）无可靠收益或更慢，按“收益不明确即回滚”未纳入。
 - 本批为 Mini-only：不触发生产部署、生产备份或 release-metadata 同步。检查点：`e149c9fd`（修复）与 `263ee95f`（刷新 `.5285dd17` 血缘证明中 `pages/workbench/index.ts` 的 blob 并记录等价证据）。
-- 体验版上传被血缘门禁阻塞（用户已授权上传并放行）：候选`263ee95f`在 general-5 以 upload 用途通过 `check-worktree-safety.ps1`（`PASS/ready-clean-detached`），但 `pnpm miniprogram:upload-experience` 在分配版本前失败：`Latest cumulative trial 0.1.0-p10.20260919.172 must be an ancestor of trial HEAD unless it is a tracked observation and every required feature has a verified canonical equivalence proof.`远端`.172`(`44a25885`)及`.130`起全部体验版均不在 main 血统上（并行任务线产物）。记账本路径需补`.89-.172`共84条，其中10条（100/103/104/105/119/125/141/144/165/166）只有 allocation/manifest、无成功 receipt，而账本动作只有`uploaded`/`dry-run-only`，无法如实表达；未擅自改写。上传失败发生在候选检查阶段：未分配新版本、未建 tag、未写 receipt、未改 allowlist；general-5 已释放。详情见`docs/debug/debug-feedback-log.md`2026-09-19第二条。
-- 唯一下一任务/停止条件：用户选择解除阻塞的方式——①批准扩展血缘账本（含所需动作与测试）后重跑上传；②并行线提交落到 main 使`.172`成为祖先；③暂不体验版。解除后再上传`.173+`并在小米14连续快速左滑复核；未取得与当前构建一致的真机结论前，不得写“小米14验收通过”。
+- 首次上传被血缘门禁阻塞（`.172`及`.130`起体验版都不在 main 血统上）。用户确认并行`runtime-3172`线已下令撤回并选择方案 B：main 执行`git merge --no-ff -s ours 44a25885`（`48102b9a`），内容保持 main、`.172`成为祖先；合并前后本批 11 个文件 blob mismatch=0，滑动修复未被抹掉。
+- 已上传并放行：候选`48102b9a`、general-5 upload 用途 lease、checker `PASS`，动态分配`0.1.0-p10.20260919.173`（description `calendar swipe fix 48102b9`、production、Manifest `5a31d053…46522`、远端tag同一SHA、receipt 在 ignored 目录）；L4 放行按运维笔记物理路线校验后执行可信`ensure`（只增不删、API/Web 重建、预热502后恢复）并通过`verify`、公网探针`.173/.172`=200、未知=426、`ECS_PUBLIC_IP`完整`ecs-verify.sh`（release `44034fcc` 未变）。未部署生产应用、未备份生产库、未提审/正式发布；general-5 已释放。
+- 唯一下一任务/停止条件：用户在小米14打开体验版`0.1.0-p10.20260919.173`，月视图连续快速左滑确认月份单调向前、内容不回退、无旧月份闪现；未取得与`48102b9a`一致的真机结论前，不得写“小米14验收通过”。详情见`docs/debug/debug-feedback-log.md`2026-09-19第三条。
 
 ## 当前批次：Feedback26 导出筛选切换重置文件状态
 
