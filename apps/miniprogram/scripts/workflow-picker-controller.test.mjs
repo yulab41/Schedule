@@ -360,6 +360,7 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.dateSwiperIndex).toBe(2);
     expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-09', slot: 2 });
 
+    definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 2 } });
     definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
     expect(instance.data.draftMonth).toBe(9);
     expect(instance.data.draftDay).toBe(30);
@@ -419,11 +420,13 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.draftMonth).toBe(8);
     expect(instance.data.datePanels[2]).toMatchObject({ key: '2026-09', slot: 2 });
 
+    definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 2 } });
     definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 2 } });
     expect(instance.data.draftMonth).toBe(9);
     expect(instance.data.dateSwiperIndex).toBe(0);
     expect(instance.data.datePanels[0]).toMatchObject({ key: '2026-10', slot: 0 });
 
+    definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 0 } });
     definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 0 } });
     expect(instance.data.draftMonth).toBe(10);
     expect(instance.data.dateSwiperIndex).toBe(0);
@@ -437,6 +440,8 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.methods.handleOpen.call(instance);
 
     definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 2 } });
+    // The native swiper reports the return transition as the finger comes back.
+    definition.methods.handleDateSwiperChangeStart.call(instance, { detail: { current: 1 } });
     definition.methods.handleDateSwiperFinish.call(instance, { detail: { current: 1 } });
 
     expect(instance.data.draftDisplayValue).toBe('2026年8月24日');

@@ -137,12 +137,14 @@ describe('P6-A workbench runtime coordination', () => {
     const next = { currentTarget: { dataset: { delta: '1' } } };
     definition.handleWeekChange.call(instance, next);
     expect(instance.data.weekSwiperCurrent).toBe(2);
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 2 } });
     definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
     expect(instance.data.weekStart).toBe('2026-09-14');
     expect(instance.data.weekSwiperCurrent).toBe(2);
 
     definition.handleWeekChange.call(instance, next);
     expect(instance.data.weekSwiperCurrent).toBe(0);
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 0 } });
     definition.handleWeekSwiperFinish.call(instance, { detail: { current: 0 } });
     expect(instance.data.weekStart).toBe('2026-09-21');
     expect(instance.data.weekSwiperCurrent).toBe(0);
@@ -176,6 +178,7 @@ describe('P6-A workbench runtime coordination', () => {
     });
     expect(instance.data.weekSwiperCurrent).toBe(2);
     expect(instance.data.periodSwiperDuration).toBe(260);
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 2 } });
     definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
     expect(instance.data.weekStart).toBe('2026-09-14');
     expect(instance.data.weekSwiperCurrent).toBe(2);

@@ -7,12 +7,17 @@ export interface CalendarPeriodPagerState {
   /** Ring slot that currently renders the logical current period. */
   activeSlot: CalendarPeriodSlot;
   /**
-   * Latest slot reported by the native swiper. It may lead `activeSlot` while a
-   * period patch is still being applied, because the user can keep swiping.
+   * Latest slot the native swiper reported through its change event. It may lead
+   * `activeSlot` while a period patch is still being applied.
    */
   swiperSlot: CalendarPeriodSlot;
-  /** Signed month steps the native swiper moved past `activeSlot` during a pending patch. */
-  pendingDelta: number;
+  /**
+   * Signed period steps the native swiper has moved since the last commit or
+   * adopt. Rapid swipes produce one change event per index transition, so the
+   * accumulated steps keep every gesture even when the animation finishes
+   * arrive interleaved and the ring can only show one step at a time.
+   */
+  steps: number;
   targetSlot: CalendarPeriodSlot | undefined;
   shiftPending: boolean;
   queuedDelta: number;
@@ -28,9 +33,9 @@ export function createCalendarPeriodPagerState(
 ): CalendarPeriodPagerState {
   return {
     activeSlot,
-    pendingDelta: 0,
     queuedDelta: 0,
     shiftPending: false,
+    steps: 0,
     swiperSlot: activeSlot,
     targetSlot: undefined,
   };
@@ -59,22 +64,26 @@ export function getCalendarPeriodSlotDelta(
 export type CalendarPeriodPrepareResult = 'ignored' | 'locked' | 'tracked';
 
 /**
- * Records the slot the native swiper reported through its change event.
+ * Records the slot the native swiper reported through its change event and
+ * accumulates the signed step it represents.
  *
  * `locked` engages the height transition as well. `tracked` only remembers the
- * reported slot, which is what a swipe that arrives during an in-flight month
- * patch needs: its animation finish must still be able to queue a step instead of
- * being discarded as a replay. Nothing is recorded when the swiper did not move,
- * so stale/replayed events cannot move the ring.
+ * reported slot, which is what a swipe that arrives during an in-flight period
+ * patch needs: its animation finish must still be able to queue the step instead
+ * of being discarded as a replay. Nothing is recorded when the swiper did not
+ * move, so stale/replayed events cannot move the ring.
  */
 export function prepareCalendarPeriodChange(
   state: CalendarPeriodPagerState,
   targetSlot: number,
 ): CalendarPeriodPrepareResult {
   if (!isCalendarPeriodSlot(targetSlot) || targetSlot === state.swiperSlot) return 'ignored';
-  if (state.targetSlot === targetSlot) return 'ignored';
+  const step = getCalendarPeriodSlotDelta(state.swiperSlot, targetSlot);
+  if (step === 0) return 'ignored';
+  state.swiperSlot = targetSlot;
+  state.steps = clampCalendarPeriodQueue(state.steps + step);
   const lockable = !state.shiftPending && state.targetSlot === undefined;
-  state.targetSlot = targetSlot;
+  if (lockable) state.targetSlot = targetSlot;
   return lockable ? 'locked' : 'tracked';
 }
 
@@ -87,7 +96,7 @@ export function requestCalendarPeriodShift(
       readonly queued: true;
       readonly started: false;
     } {
-  if (state.shiftPending || state.targetSlot !== undefined) {
+  if (state.shiftPending || state.targetSlot !== undefined || state.steps !== 0) {
     state.queuedDelta = clampCalendarPeriodQueue(state.queuedDelta + delta);
     return { queued: true, started: false };
   }
@@ -100,25 +109,19 @@ export function commitCalendarPeriodSwipe(
   state: CalendarPeriodPagerState,
   current: number,
 ): CalendarPeriodCommit | undefined {
-  if (!isCalendarPeriodSlot(current) || current === state.swiperSlot) return undefined;
-  // Only a slot the native swiper actually reported can commit; this keeps
-  // replayed animation events after a reset from moving the ring.
-  if (state.targetSlot !== current) return undefined;
-  const delta = getCalendarPeriodSlotDelta(state.swiperSlot, current);
-  state.swiperSlot = current;
+  if (!isCalendarPeriodSlot(current)) return undefined;
   state.targetSlot = undefined;
-  if (delta === 0) return undefined;
-  if (state.shiftPending) {
-    // The previous month patch is still in flight. Keep the native position and
-    // queue the step so it is adopted on settle instead of being dropped, which
-    // would desynchronize the ring anchor from the visible slot.
-    state.pendingDelta = clampCalendarPeriodQueue(state.pendingDelta + delta);
-    return undefined;
-  }
-  state.activeSlot = current;
-  state.pendingDelta = 0;
+  // Nothing has moved since the last commit/adopt: this is a replayed or
+  // cancelled animation finish, so it must not move the ring.
+  if (state.steps === 0) return undefined;
+  // The previous period patch is still in flight: keep the accumulated steps and
+  // let the settle adopt them instead of dropping them.
+  if (state.shiftPending) return undefined;
+  const delta = state.steps;
+  state.steps = 0;
+  state.activeSlot = state.swiperSlot;
   state.shiftPending = true;
-  return { current, delta };
+  return { current: state.activeSlot, delta };
 }
 
 export function cancelCalendarPeriodShift(state: CalendarPeriodPagerState): void {
@@ -134,19 +137,15 @@ export type CalendarPeriodSettle =
 export function finishCalendarPeriodShift(state: CalendarPeriodPagerState): CalendarPeriodSettle {
   state.targetSlot = undefined;
   state.shiftPending = false;
-  if (state.swiperSlot !== state.activeSlot) {
-    const delta =
-      state.pendingDelta !== 0
-        ? state.pendingDelta
-        : getCalendarPeriodSlotDelta(state.activeSlot, state.swiperSlot);
+  if (state.steps !== 0) {
+    // The user kept swiping while the previous patch was applying; adopt every
+    // accumulated step in one commit instead of leaving the ring behind.
+    const delta = state.steps;
+    state.steps = 0;
     state.activeSlot = state.swiperSlot;
-    state.pendingDelta = 0;
-    if (delta !== 0) {
-      state.shiftPending = true;
-      return { adopt: { current: state.activeSlot, delta }, continues: false };
-    }
+    state.shiftPending = true;
+    return { adopt: { current: state.activeSlot, delta }, continues: false };
   }
-  state.pendingDelta = 0;
   return { adopt: undefined, continues: state.queuedDelta !== 0 };
 }
 

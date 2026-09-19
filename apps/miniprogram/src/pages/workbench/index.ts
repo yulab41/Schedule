@@ -284,7 +284,7 @@ interface WorkbenchPageInstance {
   weekRingSlot: CalendarPeriodSlot;
   weekShiftTargetSlot: CalendarPeriodSlot | undefined;
   weekSwiperSlot: CalendarPeriodSlot;
-  weekPendingDelta: number;
+  weekSteps: number;
   periodShiftActive: 'list' | 'week' | undefined;
   periodShiftCommitPending: boolean;
   periodShiftQueue: number;
@@ -468,7 +468,7 @@ Page({
   weekRingSlot: 1,
   weekShiftTargetSlot: undefined,
   weekSwiperSlot: 1,
-  weekPendingDelta: 0,
+  weekSteps: 0,
   periodShiftActive: undefined,
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
@@ -613,7 +613,7 @@ Page({
     this.weekRingSlot = 1;
     this.weekShiftTargetSlot = undefined;
     this.weekSwiperSlot = 1;
-    this.weekPendingDelta = 0;
+    this.weekSteps = 0;
     this.monthResources.clear();
     this.notificationRequestSerial += 1;
     invalidateShiftEventRequest(this);
@@ -679,7 +679,7 @@ Page({
     this.weekRingSlot = 1;
     this.weekShiftTargetSlot = undefined;
     this.weekSwiperSlot = 1;
-    this.weekPendingDelta = 0;
+    this.weekSteps = 0;
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
@@ -817,7 +817,7 @@ Page({
             ? '已切换到上个月。'
             : '已切换到下个月。',
     };
-    setCalendarData(this, finalPatch, () => {
+    applyChangedViewPatch(this, finalPatch, () => {
       const month = this.selectComponent('#workbench-month');
       if (month?.finishPeriodShift !== undefined) month.finishPeriodShift();
       else finishMonthShift(this, false);
@@ -1909,7 +1909,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
     const activeResult = await staged.active;
     if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
     if (!applyMonthWindow(page, [activeResult], requestedMonths)) return;
-    setCalendarData(page, {
+    applyChangedViewPatch(page, {
       ...createViewPatch(page),
       canReLogin: false,
       errorMessage: '',
@@ -1921,7 +1921,7 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
         if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
         if (adjacentResults.length === 0) return;
         if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
-        setCalendarData(page, createViewPatch(page));
+        applyChangedViewPatch(page, createViewPatch(page));
       })
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
@@ -1980,6 +1980,41 @@ function setCalendarData(
   page.setData(patch, () => {
     callback?.();
   });
+}
+
+/**
+ * Drops patch keys whose value already equals the applied page data.
+ *
+ * The refreshed window re-renders the whole view model, but a cached month read
+ * usually returns exactly what is already on screen: pushing ~100KB of identical
+ * payload per swipe is what made new months feel slow to appear. Skipping equal
+ * keys keeps the view identical while leaving the render queue free for the next
+ * gesture.
+ */
+function createChangedViewPatch(
+  page: WorkbenchPageInstance,
+  patch: Partial<WorkbenchPageData>,
+): Partial<WorkbenchPageData> {
+  const changed: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    const current = (page.data as unknown as Record<string, unknown>)[key];
+    if (JSON.stringify(current) === JSON.stringify(value)) continue;
+    changed[key] = value;
+  }
+  return changed as Partial<WorkbenchPageData>;
+}
+
+function applyChangedViewPatch(
+  page: WorkbenchPageInstance,
+  patch: Partial<WorkbenchPageData>,
+  callback?: () => void,
+): void {
+  const changed = createChangedViewPatch(page, patch);
+  if (Object.keys(changed).length === 0) {
+    callback?.();
+    return;
+  }
+  setCalendarData(page, changed, callback);
 }
 
 function syncBusinessDate(page: WorkbenchPageInstance): void {
@@ -2335,7 +2370,7 @@ function startPeriodSwiper(
 function readCircularWeekPagerState(page: WorkbenchPageInstance): CalendarPeriodPagerState {
   return {
     activeSlot: page.weekRingSlot,
-    pendingDelta: page.weekPendingDelta,
+    steps: page.weekSteps,
     queuedDelta: page.periodShiftQueue,
     shiftPending: page.periodShiftCommitPending,
     swiperSlot: page.weekSwiperSlot,
@@ -2348,7 +2383,7 @@ function writeCircularWeekPagerState(
   state: CalendarPeriodPagerState,
 ): void {
   page.weekRingSlot = state.activeSlot;
-  page.weekPendingDelta = state.pendingDelta;
+  page.weekSteps = state.steps;
   page.periodShiftQueue = state.queuedDelta;
   page.periodShiftCommitPending = state.shiftPending;
   page.weekSwiperSlot = state.swiperSlot;
@@ -2371,12 +2406,6 @@ function startCircularWeekSwiper(page: WorkbenchPageInstance, delta: -1 | 1): vo
 function handleCircularWeekSwiperFinish(page: WorkbenchPageInstance, current: number): void {
   if (!isCalendarPeriodSlot(current)) return;
   const state = readCircularWeekPagerState(page);
-  if (current === state.swiperSlot) {
-    if (state.targetSlot === undefined) return;
-    cancelCalendarPeriodShift(state);
-    writeCircularWeekPagerState(page, state);
-    return;
-  }
   const committed = commitCalendarPeriodSwipe(state, current);
   writeCircularWeekPagerState(page, state);
   if (committed === undefined) return;

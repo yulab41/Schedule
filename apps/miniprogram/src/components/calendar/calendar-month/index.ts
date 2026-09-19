@@ -28,7 +28,7 @@ type MonthSlot = CalendarPeriodSlot;
 
 interface CalendarMonthInstance {
   _monthActiveSlot: MonthSlot;
-  _monthPendingDelta: number;
+  _monthSteps: number;
   _monthSwiperSlot: MonthSlot;
   _monthHeightTargetIndex: MonthSlot | undefined;
   _monthShiftPending: boolean;
@@ -84,7 +84,7 @@ Component({
   lifetimes: {
     attached(this: CalendarMonthInstance): void {
       this._monthActiveSlot = 1;
-      this._monthPendingDelta = 0;
+      this._monthSteps = 0;
       this._monthSwiperSlot = 1;
       this._monthHeightTargetIndex = undefined;
       this._monthShiftPending = false;
@@ -164,9 +164,9 @@ Component({
 function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPagerState {
   return {
     activeSlot: instance._monthActiveSlot ?? 1,
-    pendingDelta: instance._monthPendingDelta ?? 0,
     queuedDelta: instance._queuedMonthDelta ?? 0,
     shiftPending: instance._monthShiftPending ?? false,
+    steps: instance._monthSteps ?? 0,
     swiperSlot: instance._monthSwiperSlot ?? instance._monthActiveSlot ?? 1,
     targetSlot: instance._monthHeightTargetIndex,
   };
@@ -175,22 +175,15 @@ function readMonthPagerState(instance: CalendarMonthInstance): CalendarPeriodPag
 function finishMonthSwipeAt(instance: CalendarMonthInstance, current: number): void {
   const state = readMonthPagerState(instance);
   if (!isCalendarPeriodSlot(current)) return;
-  if (current === state.swiperSlot) {
-    if (state.targetSlot === undefined) return;
-    cancelCalendarPeriodShift(state);
-    writeMonthPagerState(instance, state);
-    const viewportHeight = instance.data.panelHeights?.[state.activeSlot] ?? 270;
-    if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
-    return;
-  }
   const committed = commitCalendarPeriodSwipe(state, current);
   writeMonthPagerState(instance, state);
-  // Keep the bound index aligned with the native swiper without delaying the
-  // month patch behind an extra render round trip.
-  const patch: Record<string, unknown> = { swiperCurrent: current };
-  const viewportHeight = instance.data.panelHeights?.[current] ?? 270;
-  if (viewportHeight !== instance.data.viewportHeight) patch.viewportHeight = viewportHeight;
-  instance.setData(patch);
+  // Height follows the slot the user actually ended on. The bound swiper index is
+  // deliberately left alone here: writing `current` back while the finger keeps
+  // moving forces the native swiper to jump, which is what made rapid swipes
+  // collapse into a single month.
+  const heightSlot = state.steps === 0 ? state.activeSlot : state.swiperSlot;
+  const viewportHeight = instance.data.panelHeights?.[heightSlot] ?? 270;
+  if (viewportHeight !== instance.data.viewportHeight) instance.setData({ viewportHeight });
   if (committed === undefined) return;
   instance.triggerEvent('monthchange', committed);
 }
@@ -200,9 +193,9 @@ function writeMonthPagerState(
   state: CalendarPeriodPagerState,
 ): void {
   instance._monthActiveSlot = state.activeSlot;
-  instance._monthPendingDelta = state.pendingDelta;
-  instance._monthSwiperSlot = state.swiperSlot;
   instance._monthHeightTargetIndex = state.targetSlot;
   instance._monthShiftPending = state.shiftPending;
+  instance._monthSteps = state.steps;
+  instance._monthSwiperSlot = state.swiperSlot;
   instance._queuedMonthDelta = state.queuedDelta;
 }

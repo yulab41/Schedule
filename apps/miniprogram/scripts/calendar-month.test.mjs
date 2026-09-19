@@ -80,7 +80,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     await import('../src/components/calendar/calendar-month/index.ts');
     const instance = {
       _monthActiveSlot: 1,
-      _monthPendingDelta: 0,
+      _monthSteps: 0,
       _monthSwiperSlot: 1,
       _monthHeightTargetIndex: undefined,
       _monthShiftPending: false,
@@ -100,10 +100,11 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance.setData).toHaveBeenCalledOnce();
     expect(instance.setData).toHaveBeenCalledWith({ viewportHeight: 324 });
 
-    // A different native report is tracked so its animation finish can still
-    // commit, but it does not start a second height transition.
+    // A later native report keeps accumulating steps without starting a second
+    // height transition.
     definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 0 } });
-    expect(instance._monthHeightTargetIndex).toBe(0);
+    expect(instance._monthHeightTargetIndex).toBe(2);
+    expect(instance._monthSteps).toBe(2);
     expect(instance.setData).toHaveBeenCalledOnce();
   });
 
@@ -140,6 +141,7 @@ describe('P1 native dynamic month calendar PoC', () => {
       triggerEvent,
     };
 
+    definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 2 } });
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
     expect(triggerEvent).toHaveBeenCalledOnce();
@@ -147,7 +149,9 @@ describe('P1 native dynamic month calendar PoC', () => {
 
     expect(definition.observers.panels).toBeUndefined();
     definition.methods.finishPeriodShift.call(instance);
-    expect(instance.data.swiperCurrent).toBe(2);
+    // The touch path deliberately leaves the bound swiper index untouched: only
+    // programmatic shifts write it, so a fast finger is never forced backwards.
+    expect(instance.data.swiperCurrent).toBe(1);
     expect(instance._monthActiveSlot).toBe(2);
     expect(recenterPendingStates).toEqual([]);
     expect(durationRestorePendingStates).toEqual([]);
@@ -196,6 +200,8 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance._monthHeightTargetIndex).toBe(2);
     expect(instance._queuedMonthDelta).toBe(1);
 
+    // The native swiper reports the prepared target before its animation ends.
+    definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 2 } });
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
     definition.methods.finishPeriodShift.call(instance);
 
@@ -276,7 +282,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     const events = [];
     const instance = {
       _monthActiveSlot: 1,
-      _monthPendingDelta: 0,
+      _monthSteps: 0,
       _monthSwiperSlot: 1,
       _monthHeightTargetIndex: undefined,
       _monthShiftPending: false,
@@ -300,28 +306,36 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(events).toEqual([['monthchange', { current: 2, delta: 1 }]]);
     expect(instance._monthShiftPending).toBe(true);
 
-    // The user keeps swiping forward before that patch lands. Those gestures must
-    // be queued, not dropped: dropping them left the ring anchor behind the
-    // visible slot so the next commit reported a backward month.
+    // 150ms between swipes with a 240ms animation: five change reports arrive
+    // while the first patch is still applying, and their animation finishes
+    // interleave with later changes. Every gesture must still count.
     definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 0 } });
-    definition.methods.handleMonthSwipe.call(instance, { detail: { current: 0 } });
     definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 1 } });
+    definition.methods.handleMonthSwipe.call(instance, { detail: { current: 0 } });
+    definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 2 } });
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 1 } });
-    expect(events).toEqual([['monthchange', { current: 2, delta: 1 }]]);
-    expect(instance._monthSwiperSlot).toBe(1);
-    expect(instance._monthPendingDelta).toBe(2);
-    expect(instance.data.swiperCurrent).toBe(1);
+    definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 0 } });
+    definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
 
-    // The first patch lands and the queued steps are adopted without animating
-    // the swiper back to an already left slot.
+    // Only the first commit reached the page so far; the other four steps wait.
+    expect(events).toEqual([['monthchange', { current: 2, delta: 1 }]]);
+    expect(instance._monthSwiperSlot).toBe(0);
+    expect(instance._monthSteps).toBe(4);
+
+    // The settle adopts all four queued steps in one commit, so five swipes
+    // advance exactly five months.
     definition.methods.finishPeriodShift.call(instance);
-    expect(events.at(-1)).toEqual(['monthchange', { current: 1, delta: 2 }]);
-    expect(instance._monthActiveSlot).toBe(1);
-    expect(instance._monthPendingDelta).toBe(0);
+    expect(events.at(-1)).toEqual(['monthchange', { current: 0, delta: 4 }]);
+    expect(instance._monthActiveSlot).toBe(0);
+    expect(instance._monthSteps).toBe(0);
 
     definition.methods.finishPeriodShift.call(instance);
     expect(events.at(-1)).toEqual(['monthsettled', { continues: false }]);
     expect(instance._monthShiftPending).toBe(false);
+    const totalDelta = events
+      .filter(([name]) => name === 'monthchange')
+      .reduce((sum, [, detail]) => sum + detail.delta, 0);
+    expect(totalDelta).toBe(5);
     expect(events.filter(([, detail]) => detail?.delta !== undefined && detail.delta < 0)).toEqual(
       [],
     );

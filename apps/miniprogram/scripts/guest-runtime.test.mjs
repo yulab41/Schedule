@@ -377,12 +377,14 @@ describe('anonymous native visitor calendar', () => {
     definition.handleWeekChange.call(instance, next);
     expect(instance.data.weekSwiperCurrent).toBe(2);
     expect(instance.data.periodSwiperDuration).toBe(260);
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 2 } });
     definition.handleWeekSwiperFinish.call(instance, { detail: { current: 2 } });
     expect(instance.data.weekStart).toBe('2026-08-10');
     expect(instance.data.weekSwiperCurrent).toBe(2);
 
     definition.handleWeekChange.call(instance, next);
     expect(instance.data.weekSwiperCurrent).toBe(0);
+    definition.handleWeekSwiperChange.call(instance, { detail: { current: 0 } });
     definition.handleWeekSwiperFinish.call(instance, { detail: { current: 0 } });
     expect(instance.data.weekStart).toBe('2026-08-17');
     expect(instance.data.weekSwiperCurrent).toBe(0);

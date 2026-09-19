@@ -6,7 +6,6 @@ import {
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
-  cancelCalendarPeriodShift,
   commitCalendarPeriodSwipe,
   createCalendarPeriodPagerState,
   finishCalendarPeriodShift,
@@ -413,16 +412,13 @@ function writeDatePagerState(
 function finishDateSwiperAt(instance: WorkflowPickerInstance, current: number): void {
   const state = readDatePagerState(instance);
   if (!isCalendarPeriodSlot(current)) return;
-  if (current === state.swiperSlot) {
-    if (state.targetSlot === undefined) return;
-    cancelCalendarPeriodShift(state);
-    writeDatePagerState(instance, state);
-    instance._datePendingSelection = undefined;
-    return;
-  }
   const committed = commitCalendarPeriodSwipe(state, current);
   writeDatePagerState(instance, state);
-  if (committed === undefined) return;
+  if (committed === undefined) {
+    // A cancelled or replayed finish must not keep a prepared day selection.
+    if (state.steps === 0) instance._datePendingSelection = undefined;
+    return;
+  }
   applyDatePeriodChange(instance, committed.delta);
 }
 

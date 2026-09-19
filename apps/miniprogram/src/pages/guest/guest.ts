@@ -154,7 +154,7 @@ interface GuestPage {
   weekRingSlot: CalendarPeriodSlot;
   weekShiftTargetSlot: CalendarPeriodSlot | undefined;
   weekSwiperSlot: CalendarPeriodSlot;
-  weekPendingDelta: number;
+  weekSteps: number;
   _weekLayoutHeight: number;
   _weekHeightCache?: Map<string, number>;
   setData(patch: Partial<Data>, callback?: () => void): void;
@@ -186,7 +186,7 @@ Page({
   weekRingSlot: 1,
   weekShiftTargetSlot: undefined,
   weekSwiperSlot: 1,
-  weekPendingDelta: 0,
+  weekSteps: 0,
   _weekLayoutHeight: 112,
   visitorKey: undefined,
   calendar: undefined,
@@ -290,7 +290,7 @@ Page({
     this.weekRingSlot = 1;
     this.weekShiftTargetSlot = undefined;
     this.weekSwiperSlot = 1;
-    this.weekPendingDelta = 0;
+    this.weekSteps = 0;
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
@@ -353,7 +353,7 @@ Page({
     this.weekRingSlot = 1;
     this.weekShiftTargetSlot = undefined;
     this.weekSwiperSlot = 1;
-    this.weekPendingDelta = 0;
+    this.weekSteps = 0;
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
@@ -499,7 +499,7 @@ function startPeriodSwiper(page: GuestPage, view: 'week' | 'list', delta: -1 | 1
 function readCircularWeekPagerState(page: GuestPage): CalendarPeriodPagerState {
   return {
     activeSlot: page.weekRingSlot,
-    pendingDelta: page.weekPendingDelta,
+    steps: page.weekSteps,
     queuedDelta: page.periodShiftQueue,
     shiftPending: page.periodShiftCommitPending,
     swiperSlot: page.weekSwiperSlot,
@@ -508,7 +508,7 @@ function readCircularWeekPagerState(page: GuestPage): CalendarPeriodPagerState {
 }
 function writeCircularWeekPagerState(page: GuestPage, state: CalendarPeriodPagerState): void {
   page.weekRingSlot = state.activeSlot;
-  page.weekPendingDelta = state.pendingDelta;
+  page.weekSteps = state.steps;
   page.periodShiftQueue = state.queuedDelta;
   page.periodShiftCommitPending = state.shiftPending;
   page.weekSwiperSlot = state.swiperSlot;
@@ -526,12 +526,6 @@ function startCircularWeekSwiper(page: GuestPage, delta: -1 | 1): void {
 function handleCircularWeekSwiperFinish(page: GuestPage, current: number): void {
   if (!isCalendarPeriodSlot(current)) return;
   const state = readCircularWeekPagerState(page);
-  if (current === state.swiperSlot) {
-    if (state.targetSlot === undefined) return;
-    cancelCalendarPeriodShift(state);
-    writeCircularWeekPagerState(page, state);
-    return;
-  }
   const committed = commitCalendarPeriodSwipe(state, current);
   writeCircularWeekPagerState(page, state);
   if (committed === undefined) return;
