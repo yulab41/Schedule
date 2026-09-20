@@ -35,7 +35,10 @@ export const wechatDiagnosticData = {
   wechatReceived: '尚未人工确认',
   wechatTestResult: '',
   wechatTargetVersion: 'trial' as 'trial' | 'formal',
-  wechatTargetLabels: ['体验版', '正式版'],
+  wechatTargetOptions: [
+    { label: '体验版', value: 'trial' },
+    { label: '正式版', value: 'formal' },
+  ],
 };
 interface Host {
   readonly data: typeof wechatDiagnosticData;

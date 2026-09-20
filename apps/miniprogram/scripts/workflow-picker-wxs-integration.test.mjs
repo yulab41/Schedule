@@ -14,7 +14,7 @@ describe('production workflow picker WXS wheel integration', () => {
     const config = JSON.parse(read('src/components/ui/ui-date-picker/index.json'));
     const template = read('src/components/ui/ui-date-picker/index.wxml');
     const monthStart = template.indexOf('wx:if="{{mode === \'month\'}}"');
-    const monthEnd = template.indexOf('wx:elif="{{mode === \'date\'}}"', monthStart);
+    const monthEnd = template.indexOf('wx:elif="{{mode === \'time\'}}"', monthStart);
     const monthTemplate = template.slice(monthStart, monthEnd);
 
     expect(config.usingComponents['ui-wheel-column']).toBe('/components/ui/ui-wheel-column/index');
@@ -29,6 +29,21 @@ describe('production workflow picker WXS wheel integration', () => {
     expect(monthTemplate).not.toContain('<scroll-view');
     expect(monthTemplate).not.toContain('scroll-top');
     expect(monthTemplate).not.toContain('bindscroll');
+  });
+
+  it('reuses the same two-column WXS wheel for time mode', () => {
+    const template = read('src/components/ui/ui-date-picker/index.wxml');
+    const timeStart = template.indexOf('wx:elif="{{mode === \'time\'}}"');
+    const timeEnd = template.indexOf('wx:elif="{{mode === \'date\'}}"', timeStart);
+    const timeTemplate = template.slice(timeStart, timeEnd);
+
+    expect(timeTemplate.match(/<ui-wheel-column/gu)).toHaveLength(2);
+    expect(timeTemplate).toContain('runtime-key="{{hourWheelRuntimeKey}}"');
+    expect(timeTemplate).toContain('runtime-key="{{minuteWheelRuntimeKey}}"');
+    expect(timeTemplate).toContain('bindpreviewchange="handleHourWheelPreview"');
+    expect(timeTemplate).toContain('bindpreviewchange="handleMinuteWheelPreview"');
+    expect(timeTemplate).toContain('bindsettle="handleHourWheelSettled"');
+    expect(timeTemplate).toContain('bindsettle="handleMinuteWheelSettled"');
   });
 
   it('removes every legacy month-wheel owner from TypeScript and WXSS', () => {

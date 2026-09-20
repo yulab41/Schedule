@@ -47,6 +47,10 @@ import {
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
 import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
+import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
@@ -89,6 +93,7 @@ interface TapEvent {
 }
 
 interface GroupSettingsPageData {
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly calendarPreferencesError: string;
   readonly calendarPreferencesState: 'error' | 'loading' | 'ready';
   readonly canSave: boolean;
@@ -145,6 +150,8 @@ interface GroupSettingsPageData {
 }
 
 interface GroupSettingsPageInstance {
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   _calendarPreferencesClient: CalendarPreferencesClient;
   _calendarPreferencesSerial: number;
   _consentDraft: GroupMobilePhoneConsentDraft | undefined;
@@ -244,6 +251,7 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
       memberCalendarShiftOptions: createCalendarShiftOptions('member', []),
       memberCalendarView: 'follow',
       noticeVersion: '—',
+      pickerBoundary: null,
       pageScrollStyle: 'height:calc(100% - 64px);',
       saveDisabled: true,
       shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
@@ -274,7 +282,9 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
     ): void {
       recordMiniTelemetryBoundary('group-settings:controller-onload');
       this._requestedGroupId = decodeQueryValue(query['groupId']);
-      this.setData({ ...createShellLayoutPatch(this.data.embedded) });
+      this.setData({ ...createShellLayoutPatch(this.data.embedded) }, () =>
+        measureSelectorPlacementBoundary(this, '.group-settings-scroll'),
+      );
       void loadGroupSettingsWithCapability(this);
     },
 
@@ -310,6 +320,12 @@ export function createGroupSettingsPanelControllerDefinition(embedded = false) {
 
     handleBack(): void {
       wx.navigateBack({ delta: 1 });
+    },
+
+    handlePickerRequestOpen(this: GroupSettingsPageInstance): void {
+      for (const picker of this.selectAllComponents?.('.group-settings-picker') ?? [])
+        picker.closeFromParent?.();
+      measureSelectorPlacementBoundary(this, '.group-settings-scroll');
     },
 
     handleRetry(this: GroupSettingsPageInstance): void {

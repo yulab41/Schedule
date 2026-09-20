@@ -3079,3 +3079,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - RED→GREEN：先在 `manual-schedule-page.test.mjs` 增加固定两列轨道断言，旧实现失败；实现后该文件 8/8，与 WebView-only/thin-page 合计 14/14。行为变化仅为模板控件几何，字段顺序、事件、禁用态、业务逻辑与调用次数不变。
 - 修复取舍：最初尝试显式三层行容器，但 Mini verify 把矩阵节点下界从 1507 测为 1510，违反 no-growth 门禁，已撤销且未进入最终 diff。最终在原六节点上使用 WebView CSS Grid `repeat(2, minmax(0, 1fr))`，删除 40%/60%/50% 遗留宽度，节点仍为 1507。
 - 验证：独立几何脚本在 320/390 宽度测得每行同顶线、两列分别严格 132px/163px、三行且无横向溢出；Mini production verify 通过，总包 4615678 B，WebView-only 且 source/output Worklet=0。Agent 开发者工具 WXML/WXSS 编译及打开 `subpackages/scheduling/pages/manual/index` 成功；生产能力门禁按设计拒绝 `version=local`，页面停在 loading，CLI 的 `setData` JSON 参数又被解析器拒绝，故没有模拟器布局截图结论，更没有小米 14 验收结论。
+
+## 2026-09-20 选择器长列表末项越界与原生 picker 归零
+
+- 现象与引入点：用户截图确认末项侵入圆角同时发生在向上、向下展开。`git log -S`/`blame` 定位共享 selector 的带 padding 滚动视口由 `6d0575d0` 引入；`.182` 的 `f3d37f6d` 只增加动态 `max-height`。邀请、补录与时间原生 picker 分别来自 `ddd5c107`、`38233039`、`27992c75` 等历史实现。
+- RED→GREEN：先新增共享内容盒、原生零计数、迁移调用点、直接页面组件注册、time 模式单次确认/取消零事件与边界传递断言，旧实现 4 项失败；实现后全部通过。开发者工具另发现群组设置自 `70f9a98f` 起存在同节点 `wx:else`+`wx:for` 的 WXML 编译错误，先用回归锁定，再以 `block wx:else` 等价包裹修复。
+- 行为变化：滚动视口改为 `overflow:hidden`，内层内容盒承载 6px 安全区；15 个直接页面 selector 与 12 个工作流 selector 均使用真实滚动边界。5 个原生列表和 4 个原生时间入口迁移到共享组件，源码 `<picker>` 归零。列表仍发送一次数值索引；时间仍发送一次 `HH:mm`，取消不发送；业务 handler、dataset、权限和网络调用不变。
+- 运行/浏览器验证：Mini 全量 178 文件通过/2 跳过、1244 项通过/16 跳过；typecheck、lint、format、`pnpm smoke:check-core`、production verify、source/package/determinism/CI dry-run 全绿。开发者工具 390×844 / 基础库 3.17.2 / WebView 下，向上与向下长列表滚到底均保留底部安全区，`08:05` 时间 Sheet 正确定位，目标 Console 无 error；截图存于 ignored `runtime/audit/picker-unification-20260920/`。小米 14 尚未验收。

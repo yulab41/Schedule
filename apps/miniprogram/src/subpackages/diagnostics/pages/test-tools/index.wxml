@@ -465,18 +465,15 @@
             <text class="row-value">{{wechatReceived}}</text>
           </view>
           <view class="wechat-diagnostic-actions">
-            <picker
+            <ui-selector
               class="wechat-target-picker"
-              mode="selector"
-              range="{{wechatTargetLabels}}"
-              value="{{wechatTargetVersion === 'formal' ? 1 : 0}}"
+              title="测试打开版本"
+              options="{{wechatTargetOptions}}"
+              selected-index="{{wechatTargetVersion === 'formal' ? 1 : 0}}"
+              display-value="{{wechatTargetVersion === 'formal' ? '正式版' : '体验版'}} · 日历首页"
               disabled="{{wechatBusy}}"
               bindchange="handleWechatTargetVersion"
-              ><view class="wechat-target-control"
-                >测试打开：{{wechatTargetVersion === 'formal' ? '正式版' : '体验版'}} ·
-                日历首页</view
-              ></picker
-            >
+            ></ui-selector>
             <ui-button
               label="刷新只读检查"
               variant="secondary"

@@ -146,7 +146,7 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-grid"');
     expect(pickerTemplate).not.toContain('<picker-view');
-    expect(pickerTemplate.match(/<ui-wheel-column/gu)).toHaveLength(2);
+    expect(pickerTemplate.match(/<ui-wheel-column/gu)).toHaveLength(4);
     expect(pickerTemplate).not.toContain('bindscroll="handleYearWheelScroll"');
     expect(pickerTemplate).not.toContain('bindscroll="handleMonthWheelScroll"');
     expect(pickerTemplate).toContain('class="workflow-picker-wheel-rails"');
@@ -223,6 +223,7 @@ describe('P7 physical-device feedback regressions', () => {
     expect(read('components/ui/ui-date-picker/index.wxss')).toContain('../ui-selector/index.wxss');
     const pickerController = read('components/ui/ui-date-picker/index.ts');
     const host = read('subpackages/workflows/components/controller-host.ts');
+    const boundaryHelper = read('components/ui/selector-boundary.ts');
     const workbenchTemplate = read('pages/workbench/index.wxml');
     const workbenchController = read('pages/workbench/index.ts');
 
@@ -238,7 +239,8 @@ describe('P7 physical-device feedback regressions', () => {
       expect(template).toContain('bind:pickerrequestopen="handlePickerRequestOpen"');
       expect(template).toContain('placement-boundary="{{workflowPickerBoundary}}"');
     }
-    expect(host).toContain("select('.workflow-sheet-scroll')");
+    expect(host).toContain("'.workflow-sheet-scroll'");
+    expect(boundaryHelper).toContain('.select(selector)');
     expect(pickerTemplate).toContain('max-height:{{popoverMaxHeight}}px');
     expect(workbenchTemplate).toContain('catchtap="handleFilterSheetBackgroundTap"');
     expect(workbenchTemplate).toContain('catchtap="handleFilterOptionToggle"');
@@ -283,7 +285,10 @@ describe('P7 physical-device feedback regressions', () => {
       /\.workflow-picker-root\.is-open \.workflow-picker-trigger\s*\{[^}]*border-color:\s*var\(--ui-color-primary\);[^}]*box-shadow:/su,
     );
     expect(pickerStyles).toMatch(
-      /\.workflow-picker-selector-popover\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*10px;[^}]*box-shadow:\s*0 3px 14px 2px/su,
+      /\.workflow-picker-selector-popover\s*\{[^}]*overflow:\s*hidden;[^}]*border-radius:\s*10px;[^}]*box-shadow:\s*0 3px 14px 2px/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-selector-content\s*\{[^}]*padding:\s*6px;[^}]*box-sizing:\s*border-box;/su,
     );
     expect(pickerStyles).toMatch(
       /\.workflow-picker-option\s*\{[^}]*height:\s*28px;[^}]*min-height:\s*28px;[^}]*padding:\s*0 8px;[^}]*border-radius:\s*3px;[^}]*font-size:\s*14px;[^}]*line-height:\s*22px;/su,

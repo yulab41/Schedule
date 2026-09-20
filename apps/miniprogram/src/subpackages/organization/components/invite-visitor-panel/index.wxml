@@ -63,36 +63,44 @@
           <view wx:if="{{inviteEditorOpen}}" class="editor-card">
             <view class="field-block"
               ><text class="field-label">邀请对象</text
-              ><picker
-                mode="selector"
-                range="{{targets}}"
-                range-key="name"
-                value="{{targetIndex}}"
+              ><ui-selector
+                class="invite-visitor-picker"
+                title="邀请对象"
+                options="{{targetOptions}}"
+                selected-index="{{targetIndex}}"
+                display-value="{{targetLabel}}"
+                placement-boundary="{{pickerBoundary}}"
                 bindchange="handleTargetPicker"
-                ><view class="native-picker">{{targetLabel}}</view></picker
+                bindpickerrequestopen="handlePickerRequestOpen"
+              ></ui-selector
               ></view
             >
             <view class="field-block"
               ><text class="field-label">加入角色</text
-              ><picker
-                mode="selector"
-                range="{{permissionLabels}}"
-                value="{{permissionRole === 'administrator' ? 1 : 0}}"
+              ><ui-selector
+                class="invite-visitor-picker"
+                title="加入角色"
+                options="{{permissionOptions}}"
+                selected-index="{{permissionRole === 'administrator' ? 1 : 0}}"
+                display-value="{{permissionRole === 'administrator' ? '管理员' : '成员'}}"
+                placement-boundary="{{pickerBoundary}}"
                 bindchange="handlePermissionPicker"
-                ><view class="native-picker"
-                  >{{permissionRole === 'administrator' ? '管理员' : '成员'}}</view
-                ></picker
+                bindpickerrequestopen="handlePickerRequestOpen"
+              ></ui-selector
               ></view
             >
             <view class="field-block"
               ><text class="field-label">排班岗位（可选）</text
-              ><picker
-                mode="selector"
-                range="{{roleOptions}}"
-                range-key="label"
-                value="{{roleIndex}}"
+              ><ui-selector
+                class="invite-visitor-picker"
+                title="排班岗位（可选）"
+                options="{{roleOptions}}"
+                selected-index="{{roleIndex}}"
+                display-value="{{roleLabel}}"
+                placement-boundary="{{pickerBoundary}}"
                 bindchange="handleRolePicker"
-                ><view class="native-picker">{{roleLabel}}</view></picker
+                bindpickerrequestopen="handlePickerRequestOpen"
+              ></ui-selector
               ></view
             >
             <ui-button

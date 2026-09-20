@@ -24,6 +24,10 @@ import { parseVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
 import { composeVisitorQrCard } from '../../../../platform/visitor-qr-card.js';
 import { composeMemberBindingQrCard } from '../../../../platform/member-binding-qr-card.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -40,7 +44,13 @@ interface TargetView {
 interface RoleView {
   readonly id: string;
   readonly label: string;
+  readonly value: string;
   readonly version: number;
+}
+
+interface SelectorOption {
+  readonly label: string;
+  readonly value: string;
 }
 
 interface InviteVisitorPageData {
@@ -58,10 +68,11 @@ interface InviteVisitorPageData {
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
   readonly targets: readonly TargetView[];
+  readonly targetOptions: readonly SelectorOption[];
   readonly targetIndex: number;
   readonly targetLabel: string;
   readonly roleOptions: readonly RoleView[];
-  readonly permissionLabels: readonly string[];
+  readonly permissionOptions: readonly SelectorOption[];
   readonly roleIndex: number;
   readonly roleLabel: string;
   readonly permissionRole: 'administrator' | 'member';
@@ -83,6 +94,7 @@ interface InviteVisitorPageData {
   readonly visitorState: 'idle' | 'loading' | 'ready' | 'error';
   readonly visitorMessage: string;
   readonly pageScrollStyle: string;
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly shellHeaderStyle: string;
   readonly viewportClass: string;
 }
@@ -107,6 +119,8 @@ interface InviteVisitorPageInstance {
   __infoMessageTimer?: unknown;
   __infoMessageToken?: object;
   _operationIds: Map<string, string>;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Partial<InviteVisitorPageData>, callback?: () => void): void;
 }
 
@@ -136,10 +150,14 @@ export function createInviteVisitorPanelControllerDefinition() {
       currentGroupName: '正在读取群组',
       currentGroupRole: '',
       targets: [],
+      targetOptions: [],
       targetIndex: 0,
       targetLabel: '请选择邀请对象',
       roleOptions: [],
-      permissionLabels: ['成员', '管理员'],
+      permissionOptions: [
+        { label: '成员', value: 'member' },
+        { label: '管理员', value: 'administrator' },
+      ],
       roleIndex: 0,
       roleLabel: '不指定岗位',
       permissionRole: 'member',
@@ -161,6 +179,7 @@ export function createInviteVisitorPanelControllerDefinition() {
       visitorState: 'idle',
       visitorMessage: '',
       pageScrollStyle: 'height:calc(100% - 76px);',
+      pickerBoundary: null,
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       viewportClass: '',
     } satisfies InviteVisitorPageData,
@@ -219,6 +238,12 @@ export function createInviteVisitorPanelControllerDefinition() {
 
     handleRetry(this: InviteVisitorPageInstance): void {
       void loadInviteData(this);
+    },
+
+    handlePickerRequestOpen(this: InviteVisitorPageInstance): void {
+      for (const picker of this.selectAllComponents?.('.invite-visitor-picker') ?? [])
+        picker.closeFromParent?.();
+      measureSelectorPlacementBoundary(this, '.invite-visitor-scroll');
     },
 
     handleTargetPicker(this: InviteVisitorPageInstance, event: ValueInputEvent): void {
@@ -287,14 +312,17 @@ function applyPanelLayout(page: InviteVisitorPageInstance): void {
   const windowInfo = wx.getWindowInfo();
   const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
   const headerHeight = statusBarHeight + 52;
-  updatePanel(page, {
-    pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
-    shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-    largeText:
-      ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
-      20,
-    viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-  });
+  page.setData(
+    {
+      pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+      shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+      largeText:
+        ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
+        20,
+      viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+    },
+    () => measureSelectorPlacementBoundary(page, '.invite-visitor-scroll'),
+  );
 }
 
 function syncGroupId(page: InviteVisitorPageInstance): void {
@@ -374,6 +402,7 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
     const roleOptions = config.roles.map((role) => ({
       id: role.id,
       label: role.name,
+      value: role.id,
       version: role.version,
     }));
     updatePanel(page, {
@@ -387,6 +416,10 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
       currentGroupName: group.name,
       currentGroupRole: group.isDeveloperAdmin === true ? '后台管理员' : formatRole(group.role),
       targets,
+      targetOptions: targets.map((target) => ({
+        label: `${target.name} · ${target.statusLabel}`,
+        value: target.id,
+      })),
       targetIndex: 0,
       targetLabel:
         targets[0] === undefined

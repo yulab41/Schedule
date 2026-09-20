@@ -1,26 +1,14 @@
 # Project Status
 
-## 当前批次：选择器统一与长列表末项安全区（实施中）
+## 当前批次：选择器统一与长列表末项安全区（已实现，待体验版交付）
 
-- 用户真机截图纠正了方向判断：长列表末项侵入圆角边框同时发生在向上和向下展开，属于共享滚动内容盒模型问题，不是单一方向错误。`git blame` 定位带 padding 的 `scroll-view` 结构由 `6d0575d0` 引入；`.182` 只增加动态 `max-height`。
-- 开发者工具 390×844 / 基础库 3.17.2 在独占 `general-4` 复现手动排班与导出长列表；目标页 Console 无 error、Network 无 fail/error。启动期既有 workbench 警告与本缺陷无关，不混入本轮。
-- 用户确认统一边界：27 个列表型调用点全部使用最新版共享 selector；邀请与访客 3 项、补录岗位、测试工具版本目标从原生迁移；排班配置 4 个时间 picker 复用现有 `ui-wheel-column` 与时间/日期 Sheet；生产源码原生 `<picker>` 归零。
-- 用户已确认设计规格，并明确要求完成后直接上传体验版、只追加 allowlist 放行，同时再次确认小程序只能使用 WebView 引擎；不提审、不正式发布、不部署 API/Web。
-- 实施计划：`docs/superpowers/plans/2026-09-20-mini-picker-unification-and-scroll-content-implementation-plan.md`。当前基线已合并最新体验版 `.183@0183f69a`；应用源码与原累积候选相同，仅吸收其状态文档收口。
-- 当前下一任务：先写旧实现失败的共享模板、time 模式、原生零计数和调用点契约测试，再实现。停止条件：WebView 门禁、Mini verify、开发者工具和上传前血缘任一失败即停止上传。
-
-## 当前批次：手动排班布局 + 下拉滚动边界累积候选（待体验版交付）
-
-- 用户要求模板区固定为三行：排班模板/排班岗位、开始日期/结束日期、周期天数/值班人员；每行两列等宽铺满，不随可用宽度自由换行。独占 `general-3`，`REUSE_ONLY`，安装 0。
-- 根因：结束日期加入原自由换行 flex 容器后，遗留的岗位 40%/日期 60% 宽度规则使六项形成 2+1+1+2。引入链路为 `50744302` 的非等宽字段布局与 `697795eb` 的结束日期并入同一容器。
-- 修复：保持原六个 WXML 节点不变，仅把 `.field-grid` 改为 WebView CSS Grid 两个 `minmax(0, 1fr)` 轨道，删除 40%/60%/50% 遗留宽度；矩阵节点预算仍为 1507，无新增页面节点。
-- 验证：回归用例先红后绿；320/390 CSS 几何均为三行、同行等宽、无横向溢出（列宽分别 132px/163px）；Mini production verify 通过（主包 1715052 B、总包 4615678 B、WebView-only、source/output Worklet=0）；开发者工具 WXML/WXSS 编译及打开目标页成功。生产 `version=local` 门禁使业务数据停在 loading，运行态注入又受 CLI JSON 参数解析阻断，因此未把模拟器画面作为布局验收；小米 14 未验收。
-- Checkpoint `d1e53646`（`fix(miniprogram): lock manual template field rows`）已推送当前分支。本批不上传体验版、不触发生产部署/备份；如需原生验收，再按最新干净 SHA 分配新体验版。停止条件：未取得同构建小米 14 证据前保持“待用户复核”。
-- 已合并最新体验版 `.182@94beb25e` 的下拉滚动边界修复：共享 selector/date-picker 以 `.workflow-sheet-scroll` 可视边界决定向上/向下展开，并动态限制菜单高度；换班、值班、请假面板统一传递和清理边界。
-- 回归门禁：受影响 Vitest 39/39、Mini typecheck、根 ESLint/Prettier、production Mini verify 通过；主包 1716535 B、总包 4620288 B，保留既有内部主包预警和手排矩阵 best-effort 预警。
-- 开发者工具证据已覆盖靠底部向上展开、顶部向下展开和选项可点击；仅属模拟器证据，小米 14 尚未验收。检查点：`fix(miniprogram): integrate scroll-boundary selector placement`。
-- 累积合并后复测：受影响 Vitest 53/53、320/390 手排几何、Mini production verify 均通过；当前主包 1716534 B、总包 4620043 B、矩阵节点 1507、source/output Worklet=0。合并 checkpoint 由 `merge: include trial 182 selector fixes` 标识。
-- 当前唯一下一任务：复测累积候选，从最终 clean SHA 动态分配并上传体验版，只增生产 allowlist、保留旧版；不提审、不发布、不部署 API/Web。
+- 根因与引入点：共享 selector 自 `6d0575d0` 起把 `padding` 放在可滚动 `scroll-view` 本体；长列表滚动到底时内容盒与圆角裁剪盒重合，因此无论向上或向下展开，最后一项都会贴近或越过圆角。`.182` 仅增加动态高度与方向选择，没有改变该盒模型。
+- 已实现：滚动视口只负责圆角裁剪，新增内层内容盒承载 6px 安全区；所有 27 个列表型调用点统一使用共享 selector 和实际滚动容器边界。邀请/访客 3 项、补录岗位、诊断页体验/正式目标均已迁移；排班配置 4 个时间项复用 `ui-date-picker` + `ui-wheel-column`，生产源码原生 `<picker>` 为 0。
+- 语义审计：列表仍只向原处理器发送一次数值索引；时间值仍为 `HH:mm`，确认一次、取消零次；仅打开方式与视觉组件改变。群组设置的 `wx:else`+`wx:for` 编译错误以等价 `block` 包裹修复，不改变加载/空态/成员分支。未改 API、数据库、权限、通知或业务数据。
+- 验证：新增回归先红后绿；Mini 全量 178 文件通过/2 跳过、1244 项通过/16 跳过；typecheck、lint、format、`smoke:check-core`、source/package/determinism/CI dry-run 和 production verify 通过。包体主包 1721294 B、总包 4630569 B，仅保留既有主包内部预警；source/output Worklet=0，WebView-only 门禁通过。
+- 开发者工具 390×844 / 基础库 3.17.2 / WebView：手排长列表向上、向下滚到底时末项均保留底部安全区；排班配置 `08:05` 时间 Sheet 正确定位 08 时/05 分；目标 Console 无 error。证据在 ignored `runtime/audit/picker-unification-20260920/`。这仍是模拟器证据，不代表小米 14 验收。
+- 用户已确认规格并授权完成后直接上传体验版、只追加 allowlist；不提审、不正式发布、不部署 API/Web。实施 checkpoint 以 `fix(miniprogram): unify picker surfaces` 标识。
+- 当前唯一下一任务：提交并推送干净 checkpoint，重新获取最新体验版血缘，动态分配版本，冻结后上传并只增放行。停止条件：WebView、血缘、冻结、上传或 allowlist 校验任一失败即停止并保留旧版。
 
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 
