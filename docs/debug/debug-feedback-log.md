@@ -3079,3 +3079,4 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - RED→GREEN：先在 `manual-schedule-page.test.mjs` 增加固定两列轨道断言，旧实现失败；实现后该文件 8/8，与 WebView-only/thin-page 合计 14/14。行为变化仅为模板控件几何，字段顺序、事件、禁用态、业务逻辑与调用次数不变。
 - 修复取舍：最初尝试显式三层行容器，但 Mini verify 把矩阵节点下界从 1507 测为 1510，违反 no-growth 门禁，已撤销且未进入最终 diff。最终在原六节点上使用 WebView CSS Grid `repeat(2, minmax(0, 1fr))`，删除 40%/60%/50% 遗留宽度，节点仍为 1507。
 - 验证：独立几何脚本在 320/390 宽度测得每行同顶线、两列分别严格 132px/163px、三行且无横向溢出；Mini production verify 通过，总包 4615678 B，WebView-only 且 source/output Worklet=0。Agent 开发者工具 WXML/WXSS 编译及打开 `subpackages/scheduling/pages/manual/index` 成功；生产能力门禁按设计拒绝 `version=local`，页面停在 loading，CLI 的 `setData` JSON 参数又被解析器拒绝，故没有模拟器布局截图结论，更没有小米 14 验收结论。
+- 累积发布：发现最新体验版 `.182@94beb25e` 不在原分支祖先链，先合并其 selector 滚动边界修复，冲突仅在 `docs/project-status.md` 并保留双方当前事实；最终 clean SHA `0183f69a` 上传为 `.183`，Manifest `76ec6466…051`。生产 add-only 放行与完整 verifier 通过，`.183`/`.182`=200、未知=426；未改 live application release、数据库或旧版本。

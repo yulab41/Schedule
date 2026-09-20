@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：手动排班布局 + 下拉滚动边界累积候选（待体验版交付）
+## 当前批次：手动排班布局 + 下拉滚动边界体验版 `.183`（已交付，待小米 14 复核）
 
 - 用户要求模板区固定为三行：排班模板/排班岗位、开始日期/结束日期、周期天数/值班人员；每行两列等宽铺满，不随可用宽度自由换行。独占 `general-3`，`REUSE_ONLY`，安装 0。
 - 根因：结束日期加入原自由换行 flex 容器后，遗留的岗位 40%/日期 60% 宽度规则使六项形成 2+1+1+2。引入链路为 `50744302` 的非等宽字段布局与 `697795eb` 的结束日期并入同一容器。
@@ -11,7 +11,9 @@
 - 回归门禁：受影响 Vitest 39/39、Mini typecheck、根 ESLint/Prettier、production Mini verify 通过；主包 1716535 B、总包 4620288 B，保留既有内部主包预警和手排矩阵 best-effort 预警。
 - 开发者工具证据已覆盖靠底部向上展开、顶部向下展开和选项可点击；仅属模拟器证据，小米 14 尚未验收。检查点：`fix(miniprogram): integrate scroll-boundary selector placement`。
 - 累积合并后复测：受影响 Vitest 53/53、320/390 手排几何、Mini production verify 均通过；当前主包 1716534 B、总包 4620043 B、矩阵节点 1507、source/output Worklet=0。合并 checkpoint 由 `merge: include trial 182 selector fixes` 标识。
-- 当前唯一下一任务：复测累积候选，从最终 clean SHA 动态分配并上传体验版，只增生产 allowlist、保留旧版；不提审、不发布、不部署 API/Web。
+- 交付：最终 clean SHA `0183f69a`，版本分配器在最新 `.182` 后选择 `0.1.0-p10.20260920.183`；production 包 236 个代码文件、ZIP 2664350 B、Manifest `76ec6466492cebd8d824e506ffb74857571d684c3d521ef302397621c5bb5051`，远端 tag/receipt/候选检查一致。
+- 放行：实时 DoH/TLS/SSH 身份与 live `bc5fc307` 核验通过；可信 `ensure` 只追加 `.183`，独立 allowlist verify 与完整 `ecs-verify.sh` 通过，公网 `.183`/`.182`=200、动态未知=426。未部署应用、未改数据库、未退役旧版、未提审或正式发布。
+- 最终门禁：完整 `pnpm verify` 除状态文档一度 41272 B 超 40 KiB 外，Mini 1237/16、根 1296/448、池工具 81 均通过；裁掉一条过期策略细节后容量守卫 3/3 通过，应用证据输入未变。唯一下一任务：小米 14 打开 `.183@0183f69a` 复核手排三行两列及滚动弹窗上下展开；同构建证据前保持“待用户复核”。
 
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 
@@ -28,12 +30,9 @@
 ## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
 
 - 用户明确要求：允许 Agent 调用微信开发者工具（`wechatide` CLI 与开发者工具 MCP），且编译、预览、上传不再需要用户逐次确认。
-- 已移除禁令与逐次批准门禁的位置：根`AGENTS.md`、`apps/miniprogram/AGENTS.md`、`schedule-project-guardrails`（`SKILL.md`、`references/miniprogram.md`、`references/task-levels.md`、`references/release-candidate.md`）、小程序迁移计划、`architecture/runtime-and-build.md`、`runbooks/manual-native-testing.md`、`runbooks/p6-core-rc.md`、`p7-workflow-rc.md`、`p8-organization-rc.md`、`runbooks/miniprogram-ci.md`、`testing/device-matrix.md`、`testing/test-plan.md`、`docs/audit/AUDIT_MASTER_PLAN.md`、`docs/audit/XIAOMI14_TEST_PROTOCOL.md`。
 - `docs/project-status.md` 原为40551字节，已接近`agent-context-policy.test.mjs`的40960字节硬门槛，加一轮记录必然越界。按根`AGENTS.md`“保持简洁、Git历史才是持久历史”的要求，裁掉访客修复101及以前的历史批次（保留当前与近期批次，并在文末指向`docs/audit/`），现为32047字节/168行。
 - ADR：ADR-0002 的执行边界部分由新增`apps/miniprogram/docs/decisions/ADR-0006-agent-devtools-automation.md`取代，其余部分（日常主循环不依赖开发者工具）仍有效。
 - 保留不变的边界：提交审核、撤回审核、正式发布，以及删除云资源、生产数据库破坏性写入、真实支付等其他不可逆操作仍需用户当次明确批准；体验版上传仍走版本分配、冻结干净候选、Manifest/receipt/远端tag血缘与只追加allowlist；模拟器、自动化与截图不得冒充实体设备验收。
-- 环境事实（本轮实测）：开发者工具`2.02.2609162`（Nightly，高于门槛`2.02.2607152`）；`wechatide -h`退出码0；agent侧skill`0.3.11`与工具内置版逐文件一致且`versionRelation: equal`；MCP `wechat-devtools`带独立Token调用`check_wechatide_status`成功，`loginExpired: false`。
-- 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
 - 当时建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
 ## 历史批次：小程序首屏变慢的服务器根因治理（2C/1.6G 资源铁律）
