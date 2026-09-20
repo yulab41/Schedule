@@ -82,13 +82,13 @@ describe('MINI-G1-002 workbench holiday request plan', () => {
     });
     const instance = await startWorkbench(request);
 
-    await vi.waitFor(() => expect(readCalendarMonths(request)).toHaveLength(7));
     await vi.waitFor(() => expect(pending2027.length).toBeGreaterThan(0));
     const peakConcurrent2027Requests = pending2027.length;
     for (const options of pending2027) {
       options.success({ data: holidays2027, statusCode: 200 });
     }
     await vi.waitFor(() => expect(instance.monthResources.size).toBe(7));
+    expect(readCalendarMonths(request)).toHaveLength(7);
 
     expect(readHolidayYears(request)).toEqual([2026, 2027]);
     expect(peakConcurrent2027Requests).toBe(1);

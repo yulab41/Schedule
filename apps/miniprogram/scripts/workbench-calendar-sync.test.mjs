@@ -233,6 +233,142 @@ describe('MINI calendar incremental sync', () => {
     expect(storage.has(`${MONTH_PREFIX}${months[1]}`)).toBe(false);
     expect(storage.has(`${MONTH_PREFIX}${months.at(-1)}`)).toBe(true);
   });
+
+  it('does not refetch calendar payloads when persisted contacts and the ledger are current', async () => {
+    const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));
+    storage.set(`schedule.wechat.workbench.contacts.v1:${OWNER_ID}:${GROUP_ID}`, {
+      contacts: calendar('2026-09').members.map(({ membershipId, mobilePhone, shortPhone }) => ({
+        membershipId,
+        mobilePhone,
+        shortPhone,
+      })),
+    });
+    const requests = [];
+    const instance = await startWorkbench(
+      createRequest((options) => {
+        requests.push(options.url);
+        if (!options.url.includes('/calendar-changes')) return false;
+        options.success({ data: changes(0, false, [holidayVersion(2026, 1)]), statusCode: 200 });
+        return true;
+      }),
+      storage,
+    );
+    await vi.waitFor(() => expect(storage.has(CURSOR_KEY)).toBe(true));
+    expect(readBusinessMonths(requests)).toEqual([]);
+    expect(instance.calendar.members[0].mobilePhone).toBe('13800138000');
+  });
+
+  it('invalidates a changed off-screen month before advancing the shared cursor', async () => {
+    const storage = warmStorage([...VISIBLE_WINDOW, '2026-01'], holidayYear(2026, []));
+    storage.set(CURSOR_KEY, { lastSeq: 5, revision: 5, savedAt: Date.now() });
+    const instance = await startWorkbench(
+      createRequest((options) => {
+        if (!options.url.includes('/calendar-changes')) return false;
+        options.success({
+          data: changes(
+            6,
+            false,
+            [holidayVersion(2026, 1)],
+            [
+              {
+                businessMonth: '2026-01',
+                kind: 'schedule',
+                seq: 6,
+                changedAt: '2026-09-15T03:00:00.000Z',
+              },
+            ],
+          ),
+          statusCode: 200,
+        });
+        return true;
+      }),
+      storage,
+    );
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    await vi.waitFor(() => expect(storage.get(CURSOR_KEY).lastSeq).toBe(6));
+    expect(storage.has(`${MONTH_PREFIX}2026-01`)).toBe(false);
+  });
+
+  it('does not advance the cursor when any stale adjacent month failed', async () => {
+    const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));
+    storage.set(CURSOR_KEY, { lastSeq: 5, revision: 5, savedAt: Date.now() });
+    const instance = await startWorkbench(
+      createRequest((options) => {
+        if (options.url.includes('/calendar-changes')) {
+          options.success({ data: changes(6, true, [holidayVersion(2026, 1)]), statusCode: 200 });
+          return true;
+        }
+        if (readBusinessMonth(options.url) === '2026-12') {
+          options.success({ data: { error: { code: 'UNAVAILABLE' } }, statusCode: 503 });
+          return true;
+        }
+        return false;
+      }),
+      storage,
+    );
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    expect(storage.get(CURSOR_KEY).lastSeq).toBe(5);
+  });
+  it('silently refreshes changed contacts from a stream and disposes the connection on hide', async () => {
+    const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));
+    let receive;
+    let revision = 5;
+    const abort = vi.fn();
+    const stream = vi.fn(() => ({
+      abort,
+      onChunkReceived(fn) {
+        receive = fn;
+      },
+      onHeadersReceived() {},
+    }));
+    const request = createRequest((options) => {
+      if (options.url.endsWith('/calendar-change-stream')) return stream();
+      if (options.url.includes('/calendar-changes')) {
+        options.success({
+          data: changes(revision, revision === 6, [holidayVersion(2026, 1)]),
+          statusCode: 200,
+        });
+        return true;
+      }
+      const month = readBusinessMonth(options.url);
+      if (month !== undefined && revision === 6) {
+        const updated = calendar(month);
+        delete updated.members[0].mobilePhone;
+        options.success({ data: updated, statusCode: 200 });
+        return true;
+      }
+      return false;
+    });
+    const instance = await startWorkbench(request, storage);
+    await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(1));
+    revision = 6;
+    receive({ data: Uint8Array.from('data:changed\n\n', (c) => c.charCodeAt(0)).buffer });
+    await vi.waitFor(() => expect(storage.get(CURSOR_KEY).lastSeq).toBe(6));
+    expect(instance.data.state).toBe('ready');
+    expect(instance.calendar.members[0]).not.toHaveProperty('mobilePhone');
+    definition.onHide.call(instance);
+    expect(abort).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears persisted contacts when version validation denies group access', async () => {
+    const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));
+    const contactKey = `schedule.wechat.workbench.contacts.v1:${OWNER_ID}:${GROUP_ID}`;
+    storage.set(contactKey, { contacts: calendar('2026-09').members });
+    const instance = await startWorkbench(
+      createRequest((options) => {
+        if (options.url.includes('/calendar-changes')) {
+          options.success({ data: { error: { code: 'FORBIDDEN' } }, statusCode: 403 });
+          return true;
+        }
+        return false;
+      }),
+      storage,
+    );
+    await vi.waitFor(() => expect(instance.data.state).toBe('error'));
+    expect(storage.has(contactKey)).toBe(false);
+    expect(instance.calendar).toBeUndefined();
+  });
 });
 
 async function startWorkbench(request, storage) {
@@ -246,7 +382,8 @@ async function startWorkbench(request, storage) {
 
 function createRequest(handleSpecial) {
   return vi.fn((options) => {
-    if (handleSpecial(options)) return;
+    const handled = handleSpecial(options);
+    if (handled) return handled === true ? undefined : handled;
     if (options.url.endsWith('/groups')) {
       options.success({ data: [groupSummary()], statusCode: 200 });
       return;

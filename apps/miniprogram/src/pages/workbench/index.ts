@@ -18,6 +18,7 @@ import {
 } from '@schedule/presentation-core';
 
 import { buildInfo } from '../../platform/build-info.js';
+import { subscribeCalendarChanges } from '../../platform/calendar-change-stream.js';
 import {
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
@@ -58,6 +59,7 @@ import {
   clearWorkbenchGroupCaches,
   clearWorkbenchCalendarCache,
   createWorkbenchReadClient,
+  invalidateWorkbenchMonths,
   loadActiveThenAdjacent,
   readPersistentHolidays,
   readPersistentHolidayVersion,
@@ -301,6 +303,10 @@ interface WorkbenchPageInstance {
    * numbers the persisted cache strips, so each month costs at most one.
    */
   contactsRefreshRequested: Set<string>;
+  _calendarStreamStop?: (() => void) | undefined;
+  _calendarStreamKey?: string | undefined;
+  _calendarSyncTask?: object | undefined;
+  _calendarSyncPending?: boolean | undefined;
   hasShown: boolean;
   isVisible: boolean;
   pendingListTarget: string | undefined;
@@ -580,6 +586,7 @@ Page({
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    stopCalendarStream(this);
     this._calendarPreferenceSerial += 1;
     stopDutyRefresh(this);
     if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
@@ -600,6 +607,7 @@ Page({
   onUnload(this: WorkbenchPageInstance): void {
     accountSecurity.dispose.call(this);
     this.isVisible = false;
+    stopCalendarStream(this);
     this._calendarPreferenceSerial += 1;
     stopDutyRefresh(this);
     if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
@@ -1354,6 +1362,51 @@ function startNotificationPolling(page: WorkbenchPageInstance): void {
   scheduleNotificationPoll(page);
 }
 
+function stopCalendarStream(page: WorkbenchPageInstance): void {
+  page._calendarStreamStop?.();
+  page._calendarStreamStop = undefined;
+  page._calendarStreamKey = undefined;
+  page._calendarSyncTask = undefined;
+  page._calendarSyncPending = false;
+}
+
+function startCalendarStream(page: WorkbenchPageInstance): void {
+  const groupId = page.data.currentGroupId;
+  const ownerId = getStoredWechatProfile()?.id;
+  if (
+    !page.isVisible ||
+    (page.data.state !== 'ready' && page.data.state !== 'offline') ||
+    ownerId === undefined ||
+    groupId === '' ||
+    page.data.currentGroupRoleKind === 'guest'
+  )
+    return;
+  const key = `${ownerId}:${groupId}`;
+  if (page._calendarStreamKey === key) return;
+  stopCalendarStream(page);
+  page._calendarStreamKey = key;
+  const sync = () => {
+    if (!page.isVisible || page._calendarStreamKey !== key) return;
+    page._calendarSyncPending = true;
+    if (page._calendarSyncTask !== undefined) return;
+    const task = {};
+    page._calendarSyncTask = task;
+    page._calendarSyncPending = false;
+    void refreshWorkbenchWindow(page, { validate: true }).finally(() => {
+      if (page._calendarSyncTask !== task) return;
+      page._calendarSyncTask = undefined;
+      if (page._calendarSyncPending) sync();
+    });
+  };
+  page._calendarStreamStop = subscribeCalendarChanges(groupId, sync, () => {
+    if (page._calendarStreamKey !== key) return;
+    clearWorkbenchGroupCaches(ownerId, groupId);
+    stopCalendarStream(page);
+    // Use the existing authenticated reload path for expiry/revocation recovery.
+    void loadWorkbenchWithCapability(page, { forceRefresh: true });
+  });
+}
+
 function scheduleNotificationPoll(page: WorkbenchPageInstance): void {
   if (!page.isVisible || page.data.currentGroupRoleKind === 'guest') return;
   page._notificationPollTimer = setTimeout(() => {
@@ -1571,16 +1624,21 @@ async function loadWorkbench(
     if (!applyMonthWindow(page, [activeResult], requestedMonths)) {
       throw new Error('Calendar month data is unavailable.');
     }
-    const commitCursor = () => {
-      if (plan.cursor !== undefined) {
+    const commitCursor = (results: readonly MonthReadResult[]) => {
+      const successful = new Set(
+        results.filter((result) => !result.offline).map((result) => result.calendar.businessMonth),
+      );
+      if (
+        plan.cursor !== undefined &&
+        requestedMonths.every((month) => plan.freshMonths.has(month) || successful.has(month))
+      ) {
         writeWorkbenchCalendarCursor(ownerId, selectedGroup.id, plan.cursor);
       }
     };
     // The cursor may only advance once every month it covers has been read. A
     // still-pending or failed background read must leave it where it was so the
     // next validation asks for the same months again.
-    const everyMonthAlreadyFresh = requestedMonths.every((month) => plan.freshMonths.has(month));
-    if (everyMonthAlreadyFresh) commitCursor();
+    commitCursor([activeResult]);
     ensureMonthContacts(page);
     const filterMemberOptions = createFilterOptions(
       page.calendar.members.map((member) => ({
@@ -1634,10 +1692,13 @@ async function loadWorkbench(
       .then((adjacentResults) => {
         if (!isCurrentRequest(page, requestSerial) || adjacentResults.length === 0) return;
         if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
-        commitCursor();
+        commitCursor([activeResult, ...adjacentResults]);
         setCalendarData(page, createViewPatch(page));
       })
-      .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
+      .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error))
+      .finally(() => {
+        if (isCurrentRequest(page, requestSerial)) startCalendarStream(page);
+      });
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
     resetCalendarContext(page);
@@ -1926,7 +1987,6 @@ function applyCachedMonthWindow(
       cached.push({
         ...entry,
         context,
-        contactsIncomplete: true,
         offline: false,
         prerendered: true,
       });
@@ -1942,7 +2002,7 @@ function applyCachedMonthWindow(
  * Asks the server ledger which cached months are still current.
  *
  * The endpoint is optional by contract: any failure (404 from an older API
- * deployment, offline, capability gate) returns the unavailable plan and every
+ * deployment or offline) returns the unavailable plan and every
  * caller falls back to the previous TTL/window behaviour.
  */
 async function planCalendarWindow(
@@ -1963,21 +2023,33 @@ async function planCalendarWindow(
   let changes: CalendarChangesReadModel;
   try {
     changes = await client.getCalendarChanges(groupId, stored?.lastSeq ?? 0);
-  } catch {
+  } catch (error) {
+    if (isCurrentRequest(page, requestSerial) && [401, 403].includes(getErrorStatus(error) ?? 0)) {
+      clearWorkbenchGroupCaches(ownerId, groupId);
+      throw error;
+    }
     return UNAVAILABLE_CALENDAR_WINDOW_PLAN;
   }
   if (!isCurrentRequest(page, requestSerial)) return UNAVAILABLE_CALENDAR_WINDOW_PLAN;
 
-  const requested = new Set(requestedMonths);
   const stale = new Set<string>();
   const affectsEveryMonth =
     changes.resync || changes.changes.some((change) => change.businessMonth === undefined);
   if (affectsEveryMonth) {
+    clearWorkbenchCalendarCache(ownerId, groupId);
+    page.monthCache.clear();
+    page.monthResources.clear();
+    page.contactsRefreshRequested.clear();
     for (const businessMonth of requestedMonths) stale.add(businessMonth);
   } else {
     for (const change of changes.changes) {
       const businessMonth = change.businessMonth;
-      if (businessMonth !== undefined && requested.has(businessMonth)) stale.add(businessMonth);
+      if (businessMonth !== undefined) stale.add(businessMonth);
+    }
+    invalidateWorkbenchMonths(ownerId, groupId, stale);
+    for (const month of stale) {
+      page.monthCache.delete(month);
+      page.monthResources.delete(month);
     }
   }
   // Holidays are published per year and are not part of the group ledger, so a
@@ -1993,7 +2065,7 @@ async function planCalendarWindow(
     const published = holidayVersions.get(year);
     const storedVersion = readPersistentHolidayVersion(year);
     if (published !== undefined && storedVersion !== undefined && storedVersion !== published) {
-      stale.add(businessMonth);
+      page.holidayReads.delete(year);
     }
   }
 
@@ -2007,14 +2079,8 @@ async function planCalendarWindow(
 }
 
 /**
- * Restores the mobile numbers that the persisted cache deliberately strips.
- *
- * `sanitizeCalendarForCache` removes `mobilePhone` before a month reaches
- * storage, which is the right call for what is kept on the device but leaves a
- * month served from storage able to show only the short phone — and nothing at
- * all for a member who has none. Re-reading just the month the user is looking
- * at costs one request per month per session, leaves the swipe path untouched,
- * and does not move the cursor the ledger already validated.
+ * Upgrades legacy caches that predate the owner/group contact snapshot.
+ * A new snapshot hydrates other cached months without further network reads.
  */
 function ensureMonthContacts(page: WorkbenchPageInstance): void {
   const groupId = page.data.currentGroupId;
@@ -2024,6 +2090,22 @@ function ensureMonthContacts(page: WorkbenchPageInstance): void {
   const businessMonth = getActiveBusinessMonth(page);
   const existing = page.monthResources.get(businessMonth) ?? page.monthCache.get(businessMonth);
   if (existing?.contactsIncomplete !== true) return;
+  const hydrated = readWorkbenchCache(ownerId, groupId, businessMonth, Date.now(), {
+    ignoreAge: true,
+  });
+  if (hydrated !== undefined && hydrated.contactsIncomplete !== true) {
+    const result = { ...existing, ...hydrated, contactsIncomplete: false };
+    page.monthResources.set(businessMonth, result);
+    page.monthCache.set(businessMonth, result);
+    const requestedMonths = getRequestedMonths(
+      page.data.viewMode,
+      page.data.businessMonth,
+      page.data.weekStart,
+    );
+    if (applyMonthWindow(page, [result], requestedMonths))
+      applyChangedViewPatch(page, createViewPatch(page));
+    return;
+  }
   const refreshKey = `${groupId}:${businessMonth}`;
   if (page.contactsRefreshRequested.has(refreshKey)) return;
   page.contactsRefreshRequested.add(refreshKey);
@@ -2048,7 +2130,12 @@ function ensureMonthContacts(page: WorkbenchPageInstance): void {
       if (!applyMonthWindow(page, [result], requestedMonths)) return;
       applyChangedViewPatch(page, createViewPatch(page));
     })
-    .catch(() => {
+    .catch((error: unknown) => {
+      page.contactsRefreshRequested.delete(refreshKey);
+      if ([401, 403].includes(getErrorStatus(error) ?? 0)) {
+        failClosedAfterBackgroundRead(page, requestSerial, error);
+        return;
+      }
       // The month is already on screen; a failed refresh only means the detail
       // card keeps showing the short phone instead of becoming an error page.
     });
@@ -2067,6 +2154,10 @@ async function readMonth(
   const guest = page.data.currentGroupRoleKind === 'guest';
   const context = calendarContext(page);
   const existing = page.monthResources.get(businessMonth) ?? page.monthCache.get(businessMonth);
+  const remember = (result: MonthReadResult) =>
+    isCurrentRequest(page, requestSerial) && calendarContext(page) === context
+      ? rememberMonthRead(page, businessMonth, result)
+      : result;
   if (
     !guest &&
     !options.forceRefresh &&
@@ -2075,8 +2166,10 @@ async function readMonth(
     !(existing?.prerendered === true && options.preferCache !== true) &&
     existing?.offline === false &&
     existing.context === context
-  )
-    return rememberMonthRead(page, businessMonth, existing);
+  ) {
+    const holidays = await readHolidays(Number(businessMonth.slice(0, 4)));
+    return remember({ ...existing, holidays, prerendered: false });
+  }
 
   // Incremental validation already proved this month is unchanged, so the
   // persisted copy is authoritative even if it is older than the offline TTL.
@@ -2089,12 +2182,9 @@ async function readMonth(
       // shared per-year cache without a request while the published version is
       // unchanged, and refetches the moment it is not.
       const holidays = await readHolidays(Number(businessMonth.slice(0, 4)));
-      return rememberMonthRead(page, businessMonth, {
+      return remember({
         ...persisted,
         context,
-        // The stored copy is intentionally stripped of mobile numbers; the
-        // caller refreshes the viewed month to restore them.
-        contactsIncomplete: true,
         holidays,
         offline: false,
       });
@@ -2141,7 +2231,7 @@ async function readMonth(
   ) {
     writeWorkbenchCache(ownerId, groupId, businessMonth, calendarResult.value);
   }
-  return rememberMonthRead(page, businessMonth, {
+  return remember({
     calendar: calendarResult.value,
     context,
     holidays,
@@ -2171,7 +2261,10 @@ function rememberMonthRead(
   return result;
 }
 
-async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void> {
+async function refreshWorkbenchWindow(
+  page: WorkbenchPageInstance,
+  options: { readonly validate?: boolean } = {},
+): Promise<void> {
   const groupId = page.data.currentGroupId;
   if (groupId === '') return;
   const requestedMonths = getRequestedMonths(
@@ -2189,11 +2282,21 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
   page.requestSerial = requestSerial;
   page.requestOwnerId = ownerId;
   try {
-    const readHolidays = createHolidayReader(page, requestedMonths);
+    const plan =
+      options.validate === true
+        ? await planCalendarWindow(page, ownerId, groupId, requestedMonths, requestSerial)
+        : UNAVAILABLE_CALENDAR_WINDOW_PLAN;
+    if (!isCurrentRequest(page, requestSerial) || (options.validate === true && !plan.available))
+      return;
+    const readHolidays = createHolidayReader(page, requestedMonths, {
+      forceRefresh: false,
+      versions: plan.holidayVersions,
+    });
     const activeMonth = getActiveBusinessMonth(page);
     const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
       readMonth(page, ownerId, groupId, businessMonth, requestSerial, readHolidays, {
-        forceRefresh: false,
+        forceRefresh: plan.available && !plan.freshMonths.has(businessMonth),
+        preferCache: plan.freshMonths.has(businessMonth),
       }),
     );
     const activeResult = await staged.active;
@@ -2207,16 +2310,30 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
       state: activeResult.offline ? 'offline' : 'ready',
     });
     ensureMonthContacts(page);
-    void staged.adjacent
+    await staged.adjacent
       .then((adjacentResults) => {
         if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
-        if (adjacentResults.length === 0) return;
         if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
+        const successful = new Set(
+          [activeResult, ...adjacentResults]
+            .filter((result) => !result.offline)
+            .map((result) => result.calendar.businessMonth),
+        );
+        if (
+          plan.cursor !== undefined &&
+          requestedMonths.every((month) => plan.freshMonths.has(month) || successful.has(month))
+        ) {
+          writeWorkbenchCalendarCursor(ownerId, groupId, plan.cursor);
+        }
         applyChangedViewPatch(page, createViewPatch(page));
       })
       .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
+    if (options.validate === true && canUseWorkbenchOfflineFallback(error)) {
+      page.setData({ offlineNotice: '离线只读 · 显示最近一次成功读取的排班', state: 'offline' });
+      return;
+    }
     resetCalendarContext(page);
     page.setData({
       canReLogin: isAuthRequired(error),
@@ -3112,6 +3229,7 @@ function calendarContext(page: WorkbenchPageInstance): string {
 }
 
 function resetCalendarContext(page: WorkbenchPageInstance): void {
+  stopCalendarStream(page);
   page._weekLayoutSignature = '';
   page._weekHeightCache?.clear();
   page._groupMonthShiftTypeId = undefined;

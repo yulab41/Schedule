@@ -822,8 +822,8 @@ describe('P6-A workbench runtime coordination', () => {
         activeHolidayRequest = options;
         return;
       }
-      adjacentStartStates.push(instance?.data.state);
       if (month !== undefined) {
+        adjacentStartStates.push(instance?.data.state);
         options.success({ data: calendar(month), statusCode: 200 });
       } else {
         options.success({ data: holidayApiGoldenResponse, statusCode: 200 });

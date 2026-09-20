@@ -1508,7 +1508,7 @@ describeWithDatabase('current month calendar read model', () => {
     );
   });
 
-  it('degrades to a resync when a calendar write never reached the ledger', async () => {
+  it('bounds missed-ledger detection by the safety scan cache window', async () => {
     await savePublished('2026-08');
     const settled = await readChanges('owner-token', 0);
     const current = await readChanges('owner-token', settled.json().revision as number);
@@ -1516,6 +1516,10 @@ describeWithDatabase('current month calendar read model', () => {
     await client.database.execute(
       sql`UPDATE shift_assignments SET planned_member_name='Synthetic bump miss' WHERE business_date='2026-08-08'`,
     );
+    expect(
+      (await readChanges('owner-token', current.json().revision as number)).json(),
+    ).toMatchObject({ changes: [], resync: false });
+    vi.setSystemTime(new Date(Date.now() + 30_001));
     const diverged = await readChanges('owner-token', current.json().revision as number);
     expect(diverged.json().resync).toBe(true);
     expect(diverged.json().revision).toBeGreaterThan(current.json().revision);

@@ -312,14 +312,8 @@ describe('P6-A session, transport and private cache runtime', () => {
     vi.stubGlobal('wx', storageWx);
     const [, workbench] = await importRuntime();
 
-    workbench.writeWorkbenchCache(
-      'user-1',
-      'group-1',
-      '2026-08',
-      calendarApiGoldenResponse,
-      holidayApiGoldenResponse,
-      now,
-    );
+    workbench.writePersistentHolidays(2026, holidayApiGoldenResponse, now);
+    workbench.writeWorkbenchCache('user-1', 'group-1', '2026-08', calendarApiGoldenResponse, now);
     const key = workbench.getWorkbenchCacheKey('user-1', 'group-1', '2026-08');
     expect(key).toContain('cache.v2:user-1:group-1:2026-08');
     expect(storageWx.storage.get(key).calendar.members[0]).not.toHaveProperty('mobilePhone');
@@ -345,33 +339,18 @@ describe('P6-A session, transport and private cache runtime', () => {
       throw new Error('quota exceeded');
     });
     expect(() =>
-      workbench.writeWorkbenchCache(
-        'user-1',
-        'group-1',
-        '2026-08',
-        calendarApiGoldenResponse,
-        holidayApiGoldenResponse,
-        now,
-      ),
+      workbench.writeWorkbenchCache('user-1', 'group-1', '2026-08', calendarApiGoldenResponse, now),
     ).not.toThrow();
     storageWx.setStorageSync.mockImplementation((storageKey, value) =>
       storageWx.storage.set(storageKey, value),
     );
 
-    workbench.writeWorkbenchCache(
-      'user-1',
-      'group-1',
-      '2026-08',
-      calendarApiGoldenResponse,
-      holidayApiGoldenResponse,
-      now,
-    );
+    workbench.writeWorkbenchCache('user-1', 'group-1', '2026-08', calendarApiGoldenResponse, now);
     workbench.writeWorkbenchCache(
       'user-1',
       'group-2',
       '2026-08',
       { ...calendarApiGoldenResponse, groupId: 'group-2' },
-      holidayApiGoldenResponse,
       now,
     );
     workbench.pruneWorkbenchCaches('user-1', new Set(['group-2']));

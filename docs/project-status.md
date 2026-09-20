@@ -1,5 +1,15 @@
 # Project Status
 
+## 当前批次：数据缓存与服务器性能审计（推送优先，待交付验证）
+
+- 用户授权全面检查/优化并允许联系方式持久缓存，确认采用“服务器推送优先、低频校验兜底”。独占 general-5，REUSE_ONLY，安装 0。
+- 生产只读基线：live 318b275d，实际内存 1608 MiB、可用 858 MiB；API/MySQL/Web 三容器无重启/OOM，memory PSI=0。此前每分钟重复容器与 MySQL 内存修复仍有效，本轮不重复清理或停服务。
+- 已实现：按 owner+group 保存一份联系人；旧格式扫描每进程一次；月缓存未满不遍历 payload；后台预取并发 2；屏外失效和失败游标修正；403 清缓存；节假日只更新年份；扫描缓存 30 秒/128 条、通讯录筛选 LRU 64 条。
+- 推送：复用 API HTTP 分块流，无 Redis/新依赖/后台进程；前台单连接，后台关闭，初连/重连补查，120 秒无提示校验兜底；服务端 110 秒重新鉴权、200 总连接/账号 2 连接上限。联系方式跨组更新也发送提示。
+- 验证：针对性 Mini 25 项、P6 身份/工作台 48 项通过；Mini verify 通过（主包 1715052 B、总包 4615896 B）；开发者工具 3.17.3 本地 SSE 2 个分块/首块 9ms，已恢复私有配置。完整校验分段完成：Mini 1231 通过/16 跳过、根 Vitest 1297 通过/448 跳过、池工具 81 通过；真实 MySQL 日历集成 41 通过；官方上传 SDK 转译通过。提交/部署/体验版身份待交付记录。
+- 详见 [审计报告](audit/loading-cache-server-20260920.md)；旧测试夹具在父源码复跑也失败，已修正调用签名及统计范围，不降低断言。
+- 计划 checkpoint：`perf(cache): bound calendar reads and add foreground change hints`。唯一下一任务：完成全量验证后提交推送，重新读取 live/备份/部署验证，再上传并追加放行新体验版；停止条件为交付记录完整，小米 14 留待用户同构建复核。
+
 ## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
 
 - 用户明确要求：允许 Agent 调用微信开发者工具（`wechatide` CLI 与开发者工具 MCP），且编译、预览、上传不再需要用户逐次确认。
@@ -10,9 +20,9 @@
 - 保留不变的边界：提交审核、撤回审核、正式发布，以及删除云资源、生产数据库破坏性写入、真实支付等其他不可逆操作仍需用户当次明确批准；体验版上传仍走版本分配、冻结干净候选、Manifest/receipt/远端tag血缘与只追加allowlist；模拟器、自动化与截图不得冒充实体设备验收。
 - 环境事实（本轮实测）：开发者工具`2.02.2609162`（Nightly，高于门槛`2.02.2607152`）；`wechatide -h`退出码0；agent侧skill`0.3.11`与工具内置版逐文件一致且`versionRelation: equal`；MCP `wechat-devtools`带独立Token调用`check_wechatide_status`成功，`loginExpired: false`。
 - 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
-- 唯一建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
+- 当时建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
-## 当前批次：小程序首屏变慢的服务器根因治理（2C/1.6G 资源铁律）
+## 历史批次：小程序首屏变慢的服务器根因治理（2C/1.6G 资源铁律）
 
 - 用户报告小程序首次打开日历/通讯录/换班/我的经常转圈 5–10 秒，要求核查小程序与 API 链路并清理服务器垃圾。结论：根因在服务器侧，不是小程序包体或"屎山代码"。
 - 生产实测证据：web nginx `$request_time` 与 api `pino responseTime` 同时记录 5–12.0 秒真实请求（`/calendar` 8.078s、`/auth/wechat/login` 8.896s、`/client-capabilities` 6.482s、`/directory/facets` 10.038s），并有一批正好 12.004–12.015s 的 HTTP 499 客户端放弃；`/proc/pressure/io` full avg300≈35%、memory≈17%；swap 已用 1080MB（mysqld 754MB 被换出）。
@@ -23,7 +33,7 @@
 - 生产部署（用户同轮授权）：`main`=`c45c54b5`（应用+调度脚本），部署前加密备份 `88b5f2f2-491b-44ed-84ce-2d9ac186dfb3`（56 表 / 283148 行 / 119433792 字节，SHA-256 `72ddef06…3f7f`）；live release `c45c54b5a021c26c455596393670332d86844b74`、schema 62、rollback candidate 换成 `e4b8d1f6`；完整 `ecs-verify.sh` 通过（`[verify] complete`），公网 health=200。
 - 服务器复测（23:40–23:55）：磁盘 25G/67% → 13G/33%（可用 25G）；`/opt/schedule` 8.1G → 174M；`/opt/schedule/releases` 只留 current 与 rollback candidate 两个；swap 1080MB → 201MB（mysqld 换出页归零，仅剩 fwupd 131MB）；IO pressure full avg300 34.8% → 2.2%、memory 16.7% → 1.3%；对 `/api/health` 70 次采样 min 7ms / p50 8ms / p90 9ms / max 15ms；210 秒观察窗内新建容器 0 个（此前约 7–8 个/150 秒），通知与隐私保留作业仍按每分钟/每 15 分钟执行。
 - 小程序侧结论（本轮只诊断未改）：主包 1,709,420 字节（dist 总量 4,551,662），未超 2MB；正常路径冷启动约 25–30 个请求。卡顿窗口实测 91 个请求，其中 41 个是 `<G>/calendar`（±3 月窗口 + 12 秒超时后重试放大），10 个请求被客户端 12 秒超时放弃。故"屎山代码"不是根因，但客户端重试会在服务器变慢时把流量放大数倍，值得后续单独批次评估。
-- 停止条件已满足。唯一下一任务：小米 14 打开体验版 `0.1.0-p10.20260919.179` 复测日历/通讯录/换班/我的首屏是否恢复秒开；若仍慢，按"客户端请求放大"方向单独立项，不重复清理服务器。
+- 停止条件已满足。当时下一任务：小米 14 打开体验版 `0.1.0-p10.20260919.179` 复测日历/通讯录/换班/我的首屏是否恢复秒开；若仍慢，按"客户端请求放大"方向单独立项，不重复清理服务器。
 
 ## 上一批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
 
@@ -48,21 +58,21 @@
 
 - 更早批次（Feedback19 及以前，以及 Feedback20–26 细节）见 Git 历史与 `docs/audit/` 对应文档；本文件只保留策略变更、当前月历批次与近期交付指针。
 
-## 当前批次：Feedback26 导出筛选切换重置文件状态
+## 历史批次：Feedback26 导出筛选切换重置文件状态
 
 - 基线`4d75ab20`；独占general-1，REUSE_ONLY且无安装。设计与证据见`docs/superpowers/specs/2026-09-14-feedback26-export-selection-reset-design.md`和`docs/audit/feedback26-export-selection-reset.md`。
 - 根因是导出周期/类型只更新选择摘要，岗位/人员多选直接写data，均未使已生成任务和临时文件失效。现在七类实际参数变化统一清理旧任务并回到“选择内容后创建任务”；相同值点击不重置。
 - 回归RED为7失败/29通过，GREEN控制器36通过；导出下载/直接Page/thin-page联合43通过。Mini production verify通过，包体4579789字节、Worklet2/2、Manifest`30a26638…9cb9b`；保留既有内部预警。
 - 待提交检查点：`fix(miniprogram): reset generated export after selection changes`。未操作微信开发者工具、未上传体验版、未部署生产。如需小米14原生复核，由 Agent 在最终干净SHA上自主上传体验版（不再需要另行授权）。
 
-## 当前批次：Feedback25 已部署并放行体验版129，待小米14复核
+## 历史批次：Feedback25 已部署并放行体验版129，待小米14复核
 
 - 小米14 `.127` 证据确认：访客五行月历因 viewport 62px/行而 panel 仍54px/行产生底部留白；访客列表模板漏掉成员列表已有的班种状态。需继续核对医生/护士月周列表结构与交互，成员日历页面禁止修改。
 - 访客二维码当前只有5分钟进程缓存，冷路径串行生成正式/体验两码并在客户端二次绘制；用户确认二维码永久保存，只有手动“刷新访客码”才更换 visitorKey 并废除旧码。设计采用独立持久资源表、双码并行、同请求合并和分段脱敏耗时证据。
 - 设计与计划见`docs/superpowers/specs/2026-09-13-feedback25-guest-calendar-qr-performance-design.md`及对应plan。访客month panel已补齐62px rowHeight，列表主体结构与成员一致；成员日历文件零修改。schema61永久保存正式/体验访客二维码，冷生成并行且合并重复请求，刷新事务内废除旧资源，界面统一“刷新访客码”。
 - RED旧代码Mini 4/5失败且0061缺失；Feedback25/guest/导出/布局55项、schema兼容与备份表计数32项通过。完整门禁根1266项通过/443跳过、Mini1175项通过/16跳过；Windows release-cache rename曾一次`EPERM`，独立复跑4/4通过。Mini production verify主包1728134、总包4580599字节、Worklet2/2及确定性通过，`smoke:check-core`无需Web冒烟。MySQL持久化集成已加入但warm槽无测试库而14项跳过。独占general-1，REUSE_ONLY且未安装依赖；成员日历零修改和逐行diff通过。
 - 应用检查点`21fe6591`及验证器检查点`590aebb4`已推送；schema61/API与最终可信控制面已部署。首次备份`ef3a25ea-0180-462b-819c-fa75ad5081f4`为54表/256555行，最终部署前备份`9a29cb36-fe58-44c3-a933-6114e6a6c16b`为55表/256584行/108379344字节，SHA-256 `2981b347…05d558`。完整生产verifier通过。
-- `0.1.0-p10.20260914.129`以production/clean绑定`590aebb4`上传成功，Manifest `21075b8e…fdb360`；可信ensure仅追加129并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：129/128=200，动态未知=426。未提审、未正式发布、未退役旧版本。唯一下一任务：小米14打开129复核医生/护士访客月周列表、首次/再次读取二维码及“刷新访客码”速度。
+- `0.1.0-p10.20260914.129`以production/clean绑定`590aebb4`上传成功，Manifest `21075b8e…fdb360`；可信ensure仅追加129并保留全部旧版本。allowlist verifier、完整ecs verifier及公网探针通过：129/128=200，动态未知=426。未提审、未正式发布、未退役旧版本。当时下一任务：小米14打开129复核医生/护士访客月周列表、首次/再次读取二维码及“刷新访客码”速度。
 
 ## 上一批次：Feedback15 已部署并放行112，待小米14复核
 
@@ -73,7 +83,7 @@
 - 83d8a03b已推送；112/83d8a03已上传成功，357文件冻结包/receipt/远端tag一致，主包1709858/总4552499。上传专项30项及候选前后检查通过，见docs/audit/feedback15-trial-release.md。
 - 用户随后授权生产操作：备份d89f173b-8b76-463c-b560-3e0726ff3d5d成功（54表、106182176字节）；服务端83d8a03b部署完成，schema57，独立ecs-verify通过。生产健康探测首段短暂502后恢复，未改变业务数据。
 - 可信ensure仅追加112并保留111；allowlist verifier、再次ecs-verify及公网策略探针通过：112/111=200，动态未知=426。未执行replace、版本退役或真实通知。
-- 唯一下一任务：小米14重开体验版112/83d8a03b，复核八项交互和视觉。自动化与生产验证完成，原生待用户复核；不重复上传、放行或部署。文档检查点docs(release): record feedback15 trial 112 delivery。
+- 当时下一任务：小米14重开体验版112/83d8a03b，复核八项交互和视觉。自动化与生产验证完成，原生待用户复核；不重复上传、放行或部署。文档检查点docs(release): record feedback15 trial 112 delivery。
 
 ## 上一批次：Feedback14 已交付111，导出白屏待同版本报告
 
@@ -82,7 +92,7 @@
 - 新位移回归先失败后通过；workbench31、联合真实导出及诊断69项通过。390×844/320生产样式浏览器复现旧内容缩短107px、修复布局保持不变，原生效果待同版本验收。
 - 导出已对照102/106及9bae5beb、执行110真实冻结JS与真实Page测试，未证实原生白屏根因。新增可复制的固定首屏阶段与root/header/scroll分类诊断；不改CSV操作语义，不宣称白屏已修复。
 - 检查点fix(miniprogram): stabilize More navigation and expose export render stages；完整pnpm verify通过：Mini1179/15跳过、根1251/436跳过、依赖保护81；最终Mini verify、Worklet2/2及包体通过。用户随后批准上传并追加放行，已交付111/6b8a9e9，保留110；完整生产verifier/allowlist及公网111/110=200、未知426通过。服务器仍e163fde8，无新应用部署。
-- 唯一下一任务：小米14重开111/6b8a9e9，复核更多位移，进入导出停留5秒返回，再到测试工具刷新并复制完整诊断报告。交付见docs/audit/feedback14-trial-release.md；不重复上传、放行或部署，白屏仍待定位。二维码及自动收信待用户原生复核状态保留。
+- 当时下一任务：小米14重开111/6b8a9e9，复核更多位移，进入导出停留5秒返回，再到测试工具刷新并复制完整诊断报告。交付见docs/audit/feedback14-trial-release.md；不重复上传、放行或部署，白屏仍待定位。二维码及自动收信待用户原生复核状态保留。
 
 ## 上一批次：Feedback13 已部署并上传110，待用户真机复核
 
@@ -91,7 +101,7 @@
 - 五模板配置、四业务模板实际字段和外部消息能力复核通过。未主动发送真实消息、不重放历史通知。上传30项、356文件Manifest/receipt/远端tag一致，主包1704137/总包4535157字节。
 - 实现验证沿用完整pnpm verify：Mini1170/15跳过、根1251/436跳过、依赖保护81；额外跨月高度2项、MySQL calendar36及390/320生产CSS/ViewModel几何和本地浏览器通过。均非小米14验收。
 - general-4/5独占复用，无依赖安装。文档检查点docs(release): record feedback13 delivery，在本次部署授权内以可信哈希复用流程同步文档release身份，应用及体验包仍绑定8f441d2d。
-- 唯一下一任务/停止条件：小米14重开110/8f441d2，复核四项日历交互及五个通知授权按钮、自然自动收信；二维码相册保存、导出白屏和发送文件仍待当前版本真机证据，不提前标记完成。不重复上传、放行、模板配置或护士导入。
+- 当时下一任务/停止条件：小米14重开110/8f441d2，复核四项日历交互及五个通知授权按钮、自然自动收信；二维码相册保存、导出白屏和发送文件仍待当前版本真机证据，不提前标记完成。不重复上传、放行、模板配置或护士导入。
 
 ## 上一批次：护士照片139条已录入，待用户查看
 
@@ -103,7 +113,7 @@
 - 最终部署前备份f2cca68a-7547-4b16-8d0a-841019f55cce（54表、105250592字节）文件hash与登记一致；即时回滚候选c4a9b67f。两次打包均85包复用、downloaded0，无依赖安装。
 - 2026-09-12北京时间08:08事务提交139条：历史54、当前/未来85；独立回读139一致、重复0；原有287条有效排班不变，其中9月1—6日59条保留。成员、岗位、班次配置不变，通知/投递新增0，无小程序上传或新增迁移。
 - 原照片1处NP到次日11:00、A次日08:00的3小时重叠按确认原样保留，不自行改班。报告与个人明细仅存ignored runtime/audit/nurse-import-20260911。
-- 文档收口：docs(ops): record verified nurse schedule import；仅记录已交付应用与数据，不重复部署或导入。唯一下一任务：用户刷新护士群日历查看9月7—20日；自动交付已完成，真机显示待用户复核。
+- 文档收口：docs(ops): record verified nurse schedule import；仅记录已交付应用与数据，不重复部署或导入。当时下一任务：用户刷新护士群日历查看9月7—20日；自动交付已完成，真机显示待用户复核。
 
 ## 上一批次：feedback11 体验版108已上传放行，导出空白待定位
 
@@ -111,7 +121,7 @@
 - RED 4失败/38通过；完整格式/lint/build/typecheck、Mini1122/15跳过、根1240/421跳过及依赖保护81通过；最终Mini verify、Worklet2/2、包体/确定性和smoke:check-core通过。主包1679971/总包4502798，保留已有内部警告。详情见docs/audit/feedback11.md。
 - 用户明确授权上传并放行；c563afff已交付`0.1.0-p10.20260912.108`，production/clean，354文件Manifest/receipt/远端不可变tag一致。上传专项30项及候选前后检查通过，主包1681039/总包4505008。详情见docs/audit/feedback11-trial-release.md。
 - 可信ensure只追加108并保留旧版；完整生产verifier与版本策略验证通过，公网108/107=200、未知版本426。即时服务器仍b618d938，本轮没有新应用部署、备份、迁移或真实通知；网络及107残留操作锁已验证处理，版本预约记录全部保留。
-- 文档检查点：`docs(release): record feedback11 trial 108 delivery`。唯一下一任务：小米14重开108/c563aff复核二维码和通知，并取得导出空白安全诊断继续定位。不得写三项全部完成，不重复上传/放行或部署。
+- 文档检查点：`docs(release): record feedback11 trial 108 delivery`。当时下一任务：小米14重开108/c563aff复核二维码和通知，并取得导出空白安全诊断继续定位。不得写三项全部完成，不重复上传/放行或部署。
 
 ## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
 
@@ -135,7 +145,7 @@
 - pnpm verify通过：Mini1057/15跳过、root1226/418跳过、依赖保护81；最终Mini verify、Worklet2/2及320/390桌面布局通过。真实下载原因、文件发送和原生手势待用户复核。
 - 应用检查点e40c4f9201bd7e79af151508e00e6667b6897a63已推送main；用户明确授权上传并放行，已交付0.1.0-p10.20260910.102。production/clean，353文件冻结Manifest、成功receipt与远端不可变tag一致；详情见docs/audit/feedback9-trial-release.md。
 - 上传专项30项与候选前后检查通过；版本绑定主包1646789/总包4441027字节，保留既有内部主包预警。可信ensure仅追加.102，完整生产verifier及allowlist验证通过；独立HTTPS .102/.101/.99/.98=200、.100/未知版本=426。服务器应用仍4e0a0d1a/schema57，没有新应用部署、数据库备份/迁移或真实通知。
-- 文档收口检查点：docs(release): record feedback9 trial 102 delivery。唯一下一任务/停止条件：用户在小米14重开.102/e40c4f9，复核群组偏好、手排矩阵/日期/月历、补录和CSV下载后发送/取消；失败时保留新版分类提示。自动化交付完成，真实下载原因与原生效果待用户复核；不重复上传、放行、部署或同步服务器release标识。
+- 文档收口检查点：docs(release): record feedback9 trial 102 delivery。当时下一任务/停止条件：用户在小米14重开.102/e40c4f9，复核群组偏好、手排矩阵/日期/月历、补录和CSV下载后发送/取消；失败时保留新版分类提示。自动化交付完成，真实下载原因与原生效果待用户复核；不重复上传、放行、部署或同步服务器release标识。
 - general-4/5已恢复；general-2/3历史改动保留，general-6精确路径恢复/删除被自动审批以blocked by policy拒绝而未执行，归档及原文件保留。
 
 - 更早批次（访客修复101及以前）的交付记录见 Git 历史与 `docs/audit/` 对应文档；本文件只保留当前与近期批次。

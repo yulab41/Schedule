@@ -4,6 +4,7 @@ export const WORKBENCH_CACHE_V1_PREFIX = 'schedule.wechat.workbench.cache.v1:';
 export const WORKBENCH_CACHE_V2_PREFIX = 'schedule.wechat.workbench.cache.v2:';
 export const WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX = 'schedule.wechat.workbench.groups.v2:';
 export const WORKBENCH_CALENDAR_CURSOR_PREFIX = 'schedule.wechat.workbench.calendar-cursor.v1:';
+export const WORKBENCH_CONTACTS_PREFIX = 'schedule.wechat.workbench.contacts.v1:';
 export const DIRECTORY_PREFERENCES_PREFIX = 'schedule.directory.preferences.v1:';
 
 const privateBusinessPrefixes = [
@@ -11,6 +12,7 @@ const privateBusinessPrefixes = [
   WORKBENCH_CACHE_V2_PREFIX,
   WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX,
   WORKBENCH_CALENDAR_CURSOR_PREFIX,
+  WORKBENCH_CONTACTS_PREFIX,
   DIRECTORY_PREFERENCES_PREFIX,
 ] as const;
 
@@ -30,8 +32,14 @@ export function clearPrivateBusinessStorageForGroup(ownerId: string, groupId: st
   const prefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:`;
   const cursorPrefix = `${WORKBENCH_CALENDAR_CURSOR_PREFIX}${ownerId}:${groupId}`;
   const directoryPrefix = `${DIRECTORY_PREFERENCES_PREFIX}${ownerId}:${groupId}:`;
+  const contactsKey = `${WORKBENCH_CONTACTS_PREFIX}${ownerId}:${groupId}`;
   for (const key of readStorageKeys()) {
-    if (key.startsWith(prefix) || key.startsWith(cursorPrefix) || key.startsWith(directoryPrefix))
+    if (
+      key.startsWith(prefix) ||
+      key === cursorPrefix ||
+      key === contactsKey ||
+      key.startsWith(directoryPrefix)
+    )
       removeStorage(key);
   }
   const selected = readStorage(WORKBENCH_GROUP_STORAGE_KEY);
@@ -40,10 +48,16 @@ export function clearPrivateBusinessStorageForGroup(ownerId: string, groupId: st
   }
 }
 
+let legacyStorageChecked = false;
+
 export function clearLegacyWorkbenchStorage(): void {
-  clearRetiredProfileAvatarStorage();
+  if (legacyStorageChecked) return;
+  // No current code writes these retired formats. Scan once per process; retry
+  // on the next launch if the platform storage API failed.
+  legacyStorageChecked = true;
   for (const key of readStorageKeys()) {
-    if (key.startsWith(WORKBENCH_CACHE_V1_PREFIX)) removeStorage(key);
+    if (key.startsWith(WORKBENCH_CACHE_V1_PREFIX) || key.startsWith('schedule.profile.avatar.v1:'))
+      removeStorage(key);
   }
 }
 

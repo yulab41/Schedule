@@ -7,6 +7,7 @@ import { createPublicMiniCapabilityGuard } from '../../plugins/client-capability
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { CalendarQuery } from './calendar-query.js';
 import { CalendarChangeQuery } from './calendar-change-log.js';
+import { registerCalendarChangeStream } from './calendar-change-stream.js';
 import type { VisitorAccessLogService } from './visitor-access-log.js';
 
 const groupIdSchema = z.string().uuid();
@@ -48,6 +49,9 @@ export function registerCalendarRoutes(
   calendarChangeQuery: CalendarChangeQuery,
   clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
 ): void {
+  registerCalendarChangeStream(app, (identity, groupId) =>
+    calendarChangeQuery.authorize(identity, groupId),
+  );
   app.addHook('onSend', async (request, reply, payload) => {
     const route = request.routeOptions.url ?? '';
     if (route.includes('/guest-calendar') || route.startsWith('/guest/groups/'))

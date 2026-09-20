@@ -18,6 +18,7 @@ import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
+import { CalendarLedgerProbeCache } from './calendar-ledger-probe-cache.js';
 
 /** Rows kept per group before the oldest deltas are pruned. */
 export const CALENDAR_CHANGE_RETENTION = 500;
@@ -89,8 +90,20 @@ export async function resolvePeriodBusinessMonth(
 
 export class CalendarChangeQuery {
   private readonly permissionService = new GroupPermissionService();
+  private readonly ledgerProbes = new CalendarLedgerProbeCache();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
+
+  public async authorize(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
+    await withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+    });
+  }
 
   public async readChanges(
     identity: AuthenticatedIdentity,
@@ -107,11 +120,13 @@ export class CalendarChangeQuery {
       const group = authorization.group.id;
 
       const changes = await this.readDelta(transaction, group, since);
-      const diverged = await calendarLedgerDiverged(transaction, group);
+      const revision = await readGroupRevision(transaction, group);
+      const diverged = await this.ledgerProbes.check(group, revision, () =>
+        calendarLedgerDiverged(transaction, group),
+      );
       const holidayVersions = await this.readHolidayVersions(transaction);
 
       if (!diverged) {
-        const revision = await readGroupRevision(transaction, group);
         return {
           changes,
           holidayVersions,
@@ -124,12 +139,12 @@ export class CalendarChangeQuery {
       // serving a delta that silently omits it: record a catch-all change now so
       // the next validation settles, and ask this client for a full window read.
       await recordCalendarChange(transaction, group, { businessMonth: null, kind: 'config' });
-      const revision = await readGroupRevision(transaction, group);
+      const repairedRevision = await readGroupRevision(transaction, group);
       return {
         changes: await this.readDelta(transaction, group, since),
         holidayVersions,
         resync: true,
-        revision,
+        revision: repairedRevision,
       };
     });
   }
@@ -192,8 +207,8 @@ export function needsResync(
   }
   if (since > revision) return true;
   if (changes.length === CALENDAR_CHANGE_RETENTION) return true;
-  const oldestRetained = changes[0]?.seq;
-  return oldestRetained !== undefined && oldestRetained > since + 1;
+  if (changes.length !== revision - since) return true;
+  return changes.some((change, index) => change.seq !== since + index + 1);
 }
 
 /**

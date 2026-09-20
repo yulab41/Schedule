@@ -36,4 +36,10 @@ describe('calendar change cursor decisions', () => {
     );
     expect(needsResync(1, capped, CALENDAR_CHANGE_RETENTION + 1)).toBe(true);
   });
+
+  it('does not advance over missing, gapped or incomplete retained changes', () => {
+    expect(needsResync(1, [], 8)).toBe(true);
+    expect(needsResync(1, [entry(2), entry(4)], 4)).toBe(true);
+    expect(needsResync(1, [entry(2)], 4)).toBe(true);
+  });
 });

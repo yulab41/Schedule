@@ -25,6 +25,7 @@ import {
   clearPrivateBusinessStorageForGroup,
   readStorageKeys,
   WORKBENCH_CALENDAR_CURSOR_PREFIX,
+  WORKBENCH_CONTACTS_PREFIX,
   WORKBENCH_CACHE_V2_PREFIX,
   WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX,
   WORKBENCH_GROUP_STORAGE_KEY,
@@ -37,6 +38,7 @@ export { readStoredWorkbenchGroupId };
 
 export interface WorkbenchCacheEntry {
   readonly calendar: CalendarReadModel;
+  readonly contactsIncomplete?: boolean;
   readonly holidays: HolidayReadModel;
   /**
    * Set when the shared per-year holiday cache could not supply this month.
@@ -117,6 +119,63 @@ export function createWorkbenchReadClient(): {
 export function clearWorkbenchCalendarCache(ownerId: string, groupId: string): void {
   const prefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:`;
   for (const key of readStorageKeys()) if (key.startsWith(prefix)) removeStorage(key);
+  removeStorage(`${WORKBENCH_CONTACTS_PREFIX}${ownerId}:${groupId}`);
+}
+
+/** Only remove months whose server revision changed, including off-screen ones. */
+export function invalidateWorkbenchMonths(
+  ownerId: string,
+  groupId: string,
+  months: ReadonlySet<string>,
+): void {
+  for (const month of months) removeStorage(getWorkbenchCacheKey(ownerId, groupId, month));
+}
+
+type CachedContact = {
+  readonly membershipId: string;
+  readonly mobilePhone?: string;
+  readonly shortPhone?: string;
+};
+
+function readWorkbenchContacts(
+  ownerId: string,
+  groupId: string,
+): readonly CachedContact[] | undefined {
+  const stored = readStorage(`${WORKBENCH_CONTACTS_PREFIX}${ownerId}:${groupId}`);
+  if (!isRecord(stored) || !Array.isArray(stored.contacts)) return undefined;
+  if (
+    !stored.contacts.every(
+      (entry: unknown) =>
+        isRecord(entry) &&
+        typeof entry.membershipId === 'string' &&
+        (entry.mobilePhone === undefined || typeof entry.mobilePhone === 'string') &&
+        (entry.shortPhone === undefined || typeof entry.shortPhone === 'string'),
+    )
+  )
+    return undefined;
+  return stored.contacts as readonly CachedContact[];
+}
+
+function writeWorkbenchContacts(
+  ownerId: string,
+  groupId: string,
+  calendar: CalendarReadModel,
+): void {
+  // Each month contains only members with assignments in that month. Replace
+  // each returned member's contact fields, never the entire group's snapshot.
+  const previous = readWorkbenchContacts(ownerId, groupId);
+  const merged = new Map(previous?.map((contact) => [contact.membershipId, contact]));
+  for (const { membershipId, mobilePhone, shortPhone } of calendar.members) {
+    merged.set(membershipId, {
+      membershipId,
+      ...(mobilePhone === undefined ? {} : { mobilePhone }),
+      ...(shortPhone === undefined ? {} : { shortPhone }),
+    });
+  }
+  // Bound long-lived historical membership data independently of month eviction.
+  const contacts = [...merged.values()].slice(-2048);
+  if (JSON.stringify(previous) === JSON.stringify(contacts)) return;
+  writeStorage(`${WORKBENCH_CONTACTS_PREFIX}${ownerId}:${groupId}`, { contacts });
 }
 
 export function getWorkbenchCacheKey(
@@ -128,8 +187,8 @@ export function getWorkbenchCacheKey(
 }
 
 /**
- * Holidays and make-up workdays are published per year and cannot change within
- * a day, so the last read is reused across sessions until it expires. Only the
+ * Holidays and make-up workdays are cached per year and checked against the
+ * published version; the one-day TTL bounds version-less reuse. Only the
  * holiday payload is stored here; schedules keep their own per-owner cache.
  */
 export const WORKBENCH_HOLIDAY_CACHE_KEY = 'schedule.workbench.holidays.v1';
@@ -258,8 +317,31 @@ export function readWorkbenchCache(
   const embedded = holidayReadModelDecoder.safeDecode(holidays);
   const shared = embedded.success ? undefined : readPersistentHolidays(holidayYear, now);
   const resolvedHolidays = embedded.success ? embedded.data : shared;
+  const contacts = readWorkbenchContacts(ownerId, groupId);
+  const byMembership = new Map(contacts?.map((contact) => [contact.membershipId, contact]));
+  const hydratedCalendar = {
+    ...decodedCalendar.data,
+    members: decodedCalendar.data.members.map((member) => {
+      const withoutContact = { ...member };
+      delete withoutContact.mobilePhone;
+      delete withoutContact.shortPhone;
+      const contact = byMembership.get(member.membershipId);
+      return contact === undefined
+        ? {
+            ...withoutContact,
+            ...(contacts === undefined && member.shortPhone !== undefined
+              ? { shortPhone: member.shortPhone }
+              : {}),
+          }
+        : { ...withoutContact, ...contact };
+    }),
+  };
   return {
-    calendar: sanitizeCalendarForCache(decodedCalendar.data),
+    calendar: hydratedCalendar,
+    ...(contacts === undefined ||
+    decodedCalendar.data.members.some((member) => !byMembership.has(member.membershipId))
+      ? { contactsIncomplete: true }
+      : {}),
     holidays: resolvedHolidays ?? emptyHolidayForYear(holidayYear),
     ...(resolvedHolidays === undefined ? { holidaysMissing: true } : {}),
     savedAt,
@@ -342,6 +424,7 @@ export function writeWorkbenchCache(
 ): void {
   if (calendar.groupId !== groupId || calendar.businessMonth !== businessMonth) return;
   clearLegacyWorkbenchStorage();
+  writeWorkbenchContacts(ownerId, groupId, calendar);
   writeStorage(getWorkbenchCacheKey(ownerId, groupId, businessMonth), {
     calendar: sanitizeCalendarForCache(calendar),
     // Holidays are cached once per year in WORKBENCH_HOLIDAY_CACHE_KEY; the
@@ -373,9 +456,10 @@ export const WORKBENCH_MONTH_CACHE_LIMIT = 24;
  */
 export function pruneWorkbenchMonthCache(ownerId: string, groupId: string): void {
   const prefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:`;
+  const keys = readStorageKeys().filter((key) => key.startsWith(prefix));
+  if (keys.length <= WORKBENCH_MONTH_CACHE_LIMIT) return;
   const entries: { key: string; savedAt: number }[] = [];
-  for (const key of readStorageKeys()) {
-    if (!key.startsWith(prefix)) continue;
+  for (const key of keys) {
     const value = readStorage(key);
     const savedAt =
       isRecord(value) && typeof value.savedAt === 'number' && Number.isFinite(value.savedAt)
@@ -436,13 +520,21 @@ export function readWorkbenchGroupSnapshot(
 export function pruneWorkbenchCaches(ownerId: string, activeGroupIds: ReadonlySet<string>): void {
   clearLegacyWorkbenchStorage();
   const ownerPrefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:`;
+  const contactsPrefix = `${WORKBENCH_CONTACTS_PREFIX}${ownerId}:`;
+  const departedGroups = new Set<string>();
   for (const key of readStorageKeys()) {
-    if (!key.startsWith(ownerPrefix)) continue;
-    const groupId = key.slice(ownerPrefix.length).split(':', 1)[0];
+    const prefix = key.startsWith(ownerPrefix)
+      ? ownerPrefix
+      : key.startsWith(contactsPrefix)
+        ? contactsPrefix
+        : undefined;
+    if (prefix === undefined) continue;
+    const groupId = key.slice(prefix.length).split(':', 1)[0];
     if (groupId !== undefined && !activeGroupIds.has(groupId)) {
-      clearPrivateBusinessStorageForGroup(ownerId, groupId);
+      departedGroups.add(groupId);
     }
   }
+  for (const groupId of departedGroups) clearPrivateBusinessStorageForGroup(ownerId, groupId);
   const selectedGroupId = readStoredWorkbenchGroupId(ownerId);
   if (selectedGroupId !== undefined && !activeGroupIds.has(selectedGroupId)) {
     clearPrivateBusinessStorageForGroup(ownerId, selectedGroupId);
@@ -478,7 +570,21 @@ export function loadActiveThenAdjacent<T>(
   const adjacent = active.then(
     async () => {
       await Promise.resolve();
-      const results = await Promise.allSettled(adjacentKeys.map((key) => load(key)));
+      const results: PromiseSettledResult<T>[] = new Array(adjacentKeys.length);
+      let nextIndex = 0;
+      const worker = async () => {
+        while (nextIndex < adjacentKeys.length) {
+          const index = nextIndex++;
+          const key = adjacentKeys[index];
+          if (key === undefined) continue;
+          try {
+            results[index] = { status: 'fulfilled', value: await load(key) };
+          } catch (reason) {
+            results[index] = { status: 'rejected', reason };
+          }
+        }
+      };
+      await Promise.all([worker(), worker()]);
       const fatal = results.find(
         (result): result is PromiseRejectedResult =>
           result.status === 'rejected' && !canUseWorkbenchOfflineFallback(result.reason),
