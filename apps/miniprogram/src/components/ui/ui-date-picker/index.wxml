@@ -38,7 +38,7 @@
   <template
     wx:if="{{mode === 'selector'}}"
     is="selector-options"
-    data="{{open, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
+    data="{{open, popoverMaxHeight, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
   />
 </view>
 

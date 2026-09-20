@@ -306,6 +306,7 @@
           ><text class="field-label">我的班次</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{myAssignmentOptions}}"
             selected-index="{{myAssignmentIndex}}"
             display-value="{{myAssignmentIndex >= 0 ? myAssignmentOptions[myAssignmentIndex].label : ''}}"
@@ -318,6 +319,7 @@
           ><text class="field-label">加班成员</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{overtimeMemberOptions}}"
             selected-index="{{overtimeMemberIndex}}"
             display-value="{{overtimeMemberIndex >= 0 ? overtimeMemberOptions[overtimeMemberIndex].label : ''}}"
@@ -386,6 +388,7 @@
           ><text class="field-label">被代班班次</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{adminAssignmentOptions}}"
             selected-index="{{adminAssignmentIndex}}"
             display-value="{{adminAssignmentIndex >= 0 ? adminAssignmentOptions[adminAssignmentIndex].label : ''}}"
@@ -398,6 +401,7 @@
           ><text class="field-label">加班成员</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{adminOvertimeMemberOptions}}"
             selected-index="{{adminOvertimeMemberIndex}}"
             display-value="{{adminOvertimeMemberIndex >= 0 ? adminOvertimeMemberOptions[adminOvertimeMemberIndex].label : ''}}"

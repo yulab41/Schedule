@@ -10,11 +10,56 @@ export interface RenderedSelectorOption extends SelectorOption {
   readonly trailingLabel: string;
   readonly weekendLabel: string;
 }
+export interface SelectorPlacementBoundary {
+  readonly bottom: number;
+  readonly top: number;
+}
+export interface SelectorPlacementResult {
+  readonly maxHeight: number;
+  readonly placement: 'down' | 'up';
+}
 export interface SelectorInstance {
   readonly data: { readonly open: boolean };
-  readonly properties: { readonly options: readonly SelectorOption[] };
+  readonly properties: {
+    readonly options: readonly SelectorOption[];
+    readonly placementBoundary?: SelectorPlacementBoundary | null;
+  };
   createSelectorQuery?(): MiniProgramSelectorQuery;
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
+}
+
+const selectorGap = 8;
+const selectorMaximumHeight = 300;
+
+export function resolveSelectorPlacement(
+  trigger: Pick<MiniProgramRect, 'bottom' | 'top'>,
+  popupHeight: number,
+  windowHeight: number,
+  boundary?: SelectorPlacementBoundary | null,
+): SelectorPlacementResult {
+  const viewportBottom = Math.max(0, windowHeight);
+  const boundaryTop = Number.isFinite(boundary?.top)
+    ? Math.min(viewportBottom, Math.max(0, boundary?.top ?? 0))
+    : 0;
+  const boundaryBottom = Number.isFinite(boundary?.bottom)
+    ? Math.min(viewportBottom, Math.max(0, boundary?.bottom ?? viewportBottom))
+    : viewportBottom;
+  const hasValidBoundary = boundaryBottom > boundaryTop;
+  const visibleTop = hasValidBoundary ? boundaryTop : 0;
+  const visibleBottom = hasValidBoundary ? boundaryBottom : viewportBottom;
+  const spaceBelow = Math.max(0, visibleBottom - trigger.bottom - selectorGap);
+  const spaceAbove = Math.max(0, trigger.top - visibleTop - selectorGap);
+  const placement =
+    spaceBelow >= popupHeight
+      ? ('down' as const)
+      : spaceAbove >= popupHeight || spaceAbove > spaceBelow
+        ? ('up' as const)
+        : ('down' as const);
+  const availableHeight = placement === 'up' ? spaceAbove : spaceBelow;
+  return {
+    maxHeight: Math.max(0, Math.min(selectorMaximumHeight, Math.floor(availableHeight))),
+    placement,
+  };
 }
 
 export function scheduleSelectorPlacement(instance: SelectorInstance): void {
@@ -34,13 +79,17 @@ export function scheduleSelectorPlacement(instance: SelectorInstance): void {
         return;
       }
       const optionCount = instance.properties.options.length;
-      const popupHeight = Math.min(300, Math.max(44, optionCount * 30 + 12));
+      const popupHeight = Math.min(selectorMaximumHeight, Math.max(44, optionCount * 30 + 12));
       const windowHeight = wx.getWindowInfo().windowHeight;
-      const spaceBelow = windowHeight - trigger.bottom - 8;
-      const spaceAbove = trigger.top - 8;
+      const result = resolveSelectorPlacement(
+        trigger,
+        popupHeight,
+        windowHeight,
+        instance.properties.placementBoundary,
+      );
       instance.setData({
-        popoverPlacement:
-          spaceBelow < popupHeight && spaceAbove > spaceBelow ? ('up' as const) : ('down' as const),
+        popoverMaxHeight: result.maxHeight,
+        popoverPlacement: result.placement,
         popoverPlacementReady: true,
       });
     });

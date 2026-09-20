@@ -296,6 +296,7 @@
           ><text class="field-label">我的班次</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{myAssignmentOptions}}"
             selected-index="{{myAssignmentIndex}}"
             display-value="{{myAssignmentIndex >= 0 ? myAssignmentOptions[myAssignmentIndex].label : ''}}"
@@ -318,6 +319,7 @@
           ><text class="field-label">目标成员</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{targetMemberOptions}}"
             selected-index="{{targetMemberIndex}}"
             display-value="{{targetMemberIndex >= 0 ? targetMemberOptions[targetMemberIndex].label : ''}}"
@@ -330,6 +332,7 @@
           ><text class="field-label">目标班次</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{targetAssignmentOptions}}"
             selected-index="{{targetAssignmentIndex}}"
             display-value="{{targetAssignmentIndex >= 0 ? targetAssignmentOptions[targetAssignmentIndex].label : ''}}"
@@ -388,6 +391,7 @@
           ><text class="field-label">成员一</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{adminInitiatorMemberOptions}}"
             selected-index="{{adminInitiatorMemberIndex}}"
             display-value="{{adminInitiatorMemberIndex >= 0 ? adminInitiatorMemberOptions[adminInitiatorMemberIndex].label : ''}}"
@@ -400,6 +404,7 @@
           ><text class="field-label">成员一的班次</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{adminInitiatorAssignmentOptions}}"
             selected-index="{{adminInitiatorAssignmentIndex}}"
             display-value="{{adminInitiatorAssignmentIndex >= 0 ? adminInitiatorAssignmentOptions[adminInitiatorAssignmentIndex].label : ''}}"
@@ -422,6 +427,7 @@
           ><text class="field-label">成员二</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{adminTargetMemberOptions}}"
             selected-index="{{adminTargetMemberIndex}}"
             display-value="{{adminTargetMemberIndex >= 0 ? adminTargetMemberOptions[adminTargetMemberIndex].label : ''}}"
@@ -434,6 +440,7 @@
           ><text class="field-label">成员二的班次</text
           ><workflow-picker
             mode="selector"
+            placement-boundary="{{workflowPickerBoundary}}"
             options="{{adminTargetAssignmentOptions}}"
             selected-index="{{adminTargetAssignmentIndex}}"
             display-value="{{adminTargetAssignmentIndex >= 0 ? adminTargetAssignmentOptions[adminTargetAssignmentIndex].label : ''}}"
