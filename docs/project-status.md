@@ -1,11 +1,13 @@
 # Project Status
 
-## 当前批次：滚动弹窗内下拉菜单方向修复（已实现，待体验版交付）
+## 当前批次：滚动弹窗内下拉菜单方向修复（已交付，待小米 14 复核）
 
 - 在最新累计 `main`（已含体验版 `.181`）上移植滚动边界修复：共享 selector/date-picker 以 `.workflow-sheet-scroll` 可视边界决定向上/向下展开，并动态限制菜单高度；换班、值班、请假面板统一传递和清理边界。
 - 回归门禁：受影响 Vitest 39/39、Mini typecheck、根 ESLint/Prettier、production Mini verify 通过；主包 1716535 B、总包 4620288 B，保留既有内部主包预警和手排矩阵 best-effort 预警。
 - 开发者工具证据已覆盖靠底部向上展开、顶部向下展开和选项可点击；仅属模拟器证据，小米 14 尚未验收。检查点：`fix(miniprogram): integrate scroll-boundary selector placement`。
-- 当前唯一下一任务：从本批最终 clean SHA 动态分配并上传体验版，只增生产 allowlist、保留旧版；不提审、不发布、不部署 API/Web。
+- 累积候选 `94beb25e` 已推送；体验版 `0.1.0-p10.20260920.182` 以 production/clean 上传，Manifest `20ca7a0c…0f7b6`，远端不可变 tag、allocation、Manifest、receipt 及上传前后候选检查一致。
+- 可信 allowlist `ensure` 只追加 `.182` 并保留 `.181` 等旧版；独立 allowlist verify、完整 `ecs-verify.sh` 和严格 TLS 公网探针通过：`.182/.181=200`、未知版 `426`、health `200`。线上 release 仍为 `bc5fc307`；未部署 API/Web 应用、未备份/迁移数据库、未提审或正式发布。
+- 交付记录见 [下拉菜单体验版报告](audit/dropdown-direction-trial-release-20260920.md)。唯一下一任务：小米 14 打开 `.182@94beb25`，复核换班、值班、请假弹窗靠底部选择器向上展开且可点击，靠顶部仍向下展开；取得同构建证据前保持“待用户复核”。
 
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

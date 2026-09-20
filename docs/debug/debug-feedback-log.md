@@ -3072,3 +3072,8 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 两旧夹具在 HEAD 60dda267 上也失败：p6-runtime 仍向新签名传 holiday payload，workbench-runtime 把非月份初始化请求算作邻月。修正夹具后 48 项通过，保留原权限/隔离/先显示当前月断言。父源码还观测旧慢偏好用例失败，当前代码通过。
 - 运行/浏览器验证：pnpm smoke:check-core 通过，本批未触及规定 Web/契约核心路径。API 本地真实 HTTP 流联调通过；Agent DevTools 3.17.3 实收两个分块（9ms/912ms），不代表小米 14 通过。
 - 交付：应用 ebcea83e / 候选 bc5fc307 已推送并部署，备份 1fb654a7-c6d8-497a-a6ec-6c421f86dfa0 已校验，schema 62；体验版 .181 已上传及只增放行，保留 .180。完整服务器/版本验证通过，身份与测量边界详见本轮审计交付记录。唯一下一任务为小米 14 同构建复核。
+
+## 2026-09-20 下拉菜单滚动边界体验版 .182
+
+- 原修复分支落后于已上传 `.181`，按累计血缘要求移植到最新 main，形成候选 `94beb25e`；受影响测试 39/39、typecheck、lint、format、Mini production verify 通过。
+- `.182` 绑定 production/clean `94beb25e` 与 Manifest `20ca7a0c…0f7b6` 上传成功；可信 ensure 只追加 `.182` 并保留 `.181`，allowlist verify、完整 ecs-verify 与公网 `.182/.181=200`、未知 `426` 通过。未部署应用、未操作数据库、未提审/发布/退役；小米 14 待同版本复核。

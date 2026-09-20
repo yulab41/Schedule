@@ -1,5 +1,12 @@
 # 微信小程序审计状态
 
+## 当前批次：下拉菜单滚动边界修复（已交付，待小米 14 复核）
+
+- 最新累计候选 `94beb25e` 已通过受影响 Vitest 39/39、Mini typecheck、根 ESLint/Prettier 与 production Mini verify；开发者工具模拟器验证底部向上、顶部向下及选项可点，但不等同真机验收。
+- 体验版 `0.1.0-p10.20260920.182` 已以 production/clean 上传，Manifest `20ca7a0c…0f7b6`，远端 tag、allocation、Manifest、receipt 和候选检查一致。
+- 可信 allowlist ensure 只追加 `.182` 并保留 `.181`；allowlist verify、完整 `ecs-verify.sh`、公网 `.182/.181=200`、未知版 `426`、health `200` 均通过。线上 release 仍为 `bc5fc307`，无应用部署、数据库操作、提审、发布或退役。
+- 唯一下一任务：小米 14 在 `.182@94beb25` 复核换班、值班、请假弹窗的上下方向与可点击性；详见 [交付报告](dropdown-direction-trial-release-20260920.md)。
+
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 
 - 用户授权全面检查/优化并允许联系方式持久缓存，确认采用“服务器推送优先、低频校验兜底”。独占 general-5，REUSE_ONLY，安装 0。
