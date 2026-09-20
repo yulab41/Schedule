@@ -222,6 +222,7 @@
             <text class="field-label">请假类型</text>
             <workflow-picker
               mode="selector"
+              placement-boundary="{{workflowPickerBoundary}}"
               options="{{leaveTypeOptions}}"
               selected-index="{{leaveTypeIndex}}"
               display-value="{{leaveTypeOptions[leaveTypeIndex].label}}"

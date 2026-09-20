@@ -33,6 +33,7 @@ interface WorkflowPanelHost {
     readonly embedded: boolean;
     readonly groupId: string;
   };
+  createSelectorQuery?(): MiniProgramSelectorQuery;
   selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
   triggerEvent?(name: string): void;
@@ -49,6 +50,11 @@ interface WorkflowPageBoundaries {
 
 export interface WorkflowControllerTask {
   isCurrent(): boolean;
+}
+
+export interface WorkflowPickerBoundary {
+  readonly bottom: number;
+  readonly top: number;
 }
 
 export function captureWorkflowControllerTask(host: object): WorkflowControllerTask {
@@ -75,6 +81,36 @@ export function captureWorkflowFeedbackTask(host: object): WorkflowControllerTas
       target.__workflowPageHidden !== true &&
       (target.__workflowFeedbackGeneration ?? 0) === generation,
   };
+}
+
+export function measureWorkflowPickerBoundary(host: object): void {
+  const target = host as WorkflowPanelHost;
+  const task = captureWorkflowControllerTask(host);
+  if (target.createSelectorQuery === undefined) return;
+  const query = target.createSelectorQuery();
+  query
+    .select('.workflow-sheet-scroll')
+    .boundingClientRect()
+    .exec((results) => {
+      if (!task.isCurrent()) return;
+      const rect = results[0];
+      if (
+        rect === undefined ||
+        rect === null ||
+        !Number.isFinite(rect.top) ||
+        !Number.isFinite(rect.bottom) ||
+        rect.bottom <= rect.top
+      ) {
+        target.setData({ workflowPickerBoundary: null });
+        return;
+      }
+      target.setData({
+        workflowPickerBoundary: {
+          bottom: rect.bottom,
+          top: rect.top,
+        } satisfies WorkflowPickerBoundary,
+      });
+    });
 }
 
 export function createWorkflowPageDefinition(
@@ -206,6 +242,7 @@ function panelDismissMethods(): Readonly<Record<string, unknown>> {
     // Selecting or opening one picker closes every other open picker.
     handlePickerRequestOpen(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);
+      measureWorkflowPickerBoundary(this);
     },
     handlePanelBackgroundTap(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);

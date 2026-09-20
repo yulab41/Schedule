@@ -1,12 +1,17 @@
 # Project Status
 
-## 当前批次：手动排班模板三行两列布局（已实现待小米 14 复核）
+## 当前批次：手动排班布局 + 下拉滚动边界累积候选（待体验版交付）
 
 - 用户要求模板区固定为三行：排班模板/排班岗位、开始日期/结束日期、周期天数/值班人员；每行两列等宽铺满，不随可用宽度自由换行。独占 `general-3`，`REUSE_ONLY`，安装 0。
 - 根因：结束日期加入原自由换行 flex 容器后，遗留的岗位 40%/日期 60% 宽度规则使六项形成 2+1+1+2。引入链路为 `50744302` 的非等宽字段布局与 `697795eb` 的结束日期并入同一容器。
 - 修复：保持原六个 WXML 节点不变，仅把 `.field-grid` 改为 WebView CSS Grid 两个 `minmax(0, 1fr)` 轨道，删除 40%/60%/50% 遗留宽度；矩阵节点预算仍为 1507，无新增页面节点。
 - 验证：回归用例先红后绿；320/390 CSS 几何均为三行、同行等宽、无横向溢出（列宽分别 132px/163px）；Mini production verify 通过（主包 1715052 B、总包 4615678 B、WebView-only、source/output Worklet=0）；开发者工具 WXML/WXSS 编译及打开目标页成功。生产 `version=local` 门禁使业务数据停在 loading，运行态注入又受 CLI JSON 参数解析阻断，因此未把模拟器画面作为布局验收；小米 14 未验收。
 - Checkpoint `d1e53646`（`fix(miniprogram): lock manual template field rows`）已推送当前分支。本批不上传体验版、不触发生产部署/备份；如需原生验收，再按最新干净 SHA 分配新体验版。停止条件：未取得同构建小米 14 证据前保持“待用户复核”。
+- 已合并最新体验版 `.182@94beb25e` 的下拉滚动边界修复：共享 selector/date-picker 以 `.workflow-sheet-scroll` 可视边界决定向上/向下展开，并动态限制菜单高度；换班、值班、请假面板统一传递和清理边界。
+- 回归门禁：受影响 Vitest 39/39、Mini typecheck、根 ESLint/Prettier、production Mini verify 通过；主包 1716535 B、总包 4620288 B，保留既有内部主包预警和手排矩阵 best-effort 预警。
+- 开发者工具证据已覆盖靠底部向上展开、顶部向下展开和选项可点击；仅属模拟器证据，小米 14 尚未验收。检查点：`fix(miniprogram): integrate scroll-boundary selector placement`。
+- 累积合并后复测：受影响 Vitest 53/53、320/390 手排几何、Mini production verify 均通过；当前主包 1716534 B、总包 4620043 B、矩阵节点 1507、source/output Worklet=0。合并 checkpoint 由 `merge: include trial 182 selector fixes` 标识。
+- 当前唯一下一任务：复测累积候选，从最终 clean SHA 动态分配并上传体验版，只增生产 allowlist、保留旧版；不提审、不发布、不部署 API/Web。
 
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

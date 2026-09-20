@@ -2,6 +2,7 @@ import {
   createRenderedOptions,
   scheduleSelectorPlacement,
   validOptionIndex,
+  type SelectorPlacementBoundary,
 } from '../ui-selector/selector.js';
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
@@ -112,6 +113,7 @@ interface WorkflowPickerInstance {
     readonly monthWheelRuntimeKey: string;
     readonly monthWheelSettledIndex: number;
     readonly popoverPlacement: 'down' | 'up';
+    readonly popoverMaxHeight: number;
     readonly popoverPlacementReady: boolean;
     readonly wheelGeneration: number;
     readonly yearWheelCommandRevision: number;
@@ -126,6 +128,7 @@ interface WorkflowPickerInstance {
     readonly min: string;
     readonly mode: 'date' | 'month' | 'selector';
     readonly options: readonly WorkflowPickerOption[];
+    readonly placementBoundary?: SelectorPlacementBoundary | null;
     readonly selectedIndex: number;
     readonly title: string;
     readonly value: string;
@@ -153,6 +156,7 @@ Component({
     min: { type: String, value: '' },
     mode: { type: String, value: 'selector' },
     options: { type: Array, value: [] },
+    placementBoundary: { type: Object, value: null },
     placeholder: { type: String, value: '请选择' },
     selectedIndex: { type: Number, value: -1 },
     title: { type: String, value: '请选择' },
@@ -178,6 +182,7 @@ Component({
     monthWheelSettledIndex: 0,
     open: false,
     popoverPlacement: 'down' as const,
+    popoverMaxHeight: 300,
     popoverPlacementReady: true,
     renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
@@ -231,6 +236,7 @@ Component({
               ? this.properties.title
               : (this.properties.options[selectedOptionIndex]?.label ?? this.properties.title),
           open: true,
+          popoverMaxHeight: 300,
           popoverPlacement: 'down',
           popoverPlacementReady: false,
           renderedOptions: createRenderedOptions(this.properties.options),

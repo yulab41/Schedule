@@ -38,7 +38,11 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
-import { captureWorkflowControllerTask } from '../controller-host.js';
+import {
+  captureWorkflowControllerTask,
+  measureWorkflowPickerBoundary,
+  type WorkflowPickerBoundary,
+} from '../controller-host.js';
 
 export { getTodayCalendarDate };
 
@@ -130,6 +134,7 @@ interface LeavePageData {
   readonly todayDate: string;
   readonly state: PageState;
   readonly viewportClass: string;
+  readonly workflowPickerBoundary: WorkflowPickerBoundary | null;
 }
 
 interface LeavePageInstance {
@@ -222,6 +227,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       state: 'loading',
       todayDate: initialDate,
       viewportClass: '',
+      workflowPickerBoundary: null,
     } satisfies LeavePageData,
 
     _approvalPreview: undefined,
@@ -282,12 +288,20 @@ export function createLeavePanelControllerDefinition(embedded = false) {
           infoMessage: '',
           todayDate,
         },
-        () => void loadAffectedShifts(this),
+        () => {
+          measureWorkflowPickerBoundary(this);
+          void loadAffectedShifts(this);
+        },
       );
     },
 
     handleCloseForm(this: LeavePageInstance): void {
-      if (!this.data.formBusy) this.setData({ formVisible: false, formErrorMessage: '' });
+      if (!this.data.formBusy)
+        this.setData({
+          formErrorMessage: '',
+          formVisible: false,
+          workflowPickerBoundary: null,
+        });
     },
 
     handleLeaveTypeChange(this: LeavePageInstance, event: ValueEvent): void {
@@ -474,6 +488,7 @@ async function submitLeave(page: LeavePageInstance): Promise<void> {
       formVisible: false,
       infoMessage: '请假申请已提交，等待管理员审批。',
       reason: '',
+      workflowPickerBoundary: null,
     });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
