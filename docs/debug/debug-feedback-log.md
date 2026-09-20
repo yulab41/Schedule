@@ -3072,3 +3072,10 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 两旧夹具在 HEAD 60dda267 上也失败：p6-runtime 仍向新签名传 holiday payload，workbench-runtime 把非月份初始化请求算作邻月。修正夹具后 48 项通过，保留原权限/隔离/先显示当前月断言。父源码还观测旧慢偏好用例失败，当前代码通过。
 - 运行/浏览器验证：pnpm smoke:check-core 通过，本批未触及规定 Web/契约核心路径。API 本地真实 HTTP 流联调通过；Agent DevTools 3.17.3 实收两个分块（9ms/912ms），不代表小米 14 通过。
 - 交付：应用 ebcea83e / 候选 bc5fc307 已推送并部署，备份 1fb654a7-c6d8-497a-a6ec-6c421f86dfa0 已校验，schema 62；体验版 .181 已上传及只增放行，保留 .180。完整服务器/版本验证通过，身份与测量边界详见本轮审计交付记录。唯一下一任务为小米 14 同构建复核。
+
+## 2026-09-20 手动排班模板控件换行错乱
+
+- 现象：模板区六项在当前宽度形成 2+1+1+2，而不是指定的三行两列。`git log -S`/`blame` 定位到 `50744302` 引入岗位 40%/日期 60% 的自由换行布局，`697795eb` 再把结束日期加入同一容器后暴露回归。
+- RED→GREEN：先在 `manual-schedule-page.test.mjs` 增加固定两列轨道断言，旧实现失败；实现后该文件 8/8，与 WebView-only/thin-page 合计 14/14。行为变化仅为模板控件几何，字段顺序、事件、禁用态、业务逻辑与调用次数不变。
+- 修复取舍：最初尝试显式三层行容器，但 Mini verify 把矩阵节点下界从 1507 测为 1510，违反 no-growth 门禁，已撤销且未进入最终 diff。最终在原六节点上使用 WebView CSS Grid `repeat(2, minmax(0, 1fr))`，删除 40%/60%/50% 遗留宽度，节点仍为 1507。
+- 验证：独立几何脚本在 320/390 宽度测得每行同顶线、两列分别严格 132px/163px、三行且无横向溢出；Mini production verify 通过，总包 4615678 B，WebView-only 且 source/output Worklet=0。Agent 开发者工具 WXML/WXSS 编译及打开 `subpackages/scheduling/pages/manual/index` 成功；生产能力门禁按设计拒绝 `version=local`，页面停在 loading，CLI 的 `setData` JSON 参数又被解析器拒绝，故没有模拟器布局截图结论，更没有小米 14 验收结论。

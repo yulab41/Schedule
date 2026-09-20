@@ -274,24 +274,19 @@ ui-alert {
 }
 
 .template-selector { margin-top: 11px; }
-.field-grid > .role-field { width: calc(40% - 4px); min-width: 0; }
-.field-grid > .date-field { width: calc(60% - 4px); min-width: 0; }
-.field-grid > .cycle-field,
-.field-grid > .members-field { width: calc(50% - 4px); min-width: 0; }
 .cycle-picker-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .preview-calendar-card { margin-top: 10px; padding: 0; }
 .release-calendar-scroll { max-height: 65vh; min-height: 0; flex-shrink: 1; }
 
 .field-grid {
-  display: flex;
+  display: grid;
   margin-top: 8px;
-  flex-wrap: wrap;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.field-grid > picker,
-.field-grid > .field-control {
-  width: calc(50% - 4px);
+.field-grid > view {
+  min-width: 0;
 }
 
 .field-control {
