@@ -1,5 +1,13 @@
 # Project Status
 
+## 当前批次：选择器统一与长列表末项安全区（规格待复核）
+
+- 用户真机截图纠正了方向判断：长列表末项侵入圆角边框同时发生在向上和向下展开，属于共享滚动内容盒模型问题，不是单一方向错误。`git blame` 定位带 padding 的 `scroll-view` 结构由 `6d0575d0` 引入；`.182` 只增加动态 `max-height`。
+- 开发者工具 390×844 / 基础库 3.17.2 在独占 `general-4` 复现手动排班与导出长列表；目标页 Console 无 error、Network 无 fail/error。启动期既有 workbench 警告与本缺陷无关，不混入本轮。
+- 用户确认统一边界：27 个列表型调用点全部使用最新版共享 selector；邀请与访客 3 项、补录岗位、测试工具版本目标从原生迁移；排班配置 4 个时间 picker 复用现有 `ui-wheel-column` 与时间/日期 Sheet；生产源码原生 `<picker>` 归零。
+- 已完成设计规格：`docs/superpowers/specs/2026-09-20-mini-picker-unification-and-scroll-content-design.md`。本 checkpoint 由 `docs(miniprogram): specify unified picker behavior` 标识，仅含文档，不改 Mini 源码、不上传、不触发生产部署/备份。
+- 唯一下一任务：用户复核设计规格；确认后编写实施计划并进入测试先行实现。停止条件：规格未复核前不修改业务源码。
+
 ## 当前批次：手动排班布局 + 下拉滚动边界累积候选（待体验版交付）
 
 - 用户要求模板区固定为三行：排班模板/排班岗位、开始日期/结束日期、周期天数/值班人员；每行两列等宽铺满，不随可用宽度自由换行。独占 `general-3`，`REUSE_ONLY`，安装 0。
