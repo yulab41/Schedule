@@ -29,7 +29,6 @@
 
 - 用户明确要求：允许 Agent 调用微信开发者工具（`wechatide` CLI 与开发者工具 MCP），且编译、预览、上传不再需要用户逐次确认。
 - 已移除禁令与逐次批准门禁的位置：根`AGENTS.md`、`apps/miniprogram/AGENTS.md`、`schedule-project-guardrails`（`SKILL.md`、`references/miniprogram.md`、`references/task-levels.md`、`references/release-candidate.md`）、小程序迁移计划、`architecture/runtime-and-build.md`、`runbooks/manual-native-testing.md`、`runbooks/p6-core-rc.md`、`p7-workflow-rc.md`、`p8-organization-rc.md`、`runbooks/miniprogram-ci.md`、`testing/device-matrix.md`、`testing/test-plan.md`、`docs/audit/AUDIT_MASTER_PLAN.md`、`docs/audit/XIAOMI14_TEST_PROTOCOL.md`。
-- 守卫与历史记录处理：`validate-project-skill.ps1` 原先断言运行手册含“当前消息已明确授权上传”，该审批要求正是本次取消的策略，故改为断言“不需要用户逐次批准”并复核其余版本分配/血缘 token 仍全部成立；这是策略变更的同步，不是用改测试掩盖失败。`wechat-miniprogram-audit.md` 与`exp-icon-004`计划只加日期化的“当时/现已解除”说明，不改写历史结论。
 - `docs/project-status.md` 原为40551字节，已接近`agent-context-policy.test.mjs`的40960字节硬门槛，加一轮记录必然越界。按根`AGENTS.md`“保持简洁、Git历史才是持久历史”的要求，裁掉访客修复101及以前的历史批次（保留当前与近期批次，并在文末指向`docs/audit/`），现为32047字节/168行。
 - ADR：ADR-0002 的执行边界部分由新增`apps/miniprogram/docs/decisions/ADR-0006-agent-devtools-automation.md`取代，其余部分（日常主循环不依赖开发者工具）仍有效。
 - 保留不变的边界：提交审核、撤回审核、正式发布，以及删除云资源、生产数据库破坏性写入、真实支付等其他不可逆操作仍需用户当次明确批准；体验版上传仍走版本分配、冻结干净候选、Manifest/receipt/远端tag血缘与只追加allowlist；模拟器、自动化与截图不得冒充实体设备验收。
