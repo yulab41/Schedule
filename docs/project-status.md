@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：选择器统一与长列表末项安全区（规格待复核）
+## 当前批次：选择器统一与长列表末项安全区（实施中）
 
 - 用户真机截图纠正了方向判断：长列表末项侵入圆角边框同时发生在向上和向下展开，属于共享滚动内容盒模型问题，不是单一方向错误。`git blame` 定位带 padding 的 `scroll-view` 结构由 `6d0575d0` 引入；`.182` 只增加动态 `max-height`。
 - 开发者工具 390×844 / 基础库 3.17.2 在独占 `general-4` 复现手动排班与导出长列表；目标页 Console 无 error、Network 无 fail/error。启动期既有 workbench 警告与本缺陷无关，不混入本轮。
 - 用户确认统一边界：27 个列表型调用点全部使用最新版共享 selector；邀请与访客 3 项、补录岗位、测试工具版本目标从原生迁移；排班配置 4 个时间 picker 复用现有 `ui-wheel-column` 与时间/日期 Sheet；生产源码原生 `<picker>` 归零。
-- 已完成设计规格：`docs/superpowers/specs/2026-09-20-mini-picker-unification-and-scroll-content-design.md`。本 checkpoint 由 `docs(miniprogram): specify unified picker behavior` 标识，仅含文档，不改 Mini 源码、不上传、不触发生产部署/备份。
-- 唯一下一任务：用户复核设计规格；确认后编写实施计划并进入测试先行实现。停止条件：规格未复核前不修改业务源码。
+- 用户已确认设计规格，并明确要求完成后直接上传体验版、只追加 allowlist 放行，同时再次确认小程序只能使用 WebView 引擎；不提审、不正式发布、不部署 API/Web。
+- 实施计划：`docs/superpowers/plans/2026-09-20-mini-picker-unification-and-scroll-content-implementation-plan.md`。当前基线已合并最新体验版 `.183@0183f69a`；应用源码与原累积候选相同，仅吸收其状态文档收口。
+- 当前下一任务：先写旧实现失败的共享模板、time 模式、原生零计数和调用点契约测试，再实现。停止条件：WebView 门禁、Mini verify、开发者工具和上传前血缘任一失败即停止上传。
 
 ## 当前批次：手动排班布局 + 下拉滚动边界累积候选（待体验版交付）
 
