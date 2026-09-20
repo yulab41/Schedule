@@ -1,5 +1,12 @@
 # Project Status
 
+## 当前批次：滚动弹窗内下拉菜单方向修复（已实现，待体验版交付）
+
+- 在最新累计 `main`（已含体验版 `.181`）上移植滚动边界修复：共享 selector/date-picker 以 `.workflow-sheet-scroll` 可视边界决定向上/向下展开，并动态限制菜单高度；换班、值班、请假面板统一传递和清理边界。
+- 回归门禁：受影响 Vitest 39/39、Mini typecheck、根 ESLint/Prettier、production Mini verify 通过；主包 1716535 B、总包 4620288 B，保留既有内部主包预警和手排矩阵 best-effort 预警。
+- 开发者工具证据已覆盖靠底部向上展开、顶部向下展开和选项可点击；仅属模拟器证据，小米 14 尚未验收。检查点：`fix(miniprogram): integrate scroll-boundary selector placement`。
+- 当前唯一下一任务：从本批最终 clean SHA 动态分配并上传体验版，只增生产 allowlist、保留旧版；不提审、不发布、不部署 API/Web。
+
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 
 - 用户授权全面检查/优化并允许联系方式持久缓存，确认采用“服务器推送优先、低频校验兜底”。独占 general-5，REUSE_ONLY，安装 0。
