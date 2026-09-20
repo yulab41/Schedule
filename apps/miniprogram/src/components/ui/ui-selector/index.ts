@@ -4,6 +4,7 @@ import {
   validOptionIndex,
   type SelectorInstance,
   type SelectorOption,
+  type SelectorPlacementBoundary,
 } from './selector.js';
 interface Instance extends SelectorInstance {
   readonly data: { readonly open: boolean };
@@ -12,6 +13,7 @@ interface Instance extends SelectorInstance {
     readonly selectedIndex: number;
     readonly disabled: boolean;
     readonly multiple: boolean;
+    readonly placementBoundary?: SelectorPlacementBoundary | null;
   };
   triggerEvent(
     name: string,
@@ -27,6 +29,7 @@ Component({
     disabled: { type: Boolean, value: false },
     displayValue: { type: String, value: '' },
     options: { type: Array, value: [] },
+    placementBoundary: { type: Object, value: null },
     placeholder: { type: String, value: '请选择' },
     selectedIndex: { type: Number, value: -1 },
     title: { type: String, value: '请选择' },
@@ -36,6 +39,7 @@ Component({
     renderedOptions: [],
     selectedOptionIndex: -1,
     popoverPlacement: 'down',
+    popoverMaxHeight: 300,
     popoverPlacementReady: true,
   },
   lifetimes: {
@@ -76,6 +80,7 @@ Component({
           this.properties.selectedIndex,
         ),
         renderedOptions: createRenderedOptions(this.properties.options),
+        popoverMaxHeight: 300,
         popoverPlacement: 'down',
         popoverPlacementReady: false,
       });

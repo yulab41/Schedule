@@ -43,6 +43,24 @@ describe('workflow panel host transient status', () => {
     expect(closeFromParent).toHaveBeenCalledTimes(4);
   });
 
+  it('refreshes the visible workflow scroll boundary before a picker opens', () => {
+    registerWorkflowPanel(() => ({
+      data: { infoMessage: '', workflowPickerBoundary: null },
+    }));
+    const instance = createHostInstance('');
+    instance.selectAllComponents = vi.fn(() => []);
+    const query = {
+      boundingClientRect: () => query,
+      exec: (callback) => callback([{ bottom: 720, top: 260 }]),
+      select: () => query,
+    };
+    instance.createSelectorQuery = () => query;
+
+    definition.methods.handlePickerRequestOpen.call(instance);
+
+    expect(instance.data.workflowPickerBoundary).toEqual({ bottom: 720, top: 260 });
+  });
+
   it('cancels the pending clear when the component detaches', () => {
     registerWorkflowPanel(() => ({ data: { infoMessage: '' } }));
     const instance = createHostInstance('加扣班已完成。');

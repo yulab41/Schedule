@@ -36,7 +36,11 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
-import { captureWorkflowControllerTask } from '../controller-host.js';
+import {
+  captureWorkflowControllerTask,
+  measureWorkflowPickerBoundary,
+  type WorkflowPickerBoundary,
+} from '../controller-host.js';
 import { enqueueSettingIntent } from '../settings-intent.js';
 
 type PageState = 'error' | 'loading' | 'ready';
@@ -131,6 +135,7 @@ interface SwapPageData {
   readonly targetMemberIndex: number;
   readonly targetMemberOptions: readonly SelectionOption[];
   readonly viewportClass: string;
+  readonly workflowPickerBoundary: WorkflowPickerBoundary | null;
 }
 
 interface SwapPageInstance {
@@ -233,6 +238,7 @@ export function createSwapPanelControllerDefinition(embedded = false) {
       targetMemberIndex: -1,
       targetMemberOptions: [],
       viewportClass: '',
+      workflowPickerBoundary: null,
     } satisfies SwapPageData,
 
     _adminPreview: undefined,
@@ -280,21 +286,23 @@ export function createSwapPanelControllerDefinition(embedded = false) {
 
     handleOpenRequestForm(this: SwapPageInstance): void {
       resetRequestForm(this);
-      this.setData({ requestFormVisible: true });
+      this.setData({ requestFormVisible: true }, () => measureWorkflowPickerBoundary(this));
     },
 
     handleCloseRequestForm(this: SwapPageInstance): void {
-      if (!this.data.requestBusy) this.setData({ requestFormVisible: false });
+      if (!this.data.requestBusy)
+        this.setData({ requestFormVisible: false, workflowPickerBoundary: null });
     },
 
     handleOpenAdminForm(this: SwapPageInstance): void {
       if (!this.data.canApprove) return;
       resetAdminForm(this);
-      this.setData({ adminFormVisible: true });
+      this.setData({ adminFormVisible: true }, () => measureWorkflowPickerBoundary(this));
     },
 
     handleCloseAdminForm(this: SwapPageInstance): void {
-      if (!this.data.adminBusy) this.setData({ adminFormVisible: false });
+      if (!this.data.adminBusy)
+        this.setData({ adminFormVisible: false, workflowPickerBoundary: null });
     },
 
     handleMyMonthChange(this: SwapPageInstance, event: ValueEvent): void {
@@ -729,6 +737,7 @@ async function submitSwap(page: SwapPageInstance): Promise<void> {
             ? '换班申请已提交，等待管理员审批。'
             : '换班申请已提交，等待目标成员接受。',
       requestFormVisible: false,
+      workflowPickerBoundary: null,
     });
     resetRequestForm(page);
     notifyCalendarChanged(page);
@@ -805,6 +814,7 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
     page.setData({
       adminFormVisible: false,
       infoMessage: `已为 ${created.initiatorMemberName ?? ''} 与 ${created.targetMemberName ?? ''} 完成换班，实际班次已交换。`,
+      workflowPickerBoundary: null,
     });
     resetAdminForm(page);
     notifyCalendarChanged(page);

@@ -4,10 +4,12 @@
 
 - 基线 `60dda267`；独占 warm 槽位 `general-3`，`DEPENDENCY_MODE=REUSE_ONLY`，未安装依赖。
 - 开发者工具 390×844 / 基础库 3.17.2 已复现：触发器进入打开状态，但向下选项层被工作流弹窗内 `scroll-view` 完全裁剪。静态追踪确认 `up` / `down` 逻辑和样式未被删除；根因是放置算法按整个窗口而不是实际滚动可视边界计算空间。
-- 用户已批准方案 1：共享选择器接受显式滚动边界，按真实上下空间选择方向，并在两侧都不足时限制选项层高度；换班、休假和值班工作流弹窗提供边界，普通页面继续使用窗口回退。
-- 设计规格：`docs/superpowers/specs/2026-09-20-mini-selector-scroll-boundary-design.md`。本检查点只固化设计，尚未修改业务源码、上传体验版或操作生产。
-- 设计检查点消息：`docs(miniprogram): design scroll-boundary-aware selector placement`。
-- 下一任务/停止条件：用户审阅并确认上述书面规格后，先补旧代码失败的新回归，再实施共享算法与三个工作流边界接入；在规格确认前不修改业务源码。
+- 用户确认的方案 1 已实现：共享 `ui-selector` / `ui-date-picker` 接受可选 `{top,bottom}` 可视边界；统一算法按真实上下空间选择方向，并将 `max-height` 限制在所选一侧。换班、休假和值班工作流在表单显示和 picker 打开时测量 `.workflow-sheet-scroll` 并传入；普通页面缺省仍按窗口计算。
+- 测试先行：旧代码新增边界行为与模板契约为 3 失败 / 24 通过；实现后 selector、picker、panel-host、换班、加扣班、请假和 P7 联合 60/60 通过。Mini typecheck、`format:check`、lint、production verify 和 `git diff --check` 通过；生产包主包 1699723、总包 4600812 字节，仅保留既有 1.5MB 与手排矩阵内部预警。
+- 开发者工具复测：`pages/dropdown-probe/index`，iPhone 12/13 Pro、390×844、基础库 3.17.2。底部 selector 向上显示两个选项并实际点击“选项一”成功；顶部 selector 仍向下；Console `grep -i error` 为空。证据位于 ignored `runtime/audit/dropdown-direction-60dda267/fixed-*.png`，属于模拟器证据，不是小米 14 验收。
+- 设计与计划：`docs/superpowers/specs/2026-09-20-mini-selector-scroll-boundary-design.md`、`docs/superpowers/plans/2026-09-20-mini-selector-scroll-boundary-implementation-plan.md`。行为变化仅为 selector 放置方向/可用高度和弹窗边界测量；选值、关闭、异步错误、业务提交、日期/月滚轮及调用次数保持不变。
+- 检查点消息：`fix(miniprogram): keep selector popovers inside workflow scroll areas`。Mini-only 范围，不做生产部署/备份；未上传体验版。
+- 下一任务/停止条件：提交并推送可用上游；如需实体设备闭环，再以最终 clean SHA 自主生成体验版并由小米 14 复核换班、请假、加扣班靠底部 selector。未取得同候选真机证据前不得写“小米 14 验收通过”。
 
 ## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
 

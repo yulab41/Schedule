@@ -236,7 +236,10 @@ describe('P7 physical-device feedback regressions', () => {
       );
       expect(template).toContain('bindtap="handlePanelBackgroundTap"');
       expect(template).toContain('bind:pickerrequestopen="handlePickerRequestOpen"');
+      expect(template).toContain('placement-boundary="{{workflowPickerBoundary}}"');
     }
+    expect(host).toContain("select('.workflow-sheet-scroll')");
+    expect(pickerTemplate).toContain('max-height:{{popoverMaxHeight}}px');
     expect(workbenchTemplate).toContain('catchtap="handleFilterSheetBackgroundTap"');
     expect(workbenchTemplate).toContain('catchtap="handleFilterOptionToggle"');
     expect(workbenchController).toMatch(

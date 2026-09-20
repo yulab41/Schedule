@@ -3064,3 +3064,12 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 顺带修的测试脆弱点：`workbench-holiday-dedupe` 的"TTL 后重新校验"用例原本等 `state === 'ready'`，而缓存预渲染会先把状态置 ready，属于竞态——改为等待被测行为本身（holiday 请求计数）。另外 `apps/miniprogram/project.config.json` 曾被开发者工具改写（补了 setting 字段并去掉行尾换行），已还原为仓库内容（仅行尾形式差异，`git diff` 为空）。
 - 交付：`0.1.0-p10.20260920.180`（候选 `5b9c2e21`、234 代码文件、ZIP 2630896 字节、Manifest `e8e896d952070b0fa7019423cbcac4f32c3fc546cda7223c10fe6793d25957ff`）上传并放行，`ensure`+`verify` 通过，公网探针 `.180`/`.179`=200、未知 `.8888`=426，生产 `/api/health`=200。lineage 策略同步刷新了 `workbench/index.ts` 的 proof blob（`3e405c23`→`89b381bb`）。
 - 待用户确认：小米 14 打开 `.180`，重点看（1）切换群组后详情卡片的手机号是否稳定出现；（2）节假日/补班角标是否与后台一致；（3）整体手感与 `.179` 一致。若你更希望"手机号立刻显示、不额外发请求"，需要同意把手机号写入本机持久缓存（会削弱落盘最小化）。
+
+## 2026-09-20 工作流 Sheet 下拉菜单滚动边界自适应
+
+- 现象与根因：开发者工具离线页稳定复现靠近 `.workflow-sheet-scroll` 底部的 selector 已进入 open 状态但选项完全不可见。现有 `up` / `down` 样式未丢失；`scheduleSelectorPlacement` 只用整个窗口高度，错误地把 scroll-view 下方的 footer/窗口空间算作可用区域，随后绝对定位弹层被 scroll-view 裁剪。
+- 引入点：`git blame` 反查旧 `workflow-picker/index.ts`，窗口级算法最初来自 `c1b9536a`（2026-08-24），`0975b2d1` 补了缺失节点/无 wx 防护；`6d0575d0` 仅把相同算法迁移到共享 `ui-selector/selector.ts`，不是删除方向判断的提交。本轮修根因，不恢复已存在的样式。
+- 测试先行：新增“窗口下方充足但滚动边界下方不足”、动态最大高度和三工作流模板契约；旧代码 3 失败 / 24 通过。修复后共享 selector/picker、host、换班/加扣班/请假、P7 联合 60/60；迟到测量、非法边界、两侧不足和窗口回退均有覆盖。
+- 实现：共享放置函数接收可选 `{top,bottom}`，方向与 `maxHeight` 同批写入；工作流 host 测量当前 `.workflow-sheet-scroll`，三个面板显示表单和 picker request-open 时刷新边界、关闭/提交后清空。无边界调用点继续按窗口计算；日期/月选择模式、选值/关闭事件、业务请求与错误路径不变。
+- 验证：Mini typecheck、`format:check`、lint、production verify、`git diff --check` 通过；主包 1699723、总包 4600812 字节，仅有既有内部预警。开发者工具 `pages/dropdown-probe/index`（iPhone 12/13 Pro、390×844、SDK 3.17.2）中，底部 selector 向上显示且实际点选成功，顶部 selector 仍向下，Console error 检索为空；截图在 ignored `runtime/audit/dropdown-direction-60dda267/fixed-*.png`。模拟器不等于小米 14 验收。
+- 行为变化清单：selector 可选接收容器边界；弹层方向以真实可视边界为准；两侧都不足时自身滚动高度收敛到空间。接收者绑定、promise/catch、空值回退、类型收窄、业务副作用与选择 change 调用次数均未改变。

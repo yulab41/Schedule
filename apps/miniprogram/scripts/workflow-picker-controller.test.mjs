@@ -138,6 +138,36 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.lifetimes.detached.call(instance);
   });
 
+  it('opens upward within a workflow scroll boundary even when the window has room below', async () => {
+    vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, {
+      mode: 'selector',
+      options: [
+        { label: '成员一', value: 'member-1' },
+        { label: '成员二', value: 'member-2' },
+      ],
+      placementBoundary: { bottom: 520, top: 200 },
+    });
+    instance.createSelectorQuery = () => ({
+      boundingClientRect() {
+        return this;
+      },
+      exec(callback) {
+        callback([{ bottom: 514, height: 44, left: 16, right: 374, top: 470, width: 358 }]);
+      },
+      select() {
+        return this;
+      },
+    });
+
+    definition.methods.handleOpen.call(instance);
+
+    expect(instance.data.popoverPlacement).toBe('up');
+    expect(instance.data.popoverMaxHeight).toBe(262);
+    expect(instance.data.popoverPlacementReady).toBe(true);
+  });
+
   it('keeps only the weekend token red before and after an option is selected', async () => {
     const definition = await loadPickerDefinition();
     const options = [
