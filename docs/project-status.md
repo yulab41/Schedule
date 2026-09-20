@@ -1,14 +1,12 @@
 # Project Status
 
-## 当前批次：选择器统一与长列表末项安全区（已实现，待体验版交付）
+## 当前批次：选择器统一与长列表末项安全区（已交付，待小米 14 复核）
 
-- 根因与引入点：共享 selector 自 `6d0575d0` 起把 `padding` 放在可滚动 `scroll-view` 本体；长列表滚动到底时内容盒与圆角裁剪盒重合，因此无论向上或向下展开，最后一项都会贴近或越过圆角。`.182` 仅增加动态高度与方向选择，没有改变该盒模型。
-- 已实现：滚动视口只负责圆角裁剪，新增内层内容盒承载 6px 安全区；所有 27 个列表型调用点统一使用共享 selector 和实际滚动容器边界。邀请/访客 3 项、补录岗位、诊断页体验/正式目标均已迁移；排班配置 4 个时间项复用 `ui-date-picker` + `ui-wheel-column`，生产源码原生 `<picker>` 为 0。
-- 语义审计：列表仍只向原处理器发送一次数值索引；时间值仍为 `HH:mm`，确认一次、取消零次；仅打开方式与视觉组件改变。群组设置的 `wx:else`+`wx:for` 编译错误以等价 `block` 包裹修复，不改变加载/空态/成员分支。未改 API、数据库、权限、通知或业务数据。
-- 验证：新增回归先红后绿；Mini 全量 178 文件通过/2 跳过、1244 项通过/16 跳过；typecheck、lint、format、`smoke:check-core`、source/package/determinism/CI dry-run 和 production verify 通过。包体主包 1721294 B、总包 4630569 B，仅保留既有主包内部预警；source/output Worklet=0，WebView-only 门禁通过。
-- 开发者工具 390×844 / 基础库 3.17.2 / WebView：手排长列表向上、向下滚到底时末项均保留底部安全区；排班配置 `08:05` 时间 Sheet 正确定位 08 时/05 分；目标 Console 无 error。证据在 ignored `runtime/audit/picker-unification-20260920/`。这仍是模拟器证据，不代表小米 14 验收。
-- 用户已确认规格并授权完成后直接上传体验版、只追加 allowlist；不提审、不正式发布、不部署 API/Web。实施 checkpoint 以 `fix(miniprogram): unify picker surfaces` 标识。
-- 当前唯一下一任务：提交并推送干净 checkpoint，重新获取最新体验版血缘，动态分配版本，冻结后上传并只增放行。停止条件：WebView、血缘、冻结、上传或 allowlist 校验任一失败即停止并保留旧版。
+- 根因：`6d0575d0` 起由滚动视口本身承载 padding，长列表末项会侵入圆角，向上与向下展开都会发生。现改由内层内容盒承载 6px 安全区；27 个列表入口统一传入实际滚动边界。邀请/访客、补录、诊断列表及排班配置 4 个时间项均迁移到共享组件，生产源码原生 `<picker>` 为 0。
+- 语义保持：列表仍发送一次数值索引，时间仍为 `HH:mm` 且确认一次/取消零次；未改 API、数据库、权限、通知或业务数据。另将群组设置自 `70f9a98f` 起的 `wx:else`+`wx:for` 编译错误以等价 `block` 包裹修复。
+- 验证：Mini 1244 通过/16 跳过；typecheck、lint、format、smoke、source/package/determinism/dry-run/production verify 全绿。主包 1721294 B、总包 4630569 B，Worklet=0、WebView-only。开发者工具 3.17.2 / WebView 验证双方向末项安全区、`08:05` 时间滚轮与 Console 无 error；证据在 ignored `runtime/audit/picker-unification-20260920/`。
+- 交付：实现 `91b19bcf`（`fix(miniprogram): unify picker surfaces`）已推送；体验版 `0.1.0-p10.20260920.184` 上传成功，Manifest `407a236f0509c82ca77ddd5e311d9ac934cec05c94573f4da20aeabfe621bb33`，远端不可变 tag/receipt/分配记录一致。可信 allowlist `ensure` 只追加 `.184` 并保留 `.183`，独立 verify 通过；公网 `.184`/`.183`=200、未知版=426、health=200。
+- 未提审、未正式发布、未部署 API/Web；线上 release 仍为 `bc5fc307`。当前唯一下一任务：小米 14 打开 `.184` 复核手排/导出长列表、邀请与访客、补录、排班配置及群组设置；取得同构建证据前不得写真机验收通过。
 
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 
