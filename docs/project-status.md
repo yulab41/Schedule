@@ -8,7 +8,7 @@
 - 推送：复用 API HTTP 分块流，无 Redis/新依赖/后台进程；前台单连接，后台关闭，初连/重连补查，120 秒无提示校验兜底；服务端 110 秒重新鉴权、200 总连接/账号 2 连接上限。联系方式跨组更新也发送提示。
 - 验证：针对性 Mini 25 项、P6 身份/工作台 48 项通过；Mini verify 通过（主包 1715052 B、总包 4615896 B）；开发者工具 3.17.3 本地 SSE 2 个分块/首块 9ms，已恢复私有配置。完整校验分段完成：Mini 1231 通过/16 跳过、根 Vitest 1297 通过/448 跳过、池工具 81 通过；真实 MySQL 日历集成 41 通过；官方上传 SDK 转译通过。提交/部署/体验版身份待交付记录。
 - 详见 [审计报告](audit/loading-cache-server-20260920.md)；旧测试夹具在父源码复跑也失败，已修正调用签名及统计范围，不降低断言。
-- 计划 checkpoint：`perf(cache): bound calendar reads and add foreground change hints`。唯一下一任务：完成全量验证后提交推送，重新读取 live/备份/部署验证，再上传并追加放行新体验版；停止条件为交付记录完整，小米 14 留待用户同构建复核。
+- 应用 checkpoint：`ebcea83e` — `perf(cache): bound calendar reads and add foreground change hints`。血缘证明单独 checkpoint：`chore(release): refresh lineage proof for cache synchronization`。唯一下一任务：推送并冻结已验证候选，重新读取 live/备份/部署验证，再上传并追加放行新体验版；停止条件为交付记录完整，小米 14 留待用户同构建复核。
 
 ## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
 
