@@ -150,8 +150,8 @@ async function seedReaderFixture(client: DatabaseClient): Promise<ReaderFixture>
     sql`INSERT INTO user_profiles (user_id, real_name) VALUES (${ownerUserId}, 'Owner Doctor')`,
   );
   await client.database.execute(
-    sql`INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
-        VALUES (${groupId}, 'Reader Group', '1111', ${ownerUserId}, ${'e'.repeat(32)})`,
+    sql`INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key)
+        VALUES (${groupId}, 'Reader Group', ${ownerUserId}, ${'e'.repeat(32)})`,
   );
 
   const createMember = async (realName: string) => {

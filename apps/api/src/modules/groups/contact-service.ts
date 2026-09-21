@@ -384,7 +384,6 @@ export class ContactService {
             mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
             mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
             mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-            shortPhone: groupMemberContacts.shortPhone,
             updatedAt: groupMemberContacts.updatedAt,
             version: groupMemberContacts.version,
           })
@@ -418,7 +417,8 @@ export class ContactService {
             ? accountPhone?.shortPhone
             : normalizeAccountShortPhone(input.shortPhone);
         const mobilePhoneChanged = mobilePhone !== (existing?.mobilePhone ?? null);
-        const phoneChanged = mobilePhoneChanged || shortPhone !== (existing?.shortPhone ?? null);
+        const shortPhoneChanged = shortPhone !== (accountPhone?.shortPhone ?? null);
+        const phoneChanged = mobilePhoneChanged || shortPhoneChanged;
         const isConfirmed =
           input.isConfirmed === undefined
             ? phoneChanged
@@ -435,7 +435,6 @@ export class ContactService {
             isConfirmed,
             membershipId: target.id,
             mobilePhone: mobilePhone ?? null,
-            shortPhone: shortPhone ?? null,
           });
 
           const [created] = await transaction
@@ -447,7 +446,6 @@ export class ContactService {
               mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
               mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
               mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-              shortPhone: groupMemberContacts.shortPhone,
               updatedAt: groupMemberContacts.updatedAt,
               version: groupMemberContacts.version,
             })
@@ -467,7 +465,10 @@ export class ContactService {
             await setAccountMobilePhone(transaction, target.userId, mobilePhone ?? null, target.id);
           if (input.shortPhone !== undefined)
             await setAccountShortPhone(transaction, target.userId, shortPhone ?? null, target.id);
-          return toGroupMemberContact(created, isCurrentMember);
+          return toGroupMemberContact(
+            { ...created, shortPhone: shortPhone ?? null },
+            isCurrentMember,
+          );
         }
 
         const consentInvalidated =
@@ -480,7 +481,6 @@ export class ContactService {
             isConfirmed,
             mobilePhone: mobilePhone ?? null,
             ...(consentInvalidated ? { mobilePhoneConsentRevokedAt: new Date() } : {}),
-            shortPhone: shortPhone ?? null,
             version: sql`${groupMemberContacts.version} + 1`,
           })
           .where(eq(groupMemberContacts.id, existing.id));
@@ -494,7 +494,6 @@ export class ContactService {
             mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
             mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
             mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-            shortPhone: groupMemberContacts.shortPhone,
             updatedAt: groupMemberContacts.updatedAt,
             version: groupMemberContacts.version,
           })
@@ -533,7 +532,7 @@ export class ContactService {
         if (input.shortPhone !== undefined)
           await setAccountShortPhone(transaction, target.userId, shortPhone ?? null, target.id);
         return toGroupMemberContact(
-          updated,
+          { ...updated, shortPhone: shortPhone ?? null },
           isCurrentMember ||
             isMobilePhoneConsentEffective(authorization.group.id, target.id, updated),
         );

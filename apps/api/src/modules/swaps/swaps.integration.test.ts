@@ -1646,7 +1646,7 @@ describeWithDatabase('member shift swaps', () => {
   });
 
   async function seedPublishedSchedule(): Promise<Context> {
-    const groupId = await createGroup('Swap group', '5678');
+    const groupId = await createGroup('Swap group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await addRosterEntry(groupId, 'C Doctor');
@@ -2091,14 +2091,14 @@ describeWithDatabase('member shift swaps', () => {
     return ownerUserId;
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 

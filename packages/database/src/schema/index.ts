@@ -118,7 +118,6 @@ export const groups = mysqlTable(
   {
     id: identifier(),
     name: varchar('name', { length: 100 }).notNull(),
-    groupCode: char('group_code', { length: 4 }),
     visitorKey: varchar('visitor_key', { length: 64 })
       .notNull()
       .$defaultFn(() => randomBytes(16).toString('hex')),
@@ -154,7 +153,6 @@ export const groups = mysqlTable(
     ...auditableColumns(),
   },
   (table) => [
-    uniqueIndex('groups_group_code_unique').on(table.groupCode),
     uniqueIndex('groups_visitor_key_unique').on(table.visitorKey),
     index('groups_owner_user_id_idx').on(table.ownerUserId),
   ],
@@ -350,7 +348,6 @@ export const groupMemberContacts = mysqlTable(
       .references(() => groupMemberships.id),
     mobilePhone: varchar('mobile_phone', { length: 32 }),
     mobilePhoneBeforeAccountSync: varchar('mobile_phone_before_account_sync', { length: 32 }),
-    shortPhone: varchar('short_phone', { length: 32 }),
     isConfirmed: tinyint('is_confirmed', { unsigned: true }).default(0).notNull(),
     mobilePhoneConsentFingerprint: char('mobile_phone_consent_fingerprint', { length: 64 }),
     mobilePhoneConsentNoticeVersion: varchar('mobile_phone_consent_notice_version', {
@@ -396,14 +393,6 @@ export const idempotencyKeys = mysqlTable(
     index('idempotency_keys_expires_at_idx').on(table.expiresAt),
   ],
 );
-
-export const groupCodeAttempts = mysqlTable('group_code_attempts', {
-  userId: char('user_id', { length: 36 })
-    .primaryKey()
-    .references(() => users.id),
-  windowStartedAt: timestamp('window_started_at', { fsp: 3 }).defaultNow().notNull(),
-  attemptCount: int('attempt_count', { unsigned: true }).default(1).notNull(),
-});
 
 export const guestScheduleAccessAttempts = mysqlTable('guest_schedule_access_attempts', {
   accessKey: char('access_key', { length: 64 }).primaryKey(),

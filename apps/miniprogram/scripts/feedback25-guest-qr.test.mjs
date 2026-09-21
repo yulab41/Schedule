@@ -44,22 +44,22 @@ describe('Feedback25 guest calendar and visitor QR', () => {
     expect(design).toContain('允许差异仅限访客标题、返回登录按钮、权限控制和成员工作台外壳');
   });
 
-  it('uses persistent QR assets and parallel release/trial generation', () => {
+  it('uses persistent single-environment QR assets', () => {
     const service = source('../api/src/modules/groups/visitor-key-service.ts');
     const schema = source('../../packages/database/src/schema/index.ts');
     expect(schema).toContain("mysqlTable(\n  'group_visitor_qr_assets'");
-    expect(service).toContain('Promise.all');
     expect(service).toContain('groupVisitorQrAssets');
+    expect(service).toContain('getCurrentEnvironmentQr');
+    expect(service).toContain('environment');
     expect(service).toContain('if (stored?.visitorKey === visitorKey)');
+    expect(service).not.toContain('trialImageBase64');
     expect(service).not.toContain('QR_CACHE_TTL_MS');
   });
 
   it('renames rotation copy to refresh while retaining immediate old-code invalidation', () => {
-    const template = source(
-      'src/subpackages/organization/components/invite-visitor-panel/index.wxml',
-    );
+    const template = source('src/subpackages/organization/components/qr-visitor-panel/index.wxml');
     const controller = source(
-      'src/subpackages/organization/components/invite-visitor-panel/controller.ts',
+      'src/subpackages/organization/components/qr-visitor-panel/controller.ts',
     );
     expect(template).not.toContain('轮换访客码');
     expect(template).toContain('刷新访客码');

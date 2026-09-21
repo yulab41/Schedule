@@ -26,7 +26,7 @@ describe('P8-E native platform account administration', () => {
       pages: [
         'pages/group-settings/index',
         'pages/scheduling-config/index',
-        'pages/invite-visitor/index',
+        'pages/qr-visitor/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],

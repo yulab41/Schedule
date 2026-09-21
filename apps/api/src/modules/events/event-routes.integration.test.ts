@@ -184,7 +184,7 @@ describeWithDatabase('schedule event center routes', () => {
 
   it('returns the event detail with its parent and child chain and rejects other groups', async () => {
     const context = await seedSwapEvents();
-    const otherGroupId = await createGroup('Other group', '3456');
+    const otherGroupId = await createGroup('Other group');
     const eventWriter = new EventWriter();
     const firstEventId = randomUUID();
     const secondEventId = randomUUID();
@@ -244,7 +244,7 @@ describeWithDatabase('schedule event center routes', () => {
   });
 
   async function seedSwapEvents(): Promise<Context> {
-    const groupId = await createGroup('Events group', '5678');
+    const groupId = await createGroup('Events group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     for (const [token, realName] of [
@@ -454,14 +454,14 @@ describeWithDatabase('schedule event center routes', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 

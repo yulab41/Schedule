@@ -1303,7 +1303,7 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     memberKeys: readonly string[] = ['a', 'b', 'c'],
     businessMonth = '2026-09',
   ): Promise<Context> {
-    const groupId = await createGroup('Leave group', '4321');
+    const groupId = await createGroup('Leave group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await addRosterEntry(groupId, 'C Doctor');
@@ -1650,14 +1650,14 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 

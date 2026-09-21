@@ -96,64 +96,6 @@ export class VisitorKeyService {
     return result;
   }
 
-  public async getGroupQr(
-    identity: AuthenticatedIdentity,
-    groupId: string,
-    gateway: WechatGateway,
-    includeTrial: boolean,
-  ): Promise<{ readonly imageBase64: string; readonly trialImageBase64?: string }> {
-    const startedAt = Date.now();
-    const authorization = await withTransaction(this.databaseClient, async (transaction) =>
-      this.permissionService.requirePermission(transaction, identity, groupId, 'viewGroupQr'),
-    );
-
-    const [group] = await this.databaseClient.database
-      .select({ visitorKey: groups.visitorKey })
-      .from(groups)
-      .where(eq(groups.id, authorization.group.id))
-      .limit(1);
-    if (group === undefined) {
-      throw new ApiError({
-        code: 'NOT_FOUND',
-        statusCode: 404,
-        userMessage: '群组不存在或不可用。',
-      });
-    }
-
-    const environments: readonly QrEnvironment[] = includeTrial
-      ? ['release', 'trial']
-      : ['release'];
-    const results = await Promise.all(
-      environments.map((environment) =>
-        this.readOrGenerateQr(authorization.group.id, group.visitorKey, environment, gateway),
-      ),
-    );
-
-    await withTransaction(this.databaseClient, async (transaction) => {
-      await this.auditWriter.append(transaction, {
-        action: 'group_qr_generated',
-        actorUserId: authorization.user.id,
-        groupId: authorization.group.id,
-        metadata: {
-          generatedCount: results.filter((result) => !result.persisted).length,
-          generationMs: Math.max(0, ...results.map((result) => result.generatedMs)),
-          totalMs: Date.now() - startedAt,
-        },
-        operationId: randomUUID(),
-        outcome: 'completed',
-        targetId: authorization.group.id,
-        targetType: 'group',
-      });
-    });
-
-    const release = results[0]?.bytes ?? new Uint8Array();
-    if (!includeTrial) return { imageBase64: Buffer.from(release).toString('base64') };
-    return {
-      imageBase64: Buffer.from(release).toString('base64'),
-      trialImageBase64: Buffer.from(results[1]?.bytes ?? []).toString('base64'),
-    };
-  }
-
   public async getCurrentEnvironmentQr(
     identity: AuthenticatedIdentity,
     groupId: string,

@@ -4,7 +4,7 @@ import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 
-describe('P8-D native invite and visitor controller', () => {
+describe('P8-D native QR and visitor controller', () => {
   let definition;
   let requests;
 
@@ -57,8 +57,8 @@ describe('P8-D native invite and visitor controller', () => {
       showModal: vi.fn(({ success }) => success({ confirm: true, cancel: false })),
     });
     const module =
-      await import('../src/subpackages/organization/components/invite-visitor-panel/controller.ts');
-    definition = module.createInviteVisitorPanelControllerDefinition();
+      await import('../src/subpackages/organization/components/qr-visitor-panel/controller.ts');
+    definition = module.createQrVisitorPanelControllerDefinition();
     await enableTestClientCapabilities();
   });
 
@@ -71,7 +71,7 @@ describe('P8-D native invite and visitor controller', () => {
     vi.stubGlobal('Page', (value) => {
       pageDefinition = value;
     });
-    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
+    await import('../src/subpackages/organization/pages/qr-visitor/index.ts');
     const page = createPageInstance(definition);
     page.properties = { groupId };
     definition.lifetimes.attached.call(page);
@@ -83,7 +83,7 @@ describe('P8-D native invite and visitor controller', () => {
           complete = resolve;
         }),
     );
-    page._inviteVisitorWriteClient = { createCurrentMemberWechatBindingQr: create };
+    page._qrVisitorWriteClient = { createCurrentMemberWechatBindingQr: create };
     definition.handleCreateBindingQr.call(page);
     await vi.waitFor(() => expect(create).toHaveBeenCalled());
     pageDefinition.onUnload.call(page);
@@ -98,7 +98,7 @@ describe('P8-D native invite and visitor controller', () => {
     vi.stubGlobal('Page', (value) => {
       pageDefinition = value;
     });
-    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
+    await import('../src/subpackages/organization/pages/qr-visitor/index.ts');
     expect(pageDefinition).not.toHaveProperty('onShareAppMessage');
     expect(definition.data).not.toHaveProperty('inviteSharePath');
     expect(definition).not.toHaveProperty('handleCreateInvite');

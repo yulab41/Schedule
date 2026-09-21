@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -147,7 +146,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('grants the seeded developer administrator access to every group without listing it as a member', async () => {
-    const groupId = await createGroup('member-token', 'Developer managed group', '8642');
+    const groupId = await createGroup('member-token', 'Developer managed group');
 
     const platformMe = await app.inject({
       headers: { authorization: 'Bearer developer-token' },
@@ -187,7 +186,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('restores a soft-deleted group inside the 30-day recycle window and audits it', async () => {
-    const groupId = await createGroup('member-token', 'Recycle Group', '1234');
+    const groupId = await createGroup('member-token', 'Recycle Group');
     const deleted = await app.inject({
       headers: {
         authorization: 'Bearer member-token',
@@ -235,7 +234,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('rejects restore for active groups and purges groups after the recycle window', async () => {
-    const groupId = await createGroup('member-token', 'Expired Group', '4321');
+    const groupId = await createGroup('member-token', 'Expired Group');
     const activeRestore = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'POST',
@@ -272,14 +271,14 @@ describeWithDatabase('platform administration and recovery', () => {
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode: '4321', name: 'New Group' },
+      payload: { name: 'New Group' },
       url: '/groups',
     });
     expect(recreated.statusCode).toBe(201);
   });
 
   it('does not expose account deregistration and preserves identity, contacts, and history', async () => {
-    const groupId = await createGroup('member-token', 'Doctor Group', '5678');
+    const groupId = await createGroup('member-token', 'Doctor Group');
     const members = (
       await app.inject({
         headers: { authorization: 'Bearer member-token' },
@@ -439,7 +438,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('backs up, restores, and verifies an archive against the source data', async () => {
-    const groupId = await createGroup('member-token', 'Backup Group', '2468');
+    const groupId = await createGroup('member-token', 'Backup Group');
     await client.database.execute(sql`
       INSERT INTO group_member_contacts (id, membership_id, mobile_phone, is_confirmed)
       SELECT ${randomUUID()}, m.id, '13900139000', 1
@@ -533,7 +532,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('rebuilds statistics snapshots from published periods', async () => {
-    const groupId = await createGroup('member-token', 'Stats Group', '1357');
+    const groupId = await createGroup('member-token', 'Stats Group');
     const [memberRows] = (await client.database.execute(
       sql`SELECT id FROM group_memberships WHERE group_id = ${groupId} LIMIT 1`,
     )) as unknown as [{ id: string }[], unknown];
@@ -614,7 +613,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('records failure context when a statistics rebuild month fails', async () => {
-    const groupId = await createGroup('member-token', 'Stats Failure Group', '9753');
+    const groupId = await createGroup('member-token', 'Stats Failure Group');
     const roleId = randomUUID();
     const periodId = randomUUID();
     await client.database.execute(sql`
@@ -654,8 +653,8 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('maintains account profile and one phone across groups with version checks', async () => {
-    await createGroup('member-token', 'Account group one', '7812');
-    await createGroup('member-token', 'Account group two', '7813');
+    await createGroup('member-token', 'Account group one');
+    await createGroup('member-token', 'Account group two');
     const headers = { authorization: 'Bearer admin-token' };
     const listed = await app.inject({
       method: 'GET',
@@ -794,70 +793,11 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(JSON.stringify(operations)).not.toContain(payload.newPassword);
   });
 
-  it('migrates the latest contact phone with stable ties and preserves originals and visibility', async () => {
-    const groupA = await createGroup('member-token', 'Migration one', '7812');
-    const groupB = await createGroup('member-token', 'Migration two', '7813');
-    const [members] = await client.database.execute(
-      sql`SELECT m.id, m.user_id AS userId, m.group_id AS groupId FROM group_memberships m JOIN users u ON u.id=m.user_id WHERE m.group_id IN (${groupA},${groupB}) AND u.cloudbase_uid='cloudbase-member'`,
-    );
-    const rows = members as unknown as { id: string; userId: string; groupId: string }[];
-    const a = rows.find((row) => row.groupId === groupA)!;
-    const b = rows.find((row) => row.groupId === groupB)!;
-    const firstId = '11111111-0000-4000-8000-000000000001';
-    const secondId = '22222222-0000-4000-8000-000000000002';
-    await client.database
-      .execute(sql`INSERT INTO group_member_contacts (id,membership_id,mobile_phone,short_phone,is_confirmed,version,updated_at,mobile_phone_consent_revoked_at) VALUES
-      (${firstId},${a.id},'13800000001','620001',1,7,'2026-09-01 08:00:00',NULL),
-      (${secondId},${b.id},'13800000002','620002',1,9,'2026-09-02 08:00:00','2026-09-01 09:00:00')`);
-    const statements = readFileSync(
-      fileURLToPath(
-        new URL('../../../../../migrations/0055_account_mobile_phone.sql', import.meta.url),
-      ),
-      'utf8',
-    )
-      .split('--> statement-breakpoint')
-      .slice(2);
-    for (const statement of statements) await client.database.execute(sql.raw(statement));
-    const [after] = await client.database.execute(
-      sql`SELECT mobile_phone AS phone,mobile_phone_before_account_sync AS original,short_phone AS shortPhone,is_confirmed AS confirmed,version,updated_at AS updatedAt,mobile_phone_consent_revoked_at AS revoked FROM group_member_contacts ORDER BY id`,
-    );
-    const contacts = after as unknown as {
-      phone: string;
-      original: string;
-      shortPhone: string;
-      confirmed: number;
-      version: number;
-      updatedAt: Date;
-      revoked: Date | null;
-    }[];
-    expect(contacts.map((row) => row.phone)).toEqual(['13800000002', '13800000002']);
-    expect(contacts.map((row) => row.original)).toEqual(['13800000001', '13800000002']);
-    expect(contacts.map((row) => row.version)).toEqual([8, 9]);
-    expect(contacts.map((row) => row.shortPhone)).toEqual(['620001', '620002']);
-    expect(contacts.every((row) => row.confirmed === 1)).toBe(true);
-    expect(contacts[1]!.revoked).not.toBeNull();
-    const stale = await app.inject({
-      method: 'PUT',
-      url: `/groups/${groupA}/members/${a.id}/contact`,
-      headers: { authorization: 'Bearer member-token' },
-      payload: { operationId: randomUUID(), expectedVersion: 7, mobilePhone: '13800000001' },
-    });
-    expect(stale.statusCode, stale.body).toBe(409);
-    await client.database.execute(
-      sql`UPDATE group_member_contacts SET mobile_phone=mobile_phone_before_account_sync,updated_at='2026-09-02 08:00:00'`,
-    );
-    for (const statement of statements) await client.database.execute(sql.raw(statement));
-    const [account] = await client.database.execute(
-      sql`SELECT mobile_phone AS phone FROM users WHERE id=${a.userId}`,
-    );
-    expect((account as unknown as { phone: string }[])[0]!.phone).toBe('13800000001');
-  });
-
   it('keeps global phone when editing a new group short number and can revoke from version zero', async () => {
     await client.database.execute(
       sql`UPDATE users SET mobile_phone='13800001111' WHERE cloudbase_uid='cloudbase-member'`,
     );
-    const groupId = await createGroup('member-token', 'New phone group', '7812');
+    const groupId = await createGroup('member-token', 'New phone group');
     const headers = { authorization: 'Bearer member-token' };
     const consent = await app.inject({
       method: 'GET',
@@ -961,7 +901,7 @@ describeWithDatabase('platform administration and recovery', () => {
   });
 
   it('serializes platform phone changes with member contact changes without losing the global value', async () => {
-    const group = await createGroup('member-token', 'Concurrent account contacts', '7812');
+    const group = await createGroup('member-token', 'Concurrent account contacts');
     const headers = { authorization: 'Bearer admin-token' };
     const details = await app.inject({
       method: 'GET',
@@ -1022,14 +962,14 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(token: string, name: string, groupCode: string): Promise<string> {
+  async function createGroup(token: string, name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: `Bearer ${token}`,
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

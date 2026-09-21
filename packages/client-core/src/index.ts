@@ -38,13 +38,12 @@ export {
   type ClientTransport,
 } from './endpoint.js';
 export {
-  acceptInviteResponseDecoder,
-  createInviteLinkResponseDecoder,
-  createInviteVisitorWriteClient,
-  inviteVisitorWriteEndpoints,
+  createCurrentMemberWechatBindingQrResponseDecoder,
+  createQrVisitorWriteClient,
+  qrVisitorWriteEndpoints,
   visitorKeyChangedResponseDecoder,
-  type InviteVisitorWriteClient,
-} from './invite-visitor-write-client.js';
+  type QrVisitorWriteClient,
+} from './qr-visitor-write-client.js';
 export {
   createGroupMobilePhoneConsentClient,
   groupMobilePhoneConsentDecoder,
@@ -61,7 +60,6 @@ export {
   groupSummaryListDecoder,
   organizationReadEndpoints,
   platformAdminUserAccountListDecoder,
-  resolveInviteResponseDecoder,
   schedulingConfigReadDecoder,
   type OrganizationReadClient,
 } from './organization-read-client.js';

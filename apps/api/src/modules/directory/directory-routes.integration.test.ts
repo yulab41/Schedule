@@ -706,8 +706,8 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
 
   const owner = users[0]!;
   await client.database.execute(sql`
-    INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
-    VALUES (${groupId}, 'Directory Group', '2468', ${owner.id}, ${'b'.repeat(32)})
+    INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key)
+    VALUES (${groupId}, 'Directory Group', ${owner.id}, ${'b'.repeat(32)})
   `);
   for (const user of users) {
     if (user.membershipRole === undefined) continue;

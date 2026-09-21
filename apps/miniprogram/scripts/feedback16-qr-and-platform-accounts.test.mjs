@@ -11,7 +11,7 @@ const accountMocks = vi.hoisted(() => ({
 
 vi.mock('../src/platform/client-core-calendar.js', () => ({
   createRuntimeOrganizationReadClient: () => qrMocks.read,
-  createRuntimeInviteVisitorWriteClient: () => qrMocks.write,
+  createRuntimeQrVisitorWriteClient: () => qrMocks.write,
   createRuntimePlatformAccountClient: () => accountMocks.account,
   createRuntimePlatformIdentityWriteClient: () => accountMocks.identity,
 }));
@@ -57,8 +57,8 @@ describe('Feedback16 QR interactions', () => {
     };
     vi.stubGlobal('wx', runtime);
     const module =
-      await import('../src/subpackages/organization/components/invite-visitor-panel/controller.ts');
-    definition = module.createInviteVisitorPanelControllerDefinition();
+      await import('../src/subpackages/organization/components/qr-visitor-panel/controller.ts');
+    definition = module.createQrVisitorPanelControllerDefinition();
     page = {
       properties: { groupId: 'group-1' },
       data: { ...definition.data },

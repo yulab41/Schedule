@@ -28,3 +28,14 @@ ALTER TABLE `visitor_access_logs`
   ADD COLUMN `wechat_openid` varchar(64) NULL AFTER `business_month`,
   ADD COLUMN `client_context_version` tinyint unsigned NULL AFTER `wechat_openid`,
   ADD COLUMN `client_context` json NULL AFTER `client_context_version`;
+--> statement-breakpoint
+ALTER TABLE `group_member_contacts`
+  DROP COLUMN `short_phone`;
+--> statement-breakpoint
+DROP TABLE `invite_tokens`;
+--> statement-breakpoint
+DROP TABLE `group_code_attempts`;
+--> statement-breakpoint
+ALTER TABLE `groups`
+  DROP INDEX `groups_group_code_unique`,
+  DROP COLUMN `group_code`;

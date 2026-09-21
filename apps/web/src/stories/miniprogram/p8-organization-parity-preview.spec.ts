@@ -21,7 +21,7 @@ describe('P8 organization parity Storybook golden', () => {
       expect(preview).toContain(`import ${productionComponent}`);
       expect(preview).toContain(`<${productionComponent}`);
     }
-    expect(preview).toContain('P8InviteVisitorGolden');
+    expect(preview).toContain('P8QrVisitorGolden');
     expect(preview).not.toContain('class="organization-card"');
     expect(preview).toContain("waitForExistingElement<HTMLButtonElement>('.member-manage-button')");
     expect(storybookPreview).toContain("import { createPinia } from 'pinia'");
@@ -48,7 +48,7 @@ describe('P8 organization parity Storybook golden', () => {
     ]) {
       expect(fixtures).toContain(`'${surface}'`);
     }
-    for (const area of ['group', 'members', 'config', 'invite-visitor', 'platform']) {
+    for (const area of ['group', 'members', 'config', 'qr-visitor', 'platform']) {
       expect(fixtures).toContain(`'${area}'`);
     }
     expect(stories).toContain("title: 'Miniprogram Parity/P8 Organization Parity'");
@@ -58,18 +58,17 @@ describe('P8 organization parity Storybook golden', () => {
     expect(stories).toContain('GroupOwner390');
     expect(stories).toContain('MembersAdministrator390');
     expect(stories).toContain('ConfigConflict320');
-    expect(stories).toContain('InviteVisitorOwner390');
+    expect(stories).toContain('QrVisitorOwner390');
     expect(stories).toContain('PlatformLinkSuccess390');
   });
 
-  it('keeps invitation and visitor secrets out of fixtures and marks capability boundaries', () => {
-    const preview = read('./P8InviteVisitorGolden.vue');
+  it('keeps QR secrets out of fixtures and states the single-environment boundary', () => {
+    const preview = read('./P8QrVisitorGolden.vue');
     const fixtures = read('./p8-organization-parity-fixtures.ts');
 
-    expect(preview).toContain('邀请链接只显示一次');
-    expect(preview).toContain('群主专属');
-    expect(preview).toContain('guest capability');
-    expect(preview).toContain('organization capability');
+    expect(preview).toContain('只生成当前小程序环境对应的一张二维码');
+    expect(preview).toContain('成员绑定二维码');
+    expect(preview).toContain('访客二维码');
     expect(fixtures).not.toMatch(/visitorKey\s*:/u);
     expect(fixtures).not.toMatch(/rawTicket\s*:/u);
     expect(fixtures).not.toMatch(/localStorage|sessionStorage|setItem/gu);
@@ -80,7 +79,7 @@ describe('P8 organization parity Storybook golden', () => {
     const groupSetup = read('../../features/groups/GroupSetupPanel.vue');
     const mobileConsent = read('../../features/groups/GroupMobilePhoneConsentCard.vue');
     const schedulingConfig = read('../../features/scheduling-config/SchedulingConfigPanel.vue');
-    const inviteVisitor = read('./P8InviteVisitorGolden.vue');
+    const qrVisitor = read('./P8QrVisitorGolden.vue');
     const platformUsers = read('../../views/platform/PlatformAdminUsersView.vue');
 
     expect(preview).toContain('<div class="p8-production-surface">');
@@ -114,15 +113,9 @@ describe('P8 organization parity Storybook golden', () => {
       '.scheduling-config-panel :deep(.t-alert--error .t-alert__description)',
     );
     expect(schedulingConfig).toContain('.scheduling-config-panel :deep(.t-button--theme-danger)');
-    expect(inviteVisitor).toMatch(
-      /\.invite-summary dt\s*{[^}]*color:\s*var\(--ui-color-text-secondary\);/s,
-    );
-    expect(inviteVisitor).toMatch(
-      /\.scope-badge\.is-owner\s*{[^}]*color:\s*var\(--ui-color-text-primary\);/s,
-    );
-    expect(inviteVisitor).toMatch(
-      /\.access-feedback\s*{[^}]*color:\s*var\(--ui-color-text-primary\);/s,
-    );
+    expect(qrVisitor).toContain('.qr-summary');
+    expect(qrVisitor).toContain('text-align: center');
+    expect(qrVisitor).toContain('font-size: 16px');
     expect(platformUsers).toMatch(/th\s*{[^}]*color:\s*var\(--ui-color-text-secondary\);/s);
   });
 
@@ -133,7 +126,7 @@ describe('P8 organization parity Storybook golden', () => {
       'miniprogram-parity-p8-organization-parity--group-owner-390',
       'miniprogram-parity-p8-organization-parity--members-manage-confirm-320',
       'miniprogram-parity-p8-organization-parity--config-conflict-320',
-      'miniprogram-parity-p8-organization-parity--invite-visitor-owner-390',
+      'miniprogram-parity-p8-organization-parity--qr-visitor-owner-390',
       'miniprogram-parity-p8-organization-parity--platform-link-success-390',
       'miniprogram-parity-p8-organization-parity--organization-large-text-390',
     ]) {

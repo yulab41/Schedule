@@ -364,7 +364,7 @@
   </scroll-view>
   <ui-sheet visible="{{rosterEditorOpen}}" title="添加预设成员" close-label="取消" bindclose="handleCloseRosterEditor"><scroll-view class="member-editor-scroll" scroll-y><view class="member-editor-content">
           <text class="inline-editor-copy"
-            >每行输入一个姓名。请使用管理员提供的邀请关联成员账号。</text
+            >每行输入一个姓名。请使用管理员生成的成员绑定二维码关联账号。</text
           >
           <textarea
             class="native-textarea"

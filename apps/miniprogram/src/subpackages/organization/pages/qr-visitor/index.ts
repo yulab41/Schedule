@@ -1,25 +1,22 @@
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
-import { createInviteVisitorPanelControllerDefinition } from '../../components/invite-visitor-panel/controller.js';
+import { createQrVisitorPanelControllerDefinition } from '../../components/qr-visitor-panel/controller.js';
 
-const controller = createInviteVisitorPanelControllerDefinition();
+const controller = createQrVisitorPanelControllerDefinition();
 const pageMethods = Object.fromEntries(
   Object.entries(controller).filter(
     ([key, value]) => key.startsWith('handle') && typeof value === 'function',
   ),
 );
-type InviteVisitorPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
+type QrVisitorPageInstance = ThisParameterType<typeof controller.lifetimes.attached>;
 
 Page({
   data: controller.data,
   ...pageMethods,
-  onUnload(this: InviteVisitorPageInstance) {
+  onUnload(this: QrVisitorPageInstance) {
     controller.lifetimes.detached.call(this);
   },
-  onLoad(
-    this: InviteVisitorPageInstance,
-    query: Readonly<Record<string, string | undefined>>,
-  ): void {
-    recordMiniTelemetryBoundary('invite-visitor:page-onload');
+  onLoad(this: QrVisitorPageInstance, query: Readonly<Record<string, string | undefined>>): void {
+    recordMiniTelemetryBoundary('qr-visitor:page-onload');
     (this as unknown as { properties: { groupId: string } }).properties = {
       groupId: decodeGroupId(query['groupId']),
     };

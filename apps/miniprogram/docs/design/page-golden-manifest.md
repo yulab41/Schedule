@@ -77,11 +77,11 @@ P8-B 精确 Storybook ID：
 - `miniprogram-parity-p8-organization-parity--config-empty-320`
 - `miniprogram-parity-p8-organization-parity--config-loading-320`
 - `miniprogram-parity-p8-organization-parity--config-disabled-member-320`
-- `miniprogram-parity-p8-organization-parity--invite-visitor-owner-390`
-- `miniprogram-parity-p8-organization-parity--invite-visitor-administrator-320`
-- `miniprogram-parity-p8-organization-parity--invite-visitor-confirm-320`
-- `miniprogram-parity-p8-organization-parity--invite-visitor-success-390`
-- `miniprogram-parity-p8-organization-parity--invite-visitor-disabled-320`
+- `miniprogram-parity-p8-organization-parity--qr-visitor-owner-390`
+- `miniprogram-parity-p8-organization-parity--qr-visitor-administrator-320`
+- `miniprogram-parity-p8-organization-parity--qr-visitor-confirm-320`
+- `miniprogram-parity-p8-organization-parity--qr-visitor-success-390`
+- `miniprogram-parity-p8-organization-parity--qr-visitor-disabled-320`
 - `miniprogram-parity-p8-organization-parity--platform-admin-390`
 - `miniprogram-parity-p8-organization-parity--platform-assignment-320`
 - `miniprogram-parity-p8-organization-parity--platform-link-success-390`

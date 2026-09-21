@@ -6,8 +6,6 @@ const visitorResolveResponseSchemaJson =
   '{"type":"object","properties":{"groupId":{"type":"string","minLength":1},"groupName":{"type":"string","minLength":1}},"required":["groupId","groupName"],"additionalProperties":false}';
 const manualScheduleStartDateSchemaJson =
   '{"type":"object","properties":{"startDate":{"type":"string","pattern":"^\\\\d{4}-\\\\d{2}-\\\\d{2}$"}},"required":["startDate"],"additionalProperties":false}';
-const acceptInviteResponseSchemaJson =
-  '{"type":"object","properties":{"group":{"type":"object","properties":{"id":{"type":"string","minLength":1},"isDeveloperAdmin":{"type":"boolean"},"name":{"type":"string","minLength":1},"role":{"type":"string","enum":["administrator","member","owner","guest"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["id","name","role","version"],"additionalProperties":false},"token":{"type":"string","minLength":1}},"required":["group"],"additionalProperties":false}';
 const addGroupMembersResponseSchemaJson =
   '{"type":"object","properties":{"added":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["added"],"additionalProperties":false}';
 const addRosterEntriesResponseSchemaJson =
@@ -24,10 +22,6 @@ const clientCapabilityResponseSchemaJson =
   '{"type":"object","properties":{"platform":{"type":"string","const":"miniprogram"},"version":{"type":"string","maxLength":64,"minLength":1,"pattern":"^(?:0|[1-9]\\\\d*)\\\\.(?:0|[1-9]\\\\d*)\\\\.(?:0|[1-9]\\\\d*)(?:-(?:0|[1-9]\\\\d*|\\\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\\\.(?:0|[1-9]\\\\d*|\\\\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\\\+[0-9A-Za-z-]+(?:\\\\.[0-9A-Za-z-]+)*)?$"},"global":{"type":"boolean"},"core":{"type":"boolean"},"workflows":{"type":"boolean"},"organization":{"type":"boolean"},"insights":{"type":"boolean"},"externalMessages":{"type":"boolean"},"guest":{"type":"boolean"}},"required":["platform","version","global","core","workflows","organization","insights","externalMessages","guest"],"additionalProperties":false}';
 const convertPendingRosterResponseSchemaJson =
   '{"type":"object","properties":{"converted":{"type":"integer","maximum":9007199254740991,"minimum":0},"skipped":{"type":"integer","maximum":9007199254740991,"minimum":0}},"required":["converted","skipped"],"additionalProperties":false}';
-const createInviteLinkResponseSchemaJson =
-  '{"type":"object","properties":{"expiresAt":{"type":"string"},"groupName":{"type":"string","minLength":1},"permissionRole":{"type":"string","enum":["member","administrator"]},"realName":{"type":"string","minLength":1},"scheduleRoleName":{"type":"string"},"sharePath":{"type":"string","minLength":1},"token":{"type":"string","minLength":1},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["expiresAt","groupName","permissionRole","realName","sharePath","token","version"],"additionalProperties":false}';
-const createMemberWechatBindingQrResponseSchemaJson =
-  '{"type":"object","properties":{"employeeCode":{"type":"string","minLength":1},"expiresAt":{"type":"string","format":"date-time","pattern":"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))T(?:(?:[01]\\\\d|2[0-3]):[0-5]\\\\d(?::[0-5]\\\\d(?:\\\\.\\\\d+)?)?(?:Z|([+-](?:[01]\\\\d|2[0-3]):[0-5]\\\\d)))$"},"groupCode":{"type":"string","minLength":1},"groupName":{"type":"string","minLength":1},"imageBase64":{"type":"string","minLength":1},"membershipId":{"type":"string","minLength":1},"realName":{"type":"string","minLength":1},"trialImageBase64":{"type":"string","minLength":1}},"required":["expiresAt","groupCode","groupName","imageBase64","membershipId","realName"],"additionalProperties":false}';
 const createCurrentMemberWechatBindingQrResponseSchemaJson =
   '{"type":"object","properties":{"employeeCode":{"type":"string","minLength":1},"environment":{"type":"string","enum":["release","trial"]},"expiresAt":{"type":"string","format":"date-time","pattern":"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))T(?:(?:[01]\\\\d|2[0-3]):[0-5]\\\\d(?::[0-5]\\\\d(?:\\\\.\\\\d+)?)?(?:Z|([+-](?:[01]\\\\d|2[0-3]):[0-5]\\\\d)))$"},"groupName":{"type":"string","minLength":1},"imageBase64":{"type":"string","minLength":1},"membershipId":{"type":"string","minLength":1},"realName":{"type":"string","minLength":1}},"required":["environment","expiresAt","groupName","imageBase64","membershipId","realName"],"additionalProperties":false}';
 const createWechatAdminBindingLinkResponseSchemaJson =
@@ -54,8 +48,6 @@ const groupMemberContactSchemaJson =
   '{"type":"object","properties":{"employeeCodes":{"type":"array","items":{"type":"string"}},"isConfirmed":{"type":"boolean"},"membershipId":{"type":"string","minLength":1},"mobilePhone":{"type":"string"},"shortPhone":{"type":"string"},"updatedAt":{"type":"string"},"version":{"type":"integer","maximum":9007199254740991,"minimum":0}},"required":["isConfirmed","membershipId","version"],"additionalProperties":false}';
 const groupMobilePhoneConsentSchemaJson =
   '{"type":"object","properties":{"consentedAt":{"type":"string","format":"date-time","pattern":"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))T(?:(?:[01]\\\\d|2[0-3]):[0-5]\\\\d(?::[0-5]\\\\d(?:\\\\.\\\\d+)?)?(?:Z))$"},"contactVersion":{"type":"integer","maximum":9007199254740991,"minimum":0},"groupId":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"},"maskedMobilePhone":{"type":"string","maxLength":32,"minLength":1},"membershipId":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"},"noticeVersion":{"type":"string","const":"v1"},"state":{"type":"string","enum":["missing-phone","not-consented","consented","stale"]}},"required":["contactVersion","groupId","membershipId","noticeVersion","state"],"additionalProperties":false}';
-const groupQrResponseSchemaJson =
-  '{"type":"object","properties":{"imageBase64":{"type":"string","minLength":1},"trialImageBase64":{"type":"string","minLength":1}},"required":["imageBase64"],"additionalProperties":false}';
 const currentEnvironmentQrResponseSchemaJson =
   '{"type":"object","properties":{"environment":{"type":"string","enum":["release","trial"]},"imageBase64":{"type":"string","minLength":1}},"required":["environment","imageBase64"],"additionalProperties":false}';
 const groupMemberContactListSchemaJson =
@@ -114,8 +106,6 @@ const passwordIdentityAssignmentResponseSchemaJson =
   '{"type":"object","properties":{"authVersion":{"type":"integer","maximum":9007199254740991,"minimum":1},"passwordConfigured":{"type":"boolean"},"username":{"type":"string","maxLength":64,"minLength":3,"pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*$"}},"required":["authVersion","passwordConfigured","username"],"additionalProperties":false}';
 const rejectedLeaveRequestResultSchemaJson =
   '{"type":"object","properties":{"leaveRequest":{"type":"object","properties":{"approverUserId":{"type":"string"},"createdAt":{"type":"string"},"decidedByMemberName":{"type":"string"},"decidedAt":{"type":"string"},"endsAt":{"type":"string"},"groupId":{"type":"string","minLength":1},"id":{"type":"string","minLength":1},"isAllDay":{"type":"boolean"},"isRevocable":{"type":"boolean"},"leaveType":{"type":"string","enum":["training","rotation","sick","maternity","other"]},"memberName":{"type":"string"},"membershipId":{"type":"string","minLength":1},"reason":{"type":"string"},"revocationBlockedReason":{"type":"string"},"startsAt":{"type":"string"},"status":{"type":"string","enum":["pending","approved","rejected"]},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["createdAt","endsAt","groupId","id","isAllDay","leaveType","membershipId","startsAt","status","version"],"additionalProperties":false},"operationId":{"type":"string","minLength":1},"status":{"type":"string","const":"rejected"}},"required":["leaveRequest","operationId","status"],"additionalProperties":false}';
-const resolveInviteResponseSchemaJson =
-  '{"type":"object","properties":{"groupId":{"type":"string","minLength":1},"groupName":{"type":"string","minLength":1},"inviteeRealName":{"type":"string","minLength":1},"permissionRole":{"type":"string","enum":["member","administrator"]},"scheduleRoleName":{"type":"string"},"version":{"type":"integer","maximum":9007199254740991,"minimum":1}},"required":["groupId","groupName","inviteeRealName","permissionRole","version"],"additionalProperties":false}';
 const scheduleChangeImpactPreviewSchemaJson =
   '{"type":"object","properties":{"action":{"type":"string","enum":["publish","withdraw"]},"affectedPeriodIds":{"type":"array","items":{"type":"string"}},"workflowImpacts":{"type":"array","items":{"type":"object","properties":{"businessDates":{"type":"array","items":{"type":"string"}},"id":{"type":"string"},"kind":{"type":"string","enum":["duty_adjustment","swap"]},"memberNames":{"type":"array","items":{"type":"string"}},"status":{"type":"string"}},"required":["businessDates","id","kind","memberNames","status"],"additionalProperties":false}}},"required":["action","affectedPeriodIds","workflowImpacts"],"additionalProperties":false}';
 const scheduleEventDetailSchemaJson =
@@ -161,7 +151,7 @@ const yearStatisticsSchemaJson =
 const unreadCountResultSchemaJson =
   '{"type":"object","properties":{"unreadCount":{"type":"integer","maximum":9007199254740991,"minimum":-9007199254740991}},"required":["unreadCount"],"additionalProperties":false}';
 const apiErrorCodesJson =
-  '["AUTHENTICATION_REQUIRED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","UNSUPPORTED_MEDIA_TYPE","CONFLICT","RATE_LIMITED","SERVICE_UNAVAILABLE","INTERNAL_ERROR","WECHAT_LOGIN_FAILED","WECHAT_IDENTITY_IN_USE","WECHAT_ACCOUNT_ALREADY_BOUND","WECHAT_APP_ID_MISMATCH","WECHAT_LINK_TOKEN_INVALID","WECHAT_LINK_TOKEN_USED","WECHAT_LINK_TOKEN_EXPIRED","WECHAT_MESSAGE_SEND_FAILED","INVITE_INVALID","INVITE_USED","INVITE_EXPIRED","VISITOR_KEY_INVALID","CLIENT_VERSION_UNSUPPORTED","CLIENT_CAPABILITY_DISABLED"]';
+  '["AUTHENTICATION_REQUIRED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","UNSUPPORTED_MEDIA_TYPE","CONFLICT","RATE_LIMITED","SERVICE_UNAVAILABLE","INTERNAL_ERROR","WECHAT_LOGIN_FAILED","WECHAT_IDENTITY_IN_USE","WECHAT_ACCOUNT_ALREADY_BOUND","WECHAT_APP_ID_MISMATCH","WECHAT_LINK_TOKEN_INVALID","WECHAT_LINK_TOKEN_USED","WECHAT_LINK_TOKEN_EXPIRED","WECHAT_MESSAGE_SEND_FAILED","VISITOR_KEY_INVALID","CLIENT_VERSION_UNSUPPORTED","CLIENT_CAPABILITY_DISABLED"]';
 
 export const guestCalendarReadModelJsonSchema = /* @__PURE__ */ JSON.parse(
   guestCalendarReadModelSchemaJson,
@@ -171,9 +161,6 @@ export const visitorResolveResponseJsonSchema = /* @__PURE__ */ JSON.parse(
 ) as CompactJsonSchema;
 export const manualScheduleStartDateJsonSchema = /* @__PURE__ */ JSON.parse(
   manualScheduleStartDateSchemaJson,
-) as CompactJsonSchema;
-export const acceptInviteResponseJsonSchema = /* @__PURE__ */ JSON.parse(
-  acceptInviteResponseSchemaJson,
 ) as CompactJsonSchema;
 export const addGroupMembersResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   addGroupMembersResponseSchemaJson,
@@ -198,12 +185,6 @@ export const clientCapabilityResponseJsonSchema = /* @__PURE__ */ JSON.parse(
 ) as CompactJsonSchema;
 export const convertPendingRosterResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   convertPendingRosterResponseSchemaJson,
-) as CompactJsonSchema;
-export const createInviteLinkResponseJsonSchema = /* @__PURE__ */ JSON.parse(
-  createInviteLinkResponseSchemaJson,
-) as CompactJsonSchema;
-export const createMemberWechatBindingQrResponseJsonSchema = /* @__PURE__ */ JSON.parse(
-  createMemberWechatBindingQrResponseSchemaJson,
 ) as CompactJsonSchema;
 export const createCurrentMemberWechatBindingQrResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   createCurrentMemberWechatBindingQrResponseSchemaJson,
@@ -243,9 +224,6 @@ export const groupMemberContactJsonSchema = /* @__PURE__ */ JSON.parse(
 ) as CompactJsonSchema;
 export const groupMobilePhoneConsentJsonSchema = /* @__PURE__ */ JSON.parse(
   groupMobilePhoneConsentSchemaJson,
-) as CompactJsonSchema;
-export const groupQrResponseJsonSchema = /* @__PURE__ */ JSON.parse(
-  groupQrResponseSchemaJson,
 ) as CompactJsonSchema;
 export const currentEnvironmentQrResponseJsonSchema = /* @__PURE__ */ JSON.parse(
   currentEnvironmentQrResponseSchemaJson,
@@ -333,9 +311,6 @@ export const passwordIdentityAssignmentResponseJsonSchema = /* @__PURE__ */ JSON
 ) as CompactJsonSchema;
 export const rejectedLeaveRequestResultJsonSchema = /* @__PURE__ */ JSON.parse(
   rejectedLeaveRequestResultSchemaJson,
-) as CompactJsonSchema;
-export const resolveInviteResponseJsonSchema = /* @__PURE__ */ JSON.parse(
-  resolveInviteResponseSchemaJson,
 ) as CompactJsonSchema;
 export const scheduleChangeImpactPreviewJsonSchema = /* @__PURE__ */ JSON.parse(
   scheduleChangeImpactPreviewSchemaJson,

@@ -9,7 +9,7 @@ import type {
   SchedulingConfig,
 } from '@schedule/contracts';
 
-export type P8OrganizationArea = 'config' | 'group' | 'invite-visitor' | 'members' | 'platform';
+export type P8OrganizationArea = 'config' | 'group' | 'qr-visitor' | 'members' | 'platform';
 export type P8OrganizationRole =
   'administrator' | 'developer' | 'member' | 'owner' | 'platform-admin';
 export type P8OrganizationSurface =

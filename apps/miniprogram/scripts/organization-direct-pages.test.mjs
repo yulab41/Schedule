@@ -15,9 +15,9 @@ const mocks = vi.hoisted(() => ({
   groupHandleBack: vi.fn(),
   groupOnLoad: vi.fn(),
   groupOnShow: vi.fn(),
-  inviteAttached: vi.fn(),
-  inviteFactory: vi.fn(),
-  inviteHandleBack: vi.fn(),
+  qrAttached: vi.fn(),
+  qrFactory: vi.fn(),
+  qrHandleBack: vi.fn(),
   platformAttached: vi.fn(),
   platformFactory: vi.fn(),
   platformHandleBack: vi.fn(),
@@ -36,8 +36,8 @@ vi.mock('../src/subpackages/organization/components/group-settings-panel/control
   createGroupSettingsPanelControllerDefinition: mocks.groupFactory,
 }));
 
-vi.mock('../src/subpackages/organization/components/invite-visitor-panel/controller.ts', () => ({
-  createInviteVisitorPanelControllerDefinition: mocks.inviteFactory,
+vi.mock('../src/subpackages/organization/components/qr-visitor-panel/controller.ts', () => ({
+  createQrVisitorPanelControllerDefinition: mocks.qrFactory,
 }));
 
 vi.mock('../src/subpackages/organization/components/platform-accounts-panel/controller.ts', () => ({
@@ -76,12 +76,12 @@ describe('organization direct Page registration', () => {
       onLoad: mocks.groupOnLoad,
       onShow: mocks.groupOnShow,
     });
-    mocks.inviteFactory.mockReturnValue({
+    mocks.qrFactory.mockReturnValue({
       data: { state: 'loading' },
       _operationIds: new Map(),
-      ...createHandlerMethods('invite-visitor-panel'),
-      handleBack: mocks.inviteHandleBack,
-      lifetimes: { attached: mocks.inviteAttached },
+      ...createHandlerMethods('qr-visitor-panel'),
+      handleBack: mocks.qrHandleBack,
+      lifetimes: { attached: mocks.qrAttached },
       observers: { groupId: vi.fn() },
       properties: { groupId: { type: String, value: '' } },
     });
@@ -168,17 +168,17 @@ describe('organization direct Page registration', () => {
     expect(definition.observers).toBeUndefined();
   });
 
-  it('mounts invite/visitor functions after injecting the decoded group', async () => {
-    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
+  it('mounts QR/visitor functions after injecting the decoded group', async () => {
+    await import('../src/subpackages/organization/pages/qr-visitor/index.ts');
 
     const definition = globalThis.Page.mock.calls[0][0];
     const instance = { data: { ...definition.data }, setData: vi.fn() };
     definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
 
     expect(instance.properties).toEqual({ groupId });
-    expect(mocks.inviteAttached.mock.instances[0]).toBe(instance);
+    expect(mocks.qrAttached.mock.instances[0]).toBe(instance);
     definition.handleBack.call(instance);
-    expect(mocks.inviteHandleBack.mock.instances[0]).toBe(instance);
+    expect(mocks.qrHandleBack.mock.instances[0]).toBe(instance);
     expect(Object.keys(definition).filter((key) => key.startsWith('_'))).toEqual([]);
   });
 
@@ -232,8 +232,8 @@ describe('organization direct Page registration', () => {
         'ui-button': '/components/ui/ui-button/index',
         'ui-loading': '/components/ui/ui-loading/index',
       },
-      page: 'invite-visitor',
-      panel: 'invite-visitor-panel',
+      page: 'qr-visitor',
+      panel: 'qr-visitor-panel',
     },
     {
       components: {
@@ -286,8 +286,8 @@ describe('organization direct Page registration', () => {
       panel: 'group-settings-panel',
     },
     {
-      importPath: '../src/subpackages/organization/pages/invite-visitor/index.ts',
-      panel: 'invite-visitor-panel',
+      importPath: '../src/subpackages/organization/pages/qr-visitor/index.ts',
+      panel: 'qr-visitor-panel',
     },
     {
       importPath: '../src/subpackages/organization/pages/platform-accounts/index.ts',

@@ -1043,11 +1043,11 @@
             <text class="more-section-title">访问与平台</text>
             <view class="more-card">
               <view
-                wx:if="{{toolAccess.inviteVisitor}}"
+                wx:if="{{toolAccess.qrVisitor}}"
                 class="more-item"
                 hover-class="is-pressed"
                 aria-role="button"
-                bindtap="handleOpenInviteVisitor"
+                bindtap="handleOpenQrVisitor"
               >
                 <image src="/assets/icons/ui-user.svg" mode="aspectFit" />
                 <view><text>二维码与访客</text><text>生成成员绑定二维码与访客二维码</text></view>

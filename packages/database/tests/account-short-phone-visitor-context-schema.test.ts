@@ -24,6 +24,9 @@ describe('account short phone and visitor context schema', () => {
     expect(migration).toContain(
       'c.is_confirmed = IF(c.short_phone <=> u.short_phone, c.is_confirmed, 0)',
     );
+    expect(migration).toContain('DROP COLUMN `short_phone`');
+    expect(migration).toContain('DROP TABLE `invite_tokens`');
+    expect(migration).toContain('DROP TABLE `group_code_attempts`');
   });
 
   it('adds bounded visitor identity and versioned client context columns', async () => {

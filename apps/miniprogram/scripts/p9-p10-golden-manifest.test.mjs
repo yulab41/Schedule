@@ -25,7 +25,7 @@ describe('P8/P9/P10 golden manifest coherence', () => {
     for (const route of [
       'subpackages/organization/pages/group-settings/index',
       'subpackages/organization/pages/scheduling-config/index',
-      'subpackages/organization/pages/invite-visitor/index',
+      'subpackages/organization/pages/qr-visitor/index',
       'subpackages/organization/pages/platform-accounts/index',
       'subpackages/insights/pages/visitor-access/index',
       'subpackages/insights/pages/insights/index',

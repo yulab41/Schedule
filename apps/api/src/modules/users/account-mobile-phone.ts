@@ -57,7 +57,7 @@ export async function setAccountShortPhone(
   for (const membership of memberships) {
     if (membership.id === skipMembershipId) continue;
     const [contact] = await transaction
-      .select({ id: groupMemberContacts.id, shortPhone: groupMemberContacts.shortPhone })
+      .select({ id: groupMemberContacts.id })
       .from(groupMemberContacts)
       .where(
         and(
@@ -68,25 +68,20 @@ export async function setAccountShortPhone(
       .limit(1)
       .for('update');
     if (contact === undefined) {
-      if (phone === null) continue;
       await transaction.insert(groupMemberContacts).values({
         id: randomUUID(),
         isConfirmed: 0,
         membershipId: membership.id,
-        shortPhone: phone,
       });
       touchedGroupIds.add(membership.groupId);
-    } else if (contact.shortPhone !== phone) {
+    } else if (account.shortPhone !== phone) {
       await transaction
         .update(groupMemberContacts)
         .set({
           isConfirmed: 0,
-          shortPhone: phone,
           version: sql`${groupMemberContacts.version} + 1`,
         })
         .where(eq(groupMemberContacts.id, contact.id));
-      touchedGroupIds.add(membership.groupId);
-    } else if (account.shortPhone !== phone) {
       touchedGroupIds.add(membership.groupId);
     }
   }

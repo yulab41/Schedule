@@ -64,7 +64,7 @@ describeWithDatabase('wechat notification deliveries', () => {
     });
     await registerUser('owner-token', 'Owner Doctor');
     memberUserId = await registerUser('member-token', 'Member Doctor');
-    groupId = (await createGroup('Notify group', '1234')).id;
+    groupId = (await createGroup('Notify group')).id;
     await insertDirectMembership(client, { groupId, realName: 'Member Doctor' });
     await client.database.execute(
       sql`UPDATE users SET wechat_openid = 'mock-openid-member' WHERE id = ${memberUserId}`,
@@ -571,14 +571,14 @@ describeWithDatabase('wechat notification deliveries', () => {
     return (response.json() as { id: string }).id;
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<{ readonly id: string }> {
+  async function createGroup(name: string): Promise<{ readonly id: string }> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

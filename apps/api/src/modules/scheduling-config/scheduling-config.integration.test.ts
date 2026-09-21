@@ -687,7 +687,7 @@ describeWithDatabase('scheduling configuration', () => {
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode: '1234', name: 'Scheduling group' },
+      payload: { name: 'Scheduling group' },
       url: '/groups',
     });
 

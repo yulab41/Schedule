@@ -434,7 +434,6 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       .insert(userProfiles)
       .values({ realName: 'Dr. Snapshot', userId: memberUser.id });
     await client.database.insert(groups).values({
-      groupCode: '1234',
       id: groupId,
       name: 'Schedule group',
       ownerUserId,

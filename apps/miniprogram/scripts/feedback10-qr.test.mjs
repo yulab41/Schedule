@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ read: {}, write: {}, capability: vi.fn() }));
 vi.mock('../src/platform/client-core-calendar.js', () => ({
   createRuntimeOrganizationReadClient: () => mocks.read,
-  createRuntimeInviteVisitorWriteClient: () => mocks.write,
+  createRuntimeQrVisitorWriteClient: () => mocks.write,
 }));
 vi.mock('../src/platform/wechat-identity.js', () => ({
   getStoredWechatToken: vi.fn(),
@@ -45,23 +45,14 @@ describe('visitor QR image and lifecycle', () => {
       .fn()
       .mockResolvedValue({ environment: 'trial', imageBase64: 'iVBORw0KGgo=' });
     mocks.write.regenerateVisitorKey = vi.fn().mockResolvedValue({ visitorKeyChanged: true });
-    mocks.write.createInviteLink = vi.fn().mockResolvedValue({
-      token: 'fixture',
-      version: 1,
-      expiresAt: '2099-01-01',
-      sharePath: '/fixture',
-      groupName: 'A',
-      realName: '测试',
-    });
-    mocks.write.revokeInvite = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('wx', {
       getAccountInfoSync: () => ({ miniProgram: { envVersion: 'trial', version: 'test' } }),
       getWindowInfo: () => ({ windowWidth: 390, statusBarHeight: 24 }),
       showModal: vi.fn((options) => options.success({ confirm: true })),
     });
     const module =
-      await import('../src/subpackages/organization/components/invite-visitor-panel/controller.ts');
-    definition = module.createInviteVisitorPanelControllerDefinition();
+      await import('../src/subpackages/organization/components/qr-visitor-panel/controller.ts');
+    definition = module.createQrVisitorPanelControllerDefinition();
     page = {
       properties: { groupId: 'a' },
       data: { ...definition.data },

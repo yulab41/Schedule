@@ -62,7 +62,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     await client.database.execute(sql`
       UPDATE users SET is_developer_admin = 1 WHERE cloudbase_uid = 'cloudbase-developer'
     `);
-    groupId = await createGroup('Visitor group', '1234');
+    groupId = await createGroup('Visitor group');
     await addRosterEntries(groupId, ['Admin Doctor', 'Member Doctor']);
     await attachTestMember('admin-token', groupId, 'Admin Doctor');
     await attachTestMember('member-token', groupId, 'Member Doctor');
@@ -175,30 +175,37 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(auditRows).toEqual([{ action: 'visitor_key_regenerated' }]);
   });
 
-  it('generates a cached group QR for owners and administrators only', async () => {
+  it('generates a cached visitor QR for owners and administrators only', async () => {
     const ownerQr = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(ownerQr.statusCode, ownerQr.body).toBe(200);
     expect(ownerQr.json()).toMatchObject({ imageBase64: expect.any(String) });
-    expect(qrGateway.qrCalls).toBe(2);
+    expect(qrGateway.qrCalls).toBe(1);
 
     const adminQr = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(adminQr.statusCode).toBe(200);
-    expect(qrGateway.qrCalls).toBe(2);
+    expect(qrGateway.qrCalls).toBe(1);
 
     const memberQr = await app.inject({
       headers: { authorization: 'Bearer member-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(memberQr.statusCode).toBe(403);
+
+    const retired = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/group-qr`,
+    });
+    expect(retired.statusCode).toBe(404);
   });
 
   it('returns exactly one visitor QR for the requested current environment and rejects unknown values', async () => {
@@ -240,7 +247,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     const response = await failingApp.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(response.statusCode).toBe(429);
     expect(response.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
@@ -493,14 +500,14 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

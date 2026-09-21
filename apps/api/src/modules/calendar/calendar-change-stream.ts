@@ -34,7 +34,6 @@ export function isCalendarWrite(method: string, route: string, status: number): 
       route === '/users/me' ||
       route.startsWith('/holidays/') ||
       route.startsWith('/platform-admin/') ||
-      route === '/invites/accept' ||
       route === '/auth/wechat/link-password')
   );
 }

@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  acceptInviteResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
-  createInviteLinkRequestSchema,
   createCurrentMemberWechatBindingQrResponseSchema,
   currentEnvironmentQrResponseSchema,
-  groupQrResponseSchema,
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
   visitorCalendarReadRequestSchema,
@@ -219,17 +216,6 @@ describe('wechat mini program contracts', () => {
     ).toBe(false);
   });
 
-  it('requires a non-empty group QR image payload', () => {
-    expect(groupQrResponseSchema.safeParse({ imageBase64: 'iVBORw0KGgo=' }).success).toBe(true);
-    expect(
-      groupQrResponseSchema.safeParse({
-        imageBase64: 'iVBORw0KGgo=',
-        trialImageBase64: 'iVBORw0KGgo=',
-      }).success,
-    ).toBe(true);
-    expect(groupQrResponseSchema.safeParse({ imageBase64: '' }).success).toBe(false);
-  });
-
   it('accepts one environment-specific QR and rejects compatibility fields', () => {
     expect(
       currentEnvironmentQrResponseSchema.safeParse({
@@ -285,34 +271,5 @@ describe('wechat mini program contracts', () => {
         clientContext: { model: 'x'.repeat(129), version: 1 },
       }).success,
     ).toBe(false);
-  });
-
-  it('requires exactly one invite target', () => {
-    const mutation = {
-      expectedTargetVersion: 1,
-      operationId: '11111111-1111-4111-8111-111111111111',
-    };
-    expect(
-      createInviteLinkRequestSchema.safeParse({ ...mutation, targetMembershipId: 'm1' }).success,
-    ).toBe(true);
-    expect(
-      createInviteLinkRequestSchema.safeParse({ ...mutation, targetRosterEntryId: 'r1' }).success,
-    ).toBe(true);
-    expect(createInviteLinkRequestSchema.safeParse({}).success).toBe(false);
-    expect(
-      createInviteLinkRequestSchema.safeParse({
-        ...mutation,
-        targetMembershipId: 'm1',
-        targetRosterEntryId: 'r1',
-      }).success,
-    ).toBe(false);
-  });
-
-  it('accepts an invite accept response with an optional reissued token', () => {
-    const group = { id: 'g1', name: '内科', role: 'member', version: 1 };
-    expect(acceptInviteResponseSchema.safeParse({ group }).success).toBe(true);
-    expect(acceptInviteResponseSchema.safeParse({ group, token: 'reissued-token' }).success).toBe(
-      true,
-    );
   });
 });

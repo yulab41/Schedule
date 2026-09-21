@@ -1,15 +1,13 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 import {
-  createMemberWechatBindingQrResponseSchema,
+  createCurrentMemberWechatBindingQrResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
 } from '@schedule/contracts';
 import type {
   ClientVersion,
   CreateCurrentMemberWechatBindingQrRequest,
   CreateCurrentMemberWechatBindingQrResponse,
-  CreateMemberWechatBindingQrRequest,
-  CreateMemberWechatBindingQrResponse,
   CreateWechatAdminBindingLinkRequest,
   CreateWechatAdminBindingLinkResponse,
   WechatAdminBindingConfirmRequest,
@@ -165,49 +163,46 @@ export class WechatAdminBindingService {
     });
   }
 
-  public async createMemberQr(
+  public async createCurrentMemberQr(
     identity: AuthenticatedIdentity,
     groupId: string,
     membershipId: string,
-    input: CreateMemberWechatBindingQrRequest,
+    input: CreateCurrentMemberWechatBindingQrRequest,
     requestId?: string,
-  ): Promise<CreateMemberWechatBindingQrResponse> {
+  ): Promise<CreateCurrentMemberWechatBindingQrResponse> {
     const appId = this.getAppId();
     return runOrganizationMutation({
       databaseClient: this.databaseClient,
       identity,
       operationId: input.operationId,
       requestFingerprint: createOrganizationFingerprint({
+        environment: input.environment,
         expectedMembershipVersion: input.expectedMembershipVersion,
         groupId,
         membershipId,
       }),
       resultCodec: {
         deserialize: async (stored, actor) => {
-          const safeResult = createMemberWechatBindingQrResponseSchema.parse({
+          const safeResult = createCurrentMemberWechatBindingQrResponseSchema.parse({
             ...stored,
             imageBase64: 'replayed',
           });
           if (Date.parse(safeResult.expiresAt) <= Date.now()) throw expiredTicketError();
           const ticket = this.deriveMemberQrTicket(actor.id, membershipId, input.operationId);
-          const [formalQr, trialQr] = await Promise.all([
-            this.gateway.getUnlimitedQr(`b=${ticket}`, 'pages/admin-bind/preview', 'release'),
-            this.gateway
-              .getUnlimitedQr(`b=${ticket}`, 'pages/admin-bind/preview', 'trial')
-              .catch(() => undefined),
-          ]);
+          const qr = await this.gateway.getUnlimitedQr(
+            `b=${ticket}`,
+            'pages/admin-bind/preview',
+            input.environment,
+          );
           return {
             ...safeResult,
-            imageBase64: Buffer.from(formalQr).toString('base64'),
-            ...(trialQr === undefined
-              ? {}
-              : { trialImageBase64: Buffer.from(trialQr).toString('base64') }),
+            imageBase64: Buffer.from(qr).toString('base64'),
           };
         },
         serialize: (result) => ({
           ...(result.employeeCode === undefined ? {} : { employeeCode: result.employeeCode }),
+          environment: result.environment,
           expiresAt: result.expiresAt,
-          groupCode: result.groupCode,
           groupName: result.groupName,
           membershipId: result.membershipId,
           realName: result.realName,
@@ -224,7 +219,6 @@ export class WechatAdminBindingService {
         const [target] = await transaction
           .select({
             authVersion: users.authVersion,
-            groupCode: groups.groupCode,
             groupName: groups.name,
             membershipId: groupMemberships.id,
             membershipVersion: groupMemberships.version,
@@ -288,12 +282,11 @@ export class WechatAdminBindingService {
           targetUserId: target.userId,
           ticketHash: hashTicket(ticket),
         });
-        const [formalQr, trialQr] = await Promise.all([
-          this.gateway.getUnlimitedQr(`b=${ticket}`, 'pages/admin-bind/preview', 'release'),
-          this.gateway
-            .getUnlimitedQr(`b=${ticket}`, 'pages/admin-bind/preview', 'trial')
-            .catch(() => undefined),
-        ]);
+        const qr = await this.gateway.getUnlimitedQr(
+          `b=${ticket}`,
+          'pages/admin-bind/preview',
+          input.environment,
+        );
         const employeeCodes = await readMemberEmployeeCodes(
           transaction,
           [
@@ -310,7 +303,11 @@ export class WechatAdminBindingService {
           action: 'wechat_member_binding_qr_created',
           actorUserId: actor.id,
           groupId: authorization.group.id,
-          metadata: { expiresAt: expiresAt.toISOString(), initiatedBy },
+          metadata: {
+            environment: input.environment,
+            expiresAt: expiresAt.toISOString(),
+            initiatedBy,
+          },
           operationId: input.operationId,
           outcome: 'completed',
           ...(requestId === undefined ? {} : { requestId }),
@@ -319,55 +316,16 @@ export class WechatAdminBindingService {
         });
         return {
           ...(employeeCode === undefined ? {} : { employeeCode }),
+          environment: input.environment,
           expiresAt: expiresAt.toISOString(),
-          groupCode: target.groupCode ?? '未设置',
           groupName: target.groupName,
-          imageBase64: Buffer.from(formalQr).toString('base64'),
+          imageBase64: Buffer.from(qr).toString('base64'),
           membershipId: target.membershipId,
           realName: target.realName,
-          ...(trialQr === undefined
-            ? {}
-            : { trialImageBase64: Buffer.from(trialQr).toString('base64') }),
         };
       },
       scope: `member_wechat_binding_qr:${groupId}`,
     });
-  }
-
-  public async createCurrentMemberQr(
-    identity: AuthenticatedIdentity,
-    groupId: string,
-    membershipId: string,
-    input: CreateCurrentMemberWechatBindingQrRequest,
-    requestId?: string,
-  ): Promise<CreateCurrentMemberWechatBindingQrResponse> {
-    const legacy = await this.createMemberQr(
-      identity,
-      groupId,
-      membershipId,
-      {
-        expectedMembershipVersion: input.expectedMembershipVersion,
-        operationId: input.operationId,
-      },
-      requestId,
-    );
-    const imageBase64 =
-      input.environment === 'release' ? legacy.imageBase64 : legacy.trialImageBase64;
-    if (imageBase64 === undefined)
-      throw new ApiError({
-        code: 'SERVICE_UNAVAILABLE',
-        statusCode: 503,
-        userMessage: '当前版本的绑定二维码暂不可用，请稍后重试。',
-      });
-    return {
-      ...(legacy.employeeCode === undefined ? {} : { employeeCode: legacy.employeeCode }),
-      environment: input.environment,
-      expiresAt: legacy.expiresAt,
-      groupName: legacy.groupName,
-      imageBase64,
-      membershipId: legacy.membershipId,
-      realName: legacy.realName,
-    };
   }
 
   public async preview(ticket: string): Promise<WechatAdminBindingPreviewResponse> {

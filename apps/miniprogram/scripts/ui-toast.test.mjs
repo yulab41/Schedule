@@ -237,13 +237,11 @@ describe('controlled root-layer workflow toast', () => {
     expect(platformAccounts).toContain('message="{{infoMessage}}"');
     expect(platformAccounts).not.toContain('message="{{managementInfo}}"');
     expect(platformAccounts).not.toContain('message="{{managementError}}"');
-    const inviteVisitor = read(
-      'subpackages/organization/components/invite-visitor-panel/index.wxml',
-    );
-    expect(inviteVisitor).toContain('<ui-toast');
-    expect(inviteVisitor).toContain('message="{{infoMessage}}"');
-    expect(inviteVisitor).not.toContain('message="{{managementInfo}}"');
-    expect(inviteVisitor).not.toContain('message="{{visitorMessage}}"');
+    const qrVisitor = read('subpackages/organization/components/qr-visitor-panel/index.wxml');
+    expect(qrVisitor).toContain('<ui-toast');
+    expect(qrVisitor).toContain('message="{{infoMessage}}"');
+    expect(qrVisitor).not.toContain('message="{{managementInfo}}"');
+    expect(qrVisitor).not.toContain('message="{{visitorMessage}}"');
     const manual = read('subpackages/scheduling/pages/manual/index.wxml');
     expect(manual).toContain('<ui-toast');
     expect(manual).toContain('visible="{{!!infoMessage}}"');

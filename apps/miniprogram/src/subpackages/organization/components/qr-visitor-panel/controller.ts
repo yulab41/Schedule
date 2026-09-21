@@ -1,6 +1,6 @@
 import {
   ClientCoreError,
-  type InviteVisitorWriteClient,
+  type QrVisitorWriteClient,
   type OrganizationReadClient,
 } from '@schedule/client-core';
 import {
@@ -9,7 +9,7 @@ import {
 } from '../../../../app/client-capability-store.js';
 import type { GroupMember, GroupSummary } from '@schedule/contracts';
 import {
-  createRuntimeInviteVisitorWriteClient,
+  createRuntimeQrVisitorWriteClient,
   createRuntimeOrganizationReadClient,
 } from '../../../../platform/client-core-calendar.js';
 import {
@@ -38,7 +38,7 @@ interface TargetView {
   readonly statusLabel: string;
 }
 
-interface InviteVisitorPageData {
+interface QrVisitorPageData {
   readonly state: 'error' | 'loading' | 'ready';
   readonly errorMessage: string;
   readonly infoMessage: string;
@@ -69,15 +69,15 @@ interface InviteVisitorPageData {
   readonly viewportClass: string;
 }
 
-interface InviteVisitorPageInstance {
-  readonly data: InviteVisitorPageData;
+interface QrVisitorPageInstance {
+  readonly data: QrVisitorPageData;
   readonly properties: { readonly groupId: string };
   _organizationReadClient: OrganizationReadClient;
-  _inviteVisitorWriteClient: InviteVisitorWriteClient;
+  _qrVisitorWriteClient: QrVisitorWriteClient;
   _groupId: string;
   _group: GroupSummary | undefined;
   _members: readonly GroupMember[];
-  _inviteGeneration: number;
+  _pageGeneration: number;
   _disposed: boolean;
   _qrGeneration: number;
   _qrReading?: object;
@@ -85,19 +85,19 @@ interface InviteVisitorPageInstance {
   __infoMessageTimer?: unknown;
   __infoMessageToken?: object;
   _operationIds: Map<string, string>;
-  setData(patch: Partial<InviteVisitorPageData>, callback?: () => void): void;
+  setData(patch: Partial<QrVisitorPageData>, callback?: () => void): void;
 }
 
 const organizationReadClient = createRuntimeOrganizationReadClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
-const inviteVisitorWriteClient = createRuntimeInviteVisitorWriteClient(
+const qrVisitorWriteClient = createRuntimeQrVisitorWriteClient(
   getStoredWechatToken,
   getWechatRequestAuthentication(),
 );
 
-export function createInviteVisitorPanelControllerDefinition() {
+export function createQrVisitorPanelControllerDefinition() {
   return {
     data: {
       state: 'loading',
@@ -128,37 +128,38 @@ export function createInviteVisitorPanelControllerDefinition() {
       pageScrollStyle: 'height:calc(100% - 76px);',
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       viewportClass: '',
-    } satisfies InviteVisitorPageData,
+    } satisfies QrVisitorPageData,
 
     _organizationReadClient: organizationReadClient,
-    _inviteVisitorWriteClient: inviteVisitorWriteClient,
+    _qrVisitorWriteClient: qrVisitorWriteClient,
     _groupId: '',
     _group: undefined,
     _members: [],
-    _inviteGeneration: 0,
+    _pageGeneration: 0,
     _disposed: false,
+    _qrGeneration: 0,
     _operationIds: new Map<string, string>(),
 
     properties: { groupId: { type: String, value: '' } },
 
     observers: {
-      groupId(this: InviteVisitorPageInstance): void {
+      groupId(this: QrVisitorPageInstance): void {
         syncGroupId(this);
       },
     },
 
     lifetimes: {
-      attached(this: InviteVisitorPageInstance): void {
+      attached(this: QrVisitorPageInstance): void {
         this._disposed = false;
-        recordMiniTelemetryBoundary('invite-visitor:controller-attached');
+        recordMiniTelemetryBoundary('qr-visitor:controller-attached');
         applyPanelLayout(this);
         syncGroupId(this);
       },
-      detached(this: InviteVisitorPageInstance): void {
+      detached(this: QrVisitorPageInstance): void {
         clearInfoMessageTimer(this);
         invalidateQr(this);
         this._disposed = true;
-        this._inviteGeneration = (this._inviteGeneration ?? 0) + 1;
+        this._pageGeneration = (this._pageGeneration ?? 0) + 1;
         this._operationIds?.clear();
       },
     },
@@ -167,45 +168,45 @@ export function createInviteVisitorPanelControllerDefinition() {
       wx.navigateBack({ delta: 1 });
     },
 
-    handleRetry(this: InviteVisitorPageInstance): void {
-      void loadInviteData(this);
+    handleRetry(this: QrVisitorPageInstance): void {
+      void loadQrData(this);
     },
 
-    handleTargetPicker(this: InviteVisitorPageInstance, event: ValueInputEvent): void {
+    handleTargetPicker(this: QrVisitorPageInstance, event: ValueInputEvent): void {
       const index = Number(event.detail?.value);
       const target = this.data.targets[index];
       if (target === undefined) return;
       this.setData({ targetIndex: index, targetLabel: `${target.name} · ${target.statusLabel}` });
     },
 
-    handleCreateBindingQr(this: InviteVisitorPageInstance): void {
+    handleCreateBindingQr(this: QrVisitorPageInstance): void {
       void createBindingQr(this);
     },
 
-    handleLoadQr(this: InviteVisitorPageInstance): void {
+    handleLoadQr(this: QrVisitorPageInstance): void {
       void loadQr(this);
     },
 
-    handleRegenerateVisitorKey(this: InviteVisitorPageInstance): void {
+    handleRegenerateVisitorKey(this: QrVisitorPageInstance): void {
       void regenerateVisitorKey(this);
     },
 
     handlePreviewQr(
-      this: InviteVisitorPageInstance,
+      this: QrVisitorPageInstance,
       event?: { readonly currentTarget: { readonly dataset: { readonly src?: string } } },
     ): void {
       previewQr(this, event?.currentTarget.dataset.src ?? this.data.qrImageSrc);
     },
-    handleHideQr(this: InviteVisitorPageInstance): void {
+    handleHideQr(this: QrVisitorPageInstance): void {
       invalidateQr(this);
     },
-    handleHideBindingQr(this: InviteVisitorPageInstance): void {
+    handleHideBindingQr(this: QrVisitorPageInstance): void {
       this.setData({ bindingQrVisible: false });
     },
   };
 }
 
-function applyPanelLayout(page: InviteVisitorPageInstance): void {
+function applyPanelLayout(page: QrVisitorPageInstance): void {
   const windowInfo = wx.getWindowInfo();
   const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
   const headerHeight = statusBarHeight + 52;
@@ -219,11 +220,11 @@ function applyPanelLayout(page: InviteVisitorPageInstance): void {
   });
 }
 
-function syncGroupId(page: InviteVisitorPageInstance): void {
+function syncGroupId(page: QrVisitorPageInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId === page._groupId) return;
-  page._inviteGeneration = (page._inviteGeneration ?? 0) + 1;
+  page._pageGeneration = (page._pageGeneration ?? 0) + 1;
   clearInfoMessageTimer(page);
   invalidateQr(page);
   page._group = undefined;
@@ -248,13 +249,13 @@ function syncGroupId(page: InviteVisitorPageInstance): void {
     });
     return;
   }
-  void loadInviteData(page);
+  void loadQrData(page);
 }
 
-async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
+async function loadQrData(page: QrVisitorPageInstance): Promise<void> {
   initializeRuntimeState(page);
   const groupId = page._groupId;
-  const generation = page._inviteGeneration;
+  const generation = page._pageGeneration;
   invalidateQr(page);
   updatePanel(page, {
     state: 'loading',
@@ -269,12 +270,12 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
   });
   try {
     const groups = await page._organizationReadClient.listGroups();
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    if (!isCurrentQrPage(page, groupId, generation)) return;
     const group = groups.find((candidate) => candidate.id === groupId);
     if (group === undefined) throw new Error('当前群组不可用。');
     if (group.role === 'guest') throw new Error('访客不能管理二维码入口。');
     const members = await page._organizationReadClient.listGroupMembers(group.id);
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    if (!isCurrentQrPage(page, groupId, generation)) return;
     page._group = group;
     page._members = members;
     const capabilities = getClientCapabilitySnapshot();
@@ -297,7 +298,7 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
           : `${targets[0].name} · ${targets[0].statusLabel}`,
     });
   } catch (error) {
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    if (!isCurrentQrPage(page, groupId, generation)) return;
     updatePanel(page, {
       state: 'error',
       managementState: 'error',
@@ -307,24 +308,23 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
   }
 }
 
-function initializeRuntimeState(page: InviteVisitorPageInstance): void {
+function initializeRuntimeState(page: QrVisitorPageInstance): void {
   // Underscore-prefixed factory fields are not copied by WeChat Component;
   // restore the clients and mutable operation state on the live instance.
   page._organizationReadClient = organizationReadClient;
-  page._inviteVisitorWriteClient = inviteVisitorWriteClient;
+  page._qrVisitorWriteClient = qrVisitorWriteClient;
   if (typeof page._groupId !== 'string') page._groupId = '';
-  if (typeof page._inviteGeneration !== 'number') page._inviteGeneration = 0;
+  if (typeof page._pageGeneration !== 'number') page._pageGeneration = 0;
   if (typeof page._qrGeneration !== 'number') page._qrGeneration = 0;
   if (!Array.isArray(page._members)) page._members = [];
   if (!(page._operationIds instanceof Map)) page._operationIds = new Map();
 }
 
-async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
+async function createBindingQr(page: QrVisitorPageInstance): Promise<void> {
   const groupId = page._groupId;
-  const generation = page._inviteGeneration;
-  if (!(await ensureOrganization(page, () => isCurrentInvitePage(page, groupId, generation))))
-    return;
-  if (!isCurrentInvitePage(page, groupId, generation) || page.data.managementState === 'loading')
+  const generation = page._pageGeneration;
+  if (!(await ensureOrganization(page, () => isCurrentQrPage(page, groupId, generation)))) return;
+  if (!isCurrentQrPage(page, groupId, generation) || page.data.managementState === 'loading')
     return;
   const target = page.data.targets[page.data.targetIndex];
   if (target === undefined || target.kind !== 'membership') {
@@ -345,7 +345,7 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
   });
   try {
     if (environment === undefined) throw new Error('无法识别当前小程序版本，请重新进入后再试。');
-    const response = await page._inviteVisitorWriteClient.createCurrentMemberWechatBindingQr(
+    const response = await page._qrVisitorWriteClient.createCurrentMemberWechatBindingQr(
       groupId,
       target.id,
       {
@@ -354,7 +354,7 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
         operationId: resolveOperationId(page, key),
       },
     );
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    if (!isCurrentQrPage(page, groupId, generation)) return;
     const image = parseVisitorQrImage(response.imageBase64);
     if (image === undefined) throw new Error('微信绑定二维码资料无效。');
     const details = {
@@ -364,7 +364,7 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
       realName: response.realName,
     };
     const card = await composeMemberBindingQrCard(image.imageSrc, details);
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    if (!isCurrentQrPage(page, groupId, generation)) return;
     page._operationIds.delete(key);
     updatePanel(page, {
       bindingQrExpiresAt: formatDate(response.expiresAt),
@@ -375,7 +375,7 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
       managementState: 'ready',
     });
   } catch (error) {
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
+    if (!isCurrentQrPage(page, groupId, generation)) return;
     updatePanel(page, {
       managementError: toUserMessage(error, '绑定二维码没有生成，请稍后重试。'),
       managementState: 'error',
@@ -383,15 +383,15 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
   }
 }
 
-function isCurrentInvitePage(
-  page: InviteVisitorPageInstance,
+function isCurrentQrPage(
+  page: QrVisitorPageInstance,
   groupId: string,
   generation: number,
 ): boolean {
-  return !page._disposed && page._groupId === groupId && page._inviteGeneration === generation;
+  return !page._disposed && page._groupId === groupId && page._pageGeneration === generation;
 }
 
-function invalidateQr(page: InviteVisitorPageInstance): void {
+function invalidateQr(page: QrVisitorPageInstance): void {
   page._qrGeneration = (page._qrGeneration ?? 0) + 1;
   delete page._qrReading;
   delete page._qrRotating;
@@ -402,15 +402,14 @@ function invalidateQr(page: InviteVisitorPageInstance): void {
   });
 }
 
-function qrContext(page: InviteVisitorPageInstance): () => boolean {
+function qrContext(page: QrVisitorPageInstance): () => boolean {
   const groupId = page._groupId;
-  const generation = page._inviteGeneration;
+  const generation = page._pageGeneration;
   const qrGeneration = page._qrGeneration;
-  return () =>
-    isCurrentInvitePage(page, groupId, generation) && page._qrGeneration === qrGeneration;
+  return () => isCurrentQrPage(page, groupId, generation) && page._qrGeneration === qrGeneration;
 }
 
-async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<void> {
+async function regenerateVisitorKey(page: QrVisitorPageInstance): Promise<void> {
   if (page._disposed || page._qrRotating || !page.data.canManageVisitorKey) return;
   invalidateQr(page);
   const task = {};
@@ -434,7 +433,7 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
     )
       return;
     const key = `visitor-key:${group.id}:${group.version}`;
-    await page._inviteVisitorWriteClient.regenerateVisitorKey(groupId, {
+    await page._qrVisitorWriteClient.regenerateVisitorKey(groupId, {
       expectedVersion: group.version,
       operationId: resolveOperationId(page, key),
     });
@@ -461,7 +460,7 @@ async function regenerateVisitorKey(page: InviteVisitorPageInstance): Promise<vo
   }
 }
 
-function previewQr(page: InviteVisitorPageInstance, source?: string): void {
+function previewQr(page: QrVisitorPageInstance, source?: string): void {
   if (page._disposed || !page.data.qrVisible || !source) return;
   const imageSrc = source;
   const isCurrent = qrContext(page);
@@ -491,7 +490,7 @@ function previewQr(page: InviteVisitorPageInstance, source?: string): void {
   }
 }
 
-async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
+async function loadQr(page: QrVisitorPageInstance): Promise<void> {
   if (page._disposed || page._qrRotating || page._qrReading || page.data.state !== 'ready') return;
   invalidateQr(page);
   const task = {};
@@ -541,7 +540,7 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
 }
 
 async function ensureOrganization(
-  page: InviteVisitorPageInstance,
+  page: QrVisitorPageInstance,
   isCurrent = () => !page._disposed,
 ): Promise<boolean> {
   try {
@@ -558,7 +557,7 @@ async function ensureOrganization(
 }
 
 async function ensureGuest(
-  page: InviteVisitorPageInstance,
+  page: QrVisitorPageInstance,
   isCurrent: () => boolean,
 ): Promise<boolean> {
   try {
@@ -575,7 +574,7 @@ async function ensureGuest(
 }
 
 /** Preserve operation state fields while presenting all action feedback in one host-owned toast. */
-function updatePanel(page: InviteVisitorPageInstance, patch: Partial<InviteVisitorPageData>): void {
+function updatePanel(page: QrVisitorPageInstance, patch: Partial<QrVisitorPageData>): void {
   if (page._disposed) return;
   const message = patch.managementError || patch.visitorMessage || patch.managementInfo;
   const hasFeedback =
@@ -594,10 +593,8 @@ function updatePanel(page: InviteVisitorPageInstance, patch: Partial<InviteVisit
   page.setData({ ...patch, infoMessage, infoTone });
   if (infoMessage) {
     const groupId = page._groupId;
-    const generation = page._inviteGeneration;
-    scheduleInfoMessageExpiry(page, infoMessage, () =>
-      isCurrentInvitePage(page, groupId, generation),
-    );
+    const generation = page._pageGeneration;
+    scheduleInfoMessageExpiry(page, infoMessage, () => isCurrentQrPage(page, groupId, generation));
   }
 }
 
@@ -617,7 +614,7 @@ function canManage(group: GroupSummary): boolean {
   );
 }
 
-function resolveOperationId(page: InviteVisitorPageInstance, key: string): string {
+function resolveOperationId(page: QrVisitorPageInstance, key: string): string {
   const existing = page._operationIds.get(key);
   if (existing !== undefined) return existing;
   const operationId = createOperationId();

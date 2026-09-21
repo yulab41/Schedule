@@ -47,7 +47,7 @@ describeWithDatabase('calendar preferences', () => {
   });
 
   it('persists administrator defaults and lets a member override only their own view', async () => {
-    const groupId = await createGroup('Nurse schedule', '7319');
+    const groupId = await createGroup('Nurse schedule');
     await insertDirectMembership(client, { groupId, realName: 'Member Nurse' });
     const config = (await getConfig(groupId)).json() as SchedulingConfig;
     const shiftTypeId = config.shiftTypes.find((shiftType) => shiftType.isEnabled)?.id;
@@ -96,8 +96,8 @@ describeWithDatabase('calendar preferences', () => {
   });
 
   it('rejects a default shift type that is not enabled in the current group', async () => {
-    const groupId = await createGroup('First group', '7320');
-    const otherGroupId = await createGroup('Other group', '7321');
+    const groupId = await createGroup('First group');
+    const otherGroupId = await createGroup('Other group');
     const otherConfig = (await getConfig(otherGroupId)).json() as SchedulingConfig;
     const otherShiftTypeId = otherConfig.shiftTypes.find((shiftType) => shiftType.isEnabled)?.id;
 
@@ -118,14 +118,14 @@ describeWithDatabase('calendar preferences', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

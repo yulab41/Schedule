@@ -45,7 +45,7 @@ describeWithDatabase('groups and roster claiming', () => {
       databaseClient: client,
       logger: false,
       wechatGateway: createQrGateway((environment) => qrGatewayCalls.push(environment)),
-      wechatSessionSecret: 'group-routes-invite-secret-0123456789abcdef',
+      wechatSessionSecret: 'group-routes-binding-secret-0123456789abcdef',
     });
     app.addHook('preValidation', (request, _reply, done) => {
       if (
@@ -97,7 +97,7 @@ describeWithDatabase('groups and roster claiming', () => {
     }
 
     const [storedGroup] = await client.database
-      .select({ groupCode: groups.groupCode, name: groups.name })
+      .select({ name: groups.name })
       .from(groups)
       .where(sql`${groups.name} LIKE 'Concurrent group%'`);
     const [ownerMembership] = await client.database
@@ -111,20 +111,20 @@ describeWithDatabase('groups and roster claiming', () => {
         ),
       );
 
-    expect(storedGroup).toEqual({ groupCode: null, name: expect.stringContaining('Concurrent') });
+    expect(storedGroup).toEqual({ name: expect.stringContaining('Concurrent') });
     expect(ownerMembership).toEqual({ role: 'owner' });
   });
 
-  it('persists permanent release and trial visitor QR assets until the key is refreshed', async () => {
-    const created = await createGroup('Permanent QR group', '2468');
+  it('persists the requested visitor QR environment until the key is refreshed', async () => {
+    const created = await createGroup('Permanent QR group');
     const group = created.json() as { id: string; version: number };
     const first = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${group.id}/group-qr`,
+      url: `/groups/${group.id}/visitor-qr?environment=trial`,
     });
     expect(first.statusCode, first.body).toBe(200);
-    expect(qrGatewayCalls.sort()).toEqual(['release', 'trial']);
+    expect(qrGatewayCalls).toEqual(['trial']);
 
     await app.close();
     app = createApp({
@@ -132,15 +132,15 @@ describeWithDatabase('groups and roster claiming', () => {
       databaseClient: client,
       logger: false,
       wechatGateway: createQrGateway((environment) => qrGatewayCalls.push(environment)),
-      wechatSessionSecret: 'group-routes-invite-secret-0123456789abcdef',
+      wechatSessionSecret: 'group-routes-binding-secret-0123456789abcdef',
     });
     const persisted = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${group.id}/group-qr`,
+      url: `/groups/${group.id}/visitor-qr?environment=trial`,
     });
     expect(persisted.statusCode, persisted.body).toBe(200);
-    expect(qrGatewayCalls).toHaveLength(2);
+    expect(qrGatewayCalls).toHaveLength(1);
 
     const refreshed = await app.inject({
       headers: { authorization: 'Bearer owner-token', 'idempotency-key': randomUUID() },
@@ -152,17 +152,16 @@ describeWithDatabase('groups and roster claiming', () => {
     const regenerated = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${group.id}/group-qr`,
+      url: `/groups/${group.id}/visitor-qr?environment=trial`,
     });
     expect(regenerated.statusCode, regenerated.body).toBe(200);
-    expect(qrGatewayCalls.slice(2).sort()).toEqual(['release', 'trial']);
+    expect(qrGatewayCalls.slice(1)).toEqual(['trial']);
     expect(regenerated.json()).not.toEqual(first.json());
   });
 
   it('replays group and roster writes while rejecting changed fingerprints and stale versions', async () => {
     const createOperationId = randomUUID();
     const createPayload = {
-      groupCode: '1357',
       name: 'Idempotent group',
       operationId: createOperationId,
     };
@@ -274,69 +273,6 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(counts).toEqual([{ count: 1 }]);
   });
 
-  it('keeps historical reads available and blocks NULL creation until schema expansion', async () => {
-    const [owner] = await client.database
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.cloudbaseUid, 'cloudbase-owner'));
-    const historicId = randomUUID();
-    await client.database.insert(groups).values({
-      id: historicId,
-      name: 'Historical transition fixture',
-      ownerUserId: owner!.id,
-      groupCode: '0037',
-    });
-    await client.database
-      .insert(groupMemberships)
-      .values({ id: randomUUID(), groupId: historicId, userId: owner!.id, role: 'owner' });
-    await client.database.execute(
-      sql`ALTER TABLE \`groups\` MODIFY COLUMN group_code char(4) NOT NULL`,
-    );
-    const read = await app.inject({
-      method: 'GET',
-      url: '/groups',
-      headers: { authorization: 'Bearer owner-token' },
-    });
-    expect(read.statusCode).toBe(200);
-    expect(read.json()).toEqual([
-      expect.objectContaining({ id: historicId, name: 'Historical transition fixture' }),
-    ]);
-    expect(read.json()[0]).not.toHaveProperty('groupCode');
-    const create = await app.inject({
-      method: 'POST',
-      url: '/groups',
-      headers: { authorization: 'Bearer owner-token' },
-      payload: { name: 'Blocked transition fixture' },
-    });
-    expect(create.statusCode).toBe(503);
-    expect(create.json()).toMatchObject({ error: { code: 'SERVICE_UNAVAILABLE' } });
-    const stored = await client.database.select({ id: groups.id }).from(groups);
-    expect(stored).toEqual([{ id: historicId }]);
-  });
-
-  it('does not expose a code stored in a historical operation replay', async () => {
-    const operationId = randomUUID();
-    const payload = { name: 'Replay fixture', operationId };
-    const request = {
-      headers: { authorization: 'Bearer owner-token', 'idempotency-key': operationId },
-      method: 'POST' as const,
-      url: '/groups',
-      payload,
-    };
-    const created = await app.inject(request);
-    expect(created.statusCode).toBe(201);
-    await client.database.execute(
-      sql`UPDATE idempotency_keys SET result = JSON_SET(result, '$.groupCode', '0037') WHERE operation_key = ${operationId}`,
-    );
-    const replay = await app.inject(request);
-    expect(replay.statusCode).toBe(201);
-    expect(replay.json()).toEqual(created.json());
-    const [stored] = await client.database.execute<{ code: string }>(
-      sql`SELECT JSON_UNQUOTE(JSON_EXTRACT(result, '$.groupCode')) AS code FROM idempotency_keys WHERE operation_key = ${operationId}`,
-    );
-    expect(stored).toEqual([{ code: '0037' }]);
-  });
-
   it('creates without a code and never claims via retired code routes', async () => {
     const missingCode = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -344,7 +280,7 @@ describeWithDatabase('groups and roster claiming', () => {
       payload: { name: 'No code group' },
       url: '/groups',
     });
-    const group = await createGroup('Manual code group', '7654');
+    const group = await createGroup('Manual code group');
     const groupId = (group.json() as { id: string }).id;
     const unknownClaim = await app.inject({
       headers: { authorization: 'Bearer outsider-token' },
@@ -366,7 +302,7 @@ describeWithDatabase('groups and roster claiming', () => {
   });
 
   it('rejects duplicate pending roster names and keeps roster changes owner-only', async () => {
-    const group = await createGroup('Roster group', '2345');
+    const group = await createGroup('Roster group');
     const groupId = (group.json() as { id: string }).id;
 
     const firstRoster = await app.inject({
@@ -402,7 +338,7 @@ describeWithDatabase('groups and roster claiming', () => {
   });
 
   it('lists pending roster entries as unclaimed members and converts them to formal members', async () => {
-    const group = await createGroup('Roster merge group', '8901');
+    const group = await createGroup('Roster merge group');
     const groupId = (group.json() as { id: string }).id;
 
     await client.database.execute(
@@ -483,7 +419,7 @@ describeWithDatabase('groups and roster claiming', () => {
   });
 
   it('deletes unclaimed and formal members and auto-removes their workflow rows', async () => {
-    const group = await createGroup('Delete member group', '9012');
+    const group = await createGroup('Delete member group');
     const groupId = (group.json() as { id: string }).id;
     await addRosterEntry(groupId, 'Outsider Doctor');
 
@@ -586,7 +522,7 @@ describeWithDatabase('groups and roster claiming', () => {
   });
 
   it('does not offer code regeneration or claim even to the owner', async () => {
-    const group = await createGroup('Code rotation group', '5678');
+    const group = await createGroup('Code rotation group');
     const groupSnapshot = group.json() as { id: string; version: number };
     const groupId = groupSnapshot.id;
     await addRosterEntry(groupId, 'Candidate Doctor');
@@ -606,10 +542,10 @@ describeWithDatabase('groups and roster claiming', () => {
 
     expect(regenerated.statusCode).toBe(404);
     const [stored] = await client.database
-      .select({ code: groups.groupCode })
+      .select({ id: groups.id })
       .from(groups)
       .where(eq(groups.id, groupId));
-    expect(stored?.code).toBeNull();
+    expect(stored?.id).toBe(groupId);
     expect(oldCodeClaim.statusCode).toBe(404);
   });
 
@@ -635,8 +571,8 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(storedGroups).toEqual([]);
   });
 
-  it('supports guest join, leave, and member leave/rejoin', async () => {
-    const group = await createGroup('Membership group', '3456');
+  it('supports guest join, guest leave, and member leave without legacy rejoin links', async () => {
+    const group = await createGroup('Membership group');
     const groupId = (group.json() as { id: string }).id;
     await addRosterEntry(groupId, 'Candidate Doctor');
 
@@ -689,36 +625,16 @@ describeWithDatabase('groups and roster claiming', () => {
       sql`SELECT u.mobile_phone AS phone FROM users u JOIN group_memberships m ON m.user_id=u.id WHERE m.id=${unclaimedMembershipId}`,
     );
     expect((placeholderPhone as unknown as { phone: string }[])[0]!.phone).toBe('13800005555');
-    const unclaimedMembershipVersion = memberRows.find((row) => row.realName === 'Candidate Doctor')
-      ?.version as number;
-    const invite = await app.inject({
+    const retired = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: {
-        expectedTargetVersion: unclaimedMembershipVersion,
-        targetMembershipId: unclaimedMembershipId,
-      },
       url: `/groups/${groupId}/invite-links`,
     });
-    expect(invite.statusCode, invite.body).toBe(201);
-    const inviteBody = invite.json() as { token: string; version: number };
-    const inviteToken = inviteBody.token;
-    const rejoin = await app.inject({
-      headers: { authorization: 'Bearer candidate-token' },
-      method: 'POST',
-      payload: {
-        confirmRealName: 'Candidate Doctor',
-        expectedVersion: inviteBody.version,
-        token: inviteToken,
-      },
-      url: '/invites/accept',
-    });
-    expect(rejoin.statusCode, rejoin.body).toBe(200);
-    expect((rejoin.json() as { group: { role: string } }).group.role).toBe('member');
+    expect(retired.statusCode).toBe(404);
   });
 
   it('rejects owner leave and non-owner group name changes', async () => {
-    const group = await createGroup('Owner group', '4567');
+    const group = await createGroup('Owner group');
     const groupSnapshot = group.json() as { id: string; version: number };
     const groupId = groupSnapshot.id;
 
@@ -748,7 +664,7 @@ describeWithDatabase('groups and roster claiming', () => {
   });
 
   it('supports dissolve and restore by the owner', async () => {
-    const group = await createGroup('Dissolve group', '5678');
+    const group = await createGroup('Dissolve group');
     const groupSnapshot = group.json() as { id: string; version: number };
     const groupId = groupSnapshot.id;
 
@@ -796,11 +712,11 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  function createGroup(name: string, groupCode: string) {
+  function createGroup(name: string) {
     return app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
   }

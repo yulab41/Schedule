@@ -275,8 +275,8 @@ async function seedPermissionContexts(connection) {
   await insertRows(
     connection,
     'groups',
-    ['id', 'name', 'group_code', 'owner_user_id', 'visitor_key'],
-    [[benchmarkFixture.groupId, '合成基准群组', '8642', owner.id, 'b'.repeat(32)]],
+    ['id', 'name', 'owner_user_id', 'visitor_key'],
+    [[benchmarkFixture.groupId, '合成基准群组', owner.id, 'b'.repeat(32)]],
   );
   await insertRows(
     connection,

@@ -121,8 +121,8 @@ describeWithDatabase('notification workflows', () => {
       .limit(1);
     if (owner === undefined) throw new Error('Expected the owner fixture user.');
 
-    const firstGroupId = await createGroup('First notification group', '2341');
-    const secondGroupId = await createGroup('Second notification group', '2342');
+    const firstGroupId = await createGroup('First notification group');
+    const secondGroupId = await createGroup('Second notification group');
     await client.database.insert(notifications).values([
       {
         body: '第一群组提醒',
@@ -535,7 +535,7 @@ describeWithDatabase('notification workflows', () => {
   });
 
   async function seedMembersOnly(): Promise<{ readonly groupId: string }> {
-    const groupId = await createGroup('Notifications group', '8899');
+    const groupId = await createGroup('Notifications group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await attachTestMember('a-token', groupId, 'A Doctor');
@@ -544,7 +544,7 @@ describeWithDatabase('notification workflows', () => {
   }
 
   async function seedSwapEvents(): Promise<Context> {
-    const groupId = await createGroup('Notifications schedule group', '7788');
+    const groupId = await createGroup('Notifications schedule group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await attachTestMember('a-token', groupId, 'A Doctor');
@@ -631,14 +631,14 @@ describeWithDatabase('notification workflows', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

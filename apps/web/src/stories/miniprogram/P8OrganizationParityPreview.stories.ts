@@ -10,7 +10,7 @@ const meta = {
   argTypes: {
     area: {
       control: 'radio',
-      options: ['group', 'members', 'config', 'invite-visitor', 'platform'],
+      options: ['group', 'members', 'config', 'qr-visitor', 'platform'],
     },
     largeText: { control: 'boolean' },
     role: {
@@ -131,27 +131,27 @@ export const ConfigDisabledMember320: Story = {
   globals: { viewport: 'mobile320' },
 };
 
-export const InviteVisitorOwner390: Story = {
-  name: '23 · 群主邀请与访客码 · 390',
-  args: { area: 'invite-visitor', role: 'owner', surface: 'ready' },
+export const QrVisitorOwner390: Story = {
+  name: '23 · 群主二维码与访客 · 390',
+  args: { area: 'qr-visitor', role: 'owner', surface: 'ready' },
 };
-export const InviteVisitorAdministrator320: Story = {
-  name: '24 · 管理员邀请边界 · 320',
-  args: { area: 'invite-visitor', role: 'administrator', surface: 'ready' },
+export const QrVisitorAdministrator320: Story = {
+  name: '24 · 管理员二维码边界 · 320',
+  args: { area: 'qr-visitor', role: 'administrator', surface: 'ready' },
   globals: { viewport: 'mobile320' },
 };
-export const InviteVisitorConfirm320: Story = {
+export const QrVisitorConfirm320: Story = {
   name: '25 · 访客码轮换确认 · 320',
-  args: { area: 'invite-visitor', role: 'owner', surface: 'confirm' },
+  args: { area: 'qr-visitor', role: 'owner', surface: 'confirm' },
   globals: { viewport: 'mobile320' },
 };
-export const InviteVisitorSuccess390: Story = {
+export const QrVisitorSuccess390: Story = {
   name: '26 · 访客码轮换成功 · 390',
-  args: { area: 'invite-visitor', role: 'owner', surface: 'success' },
+  args: { area: 'qr-visitor', role: 'owner', surface: 'success' },
 };
-export const InviteVisitorDisabled320: Story = {
+export const QrVisitorDisabled320: Story = {
   name: '27 · 普通成员分享入口关闭 · 320',
-  args: { area: 'invite-visitor', role: 'member', surface: 'disabled' },
+  args: { area: 'qr-visitor', role: 'member', surface: 'disabled' },
   globals: { viewport: 'mobile320' },
 };
 

@@ -239,23 +239,6 @@ export function registerGroupRoutes(
     ),
   );
 
-  app.get('/groups/:groupId/group-qr', { preHandler: app.authenticate }, async (request) => {
-    const gateway = app.wechatGateway;
-    if (gateway === undefined) {
-      throw new ApiError({
-        code: 'SERVICE_UNAVAILABLE',
-        statusCode: 503,
-        userMessage: '群组小程序码暂不可用。',
-      });
-    }
-    return visitorKeyService.getGroupQr(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      gateway,
-      process.env.WECHAT_TRIAL_VISITOR_QR_ENABLED !== 'false',
-    );
-  });
-
   app.get('/groups/:groupId/visitor-qr', { preHandler: app.authenticate }, async (request) => {
     const gateway = app.wechatGateway;
     if (gateway === undefined)
@@ -406,20 +389,6 @@ function getAuthenticatedIdentity(request: FastifyRequest) {
 }
 
 function parseCreateGroupInput(request: FastifyRequest): CreateGroupRequest {
-  // Older clients may send the retired code. Ignore that field only; keep strict validation.
-  const body = request.body;
-  if (typeof body === 'object' && body !== null && !Array.isArray(body)) {
-    const currentBody = { ...(body as Record<string, unknown>) };
-    delete currentBody['groupCode'];
-    const input = parseOrThrow(createGroupInputSchema, currentBody);
-    return {
-      ...input,
-      operationId: resolveDangerousOperationId(
-        request.headers['idempotency-key'],
-        input.operationId,
-      ),
-    };
-  }
   return parseDangerousBody(request, createGroupInputSchema) as CreateGroupRequest;
 }
 

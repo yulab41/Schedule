@@ -115,8 +115,6 @@ function isCoreRoute(method: string, route: string): boolean {
     route === '/auth/password/status' ||
     route === '/auth/password' ||
     route === '/me/password' ||
-    route === '/invites/resolve' ||
-    route === '/invites/accept' ||
     route === '/groups/:groupId/mobile-phone-consent'
   ) {
     return true;
@@ -171,7 +169,7 @@ function isExternalMessageRoute(route: string): boolean {
 function isGuestRoute(route: string): boolean {
   return (
     route.includes('/visitor-key') ||
-    route.includes('/group-qr') ||
+    route.includes('/visitor-qr') ||
     route.includes('/guest-calendar') ||
     route.includes('/visitor-access')
   );
@@ -191,7 +189,6 @@ function isOrganizationRoute(route: string): boolean {
   return (
     route === '/groups' ||
     route.startsWith('/groups/') ||
-    route.startsWith('/invites/') ||
     route.startsWith('/platform') ||
     route.startsWith('/users') ||
     route.includes('/directory')

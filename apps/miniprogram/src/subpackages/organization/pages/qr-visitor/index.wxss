@@ -1,4 +1,4 @@
-@import '../../components/invite-visitor-panel/index.wxss';
+@import '../../components/qr-visitor-panel/index.wxss';
 
 page {
   width: 100%;

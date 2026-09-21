@@ -11,7 +11,7 @@ export const workbenchToolIds = [
   'notificationSettings',
   'notifications',
   'exports',
-  'inviteVisitor',
+  'qrVisitor',
   'visitorAccess',
   'platformAccounts',
 ] as const;
@@ -46,7 +46,7 @@ export function createWorkbenchToolAccess(
     exports: canManage && capability.insights,
     groupSettings: canUseGroupTools,
     insights: canUseGroupTools && capability.insights,
-    inviteVisitor: canManage && capability.organization,
+    qrVisitor: canManage && capability.organization,
     leave: canUseGroupTools && capability.workflows,
     manualSchedule: canManage,
     notificationSettings: canUseGroupTools && capability.externalMessages,
@@ -69,7 +69,7 @@ export function createWorkbenchToolAccess(
     tools.notifications,
     tools.exports,
   ].some(Boolean);
-  const accessSection = [tools.inviteVisitor, tools.visitorAccess, tools.platformAccounts].some(
+  const accessSection = [tools.qrVisitor, tools.visitorAccess, tools.platformAccounts].some(
     Boolean,
   );
 

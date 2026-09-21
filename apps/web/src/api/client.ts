@@ -1,14 +1,10 @@
 import type {
-  AcceptInviteRequest,
-  AcceptInviteResponse,
   AddGroupMembersRequest,
   AddGroupMembersResponse,
   AddRosterEntriesRequest,
   AddRosterEntriesResponse,
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
-  CreateInviteLinkRequest,
-  CreateInviteLinkResponse,
   ApiErrorCode,
   ApiErrorResponse,
   AppliedManualScheduleTemplateResult,
@@ -88,7 +84,6 @@ import type {
   PreviewManualTemplateApplyRequest,
   RejectedLeaveRequestResult,
   RejectLeaveRequestInput,
-  RevokeInviteRequest,
   UpdateGroupCalendarDefaults,
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
@@ -133,7 +128,7 @@ import type {
 import {
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
-  createInviteVisitorWriteClient,
+  createQrVisitorWriteClient,
   createNotificationPreferencesClient,
   createPlatformIdentityWriteClient,
   createPlatformAccountClient,
@@ -194,7 +189,6 @@ import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.j
 
 export interface ApiClient {
   readonly platformAccounts: PlatformAccountClient;
-  acceptInvite(input: AcceptInviteRequest): Promise<AcceptInviteResponse>;
   acceptDutyAdjustment(
     groupId: string,
     dutyAdjustmentId: string,
@@ -237,7 +231,6 @@ export interface ApiClient {
     groupId: string,
     input: GroupVersionMutationRequest,
   ): Promise<VisitorKeyChangedResponse>;
-  revokeInvite(groupId: string, inviteToken: string, input: RevokeInviteRequest): Promise<void>;
   markAllNotificationsRead(groupId?: string): Promise<{ readonly count: number }>;
   markNotificationRead(notificationId: string): Promise<NotificationRecord>;
   savePushSubscription(input: WebPushSubscriptionInput): Promise<{ readonly saved: boolean }>;
@@ -311,10 +304,6 @@ export interface ApiClient {
   createScheduleRole(groupId: string, input: CreateScheduleRoleRequest): Promise<ScheduleRole>;
   createShiftType(groupId: string, input: CreateShiftTypeRequest): Promise<ShiftType>;
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
-  createInviteLink(
-    groupId: string,
-    input: CreateInviteLinkRequest,
-  ): Promise<CreateInviteLinkResponse>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
   deleteGroup(groupId: string, input: GroupVersionMutationRequest): Promise<void>;
   deleteGroupMember(
@@ -686,7 +675,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   } satisfies ClientTransport;
   const calendarReadClient = createCalendarReadClient(sharedClientTransport);
   const groupMobilePhoneConsentClient = createGroupMobilePhoneConsentClient(sharedClientTransport);
-  const inviteVisitorWriteClient = createInviteVisitorWriteClient(sharedClientTransport);
+  const qrVisitorWriteClient = createQrVisitorWriteClient(sharedClientTransport);
   const notificationPreferencesClient = createNotificationPreferencesClient(sharedClientTransport);
   const organizationReadClient = createOrganizationReadClient(sharedClientTransport);
   const organizationWriteClient = createOrganizationWriteClient(sharedClientTransport);
@@ -698,9 +687,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
 
   return {
     platformAccounts,
-    acceptInvite(input) {
-      return inviteVisitorWriteClient.acceptInvite(input);
-    },
     assignPlatformPasswordIdentity(userId, input) {
       return platformIdentityWriteClient.assignPasswordIdentity(userId, input);
     },
@@ -983,9 +969,6 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
     createGroup(input) {
       return organizationWriteClient.createGroup(input);
-    },
-    createInviteLink(groupId, input) {
-      return inviteVisitorWriteClient.createInviteLink(groupId, input);
     },
     createCurrentProfile(input) {
       return requestJson(
@@ -1434,10 +1417,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       return organizationReadClient.listGroupMembers(groupId);
     },
     regenerateVisitorKey(groupId, input) {
-      return inviteVisitorWriteClient.regenerateVisitorKey(groupId, input);
-    },
-    revokeInvite(groupId, inviteToken, input) {
-      return inviteVisitorWriteClient.revokeInvite(groupId, inviteToken, input);
+      return qrVisitorWriteClient.regenerateVisitorKey(groupId, input);
     },
     listGroups() {
       return organizationReadClient.listGroups();

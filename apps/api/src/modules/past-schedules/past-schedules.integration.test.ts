@@ -59,7 +59,7 @@ describeWithDatabase('past schedule backfill', () => {
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
     await registerUser('outsider-token', 'Outside Doctor');
-    groupId = await createGroup('Backfill group', '1234');
+    groupId = await createGroup('Backfill group');
     await addRosterEntry(groupId, 'Candidate Doctor');
     await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
 
@@ -788,14 +788,14 @@ describeWithDatabase('past schedule backfill', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

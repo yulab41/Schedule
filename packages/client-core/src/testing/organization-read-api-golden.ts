@@ -5,12 +5,11 @@ import type {
   GroupMemberContact,
   GroupSummary,
   PlatformAdminUserAccountList,
-  ResolveInviteResponse,
   SchedulingConfig,
 } from '@schedule/contracts';
 
 export const organizationReadApiGoldenResponse = {
-  groupQr: { imageBase64: 'iVBORw0KGgo=' } as const,
+  visitorQr: { environment: 'trial', imageBase64: 'iVBORw0KGgo=' } as const,
   contacts: [
     {
       isConfirmed: true,
@@ -42,14 +41,6 @@ export const organizationReadApiGoldenResponse = {
       version: 3,
     },
   ] as const satisfies readonly GroupSummary[],
-  invite: {
-    groupId: 'group-1',
-    groupName: '急诊科',
-    inviteeRealName: '陈医生',
-    permissionRole: 'member',
-    scheduleRoleName: '一线',
-    version: 1,
-  } as const satisfies ResolveInviteResponse,
   members: [
     {
       id: 'membership-1',

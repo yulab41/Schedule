@@ -210,7 +210,7 @@ export class MembershipService {
           throw new ApiError({
             code: 'CONFLICT',
             statusCode: 409,
-            userMessage: '该群已有与您同名的成员资料，请联系管理员通过定向邀请加入。',
+            userMessage: '该群已有与您同名的成员资料，请联系管理员使用成员绑定二维码关联账号。',
           });
         }
 

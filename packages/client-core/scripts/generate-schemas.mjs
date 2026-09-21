@@ -5,7 +5,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  acceptInviteResponseSchema,
   addGroupMembersResponseSchema,
   addRosterEntriesResponseSchema,
   apiErrorCodes,
@@ -17,8 +16,6 @@ import {
   visitorResolveResponseSchema,
   clientCapabilityResponseSchema,
   convertPendingRosterResponseSchema,
-  createInviteLinkResponseSchema,
-  createMemberWechatBindingQrResponseSchema,
   createCurrentMemberWechatBindingQrResponseSchema,
   currentEnvironmentQrResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
@@ -36,7 +33,6 @@ import {
   groupMemberSchema,
   groupMemberListSchema,
   groupMobilePhoneConsentSchema,
-  groupQrResponseSchema,
   groupSummarySchema,
   groupSummaryListSchema,
   groupSwapSettingsSchema,
@@ -58,7 +54,6 @@ import {
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   rejectedLeaveRequestResultSchema,
-  resolveInviteResponseSchema,
   scheduleChangeImpactPreviewSchema,
   scheduleEventDetailSchema,
   scheduleEventPageSchema,
@@ -114,10 +109,6 @@ const source = await format(
         'visitorResolveResponse',
       ),
       manualScheduleStartDate: sanitizeJsonSchema(z.toJSONSchema(manualScheduleStartDateSchema)),
-      acceptInviteResponse: sanitizeJsonSchema(
-        z.toJSONSchema(acceptInviteResponseSchema),
-        'acceptInviteResponse',
-      ),
       addGroupMembersResponse: sanitizeJsonSchema(
         z.toJSONSchema(addGroupMembersResponseSchema),
         'addGroupMembersResponse',
@@ -149,14 +140,6 @@ const source = await format(
       convertPendingRosterResponse: sanitizeJsonSchema(
         z.toJSONSchema(convertPendingRosterResponseSchema),
         'convertPendingRosterResponse',
-      ),
-      createInviteLinkResponse: sanitizeJsonSchema(
-        z.toJSONSchema(createInviteLinkResponseSchema),
-        'createInviteLinkResponse',
-      ),
-      createMemberWechatBindingQrResponse: sanitizeJsonSchema(
-        z.toJSONSchema(createMemberWechatBindingQrResponseSchema),
-        'createMemberWechatBindingQrResponse',
       ),
       createCurrentMemberWechatBindingQrResponse: sanitizeJsonSchema(
         z.toJSONSchema(createCurrentMemberWechatBindingQrResponseSchema),
@@ -207,7 +190,6 @@ const source = await format(
         z.toJSONSchema(groupMobilePhoneConsentSchema),
         'groupMobilePhoneConsent',
       ),
-      groupQrResponse: sanitizeJsonSchema(z.toJSONSchema(groupQrResponseSchema), 'groupQrResponse'),
       currentEnvironmentQrResponse: sanitizeJsonSchema(
         z.toJSONSchema(currentEnvironmentQrResponseSchema),
         'currentEnvironmentQrResponse',
@@ -311,10 +293,6 @@ const source = await format(
       rejectedLeaveRequestResult: sanitizeJsonSchema(
         z.toJSONSchema(rejectedLeaveRequestResultSchema),
         'rejectedLeaveRequestResult',
-      ),
-      resolveInviteResponse: sanitizeJsonSchema(
-        z.toJSONSchema(resolveInviteResponseSchema),
-        'resolveInviteResponse',
       ),
       scheduleChangeImpactPreview: sanitizeJsonSchema(
         z.toJSONSchema(scheduleChangeImpactPreviewSchema),

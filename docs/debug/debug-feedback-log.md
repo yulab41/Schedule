@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-21 账号联系方式、单环境二维码与旧邀请直接清理
+
+- 引入点：`git log -S`/`git blame` 将邀请服务初始实现定位到 `a50c4fce`、严格契约加固定位到 `cf453205`，群组码历史定位到 `4b337490`、`8ab9184b`、`6d0575d0`。本轮不是语义等价重构：用户明确接受旧正式版兼容性中断，要求删除旧邀请/授权和群组码运行时。
+- 行为变化：保留账号级手机号/短号、单环境成员绑定码和访客码；删除邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务/权限/字段。迁移 `0063` 确定性回填账号短号后删除旧短号列、`invite_tokens`、`group_code_attempts` 和群组码列/索引。顶部导航按用户反悔保持原样，二维码四字段为原生 40px/Storybook 20px。
+- 回归验证：Mini 1228 通过/16 跳过；根 Vitest 1296 通过/441 跳过；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；typecheck、lint、format、build、Storybook、契约生成、Mini production verify/CI dry-run/包体审计通过。运行时残留扫描不含旧邀请/群组码/双码符号。
+- 集成排障：工作流集成最初 500，根因是当前源码 schema 已删除 `group_code`，但复用依赖的 `@schedule/database/dist` 仍为旧产物并继续插入该列；重建仓库内 database/contracts/client-core 产物后，同一失败用例转绿且全套 94/94。临时诊断处理器已移除，没有改变生产错误语义。
+- 运行/浏览器验证：`pnpm smoke:browser` 已实际运行并通过登录、管理员、成员、访客密钥和访问记录。测试期间只对本地合成 `local-admin` 临时赋开发者标记，`finally` 恢复为 0；临时 `.env` 硬链接和 API/Web 服务均已移除/停止。提交前继续运行 `pnpm smoke:check-core`。
+- 微信开发者工具：skill 版本一致且登录有效；当前工作树模拟器刷新成功、Console 错误筛查为空、二维码面板 WXML/WXSS 编译通过，ignored 截图位于 `runtime/audit/legacy-cleanup-20260921/workbench.png`。这些是模拟器/编译证据，不是小米 14 扫码验收。
+
 ## 2026-09-13 Feedback24 与 DOCX 累计合并
 
 - 运行/浏览器验证：pnpm smoke:browser 已实际运行；warm槽未启动`localhost:5173`，返回`ERR_CONNECTION_REFUSED`，不记浏览器通过。累计候选完整静态、Node与Mini production验证通过，小米14仍待体验版验收。

@@ -284,7 +284,7 @@ describeWithDatabase('schedule exports', () => {
   });
 
   async function seedPublishedSeptember(): Promise<Context> {
-    const groupId = await createGroup('Export group', '4433');
+    const groupId = await createGroup('Export group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await attachTestMember('a-token', groupId, 'A Doctor');
@@ -347,14 +347,14 @@ describeWithDatabase('schedule exports', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer admin-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);
