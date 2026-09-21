@@ -25,6 +25,10 @@ import { composeVisitorQrCard } from '../../../../platform/visitor-qr-card.js';
 import { composeMemberBindingQrCard } from '../../../../platform/member-binding-qr-card.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
 import { resolveCurrentQrEnvironment } from '../../../../platform/runtime-environment.js';
+import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -36,6 +40,11 @@ interface TargetView {
   readonly kind: 'membership' | 'roster';
   readonly version: number;
   readonly statusLabel: string;
+}
+
+interface SelectorOption {
+  readonly label: string;
+  readonly value: string;
 }
 
 interface QrVisitorPageData {
@@ -53,6 +62,7 @@ interface QrVisitorPageData {
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
   readonly targets: readonly TargetView[];
+  readonly targetOptions: readonly SelectorOption[];
   readonly targetIndex: number;
   readonly targetLabel: string;
   readonly bindingQrImageSrc: string;
@@ -65,6 +75,7 @@ interface QrVisitorPageData {
   readonly visitorState: 'idle' | 'loading' | 'ready' | 'error';
   readonly visitorMessage: string;
   readonly pageScrollStyle: string;
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly shellHeaderStyle: string;
   readonly viewportClass: string;
 }
@@ -85,6 +96,8 @@ interface QrVisitorPageInstance {
   __infoMessageTimer?: unknown;
   __infoMessageToken?: object;
   _operationIds: Map<string, string>;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Partial<QrVisitorPageData>, callback?: () => void): void;
 }
 
@@ -114,6 +127,7 @@ export function createQrVisitorPanelControllerDefinition() {
       currentGroupName: '正在读取群组',
       currentGroupRole: '',
       targets: [],
+      targetOptions: [],
       targetIndex: 0,
       targetLabel: '请选择绑定对象',
       bindingQrImageSrc: '',
@@ -126,6 +140,7 @@ export function createQrVisitorPanelControllerDefinition() {
       visitorState: 'idle',
       visitorMessage: '',
       pageScrollStyle: 'height:calc(100% - 76px);',
+      pickerBoundary: null,
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       viewportClass: '',
     } satisfies QrVisitorPageData,
@@ -172,6 +187,12 @@ export function createQrVisitorPanelControllerDefinition() {
       void loadQrData(this);
     },
 
+    handlePickerRequestOpen(this: QrVisitorPageInstance): void {
+      for (const picker of this.selectAllComponents?.('.qr-visitor-picker') ?? [])
+        picker.closeFromParent?.();
+      measureSelectorPlacementBoundary(this, '.qr-visitor-scroll');
+    },
+
     handleTargetPicker(this: QrVisitorPageInstance, event: ValueInputEvent): void {
       const index = Number(event.detail?.value);
       const target = this.data.targets[index];
@@ -210,14 +231,17 @@ function applyPanelLayout(page: QrVisitorPageInstance): void {
   const windowInfo = wx.getWindowInfo();
   const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
   const headerHeight = statusBarHeight + 52;
-  updatePanel(page, {
-    pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
-    shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-    largeText:
-      ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
-      20,
-    viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-  });
+  page.setData(
+    {
+      pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+      shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+      largeText:
+        ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ?? 16) >=
+        20,
+      viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+    },
+    () => measureSelectorPlacementBoundary(page, '.qr-visitor-scroll'),
+  );
 }
 
 function syncGroupId(page: QrVisitorPageInstance): void {
@@ -291,6 +315,10 @@ async function loadQrData(page: QrVisitorPageInstance): Promise<void> {
       currentGroupName: group.name,
       currentGroupRole: group.isDeveloperAdmin === true ? '后台管理员' : formatRole(group.role),
       targets,
+      targetOptions: targets.map((target) => ({
+        label: `${target.name} · ${target.statusLabel}`,
+        value: target.id,
+      })),
       targetIndex: 0,
       targetLabel:
         targets[0] === undefined

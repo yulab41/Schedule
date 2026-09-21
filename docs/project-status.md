@@ -1,13 +1,15 @@
 # Project Status
 
-## 当前批次：个人联系方式、单环境二维码与访客审计（直接清理，待交付）
+## 当前批次：个人联系方式、单环境二维码与访客审计（生产已部署，累计体验版待上传）
 
 - 独占 `general-4`、`REUSE_ONLY`、安装 0，基线 `b65c76f3`，前序实现 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航/标题保持不变；二维码四字段按反馈收至原生 40px、Storybook 20px。
 - 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
 - 用户明确要求不再保留旧正式版兼容并授权生产破坏性迁移：运行时邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务与权限已删除；`0063` 直接删除 `invite_tokens`、`group_code_attempts`、`groups.group_code`/唯一索引和成员联系方式旧短号列。历史迁移与 Git 历史不改写。
-- 验证：Mini 178 文件通过/2 跳过（1228/16），根 Vitest 274 文件通过/36 跳过（1296/441）；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；schema 63 发布/回滚门禁 52/52；typecheck、lint、format、build、Storybook、契约生成和浏览器 smoke 通过。开发者工具状态正常，模拟器刷新、Console 错误检查及二维码面板 WXML/WXSS 编译通过；视觉比较缺成对夹具，不记为通过。
-- 包体相对前序实现总量 4,578,755 → 4,549,534 B（−29,221），主包 1,747,454 → 1,737,198（−10,256），organization 815,361 → 807,437（−7,924）。当前未提交/推送、未生产部署、未上传体验版、未提审/正式发布；无当前小米 14 证据。
-- 实现 checkpoint `f42d3edb feat: remove legacy invite and group code runtime` 已推送；唯一下一任务：以 `fix(ops): declare schema 63 deployment compatibility` 补充发布门禁并推送，按现场 live release 创建并验证生产备份、部署 schema 63，再冻结并上传新的不可变体验版、只追加放行。提交审核/正式发布仍须独立明确授权；小米 14 需当前构建证据。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
+- 验证：累计 Mini 179 文件通过/2 跳过（1241/16），根 Vitest 274 文件通过/36 跳过（1296/441）；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；schema 63 发布/回滚门禁 52/52；typecheck、lint、format、build、Storybook、契约生成、浏览器 smoke、`smoke:check-core` 和累计 CI dry-run 通过。开发者工具状态正常，模拟器刷新、Console 错误检查及二维码面板 WXML/WXSS 编译通过；视觉比较缺成对夹具，不记为通过。
+- 累计包体相对前序实现总量 4,578,755 → 4,563,508 B（−15,247），主包 1,747,454 → 1,743,398（−4,056），organization 815,361 → 810,098（−5,263）。实现 checkpoint `f42d3edb` 与发布门禁 `cfa934d1` 已推送；累计 CI dry-run Manifest 为 `2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。
+- 生产：加密备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 已核对记录、文件大小和 SHA-256；live 已部署 `cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，完整 verifier 与旧端点 404/新端点 401 探针通过。
+- 首次体验上传在版本分配前发现最新累计体验版 `.184@91b19bcf` 不是候选祖先并安全停止，未占号。现已将 `.184` 的选择器统一/长列表安全区合并到二维码面板（绑定对象同步使用共享 selector），没有恢复邀请能力；累计 Mini/包体/血缘门禁全部通过。
+- 当前唯一下一任务：提交并推送累积 checkpoint，重新冻结并动态分配体验版、上传后只追加 allowlist。未提审/正式发布，无当前小米 14 证据。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

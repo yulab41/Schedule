@@ -124,6 +124,10 @@
   flex: 0.88;
 }
 
+.workflow-picker-time-column {
+  flex: 1;
+}
+
 .workflow-picker-wheel-rails {
   position: absolute;
   z-index: 3;

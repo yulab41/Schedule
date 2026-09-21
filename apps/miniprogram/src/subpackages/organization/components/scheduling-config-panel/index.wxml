@@ -101,22 +101,28 @@
               /></view>
               <view class="field-block"
                 ><text class="field-label">开始</text
-                ><picker
+                ><ui-date-picker
                   mode="time"
                   value="{{newShiftStartTime}}"
+                  display-value="{{newShiftStartTime}}"
+                  placeholder="选择时间"
+                  title="班种开始时间"
                   data-field="startTime"
                   bindchange="handleNewShiftInput"
-                  ><view class="native-picker">{{newShiftStartTime || '选择时间'}}</view></picker
+                ></ui-date-picker
                 ></view
               >
               <view class="field-block"
                 ><text class="field-label">结束</text
-                ><picker
+                ><ui-date-picker
                   mode="time"
                   value="{{newShiftEndTime}}"
+                  display-value="{{newShiftEndTime}}"
+                  placeholder="选择时间"
+                  title="班种结束时间"
                   data-field="endTime"
                   bindchange="handleNewShiftInput"
-                  ><view class="native-picker">{{newShiftEndTime || '选择时间'}}</view></picker
+                ></ui-date-picker
                 ></view
               >
             </view>
@@ -229,23 +235,29 @@
                     bindinput="handleShiftInput" /></view
                 ><view class="field-block"
                   ><text class="field-label">开始</text
-                  ><picker
+                  ><ui-date-picker
                     mode="time"
                     value="{{shift.startTime}}"
+                    display-value="{{shift.startTime}}"
+                    placeholder="选择时间"
+                    title="班种开始时间"
                     data-shift-id="{{shift.id}}"
                     data-field="startTime"
                     bindchange="handleShiftInput"
-                    ><view class="native-picker">{{shift.startTime || '选择时间'}}</view></picker
+                  ></ui-date-picker
                   ></view
                 ><view class="field-block"
                   ><text class="field-label">结束</text
-                  ><picker
+                  ><ui-date-picker
                     mode="time"
                     value="{{shift.endTime}}"
+                    display-value="{{shift.endTime}}"
+                    placeholder="选择时间"
+                    title="班种结束时间"
                     data-shift-id="{{shift.id}}"
                     data-field="endTime"
                     bindchange="handleShiftInput"
-                    ><view class="native-picker">{{shift.endTime || '选择时间'}}</view></picker
+                  ></ui-date-picker
                   ></view
                 ></view
               >

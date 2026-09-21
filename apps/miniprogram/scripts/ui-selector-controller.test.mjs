@@ -65,4 +65,69 @@ describe('shared group/workflow selector behavior', () => {
     expect(instance.data.open).toBe(false);
     definition.lifetimes.detached.call(instance);
   });
+
+  it('uses the clipping scroll boundary instead of spare window space', async () => {
+    const { definition, instance } = await createSelector();
+    vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });
+    instance.properties.placementBoundary = { bottom: 520, top: 200 };
+    const query = {
+      select: () => query,
+      boundingClientRect: () => query,
+      exec: (callback) => callback([{ top: 470, bottom: 514 }]),
+    };
+    instance.createSelectorQuery = () => query;
+
+    definition.methods.handleOpen.call(instance);
+
+    expect(instance.data.popoverPlacement).toBe('up');
+    expect(instance.data.popoverMaxHeight).toBe(262);
+    expect(instance.data.popoverPlacementReady).toBe(true);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('bounds the popover on the larger side and falls back from an invalid boundary', async () => {
+    const { resolveSelectorPlacement } =
+      await import('../src/components/ui/ui-selector/selector.ts');
+
+    expect(
+      resolveSelectorPlacement({ bottom: 144, top: 100 }, 100, 844, {
+        bottom: 700,
+        top: 0,
+      }),
+    ).toEqual({ maxHeight: 300, placement: 'down' });
+    expect(
+      resolveSelectorPlacement({ bottom: 244, top: 200 }, 100, 844, {
+        bottom: 270,
+        top: 180,
+      }),
+    ).toEqual({ maxHeight: 18, placement: 'down' });
+    expect(
+      resolveSelectorPlacement({ bottom: 834, top: 790 }, 100, 844, {
+        bottom: 100,
+        top: 600,
+      }),
+    ).toEqual({ maxHeight: 300, placement: 'up' });
+  });
+
+  it('ignores a placement result that arrives after the selector closes', async () => {
+    const { definition, instance } = await createSelector();
+    vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });
+    let resolvePlacement;
+    const query = {
+      select: () => query,
+      boundingClientRect: () => query,
+      exec: (callback) => {
+        resolvePlacement = callback;
+      },
+    };
+    instance.createSelectorQuery = () => query;
+
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleClose.call(instance);
+    resolvePlacement([{ top: 790, bottom: 834 }]);
+
+    expect(instance.data.open).toBe(false);
+    expect(instance.data.popoverPlacementReady).toBe(false);
+    definition.lifetimes.detached.call(instance);
+  });
 });

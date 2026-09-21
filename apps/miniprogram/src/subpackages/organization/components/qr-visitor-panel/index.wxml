@@ -57,13 +57,16 @@
           <view class="editor-card">
             <view class="field-block"
               ><text class="field-label">绑定对象</text
-              ><picker
-                mode="selector"
-                range="{{targets}}"
-                range-key="name"
-                value="{{targetIndex}}"
+              ><ui-selector
+                class="qr-visitor-picker"
+                title="绑定对象"
+                options="{{targetOptions}}"
+                selected-index="{{targetIndex}}"
+                display-value="{{targetLabel}}"
+                placement-boundary="{{pickerBoundary}}"
                 bindchange="handleTargetPicker"
-                ><view class="native-picker">{{targetLabel}}</view></picker
+                bindpickerrequestopen="handlePickerRequestOpen"
+              ></ui-selector
               ></view
             >
             <ui-button

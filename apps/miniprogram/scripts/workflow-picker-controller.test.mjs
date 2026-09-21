@@ -138,6 +138,36 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.lifetimes.detached.call(instance);
   });
 
+  it('opens upward within a workflow scroll boundary even when the window has room below', async () => {
+    vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, {
+      mode: 'selector',
+      options: [
+        { label: '成员一', value: 'member-1' },
+        { label: '成员二', value: 'member-2' },
+      ],
+      placementBoundary: { bottom: 520, top: 200 },
+    });
+    instance.createSelectorQuery = () => ({
+      boundingClientRect() {
+        return this;
+      },
+      exec(callback) {
+        callback([{ bottom: 514, height: 44, left: 16, right: 374, top: 470, width: 358 }]);
+      },
+      select() {
+        return this;
+      },
+    });
+
+    definition.methods.handleOpen.call(instance);
+
+    expect(instance.data.popoverPlacement).toBe('up');
+    expect(instance.data.popoverMaxHeight).toBe(262);
+    expect(instance.data.popoverPlacementReady).toBe(true);
+  });
+
   it('keeps only the weekend token red before and after an option is selected', async () => {
     const definition = await loadPickerDefinition();
     const options = [
@@ -207,6 +237,47 @@ describe('P7 Web-parity workflow picker controller', () => {
 
     definition.methods.handleConfirm.call(instance);
     expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2027-09' });
+    expect(instance.data.open).toBe(false);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('reuses the shared wheel lifecycle for a completed HH:mm time value', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'time', value: '08:05' });
+    definition.lifetimes.attached.call(instance);
+
+    definition.methods.handleOpen.call(instance);
+    expect(instance.data.draftDisplayValue).toBe('08:05');
+    expect(instance.data.hourWheelItems).toHaveLength(24);
+    expect(instance.data.minuteWheelItems).toHaveLength(60);
+    expect(instance.data.hourWheelItems[8]).toMatchObject({ label: '08', unit: '时' });
+    expect(instance.data.minuteWheelItems[5]).toMatchObject({ label: '05', unit: '分' });
+
+    const generation = instance.data.wheelGeneration;
+    instance.triggerEvent.mockClear();
+    definition.methods.handleHourWheelPreview.call(instance, {
+      detail: {
+        generation,
+        index: 23,
+        offset: -23 * 44,
+        runtimeKey: instance.data.hourWheelRuntimeKey,
+        sequence: 1,
+      },
+    });
+    definition.methods.handleMinuteWheelSettled.call(instance, {
+      detail: {
+        generation,
+        index: 59,
+        offset: -59 * 44,
+        runtimeKey: instance.data.minuteWheelRuntimeKey,
+        sequence: 1,
+      },
+    });
+
+    expect(instance.data.draftDisplayValue).toBe('23:59');
+    expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
+    definition.methods.handleConfirm.call(instance);
+    expect(instance.triggerEvent).toHaveBeenCalledExactlyOnceWith('change', { value: '23:59' });
     expect(instance.data.open).toBe(false);
     definition.lifetimes.detached.call(instance);
   });

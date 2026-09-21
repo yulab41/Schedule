@@ -6,6 +6,10 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../platform/info-message-lifetime.js';
+import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../components/ui/selector-boundary.js';
 
 type ControllerMethod = (this: WorkflowPanelHost, ...arguments_: unknown[]) => unknown;
 
@@ -33,6 +37,7 @@ interface WorkflowPanelHost {
     readonly embedded: boolean;
     readonly groupId: string;
   };
+  createSelectorQuery?(): MiniProgramSelectorQuery;
   selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
   triggerEvent?(name: string): void;
@@ -50,6 +55,8 @@ interface WorkflowPageBoundaries {
 export interface WorkflowControllerTask {
   isCurrent(): boolean;
 }
+
+export type WorkflowPickerBoundary = SelectorPlacementBoundary;
 
 export function captureWorkflowControllerTask(host: object): WorkflowControllerTask {
   const target = host as WorkflowPanelHost;
@@ -75,6 +82,16 @@ export function captureWorkflowFeedbackTask(host: object): WorkflowControllerTas
       target.__workflowPageHidden !== true &&
       (target.__workflowFeedbackGeneration ?? 0) === generation,
   };
+}
+
+export function measureWorkflowPickerBoundary(host: object): void {
+  const task = captureWorkflowControllerTask(host);
+  measureSelectorPlacementBoundary(
+    host,
+    '.workflow-sheet-scroll',
+    'workflowPickerBoundary',
+    task.isCurrent,
+  );
 }
 
 export function createWorkflowPageDefinition(
@@ -206,6 +223,7 @@ function panelDismissMethods(): Readonly<Record<string, unknown>> {
     // Selecting or opening one picker closes every other open picker.
     handlePickerRequestOpen(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);
+      measureWorkflowPickerBoundary(this);
     },
     handlePanelBackgroundTap(this: WorkflowPanelHost): void {
       closeWorkflowPickers(this);

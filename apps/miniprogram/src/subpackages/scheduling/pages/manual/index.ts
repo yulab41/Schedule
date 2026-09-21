@@ -18,6 +18,10 @@ import {
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
 import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
+import {
   mergePreviewAssignments,
   type PreviewDuty,
 } from '../../components/schedule-calendar-preview/model.js';
@@ -195,6 +199,7 @@ interface ReleaseCalloutView {
 }
 
 interface ManualPageData extends MatrixModel {
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly endDate: string;
   readonly startDateState: 'loading' | 'ready' | 'error';
   readonly matrixViewportWidth: number;
@@ -434,6 +439,7 @@ Page({
     memberCount: 0,
     memberOptions: [],
     memberPanelOpen: false,
+    pickerBoundary: null,
     pageScrollStyle: 'height:calc(100% - 64px);',
     previewAssignmentCount: 0,
     previewConflictCount: 0,
@@ -539,10 +545,12 @@ Page({
 
   onResize(this: ManualPageInstance): void {
     this.updateMatrixViewport();
+    measureSelectorPlacementBoundary(this, '.manual-page-scroll');
   },
 
   onReady(this: ManualPageInstance): void {
     this.updateMatrixViewport();
+    measureSelectorPlacementBoundary(this, '.manual-page-scroll');
   },
 
   handleRetryStartDate(this: ManualPageInstance): void {
@@ -564,6 +572,7 @@ Page({
   handlePickerRequestOpen(this: ManualPageInstance): void {
     for (const picker of this.selectAllComponents?.('.manual-picker') ?? [])
       picker.closeFromParent?.();
+    measureSelectorPlacementBoundary(this, '.manual-page-scroll');
   },
 
   handleStageSelect(

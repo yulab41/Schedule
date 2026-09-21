@@ -54,12 +54,12 @@
             </view>
 
             <view class="field-grid">
-              <view class="template-field"><ui-selector class="manual-picker" field-label="排班模板" title="排班模板" options="{{templateOptions}}" selected-index="{{templateIndex}}" display-value="{{templateLabel}}" disabled="{{isBusy}}" bindchange="handleTemplateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
-              <view class="role-field"><ui-selector class="manual-picker" field-label="排班岗位" title="排班岗位" options="{{roleOptions}}" selected-index="{{roleIndex}}" display-value="{{scheduleRoleName}}" disabled="{{isBusy}}" bindchange="handleRoleChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              <view class="template-field"><ui-selector class="manual-picker" field-label="排班模板" title="排班模板" options="{{templateOptions}}" selected-index="{{templateIndex}}" display-value="{{templateLabel}}" disabled="{{isBusy}}" placement-boundary="{{pickerBoundary}}" bindchange="handleTemplateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              <view class="role-field"><ui-selector class="manual-picker" field-label="排班岗位" title="排班岗位" options="{{roleOptions}}" selected-index="{{roleIndex}}" display-value="{{scheduleRoleName}}" disabled="{{isBusy}}" placement-boundary="{{pickerBoundary}}" bindchange="handleRoleChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
               <view class="date-field"><ui-date-picker class="manual-picker" field-label="开始日期" mode="date" title="开始日期" value="{{startDate}}" display-value="{{startDateState === 'loading' ? '正在读取…' : startDate || '请选择日期'}}" disabled="{{isBusy}}" bindchange="handleStartDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
               <view class="date-field"><ui-date-picker class="manual-picker" field-label="结束日期" mode="date" title="结束日期" value="{{endDate}}" display-value="{{endDate || '请选择日期'}}" disabled="{{isBusy || startDateState !== 'ready'}}" bindchange="handleEndDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
               <view class="cycle-field field-control" hover-class="is-pressed" aria-role="button" aria-label="周期天数" aria-disabled="{{isBusy}}" bindtap="handleOpenCyclePicker"><text>周期天数</text><text class="field-value">{{cycleDays}} 天</text></view>
-              <view class="members-field"><ui-selector class="manual-picker" field-label="值班人员" title="值班人员（最多20人）" multiple="{{true}}" options="{{memberSelectOptions}}" display-value="{{memberCount}} 人" disabled="{{isBusy}}" bindchange="handleMembersChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              <view class="members-field"><ui-selector class="manual-picker" field-label="值班人员" title="值班人员（最多20人）" multiple="{{true}}" options="{{memberSelectOptions}}" display-value="{{memberCount}} 人" disabled="{{isBusy}}" placement-boundary="{{pickerBoundary}}" bindchange="handleMembersChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
             </view>
           </view>
 

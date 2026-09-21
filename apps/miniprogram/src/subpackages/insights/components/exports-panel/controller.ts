@@ -35,6 +35,10 @@ import {
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
 import { createExportsPanelInitialData } from './initial-data.js';
+import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
 
 type ExportPeriodType = 'month' | 'year';
 type ExportState =
@@ -58,6 +62,7 @@ interface SelectOption {
 }
 
 interface ExportsPageData {
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly businessMonth: string;
   readonly downloadBusy: boolean;
   readonly docxAvailable: boolean;
@@ -107,6 +112,8 @@ interface ExportsPageInstance {
   _visible: boolean;
   _resumePolling: boolean;
   _creating: boolean;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Partial<ExportsPageData>, callback?: () => void): void;
 }
 
@@ -140,14 +147,17 @@ export function createExportsPanelControllerDefinition() {
         const windowInfo = wx.getWindowInfo();
         const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? 0);
         const headerHeight = statusBarHeight + 52;
-        this.setData({
-          pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
-          shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
-          largeText:
-            ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
-              16) >= 20,
-          viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
-        });
+        this.setData(
+          {
+            pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
+            shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+            largeText:
+              ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
+                16) >= 20,
+            viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
+          },
+          () => measureSelectorPlacementBoundary(this, '.exports-scroll'),
+        );
         start(this);
       },
       detached(this: ExportsPageInstance): void {
@@ -173,6 +183,11 @@ export function createExportsPanelControllerDefinition() {
       },
     },
     methods: {
+      handlePickerRequestOpen(this: ExportsPageInstance): void {
+        for (const picker of this.selectAllComponents?.('.exports-picker') ?? [])
+          picker.closeFromParent?.();
+        measureSelectorPlacementBoundary(this, '.exports-scroll');
+      },
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },

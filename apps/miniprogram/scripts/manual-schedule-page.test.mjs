@@ -92,6 +92,19 @@ describe('native P5 manual schedule page', () => {
     );
   });
 
+  it('locks the template controls into three equal two-column rows', () => {
+    const wxml = readPageFile('wxml');
+    const wxss = readPageFile('wxss');
+    expect(wxml).toMatch(
+      /class="field-grid"[^]*class="template-field"[^]*class="role-field"[^]*field-label="开始日期"[^]*field-label="结束日期"[^]*class="cycle-field field-control"[^]*class="members-field"/u,
+    );
+    expect(wxss).toMatch(/\.field-grid\s*\{[^}]*display:\s*grid;/su);
+    expect(wxss).toMatch(
+      /\.field-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/su,
+    );
+    expect(wxss).toMatch(/\.field-grid\s*>\s*view\s*\{[^}]*min-width:\s*0;/su);
+  });
+
   it('keeps the fixed seven-row matrix viewport and disables page scrolling', () => {
     const pageJson = JSON.parse(readPageFile('json'));
     expect(pageJson.disableScroll).toBe(true);

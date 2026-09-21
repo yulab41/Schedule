@@ -26,6 +26,7 @@ export function createExportsPanelInitialData() {
     memberOptions: [{ value: '', label: '全部成员', checked: true }],
     membershipIds: [] as readonly string[],
     memberSummary: '全部成员',
+    pickerBoundary: null,
     pageScrollStyle: 'height:calc(100% - 76px);',
     periodLabel: getExportPeriodLabel(businessMonth),
     periodType: 'month' as const,
