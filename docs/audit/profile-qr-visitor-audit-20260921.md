@@ -49,6 +49,8 @@
 
 累计 checkpoint `b45bbbe0` 首次重传时，血缘门禁在版本分配与微信平台写入前拒绝了过期的 `5285dd1` canonical 等价证明，因此没有占用体验版号。相对上一份证明，`apps/miniprogram/src/pages/workbench/index.ts` 仅将组织工具 handler 从 `handleOpenInviteVisitor` 改为 `handleOpenQrVisitor`，并把目标从已删除的邀请页改为二维码页；日历导航、swiper、locate、scroll、图标几何与动效均未改变。已按发布规则刷新精确 blob 和理由，专项血缘/上传槽测试 19/19、tracked audit、format 与 diff check 通过；没有绕过或削弱门禁。
 
+最终体验版 `0.1.0-p10.20260922.185` 已从干净 production 候选 `cbe19af5da1768810cca91301a3d32b7d4ea027c` 上传，说明包含短 SHA，上传产物 232 个代码文件、ZIP 2,646,093 B，Manifest 为 `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`。远端不可变 tag、allocation、manifest 与 receipt 的 SHA、Manifest 和 profile 全部一致。可信 allowlist 控制只追加 `.185` 并保留 `.184`；独立 allowlist verify、完整生产 verifier 与公网能力探针（`.185/.184=200`、未知版=426）通过。放行只重建 API/Web，生产 release 保持 `cfa934d1`、schema 63，没有重复备份、部署或迁移；预热的一次 TLS EOF 后健康恢复。
+
 ## 包体审计
 
 | 分包 | 修改前（B） | 修改后（B） | 差值（B） |
@@ -68,6 +70,6 @@
 ## 上线与清理门槛
 
 1. 已创建并推送实现 checkpoint；按执行时现场 live release 取得回滚候选，创建并验证生产备份，API 与 schema 63 已部署。
-2. `.184` 累计血缘与冲突迁移已通过验证；下一步冻结该干净 checkpoint，动态分配不可变体验版并上传，只追加版本放行并保留旧体验版。
-3. 独立验证公网能力门禁、旧邀请端点不可用及数据库最终结构；模拟器与上传成功均不能替代小米 14 真机结论。
-4. 新正式版提交审核与正式发布仍需用户另行明确授权，本轮不执行。
+2. `.184` 累计血缘、冲突迁移与 `5285dd1` 等价证明已通过验证；`.185@cbe19af5` 已作为不可变体验版上传并只追加放行，旧体验版保留。
+3. 公网能力门禁、旧邀请端点不可用、数据库最终结构及完整生产 verifier 均已独立验证；模拟器与上传成功仍不能替代小米 14 真机结论。
+4. 唯一待办是小米 14 `.185@cbe19af5` 同构建复核。新正式版提交审核与正式发布仍需用户另行明确授权，本轮未执行。

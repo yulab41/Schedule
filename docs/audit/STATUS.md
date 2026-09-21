@@ -1,6 +1,6 @@
 # 微信小程序审计状态
 
-## 当前批次：个人联系方式、单环境二维码与访客审计（生产已部署，累计体验版待上传）
+## 当前批次：个人联系方式、单环境二维码与访客审计（已交付，待小米 14 复核）
 
 - 独占 `general-4`、`REUSE_ONLY`、安装 0，源码基线 `b65c76f3`，前序 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航与页面标题保持不变；二维码四字段为原生 40px、Storybook 20px。
 - 已实现手机号/短号整行单字段弹窗、账号级短号及跨群同步、管理员全局短号更新、冲突刷新；新增环境唯一的成员绑定码/访客码接口和严格 POST 访客读取；访客审计新增 OpenID（非微信号）、设备/微信/基础库/窗口/网络上下文与完整 IP/请求 ID 展开详情。
@@ -9,8 +9,10 @@
 - 累计包体相对前序实现总量 −15,247 B、主包 −4,056 B、organization −5,263 B；实现 `f42d3edb` 与发布门禁 `cfa934d1` 已推送，累计 CI dry-run Manifest=`2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。
 - 生产备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 已核对，live=`cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，完整 verifier 与新旧路由探针通过。
 - 首次上传在分配版本前因候选未包含最新 `.184@91b19bcf` 而停止、未占号；现已合并 `.184` 的共享 selector、滚动安全区和相关测试，二维码面板绑定对象同步迁移，累计门禁通过且未恢复邀请能力。
-- 累积 checkpoint `b45bbbe0` 已推送；首次重传在版本分配前由 `5285dd1` canonical 等价证明安全拒绝且未占号。受保护 workbench 页只把组织工具 handler/路由从邀请页替换为二维码页；精确 blob 与理由已刷新，血缘/上传槽专项 19/19、tracked audit、format 和 diff check 通过。
-- 唯一下一任务：以 `chore(release): refresh QR-only workbench lineage proof` 建立并推送等价证明 checkpoint，重新冻结、动态上传体验版并只追加 allowlist；不提审/正式发布，小米 14 仍待当前构建证据。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
+- 累积 checkpoint `b45bbbe0` 与等价证明 checkpoint `cbe19af5` 已推送；首次重传在版本分配前安全拒绝且未占号，刷新精确 blob 后血缘/上传槽专项 19/19 与 tracked audit 通过。
+- 体验版 `0.1.0-p10.20260922.185` 已上传：`cbe19af5`、production、Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`、232 个代码文件、ZIP 2,646,093 B；远端 tag、allocation、manifest、receipt 身份一致。
+- `.185` 已由可信控制只追加放行并保留 `.184`；独立 allowlist verify、完整 `ecs-verify.sh`、公网 `.185/.184=200` 与未知版 `=426` 通过。生产仍为 `cfa934d1`/schema 63，未重复部署或迁移。
+- 唯一下一任务：小米 14 打开 `.185@cbe19af5` 复核联系方式弹窗、成员/访客二维码扫码、访客详情及原导航；未取得同构建证据前不得写真机通过。不提审/正式发布。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

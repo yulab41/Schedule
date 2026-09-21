@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：个人联系方式、单环境二维码与访客审计（生产已部署，累计体验版待上传）
+## 当前批次：个人联系方式、单环境二维码与访客审计（已交付，待小米 14 复核）
 
 - 独占 `general-4`、`REUSE_ONLY`、安装 0，基线 `b65c76f3`，前序实现 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航/标题保持不变；二维码四字段按反馈收至原生 40px、Storybook 20px。
 - 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
@@ -9,8 +9,11 @@
 - 累计包体相对前序实现总量 4,578,755 → 4,563,508 B（−15,247），主包 1,747,454 → 1,743,398（−4,056），organization 815,361 → 810,098（−5,263）。实现 checkpoint `f42d3edb` 与发布门禁 `cfa934d1` 已推送；累计 CI dry-run Manifest 为 `2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。
 - 生产：加密备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 已核对记录、文件大小和 SHA-256；live 已部署 `cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，完整 verifier 与旧端点 404/新端点 401 探针通过。
 - 首次体验上传在版本分配前发现最新累计体验版 `.184@91b19bcf` 不是候选祖先并安全停止，未占号。现已将 `.184` 的选择器统一/长列表安全区合并到二维码面板（绑定对象同步使用共享 selector），没有恢复邀请能力；累计 Mini/包体/血缘门禁全部通过。
-- 累积 checkpoint `b45bbbe0` 已推送；首次重传在版本分配前由 `5285dd1` canonical 等价证明安全拒绝且未占号。受保护 workbench 页只把组织工具 handler/路由从邀请页替换为二维码页，日历导航、swiper、locate、scroll 与图标动效未改；精确 blob 与理由已刷新，血缘/上传槽专项 19/19、tracked audit、format 和 diff check 通过。
-- 当前唯一下一任务：以 `chore(release): refresh QR-only workbench lineage proof` 建立并推送等价证明 checkpoint，重新冻结并动态分配体验版、上传后只追加 allowlist。未提审/正式发布，无当前小米 14 证据。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
+- 累积 checkpoint `b45bbbe0` 与等价证明 checkpoint `cbe19af5` 已推送。首次重传在版本分配前由 `5285dd1` canonical 等价证明安全拒绝且未占号；刷新精确 blob 后，血缘/上传槽专项 19/19 与 tracked audit 通过，没有削弱门禁。
+- 体验版 `0.1.0-p10.20260922.185` 已上传：候选 `cbe19af5`、production、说明含短 SHA、Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`、232 个代码文件、ZIP 2,646,093 B。远端不可变 tag、allocation、manifest 与 receipt 均精确绑定同一 SHA/Manifest。
+- 放行：可信 `schedule-client-version-allowlist ensure` 只追加 `.185` 并保留 `.184`；独立 verify、完整 `ecs-verify.sh` 与公网 `.185/.184=200`、未知版 `=426` 通过。生产应用仍为 `cfa934d1`/schema 63，没有重复部署或迁移；重建预热的一次 TLS EOF 后恢复。
+- 交付记录 checkpoint：`docs(release): record QR audit trial 185`；仅根文档，按 Mini/文档例外不再重复生产备份、部署或体验版上传。
+- 当前唯一下一任务：在小米 14 微信客户端打开 `.185@cbe19af5`，验证手机号/短号修改、当前环境成员/访客二维码扫码、访客详情展开及五页原导航。未取得同构建证据前保持“待用户复核”；未提审/正式发布。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 
@@ -35,19 +38,6 @@
 - 环境事实（本轮实测）：开发者工具`2.02.2609162`（Nightly，高于门槛`2.02.2607152`）；`wechatide -h`退出码0；agent侧skill`0.3.11`与工具内置版逐文件一致且`versionRelation: equal`；MCP `wechat-devtools`带独立Token调用`check_wechatide_status`成功，`loginExpired: false`。
 - 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
 - 当时建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
-
-## 历史批次：小程序首屏变慢的服务器根因治理（2C/1.6G 资源铁律）
-
-- 用户报告小程序首次打开日历/通讯录/换班/我的经常转圈 5–10 秒，要求核查小程序与 API 链路并清理服务器垃圾。结论：根因在服务器侧，不是小程序包体或"屎山代码"。
-- 生产实测证据：web nginx `$request_time` 与 api `pino responseTime` 同时记录 5–12.0 秒真实请求（`/calendar` 8.078s、`/auth/wechat/login` 8.896s、`/client-capabilities` 6.482s、`/directory/facets` 10.038s），并有一批正好 12.004–12.015s 的 HTTP 499 客户端放弃；`/proc/pressure/io` full avg300≈35%、memory≈17%；swap 已用 1080MB（mysqld 754MB 被换出）。
-- 根因：宿主 cron 每分钟用 `docker compose run --rm` 为 export-jobs/duty-reminders/notification-retry 各起一个一次性容器（≈4320 次/天），privacy-retention 每 15 分钟再起一个；2 vCPU/1.6GB 上持续读镜像层、反复分配内存并挤出页缓存，把同一时刻的所有 API 请求一起拖慢。
-- 修复：`schedule-notifications.sh`/`schedule-privacy-retention.sh` 改为优先在常驻 `medical-schedule-prod-api-1` 内 `docker exec` 跑作业（频率与作业语义不变），只有常驻容器不可用才回退一次性容器；两个 spec 新增"默认路径不得是一次性容器"断言。
-- 服务器清理（同轮用户授权）：`/opt/schedule/releases` 642→2（只保留 current `e4b8d1f6` 与 manifest rollbackCandidate `44034fcc`），释放 ≈7.97GB；`/tmp` 992MB→88KB（清掉历史 `schedule-release-*`、`api-flat*`、`deploy-manifest-*` 与 token 残留）；`/root` 下 `$DIR` 与空垃圾目录已删；根分区 25G/67% → 17G/46%。
-- 本地验证：`vitest infra/scripts/schedule-notifications.spec.ts infra/scripts/privacy-retention.spec.ts` 6/6、`release-controls.spec.ts`+`package-ecs-release.test.mjs` 32/32、prettier/eslint/`smoke:check-core` 通过；服务器上用同一份脚本 `bash -n` 通过、实跑三个作业成功且容器数保持 3。
-- 生产部署（用户同轮授权）：`main`=`c45c54b5`（应用+调度脚本），部署前加密备份 `88b5f2f2-491b-44ed-84ce-2d9ac186dfb3`（56 表 / 283148 行 / 119433792 字节，SHA-256 `72ddef06…3f7f`）；live release `c45c54b5a021c26c455596393670332d86844b74`、schema 62、rollback candidate 换成 `e4b8d1f6`；完整 `ecs-verify.sh` 通过（`[verify] complete`），公网 health=200。
-- 服务器复测（23:40–23:55）：磁盘 25G/67% → 13G/33%（可用 25G）；`/opt/schedule` 8.1G → 174M；`/opt/schedule/releases` 只留 current 与 rollback candidate 两个；swap 1080MB → 201MB（mysqld 换出页归零，仅剩 fwupd 131MB）；IO pressure full avg300 34.8% → 2.2%、memory 16.7% → 1.3%；对 `/api/health` 70 次采样 min 7ms / p50 8ms / p90 9ms / max 15ms；210 秒观察窗内新建容器 0 个（此前约 7–8 个/150 秒），通知与隐私保留作业仍按每分钟/每 15 分钟执行。
-- 小程序侧结论（本轮只诊断未改）：主包 1,709,420 字节（dist 总量 4,551,662），未超 2MB；正常路径冷启动约 25–30 个请求。卡顿窗口实测 91 个请求，其中 41 个是 `<G>/calendar`（±3 月窗口 + 12 秒超时后重试放大），10 个请求被客户端 12 秒超时放弃。故"屎山代码"不是根因，但客户端重试会在服务器变慢时把流量放大数倍，值得后续单独批次评估。
-- 停止条件已满足。当时下一任务：小米 14 打开体验版 `0.1.0-p10.20260919.179` 复测日历/通讯录/换班/我的首屏是否恢复秒开；若仍慢，按"客户端请求放大"方向单独立项，不重复清理服务器。
 
 ## 上一批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
 
