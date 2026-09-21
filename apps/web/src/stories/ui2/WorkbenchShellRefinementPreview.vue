@@ -5,16 +5,28 @@ import Ui2Icon, { type Ui2IconName } from './Ui2Icon.vue';
 import Ui2MonthCalendar from './Ui2MonthCalendar.vue';
 
 export type WorkbenchRefinementLayout = 'desktop' | 'mobile';
-export type WorkbenchRefinementScreen = 'calendar' | 'duty' | 'login' | 'swap';
+export type WorkbenchRefinementScreen =
+  'calendar' | 'directory' | 'login' | 'more' | 'profile' | 'swap';
 
 const props = withDefaults(
   defineProps<{
     readonly layout?: WorkbenchRefinementLayout;
+    readonly largeText?: boolean;
     readonly longGroupName?: boolean;
     readonly openGroupMenu?: boolean;
+    readonly profileEditor?: 'mobile' | 'none' | 'short';
+    readonly qrPreview?: boolean;
     readonly screen?: WorkbenchRefinementScreen;
   }>(),
-  { layout: 'mobile', longGroupName: false, openGroupMenu: false, screen: 'calendar' },
+  {
+    layout: 'mobile',
+    largeText: false,
+    longGroupName: false,
+    openGroupMenu: false,
+    profileEditor: 'none',
+    qrPreview: false,
+    screen: 'calendar',
+  },
 );
 
 const selectedDay = ref(14);
@@ -52,28 +64,31 @@ function selectPreviewGroup(groupId: string): void {
 }
 
 const pageTitle = computed(() => {
+  if (props.screen === 'directory') return '通讯录';
   if (props.screen === 'swap') return '换班';
-  if (props.screen === 'duty') return '加扣班';
-  return '工作台';
+  if (props.screen === 'profile') return '我的';
+  if (props.screen === 'more') return '更多';
+  return '日历';
 });
 
 const activeNav = computed(() => {
-  if (props.screen === 'swap') return 'swap';
-  if (props.screen === 'duty') return 'duty';
-  return 'calendar';
+  return props.screen === 'login' ? 'calendar' : props.screen;
 });
 
 const navItems: readonly { icon: Ui2IconName; id: string; label: string }[] = [
-  { id: 'calendar', label: '排班日历', icon: 'calendar' },
-  { id: 'leave', label: '请假', icon: 'leave' },
+  { id: 'calendar', label: '日历', icon: 'calendar' },
+  { id: 'directory', label: '通讯录', icon: 'directory' },
   { id: 'swap', label: '换班', icon: 'swap' },
-  { id: 'duty', label: '加扣班', icon: 'adjustment' },
+  { id: 'profile', label: '我的', icon: 'user' },
   { id: 'more', label: '更多', icon: 'more' },
 ];
 </script>
 
 <template>
-  <div class="preview-stage" :class="[`is-${layout}`, `screen-${screen}`]">
+  <div
+    class="preview-stage"
+    :class="[`is-${layout}`, `screen-${screen}`, { 'is-large-text': largeText }]"
+  >
     <main v-if="screen === 'login'" class="login-preview" aria-label="登录页与备案页脚精修预览">
       <section class="login-shell">
         <div class="brand-mark" aria-hidden="true"><span /><span /></div>
@@ -213,45 +228,100 @@ const navItems: readonly { icon: Ui2IconName; id: string; label: string }[] = [
             </section>
           </template>
 
-          <template v-else>
+          <template v-else-if="screen === 'swap'">
             <section class="panel-heading">
               <div>
                 <p>
-                  {{
-                    screen === 'swap'
-                      ? '交换双方已发布班次，并跟踪接受与审批状态。'
-                      : '安排成员代值已发布班次，并跟踪接受与审批状态。'
-                  }}
+                  {{ screen === 'swap' ? '交换双方已发布班次，并跟踪接受与审批状态。' : '' }}
                 </p>
               </div>
-              <button class="primary-action compact" type="button">
-                {{ screen === 'swap' ? '发起换班' : '发起加扣班' }}
-              </button>
+              <button class="primary-action compact" type="button">发起换班</button>
             </section>
 
             <label class="setting-card">
               <input type="checkbox" :checked="screen === 'swap'" />
-              <span>{{ screen === 'swap' ? '自动接受换班' : '自动接受换班/加扣班' }}</span>
+              <span>自动接受换班</span>
             </label>
-            <h2 class="records-heading">
-              {{ screen === 'swap' ? '我的换班申请（1）' : '我的加扣班记录（1）' }}
-            </h2>
+            <h2 class="records-heading">我的换班申请（1）</h2>
             <article class="record-card">
               <dl>
                 <dt>对方</dt>
                 <dd>林恩宇</dd>
                 <dt>班次</dt>
                 <dd>
-                  {{
-                    screen === 'swap'
-                      ? '08-10 08:00–08:00 ↔ 08-22 08:00–08:00'
-                      : '08-10 08:00–08:00'
-                  }}
+                  {{ '08-10 08:00–08:00 ↔ 08-22 08:00–08:00' }}
                 </dd>
                 <dt>状态</dt>
                 <dd><span class="status-pill">已撤销</span></dd>
               </dl>
             </article>
+          </template>
+
+          <template v-else-if="screen === 'profile'">
+            <section class="account-card">
+              <p class="placeholder-eyebrow">账号与安全</p>
+              <h2>账户设置</h2>
+              <button class="account-row" type="button">
+                <span>手机号（点击修改）</span><strong>134 2834 4217</strong>
+              </button>
+              <button class="account-row" type="button">
+                <span>短号（点击修改）</span><strong>674217</strong>
+              </button>
+            </section>
+            <div v-if="profileEditor !== 'none'" class="sheet-scrim">
+              <section class="edit-sheet" role="dialog" aria-modal="true">
+                <div class="sheet-grabber" />
+                <p class="placeholder-eyebrow">
+                  {{ profileEditor === 'mobile' ? '手机号' : '短号' }}
+                </p>
+                <h2>修改{{ profileEditor === 'mobile' ? '手机号' : '短号' }}</h2>
+                <p>
+                  {{
+                    profileEditor === 'mobile'
+                      ? '仅本人可以修改。手机号变化后需重新确认群内公开。'
+                      : '修改后将同步到该账号所在的所有群组。'
+                  }}
+                </p>
+                <div class="edit-input">
+                  {{ profileEditor === 'mobile' ? '13428344217' : '674217' }}
+                </div>
+                <div class="sheet-actions">
+                  <button type="button">取消</button><button type="button">保存</button>
+                </div>
+              </section>
+            </div>
+          </template>
+
+          <template v-else-if="screen === 'more' && qrPreview">
+            <section class="qr-preview-card">
+              <p class="placeholder-eyebrow">成员微信绑定二维码</p>
+              <div class="fake-qr" aria-label="二维码占位预览">班</div>
+              <div class="qr-fields">
+                <strong>群组名：头颈外科医生</strong>
+                <strong>姓名：冯钦</strong>
+                <strong>工号：d0659</strong>
+                <strong>有效期：2026-09-21 14:35</strong>
+              </div>
+              <p>扫码者确认后才会绑定；二维码一次有效，请勿公开。</p>
+            </section>
+          </template>
+
+          <template v-else>
+            <section class="workspace-placeholder">
+              <p class="placeholder-eyebrow">
+                {{ screen === 'directory' ? '院区导航' : '群组与排班' }}
+              </p>
+              <h2>
+                {{ screen === 'directory' ? '通讯录' : '更多工具' }}
+              </h2>
+              <p>
+                {{
+                  screen === 'directory'
+                    ? '搜索科室、姓名、拼音或号码。'
+                    : '管理群组、排班、通知与访问工具。'
+                }}
+              </p>
+            </section>
           </template>
         </section>
       </div>
@@ -774,6 +844,172 @@ a:focus-visible {
   margin: 0;
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+.workspace-placeholder {
+  min-height: 220px;
+  padding: 24px 20px;
+  background: var(--ui2-surface);
+  border: 1px solid var(--ui2-border);
+  border-radius: var(--ui2-radius-lg);
+  box-shadow: var(--ui2-shadow-card);
+}
+
+.account-card,
+.qr-preview-card {
+  overflow: hidden;
+  padding: 20px;
+  background: var(--ui2-surface);
+  border: 1px solid var(--ui2-border);
+  border-radius: var(--ui2-radius-lg);
+  box-shadow: var(--ui2-shadow-card);
+}
+
+.account-card h2,
+.qr-preview-card p {
+  margin: 6px 0 16px;
+}
+
+.account-row {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  padding: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui2-text-primary);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--ui2-border);
+  text-align: left;
+}
+
+.account-row span {
+  color: var(--ui2-text-secondary);
+  font-size: 13px;
+}
+
+.sheet-scrim {
+  position: fixed;
+  z-index: 12;
+  inset: 0;
+  display: flex;
+  padding: 16px;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(22 32 42 / 34%);
+  backdrop-filter: blur(8px);
+}
+
+.edit-sheet {
+  width: min(100%, 390px);
+  padding: 12px 18px 18px;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 24px 80px rgb(22 32 42 / 22%);
+}
+
+.sheet-grabber {
+  width: 38px;
+  height: 5px;
+  margin: 0 auto 18px;
+  background: #d5dbe2;
+  border-radius: 999px;
+}
+
+.edit-sheet h2,
+.edit-sheet p {
+  margin: 0;
+}
+
+.edit-sheet > p:not(.placeholder-eyebrow) {
+  margin-top: 8px;
+  color: var(--ui2-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.edit-input {
+  min-height: 50px;
+  margin: 16px 0;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  background: var(--ui2-surface-muted);
+  border: 1px solid var(--ui2-primary);
+  border-radius: 14px;
+}
+
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sheet-actions button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  font-weight: 650;
+}
+
+.sheet-actions button:last-child {
+  color: #fff;
+  background: var(--ui2-primary);
+}
+
+.qr-preview-card {
+  text-align: center;
+}
+
+.fake-qr {
+  display: grid;
+  width: 210px;
+  height: 210px;
+  margin: 18px auto 22px;
+  place-items: center;
+  color: #0aa19a;
+  background: repeating-conic-gradient(#101820 0 8%, #fff 0 16%) 50% / 28px 28px;
+  border: 18px solid #fff;
+  outline: 1px solid var(--ui2-border);
+  font-size: 44px;
+  font-weight: 750;
+  text-shadow: 0 0 0 #fff;
+}
+
+.qr-fields {
+  display: grid;
+  gap: 10px;
+  font-size: 20px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.qr-preview-card > p:last-child {
+  color: var(--ui2-text-secondary);
+  font-size: 13px;
+}
+
+.workspace-placeholder h2,
+.workspace-placeholder p {
+  margin: 0;
+}
+
+.workspace-placeholder h2 {
+  margin-top: 5px;
+  font-size: 24px;
+}
+
+.workspace-placeholder > p:last-child {
+  margin-top: 10px;
+  color: var(--ui2-text-secondary);
+}
+
+.placeholder-eyebrow {
+  color: var(--ui2-primary);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .status-pill {

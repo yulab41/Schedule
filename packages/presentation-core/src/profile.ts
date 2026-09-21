@@ -24,6 +24,7 @@ export interface MyProfileContactLike {
   readonly membershipId: string;
   readonly mobilePhone?: string | undefined;
   readonly shortPhone?: string | undefined;
+  readonly version?: number | undefined;
 }
 
 export interface MyProfileStatisticsMemberLike {

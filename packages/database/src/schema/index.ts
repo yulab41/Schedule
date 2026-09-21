@@ -54,6 +54,8 @@ export const users = mysqlTable(
     cloudbaseUid: varchar('cloudbase_uid', { length: 128 }),
     mobilePhone: varchar('mobile_phone', { length: 32 }),
     mobilePhoneUpdatedAt: timestamp('mobile_phone_updated_at', { fsp: 3 }),
+    shortPhone: varchar('short_phone', { length: 32 }),
+    shortPhoneUpdatedAt: timestamp('short_phone_updated_at', { fsp: 3 }),
     isDeveloperAdmin: tinyint('is_developer_admin', { unsigned: true }).default(0).notNull(),
     authVersion: int('auth_version', { unsigned: true }).default(1).notNull(),
     wechatOpenid: varchar('wechat_openid', { length: 64 }),
@@ -220,6 +222,9 @@ export const visitorAccessLogs = mysqlTable(
       .notNull()
       .references(() => groups.id),
     businessMonth: char('business_month', { length: 7 }).notNull(),
+    wechatOpenid: varchar('wechat_openid', { length: 64 }),
+    clientContextVersion: tinyint('client_context_version', { unsigned: true }),
+    clientContext: json('client_context').$type<Record<string, unknown> | null>(),
     clientIp: varchar('client_ip', { length: 45 }),
     requestId: char('request_id', { length: 36 }),
     createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),

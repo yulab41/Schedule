@@ -1,4 +1,4 @@
-import { visitorResolveRequestSchema } from '@schedule/contracts';
+import { visitorCalendarReadRequestSchema, visitorResolveRequestSchema } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -164,6 +164,39 @@ export function registerCalendarRoutes(
         input.businessMonth,
         request.ip,
         request.id,
+      );
+      return calendar;
+    },
+  );
+
+  app.post(
+    '/guest/groups/:groupId/calendar/read',
+    { preHandler: publicMiniGuestGuard },
+    async (request) => {
+      const groupId = parseGroupId(request);
+      const input = parseOrThrow(visitorCalendarReadRequestSchema, request.body);
+      const resolved = await visitorAccessLogService.resolveGroup(input.visitorKey, groupId);
+      const calendar = await calendarQuery.readGuestMonthByGroupId(
+        resolved.groupId,
+        input.businessMonth,
+      );
+      let wechatOpenid: string | undefined;
+      if (input.loginCode !== undefined && app.wechatGateway !== undefined) {
+        try {
+          wechatOpenid = (await app.wechatGateway.exchangeCode(input.loginCode)).openid;
+        } catch {
+          // Visitor calendar access must remain available when WeChat login exchange is unavailable.
+        }
+      }
+      await visitorAccessLogService.recordAccess(
+        resolved.groupId,
+        input.businessMonth,
+        request.ip,
+        request.id,
+        {
+          clientContext: input.clientContext,
+          ...(wechatOpenid === undefined ? {} : { wechatOpenid }),
+        },
       );
       return calendar;
     },

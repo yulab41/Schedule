@@ -1,9 +1,11 @@
 import type {
   DissolvedGroup,
+  CurrentEnvironmentQrResponse,
   GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
   GroupQrResponse,
+  MiniProgramQrEnvironment,
   GroupSummary,
   PlatformAdminUserAccount,
   PlatformAdminUserAccountList,
@@ -13,6 +15,7 @@ import type {
 
 import {
   dissolvedGroupListJsonSchema,
+  currentEnvironmentQrResponseJsonSchema,
   groupCatalogListJsonSchema,
   groupMemberContactListJsonSchema,
   groupMemberListJsonSchema,
@@ -60,6 +63,10 @@ export const schedulingConfigReadDecoder = /* @__PURE__ */ createCompactDecoder<
 );
 export const groupQrResponseDecoder =
   /* @__PURE__ */ createCompactDecoder<GroupQrResponse>(groupQrResponseJsonSchema);
+export const currentEnvironmentQrResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<CurrentEnvironmentQrResponse>(
+    currentEnvironmentQrResponseJsonSchema,
+  );
 
 export const organizationReadEndpoints = {
   catalog: /* @__PURE__ */ defineClientEndpoint<EmptyInput, GroupCatalogEntry[]>({
@@ -97,6 +104,17 @@ export const organizationReadEndpoints = {
     method: 'GET',
     path: ({ groupId }) => `${groupPath(groupId)}/group-qr`,
   }),
+  visitorQr: /* @__PURE__ */ defineClientEndpoint<
+    GroupInput & { readonly environment: MiniProgramQrEnvironment },
+    CurrentEnvironmentQrResponse
+  >({
+    auth: 'bearer',
+    decoder: currentEnvironmentQrResponseDecoder,
+    id: 'organization.visitor-qr',
+    method: 'GET',
+    path: ({ environment, groupId }) =>
+      `${groupPath(groupId)}/visitor-qr?environment=${environment}`,
+  }),
   members: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupMember[]>({
     auth: 'bearer',
     decoder: groupMemberListDecoder,
@@ -131,6 +149,10 @@ export const organizationReadEndpoints = {
 export interface OrganizationReadClient {
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   getGroupQr(groupId: string): Promise<GroupQrResponse>;
+  getVisitorQr(
+    groupId: string,
+    environment: MiniProgramQrEnvironment,
+  ): Promise<CurrentEnvironmentQrResponse>;
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
   listGroupCatalog(): Promise<GroupCatalogEntry[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
@@ -147,6 +169,9 @@ export function createOrganizationReadClient(transport: ClientTransport): Organi
     },
     getGroupQr(groupId) {
       return transport.request(organizationReadEndpoints.groupQr, { groupId });
+    },
+    getVisitorQr(groupId, environment) {
+      return transport.request(organizationReadEndpoints.visitorQr, { environment, groupId });
     },
     listDissolvedGroups() {
       return transport.request(organizationReadEndpoints.dissolvedGroups, {});

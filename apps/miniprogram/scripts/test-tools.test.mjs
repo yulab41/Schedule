@@ -30,8 +30,12 @@ afterEach(() => {
 
 describe('safe Mini test tools', () => {
   it('shows only develop/trial and fails closed for release or unknown environments', async () => {
-    const { isTestToolsRuntimeEnabled, readMiniProgramRuntimeIdentity } =
-      await import('../src/platform/runtime-environment.ts');
+    const {
+      formatMiniProgramEnvironment,
+      isTestToolsRuntimeEnabled,
+      readMiniProgramRuntimeIdentity,
+      resolveCurrentQrEnvironment,
+    } = await import('../src/platform/runtime-environment.ts');
     const runtime = (envVersion, version = '1.2.3') => ({
       getAccountInfoSync: () => ({ miniProgram: { envVersion, version } }),
     });
@@ -41,6 +45,12 @@ describe('safe Mini test tools', () => {
     expect(isTestToolsRuntimeEnabled(runtime('release'))).toBe(false);
     expect(isTestToolsRuntimeEnabled(runtime('unexpected'))).toBe(false);
     expect(isTestToolsRuntimeEnabled({})).toBe(false);
+    expect(resolveCurrentQrEnvironment(runtime('release'))).toBe('release');
+    expect(resolveCurrentQrEnvironment(runtime('trial'))).toBe('trial');
+    expect(resolveCurrentQrEnvironment(runtime('develop'))).toBe('trial');
+    expect(resolveCurrentQrEnvironment(runtime('unexpected'))).toBeUndefined();
+    expect(resolveCurrentQrEnvironment({})).toBeUndefined();
+    expect(formatMiniProgramEnvironment('unknown')).toBe('未知环境（二维码功能已停止）');
     expect(readMiniProgramRuntimeIdentity(runtime('release', '8.0.1'))).toEqual({
       envVersion: 'release',
       version: '8.0.1',

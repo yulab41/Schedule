@@ -7,7 +7,7 @@ import {
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
-import type { GroupMember, GroupSummary, SchedulingConfig } from '@schedule/contracts';
+import type { GroupMember, GroupSummary } from '@schedule/contracts';
 import {
   createRuntimeInviteVisitorWriteClient,
   createRuntimeOrganizationReadClient,
@@ -24,6 +24,7 @@ import { parseVisitorQrImage } from '../../../../platform/visitor-qr-image.js';
 import { composeVisitorQrCard } from '../../../../platform/visitor-qr-card.js';
 import { composeMemberBindingQrCard } from '../../../../platform/member-binding-qr-card.js';
 import { recordMiniTelemetryBoundary } from '../../../../platform/telemetry.js';
+import { resolveCurrentQrEnvironment } from '../../../../platform/runtime-environment.js';
 
 interface ValueInputEvent {
   readonly detail?: { readonly value?: unknown };
@@ -35,12 +36,6 @@ interface TargetView {
   readonly kind: 'membership' | 'roster';
   readonly version: number;
   readonly statusLabel: string;
-}
-
-interface RoleView {
-  readonly id: string;
-  readonly label: string;
-  readonly version: number;
 }
 
 interface InviteVisitorPageData {
@@ -60,25 +55,12 @@ interface InviteVisitorPageData {
   readonly targets: readonly TargetView[];
   readonly targetIndex: number;
   readonly targetLabel: string;
-  readonly roleOptions: readonly RoleView[];
-  readonly permissionLabels: readonly string[];
-  readonly roleIndex: number;
-  readonly roleLabel: string;
-  readonly permissionRole: 'administrator' | 'member';
-  readonly inviteEditorOpen: boolean;
-  readonly inviteSharePath: string;
-  readonly inviteGroupName: string;
-  readonly inviteRealName: string;
-  readonly inviteRoleLabel: string;
-  readonly inviteExpiresAt: string;
   readonly bindingQrImageSrc: string;
-  readonly bindingTrialQrImageSrc: string;
   readonly bindingQrVisible: boolean;
   readonly bindingQrExpiresAt: string;
   readonly bindingQrSummary: string;
   readonly largeText: boolean;
   readonly qrImageSrc: string;
-  readonly trialQrImageSrc: string;
   readonly qrVisible: boolean;
   readonly visitorState: 'idle' | 'loading' | 'ready' | 'error';
   readonly visitorMessage: string;
@@ -95,10 +77,6 @@ interface InviteVisitorPageInstance {
   _groupId: string;
   _group: GroupSummary | undefined;
   _members: readonly GroupMember[];
-  _config: SchedulingConfig | undefined;
-  _inviteToken: string;
-  _inviteVersion: number;
-  _inviteExpiresAtMs: number;
   _inviteGeneration: number;
   _disposed: boolean;
   _qrGeneration: number;
@@ -137,26 +115,13 @@ export function createInviteVisitorPanelControllerDefinition() {
       currentGroupRole: '',
       targets: [],
       targetIndex: 0,
-      targetLabel: '请选择邀请对象',
-      roleOptions: [],
-      permissionLabels: ['成员', '管理员'],
-      roleIndex: 0,
-      roleLabel: '不指定岗位',
-      permissionRole: 'member',
-      inviteEditorOpen: false,
-      inviteSharePath: '',
-      inviteGroupName: '',
-      inviteRealName: '',
-      inviteRoleLabel: '',
-      inviteExpiresAt: '',
+      targetLabel: '请选择绑定对象',
       bindingQrImageSrc: '',
-      bindingTrialQrImageSrc: '',
       bindingQrVisible: false,
       bindingQrExpiresAt: '',
       bindingQrSummary: '',
       largeText: false,
       qrImageSrc: '',
-      trialQrImageSrc: '',
       qrVisible: false,
       visitorState: 'idle',
       visitorMessage: '',
@@ -170,10 +135,6 @@ export function createInviteVisitorPanelControllerDefinition() {
     _groupId: '',
     _group: undefined,
     _members: [],
-    _config: undefined,
-    _inviteToken: '',
-    _inviteVersion: 0,
-    _inviteExpiresAtMs: 0,
     _inviteGeneration: 0,
     _disposed: false,
     _operationIds: new Map<string, string>(),
@@ -198,19 +159,8 @@ export function createInviteVisitorPanelControllerDefinition() {
         invalidateQr(this);
         this._disposed = true;
         this._inviteGeneration = (this._inviteGeneration ?? 0) + 1;
-        this._inviteToken = '';
-        this._inviteVersion = 0;
-        this._inviteExpiresAtMs = 0;
         this._operationIds?.clear();
       },
-    },
-
-    handleRefreshInviteExpiry(this: InviteVisitorPageInstance): void {
-      if (!this._inviteToken || this._inviteExpiresAtMs > Date.now()) return;
-      this._inviteToken = '';
-      this._inviteVersion = 0;
-      this._inviteExpiresAtMs = 0;
-      updatePanel(this, { inviteSharePath: '', managementInfo: '邀请已过期，请重新生成邀请。' });
     },
 
     handleBack(): void {
@@ -228,36 +178,8 @@ export function createInviteVisitorPanelControllerDefinition() {
       this.setData({ targetIndex: index, targetLabel: `${target.name} · ${target.statusLabel}` });
     },
 
-    handleRolePicker(this: InviteVisitorPageInstance, event: ValueInputEvent): void {
-      const index = Number(event.detail?.value);
-      const role = this.data.roleOptions[index];
-      if (role === undefined) return;
-      this.setData({ roleIndex: index, roleLabel: role.label });
-    },
-
-    handlePermissionPicker(this: InviteVisitorPageInstance, event: ValueInputEvent): void {
-      const value = event.detail?.value;
-      this.setData({
-        permissionRole:
-          Number(value) === 1 || value === 'administrator' ? 'administrator' : 'member',
-      });
-    },
-
-    handleInviteToggle(this: InviteVisitorPageInstance): void {
-      if (!this.data.canManage || !this.data.organizationEnabled) return;
-      this.setData({ inviteEditorOpen: !this.data.inviteEditorOpen, managementError: '' });
-    },
-
-    handleCreateInvite(this: InviteVisitorPageInstance): void {
-      void createInvite(this);
-    },
-
     handleCreateBindingQr(this: InviteVisitorPageInstance): void {
       void createBindingQr(this);
-    },
-
-    handleRevokeInvite(this: InviteVisitorPageInstance): void {
-      void revokeInvite(this);
     },
 
     handleLoadQr(this: InviteVisitorPageInstance): void {
@@ -304,19 +226,11 @@ function syncGroupId(page: InviteVisitorPageInstance): void {
   page._inviteGeneration = (page._inviteGeneration ?? 0) + 1;
   clearInfoMessageTimer(page);
   invalidateQr(page);
-  page._inviteToken = '';
-  page._inviteVersion = 0;
-  page._inviteExpiresAtMs = 0;
   page._group = undefined;
-  page._config = undefined;
   page._members = [];
   page._operationIds.clear();
   updatePanel(page, {
-    inviteSharePath: '',
-    inviteGroupName: '',
-    inviteRealName: '',
     bindingQrImageSrc: '',
-    bindingTrialQrImageSrc: '',
     bindingQrVisible: false,
     bindingQrExpiresAt: '',
     bindingQrSummary: '',
@@ -348,10 +262,8 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
     managementError: '',
     managementInfo: '',
     managementState: 'loading',
-    inviteEditorOpen: false,
     qrVisible: false,
     qrImageSrc: '',
-    trialQrImageSrc: '',
     visitorState: 'idle',
     visitorMessage: '',
   });
@@ -360,22 +272,13 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
     if (!isCurrentInvitePage(page, groupId, generation)) return;
     const group = groups.find((candidate) => candidate.id === groupId);
     if (group === undefined) throw new Error('当前群组不可用。');
-    if (group.role === 'guest') throw new Error('访客不能管理邀请和访客入口。');
-    const [members, config] = await Promise.all([
-      page._organizationReadClient.listGroupMembers(group.id),
-      page._organizationReadClient.getSchedulingConfig(group.id),
-    ]);
+    if (group.role === 'guest') throw new Error('访客不能管理二维码入口。');
+    const members = await page._organizationReadClient.listGroupMembers(group.id);
     if (!isCurrentInvitePage(page, groupId, generation)) return;
     page._group = group;
     page._members = members;
-    page._config = config;
     const capabilities = getClientCapabilitySnapshot();
     const targets = createTargetViews(members);
-    const roleOptions = config.roles.map((role) => ({
-      id: role.id,
-      label: role.name,
-      version: role.version,
-    }));
     updatePanel(page, {
       state: 'ready',
       managementState: 'ready',
@@ -390,19 +293,16 @@ async function loadInviteData(page: InviteVisitorPageInstance): Promise<void> {
       targetIndex: 0,
       targetLabel:
         targets[0] === undefined
-          ? '暂无可邀请成员'
+          ? '暂无可绑定成员'
           : `${targets[0].name} · ${targets[0].statusLabel}`,
-      roleOptions,
-      roleIndex: 0,
-      roleLabel: roleOptions[0]?.label ?? '不指定岗位',
     });
   } catch (error) {
     if (!isCurrentInvitePage(page, groupId, generation)) return;
     updatePanel(page, {
       state: 'error',
       managementState: 'error',
-      errorMessage: toUserMessage(error, '邀请和访客入口暂时无法加载，请稍后重试。'),
-      managementError: toUserMessage(error, '邀请和访客入口暂时无法加载，请稍后重试。'),
+      errorMessage: toUserMessage(error, '二维码与访客入口暂时无法加载，请稍后重试。'),
+      managementError: toUserMessage(error, '二维码与访客入口暂时无法加载，请稍后重试。'),
     });
   }
 }
@@ -417,57 +317,6 @@ function initializeRuntimeState(page: InviteVisitorPageInstance): void {
   if (typeof page._qrGeneration !== 'number') page._qrGeneration = 0;
   if (!Array.isArray(page._members)) page._members = [];
   if (!(page._operationIds instanceof Map)) page._operationIds = new Map();
-}
-
-async function createInvite(page: InviteVisitorPageInstance): Promise<void> {
-  const groupId = page._groupId;
-  const generation = page._inviteGeneration;
-  if (!(await ensureOrganization(page, () => isCurrentInvitePage(page, groupId, generation))))
-    return;
-  if (!isCurrentInvitePage(page, groupId, generation) || page.data.managementState === 'loading')
-    return;
-  const target = page.data.targets[page.data.targetIndex];
-  const config = page._config;
-  if (target === undefined || config === undefined) {
-    updatePanel(page, { managementError: '当前没有可邀请的成员。', managementState: 'error' });
-    return;
-  }
-  const role = page.data.roleOptions[page.data.roleIndex];
-  const key = `invite-create:${target.id}:${target.version}:${page.data.permissionRole}:${role?.id ?? ''}`;
-  updatePanel(page, { managementError: '', managementInfo: '', managementState: 'loading' });
-  try {
-    const response = await page._inviteVisitorWriteClient.createInviteLink(groupId, {
-      expectedScheduleRoleVersion: role?.version,
-      expectedTargetVersion: target.version,
-      operationId: resolveOperationId(page, key),
-      permissionRole: page.data.permissionRole,
-      scheduleRoleId: role?.id,
-      ...(target.kind === 'roster'
-        ? { targetRosterEntryId: target.id }
-        : { targetMembershipId: target.id }),
-    });
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
-    page._operationIds.delete(key);
-    page._inviteToken = response.token;
-    page._inviteVersion = response.version;
-    page._inviteExpiresAtMs = Date.parse(response.expiresAt) || 0;
-    updatePanel(page, {
-      inviteEditorOpen: false,
-      inviteSharePath: response.sharePath,
-      inviteGroupName: response.groupName,
-      inviteRealName: response.realName,
-      inviteRoleLabel: response.scheduleRoleName ?? '未指定岗位',
-      inviteExpiresAt: formatDate(response.expiresAt),
-      managementInfo: '邀请已生成，请在本页完成转发。',
-      managementState: 'ready',
-    });
-  } catch (error) {
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
-    updatePanel(page, {
-      managementError: `${toUserMessage(error, '邀请没有生成，请稍后重试。')} 可保持当前选择重试。`,
-      managementState: 'error',
-    });
-  }
 }
 
 async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
@@ -485,52 +334,43 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
     });
     return;
   }
-  const key = `member-binding-qr:${target.id}:${target.version}`;
+  const environment = resolveCurrentQrEnvironment();
+  const key = `member-binding-qr:${target.id}:${target.version}:${environment ?? 'unknown'}`;
   updatePanel(page, {
     bindingQrImageSrc: '',
-    bindingTrialQrImageSrc: '',
     bindingQrVisible: false,
     managementError: '',
     managementInfo: '',
     managementState: 'loading',
   });
   try {
-    const response = await page._inviteVisitorWriteClient.createMemberWechatBindingQr(
+    if (environment === undefined) throw new Error('无法识别当前小程序版本，请重新进入后再试。');
+    const response = await page._inviteVisitorWriteClient.createCurrentMemberWechatBindingQr(
       groupId,
       target.id,
       {
+        environment,
         expectedMembershipVersion: target.version,
         operationId: resolveOperationId(page, key),
       },
     );
     if (!isCurrentInvitePage(page, groupId, generation)) return;
-    const formal = parseVisitorQrImage(response.imageBase64);
-    if (formal === undefined) throw new Error('微信绑定二维码资料无效。');
-    const trial =
-      response.trialImageBase64 === undefined
-        ? undefined
-        : parseVisitorQrImage(response.trialImageBase64);
+    const image = parseVisitorQrImage(response.imageBase64);
+    if (image === undefined) throw new Error('微信绑定二维码资料无效。');
     const details = {
       ...(response.employeeCode === undefined ? {} : { employeeCode: response.employeeCode }),
       expiresAt: response.expiresAt,
-      groupCode: response.groupCode,
       groupName: response.groupName,
       realName: response.realName,
     };
-    const [formalCard, trialCard] = await Promise.all([
-      composeMemberBindingQrCard(formal.imageSrc, details),
-      trial === undefined
-        ? Promise.resolve('')
-        : composeMemberBindingQrCard(trial.imageSrc, details),
-    ]);
+    const card = await composeMemberBindingQrCard(image.imageSrc, details);
     if (!isCurrentInvitePage(page, groupId, generation)) return;
     page._operationIds.delete(key);
     updatePanel(page, {
       bindingQrExpiresAt: formatDate(response.expiresAt),
-      bindingQrImageSrc: formalCard,
+      bindingQrImageSrc: card,
       bindingQrSummary: `${response.groupName} · ${response.realName} · 工号 ${response.employeeCode ?? '未设置'}`,
       bindingQrVisible: true,
-      bindingTrialQrImageSrc: trialCard,
       managementInfo: '一次性微信绑定二维码已生成。',
       managementState: 'ready',
     });
@@ -538,42 +378,6 @@ async function createBindingQr(page: InviteVisitorPageInstance): Promise<void> {
     if (!isCurrentInvitePage(page, groupId, generation)) return;
     updatePanel(page, {
       managementError: toUserMessage(error, '绑定二维码没有生成，请稍后重试。'),
-      managementState: 'error',
-    });
-  }
-}
-
-async function revokeInvite(page: InviteVisitorPageInstance): Promise<void> {
-  const groupId = page._groupId;
-  const generation = page._inviteGeneration;
-  if (!(await ensureOrganization(page, () => isCurrentInvitePage(page, groupId, generation))))
-    return;
-  if (page._inviteToken === '' || page._inviteVersion < 1) return;
-  if (!(await showConfirm('撤销当前邀请吗？撤销后该邀请链接立即失效。'))) return;
-  if (!isCurrentInvitePage(page, groupId, generation)) return;
-  const key = `invite-revoke:${page._inviteToken}:${page._inviteVersion}`;
-  updatePanel(page, { managementError: '', managementInfo: '', managementState: 'loading' });
-  try {
-    await page._inviteVisitorWriteClient.revokeInvite(page._groupId, page._inviteToken, {
-      expectedVersion: page._inviteVersion,
-      operationId: resolveOperationId(page, key),
-    });
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
-    page._operationIds.delete(key);
-    page._inviteToken = '';
-    page._inviteVersion = 0;
-    page._inviteExpiresAtMs = 0;
-    updatePanel(page, {
-      inviteSharePath: '',
-      inviteGroupName: '',
-      inviteRealName: '',
-      managementInfo: '当前邀请已撤销。',
-      managementState: 'ready',
-    });
-  } catch (error) {
-    if (!isCurrentInvitePage(page, groupId, generation)) return;
-    updatePanel(page, {
-      managementError: `${toUserMessage(error, '邀请没有撤销，请稍后重试。')} 可保持当前邀请重试。`,
       managementState: 'error',
     });
   }
@@ -593,7 +397,6 @@ function invalidateQr(page: InviteVisitorPageInstance): void {
   delete page._qrRotating;
   updatePanel(page, {
     qrImageSrc: '',
-    trialQrImageSrc: '',
     qrVisible: false,
     visitorState: 'idle',
   });
@@ -708,23 +511,16 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
       !isCurrent()
     )
       return;
-    const response = await page._organizationReadClient.getGroupQr(groupId);
+    const environment = resolveCurrentQrEnvironment();
+    if (environment === undefined) throw new Error('无法识别当前小程序版本，请重新进入后再试。');
+    const response = await page._organizationReadClient.getVisitorQr(groupId, environment);
     if (!isCurrent()) return;
     const image = parseVisitorQrImage(response.imageBase64);
     if (!image) throw new Error('二维码图片无效，请重新读取。');
-    const trialImage = response.trialImageBase64
-      ? parseVisitorQrImage(response.trialImageBase64)
-      : undefined;
-    const [releaseCard, trialCard] = await Promise.all([
-      composeVisitorQrCard(image.imageSrc, page.data.currentGroupName),
-      trialImage
-        ? composeVisitorQrCard(trialImage.imageSrc, page.data.currentGroupName)
-        : Promise.resolve(''),
-    ]);
+    const card = await composeVisitorQrCard(image.imageSrc, page.data.currentGroupName);
     if (!isCurrent()) return;
     updatePanel(page, {
-      qrImageSrc: releaseCard,
-      trialQrImageSrc: trialCard,
+      qrImageSrc: card,
       qrVisible: true,
       visitorState: 'ready',
       visitorMessage: '二维码已读取，可长按二维码保存或转发。',
@@ -733,7 +529,7 @@ async function loadQr(page: InviteVisitorPageInstance): Promise<void> {
     if (!isCurrent()) return;
     updatePanel(page, {
       visitorState: 'error',
-      visitorMessage: toUserMessage(error, '群组二维码暂时无法加载，请稍后重试。'),
+      visitorMessage: toUserMessage(error, '访客二维码暂时无法加载，请稍后重试。'),
     });
   } finally {
     if (page._qrReading === task) {
@@ -842,18 +638,6 @@ function formatDate(value: string): string {
 
 function formatRole(role: GroupSummary['role']): string {
   return role === 'owner' ? '群主' : role === 'administrator' ? '管理员' : '成员';
-}
-
-function showConfirm(content: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    wx.showModal({
-      cancelText: '取消',
-      content,
-      confirmText: '确认',
-      success: (result) => resolve(result.confirm === true),
-      fail: () => resolve(false),
-    });
-  });
 }
 
 function toUserMessage(error: unknown, fallback: string): string {

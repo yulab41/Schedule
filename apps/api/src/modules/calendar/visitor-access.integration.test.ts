@@ -183,7 +183,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     });
     expect(ownerQr.statusCode, ownerQr.body).toBe(200);
     expect(ownerQr.json()).toMatchObject({ imageBase64: expect.any(String) });
-    expect(qrGateway.qrCalls).toBe(1);
+    expect(qrGateway.qrCalls).toBe(2);
 
     const adminQr = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
@@ -191,7 +191,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       url: `/groups/${groupId}/group-qr`,
     });
     expect(adminQr.statusCode).toBe(200);
-    expect(qrGateway.qrCalls).toBe(1);
+    expect(qrGateway.qrCalls).toBe(2);
 
     const memberQr = await app.inject({
       headers: { authorization: 'Bearer member-token' },
@@ -199,6 +199,28 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       url: `/groups/${groupId}/group-qr`,
     });
     expect(memberQr.statusCode).toBe(403);
+  });
+
+  it('returns exactly one visitor QR for the requested current environment and rejects unknown values', async () => {
+    for (const environment of ['release', 'trial'] as const) {
+      const response = await app.inject({
+        headers: { authorization: 'Bearer owner-token' },
+        method: 'GET',
+        url: `/groups/${groupId}/visitor-qr?environment=${environment}`,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toEqual({ environment, imageBase64: expect.any(String) });
+      expect(response.json()).not.toHaveProperty('trialImageBase64');
+      expect(response.json()).not.toHaveProperty('groupCode');
+    }
+    expect(qrGateway.qrEnvironments).toEqual(['release', 'trial']);
+
+    const unknown = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/visitor-qr?environment=unknown`,
+    });
+    expect(unknown.statusCode).toBe(400);
   });
 
   it('maps WeChat QR errors to typed API errors', async () => {
@@ -269,6 +291,82 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       url: `/groups/${groupId}/visitor-access-logs`,
     });
     expect(memberLogs.statusCode).toBe(403);
+  });
+
+  it('accepts strict visitor context, stores OpenID without creating a user and degrades on exchange failure', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    const [beforeUsers] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM users`,
+    )) as unknown as [readonly { count: number }[], unknown];
+    const payload = {
+      businessMonth: '2026-10',
+      clientContext: {
+        brand: 'Xiaomi',
+        envVersion: 'trial',
+        model: 'Xiaomi 14',
+        sdkVersion: '3.7.12',
+        version: 1,
+        wechatVersion: '8.0.64',
+      },
+      loginCode: 'visitor-code',
+      visitorKey,
+    };
+    const response = await app.inject({
+      method: 'POST',
+      payload,
+      url: `/guest/groups/${groupId}/calendar/read`,
+    });
+    expect(response.statusCode, response.body).toBe(200);
+
+    const logs = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/visitor-access-logs`,
+    });
+    expect(logs.statusCode, logs.body).toBe(200);
+    expect(logs.json()).toMatchObject({
+      logs: [
+        {
+          businessMonth: '2026-10',
+          clientContext: payload.clientContext,
+          wechatOpenid: 'mock-openid-visitor-code',
+        },
+      ],
+    });
+    const [afterUsers] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM users`,
+    )) as unknown as [readonly { count: number }[], unknown];
+    expect(String(afterUsers[0]?.count)).toBe(String(beforeUsers[0]?.count));
+
+    qrGateway.failExchange = true;
+    const degraded = await app.inject({
+      method: 'POST',
+      payload: { ...payload, businessMonth: '2026-11', loginCode: 'bad-code' },
+      url: `/guest/groups/${groupId}/calendar/read`,
+    });
+    expect(degraded.statusCode, degraded.body).toBe(200);
+    const [degradedRows] = (await client.database.execute(sql`
+      SELECT wechat_openid AS wechatOpenid, client_context AS clientContext
+      FROM visitor_access_logs
+      WHERE group_id = ${groupId} AND business_month = '2026-11'
+    `)) as unknown as [readonly { clientContext: unknown; wechatOpenid: string | null }[], unknown];
+    expect(degradedRows).toEqual([{ clientContext: expect.anything(), wechatOpenid: null }]);
+  });
+
+  it('rejects unknown and overlong visitor context fields', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    for (const clientContext of [
+      { version: 1, unexpected: 'no' },
+      { version: 1, model: 'x'.repeat(129) },
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        payload: { businessMonth: '2026-10', clientContext, visitorKey },
+        url: `/guest/groups/${groupId}/calendar/read`,
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    }
   });
 
   it('hides raw rows before 90 days and lets both platform-admin classes read without membership', async () => {
@@ -485,17 +583,27 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
 
 class CountingGateway implements WechatGateway {
   public failWith: WechatGatewayError | undefined;
+  public failExchange = false;
   public qrCalls = 0;
+  public qrEnvironments: string[] = [];
   public readonly isConfigured = true;
 
   public async exchangeCode(
     code: string,
   ): Promise<{ openid: string; sessionKey: undefined; unionid: undefined }> {
+    if (this.failExchange) {
+      throw new WechatGatewayError(40029, 'invalid code', 'WECHAT_LOGIN_FAILED');
+    }
     return { openid: `mock-openid-${code}`, sessionKey: undefined, unionid: undefined };
   }
 
-  public async getUnlimitedQr(): Promise<Uint8Array> {
+  public async getUnlimitedQr(
+    _scene: string,
+    _page: string,
+    environment: string,
+  ): Promise<Uint8Array> {
     this.qrCalls += 1;
+    this.qrEnvironments.push(environment);
     if (this.failWith !== undefined) {
       throw this.failWith;
     }

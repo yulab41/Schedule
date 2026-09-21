@@ -46,6 +46,15 @@ export function isTestToolsRuntimeEnabled(
   return envVersion === 'develop' || envVersion === 'trial';
 }
 
+export function resolveCurrentQrEnvironment(
+  runtime: AccountInfoRuntime = wx as unknown as AccountInfoRuntime,
+): 'release' | 'trial' | undefined {
+  const environment = readMiniProgramRuntimeIdentity(runtime).envVersion;
+  if (environment === 'release') return 'release';
+  if (environment === 'trial' || environment === 'develop') return 'trial';
+  return undefined;
+}
+
 export function formatMiniProgramEnvironment(envVersion: MiniProgramEnvVersion): string {
   switch (envVersion) {
     case 'develop':
@@ -55,6 +64,6 @@ export function formatMiniProgramEnvironment(envVersion: MiniProgramEnvVersion):
     case 'release':
       return '正式版 release';
     default:
-      return '未知环境（已按正式版保护）';
+      return '未知环境（二维码功能已停止）';
   }
 }

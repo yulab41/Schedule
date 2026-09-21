@@ -35,7 +35,7 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { AuditWriter } from '../audit/audit-writer.js';
-import { mergeAccountMobilePhone } from '../users/account-mobile-phone.js';
+import { mergeAccountMobilePhone, mergeAccountShortPhone } from '../users/account-mobile-phone.js';
 import { withRetriedTransaction } from '../concurrency/transaction-retry.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import {
@@ -876,6 +876,7 @@ export class InviteService {
       );
 
     await mergeAccountMobilePhone(transaction, currentUser.id, targetMembership.userId);
+    await mergeAccountShortPhone(transaction, currentUser.id, targetMembership.userId);
     const openid = currentUserRow.wechatOpenid;
     await transaction
       .update(users)
@@ -937,6 +938,7 @@ export class InviteService {
       .where(eq(groupMemberships.id, membershipId));
     if (previousUserId !== userId) {
       await mergeAccountMobilePhone(transaction, previousUserId, userId);
+      await mergeAccountShortPhone(transaction, previousUserId, userId);
       await this.releaseUnboundUserIfUnused(transaction, previousUserId);
     }
   }

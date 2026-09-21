@@ -59,10 +59,10 @@ describe('anonymous native visitor calendar', () => {
             groupDefaultMonthShiftTypeId: null,
             groupDefaultView: 'month',
           };
-        else if (/\/guest\/groups\/[^/]+\/calendar\?/.test(options.url)) {
+        else if (/\/guest\/groups\/[^/]+\/calendar\/read$/.test(options.url)) {
           const calendar = structuredClone(calendarApiGoldenResponse);
           calendar.groupId = groupId;
-          calendar.businessMonth = new URL(options.url).searchParams.get('businessMonth');
+          calendar.businessMonth = options.data.businessMonth;
           calendar.assignments = populated
             ? calendar.assignments.map((row) => ({
                 ...row,

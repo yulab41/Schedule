@@ -6,6 +6,7 @@ import type {
   VisitorAccessAggregatePage,
   VisitorAccessLog,
   VisitorAccessLogPage,
+  VisitorClientContext,
 } from '@schedule/contracts';
 import {
   type DatabaseClient,
@@ -72,6 +73,10 @@ export class VisitorAccessLogService {
     businessMonth: string,
     clientIp: string | undefined,
     requestId: string | undefined,
+    details: {
+      readonly clientContext?: VisitorClientContext;
+      readonly wechatOpenid?: string;
+    } = {},
   ): Promise<void> {
     await this.databaseClient.database.insert(visitorAccessLogs).values({
       businessMonth,
@@ -79,6 +84,9 @@ export class VisitorAccessLogService {
       groupId,
       id: randomUUID(),
       requestId: requestId ?? null,
+      clientContext: details.clientContext ?? null,
+      clientContextVersion: details.clientContext?.version ?? null,
+      wechatOpenid: details.wechatOpenid ?? null,
     });
   }
 
@@ -102,6 +110,8 @@ export class VisitorAccessLogService {
           groupId: visitorAccessLogs.groupId,
           id: visitorAccessLogs.id,
           requestId: visitorAccessLogs.requestId,
+          clientContext: visitorAccessLogs.clientContext,
+          wechatOpenid: visitorAccessLogs.wechatOpenid,
         })
         .from(visitorAccessLogs)
         .where(
@@ -288,6 +298,8 @@ function toVisitorAccessLog(row: {
   readonly groupId: string;
   readonly id: string;
   readonly requestId: string | null;
+  readonly clientContext: Record<string, unknown> | null;
+  readonly wechatOpenid: string | null;
 }): VisitorAccessLog {
   return {
     businessMonth: row.businessMonth,
@@ -296,6 +308,10 @@ function toVisitorAccessLog(row: {
     groupId: row.groupId,
     id: row.id,
     ...(row.requestId === null ? {} : { requestId: row.requestId }),
+    ...(row.wechatOpenid === null ? {} : { wechatOpenid: row.wechatOpenid }),
+    ...(row.clientContext === null
+      ? {}
+      : { clientContext: row.clientContext as VisitorClientContext }),
   };
 }
 

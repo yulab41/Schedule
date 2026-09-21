@@ -73,8 +73,8 @@ describe('Mini visitor access controller parity', () => {
     expect(page.data.logs[0]).toMatchObject({
       businessMonthLabel: '2026-08',
       createdAtLabel: '2026-08-02 00:30',
-      ipLabel: '203.0.113.*',
-      requestIdLabel: '请求 req-9a2…5e6f',
+      ipLabel: '203.0.113.10',
+      requestIdLabel: 'req-9a2b3c4d5e6f',
     });
   });
 

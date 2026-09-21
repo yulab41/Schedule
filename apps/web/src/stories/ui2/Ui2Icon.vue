@@ -6,6 +6,7 @@ export type Ui2IconName =
   | 'check'
   | 'chevron-left'
   | 'chevron-right'
+  | 'directory'
   | 'filter'
   | 'leave'
   | 'more'
@@ -29,6 +30,11 @@ defineProps<{
     <template v-else-if="name === 'leave'">
       <path d="M7 3h7l4 4v14H7z" />
       <path d="M14 3v5h5M10 13h5M10 17h4" />
+    </template>
+    <template v-else-if="name === 'directory'">
+      <rect x="5" y="3" width="14" height="18" rx="2.5" />
+      <circle cx="12" cy="9" r="2.5" />
+      <path d="M8.5 17a3.5 3.5 0 0 1 7 0M3 7h2M3 12h2M3 17h2" />
     </template>
     <template v-else-if="name === 'swap'">
       <path d="m7 7 3-3m-3 3 3 3M7 7h9a4 4 0 0 1 4 4" />

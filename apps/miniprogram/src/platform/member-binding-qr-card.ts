@@ -1,7 +1,6 @@
 interface BindingQrCardDetails {
   readonly employeeCode?: string;
   readonly expiresAt: string;
-  readonly groupCode: string;
   readonly groupName: string;
   readonly realName: string;
 }
@@ -37,7 +36,8 @@ export async function composeMemberBindingQrCard(
       height: number;
     }) => OffscreenCanvas;
   };
-  const canvas = runtime.createOffscreenCanvas?.({ type: '2d', width: 720, height: 1040 });
+  const groupLines = wrapGroupName(`群组名：${details.groupName}`);
+  const canvas = runtime.createOffscreenCanvas?.({ type: '2d', width: 720, height: 1240 });
   if (!canvas) return imageSrc;
   const image = canvas.createImage();
   await new Promise<void>((resolve, reject) => {
@@ -47,22 +47,28 @@ export async function composeMemberBindingQrCard(
   });
   const context = canvas.getContext('2d');
   context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, 720, 1040);
+  context.fillRect(0, 0, 720, 1240);
   context.drawImage(image, 40, 30, 640, 640);
-  context.textAlign = 'left';
+  context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillStyle = '#17202a';
-  context.font = '600 34px sans-serif';
-  context.fillText(details.groupName, 54, 725, 612);
-  context.font = '500 25px sans-serif';
-  context.fillText(`群组码：${details.groupCode}`, 54, 785, 612);
-  context.fillText(`姓名：${details.realName}`, 54, 830, 612);
-  context.fillText(`工号：${details.employeeCode ?? '未设置'}`, 54, 875, 612);
-  context.fillText(`有效至：${formatExpiry(details.expiresAt)}`, 54, 920, 612);
+  context.font = '600 40px sans-serif';
+  groupLines.forEach((line, index) => context.fillText(line, 360, 735 + index * 64, 640));
+  const metadataStart = 735 + groupLines.length * 72;
+  context.font = '500 40px sans-serif';
+  context.fillText(`姓名：${details.realName}`, 360, metadataStart, 640);
+  context.fillText(`工号：${details.employeeCode ?? '未设置'}`, 360, metadataStart + 72, 640);
+  context.fillText(`有效期：${formatExpiry(details.expiresAt)}`, 360, metadataStart + 144, 640);
   context.fillStyle = '#b42318';
-  context.font = '600 22px sans-serif';
-  context.fillText('一次性微信绑定码，请勿公开', 54, 975, 612);
+  context.font = '600 30px sans-serif';
+  context.fillText('一次性微信绑定码，请勿公开', 360, metadataStart + 224, 640);
   return canvas.toDataURL('image/png');
+}
+
+function wrapGroupName(value: string): readonly string[] {
+  const characters = [...value.trim()];
+  if (characters.length <= 14) return [characters.join('')];
+  return [characters.slice(0, 14).join(''), characters.slice(14, 28).join('')];
 }
 
 function formatExpiry(value: string): string {

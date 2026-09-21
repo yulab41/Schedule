@@ -154,6 +154,53 @@ export class VisitorKeyService {
     };
   }
 
+  public async getCurrentEnvironmentQr(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    gateway: WechatGateway,
+    environment: QrEnvironment,
+  ): Promise<{ readonly environment: QrEnvironment; readonly imageBase64: string }> {
+    const startedAt = Date.now();
+    const authorization = await withTransaction(this.databaseClient, async (transaction) =>
+      this.permissionService.requirePermission(transaction, identity, groupId, 'viewGroupQr'),
+    );
+    const [group] = await this.databaseClient.database
+      .select({ visitorKey: groups.visitorKey })
+      .from(groups)
+      .where(eq(groups.id, authorization.group.id))
+      .limit(1);
+    if (group === undefined)
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '群组不存在或不可用。',
+      });
+    const result = await this.readOrGenerateQr(
+      authorization.group.id,
+      group.visitorKey,
+      environment,
+      gateway,
+    );
+    await withTransaction(this.databaseClient, async (transaction) =>
+      this.auditWriter.append(transaction, {
+        action: 'visitor_qr_generated',
+        actorUserId: authorization.user.id,
+        groupId: authorization.group.id,
+        metadata: {
+          environment,
+          generated: !result.persisted,
+          generationMs: result.generatedMs,
+          totalMs: Date.now() - startedAt,
+        },
+        operationId: randomUUID(),
+        outcome: 'completed',
+        targetId: authorization.group.id,
+        targetType: 'group',
+      }),
+    );
+    return { environment, imageBase64: Buffer.from(result.bytes).toString('base64') };
+  }
+
   private async readOrGenerateQr(
     groupId: string,
     visitorKey: string,

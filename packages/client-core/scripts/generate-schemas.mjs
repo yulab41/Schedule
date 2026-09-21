@@ -19,6 +19,8 @@ import {
   convertPendingRosterResponseSchema,
   createInviteLinkResponseSchema,
   createMemberWechatBindingQrResponseSchema,
+  createCurrentMemberWechatBindingQrResponseSchema,
+  currentEnvironmentQrResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
   dissolvedGroupListSchema,
   directoryEntryLookupResponseSchema,
@@ -156,6 +158,10 @@ const source = await format(
         z.toJSONSchema(createMemberWechatBindingQrResponseSchema),
         'createMemberWechatBindingQrResponse',
       ),
+      createCurrentMemberWechatBindingQrResponse: sanitizeJsonSchema(
+        z.toJSONSchema(createCurrentMemberWechatBindingQrResponseSchema),
+        'createCurrentMemberWechatBindingQrResponse',
+      ),
       createWechatAdminBindingLinkResponse: sanitizeJsonSchema(
         z.toJSONSchema(createWechatAdminBindingLinkResponseSchema),
         'createWechatAdminBindingLinkResponse',
@@ -202,6 +208,10 @@ const source = await format(
         'groupMobilePhoneConsent',
       ),
       groupQrResponse: sanitizeJsonSchema(z.toJSONSchema(groupQrResponseSchema), 'groupQrResponse'),
+      currentEnvironmentQrResponse: sanitizeJsonSchema(
+        z.toJSONSchema(currentEnvironmentQrResponseSchema),
+        'currentEnvironmentQrResponse',
+      ),
       groupMemberContactList: sanitizeJsonSchema(
         z.toJSONSchema(groupMemberContactListSchema),
         'groupMemberContactList',

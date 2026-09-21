@@ -1,11 +1,9 @@
 import { ClientCoreError, type VisitorAccessReadClient } from '@schedule/client-core';
-import type { VisitorAccessLog } from '@schedule/contracts';
+import type { VisitorAccessLog, VisitorClientContext } from '@schedule/contracts';
 import {
   buildVisitorAccessAggregateCards,
   formatVisitorAccessDateTime,
   formatVisitorAccessMonth,
-  maskVisitorAccessIp,
-  maskVisitorAccessRequestId,
   sumVisitorAccessCounts,
   type VisitorAccessAggregateCardLike,
 } from '@schedule/presentation-core/visitor-access';
@@ -28,9 +26,14 @@ interface LogCard {
   readonly businessMonthLabel: string;
   readonly createdAtLabel: string;
   readonly id: string;
+  readonly expanded: boolean;
   readonly ipLabel: string;
+  readonly contextSummary: string;
+  readonly details: readonly { readonly label: string; readonly value: string }[];
   readonly requestIdLabel: string;
 }
+
+type TapEvent = { readonly currentTarget: { readonly dataset: { readonly id?: string } } };
 
 interface VisitorAccessPageData {
   readonly aggregateCountLabel: string;
@@ -132,6 +135,16 @@ export function createVisitorAccessPanelControllerDefinition() {
 
       handleLoadMore(this: VisitorAccessPageInstance): void {
         void loadMoreLogs(this);
+      },
+
+      handleToggleLog(this: VisitorAccessPageInstance, event: TapEvent): void {
+        const id = event.currentTarget.dataset.id;
+        if (id === undefined) return;
+        this.setData({
+          logs: this.data.logs.map((log) =>
+            log.id === id ? { ...log, expanded: !log.expanded } : log,
+          ),
+        });
       },
     },
   };
@@ -260,13 +273,87 @@ async function loadMoreLogs(page: VisitorAccessPageInstance): Promise<void> {
 }
 
 function toLogCard(row: VisitorAccessLog): LogCard {
+  const context = row.clientContext;
   return {
     businessMonthLabel: formatVisitorAccessMonth(row.businessMonth),
     createdAtLabel: formatVisitorAccessDateTime(row.createdAt),
     id: row.id,
-    ipLabel: maskVisitorAccessIp(row.clientIp),
-    requestIdLabel: maskVisitorAccessRequestId(row.requestId),
+    expanded: false,
+    ipLabel: row.clientIp ?? 'IP 未取得',
+    contextSummary: [context?.brand, context?.model].filter(Boolean).join(' ') || '设备信息未取得',
+    details: buildLogDetails(row),
+    requestIdLabel: row.requestId ?? '请求 ID 未取得',
   };
+}
+
+function buildLogDetails(
+  row: VisitorAccessLog,
+): readonly { readonly label: string; readonly value: string }[] {
+  const context = row.clientContext;
+  const entries: readonly [string, unknown][] = [
+    ['小程序 OpenID（非微信号）', row.wechatOpenid ?? '未取得'],
+    ['完整 IP', row.clientIp ?? '未取得'],
+    ['完整请求 ID', row.requestId ?? '未取得'],
+    ['品牌', context?.brand],
+    ['型号', context?.model],
+    ['操作系统', context?.system],
+    ['平台', context?.platform],
+    ['CPU / ABI', [context?.cpuType, context?.abi].filter(Boolean).join(' / ')],
+    ['内存等级', context?.memorySize],
+    ['性能等级', context?.benchmarkLevel],
+    ['微信版本', context?.wechatVersion],
+    ['基础库', context?.sdkVersion],
+    ['小程序版本', context?.appVersion],
+    ['环境版本', context?.envVersion],
+    ['语言', context?.language],
+    ['主题', context?.theme],
+    ['调试状态', context?.debug === undefined ? undefined : context.debug ? '开启' : '关闭'],
+    ['网络类型', context?.networkType],
+    [
+      '屏幕 / 窗口',
+      formatDimensions(
+        context?.screenWidth,
+        context?.screenHeight,
+        context?.windowWidth,
+        context?.windowHeight,
+      ),
+    ],
+    ['像素比', context?.pixelRatio],
+    ['字体设置', context?.fontSizeSetting],
+    ['安全区', formatSafeArea(context?.safeArea)],
+  ];
+  return entries
+    .filter((entry) => entry[1] !== undefined && entry[1] !== '')
+    .map(([label, value]) => ({ label, value: String(value) }));
+}
+
+function formatDimensions(
+  screenWidth: number | undefined,
+  screenHeight: number | undefined,
+  windowWidth: number | undefined,
+  windowHeight: number | undefined,
+): string | undefined {
+  const screen =
+    screenWidth === undefined || screenHeight === undefined
+      ? undefined
+      : `${screenWidth}×${screenHeight}`;
+  const viewport =
+    windowWidth === undefined || windowHeight === undefined
+      ? undefined
+      : `${windowWidth}×${windowHeight}`;
+  return (
+    [
+      screen === undefined ? undefined : `屏幕 ${screen}`,
+      viewport === undefined ? undefined : `窗口 ${viewport}`,
+    ]
+      .filter(Boolean)
+      .join('；') || undefined
+  );
+}
+
+function formatSafeArea(safeArea: VisitorClientContext['safeArea']): string | undefined {
+  if (safeArea === undefined) return undefined;
+  return `左 ${safeArea.left}，上 ${safeArea.top}，右 ${safeArea.right}，下 ${safeArea.bottom}，${safeArea.width}×${safeArea.height}`;
 }
 
 function isRequestCurrent(

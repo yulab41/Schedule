@@ -25,7 +25,6 @@ describe('P8-C-2 native scheduling configuration', () => {
         'pages/group-settings/index',
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
-        'pages/invite-accept/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],

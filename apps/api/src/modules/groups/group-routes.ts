@@ -256,6 +256,26 @@ export function registerGroupRoutes(
     );
   });
 
+  app.get('/groups/:groupId/visitor-qr', { preHandler: app.authenticate }, async (request) => {
+    const gateway = app.wechatGateway;
+    if (gateway === undefined)
+      throw new ApiError({
+        code: 'SERVICE_UNAVAILABLE',
+        statusCode: 503,
+        userMessage: '访客二维码暂不可用。',
+      });
+    const query = parseOrThrow(
+      z.object({ environment: z.enum(['release', 'trial']) }).strict(),
+      request.query,
+    );
+    return visitorKeyService.getCurrentEnvironmentQr(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      gateway,
+      query.environment,
+    );
+  });
+
   app.get(
     '/groups/:groupId/visitor-access-logs',
     { preHandler: app.authenticate },

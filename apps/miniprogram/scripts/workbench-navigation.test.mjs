@@ -108,7 +108,7 @@ describe('Mini workbench Web-parity navigation', () => {
       '通知中心',
       '导出排班',
       '访问与平台',
-      '邀请与访客',
+      '二维码与访客',
       '访客访问',
       '平台账号',
       '测试与诊断',

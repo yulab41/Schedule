@@ -6,6 +6,8 @@ import {
 } from '@schedule/contracts';
 import type {
   ClientVersion,
+  CreateCurrentMemberWechatBindingQrRequest,
+  CreateCurrentMemberWechatBindingQrResponse,
   CreateMemberWechatBindingQrRequest,
   CreateMemberWechatBindingQrResponse,
   CreateWechatAdminBindingLinkRequest,
@@ -330,6 +332,42 @@ export class WechatAdminBindingService {
       },
       scope: `member_wechat_binding_qr:${groupId}`,
     });
+  }
+
+  public async createCurrentMemberQr(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    membershipId: string,
+    input: CreateCurrentMemberWechatBindingQrRequest,
+    requestId?: string,
+  ): Promise<CreateCurrentMemberWechatBindingQrResponse> {
+    const legacy = await this.createMemberQr(
+      identity,
+      groupId,
+      membershipId,
+      {
+        expectedMembershipVersion: input.expectedMembershipVersion,
+        operationId: input.operationId,
+      },
+      requestId,
+    );
+    const imageBase64 =
+      input.environment === 'release' ? legacy.imageBase64 : legacy.trialImageBase64;
+    if (imageBase64 === undefined)
+      throw new ApiError({
+        code: 'SERVICE_UNAVAILABLE',
+        statusCode: 503,
+        userMessage: '当前版本的绑定二维码暂不可用，请稍后重试。',
+      });
+    return {
+      ...(legacy.employeeCode === undefined ? {} : { employeeCode: legacy.employeeCode }),
+      environment: input.environment,
+      expiresAt: legacy.expiresAt,
+      groupName: legacy.groupName,
+      imageBase64,
+      membershipId: legacy.membershipId,
+      realName: legacy.realName,
+    };
   }
 
   public async preview(ticket: string): Promise<WechatAdminBindingPreviewResponse> {

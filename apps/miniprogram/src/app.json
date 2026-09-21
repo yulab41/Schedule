@@ -6,7 +6,6 @@
     "pages/index/index",
     "pages/gesture-probe/index",
     "pages/admin-bind/preview",
-    "pages/invite/invite",
     "pages/guest/guest"
   ],
   "subpackages": [
@@ -20,7 +19,6 @@
         "pages/group-settings/index",
         "pages/scheduling-config/index",
         "pages/invite-visitor/index",
-        "pages/invite-accept/index",
         "pages/platform-accounts/index",
         "pages/directory/index"
       ]

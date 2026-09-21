@@ -1,5 +1,6 @@
 import {
   createMemberWechatBindingQrRequestSchema,
+  createCurrentMemberWechatBindingQrRequestSchema,
   createWechatAdminBindingLinkRequestSchema,
   wechatAdminBindingConfirmRequestSchema,
   wechatAdminBindingPreviewRequestSchema,
@@ -44,6 +45,19 @@ export function registerWechatAdminBindingRoutes(
         parseId(request, 'groupId', groupIdSchema),
         parseId(request, 'membershipId', membershipIdSchema),
         parseMemberQrInput(request),
+        request.id,
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/members/:membershipId/current-wechat-binding-qr',
+    { preHandler: app.authenticate },
+    async (request) =>
+      service.createCurrentMemberQr(
+        getAuthenticatedIdentity(request),
+        parseId(request, 'groupId', groupIdSchema),
+        parseId(request, 'membershipId', membershipIdSchema),
+        parseCurrentMemberQrInput(request),
         request.id,
       ),
   );
@@ -116,6 +130,19 @@ function parseId(
 function parseMemberQrInput(request: FastifyRequest) {
   const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
   const result = createMemberWechatBindingQrRequestSchema.safeParse({
+    ...(body ?? {}),
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      body?.['operationId'] as string | undefined,
+    ),
+  });
+  if (!result.success) throw validationError();
+  return result.data;
+}
+
+function parseCurrentMemberQrInput(request: FastifyRequest) {
+  const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
+  const result = createCurrentMemberWechatBindingQrRequestSchema.safeParse({
     ...(body ?? {}),
     operationId: resolveDangerousOperationId(
       request.headers['idempotency-key'],

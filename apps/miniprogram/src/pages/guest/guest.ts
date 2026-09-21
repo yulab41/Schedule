@@ -34,6 +34,7 @@ import {
   writeGuestPublicCache,
 } from '../../platform/guest-public-cache.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
+import { createVisitorCalendarRequestContext } from '../../platform/visitor-client-context.js';
 import {
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
@@ -702,13 +703,22 @@ function readMonth(
   const pending = page.monthReads.get(businessMonth);
   if (pending) return pending;
   const generation = page.contextGeneration;
-  const read = client.getGuestCalendar(groupId, businessMonth, key).then((result) => {
-    if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
-      throw new Error('Invalid guest calendar context');
-    if (page.contextGeneration === generation)
-      page.monthResources.set(businessMonth, result.calendar);
-    return result.calendar;
-  });
+  const read = createVisitorCalendarRequestContext()
+    .then((context) =>
+      client.getGuestCalendarDetailed(groupId, {
+        businessMonth,
+        clientContext: context.clientContext,
+        ...(context.loginCode === undefined ? {} : { loginCode: context.loginCode }),
+        visitorKey: key,
+      }),
+    )
+    .then((result) => {
+      if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
+        throw new Error('Invalid guest calendar context');
+      if (page.contextGeneration === generation)
+        page.monthResources.set(businessMonth, result.calendar);
+      return result.calendar;
+    });
   page.monthReads.set(businessMonth, read);
   void read.then(
     () => page.monthReads.delete(businessMonth),

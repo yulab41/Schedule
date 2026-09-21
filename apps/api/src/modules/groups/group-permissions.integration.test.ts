@@ -398,6 +398,71 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     });
   });
 
+  it('syncs an administrator short-number update across groups and invalidates confirmation', async () => {
+    const firstGroupId = await createClaimedGroup();
+    const candidate = await getMember(firstGroupId, 'Candidate Doctor');
+    const secondGroup = await createGroup('other-owner-token', 'Second group', '5678');
+    const secondGroupId = (secondGroup.json() as { id: string }).id;
+    await insertDirectMembership(client, { groupId: secondGroupId, realName: 'Candidate Doctor' });
+
+    const initial = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { expectedVersion: 0, shortPhone: '8000' },
+      url: `/groups/${firstGroupId}/members/${candidate.id}/contact`,
+    });
+    expect(initial.statusCode, initial.body).toBe(200);
+
+    const [candidateUser] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-candidate'));
+    const [candidateSecondMembership] = await client.database
+      .select({ id: groupMemberships.id })
+      .from(groupMemberships)
+      .where(
+        and(
+          eq(groupMemberships.groupId, secondGroupId),
+          eq(groupMemberships.userId, candidateUser!.id),
+          isNull(groupMemberships.deletedAt),
+        ),
+      );
+    expect(candidateSecondMembership).toBeDefined();
+
+    const confirmed = await app.inject({
+      headers: { authorization: 'Bearer other-owner-token' },
+      method: 'PUT',
+      payload: { expectedVersion: 1, isConfirmed: true },
+      url: `/groups/${secondGroupId}/members/${candidateSecondMembership!.id}/contact`,
+    });
+    expect(confirmed.statusCode, confirmed.body).toBe(200);
+    const firstVersion = (initial.json() as { version: number }).version;
+    const administratorUpdate = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { expectedVersion: firstVersion, shortPhone: '8001' },
+      url: `/groups/${firstGroupId}/members/${candidate.id}/contact`,
+    });
+    expect(administratorUpdate.statusCode, administratorUpdate.body).toBe(200);
+
+    const secondContacts = await app.inject({
+      headers: { authorization: 'Bearer other-owner-token' },
+      method: 'GET',
+      url: `/groups/${secondGroupId}/contacts`,
+    });
+    expect(secondContacts.statusCode, secondContacts.body).toBe(200);
+    expect(
+      (
+        secondContacts.json() as Array<{
+          isConfirmed: boolean;
+          membershipId: string;
+          shortPhone?: string;
+          version: number;
+        }>
+      ).find((contact) => contact.membershipId === candidateSecondMembership!.id),
+    ).toMatchObject({ isConfirmed: false, shortPhone: '8001', version: 3 });
+  });
+
   it('keeps the self-controlled visibility preference version-bound and rejects administrator overrides', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');

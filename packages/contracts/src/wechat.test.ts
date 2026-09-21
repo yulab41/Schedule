@@ -4,9 +4,12 @@ import {
   acceptInviteResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
   createInviteLinkRequestSchema,
+  createCurrentMemberWechatBindingQrResponseSchema,
+  currentEnvironmentQrResponseSchema,
   groupQrResponseSchema,
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
+  visitorCalendarReadRequestSchema,
   visitorAccessAggregatePageSchema,
   visitorResolveRequestSchema,
   platformAdminWechatMiniProgramUnbindRequestSchema,
@@ -227,6 +230,32 @@ describe('wechat mini program contracts', () => {
     expect(groupQrResponseSchema.safeParse({ imageBase64: '' }).success).toBe(false);
   });
 
+  it('accepts one environment-specific QR and rejects compatibility fields', () => {
+    expect(
+      currentEnvironmentQrResponseSchema.safeParse({
+        environment: 'trial',
+        imageBase64: 'iVBORw0KGgo=',
+      }).success,
+    ).toBe(true);
+    expect(
+      currentEnvironmentQrResponseSchema.safeParse({
+        environment: 'release',
+        imageBase64: 'iVBORw0KGgo=',
+        trialImageBase64: 'legacy',
+      }).success,
+    ).toBe(false);
+    expect(
+      createCurrentMemberWechatBindingQrResponseSchema.safeParse({
+        environment: 'release',
+        expiresAt: '2026-09-21T00:00:00.000Z',
+        groupName: '头颈外科医生',
+        imageBase64: 'iVBORw0KGgo=',
+        membershipId: 'member-1',
+        realName: '冯钦',
+      }).success,
+    ).toBe(true);
+  });
+
   it('accepts only a true visitor key changed response', () => {
     expect(visitorKeyChangedResponseSchema.safeParse({ visitorKeyChanged: true }).success).toBe(
       true,
@@ -234,6 +263,28 @@ describe('wechat mini program contracts', () => {
     expect(visitorKeyChangedResponseSchema.safeParse({ visitorKeyChanged: false }).success).toBe(
       false,
     );
+  });
+
+  it('accepts only versioned allowlisted visitor client context', () => {
+    const request = {
+      businessMonth: '2026-09',
+      clientContext: { brand: 'Xiaomi', model: 'Xiaomi 14', version: 1 },
+      loginCode: 'temporary-code',
+      visitorKey: 'a'.repeat(32),
+    };
+    expect(visitorCalendarReadRequestSchema.safeParse(request).success).toBe(true);
+    expect(
+      visitorCalendarReadRequestSchema.safeParse({
+        ...request,
+        clientContext: { ...request.clientContext, unknownDeviceId: 'no' },
+      }).success,
+    ).toBe(false);
+    expect(
+      visitorCalendarReadRequestSchema.safeParse({
+        ...request,
+        clientContext: { model: 'x'.repeat(129), version: 1 },
+      }).success,
+    ).toBe(false);
   });
 
   it('requires exactly one invite target', () => {

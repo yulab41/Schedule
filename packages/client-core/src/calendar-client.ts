@@ -4,6 +4,7 @@ import type {
   CalendarReadModel,
   GuestCalendarReadModel,
   VisitorResolveResponse,
+  VisitorCalendarReadRequest,
   HolidayReadModel,
 } from '@schedule/contracts';
 
@@ -120,6 +121,22 @@ export const calendarReadEndpoints = {
     path: ({ groupId, businessMonth, visitorKey }) =>
       `/guest/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}&visitorKey=${encodeURIComponent(visitorKey)}`,
   }),
+  guestCalendarDetailed: /* @__PURE__ */ defineClientEndpoint<
+    VisitorCalendarReadRequest & { readonly groupId: string },
+    GuestCalendarReadModel
+  >({
+    auth: 'public',
+    decoder: guestCalendarReadModelDecoder,
+    id: 'calendar.guest-read-detailed',
+    method: 'POST',
+    body: (input) => ({
+      businessMonth: input.businessMonth,
+      clientContext: input.clientContext,
+      ...(input.loginCode === undefined ? {} : { loginCode: input.loginCode }),
+      visitorKey: input.visitorKey,
+    }),
+    path: ({ groupId }) => `/guest/groups/${encodeURIComponent(groupId)}/calendar/read`,
+  }),
   calendar: /* @__PURE__ */ defineClientEndpoint<
     { readonly businessMonth: string; readonly groupId: string },
     CalendarReadModel
@@ -167,6 +184,10 @@ export interface CalendarReadClient {
     businessMonth: string,
     visitorKey: string,
   ): Promise<GuestCalendarReadModel>;
+  getGuestCalendarDetailed(
+    groupId: string,
+    input: VisitorCalendarReadRequest,
+  ): Promise<GuestCalendarReadModel>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getGuestHolidays(year: number): Promise<HolidayReadModel>;
   getHolidays(year: number): Promise<HolidayReadModel>;
@@ -207,6 +228,9 @@ export function createCalendarReadClient(transport: ClientTransport): CalendarRe
         businessMonth,
         visitorKey,
       });
+    },
+    getGuestCalendarDetailed(groupId, input) {
+      return transport.request(calendarReadEndpoints.guestCalendarDetailed, { groupId, ...input });
     },
     getCalendar(groupId, businessMonth) {
       return transport.request(calendarReadEndpoints.calendar, { businessMonth, groupId });

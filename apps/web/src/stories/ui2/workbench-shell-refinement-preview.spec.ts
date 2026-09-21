@@ -22,13 +22,15 @@ describe('workbench shell refinement preview', () => {
     expect(preview).not.toContain('class="product-header"');
   });
 
-  it('puts each workflow name in the shared top title instead of repeating it in content', () => {
+  it('keeps the original page title below the group identity across all five workspaces', () => {
     const preview = readSource('./WorkbenchShellRefinementPreview.vue');
 
+    expect(preview).toContain("if (props.screen === 'directory') return '通讯录'");
     expect(preview).toContain("if (props.screen === 'swap') return '换班'");
-    expect(preview).toContain("if (props.screen === 'duty') return '加扣班'");
+    expect(preview).toContain("if (props.screen === 'profile') return '我的'");
+    expect(preview).toContain("if (props.screen === 'more') return '更多'");
+    expect(preview).toContain("return '日历'");
     expect(preview).toContain('<h1>{{ pageTitle }}</h1>');
-    expect(preview).not.toContain("<h2>{{ screen === 'swap' ? '换班' : '加扣班' }}</h2>");
   });
 
   it('keeps long group identities on one truncating line inside the left-aligned control', () => {
@@ -39,6 +41,15 @@ describe('workbench shell refinement preview', () => {
     );
     expect(preview).toMatch(/\.group-menu-action\s*{[^}]*min-height:\s*44px;/s);
     expect(preview).toMatch(/\.group-heading-row\s*{[^}]*align-items:\s*center;/s);
+  });
+
+  it('provides preview coverage for the five primary workspaces and large text', () => {
+    const stories = readSource('./WorkbenchShellRefinementPreview.stories.ts');
+
+    expect(stories).toContain("screen: 'directory'");
+    expect(stories).toContain("screen: 'profile'");
+    expect(stories).toContain("screen: 'more'");
+    expect(stories).toContain('largeText: true');
   });
 
   it('reuses the complete confirmed holiday calendar and selected-date capsule', () => {

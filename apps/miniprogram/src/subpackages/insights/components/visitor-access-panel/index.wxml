@@ -41,7 +41,7 @@
           ><text class="section-eyebrow">审计轨 / 访客访问</text
           ><text class="page-title">谁在查看排班？</text
           ><text class="page-description"
-            >只记录访问时间、查看月份和最小化来源线索，帮助群主管理访客入口。</text
+            >记录访问时间、查看月份及可获得的客户端环境，帮助群主管理访客入口。</text
         ></view>
 
         <view class="privacy-note"
@@ -74,7 +74,7 @@
           <view class="card-header"
             ><view
               ><text class="card-title">最近访问</text
-              ><text class="card-subtitle">查看月份 · 来源已脱敏</text></view
+              ><text class="card-subtitle">查看月份 · 点击记录展开完整详情</text></view
             ><text class="count-badge">{{logCountLabel}}</text></view
           >
           <view wx:if="{{state === 'loading'}}" class="log-skeletons" aria-label="正在加载访问记录"
@@ -84,13 +84,32 @@
           ></view>
           <view wx:elif="{{logs.length === 0}}" class="card-empty">暂无访问记录。</view>
           <view wx:else class="log-list"
-            ><view wx:for="{{logs}}" wx:for-item="logItem" wx:key="id" class="access-row"
+            ><view
+              wx:for="{{logs}}"
+              wx:for-item="logItem"
+              wx:key="id"
+              class="access-row {{logItem.expanded ? 'is-expanded' : ''}}"
+              data-id="{{logItem.id}}"
+              bindtap="handleToggleLog"
+              aria-role="button"
+              aria-label="{{logItem.expanded ? '收起访问详情' : '展开访问详情'}}"
               ><view class="audit-line" aria-hidden="true"><view class="audit-dot"></view></view
-              ><view class="access-main"
-                ><text class="access-date">{{logItem.createdAtLabel}}</text
-                ><text class="access-month">查看 {{logItem.businessMonthLabel}} 排班</text></view
-              ><view class="access-meta"
-                ><text>{{logItem.ipLabel}}</text><text>{{logItem.requestIdLabel}}</text></view
+              ><view class="access-summary"
+                ><view class="access-main"
+                  ><text class="access-date">{{logItem.createdAtLabel}}</text
+                  ><text class="access-month">查看 {{logItem.businessMonthLabel}} 排班</text></view
+                ><view class="access-meta"
+                  ><text>{{logItem.contextSummary}}</text><text>{{logItem.expanded ? '收起' : '详情'}}</text></view
+              ></view
+              ><view wx:if="{{logItem.expanded}}" class="access-details"
+                ><view
+                  wx:for="{{logItem.details}}"
+                  wx:for-item="detailItem"
+                  wx:key="label"
+                  class="detail-row"
+                  ><text class="detail-label">{{detailItem.label}}</text
+                  ><text class="detail-value">{{detailItem.value}}</text></view
+                ><text class="reported-warning">客户端上报，可能被伪造，不用于认证或授权。</text></view
             ></view
           ></view>
           <view wx:if="{{nextCursor}}" class="load-more"
@@ -109,7 +128,7 @@
           message="{{loadMoreError}}"
         ></ui-alert>
         <view class="visitor-privacy"
-          ><text>仅群主和管理员可见；访客凭证不会出现在记录中。</text></view
+          ><text>仅有访客审计权限的成员可见；访客密钥与 wx.login 临时代码不会写入记录。</text></view
         >
         <view class="bottom-spacer"></view>
       </view>

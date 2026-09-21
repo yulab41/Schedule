@@ -1050,7 +1050,7 @@
                 bindtap="handleOpenInviteVisitor"
               >
                 <image src="/assets/icons/ui-user.svg" mode="aspectFit" />
-                <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
+                <view><text>二维码与访客</text><text>生成成员绑定二维码与访客二维码</text></view>
                 <image
                   class="more-chevron"
                   src="/assets/icons/ui-chevron-right.svg"

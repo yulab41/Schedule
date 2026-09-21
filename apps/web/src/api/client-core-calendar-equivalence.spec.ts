@@ -34,9 +34,10 @@ describe('client-core calendar vertical slice', () => {
     expect(calendarReadEndpoints.guestHolidays.path({ year: 2026 })).toBe(
       '/guest/holidays?year=2026',
     );
+    const postEndpoints = new Set(['guestCalendarDetailed', 'resolveVisitor']);
     expect(
       Object.entries(calendarReadEndpoints).every(
-        ([name, endpoint]) => endpoint.method === (name === 'resolveVisitor' ? 'POST' : 'GET'),
+        ([name, endpoint]) => endpoint.method === (postEndpoints.has(name) ? 'POST' : 'GET'),
       ),
     ).toBe(true);
   });

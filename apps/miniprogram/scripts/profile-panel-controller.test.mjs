@@ -98,6 +98,65 @@ describe('Mini Web-parity profile controller', () => {
     expect(dependencies.getCalendar).toHaveBeenCalledTimes(2);
   });
 
+  it('edits and clears each account phone through a single-field sheet', async () => {
+    const dependencies = createDependencies();
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    definition.handleGroupChange.call(panel, group('group-1', '头颈外科医生'));
+    await vi.waitFor(() => expect(panel.data.overviewState).toBe('ready'));
+
+    definition.handleMobilePhoneEdit.call(panel);
+    expect(panel.data).toMatchObject({
+      contactDraft: '13412348339',
+      contactEditorField: 'mobile',
+      contactEditorOpen: true,
+    });
+    definition.handleContactInput.call(panel, { detail: { value: '13900139000' } });
+    definition.handleContactSubmit.call(panel);
+    await vi.waitFor(() => expect(panel.data.contactEditorOpen).toBe(false));
+    expect(dependencies.updateGroupMemberContact).toHaveBeenLastCalledWith(
+      'group-1',
+      'member-current',
+      expect.objectContaining({ expectedVersion: 2, mobilePhone: '13900139000' }),
+    );
+
+    definition.handleShortPhoneEdit.call(panel);
+    definition.handleContactInput.call(panel, { detail: { value: '' } });
+    definition.handleContactSubmit.call(panel);
+    await vi.waitFor(() => expect(dependencies.updateGroupMemberContact).toHaveBeenCalledTimes(2));
+    expect(dependencies.updateGroupMemberContact).toHaveBeenLastCalledWith(
+      'group-1',
+      'member-current',
+      expect.objectContaining({ expectedVersion: 3, shortPhone: null }),
+    );
+  });
+
+  it('validates phone input and refreshes the contact after a concurrent conflict', async () => {
+    const dependencies = createDependencies({
+      updateGroupMemberContact: vi
+        .fn()
+        .mockRejectedValueOnce(Object.assign(new Error('stale'), { code: 'CONFLICT' })),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    definition.handleGroupChange.call(panel, group('group-1', '头颈外科医生'));
+    await vi.waitFor(() => expect(panel.data.overviewState).toBe('ready'));
+
+    definition.handleMobilePhoneEdit.call(panel);
+    definition.handleContactInput.call(panel, { detail: { value: '123' } });
+    definition.handleContactSubmit.call(panel);
+    expect(panel.data.contactError).toBe('请输入 11 位中国大陆手机号，或清空该字段。');
+    expect(dependencies.updateGroupMemberContact).not.toHaveBeenCalled();
+
+    definition.handleContactInput.call(panel, { detail: { value: '13900139000' } });
+    definition.handleContactSubmit.call(panel);
+    await vi.waitFor(() => expect(panel.data.contactError).toContain('已刷新'));
+    expect(dependencies.listGroupContacts).toHaveBeenCalledTimes(2);
+    expect(panel.data.contactEditorOpen).toBe(true);
+  });
+
   it('retains partial calendar/contact success and shows a statistics-only error', async () => {
     const dependencies = createDependencies({
       getMonthStatistics: vi.fn().mockRejectedValue(new Error('month unavailable')),
@@ -351,6 +410,7 @@ function createDependencies(overrides = {}) {
         membershipId: 'member-current',
         mobilePhone: '13412348339',
         shortPhone: '68339',
+        version: 2,
       },
     ]),
     listGroupMembers: vi.fn(async () => [member('member-current', true)]),
@@ -359,6 +419,15 @@ function createDependencies(overrides = {}) {
     now: vi.fn(() => '2026-08-20T00:00:00.000Z'),
     signOut: vi.fn(),
     unbindWechat: vi.fn().mockResolvedValue({ unbound: true }),
+    updateGroupMemberContact: vi.fn(async (_groupId, membershipId, request) => ({
+      isConfirmed: false,
+      membershipId,
+      mobilePhone:
+        request.mobilePhone === undefined ? '13900139000' : (request.mobilePhone ?? undefined),
+      shortPhone: request.shortPhone === undefined ? '68339' : (request.shortPhone ?? undefined),
+      updatedAt: '2026-08-20T00:00:00.000Z',
+      version: request.expectedVersion + 1,
+    })),
   };
   return { ...dependencies, ...overrides };
 }
