@@ -47,6 +47,8 @@
 
 浏览器 smoke 首次因默认 `localhost:5173` 未启动而连接失败；切换到当前源码的本地 API/Web 后，又发现测试夹具 `local-admin` 缺开发者管理员标记。最终通过 ignored 运行适配器在测试期间临时赋值并在 `finally` 恢复，没有修改生产或提交该状态。
 
+累计 checkpoint `b45bbbe0` 首次重传时，血缘门禁在版本分配与微信平台写入前拒绝了过期的 `5285dd1` canonical 等价证明，因此没有占用体验版号。相对上一份证明，`apps/miniprogram/src/pages/workbench/index.ts` 仅将组织工具 handler 从 `handleOpenInviteVisitor` 改为 `handleOpenQrVisitor`，并把目标从已删除的邀请页改为二维码页；日历导航、swiper、locate、scroll、图标几何与动效均未改变。已按发布规则刷新精确 blob 和理由，专项血缘/上传槽测试 19/19、tracked audit、format 与 diff check 通过；没有绕过或削弱门禁。
+
 ## 包体审计
 
 | 分包 | 修改前（B） | 修改后（B） | 差值（B） |

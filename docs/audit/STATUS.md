@@ -9,7 +9,8 @@
 - 累计包体相对前序实现总量 −15,247 B、主包 −4,056 B、organization −5,263 B；实现 `f42d3edb` 与发布门禁 `cfa934d1` 已推送，累计 CI dry-run Manifest=`2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。
 - 生产备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 已核对，live=`cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，完整 verifier 与新旧路由探针通过。
 - 首次上传在分配版本前因候选未包含最新 `.184@91b19bcf` 而停止、未占号；现已合并 `.184` 的共享 selector、滚动安全区和相关测试，二维码面板绑定对象同步迁移，累计门禁通过且未恢复邀请能力。
-- 唯一下一任务：提交并推送累积 checkpoint，重新冻结、动态上传体验版并只追加 allowlist；不提审/正式发布，小米 14 仍待当前构建证据。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
+- 累积 checkpoint `b45bbbe0` 已推送；首次重传在版本分配前由 `5285dd1` canonical 等价证明安全拒绝且未占号。受保护 workbench 页只把组织工具 handler/路由从邀请页替换为二维码页；精确 blob 与理由已刷新，血缘/上传槽专项 19/19、tracked audit、format 和 diff check 通过。
+- 唯一下一任务：以 `chore(release): refresh QR-only workbench lineage proof` 建立并推送等价证明 checkpoint，重新冻结、动态上传体验版并只追加 allowlist；不提审/正式发布，小米 14 仍待当前构建证据。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

@@ -3089,6 +3089,7 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 生产：用户明确要求直接删除旧正式版兼容。备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 的记录、文件大小和 SHA-256 一致；`cfa934d1` 已部署为 schema 63，完整 verifier 通过。旧邀请/群组码/双码端点 404，新单环境端点未登录 401。
 - 体验版血缘：首次上传在版本分配前发现最新累计 `.184@91b19bcf` 不是候选祖先，门禁停止且未占号。对比确认 `.184` 相对共同基线只含 Mini selector/滚动安全区与文档；以 merge 保留其全部功能，并将已改名的二维码面板“绑定对象”同步迁移到共享 selector，不恢复邀请生成能力。
 - 累计合并验证：Mini 全量 179 文件通过/2 跳过、1241 项通过/16 跳过；production verify 总包 4563508 B、主包 1743398 B，source/output Worklet=0；lint、format、`pnpm smoke:check-core`、diff check、CI dry-run 全绿，dry-run Manifest=`2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。下一步仅建立累计 checkpoint、冻结上传并追加 allowlist。
+- 上传血缘 RED：累计 checkpoint `b45bbbe0` 冻结后，真实上传在版本分配和平台写入前因 `5285dd1` 等价证明失配安全停止，未占号。`git diff bc5fc307..b45bbbe0 -- apps/miniprogram/src/pages/workbench/index.ts` 证明受保护页只有组织工具 handler `handleOpenInviteVisitor`→`handleOpenQrVisitor` 与目标页 `/invite-visitor/`→`/qr-visitor/` 两项对应改动；日历导航、swiper、locate、scroll、图标几何与动效均未变化。按发布陷阱记录刷新该文件 canonical blob，并以独立 `chore(release)` checkpoint 重跑血缘门禁，不绕过检查器。
 
 ## 2026-09-20 手动排班模板控件换行错乱
 
