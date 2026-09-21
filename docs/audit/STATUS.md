@@ -5,9 +5,9 @@
 - 独占 `general-4`、`REUSE_ONLY`、安装 0，源码基线 `b65c76f3`，前序 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航与页面标题保持不变；二维码四字段为原生 40px、Storybook 20px。
 - 已实现手机号/短号整行单字段弹窗、账号级短号及跨群同步、管理员全局短号更新、冲突刷新；新增环境唯一的成员绑定码/访客码接口和严格 POST 访客读取；访客审计新增 OpenID（非微信号）、设备/微信/基础库/窗口/网络上下文与完整 IP/请求 ID 展开详情。
 - 按用户最新决定不保留旧正式版兼容：邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务/权限/响应字段已从运行时删除；schema 63 直接删除 `invite_tokens`、`group_code_attempts`、群组码列/索引和成员旧短号列。旧正式版调用这些能力将立即不可用，这是已获授权的行为变化。
-- 自动化：Mini 1228 通过/16 跳过；根 Vitest 1296 通过/441 跳过；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；typecheck、lint、format、build、Storybook、生成契约及浏览器 smoke 通过。开发者工具状态/登录有效，模拟器刷新、Console 错误检查及二维码组件原生编译通过；视觉比较缺成对夹具，不记为通过。
+- 自动化：Mini 1228 通过/16 跳过；根 Vitest 1296 通过/441 跳过；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；schema 63 发布/回滚门禁 52/52；typecheck、lint、format、build、Storybook、生成契约及浏览器 smoke 通过。开发者工具状态/登录有效，模拟器刷新、Console 错误检查及二维码组件原生编译通过；视觉比较缺成对夹具，不记为通过。
 - 相对前序实现包体总量 −29,221 B、主包 −10,256 B、organization −7,924 B。尚未提交/推送、生产部署或上传体验版，未提审/正式发布，也没有当前小米 14 证据。
-- 唯一下一任务：以 `feat: remove legacy invite and group code runtime` 提交并推送 checkpoint，按现场 live release 备份并部署 schema 63，再冻结/上传新的不可变体验版并只追加放行；停止条件为部署/上传验证完成或出现真实外部阻塞。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
+- 实现 checkpoint `f42d3edb` 已推送；唯一下一任务：以 `fix(ops): declare schema 63 deployment compatibility` 补充发布门禁并推送，按现场 live release 备份并部署 schema 63，再冻结/上传新的不可变体验版并只追加放行；停止条件为部署/上传验证完成或出现真实外部阻塞。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

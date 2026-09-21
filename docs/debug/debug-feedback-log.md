@@ -10,6 +10,7 @@
 - 集成排障：工作流集成最初 500，根因是当前源码 schema 已删除 `group_code`，但复用依赖的 `@schedule/database/dist` 仍为旧产物并继续插入该列；重建仓库内 database/contracts/client-core 产物后，同一失败用例转绿且全套 94/94。临时诊断处理器已移除，没有改变生产错误语义。
 - 运行/浏览器验证：`pnpm smoke:browser` 已实际运行并通过登录、管理员、成员、访客密钥和访问记录。测试期间只对本地合成 `local-admin` 临时赋开发者标记，`finally` 恢复为 0；临时 `.env` 硬链接和 API/Web 服务均已移除/停止。提交前继续运行 `pnpm smoke:check-core`。
 - 微信开发者工具：skill 版本一致且登录有效；当前工作树模拟器刷新成功、Console 错误筛查为空、二维码面板 WXML/WXSS 编译通过，ignored 截图位于 `runtime/audit/legacy-cleanup-20260921/workbench.png`。这些是模拟器/编译证据，不是小米 14 扫码验收。
+- 发布门禁排障：首次 `pnpm ecs:package` 在本地、远端写入前因 `ecs-schema-compatibility.mjs` 仍只认可 schema 62 而失败。新增用例先在旧实现 3 项失败，随后把 release 兼容范围收窄为 63–63；`ecs-verify.sh` 新增 schema 63 最终结构检查，并让备份表计数只接受迁移前 56 或迁移后 54、拒绝部分删除的 55。发布/回滚相关 52/52 和 Bash `-n` 通过。
 
 ## 2026-09-13 Feedback24 与 DOCX 累计合并
 

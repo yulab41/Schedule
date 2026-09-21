@@ -38,6 +38,7 @@
 | Mini 自动化 | 178 文件通过、2 跳过；1228 项通过、16 跳过 |
 | 根测试 | 274 文件通过、36 跳过；1296 项通过、441 跳过 |
 | API/MySQL 专项 | 工作流 94/94、Task10 106/106、迁移 32/32，包括联系方式、权限、路由、访客审计及数据库最终形状 |
+| 发布控制 | schema 63 兼容声明、备份计数、结构验证和破坏性迁移回滚门禁 52/52；`ecs-verify.sh` Bash 语法通过 |
 | 静态门禁 | typecheck、lint、format:check、build、Storybook 静态构建、client-core generated check 通过 |
 | 浏览器 | 原 `smoke-browser.mjs` 全流程最终通过：登录、管理员、成员、访客密钥和访问记录；本地合成管理员标记在 `finally` 恢复，临时服务已停止 |
 | 视觉比较 | 未通过前置条件：没有成对 baseline/actual/geometry 夹具，因此不记为通过 |
@@ -59,6 +60,8 @@
 | 总包 | 4,578,755 | 4,549,534 | −29,221 |
 
 当前 production verify Manifest 为 `ff785e95eb7c18a1cc7403ece83f1d039e87fcdea63307666dd9de16b7a5bf78`，CI dry-run Manifest 为 `37075e748e446528c067880556ea0f7a39d01d4aec6c4e6bb93e8aaffcfc17eb`。主包仍超过项目 1.5MB 内部预警；本轮没有把该项写成已解决。
+
+首次生产打包在任何远端写入前由兼容门禁安全拒绝：发布脚本仍只认可 schema 62。新增失败先行用例后，将本 release 收窄为仅兼容 schema 63，并让生产 verifier 校验账号短号/访客上下文存在以及邀请表、群组码表列索引、成员旧短号均不存在；备份计数只接受迁移前 56 表或迁移后 54 表，不接受部分删除的 55 表。
 
 ## 上线与清理门槛
 
