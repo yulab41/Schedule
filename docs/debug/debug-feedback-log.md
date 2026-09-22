@@ -7,8 +7,9 @@
 - 现场与引入点：小米 14 `.186@59f1e801` 中数字键盘遮住联系方式输入框下缘和保存按钮。`git log -S 'focus="{{contactEditorOpen}}"'`、`git blame` 将表单定位到 `5fabb855`；固定底部 `ui-sheet` 没有键盘避让输入，input 仅依赖默认 `adjust-position`，因此固定弹层不会可靠地随不同输入法上移。
 - 测试先行：新增 input 键盘事件/禁用默认顶起、独立与嵌入 workspace 事件转发、controller 高度归零及 `ui-sheet` 实测底部 inset 契约；旧实现 3 失败/22 通过。共享 sheet 首轮把原组合 observer 改名，完整 Mini 测试抓到 2 个既有生命周期测试失败；保留原 `size, visible` observer 并新增独立 `bottomInset` observer 后，同一用例转绿，未改旧观察者契约。
 - 修复与语义：`keyboardheightchange` 的实际像素高度进入 profile controller；键盘隐藏、取消、保存和重新打开统一归零。`ui-sheet.bottomInset` 默认 0，仅联系方式弹窗传入；内容弹层用 `margin-bottom` 避开键盘并以窗口减实测高度限制 `max-height`。关闭默认 `adjust-position` 防止系统与自有位移叠加。号码校验、409 刷新、异步/错误路径、事件接收者、调用次数、跨群同步及其他 sheet 默认布局不变。
-- 验证：定向 56/56；Mini 全量 179 文件通过/2 跳过、1243 项通过/16 跳过；typecheck、production verify（主包 1,745,032 B、总包 4,565,142 B）、任务文件 Prettier/ESLint 与 `git diff --check` 通过。此层级无法证明真实输入法像素表现；旧 `.186` 为修复前小米 14 证据，新 checkpoint 仍待上传和同机复核。
-- checkpoint 识别消息：`fix(miniprogram): keep contact editor above keyboard`。未上传、未部署生产、未提审或正式发布，状态 `UPLOAD_REQUIRED`。
+- 验证：定向 56/56；Mini 全量 179 文件通过/2 跳过、1243 项通过/16 跳过；typecheck、production verify（主包 1,745,032 B、总包 4,565,142 B）、任务文件 Prettier/ESLint 与 `git diff --check` 通过。此层级无法证明真实输入法像素表现；旧 `.186` 为修复前小米 14 证据，`.187` 仍待同机复核。
+- 发布交付：checkpoint `adccba3625204ad3b91296ea0f6126d8154967c2` 已推送；干净 detached production 候选上传 `0.1.0-p10.20260922.187`（232 文件、ZIP 2,646,036 B、Manifest `8a7d5b08071044dd1ecf5667670734da30208a9df00a9c56fa0964cb9a14df40`），tag/allocation/manifest/receipt/当前产物精确绑定。首次微信签名请求 `ECONNRESET` 后保留同一版本，按原 buildTime 重建且摘要一致后幂等上传成功；没有覆盖不可变证据或另占版本。
+- 放行：可信控制只追加 `.187`、保留 `.186`；allowlist verify、完整 `ecs-verify.sh`、公网 `.187/.186=200`、未知版 `=426` 通过。生产 release 保持 `cfa934d1`/schema 63；未部署应用、备份/迁移数据库、提审或正式发布。状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
 
 ## 2026-09-22 手机号/短号点击无弹窗与箭头对齐
 
