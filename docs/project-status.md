@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：手动排班一次性编辑、366 天应用与模板删除（实现完成，待体验版上传）
+## 当前批次：手动排班一次性编辑、366 天应用与模板删除（体验版已上传，待生产授权/真机复核）
 
 - 手动排班模板/岗位首行改为约 2:1，日期和周期/人员两行保持 1:1；共享选择器新增默认关闭的行尾 action，模板项文字单行省略，只有已保存模板显示“删除”，action 使用独立事件且不触发选择。
 - 新增严格 `ManualScheduleEditorSnapshot`，以及一次性编辑预览、创建草稿端点。当前未保存或已修改的人员、周期、矩阵、岗位可直接预览，草稿复用同一不可变快照；再次编辑会使旧预览失效。预览/草稿不创建或覆盖模板。
@@ -10,8 +10,8 @@
 - 验证：契约/client 12/12；真实 MySQL 手排 34/34；Mini 1248/16，根池工具 81/81，根 Vitest 1302/444。typecheck、format、lint、build、生成器、production verify/package/source/determinism、CI dry-run均通过；总包 4,794,894 B、主包 1,820,944 B，矩阵节点仅因三个字段行宿主从 1507 增至 1510，矩阵本体未扩大。
 - 运行/浏览器验证：`pnpm smoke:browser` 在当前源码 API/Web 与本地测试库完整通过登录、管理员、成员、访客 vkey 和访问记录；合成 `local-admin` 标记在 `finally` 恢复，临时服务已停止。初次失败仅因 API 错用 `NODE_ENV=test`，第二次为既有夹具缺平台标记，均在进入产品断言前后被门禁明确定位。
 - 开发者工具 0.3.11 登录/版本、页面与 selector WXML/WXSS 编译通过；390px 模拟器显示 2:1/1:1/1:1、未保存可预览、单行省略和行尾删除胶囊，Console 错误过滤为空。截图在 ignored `runtime/audit/manual-schedule-inline-20260923/`，不等于小米 14 验收。
-- 生产边界：新接口尚未部署生产；当前消息没有生产授权，因此不得连接、备份、部署或宣称生产端到端可用。下一步仅做提交推送和不可变体验版上传；体验版在生产 API 获得另行部署授权前不能完成真实端到端草稿生成。
-- 本批代码 checkpoint 以提交消息 `feat(manual-schedule): support inline drafts and template deletion` 识别；提交后再回填短 SHA 与不可变体验版身份。停止条件：完成上传并记录 receipt，随后等待生产部署授权和小米 14 同构建验收。
+- checkpoint `eacfd752` 已推送；production 候选上传为 `0.1.0-p10.20260923.190`（232 个代码文件、ZIP 2,675,243 B、Manifest `79c51d52f8d1f337a0b014aa2fcbbd0db4d3f5fa1854227179fc347a0102d4b7`），远端不可变 tag、allocation、manifest、receipt 均绑定同一 SHA。
+- 生产边界：新接口尚未部署且 `.190` 未加入生产 allowlist；当前消息没有生产授权，未连接、备份或修改生产。停止条件：等待另行生产部署授权与小米 14 `.190@eacfd752` 验收，不宣称端到端或真机通过。
 - 完整记录见 [手动排班一次性编辑改造](audit/manual-schedule-inline-editor-20260923.md)。
 
 ## 上一批次：联系方式弹窗首次输入层预热（体验版已上传放行，待小米 14 复核）
