@@ -24,7 +24,11 @@ describe('native UiSheet', () => {
 
     expect(config).toMatchObject({ component: true, styleIsolation: 'shared' });
     expect(template).toContain('<wxs module="sheetGesture" src="./drag-dismiss.wxs"></wxs>');
-    expect(template).toContain('wx:if="{{visible}}"');
+    expect(template).toContain('wx:if="{{visible || keepAlive}}"');
+    expect(template).toContain(
+      "class=\"ui-sheet__layer {{visible ? 'is-visible' : 'is-hidden'}}\"",
+    );
+    expect(template).toContain('aria-hidden="{{!visible}}"');
     expect(template).toContain('id="ui-sheet-scrim"');
     expect(template).toContain('id="ui-sheet-panel"');
     expect(template).toContain('aria-role="dialog"');
@@ -39,11 +43,27 @@ describe('native UiSheet', () => {
       /\.ui-sheet__close\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/su,
     );
     expect(styles).toContain('env(safe-area-inset-bottom)');
+    expect(styles).toMatch(
+      /\.ui-sheet__layer\.is-hidden\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/su,
+    );
+    expect(styles).toMatch(
+      /\.ui-sheet__layer\.is-hidden \.ui-sheet__scrim,[\s\S]*\.ui-sheet__layer\.is-hidden \.ui-sheet__panel\s*\{[^}]*animation:\s*none;/u,
+    );
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
     expect(gesture).toContain('var DISMISS_DISTANCE = 96;');
     expect(gesture).toContain('var FLICK_DISTANCE = 28;');
     expect(gesture).toContain('var FLICK_VELOCITY = 0.65;');
     expect(gesture).not.toContain('setData');
+  });
+
+  it('keeps content mounted only when a caller explicitly opts in', async () => {
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/components/ui/ui-sheet/index.ts');
+
+    expect(definition.properties.keepAlive).toEqual({ type: Boolean, value: false });
   });
 
   it('emits one semantic close request for button, backdrop, and swipe sources', async () => {

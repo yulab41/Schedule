@@ -240,6 +240,7 @@
 
 <ui-sheet
   visible="{{contactEditorOpen}}"
+  keep-alive="{{true}}"
   size="content"
   bottom-inset="{{contactKeyboardHeight}}"
   title="{{contactEditorTitle}}"

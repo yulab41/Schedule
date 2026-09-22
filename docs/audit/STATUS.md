@@ -1,14 +1,13 @@
 # 微信小程序审计状态
 
-## 当前批次：联系方式弹窗文字稳定与键盘收起回底（体验版已上传放行，待小米 14 复核）
+## 当前批次：联系方式弹窗首次输入层预热（代码完成，待体验上传）
 
-- 小米 14 `.187@adccba36` 暴露 input 文字在弹窗打开后延迟上移，以及键盘关闭后 sheet 偶尔保留旧高度。引入链为 `5fabb855` 同帧打开/聚焦与 `adccba36` 后到高度回调二次移动；Android 输入法关闭时 input 局部高度事件并非总是可靠归零。
-- 现在先渲染 sheet、回调后再保持一次点击自动聚焦；input 使用明确 46px 行高。局部和全局键盘高度事件共用归一化函数，高度 0 立即贴底；blur 有可取消的 100ms 兜底，focus、close、save、unload 均清理残留状态，全局监听成对注销。
-- RED 3 失败/18 通过；GREEN 定向 21/21、Mini 全量 1244/1244（另 16 跳过）。typecheck、production verify/package/source/determinism、Prettier/ESLint、`smoke:check-core`、diff check 通过；总包 4,567,652 B（较 `.187` +2,510 B）。
-- 开发者工具门禁通过，WXML/WXSS 编译、模拟器刷新和 console 错误过滤通过；模拟器无成员身份，不能替代真机键盘验收。
-- checkpoint `83eb80c33f38c63fe1b7c2b51a85cac18f54c423` 已推送；体验版 `0.1.0-p10.20260922.188` 从干净 production 候选上传，232 文件、ZIP 2,648,723 B、Manifest `a306e0a91627c52b54855951e8f3f077c262e28fef3a953041f8cd9c014f0bf4`，远端 tag/allocation/manifest/receipt 一致。
-- 正式 allowlist 只追加 `.188`、保留 `.187`；verify、完整 `ecs-verify.sh`、公网 `.188/.187=200`、未知版 `=426` 通过。生产 release 仍为 `cfa934d1`/schema 63；未部署应用、操作数据库、提审或正式发布。
-- 唯一下一任务：小米 14 打开 `.188@83eb80c`，复核文字不跳、键盘不遮挡、收起回底、重新聚焦、取消和保存。取得证据前不写原生通过。完整上下文见 [审计记录](profile-qr-visitor-audit-20260921.md)。
+- 小米 14 `.188@83eb80c` 已确认键盘收起时 sheet 回底；文字延迟只在应用生命周期第一次打开联系方式弹窗出现，后续重新开关键盘时文字与窗口同步。
+- 根因是共享 `ui-sheet` 自 `304d742f` 起以 `wx:if` 在关闭态销毁 slot，第一次打开才同时创建原生 input、入场动画和自动聚焦；后续输入层已由运行时预热。`5947982a` 只改手势边界，仍保留该挂载语义。
+- 新增默认关闭的 `keepAlive`，仅联系方式 sheet 启用。关闭态节点保留但不可见、不可点击、不可访问且不播放动画；input 保持失焦。其他 sheet、键盘高度/回底和联系方式业务语义不变。
+- RED 3 失败/7 通过；GREEN 定向 44/44、Mini 全量 1245/1245（另 16 跳过）。production verify/package/source/determinism、typecheck、Prettier/ESLint、`smoke:check-core`、diff check 通过；总包 4,568,025 B（较 `.188` +373 B）。
+- 开发者工具门禁、共享/profile WXML/WXSS 编译、模拟器刷新与 console error 过滤通过；仍不能替代小米 14 首次打开验收。
+- 待提交 `fix(miniprogram): prewarm contact editor input`；随后动态分配并上传新的不可变体验版、只追加 allowlist。唯一下一任务是冷启动新体验版后分别第一次打开手机号/短号弹窗，取得同构建真机证据前不写原生通过。完整上下文见 [审计记录](profile-qr-visitor-audit-20260921.md)。
 
 - 前序 `.186` 已补齐联系方式 controller 转发和 SVG 箭头；`.185` 的二维码/访客审计、原顶部导航和 40px 二维码字段保持不变。
 - 已实现手机号/短号整行单字段弹窗、账号级短号及跨群同步、管理员全局短号更新、冲突刷新；新增环境唯一的成员绑定码/访客码接口和严格 POST 访客读取；访客审计新增 OpenID（非微信号）、设备/微信/基础库/窗口/网络上下文与完整 IP/请求 ID 展开详情。

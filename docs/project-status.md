@@ -1,16 +1,14 @@
 # Project Status
 
-## 当前批次：联系方式弹窗文字稳定与键盘收起回底（体验版已上传放行，待小米 14 复核）
+## 当前批次：联系方式弹窗首次输入层预热（代码完成，待体验上传）
 
-- 小米 14 `.187@adccba36` 继续证明键盘避让已生效，同时发现两项回归：弹窗出现时 input 文字延迟上移；键盘关闭后 sheet 偶尔保留旧 inset、悬在屏幕半空。`git log -S`/`git blame` 定位到 `5fabb855` 的同步自动聚焦和 `adccba36` 的后到键盘高度位移：弹窗入场、原生 input 激活及 sheet 二次重排重叠；部分 Android 输入法关闭时只发全局高度归零，input 局部事件不可靠。
-- 修复：打开 sheet 的首个 `setData` 明确保持未聚焦，渲染回调再自动聚焦，保留一次点击拉起键盘；input 固定 46px 行高，避免原生文字层二次校正。局部 `keyboardheightchange` 与生命周期内成对注册/注销的全局 `onKeyboardHeightChange` 共用同一归一化路径；高度 0 立即回底，blur 以 100ms 可取消兜底归零，重新聚焦会取消旧 timer。取消、保存、卸载和重开同时清理 focus generation、timer 与 inset。
-- 行为等价审计：号码输入/清空/校验、409 刷新、保存 Promise/catch、账号级同步及 `ui-sheet` 默认布局不变；新增监听只在联系方式 sheet 打开时写入高度，调用接收者仍是 component/page instance，监听回调使用同一 panel 闭包并以原引用注销。
-- 测试先行：旧实现定向 3 失败/18 通过；修复后定向 21/21，Mini 全量 1244 通过/16 跳过。typecheck、production verify、package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；总包 4,567,652 B、主包 1,747,542 B，较 `.187` 分别 +2,510 B/+2,510 B。
-- 开发者工具 0.3.11 门禁登录/版本关系正常；打开独占 worktree 项目后 WXML/WXSS 编译和模拟器刷新成功，console 错误过滤为空。模拟器账号没有群组成员身份，未把该层证据写成键盘或真机交互通过。
-- 复用独占 `general-4`，`REUSE_ONLY`、安装 0；checkpoint `83eb80c33f38c63fe1b7c2b51a85cac18f54c423`（`fix(miniprogram): stabilize contact editor keyboard motion`）已推送。体验版 `0.1.0-p10.20260922.188` 从干净 detached production 候选上传：232 个代码文件、ZIP 2,648,723 B、上传态总包 4,569,566 B、Manifest `a306e0a91627c52b54855951e8f3f077c262e28fef3a953041f8cd9c014f0bf4`；远端 tag、allocation、manifest、receipt 与构建身份一致。
-- 可信 allowlist 只追加 `.188` 并保留 `.187`；独立 verify、完整 `ecs-verify.sh`、公网 `.188/.187=200` 与动态未知版 `=426` 通过。放行重建 API/Web 时一次 TLS EOF 后自动恢复；生产 release 仍为 `cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，未部署应用、备份/迁移数据库、提审或正式发布。
-- 本轮发布记录 checkpoint 以 `docs(release): record contact editor trial 188` 识别；仅 Mini/文档，按例外不再重复生产备份、部署、上传或 allowlist 写入。
-- 唯一下一任务：小米 14 打开 `.188@83eb80c`，验证手机号/短号两种弹窗的文字不跳、不同键盘不遮挡、收起键盘立即贴底，以及重新聚焦/取消/保存路径。取得同构建证据前保持“待用户复核”。
+- 小米 14 `.188@83eb80c` 证明键盘关闭回底已正常；剩余现象严格只发生在应用生命周期第一次打开联系方式弹窗：弹窗已出现后 input 文字慢半拍上移。关闭并重新打开键盘时，sheet 位移和文字已经同步。
+- `git log -S`/`git blame` 定位共享 `ui-sheet` 自 `304d742f` 起以 `wx:if="{{visible}}"` 销毁隐藏内容（`5947982a` 后续改手势仍保留）。因此第一次打开同时创建原生 input、播放 sheet 入场动画并自动聚焦；后续原生输入层已被运行时预热，症状不再出现。
+- 修复只给 `ui-sheet` 新增默认关闭的 `keepAlive=false`；联系方式弹窗显式启用后，关闭态保留 slot/input 节点但以 `visibility:hidden`、`pointer-events:none`、`aria-hidden` 和禁用动画完全隐藏，input 仍保持未聚焦。其他 sheet 继续原有 `wx:if` 销毁路径，键盘高度、回底、号码校验/保存/409/跨群同步均未改。
+- 测试先行：旧实现 3 失败/7 通过；修复后共享/个人页定向 44/44，Mini 全量 1245 通过/16 跳过。typecheck、production verify/package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过；总包 4,568,025 B、主包 1,747,915 B，相对 `.188` 同口径各 +373 B。
+- 开发者工具 0.3.11 门禁登录/版本关系正常；当前独占 worktree 的共享 sheet 与 profile WXML/WXSS 编译、模拟器刷新成功，console error 过滤为空。该层不能证明小米 14 第一次原生输入动画已通过。
+- 复用独占 `general-4`，`REUSE_ONLY`、安装 0；待提交 checkpoint 以 `fix(miniprogram): prewarm contact editor input` 识别。提交推送后按不可变血缘动态分配新体验版并只追加放行；`.188` 保留作为修复前对照。
+- 唯一下一任务：完成干净候选上传/放行后，请小米 14 冷启动新体验版，只测试第一次打开手机号和短号弹窗；取得同构建证据前保持“待用户复核”。
 
 - 前序 `.186` 修复了联系方式事件转发与 18×18 SVG 箭头；`.185` 及更早二维码/访客改造事实保持不变。用户撤回顶部导航改版，五个主页面原导航/标题继续保持原样；二维码四字段为原生 40px、Storybook 20px。
 - 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
@@ -137,18 +135,7 @@
 - 可信ensure只追加108并保留旧版；完整生产verifier与版本策略验证通过，公网108/107=200、未知版本426。即时服务器仍b618d938，本轮没有新应用部署、备份、迁移或真实通知；网络及107残留操作锁已验证处理，版本预约记录全部保留。
 - 文档检查点：`docs(release): record feedback11 trial 108 delivery`。当时下一任务：小米14重开108/c563aff复核二维码和通知，并取得导出空白安全诊断继续定位。不得写三项全部完成，不重复上传/放行或部署。
 
-## 上一批次：feedback10/VIS-02 服务端与体验版107已交付
-
-- 用户已授权上传、追加放行及必要部署。累计应用0565f023包含feedback10四项修复和VIS-02访客日历，发布校验修复b618d938已提交推送并部署，实际live为b618d93861d05ae0c597fa8dfe40ed478902be5c、schema57。完整生产verifier和既有版本策略验证通过；详情见docs/audit/feedback10-release.md。
-- 部署期间发现0057新增访客关联表后旧校验器不接受54表新备份。仅新增schema57迁移前53/迁移后54表分支；旧代码23通过/2失败，修复后发布/回滚35项通过，项目lint、格式、smoke:check-core通过。未改变业务数据或新增迁移。
-- 最终部署前备份e011c56b-699e-422d-9b30-24b2282279f4，实际104354272字节、54表，SHA-256 6fcb93a4d09413a789abbd198eaaea4c0240ed82047968d03dae7b95abbadeb2与登记一致。应用与控制产物hash验证通过；回滚候选来自本次即时live 0565f023。
-- .103/.104分别保留失败记录；直连IPv4出口120.230.6.0加入微信CI白名单后，.106=0.1.0-p10.20260911.106以63877b5e、production/clean、354文件Manifest c4bf033e252a94927000c6489fabb9f33f679c608c2abb6104606c5f3cc44ceb上传成功，receipt与不可变远端tag一致。
-- 独立HTTPS核验：.102仍200，.103/.104均426；不修改微信平台配置、不关闭IP白名单、不改系统网络。浏览器库存读取失败，无法核对公众平台配置。已归档冻结包/错误/备份/发布证据到ignored runtime/audit/feedback10-delivery-final-20260911及feedback10-delivery-initial-20260911；确认上传进程退出后清理本任务孤立操作锁，不改预约记录。
-- 应用验证复用feedback10.md和visitor-calendar-parity.md：合并MySQL45、Mini联合146、共享/API33及访客浏览器通过，Mini/Worklet和专项上传30项通过；不把自动化算作原生验收。CSV真实发送、相册扫码、瞬时通知、新消息点入及访客显示均待小米14。
-- 独占general-4全程复用依赖；官方ECS flat导出复用85包、downloaded0，最终重打包命中flat缓存。无workspace依赖安装、无本地数据库上传、无真实通知、无正式发布、无新增放行或旧版退役。
-- 独立HTTPS核验：.106/.102=200，.105/.104/.100/未知版本=426；可信ensure仅追加.106，保留旧版。上传和放行已完成，后续只待小米14原生复核，不重复部署或上传。
-- 106 已占用后，107 以 clean production 累积候选 `4b4af0a233f1a3ab06e4178333181747a6250e25` 上传成功；Manifest `ed36fd07a1266a33875f101b85d486c180a0bba60351b6cf0e1168c12794bfc4`、receipt、远端不可变 tag 和 add-only allowlist ensure/verify 均一致。生产 live 仍 `b618d938`/schema57，本轮无需重复部署或备份。首次网络 ECONNRESET 后通过已验证 IPv4/TLS 路线对同一三元组重试成功。
-- 体验版107说明“访客日历电话事件 4b4af0a”，主包1679405、总包4501599；保留既有内部主包预警。自动化和生产验证完成，CSV真实发送、相册扫码、通知点入和访客原生显示待小米14。
+Feedback10/VIS-02 与更早批次的部署、备份、体验版和验证细节见 Git 历史及 `docs/audit/feedback10-release.md`；本状态文件不再重复历史流水。
 
 ## 上一批次：feedback9 体验版102已上传并放行，待小米14复核
 

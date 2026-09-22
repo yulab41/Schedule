@@ -9,6 +9,16 @@
   align-items: flex-end;
 }
 
+.ui-sheet__layer.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ui-sheet__layer.is-hidden .ui-sheet__scrim,
+.ui-sheet__layer.is-hidden .ui-sheet__panel {
+  animation: none;
+}
+
 .ui-sheet__scrim {
   position: absolute;
   inset: 0;

@@ -90,6 +90,7 @@ describe('P10 native profile parity', () => {
       expect(workspace).toContain(`${handler}: controller.${handler}`);
     }
     expect(template).toContain('bottom-inset="{{contactKeyboardHeight}}"');
+    expect(template).toContain('keep-alive="{{true}}"');
     expect(template).toContain('bindkeyboardheightchange="handleContactKeyboardHeightChange"');
     expect(template).toContain('bindblur="handleContactBlur"');
     expect(template).toContain('focus="{{contactInputFocused}}"');

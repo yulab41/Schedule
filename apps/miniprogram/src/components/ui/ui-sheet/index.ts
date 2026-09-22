@@ -6,6 +6,7 @@ interface UiSheetInstance {
   readonly data: { readonly gestureSession: number };
   readonly properties: {
     readonly bottomInset: number;
+    readonly keepAlive: boolean;
     readonly size: 'default' | 'half' | 'three-quarter' | 'content';
     readonly swipeDismiss: boolean;
     readonly visible: boolean;
@@ -24,6 +25,7 @@ Component({
   properties: {
     bottomInset: { type: Number, value: 0 },
     closeLabel: { type: String, value: '完成' },
+    keepAlive: { type: Boolean, value: false },
     size: { type: String, value: 'default' },
     swipeArea: { type: String, value: 'header' },
     swipeDismiss: { type: Boolean, value: false },
