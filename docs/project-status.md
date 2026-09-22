@@ -1,14 +1,14 @@
 # Project Status
 
-## 当前批次：个人联系方式弹窗回归修复（体验版 186 已放行，待小米 14 复核）
+## 当前批次：联系方式弹窗键盘自适应（已实现，待上传与小米 14 复核）
 
-- 用户报告 `.185` 中手机号/短号整行点击无弹窗，且号码与右箭头未水平对齐。`git log -S`/`git blame` 定位引入点为 `5fabb855`：`profile-panel` 已声明 5 个联系方式事件，但实际嵌入工作台的 `profile-workspace` 漏注册这些 controller 方法；箭头同时使用了有字体基线偏移的 `›` 字符。
-- 修复：工作区补齐手机号/短号打开、关闭、输入、提交 5 个事件转发；两行改用既有 `ui-chevron-right-muted.svg` 的固定 18×18 图标并禁止 flex 收缩，保持整行点击区和顶部导航不变。新增回归在旧实现先失败，修复后定向 26/26、Mini 全量 1242 通过/16 跳过；typecheck、production verify、图标一致性、format、lint、`smoke:check-core` 通过。
-- 开发者工具：warm worktree 编译成功，模拟器确认 SVG 箭头水平对齐且 Console 无相关错误；自动化选择器不能穿透 `profile-workspace` 自定义组件边界，不把坐标尝试冒充真实点击通过。
-- 交付：`59f1e801` 已推送；体验版 `0.1.0-p10.20260922.186`（production，Manifest `0975bb9232d3978a41a9f582952e2f2a42daee8cc223363c0222a07fa39e6a57`，232 个代码文件，ZIP 2,645,453 B）上传成功，远端 tag/allocation/manifest/receipt 均绑定同一 SHA。可信 allowlist 只追加 `.186` 并保留 `.185`，独立 verify、完整 `ecs-verify.sh`、公网 `.186/.185=200`、未知版 `=426` 通过；生产 release 仍为 `cfa934d1`/schema 63，无数据库备份、迁移或应用部署。记录 checkpoint：`docs(release): record profile contact trial 186`。
-- 唯一下一任务：小米 14 打开 `.186@59f1e801`，点击手机号/短号整行，确认两种编辑弹窗、输入/取消/保存与箭头对齐。未取得同构建证据前保持“待用户复核”；未提审/正式发布。
+- 用户在小米 14 `.186@59f1e801` 确认整行点击与箭头修复生效，但数字键盘覆盖输入框下缘和“保存修改”。`git log -S`/`git blame` 定位引入点仍为 `5fabb855`：新增联系方式表单时直接放入固定底部的 content sheet，只依赖 input 默认页面顶起，无法保证固定弹层避开不同手机/输入法的实际键盘高度。
+- 修复：input 监听 `keyboardheightchange`，关闭默认 `adjust-position`；profile controller 保存实测高度并在键盘收起、取消、保存或重新打开时归零；共享 `ui-sheet` 新增默认关闭的 `bottomInset`，仅联系方式弹窗按实测像素上移并把最大高度限制到剩余窗口。无机型或固定高度常量，未改号码校验、409、跨群同步、顶部导航或其他 sheet 默认布局。
+- 测试先行：旧实现 3 失败/22 通过；修复后联系方式/共享 sheet/工作台边界定向 56/56，Mini 全量 1243 通过/16 跳过。typecheck、production verify（总包 4,565,142 B）、任务文件 Prettier/ESLint 和 `git diff --check` 通过。
+- 复用独占 `general-4`，`REUSE_ONLY`、安装 0；当前 checkpoint 识别消息为 `fix(miniprogram): keep contact editor above keyboard`。此源码尚未上传，不把 Node/构建结果写成小米 14 通过；旧 `.186` 只作为修复前真机证据。Mini-only 变更不部署服务器、备份或迁移数据库。
+- 唯一下一任务：提交并推送该 checkpoint；取得该精确 checkpoint 的当次体验上传授权后上传新体验版，再由小米 14 分别用不同数字键盘复核手机号/短号的输入、收起、取消和保存。当前标记 `UPLOAD_REQUIRED`；未提审/正式发布。
 
-- 独占 `general-4`、`REUSE_ONLY`、安装 0，基线 `b65c76f3`，前序实现 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航/标题保持不变；二维码四字段按反馈收至原生 40px、Storybook 20px。
+- 前序 `.186` 修复了联系方式事件转发与 18×18 SVG 箭头；`.185` 及更早二维码/访客改造事实保持不变。用户撤回顶部导航改版，五个主页面原导航/标题继续保持原样；二维码四字段为原生 40px、Storybook 20px。
 - 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
 - 用户明确要求不再保留旧正式版兼容并授权生产破坏性迁移：运行时邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务与权限已删除；`0063` 直接删除 `invite_tokens`、`group_code_attempts`、`groups.group_code`/唯一索引和成员联系方式旧短号列。历史迁移与 Git 历史不改写。
 - 验证：累计 Mini 179 文件通过/2 跳过（1241/16），根 Vitest 274 文件通过/36 跳过（1296/441）；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；schema 63 发布/回滚门禁 52/52；typecheck、lint、format、build、Storybook、契约生成、浏览器 smoke、`smoke:check-core` 和累计 CI dry-run 通过。开发者工具状态正常，模拟器刷新、Console 错误检查及二维码面板 WXML/WXSS 编译通过；视觉比较缺成对夹具，不记为通过。
@@ -19,7 +19,7 @@
 - 体验版 `0.1.0-p10.20260922.185` 已上传：候选 `cbe19af5`、production、说明含短 SHA、Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`、232 个代码文件、ZIP 2,646,093 B。远端不可变 tag、allocation、manifest 与 receipt 均精确绑定同一 SHA/Manifest。
 - 放行：可信 `schedule-client-version-allowlist ensure` 只追加 `.185` 并保留 `.184`；独立 verify、完整 `ecs-verify.sh` 与公网 `.185/.184=200`、未知版 `=426` 通过。生产应用仍为 `cfa934d1`/schema 63，没有重复部署或迁移；重建预热的一次 TLS EOF 后恢复。
 - 交付记录 checkpoint：`docs(release): record QR audit trial 185`；仅根文档，按 Mini/文档例外不再重复生产备份、部署或体验版上传。
-- `.185@cbe19af5` 仍可作为二维码、访客详情与五页原导航的旧对照；本轮联系方式必须以 `.186@59f1e801` 验收。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
+- `.185@cbe19af5` 仍可作为二维码、访客详情与五页原导航的旧对照；`.186@59f1e801` 是点击/箭头修复和本轮键盘遮挡的修复前证据。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

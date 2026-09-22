@@ -111,10 +111,17 @@ describe('Mini Web-parity profile controller', () => {
       contactDraft: '13412348339',
       contactEditorField: 'mobile',
       contactEditorOpen: true,
+      contactKeyboardHeight: 0,
     });
+    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
+    expect(panel.data.contactKeyboardHeight).toBe(326);
+    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: -1 } });
+    expect(panel.data.contactKeyboardHeight).toBe(0);
+    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
     definition.handleContactInput.call(panel, { detail: { value: '13900139000' } });
     definition.handleContactSubmit.call(panel);
     await vi.waitFor(() => expect(panel.data.contactEditorOpen).toBe(false));
+    expect(panel.data.contactKeyboardHeight).toBe(0);
     expect(dependencies.updateGroupMemberContact).toHaveBeenLastCalledWith(
       'group-1',
       'member-current',

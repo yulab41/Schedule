@@ -1,13 +1,14 @@
 # 微信小程序审计状态
 
-## 当前批次：个人联系方式弹窗回归修复（体验版 186 已放行，待小米 14 复核）
+## 当前批次：联系方式弹窗键盘自适应（已实现，待上传与小米 14 复核）
 
-- `.185` 现场症状：手机号/短号整行点击没有弹窗，手机号文字与右箭头不齐。引入点为 `5fabb855`；根因是嵌入工作台的 `profile-workspace` 没有注册 `profile-panel` WXML 绑定的 5 个联系方式 controller 方法，且文字箭头受字体基线影响。
-- 已补齐打开/关闭/输入/提交事件转发，并把两行箭头替换为既有 18×18 SVG。旧实现新增回归先失败；修复后定向 26/26、Mini 全量 1242/1242（另 16 跳过）、typecheck、production verify、icon parity、format、lint、`smoke:check-core` 通过。
-- 开发者工具编译/渲染正常，模拟器截图确认图标对齐，Console 无相关错误；工具选择器不能跨自定义组件边界，真实整行点击仍需小米 14 复核。
-- `59f1e801` 已上传 production 体验版 `0.1.0-p10.20260922.186`：Manifest `0975bb9232d3978a41a9f582952e2f2a42daee8cc223363c0222a07fa39e6a57`、232 个代码文件、ZIP 2,645,453 B，tag/allocation/manifest/receipt 身份一致。可信 allowlist 只追加 `.186` 并保留 `.185`；verify、完整 `ecs-verify.sh`、公网 `.186/.185=200`、未知版 `=426` 通过。生产仍为 `cfa934d1`/schema 63，无应用部署、备份或迁移。
+- 小米 14 `.186@59f1e801` 证明联系方式点击/箭头已修复，同时暴露数字键盘遮住输入框下缘和保存按钮。引入点 `5fabb855` 的表单位于固定底部 content sheet，却只依赖 input 默认顶起，未测量真实键盘高度。
+- input 现在用 `keyboardheightchange` 实时上报并关闭默认 `adjust-position`；controller 在打开/收起/取消/保存时管理高度；共享 `ui-sheet` 以默认关闭的 `bottomInset` 让该弹窗按实测像素上移和限制剩余高度。没有机型/输入法固定值，其他 sheet 默认行为不变。
+- RED 为 3 失败/22 通过；GREEN 定向 56/56、Mini 全量 1243/1243（另 16 跳过），typecheck、production verify（4,565,142 B）、任务文件 Prettier/ESLint、diff check 通过。异步保存、错误 catch、空值、409、号码同步与事件调用次数不变。
+- checkpoint 识别消息 `fix(miniprogram): keep contact editor above keyboard`；当前源码尚未上传，`UPLOAD_REQUIRED`。旧 `.186` 只算修复前真机证据；新 checkpoint 未经小米 14 复核，不写原生通过。Mini-only，不部署生产、备份或迁移。
+- 唯一下一任务：提交推送后，取得精确 checkpoint 的当次上传授权，上传新体验版并在小米 14 用不同数字键盘复核手机号/短号输入、收起、取消和保存。不提审/正式发布。完整上下文见 [审计记录](profile-qr-visitor-audit-20260921.md)。
 
-- 独占 `general-4`、`REUSE_ONLY`、安装 0，源码基线 `b65c76f3`，前序 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航与页面标题保持不变；二维码四字段为原生 40px、Storybook 20px。
+- 前序 `.186` 已补齐联系方式 controller 转发和 SVG 箭头；`.185` 的二维码/访客审计、原顶部导航和 40px 二维码字段保持不变。
 - 已实现手机号/短号整行单字段弹窗、账号级短号及跨群同步、管理员全局短号更新、冲突刷新；新增环境唯一的成员绑定码/访客码接口和严格 POST 访客读取；访客审计新增 OpenID（非微信号）、设备/微信/基础库/窗口/网络上下文与完整 IP/请求 ID 展开详情。
 - 按用户最新决定不保留旧正式版兼容：邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务/权限/响应字段已从运行时删除；schema 63 直接删除 `invite_tokens`、`group_code_attempts`、群组码列/索引和成员旧短号列。旧正式版调用这些能力将立即不可用，这是已获授权的行为变化。
 - 自动化：累计 Mini 1241 通过/16 跳过；根 Vitest 1296 通过/441 跳过；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；schema 63 发布/回滚门禁 52/52；typecheck、lint、format、build、Storybook、生成契约、浏览器 smoke、`smoke:check-core` 和累计 CI dry-run 通过。开发者工具状态/登录有效，模拟器刷新、Console 错误检查及二维码组件原生编译通过；视觉比较缺成对夹具，不记为通过。
@@ -17,7 +18,7 @@
 - 累积 checkpoint `b45bbbe0` 与等价证明 checkpoint `cbe19af5` 已推送；首次重传在版本分配前安全拒绝且未占号，刷新精确 blob 后血缘/上传槽专项 19/19 与 tracked audit 通过。
 - 体验版 `0.1.0-p10.20260922.185` 已上传：`cbe19af5`、production、Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`、232 个代码文件、ZIP 2,646,093 B；远端 tag、allocation、manifest、receipt 身份一致。
 - `.185` 已由可信控制只追加放行并保留 `.184`；独立 allowlist verify、完整 `ecs-verify.sh`、公网 `.185/.184=200` 与未知版 `=426` 通过。生产仍为 `cfa934d1`/schema 63，未重复部署或迁移。
-- 唯一下一任务：小米 14 使用 `.186@59f1e801` 复核手机号/短号整行点击、弹窗输入/取消/保存和箭头对齐；未取得同构建证据前不得写真机通过。不提审/正式发布。详见 [完整记录](profile-qr-visitor-audit-20260921.md)。
+- `.186@59f1e801` 继续作为点击/箭头修复与键盘遮挡的修复前证据；本轮后续验收必须绑定新 checkpoint。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

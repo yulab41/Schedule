@@ -70,6 +70,30 @@ describe('native UiSheet', () => {
     ]);
   });
 
+  it('raises an opted-in content sheet by the measured runtime bottom inset', async () => {
+    let definition;
+    vi.stubGlobal('wx', {
+      getWindowInfo: vi.fn(() => ({ windowHeight: 844 })),
+    });
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/components/ui/ui-sheet/index.ts');
+    const setData = vi.fn();
+    const instance = {
+      _attached: true,
+      data: { gestureSession: 0 },
+      properties: { bottomInset: 326, size: 'content', visible: true },
+      setData,
+    };
+
+    definition.observers.bottomInset.call(instance);
+
+    expect(setData).toHaveBeenCalledWith({
+      panelStyle: 'height:auto;max-height:518px;margin-bottom:326px;',
+    });
+  });
+
   it('tracks downward motion in WXS, rebounds short drags, and dismisses thresholds once', () => {
     const moduleRecord = { exports: {} };
     vm.runInNewContext(readSource('components/ui/ui-sheet/drag-dismiss.wxs'), {

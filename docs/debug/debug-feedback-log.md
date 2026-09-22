@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-22 联系方式弹窗键盘高度自适应
+
+- 现场与引入点：小米 14 `.186@59f1e801` 中数字键盘遮住联系方式输入框下缘和保存按钮。`git log -S 'focus="{{contactEditorOpen}}"'`、`git blame` 将表单定位到 `5fabb855`；固定底部 `ui-sheet` 没有键盘避让输入，input 仅依赖默认 `adjust-position`，因此固定弹层不会可靠地随不同输入法上移。
+- 测试先行：新增 input 键盘事件/禁用默认顶起、独立与嵌入 workspace 事件转发、controller 高度归零及 `ui-sheet` 实测底部 inset 契约；旧实现 3 失败/22 通过。共享 sheet 首轮把原组合 observer 改名，完整 Mini 测试抓到 2 个既有生命周期测试失败；保留原 `size, visible` observer 并新增独立 `bottomInset` observer 后，同一用例转绿，未改旧观察者契约。
+- 修复与语义：`keyboardheightchange` 的实际像素高度进入 profile controller；键盘隐藏、取消、保存和重新打开统一归零。`ui-sheet.bottomInset` 默认 0，仅联系方式弹窗传入；内容弹层用 `margin-bottom` 避开键盘并以窗口减实测高度限制 `max-height`。关闭默认 `adjust-position` 防止系统与自有位移叠加。号码校验、409 刷新、异步/错误路径、事件接收者、调用次数、跨群同步及其他 sheet 默认布局不变。
+- 验证：定向 56/56；Mini 全量 179 文件通过/2 跳过、1243 项通过/16 跳过；typecheck、production verify（主包 1,745,032 B、总包 4,565,142 B）、任务文件 Prettier/ESLint 与 `git diff --check` 通过。此层级无法证明真实输入法像素表现；旧 `.186` 为修复前小米 14 证据，新 checkpoint 仍待上传和同机复核。
+- checkpoint 识别消息：`fix(miniprogram): keep contact editor above keyboard`。未上传、未部署生产、未提审或正式发布，状态 `UPLOAD_REQUIRED`。
+
 ## 2026-09-22 手机号/短号点击无弹窗与箭头对齐
 
 - 引入点：`git log -S 'handleMobilePhoneEdit'` 与 `git blame` 定位到 `5fabb855`。`profile-panel` 模板已经绑定联系方式事件，但嵌入工作台的 `profile-workspace/index.ts` 漏注册 5 个 controller 方法；独立 profile 页/controller 测试因此无法覆盖实际工作台包装层。

@@ -71,6 +71,7 @@ describe('P10 native profile parity', () => {
   });
 
   it('forwards account-contact row events through the embedded workspace and centers real chevrons', () => {
+    const component = read('src/components/profile-panel/index.ts');
     const workspace = read('src/components/profile-workspace/index.ts');
     const template = read('src/components/profile-panel/index.wxml');
     const styles = read('src/components/profile-panel/index.wxss');
@@ -80,10 +81,15 @@ describe('P10 native profile parity', () => {
       'handleShortPhoneEdit',
       'handleContactClose',
       'handleContactInput',
+      'handleContactKeyboardHeightChange',
       'handleContactSubmit',
     ]) {
+      expect(component).toContain(`${handler}: controller.${handler}`);
       expect(workspace).toContain(`${handler}: controller.${handler}`);
     }
+    expect(template).toContain('bottom-inset="{{contactKeyboardHeight}}"');
+    expect(template).toContain('bindkeyboardheightchange="handleContactKeyboardHeightChange"');
+    expect(template).toContain('adjust-position="{{false}}"');
     expect(template.match(/class="profile-contact-chevron"/gu)).toHaveLength(2);
     expect(template).not.toContain('<text aria-hidden="true">›</text>');
     expect(styles).toMatch(

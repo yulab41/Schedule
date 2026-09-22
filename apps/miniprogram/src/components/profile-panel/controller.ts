@@ -77,6 +77,7 @@ interface ProfilePanelData {
   readonly contactEditorOpen: boolean;
   readonly contactEditorTitle: string;
   readonly contactError: string;
+  readonly contactKeyboardHeight: number;
   readonly contactMembershipId: string;
   readonly contactSaving: boolean;
   readonly contactVersion: number;
@@ -188,6 +189,7 @@ export function createProfilePanelControllerDefinition(
       contactEditorOpen: false,
       contactEditorTitle: '',
       contactError: '',
+      contactKeyboardHeight: 0,
       contactMembershipId: '',
       contactSaving: false,
       contactVersion: 0,
@@ -276,9 +278,25 @@ export function createProfilePanelControllerDefinition(
       this.setData({ contactDraft: event.detail.value, contactError: '' });
     },
 
+    handleContactKeyboardHeightChange(
+      this: ProfilePanelInstance,
+      event: { detail: { height: number } },
+    ): void {
+      const measuredHeight = event.detail.height;
+      const contactKeyboardHeight =
+        Number.isFinite(measuredHeight) && measuredHeight > 0 ? Math.round(measuredHeight) : 0;
+      if (contactKeyboardHeight !== this.data.contactKeyboardHeight)
+        this.setData({ contactKeyboardHeight });
+    },
+
     handleContactClose(this: ProfilePanelInstance): void {
       if (!this.data.contactSaving)
-        this.setData({ contactEditorField: '', contactEditorOpen: false, contactError: '' });
+        this.setData({
+          contactEditorField: '',
+          contactEditorOpen: false,
+          contactError: '',
+          contactKeyboardHeight: 0,
+        });
     },
 
     handleContactSubmit(this: ProfilePanelInstance): void {
@@ -603,6 +621,7 @@ function openContactEditor(
     contactEditorOpen: true,
     contactEditorTitle: field === 'mobile' ? '修改手机号' : '修改短号',
     contactError: '',
+    contactKeyboardHeight: 0,
   });
 }
 
@@ -636,6 +655,7 @@ async function saveContact(
       contactEditorField: '',
       contactEditorOpen: false,
       contactSaving: false,
+      contactKeyboardHeight: 0,
       contactVersion: updated.version ?? panel.data.contactVersion + 1,
       mobilePhone: updated.mobilePhone ?? '',
       shortPhone: updated.shortPhone ?? '',

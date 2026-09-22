@@ -52,6 +52,7 @@ Component({
     handleConfirmDialogTap: controller.handleConfirmDialogTap,
     handleContactClose: controller.handleContactClose,
     handleContactInput: controller.handleContactInput,
+    handleContactKeyboardHeightChange: controller.handleContactKeyboardHeightChange,
     handleContactSubmit: controller.handleContactSubmit,
     handleCurrentPasswordInput: controller.handleCurrentPasswordInput,
     handleDefaultPasswordReminderClose: controller.handleDefaultPasswordReminderClose,
