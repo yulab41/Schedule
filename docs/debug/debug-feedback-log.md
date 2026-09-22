@@ -8,7 +8,7 @@
 - 测试先行：新增 `keepAlive` 默认关闭、隐藏态可访问性/交互/动画以及个人联系方式显式启用断言；旧实现 3 失败/7 通过。修复后共享 sheet、通讯录回归和 profile controller 定向 44/44，Mini 全量 1245 通过/16 跳过。
 - 修复与语义：`ui-sheet.keepAlive=false` 保持所有现有调用方原语义；只有联系方式弹窗传 `true`，关闭时以 `visibility:hidden`、`pointer-events:none`、`aria-hidden` 和 `animation:none` 保留并预热 slot/input，焦点仍由现有 controller 明确关闭。号码输入、校验、409、Promise/catch、跨群同步、键盘高度和回底均未改。
 - 验证：production verify 通过（主包 1,747,915 B、总包 4,568,025 B、determinism Manifest `85c93b6cda1fa0411a778c60f478162e374fa7a358c04eb6775616f004b1f4f1`）；任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过。开发者工具共享/profile WXML/WXSS 编译和模拟器刷新成功，console error 为空；不把该层写成小米 14 首次动画通过。
-- 待提交 checkpoint `fix(miniprogram): prewarm contact editor input`；完成推送后才冻结并上传新体验版。状态 `IMPLEMENTED_AWAITING_TRIAL_UPLOAD`。
+- 发布交付：checkpoint `531d7c399cde3407844162fba0104d8fde8d797f` 已推送；干净 production 候选上传为 `0.1.0-p10.20260922.189`（232 个代码文件、ZIP 2,648,616 B、Manifest `5b8e241ec169e38fe21a71a95d3522682a0d62170055f42ce0b15cbe140da2e1`）。可信 allowlist 只追加 `.189`；健康、策略与完整服务器验证通过。生产 release 保持 `cfa934d1`/schema 63，未部署应用、备份或迁移数据库，未提审或正式发布。状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
 
 ## 2026-09-22 联系方式弹窗文字延迟与键盘收起不回底
 
