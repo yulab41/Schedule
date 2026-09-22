@@ -8,7 +8,7 @@
 - 测试先行：新增工作区事件转发和真实 SVG 箭头契约，旧源码为 1 失败/3 通过；补齐手机号/短号打开、关闭、输入、提交方法后，定向 26/26，Mini 全量 1242 通过/16 跳过。
 - 行为变化：两种联系方式整行点击重新进入既有单字段 sheet 流程；号码数据、校验、409 冲突和跨群同步逻辑未改。文字 `›` 替换为固定 18×18 的既有 muted chevron，消除字体基线偏移；顶部导航和其他页面无变化。
 - 运行验证：typecheck、Mini production verify（总包 4,563,993 B）、icon parity、format、lint、`pnpm smoke:check-core` 通过。开发者工具编译与“我的”页渲染成功，Console 无相关错误，截图确认箭头水平对齐。自动化选择器不能穿透自定义组件边界，坐标点击不记为通过；小米 14 需在新体验版复核。
-- 发布边界：本轮是 Mini-only；不触发生产备份/部署/数据库迁移。推送 checkpoint 后记录 `UPLOAD_REQUIRED`，没有用户对精确 checkpoint 的当前授权时不分配体验版本。
+- 发布交付：`59f1e801` 经独占 upload lease、前后 safety checker 与动态分配锁上传 `0.1.0-p10.20260922.186`（production，Manifest `0975bb9232d3978a41a9f582952e2f2a42daee8cc223363c0222a07fa39e6a57`，232 文件，ZIP 2,645,453 B）；tag/allocation/manifest/receipt 精确绑定。正式 allowlist 只追加 `.186`，重建预热一次 TLS EOF、一次 502 后恢复；独立 verify、完整 `ecs-verify.sh`、公网 `.186/.185=200`、未知版 `=426` 通过。生产 release 保持 `cfa934d1`/schema 63，未备份、迁移或部署应用；未提审/正式发布。
 
 ## 2026-09-21 账号联系方式、单环境二维码与旧邀请直接清理
 
