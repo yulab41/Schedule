@@ -8,7 +8,7 @@
 - 测试先行：新增“打开先未聚焦、渲染回调后聚焦”“全局高度 0 回底”“blur 延迟兜底回底/卸载注销”与静态转发、focus 绑定、46px 行高断言；旧实现 3 失败/18 通过，修复后定向 21/21。
 - 修复与语义：focus 从 `contactEditorOpen` 解耦为独立状态和 generation；局部/全局高度进入同一归一化函数；全局监听只在 controller 生命周期存在并按原 handler 引用注销；blur 的 100ms timer 可被重新 focus/关闭/卸载取消，避免旧回调污染下次弹窗。号码值、校验、409、异步保存/catch、跨群同步、其他 sheet 与顶部导航均未改。
 - 验证：Mini 全量 1244 通过/16 跳过；typecheck、production verify（主包 1,747,542 B、总包 4,567,652 B）、package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过。开发者工具 WXML/WXSS 编译与模拟器刷新成功，console error 为空；模拟器缺成员身份，未声称小米 14 或真实键盘通过。
-- 交付状态：等待 `fix(miniprogram): stabilize contact editor keyboard motion` checkpoint、不可变体验版上传和只增 allowlist；正式发布与生产应用部署不在本批。
+- 发布交付：checkpoint `83eb80c33f38c63fe1b7c2b51a85cac18f54c423` 已推送；干净 production 候选上传为 `0.1.0-p10.20260922.188`（232 个代码文件、ZIP 2,648,723 B、Manifest `a306e0a91627c52b54855951e8f3f077c262e28fef3a953041f8cd9c014f0bf4`），tag/allocation/manifest/receipt 一致。可信 allowlist 只追加 `.188`、保留 `.187`；verify、完整服务器校验、公网 `.188/.187=200` 与未知版 426 通过。生产仍为 `cfa934d1`/schema 63；未部署应用、操作数据库、提审或正式发布。状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
 
 ## 2026-09-22 联系方式弹窗键盘高度自适应
 

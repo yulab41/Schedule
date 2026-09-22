@@ -1,14 +1,16 @@
 # Project Status
 
-## 当前批次：联系方式弹窗文字稳定与键盘收起回底（已实现，待 checkpoint/上传放行）
+## 当前批次：联系方式弹窗文字稳定与键盘收起回底（体验版已上传放行，待小米 14 复核）
 
 - 小米 14 `.187@adccba36` 继续证明键盘避让已生效，同时发现两项回归：弹窗出现时 input 文字延迟上移；键盘关闭后 sheet 偶尔保留旧 inset、悬在屏幕半空。`git log -S`/`git blame` 定位到 `5fabb855` 的同步自动聚焦和 `adccba36` 的后到键盘高度位移：弹窗入场、原生 input 激活及 sheet 二次重排重叠；部分 Android 输入法关闭时只发全局高度归零，input 局部事件不可靠。
 - 修复：打开 sheet 的首个 `setData` 明确保持未聚焦，渲染回调再自动聚焦，保留一次点击拉起键盘；input 固定 46px 行高，避免原生文字层二次校正。局部 `keyboardheightchange` 与生命周期内成对注册/注销的全局 `onKeyboardHeightChange` 共用同一归一化路径；高度 0 立即回底，blur 以 100ms 可取消兜底归零，重新聚焦会取消旧 timer。取消、保存、卸载和重开同时清理 focus generation、timer 与 inset。
 - 行为等价审计：号码输入/清空/校验、409 刷新、保存 Promise/catch、账号级同步及 `ui-sheet` 默认布局不变；新增监听只在联系方式 sheet 打开时写入高度，调用接收者仍是 component/page instance，监听回调使用同一 panel 闭包并以原引用注销。
 - 测试先行：旧实现定向 3 失败/18 通过；修复后定向 21/21，Mini 全量 1244 通过/16 跳过。typecheck、production verify、package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core` 与 diff check 通过；总包 4,567,652 B、主包 1,747,542 B，较 `.187` 分别 +2,510 B/+2,510 B。
 - 开发者工具 0.3.11 门禁登录/版本关系正常；打开独占 worktree 项目后 WXML/WXSS 编译和模拟器刷新成功，console 错误过滤为空。模拟器账号没有群组成员身份，未把该层证据写成键盘或真机交互通过。
-- 复用独占 `general-4`，`REUSE_ONLY`、安装 0。待以 `fix(miniprogram): stabilize contact editor keyboard motion` 建立 checkpoint、正常推送；随后冻结干净 production 候选，动态分配新的不可变体验版并只增放行。Mini-only 例外下不部署生产应用、不备份/迁移数据库；提审/正式发布不属于本批。
-- 唯一下一任务：完成 checkpoint、上传与 allowlist 后，请用户在小米 14 同构建验证手机号/短号两种弹窗的文字不跳、不同键盘不遮挡、收起键盘立即贴底，以及重新聚焦/取消/保存路径。取得当前构建证据前保持“待用户复核”。
+- 复用独占 `general-4`，`REUSE_ONLY`、安装 0；checkpoint `83eb80c33f38c63fe1b7c2b51a85cac18f54c423`（`fix(miniprogram): stabilize contact editor keyboard motion`）已推送。体验版 `0.1.0-p10.20260922.188` 从干净 detached production 候选上传：232 个代码文件、ZIP 2,648,723 B、上传态总包 4,569,566 B、Manifest `a306e0a91627c52b54855951e8f3f077c262e28fef3a953041f8cd9c014f0bf4`；远端 tag、allocation、manifest、receipt 与构建身份一致。
+- 可信 allowlist 只追加 `.188` 并保留 `.187`；独立 verify、完整 `ecs-verify.sh`、公网 `.188/.187=200` 与动态未知版 `=426` 通过。放行重建 API/Web 时一次 TLS EOF 后自动恢复；生产 release 仍为 `cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，未部署应用、备份/迁移数据库、提审或正式发布。
+- 本轮发布记录 checkpoint 以 `docs(release): record contact editor trial 188` 识别；仅 Mini/文档，按例外不再重复生产备份、部署、上传或 allowlist 写入。
+- 唯一下一任务：小米 14 打开 `.188@83eb80c`，验证手机号/短号两种弹窗的文字不跳、不同键盘不遮挡、收起键盘立即贴底，以及重新聚焦/取消/保存路径。取得同构建证据前保持“待用户复核”。
 
 - 前序 `.186` 修复了联系方式事件转发与 18×18 SVG 箭头；`.185` 及更早二维码/访客改造事实保持不变。用户撤回顶部导航改版，五个主页面原导航/标题继续保持原样；二维码四字段为原生 40px、Storybook 20px。
 - 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
