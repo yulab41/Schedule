@@ -532,6 +532,7 @@
   border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-small);
   font-size: 16px;
+  line-height: 46px;
 }
 
 .profile-contact-error {

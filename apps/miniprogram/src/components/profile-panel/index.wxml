@@ -248,7 +248,9 @@
 >
   <view class="profile-contact-editor">
     <text class="profile-contact-editor-copy">
-      {{contactEditorField === 'mobile' ? '仅本人可修改；修改后会同步到所有群组，并撤销原手机号公开同意。' : '修改后会同步到你所在的所有群组。'}}
+      {{contactEditorField === 'mobile' ?
+      '仅本人可修改；修改后会同步到所有群组，并撤销原手机号公开同意。' :
+      '修改后会同步到你所在的所有群组。'}}
     </text>
     <input
       class="profile-contact-input"
@@ -258,9 +260,11 @@
       placeholder="{{contactEditorField === 'mobile' ? '请输入 11 位手机号' : '请输入短号'}}"
       disabled="{{contactSaving}}"
       adjust-position="{{false}}"
+      bindblur="handleContactBlur"
+      bindfocus="handleContactFocus"
       bindinput="handleContactInput"
       bindkeyboardheightchange="handleContactKeyboardHeightChange"
-      focus="{{contactEditorOpen}}"
+      focus="{{contactInputFocused}}"
     />
     <text wx:if="{{contactError}}" class="profile-contact-error">{{contactError}}</text>
     <button

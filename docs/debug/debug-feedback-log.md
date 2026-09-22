@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-22 联系方式弹窗文字延迟与键盘收起不回底
+
+- 现场与引入点：小米 14 `.187@adccba36` 中，弹窗出现后 input 文字慢半拍上移，键盘关闭时 sheet 偶尔悬在半空。`git log -S 'focus="{{contactEditorOpen}}"'`/`git blame` 定位同步自动聚焦来自 `5fabb855`；`git log -S 'bottomInset'` 定位实测键盘位移来自 `adccba36`。打开时先以 inset=0 渲染并同步激活原生 input，后到高度事件再重排 sheet；关闭又只依赖 input 局部事件，形成两个可复现缺口。
+- 测试先行：新增“打开先未聚焦、渲染回调后聚焦”“全局高度 0 回底”“blur 延迟兜底回底/卸载注销”与静态转发、focus 绑定、46px 行高断言；旧实现 3 失败/18 通过，修复后定向 21/21。
+- 修复与语义：focus 从 `contactEditorOpen` 解耦为独立状态和 generation；局部/全局高度进入同一归一化函数；全局监听只在 controller 生命周期存在并按原 handler 引用注销；blur 的 100ms timer 可被重新 focus/关闭/卸载取消，避免旧回调污染下次弹窗。号码值、校验、409、异步保存/catch、跨群同步、其他 sheet 与顶部导航均未改。
+- 验证：Mini 全量 1244 通过/16 跳过；typecheck、production verify（主包 1,747,542 B、总包 4,567,652 B）、package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过。开发者工具 WXML/WXSS 编译与模拟器刷新成功，console error 为空；模拟器缺成员身份，未声称小米 14 或真实键盘通过。
+- 交付状态：等待 `fix(miniprogram): stabilize contact editor keyboard motion` checkpoint、不可变体验版上传和只增 allowlist；正式发布与生产应用部署不在本批。
+
 ## 2026-09-22 联系方式弹窗键盘高度自适应
 
 - 现场与引入点：小米 14 `.186@59f1e801` 中数字键盘遮住联系方式输入框下缘和保存按钮。`git log -S 'focus="{{contactEditorOpen}}"'`、`git blame` 将表单定位到 `5fabb855`；固定底部 `ui-sheet` 没有键盘避让输入，input 仅依赖默认 `adjust-position`，因此固定弹层不会可靠地随不同输入法上移。

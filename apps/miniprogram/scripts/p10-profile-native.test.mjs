@@ -80,6 +80,8 @@ describe('P10 native profile parity', () => {
       'handleMobilePhoneEdit',
       'handleShortPhoneEdit',
       'handleContactClose',
+      'handleContactBlur',
+      'handleContactFocus',
       'handleContactInput',
       'handleContactKeyboardHeightChange',
       'handleContactSubmit',
@@ -89,12 +91,15 @@ describe('P10 native profile parity', () => {
     }
     expect(template).toContain('bottom-inset="{{contactKeyboardHeight}}"');
     expect(template).toContain('bindkeyboardheightchange="handleContactKeyboardHeightChange"');
+    expect(template).toContain('bindblur="handleContactBlur"');
+    expect(template).toContain('focus="{{contactInputFocused}}"');
     expect(template).toContain('adjust-position="{{false}}"');
     expect(template.match(/class="profile-contact-chevron"/gu)).toHaveLength(2);
     expect(template).not.toContain('<text aria-hidden="true">›</text>');
     expect(styles).toMatch(
       /\.profile-contact-chevron\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*flex:\s*none;/su,
     );
+    expect(styles).toMatch(/\.profile-contact-input\s*\{[^}]*line-height:\s*46px;/su);
   });
 
   it('covers authenticated, missing-session and large-text-safe layout copy', () => {

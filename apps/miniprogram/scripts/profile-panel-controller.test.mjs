@@ -3,6 +3,7 @@ beforeEach(() => resetPasswordReminderLaunch());
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let createProfilePanelControllerDefinition;
+const keyboardHeightHandlers = new Set();
 
 beforeAll(async () => {
   vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
@@ -11,6 +12,8 @@ beforeAll(async () => {
   vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
   vi.stubGlobal('wx', {
     getWindowInfo: vi.fn(() => ({ fontSizeSetting: 16 })),
+    offKeyboardHeightChange: vi.fn((handler) => keyboardHeightHandlers.delete(handler)),
+    onKeyboardHeightChange: vi.fn((handler) => keyboardHeightHandlers.add(handler)),
     showModal: vi.fn(),
     showToast: vi.fn(),
   });
@@ -111,11 +114,16 @@ describe('Mini Web-parity profile controller', () => {
       contactDraft: '13412348339',
       contactEditorField: 'mobile',
       contactEditorOpen: true,
+      contactInputFocused: true,
       contactKeyboardHeight: 0,
     });
+    expect(panel.setData.mock.calls.slice(-2).map(([patch]) => patch.contactInputFocused)).toEqual([
+      false,
+      true,
+    ]);
     definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
     expect(panel.data.contactKeyboardHeight).toBe(326);
-    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: -1 } });
+    for (const handler of keyboardHeightHandlers) handler({ height: 0 });
     expect(panel.data.contactKeyboardHeight).toBe(0);
     definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
     definition.handleContactInput.call(panel, { detail: { value: '13900139000' } });
@@ -137,6 +145,27 @@ describe('Mini Web-parity profile controller', () => {
       'member-current',
       expect.objectContaining({ expectedVersion: 3, shortPhone: null }),
     );
+  });
+
+  it('returns the contact sheet to the bottom when the focused input blurs', async () => {
+    vi.useFakeTimers();
+    const definition = createProfilePanelControllerDefinition(true, createDependencies());
+    const panel = createPanel(definition);
+    definition.onLoad.call(panel);
+    panel.setData({ contactMembershipId: 'member-current' });
+    definition.handleMobilePhoneEdit.call(panel);
+    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
+
+    definition.handleContactBlur.call(panel);
+    await vi.advanceTimersByTimeAsync(120);
+
+    expect(panel.data).toMatchObject({
+      contactInputFocused: false,
+      contactKeyboardHeight: 0,
+    });
+    definition.onUnload.call(panel);
+    expect(globalThis.wx.offKeyboardHeightChange).toHaveBeenCalledWith(expect.any(Function));
+    vi.useRealTimers();
   });
 
   it('validates phone input and refreshes the contact after a concurrent conflict', async () => {
@@ -378,14 +407,16 @@ describe('Mini Web-parity profile controller', () => {
 });
 
 function createPanel(definition) {
-  return {
+  const panel = {
     data: structuredClone(definition.data),
     overviewRequestSerial: 0,
-    setData(patch) {
+    setData: vi.fn(function (patch, callback) {
       this.data = { ...this.data, ...patch };
-    },
+      callback?.();
+    }),
     triggerEvent: vi.fn(),
   };
+  return panel;
 }
 
 function createDependencies(overrides = {}) {

@@ -77,6 +77,7 @@ interface ProfilePanelData {
   readonly contactEditorOpen: boolean;
   readonly contactEditorTitle: string;
   readonly contactError: string;
+  readonly contactInputFocused: boolean;
   readonly contactKeyboardHeight: number;
   readonly contactMembershipId: string;
   readonly contactSaving: boolean;
@@ -120,12 +121,20 @@ interface ProfilePanelData {
 }
 
 interface ProfilePanelInstance {
+  _contactBlurTimer?: ReturnType<typeof setTimeout>;
+  _contactFocusGeneration?: number;
+  _contactKeyboardHeightHandler?: (result: { readonly height: number }) => void;
   accountRequestSerial: number;
   data: ProfilePanelData;
   overviewRequestSerial: number;
   _securityGeneration?: number;
-  setData(patch: Partial<ProfilePanelData>): void;
+  setData(patch: Partial<ProfilePanelData>, callback?: () => void): void;
   triggerEvent?(name: string): void;
+}
+
+interface ContactKeyboardRuntime {
+  offKeyboardHeightChange?(handler: (result: { readonly height: number }) => void): void;
+  onKeyboardHeightChange?(handler: (result: { readonly height: number }) => void): void;
 }
 
 export interface ProfilePanelDependencies {
@@ -189,6 +198,7 @@ export function createProfilePanelControllerDefinition(
       contactEditorOpen: false,
       contactEditorTitle: '',
       contactError: '',
+      contactInputFocused: false,
       contactKeyboardHeight: 0,
       contactMembershipId: '',
       contactSaving: false,
@@ -234,6 +244,7 @@ export function createProfilePanelControllerDefinition(
     ...security.methods,
 
     onUnload(this: ProfilePanelInstance): void {
+      disposeContactKeyboardTracking(this);
       security.dispose.call(this);
       this.accountRequestSerial += 1;
       this.overviewRequestSerial += 1;
@@ -242,6 +253,7 @@ export function createProfilePanelControllerDefinition(
     onLoad(this: ProfilePanelInstance): void {
       this.accountRequestSerial = 0;
       this.overviewRequestSerial = 0;
+      registerContactKeyboardTracking(this);
       security.initialize.call(this);
       const windowInfo = wx.getWindowInfo();
       const fontSizeSetting = (windowInfo as unknown as { readonly fontSizeSetting?: number })
@@ -278,25 +290,40 @@ export function createProfilePanelControllerDefinition(
       this.setData({ contactDraft: event.detail.value, contactError: '' });
     },
 
+    handleContactFocus(this: ProfilePanelInstance): void {
+      clearContactBlurTimer(this);
+      if (!this.data.contactInputFocused) this.setData({ contactInputFocused: true });
+    },
+
+    handleContactBlur(this: ProfilePanelInstance): void {
+      clearContactBlurTimer(this);
+      if (this.data.contactInputFocused) this.setData({ contactInputFocused: false });
+      this._contactBlurTimer = setTimeout(() => {
+        delete this._contactBlurTimer;
+        if (this.data.contactEditorOpen && !this.data.contactInputFocused)
+          applyContactKeyboardHeight(this, 0);
+      }, 100);
+    },
+
     handleContactKeyboardHeightChange(
       this: ProfilePanelInstance,
       event: { detail: { height: number } },
     ): void {
-      const measuredHeight = event.detail.height;
-      const contactKeyboardHeight =
-        Number.isFinite(measuredHeight) && measuredHeight > 0 ? Math.round(measuredHeight) : 0;
-      if (contactKeyboardHeight !== this.data.contactKeyboardHeight)
-        this.setData({ contactKeyboardHeight });
+      applyContactKeyboardHeight(this, event.detail.height);
     },
 
     handleContactClose(this: ProfilePanelInstance): void {
-      if (!this.data.contactSaving)
+      if (!this.data.contactSaving) {
+        invalidateContactFocus(this);
+        clearContactBlurTimer(this);
         this.setData({
           contactEditorField: '',
           contactEditorOpen: false,
           contactError: '',
+          contactInputFocused: false,
           contactKeyboardHeight: 0,
         });
+      }
     },
 
     handleContactSubmit(this: ProfilePanelInstance): void {
@@ -615,14 +642,23 @@ function openContactEditor(
     wx.showToast?.({ icon: 'none', title: '成员资料仍在加载，请稍后重试。' });
     return;
   }
-  panel.setData({
-    contactDraft: field === 'mobile' ? panel.data.mobilePhone : panel.data.shortPhone,
-    contactEditorField: field,
-    contactEditorOpen: true,
-    contactEditorTitle: field === 'mobile' ? '修改手机号' : '修改短号',
-    contactError: '',
-    contactKeyboardHeight: 0,
-  });
+  clearContactBlurTimer(panel);
+  const focusGeneration = invalidateContactFocus(panel);
+  panel.setData(
+    {
+      contactDraft: field === 'mobile' ? panel.data.mobilePhone : panel.data.shortPhone,
+      contactEditorField: field,
+      contactEditorOpen: true,
+      contactEditorTitle: field === 'mobile' ? '修改手机号' : '修改短号',
+      contactError: '',
+      contactInputFocused: false,
+      contactKeyboardHeight: 0,
+    },
+    () => {
+      if (panel.data.contactEditorOpen && panel._contactFocusGeneration === focusGeneration)
+        panel.setData({ contactInputFocused: true });
+    },
+  );
 }
 
 async function saveContact(
@@ -651,10 +687,13 @@ async function saveContact(
         ...(field === 'mobile' ? { mobilePhone: value || null } : { shortPhone: value || null }),
       },
     );
+    invalidateContactFocus(panel);
+    clearContactBlurTimer(panel);
     panel.setData({
       contactEditorField: '',
       contactEditorOpen: false,
       contactSaving: false,
+      contactInputFocused: false,
       contactKeyboardHeight: 0,
       contactVersion: updated.version ?? panel.data.contactVersion + 1,
       mobilePhone: updated.mobilePhone ?? '',
@@ -672,6 +711,45 @@ async function saveContact(
     }
     panel.setData({ contactError: '保存失败，请稍后重试。', contactSaving: false });
   }
+}
+
+function registerContactKeyboardTracking(panel: ProfilePanelInstance): void {
+  disposeContactKeyboardTracking(panel);
+  const runtime = wx as ContactKeyboardRuntime;
+  if (!runtime.onKeyboardHeightChange || !runtime.offKeyboardHeightChange) return;
+  const handler = (result: { readonly height: number }): void => {
+    if (panel.data.contactEditorOpen) applyContactKeyboardHeight(panel, result.height);
+  };
+  panel._contactKeyboardHeightHandler = handler;
+  runtime.onKeyboardHeightChange(handler);
+}
+
+function disposeContactKeyboardTracking(panel: ProfilePanelInstance): void {
+  clearContactBlurTimer(panel);
+  invalidateContactFocus(panel);
+  const handler = panel._contactKeyboardHeightHandler;
+  delete panel._contactKeyboardHeightHandler;
+  if (handler) (wx as ContactKeyboardRuntime).offKeyboardHeightChange?.(handler);
+}
+
+function applyContactKeyboardHeight(panel: ProfilePanelInstance, measuredHeight: number): void {
+  const contactKeyboardHeight =
+    Number.isFinite(measuredHeight) && measuredHeight > 0 ? Math.round(measuredHeight) : 0;
+  if (contactKeyboardHeight > 0) clearContactBlurTimer(panel);
+  if (contactKeyboardHeight !== panel.data.contactKeyboardHeight)
+    panel.setData({ contactKeyboardHeight });
+}
+
+function clearContactBlurTimer(panel: ProfilePanelInstance): void {
+  if (panel._contactBlurTimer === undefined) return;
+  clearTimeout(panel._contactBlurTimer);
+  delete panel._contactBlurTimer;
+}
+
+function invalidateContactFocus(panel: ProfilePanelInstance): number {
+  const generation = (panel._contactFocusGeneration ?? 0) + 1;
+  panel._contactFocusGeneration = generation;
+  return generation;
 }
 
 async function refreshCurrentContact(
