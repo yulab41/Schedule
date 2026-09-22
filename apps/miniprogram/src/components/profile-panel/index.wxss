@@ -504,11 +504,10 @@
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.profile-contact-value > text:last-child {
-  color: var(--ui-color-text-muted);
-  font-size: 24px;
-  font-weight: var(--ui-font-weight-regular);
-  line-height: 1;
+.profile-contact-chevron {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 .profile-contact-editor {

@@ -1,6 +1,11 @@
 # Project Status
 
-## 当前批次：个人联系方式、单环境二维码与访客审计（已交付，待小米 14 复核）
+## 当前批次：个人联系方式弹窗回归修复（已实现，待体验版上传与小米 14 复核）
+
+- 用户报告 `.185` 中手机号/短号整行点击无弹窗，且号码与右箭头未水平对齐。`git log -S`/`git blame` 定位引入点为 `5fabb855`：`profile-panel` 已声明 5 个联系方式事件，但实际嵌入工作台的 `profile-workspace` 漏注册这些 controller 方法；箭头同时使用了有字体基线偏移的 `›` 字符。
+- 修复：工作区补齐手机号/短号打开、关闭、输入、提交 5 个事件转发；两行改用既有 `ui-chevron-right-muted.svg` 的固定 18×18 图标并禁止 flex 收缩，保持整行点击区和顶部导航不变。新增回归在旧实现先失败，修复后定向 26/26、Mini 全量 1242 通过/16 跳过；typecheck、production verify、图标一致性、format、lint、`smoke:check-core` 通过。
+- 开发者工具：当前 warm worktree 编译成功，模拟器“我的”页显示两行真实图标且视觉水平对齐，Console 无相关错误；自动化选择器不能穿透 `profile-workspace` 自定义组件边界，因此不把坐标尝试写成真实点击通过。ignored 证据位于 `runtime/audit/profile-contact-*.{jpg,png}`。
+- 本次只改 Mini 与状态文档，不部署 API/Web、不迁移数据库。checkpoint 消息：`fix(miniprogram): restore contact editor actions`。推送后记录 `UPLOAD_REQUIRED`；用户明确批准这个确切 SHA 后才分配并上传新的不可变体验版，再由小米 14 验证两种弹窗。`.185` 仍是旧实现，不能用于本修复验收。
 
 - 独占 `general-4`、`REUSE_ONLY`、安装 0，基线 `b65c76f3`，前序实现 checkpoint `5fabb855`。用户撤回顶部导航改版，五个主页面原导航/标题保持不变；二维码四字段按反馈收至原生 40px、Storybook 20px。
 - 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
@@ -13,7 +18,7 @@
 - 体验版 `0.1.0-p10.20260922.185` 已上传：候选 `cbe19af5`、production、说明含短 SHA、Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`、232 个代码文件、ZIP 2,646,093 B。远端不可变 tag、allocation、manifest 与 receipt 均精确绑定同一 SHA/Manifest。
 - 放行：可信 `schedule-client-version-allowlist ensure` 只追加 `.185` 并保留 `.184`；独立 verify、完整 `ecs-verify.sh` 与公网 `.185/.184=200`、未知版 `=426` 通过。生产应用仍为 `cfa934d1`/schema 63，没有重复部署或迁移；重建预热的一次 TLS EOF 后恢复。
 - 交付记录 checkpoint：`docs(release): record QR audit trial 185`；仅根文档，按 Mini/文档例外不再重复生产备份、部署或体验版上传。
-- 当前唯一下一任务：在小米 14 微信客户端打开 `.185@cbe19af5`，验证手机号/短号修改、当前环境成员/访客二维码扫码、访客详情展开及五页原导航。未取得同构建证据前保持“待用户复核”；未提审/正式发布。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
+- `.185@cbe19af5` 仍可验证成员/访客二维码、访客详情与五页原导航，但不得用于本轮联系方式弹窗修复验收。未取得新 checkpoint 同构建的小米 14 证据前保持“待用户复核”；未提审/正式发布。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
 
 ## 上一批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

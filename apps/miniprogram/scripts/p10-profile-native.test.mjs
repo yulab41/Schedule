@@ -70,6 +70,27 @@ describe('P10 native profile parity', () => {
     expect(identity).not.toContain('账号密码登录无需解除微信绑定');
   });
 
+  it('forwards account-contact row events through the embedded workspace and centers real chevrons', () => {
+    const workspace = read('src/components/profile-workspace/index.ts');
+    const template = read('src/components/profile-panel/index.wxml');
+    const styles = read('src/components/profile-panel/index.wxss');
+
+    for (const handler of [
+      'handleMobilePhoneEdit',
+      'handleShortPhoneEdit',
+      'handleContactClose',
+      'handleContactInput',
+      'handleContactSubmit',
+    ]) {
+      expect(workspace).toContain(`${handler}: controller.${handler}`);
+    }
+    expect(template.match(/class="profile-contact-chevron"/gu)).toHaveLength(2);
+    expect(template).not.toContain('<text aria-hidden="true">›</text>');
+    expect(styles).toMatch(
+      /\.profile-contact-chevron\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*flex:\s*none;/su,
+    );
+  });
+
   it('covers authenticated, missing-session and large-text-safe layout copy', () => {
     const controller = read('src/components/profile-panel/controller.ts');
     const template = read('src/components/profile-panel/index.wxml');
