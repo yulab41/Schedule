@@ -3,7 +3,9 @@ import { fileURLToPath } from 'node:url';
 
 import type {
   AppliedManualScheduleTemplateResult,
+  CreatedManualScheduleDraftResult,
   ManualApplyPreview,
+  ManualScheduleEditorPreview,
   ShiftType,
 } from '@schedule/contracts';
 import {
@@ -319,6 +321,84 @@ describeWithDatabase('manual schedule template apply', () => {
     const body = applied.json() as AppliedManualScheduleTemplateResult;
     expect(body.preview.applyEndDate).toBe('2027-09-01');
     expect(body.periods).toHaveLength(13);
+  });
+
+  it('previews an unsaved editor snapshot without creating or updating a template', async () => {
+    const preview = await previewEditor({
+      endDate: '2027-09-01',
+      expectedRulesVersion: rulesVersion,
+      snapshot: createEditorSnapshot(),
+      startDate: '2026-09-01',
+    });
+
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.json() as ManualScheduleEditorPreview).toMatchObject({
+      applyEndDate: '2027-09-01',
+      applyStartDate: '2026-09-01',
+      cycleDays: 7,
+      source: 'editor',
+    });
+    expect(preview.body).not.toContain('templateId');
+    const [templates] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM manual_schedule_templates WHERE group_id=${groupId}`,
+    );
+    expect(templates).toEqual([{ count: 0 }]);
+  });
+
+  it('creates idempotent cross-month drafts from the same editor snapshot without a template row', async () => {
+    const operationId = randomUUID();
+    const input = {
+      endDate: '2027-09-01',
+      expectedRulesVersion: rulesVersion,
+      operationId,
+      snapshot: createEditorSnapshot(),
+      startDate: '2026-09-01',
+    };
+    const created = await createEditorDraft(input);
+    expect(created.statusCode, created.body).toBe(200);
+    const body = created.json() as CreatedManualScheduleDraftResult;
+    expect(body.status).toBe('draft');
+    expect(body.periods).toHaveLength(13);
+    expect(body.preview.source).toBe('editor');
+    expect(created.body).not.toContain('templateId');
+
+    const replay = await createEditorDraft(input);
+    expect(replay.json()).toEqual(body);
+    const [counts] = await client.database.execute<{
+      events: number;
+      periods: number;
+      templates: number;
+    }>(sql`
+      SELECT
+        (SELECT COUNT(*) FROM schedule_events WHERE group_id=${groupId} AND event_type='manual_schedule_inline_applied') AS events,
+        (SELECT COUNT(*) FROM schedule_periods WHERE group_id=${groupId} AND deleted_at IS NULL) AS periods,
+        (SELECT COUNT(*) FROM manual_schedule_templates WHERE group_id=${groupId}) AS templates
+    `);
+    expect(counts).toEqual([{ events: 13, periods: 13, templates: 0 }]);
+  });
+
+  it('rejects a 367-day editor range and an unauthorized editor request without writes', async () => {
+    const tooLong = await previewEditor({
+      endDate: '2027-09-02',
+      expectedRulesVersion: rulesVersion,
+      snapshot: createEditorSnapshot(),
+      startDate: '2026-09-01',
+    });
+    expect(tooLong.statusCode).toBe(400);
+    const unauthorized = await previewEditor(
+      {
+        endDate: '2026-09-30',
+        expectedRulesVersion: rulesVersion,
+        snapshot: createEditorSnapshot(),
+        startDate: '2026-09-01',
+      },
+      'outsider-token',
+    );
+    expect(unauthorized.statusCode).toBe(403);
+    expect(await readManualApplySideEffectCounts()).toMatchObject({
+      assignments: 0,
+      periods: 0,
+    });
   });
 
   it('rejects ranges over 366 days and invalid dates with no write side effects', async () => {
@@ -1181,6 +1261,36 @@ describeWithDatabase('manual schedule template apply', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/manual-schedule-templates/${templateId}/apply-preview`,
+    });
+  }
+
+  function createEditorSnapshot() {
+    return {
+      cells: [
+        { cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId },
+        { cycleDay: 2, membershipId: candidateMembershipId, shiftTypeId: allDayShiftTypeId },
+      ],
+      cycleDays: 7,
+      membershipIds: [ownerMembershipId, candidateMembershipId],
+      scheduleRoleId: primaryRoleId,
+    };
+  }
+
+  async function previewEditor(body: Record<string, unknown>, token = 'owner-token') {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/manual-schedules/preview`,
+    });
+  }
+
+  async function createEditorDraft(body: Record<string, unknown>, token = 'owner-token') {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/manual-schedules/drafts`,
     });
   }
 

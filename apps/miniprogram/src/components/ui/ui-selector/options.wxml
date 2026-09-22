@@ -25,11 +25,21 @@
         aria-disabled="{{item.disabled}}"
         bindtap="handleOptionTap"
       >
-        <text wx:if="{{multiple}}" class="workflow-picker-check">{{item.checked ? '✓' : '○'}}</text><text class="workflow-picker-option-label"
+        <text wx:if="{{multiple}}" class="workflow-picker-check">{{item.checked ? '✓' : '○'}}</text
+        ><text class="workflow-picker-option-label"
           ><text>{{item.leadingLabel}}</text
           ><text wx:if="{{item.weekendLabel}}" class="workflow-picker-option-weekend"
             >{{item.weekendLabel}}</text
           ><text>{{item.trailingLabel}}</text></text
+        >
+        <view
+          wx:if="{{item.actionLabel}}"
+          class="workflow-picker-option-action"
+          data-index="{{index}}"
+          aria-role="button"
+          aria-label="{{item.actionLabel}} {{item.label}}"
+          catchtap="handleOptionActionTap"
+          >{{item.actionLabel}}</view
         >
       </view>
       <view wx:if="{{options.length === 0}}" class="workflow-picker-empty">暂无可选项</view>

@@ -10,6 +10,7 @@ import {
   apiErrorCodes,
   approvedLeaveRequestResultSchema,
   appliedManualScheduleTemplateResultSchema,
+  createdManualScheduleDraftResultSchema,
   calendarChangesReadModelSchema,
   calendarReadModelSchema,
   guestCalendarReadModelSchema,
@@ -43,6 +44,7 @@ import {
   leaveRequestMutationResultSchema,
   leaveRequestSchema,
   manualApplyPreviewSchema,
+  manualScheduleEditorPreviewSchema,
   manualScheduleStartDateSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
@@ -124,6 +126,10 @@ const source = await format(
       appliedManualScheduleTemplateResult: sanitizeJsonSchema(
         z.toJSONSchema(appliedManualScheduleTemplateResultSchema),
         'appliedManualScheduleTemplateResult',
+      ),
+      createdManualScheduleDraftResult: sanitizeJsonSchema(
+        z.toJSONSchema(createdManualScheduleDraftResultSchema),
+        'createdManualScheduleDraftResult',
       ),
       calendarReadModel: sanitizeJsonSchema(
         z.toJSONSchema(calendarReadModelSchema),
@@ -233,6 +239,10 @@ const source = await format(
       manualApplyPreview: sanitizeJsonSchema(
         z.toJSONSchema(manualApplyPreviewSchema),
         'manualApplyPreview',
+      ),
+      manualScheduleEditorPreview: sanitizeJsonSchema(
+        z.toJSONSchema(manualScheduleEditorPreviewSchema),
+        'manualScheduleEditorPreview',
       ),
       manualScheduleTemplate: sanitizeJsonSchema(
         z.toJSONSchema(manualScheduleTemplateSchema),

@@ -20,6 +20,7 @@ describe('P5 native manual schedule controller', () => {
       ),
       getWindowInfo: () => ({ statusBarHeight: 24, windowWidth: 390 }),
       request: vi.fn(),
+      showModal: vi.fn(),
     });
     await import('../src/subpackages/scheduling/pages/manual/index.ts');
     await enableTestClientCapabilities();
@@ -52,19 +53,30 @@ describe('P5 native manual schedule controller', () => {
     });
   });
 
-  it('marks cell edits dirty and never saves implicitly when preview is requested', () => {
+  it('previews the current dirty editor snapshot without saving a template implicitly', async () => {
     const instance = createPageInstance(definition);
     instance._config = {
       groupMembers: [],
-      roles: [{ id: 'role-1', members: [], name: '一线', version: 1 }],
+      roles: [
+        {
+          id: 'role-1',
+          members: [{ membershipId: 'member-1', realName: '林医生' }],
+          name: '一线',
+          version: 1,
+        },
+      ],
       rulesVersion: 7,
-      shiftTypes: [],
+      shiftTypes: [{ ...instance.data.shiftTypes[0], isEnabled: true }],
     };
     instance._currentGroupId = 'group-1';
     instance._templates = [{ id: 'template-1', version: 1 }];
     instance.data.canPreview = true;
     instance.data.canSave = true;
+    instance.data.endDate = '2026-08-30';
+    instance.data.roleIndex = 0;
     instance.data.selectedTemplateId = 'template-1';
+    instance.data.startDate = '2026-08-23';
+    instance.data.startDateState = 'ready';
 
     definition.handleCellTap.call(instance, {
       currentTarget: { dataset: { columnIndex: 0, key: '1:member-1', rowIndex: 0 } },
@@ -72,9 +84,20 @@ describe('P5 native manual schedule controller', () => {
     definition.handlePreview.call(instance);
 
     expect(instance._isDirty).toBe(true);
-    expect(instance.data.canPreview).toBe(false);
-    expect(globalThis.wx.request).not.toHaveBeenCalled();
-    expect(instance.data.errorMessage).toContain('先保存模板');
+    await vi.waitFor(() => expect(globalThis.wx.request).toHaveBeenCalledTimes(1));
+    const request = globalThis.wx.request.mock.calls[0][0];
+    expect(request.url).toContain('/groups/group-1/manual-schedules/preview');
+    expect(request.url).not.toContain('manual-schedule-templates');
+    expect(request.data).toMatchObject({
+      endDate: '2026-08-30',
+      expectedRulesVersion: 7,
+      snapshot: {
+        cycleDays: 1,
+        membershipIds: ['member-1'],
+        scheduleRoleId: 'role-1',
+      },
+      startDate: '2026-08-23',
+    });
   });
 
   it('allows replacing stale cells with an available shift and exposes no undo handler', () => {
@@ -101,6 +124,45 @@ describe('P5 native manual schedule controller', () => {
     expect(instance.data.rows[0].cells[0].shiftTypeId).toBe('shift-p');
   });
 
+  it('confirms template deletion without selecting the option', async () => {
+    const instance = createPageInstance(definition);
+    const template = {
+      cycleDays: 7,
+      id: 'template-1',
+      scheduleRoleName: '一线',
+      startDate: '2026-09-01',
+    };
+    instance._currentGroupId = 'group-1';
+    instance._templates = [template];
+    instance.data.selectedTemplateId = '';
+
+    definition.handleTemplateOptionAction.call(instance, {
+      detail: {
+        option: { actionLabel: '删除', label: '一线', value: template.id },
+        value: template.id,
+      },
+    });
+    expect(globalThis.wx.showModal).toHaveBeenCalledTimes(1);
+    const modal = globalThis.wx.showModal.mock.calls[0][0];
+    expect(modal.content).toContain('一线 · 2026-09-01 · 7天');
+    modal.success({ cancel: true, confirm: false });
+    expect(globalThis.wx.request).not.toHaveBeenCalled();
+
+    definition.handleTemplateOptionAction.call(instance, {
+      detail: {
+        option: { actionLabel: '删除', label: '一线', value: template.id },
+        value: template.id,
+      },
+    });
+    globalThis.wx.showModal.mock.calls[1][0].success({ cancel: false, confirm: true });
+    await vi.waitFor(() => expect(globalThis.wx.request).toHaveBeenCalledTimes(1));
+    expect(globalThis.wx.request.mock.calls[0][0]).toMatchObject({
+      method: 'DELETE',
+      url: expect.stringContaining('/manual-schedule-templates/template-1'),
+    });
+    expect(instance.data.selectedTemplateId).toBe('');
+  });
+
   it('reuses one operation id after an ambiguous apply failure', async () => {
     const requests = [];
     globalThis.wx.request.mockImplementation((options) => {
@@ -110,8 +172,18 @@ describe('P5 native manual schedule controller', () => {
     const instance = createPageInstance(definition);
     instance._applyOperationId = 'operation-fixed';
     instance._config = { rulesVersion: 7 };
+    instance._previewRequest = {
+      endDate: '2026-08-30',
+      expectedRulesVersion: 7,
+      snapshot: {
+        cells: [],
+        cycleDays: 1,
+        membershipIds: ['member-1'],
+        scheduleRoleId: 'role-1',
+      },
+      startDate: '2026-08-23',
+    };
     instance.data.canApplyDraft = true;
-    instance.data.selectedTemplateId = 'template-1';
 
     definition.handleApplyDraft.call(instance);
     await vi.waitFor(() => expect(instance.data.isBusy).toBe(false));
@@ -123,6 +195,9 @@ describe('P5 native manual schedule controller', () => {
     );
     expect(requests.map((request) => request.data.operationId)).toEqual(
       Array.from({ length: 6 }, () => 'operation-fixed'),
+    );
+    expect(requests.every((request) => request.url.includes('/manual-schedules/drafts'))).toBe(
+      true,
     );
   });
 });

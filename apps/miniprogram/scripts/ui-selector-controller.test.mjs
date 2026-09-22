@@ -46,6 +46,28 @@ describe('shared group/workflow selector behavior', () => {
     definition.methods.handleClose.call(instance);
     expect(instance.triggerEvent).toHaveBeenCalledTimes(1);
   });
+
+  it('emits a row action without selecting the option', async () => {
+    const { definition, instance } = await createSelector();
+    instance.properties.options[1] = {
+      actionLabel: '删除',
+      label: '一线 · 2026-12-31 · 7天',
+      value: 'template-1',
+    };
+    definition.methods.handleOpen.call(instance);
+    instance.triggerEvent.mockClear();
+
+    definition.methods.handleOptionActionTap.call(instance, {
+      currentTarget: { dataset: { index: 1 } },
+    });
+
+    expect(instance.triggerEvent).toHaveBeenCalledExactlyOnceWith('optionaction', {
+      index: 1,
+      option: instance.properties.options[1],
+      value: 'template-1',
+    });
+    expect(instance.data.open).toBe(false);
+  });
   it('places upwards near the viewport edge and clears on page hide', async () => {
     const { definition, instance } = await createSelector();
     vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });

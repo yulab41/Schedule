@@ -110,5 +110,16 @@ Component({
       this.triggerEvent('change', { index, option, value: String(index) });
       this.setData({ open: false, selectedOptionIndex: index });
     },
+    handleOptionActionTap(
+      this: Instance,
+      event: { currentTarget: { dataset: { index?: number } } },
+    ) {
+      if (this.properties.disabled) return;
+      const index = Number(event.currentTarget.dataset.index);
+      const option = this.properties.options[index];
+      if (!Number.isInteger(index) || option === undefined || !option.actionLabel) return;
+      this.triggerEvent('optionaction', { index, option, value: option.value });
+      this.setData({ open: false });
+    },
   },
 });

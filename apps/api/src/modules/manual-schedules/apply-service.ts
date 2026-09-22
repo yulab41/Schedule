@@ -3,8 +3,13 @@ import { createHash } from 'node:crypto';
 import type {
   AppliedManualScheduleTemplateResult,
   ApplyManualScheduleTemplateRequest,
+  CreateManualScheduleDraftRequest,
+  CreatedManualScheduleDraftResult,
   ManualApplyConflict,
   ManualApplyPreview,
+  ManualScheduleEditorPreview,
+  ManualScheduleEditorSnapshot,
+  PreviewManualScheduleEditorRequest,
   PreviewManualTemplateApplyRequest,
   ScheduleGenerationRoleCount,
   ScheduleGenerationShiftTypeCount,
@@ -71,6 +76,11 @@ interface ApplyContext {
   readonly template: ManualApplyTemplateRow;
 }
 
+interface EditorApplyContext {
+  readonly assignments: readonly ScheduleAssignmentSnapshot[];
+  readonly preview: ManualScheduleEditorPreview;
+}
+
 interface ManualApplyTemplateRow {
   readonly cycleDays: number;
   readonly id: string;
@@ -135,6 +145,55 @@ export class ManualScheduleApplyService {
     });
   }
 
+  public async previewEditor(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: PreviewManualScheduleEditorRequest,
+  ): Promise<ManualScheduleEditorPreview> {
+    assertProvidedManualApplyDates(input.startDate, input.endDate);
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      return (await this.loadEditorApplyContext(transaction, authorization, input)).preview;
+    });
+  }
+
+  public async createDraft(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: CreateManualScheduleDraftRequest,
+  ): Promise<CreatedManualScheduleDraftResult> {
+    assertProvidedManualApplyDates(input.startDate, input.endDate);
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId: input.operationId,
+          requestFingerprint: createEditorDraftFingerprint({
+            endDate: input.endDate,
+            expectedRulesVersion: input.expectedRulesVersion,
+            groupId: authorization.group.id,
+            snapshot: input.snapshot,
+            startDate: input.startDate,
+          }),
+          scope: 'manual_schedule_editor_draft',
+        },
+        () => this.runEditorDraft(transaction, authorization, input),
+      );
+    });
+  }
+
   public async apply(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -188,6 +247,58 @@ export class ManualScheduleApplyService {
       }
       throw error;
     }
+  }
+
+  private async runEditorDraft(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    input: CreateManualScheduleDraftRequest,
+  ): Promise<CreatedManualScheduleDraftResult> {
+    const context = await this.loadEditorApplyContext(transaction, authorization, input);
+    const periods: SchedulePeriodSummary[] = [];
+    const assignmentsByMonth = groupAssignmentsByMonth(context.assignments);
+    for (const businessMonth of [...assignmentsByMonth.keys()].sort()) {
+      const assignments = assignmentsByMonth.get(businessMonth);
+      if (assignments === undefined || assignments.length === 0) continue;
+
+      const period = await this.repository.createDraftInTransaction(transaction, {
+        actorUserId: authorization.user.id,
+        assignments,
+        businessMonth,
+        expectedRulesVersion: input.expectedRulesVersion,
+        groupId: authorization.group.id,
+        operationId: input.operationId,
+        scheduleRoleId: input.snapshot.scheduleRoleId,
+      });
+      periods.push(toPeriodSummary(period));
+      await this.eventWriter.append(transaction, {
+        affectedMembershipIds: getAffectedMembershipIds(context.assignments),
+        afterData: {
+          applyEndDate: context.preview.applyEndDate,
+          applyStartDate: context.preview.applyStartDate,
+          businessMonth,
+          cycleDays: input.snapshot.cycleDays,
+          rulesVersion: context.preview.rulesVersion,
+          source: 'editor',
+        },
+        eventStatus: 'completed',
+        eventType: 'manual_schedule_inline_applied',
+        groupId: authorization.group.id,
+        initiatedByUserId: authorization.user.id,
+        objectId: period.id,
+        objectType: 'schedule_period',
+        operationId: input.operationId,
+        operatorUserId: authorization.user.id,
+        schedulePeriodId: period.id,
+      });
+    }
+
+    return {
+      operationId: input.operationId,
+      periods,
+      preview: context.preview,
+      status: 'draft',
+    };
   }
 
   private async runApplication(
@@ -559,19 +670,21 @@ export class ManualScheduleApplyService {
       throw new ApiError({
         code: 'CONFLICT',
         latestData: toLatestData({
-          preview: buildPreview({
-            applyStartDate,
-            cycleDays: template.cycleDays,
-            domainResult,
-            endDate: applyEndDate,
-            memberNamesById,
-            roleName: role.name,
-            rulesVersion: expectedRulesVersion,
-            scheduleRoleId: template.scheduleRoleId,
-            shiftTypesById: currentShiftTypesById,
+          preview: {
+            ...buildPreviewBase({
+              applyStartDate,
+              cycleDays: template.cycleDays,
+              domainResult,
+              endDate: applyEndDate,
+              memberNamesById,
+              roleName: role.name,
+              rulesVersion: expectedRulesVersion,
+              scheduleRoleId: template.scheduleRoleId,
+              shiftTypesById: currentShiftTypesById,
+            }),
             templateId: template.id,
             templateVersion: template.version,
-          }),
+          },
         }),
         statusCode: 409,
         userMessage:
@@ -583,21 +696,163 @@ export class ManualScheduleApplyService {
 
     return {
       assignments: domainResult.assignments,
-      preview: buildPreview({
-        applyStartDate,
-        cycleDays: template.cycleDays,
-        domainResult,
-        endDate: applyEndDate,
-        memberNamesById,
-        roleName: role.name,
-        rulesVersion: expectedRulesVersion,
-        scheduleRoleId: template.scheduleRoleId,
-        shiftTypesById: currentShiftTypesById,
+      preview: {
+        ...buildPreviewBase({
+          applyStartDate,
+          cycleDays: template.cycleDays,
+          domainResult,
+          endDate: applyEndDate,
+          memberNamesById,
+          roleName: role.name,
+          rulesVersion: expectedRulesVersion,
+          scheduleRoleId: template.scheduleRoleId,
+          shiftTypesById: currentShiftTypesById,
+        }),
         templateId: template.id,
         templateVersion: template.version,
-      }),
+      },
       template,
     };
+  }
+
+  private async loadEditorApplyContext(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    input: PreviewManualScheduleEditorRequest | CreateManualScheduleDraftRequest,
+  ): Promise<EditorApplyContext> {
+    if (authorization.group.rulesVersion !== input.expectedRulesVersion) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: { rulesVersion: authorization.group.rulesVersion },
+        statusCode: 409,
+        userMessage: '排班规则已更新，请刷新后重新预览。',
+      });
+    }
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    if (input.startDate < today) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: `排班范围包含了既往（已过）日期：起始日期 ${input.startDate} 早于今天 ${today}，请调整为今天或之后。`,
+      });
+    }
+    assertPersistedManualTemplateLimits(
+      {
+        cycleDays: input.snapshot.cycleDays,
+        id: 'editor',
+        scheduleRoleId: input.snapshot.scheduleRoleId,
+        startDate: input.startDate,
+        version: 1,
+      },
+      input.snapshot.membershipIds.map((membershipId) => ({ membershipId })),
+      input.snapshot.cells,
+    );
+
+    const [role] = await transaction
+      .select({ name: scheduleRoles.name })
+      .from(scheduleRoles)
+      .where(
+        and(
+          eq(scheduleRoles.id, input.snapshot.scheduleRoleId),
+          eq(scheduleRoles.groupId, authorization.group.id),
+          isNull(scheduleRoles.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (role === undefined) throw notFound('排班岗位不存在或不可用。');
+
+    const shiftTypeIds = [...new Set(input.snapshot.cells.map((cell) => cell.shiftTypeId))];
+    const [currentMembers, currentShiftTypes, memberNames] = await Promise.all([
+      this.readCurrentRoleMembers(
+        transaction,
+        input.snapshot.scheduleRoleId,
+        input.snapshot.membershipIds,
+      ),
+      this.readCurrentShiftTypes(transaction, authorization.group.id, shiftTypeIds),
+      this.readMemberNames(transaction, input.snapshot.membershipIds),
+    ]);
+    const currentMembersById = new Map(
+      currentMembers.map((member) => [member.membershipId, member]),
+    );
+    const currentShiftTypesById = new Map(
+      currentShiftTypes.map((shiftType) => [shiftType.id, shiftType]),
+    );
+    const memberNamesById = new Map(
+      memberNames.map((member) => [member.membershipId, member.realName]),
+    );
+    const members: ManualApplyMember[] = input.snapshot.membershipIds.map((membershipId) => {
+      const current = currentMembersById.get(membershipId);
+      return {
+        ...(current?.effectiveFrom === undefined ? {} : { effectiveFrom: current.effectiveFrom }),
+        ...(current?.effectiveTo === undefined ? {} : { effectiveTo: current.effectiveTo }),
+        currentMemberScheduleRoleVersion: current?.version ?? 0,
+        isActive: current?.isActive ?? false,
+        membershipId,
+        realName: memberNamesById.get(membershipId) ?? '',
+      };
+    });
+    if (members.some((member) => !member.isActive || member.realName === '')) {
+      throw manualApplyValidationError(
+        '当前编辑内容包含已失效或不属于该岗位的成员，请刷新后重试。',
+      );
+    }
+
+    const distinctShiftTypes = shiftTypeIds.map((shiftTypeId) => {
+      const shiftType = currentShiftTypesById.get(shiftTypeId);
+      if (
+        shiftType === undefined ||
+        shiftType.isEnabled !== 1 ||
+        shiftType.startTime === null ||
+        shiftType.endTime === null
+      ) {
+        throw manualApplyValidationError('当前编辑内容包含已停用或不再可用的班种，请刷新后重试。');
+      }
+      return toManualApplyShiftType(shiftType);
+    });
+    const approvedLeaves = await this.loadApprovedLeavesInRange(
+      transaction,
+      authorization.group.id,
+      input.startDate,
+      input.endDate,
+    );
+    const domainResult = applyManualTemplate({
+      cells: input.snapshot.cells,
+      cycleDays: input.snapshot.cycleDays,
+      endDate: input.endDate,
+      leaveIntervals: approvedLeaves.map((leave) => ({
+        endsAt: leave.endsAt,
+        membershipId: leave.membershipId,
+        startsAt: leave.startsAt,
+      })),
+      members,
+      scheduleRoleId: input.snapshot.scheduleRoleId,
+      shiftTypes: distinctShiftTypes,
+      startDate: input.startDate,
+    });
+    const preview: ManualScheduleEditorPreview = {
+      ...buildPreviewBase({
+        applyStartDate: input.startDate,
+        cycleDays: input.snapshot.cycleDays,
+        domainResult,
+        endDate: input.endDate,
+        memberNamesById,
+        roleName: role.name,
+        rulesVersion: input.expectedRulesVersion,
+        scheduleRoleId: input.snapshot.scheduleRoleId,
+        shiftTypesById: currentShiftTypesById,
+      }),
+      source: 'editor',
+    };
+    if (domainResult.conflicts.some((conflict) => conflict.code === 'MEMBER_LEAVE_OVERLAP')) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({ preview }),
+        statusCode: 409,
+        userMessage: '应用范围包含已批准请假，请调整排班后重新预览。',
+      });
+    }
+
+    return { assignments: domainResult.assignments, preview };
   }
 
   private async loadApprovedLeavesInRange(
@@ -844,7 +1099,7 @@ function manualApplyValidationError(userMessage: string): ApiError {
   return new ApiError({ code: 'VALIDATION_FAILED', statusCode: 400, userMessage });
 }
 
-function buildPreview(input: {
+function buildPreviewBase(input: {
   readonly applyStartDate: string;
   readonly cycleDays: number;
   readonly domainResult: ReturnType<typeof applyManualTemplate>;
@@ -854,9 +1109,7 @@ function buildPreview(input: {
   readonly rulesVersion: number;
   readonly scheduleRoleId: string;
   readonly shiftTypesById: ReadonlyMap<string, typeof shiftTypes.$inferSelect>;
-  readonly templateId: string;
-  readonly templateVersion: number;
-}): ManualApplyPreview {
+}): Omit<ManualApplyPreview, 'templateId' | 'templateVersion'> {
   const assignments = input.domainResult.assignments.map((assignment) =>
     toPreviewAssignment(assignment, input.roleName, input.memberNamesById, input.shiftTypesById),
   );
@@ -898,8 +1151,6 @@ function buildPreview(input: {
       input.shiftTypesById,
       input.roleName,
     ),
-    templateId: input.templateId,
-    templateVersion: input.templateVersion,
     vacancies: input.domainResult.vacancies.map((vacancy): ScheduleGenerationVacancy => ({
       assignmentBusinessKey: vacancy.assignmentBusinessKey,
       businessDate: vacancy.businessDate,
@@ -1087,6 +1338,16 @@ function createApplyFingerprint(input: {
   readonly replaceExistingDrafts: boolean;
   readonly startDate: string | null;
   readonly templateId: string;
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+
+function createEditorDraftFingerprint(input: {
+  readonly endDate: string;
+  readonly expectedRulesVersion: number;
+  readonly groupId: string;
+  readonly snapshot: ManualScheduleEditorSnapshot;
+  readonly startDate: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }

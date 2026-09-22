@@ -1,6 +1,8 @@
 import type {
   AppliedManualScheduleTemplateResult,
+  CreatedManualScheduleDraftResult,
   ManualApplyPreview,
+  ManualScheduleEditorPreview,
   ManualScheduleTemplate,
   SchedulingConfig,
 } from '@schedule/contracts';
@@ -18,6 +20,12 @@ import {
 const groupId = '11111111-1111-4111-8111-111111111111';
 const templateId = '22222222-2222-4222-8222-222222222222';
 const operationId = '33333333-3333-4333-8333-333333333333';
+const snapshot = {
+  cells: [{ cycleDay: 1, membershipId: groupId, shiftTypeId: templateId }],
+  cycleDays: 1,
+  membershipIds: [groupId],
+  scheduleRoleId: groupId,
+};
 
 const member = {
   currentMemberScheduleRoleVersion: 1,
@@ -97,6 +105,25 @@ describe('manual schedule client', () => {
         templateId,
       }),
     ).toEqual({ expectedRulesVersion: 7 });
+    expect(
+      manualScheduleEndpoints.previewEditor.path({
+        groupId,
+        request: {
+          endDate: '2026-08-30',
+          expectedRulesVersion: 7,
+          snapshot,
+          startDate: '2026-08-23',
+        },
+      }),
+    ).toBe(`/groups/${groupId}/manual-schedules/preview`);
+    expect(manualScheduleEndpoints.createDraft.method).toBe('POST');
+    expect(manualScheduleEndpoints.createDraft.path({ groupId, request: {} as never })).toBe(
+      `/groups/${groupId}/manual-schedules/drafts`,
+    );
+    expect(manualScheduleEndpoints.deleteTemplate.method).toBe('DELETE');
+    expect(manualScheduleEndpoints.deleteTemplate.path({ groupId, templateId })).toBe(
+      `/groups/${groupId}/manual-schedule-templates/${templateId}`,
+    );
   });
 
   it('keeps the apply operation id in both the body and idempotency header descriptor', () => {
@@ -119,12 +146,17 @@ describe('manual schedule client', () => {
     const template = { id: templateId } as ManualScheduleTemplate;
     const preview = { templateId } as ManualApplyPreview;
     const applied = { operationId, templateId } as AppliedManualScheduleTemplateResult;
+    const editorPreview = { source: 'editor' } as ManualScheduleEditorPreview;
+    const createdDraft = { operationId, status: 'draft' } as CreatedManualScheduleDraftResult;
     const responses = new Map([
       ['manual-schedule.config', config],
       ['manual-schedule.templates', [template]],
       ['manual-schedule.create-template', template],
       ['manual-schedule.preview', preview],
       ['manual-schedule.apply', applied],
+      ['manual-schedule.preview-editor', editorPreview],
+      ['manual-schedule.create-draft', createdDraft],
+      ['manual-schedule.delete-template', undefined],
     ]);
     const transport: ClientTransport = {
       request: vi.fn((endpoint) => Promise.resolve(responses.get(endpoint.id) as never)),
@@ -152,7 +184,25 @@ describe('manual schedule client', () => {
         publishMode: 'draft',
       }),
     ).resolves.toBe(applied);
-    expect(transport.request).toHaveBeenCalledTimes(5);
+    await expect(
+      client.previewEditor(groupId, {
+        endDate: '2026-08-30',
+        expectedRulesVersion: 7,
+        snapshot,
+        startDate: '2026-08-23',
+      }),
+    ).resolves.toBe(editorPreview);
+    await expect(
+      client.createDraft(groupId, {
+        endDate: '2026-08-30',
+        expectedRulesVersion: 7,
+        operationId,
+        snapshot,
+        startDate: '2026-08-23',
+      }),
+    ).resolves.toBe(createdDraft);
+    await expect(client.deleteTemplate(groupId, templateId)).resolves.toBeUndefined();
+    expect(transport.request).toHaveBeenCalledTimes(8);
   });
 
   it('rejects relationally inconsistent template responses after structural decoding', () => {

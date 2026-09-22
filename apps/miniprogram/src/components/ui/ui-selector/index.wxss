@@ -25,8 +25,13 @@
   line-height: 14px;
 }
 
-.workflow-picker-check { width: 22px; flex: none; }
-.workflow-picker-option.is-disabled { opacity: 0.5; }
+.workflow-picker-check {
+  width: 22px;
+  flex: none;
+}
+.workflow-picker-option.is-disabled {
+  opacity: 0.5;
+}
 
 .workflow-picker-root.is-open {
   z-index: 30;
@@ -195,7 +200,28 @@
 
 .workflow-picker-option-label {
   min-width: 0;
+  overflow: hidden;
   flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-picker-option-action {
+  display: flex;
+  min-width: 42px;
+  height: 24px;
+  margin-left: 8px;
+  padding: 0 9px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-surface);
+  border: 1px solid currentColor;
+  border-radius: var(--ui-radius-pill);
+  font-size: 11px;
+  line-height: 1;
 }
 
 .workflow-picker-empty {

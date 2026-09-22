@@ -88,7 +88,7 @@ describe('P6 Mini Program performance budget', () => {
       tapPatchPaths: 2,
     });
     expect(MAXIMUM_MATRIX_NODE_NO_GROWTH_CEILINGS).toEqual({
-      'subpackages/scheduling/pages/manual/index.wxml': 1507,
+      'subpackages/scheduling/pages/manual/index.wxml': 1510,
     });
     expect(DESKTOP_LOGIC_SMOKE_CEILINGS).toEqual({
       maximumMatrixModelMs: 1000,

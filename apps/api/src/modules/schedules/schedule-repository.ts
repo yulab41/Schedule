@@ -175,7 +175,10 @@ export class ScheduleRepository {
         .from(scheduleEvents)
         .where(
           and(
-            eq(scheduleEvents.eventType, 'manual_schedule_template_applied'),
+            inArray(scheduleEvents.eventType, [
+              'manual_schedule_inline_applied',
+              'manual_schedule_template_applied',
+            ]),
             inArray(scheduleEvents.schedulePeriodId, allPeriodIds),
           ),
         );

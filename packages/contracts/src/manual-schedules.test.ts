@@ -5,10 +5,15 @@ import { describe, expect, it } from 'vitest';
 import { MAX_MANUAL_CELLS, MAX_MANUAL_DAYS, MAX_MANUAL_MEMBERS } from './manual-schedule-limits.js';
 import {
   applyManualScheduleTemplateRequestSchema,
+  createManualScheduleDraftRequestSchema,
   createManualScheduleTemplateRequestSchema,
+  createdManualScheduleDraftResultSchema,
   manualApplyPreviewSchema,
+  manualScheduleEditorPreviewSchema,
+  manualScheduleEditorSnapshotSchema,
   manualScheduleTemplateCellSchema,
   manualScheduleTemplateSchema,
+  previewManualScheduleEditorRequestSchema,
   previewManualTemplateApplyRequestSchema,
   updateManualScheduleTemplateRequestSchema,
 } from './manual-schedules.js';
@@ -103,6 +108,43 @@ describe('manual schedule input contracts', () => {
     ).toBe(false);
   });
 
+  it('validates strict one-off editor preview and draft contracts without a template id', () => {
+    const templateRequest = maximumTemplateRequest();
+    const snapshot = {
+      cells: templateRequest.cells,
+      cycleDays: templateRequest.cycleDays,
+      membershipIds: templateRequest.membershipIds,
+      scheduleRoleId: templateRequest.scheduleRoleId,
+    };
+    const previewRequest = {
+      endDate: '2027-01-01',
+      expectedRulesVersion: 3,
+      snapshot,
+      startDate: '2026-01-01',
+    };
+
+    expect(manualScheduleEditorSnapshotSchema.safeParse(snapshot).success).toBe(true);
+    expect(previewManualScheduleEditorRequestSchema.safeParse(previewRequest).success).toBe(true);
+    expect(
+      createManualScheduleDraftRequestSchema.safeParse({
+        ...previewRequest,
+        operationId: randomUUID(),
+      }).success,
+    ).toBe(true);
+    expect(
+      previewManualScheduleEditorRequestSchema.safeParse({
+        ...previewRequest,
+        endDate: '2027-01-02',
+      }).success,
+    ).toBe(false);
+    expect(
+      previewManualScheduleEditorRequestSchema.safeParse({
+        ...previewRequest,
+        unexpected: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it('enforces the same day boundary on template and preview responses', () => {
     const template = {
       cells: [],
@@ -165,6 +207,28 @@ describe('manual schedule input contracts', () => {
     ).toBe(false);
     expect(
       manualApplyPreviewSchema.safeParse({ ...preview, cycleDays: MAX_MANUAL_DAYS + 1 }).success,
+    ).toBe(false);
+
+    const editorPreview = {
+      ...preview,
+      source: 'editor' as const,
+    };
+    delete (editorPreview as Partial<typeof preview>).templateId;
+    delete (editorPreview as Partial<typeof preview>).templateVersion;
+    expect(manualScheduleEditorPreviewSchema.safeParse(editorPreview).success).toBe(true);
+    expect(
+      createdManualScheduleDraftResultSchema.safeParse({
+        operationId: randomUUID(),
+        periods: [],
+        preview: editorPreview,
+        status: 'draft',
+      }).success,
+    ).toBe(true);
+    expect(
+      manualScheduleEditorPreviewSchema.safeParse({
+        ...editorPreview,
+        templateId: 'must-not-leak',
+      }).success,
     ).toBe(false);
   });
 

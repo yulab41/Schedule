@@ -39,6 +39,17 @@ describe('shared picker unification', () => {
     );
   });
 
+  it('keeps optional row actions separate and truncates long labels to one line', () => {
+    const template = read('components/ui/ui-selector/options.wxml');
+    const styles = read('components/ui/ui-selector/index.wxss');
+    expect(template).toContain('catchtap="handleOptionActionTap"');
+    expect(template).toContain('{{item.actionLabel}}');
+    expect(styles).toMatch(
+      /\.workflow-picker-option-label\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
+    );
+    expect(styles).toMatch(/\.workflow-picker-option-action\s*\{[^}]*border-radius:/su);
+  });
+
   it('removes native pickers and routes every migrated field through shared components', () => {
     const wxml = sourceFiles(root, '.wxml')
       .map((file) => readFileSync(file, 'utf8'))
