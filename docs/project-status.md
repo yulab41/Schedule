@@ -1,13 +1,13 @@
 # Project Status
 
-## 当前批次：手动排班预览对照与访客审计去重（规格待复核）
+## 当前批次：手动排班预览对照与访客审计去重（规格已通过，实施中）
 
 - 小米 14 `.190@eacfd752` 证明四个后续问题：模板删除被严格请求校验拒绝；草稿预览缺少已有排班；紧凑月历日期、节假日和排班文字重叠；访客页五个月预取把一次访问放大为同一分钟多条记录。
 - 已确认口径：草稿预览不增加图例，已有排班使用嫩灰色，本次草稿保留彩色；访客审计按每次进入页面一条，同一页面实例内预取、切月、前台恢复和重试不重复记录，重新进入产生新记录。
 - 根因：删除客户端未发送空 JSON；草稿弹窗未复用编辑预览的已有日历合并；普通节假日胶囊尺寸直接用于紧凑月历；访客 API 对每个月份读取无条件插入。
 - 设计采用最小增量：DELETE 显式 `{}`；草稿弹窗独立按可见三月窗口懒加载并同岗位合并；只缩小 compact 节假日布局；请求增加可选页面 `visitId`，服务端以群组和会话生成稳定主键并原子忽略重复。旧客户端仍可用，无数据库迁移。
-- 规格自审：目标文档 Prettier、`git diff --check`、agent-context policy 3/3 通过；本 checkpoint 以 `docs(design): specify manual preview and visitor audit follow-up` 标识。
-- 书面规格见 [手动排班预览与访客审计去重设计](superpowers/specs/2026-09-23-manual-preview-visitor-audit-followup-design.md)。停止条件：规格复核通过前不修改业务源码；通过后按 RED→GREEN、服务端部署、体验版上传、只追加放行执行，不提审、不正式发布。
+- 规格 `19d53b78` 已由用户复核通过；实施计划见 [手动排班预览与访客审计去重实施计划](superpowers/plans/2026-09-23-manual-preview-visitor-audit-followup-plan.md)，计划 checkpoint 以 `docs(plan): stage manual preview and visitor audit follow-up` 标识。按 RED→GREEN、服务端部署、体验版上传、只追加放行执行，不提审、不正式发布。
+- 当前停止条件：四项回归、全量门禁、生产部署、不可变体验版上传和 add-only 放行全部取得证据；小米 14 原生结果仍单独记录。
 
 ## 上一批次：手动排班一次性编辑、366 天应用与模板删除（生产已部署放行，待真机复核）
 
