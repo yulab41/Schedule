@@ -1,11 +1,12 @@
 # Project Status
 
-## 当前批次：手动排班预览对照与访客审计去重（实现/本地门禁完成，待发布）
+## 当前批次：手动排班预览对照与访客审计去重（生产与体验版已交付，待真机复核）
 
 - 已实现：模板 DELETE 显式 `{}`；草稿按可见三月窗口叠加同岗位已有排班，已有嫩灰、本次彩色且不增加图例；compact 节假日标识专属缩小；访客用可选 `visitId` 按页面实例原子去重，旧客户端仍逐请求记录。无数据库迁移，不清理历史记录。
 - RED→GREEN 与全门禁：contracts/client-core 22、Mini 定向 49；真实 MySQL 手排 34、Task10 107；`pnpm verify` 的 Mini 1254/16 skip、根 1302/445 skip、warm 工具 81 全绿。生产 Mini verify/source/package/determinism/dry-run 通过，总包 4,798,345 B、主包 1,821,922 B。
-- 运行/浏览器验证：默认 5173 未启动首轮失败不计通过；当前源码 API 3105/Web 4175 的原 smoke 完整通过且临时服务已停。开发者工具版本/登录门禁通过，dirty local build 因生产能力版本门禁停在加载态，待不可变放行版本复核目标视觉；当前证据不等于小米 14。
-- 完整证据见 [交付记录](audit/manual-preview-visitor-followup-20260923.md)。checkpoint 消息为 `fix(schedule): compare manual drafts and dedupe visitor reads`；下一步运行 `smoke:check-core`、连续性门禁、提交推送，然后按授权备份/部署、上传不可变体验版并 add-only 放行。未提审、不正式发布。
+- 运行/浏览器验证：默认 5173 未启动首轮失败不计通过；当前源码 API 3105/Web 4175 的原 smoke 完整通过且临时服务已停。最终 `.191@c6c4fcd2` 在开发者工具能力与一次性预览请求均 200，页面进入预览态、无新增图例、已有排班灰显，Console 无 error/fail；彩色空草稿与 compact 节假日仍由自动化证明。当前证据不等于小米 14。
+- checkpoint `c6c4fcd2` 已推送。加密备份 `2432fa5e-bb1e-4b09-ad3e-40da590350b7` 核验后部署生产 `c6c4fcd2`/schema 63，完整 verifier 通过；动态体验版 `.191`（Manifest `0b7a8161…8c46`）上传并只追加放行，`.191/.190=200`、未知版 426。未提审、不正式发布。
+- 完整证据见 [交付记录](audit/manual-preview-visitor-followup-20260923.md)；发布记录 checkpoint 以 `docs(release): record manual preview and visitor trial delivery` 标识。唯一下一任务为小米 14 `.191@c6c4fcd2` 原生复核；取得同构建证据前保持“待用户复核”。
 
 ## 上一批次：手动排班一次性编辑、366 天应用与模板删除（生产已部署放行，待真机复核）
 

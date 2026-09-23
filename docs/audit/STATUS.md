@@ -1,11 +1,12 @@
 # 微信小程序审计状态
 
-## 当前批次：手动排班预览对照与访客审计去重（实现/本地门禁完成，待发布）
+## 当前批次：手动排班预览对照与访客审计去重（生产与体验版已交付，待小米 14 复核）
 
 - DELETE `{}`、草稿三月窗口同岗位对照、嫩灰已有/彩色草稿且无图例、compact 专属尺寸、可选页面 `visitId` 服务端原子去重均已实现；响应不变、旧客户端兼容、无迁移。
 - contracts/client-core 22、Mini 定向 49、真实 MySQL 手排 34/Task10 107、完整 Mini 1254、根 1302 与 warm 工具 81 均通过；build/typecheck/format/lint/package/source/determinism/dry-run 全绿。
-- 当前源码浏览器 smoke 完整通过；开发者工具门禁/编译打开通过，但 dirty `version=local` 被生产能力门禁拒绝，目标视觉须待最终不可变版本放行后复核。模拟器和自动化不代表小米 14。
-- 下一任务：以 `fix(schedule): compare manual drafts and dedupe visitor reads` 提交推送，按用户授权完成生产备份/部署、体验版上传和 add-only 放行；不提审、不正式发布。详见 [交付记录](manual-preview-visitor-followup-20260923.md)。
+- 当前源码浏览器 smoke 完整通过。checkpoint `c6c4fcd2` 已推送；备份 `2432fa5e-bb1e-4b09-ad3e-40da590350b7` 核验后部署生产 `c6c4fcd2`/schema 63，完整 verifier 通过。
+- 体验版 `.191@c6c4fcd2` 已上传（Manifest `0b7a8161…8c46`）并 add-only 放行；allowlist/ECS verifier 与公网 `.191/.190=200`、未知版 426 通过。开发者工具同版本能力/预览 200、无图例且已有排班灰显，Console 无 error/fail；本次草稿为空，彩色部分仍以自动化为证。模拟器不代表小米 14。
+- 唯一下一任务：小米 14 使用 `.191@c6c4fcd2` 复核模板删除、灰色已有/彩色本次草稿、compact 节假日与一次进入只记一条访客记录；不提审、不正式发布。详见 [交付记录](manual-preview-visitor-followup-20260923.md)。
 
 ## 上一批次：手动排班一次性编辑、366 天应用与模板删除（生产已部署放行，待真机复核）
 

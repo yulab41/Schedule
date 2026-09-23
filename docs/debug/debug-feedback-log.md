@@ -3143,4 +3143,6 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 
 - 引入点：模板 DELETE=`eacfd752`；草稿批次预览=`50744302`；共享节假日胶囊=`e40c4f92`；访客逐请求审计=`4b337490`，五个月读取由后续日历预取放大。完整语义审计和 RED→GREEN 见 [本轮记录](../audit/manual-preview-visitor-followup-20260923.md)。
 - 行为变化：DELETE 显式 `{}`；草稿仅按可见三月窗口叠加同岗位已有排班，已有嫩灰、本次彩色且无图例；compact 专属小尺寸；新 Mini 以可选 UUID `visitId` 让同一页面实例只产生一条审计，旧客户端仍逐请求记录。无 schema 迁移，不清理历史记录。
-- 运行/浏览器验证：`pnpm smoke:browser` 首轮因默认 5173 未启动返回 `ERR_CONNECTION_REFUSED`，不计通过；以当前源码 API 3105/Web 4175 和本地开发认证重跑原脚本，登录、管理员、成员、访客 vkey 与访问记录全流程通过且无浏览器错误，合成管理员标记恢复，服务停止。`pnpm smoke:check-core` 在本条记录后运行。
+- 运行/浏览器验证：`pnpm smoke:browser` 首轮因默认 5173 未启动返回 `ERR_CONNECTION_REFUSED`，不计通过；以当前源码 API 3105/Web 4175 和本地开发认证重跑原脚本，登录、管理员、成员、访客 vkey 与访问记录全流程通过且无浏览器错误，合成管理员标记恢复，服务停止。`pnpm smoke:check-core` 随后通过。
+- 生产与体验交付：checkpoint `c6c4fcd2` 已推送；备份 `2432fa5e-bb1e-4b09-ad3e-40da590350b7` 的记录、物理大小和 SHA-256 一致后部署 `c6c4fcd2`/schema 63，完整 verifier 通过。锁内动态分配并上传 `.191@c6c4fcd2`（production，Manifest `0b7a8161…8c46`），远端 tag/receipt 身份一致；可信 allowlist `ensure` 只追加 `.191`，独立 verify、ECS verifier 与公网 `.191/.190=200`、未知版 426 通过。
+- 开发者工具复核：同一 `.191` 构建的能力请求和一次性预览均为 200，页面进入预览态，已有排班嫩灰且没有新增图例，Console error/fail 为空。快照没有本次班次，彩色草稿与 compact 节假日仍以自动化为证；含人员姓名的临时预览截图核对后删除。模拟器不等于小米 14，未提审、未正式发布。

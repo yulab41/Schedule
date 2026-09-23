@@ -40,19 +40,33 @@
   3105/Web 4175 和开发认证运行原 smoke，登录、管理员、成员、访客 vkey 与访问记录全流程通过，
   无浏览器错误；合成管理员标记由适配器 `finally` 恢复，两个临时服务已停止。
 
-## 开发者工具与待发布状态
+## 开发者工具与体验版证据
 
-`wechatide` 0.3.11 与工具内置版本一致、登录有效；当前页面可编译并打开，Console 的 error/fail 过滤
-为空。未冻结的 dirty build 使用 `version=local`，生产能力端点按设计返回 400，因此页面停在加载态；
-这次截图只证明编译/打开边界，不作为目标视觉通过证据。待最终干净 SHA 部署、上传并只追加放行后，
-再用同一不可变版本刷新模拟器，核对草稿灰/彩对照、无图例、compact 节假日与 Network/Console。
+`wechatide` 0.3.11 与工具内置版本一致、登录有效。最终上传产物以
+`0.1.0-p10.20260923.191@c6c4fcd2` 在 470×1014 模拟器打开手动排班页；能力请求为 200，
+一次性 `POST /manual-schedules/preview` 为 200，页面进入预览态，Console 的 error/fail 过滤为空。
+预览可见已有排班的嫩灰显示且没有“已有 / 本次草稿”图例；当前编辑快照没有班次，所以本次草稿彩色
+仍以控制器/渲染测试为证，不把空草稿截图记作完整灰/彩对照。含生产人员姓名的临时预览截图在人工
+核对后删除，只保留不含人员列表的编辑页截图于 ignored `runtime/audit/manual-preview-visitor-followup-20260923/`。
+compact 节假日尺寸继续以 CSS/组件测试为证，本轮没有构造生产业务数据做视觉夹具。
 
 ## 发布与回滚
 
-应用 checkpoint 以 `fix(schedule): compare manual drafts and dedupe visitor reads` 标识。发布时动态读取生产
-live release 作为回滚候选，先生成并核验加密备份，再部署服务端；schema 应保持 63。体验版必须绑定
-最终干净 SHA、版本、Manifest、receipt 与远端不可变 tag，放行只能使用可信 allowlist `ensure` 追加，
-不得删除上一版。应用回滚时还需撤下依赖 `visitId` 的新版 Mini；旧体验版继续可用。
+- 应用 checkpoint `c6c4fcd2a61c253a5de724783c1075c23e940997`（`fix(schedule): compare manual drafts
+  and dedupe visitor reads`）已推送。部署前读取 live/回滚候选 `da5cd194913c799778e334f8ea25ce43919ca51c`，
+  且确认其为候选祖先。
+- 加密备份 `2432fa5e-bb1e-4b09-ad3e-40da590350b7` 已核对记录与物理文件：daily、54 表、
+  299,370 行、124,849,620 B，SHA-256 `7c5b70d0254dff75a763000e407440a94478cfb5536dd1512a522d4d231fa8fd`。
+- 生产已部署 `c6c4fcd2`，schema 63；部署前后完整 `ecs-verify.sh` 均通过，健康端点 200，精确远端
+  上传临时目录已清理。
+- 体验版 `0.1.0-p10.20260923.191` 已由锁内动态分配并上传：production、232 个代码文件、ZIP
+  2,678,192 B、Manifest `0b7a8161c2b7378837ec24d06ff142b21ddf05a4d9197505ff77281b2dbb8c46`；
+  receipt、allocation、manifest 与不可变远端 tag 都绑定 `c6c4fcd2`。
+- 可信 allowlist `ensure` 只追加 `.191` 并保留 `.190`；独立 allowlist verify 和完整 ECS verifier
+  通过。公网能力探针 `.191/.190=200`、动态未知版 `=426`，生产健康 200。未提审、未正式发布、未退役
+  旧体验版，也没有为验证创建或删除真实业务草稿。
+
+应用回滚到 `da5cd194` 时还需撤下依赖 `visitId` 的 `.191`；旧体验版继续可用。
 
 小米 14 只有在用户提供与最终 trial/SHA 一致的原生证据后才能写验收通过。提交审核和正式发布均不在
 本批授权内。
