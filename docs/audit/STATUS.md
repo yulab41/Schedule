@@ -1,11 +1,11 @@
 # 微信小程序审计状态
 
-## 当前批次：手动排班预览对照与访客审计去重（规格已通过，实施中）
+## 当前批次：手动排班预览对照与访客审计去重（实现/本地门禁完成，待发布）
 
-- 小米 14 `.190@eacfd752` 现象与源码闭环：模板 DELETE 缺空 JSON；草稿弹窗未加载已有排班；compact 月历仍用普通节假日胶囊尺寸；访客页活动月加前后各两月的读取全部独立记审计。
-- 用户确认不增加“已有 / 本次草稿”图例：已有排班嫩灰、本次草稿彩色。访客记录以页面实例为单位，同一次进入的预取、切月、前台恢复和重试只记一条，重新进入再记一条。
-- 设计为 DELETE 显式 `{}`、草稿预览按可见三月窗口懒加载并同岗位合并、compact 专属节假日排版、可选 `visitId` 加服务端原子幂等插入；响应不变、无数据库迁移、旧客户端兼容。
-- 规格 `19d53b78` 已由用户复核通过；按 [实施计划](../superpowers/plans/2026-09-23-manual-preview-visitor-audit-followup-plan.md) 进入测试先行、生产部署、体验版上传与只追加放行。未提审、未正式发布。
+- DELETE `{}`、草稿三月窗口同岗位对照、嫩灰已有/彩色草稿且无图例、compact 专属尺寸、可选页面 `visitId` 服务端原子去重均已实现；响应不变、旧客户端兼容、无迁移。
+- contracts/client-core 22、Mini 定向 49、真实 MySQL 手排 34/Task10 107、完整 Mini 1254、根 1302 与 warm 工具 81 均通过；build/typecheck/format/lint/package/source/determinism/dry-run 全绿。
+- 当前源码浏览器 smoke 完整通过；开发者工具门禁/编译打开通过，但 dirty `version=local` 被生产能力门禁拒绝，目标视觉须待最终不可变版本放行后复核。模拟器和自动化不代表小米 14。
+- 下一任务：以 `fix(schedule): compare manual drafts and dedupe visitor reads` 提交推送，按用户授权完成生产备份/部署、体验版上传和 add-only 放行；不提审、不正式发布。详见 [交付记录](manual-preview-visitor-followup-20260923.md)。
 
 ## 上一批次：手动排班一次性编辑、366 天应用与模板删除（生产已部署放行，待真机复核）
 

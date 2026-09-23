@@ -195,6 +195,7 @@ export function registerCalendarRoutes(
         request.id,
         {
           clientContext: input.clientContext,
+          ...(input.visitId === undefined ? {} : { visitId: input.visitId }),
           ...(wechatOpenid === undefined ? {} : { wechatOpenid }),
         },
       );

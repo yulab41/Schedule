@@ -3138,3 +3138,9 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - RED→GREEN：先新增共享内容盒、原生零计数、迁移调用点、直接页面组件注册、time 模式单次确认/取消零事件与边界传递断言，旧实现 4 项失败；实现后全部通过。开发者工具另发现群组设置自 `70f9a98f` 起存在同节点 `wx:else`+`wx:for` 的 WXML 编译错误，先用回归锁定，再以 `block wx:else` 等价包裹修复。
 - 行为变化：滚动视口改为 `overflow:hidden`，内层内容盒承载 6px 安全区；15 个直接页面 selector 与 12 个工作流 selector 均使用真实滚动边界。5 个原生列表和 4 个原生时间入口迁移到共享组件，源码 `<picker>` 归零。列表仍发送一次数值索引；时间仍发送一次 `HH:mm`，取消不发送；业务 handler、dataset、权限和网络调用不变。
 - 运行/浏览器验证：Mini 全量 178 文件通过/2 跳过、1244 项通过/16 跳过；typecheck、lint、format、`pnpm smoke:check-core`、production verify、source/package/determinism/CI dry-run 全绿。开发者工具 390×844 / 基础库 3.17.2 / WebView 下，向上与向下长列表滚到底均保留底部安全区，`08:05` 时间 Sheet 正确定位，目标 Console 无 error；截图存于 ignored `runtime/audit/picker-unification-20260920/`。小米 14 尚未验收。
+
+## 2026-09-23 手动排班预览对照与访客页面会话去重
+
+- 引入点：模板 DELETE=`eacfd752`；草稿批次预览=`50744302`；共享节假日胶囊=`e40c4f92`；访客逐请求审计=`4b337490`，五个月读取由后续日历预取放大。完整语义审计和 RED→GREEN 见 [本轮记录](../audit/manual-preview-visitor-followup-20260923.md)。
+- 行为变化：DELETE 显式 `{}`；草稿仅按可见三月窗口叠加同岗位已有排班，已有嫩灰、本次彩色且无图例；compact 专属小尺寸；新 Mini 以可选 UUID `visitId` 让同一页面实例只产生一条审计，旧客户端仍逐请求记录。无 schema 迁移，不清理历史记录。
+- 运行/浏览器验证：`pnpm smoke:browser` 首轮因默认 5173 未启动返回 `ERR_CONNECTION_REFUSED`，不计通过；以当前源码 API 3105/Web 4175 和本地开发认证重跑原脚本，登录、管理员、成员、访客 vkey 与访问记录全流程通过且无浏览器错误，合成管理员标记恢复，服务停止。`pnpm smoke:check-core` 在本条记录后运行。

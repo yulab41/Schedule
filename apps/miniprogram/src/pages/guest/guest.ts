@@ -130,6 +130,7 @@ type Data = ReturnType<typeof initialData>;
 interface GuestPage {
   data: Data;
   visitorKey: string | undefined;
+  visitId: string | undefined;
   calendar: CalendarReadModel | undefined;
   holidays: HolidayReadModel | undefined;
   serial: number;
@@ -189,6 +190,7 @@ Page({
   weekSteps: 0,
   _weekLayoutHeight: 112,
   visitorKey: undefined,
+  visitId: undefined,
   calendar: undefined,
   holidays: undefined,
   onLoad(
@@ -200,6 +202,7 @@ Page({
     this.serial = 0;
     this.shown = false;
     this.monthRingSlot = 1;
+    this.visitId = createVisitId();
     try {
       const key = decodeURIComponent(options.scene ?? options.visitorKey ?? options.vkey ?? '');
       this.visitorKey = /^[0-9a-f]{32}$/iu.test(key) ? key : undefined;
@@ -225,6 +228,7 @@ Page({
     this.visible = false;
     this.serial += 1;
     this.visitorKey = undefined;
+    this.visitId = undefined;
     clearCalendar(this);
   },
   handleListCall(this: GuestPage, event: Tap): void {
@@ -709,6 +713,7 @@ function readMonth(
         businessMonth,
         clientContext: context.clientContext,
         ...(context.loginCode === undefined ? {} : { loginCode: context.loginCode }),
+        ...(page.visitId === undefined ? {} : { visitId: page.visitId }),
         visitorKey: key,
       }),
     )
@@ -927,6 +932,13 @@ function clearEvents(page: GuestPage): void {
     shiftEventErrorMessage: '',
     shiftEventMeta: '',
     shiftEventState: 'closed',
+  });
+}
+
+function createVisitId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/gu, (marker) => {
+    const random = Math.floor(Math.random() * 16);
+    return (marker === 'x' ? random : (random & 0x3) | 0x8).toString(16);
   });
 }
 async function loadEvents(page: GuestPage, assignment: CalendarDutyAssignment): Promise<void> {

@@ -181,6 +181,7 @@ export const manualScheduleEndpoints = {
   }),
   deleteTemplate: /* @__PURE__ */ defineClientEndpoint<DeleteTemplateInput, void>({
     auth: 'bearer',
+    body: () => ({}),
     decoder: emptyResponseDecoder,
     id: 'manual-schedule.delete-template',
     method: 'DELETE',

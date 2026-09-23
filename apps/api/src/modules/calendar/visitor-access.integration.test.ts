@@ -300,6 +300,78 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(memberLogs.statusCode).toBe(403);
   });
 
+  it('records one access per visitor page session while keeping legacy reads per request', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    const visitId = randomUUID();
+    const months = ['2026-07', '2026-08', '2026-09', '2026-10', '2026-11'];
+    const responses = await Promise.all(
+      months.map((businessMonth) =>
+        app.inject({
+          method: 'POST',
+          payload: {
+            businessMonth,
+            clientContext: { model: 'Xiaomi 14', version: 1 },
+            visitId,
+            visitorKey,
+          },
+          url: `/guest/groups/${groupId}/calendar/read`,
+        }),
+      ),
+    );
+    expect(
+      responses.every((response) => response.statusCode === 200),
+      responses.map((response) => `${response.statusCode}: ${response.body}`).join('\n'),
+    ).toBe(true);
+
+    const [sessionRows] = (await client.database.execute(sql`
+      SELECT business_month AS businessMonth
+      FROM visitor_access_logs
+      WHERE group_id = ${groupId}
+    `)) as unknown as [readonly { businessMonth: string }[], unknown];
+    expect(sessionRows).toHaveLength(1);
+    expect(months).toContain(sessionRows[0]?.businessMonth);
+
+    const otherGroupId = await createGroup('Other visitor group');
+    const otherVisitorKey = await getVisitorKey(otherGroupId);
+    const otherGroupRead = await app.inject({
+      method: 'POST',
+      payload: {
+        businessMonth: '2026-09',
+        clientContext: { version: 1 },
+        visitId,
+        visitorKey: otherVisitorKey,
+      },
+      url: `/guest/groups/${otherGroupId}/calendar/read`,
+    });
+    expect(otherGroupRead.statusCode, otherGroupRead.body).toBe(200);
+    const [otherGroupRows] = (await client.database.execute(sql`
+      SELECT id
+      FROM visitor_access_logs
+      WHERE group_id = ${otherGroupId}
+    `)) as unknown as [readonly { id: string }[], unknown];
+    expect(otherGroupRows).toHaveLength(1);
+
+    const nextVisit = await app.inject({
+      method: 'POST',
+      payload: {
+        businessMonth: '2026-12',
+        clientContext: { version: 1 },
+        visitId: randomUUID(),
+        visitorKey,
+      },
+      url: `/guest/groups/${groupId}/calendar/read`,
+    });
+    expect(nextVisit.statusCode, nextVisit.body).toBe(200);
+    await readGuestCalendar(visitorKey, '2027-01');
+
+    const [allRows] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM visitor_access_logs
+      WHERE group_id = ${groupId}
+    `)) as unknown as [readonly { count: number | string }[], unknown];
+    expect(Number(allRows[0]?.count)).toBe(3);
+  });
+
   it('accepts strict visitor context, stores OpenID without creating a user and degrades on exchange failure', async () => {
     const visitorKey = await getVisitorKey(groupId);
     const [beforeUsers] = (await client.database.execute(

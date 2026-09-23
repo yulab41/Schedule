@@ -75,19 +75,29 @@ export class VisitorAccessLogService {
     requestId: string | undefined,
     details: {
       readonly clientContext?: VisitorClientContext;
+      readonly visitId?: string;
       readonly wechatOpenid?: string;
     } = {},
   ): Promise<void> {
-    await this.databaseClient.database.insert(visitorAccessLogs).values({
+    const id =
+      details.visitId === undefined
+        ? randomUUID()
+        : createVisitorSessionAccessId(groupId, details.visitId);
+    const insert = this.databaseClient.database.insert(visitorAccessLogs).values({
       businessMonth,
       clientIp: normalizeClientIp(clientIp) ?? null,
       groupId,
-      id: randomUUID(),
+      id,
       requestId: requestId ?? null,
       clientContext: details.clientContext ?? null,
       clientContextVersion: details.clientContext?.version ?? null,
       wechatOpenid: details.wechatOpenid ?? null,
     });
+    if (details.visitId === undefined) {
+      await insert;
+      return;
+    }
+    await insert.onDuplicateKeyUpdate({ set: { id } });
   }
 
   public async listLogs(
@@ -264,6 +274,19 @@ export function normalizeClientIp(value: string | undefined): string | undefined
   const mappedIpv4 = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/iu.exec(candidate)?.[1];
   if (mappedIpv4 !== undefined && isIP(mappedIpv4) === 4) return mappedIpv4;
   return isIP(candidate) === 0 ? undefined : candidate.toLowerCase();
+}
+
+function createVisitorSessionAccessId(groupId: string, visitId: string): string {
+  const digest = createHash('sha256')
+    .update('visitor-access-log\0')
+    .update(groupId)
+    .update('\0')
+    .update(visitId)
+    .digest('hex')
+    .slice(0, 32);
+  const variant = ((Number.parseInt(digest[16] ?? '0', 16) & 0x3) | 0x8).toString(16);
+  const uuid = `${digest.slice(0, 12)}5${digest.slice(13, 16)}${variant}${digest.slice(17)}`;
+  return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
 }
 
 function readCursorDate(cursor: string): string {

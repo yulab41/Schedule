@@ -256,9 +256,13 @@ describe('wechat mini program contracts', () => {
       businessMonth: '2026-09',
       clientContext: { brand: 'Xiaomi', model: 'Xiaomi 14', version: 1 },
       loginCode: 'temporary-code',
+      visitId: '11111111-1111-4111-8111-111111111111',
       visitorKey: 'a'.repeat(32),
     };
     expect(visitorCalendarReadRequestSchema.safeParse(request).success).toBe(true);
+    expect(
+      visitorCalendarReadRequestSchema.safeParse({ ...request, visitId: 'not-a-uuid' }).success,
+    ).toBe(false);
     expect(
       visitorCalendarReadRequestSchema.safeParse({
         ...request,

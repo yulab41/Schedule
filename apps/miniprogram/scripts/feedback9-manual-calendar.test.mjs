@@ -4,13 +4,21 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { previewCalendarModel } from '../src/subpackages/scheduling/components/schedule-calendar-preview/model.ts';
 
-const mocks = vi.hoisted(() => ({ next: vi.fn(), holidays: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  calendar: vi.fn(),
+  draft: vi.fn(),
+  holidays: vi.fn(),
+  next: vi.fn(),
+}));
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
   createRuntimeManualScheduleClient: () => ({ getNextStartDate: mocks.next }),
-  createRuntimeSchedulePublicationClient: () => ({}),
+  createRuntimeSchedulePublicationClient: () => ({ getDraftPreview: mocks.draft }),
 }));
 vi.mock('../src/platform/workbench-read.ts', () => ({
-  createWorkbenchReadClient: () => ({ getHolidays: mocks.holidays }),
+  createWorkbenchReadClient: () => ({
+    getCalendar: mocks.calendar,
+    getHolidays: mocks.holidays,
+  }),
   readStoredWorkbenchGroupId: vi.fn(),
   writeStoredWorkbenchGroupId: vi.fn(),
 }));
@@ -24,6 +32,8 @@ let definition;
 beforeEach(async () => {
   vi.resetModules();
   mocks.next.mockReset();
+  mocks.calendar.mockReset();
+  mocks.draft.mockReset();
   mocks.holidays.mockReset().mockResolvedValue({ dates: [] });
   vi.stubGlobal('Page', (value) => {
     definition = value;
@@ -239,6 +249,194 @@ describe('feedback9 manual geometry and dates', () => {
     await Promise.resolve();
     expect(p.data.previewHolidays).toHaveLength(2);
   });
+  it('lazily merges same-role existing schedules into a draft batch preview', async () => {
+    const p = page();
+    p._history = [
+      {
+        applyEndDate: '2026-11-30',
+        applyStartDate: '2026-11-01',
+        businessMonth: '2026-11',
+        createdAt: '2026-09-23T00:00:00.000Z',
+        id: 'draft-period-1',
+        operationId: 'draft-batch-1',
+        revision: 1,
+        scheduleRoleId: 'r',
+        scheduleRoleName: '一线',
+        status: 'draft',
+        version: 1,
+      },
+    ];
+    mocks.draft.mockResolvedValue({
+      assignments: [
+        {
+          businessDate: '2026-11-01',
+          plannedMemberName: '本次草稿',
+          scheduleRoleId: 'r',
+          shiftTypeAbbreviation: '全',
+          shiftTypeId: 's',
+          shiftTypeName: '全天班',
+          slotPosition: 1,
+        },
+      ],
+      scheduleRoleId: 'r',
+    });
+    mocks.calendar.mockImplementation(async (_groupId, month) => ({
+      assignments:
+        month === '2026-11'
+          ? [
+              {
+                businessDate: '2026-11-01',
+                id: 'existing-r',
+                plannedMemberName: '已有排班',
+                scheduleRoleId: 'r',
+                shiftTypeAbbreviation: '夜',
+                shiftTypeId: 'night',
+                shiftTypeName: '夜班',
+                slotPosition: 1,
+              },
+              {
+                businessDate: '2026-11-01',
+                id: 'existing-other-role',
+                plannedMemberName: '其他岗位',
+                scheduleRoleId: 'other-role',
+                shiftTypeAbbreviation: '备',
+                shiftTypeId: 'backup',
+                shiftTypeName: '备班',
+                slotPosition: 2,
+              },
+            ]
+          : [],
+      businessMonth: month,
+    }));
+
+    p.handlePreviewDraftBatch({ currentTarget: { dataset: { batchKey: 'draft-batch-1' } } });
+    await vi.waitFor(() => expect(mocks.calendar).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(p.data.releasePreviewAssignments).toHaveLength(2));
+    expect(mocks.calendar.mock.calls.map(([, month]) => month)).toEqual([
+      '2026-10',
+      '2026-11',
+      '2026-12',
+    ]);
+    expect(
+      p.data.releasePreviewAssignments.map(({ plannedMemberName, state }) => [
+        plannedMemberName,
+        state,
+      ]),
+    ).toEqual([
+      ['已有排班', 'removed'],
+      ['本次草稿', 'added'],
+    ]);
+
+    p.handleReleaseMonthBrowse({ detail: { month: '2027-01' } });
+    await vi.waitFor(() => expect(mocks.calendar).toHaveBeenCalledTimes(5));
+    expect(mocks.calendar.mock.calls.map(([, month]) => month)).toEqual([
+      '2026-10',
+      '2026-11',
+      '2026-12',
+      '2027-01',
+      '2027-02',
+    ]);
+  });
+  it('keeps the draft visible when existing schedules fail to load', async () => {
+    const p = page();
+    p._history = [
+      {
+        applyEndDate: '2026-11-30',
+        applyStartDate: '2026-11-01',
+        businessMonth: '2026-11',
+        createdAt: '2026-09-23T00:00:00.000Z',
+        id: 'draft-period-1',
+        operationId: 'draft-batch-1',
+        revision: 1,
+        scheduleRoleId: 'r',
+        scheduleRoleName: '一线',
+        status: 'draft',
+        version: 1,
+      },
+    ];
+    mocks.draft.mockResolvedValue({
+      assignments: [
+        {
+          businessDate: '2026-11-01',
+          plannedMemberName: '本次草稿',
+          scheduleRoleId: 'r',
+          shiftTypeAbbreviation: '全',
+          shiftTypeId: 's',
+          shiftTypeName: '全天班',
+          slotPosition: 1,
+        },
+      ],
+      scheduleRoleId: 'r',
+    });
+    mocks.calendar.mockRejectedValue({});
+
+    p.handlePreviewDraftBatch({ currentTarget: { dataset: { batchKey: 'draft-batch-1' } } });
+    await vi.waitFor(() => expect(p.data.errorMessage).toContain('已有排班读取失败'));
+    expect(
+      p.data.releasePreviewAssignments.map(({ plannedMemberName }) => plannedMemberName),
+    ).toEqual(['本次草稿']);
+  });
+  it('drops existing-schedule responses that arrive after the preview closes', async () => {
+    const pending = [];
+    const p = page();
+    p._history = [
+      {
+        applyEndDate: '2026-11-30',
+        applyStartDate: '2026-11-01',
+        businessMonth: '2026-11',
+        createdAt: '2026-09-23T00:00:00.000Z',
+        id: 'draft-period-1',
+        operationId: 'draft-batch-1',
+        revision: 1,
+        scheduleRoleId: 'r',
+        scheduleRoleName: '一线',
+        status: 'draft',
+        version: 1,
+      },
+    ];
+    mocks.draft.mockResolvedValue({
+      assignments: [
+        {
+          businessDate: '2026-11-01',
+          plannedMemberName: '本次草稿',
+          scheduleRoleId: 'r',
+          shiftTypeAbbreviation: '全',
+          shiftTypeId: 's',
+          shiftTypeName: '全天班',
+          slotPosition: 1,
+        },
+      ],
+      scheduleRoleId: 'r',
+    });
+    mocks.calendar.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
+
+    p.handlePreviewDraftBatch({ currentTarget: { dataset: { batchKey: 'draft-batch-1' } } });
+    await vi.waitFor(() => expect(mocks.calendar).toHaveBeenCalledTimes(3));
+    p.handleCloseReleaseDialog();
+    pending.forEach((resolve, index) =>
+      resolve({
+        assignments: [
+          {
+            businessDate: '2026-11-01',
+            id: `existing-${index}`,
+            plannedMemberName: '迟到已有排班',
+            scheduleRoleId: 'r',
+            shiftTypeAbbreviation: '夜',
+            shiftTypeId: 'night',
+            shiftTypeName: '夜班',
+            slotPosition: 1,
+          },
+        ],
+        businessMonth: '2026-11',
+      }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(p.data.releaseDialogKind).toBe('');
+    expect(
+      p.data.releasePreviewAssignments.map(({ plannedMemberName }) => plannedMemberName),
+    ).toEqual(['本次草稿']);
+  });
 });
 describe('feedback9 calendar display', () => {
   it('carries confirmed holidays through cross-year preview panels', () => {
@@ -263,6 +461,23 @@ describe('feedback9 calendar display', () => {
     expect(badge.flexShrink).toBe('0');
     const card = dom.window.getComputedStyle(dom.window.document.querySelector('div'));
     expect(card.borderTopWidth === '' || card.borderTopWidth === '0px').toBe(true);
+    dom.window.close();
+  });
+  it('keeps the ordinary holiday badge while shrinking only compact preview badges', () => {
+    const css = source('components/calendar/calendar-cell/index.wxss').replace(
+      /@import[^;]+;/gu,
+      '',
+    );
+    const dom = new JSDOM(
+      `<style>${css}</style><div class="calendar-cell"><span id="ordinary" class="holiday-chip">国庆</span></div><div class="calendar-cell is-compact"><span id="compact" class="holiday-chip">国庆</span></div>`,
+    );
+    const ordinary = dom.window.getComputedStyle(dom.window.document.querySelector('#ordinary'));
+    const compact = dom.window.getComputedStyle(dom.window.document.querySelector('#compact'));
+    expect(ordinary.maxWidth).toBe('28px');
+    expect(ordinary.minHeight).toBe('16px');
+    expect(compact.maxWidth).toBe('20px');
+    expect(compact.minHeight).toBe('12px');
+    expect(compact.fontSize).toBe('7px');
     dom.window.close();
   });
 });

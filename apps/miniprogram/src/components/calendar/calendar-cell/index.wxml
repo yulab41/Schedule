@@ -18,7 +18,11 @@
     ><text class="month-shift-badge" style="{{shiftBadgeStyle}}">{{shiftAbbreviation}}</text></view
   >
   <view wx:if="{{duties.length > 0}}" class="month-duty-lines">
-    <view wx:for="{{duties}}" wx:key="key" class="month-duty-line is-{{item.state}}">
+    <view
+      wx:for="{{duties}}"
+      wx:key="key"
+      class="month-duty-line is-{{item.state}} {{item.comparisonClass}}"
+    >
       <text class="month-person">{{item.name}}</text>
       <text wx:if="{{item.abbreviation}}" class="duty-abbreviation" style="{{item.badgeStyle}}"
         >{{item.abbreviation}}</text

@@ -238,6 +238,7 @@ export const visitorCalendarReadRequestSchema = z
     businessMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u),
     clientContext: visitorClientContextSchema,
     loginCode: z.string().trim().min(1).max(512).optional(),
+    visitId: z.string().uuid().optional(),
     visitorKey: z.string().regex(/^[0-9a-f]{32}$/iu),
   })
   .strict();

@@ -111,4 +111,53 @@ describe('feedback8 preview calendar', () => {
     expect(duty.badgeStyle).toContain('#267d70');
     expect(cells.find((cell) => cell.businessDate === '2026-11-02').disabled).toBe(true);
   });
+  it('renders existing comparison duties in tender gray while keeping the draft colored', () => {
+    const assignments = mergePreviewAssignments(
+      [
+        {
+          businessDate: '2026-11-01',
+          plannedMemberName: '本次草稿',
+          shiftTypeAbbreviation: '夜',
+          shiftTypeName: '夜班',
+          shiftTypeColor: '#267d70',
+          shiftTypeTextColor: '#ffffff',
+          slotPosition: 1,
+        },
+      ],
+      [
+        {
+          businessDate: '2026-11-01',
+          plannedMemberName: '已有排班',
+          shiftTypeAbbreviation: '全',
+          shiftTypeName: '全天班',
+          shiftTypeColor: '#d12d45',
+          shiftTypeTextColor: '#ffffff',
+          slotPosition: 1,
+        },
+      ],
+    );
+    const duties = previewCalendarModel(assignments, '2026-11', '', 1).panels[1].cells.find(
+      (cell) => cell.businessDate === '2026-11-01',
+    ).duties;
+
+    expect(duties[0]).toMatchObject({
+      comparisonClass: 'is-existing-comparison',
+      name: '已有排班',
+      state: 'removed',
+    });
+    expect(duties[0].badgeStyle).toContain('background-color:#eef1f4');
+    expect(duties[1]).toMatchObject({
+      comparisonClass: 'is-current-draft',
+      name: '本次草稿',
+      state: 'added',
+    });
+    expect(duties[1].badgeStyle).toContain('#267d70');
+
+    const template = readFileSync(
+      new URL('../src/components/calendar/calendar-cell/index.wxml', import.meta.url),
+      'utf8',
+    );
+    expect(template).toContain('{{item.comparisonClass}}');
+    expect(template).not.toContain('已有 / 本次草稿');
+  });
 });

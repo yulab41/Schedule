@@ -133,6 +133,7 @@ export const calendarReadEndpoints = {
       businessMonth: input.businessMonth,
       clientContext: input.clientContext,
       ...(input.loginCode === undefined ? {} : { loginCode: input.loginCode }),
+      ...(input.visitId === undefined ? {} : { visitId: input.visitId }),
       visitorKey: input.visitorKey,
     }),
     path: ({ groupId }) => `/guest/groups/${encodeURIComponent(groupId)}/calendar/read`,

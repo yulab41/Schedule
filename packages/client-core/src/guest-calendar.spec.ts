@@ -46,6 +46,7 @@ describe('guest calendar client', () => {
       businessMonth: '2027-02',
       clientContext: { version: 1 },
       loginCode: 'login-code',
+      visitId: '11111111-1111-4111-8111-111111111111',
       visitorKey: 'b'.repeat(32),
     });
     expect(calls).toEqual([
@@ -75,6 +76,7 @@ describe('guest calendar client', () => {
           businessMonth: '2027-02',
           clientContext: { version: 1 },
           loginCode: 'login-code',
+          visitId: '11111111-1111-4111-8111-111111111111',
           visitorKey: 'b'.repeat(32),
         },
       },

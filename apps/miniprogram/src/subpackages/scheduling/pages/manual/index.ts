@@ -367,6 +367,10 @@ interface ManualPageInstance {
   _releaseMutationTargetId: string;
   _releaseOperationIds: Map<string, string>;
   _releasePublishPreview: ScheduleGenerationPreview | undefined;
+  _releasePreviewCalendarByMonth?: Map<string, CalendarReadModel>;
+  _releasePreviewIdentity?: object;
+  _releasePreviewProposedAssignments?: readonly PreviewDuty[];
+  _releasePreviewRoleId?: string;
   _previewModel?: ManualApplyPreview | ManualScheduleEditorPreview;
   _previewRequest: PreviewManualScheduleEditorRequest | undefined;
   _previewCalendarByMonth?: Map<string, CalendarReadModel>;
@@ -987,8 +991,10 @@ Page({
     }
   },
   handleReleaseMonthBrowse(this: ManualPageInstance, event: { detail: { month: string } }): void {
-    if (/^\d{4}-\d{2}$/u.test(event.detail.month))
+    if (/^\d{4}-\d{2}$/u.test(event.detail.month)) {
+      void loadReleasePreviewContext(this, event.detail.month);
       void loadPreviewHolidays(this, event.detail.month);
+    }
   },
   handlePreviewReleaseVersion(this: ManualPageInstance, event: ReleaseActionEvent): void {
     const periodId = event.currentTarget.dataset.periodId;
@@ -1178,6 +1184,7 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
   if (page.data.isBusy) return;
   const batch = groupScheduleDraftBatches(page._history).find((item) => item.key === key);
   if (batch === undefined) return;
+  resetReleasePreviewContext(page);
   const serial = page._loadSerial;
   setReleaseData(page, { isBusy: true, errorMessage: '' });
   try {
@@ -1187,6 +1194,11 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
     if (serial !== page._loadSerial) return;
     const assignments = previews.flatMap((preview) =>
       proposedPreviewDuties(page, preview.assignments),
+    );
+    const identity = initializeReleasePreviewContext(
+      page,
+      batch.items[0]?.scheduleRoleId ?? '',
+      assignments,
     );
     setReleaseData(page, {
       isBusy: false,
@@ -1200,6 +1212,7 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
       releaseWorkflowImpacts: [],
       releaseDialogDanger: false,
     });
+    void loadReleasePreviewContext(page, batch.rangeStart.slice(0, 7), identity);
   } catch (error) {
     if (serial !== page._loadSerial) return;
     setReleaseData(page, {
@@ -1600,6 +1613,79 @@ function mergedManualPreview(
   return mergePreviewAssignments(proposed, [...existing.values()]);
 }
 
+function initializeReleasePreviewContext(
+  page: ManualPageInstance,
+  scheduleRoleId: string,
+  proposed: readonly PreviewDuty[],
+): object {
+  const identity = {};
+  page._releasePreviewCalendarByMonth = new Map();
+  page._releasePreviewIdentity = identity;
+  page._releasePreviewProposedAssignments = proposed;
+  page._releasePreviewRoleId = scheduleRoleId;
+  return identity;
+}
+
+function resetReleasePreviewContext(page: ManualPageInstance): void {
+  delete page._releasePreviewCalendarByMonth;
+  delete page._releasePreviewIdentity;
+  delete page._releasePreviewProposedAssignments;
+  delete page._releasePreviewRoleId;
+}
+
+function mergedReleasePreview(page: ManualPageInstance): readonly PreviewDuty[] {
+  const roleId = page._releasePreviewRoleId;
+  const existing = new Map(
+    [...(page._releasePreviewCalendarByMonth?.values() ?? [])]
+      .flatMap((calendar) => calendar.assignments)
+      .filter((assignment) => assignment.scheduleRoleId === roleId)
+      .map((assignment) => [assignment.id, assignment]),
+  );
+  return mergePreviewAssignments(page._releasePreviewProposedAssignments ?? [], [
+    ...existing.values(),
+  ]);
+}
+
+async function loadReleasePreviewContext(
+  page: ManualPageInstance,
+  month: string,
+  identity = page._releasePreviewIdentity,
+): Promise<void> {
+  const cache = page._releasePreviewCalendarByMonth;
+  if (
+    identity === undefined ||
+    identity !== page._releasePreviewIdentity ||
+    cache === undefined ||
+    page.data.releaseDialogKind !== 'preview'
+  )
+    return;
+  const serial = page._loadSerial;
+  try {
+    const missing = previewContextMonths(month).filter((key) => !cache.has(key));
+    if (missing.length === 0) return;
+    const calendars = await Promise.all(
+      missing.map((key) => workbenchClient.getCalendar(page._currentGroupId, key)),
+    );
+    if (
+      serial !== page._loadSerial ||
+      page._releasePreviewIdentity !== identity ||
+      page.data.releaseDialogKind !== 'preview'
+    )
+      return;
+    missing.forEach((key, index) => cache.set(key, calendars[index]!));
+    page.setData({ releasePreviewAssignments: mergedReleasePreview(page) });
+  } catch (error) {
+    if (
+      serial === page._loadSerial &&
+      page._releasePreviewIdentity === identity &&
+      page.data.releaseDialogKind === 'preview'
+    )
+      setReleaseData(page, {
+        errorMessage: toUserMessage(error, '已有排班读取失败，请重试。'),
+      });
+  }
+}
+
 async function loadPreviewContext(page: ManualPageInstance, month: string): Promise<void> {
   const preview = page._previewModel;
   const cache = page._previewCalendarByMonth;
@@ -1707,6 +1793,7 @@ async function reloadReleaseHistory(
   infoMessage = '',
   targetState?: 'release' | 'history',
 ): Promise<void> {
+  resetReleasePreviewContext(page);
   let refreshError = '';
   try {
     page._history = await publicationClient.listHistory(page._currentGroupId);
@@ -2038,6 +2125,7 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
   if (page.data.isBusy) return;
   const target = page._history.find((item) => item.id === periodId);
   if (target === undefined) return;
+  resetReleasePreviewContext(page);
   setReleaseData(page, { errorMessage: '', isBusy: true });
   try {
     const model: ScheduleGenerationPreview | CalendarReadModel =
@@ -2048,8 +2136,14 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
       'statistics' in model
         ? `${model.assignments.length} 个班次 · ${model.vacancies.length} 个空缺 · ${model.hardConflicts.length} 个冲突`
         : `${model.assignments.length} 个班次 · ${model.members.length} 位成员`;
+    const assignments =
+      'statistics' in model ? proposedPreviewDuties(page, model.assignments) : model.assignments;
+    const identity =
+      'statistics' in model
+        ? initializeReleasePreviewContext(page, target.scheduleRoleId, assignments)
+        : undefined;
     setReleaseData(page, {
-      releasePreviewAssignments: model.assignments,
+      releasePreviewAssignments: assignments,
       releasePreviewStartDate: `${target.businessMonth.slice(0, 7)}-01`,
       isBusy: false,
       releaseCallouts: [{ message: summary, tone: 'info' }],
@@ -2063,6 +2157,8 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
       releasePreviewSummary: summary,
       releaseWorkflowImpacts: [],
     });
+    if (identity !== undefined)
+      void loadReleasePreviewContext(page, target.businessMonth.slice(0, 7), identity);
   } catch (error) {
     setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班版本暂时无法预览，请稍后重试。'),
@@ -2072,6 +2168,7 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
 }
 
 function closeReleaseDialog(page: ManualPageInstance): void {
+  resetReleasePreviewContext(page);
   page._releaseDeleteTarget = undefined;
   page._releaseImpact = undefined;
   page._releaseMutationTargetId = '';

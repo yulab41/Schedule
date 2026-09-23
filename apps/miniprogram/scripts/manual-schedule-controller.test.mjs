@@ -157,6 +157,7 @@ describe('P5 native manual schedule controller', () => {
     globalThis.wx.showModal.mock.calls[1][0].success({ cancel: false, confirm: true });
     await vi.waitFor(() => expect(globalThis.wx.request).toHaveBeenCalledTimes(1));
     expect(globalThis.wx.request.mock.calls[0][0]).toMatchObject({
+      data: {},
       method: 'DELETE',
       url: expect.stringContaining('/manual-schedule-templates/template-1'),
     });

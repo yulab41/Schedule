@@ -124,6 +124,7 @@ describe('manual schedule client', () => {
     expect(manualScheduleEndpoints.deleteTemplate.path({ groupId, templateId })).toBe(
       `/groups/${groupId}/manual-schedule-templates/${templateId}`,
     );
+    expect(manualScheduleEndpoints.deleteTemplate.body({ groupId, templateId })).toEqual({});
   });
 
   it('keeps the apply operation id in both the body and idempotency header descriptor', () => {

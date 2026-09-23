@@ -1,13 +1,11 @@
 # Project Status
 
-## 当前批次：手动排班预览对照与访客审计去重（规格已通过，实施中）
+## 当前批次：手动排班预览对照与访客审计去重（实现/本地门禁完成，待发布）
 
-- 小米 14 `.190@eacfd752` 证明四个后续问题：模板删除被严格请求校验拒绝；草稿预览缺少已有排班；紧凑月历日期、节假日和排班文字重叠；访客页五个月预取把一次访问放大为同一分钟多条记录。
-- 已确认口径：草稿预览不增加图例，已有排班使用嫩灰色，本次草稿保留彩色；访客审计按每次进入页面一条，同一页面实例内预取、切月、前台恢复和重试不重复记录，重新进入产生新记录。
-- 根因：删除客户端未发送空 JSON；草稿弹窗未复用编辑预览的已有日历合并；普通节假日胶囊尺寸直接用于紧凑月历；访客 API 对每个月份读取无条件插入。
-- 设计采用最小增量：DELETE 显式 `{}`；草稿弹窗独立按可见三月窗口懒加载并同岗位合并；只缩小 compact 节假日布局；请求增加可选页面 `visitId`，服务端以群组和会话生成稳定主键并原子忽略重复。旧客户端仍可用，无数据库迁移。
-- 规格 `19d53b78` 已由用户复核通过；实施计划见 [手动排班预览与访客审计去重实施计划](superpowers/plans/2026-09-23-manual-preview-visitor-audit-followup-plan.md)，计划 checkpoint 以 `docs(plan): stage manual preview and visitor audit follow-up` 标识。按 RED→GREEN、服务端部署、体验版上传、只追加放行执行，不提审、不正式发布。
-- 当前停止条件：四项回归、全量门禁、生产部署、不可变体验版上传和 add-only 放行全部取得证据；小米 14 原生结果仍单独记录。
+- 已实现：模板 DELETE 显式 `{}`；草稿按可见三月窗口叠加同岗位已有排班，已有嫩灰、本次彩色且不增加图例；compact 节假日标识专属缩小；访客用可选 `visitId` 按页面实例原子去重，旧客户端仍逐请求记录。无数据库迁移，不清理历史记录。
+- RED→GREEN 与全门禁：contracts/client-core 22、Mini 定向 49；真实 MySQL 手排 34、Task10 107；`pnpm verify` 的 Mini 1254/16 skip、根 1302/445 skip、warm 工具 81 全绿。生产 Mini verify/source/package/determinism/dry-run 通过，总包 4,798,345 B、主包 1,821,922 B。
+- 运行/浏览器验证：默认 5173 未启动首轮失败不计通过；当前源码 API 3105/Web 4175 的原 smoke 完整通过且临时服务已停。开发者工具版本/登录门禁通过，dirty local build 因生产能力版本门禁停在加载态，待不可变放行版本复核目标视觉；当前证据不等于小米 14。
+- 完整证据见 [交付记录](audit/manual-preview-visitor-followup-20260923.md)。checkpoint 消息为 `fix(schedule): compare manual drafts and dedupe visitor reads`；下一步运行 `smoke:check-core`、连续性门禁、提交推送，然后按授权备份/部署、上传不可变体验版并 add-only 放行。未提审、不正式发布。
 
 ## 上一批次：手动排班一次性编辑、366 天应用与模板删除（生产已部署放行，待真机复核）
 
@@ -50,18 +48,6 @@
 - 体验版 `0.1.0-p10.20260920.181`（`bc5fc307`）已上传并只增放行，旧版保留；`.181`/`.180` 公网能力 200、未知版 426，新流接口未登录 401。发布后仍只有 3 个常驻容器、restartCount=0/OOM=false；备份后短期指标不当作稳态提速证据。
 - 详见 [审计报告](audit/loading-cache-server-20260920.md)；旧测试夹具在父源码复跑也失败，已修正调用签名及统计范围，不降低断言。
 - 交付记录 checkpoint：`docs(release): record cache audit deployment and trial 181`；仅文档，按例外不再备份/部署/同步服务器元数据。唯一下一任务：小米 14 `.181@bc5fc307` 验证跨设备联系方式静默更新、前后台/断网补查、切组/退出账号隔离；取得同构建证据前保持“待用户复核”，本批停止扩展修改。
-
-## 策略变更：Agent 可直接操作微信开发者工具（编译/预览/上传免逐次确认）
-
-- 用户明确要求：允许 Agent 调用微信开发者工具（`wechatide` CLI 与开发者工具 MCP），且编译、预览、上传不再需要用户逐次确认。
-- 已移除禁令与逐次批准门禁的位置：根`AGENTS.md`、`apps/miniprogram/AGENTS.md`、`schedule-project-guardrails`（`SKILL.md`、`references/miniprogram.md`、`references/task-levels.md`、`references/release-candidate.md`）、小程序迁移计划、`architecture/runtime-and-build.md`、`runbooks/manual-native-testing.md`、`runbooks/p6-core-rc.md`、`p7-workflow-rc.md`、`p8-organization-rc.md`、`runbooks/miniprogram-ci.md`、`testing/device-matrix.md`、`testing/test-plan.md`、`docs/audit/AUDIT_MASTER_PLAN.md`、`docs/audit/XIAOMI14_TEST_PROTOCOL.md`。
-- 守卫与历史记录处理：`validate-project-skill.ps1` 原先断言运行手册含“当前消息已明确授权上传”，该审批要求正是本次取消的策略，故改为断言“不需要用户逐次批准”并复核其余版本分配/血缘 token 仍全部成立；这是策略变更的同步，不是用改测试掩盖失败。`wechat-miniprogram-audit.md` 与`exp-icon-004`计划只加日期化的“当时/现已解除”说明，不改写历史结论。
-- `docs/project-status.md` 原为40551字节，已接近`agent-context-policy.test.mjs`的40960字节硬门槛，加一轮记录必然越界。按根`AGENTS.md`“保持简洁、Git历史才是持久历史”的要求，裁掉访客修复101及以前的历史批次（保留当前与近期批次，并在文末指向`docs/audit/`），现为32047字节/168行。
-- ADR：ADR-0002 的执行边界部分由新增`apps/miniprogram/docs/decisions/ADR-0006-agent-devtools-automation.md`取代，其余部分（日常主循环不依赖开发者工具）仍有效。
-- 保留不变的边界：提交审核、撤回审核、正式发布，以及删除云资源、生产数据库破坏性写入、真实支付等其他不可逆操作仍需用户当次明确批准；体验版上传仍走版本分配、冻结干净候选、Manifest/receipt/远端tag血缘与只追加allowlist；模拟器、自动化与截图不得冒充实体设备验收。
-- 环境事实（本轮实测）：开发者工具`2.02.2609162`（Nightly，高于门槛`2.02.2607152`）；`wechatide -h`退出码0；agent侧skill`0.3.11`与工具内置版逐文件一致且`versionRelation: equal`；MCP `wechat-devtools`带独立Token调用`check_wechatide_status`成功，`loginExpired: false`。
-- 验证：`validate-project-skill.ps1` RESULT=PASS（15文件、14 markdown、108链接）；`vitest run scripts/agent-context-policy.test.mjs` 3/3通过；`node --test scripts/codex/worktree-pool-policy.test.mjs` 5/5通过；`vitest run scripts/test-discovery-policy.test.mjs scripts/project-local-artifacts.test.mjs` 6/6通过；`node --test scripts/codex/project-local-layout.test.mjs scripts/codex/release-candidate-core.test.mjs scripts/codex/workspace-bootstrap-core.test.mjs` 47/47通过；`git diff --check`通过。改动只涉及markdown与一个PowerShell脚本，未触及`format:check`的Prettier范围，也未触及Mini/Web源码，故未跑全量verify。
-- 当时建议下一任务：需要原生复核时由 Agent 自主上传体验版（记录短SHA、版本、Manifest与测试页面），随后请用户在小米14微信客户端打开该体验版复核。停止条件：用户给出与当前构建一致的真机结论前，不得写“小米14体验版验收通过”。
 
 ## 上一批次：极致读缓存与增量同步（已过排班 + 节假日/补班）
 

@@ -174,6 +174,34 @@ describe('anonymous native visitor calendar', () => {
       expect(instance.visitorKey).toBeUndefined();
     },
   );
+  it('reuses one visit id for every month read in a page instance and rotates it on re-entry', async () => {
+    const first = await page();
+    await vi.waitFor(() => expect(first.data.state).toBe('ready'));
+    const firstReads = requests.filter((request) =>
+      /\/guest\/groups\/[^/]+\/calendar\/read$/.test(request.url),
+    );
+    expect(firstReads).toHaveLength(5);
+    const firstVisitIds = new Set(firstReads.map((request) => request.data.visitId));
+    expect(firstVisitIds.size).toBe(1);
+    const firstVisitId = firstReads[0].data.visitId;
+    expect(firstVisitId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+    definition.onUnload.call(first);
+    expect(first.visitId).toBeUndefined();
+
+    const second = await page();
+    await vi.waitFor(() => expect(second.data.state).toBe('ready'));
+    const allReads = requests.filter((request) =>
+      /\/guest\/groups\/[^/]+\/calendar\/read$/.test(request.url),
+    );
+    const secondVisitIds = new Set(
+      allReads.slice(firstReads.length).map((request) => request.data.visitId),
+    );
+    expect(secondVisitIds.size).toBe(1);
+    expect([...secondVisitIds][0]).not.toBe(firstVisitId);
+    definition.onUnload.call(second);
+  });
   it('rejects malformed keys without a calendar or identity request', async () => {
     const instance = await page({ scene: '%ZZ' });
     expect(instance.data.state).toBe('error');
