@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('account contacts, visitor context and retired invite release compatibility', () => {
+describe('active-only shift slot release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,12 +10,10 @@ describe('account contacts, visitor context and retired invite release compatibi
     })),
   });
 
-  it('requires the destructive account contacts and visitor context migration', () => {
-    expect(
-      releaseSchemaCompatibility(journal(63, '0063_account_short_phone_visitor_context')),
-    ).toEqual({
-      databaseSchemaMin: '63',
-      databaseSchemaMax: '63',
+  it('requires the active-only shift slot migration', () => {
+    expect(releaseSchemaCompatibility(journal(64, '0064_active_shift_slot'))).toEqual({
+      databaseSchemaMin: '64',
+      databaseSchemaMax: '64',
     });
   });
 
@@ -39,6 +37,8 @@ describe('account contacts, visitor context and retired invite release compatibi
       journal(62, '0062_unknown'),
       journal(62, '0062_group_calendar_changes'),
       journal(63, '0063_unknown'),
+      journal(63, '0063_account_short_phone_visitor_context'),
+      journal(64, '0064_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

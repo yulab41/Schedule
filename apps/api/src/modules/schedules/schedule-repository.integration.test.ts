@@ -20,10 +20,11 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ScheduleRepository } from './schedule-repository.js';
 import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
+import { recoverDecember2026 } from '../../recover-december-2026.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -38,6 +39,8 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
   let shiftTypeId: string;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-15T04:00:00Z'));
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
@@ -52,6 +55,7 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
 
   afterEach(async () => {
     await client.close();
+    vi.useRealTimers();
   });
 
   it('persists CST business dates and immutable all-day shift snapshots in UTC', async () => {
@@ -150,6 +154,281 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
         { eventType: 'schedule_period_withdrawn', schedulePeriodId: second.id },
       ]),
     );
+  });
+
+  it('replaces every old shift on a duplicate date and keeps untouched shift IDs and a full snapshot', async () => {
+    const repository = new ScheduleRepository(client);
+    const first = await repository.createDraft({
+      ...createDraftInput('2028-02', '2028-02-01'),
+      assignments: [
+        {
+          actualMembershipId: memberId,
+          businessDate: '2028-02-01',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 1,
+        },
+        {
+          actualMembershipId: memberId,
+          businessDate: '2028-02-02',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 1,
+        },
+        {
+          actualMembershipId: memberId,
+          businessDate: '2028-02-02',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 2,
+        },
+      ],
+    });
+    const current = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: first.version,
+      operationId: randomUUID(),
+      schedulePeriodId: first.id,
+    });
+    const old = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, current.id), isNull(shiftAssignments.deletedAt)),
+      );
+    const untouchedId = old.find((row) => row.businessDate === '2028-02-01')?.id;
+    const second = await repository.createDraft(createDraftInput('2028-02', '2028-02-02'));
+    const merged = await withTransaction(client, (transaction) =>
+      repository.mergePublishedInTransaction(transaction, {
+        actorUserId: ownerUserId,
+        expectedVersion: second.version,
+        operationId: randomUUID(),
+        schedulePeriodId: second.id,
+      }),
+    );
+    expect(merged.id).toBe(current.id);
+    const active = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, current.id), isNull(shiftAssignments.deletedAt)),
+      );
+    expect(active).toHaveLength(2);
+    expect(active.find((row) => row.businessDate === '2028-02-01')?.id).toBe(untouchedId);
+    expect(active.filter((row) => row.businessDate === '2028-02-02')).toHaveLength(1);
+    const archived = await client.database
+      .select()
+      .from(schedulePeriods)
+      .where(and(eq(schedulePeriods.groupId, groupId), eq(schedulePeriods.status, 'replaced')));
+    expect(archived).toHaveLength(1);
+    const snapshot = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, archived[0]!.id),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    expect(snapshot).toHaveLength(3);
+    const oldRepeated = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, current.id),
+          eq(shiftAssignments.businessDate, '2028-02-02'),
+        ),
+      );
+    expect(oldRepeated.filter((row) => row.deletedAt !== null)).toHaveLength(2);
+  });
+
+  it('revokes only workflows touching a replaced date', async () => {
+    const repository = new ScheduleRepository(client);
+    const dates = ['2028-03-01', '2028-03-02', '2028-03-03', '2028-03-04'];
+    const first = await repository.createDraft({
+      ...createDraftInput('2028-03', dates[0]!),
+      assignments: dates.map((businessDate) => ({
+        actualMembershipId: memberId,
+        businessDate,
+        plannedMembershipId: memberId,
+        shiftTypeId,
+        slotPosition: 1,
+      })),
+    });
+    const current = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: first.version,
+      operationId: randomUUID(),
+      schedulePeriodId: first.id,
+    });
+    const rows = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, current.id), isNull(shiftAssignments.deletedAt)),
+      );
+    const byDate = new Map(rows.map((row) => [row.businessDate, row]));
+    const affectedId = randomUUID();
+    const unaffectedId = randomUUID();
+    for (const [id, leftDate, rightDate, sequence] of [
+      [affectedId, dates[0]!, dates[1]!, 1],
+      [unaffectedId, dates[2]!, dates[3]!, 2],
+    ] as const) {
+      const left = byDate.get(leftDate)!;
+      const right = byDate.get(rightDate)!;
+      await client.database.insert(swapRequests).values({
+        groupId,
+        id,
+        initiatorAssignmentId: left.id,
+        initiatorAssignmentVersion: left.version,
+        initiatorMembershipId: memberId,
+        status: 'pending_target',
+        targetAssignmentId: right.id,
+        targetAssignmentVersion: right.version,
+        targetMembershipId: memberId,
+        workflowSequence: sequence,
+      });
+    }
+    const second = await repository.createDraft(createDraftInput('2028-03', dates[1]!));
+    await expect(
+      withTransaction(client, (transaction) =>
+        repository.mergePublishedInTransaction(transaction, {
+          actorUserId: ownerUserId,
+          expectedVersion: second.version,
+          operationId: randomUUID(),
+          schedulePeriodId: second.id,
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    await withTransaction(client, (transaction) =>
+      repository.mergePublishedInTransaction(transaction, {
+        actorUserId: ownerUserId,
+        acknowledgeWorkflowRevocations: true,
+        expectedVersion: second.version,
+        operationId: randomUUID(),
+        schedulePeriodId: second.id,
+      }),
+    );
+    const workflows = await client.database
+      .select({ id: swapRequests.id, status: swapRequests.status })
+      .from(swapRequests)
+      .where(eq(swapRequests.groupId, groupId));
+    expect(workflows).toEqual(
+      expect.arrayContaining([
+        { id: affectedId, status: 'revoked' },
+        { id: unaffectedId, status: 'pending_target' },
+      ]),
+    );
+  });
+
+  it('reapplies an archived date into the current month without removing current dates', async () => {
+    const repository = new ScheduleRepository(client);
+    const earlier = await repository.createDraft(createDraftInput('2028-04', '2028-04-01'));
+    await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: earlier.version,
+      operationId: randomUUID(),
+      schedulePeriodId: earlier.id,
+    });
+    const later = await repository.createDraft(createDraftInput('2028-04', '2028-04-02'));
+    const current = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: later.version,
+      operationId: randomUUID(),
+      schedulePeriodId: later.id,
+    });
+    const [archive] = await client.database
+      .select({ version: schedulePeriods.version })
+      .from(schedulePeriods)
+      .where(eq(schedulePeriods.id, earlier.id));
+    const merged = await withTransaction(client, (transaction) =>
+      repository.mergePublishedInTransaction(transaction, {
+        actorUserId: ownerUserId,
+        expectedVersion: archive!.version,
+        operationId: randomUUID(),
+        schedulePeriodId: earlier.id,
+      }),
+    );
+    expect(merged.id).toBe(current.id);
+    const active = await client.database
+      .select({ businessDate: shiftAssignments.businessDate })
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, current.id), isNull(shiftAssignments.deletedAt)),
+      )
+      .orderBy(shiftAssignments.businessDate);
+    expect(active.map((row) => row.businessDate)).toEqual(['2028-04-01', '2028-04-02']);
+    const preservedArchive = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, earlier.id), isNull(shiftAssignments.deletedAt)),
+      );
+    expect(preservedArchive).toHaveLength(1);
+  });
+
+  it('preflights and restores the exact December overwrite once without changing the 31st', async () => {
+    const repository = new ScheduleRepository(client);
+    const archived = await repository.createDraft({
+      ...createDraftInput('2026-12', '2026-12-01'),
+      assignments: Array.from({ length: 30 }, (_, index) => ({
+        actualMembershipId: memberId,
+        businessDate: `2026-12-${String(index + 1).padStart(2, '0')}`,
+        plannedMembershipId: memberId,
+        shiftTypeId,
+        slotPosition: 1,
+      })),
+    });
+    await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: archived.version,
+      operationId: randomUUID(),
+      schedulePeriodId: archived.id,
+    });
+    const lastDay = await repository.createDraft(createDraftInput('2026-12', '2026-12-31'));
+    const current = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: lastDay.version,
+      operationId: randomUUID(),
+      schedulePeriodId: lastDay.id,
+    });
+    const [source] = await client.database
+      .select({ version: schedulePeriods.version })
+      .from(schedulePeriods)
+      .where(eq(schedulePeriods.id, archived.id));
+    const [preserved] = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, current.id), isNull(shiftAssignments.deletedAt)),
+      );
+    const input = {
+      actorUserId: ownerUserId,
+      archivePeriodId: archived.id,
+      archiveVersion: source!.version,
+      currentPeriodId: current.id,
+      currentVersion: current.version,
+      groupId,
+      scheduleRoleId,
+    };
+    expect(await recoverDecember2026(client, input, false)).toMatchObject({
+      state: 'ready',
+      activeDays: 1,
+    });
+    expect(await recoverDecember2026(client, input, true)).toMatchObject({
+      state: 'restored',
+      activeDays: 31,
+    });
+    const active = await client.database
+      .select({ businessDate: shiftAssignments.businessDate, id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(eq(shiftAssignments.schedulePeriodId, current.id), isNull(shiftAssignments.deletedAt)),
+      );
+    expect(active).toHaveLength(31);
+    expect(active.find((row) => row.businessDate === '2026-12-31')?.id).toBe(preserved?.id);
+    await expect(recoverDecember2026(client, input, true)).rejects.toThrow('guard failed');
   });
 
   it('locks past dates into a past period when publishing or withdrawing a current month', async () => {

@@ -609,6 +609,14 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 63 ]; then
     exit 1
   }
 fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 64 ]; then
+  ACTIVE_SHIFT_SLOT_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"shift_assignments\" AND column_name=\"active_slot_position\" AND extra LIKE \"%STORED GENERATED%\"), (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"shift_assignments\" AND index_name=\"shift_assignments_slot_unique\")"')"
+  [ "$ACTIVE_SHIFT_SLOT_SCHEMA" = $'1\t3' ] || {
+    echo "[verify] 错误：已删除班次的槽位未从唯一键排除。" >&2
+    exit 1
+  }
+fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"

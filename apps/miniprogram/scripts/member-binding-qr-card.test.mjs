@@ -32,7 +32,7 @@ describe('member binding QR card', () => {
       realName: '冯钦',
     });
 
-    expect(createOffscreenCanvas).toHaveBeenCalledWith({ type: '2d', width: 720, height: 1240 });
+    expect(createOffscreenCanvas).toHaveBeenCalledWith({ type: '2d', width: 720, height: 1144 });
     expect(drawImage).toHaveBeenCalledWith(expect.anything(), 40, 30, 640, 640);
     expect(fillText.mock.calls.map(([text]) => text).join('|')).not.toContain('群组码');
     expect(fillText.mock.calls).toEqual(

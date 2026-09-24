@@ -37,7 +37,8 @@ export async function composeMemberBindingQrCard(
     }) => OffscreenCanvas;
   };
   const groupLines = wrapGroupName(`群组名：${details.groupName}`);
-  const canvas = runtime.createOffscreenCanvas?.({ type: '2d', width: 720, height: 1240 });
+  const cardHeight = 1000 + groupLines.length * 72;
+  const canvas = runtime.createOffscreenCanvas?.({ type: '2d', width: 720, height: cardHeight });
   if (!canvas) return imageSrc;
   const image = canvas.createImage();
   await new Promise<void>((resolve, reject) => {
@@ -47,7 +48,7 @@ export async function composeMemberBindingQrCard(
   });
   const context = canvas.getContext('2d');
   context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, 720, 1240);
+  context.fillRect(0, 0, 720, cardHeight);
   context.drawImage(image, 40, 30, 640, 640);
   context.textAlign = 'center';
   context.textBaseline = 'middle';

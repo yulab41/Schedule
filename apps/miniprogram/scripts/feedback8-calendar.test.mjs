@@ -26,7 +26,7 @@ describe('feedback8 preview calendar', () => {
       dom.window.close();
     }
   });
-  it('strikes only replaced slots, appends proposed names and disables dates outside this proposal', () => {
+  it('strikes every old shift on an overlapping date and leaves other dates alone', () => {
     const base = {
       businessDate: '2026-11-01',
       plannedMemberName: '原人员',
@@ -36,24 +36,67 @@ describe('feedback8 preview calendar', () => {
     };
     const assignments = mergePreviewAssignments(
       [{ ...base, plannedMemberName: '新人员' }],
-      [base, { ...base, businessDate: '2026-11-02' }],
+      [base, { ...base, slotPosition: 2 }, { ...base, businessDate: '2026-11-02' }],
     );
     const result = previewCalendarModel(assignments, '2026-11', '', 1, true);
     const cells = result.panels[1].cells;
-    expect(
-      cells
-        .find((cell) => cell.businessDate === '2026-11-01')
-        .duties.map(({ name, state }) => [name, state]),
-    ).toEqual([
-      ['原人员', 'removed'],
-      ['新人员', 'added'],
-    ]);
+    const changed = cells
+      .find((cell) => cell.businessDate === '2026-11-01')
+      .duties.map(({ name, state }) => [name, state]);
+    expect(changed).toHaveLength(3);
+    expect(changed.filter(([, state]) => state === 'removed')).toHaveLength(2);
+    expect(changed).toEqual(expect.arrayContaining([['新人员', 'added']]));
     expect(cells.find((cell) => cell.businessDate === '2026-11-02')).toMatchObject({
       disabled: true,
       duties: [{ name: '原人员', state: 'normal' }],
     });
   });
+  it('locates a distant month with one swiper transition', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-24T04:00:00.000Z'));
+    vi.resetModules();
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/subpackages/scheduling/components/schedule-calendar-preview/index.ts');
+    const shift = vi.fn();
+    const instance = {
+      ...definition.methods,
+      properties: {
+        assignments: [],
+        startDate: '2026-01-01',
+        compact: true,
+        restrictToProposed: false,
+        holidays: [],
+      },
+      data: structuredClone(definition.data),
+      setData(patch, callback) {
+        Object.assign(this.data, patch);
+        callback?.();
+      },
+      triggerEvent: vi.fn(),
+      selectComponent: () => ({
+        finishPeriodShift() {},
+        continueQueuedShift() {},
+        startProgrammaticShift: shift,
+      }),
+    };
+    try {
+      definition.lifetimes.attached.call(instance);
+      instance.handleLocate();
+      expect(shift).toHaveBeenCalledTimes(1);
+      instance.handleMonthChange({ detail: { delta: 1, current: 2 } });
+      instance.handleMonthSettled();
+      expect(instance.data.month).toBe('2026-09');
+      expect(shift).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
   it('resizes a six-row month to five rows and preserves the viewed month when data arrives', async () => {
+    vi.resetModules();
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;

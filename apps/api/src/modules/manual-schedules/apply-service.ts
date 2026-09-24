@@ -68,6 +68,7 @@ import {
   ScheduleRepository,
   type CreateShiftAssignmentInput,
 } from '../schedules/schedule-repository.js';
+import { overlappingBusinessDates } from '../schedules/publication-overlap.js';
 import { toLatestData, toPeriodSummary } from '../schedules/shared.js';
 
 interface ApplyContext {
@@ -348,23 +349,52 @@ export class ManualScheduleApplyService {
               ),
             )
             .for('update');
+    const publishedAssignments =
+      existingPublishedPeriods.length === 0
+        ? []
+        : await transaction
+            .select()
+            .from(shiftAssignments)
+            .where(
+              and(
+                inArray(
+                  shiftAssignments.schedulePeriodId,
+                  existingPublishedPeriods.map((period) => period.id),
+                ),
+                isNull(shiftAssignments.deletedAt),
+              ),
+            );
+    const overlappingDates = new Set(
+      overlappingBusinessDates(publishedAssignments, context.assignments),
+    );
+    const overlappingAssignments = publishedAssignments.filter((assignment) =>
+      overlappingDates.has(assignment.businessDate),
+    );
+    const conflictingDatesByMonth: Record<string, string[]> = {};
+    for (const assignment of overlappingAssignments) {
+      const month = assignment.businessDate.slice(0, 7);
+      const dates = conflictingDatesByMonth[month] ?? [];
+      if (!dates.includes(assignment.businessDate)) dates.push(assignment.businessDate);
+      conflictingDatesByMonth[month] = dates;
+    }
+    for (const dates of Object.values(conflictingDatesByMonth)) dates.sort();
     const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
       transaction,
       existingPublishedPeriods.map((period) => period.id),
+      overlappingAssignments.map((assignment) => assignment.id),
     );
-    if (existingPublishedPeriods.length > 0 && input.replacePublished !== true) {
+    if (overlappingAssignments.length > 0 && input.replacePublished !== true) {
       throw new ApiError({
         code: 'CONFLICT',
         latestData: toLatestData({
-          conflictingMonths: existingPublishedPeriods.map((period) =>
-            period.businessMonth.slice(0, 7),
-          ),
-          existingPublishedPeriodId: existingPublishedPeriods[0]?.id,
+          conflictingMonths: Object.keys(conflictingDatesByMonth).sort(),
+          conflictingDatesByMonth,
+          existingPublishedPeriodId: overlappingAssignments[0]?.schedulePeriodId,
           status: 'published',
           workflowImpacts,
         }),
         statusCode: 409,
-        userMessage: '发布范围包含已有已发布排班的月份，请确认覆盖发布。',
+        userMessage: '发布范围包含已排班的日期，请确认按整日替换。',
       });
     }
     if (workflowImpacts.length > 0 && input.acknowledgeWorkflowRevocations !== true) {
@@ -376,24 +406,7 @@ export class ManualScheduleApplyService {
       });
     }
     const periods: SchedulePeriodSummary[] = [];
-    const replacedAssignments =
-      existingPublishedPeriods.length === 0
-        ? []
-        : await transaction
-            .select({
-              plannedMembershipId: shiftAssignments.plannedMembershipId,
-              actualMembershipId: shiftAssignments.actualMembershipId,
-            })
-            .from(shiftAssignments)
-            .where(
-              and(
-                inArray(
-                  shiftAssignments.schedulePeriodId,
-                  existingPublishedPeriods.map((period) => period.id),
-                ),
-                isNull(shiftAssignments.deletedAt),
-              ),
-            );
+    const replacedAssignments = overlappingAssignments;
     const notificationMembershipIds = [
       ...new Set([
         ...getAffectedMembershipIds(context.assignments),
@@ -421,7 +434,7 @@ export class ManualScheduleApplyService {
       });
       const period =
         publishMode === 'published'
-          ? await this.repository.publishInTransaction(transaction, {
+          ? await this.repository.mergePublishedInTransaction(transaction, {
               actorUserId: authorization.user.id,
               acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
               expectedVersion: draft.version,

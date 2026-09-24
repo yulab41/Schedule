@@ -205,4 +205,11 @@ describe('ECS directory import runtime packaging', () => {
     expect(schema63Check).toContain('group_code_attempts');
     expect(schema63Check).toContain('groups_group_code_unique');
   });
+
+  it('verifies the schema 64 active-only shift slot key', () => {
+    expect(verifySource).toContain('ACTIVE_SHIFT_SLOT_SCHEMA');
+    expect(verifySource).toContain('active_slot_position');
+    expect(verifySource).toContain('shift_assignments_slot_unique');
+    expect(verifySource).toContain("$'1\\t3'");
+  });
 });

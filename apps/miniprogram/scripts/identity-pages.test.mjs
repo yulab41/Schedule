@@ -69,15 +69,21 @@ describe('P3 native identity pages', () => {
     expect(client).toContain('persistPasswordSession');
   });
 
-  it('keeps the admin URL Link path preview-first and confirm-code based', () => {
+  it('shows the member QR details and confirms with one click while preserving URL Link compatibility', () => {
     const template = readSource('pages/admin-bind/preview.wxml');
     const source = readSource('pages/admin-bind/preview.ts');
     const client = readSource('platform/wechat-identity.ts');
 
-    expect(template).toContain('handleContinue');
+    expect(template).not.toContain('handleContinue');
     expect(template).toContain('handleConfirm');
+    expect(template).toContain('employeeCode');
+    expect(template).toContain('handleGuest');
+    expect(source).toContain('previewMemberBinding(ticket)');
     expect(source).toContain('previewAdminBinding(ticket)');
     expect(source).toContain('confirmAdminBinding(ticket)');
+    expect(source).toContain("'/pages/workbench/index'");
+    expect(source).toContain("'/pages/guest-entry/index'");
+    expect(client).toContain("'/auth/wechat/admin-bind/member-preview'");
     expect(client).toContain("'/auth/wechat/admin-bind/preview'");
     expect(client).toContain("'/auth/wechat/admin-bind/confirm'");
     expect(client).toContain('getWechatCode()');

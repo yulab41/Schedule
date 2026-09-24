@@ -169,8 +169,9 @@
                   </view>
                   <view wx:if="{{batch.isBlocked}}" class="blocker-panel">
                     <view class="release-callout is-warning">{{releaseBlockedMessage}}</view>
-                    <view wx:if="{{releaseBlockedNeedsReplace}}" class="month-chips"><text wx:for="{{batch.months}}" wx:key="*this" class="month-chip is-conflict">{{item}}</text></view>
-                    <ui-checkbox wx:if="{{releaseBlockedNeedsReplace}}" checked="{{releaseReplaceAccepted}}" label="覆盖已发布排班（替换同岗位同月份的旧排班）" data-field="replace" bindchange="handleReleaseBlockedToggle"></ui-checkbox>
+                    <view wx:if="{{releaseBlockedNeedsReplace}}" class="month-chips"><text wx:for="{{releaseConflictingMonths}}" wx:key="*this" class="month-chip is-conflict">{{item}}</text></view>
+                    <text wx:if="{{releaseConflictingDatesLabel}}">重复日期：{{releaseConflictingDatesLabel}}</text>
+                    <ui-checkbox wx:if="{{releaseBlockedNeedsReplace}}" checked="{{releaseReplaceAccepted}}" label="替换重复日期的全部旧班次，保留其他日期" data-field="replace" bindchange="handleReleaseBlockedToggle"></ui-checkbox>
                     <view wx:if="{{releaseWorkflowImpacts.length}}" class="workflow-impact-list">
                       <text class="impact-heading">覆盖后将撤销以下已生效或处理中事件：</text>
                       <text wx:for="{{releaseWorkflowImpacts}}" wx:key="key">{{item.summary}}</text>

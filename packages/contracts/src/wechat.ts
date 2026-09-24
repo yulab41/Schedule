@@ -122,6 +122,17 @@ export type WechatAdminBindingPreviewResponse = z.infer<
   typeof wechatAdminBindingPreviewResponseSchema
 >;
 
+export const wechatMemberBindingPreviewResponseSchema = z
+  .object({
+    employeeCode: z.string().min(1),
+    expiresAt: z.string().datetime({ offset: true }),
+    realName: z.string().min(1),
+  })
+  .strict();
+export type WechatMemberBindingPreviewResponse = z.infer<
+  typeof wechatMemberBindingPreviewResponseSchema
+>;
+
 export const wechatAdminBindingConfirmRequestSchema = z
   .object({ ticket: wechatLinkTokenSchema, code: z.string().min(1).max(512) })
   .strict();

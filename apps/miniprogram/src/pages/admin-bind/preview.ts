@@ -8,11 +8,14 @@ import {
   getIdentityErrorMessage,
   persistWechatSession,
   previewAdminBinding,
+  previewMemberBinding,
+  WechatIdentityClientError,
   type WechatAdminBindingPreviewResult,
+  type WechatMemberBindingPreviewResult,
   type WechatAuthenticatedResult,
 } from '../../platform/wechat-identity.js';
 
-type AdminBindingMode = 'authenticated' | 'confirm' | 'error' | 'loading' | 'preview';
+type AdminBindingMode = 'authenticated' | 'error' | 'loading' | 'preview';
 
 interface AdminBindingPageData {
   readonly buildLabel: string;
@@ -22,6 +25,9 @@ interface AdminBindingPageData {
   readonly mode: AdminBindingMode;
   readonly realNameMasked: string;
   readonly usernameMasked: string;
+  readonly realName: string;
+  readonly employeeCode: string;
+  readonly isMemberQr: boolean;
 }
 
 interface AdminBindingPageInstance {
@@ -38,18 +44,25 @@ function authenticatedPatch(result: WechatAuthenticatedResult): Partial<AdminBin
 function formatExpiry(expiresAt: string): string {
   const timestamp = Date.parse(expiresAt);
   if (!Number.isFinite(timestamp)) return '限时有效';
-  const minutes = Math.max(1, Math.ceil((timestamp - Date.now()) / 60_000));
-  return `还剩约 ${minutes} 分钟`;
+  const date = new Date(timestamp);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `有效至 ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function previewPatch(result: WechatAdminBindingPreviewResult): Partial<AdminBindingPageData> {
+function previewPatch(
+  result: WechatAdminBindingPreviewResult | WechatMemberBindingPreviewResult,
+): Partial<AdminBindingPageData> {
+  const isMemberQr = 'realName' in result;
   return {
     errorMessage: '',
     expiresAtLabel: formatExpiry(result.expiresAt),
     loading: false,
     mode: 'preview',
-    realNameMasked: result.realNameMasked,
-    usernameMasked: result.usernameMasked,
+    isMemberQr,
+    realName: isMemberQr ? result.realName : '',
+    employeeCode: isMemberQr ? result.employeeCode : '',
+    realNameMasked: isMemberQr ? '' : result.realNameMasked,
+    usernameMasked: isMemberQr ? '' : result.usernameMasked,
   };
 }
 
@@ -62,6 +75,9 @@ Page({
     mode: 'loading' as AdminBindingMode,
     realNameMasked: '',
     usernameMasked: '',
+    realName: '',
+    employeeCode: '',
+    isMemberQr: false,
   },
 
   handleConfirm(this: AdminBindingPageInstance): void {
@@ -69,7 +85,10 @@ Page({
     if (ticket === undefined) return;
     this.setData({ errorMessage: '', loading: true });
     void confirmAdminBinding(ticket)
-      .then((result) => this.setData(authenticatedPatch(result)))
+      .then((result) => {
+        this.setData(authenticatedPatch(result));
+        wx.reLaunch({ url: '/pages/workbench/index' });
+      })
       .catch((error: unknown) =>
         this.setData({
           errorMessage: getIdentityErrorMessage(error),
@@ -79,8 +98,8 @@ Page({
       );
   },
 
-  handleContinue(this: AdminBindingPageInstance): void {
-    this.setData({ errorMessage: '', loading: false, mode: 'confirm' });
+  handleGuest(): void {
+    wx.navigateTo({ url: '/pages/guest-entry/index' });
   },
 
   onLoad(
@@ -101,7 +120,14 @@ Page({
     }
     this.setData({ loading: true, mode: 'loading' });
     void requireClientCapability('core')
-      .then(() => previewAdminBinding(ticket))
+      .then(() =>
+        previewMemberBinding(ticket).catch((error: unknown) => {
+          if (error instanceof WechatIdentityClientError && error.code === 'NOT_FOUND') {
+            return previewAdminBinding(ticket);
+          }
+          throw error;
+        }),
+      )
       .then((result) => this.setData(previewPatch(result)))
       .catch((error: unknown) => setAdminBindingCapabilityError(this, error));
   },

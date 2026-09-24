@@ -56,6 +56,12 @@ export interface WechatAdminBindingPreviewResult {
   readonly usernameMasked: string;
 }
 
+export interface WechatMemberBindingPreviewResult {
+  readonly employeeCode: string;
+  readonly expiresAt: string;
+  readonly realName: string;
+}
+
 export interface WechatUnbindResult {
   readonly unbound: true;
 }
@@ -264,6 +270,25 @@ export async function previewAdminBinding(
 ): Promise<WechatAdminBindingPreviewResult> {
   await requireClientCapability('core');
   return decodePreview(await postJson('/auth/wechat/admin-bind/preview', { ticket }));
+}
+
+export async function previewMemberBinding(
+  ticket: string,
+): Promise<WechatMemberBindingPreviewResult> {
+  const value = await postJson('/auth/wechat/admin-bind/member-preview', { ticket });
+  if (
+    !isRecord(value) ||
+    readString(value.expiresAt) === undefined ||
+    readString(value.realName) === undefined ||
+    readString(value.employeeCode) === undefined
+  ) {
+    throw new WechatIdentityClientError('绑定预览响应无效。');
+  }
+  return {
+    employeeCode: value.employeeCode as string,
+    expiresAt: value.expiresAt as string,
+    realName: value.realName as string,
+  };
 }
 
 export async function confirmAdminBinding(ticket: string): Promise<WechatAuthenticatedResult> {

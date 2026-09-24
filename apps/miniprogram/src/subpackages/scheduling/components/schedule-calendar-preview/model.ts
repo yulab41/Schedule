@@ -22,13 +22,11 @@ export function mergePreviewAssignments(
   proposed: readonly PreviewDuty[],
   existing: readonly PreviewDuty[],
 ): readonly PreviewDuty[] {
-  const replacing = new Set(proposed.map((item) => `${item.businessDate}:${item.slotPosition}`));
+  const replacing = new Set(proposed.map((item) => item.businessDate));
   return [
     ...existing.map((item) => ({
       ...item,
-      state: replacing.has(`${item.businessDate}:${item.slotPosition}`)
-        ? ('removed' as const)
-        : ('normal' as const),
+      state: replacing.has(item.businessDate) ? ('removed' as const) : ('normal' as const),
     })),
     ...proposed.map((item) => ({ ...item, state: 'added' as const })),
   ];

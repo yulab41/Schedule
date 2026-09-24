@@ -252,6 +252,8 @@ interface ManualPageData extends MatrixModel {
   readonly riskAccepted: boolean;
   readonly releaseAccepted: boolean;
   readonly releaseBlockedMessage: string;
+  readonly releaseConflictingMonths: readonly string[];
+  readonly releaseConflictingDatesLabel: string;
   readonly releaseBlockedNeedsAcknowledgement: boolean;
   readonly releaseBlockedNeedsReplace: boolean;
   readonly releaseCallouts: readonly ReleaseCalloutView[];
@@ -465,6 +467,8 @@ Page({
     riskAccepted: false,
     releaseAccepted: false,
     releaseBlockedMessage: '',
+    releaseConflictingMonths: [],
+    releaseConflictingDatesLabel: '',
     releaseBlockedNeedsAcknowledgement: false,
     releaseBlockedNeedsReplace: false,
     releaseCallouts: [],
@@ -1901,7 +1905,27 @@ async function publishReleaseBatch(
   } catch (error) {
     if (error instanceof ClientCoreError && error.code === 'CONFLICT') {
       const latest = error.latestData;
-      const needsReplace = typeof latest?.['existingPublishedPeriodId'] === 'string';
+      const conflictingMonths = Array.isArray(latest?.['conflictingMonths'])
+        ? latest['conflictingMonths'].filter((month): month is string => typeof month === 'string')
+        : [];
+      const dateGroups = latest?.['conflictingDatesByMonth'];
+      const conflictingDatesLabel =
+        dateGroups && typeof dateGroups === 'object' && !Array.isArray(dateGroups)
+          ? conflictingMonths
+              .map((month) => {
+                const dates = (dateGroups as Record<string, unknown>)[month];
+                return `${month}：${
+                  Array.isArray(dates)
+                    ? dates
+                        .filter((date): date is string => typeof date === 'string')
+                        .map((date) => date.slice(8))
+                        .join('、')
+                    : ''
+                } 日`;
+              })
+              .join('；')
+          : '';
+      const needsReplace = conflictingMonths.length > 0;
       const workflowImpacts = readWorkflowImpacts(latest?.['workflowImpacts']);
       if (needsReplace) {
         page._history = await publicationClient
@@ -1912,6 +1936,8 @@ async function publishReleaseBatch(
       syncReleaseHistory(page, {
         isBusy: false,
         releaseBlockedMessage: error.message,
+        releaseConflictingMonths: conflictingMonths,
+        releaseConflictingDatesLabel: conflictingDatesLabel,
         releaseBlockedNeedsAcknowledgement:
           workflowImpacts.length > 0 || latest?.['preview'] !== undefined,
         releaseBlockedNeedsReplace: needsReplace,
@@ -1932,6 +1958,8 @@ function clearBlockedRelease(page: ManualPageInstance): void {
   page._releaseBlockedBatchKey = '';
   syncReleaseHistory(page, {
     releaseBlockedMessage: '',
+    releaseConflictingMonths: [],
+    releaseConflictingDatesLabel: '',
     releaseBlockedNeedsAcknowledgement: false,
     releaseBlockedNeedsReplace: false,
     releaseReplaceAccepted: false,

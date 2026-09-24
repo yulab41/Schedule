@@ -403,6 +403,161 @@ export class ScheduleRepository {
     );
   }
 
+  /** Merge a draft into the current month while retaining the current period and untouched shift IDs. */
+  public async mergePublishedInTransaction(
+    transaction: DatabaseTransaction,
+    input: SchedulePeriodMutationInput,
+  ): Promise<SchedulePeriodRecord> {
+    const target = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
+    assertExpectedPeriodVersion(target, input.expectedVersion);
+    assertTransition(target.status, 'published');
+    const [current] = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, target.groupId),
+          eq(schedulePeriods.scheduleRoleId, target.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, target.businessMonth),
+          eq(schedulePeriods.status, 'published'),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (current === undefined) {
+      return this.publishInTransaction(transaction, input);
+    }
+    const incoming = await this.loadPeriodAssignments(transaction, target.id, true);
+    if (incoming.some((assignment) => isPastBusinessDate(assignment.businessDate))) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '草稿包含已过日期，不能替换既往排班。',
+      });
+    }
+    const before = await this.loadPeriodAssignments(transaction, current.id, true);
+    const incomingDates = new Set(incoming.map((assignment) => assignment.businessDate));
+    const replaced = before.filter((assignment) => incomingDates.has(assignment.businessDate));
+    const workflowImpacts = await this.workflowInvalidationService.listImpacts(
+      transaction,
+      [current.id],
+      true,
+      replaced.map((assignment) => assignment.id),
+    );
+    assertWorkflowRevocationsAcknowledged(
+      workflowImpacts,
+      input.acknowledgeWorkflowRevocations === true,
+    );
+    await this.workflowInvalidationService.invalidate(transaction, {
+      actorUserId: input.actorUserId,
+      assignmentIds: replaced.map((assignment) => assignment.id),
+      groupId: target.groupId,
+      operationId: input.operationId,
+      periodIds: [current.id],
+    });
+
+    // Snapshot the complete old month, including dates untouched by this publication.
+    const [latest] = await transaction
+      .select({ revision: schedulePeriods.revision })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, current.groupId),
+          eq(schedulePeriods.scheduleRoleId, current.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, current.businessMonth),
+        ),
+      )
+      .orderBy(desc(schedulePeriods.revision))
+      .limit(1);
+    const snapshotId = randomUUID();
+    await transaction
+      .update(schedulePeriods)
+      .set({
+        revision: (latest?.revision ?? target.revision) + 1,
+        version: sql`${schedulePeriods.version} + 1`,
+        publishedAt: new Date(),
+        rulesVersion: target.rulesVersion,
+      })
+      .where(eq(schedulePeriods.id, current.id));
+    await transaction.insert(schedulePeriods).values({
+      businessMonth: current.businessMonth,
+      groupId: current.groupId,
+      id: snapshotId,
+      publishedAt: current.publishedAt,
+      replacedByPeriodId: current.id,
+      revision: current.revision,
+      rulesVersion: current.rulesVersion,
+      scheduleRoleId: current.scheduleRoleId,
+      status: 'replaced',
+    });
+    if (before.length > 0) {
+      await transaction
+        .insert(shiftAssignments)
+        .values(before.map((assignment) => cloneAssignment(assignment, snapshotId)));
+    }
+    if (replaced.length > 0) {
+      await transaction
+        .update(shiftAssignments)
+        .set({ deletedAt: new Date() })
+        .where(
+          inArray(
+            shiftAssignments.id,
+            replaced.map((assignment) => assignment.id),
+          ),
+        );
+    }
+    if (incoming.length > 0) {
+      await transaction
+        .insert(shiftAssignments)
+        .values(incoming.map((assignment) => cloneAssignment(assignment, current.id)));
+    }
+    if (target.status === 'draft' || target.status === 'pending_publication') {
+      await transaction
+        .update(schedulePeriods)
+        .set({
+          deletedAt: new Date(),
+          version: sql`${schedulePeriods.version} + 1`,
+        })
+        .where(eq(schedulePeriods.id, target.id));
+      await transaction
+        .update(shiftAssignments)
+        .set({ deletedAt: new Date() })
+        .where(
+          and(eq(shiftAssignments.schedulePeriodId, target.id), isNull(shiftAssignments.deletedAt)),
+        );
+    }
+    const publicationEventId = await this.eventWriter.append(transaction, {
+      affectedShiftIds: replaced.map((assignment) => assignment.id),
+      afterData: { snapshotId, incomingDates: [...incomingDates].sort() },
+      beforeData: { revision: current.revision, status: current.status },
+      eventStatus: 'completed',
+      eventType: 'schedule_period_published',
+      groupId: target.groupId,
+      initiatedByUserId: input.actorUserId,
+      objectId: current.id,
+      objectType: 'schedule_period',
+      operationId: input.operationId,
+      operatorUserId: input.actorUserId,
+      schedulePeriodId: current.id,
+    });
+    await this.eventWriter.append(transaction, {
+      afterData: { replacedByPeriodId: current.id, status: 'replaced' },
+      beforeData: { revision: current.revision, status: 'published' },
+      eventStatus: 'completed',
+      eventType: 'schedule_period_replaced',
+      groupId: current.groupId,
+      initiatedByUserId: input.actorUserId,
+      objectId: snapshotId,
+      objectType: 'schedule_period',
+      operationId: input.operationId,
+      operatorUserId: input.actorUserId,
+      parentEventId: publicationEventId,
+      schedulePeriodId: snapshotId,
+    });
+    return this.readPeriod(transaction, current.id);
+  }
+
   public async publishInTransaction(
     transaction: DatabaseTransaction,
     input: SchedulePeriodMutationInput,
@@ -626,8 +781,14 @@ export class ScheduleRepository {
   public listWorkflowImpactsInTransaction(
     transaction: DatabaseTransaction,
     periodIds: readonly string[],
+    assignmentIds?: readonly string[],
   ): Promise<readonly ScheduleWorkflowImpact[]> {
-    return this.workflowInvalidationService.listImpacts(transaction, periodIds);
+    return this.workflowInvalidationService.listImpacts(
+      transaction,
+      periodIds,
+      false,
+      assignmentIds,
+    );
   }
 
   private async transition(
@@ -784,8 +945,9 @@ export class ScheduleRepository {
   private async loadPeriodAssignments(
     transaction: DatabaseTransaction,
     schedulePeriodId: string,
+    lockRows = false,
   ): Promise<(typeof shiftAssignments.$inferSelect)[]> {
-    return transaction
+    let query = transaction
       .select()
       .from(shiftAssignments)
       .where(
@@ -799,6 +961,8 @@ export class ScheduleRepository {
         asc(shiftAssignments.slotPosition),
         asc(shiftAssignments.id),
       );
+    if (lockRows) query = query.for('update') as typeof query;
+    return query;
   }
 
   private async preservePastAssignments(
@@ -1141,4 +1305,21 @@ function assertWorkflowRevocationsAcknowledged(
 
 function notFound(userMessage: string): ApiError {
   return new ApiError({ code: 'NOT_FOUND', statusCode: 404, userMessage });
+}
+
+function cloneAssignment(
+  assignment: typeof shiftAssignments.$inferSelect,
+  schedulePeriodId: string,
+): typeof shiftAssignments.$inferInsert {
+  const { activeSlotPosition: _activeSlotPosition, ...row } = assignment;
+  void _activeSlotPosition;
+  return {
+    ...row,
+    createdAt: new Date(),
+    deletedAt: null,
+    id: randomUUID(),
+    schedulePeriodId,
+    updatedAt: new Date(),
+    version: 1,
+  };
 }

@@ -46,6 +46,7 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { ScheduleRepository } from './schedule-repository.js';
+import { overlappingBusinessDates } from './publication-overlap.js';
 import { assertBusinessMonthNotFullyPast, toLatestData, toPeriodSummary } from './shared.js';
 
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
@@ -148,6 +149,88 @@ export class SchedulePublishService {
     authorization: GroupAuthorization,
     input: PublishSchedulePeriodBatchRequest,
   ): Promise<PublishSchedulePeriodBatchResult> {
+    const conflicts: Record<string, string[]> = {};
+    const conflictingPeriodIds: string[] = [];
+    const conflictingAssignmentIds: string[] = [];
+    let firstPublishedId: string | undefined;
+    const selectedScopes = new Set<string>();
+    for (const schedulePeriodId of new Set(input.schedulePeriodIds)) {
+      const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
+      const scope = `${period.scheduleRoleId}:${period.businessMonth}`;
+      if (selectedScopes.has(scope)) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '同一岗位月份一次只能选择一份草稿发布。',
+        });
+      }
+      selectedScopes.add(scope);
+      const [current] = await transaction
+        .select({ id: schedulePeriods.id })
+        .from(schedulePeriods)
+        .where(
+          and(
+            eq(schedulePeriods.groupId, authorization.group.id),
+            eq(schedulePeriods.scheduleRoleId, period.scheduleRoleId),
+            eq(schedulePeriods.businessMonth, period.businessMonth),
+            eq(schedulePeriods.status, 'published'),
+            isNull(schedulePeriods.deletedAt),
+            ne(schedulePeriods.id, period.id),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (current === undefined) continue;
+      const [oldRows, newRows] = await Promise.all([
+        transaction
+          .select({ id: shiftAssignments.id, businessDate: shiftAssignments.businessDate })
+          .from(shiftAssignments)
+          .where(
+            and(
+              eq(shiftAssignments.schedulePeriodId, current.id),
+              isNull(shiftAssignments.deletedAt),
+            ),
+          ),
+        transaction
+          .select({ businessDate: shiftAssignments.businessDate })
+          .from(shiftAssignments)
+          .where(
+            and(
+              eq(shiftAssignments.schedulePeriodId, period.id),
+              isNull(shiftAssignments.deletedAt),
+            ),
+          ),
+      ]);
+      const overlapping = overlappingBusinessDates(oldRows, newRows);
+      if (overlapping.length > 0) {
+        const month = period.businessMonth.slice(0, 7);
+        conflicts[month] = [...new Set([...(conflicts[month] ?? []), ...overlapping])].sort();
+        conflictingPeriodIds.push(current.id);
+        conflictingAssignmentIds.push(
+          ...oldRows.filter((row) => overlapping.includes(row.businessDate)).map((row) => row.id),
+        );
+        firstPublishedId ??= current.id;
+      }
+    }
+    if (Object.keys(conflicts).length > 0 && input.replacePublished !== true) {
+      const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
+        transaction,
+        conflictingPeriodIds,
+        conflictingAssignmentIds,
+      );
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          conflictingDatesByMonth: conflicts,
+          conflictingMonths: Object.keys(conflicts).sort(),
+          existingPublishedPeriodId: firstPublishedId,
+          status: 'published',
+          workflowImpacts,
+        }),
+        statusCode: 409,
+        userMessage: '发布范围包含已排班的日期，请确认按整日替换。',
+      });
+    }
     const periods = [];
     for (const schedulePeriodId of new Set(input.schedulePeriodIds)) {
       const result = await this.publishInTransaction(transaction, authorization, schedulePeriodId, {
@@ -309,27 +392,6 @@ export class SchedulePublishService {
       )
       .limit(1)
       .for('update');
-    const affectedPeriodIds = [
-      ...(existingPublished === undefined ? [] : [existingPublished.id]),
-      ...(period.status === 'replaced' || period.status === 'withdrawn' ? [period.id] : []),
-    ];
-    const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
-      transaction,
-      affectedPeriodIds,
-    );
-    if (existingPublished !== undefined && input.replacePublished !== true) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: toLatestData({
-          existingPublishedPeriodId: existingPublished.id,
-          status: 'published',
-          workflowImpacts,
-        }),
-        statusCode: 409,
-        userMessage: '该岗位该月份已有已发布排班，请确认覆盖发布。',
-      });
-    }
-
     const assignments = await transaction
       .select()
       .from(shiftAssignments)
@@ -337,6 +399,47 @@ export class SchedulePublishService {
         and(eq(shiftAssignments.schedulePeriodId, period.id), isNull(shiftAssignments.deletedAt)),
       )
       .orderBy(asc(shiftAssignments.businessDate), asc(shiftAssignments.slotPosition));
+    const oldAssignments =
+      existingPublished === undefined
+        ? []
+        : await transaction
+            .select()
+            .from(shiftAssignments)
+            .where(
+              and(
+                eq(shiftAssignments.schedulePeriodId, existingPublished.id),
+                isNull(shiftAssignments.deletedAt),
+              ),
+            );
+    const incomingDates = new Set(assignments.map((assignment) => assignment.businessDate));
+    const replacedAssignments = oldAssignments.filter((assignment) =>
+      incomingDates.has(assignment.businessDate),
+    );
+    const affectedPeriodIds = existingPublished === undefined ? [] : [existingPublished.id];
+    const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
+      transaction,
+      affectedPeriodIds,
+      replacedAssignments.map((assignment) => assignment.id),
+    );
+    if (replacedAssignments.length > 0 && input.replacePublished !== true) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          existingPublishedPeriodId: existingPublished?.id,
+          conflictingMonths: [period.businessMonth.slice(0, 7)],
+          conflictingDatesByMonth: {
+            [period.businessMonth.slice(0, 7)]: [
+              ...new Set(replacedAssignments.map((assignment) => assignment.businessDate)),
+            ].sort(),
+          },
+          status: 'published',
+          workflowImpacts,
+        }),
+        statusCode: 409,
+        userMessage: '该岗位已有重复排班日期，请确认按整日替换。',
+      });
+    }
+
     const preview = await this.buildPreviewFromStoredAssignments(transaction, period, assignments);
     const hasBlockers = preview.hardConflicts.length > 0 || preview.vacancies.length > 0;
     if (hasBlockers && input.acknowledgeBlockers !== true) {
@@ -348,22 +451,7 @@ export class SchedulePublishService {
       });
     }
 
-    const replacedAssignments =
-      existingPublished === undefined
-        ? []
-        : await transaction
-            .select({
-              plannedMembershipId: shiftAssignments.plannedMembershipId,
-              actualMembershipId: shiftAssignments.actualMembershipId,
-            })
-            .from(shiftAssignments)
-            .where(
-              and(
-                eq(shiftAssignments.schedulePeriodId, existingPublished.id),
-                isNull(shiftAssignments.deletedAt),
-              ),
-            );
-    const published = await this.repository.publishInTransaction(transaction, {
+    const published = await this.repository.mergePublishedInTransaction(transaction, {
       actorUserId: authorization.user.id,
       acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
       expectedVersion: period.version,
@@ -415,16 +503,17 @@ export class SchedulePublishService {
         'manageScheduleConfiguration',
       );
       const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
-      const affectedPeriodIds =
+      const affected =
         action === 'withdraw'
-          ? [period.id]
-          : await this.getPublishAffectedPeriodIds(transaction, authorization.group.id, period);
+          ? { periodIds: [period.id], assignmentIds: undefined }
+          : await this.getPublishAffectedAssignments(transaction, authorization.group.id, period);
       return {
         action,
-        affectedPeriodIds,
+        affectedPeriodIds: affected.periodIds,
         workflowImpacts: await this.repository.listWorkflowImpactsInTransaction(
           transaction,
-          affectedPeriodIds,
+          affected.periodIds,
+          affected.assignmentIds,
         ),
       };
     });
@@ -484,11 +573,11 @@ export class SchedulePublishService {
     });
   }
 
-  private async getPublishAffectedPeriodIds(
+  private async getPublishAffectedAssignments(
     transaction: DatabaseTransaction,
     groupId: string,
     period: LockedSchedulePeriod,
-  ): Promise<string[]> {
+  ): Promise<{ periodIds: string[]; assignmentIds: string[] }> {
     const [current] = await transaction
       .select({ id: schedulePeriods.id })
       .from(schedulePeriods)
@@ -503,10 +592,31 @@ export class SchedulePublishService {
         ),
       )
       .limit(1);
-    return [
-      ...(current === undefined ? [] : [current.id]),
-      ...(period.status === 'replaced' || period.status === 'withdrawn' ? [period.id] : []),
-    ];
+    if (current === undefined) return { periodIds: [], assignmentIds: [] };
+    const [oldAssignments, newAssignments] = await Promise.all([
+      transaction
+        .select({ id: shiftAssignments.id, businessDate: shiftAssignments.businessDate })
+        .from(shiftAssignments)
+        .where(
+          and(
+            eq(shiftAssignments.schedulePeriodId, current.id),
+            isNull(shiftAssignments.deletedAt),
+          ),
+        ),
+      transaction
+        .select({ businessDate: shiftAssignments.businessDate })
+        .from(shiftAssignments)
+        .where(
+          and(eq(shiftAssignments.schedulePeriodId, period.id), isNull(shiftAssignments.deletedAt)),
+        ),
+    ]);
+    const dates = new Set(overlappingBusinessDates(oldAssignments, newAssignments));
+    return {
+      periodIds: dates.size === 0 ? [] : [current.id],
+      assignmentIds: oldAssignments
+        .filter((assignment) => dates.has(assignment.businessDate))
+        .map((assignment) => assignment.id),
+    };
   }
 
   private async lockPeriod(

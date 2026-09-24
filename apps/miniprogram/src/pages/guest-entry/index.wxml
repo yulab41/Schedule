@@ -1,0 +1,22 @@
+<scroll-view class="identity-scroll" scroll-y show-scrollbar="{{false}}">
+  <view class="identity-page is-login">
+    <view class="identity-login-intro">
+      <view class="identity-login-brand-mark" aria-hidden="true"><view></view><view></view></view>
+      <text class="identity-login-title">以访客身份查看排班</text>
+    </view>
+    <view class="identity-card identity-login-card">
+      <text class="guest-entry-copy">扫描访客二维码，或输入管理员提供的访客码。</text>
+      <view class="identity-login-field">
+        <text class="identity-login-field__label">访客码</text>
+        <view class="identity-login-field__shell">
+          <input class="identity-login-field__control" aria-label="访客码" value="{{guestCode}}" maxlength="64" placeholder="请输入访客码" bindinput="handleCodeInput" />
+        </view>
+      </view>
+      <text wx:if="{{errorMessage}}" class="guest-entry-error">{{errorMessage}}</text>
+      <ui-button class="identity-card__button" label="打开访客日历" variant="primary" bind:press="handleOpen"></ui-button>
+      <ui-button class="identity-card__button" label="扫描访客码" variant="secondary" bind:press="handleScan"></ui-button>
+    </view>
+    <text class="identity-login-privacy">没有访客码？请联系排班群管理员获取。</text>
+    <text class="identity-login-build">{{buildLabel}}</text>
+  </view>
+</scroll-view>

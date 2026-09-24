@@ -24,6 +24,7 @@ import {
   userProfiles,
   users,
   wechatAdminBindingTickets,
+  withTransaction,
 } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -55,6 +56,7 @@ import {
 } from '../../adapters/auth/wechat-auth.js';
 
 const ADMIN_BINDING_TTL_MS = 10 * 60 * 1000;
+const MEMBER_BINDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class WechatAdminBindingService {
   private readonly allowedPlatformAdminUids: ReadonlySet<string>;
@@ -268,7 +270,7 @@ export class WechatAdminBindingService {
             ),
           );
         const ticket = this.deriveMemberQrTicket(actor.id, membershipId, input.operationId);
-        const expiresAt = new Date(Date.now() + ADMIN_BINDING_TTL_MS);
+        const expiresAt = new Date(Date.now() + MEMBER_BINDING_TTL_MS);
         await transaction.insert(wechatAdminBindingTickets).values({
           appId,
           createdByUserId: actor.id,
@@ -368,6 +370,95 @@ export class WechatAdminBindingService {
       realNameMasked: maskRealName(row.realName),
       usernameMasked: maskUsername(row.username),
     };
+  }
+
+  public async previewMemberQr(ticket: string): Promise<{
+    readonly employeeCode: string;
+    readonly expiresAt: string;
+    readonly realName: string;
+  }> {
+    // Keep the legacy masked preview unchanged for platform-admin URL links.
+    await this.preview(ticket);
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const [row] = await transaction
+        .select({
+          expiresAt: wechatAdminBindingTickets.expiresAt,
+          groupId: wechatAdminBindingTickets.groupId,
+          membershipId: wechatAdminBindingTickets.targetMembershipId,
+          mobilePhone: users.mobilePhone,
+          realName: userProfiles.realName,
+          status: wechatAdminBindingTickets.status,
+          targetAuthVersion: wechatAdminBindingTickets.targetAuthVersion,
+          targetUserId: wechatAdminBindingTickets.targetUserId,
+          userAuthVersion: users.authVersion,
+          userStatus: users.status,
+        })
+        .from(wechatAdminBindingTickets)
+        .innerJoin(users, eq(users.id, wechatAdminBindingTickets.targetUserId))
+        .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .where(
+          and(
+            eq(wechatAdminBindingTickets.appId, this.getAppId()),
+            eq(wechatAdminBindingTickets.ticketHash, hashTicket(ticket)),
+            isNull(users.deletedAt),
+            isNull(userProfiles.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (row === undefined || row.groupId === null || row.membershipId === null) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '这是一条管理员绑定链接。',
+        });
+      }
+      if (row.status !== 'pending') throw usedTicketError();
+      if (row.expiresAt.valueOf() <= Date.now()) throw expiredTicketError();
+      if (row.userStatus !== 'active' || row.targetAuthVersion !== row.userAuthVersion) {
+        throw targetUnavailableError();
+      }
+      const [bound] = await transaction
+        .select({ id: userAuthIdentities.id })
+        .from(userAuthIdentities)
+        .where(
+          and(
+            eq(userAuthIdentities.userId, row.targetUserId),
+            eq(userAuthIdentities.provider, 'wechat_mini_program'),
+          ),
+        )
+        .limit(1);
+      if (bound !== undefined) throw alreadyBoundError();
+      const [membership] = await transaction
+        .select({ id: groupMemberships.id })
+        .from(groupMemberships)
+        .where(
+          and(
+            eq(groupMemberships.id, row.membershipId),
+            eq(groupMemberships.groupId, row.groupId),
+            eq(groupMemberships.userId, row.targetUserId),
+            eq(groupMemberships.status, 'active'),
+            isNull(groupMemberships.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (membership === undefined) throw targetUnavailableError();
+      const codes = await readMemberEmployeeCodes(
+        transaction,
+        [
+          {
+            membershipId: row.membershipId,
+            mobilePhone: row.mobilePhone ?? undefined,
+            realName: row.realName,
+          },
+        ],
+        true,
+      );
+      return {
+        employeeCode: codes.get(row.membershipId)?.values().next().value ?? '未设置',
+        expiresAt: row.expiresAt.toISOString(),
+        realName: row.realName,
+      };
+    });
   }
 
   public async confirm(

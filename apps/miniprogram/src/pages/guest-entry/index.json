@@ -1,0 +1,4 @@
+{
+  "navigationBarTitleText": "访客排班",
+  "usingComponents": { "ui-button": "/components/ui/ui-button/index" }
+}

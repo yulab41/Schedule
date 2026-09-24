@@ -6,7 +6,8 @@
     "pages/index/index",
     "pages/gesture-probe/index",
     "pages/admin-bind/preview",
-    "pages/guest/guest"
+    "pages/guest/guest",
+    "pages/guest-entry/index"
   ],
   "subpackages": [
     {
