@@ -27,7 +27,7 @@ beforeEach(async () => {
   mocks.memberPreview.mockReset();
   mocks.legacyPreview.mockReset();
   mocks.persist.mockReset();
-  runtime = { reLaunch: vi.fn(), navigateTo: vi.fn() };
+  runtime = { reLaunch: vi.fn(), navigateTo: vi.fn(), showToast: vi.fn() };
   vi.stubGlobal('wx', runtime);
   vi.stubGlobal('Page', (value) => {
     definition = value;
@@ -66,11 +66,30 @@ describe('member binding page', () => {
     await vi.waitFor(() => expect(runtime.reLaunch).toHaveBeenCalledOnce());
     expect(mocks.confirm).toHaveBeenCalledOnce();
     expect(runtime.reLaunch).toHaveBeenCalledWith({ url: '/pages/workbench/index' });
+    expect(runtime.showToast).toHaveBeenCalledWith({ title: '绑定成功', icon: 'success' });
+    instance.onUnload();
   });
 
-  it('opens the guest-code entry from the decline or error state', () => {
+  it('returns to the login page without auto-opening the stored session', () => {
     const instance = page();
-    instance.handleGuest();
-    expect(runtime.navigateTo).toHaveBeenCalledWith({ url: '/pages/guest-entry/index' });
+    instance.handleBackToLogin();
+    expect(runtime.reLaunch).toHaveBeenCalledWith({
+      url: '/pages/identity/index?forceLogin=1',
+    });
+  });
+
+  it('keeps binding failures in the page state and shows their detail as a transient toast', async () => {
+    mocks.memberPreview.mockRejectedValue(new Error('绑定链接已过期。'));
+    const instance = page();
+    instance.onLoad({ ticket: 'member-ticket' });
+    await vi.waitFor(() => expect(instance.data.mode).toBe('error'));
+
+    expect(instance.data).toMatchObject({
+      infoMessage: 'Error: 绑定链接已过期。',
+      infoTone: 'error',
+      mode: 'error',
+    });
+    instance.onUnload();
+    expect(instance.__infoMessageTimer).toBeUndefined();
   });
 });

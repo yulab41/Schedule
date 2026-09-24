@@ -4,6 +4,11 @@ import {
   requireClientCapability,
 } from '../../app/client-capability-store.js';
 import {
+  clearInfoMessageTimer,
+  scheduleInfoMessageExpiry,
+  type InfoMessageHost,
+} from '../../platform/info-message-lifetime.js';
+import {
   confirmAdminBinding,
   getIdentityErrorMessage,
   persistWechatSession,
@@ -19,7 +24,6 @@ type AdminBindingMode = 'authenticated' | 'error' | 'loading' | 'preview';
 
 interface AdminBindingPageData {
   readonly buildLabel: string;
-  readonly errorMessage: string;
   readonly expiresAtLabel: string;
   readonly loading: boolean;
   readonly mode: AdminBindingMode;
@@ -28,9 +32,12 @@ interface AdminBindingPageData {
   readonly realName: string;
   readonly employeeCode: string;
   readonly isMemberQr: boolean;
+  readonly infoMessage: string;
+  readonly infoTone: 'error' | 'success';
 }
 
-interface AdminBindingPageInstance {
+interface AdminBindingPageInstance extends InfoMessageHost {
+  _disposed?: boolean;
   _ticket: string | undefined;
   data: AdminBindingPageData;
   setData(patch: Partial<AdminBindingPageData>): void;
@@ -38,7 +45,7 @@ interface AdminBindingPageInstance {
 
 function authenticatedPatch(result: WechatAuthenticatedResult): Partial<AdminBindingPageData> {
   persistWechatSession(result);
-  return { errorMessage: '', loading: false, mode: 'authenticated' };
+  return { loading: false, mode: 'authenticated' };
 }
 
 function formatExpiry(expiresAt: string): string {
@@ -54,7 +61,6 @@ function previewPatch(
 ): Partial<AdminBindingPageData> {
   const isMemberQr = 'realName' in result;
   return {
-    errorMessage: '',
     expiresAtLabel: formatExpiry(result.expiresAt),
     loading: false,
     mode: 'preview',
@@ -69,7 +75,6 @@ function previewPatch(
 Page({
   data: {
     buildLabel: buildInfo.buildLabel,
-    errorMessage: '',
     expiresAtLabel: '限时有效',
     loading: false,
     mode: 'loading' as AdminBindingMode,
@@ -78,34 +83,44 @@ Page({
     realName: '',
     employeeCode: '',
     isMemberQr: false,
+    infoMessage: '',
+    infoTone: 'success',
   },
 
   handleConfirm(this: AdminBindingPageInstance): void {
     const ticket = this._ticket;
     if (ticket === undefined) return;
-    this.setData({ errorMessage: '', loading: true });
+    updateAdminBindingPage(this, { loading: true });
     void confirmAdminBinding(ticket)
       .then((result) => {
         this.setData(authenticatedPatch(result));
+        wx.showToast?.({ title: '绑定成功', icon: 'success' });
         wx.reLaunch({ url: '/pages/workbench/index' });
       })
-      .catch((error: unknown) =>
-        this.setData({
-          errorMessage: getIdentityErrorMessage(error),
-          loading: false,
-          mode: 'error',
-        }),
-      );
+      .catch((error: unknown) => {
+        const message = getIdentityErrorMessage(error);
+        updateAdminBindingPage(
+          this,
+          {
+            loading: false,
+            mode: 'error',
+          },
+          message,
+          'error',
+        );
+      });
   },
 
-  handleGuest(): void {
-    wx.navigateTo({ url: '/pages/guest-entry/index' });
+  handleBackToLogin(this: AdminBindingPageInstance): void {
+    clearInfoMessageTimer(this);
+    wx.reLaunch({ url: '/pages/identity/index?forceLogin=1' });
   },
 
   onLoad(
     this: AdminBindingPageInstance,
     options: { readonly scene?: string; readonly ticket?: string } = {},
   ): void {
+    this._disposed = false;
     const scene = typeof options.scene === 'string' ? decodeScene(options.scene) : undefined;
     const ticket =
       typeof options.ticket === 'string'
@@ -115,10 +130,15 @@ Page({
           : undefined;
     this._ticket = ticket;
     if (ticket === undefined || ticket.length === 0) {
-      this.setData({ errorMessage: '没有找到绑定链接。', loading: false, mode: 'error' });
+      updateAdminBindingPage(
+        this,
+        { loading: false, mode: 'error' },
+        '没有找到绑定链接。',
+        'error',
+      );
       return;
     }
-    this.setData({ loading: true, mode: 'loading' });
+    updateAdminBindingPage(this, { loading: true, mode: 'loading' });
     void requireClientCapability('core')
       .then(() =>
         previewMemberBinding(ticket).catch((error: unknown) => {
@@ -128,8 +148,15 @@ Page({
           throw error;
         }),
       )
-      .then((result) => this.setData(previewPatch(result)))
+      .then((result) =>
+        updateAdminBindingPage(this, previewPatch(result), '绑定信息已读取。', 'success'),
+      )
       .catch((error: unknown) => setAdminBindingCapabilityError(this, error));
+  },
+
+  onUnload(this: AdminBindingPageInstance): void {
+    this._disposed = true;
+    clearInfoMessageTimer(this);
   },
 
   onShow(this: AdminBindingPageInstance): void {
@@ -148,12 +175,18 @@ function decodeScene(value: string): string {
 }
 
 function setAdminBindingCapabilityError(page: AdminBindingPageInstance, error: unknown): void {
-  page.setData({
-    errorMessage:
-      error instanceof ClientCapabilityDisabledError
-        ? error.message
-        : getIdentityErrorMessage(error),
-    loading: false,
-    mode: 'error',
-  });
+  const message =
+    error instanceof ClientCapabilityDisabledError ? error.message : getIdentityErrorMessage(error);
+  updateAdminBindingPage(page, { loading: false, mode: 'error' }, message, 'error');
+}
+
+function updateAdminBindingPage(
+  page: AdminBindingPageInstance,
+  patch: Partial<AdminBindingPageData>,
+  message?: string,
+  tone: 'error' | 'success' = 'success',
+): void {
+  clearInfoMessageTimer(page);
+  page.setData({ ...patch, infoMessage: message ?? '', infoTone: tone });
+  if (message) scheduleInfoMessageExpiry(page, message, () => !page._disposed);
 }

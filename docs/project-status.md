@@ -1,14 +1,17 @@
 # Project Status
 
-## 当前批次：按日期发布与成员绑定修复（生产与体验版已交付，待真机复核）
+## 当前批次：邀请绑定页访客内容清理与布局修复（自动验证完成，待新体验版复核）
 
-- 用户批准按日期预检、整日替换、旧月完整快照、保留未涉及班次/工作流、成员码 24 小时、绑定一步完成及访客码入口；并批准生产部署与 2026-12 受控恢复。若发现 12 月 1–30 日工作流曾被错误撤销，恢复写入必须暂停。
-- 独占 `runtime/wt/general-4`，分支 `codex/date-granular-publish-binding` 从 `.191` 累积源 `38d08103` 开始；`REUSE_ONLY` bootstrap 重建 6 个 producer，安装 0。部署前只读复核：live=`c6c4fcd2`，12 月当前版 revision 5 仅 31 日 1 班次；归档 revision 2 保存 1–30 日 30 班次，其关联换班与加扣班均为 0。
-- 已实现：发布冲突按重复日期返回，合并保留当前 period 与未涉及 shift ID，归档旧月完整快照；迁移 `0064_active_shift_slot` 与 release schema 64 门禁；Mini 预览整日差异/一次定位、真实冲突日期、绑定/访客入口及成员码期限与图片裁剪。
-- 当前验证：Docker Desktop 官方 `disable model-runner` 后测试与开发 MySQL 均健康，未触碰旧重解析点；真实 MySQL 手排 35/35、发布 3/3、仓库合并/工作流及恢复 10/10、绑定 8/8、迁移 28/28 通过。当前源码 API 3105/Web 4175 浏览器 smoke 通过，临时服务已停且本地合成管理员标记已恢复；`pnpm verify` 通过（Mini 1257/16 跳过、根 1306/450 跳过），恢复脚本追加后单独 API build/typecheck/lint 与真实 MySQL 复测通过。Mini production verify 与开发者工具 WXML/WXSS 编译通过。390×844 模拟器截图仅 35×75，320px 与小米 14 视觉未验证。
-- `162ef4c1`（`fix: publish schedules by date and simplify member binding`）已推送。加密备份 `9c86d238-cdb6-438c-bb7a-37549106b6e5` 的记录、126312704 B 文件与 SHA-256 一致；生产部署 `162ef4c1`/schema 64，完整 verifier 通过。12 月只读 inspect 通过后受控恢复：当前修订 5→6，1–31 日 31/31 天，31 日旧班次 ID 保留，旧当前版另存修订 5 快照；日历/CSV 各 31 条、统计刷新、补偿通知 0。恢复后 verifier 再次通过。
-- 小程序不可变体验版 `0.1.0-p10.20260924.192@162ef4c1` 已上传（Manifest `5c94240f…beefa`），receipt/tag/提交一致；只追加放行，`.192/.191` 为 200、未知版 426，allowlist 与 ECS verifier 均通过。未提审或正式发布。开发者工具可打开访客页，但截图两次 `waitForAutomatorReady timeout`；旧截图仅 35×75，390×844、320px 与小米 14 均未取得可靠视觉证据。恢复详情见 [交付记录](audit/date-granular-publish-binding-20260924.md)。
-- 下一活动批次：小米 14 打开 `.192@162ef4c1`，复核日期级增量/覆盖、草稿与发布预览定位、绑定一次确认与访客入口、二维码裁剪及 24 小时期限；提供同构建截图/录屏后才记录真机验收。停在真机证据待用户复核，不因上下文剩余继续扩展业务修改。本轮交付记录 checkpoint 以 `docs(release): record date publish and binding delivery` 标识；仅文档，不重复备份、部署或同步服务器 release 元数据。
+- 基线为 `59d85332`（体验版 `.192@162ef4c1`）；独占 `runtime/wt/general-4`，分支 `codex/invite-guest-entry-20260924`，依赖 `REUSE_ONLY`，未安装依赖。用户最终范围：邀请绑定页不得出现访客入口/二维码/访客提示；独立 `pages/guest-entry` 页面保持原样。
+- 已删除绑定页访客按钮、跳转处理及旧常驻错误弹窗；预览/错误详情使用限时 Toast，确认绑定页只留确认动作，所有状态可返回登录。返回登录带 `forceLogin=1`，已有会话不会自动跳回工作台。
+- 引入点：`git log -S '暂不绑定，进入访客页面'` 与 `git blame` 定位到 `162ef4c1`。guest-entry 四个源文件相对 HEAD 无差异。定向测试 15/15；Chrome CSS 几何代理在 390×844 与 320×844 预览/错误态均通过，截图在 ignored `runtime/codex/invite-bind-layout/`，不作为小米 14 验收。
+- 验证：最终源码 `pnpm miniprogram:verify` 通过，生产总包 4,802,913 B、主包 1,825,803 B；相对本轮初始工作副本 4,803,198 B 减少 285 B，相对已上传 `.192` 的 4,801,680 B 增加 1,233 B（新增返回登录与瞬时提示代码）。既有主包 1.5 MB 内部预警与手排矩阵 1510 节点警告保留。定向布局/绑定测试 15/15 通过；最终 `pnpm verify` 通过（Mini 1262/17 跳过、根 1306/451 跳过），`pnpm smoke:check-core` 通过。
+- 当前修改只涉及 Mini Program 与文档；没有生产部署、体验版上传、提审或正式发布。状态 `UPLOAD_REQUIRED`：已上传 `.192` 不含本轮源码，不能用于本轮真机验收。checkpoint commit message：`fix(miniprogram): remove guest actions from binding screens`。唯一下一批为获得本轮体验版上传授权后上传该干净 SHA，并由用户在小米 14 复核；授权缺失时停止于版本分配前。
+
+## 上一批次：按日期发布与成员绑定修复（生产与体验版已交付，待真机复核）
+
+- `162ef4c1` 已推送并部署生产 schema 64；受控恢复后 2026-12 月历及导出各 31 天。备份、部署、数据核对与 API/MySQL 验证见 [完整交付记录](audit/date-granular-publish-binding-20260924.md)。
+- 累积体验版 `.192@162ef4c1` 已上传并放行；版本/Manifest 与恢复交付细节见同一记录。可靠的小屏和小米 14 原生复核仍待用户提供同构建证据。
 
 ## 上一批次：手动排班预览对照与访客审计去重（生产与体验版已交付，待真机复核）
 

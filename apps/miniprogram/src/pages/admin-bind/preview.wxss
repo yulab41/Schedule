@@ -1,7 +1,36 @@
 @import '../../styles/identity.wxss';
 
-.identity-bind-page .identity-login-intro { margin-bottom: 28px; }
-.identity-bind-description { display: block; margin-top: 14px; color: var(--ui-color-text-secondary); font-size: var(--ui-font-size-sm); line-height: 1.55; }
-.identity-bind-expiry { display: block; margin-bottom: 18px; color: var(--ui-color-primary-dark); font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-semibold); }
-.identity-bind-page .identity-target { margin-bottom: 18px; }
-.identity-bind-page .identity-card__button { margin-top: 18px; }
+.identity-bind-page .identity-login-intro {
+  margin-bottom: 28px;
+}
+
+.identity-bind-description {
+  display: block;
+  margin-top: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.55;
+}
+
+.identity-bind-expiry {
+  display: block;
+  margin-bottom: 18px;
+  color: var(--ui-color-primary-dark);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.identity-bind-page .identity-target {
+  margin-bottom: 18px;
+}
+
+.identity-bind-error-copy .identity-card__heading {
+  margin-top: 0;
+}
+
+.identity-bind-page .identity-card__button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 24px 0 0;
+}

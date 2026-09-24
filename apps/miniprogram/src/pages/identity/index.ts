@@ -36,6 +36,7 @@ interface IdentityPageData {
 
 interface IdentityPageInstance {
   _disposed?: boolean;
+  _forceLogin?: boolean;
   _loginAttempt?: number;
   data: IdentityPageData;
   setData(patch: Partial<IdentityPageData>): void;
@@ -71,11 +72,21 @@ Page({
     username: '',
   },
 
-  onLoad(this: IdentityPageInstance): void {
+  onLoad(this: IdentityPageInstance, options: { readonly forceLogin?: string } = {}): void {
     this._disposed = false;
-    if (getStoredWechatToken() !== undefined && getStoredWechatProfile() !== undefined) {
+    this._forceLogin = options.forceLogin === '1';
+    if (
+      !this._forceLogin &&
+      getStoredWechatToken() !== undefined &&
+      getStoredWechatProfile() !== undefined
+    ) {
       this.setData({ loading: true });
       openWorkbench(this);
+      return;
+    }
+    if (this._forceLogin) {
+      this.setData({ loading: false });
+      void guardIdentityCapability(this);
       return;
     }
     this.setData({ loading: true });

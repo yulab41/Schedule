@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-25 邀请绑定页移除访客入口与通知拥挤修复
+
+- 用户最终范围：扫码进入的绑定邀请页彻底移除访客入口、访客二维码及访客提示；现有独立访客页不作改动。只在邀请页添加返回登录入口。
+- 引入点：`git log -S '暂不绑定，进入访客页面'` 与 `git log -S 'handleGuest'` 定位至 `162ef4c1`；`git blame` 确认访客按钮与错误页入口来自该提交。旧实现存在两处访客跳转及常驻 `ui-alert`。
+- 行为变更：绑定预览只保留一次确认；有效期/错误结果通过自动消失的 `ui-toast`；成功绑定显示瞬时成功提示；返回登录用 `forceLogin=1`，登录页不自动恢复已有会话。guest-entry 四个源文件未修改。
+- 回归验证：绑定流程、身份路由、无访客引用和 Chrome CSS 几何代理定向 15/15；代理在 390×844、320×844 预览/错误态均无按钮/提示相交。完整 `pnpm verify` 通过：Mini 1262 通过/17 跳过，根 1306 通过/451 跳过；`pnpm miniprogram:verify` 与 `pnpm smoke:check-core` 通过。最终 production 总包 4,802,913 B、主包 1,825,803 B。
+- 运行/浏览器验证：`pnpm smoke:check-core` 通过；身份页几何由 Chrome CSS 代理检查并保存于 ignored `runtime/codex/invite-bind-layout/`。这不是小程序原生模拟器或小米 14 证据。
+- 外部状态：本轮只改 Mini 与文档，无体验版上传、生产部署、数据库备份或发布。已上传 `.192@162ef4c1` 不含本轮代码；状态 `UPLOAD_REQUIRED`，待当前 checkpoint 上传授权与同 SHA 小米 14 复核。checkpoint commit message：`fix(miniprogram): remove guest actions from binding screens`。
+
 ## 2026-09-24 排班整月覆盖与绑定页修复（生产与体验版已交付，待真机复核）
 
 - 回归引入点：`git log -S 'existingPublished !== undefined'` 定位发布月冲突守卫至 `968c6c54`；`git log -S 'existingPublishedPeriods.length > 0'` 定位手动应用月冲突至 `7c783c71`；`git log -S 'shift_assignments_slot_unique'` 定位旧唯一键至 `6f521715`。`git blame` 对应调用点确认了整月归档与草稿冲突判断。预览 `_locateTarget` 的逐月播放由 `50744302` 引入。

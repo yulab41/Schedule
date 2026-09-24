@@ -251,6 +251,15 @@ page {
   line-height: var(--ui-line-height-normal);
 }
 
+.identity-page-back {
+  display: flex;
+  min-height: 48px;
+  margin: 12px auto 0;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+}
+
 .identity-login-privacy {
   display: block;
   margin: 16px 8px 0;
