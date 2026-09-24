@@ -1,14 +1,16 @@
 # Project Status
 
-## 当前批次：按日期发布与成员绑定修复（实施中）
+## 当前批次：按日期发布与成员绑定修复（生产与体验版已交付，待真机复核）
 
 - 用户批准按日期预检、整日替换、旧月完整快照、保留未涉及班次/工作流、成员码 24 小时、绑定一步完成及访客码入口；并批准生产部署与 2026-12 受控恢复。若发现 12 月 1–30 日工作流曾被错误撤销，恢复写入必须暂停。
-- 独占 `runtime/wt/general-4`，分支 `codex/date-granular-publish-binding` 已快进至 `.191` 累积源 `38d08103`；`REUSE_ONLY` bootstrap 重建 6 个 producer，安装 0。2026-09-24 生产只读复核：live=`c6c4fcd2`，12 月当前版 revision 5 仅 31 日 1 班次；归档 revision 2 保存 1–30 日 30 班次，其关联换班与加扣班均为 0。部署/恢复前仍须重新核对 live 与数据未变。
-- 代码在审：发布冲突按重复日期返回，合并保留当前 period 与未涉及 shift ID，归档旧月完整快照；迁移 `0064_active_shift_slot` 与 release schema 64 门禁；Mini 预览整日差异/一次定位、真实冲突日期、绑定/访客入口及成员码期限与图片裁剪。
+- 独占 `runtime/wt/general-4`，分支 `codex/date-granular-publish-binding` 从 `.191` 累积源 `38d08103` 开始；`REUSE_ONLY` bootstrap 重建 6 个 producer，安装 0。部署前只读复核：live=`c6c4fcd2`，12 月当前版 revision 5 仅 31 日 1 班次；归档 revision 2 保存 1–30 日 30 班次，其关联换班与加扣班均为 0。
+- 已实现：发布冲突按重复日期返回，合并保留当前 period 与未涉及 shift ID，归档旧月完整快照；迁移 `0064_active_shift_slot` 与 release schema 64 门禁；Mini 预览整日差异/一次定位、真实冲突日期、绑定/访客入口及成员码期限与图片裁剪。
 - 当前验证：Docker Desktop 官方 `disable model-runner` 后测试与开发 MySQL 均健康，未触碰旧重解析点；真实 MySQL 手排 35/35、发布 3/3、仓库合并/工作流及恢复 10/10、绑定 8/8、迁移 28/28 通过。当前源码 API 3105/Web 4175 浏览器 smoke 通过，临时服务已停且本地合成管理员标记已恢复；`pnpm verify` 通过（Mini 1257/16 跳过、根 1306/450 跳过），恢复脚本追加后单独 API build/typecheck/lint 与真实 MySQL 复测通过。Mini production verify 与开发者工具 WXML/WXSS 编译通过。390×844 模拟器截图仅 35×75，320px 与小米 14 视觉未验证。
-- **未提交、未推送、未部署、未上传体验版、未写生产数据。** 2026-12 专项恢复脚本按范围/版本/规则、1–30 与 31 日日集合及归档工作流双重守卫；先只读 inspect，再在同一事务中合并、刷新统计和回读，失败回滚且不发通知。计划 checkpoint `fix: publish schedules by date and simplify member binding`。下一活动批次：审查 diff 后提交推送，按现场 live 选择回滚候选、加密备份、部署 schema 64、只读复核及受控恢复，再上传不可变体验版；停在生产/上传核验完成及小米 14 真机证据待用户复核，若发现受影响工作流被撤销则停在数据写入前。
+- `162ef4c1`（`fix: publish schedules by date and simplify member binding`）已推送。加密备份 `9c86d238-cdb6-438c-bb7a-37549106b6e5` 的记录、126312704 B 文件与 SHA-256 一致；生产部署 `162ef4c1`/schema 64，完整 verifier 通过。12 月只读 inspect 通过后受控恢复：当前修订 5→6，1–31 日 31/31 天，31 日旧班次 ID 保留，旧当前版另存修订 5 快照；日历/CSV 各 31 条、统计刷新、补偿通知 0。恢复后 verifier 再次通过。
+- 小程序不可变体验版 `0.1.0-p10.20260924.192@162ef4c1` 已上传（Manifest `5c94240f…beefa`），receipt/tag/提交一致；只追加放行，`.192/.191` 为 200、未知版 426，allowlist 与 ECS verifier 均通过。未提审或正式发布。开发者工具可打开访客页，但截图两次 `waitForAutomatorReady timeout`；旧截图仅 35×75，390×844、320px 与小米 14 均未取得可靠视觉证据。恢复详情见 [交付记录](audit/date-granular-publish-binding-20260924.md)。
+- 下一活动批次：小米 14 打开 `.192@162ef4c1`，复核日期级增量/覆盖、草稿与发布预览定位、绑定一次确认与访客入口、二维码裁剪及 24 小时期限；提供同构建截图/录屏后才记录真机验收。停在真机证据待用户复核，不因上下文剩余继续扩展业务修改。本轮交付记录 checkpoint 以 `docs(release): record date publish and binding delivery` 标识；仅文档，不重复备份、部署或同步服务器 release 元数据。
 
-## 当前批次：手动排班预览对照与访客审计去重（生产与体验版已交付，待真机复核）
+## 上一批次：手动排班预览对照与访客审计去重（生产与体验版已交付，待真机复核）
 
 - 已实现：模板 DELETE 显式 `{}`；草稿按可见三月窗口叠加同岗位已有排班，已有嫩灰、本次彩色且不增加图例；compact 节假日标识专属缩小；访客用可选 `visitId` 按页面实例原子去重，旧客户端仍逐请求记录。无数据库迁移，不清理历史记录。
 - RED→GREEN 与全门禁：contracts/client-core 22、Mini 定向 49；真实 MySQL 手排 34、Task10 107；`pnpm verify` 的 Mini 1254/16 skip、根 1302/445 skip、warm 工具 81 全绿。生产 Mini verify/source/package/determinism/dry-run 通过，总包 4,798,345 B、主包 1,821,922 B。

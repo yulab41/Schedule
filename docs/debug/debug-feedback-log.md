@@ -2,16 +2,18 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-09-24 排班整月覆盖与绑定页修复（待生产交付）
+## 2026-09-24 排班整月覆盖与绑定页修复（生产与体验版已交付，待真机复核）
 
 - 回归引入点：`git log -S 'existingPublished !== undefined'` 定位发布月冲突守卫至 `968c6c54`；`git log -S 'existingPublishedPeriods.length > 0'` 定位手动应用月冲突至 `7c783c71`；`git log -S 'shift_assignments_slot_unique'` 定位旧唯一键至 `6f521715`。`git blame` 对应调用点确认了整月归档与草稿冲突判断。预览 `_locateTarget` 的逐月播放由 `50744302` 引入。
 - 行为变更：仅重复日期提示并按整日替换；原当前 period 和未涉及 shift ID 保留，覆盖前完整克隆月快照；仅受影响 shift 关联的工作流撤销。成员码 24 小时、旧管理员链接 10 分钟；一次确认进入工作台，暂不绑定/失败进入访客码入口。
 - 测试先行：新增 12 月 1–30 日已发布、12 月 31 日至次年 2 月发布的真实 MySQL 回归。首次因 Docker 未就绪在连接阶段 `ECONNREFUSED 127.0.0.1:3307`；恢复引擎后手排 35/35、发布 3/3、仓库合并/工作流及专项恢复 10/10、绑定 8/8、迁移 28/28 通过。日期交集纯函数、Mini 预览定位与整日替换及 release schema 门禁通过。
-- 运行/浏览器验证：首次 `pnpm smoke:browser` 因未启动本地 Web 返回 `ERR_CONNECTION_REFUSED`；随后在当前源码 API 3105/Web 4175 完整通过登录、管理员、成员、访客密钥与访问记录。测试中本地合成管理员标记已恢复，临时服务已停。390×844/320px 有效截图和小米 14 仍未验证。当前未提交/推送/部署/上传/写生产数据。
-- 2026-09-24 生产只读核对：正式域名直连路径通过双 DNS、主机密钥与 TLS 健康校验；live=`c6c4fcd2`。同岗位 2026-12 当前 revision 5 仅 31 日 1 班次，归档 revision 2 有 1–30 日 30 班次；归档班次关联换班与加扣班均为 0。恢复前仍须复核正式状态并先做加密备份；本轮只读，未写入。
+- 运行/浏览器验证：首次 `pnpm smoke:browser` 因未启动本地 Web 返回 `ERR_CONNECTION_REFUSED`；随后在当前源码 API 3105/Web 4175 完整通过登录、管理员、成员、访客密钥与访问记录。测试中本地合成管理员标记已恢复，临时服务已停。390×844/320px 有效截图和小米 14 仍未验证。
+- 2026-09-24 生产恢复前只读核对：正式域名直连路径通过双 DNS、主机密钥与 TLS 健康校验；live=`c6c4fcd2`。同岗位 2026-12 当前 revision 5 仅 31 日 1 班次，归档 revision 2 有 1–30 日 30 班次；归档班次关联换班与加扣班均为 0。完成此核对后才加密备份、部署和恢复。
 - 静态门禁：`pnpm verify` 完整通过，Mini 1257 通过/16 跳过、根 1306 通过/450 跳过；真实 MySQL 集成在该命令中跳过，已另行强制执行通过。恢复脚本追加后单独 API build/typecheck/lint 与真实 MySQL 用例通过；`pnpm smoke:check-core` 通过，实际浏览器 smoke 亦通过。模拟器 raw PNG 仍为 35×75，不能作为 390×844 视觉验收。
 - 受控恢复：`recover-december-2026` 先锁 scope，再锁精确 current/archive 与班次；版本、规则、30+1 日期和归档换班/加扣班均严格核对。只读 inspect 无写入；restore 在同一事务里保留 31 日 ID、补回 1–30 日、保存当前快照、刷新统计并逐日回读。重复执行版本/日集合守卫拒绝；不调用通知写入。
 - Docker 诊断：后端日志报旧 `dockerInference` 重解析点不可访问；保留式移动被 Windows 拒绝，定点删除被自动审批策略拒绝（`blocked by policy`），均未执行。随后使用 Docker Desktop 官方 `disable model-runner` 恢复引擎；测试/开发 MySQL 健康，旧重解析点未触碰。
+- 发布与恢复：`162ef4c1` 已推送；加密备份 `9c86d238-cdb6-438c-bb7a-37549106b6e5` 的数据库记录、文件大小和 SHA-256 相符。schema 64 迁移/生产 release `162ef4c1`、完整 verifier 通过。只读 inspect 后恢复 2026-12 1–30 日，当前修订 6 的 31 日 ID 保留；日历/CSV 各 31 条，统计快照 plannedCount=31，补偿通知 0，恢复后 verifier 再次通过。回滚到 schema 63 的旧应用须先做数据库恢复/兼容审查，普通应用回滚门禁会拒绝。
+- Mini 交付：production verify 总包 4801680 B、主包 1824570 B；CI dry-run、trial-lineage 通过。不可变 `.192@162ef4c1` 上传成功（Manifest `5c94240f…beefa`），receipt 与远端 tag 同 SHA；只追加 allowlist，`.192/.191=200`、未知版 426，独立 allowlist/ECS verifier 通过。开发者工具打开访客页成功，截图两次 `waitForAutomatorReady timeout`；390×844/320px 视觉和小米 14 均不能写通过。未提审/正式发布。
 
 ## 2026-09-22 联系方式弹窗首次 input 预热
 
