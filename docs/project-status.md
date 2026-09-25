@@ -1,11 +1,13 @@
 # Project Status
 
-## 当前批次：修复周视图回归，候选待上传（血缘证明已修正）
+## 当前批次：周视图回归修复体验版 `.198` 已上传放行，待小米 14 复核
 
 - 回归引入点为 `e8286722`：首页周格被替换为独立 `calendar-week-panel`，并把首页高度公式从 `+20` 改为共享公式。当前修复将首页页面、视图模型和事件处理精确恢复到 `aef86299`；只在补录/预览周格保留共享组件并修正高度、底角圆弧和未来日期灰显。
 - 测试先行：新增回归用例先在旧实现上失败（首页结构/高度/事件、补录灰显、预览圆角与高度）；修复后 Mini 全量 `1280 passed / 18 skipped`，根 `1306 passed / 451 skipped`，最终 `pnpm verify` 通过。Mini production verify 通过（4,817,496 B，manifest `a1deb7225864811c054ec55f06fde0b77c90816f4c9fe60d331b5a20c16003a8`），格式、lint、构建、类型、图标门禁和开发者工具 WXML/WXSS 编译通过。模拟器首页仍停在排班读取，真实排班视觉、连续手势及小米 14 未验证。
-- 当前代码为待上传候选；上一体验版 `.197@ad6c09fe` 不包含本修复。已获当前轮次体验版上传及只追加放行授权；不提交审核、不正式发布、不部署生产。候选提交前仅补充回归测试的 ESLint 浏览器全局声明，不改变生产代码行为。
-- 首次上传尝试在版本分配前被血缘门禁阻断：策略仍记录共享组件版 `index.ts` 指纹 `0d80dfc…`，而本轮按用户要求恢复首页到 `aef86299` 的指纹为 `e0f48e5…`；无版本、tag、receipt 或平台上传副作用。已将 required checkpoint 的 canonical proof 更新为当前恢复后的确切源码指纹，待重跑门禁后继续上传。
+- 交付：干净 production 候选 `a3eccb490c6f3a31645a6ab8528eea43ff492ff6` 已推送；体验版 `0.1.0-p10.20260925.198` 上传成功（description `weekly calendar parity a3eccb4`、239 代码文件、ZIP 2,703,520 B、Manifest `a9064a4d781a76d7e4137e612f10d8048a569c019878259ed348ddea392d5014`），远端 tag、allocation、manifest 与 receipt 绑定同一 SHA；候选冻结在独占 `general-6`、REUSE_ONLY、未安装依赖，`check-worktree-safety` 前后 `RESULT=PASS/ready-clean-detached`、`VERSION_LOCAL=absent`。
+- 放行：按受信物理路线执行 add-only `schedule-client-version-allowlist ensure`，只追加 `.198` 并保留旧版；独立 `verify` 与完整 `ecs-verify.sh` 退出 0，公网 `.198=200`、`.197=200`、动态未知版本 `=426`。线上 release 仍 `ad6c09fe`、schema 未变；本轮 Mini/文档范围不触发生产部署、数据库备份或迁移，未提审、未正式发布、未退役旧版本。
+- 偏差与阻塞：首次上传在动态版本分配前被 `trial-lineage` 拒绝——策略 `5285dd1` required checkpoint 仍记录共用组件版首页 `index.ts` 指纹 `0d80dfc…`，而本轮按用户要求把首页恢复到 `aef86299` 后指纹为 `e0f48e5…`；该次无版本、tag、receipt 或平台副作用。只更新该 canonical proof 后门禁与 19 项定向测试通过，提交 `a3eccb49`。模拟器首页仍停在“正在读取排班”，真实排班视觉、连续手势与 320px 仅由自动化/几何代理覆盖。
+- 下一批次与停止条件：唯一下一任务是用小米 14 打开同构建 `.198@a3eccb49`，复核首页周视图高度、底角圆弧、蓝色选中框是否完全复原，以及补录/预览周视图与首页是否 1:1 一致；取得同构建真机证据前保持“待用户复核”，不进入新功能开发。
 
 ## 上一批次：补录与预览修复 .196 已放行，待小米 14 复核
 

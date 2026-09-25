@@ -1,10 +1,12 @@
 # 微信小程序审计状态
 
-## 当前批次：修复周视图回归，候选待上传（血缘证明已修正）
+## 当前批次：周视图回归修复体验版 `.198` 已上传放行，待小米 14 复核
 
 - `e8286722` 引入首页周格回归：共享周组件改变首页高度和选中框圆角。当前修复把首页相关文件恢复到 `aef86299`，补录/预览保留独立复刻并按视口宽度计算高度；补录过去日期白底、今天及未来日期灰底。详情见 [轮次记录](schedule-week-regression-20260925.md)。
-- Mini 全量 `1280 passed / 18 skipped`、根 `1306 passed / 451 skipped`、最终 `pnpm verify`、production verify（4,817,496 B，manifest `a1deb7225864811c054ec55f06fde0b77c90816f4c9fe60d331b5a20c16003a8`）、格式和开发者工具 WXML/WXSS 编译通过。模拟器首页停在排班读取，真实排班视觉和小米 14 未验证；当前修复尚未上传。当前轮次已获体验版上传及只追加放行授权，不提交审核或正式发布。
-- 首次上传尝试在动态版本分配前被 trial-lineage 门禁阻断，未创建版本、tag、receipt 或上传副作用；原因是策略中 shared-week 旧 `index.ts` 指纹与本轮恢复到 `aef86299` 的确切指纹不一致。已把 required checkpoint canonical proof 更新为当前指纹，待门禁复测后继续。
+- Mini 全量 `1280 passed / 18 skipped`、根 `1306 passed / 451 skipped`、最终 `pnpm verify`、production verify（4,817,496 B，manifest `a1deb7225864811c054ec55f06fde0b77c90816f4c9fe60d331b5a20c16003a8`）、格式和开发者工具 WXML/WXSS 编译通过。模拟器首页停在排班读取，真实排班视觉和小米 14 仍未验证。
+- 首次上传在版本分配前被 trial-lineage 门禁阻断，未创建版本、tag、receipt 或上传副作用（策略仍记录共用组件版首页 `index.ts` 指纹，本轮已把首页恢复到 `aef86299`）；只更新该 required checkpoint 的 canonical proof 后 `check:trial-lineage` 与 19 项定向测试通过，检查点 `a3eccb49` 已推送。
+- 交付：干净 production 候选 `a3eccb49` 上传体验版 `0.1.0-p10.20260925.198`（Manifest `a9064a4d781a76d7e4137e612f10d8048a569c019878259ed348ddea392d5014`、239 代码文件、ZIP 2,703,520 B），tag/allocation/manifest/receipt 同一 SHA；可信 `ensure` 只追加 `.198` 并保留旧版，独立 verify 与完整 ECS verifier 通过，线上 release 仍为 `ad6c09fe`，未部署应用或迁移数据库。公网 `.198/.197=200`、动态未知版本 `=426`。未提审、未正式发布。
+- 唯一下一任务：用小米 14 打开同构建 `.198@a3eccb49`，复核首页周视图高度/底角圆弧/选中框是否复原，以及补录与三类预览周视图与首页是否 1:1 一致；取得同构建真机证据前保持“待用户复核”。
 
 ## 上一批次：补录周历与手排预览共用日历（.196 已放行，待小米 14 复核）
 

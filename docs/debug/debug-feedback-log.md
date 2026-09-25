@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-25 周视图回归修复与体验版 `.198` 上传放行（待小米 14 复核）
+
+- 反馈与范围：`e8286722` 把首页周格换成共享组件后，首页周视图高度、底角圆弧、选中框出现回归；用户要求首页完全复原，补录与预览周视图按 1:1 复刻，并修正补录过去日期灰显与预览单元格留白。
+- 引入点：`git log -S 'calendarWeekPanelHeight'` 与 `git blame` 定位到 `e8286722`（首页改接共享周组件并去掉原有 `+20` 高度补偿）。修复把首页页面、视图模型和事件处理恢复到 `aef86299`；补录/预览保留独立复刻周格并按视口宽度计算高度、继承首尾底角圆弧、过去日期白底而今天及未来灰底。
+- 回归验证：Mini 定向 `103 passed / 1 skipped`，Mini 全量 `1280 passed / 18 skipped`，根 `1306 passed / 451 skipped`；`pnpm verify`、`pnpm --filter @schedule/miniprogram verify`、production 总包 `4,817,496 B`（manifest `a1deb7225864811c054ec55f06fde0b77c90816f4c9fe60d331b5a20c16003a8`）与开发者工具 WXML/WXSS 编译通过。
+- 血缘门禁：首次上传在动态版本分配前被 `trial-lineage` 拒绝——策略 `5285dd1` required checkpoint 仍记录共用组件版 `apps/miniprogram/src/pages/workbench/index.ts` 指纹 `0d80dfc…`，而本轮恢复到 `aef86299` 后为 `e0f48e5…`；该次没有创建版本、tag、allocation、manifest 或 receipt，也没有微信平台副作用。只更新该 canonical proof 后 `check:trial-lineage` 与 19 项定向测试通过，检查点 `a3eccb49`。
+- 上传：候选 `a3eccb490c6f3a31645a6ab8528eea43ff492ff6`，独占 `general-6`（REUSE_ONLY、未安装依赖），`check-worktree-safety` 前后 `RESULT=PASS/ready-clean-detached`、`production-clean`、`VERSION_LOCAL=absent`。动态分配 `0.1.0-p10.20260925.198`（description `weekly calendar parity a3eccb4`、239 代码文件、ZIP 2,703,520 B、Manifest `a9064a4d781a76d7e4137e612f10d8048a569c019878259ed348ddea392d5014`）；远端 tag、allocation、manifest 与 ignored receipt 绑定同一 SHA。
+- 放行：受信物理路线（双 DoH 一致、正式域名主机密钥唯一、直连 TLS health、`StrictHostKeyChecking`+`HostKeyAlias`+`IdentitiesOnly`）后 add-only `ensure` 只追加 `.198`、保留旧版；独立 `verify` 与完整 `ecs-verify.sh` 退出 0（放行重建 API/Web 时一次 TLS reset，健康等待后恢复）。线上 release 仍 `ad6c09fe`，未部署应用、未备份/迁移数据库。公网 `.198=200`、`.197=200`、动态未知版本 `.999999=426`。
+- 边界与下一任务：模拟器首页停在“正在读取排班”，无真实排班数据，不能代替小米 14；未提审、未正式发布、未退役旧版本。唯一下一任务是用户在小米 14 打开同构建 `.198@a3eccb49`，复核首页周视图复原效果与补录/预览周视图一致性。
+
 ## 2026-09-25 邀请绑定页移除访客入口与通知拥挤修复
 
 - 用户最终范围：扫码进入的绑定邀请页彻底移除访客入口、访客二维码及访客提示；现有独立访客页不作改动。只在邀请页添加返回登录入口。
