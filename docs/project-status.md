@@ -1,17 +1,11 @@
 # Project Status
 
-## 当前批次：累计体验版候选整合
+## 当前批次：排班补录与预览修复已上传放行，待小米 14 复核
 
 - 用户授权上传并放行排班补录与预览修复。先将 `4eceafac` 与最新体验版 `.194@a83be6a4` 合并，保留两边功能；上传需绑定合并后的干净 SHA，放行仅追加版本，不替换旧版。真机验收仍待小米 14 同构建证据。
-- 三处文本冲突已按两边语义合并；定向 49/49、Mini production verify、完整 `pnpm verify`（根 1306/451 跳过）、格式/图标门禁通过。`pnpm smoke:browser` 因本地 5173 未启动返回连接拒绝，已记录且不计通过；`smoke:check-core` 通过。合并检查点标识：`merge: preserve latest trial alongside backfill preview fixes`。本批不部署 API/Web 或迁移；体验版身份与放行结果待后续记录。
-
-## 当前批次：邀请绑定页访客内容清理与布局修复（自动验证完成，待新体验版复核）
-
-- 基线为 `59d85332`（体验版 `.192@162ef4c1`）；独占 `runtime/wt/general-4`，分支 `codex/invite-guest-entry-20260924`，依赖 `REUSE_ONLY`，未安装依赖。用户最终范围：邀请绑定页不得出现访客入口/二维码/访客提示；独立 `pages/guest-entry` 页面保持原样。
-- 已删除绑定页访客按钮、跳转处理及旧常驻错误弹窗；预览/错误详情使用限时 Toast，确认绑定页只留确认动作，所有状态可返回登录。返回登录带 `forceLogin=1`，已有会话不会自动跳回工作台。
-- 引入点：`git log -S '暂不绑定，进入访客页面'` 与 `git blame` 定位到 `162ef4c1`。guest-entry 四个源文件相对 HEAD 无差异。定向测试 15/15；Chrome CSS 几何代理在 390×844 与 320×844 预览/错误态均通过，截图在 ignored `runtime/codex/invite-bind-layout/`，不作为小米 14 验收。
-- 验证：最终源码 `pnpm miniprogram:verify` 通过，生产总包 4,802,913 B、主包 1,825,803 B；相对本轮初始工作副本 4,803,198 B 减少 285 B，相对已上传 `.192` 的 4,801,680 B 增加 1,233 B（新增返回登录与瞬时提示代码）。既有主包 1.5 MB 内部预警与手排矩阵 1510 节点警告保留。定向布局/绑定测试 15/15 通过；最终 `pnpm verify` 通过（Mini 1262/17 跳过、根 1306/451 跳过），`pnpm smoke:check-core` 通过。
-- 当前修改只涉及 Mini Program 与文档；没有生产部署、体验版上传、提审或正式发布。状态 `UPLOAD_REQUIRED`：已上传 `.192` 不含本轮源码，不能用于本轮真机验收。checkpoint commit message：`fix(miniprogram): remove guest actions from binding screens`。唯一下一批为获得本轮体验版上传授权后上传该干净 SHA，并由用户在小米 14 复核；授权缺失时停止于版本分配前。
+- 三处文本冲突已按两边语义合并；定向 49/49、Mini production verify、完整 `pnpm verify`（根 1306/451 跳过）、格式/图标门禁通过。`pnpm smoke:browser` 因本地 5173 未启动返回连接拒绝，已记录且不计通过；`smoke:check-core` 通过。合并检查点 `d4f0cbe3` 已推送；体验版 `0.1.0-p10.20260925.195` 已从 clean production 候选上传，Manifest `3b593acff0edbdecb90ccea9dca51ec39a35e574600e66b20b6cc37150e579e6`、receipt、远端 tag 一致。
+- 用户随后明确授权生产部署。实时回滚基线 `162ef4c1`；候选与线上产物、控制面、schema 哈希完全一致。部署前 verifier 首次在遥测隐私检查报错，汇总只读核对及完整复跑通过后继续。加密备份 `a521826a-24c6-42b7-a38d-319cfb09da67` 的服务器文件哈希与记录一致；可信复用发布将线上 release 无停机切至 `d4f0cbe3`，前后完整 verifier 通过。`.195` 通过 `ensure` 只增放行及独立 `verify`；再次完整 ECS verifier 通过，公网 `.195`=200、动态未知版=426。未执行数据库迁移、提审或正式发布。
+- 本轮记录 checkpoint：`docs(release): record schedule preview trial 195 delivery`；文档例外不再次部署或上传。唯一下一任务：用户在小米 14 同构建 `.195@d4f0cbe3` 验证补录日历、选中样式和周/月预览；取得真机证据前保持“待用户复核”。
 
 ## 上一批次：按日期发布与成员绑定修复（生产与体验版已交付，待真机复核）
 
