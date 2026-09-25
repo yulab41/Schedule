@@ -29,6 +29,7 @@
 - 最小改动：`apps/miniprogram/src/pages/workbench/index.wxss` 的 `.week-day-grid` 圆角 18px → 17px（并留注释说明原因）。测试先行：该文件新增“网格圆角必须为 17px”断言先在旧实现失败，改后通过。
 - 复测：隔离复现首页圆弧 1.703 → 1.999（外缘 16.694 → 16.988）；开发者工具实际渲染左下圆弧径向量 2.131 → 2.259 CSS px、峰值不透明度 0.92 → 0.965，右下 1.876 → 1.997、0.826 → 0.887，两角外缘半径 17.08/17.33。
 - 证据文件在 ignored `runtime/audit/week-arc-20260925/`：`measure.mjs`（隔离复现）、`measure-devtools.mjs`（截图测量）、`crop.mjs`（放大取样）、改前/改后截图。
+- 上传与放行（用户当轮授权）：`e5305bd0` 上传体验版 `0.1.0-p10.20260925.199`（描述 `week grid corner radius e5305bd`、Manifest `14b8aeb2bb4e0f038a29428f2498ef38a471bcf73493705e9f048aac332104df`、239 代码文件、ZIP 2,703,859 B），tag/allocation/manifest/receipt 同一 SHA；候选前后 `check-worktree-safety` 均 PASS（`ready-clean-detached`、`production-clean`、`VERSION_LOCAL=absent`）。可信 add-only `ensure` 只追加 `.199`，独立 verify 与完整 `ecs-verify.sh` 通过（重建 API 时一次 502 后恢复），线上 release 仍 `ad6c09fe`，未部署应用或迁移数据库；公网 `.199`/`.198`=200、动态未知版本=426。
 
 ### 上传与放行结果
 

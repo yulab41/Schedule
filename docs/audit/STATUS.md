@@ -1,12 +1,14 @@
 # 微信小程序审计状态
 
-## 当前批次：周视图网格圆角统一（小修，体验版待上传）
+## 当前批次：周视图网格圆角统一体验版 `.199` 已上传放行，待小米 14 复核
 
 - 用户人工观察“周视图左下右下角选中蓝色框圆弧偏细”，授权做最小统一改动。核验：选中框直线与圆弧是同一支 `inset box-shadow: 0 0 0 2px`；开发者工具实测圆弧外缘半径 16.96–17.21px（设计值 17），没有元素遮挡或裁掉圆弧；观感偏细来自抗锯齿——圆弧峰值不透明度 0.83–0.92，直线为 0.94–1.00。
 - 唯一结构性不一致：首页 `.week-day-grid` 的裁剪圆角用 `var(--ui-radius-large)`=18px，而格子是 17px。隔离 CSS 复现里该 1px 差会把圆弧外层削掉约 0.3px（圆弧径向量 1.703，改后 1.999）。本轮只把网格圆角改成 17px，与格子、卡片内圆角（18px 外圆角 − 1px 边框）一致；补录/预览共用组件本来就是 17/17，未改动。
 - 测试先行：`calendar-week-regression.test.mjs` 新增“网格圆角必须为 17px”断言，先在旧实现上失败（1 failed），改后该文件 5 passed/1 skipped，Mini 全量 183 文件/1280 通过/18 跳过；`pnpm --filter @schedule/miniprogram verify` 通过（总包 4,817,612 B，manifest `4d4391501819a2a20c94da84b580695f9a78e07e6dca818fb3e52e6292ceafbb`）；`pnpm smoke:check-core` 通过（未触及核心链路）。
 - 开发者工具复测（`.198` production 构建、真实排班、390×844 模拟器）：左下圆弧径向量 2.131 → 2.259 CSS px、峰值不透明度 0.92 → 0.965；右下 1.876 → 1.997、0.826 → 0.887；两角外缘半径 17.08/17.33，保持设计值。
-- 边界：仅改小程序资源与测试，不改接口、持久化、依赖或发布血缘（policy 未绑定该 WXSS）。未上传体验版（需当轮授权）、未部署生产。截图与测量脚本在 ignored `runtime/audit/week-arc-20260925/`。唯一下一任务：用户授权后上传新体验版并在小米 14 同构建复核圆角观感。
+- 交付：用户授权后，干净 production 候选 `e5305bd0` 上传体验版 `0.1.0-p10.20260925.199`（描述 `week grid corner radius e5305bd`、239 代码文件、ZIP 2,703,859 B、Manifest `14b8aeb2bb4e0f038a29428f2498ef38a471bcf73493705e9f048aac332104df`），远端 tag、allocation、manifest 与 receipt 绑定同一 SHA；候选冻结在独占 `general-6`（REUSE_ONLY、未安装依赖），`check-worktree-safety` 前后均 `RESULT=PASS/ready-clean-detached`、`VERSION_LOCAL=absent`。
+- 放行：按受信物理路线执行 add-only `schedule-client-version-allowlist ensure`，只追加 `.199`、旧版本保留；独立 `verify` 与完整 `ecs-verify.sh` 退出 0（重建 API 时一次 502 后恢复），线上 release 仍 `ad6c09fe`，未部署应用、未备份或迁移数据库。公网探针 `.199=200`、`.198=200`、动态未知版本 `.999999=426`。
+- 边界：仅改小程序资源与测试，不改接口、持久化、依赖或发布血缘（policy 未绑定该 WXSS）；未提审、未正式发布、未退役旧版本。截图与测量脚本在 ignored `runtime/audit/week-arc-20260925/`。唯一下一任务：用小米 14 打开同构建 `.199@e5305bd0`，复核周视图左下/右下圆弧笔画观感。
 
 ## 上一批次：周视图回归修复体验版 `.198` 已上传放行，待小米 14 复核
 
