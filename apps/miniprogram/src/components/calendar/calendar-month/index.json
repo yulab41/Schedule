@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "calendar-cell": "/components/calendar/calendar-cell/index"
+    "calendar-cell": "/components/calendar/calendar-cell/index",
+    "calendar-week-panel": "/components/calendar/calendar-week-panel/index"
   }
 }

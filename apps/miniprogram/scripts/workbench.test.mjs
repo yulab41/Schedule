@@ -359,8 +359,13 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="list-panel-scroll"');
     expect(template).toContain('scroll-into-view="{{listScrollTarget}}"');
     expect(template).not.toContain('月份工具栏固定 · 已按日期排序');
-    expect(template).toContain('class="week-duty-name"');
-    expect(template).toContain('class="week-shift-badge"');
+    expect(template).toContain('<calendar-week-panel');
+    const weekTemplate = readFileSync(
+      path.join(appRoot, 'src/components/calendar/calendar-week-panel/index.wxml'),
+      'utf8',
+    );
+    expect(weekTemplate).toContain('class="week-duty-name"');
+    expect(weekTemplate).toContain('class="week-shift-badge"');
     expect(template).toContain('class="list-day-card');
     expect(template).toContain('class="list-duty-details"');
     expect(template).toContain('class="list-call-action"');

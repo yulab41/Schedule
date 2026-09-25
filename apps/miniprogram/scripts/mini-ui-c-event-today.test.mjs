@@ -125,11 +125,12 @@ describe('task C event sheet and today marker', () => {
     expect(read('components/calendar/calendar-cell/index.wxss')).toContain(
       'calendar-date-marker.wxss',
     );
-    const week = read('pages/workbench/index.wxml');
+    expect(read('pages/workbench/index.wxml')).toContain('<calendar-week-panel');
+    const week = read('components/calendar/calendar-week-panel/index.wxml');
     expect(week).toMatch(
       /<view[^>]*calendar-date-marker[^>]*>[\s\S]*?<text[^>]*day-number[^>]*>\{\{day.day\}\}/u,
     );
-    const weekStyles = read('pages/workbench/index.wxss');
+    const weekStyles = read('components/calendar/calendar-week-panel/index.wxss');
     expect(weekStyles).toContain('calendar-date-marker.wxss');
     expect(weekStyles).toMatch(
       /\.week-day\.is-selected::after\s*\{[^}]*var\(--ui-color-primary\)/u,

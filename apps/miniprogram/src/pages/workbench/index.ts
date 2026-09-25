@@ -958,7 +958,7 @@ Page({
   },
 
   handleWeekDaySelect(this: WorkbenchPageInstance, event: TapEvent): void {
-    const businessDate = event.currentTarget.dataset.businessDate;
+    const businessDate = event.detail?.businessDate;
     if (businessDate === undefined) return;
     selectBusinessDate(this, businessDate);
   },
@@ -2635,7 +2635,7 @@ function createViewPatch(
   if (weekSignature !== page._weekLayoutSignature) {
     page._weekLayoutSignature = weekSignature;
     const cached = page._weekHeightCache?.get(weekSignature);
-    page._weekLayoutHeight = cached ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
+    page._weekLayoutHeight = cached ?? Math.max(132, view.weekPanels[1]?.height ?? 132);
     if (cached === undefined) {
       page._weekHeightCache ??= new Map();
       page._weekHeightCache.set(weekSignature, page._weekLayoutHeight);

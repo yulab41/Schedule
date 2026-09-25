@@ -2,6 +2,7 @@ import { previewCalendarModel, previewWeekPanels, type PreviewDuty } from './mod
 import { addWeeks, getWeekStartDate } from '@schedule/presentation-core';
 import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import type { CalendarPeriodSlot } from '../../../../components/calendar/calendar-period-pager.js';
+import { isNurseCalendarGroup } from '../../../../features/workbench/nurse-duty-state.js';
 interface Instance {
   _slot: CalendarPeriodSlot;
   _locateTarget?: string;
@@ -12,6 +13,8 @@ interface Instance {
     restrictToProposed: boolean;
     holidays: readonly ConfirmedHolidayDate[];
     viewMode: string;
+    groupName: string;
+    shiftTypes: readonly { id: string }[];
   };
   data: {
     month: string;
@@ -42,6 +45,11 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
           instance._slot ?? 1,
           instance.properties.restrictToProposed,
           instance.properties.holidays,
+          {
+            nursePreset: isNurseCalendarGroup(instance.properties.groupName ?? ''),
+            shiftTypeOrder: (instance.properties.shiftTypes ?? []).map((shift) => shift.id),
+            compact: instance.properties.compact,
+          },
         )
       : previewCalendarModel(
           instance.properties.assignments,
@@ -73,6 +81,8 @@ Component({
     holidays: { type: Array, value: [] },
     shadow: { type: Boolean, value: true },
     viewMode: { type: String, value: 'month' },
+    groupName: { type: String, value: '' },
+    shiftTypes: { type: Array, value: [] },
   },
   data: {
     month: '',
@@ -105,7 +115,7 @@ Component({
         sync(this, this.properties.startDate.slice(0, 7));
       }
     },
-    'assignments,restrictToProposed,viewMode'(this: Instance) {
+    'assignments,restrictToProposed,viewMode,groupName,shiftTypes'(this: Instance) {
       const month = this.data.month || this.properties.startDate.slice(0, 7);
       if (month) sync(this, month, this.data.selectedDate);
     },
@@ -150,6 +160,11 @@ Component({
               this._slot,
               this.properties.restrictToProposed,
               this.properties.holidays,
+              {
+                nursePreset: isNurseCalendarGroup(this.properties.groupName ?? ''),
+                shiftTypeOrder: (this.properties.shiftTypes ?? []).map((shift) => shift.id),
+                compact: this.properties.compact,
+              },
             )
           : previewCalendarModel(
               this.properties.assignments,

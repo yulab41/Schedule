@@ -54,7 +54,9 @@
     </view>
     <view class="month-heading">
       <text class="month-label">{{monthLabel}}</text>
-      <text class="month-hint">{{periodUnit === 'week' ? periodSubtitle : '左右滑动切换月份'}}</text>
+      <text class="month-hint"
+        >{{periodUnit === 'week' ? periodSubtitle : '左右滑动切换月份'}}</text
+      >
     </view>
     <view
       class="locate-button"
@@ -111,7 +113,13 @@
       class="calendar-slide-panel"
       aria-hidden="{{panel.relative !== 0}}"
     >
-      <template is="calendar-month-grid" data="{{panel: panel, compact: compact}}" />
+      <calendar-week-panel
+        wx:if="{{periodUnit === 'week'}}"
+        days="{{panel.days}}"
+        compact="{{compact}}"
+        bind:select="handleCellSelect"
+      />
+      <template wx:else is="calendar-month-grid" data="{{panel: panel, compact: compact}}" />
     </swiper-item>
   </swiper>
 </view>

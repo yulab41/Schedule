@@ -51,6 +51,12 @@ import {
   createRuntimePastScheduleClient,
 } from '../../../../platform/client-core-calendar.js';
 import {
+  calendarWeekPanelHeight,
+  createCalendarWeekGroups,
+  sortCalendarWeekAssignments,
+} from '../../../../components/calendar/calendar-week-model.js';
+import { isNurseCalendarGroup } from '../../../../features/workbench/nurse-duty-state.js';
+import {
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
@@ -168,9 +174,14 @@ interface BackfillPageInstance {
   _submitting: boolean;
   _calendarByKey: Map<string, CalendarReadModel>;
   _monthRingSlot: CalendarPeriodSlot;
-  selectComponent(
-    selector: string,
-  ): { finishPeriodShift(): void; continueQueuedShift(): void } | undefined;
+  _locateWeekTarget?: string;
+  selectComponent(selector: string):
+    | {
+        finishPeriodShift(): void;
+        continueQueuedShift(): void;
+        startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
+      }
+    | undefined;
   handleDateTap(event: TapEvent): void;
   _calendar: CalendarReadModel | undefined;
   _config: SchedulingConfig | undefined;
@@ -195,6 +206,7 @@ interface BackfillMonthPanel {
   readonly slot: CalendarPeriodSlot;
   readonly rowHeight: number;
   readonly cells: readonly BackfillCalendarCellView[];
+  readonly days?: readonly object[];
 }
 
 const requestAuthentication = getWechatRequestAuthentication();
@@ -348,8 +360,9 @@ Page({
     this._monthRingSlot = event.detail.current;
     const weekStart =
       this.data.viewMode === 'week'
-        ? addWeeks(this.data.weekStart, event.detail.delta)
+        ? (this._locateWeekTarget ?? addWeeks(this.data.weekStart, event.detail.delta))
         : this.data.weekStart;
+    delete this._locateWeekTarget;
     this.setData({
       weekStart,
       businessMonth:
@@ -378,9 +391,7 @@ Page({
 
   handleLocateToday(this: BackfillPageInstance): void {
     if (this.data.viewMode === 'week') {
-      const weekStart = getWeekStartDate(getCurrentBusinessDate());
-      this.setData({ weekStart });
-      changeBusinessMonth(this, weekStart.slice(0, 7));
+      void locateBackfillWeek(this, getWeekStartDate(getCurrentBusinessDate()));
       return;
     }
     changeBusinessMonth(this, getCurrentBusinessDate().slice(0, 7));
@@ -590,10 +601,9 @@ async function loadCalendarContext(page: BackfillPageInstance): Promise<boolean>
   const serial = ++page._loadSerial;
   const roleId = page.data.roleId;
   const businessMonth = page.data.businessMonth;
-  page._calendar = undefined;
-  page._calendarByKey.delete(`${roleId}:${businessMonth}`);
+  const calendarKey = `${roleId}:${businessMonth}`;
+  page._calendar = page._calendarByKey.get(calendarKey);
   page.setData({
-    calendarCells: [],
     errorMessage: '',
     isBusy: true,
     monthLabel:
@@ -630,6 +640,8 @@ async function loadCalendarContext(page: BackfillPageInstance): Promise<boolean>
     return true;
   } catch (error) {
     if (serial !== page._loadSerial) return false;
+    page._calendar = undefined;
+    page._calendarByKey.delete(calendarKey);
     page.setData({
       errorMessage: toUserMessage(error, '排班补录暂时无法完成，请稍后重试。'),
       isBusy: page._submitting,
@@ -793,10 +805,13 @@ async function preloadBackfillMonths(
   if (serial === page._loadSerial) syncBackfillView(page);
 }
 
-function createBackfillMonthPanels(page: BackfillPageInstance): readonly BackfillMonthPanel[] {
+function createBackfillMonthPanels(
+  page: BackfillPageInstance,
+  visibleWeekStart = page.data.weekStart,
+): readonly BackfillMonthPanel[] {
   if (page.data.viewMode === 'week') {
     const logical = ([-1, 0, 1] as const).map((relative) => {
-      const weekStart = addWeeks(page.data.weekStart, relative);
+      const weekStart = addWeeks(visibleWeekStart, relative);
       const dates = getWeekDays(weekStart);
       const months = new Map(
         [...new Set(dates.map((date) => date.slice(0, 7)))].map((month) => [
@@ -810,12 +825,62 @@ function createBackfillMonthPanels(page: BackfillPageInstance): readonly Backfil
         isBottomLeft: index === 0,
         isBottomRight: index === 6,
       }));
+      const days = cells.map((cell) => {
+        const date = cell.businessDate;
+        const calendar = page._calendarByKey.get(`${page.data.roleId}:${date.slice(0, 7)}`);
+        const draft = page._staged.get(`${page.data.roleId}:${date}`);
+        const assignments = (calendar?.assignments ?? [])
+          .filter((item) => item.scheduleRoleId === page.data.roleId && item.businessDate === date)
+          .map((item, index) => ({
+            shiftTypeId: item.shiftTypeId,
+            shiftTypeName: item.shiftTypeName,
+            shiftTypeAbbreviation: item.shiftTypeAbbreviation,
+            shiftTypeColor: item.shiftTypeColor,
+            shiftTypeTextColor: item.shiftTypeTextColor,
+            slotPosition: item.slotPosition,
+            comparisonClass: draft && index === 0 ? 'is-existing-comparison' : '',
+            markers: draft && index === 0 ? ['原'] : [],
+            displayName: item.actualMemberName ?? item.plannedMemberName ?? '待安排',
+          }));
+        if (draft) {
+          const shift = page._config?.shiftTypes.find((item) => item.id === draft.shiftTypeId);
+          assignments.push({
+            shiftTypeId: draft.shiftTypeId,
+            shiftTypeName: shift?.name ?? '',
+            shiftTypeAbbreviation: shift?.abbreviation ?? '',
+            shiftTypeColor: shift?.color ?? '#2563a4',
+            shiftTypeTextColor: shift?.textColor ?? '#ffffff',
+            slotPosition: Number.MAX_SAFE_INTEGER,
+            comparisonClass: 'is-current-draft',
+            markers: ['拟'],
+            displayName:
+              page.data.members.find((member) => member.membershipId === draft.actualMembershipId)
+                ?.realName ?? '待安排',
+          });
+        }
+        const sorted = sortCalendarWeekAssignments(
+          assignments,
+          page._config?.shiftTypes.map((shift) => shift.id) ?? [],
+          isNurseCalendarGroup(page.data.currentGroupName),
+        );
+        return {
+          ...cell,
+          isPast: date < page.data.today,
+          shiftGroups: createCalendarWeekGroups(sorted, (item) => ({
+            key: `${date}:${item.shiftTypeId}:${item.slotPosition}`,
+            name: item.displayName,
+            markers: item.markers,
+            comparisonClass: item.comparisonClass,
+          })),
+        };
+      });
       return {
         key: weekStart,
         relative,
         slot: 1 as CalendarPeriodSlot,
         cells,
-        rowHeight: Math.max(112, 54 + Math.max(1, ...cells.map((cell) => cell.duties.length)) * 17),
+        days,
+        rowHeight: calendarWeekPanelHeight(days),
       };
     });
     return mapCalendarPeriodRing(logical, page._monthRingSlot ?? 1);
@@ -953,6 +1018,49 @@ function changeBusinessMonth(page: BackfillPageInstance, businessMonth: string):
         : getBusinessMonthLabel(businessMonth),
   });
   void loadCalendarContext(page);
+}
+
+async function locateBackfillWeek(page: BackfillPageInstance, target: string): Promise<void> {
+  if (target === page.data.weekStart || page.data.isBusy) return;
+  const roleId = page.data.roleId;
+  const serial = page._loadSerial;
+  const months = [...new Set(getWeekDays(target).map((date) => date.slice(0, 7)))];
+  page.setData({ isBusy: true, errorMessage: '' });
+  try {
+    await Promise.all(
+      months.map(async (month) => {
+        const key = `${roleId}:${month}`;
+        if (page._calendarByKey.has(key)) return;
+        const [calendar, holidays] = await Promise.all([
+          workbenchClient.getCalendar(page._currentGroupId, month),
+          workbenchClient.getHolidays(Number(month.slice(0, 4))),
+        ]);
+        if (serial !== page._loadSerial || roleId !== page.data.roleId || page._disposed) return;
+        page._calendarByKey.set(key, calendar);
+        for (const holiday of holidays.dates) page._holidays.set(holiday.date, holiday);
+      }),
+    );
+    if (serial !== page._loadSerial || roleId !== page.data.roleId || page._disposed) return;
+    const delta: -1 | 1 = target < page.data.weekStart ? -1 : 1;
+    const slot = page._monthRingSlot ?? 1;
+    const targetSlot = ((slot + delta + 3) % 3) as CalendarPeriodSlot;
+    const targetPanel = createBackfillMonthPanels(page, target)[slot];
+    if (!targetPanel) return;
+    const panels = [...page.data.monthPanels];
+    const heights = [...page.data.monthPanelHeights];
+    panels[targetSlot] = { ...targetPanel, relative: delta, slot: targetSlot };
+    heights[targetSlot] = targetPanel.rowHeight;
+    page._locateWeekTarget = target;
+    page.setData({ isBusy: false, monthPanels: panels, monthPanelHeights: heights }, () => {
+      page.selectComponent('#backfill-month')?.startProgrammaticShift(delta, targetPanel.rowHeight);
+    });
+  } catch (error) {
+    if (serial !== page._loadSerial || page._disposed) return;
+    page.setData({
+      errorMessage: toUserMessage(error, '排班资料暂时无法加载，请稍后重试。'),
+      isBusy: false,
+    });
+  }
 }
 
 function stageErrorMessage(outcome: string, businessDate: string): string {

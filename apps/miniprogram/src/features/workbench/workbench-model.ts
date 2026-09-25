@@ -25,6 +25,11 @@ import {
   mapCalendarPeriodRing,
   type CalendarPeriodSlot,
 } from '../../components/calendar/calendar-period-pager.js';
+import {
+  calendarWeekPanelHeight,
+  createCalendarWeekGroups,
+  sortCalendarWeekAssignments,
+} from '../../components/calendar/calendar-week-model.js';
 
 export type WorkbenchRelativePanel = -1 | 0 | 1;
 export type MonthSlot = CalendarPeriodSlot;
@@ -344,15 +349,17 @@ export function createWorkbenchViewModel(
     const panelWeekStart = addWeek(weekStart, relative);
     const weekDates = getWeekDays(panelWeekStart);
     const days = weekDates.map((businessDate) => {
-      const dayAssignments = assignments.filter(
-        (assignment) => assignment.businessDate === businessDate,
+      const dayAssignments = sortCalendarWeekAssignments(
+        assignments.filter((assignment) => assignment.businessDate === businessDate),
+        calendar.shiftTypes.map((shift) => shift.id),
+        options.nursePreset === true,
       );
       const holiday = holidayByDate.get(businessDate);
       return {
         businessDate,
         day: businessDate.slice(8),
         duties: dayAssignments.map(duty),
-        shiftGroups: createWeekShiftGroups(dayAssignments, duty),
+        shiftGroups: createCalendarWeekGroups(dayAssignments, duty),
         holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
         isHoliday: holiday?.isOffDay === true,
         isWorkday: holiday?.isWorkday === true,
@@ -365,26 +372,7 @@ export function createWorkbenchViewModel(
     });
     return {
       days,
-      height: Math.max(
-        112,
-        ...days.map(
-          (day) =>
-            30 +
-            day.shiftGroups.reduce(
-              (sum, group) =>
-                sum +
-                28 +
-                group.duties.reduce(
-                  (size, row) =>
-                    size +
-                    Math.max(1, Math.ceil(Array.from(row.name).length / 3)) * 16 +
-                    (row.markers.length > 0 ? 16 : 0),
-                  0,
-                ),
-              0,
-            ),
-        ),
-      ),
+      height: calendarWeekPanelHeight(days),
       key: panelWeekStart,
       rangeLabel: getWeekLabel(panelWeekStart),
       relative,
@@ -580,26 +568,6 @@ function createSelectedDetails(
         (orderByShiftTypeId.get(right.key) ?? Number.MAX_SAFE_INTEGER)
       );
     });
-}
-
-function createWeekShiftGroups(
-  assignments: readonly CalendarReadModel['assignments'][number][],
-  create: (assignment: CalendarReadModel['assignments'][number]) => WorkbenchDuty,
-): readonly WorkbenchWeekShiftGroup[] {
-  const groups = new Map<string, CalendarReadModel['assignments'][number][]>();
-  for (const assignment of assignments) {
-    const rows = groups.get(assignment.shiftTypeId) ?? [];
-    rows.push(assignment);
-    groups.set(assignment.shiftTypeId, rows);
-  }
-  return [...groups.entries()].map(([key, rows]) => ({
-    key,
-    abbreviation: rows[0]!.shiftTypeAbbreviation,
-    color: rows[0]!.shiftTypeColor,
-    textColor: rows[0]!.shiftTypeTextColor,
-    tint: createColorTint(rows[0]!.shiftTypeColor),
-    duties: rows.map(create),
-  }));
 }
 
 function createDetailRow(

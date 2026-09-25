@@ -1,0 +1,148 @@
+@import '../../../styles/calendar-date-marker.wxss';
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+.week-day-grid {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ui-color-border);
+  border-radius: 0 0 17px 17px;
+}
+.week-day {
+  position: relative;
+  display: flex;
+  width: 14.285714%;
+  min-height: 112px;
+  padding: 4px 3px 24px;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: stretch;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  border-right: 1px solid var(--ui-color-border);
+  font-size: 10px;
+  text-align: center;
+}
+.week-day:last-child {
+  border-right: 0;
+}
+.week-day.is-pressed {
+  opacity: 0.72;
+}
+.week-day.is-past {
+  background: #f3f4f6;
+}
+.week-day.is-weekend .day-number {
+  color: var(--ui-color-weekend);
+}
+.week-day.is-selected::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+  content: '';
+  pointer-events: none;
+}
+.week-day.is-disabled {
+  opacity: 0.65;
+}
+.week-day-content {
+  width: 100%;
+}
+.week-date-line {
+  display: flex;
+  width: 100%;
+  min-height: 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+.day-number {
+  color: var(--ui-color-text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+.week-holiday {
+  height: 14px;
+  max-width: calc(100% - 20px);
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.week-holiday.is-workday {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+}
+.week-duty-empty {
+  margin-top: 5px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+}
+.week-shift-group {
+  padding: 4px 2px;
+  margin-top: 4px;
+  border-radius: 5px;
+}
+.week-group-title {
+  display: flex;
+  min-height: 14px;
+  margin-bottom: 2px;
+}
+.week-shift-badge,
+.week-change-badge {
+  min-width: 12px;
+  height: 14px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+}
+.week-duty-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.week-duty-name {
+  width: 100%;
+  color: var(--ui-color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: left;
+  white-space: normal;
+  word-break: break-all;
+}
+.week-day.is-past .week-duty-name,
+.week-duty-item.is-existing-comparison .week-duty-name {
+  color: #8a95a3;
+}
+.week-duty-badges {
+  display: flex;
+  min-height: 14px;
+  gap: 2px;
+}
+.week-change-badge {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+}
+.is-compact .week-day {
+  padding-right: 2px;
+  padding-left: 2px;
+}

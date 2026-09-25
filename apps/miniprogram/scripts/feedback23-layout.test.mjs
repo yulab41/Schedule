@@ -16,7 +16,8 @@ describe('Feedback23 layout parity', () => {
 
   it('renders guest week duties through the same tinted shift groups as members', () => {
     const guest = read('pages/guest/guest.wxml');
-    const member = read('pages/workbench/index.wxml');
+    const member = read('components/calendar/calendar-week-panel/index.wxml');
+    expect(read('pages/workbench/index.wxml')).toContain('<calendar-week-panel');
     for (const contract of [
       'wx:for="{{day.shiftGroups}}"',
       'class="week-shift-group"',

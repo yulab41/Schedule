@@ -143,7 +143,7 @@
             ><view class="risk-heading"><text>需要确认</text><text>连续值班风险</text></view
             ><text>请核对连续值班时长和人员安排。</text></view
           >
-          <view class="preview-calendar-card"><schedule-calendar-preview view-mode="{{previewView}}" holidays="{{previewHolidays}}" restrict-to-proposed="{{true}}" assignments="{{previewAssignments}}" start-date="{{previewStartDate}}" bindmonthbrowse="handlePreviewMonthBrowse" /></view>
+          <view class="preview-calendar-card"><schedule-calendar-preview view-mode="{{previewView}}" group-name="{{currentGroupName}}" shift-types="{{shiftTypes}}" holidays="{{previewHolidays}}" restrict-to-proposed="{{true}}" assignments="{{previewAssignments}}" start-date="{{previewStartDate}}" bindmonthbrowse="handlePreviewMonthBrowse" /></view>
           <ui-checkbox wx:if="{{previewWarningCount > 0}}" checked="{{riskAccepted}}" label="我已核对空缺和连续值班风险" bindchange="handleRiskToggle"></ui-checkbox>
         </block>
 
@@ -246,7 +246,7 @@
         <view class="dialog-close" hover-class="is-pressed" aria-role="button" aria-label="关闭" bindtap="handleCloseReleaseDialog"><image src="/assets/icons/ui-close.svg" mode="aspectFit" /></view>
       </view>
       <text class="release-dialog-meta">{{releaseDialogMeta}}</text>
-      <scroll-view wx:if="{{releaseDialogKind === 'preview'}}" class="release-calendar-scroll" style="height:{{releaseCalendarHeight}}px" scroll-y><schedule-calendar-preview view-mode="{{previewView}}" holidays="{{previewHolidays}}" shadow="{{false}}" compact="{{true}}" bindmonthbrowse="handleReleaseMonthBrowse" assignments="{{releasePreviewAssignments}}" start-date="{{releasePreviewStartDate}}" bindheightchange="handleReleaseCalendarHeight" /></scroll-view>
+      <scroll-view wx:if="{{releaseDialogKind === 'preview'}}" class="release-calendar-scroll" style="height:{{releaseCalendarHeight}}px" scroll-y><schedule-calendar-preview view-mode="{{previewView}}" group-name="{{currentGroupName}}" shift-types="{{shiftTypes}}" holidays="{{previewHolidays}}" shadow="{{false}}" compact="{{true}}" bindmonthbrowse="handleReleaseMonthBrowse" assignments="{{releasePreviewAssignments}}" start-date="{{releasePreviewStartDate}}" bindheightchange="handleReleaseCalendarHeight" /></scroll-view>
       <view wx:for="{{releaseCallouts}}" wx:key="message" class="release-callout is-{{item.tone}}">{{item.message}}</view>
       <view wx:if="{{releaseWorkflowImpacts.length}}" class="workflow-impact-list">
         <text class="impact-heading">本次变更将撤销以下事件，撤销原因为“排班变更”：</text>

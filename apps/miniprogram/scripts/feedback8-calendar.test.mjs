@@ -23,9 +23,43 @@ describe('feedback8 preview calendar', () => {
       ),
       'utf8',
     );
-    expect(wxml.match(/<calendar-month\b/gu)).toHaveLength(1);
-    expect(wxml).toContain('period-unit="{{viewMode}}"');
+    expect(wxml).toContain('<calendar-month');
+    expect(
+      readFileSync(
+        new URL('../src/components/calendar/calendar-month/index.wxml', import.meta.url),
+        'utf8',
+      ),
+    ).toContain('<calendar-week-panel');
+    expect(
+      readFileSync(new URL('../src/pages/workbench/index.wxml', import.meta.url), 'utf8'),
+    ).toContain('<calendar-week-panel');
     expect(wxml).not.toContain('preview-week-grid');
+  });
+  it('groups and orders nurse duties in the shared weekly renderer', () => {
+    const assignments = ['NP', 'N', 'A', '电脑', 'D', 'P'].map((code, index) => ({
+      businessDate: '2026-10-01',
+      plannedMemberName: `长姓名测试${index}`,
+      shiftTypeId: code,
+      shiftTypeAbbreviation: code,
+      shiftTypeName: `${code}班`,
+      shiftTypeColor: '#2368aa',
+      slotPosition: index,
+    }));
+    const week = previewWeekPanels(assignments, '2026-09-28', '', 1, false, [], {
+      nursePreset: true,
+      shiftTypeOrder: ['NP', 'N', 'A', '电脑', 'D', 'P'],
+    });
+    const day = week.panels[1].days.find((item) => item.businessDate === '2026-10-01');
+    expect(day.shiftGroups.map((group) => group.abbreviation)).toEqual([
+      '电脑',
+      'D',
+      'A',
+      'P',
+      'N',
+      'NP',
+    ]);
+    expect(day.shiftGroups[0].tint).toMatch(/^rgba\(/u);
+    expect(week.gridHeight).toBeGreaterThan(250);
   });
   it('keeps long non-calendar confirmations vertically scrollable', () => {
     const css = readFileSync(
@@ -146,7 +180,9 @@ describe('feedback8 preview calendar', () => {
       .filter(([event]) => event === 'heightchange')
       .at(-1)[1].height;
     expect(height).toBeGreaterThan(instance.data.gridHeight);
-    definition.observers['assignments,restrictToProposed,viewMode'].call(instance);
+    definition.observers['assignments,restrictToProposed,viewMode,groupName,shiftTypes'].call(
+      instance,
+    );
     expect(instance.data.month).toBe('2026-12');
     vi.unstubAllGlobals();
   });
@@ -266,6 +302,10 @@ describe('feedback8 preview calendar', () => {
       result.panels[1].cells.find((cell) => cell.businessDate === '2026-09-30').duties[0]
         .badgeStyle,
     ).toContain('#eef1f4');
+    const existingGroup = result.panels[1].days.find((day) => day.businessDate === '2026-09-30')
+      .shiftGroups[0];
+    expect(existingGroup).toMatchObject({ color: '#94a3b8' });
+    expect(existingGroup.duties[0].comparisonClass).toBe('is-existing-comparison');
   });
   it('sizes a dense week from its busiest day so the release dialog can scroll', () => {
     const assignments = Array.from({ length: 20 }, (_, index) => ({

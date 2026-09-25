@@ -10,6 +10,11 @@ import {
 import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import { calendarShiftBadge } from '../../../../components/calendar/calendar-duty-view.js';
 import {
+  calendarWeekPanelHeight,
+  createCalendarWeekGroups,
+  sortCalendarWeekAssignments,
+} from '../../../../components/calendar/calendar-week-model.js';
+import {
   mapCalendarPeriodRing,
   type CalendarPeriodSlot,
 } from '../../../../components/calendar/calendar-period-pager.js';
@@ -24,6 +29,13 @@ export interface PreviewDuty {
   readonly shiftTypeTextColor?: string;
   readonly state?: 'normal' | 'removed' | 'added';
   readonly slotPosition: number;
+  readonly shiftTypeId?: string;
+}
+
+export interface PreviewWeekOptions {
+  readonly nursePreset?: boolean;
+  readonly shiftTypeOrder?: readonly string[];
+  readonly compact?: boolean;
 }
 
 export function mergePreviewAssignments(
@@ -141,6 +153,7 @@ export function previewWeekModel(
   selectedDate: string,
   restrictToProposed = false,
   holidays: readonly ConfirmedHolidayDate[] = [],
+  options: PreviewWeekOptions = {},
 ) {
   const dates = getWeekDays(getWeekStartDate(weekDate));
   const monthModels = new Map(
@@ -152,7 +165,34 @@ export function previewWeekModel(
   const days = dates.map((date, index) => {
     const panel = monthModels.get(date.slice(0, 7))?.panels.find((item) => item.relative === 0);
     const cell = panel?.cells.find((item) => item.businessDate === date);
-    return cell === undefined ? undefined : { ...cell, weekday: '一二三四五六日'[index] };
+    if (cell === undefined) return undefined;
+    const dayAssignments = sortCalendarWeekAssignments(
+      assignments
+        .filter((item) => item.businessDate === date)
+        .map((item) => ({
+          ...item,
+          shiftTypeId: item.shiftTypeId ?? item.shiftTypeName,
+        })),
+      options.shiftTypeOrder ?? [],
+      options.nursePreset === true,
+    );
+    const shiftGroups = createCalendarWeekGroups(dayAssignments, (item) => ({
+      key: `${date}:${item.shiftTypeId}:${item.slotPosition}:${item.actualMemberName ?? item.plannedMemberName}`,
+      name: item.actualMemberName ?? item.plannedMemberName ?? '待安排',
+      markers: [] as string[],
+      comparisonClass:
+        item.state === 'normal' || item.state === 'removed' ? 'is-existing-comparison' : '',
+    })).map((group) =>
+      group.duties.every((duty) => duty.comparisonClass === 'is-existing-comparison')
+        ? { ...group, color: '#94a3b8', tint: 'rgba(148, 163, 184, 0.094)' }
+        : group,
+    );
+    return {
+      ...cell,
+      shiftGroups,
+      isPast: date < getCurrentBusinessDate(),
+      weekday: '一二三四五六日'[index],
+    };
   });
   const details = assignments
     .filter((item) => item.businessDate === selectedDate)
@@ -164,7 +204,10 @@ export function previewWeekModel(
     days: days.filter((day): day is NonNullable<typeof day> => day !== undefined),
     details,
     label: getWeekLabel(weekDate),
-    height: Math.max(132, 54 + Math.max(1, ...days.map((day) => day?.duties.length ?? 0)) * 17),
+    height: calendarWeekPanelHeight(
+      days.filter((day) => day !== undefined),
+      options.compact ? 2 : 3,
+    ),
   };
 }
 
@@ -175,16 +218,25 @@ export function previewWeekPanels(
   slot: CalendarPeriodSlot = 1,
   restrictToProposed = false,
   holidays: readonly ConfirmedHolidayDate[] = [],
+  options: PreviewWeekOptions = {},
 ) {
   const panels = mapCalendarPeriodRing(
     ([-1, 0, 1] as const).map((relative) => {
       const start = addWeeks(weekStart, relative);
-      const week = previewWeekModel(assignments, start, selectedDate, restrictToProposed, holidays);
+      const week = previewWeekModel(
+        assignments,
+        start,
+        selectedDate,
+        restrictToProposed,
+        holidays,
+        options,
+      );
       return {
         key: start,
         relative,
         slot: 1 as CalendarPeriodSlot,
         rowHeight: week.height,
+        days: week.days,
         cells: week.days.map((day, index) => ({
           ...day,
           isBottomRow: true,
@@ -202,7 +254,13 @@ export function previewWeekPanels(
     gridHeight: panelHeights[slot] ?? 132,
     monthLabel: getWeekOfMonthLabel(weekStart),
     periodSubtitle: getWeekLabel(weekStart),
-    details: previewWeekModel(assignments, weekStart, selectedDate, restrictToProposed, holidays)
-      .details,
+    details: previewWeekModel(
+      assignments,
+      weekStart,
+      selectedDate,
+      restrictToProposed,
+      holidays,
+      options,
+    ).details,
   };
 }
