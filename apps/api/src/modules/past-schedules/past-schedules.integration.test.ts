@@ -163,6 +163,84 @@ describeWithDatabase('past schedule backfill', () => {
     ).toBe(403);
   });
 
+  it('removes an existing past assignment through the same batch and replays idempotently', async () => {
+    const seeded = await backfillBatch(
+      'owner-token',
+      {
+        matchByMember: true,
+        items: [batchItem(1), { ...batchItem(1), actualMembershipId: candidateMembershipId }],
+      },
+      randomUUID(),
+    );
+    expect(seeded.statusCode).toBe(200);
+    const seededBody = seeded.json() as PastScheduleBackfillBatchResult;
+    expect(seededBody.assignments).toHaveLength(2);
+    const removedAssignment = seededBody.assignments.find(
+      (assignment) => assignment.actualMemberId === candidateMembershipId,
+    );
+    expect(removedAssignment).toBeDefined();
+    const removal = {
+      assignmentId: (removedAssignment as PastScheduleAssignment).assignmentId,
+      businessDate: (removedAssignment as PastScheduleAssignment).businessDate,
+      scheduleRoleId: primaryRoleId,
+    };
+
+    const operationId = randomUUID();
+    const first = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [], removals: [removal] },
+      operationId,
+    );
+    expect(first.statusCode).toBe(200);
+    const firstBody = first.json() as PastScheduleBackfillBatchResult;
+    expect(firstBody.assignments).toEqual([]);
+    expect(firstBody.eventIds).toHaveLength(1);
+
+    const [rowsAfterRemoval] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments WHERE business_date=${removal.businessDate} AND deleted_at IS NULL`,
+    );
+    expect(rowsAfterRemoval).toEqual([{ count: 1 }]);
+    const [removedRow] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments WHERE id=${removal.assignmentId} AND deleted_at IS NOT NULL`,
+    );
+    expect(removedRow).toEqual([{ count: 1 }]);
+
+    const replay = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [], removals: [removal] },
+      operationId,
+    );
+    expect(replay.json()).toEqual(firstBody);
+
+    const repeated = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [], removals: [removal] },
+      randomUUID(),
+    );
+    expect(repeated.statusCode).toBe(409);
+
+    const mismatchedDate = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [], removals: [{ ...removal, businessDate: '2026-07-02' }] },
+      randomUUID(),
+    );
+    expect(mismatchedDate.statusCode).toBe(409);
+
+    const futureDate = await backfillBatch(
+      'owner-token',
+      { matchByMember: true, items: [], removals: [{ ...removal, businessDate: '2026-12-01' }] },
+      randomUUID(),
+    );
+    expect(futureDate.statusCode).toBe(409);
+
+    const outsider = await backfillBatch(
+      'candidate-token',
+      { matchByMember: true, items: [], removals: [removal] },
+      randomUUID(),
+    );
+    expect(outsider.statusCode).toBe(403);
+  });
+
   it('lists past periods and only past-date assignments for administrators', async () => {
     await publishMonth('2026-08');
     const pastPeriodId = await findPastPeriodId();

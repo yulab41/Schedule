@@ -1,5 +1,12 @@
 # Project Status
 
+## 当前批次：排班补录支持「移除已有班次」（服务端能力已落地，客户端待接）
+
+- 用户确认方案 A：补录支持真正移除已有排班，但点击只暂存，必须点「确认补录」才写库；同时要求终结点不再即时生效。
+- 服务端（本检查点）：`pastScheduleBackfillBatchRequestSchema` 新增可选 `removals: [{ assignmentId, businessDate, scheduleRoleId }]`，`items` 取消 `min(1)` 改为「items+removals 至少一项」；`PastScheduleService.backfillBatch` 在同一事务、同一幂等指纹、同一审计事件与同一统计/工作流自愈路径内执行移除（按 assignmentId 校验组/岗位/日期归属与过去日期，软删除 `deletedAt` 并自增 `version`），新增/旧客户端不带 `removals` 时行为不变。
+- 验证：`pnpm --filter @schedule/contracts build`、`pnpm --filter @schedule/api typecheck` 通过；past-schedules 真实 MySQL 集成套件 `13 passed`（新增用例覆盖移除生效、幂等重放、重复移除 409、日期/岗位不匹配 409、未来日期 409、无权限 403）。
+- 待办（下一步，同批次）：补录页把点击语义改为「已存在＝暂存移除、不存在＝暂存新增」，周/月视图统一用 `state: removed|added` 的删除线/暗红（去掉（原）（拟）徽标并按班种锚定）、修掉「同日第一条」与重复暂存的判断缺陷、确认时一次提交 items+removals；另按用户要求删除手排预览窗口的单元格点击详情代码。
+
 ## 当前批次：周视图网格圆角统一体验版 `.199` 已上传放行，待小米 14 复核
 
 - 用户授权对“选中蓝色框圆弧偏细”做最小统一改动。结论与证据：直线与圆弧是同一支 `inset box-shadow: 0 0 0 2px`；开发者工具实测（`.198` production 构建、真实排班数据）圆弧外缘半径 16.96–17.21px 等于设计值 17，无遮挡；观感偏细源自抗锯齿（圆弧峰值不透明度 0.83–0.92，直线 0.94–1.00）。

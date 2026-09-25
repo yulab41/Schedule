@@ -67,18 +67,37 @@ export const pastScheduleBackfillBatchItemSchema = z
   .strict();
 export type PastScheduleBackfillBatchItem = z.infer<typeof pastScheduleBackfillBatchItemSchema>;
 
+export const pastScheduleBackfillRemovalSchema = z
+  .object({
+    assignmentId: pastScheduleUuidSchema,
+    businessDate: pastScheduleBusinessDateSchema,
+    scheduleRoleId: pastScheduleUuidSchema,
+  })
+  .strict();
+export type PastScheduleBackfillRemoval = z.infer<typeof pastScheduleBackfillRemovalSchema>;
+
 export const pastScheduleBackfillBatchRequestSchema = z
   .object({
     matchByMember: z.boolean().optional(),
     items: z
       .array(pastScheduleBackfillBatchItemSchema)
-      .min(1)
       .max(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS),
     operationId: pastScheduleUuidSchema.optional(),
     reason: z.string().trim().min(1).max(1000).optional(),
+    removals: z
+      .array(pastScheduleBackfillRemovalSchema)
+      .max(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS)
+      .optional(),
   })
   .strict()
   .superRefine((request, context) => {
+    if (request.items.length + (request.removals?.length ?? 0) === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: '批量补录至少需要一项新增或移除。',
+        path: ['items'],
+      });
+    }
     const seenBusinessKeys = new Set<string>();
     for (const [index, item] of request.items.entries()) {
       const businessKey = `${item.scheduleRoleId}|${item.businessDate}${request.matchByMember === true ? `|${item.actualMembershipId}` : ''}`;
@@ -93,6 +112,17 @@ export const pastScheduleBackfillBatchRequestSchema = z
         });
       }
       seenBusinessKeys.add(businessKey);
+    }
+    const seenAssignmentIds = new Set<string>();
+    for (const [index, removal] of (request.removals ?? []).entries()) {
+      if (seenAssignmentIds.has(removal.assignmentId)) {
+        context.addIssue({
+          code: 'custom',
+          message: '同一批次不能重复移除同一班次。',
+          path: ['removals', index],
+        });
+      }
+      seenAssignmentIds.add(removal.assignmentId);
     }
   });
 export type PastScheduleBackfillBatchRequest = z.infer<

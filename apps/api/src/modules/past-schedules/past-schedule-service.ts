@@ -9,6 +9,7 @@ import {
   type PastScheduleAssignment,
   type PastScheduleBackfillRecord,
   type PastSchedulePeriod,
+  type PastScheduleBackfillRemoval,
   type UpdatePastScheduleAssignmentInput,
   type UpdatePastScheduleAssignmentResult,
 } from '@schedule/contracts';
@@ -359,6 +360,9 @@ export class PastScheduleService {
       }
 
       const sortedItems = [...parsedInput.data.items].sort(compareBackfillItems);
+      const sortedRemovals = [...(parsedInput.data.removals ?? [])].sort((left, right) =>
+        left.assignmentId.localeCompare(right.assignmentId),
+      );
       const now = new Date();
       for (const item of sortedItems) {
         if (!isPastBusinessDate(item.businessDate, now)) {
@@ -366,6 +370,15 @@ export class PastScheduleService {
             code: 'CONFLICT',
             statusCode: 409,
             userMessage: `该班次日期（${item.businessDate}）尚未过去，请使用正常排班功能修改。`,
+          });
+        }
+      }
+      for (const removal of sortedRemovals) {
+        if (!isPastBusinessDate(removal.businessDate, now)) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: `要移除的班次日期（${removal.businessDate}）尚未过去，请使用正常排班功能修改。`,
           });
         }
       }
@@ -380,6 +393,7 @@ export class PastScheduleService {
             groupId: authorization.group.id,
             items: sortedItems,
             reason: parsedInput.data.reason ?? null,
+            removals: sortedRemovals,
           }),
           scope: `past_schedule_backfill:${authorization.group.id}`,
         },
@@ -414,6 +428,27 @@ export class PastScheduleService {
             );
 
             eventIds.push(eventId);
+          }
+
+          // Removals run last so a same-batch write cannot revive a slot that this
+          // batch is explicitly removing.
+          for (const removal of sortedRemovals) {
+            const mutation = await this.removeAssignmentInTransaction(
+              transaction,
+              authorization,
+              removal,
+            );
+            assignmentIds.push(mutation.assignment.id);
+            businessMonths.add(`${removal.businessDate.slice(0, 7)}-01`);
+            eventIds.push(
+              await this.appendBackfillEvent(
+                transaction,
+                authorization,
+                mutation,
+                operationId,
+                parsedInput.data.reason,
+              ),
+            );
           }
 
           for (const businessMonth of [...businessMonths].sort()) {
@@ -525,6 +560,58 @@ export class PastScheduleService {
       ...(reason === undefined ? {} : { reason }),
       schedulePeriodId: mutation.schedulePeriodId,
     });
+  }
+
+  private async removeAssignmentInTransaction(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    input: PastScheduleBackfillRemoval,
+  ): Promise<BackfillMutationResult> {
+    const candidates = await transaction
+      .select({ assignment: shiftAssignments, schedulePeriodId: schedulePeriods.id })
+      .from(shiftAssignments)
+      .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+      .where(
+        and(
+          eq(shiftAssignments.id, input.assignmentId),
+          eq(shiftAssignments.businessDate, input.businessDate),
+          eq(schedulePeriods.groupId, authorization.group.id),
+          eq(schedulePeriods.scheduleRoleId, input.scheduleRoleId),
+          isNull(schedulePeriods.deletedAt),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    const found = candidates[0];
+    if (found === undefined) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '要取消的班次不存在或已被取消，请刷新月份后重试。',
+      });
+    }
+
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        deletedAt: new Date(),
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(eq(shiftAssignments.id, found.assignment.id));
+    const [updated] = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, found.assignment.id));
+    if (updated === undefined) {
+      throw new Error('The removed assignment could not be read back.');
+    }
+
+    return {
+      assignment: updated,
+      before: found.assignment,
+      schedulePeriodId: found.schedulePeriodId,
+    };
   }
 
   private async mutateAssignmentInTransaction(
@@ -982,6 +1069,7 @@ function createBackfillBatchFingerprint(input: {
   readonly groupId: string;
   readonly items: readonly PastScheduleBackfillBatchItem[];
   readonly reason: string | null;
+  readonly removals: readonly PastScheduleBackfillRemoval[];
 }): string {
   return createHash('sha256')
     .update(
@@ -995,6 +1083,11 @@ function createBackfillBatchFingerprint(input: {
           shiftTypeId: item.shiftTypeId,
         })),
         reason: input.reason,
+        removals: input.removals.map((removal) => ({
+          assignmentId: removal.assignmentId,
+          businessDate: removal.businessDate,
+          scheduleRoleId: removal.scheduleRoleId,
+        })),
       }),
     )
     .digest('hex');
