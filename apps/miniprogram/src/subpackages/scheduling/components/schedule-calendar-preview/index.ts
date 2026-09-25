@@ -49,6 +49,8 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
             nursePreset: isNurseCalendarGroup(instance.properties.groupName ?? ''),
             shiftTypeOrder: (instance.properties.shiftTypes ?? []).map((shift) => shift.id),
             compact: instance.properties.compact,
+            viewportWidth:
+              typeof wx === 'undefined' ? 390 : (wx.getWindowInfo?.().windowWidth ?? 390),
           },
         )
       : previewCalendarModel(
@@ -164,6 +166,8 @@ Component({
                 nursePreset: isNurseCalendarGroup(this.properties.groupName ?? ''),
                 shiftTypeOrder: (this.properties.shiftTypes ?? []).map((shift) => shift.id),
                 compact: this.properties.compact,
+                viewportWidth:
+                  typeof wx === 'undefined' ? 390 : (wx.getWindowInfo?.().windowWidth ?? 390),
               },
             )
           : previewCalendarModel(

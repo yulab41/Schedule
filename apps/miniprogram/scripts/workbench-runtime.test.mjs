@@ -109,7 +109,7 @@ describe('P6-A workbench runtime coordination', () => {
     };
     instance.holidays = holidayApiGoldenResponse;
     instance.data.currentGroupId = 'group-1';
-    const event = { detail: { businessDate: '2026-09-07' } };
+    const event = { currentTarget: { dataset: { businessDate: '2026-09-07' } } };
     definition.handleWeekDaySelect.call(instance, event);
     expect(instance.data.detailExpansion.expanded).toEqual({ 'day-row': true, 'night-row': true });
     definition.handleDetailPhoneToggle.call(instance, {
@@ -985,7 +985,7 @@ describe('P6-A workbench runtime coordination', () => {
     instance.data.currentGroupName = '头颈外科护士';
     instance.data.currentGroupId = 'group-1';
     definition.handleWeekDaySelect.call(instance, {
-      detail: { businessDate: '2026-09-12' },
+      currentTarget: { dataset: { businessDate: '2026-09-12' } },
     });
     expect(instance.data.selectedDetails[0].dutyState).toBe('working');
     await vi.advanceTimersByTimeAsync(1000);
@@ -1040,7 +1040,9 @@ describe('P6-A workbench runtime coordination', () => {
         setData.call(this, patch, callback);
       };
       definition.handleWeekDaySelect.call(instance, {
-        detail: { businessDate: instance.data.weekPanels[1].days[1].businessDate },
+        currentTarget: {
+          dataset: { businessDate: instance.data.weekPanels[1].days[1].businessDate },
+        },
       });
       expect(instance.data.weekGridHeight).toBe(height);
       expect(heights).toEqual([]);
@@ -1145,10 +1147,10 @@ describe('P6-A workbench runtime coordination', () => {
     expect(runtime.nextTick).not.toHaveBeenCalled();
     expect(runtime.createSelectorQuery).not.toHaveBeenCalled();
     definition.handleWeekDaySelect.call(instance, {
-      detail: { businessDate: '2026-09-08' },
+      currentTarget: { dataset: { businessDate: '2026-09-08' } },
     });
     definition.handleWeekDaySelect.call(instance, {
-      detail: { businessDate: '2026-09-09' },
+      currentTarget: { dataset: { businessDate: '2026-09-09' } },
     });
     expect(
       instance.data.weekPanels[1].days

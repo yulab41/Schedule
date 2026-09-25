@@ -36,6 +36,7 @@ export interface PreviewWeekOptions {
   readonly nursePreset?: boolean;
   readonly shiftTypeOrder?: readonly string[];
   readonly compact?: boolean;
+  readonly viewportWidth?: number;
 }
 
 export function mergePreviewAssignments(
@@ -190,7 +191,7 @@ export function previewWeekModel(
     return {
       ...cell,
       shiftGroups,
-      isPast: date < getCurrentBusinessDate(),
+      isPast: false,
       weekday: '一二三四五六日'[index],
     };
   });
@@ -206,7 +207,7 @@ export function previewWeekModel(
     label: getWeekLabel(weekDate),
     height: calendarWeekPanelHeight(
       days.filter((day) => day !== undefined),
-      options.compact ? 2 : 3,
+      (options.viewportWidth ?? (options.compact ? 320 : 390)) <= 340 ? 2 : 3,
     ),
   };
 }

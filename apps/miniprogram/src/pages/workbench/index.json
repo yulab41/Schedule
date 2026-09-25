@@ -1,7 +1,6 @@
 {
   "usingComponents": {
     "calendar-month": "/components/calendar/calendar-month/index",
-    "calendar-week-panel": "/components/calendar/calendar-week-panel/index",
     "directory-panel": "/subpackages/organization/components/directory-panel/index",
     "notifications-panel": "/subpackages/insights/components/notifications-panel/index",
     "profile-workspace": "/components/profile-workspace/index",

@@ -373,6 +373,23 @@ describe('P5 native atomic backfill controller', () => {
     expect(instance.data.monthLabel).toContain('8月');
   });
 
+  it('keeps loaded past backfill weekdays white and marks future weekdays gray', () => {
+    const instance = createPageInstance(definition);
+    instance.data.viewMode = 'week';
+    instance.data.weekStart = '2026-07-27';
+    definition.handleShiftTap.call(instance, { currentTarget: { dataset: { id: 'shift-a' } } });
+    const days = instance.data.monthPanels[1].days;
+    expect(days.find((day) => day.businessDate === '2026-07-27')).toMatchObject({
+      disabled: false,
+      isPast: false,
+      isFuture: false,
+    });
+    expect(days.find((day) => day.businessDate === '2026-08-01')).toMatchObject({
+      disabled: true,
+      isFuture: true,
+    });
+  });
+
   it('allows a loaded adjacent-month day visible in the active week', () => {
     const instance = createPageInstance(definition);
     instance.data.viewMode = 'week';

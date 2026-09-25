@@ -71,8 +71,8 @@
         <view class="group-option-copy"
           ><text>{{item.name}}</text
           ><text
-            >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' : item.role
-            === 'guest' ? '访客' : '成员'}}</text
+            >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
+            item.role === 'guest' ? '访客' : '成员'}}</text
           ></view
         >
         <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
@@ -383,12 +383,63 @@
                   bindchange="handleWeekSwiperChange"
                   bindanimationfinish="handleWeekSwiperFinish"
                 >
-                  <swiper-item
-                    wx:for="{{weekPanels}}"
-                    wx:key="key"
-                    class="{{item.relative === 0 ? 'week-panel-current' : ''}}"
-                  >
-                    <calendar-week-panel days="{{item.days}}" bind:select="handleWeekDaySelect" />
+                  <swiper-item wx:for="{{weekPanels}}" wx:key="key" class="{{item.relative === 0 ? 'week-panel-current' : ''}}">
+                    <view class="week-day-grid">
+                      <view
+                        wx:for="{{item.days}}"
+                        wx:for-item="day"
+                        wx:key="businessDate"
+                        class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
+                        data-business-date="{{day.businessDate}}"
+                        hover-class="is-pressed"
+                        aria-role="button"
+                        bindtap="handleWeekDaySelect"
+                      >
+                        <view class="week-day-content">
+                          <view class="week-date-line"
+                            ><view class="calendar-date-marker {{day.isToday ? 'is-today' : ''}}">
+                              <text class="day-number calendar-date-text">{{day.day}}</text> </view
+                            ><text wx:if="{{day.holiday}}" class="week-holiday"
+                              >{{day.holiday}}</text
+                            ><text wx:elif="{{day.isWorkday}}" class="week-holiday is-workday" aria-label="法定补班日">班</text
+                            ></view
+                          >
+                          <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
+                          <view
+                            wx:for="{{day.shiftGroups}}"
+                            wx:for-item="shiftGroup"
+                            wx:key="key"
+                            class="week-shift-group"
+                            style="background:{{shiftGroup.tint}}"
+                          >
+                            <view class="week-group-title"
+                              ><text
+                                class="week-shift-badge"
+                                style="color:{{shiftGroup.textColor}};background:{{shiftGroup.color}}"
+                                >{{shiftGroup.abbreviation}}</text
+                              ></view
+                            >
+                            <view
+                              wx:for="{{shiftGroup.duties}}"
+                              wx:for-item="duty"
+                              wx:key="key"
+                              class="week-duty-item"
+                            >
+                              <text class="week-duty-name">{{duty.name}}</text>
+                              <view wx:if="{{duty.markers.length > 0}}" class="week-duty-badges"
+                                ><text
+                                  wx:for="{{duty.markers}}"
+                                  wx:for-item="marker"
+                                  wx:key="*this"
+                                  class="week-change-badge"
+                                  >{{marker}}</text
+                                ></view
+                              >
+                            </view>
+                          </view>
+                        </view>
+                      </view>
+                    </view>
                   </swiper-item>
                 </swiper>
               </view>
@@ -636,11 +687,7 @@
                                   >{{day.weekday}}</text
                                 ><text wx:if="{{day.holiday}}" class="list-holiday"
                                   >{{day.holiday}}</text
-                                ><text
-                                  wx:elif="{{day.isWorkday}}"
-                                  class="list-holiday is-workday"
-                                  aria-label="法定补班日"
-                                  >班</text
+                                ><text wx:elif="{{day.isWorkday}}" class="list-holiday is-workday" aria-label="法定补班日">班</text
                                 ><text wx:if="{{day.isToday}}" class="list-today-badge"
                                   >今天</text
                                 ></view
@@ -698,7 +745,8 @@
               wx:elif="{{state === 'loading'}}"
               class="state-card state-loading"
               aria-live="polite"
-              ><view class="state-mark"><view class="state-spinner"></view></view
+              ><view class="state-mark"
+                ><view class="state-spinner"></view></view
               ><text class="state-title">正在读取排班</text
               ><text class="state-description">正在读取当前群组的月历和班次。</text></view
             >

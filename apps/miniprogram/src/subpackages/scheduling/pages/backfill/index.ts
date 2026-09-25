@@ -865,7 +865,8 @@ function createBackfillMonthPanels(
         );
         return {
           ...cell,
-          isPast: date < page.data.today,
+          isPast: false,
+          isFuture: cell.isFuture,
           shiftGroups: createCalendarWeekGroups(sorted, (item) => ({
             key: `${date}:${item.shiftTypeId}:${item.slotPosition}`,
             name: item.displayName,
@@ -880,7 +881,7 @@ function createBackfillMonthPanels(
         slot: 1 as CalendarPeriodSlot,
         cells,
         days,
-        rowHeight: calendarWeekPanelHeight(days),
+        rowHeight: calendarWeekPanelHeight(days, page.data.viewportClass === 'is-compact' ? 2 : 3),
       };
     });
     return mapCalendarPeriodRing(logical, page._monthRingSlot ?? 1);

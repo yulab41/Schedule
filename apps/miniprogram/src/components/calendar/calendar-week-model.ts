@@ -64,7 +64,7 @@ export function calendarWeekPanelHeight(
     112,
     ...days.map(
       (day) =>
-        50 +
+        32 +
         day.shiftGroups.reduce(
           (sum, group) =>
             sum +
@@ -73,7 +73,6 @@ export function calendarWeekPanelHeight(
               (size, row) =>
                 size +
                 Math.max(1, Math.ceil(Array.from(row.name).length / charsPerLine)) * 16 +
-                2 +
                 (row.markers?.length ? 16 : 0),
               0,
             ),

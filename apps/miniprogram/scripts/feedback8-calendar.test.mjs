@@ -32,7 +32,7 @@ describe('feedback8 preview calendar', () => {
     ).toContain('<calendar-week-panel');
     expect(
       readFileSync(new URL('../src/pages/workbench/index.wxml', import.meta.url), 'utf8'),
-    ).toContain('<calendar-week-panel');
+    ).toContain('<view class="week-day-grid">');
     expect(wxml).not.toContain('preview-week-grid');
   });
   it('groups and orders nurse duties in the shared weekly renderer', () => {
