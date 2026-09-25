@@ -34,7 +34,11 @@ import {
   createWorkbenchReadClient,
   readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
-import { captureWorkflowControllerTask } from '../controller-host.js';
+import {
+  captureWorkflowControllerTask,
+  measureWorkflowPickerBoundary,
+  type WorkflowPickerBoundary,
+} from '../controller-host.js';
 import { enqueueSettingIntent } from '../settings-intent.js';
 
 type PageState = 'error' | 'loading' | 'ready';
@@ -122,6 +126,7 @@ interface DutyPageData {
   readonly shellHeaderStyle: string;
   readonly state: PageState;
   readonly viewportClass: string;
+  readonly workflowPickerBoundary: WorkflowPickerBoundary | null;
 }
 
 interface DutyPairSnapshot {
@@ -223,6 +228,7 @@ export function createDutyPanelControllerDefinition(embedded = false) {
       shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
       state: 'loading',
       viewportClass: '',
+      workflowPickerBoundary: null,
     } satisfies DutyPageData,
 
     _adminPreview: undefined,
@@ -269,21 +275,23 @@ export function createDutyPanelControllerDefinition(embedded = false) {
 
     handleOpenRequestForm(this: DutyPageInstance): void {
       resetRequestForm(this);
-      this.setData({ requestFormVisible: true });
+      this.setData({ requestFormVisible: true }, () => measureWorkflowPickerBoundary(this));
     },
 
     handleCloseRequestForm(this: DutyPageInstance): void {
-      if (!this.data.requestBusy) this.setData({ requestFormVisible: false });
+      if (!this.data.requestBusy)
+        this.setData({ requestFormVisible: false, workflowPickerBoundary: null });
     },
 
     handleOpenAdminForm(this: DutyPageInstance): void {
       if (!this.data.canApprove) return;
       resetAdminForm(this);
-      this.setData({ adminFormVisible: true });
+      this.setData({ adminFormVisible: true }, () => measureWorkflowPickerBoundary(this));
     },
 
     handleCloseAdminForm(this: DutyPageInstance): void {
-      if (!this.data.adminBusy) this.setData({ adminFormVisible: false });
+      if (!this.data.adminBusy)
+        this.setData({ adminFormVisible: false, workflowPickerBoundary: null });
     },
 
     handleMonthChange(this: DutyPageInstance, event: ValueEvent): void {
@@ -628,6 +636,7 @@ async function submitDutyRequest(page: DutyPageInstance): Promise<void> {
             ? '加扣班申请已提交，等待管理员审批。'
             : '加扣班申请已提交，等待加班成员接受。',
       requestFormVisible: false,
+      workflowPickerBoundary: null,
     });
     resetRequestForm(page);
     notifyCalendarChanged(page);
@@ -698,6 +707,7 @@ async function submitDirectDuty(page: DutyPageInstance): Promise<void> {
     page.setData({
       adminFormVisible: false,
       infoMessage: `管理员代值已生效：${created.deductedMemberName ?? ''} 扣班，${created.overtimeMemberName ?? ''} 加班。`,
+      workflowPickerBoundary: null,
     });
     resetAdminForm(page);
     notifyCalendarChanged(page);

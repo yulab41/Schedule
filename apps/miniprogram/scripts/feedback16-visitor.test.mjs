@@ -19,11 +19,11 @@ describe('feedback16 visitor controls and QR long press', () => {
 
   it('uses the native long-press image menu and contains no album-save controls', () => {
     const template = readFileSync(
-      'src/subpackages/organization/components/invite-visitor-panel/index.wxml',
+      'src/subpackages/organization/components/qr-visitor-panel/index.wxml',
       'utf8',
     );
     const controller = readFileSync(
-      'src/subpackages/organization/components/invite-visitor-panel/controller.ts',
+      'src/subpackages/organization/components/qr-visitor-panel/controller.ts',
       'utf8',
     );
     const adapter = readFileSync('src/platform/visitor-qr-image.ts', 'utf8');

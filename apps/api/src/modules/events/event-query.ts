@@ -35,6 +35,7 @@ const maximumPageSize = 100;
 const maximumEventTypes = 20;
 
 const nonShiftScopedEventTypes = new Set([
+  'manual_schedule_inline_applied',
   'manual_schedule_template_applied',
   'manual_schedule_template_created',
   'manual_schedule_template_deleted',

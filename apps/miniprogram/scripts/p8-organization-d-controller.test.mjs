@@ -4,7 +4,7 @@ import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 
-describe('P8-D native invite and visitor controller', () => {
+describe('P8-D native QR and visitor controller', () => {
   let definition;
   let requests;
 
@@ -16,6 +16,7 @@ describe('P8-D native invite and visitor controller', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion: 'trial', version: 'test' } }),
       getStorageSync: vi.fn((key) => (key === 'schedule.wechat.session' ? session() : undefined)),
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
@@ -30,16 +31,21 @@ describe('P8-D native invite and visitor controller', () => {
           options.success({ data: members(), statusCode: 200 });
           return;
         }
-        if (url.endsWith(`/groups/${groupId}/scheduling-config`) && options.method === 'GET') {
-          options.success({ data: config(), statusCode: 200 });
+        if (
+          url.endsWith(`/groups/${groupId}/members/membership-1/current-wechat-binding-qr`) &&
+          options.method === 'POST'
+        ) {
+          options.success({ data: bindingQr(), statusCode: 200 });
           return;
         }
-        if (url.endsWith(`/groups/${groupId}/invite-links`) && options.method === 'POST') {
-          options.success({ data: invite(), statusCode: 201 });
-          return;
-        }
-        if (url.endsWith(`/groups/${groupId}/group-qr`) && options.method === 'GET') {
-          options.success({ data: { imageBase64: 'iVBORw0KGgo=' }, statusCode: 200 });
+        if (
+          url.endsWith(`/groups/${groupId}/visitor-qr?environment=trial`) &&
+          options.method === 'GET'
+        ) {
+          options.success({
+            data: { environment: 'trial', imageBase64: 'iVBORw0KGgo=' },
+            statusCode: 200,
+          });
           return;
         }
         if (url.endsWith(`/groups/${groupId}/visitor-key`) && options.method === 'PUT') {
@@ -51,8 +57,8 @@ describe('P8-D native invite and visitor controller', () => {
       showModal: vi.fn(({ success }) => success({ confirm: true, cancel: false })),
     });
     const module =
-      await import('../src/subpackages/organization/components/invite-visitor-panel/controller.ts');
-    definition = module.createInviteVisitorPanelControllerDefinition();
+      await import('../src/subpackages/organization/components/qr-visitor-panel/controller.ts');
+    definition = module.createQrVisitorPanelControllerDefinition();
     await enableTestClientCapabilities();
   });
 
@@ -60,12 +66,12 @@ describe('P8-D native invite and visitor controller', () => {
     vi.unstubAllGlobals();
   });
 
-  it('discards an invitation result that arrives after its page was unloaded', async () => {
+  it('discards a binding QR result that arrives after its page was unloaded', async () => {
     let pageDefinition;
     vi.stubGlobal('Page', (value) => {
       pageDefinition = value;
     });
-    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
+    await import('../src/subpackages/organization/pages/qr-visitor/index.ts');
     const page = createPageInstance(definition);
     page.properties = { groupId };
     definition.lifetimes.attached.call(page);
@@ -77,34 +83,28 @@ describe('P8-D native invite and visitor controller', () => {
           complete = resolve;
         }),
     );
-    page._inviteVisitorWriteClient = { createInviteLink: create };
-    definition.handleCreateInvite.call(page);
+    page._qrVisitorWriteClient = { createCurrentMemberWechatBindingQr: create };
+    definition.handleCreateBindingQr.call(page);
     await vi.waitFor(() => expect(create).toHaveBeenCalled());
     pageDefinition.onUnload.call(page);
-    complete(invite());
+    complete(bindingQr());
     await Promise.resolve();
     await Promise.resolve();
-    expect(page._inviteToken).toBe('');
+    expect(page.data.bindingQrVisible).toBe(false);
   });
 
-  it('does not share expired invitation material', async () => {
+  it('does not register a share handler or retain invitation state', async () => {
     let pageDefinition;
     vi.stubGlobal('Page', (value) => {
       pageDefinition = value;
     });
-    await import('../src/subpackages/organization/pages/invite-visitor/index.ts');
-    const page = createPageInstance(definition);
-    Object.assign(page.data, {
-      canManage: true,
-      organizationEnabled: true,
-      managementState: 'ready',
-      inviteSharePath: 'pages/invite/invite?t=fixture',
-    });
-    Object.assign(page, { _inviteToken: 'fixture', _inviteExpiresAtMs: Date.now() - 1 });
-    expect(pageDefinition.onShareAppMessage.call(page).path).not.toContain('fixture');
+    await import('../src/subpackages/organization/pages/qr-visitor/index.ts');
+    expect(pageDefinition).not.toHaveProperty('onShareAppMessage');
+    expect(definition.data).not.toHaveProperty('inviteSharePath');
+    expect(definition).not.toHaveProperty('handleCreateInvite');
   });
 
-  it('loads member and role targets without persisting invite material', async () => {
+  it('loads member targets without role or invite material', async () => {
     const page = createPageInstance(definition);
     page.properties = { groupId };
     definition.lifetimes.attached.call(page);
@@ -119,21 +119,21 @@ describe('P8-D native invite and visitor controller', () => {
         expect.objectContaining({ kind: 'roster', name: '陈医生' }),
       ],
     });
+    expect(page.data).not.toHaveProperty('roleOptions');
+    expect(page.data).not.toHaveProperty('inviteToken');
   });
 
-  it('keeps invite creation idempotent and holds the raw token outside page data', async () => {
+  it('requests one environment-specific member binding QR without group-code fields', async () => {
     const page = await loadReadyPage(definition);
-    definition.handleCreateInvite.call(page);
-    await vi.waitFor(() => expect(page.data.managementInfo).toContain('邀请已生成'));
+    definition.handleCreateBindingQr.call(page);
+    await vi.waitFor(() => expect(page.data.bindingQrVisible).toBe(true));
 
     const request = requests.find((candidate) =>
-      candidate.url.endsWith(`/groups/${groupId}/invite-links`),
+      candidate.url.endsWith(`/groups/${groupId}/members/membership-1/current-wechat-binding-qr`),
     );
     expect(request?.header['Idempotency-Key']).toBe(request?.data.operationId);
-    expect(request?.data.expectedTargetVersion).toBe(3);
-    expect(page.data.inviteSharePath).toContain('pages/invite/invite');
-    expect(page.data).not.toHaveProperty('inviteToken');
-    expect(page._inviteToken).toBe('invite-token-secret');
+    expect(request?.data).toMatchObject({ environment: 'trial', expectedMembershipVersion: 3 });
+    expect(page.data.bindingQrSummary).not.toContain('群组码');
   });
 
   it('requires guest capability for QR and visitor-key operations', async () => {
@@ -196,50 +196,14 @@ function members() {
   ];
 }
 
-function config() {
+function bindingQr() {
   return {
-    groupMembers: [
-      { membershipId: 'membership-1', realName: '林医生' },
-      { membershipId: 'roster-1', realName: '陈医生' },
-    ],
-    roles: [
-      {
-        id: 'role-1',
-        members: [],
-        name: '一线',
-        version: 1,
-      },
-    ],
-    rulesVersion: 1,
-    shiftTypes: [
-      {
-        abbreviation: '全',
-        color: '#1F5AA6',
-        configurationVersion: 1,
-        countsTowardStatistics: true,
-        crossesMidnight: false,
-        displayOrder: 1,
-        id: 'shift-1',
-        isAllDay: true,
-        isBuiltIn: true,
-        isEnabled: true,
-        name: '全天班',
-        textColor: '#FFFFFF',
-        version: 1,
-      },
-    ],
-  };
-}
-
-function invite() {
-  return {
+    employeeCode: 'D001',
+    environment: 'trial',
     expiresAt: '2026-08-26T08:00:00.000Z',
     groupName: '急诊科',
-    permissionRole: 'member',
+    imageBase64: 'iVBORw0KGgo=',
+    membershipId: 'membership-1',
     realName: '林医生',
-    scheduleRoleName: '一线',
-    sharePath: 'pages/invite/invite?t=redacted-in-memory',
-    token: 'invite-token-secret',
-    version: 1,
   };
 }

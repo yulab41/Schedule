@@ -1115,12 +1115,8 @@ Page({
     );
   },
 
-  handleOpenInviteVisitor(this: WorkbenchPageInstance): void {
-    navigateGroupTool(
-      this,
-      'inviteVisitor',
-      '/subpackages/organization/pages/invite-visitor/index',
-    );
+  handleOpenQrVisitor(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, 'qrVisitor', '/subpackages/organization/pages/qr-visitor/index');
   },
 
   handleOpenPlatformAccounts(this: WorkbenchPageInstance): void {

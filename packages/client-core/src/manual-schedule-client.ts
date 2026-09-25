@@ -1,11 +1,15 @@
 import type {
   AppliedManualScheduleTemplateResult,
   ApplyManualScheduleTemplateRequest,
+  CreateManualScheduleDraftRequest,
   CreateManualScheduleTemplateRequest,
+  CreatedManualScheduleDraftResult,
   ManualApplyPreview,
+  ManualScheduleEditorPreview,
   ManualScheduleTemplate,
   ManualScheduleStartDate,
   PreviewManualTemplateApplyRequest,
+  PreviewManualScheduleEditorRequest,
   SchedulingConfig,
   UpdateManualScheduleTemplateRequest,
 } from '@schedule/contracts';
@@ -16,7 +20,9 @@ import {
 
 import {
   appliedManualScheduleTemplateResultJsonSchema,
+  createdManualScheduleDraftResultJsonSchema,
   manualApplyPreviewJsonSchema,
+  manualScheduleEditorPreviewJsonSchema,
   manualScheduleStartDateJsonSchema,
   manualScheduleTemplateJsonSchema,
   manualScheduleTemplateListJsonSchema,
@@ -48,6 +54,18 @@ interface ApplyInput extends GroupInput {
   readonly templateId: string;
 }
 
+interface PreviewEditorInput extends GroupInput {
+  readonly request: PreviewManualScheduleEditorRequest;
+}
+
+interface CreateDraftInput extends GroupInput {
+  readonly request: CreateManualScheduleDraftRequest;
+}
+
+interface DeleteTemplateInput extends GroupInput {
+  readonly templateId: string;
+}
+
 const templateStructureDecoder = /* @__PURE__ */ createCompactDecoder<ManualScheduleTemplate>(
   manualScheduleTemplateJsonSchema,
 );
@@ -60,6 +78,14 @@ const previewStructureDecoder = /* @__PURE__ */ createCompactDecoder<ManualApply
 const appliedStructureDecoder =
   /* @__PURE__ */ createCompactDecoder<AppliedManualScheduleTemplateResult>(
     appliedManualScheduleTemplateResultJsonSchema,
+  );
+const editorPreviewStructureDecoder =
+  /* @__PURE__ */ createCompactDecoder<ManualScheduleEditorPreview>(
+    manualScheduleEditorPreviewJsonSchema,
+  );
+const createdDraftStructureDecoder =
+  /* @__PURE__ */ createCompactDecoder<CreatedManualScheduleDraftResult>(
+    createdManualScheduleDraftResultJsonSchema,
   );
 const configStructureDecoder = /* @__PURE__ */ createCompactDecoder<SchedulingConfig>(
   schedulingConfigJsonSchema,
@@ -81,9 +107,25 @@ export const appliedManualScheduleTemplateResultDecoder = refineDecoder(
   appliedStructureDecoder,
   (result) => isValidManualApplyPreview(result.preview),
 );
+export const manualScheduleEditorPreviewDecoder = refineDecoder(
+  editorPreviewStructureDecoder,
+  isValidManualApplyPreview,
+);
+export const createdManualScheduleDraftResultDecoder = refineDecoder(
+  createdDraftStructureDecoder,
+  (result) => isValidManualApplyPreview(result.preview),
+);
 export const schedulingConfigDecoder = refineDecoder(configStructureDecoder, (config) =>
   Number.isInteger(config.rulesVersion),
 );
+
+const emptyResponseDecoder: CompactDecoder<void> = {
+  safeDecode(value) {
+    return value === undefined || value === null || value === ''
+      ? { data: undefined, success: true }
+      : { success: false };
+  },
+};
 
 export const manualScheduleEndpoints = {
   nextStartDate: /* @__PURE__ */ defineClientEndpoint<
@@ -125,6 +167,26 @@ export const manualScheduleEndpoints = {
       path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates`,
     },
   ),
+  createDraft: /* @__PURE__ */ defineClientEndpoint<
+    CreateDraftInput,
+    CreatedManualScheduleDraftResult
+  >({
+    auth: 'bearer',
+    body: ({ request }) => request,
+    decoder: createdManualScheduleDraftResultDecoder,
+    id: 'manual-schedule.create-draft',
+    idempotencyKey: ({ request }) => request.operationId,
+    method: 'POST',
+    path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/manual-schedules/drafts`,
+  }),
+  deleteTemplate: /* @__PURE__ */ defineClientEndpoint<DeleteTemplateInput, void>({
+    auth: 'bearer',
+    body: () => ({}),
+    decoder: emptyResponseDecoder,
+    id: 'manual-schedule.delete-template',
+    method: 'DELETE',
+    path: ({ groupId, templateId }) => templatePath(groupId, templateId),
+  }),
   preview: /* @__PURE__ */ defineClientEndpoint<PreviewInput, ManualApplyPreview>({
     auth: 'bearer',
     body: ({ request }) => request,
@@ -132,6 +194,17 @@ export const manualScheduleEndpoints = {
     id: 'manual-schedule.preview',
     method: 'POST',
     path: ({ groupId, templateId }) => templateActionPath(groupId, templateId, 'apply-preview'),
+  }),
+  previewEditor: /* @__PURE__ */ defineClientEndpoint<
+    PreviewEditorInput,
+    ManualScheduleEditorPreview
+  >({
+    auth: 'bearer',
+    body: ({ request }) => request,
+    decoder: manualScheduleEditorPreviewDecoder,
+    id: 'manual-schedule.preview-editor',
+    method: 'POST',
+    path: ({ groupId }) => `/groups/${encodeURIComponent(groupId)}/manual-schedules/preview`,
   }),
   templates: /* @__PURE__ */ defineClientEndpoint<GroupInput, readonly ManualScheduleTemplate[]>({
     auth: 'bearer',
@@ -163,6 +236,11 @@ export interface ManualScheduleClient {
     groupId: string,
     request: CreateManualScheduleTemplateRequest,
   ): Promise<ManualScheduleTemplate>;
+  createDraft(
+    groupId: string,
+    request: CreateManualScheduleDraftRequest,
+  ): Promise<CreatedManualScheduleDraftResult>;
+  deleteTemplate(groupId: string, templateId: string): Promise<void>;
   getConfig(groupId: string): Promise<SchedulingConfig>;
   listTemplates(groupId: string): Promise<readonly ManualScheduleTemplate[]>;
   preview(
@@ -170,6 +248,10 @@ export interface ManualScheduleClient {
     templateId: string,
     request: PreviewManualTemplateApplyRequest,
   ): Promise<ManualApplyPreview>;
+  previewEditor(
+    groupId: string,
+    request: PreviewManualScheduleEditorRequest,
+  ): Promise<ManualScheduleEditorPreview>;
   updateTemplate(
     groupId: string,
     templateId: string,
@@ -188,6 +270,12 @@ export function createManualScheduleClient(transport: ClientTransport): ManualSc
     createTemplate(groupId, request) {
       return transport.request(manualScheduleEndpoints.createTemplate, { groupId, request });
     },
+    createDraft(groupId, request) {
+      return transport.request(manualScheduleEndpoints.createDraft, { groupId, request });
+    },
+    deleteTemplate(groupId, templateId) {
+      return transport.request(manualScheduleEndpoints.deleteTemplate, { groupId, templateId });
+    },
     getConfig(groupId) {
       return transport.request(manualScheduleEndpoints.config, { groupId });
     },
@@ -196,6 +284,9 @@ export function createManualScheduleClient(transport: ClientTransport): ManualSc
     },
     preview(groupId, templateId, request) {
       return transport.request(manualScheduleEndpoints.preview, { groupId, request, templateId });
+    },
+    previewEditor(groupId, request) {
+      return transport.request(manualScheduleEndpoints.previewEditor, { groupId, request });
     },
     updateTemplate(groupId, templateId, request) {
       return transport.request(manualScheduleEndpoints.updateTemplate, {
@@ -233,7 +324,9 @@ function isValidManualScheduleTemplate(template: ManualScheduleTemplate): boolea
   return true;
 }
 
-function isValidManualApplyPreview(preview: ManualApplyPreview): boolean {
+function isValidManualApplyPreview(
+  preview: ManualApplyPreview | ManualScheduleEditorPreview,
+): boolean {
   return (
     isManualScheduleDateRangeWithinLimit(preview.applyStartDate, preview.applyEndDate) &&
     preview.assignments.every((assignment) => isValidManualScheduleDate(assignment.businessDate)) &&

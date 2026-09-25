@@ -206,7 +206,7 @@ async function addMembers(): Promise<void> {
     completeOrganizationAttempt(attemptKey);
     rosterNames.value = '';
     rosterEditorVisible.value = false;
-    rosterMessage.value = `已添加 ${result.added} 位预设成员；请使用管理员提供的邀请关联成员账号。`;
+    rosterMessage.value = `已添加 ${result.added} 位预设成员；请使用管理员生成的成员绑定二维码关联账号。`;
     await loadMembers();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
@@ -609,7 +609,9 @@ async function runMemberAction(
 
     <ResponsiveSheet v-model:visible="rosterEditorVisible" title="添加预设成员">
       <form v-if="canAddMembers" class="add-member-form" @submit.prevent="addMembers">
-        <p class="roster-editor-intro">每行输入一个姓名。请使用管理员提供的邀请关联成员账号。</p>
+        <p class="roster-editor-intro">
+          每行输入一个姓名。请使用管理员生成的成员绑定二维码关联账号。
+        </p>
         <label class="add-member-field">
           成员姓名
           <textarea

@@ -2,6 +2,71 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-25 邀请绑定页移除访客入口与通知拥挤修复
+
+- 用户最终范围：扫码进入的绑定邀请页彻底移除访客入口、访客二维码及访客提示；现有独立访客页不作改动。只在邀请页添加返回登录入口。
+- 引入点：`git log -S '暂不绑定，进入访客页面'` 与 `git log -S 'handleGuest'` 定位至 `162ef4c1`；`git blame` 确认访客按钮与错误页入口来自该提交。旧实现存在两处访客跳转及常驻 `ui-alert`。
+- 行为变更：绑定预览只保留一次确认；有效期/错误结果通过自动消失的 `ui-toast`；成功绑定显示瞬时成功提示；返回登录用 `forceLogin=1`，登录页不自动恢复已有会话。guest-entry 四个源文件未修改。
+- 回归验证：绑定流程、身份路由、无访客引用和 Chrome CSS 几何代理定向 15/15；代理在 390×844、320×844 预览/错误态均无按钮/提示相交。完整 `pnpm verify` 通过：Mini 1262 通过/17 跳过，根 1306 通过/451 跳过；`pnpm miniprogram:verify` 与 `pnpm smoke:check-core` 通过。最终 production 总包 4,802,913 B、主包 1,825,803 B。
+- 运行/浏览器验证：`pnpm smoke:check-core` 通过；身份页几何由 Chrome CSS 代理检查并保存于 ignored `runtime/codex/invite-bind-layout/`。这不是小程序原生模拟器或小米 14 证据。
+- 外部状态：本轮只改 Mini 与文档，无体验版上传、生产部署、数据库备份或发布。已上传 `.192@162ef4c1` 不含本轮代码；状态 `UPLOAD_REQUIRED`，待当前 checkpoint 上传授权与同 SHA 小米 14 复核。checkpoint commit message：`fix(miniprogram): remove guest actions from binding screens`。
+
+## 2026-09-24 排班整月覆盖与绑定页修复（生产与体验版已交付，待真机复核）
+
+- 回归引入点：`git log -S 'existingPublished !== undefined'` 定位发布月冲突守卫至 `968c6c54`；`git log -S 'existingPublishedPeriods.length > 0'` 定位手动应用月冲突至 `7c783c71`；`git log -S 'shift_assignments_slot_unique'` 定位旧唯一键至 `6f521715`。`git blame` 对应调用点确认了整月归档与草稿冲突判断。预览 `_locateTarget` 的逐月播放由 `50744302` 引入。
+- 行为变更：仅重复日期提示并按整日替换；原当前 period 和未涉及 shift ID 保留，覆盖前完整克隆月快照；仅受影响 shift 关联的工作流撤销。成员码 24 小时、旧管理员链接 10 分钟；一次确认进入工作台，暂不绑定/失败进入访客码入口。
+- 测试先行：新增 12 月 1–30 日已发布、12 月 31 日至次年 2 月发布的真实 MySQL 回归。首次因 Docker 未就绪在连接阶段 `ECONNREFUSED 127.0.0.1:3307`；恢复引擎后手排 35/35、发布 3/3、仓库合并/工作流及专项恢复 10/10、绑定 8/8、迁移 28/28 通过。日期交集纯函数、Mini 预览定位与整日替换及 release schema 门禁通过。
+- 运行/浏览器验证：首次 `pnpm smoke:browser` 因未启动本地 Web 返回 `ERR_CONNECTION_REFUSED`；随后在当前源码 API 3105/Web 4175 完整通过登录、管理员、成员、访客密钥与访问记录。测试中本地合成管理员标记已恢复，临时服务已停。390×844/320px 有效截图和小米 14 仍未验证。
+- 2026-09-24 生产恢复前只读核对：正式域名直连路径通过双 DNS、主机密钥与 TLS 健康校验；live=`c6c4fcd2`。同岗位 2026-12 当前 revision 5 仅 31 日 1 班次，归档 revision 2 有 1–30 日 30 班次；归档班次关联换班与加扣班均为 0。完成此核对后才加密备份、部署和恢复。
+- 静态门禁：`pnpm verify` 完整通过，Mini 1257 通过/16 跳过、根 1306 通过/450 跳过；真实 MySQL 集成在该命令中跳过，已另行强制执行通过。恢复脚本追加后单独 API build/typecheck/lint 与真实 MySQL 用例通过；`pnpm smoke:check-core` 通过，实际浏览器 smoke 亦通过。模拟器 raw PNG 仍为 35×75，不能作为 390×844 视觉验收。
+- 受控恢复：`recover-december-2026` 先锁 scope，再锁精确 current/archive 与班次；版本、规则、30+1 日期和归档换班/加扣班均严格核对。只读 inspect 无写入；restore 在同一事务里保留 31 日 ID、补回 1–30 日、保存当前快照、刷新统计并逐日回读。重复执行版本/日集合守卫拒绝；不调用通知写入。
+- Docker 诊断：后端日志报旧 `dockerInference` 重解析点不可访问；保留式移动被 Windows 拒绝，定点删除被自动审批策略拒绝（`blocked by policy`），均未执行。随后使用 Docker Desktop 官方 `disable model-runner` 恢复引擎；测试/开发 MySQL 健康，旧重解析点未触碰。
+- 发布与恢复：`162ef4c1` 已推送；加密备份 `9c86d238-cdb6-438c-bb7a-37549106b6e5` 的数据库记录、文件大小和 SHA-256 相符。schema 64 迁移/生产 release `162ef4c1`、完整 verifier 通过。只读 inspect 后恢复 2026-12 1–30 日，当前修订 6 的 31 日 ID 保留；日历/CSV 各 31 条，统计快照 plannedCount=31，补偿通知 0，恢复后 verifier 再次通过。回滚到 schema 63 的旧应用须先做数据库恢复/兼容审查，普通应用回滚门禁会拒绝。
+- Mini 交付：production verify 总包 4801680 B、主包 1824570 B；CI dry-run、trial-lineage 通过。不可变 `.192@162ef4c1` 上传成功（Manifest `5c94240f…beefa`），receipt 与远端 tag 同 SHA；只追加 allowlist，`.192/.191=200`、未知版 426，独立 allowlist/ECS verifier 通过。开发者工具打开访客页成功，截图两次 `waitForAutomatorReady timeout`；390×844/320px 视觉和小米 14 均不能写通过。未提审/正式发布。
+
+## 2026-09-22 联系方式弹窗首次 input 预热
+
+- 现场与根因：小米 14 `.188@83eb80c` 已确认键盘关闭回底正常；文字慢半拍只发生在应用生命周期第一次打开，后续重新开关键盘时不再发生。`git log -S 'wx:if="{{visible}}"'`/`git blame` 定位共享 sheet 的销毁式挂载由 `304d742f` 引入、`5947982a` 改手势时保留；第一次打开才同时创建原生 input、播放入场动画并聚焦，后续原生层已预热。
+- 测试先行：新增 `keepAlive` 默认关闭、隐藏态可访问性/交互/动画以及个人联系方式显式启用断言；旧实现 3 失败/7 通过。修复后共享 sheet、通讯录回归和 profile controller 定向 44/44，Mini 全量 1245 通过/16 跳过。
+- 修复与语义：`ui-sheet.keepAlive=false` 保持所有现有调用方原语义；只有联系方式弹窗传 `true`，关闭时以 `visibility:hidden`、`pointer-events:none`、`aria-hidden` 和 `animation:none` 保留并预热 slot/input，焦点仍由现有 controller 明确关闭。号码输入、校验、409、Promise/catch、跨群同步、键盘高度和回底均未改。
+- 验证：production verify 通过（主包 1,747,915 B、总包 4,568,025 B、determinism Manifest `85c93b6cda1fa0411a778c60f478162e374fa7a358c04eb6775616f004b1f4f1`）；任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过。开发者工具共享/profile WXML/WXSS 编译和模拟器刷新成功，console error 为空；不把该层写成小米 14 首次动画通过。
+- 发布交付：checkpoint `531d7c399cde3407844162fba0104d8fde8d797f` 已推送；干净 production 候选上传为 `0.1.0-p10.20260922.189`（232 个代码文件、ZIP 2,648,616 B、Manifest `5b8e241ec169e38fe21a71a95d3522682a0d62170055f42ce0b15cbe140da2e1`）。可信 allowlist 只追加 `.189`；健康、策略与完整服务器验证通过。生产 release 保持 `cfa934d1`/schema 63，未部署应用、备份或迁移数据库，未提审或正式发布。状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
+
+## 2026-09-22 联系方式弹窗文字延迟与键盘收起不回底
+
+- 现场与引入点：小米 14 `.187@adccba36` 中，弹窗出现后 input 文字慢半拍上移，键盘关闭时 sheet 偶尔悬在半空。`git log -S 'focus="{{contactEditorOpen}}"'`/`git blame` 定位同步自动聚焦来自 `5fabb855`；`git log -S 'bottomInset'` 定位实测键盘位移来自 `adccba36`。打开时先以 inset=0 渲染并同步激活原生 input，后到高度事件再重排 sheet；关闭又只依赖 input 局部事件，形成两个可复现缺口。
+- 测试先行：新增“打开先未聚焦、渲染回调后聚焦”“全局高度 0 回底”“blur 延迟兜底回底/卸载注销”与静态转发、focus 绑定、46px 行高断言；旧实现 3 失败/18 通过，修复后定向 21/21。
+- 修复与语义：focus 从 `contactEditorOpen` 解耦为独立状态和 generation；局部/全局高度进入同一归一化函数；全局监听只在 controller 生命周期存在并按原 handler 引用注销；blur 的 100ms timer 可被重新 focus/关闭/卸载取消，避免旧回调污染下次弹窗。号码值、校验、409、异步保存/catch、跨群同步、其他 sheet 与顶部导航均未改。
+- 验证：Mini 全量 1244 通过/16 跳过；typecheck、production verify（主包 1,747,542 B、总包 4,567,652 B）、package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过。开发者工具 WXML/WXSS 编译与模拟器刷新成功，console error 为空；模拟器缺成员身份，未声称小米 14 或真实键盘通过。
+- 发布交付：checkpoint `83eb80c33f38c63fe1b7c2b51a85cac18f54c423` 已推送；干净 production 候选上传为 `0.1.0-p10.20260922.188`（232 个代码文件、ZIP 2,648,723 B、Manifest `a306e0a91627c52b54855951e8f3f077c262e28fef3a953041f8cd9c014f0bf4`），tag/allocation/manifest/receipt 一致。可信 allowlist 只追加 `.188`、保留 `.187`；verify、完整服务器校验、公网 `.188/.187=200` 与未知版 426 通过。生产仍为 `cfa934d1`/schema 63；未部署应用、操作数据库、提审或正式发布。状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
+
+## 2026-09-22 联系方式弹窗键盘高度自适应
+
+- 现场与引入点：小米 14 `.186@59f1e801` 中数字键盘遮住联系方式输入框下缘和保存按钮。`git log -S 'focus="{{contactEditorOpen}}"'`、`git blame` 将表单定位到 `5fabb855`；固定底部 `ui-sheet` 没有键盘避让输入，input 仅依赖默认 `adjust-position`，因此固定弹层不会可靠地随不同输入法上移。
+- 测试先行：新增 input 键盘事件/禁用默认顶起、独立与嵌入 workspace 事件转发、controller 高度归零及 `ui-sheet` 实测底部 inset 契约；旧实现 3 失败/22 通过。共享 sheet 首轮把原组合 observer 改名，完整 Mini 测试抓到 2 个既有生命周期测试失败；保留原 `size, visible` observer 并新增独立 `bottomInset` observer 后，同一用例转绿，未改旧观察者契约。
+- 修复与语义：`keyboardheightchange` 的实际像素高度进入 profile controller；键盘隐藏、取消、保存和重新打开统一归零。`ui-sheet.bottomInset` 默认 0，仅联系方式弹窗传入；内容弹层用 `margin-bottom` 避开键盘并以窗口减实测高度限制 `max-height`。关闭默认 `adjust-position` 防止系统与自有位移叠加。号码校验、409 刷新、异步/错误路径、事件接收者、调用次数、跨群同步及其他 sheet 默认布局不变。
+- 验证：定向 56/56；Mini 全量 179 文件通过/2 跳过、1243 项通过/16 跳过；typecheck、production verify（主包 1,745,032 B、总包 4,565,142 B）、任务文件 Prettier/ESLint 与 `git diff --check` 通过。此层级无法证明真实输入法像素表现；旧 `.186` 为修复前小米 14 证据，`.187` 仍待同机复核。
+- 发布交付：checkpoint `adccba3625204ad3b91296ea0f6126d8154967c2` 已推送；干净 detached production 候选上传 `0.1.0-p10.20260922.187`（232 文件、ZIP 2,646,036 B、Manifest `8a7d5b08071044dd1ecf5667670734da30208a9df00a9c56fa0964cb9a14df40`），tag/allocation/manifest/receipt/当前产物精确绑定。首次微信签名请求 `ECONNRESET` 后保留同一版本，按原 buildTime 重建且摘要一致后幂等上传成功；没有覆盖不可变证据或另占版本。
+- 放行：可信控制只追加 `.187`、保留 `.186`；allowlist verify、完整 `ecs-verify.sh`、公网 `.187/.186=200`、未知版 `=426` 通过。生产 release 保持 `cfa934d1`/schema 63；未部署应用、备份/迁移数据库、提审或正式发布。状态 `WAITING_XIAOMI14_NATIVE_REVIEW`。
+
+## 2026-09-22 手机号/短号点击无弹窗与箭头对齐
+
+- 引入点：`git log -S 'handleMobilePhoneEdit'` 与 `git blame` 定位到 `5fabb855`。`profile-panel` 模板已经绑定联系方式事件，但嵌入工作台的 `profile-workspace/index.ts` 漏注册 5 个 controller 方法；独立 profile 页/controller 测试因此无法覆盖实际工作台包装层。
+- 测试先行：新增工作区事件转发和真实 SVG 箭头契约，旧源码为 1 失败/3 通过；补齐手机号/短号打开、关闭、输入、提交方法后，定向 26/26，Mini 全量 1242 通过/16 跳过。
+- 行为变化：两种联系方式整行点击重新进入既有单字段 sheet 流程；号码数据、校验、409 冲突和跨群同步逻辑未改。文字 `›` 替换为固定 18×18 的既有 muted chevron，消除字体基线偏移；顶部导航和其他页面无变化。
+- 运行验证：typecheck、Mini production verify（总包 4,563,993 B）、icon parity、format、lint、`pnpm smoke:check-core` 通过。开发者工具编译与“我的”页渲染成功，Console 无相关错误，截图确认箭头水平对齐。自动化选择器不能穿透自定义组件边界，坐标点击不记为通过；小米 14 需在新体验版复核。
+- 发布交付：`59f1e801` 经独占 upload lease、前后 safety checker 与动态分配锁上传 `0.1.0-p10.20260922.186`（production，Manifest `0975bb9232d3978a41a9f582952e2f2a42daee8cc223363c0222a07fa39e6a57`，232 文件，ZIP 2,645,453 B）；tag/allocation/manifest/receipt 精确绑定。正式 allowlist 只追加 `.186`，重建预热一次 TLS EOF、一次 502 后恢复；独立 verify、完整 `ecs-verify.sh`、公网 `.186/.185=200`、未知版 `=426` 通过。生产 release 保持 `cfa934d1`/schema 63，未备份、迁移或部署应用；未提审/正式发布。
+
+## 2026-09-21 账号联系方式、单环境二维码与旧邀请直接清理
+
+- 引入点：`git log -S`/`git blame` 将邀请服务初始实现定位到 `a50c4fce`、严格契约加固定位到 `cf453205`，群组码历史定位到 `4b337490`、`8ab9184b`、`6d0575d0`。本轮不是语义等价重构：用户明确接受旧正式版兼容性中断，要求删除旧邀请/授权和群组码运行时。
+- 行为变化：保留账号级手机号/短号、单环境成员绑定码和访客码；删除邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务/权限/字段。迁移 `0063` 确定性回填账号短号后删除旧短号列、`invite_tokens`、`group_code_attempts` 和群组码列/索引。顶部导航按用户反悔保持原样，二维码四字段为原生 40px/Storybook 20px。
+- 回归验证：Mini 1228 通过/16 跳过；根 Vitest 1296 通过/441 跳过；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；typecheck、lint、format、build、Storybook、契约生成、Mini production verify/CI dry-run/包体审计通过。运行时残留扫描不含旧邀请/群组码/双码符号。
+- 集成排障：工作流集成最初 500，根因是当前源码 schema 已删除 `group_code`，但复用依赖的 `@schedule/database/dist` 仍为旧产物并继续插入该列；重建仓库内 database/contracts/client-core 产物后，同一失败用例转绿且全套 94/94。临时诊断处理器已移除，没有改变生产错误语义。
+- 运行/浏览器验证：`pnpm smoke:browser` 已实际运行并通过登录、管理员、成员、访客密钥和访问记录。测试期间只对本地合成 `local-admin` 临时赋开发者标记，`finally` 恢复为 0；临时 `.env` 硬链接和 API/Web 服务均已移除/停止。提交前继续运行 `pnpm smoke:check-core`。
+- 微信开发者工具：skill 版本一致且登录有效；当前工作树模拟器刷新成功、Console 错误筛查为空、二维码面板 WXML/WXSS 编译通过，ignored 截图位于 `runtime/audit/legacy-cleanup-20260921/workbench.png`。这些是模拟器/编译证据，不是小米 14 扫码验收。
+- 发布门禁排障：首次 `pnpm ecs:package` 在本地、远端写入前因 `ecs-schema-compatibility.mjs` 仍只认可 schema 62 而失败。新增用例先在旧实现 3 项失败，随后把 release 兼容范围收窄为 63–63；`ecs-verify.sh` 新增 schema 63 最终结构检查，并让备份表计数只接受迁移前 56 或迁移后 54、拒绝部分删除的 55。发布/回滚相关 52/52 和 Bash `-n` 通过。
+
 ## 2026-09-13 Feedback24 与 DOCX 累计合并
 
 - 运行/浏览器验证：pnpm smoke:browser 已实际运行；warm槽未启动`localhost:5173`，返回`ERR_CONNECTION_REFUSED`，不记浏览器通过。累计候选完整静态、Node与Mini production验证通过，小米14仍待体验版验收。
@@ -3072,3 +3137,39 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 两旧夹具在 HEAD 60dda267 上也失败：p6-runtime 仍向新签名传 holiday payload，workbench-runtime 把非月份初始化请求算作邻月。修正夹具后 48 项通过，保留原权限/隔离/先显示当前月断言。父源码还观测旧慢偏好用例失败，当前代码通过。
 - 运行/浏览器验证：pnpm smoke:check-core 通过，本批未触及规定 Web/契约核心路径。API 本地真实 HTTP 流联调通过；Agent DevTools 3.17.3 实收两个分块（9ms/912ms），不代表小米 14 通过。
 - 交付：应用 ebcea83e / 候选 bc5fc307 已推送并部署，备份 1fb654a7-c6d8-497a-a6ec-6c421f86dfa0 已校验，schema 62；体验版 .181 已上传及只增放行，保留 .180。完整服务器/版本验证通过，身份与测量边界详见本轮审计交付记录。唯一下一任务为小米 14 同构建复核。
+## 2026-09-21 个人联系方式、单环境二维码与访客审计
+
+- 用户撤回顶部导航改版，原生与 Storybook 均恢复原导航和页面标题；只保留业务文案更新。二维码四字段由初稿 50px 收至原生 40px、Storybook 20px。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因候选槽未启动默认 `localhost:5173` 而 `ERR_CONNECTION_REFUSED`；启动当前源码本地 API/Web 后，发现既有 `local-admin` 夹具缺开发者管理员标记。最终用 ignored `runtime/smoke` 适配器执行原 `scripts/smoke-browser.mjs` 全流程，登录、管理员、成员、访客密钥及访问记录通过且无浏览器错误；适配器在 `finally` 恢复本地合成管理员标记，两个临时服务已停止。
+- 生产：用户明确要求直接删除旧正式版兼容。备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 的记录、文件大小和 SHA-256 一致；`cfa934d1` 已部署为 schema 63，完整 verifier 通过。旧邀请/群组码/双码端点 404，新单环境端点未登录 401。
+- 体验版血缘：首次上传在版本分配前发现最新累计 `.184@91b19bcf` 不是候选祖先，门禁停止且未占号。对比确认 `.184` 相对共同基线只含 Mini selector/滚动安全区与文档；以 merge 保留其全部功能，并将已改名的二维码面板“绑定对象”同步迁移到共享 selector，不恢复邀请生成能力。
+- 累计合并验证：Mini 全量 179 文件通过/2 跳过、1241 项通过/16 跳过；production verify 总包 4563508 B、主包 1743398 B，source/output Worklet=0；lint、format、`pnpm smoke:check-core`、diff check、CI dry-run 全绿，dry-run Manifest=`2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。下一步仅建立累计 checkpoint、冻结上传并追加 allowlist。
+- 上传血缘 RED：累计 checkpoint `b45bbbe0` 冻结后，真实上传在版本分配和平台写入前因 `5285dd1` 等价证明失配安全停止，未占号。`git diff bc5fc307..b45bbbe0 -- apps/miniprogram/src/pages/workbench/index.ts` 证明受保护页只有组织工具 handler `handleOpenInviteVisitor`→`handleOpenQrVisitor` 与目标页 `/invite-visitor/`→`/qr-visitor/` 两项对应改动；日历导航、swiper、locate、scroll、图标几何与动效均未变化。按发布陷阱记录刷新该文件 canonical blob，并以独立 `chore(release)` checkpoint 重跑血缘门禁，不绕过检查器。
+- 交付：`cbe19af5` 已推送并上传体验版 `0.1.0-p10.20260922.185`（production，232 代码文件，ZIP 2646093 B，Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`）；远端不可变 tag、allocation、manifest 与 receipt 均绑定该 SHA/Manifest。可信 allowlist `ensure` 只追加 `.185` 并保留 `.184`，独立 verify、完整 `ecs-verify.sh` 与公网 `.185/.184=200`、未知版=426 通过；生产 release 仍为 `cfa934d1`/schema 63，未重复部署或迁移。未提审、未正式发布；唯一下一任务为小米 14 `.185@cbe19af5` 同构建复核。
+
+## 2026-09-20 手动排班模板控件换行错乱
+
+- 现象：模板区六项在当前宽度形成 2+1+1+2，而不是指定的三行两列。`git log -S`/`blame` 定位到 `50744302` 引入岗位 40%/日期 60% 的自由换行布局，`697795eb` 再把结束日期加入同一容器后暴露回归。
+- RED→GREEN：先在 `manual-schedule-page.test.mjs` 增加固定两列轨道断言，旧实现失败；实现后该文件 8/8，与 WebView-only/thin-page 合计 14/14。行为变化仅为模板控件几何，字段顺序、事件、禁用态、业务逻辑与调用次数不变。
+- 修复取舍：最初尝试显式三层行容器，但 Mini verify 把矩阵节点下界从 1507 测为 1510，违反 no-growth 门禁，已撤销且未进入最终 diff。最终在原六节点上使用 WebView CSS Grid `repeat(2, minmax(0, 1fr))`，删除 40%/60%/50% 遗留宽度，节点仍为 1507。
+- 验证：独立几何脚本在 320/390 宽度测得每行同顶线、两列分别严格 132px/163px、三行且无横向溢出；Mini production verify 通过，总包 4615678 B，WebView-only 且 source/output Worklet=0。Agent 开发者工具 WXML/WXSS 编译及打开 `subpackages/scheduling/pages/manual/index` 成功；生产能力门禁按设计拒绝 `version=local`，页面停在 loading，CLI 的 `setData` JSON 参数又被解析器拒绝，故没有模拟器布局截图结论，更没有小米 14 验收结论。
+
+## 2026-09-20 选择器长列表末项越界与原生 picker 归零
+
+- 现象与引入点：用户截图确认末项侵入圆角同时发生在向上、向下展开。`git log -S`/`blame` 定位共享 selector 的带 padding 滚动视口由 `6d0575d0` 引入；`.182` 的 `f3d37f6d` 只增加动态 `max-height`。邀请、补录与时间原生 picker 分别来自 `ddd5c107`、`38233039`、`27992c75` 等历史实现。
+- RED→GREEN：先新增共享内容盒、原生零计数、迁移调用点、直接页面组件注册、time 模式单次确认/取消零事件与边界传递断言，旧实现 4 项失败；实现后全部通过。开发者工具另发现群组设置自 `70f9a98f` 起存在同节点 `wx:else`+`wx:for` 的 WXML 编译错误，先用回归锁定，再以 `block wx:else` 等价包裹修复。
+- 行为变化：滚动视口改为 `overflow:hidden`，内层内容盒承载 6px 安全区；15 个直接页面 selector 与 12 个工作流 selector 均使用真实滚动边界。5 个原生列表和 4 个原生时间入口迁移到共享组件，源码 `<picker>` 归零。列表仍发送一次数值索引；时间仍发送一次 `HH:mm`，取消不发送；业务 handler、dataset、权限和网络调用不变。
+- 运行/浏览器验证：Mini 全量 178 文件通过/2 跳过、1244 项通过/16 跳过；typecheck、lint、format、`pnpm smoke:check-core`、production verify、source/package/determinism/CI dry-run 全绿。开发者工具 390×844 / 基础库 3.17.2 / WebView 下，向上与向下长列表滚到底均保留底部安全区，`08:05` 时间 Sheet 正确定位，目标 Console 无 error；截图存于 ignored `runtime/audit/picker-unification-20260920/`。小米 14 尚未验收。
+
+## 2026-09-25 累计体验版候选血缘合并
+
+- 合并 `4eceafac` 与已上传 `.194@a83be6a4`；预览组件保留周视图及原有月历面板类型，手排 WXML 同时保留新版格式与 `view-mode` 绑定，补录整月读取与岗位过滤保留。
+- 运行/浏览器验证：`pnpm smoke:browser` 已执行；候选槽未启动 `localhost:5173`，登录页导航返回 `ERR_CONNECTION_REFUSED`，不计浏览器通过。合并前 `.194` 的核心链路通过完整 `pnpm verify`，本候选另完成完整 `pnpm verify`；原生小米 14 仍待同构建证据。
+
+## 2026-09-23 手动排班预览对照与访客页面会话去重
+
+- 引入点：模板 DELETE=`eacfd752`；草稿批次预览=`50744302`；共享节假日胶囊=`e40c4f92`；访客逐请求审计=`4b337490`，五个月读取由后续日历预取放大。完整语义审计和 RED→GREEN 见 [本轮记录](../audit/manual-preview-visitor-followup-20260923.md)。
+- 行为变化：DELETE 显式 `{}`；草稿仅按可见三月窗口叠加同岗位已有排班，已有嫩灰、本次彩色且无图例；compact 专属小尺寸；新 Mini 以可选 UUID `visitId` 让同一页面实例只产生一条审计，旧客户端仍逐请求记录。无 schema 迁移，不清理历史记录。
+- 运行/浏览器验证：`pnpm smoke:browser` 首轮因默认 5173 未启动返回 `ERR_CONNECTION_REFUSED`，不计通过；以当前源码 API 3105/Web 4175 和本地开发认证重跑原脚本，登录、管理员、成员、访客 vkey 与访问记录全流程通过且无浏览器错误，合成管理员标记恢复，服务停止。`pnpm smoke:check-core` 随后通过。
+- 生产与体验交付：checkpoint `c6c4fcd2` 已推送；备份 `2432fa5e-bb1e-4b09-ad3e-40da590350b7` 的记录、物理大小和 SHA-256 一致后部署 `c6c4fcd2`/schema 63，完整 verifier 通过。锁内动态分配并上传 `.191@c6c4fcd2`（production，Manifest `0b7a8161…8c46`），远端 tag/receipt 身份一致；可信 allowlist `ensure` 只追加 `.191`，独立 verify、ECS verifier 与公网 `.191/.190=200`、未知版 426 通过。
+- 开发者工具复核：同一 `.191` 构建的能力请求和一次性预览均为 200，页面进入预览态，已有排班嫩灰且没有新增图例，Console error/fail 为空。快照没有本次班次，彩色草稿与 compact 节假日仍以自动化为证；含人员姓名的临时预览截图核对后删除。模拟器不等于小米 14，未提审、未正式发布。

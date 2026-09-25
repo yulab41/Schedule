@@ -54,12 +54,18 @@
             </view>
 
             <view class="field-grid">
-              <view class="template-field"><ui-selector class="manual-picker" field-label="排班模板" title="排班模板" options="{{templateOptions}}" selected-index="{{templateIndex}}" display-value="{{templateLabel}}" disabled="{{isBusy}}" bindchange="handleTemplateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
-              <view class="role-field"><ui-selector class="manual-picker" field-label="排班岗位" title="排班岗位" options="{{roleOptions}}" selected-index="{{roleIndex}}" display-value="{{scheduleRoleName}}" disabled="{{isBusy}}" bindchange="handleRoleChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
-              <view class="date-field"><ui-date-picker class="manual-picker" field-label="开始日期" mode="date" title="开始日期" value="{{startDate}}" display-value="{{startDateState === 'loading' ? '正在读取…' : startDate || '请选择日期'}}" disabled="{{isBusy}}" bindchange="handleStartDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
-              <view class="date-field"><ui-date-picker class="manual-picker" field-label="结束日期" mode="date" title="结束日期" value="{{endDate}}" display-value="{{endDate || '请选择日期'}}" disabled="{{isBusy || startDateState !== 'ready'}}" bindchange="handleEndDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
-              <view class="cycle-field field-control" hover-class="is-pressed" aria-role="button" aria-label="周期天数" aria-disabled="{{isBusy}}" bindtap="handleOpenCyclePicker"><text>周期天数</text><text class="field-value">{{cycleDays}} 天</text></view>
-              <view class="members-field"><ui-selector class="manual-picker" field-label="值班人员" title="值班人员（最多20人）" multiple="{{true}}" options="{{memberSelectOptions}}" display-value="{{memberCount}} 人" disabled="{{isBusy}}" bindchange="handleMembersChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              <view class="field-row template-role-row">
+                <view class="template-field"><ui-selector class="manual-picker" field-label="排班模板" title="排班模板" options="{{templateOptions}}" selected-index="{{templateIndex}}" display-value="{{templateLabel}}" disabled="{{isBusy}}" placement-boundary="{{pickerBoundary}}" bindchange="handleTemplateChange" bindoptionaction="handleTemplateOptionAction" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+                <view class="role-field"><ui-selector class="manual-picker" field-label="排班岗位" title="排班岗位" options="{{roleOptions}}" selected-index="{{roleIndex}}" display-value="{{scheduleRoleName}}" disabled="{{isBusy}}" placement-boundary="{{pickerBoundary}}" bindchange="handleRoleChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              </view>
+              <view class="field-row">
+                <view class="date-field"><ui-date-picker class="manual-picker" field-label="开始日期" mode="date" title="开始日期" value="{{startDate}}" display-value="{{startDateState === 'loading' ? '正在读取…' : startDate || '请选择日期'}}" disabled="{{isBusy}}" bindchange="handleStartDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+                <view class="date-field"><ui-date-picker class="manual-picker" field-label="结束日期" mode="date" title="结束日期" value="{{endDate}}" display-value="{{endDate || '请选择日期'}}" disabled="{{isBusy || startDateState !== 'ready'}}" bindchange="handleEndDateChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              </view>
+              <view class="field-row">
+                <view class="cycle-field field-control" hover-class="is-pressed" aria-role="button" aria-label="周期天数" aria-disabled="{{isBusy}}" bindtap="handleOpenCyclePicker"><text>周期天数</text><text class="field-value">{{cycleDays}} 天</text></view>
+                <view class="members-field"><ui-selector class="manual-picker" field-label="值班人员" title="值班人员（最多20人）" multiple="{{true}}" options="{{memberSelectOptions}}" display-value="{{memberCount}} 人" disabled="{{isBusy}}" placement-boundary="{{pickerBoundary}}" bindchange="handleMembersChange" bindpickerrequestopen="handlePickerRequestOpen" /></view>
+              </view>
             </view>
           </view>
 
@@ -88,14 +94,26 @@
               <view id="matrix-touch-surface" class="matrix-pan-surface" style="height:{{matrixViewportHeight}}px" aria-label="手动排班矩阵" matrix-config="{{matrixGestureConfig}}" change:matrix-config="{{matrixGesture.configure}}" bindtouchstart="{{matrixGesture.touchStart}}" bindtouchmove="{{matrixGesture.touchMove}}" bindtouchend="{{matrixGesture.touchEnd}}" bindtouchcancel="{{matrixGesture.touchCancel}}">
                 <view class="matrix-date-viewport matrix-dates">
                   <view id="matrix-date-track" class="matrix-date-content" style="width:{{contentWidth}}px">
-                    <view class="date-header-row"><view class="member-header-spacer"></view><view wx:for="{{columns}}" wx:key="cycleDay" class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"><text class="date-value">{{item.dateLabel}}</text><text class="weekday-value">{{item.weekdayLabel}}</text></view></view>
-                    <view class="holiday-header-row" aria-label="节假日摘要"><view class="member-header-spacer holiday-member-spacer"></view><view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary"><text wx:if="{{item.holidayLabel}}" class="holiday-name">{{item.holidayLabel}}</text><text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text></view></view>
+                    <view class="date-header-row"
+                      ><view class="member-header-spacer"></view><view wx:for="{{columns}}" wx:key="cycleDay" class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"><text class="date-value">{{item.dateLabel}}</text><text class="weekday-value">{{item.weekdayLabel}}</text></view></view
+                    >
+                    <view class="holiday-header-row" aria-label="节假日摘要"
+                      ><view class="member-header-spacer holiday-member-spacer"></view><view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary"><text wx:if="{{item.holidayLabel}}" class="holiday-name">{{item.holidayLabel}}</text><text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text></view></view
+                    >
                   </view>
                 </view>
                 <view class="matrix-body-viewport matrix-body" style="height:{{matrixBodyViewportHeight}}px">
-                  <view id="matrix-body-track" class="matrix-body-track"><view wx:for="{{rows}}" wx:key="membershipId" wx:for-item="row" class="matrix-row" style="width:{{contentWidth}}px"><view class="member-spacer"></view><view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot manual-schedule-cell {{cell.isSelected ? 'is-selected' : ''}} {{cell.isStale ? 'is-stale' : ''}}" hover-class="is-pressed" hover-start-time="0" hover-stay-time="70" aria-role="button" aria-label="{{cell.ariaLabel}}" aria-pressed="{{cell.isSelected}}" aria-disabled="{{cell.isStale}}" data-column-index="{{cell.columnIndex}}" data-key="{{cell.key}}" data-row-index="{{cell.rowIndex}}" bindtap="handleCellTap"><text wx:if="{{cell.abbreviation}}" class="cell-shift" style="background-color:{{cell.color}};color:{{cell.textColor}}">{{cell.abbreviation}}</text><text wx:else class="cell-empty">—</text><text wx:if="{{cell.isStale}}" class="stale-badge">失效</text></view></view></view>
+                  <view id="matrix-body-track" class="matrix-body-track"
+                    ><view wx:for="{{rows}}" wx:key="membershipId" wx:for-item="row" class="matrix-row" style="width:{{contentWidth}}px"
+                      ><view class="member-spacer"></view><view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot manual-schedule-cell {{cell.isSelected ? 'is-selected' : ''}} {{cell.isStale ? 'is-stale' : ''}}" hover-class="is-pressed" hover-start-time="0" hover-stay-time="70" aria-role="button" aria-label="{{cell.ariaLabel}}" aria-pressed="{{cell.isSelected}}" aria-disabled="{{cell.isStale}}" data-column-index="{{cell.columnIndex}}" data-key="{{cell.key}}" data-row-index="{{cell.rowIndex}}" bindtap="handleCellTap"><text wx:if="{{cell.abbreviation}}" class="cell-shift" style="background-color:{{cell.color}};color:{{cell.textColor}}">{{cell.abbreviation}}</text><text wx:else class="cell-empty">—</text><text wx:if="{{cell.isStale}}" class="stale-badge">失效</text></view></view
+                    ></view
+                  >
                 </view>
-                <view class="matrix-member-overlay matrix-members" aria-label="值班人员表头"><view id="matrix-member-track" class="matrix-member-track"><view wx:for="{{rows}}" wx:key="membershipId" class="member-name"><text>{{item.realName}}</text><text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text></view></view></view>
+                <view class="matrix-member-overlay matrix-members" aria-label="值班人员表头"
+                  ><view id="matrix-member-track" class="matrix-member-track"
+                    ><view wx:for="{{rows}}" wx:key="membershipId" class="member-name"><text>{{item.realName}}</text><text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text></view></view
+                  ></view
+                >
                 <view class="matrix-corner"><view class="corner-member">值班人员 ↓</view><view class="corner-holiday">节假日</view></view>
               </view>
             </view>
@@ -105,13 +123,26 @@
 
         <block wx:elif="{{state === 'preview'}}">
           <view class="section-card range-card">
-            <view class="section-heading"><view><text class="section-kicker">应用范围</text><text class="section-title">{{previewDayCount}} 天排班预览</text></view><text class="range-days">含首尾 {{previewDayCount}} 天</text></view>
+            <view class="section-heading"
+              ><view><text class="section-kicker">应用范围</text><text class="section-title">{{previewDayCount}} 天排班预览</text></view
+              ><text class="range-days">含首尾 {{previewDayCount}} 天</text></view
+            >
             <view class="date-range"><text>{{previewStartLabel}}</text><text>→</text><text>{{previewEndLabel}}</text></view>
             <text class="range-note">{{previewCycleNote}}</text>
           </view>
-          <view class="preview-metrics"><view><text>班次</text><text class="metric-value">{{previewAssignmentCount}}</text></view><view><text>空缺</text><text class="metric-value {{previewVacancyCount ? 'is-danger' : ''}}">{{previewVacancyCount}}</text></view><view><text>连续值班</text><text class="metric-value is-warning">{{previewWarningCount}}</text></view></view>
-          <view wx:if="{{previewConflictCount || previewVacancyCount}}" class="risk-panel is-blocking"><view class="risk-heading"><text>必须处理</text><text>{{previewConflictCount}} 个冲突 · {{previewVacancyCount}} 个空缺</text></view><text>存在阻断项时不能直接保存草稿，请返回矩阵修改。</text></view>
-          <view wx:if="{{previewWarningCount}}" class="risk-panel"><view class="risk-heading"><text>需要确认</text><text>连续值班风险</text></view><text>请核对连续值班时长和人员安排。</text></view>
+          <view class="preview-metrics"
+            ><view><text>班次</text><text class="metric-value">{{previewAssignmentCount}}</text></view
+            ><view><text>空缺</text><text class="metric-value {{previewVacancyCount ? 'is-danger' : ''}}">{{previewVacancyCount}}</text></view
+            ><view><text>连续值班</text><text class="metric-value is-warning">{{previewWarningCount}}</text></view></view
+          >
+          <view wx:if="{{previewConflictCount || previewVacancyCount}}" class="risk-panel is-blocking"
+            ><view class="risk-heading"><text>必须处理</text><text>{{previewConflictCount}} 个冲突 · {{previewVacancyCount}} 个空缺</text></view
+            ><text>存在阻断项时不能直接保存草稿，请返回矩阵修改。</text></view
+          >
+          <view wx:if="{{previewWarningCount}}" class="risk-panel"
+            ><view class="risk-heading"><text>需要确认</text><text>连续值班风险</text></view
+            ><text>请核对连续值班时长和人员安排。</text></view
+          >
           <view class="preview-calendar-card"><schedule-calendar-preview view-mode="{{previewView}}" holidays="{{previewHolidays}}" restrict-to-proposed="{{true}}" assignments="{{previewAssignments}}" start-date="{{previewStartDate}}" bindmonthbrowse="handlePreviewMonthBrowse" /></view>
           <ui-checkbox wx:if="{{previewWarningCount > 0}}" checked="{{riskAccepted}}" label="我已核对空缺和连续值班风险" bindchange="handleRiskToggle"></ui-checkbox>
         </block>
@@ -138,8 +169,9 @@
                   </view>
                   <view wx:if="{{batch.isBlocked}}" class="blocker-panel">
                     <view class="release-callout is-warning">{{releaseBlockedMessage}}</view>
-                    <view wx:if="{{releaseBlockedNeedsReplace}}" class="month-chips"><text wx:for="{{batch.months}}" wx:key="*this" class="month-chip is-conflict">{{item}}</text></view>
-                    <ui-checkbox wx:if="{{releaseBlockedNeedsReplace}}" checked="{{releaseReplaceAccepted}}" label="覆盖已发布排班（替换同岗位同月份的旧排班）" data-field="replace" bindchange="handleReleaseBlockedToggle"></ui-checkbox>
+                    <view wx:if="{{releaseBlockedNeedsReplace}}" class="month-chips"><text wx:for="{{releaseConflictingMonths}}" wx:key="*this" class="month-chip is-conflict">{{item}}</text></view>
+                    <text wx:if="{{releaseConflictingDatesLabel}}">重复日期：{{releaseConflictingDatesLabel}}</text>
+                    <ui-checkbox wx:if="{{releaseBlockedNeedsReplace}}" checked="{{releaseReplaceAccepted}}" label="替换重复日期的全部旧班次，保留其他日期" data-field="replace" bindchange="handleReleaseBlockedToggle"></ui-checkbox>
                     <view wx:if="{{releaseWorkflowImpacts.length}}" class="workflow-impact-list">
                       <text class="impact-heading">覆盖后将撤销以下已生效或处理中事件：</text>
                       <text wx:for="{{releaseWorkflowImpacts}}" wx:key="key">{{item.summary}}</text>

@@ -601,10 +601,29 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 62 ]; then
     exit 1
   }
 fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 63 ]; then
+  ACCOUNT_SHORT_PHONE_VISITOR_CONTEXT_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"users\" AND column_name IN (\"short_phone\",\"short_phone_updated_at\")), (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"visitor_access_logs\" AND column_name IN (\"wechat_openid\",\"client_context_version\",\"client_context\")), ((SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (\"invite_tokens\",\"group_code_attempts\"))+(SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name=\"group_member_contacts\" AND column_name=\"short_phone\") OR (table_name=\"groups\" AND column_name=\"group_code\")))+(SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"groups\" AND index_name=\"groups_group_code_unique\"))"')"
+  [ "$ACCOUNT_SHORT_PHONE_VISITOR_CONTEXT_SCHEMA" = $'2\t3\t0' ] || {
+    echo "[verify] 错误：账号短号、访客上下文或邀请/群组码退出结构不正确。" >&2
+    exit 1
+  }
+fi
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 64 ]; then
+  ACTIVE_SHIFT_SLOT_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"shift_assignments\" AND column_name=\"active_slot_position\" AND extra LIKE \"%STORED GENERATED%\"), (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"shift_assignments\" AND index_name=\"shift_assignments_slot_unique\")"')"
+  [ "$ACTIVE_SHIFT_SLOT_SCHEMA" = $'1\t3' ] || {
+    echo "[verify] 错误：已删除班次的槽位未从唯一键排除。" >&2
+    exit 1
+  }
+fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 62 ]; then
+  if [ "$schema" -ge 63 ]; then
+    # 0063 removes two backed-up legacy tables; accept the pre-migration or fresh backup.
+    [ "$tables" = "54" ] || [ "$tables" = "56" ]
+  elif [ "$schema" -ge 62 ]; then
     # 0062 adds the calendar change ledger; accept the pre-migration or fresh backup.
     [ "$tables" = "55" ] || [ "$tables" = "56" ]
   elif [ "$schema" -ge 61 ]; then

@@ -67,13 +67,16 @@
 
           <view class="selector-field">
             <ui-selector
+              class="exports-picker"
               field-label="文件类型"
               title="文件类型"
               options="{{exportTypeOptions}}"
               selected-index="{{exportType === 'statistics' ? 1 : 0}}"
               display-value="{{exportType === 'statistics' ? '统计' : '排班'}}"
               disabled="{{state === 'waiting'}}"
+              placement-boundary="{{pickerBoundary}}"
               bindchange="handleTypeChange"
+              bindpickerrequestopen="handlePickerRequestOpen"
             />
           </view>
 
@@ -132,25 +135,31 @@
 
           <view class="selector-field">
             <ui-selector
+              class="exports-picker"
               field-label="排班岗位"
               title="排班岗位（可多选）"
               multiple="{{true}}"
               options="{{roleOptions}}"
               display-value="{{optionsLoading ? '正在读取…' : roleSummary}}"
               disabled="{{optionsLoading || state === 'waiting' || format === 'docx'}}"
+              placement-boundary="{{pickerBoundary}}"
               bindchange="handleRoleChange"
+              bindpickerrequestopen="handlePickerRequestOpen"
             />
           </view>
 
           <view class="selector-field">
             <ui-selector
+              class="exports-picker"
               field-label="成员"
               title="成员（可多选）"
               multiple="{{true}}"
               options="{{memberOptions}}"
               display-value="{{optionsLoading ? '正在读取…' : memberSummary}}"
               disabled="{{optionsLoading || state === 'waiting' || format === 'docx'}}"
+              placement-boundary="{{pickerBoundary}}"
               bindchange="handleMemberChange"
+              bindpickerrequestopen="handlePickerRequestOpen"
             />
           </view>
 

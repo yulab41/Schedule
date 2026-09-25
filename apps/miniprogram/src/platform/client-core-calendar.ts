@@ -10,7 +10,7 @@ import {
   createInsightsReadClient,
   createP9InsightsActionsClient,
   createHttpClientError,
-  createInviteVisitorWriteClient,
+  createQrVisitorWriteClient,
   createInvalidResponseError,
   createManualScheduleClient,
   createNotificationPreferencesClient,
@@ -34,7 +34,7 @@ import {
   type GroupMobilePhoneConsentClient,
   type InsightsReadClient,
   type P9InsightsActionsClient,
-  type InviteVisitorWriteClient,
+  type QrVisitorWriteClient,
   type ManualScheduleClient,
   type NotificationPreferencesClient,
   type DirectoryReadClient,
@@ -358,11 +358,11 @@ export function createRuntimeSchedulingConfigWriteClient(
   );
 }
 
-export function createRuntimeInviteVisitorWriteClient(
+export function createRuntimeQrVisitorWriteClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
-): InviteVisitorWriteClient {
-  return createInviteVisitorWriteClient(
+): QrVisitorWriteClient {
+  return createQrVisitorWriteClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
   );
 }
@@ -457,10 +457,9 @@ function resolveOrganizationReadCapability(
     case 'organization.contacts':
     case 'organization.groups':
     case 'organization.members':
-    case 'organization.resolve-invite':
     case 'organization.scheduling-config':
       return 'core';
-    case 'organization.group-qr':
+    case 'organization.visitor-qr':
       return 'guest';
     default:
       return 'organization';

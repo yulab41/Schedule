@@ -42,6 +42,13 @@ describe('guest calendar client', () => {
     await client.getGroupGuestCalendar('group/1', '2026-12');
     await client.resolveVisitor('a'.repeat(32));
     await client.getGuestCalendar('group/1', '2027-01', 'a'.repeat(32));
+    await client.getGuestCalendarDetailed('group/1', {
+      businessMonth: '2027-02',
+      clientContext: { version: 1 },
+      loginCode: 'login-code',
+      visitId: '11111111-1111-4111-8111-111111111111',
+      visitorKey: 'b'.repeat(32),
+    });
     expect(calls).toEqual([
       {
         auth: 'bearer',
@@ -60,6 +67,18 @@ describe('guest calendar client', () => {
         method: 'GET',
         path: `/guest/groups/group%2F1/calendar?businessMonth=2027-01&visitorKey=${'a'.repeat(32)}`,
         body: undefined,
+      },
+      {
+        auth: 'public',
+        method: 'POST',
+        path: '/guest/groups/group%2F1/calendar/read',
+        body: {
+          businessMonth: '2027-02',
+          clientContext: { version: 1 },
+          loginCode: 'login-code',
+          visitId: '11111111-1111-4111-8111-111111111111',
+          visitorKey: 'b'.repeat(32),
+        },
       },
     ]);
     expect(calendarReadEndpoints.guestHolidays.auth).toBe('public');

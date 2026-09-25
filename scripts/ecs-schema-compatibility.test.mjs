@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('persistent visitor QR release compatibility', () => {
+describe('active-only shift slot release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,10 +10,10 @@ describe('persistent visitor QR release compatibility', () => {
     })),
   });
 
-  it('requires the group calendar change ledger', () => {
-    expect(releaseSchemaCompatibility(journal(62, '0062_group_calendar_changes'))).toEqual({
-      databaseSchemaMin: '62',
-      databaseSchemaMax: '62',
+  it('requires the active-only shift slot migration', () => {
+    expect(releaseSchemaCompatibility(journal(64, '0064_active_shift_slot'))).toEqual({
+      databaseSchemaMin: '64',
+      databaseSchemaMax: '64',
     });
   });
 
@@ -35,6 +35,10 @@ describe('persistent visitor QR release compatibility', () => {
       journal(61, '0061_unknown'),
       journal(61, '0061_group_visitor_qr_assets'),
       journal(62, '0062_unknown'),
+      journal(62, '0062_group_calendar_changes'),
+      journal(63, '0063_unknown'),
+      journal(63, '0063_account_short_phone_visitor_context'),
+      journal(64, '0064_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

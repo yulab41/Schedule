@@ -43,13 +43,11 @@ describeWithDatabase('immutable schedule events and security audits', () => {
     });
     await client.database.insert(groups).values([
       {
-        groupCode: '1234',
         id: primaryGroupId,
         name: 'Primary event group',
         ownerUserId,
       },
       {
-        groupCode: '5678',
         id: otherGroupId,
         name: 'Other event group',
         ownerUserId,
@@ -103,7 +101,7 @@ describeWithDatabase('immutable schedule events and security audits', () => {
     );
     const auditLogId = await withTransaction(client, (transaction) =>
       auditWriter.append(transaction, {
-        action: 'group_code_regenerated',
+        action: 'member_contact_updated',
         actorUserId: ownerUserId,
         groupId: primaryGroupId,
         metadata: { source: 'test' },
@@ -127,7 +125,7 @@ describeWithDatabase('immutable schedule events and security audits', () => {
         { id: correctionId, parentEventId: eventId },
       ]),
     );
-    expect(auditLog).toEqual({ action: 'group_code_regenerated', id: auditLogId });
+    expect(auditLog).toEqual({ action: 'member_contact_updated', id: auditLogId });
     expect(Object.getOwnPropertyNames(EventWriter.prototype).sort()).toEqual([
       'append',
       'constructor',

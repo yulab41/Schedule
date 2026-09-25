@@ -1,6 +1,11 @@
 <wxs module="sheetGesture" src="./drag-dismiss.wxs"></wxs>
 
-<view wx:if="{{visible}}" class="ui-sheet__layer" catchtouchmove="preventTouchMove">
+<view
+  wx:if="{{visible || keepAlive}}"
+  class="ui-sheet__layer {{visible ? 'is-visible' : 'is-hidden'}}"
+  aria-hidden="{{!visible}}"
+  catchtouchmove="preventTouchMove"
+>
   <view
     id="ui-sheet-scrim"
     class="ui-sheet__scrim"

@@ -82,30 +82,30 @@ describe('P8 organization route operation and version boundary', () => {
     await app.close();
   });
 
-  it('creates without a code and ignores only a retired legacy code field', async () => {
+  it('creates without a code and rejects retired compatibility fields', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/groups',
+      headers: { 'idempotency-key': firstOperationId },
+      payload: { name: 'Synthetic team' },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(calls.createGroup!.mock.calls.at(-1)?.at(-1)).toEqual({
+      name: 'Synthetic team',
+      operationId: firstOperationId,
+    });
     for (const payload of [
-      { name: 'Synthetic team' },
       { name: 'Synthetic team', groupCode: '1234' },
+      { name: 'Synthetic team', grantAdmin: true },
     ]) {
-      const response = await app.inject({
+      const invalid = await app.inject({
         method: 'POST',
         url: '/groups',
         headers: { 'idempotency-key': firstOperationId },
         payload,
       });
-      expect(response.statusCode).toBe(201);
-      expect(calls.createGroup!.mock.calls.at(-1)?.at(-1)).toEqual({
-        name: 'Synthetic team',
-        operationId: firstOperationId,
-      });
+      expect(invalid.statusCode).toBe(400);
     }
-    const invalid = await app.inject({
-      method: 'POST',
-      url: '/groups',
-      headers: { 'idempotency-key': firstOperationId },
-      payload: { name: 'Synthetic team', grantAdmin: true },
-    });
-    expect(invalid.statusCode).toBe(400);
   });
 
   it('retires code routes without calling either legacy service', async () => {
@@ -172,7 +172,7 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
     payload: Readonly<Record<string, unknown>> = {},
   ) => ({ headers, method, payload: { ...payload, ...operation }, url });
   return [
-    request('POST', '/groups', { groupCode: '2608', name: '急诊科' }),
+    request('POST', '/groups', { name: '急诊科' }),
     request('POST', `/groups/${groupId}/join-guest`),
     request('POST', `/groups/${groupId}/leave`),
     request('POST', `/groups/${groupId}/roster-entries`, { realNames: ['林医生'] }),
@@ -203,7 +203,7 @@ function mutationRequests(headerOperationId: string | undefined, bodyOperationId
 }
 
 function group(role: 'administrator' | 'guest' | 'owner' = 'owner') {
-  return { groupCode: '2608', id: groupId, name: '急诊科', role, version: 3 };
+  return { id: groupId, name: '急诊科', role, version: 3 };
 }
 
 function member() {

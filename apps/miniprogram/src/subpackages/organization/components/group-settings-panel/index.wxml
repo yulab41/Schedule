@@ -86,20 +86,26 @@
                   <text class="preference-scope is-group">群组默认</text>
                 </view>
                 <ui-selector
+                  class="group-settings-picker"
                   title="群组默认视图"
                   options="{{groupCalendarViewOptions}}"
                   selected-index="{{groupCalendarView === 'month' ? 0 : groupCalendarView === 'week' ? 1 : groupCalendarView === 'list' ? 2 : 0}}"
                   display-value="{{groupCalendarView === 'month' ? '月视图' : groupCalendarView === 'week' ? '周视图' : groupCalendarView === 'list' ? '列表视图' : '跟随群组'}}"
+                  placement-boundary="{{pickerBoundary}}"
                   bindchange="handleGroupCalendarViewSelect"
+                  bindpickerrequestopen="handlePickerRequestOpen"
                 ></ui-selector>
                 <view class="field-block">
                   <text class="field-label">月视图默认班种</text>
                   <ui-selector
+                    class="group-settings-picker"
                     title="月视图默认班种"
                     options="{{groupCalendarShiftOptions}}"
                     selected-index="{{groupCalendarShiftIndex}}"
                     display-value="{{groupCalendarShiftOptions[groupCalendarShiftIndex].label}}"
+                    placement-boundary="{{pickerBoundary}}"
                     bindchange="handleGroupCalendarShiftChange"
+                    bindpickerrequestopen="handlePickerRequestOpen"
                   ></ui-selector>
                 </view>
                 <view
@@ -122,20 +128,26 @@
                   <text class="preference-scope">仅自己</text>
                 </view>
                 <ui-selector
+                  class="group-settings-picker"
                   title="我的默认视图"
                   options="{{memberCalendarViewOptions}}"
                   selected-index="{{memberCalendarView === 'month' ? 1 : memberCalendarView === 'week' ? 2 : memberCalendarView === 'list' ? 3 : 0}}"
                   display-value="{{memberCalendarView === 'month' ? '月视图' : memberCalendarView === 'week' ? '周视图' : memberCalendarView === 'list' ? '列表视图' : '跟随群组'}}"
+                  placement-boundary="{{pickerBoundary}}"
                   bindchange="handleMemberCalendarViewSelect"
+                  bindpickerrequestopen="handlePickerRequestOpen"
                 ></ui-selector>
                 <view class="field-block">
                   <text class="field-label">月视图默认班种</text>
                   <ui-selector
+                    class="group-settings-picker"
                     title="月视图默认班种"
                     options="{{memberCalendarShiftOptions}}"
                     selected-index="{{memberCalendarShiftIndex}}"
                     display-value="{{memberCalendarShiftOptions[memberCalendarShiftIndex].label}}"
+                    placement-boundary="{{pickerBoundary}}"
                     bindchange="handleMemberCalendarShiftChange"
+                    bindpickerrequestopen="handlePickerRequestOpen"
                   ></ui-selector>
                 </view>
                 <view
@@ -255,14 +267,14 @@
             <view wx:elif="{{memberCards.length === 0}}" class="inline-empty"
               ><text>当前群组暂无成员。</text></view
             >
-            <view
-              wx:else
-              wx:for="{{memberCards}}"
-              wx:for-item="member"
-              wx:for-index="memberIndex"
-              wx:key="id"
-              class="member-management-row"
-            >
+            <block wx:else>
+              <view
+                wx:for="{{memberCards}}"
+                wx:for-item="member"
+                wx:for-index="memberIndex"
+                wx:key="id"
+                class="member-management-row"
+              >
               <directory-entry-card
                 class="member-entry-card"
                 entry="{{member.entry}}"
@@ -318,7 +330,8 @@
                   >降为成员</view
                 >
               </view>
-            </view>
+              </view>
+            </block>
           </view>
         </view>
 
@@ -364,7 +377,7 @@
   </scroll-view>
   <ui-sheet visible="{{rosterEditorOpen}}" title="添加预设成员" close-label="取消" bindclose="handleCloseRosterEditor"><scroll-view class="member-editor-scroll" scroll-y><view class="member-editor-content">
           <text class="inline-editor-copy"
-            >每行输入一个姓名。请使用管理员提供的邀请关联成员账号。</text
+            >每行输入一个姓名。请使用管理员生成的成员绑定二维码关联账号。</text
           >
           <textarea
             class="native-textarea"

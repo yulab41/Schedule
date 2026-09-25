@@ -295,7 +295,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       .set({ status: 'suspended' })
       .where(eq(users.cloudbaseUid, 'cloudbase-suspended'));
 
-    const otherGroup = await createGroup('other-owner-token', 'Other group', '4567');
+    const otherGroup = await createGroup('other-owner-token', 'Other group');
     const crossGroupRead = await app.inject({
       headers: { authorization: 'Bearer other-owner-token' },
       method: 'GET',
@@ -396,6 +396,71 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       mobilePhone: '13800000000',
       shortPhone: '8002',
     });
+  });
+
+  it('syncs an administrator short-number update across groups and invalidates confirmation', async () => {
+    const firstGroupId = await createClaimedGroup();
+    const candidate = await getMember(firstGroupId, 'Candidate Doctor');
+    const secondGroup = await createGroup('other-owner-token', 'Second group');
+    const secondGroupId = (secondGroup.json() as { id: string }).id;
+    await insertDirectMembership(client, { groupId: secondGroupId, realName: 'Candidate Doctor' });
+
+    const initial = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { expectedVersion: 0, shortPhone: '8000' },
+      url: `/groups/${firstGroupId}/members/${candidate.id}/contact`,
+    });
+    expect(initial.statusCode, initial.body).toBe(200);
+
+    const [candidateUser] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-candidate'));
+    const [candidateSecondMembership] = await client.database
+      .select({ id: groupMemberships.id })
+      .from(groupMemberships)
+      .where(
+        and(
+          eq(groupMemberships.groupId, secondGroupId),
+          eq(groupMemberships.userId, candidateUser!.id),
+          isNull(groupMemberships.deletedAt),
+        ),
+      );
+    expect(candidateSecondMembership).toBeDefined();
+
+    const confirmed = await app.inject({
+      headers: { authorization: 'Bearer other-owner-token' },
+      method: 'PUT',
+      payload: { expectedVersion: 1, isConfirmed: true },
+      url: `/groups/${secondGroupId}/members/${candidateSecondMembership!.id}/contact`,
+    });
+    expect(confirmed.statusCode, confirmed.body).toBe(200);
+    const firstVersion = (initial.json() as { version: number }).version;
+    const administratorUpdate = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { expectedVersion: firstVersion, shortPhone: '8001' },
+      url: `/groups/${firstGroupId}/members/${candidate.id}/contact`,
+    });
+    expect(administratorUpdate.statusCode, administratorUpdate.body).toBe(200);
+
+    const secondContacts = await app.inject({
+      headers: { authorization: 'Bearer other-owner-token' },
+      method: 'GET',
+      url: `/groups/${secondGroupId}/contacts`,
+    });
+    expect(secondContacts.statusCode, secondContacts.body).toBe(200);
+    expect(
+      (
+        secondContacts.json() as Array<{
+          isConfirmed: boolean;
+          membershipId: string;
+          shortPhone?: string;
+          version: number;
+        }>
+      ).find((contact) => contact.membershipId === candidateSecondMembership!.id),
+    ).toMatchObject({ isConfirmed: false, shortPhone: '8001', version: 3 });
   });
 
   it('keeps the self-controlled visibility preference version-bound and rejects administrator overrides', async () => {
@@ -722,7 +787,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(revoke.statusCode, revoke.body).toBe(200);
     expect(revoke.json()).toMatchObject({ state: 'not-consented' });
 
-    const otherGroup = await createGroup('candidate-token', 'Candidate other group', '5678');
+    const otherGroup = await createGroup('candidate-token', 'Candidate other group');
     const otherGroupId = (otherGroup.json() as { id: string }).id;
     const otherStatus = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
@@ -808,7 +873,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
   });
 
   it('soft deletes a group and excludes it from subsequent group switching data', async () => {
-    const group = await createGroup('owner-token', 'Recoverable group', '5678');
+    const group = await createGroup('owner-token', 'Recoverable group');
     const groupSnapshot = group.json() as { id: string; version: number };
     const groupId = groupSnapshot.id;
 
@@ -837,7 +902,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
   });
 
   it('hides group codes from guest group summaries', async () => {
-    const group = await createGroup('owner-token', 'Guest code group', '6789');
+    const group = await createGroup('owner-token', 'Guest code group');
     const groupId = (group.json() as { id: string }).id;
 
     const joined = await app.inject({
@@ -858,7 +923,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
   });
 
   async function createClaimedGroup(): Promise<string> {
-    const group = await createGroup('owner-token', 'Primary group', '1234');
+    const group = await createGroup('owner-token', 'Primary group');
     const groupId = (group.json() as { id: string }).id;
     const roster = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -873,11 +938,11 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     return groupId;
   }
 
-  async function createGroup(token: string, name: string, groupCode: string) {
+  async function createGroup(token: string, name: string) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
   }

@@ -18,6 +18,80 @@ export function normalizeAccountMobilePhone(value: string | null): string | null
         .replaceAll(/[\s()-]/gu, '') || null;
 }
 
+export function normalizeAccountShortPhone(value: string | null): string | null {
+  return value === null ? null : value.normalize('NFKC').trim() || null;
+}
+
+/** Caller owns the transaction. Account short phone is shared by every active membership. */
+export async function setAccountShortPhone(
+  transaction: DatabaseTransaction,
+  userId: string,
+  value: string | null,
+  skipMembershipId?: string,
+): Promise<void> {
+  const [account] = await transaction
+    .select({ shortPhone: users.shortPhone })
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1)
+    .for('update');
+  if (account === undefined)
+    throw new ApiError({ code: 'NOT_FOUND', statusCode: 404, userMessage: '账号不存在。' });
+  const phone = normalizeAccountShortPhone(value);
+  if (account.shortPhone !== phone)
+    await transaction
+      .update(users)
+      .set({
+        shortPhone: phone,
+        shortPhoneUpdatedAt: new Date(),
+        version: sql`${users.version} + 1`,
+      })
+      .where(eq(users.id, userId));
+  const memberships = await transaction
+    .select({ groupId: groupMemberships.groupId, id: groupMemberships.id })
+    .from(groupMemberships)
+    .where(and(eq(groupMemberships.userId, userId), isNull(groupMemberships.deletedAt)))
+    .orderBy(asc(groupMemberships.id))
+    .for('update');
+  const touchedGroupIds = new Set<string>();
+  for (const membership of memberships) {
+    if (membership.id === skipMembershipId) continue;
+    const [contact] = await transaction
+      .select({ id: groupMemberContacts.id })
+      .from(groupMemberContacts)
+      .where(
+        and(
+          eq(groupMemberContacts.membershipId, membership.id),
+          isNull(groupMemberContacts.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (contact === undefined) {
+      await transaction.insert(groupMemberContacts).values({
+        id: randomUUID(),
+        isConfirmed: 0,
+        membershipId: membership.id,
+      });
+      touchedGroupIds.add(membership.groupId);
+    } else if (account.shortPhone !== phone) {
+      await transaction
+        .update(groupMemberContacts)
+        .set({
+          isConfirmed: 0,
+          version: sql`${groupMemberContacts.version} + 1`,
+        })
+        .where(eq(groupMemberContacts.id, contact.id));
+      touchedGroupIds.add(membership.groupId);
+    }
+  }
+  for (const touchedGroupId of touchedGroupIds)
+    await recordCalendarChange(transaction, touchedGroupId, {
+      businessMonth: null,
+      kind: 'member',
+    });
+}
+
 /** Caller owns the transaction. Lock the account before touching its contact rows. */
 export async function setAccountMobilePhone(
   transaction: DatabaseTransaction,
@@ -119,5 +193,34 @@ export async function mergeAccountMobilePhone(
     await transaction
       .update(users)
       .set({ mobilePhoneUpdatedAt: accounts[0].changedAt })
+      .where(eq(users.id, targetId));
+}
+
+/** On identity merge, preserve the newest account short phone with a stable id tie-breaker. */
+export async function mergeAccountShortPhone(
+  transaction: DatabaseTransaction,
+  sourceId: string,
+  targetId: string,
+): Promise<void> {
+  if (sourceId === targetId) return;
+  const accounts = [];
+  for (const id of [sourceId, targetId].sort()) {
+    const [row] = await transaction
+      .select({ id: users.id, phone: users.shortPhone, changedAt: users.shortPhoneUpdatedAt })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1)
+      .for('update');
+    if (row !== undefined && (row.phone !== null || row.changedAt !== null)) accounts.push(row);
+  }
+  accounts.sort(
+    (a, b) =>
+      (b.changedAt?.getTime() ?? 0) - (a.changedAt?.getTime() ?? 0) || a.id.localeCompare(b.id),
+  );
+  await setAccountShortPhone(transaction, targetId, accounts[0]?.phone ?? null);
+  if (accounts[0] !== undefined)
+    await transaction
+      .update(users)
+      .set({ shortPhoneUpdatedAt: accounts[0].changedAt })
       .where(eq(users.id, targetId));
 }

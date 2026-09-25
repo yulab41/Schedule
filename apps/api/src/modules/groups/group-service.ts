@@ -442,21 +442,8 @@ export class GroupService {
     actor: OrganizationMutationActor,
     name: string,
   ): Promise<GroupSummary> {
-    // The compatible application may precede the additive migration during a controlled rollout.
-    const [columns] = (await transaction.execute(sql`
-      SELECT IS_NULLABLE AS isNullable FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'groups' AND COLUMN_NAME = 'group_code'
-    `)) as unknown as [readonly { isNullable: string }[], unknown];
-    if (columns[0]?.isNullable !== 'YES') {
-      throw new ApiError({
-        code: 'SERVICE_UNAVAILABLE',
-        statusCode: 503,
-        userMessage: '群组创建暂不可用，请稍后重试。',
-      });
-    }
     const groupId = randomUUID();
     await transaction.insert(groups).values({
-      groupCode: null,
       id: groupId,
       name,
       ownerUserId: actor.id,

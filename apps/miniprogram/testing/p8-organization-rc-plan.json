@@ -8,7 +8,7 @@
   "routes": {
     "groupManagement": "subpackages/organization/pages/group-settings/index",
     "schedulingConfiguration": "subpackages/organization/pages/scheduling-config/index",
-    "inviteVisitor": "subpackages/organization/pages/invite-visitor/index",
+    "qrVisitor": "subpackages/organization/pages/qr-visitor/index",
     "platformAccounts": "subpackages/organization/pages/platform-accounts/index"
   },
   "roles": ["owner", "administrator", "member", "platform-admin"],
@@ -77,9 +77,9 @@
       "checks": ["shift-type", "role-members", "409-refresh", "retry-preserves-form"]
     },
     {
-      "id": "owner-admin-invite-and-visitor",
+      "id": "owner-admin-member-qr-and-visitor",
       "role": "owner-or-administrator",
-      "checks": ["invite-create", "invite-revoke", "visitor-key-rotate", "memory-only-material"]
+      "checks": ["member-qr-create", "visitor-key-rotate", "memory-only-material"]
     },
     {
       "id": "guest-qr-dual-capability",

@@ -3,10 +3,9 @@ import {
   groupCatalogListSchema,
   groupMemberContactListSchema,
   groupMemberListSchema,
-  groupQrResponseSchema,
+  currentEnvironmentQrResponseSchema,
   groupSummaryListSchema,
   platformAdminUserAccountListSchema,
-  resolveInviteResponseSchema,
   schedulingConfigSchema,
 } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
@@ -18,11 +17,10 @@ import {
   groupCatalogListDecoder,
   groupMemberContactListDecoder,
   groupMemberListDecoder,
-  groupQrResponseDecoder,
+  currentEnvironmentQrResponseDecoder,
   groupSummaryListDecoder,
   organizationReadEndpoints,
   platformAdminUserAccountListDecoder,
-  resolveInviteResponseDecoder,
   schedulingConfigReadDecoder,
 } from './organization-read-client.js';
 import type { ClientTransport } from './endpoint.js';
@@ -42,13 +40,10 @@ describe('P8 organization shared read boundary', () => {
     expect(groupMemberContactListDecoder.safeDecode(malformed).success).toBe(false);
   });
 
-  it('accepts the optional trial visitor QR returned by the API', () => {
-    const response = {
-      ...golden.groupQr,
-      trialImageBase64: golden.groupQr.imageBase64,
-    };
-    expect(groupQrResponseSchema.safeParse(response).success).toBe(true);
-    const decoded = groupQrResponseDecoder.safeDecode(response);
+  it('accepts exactly one environment-specific visitor QR', () => {
+    const response = golden.visitorQr;
+    expect(currentEnvironmentQrResponseSchema.safeParse(response).success).toBe(true);
+    const decoded = currentEnvironmentQrResponseDecoder.safeDecode(response);
     expect(decoded.success).toBe(true);
     if (decoded.success) expect(decoded.data).toBe(response);
   });
@@ -66,21 +61,15 @@ describe('P8 organization shared read boundary', () => {
     expect(organizationReadEndpoints.schedulingConfig.path({ groupId })).toBe(
       '/groups/group%20%2F%E4%B8%80/scheduling-config',
     );
-    expect(organizationReadEndpoints.groupQr.path({ groupId })).toBe(
-      '/groups/group%20%2F%E4%B8%80/group-qr',
+    expect(organizationReadEndpoints.visitorQr.path({ groupId, environment: 'trial' })).toBe(
+      '/groups/group%20%2F%E4%B8%80/visitor-qr?environment=trial',
     );
     expect(organizationReadEndpoints.platformAccounts.path({})).toBe('/platform-admin/users');
-    expect(organizationReadEndpoints.resolveInvite.body?.({ token: 'ticket /一' })).toEqual({
-      token: 'ticket /一',
-    });
     expect(
       Object.values(organizationReadEndpoints).every((endpoint) => endpoint.auth === 'bearer'),
     ).toBe(true);
-    expect(organizationReadEndpoints.resolveInvite.method).toBe('POST');
     expect(
-      Object.entries(organizationReadEndpoints)
-        .filter(([key]) => key !== 'resolveInvite')
-        .every(([, endpoint]) => endpoint.method === 'GET'),
+      Object.values(organizationReadEndpoints).every((endpoint) => endpoint.method === 'GET'),
     ).toBe(true);
   });
 
@@ -92,13 +81,12 @@ describe('P8 organization shared read boundary', () => {
       [groupMemberListSchema, groupMemberListDecoder, golden.members],
       [groupMemberContactListSchema, groupMemberContactListDecoder, golden.contacts],
       [schedulingConfigSchema, schedulingConfigReadDecoder, golden.schedulingConfig],
-      [groupQrResponseSchema, groupQrResponseDecoder, golden.groupQr],
+      [currentEnvironmentQrResponseSchema, currentEnvironmentQrResponseDecoder, golden.visitorQr],
       [
         platformAdminUserAccountListSchema,
         platformAdminUserAccountListDecoder,
         golden.platformAccounts,
       ],
-      [resolveInviteResponseSchema, resolveInviteResponseDecoder, golden.invite],
     ] as const;
 
     for (const [schema, decoder, value] of fixtures) {
@@ -128,9 +116,9 @@ describe('P8 organization shared read boundary', () => {
         { ...golden.platformAccounts, extra: true },
       ],
       [
-        resolveInviteResponseSchema,
-        resolveInviteResponseDecoder,
-        { ...golden.invite, token: 'secret' },
+        currentEnvironmentQrResponseSchema,
+        currentEnvironmentQrResponseDecoder,
+        { ...golden.visitorQr, trialImageBase64: 'legacy' },
       ],
     ] as const;
 
@@ -157,9 +145,8 @@ describe('P8 organization shared read boundary', () => {
       ['organization.members', golden.members],
       ['organization.contacts', golden.contacts],
       ['organization.scheduling-config', golden.schedulingConfig],
-      ['organization.group-qr', golden.groupQr],
+      ['organization.visitor-qr', golden.visitorQr],
       ['organization.platform-accounts', golden.platformAccounts],
-      ['organization.resolve-invite', golden.invite],
     ]);
     const request = vi.fn(async (endpoint: { readonly id: string }) => responses.get(endpoint.id));
     const transport = { request } as unknown as ClientTransport;
@@ -171,10 +158,9 @@ describe('P8 organization shared read boundary', () => {
     await expect(client.listGroupMembers('group-1')).resolves.toBe(golden.members);
     await expect(client.listGroupContacts('group-1')).resolves.toBe(golden.contacts);
     await expect(client.getSchedulingConfig('group-1')).resolves.toBe(golden.schedulingConfig);
-    await expect(client.getGroupQr('group-1')).resolves.toBe(golden.groupQr);
+    await expect(client.getVisitorQr('group-1', 'trial')).resolves.toBe(golden.visitorQr);
     await expect(client.listPlatformUserAccounts()).resolves.toBe(golden.platformAccounts.users);
-    await expect(client.resolveInvite('invite-token')).resolves.toBe(golden.invite);
-    expect(request).toHaveBeenCalledTimes(9);
-    expect(request.mock.contexts).toEqual(Array.from({ length: 9 }, () => transport));
+    expect(request).toHaveBeenCalledTimes(8);
+    expect(request.mock.contexts).toEqual(Array.from({ length: 8 }, () => transport));
   });
 });

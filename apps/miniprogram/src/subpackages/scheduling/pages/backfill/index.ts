@@ -5,6 +5,10 @@ import {
 } from '../../../../platform/info-message-lifetime.js';
 import { calendarShiftBadge } from '../../../../components/calendar/calendar-duty-view.js';
 import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
+import {
   ClientCapabilityDisabledError,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
@@ -110,7 +114,8 @@ interface BackfillRecordView {
 
 interface BackfillRoleOption {
   readonly id: string;
-  readonly name: string;
+  readonly label: string;
+  readonly value: string;
 }
 
 interface BackfillPageData {
@@ -132,13 +137,13 @@ interface BackfillPageData {
   readonly members: readonly BackfillMemberView[];
   readonly monthLabel: string;
   readonly pageScrollStyle: string;
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly paintStatusText: string;
   readonly pendingCount: number;
   readonly reason: string;
   readonly records: readonly BackfillRecordView[];
   readonly roleId: string;
   readonly roleIndex: number;
-  readonly roleLabels: readonly string[];
   readonly roleOptions: readonly BackfillRoleOption[];
   readonly shellHeaderStyle: string;
   readonly shiftTypes: readonly BackfillShiftTypeView[];
@@ -168,6 +173,8 @@ interface BackfillPageInstance {
   _records: readonly PastScheduleBackfillRecord[];
   _staged: Map<string, PastScheduleBackfillStage>;
   readonly data: BackfillPageData;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Partial<BackfillPageData>, callback?: () => void): void;
 }
 
@@ -208,13 +215,13 @@ Page({
     members: [],
     monthLabel: getBusinessMonthLabel(initialToday.slice(0, 7)),
     pageScrollStyle: 'height:calc(100% - 64px);',
+    pickerBoundary: null,
     paintStatusText: '请选择班种和成员',
     pendingCount: 0,
     reason: '',
     records: [],
     roleId: '',
     roleIndex: 0,
-    roleLabels: [],
     roleOptions: [],
     shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
     shiftTypes: [],
@@ -242,7 +249,9 @@ Page({
   onLoad(this: BackfillPageInstance, query: Readonly<Record<string, string | undefined>>): void {
     this._disposed = false;
     this._initialPeriodId = decodeQueryValue(query['schedulePeriodId']);
-    this.setData(createShellLayoutPatch());
+    this.setData(createShellLayoutPatch(), () =>
+      measureSelectorPlacementBoundary(this, '.backfill-scroll'),
+    );
     void loadBackfillPageWithCapability(this);
   },
 
@@ -258,7 +267,9 @@ Page({
   },
 
   onResize(this: BackfillPageInstance): void {
-    this.setData(createShellLayoutPatch());
+    this.setData(createShellLayoutPatch(), () =>
+      measureSelectorPlacementBoundary(this, '.backfill-scroll'),
+    );
   },
 
   handleBack(this: BackfillPageInstance): void {
@@ -288,6 +299,12 @@ Page({
   handleReload(this: BackfillPageInstance): void {
     if (this._submitting) return;
     void loadBackfillPageWithCapability(this);
+  },
+
+  handlePickerRequestOpen(this: BackfillPageInstance): void {
+    for (const picker of this.selectAllComponents?.('.backfill-picker') ?? [])
+      picker.closeFromParent?.();
+    measureSelectorPlacementBoundary(this, '.backfill-scroll');
   },
 
   handleRoleChange(this: BackfillPageInstance, event: PickerChangeEvent): void {
@@ -462,7 +479,11 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
     page._periods = periods;
     page._records = records;
     const initialPeriod = periods.find((period) => period.id === page._initialPeriodId);
-    const roleOptions = config.roles.map((role) => ({ id: role.id, name: role.name }));
+    const roleOptions = config.roles.map((role) => ({
+      id: role.id,
+      label: role.name,
+      value: role.id,
+    }));
     const initialRoleId = initialPeriod?.scheduleRoleId ?? roleOptions[0]?.id ?? '';
     const roleIndex = Math.max(
       0,
@@ -488,7 +509,6 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
       records: createRecordViews(records),
       roleId: initialRoleId,
       roleIndex,
-      roleLabels: roleOptions.map((role) => role.name),
       roleOptions,
       shiftTypes,
       state: 'ready',

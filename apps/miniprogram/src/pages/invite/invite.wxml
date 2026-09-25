@@ -1,1 +1,0 @@
-<view class="invite-entry"><text>{{errorMessage || '正在打开群组邀请'}}</text></view>

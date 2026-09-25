@@ -24,13 +24,18 @@ describe('P8 Mini organization shared read boundary', () => {
     expect(decodeOrganizationGroupMembers([{ ...golden.members[0], extra: true }])).toBeUndefined();
   });
 
-  it('removes the hand-written network validators while preserving private cache sanitization', () => {
+  it('removes hand-written validators and persists an explicit group-summary allowlist', () => {
     expect(workbenchReadSource).toContain('createRuntimeOrganizationReadClient');
     expect(workbenchReadSource).toContain('organizationReadClient.listGroups()');
     expect(workbenchReadSource).toContain('organizationReadClient.listGroupMembers(groupId)');
     expect(workbenchReadSource).toContain('groupSummaryListDecoder.safeDecode');
     expect(workbenchReadSource).not.toContain('function decodeMembers(');
     expect(workbenchReadSource).not.toContain('function decodeGroups(');
-    expect(workbenchReadSource).toContain('delete sanitized.groupCode');
+    expect(workbenchReadSource).toContain('const currentGroups = groups.map');
+    expect(workbenchReadSource).toContain('id: group.id');
+    expect(workbenchReadSource).toContain('name: group.name');
+    expect(workbenchReadSource).toContain('role: group.role');
+    expect(workbenchReadSource).toContain('version: group.version');
+    expect(workbenchReadSource).not.toContain('groupCode');
   });
 });

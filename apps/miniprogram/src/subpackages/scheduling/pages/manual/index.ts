@@ -2,7 +2,10 @@ import type {
   CalendarReadModel,
   ConfirmedHolidayDate,
   ManualApplyPreview,
+  ManualScheduleEditorPreview,
+  ManualScheduleEditorSnapshot,
   ManualScheduleTemplate,
+  PreviewManualScheduleEditorRequest,
   ScheduleChangeImpactPreview,
   ScheduleGenerationPreview,
   SchedulePreviewAssignment,
@@ -17,6 +20,10 @@ import {
   clearInfoMessageTimer,
   scheduleInfoMessageExpiry,
 } from '../../../../platform/info-message-lifetime.js';
+import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
 import {
   mergePreviewAssignments,
   type PreviewDuty,
@@ -67,6 +74,7 @@ type ManualPageState = 'editor' | 'error' | 'loading' | 'preview' | 'release' | 
 type ReleaseDialogKind = '' | 'delete' | 'preview' | 'republish' | 'withdraw';
 
 interface SelectorOption {
+  readonly actionLabel?: string;
   readonly label: string;
   readonly value: string;
 }
@@ -196,6 +204,7 @@ interface ReleaseCalloutView {
 }
 
 interface ManualPageData extends MatrixModel {
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly endDate: string;
   readonly startDateState: 'loading' | 'ready' | 'error';
   readonly matrixViewportWidth: number;
@@ -245,6 +254,8 @@ interface ManualPageData extends MatrixModel {
   readonly riskAccepted: boolean;
   readonly releaseAccepted: boolean;
   readonly releaseBlockedMessage: string;
+  readonly releaseConflictingMonths: readonly string[];
+  readonly releaseConflictingDatesLabel: string;
   readonly releaseBlockedNeedsAcknowledgement: boolean;
   readonly releaseBlockedNeedsReplace: boolean;
   readonly releaseCallouts: readonly ReleaseCalloutView[];
@@ -291,6 +302,10 @@ interface ManualPageData extends MatrixModel {
 
 interface PickerChangeEvent {
   readonly detail: { readonly value: number | string };
+}
+
+interface OptionActionEvent {
+  readonly detail: { readonly option: SelectorOption; readonly value: string };
 }
 
 interface CheckboxChangeEvent {
@@ -356,7 +371,12 @@ interface ManualPageInstance {
   _releaseMutationTargetId: string;
   _releaseOperationIds: Map<string, string>;
   _releasePublishPreview: ScheduleGenerationPreview | undefined;
-  _previewModel?: ManualApplyPreview;
+  _releasePreviewCalendarByMonth?: Map<string, CalendarReadModel>;
+  _releasePreviewIdentity?: object;
+  _releasePreviewProposedAssignments?: readonly PreviewDuty[];
+  _releasePreviewRoleId?: string;
+  _previewModel?: ManualApplyPreview | ManualScheduleEditorPreview;
+  _previewRequest: PreviewManualScheduleEditorRequest | undefined;
   _previewCalendarByMonth?: Map<string, CalendarReadModel>;
   _selectedLocation: MatrixLocation | undefined;
   _staleCellKeys: Set<string>;
@@ -441,6 +461,7 @@ Page({
     memberCount: 0,
     memberOptions: [],
     memberPanelOpen: false,
+    pickerBoundary: null,
     pageScrollStyle: 'height:calc(100% - 64px);',
     previewAssignmentCount: 0,
     previewConflictCount: 0,
@@ -453,6 +474,8 @@ Page({
     riskAccepted: false,
     releaseAccepted: false,
     releaseBlockedMessage: '',
+    releaseConflictingMonths: [],
+    releaseConflictingDatesLabel: '',
     releaseBlockedNeedsAcknowledgement: false,
     releaseBlockedNeedsReplace: false,
     releaseCallouts: [],
@@ -512,6 +535,7 @@ Page({
   _releaseMutationTargetId: '',
   _releaseOperationIds: new Map<string, string>(),
   _releasePublishPreview: undefined,
+  _previewRequest: undefined,
   _selectedLocation: undefined,
   _staleCellKeys: new Set<string>(),
   _staleMemberIds: new Set<string>(),
@@ -546,10 +570,12 @@ Page({
 
   onResize(this: ManualPageInstance): void {
     this.updateMatrixViewport();
+    measureSelectorPlacementBoundary(this, '.manual-page-scroll');
   },
 
   onReady(this: ManualPageInstance): void {
     this.updateMatrixViewport();
+    measureSelectorPlacementBoundary(this, '.manual-page-scroll');
   },
 
   handleRetryStartDate(this: ManualPageInstance): void {
@@ -571,6 +597,7 @@ Page({
   handlePickerRequestOpen(this: ManualPageInstance): void {
     for (const picker of this.selectAllComponents?.('.manual-picker') ?? [])
       picker.closeFromParent?.();
+    measureSelectorPlacementBoundary(this, '.manual-page-scroll');
   },
 
   handleStageSelect(
@@ -639,6 +666,20 @@ Page({
       const template = this._templates.find((candidate) => candidate.id === option.value);
       if (template !== undefined) openTemplate(this, template);
     }
+  },
+
+  handleTemplateOptionAction(this: ManualPageInstance, event: OptionActionEvent): void {
+    if (this.data.isBusy || event.detail.option.actionLabel !== '删除') return;
+    const template = this._templates.find((candidate) => candidate.id === event.detail.value);
+    if (template === undefined) return;
+    wx.showModal({
+      title: '删除排班模板',
+      content: `确认删除“${templateOptionLabel(template)}”？历史草稿和已发布排班不会受到影响。`,
+      confirmText: '删除',
+      success: (result) => {
+        if (result.confirm) void deleteManualTemplate(this, template);
+      },
+    });
   },
 
   handleRoleChange(this: ManualPageInstance, event: PickerChangeEvent): void {
@@ -790,7 +831,8 @@ Page({
       this.data.shiftTypes,
     );
     patch['logicalCellCount'] = this._memberIds.length * this.data.cycleDays;
-    patch['canPreview'] = false;
+    this._previewValid = false;
+    this._previewRequest = undefined;
     this._isDirty = true;
     this._selectedLocation = nextLocation;
     this.setData(patch);
@@ -960,8 +1002,10 @@ Page({
     }
   },
   handleReleaseMonthBrowse(this: ManualPageInstance, event: { detail: { month: string } }): void {
-    if (/^\d{4}-\d{2}$/u.test(event.detail.month))
+    if (/^\d{4}-\d{2}$/u.test(event.detail.month)) {
+      void loadReleasePreviewContext(this, event.detail.month);
       void loadPreviewHolidays(this, event.detail.month);
+    }
   },
   handlePreviewReleaseVersion(this: ManualPageInstance, event: ReleaseActionEvent): void {
     const periodId = event.currentTarget.dataset.periodId;
@@ -1156,6 +1200,7 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
   if (page.data.isBusy) return;
   const batch = groupScheduleDraftBatches(page._history).find((item) => item.key === key);
   if (batch === undefined) return;
+  resetReleasePreviewContext(page);
   const serial = page._loadSerial;
   setReleaseData(page, { isBusy: true, errorMessage: '' });
   try {
@@ -1165,6 +1210,11 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
     if (serial !== page._loadSerial) return;
     const assignments = previews.flatMap((preview) =>
       proposedPreviewDuties(page, preview.assignments),
+    );
+    const identity = initializeReleasePreviewContext(
+      page,
+      batch.items[0]?.scheduleRoleId ?? '',
+      assignments,
     );
     setReleaseData(page, {
       isBusy: false,
@@ -1178,6 +1228,7 @@ async function previewDraftBatch(page: ManualPageInstance, key: string): Promise
       releaseWorkflowImpacts: [],
       releaseDialogDanger: false,
     });
+    void loadReleasePreviewContext(page, batch.rangeStart.slice(0, 7), identity);
   } catch (error) {
     if (serial !== page._loadSerial) return;
     setReleaseData(page, {
@@ -1225,6 +1276,7 @@ function openTemplate(
   page: ManualPageInstance,
   template: ManualScheduleTemplate,
   startDate?: string,
+  endDate?: string,
 ): void {
   page._previewValid = false;
   const explicitStartDate = startDate !== undefined;
@@ -1265,7 +1317,7 @@ function openTemplate(
     selectedTemplateId: template.id,
     stageIndex: 0,
     startDate,
-    endDate: explicitStartDate ? addBusinessDays(startDate, MAX_MANUAL_DAYS - 1) : '',
+    endDate: explicitStartDate ? (endDate ?? addBusinessDays(startDate, MAX_MANUAL_DAYS - 1)) : '',
     startDateState: explicitStartDate ? 'ready' : 'loading',
     startMonthLabel: startDate.slice(0, 7),
     state: 'editor',
@@ -1307,6 +1359,8 @@ async function suggestStartDate(page: ManualPageInstance, roleId: string): Promi
 }
 
 function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): void {
+  page._previewValid = false;
+  page._previewRequest = undefined;
   const data = { ...page.data, ...patch };
   const role = roleForIndex(page._config, data.roleIndex);
   const shiftTypes = enabledShiftTypes(page._config);
@@ -1361,9 +1415,7 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
         withinDateRange &&
         withinLimits &&
         role !== undefined &&
-        shiftTypes.length > 0 &&
-        data.selectedTemplateId !== '' &&
-        !page._isDirty,
+        shiftTypes.length > 0,
       canSave:
         data.startDateState === 'ready' &&
         withinDateRange &&
@@ -1435,7 +1487,7 @@ async function persistTemplate(
             expectedVersion: selected.version,
           });
     page._templates = [saved, ...page._templates.filter((template) => template.id !== saved.id)];
-    openTemplate(page, saved, saved.startDate);
+    openTemplate(page, saved, page.data.startDate, page.data.endDate);
     page.setData({
       infoMessage: '模板已保存，尚未创建正式班次。',
       feedbackTone: 'success',
@@ -1452,25 +1504,70 @@ async function persistTemplate(
   }
 }
 
+async function deleteManualTemplate(
+  page: ManualPageInstance,
+  template: ManualScheduleTemplate,
+): Promise<void> {
+  if (page.data.isBusy) return;
+  page.setData({ errorMessage: '', infoMessage: '', isBusy: true });
+  try {
+    await manualClient.deleteTemplate(page._currentGroupId, template.id);
+    page._templates = page._templates.filter((candidate) => candidate.id !== template.id);
+    if (page.data.selectedTemplateId === template.id) {
+      initializeNewTemplate(page);
+    } else {
+      syncEditor(page, { isBusy: false });
+    }
+    const message = '模板已删除，历史草稿和已发布排班未受影响。';
+    page.setData({ feedbackTone: 'success', infoMessage: message, isBusy: false });
+    scheduleInfoMessageExpiry(page, message, () => true);
+  } catch (error) {
+    page.setData({
+      errorMessage: toUserMessage(error, '模板暂时无法删除，请稍后重试。'),
+      isBusy: false,
+    });
+  }
+}
+
+function createEditorSnapshot(
+  page: ManualPageInstance,
+  scheduleRoleId: string,
+): ManualScheduleEditorSnapshot {
+  const cells = [...page._cellValues.entries()].map(([key, shiftTypeId]) => {
+    const [cycleDayText = '', ...membershipParts] = key.split(':');
+    return Object.freeze({
+      cycleDay: Number(cycleDayText),
+      membershipId: membershipParts.join(':'),
+      shiftTypeId,
+    });
+  });
+  return Object.freeze({
+    cells: Object.freeze(cells),
+    cycleDays: page.data.cycleDays,
+    membershipIds: Object.freeze([...page._memberIds]),
+    scheduleRoleId,
+  });
+}
+
 async function openPreview(page: ManualPageInstance): Promise<void> {
   if (page.data.isBusy) return;
-  const template = page._templates.find(
-    (candidate) => candidate.id === page.data.selectedTemplateId,
-  );
-  if (!page.data.canPreview || page._isDirty || template === undefined) {
-    setReleaseData(page, { errorMessage: '请先保存模板，再生成排班预览。' });
+  if (!page.data.canPreview) {
+    setReleaseData(page, { errorMessage: '请选择岗位、人员、周期、班种和有效日期范围。' });
     return;
   }
-  if (page._config === undefined) return;
+  const config = page._config;
+  const role = roleForIndex(config, page.data.roleIndex);
+  if (config === undefined || role === undefined) return;
+  const request: PreviewManualScheduleEditorRequest = Object.freeze({
+    endDate: page.data.endDate,
+    expectedRulesVersion: config.rulesVersion,
+    snapshot: createEditorSnapshot(page, role.id),
+    startDate: page.data.startDate,
+  });
   setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
-  const endDate = page.data.endDate;
   const serial = page._loadSerial;
   try {
-    const preview = await manualClient.preview(page._currentGroupId, template.id, {
-      endDate,
-      expectedRulesVersion: page._config.rulesVersion,
-      startDate: page.data.startDate,
-    });
+    const preview = await manualClient.previewEditor(page._currentGroupId, request);
     const months = [
       ...new Set([
         ...previewContextMonths(preview.applyStartDate.slice(0, 7)),
@@ -1482,6 +1579,7 @@ async function openPreview(page: ManualPageInstance): Promise<void> {
     );
     if (serial !== page._loadSerial) return;
     page._previewModel = preview;
+    page._previewRequest = request;
     page._previewCalendarByMonth = new Map(
       months.map((month, index) => [month, calendars[index]!]),
     );
@@ -1519,7 +1617,7 @@ function proposedPreviewDuties(
 
 function mergedManualPreview(
   page: ManualPageInstance,
-  preview: ManualApplyPreview,
+  preview: ManualApplyPreview | ManualScheduleEditorPreview,
 ): readonly PreviewDuty[] {
   const existing = new Map(
     [...(page._previewCalendarByMonth?.values() ?? [])]
@@ -1529,6 +1627,79 @@ function mergedManualPreview(
   );
   const proposed = proposedPreviewDuties(page, preview.assignments);
   return mergePreviewAssignments(proposed, [...existing.values()]);
+}
+
+function initializeReleasePreviewContext(
+  page: ManualPageInstance,
+  scheduleRoleId: string,
+  proposed: readonly PreviewDuty[],
+): object {
+  const identity = {};
+  page._releasePreviewCalendarByMonth = new Map();
+  page._releasePreviewIdentity = identity;
+  page._releasePreviewProposedAssignments = proposed;
+  page._releasePreviewRoleId = scheduleRoleId;
+  return identity;
+}
+
+function resetReleasePreviewContext(page: ManualPageInstance): void {
+  delete page._releasePreviewCalendarByMonth;
+  delete page._releasePreviewIdentity;
+  delete page._releasePreviewProposedAssignments;
+  delete page._releasePreviewRoleId;
+}
+
+function mergedReleasePreview(page: ManualPageInstance): readonly PreviewDuty[] {
+  const roleId = page._releasePreviewRoleId;
+  const existing = new Map(
+    [...(page._releasePreviewCalendarByMonth?.values() ?? [])]
+      .flatMap((calendar) => calendar.assignments)
+      .filter((assignment) => assignment.scheduleRoleId === roleId)
+      .map((assignment) => [assignment.id, assignment]),
+  );
+  return mergePreviewAssignments(page._releasePreviewProposedAssignments ?? [], [
+    ...existing.values(),
+  ]);
+}
+
+async function loadReleasePreviewContext(
+  page: ManualPageInstance,
+  month: string,
+  identity = page._releasePreviewIdentity,
+): Promise<void> {
+  const cache = page._releasePreviewCalendarByMonth;
+  if (
+    identity === undefined ||
+    identity !== page._releasePreviewIdentity ||
+    cache === undefined ||
+    page.data.releaseDialogKind !== 'preview'
+  )
+    return;
+  const serial = page._loadSerial;
+  try {
+    const missing = previewContextMonths(month).filter((key) => !cache.has(key));
+    if (missing.length === 0) return;
+    const calendars = await Promise.all(
+      missing.map((key) => workbenchClient.getCalendar(page._currentGroupId, key)),
+    );
+    if (
+      serial !== page._loadSerial ||
+      page._releasePreviewIdentity !== identity ||
+      page.data.releaseDialogKind !== 'preview'
+    )
+      return;
+    missing.forEach((key, index) => cache.set(key, calendars[index]!));
+    page.setData({ releasePreviewAssignments: mergedReleasePreview(page) });
+  } catch (error) {
+    if (
+      serial === page._loadSerial &&
+      page._releasePreviewIdentity === identity &&
+      page.data.releaseDialogKind === 'preview'
+    )
+      setReleaseData(page, {
+        errorMessage: toUserMessage(error, '已有排班读取失败，请重试。'),
+      });
+  }
 }
 
 async function loadPreviewContext(page: ManualPageInstance, month: string): Promise<void> {
@@ -1551,7 +1722,10 @@ async function loadPreviewContext(page: ManualPageInstance, month: string): Prom
   }
 }
 
-function applyPreviewData(page: ManualPageInstance, preview: ManualApplyPreview): void {
+function applyPreviewData(
+  page: ManualPageInstance,
+  preview: ManualApplyPreview | ManualScheduleEditorPreview,
+): void {
   page._previewValid = true;
   const dayCount = getInclusiveDayCount(preview.applyStartDate, preview.applyEndDate);
   const blockers = preview.conflicts.length + preview.vacancies.length;
@@ -1577,21 +1751,15 @@ function applyPreviewData(page: ManualPageInstance, preview: ManualApplyPreview)
 }
 
 async function applyDraft(page: ManualPageInstance): Promise<void> {
-  const templateId = page.data.selectedTemplateId;
-  const config = page._config;
-  if (page.data.isBusy || !page.data.canApplyDraft || templateId === '' || config === undefined) {
+  const previewRequest = page._previewRequest;
+  if (page.data.isBusy || !page.data.canApplyDraft || previewRequest === undefined) {
     return;
   }
   setReleaseData(page, { errorMessage: '', infoMessage: '', isBusy: true });
-  const endDate = page.data.endDate;
   try {
-    const result = await manualClient.apply(page._currentGroupId, templateId, {
-      acknowledgeBlockers: page.data.riskAccepted,
-      endDate,
-      expectedRulesVersion: config.rulesVersion,
+    const result = await manualClient.createDraft(page._currentGroupId, {
+      ...previewRequest,
       operationId: page._applyOperationId,
-      publishMode: 'draft',
-      startDate: page.data.startDate,
     });
     await reloadReleaseHistory(
       page,
@@ -1641,6 +1809,7 @@ async function reloadReleaseHistory(
   infoMessage = '',
   targetState?: 'release' | 'history',
 ): Promise<void> {
+  resetReleasePreviewContext(page);
   let refreshError = '';
   try {
     page._history = await publicationClient.listHistory(page._currentGroupId);
@@ -1748,7 +1917,27 @@ async function publishReleaseBatch(
   } catch (error) {
     if (error instanceof ClientCoreError && error.code === 'CONFLICT') {
       const latest = error.latestData;
-      const needsReplace = typeof latest?.['existingPublishedPeriodId'] === 'string';
+      const conflictingMonths = Array.isArray(latest?.['conflictingMonths'])
+        ? latest['conflictingMonths'].filter((month): month is string => typeof month === 'string')
+        : [];
+      const dateGroups = latest?.['conflictingDatesByMonth'];
+      const conflictingDatesLabel =
+        dateGroups && typeof dateGroups === 'object' && !Array.isArray(dateGroups)
+          ? conflictingMonths
+              .map((month) => {
+                const dates = (dateGroups as Record<string, unknown>)[month];
+                return `${month}：${
+                  Array.isArray(dates)
+                    ? dates
+                        .filter((date): date is string => typeof date === 'string')
+                        .map((date) => date.slice(8))
+                        .join('、')
+                    : ''
+                } 日`;
+              })
+              .join('；')
+          : '';
+      const needsReplace = conflictingMonths.length > 0;
       const workflowImpacts = readWorkflowImpacts(latest?.['workflowImpacts']);
       if (needsReplace) {
         page._history = await publicationClient
@@ -1759,6 +1948,8 @@ async function publishReleaseBatch(
       syncReleaseHistory(page, {
         isBusy: false,
         releaseBlockedMessage: error.message,
+        releaseConflictingMonths: conflictingMonths,
+        releaseConflictingDatesLabel: conflictingDatesLabel,
         releaseBlockedNeedsAcknowledgement:
           workflowImpacts.length > 0 || latest?.['preview'] !== undefined,
         releaseBlockedNeedsReplace: needsReplace,
@@ -1779,6 +1970,8 @@ function clearBlockedRelease(page: ManualPageInstance): void {
   page._releaseBlockedBatchKey = '';
   syncReleaseHistory(page, {
     releaseBlockedMessage: '',
+    releaseConflictingMonths: [],
+    releaseConflictingDatesLabel: '',
     releaseBlockedNeedsAcknowledgement: false,
     releaseBlockedNeedsReplace: false,
     releaseReplaceAccepted: false,
@@ -1972,6 +2165,7 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
   if (page.data.isBusy) return;
   const target = page._history.find((item) => item.id === periodId);
   if (target === undefined) return;
+  resetReleasePreviewContext(page);
   setReleaseData(page, { errorMessage: '', isBusy: true });
   try {
     const model: ScheduleGenerationPreview | CalendarReadModel =
@@ -1982,8 +2176,14 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
       'statistics' in model
         ? `${model.assignments.length} 个班次 · ${model.vacancies.length} 个空缺 · ${model.hardConflicts.length} 个冲突`
         : `${model.assignments.length} 个班次 · ${model.members.length} 位成员`;
+    const assignments =
+      'statistics' in model ? proposedPreviewDuties(page, model.assignments) : model.assignments;
+    const identity =
+      'statistics' in model
+        ? initializeReleasePreviewContext(page, target.scheduleRoleId, assignments)
+        : undefined;
     setReleaseData(page, {
-      releasePreviewAssignments: model.assignments,
+      releasePreviewAssignments: assignments,
       releasePreviewStartDate: `${target.businessMonth.slice(0, 7)}-01`,
       isBusy: false,
       releaseCallouts: [{ message: summary, tone: 'info' }],
@@ -1997,6 +2197,8 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
       releasePreviewSummary: summary,
       releaseWorkflowImpacts: [],
     });
+    if (identity !== undefined)
+      void loadReleasePreviewContext(page, target.businessMonth.slice(0, 7), identity);
   } catch (error) {
     setReleaseData(page, {
       errorMessage: toUserMessage(error, '排班版本暂时无法预览，请稍后重试。'),
@@ -2006,6 +2208,7 @@ async function previewReleaseVersion(page: ManualPageInstance, periodId: string)
 }
 
 function closeReleaseDialog(page: ManualPageInstance): void {
+  resetReleasePreviewContext(page);
   page._releaseDeleteTarget = undefined;
   page._releaseImpact = undefined;
   page._releaseMutationTargetId = '';
@@ -2244,6 +2447,7 @@ function createTemplateOptions(
   return [
     { label: '新建模板', value: '' },
     ...templates.map((template) => ({
+      actionLabel: '删除',
       label: templateOptionLabel(template),
       value: template.id,
     })),

@@ -1,7 +1,11 @@
 import {
   applyManualScheduleTemplateRequestSchema,
+  createManualScheduleDraftRequestSchema,
+  previewManualScheduleEditorRequestSchema,
   previewManualTemplateApplyRequestSchema,
   type ApplyManualScheduleTemplateRequest,
+  type CreateManualScheduleDraftRequest,
+  type PreviewManualScheduleEditorRequest,
   type PreviewManualTemplateApplyRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -17,6 +21,28 @@ export function registerManualScheduleApplyRoutes(
   app: FastifyInstance,
   applyService: ManualScheduleApplyService,
 ): void {
+  app.post(
+    '/groups/:groupId/manual-schedules/preview',
+    { preHandler: app.authenticate },
+    (request) =>
+      applyService.previewEditor(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseEditorPreviewInput(request.body),
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/manual-schedules/drafts',
+    { preHandler: app.authenticate },
+    (request) =>
+      applyService.createDraft(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseEditorDraftInput(request.body),
+      ),
+  );
+
   app.post(
     '/groups/:groupId/manual-schedule-templates/:templateId/apply-preview',
     { preHandler: app.authenticate },
@@ -40,6 +66,14 @@ export function registerManualScheduleApplyRoutes(
         parseApplyInput(request.body),
       ),
   );
+}
+
+function parseEditorPreviewInput(value: unknown): PreviewManualScheduleEditorRequest {
+  return parseOrThrow(previewManualScheduleEditorRequestSchema, value);
+}
+
+function parseEditorDraftInput(value: unknown): CreateManualScheduleDraftRequest {
+  return parseOrThrow(createManualScheduleDraftRequestSchema, value);
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

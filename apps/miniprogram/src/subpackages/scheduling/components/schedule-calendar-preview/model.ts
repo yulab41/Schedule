@@ -28,13 +28,11 @@ export function mergePreviewAssignments(
   proposed: readonly PreviewDuty[],
   existing: readonly PreviewDuty[],
 ): readonly PreviewDuty[] {
-  const replacing = new Set(proposed.map((item) => `${item.businessDate}:${item.slotPosition}`));
+  const replacing = new Set(proposed.map((item) => item.businessDate));
   return [
     ...existing.map((item) => ({
       ...item,
-      state: replacing.has(`${item.businessDate}:${item.slotPosition}`)
-        ? ('removed' as const)
-        : ('normal' as const),
+      state: replacing.has(item.businessDate) ? ('removed' as const) : ('normal' as const),
     })),
     ...proposed.map((item) => ({ ...item, state: 'added' as const })),
   ];
@@ -62,17 +60,31 @@ export function previewCalendarModel(
         const duties = assignments
           .filter((item) => item.businessDate === cell.businessDate)
           .sort((a, b) => a.slotPosition - b.slotPosition)
-          .map((item, i) => ({
-            key: `${cell.businessDate}:${item.slotPosition}:${i}`,
-            name: item.actualMemberName ?? item.plannedMemberName ?? '待安排',
-            ...calendarShiftBadge(
+          .map((item, i) => {
+            const badge = calendarShiftBadge(
               item.shiftTypeAbbreviation,
               item.shiftTypeName,
               item.shiftTypeColor,
               item.shiftTypeTextColor,
-            ),
-            state: item.state ?? 'normal',
-          }));
+            );
+            const isExistingComparison = item.state === 'normal' || item.state === 'removed';
+            return {
+              key: `${cell.businessDate}:${item.slotPosition}:${i}`,
+              name: item.actualMemberName ?? item.plannedMemberName ?? '待安排',
+              ...badge,
+              ...(isExistingComparison
+                ? {
+                    badgeStyle: 'background-color:#eef1f4;border-color:#d5dbe3;color:#6b7280;',
+                  }
+                : {}),
+              comparisonClass: isExistingComparison
+                ? 'is-existing-comparison'
+                : item.state === 'added'
+                  ? 'is-current-draft'
+                  : '',
+              state: item.state ?? 'normal',
+            };
+          });
         return {
           businessDate: cell.businessDate,
           day: cell.businessDate.slice(8),

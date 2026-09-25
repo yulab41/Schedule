@@ -21,7 +21,6 @@ export const task10IntegrationTestFiles = [
   'apps/api/src/modules/groups/group-routes.integration.test.ts',
   'apps/api/src/modules/groups/group-permissions.integration.test.ts',
   'apps/api/src/modules/groups/membership-claims.integration.test.ts',
-  'apps/api/src/modules/groups/invite-service.integration.test.ts',
   'apps/api/src/modules/notifications/notifications.integration.test.ts',
   'apps/api/src/modules/wechat/wechat-notifications.integration.test.ts',
   'apps/api/src/modules/users/user-routes.integration.test.ts',

@@ -28,8 +28,8 @@ describeWithDatabase('privacy retention transaction', () => {
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
-    firstGroupId = await createGroup(client, 'Retention A', '7101');
-    secondGroupId = await createGroup(client, 'Retention B', '7102');
+    firstGroupId = await createGroup(client, 'Retention A');
+    secondGroupId = await createGroup(client, 'Retention B');
   });
 
   afterEach(async () => {
@@ -221,17 +221,13 @@ describeWithDatabase('privacy retention transaction', () => {
   });
 });
 
-async function createGroup(
-  client: DatabaseClient,
-  name: string,
-  groupCode: string,
-): Promise<string> {
+async function createGroup(client: DatabaseClient, name: string): Promise<string> {
   const userId = randomUUID();
   const groupId = randomUUID();
   await client.database.execute(sql`INSERT INTO users (id) VALUES (${userId})`);
   await client.database.execute(sql`
-    INSERT INTO \`groups\` (id, name, group_code, visitor_key, owner_user_id)
-    VALUES (${groupId}, ${name}, ${groupCode}, ${randomUUID().replaceAll('-', '')}, ${userId})
+    INSERT INTO \`groups\` (id, name, visitor_key, owner_user_id)
+    VALUES (${groupId}, ${name}, ${randomUUID().replaceAll('-', '')}, ${userId})
   `);
   return groupId;
 }

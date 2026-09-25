@@ -273,25 +273,47 @@ ui-alert {
   margin-top: 11px;
 }
 
-.template-selector { margin-top: 11px; }
-.field-grid > .role-field { width: calc(40% - 4px); min-width: 0; }
-.field-grid > .date-field { width: calc(60% - 4px); min-width: 0; }
-.field-grid > .cycle-field,
-.field-grid > .members-field { width: calc(50% - 4px); min-width: 0; }
-.cycle-picker-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-.preview-calendar-card { margin-top: 10px; padding: 0; }
-.release-calendar-scroll { max-height: 65vh; min-height: 0; flex-shrink: 1; }
+.template-selector {
+  margin-top: 11px;
+}
+.cycle-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.preview-calendar-card {
+  margin-top: 10px;
+  padding: 0;
+}
+.release-calendar-scroll {
+  max-height: 65vh;
+  min-height: 0;
+  flex-shrink: 1;
+}
 
 .field-grid {
   display: flex;
   margin-top: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
 }
 
-.field-grid > picker,
-.field-grid > .field-control {
-  width: calc(50% - 4px);
+.field-row {
+  display: grid;
+  gap: 8px;
+}
+
+.template-role-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.field-row:not(.template-role-row) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-row > view {
+  min-width: 0;
 }
 
 .field-control {
@@ -1143,7 +1165,9 @@ ui-alert {
 }
 
 @media (max-width: 360px) {
-  .release-dialog { padding: 10px; }
+  .release-dialog {
+    padding: 10px;
+  }
 }
 
 .release-dialog-header {

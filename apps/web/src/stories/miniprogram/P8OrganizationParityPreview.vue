@@ -7,7 +7,7 @@ import GroupSetupPanel from '../../features/groups/GroupSetupPanel.vue';
 import MemberManager from '../../features/members/MemberManager.vue';
 import SchedulingConfigPanel from '../../features/scheduling-config/SchedulingConfigPanel.vue';
 import PlatformAdminUsersView from '../../views/platform/PlatformAdminUsersView.vue';
-import P8InviteVisitorGolden from './P8InviteVisitorGolden.vue';
+import P8QrVisitorGolden from './P8QrVisitorGolden.vue';
 import {
   createP8OrganizationFixtureFetch,
   getP8OrganizationGroup,
@@ -238,7 +238,7 @@ function areaSelector(area: P8OrganizationArea): string {
   if (area === 'members') return '.member-manager';
   if (area === 'config') return '.scheduling-config-panel, .p8-permission-boundary';
   if (area === 'platform') return '.platform-admin-users, .p8-permission-boundary';
-  return '.p8-invite-visitor';
+  return '.p8-qr-visitor';
 }
 
 function roleLabel(role: P8OrganizationRole): string {
@@ -254,7 +254,7 @@ function areaLabel(area: P8OrganizationArea): string {
   if (area === 'members') return '成员与预设';
   if (area === 'config') return '班种与岗位';
   if (area === 'platform') return '平台账号';
-  return '邀请与访客';
+  return '二维码与访客';
 }
 
 watch(
@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
 
     <div class="p8-production-surface">
       <AppStatePanel
-        v-if="isPermissionDisabled && area !== 'invite-visitor'"
+        v-if="isPermissionDisabled && area !== 'qr-visitor'"
         class="p8-permission-boundary"
         eyebrow="权限边界"
         title="当前身份不可进入此管理页面"
@@ -314,7 +314,7 @@ onBeforeUnmount(() => {
       <MemberManager v-else-if="area === 'members'" :key="previewKey" :group="group" />
       <SchedulingConfigPanel v-else-if="area === 'config'" :key="previewKey" :group="group" />
       <PlatformAdminUsersView v-else-if="area === 'platform'" :key="previewKey" />
-      <P8InviteVisitorGolden v-else :key="previewKey" :role="role" :surface="surface" />
+      <P8QrVisitorGolden v-else :key="previewKey" :role="role" :surface="surface" />
     </div>
 
     <p v-if="stageError !== undefined" class="p8-stage-error" role="alert">{{ stageError }}</p>

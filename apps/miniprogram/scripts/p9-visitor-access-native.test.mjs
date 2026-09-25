@@ -55,13 +55,15 @@ describe('P9 native visitor access insights', () => {
     );
   });
 
-  it('masks visitor identifiers and keeps raw access data out of storage/logging', () => {
+  it('shows permission-gated full identifiers only on demand and keeps raw access data out of storage/logging', () => {
     const controller = read(
       'src/subpackages/insights/components/visitor-access-panel/controller.ts',
     );
 
-    expect(controller).toContain('maskVisitorAccessIp');
-    expect(controller).toContain('maskVisitorAccessRequestId');
+    expect(controller).toContain("['完整 IP'");
+    expect(controller).toContain("['完整请求 ID'");
+    expect(controller).toContain('小程序 OpenID（非微信号）');
+    expect(controller).toContain('handleToggleLog');
     expect(controller).not.toContain('wx.setStorageSync');
     expect(controller).not.toContain('wx.getStorageSync');
     expect(controller).not.toContain('console.log');
@@ -77,11 +79,17 @@ describe('P9 native visitor access insights', () => {
     const template = read('src/subpackages/insights/components/visitor-access-panel/index.wxml');
     const styles = read('src/subpackages/insights/components/visitor-access-panel/index.wxss');
 
-    for (const phrase of ['近四个月访问次数', '最近访问', '正在加载访问记录', '来源已脱敏']) {
+    for (const phrase of [
+      '近四个月访问次数',
+      '最近访问',
+      '正在加载访问记录',
+      '点击记录展开完整详情',
+    ]) {
       expect(template).toContain(phrase);
     }
     expect(template).toContain('查看月份');
     expect(template).toContain('加载更多记录');
+    expect(template).toContain('客户端上报，可能被伪造');
     expect(controller).toContain('fontSizeSetting');
     expect(template).toContain("largeText ? 'is-large-text' : ''");
     expect(styles).toContain('@media (max-width: 360px)');

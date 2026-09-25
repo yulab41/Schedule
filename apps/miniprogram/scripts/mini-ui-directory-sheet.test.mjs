@@ -279,7 +279,7 @@ describe('task A UiSheet window and gesture lifecycle', () => {
     expect(template).toContain('change:gesture-session="{{sheetGesture.reset}}"');
     const content = template.slice(template.indexOf('class="ui-sheet__content"'));
     expect(content).not.toMatch(/sheetGesture\.touch/u);
-    expect(template).toMatch(/class="ui-sheet__layer"[^>]*catchtouchmove="preventTouchMove"/u);
+    expect(template).toMatch(/class="ui-sheet__layer[^"]*"[^>]*catchtouchmove="preventTouchMove"/u);
   });
 
   it.each([

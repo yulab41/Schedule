@@ -166,6 +166,25 @@
   font-size: 9px;
   line-height: 14px;
 }
+.calendar-cell.is-compact .date-number {
+  line-height: 14px;
+}
+.calendar-cell.is-compact .holiday-chip {
+  top: 3px;
+  right: 2px;
+  max-width: 20px;
+  min-height: 12px;
+  padding: 0 2px;
+  border-radius: 4px;
+  font-size: 7px;
+  line-height: 12px;
+}
+.calendar-cell.is-compact .month-duty-line {
+  margin-top: 1px;
+}
+.month-duty-line.is-existing-comparison .month-person {
+  color: #7a8491;
+}
 @media (max-width: 360px) {
   .duty-abbreviation {
     width: 11px;

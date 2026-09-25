@@ -83,6 +83,7 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
   leave_request_rejected: '请假已驳回',
   leave_request_revoked: '请假已撤销',
   leave_request_submitted: '请假已提交',
+  manual_schedule_inline_applied: '一次性手动排班已应用',
   manual_schedule_template_applied: '手动模板已应用',
   manual_schedule_template_created: '手动模板已创建',
   manual_schedule_template_deleted: '手动模板已删除',
@@ -405,6 +406,8 @@ export function buildEventNarrative<Assignment extends EventAssignmentLike>(
       return '该排班版本已撤回。';
     case 'schedule_generation_completed':
       return '自动排班已生成。';
+    case 'manual_schedule_inline_applied':
+      return '一次性手动排班已应用并生成该班次。';
     case 'manual_schedule_template_applied':
       return '手动模板已应用并生成该班次。';
     case 'manual_schedule_template_created':

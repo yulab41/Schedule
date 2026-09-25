@@ -1,6 +1,7 @@
 import {
-  createMemberWechatBindingQrRequestSchema,
+  createCurrentMemberWechatBindingQrRequestSchema,
   createWechatAdminBindingLinkRequestSchema,
+  wechatMemberBindingPreviewResponseSchema,
   wechatAdminBindingConfirmRequestSchema,
   wechatAdminBindingPreviewRequestSchema,
 } from '@schedule/contracts';
@@ -36,14 +37,14 @@ export function registerWechatAdminBindingRoutes(
   );
 
   app.post(
-    '/groups/:groupId/members/:membershipId/wechat-miniprogram-binding-qr',
+    '/groups/:groupId/members/:membershipId/current-wechat-binding-qr',
     { preHandler: app.authenticate },
     async (request) =>
-      service.createMemberQr(
+      service.createCurrentMemberQr(
         getAuthenticatedIdentity(request),
         parseId(request, 'groupId', groupIdSchema),
         parseId(request, 'membershipId', membershipIdSchema),
-        parseMemberQrInput(request),
+        parseCurrentMemberQrInput(request),
         request.id,
       ),
   );
@@ -51,6 +52,14 @@ export function registerWechatAdminBindingRoutes(
   app.post('/auth/wechat/admin-bind/preview', async (request) =>
     service.preview(parsePreviewInput(request.body).ticket),
   );
+
+  app.post('/auth/wechat/admin-bind/member-preview', async (request, reply) => {
+    reply.header('Cache-Control', 'no-store, private, max-age=0');
+    reply.header('Pragma', 'no-cache');
+    return wechatMemberBindingPreviewResponseSchema.parse(
+      await service.previewMemberQr(parsePreviewInput(request.body).ticket),
+    );
+  });
 
   app.post('/auth/wechat/admin-bind/confirm', async (request) =>
     service.confirm(
@@ -113,9 +122,9 @@ function parseId(
   return result.data;
 }
 
-function parseMemberQrInput(request: FastifyRequest) {
+function parseCurrentMemberQrInput(request: FastifyRequest) {
   const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
-  const result = createMemberWechatBindingQrRequestSchema.safeParse({
+  const result = createCurrentMemberWechatBindingQrRequestSchema.safeParse({
     ...(body ?? {}),
     operationId: resolveDangerousOperationId(
       request.headers['idempotency-key'],

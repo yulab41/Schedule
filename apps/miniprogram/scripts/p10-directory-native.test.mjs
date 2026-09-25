@@ -25,8 +25,7 @@ describe('P10 native directory parity', () => {
       pages: [
         'pages/group-settings/index',
         'pages/scheduling-config/index',
-        'pages/invite-visitor/index',
-        'pages/invite-accept/index',
+        'pages/qr-visitor/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],

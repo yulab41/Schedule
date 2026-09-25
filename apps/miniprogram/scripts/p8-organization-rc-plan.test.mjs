@@ -40,7 +40,7 @@ describe('P8 organization RC and production release contract', () => {
       expect.arrayContaining([
         'pages/group-settings/index',
         'pages/scheduling-config/index',
-        'pages/invite-visitor/index',
+        'pages/qr-visitor/index',
         'pages/platform-accounts/index',
       ]),
     );
@@ -70,7 +70,7 @@ describe('P8 organization RC and production release contract', () => {
       'member-readonly-boundary',
       'member-wechat-quick-login',
       'owner-admin-scheduling-configuration',
-      'owner-admin-invite-and-visitor',
+      'owner-admin-member-qr-and-visitor',
       'guest-qr-dual-capability',
       'platform-admin-account-lifecycle',
       'platform-admin-password-login',

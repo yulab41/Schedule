@@ -5,6 +5,8 @@ interface UiSheetInstance {
   _windowResizeHandler: (() => void) | undefined;
   readonly data: { readonly gestureSession: number };
   readonly properties: {
+    readonly bottomInset: number;
+    readonly keepAlive: boolean;
     readonly size: 'default' | 'half' | 'three-quarter' | 'content';
     readonly swipeDismiss: boolean;
     readonly visible: boolean;
@@ -21,7 +23,9 @@ interface SheetWindowRuntime {
 
 Component({
   properties: {
+    bottomInset: { type: Number, value: 0 },
     closeLabel: { type: String, value: '完成' },
+    keepAlive: { type: Boolean, value: false },
     size: { type: String, value: 'default' },
     swipeArea: { type: String, value: 'header' },
     swipeDismiss: { type: Boolean, value: false },
@@ -33,6 +37,10 @@ Component({
     panelStyle: '',
   },
   observers: {
+    bottomInset(this: UiSheetInstance): void {
+      if (!this._attached) return;
+      updatePanelSize(this);
+    },
     'size, visible'(this: UiSheetInstance): void {
       if (!this._attached) return;
       updatePanelSize(this);
@@ -76,7 +84,14 @@ Component({
 
 function updatePanelSize(sheet: UiSheetInstance): void {
   if (sheet.properties.size === 'content') {
-    sheet.setData({ panelStyle: 'height:auto;max-height:90vh;' });
+    const windowHeight = wx.getWindowInfo().windowHeight;
+    const bottomInset = normalizeBottomInset(sheet.properties.bottomInset, windowHeight);
+    sheet.setData({
+      panelStyle:
+        bottomInset > 0 && Number.isFinite(windowHeight) && windowHeight > 0
+          ? `height:auto;max-height:${Math.max(0, Math.round(windowHeight - bottomInset))}px;margin-bottom:${bottomInset}px;`
+          : 'height:auto;max-height:90vh;',
+    });
     return;
   }
   const ratio =
@@ -97,6 +112,14 @@ function updatePanelSize(sheet: UiSheetInstance): void {
       ? `height:${Math.round(height * ratio)}px;max-height:none;`
       : `height:${ratio * 100}vh;max-height:none;`;
   sheet.setData({ panelStyle });
+}
+
+function normalizeBottomInset(value: number, windowHeight: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const rounded = Math.round(value);
+  return Number.isFinite(windowHeight) && windowHeight > 0
+    ? Math.min(rounded, Math.round(windowHeight))
+    : rounded;
 }
 
 function emitClose(sheet: UiSheetInstance, source: UiSheetCloseSource): void {

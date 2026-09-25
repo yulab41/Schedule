@@ -34,6 +34,7 @@ import {
   writeGuestPublicCache,
 } from '../../platform/guest-public-cache.js';
 import { ClientCapabilityDisabledError } from '../../app/client-capability-store.js';
+import { createVisitorCalendarRequestContext } from '../../platform/visitor-client-context.js';
 import {
   commitCalendarPeriodSwipe,
   finishCalendarPeriodShift,
@@ -129,6 +130,7 @@ type Data = ReturnType<typeof initialData>;
 interface GuestPage {
   data: Data;
   visitorKey: string | undefined;
+  visitId: string | undefined;
   calendar: CalendarReadModel | undefined;
   holidays: HolidayReadModel | undefined;
   serial: number;
@@ -188,6 +190,7 @@ Page({
   weekSteps: 0,
   _weekLayoutHeight: 112,
   visitorKey: undefined,
+  visitId: undefined,
   calendar: undefined,
   holidays: undefined,
   onLoad(
@@ -199,6 +202,7 @@ Page({
     this.serial = 0;
     this.shown = false;
     this.monthRingSlot = 1;
+    this.visitId = createVisitId();
     try {
       const key = decodeURIComponent(options.scene ?? options.visitorKey ?? options.vkey ?? '');
       this.visitorKey = /^[0-9a-f]{32}$/iu.test(key) ? key : undefined;
@@ -224,6 +228,7 @@ Page({
     this.visible = false;
     this.serial += 1;
     this.visitorKey = undefined;
+    this.visitId = undefined;
     clearCalendar(this);
   },
   handleListCall(this: GuestPage, event: Tap): void {
@@ -702,13 +707,23 @@ function readMonth(
   const pending = page.monthReads.get(businessMonth);
   if (pending) return pending;
   const generation = page.contextGeneration;
-  const read = client.getGuestCalendar(groupId, businessMonth, key).then((result) => {
-    if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
-      throw new Error('Invalid guest calendar context');
-    if (page.contextGeneration === generation)
-      page.monthResources.set(businessMonth, result.calendar);
-    return result.calendar;
-  });
+  const read = createVisitorCalendarRequestContext()
+    .then((context) =>
+      client.getGuestCalendarDetailed(groupId, {
+        businessMonth,
+        clientContext: context.clientContext,
+        ...(context.loginCode === undefined ? {} : { loginCode: context.loginCode }),
+        ...(page.visitId === undefined ? {} : { visitId: page.visitId }),
+        visitorKey: key,
+      }),
+    )
+    .then((result) => {
+      if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
+        throw new Error('Invalid guest calendar context');
+      if (page.contextGeneration === generation)
+        page.monthResources.set(businessMonth, result.calendar);
+      return result.calendar;
+    });
   page.monthReads.set(businessMonth, read);
   void read.then(
     () => page.monthReads.delete(businessMonth),
@@ -917,6 +932,13 @@ function clearEvents(page: GuestPage): void {
     shiftEventErrorMessage: '',
     shiftEventMeta: '',
     shiftEventState: 'closed',
+  });
+}
+
+function createVisitId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/gu, (marker) => {
+    const random = Math.floor(Math.random() * 16);
+    return (marker === 'x' ? random : (random & 0x3) | 0x8).toString(16);
   });
 }
 async function loadEvents(page: GuestPage, assignment: CalendarDutyAssignment): Promise<void> {

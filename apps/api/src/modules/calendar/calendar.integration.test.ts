@@ -78,7 +78,7 @@ describeWithDatabase('current month calendar read model', () => {
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
     await registerUser('outsider-token', 'Outside Doctor');
-    groupId = await createGroup('Calendar group', '1234');
+    groupId = await createGroup('Calendar group');
     await addRosterEntry(groupId, 'Candidate Doctor');
     await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
 
@@ -930,14 +930,14 @@ describeWithDatabase('current month calendar read model', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 
@@ -1279,10 +1279,17 @@ describeWithDatabase('current month calendar read model', () => {
     const otherId = await linkOutsiderGroup();
     await savePublished('2026-08');
     await saveDraft('2026-09');
-    await client.database
-      .execute(sql`INSERT INTO group_member_contacts(id,membership_id,mobile_phone,short_phone,is_confirmed)
-      VALUES(${randomUUID()},${candidateMembershipId},'13900139000','67890',1)
-      ON DUPLICATE KEY UPDATE mobile_phone='13900139000',short_phone='67890',is_confirmed=1`);
+    await client.database.execute(
+      sql`UPDATE users
+          INNER JOIN group_memberships ON group_memberships.user_id = users.id
+          SET users.short_phone = '67890'
+          WHERE group_memberships.id = ${candidateMembershipId}`,
+    );
+    await client.database.execute(
+      sql`INSERT INTO group_member_contacts(id,membership_id,mobile_phone,is_confirmed)
+          VALUES(${randomUUID()},${candidateMembershipId},'13900139000',1)
+          ON DUPLICATE KEY UPDATE mobile_phone='13900139000',is_confirmed=1`,
+    );
     for (const [token, target] of [
       ['outsider-token', groupId],
       ['owner-token', otherId],

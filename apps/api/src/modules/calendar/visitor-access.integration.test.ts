@@ -62,7 +62,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     await client.database.execute(sql`
       UPDATE users SET is_developer_admin = 1 WHERE cloudbase_uid = 'cloudbase-developer'
     `);
-    groupId = await createGroup('Visitor group', '1234');
+    groupId = await createGroup('Visitor group');
     await addRosterEntries(groupId, ['Admin Doctor', 'Member Doctor']);
     await attachTestMember('admin-token', groupId, 'Admin Doctor');
     await attachTestMember('member-token', groupId, 'Member Doctor');
@@ -175,11 +175,11 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(auditRows).toEqual([{ action: 'visitor_key_regenerated' }]);
   });
 
-  it('generates a cached group QR for owners and administrators only', async () => {
+  it('generates a cached visitor QR for owners and administrators only', async () => {
     const ownerQr = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(ownerQr.statusCode, ownerQr.body).toBe(200);
     expect(ownerQr.json()).toMatchObject({ imageBase64: expect.any(String) });
@@ -188,7 +188,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     const adminQr = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(adminQr.statusCode).toBe(200);
     expect(qrGateway.qrCalls).toBe(1);
@@ -196,9 +196,38 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     const memberQr = await app.inject({
       headers: { authorization: 'Bearer member-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(memberQr.statusCode).toBe(403);
+
+    const retired = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/group-qr`,
+    });
+    expect(retired.statusCode).toBe(404);
+  });
+
+  it('returns exactly one visitor QR for the requested current environment and rejects unknown values', async () => {
+    for (const environment of ['release', 'trial'] as const) {
+      const response = await app.inject({
+        headers: { authorization: 'Bearer owner-token' },
+        method: 'GET',
+        url: `/groups/${groupId}/visitor-qr?environment=${environment}`,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toEqual({ environment, imageBase64: expect.any(String) });
+      expect(response.json()).not.toHaveProperty('trialImageBase64');
+      expect(response.json()).not.toHaveProperty('groupCode');
+    }
+    expect(qrGateway.qrEnvironments).toEqual(['release', 'trial']);
+
+    const unknown = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/visitor-qr?environment=unknown`,
+    });
+    expect(unknown.statusCode).toBe(400);
   });
 
   it('maps WeChat QR errors to typed API errors', async () => {
@@ -218,7 +247,7 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     const response = await failingApp.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${groupId}/group-qr`,
+      url: `/groups/${groupId}/visitor-qr?environment=release`,
     });
     expect(response.statusCode).toBe(429);
     expect(response.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
@@ -269,6 +298,154 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       url: `/groups/${groupId}/visitor-access-logs`,
     });
     expect(memberLogs.statusCode).toBe(403);
+  });
+
+  it('records one access per visitor page session while keeping legacy reads per request', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    const visitId = randomUUID();
+    const months = ['2026-07', '2026-08', '2026-09', '2026-10', '2026-11'];
+    const responses = await Promise.all(
+      months.map((businessMonth) =>
+        app.inject({
+          method: 'POST',
+          payload: {
+            businessMonth,
+            clientContext: { model: 'Xiaomi 14', version: 1 },
+            visitId,
+            visitorKey,
+          },
+          url: `/guest/groups/${groupId}/calendar/read`,
+        }),
+      ),
+    );
+    expect(
+      responses.every((response) => response.statusCode === 200),
+      responses.map((response) => `${response.statusCode}: ${response.body}`).join('\n'),
+    ).toBe(true);
+
+    const [sessionRows] = (await client.database.execute(sql`
+      SELECT business_month AS businessMonth
+      FROM visitor_access_logs
+      WHERE group_id = ${groupId}
+    `)) as unknown as [readonly { businessMonth: string }[], unknown];
+    expect(sessionRows).toHaveLength(1);
+    expect(months).toContain(sessionRows[0]?.businessMonth);
+
+    const otherGroupId = await createGroup('Other visitor group');
+    const otherVisitorKey = await getVisitorKey(otherGroupId);
+    const otherGroupRead = await app.inject({
+      method: 'POST',
+      payload: {
+        businessMonth: '2026-09',
+        clientContext: { version: 1 },
+        visitId,
+        visitorKey: otherVisitorKey,
+      },
+      url: `/guest/groups/${otherGroupId}/calendar/read`,
+    });
+    expect(otherGroupRead.statusCode, otherGroupRead.body).toBe(200);
+    const [otherGroupRows] = (await client.database.execute(sql`
+      SELECT id
+      FROM visitor_access_logs
+      WHERE group_id = ${otherGroupId}
+    `)) as unknown as [readonly { id: string }[], unknown];
+    expect(otherGroupRows).toHaveLength(1);
+
+    const nextVisit = await app.inject({
+      method: 'POST',
+      payload: {
+        businessMonth: '2026-12',
+        clientContext: { version: 1 },
+        visitId: randomUUID(),
+        visitorKey,
+      },
+      url: `/guest/groups/${groupId}/calendar/read`,
+    });
+    expect(nextVisit.statusCode, nextVisit.body).toBe(200);
+    await readGuestCalendar(visitorKey, '2027-01');
+
+    const [allRows] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM visitor_access_logs
+      WHERE group_id = ${groupId}
+    `)) as unknown as [readonly { count: number | string }[], unknown];
+    expect(Number(allRows[0]?.count)).toBe(3);
+  });
+
+  it('accepts strict visitor context, stores OpenID without creating a user and degrades on exchange failure', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    const [beforeUsers] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM users`,
+    )) as unknown as [readonly { count: number }[], unknown];
+    const payload = {
+      businessMonth: '2026-10',
+      clientContext: {
+        brand: 'Xiaomi',
+        envVersion: 'trial',
+        model: 'Xiaomi 14',
+        sdkVersion: '3.7.12',
+        version: 1,
+        wechatVersion: '8.0.64',
+      },
+      loginCode: 'visitor-code',
+      visitorKey,
+    };
+    const response = await app.inject({
+      method: 'POST',
+      payload,
+      url: `/guest/groups/${groupId}/calendar/read`,
+    });
+    expect(response.statusCode, response.body).toBe(200);
+
+    const logs = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/visitor-access-logs`,
+    });
+    expect(logs.statusCode, logs.body).toBe(200);
+    expect(logs.json()).toMatchObject({
+      logs: [
+        {
+          businessMonth: '2026-10',
+          clientContext: payload.clientContext,
+          wechatOpenid: 'mock-openid-visitor-code',
+        },
+      ],
+    });
+    const [afterUsers] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM users`,
+    )) as unknown as [readonly { count: number }[], unknown];
+    expect(String(afterUsers[0]?.count)).toBe(String(beforeUsers[0]?.count));
+
+    qrGateway.failExchange = true;
+    const degraded = await app.inject({
+      method: 'POST',
+      payload: { ...payload, businessMonth: '2026-11', loginCode: 'bad-code' },
+      url: `/guest/groups/${groupId}/calendar/read`,
+    });
+    expect(degraded.statusCode, degraded.body).toBe(200);
+    const [degradedRows] = (await client.database.execute(sql`
+      SELECT wechat_openid AS wechatOpenid, client_context AS clientContext
+      FROM visitor_access_logs
+      WHERE group_id = ${groupId} AND business_month = '2026-11'
+    `)) as unknown as [readonly { clientContext: unknown; wechatOpenid: string | null }[], unknown];
+    expect(degradedRows).toEqual([{ clientContext: expect.anything(), wechatOpenid: null }]);
+  });
+
+  it('rejects unknown and overlong visitor context fields', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    for (const clientContext of [
+      { version: 1, unexpected: 'no' },
+      { version: 1, model: 'x'.repeat(129) },
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        payload: { businessMonth: '2026-10', clientContext, visitorKey },
+        url: `/guest/groups/${groupId}/calendar/read`,
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    }
   });
 
   it('hides raw rows before 90 days and lets both platform-admin classes read without membership', async () => {
@@ -395,14 +572,14 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);
@@ -485,17 +662,27 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
 
 class CountingGateway implements WechatGateway {
   public failWith: WechatGatewayError | undefined;
+  public failExchange = false;
   public qrCalls = 0;
+  public qrEnvironments: string[] = [];
   public readonly isConfigured = true;
 
   public async exchangeCode(
     code: string,
   ): Promise<{ openid: string; sessionKey: undefined; unionid: undefined }> {
+    if (this.failExchange) {
+      throw new WechatGatewayError(40029, 'invalid code', 'WECHAT_LOGIN_FAILED');
+    }
     return { openid: `mock-openid-${code}`, sessionKey: undefined, unionid: undefined };
   }
 
-  public async getUnlimitedQr(): Promise<Uint8Array> {
+  public async getUnlimitedQr(
+    _scene: string,
+    _page: string,
+    environment: string,
+  ): Promise<Uint8Array> {
     this.qrCalls += 1;
+    this.qrEnvironments.push(environment);
     if (this.failWith !== undefined) {
       throw this.failWith;
     }

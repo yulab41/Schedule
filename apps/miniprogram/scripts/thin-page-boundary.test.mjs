@@ -44,12 +44,7 @@ describe('Mini Page registration boundary', () => {
         'scheduling-config-panel/controller.ts',
         'controller-attached',
       ],
-      [
-        'organization',
-        'invite-visitor',
-        'invite-visitor-panel/controller.ts',
-        'controller-attached',
-      ],
+      ['organization', 'qr-visitor', 'qr-visitor-panel/controller.ts', 'controller-attached'],
       [
         'organization',
         'platform-accounts',

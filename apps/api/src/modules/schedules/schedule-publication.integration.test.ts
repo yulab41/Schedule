@@ -50,7 +50,7 @@ describeWithDatabase('draft preview and publishing', () => {
     });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
-    groupId = await createGroup('Scheduling group', '1234');
+    groupId = await createGroup('Scheduling group');
     await addRosterEntry(groupId, 'Candidate Doctor');
     await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
 
@@ -224,14 +224,14 @@ describeWithDatabase('draft preview and publishing', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 

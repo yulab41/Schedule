@@ -799,8 +799,8 @@ describeWithDatabase('current Mini AppID identity unbind', () => {
     if (options.withBusinessReference === true) {
       const groupId = randomUUID();
       await client.database.execute(sql`
-        INSERT INTO \`groups\` (id, name, group_code, visitor_key, owner_user_id)
-        VALUES (${groupId}, 'Preserved Group', '7319', ${randomUUID()}, ${userId})
+        INSERT INTO \`groups\` (id, name, visitor_key, owner_user_id)
+        VALUES (${groupId}, 'Preserved Group', ${randomUUID()}, ${userId})
       `);
       await client.database.execute(sql`
         INSERT INTO group_memberships (id, group_id, user_id, role, status)

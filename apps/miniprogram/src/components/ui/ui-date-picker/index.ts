@@ -2,6 +2,7 @@ import {
   createRenderedOptions,
   scheduleSelectorPlacement,
   validOptionIndex,
+  type SelectorPlacementBoundary,
 } from '../ui-selector/selector.js';
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
@@ -88,6 +89,8 @@ interface WorkflowPickerInstance {
   _datePendingSelection?:
     { readonly day: number; readonly month: number; readonly year: number } | undefined;
   _dateLocateTimer?: unknown;
+  _hourWheelSequence?: number;
+  _minuteWheelSequence?: number;
   _monthWheelSequence?: number;
   _wheelRuntimeId?: string;
   _yearWheelSequence?: number;
@@ -104,6 +107,14 @@ interface WorkflowPickerInstance {
     readonly draftIndices: readonly number[];
     readonly draftMonth: number;
     readonly draftYear: number;
+    readonly hourWheelCommandRevision: number;
+    readonly hourWheelItems: readonly WorkflowPickerWheelOption[];
+    readonly hourWheelRuntimeKey: string;
+    readonly hourWheelSettledIndex: number;
+    readonly minuteWheelCommandRevision: number;
+    readonly minuteWheelItems: readonly WorkflowPickerWheelOption[];
+    readonly minuteWheelRuntimeKey: string;
+    readonly minuteWheelSettledIndex: number;
     readonly open: boolean;
     readonly renderedOptions: readonly WorkflowPickerRenderedOption[];
     readonly selectedOptionIndex: number;
@@ -112,6 +123,7 @@ interface WorkflowPickerInstance {
     readonly monthWheelRuntimeKey: string;
     readonly monthWheelSettledIndex: number;
     readonly popoverPlacement: 'down' | 'up';
+    readonly popoverMaxHeight: number;
     readonly popoverPlacementReady: boolean;
     readonly wheelGeneration: number;
     readonly yearWheelCommandRevision: number;
@@ -124,8 +136,9 @@ interface WorkflowPickerInstance {
     readonly disabled: boolean;
     readonly max: string;
     readonly min: string;
-    readonly mode: 'date' | 'month' | 'selector';
+    readonly mode: 'date' | 'month' | 'selector' | 'time';
     readonly options: readonly WorkflowPickerOption[];
+    readonly placementBoundary?: SelectorPlacementBoundary | null;
     readonly selectedIndex: number;
     readonly title: string;
     readonly value: string;
@@ -139,6 +152,8 @@ interface WorkflowPickerInstance {
 }
 
 const monthValues = Array.from({ length: 12 }, (_, index) => index + 1);
+const hourValues = Array.from({ length: 24 }, (_, index) => index);
+const minuteValues = Array.from({ length: 60 }, (_, index) => index);
 const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 const dateLocateMotionMs = 520;
 const pickerInstances = new Set<WorkflowPickerInstance>();
@@ -153,6 +168,7 @@ Component({
     min: { type: String, value: '' },
     mode: { type: String, value: 'selector' },
     options: { type: Array, value: [] },
+    placementBoundary: { type: Object, value: null },
     placeholder: { type: String, value: '请选择' },
     selectedIndex: { type: Number, value: -1 },
     title: { type: String, value: '请选择' },
@@ -172,12 +188,21 @@ Component({
     draftIndices: [5, 0, 0],
     draftMonth: 1,
     draftYear: new Date().getUTCFullYear(),
+    hourWheelCommandRevision: 0,
+    hourWheelItems: createTimeWheelOptions(hourValues, '时'),
+    hourWheelRuntimeKey: 'workflow-picker-unattached-hour',
+    hourWheelSettledIndex: 0,
+    minuteWheelCommandRevision: 0,
+    minuteWheelItems: createTimeWheelOptions(minuteValues, '分'),
+    minuteWheelRuntimeKey: 'workflow-picker-unattached-minute',
+    minuteWheelSettledIndex: 0,
     monthWheelCommandRevision: 0,
     monthWheelItems: createWheelOptions(monthValues, '月'),
     monthWheelRuntimeKey: 'workflow-picker-unattached-month',
     monthWheelSettledIndex: 0,
     open: false,
     popoverPlacement: 'down' as const,
+    popoverMaxHeight: 300,
     popoverPlacementReady: true,
     renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
@@ -231,6 +256,7 @@ Component({
               ? this.properties.title
               : (this.properties.options[selectedOptionIndex]?.label ?? this.properties.title),
           open: true,
+          popoverMaxHeight: 300,
           popoverPlacement: 'down',
           popoverPlacementReady: false,
           renderedOptions: createRenderedOptions(this.properties.options),
@@ -238,6 +264,11 @@ Component({
           ...wheelRuntime,
         });
         scheduleSelectorPlacement(this);
+        return;
+      }
+
+      if (this.properties.mode === 'time') {
+        this.setData(createTimeDraft(this, wheelRuntime));
         return;
       }
 
@@ -286,6 +317,22 @@ Component({
 
     handleMonthWheelSettled(this: WorkflowPickerInstance, event: UiWheelReportEvent): void {
       applyWheelReport(this, 'month', event.detail, true);
+    },
+
+    handleHourWheelPreview(this: WorkflowPickerInstance, event: UiWheelReportEvent): void {
+      applyTimeWheelReport(this, 'hour', event.detail, false);
+    },
+
+    handleMinuteWheelPreview(this: WorkflowPickerInstance, event: UiWheelReportEvent): void {
+      applyTimeWheelReport(this, 'minute', event.detail, false);
+    },
+
+    handleHourWheelSettled(this: WorkflowPickerInstance, event: UiWheelReportEvent): void {
+      applyTimeWheelReport(this, 'hour', event.detail, true);
+    },
+
+    handleMinuteWheelSettled(this: WorkflowPickerInstance, event: UiWheelReportEvent): void {
+      applyTimeWheelReport(this, 'minute', event.detail, true);
     },
 
     handleDateNavigate(this: WorkflowPickerInstance, event: DateNavigateEvent): void {
@@ -363,6 +410,16 @@ Component({
       if (this.properties.mode === 'date') {
         const state = readDatePagerState(this);
         if (state.targetSlot !== undefined || state.shiftPending) return;
+      }
+
+      if (this.properties.mode === 'time') {
+        const value = formatTimeValue(
+          this.data.draftIndices[0] ?? 0,
+          this.data.draftIndices[1] ?? 0,
+        );
+        this.triggerEvent('change', { value });
+        closePicker(this);
+        return;
       }
 
       const value =
@@ -529,6 +586,8 @@ function createWheelRuntimePatch(
 ): Readonly<Record<string, unknown>> {
   const runtimeId = ensureWheelRuntimeId(instance);
   return {
+    hourWheelRuntimeKey: `${runtimeId}-hour`,
+    minuteWheelRuntimeKey: `${runtimeId}-minute`,
     monthWheelRuntimeKey: `${runtimeId}-month`,
     yearWheelRuntimeKey: `${runtimeId}-year`,
   };
@@ -539,8 +598,28 @@ function nextWheelGeneration(instance: WorkflowPickerInstance): number {
 }
 
 function resetWheelSequences(instance: WorkflowPickerInstance): void {
+  instance._hourWheelSequence = 0;
+  instance._minuteWheelSequence = 0;
   instance._monthWheelSequence = 0;
   instance._yearWheelSequence = 0;
+}
+
+function createTimeDraft(
+  instance: WorkflowPickerInstance,
+  wheelRuntime: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const time = parseTimeValue(instance.properties.value) ?? currentChinaTimeParts();
+  return {
+    draftDisplayValue: formatTimeValue(time.hour, time.minute),
+    draftIndices: [time.hour, time.minute, 0],
+    hourWheelItems: createTimeWheelOptions(hourValues, '时'),
+    hourWheelSettledIndex: time.hour,
+    minuteWheelItems: createTimeWheelOptions(minuteValues, '分'),
+    minuteWheelSettledIndex: time.minute,
+    open: true,
+    popoverPlacement: 'down',
+    ...wheelRuntime,
+  };
 }
 
 function beginWheelGeneration(instance: WorkflowPickerInstance): Readonly<Record<string, unknown>> {
@@ -666,6 +745,41 @@ function applyMonthWheelDraft(
   });
 }
 
+function applyTimeWheelReport(
+  instance: WorkflowPickerInstance,
+  kind: 'hour' | 'minute',
+  report: UiWheelReportEvent['detail'],
+  settled: boolean,
+): void {
+  const runtimeKey =
+    kind === 'hour' ? instance.data.hourWheelRuntimeKey : instance.data.minuteWheelRuntimeKey;
+  const sequenceKey = kind === 'hour' ? '_hourWheelSequence' : '_minuteWheelSequence';
+  const sequence = Number(report.sequence);
+  if (
+    report.runtimeKey !== runtimeKey ||
+    report.generation !== instance.data.wheelGeneration ||
+    !Number.isInteger(sequence) ||
+    sequence <= (instance[sequenceKey] ?? 0)
+  ) {
+    return;
+  }
+  const maximumIndex = kind === 'hour' ? hourValues.length - 1 : minuteValues.length - 1;
+  const index = Number(report.index);
+  if (!Number.isInteger(index) || index < 0 || index > maximumIndex) return;
+  instance[sequenceKey] = sequence;
+  const hour = kind === 'hour' ? index : (instance.data.draftIndices[0] ?? 0);
+  const minute = kind === 'minute' ? index : (instance.data.draftIndices[1] ?? 0);
+  instance.setData({
+    draftDisplayValue: formatTimeValue(hour, minute),
+    draftIndices: [hour, minute, 0],
+    ...(settled
+      ? kind === 'hour'
+        ? { hourWheelSettledIndex: index }
+        : { minuteWheelSettledIndex: index }
+      : {}),
+  });
+}
+
 function createWheelOptions(
   values: readonly number[],
   unit: string,
@@ -673,6 +787,17 @@ function createWheelOptions(
   return values.map((value) => ({
     ariaLabel: `${value}${unit}`,
     label: String(value),
+    unit,
+  }));
+}
+
+function createTimeWheelOptions(
+  values: readonly number[],
+  unit: string,
+): readonly WorkflowPickerWheelOption[] {
+  return values.map((value) => ({
+    ariaLabel: `${pad(value)}${unit}`,
+    label: pad(value),
     unit,
   }));
 }
@@ -809,6 +934,28 @@ function currentChinaDateParts(): {
     month: chinaNow.getUTCMonth() + 1,
     year: chinaNow.getUTCFullYear(),
   };
+}
+
+function currentChinaTimeParts(): { readonly hour: number; readonly minute: number } {
+  const chinaNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return { hour: chinaNow.getUTCHours(), minute: chinaNow.getUTCMinutes() };
+}
+
+function parseTimeValue(
+  value: string,
+): { readonly hour: number; readonly minute: number } | undefined {
+  const match = /^(\d{2}):(\d{2})$/u.exec(value);
+  if (match === null) return undefined;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return undefined;
+  }
+  return { hour, minute };
+}
+
+function formatTimeValue(hour: number, minute: number): string {
+  return `${pad(hour)}:${pad(minute)}`;
 }
 
 function formatDateValue(value: {

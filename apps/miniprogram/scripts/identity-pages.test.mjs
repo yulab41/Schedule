@@ -69,18 +69,38 @@ describe('P3 native identity pages', () => {
     expect(client).toContain('persistPasswordSession');
   });
 
-  it('keeps the admin URL Link path preview-first and confirm-code based', () => {
+  it('shows the member QR details and confirms with one click while preserving URL Link compatibility', () => {
     const template = readSource('pages/admin-bind/preview.wxml');
     const source = readSource('pages/admin-bind/preview.ts');
     const client = readSource('platform/wechat-identity.ts');
 
-    expect(template).toContain('handleContinue');
+    expect(template).not.toContain('handleContinue');
     expect(template).toContain('handleConfirm');
+    expect(template).toContain('employeeCode');
+    expect(template).toContain('handleBackToLogin');
+    expect(template).not.toContain('handleGuest');
+    expect(source).toContain('previewMemberBinding(ticket)');
     expect(source).toContain('previewAdminBinding(ticket)');
     expect(source).toContain('confirmAdminBinding(ticket)');
+    expect(source).toContain("'/pages/workbench/index'");
+    expect(source).not.toContain("'/pages/guest-entry/index'");
+    expect(client).toContain("'/auth/wechat/admin-bind/member-preview'");
     expect(client).toContain("'/auth/wechat/admin-bind/preview'");
     expect(client).toContain("'/auth/wechat/admin-bind/confirm'");
     expect(client).toContain('getWechatCode()');
+  });
+
+  it('keeps invitation pages free of guest features and separates login return from binding', () => {
+    const bindTemplate = readSource('pages/admin-bind/preview.wxml');
+    const bindStyles = readSource('pages/admin-bind/preview.wxss');
+    const bindSource = readSource('pages/admin-bind/preview.ts');
+
+    expect(bindTemplate).toContain('ui-toast');
+    expect(bindTemplate).toContain('handleBackToLogin');
+    expect(bindTemplate).not.toMatch(/访客|guest|扫码/u);
+    expect(bindSource).not.toMatch(/handleGuest|guest-entry|GuestQr|访客/u);
+    expect(bindStyles).toContain('.identity-bind-page .identity-card__button');
+    expect(bindStyles).toContain('margin: 24px 0 0');
   });
 
   it('uses an inline unbind confirmation and removes the retired page route', () => {

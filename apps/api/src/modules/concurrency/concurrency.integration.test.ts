@@ -39,7 +39,7 @@ describeWithDatabase('optimistic concurrency protection', () => {
       logger: false,
     });
     await registerUser('owner-token', 'Owner Doctor');
-    groupId = await createGroup('Concurrency group', '1234');
+    groupId = await createGroup('Concurrency group');
 
     const config = await getConfig('owner-token', groupId);
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);
@@ -202,14 +202,14 @@ describeWithDatabase('optimistic concurrency protection', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 

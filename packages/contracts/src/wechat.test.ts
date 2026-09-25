@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  acceptInviteResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
-  createInviteLinkRequestSchema,
-  groupQrResponseSchema,
+  createCurrentMemberWechatBindingQrResponseSchema,
+  currentEnvironmentQrResponseSchema,
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
+  visitorCalendarReadRequestSchema,
   visitorAccessAggregatePageSchema,
   visitorResolveRequestSchema,
   platformAdminWechatMiniProgramUnbindRequestSchema,
@@ -216,15 +216,30 @@ describe('wechat mini program contracts', () => {
     ).toBe(false);
   });
 
-  it('requires a non-empty group QR image payload', () => {
-    expect(groupQrResponseSchema.safeParse({ imageBase64: 'iVBORw0KGgo=' }).success).toBe(true);
+  it('accepts one environment-specific QR and rejects compatibility fields', () => {
     expect(
-      groupQrResponseSchema.safeParse({
+      currentEnvironmentQrResponseSchema.safeParse({
+        environment: 'trial',
         imageBase64: 'iVBORw0KGgo=',
-        trialImageBase64: 'iVBORw0KGgo=',
       }).success,
     ).toBe(true);
-    expect(groupQrResponseSchema.safeParse({ imageBase64: '' }).success).toBe(false);
+    expect(
+      currentEnvironmentQrResponseSchema.safeParse({
+        environment: 'release',
+        imageBase64: 'iVBORw0KGgo=',
+        trialImageBase64: 'legacy',
+      }).success,
+    ).toBe(false);
+    expect(
+      createCurrentMemberWechatBindingQrResponseSchema.safeParse({
+        environment: 'release',
+        expiresAt: '2026-09-21T00:00:00.000Z',
+        groupName: '头颈外科医生',
+        imageBase64: 'iVBORw0KGgo=',
+        membershipId: 'member-1',
+        realName: '冯钦',
+      }).success,
+    ).toBe(true);
   });
 
   it('accepts only a true visitor key changed response', () => {
@@ -236,32 +251,29 @@ describe('wechat mini program contracts', () => {
     );
   });
 
-  it('requires exactly one invite target', () => {
-    const mutation = {
-      expectedTargetVersion: 1,
-      operationId: '11111111-1111-4111-8111-111111111111',
+  it('accepts only versioned allowlisted visitor client context', () => {
+    const request = {
+      businessMonth: '2026-09',
+      clientContext: { brand: 'Xiaomi', model: 'Xiaomi 14', version: 1 },
+      loginCode: 'temporary-code',
+      visitId: '11111111-1111-4111-8111-111111111111',
+      visitorKey: 'a'.repeat(32),
     };
+    expect(visitorCalendarReadRequestSchema.safeParse(request).success).toBe(true);
     expect(
-      createInviteLinkRequestSchema.safeParse({ ...mutation, targetMembershipId: 'm1' }).success,
-    ).toBe(true);
+      visitorCalendarReadRequestSchema.safeParse({ ...request, visitId: 'not-a-uuid' }).success,
+    ).toBe(false);
     expect(
-      createInviteLinkRequestSchema.safeParse({ ...mutation, targetRosterEntryId: 'r1' }).success,
-    ).toBe(true);
-    expect(createInviteLinkRequestSchema.safeParse({}).success).toBe(false);
-    expect(
-      createInviteLinkRequestSchema.safeParse({
-        ...mutation,
-        targetMembershipId: 'm1',
-        targetRosterEntryId: 'r1',
+      visitorCalendarReadRequestSchema.safeParse({
+        ...request,
+        clientContext: { ...request.clientContext, unknownDeviceId: 'no' },
       }).success,
     ).toBe(false);
-  });
-
-  it('accepts an invite accept response with an optional reissued token', () => {
-    const group = { id: 'g1', name: '内科', role: 'member', version: 1 };
-    expect(acceptInviteResponseSchema.safeParse({ group }).success).toBe(true);
-    expect(acceptInviteResponseSchema.safeParse({ group, token: 'reissued-token' }).success).toBe(
-      true,
-    );
+    expect(
+      visitorCalendarReadRequestSchema.safeParse({
+        ...request,
+        clientContext: { model: 'x'.repeat(129), version: 1 },
+      }).success,
+    ).toBe(false);
   });
 });

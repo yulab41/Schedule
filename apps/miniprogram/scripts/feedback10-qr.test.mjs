@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ read: {}, write: {}, capability: vi.fn() }));
 vi.mock('../src/platform/client-core-calendar.js', () => ({
   createRuntimeOrganizationReadClient: () => mocks.read,
-  createRuntimeInviteVisitorWriteClient: () => mocks.write,
+  createRuntimeQrVisitorWriteClient: () => mocks.write,
 }));
 vi.mock('../src/platform/wechat-identity.js', () => ({
   getStoredWechatToken: vi.fn(),
@@ -41,24 +41,18 @@ describe('visitor QR image and lifecycle', () => {
       .fn()
       .mockResolvedValue([{ id: 'member', realName: '测试', version: 1 }]);
     mocks.read.getSchedulingConfig = vi.fn().mockResolvedValue({ roles: [] });
-    mocks.read.getGroupQr = vi.fn().mockResolvedValue({ imageBase64: 'iVBORw0KGgo=' });
+    mocks.read.getVisitorQr = vi
+      .fn()
+      .mockResolvedValue({ environment: 'trial', imageBase64: 'iVBORw0KGgo=' });
     mocks.write.regenerateVisitorKey = vi.fn().mockResolvedValue({ visitorKeyChanged: true });
-    mocks.write.createInviteLink = vi.fn().mockResolvedValue({
-      token: 'fixture',
-      version: 1,
-      expiresAt: '2099-01-01',
-      sharePath: '/fixture',
-      groupName: 'A',
-      realName: '测试',
-    });
-    mocks.write.revokeInvite = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('wx', {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion: 'trial', version: 'test' } }),
       getWindowInfo: () => ({ windowWidth: 390, statusBarHeight: 24 }),
       showModal: vi.fn((options) => options.success({ confirm: true })),
     });
     const module =
-      await import('../src/subpackages/organization/components/invite-visitor-panel/controller.ts');
-    definition = module.createInviteVisitorPanelControllerDefinition();
+      await import('../src/subpackages/organization/components/qr-visitor-panel/controller.ts');
+    definition = module.createQrVisitorPanelControllerDefinition();
     page = {
       properties: { groupId: 'a' },
       data: { ...definition.data },
@@ -85,7 +79,7 @@ describe('visitor QR image and lifecycle', () => {
     ['iVBORw0KGgo=', 'data:image/png;base64,iVBORw0KGgo='],
     ['/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==', 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2Q=='],
   ])('detects original QR image bytes without rewriting them', async (imageBase64, expected) => {
-    mocks.read.getGroupQr.mockResolvedValue({ imageBase64 });
+    mocks.read.getVisitorQr.mockResolvedValue({ environment: 'trial', imageBase64 });
     await loadQr();
     expect(page.data.qrImageSrc).toBe(expected);
     expect(page.data.visitorMessage).toContain('长按二维码保存或转发');
@@ -94,7 +88,7 @@ describe('visitor QR image and lifecycle', () => {
   it.each(['AAAA', 'iVBORw0KGgo===', '/9j/@@', ''])(
     'rejects invalid QR image bytes %s',
     async (imageBase64) => {
-      mocks.read.getGroupQr.mockResolvedValue({ imageBase64 });
+      mocks.read.getVisitorQr.mockResolvedValue({ environment: 'trial', imageBase64 });
       await loadQr();
       expect(page.data.qrVisible).toBe(false);
       expect(page.data.qrImageSrc).toBe('');
@@ -104,15 +98,15 @@ describe('visitor QR image and lifecycle', () => {
 
   it('deduplicates reads and discards a late QR after the group changes', async () => {
     const pending = deferred();
-    mocks.read.getGroupQr.mockReturnValue(pending.promise);
+    mocks.read.getVisitorQr.mockReturnValue(pending.promise);
     definition.handleLoadQr.call(page);
     definition.handleLoadQr.call(page);
     await flush();
-    expect(mocks.read.getGroupQr).toHaveBeenCalledTimes(1);
+    expect(mocks.read.getVisitorQr).toHaveBeenCalledTimes(1);
     page.properties = { groupId: 'b' };
     definition.observers.groupId.call(page);
     await flush();
-    pending.resolve({ imageBase64: 'iVBORw0KGgo=' });
+    pending.resolve({ environment: 'trial', imageBase64: 'iVBORw0KGgo=' });
     await flush();
     expect(page.data.qrImageSrc).toBe('');
   });

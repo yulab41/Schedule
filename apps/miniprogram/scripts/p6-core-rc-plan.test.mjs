@@ -38,7 +38,7 @@ describe('P6 core RC manual evidence plan', () => {
     expect(plan.automatedEvidence).toEqual({
       maximumMatrixViewModelBytes: 171340,
       nodeTargetDisposition: 'warning-with-exact-no-growth-ceilings',
-      productionManualHostElementLowerBound: 1507,
+      productionManualHostElementLowerBound: 1510,
       wxsHotPathSetDataCalls: 0,
     });
     expect(plan.cases.map((entry) => entry.id)).toEqual([

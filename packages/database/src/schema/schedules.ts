@@ -74,6 +74,10 @@ export const shiftAssignments = mysqlTable(
     schedulePeriodId: char('schedule_period_id', { length: 36 }).notNull(),
     businessDate: date('business_date', { mode: 'string' }).notNull(),
     slotPosition: int('slot_position', { unsigned: true }).notNull(),
+    activeSlotPosition: int('active_slot_position', { unsigned: true }).generatedAlwaysAs(
+      sql`if(deleted_at is null, slot_position, null)`,
+      { mode: 'stored' },
+    ),
     shiftTypeId: char('shift_type_id', { length: 36 }).notNull(),
     shiftTypeName: varchar('shift_type_name', { length: 100 }).notNull(),
     shiftTypeAbbreviation: varchar('shift_type_abbreviation', { length: 16 }).notNull(),
@@ -102,7 +106,7 @@ export const shiftAssignments = mysqlTable(
     uniqueIndex('shift_assignments_slot_unique').on(
       table.schedulePeriodId,
       table.startsAt,
-      table.slotPosition,
+      table.activeSlotPosition,
     ),
     index('shift_assignments_period_business_date_idx').on(
       table.schedulePeriodId,

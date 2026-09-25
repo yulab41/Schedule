@@ -5,20 +5,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  acceptInviteResponseSchema,
   addGroupMembersResponseSchema,
   addRosterEntriesResponseSchema,
   apiErrorCodes,
   approvedLeaveRequestResultSchema,
   appliedManualScheduleTemplateResultSchema,
+  createdManualScheduleDraftResultSchema,
   calendarChangesReadModelSchema,
   calendarReadModelSchema,
   guestCalendarReadModelSchema,
   visitorResolveResponseSchema,
   clientCapabilityResponseSchema,
   convertPendingRosterResponseSchema,
-  createInviteLinkResponseSchema,
-  createMemberWechatBindingQrResponseSchema,
+  createCurrentMemberWechatBindingQrResponseSchema,
+  currentEnvironmentQrResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
   dissolvedGroupListSchema,
   directoryEntryLookupResponseSchema,
@@ -34,7 +34,6 @@ import {
   groupMemberSchema,
   groupMemberListSchema,
   groupMobilePhoneConsentSchema,
-  groupQrResponseSchema,
   groupSummarySchema,
   groupSummaryListSchema,
   groupSwapSettingsSchema,
@@ -45,6 +44,7 @@ import {
   leaveRequestMutationResultSchema,
   leaveRequestSchema,
   manualApplyPreviewSchema,
+  manualScheduleEditorPreviewSchema,
   manualScheduleStartDateSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
@@ -56,7 +56,6 @@ import {
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   rejectedLeaveRequestResultSchema,
-  resolveInviteResponseSchema,
   scheduleChangeImpactPreviewSchema,
   scheduleEventDetailSchema,
   scheduleEventPageSchema,
@@ -112,10 +111,6 @@ const source = await format(
         'visitorResolveResponse',
       ),
       manualScheduleStartDate: sanitizeJsonSchema(z.toJSONSchema(manualScheduleStartDateSchema)),
-      acceptInviteResponse: sanitizeJsonSchema(
-        z.toJSONSchema(acceptInviteResponseSchema),
-        'acceptInviteResponse',
-      ),
       addGroupMembersResponse: sanitizeJsonSchema(
         z.toJSONSchema(addGroupMembersResponseSchema),
         'addGroupMembersResponse',
@@ -131,6 +126,10 @@ const source = await format(
       appliedManualScheduleTemplateResult: sanitizeJsonSchema(
         z.toJSONSchema(appliedManualScheduleTemplateResultSchema),
         'appliedManualScheduleTemplateResult',
+      ),
+      createdManualScheduleDraftResult: sanitizeJsonSchema(
+        z.toJSONSchema(createdManualScheduleDraftResultSchema),
+        'createdManualScheduleDraftResult',
       ),
       calendarReadModel: sanitizeJsonSchema(
         z.toJSONSchema(calendarReadModelSchema),
@@ -148,13 +147,9 @@ const source = await format(
         z.toJSONSchema(convertPendingRosterResponseSchema),
         'convertPendingRosterResponse',
       ),
-      createInviteLinkResponse: sanitizeJsonSchema(
-        z.toJSONSchema(createInviteLinkResponseSchema),
-        'createInviteLinkResponse',
-      ),
-      createMemberWechatBindingQrResponse: sanitizeJsonSchema(
-        z.toJSONSchema(createMemberWechatBindingQrResponseSchema),
-        'createMemberWechatBindingQrResponse',
+      createCurrentMemberWechatBindingQrResponse: sanitizeJsonSchema(
+        z.toJSONSchema(createCurrentMemberWechatBindingQrResponseSchema),
+        'createCurrentMemberWechatBindingQrResponse',
       ),
       createWechatAdminBindingLinkResponse: sanitizeJsonSchema(
         z.toJSONSchema(createWechatAdminBindingLinkResponseSchema),
@@ -201,7 +196,10 @@ const source = await format(
         z.toJSONSchema(groupMobilePhoneConsentSchema),
         'groupMobilePhoneConsent',
       ),
-      groupQrResponse: sanitizeJsonSchema(z.toJSONSchema(groupQrResponseSchema), 'groupQrResponse'),
+      currentEnvironmentQrResponse: sanitizeJsonSchema(
+        z.toJSONSchema(currentEnvironmentQrResponseSchema),
+        'currentEnvironmentQrResponse',
+      ),
       groupMemberContactList: sanitizeJsonSchema(
         z.toJSONSchema(groupMemberContactListSchema),
         'groupMemberContactList',
@@ -241,6 +239,10 @@ const source = await format(
       manualApplyPreview: sanitizeJsonSchema(
         z.toJSONSchema(manualApplyPreviewSchema),
         'manualApplyPreview',
+      ),
+      manualScheduleEditorPreview: sanitizeJsonSchema(
+        z.toJSONSchema(manualScheduleEditorPreviewSchema),
+        'manualScheduleEditorPreview',
       ),
       manualScheduleTemplate: sanitizeJsonSchema(
         z.toJSONSchema(manualScheduleTemplateSchema),
@@ -301,10 +303,6 @@ const source = await format(
       rejectedLeaveRequestResult: sanitizeJsonSchema(
         z.toJSONSchema(rejectedLeaveRequestResultSchema),
         'rejectedLeaveRequestResult',
-      ),
-      resolveInviteResponse: sanitizeJsonSchema(
-        z.toJSONSchema(resolveInviteResponseSchema),
-        'resolveInviteResponse',
       ),
       scheduleChangeImpactPreview: sanitizeJsonSchema(
         z.toJSONSchema(scheduleChangeImpactPreviewSchema),

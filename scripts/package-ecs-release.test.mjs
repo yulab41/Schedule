@@ -192,4 +192,24 @@ describe('ECS directory import runtime packaging', () => {
     expect(ledgerCheck).toContain('group_calendar_changes_group_seq_unique');
     expect(ledgerCheck).toContain('calendar_revision');
   });
+
+  it('verifies the schema 63 account short phone, visitor context and retired objects', () => {
+    const schema63Check = verifySource.match(
+      /ACCOUNT_SHORT_PHONE_VISITOR_CONTEXT_SCHEMA=.*?\n\s*\[ "\$ACCOUNT_SHORT_PHONE_VISITOR_CONTEXT_SCHEMA" = \$'2\\t3\\t0' \]/s,
+    )?.[0];
+
+    expect(schema63Check).toBeTruthy();
+    expect(schema63Check).toContain('short_phone_updated_at');
+    expect(schema63Check).toContain('client_context_version');
+    expect(schema63Check).toContain('invite_tokens');
+    expect(schema63Check).toContain('group_code_attempts');
+    expect(schema63Check).toContain('groups_group_code_unique');
+  });
+
+  it('verifies the schema 64 active-only shift slot key', () => {
+    expect(verifySource).toContain('ACTIVE_SHIFT_SLOT_SCHEMA');
+    expect(verifySource).toContain('active_slot_position');
+    expect(verifySource).toContain('shift_assignments_slot_unique');
+    expect(verifySource).toContain("$'1\\t3'");
+  });
 });

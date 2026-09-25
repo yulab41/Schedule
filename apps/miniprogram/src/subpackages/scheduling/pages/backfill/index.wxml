@@ -41,9 +41,17 @@
         <ui-alert wx:if="{{errorMessage}}" tone="danger" title="操作未完成" message="{{errorMessage}}" />
         <view class="controls">
           <view class="field-label"><text>排班岗位</text>
-            <picker disabled="{{isBusy}}" range="{{roleLabels}}" value="{{roleIndex}}" bindchange="handleRoleChange">
-              <view class="web-input-shell"><text>{{roleLabels[roleIndex] || '请选择排班岗位'}}</text><image class="picker-chevron" src="/assets/icons/ui-chevron-right-muted.svg" mode="aspectFit" aria-hidden="true" /></view>
-            </picker>
+            <ui-selector
+              class="backfill-picker"
+              title="排班岗位"
+              options="{{roleOptions}}"
+              selected-index="{{roleIndex}}"
+              display-value="{{roleOptions[roleIndex].label || '请选择排班岗位'}}"
+              disabled="{{isBusy}}"
+              placement-boundary="{{pickerBoundary}}"
+              bindchange="handleRoleChange"
+              bindpickerrequestopen="handlePickerRequestOpen"
+            ></ui-selector>
           </view>
         </view>
         <view class="palette-section">

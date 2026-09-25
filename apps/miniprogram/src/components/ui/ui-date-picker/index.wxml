@@ -38,7 +38,7 @@
   <template
     wx:if="{{mode === 'selector'}}"
     is="selector-options"
-    data="{{open, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
+    data="{{open, popoverMaxHeight, popoverPlacement, popoverPlacementReady, renderedOptions, selectedOptionIndex, options}}"
   />
 </view>
 
@@ -52,7 +52,7 @@
     <view class="workflow-picker-handle"></view>
     <view class="workflow-picker-heading">
       <view>
-        <text>{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : '选择'}}</text>
+        <text>{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : mode === 'time' ? '选择时间' : '选择'}}</text>
         <text>{{draftDisplayValue}}</text>
       </view>
       <view class="workflow-picker-close" aria-role="button" aria-label="关闭" bindtap="handleClose"
@@ -86,6 +86,37 @@
         animate-command="{{false}}"
         bindpreviewchange="handleMonthWheelPreview"
         bindsettle="handleMonthWheelSettled"
+      ></ui-wheel-column>
+      <view class="workflow-picker-wheel-rails"></view>
+      <view class="workflow-picker-wheel-mask"></view>
+    </view>
+
+    <view wx:elif="{{mode === 'time'}}" class="workflow-picker-wheel">
+      <ui-wheel-column
+        class="workflow-picker-wheel-column workflow-picker-time-column"
+        aria-label="小时滚轮"
+        items="{{hourWheelItems}}"
+        unit="时"
+        selected-index="{{draftIndices[0]}}"
+        runtime-key="{{hourWheelRuntimeKey}}"
+        generation="{{wheelGeneration}}"
+        command-revision="{{hourWheelCommandRevision}}"
+        animate-command="{{false}}"
+        bindpreviewchange="handleHourWheelPreview"
+        bindsettle="handleHourWheelSettled"
+      ></ui-wheel-column>
+      <ui-wheel-column
+        class="workflow-picker-wheel-column workflow-picker-time-column"
+        aria-label="分钟滚轮"
+        items="{{minuteWheelItems}}"
+        unit="分"
+        selected-index="{{draftIndices[1]}}"
+        runtime-key="{{minuteWheelRuntimeKey}}"
+        generation="{{wheelGeneration}}"
+        command-revision="{{minuteWheelCommandRevision}}"
+        animate-command="{{false}}"
+        bindpreviewchange="handleMinuteWheelPreview"
+        bindsettle="handleMinuteWheelSettled"
       ></ui-wheel-column>
       <view class="workflow-picker-wheel-rails"></view>
       <view class="workflow-picker-wheel-mask"></view>

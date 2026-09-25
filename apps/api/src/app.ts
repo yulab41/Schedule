@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import type { AuthPort } from './adapters/auth/auth-port.js';
-import type { ClientVersion } from '@schedule/contracts';
 import type { DatabaseClient } from '@schedule/database';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
@@ -12,8 +11,6 @@ import { GroupService } from './modules/groups/group-service.js';
 import { MembershipService } from './modules/groups/membership-service.js';
 import { ContactService } from './modules/groups/contact-service.js';
 import { VisitorKeyService } from './modules/groups/visitor-key-service.js';
-import { InviteService } from './modules/groups/invite-service.js';
-import { registerInviteRoutes } from './modules/groups/invite-routes.js';
 import { registerSchedulingConfigRoutes } from './modules/scheduling-config/scheduling-config-routes.js';
 import { SchedulingConfigService } from './modules/scheduling-config/scheduling-config-service.js';
 import { registerScheduleRoutes } from './modules/schedules/schedule-routes.js';
@@ -158,28 +155,6 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         clientCapabilityPolicy,
       );
     }
-    registerInviteRoutes(
-      app,
-      new InviteService({
-        databaseClient: options.databaseClient,
-        holidayAdminUids,
-        ...(options.wechatSessionSecret === undefined
-          ? {}
-          : { inviteTokenSecret: options.wechatSessionSecret }),
-        ...(wechatAuthService === undefined
-          ? {}
-          : {
-              issueSessionForUser: (
-                userId: string,
-                openid: string,
-                authVersion: number,
-                clientVersion?: ClientVersion,
-              ) =>
-                wechatAuthService.issueSessionForUser(userId, openid, authVersion, clientVersion),
-            }),
-        platformAdminUids,
-      }),
-    );
     const visitorAccessLogService = new VisitorAccessLogService(options.databaseClient, {
       platformAdminUids,
     });

@@ -19,6 +19,7 @@ import {
   createRuntimeCalendarReadClient,
   createRuntimeInsightsReadClient,
   createRuntimeOrganizationReadClient,
+  createRuntimeOrganizationWriteClient,
 } from '../../platform/client-core-calendar.js';
 import {
   clearWechatSession,
@@ -46,6 +47,7 @@ import { formatDateLabel, getTodayBusinessDate } from '../../features/workbench/
 type ProfileMode = 'missing' | 'ready';
 type OverviewState = 'error' | 'idle' | 'loading' | 'ready';
 type BindingState = 'error' | 'loading' | 'ready';
+type ContactEditorField = '' | 'mobile' | 'short';
 
 export interface ProfileGroupInput {
   readonly id: string;
@@ -70,6 +72,16 @@ interface ProfilePanelData {
   readonly bindingState: BindingState;
   readonly buildLabel: string;
   readonly canUnbindWechat: boolean;
+  readonly contactDraft: string;
+  readonly contactEditorField: ContactEditorField;
+  readonly contactEditorOpen: boolean;
+  readonly contactEditorTitle: string;
+  readonly contactError: string;
+  readonly contactInputFocused: boolean;
+  readonly contactKeyboardHeight: number;
+  readonly contactMembershipId: string;
+  readonly contactSaving: boolean;
+  readonly contactVersion: number;
   readonly defaultPasswordReminderOpen: boolean;
   readonly currentPassword: string;
   readonly embedded: boolean;
@@ -109,12 +121,20 @@ interface ProfilePanelData {
 }
 
 interface ProfilePanelInstance {
+  _contactBlurTimer?: ReturnType<typeof setTimeout>;
+  _contactFocusGeneration?: number;
+  _contactKeyboardHeightHandler?: (result: { readonly height: number }) => void;
   accountRequestSerial: number;
   data: ProfilePanelData;
   overviewRequestSerial: number;
   _securityGeneration?: number;
-  setData(patch: Partial<ProfilePanelData>): void;
+  setData(patch: Partial<ProfilePanelData>, callback?: () => void): void;
   triggerEvent?(name: string): void;
+}
+
+interface ContactKeyboardRuntime {
+  offKeyboardHeightChange?(handler: (result: { readonly height: number }) => void): void;
+  onKeyboardHeightChange?(handler: (result: { readonly height: number }) => void): void;
 }
 
 export interface ProfilePanelDependencies {
@@ -147,6 +167,16 @@ export interface ProfilePanelDependencies {
   readonly now: () => string;
   readonly signOut: () => void;
   readonly unbindWechat: (idempotencyKey: string) => Promise<{ readonly unbound: true }>;
+  readonly updateGroupMemberContact: (
+    groupId: string,
+    membershipId: string,
+    input: {
+      readonly expectedVersion: number;
+      readonly mobilePhone?: string | null;
+      readonly operationId: string;
+      readonly shortPhone?: string | null;
+    },
+  ) => Promise<MyProfileContactLike>;
 }
 
 export function createProfilePanelControllerDefinition(
@@ -163,6 +193,16 @@ export function createProfilePanelControllerDefinition(
       bindingState: 'loading' as BindingState,
       buildLabel: buildInfo.buildLabel,
       canUnbindWechat: false,
+      contactDraft: '',
+      contactEditorField: '' as ContactEditorField,
+      contactEditorOpen: false,
+      contactEditorTitle: '',
+      contactError: '',
+      contactInputFocused: false,
+      contactKeyboardHeight: 0,
+      contactMembershipId: '',
+      contactSaving: false,
+      contactVersion: 0,
       defaultPasswordReminderOpen: false,
       currentPassword: '',
       embedded,
@@ -204,6 +244,7 @@ export function createProfilePanelControllerDefinition(
     ...security.methods,
 
     onUnload(this: ProfilePanelInstance): void {
+      disposeContactKeyboardTracking(this);
       security.dispose.call(this);
       this.accountRequestSerial += 1;
       this.overviewRequestSerial += 1;
@@ -212,6 +253,7 @@ export function createProfilePanelControllerDefinition(
     onLoad(this: ProfilePanelInstance): void {
       this.accountRequestSerial = 0;
       this.overviewRequestSerial = 0;
+      registerContactKeyboardTracking(this);
       security.initialize.call(this);
       const windowInfo = wx.getWindowInfo();
       const fontSizeSetting = (windowInfo as unknown as { readonly fontSizeSetting?: number })
@@ -234,6 +276,58 @@ export function createProfilePanelControllerDefinition(
     handleOverviewRetry(this: ProfilePanelInstance): void {
       const group = currentGroup(this);
       if (group !== undefined) void loadOverview(this, dependencies, group);
+    },
+
+    handleMobilePhoneEdit(this: ProfilePanelInstance): void {
+      openContactEditor(this, 'mobile');
+    },
+
+    handleShortPhoneEdit(this: ProfilePanelInstance): void {
+      openContactEditor(this, 'short');
+    },
+
+    handleContactInput(this: ProfilePanelInstance, event: { detail: { value: string } }): void {
+      this.setData({ contactDraft: event.detail.value, contactError: '' });
+    },
+
+    handleContactFocus(this: ProfilePanelInstance): void {
+      clearContactBlurTimer(this);
+      if (!this.data.contactInputFocused) this.setData({ contactInputFocused: true });
+    },
+
+    handleContactBlur(this: ProfilePanelInstance): void {
+      clearContactBlurTimer(this);
+      if (this.data.contactInputFocused) this.setData({ contactInputFocused: false });
+      this._contactBlurTimer = setTimeout(() => {
+        delete this._contactBlurTimer;
+        if (this.data.contactEditorOpen && !this.data.contactInputFocused)
+          applyContactKeyboardHeight(this, 0);
+      }, 100);
+    },
+
+    handleContactKeyboardHeightChange(
+      this: ProfilePanelInstance,
+      event: { detail: { height: number } },
+    ): void {
+      applyContactKeyboardHeight(this, event.detail.height);
+    },
+
+    handleContactClose(this: ProfilePanelInstance): void {
+      if (!this.data.contactSaving) {
+        invalidateContactFocus(this);
+        clearContactBlurTimer(this);
+        this.setData({
+          contactEditorField: '',
+          contactEditorOpen: false,
+          contactError: '',
+          contactInputFocused: false,
+          contactKeyboardHeight: 0,
+        });
+      }
+    },
+
+    handleContactSubmit(this: ProfilePanelInstance): void {
+      if (!this.data.contactSaving) void saveContact(this, dependencies);
     },
 
     handleBack(): void {
@@ -458,7 +552,14 @@ async function loadOverview(
     });
     const statisticsFailed =
       monthStatistics.status === 'rejected' && yearStatistics.status === 'rejected';
+    const currentMembershipId = overview.membershipId ?? '';
+    const currentContact =
+      contacts.status === 'fulfilled'
+        ? contacts.value.find((candidate) => candidate.membershipId === currentMembershipId)
+        : undefined;
     panel.setData({
+      contactMembershipId: currentMembershipId,
+      contactVersion: currentContact?.version ?? 0,
       overviewError: statisticsFailed ? '个人统计暂时无法加载，请稍后重试。' : '',
       overviewState: 'ready',
       ...overviewPatch(overview, `${businessMonth.slice(0, 4)} 年个人值班`, group.name),
@@ -533,6 +634,157 @@ function currentGroup(panel: ProfilePanelInstance): ProfileGroupInput | undefine
   };
 }
 
+function openContactEditor(
+  panel: ProfilePanelInstance,
+  field: Exclude<ContactEditorField, ''>,
+): void {
+  if (panel.data.contactMembershipId === '') {
+    wx.showToast?.({ icon: 'none', title: '成员资料仍在加载，请稍后重试。' });
+    return;
+  }
+  clearContactBlurTimer(panel);
+  const focusGeneration = invalidateContactFocus(panel);
+  panel.setData(
+    {
+      contactDraft: field === 'mobile' ? panel.data.mobilePhone : panel.data.shortPhone,
+      contactEditorField: field,
+      contactEditorOpen: true,
+      contactEditorTitle: field === 'mobile' ? '修改手机号' : '修改短号',
+      contactError: '',
+      contactInputFocused: false,
+      contactKeyboardHeight: 0,
+    },
+    () => {
+      if (panel.data.contactEditorOpen && panel._contactFocusGeneration === focusGeneration)
+        panel.setData({ contactInputFocused: true });
+    },
+  );
+}
+
+async function saveContact(
+  panel: ProfilePanelInstance,
+  dependencies: ProfilePanelDependencies,
+): Promise<void> {
+  const value = panel.data.contactDraft.normalize('NFKC').trim();
+  const field = panel.data.contactEditorField;
+  if (field === '') return;
+  if (field === 'mobile' && value !== '' && !/^1\d{10}$/u.test(value)) {
+    panel.setData({ contactError: '请输入 11 位中国大陆手机号，或清空该字段。' });
+    return;
+  }
+  if (field === 'short' && value !== '' && !/^\d{1,12}$/u.test(value)) {
+    panel.setData({ contactError: '短号应为 1–12 位数字，或清空该字段。' });
+    return;
+  }
+  panel.setData({ contactError: '', contactSaving: true });
+  try {
+    const updated = await dependencies.updateGroupMemberContact(
+      panel.data.groupId,
+      panel.data.contactMembershipId,
+      {
+        expectedVersion: panel.data.contactVersion,
+        operationId: createIdempotencyKey(),
+        ...(field === 'mobile' ? { mobilePhone: value || null } : { shortPhone: value || null }),
+      },
+    );
+    invalidateContactFocus(panel);
+    clearContactBlurTimer(panel);
+    panel.setData({
+      contactEditorField: '',
+      contactEditorOpen: false,
+      contactSaving: false,
+      contactInputFocused: false,
+      contactKeyboardHeight: 0,
+      contactVersion: updated.version ?? panel.data.contactVersion + 1,
+      mobilePhone: updated.mobilePhone ?? '',
+      shortPhone: updated.shortPhone ?? '',
+    });
+    wx.showToast?.({ icon: 'success', title: '已保存' });
+  } catch (error) {
+    if (isConflict(error)) {
+      await refreshCurrentContact(panel, dependencies);
+      panel.setData({
+        contactError: '资料已在其他页面修改，已刷新，请重新确认。',
+        contactSaving: false,
+      });
+      return;
+    }
+    panel.setData({ contactError: '保存失败，请稍后重试。', contactSaving: false });
+  }
+}
+
+function registerContactKeyboardTracking(panel: ProfilePanelInstance): void {
+  disposeContactKeyboardTracking(panel);
+  const runtime = wx as ContactKeyboardRuntime;
+  if (!runtime.onKeyboardHeightChange || !runtime.offKeyboardHeightChange) return;
+  const handler = (result: { readonly height: number }): void => {
+    if (panel.data.contactEditorOpen) applyContactKeyboardHeight(panel, result.height);
+  };
+  panel._contactKeyboardHeightHandler = handler;
+  runtime.onKeyboardHeightChange(handler);
+}
+
+function disposeContactKeyboardTracking(panel: ProfilePanelInstance): void {
+  clearContactBlurTimer(panel);
+  invalidateContactFocus(panel);
+  const handler = panel._contactKeyboardHeightHandler;
+  delete panel._contactKeyboardHeightHandler;
+  if (handler) (wx as ContactKeyboardRuntime).offKeyboardHeightChange?.(handler);
+}
+
+function applyContactKeyboardHeight(panel: ProfilePanelInstance, measuredHeight: number): void {
+  const contactKeyboardHeight =
+    Number.isFinite(measuredHeight) && measuredHeight > 0 ? Math.round(measuredHeight) : 0;
+  if (contactKeyboardHeight > 0) clearContactBlurTimer(panel);
+  if (contactKeyboardHeight !== panel.data.contactKeyboardHeight)
+    panel.setData({ contactKeyboardHeight });
+}
+
+function clearContactBlurTimer(panel: ProfilePanelInstance): void {
+  if (panel._contactBlurTimer === undefined) return;
+  clearTimeout(panel._contactBlurTimer);
+  delete panel._contactBlurTimer;
+}
+
+function invalidateContactFocus(panel: ProfilePanelInstance): number {
+  const generation = (panel._contactFocusGeneration ?? 0) + 1;
+  panel._contactFocusGeneration = generation;
+  return generation;
+}
+
+async function refreshCurrentContact(
+  panel: ProfilePanelInstance,
+  dependencies: ProfilePanelDependencies,
+): Promise<void> {
+  try {
+    const contacts = await dependencies.listGroupContacts(panel.data.groupId);
+    const current = contacts.find(
+      (candidate) => candidate.membershipId === panel.data.contactMembershipId,
+    );
+    if (current !== undefined)
+      panel.setData({
+        contactDraft:
+          panel.data.contactEditorField === 'mobile'
+            ? (current.mobilePhone ?? '')
+            : (current.shortPhone ?? ''),
+        contactVersion: current.version ?? 0,
+        mobilePhone: current.mobilePhone ?? '',
+        shortPhone: current.shortPhone ?? '',
+      });
+  } catch {
+    // Keep the sheet open. The next submit remains guarded by the old version.
+  }
+}
+
+function isConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { readonly code?: unknown }).code === 'CONFLICT'
+  );
+}
+
 function isCurrentOverviewRequest(
   panel: ProfilePanelInstance,
   requestSerial: number,
@@ -584,6 +836,10 @@ function formatChinaClock(value: string): string {
 function createRuntimeDependencies(): ProfilePanelDependencies {
   const authentication = getWechatRequestAuthentication();
   const organization = createRuntimeOrganizationReadClient(getStoredWechatToken, authentication);
+  const organizationWrite = createRuntimeOrganizationWriteClient(
+    getStoredWechatToken,
+    authentication,
+  );
   const insights = createRuntimeInsightsReadClient(getStoredWechatToken, authentication);
   const calendar = createRuntimeCalendarReadClient(getStoredWechatToken, authentication);
   const account = createProfileAccountClient(getStoredWechatToken, authentication);
@@ -607,6 +863,8 @@ function createRuntimeDependencies(): ProfilePanelDependencies {
     now: () => new Date().toISOString(),
     signOut: finishSensitiveSessionChange,
     unbindWechat: (idempotencyKey) => unbindWechatIdentity(idempotencyKey),
+    updateGroupMemberContact: (groupId, membershipId, input) =>
+      organizationWrite.updateGroupMemberContact(groupId, membershipId, input),
   };
 }
 

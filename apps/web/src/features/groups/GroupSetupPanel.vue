@@ -232,7 +232,7 @@ async function saveRoster(): Promise<void> {
     );
     completeOrganizationAttempt(attemptKey);
     rosterNames.value = '';
-    infoMessage.value = `已添加 ${result.added} 位预设成员（可转为正式排班成员；请使用管理员提供的邀请关联成员账号）。`;
+    infoMessage.value = `已添加 ${result.added} 位预设成员（可转为正式排班成员；请使用管理员生成的成员绑定二维码关联账号）。`;
   } catch (error) {
     errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
@@ -519,7 +519,7 @@ function resetMessages(): void {
     <ResponsiveSheet v-model:visible="leaveConfirmVisible" title="退出群组">
       <div class="group-confirmation">
         <p>
-          退出后：历史排班和联系方式仍保留，您不再收到该群通知；重新加入请使用管理员提供的邀请。
+          退出后：历史排班和联系方式仍保留，您不再收到该群通知；重新加入请联系管理员生成成员绑定二维码。
         </p>
         <div class="group-confirmation-actions">
           <t-button variant="outline" @click="leaveConfirmVisible = false">取消</t-button>

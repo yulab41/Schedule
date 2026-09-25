@@ -83,7 +83,7 @@ describe('Mini workbench tool access matrix', () => {
       capability({ organization: false }),
     );
     expect(noOrganization.schedulingConfig).toBe(true);
-    expect(noOrganization.inviteVisitor).toBe(false);
+    expect(noOrganization.qrVisitor).toBe(false);
     expect(noOrganization.manualSchedule).toBe(true);
 
     const noCore = createWorkbenchToolAccess(group('owner'), capability({ core: false }));

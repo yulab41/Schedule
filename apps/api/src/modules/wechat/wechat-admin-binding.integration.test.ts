@@ -1,14 +1,15 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
   createTestDatabaseClient,
   migrateDatabase,
+  groupMemberships,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { resetDatabase } from '@schedule/test-fixtures';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -19,6 +20,7 @@ import {
 import { createApp } from '../../app.js';
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { hashPassword } from '../auth/password-auth-service.js';
+import { GroupService } from '../groups/group-service.js';
 import type { WechatGateway } from './wechat-gateway.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
@@ -128,6 +130,67 @@ describeWithDatabase('admin WeChat binding ticket', () => {
       url: '/auth/wechat/admin-bind/preview',
     });
     expect(usedPreview.statusCode).toBe(409);
+  });
+
+  it('issues a 24-hour member QR and shows full identity only on the uncached member preview', async () => {
+    const member = await seedTarget('member-qr');
+    const group = await new GroupService(client).create(
+      { cloudbaseUid: `password_${member.userId}` },
+      { name: 'Binding QR group', operationId: randomUUID() },
+    );
+    const [membership] = await client.database
+      .select({
+        id: groupMemberships.id,
+        version: groupMemberships.version,
+      })
+      .from(groupMemberships)
+      .where(
+        and(eq(groupMemberships.groupId, group.id), eq(groupMemberships.userId, member.userId)),
+      )
+      .limit(1);
+    expect(membership).toBeDefined();
+    const createdAt = Date.now();
+    const qr = await app.inject({
+      headers: { authorization: `Bearer ${passwordToken(member.userId, member.username)}` },
+      method: 'POST',
+      payload: {
+        environment: 'trial',
+        expectedMembershipVersion: membership!.version,
+        operationId: randomUUID(),
+      },
+      url: `/groups/${group.id}/members/${membership!.id}/current-wechat-binding-qr`,
+    });
+    expect(qr.statusCode, qr.body).toBe(200);
+    const result = qr.json() as { expiresAt: string; imageBase64: string };
+    expect(Date.parse(result.expiresAt) - createdAt).toBeGreaterThanOrEqual(24 * 60 * 60 * 1000);
+    expect(Date.parse(result.expiresAt) - createdAt).toBeLessThan(24 * 60 * 60 * 1000 + 5000);
+    const scene = Buffer.from(result.imageBase64, 'base64').toString();
+    expect(scene.startsWith('b=')).toBe(true);
+    const ticket = scene.slice(2);
+    const preview = await app.inject({
+      method: 'POST',
+      payload: { ticket },
+      url: '/auth/wechat/admin-bind/member-preview',
+    });
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.headers['cache-control']).toContain('no-store');
+    expect(preview.json()).toMatchObject({ realName: '目标member-qr', employeeCode: '未设置' });
+    const legacy = await app.inject({
+      method: 'POST',
+      payload: { ticket },
+      url: '/auth/wechat/admin-bind/preview',
+    });
+    expect(legacy.json()).toHaveProperty('realNameMasked');
+    await client.database.execute(sql`
+      UPDATE wechat_admin_binding_tickets SET expires_at = ${new Date(Date.now() - 1000)}
+      WHERE ticket_hash = ${createHash('sha256').update(ticket).digest('hex')}
+    `);
+    const expired = await app.inject({
+      method: 'POST',
+      payload: { ticket },
+      url: '/auth/wechat/admin-bind/member-preview',
+    });
+    expect(expired.statusCode).toBe(410);
   });
 
   it('replays one binding ticket without persisting its raw URL or ticket', async () => {
@@ -366,8 +429,8 @@ function createBindingGateway(): WechatGateway {
     async generateUrlLink(path, query, envVersion) {
       return `https://mock.example.test/launch?${query}&path=${encodeURIComponent(path)}&env=${envVersion}`;
     },
-    async getUnlimitedQr() {
-      return new Uint8Array();
+    async getUnlimitedQr(scene) {
+      return new TextEncoder().encode(scene);
     },
     async sendSubscribeMessage() {
       return { messageId: null };

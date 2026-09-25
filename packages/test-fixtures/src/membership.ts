@@ -11,8 +11,8 @@ export interface InsertDirectMembershipInput {
 }
 
 /**
- * 测试夹具：在群组码加入/认领下线后，直接向数据库插入一条绑定到
- * “真实姓名匹配且已绑定云身份”的用户的成员记录。
+ * 测试夹具：直接向数据库插入一条绑定到“真实姓名匹配且已绑定云身份”
+ * 用户的成员记录。
  */
 export async function insertDirectMembership(
   client: DatabaseClient,

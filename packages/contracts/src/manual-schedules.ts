@@ -111,6 +111,20 @@ const createManualScheduleTemplateRequestBaseSchema = z
 export const createManualScheduleTemplateRequestSchema =
   createManualScheduleTemplateRequestBaseSchema.superRefine(validateManualTemplateRequest);
 
+export interface ManualScheduleEditorSnapshot {
+  readonly cells: readonly ManualScheduleTemplateCellInput[];
+  readonly cycleDays: number;
+  readonly membershipIds: readonly string[];
+  readonly scheduleRoleId: string;
+}
+
+const manualScheduleEditorSnapshotBaseSchema = createManualScheduleTemplateRequestBaseSchema.omit({
+  startDate: true,
+});
+
+export const manualScheduleEditorSnapshotSchema =
+  manualScheduleEditorSnapshotBaseSchema.superRefine(validateManualTemplateRequest);
+
 export interface UpdateManualScheduleTemplateRequest extends CreateManualScheduleTemplateRequest {
   readonly expectedVersion: number;
 }
@@ -149,32 +163,40 @@ export const manualApplyAssignmentSchema = z
   })
   .strict();
 
-export const manualApplyPreviewSchema = z
-  .object({
-    applyEndDate: manualScheduleDateSchema,
-    applyStartDate: manualScheduleDateSchema,
-    assignments: z.readonly(z.array(manualApplyAssignmentSchema).max(MAX_MANUAL_APPLY_ASSIGNMENTS)),
-    conflicts: z.readonly(z.array(manualApplyConflictSchema)),
-    continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)),
-    cycleDays: z.number().int().min(1).max(MAX_MANUAL_DAYS),
-    rulesVersion: z.number().int(),
-    scheduleRoleId: z.string().min(1),
-    scheduleRoleName: z.string().min(1),
-    statistics: scheduleGenerationStatisticsSchema,
+const manualApplyPreviewBaseSchema = z.object({
+  applyEndDate: manualScheduleDateSchema,
+  applyStartDate: manualScheduleDateSchema,
+  assignments: z.readonly(z.array(manualApplyAssignmentSchema).max(MAX_MANUAL_APPLY_ASSIGNMENTS)),
+  conflicts: z.readonly(z.array(manualApplyConflictSchema)),
+  continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)),
+  cycleDays: z.number().int().min(1).max(MAX_MANUAL_DAYS),
+  rulesVersion: z.number().int(),
+  scheduleRoleId: z.string().min(1),
+  scheduleRoleName: z.string().min(1),
+  statistics: scheduleGenerationStatisticsSchema,
+  vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)),
+});
+
+function validateManualApplyPreviewRange(
+  value: { readonly applyEndDate: string; readonly applyStartDate: string },
+  context: z.RefinementCtx,
+): void {
+  if (!isManualScheduleDateRangeWithinLimit(value.applyStartDate, value.applyEndDate)) {
+    context.addIssue({
+      code: 'custom',
+      message: `手动排班应用范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`,
+      path: ['applyEndDate'],
+    });
+  }
+}
+
+export const manualApplyPreviewSchema = manualApplyPreviewBaseSchema
+  .extend({
     templateId: z.string().min(1),
     templateVersion: z.number().int(),
-    vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)),
   })
   .strict()
-  .superRefine((value, context) => {
-    if (!isManualScheduleDateRangeWithinLimit(value.applyStartDate, value.applyEndDate)) {
-      context.addIssue({
-        code: 'custom',
-        message: `手动排班应用范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`,
-        path: ['applyEndDate'],
-      });
-    }
-  });
+  .superRefine(validateManualApplyPreviewRange);
 // schema 推断类型比导出契约类型宽松（统计分项含未校验字段）；导出类型保留完整契约。
 export type ManualApplyPreview = {
   readonly applyEndDate: string;
@@ -190,6 +212,17 @@ export type ManualApplyPreview = {
   readonly templateId: string;
   readonly templateVersion: number;
   readonly vacancies: readonly ScheduleGenerationVacancy[];
+};
+
+export const manualScheduleEditorPreviewSchema = manualApplyPreviewBaseSchema
+  .extend({ source: z.literal('editor') })
+  .strict()
+  .superRefine(validateManualApplyPreviewRange);
+export type ManualScheduleEditorPreview = Omit<
+  ManualApplyPreview,
+  'templateId' | 'templateVersion'
+> & {
+  readonly source: 'editor';
 };
 
 export interface PreviewManualTemplateApplyRequest {
@@ -208,6 +241,34 @@ const previewManualTemplateApplyRequestBaseSchema = z
 
 export const previewManualTemplateApplyRequestSchema =
   previewManualTemplateApplyRequestBaseSchema.superRefine(validateExplicitManualApplyRange);
+
+export interface PreviewManualScheduleEditorRequest {
+  readonly endDate: string;
+  readonly expectedRulesVersion: number;
+  readonly snapshot: ManualScheduleEditorSnapshot;
+  readonly startDate: string;
+}
+
+const previewManualScheduleEditorRequestBaseSchema = z
+  .object({
+    endDate: manualScheduleDateSchema,
+    expectedRulesVersion: z.number().int().min(1),
+    snapshot: manualScheduleEditorSnapshotSchema,
+    startDate: manualScheduleDateSchema,
+  })
+  .strict();
+
+export const previewManualScheduleEditorRequestSchema =
+  previewManualScheduleEditorRequestBaseSchema.superRefine(validateExplicitManualApplyRange);
+
+export interface CreateManualScheduleDraftRequest extends PreviewManualScheduleEditorRequest {
+  readonly operationId: string;
+}
+
+export const createManualScheduleDraftRequestSchema = previewManualScheduleEditorRequestBaseSchema
+  .extend({ operationId: manualScheduleUuidSchema })
+  .strict()
+  .superRefine(validateExplicitManualApplyRange);
 
 export interface ApplyManualScheduleTemplateRequest {
   readonly notifyMembers?: boolean;
@@ -257,8 +318,23 @@ export type AppliedManualScheduleTemplateResult = {
   readonly templateVersion: number;
 };
 
+export const createdManualScheduleDraftResultSchema = z
+  .object({
+    operationId: z.string().min(1),
+    periods: z.readonly(z.array(schedulePeriodSummarySchema)),
+    preview: manualScheduleEditorPreviewSchema,
+    status: z.literal('draft'),
+  })
+  .strict();
+export type CreatedManualScheduleDraftResult = {
+  readonly operationId: string;
+  readonly periods: readonly SchedulePeriodSummary[];
+  readonly preview: ManualScheduleEditorPreview;
+  readonly status: 'draft';
+};
+
 function validateManualTemplateRequest(
-  input: CreateManualScheduleTemplateRequest,
+  input: ManualScheduleEditorSnapshot,
   context: z.RefinementCtx,
 ): void {
   const membershipIds = new Set(input.membershipIds);

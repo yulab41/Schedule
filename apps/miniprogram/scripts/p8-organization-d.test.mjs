@@ -10,11 +10,11 @@ function read(relativePath) {
   return readFileSync(path.join(appRoot, relativePath), 'utf8');
 }
 
-describe('P8-D native invite and visitor access', () => {
-  it('registers an organization invite/visitor page and More entry', () => {
+describe('P8-D native QR and visitor access', () => {
+  it('registers the QR/visitor page and removes invite acceptance routes', () => {
     const app = JSON.parse(read('src/app.json'));
-    const panel = read('src/subpackages/organization/components/invite-visitor-panel/index.wxml');
-    const styles = read('src/subpackages/organization/components/invite-visitor-panel/index.wxss');
+    const panel = read('src/subpackages/organization/components/qr-visitor-panel/index.wxml');
+    const styles = read('src/subpackages/organization/components/qr-visitor-panel/index.wxss');
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
@@ -22,40 +22,42 @@ describe('P8-D native invite and visitor access', () => {
       pages: [
         'pages/group-settings/index',
         'pages/scheduling-config/index',
-        'pages/invite-visitor/index',
-        'pages/invite-accept/index',
+        'pages/qr-visitor/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],
     });
-    expect(panel).toContain('生成邀请');
-    expect(panel).toContain('访客码');
-    expect(panel).toContain('群组二维码');
+    expect(app.pages).not.toContain('pages/invite/invite');
+    expect(panel).not.toContain('生成邀请');
+    expect(panel).not.toContain('群组二维码');
+    expect(panel).toContain('成员微信绑定二维码');
+    expect(panel).toContain('访客二维码');
     expect(panel).toContain("largeText ? 'is-large-text' : ''");
     expect(styles).toContain('.is-large-text');
-    expect(workbench).toContain('handleOpenInviteVisitor');
+    expect(workbench).toContain('handleOpenQrVisitor');
   });
 
-  it('uses shared invite writes, group QR reads, and both capabilities', () => {
+  it('uses environment-specific QR reads and both capabilities', () => {
     const runtime = read('src/platform/client-core-calendar.ts');
     const controller = read(
-      'src/subpackages/organization/components/invite-visitor-panel/controller.ts',
+      'src/subpackages/organization/components/qr-visitor-panel/controller.ts',
     );
 
-    expect(runtime).toContain('createRuntimeInviteVisitorWriteClient');
-    expect(runtime).toContain('createInviteVisitorWriteClient');
-    expect(controller).toContain('getGroupQr');
+    expect(runtime).toContain('createRuntimeQrVisitorWriteClient');
+    expect(runtime).toContain('createQrVisitorWriteClient');
+    expect(controller).toContain('getVisitorQr');
+    expect(controller).toContain('createCurrentMemberWechatBindingQr');
     expect(controller).toContain("requireClientCapability('guest')");
     expect(controller).toContain("requireClientCapability('organization')");
     expect(controller).toContain('operationId');
-    expect(controller).toContain('expectedTargetVersion');
+    expect(controller).not.toContain('expectedTargetVersion');
     expect(controller).toContain('expectedVersion');
     expect(controller).toContain('fontSizeSetting');
   });
 
-  it('keeps invite tokens, visitor keys, and QR bytes in memory only', () => {
+  it('keeps visitor keys and QR bytes out of persistent storage and invitation state absent', () => {
     const controller = read(
-      'src/subpackages/organization/components/invite-visitor-panel/controller.ts',
+      'src/subpackages/organization/components/qr-visitor-panel/controller.ts',
     );
 
     expect(controller).not.toContain('wx.setStorageSync');
@@ -63,6 +65,7 @@ describe('P8-D native invite and visitor access', () => {
     expect(controller).not.toContain('visitorKey:');
     expect(controller).not.toContain('rawTicket:');
     expect(controller).toContain('qrImageSrc');
-    expect(controller).toContain('inviteToken');
+    expect(controller).not.toContain('inviteToken');
+    expect(controller).not.toContain('inviteSharePath');
   });
 });

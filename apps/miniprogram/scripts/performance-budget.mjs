@@ -34,11 +34,10 @@ export const DESKTOP_LOGIC_SMOKE_CEILINGS = Object.freeze({
 });
 
 export const MAXIMUM_MATRIX_NODE_NO_GROWTH_CEILINGS = Object.freeze({
-  // Re-baselined 2026-09-19: the synthetic 20x30 input moved from the deleted
-  // `pages/manual-matrix-poc` page data to `scripts/fixtures/manual-matrix.mjs`, which renders one
-  // node more in the production editor (1506 -> 1507). The production template itself only lost the
-  // WXS import path change; nothing was relaxed beyond the new measured baseline.
-  'subpackages/scheduling/pages/manual/index.wxml': 1507,
+  // Re-baselined 2026-09-22: the six editor fields now use three explicit row containers so the
+  // template/role row can stay 2:1 while the other rows remain 1:1 (1507 -> 1510). The 600-cell
+  // matrix and its hot rendering path are unchanged; only the three required field-row hosts grew.
+  'subpackages/scheduling/pages/manual/index.wxml': 1510,
 });
 
 const nonVisualTags = new Set(['block', 'template', 'wxs']);

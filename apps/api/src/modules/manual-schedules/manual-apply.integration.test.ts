@@ -3,16 +3,20 @@ import { fileURLToPath } from 'node:url';
 
 import type {
   AppliedManualScheduleTemplateResult,
+  CreatedManualScheduleDraftResult,
   ManualApplyPreview,
+  ManualScheduleEditorPreview,
   ShiftType,
 } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
+  schedulePeriods,
+  shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -56,7 +60,7 @@ describeWithDatabase('manual schedule template apply', () => {
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
     await registerUser('outsider-token', 'Outside Doctor');
-    groupId = await createGroup('Apply group', '1234');
+    groupId = await createGroup('Apply group');
     await addRosterEntry(groupId, 'Candidate Doctor');
     await insertDirectMembership(client, { groupId, realName: 'Candidate Doctor' });
 
@@ -116,6 +120,122 @@ describeWithDatabase('manual schedule template apply', () => {
       sql`SELECT COUNT(*) AS count FROM notifications WHERE group_id=${groupId} AND object_id=${secondTemplate}`,
     );
     expect(counts).toEqual([{ count: 2 }]);
+  });
+
+  it('adds a December 31 draft without replacing December 1-30 or blocking January and February', async () => {
+    const dailyCells = Array.from({ length: 7 }, (_, index) => ({
+      cycleDay: index + 1,
+      membershipId: index % 2 === 0 ? ownerMembershipId : candidateMembershipId,
+      shiftTypeId: allDayShiftTypeId,
+    }));
+    const earlier = await createTemplate(dailyCells, '2026-12-01');
+    const first = await applyTemplate(earlier, {
+      endDate: '2026-12-30',
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      publishMode: 'published',
+      notifyMembers: false,
+    });
+    expect(first.statusCode).toBe(200);
+    const originalDecemberId = (first.json() as AppliedManualScheduleTemplateResult).periods[0]?.id;
+    const originalShifts = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, originalDecemberId as string),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+
+    const later = await createTemplate(dailyCells, '2026-12-31');
+    const draft = await applyTemplate(later, {
+      endDate: '2027-02-28',
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      publishMode: 'draft',
+    });
+    expect(draft.statusCode).toBe(200);
+    const ids = (draft.json() as AppliedManualScheduleTemplateResult).periods.map(
+      (period) => period.id,
+    );
+    const published = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { operationId: randomUUID(), schedulePeriodIds: ids },
+      url: `/groups/${groupId}/schedules/publish-batch`,
+    });
+    expect(published.statusCode).toBe(200);
+    const dates = await client.database
+      .select({ businessDate: shiftAssignments.businessDate })
+      .from(shiftAssignments)
+      .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.status, 'published'),
+          eq(schedulePeriods.businessMonth, '2026-12-01'),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .orderBy(shiftAssignments.businessDate);
+    expect(dates).toHaveLength(31);
+    expect(dates.map((row) => row.businessDate)).toEqual(
+      Array.from({ length: 31 }, (_, index) => `2026-12-${String(index + 1).padStart(2, '0')}`),
+    );
+    const currentDecember = await client.database
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.businessMonth, '2026-12-01'),
+          eq(schedulePeriods.status, 'published'),
+        ),
+      );
+    expect(currentDecember[0]?.id).toBe(originalDecemberId);
+    const preservedShifts = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, originalDecemberId as string),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    expect(preservedShifts.map((row) => row.id)).toEqual(
+      expect.arrayContaining(originalShifts.map((row) => row.id)),
+    );
+    const archives = await client.database
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.businessMonth, '2026-12-01'),
+          eq(schedulePeriods.status, 'replaced'),
+        ),
+      );
+    expect(archives).toHaveLength(1);
+    const snapshotShifts = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, archives[0]!.id),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    expect(snapshotShifts).toHaveLength(30);
+    const futureMonths = await client.database
+      .select({ businessMonth: schedulePeriods.businessMonth })
+      .from(schedulePeriods)
+      .where(and(eq(schedulePeriods.groupId, groupId), eq(schedulePeriods.status, 'published')));
+    expect(futureMonths.map((row) => row.businessMonth).sort()).toEqual([
+      '2026-12-01',
+      '2027-01-01',
+      '2027-02-01',
+    ]);
   });
 
   it('publishes silently with events and idempotency but no notifications', async () => {
@@ -319,6 +439,84 @@ describeWithDatabase('manual schedule template apply', () => {
     const body = applied.json() as AppliedManualScheduleTemplateResult;
     expect(body.preview.applyEndDate).toBe('2027-09-01');
     expect(body.periods).toHaveLength(13);
+  });
+
+  it('previews an unsaved editor snapshot without creating or updating a template', async () => {
+    const preview = await previewEditor({
+      endDate: '2027-09-01',
+      expectedRulesVersion: rulesVersion,
+      snapshot: createEditorSnapshot(),
+      startDate: '2026-09-01',
+    });
+
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.json() as ManualScheduleEditorPreview).toMatchObject({
+      applyEndDate: '2027-09-01',
+      applyStartDate: '2026-09-01',
+      cycleDays: 7,
+      source: 'editor',
+    });
+    expect(preview.body).not.toContain('templateId');
+    const [templates] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM manual_schedule_templates WHERE group_id=${groupId}`,
+    );
+    expect(templates).toEqual([{ count: 0 }]);
+  });
+
+  it('creates idempotent cross-month drafts from the same editor snapshot without a template row', async () => {
+    const operationId = randomUUID();
+    const input = {
+      endDate: '2027-09-01',
+      expectedRulesVersion: rulesVersion,
+      operationId,
+      snapshot: createEditorSnapshot(),
+      startDate: '2026-09-01',
+    };
+    const created = await createEditorDraft(input);
+    expect(created.statusCode, created.body).toBe(200);
+    const body = created.json() as CreatedManualScheduleDraftResult;
+    expect(body.status).toBe('draft');
+    expect(body.periods).toHaveLength(13);
+    expect(body.preview.source).toBe('editor');
+    expect(created.body).not.toContain('templateId');
+
+    const replay = await createEditorDraft(input);
+    expect(replay.json()).toEqual(body);
+    const [counts] = await client.database.execute<{
+      events: number;
+      periods: number;
+      templates: number;
+    }>(sql`
+      SELECT
+        (SELECT COUNT(*) FROM schedule_events WHERE group_id=${groupId} AND event_type='manual_schedule_inline_applied') AS events,
+        (SELECT COUNT(*) FROM schedule_periods WHERE group_id=${groupId} AND deleted_at IS NULL) AS periods,
+        (SELECT COUNT(*) FROM manual_schedule_templates WHERE group_id=${groupId}) AS templates
+    `);
+    expect(counts).toEqual([{ events: 13, periods: 13, templates: 0 }]);
+  });
+
+  it('rejects a 367-day editor range and an unauthorized editor request without writes', async () => {
+    const tooLong = await previewEditor({
+      endDate: '2027-09-02',
+      expectedRulesVersion: rulesVersion,
+      snapshot: createEditorSnapshot(),
+      startDate: '2026-09-01',
+    });
+    expect(tooLong.statusCode).toBe(400);
+    const unauthorized = await previewEditor(
+      {
+        endDate: '2026-09-30',
+        expectedRulesVersion: rulesVersion,
+        snapshot: createEditorSnapshot(),
+        startDate: '2026-09-01',
+      },
+      'outsider-token',
+    );
+    expect(unauthorized.statusCode).toBe(403);
+    expect(await readManualApplySideEffectCounts()).toMatchObject({
+      assignments: 0,
+      periods: 0,
+    });
   });
 
   it('rejects ranges over 366 days and invalid dates with no write side effects', async () => {
@@ -769,11 +967,11 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(second.statusCode).toBe(200);
 
     const [statuses] = await client.database.execute<{ status: string; revision: number }>(
-      sql`SELECT status, revision FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-09-01' ORDER BY revision`,
+      sql`SELECT status, revision FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-09-01' AND deleted_at IS NULL ORDER BY revision`,
     );
     expect(statuses).toEqual([
       { revision: 1, status: 'replaced' },
-      { revision: 2, status: 'published' },
+      { revision: 3, status: 'published' },
     ]);
     const [replacementEvents] = await client.database.execute<{ count: number }>(
       sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id = ${groupId} AND event_type = 'schedule_period_replaced'`,
@@ -1036,14 +1234,14 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer owner-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
 
@@ -1184,6 +1382,36 @@ describeWithDatabase('manual schedule template apply', () => {
     });
   }
 
+  function createEditorSnapshot() {
+    return {
+      cells: [
+        { cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId },
+        { cycleDay: 2, membershipId: candidateMembershipId, shiftTypeId: allDayShiftTypeId },
+      ],
+      cycleDays: 7,
+      membershipIds: [ownerMembershipId, candidateMembershipId],
+      scheduleRoleId: primaryRoleId,
+    };
+  }
+
+  async function previewEditor(body: Record<string, unknown>, token = 'owner-token') {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/manual-schedules/preview`,
+    });
+  }
+
+  async function createEditorDraft(body: Record<string, unknown>, token = 'owner-token') {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/manual-schedules/drafts`,
+    });
+  }
+
   async function applyTemplate(
     templateId: string,
     body: {
@@ -1191,6 +1419,7 @@ describeWithDatabase('manual schedule template apply', () => {
       readonly endDate?: string;
       readonly expectedRulesVersion: number;
       readonly operationId: string;
+      readonly notifyMembers?: boolean;
       readonly publishMode?: 'draft' | 'published';
       readonly replacePublished?: boolean;
       readonly replaceExistingDrafts?: boolean;

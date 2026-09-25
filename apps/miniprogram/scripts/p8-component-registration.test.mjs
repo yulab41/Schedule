@@ -15,7 +15,7 @@ describe('P8 organization component registration', () => {
     const panels = [
       ['scheduling-config-panel', 'createSchedulingConfigPanelControllerDefinition'],
       ['platform-accounts-panel', 'createPlatformAccountsPanelControllerDefinition'],
-      ['invite-visitor-panel', 'createInviteVisitorPanelControllerDefinition'],
+      ['qr-visitor-panel', 'createQrVisitorPanelControllerDefinition'],
     ];
 
     for (const [panel, factory] of panels) {
@@ -33,7 +33,7 @@ describe('P8 organization component registration', () => {
   });
 
   it('does not inject migrated organization panels through page JSON', () => {
-    for (const page of ['scheduling-config', 'platform-accounts', 'invite-visitor']) {
+    for (const page of ['scheduling-config', 'platform-accounts', 'qr-visitor']) {
       const pageJson = JSON.parse(read(`src/subpackages/organization/pages/${page}/index.json`));
       const componentNames = Object.keys(pageJson.usingComponents ?? {});
       expect(componentNames).not.toContain(`${page}-panel`);

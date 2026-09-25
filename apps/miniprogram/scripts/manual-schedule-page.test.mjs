@@ -72,9 +72,9 @@ describe('native P5 manual schedule page', () => {
     expect(source).toContain('if (page.data.startDate !== startDate) return;');
   });
 
-  it('preserves the saved start date and guards template writes while busy', () => {
+  it('preserves the active apply range after saving and guards template writes while busy', () => {
     const source = readPageFile('ts');
-    expect(source).toContain('openTemplate(page, saved, saved.startDate);');
+    expect(source).toContain('openTemplate(page, saved, page.data.startDate, page.data.endDate);');
     expect(source).toContain('if (page.data.isBusy) return undefined;');
   });
 
@@ -94,6 +94,21 @@ describe('native P5 manual schedule page', () => {
     expect(wxml.indexOf('field-label="开始日期"')).toBeLessThan(
       wxml.indexOf('field-label="结束日期"'),
     );
+  });
+
+  it('keeps three rows while giving the template twice the role width', () => {
+    const wxml = readPageFile('wxml');
+    const wxss = readPageFile('wxss');
+    expect(wxml).toMatch(
+      /class="field-grid"[^]*class="field-row template-role-row"[^]*class="template-field"[^]*class="role-field"[^]*class="field-row"[^]*field-label="开始日期"[^]*field-label="结束日期"[^]*class="field-row"[^]*class="cycle-field field-control"[^]*class="members-field"/u,
+    );
+    expect(wxss).toMatch(
+      /\.template-role-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(0,\s*1fr\);/su,
+    );
+    expect(wxss).toMatch(
+      /\.field-row:not\(\.template-role-row\)\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/su,
+    );
+    expect(wxml).toContain('bindoptionaction="handleTemplateOptionAction"');
   });
 
   it('keeps the fixed seven-row matrix viewport and disables page scrolling', () => {

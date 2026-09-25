@@ -668,7 +668,7 @@ describe('P6-A workbench runtime coordination', () => {
       definition.handleOpenBackfill,
       definition.handleOpenSchedulingConfig,
       definition.handleOpenExports,
-      definition.handleOpenInviteVisitor,
+      definition.handleOpenQrVisitor,
       definition.handleOpenVisitorAccess,
       definition.handleOpenPlatformAccounts,
     ]) {

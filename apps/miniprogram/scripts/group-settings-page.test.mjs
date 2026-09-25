@@ -21,6 +21,12 @@ function readPageFile(extension) {
 }
 
 describe('native P5 group mobile-phone consent page', () => {
+  it('keeps the member fallback branch adjacent before iterating member rows', () => {
+    const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
+    expect(template).toContain('<block wx:else>');
+    expect(template).not.toMatch(/<view\s+wx:else\s+wx:for=/u);
+  });
+
   it('keeps disclosure labels stable while saving and puts leave after disclosure', () => {
     const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
     const disclosureStart = template.indexOf('<view class="group-card contact-disclosure-card">');
@@ -46,8 +52,7 @@ describe('native P5 group mobile-phone consent page', () => {
       pages: [
         'pages/group-settings/index',
         'pages/scheduling-config/index',
-        'pages/invite-visitor/index',
-        'pages/invite-accept/index',
+        'pages/qr-visitor/index',
         'pages/platform-accounts/index',
         'pages/directory/index',
       ],

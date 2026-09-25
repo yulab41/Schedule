@@ -55,12 +55,68 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
+          AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    // One journal entry per applied migration: 62 after 0062_group_calendar_changes.
-    expect(migrations).toEqual([{ count: 62 }]);
-    expect(tables).toEqual([{ count: 57 }]);
+    // One journal entry per applied migration, including the active-slot constraint.
+    expect(migrations).toEqual([{ count: 64 }]);
+    expect(tables).toEqual([{ count: 55 }]);
+  });
+
+  it('moves the latest short phone to the account and removes every retired structure', async () => {
+    const legacy = await createLegacyMigrationsDirectory(62);
+    try {
+      await migrateDatabase(client, legacy);
+      const userId = randomUUID();
+      const firstGroupId = randomUUID();
+      const secondGroupId = randomUUID();
+      const firstMembershipId = randomUUID();
+      const secondMembershipId = randomUUID();
+      await client.database.execute(
+        sql`INSERT INTO users (id, cloudbase_uid) VALUES (${userId}, 'short-phone-migration')`,
+      );
+      await client.database.execute(sql`
+        INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key)
+        VALUES
+          (${firstGroupId}, 'First', ${userId}, ${visitorKey()}),
+          (${secondGroupId}, 'Second', ${userId}, ${visitorKey()})
+      `);
+      await client.database.execute(sql`
+        INSERT INTO group_memberships (id, group_id, user_id, role)
+        VALUES
+          (${firstMembershipId}, ${firstGroupId}, ${userId}, 'owner'),
+          (${secondMembershipId}, ${secondGroupId}, ${userId}, 'owner')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO group_member_contacts
+          (id, membership_id, short_phone, is_confirmed, version, updated_at)
+        VALUES
+          ('11111111-0000-4000-8000-000000000001', ${firstMembershipId}, '620001', 1, 7, '2026-09-02 08:00:00'),
+          ('22222222-0000-4000-8000-000000000002', ${secondMembershipId}, '620002', 1, 9, '2026-09-02 08:00:00')
+      `);
+
+      await migrateDatabase(client, migrationsDirectory);
+
+      const [account] = await client.database.execute<{ shortPhone: string }>(
+        sql`SELECT short_phone AS shortPhone FROM users WHERE id = ${userId}`,
+      );
+      expect(account).toEqual([{ shortPhone: '620001' }]);
+      const [retiredTables] = await client.database.execute<{ tableName: string }>(sql`
+        SELECT table_name AS tableName FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name IN ('invite_tokens', 'group_code_attempts')
+      `);
+      expect(retiredTables).toEqual([]);
+      const [retiredColumns] = await client.database.execute<{ columnName: string }>(sql`
+        SELECT column_name AS columnName FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND ((table_name = 'groups' AND column_name = 'group_code')
+            OR (table_name = 'group_member_contacts' AND column_name = 'short_phone'))
+      `);
+      expect(retiredColumns).toEqual([]);
+    } finally {
+      await removeLegacyMigrationsDirectory(legacy);
+    }
   });
 
   it('enforces canonical unique visitor pairs and upgrades without changing members', async () => {
@@ -70,11 +126,11 @@ describeWithDatabase('identity and group migrations', () => {
       const owner = randomUUID(),
         first = randomUUID(),
         second = randomUUID();
-      await client.database
-        .insert(users)
-        .values({ id: owner, cloudbaseUid: 'link-migration-owner' });
-      // Raw SQL on purpose: a legacy schema predates later columns, and the
-      // drizzle table would name them in the INSERT and fail here.
+      // Raw SQL on purpose: this legacy schema predates later account and
+      // group columns, which the current Drizzle tables would name.
+      await client.database.execute(
+        sql`INSERT INTO users (id, cloudbase_uid) VALUES (${owner}, 'link-migration-owner')`,
+      );
       await client.database.execute(
         sql`INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key) VALUES (${first}, 'First', ${owner}, ${visitorKey()}), (${second}, 'Second', ${owner}, ${visitorKey()})`,
       );
@@ -131,11 +187,11 @@ describeWithDatabase('identity and group migrations', () => {
         templateId = randomUUID(),
         periodId = randomUUID(),
         assignmentId = randomUUID();
-      await client.database
-        .insert(users)
-        .values({ id: owner, cloudbaseUid: `retirement-${owner}` });
-      // Raw SQL on purpose: this fixture predates later group columns, which a
-      // drizzle insert would name and the legacy schema does not have yet.
+      // Raw SQL on purpose: this fixture predates later account and group
+      // columns, which the current Drizzle tables would name.
+      await client.database.execute(
+        sql`INSERT INTO users (id, cloudbase_uid) VALUES (${owner}, ${`retirement-${owner}`})`,
+      );
       await client.database.execute(
         sql`INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key) VALUES (${groupId}, 'Migration fixture', ${owner}, ${visitorKey()})`,
       );
@@ -193,46 +249,6 @@ describeWithDatabase('identity and group migrations', () => {
     } finally {
       await removeLegacyMigrationsDirectory(legacy);
     }
-  });
-
-  it('retains historical codes and relationships while allowing multiple new NULL groups', async () => {
-    await migrateDatabase(client, migrationsDirectory);
-    const owner = randomUUID();
-    const historic = randomUUID();
-    const first = randomUUID();
-    const second = randomUUID();
-    await client.database.insert(users).values({ id: owner, cloudbaseUid: 'migration-owner' });
-    await client.database
-      .insert(groups)
-      .values({ id: historic, name: 'Historical fixture', ownerUserId: owner, groupCode: '0037' });
-    const membershipId = randomUUID();
-    await client.database
-      .insert(groupMemberships)
-      .values({ id: membershipId, groupId: historic, userId: owner, role: 'owner' });
-    await client.database.execute(
-      sql`ALTER TABLE \`groups\` MODIFY COLUMN group_code char(4) NOT NULL`,
-    );
-    const migrationSql = await readFile(
-      join(migrationsDirectory, '0054_retire_group_code.sql'),
-      'utf8',
-    );
-    await client.database.execute(sql.raw(migrationSql));
-    await client.database.insert(groups).values([
-      { id: first, name: 'Null fixture one', ownerUserId: owner, groupCode: null },
-      { id: second, name: 'Null fixture two', ownerUserId: owner, groupCode: null },
-    ]);
-    const [rows] = await client.database.execute<{ id: string; groupCode: string | null }>(
-      sql`SELECT id, group_code AS groupCode FROM \`groups\` WHERE owner_user_id = ${owner} ORDER BY name`,
-    );
-    expect(rows).toEqual([
-      { id: historic, groupCode: '0037' },
-      { id: first, groupCode: null },
-      { id: second, groupCode: null },
-    ]);
-    const [relationships] = await client.database.execute<{ groupId: string }>(
-      sql`SELECT group_id AS groupId FROM group_memberships WHERE id = ${membershipId}`,
-    );
-    expect(relationships).toEqual([{ groupId: historic }]);
   });
 
   it('creates the visitor access retention aggregate and expiry index', async () => {
@@ -744,8 +760,8 @@ describeWithDatabase('identity and group migrations', () => {
 
     await client.database.execute(sql`INSERT INTO users (id) VALUES (${ownerId})`);
     await client.database.execute(sql`
-      INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
-      VALUES (${groupId}, 'Guest Group', '1234', ${ownerId}, ${'c'.repeat(32)})
+      INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key)
+      VALUES (${groupId}, 'Guest Group', ${ownerId}, ${'c'.repeat(32)})
     `);
     await client.database.execute(sql`
       INSERT INTO group_memberships (id, group_id, user_id, role)
@@ -966,7 +982,7 @@ describeWithDatabase('identity and group migrations', () => {
     expect(rows[0]?.extra).not.toContain('on update');
   });
 
-  it('enforces active group codes and pending roster names in the database', async () => {
+  it('creates independent groups without codes and enforces pending roster names', async () => {
     await migrateDatabase(client, migrationsDirectory);
 
     const ownerUserId = randomUUID();
@@ -976,8 +992,8 @@ describeWithDatabase('identity and group migrations', () => {
       VALUES (${ownerUserId}, 'cloudbase-owner')
     `);
     await client.database.execute(sql`
-      INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
-      VALUES (${firstGroupId}, 'First group', '1234', ${ownerUserId}, ${'d'.repeat(32)})
+      INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key)
+      VALUES (${firstGroupId}, 'First group', ${ownerUserId}, ${'d'.repeat(32)})
     `);
     await client.database.execute(sql`
       UPDATE \`groups\`
@@ -987,10 +1003,10 @@ describeWithDatabase('identity and group migrations', () => {
 
     await expect(
       client.database.execute(sql`
-        INSERT INTO \`groups\` (id, name, group_code, owner_user_id)
-        VALUES (${randomUUID()}, 'Second group', '1234', ${ownerUserId})
+        INSERT INTO \`groups\` (id, name, owner_user_id, visitor_key)
+        VALUES (${randomUUID()}, 'Second group', ${ownerUserId}, ${'e'.repeat(32)})
       `),
-    ).rejects.toThrow();
+    ).resolves.toBeDefined();
 
     await client.database.execute(sql`
       INSERT INTO roster_entries (id, group_id, real_name)

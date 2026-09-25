@@ -262,7 +262,7 @@ describeWithDatabase('statistics snapshots', () => {
   });
 
   async function seedMembersOnly(): Promise<Context> {
-    const groupId = await createGroup('Statistics group', '6655');
+    const groupId = await createGroup('Statistics group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await attachTestMember('a-token', groupId, 'A Doctor');
@@ -284,7 +284,7 @@ describeWithDatabase('statistics snapshots', () => {
   }
 
   async function seedPublishedSeptember(): Promise<Context> {
-    const groupId = await createGroup('Statistics schedule group', '5544');
+    const groupId = await createGroup('Statistics schedule group');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await attachTestMember('a-token', groupId, 'A Doctor');
@@ -377,14 +377,14 @@ describeWithDatabase('statistics snapshots', () => {
     expect(response.statusCode).toBe(201);
   }
 
-  async function createGroup(name: string, groupCode: string): Promise<string> {
+  async function createGroup(name: string): Promise<string> {
     const response = await app.inject({
       headers: {
         authorization: 'Bearer admin-token',
         'idempotency-key': randomUUID(),
       },
       method: 'POST',
-      payload: { groupCode, name },
+      payload: { name },
       url: '/groups',
     });
     expect(response.statusCode).toBe(201);

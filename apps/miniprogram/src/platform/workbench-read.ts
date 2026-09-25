@@ -480,12 +480,14 @@ export function writeWorkbenchGroupSnapshot(
   now = Date.now(),
 ): void {
   clearLegacyWorkbenchStorage();
-  const sanitizedGroups = groups.map((group) => {
-    const sanitized: GroupSummary & { groupCode?: unknown } = { ...group };
-    delete sanitized.groupCode;
-    return sanitized;
-  });
-  writeStorage(getWorkbenchGroupSnapshotKey(ownerId), { groups: sanitizedGroups, savedAt: now });
+  const currentGroups = groups.map((group): GroupSummary => ({
+    id: group.id,
+    ...(group.isDeveloperAdmin === undefined ? {} : { isDeveloperAdmin: group.isDeveloperAdmin }),
+    name: group.name,
+    role: group.role,
+    version: group.version,
+  }));
+  writeStorage(getWorkbenchGroupSnapshotKey(ownerId), { groups: currentGroups, savedAt: now });
 }
 
 export function readWorkbenchGroupSnapshot(

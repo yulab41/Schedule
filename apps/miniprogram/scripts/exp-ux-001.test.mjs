@@ -304,7 +304,7 @@ describe('EXP-UX-001 experience feedback contracts', () => {
       'src/subpackages/workflows/components/workflow-leave-panel',
       'src/subpackages/workflows/components/workflow-swap-panel',
       'src/subpackages/organization/components/group-settings-panel',
-      'src/subpackages/organization/components/invite-visitor-panel',
+      'src/subpackages/organization/components/qr-visitor-panel',
       'src/subpackages/organization/components/platform-accounts-panel',
       'src/subpackages/organization/components/scheduling-config-panel',
       'src/subpackages/insights/components/exports-panel',

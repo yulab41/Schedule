@@ -31,7 +31,7 @@ describe('Mini ordinary-member permission UI', () => {
       'toolAccess.notifications',
       'toolAccess.exports',
       'toolAccess.accessSection',
-      'toolAccess.inviteVisitor',
+      'toolAccess.qrVisitor',
       'toolAccess.visitorAccess',
       'toolAccess.platformAccounts',
       '!toolAccess.hasAny',

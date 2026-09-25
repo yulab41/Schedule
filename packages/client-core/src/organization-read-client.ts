@@ -1,25 +1,24 @@
 import type {
   DissolvedGroup,
+  CurrentEnvironmentQrResponse,
   GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
-  GroupQrResponse,
+  MiniProgramQrEnvironment,
   GroupSummary,
   PlatformAdminUserAccount,
   PlatformAdminUserAccountList,
-  ResolveInviteResponse,
   SchedulingConfig,
 } from '@schedule/contracts';
 
 import {
   dissolvedGroupListJsonSchema,
+  currentEnvironmentQrResponseJsonSchema,
   groupCatalogListJsonSchema,
   groupMemberContactListJsonSchema,
   groupMemberListJsonSchema,
-  groupQrResponseJsonSchema,
   groupSummaryListJsonSchema,
   platformAdminUserAccountListJsonSchema,
-  resolveInviteResponseJsonSchema,
   schedulingConfigJsonSchema,
 } from './generated/calendar-schemas.js';
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
@@ -29,10 +28,6 @@ type EmptyInput = Readonly<Record<string, never>>;
 
 interface GroupInput {
   readonly groupId: string;
-}
-
-interface InviteInput {
-  readonly token: string;
 }
 
 export const groupSummaryListDecoder = /* @__PURE__ */ createCompactDecoder<GroupSummary[]>(
@@ -53,13 +48,13 @@ export const platformAdminUserAccountListDecoder =
   /* @__PURE__ */ createCompactDecoder<PlatformAdminUserAccountList>(
     platformAdminUserAccountListJsonSchema,
   );
-export const resolveInviteResponseDecoder =
-  /* @__PURE__ */ createCompactDecoder<ResolveInviteResponse>(resolveInviteResponseJsonSchema);
 export const schedulingConfigReadDecoder = /* @__PURE__ */ createCompactDecoder<SchedulingConfig>(
   schedulingConfigJsonSchema,
 );
-export const groupQrResponseDecoder =
-  /* @__PURE__ */ createCompactDecoder<GroupQrResponse>(groupQrResponseJsonSchema);
+export const currentEnvironmentQrResponseDecoder =
+  /* @__PURE__ */ createCompactDecoder<CurrentEnvironmentQrResponse>(
+    currentEnvironmentQrResponseJsonSchema,
+  );
 
 export const organizationReadEndpoints = {
   catalog: /* @__PURE__ */ defineClientEndpoint<EmptyInput, GroupCatalogEntry[]>({
@@ -90,12 +85,16 @@ export const organizationReadEndpoints = {
     method: 'GET',
     path: () => '/groups',
   }),
-  groupQr: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupQrResponse>({
+  visitorQr: /* @__PURE__ */ defineClientEndpoint<
+    GroupInput & { readonly environment: MiniProgramQrEnvironment },
+    CurrentEnvironmentQrResponse
+  >({
     auth: 'bearer',
-    decoder: groupQrResponseDecoder,
-    id: 'organization.group-qr',
+    decoder: currentEnvironmentQrResponseDecoder,
+    id: 'organization.visitor-qr',
     method: 'GET',
-    path: ({ groupId }) => `${groupPath(groupId)}/group-qr`,
+    path: ({ environment, groupId }) =>
+      `${groupPath(groupId)}/visitor-qr?environment=${environment}`,
   }),
   members: /* @__PURE__ */ defineClientEndpoint<GroupInput, GroupMember[]>({
     auth: 'bearer',
@@ -111,14 +110,6 @@ export const organizationReadEndpoints = {
     method: 'GET',
     path: () => '/platform-admin/users',
   }),
-  resolveInvite: /* @__PURE__ */ defineClientEndpoint<InviteInput, ResolveInviteResponse>({
-    auth: 'bearer',
-    body: ({ token }) => ({ token }),
-    decoder: resolveInviteResponseDecoder,
-    id: 'organization.resolve-invite',
-    method: 'POST',
-    path: () => '/invites/resolve',
-  }),
   schedulingConfig: /* @__PURE__ */ defineClientEndpoint<GroupInput, SchedulingConfig>({
     auth: 'bearer',
     decoder: schedulingConfigReadDecoder,
@@ -130,14 +121,16 @@ export const organizationReadEndpoints = {
 
 export interface OrganizationReadClient {
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
-  getGroupQr(groupId: string): Promise<GroupQrResponse>;
+  getVisitorQr(
+    groupId: string,
+    environment: MiniProgramQrEnvironment,
+  ): Promise<CurrentEnvironmentQrResponse>;
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
   listGroupCatalog(): Promise<GroupCatalogEntry[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
   listPlatformUserAccounts(): Promise<PlatformAdminUserAccount[]>;
-  resolveInvite(token: string): Promise<ResolveInviteResponse>;
 }
 
 export function createOrganizationReadClient(transport: ClientTransport): OrganizationReadClient {
@@ -145,8 +138,8 @@ export function createOrganizationReadClient(transport: ClientTransport): Organi
     getSchedulingConfig(groupId) {
       return transport.request(organizationReadEndpoints.schedulingConfig, { groupId });
     },
-    getGroupQr(groupId) {
-      return transport.request(organizationReadEndpoints.groupQr, { groupId });
+    getVisitorQr(groupId, environment) {
+      return transport.request(organizationReadEndpoints.visitorQr, { environment, groupId });
     },
     listDissolvedGroups() {
       return transport.request(organizationReadEndpoints.dissolvedGroups, {});
@@ -167,9 +160,6 @@ export function createOrganizationReadClient(transport: ClientTransport): Organi
       return transport
         .request(organizationReadEndpoints.platformAccounts, {})
         .then((result) => result.users);
-    },
-    resolveInvite(token) {
-      return transport.request(organizationReadEndpoints.resolveInvite, { token });
     },
   };
 }

@@ -13,7 +13,13 @@ interface Instance {
     holidays: readonly ConfirmedHolidayDate[];
     viewMode: string;
   };
-  data: { month: string; selectedDate: string; weekStart: string };
+  data: {
+    month: string;
+    selectedDate: string;
+    weekStart: string;
+    panels: readonly Record<string, unknown>[];
+    panelHeights: readonly number[];
+  };
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail: unknown): void;
   selectComponent(selector: string):
@@ -132,29 +138,39 @@ Component({
     ) {
       const [year, month] = this.data.month.split('-').map(Number);
       this._slot = event.detail.current;
-      const next = new Date(Date.UTC(year!, month! - 1 + event.detail.delta, 1))
-        .toISOString()
-        .slice(0, 7);
+      const next =
+        this._locateTarget ??
+        new Date(Date.UTC(year!, month! - 1 + event.detail.delta, 1)).toISOString().slice(0, 7);
+      delete this._locateTarget;
       sync(this, next, '', () => this.selectComponent('#preview-month')?.finishPeriodShift());
       this.triggerEvent('monthbrowse', { month: next });
     },
     handleMonthSettled(this: Instance) {
-      if (this._locateTarget && this._locateTarget !== this.data.month) {
-        this.selectComponent('#preview-month')?.startProgrammaticShift(
-          this._locateTarget < this.data.month ? -1 : 1,
-        );
-      } else {
-        delete this._locateTarget;
-        this.selectComponent('#preview-month')?.continueQueuedShift();
-      }
+      this.selectComponent('#preview-month')?.continueQueuedShift();
     },
     handleLocate(this: Instance) {
       const target = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
+      if (target === this.data.month) return;
+      const delta: -1 | 1 = target < this.data.month ? -1 : 1;
+      const targetModel = previewCalendarModel(
+        this.properties.assignments,
+        target,
+        '',
+        this._slot,
+        this.properties.restrictToProposed,
+        this.properties.holidays,
+      );
+      const targetSlot = ((this._slot + delta + 3) % 3) as CalendarPeriodSlot;
+      const panel = targetModel.panels[this._slot];
+      if (!panel) return;
       this._locateTarget = target;
-      if (target !== this.data.month)
-        this.selectComponent('#preview-month')?.startProgrammaticShift(
-          target < this.data.month ? -1 : 1,
-        );
+      const panels = [...this.data.panels];
+      const panelHeights = [...this.data.panelHeights];
+      panels[targetSlot] = { ...panel, relative: delta, slot: targetSlot };
+      panelHeights[targetSlot] = targetModel.gridHeight;
+      this.setData({ panels, panelHeights }, () =>
+        this.selectComponent('#preview-month')?.startProgrammaticShift(delta),
+      );
     },
     handleSelect(this: Instance, event: { detail: { businessDate: string } }) {
       sync(this, this.data.month, event.detail.businessDate);

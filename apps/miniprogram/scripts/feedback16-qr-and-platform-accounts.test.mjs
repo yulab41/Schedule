@@ -11,7 +11,7 @@ const accountMocks = vi.hoisted(() => ({
 
 vi.mock('../src/platform/client-core-calendar.js', () => ({
   createRuntimeOrganizationReadClient: () => qrMocks.read,
-  createRuntimeInviteVisitorWriteClient: () => qrMocks.write,
+  createRuntimeQrVisitorWriteClient: () => qrMocks.write,
   createRuntimePlatformAccountClient: () => accountMocks.account,
   createRuntimePlatformIdentityWriteClient: () => accountMocks.identity,
 }));
@@ -45,17 +45,20 @@ describe('Feedback16 QR interactions', () => {
       .mockResolvedValue([{ id: 'group-1', name: '测试群', role: 'owner', version: 1 }]);
     qrMocks.read.listGroupMembers = vi.fn().mockResolvedValue([]);
     qrMocks.read.getSchedulingConfig = vi.fn().mockResolvedValue({ roles: [] });
-    qrMocks.read.getGroupQr = vi.fn().mockResolvedValue({ imageBase64: 'iVBORw0KGgo=' });
+    qrMocks.read.getVisitorQr = vi
+      .fn()
+      .mockResolvedValue({ environment: 'trial', imageBase64: 'iVBORw0KGgo=' });
     qrMocks.write.regenerateVisitorKey = vi.fn().mockResolvedValue({ visitorKeyChanged: true });
     runtime = {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion: 'trial', version: 'test' } }),
       getWindowInfo: () => ({ windowWidth: 390, statusBarHeight: 24 }),
       previewImage: vi.fn((options) => options.success?.()),
       getFileSystemManager: vi.fn(() => ({ writeFile: vi.fn(), unlink: vi.fn() })),
     };
     vi.stubGlobal('wx', runtime);
     const module =
-      await import('../src/subpackages/organization/components/invite-visitor-panel/controller.ts');
-    definition = module.createInviteVisitorPanelControllerDefinition();
+      await import('../src/subpackages/organization/components/qr-visitor-panel/controller.ts');
+    definition = module.createQrVisitorPanelControllerDefinition();
     page = {
       properties: { groupId: 'group-1' },
       data: { ...definition.data },
@@ -86,15 +89,15 @@ describe('Feedback16 QR interactions', () => {
   });
 
   it('shows the new QR automatically after rotation completes', async () => {
-    qrMocks.read.getGroupQr
-      .mockResolvedValueOnce({ imageBase64: 'iVBORw0KGgo=' })
-      .mockResolvedValueOnce({ imageBase64: 'iVBORw0KGgoAAA==' });
+    qrMocks.read.getVisitorQr
+      .mockResolvedValueOnce({ environment: 'trial', imageBase64: 'iVBORw0KGgo=' })
+      .mockResolvedValueOnce({ environment: 'trial', imageBase64: 'iVBORw0KGgoAAA==' });
     definition.handleLoadQr.call(page);
     await flush();
     definition.handleRegenerateVisitorKey.call(page);
     await flush();
     expect(qrMocks.write.regenerateVisitorKey).toHaveBeenCalledTimes(1);
-    expect(qrMocks.read.getGroupQr).toHaveBeenCalledTimes(2);
+    expect(qrMocks.read.getVisitorQr).toHaveBeenCalledTimes(2);
     expect(page.data.qrImageSrc).toBe('data:image/png;base64,iVBORw0KGgoAAA==');
     expect(page.data.qrVisible).toBe(true);
   });

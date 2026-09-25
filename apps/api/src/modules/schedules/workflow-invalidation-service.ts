@@ -29,8 +29,9 @@ export class ScheduleWorkflowInvalidationService {
     transaction: DatabaseTransaction,
     periodIds: readonly string[],
     lockRows = false,
+    assignmentIds?: readonly string[],
   ): Promise<readonly ScheduleWorkflowImpact[]> {
-    const rows = await this.loadRows(transaction, periodIds, lockRows);
+    const rows = await this.loadRows(transaction, periodIds, lockRows, assignmentIds);
     return buildImpacts(rows);
   }
 
@@ -41,9 +42,10 @@ export class ScheduleWorkflowInvalidationService {
       readonly groupId: string;
       readonly operationId: string;
       readonly periodIds: readonly string[];
+      readonly assignmentIds?: readonly string[];
     },
   ): Promise<readonly ScheduleWorkflowImpact[]> {
-    const rows = await this.loadRows(transaction, input.periodIds, true);
+    const rows = await this.loadRows(transaction, input.periodIds, true, input.assignmentIds);
     const impacts = buildImpacts(rows);
     if (input.periodIds.length === 0) {
       return impacts;
@@ -161,6 +163,7 @@ export class ScheduleWorkflowInvalidationService {
     transaction: DatabaseTransaction,
     periodIds: readonly string[],
     lockRows: boolean,
+    selectedAssignmentIds?: readonly string[],
   ): Promise<WorkflowRows> {
     const uniquePeriodIds = [...new Set(periodIds)];
     if (uniquePeriodIds.length === 0) {
@@ -173,6 +176,9 @@ export class ScheduleWorkflowInvalidationService {
       .where(
         and(
           inArray(shiftAssignments.schedulePeriodId, uniquePeriodIds),
+          ...(selectedAssignmentIds === undefined
+            ? []
+            : [inArray(shiftAssignments.id, [...selectedAssignmentIds])]),
           isNull(shiftAssignments.deletedAt),
         ),
       );

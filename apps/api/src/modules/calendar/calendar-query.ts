@@ -433,7 +433,7 @@ export class CalendarQuery {
         mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
         mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
         mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-        shortPhone: groupMemberContacts.shortPhone,
+        shortPhone: users.shortPhone,
       })
       .from(groupMemberships)
       .innerJoin(users, eq(users.id, groupMemberships.userId))
