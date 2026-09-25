@@ -9,7 +9,8 @@
 - 实现：契约新增可选 `removals`（`items` 取消 min(1)）；`backfillBatch` 同事务软删除并自增 `version`，写同一条审计事件；补录页改为「已存在＝暂存移除、否则＝暂存新增」，草稿键改为「岗位:日期:类型:目标」，确认时一次提交 `items + removals`；周/月统一 `state: removed|added`（黑色删除线/暗红 `#a42620`），删除（原）（拟）；手排预览删除 `handleSelect`、`selectedDate`、`details`、模板与样式。
 - 圆角复核：首页/访客周视图、月视图、补录与预览周视图三套结构在无头浏览器量测的圆弧/直线覆盖率为 0.996 / 1.045 / 1.073，开发者工具实拍月视图左下圆角与直线等宽；访客页 `@import` 首页样式、预览复用 `calendar-month`，无独立实现。
 - 验证：真实 MySQL past-schedules 集成 `13/13`（移除生效、幂等重放、重复移除/日期不匹配/未来日期 409、无权限 403）；Mini 全量 `183 文件 / 1281 通过 / 18 跳过`；补录控制器 `15/15`；presentation-core `7/7`；`pnpm typecheck`、`pnpm lint`、root `pnpm test`、Mini production verify（4,817,910 B）通过；DevTools 首页月/周与补录页 Console 无 error。
-- 边界：护士群多班种的真实点击与小米 14 真机未验证；下一步上传并放行本检查点体验版。
+- 交付：`833a11e4` 推送 `main` 后完整部署生产（备份 `7fd67e5c-3d9c-49a5-9b4a-643bc9620bc3`、54 表 311,250 行、SHA-256 `4fdf9bba…4ac6a`；release `833a11e4`、回滚候选 `ad6c09fe`、`ecs-verify.sh` 通过）；体验版 `0.1.0-p10.20260926.200`（Manifest `9a9dd18a11a5c3c064b5275c6abcb3b99c6f48c083e6ee3c7dbee1e3e84b7a09`）上传并只追加放行，公网 `.200`/`.199`=200、未知版=426。
+- 边界：护士群多班种的真实点击与小米 14 真机未验证（DevTools 坐标自动化未命中，交互由控制器/集成测试覆盖）。
 
 ## 2026-09-25 周视图选中框圆弧笔画核验与网格圆角统一
 
