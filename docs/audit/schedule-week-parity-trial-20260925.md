@@ -10,4 +10,6 @@
 
 ## 上传与放行结果
 
-待执行；未取得成功凭据前不得写“已上传”或“已放行”。
+- 干净候选 `ad6c09fea36edd962a72fc03b52768ca38b10d2e` 已推送；production 体验版 `0.1.0-p10.20260925.197` 上传成功，Manifest SHA-256 `30cc39f53a2e358333aefea3e8eed9cb873d0a5c2394a42e67d817544f0a40f7`，远端 tag、allocation、manifest、receipt 一致。239 个代码文件，ZIP 2,706,505 B；未提审或正式发布。
+- 用户随后明确授权生产备份、发布标识同步与验证。实时生产基线为 `17c1c90f88b71af110f7c85add42bf6f8a6ecf3a`，加密备份 `c1e4ee1c-e729-4e98-a4de-1321930e9413` 完成。可信复用工具因 dist/API 归档哈希不同而拒绝且未变更线上；随后按完整部署流程将生产 release 更新为 `ad6c09fea36edd962a72fc03b52768ca38b10d2e`。完整 `ecs-verify.sh` 通过。
+- 可信 allowlist `ensure` 只追加 `.197`，独立 `verify` 与再次完整 ECS verifier 通过。正式域名 `.197/.196` 均 HTTP 200，动态未知版本 HTTP 426；旧体验版保留。小米 14 同构建原生动画、320px 和实际排班视觉尚无证据，不能记为通过。
