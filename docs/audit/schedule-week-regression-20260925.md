@@ -15,7 +15,7 @@
 
 - 回归用例先失败后通过：相关 Mini 定向测试 `103 passed / 1 skipped`，新增浏览器几何测试覆盖 390px/320px、高度无溢出、底部留白和底角圆弧。
 - Mini 全量：`1280 passed / 18 skipped`；根全量：`1306 passed / 451 skipped`。
-- `pnpm --filter @schedule/miniprogram verify` 通过；生产包 `4,817,496 B`，manifest `7882e6c9c0b522a559aeb68fc24cb2eb75821b24540dac67a319800e66aca2f0`。
+- `pnpm verify`、`pnpm --filter @schedule/miniprogram verify` 均通过；生产包 `4,817,496 B`，manifest `a1deb7225864811c054ec55f06fde0b77c90816f4c9fe60d331b5a20c16003a8`。为通过候选 lint，仅在回归测试文件补充浏览器全局声明，未改变生产源码。
 - 开发者工具 `compile_wxml`/`compile_wxss` 通过：首页 WXML、周格 WXML/WXSS。首页模拟器停在“正在读取排班”，没有真实排班数据，不能作为视觉通过证据；小米 14 未验证。
 
 ## 发布状态

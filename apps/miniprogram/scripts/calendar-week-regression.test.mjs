@@ -1,3 +1,5 @@
+/* global document, getComputedStyle */
+
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { describe, expect, it } from 'vitest';
