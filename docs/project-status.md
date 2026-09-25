@@ -7,6 +7,7 @@
 - 预览共用组件新增周展示与周翻页、跨月日期、详情；手排页读取 `groupDefaultView`，偏好读取失败时回落月视图。样式只改补录选中态，无新接口或依赖。独占 warm `general-5`，`REUSE_ONLY`，安装 0。
 - 验证：定向 34/34；完整 Mini 首跑其余 1219 通过/16 跳过，仅旧 `feedback9-manual-calendar` mock 缺新导出致 14 失败，补齐后 14/14；最终 Mini production verify/TypeScript/包体、lint、`smoke:check-core`、diff/格式检查通过，DevTools 两项 WXML 与一项 WXSS 局部编译通过。未取得该群真实业务数据或小米 14 同构建证据，不宣称真机验收。
 - 检查点：`fix(miniprogram): align backfill calendar and scheduling previews`。Mini-only，不触发生产备份或部署。下一任务及停止条件：请用户在对应体验版的小米 14 检查头颈外科护士群中秋已有班、选中态与周预览；收到同构建证据前保持待用户复核。
+- 截图复核补充：手排班种另有蓝色 `box-shadow`，已去掉并保留班种本色；手排/补录页面测试 13/13 与 Mini production verify 通过。补充检查点：`fix(miniprogram): remove manual shift selection ring`。
 
 ## 当前批次：数据缓存与服务器性能审计（已交付，待小米 14 复核）
 

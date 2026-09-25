@@ -14,6 +14,10 @@ function readPageFile(extension) {
 }
 
 describe('native P5 manual schedule page', () => {
+  it('keeps shift colors without an extra blue active outline', () => {
+    expect(readPageFile('wxml')).toContain('border-color:{{item.color}}');
+    expect(readPageFile('wxss')).not.toContain('.palette-button.is-active');
+  });
   it('is registered in the scheduling subpackage and mapped to the approved golden', () => {
     const appJson = JSON.parse(readFileSync(path.join(sourceRoot, 'app.json'), 'utf8'));
     expect(appJson.subpackages).toContainEqual({

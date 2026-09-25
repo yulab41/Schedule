@@ -405,11 +405,6 @@ ui-alert {
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.palette-button.is-active {
-  border-color: var(--ui-color-primary);
-  box-shadow: 0 0 0 2px var(--ui-color-primary);
-}
-
 .palette-button.is-pressed {
   opacity: 0.82;
   transform: scale(0.97);
