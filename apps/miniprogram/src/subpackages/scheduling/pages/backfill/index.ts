@@ -38,7 +38,6 @@ import {
 import {
   createRuntimeManualScheduleClient,
   createRuntimePastScheduleClient,
-  createRuntimeSchedulePublicationClient,
 } from '../../../../platform/client-core-calendar.js';
 import {
   getStoredWechatProfile,
@@ -183,10 +182,6 @@ interface BackfillMonthPanel {
 const requestAuthentication = getWechatRequestAuthentication();
 const manualClient = createRuntimeManualScheduleClient(getStoredWechatToken, requestAuthentication);
 const pastScheduleClient = createRuntimePastScheduleClient(
-  getStoredWechatToken,
-  requestAuthentication,
-);
-const publicationClient = createRuntimeSchedulePublicationClient(
   getStoredWechatToken,
   requestAuthentication,
 );
@@ -545,14 +540,8 @@ async function loadCalendarContext(page: BackfillPageInstance): Promise<boolean>
     return false;
   }
   try {
-    const period = page._periods.find(
-      (candidate) =>
-        candidate.scheduleRoleId === roleId && candidate.businessMonth === businessMonth,
-    );
     const [calendar, holidays] = await Promise.all([
-      period === undefined
-        ? Promise.resolve(createEmptyCalendar(page, roleId, businessMonth))
-        : publicationClient.getPeriodCalendar(page._currentGroupId, period.id),
+      workbenchClient.getCalendar(page._currentGroupId, businessMonth),
       workbenchClient.getHolidays(Number(businessMonth.slice(0, 4))),
     ]);
     if (
@@ -715,13 +704,8 @@ async function preloadBackfillMonths(
       const key = `${roleId}:${businessMonth}`;
       if (page._calendarByKey.has(key)) return;
       try {
-        const period = page._periods.find(
-          (value) => value.scheduleRoleId === roleId && value.businessMonth === businessMonth,
-        );
         const [calendar, holidays] = await Promise.all([
-          period === undefined
-            ? Promise.resolve(createEmptyCalendar(page, roleId, businessMonth))
-            : publicationClient.getPeriodCalendar(page._currentGroupId, period.id),
+          workbenchClient.getCalendar(page._currentGroupId, businessMonth),
           workbenchClient.getHolidays(Number(businessMonth.slice(0, 4))),
         ]);
         if (serial !== page._loadSerial) return;
@@ -757,6 +741,7 @@ function createCalendarCells(
   const calendar = page._calendarByKey?.get(`${page.data.roleId}:${month}`);
   const assignmentsByDate = new Map<string, CalendarReadModel['assignments'][number][]>();
   for (const assignment of calendar?.assignments ?? []) {
+    if (assignment.scheduleRoleId !== page.data.roleId) continue;
     const rows = assignmentsByDate.get(assignment.businessDate) ?? [];
     rows.push(assignment);
     assignmentsByDate.set(assignment.businessDate, rows);
@@ -840,44 +825,14 @@ function createRecordViews(
   }));
 }
 
-function createEmptyCalendar(
-  page: BackfillPageInstance,
-  roleId: string,
-  businessMonth: string,
-): CalendarReadModel {
-  const role = page._config?.roles.find((candidate) => candidate.id === roleId);
-  return {
-    assignments: [],
-    businessMonth,
-    groupId: page._currentGroupId,
-    members: page.data.members.map((member) => ({
-      isConfirmed: false,
-      membershipId: member.membershipId,
-      realName: member.realName,
-    })),
-    roles: role === undefined ? [] : [{ id: role.id, name: role.name }],
-    shiftTypes: (page._config?.shiftTypes ?? [])
-      .filter((shiftType) => shiftType.isEnabled)
-      .map((shiftType) => ({
-        abbreviation: shiftType.abbreviation,
-        color: shiftType.color,
-        crossesMidnight: shiftType.crossesMidnight,
-        ...(shiftType.endTime === undefined ? {} : { endTime: shiftType.endTime }),
-        id: shiftType.id,
-        isAllDay: shiftType.isAllDay,
-        name: shiftType.name,
-        ...(shiftType.startTime === undefined ? {} : { startTime: shiftType.startTime }),
-        textColor: shiftType.textColor,
-      })),
-  };
-}
-
 function alreadyMatchesCurrentAssignment(
   page: BackfillPageInstance,
   item: PastScheduleBackfillBatchItem,
 ): boolean {
   const existing = page._calendar?.assignments.find(
-    (assignment) => assignment.businessDate === item.businessDate,
+    (assignment) =>
+      assignment.scheduleRoleId === item.scheduleRoleId &&
+      assignment.businessDate === item.businessDate,
   );
   return (
     existing !== undefined &&

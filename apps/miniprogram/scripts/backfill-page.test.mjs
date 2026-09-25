@@ -71,4 +71,11 @@ describe('native P5 past-schedule backfill page', () => {
     expect(pageJson.disableScroll).toBe(true);
     expect(pageJson.renderer).toBe('webview');
   });
+
+  it('uses a dark selected member without the extra blue selection ring', () => {
+    const wxss = readPageFile('wxss');
+    expect(wxss).not.toContain('.palette-button.is-active');
+    expect(wxss).toMatch(/\.member-button\.is-active\s*\{[^}]*color:\s*var\(--ui-color-white\)/u);
+    expect(wxss).toMatch(/\.member-button\.is-active\s*\{[^}]*background:\s*#3f4650/u);
+  });
 });

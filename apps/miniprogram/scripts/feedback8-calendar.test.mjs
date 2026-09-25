@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   mergePreviewAssignments,
   previewCalendarModel,
+  previewWeekModel,
 } from '../src/subpackages/scheduling/components/schedule-calendar-preview/model.ts';
 
 describe('feedback8 preview calendar', () => {
@@ -83,8 +84,63 @@ describe('feedback8 preview calendar', () => {
       .filter(([event]) => event === 'heightchange')
       .at(-1)[1].height;
     expect(height).toBeGreaterThan(instance.data.gridHeight);
-    definition.observers['assignments,restrictToProposed'].call(instance);
+    definition.observers['assignments,restrictToProposed,viewMode'].call(instance);
     expect(instance.data.month).toBe('2026-12');
+    vi.unstubAllGlobals();
+  });
+  it('shows the starting week across months and retains day details while browsing', async () => {
+    const assignments = [
+      {
+        businessDate: '2026-12-01',
+        plannedMemberName: '周班人员',
+        shiftTypeAbbreviation: '全',
+        shiftTypeName: '全天班',
+        slotPosition: 1,
+      },
+    ];
+    const week = previewWeekModel(assignments, '2026-11-30', '2026-12-01');
+    expect(week.days).toHaveLength(7);
+    expect(week.days.map((day) => day.businessDate)).toEqual([
+      '2026-11-30',
+      '2026-12-01',
+      '2026-12-02',
+      '2026-12-03',
+      '2026-12-04',
+      '2026-12-05',
+      '2026-12-06',
+    ]);
+    expect(week.days[1].duties[0].name).toBe('周班人员');
+    expect(week.details[0].label).toContain('周班人员');
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    vi.resetModules();
+    await import('../src/subpackages/scheduling/components/schedule-calendar-preview/index.ts');
+    const instance = {
+      ...definition.methods,
+      properties: {
+        assignments,
+        startDate: '2026-12-01',
+        compact: true,
+        restrictToProposed: false,
+        holidays: [],
+        viewMode: 'week',
+      },
+      data: structuredClone(definition.data),
+      setData(patch, callback) {
+        Object.assign(this.data, patch);
+        callback?.();
+      },
+      triggerEvent: vi.fn(),
+    };
+    definition.lifetimes.attached.call(instance);
+    expect(instance.data.weekStart).toBe('2026-11-30');
+    instance.handleWeekSelect({ currentTarget: { dataset: { date: '2026-12-01' } } });
+    expect(instance.data.details[0].label).toContain('周班人员');
+    instance.handleWeekChange({ currentTarget: { dataset: { delta: 1 } } });
+    expect(instance.data.weekStart).toBe('2026-12-07');
+    expect(instance.triggerEvent).toHaveBeenCalledWith('monthbrowse', { month: '2026-12' });
     vi.unstubAllGlobals();
   });
   it('preserves proposed colors and uses a single-character colored shift badge', () => {

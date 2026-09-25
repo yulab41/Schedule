@@ -1,4 +1,5 @@
-import { previewCalendarModel, type PreviewDuty } from './model.js';
+import { previewCalendarModel, previewWeekModel, type PreviewDuty } from './model.js';
+import { addWeeks, getWeekStartDate } from '@schedule/presentation-core';
 import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import type { CalendarPeriodSlot } from '../../../../components/calendar/calendar-period-pager.js';
 interface Instance {
@@ -10,8 +11,9 @@ interface Instance {
     compact: boolean;
     restrictToProposed: boolean;
     holidays: readonly ConfirmedHolidayDate[];
+    viewMode: string;
   };
-  data: { month: string; selectedDate: string };
+  data: { month: string; selectedDate: string; weekStart: string };
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail: unknown): void;
   selectComponent(selector: string):
@@ -31,16 +33,31 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
     instance.properties.restrictToProposed,
     instance.properties.holidays,
   );
+  const weekStart =
+    instance.data.weekStart || getWeekStartDate(instance.properties.startDate || `${month}-01`);
+  const week = previewWeekModel(
+    instance.properties.assignments,
+    weekStart,
+    selectedDate,
+    instance.properties.restrictToProposed,
+    instance.properties.holidays,
+  );
   instance.setData(
     {
       month,
       selectedDate,
+      weekStart,
+      weekDays: week.days,
+      weekLabel: week.label,
+      weekHeight: week.height,
       ...model,
     },
     callback,
   );
   instance.triggerEvent('heightchange', {
-    height: model.gridHeight + 94 + (selectedDate ? 52 + model.details.length * 20 : 0),
+    height:
+      (instance.properties.viewMode === 'week' ? week.height + 94 : model.gridHeight + 94) +
+      (selectedDate ? 52 + model.details.length * 20 : 0),
   });
 }
 Component({
@@ -51,10 +68,15 @@ Component({
     restrictToProposed: { type: Boolean, value: false },
     holidays: { type: Array, value: [] },
     shadow: { type: Boolean, value: true },
+    viewMode: { type: String, value: 'month' },
   },
   data: {
     month: '',
     selectedDate: '',
+    weekStart: '',
+    weekDays: [],
+    weekLabel: '',
+    weekHeight: 132,
     panels: [],
     panelHeights: [270, 270, 270],
     gridHeight: 270,
@@ -64,7 +86,10 @@ Component({
   lifetimes: {
     attached(this: Instance) {
       this._slot = 1;
-      if (this.properties.startDate) sync(this, this.properties.startDate.slice(0, 7));
+      if (this.properties.startDate) {
+        this.setData({ weekStart: getWeekStartDate(this.properties.startDate) });
+        sync(this, this.properties.startDate.slice(0, 7));
+      }
     },
   },
   observers: {
@@ -73,14 +98,34 @@ Component({
       if (month) sync(this, month, this.data.selectedDate);
     },
     startDate(this: Instance) {
-      if (this.properties.startDate) sync(this, this.properties.startDate.slice(0, 7));
+      if (this.properties.startDate) {
+        this.setData({ weekStart: getWeekStartDate(this.properties.startDate) });
+        sync(this, this.properties.startDate.slice(0, 7));
+      }
     },
-    'assignments,restrictToProposed'(this: Instance) {
+    'assignments,restrictToProposed,viewMode'(this: Instance) {
       const month = this.data.month || this.properties.startDate.slice(0, 7);
       if (month) sync(this, month, this.data.selectedDate);
     },
   },
   methods: {
+    handleWeekChange(this: Instance, event: { currentTarget: { dataset: { delta: number } } }) {
+      const delta = Number(event.currentTarget.dataset.delta);
+      if (delta !== -1 && delta !== 1) return;
+      const weekStart = addWeeks(this.data.weekStart, delta);
+      this.setData({ weekStart });
+      sync(this, weekStart.slice(0, 7), '');
+      this.triggerEvent('monthbrowse', { month: weekStart.slice(0, 7) });
+    },
+    handleWeekSelect(this: Instance, event: { currentTarget: { dataset: { date: string } } }) {
+      sync(this, this.data.month, event.currentTarget.dataset.date);
+    },
+    handleWeekLocate(this: Instance) {
+      const target = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      this.setData({ weekStart: getWeekStartDate(target) });
+      sync(this, target.slice(0, 7), target);
+      this.triggerEvent('monthbrowse', { month: target.slice(0, 7) });
+    },
     handleMonthChange(
       this: Instance,
       event: { detail: { delta: -1 | 1; current: CalendarPeriodSlot } },

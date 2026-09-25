@@ -1,2 +1,100 @@
-:host { display: block; min-width: 0; }
-.preview-day-detail { display: flex; margin-top: 8px; padding: 8px; flex-direction: column; gap: 4px; color: var(--ui-color-text-secondary); background: var(--ui-color-surface-muted); border-radius: var(--ui-radius-small); font-size: 12px; }
+:host {
+  display: block;
+  min-width: 0;
+}
+.preview-day-detail {
+  display: flex;
+  margin-top: 8px;
+  padding: 8px;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-small);
+  font-size: 12px;
+}
+.preview-week-card {
+  overflow: hidden;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 18px;
+  background: var(--ui-color-surface);
+  box-shadow: 0 5px 16px rgba(21, 43, 67, 0.07);
+}
+.preview-week-card.is-flat {
+  box-shadow: none;
+}
+.preview-week-toolbar {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.preview-week-heading {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+.preview-week-step,
+.preview-week-locate {
+  display: flex;
+  width: 40px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary);
+  font-size: 24px;
+}
+.preview-week-grid {
+  display: flex;
+}
+.preview-week-day {
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 2px;
+  border-right: 1px solid var(--ui-color-border);
+}
+.preview-week-day:last-child {
+  border-right: 0;
+}
+.preview-week-day.is-selected {
+  background: var(--ui-color-primary-light);
+}
+.preview-week-weekday {
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+}
+.preview-week-date {
+  font-size: 14px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+.preview-week-holiday {
+  color: var(--ui-color-text-secondary);
+  font-size: 10px;
+}
+.preview-week-duty {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 13px;
+}
+.preview-week-duty-name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.preview-week-duty-badge {
+  border-radius: 3px;
+  padding: 0 2px;
+}

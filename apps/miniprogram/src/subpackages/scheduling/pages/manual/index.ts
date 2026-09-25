@@ -50,6 +50,7 @@ import { buildInfo } from '../../../../platform/build-info.js';
 import {
   createRuntimeManualScheduleClient,
   createRuntimeSchedulePublicationClient,
+  createRuntimeCalendarPreferencesClient,
 } from '../../../../platform/client-core-calendar.js';
 import {
   getStoredWechatProfile,
@@ -201,6 +202,7 @@ interface ManualPageData extends MatrixModel {
   readonly previewHolidays: readonly ConfirmedHolidayDate[];
   readonly previewAssignments: readonly PreviewDuty[];
   readonly previewStartDate: string;
+  readonly previewView: 'month' | 'week';
   readonly releasePreviewAssignments: readonly PreviewDuty[];
   readonly releasePreviewStartDate: string;
   readonly releaseCalendarHeight: number;
@@ -383,6 +385,10 @@ const publicationClient = createRuntimeSchedulePublicationClient(
   getStoredWechatToken,
   requestAuthentication,
 );
+const calendarPreferencesClient = createRuntimeCalendarPreferencesClient(
+  getStoredWechatToken,
+  requestAuthentication,
+);
 const workbenchClient = createWorkbenchReadClient();
 const today = getTodayBusinessDate();
 const emptyMatrix = createMatrixModel({
@@ -406,6 +412,7 @@ Page({
     previewHolidays: [] as readonly ConfirmedHolidayDate[],
     previewAssignments: [],
     previewStartDate: '',
+    previewView: 'month',
     releasePreviewAssignments: [],
     releasePreviewStartDate: '',
     releaseCalendarHeight: 364,
@@ -1061,10 +1068,11 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
           candidate.isDeveloperAdmin,
       );
     if (group === undefined) throw new Error('仅管理员与群主可以使用手动排班。');
-    const [config, templates, history] = await Promise.all([
+    const [config, templates, history, preferences] = await Promise.all([
       manualClient.getConfig(group.id),
       manualClient.listTemplates(group.id),
       publicationClient.listHistory(group.id),
+      calendarPreferencesClient.get(group.id).catch(() => undefined),
     ]);
     if (serial !== page._loadSerial) return;
     page._currentGroupId = group.id;
@@ -1075,7 +1083,11 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
     page._holidayRequests = new Map();
     page.setData({ previewHolidays: [] });
     writeStoredWorkbenchGroupId(ownerId, group.id);
-    page.setData({ currentGroupName: group.name, isBusy: false });
+    page.setData({
+      currentGroupName: group.name,
+      isBusy: false,
+      previewView: preferences?.groupDefaultView === 'week' ? 'week' : 'month',
+    });
     initializeNewTemplate(page);
   } catch (error) {
     if (serial !== page._loadSerial) return;

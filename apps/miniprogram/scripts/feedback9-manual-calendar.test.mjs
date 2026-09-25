@@ -6,6 +6,7 @@ import { previewCalendarModel } from '../src/subpackages/scheduling/components/s
 
 const mocks = vi.hoisted(() => ({ next: vi.fn(), holidays: vi.fn() }));
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
+  createRuntimeCalendarPreferencesClient: () => ({}),
   createRuntimeManualScheduleClient: () => ({ getNextStartDate: mocks.next }),
   createRuntimeSchedulePublicationClient: () => ({}),
 }));

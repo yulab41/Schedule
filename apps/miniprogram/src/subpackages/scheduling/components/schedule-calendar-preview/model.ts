@@ -1,4 +1,10 @@
-import { buildMonthDisplayGrid, getCurrentBusinessDate } from '@schedule/presentation-core';
+import {
+  buildMonthDisplayGrid,
+  getCurrentBusinessDate,
+  getWeekDays,
+  getWeekLabel,
+  getWeekStartDate,
+} from '@schedule/presentation-core';
 import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import { calendarShiftBadge } from '../../../../components/calendar/calendar-duty-view.js';
 import {
@@ -110,5 +116,38 @@ export function previewCalendarModel(
     gridHeight: panelHeights[slot] ?? 270,
     monthLabel: `${year}年${monthNumber}月`,
     details,
+  };
+}
+
+export function previewWeekModel(
+  assignments: readonly PreviewDuty[],
+  weekDate: string,
+  selectedDate: string,
+  restrictToProposed = false,
+  holidays: readonly ConfirmedHolidayDate[] = [],
+) {
+  const dates = getWeekDays(getWeekStartDate(weekDate));
+  const monthModels = new Map(
+    [...new Set(dates.map((date) => date.slice(0, 7)))].map((month) => [
+      month,
+      previewCalendarModel(assignments, month, selectedDate, 1, restrictToProposed, holidays),
+    ]),
+  );
+  const days = dates.map((date, index) => {
+    const panel = monthModels.get(date.slice(0, 7))?.panels.find((item) => item.relative === 0);
+    const cell = panel?.cells.find((item) => item.businessDate === date);
+    return cell === undefined ? undefined : { ...cell, weekday: '一二三四五六日'[index] };
+  });
+  const details = assignments
+    .filter((item) => item.businessDate === selectedDate)
+    .map((item, index) => ({
+      key: String(index),
+      label: `${item.actualMemberName ?? item.plannedMemberName ?? '待安排'} · ${item.shiftTypeName}`,
+    }));
+  return {
+    days: days.filter((day): day is NonNullable<typeof day> => day !== undefined),
+    details,
+    label: getWeekLabel(weekDate),
+    height: Math.max(132, 54 + Math.max(1, ...days.map((day) => day?.duties.length ?? 0)) * 17),
   };
 }

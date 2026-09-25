@@ -90,6 +90,7 @@ describe('P5 native atomic backfill controller', () => {
             {
               id: 'original',
               businessDate: date,
+              scheduleRoleId: 'role-1',
               slotPosition: 1,
               actualMembershipId: 'old-member',
               actualMemberName: '原人员',
@@ -173,6 +174,7 @@ describe('P5 native atomic backfill controller', () => {
     const instance = createPageInstance(definition);
     const base = {
       businessDate: '2026-07-02',
+      scheduleRoleId: 'role-1',
       actualMemberName: '原人员',
       plannedMemberName: '原人员',
       shiftTypeAbbreviation: '全',
@@ -180,6 +182,13 @@ describe('P5 native atomic backfill controller', () => {
     instance._calendarByKey.get('role-1:2026-07').assignments = [
       { ...base, id: 'slot-2', slotPosition: 2, actualMemberName: '另一班' },
       { ...base, id: 'slot-1', slotPosition: 1 },
+      {
+        ...base,
+        id: 'other-role',
+        scheduleRoleId: 'role-2',
+        slotPosition: 1,
+        actualMemberName: '其他岗位',
+      },
     ];
     definition.handleDateTap.call(instance, {
       currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
@@ -202,6 +211,50 @@ describe('P5 native atomic backfill controller', () => {
     definition.handleDateTap.call(instance, {
       currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
     });
+    expect(instance._staged.size).toBe(1);
+  });
+
+  it('uses the whole published month, then limits the view and match check to the selected role', () => {
+    const source = readFileSync(
+      new URL('../src/subpackages/scheduling/pages/backfill/index.ts', import.meta.url),
+      'utf8',
+    );
+    expect(source).toContain('workbenchClient.getCalendar(page._currentGroupId, businessMonth)');
+    expect(source).not.toContain('publicationClient.getPeriodCalendar');
+    const instance = createPageInstance(definition);
+    instance._calendarByKey.get('role-1:2026-07').assignments = [
+      {
+        id: 'other-role',
+        businessDate: '2026-07-02',
+        scheduleRoleId: 'role-2',
+        slotPosition: 1,
+        actualMembershipId: 'member-1',
+        shiftTypeId: 'shift-a',
+        shiftTypeAbbreviation: '全',
+        shiftTypeName: '全天班',
+        actualMemberName: '其他岗位',
+      },
+      {
+        id: 'published-role',
+        businessDate: '2026-07-02',
+        scheduleRoleId: 'role-1',
+        slotPosition: 1,
+        actualMembershipId: 'old-member',
+        shiftTypeId: 'shift-a',
+        shiftTypeAbbreviation: '全',
+        shiftTypeName: '全天班',
+        actualMemberName: '正式排班',
+      },
+    ];
+    instance._calendar = instance._calendarByKey.get('role-1:2026-07');
+    definition.handleDateTap.call(instance, {
+      currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
+    });
+    expect(
+      instance.data.calendarCells
+        .find((cell) => cell.businessDate === '2026-07-02')
+        .duties.map((duty) => duty.name),
+    ).toEqual(['正式排班', '林医生']);
     expect(instance._staged.size).toBe(1);
   });
 
