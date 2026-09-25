@@ -1,13 +1,32 @@
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
+import { calendarShiftBadge } from '../src/components/calendar/calendar-duty-view.ts';
 import {
   mergePreviewAssignments,
   previewCalendarModel,
   previewWeekModel,
+  previewWeekPanels,
 } from '../src/subpackages/scheduling/components/schedule-calendar-preview/model.ts';
 
 describe('feedback8 preview calendar', () => {
+  it('uses the home-calendar abbreviations for nurse shifts in backfill and preview', () => {
+    for (const abbreviation of ['N', 'NP', 'A', 'D', '电脑']) {
+      expect(calendarShiftBadge(abbreviation, `${abbreviation}班`).abbreviation).toBe(abbreviation);
+    }
+  });
+  it('uses the same calendar pager and cells for month and week previews', () => {
+    const wxml = readFileSync(
+      new URL(
+        '../src/subpackages/scheduling/components/schedule-calendar-preview/index.wxml',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    expect(wxml.match(/<calendar-month\b/gu)).toHaveLength(1);
+    expect(wxml).toContain('period-unit="{{viewMode}}"');
+    expect(wxml).not.toContain('preview-week-grid');
+  });
   it('keeps long non-calendar confirmations vertically scrollable', () => {
     const css = readFileSync(
       new URL('../src/subpackages/scheduling/pages/manual/index.wxss', import.meta.url),
@@ -176,17 +195,19 @@ describe('feedback8 preview calendar', () => {
         callback?.();
       },
       triggerEvent: vi.fn(),
+      selectComponent: () => ({ finishPeriodShift() {}, continueQueuedShift() {} }),
     };
     definition.lifetimes.attached.call(instance);
     expect(instance.data.weekStart).toBe('2026-11-30');
-    instance.handleWeekSelect({ currentTarget: { dataset: { date: '2026-12-01' } } });
+    expect(instance.data.panels[1].cells).toHaveLength(7);
+    instance.handleSelect({ detail: { businessDate: '2026-12-01' } });
     expect(instance.data.details[0].label).toContain('周班人员');
-    instance.handleWeekChange({ currentTarget: { dataset: { delta: 1 } } });
+    instance.handleMonthChange({ detail: { delta: 1, current: 2 } });
     expect(instance.data.weekStart).toBe('2026-12-07');
     expect(instance.triggerEvent).toHaveBeenCalledWith('monthbrowse', { month: '2026-12' });
     vi.unstubAllGlobals();
   });
-  it('preserves proposed colors and uses a single-character colored shift badge', () => {
+  it('preserves proposed colors and the same two-character shift label as the home calendar', () => {
     const result = previewCalendarModel(
       [
         {
@@ -206,9 +227,62 @@ describe('feedback8 preview calendar', () => {
     );
     const cells = result.panels[1].cells;
     const duty = cells.find((cell) => cell.businessDate === '2026-11-01').duties[0];
-    expect(duty).toMatchObject({ abbreviation: '全', state: 'added' });
+    expect(duty).toMatchObject({ abbreviation: '全天', state: 'added' });
     expect(duty.badgeStyle).toContain('#267d70');
     expect(cells.find((cell) => cell.businessDate === '2026-11-02').disabled).toBe(true);
+  });
+  it('keeps cross-month holidays and gray existing duties in the shared week panels', () => {
+    const assignments = mergePreviewAssignments(
+      [
+        {
+          businessDate: '2026-10-01',
+          plannedMemberName: '新成员',
+          shiftTypeAbbreviation: 'NP',
+          shiftTypeName: 'NP班',
+          slotPosition: 1,
+        },
+      ],
+      [
+        {
+          businessDate: '2026-09-30',
+          plannedMemberName: '原成员',
+          shiftTypeAbbreviation: '电脑',
+          shiftTypeName: '电脑班',
+          slotPosition: 1,
+        },
+      ],
+    );
+    const result = previewWeekPanels(assignments, '2026-09-28', '', 1, false, [
+      { date: '2026-10-01', holidayName: '国庆节', isOffDay: true },
+    ]);
+    expect(result.panels[1].cells).toHaveLength(7);
+    expect(result.panels[1].cells.find((cell) => cell.businessDate === '2026-10-01')).toMatchObject(
+      { holiday: '国庆', duties: [{ abbreviation: 'NP', state: 'added' }] },
+    );
+    expect(
+      result.panels[1].cells.find((cell) => cell.businessDate === '2026-09-30').duties[0],
+    ).toMatchObject({ abbreviation: '电脑', state: 'normal' });
+    expect(
+      result.panels[1].cells.find((cell) => cell.businessDate === '2026-09-30').duties[0]
+        .badgeStyle,
+    ).toContain('#eef1f4');
+  });
+  it('sizes a dense week from its busiest day so the release dialog can scroll', () => {
+    const assignments = Array.from({ length: 20 }, (_, index) => ({
+      businessDate: '2026-10-01',
+      plannedMemberName: `成员${index}`,
+      shiftTypeAbbreviation: 'N',
+      shiftTypeName: 'N班',
+      slotPosition: index + 1,
+    }));
+    const week = previewWeekPanels(assignments, '2026-09-28', '');
+    expect(week.panels[1].cells[3].duties).toHaveLength(20);
+    expect(week.gridHeight).toBeGreaterThan(20 * 17);
+    const css = readFileSync(
+      new URL('../src/subpackages/scheduling/pages/manual/index.wxss', import.meta.url),
+      'utf8',
+    );
+    expect(css).toMatch(/\.release-calendar-scroll\s*\{[^}]*max-height:\s*65vh/su);
   });
   it('renders existing comparison duties in tender gray while keeping the draft colored', () => {
     const assignments = mergePreviewAssignments(

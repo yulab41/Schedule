@@ -24,10 +24,16 @@ import type {
 import { MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS } from '@schedule/contracts/past-schedule-limits';
 import {
   addBusinessMonths,
+  addWeeks,
   buildMonthDisplayGrid,
   createPastScheduleBackfillBatchSnapshot,
   getBusinessMonthLabel,
   getCurrentBusinessDate,
+  getWeekDays,
+  getWeekLabel,
+  getWeekOfMonthLabel,
+  getWeekStartDate,
+  getVisibleWeekForMonth,
   getPastScheduleBackfillBatchFingerprint,
   isWeekend,
   toggleBackfillSelection,
@@ -41,6 +47,7 @@ import {
 
 import {
   createRuntimeManualScheduleClient,
+  createRuntimeCalendarPreferencesClient,
   createRuntimePastScheduleClient,
 } from '../../../../platform/client-core-calendar.js';
 import {
@@ -100,6 +107,7 @@ interface BackfillCalendarCellView {
   readonly isCurrentMonth: boolean;
   readonly isFuture: boolean;
   readonly isHoliday: boolean;
+  readonly isWorkday: boolean;
   readonly isPending: boolean;
   readonly isToday: boolean;
   readonly isWeekend: boolean;
@@ -119,6 +127,8 @@ interface BackfillRoleOption {
 }
 
 interface BackfillPageData {
+  readonly viewMode: 'month' | 'week';
+  readonly weekStart: string;
   readonly monthPanels: readonly BackfillMonthPanel[];
   readonly monthPanelHeights: readonly number[];
   readonly gridHeight: number;
@@ -136,6 +146,7 @@ interface BackfillPageData {
   readonly isPaintReady: boolean;
   readonly members: readonly BackfillMemberView[];
   readonly monthLabel: string;
+  readonly periodSubtitle: string;
   readonly pageScrollStyle: string;
   readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly paintStatusText: string;
@@ -188,6 +199,10 @@ interface BackfillMonthPanel {
 
 const requestAuthentication = getWechatRequestAuthentication();
 const manualClient = createRuntimeManualScheduleClient(getStoredWechatToken, requestAuthentication);
+const calendarPreferencesClient = createRuntimeCalendarPreferencesClient(
+  getStoredWechatToken,
+  requestAuthentication,
+);
 const pastScheduleClient = createRuntimePastScheduleClient(
   getStoredWechatToken,
   requestAuthentication,
@@ -197,6 +212,8 @@ const initialToday = getChinaStandardTimeBusinessDate();
 
 Page({
   data: {
+    viewMode: 'month',
+    weekStart: getWeekStartDate(initialToday),
     monthPanels: [],
     monthPanelHeights: [270, 270, 270],
     gridHeight: 270,
@@ -214,6 +231,7 @@ Page({
     isPaintReady: false,
     members: [],
     monthLabel: getBusinessMonthLabel(initialToday.slice(0, 7)),
+    periodSubtitle: '',
     pageScrollStyle: 'height:calc(100% - 64px);',
     pickerBoundary: null,
     paintStatusText: '请选择班种和成员',
@@ -328,7 +346,17 @@ Page({
     event: { detail: { delta: -1 | 1; current: CalendarPeriodSlot } },
   ): void {
     this._monthRingSlot = event.detail.current;
-    this.setData({ businessMonth: addBusinessMonths(this.data.businessMonth, event.detail.delta) });
+    const weekStart =
+      this.data.viewMode === 'week'
+        ? addWeeks(this.data.weekStart, event.detail.delta)
+        : this.data.weekStart;
+    this.setData({
+      weekStart,
+      businessMonth:
+        this.data.viewMode === 'week'
+          ? weekStart.slice(0, 7)
+          : addBusinessMonths(this.data.businessMonth, event.detail.delta),
+    });
     syncBackfillView(this, () => {
       const month = this.selectComponent?.('#backfill-month');
       if (month) month.finishPeriodShift();
@@ -341,10 +369,20 @@ Page({
     event: { detail: { continues: boolean } },
   ): void {
     if (event.detail.continues) this.selectComponent?.('#backfill-month')?.continueQueuedShift();
-    else void loadCalendarContext(this);
+    else if (
+      this.data.viewMode !== 'week' ||
+      this._calendar?.businessMonth !== this.data.businessMonth
+    )
+      void loadCalendarContext(this);
   },
 
   handleLocateToday(this: BackfillPageInstance): void {
+    if (this.data.viewMode === 'week') {
+      const weekStart = getWeekStartDate(getCurrentBusinessDate());
+      this.setData({ weekStart });
+      changeBusinessMonth(this, weekStart.slice(0, 7));
+      return;
+    }
     changeBusinessMonth(this, getCurrentBusinessDate().slice(0, 7));
   },
 
@@ -395,7 +433,10 @@ Page({
     if (this.data.isBusy || this._submitting) return;
     const businessDate = readDatasetString(event, 'date');
     const cellMonth = readDatasetString(event, 'month');
-    if (businessDate === '' || cellMonth !== this.data.businessMonth) return;
+    if (businessDate === '' || cellMonth !== businessDate.slice(0, 7)) return;
+    if (this.data.viewMode === 'week') {
+      if (!getWeekDays(this.data.weekStart).includes(businessDate)) return;
+    } else if (cellMonth !== this.data.businessMonth) return;
     if (!this._calendarByKey.has(`${this.data.roleId}:${cellMonth}`)) {
       this.setData({ errorMessage: '排班资料尚未加载，请重新加载后再补录。' });
       showBackfillFeedback(this, this.data.errorMessage, 'error');
@@ -408,7 +449,7 @@ Page({
       shiftTypeId: this.data.activeShiftTypeId,
     };
     const transition = toggleBackfillStage(this._staged, item, {
-      businessMonth: this.data.businessMonth,
+      businessMonth: cellMonth,
       maximumItems: MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS,
       today: this.data.today,
     });
@@ -470,10 +511,11 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
     if (group === undefined) throw new Error('仅管理员与群主可以使用排班补录。');
     page._currentGroupId = group.id;
     writeStoredWorkbenchGroupId(ownerId, group.id);
-    const [config, periods, records] = await Promise.all([
+    const [config, periods, records, preferences] = await Promise.all([
       manualClient.getConfig(group.id),
       pastScheduleClient.listPeriods(group.id),
       pastScheduleClient.listBackfillRecords(group.id).catch(() => []),
+      calendarPreferencesClient.get(group.id).catch(() => undefined),
     ]);
     page._config = config;
     page._periods = periods;
@@ -503,6 +545,11 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
       }));
     page.setData({
       businessMonth: initialPeriod?.businessMonth ?? page.data.today.slice(0, 7),
+      weekStart: getVisibleWeekForMonth(
+        initialPeriod?.businessMonth ?? page.data.today.slice(0, 7),
+        page.data.today,
+      ),
+      viewMode: preferences?.groupDefaultView === 'week' ? 'week' : 'month',
       currentGroupName: group.name,
       isBusy: false,
       members,
@@ -549,7 +596,10 @@ async function loadCalendarContext(page: BackfillPageInstance): Promise<boolean>
     calendarCells: [],
     errorMessage: '',
     isBusy: true,
-    monthLabel: getBusinessMonthLabel(businessMonth),
+    monthLabel:
+      page.data.viewMode === 'week'
+        ? getWeekOfMonthLabel(page.data.weekStart)
+        : getBusinessMonthLabel(businessMonth),
   });
   syncBackfillView(page);
   if (roleId === '') {
@@ -698,7 +748,11 @@ function syncBackfillView(page: BackfillPageInstance, callback?: () => void): vo
       monthPanelHeights,
       gridHeight: monthPanelHeights[page._monthRingSlot ?? 1] ?? 270,
       isPaintReady,
-      monthLabel: getBusinessMonthLabel(page.data.businessMonth),
+      monthLabel:
+        page.data.viewMode === 'week'
+          ? getWeekOfMonthLabel(page.data.weekStart)
+          : getBusinessMonthLabel(page.data.businessMonth),
+      periodSubtitle: page.data.viewMode === 'week' ? getWeekLabel(page.data.weekStart) : '',
       paintStatusText: isPaintReady
         ? '可以连续点选既往日期'
         : page.data.activeMemberId === '' && page.data.activeShiftTypeId === ''
@@ -740,6 +794,32 @@ async function preloadBackfillMonths(
 }
 
 function createBackfillMonthPanels(page: BackfillPageInstance): readonly BackfillMonthPanel[] {
+  if (page.data.viewMode === 'week') {
+    const logical = ([-1, 0, 1] as const).map((relative) => {
+      const weekStart = addWeeks(page.data.weekStart, relative);
+      const dates = getWeekDays(weekStart);
+      const months = new Map(
+        [...new Set(dates.map((date) => date.slice(0, 7)))].map((month) => [
+          month,
+          createCalendarCells(page, month),
+        ]),
+      );
+      const cells = dates.map((date, index) => ({
+        ...months.get(date.slice(0, 7))!.find((cell) => cell.businessDate === date)!,
+        isBottomRow: true,
+        isBottomLeft: index === 0,
+        isBottomRight: index === 6,
+      }));
+      return {
+        key: weekStart,
+        relative,
+        slot: 1 as CalendarPeriodSlot,
+        cells,
+        rowHeight: Math.max(112, 54 + Math.max(1, ...cells.map((cell) => cell.duties.length)) * 17),
+      };
+    });
+    return mapCalendarPeriodRing(logical, page._monthRingSlot ?? 1);
+  }
   const logical = ([-1, 0, 1] as const).map((relative) => {
     const month = addBusinessMonths(page.data.businessMonth, relative);
     const cells = createCalendarCells(page, month);
@@ -815,6 +895,7 @@ function createCalendarCells(
       isCurrentMonth,
       isFuture: !isCurrentMonth || cell.businessDate >= page.data.today,
       isHoliday: isCurrentMonth && holiday?.isOffDay === true,
+      isWorkday: isCurrentMonth && holiday?.isWorkday === true,
       isPending: isCurrentMonth && draft !== undefined,
       isSelected: isCurrentMonth && draft !== undefined,
       isToday: isCurrentMonth && cell.businessDate === page.data.today,
@@ -849,11 +930,13 @@ function alreadyMatchesCurrentAssignment(
   page: BackfillPageInstance,
   item: PastScheduleBackfillBatchItem,
 ): boolean {
-  const existing = page._calendar?.assignments.find(
-    (assignment) =>
-      assignment.scheduleRoleId === item.scheduleRoleId &&
-      assignment.businessDate === item.businessDate,
-  );
+  const existing = page._calendarByKey
+    .get(`${item.scheduleRoleId}:${item.businessDate.slice(0, 7)}`)
+    ?.assignments.find(
+      (assignment) =>
+        assignment.scheduleRoleId === item.scheduleRoleId &&
+        assignment.businessDate === item.businessDate,
+    );
   return (
     existing !== undefined &&
     (existing.actualMembershipId ?? existing.plannedMembershipId) === item.actualMembershipId &&
@@ -862,7 +945,13 @@ function alreadyMatchesCurrentAssignment(
 }
 
 function changeBusinessMonth(page: BackfillPageInstance, businessMonth: string): void {
-  page.setData({ businessMonth, monthLabel: getBusinessMonthLabel(businessMonth) });
+  page.setData({
+    businessMonth,
+    monthLabel:
+      page.data.viewMode === 'week'
+        ? getWeekOfMonthLabel(page.data.weekStart)
+        : getBusinessMonthLabel(businessMonth),
+  });
   void loadCalendarContext(page);
 }
 

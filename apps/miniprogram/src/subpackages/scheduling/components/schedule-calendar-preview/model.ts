@@ -1,8 +1,10 @@
 import {
+  addWeeks,
   buildMonthDisplayGrid,
   getCurrentBusinessDate,
   getWeekDays,
   getWeekLabel,
+  getWeekOfMonthLabel,
   getWeekStartDate,
 } from '@schedule/presentation-core';
 import type { ConfirmedHolidayDate } from '@schedule/contracts';
@@ -90,6 +92,7 @@ export function previewCalendarModel(
           day: cell.businessDate.slice(8),
           holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
           isHoliday: !cell.isOutsideMonth && holiday?.isOffDay === true,
+          isWorkday: !cell.isOutsideMonth && holiday?.isWorkday === true,
           duties,
           ariaLabel: `${cell.businessDate}，${duties.map((item) => `${item.name}${item.abbreviation}`).join('，') || '无排班'}`,
           disabled: restrictToProposed
@@ -127,6 +130,7 @@ export function previewCalendarModel(
     panelHeights,
     gridHeight: panelHeights[slot] ?? 270,
     monthLabel: `${year}年${monthNumber}月`,
+    periodSubtitle: '',
     details,
   };
 }
@@ -161,5 +165,44 @@ export function previewWeekModel(
     details,
     label: getWeekLabel(weekDate),
     height: Math.max(132, 54 + Math.max(1, ...days.map((day) => day?.duties.length ?? 0)) * 17),
+  };
+}
+
+export function previewWeekPanels(
+  assignments: readonly PreviewDuty[],
+  weekStart: string,
+  selectedDate: string,
+  slot: CalendarPeriodSlot = 1,
+  restrictToProposed = false,
+  holidays: readonly ConfirmedHolidayDate[] = [],
+) {
+  const panels = mapCalendarPeriodRing(
+    ([-1, 0, 1] as const).map((relative) => {
+      const start = addWeeks(weekStart, relative);
+      const week = previewWeekModel(assignments, start, selectedDate, restrictToProposed, holidays);
+      return {
+        key: start,
+        relative,
+        slot: 1 as CalendarPeriodSlot,
+        rowHeight: week.height,
+        cells: week.days.map((day, index) => ({
+          ...day,
+          isBottomRow: true,
+          isBottomLeft: index === 0,
+          isBottomRight: index === 6,
+        })),
+      };
+    }),
+    slot,
+  );
+  const panelHeights = panels.map((panel) => panel.rowHeight);
+  return {
+    panels,
+    panelHeights,
+    gridHeight: panelHeights[slot] ?? 132,
+    monthLabel: getWeekOfMonthLabel(weekStart),
+    periodSubtitle: getWeekLabel(weekStart),
+    details: previewWeekModel(assignments, weekStart, selectedDate, restrictToProposed, holidays)
+      .details,
   };
 }

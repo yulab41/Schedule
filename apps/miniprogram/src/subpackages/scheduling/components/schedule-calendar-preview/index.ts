@@ -1,4 +1,4 @@
-import { previewCalendarModel, previewWeekModel, type PreviewDuty } from './model.js';
+import { previewCalendarModel, previewWeekPanels, type PreviewDuty } from './model.js';
 import { addWeeks, getWeekStartDate } from '@schedule/presentation-core';
 import type { ConfirmedHolidayDate } from '@schedule/contracts';
 import type { CalendarPeriodSlot } from '../../../../components/calendar/calendar-period-pager.js';
@@ -31,39 +31,37 @@ interface Instance {
     | undefined;
 }
 function sync(instance: Instance, month: string, selectedDate = '', callback?: () => void) {
-  const model = previewCalendarModel(
-    instance.properties.assignments,
-    month,
-    selectedDate,
-    instance._slot ?? 1,
-    instance.properties.restrictToProposed,
-    instance.properties.holidays,
-  );
   const weekStart =
     instance.data.weekStart || getWeekStartDate(instance.properties.startDate || `${month}-01`);
-  const week = previewWeekModel(
-    instance.properties.assignments,
-    weekStart,
-    selectedDate,
-    instance.properties.restrictToProposed,
-    instance.properties.holidays,
-  );
+  const model =
+    instance.properties.viewMode === 'week'
+      ? previewWeekPanels(
+          instance.properties.assignments,
+          weekStart,
+          selectedDate,
+          instance._slot ?? 1,
+          instance.properties.restrictToProposed,
+          instance.properties.holidays,
+        )
+      : previewCalendarModel(
+          instance.properties.assignments,
+          month,
+          selectedDate,
+          instance._slot ?? 1,
+          instance.properties.restrictToProposed,
+          instance.properties.holidays,
+        );
   instance.setData(
     {
       month,
       selectedDate,
       weekStart,
-      weekDays: week.days,
-      weekLabel: week.label,
-      weekHeight: week.height,
       ...model,
     },
     callback,
   );
   instance.triggerEvent('heightchange', {
-    height:
-      (instance.properties.viewMode === 'week' ? week.height + 94 : model.gridHeight + 94) +
-      (selectedDate ? 52 + model.details.length * 20 : 0),
+    height: model.gridHeight + 94 + (selectedDate ? 52 + model.details.length * 20 : 0),
   });
 }
 Component({
@@ -80,13 +78,11 @@ Component({
     month: '',
     selectedDate: '',
     weekStart: '',
-    weekDays: [],
-    weekLabel: '',
-    weekHeight: 132,
     panels: [],
     panelHeights: [270, 270, 270],
     gridHeight: 270,
     monthLabel: '',
+    periodSubtitle: '',
     details: [],
   },
   lifetimes: {
@@ -115,51 +111,54 @@ Component({
     },
   },
   methods: {
-    handleWeekChange(this: Instance, event: { currentTarget: { dataset: { delta: number } } }) {
-      const delta = Number(event.currentTarget.dataset.delta);
-      if (delta !== -1 && delta !== 1) return;
-      const weekStart = addWeeks(this.data.weekStart, delta);
-      this.setData({ weekStart });
-      sync(this, weekStart.slice(0, 7), '');
-      this.triggerEvent('monthbrowse', { month: weekStart.slice(0, 7) });
-    },
-    handleWeekSelect(this: Instance, event: { currentTarget: { dataset: { date: string } } }) {
-      sync(this, this.data.month, event.currentTarget.dataset.date);
-    },
-    handleWeekLocate(this: Instance) {
-      const target = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      this.setData({ weekStart: getWeekStartDate(target) });
-      sync(this, target.slice(0, 7), target);
-      this.triggerEvent('monthbrowse', { month: target.slice(0, 7) });
-    },
     handleMonthChange(
       this: Instance,
       event: { detail: { delta: -1 | 1; current: CalendarPeriodSlot } },
     ) {
-      const [year, month] = this.data.month.split('-').map(Number);
       this._slot = event.detail.current;
+      const [year, month] = this.data.month.split('-').map(Number);
       const next =
         this._locateTarget ??
-        new Date(Date.UTC(year!, month! - 1 + event.detail.delta, 1)).toISOString().slice(0, 7);
+        (this.properties.viewMode === 'week'
+          ? addWeeks(this.data.weekStart, event.detail.delta)
+          : new Date(Date.UTC(year!, month! - 1 + event.detail.delta, 1))
+              .toISOString()
+              .slice(0, 7));
       delete this._locateTarget;
-      sync(this, next, '', () => this.selectComponent('#preview-month')?.finishPeriodShift());
-      this.triggerEvent('monthbrowse', { month: next });
+      if (this.properties.viewMode === 'week') this.setData({ weekStart: next });
+      sync(this, next.slice(0, 7), '', () =>
+        this.selectComponent('#preview-month')?.finishPeriodShift(),
+      );
+      this.triggerEvent('monthbrowse', { month: next.slice(0, 7) });
     },
     handleMonthSettled(this: Instance) {
       this.selectComponent('#preview-month')?.continueQueuedShift();
     },
     handleLocate(this: Instance) {
-      const target = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
-      if (target === this.data.month) return;
-      const delta: -1 | 1 = target < this.data.month ? -1 : 1;
-      const targetModel = previewCalendarModel(
-        this.properties.assignments,
-        target,
-        '',
-        this._slot,
-        this.properties.restrictToProposed,
-        this.properties.holidays,
-      );
+      const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const target =
+        this.properties.viewMode === 'week' ? getWeekStartDate(today) : today.slice(0, 7);
+      const current = this.properties.viewMode === 'week' ? this.data.weekStart : this.data.month;
+      if (target === current) return;
+      const delta: -1 | 1 = target < current ? -1 : 1;
+      const targetModel =
+        this.properties.viewMode === 'week'
+          ? previewWeekPanels(
+              this.properties.assignments,
+              target,
+              '',
+              this._slot,
+              this.properties.restrictToProposed,
+              this.properties.holidays,
+            )
+          : previewCalendarModel(
+              this.properties.assignments,
+              target,
+              '',
+              this._slot,
+              this.properties.restrictToProposed,
+              this.properties.holidays,
+            );
       const targetSlot = ((this._slot + delta + 3) % 3) as CalendarPeriodSlot;
       const panel = targetModel.panels[this._slot];
       if (!panel) return;

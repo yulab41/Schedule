@@ -42,7 +42,7 @@
       hover-start-time="0"
       hover-stay-time="60"
       aria-role="button"
-      aria-label="上一月"
+      aria-label="上一{{periodUnit === 'week' ? '周' : '月'}}"
       bindtap="handlePrevious"
     >
       <view
@@ -54,7 +54,7 @@
     </view>
     <view class="month-heading">
       <text class="month-label">{{monthLabel}}</text>
-      <text class="month-hint">左右滑动切换月份</text>
+      <text class="month-hint">{{periodUnit === 'week' ? periodSubtitle : '左右滑动切换月份'}}</text>
     </view>
     <view
       class="locate-button"
@@ -75,7 +75,7 @@
       hover-start-time="0"
       hover-stay-time="60"
       aria-role="button"
-      aria-label="下一月"
+      aria-label="下一{{periodUnit === 'week' ? '周' : '月'}}"
       bindtap="handleNext"
     >
       <view
@@ -102,7 +102,7 @@
     skip-hidden-item-layout="{{false}}"
     bindchange="handleMonthChangeStart"
     bindanimationfinish="handleMonthSwipe"
-    aria-label="月历，可左右滑动切换月份"
+    aria-label="{{periodUnit === 'week' ? '周历，可左右滑动切换周' : '月历，可左右滑动切换月份'}}"
   >
     <swiper-item
       wx:for="{{panels}}"
@@ -111,10 +111,7 @@
       class="calendar-slide-panel"
       aria-hidden="{{panel.relative !== 0}}"
     >
-      <template
-        is="calendar-month-grid"
-        data="{{panel: panel, compact: compact}}"
-      />
+      <template is="calendar-month-grid" data="{{panel: panel, compact: compact}}" />
     </swiper-item>
   </swiper>
 </view>

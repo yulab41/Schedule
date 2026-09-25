@@ -151,7 +151,7 @@ describe('P5 native atomic backfill controller', () => {
             ]
           : [['林医生', 'added']],
       );
-      expect(pageXml).toContain(': paintStatusText');
+      expect(pageXml).toMatch(/:\s*paintStatusText/u);
       definition.onUnload.call(page);
     },
   );
@@ -351,6 +351,54 @@ describe('P5 native atomic backfill controller', () => {
 
     expect(instance.data.isPaintReady).toBe(false);
     expect(instance.data.paintStatusText).not.toContain('连续点选');
+  });
+
+  it('browses seven-day backfill panels when the group prefers weeks', () => {
+    const instance = createPageInstance(definition);
+    instance.data.viewMode = 'week';
+    instance.data.weekStart = '2026-07-27';
+    instance.selectComponent = () => ({ finishPeriodShift() {} });
+    definition.handleCalendarMonthChange.call(instance, { detail: { delta: 1, current: 2 } });
+    expect(instance.data.weekStart).toBe('2026-08-03');
+    expect(instance.data.businessMonth).toBe('2026-08');
+    expect(instance.data.monthPanels[2].cells.map((cell) => cell.businessDate)).toEqual([
+      '2026-08-03',
+      '2026-08-04',
+      '2026-08-05',
+      '2026-08-06',
+      '2026-08-07',
+      '2026-08-08',
+      '2026-08-09',
+    ]);
+    expect(instance.data.monthLabel).toContain('8月');
+  });
+
+  it('allows a loaded adjacent-month day visible in the active week', () => {
+    const instance = createPageInstance(definition);
+    instance.data.viewMode = 'week';
+    instance.data.weekStart = '2026-07-27';
+    instance.data.today = '2026-09-01';
+    instance._calendarByKey.set('role-1:2026-08', {
+      assignments: [],
+      businessMonth: '2026-08',
+      groupId: 'group-1',
+      members: [],
+      roles: [],
+      shiftTypes: [],
+    });
+    definition.handleDateTap.call(instance, {
+      currentTarget: { dataset: { date: '2026-08-01', month: '2026-08' } },
+    });
+    expect(instance._staged.has('role-1:2026-08-01')).toBe(true);
+  });
+
+  it('keeps same-month week swipes on the loaded calendar without a read flash', () => {
+    const instance = createPageInstance(definition);
+    instance.data.viewMode = 'week';
+    instance._calendar = { businessMonth: '2026-07', assignments: [] };
+    definition.handleCalendarMonthSettled.call(instance, { detail: { continues: false } });
+    expect(globalThis.wx.request).not.toHaveBeenCalled();
+    expect(instance.data.isBusy).toBe(false);
   });
 });
 

@@ -1,9 +1,10 @@
 <calendar-month
-  wx:if="{{viewMode !== 'week'}}"
   shadow="{{shadow}}"
   id="preview-month"
   compact="{{compact}}"
   month-label="{{monthLabel}}"
+  period-subtitle="{{periodSubtitle}}"
+  period-unit="{{viewMode}}"
   panels="{{panels}}"
   panel-heights="{{panelHeights}}"
   grid-height="{{gridHeight}}"
@@ -12,55 +13,6 @@
   bindlocatetoday="handleLocate"
   bindselect="handleSelect"
 />
-<view wx:else class="preview-week-card {{shadow ? '' : 'is-flat'}}">
-  <view class="preview-week-toolbar">
-    <view
-      class="preview-week-step"
-      data-delta="-1"
-      aria-role="button"
-      aria-label="上一周"
-      bindtap="handleWeekChange"
-      >‹</view
-    >
-    <text class="preview-week-heading">{{weekLabel}}</text>
-    <view
-      class="preview-week-locate"
-      aria-role="button"
-      aria-label="定位到今天"
-      bindtap="handleWeekLocate"
-      >◎</view
-    >
-    <view
-      class="preview-week-step"
-      data-delta="1"
-      aria-role="button"
-      aria-label="下一周"
-      bindtap="handleWeekChange"
-      >›</view
-    >
-  </view>
-  <view class="preview-week-grid" style="min-height:{{weekHeight}}px">
-    <view
-      wx:for="{{weekDays}}"
-      wx:key="businessDate"
-      class="preview-week-day {{item.isSelected ? 'is-selected' : ''}}"
-      data-date="{{item.businessDate}}"
-      aria-role="button"
-      aria-label="{{item.ariaLabel}}"
-      bindtap="handleWeekSelect"
-    >
-      <text class="preview-week-weekday">{{item.weekday}}</text>
-      <text class="preview-week-date">{{item.day}}</text>
-      <text wx:if="{{item.holiday}}" class="preview-week-holiday">{{item.holiday}}</text>
-      <view wx:for="{{item.duties}}" wx:for-item="duty" wx:key="key" class="preview-week-duty"
-        ><text class="preview-week-duty-name">{{duty.name}}</text
-        ><text class="preview-week-duty-badge" style="{{duty.badgeStyle}}"
-          >{{duty.abbreviation}}</text
-        ></view
-      >
-    </view>
-  </view>
-</view>
 <view wx:if="{{selectedDate}}" class="preview-day-detail"
   ><text>{{selectedDate}}</text><text wx:for="{{details}}" wx:key="key">{{item.label}}</text
   ><text wx:if="{{details.length === 0}}">当日无排班</text></view

@@ -144,16 +144,18 @@
 }
 .duty-abbreviation {
   display: flex;
-  width: 13px;
+  min-width: 13px;
   height: 13px;
+  padding: 0 1px;
   box-sizing: border-box;
-  flex: 0 0 13px;
+  flex: none;
   align-items: center;
   justify-content: center;
   border: 1px solid;
   border-radius: 3px;
   font-size: 8px;
   line-height: 11px;
+  white-space: nowrap;
 }
 .calendar-cell.has-duties {
   padding-right: 1px;
@@ -187,9 +189,8 @@
 }
 @media (max-width: 360px) {
   .duty-abbreviation {
-    width: 11px;
+    min-width: 11px;
     height: 11px;
-    flex-basis: 11px;
     line-height: 9px;
   }
   .calendar-cell.is-compact.has-duties {

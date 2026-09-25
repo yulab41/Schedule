@@ -3173,3 +3173,9 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 运行/浏览器验证：`pnpm smoke:browser` 首轮因默认 5173 未启动返回 `ERR_CONNECTION_REFUSED`，不计通过；以当前源码 API 3105/Web 4175 和本地开发认证重跑原脚本，登录、管理员、成员、访客 vkey 与访问记录全流程通过且无浏览器错误，合成管理员标记恢复，服务停止。`pnpm smoke:check-core` 随后通过。
 - 生产与体验交付：checkpoint `c6c4fcd2` 已推送；备份 `2432fa5e-bb1e-4b09-ad3e-40da590350b7` 的记录、物理大小和 SHA-256 一致后部署 `c6c4fcd2`/schema 63，完整 verifier 通过。锁内动态分配并上传 `.191@c6c4fcd2`（production，Manifest `0b7a8161…8c46`），远端 tag/receipt 身份一致；可信 allowlist `ensure` 只追加 `.191`，独立 verify、ECS verifier 与公网 `.191/.190=200`、未知版 426 通过。
 - 开发者工具复核：同一 `.191` 构建的能力请求和一次性预览均为 200，页面进入预览态，已有排班嫩灰且没有新增图例，Console error/fail 为空。快照没有本次班次，彩色草稿与 compact 节假日仍以自动化为证；含人员姓名的临时预览截图核对后删除。模拟器不等于小米 14，未提审、未正式发布。
+
+## 2026-09-25 补录默认周历与预览徽标、周视图
+
+- 引入点：`git log -S 'calendarShiftBadge'`/`git blame` 定位首汉字徽标到 `8e68a480`；独立预览周格到 `672d52ef`。补录一直只建月历且未读群组偏好。
+- 行为变化：徽标调用首页截断规则，保留 N/NP/A/D/电脑；补录默认周/月与群组相同，列表映射月，跨月周取对应月份缓存，同月翻周不重读；手排三类预览共用 `calendar-month` 的滑动/定位/单元格和日期详情，灰色已有排班、节假日及补班日标记保留。异步失败的相邻月仍禁用，已加载的中心月读取失败会显错。
+- 验证：定向 42/42、根 `pnpm verify` 1306/451 跳过、Mini production verify/TypeScript、开发者工具三处 WXML 编译通过。总包 4,797,548→4,801,743 B。模拟器补录停在既往排班加载，真实数据视觉及小米 14 未验证。详见 [轮次记录](../audit/schedule-week-preview-20260925.md)。

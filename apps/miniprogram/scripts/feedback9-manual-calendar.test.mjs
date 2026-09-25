@@ -450,16 +450,17 @@ describe('feedback9 calendar display', () => {
     expect(cell.holiday).toBe('元旦');
     expect(cell.isHoliday).toBe(true);
   });
-  it('renders a square unshrinkable badge and no duplicate preview border', () => {
+  it('keeps a two-character shift badge visible without a duplicate preview border', () => {
     const css =
       source('components/calendar/calendar-cell/index.wxss') +
       source('subpackages/scheduling/pages/manual/index.wxss');
     const dom = new JSDOM(
-      `<style>${css.replace(/@import[^;]+;/gu, '')}</style><span class="duty-abbreviation">全</span><div class="preview-calendar-card"></div>`,
+      `<style>${css.replace(/@import[^;]+;/gu, '')}</style><span class="duty-abbreviation">NP</span><div class="preview-calendar-card"></div>`,
     );
     const badge = dom.window.getComputedStyle(dom.window.document.querySelector('span'));
-    expect(badge.width).toBe(badge.height);
+    expect(badge.minWidth).toBe(badge.height);
     expect(badge.flexShrink).toBe('0');
+    expect(badge.whiteSpace).toBe('nowrap');
     const card = dom.window.getComputedStyle(dom.window.document.querySelector('div'));
     expect(card.borderTopWidth === '' || card.borderTopWidth === '0px').toBe(true);
     dom.window.close();

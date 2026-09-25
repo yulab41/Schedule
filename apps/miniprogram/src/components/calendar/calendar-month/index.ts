@@ -56,8 +56,10 @@ Component({
   properties: {
     shadow: { type: Boolean, value: true },
     compact: { type: Boolean, value: false },
+    periodUnit: { type: String, value: 'month' },
     gridHeight: { type: Number, value: 270 },
     monthLabel: { type: String, value: '' },
+    periodSubtitle: { type: String, value: '' },
     panelHeights: { type: Array, value: [270, 270, 270] },
     panels: { type: Array, value: [] },
   },
