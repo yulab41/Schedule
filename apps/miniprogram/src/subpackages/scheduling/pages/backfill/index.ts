@@ -16,7 +16,6 @@ import type {
   CalendarReadModel,
   ConfirmedHolidayDate,
   PastScheduleBackfillBatchResult,
-  PastScheduleBackfillBatchItem,
   PastScheduleBackfillRecord,
   PastSchedulePeriod,
   SchedulingConfig,
@@ -35,7 +34,9 @@ import {
   getWeekStartDate,
   getVisibleWeekForMonth,
   getPastScheduleBackfillBatchFingerprint,
+  isAssignmentStagedForRemoval,
   isWeekend,
+  listBackfillStagesForDate,
   toggleBackfillSelection,
   toggleBackfillStage,
   type PastScheduleBackfillStage,
@@ -453,30 +454,42 @@ Page({
       showBackfillFeedback(this, this.data.errorMessage, 'error');
       return;
     }
-    const item: PastScheduleBackfillBatchItem = {
-      actualMembershipId: this.data.activeMemberId,
+    // Clicking an existing member+shift stages a removal of that assignment; any other
+    // combination stages an addition. Both stay local until the batch is confirmed.
+    const existing = findAssignmentForMemberShift(
+      this,
       businessDate,
-      scheduleRoleId: this.data.roleId,
-      shiftTypeId: this.data.activeShiftTypeId,
-    };
+      this.data.activeShiftTypeId,
+      this.data.activeMemberId,
+    );
+    const item: PastScheduleBackfillStage =
+      existing === undefined
+        ? {
+            actualMembershipId: this.data.activeMemberId,
+            assignmentId: '',
+            businessDate,
+            kind: 'add',
+            scheduleRoleId: this.data.roleId,
+            shiftTypeId: this.data.activeShiftTypeId,
+          }
+        : {
+            actualMembershipId: '',
+            assignmentId: existing.id,
+            businessDate,
+            kind: 'remove',
+            scheduleRoleId: this.data.roleId,
+            shiftTypeId: this.data.activeShiftTypeId,
+          };
     const transition = toggleBackfillStage(this._staged, item, {
       businessMonth: cellMonth,
       maximumItems: MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS,
       today: this.data.today,
     });
-    if (transition.outcome === 'added' && alreadyMatchesCurrentAssignment(this, item)) {
-      this.setData({
-        errorMessage: '',
-        infoMessage: `该日期（${businessDate}）已是此配班，无需重复补录。`,
-      });
-      showBackfillFeedback(this, this.data.infoMessage);
-      return;
-    }
     this._staged = new Map(transition.stages);
     const errorMessage = stageErrorMessage(transition.outcome, businessDate);
     this.setData({
       errorMessage,
-      infoMessage: errorMessage || stageInfoMessage(transition.outcome),
+      infoMessage: errorMessage || stageInfoMessage(transition.outcome, item.kind),
       feedbackTone: errorMessage ? 'error' : 'info',
     });
     syncBackfillView(this);
@@ -664,7 +677,11 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
     page.data.reason,
     operationId,
   );
-  const fingerprint = getPastScheduleBackfillBatchFingerprint(snapshot.items, snapshot.reason);
+  const fingerprint = getPastScheduleBackfillBatchFingerprint(
+    snapshot.items,
+    snapshot.removals,
+    snapshot.reason,
+  );
   if (page._confirmFingerprint !== fingerprint) {
     operationId = createOperationId();
     snapshot = createPastScheduleBackfillBatchSnapshot(page._staged, page.data.reason, operationId);
@@ -676,8 +693,23 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
   let result: PastScheduleBackfillBatchResult;
   try {
     result = await pastScheduleClient.submitBackfillBatch(page._currentGroupId, {
-      ...snapshot,
-      items: [...snapshot.items],
+      items: snapshot.items.map((item) => ({
+        actualMembershipId: item.actualMembershipId,
+        businessDate: item.businessDate,
+        scheduleRoleId: item.scheduleRoleId,
+        shiftTypeId: item.shiftTypeId,
+      })),
+      operationId: snapshot.operationId,
+      ...(snapshot.reason === undefined ? {} : { reason: snapshot.reason }),
+      ...(snapshot.removals.length === 0
+        ? {}
+        : {
+            removals: snapshot.removals.map((item) => ({
+              assignmentId: item.assignmentId,
+              businessDate: item.businessDate,
+              scheduleRoleId: item.scheduleRoleId,
+            })),
+          }),
     });
     if (page._disposed) {
       page._submitting = false;
@@ -695,7 +727,7 @@ async function submitBackfillBatch(page: BackfillPageInstance): Promise<void> {
     return;
   }
 
-  const successMessage = `已确认补录 ${result.assignments.length} 条，并留下“排班补录”事件记录。`;
+  const successMessage = `已确认补录 ${result.assignments.length} 条新增、${snapshot.removals.length} 条移除，并留下“排班补录”事件记录。`;
   page._staged.clear();
   page._confirmFingerprint = '';
   page._confirmOperationId = '';
@@ -828,34 +860,45 @@ function createBackfillMonthPanels(
       const days = cells.map((cell) => {
         const date = cell.businessDate;
         const calendar = page._calendarByKey.get(`${page.data.roleId}:${date.slice(0, 7)}`);
-        const draft = page._staged.get(`${page.data.roleId}:${date}`);
+        const stagedChanges = listBackfillStagesForDate(page._staged, {
+          businessDate: date,
+          scheduleRoleId: page.data.roleId,
+        });
         const assignments = (calendar?.assignments ?? [])
           .filter((item) => item.scheduleRoleId === page.data.roleId && item.businessDate === date)
-          .map((item, index) => ({
+          .map((item) => ({
             shiftTypeId: item.shiftTypeId,
             shiftTypeName: item.shiftTypeName,
             shiftTypeAbbreviation: item.shiftTypeAbbreviation,
             shiftTypeColor: item.shiftTypeColor,
             shiftTypeTextColor: item.shiftTypeTextColor,
             slotPosition: item.slotPosition,
-            comparisonClass: draft && index === 0 ? 'is-existing-comparison' : '',
-            markers: draft && index === 0 ? ['原'] : [],
+            comparisonClass: isAssignmentStagedForRemoval(page._staged, {
+              assignmentId: item.id,
+              businessDate: date,
+              scheduleRoleId: page.data.roleId,
+            })
+              ? 'is-removed'
+              : '',
+            markers: [],
             displayName: item.actualMemberName ?? item.plannedMemberName ?? '待安排',
           }));
-        if (draft) {
-          const shift = page._config?.shiftTypes.find((item) => item.id === draft.shiftTypeId);
+        for (const change of stagedChanges) {
+          if (change.kind !== 'add') continue;
+          const shift = page._config?.shiftTypes.find((item) => item.id === change.shiftTypeId);
           assignments.push({
-            shiftTypeId: draft.shiftTypeId,
+            shiftTypeId: change.shiftTypeId,
             shiftTypeName: shift?.name ?? '',
             shiftTypeAbbreviation: shift?.abbreviation ?? '',
             shiftTypeColor: shift?.color ?? '#2563a4',
             shiftTypeTextColor: shift?.textColor ?? '#ffffff',
             slotPosition: Number.MAX_SAFE_INTEGER,
-            comparisonClass: 'is-current-draft',
-            markers: ['拟'],
+            comparisonClass: 'is-added',
+            markers: [],
             displayName:
-              page.data.members.find((member) => member.membershipId === draft.actualMembershipId)
-                ?.realName ?? '待安排',
+              page.data.members.find(
+                (member) => member.membershipId === change.actualMembershipId,
+              )?.realName ?? '待安排',
           });
         }
         const sorted = sortCalendarWeekAssignments(
@@ -917,11 +960,14 @@ function createCalendarCells(
     const assignments = [...(assignmentsByDate.get(cell.businessDate) ?? [])].sort(
       (a, b) => a.slotPosition - b.slotPosition || a.id.localeCompare(b.id),
     );
-    const draft = page._staged.get(`${page.data.roleId}:${cell.businessDate}`);
+    const stagedChanges = listBackfillStagesForDate(page._staged, {
+      businessDate: cell.businessDate,
+      scheduleRoleId: page.data.roleId,
+    });
     const holiday = page._holidays.get(cell.businessDate);
     const isCurrentMonth = !cell.isOutsideMonth;
     const duties: Array<BackfillCalendarCellView['duties'][number]> = assignments.map(
-      (assignment, i) => ({
+      (assignment) => ({
         ...calendarShiftBadge(
           assignment.shiftTypeAbbreviation,
           assignment.shiftTypeName,
@@ -930,21 +976,28 @@ function createCalendarCells(
         ),
         key: assignment.id,
         name: assignment.actualMemberName ?? assignment.plannedMemberName ?? '待安排',
-        state: draft !== undefined && i === 0 ? 'removed' : 'normal',
+        state: isAssignmentStagedForRemoval(page._staged, {
+          assignmentId: assignment.id,
+          businessDate: cell.businessDate,
+          scheduleRoleId: page.data.roleId,
+        })
+          ? 'removed'
+          : 'normal',
       }),
     );
-    if (draft !== undefined) {
-      const shift = page._config?.shiftTypes.find((value) => value.id === draft.shiftTypeId);
-      duties.splice(assignments.length > 0 ? 1 : 0, 0, {
+    for (const change of stagedChanges) {
+      if (change.kind !== 'add') continue;
+      const shift = page._config?.shiftTypes.find((value) => value.id === change.shiftTypeId);
+      duties.push({
         ...calendarShiftBadge(
           shift?.abbreviation ?? '',
           shift?.name ?? '',
           shift?.color,
           shift?.textColor,
         ),
-        key: `draft:${page.data.roleId}:${cell.businessDate}`,
+        key: `draft:${page.data.roleId}:${cell.businessDate}:${change.actualMembershipId}`,
         name:
-          page.data.members.find((value) => value.membershipId === draft.actualMembershipId)
+          page.data.members.find((value) => value.membershipId === change.actualMembershipId)
             ?.realName ?? '待安排',
         state: 'added',
       });
@@ -952,7 +1005,7 @@ function createCalendarCells(
     const disabled =
       !isCurrentMonth || cell.businessDate >= page.data.today || calendar === undefined;
     return {
-      ariaLabel: `${cell.businessDate}，${duties.map((duty) => `${duty.state === 'removed' ? '原排班' : duty.state === 'added' ? '拟改为' : ''}${duty.name}`).join('，')}${disabled ? '，不可补录' : ''}`,
+      ariaLabel: `${cell.businessDate}，${duties.map((duty) => `${duty.state === 'removed' ? '待移除' : duty.state === 'added' ? '待新增' : ''}${duty.name}`).join('，')}${disabled ? '，不可补录' : ''}`,
       businessDate: cell.businessDate,
       day: cell.businessDate.slice(8),
       duties,
@@ -962,8 +1015,8 @@ function createCalendarCells(
       isFuture: !isCurrentMonth || cell.businessDate >= page.data.today,
       isHoliday: isCurrentMonth && holiday?.isOffDay === true,
       isWorkday: isCurrentMonth && holiday?.isWorkday === true,
-      isPending: isCurrentMonth && draft !== undefined,
-      isSelected: isCurrentMonth && draft !== undefined,
+      isPending: isCurrentMonth && stagedChanges.length > 0,
+      isSelected: isCurrentMonth && stagedChanges.length > 0,
       isToday: isCurrentMonth && cell.businessDate === page.data.today,
       isWeekend: isWeekend(cell.businessDate),
       month: cell.businessDate.slice(0, 7),
@@ -992,22 +1045,22 @@ function createRecordViews(
   }));
 }
 
-function alreadyMatchesCurrentAssignment(
+function findAssignmentForMemberShift(
   page: BackfillPageInstance,
-  item: PastScheduleBackfillBatchItem,
-): boolean {
-  const existing = page._calendarByKey
-    .get(`${item.scheduleRoleId}:${item.businessDate.slice(0, 7)}`)
+  businessDate: string,
+  shiftTypeId: string,
+  membershipId: string,
+): { readonly id: string } | undefined {
+  if (shiftTypeId === '' || membershipId === '') return undefined;
+  return page._calendarByKey
+    .get(`${page.data.roleId}:${businessDate.slice(0, 7)}`)
     ?.assignments.find(
       (assignment) =>
-        assignment.scheduleRoleId === item.scheduleRoleId &&
-        assignment.businessDate === item.businessDate,
+        assignment.scheduleRoleId === page.data.roleId &&
+        assignment.businessDate === businessDate &&
+        assignment.shiftTypeId === shiftTypeId &&
+        (assignment.actualMembershipId ?? assignment.plannedMembershipId) === membershipId,
     );
-  return (
-    existing !== undefined &&
-    (existing.actualMembershipId ?? existing.plannedMembershipId) === item.actualMembershipId &&
-    existing.shiftTypeId === item.shiftTypeId
-  );
 }
 
 function changeBusinessMonth(page: BackfillPageInstance, businessMonth: string): void {
@@ -1076,10 +1129,16 @@ function stageErrorMessage(outcome: string, businessDate: string): string {
   return '';
 }
 
-function stageInfoMessage(outcome: string): string {
+function stageInfoMessage(outcome: string, kind: PastScheduleBackfillStage['kind']): string {
   if (outcome === 'selection-required') {
     return '请先选择班种和成员（保持选中），再点击既往日期进行配班。';
   }
+  if (outcome === 'added') {
+    return kind === 'remove'
+      ? '已标记移除该班次（确认补录后才生效，再点一次可取消）。'
+      : '已加入待确认补录（确认补录后才写入，再点一次可取消）。';
+  }
+  if (outcome === 'removed') return '已取消该项待确认修改。';
   return '';
 }
 

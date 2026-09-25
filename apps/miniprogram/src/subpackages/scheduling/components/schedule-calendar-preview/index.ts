@@ -18,7 +18,6 @@ interface Instance {
   };
   data: {
     month: string;
-    selectedDate: string;
     weekStart: string;
     panels: readonly Record<string, unknown>[];
     panelHeights: readonly number[];
@@ -33,7 +32,7 @@ interface Instance {
       }
     | undefined;
 }
-function sync(instance: Instance, month: string, selectedDate = '', callback?: () => void) {
+function sync(instance: Instance, month: string, callback?: () => void) {
   const weekStart =
     instance.data.weekStart || getWeekStartDate(instance.properties.startDate || `${month}-01`);
   const model =
@@ -41,7 +40,6 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
       ? previewWeekPanels(
           instance.properties.assignments,
           weekStart,
-          selectedDate,
           instance._slot ?? 1,
           instance.properties.restrictToProposed,
           instance.properties.holidays,
@@ -56,7 +54,6 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
       : previewCalendarModel(
           instance.properties.assignments,
           month,
-          selectedDate,
           instance._slot ?? 1,
           instance.properties.restrictToProposed,
           instance.properties.holidays,
@@ -64,14 +61,13 @@ function sync(instance: Instance, month: string, selectedDate = '', callback?: (
   instance.setData(
     {
       month,
-      selectedDate,
       weekStart,
       ...model,
     },
     callback,
   );
   instance.triggerEvent('heightchange', {
-    height: model.gridHeight + 94 + (selectedDate ? 52 + model.details.length * 20 : 0),
+    height: model.gridHeight + 94,
   });
 }
 Component({
@@ -88,14 +84,12 @@ Component({
   },
   data: {
     month: '',
-    selectedDate: '',
     weekStart: '',
     panels: [],
     panelHeights: [270, 270, 270],
     gridHeight: 270,
     monthLabel: '',
     periodSubtitle: '',
-    details: [],
   },
   lifetimes: {
     attached(this: Instance) {
@@ -109,7 +103,7 @@ Component({
   observers: {
     holidays(this: Instance) {
       const month = this.data.month || this.properties.startDate.slice(0, 7);
-      if (month) sync(this, month, this.data.selectedDate);
+      if (month) sync(this, month);
     },
     startDate(this: Instance) {
       if (this.properties.startDate) {
@@ -119,7 +113,7 @@ Component({
     },
     'assignments,restrictToProposed,viewMode,groupName,shiftTypes'(this: Instance) {
       const month = this.data.month || this.properties.startDate.slice(0, 7);
-      if (month) sync(this, month, this.data.selectedDate);
+      if (month) sync(this, month);
     },
   },
   methods: {
@@ -138,7 +132,7 @@ Component({
               .slice(0, 7));
       delete this._locateTarget;
       if (this.properties.viewMode === 'week') this.setData({ weekStart: next });
-      sync(this, next.slice(0, 7), '', () =>
+      sync(this, next.slice(0, 7), () =>
         this.selectComponent('#preview-month')?.finishPeriodShift(),
       );
       this.triggerEvent('monthbrowse', { month: next.slice(0, 7) });
@@ -158,7 +152,6 @@ Component({
           ? previewWeekPanels(
               this.properties.assignments,
               target,
-              '',
               this._slot,
               this.properties.restrictToProposed,
               this.properties.holidays,
@@ -173,7 +166,6 @@ Component({
           : previewCalendarModel(
               this.properties.assignments,
               target,
-              '',
               this._slot,
               this.properties.restrictToProposed,
               this.properties.holidays,
@@ -189,9 +181,6 @@ Component({
       this.setData({ panels, panelHeights }, () =>
         this.selectComponent('#preview-month')?.startProgrammaticShift(delta),
       );
-    },
-    handleSelect(this: Instance, event: { detail: { businessDate: string } }) {
-      sync(this, this.data.month, event.detail.businessDate);
     },
   },
 });

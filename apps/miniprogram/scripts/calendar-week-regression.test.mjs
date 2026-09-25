@@ -45,7 +45,7 @@ describe('weekly calendar regression', () => {
       slotPosition: index,
     }));
     const height = (viewportWidth) =>
-      previewWeekPanels(assignments, '2026-09-21', '', 1, false, [], {
+      previewWeekPanels(assignments, '2026-09-21', 1, false, [], {
         viewportWidth,
       }).gridHeight;
     expect(height(390)).toBe(296);
@@ -68,7 +68,6 @@ describe('weekly calendar regression', () => {
         { ...base, shiftTypeId: 'b', state: 'added' },
       ],
       '2026-09-21',
-      '',
     );
     const day = week.days.find((item) => item.businessDate === base.businessDate);
     expect(day.isPast).toBe(false);

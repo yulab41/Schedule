@@ -47,11 +47,11 @@ describe('P5 native atomic backfill controller', () => {
     definition.handleDateTap.call(instance, {
       currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
     });
-    expect(instance._staged.has('role-1:2026-07-02')).toBe(true);
+    expect(instance._staged.size).toBe(1);
     definition.handleDateTap.call(instance, {
       currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
     });
-    expect(instance._staged.has('role-1:2026-07-02')).toBe(false);
+    expect(instance._staged.size).toBe(0);
   });
 
   it.each([false, true])(
@@ -146,7 +146,7 @@ describe('P5 native atomic backfill controller', () => {
       expect(duties.map(({ name, state }) => [name, state])).toEqual(
         existing
           ? [
-              ['原人员', 'removed'],
+              ['原人员', 'normal'],
               ['林医生', 'added'],
             ]
           : [['林医生', 'added']],
@@ -155,6 +155,56 @@ describe('P5 native atomic backfill controller', () => {
       definition.onUnload.call(page);
     },
   );
+
+  it('stages a removal for an existing member+shift and only writes it on confirm', async () => {
+    const instance = createPageInstance(definition);
+    instance._currentGroupId = 'group-1';
+    instance._calendarByKey.get('role-1:2026-07').assignments = [
+      {
+        id: 'slot-1',
+        businessDate: '2026-07-02',
+        scheduleRoleId: 'role-1',
+        slotPosition: 1,
+        actualMembershipId: 'member-1',
+        actualMemberName: '林医生',
+        shiftTypeId: 'shift-a',
+        shiftTypeAbbreviation: '白',
+        shiftTypeName: '白班',
+      },
+    ];
+
+    definition.handleDateTap.call(instance, {
+      currentTarget: { dataset: { date: '2026-07-02', month: '2026-07' } },
+    });
+    expect(instance._staged.size).toBe(1);
+    const [stagedValue] = [...instance._staged.values()];
+    expect(stagedValue).toMatchObject({ assignmentId: 'slot-1', kind: 'remove' });
+    expect(stagedValue).not.toHaveProperty('actualMembershipId', 'member-1');
+    const duties = instance.data.calendarCells.find(
+      (cell) => cell.businessDate === '2026-07-02',
+    ).duties;
+    expect(duties.map((duty) => [duty.name, duty.state])).toEqual([['林医生', 'removed']]);
+
+    const requests = [];
+    let requestCount = 0;
+    globalThis.wx.request.mockImplementation((options) => {
+      requests.push(options);
+      requestCount += 1;
+      if (requestCount === 1) {
+        options.success({ data: pastScheduleBackfillBatchGoldenResult, statusCode: 200 });
+      } else {
+        options.success({ data: holidayApiGoldenResponse, statusCode: 200 });
+      }
+    });
+    definition.handleConfirm.call(instance);
+    await vi.waitFor(() => expect(instance.data.isBusy).toBe(false));
+    expect(requests[0].data.items).toEqual([]);
+    expect(requests[0].data.removals).toEqual([
+      { assignmentId: 'slot-1', businessDate: '2026-07-02', scheduleRoleId: 'role-1' },
+    ]);
+    expect(instance.data.infoMessage).toContain('1 条移除');
+    definition.onUnload.call(instance);
+  });
 
   it('fails closed for today, future, and adjacent-month cells', () => {
     const instance = createPageInstance(definition);
@@ -197,9 +247,9 @@ describe('P5 native atomic backfill controller', () => {
       (cell) => cell.businessDate === '2026-07-02',
     ).duties;
     expect(lines.map((line) => [line.name, line.state])).toEqual([
-      ['原人员', 'removed'],
-      ['林医生', 'added'],
+      ['原人员', 'normal'],
       ['另一班', 'normal'],
+      ['林医生', 'added'],
     ]);
     instance.selectComponent = () => ({ finishPeriodShift() {} });
     definition.handleCalendarMonthChange.call(instance, { detail: { delta: -1, current: 0 } });
@@ -277,14 +327,18 @@ describe('P5 native atomic backfill controller', () => {
     const instance = createPageInstance(definition);
     instance._currentGroupId = 'group-1';
     instance._staged.set('role-1:2026-07-02', {
+      assignmentId: '',
       actualMembershipId: 'member-1',
       businessDate: '2026-07-02',
+      kind: 'add',
       scheduleRoleId: 'role-1',
       shiftTypeId: 'shift-a',
     });
     instance._staged.set('role-1:2026-07-01', {
+      assignmentId: '',
       actualMembershipId: 'member-1',
       businessDate: '2026-07-01',
+      kind: 'add',
       scheduleRoleId: 'role-1',
       shiftTypeId: 'shift-a',
     });
@@ -325,8 +379,10 @@ describe('P5 native atomic backfill controller', () => {
     const instance = createPageInstance(definition);
     instance._currentGroupId = 'group-1';
     instance._staged.set('role-1:2026-07-02', {
+      assignmentId: '',
       actualMembershipId: 'member-1',
       businessDate: '2026-07-02',
+      kind: 'add',
       scheduleRoleId: 'role-1',
       shiftTypeId: 'shift-a',
     });
@@ -406,7 +462,7 @@ describe('P5 native atomic backfill controller', () => {
     definition.handleDateTap.call(instance, {
       currentTarget: { dataset: { date: '2026-08-01', month: '2026-08' } },
     });
-    expect(instance._staged.has('role-1:2026-08-01')).toBe(true);
+    expect(instance._staged.size).toBe(1);
   });
 
   it('keeps same-month week swipes on the loaded calendar without a read flash', () => {

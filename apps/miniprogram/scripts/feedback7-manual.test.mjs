@@ -99,15 +99,14 @@ describe('feedback7 manual scheduling', () => {
         slotPosition: 1,
       },
     ];
-    const november = previewCalendarModel(assignments, '2026-11', '', 1);
+    const november = previewCalendarModel(assignments, '2026-11', 1);
     expect(
       november.panels[1].cells.find((cell) => cell.businessDate === '2026-11-30').duties[0].name,
     ).toBe('甲');
-    const december = previewCalendarModel(assignments, '2026-12', '2026-12-01', 2);
+    const december = previewCalendarModel(assignments, '2026-12', 2);
     expect(
       december.panels[2].cells.find((cell) => cell.businessDate === '2026-12-01').duties[0].name,
     ).toBe('丙');
-    expect(december.details[0].label).toBe('丙 · 夜班');
     expect(
       december.panels[2].cells.find((cell) => cell.businessDate === '2026-12-02').duties,
     ).toEqual([]);

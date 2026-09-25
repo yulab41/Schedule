@@ -441,7 +441,7 @@ describe('feedback9 manual geometry and dates', () => {
 });
 describe('feedback9 calendar display', () => {
   it('carries confirmed holidays through cross-year preview panels', () => {
-    const model = previewCalendarModel([], '2026-12', '', 1, false, [
+    const model = previewCalendarModel([], '2026-12', 1, false, [
       { date: '2027-01-01', holidayName: '元旦', isOffDay: true, isWorkday: false },
     ]);
     const cell = model.panels

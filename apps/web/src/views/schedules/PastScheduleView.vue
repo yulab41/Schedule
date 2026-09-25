@@ -11,7 +11,6 @@ import type {
   SchedulingGroupMember,
 } from '@schedule/contracts';
 import {
-  createBackfillStageKey,
   createPastScheduleBackfillBatchSnapshot,
   filterPastScheduleBackfillStages,
   getPastScheduleBackfillBatchFingerprint,
@@ -252,7 +251,9 @@ function clickDate(date: string): void {
     staged.value,
     {
       actualMembershipId: activeMemberId.value,
+      assignmentId: '',
       businessDate: date,
+      kind: 'add',
       scheduleRoleId: roleId.value,
       shiftTypeId: activeShiftTypeId.value,
     },
@@ -296,7 +297,9 @@ function clickDate(date: string): void {
 function removeStage(date: string, scheduleRoleId = roleId.value): void {
   if (isSaving.value) return;
   const next = new Map(staged.value);
-  next.delete(createBackfillStageKey(scheduleRoleId, date));
+  for (const [key, item] of [...next]) {
+    if (item.scheduleRoleId === scheduleRoleId && item.businessDate === date) next.delete(key);
+  }
   staged.value = next;
   batchAttempt.value = undefined;
 }
@@ -326,8 +329,10 @@ async function confirmStaged(): Promise<void> {
     infoMessage.value = '没有待确认的补录项。';
     return;
   }
+  const stagedStages = [...staged.value.values()];
   const fingerprint = getPastScheduleBackfillBatchFingerprint(
-    [...staged.value.values()],
+    stagedStages.filter((item) => item.kind === 'add'),
+    stagedStages.filter((item) => item.kind === 'remove'),
     reason.value,
   );
   const attempt = resolvePastScheduleBackfillAttempt(batchAttempt.value, fingerprint, () =>
@@ -342,7 +347,25 @@ async function confirmStaged(): Promise<void> {
   isSaving.value = true;
   errorMessage.value = undefined;
   try {
-    const result = await api.submitPastScheduleBackfillBatch(props.group.id, snapshot);
+    const result = await api.submitPastScheduleBackfillBatch(props.group.id, {
+      items: snapshot.items.map((item) => ({
+        actualMembershipId: item.actualMembershipId,
+        businessDate: item.businessDate,
+        scheduleRoleId: item.scheduleRoleId,
+        shiftTypeId: item.shiftTypeId,
+      })),
+      operationId: snapshot.operationId,
+      ...(snapshot.reason === undefined ? {} : { reason: snapshot.reason }),
+      ...(snapshot.removals.length === 0
+        ? {}
+        : {
+            removals: snapshot.removals.map((item) => ({
+              assignmentId: item.assignmentId,
+              businessDate: item.businessDate,
+              scheduleRoleId: item.scheduleRoleId,
+            })),
+          }),
+    });
     staged.value = new Map();
     batchAttempt.value = undefined;
     infoMessage.value = `已确认补录 ${result.assignments.length} 条，并留下“排班补录”事件记录。`;

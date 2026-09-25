@@ -45,7 +45,7 @@ describe('feedback8 preview calendar', () => {
       shiftTypeColor: '#2368aa',
       slotPosition: index,
     }));
-    const week = previewWeekPanels(assignments, '2026-09-28', '', 1, false, [], {
+    const week = previewWeekPanels(assignments, '2026-09-28', 1, false, [], {
       nursePreset: true,
       shiftTypeOrder: ['NP', 'N', 'A', '电脑', 'D', 'P'],
     });
@@ -92,7 +92,7 @@ describe('feedback8 preview calendar', () => {
       [{ ...base, plannedMemberName: '新人员' }],
       [base, { ...base, slotPosition: 2 }, { ...base, businessDate: '2026-11-02' }],
     );
-    const result = previewCalendarModel(assignments, '2026-11', '', 1, true);
+    const result = previewCalendarModel(assignments, '2026-11', 1, true);
     const cells = result.panels[1].cells;
     const changed = cells
       .find((cell) => cell.businessDate === '2026-11-01')
@@ -196,7 +196,7 @@ describe('feedback8 preview calendar', () => {
         slotPosition: 1,
       },
     ];
-    const week = previewWeekModel(assignments, '2026-11-30', '2026-12-01');
+    const week = previewWeekModel(assignments, '2026-11-30');
     expect(week.days).toHaveLength(7);
     expect(week.days.map((day) => day.businessDate)).toEqual([
       '2026-11-30',
@@ -208,7 +208,7 @@ describe('feedback8 preview calendar', () => {
       '2026-12-06',
     ]);
     expect(week.days[1].duties[0].name).toBe('周班人员');
-    expect(week.details[0].label).toContain('周班人员');
+    expect(week.details).toBeUndefined();
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
@@ -236,8 +236,18 @@ describe('feedback8 preview calendar', () => {
     definition.lifetimes.attached.call(instance);
     expect(instance.data.weekStart).toBe('2026-11-30');
     expect(instance.data.panels[1].cells).toHaveLength(7);
-    instance.handleSelect({ detail: { businessDate: '2026-12-01' } });
-    expect(instance.data.details[0].label).toContain('周班人员');
+    // The preview no longer shows per-cell details: no select handler, no detail data.
+    expect(definition.methods.handleSelect).toBeUndefined();
+    expect(instance.data.details).toBeUndefined();
+    const previewXml = readFileSync(
+      new URL(
+        '../src/subpackages/scheduling/components/schedule-calendar-preview/index.wxml',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    expect(previewXml).not.toContain('handleSelect');
+    expect(previewXml).not.toContain('preview-day-detail');
     instance.handleMonthChange({ detail: { delta: 1, current: 2 } });
     expect(instance.data.weekStart).toBe('2026-12-07');
     expect(instance.triggerEvent).toHaveBeenCalledWith('monthbrowse', { month: '2026-12' });
@@ -258,7 +268,6 @@ describe('feedback8 preview calendar', () => {
         },
       ],
       '2026-11',
-      '',
       1,
     );
     const cells = result.panels[1].cells;
@@ -288,7 +297,7 @@ describe('feedback8 preview calendar', () => {
         },
       ],
     );
-    const result = previewWeekPanels(assignments, '2026-09-28', '', 1, false, [
+    const result = previewWeekPanels(assignments, '2026-09-28', 1, false, [
       { date: '2026-10-01', holidayName: '国庆节', isOffDay: true },
     ]);
     expect(result.panels[1].cells).toHaveLength(7);
@@ -315,7 +324,7 @@ describe('feedback8 preview calendar', () => {
       shiftTypeName: 'N班',
       slotPosition: index + 1,
     }));
-    const week = previewWeekPanels(assignments, '2026-09-28', '');
+    const week = previewWeekPanels(assignments, '2026-09-28');
     expect(week.panels[1].cells[3].duties).toHaveLength(20);
     expect(week.gridHeight).toBeGreaterThan(20 * 17);
     const css = readFileSync(
@@ -349,7 +358,7 @@ describe('feedback8 preview calendar', () => {
         },
       ],
     );
-    const duties = previewCalendarModel(assignments, '2026-11', '', 1).panels[1].cells.find(
+    const duties = previewCalendarModel(assignments, '2026-11', 1).panels[1].cells.find(
       (cell) => cell.businessDate === '2026-11-01',
     ).duties;
 

@@ -56,7 +56,6 @@ export function mergePreviewAssignments(
 export function previewCalendarModel(
   assignments: readonly PreviewDuty[],
   month: string,
-  selectedDate: string,
   slot: CalendarPeriodSlot = 1,
   restrictToProposed = false,
   holidays: readonly ConfirmedHolidayDate[] = [],
@@ -114,7 +113,6 @@ export function previewCalendarModel(
           isCurrentMonth: !cell.isOutsideMonth,
           isWeekend: index % 7 >= 5,
           isToday: cell.businessDate === today,
-          isSelected: cell.businessDate === selectedDate,
           isBottomRow: index >= grid.length - 7,
           isBottomLeft: index === grid.length - 7,
           isBottomRight: index === grid.length - 1,
@@ -132,26 +130,18 @@ export function previewCalendarModel(
     slot,
   );
   const panelHeights = panels.map((panel) => (panel.cells.length / 7) * panel.rowHeight);
-  const details = assignments
-    .filter((item) => item.businessDate === selectedDate)
-    .map((item, index) => ({
-      key: String(index),
-      label: `${item.actualMemberName ?? item.plannedMemberName ?? '待安排'} · ${item.shiftTypeName}`,
-    }));
   return {
     panels,
     panelHeights,
     gridHeight: panelHeights[slot] ?? 270,
     monthLabel: `${year}年${monthNumber}月`,
     periodSubtitle: '',
-    details,
   };
 }
 
 export function previewWeekModel(
   assignments: readonly PreviewDuty[],
   weekDate: string,
-  selectedDate: string,
   restrictToProposed = false,
   holidays: readonly ConfirmedHolidayDate[] = [],
   options: PreviewWeekOptions = {},
@@ -160,7 +150,7 @@ export function previewWeekModel(
   const monthModels = new Map(
     [...new Set(dates.map((date) => date.slice(0, 7)))].map((month) => [
       month,
-      previewCalendarModel(assignments, month, selectedDate, 1, restrictToProposed, holidays),
+      previewCalendarModel(assignments, month, 1, restrictToProposed, holidays),
     ]),
   );
   const days = dates.map((date, index) => {
@@ -195,15 +185,8 @@ export function previewWeekModel(
       weekday: '一二三四五六日'[index],
     };
   });
-  const details = assignments
-    .filter((item) => item.businessDate === selectedDate)
-    .map((item, index) => ({
-      key: String(index),
-      label: `${item.actualMemberName ?? item.plannedMemberName ?? '待安排'} · ${item.shiftTypeName}`,
-    }));
   return {
     days: days.filter((day): day is NonNullable<typeof day> => day !== undefined),
-    details,
     label: getWeekLabel(weekDate),
     height: calendarWeekPanelHeight(
       days.filter((day) => day !== undefined),
@@ -215,7 +198,6 @@ export function previewWeekModel(
 export function previewWeekPanels(
   assignments: readonly PreviewDuty[],
   weekStart: string,
-  selectedDate: string,
   slot: CalendarPeriodSlot = 1,
   restrictToProposed = false,
   holidays: readonly ConfirmedHolidayDate[] = [],
@@ -227,7 +209,6 @@ export function previewWeekPanels(
       const week = previewWeekModel(
         assignments,
         start,
-        selectedDate,
         restrictToProposed,
         holidays,
         options,
@@ -255,13 +236,5 @@ export function previewWeekPanels(
     gridHeight: panelHeights[slot] ?? 132,
     monthLabel: getWeekOfMonthLabel(weekStart),
     periodSubtitle: getWeekLabel(weekStart),
-    details: previewWeekModel(
-      assignments,
-      weekStart,
-      selectedDate,
-      restrictToProposed,
-      holidays,
-      options,
-    ).details,
   };
 }

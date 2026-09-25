@@ -141,6 +141,13 @@
 .week-duty-item.is-existing-comparison .week-duty-name {
   color: #8a95a3;
 }
+.week-duty-item.is-removed .week-duty-name {
+  color: var(--ui-color-text-primary);
+  text-decoration: line-through;
+}
+.week-duty-item.is-added .week-duty-name {
+  color: #a42620;
+}
 .week-duty-badges {
   display: flex;
   min-height: 14px;
