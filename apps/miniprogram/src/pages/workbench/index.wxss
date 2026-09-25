@@ -858,8 +858,10 @@ page {
 .week-day-grid {
   background: var(--ui-color-border);
   overflow: hidden;
-  border-bottom-right-radius: var(--ui-radius-large);
-  border-bottom-left-radius: var(--ui-radius-large);
+  /* Match the 17px cell radius (and the card's inner radius) so the clip never
+     shaves the outer edge of the selected cell's bottom corner arc. */
+  border-bottom-right-radius: 17px;
+  border-bottom-left-radius: 17px;
 }
 
 .week-day {

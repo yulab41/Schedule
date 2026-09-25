@@ -22,6 +22,10 @@ describe('weekly calendar regression', () => {
     expect(style).toMatch(/\.week-day:first-child\s*\{[^}]*border-bottom-left-radius: 17px/su);
     expect(style).toMatch(/\.week-day:last-child\s*\{[^}]*border-bottom-right-radius: 17px/su);
     expect(style).toMatch(/\.week-day\.is-selected::after\s*\{[^}]*border-radius: inherit/su);
+    // The grid clip must use the same radius as the cells, otherwise the parent shaves
+    // the outer edge of the blue corner arc and it reads thinner than the straight runs.
+    expect(style).toMatch(/\.week-day-grid\s*\{[^}]*border-bottom-left-radius: 17px/su);
+    expect(style).toMatch(/\.week-day-grid\s*\{[^}]*border-bottom-right-radius: 17px/su);
   });
 
   it('measures the preview panel from actual lines without extra bottom space per person', () => {
