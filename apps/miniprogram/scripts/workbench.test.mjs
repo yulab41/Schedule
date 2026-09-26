@@ -73,6 +73,45 @@ describe('P4 native workbench', () => {
     );
   });
 
+  it('paints one locate-button box in the month, week and list calendar toolbars', () => {
+    const pageStyles = readSource('pages/workbench/index.wxss');
+    const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
+    const guestStyles = readSource('pages/guest/guest.wxss');
+    const guestTemplate = readSource('pages/guest/guest.wxml');
+
+    // Cascade the rules that mention a selector, in file order, so the shared
+    // `.calendar-step, .calendar-locator` block is folded into the locator box.
+    const boxOf = (styles, selectors) => {
+      const declarations = {};
+      for (const rule of styles.matchAll(/([^{}]+)\{([^}]*)\}/gs)) {
+        const selectorList = rule[1].split(',').map((part) => part.trim());
+        if (!selectorList.some((selector) => selectors.includes(selector))) continue;
+        for (const declaration of rule[2].matchAll(/([\w-]+)\s*:\s*([^;]+);/g)) {
+          declarations[declaration[1]] = declaration[2].trim();
+        }
+      }
+      return declarations;
+    };
+
+    // The month card toolbar is the reference box: 40x44, no side margin, so the
+    // 16px crosshair centres 20px inside the right edge next to the next chevron.
+    const monthBox = boxOf(monthStyles, ['.locate-button']);
+    expect(monthBox.width).toBe('40px');
+    expect(monthBox.height).toBe('44px');
+    expect(monthBox['margin-left']).toBeUndefined();
+
+    // Week and list toolbars are page styles; a wider or offset box shifts the
+    // crosshair when the user switches views.
+    const pageLocatorBox = boxOf(pageStyles, ['.calendar-locator']);
+    expect(pageLocatorBox.width).toBe(monthBox.width);
+    expect(pageLocatorBox.height).toBe(monthBox.height);
+    expect(pageLocatorBox['margin-left']).toBeUndefined();
+
+    // The guest page imports the workbench styles and renders the same locator.
+    expect(guestStyles).toContain("@import '../workbench/index.wxss';");
+    expect(guestTemplate.match(/class="calendar-locator"/g)).toHaveLength(2);
+  });
+
   it('uses the production Web history SVG for event actions', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageStyles = readSource('pages/workbench/index.wxss');

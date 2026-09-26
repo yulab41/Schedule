@@ -775,8 +775,7 @@ page {
 }
 
 .calendar-locator {
-  width: 44px;
-  margin-left: 4px;
+  width: 40px;
   color: var(--ui-color-primary);
 }
 
