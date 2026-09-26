@@ -1,6 +1,16 @@
 # Project Status
 
-## 当前批次：补录「移除已有班次」+ 预览精简 + 圆角统一（生产已部署，体验版 `.200` 已放行）
+## 当前批次：日历定位按钮位置统一（体验版 `.201` 已放行，待小米 14 复核）
+
+- 用户范围：日历首页定位按钮在月视图与周视图不一致、周视图偏左，以月视图为准；首页、访客等所有定位按钮统一；只改这一件事，改完直接提交并放行。
+- 根因与基线：月视图用共享组件 `.locate-button`（40×44，距卡片右外沿 71px，`1f715c96`），周/列表视图用页面内联 `.calendar-locator`（44×44 + `margin-left: 4px`，`ad4cfb2c`），准星偏左 2px。两次独立测量：`.198` 开发者工具截图月 443 / 周 440（chevron 一致）；真实 WXSS 390px 无头几何月 70.00px / 修复前周 72.00px。
+- 修改：`apps/miniprogram/src/pages/workbench/index.wxss` 的 `.calendar-locator` 改为 `width: 40px` 并删除无布局作用的 `margin-left`；换期 chevron、标题、按压/hover、动效与定位逻辑未改。访客页经 `@import '../workbench/index.wxss'` 同批生效；列表视图仍按 Web 金标准保留最右槽位。
+- 验证：新增“定位按钮盒一致”断言先失败后通过（该文件 27 passed）；Mini 全量 `183 passed | 2 skipped`（1282/18 跳过）；Mini production verify（总包 4,817,890 B、manifest `40f35b70e93f890d6adfd88d020ae67a9f03e778867962f0ce9ad766a679025a`）、`pnpm typecheck`、`pnpm lint`、`icon:parity:check`、`smoke:check-core` 通过。开发者工具（`.201` production 构建、真实排班、390px、WebView）：月/周准星 `left` 均为 299.6（卡片右沿 378.4），chevron 同为 339.6/30.8，列表 343.6。
+- 交付：检查点 `287691ff` 已推送 `main`；体验版 `0.1.0-p10.20260926.201`（Manifest `72e7f32900c6f1550514d82300983bf5d39e24667748868f05783ccad9439060`、239 代码文件、ZIP 2,703,186 B）上传，tag/allocation/manifest/receipt 同一 SHA；add-only `schedule-client-version-allowlist ensure` 只追加 `.201` 并保留 `.200`，独立 verify、完整 `ecs-verify.sh`（live release 仍 `833a11e4`、schema 64）与公网 `.201/.200=200`、未知版本 `=426` 通过。
+- 本轮是小程序 + 文档范围：未部署生产、未备份或迁移数据库、未提审、未正式发布、未退役旧版本。未验证：访客页模拟器实测（需有效访客链接）、模拟器截图接口本轮只返回 35×75、小米 14 同构建复核。细节见 [轮次记录](audit/calendar-locate-button-20260926.md)。
+- 下一批次与停止条件：用户用小米 14 打开 `.201@287691ff`，复核首页/访客月、周、列表的定位按钮位置是否与月视图一致；取得同构建真机证据前保持“待用户复核”，不进其他功能开发。
+
+## 上一批次：补录「移除已有班次」+ 预览精简 + 圆角统一（生产已部署，体验版 `.200` 已放行）
 
 - 服务端（`20c024c6`）：批量补录请求新增可选 `removals: [{ assignmentId, businessDate, scheduleRoleId }]`，`items` 取消 `min(1)` 改为「items+removals 至少一项」；`backfillBatch` 在同一事务、同一幂等指纹、同一审计事件、同一统计刷新与工作流自愈内软删除班次（`deletedAt` + `version + 1`），老客户端不带 `removals` 时行为不变。真实 MySQL 集成 `13/13`。
 - 客户端（本批）：点击已存在的「人员 + 班种」= 暂存**移除**，否则 = 暂存**新增**，两者都只在点「确认补录」时一次提交 `items + removals`；草稿键改为「岗位:日期:类型:目标」，同一天可同时挂多条改动；周/月视图统一用 `state: removed|added`（黑色删除线 / 暗红 `#a42620`），删除（原）（拟）徽标，并按班种 + 人员锚定；修掉「只看当天第一条」与「同一人 + 班种重复暂存」两个缺陷。
@@ -89,4 +99,3 @@
 
 - 数据缓存与服务器性能审计、极致读缓存与增量同步（已过排班 + 节假日/补班）、Feedback26 导出筛选重置、Feedback25 `.129`、Feedback15 `.112`、Feedback14 `.111`、Feedback13 `.110`、护士照片 139 条导入、feedback11 `.108`、Feedback9 及更早：均已完成交付或放行，未决项统一为“小米 14 同构建复核”。
 - 细节按主题检索：`docs/audit/`（轮次记录）、`docs/debug/debug-feedback-log.md`（运行与发布日志）、`git log`（历史检查点）。
-
