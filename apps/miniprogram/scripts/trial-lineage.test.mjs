@@ -249,6 +249,18 @@ describe('trial lineage history and policy', () => {
 });
 
 describe('trial candidate preflight', () => {
+  it('binds the icon checkpoint proof to the current committed workbench source', () => {
+    const checkpoint = loadTrialPolicy().requiredCheckpoints.find(
+      ({ commit }) => commit === REQUIRED_ICON_CHECKPOINT,
+    );
+    const workbenchProof = checkpoint.equivalentProof.files.find(
+      ({ path: file }) => file === 'apps/miniprogram/src/pages/workbench/index.ts',
+    );
+    expect(workbenchProof.blob).toBe(
+      git(REPOSITORY_ROOT, ['rev-parse', 'HEAD:apps/miniprogram/src/pages/workbench/index.ts']),
+    );
+  });
+
   it('matches every canonical proof file against the candidate tree', async () => {
     const checkpoint = loadTrialPolicy().requiredCheckpoints.find(
       ({ commit }) => commit === REQUIRED_ICON_CHECKPOINT,

@@ -27,4 +27,4 @@
 
 ## 发布与后续边界
 
-应用检查点识别消息：`fix(miniprogram): exclude unused pages from production package`。上传版本、Git SHA、Manifest、实际微信 CI ZIP 和 receipt 在交付后补录；当前未连接生产服务器，未做备份、部署、版本放行、提审或正式发布。生产允许版本清单属于单独的生产操作，本轮上传不等于服务端放行。小米 14 正常业务验收需要同一体验版的版本/SHA、WebView、基础库和微信版本证据。
+应用检查点 `e6ef714b`（`fix(miniprogram): exclude unused pages from production package`）已推送。首次上传在分配版本前因 `5285dd1` 的工作台精确 blob 证明过期而停止；未占用新版本。`git log -S` 和 `git blame` 将旧证明 `e0f48e5b` 定位到 `a3eccb49`，本轮工作台 blob 为 `951cf5f6`。源码对比确认本轮只删除测试工具权限订阅、入口处理器及相关状态，图标、日历导航/swiper/定位/滚动实现未改。新增红绿血缘测试并刷新证明，17 项血缘测试与账本审计通过；证明检查点推送后重新冻结候选。上传版本、最终 SHA、Manifest、实际微信 CI ZIP 和 receipt 在交付后补录；当前未连接生产服务器，未做备份、部署、版本放行、提审或正式发布。生产允许版本清单属于单独的生产操作，本轮上传不等于服务端放行。小米 14 正常业务验收需要同一体验版的版本/SHA、WebView、基础库和微信版本证据。
