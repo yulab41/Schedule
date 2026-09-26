@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   APP_ROOT,
   ARTIFACT_ROOT,
+  auditProductionPackageContents,
   buildMiniProgram,
   createFileManifest,
   readProfileArgument,
@@ -182,13 +183,17 @@ export function checkUploadCandidate(environment, output = {}) {
   });
 }
 
-function verifyBuildManifest(buildResult, expected) {
+export function verifyBuildManifest(buildResult, expected) {
   const actual = sha256(
     JSON.stringify(
       createFileManifest(buildResult.outputDirectory, new Set(['build-manifest.json'])),
     ),
   );
   if (actual !== expected) throw new Error('Upload output changed after build; manifest mismatch.');
+  const forbiddenFiles = auditProductionPackageContents(buildResult.outputDirectory);
+  if (forbiddenFiles.length > 0) {
+    throw new Error(`Upload package content rejected: ${forbiddenFiles.join('; ')}`);
+  }
 }
 
 export async function runCiCommand(options, environment = process.env, dependencyOverrides = {}) {

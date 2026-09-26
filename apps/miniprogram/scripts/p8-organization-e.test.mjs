@@ -28,7 +28,6 @@ describe('P8-E native platform account administration', () => {
         'pages/scheduling-config/index',
         'pages/qr-visitor/index',
         'pages/platform-accounts/index',
-        'pages/directory/index',
       ],
     });
     expect(panel).toContain('平台账号');

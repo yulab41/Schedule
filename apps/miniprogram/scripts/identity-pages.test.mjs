@@ -12,14 +12,12 @@ function readJson(relativePath) {
 }
 
 describe('P3 native identity pages', () => {
-  it('opens the identity page by default while preserving the approved P1 routes', () => {
+  it('opens the identity page by default while preserving product routes', () => {
     const app = readJson('app.json');
 
     const approvedRoutes = [
       'pages/identity/index',
       'pages/workbench/index',
-      'pages/index/index',
-      'pages/gesture-probe/index',
       'pages/admin-bind/preview',
     ];
 

@@ -269,25 +269,6 @@ describe('safe Mini test tools', () => {
     });
   });
 
-  it('blocks the workbench handler in release without attempting navigation', async () => {
-    let definition;
-    const navigateTo = vi.fn();
-    const runtime = createWx('release', vi.fn());
-    runtime.navigateTo = navigateTo;
-    vi.stubGlobal('wx', runtime);
-    vi.stubGlobal('Page', (value) => {
-      definition = value;
-    });
-    await import('../src/pages/workbench/index.ts');
-    const instance = createPageInstance(definition);
-
-    definition.handleOpenTestCenter.call(instance);
-
-    expect(instance.data.testCenterEnabled).toBe(false);
-    expect(navigateTo).not.toHaveBeenCalled();
-    expect(runtime.showToast).not.toHaveBeenCalled();
-  });
-
   it('copies one stable structured Codex report without sensitive runtime content', async () => {
     let definition;
     const clipboard = vi.fn((options) => options.success?.());
@@ -463,7 +444,7 @@ describe('safe Mini test tools', () => {
     expect(report).toContain('[已安全截断：复制文本超过 24576 B 上限]');
   });
 
-  it('keeps the page in a diagnostics subpackage and forbids raw payload or storage-value access', () => {
+  it('retains diagnostic source outside production routes and forbids raw payload or storage-value access', () => {
     const appConfig = JSON.parse(readSource('app.json'));
     const diagnosticsPackage = appConfig.subpackages.find(
       (subpackage) => subpackage.root === 'subpackages/diagnostics',
@@ -474,7 +455,7 @@ describe('safe Mini test tools', () => {
     const workbench = readSource('pages/workbench/index.wxml');
     const foundation = readSource('pages/index/index.wxml');
 
-    expect(diagnosticsPackage.pages).toEqual(['pages/test-tools/index']);
+    expect(diagnosticsPackage).toBeUndefined();
     for (const modulePath of [
       'platform/runtime-diagnostics-bridge.ts',
       'platform/runtime-diagnostics.ts',
@@ -482,7 +463,7 @@ describe('safe Mini test tools', () => {
     ]) {
       expect(buildTools).toContain(`'${modulePath}'`);
     }
-    expect(workbench).toContain('wx:if="{{testCenterEnabled}}"');
+    expect(workbench).not.toContain('测试工具');
     expect(foundation).toContain('wx:if="{{testToolsEnabled}}"');
     expect(pageSource).not.toContain('getStorageSync(');
     expect(pageSource).not.toContain('Authorization');

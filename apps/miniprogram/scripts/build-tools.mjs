@@ -197,6 +197,59 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
   'subpackages/workflows/components/workflow-swap-panel/controller.ts',
 ]);
 
+// Keep reusable probe sources in src/, but never copy or compile them into a production upload.
+// These are exact path boundaries; shared diagnostics used by business pages stay bundled.
+const EXCLUDED_PRODUCTION_DIRECTORIES = [
+  'pages/index/',
+  'pages/gesture-probe/',
+  'subpackages/diagnostics/',
+];
+const EXCLUDED_PRODUCTION_MODULES = new Set(['platform/diagnostics-access.ts']);
+const REMOVED_STANDALONE_ROUTES = new Set([
+  'pages/profile/index',
+  'subpackages/organization/pages/directory/index',
+  'subpackages/workflows/pages/swap/index',
+]);
+
+export function isExcludedProductionSource(relativePath) {
+  return (
+    EXCLUDED_PRODUCTION_MODULES.has(relativePath) ||
+    EXCLUDED_PRODUCTION_DIRECTORIES.some((directory) => relativePath.startsWith(directory))
+  );
+}
+
+function isForbiddenProductionOutput(relativePath) {
+  return (
+    isExcludedProductionSource(relativePath) ||
+    relativePath === 'platform/diagnostics-access.js' ||
+    [...REMOVED_STANDALONE_ROUTES].some((route) =>
+      relativePath.startsWith(`${route.slice(0, route.lastIndexOf('/') + 1)}`),
+    )
+  );
+}
+
+export function auditProductionPackageContents(outputDirectory = DIST_ROOT) {
+  const resolvedOutput = assertSafeOutputDirectory(outputDirectory);
+  const issues = [];
+  for (const filePath of listFiles(resolvedOutput)) {
+    const relativePath = normalizeRelativePath(path.relative(resolvedOutput, filePath));
+    if (isForbiddenProductionOutput(relativePath)) {
+      issues.push(`forbidden production file: ${relativePath}`);
+    }
+  }
+  try {
+    const appJson = readJson(path.join(resolvedOutput, 'app.json'));
+    for (const route of listRegisteredPages(appJson)) {
+      if (isForbiddenProductionOutput(`${route}.js`) || REMOVED_STANDALONE_ROUTES.has(route)) {
+        issues.push(`forbidden production route: ${route}`);
+      }
+    }
+  } catch (error) {
+    issues.push(`production app.json cannot be audited: ${error.message}`);
+  }
+  return issues;
+}
+
 const voidWxmlTags = new Set(['image', 'input', 'textarea']);
 
 export function normalizeRelativePath(value) {
@@ -297,6 +350,8 @@ export function createFileManifest(rootDirectory, excludedRelativePaths = new Se
 
 function copyStaticFiles(sourceDirectory, outputDirectory) {
   for (const sourcePath of listFiles(sourceDirectory)) {
+    const relativePath = normalizeRelativePath(path.relative(sourceDirectory, sourcePath));
+    if (isExcludedProductionSource(relativePath)) continue;
     const extension = path.extname(sourcePath).toLowerCase();
     if (extension === '.ts') continue;
     if (!staticExtensions.has(extension)) {
@@ -304,7 +359,6 @@ function copyStaticFiles(sourceDirectory, outputDirectory) {
         `unsupported source asset: ${normalizeRelativePath(path.relative(sourceDirectory, sourcePath))}`,
       );
     }
-    const relativePath = path.relative(sourceDirectory, sourcePath);
     const destinationPath = path.join(outputDirectory, relativePath);
     mkdirSync(path.dirname(destinationPath), { recursive: true });
     copyFileSync(sourcePath, destinationPath);
@@ -339,7 +393,11 @@ function collectTypeScriptEntryPoints(sourceDirectory) {
         const relativePath = normalizeRelativePath(path.relative(sourceDirectory, filePath));
         return [relativePath, filePath];
       })
-      .filter(([relativePath]) => !BUNDLED_ONLY_TYPESCRIPT_MODULES.has(relativePath))
+      .filter(
+        ([relativePath]) =>
+          !BUNDLED_ONLY_TYPESCRIPT_MODULES.has(relativePath) &&
+          !isExcludedProductionSource(relativePath),
+      )
       .map(([relativePath, filePath]) => [relativePath.slice(0, -'.ts'.length), filePath]),
   );
 }
@@ -760,6 +818,9 @@ export function auditSourceTree() {
     }
     try {
       for (const route of listRegisteredPages(appJson)) {
+        if (isForbiddenProductionOutput(`${route}.js`) || REMOVED_STANDALONE_ROUTES.has(route)) {
+          issues.push(`forbidden production route: ${route}`);
+        }
         for (const extension of ['.json', '.ts', '.wxml', '.wxss']) {
           if (!existsSync(path.join(SOURCE_ROOT, `${route}${extension}`))) {
             issues.push(`registered page is missing ${route}${extension}`);
@@ -769,6 +830,21 @@ export function auditSourceTree() {
     } catch (error) {
       issues.push(error.message);
     }
+  }
+
+  for (const route of [
+    'pages/index/index',
+    'pages/gesture-probe/index',
+    'subpackages/diagnostics/pages/test-tools/index',
+  ]) {
+    for (const extension of ['.json', '.ts', '.wxml', '.wxss']) {
+      if (!existsSync(path.join(SOURCE_ROOT, `${route}${extension}`))) {
+        issues.push(`reusable diagnostic source is missing: ${route}${extension}`);
+      }
+    }
+  }
+  if (!existsSync(path.join(SOURCE_ROOT, 'platform/diagnostics-access.ts'))) {
+    issues.push('reusable diagnostic source is missing: platform/diagnostics-access.ts');
   }
 
   const treeAudit = auditTree(SOURCE_ROOT, { built: false });
@@ -782,6 +858,7 @@ export function auditBuiltTree(outputDirectory = DIST_ROOT) {
   if (!existsSync(resolvedOutput)) return { issues: ['dist output is missing'], workletCount: 0 };
   const treeAudit = auditTree(resolvedOutput, { built: true });
   issues.push(...treeAudit.issues);
+  issues.push(...auditProductionPackageContents(resolvedOutput));
 
   const manifestPath = path.join(resolvedOutput, 'build-manifest.json');
   try {

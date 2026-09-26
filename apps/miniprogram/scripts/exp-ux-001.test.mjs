@@ -273,9 +273,6 @@ describe('EXP-UX-001 experience feedback contracts', () => {
         const controller = read(
           `src/subpackages/workflows/components/workflow-${workflow}-panel/controller.ts`,
         );
-        const pageConfig = readJson(`src/subpackages/workflows/pages/${workflow}/index.json`);
-        const pageTemplate = read(`src/subpackages/workflows/pages/${workflow}/index.wxml`);
-        const pageSource = read(`src/subpackages/workflows/pages/${workflow}/index.ts`);
 
         expect(template).not.toContain('class="bottom-nav"');
         expect(styles).not.toMatch(/\.bottom-nav(?:-item)?(?:\s|\.)/u);
@@ -284,14 +281,19 @@ describe('EXP-UX-001 experience feedback contracts', () => {
         for (const handler of legacyHandlers[workflow]) {
           expect(controller).not.toContain(handler);
         }
-        expect(pageConfig.usingComponents).toEqual({
-          ...directPageConfig,
-          ...(workflow === 'leave' ? {} : { 'ui-switch': '/components/ui/ui-switch/index' }),
-        });
-        expect(pageTemplate.trim()).toBe(
-          `<include src="../../components/workflow-${workflow}-panel/index.wxml" />`,
-        );
-        expect(pageSource).toContain('createWorkflowPageDefinition');
+        if (workflow !== 'swap') {
+          const pageConfig = readJson(`src/subpackages/workflows/pages/${workflow}/index.json`);
+          const pageTemplate = read(`src/subpackages/workflows/pages/${workflow}/index.wxml`);
+          const pageSource = read(`src/subpackages/workflows/pages/${workflow}/index.ts`);
+          expect(pageConfig.usingComponents).toEqual({
+            ...directPageConfig,
+            ...(workflow === 'leave' ? {} : { 'ui-switch': '/components/ui/ui-switch/index' }),
+          });
+          expect(pageTemplate.trim()).toBe(
+            `<include src="../../components/workflow-${workflow}-panel/index.wxml" />`,
+          );
+          expect(pageSource).toContain('createWorkflowPageDefinition');
+        }
       }
     });
   });

@@ -32,8 +32,6 @@ describe('P8/P9/P10 golden manifest coherence', () => {
       'subpackages/insights/pages/notifications/index',
       'subpackages/insights/pages/exports/index',
       'subpackages/insights/pages/notification-settings/index',
-      'subpackages/organization/pages/directory/index',
-      'pages/profile/index',
     ]) {
       expect(routes).toContain(route);
     }

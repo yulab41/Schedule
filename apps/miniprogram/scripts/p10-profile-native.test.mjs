@@ -11,19 +11,17 @@ function read(relativePath) {
 }
 
 describe('P10 native profile parity', () => {
-  it('registers a direct profile page and embeds the same content in the workbench', () => {
+  it('keeps profile content embedded in the workbench', () => {
     const app = JSON.parse(read('src/app.json'));
-    const page = read('src/pages/profile/index.wxml');
-    const pageConfig = JSON.parse(read('src/pages/profile/index.json'));
-    const pageStyles = read('src/pages/profile/index.wxss');
     const panel = read('src/components/profile-panel/index.wxml');
     const panelComponent = read('src/components/profile-panel/index.ts');
     const workbench = read('src/pages/workbench/index.ts');
     const workspace = read('src/components/profile-workspace/index.ts');
+    const workspaceTemplate = read('src/components/profile-workspace/index.wxml');
     const workbenchTemplate = read('src/pages/workbench/index.wxml');
 
-    expect(app.pages).toContain('pages/profile/index');
-    expect(page.trim()).toBe('<include src="../../components/profile-panel/index.wxml" />');
+    expect(app.pages).not.toContain('pages/profile/index');
+    expect(workspaceTemplate).toContain('<include src="../profile-panel/index.wxml" />');
     expect(panel).not.toContain('个人中心');
     expect(panel).toContain('class="profile-identity-card"');
     expect(panel).toContain('<text>{{initial}}</text>');
@@ -34,15 +32,6 @@ describe('P10 native profile parity', () => {
     expect(workbenchTemplate).toContain('<profile-workspace');
     expect(workspace).toContain('createProfileWorkspaceControllerDefinition');
     expect(workspace).toContain("triggerEvent?.('workspaceready')");
-    expect(pageConfig).toMatchObject({
-      disableScroll: true,
-      navigationStyle: 'custom',
-      renderer: 'webview',
-      usingComponents: {
-        'ui-sheet': '/components/ui/ui-sheet/index',
-      },
-    });
-    expect(pageStyles).toMatch(/page\s*{[^}]*height:\s*100%;/s);
     expect(panelComponent).toContain("triggerEvent?.('panelready')");
   });
 

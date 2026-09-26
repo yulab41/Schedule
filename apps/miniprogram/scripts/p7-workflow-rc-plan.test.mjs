@@ -33,10 +33,10 @@ describe('P7 workflow RC and production release contract', () => {
     expect(audit).toContain('部分切片候选永不加入 production allowlist');
   });
 
-  it('registers exactly the three native workflow pages in the final subpackage', async () => {
+  it('keeps leave and duty routes while swap lives in the workbench', async () => {
     const app = JSON.parse(await readFile(APP_URL, 'utf8'));
     expect(app.subpackages).toContainEqual({
-      pages: ['pages/leave/index', 'pages/swap/index', 'pages/duty/index'],
+      pages: ['pages/leave/index', 'pages/duty/index'],
       root: 'subpackages/workflows',
     });
   });

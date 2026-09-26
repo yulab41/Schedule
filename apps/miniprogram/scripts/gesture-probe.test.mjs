@@ -36,12 +36,12 @@ describe('P1 Android gesture capability probe', () => {
     vi.unstubAllGlobals();
   });
 
-  it('registers an isolated diagnostic route and links it from the manual test entry', () => {
+  it('retains isolated diagnostic source outside production routes', () => {
     const appConfig = JSON.parse(readSource('app.json'));
     const pageConfig = JSON.parse(readSource('pages/gesture-probe/index.json'));
     const entryTemplate = readSource('pages/index/index.wxml');
 
-    expect(appConfig.pages).toContain('pages/gesture-probe/index');
+    expect(appConfig.pages).not.toContain('pages/gesture-probe/index');
     expect(pageConfig).toMatchObject({ disableScroll: false, navigationStyle: 'custom' });
     expect(entryTemplate).toContain('url="/pages/gesture-probe/index"');
     expect(entryTemplate).toContain('诊断探针');

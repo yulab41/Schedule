@@ -54,11 +54,7 @@ describe('P7 native swap workflow page', () => {
       'utf8',
     );
 
-    expect(workflowPackage.pages).toEqual([
-      'pages/leave/index',
-      'pages/swap/index',
-      'pages/duty/index',
-    ]);
+    expect(workflowPackage.pages).toEqual(['pages/leave/index', 'pages/duty/index']);
     expect(workbench).toContain('bindtap="handleSwapNav"');
     expect(workbench.match(/\{\{workflowPanelsMounted \? '' : 'is-disabled'\}\}/gu)).toHaveLength(
       1,
@@ -131,13 +127,7 @@ describe('P7 native swap workflow page', () => {
     expect(controller).not.toMatch(/writeQueue|offlineQueue|setStorageSync\([^)]*(swap|request)/iu);
   });
 
-  it('uses Skyline-safe 390/320 native geometry without CSS grid', () => {
-    const pageJson = JSON.parse(
-      readFileSync(
-        path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'swap', 'index.json'),
-        'utf8',
-      ),
-    );
+  it('uses WebView-safe 390/320 embedded geometry without CSS grid', () => {
     const styles = readPage('wxss');
     const workflowSheetStyles = readFileSync(
       path.join(
@@ -151,7 +141,7 @@ describe('P7 native swap workflow page', () => {
       'utf8',
     );
 
-    expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'webview' });
+    expect(JSON.parse(readPage('json'))).toMatchObject({ component: true });
     expect(JSON.parse(readPage('json')).usingComponents).toMatchObject({
       'ui-sheet': '/components/ui/ui-sheet/index',
       'workflow-picker': '/components/ui/ui-date-picker/index',

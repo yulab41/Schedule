@@ -162,7 +162,6 @@ describe('directory diagnostics pre-upload correction', () => {
         outdir,
         'subpackages/organization/components/directory-panel/index.js',
       );
-      const page = compiled(outdir, 'subpackages/organization/pages/directory/index.js');
       const controller = compiled(
         outdir,
         'subpackages/organization/components/directory-panel/directory-panel-controller.js',
@@ -171,25 +170,22 @@ describe('directory diagnostics pre-upload correction', () => {
         outdir,
         'subpackages/organization/components/directory-panel/directory-diagnostics-bridge.js',
       );
-      const diagnostics = compiled(outdir, 'subpackages/diagnostics/pages/test-tools/index.js');
 
       expect(component).toContain('require("./directory-panel-controller.js")');
-      expect(page).toContain(
-        'require("../../components/directory-panel/directory-panel-controller.js")',
-      );
       expect(component).toContain('require("./directory-diagnostics-bridge.js")');
-      expect(page).toContain(
-        'require("../../components/directory-panel/directory-diagnostics-bridge.js")',
-      );
       expect(component.length).toBeLessThan(controller.length / 10);
-      expect(page.length).toBeLessThan(controller.length / 10);
-      for (const hotOutput of [app, component, page, controller]) {
+      for (const hotOutput of [app, component, controller]) {
         expect(hotOutput).not.toMatch(/通讯录性能诊断|已安全截断|复制最近|下一渲染周期完成/u);
       }
       expect(bridge).toContain('server-timing');
       expect(bridge).toContain('X-Schedule-Directory-Diagnostics');
       expect(bridge).not.toMatch(/通讯录性能诊断|已安全截断|setClipboardData/u);
-      expect(diagnostics).toMatch(/通讯录性能诊断|已安全截断|下一渲染周期完成/u);
+      expect(
+        existsSync(path.join(outdir, 'subpackages/diagnostics/pages/test-tools/index.js')),
+      ).toBe(false);
+      expect(
+        existsSync(path.join(outdir, 'subpackages/organization/pages/directory/index.js')),
+      ).toBe(false);
       expect(
         existsSync(path.join(outdir, 'platform', 'runtime-directory-diagnostics-bridge.js')),
       ).toBe(false);

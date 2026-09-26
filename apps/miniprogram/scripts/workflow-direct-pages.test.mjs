@@ -10,8 +10,6 @@ const mocks = vi.hoisted(() => ({
   dutyOnLoad: vi.fn(),
   leaveFactory: vi.fn(),
   leaveOnLoad: vi.fn(),
-  swapFactory: vi.fn(),
-  swapOnLoad: vi.fn(),
 }));
 
 vi.mock('../src/subpackages/workflows/components/workflow-duty-panel/controller.ts', () => ({
@@ -19,9 +17,6 @@ vi.mock('../src/subpackages/workflows/components/workflow-duty-panel/controller.
 }));
 vi.mock('../src/subpackages/workflows/components/workflow-leave-panel/controller.ts', () => ({
   createLeavePanelControllerDefinition: mocks.leaveFactory,
-}));
-vi.mock('../src/subpackages/workflows/components/workflow-swap-panel/controller.ts', () => ({
-  createSwapPanelControllerDefinition: mocks.swapFactory,
 }));
 
 function read(relativePath) {
@@ -38,9 +33,6 @@ describe('workflow direct Page registration', () => {
     );
     mocks.leaveFactory.mockImplementation(() =>
       createControllerDefinition('leave', mocks.leaveOnLoad),
-    );
-    mocks.swapFactory.mockImplementation(() =>
-      createControllerDefinition('swap', mocks.swapOnLoad),
     );
   });
 
@@ -60,12 +52,6 @@ describe('workflow direct Page registration', () => {
       importPath: '../src/subpackages/workflows/pages/leave/index.ts',
       onLoad: 'leaveOnLoad',
       workflow: 'leave',
-    },
-    {
-      factory: 'swapFactory',
-      importPath: '../src/subpackages/workflows/pages/swap/index.ts',
-      onLoad: 'swapOnLoad',
-      workflow: 'swap',
     },
   ])('adapts the $importPath controller definition directly onto Page', async (testCase) => {
     await import(testCase.importPath);
@@ -93,7 +79,7 @@ describe('workflow direct Page registration', () => {
     }
   });
 
-  it.each(['duty', 'leave', 'swap'])(
+  it.each(['duty', 'leave'])(
     'renders %s without injecting the workflow panel component',
     (workflow) => {
       const root = `src/subpackages/workflows/pages/${workflow}`;

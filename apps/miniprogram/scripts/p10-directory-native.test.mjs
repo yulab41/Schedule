@@ -11,9 +11,8 @@ function read(relativePath) {
 }
 
 describe('P10 native directory parity', () => {
-  it('registers the directory route and member-accessible workbench destination', () => {
+  it('keeps the directory embedded in the member-accessible workbench', () => {
     const app = JSON.parse(read('src/app.json'));
-    const page = read('src/subpackages/organization/pages/directory/index.wxml');
     const panel = read('src/subpackages/organization/components/directory-panel/index.wxml');
     const panelController = read(
       'src/subpackages/organization/components/directory-panel/controller.ts',
@@ -27,10 +26,11 @@ describe('P10 native directory parity', () => {
         'pages/scheduling-config/index',
         'pages/qr-visitor/index',
         'pages/platform-accounts/index',
-        'pages/directory/index',
       ],
     });
-    expect(page.trim()).toBe('<include src="../../components/directory-panel/index.wxml" />');
+    expect(app.subpackages.some((item) => item.pages.includes('pages/directory/index'))).toBe(
+      false,
+    );
     expect(panel).toContain('<text>科室</text>');
     expect(panel).toContain('<text>人员</text>');
     expect(panel).toContain('<text class="header-title-main">通讯录</text>');

@@ -1,5 +1,7 @@
 # 用户人工原生验收手册
 
+> 以下 P1 基础控件/手势探针清单是历史阶段记录。当前正式包不注册 `pages/index/index`、`pages/gesture-probe/index` 或测试工具页，也没有“更多 → 测试工具”入口；源码与测试仍保留。当前验收请使用 [小米 14 体验版验收协议](../../../../docs/audit/XIAOMI14_TEST_PROTOCOL.md)，从登录、工作台五标签、访客及主要业务分包进入。
+
 ## 决策与边界
 
 P1 及后续阶段不使用 MiniTest/Minium 云测。原生验收由用户在实体 Android 微信客户端完成；用户反馈“通过”即打开下一阶段。LLM 可以使用本地微信开发者工具的 CLI/MCP 做编译、模拟器、自动化、截图和预览，但这些结果不构成实体设备原生验收。
@@ -12,7 +14,7 @@ Storybook、静态构建和 `miniprogram-simulate` 负责开发期快速回归�
 
 1. staging/production `src → dist` 构建、类型检查、源码/产物边界、Worklet、包体和确定性门禁通过。
 2. `miniprogram-simulate` 与相关组件/页面测试通过。
-3. 当前待测 commit、四条测试路由和已知限制已写入 `docs/project-status.md`。
+3. 当前待测 commit、正式业务路由和已知限制已写入 `docs/project-status.md`。
 4. 不要求用户提供 AppSecret、上传私钥、token 或任何云测配置。
 
 ## 用户准备
@@ -21,8 +23,8 @@ Storybook、静态构建和 `miniprogram-simulate` 负责开发期快速回归�
 2. 打开项目 `E:\AItools\Schedule\apps\miniprogram`；不要直接打开 `dist`，`project.config.json` 已把 `miniprogramRoot` 指向 `dist/`。
 3. 点击“编译”（用户人工，或由 Agent 调用开发者工具）。若 GUI 显示旧内容，先关闭项目再重新打开后编译。
 4. 先核对页面右上角代码版本：本地编译必须显示 `local@Git短提交`，体验版必须显示本轮公布的上传版本与提交；不一致时停止测试并重新进入最新体验版。
-5. 默认只需编译基础控件页，滚动到最下方“人工测试入口”，即可在模拟器和用户 Android 中依次进入月历、7×7 与 20×30。系统返回操作会回到入口。
-6. 如果某个页面无法从入口打开，可用“添加编译模式”按下表直接打开该独立页面作诊断。
+5. 当前从登录页进入工作台，按 [小米 14 协议](../../../../docs/audit/XIAOMI14_TEST_PROTOCOL.md)测试；下面的 P1 编译模式只供复核历史记录，不适用于当前上传包。
+6. 不要在当前正式构建中添加已移除的诊断路由作为编译模式。
 
 | 编译模式 | 页面路径                        | query          |
 | -------- | ------------------------------- | -------------- |

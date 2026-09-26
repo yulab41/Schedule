@@ -155,10 +155,7 @@ describe('task A directory presentation', () => {
     expect(template).toContain('scroll-y="{{!filterSheetOpen}}"');
     expect(template).not.toContain('directorySheetGesture');
     expect(read(`${panelPath}/controller.ts`)).not.toContain('createFilterSheetStyle');
-    for (const configPath of [
-      `${panelPath}/index.json`,
-      'subpackages/organization/pages/directory/index.json',
-    ]) {
+    for (const configPath of [`${panelPath}/index.json`]) {
       expect(JSON.parse(read(configPath)).usingComponents['ui-sheet']).toBe(
         '/components/ui/ui-sheet/index',
       );

@@ -111,22 +111,17 @@ describe('Mini workbench Web-parity navigation', () => {
       '二维码与访客',
       '访客访问',
       '平台账号',
-      '测试与诊断',
-      '测试工具',
     ]);
     expect(more).not.toContain('院内通讯录');
-    expect(more).toContain('wx:if="{{testCenterEnabled}}"');
+    expect(more).not.toContain('测试工具');
     expect(more).not.toContain('toolAccess.testCenter');
     expect(source).toContain("'/subpackages/organization/pages/group-settings/index'");
     expect(source).toContain("'/subpackages/workflows/pages/leave/index'");
     expect(source).toContain("'/subpackages/workflows/pages/duty/index'");
-    expect(source).toContain("'/subpackages/diagnostics/pages/test-tools/index'");
-    expect(source).toContain('testCenterEnabled: false');
-    expect(source).toContain('refreshDiagnosticsAccess()');
-    expect(source).toContain('subscribeDiagnosticsPermission');
+    expect(source).not.toContain("'/subpackages/diagnostics/pages/test-tools/index'");
   });
 
-  it('shares directory and profile content between embedded and direct Page hosts', () => {
+  it('retains directory and profile content in embedded workbench hosts', () => {
     const directoryTemplate = read(
       'src/subpackages/organization/components/directory-panel/index.wxml',
     );
@@ -143,11 +138,8 @@ describe('Mini workbench Web-parity navigation', () => {
     expect(existsSync(path.join(profileComponentRoot, 'controller.ts'))).toBe(true);
     expect(existsSync(path.join(profileComponentRoot, 'index.ts'))).toBe(true);
     expect(existsSync(path.join(profileWorkspaceRoot, 'index.ts'))).toBe(true);
-    expect(read('src/pages/profile/index.wxml').trim()).toBe(
-      '<include src="../../components/profile-panel/index.wxml" />',
-    );
-    expect(read('src/pages/profile/index.wxss')).toContain(
-      "@import '../../components/profile-panel/index.wxss';",
+    expect(read('src/components/profile-workspace/index.wxml')).toContain(
+      '<include src="../profile-panel/index.wxml" />',
     );
     expect(read('src/components/profile-panel/index.wxml')).toContain('wx:if="{{!embedded}}"');
     expect(read('src/components/profile-panel/index.ts')).toContain("triggerEvent?.('panelready')");

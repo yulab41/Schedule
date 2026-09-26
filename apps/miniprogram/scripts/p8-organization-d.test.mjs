@@ -24,7 +24,6 @@ describe('P8-D native QR and visitor access', () => {
         'pages/scheduling-config/index',
         'pages/qr-visitor/index',
         'pages/platform-accounts/index',
-        'pages/directory/index',
       ],
     });
     expect(app.pages).not.toContain('pages/invite/invite');

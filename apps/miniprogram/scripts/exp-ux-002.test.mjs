@@ -72,7 +72,7 @@ describe('EXP-UX-002 workflow sheet contracts', () => {
   });
 
   it('keeps every workflow direct Page manifest aligned with included shared sheets', () => {
-    for (const workflow of ['leave', 'swap', 'duty']) {
+    for (const workflow of ['leave', 'duty']) {
       const pageConfig = readJson(`src/subpackages/workflows/pages/${workflow}/index.json`);
       expect(pageConfig.usingComponents).toMatchObject({
         'ui-sheet': sharedSheetPath,

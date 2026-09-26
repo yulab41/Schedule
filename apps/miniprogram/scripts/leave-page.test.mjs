@@ -30,7 +30,7 @@ describe('P7 native leave workflow page', () => {
     );
 
     expect(appJson.subpackages).toContainEqual({
-      pages: ['pages/leave/index', 'pages/swap/index', 'pages/duty/index'],
+      pages: ['pages/leave/index', 'pages/duty/index'],
       root: 'subpackages/workflows',
     });
     expect(workbench).toContain('bindtap="handleOpenLeave"');

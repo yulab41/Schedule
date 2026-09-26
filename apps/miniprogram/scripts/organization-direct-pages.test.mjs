@@ -7,10 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const groupId = '11111111-1111-4111-8111-111111111111';
 const mocks = vi.hoisted(() => ({
-  directoryAttached: vi.fn(),
-  directoryDetached: vi.fn(),
-  directoryFactory: vi.fn(),
-  directoryHandleBack: vi.fn(),
   groupFactory: vi.fn(),
   groupHandleBack: vi.fn(),
   groupOnLoad: vi.fn(),
@@ -26,10 +22,6 @@ const mocks = vi.hoisted(() => ({
   schedulingHandleBack: vi.fn(),
   schedulingHandleRetry: vi.fn(),
   schedulingHandleSaveRole: vi.fn(),
-}));
-
-vi.mock('../src/subpackages/organization/components/directory-panel/controller.ts', () => ({
-  createDirectoryPanelControllerDefinition: mocks.directoryFactory,
 }));
 
 vi.mock('../src/subpackages/organization/components/group-settings-panel/controller.ts', () => ({
@@ -57,17 +49,6 @@ describe('organization direct Page registration', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubGlobal('Page', vi.fn());
-    mocks.directoryFactory.mockReturnValue({
-      data: { directoryKind: 'internal', groupId: '', state: 'loading' },
-      lifetimes: {
-        attached: mocks.directoryAttached,
-        detached: mocks.directoryDetached,
-      },
-      methods: {
-        ...createHandlerMethods('directory-panel'),
-        handleBack: mocks.directoryHandleBack,
-      },
-    });
     mocks.groupFactory.mockReturnValue({
       data: { embedded: false, state: 'loading' },
       _loadSerial: 0,
@@ -107,26 +88,6 @@ describe('organization direct Page registration', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-  });
-
-  it('mounts the directory controller directly and preserves attached/detached receivers', async () => {
-    await import('../src/subpackages/organization/pages/directory/index.ts');
-
-    const definition = globalThis.Page.mock.calls[0][0];
-    const instance = { data: { ...definition.data }, setData: vi.fn() };
-    definition.onLoad.call(instance, { groupId: encodeURIComponent(groupId) });
-
-    expect(instance.properties).toEqual({
-      active: true,
-      directoryKind: 'internal',
-      embedded: false,
-      groupId,
-    });
-    expect(mocks.directoryAttached.mock.instances[0]).toBe(instance);
-    definition.handleBack.call(instance);
-    expect(mocks.directoryHandleBack.mock.instances[0]).toBe(instance);
-    definition.onUnload.call(instance);
-    expect(mocks.directoryDetached.mock.instances[0]).toBe(instance);
   });
 
   it('restores the group settings Page controller while retaining embedded=false', async () => {
@@ -200,16 +161,6 @@ describe('organization direct Page registration', () => {
   it.each([
     {
       components: {
-        'directory-entry-card': '/subpackages/organization/components/directory-entry-card/index',
-        'ui-alert': '/components/ui/ui-alert/index',
-        'ui-button': '/components/ui/ui-button/index',
-        'ui-loading': '/components/ui/ui-loading/index',
-      },
-      page: 'directory',
-      panel: 'directory-panel',
-    },
-    {
-      components: {
         'ui-alert': '/components/ui/ui-alert/index',
         'ui-loading': '/components/ui/ui-loading/index',
       },
@@ -277,10 +228,6 @@ describe('organization direct Page registration', () => {
   });
 
   it.each([
-    {
-      importPath: '../src/subpackages/organization/pages/directory/index.ts',
-      panel: 'directory-panel',
-    },
     {
       importPath: '../src/subpackages/organization/pages/group-settings/index.ts',
       panel: 'group-settings-panel',

@@ -54,11 +54,7 @@ describe('P7 native duty-adjustment workflow page', () => {
       'utf8',
     );
 
-    expect(workflowPackage.pages).toEqual([
-      'pages/leave/index',
-      'pages/swap/index',
-      'pages/duty/index',
-    ]);
+    expect(workflowPackage.pages).toEqual(['pages/leave/index', 'pages/duty/index']);
     expect(workbench).toContain('bindtap="handleOpenDuty"');
     expect(workbench).toContain('<text>加扣班</text>');
     expect(workbench.match(/\{\{workflowPanelsMounted \? '' : 'is-disabled'\}\}/gu)).toHaveLength(

@@ -182,10 +182,9 @@ describe('controlled root-layer workflow toast', () => {
       expect(template).toContain('class="native-alert is-danger"');
       expect(template).toContain('{{errorMessage}}');
       expect(read(`${root}/controller.ts`)).toContain('shellHeaderHeight: headerHeight');
-      for (const configPath of [
-        `${root}/index.json`,
-        `subpackages/workflows/pages/${kind}/index.json`,
-      ]) {
+      const configs = [`${root}/index.json`];
+      if (kind !== 'swap') configs.push(`subpackages/workflows/pages/${kind}/index.json`);
+      for (const configPath of configs) {
         expect(JSON.parse(read(configPath)).usingComponents['ui-toast']).toBe(
           '/components/ui/ui-toast/index',
         );

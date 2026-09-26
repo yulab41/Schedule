@@ -38,11 +38,6 @@ import {
   type ShiftCardExpansion,
 } from '../../features/workbench/shift-card-expansion.js';
 import {
-  canUseDiagnostics,
-  refreshDiagnosticsAccess,
-  subscribeDiagnosticsPermission,
-} from '../../platform/diagnostics-access.js';
-import {
   ClientCapabilityDisabledError,
   getClientCapabilitySnapshot,
   requireClientCapability,
@@ -252,7 +247,6 @@ interface WorkbenchPageData extends AccountSecurityData {
   readonly shiftEventState: ShiftEventState;
   readonly state: WorkbenchState;
   readonly accountSecurityReady: boolean;
-  readonly testCenterEnabled: boolean;
   readonly viewMode: WorkbenchView;
   readonly weekPanels: WorkbenchViewModel['weekPanels'];
   readonly weekStart: string;
@@ -280,8 +274,6 @@ interface WorkbenchPageInstance {
   _dutyTimer: ReturnType<typeof setTimeout> | undefined;
   _businessDate: string;
   _businessDateTimer: ReturnType<typeof setTimeout> | undefined;
-  _diagnosticsUnsubscribe: (() => void) | undefined;
-  _diagnosticsSerial: number;
   _notificationPollTimer: unknown;
   _performanceDiagnosticsEnabled: boolean;
   _performanceProbe: NativePerformanceProbe | undefined;
@@ -437,7 +429,6 @@ Page({
     shiftEventState: 'closed' as ShiftEventState,
     state: 'loading' as WorkbenchState,
     accountSecurityReady: false,
-    testCenterEnabled: false,
     viewMode: 'month' as const,
     weekPanels: [],
     weekStart: getWeekStartDate(today),
@@ -514,8 +505,6 @@ Page({
   _notificationPollTimer: undefined,
   _performanceDiagnosticsEnabled: false,
   _performanceProbe: undefined,
-  _diagnosticsUnsubscribe: undefined,
-  _diagnosticsSerial: 0,
   _businessDate: today,
   _businessDateTimer: undefined,
   _groupMonthShiftTypeId: undefined,
@@ -536,15 +525,7 @@ Page({
     this._performanceDiagnosticsEnabled = options.performance === '1';
     this._performanceProbe = createNativePerformanceProbe();
     this._performanceProbe.start('core-ready');
-    this._diagnosticsUnsubscribe = subscribeDiagnosticsPermission((allowed) => {
-      // Retain an existing section while covered by another Page so scroll height stays stable.
-      // Permission revocation still removes it immediately; hidden pages cannot acquire a new one.
-      this.setData({
-        testCenterEnabled:
-          (this.isVisible || this.data.testCenterEnabled) && allowed && canUseDiagnostics(),
-      });
-    });
-    this.setData({ ...createShellLayoutPatch(), testCenterEnabled: false });
+    this.setData(createShellLayoutPatch());
     void loadWorkbenchWithCapability(this);
   },
 
@@ -567,13 +548,6 @@ Page({
     refreshView(this);
     syncBusinessDate(this);
     scheduleBusinessDateRefresh(this);
-    const diagnosticsSerial = ++this._diagnosticsSerial;
-    this.setData({ testCenterEnabled: canUseDiagnostics() });
-    void refreshDiagnosticsAccess().then((allowed) => {
-      if (this.isVisible && diagnosticsSerial === this._diagnosticsSerial) {
-        this.setData({ testCenterEnabled: allowed && canUseDiagnostics() });
-      }
-    });
     startNotificationPolling(this);
     const isInitialShow = !this.hasShown;
     this.hasShown = true;
@@ -591,7 +565,6 @@ Page({
     stopDutyRefresh(this);
     if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
     stopBusinessDateRefresh(this);
-    this._diagnosticsSerial += 1;
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
     this.requestSerial += 1;
@@ -612,9 +585,6 @@ Page({
     stopDutyRefresh(this);
     if (this.data.currentGroupRoleKind === 'guest') resetCalendarContext(this);
     stopBusinessDateRefresh(this);
-    this._diagnosticsSerial += 1;
-    this._diagnosticsUnsubscribe?.();
-    this._diagnosticsUnsubscribe = undefined;
     stopNotificationPolling(this);
     this.notificationRequestSerial += 1;
     this.requestSerial += 1;
@@ -1153,28 +1123,6 @@ Page({
 
   handleOpenExports(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, 'exports', '/subpackages/insights/pages/exports/index');
-  },
-
-  async handleOpenTestCenter(this: WorkbenchPageInstance): Promise<void> {
-    const ownerId = getStoredWechatProfile()?.id;
-    const generation = getWechatSessionGeneration();
-    const serial = this._diagnosticsSerial;
-    const allowed = await refreshDiagnosticsAccess();
-    if (
-      !this.isVisible ||
-      serial !== this._diagnosticsSerial ||
-      ownerId !== getStoredWechatProfile()?.id ||
-      generation !== getWechatSessionGeneration()
-    )
-      return;
-    if (!allowed || !canUseDiagnostics()) {
-      announceToolNavigationFailure(this, '当前账号无权使用测试工具。');
-      return;
-    }
-    wx.navigateTo({
-      fail: () => announceToolNavigationFailure(this, '测试工具暂时无法打开，请稍后重试。'),
-      url: '/subpackages/diagnostics/pages/test-tools/index',
-    });
   },
 
   handleNotification(this: WorkbenchPageInstance): void {

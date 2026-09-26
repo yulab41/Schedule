@@ -36,7 +36,6 @@ describe('Mini Page registration boundary', () => {
 
   it('keeps fixed Page/controller telemetry pairs for every migrated risk boundary', () => {
     const boundaries = [
-      ['organization', 'directory', 'directory-panel/controller.ts', 'controller-attached'],
       ['organization', 'group-settings', 'group-settings-panel/controller.ts', 'controller-onload'],
       [
         'organization',
@@ -53,7 +52,6 @@ describe('Mini Page registration boundary', () => {
       ],
       ['workflows', 'duty', 'controller-host.ts', 'controller-onload'],
       ['workflows', 'leave', 'controller-host.ts', 'controller-onload'],
-      ['workflows', 'swap', 'controller-host.ts', 'controller-onload'],
     ];
 
     for (const [subpackage, page, controllerPath, controllerStage] of boundaries) {

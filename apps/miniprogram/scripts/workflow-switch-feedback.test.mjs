@@ -160,10 +160,9 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
         expect(control).toContain('color="#1F5AA6"');
         expect(control).toContain('label=');
       }
-      for (const config of [
-        `${base}index.json`,
-        `../src/subpackages/workflows/pages/${kind}/index.json`,
-      ]) {
+      const configs = [`${base}index.json`];
+      if (kind !== 'swap') configs.push(`../src/subpackages/workflows/pages/${kind}/index.json`);
+      for (const config of configs) {
         expect(
           JSON.parse(readFileSync(new URL(config, import.meta.url), 'utf8')).usingComponents[
             'ui-switch'

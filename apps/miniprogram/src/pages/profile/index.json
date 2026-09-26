@@ -1,8 +1,0 @@
-{
-  "disableScroll": true,
-  "navigationStyle": "custom",
-  "renderer": "webview",
-  "usingComponents": {
-    "ui-sheet": "/components/ui/ui-sheet/index"
-  }
-}
