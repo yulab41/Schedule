@@ -31,4 +31,10 @@
 
 动态分配并上传的正式体验版是 `0.1.0-p10.20260926.202@5b12c724`，说明 `Mini package slim 5b12c72`，production 干净构建，Manifest `bdb22991a43ecdf3d9c5f22064a8125a244564d6e4c2e9a688fb6ccddabe61f7`。微信 CI 报告上传 ZIP 为 2,360,179 B；此前没有同工具链、同参数的基线微信 CI ZIP，因此不能据此计算实际 ZIP 减量。该次上传的原始 `dist` 为 4,326,154 B、主包 1,616,076 B，均只比同口径比较候选多几十字节。远端 tag 指向同一完整 SHA，ignored receipt 和 Manifest 匹配；构建后的 330 个文件再次通过审计，诊断页、专用模块和已删除独立包装页均不存在。
 
-当前未连接生产服务器，未做备份、部署、版本放行、提审或正式发布。生产允许版本清单属于单独的生产操作，本轮上传不等于服务端放行。小米 14 正常业务验收需要同一体验版的版本/SHA、WebView、基础库和微信版本证据。
+## 生产部署与版本放行
+
+用户在后续消息明确授权“部署并放行”。操作前实时读取服务器 current-release 和 Manifest，前驱为 `833a11e462a2526df6f117b94b6afb77d19a9f4c`、schema 64；候选 `8ab6663bdbaa1170a4862324f5007cf11d7054ed` 为其后继，最新体验版 `.202@5b12c724` 也是候选祖先。正式打包器命中经哈希校验的 build/dist/API 缓存，候选与线上 21 项应用、控制面和 schema 哈希均一致，rollbackCandidate 为实时前驱。
+
+部署前的生产加密备份 `e465caa7-6d6c-491d-b652-adc9d9bde087` 覆盖 54 表、315,123 行，文件 131,224,032 B；服务器备份卷文件的大小和 SHA-256 `06697977f6d980674ba41b2a5f0ed1e58b30fe0901045ce11791c0ec1b15102a` 与备份记录一致。上传 Manifest 后传输 SHA-256 一致；可信 `schedule-ecs-reuse-release` 在完整 verifier 前后通过的前提下，无停机将 production release 切到 `8ab6663b`，未迁移数据库或重建容器。
+
+受信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260926.202` 只追加一个版本，原有版本保留；API/Web 按控制要求重建，健康等待处理了一次短暂 TLS EOF。独立 `verify`、完整 `ecs-verify.sh` 与正式域名 TLS 探针通过：`.202=200`、`.201=200`、动态未知版本 `=426`。本轮交付文档检查点以相同应用哈希再做生产备份和元数据同步，使服务器 release ID 对齐最终 Git 检查点；无应用代码变化。未提审、未正式发布。小米 14 正常业务验收仍需要同一体验版的版本/SHA、WebView、基础库和微信版本证据。
