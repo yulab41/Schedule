@@ -3220,4 +3220,4 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 
 - 引入点：`git log -S 'e0f48e5b07add7c1cd4b61d64ca2860d6327196c' -- apps/miniprogram/release/trial-lineage-policy.v1.json` 与 `git blame -L 44,49` 均定位旧工作台 blob 证明到 `a3eccb49`。本轮 `e6ef714b` 删除测试工具入口后，工作台 blob 变为 `951cf5f6`；首次上传在版本分配前被 `5285dd1` 门禁拒绝，未占用版本。
 - 语义核对：工作台 diff 仅删除测试工具权限订阅、相关状态和更多入口处理器；共用图标文件及工作台日历导航、swiper、定位和滚动语句未改。新增真实 HEAD blob 约束测试先红后绿，更新精确证明，不放宽血缘门禁；17 项血缘测试与账本审计通过。
-- 运行/浏览器验证：`pnpm smoke:check-core` 判定未涉及 Web 核心链路；Mini 全量及 production verify 结果见[轮次记录](../audit/mini-package-slim-20260926.md)。本轮体验版上传和小米 14 验收仍待同构建结果。
+- 运行/浏览器验证：`pnpm smoke:check-core` 判定未涉及 Web 核心链路；Mini 全量及 production verify 结果见[轮次记录](../audit/mini-package-slim-20260926.md)。`.202@5b12c724` 体验版已上传，Manifest/receipt/tag 一致，正式产物内容审计通过；小米 14 同构建验收仍待证据。
