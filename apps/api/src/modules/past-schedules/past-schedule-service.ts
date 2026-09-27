@@ -39,7 +39,7 @@ import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
-import { visibleMiniBackfillRecords } from './mini-backfill-cleanup.js';
+import { visibleBackfillRecords } from './mini-backfill-cleanup.js';
 
 interface BackfillMutationResult {
   readonly assignment: typeof shiftAssignments.$inferSelect;
@@ -804,7 +804,6 @@ export class PastScheduleService {
   public async listBackfillRecords(
     identity: AuthenticatedIdentity,
     groupId: string,
-    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly PastScheduleBackfillRecord[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
@@ -836,7 +835,7 @@ export class PastScheduleService {
             isNull(shiftAssignments.deletedAt),
             lt(shiftAssignments.businessDate, today),
             sql`${shiftAssignments.backfillAt} is not null`,
-            miniprogram ? visibleMiniBackfillRecords() : undefined,
+            visibleBackfillRecords(),
           ),
         )
         .orderBy(desc(shiftAssignments.backfillAt))

@@ -1,6 +1,12 @@
 # Project Status
 
-## 当前批次：历史列表回归与过月排班锁定（生产已交付，待小米14复核）
+## 当前批次：API统一历史过滤（已实现，正在验证交付）
+
+- 用户追加要求不依赖小程序标识。六类工作流、群组事件时间线、最近补录在数据库查询中统一过滤；删除客户端分支和可选Mini开关。网页同类列表同步过滤，单班次审计/事件详情与原始数据保留。
+- 基线 `6899cd06`，warm/REUSE_ONLY，无install；新范围回归旧代码7失败，API类型/lint/build/core smoke通过，真实数据库126通过/1既有归档重发布失败（新范围7项全部通过），生产回读见[记录](audit/history-api-policy-20260927.md)。不重复清理既有306事件/3162补录标记，不改Mini包，继续`.209`。
+- 检查点消息 `fix(api): enforce history visibility for all clients`。当前下一步：完成测试、提交推送、备份部署、三类请求头一致性验证；失败停止定位。成功后唯一下一任务为`.209`和网页同页复核，真机待验证，不提审/正式发布。
+
+## 上一批次：历史列表回归与过月排班锁定（生产已交付，待小米14复核）
 
 - 应用 `abab2fc3`（`fix(api): honor Mini history visibility and lock past releases`）已推送并部署，修复密码登录绕过六类列表/事件隐藏、最近补录一次性清理及过月排班锁定。独占 warm/REUSE_ONLY，无 install。
 - 新增回归最终7/7、Mini页面消费者36通过；API相关9文件155通过/1既有归档重发布断言失败（原版已复现）。API类型/lint/build、任务格式/core smoke、正式打包及完整生产verifier通过。详见[轮次记录](audit/mini-history-regression-20260927.md)。

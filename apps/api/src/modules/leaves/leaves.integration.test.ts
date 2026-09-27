@@ -89,7 +89,7 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     }
   });
 
-  it('hides closed past-month leave while retaining current, cross-month and pending leave in Mini lists', async () => {
+  it('hides closed past-month leave while retaining current, cross-month and pending leave for every client', async () => {
     const context = await seedPublishedSchedule();
     const response = await submitLeave('a-token', context.groupId, {
       startsAt: '2026-09-01T00:00:00.000Z',
@@ -114,26 +114,28 @@ describeWithDatabase('leave approval and guarded restoration', () => {
       );
       expect(await service.listMine(mini, context.groupId)).toEqual([]);
       expect(await service.listForApproval(owner, context.groupId)).toEqual([]);
-      for (const [path, token] of [
-        ['leave-requests', 'a-token'],
-        ['leave-requests/approvals', 'owner-token'],
-      ]) {
-        const result = await app.inject({
-          method: 'GET',
-          url: `/groups/${context.groupId}/${path}`,
-          headers: {
-            authorization: `Bearer ${token}`,
-            'x-schedule-client-platform': 'miniprogram',
-          },
-        });
-        expect(result.statusCode).toBe(200);
-        expect(result.json()).toEqual([]);
+      for (const platform of [undefined, 'miniprogram', 'web']) {
+        for (const [path, token] of [
+          ['leave-requests', 'a-token'],
+          ['leave-requests/approvals', 'owner-token'],
+        ]) {
+          const result = await app.inject({
+            method: 'GET',
+            url: `/groups/${context.groupId}/${path}`,
+            headers: {
+              authorization: `Bearer ${token}`,
+              ...(platform === undefined ? {} : { 'x-schedule-client-platform': platform }),
+            },
+          });
+          expect(result.statusCode).toBe(200);
+          expect(result.json()).toEqual([]);
+        }
       }
       expect(
         (await service.listMine({ cloudbaseUid: 'cloudbase-a' }, context.groupId)).map(
           (row) => row.id,
         ),
-      ).toContain(id);
+      ).not.toContain(id);
     }
     await client.database.execute(
       sql`UPDATE leave_requests SET ends_at = '2026-09-30 16:00:00.001' WHERE id = ${id}`,

@@ -1,4 +1,3 @@
-import { isMiniprogramRead } from '../../plugins/client-read-context.js';
 import type {
   ApproveLeaveRequestInput,
   CreateLeaveRequestInput,
@@ -71,11 +70,7 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
   );
 
   app.get('/groups/:groupId/leave-requests', { preHandler: app.authenticate }, (request) =>
-    leaveService.listMine(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      isMiniprogramRead(request),
-    ),
+    leaveService.listMine(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
   app.post(
@@ -93,11 +88,7 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
     '/groups/:groupId/leave-requests/approvals',
     { preHandler: app.authenticate },
     (request) =>
-      leaveService.listForApproval(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        isMiniprogramRead(request),
-      ),
+      leaveService.listForApproval(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
   app.post(

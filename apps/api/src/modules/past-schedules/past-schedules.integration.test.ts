@@ -105,24 +105,22 @@ describeWithDatabase('past schedule backfill', () => {
     }
   });
 
-  it('hides only the marked backfill snapshot from Mini recent records and preserves future updates', async () => {
+  it('hides only the marked backfill snapshot from recent records for every client and preserves future updates', async () => {
     expect(
       (await backfillBatch('owner-token', { items: [batchItem(1)] }, randomUUID())).statusCode,
     ).toBe(200);
     const [assignment] = await client.database.select().from(shiftAssignments);
     if (!assignment?.backfillAt) throw new Error('Expected a backfilled assignment');
-    await client.database
-      .insert(auditLogs)
-      .values({
-        id: randomUUID(),
-        groupId,
-        action: 'miniprogram_backfill_record_hidden',
-        operationId: randomUUID(),
-        outcome: 'success',
-        targetType: 'shift_assignment',
-        targetId: assignment.id,
-        metadata: { backfillAtMillis: assignment.backfillAt.valueOf() },
-      });
+    await client.database.insert(auditLogs).values({
+      id: randomUUID(),
+      groupId,
+      action: 'miniprogram_backfill_record_hidden',
+      operationId: randomUUID(),
+      outcome: 'success',
+      targetType: 'shift_assignment',
+      targetId: assignment.id,
+      metadata: { backfillAtMillis: assignment.backfillAt.valueOf() },
+    });
     const headers = {
       authorization: 'Bearer owner-token',
       'x-schedule-client-platform': 'miniprogram',
@@ -131,7 +129,16 @@ describeWithDatabase('past schedule backfill', () => {
     const mini = await app.inject({ method: 'GET', url, headers });
     expect(mini.statusCode).toBe(200);
     expect(mini.json()).toEqual([]);
-    expect((await listBackfillRecords('owner-token')).json()).toHaveLength(1);
+    expect((await listBackfillRecords('owner-token')).json()).toEqual([]);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url,
+          headers: { ...headers, 'x-schedule-client-platform': 'web' },
+        })
+      ).json(),
+    ).toEqual([]);
     expect((await client.database.select().from(shiftAssignments))[0]).toEqual(assignment);
     vi.setSystemTime(new Date('2026-08-26T05:00:00Z'));
     expect(

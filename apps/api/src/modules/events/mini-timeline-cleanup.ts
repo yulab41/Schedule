@@ -11,7 +11,7 @@ import { and, asc, eq, isNotNull, lt, notInArray, or } from 'drizzle-orm';
 
 export const miniTimelineHiddenAction = 'miniprogram_event_hidden';
 
-export function visibleMiniTimelineEvents(transaction: DatabaseTransaction, groupId?: string) {
+export function visibleTimelineEvents(transaction: DatabaseTransaction, groupId?: string) {
   return notInArray(
     scheduleEvents.id,
     transaction
@@ -97,7 +97,7 @@ export class MiniTimelineCleanup {
               ? eq(scheduleEvents.eventType, 'schedule_backfill_completed')
               : undefined,
           ),
-          visibleMiniTimelineEvents(transaction, input.groupId),
+          visibleTimelineEvents(transaction, input.groupId),
         ),
       )
       .orderBy(asc(scheduleEvents.id));

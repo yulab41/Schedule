@@ -13,7 +13,7 @@ import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 export const miniBackfillHiddenAction = 'miniprogram_backfill_record_hidden';
 
 // Match the recorded update, not the assignment forever. A subsequent backfill is visible.
-export function visibleMiniBackfillRecords() {
+export function visibleBackfillRecords() {
   return sql`NOT EXISTS (SELECT 1 FROM ${auditLogs}
     WHERE ${auditLogs.action} = ${miniBackfillHiddenAction}
       AND ${auditLogs.targetType} = 'shift_assignment'
@@ -84,7 +84,7 @@ export class MiniBackfillCleanup {
           isNull(schedulePeriods.deletedAt),
           isNull(shiftAssignments.deletedAt),
           isNotNull(shiftAssignments.backfillAt),
-          visibleMiniBackfillRecords(),
+          visibleBackfillRecords(),
         ),
       )
       .orderBy(asc(shiftAssignments.id));

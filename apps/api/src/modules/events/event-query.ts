@@ -30,7 +30,7 @@ import {
 } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
-import { visibleMiniTimelineEvents } from './mini-timeline-cleanup.js';
+import { visibleTimelineEvents } from './mini-timeline-cleanup.js';
 
 const defaultPageSize = 50;
 const maximumPageSize = 100;
@@ -111,7 +111,6 @@ export class EventQuery {
   public async listInTransaction(
     transaction: DatabaseTransaction,
     query: ScheduleEventQuery,
-    options: { readonly miniprogramTimeline?: boolean } = {},
   ): Promise<ScheduleEventPage> {
     const pageSize = getPageSize(query.pageSize);
     const cursor = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
@@ -128,8 +127,10 @@ export class EventQuery {
 
     const conditions = [eq(scheduleEvents.groupId, query.groupId)];
 
-    if (options.miniprogramTimeline === true) {
-      conditions.push(visibleMiniTimelineEvents(transaction, query.groupId));
+    // Group timelines always honor stored visibility, independent of client headers.
+    // Per-shift audit queries and event details retain their original records.
+    if (query.shiftId === undefined) {
+      conditions.push(visibleTimelineEvents(transaction, query.groupId));
     }
 
     if (from !== undefined) {

@@ -61,7 +61,7 @@ describeWithDatabase('immutable schedule events and security audits', () => {
     await client.close();
   });
 
-  it('hides a frozen set from the Mini timeline once without changing audit events or future backdated inserts', async () => {
+  it('hides a frozen set from the group timeline once without changing audit events or future backdated inserts', async () => {
     const writer = new EventWriter();
     const before = new Date('2026-09-23T16:00:00.000Z');
     const oldId = await withTransaction(client, (tx) =>
@@ -100,15 +100,11 @@ describeWithDatabase('immutable schedule events and security audits', () => {
     expect(await client.database.select().from(scheduleEvents)).toEqual(originalRows);
     const query = new EventQuery(client);
     const mini = await withTransaction(client, (tx) =>
-      query.listInTransaction(
-        tx,
-        { groupId: primaryGroupId, pageSize: 1 },
-        { miniprogramTimeline: true },
-      ),
+      query.listInTransaction(tx, { groupId: primaryGroupId, pageSize: 1 }),
     );
     expect(mini.events.map((event) => event.id)).toEqual([boundaryId]);
     expect(mini.nextCursor).toBeUndefined();
-    expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(2);
+    expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(1);
     expect((await query.getDetail(primaryGroupId, oldId)).event.id).toBe(oldId);
     expect((await cleanup.preview(input)).count).toBe(0);
     expect((await cleanup.preview({ before, groupId: otherGroupId })).count).toBe(1);
@@ -119,7 +115,7 @@ describeWithDatabase('immutable schedule events and security audits', () => {
       }),
     );
     const later = await withTransaction(client, (tx) =>
-      query.listInTransaction(tx, { groupId: primaryGroupId }, { miniprogramTimeline: true }),
+      query.listInTransaction(tx, { groupId: primaryGroupId }),
     );
     expect(later.events.map((event) => event.id)).toContain(backdatedId);
     expect(later.events.map((event) => event.id)).not.toContain(oldId);
@@ -149,13 +145,13 @@ describeWithDatabase('immutable schedule events and security audits', () => {
     const futureId = await append('schedule_backfill_completed');
     const query = new EventQuery(client);
     const mini = await withTransaction(client, (tx) =>
-      query.listInTransaction(tx, { groupId: primaryGroupId }, { miniprogramTimeline: true }),
+      query.listInTransaction(tx, { groupId: primaryGroupId }),
     );
     expect(mini.events.map((event) => event.id)).toEqual(
       expect.arrayContaining([recentId, futureId]),
     );
     expect(mini.events.map((event) => event.id)).not.toContain(backfillId);
-    expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(3);
+    expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(2);
   });
 
   it('returns operator names only when requested and retains the legacy response shape', async () => {

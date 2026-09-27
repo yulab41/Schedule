@@ -1,4 +1,3 @@
-import { isMiniprogramRead } from '../../plugins/client-read-context.js';
 import type {
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
@@ -101,22 +100,14 @@ export function registerDutyAdjustmentRoutes(
   );
 
   app.get('/groups/:groupId/duty-adjustments', { preHandler: app.authenticate }, (request) =>
-    dutyAdjustmentService.listMine(
-      getAuthenticatedIdentity(request),
-      parseGroupId(request),
-      isMiniprogramRead(request),
-    ),
+    dutyAdjustmentService.listMine(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
   app.get(
     '/groups/:groupId/duty-adjustments/approvals',
     { preHandler: app.authenticate },
     (request) =>
-      dutyAdjustmentService.listApprovals(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        isMiniprogramRead(request),
-      ),
+      dutyAdjustmentService.listApprovals(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
   app.post(

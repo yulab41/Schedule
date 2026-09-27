@@ -76,7 +76,7 @@ describeWithDatabase('paired duty adjustments', () => {
     }
   });
 
-  it('hides closed past-month duty adjustments only from Mini lists', async () => {
+  it('hides closed past-month duty adjustments for every client', async () => {
     const context = await seedPublishedSchedule();
     const response = await createDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -100,26 +100,28 @@ describeWithDatabase('paired duty adjustments', () => {
       );
       expect(await service.listMine(mini, context.groupId)).toEqual([]);
       expect(await service.listApprovals(owner, context.groupId)).toEqual([]);
-      for (const [path, token] of [
-        ['duty-adjustments', 'a-token'],
-        ['duty-adjustments/approvals', 'owner-token'],
-      ]) {
-        const result = await app.inject({
-          method: 'GET',
-          url: `/groups/${context.groupId}/${path}`,
-          headers: {
-            authorization: `Bearer ${token}`,
-            'x-schedule-client-platform': 'miniprogram',
-          },
-        });
-        expect(result.statusCode).toBe(200);
-        expect(result.json()).toEqual([]);
+      for (const platform of [undefined, 'miniprogram', 'web']) {
+        for (const [path, token] of [
+          ['duty-adjustments', 'a-token'],
+          ['duty-adjustments/approvals', 'owner-token'],
+        ]) {
+          const result = await app.inject({
+            method: 'GET',
+            url: `/groups/${context.groupId}/${path}`,
+            headers: {
+              authorization: `Bearer ${token}`,
+              ...(platform === undefined ? {} : { 'x-schedule-client-platform': platform }),
+            },
+          });
+          expect(result.statusCode).toBe(200);
+          expect(result.json()).toEqual([]);
+        }
       }
       expect(
         (await service.listMine({ cloudbaseUid: 'cloudbase-a' }, context.groupId)).map(
           (row) => row.id,
         ),
-      ).toContain(id);
+      ).not.toContain(id);
     }
     await client.database.execute(
       sql`UPDATE shift_assignments SET business_date = '2026-10-01' WHERE id = ${context.assignments.aSep1.id}`,

@@ -42,7 +42,7 @@ import {
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
-import { miniWorkflowListCondition } from '../workflows/workflow-list-visibility.js';
+import { workflowListCondition } from '../workflows/workflow-list-visibility.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -144,7 +144,6 @@ export class DutyAdjustmentService {
   public async listMine(
     identity: AuthenticatedIdentity,
     groupId: string,
-    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly DutyAdjustmentRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.services.permissionService.requirePermission(
@@ -164,7 +163,7 @@ export class DutyAdjustmentService {
               eq(dutyAdjustments.overtimeMembershipId, authorization.membership.id),
             ),
             isNull(dutyAdjustments.deletedAt),
-            miniWorkflowListCondition(miniprogram, 'duty'),
+            workflowListCondition('duty'),
           ),
         )
         .orderBy(desc(dutyAdjustments.createdAt), desc(dutyAdjustments.id));
@@ -176,7 +175,6 @@ export class DutyAdjustmentService {
   public async listApprovals(
     identity: AuthenticatedIdentity,
     groupId: string,
-    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly DutyAdjustmentRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await this.services.permissionService.requirePermission(
@@ -192,7 +190,7 @@ export class DutyAdjustmentService {
           and(
             eq(dutyAdjustments.groupId, groupId),
             isNull(dutyAdjustments.deletedAt),
-            miniWorkflowListCondition(miniprogram, 'duty'),
+            workflowListCondition('duty'),
           ),
         )
         .orderBy(desc(dutyAdjustments.createdAt), desc(dutyAdjustments.id));

@@ -96,7 +96,7 @@ describeWithDatabase('schedule event center routes', () => {
     ).toBe(400);
   });
 
-  it('applies one-time timeline markers to an actual password login with Mini request headers', async () => {
+  it('applies one-time timeline markers after password login regardless of platform headers', async () => {
     const context = await seedSwapEvents();
     await client.database.execute(
       sql`UPDATE schedule_events SET occurred_at = '2026-09-23 10:00:00' WHERE group_id = ${context.groupId}`,
@@ -147,7 +147,18 @@ describeWithDatabase('schedule event center routes', () => {
         url,
         headers: { authorization: headers.authorization },
       });
-      expect(web.json().events.length).toBeGreaterThan(0);
+      expect(web.json().events).toEqual([]);
+      const spoofed = await passwordApp.inject({
+        method: 'GET',
+        url,
+        headers: { ...headers, 'x-schedule-client-platform': 'web' },
+      });
+      expect(spoofed.statusCode).toBe(200);
+      expect(spoofed.json().events).toEqual([]);
+      expect(
+        (await passwordApp.inject({ method: 'GET', url: `${url}?includeHidden=true`, headers }))
+          .statusCode,
+      ).toBe(400);
       const shift = await passwordApp.inject({
         method: 'GET',
         url: `${url}?shiftId=${context.assignments.aSep1}`,

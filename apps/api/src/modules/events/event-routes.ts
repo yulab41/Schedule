@@ -6,7 +6,6 @@ import { z } from 'zod';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
-import { isMiniprogramRead } from '../../plugins/client-read-context.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
 import { EventQuery } from './event-query.js';
 
@@ -61,16 +60,10 @@ export function registerEventRoutes(
       );
       const query = parseEventListQuery(request.query);
 
-      return eventQuery.listInTransaction(
-        transaction,
-        {
-          ...query,
-          groupId: authorization.group.id,
-        },
-        {
-          miniprogramTimeline: isMiniprogramRead(request) && query.shiftId === undefined,
-        },
-      );
+      return eventQuery.listInTransaction(transaction, {
+        ...query,
+        groupId: authorization.group.id,
+      });
     }),
   );
 

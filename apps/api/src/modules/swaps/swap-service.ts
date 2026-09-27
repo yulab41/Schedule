@@ -43,7 +43,7 @@ import {
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
-import { miniWorkflowListCondition } from '../workflows/workflow-list-visibility.js';
+import { workflowListCondition } from '../workflows/workflow-list-visibility.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -324,7 +324,6 @@ export class SwapService {
   public async listMine(
     identity: AuthenticatedIdentity,
     groupId: string,
-    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly SwapRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.services.permissionService.requirePermission(
@@ -344,7 +343,7 @@ export class SwapService {
               eq(swapRequests.targetMembershipId, authorization.membership.id),
             ),
             isNull(swapRequests.deletedAt),
-            miniWorkflowListCondition(miniprogram, 'swap'),
+            workflowListCondition('swap'),
           ),
         )
         .orderBy(desc(swapRequests.createdAt), desc(swapRequests.id));
@@ -356,7 +355,6 @@ export class SwapService {
   public async listApprovals(
     identity: AuthenticatedIdentity,
     groupId: string,
-    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly SwapRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await this.services.permissionService.requirePermission(
@@ -372,7 +370,7 @@ export class SwapService {
           and(
             eq(swapRequests.groupId, groupId),
             isNull(swapRequests.deletedAt),
-            miniWorkflowListCondition(miniprogram, 'swap'),
+            workflowListCondition('swap'),
           ),
         )
         .orderBy(desc(swapRequests.createdAt), desc(swapRequests.id));
