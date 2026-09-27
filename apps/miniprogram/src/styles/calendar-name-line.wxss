@@ -1,0 +1,25 @@
+/* Static three-character name budget: no measuring component or per-row scaling. */
+.calendar-name-line {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  align-items: center;
+  gap: var(--calendar-name-gap, 1px);
+  white-space: nowrap;
+}
+.calendar-name-line.is-centered {
+  justify-content: center;
+}
+.calendar-name-text {
+  display: block;
+  min-width: 0;
+  max-width: 3em;
+  overflow: hidden;
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar-name-line > text:not(.calendar-name-text) {
+  flex: none;
+}

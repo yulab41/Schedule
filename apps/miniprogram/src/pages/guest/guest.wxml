@@ -236,7 +236,7 @@
             </block>
 
             <block wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'week'}}">
-              <view class="week-calendar" aria-label="周视图">
+              <view class="week-calendar" style="{{calendarNameStyle}}" aria-label="周视图">
                 <view class="calendar-navigation">
                   <view
                     class="calendar-step"
@@ -347,15 +347,15 @@
                             wx:key="key"
                             class="week-duty-item"
                           >
-                            <calendar-fit-line layout="week-name" reference-name="{{duty.name}}" active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name}}"><text class="week-duty-name">{{duty.name}}</text></calendar-fit-line>
+                            <view class="calendar-name-line"><text class="week-duty-name calendar-name-text">{{duty.name}}</text></view>
                             <view wx:if="{{duty.markers.length > 0}}" class="week-duty-badges"
-                              ><calendar-fit-line layout="week-badges" active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{'markers:' + duty.markers}}"><text
+                              ><view class="calendar-name-line"><text
                                 wx:for="{{duty.markers}}"
                                 wx:for-item="marker"
                                 wx:key="*this"
                                 class="week-change-badge"
                                 >{{marker}}</text
-                              ></calendar-fit-line></view
+                              ></view></view
                             >
                           </view>
                         </view>
@@ -627,14 +627,14 @@
                               ></view>
                               <view class="list-duty-copy"
                                 ><view class="list-duty-name-line"
-                                  ><calendar-fit-line layout="{{'list:' + (duty.phone ? 'phone:' : '') + duty.dutyStateLabel}}" active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name + '|' + duty.markers}}"><text class="list-duty-name">{{duty.name}}</text
+                                  ><view class="calendar-name-line"><text class="list-duty-name calendar-name-text">{{duty.name}}</text
                                   ><text
                                     wx:for="{{duty.markers}}"
                                     wx:for-item="marker"
                                     wx:key="*this"
                                     class="list-change-badge"
                                     >{{marker}}</text
-                                  ></calendar-fit-line></view
+                                  ></view></view
                                 ><text class="list-duty-details">{{duty.details}}</text></view
                               ><text
                                 wx:if="{{duty.dutyState}}"

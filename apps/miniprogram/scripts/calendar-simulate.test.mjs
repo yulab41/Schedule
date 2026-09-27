@@ -13,12 +13,6 @@ async function renderCalendarCell(properties) {
   });
   await import('../src/components/calendar/calendar-cell/index.ts');
   const cellDefinition = definition;
-  await import('../src/components/calendar/calendar-fit-line/index.ts');
-  const fitDefinition = definition;
-  vi.stubGlobal('wx', {
-    nextTick: (callback) => callback(),
-    getWindowInfo: () => ({ windowWidth: 390 }),
-  });
   const workingDirectory = process.cwd();
   const appRoot = workingDirectory.replaceAll('\\', '/').endsWith('/apps/miniprogram')
     ? workingDirectory
@@ -27,18 +21,9 @@ async function renderCalendarCell(properties) {
     path.join(appRoot, 'src', 'components', 'calendar', 'calendar-cell', 'index.wxml'),
     'utf8',
   );
-  const fitId = simulate.load({
-    ...fitDefinition,
-    methods: { getPageId: () => 'simulate', groupSetData: (callback) => callback() },
-    template: readFileSync(
-      path.join(appRoot, 'src/components/calendar/calendar-fit-line/index.wxml'),
-      'utf8',
-    ),
-  });
   const id = simulate.load({
     ...cellDefinition,
     template,
-    usingComponents: { 'calendar-fit-line': fitId },
   });
   const component = simulate.render(id, properties);
   component.attach(globalThis.document.body);

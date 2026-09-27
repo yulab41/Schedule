@@ -1,3 +1,4 @@
+import { getCalendarNameLayout } from '../../components/calendar/calendar-name-layout.js';
 import type {
   CalendarDutyAssignment,
   ScheduleEvent,
@@ -76,6 +77,7 @@ function initialData() {
   const today = getTodayBusinessDate();
   return {
     ...emptyView(),
+    calendarNameStyle: getCalendarNameLayout().style,
     compactEvents: false,
     shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []),
     detailExpansion: reconcileDetailExpansion(undefined, [], []),

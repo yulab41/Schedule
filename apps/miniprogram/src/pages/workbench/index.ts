@@ -1,5 +1,6 @@
 import { createRuntimeAccountSecurityController } from '../../components/account-security/runtime.js';
 import type { AccountSecurityData } from '../../components/account-security/controller.js';
+import { getCalendarNameLayout } from '../../components/calendar/calendar-name-layout.js';
 import type {
   ScheduleEvent,
   CalendarChangesReadModel,
@@ -174,6 +175,7 @@ interface MonthReadResult {
 type HolidayReader = (year: number) => Promise<HolidayReadModel>;
 
 interface WorkbenchPageData extends AccountSecurityData {
+  readonly calendarNameStyle: string;
   readonly compactEvents: boolean;
   readonly shiftCardExpansion: ShiftCardExpansion;
   readonly weekGridHeight: number;
@@ -355,6 +357,7 @@ const initialMonth = today.slice(0, 7);
 Page({
   ...accountSecurity.methods,
   data: {
+    calendarNameStyle: getCalendarNameLayout().style,
     compactEvents: false,
     shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []),
     weekGridHeight: 112,

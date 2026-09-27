@@ -1,22 +1,46 @@
-/* global getComputedStyle */
+/* global getComputedStyle, document */
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { createCalendarNameLayout } from '../src/components/calendar/calendar-name-layout.ts';
 
 const read = (file) => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
 const css = (file) => read(file).replace(/@import[^;]+;/gu, '');
 
 describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser geometry', () => {
-  it('fits complete text and badges at narrow widths without changing the week row arrangement', async () => {
-    let definition;
-    vi.stubGlobal('Component', (value) => {
-      definition = value;
+  it('derives the cached widths from the actual page and dialog CSS, including the dialog cap', async () => {
+    const browser = await chromium.launch({
+      executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+      headless: true,
     });
-    vi.stubGlobal('wx', {
-      nextTick: (callback) => callback(),
-      getWindowInfo: () => ({ windowWidth: 390 }),
-    });
-    await import('../src/components/calendar/calendar-fit-line/index.ts');
+    try {
+      for (const width of [320, 360, 390, 393, 768]) {
+        const page = await browser.newPage({ viewport: { width, height: 844 } });
+        const fixtures = {
+          page: '<div class="workbench-content"><div id="card"></div></div>',
+          preview:
+            '<div class="manual-page-content"><div class="preview-calendar-card"><div id="card"></div></div></div>',
+          dialog:
+            '<div class="release-dialog-layer"><div class="release-dialog is-calendar-preview"><div id="card"></div></div></div>',
+          backfill: `<div class="backfill-page ${width <= 340 ? 'is-compact' : ''}"><div class="page-content"><div id="card"></div></div></div>`,
+        };
+        for (const [layout, markup] of Object.entries(fixtures)) {
+          await page.setContent(
+            `<style>:root{--ui-spacing-md:16px;--ui-color-border:#ddd}body{margin:0}${css('pages/workbench/index.wxss')}${css(layout === 'backfill' ? 'subpackages/scheduling/pages/backfill/index.wxss' : 'subpackages/scheduling/pages/manual/index.wxss')}#card{height:10px}</style>${markup}`,
+          );
+          const card = await page.locator('#card').boundingBox();
+          expect(card.width, `${layout}/${width}`).toBeCloseTo(
+            createCalendarNameLayout(layout, layout === 'dialog', width).cardWidth,
+            1,
+          );
+        }
+        await page.close();
+      }
+    } finally {
+      await browser.close();
+    }
+  }, 15000);
+  it('shares one container scale across all names, clipping only overflow without row measurements', async () => {
     const browser = await chromium.launch({
       executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
       headless: true,
@@ -31,112 +55,90 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
           'compact-person',
           'week',
           'preview-week',
+          'compact-week',
           'list',
         ]) {
           const compact = mode.startsWith('compact');
           const duties = mode === 'duties' || mode === 'compact';
-          const month = mode === 'month' || duties || compact;
-          const wrap = (body) =>
-            `<div class="fit-host"><div class="fit-viewport ${month ? 'is-centered' : ''}"><div class="fit-reference"></div><div class="fit-measure"><div class="fit-content">${body}</div></div></div></div>`;
           const weekly = mode.includes('week');
+          const month = !weekly && mode !== 'list';
+          const metrics = createCalendarNameLayout(
+            compact ? 'dialog' : mode === 'preview-week' ? 'preview' : 'page',
+            compact,
+            width,
+          );
           const source = month
             ? 'components/calendar/calendar-cell/index.wxss'
-            : mode === 'preview-week'
+            : mode.endsWith('-week')
               ? 'components/calendar/calendar-week-panel/index.wxss'
               : 'pages/workbench/index.wxss';
-          const names = ['短名', '测试名', '四字测试', '很长的测试姓名', 'Alexandra W. Test'];
-          for (const name of names) {
+          let standardFont;
+          const cases = ['短名', '测试名', '四字测试', '很长的测试姓名', 'Alexandra W. Test'].map(
+            (name) => ({ name }),
+          );
+          if (duties) cases.push({ name: '测试名', abbreviation: 'NP' });
+          for (const { name, abbreviation } of cases) {
             const nameClass = month ? 'month-person' : weekly ? 'week-duty-name' : 'list-duty-name';
             const badgeClass = month
               ? 'change-mark'
               : weekly
                 ? 'week-change-badge'
                 : 'list-change-badge';
-            const nameText = `<span class="${nameClass}">${name}</span>`;
+            const nameText = `<text class="${nameClass} calendar-name-text">${name}</text>`;
             const badges = duties
-              ? `<span class="duty-abbreviation">${name.length <= 3 ? 'N' : 'NP'}</span>`
-              : `<span class="${badgeClass}">换</span>${name === '测试名' ? '' : `<span class="${badgeClass}">假</span>`}`;
+              ? `<text class="duty-abbreviation">${abbreviation || (name.length <= 3 ? 'N' : 'NP')}</text>`
+              : `<text class="${badgeClass}">换</text>${month || name.length <= 3 ? '' : `<text class="${badgeClass}">假</text>`}`;
             const count =
               mode === 'month' && name === '很长的测试姓名'
-                ? '<span class="month-person-count">+12</span>'
+                ? '<text class="month-person-count">+12</text>'
                 : '';
+            const wrap = (body) =>
+              `<div class="calendar-name-line ${month ? 'is-centered' : ''}">${body}</div>`;
             const content = weekly
               ? `<div class="week-duty-item">${wrap(nameText)}<div class="week-duty-badges">${wrap(badges)}</div></div>`
               : `<div class="${month ? 'month-duty-line' : 'list-duty-name-line'}">${wrap(nameText + count + badges)}</div>`;
-            const containerWidth =
-              mode === 'list'
-                ? width - 110
-                : (width - (compact || mode === 'preview-week' ? 60 : 26)) / 7;
+            const containerWidth = mode === 'list' ? width - 110 : (metrics.cardWidth - 2) / 7;
             const containerClass = month
               ? `calendar-cell ${compact ? 'is-compact' : ''} ${duties ? 'has-duties' : ''}`
               : weekly
                 ? 'week-day'
                 : '';
             await page.setContent(
-              `<style>:root{--ui-font-weight-semibold:600;--ui-font-weight-strong:700;--ui-color-text-primary:#202830;--ui-color-primary:#0866cb;--ui-color-surface:#fff}body{margin:0;font-family:'Microsoft YaHei',sans-serif}${css(source)}${css('components/calendar/calendar-fit-line/index.wxss')}.fit-host{display:block;width:100%;min-width:0}</style><div style="width:${containerWidth}px"><div class="${containerClass}" style="width:100%">${weekly ? '<div class="week-shift-group">' : ''}${content}${weekly ? '</div>' : ''}</div></div>`,
+              `<style>:root{--ui-font-weight-semibold:600;--ui-font-weight-strong:700;--ui-color-text-primary:#202830;--ui-color-primary:#0866cb;--ui-color-surface:#fff}body{margin:0;font-family:'Microsoft YaHei',sans-serif}${css('styles/calendar-name-line.wxss')}${css(source)}</style><div class="${compact && weekly ? 'is-compact' : ''}" style="${metrics.style};width:${containerWidth}px;${month ? 'border-right:1px solid;box-sizing:border-box' : ''}"><div class="${containerClass}" style="width:100%">${weekly ? '<div class="week-shift-group">' : ''}${content}${weekly ? '</div>' : ''}</div></div>`,
             );
-            const rows = await page.locator('.fit-host').all();
-            for (const row of rows) {
-              let measurement;
-              const query = {
-                in() {
-                  return this;
-                },
-                select() {
-                  return this;
-                },
-                boundingClientRect() {
-                  return this;
-                },
-                exec(callback) {
-                  measurement = Promise.all([
-                    row.locator('.fit-viewport').boundingBox(),
-                    row.locator('.fit-measure').boundingBox(),
-                    row.locator('.fit-reference').boundingBox(),
-                  ]).then(callback);
-                },
+            const typography = await page.locator('.calendar-name-text').evaluate((node) => {
+              const style = getComputedStyle(node),
+                range = document.createRange();
+              range.selectNodeContents(node);
+              return {
+                font: parseFloat(style.fontSize),
+                width: node.getBoundingClientRect().width,
+                natural: range.getBoundingClientRect().width,
+                overflow: style.textOverflow,
+                text: node.textContent,
               };
-              const instance = {
-                data: { ...definition.data },
-                properties: {
-                  active: true,
-                  maxScale: month ? 1.18 : 1,
-                  layout: `${width}:${mode}:${rows.indexOf(row)}`,
-                  contentKey: name,
-                  referenceName:
-                    (weekly && rows.indexOf(row) === 0) ||
-                    (month && (name === '测试名' || (duties && name === '短名')))
-                      ? name
-                      : '',
-                },
-                getPageId: () => 'geometry',
-                groupSetData: (callback) => callback(),
-                createSelectorQuery: () => query,
-                setData(patch) {
-                  Object.assign(this.data, patch);
-                },
-              };
-              definition.lifetimes.ready.call(instance);
-              await measurement;
-              if (width >= 390 && mode === 'month' && name === '测试名')
-                expect(instance.data.fitScale).toBeGreaterThan(1);
-              await row.locator('.fit-content').evaluate((node, scale) => {
-                node.style.transform = `scale(${scale})`;
-              }, instance.data.fitScale);
-              await row.locator('.fit-viewport').evaluate((node, height) => {
-                node.style.minHeight = `${height}px`;
-              }, instance.data.fitHeight);
+            });
+            standardFont ??= typography.font;
+            expect(typography.font).toBe(standardFont);
+            expect(typography.width).toBeLessThanOrEqual(3 * typography.font + 0.1);
+            expect(typography.overflow).toBe('ellipsis');
+            expect(typography.text).toBe(name);
+            if (name.length <= 3)
+              expect(
+                typography.natural,
+                `${width}/${mode}/${name}/${abbreviation || ''}`,
+              ).toBeLessThanOrEqual(typography.width + 0.1);
+            else expect(typography.natural).toBeGreaterThan(typography.width);
+            for (const row of await page.locator('.calendar-name-line').all()) {
               const bounds = await row.evaluate((node) => {
-                const viewport = node.querySelector('.fit-viewport').getBoundingClientRect();
-                const content = node.querySelector('.fit-content');
-                const rects = [...content.children].map((child) => child.getBoundingClientRect());
+                const viewport = node.getBoundingClientRect();
+                const rects = [...node.children].map((child) => child.getBoundingClientRect());
                 return {
                   left: rects[0].left - viewport.left,
                   right: rects.at(-1).right - viewport.right,
-                  overlap: rects.some((r, index) => index > 0 && r.left < rects[index - 1].right),
+                  overlap: rects.some((r, i) => i > 0 && r.left < rects[i - 1].right),
                   oneLine: rects.every(
-                    (r) =>
-                      Math.abs((r.top + r.bottom) / 2 - (rects[0].top + rects[0].bottom) / 2) < 0.6,
+                    (r) => Math.abs((r.top + r.bottom - rects[0].top - rects[0].bottom) / 2) < 0.6,
                   ),
                 };
               });
@@ -151,14 +153,12 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
               const badgesBox = await page.locator('.week-duty-badges').boundingBox();
               expect(badgesBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
             }
-            expect(await page.locator(`.${nameClass}`).textContent()).toBe(name);
           }
         }
         await page.close();
       }
     } finally {
       await browser.close();
-      vi.unstubAllGlobals();
     }
   }, 60000);
 

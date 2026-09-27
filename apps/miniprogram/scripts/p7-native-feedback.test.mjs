@@ -252,17 +252,17 @@ describe('P7 physical-device feedback regressions', () => {
     );
   });
 
-  it('preserves base name scales while fitting complete week names on one line', () => {
+  it('uses the shared container name sizes while keeping the base fallbacks and one line', () => {
     const monthTemplate = read('components/calendar/calendar-cell/index.wxml');
     const monthStyles = read('components/calendar/calendar-cell/index.wxss');
     const workbenchTemplate = read('pages/workbench/index.wxml');
     const workbenchStyles = read('pages/workbench/index.wxss');
 
     expect(monthStyles).toMatch(
-      /\.month-person\s*\{[^}]*font-size:\s*11px;[^}]*white-space:\s*nowrap;/su,
+      /\.month-person\s*\{[^}]*font-size:\s*var\(--calendar-month-name-size, 11px\);[^}]*white-space:\s*nowrap;/su,
     );
     expect(workbenchStyles).toMatch(
-      /\.week-duty-name\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*var\(--ui-font-weight-semibold\);[^}]*white-space:\s*nowrap;/su,
+      /\.week-duty-name\s*\{[^}]*font-size:\s*var\(--calendar-week-name-size, 12px\);[^}]*font-weight:\s*var\(--ui-font-weight-semibold\);[^}]*white-space:\s*nowrap;/su,
     );
     expect(monthTemplate).not.toMatch(/person\.length|name-length/u);
     expect(workbenchTemplate).not.toMatch(/duty\.name\.length|name-length/u);

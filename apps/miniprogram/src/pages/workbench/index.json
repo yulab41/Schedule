@@ -7,8 +7,7 @@
     "shift-event-records": "/components/shift-event-records/index",
     "ui-loading": "/components/ui/ui-loading/index",
     "ui-sheet": "/components/ui/ui-sheet/index",
-    "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index",
-    "calendar-fit-line": "/components/calendar/calendar-fit-line/index"
+    "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index"
   },
   "componentPlaceholder": {
     "directory-panel": "view",

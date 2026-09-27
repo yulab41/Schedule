@@ -1,3 +1,4 @@
+import { getCalendarNameLayout, type CalendarNameLayout } from '../calendar-name-layout.js';
 import {
   CALENDAR_PERIOD_SWIPER_DURATION_MS,
   CALENDAR_PERIOD_SWIPER_EASING_FUNCTION,
@@ -33,6 +34,7 @@ interface CalendarMonthInstance {
   _monthShiftPending: boolean;
   _queuedMonthDelta: number;
   readonly data: {
+    readonly calendarNameStyle: string;
     readonly locateAnimating: boolean;
     readonly panelHeights?: readonly number[];
     readonly stepMotion: string;
@@ -44,6 +46,8 @@ interface CalendarMonthInstance {
   continueQueuedShift(): void;
   finishPeriodShift(): void;
   readonly properties: {
+    readonly nameLayout: CalendarNameLayout;
+    readonly compact: boolean;
     readonly gridHeight: number;
     readonly panels: readonly { readonly relative: number }[];
   };
@@ -54,6 +58,7 @@ interface CalendarMonthInstance {
 
 Component({
   properties: {
+    nameLayout: { type: String, value: 'page' },
     active: { type: Boolean, value: true },
     shadow: { type: Boolean, value: true },
     compact: { type: Boolean, value: false },
@@ -65,6 +70,7 @@ Component({
     panels: { type: Array, value: [] },
   },
   data: {
+    calendarNameStyle: getCalendarNameLayout().style,
     locateAnimating: false,
     stepMotion: '',
     swiperCurrent: 1,
@@ -73,6 +79,13 @@ Component({
     viewportHeight: 270,
   },
   observers: {
+    'nameLayout, compact'(this: CalendarMonthInstance): void {
+      const style = getCalendarNameLayout(
+        this.properties.nameLayout,
+        this.properties.compact,
+      ).style;
+      if (style !== this.data.calendarNameStyle) this.setData({ calendarNameStyle: style });
+    },
     gridHeight(this: CalendarMonthInstance, value: number): void {
       if (
         !this._monthShiftPending &&

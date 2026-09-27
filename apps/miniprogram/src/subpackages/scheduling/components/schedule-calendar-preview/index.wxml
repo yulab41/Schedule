@@ -1,4 +1,5 @@
 <calendar-month
+  name-layout="{{compact ? 'dialog' : 'preview'}}"
   shadow="{{shadow}}"
   id="preview-month"
   compact="{{compact}}"

@@ -104,6 +104,7 @@
           paintStatusText}}</text
         >
         <calendar-month
+          name-layout="backfill"
           wx:if="{{roleId}}"
           period-unit="{{viewMode}}"
           id="backfill-month"

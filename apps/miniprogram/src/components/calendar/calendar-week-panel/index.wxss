@@ -1,3 +1,4 @@
+@import '../../../styles/calendar-name-line.wxss';
 @import '../../../styles/calendar-date-marker.wxss';
 
 :host {
@@ -121,7 +122,6 @@
   text-align: center;
 }
 .week-duty-item {
-  --calendar-fit-reference-width: 36px;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -129,9 +129,8 @@
   gap: 2px;
 }
 .week-duty-name {
-  flex: none;
   color: var(--ui-color-text-primary);
-  font-size: 12px;
+  font-size: var(--calendar-week-name-size, 12px);
   font-weight: 600;
   line-height: 16px;
   text-align: left;
@@ -150,12 +149,16 @@
 }
 .week-duty-badges {
   width: 100%;
-  --calendar-fit-gap: 2px;
+  --calendar-name-gap: var(--calendar-week-gap, 2px);
   display: flex;
   min-height: 14px;
   gap: 2px;
 }
 .week-change-badge {
+  min-width: var(--calendar-week-badge-width, 12px);
+  height: var(--calendar-week-badge-height, 14px);
+  font-size: var(--calendar-week-badge-font, 8px);
+  line-height: var(--calendar-week-badge-height, 14px);
   color: var(--ui-color-warning);
   background: var(--ui-color-warning-light);
 }

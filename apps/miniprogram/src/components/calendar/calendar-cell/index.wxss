@@ -1,8 +1,7 @@
+@import '../../../styles/calendar-name-line.wxss';
 @import '../../../styles/calendar-date-marker.wxss';
 
 .calendar-cell {
-  /* Three 11px Chinese glyphs + 1px gap + one 12px badge. Never use a person's name as the size baseline. */
-  --calendar-fit-reference-width: 46px;
   position: relative;
   display: flex;
   width: 100%;
@@ -78,6 +77,7 @@
 }
 
 .month-duty-line {
+  --calendar-name-gap: var(--calendar-month-gap, 1px);
   display: flex;
   width: 100%;
   margin-top: 2px;
@@ -110,24 +110,23 @@
 .month-person {
   display: block;
   min-width: 0;
-  flex: none;
-  font-size: 11px;
+  font-size: var(--calendar-month-name-size, 11px);
   font-weight: var(--ui-font-weight-semibold);
-  line-height: 14px;
+  line-height: var(--calendar-month-line-height, 14px);
   white-space: nowrap;
 }
 
 .change-mark {
   display: flex;
-  width: 12px;
-  height: 12px;
+  width: var(--calendar-month-badge-size, 13px);
+  height: var(--calendar-month-badge-size, 13px);
   flex: none;
   align-items: center;
   justify-content: center;
   color: #a66700;
   background: var(--ui-color-warning-light);
   border-radius: 4px;
-  font-size: 8px;
+  font-size: var(--calendar-month-badge-font, 8px);
   font-weight: var(--ui-font-weight-strong);
   line-height: 1;
   transform: translateY(-0.5px);
@@ -145,34 +144,20 @@
 }
 .duty-abbreviation {
   display: flex;
-  min-width: 13px;
-  height: 13px;
-  padding: 0 1px;
+  width: var(--calendar-month-badge-size, 13px);
+  min-width: var(--calendar-month-badge-size, 13px);
+  height: var(--calendar-month-badge-size, 13px);
+  padding: 0;
   box-sizing: border-box;
   flex: none;
   align-items: center;
   justify-content: center;
   border: 1px solid;
   border-radius: 3px;
-  font-size: 8px;
+  font-size: var(--calendar-month-badge-font, 8px);
   line-height: 1;
   transform: translateY(-0.5px);
   white-space: nowrap;
-}
-.calendar-cell.has-duties {
-  /* Duty badges are 1px wider than the change marker. */
-  --calendar-fit-reference-width: 47px;
-}
-.calendar-cell.is-compact .month-person {
-  font-size: 9px;
-  line-height: 14px;
-}
-.calendar-cell.is-compact {
-  --calendar-fit-reference-width: 40px;
-}
-.calendar-cell.has-duties.is-compact {
-  /* Three 9px glyphs + 1px gap + one 13px badge. */
-  --calendar-fit-reference-width: 41px;
 }
 .calendar-cell.is-compact .date-number {
   line-height: 14px;
@@ -194,29 +179,10 @@
   color: #7a8491;
 }
 @media (max-width: 360px) {
-  .calendar-cell.has-duties {
-    --calendar-fit-reference-width: 39px;
-  }
-  .calendar-cell.is-compact {
-    --calendar-fit-reference-width: 37px;
-  }
-  .calendar-cell.has-duties.is-compact {
-    --calendar-fit-reference-width: 36px;
-  }
-  .duty-abbreviation {
-    min-width: 11px;
-    height: 11px;
-  }
   .holiday-chip {
     right: 1px;
     max-width: 22px;
     padding: 0 2px;
-    font-size: 8px;
-  }
-  .calendar-cell.has-duties .month-person {
-    font-size: 9px;
-  }
-  .calendar-cell.is-compact .month-person {
     font-size: 8px;
   }
 }

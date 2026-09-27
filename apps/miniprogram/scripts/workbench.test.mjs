@@ -43,7 +43,7 @@ describe('P4 native workbench', () => {
     const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
 
     expect(cellTemplate).toMatch(
-      /class="month-duty-line"[\s\S]*class="month-person"[\s\S]*class="change-mark"/s,
+      /class="month-duty-line"[\s\S]*class="month-person calendar-name-text"[\s\S]*class="change-mark"/s,
     );
     expect(cellStyles).toMatch(
       /\.month-duty-line\s*{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*gap:\s*1px;/s,
@@ -399,7 +399,7 @@ describe('P4 native workbench', () => {
     expect(template).toContain('scroll-into-view="{{listScrollTarget}}"');
     expect(template).not.toContain('月份工具栏固定 · 已按日期排序');
     expect(template).toContain('<view class="week-day-grid">');
-    expect(template).toContain('class="week-duty-name"');
+    expect(template).toContain('class="week-duty-name calendar-name-text"');
     expect(template).toContain('class="week-shift-badge"');
     expect(template).toContain('class="list-day-card');
     expect(template).toContain('class="list-duty-details"');

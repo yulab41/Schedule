@@ -1,3 +1,4 @@
+@import '../../styles/calendar-name-line.wxss';
 @import '../../components/account-security/index.wxss';
 @import '../../styles/ui-icon-motion.wxss';
 @import '../../styles/calendar-date-marker.wxss';
@@ -1476,7 +1477,6 @@ page {
 }
 
 .week-duty-item {
-  --calendar-fit-reference-width: 36px;
   display: flex;
   min-width: 0;
   margin-top: 0;
@@ -1486,9 +1486,8 @@ page {
 }
 
 .week-duty-name {
-  flex: none;
   color: var(--ui-color-text-primary);
-  font-size: 12px;
+  font-size: var(--calendar-week-name-size, 12px);
   font-weight: var(--ui-font-weight-semibold);
   line-height: 16px;
   text-align: left;
@@ -1547,7 +1546,7 @@ page {
 
 .week-duty-badges {
   width: 100%;
-  --calendar-fit-gap: 2px;
+  --calendar-name-gap: var(--calendar-week-gap, 2px);
   min-height: 14px;
   gap: 2px;
 }
@@ -1563,6 +1562,12 @@ page {
   font-weight: var(--ui-font-weight-semibold);
   line-height: 14px;
   text-align: center;
+}
+.week-change-badge {
+  min-width: var(--calendar-week-badge-width, 12px);
+  height: var(--calendar-week-badge-height, 14px);
+  font-size: var(--calendar-week-badge-font, 8px);
+  line-height: var(--calendar-week-badge-height, 14px);
 }
 
 .week-change-badge,
@@ -1673,13 +1678,12 @@ page {
 }
 
 .list-duty-name-line {
-  --calendar-fit-gap: 4px;
+  --calendar-name-gap: 4px;
   min-width: 0;
   gap: 4px;
 }
 
 .list-duty-name {
-  flex: none;
   min-width: 0;
   color: var(--ui-color-text-primary);
   font-size: 12px;
