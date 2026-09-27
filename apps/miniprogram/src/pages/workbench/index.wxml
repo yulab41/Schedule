@@ -98,7 +98,8 @@
           <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
           <text wx:if="{{performanceEvidence}}" class="offline-note">{{performanceEvidence}}</text>
           <view id="workbench-content-top" class="view-controls" aria-label="排班视图">
-            <view class="view-switch" aria-role="tablist">
+            <view class="view-switch is-{{viewMode}}" aria-role="tablist">
+              <view class="view-switch-indicator" aria-hidden="true"></view>
               <view
                 wx:for="{{viewOptions}}"
                 wx:key="*this"
@@ -154,6 +155,7 @@
           >
             <block wx:if="{{(state === 'ready' || state === 'offline') && viewMode === 'month'}}">
               <calendar-month
+                active="{{!activeWorkspace || activeWorkspace === 'calendar'}}"
                 id="workbench-month"
                 grid-height="{{gridHeight}}"
                 month-label="{{monthLabel}}"
@@ -425,15 +427,15 @@
                               wx:key="key"
                               class="week-duty-item"
                             >
-                              <text class="week-duty-name">{{duty.name}}</text>
+                              <calendar-fit-line active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name}}"><text class="week-duty-name">{{duty.name}}</text></calendar-fit-line>
                               <view wx:if="{{duty.markers.length > 0}}" class="week-duty-badges"
-                                ><text
+                                ><calendar-fit-line active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{'markers:' + duty.markers}}"><text
                                   wx:for="{{duty.markers}}"
                                   wx:for-item="marker"
                                   wx:key="*this"
                                   class="week-change-badge"
                                   >{{marker}}</text
-                                ></view
+                                ></calendar-fit-line></view
                               >
                             </view>
                           </view>
@@ -706,14 +708,14 @@
                               ></view>
                               <view class="list-duty-copy"
                                 ><view class="list-duty-name-line"
-                                  ><text class="list-duty-name">{{duty.name}}</text
+                                  ><calendar-fit-line active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name + '|' + duty.markers}}"><text class="list-duty-name">{{duty.name}}</text
                                   ><text
                                     wx:for="{{duty.markers}}"
                                     wx:for-item="marker"
                                     wx:key="*this"
                                     class="list-change-badge"
                                     >{{marker}}</text
-                                  ></view
+                                  ></calendar-fit-line></view
                                 ><text class="list-duty-details">{{duty.details}}</text></view
                               >
                               <text

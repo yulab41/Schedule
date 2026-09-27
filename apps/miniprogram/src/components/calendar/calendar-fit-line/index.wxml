@@ -1,0 +1,5 @@
+<view class="fit-viewport">
+  <view class="fit-measure">
+    <view class="fit-content" style="transform:scale({{fitScale}})"><slot /></view>
+  </view>
+</view>

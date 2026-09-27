@@ -1,0 +1,24 @@
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.fit-viewport {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Measure the untransformed box so repeated fits never compound the scale. */
+.fit-measure,
+.fit-content {
+  display: inline-flex;
+  width: max-content;
+  flex: none;
+  align-items: center;
+  white-space: nowrap;
+}
+.fit-content {
+  gap: var(--calendar-fit-gap, 1px);
+  transform-origin: left center;
+}

@@ -54,6 +54,7 @@ interface CalendarMonthInstance {
 
 Component({
   properties: {
+    active: { type: Boolean, value: true },
     shadow: { type: Boolean, value: true },
     compact: { type: Boolean, value: false },
     periodUnit: { type: String, value: 'month' },

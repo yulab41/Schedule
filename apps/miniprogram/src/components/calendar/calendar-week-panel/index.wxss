@@ -128,14 +128,13 @@
   gap: 2px;
 }
 .week-duty-name {
-  width: 100%;
+  flex: none;
   color: var(--ui-color-text-primary);
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
   text-align: left;
-  white-space: normal;
-  word-break: break-all;
+  white-space: nowrap;
 }
 .week-day.is-past .week-duty-name,
 .week-duty-item.is-existing-comparison .week-duty-name {
@@ -149,6 +148,8 @@
   color: #a42620;
 }
 .week-duty-badges {
+  width: 100%;
+  --calendar-fit-gap: 2px;
   display: flex;
   min-height: 14px;
   gap: 2px;

@@ -30,6 +30,7 @@ Component({
     },
   },
   properties: {
+    active: { type: Boolean, value: true },
     extraPersonCount: { type: Number, value: 0 },
     shiftAbbreviation: { type: String, value: '' },
     shiftBadgeStyle: { type: String, value: '' },

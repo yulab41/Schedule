@@ -46,7 +46,7 @@ describe('P4 native workbench', () => {
       /class="month-duty-line"[\s\S]*class="month-person"[\s\S]*class="change-mark"/s,
     );
     expect(cellStyles).toMatch(
-      /\.month-duty-line\s*{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*gap:\s*2px;/s,
+      /\.month-duty-line\s*{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*gap:\s*1px;/s,
     );
     expect(cellStyles).not.toMatch(/\.change-mark\s*{[^}]*position:\s*absolute;/s);
   });

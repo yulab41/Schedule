@@ -80,8 +80,15 @@ describe('task C event sheet and today marker', () => {
         definition = value;
       });
       await import('../src/components/calendar/calendar-cell/index.ts');
-      const id = simulate.load({
+      const cellDefinition = definition;
+      await import('../src/components/calendar/calendar-fit-line/index.ts');
+      const fitId = simulate.load({
         ...definition,
+        template: read('components/calendar/calendar-fit-line/index.wxml'),
+      });
+      const id = simulate.load({
+        ...cellDefinition,
+        usingComponents: { 'calendar-fit-line': fitId },
         template: read('components/calendar/calendar-cell/index.wxml'),
       });
       const component = simulate.render(id, {

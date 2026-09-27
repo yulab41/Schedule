@@ -1,5 +1,6 @@
 Component({
   properties: {
+    active: { type: Boolean, value: true },
     days: { type: Array, value: [] },
     compact: { type: Boolean, value: false },
   },

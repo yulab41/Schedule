@@ -8,6 +8,7 @@
       class="calendar-cell-slot {{cell.isSelected ? 'is-selected' : ''}} {{cell.isBottomRow ? 'is-bottom-row' : ''}} {{cell.isBottomLeft ? 'is-bottom-left' : ''}} {{cell.isBottomRight ? 'is-bottom-right' : ''}}"
     >
       <calendar-cell
+        active="{{active}}"
         compact="{{compact}}"
         runtime-pressed-feedback-compatibility="{{runtimePressedFeedbackCompatibility}}"
         duties="{{cell.duties}}"
@@ -114,12 +115,13 @@
       aria-hidden="{{panel.relative !== 0}}"
     >
       <calendar-week-panel
+        active="{{active}}"
         wx:if="{{periodUnit === 'week'}}"
         days="{{panel.days}}"
         compact="{{compact}}"
         bind:select="handleCellSelect"
       />
-      <template wx:else is="calendar-month-grid" data="{{panel: panel, compact: compact}}" />
+      <template wx:else is="calendar-month-grid" data="{{panel: panel, compact: compact, active: active}}" />
     </swiper-item>
   </swiper>
 </view>

@@ -84,6 +84,7 @@ interface MiniProgramNetworkTypeOptions {
 }
 
 declare const wx: {
+  nextTick(callback: () => void): void;
   getUpdateManager?(): {
     onUpdateReady(callback: () => void): void;
     onUpdateFailed(callback: () => void): void;

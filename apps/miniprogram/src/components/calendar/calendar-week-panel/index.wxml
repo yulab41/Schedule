@@ -42,15 +42,22 @@
           wx:key="key"
           class="week-duty-item {{duty.comparisonClass}}"
         >
-          <text class="week-duty-name">{{duty.name}}</text>
+          <calendar-fit-line active="{{active}}" content-key="{{duty.name + '|' + compact}}">
+            <text class="week-duty-name">{{duty.name}}</text>
+          </calendar-fit-line>
           <view wx:if="{{duty.markers.length > 0}}" class="week-duty-badges">
-            <text
-              wx:for="{{duty.markers}}"
-              wx:for-item="marker"
-              wx:key="*this"
-              class="week-change-badge"
-              >{{marker}}</text
+            <calendar-fit-line
+              active="{{active}}"
+              content-key="{{'markers:' + duty.markers + '|' + compact}}"
             >
+              <text
+                wx:for="{{duty.markers}}"
+                wx:for-item="marker"
+                wx:key="*this"
+                class="week-change-badge"
+                >{{marker}}</text
+              >
+            </calendar-fit-line>
           </view>
         </view>
       </view>

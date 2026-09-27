@@ -1,3 +1,6 @@
 {
-  "component": true
+  "component": true,
+  "usingComponents": {
+    "calendar-fit-line": "/components/calendar/calendar-fit-line/index"
+  }
 }

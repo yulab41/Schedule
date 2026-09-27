@@ -298,6 +298,7 @@ page {
 }
 
 .view-switch {
+  position: relative;
   padding: 3px;
   background: var(--ui-color-surface-muted);
   border: 1px solid var(--ui-color-border);
@@ -305,6 +306,9 @@ page {
 }
 
 .view-tab {
+  position: relative;
+  z-index: 1;
+  flex: 1;
   display: flex;
   min-width: 52px;
   min-height: 38px;
@@ -317,12 +321,36 @@ page {
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
   line-height: 38px;
+  transition: color 180ms ease;
 }
 
 .view-tab.is-active {
   color: var(--ui-color-primary);
+}
+
+.view-switch-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
   background: var(--ui-color-surface);
+  border-radius: 7px;
   box-shadow: 0 2px 7px rgba(22, 32, 42, 0.08);
+  pointer-events: none;
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.view-switch.is-week .view-switch-indicator {
+  transform: translateX(100%);
+}
+.view-switch.is-list .view-switch-indicator {
+  transform: translateX(200%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-switch-indicator,
+  .view-tab {
+    transition: none;
+  }
 }
 
 .filter-button {
@@ -1460,14 +1488,13 @@ page {
 }
 
 .week-duty-name {
-  width: 100%;
+  flex: none;
   color: var(--ui-color-text-primary);
   font-size: 12px;
   font-weight: var(--ui-font-weight-semibold);
   line-height: 16px;
   text-align: left;
-  white-space: normal;
-  word-break: break-all;
+  white-space: nowrap;
 }
 
 .week-shift-group {
@@ -1521,6 +1548,8 @@ page {
 }
 
 .week-duty-badges {
+  width: 100%;
+  --calendar-fit-gap: 2px;
   min-height: 14px;
   gap: 2px;
 }
@@ -1646,17 +1675,17 @@ page {
 }
 
 .list-duty-name-line {
+  --calendar-fit-gap: 4px;
   min-width: 0;
   gap: 4px;
 }
 
 .list-duty-name {
+  flex: none;
   min-width: 0;
-  overflow: hidden;
   color: var(--ui-color-text-primary);
   font-size: 12px;
   font-weight: var(--ui-font-weight-semibold);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
