@@ -38,8 +38,16 @@
 
 `pnpm --filter @schedule/miniprogram upload:experience` 于 `2026-09-27T04:45:02.581Z` 成功；微信 CI ZIP 2,363,771 B、代码文件 218，Manifest `cfd402a1f168ea92ad4f4ee0dcaa90c56cb464c247d9d2a34177a9af8b724abe`。远端不可变 tag、allocation、Manifest 绑定文件、receipt 与构建 profile 精确匹配同一 SHA/版本/摘要。正式 candidate safety 在构建前及版本绑定构建后均通过，后者确认 `VERSION_LOCAL=absent`。上传走已核验的微信直连 IPv4/Git 专用代理，保留 TLS 校验，没有重试占号。
 
-没有生产连接、备份、部署、版本 allowlist、提审或正式发布。开发者工具项目窗口已关闭，上传槽干净释放；交付文档使用重新 Acquire 的独占 warm 租约，复用应用证据，不修改 `.203` 构建或重新上传。交付记录检查点消息：`docs(audit): record calendar fit trial 203`。
+实施/上传阶段没有生产连接、备份、部署、版本 allowlist、提审或正式发布。开发者工具项目窗口已关闭，上传槽干净释放；交付文档使用重新 Acquire 的独占 warm 租约，复用应用证据，不修改 `.203` 构建或重新上传。交付记录检查点 `74c6facb`：`docs(audit): record calendar fit trial 203`。
+
+## 用户授权后的生产放行
+
+用户随后明确要求“放行”。本轮重新 Acquire 独占 warm 槽位并复用依赖，`client-version-allowlist.spec.ts` 5/5；fresh-fetch 的 `origin/main=74c6facb`，最新合格上传仍为 `.203@f651024f`，远端 tag 与成功 receipt/Manifest 一致。实时生产 release 为 `539d88e32dbda8c6e9893317e570ff9a3758e0de`，变更前完整 `ecs-verify.sh` 通过，随即再次核对 live release 和目标上传身份后冻结操作。
+
+经规范域名、严格 SSH 主机密钥校验调用已安装的 `sudo schedule-client-version-allowlist ensure 0.1.0-p10.20260927.203`，仅追加 1 个版本，保留 `.202` 等所有原允许版本。控制工具重建 API/Web 以加载配置，首次健康探针遇一次短暂 TLS EOF，按既有等待逻辑自动恢复；操作退出 0、健康与策略验证通过。之后独立 `schedule-client-version-allowlist verify` 和完整生产 `ecs-verify.sh` 均退出 0，公网正常 TLS 校验下 `.203/.202=200`、动态未知版本 `=426`。操作前后 live release 相同，未部署应用、备份/迁移数据库、修改发布元数据、提审或正式发布。
+
+证据在 ignored `runtime/audit/calendar-fit-allowlist-20260927/`：冻结身份、控制工具日志、前后完整 verifier、公网探针及前后 release。放行记录检查点消息：`docs(release): record calendar fit trial 203 allowlist`；只提交文档，不重新构建/上传或同步生产 release 元数据。
 
 ## 下一任务与停止条件
 
-唯一下一任务：待单独生产 allowlist 授权后，用 `.203@f651024f` 在小米 14 冷启动，检查首页/访客月周列表、手排普通/紧凑预览和补录月/周，再检查切月份/群组与弹窗重开。核对版本、SHA、renderer、基础库、微信版本和构建时间；身份不符不计验收通过。取得同构建真机反馈前保持“待用户复核”。
+唯一下一任务：用已放行的 `.203@f651024f` 在小米 14 冷启动，检查首页/访客月周列表、手排普通/紧凑预览和补录月/周，再检查切月份/群组与弹窗重开。核对版本、SHA、renderer、基础库、微信版本和构建时间；身份不符不计验收通过。取得同构建真机反馈前保持“待用户复核”。
