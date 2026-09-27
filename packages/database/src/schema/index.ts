@@ -474,10 +474,17 @@ export const scheduleEvents = mysqlTable(
     affectedMembershipIds: json('affected_membership_ids').$type<string[]>().notNull(),
     affectedShiftIds: json('affected_shift_ids').$type<string[]>().notNull(),
     statisticsDelta: json('statistics_delta').$type<Record<string, unknown>>(),
+    timelineHiddenAt: timestamp('timeline_hidden_at', { fsp: 3 }),
     occurredAt: timestamp('occurred_at', { fsp: 3 }).defaultNow().notNull(),
   },
   (table) => [
     index('schedule_events_group_occurred_idx').on(table.groupId, table.occurredAt, table.id),
+    index('schedule_events_timeline_idx').on(
+      table.groupId,
+      table.timelineHiddenAt,
+      table.occurredAt,
+      table.id,
+    ),
     index('schedule_events_group_type_occurred_idx').on(
       table.groupId,
       table.eventType,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { releaseSchemaCompatibility } from './ecs-schema-compatibility.mjs';
 
-describe('active-only shift slot release compatibility', () => {
+describe('persisted history visibility release compatibility', () => {
   const journal = (count, tag) => ({
     entries: Array.from({ length: count }, (_, idx) => ({
       idx,
@@ -10,10 +10,10 @@ describe('active-only shift slot release compatibility', () => {
     })),
   });
 
-  it('requires the active-only shift slot migration', () => {
-    expect(releaseSchemaCompatibility(journal(64, '0064_active_shift_slot'))).toEqual({
-      databaseSchemaMin: '64',
-      databaseSchemaMax: '64',
+  it('requires persisted visibility columns and indexes', () => {
+    expect(releaseSchemaCompatibility(journal(65, '0065_history_visibility'))).toEqual({
+      databaseSchemaMin: '65',
+      databaseSchemaMax: '65',
     });
   });
 
@@ -39,6 +39,8 @@ describe('active-only shift slot release compatibility', () => {
       journal(63, '0063_unknown'),
       journal(63, '0063_account_short_phone_visitor_context'),
       journal(64, '0064_unknown'),
+      journal(64, '0064_active_shift_slot'),
+      journal(65, '0065_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

@@ -63,6 +63,7 @@ export const swapRequests = mysqlTable(
     decidedAt: timestamp('decided_at', { fsp: 3 }),
     approverUserId: char('approver_user_id', { length: 36 }),
     revocationReason: varchar('revocation_reason', { length: 1000 }),
+    listHiddenAt: timestamp('list_hidden_at', { fsp: 3 }),
     ...auditableColumns(),
   },
   (table) => [
@@ -71,6 +72,7 @@ export const swapRequests = mysqlTable(
     ),
     uniqueIndex('swap_requests_active_target_assignment_unique').on(table.activeTargetAssignmentId),
     index('swap_requests_group_status_idx').on(table.groupId, table.status),
+    index('swap_requests_list_visible_idx').on(table.groupId, table.listHiddenAt, table.id),
     index('swap_requests_initiator_status_idx').on(table.initiatorMembershipId, table.status),
     index('swap_requests_target_status_idx').on(table.targetMembershipId, table.status),
     index('swap_requests_initiator_sequence_idx').on(

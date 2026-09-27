@@ -130,7 +130,7 @@ export class EventQuery {
     // Group timelines always honor stored visibility, independent of client headers.
     // Per-shift audit queries and event details retain their original records.
     if (query.shiftId === undefined) {
-      conditions.push(visibleTimelineEvents(transaction, query.groupId));
+      conditions.push(visibleTimelineEvents());
     }
 
     if (from !== undefined) {

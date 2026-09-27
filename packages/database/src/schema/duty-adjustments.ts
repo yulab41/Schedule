@@ -52,6 +52,7 @@ export const dutyAdjustments = mysqlTable(
     approverUserId: char('approver_user_id', { length: 36 }),
     reason: varchar('reason', { length: 1000 }),
     revocationReason: varchar('revocation_reason', { length: 1000 }),
+    listHiddenAt: timestamp('list_hidden_at', { fsp: 3 }),
     ...auditableColumns(),
   },
   (table) => [
@@ -59,6 +60,7 @@ export const dutyAdjustments = mysqlTable(
       table.activeCoveredAssignmentId,
     ),
     index('duty_adjustments_group_status_idx').on(table.groupId, table.status),
+    index('duty_adjustments_list_visible_idx').on(table.groupId, table.listHiddenAt, table.id),
     index('duty_adjustments_overtime_status_idx').on(table.overtimeMembershipId, table.status),
     index('duty_adjustments_deducted_status_idx').on(table.deductedMembershipId, table.status),
     index('duty_adjustments_covered_sequence_idx').on(

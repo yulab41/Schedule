@@ -38,10 +38,12 @@ export const leaveRequests = mysqlTable(
     status: mysqlEnum('status', ['pending', 'approved', 'rejected']).default('pending').notNull(),
     decidedAt: timestamp('decided_at', { fsp: 3 }),
     approverUserId: char('approver_user_id', { length: 36 }),
+    listHiddenAt: timestamp('list_hidden_at', { fsp: 3 }),
     ...auditableColumns(),
   },
   (table) => [
     index('leave_requests_group_status_idx').on(table.groupId, table.status),
+    index('leave_requests_list_visible_idx').on(table.groupId, table.listHiddenAt, table.id),
     index('leave_requests_membership_status_idx').on(table.membershipId, table.status),
   ],
 );

@@ -97,7 +97,13 @@ describeWithDatabase('immutable schedule events and security audits', () => {
       operationId: randomUUID(),
     });
     expect(applied.count).toBe(1);
-    expect(await client.database.select().from(scheduleEvents)).toEqual(originalRows);
+    const withoutDisplayState = (rows: Record<string, unknown>[]) =>
+      rows.map((row) =>
+        Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'timelineHiddenAt')),
+      );
+    expect(withoutDisplayState(await client.database.select().from(scheduleEvents))).toEqual(
+      withoutDisplayState(originalRows),
+    );
     const query = new EventQuery(client);
     const mini = await withTransaction(client, (tx) =>
       query.listInTransaction(tx, { groupId: primaryGroupId, pageSize: 1 }),
@@ -106,6 +112,11 @@ describeWithDatabase('immutable schedule events and security audits', () => {
     expect(mini.nextCursor).toBeUndefined();
     expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(1);
     expect((await query.getDetail(primaryGroupId, oldId)).event.id).toBe(oldId);
+    expect((await cleanup.preview(input)).count).toBe(0);
+    await client.database.delete(auditLogs).where(eq(auditLogs.action, 'miniprogram_event_hidden'));
+    expect((await query.list({ groupId: primaryGroupId })).events.map((event) => event.id)).toEqual(
+      [boundaryId],
+    );
     expect((await cleanup.preview(input)).count).toBe(0);
     expect((await cleanup.preview({ before, groupId: otherGroupId })).count).toBe(1);
     const backdatedId = await withTransaction(client, (tx) =>

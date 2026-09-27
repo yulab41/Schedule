@@ -98,6 +98,11 @@ export const shiftAssignments = mysqlTable(
     actualMembershipId: char('actual_membership_id', { length: 36 }),
     actualMemberName: varchar('actual_member_name', { length: 100 }),
     backfillAt: timestamp('backfill_at', { fsp: 3 }),
+    backfillHiddenAt: timestamp('backfill_hidden_at', { fsp: 3 }),
+    backfillVisibleAt: timestamp('backfill_visible_at', { fsp: 3 }).generatedAlwaysAs(
+      sql`if(backfill_hidden_at is null or backfill_at <> backfill_hidden_at, backfill_at, null)`,
+      { mode: 'stored' },
+    ),
     backfillOperatorUserId: char('backfill_operator_user_id', { length: 36 }),
     backfillReason: varchar('backfill_reason', { length: 1000 }),
     ...auditableColumns(),
@@ -107,6 +112,11 @@ export const shiftAssignments = mysqlTable(
       table.schedulePeriodId,
       table.startsAt,
       table.activeSlotPosition,
+    ),
+    index('shift_assignments_backfill_visible_idx').on(
+      table.schedulePeriodId,
+      table.backfillVisibleAt,
+      table.id,
     ),
     index('shift_assignments_period_business_date_idx').on(
       table.schedulePeriodId,

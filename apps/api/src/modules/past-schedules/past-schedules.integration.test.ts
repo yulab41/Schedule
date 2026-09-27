@@ -15,8 +15,9 @@ import {
 } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
-  auditLogs,
   shiftAssignments,
+  schedulePeriods,
+  platformJobRuns,
   migrateDatabase,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -29,6 +30,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { MiniBackfillCleanup } from './mini-backfill-cleanup.js';
+import { HistoryMaintenanceJob } from '../../jobs/history-maintenance.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -111,15 +113,12 @@ describeWithDatabase('past schedule backfill', () => {
     ).toBe(200);
     const [assignment] = await client.database.select().from(shiftAssignments);
     if (!assignment?.backfillAt) throw new Error('Expected a backfilled assignment');
-    await client.database.insert(auditLogs).values({
-      id: randomUUID(),
+    const cleanup = new MiniBackfillCleanup(client);
+    const preview = await cleanup.preview(groupId);
+    await cleanup.apply({
       groupId,
-      action: 'miniprogram_backfill_record_hidden',
+      expectedFingerprint: preview.fingerprint,
       operationId: randomUUID(),
-      outcome: 'success',
-      targetType: 'shift_assignment',
-      targetId: assignment.id,
-      metadata: { backfillAtMillis: assignment.backfillAt.valueOf() },
     });
     const headers = {
       authorization: 'Bearer owner-token',
@@ -139,7 +138,20 @@ describeWithDatabase('past schedule backfill', () => {
         })
       ).json(),
     ).toEqual([]);
-    expect((await client.database.select().from(shiftAssignments))[0]).toEqual(assignment);
+    const businessColumns = (row: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(row).filter(
+          ([key]) => !['backfillHiddenAt', 'backfillVisibleAt'].includes(key),
+        ),
+      );
+    expect(businessColumns((await client.database.select().from(shiftAssignments))[0]!)).toEqual(
+      businessColumns(assignment),
+    );
+    // Display state remains in the business table even when audit markers are archived separately.
+    await client.database.execute(
+      sql`DELETE FROM audit_logs WHERE action = 'miniprogram_backfill_record_hidden'`,
+    );
+    expect((await listBackfillRecords('owner-token')).json()).toEqual([]);
     vi.setSystemTime(new Date('2026-08-26T05:00:00Z'));
     expect(
       (
@@ -190,7 +202,15 @@ describeWithDatabase('past schedule backfill', () => {
       ).count,
     ).toBe(2);
     expect((await cleanup.preview(groupId)).count).toBe(0);
-    expect(await client.database.select().from(shiftAssignments)).toEqual(before);
+    const businessColumns = (row: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(row).filter(
+          ([key]) => !['backfillHiddenAt', 'backfillVisibleAt'].includes(key),
+        ),
+      );
+    expect((await client.database.select().from(shiftAssignments)).map(businessColumns)).toEqual(
+      before.map(businessColumns),
+    );
     const mini = await app.inject({
       method: 'GET',
       url: `/groups/${groupId}/past-schedules/backfill-records`,
@@ -208,6 +228,101 @@ describeWithDatabase('past schedule backfill', () => {
         })
       ).count,
     ).toBe(0);
+  });
+
+  it('reads a large hidden backfill history without scanning every marker for every assignment', async () => {
+    expect(
+      (await backfillBatch('owner-token', { items: [batchItem(1)] }, randomUUID())).statusCode,
+    ).toBe(200);
+    const [assignment] = await client.database.select().from(shiftAssignments);
+    if (!assignment?.backfillAt) throw new Error('Expected a backfilled assignment');
+    const { activeSlotPosition, backfillVisibleAt, ...storedAssignment } = assignment;
+    void activeSlotPosition;
+    void backfillVisibleAt;
+    const historySize = 2000;
+    const assignments = Array.from({ length: historySize - 1 }, (_, index) => ({
+      ...storedAssignment,
+      id: randomUUID(),
+      slotPosition: index + 2,
+    }));
+    for (let offset = 0; offset < assignments.length; offset += 250) {
+      await client.database
+        .insert(shiftAssignments)
+        .values(assignments.slice(offset, offset + 250));
+    }
+    const cleanup = new MiniBackfillCleanup(client);
+    const preview = await cleanup.preview(groupId);
+    expect(preview.count).toBe(historySize);
+    await cleanup.apply({
+      groupId,
+      expectedFingerprint: preview.fingerprint,
+      operationId: randomUUID(),
+    });
+    // The test client owns one connection. Count actual storage reads instead of a flaky time limit.
+    const readCount = async () => {
+      const [rows] = (await client.database.execute(
+        sql`SHOW SESSION STATUS LIKE 'Handler_read%'`,
+      )) as unknown as [readonly { Value: string }[]];
+      return rows.reduce((total, row) => total + Number(row.Value), 0);
+    };
+    const before = await readCount();
+    const response = await listBackfillRecords('owner-token');
+    const reads = (await readCount()) - before;
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([]);
+    expect(reads).toBeLessThan(historySize * 40);
+    console.info('history storage reads', { historySize, reads });
+  });
+
+  it('archives past published months once after 03:00 China time and catches up after a missed night', async () => {
+    const ids = [randomUUID(), randomUUID(), randomUUID()];
+    await client.database.insert(schedulePeriods).values(
+      ids.map((id, index) => ({
+        id,
+        groupId,
+        scheduleRoleId: primaryRoleId,
+        businessMonth: `2026-0${index + 7}-01`,
+        revision: 1,
+        rulesVersion: 1,
+        status: 'published' as const,
+      })),
+    );
+    const job = new HistoryMaintenanceJob(client);
+    expect(await job.runIfDue(new Date('2026-08-31T18:59:59Z'))).toEqual({
+      skipped: 'before-window',
+    });
+    expect(
+      (await client.database.select().from(schedulePeriods)).every(
+        (row) => row.status === 'published',
+      ),
+    ).toBe(true);
+    expect(await job.runIfDue(new Date('2026-08-31T19:00:00Z'))).toMatchObject({
+      archivedPeriods: 2,
+    });
+    const rows = await client.database.select().from(schedulePeriods);
+    expect(
+      rows
+        .filter((row) => row.status === 'past')
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual(ids.slice(0, 2).sort());
+    expect(rows.find((row) => row.id === ids[2])?.status).toBe('published');
+    expect(await job.runIfDue(new Date('2026-09-01T04:00:00Z'))).toEqual({
+      skipped: 'already-completed',
+    });
+    expect(await client.database.select().from(schedulePeriods)).toEqual(rows);
+    await client.database.insert(platformJobRuns).values({
+      id: randomUUID(),
+      jobName: 'history-maintenance',
+      status: 'failed',
+      startedAt: new Date('2026-10-01T19:00:00Z'),
+    });
+    expect(await job.runIfDue(new Date('2026-10-02T04:00:00Z'))).toMatchObject({
+      archivedPeriods: 1,
+    });
+    expect(
+      (await client.database.select().from(schedulePeriods)).every((row) => row.status === 'past'),
+    ).toBe(true);
   });
 
   it('backfills two members on one day without overwriting and replays safely', async () => {

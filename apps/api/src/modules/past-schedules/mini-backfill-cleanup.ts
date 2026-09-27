@@ -8,21 +8,17 @@ import {
   type DatabaseClient,
   type DatabaseTransaction,
 } from '@schedule/database';
-import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 export const miniBackfillHiddenAction = 'miniprogram_backfill_record_hidden';
 
 // Match the recorded update, not the assignment forever. A subsequent backfill is visible.
 export function visibleBackfillRecords() {
-  return sql`NOT EXISTS (SELECT 1 FROM ${auditLogs}
-    WHERE ${auditLogs.action} = ${miniBackfillHiddenAction}
-      AND ${auditLogs.targetType} = 'shift_assignment'
-      AND ${auditLogs.targetId} = ${shiftAssignments.id}
-      AND ${auditLogs.groupId} = ${schedulePeriods.groupId}
-      AND JSON_EXTRACT(${auditLogs.metadata}, '$.backfillAtMillis') = UNIX_TIMESTAMP(${shiftAssignments.backfillAt}) * 1000)`;
+  return isNotNull(shiftAssignments.backfillVisibleAt);
 }
 
-// Explicit one-time operator job. Only audit markers are inserted; schedules and events stay intact.
+// The database stores this snapshot and recomputes its indexed visibility only on writes.
+// Business assignment contents and audit records are preserved.
 export class MiniBackfillCleanup {
   public constructor(private readonly client: DatabaseClient) {}
 
@@ -49,6 +45,18 @@ export class MiniBackfillCleanup {
       if (summary.fingerprint !== input.expectedFingerprint)
         throw new Error('Cleanup preview changed; preview again before applying.');
       for (let offset = 0; offset < rows.length; offset += 500) {
+        await transaction
+          .update(shiftAssignments)
+          .set({
+            backfillHiddenAt: sql`${shiftAssignments.backfillAt}`,
+            updatedAt: sql`${shiftAssignments.updatedAt}`,
+          })
+          .where(
+            inArray(
+              shiftAssignments.id,
+              rows.slice(offset, offset + 500).map((row) => row.id),
+            ),
+          );
         await transaction.insert(auditLogs).values(
           rows.slice(offset, offset + 500).map((row) => ({
             id: randomUUID(),

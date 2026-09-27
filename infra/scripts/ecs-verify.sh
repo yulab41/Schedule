@@ -618,6 +618,15 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 64 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 65 ]; then
+  HISTORY_VISIBILITY_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name=\"schedule_events\" AND column_name=\"timeline_hidden_at\") OR (table_name=\"shift_assignments\" AND column_name IN (\"backfill_hidden_at\",\"backfill_visible_at\")) OR (table_name IN (\"swap_requests\",\"duty_adjustments\",\"leave_requests\") AND column_name=\"list_hidden_at\"))), (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"shift_assignments\" AND column_name=\"backfill_visible_at\" AND extra LIKE \"%STORED GENERATED%\"), (SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN (\"schedule_events_timeline_idx\",\"shift_assignments_backfill_visible_idx\",\"swap_requests_list_visible_idx\",\"duty_adjustments_list_visible_idx\",\"leave_requests_list_visible_idx\"))"')"
+  [ "$HISTORY_VISIBILITY_SCHEMA" = $'6\t1\t5' ] || {
+    echo "[verify] 错误：历史记录展示状态、持久化补录时间或索引缺失。" >&2
+    exit 1
+  }
+fi
+
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
   if [ "$schema" -ge 63 ]; then

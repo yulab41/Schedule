@@ -1,3 +1,4 @@
+import { HistoryMaintenanceJob } from '../../jobs/history-maintenance.js';
 import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { WorkflowConflictService } from '../workflows/workflow-conflict-service.js';
 import {
@@ -106,12 +107,14 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     await client.database.execute(
       sql`UPDATE leave_requests SET status = 'approved' WHERE id = ${id}`,
     );
+    await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
-    vi.setSystemTime(new Date('2026-09-30T16:00:00.000Z'));
+    vi.setSystemTime(new Date('2026-09-30T19:00:00.000Z'));
     for (const status of ['approved', 'rejected']) {
       await client.database.execute(
         sql`UPDATE leave_requests SET status = ${status} WHERE id = ${id}`,
       );
+      await new HistoryMaintenanceJob(client).run();
       expect(await service.listMine(mini, context.groupId)).toEqual([]);
       expect(await service.listForApproval(owner, context.groupId)).toEqual([]);
       for (const platform of [undefined, 'miniprogram', 'web']) {
@@ -140,10 +143,12 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     await client.database.execute(
       sql`UPDATE leave_requests SET ends_at = '2026-09-30 16:00:00.001' WHERE id = ${id}`,
     );
+    await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     await client.database.execute(
       sql`UPDATE leave_requests SET status = 'pending', ends_at = '2026-09-02 00:00:00' WHERE id = ${id}`,
     );
+    await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
   });
 

@@ -838,7 +838,7 @@ export class PastScheduleService {
             visibleBackfillRecords(),
           ),
         )
-        .orderBy(desc(shiftAssignments.backfillAt))
+        .orderBy(desc(shiftAssignments.backfillVisibleAt))
         .limit(30);
 
       return rows.map((row) => ({

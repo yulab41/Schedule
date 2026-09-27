@@ -1,3 +1,4 @@
+import { HistoryMaintenanceJob } from '../../jobs/history-maintenance.js';
 import {
   createScheduleFixture,
   configureScheduleFixture,
@@ -92,12 +93,14 @@ describeWithDatabase('paired duty adjustments', () => {
     await client.database.execute(
       sql`UPDATE duty_adjustments SET status = 'completed' WHERE id = ${id}`,
     );
+    await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
-    vi.setSystemTime(new Date('2026-09-30T16:00:00.000Z'));
+    vi.setSystemTime(new Date('2026-09-30T19:00:00.000Z'));
     for (const status of ['completed', 'rejected', 'cancelled', 'revoked']) {
       await client.database.execute(
         sql`UPDATE duty_adjustments SET status = ${status} WHERE id = ${id}`,
       );
+      await new HistoryMaintenanceJob(client).run();
       expect(await service.listMine(mini, context.groupId)).toEqual([]);
       expect(await service.listApprovals(owner, context.groupId)).toEqual([]);
       for (const platform of [undefined, 'miniprogram', 'web']) {
@@ -126,14 +129,17 @@ describeWithDatabase('paired duty adjustments', () => {
     await client.database.execute(
       sql`UPDATE shift_assignments SET business_date = '2026-10-01' WHERE id = ${context.assignments.aSep1.id}`,
     );
+    await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     await client.database.execute(
       sql`UPDATE shift_assignments SET business_date = '2026-09-01' WHERE id = ${context.assignments.aSep1.id}`,
     );
+    await new HistoryMaintenanceJob(client).run();
     for (const status of ['pending_target', 'pending_approval']) {
       await client.database.execute(
         sql`UPDATE duty_adjustments SET status = ${status} WHERE id = ${id}`,
       );
+      await new HistoryMaintenanceJob(client).run();
       expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     }
   });

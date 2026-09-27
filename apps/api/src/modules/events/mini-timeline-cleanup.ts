@@ -7,25 +7,12 @@ import {
   type DatabaseClient,
   type DatabaseTransaction,
 } from '@schedule/database';
-import { and, asc, eq, isNotNull, lt, notInArray, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 
 export const miniTimelineHiddenAction = 'miniprogram_event_hidden';
 
-export function visibleTimelineEvents(transaction: DatabaseTransaction, groupId?: string) {
-  return notInArray(
-    scheduleEvents.id,
-    transaction
-      .select({ id: auditLogs.targetId })
-      .from(auditLogs)
-      .where(
-        and(
-          eq(auditLogs.action, miniTimelineHiddenAction),
-          eq(auditLogs.targetType, 'schedule_event'),
-          isNotNull(auditLogs.targetId),
-          groupId === undefined ? undefined : eq(auditLogs.groupId, groupId),
-        ),
-      ),
-  );
+export function visibleTimelineEvents() {
+  return isNull(scheduleEvents.timelineHiddenAt);
 }
 
 interface CleanupInput {
@@ -34,8 +21,8 @@ interface CleanupInput {
   readonly includeExistingBackfills?: boolean;
 }
 
-// This is an explicit operator job, never a scheduled retention rule. Each existing event
-// receives an audit marker; event contents, statistics and subsequent inserts are untouched.
+// Explicit operator job: persist display state and an audit marker atomically.
+// Event business contents, statistics and subsequent inserts are untouched.
 export class MiniTimelineCleanup {
   public constructor(private readonly client: DatabaseClient) {}
 
@@ -61,6 +48,15 @@ export class MiniTimelineCleanup {
       if (summary.fingerprint !== input.expectedFingerprint)
         throw new Error('Cleanup preview changed; preview again before applying.');
       for (let offset = 0; offset < rows.length; offset += 500) {
+        await transaction
+          .update(scheduleEvents)
+          .set({ timelineHiddenAt: new Date() })
+          .where(
+            inArray(
+              scheduleEvents.id,
+              rows.slice(offset, offset + 500).map((row) => row.id),
+            ),
+          );
         await transaction.insert(auditLogs).values(
           rows.slice(offset, offset + 500).map((row) => ({
             id: randomUUID(),
@@ -97,7 +93,7 @@ export class MiniTimelineCleanup {
               ? eq(scheduleEvents.eventType, 'schedule_backfill_completed')
               : undefined,
           ),
-          visibleTimelineEvents(transaction, input.groupId),
+          visibleTimelineEvents(),
         ),
       )
       .orderBy(asc(scheduleEvents.id));

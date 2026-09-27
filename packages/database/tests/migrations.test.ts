@@ -58,9 +58,120 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    // One journal entry per applied migration, including the active-slot constraint.
-    expect(migrations).toEqual([{ count: 64 }]);
+    // One journal entry per applied migration, including persisted history visibility.
+    expect(migrations).toEqual([{ count: 65 }]);
     expect(tables).toEqual([{ count: 55 }]);
+  });
+
+  it('transfers only existing hidden snapshots into indexed display state without changing business contents', async () => {
+    const legacy = await createLegacyMigrationsDirectory(64);
+    try {
+      await migrateDatabase(client, legacy);
+      const userId = randomUUID();
+      const groupId = randomUUID();
+      const otherGroupId = randomUUID();
+      const periodId = randomUUID();
+      const roleId = randomUUID();
+      const shiftId = randomUUID();
+      await client.database
+        .insert(users)
+        .values({ id: userId, cloudbaseUid: 'visibility-migration' });
+      await client.database.insert(groups).values([
+        { id: groupId, name: 'Visibility fixture', ownerUserId: userId },
+        { id: otherGroupId, name: 'Other visibility fixture', ownerUserId: userId },
+      ]);
+      await client.database.execute(
+        sql`INSERT INTO schedule_roles (id,group_id,name) VALUES (${roleId},${groupId},'Visibility role')`,
+      );
+      await client.database
+        .execute(sql`INSERT INTO shift_types (id,group_id,name,abbreviation,display_order,color,text_color,start_time,end_time,crosses_midnight,is_enabled,is_all_day)
+        VALUES (${shiftId},${groupId},'Visibility shift','V',1,'#123456','#FFFFFF','08:00','08:00',1,1,1)`);
+      await client.database
+        .execute(sql`INSERT INTO schedule_periods (id, group_id, schedule_role_id, business_month, revision, rules_version, status)
+        VALUES (${periodId}, ${groupId}, ${roleId}, '2026-07-01', 1, 1, 'past')`);
+      const eventIds = [randomUUID(), randomUUID()];
+      for (const id of eventIds) {
+        await client.database
+          .execute(sql`INSERT INTO schedule_events (id, group_id, event_type, event_status, object_type, operation_id, affected_membership_ids, affected_shift_ids)
+          VALUES (${id}, ${groupId}, 'schedule_backfill_completed', 'completed', 'shift_assignment', ${randomUUID()}, JSON_ARRAY(), JSON_ARRAY())`);
+      }
+      const assignmentIds = [randomUUID(), randomUUID(), randomUUID()];
+      for (let index = 0; index < assignmentIds.length; index++) {
+        await client.database
+          .execute(sql`INSERT INTO shift_assignments (id,schedule_period_id,business_date,slot_position,shift_type_id,shift_type_name,shift_type_abbreviation,shift_type_color,shift_type_text_color,shift_type_configuration_version,shift_start_time,shift_end_time,crosses_midnight,is_all_day,counts_toward_statistics,starts_at,ends_at,backfill_at,updated_at,version)
+          VALUES (${assignmentIds[index]},${periodId},'2026-07-01',${index + 1},${shiftId},'Fixture','F','#123456','#FFFFFF',1,'08:00','08:00',1,1,1,'2026-07-01 00:00:00','2026-07-02 00:00:00','2026-09-27 01:00:00.123','2026-09-27 01:00:00.123',7)`);
+      }
+      const snapshotMillis = new Date('2026-09-27T01:00:00.123Z').valueOf();
+      for (const [id, markerGroup, millis] of [
+        [assignmentIds[0], groupId, snapshotMillis],
+        [assignmentIds[1], groupId, snapshotMillis - 1],
+        [assignmentIds[2], otherGroupId, snapshotMillis],
+      ] as const) {
+        await client.database
+          .execute(sql`INSERT INTO audit_logs (id,group_id,action,outcome,target_type,target_id,operation_id,metadata)
+          VALUES (${randomUUID()},${markerGroup},'miniprogram_backfill_record_hidden','success','shift_assignment',${id},${randomUUID()},JSON_OBJECT('backfillAtMillis',${millis}))`);
+      }
+      await client.database
+        .execute(sql`INSERT INTO audit_logs (id,group_id,action,outcome,target_type,target_id,operation_id,metadata)
+        VALUES (${randomUUID()},${groupId},'miniprogram_event_hidden','success','schedule_event',${eventIds[0]},${randomUUID()},JSON_OBJECT())`);
+      const [beforeAssignments] = await client.database.execute(
+        sql`SELECT * FROM shift_assignments ORDER BY id`,
+      );
+      const [beforeEvents] = await client.database.execute(
+        sql`SELECT * FROM schedule_events ORDER BY id`,
+      );
+      const [beforeAudit] = await client.database.execute(
+        sql`SELECT * FROM audit_logs ORDER BY id`,
+      );
+      await migrateDatabase(client, migrationsDirectory);
+      await migrateDatabase(client, migrationsDirectory);
+      const withoutDisplay = (rows: unknown) =>
+        (rows as Record<string, unknown>[]).map((row) =>
+          Object.fromEntries(
+            Object.entries(row).filter(
+              ([key]) =>
+                !['timeline_hidden_at', 'backfill_hidden_at', 'backfill_visible_at'].includes(key),
+            ),
+          ),
+        );
+      const [afterAssignments] = await client.database.execute(
+        sql`SELECT * FROM shift_assignments ORDER BY id`,
+      );
+      const [afterEvents] = await client.database.execute(
+        sql`SELECT * FROM schedule_events ORDER BY id`,
+      );
+      expect(withoutDisplay(afterAssignments)).toEqual(beforeAssignments);
+      expect(withoutDisplay(afterEvents)).toEqual(beforeEvents);
+      expect((await client.database.execute(sql`SELECT * FROM audit_logs ORDER BY id`))[0]).toEqual(
+        beforeAudit,
+      );
+      expect(
+        (
+          await client.database.execute(
+            sql`SELECT id FROM shift_assignments WHERE backfill_visible_at IS NULL`,
+          )
+        )[0],
+      ).toEqual([{ id: assignmentIds[0] }]);
+      expect(
+        (
+          await client.database.execute(
+            sql`SELECT id FROM schedule_events WHERE timeline_hidden_at IS NOT NULL`,
+          )
+        )[0],
+      ).toEqual([{ id: eventIds[0] }]);
+      await client.database.execute(
+        sql`UPDATE shift_assignments SET backfill_at = '2026-09-27 01:00:00.124' WHERE id=${assignmentIds[0]}`,
+      );
+      expect(
+        (
+          await client.database.execute(
+            sql`SELECT id FROM shift_assignments WHERE backfill_visible_at IS NULL`,
+          )
+        )[0],
+      ).toEqual([]);
+    } finally {
+      await removeLegacyMigrationsDirectory(legacy);
+    }
   });
 
   it('moves the latest short phone to the account and removes every retired structure', async () => {

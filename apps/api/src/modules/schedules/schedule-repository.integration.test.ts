@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { HistoryMaintenanceJob } from '../../jobs/history-maintenance.js';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -116,6 +117,15 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       );
     expect((await history()).find((item) => item.id === draft.id)?.status).toBe('published');
     vi.setSystemTime(new Date('2026-09-27T04:00:00Z'));
+    await expect(
+      repository.withdraw({
+        actorUserId: ownerUserId,
+        expectedVersion: published.version,
+        operationId: randomUUID(),
+        schedulePeriodId: draft.id,
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    await new HistoryMaintenanceJob(client).run();
     const before = await client.database.select().from(shiftAssignments);
     const eventsBefore = await client.database.select().from(scheduleEvents);
     expect((await history()).find((item) => item.id === draft.id)?.status).toBe('past');
@@ -133,7 +143,7 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       const result = await app.inject({
         method: 'POST',
         url: `${prefix}/withdraw`,
-        payload: { expectedVersion: published.version, operationId: randomUUID() },
+        payload: { expectedVersion: published.version + 1, operationId: randomUUID() },
       });
       expect(result.statusCode).toBe(409);
       expect(result.json().error.message).toContain('既往排班已锁定');

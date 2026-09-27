@@ -219,10 +219,7 @@ export class ScheduleRepository {
         revision: row.revision,
         scheduleRoleId: row.scheduleRoleId,
         scheduleRoleName: row.scheduleRoleName,
-        status:
-          row.status === 'published' && isPastBusinessMonth(row.businessMonth.slice(0, 7))
-            ? 'past'
-            : row.status,
+        status: row.status,
         version: row.version,
       };
     });
@@ -717,8 +714,8 @@ export class ScheduleRepository {
   ): Promise<SchedulePeriodRecord> {
     const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
     assertExpectedPeriodVersion(period, input.expectedVersion);
-    assertTransition(period.status, 'withdrawn');
     assertWithdrawalMonthUnlocked(period.businessMonth.slice(0, 7));
+    assertTransition(period.status, 'withdrawn');
     const today = getChinaStandardTimeBusinessDate(new Date());
     const pastAssignments = (await this.loadPeriodAssignments(transaction, period.id)).filter(
       (assignment) => isPastBusinessDate(assignment.businessDate),
