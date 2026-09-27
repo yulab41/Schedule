@@ -2,6 +2,22 @@ import { afterEach, expect, it, vi } from 'vitest';
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('shares the cache across separately bundled pages and components through the app runtime', async () => {
+  vi.resetModules();
+  const screen = vi.fn(() => ({ windowWidth: 360 }));
+  const app = { globalData: {} };
+  vi.stubGlobal('wx', { getWindowInfo: screen });
+  vi.stubGlobal('getApp', () => app);
+  const home = await import('../src/components/calendar/calendar-name-layout.ts');
+  const page = home.getCalendarNameLayout('page');
+  vi.resetModules();
+  const component = await import('../src/components/calendar/calendar-name-layout.ts');
+  const dialog = component.getCalendarNameLayout('dialog', true);
+  expect(component.getCalendarNameLayout('page')).toBe(page);
+  expect(home.getCalendarNameLayout('dialog', true)).toBe(dialog);
+  expect(screen).toHaveBeenCalledTimes(1);
+});
+
 it('reads the screen once and returns one shared value per calendar layout, independent of row count', async () => {
   vi.resetModules();
   const screen = vi.fn(() => ({ windowWidth: 390 }));

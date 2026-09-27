@@ -32,3 +32,13 @@
 唯一下一任务：完成已授权上传/放行，再等待同版本/SHA小米14复核。状态为已实现、自动化完成、待用户真机复核；未取得同构建证据不写真机通过。
 
 应用检查点已推送：`17598dc8`。工作台 proof blob 从 `951cf5f6` 更新到 `c9e21ac4`；旧证明精确匹配回归失败，新证明17/17通过。只追加该检查点理由和精确blob，未减少必需祖先、禁用验证或修改版本序列。独立检查点消息：`chore(release): refresh shared calendar scale lineage proof`。
+
+## 打包边界补充修正
+
+`.205@a7528cfb` 已于本轮上传并 add-only 放行，Manifest `f41fa25b61ca80a5d7744035e0d81bb2fbe4a5fed7bb639424669aaec6013149`、ZIP 2,368,652 B。前后完整 ECS verifier、独立 allowlist verify 通过；生产应用 release 保持 `539d88e3`。这仍只代表各入口各自缓存；发布产物复查发现 `build-tools.mjs` 的 bundle:true 会把helper分别打包进首页、访客与月历组件，模块变量不能证明全小程序只读屏宽一次。
+
+- `MINI-CALENDAR-SHARED-006`（P2，高置信，`17598dc8` 引入）：新增跨独立模块副本回归，旧代码对象相等断言失败；改用现有 `App.globalData` 运行态模式保存仅含屏宽和布局值的缓存。无姓名、持久化或业务数据；没有全局App的Node环境保留局部fallback。每个入口仍只按布局键读取，不按每个单元格计算。三个宽度公式与样式均未改变。
+- 在新的独占租约中继续复用同一warm槽位，REUSE_ONLY/Bootstrap无构建依赖、未安装。原候选冻结身份不改写，修正版另提交、另由官方分配器分配版本。原`.205`保留。
+- 回归旧代码1失败/2通过，新代码3/3，几何和结构合计11/11；实际生成JS在两个独立VM中加载后 `screenReads=1`、页面/弹窗对象相同、缓存2种布局。开发者工具读取实际App运行态，390px且存在`page:false`缓存。
+- 修正后Mini verify通过，主包1,624,906 B、总包4,334,456 B，相对本轮原始基线分别减少4,606/4,522 B；此前主包/矩阵预警仍在。完整Mini复测1,287通过/18跳过，根类型/lint、任务格式、core smoke、CI dry-run和血缘审计通过。开发者工具从首页进入匿名手排后，同一个App缓存依次出现page:false、preview:false、dialog:true，宽度保持390px；这是真实跨入口缓存证据，未冒充真机耗时。
+- 修正检查点消息：`fix(miniprogram): share calendar sizing across entry bundles`。本次只修改helper缓存位置和对应回归，工作台精确proof blob不变；下一步通过门禁后上传新的clean候选并add-only放行，最终停在同构建小米14复核。

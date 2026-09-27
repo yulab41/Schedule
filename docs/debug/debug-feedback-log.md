@@ -4,6 +4,8 @@
 
 ## 2026-09-27 共享容器倍率与三字省略规则
 
+- 构建边界补充：17598dc8的模块级缓存会被entry bundle复制，跨副本回归先失败后通过；已改App.globalData共享，实际生成JS双副本只读屏宽1次，开发者工具从首页到手排共用page/preview/dialog缓存。最终Mini1,287通过/18跳过，其余相关门禁通过。检查点消息 `fix(miniprogram): share calendar sizing across entry bundles`；.205已保留，修正版另分配版本并放行。
+
 - 引入点：`f651024f` 逐行query、`0edc34ed` 缓存批处理。用户最终授权改为固定三字＋标识，所有同布局单元格共享一次计算；多字省略、二字不放大。删除旧测宽组件，保留周标识下一行、状态色/删除线、分页/手势/高度和上一批性能优化。详见[轮次](../audit/calendar-shared-scale-20260927.md)。
 - 回归先红后绿；600次访问仍只读屏宽一次，各布局同对象复用；真实CSS验证页面/弹窗不同内边距与上限。定向70/70，Mini完整1,286通过/18跳过；开发者工具匿名首页月/周已检查，小米14尚未验证。
 - 运行/浏览器验证：`pnpm smoke:check-core`通过；无Web核心变更，不触发`pnpm smoke:browser`。根lint/typecheck、任务格式、Mini verify/确定性/包体、图标、CI dry-run通过；全仓格式五个未改文件既有失败。

@@ -6,7 +6,8 @@
 - 最新基线 `3e6af0d5`、独占 warm/REUSE_ONLY、未安装；红绿与真实CSS几何/缓存测试通过，Mini完整1,286通过/18跳过，定向70/70；lint/typecheck、任务格式、Mini verify/包体/确定性、图标、core smoke、CI dry-run通过。全仓格式保留五个未改文件的既有失败。主包1,623,944 B/总包4,333,494 B，较本轮基线分别减少5,568/5,484 B。
 - 开发者工具匿名首页月/周及紧凑预览弹窗已查看；访客跳转保护导致原生入口未验证，补录由共享模板、几何及运行测试覆盖。真机切换耗时和Android字形观感待同构建小米14反馈。
 - 应用检查点 `17598dc8`（`fix(miniprogram): share fixed calendar name scales by container`）已推送；独立血缘证明检查点消息 `chore(release): refresh shared calendar scale lineage proof`，旧blob断言先失败，新证明17/17通过，随后冻结clean候选。用户已授权直接上传并add-only放行新体验版，旧版保留；不部署API/Web、不备份/迁移数据库、不提审、不正式发布。
-- 唯一下一任务：完成新体验版上传/放行及交付记录，然后停止在同构建小米14复核。详见[轮次记录](calendar-shared-scale-20260927.md)。
+- `.205@a7528cfb` 已上传放行；产物复查发现entry bundle各含helper，补充改为App全局缓存，以真正跨首页/访客/预览只读一次屏宽。跨模块回归先失败后通过，实际生成JS两个副本仅读屏宽1次，开发者工具首页与手排共用App缓存；最终Mini1,287通过/18跳过，verify/类型/lint/格式/包体/dry-run/血缘通过（主包1,624,906 B、总包4,334,456 B）。修正检查点消息 `fix(miniprogram): share calendar sizing across entry bundles`。
+- 唯一下一任务：完成全局缓存修正新候选上传/放行，再停止在同构建小米14复核。详见[轮次记录](calendar-shared-scale-20260927.md)。
 
 ## 上一批次：日历切换反馈修复（体验版 `.204` 已上传，待单独放行与真机复核）
 

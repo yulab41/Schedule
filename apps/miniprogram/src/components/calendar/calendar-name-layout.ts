@@ -33,16 +33,32 @@ export function createCalendarNameLayout(
   return { cardWidth, monthScale, weekScale, style };
 }
 
-let screenWidth: number | undefined;
-const layouts = new Map<string, ReturnType<typeof createCalendarNameLayout>>();
+interface CalendarNameRuntime {
+  screenWidth?: number;
+  layouts: Map<string, ReturnType<typeof createCalendarNameLayout>>;
+}
+const fallback: CalendarNameRuntime = { layouts: new Map() };
+
+function getRuntime(): CalendarNameRuntime {
+  // Entry bundles each contain this module; App.globalData is shared across all of them.
+  if (typeof getApp !== 'function') return fallback;
+  try {
+    const data = getApp<{ globalData?: { calendarNameLayout?: CalendarNameRuntime } }>().globalData;
+    return data ? (data.calendarNameLayout ??= { layouts: new Map() }) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export function getCalendarNameLayout(layout: CalendarNameLayout = 'page', compact = false) {
-  screenWidth ??= typeof wx === 'undefined' ? 390 : (wx.getWindowInfo?.().windowWidth ?? 390);
+  const runtime = getRuntime();
+  runtime.screenWidth ??=
+    typeof wx === 'undefined' ? 390 : (wx.getWindowInfo?.().windowWidth ?? 390);
   const key = `${layout}:${compact}`;
-  let result = layouts.get(key);
+  let result = runtime.layouts.get(key);
   if (!result) {
-    result = createCalendarNameLayout(layout, compact, screenWidth);
-    layouts.set(key, result);
+    result = createCalendarNameLayout(layout, compact, runtime.screenWidth);
+    runtime.layouts.set(key, result);
   }
   return result;
 }
