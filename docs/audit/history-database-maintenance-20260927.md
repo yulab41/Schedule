@@ -26,7 +26,7 @@
 - 单元/发布控制 46/46；API/database 类型、任务文件 ESLint/格式、API build 通过。`pnpm smoke:check-core` 通过，未修改 Web/contract 核心链路，不宣称浏览器或手机验收通过。
 - 6 文件完整定向集成 105/105，换班历史范围追加 1/1（其他34项未选择）；迁移29/29单独串行运行，避免共享测试库相互覆盖。上一轮已复现的无关换班归档重发布断言未作修改，不宣称全仓测试通过。
 - 命令：通过 `node --env-file=E:/AItools/Schedule/.env --input-type=module` 调用 `runApiIntegrationTests({testFiles})`，文件为 schedule-repository、past-schedules、events、event-routes、leaves、duty-adjustments 的 integration.test.ts；另跑 migrations.test.ts 和 swaps.integration.test.ts 的 `-t 'hides only closed swaps'`。单元使用 `pnpm exec vitest run scripts/ecs-schema-compatibility.test.mjs scripts/package-ecs-release.test.mjs apps/api/src/jobs/runner.spec.ts apps/api/src/jobs/privacy-retention.spec.ts infra/scripts/privacy-retention.spec.ts infra/scripts/release-controls.spec.ts`。
-- `pnpm --filter @schedule/database typecheck`、`pnpm --filter @schedule/api typecheck` / `build`、`pnpm exec eslint <本轮TS/MJS> --max-warnings=0`、`pnpm exec prettier --check <本轮TS/MJS>`、`bash -n infra/scripts/ecs-verify.sh`、`git diff --check` 均通过。生产部署与接口复测将在交付后补记。
+- `pnpm --filter @schedule/database typecheck`、`pnpm --filter @schedule/api typecheck` / `build`、`pnpm exec eslint <本轮TS/MJS> --max-warnings=0`、`pnpm exec prettier --check <本轮TS/MJS>`、`bash -n infra/scripts/ecs-verify.sh`、`git diff --check` 均通过。
 - 证据目录：ignored `runtime/audit/history-api-latency/`，只保存聚合计数、哈希、耗时及脱敏诊断，不存请求凭据或完整业务响应。
 
 ## 发布边界
@@ -34,4 +34,14 @@
 - 检查点消息：`fix(api): persist history visibility and archive expired months nightly`。
 - 生产加密备份 `970431c4-558e-498b-8997-e85d67b69713`，54表/322968行/135068312 B，容器实际文件大小和SHA-256与记录一致。
 - 新版要求 schema 65；旧 manifest 只接受 64，因此迁移后不能直接用旧版自动回滚。保留生产备份和原发布产物，必要时前向修复，不绕过 schema 门禁。
-- 当前为已实现待生产运行验证。唯一下一任务：完成提交/推送及授权部署，验证原业务哈希、凌晨任务、各列表一致性和并发耗时；通过后进入 `.209` 小米 14 复核。
+- 应用 `4674c8bcd5b1052c54ca3e35bfead2aacef54c53` 已推送并部署。官方 `pnpm ecs:package` 复用128项缓存依赖、下载0；冻结候选前后检查通过，前后完整ECS verifier通过。实际生产前驱为e1de2a0e，数据库schema65。
+
+## 生产交付回读
+
+- 部署中的既有隐私调度立即补跑：`historyMaintenance={monthStart:2026-09-01,archivedPeriods:2,workflowVisibilityChanges:11}`。再次执行受信 `schedule-privacy-retention.sh` 返回 `already-completed`，确认当天不再重复维护。
+- 数据库306事件/3162现存补录保持隐藏，过去月份published残留为0。API历史直接返回数据库past状态；没有删除事件、班次或审计记录。
+- 328事件、4897班次、18换班、6加扣班、11请假、3468原隐藏审计标记：剔除新增展示字段后的全内容计数及SHA-256前后一致。排班期间的status/version是预期归档变更，未把它们声称为未变。
+- 2个群组的8类列表各以无标识/Mini/Web读取，共48请求，返回体哈希一致；再并发请求补录、成员、日历、历史，共8请求。56个请求全部200，最大148ms；大群组补录三次顺序请求25/22/26ms（基线19110ms），并发补录/成员/历史/日历42/54/91/117ms，小群组并发20–63ms。属于服务器内部真实HTTP测量，不代表手机端到端耗时。
+- 独立allowlist verify通过，严格TLS公网探针`.209/.208=200`、未知版426；客户端仍`.209@4d9cde15`，无新上传，无提审/正式发布。
+- 交付文档检查点消息 `docs(audit): record persisted history production verification`；按文档专属例外不重复部署或备份，生产应用release保持4674c8bc。
+- 状态：已完成服务端运行验证，待用户复核。唯一下一任务为退出重进`.209`小米14检查页面加载、历史隐藏、2026-08既往锁定；当前工具未测量手机性能，不声称真机通过。
