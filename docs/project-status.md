@@ -1,11 +1,12 @@
 # Project Status
 
-## 当前批次：历史列表回归与过月排班锁定（已实现，正在交付）
+## 当前批次：历史列表回归与过月排班锁定（生产已交付，待小米14复核）
 
-- 基线 `3c41fc15`，独占 warm/REUSE_ONLY，无安装。修复 Mini 密码登录绕过六类工作流及事件隐藏；追加最近补录记录的一次性快照隐藏；过月 published 在历史响应中显示为 past，撤销预览及实际请求均锁定。
-- API 真实数据库定向 155 通过/1 既有归档重新发布断言失败（原版已复现）；新增回归先红后绿；Mini 页面消费者 36 通过，API 类型/lint/build、任务格式及 core smoke 通过。最终新增用例与生产结果见[轮次记录](audit/mini-history-regression-20260927.md)。
-- 仅 API 修改，现有 `.209@4d9cde15` 已有必要请求头及 past 展示，无需重新上传；原始班次/审计保留，不重跑旧事件清理，不注册长期清理规则。
-- 检查点消息 `fix(api): honor Mini history visibility and lock past releases`。当前下一步：提交推送、验证生产备份、部署与一次性补录记录隐藏后回读；失败停止定位。成功后唯一下一任务为 `.209` 同构建小米14重新进入四类页面复核；真机未验收，不提审/正式发布。
+- 应用 `abab2fc3`（`fix(api): honor Mini history visibility and lock past releases`）已推送并部署，修复密码登录绕过六类列表/事件隐藏、最近补录一次性清理及过月排班锁定。独占 warm/REUSE_ONLY，无 install。
+- 新增回归最终7/7、Mini页面消费者36通过；API相关9文件155通过/1既有归档重发布断言失败（原版已复现）。API类型/lint/build、任务格式/core smoke、正式打包及完整生产verifier通过。详见[轮次记录](audit/mini-history-regression-20260927.md)。
+- 备份 `119a9735-e479-4cb9-b3e4-d75d731c6a42` 大小/哈希核对通过。生产HTTP回读：过月失效列表项0；Mini事件22项、旧日期与隐藏标记泄漏均0；2群组3162条现有补录快照隐藏、再次预览0；过月published残留0，106个过去排班撤销预览均409。328条原始事件/4897条班次的数量及全内容哈希不变。
+- 保留 `.209@4d9cde15` 客户端，无Mini源码变化/新上传；API release为 `abab2fc3882d8c1202b04b5bb2230a3d170f958e`。交付文档消息 `docs(audit): record history regression production verification`，不重复部署/备份/同步release。
+- 当前已完成API运行验证，待用户复核。唯一下一任务：退出重进 `.209` 小米14，检查六类记录、事件时间线、最近补录和2026-08既往锁定。真机未验收；发生回归停止验收并处理，不提审/正式发布。
 
 ## 上一批次：历史信息清理、操作者显示、分段滑动（生产与体验版 `.209` 已交付，待小米14复核）
 

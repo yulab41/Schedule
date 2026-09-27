@@ -37,3 +37,15 @@
 部署前实时查询 live release，作为唯一回滚候选；验证备份文件大小和哈希。部署后以实际签名密码会话与 Mini 请求头回读六类列表、事件、补录及历史月份状态；清理前后比对原始事件和班次数量/全内容哈希。
 
 应用检查点消息：`fix(api): honor Mini history visibility and lock past releases`。完成部署后唯一下一任务为 `.209` 小米 14 重新进入上述页面复核；生产验证失败则停止交付并定位，不提审或正式发布。部署、清理和最终精确验证结果在交付文档检查点补充。
+
+## 交付回读
+
+- 应用检查点 `abab2fc3`（`fix(api): honor Mini history visibility and lock past releases`）已正常快进推送 main。精确生产 release `abab2fc3882d8c1202b04b5bb2230a3d170f958e`；紧邻部署前实时前驱为 `4d9cde15fe16a9f8540093604c4a20d0bf37bc6a`，已冻结为 rollbackCandidate。干净 warm 候选检查前后通过；官方 ECS 包使用既有缓存离线导出依赖，downloaded 0，未运行 install。
+- 备份 `119a9735-e479-4cb9-b3e4-d75d731c6a42`，132,822,284 B，SHA-256 `fc6f248ebd5b3d762e257ab6389fe95a2b388176b5dd6ee6809a877f208fea7d`；实际文件 stat/sha256sum 一致。官方完整部署及 ECS verifier 通过；无新迁移，schema64。最初 SSH 只读命令重复传 destination，未取得 release；已改为脚本定义的单一参数形式，单独重读 live 成功，后续固定脚本部署通过。
+- 生产只读探针使用短时签名密码会话、Mini 请求头和真实 HTTP，不输出令牌、身份或业务正文。部署前六类接口累计返回25项、其中过月失效11项；部署后累计14项、过月失效0。后台无 Mini 头仍返回25项。
+- Mini 时间线328→22项，已标记事件泄漏306→0，早于2026-09-24 00:00 +08:00 的事件265→0。复用了原306个标记，未再次执行旧事件清理。
+- 补录清理预览/执行均为2群组、3162条，指纹 `fa0ee8d7edc263cbe68a1692f1059bee71cbbd1b80f5ed9a94ed97351bea30d0`；operation `c9f72ac3-affb-4116-88c2-8c9c94b793ad`。再次预览0条，Mini最近补录返回0；后台仍按原每群30条上限累计返回60条。
+- 清理前后原始事件328条、班次4897条的全内容哈希完全一致：事件 `c0e70025c8301ab3465f74aacf4a2efafee2e16d510c65ca30ffb3294dc6a088`，班次 `f3f6f390f19d0953af13f57cf5c8d20de689643802b3da7b8a143d4d6c623859`。未修改原补录状态或审计事件。
+- 历史接口中2个过月 published 已转为 past 展示，残留 published 为0；106个过去月份排班的撤销预览全部409。实际撤销API的409及零班次/事件写入由本地真实MySQL回归验证，未向生产提交撤销请求。
+- Mini保留合格已上传 `.209@4d9cde15`，Manifest `49c69ecbe63b7adce07fdf385c1a6ee3446352e56b57c40de388a40337897b3f`，无新上传/分配版本。独立版本白名单 verify 通过；经正式域名与严格 TLS 的公网探测 `.209/.208=200`、未知版本426。原页面退出再进入后读取修复后的接口；同构建小米14验证仍待用户复核。
+- 交付文档消息 `docs(audit): record history regression production verification`；仅文档更新按例外不再次部署、备份或同步生产release。当前状态：已完成API运行验证，待用户复核；唯一下一任务为 `.209` 小米14核对六类列表、时间线、最近补录和2026-08锁定，不扩展无关功能。
