@@ -45,6 +45,11 @@ SCHEDULE_TIMELINE_MODE=preview
 
 ## 检查点与下一步
 
-- 应用检查点消息：`feat(miniprogram): trim history and animate insight controls`。预上传说明：历史工作流过滤、操作者显示、一次性事件清理、统计与通知分段滑动；测试页为换班/加扣班/请假、统计与事件、通知设置。
-- 完成本轮验证后提交推送，部署精确应用 SHA、先备份，执行一次性清理；clean warm 候选动态分配体验版并只追加放行。上传说明包含精确短 SHA，候选与源树均须干净。
+- 应用检查点 `4d9cde15`（`feat(miniprogram): trim history and animate insight controls`）已正常快进推送 main。预上传说明：历史工作流过滤、操作者显示、一次性事件清理、统计与通知分段滑动；测试页为换班/加扣班/请假、统计与事件、通知设置。
+- 精确 production clean SHA `4d9cde15fe16a9f8540093604c4a20d0bf37bc6a`，动态分配体验版 `0.1.0-p10.20260927.209`，说明“历史信息与补录清理、操作者显示、分段滑动 4d9cde1”；Manifest `49c69ecbe63b7adce07fdf385c1a6ee3446352e56b57c40de388a40337897b3f`，构建时间 `2026-09-27T10:01:58.512Z`。上传成功时间 `10:07:53Z`，tag/allocation/manifest/receipt 一致，前后正式候选检查通过，上传 ZIP 2,374,837 B。
+- 上传遇到 Git ls-remote 网络失败及旧备用线路的 getrandstr ECONNRESET。只读远端核实后，以官方 helper 保留 `.209`/同一 SHA/原 buildTime，重新生成产物的 Manifest 严格相等；切换经过 TLS 探测的系统 DNS 直连 IPv4、`NO_PROXY` 后成功。未删除 tag、未换版本、未改系统网络或降低证书校验。
+- 加密生产备份 `87619fd3-f552-46e9-82db-fdbb73f0cec9`，132,508,412 B，SHA-256 `7dbea8e8af99940458a2d055bcb4cf30138080e1a62cd35b9a09dc21c3b50de5`，文件大小/哈希核对通过。部署前实时前驱仍 `539d88e3`；官方完整部署到 `4d9cde15`，schema 保持 64，部署及完整 verifier 通过。未上传本地业务数据或凭据。
+- 一次性隐藏完成：2 个群组、306 条事件，operation `9e06527e-bf14-46c1-a65d-42205b4d0757`；预览/执行指纹相同。原始 `schedule_events` 328 条及全内容 SHA-256 前后一致；Mini 查询剩余 22 条，22 条均带姓名；同条件再预览 0 条。未删除事件、班次或补录数据，未发送通知。
+- 可信 `schedule-client-version-allowlist ensure` 仅追加 `.209`，保留旧版本；独立 allowlist verify 和最终完整 ECS verifier 通过。公网经严格 TLS/域名验证：`.209/.208=200`、未知版本 `426`。生产应用 release 保持 `4d9cde15`；交付文档检查点按文档专属例外不再次部署/备份/同步 release。
+- 交付记录检查点消息：`docs(audit): record history cleanup and trial 209 delivery`。原本地合成测试账号标记已恢复、临时环境链接移除，本任务开发者工具窗口及本地服务器已关闭。
 - 交付后唯一下一任务：同版本/SHA 小米 14 复核三类历史列表、操作者显示、三个分段控件及新补录事件；未获得同构建证据前保持待用户复核。不提审、不正式发布。
