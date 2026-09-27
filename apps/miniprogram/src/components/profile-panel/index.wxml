@@ -165,12 +165,6 @@
             <text>手机号（点击修改）</text>
             <view class="profile-contact-value">
               <text>{{mobilePhone || '未填写'}}</text>
-              <image
-                class="profile-contact-chevron"
-                src="/assets/icons/ui-chevron-right-muted.svg"
-                mode="aspectFit"
-                aria-hidden="true"
-              />
             </view>
           </view>
           <view
@@ -183,12 +177,6 @@
             <text>短号（点击修改）</text>
             <view class="profile-contact-value">
               <text>{{shortPhone || '未填写'}}</text>
-              <image
-                class="profile-contact-chevron"
-                src="/assets/icons/ui-chevron-right-muted.svg"
-                mode="aspectFit"
-                aria-hidden="true"
-              />
             </view>
           </view>
           <view class="profile-detail-row">
@@ -240,7 +228,7 @@
 
 <ui-sheet
   visible="{{contactEditorOpen}}"
-  keep-alive="{{true}}"
+  enter-animation="{{false}}"
   size="content"
   bottom-inset="{{contactKeyboardHeight}}"
   title="{{contactEditorTitle}}"
@@ -265,7 +253,6 @@
       bindfocus="handleContactFocus"
       bindinput="handleContactInput"
       bindkeyboardheightchange="handleContactKeyboardHeightChange"
-      focus="{{contactInputFocused}}"
     />
     <text wx:if="{{contactError}}" class="profile-contact-error">{{contactError}}</text>
     <button

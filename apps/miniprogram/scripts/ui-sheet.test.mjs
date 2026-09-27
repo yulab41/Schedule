@@ -26,7 +26,7 @@ describe('native UiSheet', () => {
     expect(template).toContain('<wxs module="sheetGesture" src="./drag-dismiss.wxs"></wxs>');
     expect(template).toContain('wx:if="{{visible || keepAlive}}"');
     expect(template).toContain(
-      "class=\"ui-sheet__layer {{visible ? 'is-visible' : 'is-hidden'}}\"",
+      "class=\"ui-sheet__layer {{visible ? 'is-visible' : 'is-hidden'}} {{enterAnimation ? '' : 'no-enter-animation'}}\"",
     );
     expect(template).toContain('aria-hidden="{{!visible}}"');
     expect(template).toContain('id="ui-sheet-scrim"');
@@ -47,7 +47,7 @@ describe('native UiSheet', () => {
       /\.ui-sheet__layer\.is-hidden\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/su,
     );
     expect(styles).toMatch(
-      /\.ui-sheet__layer\.is-hidden \.ui-sheet__scrim,[\s\S]*\.ui-sheet__layer\.is-hidden \.ui-sheet__panel\s*\{[^}]*animation:\s*none;/u,
+      /\.ui-sheet__layer\.is-hidden \.ui-sheet__scrim,[\s\S]*\.ui-sheet__layer\.is-hidden \.ui-sheet__panel(?:,[^{]+)?\s*\{[^}]*animation:\s*none;/u,
     );
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
     expect(gesture).toContain('var DISMISS_DISTANCE = 96;');
@@ -64,6 +64,35 @@ describe('native UiSheet', () => {
     await import('../src/components/ui/ui-sheet/index.ts');
 
     expect(definition.properties.keepAlive).toEqual({ type: Boolean, value: false });
+    expect(definition.properties.enterAnimation).toEqual({ type: Boolean, value: true });
+  });
+
+  it('keeps static non-draggable input sheets free of transforms on every reset', () => {
+    const moduleRecord = { exports: {} };
+    vm.runInNewContext(readSource('components/ui/ui-sheet/drag-dismiss.wxs'), {
+      module: moduleRecord,
+    });
+    const panelSetStyle = vi.fn();
+    const scrimSetStyle = vi.fn();
+    const owner = {
+      selectComponent: (selector) => ({
+        setStyle: selector === '#ui-sheet-panel' ? panelSetStyle : scrimSetStyle,
+      }),
+    };
+    moduleRecord.exports.reset({ id: 1, transformed: false }, null, owner);
+    moduleRecord.exports.reset({ id: 2, transformed: false }, null, owner);
+    expect(panelSetStyle.mock.calls.map(([style]) => style.transform)).toEqual(['none', 'none']);
+    moduleRecord.exports.reset({ id: 3, transformed: true }, null, owner);
+    expect(panelSetStyle).toHaveBeenLastCalledWith({
+      transform: 'translateY(0px)',
+      transition: 'none',
+    });
+    const template = readSource('components/ui/ui-sheet/index.wxml');
+    const styles = readSource('components/ui/ui-sheet/index.wxss');
+    expect(template).toContain('transformed: enterAnimation || swipeDismiss');
+    expect(styles).toMatch(
+      /\.ui-sheet__layer\.no-enter-animation \.ui-sheet__scrim,[\s\S]*?\.ui-sheet__layer\.no-enter-animation \.ui-sheet__panel\s*\{[^}]*animation:\s*none;/u,
+    );
   });
 
   it('emits one semantic close request for button, backdrop, and swipe sources', async () => {

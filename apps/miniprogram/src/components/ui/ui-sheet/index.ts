@@ -25,6 +25,7 @@ Component({
   properties: {
     bottomInset: { type: Number, value: 0 },
     closeLabel: { type: String, value: '完成' },
+    enterAnimation: { type: Boolean, value: true },
     keepAlive: { type: Boolean, value: false },
     size: { type: String, value: 'default' },
     swipeArea: { type: String, value: 'header' },

@@ -57,7 +57,7 @@ function reset(newValue, oldValue, ownerInstance) {
   state.axis = AXIS_UNDECIDED;
   state.offsetY = 0;
   state.velocityY = 0;
-  setDirectMotion(ownerInstance, 0);
+  setDirectMotion(ownerInstance, 0, newValue && newValue.transformed);
 }
 
 function resolveElements(ownerInstance) {
@@ -67,11 +67,11 @@ function resolveElements(ownerInstance) {
   };
 }
 
-function setDirectMotion(ownerInstance, offsetY) {
+function setDirectMotion(ownerInstance, offsetY, transformed) {
   var elements = resolveElements(ownerInstance);
   if (elements.panel) {
     elements.panel.setStyle({
-      transform: 'translateY(' + offsetY + 'px)',
+      transform: transformed === false ? 'none' : 'translateY(' + offsetY + 'px)',
       transition: 'none',
     });
   }

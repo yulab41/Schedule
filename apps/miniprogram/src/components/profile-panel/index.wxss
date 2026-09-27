@@ -483,10 +483,6 @@
 
 .profile-detail-row.is-editable {
   min-height: 56px;
-  margin: 0 -8px;
-  padding-right: 8px;
-  padding-left: 8px;
-  border-radius: 10px;
 }
 
 .profile-detail-row.is-editable.is-pressed {
@@ -498,16 +494,10 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  text-align: right;
   color: var(--ui-color-text-primary);
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
-}
-
-.profile-contact-chevron {
-  width: 18px;
-  height: 18px;
-  flex: none;
 }
 
 .profile-contact-editor {

@@ -15,7 +15,9 @@
 }
 
 .ui-sheet__layer.is-hidden .ui-sheet__scrim,
-.ui-sheet__layer.is-hidden .ui-sheet__panel {
+.ui-sheet__layer.is-hidden .ui-sheet__panel,
+.ui-sheet__layer.no-enter-animation .ui-sheet__scrim,
+.ui-sheet__layer.no-enter-animation .ui-sheet__panel {
   animation: none;
 }
 

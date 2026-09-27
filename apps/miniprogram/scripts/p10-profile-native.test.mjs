@@ -59,7 +59,7 @@ describe('P10 native profile parity', () => {
     expect(identity).not.toContain('账号密码登录无需解除微信绑定');
   });
 
-  it('forwards account-contact row events through the embedded workspace and centers real chevrons', () => {
+  it('forwards contact events and opens a stationary editor with plain right-aligned rows', () => {
     const component = read('src/components/profile-panel/index.ts');
     const workspace = read('src/components/profile-workspace/index.ts');
     const template = read('src/components/profile-panel/index.wxml');
@@ -79,16 +79,18 @@ describe('P10 native profile parity', () => {
       expect(workspace).toContain(`${handler}: controller.${handler}`);
     }
     expect(template).toContain('bottom-inset="{{contactKeyboardHeight}}"');
-    expect(template).toContain('keep-alive="{{true}}"');
+    expect(template).not.toContain('keep-alive="{{true}}"');
+    expect(template).toContain('enter-animation="{{false}}"');
     expect(template).toContain('bindkeyboardheightchange="handleContactKeyboardHeightChange"');
     expect(template).toContain('bindblur="handleContactBlur"');
-    expect(template).toContain('focus="{{contactInputFocused}}"');
+    expect(template).not.toContain('focus="{{contactInputFocused}}"');
     expect(template).toContain('adjust-position="{{false}}"');
-    expect(template.match(/class="profile-contact-chevron"/gu)).toHaveLength(2);
+    expect(template).not.toContain('profile-contact-chevron');
     expect(template).not.toContain('<text aria-hidden="true">›</text>');
-    expect(styles).toMatch(
-      /\.profile-contact-chevron\s*\{[^}]*width:\s*18px;[^}]*height:\s*18px;[^}]*flex:\s*none;/su,
-    );
+    expect(styles).not.toContain('.profile-contact-chevron');
+    const editableRow = styles.match(/\.profile-detail-row\.is-editable\s*\{([^}]*)\}/su)[1];
+    expect(editableRow).not.toMatch(/margin:|padding-(?:left|right):|border-radius:/u);
+    expect(styles).toMatch(/\.profile-contact-value\s*\{[^}]*text-align:\s*right;/su);
     expect(styles).toMatch(/\.profile-contact-input\s*\{[^}]*line-height:\s*46px;/su);
   });
 

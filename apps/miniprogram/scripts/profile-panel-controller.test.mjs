@@ -114,13 +114,11 @@ describe('Mini Web-parity profile controller', () => {
       contactDraft: '13412348339',
       contactEditorField: 'mobile',
       contactEditorOpen: true,
-      contactInputFocused: true,
+      contactInputFocused: false,
       contactKeyboardHeight: 0,
     });
-    expect(panel.setData.mock.calls.slice(-2).map(([patch]) => patch.contactInputFocused)).toEqual([
-      false,
-      true,
-    ]);
+    definition.handleContactFocus.call(panel);
+    expect(panel.data.contactInputFocused).toBe(true);
     definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
     expect(panel.data.contactKeyboardHeight).toBe(326);
     for (const handler of keyboardHeightHandlers) handler({ height: 0 });
@@ -154,6 +152,7 @@ describe('Mini Web-parity profile controller', () => {
     definition.onLoad.call(panel);
     panel.setData({ contactMembershipId: 'member-current' });
     definition.handleMobilePhoneEdit.call(panel);
+    definition.handleContactFocus.call(panel);
     definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
 
     definition.handleContactBlur.call(panel);
@@ -165,6 +164,67 @@ describe('Mini Web-parity profile controller', () => {
     });
     definition.onUnload.call(panel);
     expect(globalThis.wx.offKeyboardHeightChange).toHaveBeenCalledWith(expect.any(Function));
+    vi.useRealTimers();
+  });
+
+  it('opens both contact fields without scheduling focus and ignores late closed-sheet keyboard events', async () => {
+    vi.useFakeTimers();
+    const definition = createProfilePanelControllerDefinition(true, createDependencies());
+    const panel = createPanel(definition);
+    panel.setData({
+      contactMembershipId: 'member-current',
+      mobilePhone: '13900139000',
+      shortPhone: '012345',
+    });
+    for (const [method, field, draft] of [
+      ['handleMobilePhoneEdit', 'mobile', '13900139000'],
+      ['handleShortPhoneEdit', 'short', '012345'],
+    ]) {
+      panel.setData.mockClear();
+      definition[method].call(panel);
+      expect(panel.setData).toHaveBeenCalledTimes(1);
+      expect(panel.data).toMatchObject({
+        contactEditorOpen: true,
+        contactEditorField: field,
+        contactDraft: draft,
+        contactInputFocused: false,
+        contactKeyboardHeight: 0,
+      });
+      await vi.runAllTimersAsync();
+      expect(panel.data.contactInputFocused).toBe(false);
+      definition.handleContactClose.call(panel);
+      definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
+      expect(panel.data.contactKeyboardHeight).toBe(0);
+    }
+    vi.useRealTimers();
+  });
+
+  it('keeps editing after keyboard dismissal, refocus and a failed save', async () => {
+    vi.useFakeTimers();
+    const dependencies = createDependencies({
+      updateGroupMemberContact: vi.fn().mockRejectedValue(new Error('offline')),
+    });
+    const definition = createProfilePanelControllerDefinition(true, dependencies);
+    const panel = createPanel(definition);
+    panel.setData({ contactMembershipId: 'member-current', shortPhone: '012345' });
+    definition.handleShortPhoneEdit.call(panel);
+    definition.handleContactFocus.call(panel);
+    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 326 } });
+    definition.handleContactBlur.call(panel);
+    definition.handleContactFocus.call(panel);
+    await vi.advanceTimersByTimeAsync(120);
+    expect(panel.data.contactKeyboardHeight).toBe(326);
+    definition.handleContactKeyboardHeightChange.call(panel, { detail: { height: 0 } });
+    expect(panel.data.contactKeyboardHeight).toBe(0);
+    definition.handleContactSubmit.call(panel);
+    await vi.runAllTimersAsync();
+    expect(panel.data).toMatchObject({
+      contactEditorOpen: true,
+      contactDraft: '012345',
+      contactSaving: false,
+      contactError: '保存失败，请稍后重试。',
+    });
+    definition.handleContactClose.call(panel);
     vi.useRealTimers();
   });
 

@@ -2,7 +2,7 @@
 
 <view
   wx:if="{{visible || keepAlive}}"
-  class="ui-sheet__layer {{visible ? 'is-visible' : 'is-hidden'}}"
+  class="ui-sheet__layer {{visible ? 'is-visible' : 'is-hidden'}} {{enterAnimation ? '' : 'no-enter-animation'}}"
   aria-hidden="{{!visible}}"
   catchtouchmove="preventTouchMove"
 >
@@ -18,7 +18,7 @@
     id="ui-sheet-panel"
     class="ui-sheet__panel {{size === 'content' ? 'is-content-sized' : ''}}"
     style="{{panelStyle}}"
-    gesture-session="{{gestureSession}}"
+    gesture-session="{{ { id: gestureSession, transformed: enterAnimation || swipeDismiss } }}"
     change:gesture-session="{{sheetGesture.reset}}"
     aria-role="dialog"
     aria-label="{{title}}"

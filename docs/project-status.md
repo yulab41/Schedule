@@ -1,6 +1,13 @@
 # Project Status
 
-## 当前批次：历史数据库状态与凌晨归档（生产已交付，待用户复核）
+## 当前批次：号码行与联系方式弹窗（已实现及自动化验证，待体验上传）
+
+- 用户确认先完整显示号码弹窗，点击输入框后再弹系统键盘；两行改为普通直线分隔、号码右对齐、移除箭头。取消自动聚焦/预热，仅该 sheet 关闭入场动画及静止 transform；保存与跨群同步不变。
+- 基线 `7f6d4f40`，独占 warm/REUSE_ONLY、无 install。旧代码新增回归6失败，修改后定向47/47、Mini全量1291通过/21跳过；类型/lint/任务格式/图标/core smoke/production verify/CI dry-run/血缘通过。全仓格式仍五个未改文件既有失败。
+- 390/320与大字号几何代理通过，相关开发者工具模板/样式编译通过；原生输入同步待小米14同构建验收。总包/主包各减少475 B。详情见[轮次记录](audit/profile-contact-sheet-20260927.md)。
+- 检查点消息 `fix(miniprogram): show contact editors without autofocus motion`。唯一下一任务为clean检查点上传；上传后单独取得生产放行授权再验收。Mini-only，不部署/备份/迁移/放行，不提审或正式发布。
+
+## 上一批次：历史数据库状态与凌晨归档（生产已交付，待用户复核）
 
 - 用户报告数十秒加载，并要求数据库保存展示状态、凌晨自动过期/归档。已确认补录审计关联查询导致约19秒请求和权限锁等待；schema65改为存储字段/索引，复用既有调度在北京时间03:00后每日维护一次，失败补跑，过去published真正写为past。
 - 基线8197ff88/前驱生产e1de2a0e，独占warm/REUSE_ONLY、无install。2000补录真实存储读取2,003,009→2007；迁移29/29、定向集成105+1通过、单元/发布控制46/46，类型/lint/build/core检查通过。完整证据和行为清单见[记录](audit/history-database-maintenance-20260927.md)。
@@ -144,28 +151,11 @@
 - 自动化、真实 MySQL、生成器、typecheck、format/lint/build、包体/确定性、浏览器 smoke 与 390px 开发者工具验证通过；模拟器不等于小米 14 验收。
 - `eacfd752` 已推送；`.190` 身份/Manifest/receipt 一致。备份 `18760517-efb4-45fa-9012-5b478e658db5` 后部署 `b17a4e57`/schema 63，并只追加放行 `.190`；完整记录见 [审计文档](audit/manual-schedule-inline-editor-20260923.md)。
 
-## 上一批次：联系方式弹窗首次输入层预热（体验版已上传放行，待小米 14 复核）
+## 上一批次：联系方式预热及账号联系方式/二维码/访客改造
 
-- 小米 14 `.188@83eb80c` 证明键盘关闭回底已正常；剩余现象严格只发生在应用生命周期第一次打开联系方式弹窗：弹窗已出现后 input 文字慢半拍上移。关闭并重新打开键盘时，sheet 位移和文字已经同步。
-- `git log -S`/`git blame` 定位共享 `ui-sheet` 自 `304d742f` 起以 `wx:if="{{visible}}"` 销毁隐藏内容（`5947982a` 后续改手势仍保留）。因此第一次打开同时创建原生 input、播放 sheet 入场动画并自动聚焦；后续原生输入层已被运行时预热，症状不再出现。
-- 修复只给 `ui-sheet` 新增默认关闭的 `keepAlive=false`；联系方式弹窗显式启用后，关闭态保留 slot/input 节点但以 `visibility:hidden`、`pointer-events:none`、`aria-hidden` 和禁用动画完全隐藏，input 仍保持未聚焦。其他 sheet 继续原有 `wx:if` 销毁路径，键盘高度、回底、号码校验/保存/409/跨群同步均未改。
-- 测试先行：旧实现 3 失败/7 通过；修复后共享/个人页定向 44/44，Mini 全量 1245 通过/16 跳过。typecheck、production verify/package/source/determinism、任务文件 Prettier/ESLint、`smoke:check-core`、diff check 通过；总包 4,568,025 B、主包 1,747,915 B，相对 `.188` 同口径各 +373 B。
-- 开发者工具 0.3.11 门禁登录/版本关系正常；当前独占 worktree 的共享 sheet 与 profile WXML/WXSS 编译、模拟器刷新成功，console error 过滤为空。该层不能证明小米 14 第一次原生输入动画已通过。
-- 代码 checkpoint `531d7c399cde3407844162fba0104d8fde8d797f` 已推送；干净 production 候选上传为 `0.1.0-p10.20260922.189`（232 个代码文件、ZIP 2,648,616 B、Manifest `5b8e241ec169e38fe21a71a95d3522682a0d62170055f42ce0b15cbe140da2e1`）。可信 allowlist 只追加 `.189`，健康、策略与完整生产 verifier 通过；生产应用 release 保持 `cfa934d1`、schema 63，未执行应用部署、数据库备份或迁移，未提审或正式发布。
-- 唯一下一任务：请在小米 14 冷启动 `.189@531d7c39`，分别第一次打开手机号和短号弹窗，确认文字与键盘/弹窗同步；取得同构建证据前保持“待用户复核”。
-
-- 前序 `.186` 修复了联系方式事件转发与 18×18 SVG 箭头；`.185` 及更早二维码/访客改造事实保持不变。用户撤回顶部导航改版，五个主页面原导航/标题继续保持原样；二维码四字段为原生 40px、Storybook 20px。
-- 已实现账号级手机号/短号弹窗与跨群同步、`0063` 确定性回填、单环境成员/访客二维码、严格 POST 访客读取、可降级 OpenID 换码、白名单设备上下文及可展开审计详情。
-- 用户明确要求不再保留旧正式版兼容并授权生产破坏性迁移：运行时邀请生成/解析/接受/撤销/分享、旧双码接口、群组码服务与权限已删除；`0063` 直接删除 `invite_tokens`、`group_code_attempts`、`groups.group_code`/唯一索引和成员联系方式旧短号列。历史迁移与 Git 历史不改写。
-- 验证：累计 Mini 179 文件通过/2 跳过（1241/16），根 Vitest 274 文件通过/36 跳过（1296/441）；真实 MySQL 工作流 94/94、Task10 106/106、迁移 32/32；schema 63 发布/回滚门禁 52/52；typecheck、lint、format、build、Storybook、契约生成、浏览器 smoke、`smoke:check-core` 和累计 CI dry-run 通过。开发者工具状态正常，模拟器刷新、Console 错误检查及二维码面板 WXML/WXSS 编译通过；视觉比较缺成对夹具，不记为通过。
-- 累计包体相对前序实现总量 4,578,755 → 4,563,508 B（−15,247），主包 1,747,454 → 1,743,398（−4,056），organization 815,361 → 810,098（−5,263）。实现 checkpoint `f42d3edb` 与发布门禁 `cfa934d1` 已推送；累计 CI dry-run Manifest 为 `2486df9a35d62b2e8cdeb9af73569d49a355719e0744f89b2d878b0cff536ba4`。
-- 生产：加密备份 `9e20efab-b355-45e6-ba82-f45745687a8c` 已核对记录、文件大小和 SHA-256；live 已部署 `cfa934d1749ccf92c8b316065e5a17193c4f5a91`、schema 63，完整 verifier 与旧端点 404/新端点 401 探针通过。
-- 首次体验上传在版本分配前发现最新累计体验版 `.184@91b19bcf` 不是候选祖先并安全停止，未占号。现已将 `.184` 的选择器统一/长列表安全区合并到二维码面板（绑定对象同步使用共享 selector），没有恢复邀请能力；累计 Mini/包体/血缘门禁全部通过。
-- 累积 checkpoint `b45bbbe0` 与等价证明 checkpoint `cbe19af5` 已推送。首次重传在版本分配前由 `5285dd1` canonical 等价证明安全拒绝且未占号；刷新精确 blob 后，血缘/上传槽专项 19/19 与 tracked audit 通过，没有削弱门禁。
-- 体验版 `0.1.0-p10.20260922.185` 已上传：候选 `cbe19af5`、production、说明含短 SHA、Manifest `ff14e32989a103e85e5d69e06ed36f0b0c98ff84378adb0ae59e7f6faf2b097d`、232 个代码文件、ZIP 2,646,093 B。远端不可变 tag、allocation、manifest 与 receipt 均精确绑定同一 SHA/Manifest。
-- 放行：可信 `schedule-client-version-allowlist ensure` 只追加 `.185` 并保留 `.184`；独立 verify、完整 `ecs-verify.sh` 与公网 `.185/.184=200`、未知版 `=426` 通过。生产应用仍为 `cfa934d1`/schema 63，没有重复部署或迁移；重建预热的一次 TLS EOF 后恢复。
-- 交付记录 checkpoint：`docs(release): record QR audit trial 185`；仅根文档，按 Mini/文档例外不再重复生产备份、部署或体验版上传。
-- `.185@cbe19af5` 仍可作为二维码、访客详情与五页原导航的旧对照；`.186@59f1e801` 是点击/箭头修复和本轮键盘遮挡的修复前证据。详见 [审计报告](audit/profile-qr-visitor-audit-20260921.md)。
+- `.186` 修复点击/箭头，`.187@adccba36` 增加键盘避让，`.188@83eb80c3` 修复键盘关闭回底，`.189@531d7c39` 增加首次输入层预热；均已上传放行，首次号码延迟问题由当前批次继续处理，未把预热记为真机验收通过。
+- 账号级手机号/短号、跨群同步、schema63回填、单环境成员/访客二维码和访客审计已交付；旧邀请/群码能力按此前明确授权退役。顶部导航保持原样。历史验证、破坏性迁移授权、备份、上传Manifest与生产结果见[原轮次记录](audit/profile-qr-visitor-audit-20260921.md)及Git历史。
+- `.185@cbe19af5` 合并 `.184` 累计能力；后续 `.186`–`.189` 仅Mini修复，应用release当时为`cfa934d1`、schema63。以上均为历史记录，不作为当前线上状态或后续版本分配依据。
 
 ## 历史批次摘要
 
