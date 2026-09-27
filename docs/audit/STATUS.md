@@ -1,12 +1,13 @@
 # 微信小程序审计状态
 
-## 当前批次：日历切换反馈修复（已完成自动化与开发者工具验证，待体验版交付）
+## 当前批次：日历切换反馈修复（体验版 `.204` 已上传，待单独放行与真机复核）
 
 - 按用户追加要求固定“三字＋标识”基准；短姓名不额外放大，月格最高 1.18 倍，长姓名仅溢出兜底。按页面/布局缓存首次测量，窗口宽度变化重算；月/周反复切换不再测宽。标识上移 0.5px 校准视觉中心，分段控件外 12px/内 9px/间隔 3px。
 - 减少 ViewModel 重复排序/分组，访客完整缓存切换不再重复请求；保持在途权限校验与原分页/手势/周高度。基线 `6de6b319`、独占 warm/REUSE_ONLY、未安装，保留包体精简。详见[轮次记录](calendar-switch-feedback-20260927.md)。
 - 验证：Mini 1,287 passed/20 skipped；几何代理 2/2，32 组模型与基线输出一致；根 lint/typecheck、任务文件格式、Mini verify/包体/确定性、图标、smoke:check-core、CI dry-run/血缘通过。全仓格式仍有五个未改文件的基线失败。主包 1,629,511 B/总包 4,338,977 B（各 +4,266 B）。
 - 开发者工具匿名首页月/周/列表及测量计数：首次月 1 批、首次周累计 2 批，再回月/周仍为 2；没有真实排班数据测试。小米 14 体感及字体最终观感待同构建复核。
-- 检查点消息 `fix(miniprogram): cache calendar sizing and remove switch overhead`；唯一下一批次为本检查点的不可变体验版上传和记录，之后等待同 SHA 小米 14 复核。本轮未授权生产 allowlist/部署，不提审、不正式发布。
+- 应用检查点 `0edc34ed`（`fix(miniprogram): cache calendar sizing and remove switch overhead`）已推送；clean production 体验版 `0.1.0-p10.20260927.204` 上传成功，Manifest `08f8d5b36e93ab16f2483ca6bfa387675701f7ddf9aef228aebdf5756a5f88ba`，ZIP 2,368,140 B，远端 tag/receipt/构建身份一致，前后候选安全检查通过。交付记录检查点消息 `docs(audit): record calendar performance trial 204`。
+- 唯一下一任务：取得 `.204` 单独生产放行授权后执行 add-only allowlist，再进行同 SHA 小米 14 复核。当前停止生产动作；未部署/备份/迁移、不提审、不正式发布。
 
 ## 上一批次：日历姓名完整显示与分段动画（`.203` 已上传放行，待小米 14 复核）
 

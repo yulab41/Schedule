@@ -8,7 +8,7 @@
 - 按用户要求固定三字＋标识宽度、首次按布局测量缓存；普通短姓名不按实际姓名长短调整标准字号，长姓名仅溢出兜底。缓存/批量 query/合并绘制，访客复用完整已验证窗口，保留在途权限撤销处理；模型输出 32 组深比较一致。
 - 运行验证：Mini 1,287 passed/20 skipped、几何代理 2/2；开发者工具匿名月/周首次累计 2 批测量，反复切换仍为 2，首页列表截图取得。`pnpm smoke:check-core` 通过，无 Web 核心改动，不触发 `pnpm smoke:browser`。
 - 根 lint/typecheck、任务文件格式、Mini verify/包体/确定性、图标、CI dry-run/血缘通过。全仓格式仍有五个未改文件的既有失败；不宣称根 verify 通过。主包/总包各 +4,266 B。
-- 状态：已完成自动化/开发者工具运行验证，待用户复核。检查点消息 `fix(miniprogram): cache calendar sizing and remove switch overhead`；体验版交付身份随后写入轮次。没有真实排班测试、本轮生产 allowlist/部署授权或小米 14 新构建验收结论。
+- 状态：已完成自动化/开发者工具运行验证，待用户复核。`0edc34ed`（`fix(miniprogram): cache calendar sizing and remove switch overhead`）已推送，体验版 `.204` clean production 上传成功，精确身份见轮次记录。没有真实排班测试、本轮生产 allowlist/部署授权或小米 14 新构建验收结论；唯一下一任务为单独授权后放行 `.204`，再做同 SHA 真机复核。
 
 ## 2026-09-26 补录移除能力、预览精简与全界面圆角复核
 
