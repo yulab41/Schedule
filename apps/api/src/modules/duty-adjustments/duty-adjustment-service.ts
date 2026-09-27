@@ -144,6 +144,7 @@ export class DutyAdjustmentService {
   public async listMine(
     identity: AuthenticatedIdentity,
     groupId: string,
+    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly DutyAdjustmentRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.services.permissionService.requirePermission(
@@ -163,7 +164,7 @@ export class DutyAdjustmentService {
               eq(dutyAdjustments.overtimeMembershipId, authorization.membership.id),
             ),
             isNull(dutyAdjustments.deletedAt),
-            miniWorkflowListCondition(identity, 'duty'),
+            miniWorkflowListCondition(miniprogram, 'duty'),
           ),
         )
         .orderBy(desc(dutyAdjustments.createdAt), desc(dutyAdjustments.id));
@@ -175,6 +176,7 @@ export class DutyAdjustmentService {
   public async listApprovals(
     identity: AuthenticatedIdentity,
     groupId: string,
+    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly DutyAdjustmentRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await this.services.permissionService.requirePermission(
@@ -190,7 +192,7 @@ export class DutyAdjustmentService {
           and(
             eq(dutyAdjustments.groupId, groupId),
             isNull(dutyAdjustments.deletedAt),
-            miniWorkflowListCondition(identity, 'duty'),
+            miniWorkflowListCondition(miniprogram, 'duty'),
           ),
         )
         .orderBy(desc(dutyAdjustments.createdAt), desc(dutyAdjustments.id));

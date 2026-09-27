@@ -15,6 +15,8 @@ import {
 } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
+  auditLogs,
+  shiftAssignments,
   migrateDatabase,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -26,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { MiniBackfillCleanup } from './mini-backfill-cleanup.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -100,6 +103,104 @@ describeWithDatabase('past schedule backfill', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('hides only the marked backfill snapshot from Mini recent records and preserves future updates', async () => {
+    expect(
+      (await backfillBatch('owner-token', { items: [batchItem(1)] }, randomUUID())).statusCode,
+    ).toBe(200);
+    const [assignment] = await client.database.select().from(shiftAssignments);
+    if (!assignment?.backfillAt) throw new Error('Expected a backfilled assignment');
+    await client.database
+      .insert(auditLogs)
+      .values({
+        id: randomUUID(),
+        groupId,
+        action: 'miniprogram_backfill_record_hidden',
+        operationId: randomUUID(),
+        outcome: 'success',
+        targetType: 'shift_assignment',
+        targetId: assignment.id,
+        metadata: { backfillAtMillis: assignment.backfillAt.valueOf() },
+      });
+    const headers = {
+      authorization: 'Bearer owner-token',
+      'x-schedule-client-platform': 'miniprogram',
+    };
+    const url = `/groups/${groupId}/past-schedules/backfill-records`;
+    const mini = await app.inject({ method: 'GET', url, headers });
+    expect(mini.statusCode).toBe(200);
+    expect(mini.json()).toEqual([]);
+    expect((await listBackfillRecords('owner-token')).json()).toHaveLength(1);
+    expect((await client.database.select().from(shiftAssignments))[0]).toEqual(assignment);
+    vi.setSystemTime(new Date('2026-08-26T05:00:00Z'));
+    expect(
+      (
+        await updatePastAssignment('owner-token', assignment.schedulePeriodId, assignment.id, {
+          actualMembershipId: candidateMembershipId,
+          reason: 'new update',
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect((await app.inject({ method: 'GET', url, headers })).json()).toHaveLength(1);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url,
+          headers: { ...headers, authorization: 'Bearer outsider-token' },
+        })
+      ).statusCode,
+    ).toBe(403);
+  });
+
+  it('requires an exact cleanup preview and only inserts idempotent markers for existing backfill snapshots', async () => {
+    expect(
+      (await backfillBatch('owner-token', { items: [batchItem(1)] }, randomUUID())).statusCode,
+    ).toBe(200);
+    const cleanup = new MiniBackfillCleanup(client);
+    const preview = await cleanup.preview(groupId);
+    expect(preview.count).toBe(1);
+    expect(
+      (await backfillBatch('owner-token', { items: [batchItem(2)] }, randomUUID())).statusCode,
+    ).toBe(200);
+    await expect(
+      cleanup.apply({
+        groupId,
+        expectedFingerprint: preview.fingerprint,
+        operationId: randomUUID(),
+      }),
+    ).rejects.toThrow('preview changed');
+    const current = await cleanup.preview(groupId);
+    const before = await client.database.select().from(shiftAssignments);
+    expect(
+      (
+        await cleanup.apply({
+          groupId,
+          expectedFingerprint: current.fingerprint,
+          operationId: randomUUID(),
+        })
+      ).count,
+    ).toBe(2);
+    expect((await cleanup.preview(groupId)).count).toBe(0);
+    expect(await client.database.select().from(shiftAssignments)).toEqual(before);
+    const mini = await app.inject({
+      method: 'GET',
+      url: `/groups/${groupId}/past-schedules/backfill-records`,
+      headers: { authorization: 'Bearer owner-token', 'x-schedule-client-platform': 'miniprogram' },
+    });
+    expect(mini.statusCode).toBe(200);
+    expect(mini.json()).toEqual([]);
+    const empty = await cleanup.preview(groupId);
+    expect(
+      (
+        await cleanup.apply({
+          groupId,
+          expectedFingerprint: empty.fingerprint,
+          operationId: randomUUID(),
+        })
+      ).count,
+    ).toBe(0);
   });
 
   it('backfills two members on one day without overwriting and replays safely', async () => {

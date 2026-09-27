@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { isMiniprogramRead } from '../../plugins/client-read-context.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
 import { EventQuery } from './event-query.js';
 
@@ -67,8 +68,7 @@ export function registerEventRoutes(
           groupId: authorization.group.id,
         },
         {
-          miniprogramTimeline:
-            identity.clientPlatform === 'miniprogram' && query.shiftId === undefined,
+          miniprogramTimeline: isMiniprogramRead(request) && query.shiftId === undefined,
         },
       );
     }),

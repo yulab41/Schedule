@@ -8,6 +8,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { isMiniprogramRead } from '../../plugins/client-read-context.js';
 import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { PastScheduleService } from './past-schedule-service.js';
 
@@ -57,7 +58,11 @@ export function registerPastScheduleRoutes(
     '/groups/:groupId/past-schedules/backfill-records',
     { preHandler: app.authenticate },
     (request) =>
-      service.listBackfillRecords(getAuthenticatedIdentity(request), parseGroupId(request)),
+      service.listBackfillRecords(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        isMiniprogramRead(request),
+      ),
   );
 
   app.post(

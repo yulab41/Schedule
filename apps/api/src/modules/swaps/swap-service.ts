@@ -324,6 +324,7 @@ export class SwapService {
   public async listMine(
     identity: AuthenticatedIdentity,
     groupId: string,
+    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly SwapRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.services.permissionService.requirePermission(
@@ -343,7 +344,7 @@ export class SwapService {
               eq(swapRequests.targetMembershipId, authorization.membership.id),
             ),
             isNull(swapRequests.deletedAt),
-            miniWorkflowListCondition(identity, 'swap'),
+            miniWorkflowListCondition(miniprogram, 'swap'),
           ),
         )
         .orderBy(desc(swapRequests.createdAt), desc(swapRequests.id));
@@ -355,6 +356,7 @@ export class SwapService {
   public async listApprovals(
     identity: AuthenticatedIdentity,
     groupId: string,
+    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly SwapRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await this.services.permissionService.requirePermission(
@@ -370,7 +372,7 @@ export class SwapService {
           and(
             eq(swapRequests.groupId, groupId),
             isNull(swapRequests.deletedAt),
-            miniWorkflowListCondition(identity, 'swap'),
+            miniWorkflowListCondition(miniprogram, 'swap'),
           ),
         )
         .orderBy(desc(swapRequests.createdAt), desc(swapRequests.id));

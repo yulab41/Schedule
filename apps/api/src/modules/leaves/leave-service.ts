@@ -204,6 +204,7 @@ export class LeaveService {
   public async listMine(
     identity: AuthenticatedIdentity,
     groupId: string,
+    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly LeaveRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.services.permissionService.requirePermission(
@@ -212,13 +213,14 @@ export class LeaveService {
         groupId,
         'viewScheduleConfiguration',
       );
-      return this.readLeaveRequests(transaction, groupId, identity, authorization.membership.id);
+      return this.readLeaveRequests(transaction, groupId, miniprogram, authorization.membership.id);
     });
   }
 
   public async listForApproval(
     identity: AuthenticatedIdentity,
     groupId: string,
+    miniprogram = identity.clientPlatform === 'miniprogram',
   ): Promise<readonly LeaveRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await this.services.permissionService.requirePermission(
@@ -227,7 +229,7 @@ export class LeaveService {
         groupId,
         'manageLeaves',
       );
-      return this.readLeaveRequests(transaction, groupId, identity);
+      return this.readLeaveRequests(transaction, groupId, miniprogram);
     });
   }
 
@@ -920,7 +922,7 @@ export class LeaveService {
   private async readLeaveRequests(
     transaction: DatabaseTransaction,
     groupId: string,
-    identity: AuthenticatedIdentity,
+    miniprogram: boolean,
     membershipId?: string,
   ): Promise<readonly LeaveRequest[]> {
     const rows = await transaction
@@ -936,7 +938,7 @@ export class LeaveService {
         and(
           eq(leaveRequests.groupId, groupId),
           isNull(leaveRequests.deletedAt),
-          miniWorkflowListCondition(identity, 'leave'),
+          miniWorkflowListCondition(miniprogram, 'leave'),
           ...(membershipId === undefined ? [] : [eq(leaveRequests.membershipId, membershipId)]),
         ),
       )

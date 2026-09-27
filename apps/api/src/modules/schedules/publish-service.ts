@@ -47,7 +47,12 @@ import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { ScheduleRepository } from './schedule-repository.js';
 import { overlappingBusinessDates } from './publication-overlap.js';
-import { assertBusinessMonthNotFullyPast, toLatestData, toPeriodSummary } from './shared.js';
+import {
+  assertBusinessMonthNotFullyPast,
+  assertWithdrawalMonthUnlocked,
+  toLatestData,
+  toPeriodSummary,
+} from './shared.js';
 
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
 
@@ -503,6 +508,7 @@ export class SchedulePublishService {
         'manageScheduleConfiguration',
       );
       const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
+      if (action === 'withdraw') assertWithdrawalMonthUnlocked(period.businessMonth.slice(0, 7));
       const affected =
         action === 'withdraw'
           ? { periodIds: [period.id], assignmentIds: undefined }

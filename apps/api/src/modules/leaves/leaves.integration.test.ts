@@ -114,6 +114,21 @@ describeWithDatabase('leave approval and guarded restoration', () => {
       );
       expect(await service.listMine(mini, context.groupId)).toEqual([]);
       expect(await service.listForApproval(owner, context.groupId)).toEqual([]);
+      for (const [path, token] of [
+        ['leave-requests', 'a-token'],
+        ['leave-requests/approvals', 'owner-token'],
+      ]) {
+        const result = await app.inject({
+          method: 'GET',
+          url: `/groups/${context.groupId}/${path}`,
+          headers: {
+            authorization: `Bearer ${token}`,
+            'x-schedule-client-platform': 'miniprogram',
+          },
+        });
+        expect(result.statusCode).toBe(200);
+        expect(result.json()).toEqual([]);
+      }
       expect(
         (await service.listMine({ cloudbaseUid: 'cloudbase-a' }, context.groupId)).map(
           (row) => row.id,

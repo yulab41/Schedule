@@ -18,6 +18,16 @@ export function assertBusinessMonthNotFullyPast(businessMonth: string): void {
   }
 }
 
+export function assertWithdrawalMonthUnlocked(businessMonth: string): void {
+  if (isPastBusinessMonth(businessMonth)) {
+    throw new ApiError({
+      code: 'CONFLICT',
+      statusCode: 409,
+      userMessage: '该月份已过，既往排班已锁定，无法撤销发布。',
+    });
+  }
+}
+
 export function toLatestData(value: unknown): JsonObject {
   return JSON.parse(JSON.stringify(value)) as JsonObject;
 }

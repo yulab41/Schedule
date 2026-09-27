@@ -34,6 +34,7 @@ import { assertExpectedVersion as assertVersionMatch } from '../concurrency/vers
 import { EventWriter } from '../events/event-writer.js';
 import { updateShiftAssignments } from './shift-assignment-writer.js';
 import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
+import { assertWithdrawalMonthUnlocked } from './shared.js';
 
 export interface CreateSchedulePeriodInput {
   readonly actorUserId: string;
@@ -218,7 +219,10 @@ export class ScheduleRepository {
         revision: row.revision,
         scheduleRoleId: row.scheduleRoleId,
         scheduleRoleName: row.scheduleRoleName,
-        status: row.status,
+        status:
+          row.status === 'published' && isPastBusinessMonth(row.businessMonth.slice(0, 7))
+            ? 'past'
+            : row.status,
         version: row.version,
       };
     });
@@ -714,13 +718,7 @@ export class ScheduleRepository {
     const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
     assertExpectedPeriodVersion(period, input.expectedVersion);
     assertTransition(period.status, 'withdrawn');
-    if (isPastBusinessMonth(period.businessMonth.slice(0, 7))) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        statusCode: 409,
-        userMessage: '该月份已过，既往排班已锁定，无法撤销发布。',
-      });
-    }
+    assertWithdrawalMonthUnlocked(period.businessMonth.slice(0, 7));
     const today = getChinaStandardTimeBusinessDate(new Date());
     const pastAssignments = (await this.loadPeriodAssignments(transaction, period.id)).filter(
       (assignment) => isPastBusinessDate(assignment.businessDate),

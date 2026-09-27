@@ -2,16 +2,14 @@ import { dutyAdjustments, leaveRequests, swapRequests } from '@schedule/database
 import { getChinaStandardTimeCalendarDate } from '@schedule/scheduling-domain';
 import { sql, type SQL } from 'drizzle-orm';
 
-import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
-
 // Apply before hydration so old, closed requests do not add response or rendering cost.
 // Missing assignment dates and pending requests remain visible for investigation/review.
 export function miniWorkflowListCondition(
-  identity: AuthenticatedIdentity,
+  miniprogram: boolean,
   kind: 'swap' | 'duty' | 'leave',
   now = new Date(),
 ): SQL | undefined {
-  if (identity.clientPlatform !== 'miniprogram') return undefined;
+  if (!miniprogram) return undefined;
   const monthStart = `${getChinaStandardTimeCalendarDate(now).slice(0, 7)}-01`;
   if (kind === 'leave') {
     const monthStartInstant = new Date(`${monthStart}T00:00:00+08:00`)

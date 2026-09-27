@@ -1,3 +1,4 @@
+import { isMiniprogramRead } from '../../plugins/client-read-context.js';
 import type {
   CreateDirectSwapInput,
   CreateSwapRequestInput,
@@ -96,11 +97,19 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
   );
 
   app.get('/groups/:groupId/swaps', { preHandler: app.authenticate }, (request) =>
-    swapService.listMine(getAuthenticatedIdentity(request), parseGroupId(request)),
+    swapService.listMine(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      isMiniprogramRead(request),
+    ),
   );
 
   app.get('/groups/:groupId/swaps/approvals', { preHandler: app.authenticate }, (request) =>
-    swapService.listApprovals(getAuthenticatedIdentity(request), parseGroupId(request)),
+    swapService.listApprovals(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      isMiniprogramRead(request),
+    ),
   );
 
   app.post(

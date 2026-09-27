@@ -97,6 +97,21 @@ describeWithDatabase('member shift swaps', () => {
       );
       expect(await service.listMine(mini, context.groupId)).toEqual([]);
       expect(await service.listApprovals(owner, context.groupId)).toEqual([]);
+      for (const [path, token] of [
+        ['swaps', 'a-token'],
+        ['swaps/approvals', 'owner-token'],
+      ]) {
+        const result = await app.inject({
+          method: 'GET',
+          url: `/groups/${context.groupId}/${path}`,
+          headers: {
+            authorization: `Bearer ${token}`,
+            'x-schedule-client-platform': 'miniprogram',
+          },
+        });
+        expect(result.statusCode).toBe(200);
+        expect(result.json()).toEqual([]);
+      }
       expect(
         (await listMySwaps('a-token', context.groupId)).json().map((row: SwapRequest) => row.id),
       ).toContain(id);

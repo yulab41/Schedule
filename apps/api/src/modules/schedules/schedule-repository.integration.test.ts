@@ -23,6 +23,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ScheduleRepository } from './schedule-repository.js';
+import { createApp } from '../../app.js';
 import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
 import { recoverDecember2026 } from '../../recover-december-2026.js';
 
@@ -92,6 +93,63 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       shiftTypeName: 'All-day',
       startsAt: new Date('2028-02-29T00:00:00.000Z'),
     });
+  });
+
+  it('presents a published past month as locked history and rejects withdrawal without mutation', async () => {
+    await client.database
+      .insert(userProfiles)
+      .values({ userId: ownerUserId, realName: 'History owner' });
+    await client.database
+      .insert(groupMemberships)
+      .values({ id: randomUUID(), groupId, userId: ownerUserId, role: 'owner' });
+    const repository = new ScheduleRepository(client);
+    const draft = await repository.createDraft(createDraftInput('2026-08', '2026-08-20'));
+    const published = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: draft.version,
+      operationId: randomUUID(),
+      schedulePeriodId: draft.id,
+    });
+    const history = () =>
+      withTransaction(client, (transaction) =>
+        repository.listHistoryInTransaction(transaction, groupId),
+      );
+    expect((await history()).find((item) => item.id === draft.id)?.status).toBe('published');
+    vi.setSystemTime(new Date('2026-09-27T04:00:00Z'));
+    const before = await client.database.select().from(shiftAssignments);
+    const eventsBefore = await client.database.select().from(scheduleEvents);
+    expect((await history()).find((item) => item.id === draft.id)?.status).toBe('past');
+    const app = createApp({
+      databaseClient: client,
+      logger: false,
+      authPort: { authenticate: async () => ({ cloudbaseUid: 'cloudbase-schedule-owner' }) },
+    });
+    try {
+      const prefix = `/groups/${groupId}/schedules/${draft.id}`;
+      expect(
+        (await app.inject({ method: 'GET', url: `${prefix}/change-impact?action=withdraw` }))
+          .statusCode,
+      ).toBe(409);
+      const result = await app.inject({
+        method: 'POST',
+        url: `${prefix}/withdraw`,
+        payload: { expectedVersion: published.version, operationId: randomUUID() },
+      });
+      expect(result.statusCode).toBe(409);
+      expect(result.json().error.message).toContain('既往排班已锁定');
+    } finally {
+      await app.close();
+    }
+    await expect(
+      repository.withdraw({
+        actorUserId: ownerUserId,
+        expectedVersion: published.version,
+        operationId: randomUUID(),
+        schedulePeriodId: draft.id,
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(await client.database.select().from(shiftAssignments)).toEqual(before);
+    expect(await client.database.select().from(scheduleEvents)).toEqual(eventsBefore);
   });
 
   it('moves draft periods through publication, replacement, and withdrawal with linked events', async () => {

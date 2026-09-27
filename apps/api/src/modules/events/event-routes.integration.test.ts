@@ -20,6 +20,9 @@ import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { EventWriter } from './event-writer.js';
+import { MiniTimelineCleanup } from './mini-timeline-cleanup.js';
+import { createWechatAuthPort } from '../../adapters/auth/wechat-auth.js';
+import { hashPassword, PasswordAuthService } from '../auth/password-auth-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -91,6 +94,78 @@ describeWithDatabase('schedule event center routes', () => {
     expect(
       (await listEvents('b-token', context.groupId, { cursor: 'not-a-cursor' })).statusCode,
     ).toBe(400);
+  });
+
+  it('applies one-time timeline markers to an actual password login with Mini request headers', async () => {
+    const context = await seedSwapEvents();
+    await client.database.execute(
+      sql`UPDATE schedule_events SET occurred_at = '2026-09-23 10:00:00' WHERE group_id = ${context.groupId}`,
+    );
+    const cleanup = new MiniTimelineCleanup(client);
+    const input = { before: new Date('2026-09-24T00:00:00+08:00'), groupId: context.groupId };
+    const preview = await cleanup.preview(input);
+    expect(preview.count).toBeGreaterThan(0);
+    await cleanup.apply({
+      ...input,
+      expectedFingerprint: preview.fingerprint,
+      operationId: randomUUID(),
+    });
+    await client.database
+      .execute(sql`INSERT INTO user_password_credentials (user_id, username, password_hash)
+      VALUES (${context.userIds.b}, 'timeline-test', ${await hashPassword('timeline-password')})`);
+    const secret = 'timeline-regression-session-secret-0123456789';
+    const passwordApp = createApp({
+      databaseClient: client,
+      logger: false,
+      authPort: createWechatAuthPort({
+        allowDevTokens: false,
+        databaseClient: client,
+        sessionSecret: secret,
+      }),
+      passwordAuthService: new PasswordAuthService({
+        databaseClient: client,
+        sessionSecret: secret,
+      }),
+    });
+    try {
+      const login = await passwordApp.inject({
+        method: 'POST',
+        url: '/auth/password/login',
+        payload: { username: 'timeline-test', password: 'timeline-password' },
+      });
+      expect(login.statusCode).toBe(200);
+      const headers = {
+        authorization: `Bearer ${login.json().token}`,
+        'x-schedule-client-platform': 'miniprogram',
+      };
+      const url = `/groups/${context.groupId}/events`;
+      const mini = await passwordApp.inject({ method: 'GET', url, headers });
+      expect(mini.statusCode).toBe(200);
+      expect(mini.json().events).toEqual([]);
+      const web = await passwordApp.inject({
+        method: 'GET',
+        url,
+        headers: { authorization: headers.authorization },
+      });
+      expect(web.json().events.length).toBeGreaterThan(0);
+      const shift = await passwordApp.inject({
+        method: 'GET',
+        url: `${url}?shiftId=${context.assignments.aSep1}`,
+        headers,
+      });
+      expect(shift.json().events.length).toBeGreaterThan(0);
+      expect(
+        (
+          await passwordApp.inject({
+            method: 'GET',
+            url,
+            headers: { 'x-schedule-client-platform': 'miniprogram' },
+          })
+        ).statusCode,
+      ).toBe(401);
+    } finally {
+      await passwordApp.close();
+    }
   });
 
   it('opts into operator names without exposing another group or changing legacy responses', async () => {
