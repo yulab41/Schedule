@@ -30,3 +30,5 @@
 应用检查点消息：`fix(miniprogram): share fixed calendar name scales by container`。逐行检查任务diff、未混入依赖、后端、数据库或包体精简回退。随后单独更新工作台精确 blob 血缘证明（先旧证明失败后新证明通过），提交/推送后冻结同一 clean SHA，官方 helper 动态分配体验版。放行使用可信 ensure 只增新版本并保留原列表，前后完整ECS verifier、独立allowlist verify、旧/新版200与未知版426。
 
 唯一下一任务：完成已授权上传/放行，再等待同版本/SHA小米14复核。状态为已实现、自动化完成、待用户真机复核；未取得同构建证据不写真机通过。
+
+应用检查点已推送：`17598dc8`。工作台 proof blob 从 `951cf5f6` 更新到 `c9e21ac4`；旧证明精确匹配回归失败，新证明17/17通过。只追加该检查点理由和精确blob，未减少必需祖先、禁用验证或修改版本序列。独立检查点消息：`chore(release): refresh shared calendar scale lineage proof`。
