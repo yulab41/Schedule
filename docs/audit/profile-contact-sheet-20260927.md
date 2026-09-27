@@ -40,4 +40,10 @@
 
 ## 检查点与交付
 
-检查点消息：`fix(miniprogram): show contact editors without autofocus motion`。提交前已审阅行为变化及任务 diff；上传前动态冻结 clean SHA、版本、Manifest，并记录测试入口。当前唯一下一任务为该检查点上传；上传后需独立生产放行授权，随后由用户进行同构建小米 14 冷启动验收。
+应用检查点 `09b834e7a757327e719980902993e47b49626c22`（`fix(miniprogram): show contact editors without autofocus motion`）已正常快进 main 并推送 GitHub。状态文档新增记录触发40KB长度门禁，已把本主题旧联系方式记录压缩为摘要及原报告链接，门禁3/3通过，历史详细报告及Git历史保留。
+
+体验版 `0.1.0-p10.20260927.210` 于北京时间2026-09-27 21:50:42上传成功；description=`contact editor manual focus 09b834e`，production/clean，构建时间 `2026-09-27T13:49:11.890Z`，Manifest `25cca22ee6916cdbc4d06d5f0b6d34e27e72f3568feef6d6d42e83f3839e3dca`，微信CI ZIP 2,371,434 B。远端版本tag、allocation、manifest绑定记录、receipt及dist/build-profile身份一致；实际候选检查器上传前后均PASS，VERSION_LOCAL=absent。
+
+上传复用正式锁/分配/血缘/候选/Manifest/预约/CI流程；ignored包装只在官方Manifest绑定完成后、远端预约前额外写入脱敏preupload记录，不替换或跳过门禁。Git使用进程代理，WeChat使用进程级直连IPv4且TLS验证通过，未修改系统网络。
+
+交付文档检查点消息 `docs(audit): record contact editor trial 210 delivery`；应用证据复用，不再上传或触发服务器操作。唯一下一任务为取得 `.210` 独立生产放行授权，之后小米14核对同版本/SHA、WebView、基础库、微信版本及构建时间，冷启动首次打开手机号/短号，确认框与文字同步，再点输入框编辑并收起键盘。当前未放行、未部署/备份/迁移、未提审或正式发布，真机未验收。
