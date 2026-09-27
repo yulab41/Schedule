@@ -30,8 +30,16 @@
 
 最终 `pnpm --filter @schedule/miniprogram test`：185 文件通过/3 跳过，1,279 测试通过/20 跳过，151.07s；其中新几何文件的两项默认跳过，已单独显式运行 2/2 通过（5.74s）。`verify` 的类型/源码/production 构建/包体/性能/确定性通过，`ci:dry-run`、trial-lineage 通过。最终本地原始总包 4,334,710 B、主包 1,625,244 B，前后各增加 9,684 B，保留前轮包体精简；Manifest `6678fd0dfb32e9c8704a318bcda9c93870b8f0e126f0ea851d050ea1ee4a1b6b`。仍有主包 1.5MB 内部预警与既有 600 格手排矩阵 1510 节点提示，无新增构建错误。这些是本地 dirty 候选测量，不是上传 ZIP 或真机性能结论。
 
-检查点消息：`fix(miniprogram): fit full calendar names and animate view tabs`。上传身份及结果在完成后补记。
+原始产物分包：scheduling 428,690 B、organization 849,094 B、workflows 533,293 B、insights 898,389 B；最大文件为 `pages/workbench/index.js` 223,046 B、手排 `index.js` 184,908 B、`platform/client-core-calendar.js` 167,630 B。
+
+## 体验版交付
+
+应用检查点 `f651024f246eefd3569a6ecbb46315597ac76251`（`fix(miniprogram): fit full calendar names and animate view tabs`）已正常快进推送 `origin/main`。正式 helper 将拥有的 clean warm 槽位冻结为上传候选，版本由锁内分配器选为 `0.1.0-p10.20260927.203`，说明 `Calendar full names and tabs f651024`，production、dirty=false，构建时间 `2026-09-27T04:43:33.137Z`。
+
+`pnpm --filter @schedule/miniprogram upload:experience` 于 `2026-09-27T04:45:02.581Z` 成功；微信 CI ZIP 2,363,771 B、代码文件 218，Manifest `cfd402a1f168ea92ad4f4ee0dcaa90c56cb464c247d9d2a34177a9af8b724abe`。远端不可变 tag、allocation、Manifest 绑定文件、receipt 与构建 profile 精确匹配同一 SHA/版本/摘要。正式 candidate safety 在构建前及版本绑定构建后均通过，后者确认 `VERSION_LOCAL=absent`。上传走已核验的微信直连 IPv4/Git 专用代理，保留 TLS 校验，没有重试占号。
+
+没有生产连接、备份、部署、版本 allowlist、提审或正式发布。开发者工具项目窗口已关闭，上传槽干净释放；交付文档使用重新 Acquire 的独占 warm 租约，复用应用证据，不修改 `.203` 构建或重新上传。交付记录检查点消息：`docs(audit): record calendar fit trial 203`。
 
 ## 下一任务与停止条件
 
-通过本轮 Mini 门禁后提交推送并用正式 helper 动态分配体验版，冻结 clean SHA/production/Manifest，描述包含七位 SHA。测试页面：首页、访客、手排普通/紧凑预览、补录月/周。上传与 allowlist 分离；不连接生产、不备份、不部署、不提审、不正式发布。放行需单独授权，随后以同 SHA 小米 14 冷启动、切月份/视图/群组和弹窗重开反馈作为最终验收；身份不符不计通过。
+唯一下一任务：待单独生产 allowlist 授权后，用 `.203@f651024f` 在小米 14 冷启动，检查首页/访客月周列表、手排普通/紧凑预览和补录月/周，再检查切月份/群组与弹窗重开。核对版本、SHA、renderer、基础库、微信版本和构建时间；身份不符不计验收通过。取得同构建真机反馈前保持“待用户复核”。

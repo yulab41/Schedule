@@ -1,12 +1,12 @@
 # Project Status
 
-## 当前批次：日历姓名完整显示与分段动画（已实现，准备体验版，待用户复核）
+## 当前批次：日历姓名完整显示与分段动画（体验版 `.203` 已上传，待单独放行/用户复核）
 
 - 月/列表姓名和标识同行等比适配；周历姓名单行、标识固定下一行，保留分组标题。首页、访客、手排生成/草稿/发布预览、补录普通/紧凑日历共用文本适配，分页/手势/高度及业务逻辑不变。月周列表底块滑动与字色过渡沿用通讯录时序。
 - 基线为最新 `origin/main=539d88e3`，保留 `.202` 包体精简；独占 warm 槽位、REUSE_ONLY、未安装。引入点、行为清单和红绿证据见[轮次记录](audit/calendar-name-fit-20260927.md)。
 - 验证：Mini 1,279 passed/20 skipped，四档宽度几何代理单独 2/2；根 lint/typecheck、任务文件格式、Mini verify/package/determinism/dry-run、icon parity、smoke:check-core 和血缘审计通过。全仓格式仍有五个未改文件的基线失败，未宣称根 verify 通过。原始总包 4,334,710 B、主包 1,625,244 B，较本轮基线各 +9,684 B。
 - 开发者工具匿名样例已检查首页月/周/列表、访客月/周、补录、手排普通/紧凑月/周预览；嵌套精确几何、真实换群/有效访客链接、小米 14 尚未验证。模拟器截图不替代真机验收。
-- 检查点消息 `fix(miniprogram): fit full calendar names and animate view tabs`；通过门禁后提交推送并动态分配上传体验版。唯一下一任务：完成体验版身份记录，等待单独生产放行授权及同 SHA 小米 14 复核。未授权生产连接、备份、部署或 allowlist；不提审、不正式发布。
+- 应用检查点 `f651024f`（`fix(miniprogram): fit full calendar names and animate view tabs`）已推送。production clean 体验版 `0.1.0-p10.20260927.203@f651024f` 上传成功，Manifest `cfd402a1f168ea92ad4f4ee0dcaa90c56cb464c247d9d2a34177a9af8b724abe`、ZIP 2,363,771 B，远端 tag/receipt/构建身份一致，候选安全检查前后通过。交付记录消息 `docs(audit): record calendar fit trial 203`。唯一下一任务：等待单独生产 allowlist 授权，随后同 SHA 小米 14 复核；未执行生产连接、备份、部署或 allowlist，不提审、不正式发布。
 
 ## 上一批次：小程序正式包精简（体验版 `.202` 已部署放行，待小米 14 验收）
 
