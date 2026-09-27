@@ -2,7 +2,7 @@
 
 ## 范围与原因
 
-用户批准的交互为：打开“我的 → 账户设置”手机号/短号弹窗时先完整显示号码框，点击输入框后再弹系统键盘。仅修改 Mini 和本轮记录，不部署服务器、不备份/迁移数据库、不放行生产版本、不提审或正式发布。
+用户批准的交互为：打开“我的 → 账户设置”手机号/短号弹窗时先完整显示号码框，点击输入框后再弹系统键盘。实现范围仅 Mini 和本轮记录；上传后用户另行明确授权“放行”，授权范围仅追加本次体验版允许版本，不部署应用、不备份/迁移数据库、不提审或正式发布。
 
 基线 `7f6d4f40`，独占 `runtime/wt/general-6`；正式 Acquire 已执行 ReuseOnly 与 mini bootstrap，依赖/三个共享产物全部复用，未安装依赖。根目录既有未跟踪内容未改动。
 
@@ -46,4 +46,14 @@
 
 上传复用正式锁/分配/血缘/候选/Manifest/预约/CI流程；ignored包装只在官方Manifest绑定完成后、远端预约前额外写入脱敏preupload记录，不替换或跳过门禁。Git使用进程代理，WeChat使用进程级直连IPv4且TLS验证通过，未修改系统网络。
 
-交付文档检查点消息 `docs(audit): record contact editor trial 210 delivery`；应用证据复用，不再上传或触发服务器操作。唯一下一任务为取得 `.210` 独立生产放行授权，之后小米14核对同版本/SHA、WebView、基础库、微信版本及构建时间，冷启动首次打开手机号/短号，确认框与文字同步，再点输入框编辑并收起键盘。当前未放行、未部署/备份/迁移、未提审或正式发布，真机未验收。
+交付文档检查点 `c7bfe712`（`docs(audit): record contact editor trial 210 delivery`）已推送；应用证据复用，不再上传。
+
+## 用户授权后的追加放行
+
+2026-09-27 用户明确授权“放行”。本轮重新通过 L4 当前消息授权检查，独占 warm `general-6` 执行 Acquire → ReuseOnly → Bootstrap → Targeted test，依赖及共享产物复用、未安装。定向 `pnpm exec vitest run scripts/agent-context-policy.test.mjs` 为3/3通过。成功 fetch 后 `origin/main=c7bfe712`；远端 `.210` tag、成功上传回执、源码 `09b834e7`、production profile 与上述 Manifest 重新核对一致。
+
+北京时间21:58实时读取生产 release 为 `4674c8bcd5b1052c54ca3e35bfead2aacef54c53`，冻结受信 allowlist/verifier 哈希；正式域名、两家独立 DNS、匹配的 known_hosts、TLS 健康和严格 SSH 主机密钥校验通过。操作前再次校验 release/控制脚本哈希一致，仅调用受信 `schedule-client-version-allowlist ensure 0.1.0-p10.20260927.210`，返回“已追加1个版本”，旧允许版本全部保留。容器配置刷新中一次短暂 TLS EOF 经工具健康等待自动恢复，最终返回成功。
+
+放行前后完整 `ecs-verify.sh`、独立 `schedule-client-version-allowlist verify` 均退出0；公网能力接口 `.210/.209=200`、动态未知版本=426。最终实时 release 未变，仍为 `4674c8bc`。仅刷新允许版本配置及其运行容器，未部署应用制品、同步 release 元数据、备份/迁移数据库、提审或正式发布。脱敏证据保存在该槽位 ignored `runtime/audit/contact-sheet-210-allowlist-20260927/`，包含 baseline、ensure、前后 verifier、独立 verify、公网探针及最终结果。
+
+本次四份记录的 Prettier、`git diff --check`、状态长度门禁3/3和 `pnpm smoke:check-core` 通过；只改交付文档，复用既有应用验证。放行记录检查点消息 `docs(release): record contact editor trial 210 allowlist`。唯一下一任务：小米14核对 `.210@09b834e7`、WebView、基础库、微信版本及构建时间，冷启动首次打开手机号/短号，确认框与文字同步，再点输入框编辑并收起键盘；取得同构建真机证据前保持“待用户复核”。

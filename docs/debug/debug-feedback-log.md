@@ -3294,4 +3294,6 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 用户批准先完整显示号码框、点击后弹键盘。引入点：行圆角/负margin `5fabb855`，自动聚焦 `83eb80c3`，预热 `531d7c39`；共享动画 `304d742f`、reset写transform `5947982a`。取消开启动作中的自动聚焦/预热/位移动画，仅该sheet静止时不写transform，沿用键盘避让与回底；号码行直线右对齐去箭头。
 - 行为变化与receiver/异步/空值/调用次数审计见 `docs/audit/profile-contact-sheet-20260927.md`。旧代码6失败，定向47通过，Mini1291通过/21跳过，类型/lint/任务格式/图标/verify/dry-run通过；全仓格式五个未改文件既有失败。
 - 运行/浏览器验证：390/320普通/大字号实际WXSS几何代理4布局/8弹窗状态通过；`pnpm smoke:check-core` 通过，本轮无Web核心链路变更。Agent开发者工具局部WXML/WXSS编译通过，Console error过滤为空；匿名交互节点未取得，不能证明真机输入层同步。
-- 交付：`09b834e7` 已推送main，clean production `.210` 已上传，tag/receipt/Manifest/构建身份一致，候选前后检查通过。完成状态：已实现及自动化/局部编译验证，待独立生产放行授权和同构建小米14用户复核；未执行服务器/数据库/放行动作。
+- 交付：`09b834e7` 已推送main，clean production `.210` 已上传，tag/receipt/Manifest/构建身份一致，候选前后检查通过；交付记录 `c7bfe712` 已推送。
+- 用户随后授权“放行”：重新核对上传身份、实时 release 和控制脚本哈希，受信 `ensure` 仅追加 `.210`、保留旧版。前后完整 ECS verifier、独立 allowlist verify 通过，公网 `.210/.209=200`、动态未知版=426；应用 release 前后均为 `4674c8bc`。短暂 TLS EOF 经工具健康等待恢复。未部署应用/同步 release 元数据、备份/迁移数据库、提审或正式发布。
+- 放行记录消息 `docs(release): record contact editor trial 210 allowlist`。完成状态：已完成实现及线上放行验证，待用户在同构建小米14冷启动复核两种号码首次打开、点击编辑及键盘收起；自动化/局部编译不替代真机验收。

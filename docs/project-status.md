@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：号码行与联系方式弹窗（体验版 .210 已上传，待独立放行及真机复核）
+## 当前批次：号码行与联系方式弹窗（体验版 .210 已上传放行，待真机复核）
 
 - 用户确认先完整显示号码弹窗，点击输入框后再弹系统键盘；两行改为普通直线分隔、号码右对齐、移除箭头。取消自动聚焦/预热，仅该 sheet 关闭入场动画及静止 transform；保存与跨群同步不变。
 - 基线 `7f6d4f40`，独占 warm/REUSE_ONLY、无 install。旧代码新增回归6失败，修改后定向47/47、Mini全量1291通过/21跳过；类型/lint/任务格式/图标/core smoke/production verify/CI dry-run/血缘通过。全仓格式仍五个未改文件既有失败。
 - 390/320与大字号几何代理通过，相关开发者工具模板/样式编译通过；原生输入同步待小米14同构建验收。总包/主包各减少475 B。详情见[轮次记录](audit/profile-contact-sheet-20260927.md)。
 - 应用 `09b834e7`（`fix(miniprogram): show contact editors without autofocus motion`）已推送main；clean production体验版 `0.1.0-p10.20260927.210` 已上传，Manifest `25cca22ee6916cdbc4d06d5f0b6d34e27e72f3568feef6d6d42e83f3839e3dca`，tag/allocation/receipt/构建身份一致，候选前后安全检查通过。交付文档消息 `docs(audit): record contact editor trial 210 delivery`。
-- 唯一下一任务：取得 `.210` 单独生产放行授权，随后小米14同构建冷启动复核。当前停止生产动作；未部署/备份/迁移/放行，未提审或正式发布，真机未验收。
+- 用户随后明确授权“放行”：受信 `ensure` 只追加 `.210` 并保留旧版，前后完整 ECS verifier、独立 allowlist verify 通过，公网 `.210/.209=200`、动态未知版=426；实时应用 release 前后均为 `4674c8bc`。放行记录消息 `docs(release): record contact editor trial 210 allowlist`；未部署应用/同步 release 元数据、备份或迁移数据库，未提审或正式发布。
+- 唯一下一任务：小米14同构建 `.210@09b834e7` 冷启动复核首次打开手机号/短号、点击输入框及键盘收起；取得同构建真机证据前保持“待用户复核”。
 
 ## 上一批次：历史数据库状态与凌晨归档（生产已交付，待用户复核）
 
