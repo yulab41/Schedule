@@ -232,24 +232,27 @@ describe('anonymous native visitor calendar', () => {
     expect(instance.data.activeFilterCount).toBe(0);
     definition.onUnload.call(instance);
   });
-  it('reuses the loaded month window across view switches without returning to full-page loading', async () => {
+  it('switches populated cached views immediately without a new calendar read', async () => {
+    populated = true;
     const instance = await page();
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    await vi.waitFor(() => expect(instance.monthReads.size).toBe(0));
     const initialResolveCount = requests.filter((request) =>
       request.url.endsWith('/resolve'),
     ).length;
     const initialCalendarCount = requests.filter((request) =>
-      /\/guest\/groups\/[^/]+\/calendar\?/.test(request.url),
+      /\/guest\/groups\/[^/]+\/calendar\/read$/.test(request.url),
     ).length;
     for (const view of ['week', 'list', 'month']) {
       definition.handleViewChange.call(instance, { currentTarget: { dataset: { view } } });
       expect(instance.data.state).toBe('ready');
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
     expect(requests.filter((request) => request.url.endsWith('/resolve'))).toHaveLength(
       initialResolveCount,
     );
     expect(
-      requests.filter((request) => /\/guest\/groups\/[^/]+\/calendar\?/.test(request.url)),
+      requests.filter((request) => /\/guest\/groups\/[^/]+\/calendar\/read$/.test(request.url)),
     ).toHaveLength(initialCalendarCount);
     definition.onUnload.call(instance);
   });
@@ -268,6 +271,22 @@ describe('anonymous native visitor calendar', () => {
       definition.onUnload.call(instance);
     },
   );
+  it('does not bypass an in-flight access validation when switching a cached view', async () => {
+    const instance = await page();
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    await vi.waitFor(() => expect(instance.monthReads.size).toBe(0));
+    deferred = [];
+    definition.onHide.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(deferred.length).toBeGreaterThan(0));
+    definition.handleViewChange.call(instance, { currentTarget: { dataset: { view: 'week' } } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    for (const request of deferred.splice(0))
+      request.success({ statusCode: 403, data: { code: 'VISITOR_KEY_INVALID' } });
+    await vi.waitFor(() => expect(instance.data.state).toBe('error'));
+    expect(instance.calendar).toBeUndefined();
+    definition.onUnload.call(instance);
+  });
   it('renders populated guest duties and applies member, role and shift filters with server-approved contacts', async () => {
     populated = true;
     const instance = await page();

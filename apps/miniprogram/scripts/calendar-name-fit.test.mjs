@@ -67,10 +67,16 @@ describe('calendar fit measurement lifecycle', () => {
       definition = value;
     });
     const ticks = [];
-    vi.stubGlobal('wx', { nextTick: (callback) => ticks.push(callback) });
+    vi.stubGlobal('wx', {
+      nextTick: (callback) => ticks.push(callback),
+      getWindowInfo: () => ({ windowWidth: 390 }),
+    });
     await import('../src/components/calendar/calendar-fit-line/index.ts');
     const measurements = [];
     const query = {
+      in() {
+        return this;
+      },
       select() {
         return this;
       },
@@ -83,23 +89,129 @@ describe('calendar fit measurement lifecycle', () => {
     };
     const instance = {
       data: { ...definition.data },
-      properties: { active: true, contentKey: '测试名|换' },
+      properties: {
+        active: true,
+        contentKey: '测试名|换',
+        maxScale: 1,
+        centered: false,
+        layout: 'month',
+        referenceName: '',
+      },
+      getPageId: () => 'calendar',
+      groupSetData: (callback) => callback(),
       createSelectorQuery: vi.fn(() => query),
       setData: vi.fn(function (patch) {
         Object.assign(this.data, patch);
       }),
     };
-    const update = () => definition.observers['contentKey, active'].call(instance);
+    const update = () => Object.values(definition.observers)[0].call(instance);
     const flush = () => {
       while (ticks.length) ticks.shift()();
     };
-    const measure = (available, natural) =>
-      measurements.shift()([{ width: available }, { width: natural }]);
+    const measure = (available, natural, reference = 0) =>
+      measurements.shift()([{ width: available }, { width: natural }, { width: reference }]);
     update();
     expect(instance.createSelectorQuery).not.toHaveBeenCalled();
     definition.lifetimes.ready.call(instance);
     return { definition, instance, ticks, measurements, update, flush, measure };
   }
+
+  it('batches 300 nurse rows into one render query rather than 300 bridge round trips', async () => {
+    const h = await mount();
+    for (let i = 1; i < 300; i++) {
+      h.definition.lifetimes.ready.call({
+        ...h.instance,
+        _fitQueued: false,
+        data: { ...h.definition.data },
+      });
+    }
+    h.flush();
+    expect(h.measurements).toHaveLength(1);
+  });
+
+  it('reuses the fixed three-character reference across different short names and remounts', async () => {
+    const h = await mount();
+    h.instance.properties.referenceName = '测试名';
+    h.instance.properties.maxScale = 1.18;
+    h.flush();
+    h.measure(49, 46, 46);
+    const second = {
+      ...h.instance,
+      data: { ...h.definition.data },
+      properties: { ...h.instance.properties, referenceName: '短名', contentKey: '短名|换' },
+    };
+    h.definition.lifetimes.detached.call(h.instance);
+    h.definition.lifetimes.ready.call(second);
+    h.flush();
+    expect(h.measurements).toHaveLength(0);
+    expect(second.data.fitScale).toBeCloseTo(49 / 46, 3);
+    globalThis.wx.getWindowInfo = () => ({ windowWidth: 320 });
+    h.definition.pageLifetimes.resize.call(second);
+    h.flush();
+    expect(h.measurements).toHaveLength(1);
+    h.measure(38, 35, 46);
+    expect(second.data.fitScale).toBeCloseTo(38 / 46, 3);
+  });
+
+  it('measures an exceptional long name once per layout and reuses it on view switches', async () => {
+    const h = await mount();
+    h.instance.properties.contentKey = 'Alexandra Test|换';
+    h.flush();
+    h.measure(40, 95, 46);
+    const second = { ...h.instance, data: { ...h.definition.data } };
+    h.definition.lifetimes.ready.call(second);
+    h.flush();
+    expect(h.measurements).toHaveLength(0);
+    expect(second.data.fitScale).toBeCloseTo(40 / 95, 3);
+  });
+
+  it('fits every row even when one batch exceeds the bounded cache', async () => {
+    const h = await mount();
+    const rows = [h.instance];
+    for (let i = 1; i < 600; i++) {
+      const row = {
+        ...h.instance,
+        data: { ...h.definition.data },
+        properties: { ...h.instance.properties, contentKey: `Long test name ${i}` },
+      };
+      rows.push(row);
+      h.definition.lifetimes.ready.call(row);
+    }
+    h.flush();
+    h.measurements.shift()(rows.flatMap(() => [{ width: 40 }, { width: 80 }, { width: 0 }]));
+    expect(rows.every((row) => row.data.fitScale === 0.5)).toBe(true);
+  });
+
+  it('fills spare month width up to the font cap and preserves the scale for other rows', async () => {
+    const h = await mount();
+    h.instance.properties.maxScale = 1.18;
+    h.flush();
+    h.measure(49, 46);
+    expect(h.instance.data.fitScale).toBeCloseTo(49 / 46, 3);
+    globalThis.wx.getWindowInfo = () => ({ windowWidth: 700 });
+    h.definition.pageLifetimes.resize.call(h.instance);
+    h.flush();
+    h.measure(100, 46);
+    expect(h.instance.data.fitScale).toBe(1.18);
+  });
+
+  it('keeps two- and three-character names at the same reference size; long names shrink only to fit', async () => {
+    const h = await mount();
+    h.instance.properties.maxScale = 1.18;
+    h.flush();
+    h.measure(49, 35, 46);
+    expect(h.instance.data.fitScale).toBeCloseTo(49 / 46, 3);
+    h.instance.properties.contentKey = '三字名|换';
+    h.update();
+    h.flush();
+    h.measure(49, 46, 46);
+    expect(h.instance.data.fitScale).toBeCloseTo(49 / 46, 3);
+    h.instance.properties.contentKey = '很长的姓名|换';
+    h.update();
+    h.flush();
+    h.measure(49, 68, 46);
+    expect(h.instance.data.fitScale).toBeCloseTo(49 / 68, 3);
+  });
 
   it('coalesces changes, shrinks only overflowing rows, and restores full size for shorter content', async () => {
     const h = await mount();
@@ -116,7 +228,7 @@ describe('calendar fit measurement lifecycle', () => {
     expect(h.instance.data.fitScale).toBe(1);
     h.update();
     h.flush();
-    h.measure(40, 20);
+    expect(h.measurements).toHaveLength(0);
     expect(h.instance.setData).toHaveBeenCalledTimes(2);
   });
 
@@ -138,6 +250,7 @@ describe('calendar fit measurement lifecycle', () => {
     h.flush();
     h.measure(30, 60);
     expect(h.instance.data.fitScale).toBe(0.5);
+    globalThis.wx.getWindowInfo = () => ({ windowWidth: 320 });
     h.definition.pageLifetimes.resize.call(h.instance);
     h.flush();
     h.definition.lifetimes.detached.call(h.instance);

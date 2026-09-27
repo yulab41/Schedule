@@ -298,6 +298,20 @@ Page({
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
+    // Switching the presentation is local when this visit already loaded the window.
+    // Missing months and onShow/retry still use the normal validating read path.
+    const months = requestedMonths(this);
+    if (
+      this.monthReads.size === 0 &&
+      this.holidayReads.size === 0 &&
+      !this.resolvingGroup &&
+      !this.displaySettingsRead &&
+      months.every((month) => this.monthResources.has(month)) &&
+      applyCachedWindow(this, months)
+    ) {
+      this.serial++;
+      return;
+    }
     void loadCalendar(this);
   },
   handleDateSelect(this: GuestPage, event: Tap): void {

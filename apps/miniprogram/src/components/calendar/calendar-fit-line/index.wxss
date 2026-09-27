@@ -4,10 +4,25 @@
   min-width: 0;
 }
 .fit-viewport {
+  position: relative;
   display: flex;
   width: 100%;
   min-width: 0;
   overflow: hidden;
+  align-items: center;
+}
+.fit-reference {
+  position: absolute;
+  width: var(--calendar-fit-reference-width, 0px);
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.fit-viewport.is-centered {
+  justify-content: center;
+}
+.is-centered .fit-content {
+  transform-origin: center;
 }
 /* Measure the untransformed box so repeated fits never compound the scale. */
 .fit-measure,

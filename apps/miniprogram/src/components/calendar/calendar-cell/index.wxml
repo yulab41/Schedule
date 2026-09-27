@@ -24,6 +24,9 @@
       class="month-duty-line is-{{item.state}} {{item.comparisonClass}}"
     >
       <calendar-fit-line
+        layout="{{compact ? 'month-duties-compact' : 'month-duties'}}"
+        reference-name="{{item.abbreviation.length > 1 ? '' : item.name}}"
+        max-scale="{{1.18}}" centered="{{true}}"
         active="{{active}}"
         content-key="{{item.name + '|' + item.abbreviation + '|' + compact}}"
       >
@@ -36,6 +39,9 @@
   </view>
   <view wx:elif="{{person || marker}}" class="month-duty-line">
     <calendar-fit-line
+      layout="{{compact ? 'month-compact' : 'month'}}"
+      reference-name="{{extraPersonCount > 0 ? '' : person}}"
+      max-scale="{{1.18}}" centered="{{true}}"
       active="{{active}}"
       content-key="{{person + '|' + marker + '|' + extraPersonCount + '|' + compact}}"
     >

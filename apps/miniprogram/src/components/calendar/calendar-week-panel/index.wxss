@@ -121,6 +121,7 @@
   text-align: center;
 }
 .week-duty-item {
+  --calendar-fit-reference-width: 36px;
   display: flex;
   min-width: 0;
   flex-direction: column;

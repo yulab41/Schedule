@@ -1,6 +1,8 @@
 @import '../../../styles/calendar-date-marker.wxss';
 
 .calendar-cell {
+  /* Three 11px Chinese glyphs + 1px gap + one 12px badge. Never use a person's name as the size baseline. */
+  --calendar-fit-reference-width: 46px;
   position: relative;
   display: flex;
   width: 100%;
@@ -127,7 +129,8 @@
   border-radius: 4px;
   font-size: 8px;
   font-weight: var(--ui-font-weight-strong);
-  line-height: 12px;
+  line-height: 1;
+  transform: translateY(-0.5px);
 }
 
 .month-duty-lines {
@@ -152,12 +155,24 @@
   border: 1px solid;
   border-radius: 3px;
   font-size: 8px;
-  line-height: 11px;
+  line-height: 1;
+  transform: translateY(-0.5px);
   white-space: nowrap;
+}
+.calendar-cell.has-duties {
+  /* Duty badges are 1px wider than the change marker. */
+  --calendar-fit-reference-width: 47px;
 }
 .calendar-cell.is-compact .month-person {
   font-size: 9px;
   line-height: 14px;
+}
+.calendar-cell.is-compact {
+  --calendar-fit-reference-width: 40px;
+}
+.calendar-cell.has-duties.is-compact {
+  /* Three 9px glyphs + 1px gap + one 13px badge. */
+  --calendar-fit-reference-width: 41px;
 }
 .calendar-cell.is-compact .date-number {
   line-height: 14px;
@@ -179,10 +194,18 @@
   color: #7a8491;
 }
 @media (max-width: 360px) {
+  .calendar-cell.has-duties {
+    --calendar-fit-reference-width: 39px;
+  }
+  .calendar-cell.is-compact {
+    --calendar-fit-reference-width: 37px;
+  }
+  .calendar-cell.has-duties.is-compact {
+    --calendar-fit-reference-width: 36px;
+  }
   .duty-abbreviation {
     min-width: 11px;
     height: 11px;
-    line-height: 9px;
   }
   .holiday-chip {
     right: 1px;

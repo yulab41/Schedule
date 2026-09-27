@@ -37,6 +37,7 @@ interface MiniProgramRect {
 }
 
 interface MiniProgramSelectorQuery {
+  in(component: object): MiniProgramSelectorQuery;
   boundingClientRect(): MiniProgramSelectorQuery;
   exec(callback: (results: readonly (MiniProgramRect | null | undefined)[]) => void): void;
   select(selector: string): MiniProgramSelectorQuery;

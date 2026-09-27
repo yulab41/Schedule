@@ -427,9 +427,9 @@
                               wx:key="key"
                               class="week-duty-item"
                             >
-                              <calendar-fit-line active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name}}"><text class="week-duty-name">{{duty.name}}</text></calendar-fit-line>
+                              <calendar-fit-line layout="week-name" reference-name="{{duty.name}}" active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name}}"><text class="week-duty-name">{{duty.name}}</text></calendar-fit-line>
                               <view wx:if="{{duty.markers.length > 0}}" class="week-duty-badges"
-                                ><calendar-fit-line active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{'markers:' + duty.markers}}"><text
+                                ><calendar-fit-line layout="week-badges" active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{'markers:' + duty.markers}}"><text
                                   wx:for="{{duty.markers}}"
                                   wx:for-item="marker"
                                   wx:key="*this"
@@ -708,7 +708,7 @@
                               ></view>
                               <view class="list-duty-copy"
                                 ><view class="list-duty-name-line"
-                                  ><calendar-fit-line active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name + '|' + duty.markers}}"><text class="list-duty-name">{{duty.name}}</text
+                                  ><calendar-fit-line layout="{{'list:' + (duty.phone ? 'phone:' : '') + duty.dutyStateLabel}}" active="{{!activeWorkspace || activeWorkspace === 'calendar'}}" content-key="{{duty.name + '|' + duty.markers}}"><text class="list-duty-name">{{duty.name}}</text
                                   ><text
                                     wx:for="{{duty.markers}}"
                                     wx:for-item="marker"

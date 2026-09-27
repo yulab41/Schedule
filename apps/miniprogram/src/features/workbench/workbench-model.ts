@@ -296,13 +296,19 @@ export function createWorkbenchViewModel(
 ): WorkbenchViewModel {
   const now = options.now ?? new Date();
   const order = new Map(calendar.shiftTypes.map((shift, index) => [shift.id, index]));
+  const ranks = new Map<CalendarReadModel['assignments'][number], number>();
   const rank = (assignment: CalendarReadModel['assignments'][number]): number => {
+    const cached = ranks.get(assignment);
+    if (cached !== undefined) return cached;
     const code =
       nurseShiftCode(assignment.shiftTypeName) ?? nurseShiftCode(assignment.shiftTypeAbbreviation);
     const nurseIndex = code === undefined ? -1 : nurseShiftOrder.indexOf(code);
-    return options.nursePreset && nurseIndex >= 0
-      ? nurseIndex
-      : 6 + (order.get(assignment.shiftTypeId) ?? order.size);
+    const value =
+      options.nursePreset && nurseIndex >= 0
+        ? nurseIndex
+        : 6 + (order.get(assignment.shiftTypeId) ?? order.size);
+    ranks.set(assignment, value);
+    return value;
   };
   const holidayByDate = new Map(holidays.dates.map((holiday) => [holiday.date, holiday]));
   const filtered = filterCalendarAssignments(calendar.assignments, {
@@ -321,14 +327,15 @@ export function createWorkbenchViewModel(
   const allDayShiftTypeIds = new Set(
     calendar.shiftTypes.filter((shiftType) => shiftType.isAllDay).map((shiftType) => shiftType.id),
   );
+  const monthAssignments = options.monthPreferencePending
+    ? []
+    : [...assignments].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition);
   const monthPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
     return {
       cells: createMonthCells(
         panelMonth,
-        options.monthPreferencePending
-          ? []
-          : [...assignments].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition),
+        monthAssignments,
         holidayByDate,
         relative === 0 ? selectedDate : '',
         today,
@@ -400,9 +407,10 @@ export function createWorkbenchViewModel(
     options.nursePreset === true,
     now,
   );
+  const allDays = buildDayList(assignments, today);
   const listPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
-    const dayList = buildDayList(assignments, today).filter(
+    const dayList = allDays.filter(
       (entry) => getBusinessMonthOf(entry.businessDate) === panelMonth,
     );
     return {
