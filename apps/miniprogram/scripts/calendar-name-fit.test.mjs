@@ -50,6 +50,14 @@ describe('calendar fixed three-character name contract', () => {
     }
   });
 
+  it('left-aligns every combination while using three characters plus a badge only for sizing', () => {
+    const style = read('styles/calendar-name-line.wxss');
+    expect(style).toMatch(/justify-content:\s*flex-start/u);
+    expect(style).not.toContain('is-centered');
+    for (const entry of entries)
+      expect(read(`${entry}.wxml`)).not.toMatch(/calendar-name-line[^"]*is-centered/u);
+  });
+
   it('retains the immediate viewMode-driven indicator and reduced-motion rule', () => {
     for (const entry of entries.slice(2)) {
       expect(read(`${entry}.wxml`)).toContain('class="view-switch is-{{viewMode}}"');

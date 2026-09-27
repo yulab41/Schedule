@@ -5,11 +5,9 @@
   min-width: 0;
   overflow: hidden;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--calendar-name-gap, 1px);
   white-space: nowrap;
-}
-.calendar-name-line.is-centered {
-  justify-content: center;
 }
 .calendar-name-text {
   display: block;

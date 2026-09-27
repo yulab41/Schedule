@@ -40,7 +40,7 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
       await browser.close();
     }
   }, 15000);
-  it('shares one container scale across all names, clipping only overflow without row measurements', async () => {
+  it('shares one container scale and left edge across all name and badge combinations', async () => {
     const browser = await chromium.launch({
       executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
       headless: true,
@@ -51,6 +51,8 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
         for (const mode of [
           'month',
           'duties',
+          'preview-month',
+          'backfill-month',
           'compact',
           'compact-person',
           'week',
@@ -59,11 +61,17 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
           'list',
         ]) {
           const compact = mode.startsWith('compact');
-          const duties = mode === 'duties' || mode === 'compact';
+          const duties = ['duties', 'compact', 'preview-month', 'backfill-month'].includes(mode);
           const weekly = mode.includes('week');
           const month = !weekly && mode !== 'list';
           const metrics = createCalendarNameLayout(
-            compact ? 'dialog' : mode === 'preview-week' ? 'preview' : 'page',
+            compact
+              ? 'dialog'
+              : mode.startsWith('preview')
+                ? 'preview'
+                : mode.startsWith('backfill')
+                  ? 'backfill'
+                  : 'page',
             compact,
             width,
           );
@@ -74,10 +82,11 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
               : 'pages/workbench/index.wxss';
           let standardFont;
           const cases = ['短名', '测试名', '四字测试', '很长的测试姓名', 'Alexandra W. Test'].map(
-            (name) => ({ name }),
+            (name) => ({ name, showBadge: true }),
           );
-          if (duties) cases.push({ name: '测试名', abbreviation: 'NP' });
-          for (const { name, abbreviation } of cases) {
+          cases.push({ name: '短名', showBadge: false }, { name: '测试名', showBadge: false });
+          if (duties) cases.push({ name: '测试名', abbreviation: 'NP', showBadge: true });
+          for (const { name, abbreviation, showBadge } of cases) {
             const nameClass = month ? 'month-person' : weekly ? 'week-duty-name' : 'list-duty-name';
             const badgeClass = month
               ? 'change-mark'
@@ -85,17 +94,23 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
                 ? 'week-change-badge'
                 : 'list-change-badge';
             const nameText = `<text class="${nameClass} calendar-name-text">${name}</text>`;
-            const badges = duties
-              ? `<text class="duty-abbreviation">${abbreviation || (name.length <= 3 ? 'N' : 'NP')}</text>`
-              : `<text class="${badgeClass}">换</text>${month || name.length <= 3 ? '' : `<text class="${badgeClass}">假</text>`}`;
+            const badges = !showBadge
+              ? ''
+              : duties
+                ? `<text class="duty-abbreviation">${abbreviation || (name.length <= 3 ? 'N' : 'NP')}</text>`
+                : `<text class="${badgeClass}">换</text>${month || name.length <= 3 ? '' : `<text class="${badgeClass}">假</text>`}`;
             const count =
               mode === 'month' && name === '很长的测试姓名'
                 ? '<text class="month-person-count">+12</text>'
                 : '';
-            const wrap = (body) =>
-              `<div class="calendar-name-line ${month ? 'is-centered' : ''}">${body}</div>`;
+            const rowClass = month
+              ? read('components/calendar/calendar-cell/index.wxml').match(
+                  /<view class="(calendar-name-line[^"]*)"/u,
+                )[1]
+              : 'calendar-name-line';
+            const wrap = (body) => `<div class="${rowClass}">${body}</div>`;
             const content = weekly
-              ? `<div class="week-duty-item">${wrap(nameText)}<div class="week-duty-badges">${wrap(badges)}</div></div>`
+              ? `<div class="week-duty-item">${wrap(nameText)}${showBadge ? `<div class="week-duty-badges">${wrap(badges)}</div>` : ''}</div>`
               : `<div class="${month ? 'month-duty-line' : 'list-duty-name-line'}">${wrap(nameText + count + badges)}</div>`;
             const containerWidth = mode === 'list' ? width - 110 : (metrics.cardWidth - 2) / 7;
             const containerClass = month
@@ -142,13 +157,17 @@ describe.runIf(!!process.env.SCHEDULE_CALENDAR_FIT_GEOMETRY)('calendar browser g
                   ),
                 };
               });
-              expect(bounds.left, `${width}/${mode}/${name}`).toBeGreaterThanOrEqual(-0.1);
+              expect(
+                Math.abs(bounds.left),
+                `${width}/${mode}/${name}/badge=${showBadge}`,
+              ).toBeLessThan(0.1);
               expect(bounds.right, `${width}/${mode}/${name}`).toBeLessThanOrEqual(0.1);
               expect(bounds.overlap).toBe(false);
               expect(bounds.oneLine).toBe(true);
-              if (month) expect(Math.abs(bounds.left + bounds.right)).toBeLessThan(0.1);
+              if (month && name === '测试名' && showBadge)
+                expect(Math.abs(bounds.left + bounds.right)).toBeLessThan(0.1);
             }
-            if (weekly) {
+            if (weekly && showBadge) {
               const nameBox = await page.locator('.week-duty-name').boundingBox();
               const badgesBox = await page.locator('.week-duty-badges').boundingBox();
               expect(badgesBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
