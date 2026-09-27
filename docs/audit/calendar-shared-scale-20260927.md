@@ -37,8 +37,16 @@
 
 `.205@a7528cfb` 已于本轮上传并 add-only 放行，Manifest `f41fa25b61ca80a5d7744035e0d81bb2fbe4a5fed7bb639424669aaec6013149`、ZIP 2,368,652 B。前后完整 ECS verifier、独立 allowlist verify 通过；生产应用 release 保持 `539d88e3`。这仍只代表各入口各自缓存；发布产物复查发现 `build-tools.mjs` 的 bundle:true 会把helper分别打包进首页、访客与月历组件，模块变量不能证明全小程序只读屏宽一次。
 
-- `MINI-CALENDAR-SHARED-006`（P2，高置信，`17598dc8` 引入）：新增跨独立模块副本回归，旧代码对象相等断言失败；改用现有 `App.globalData` 运行态模式保存仅含屏宽和布局值的缓存。无姓名、持久化或业务数据；没有全局App的Node环境保留局部fallback。每个入口仍只按布局键读取，不按每个单元格计算。三个宽度公式与样式均未改变。
+- `MINI-CALENDAR-SHARED-006`（P2，高置信，`17598dc8` 引入）：新增跨独立模块副本回归，旧代码对象相等断言失败；改用现有 `App.globalData` 运行态模式保存仅含屏宽和布局值的缓存。无姓名、持久化或业务数据；没有全局App的Node环境保留局部fallback。每个入口仍只按布局键读取，不按每个单元格计算。容器宽度公式与样式均未改变。
 - 在新的独占租约中继续复用同一warm槽位，REUSE_ONLY/Bootstrap无构建依赖、未安装。原候选冻结身份不改写，修正版另提交、另由官方分配器分配版本。原`.205`保留。
 - 回归旧代码1失败/2通过，新代码3/3，几何和结构合计11/11；实际生成JS在两个独立VM中加载后 `screenReads=1`、页面/弹窗对象相同、缓存2种布局。开发者工具读取实际App运行态，390px且存在`page:false`缓存。
 - 修正后Mini verify通过，主包1,624,906 B、总包4,334,456 B，相对本轮原始基线分别减少4,606/4,522 B；此前主包/矩阵预警仍在。完整Mini复测1,287通过/18跳过，根类型/lint、任务格式、core smoke、CI dry-run和血缘审计通过。开发者工具从首页进入匿名手排后，同一个App缓存依次出现page:false、preview:false、dialog:true，宽度保持390px；这是真实跨入口缓存证据，未冒充真机耗时。
 - 修正检查点消息：`fix(miniprogram): share calendar sizing across entry bundles`。本次只修改helper缓存位置和对应回归，工作台精确proof blob不变；下一步通过门禁后上传新的clean候选并add-only放行，最终停在同构建小米14复核。
+
+
+## 最终交付
+
+- 应用修正 `151c9753294805c5bc3b104d6a4918cce0eb64b5` 已推送；正式helper动态分配并成功上传 `0.1.0-p10.20260927.206`，production/clean，说明 `Shared app calendar scale 151c975`，上传时间2026-09-27 15:48:50 +08，Manifest `78147232b0e8c688da67e682e32b5f2a0131bcb19211f6cfeb0215bb5454fd35`，ZIP2,370,600 B。远端tag、allocation、Manifest、receipt与构建身份一致，候选安全检查前后均通过；没有覆盖.205的不可变身份。
+- 用户授权的add-only ensure只追加.206，保留.205、.203及既有版本。独立allowlist verify与最终完整ECS verifier通过；本轮先前的完整verifier已核验同一服务器release及.205作为前驱，追加前又新读live/public基线。公网.206追加前426→追加后200，.205/.203仍200，动态未知版426。服务器应用release始终`539d88e32dbda8c6e9893317e570ff9a3758e0de`；控制工具刷新容器使allowlist生效，不是部署新的API/Web应用。无数据库备份/迁移、发布元数据同步、提审或正式发布。
+- 最终修正只改变缓存归属，几何/颜色/字号公式不变；跨模块测试及实际生成JS/DevTools App缓存验证已补齐。文档交付复用已验证应用证据，不重跑完整应用构建或重新上传文档SHA。交付检查点消息`docs(audit): record shared calendar scale trial 206 delivery`。
+- 当前停止点：已实现及自动化/开发者工具验证，待同版本/SHA小米14反馈；真实点击到绘制耗时当前工具无法测量，暂未验证。

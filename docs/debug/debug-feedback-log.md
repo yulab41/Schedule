@@ -4,6 +4,8 @@
 
 ## 2026-09-27 共享容器倍率与三字省略规则
 
+- 最终交付：151c9753已推送，体验版0.1.0-p10.20260927.206上传且add-only放行；前后完整verifier/独立allowlist验证与新旧版200、未知版426通过，应用release539d88e3未变。唯一下一步是同构建小米14复核；交付记录消息`docs(audit): record shared calendar scale trial 206 delivery`。
+
 - 构建边界补充：17598dc8的模块级缓存会被entry bundle复制，跨副本回归先失败后通过；已改App.globalData共享，实际生成JS双副本只读屏宽1次，开发者工具从首页到手排共用page/preview/dialog缓存。最终Mini1,287通过/18跳过，其余相关门禁通过。检查点消息 `fix(miniprogram): share calendar sizing across entry bundles`；.205已保留，修正版另分配版本并放行。
 
 - 引入点：`f651024f` 逐行query、`0edc34ed` 缓存批处理。用户最终授权改为固定三字＋标识，所有同布局单元格共享一次计算；多字省略、二字不放大。删除旧测宽组件，保留周标识下一行、状态色/删除线、分页/手势/高度和上一批性能优化。详见[轮次](../audit/calendar-shared-scale-20260927.md)。
