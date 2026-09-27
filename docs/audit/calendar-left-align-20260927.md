@@ -28,4 +28,11 @@
 
 ## 检查点与停止条件
 
-应用检查点消息：`fix(miniprogram): left-align calendar names at shared scale`。最终验证和交付身份在完成后补记。当前唯一下一任务：完成本轮验证、上传和只增放行，随后等待同版本/SHA小米14复核；不得把自动化或开发者工具证据记为真机验收。
+应用检查点 `606430877032fd5d3b412a9a2ef7befca6a2dae7`：`fix(miniprogram): left-align calendar names at shared scale`，已推送。逐行检查源文件与测试/记录差异，未混入无关文件。当前唯一下一任务：同版本/SHA小米14复核左对齐、统一字号及紧凑预览；状态为已实现且完成自动化/开发者工具验证，待用户真机复核。
+
+## 最终上传与放行
+
+- 干净 production 候选 `60643087`，描述 `Calendar left aligned 6064308`；测试页面为首页月历、手排紧凑预览，其他入口由共用组件/模板、运行测试及几何覆盖。正式分配器最终上传 `0.1.0-p10.20260927.208`，2026-09-27 16:29:30 +08，217代码文件、ZIP2,370,180 B，Manifest `314c327a36702da7c281237fe2aaef34335a839c0a2d81adece0be0d695fe8c8`。allocation、Manifest、receipt及远端tag一致；候选安全检查前后通过，VERSION_LOCAL=absent。
+- `.207` 首次在 Manifest 绑定后、远端预约/微信调用前遇到 Git ls-remote 128；查询恢复后，同版重试因构建时间改变触发不可变 Manifest 冲突，仍在微信调用前停止。保留 allocation/Manifest、不覆盖身份、不删除记录，重新由正式分配器选择 `.208`。`.207` 无远端tag/上传receipt且未放行；未修改发布工具或绕过校验。
+- 已按本会话授权使用可信 `ensure` 只追加 `.208`，保留全部既有版本；前后完整 `ecs-verify.sh`、独立 allowlist verify 均通过。2026-09-27 16:32:45 +08 公网 `.208/.206/.205=200`，`.207` 与动态未知版 `=426`。控制工具刷新容器使允许列表生效，服务器应用 release 前后仍 `539d88e32dbda8c6e9893317e570ff9a3758e0de`；未部署新应用、同步 release 元数据、备份/迁移数据库、提审或正式发布。
+- 上传租约释放后以新的独占租约复用同一 warm 槽完成文档收口，依赖复用且无安装；应用源码/构建输入不变，复用上述完整应用证据，运行文档 diff/core smoke 检查，不重新上传文档 SHA。交付记录检查点消息：`docs(audit): record calendar left alignment trial 208`。

@@ -7,7 +7,7 @@
 - 引入点：`git log -S 'is-centered'` 与 blame 指向 `17598dc8`；月格两个行类将所有组合居中，偏离用户澄清的“仅三字＋标识决定倍率，实际显示左对齐”。
 - 只移除这两个居中类、共用样式显式 flex-start。首页/访客、普通/紧凑手排预览、补录复用同月格；周历/列表保持左对齐及周标识下一行。未修改倍率公式、App缓存、业务逻辑或引入新的计算。
 - 先红后绿：旧实现2失败/7通过（320px短姓名左偏4.34375px）；修复后定向63、Mini完整1,288通过/18跳过，几何/类型/lint/任务格式/图标/Mini verify/dry-run/血缘通过。运行验证：`pnpm smoke:check-core` 通过；没有Web核心变更，不触发smoke:browser。全仓格式仍五个未改文件基线失败。
-- 当前：已实现及自动化验证，待交付与同构建真机复核。完整证据及最终交付身份见[轮次记录](../audit/calendar-left-align-20260927.md)；检查点 `fix(miniprogram): left-align calendar names at shared scale`。
+- 当前：应用60643087已推送，体验版.208上传且add-only放行；前后完整ECS verifier/独立版本校验通过，新旧版200、未上传.207/未知426，应用release539d88e3未变。匿名首页/紧凑预览已在开发者工具查看；待同构建小米14复核。完整证据见[轮次记录](../audit/calendar-left-align-20260927.md)；交付记录检查点`docs(audit): record calendar left alignment trial 208`。
 
 ## 2026-09-27 共享容器倍率与三字省略规则
 

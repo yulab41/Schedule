@@ -1,10 +1,11 @@
 # 微信小程序审计状态
 
-## 当前批次：日历姓名左对齐微调（已实现，交付验证中）
+## 当前批次：日历姓名左对齐微调（体验版 `.208` 已上传放行，待小米14复核）
 
 - 三字＋标识仅决定每个容器的统一倍率；实际二/三字有无标识等组合始终左对齐。仅修改共用月格两处行类及共用样式，首页/访客、普通/紧凑预览、补录均覆盖；两套周历和列表已核对，原缓存、倍率与标识上下行关系不变。
 - 基线 `d22cf2c9`，引入点 `17598dc8`。回归先红后绿，定向63通过、Mini完整1,288通过/18跳过；类型/lint/任务格式/几何/图标/core smoke/verify/CI dry-run/血缘通过。全仓格式仅五个未改文件既有失败。详见[轮次记录](calendar-left-align-20260927.md)。
-- 检查点消息 `fix(miniprogram): left-align calendar names at shared scale`；唯一下一任务是完成已授权上传与新体验版add-only放行，随后等待同版本/SHA小米14反馈。不将自动化视为真机验收。
+- 应用`60643087`（`fix(miniprogram): left-align calendar names at shared scale`）已推送，clean production体验版`0.1.0-p10.20260927.208`上传并add-only放行；tag/Manifest/receipt一致，前后完整ECS verifier与独立版本verify通过，`.208/.206/.205=200`、`.207/未知=426`。`.207`上传前Git/Manifest重试失败的身份记录保留，未放行；应用release仍`539d88e3`，无应用部署/数据库操作。
+- 匿名首页与紧凑预览已在开发者工具查看；唯一下一任务是同版本/SHA小米14复核左对齐及预览。交付记录消息`docs(audit): record calendar left alignment trial 208`；已完成自动化与辅助运行验证，待用户真机复核。
 
 ## 上一批次：日历共享容器倍率（体验版 `.206` 已上传放行，待小米14复核）
 

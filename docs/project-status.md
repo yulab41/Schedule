@@ -1,10 +1,11 @@
 # Project Status
 
-## 当前批次：日历姓名左对齐微调（已实现，交付验证中）
+## 当前批次：日历姓名左对齐微调（体验版 `.208` 已上传放行，待小米14复核）
 
 - 基线 `d22cf2c9`，独占 warm/REUSE_ONLY、未安装。三字＋标识仅作统一倍率基准，实际所有姓名组合左对齐；首页/访客、手排生成/草稿/发布预览与补录共用月格，两套周历与列表一并验证。仅改两个显示文件，App缓存、倍率、长姓名省略及周标识下一行规则不变。引入点 `17598dc8`，详见[轮次记录](audit/calendar-left-align-20260927.md)。
 - 旧代码回归2失败/7通过，修复后定向63通过；Mini完整1,288通过/18跳过，类型/lint/任务格式/几何/图标/core smoke/Mini verify/CI dry-run/血缘通过。全仓格式仍是五个未改文件的既有失败。最终主包1,624,850 B、总包4,334,400 B。
-- 检查点消息 `fix(miniprogram): left-align calendar names at shared scale`。唯一下一任务：按本会话已有授权完成上传及新版本add-only放行，随后停在同构建小米14复核；不部署API/Web、备份/迁移数据库、提审或正式发布。
+- `60643087`（`fix(miniprogram): left-align calendar names at shared scale`）已推送，clean production体验版 `0.1.0-p10.20260927.208` 已上传并add-only放行；Manifest `314c327a36702da7c281237fe2aaef34335a839c0a2d81adece0be0d695fe8c8`，tag/allocation/receipt一致。`.207`因Git远端查询失败及重试Manifest冲突未上传/放行，记录保留。
+- 前后完整ECS verifier、独立allowlist verify通过，公网`.208/.206/.205=200`、`.207/未知=426`；应用release仍`539d88e3`，未部署API/Web、备份/迁移数据库、提审或正式发布。交付记录消息`docs(audit): record calendar left alignment trial 208`。唯一下一任务：同版本/SHA小米14复核左对齐和预览；匿名首页及紧凑预览已在开发者工具查看，真机状态保持待用户复核。
 
 ## 上一批次：日历共享容器倍率（体验版 `.206` 已上传放行，待小米14复核）
 
