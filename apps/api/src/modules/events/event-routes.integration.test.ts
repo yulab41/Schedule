@@ -93,6 +93,45 @@ describeWithDatabase('schedule event center routes', () => {
     ).toBe(400);
   });
 
+  it('opts into operator names without exposing another group or changing legacy responses', async () => {
+    const context = await seedSwapEvents();
+    const path = `/groups/${context.groupId}/events?operatorUserId=${context.userIds.b}&includeOperatorName=true`;
+    const named = await app.inject({
+      method: 'GET',
+      url: path,
+      headers: { authorization: 'Bearer b-token' },
+    });
+    expect(named.statusCode).toBe(200);
+    expect(named.json().events.length).toBeGreaterThan(0);
+    expect(
+      named
+        .json()
+        .events.every(
+          (event: ScheduleEventPage['events'][number]) => event.operatorName === 'B Doctor',
+        ),
+    ).toBe(true);
+    const legacy = (await listEvents('b-token', context.groupId, {})).json() as ScheduleEventPage;
+    expect(legacy.events.every((event) => !('operatorName' in event))).toBe(true);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: path,
+          headers: { authorization: 'Bearer outsider-token' },
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: path.replace('includeOperatorName=true', 'includeOperatorName=invalid'),
+          headers: { authorization: 'Bearer b-token' },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
+
   it('filters events by event type, membership, operator, and date range', async () => {
     const context = await seedSwapEvents();
 

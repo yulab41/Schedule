@@ -269,7 +269,7 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
       statisticsYear: page.data.statisticsYear,
     } as const;
     const [eventPage, statisticsResponse] = await Promise.all([
-      page._insightsReadClient.listEvents(groupId, { pageSize: 50 }),
+      page._insightsReadClient.listEvents(groupId, { pageSize: 50, includeOperatorName: true }),
       period.statisticsMode === 'month'
         ? page._insightsReadClient.getMonthStatistics(groupId, period.businessMonth)
         : page._insightsReadClient.getYearStatistics(groupId, period.statisticsYear),
@@ -314,6 +314,7 @@ async function loadMoreEvents(page: InsightsDashboardInstance): Promise<void> {
     const eventPage = await page._insightsReadClient.listEvents(groupId, {
       cursor,
       pageSize: 50,
+      includeOperatorName: true,
     });
     if (!isDashboardRequestCurrent(page, requestSerial, groupId)) return;
     page._eventCards = [...page._eventCards, ...eventPage.events.map(toEventCard)];
@@ -492,7 +493,7 @@ function setDashboardDisabled(page: InsightsDashboardInstance, message: string):
 
 function toEventCard(event: ScheduleEvent): EventCard {
   return {
-    actorLabel: '操作者已脱敏',
+    actorLabel: event.operatorName?.trim() || (event.operatorUserId ? '原操作者' : '系统'),
     detailLabel: `${event.objectType} · 影响 ${getEventImpactCount(event)} 项`,
     eventStatusLabel: getEventStatusLabel(event.eventStatus),
     eventTone: getEventTone(event.eventType),

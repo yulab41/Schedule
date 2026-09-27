@@ -26,6 +26,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { DutyAdjustmentService } from './duty-adjustment-service.js';
 import {
   staleWorkflowArchiveReason,
   WorkflowSelfHealingService,
@@ -72,6 +73,51 @@ describeWithDatabase('paired duty adjustments', () => {
 
     if (client !== undefined) {
       await client.close();
+    }
+  });
+
+  it('hides closed past-month duty adjustments only from Mini lists', async () => {
+    const context = await seedPublishedSchedule();
+    const response = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      overtimeMembershipId: context.membershipIds.b,
+      operationId: randomUUID(),
+    });
+    expect(response.statusCode).toBe(201);
+    const id = response.json().id as string;
+    const service = new DutyAdjustmentService(client);
+    const mini = { cloudbaseUid: 'cloudbase-a', clientPlatform: 'miniprogram' } as const;
+    const owner = { cloudbaseUid: 'cloudbase-owner', clientPlatform: 'miniprogram' } as const;
+    vi.setSystemTime(new Date('2026-09-30T15:59:59.000Z'));
+    await client.database.execute(
+      sql`UPDATE duty_adjustments SET status = 'completed' WHERE id = ${id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-09-30T16:00:00.000Z'));
+    for (const status of ['completed', 'rejected', 'cancelled', 'revoked']) {
+      await client.database.execute(
+        sql`UPDATE duty_adjustments SET status = ${status} WHERE id = ${id}`,
+      );
+      expect(await service.listMine(mini, context.groupId)).toEqual([]);
+      expect(await service.listApprovals(owner, context.groupId)).toEqual([]);
+      expect(
+        (await service.listMine({ cloudbaseUid: 'cloudbase-a' }, context.groupId)).map(
+          (row) => row.id,
+        ),
+      ).toContain(id);
+    }
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET business_date = '2026-10-01' WHERE id = ${context.assignments.aSep1.id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET business_date = '2026-09-01' WHERE id = ${context.assignments.aSep1.id}`,
+    );
+    for (const status of ['pending_target', 'pending_approval']) {
+      await client.database.execute(
+        sql`UPDATE duty_adjustments SET status = ${status} WHERE id = ${id}`,
+      );
+      expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     }
   });
 

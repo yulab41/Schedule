@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { LeaveService } from './leave-service.js';
 import { isLeaveStartBeforeChinaToday } from './leave-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
@@ -86,6 +87,47 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('hides closed past-month leave while retaining current, cross-month and pending leave in Mini lists', async () => {
+    const context = await seedPublishedSchedule();
+    const response = await submitLeave('a-token', context.groupId, {
+      startsAt: '2026-09-01T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+    });
+    expect(response.statusCode).toBe(201);
+    const id = response.json().id as string;
+    const service = new LeaveService(client);
+    const mini = { cloudbaseUid: 'cloudbase-a', clientPlatform: 'miniprogram' } as const;
+    const owner = { cloudbaseUid: 'cloudbase-owner', clientPlatform: 'miniprogram' } as const;
+    vi.setSystemTime(new Date('2026-09-30T15:59:59.000Z'));
+    await client.database.execute(
+      sql`UPDATE leave_requests SET status = 'approved' WHERE id = ${id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-09-30T16:00:00.000Z'));
+    for (const status of ['approved', 'rejected']) {
+      await client.database.execute(
+        sql`UPDATE leave_requests SET status = ${status} WHERE id = ${id}`,
+      );
+      expect(await service.listMine(mini, context.groupId)).toEqual([]);
+      expect(await service.listForApproval(owner, context.groupId)).toEqual([]);
+      expect(
+        (await service.listMine({ cloudbaseUid: 'cloudbase-a' }, context.groupId)).map(
+          (row) => row.id,
+        ),
+      ).toContain(id);
+    }
+    await client.database.execute(
+      sql`UPDATE leave_requests SET ends_at = '2026-09-30 16:00:00.001' WHERE id = ${id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    await client.database.execute(
+      sql`UPDATE leave_requests SET status = 'pending', ends_at = '2026-09-02 00:00:00' WHERE id = ${id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
   });
 
   it('rejects a leave request whose start date is before today', async () => {

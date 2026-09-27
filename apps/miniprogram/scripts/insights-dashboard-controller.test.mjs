@@ -87,7 +87,10 @@ describe('insights dashboard shared parity controller', () => {
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
 
     expect(page.data.activeTab).toBe('statistics');
-    expect(mocks.listEvents).toHaveBeenCalledWith(groupId, { pageSize: 50 });
+    expect(mocks.listEvents).toHaveBeenCalledWith(groupId, {
+      pageSize: 50,
+      includeOperatorName: true,
+    });
     expect(page.data.eventGroups[0]).toMatchObject({
       countLabel: '1 条',
       label: '8月26日 周三',
@@ -125,6 +128,7 @@ describe('insights dashboard shared parity controller', () => {
     expect(mocks.listEvents).toHaveBeenLastCalledWith(groupId, {
       cursor: 'cursor-1',
       pageSize: 50,
+      includeOperatorName: true,
     });
     expect(page.data.eventGroups).toHaveLength(2);
 
@@ -134,6 +138,34 @@ describe('insights dashboard shared parity controller', () => {
     await vi.waitFor(() => expect(page.data.statisticsBusy).toBe(false));
     expect(mocks.getYearStatistics).toHaveBeenCalledWith(groupId, 2026);
     expect(page.data.statisticsPeriodLabel).toBe('2026年');
+  });
+
+  it('shows operator names and distinguishes system events from unavailable profiles', async () => {
+    mocks.listEvents.mockResolvedValueOnce({
+      events: [
+        {
+          ...scheduleEvent('named', '2026-09-24T01:00:00.000Z'),
+          operatorUserId: 'user-a',
+          operatorName: '操作甲',
+        },
+        { ...scheduleEvent('missing', '2026-09-24T02:00:00.000Z'), operatorUserId: 'user-b' },
+        scheduleEvent('system', '2026-09-24T03:00:00.000Z'),
+      ],
+    });
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    const cards = new Map(
+      page.data.eventGroups.flatMap((group) => group.events).map((event) => [event.id, event]),
+    );
+    expect(cards.get('named').actorLabel).toBe('操作甲');
+    expect(cards.get('missing').actorLabel).toBe('原操作者');
+    expect(cards.get('system').actorLabel).toBe('系统');
+    expect(mocks.listEvents).toHaveBeenCalledWith(groupId, {
+      pageSize: 50,
+      includeOperatorName: true,
+    });
   });
 
   it('lets the latest statistics mode win while an older read is still pending', async () => {

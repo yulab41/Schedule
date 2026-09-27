@@ -7,6 +7,7 @@ import {
   groups,
   migrateDatabase,
   scheduleEvents,
+  userProfiles,
   users,
   withTransaction,
   type DatabaseClient,
@@ -18,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { EventQuery } from './event-query.js';
 import { EventWriter } from './event-writer.js';
+import { MiniTimelineCleanup } from './mini-timeline-cleanup.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -57,6 +59,116 @@ describeWithDatabase('immutable schedule events and security audits', () => {
 
   afterEach(async () => {
     await client.close();
+  });
+
+  it('hides a frozen set from the Mini timeline once without changing audit events or future backdated inserts', async () => {
+    const writer = new EventWriter();
+    const before = new Date('2026-09-23T16:00:00.000Z');
+    const oldId = await withTransaction(client, (tx) =>
+      writer.append(tx, {
+        ...createEventInput(randomUUID()),
+        occurredAt: new Date(before.valueOf() - 1),
+      }),
+    );
+    const boundaryId = await withTransaction(client, (tx) =>
+      writer.append(tx, {
+        ...createEventInput(randomUUID()),
+        occurredAt: before,
+      }),
+    );
+    await withTransaction(client, (tx) =>
+      writer.append(tx, {
+        ...createEventInput(randomUUID(), otherGroupId),
+        occurredAt: new Date(before.valueOf() - 1),
+      }),
+    );
+    const originalRows = await client.database.select().from(scheduleEvents);
+    const cleanup = new MiniTimelineCleanup(client);
+    const input = { before, groupId: primaryGroupId };
+    const preview = await cleanup.preview(input);
+    expect(preview.count).toBe(1);
+    expect(await client.database.select().from(auditLogs)).toEqual([]);
+    await expect(
+      cleanup.apply({ ...input, expectedFingerprint: 'stale', operationId: randomUUID() }),
+    ).rejects.toThrow('preview');
+    const applied = await cleanup.apply({
+      ...input,
+      expectedFingerprint: preview.fingerprint,
+      operationId: randomUUID(),
+    });
+    expect(applied.count).toBe(1);
+    expect(await client.database.select().from(scheduleEvents)).toEqual(originalRows);
+    const query = new EventQuery(client);
+    const mini = await withTransaction(client, (tx) =>
+      query.listInTransaction(
+        tx,
+        { groupId: primaryGroupId, pageSize: 1 },
+        { miniprogramTimeline: true },
+      ),
+    );
+    expect(mini.events.map((event) => event.id)).toEqual([boundaryId]);
+    expect(mini.nextCursor).toBeUndefined();
+    expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(2);
+    expect((await query.getDetail(primaryGroupId, oldId)).event.id).toBe(oldId);
+    expect((await cleanup.preview(input)).count).toBe(0);
+    expect((await cleanup.preview({ before, groupId: otherGroupId })).count).toBe(1);
+    const backdatedId = await withTransaction(client, (tx) =>
+      writer.append(tx, {
+        ...createEventInput(randomUUID()),
+        occurredAt: new Date(before.valueOf() - 1),
+      }),
+    );
+    const later = await withTransaction(client, (tx) =>
+      query.listInTransaction(tx, { groupId: primaryGroupId }, { miniprogramTimeline: true }),
+    );
+    expect(later.events.map((event) => event.id)).toContain(backdatedId);
+    expect(later.events.map((event) => event.id)).not.toContain(oldId);
+  });
+
+  it('can include all existing backfill events without hiding later backfills or other recent events', async () => {
+    const writer = new EventWriter();
+    const input = { before: new Date('2026-09-23T16:00:00.000Z'), includeExistingBackfills: true };
+    const append = (eventType: string) =>
+      withTransaction(client, (tx) =>
+        writer.append(tx, {
+          ...createEventInput(randomUUID()),
+          eventType,
+          occurredAt: new Date('2026-09-27T01:00:00Z'),
+        }),
+      );
+    const backfillId = await append('schedule_backfill_completed');
+    const recentId = await append('schedule_published');
+    const cleanup = new MiniTimelineCleanup(client);
+    const preview = await cleanup.preview(input);
+    expect(preview.count).toBe(1);
+    await cleanup.apply({
+      ...input,
+      expectedFingerprint: preview.fingerprint,
+      operationId: randomUUID(),
+    });
+    const futureId = await append('schedule_backfill_completed');
+    const query = new EventQuery(client);
+    const mini = await withTransaction(client, (tx) =>
+      query.listInTransaction(tx, { groupId: primaryGroupId }, { miniprogramTimeline: true }),
+    );
+    expect(mini.events.map((event) => event.id)).toEqual(
+      expect.arrayContaining([recentId, futureId]),
+    );
+    expect(mini.events.map((event) => event.id)).not.toContain(backfillId);
+    expect((await query.list({ groupId: primaryGroupId })).events).toHaveLength(3);
+  });
+
+  it('returns operator names only when requested and retains the legacy response shape', async () => {
+    await client.database.insert(userProfiles).values({ userId: ownerUserId, realName: '操作甲' });
+    await withTransaction(client, (tx) =>
+      new EventWriter().append(tx, createEventInput(randomUUID())),
+    );
+    const query = new EventQuery(client);
+    expect((await query.list({ groupId: primaryGroupId })).events[0]).not.toHaveProperty(
+      'operatorName',
+    );
+    const named = await query.list({ groupId: primaryGroupId, includeOperatorName: true });
+    expect(named.events[0]).toMatchObject({ operatorName: '操作甲', operatorUserId: ownerUserId });
   });
 
   it('rolls back an appended event with its enclosing business transaction', async () => {

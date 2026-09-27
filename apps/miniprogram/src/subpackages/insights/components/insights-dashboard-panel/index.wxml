@@ -42,7 +42,8 @@
           ><text class="page-description"
             >事件记录不可变；统计从已发布排班与变更记录汇总，保持与 Web 相同口径。</text
           ></view
-        ><view class="tab-switch" role="tablist"
+        ><view class="tab-switch is-{{activeTab}}" role="tablist"
+          ><view class="tab-indicator" aria-hidden="true"></view
           ><view
             class="tab-item {{activeTab === 'statistics' ? 'is-active' : ''}}"
             role="tab"
@@ -103,7 +104,8 @@
           ></ui-button></view
         ><view wx:else class="statistics-content"
           ><view class="statistics-toolbar"
-            ><view class="statistics-mode" role="tablist"
+            ><view class="statistics-mode is-{{statisticsMode}}" role="tablist"
+              ><view class="statistics-mode-indicator" aria-hidden="true"></view
               ><view
                 class="statistics-mode-item {{statisticsMode === 'month' ? 'is-active' : ''}}"
                 role="tab"
@@ -235,7 +237,7 @@
         ><view class="privacy-note"
           ><text class="privacy-title">数据口径与隐私</text
           ><text
-            >事件只显示必要的类型、状态、时间、对象和影响数量；原始 payload、操作编号、token
+            >事件显示类型、状态、时间、操作者姓名、对象和影响数量；原始 payload、操作编号、token
             与完整身份标识不会写入页面状态。</text
           ></view
         ><view class="bottom-spacer"></view

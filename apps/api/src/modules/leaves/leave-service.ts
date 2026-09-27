@@ -46,6 +46,7 @@ import { toLatestData } from '../schedules/shared.js';
 import { getCurrentDutyMembershipId } from '../workflows/workflow-conflict-service.js';
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
+import { miniWorkflowListCondition } from '../workflows/workflow-list-visibility.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
@@ -211,7 +212,7 @@ export class LeaveService {
         groupId,
         'viewScheduleConfiguration',
       );
-      return this.readLeaveRequests(transaction, groupId, authorization.membership.id);
+      return this.readLeaveRequests(transaction, groupId, identity, authorization.membership.id);
     });
   }
 
@@ -226,7 +227,7 @@ export class LeaveService {
         groupId,
         'manageLeaves',
       );
-      return this.readLeaveRequests(transaction, groupId);
+      return this.readLeaveRequests(transaction, groupId, identity);
     });
   }
 
@@ -919,6 +920,7 @@ export class LeaveService {
   private async readLeaveRequests(
     transaction: DatabaseTransaction,
     groupId: string,
+    identity: AuthenticatedIdentity,
     membershipId?: string,
   ): Promise<readonly LeaveRequest[]> {
     const rows = await transaction
@@ -934,6 +936,7 @@ export class LeaveService {
         and(
           eq(leaveRequests.groupId, groupId),
           isNull(leaveRequests.deletedAt),
+          miniWorkflowListCondition(identity, 'leave'),
           ...(membershipId === undefined ? [] : [eq(leaveRequests.membershipId, membershipId)]),
         ),
       )

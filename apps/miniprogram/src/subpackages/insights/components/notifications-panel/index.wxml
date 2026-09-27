@@ -139,7 +139,8 @@
           ><view class="settings-card"
             ><text class="settings-title">我的提醒</text
             ><text class="settings-description">选择群组默认、自定义或关闭值班提醒。</text
-            ><view class="reminder-mode" aria-label="值班提醒时间"
+            ><view class="reminder-mode is-{{myHoursMode}}" aria-label="值班提醒时间"
+              ><view class="reminder-mode-indicator" aria-hidden="true"></view
               ><view
                 class="reminder-mode-option {{myHoursMode === 'default' ? 'is-active' : ''}}"
                 aria-role="button"

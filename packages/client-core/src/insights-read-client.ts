@@ -19,6 +19,7 @@ import {
 } from './json-decoder.js';
 
 export interface InsightsEventQueryInput {
+  readonly includeOperatorName?: boolean;
   readonly cursor?: string;
   readonly eventTypes?: readonly string[];
   readonly from?: string;
@@ -72,6 +73,7 @@ export const insightsReadEndpoints = {
     id: 'insights.events',
     method: 'GET',
     path: ({
+      includeOperatorName,
       cursor,
       eventTypes,
       from,
@@ -84,6 +86,7 @@ export const insightsReadEndpoints = {
       to,
     }) =>
       appendQuery(`/groups/${encodeURIComponent(groupId)}/events`, [
+        ['includeOperatorName', includeOperatorName === true ? 'true' : undefined],
         ['cursor', cursor],
         [
           'eventTypes',

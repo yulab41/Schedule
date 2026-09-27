@@ -22,6 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { SwapService } from './swap-service.js';
 import {
   staleWorkflowArchiveReason,
   WorkflowSelfHealingService,
@@ -68,6 +69,50 @@ describeWithDatabase('member shift swaps', () => {
 
     if (client !== undefined) {
       await client.close();
+    }
+  });
+
+  it('hides only closed swaps whose two business dates are in past months for Mini lists', async () => {
+    const context = await seedPublishedSchedule();
+    const response = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.bSep2.id,
+      targetMembershipId: context.membershipIds.b,
+      operationId: randomUUID(),
+    });
+    expect(response.statusCode).toBe(201);
+    const id = response.json().id as string;
+    const service = new SwapService(client);
+    const mini = { cloudbaseUid: 'cloudbase-a', clientPlatform: 'miniprogram' } as const;
+    const owner = { cloudbaseUid: 'cloudbase-owner', clientPlatform: 'miniprogram' } as const;
+    vi.setSystemTime(new Date('2026-09-30T15:59:59.000Z'));
+    await client.database.execute(
+      sql`UPDATE swap_requests SET status = 'completed' WHERE id = ${id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-09-30T16:00:00.000Z'));
+    for (const status of ['completed', 'rejected', 'cancelled', 'revoked']) {
+      await client.database.execute(
+        sql`UPDATE swap_requests SET status = ${status} WHERE id = ${id}`,
+      );
+      expect(await service.listMine(mini, context.groupId)).toEqual([]);
+      expect(await service.listApprovals(owner, context.groupId)).toEqual([]);
+      expect(
+        (await listMySwaps('a-token', context.groupId)).json().map((row: SwapRequest) => row.id),
+      ).toContain(id);
+    }
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET business_date = '2026-10-01' WHERE id = ${context.assignments.bSep2.id}`,
+    );
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET business_date = '2026-09-02' WHERE id = ${context.assignments.bSep2.id}`,
+    );
+    for (const status of ['pending_target', 'pending_approval']) {
+      await client.database.execute(
+        sql`UPDATE swap_requests SET status = ${status} WHERE id = ${id}`,
+      );
+      expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     }
   });
 

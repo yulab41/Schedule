@@ -23,6 +23,7 @@ export const scheduleEventSchema = z
     occurredAt: z.string(),
     operationId: z.string(),
     operatorUserId: z.string().optional(),
+    operatorName: z.string().optional(),
     parentEventId: z.string().optional(),
     reason: z.string().optional(),
     schedulePeriodId: z.string().optional(),
@@ -69,6 +70,7 @@ export interface ScheduleEventWriteInput {
 }
 
 export interface ScheduleEventQuery {
+  readonly includeOperatorName?: boolean;
   readonly cursor?: string;
   readonly eventTypes?: readonly string[];
   readonly from?: string;

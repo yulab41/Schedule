@@ -43,6 +43,7 @@ import {
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
+import { miniWorkflowListCondition } from '../workflows/workflow-list-visibility.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -342,6 +343,7 @@ export class SwapService {
               eq(swapRequests.targetMembershipId, authorization.membership.id),
             ),
             isNull(swapRequests.deletedAt),
+            miniWorkflowListCondition(identity, 'swap'),
           ),
         )
         .orderBy(desc(swapRequests.createdAt), desc(swapRequests.id));
@@ -364,7 +366,13 @@ export class SwapService {
       const rows = await transaction
         .select()
         .from(swapRequests)
-        .where(and(eq(swapRequests.groupId, groupId), isNull(swapRequests.deletedAt)))
+        .where(
+          and(
+            eq(swapRequests.groupId, groupId),
+            isNull(swapRequests.deletedAt),
+            miniWorkflowListCondition(identity, 'swap'),
+          ),
+        )
         .orderBy(desc(swapRequests.createdAt), desc(swapRequests.id));
 
       return this.hydrateSwapRequests(transaction, rows);

@@ -9,6 +9,7 @@ import {
   schedulePeriods,
   scheduleEvents,
   shiftAssignments,
+  userProfiles,
   type DatabaseClient,
   type DatabaseTransaction,
   withTransaction,
@@ -29,6 +30,7 @@ import {
 } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { visibleMiniTimelineEvents } from './mini-timeline-cleanup.js';
 
 const defaultPageSize = 50;
 const maximumPageSize = 100;
@@ -109,6 +111,7 @@ export class EventQuery {
   public async listInTransaction(
     transaction: DatabaseTransaction,
     query: ScheduleEventQuery,
+    options: { readonly miniprogramTimeline?: boolean } = {},
   ): Promise<ScheduleEventPage> {
     const pageSize = getPageSize(query.pageSize);
     const cursor = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
@@ -124,6 +127,10 @@ export class EventQuery {
     }
 
     const conditions = [eq(scheduleEvents.groupId, query.groupId)];
+
+    if (options.miniprogramTimeline === true) {
+      conditions.push(visibleMiniTimelineEvents(transaction, query.groupId));
+    }
 
     if (from !== undefined) {
       conditions.push(gte(scheduleEvents.occurredAt, from));
@@ -179,9 +186,26 @@ export class EventQuery {
       .limit(pageSize + 1);
     const pageRows = rows.slice(0, pageSize);
     const lastEvent = pageRows.at(-1);
+    const operatorIds = [
+      ...new Set(
+        pageRows.flatMap((row) => (row.operatorUserId === null ? [] : [row.operatorUserId])),
+      ),
+    ];
+    const profiles =
+      query.includeOperatorName === true && operatorIds.length > 0
+        ? await transaction
+            .select({ userId: userProfiles.userId, realName: userProfiles.realName })
+            .from(userProfiles)
+            .where(and(inArray(userProfiles.userId, operatorIds), isNull(userProfiles.deletedAt)))
+        : [];
+    const names = new Map(profiles.map((profile) => [profile.userId, profile.realName]));
 
     return {
-      events: pageRows.map(toScheduleEvent),
+      events: pageRows.map((row) => {
+        const operatorName =
+          row.operatorUserId === null ? undefined : names.get(row.operatorUserId);
+        return { ...toScheduleEvent(row), ...(operatorName === undefined ? {} : { operatorName }) };
+      }),
       ...(rows.length > pageSize && lastEvent !== undefined
         ? { nextCursor: encodeCursor(lastEvent.occurredAt, lastEvent.id) }
         : {}),

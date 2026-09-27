@@ -17,6 +17,10 @@ const cursorSchema = z.string().min(1);
 
 const eventListQuerySchema = z
   .object({
+    includeOperatorName: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
     cursor: cursorSchema.optional(),
     eventTypes: z
       .string()
@@ -56,10 +60,17 @@ export function registerEventRoutes(
       );
       const query = parseEventListQuery(request.query);
 
-      return eventQuery.listInTransaction(transaction, {
-        ...query,
-        groupId: authorization.group.id,
-      });
+      return eventQuery.listInTransaction(
+        transaction,
+        {
+          ...query,
+          groupId: authorization.group.id,
+        },
+        {
+          miniprogramTimeline:
+            identity.clientPlatform === 'miniprogram' && query.shiftId === undefined,
+        },
+      );
     }),
   );
 
@@ -106,6 +117,9 @@ function parseEventId(request: FastifyRequest): string {
 function parseEventListQuery(query: unknown): Omit<ScheduleEventQuery, 'groupId'> {
   const parsed = parseOrThrow(eventListQuerySchema, query);
   return {
+    ...(parsed.includeOperatorName === undefined
+      ? {}
+      : { includeOperatorName: parsed.includeOperatorName }),
     ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor }),
     ...(parsed.eventTypes === undefined ? {} : { eventTypes: parsed.eventTypes }),
     ...(parsed.from === undefined ? {} : { from: parsed.from }),

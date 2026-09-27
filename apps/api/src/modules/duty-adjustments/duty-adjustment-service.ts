@@ -42,6 +42,7 @@ import {
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
+import { miniWorkflowListCondition } from '../workflows/workflow-list-visibility.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -162,6 +163,7 @@ export class DutyAdjustmentService {
               eq(dutyAdjustments.overtimeMembershipId, authorization.membership.id),
             ),
             isNull(dutyAdjustments.deletedAt),
+            miniWorkflowListCondition(identity, 'duty'),
           ),
         )
         .orderBy(desc(dutyAdjustments.createdAt), desc(dutyAdjustments.id));
@@ -184,7 +186,13 @@ export class DutyAdjustmentService {
       const rows = await transaction
         .select()
         .from(dutyAdjustments)
-        .where(and(eq(dutyAdjustments.groupId, groupId), isNull(dutyAdjustments.deletedAt)))
+        .where(
+          and(
+            eq(dutyAdjustments.groupId, groupId),
+            isNull(dutyAdjustments.deletedAt),
+            miniWorkflowListCondition(identity, 'duty'),
+          ),
+        )
         .orderBy(desc(dutyAdjustments.createdAt), desc(dutyAdjustments.id));
 
       return this.hydrateDutyAdjustments(transaction, rows);
