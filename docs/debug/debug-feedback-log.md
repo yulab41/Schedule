@@ -5,8 +5,8 @@
 ## 2026-09-28 EXTERNAL-DUTY-EFFECTIVE-001 计划值误报无人值班
 
 - 证据：用户提供的校对页截图中有日期发布基线有人而“本系统”为空，另有实际值与基线不同的日期正确；截图未证明设备或构建身份。`git log -S 'name: shiftAssignments.actualMemberName'` 与 blame 指向 `a5de1931`：校对服务直接取可空的 `actualMemberName`。日历与工作流读取有效值均采用 `actualMemberName ?? plannedMemberName`，成员 ID 同理；空覆盖不代表空班。
-- 行为变化：校对扫描和确认前单日重读共用有效值回退；实际覆盖非空时仍优先，双方都空仍阻塞。未改排班、审批、外部写入接口或小程序源码。回归先红（姓名与成员 ID 均读成空）后绿；API 校对 26/26、类型、定向 lint、API 构建通过。运行/浏览器验证：`pnpm smoke:check-core` 通过；未触及 Web 核心文件，不触发 `pnpm smoke:browser`。生产与 `.214` 真机修复验证待授权部署后进行。
-- 检查点消息 `fix(external-duty): fall back to published member without an override`；唯一下一步为生产备份部署验证，然后复核用户截图中的日期。小米14真实交互未验收。
+- 行为变化：校对扫描和确认前单日重读共用有效值回退；实际覆盖非空时仍优先，双方都空仍阻塞。未改排班、审批、外部写入接口或小程序源码。回归先红（姓名与成员 ID 均读成空）后绿；API 校对 26/26、类型、定向 lint、API 构建通过。运行/浏览器验证：`pnpm smoke:check-core` 通过；未触及 Web 核心文件，不触发 `pnpm smoke:browser`。生产运行见下项，`.214` 真机仍待复核。
+- `9715e88f` 已推送并生产部署，实时前驱 `06d420a1`，备份 `cb4d3308-5136-4221-9265-7a744ed8f349`（56 表、137,397,088 B）；独立完整 verifier 通过。校对作业 214 日期、新提醒 0；只读回读 9 月 28/30 日 `aligned`、10 月 1/2 日 `pending/local`，未输出医生姓名。交付记录消息 `docs(release): record external duty effective-value fix`，文档检查点不重复部署。唯一下一步为 `.214` 页面点击“立即检测”复核；小米14真实交互未验收。
 
 ## 2026-09-27 MINI-CALENDAR-LEFT-007 姓名行左对齐微调
 
