@@ -2,7 +2,7 @@
 
 ## 范围与状态
 
-- 用户要求参照小程序其他页面，优化校对页、按钮、弹窗、字号、间距与操作反馈。状态：已完成自动化及浏览器运行验证，待体验版交付和小米14复核。
+- 用户要求参照小程序其他页面，优化校对页、按钮、弹窗、字号、间距与操作反馈。状态：已完成自动化及浏览器运行验证，体验版.215已上传，待放行及小米14复核。
 - 基线 `5b9e42e5`；独占 warm `runtime/wt/general-6`，`DEPENDENCY_MODE=REUSE_ONLY`，未安装依赖。使用已有 Storybook、共享 tokens、`ui-button`、`ui-sheet`、`ui-alert`、`ui-loading`。
 - 引入点：`git log -S 'wx.showModal'` 与 `git blame` 定位最初页面 `a5de1931`，建议入口后于 `06d420a1` 增加。旧版存在 10–11px 操作文字、原生按钮尺寸不统一、双滚动列表与长纯文本确认框。
 - 本轮为 Mini 页面和开发期 Storybook；API、权限、扫描、换班/加扣班执行及撤回业务校验均沿用现有服务。未执行真实换班、加扣班、网页写入或通知作为测试。
@@ -29,7 +29,8 @@
 
 ## 交付与下一步
 
-- 检查点消息：`feat(miniprogram): polish external duty reconciliation interactions`。production profile、clean最终提交上传；说明使用该提交七位SHA，页面为“更多 → 排班网页校对”的待处理、操作记录及三个确认弹窗。
-- 上传版本交给正式分配器按实时占用分配，不预设号码；使用既有Node miniprogram-ci路线，保留Manifest、tag和receipt。
+- 应用检查点 `1eb92e5b12452588cfb40919930f98025b48943b`，消息 `feat(miniprogram): polish external duty reconciliation interactions`，已推送 `codex/doctor-duty-reconcile`；干净production候选上传。测试页为“更多 → 排班网页校对”的待处理、操作记录及三个确认弹窗。
+- 正式分配器在北京时间9月28日23:59分配 `0.1.0-p10.20260928.215`，9月29日00:01上传成功。说明“排班网页校对界面与确认弹窗优化 1eb92e5”；Manifest `b8608f27342aad56f0fe538d8e0830c7be6041265e737cff4eb5e925ccf5ce66`，ZIP2,430,869 B。版本/SHA/Manifest与远端tag、allocation、receipt及production-clean构建一致，前后候选检查、CI dry-run、血缘通过。
+- Node miniprogram-ci上传；GitHub使用既有进程级代理，微信解析为真实IPv4、保持TLS检查，未改变系统网络。最终截图与几何摘要另存 canonical ignored `runtime/audit/external-duty-ui-20260928-1eb92e5/`；已停止本轮Storybook和开发者工具项目窗口。
 - 本轮不触发服务器应用部署、数据库备份/迁移或正式发布。新体验版放行是与上传分开的生产操作，现有`.214`放行不自动扩展为新的版本。
-- 唯一下一任务：完成该提交体验版上传与身份检查，然后取得新版本放行及小米14同构建视觉/触控证据；发现回归先修复，不进入无关页面优化。
+- 已请求新版本`.215`单独放行授权，当前尚未操作白名单。交付文档消息 `docs(audit): record external duty UI trial 215 delivery`，文档不重新部署、备份或重传。唯一下一任务：取得放行授权后只追加新版本，然后收集小米14同构建视觉/触控证据；发现回归先修复，不进入无关页面优化。

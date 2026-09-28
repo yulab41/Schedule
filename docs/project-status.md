@@ -1,10 +1,11 @@
 # Project Status
 
-## 当前批次：排班网页校对界面与交互（已验证，待体验版交付）
+## 当前批次：排班网页校对界面与交互（体验版 .215 已上传，待放行与真机复核）
 
 - 用户要求参照现有小程序美化页面。统一共享tokens/按钮/底部弹层、15px正文/13px辅助/44px触控，待处理和记录共用单一滚动区；完整方案预览、取消、防重复提交、冲突禁用及恢复最新基线确认。API和业务校验沿用现有实现。
 - 独占warm/REUSE_ONLY、无install，基线`5b9e42e5`。旧版交互回归4失败；最终定向8/8，Mini全量1298通过/21跳过，production verify、相关类型/lint/格式/图标/core检查通过；全仓格式6个未改文件仍失败。Storybook 10组小屏/大字号/弹窗几何与切换点击通过，开发者工具WXML/WXSS编译成功，小米14未验收。详见[本轮记录](audit/external-duty-ui-20260928.md)。
-- 检查点消息`feat(miniprogram): polish external duty reconciliation interactions`；唯一下一任务：提交推送、冻结clean候选并通过正式分配器上传体验版，记录身份，再完成新版本放行和小米14同构建复核。Mini及开发期Storybook变化不自动触发服务器部署/备份，不提审或正式发布。
+- 应用 `1eb92e5b`（`feat(miniprogram): polish external duty reconciliation interactions`）已推送；clean production体验版 `0.1.0-p10.20260928.215@1eb92e5` 已上传，Manifest `b8608f27342aad56f0fe538d8e0830c7be6041265e737cff4eb5e925ccf5ce66` 与远端tag、allocation、receipt、构建身份一致，候选前后检查/CI dry-run/血缘通过。交付记录消息`docs(audit): record external duty UI trial 215 delivery`。
+- 唯一下一任务：取得新版本 `.215` 白名单单独授权后只追加放行，再由小米14同构建复核。此前放行授权明确为`.214`，本轮已提出`.215`授权请求；尚未操作服务器白名单。Mini及开发期Storybook变化不自动触发服务器部署/备份，不提审或正式发布。
 
 ## 上一批次：校对建议预览误报排班变化（生产修复完成，待用户复核）
 
