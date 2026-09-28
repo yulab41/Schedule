@@ -34,6 +34,21 @@ const ROLE_NAME = '一线';
 const SHIFT_NAME = '全天班';
 const GROUP_NAME = '头颈外科医生';
 
+function effectivePublishedAssignment<
+  T extends {
+    name: string | null;
+    membershipId: string | null;
+    plannedName: string | null;
+    plannedMembershipId: string | null;
+  },
+>(assignment: T) {
+  return {
+    ...assignment,
+    name: assignment.name ?? assignment.plannedName,
+    membershipId: assignment.membershipId ?? assignment.plannedMembershipId,
+  };
+}
+
 export class ExternalDutyService {
   private readonly notificationWriter = new NotificationWriter();
 
@@ -323,29 +338,32 @@ export class ExternalDutyService {
     if (roles.length !== 1 || shifts.length !== 1)
       throw new Error('External duty group role or shift is ambiguous');
 
-    const assignments = await this.client.database
-      .select({
-        date: shiftAssignments.businessDate,
-        id: shiftAssignments.id,
-        name: shiftAssignments.actualMemberName,
-        membershipId: shiftAssignments.actualMembershipId,
-        plannedName: shiftAssignments.plannedMemberName,
-        version: shiftAssignments.version,
-        periodId: schedulePeriods.id,
-      })
-      .from(shiftAssignments)
-      .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
-      .where(
-        and(
-          eq(schedulePeriods.groupId, groupId),
-          eq(schedulePeriods.scheduleRoleId, roles[0]!.id),
-          eq(schedulePeriods.status, 'published'),
-          eq(shiftAssignments.shiftTypeId, shifts[0]!.id),
-          gte(shiftAssignments.businessDate, today),
-          isNull(schedulePeriods.deletedAt),
-          isNull(shiftAssignments.deletedAt),
-        ),
-      );
+    const assignments = (
+      await this.client.database
+        .select({
+          date: shiftAssignments.businessDate,
+          id: shiftAssignments.id,
+          name: shiftAssignments.actualMemberName,
+          membershipId: shiftAssignments.actualMembershipId,
+          plannedName: shiftAssignments.plannedMemberName,
+          plannedMembershipId: shiftAssignments.plannedMembershipId,
+          version: shiftAssignments.version,
+          periodId: schedulePeriods.id,
+        })
+        .from(shiftAssignments)
+        .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+        .where(
+          and(
+            eq(schedulePeriods.groupId, groupId),
+            eq(schedulePeriods.scheduleRoleId, roles[0]!.id),
+            eq(schedulePeriods.status, 'published'),
+            eq(shiftAssignments.shiftTypeId, shifts[0]!.id),
+            gte(shiftAssignments.businessDate, today),
+            isNull(schedulePeriods.deletedAt),
+            isNull(shiftAssignments.deletedAt),
+          ),
+        )
+    ).map(effectivePublishedAssignment);
     const byDate = new Map<string, typeof assignments>();
     for (const assignment of assignments)
       byDate.set(assignment.date, [...(byDate.get(assignment.date) ?? []), assignment]);
@@ -1041,6 +1059,7 @@ export class ExternalDutyService {
         name: shiftAssignments.actualMemberName,
         membershipId: shiftAssignments.actualMembershipId,
         plannedName: shiftAssignments.plannedMemberName,
+        plannedMembershipId: shiftAssignments.plannedMembershipId,
         version: shiftAssignments.version,
         periodId: schedulePeriods.id,
       })
@@ -1057,7 +1076,8 @@ export class ExternalDutyService {
           eq(shiftAssignments.businessDate, date),
           isNull(shiftAssignments.deletedAt),
         ),
-      );
+      )
+      .then((rows) => rows.map(effectivePublishedAssignment));
   }
 }
 
