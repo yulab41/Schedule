@@ -2,7 +2,7 @@
 
 ## 范围与状态
 
-- 用户要求参照小程序其他页面，优化校对页、按钮、弹窗、字号、间距与操作反馈。状态：已完成自动化及浏览器运行验证，体验版.215已上传，待放行及小米14复核。
+- 用户要求参照小程序其他页面，优化校对页、按钮、弹窗、字号、间距与操作反馈。状态：已完成自动化及浏览器运行验证，体验版.215已上传放行，待小米14复核。
 - 基线 `5b9e42e5`；独占 warm `runtime/wt/general-6`，`DEPENDENCY_MODE=REUSE_ONLY`，未安装依赖。使用已有 Storybook、共享 tokens、`ui-button`、`ui-sheet`、`ui-alert`、`ui-loading`。
 - 引入点：`git log -S 'wx.showModal'` 与 `git blame` 定位最初页面 `a5de1931`，建议入口后于 `06d420a1` 增加。旧版存在 10–11px 操作文字、原生按钮尺寸不统一、双滚动列表与长纯文本确认框。
 - 本轮为 Mini 页面和开发期 Storybook；API、权限、扫描、换班/加扣班执行及撤回业务校验均沿用现有服务。未执行真实换班、加扣班、网页写入或通知作为测试。
@@ -33,4 +33,13 @@
 - 正式分配器在北京时间9月28日23:59分配 `0.1.0-p10.20260928.215`，9月29日00:01上传成功。说明“排班网页校对界面与确认弹窗优化 1eb92e5”；Manifest `b8608f27342aad56f0fe538d8e0830c7be6041265e737cff4eb5e925ccf5ce66`，ZIP2,430,869 B。版本/SHA/Manifest与远端tag、allocation、receipt及production-clean构建一致，前后候选检查、CI dry-run、血缘通过。
 - Node miniprogram-ci上传；GitHub使用既有进程级代理，微信解析为真实IPv4、保持TLS检查，未改变系统网络。最终截图与几何摘要另存 canonical ignored `runtime/audit/external-duty-ui-20260928-1eb92e5/`；已停止本轮Storybook和开发者工具项目窗口。
 - 本轮不触发服务器应用部署、数据库备份/迁移或正式发布。新体验版放行是与上传分开的生产操作，现有`.214`放行不自动扩展为新的版本。
-- 已请求新版本`.215`单独放行授权，当前尚未操作白名单。交付文档消息 `docs(audit): record external duty UI trial 215 delivery`，文档不重新部署、备份或重传。唯一下一任务：取得放行授权后只追加新版本，然后收集小米14同构建视觉/触控证据；发现回归先修复，不进入无关页面优化。
+- 上传交付记录 `617308c6`（`docs(audit): record external duty UI trial 215 delivery`）已推送，文档不重新部署、备份或重传。
+
+## 2026-09-29 追加放行结果
+
+- 用户明确回复“授权”。新独占warm租约、REUSE_ONLY、无安装；fresh-fetch仍为`origin/main=45bf7bec`，交付分支`617308c6`。上传receipt、Manifest及远端`.215`tag再次证明`1eb92e5b`与同一production构建。
+- `pnpm exec vitest run infra/scripts/client-version-allowlist.spec.ts scripts/client-version-control.test.mjs`：20/20。生产操作前完整ECS verifier通过，实时release`bc59dfbf90b3fae8d9c5b835648a3a92dc9a35c3`。
+- 可信`sudo schedule-client-version-allowlist ensure 0.1.0-p10.20260928.215`报告只追加1个版本；服务重建后首次健康探测遇短暂TLS EOF，由原控制的健康等待恢复成功。独立`verify`及操作后完整ECS verifier均通过，release前后相同。
+- 保持域名/SNI和TLS校验的公网能力探测：`.215`、`.214`、`.213`均HTTP200，动态未知版本HTTP426。完整verifier的原始公网IP入口主动探测因未配置`ECS_PUBLIC_IP`跳过，不计为已验证；域名入口探测已通过。完成时间北京时间02:24。
+- 本轮仅追加白名单并按原控制重建服务加载配置；没有部署新API/Web代码、同步release元数据、备份/迁移数据库、提审或正式发布。证据在ignored `runtime/audit/allowlist-215/`；记录消息`docs(release): record external duty trial 215 allowlist`，文档不再触发生产操作。
+- 唯一下一任务：小米14退出重进`.215@1eb92e5`，复核“更多 → 排班网页校对”的字号、间距、列表切换和预览/取消；收集同构建真实证据后判定实体设备验收，发现回归先修复。
