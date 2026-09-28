@@ -98,7 +98,8 @@
         <view wx:if="{{activeTab === 'mine'}}" class="workflow-section">
           <view class="section-heading">
             <view
-              ><text class="section-title">我的请假</text><text>跟进提交后的审批状态。</text></view
+              ><text class="section-title">我的请假</text
+              ><text>已结束记录（过去30天）；待处理及生效中保留。</text></view
             >
             <text>{{myCount}} 项</text>
           </view>
@@ -179,7 +180,8 @@
 
           <view wx:if="{{decidedApprovals.length > 0}}" class="workflow-section">
             <view class="section-heading"
-              ><text class="section-title">已处理</text
+              ><view><text class="section-title">已处理</text
+              ><text>已结束记录（过去30天）；生效中保留。</text></view
               ><text>{{decidedApprovals.length}} 项</text></view
             >
             <view class="request-list">

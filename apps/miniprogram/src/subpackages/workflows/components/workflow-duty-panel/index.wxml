@@ -175,7 +175,7 @@
           <view class="section-heading"
             ><view
               ><text class="section-title">已受理记录</text
-              ><text>查看已取消、驳回或撤销的记录。</text></view
+              ><text>已结束记录（过去30天）；生效中保留。</text></view
             ><text>{{handledApprovalCount}} 项</text></view
           >
           <view class="request-list">
@@ -233,7 +233,7 @@
           <view class="section-heading"
             ><view
               ><text class="section-title">我的加扣班记录</text
-              ><text>跟进发起、接受、审批与撤销状态。</text></view
+              ><text>已结束记录（过去30天）；待处理及生效中保留。</text></view
             ><text>{{myRequestCount}} 项</text></view
           >
           <view wx:if="{{myRequestCount === 0}}" class="empty-card"

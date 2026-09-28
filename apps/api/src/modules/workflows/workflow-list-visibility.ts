@@ -10,26 +10,27 @@ export function workflowListCondition(kind: 'swap' | 'duty' | 'leave'): SQL {
 // Only the nightly maintenance job evaluates expiry; request reads use stored indexed state.
 // Missing assignment dates and pending requests remain visible for investigation/review.
 export function expiredWorkflowListCondition(kind: 'swap' | 'duty' | 'leave', now: Date): SQL {
-  const monthStart = `${getChinaStandardTimeCalendarDate(now).slice(0, 7)}-01`;
+  // Roll by China calendar day; crossing a month never expires a whole month's records.
+  const cutoffDate = getChinaStandardTimeCalendarDate(new Date(now.valueOf() - 30 * 86_400_000));
   if (kind === 'leave') {
-    const monthStartInstant = new Date(`${monthStart}T00:00:00+08:00`)
+    const cutoffInstant = new Date(`${cutoffDate}T00:00:00+08:00`)
       .toISOString()
       .slice(0, 23)
       .replace('T', ' ');
     return sql`(${leaveRequests.status} IN ('approved', 'rejected')
-      AND ${leaveRequests.endsAt} <= ${monthStartInstant})`;
+      AND ${leaveRequests.endsAt} <= ${cutoffInstant})`;
   }
   if (kind === 'duty') {
     return sql`(${dutyAdjustments.status} IN ('completed', 'rejected', 'cancelled', 'revoked')
       AND EXISTS (SELECT 1 FROM shift_assignments AS history_shift
         WHERE history_shift.id = ${dutyAdjustments.coveredAssignmentId}
-          AND history_shift.business_date < ${monthStart}))`;
+          AND history_shift.business_date < ${cutoffDate}))`;
   }
   return sql`(${swapRequests.status} IN ('completed', 'rejected', 'cancelled', 'revoked')
     AND EXISTS (SELECT 1 FROM shift_assignments AS history_initiator
       WHERE history_initiator.id = ${swapRequests.initiatorAssignmentId}
-        AND history_initiator.business_date < ${monthStart})
+        AND history_initiator.business_date < ${cutoffDate})
     AND EXISTS (SELECT 1 FROM shift_assignments AS history_target
       WHERE history_target.id = ${swapRequests.targetAssignmentId}
-        AND history_target.business_date < ${monthStart}))`;
+        AND history_target.business_date < ${cutoffDate}))`;
 }

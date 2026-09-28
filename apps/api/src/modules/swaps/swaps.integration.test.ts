@@ -73,7 +73,7 @@ describeWithDatabase('member shift swaps', () => {
     }
   });
 
-  it('hides only closed swaps whose two business dates are in past months for every client', async () => {
+  it('hides only closed swaps older than 30 days for every client without clearing at month rollover', async () => {
     const context = await seedPublishedSchedule();
     const response = await createSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -93,6 +93,12 @@ describeWithDatabase('member shift swaps', () => {
     await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     vi.setSystemTime(new Date('2026-09-30T19:00:00.000Z'));
+    await new HistoryMaintenanceJob(client).run();
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-10-01T19:00:00.000Z'));
+    await new HistoryMaintenanceJob(client).run();
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-10-02T19:00:00.000Z'));
     for (const status of ['completed', 'rejected', 'cancelled', 'revoked']) {
       await client.database.execute(
         sql`UPDATE swap_requests SET status = ${status} WHERE id = ${id}`,
@@ -122,7 +128,7 @@ describeWithDatabase('member shift swaps', () => {
       ).not.toContain(id);
     }
     await client.database.execute(
-      sql`UPDATE shift_assignments SET business_date = '2026-10-01' WHERE id = ${context.assignments.bSep2.id}`,
+      sql`UPDATE shift_assignments SET business_date = '2026-09-03' WHERE id = ${context.assignments.bSep2.id}`,
     );
     await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);

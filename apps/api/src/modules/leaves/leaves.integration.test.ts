@@ -90,7 +90,7 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     }
   });
 
-  it('hides closed past-month leave while retaining current, cross-month and pending leave for every client', async () => {
+  it('hides closed leave older than 30 days while retaining spanning and pending leave for every client at month rollover', async () => {
     const context = await seedPublishedSchedule();
     const response = await submitLeave('a-token', context.groupId, {
       startsAt: '2026-09-01T00:00:00.000Z',
@@ -110,6 +110,9 @@ describeWithDatabase('leave approval and guarded restoration', () => {
     await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     vi.setSystemTime(new Date('2026-09-30T19:00:00.000Z'));
+    await new HistoryMaintenanceJob(client).run();
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-10-02T19:00:00.000Z'));
     for (const status of ['approved', 'rejected']) {
       await client.database.execute(
         sql`UPDATE leave_requests SET status = ${status} WHERE id = ${id}`,
@@ -141,10 +144,15 @@ describeWithDatabase('leave approval and guarded restoration', () => {
       ).not.toContain(id);
     }
     await client.database.execute(
-      sql`UPDATE leave_requests SET ends_at = '2026-09-30 16:00:00.001' WHERE id = ${id}`,
+      sql`UPDATE leave_requests SET ends_at = '2026-09-02 16:00:00.001' WHERE id = ${id}`,
     );
     await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    await client.database.execute(
+      sql`UPDATE leave_requests SET ends_at = '2026-09-02 16:00:00.000' WHERE id = ${id}`,
+    );
+    await new HistoryMaintenanceJob(client).run();
+    expect(await service.listMine(mini, context.groupId)).toEqual([]);
     await client.database.execute(
       sql`UPDATE leave_requests SET status = 'pending', ends_at = '2026-09-02 00:00:00' WHERE id = ${id}`,
     );

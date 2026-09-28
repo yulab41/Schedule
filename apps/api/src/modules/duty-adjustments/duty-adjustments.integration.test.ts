@@ -77,7 +77,7 @@ describeWithDatabase('paired duty adjustments', () => {
     }
   });
 
-  it('hides closed past-month duty adjustments for every client', async () => {
+  it('hides closed duty adjustments older than 30 days for every client without clearing at month rollover', async () => {
     const context = await seedPublishedSchedule();
     const response = await createDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -96,6 +96,9 @@ describeWithDatabase('paired duty adjustments', () => {
     await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
     vi.setSystemTime(new Date('2026-09-30T19:00:00.000Z'));
+    await new HistoryMaintenanceJob(client).run();
+    expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
+    vi.setSystemTime(new Date('2026-10-01T19:00:00.000Z'));
     for (const status of ['completed', 'rejected', 'cancelled', 'revoked']) {
       await client.database.execute(
         sql`UPDATE duty_adjustments SET status = ${status} WHERE id = ${id}`,
@@ -127,7 +130,7 @@ describeWithDatabase('paired duty adjustments', () => {
       ).not.toContain(id);
     }
     await client.database.execute(
-      sql`UPDATE shift_assignments SET business_date = '2026-10-01' WHERE id = ${context.assignments.aSep1.id}`,
+      sql`UPDATE shift_assignments SET business_date = '2026-09-02' WHERE id = ${context.assignments.aSep1.id}`,
     );
     await new HistoryMaintenanceJob(client).run();
     expect((await service.listMine(mini, context.groupId)).map((row) => row.id)).toContain(id);
