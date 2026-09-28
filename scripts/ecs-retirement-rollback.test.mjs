@@ -57,10 +57,10 @@ describe('retirement application rollback (synthetic shell behavior, not a produ
     [63, 56, true],
     [63, 55, false],
     [63, 57, false],
-    [67, 56, true],
-    [67, 57, true],
-    [67, 54, false],
-    [67, 55, false],
+    [67, 54, true],
+    [67, 55, true],
+    [67, 56, false],
+    [67, 57, false],
     [67, 58, false],
   ])('validates backup table count for schema %s / %s', (schema, tables, allowed) => {
     const result = run(

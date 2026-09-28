@@ -649,7 +649,7 @@ is_valid_backup_table_count() {
   local schema="$1" tables="$2"
   if [ "$schema" -ge 67 ]; then
     # 0067 adds one backed-up table; accept the backup taken just before migration.
-    [ "$tables" = "56" ] || [ "$tables" = "57" ]
+    [ "$tables" = "54" ] || [ "$tables" = "55" ]
   elif [ "$schema" -ge 63 ]; then
     # 0063 removes two backed-up legacy tables; accept the pre-migration or fresh backup.
     [ "$tables" = "54" ] || [ "$tables" = "56" ]
