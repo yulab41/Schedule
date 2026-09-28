@@ -1,11 +1,12 @@
 # Project Status
 
-## 当前批次：工作流历史过去30天（已实现，待生产与体验版交付）
+## 当前批次：工作流历史过去30天（生产与体验版.211已交付，待用户复核）
 
 - 用户将已结束工作流的过月隐藏改为北京时间滚动30天；待处理/仍生效保留，六处Mini列表增加说明。排班仍按月份归档锁定，原事件/补录一次性隐藏不变。
 - 基线ecd8c2be，生产前驱实时核对4674c8bc，保留.210联系方式改动；独占warm/REUSE_ONLY，无install。旧实现跨月回归3失败，修改后真实MySQL定向5/5，Mini1291通过/21跳过，类型/lint/build/格式/图标/core smoke/verify/dry-run/血缘及三个开发者工具模板编译通过。
-- 详情见[轮次记录](audit/workflow-retention-30days-20260928.md)。应用检查点消息 `fix(workflows): retain closed records for rolling 30 days`；API仍读索引标记，部署后立即执行一次既有维护任务校准，随后凌晨每日维护。
-- 唯一下一任务：完成该检查点推送、生产备份/部署/回读及动态版本体验版上传放行；交付验证后停止，等待同构建小米14六类列表与月份锁定复核，不提审/正式发布。
+- 应用 `b0bac240`（`fix(workflows): retain closed records for rolling 30 days`）已推送/部署，备份 `cb40f946-74fd-4080-832f-cd06febd7002` 大小/哈希通过。既有维护任务校准恢复1条近30天加扣班，重触发当天跳过；56请求200、最大127ms，业务字段哈希一致，306事件/3162补录仍隐藏、过月published残留0。详情见[轮次记录](audit/workflow-retention-30days-20260928.md)。
+- clean production体验版 `0.1.0-p10.20260928.211@b0bac24` 已上传并add-only放行，tag/allocation/Manifest/receipt一致；前后候选检查、独立allowlist与最终完整ECS verifier通过，严格TLS公网.211/.210=200、动态未知版426。交付文档消息 `docs(audit): record rolling 30-day retention delivery`，文档不再次部署/备份，生产release保持b0bac240。
+- 唯一下一任务：小米14退出重进同构建.211，复核六类列表的过去30天说明与记录、既往排班锁定。当前已完成服务端与体验版交付验证，待用户真机复核，不提审/正式发布。
 
 ## 上一批次：号码行与联系方式弹窗（体验版 .210 已上传放行，待真机复核）
 
