@@ -721,14 +721,9 @@ export class ExternalDutyService {
       });
     }
     if (!targetAssignmentId) throw conflict('请选择用于交换的第二个班次');
-    const [covered] = await this.client.database
-      .select({ membershipId: shiftAssignments.actualMembershipId })
-      .from(shiftAssignments)
-      .where(eq(shiftAssignments.id, target.assignmentId))
-      .limit(1);
-    if (!covered?.membershipId) throw conflict('本系统值班人无法唯一对应成员');
+    if (!target.localMembershipId) throw conflict('本系统值班人无法唯一对应成员');
     return new SwapService(this.client).preview(identity, target.groupId, {
-      initiatorMembershipId: covered.membershipId,
+      initiatorMembershipId: target.localMembershipId,
       initiatorAssignmentId: target.assignmentId,
       targetAssignmentId,
       targetMembershipId: target.membershipId,
@@ -958,6 +953,7 @@ export class ExternalDutyService {
       groupId: row.groupId,
       assignmentId: row.assignmentId,
       membershipId: people[0]!.id,
+      localMembershipId: local[0]?.membershipId ?? null,
       schedulePeriodId: row.schedulePeriodId,
       baselineName: row.baselineName,
       localName: row.localName,

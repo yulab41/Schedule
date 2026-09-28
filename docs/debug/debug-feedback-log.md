@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-28 EXTERNAL-DUTY-PREVIEW-001 未改动班次预览被拒绝
+
+- 引入点：`git log -S 'membershipId: shiftAssignments.actualMembershipId'` 与 `git blame -L 708,737` 定位 `a5de1931` 的换班预览裸覆盖读取。上一轮 `9715e88f` 修复扫描和 `readLocalDate`，预览又单独读空覆盖，漏用发布成员。Mini `external-duty-client.ts` 把所有 409 显示为“排班已变化”，掩盖了真正原因。
+- 生产只读基线：live `9715e88f`，10 月 12/13 日网页单侧两日交换；调用真实 `list → previewInbound → SwapService.preview` 在进入原换班预览前返回 409“本系统值班人无法唯一对应成员”。预览前后 `shift_assignments` 全内容哈希相同。脚本不创建换班、加扣班、通知或外部写入；脱敏证据在 ignored `runtime/audit/external-duty-preview/`。首次脚本因 ESM export 的 require.resolve 路径失败，改用已有部署文件绝对 import 后复现，不计失败脚本为业务证据。
+- 行为变化：`inboundTarget` 返回已核验快照的有效成员 ID；`previewInbound` 使用该值而非另查可空实际覆盖。减少一次 SELECT，空值语义与列表/执行一致；原 `SwapService.preview` 的接收者、await/错误传播、权限、冲突与班次有效值校验不变。仍拒绝真实版本/网页变化；实际覆盖非空仍优先。无 Mini、schema 或业务规则变更。
+- 红绿：`pnpm exec vitest run apps/api/src/modules/external-duty/external-duty-preview.spec.ts` 旧版 1 失败/4 通过（无实际覆盖时误拒绝）；修复后 `pnpm exec vitest run apps/api/src/modules/external-duty` 31 通过/1 数据库锁集成跳过。新测试覆盖无覆盖、有覆盖、版本变化、网页变化、原加扣班预览路径以及预览无写入。`pnpm --filter @schedule/api typecheck`、定向 ESLint、API build、任务 Prettier 与 diff 检查通过。
+- 运行/浏览器验证：`pnpm smoke:check-core` 通过，本轮无 Web 核心链路变更，不触发 `smoke:browser`。本地已实现，待部署后真实只读预览与完整 ECS 验证；`.214` 客户端无需重传，小米14验收保持待用户复核。检查点消息 `fix(external-duty): preview swaps with the effective published member`。
+
 ## 2026-09-28 EXTERNAL-DUTY-EFFECTIVE-001 计划值误报无人值班
 
 - 证据：用户提供的校对页截图中有日期发布基线有人而“本系统”为空，另有实际值与基线不同的日期正确；截图未证明设备或构建身份。`git log -S 'name: shiftAssignments.actualMemberName'` 与 blame 指向 `a5de1931`：校对服务直接取可空的 `actualMemberName`。日历与工作流读取有效值均采用 `actualMemberName ?? plannedMemberName`，成员 ID 同理；空覆盖不代表空班。

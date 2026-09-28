@@ -1,6 +1,13 @@
 # Project Status
 
-## 当前批次：校对页误报“无排班”（API 生产修复完成，待页面复核）
+## 当前批次：校对建议预览误报排班变化（已实现，待生产运行复核）
+
+- 用户报告网页两日交换后，本系统未改动但“预览建议”始终提示排班变化。生产 `9715e88f` 只读复现：10 月 12/13 日建议为一次换班，真实 API 错误为“本系统值班人无法唯一对应成员”（409）；Mini 将 409 统一显示为变化提示，刷新不能解决。预览前后全部班次内容哈希一致，无业务操作执行。
+- 引入点 `a5de1931` 的预览分支直接查可空 `actualMembershipId`；上一轮 `9715e88f` 修复扫描/重读但遗漏此处。本轮复用已通过快照校验的有效成员 ID（实际覆盖为空则取发布成员），移除重复裸覆盖查询；保留原换班预览权限、冲突及并发校验。不改 Mini、schema、实际排班或网页。
+- 独占 warm `runtime/wt/general-6`、`REUSE_ONLY`，无安装。基线 `809f142e`，`origin/main=45bf7bec`。新回归旧版 1 失败/4 通过；修复后校对模块 31 通过/1 数据库锁集成跳过，API 类型/lint/build、任务格式、diff 和 `smoke:check-core` 通过。检查点消息 `fix(external-duty): preview swaps with the effective published member`。详见调试记录 `EXTERNAL-DUTY-PREVIEW-001`。
+- 唯一下一任务：按本会话已授权的备份、部署、验证流程交付本 API 修复；部署前再读 live release，部署后运行完整 ECS verifier 与同一只读预览。现有 `.214` 无需重传；小米14同构建验收仍待用户复核。不执行实际换班作为测试。
+
+## 上一批次：校对页误报“无排班”（API 生产修复完成，待页面复核）
 
 - 用户提供的校对页截图显示：部分日期发布基线有人，校对页却把本系统最新值标作“无排班”；另有实际值与基线不同的日期可正确识别。截图未提供可核对的构建身份或设备信息。根因是 `external-duty-service.ts` 自 `a5de1931` 起直接读取可空的 `actualMemberName/actualMembershipId`，而日历规范是实际覆盖为空时回退 `plannedMemberName/plannedMembershipId`。未修改排班数据库或审批流程。
 - 独占 warm `runtime/wt/general-6`、`REUSE_ONLY`，无安装。新增旧代码先失败的新回归，再以同一有效值规则修复扫描和确认时的单日重读；已有实际覆盖仍优先。API 校对 26/26、API 类型/lint/build、`smoke:check-core` 与 diff 检查通过。引入点及行为清单见 [调试记录](debug/debug-feedback-log.md)。检查点消息 `fix(external-duty): fall back to published member without an override`。
