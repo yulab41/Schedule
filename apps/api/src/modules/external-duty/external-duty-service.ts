@@ -26,7 +26,6 @@ import { SwapService } from '../swaps/swap-service.js';
 import { ExternalDutySource } from './external-duty-source.js';
 import { classifyExternalDuty } from './classify-external-duty.js';
 
-const GROUP_NAME = '医生群';
 const ROLE_NAME = '一线';
 const SHIFT_NAME = '全天班';
 
@@ -473,10 +472,21 @@ export class ExternalDutyService {
 
   private async findGroup(): Promise<string> {
     const found = await this.client.database
-      .select({ id: groups.id })
+      .selectDistinct({ id: groups.id })
       .from(groups)
-      .where(and(eq(groups.name, GROUP_NAME), isNull(groups.deletedAt)));
-    if (found.length !== 1) throw new Error('External duty group is ambiguous');
+      .innerJoin(scheduleRoles, eq(scheduleRoles.groupId, groups.id))
+      .innerJoin(shiftTypes, eq(shiftTypes.groupId, groups.id))
+      .where(
+        and(
+          eq(scheduleRoles.name, ROLE_NAME),
+          eq(shiftTypes.name, SHIFT_NAME),
+          eq(shiftTypes.isEnabled, 1),
+          isNull(groups.deletedAt),
+          isNull(scheduleRoles.deletedAt),
+          isNull(shiftTypes.deletedAt),
+        ),
+      );
+    if (found.length !== 1) throw new Error('External duty group is not uniquely identified');
     return found[0]!.id;
   }
 
