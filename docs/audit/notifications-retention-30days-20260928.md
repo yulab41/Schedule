@@ -24,7 +24,9 @@
 
 ## 发布和停止条件
 
-- 应用检查点消息 `feat(notifications): retain the latest 30 days in notification lists`。生产备份 `be0ed062-e891-4505-943c-9589384b6817`：54表/326183行/136614804 B，实际文件大小及SHA-256已核对。
+- 应用 `8bb3c6e408a6bdd1efdb70b9443ab58536e13b60`（`feat(notifications): retain the latest 30 days in notification lists`）已推送main并部署。生产备份 `be0ed062-e891-4505-943c-9589384b6817`：54表/326183行/136614804 B，实际文件大小及SHA-256已核对。
 - 只读生产预览862条通知，其中307条早于截止日，投递30条；部署迁移将一次性标记历史通知，不等待明天。新schema66不在旧版manifest的65兼容范围，旧版自动回滚会被守卫拒绝，保留备份和旧产物，必要时前向修复，不绕过校验。
-- 正式体验版从最终clean SHA按锁内helper动态分配，说明 `notifications retain 30 days <七位SHA>`；上传后核对tag/allocation/Manifest/receipt，再受信add-only放行并保留.211。
-- 测试页面：工作台通知角标、通知弹层已读/未读/分页/全部已读、通知中心空态与说明；通知设置及原工作流保持原行为。已实现待生产运行验证，交付后停止并等待同构建小米14复核，不提审或正式发布。
+- schema66生产迁移及完整ECS verifier通过。迁移后307条隐藏、日期标记不一致0；862通知、30投递数量及排除新增显示字段后的完整业务哈希前后一致，包含原已读/readAt/updatedAt。23名有通知的活跃用户、全局与群组范围、无标识/Mini/Web三类客户端共282次只读请求全部200，列表全分页和未读数与数据库一致，4–63ms。这是服务器内HTTP测量，不代表手机端到端耗时。部署期间维护作业已完成当日任务并正常跳过，历史通知由迁移立即标记。
+- clean production体验版 `0.1.0-p10.20260928.212@8bb3c6e`，说明 `notifications retain 30 days 8bb3c6e`，构建时间 `2026-09-28T06:04:25.487Z`。锁内helper动态分配，Manifest `4dc8cfef79ef9cce0fbf19f3d219705e602b6289b26e71ae94a81d3fb7ba81d3`；远端tag/allocation/Manifest/receipt与输出身份一致，上传前后候选安全检查通过。版本绑定主包1,625,666 B、总包4,338,727 B，与前述无版本verify测量口径不同。
+- 受信ensure仅追加.212，保留.211；独立allowlist与最终完整ECS verifier通过。严格TLS公网.212/.211均200，动态未知准确版本426。正式应用release仍8bb3c6e4，交付文档检查点 `docs(audit): record notification retention delivery` 不重复部署或备份。
+- 已完成生产与体验版交付验证，待用户复核。唯一下一任务：小米14退出重进同构建.212，检查工作台角标、通知弹层已读/未读/分页/全部已读及最近30天说明；通知中心空态由出现空列表时复核。缺少同构建手机证据，未宣称真机验收通过；到此停止，不提审或正式发布。

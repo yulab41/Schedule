@@ -1,11 +1,12 @@
 # Project Status
 
-## 当前批次：通知最近30天（已实现，待生产与体验版交付）
+## 当前批次：通知最近30天（生产与体验版.212已交付，待用户复核）
 
 - 用户要求通知同样保留最近30天。schema66保存显示标记和索引，复用凌晨每日维护；列表、未读角标、分页和已读操作范围一致，保留原通知/已读/投递历史。Mini说明改为“最近30天”。
 - 基线f93868d0、生产前驱实时b0bac240、已有体验版.211；warm/REUSE_ONLY，无install。API通知10/10、迁移30/30、共享维护4/4、单元/发布40/40及类型/lint/build/格式/图标/core smoke通过，开发者工具模板编译成功；[轮次记录](audit/notifications-retention-30days-20260928.md)。
-- 应用检查点消息 `feat(notifications): retain the latest 30 days in notification lists`。备份be0ed062-e891-4505-943c-9589384b6817大小/哈希通过，预览862通知/307过期/30投递；schema66迁移只标记显示状态，旧65自动回滚不兼容，不绕过门禁。
-- Mini全量1291通过/21跳过，production verify、CI dry-run和血缘通过。唯一下一任务：提交推送、部署/生产回读、动态版本上传与add-only放行；交付完成后停止，等待同构建小米14复核，不提审/正式发布。
+- 应用8bb3c6e4（`feat(notifications): retain the latest 30 days in notification lists`）已推送部署，备份be0ed062-e891-4505-943c-9589384b6817大小/哈希通过。schema66隐藏307条，862通知/30投递的原业务字段哈希一致；23用户、282次读取全200，4–63ms，列表/分页/角标一致。旧65自动回滚不兼容，不绕过门禁。
+- Mini全量1291通过/21跳过，production verify、CI dry-run和血缘通过；clean体验版.212@8bb3c6e已上传并add-only放行，完整身份和候选检查通过。独立allowlist/最终完整ECS verifier通过，严格TLS公网.212/.211=200、未知426。交付文档消息 `docs(audit): record notification retention delivery`，文档不重复部署/备份，应用release保持8bb3c6e4。
+- 唯一下一任务：小米14退出重进同构建.212，复核通知最近30天说明、角标、列表/分页与已读操作。服务端及体验版交付已完成，真机待用户复核，不提审/正式发布。
 
 ## 上一批次：工作流历史过去30天（生产与体验版.211已交付，待用户复核）
 
