@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # The host cron invokes this script every minute; flock prevents overlapping
 # runs when a slow push provider or a busy database delays one invocation.
 #
-# 2 vCPU/1.6GB 小机器资源铁律：每分钟为三个作业各新起一个一次性容器，会让机器
+# 2 vCPU/1.6GB 小机器资源铁律：每分钟为每个作业新起一个一次性容器，会让机器
 # 持续读镜像层、重新分配内存并挤出页缓存；生产实测把 API 请求拖到 5-12 秒。
 # 因此作业优先在常驻的 api 容器里以独立进程执行，只有 api 容器不可用时才回退
 # 到一次性容器，作业语义与调度频率都不变。
@@ -37,6 +37,10 @@ if ! run_job export-jobs; then
 fi
 if ! run_job duty-reminders; then
   echo "[notifications] duty-reminders failed" >&2
+  status=1
+fi
+if ! run_job external-duty-check; then
+  echo "[notifications] external-duty-check failed" >&2
   status=1
 fi
 if ! run_job notification-retry; then

@@ -1100,6 +1100,10 @@ Page({
     );
   },
 
+  handleOpenExternalDuty(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, 'externalDuty', '/subpackages/insights/pages/external-duty/index');
+  },
+
   handleOpenVisitorAccess(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, 'visitorAccess', '/subpackages/insights/pages/visitor-access/index');
   },

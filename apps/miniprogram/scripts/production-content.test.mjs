@@ -33,7 +33,7 @@ describe('production package boundary', () => {
   it('keeps reusable diagnostic source and tests outside registered routes', () => {
     const appJson = JSON.parse(readFileSync(path.join(SOURCE_ROOT, 'app.json'), 'utf8'));
     const routes = listRegisteredPages(appJson);
-    expect(routes).toHaveLength(18);
+    expect(routes).toHaveLength(19);
     for (const route of reusablePages) {
       for (const extension of ['.ts', '.json', '.wxml', '.wxss']) {
         expect(existsSync(path.join(SOURCE_ROOT, `${route}${extension}`))).toBe(true);

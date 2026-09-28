@@ -24,6 +24,7 @@ describe('P9 native insights events and statistics', () => {
         'pages/notifications/index',
         'pages/exports/index',
         'pages/notification-settings/index',
+        'pages/external-duty/index',
       ],
     });
     expect(page).toContain('事件时间线');

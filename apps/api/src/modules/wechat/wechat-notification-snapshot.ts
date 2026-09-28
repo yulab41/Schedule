@@ -60,6 +60,7 @@ export async function snapshotWechatNotification(
     return row;
   };
   snapshot.actorName = await nameForUser(input.actorUserId);
+  if (input.objectType === 'external_duty_check') snapshot.actorName = '排班校对';
   const payload = input.payload ?? {};
   if (kind === 'business') {
     const start = payload.startDate,

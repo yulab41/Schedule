@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProfileTemplateData,
+  notificationStatus,
   readProfileTemplate,
   resolveBusinessKind,
 } from './wechat-template-profiles.js';
@@ -15,6 +16,10 @@ describe('separate approved notification templates', () => {
     expect(resolveBusinessKind('schedule_changed', { swapRequestId: 'id' })).toBe('swap');
     expect(resolveBusinessKind('leave_request_revoked')).toBe('leave');
     expect(resolveBusinessKind('schedule_published')).toBe('business');
+    expect(
+      resolveBusinessKind('schedule_changed', { externalDutyCheck: true }, 'external_duty_check'),
+    ).toBe('business');
+    expect(notificationStatus('schedule_changed', { externalDutyCheck: true })).toBe('待处理');
   });
   it('uses full schedule dates and the operator, never the notification recipient', () => {
     const config = readProfileTemplate('business', {

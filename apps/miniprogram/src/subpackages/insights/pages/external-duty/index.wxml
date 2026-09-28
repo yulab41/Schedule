@@ -1,0 +1,69 @@
+<view class="page">
+  <view class="header">
+    <text class="back" bindtap="back">返回</text>
+    <text class="title">排班网页校对</text>
+  </view>
+  <view class="intro"
+    >医生群 · 一线 · 全天班。仅核对今天及以后的网页排班；所有改动均须逐条确认。</view
+  >
+  <view class="toolbar"
+    ><button bindtap="scan" disabled="{{busy}}">立即检测</button
+    ><text>服务器每分钟自动检测</text></view
+  >
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+  <view wx:if="{{scanStatus}}" class="error">{{scanStatus}}</view>
+  <view wx:if="{{busy}}" class="hint">正在校对…</view>
+  <view wx:if="{{!busy && rows.length === 0}}" class="empty">目前没有可显示的校对记录。</view>
+  <scroll-view scroll-y class="list">
+    <view wx:for="{{rows}}" wx:key="businessDate" class="card">
+      <view class="date-line"
+        ><text>{{item.businessDate}}</text
+        ><text
+          >{{item.status === 'aligned' ? '已一致' : item.status === 'blocked' ? '无法同步' :
+          item.status === 'processing' ? '处理中' : '待确认'}}</text
+        ></view
+      >
+      <view class="source"
+        >{{item.changeSource === 'initial' ? '首次发现' : item.changeSource === 'remote' ?
+        '网页端变化' : item.changeSource === 'local' ? '本系统变化' : '两边均有变化'}}</view
+      >
+      <view class="names"
+        ><view><text>网页</text><text>{{item.remoteName}}</text></view
+        ><view><text>本系统</text><text>{{item.localName || '无排班'}}</text></view></view
+      >
+      <view wx:if="{{item.blockReason}}" class="reason">{{item.blockReason}}</view>
+      <view wx:if="{{item.status === 'pending'}}" class="actions">
+        <button size="mini" disabled="{{busy}}" data-date="{{item.businessDate}}" bindtap="duty">
+          生成加扣班
+        </button>
+        <button
+          size="mini"
+          disabled="{{busy}}"
+          data-date="{{item.businessDate}}"
+          bindtap="chooseSwap"
+        >
+          生成换班
+        </button>
+        <button size="mini" disabled="{{busy}}" data-date="{{item.businessDate}}" bindtap="push">
+          写入网页
+        </button>
+      </view>
+    </view>
+  </scroll-view>
+  <view wx:if="{{selectedDate}}" class="candidate-sheet">
+    <view class="sheet-title"
+      ><text>选择第二个换班班次</text><text bindtap="cancelSwap">取消</text></view
+    >
+    <scroll-view scroll-y class="candidate-list">
+      <view
+        wx:for="{{candidates}}"
+        wx:key="id"
+        class="candidate"
+        data-id="{{item.id}}"
+        bindtap="swap"
+        >{{item.date}} · {{item.shiftName}} · {{item.name}}</view
+      >
+      <view wx:if="{{candidates.length === 0}}" class="hint">没有可用的第二个班次。</view>
+    </scroll-view>
+  </view>
+</view>

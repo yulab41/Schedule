@@ -1089,6 +1089,21 @@
                   mode="aspectFit"
                 />
               </view>
+              <view
+                wx:if="{{toolAccess.externalDuty}}"
+                class="more-item"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleOpenExternalDuty"
+              >
+                <image src="/assets/icons/ui-calendar-check.svg" mode="aspectFit" />
+                <view><text>排班网页校对</text><text>查看两边值班差异并逐条确认</text></view>
+                <image
+                  class="more-chevron"
+                  src="/assets/icons/ui-chevron-right.svg"
+                  mode="aspectFit"
+                />
+              </view>
             </view>
           </view>
           <view wx:if="{{!toolAccess.hasAny}}" class="state-card">

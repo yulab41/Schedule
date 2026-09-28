@@ -14,6 +14,7 @@ export const workbenchToolIds = [
   'qrVisitor',
   'visitorAccess',
   'platformAccounts',
+  'externalDuty',
 ] as const;
 
 export type WorkbenchToolId = (typeof workbenchToolIds)[number];
@@ -52,6 +53,7 @@ export function createWorkbenchToolAccess(
     notificationSettings: canUseGroupTools && capability.externalMessages,
     notifications: canUseGroupTools && capability.insights,
     platformAccounts: isDeveloperAdmin && capability.organization,
+    externalDuty: isDeveloperAdmin && capability.core,
     schedulingConfig: canManage,
     visitorAccess: canManage && capability.insights,
   };
@@ -69,9 +71,12 @@ export function createWorkbenchToolAccess(
     tools.notifications,
     tools.exports,
   ].some(Boolean);
-  const accessSection = [tools.qrVisitor, tools.visitorAccess, tools.platformAccounts].some(
-    Boolean,
-  );
+  const accessSection = [
+    tools.qrVisitor,
+    tools.visitorAccess,
+    tools.platformAccounts,
+    tools.externalDuty,
+  ].some(Boolean);
 
   return Object.freeze({
     ...tools,

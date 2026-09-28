@@ -16,10 +16,13 @@ import { HistoryMaintenanceJob } from './history-maintenance.js';
 import { StatisticsRebuildJob } from './statistics-rebuild.js';
 import { createWechatGateway } from '../modules/wechat/wechat-gateway.js';
 import { WechatPushDispatcher } from '../modules/wechat/wechat-push-dispatcher.js';
+import { ExternalDutyService } from '../modules/external-duty/external-duty-service.js';
+import { parsePlatformAdminUids } from '../modules/platform-admin/platform-admin.js';
 
 export type JobName =
   | 'database-backup'
   | 'duty-reminders'
+  | 'external-duty-check'
   | 'export-jobs'
   | 'group-recycle'
   | 'holiday-alerts'
@@ -41,6 +44,8 @@ export const jobRunners: Readonly<Record<JobName, JobRunner>> = {
       storage: new LocalBackupStorage(process.env.BACKUP_DIR ?? './backups'),
     }).run(),
   'duty-reminders': (client) => new DutyReminderJob(client).run(),
+  'external-duty-check': (client) =>
+    new ExternalDutyService(client, parsePlatformAdminUids(process.env)).scan(),
   'export-jobs': (client) => new ExportJobProcessor(client).run(),
   'group-recycle': (client) => new GroupRecycleJob(client).run(),
   'holiday-alerts': (client) =>
