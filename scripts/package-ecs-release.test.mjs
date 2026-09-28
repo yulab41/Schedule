@@ -168,6 +168,8 @@ describe('ECS directory import runtime packaging', () => {
   it('verifies the external duty ledger after schema 67', () => {
     expect(verifySource).toContain('EXTERNAL_DUTY_SCHEMA');
     expect(verifySource).toContain('external_duty_checks_status_date_idx');
+    expect(verifySource).toContain('EXTERNAL_DUTY_BASELINE_SCHEMA');
+    expect(verifySource).toContain('EXTERNAL_DUTY_ACTIONS_TABLE');
   });
 
   it('reads the schema 61 visitor QR shape as separate mysql columns', () => {

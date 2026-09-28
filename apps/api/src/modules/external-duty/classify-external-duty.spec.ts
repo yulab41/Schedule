@@ -1,91 +1,110 @@
 import { describe, expect, it } from 'vitest';
-import { classifyExternalDuty } from './classify-external-duty.js';
+import { classifyExternalDuty, scopedExternalDutyDates } from './classify-external-duty.js';
 
-const base = {
+const previous = {
+  baselineName: '甲',
   remoteName: '甲',
   localName: '乙',
   fingerprint: 'old',
-  changeSource: 'initial' as const,
+  changeSource: 'local' as const,
   status: 'pending' as const,
+  isInScope: 1,
 };
 
-describe('external duty comparison', () => {
-  it('surfaces an initial difference once', () => {
-    expect(
-      classifyExternalDuty({
-        remoteName: '甲',
-        localName: '乙',
-        fingerprint: 'old',
-        blockReason: null,
-      }),
-    ).toEqual({ changeSource: 'initial', status: 'pending', newDifference: true });
-    expect(
-      classifyExternalDuty({
-        previous: base,
-        remoteName: '甲',
-        localName: '乙',
-        fingerprint: 'old',
-        blockReason: null,
-      }).newDifference,
-    ).toBe(false);
+const compare = (baselineName: string, remoteName: string, localName: string) =>
+  classifyExternalDuty({
+    baselineName,
+    remoteName,
+    localName,
+    fingerprint: 'new',
+    blockReason: null,
   });
 
-  it('does not resend a reminder when the assignment identity changes but names do not', () => {
+describe('external duty published baseline comparison', () => {
+  it('checks today only when both the webpage and a published assignment have the date', () => {
+    expect(
+      scopedExternalDutyDates(
+        new Map([
+          ['2026-09-27', '甲'],
+          ['2026-09-28', '乙'],
+          ['2026-09-29', '丙'],
+          ['2026-09-30', '丁'],
+        ]),
+        new Map([
+          ['2026-09-28', 1],
+          ['2026-09-29', 0],
+          ['2026-10-01', 1],
+        ]),
+        '2026-09-28',
+      ),
+    ).toEqual([['2026-09-28', '乙']]);
+  });
+  it('hides every date whose remote and effective roster agree', () => {
+    expect(compare('甲', '甲', '甲').status).toBe('aligned');
+    expect(compare('甲', '乙', '乙').status).toBe('aligned');
+  });
+
+  it('classifies the changed side against the current published baseline on first scan', () => {
+    expect(compare('甲', '甲', '乙').changeSource).toBe('local');
+    expect(compare('甲', '乙', '甲').changeSource).toBe('remote');
+    expect(compare('甲', '乙', '丙').changeSource).toBe('both');
+  });
+
+  it('does not infer the changed side from the previous scan', () => {
     expect(
       classifyExternalDuty({
-        previous: base,
+        previous,
+        baselineName: '甲',
+        remoteName: '甲',
+        localName: '丙',
+        fingerprint: 'changed',
+        blockReason: null,
+      }).changeSource,
+    ).toBe('local');
+  });
+
+  it('reminds once per changed discrepancy, not every scan or assignment ID change', () => {
+    expect(
+      classifyExternalDuty({
+        previous,
+        baselineName: '甲',
         remoteName: '甲',
         localName: '乙',
         fingerprint: 'recreated-assignment',
         blockReason: null,
       }).newDifference,
     ).toBe(false);
-  });
-
-  it('classifies the changed side and conflicting changes', () => {
-    for (const [remoteName, localName, source] of [
-      ['丙', '乙', 'remote'],
-      ['甲', '丁', 'local'],
-      ['丙', '丁', 'both'],
-    ] as const) {
-      expect(
-        classifyExternalDuty({
-          previous: base,
-          remoteName,
-          localName,
-          fingerprint: 'new',
-          blockReason: null,
-        }).changeSource,
-      ).toBe(source);
-    }
-  });
-
-  it('keeps a request processing until the effective roster agrees', () => {
-    const previous = { ...base, status: 'processing' as const };
     expect(
       classifyExternalDuty({
         previous,
+        baselineName: '丁',
+        remoteName: '甲',
+        localName: '乙',
+        fingerprint: 'new-publication',
+        blockReason: null,
+      }).newDifference,
+    ).toBe(true);
+  });
+
+  it('keeps a request processing only while its effective roster is unchanged', () => {
+    const processing = { ...previous, status: 'processing' as const };
+    expect(
+      classifyExternalDuty({
+        previous: processing,
+        baselineName: '甲',
         remoteName: '甲',
         localName: '乙',
         fingerprint: 'old',
         blockReason: null,
       }).status,
     ).toBe('processing');
-    expect(
-      classifyExternalDuty({
-        previous,
-        remoteName: '甲',
-        localName: '甲',
-        fingerprint: 'new',
-        blockReason: null,
-      }).status,
-    ).toBe('aligned');
+    expect(compare('甲', '甲', '甲').status).toBe('aligned');
   });
 
-  it('blocks uncertain matches even when names appear equal', () => {
+  it('blocks ambiguous matches even if display names agree', () => {
     expect(
       classifyExternalDuty({
-        previous: base,
+        baselineName: '甲',
         remoteName: '甲',
         localName: '甲',
         fingerprint: 'new',

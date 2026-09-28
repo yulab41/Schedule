@@ -9,11 +9,25 @@ import {
 export interface ExternalDutyCheck {
   readonly businessDate: string;
   readonly remoteName: string;
+  readonly baselineName: string | null;
   readonly localName: string | null;
   readonly status: 'aligned' | 'pending' | 'processing' | 'blocked';
   readonly changeSource: 'initial' | 'remote' | 'local' | 'both';
   readonly blockReason: string | null;
   readonly fingerprint: string;
+  readonly suggestion:
+    | { readonly kind: 'duty'; readonly detail: string }
+    | { readonly kind: 'blocked'; readonly detail: string }
+    | {
+        readonly kind: 'swap';
+        readonly detail: string;
+        readonly steps: readonly {
+          readonly date: string;
+          readonly targetDate: string;
+          readonly targetAssignmentId: string;
+        }[];
+      }
+    | null;
 }
 
 export interface ExternalDutyCandidate {
@@ -21,6 +35,17 @@ export interface ExternalDutyCandidate {
   readonly date: string;
   readonly name: string | null;
   readonly shiftName: string;
+}
+
+export interface ExternalDutyAction {
+  readonly id: string;
+  readonly businessDate: string;
+  readonly side: 'external' | 'local';
+  readonly baselineName: string;
+  readonly beforeName: string | null;
+  readonly afterName: string | null;
+  readonly status: 'applying' | 'applied' | 'reverting' | 'reverted';
+  readonly workflowStatus: string | null;
 }
 
 export async function externalDutyRequest<T>(path: string, data?: unknown): Promise<T> {

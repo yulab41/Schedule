@@ -11,9 +11,11 @@ describe('persisted history visibility release compatibility', () => {
   });
 
   it('requires persisted visibility columns and indexes', () => {
-    expect(releaseSchemaCompatibility(journal(67, '0067_external_duty_checks'))).toEqual({
-      databaseSchemaMin: '67',
-      databaseSchemaMax: '67',
+    expect(
+      releaseSchemaCompatibility(journal(68, '0068_external_duty_published_baseline')),
+    ).toEqual({
+      databaseSchemaMin: '68',
+      databaseSchemaMax: '68',
     });
   });
 
@@ -45,6 +47,8 @@ describe('persisted history visibility release compatibility', () => {
       journal(66, '0066_unknown'),
       journal(66, '0066_notification_visibility'),
       journal(67, '0067_unknown'),
+      journal(67, '0067_external_duty_checks'),
+      journal(68, '0068_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

@@ -17,6 +17,9 @@ const inbound = mutation
     targetAssignmentId: z.string().uuid().optional(),
   })
   .strict();
+const undo = z
+  .object({ actionId: z.string().uuid(), expectedFingerprint: z.string().regex(/^[0-9a-f]{64}$/u) })
+  .strict();
 
 export function registerExternalDutyRoutes(
   app: FastifyInstance,
@@ -27,6 +30,9 @@ export function registerExternalDutyRoutes(
   );
   app.get('/platform/external-duty/status', { preHandler: app.authenticate }, (request) =>
     service.status(identity(request)),
+  );
+  app.get('/platform/external-duty/history', { preHandler: app.authenticate }, (request) =>
+    service.history(identity(request)),
   );
   app.post('/platform/external-duty/scan', { preHandler: app.authenticate }, async (request) => {
     await service.list(identity(request));
@@ -69,6 +75,14 @@ export function registerExternalDutyRoutes(
       input.kind,
       input.targetAssignmentId,
     );
+  });
+  app.post('/platform/external-duty/undo-preview', { preHandler: app.authenticate }, (request) => {
+    const input = parse(z.object({ actionId: z.string().uuid() }).strict(), request.body);
+    return service.previewUndo(identity(request), input.actionId);
+  });
+  app.post('/platform/external-duty/undo', { preHandler: app.authenticate }, (request) => {
+    const input = parse(undo, request.body);
+    return service.undo(identity(request), input.actionId, input.expectedFingerprint);
   });
 }
 

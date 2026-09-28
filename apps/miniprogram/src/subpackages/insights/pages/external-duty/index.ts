@@ -1,13 +1,13 @@
 import {
   externalDutyRequest,
-  type ExternalDutyCandidate,
   type ExternalDutyCheck,
+  type ExternalDutyAction,
 } from '../../../../platform/external-duty-client.js';
 
 interface PageData {
   readonly rows: readonly ExternalDutyCheck[];
-  readonly candidates: readonly ExternalDutyCandidate[];
-  readonly selectedDate: string;
+  readonly historyRows: readonly ExternalDutyAction[];
+  readonly showHistory: boolean;
   readonly busy: boolean;
   readonly error: string;
   readonly scanStatus: string;
@@ -25,8 +25,8 @@ type TapEvent = {
 Page({
   data: {
     rows: [],
-    candidates: [],
-    selectedDate: '',
+    historyRows: [],
+    showHistory: false,
     busy: false,
     error: '',
     scanStatus: '',
@@ -42,14 +42,16 @@ Page({
   async load(this: DutyPageInstance): Promise<void> {
     this.setData({ busy: true, error: '' });
     try {
-      const [rows, status] = await Promise.all([
+      const [rows, status, historyRows] = await Promise.all([
         externalDutyRequest<ExternalDutyCheck[]>(''),
         externalDutyRequest<{ status: string; checkedAt: string | null; coverageEnded: boolean }>(
           '/status',
         ),
+        externalDutyRequest<ExternalDutyAction[]>('/history'),
       ]);
       this.setData({
         rows,
+        historyRows,
         scanStatus: status.coverageEnded
           ? '对方网页排班覆盖期已于 2027-06-30 结束，校对已停止。'
           : status.status === 'failed'
@@ -58,6 +60,39 @@ Page({
               ? '尚未完成首次自动检测。'
               : '',
       });
+    } catch (error) {
+      this.setData({ error: message(error) });
+    } finally {
+      this.setData({ busy: false });
+    }
+  },
+
+  toggleHistory(this: DutyPageInstance): void {
+    this.setData({ showHistory: !this.data.showHistory });
+  },
+
+  async undo(this: DutyPageInstance, event: TapEvent): Promise<void> {
+    const actionId = String(event.currentTarget.dataset.id ?? '');
+    if (!actionId) return;
+    this.setData({ busy: true, error: '' });
+    try {
+      const preview = await externalDutyRequest<{
+        side: 'external' | 'local';
+        date: string;
+        currentName: string | null;
+        baselineName: string;
+        expectedFingerprint: string;
+      }>('/undo-preview', { actionId });
+      const side = preview.side === 'external' ? '网页' : '本系统';
+      const agreed = await confirm(
+        `${preview.date}：将${side}当前的${preview.currentName ?? '空缺'}恢复为发布基线${preview.baselineName}？本系统仍需通过原业务校验。`,
+      );
+      if (!agreed) return;
+      await externalDutyRequest('/undo', {
+        actionId,
+        expectedFingerprint: preview.expectedFingerprint,
+      });
+      await this.load();
     } catch (error) {
       this.setData({ error: message(error) });
     } finally {
@@ -94,39 +129,16 @@ Page({
     }
   },
 
-  async duty(this: DutyPageInstance, event: TapEvent): Promise<void> {
+  async applySuggestion(this: DutyPageInstance, event: TapEvent): Promise<void> {
     const row = selected(this.data.rows, event);
-    if (row) await this.apply(row, 'duty');
-  },
-
-  async chooseSwap(this: DutyPageInstance, event: TapEvent): Promise<void> {
-    const row = selected(this.data.rows, event);
-    if (!row) return;
-    this.setData({ busy: true, error: '' });
-    try {
-      const candidates = await externalDutyRequest<ExternalDutyCandidate[]>('/candidates', {
-        date: row.businessDate,
-        expectedFingerprint: row.fingerprint,
-      });
-      this.setData({ selectedDate: row.businessDate, candidates });
-    } catch (error) {
-      this.setData({ error: message(error) });
-    } finally {
-      this.setData({ busy: false });
+    if (!row?.suggestion || row.suggestion.kind === 'blocked') return;
+    if (row.suggestion.kind === 'duty') return this.apply(row, 'duty');
+    const first = row.suggestion.steps[0];
+    if (first?.date !== row.businessDate) {
+      this.setData({ error: `请先处理 ${first?.date ?? '前一个日期'} 的换班步骤。` });
+      return;
     }
-  },
-
-  cancelSwap(this: DutyPageInstance): void {
-    this.setData({ selectedDate: '', candidates: [] });
-  },
-
-  async swap(this: DutyPageInstance, event: TapEvent): Promise<void> {
-    const row = this.data.rows.find((item) => item.businessDate === this.data.selectedDate);
-    const targetAssignmentId = String(event.currentTarget.dataset.id ?? '');
-    if (row && targetAssignmentId) {
-      this.setData({ selectedDate: '', candidates: [] });
-      await this.apply(row, 'swap', targetAssignmentId);
-    }
+    return this.apply(row, 'swap', first.targetAssignmentId);
   },
 
   async apply(
@@ -149,7 +161,7 @@ Page({
       }>('/preview', input);
       const detail = preview.conflicts.length
         ? `发现${preview.conflicts.length}项冲突：${preview.conflicts[0]!.message}`
-        : `${row.businessDate}：${row.localName ?? '空缺'} → ${row.remoteName}。预计状态：${preview.nextStatus}。`;
+        : `${row.businessDate}：${row.localName ?? '空缺'} → ${row.remoteName}。${kind === 'swap' ? `${row.suggestion?.detail ?? ''}；后台将逐步校验并执行。` : ''}预计状态：${preview.nextStatus}。`;
       if (!(await confirm(`${detail}确认生成${kind === 'duty' ? '加扣班' : '换班'}记录？`))) return;
       await externalDutyRequest('/apply', input);
       await this.load();

@@ -1,4 +1,4 @@
-import type { DatabaseClient } from '@schedule/database';
+import { externalDutyActions, externalDutyChecks, type DatabaseClient } from '@schedule/database';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -14,46 +14,64 @@ function snapshot(name: string): ExternalDutySnapshot {
 }
 
 function fixture() {
+  const action = { status: '' };
   const row = {
     businessDate: date,
     fingerprint,
     status: 'pending',
+    isInScope: 1,
+    changeSource: 'local',
+    baselineName: '乙',
     localName: '甲',
     remoteName: '乙',
     blockReason: null,
     assignmentId: 'assignment',
+    assignmentVersion: 1,
+    schedulePeriodId: 'period',
     groupId: 'group',
   };
   const limit = vi.fn(async () => [row]);
   const where = vi.fn(() => ({ limit }));
   const from = vi.fn(() => ({ where }));
   const select = vi.fn(() => ({ from }));
-  const update = vi.fn(() => ({
+  const insert = vi.fn(() => ({
+    values: vi.fn(async (values: { status: string }) => {
+      action.status = values.status;
+    }),
+  }));
+  const update = vi.fn((table: unknown) => ({
     set: (values: { status: string }) => ({
       where: async () => {
-        if (values.status === 'processing' && row.status !== 'pending')
+        if (
+          table === externalDutyChecks &&
+          values.status === 'processing' &&
+          row.status !== 'pending'
+        )
           return [{ affectedRows: 0 }];
-        row.status = values.status;
+        if (table === externalDutyActions) action.status = values.status;
+        else row.status = values.status;
         return [{ affectedRows: 1 }];
       },
     }),
   }));
   const source = { read: vi.fn(async () => snapshot('乙')), write: vi.fn(async () => {}) };
   const service = new ExternalDutyService(
-    { database: { select, update } } as unknown as DatabaseClient,
+    { database: { select, update, insert } } as unknown as DatabaseClient,
     new Set(),
     source as unknown as ExternalDutySource,
   );
   vi.spyOn(
-    service as unknown as { authorize: () => Promise<void> },
+    service as unknown as { authorize: () => Promise<string> },
     'authorize',
-  ).mockResolvedValue();
+  ).mockResolvedValue('admin-user');
   vi.spyOn(
     service as unknown as { readLocalDate: () => Promise<unknown[]> },
     'readLocalDate',
-  ).mockResolvedValue([{ id: 'assignment', name: '甲', plannedName: '甲' }]);
+  ).mockResolvedValue([
+    { id: 'assignment', name: '甲', plannedName: '乙', version: 1, periodId: 'period' },
+  ]);
   vi.spyOn(service, 'scan').mockResolvedValue({ checked: 1, newDifferences: 0 });
-  return { row, source, service };
+  return { action, row, source, service };
 }
 
 describe('external duty outbound confirmation', () => {
@@ -69,6 +87,17 @@ describe('external duty outbound confirmation', () => {
     expect(source.write).not.toHaveBeenCalled();
   });
 
+  it('rejects a local assignment changed and then restored to the same name', async () => {
+    const { service, source } = fixture();
+    vi.mocked(service['readLocalDate'] as unknown as () => Promise<unknown[]>).mockResolvedValue([
+      { id: 'assignment', name: '甲', plannedName: '乙', version: 3, periodId: 'period' },
+    ]);
+    await expect(service.pushToExternal(identity, date, fingerprint)).rejects.toThrow(
+      '本系统排班已变化',
+    );
+    expect(source.write).not.toHaveBeenCalled();
+  });
+
   it('rechecks both sides before writing and verifies the saved value', async () => {
     const { service, source } = fixture();
     source.read.mockResolvedValueOnce(snapshot('乙')).mockResolvedValueOnce(snapshot('甲'));
@@ -81,9 +110,10 @@ describe('external duty outbound confirmation', () => {
   });
 
   it('leaves the discrepancy pending when readback disagrees', async () => {
-    const { service, row } = fixture();
+    const { action, service, row } = fixture();
     await expect(service.pushToExternal(identity, date, fingerprint)).rejects.toThrow('回读不一致');
     expect(row.status).toBe('pending');
+    expect(action.status).toBe('applying');
     expect(service.scan).not.toHaveBeenCalled();
   });
 

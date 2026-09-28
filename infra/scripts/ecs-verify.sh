@@ -645,9 +645,26 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 67 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 68 ]; then
+  EXTERNAL_DUTY_BASELINE_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"external_duty_checks\" AND column_name IN (\"baseline_name\",\"schedule_period_id\",\"assignment_version\",\"is_in_scope\")"')"
+  [ "$EXTERNAL_DUTY_BASELINE_SCHEMA" = "4" ] || {
+    echo "[verify] 错误：排班网页校对发布基线字段缺失。" >&2
+    exit 1
+  }
+  EXTERNAL_DUTY_ACTIONS_TABLE="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"external_duty_actions\""')"
+  [ "$EXTERNAL_DUTY_ACTIONS_TABLE" = "1" ] || {
+    echo "[verify] 错误：排班网页校对操作记录表缺失。" >&2
+    exit 1
+  }
+fi
+
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 67 ]; then
+  if [ "$schema" -ge 68 ]; then
+    [ "$tables" = "55" ] || [ "$tables" = "56" ]
+  elif [ "$schema" -ge 67 ]; then
     # 0067 adds one backed-up table; accept the backup taken just before migration.
     [ "$tables" = "54" ] || [ "$tables" = "55" ]
   elif [ "$schema" -ge 63 ]; then
