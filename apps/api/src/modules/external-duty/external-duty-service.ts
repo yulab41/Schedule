@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { DatabaseClient } from '@schedule/database';
+import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   externalDutyChecks,
   groupMemberships,
@@ -15,7 +15,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -154,7 +154,7 @@ export class ExternalDutyService {
     let newDifferences = 0;
     await withTransaction(this.client, async (tx) => {
       // Serialize cron and manual scans across API processes before reading prior snapshots.
-      await tx.execute(sql`SELECT id FROM groups WHERE id = ${groupId} FOR UPDATE`);
+      await lockExternalDutyGroup(tx, groupId);
       const priorRows = await tx
         .select()
         .from(externalDutyChecks)
@@ -512,6 +512,17 @@ export class ExternalDutyService {
         ),
       );
   }
+}
+
+export async function lockExternalDutyGroup(
+  transaction: DatabaseTransaction,
+  groupId: string,
+): Promise<void> {
+  await transaction
+    .select({ id: groups.id })
+    .from(groups)
+    .where(eq(groups.id, groupId))
+    .for('update');
 }
 
 function chinaToday(): string {
