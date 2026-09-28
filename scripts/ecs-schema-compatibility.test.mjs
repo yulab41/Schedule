@@ -11,9 +11,9 @@ describe('persisted history visibility release compatibility', () => {
   });
 
   it('requires persisted visibility columns and indexes', () => {
-    expect(releaseSchemaCompatibility(journal(65, '0065_history_visibility'))).toEqual({
-      databaseSchemaMin: '65',
-      databaseSchemaMax: '65',
+    expect(releaseSchemaCompatibility(journal(66, '0066_notification_visibility'))).toEqual({
+      databaseSchemaMin: '66',
+      databaseSchemaMax: '66',
     });
   });
 
@@ -41,6 +41,8 @@ describe('persisted history visibility release compatibility', () => {
       journal(64, '0064_unknown'),
       journal(64, '0064_active_shift_slot'),
       journal(65, '0065_unknown'),
+      journal(65, '0065_history_visibility'),
+      journal(66, '0066_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

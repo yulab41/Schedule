@@ -58,9 +58,69 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    // One journal entry per applied migration, including persisted history visibility.
-    expect(migrations).toEqual([{ count: 65 }]);
+    // One journal entry per applied migration, including notification display retention.
+    expect(migrations).toEqual([{ count: 66 }]);
     expect(tables).toEqual([{ count: 55 }]);
+  });
+
+  it('backfills the 30-day notification display flag while preserving read state and delivery history', async () => {
+    const legacy = await createLegacyMigrationsDirectory(65);
+    try {
+      await migrateDatabase(client, legacy);
+      const [clock] = await client.database.execute(
+        sql`SELECT UNIX_TIMESTAMP(UTC_TIMESTAMP(3)) * 1000 AS nowMillis`,
+      );
+      const nowMillis = Number((clock as unknown as { nowMillis: string }[])[0]?.nowMillis);
+      const chinaDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(nowMillis - 30 * 86_400_000));
+      const cutoff = new Date(`${chinaDate}T00:00:00+08:00`).valueOf();
+      expect(Number.isFinite(cutoff)).toBe(true);
+      const owner = randomUUID();
+      await client.database
+        .insert(users)
+        .values({ id: owner, cloudbaseUid: 'notification-retention' });
+      const ids = [randomUUID(), randomUUID(), randomUUID()];
+      for (const [index, id] of ids.entries()) {
+        await client.database
+          .execute(sql`INSERT INTO notifications (id,recipient_user_id,notification_type,title,body,is_read,created_at,updated_at)
+          VALUES (${id},${owner},'duty_reminder','Fixture','Anonymous notification',${index === 0 ? 1 : 0},${new Date(cutoff + (index === 2 ? 0 : -1))},'2026-01-01 00:00:00.123')`);
+      }
+      await client.database.execute(
+        sql`INSERT INTO notification_deliveries (id,notification_id,status) VALUES (${randomUUID()},${ids[0]},'sent')`,
+      );
+      const [before] = await client.database.execute(sql`SELECT * FROM notifications ORDER BY id`);
+      const [deliveries] = await client.database.execute(
+        sql`SELECT * FROM notification_deliveries`,
+      );
+      await migrateDatabase(client, migrationsDirectory);
+      await migrateDatabase(client, migrationsDirectory);
+      const [after] = await client.database.execute(sql`SELECT * FROM notifications ORDER BY id`);
+      const rows = after as unknown as Record<string, unknown>[];
+      expect(
+        rows
+          .filter((row) => row.list_hidden_at !== null)
+          .map((row) => row.id)
+          .sort(),
+      ).toEqual(ids.slice(0, 2).sort());
+      expect(
+        rows.map((row) =>
+          Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'list_hidden_at')),
+        ),
+      ).toEqual(before);
+      expect(
+        (await client.database.execute(sql`SELECT * FROM notification_deliveries`))[0],
+      ).toEqual(deliveries);
+      const [indexes] = await client.database.execute(
+        sql`SELECT COUNT(DISTINCT index_name) AS count FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='notifications' AND index_name IN ('notifications_list_visible_idx','notifications_unread_visible_idx','notifications_expiry_idx')`,
+      );
+      expect(indexes).toEqual([{ count: 3 }]);
+    } finally {
+      await rm(legacy, { recursive: true, force: true });
+    }
   });
 
   it('transfers only existing hidden snapshots into indexed display state without changing business contents', async () => {

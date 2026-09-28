@@ -34,9 +34,23 @@ export const notifications = mysqlTable(
     payload: json('payload').$type<Record<string, unknown>>(),
     isRead: tinyint('is_read', { unsigned: true }).default(0).notNull(),
     readAt: timestamp('read_at', { fsp: 3 }),
+    listHiddenAt: timestamp('list_hidden_at', { fsp: 3 }),
     ...auditableColumns(),
   },
   (table) => [
+    index('notifications_list_visible_idx').on(
+      table.recipientUserId,
+      table.listHiddenAt,
+      table.createdAt,
+      table.id,
+    ),
+    index('notifications_unread_visible_idx').on(
+      table.recipientUserId,
+      table.listHiddenAt,
+      table.isRead,
+      table.createdAt,
+    ),
+    index('notifications_expiry_idx').on(table.listHiddenAt, table.createdAt),
     index('notifications_recipient_created_idx').on(
       table.recipientUserId,
       table.createdAt,

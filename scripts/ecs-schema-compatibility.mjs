@@ -5,8 +5,8 @@ export function releaseSchemaCompatibility(journal) {
     throw new Error('Invalid migration journal; refusing release compatibility declaration.');
   }
   const last = entries.at(-1)?.tag;
-  if (entries.length === 65 && last === '0065_history_visibility') {
-    return { databaseSchemaMin: '65', databaseSchemaMax: '65' };
+  if (entries.length === 66 && last === '0066_notification_visibility') {
+    return { databaseSchemaMin: '66', databaseSchemaMax: '66' };
   }
   throw new Error('Unreviewed migration journal; revalidate release compatibility.');
 }

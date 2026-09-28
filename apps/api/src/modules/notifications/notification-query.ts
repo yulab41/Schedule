@@ -6,7 +6,7 @@ import type {
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import { notifications, withTransaction } from '@schedule/database';
-import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -40,7 +40,10 @@ export class NotificationQueryService {
     const userId = await requireActiveUser(transaction, identity);
     const pageSize = getPageSize(query.pageSize);
     const cursor = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
-    const conditions = [eq(notifications.recipientUserId, userId)];
+    const conditions = [
+      eq(notifications.recipientUserId, userId),
+      isNull(notifications.listHiddenAt),
+    ];
 
     if (query.groupId !== undefined) {
       conditions.push(eq(notifications.groupId, query.groupId));
@@ -92,7 +95,13 @@ export class NotificationQueryService {
       const [row] = await transaction
         .select()
         .from(notifications)
-        .where(and(eq(notifications.id, notificationId), eq(notifications.recipientUserId, userId)))
+        .where(
+          and(
+            eq(notifications.id, notificationId),
+            eq(notifications.recipientUserId, userId),
+            isNull(notifications.listHiddenAt),
+          ),
+        )
         .limit(1)
         .for('update');
       if (row === undefined) {
@@ -126,15 +135,10 @@ export class NotificationQueryService {
   ): Promise<{ readonly count: number }> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const userId = await requireActiveUser(transaction, identity);
-      const conditions = [eq(notifications.recipientUserId, userId), eq(notifications.isRead, 0)];
-      if (groupId !== undefined) {
-        conditions.push(eq(notifications.groupId, groupId));
-      }
-
       const [result] = await transaction
         .update(notifications)
         .set({ isRead: 1, readAt: new Date() })
-        .where(and(...conditions));
+        .where(buildUnreadCountCondition(userId, groupId));
 
       return { count: result.affectedRows };
     });
@@ -154,7 +158,11 @@ function getUnreadCount(
 }
 
 export function buildUnreadCountCondition(userId: string, groupId?: string) {
-  const conditions = [eq(notifications.recipientUserId, userId), eq(notifications.isRead, 0)];
+  const conditions = [
+    eq(notifications.recipientUserId, userId),
+    eq(notifications.isRead, 0),
+    isNull(notifications.listHiddenAt),
+  ];
   if (groupId !== undefined) conditions.push(eq(notifications.groupId, groupId));
   return and(...conditions) as Exclude<ReturnType<typeof and>, undefined>;
 }

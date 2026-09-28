@@ -3,6 +3,7 @@ import {
   dutyAdjustments,
   groups,
   leaveRequests,
+  notifications,
   platformJobRuns,
   swapRequests,
   withTransaction,
@@ -41,6 +42,9 @@ export class HistoryMaintenanceJob {
 
   public async run(now = new Date()) {
     const monthStart = `${getChinaStandardTimeCalendarDate(now).slice(0, 7)}-01`;
+    const notificationCutoff = new Date(
+      `${getChinaStandardTimeCalendarDate(new Date(now.valueOf() - 30 * 86_400_000))}T00:00:00+08:00`,
+    );
     return withTransaction(this.client, async (transaction) => {
       // Serialize with existing workflow and publication writes; no lock survives this short job.
       const scope = await transaction
@@ -49,7 +53,12 @@ export class HistoryMaintenanceJob {
         .where(isNull(groups.deletedAt))
         .orderBy(asc(groups.id))
         .for('update');
-      const result = { monthStart, archivedPeriods: 0, workflowVisibilityChanges: 0 };
+      const result = {
+        monthStart,
+        archivedPeriods: 0,
+        workflowVisibilityChanges: 0,
+        notificationVisibilityChanges: 0,
+      };
       for (const group of scope) {
         for (const [kind, table] of [
           ['swap', swapRequests],
@@ -73,6 +82,13 @@ export class HistoryMaintenanceJob {
             AND status = 'published' AND business_month < ${monthStart}`);
         result.archivedPeriods += (archived as unknown as { affectedRows: number }).affectedRows;
       }
+      // Notification creation time is immutable; expiry changes display state, never read/delivery history.
+      const [hidden] = await transaction.execute(sql`UPDATE ${notifications}
+        SET ${notifications.listHiddenAt} = ${now}, ${notifications.updatedAt} = ${notifications.updatedAt}
+        WHERE ${notifications.listHiddenAt} IS NULL AND ${notifications.createdAt} < ${notificationCutoff}`);
+      result.notificationVisibilityChanges = (
+        hidden as unknown as { affectedRows: number }
+      ).affectedRows;
       return result;
     });
   }

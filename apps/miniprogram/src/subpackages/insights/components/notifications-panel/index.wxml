@@ -15,12 +15,12 @@
     <view wx:elif="{{state === 'empty'}}" class="notification-sheet-state">
       <view class="state-mark">○</view>
       <text class="state-title">暂无通知</text>
-      <text class="state-copy">排班发布、请假和换班产生的提醒会显示在这里。</text>
+      <text class="state-copy">仅保留最近30天的排班、请假和换班提醒。</text>
     </view>
     <view wx:else class="notification-sheet-ready">
       <view class="notification-sheet-summary">
         <view class="notification-sheet-summary-copy">
-          <text class="notification-sheet-unread">{{unreadCount}} 条未读</text>
+          <text class="notification-sheet-unread">最近30天 · {{unreadCount}} 条未读</text>
           <text class="notification-sheet-hint">点按一条通知即可标记为已读</text>
         </view>
         <view
@@ -85,7 +85,7 @@
     ><view class="header-title"
       ><text class="header-title-main">{{mode === 'settings' ? '通知设置' : '通知中心'}}</text
       ><text class="header-title-sub"
-        >{{mode === 'settings' ? '群组默认与本人提醒' : '排班、请假与换班提醒'}}</text
+        >{{mode === 'settings' ? '群组默认与本人提醒' : '排班、请假与换班提醒（最近30天）'}}</text
       ></view
     ></view
   >
@@ -238,14 +238,14 @@
         ></view>
         <view wx:elif="{{state === 'empty'}}" class="page-state-card"
           ><view class="state-mark">○</view><text class="state-title">暂无通知</text
-          ><text class="state-copy">排班发布、请假和换班产生的提醒会显示在这里。</text></view
+          ><text class="state-copy">仅保留最近30天的排班、请假和换班提醒。</text></view
         >
         <view wx:else class="notifications-content"
           ><view class="page-heading"
             ><text class="section-eyebrow">值班台账 / 消息</text
             ><text class="page-title">通知中心</text
             ><text class="page-description"
-              >只展示与当前群组和本人有关的提醒；通知正文不会写入本地缓存。</text
+              >仅展示最近30天与当前群组和本人有关的提醒；通知正文不会写入本地缓存。</text
             ></view
           ><view class="summary-row"
             ><text class="unread-badge">{{unreadCountLabel}}</text

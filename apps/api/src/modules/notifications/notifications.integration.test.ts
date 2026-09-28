@@ -22,6 +22,7 @@ import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { DutyReminderJob } from '../../jobs/duty-reminders.js';
+import { HistoryMaintenanceJob } from '../../jobs/history-maintenance.js';
 import { NotificationRetryJob } from '../../jobs/notification-retry.js';
 import type { PushDispatcher } from './notification-dispatcher.js';
 import { createPushDispatcher } from './notification-dispatcher.js';
@@ -66,6 +67,111 @@ describeWithDatabase('notification workflows', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('retains only the last 30 China calendar days across notification lists, badges and read actions', async () => {
+    const firstGroupId = await createGroup('Retention first');
+    const secondGroupId = await createGroup('Retention second');
+    const [owner] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-owner'));
+    if (owner === undefined) throw new Error('Missing owner fixture');
+    const ids = Array.from({ length: 5 }, () => randomUUID());
+    const dates = [
+      '2026-08-31T15:59:59.999Z',
+      '2026-08-31T15:59:59.999Z',
+      '2026-08-31T16:00:00.000Z',
+      '2026-09-30T00:00:00.000Z',
+      '2026-09-29T00:00:00.000Z',
+    ];
+    await client.database.insert(notifications).values(
+      ids.map((id, index) => ({
+        id,
+        recipientUserId: owner.id,
+        groupId: index === 4 ? null : index === 3 ? secondGroupId : firstGroupId,
+        notificationType: 'duty_reminder',
+        title: 'Retention fixture',
+        body: 'Anonymous reminder',
+        isRead: index === 1 ? 1 : 0,
+        createdAt: new Date(dates[index] as string),
+      })),
+    );
+    await client.database.insert(notificationDeliveries).values({
+      id: randomUUID(),
+      notificationId: ids[0] as string,
+      status: 'sent',
+    });
+    const [before] = await client.database.execute(sql`SELECT * FROM notifications ORDER BY id`);
+    const deliveries = await client.database.select().from(notificationDeliveries);
+    vi.setSystemTime(new Date('2026-09-30T19:00:00.000Z'));
+    const job = new HistoryMaintenanceJob(client);
+    await job.runIfDue();
+    for (const platform of [undefined, 'miniprogram', 'web']) {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/notifications',
+        headers: {
+          authorization: 'Bearer owner-token',
+          ...(platform ? { 'X-Schedule-Client-Platform': platform } : {}),
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      const page = response.json() as NotificationPage;
+      expect(page.notifications.map((row) => row.id).sort()).toEqual(ids.slice(2).sort());
+      expect(page.unreadCount).toBe(3);
+    }
+    expect((await getUnreadCount('owner-token')).json()).toEqual({ unreadCount: 3 });
+    expect((await getUnreadCount('owner-token', firstGroupId)).json()).toEqual({ unreadCount: 1 });
+    expect(
+      (
+        await listNotifications('owner-token', { groupId: firstGroupId, unreadOnly: 'true' })
+      ).json(),
+    ).toMatchObject({ notifications: [expect.objectContaining({ id: ids[2] })], unreadCount: 1 });
+    expect((await listNotifications('outsider-token', {})).json()).toMatchObject({
+      notifications: [],
+      unreadCount: 0,
+    });
+    const paged: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = (
+        await app.inject({
+          method: 'GET',
+          url: `/notifications?pageSize=1${cursor ? `&cursor=${cursor}` : ''}`,
+          headers: { authorization: 'Bearer owner-token' },
+        })
+      ).json() as NotificationPage;
+      paged.push(...page.notifications.map((row) => row.id));
+      cursor = page.nextCursor;
+    } while (cursor !== undefined);
+    expect(paged.sort()).toEqual(ids.slice(2).sort());
+    const [after] = await client.database.execute(sql`SELECT * FROM notifications ORDER BY id`);
+    const business = (rows: unknown) =>
+      (rows as Record<string, unknown>[]).map((row) =>
+        Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'list_hidden_at')),
+      );
+    expect(business(after)).toEqual(business(before));
+    expect(await client.database.select().from(notificationDeliveries)).toEqual(deliveries);
+    expect(await job.runIfDue()).toEqual({ skipped: 'already-completed' });
+    expect((await markNotificationRead('owner-token', ids[0] as string)).statusCode).toBe(404);
+    expect((await markAllNotificationsRead('owner-token', firstGroupId)).json()).toEqual({
+      count: 1,
+    });
+    expect((await markAllNotificationsRead('owner-token')).json()).toEqual({ count: 2 });
+    const [old] = await client.database
+      .select()
+      .from(notifications)
+      .where(eq(notifications.id, ids[0] as string));
+    expect(old?.isRead).toBe(0);
+    expect(old?.readAt).toBeNull();
+    vi.setSystemTime(new Date('2026-10-01T19:00:00.000Z'));
+    await job.runIfDue();
+    expect(
+      ((await listNotifications('owner-token', {})).json() as NotificationPage).notifications
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual(ids.slice(3).sort());
   });
 
   it('writes leave workflow notifications and supports unread and read states', async () => {
