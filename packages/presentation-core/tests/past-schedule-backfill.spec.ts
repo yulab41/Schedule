@@ -23,7 +23,9 @@ const shiftA = 'shift-a';
 const shiftB = 'shift-b';
 const context = { businessMonth: '2026-07', today: '2026-08-26' };
 
-const addStage = (overrides: Partial<PastScheduleBackfillStage> = {}): PastScheduleBackfillStage => ({
+const addStage = (
+  overrides: Partial<PastScheduleBackfillStage> = {},
+): PastScheduleBackfillStage => ({
   actualMembershipId: memberA,
   assignmentId: '',
   businessDate: '2026-07-01',
@@ -62,8 +64,9 @@ describe('past schedule backfill staging', () => {
     stages = removal.stages;
 
     expect(stages.size).toBe(3);
-    expect(listBackfillStagesForDate(stages, { businessDate: '2026-07-01', scheduleRoleId: roleA }))
-      .toHaveLength(3);
+    expect(
+      listBackfillStagesForDate(stages, { businessDate: '2026-07-01', scheduleRoleId: roleA }),
+    ).toHaveLength(3);
     expect(
       isAssignmentStagedForRemoval(stages, {
         assignmentId: assignmentA,
@@ -89,9 +92,9 @@ describe('past schedule backfill staging', () => {
   });
 
   it('requires a target for each kind and keeps the stage key distinct per kind', () => {
-    expect(toggleBackfillStage(new Map(), addStage({ actualMembershipId: '' }), context).outcome).toBe(
-      'selection-required',
-    );
+    expect(
+      toggleBackfillStage(new Map(), addStage({ actualMembershipId: '' }), context).outcome,
+    ).toBe('selection-required');
     expect(toggleBackfillStage(new Map(), removeStage({ assignmentId: '' }), context).outcome).toBe(
       'selection-required',
     );
@@ -149,9 +152,9 @@ describe('past schedule backfill staging', () => {
         ' 实际值班人员更正 ',
       ),
     ).toBe(fingerprint);
-    expect(
-      getPastScheduleBackfillBatchFingerprint(snapshot.items, [], snapshot.reason),
-    ).not.toBe(fingerprint);
+    expect(getPastScheduleBackfillBatchFingerprint(snapshot.items, [], snapshot.reason)).not.toBe(
+      fingerprint,
+    );
   });
 
   it('filters by role and month and summarises names per kind', () => {
@@ -189,8 +192,20 @@ describe('past schedule backfill staging', () => {
       ]),
     });
     expect(summaries).toEqual([
-      { businessDate: '2026-07-01', kind: 'add', memberName: '张三', scheduleRoleId: roleA, shiftTypeName: 'A班' },
-      { businessDate: '2026-07-12', kind: 'add', memberName: '李四', scheduleRoleId: roleA, shiftTypeName: 'B班' },
+      {
+        businessDate: '2026-07-01',
+        kind: 'add',
+        memberName: '张三',
+        scheduleRoleId: roleA,
+        shiftTypeName: 'A班',
+      },
+      {
+        businessDate: '2026-07-12',
+        kind: 'add',
+        memberName: '李四',
+        scheduleRoleId: roleA,
+        shiftTypeName: 'B班',
+      },
     ]);
   });
 

@@ -79,9 +79,7 @@ export type PastScheduleBackfillRemoval = z.infer<typeof pastScheduleBackfillRem
 export const pastScheduleBackfillBatchRequestSchema = z
   .object({
     matchByMember: z.boolean().optional(),
-    items: z
-      .array(pastScheduleBackfillBatchItemSchema)
-      .max(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS),
+    items: z.array(pastScheduleBackfillBatchItemSchema).max(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS),
     operationId: pastScheduleUuidSchema.optional(),
     reason: z.string().trim().min(1).max(1000).optional(),
     removals: z

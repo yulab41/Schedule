@@ -123,8 +123,7 @@ export function listBackfillStagesForDate(
 ): readonly PastScheduleBackfillStage[] {
   return [...staged.values()].filter(
     (item) =>
-      item.scheduleRoleId === context.scheduleRoleId &&
-      item.businessDate === context.businessDate,
+      item.scheduleRoleId === context.scheduleRoleId && item.businessDate === context.businessDate,
   );
 }
 

@@ -896,9 +896,8 @@ function createBackfillMonthPanels(
             comparisonClass: 'is-added',
             markers: [],
             displayName:
-              page.data.members.find(
-                (member) => member.membershipId === change.actualMembershipId,
-              )?.realName ?? '待安排',
+              page.data.members.find((member) => member.membershipId === change.actualMembershipId)
+                ?.realName ?? '待安排',
           });
         }
         const sorted = sortCalendarWeekAssignments(

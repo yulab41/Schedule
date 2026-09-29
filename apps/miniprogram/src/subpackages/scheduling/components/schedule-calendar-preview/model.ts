@@ -206,13 +206,7 @@ export function previewWeekPanels(
   const panels = mapCalendarPeriodRing(
     ([-1, 0, 1] as const).map((relative) => {
       const start = addWeeks(weekStart, relative);
-      const week = previewWeekModel(
-        assignments,
-        start,
-        restrictToProposed,
-        holidays,
-        options,
-      );
+      const week = previewWeekModel(assignments, start, restrictToProposed, holidays, options);
       return {
         key: start,
         relative,
