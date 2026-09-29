@@ -52,6 +52,16 @@
 - 真实MySQL七文件148项，加同月/跨月恢复、换班/扣班撤销恢复、跨夜应用5项，累计153个独立用例通过。最终leaves/manual/statistics三文件59项再次全通过。
 - `pnpm miniprogram:verify`、`check:package`、`check:determinism`、`ci:dry-run`、`check:trial-lineage`通过。本地production/local脏树构建331文件，主包1,655,326 B，总包4,380,990 B；分包 scheduling431,685 / organization849,131 / workflows533,314 / insights911,534 B。不是版本绑定上传包；无当前基线同身份包体对比，不报告减量。
 - 保留既有提示：主包超过内部1.5M警戒，手排矩阵1510节点超过best-effort1000目标，Web HomeView压缩后577.09kB超过500kB警戒。未扩大优化范围。
-- `pnpm format:check`仍在五个未修改文件失败：Mini schedule-calendar-preview/model.ts、scheduling/pages/backfill/index.ts、contracts/past-schedules.ts、presentation-core/past-schedule-backfill.ts及其tests/past-schedule-backfill.spec.ts；已与基线/上一轮记录对照。本轮所有改动TS/Vue/MJS/JSON的Prettier通过，未混入无关格式改动；不宣称完整pnpm verify成功或清洁上传候选冻结通过。
+- 当时`pnpm format:check`在五个未修改文件失败（Mini schedule-calendar-preview/model.ts、scheduling/pages/backfill/index.ts、contracts/past-schedules.ts、presentation-core/past-schedule-backfill.ts及其测试）；已在`c4af13ef`以纯格式提交修复，合并引入的`infra/scripts/schedule-notifications.spec.ts`同样只做换行调整，之后完整`pnpm verify`全绿。
 - 浏览器对重建后的API/Web再次完整通过，合成角色已恢复。几何代理再次通过；文件/断言/旧响应结构审查、冲突标记和diff检查通过。审查确认仅任务文件；状态文档按当前批次压缩，历史详情在Git及原轮次报告保留。
-- 未执行生产备份、部署、统计重算、体验版上传或追加放行；没有本轮backup/release/trial身份。进入L4需当前明确授权，线上回滚候选须在部署前重新核对。
+- 本节记录实现阶段的本地状态；生产备份、部署、统计重算、体验版上传与追加放行已在获得明确L4授权后完成，见下方“生产交付”。
+
+## 生产交付（2026-09-29，用户授权 L4）
+
+- 主线与线上分叉修复：部署前实时读取服务器 `/opt/schedule/current-release` 与 manifest，两者一致为 `bc59dfbf`，但该提交只存在于并行分支 `codex/doctor-duty-reconcile`（16 提交、schema67/68、外部值班模块与小程序页），不在 main 祖先线上；主线同样缺其代码。若直接部署 main 会移除已上线能力，因此按仓库既有 `merge: include …` 惯例合并该分支为 `c59975c4`，仅 `docs/project-status.md`、`docs/audit/STATUS.md`、`docs/debug/debug-feedback-log.md` 冲突，按两侧记录手工合并。
+- 合并后门禁：六个既有未改格式文件（含合并带进来的 `infra/scripts/schedule-notifications.spec.ts`）完成纯格式提交；`pnpm verify` 全绿（1354 通过/466 跳过），真实 MySQL 七个共享集成文件 153 项通过，`packages/database/tests/migrations.test.ts` 单跑 30/30 通过（与 9 个 external-duty 文件并行时会因共享测试库互相清理而偶发失败，属既有隔离特性）。
+- 生产部署：`ECS_RELEASE_EXPECTED_COMMIT=c59975c4…`、`ECS_ROLLBACK_CANDIDATE=bc59dfbf…`（实时读取的线上 release）打包；五个产物上传后逐文件 sha256 与本地一致，服务器 `sed` 归一 LF 并 `bash -n` 通过；`ecs-update.sh` 输出 `发布成功：c59975c4…`，`current-release` 与 manifest 同步，独立 `ecs-verify.sh` 通过，schema 68。
+- 备份：本次 `ecs-update.sh` 步骤 1–7 不含数据库备份，按运行手册用可信控制 `/usr/local/lib/schedule/schedule-backup.sh` 补做加密备份 `d18366a6-582a-4002-bcf8-caa6791477a4`（56 表、138,974,408 B、sha256 `2e8b89efc28348de15ff3ca5b149b4e30973ffe2344c40d31c80a954259a6c6f`），非部署前时点，已在状态文档如实标注。
+- 统计重算核对：`run-job.js --job=statistics-rebuild` 结果 `completed=116 failed=0 months=116`；`statistics_snapshots` 116 行全部 `algorithmVersion=2`，758 个成员行无名空行（`NULL`/空串/离群占位）0 条；医生群 2026-09 至 2027-04 每月 6 名成员，护士群成员按 D班/A班/NP 班逐班种给出计划/实际/周末/节假日/换班/加班/扣班。
+- 体验版：`0.1.0-p10.20260929.216@c59975c4`（manifest `fa93ee4ca06cfa1e4606921d073cefb13639a7b31f4def4c91cabca3acd74549`）由独占上传 lease 动态分配并上传，receipt 记录 commit/manifest/tag；可信 `schedule-client-version-allowlist ensure` 只增放行 `.216` 并保留旧版本，独立 verify 通过；公网严格 TLS 探测 `.216`/`.215`=200、未知版本=426；放行后完整 ECS verifier 再次通过。
+- 证据分层：静态/Node/本地真实 MySQL/服务器只读 SQL 与 verifier/微信 CI 上传均为已验证；小米14同构建、iOS 与其他安卓仍未验证，未提交审核、未正式发布。生产 Web 页面未做人工浏览器会话，仅由本地 smoke 与服务器 verifier 覆盖。
