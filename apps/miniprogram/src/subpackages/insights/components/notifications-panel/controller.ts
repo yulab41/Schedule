@@ -3,7 +3,11 @@ import {
   type NotificationPreferencesClient,
   type P9InsightsActionsClient,
 } from '@schedule/client-core';
-import type { NotificationRecord, WechatNotificationKinds } from '@schedule/contracts';
+import type {
+  NotificationRecord,
+  WechatNotificationKinds,
+  WechatNotificationKindsPatch,
+} from '@schedule/contracts';
 import {
   canManageNotificationSettings,
   formatNotificationTime,
@@ -86,10 +90,12 @@ function createWechatKindRows(
   kinds: WechatNotificationKinds | undefined,
   configuration: WechatSubscriptionConfiguration | undefined,
   statusOverrides: Readonly<Partial<Record<WechatSubscriptionKind, string>>> = {},
+  enabled = true,
 ): readonly WechatKindRow[] {
   return wechatSubscriptionKindValues.map((kind) => {
     const configured = !!configuration?.[kind];
-    const checked = configured && (kinds?.[kind] ?? true) !== false;
+    // 旧的“接收微信提醒”总开关已移除；历史关闭状态按全部关闭呈现，打开任一类时会重新打开。
+    const checked = configured && enabled !== false && (kinds?.[kind] ?? true) !== false;
     return {
       checked,
       configured,
@@ -117,10 +123,8 @@ interface NotificationsPageData {
   readonly wechatKindRows: readonly WechatKindRow[];
   readonly wechatKindBusy: string;
   readonly actionBusyId: string;
-  readonly busy: boolean;
   readonly canManageGroupSettings: boolean;
   readonly embedded: boolean;
-  readonly enabled: boolean;
   readonly errorMessage: string;
   readonly groupId: string;
   readonly groupHoursInput: string;
@@ -151,6 +155,7 @@ interface NotificationsPageInstance extends InfoMessageHost {
   _subscriptionTemplates?: WechatSubscriptionConfiguration | undefined;
   _wechatKinds?: WechatNotificationKinds | undefined;
   _wechatKindStatus: Partial<Record<WechatSubscriptionKind, string>>;
+  _wechatEnabled?: boolean | undefined;
   readonly data: NotificationsPageData;
   readonly properties: {
     readonly embedded: boolean;
@@ -184,10 +189,8 @@ export function createNotificationsPanelControllerDefinition() {
       wechatKindRows: createWechatKindRows(defaultWechatKinds, undefined),
       wechatKindBusy: '',
       actionBusyId: '',
-      busy: false,
       canManageGroupSettings: false,
       embedded: false,
-      enabled: false,
       errorMessage: '',
       groupId: '',
       groupHoursInput: '',
@@ -266,7 +269,7 @@ export function createNotificationsPanelControllerDefinition() {
     pageLifetimes: {
       hide(this: NotificationsPageInstance): void {
         suspendNotificationFeedback(this);
-        if (!this.data.busy) this._wechatKindStatus = {};
+        if (this.data.wechatKindBusy === '') this._wechatKindStatus = {};
       },
       show(this: NotificationsPageInstance): void {
         this._feedbackHidden = false;
@@ -310,12 +313,6 @@ export function createNotificationsPanelControllerDefinition() {
       handleSaveMyPreferences(this: NotificationsPageInstance): void {
         void saveMyPreferences(this);
       },
-      handleToggle(
-        this: NotificationsPageInstance,
-        event: { readonly detail: { readonly checked: boolean } },
-      ): void {
-        void toggleWechatMaster(this, event.detail.checked);
-      },
       handleWechatKindToggle(
         this: NotificationsPageInstance,
         event: {
@@ -328,7 +325,7 @@ export function createNotificationsPanelControllerDefinition() {
         void toggleWechatKind(this, kind, event.detail.checked);
       },
       handleOpenSubscriptionSettings(this: NotificationsPageInstance): void {
-        if (!this.data.showSubscriptionSettings || this.data.busy) return;
+        if (!this.data.showSubscriptionSettings) return;
         const requestSerial = this._requestSerial;
         const groupId = this.data.groupId;
         const feedback = captureNotificationFeedback(this);
@@ -482,9 +479,9 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
     ]);
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
     page._wechatKinds = preferences.wechatNotificationKinds;
+    page._wechatEnabled = preferences.wechatNotificationsEnabled !== false;
     page.setData({
       canManageGroupSettings,
-      enabled: preferences.wechatNotificationsEnabled !== false,
       groupHoursInput: formatReminderHours(groupSettings?.dutyReminderHours ?? null),
       myHoursInput: formatReminderHours(preferences.dutyReminderHours),
       myHoursMode: getReminderHoursMode(preferences.dutyReminderHours),
@@ -644,9 +641,7 @@ function emptyNotificationsDataPatch(): Pick<
   | 'wechatKindRows'
   | 'wechatKindBusy'
   | 'actionBusyId'
-  | 'busy'
   | 'canManageGroupSettings'
-  | 'enabled'
   | 'groupHoursInput'
   | 'groupSettingsBusy'
   | 'infoMessage'
@@ -665,9 +660,7 @@ function emptyNotificationsDataPatch(): Pick<
     wechatKindBusy: '',
     templateConfigured: false,
     actionBusyId: '',
-    busy: false,
     canManageGroupSettings: false,
-    enabled: false,
     groupHoursInput: '',
     groupSettingsBusy: false,
     infoMessage: '',
@@ -735,61 +728,22 @@ function refreshWechatKindRows(page: NotificationsPageInstance): {
       page._wechatKinds,
       page._subscriptionTemplates,
       page._wechatKindStatus,
+      page._wechatEnabled,
     ),
   };
 }
 
-/** 总开关只控制接收偏好；每类是否授权由下面 5 个独立开关各自申请。 */
-async function toggleWechatMaster(
-  page: NotificationsPageInstance,
+/** 其它四类保持当前可见状态（历史总开关关闭时统一归一为关闭）。 */
+function resolveNextKind(
+  candidate: WechatSubscriptionKind,
+  toggled: WechatSubscriptionKind,
   checked: boolean,
-): Promise<void> {
-  if (page.data.busy || page.data.state !== 'ready') return;
-  initializeRuntimeState(page);
-  const requestSerial = page._requestSerial;
-  const groupId = page.data.groupId;
-  const ownerToken = getStoredWechatToken();
-  const current = () =>
-    isNotificationRequestCurrent(page, requestSerial, groupId) &&
-    ownerToken === getStoredWechatToken();
-  const feedback = captureNotificationFeedback(page);
-  const record = captureSubscriptionDiagnosticRecorder();
-  page.setData({ busy: true, errorMessage: '', infoMessage: '', showSubscriptionSettings: false });
-  try {
-    const capability = getClientCapabilitySnapshot();
-    if (!capability.global || !capability.externalMessages) {
-      throw new ClientCapabilityDisabledError('externalMessages');
-    }
-    if (!current()) return;
-    record({ stage: 'preference', outcome: 'started' });
-    const preferences = await page._preferencesClient.updateMine(groupId, {
-      wechatNotificationsEnabled: checked,
-    });
-    if (!current()) return;
-    record({ stage: 'preference', outcome: 'saved' });
-    page.setData({ busy: false, enabled: preferences.wechatNotificationsEnabled !== false });
-    showNotificationInfo(
-      page,
-      checked
-        ? '接收偏好已开启，可单独打开下面各类提醒的开关完成微信授权。'
-        : '微信提醒已关闭，应用内通知仍可用。',
-      feedback,
-    );
-  } catch (error) {
-    if (!current()) return;
-    record({ stage: 'preference', outcome: 'failed' });
-    if (error instanceof ClientCapabilityDisabledError) {
-      setNotificationsDisabled(page, error.message);
-      return;
-    }
-    page.setData({ busy: false });
-    showNotificationInfo(
-      page,
-      toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
-      feedback,
-      'error',
-    );
-  }
+  page: NotificationsPageInstance,
+): boolean {
+  if (candidate === toggled) return checked;
+  return (
+    (page._wechatEnabled ?? true) !== false && (page._wechatKinds?.[candidate] ?? true) !== false
+  );
 }
 
 /** 单个类型开关：打开时申请该模板的一次订阅，关闭时只保存偏好（不发微信请求）。 */
@@ -858,19 +812,28 @@ async function toggleWechatKind(
       }
     }
     record({ stage: 'preference', outcome: 'started' });
+    // 完整下发 5 类偏好：把历史“总开关关闭”状态一次性归一，避免打开一类时连带唤醒其它类。
+    const nextKinds: WechatNotificationKindsPatch = {
+      business: resolveNextKind('business', kind, checked, page),
+      dutyAdjustment: resolveNextKind('dutyAdjustment', kind, checked, page),
+      dutyReminder: resolveNextKind('dutyReminder', kind, checked, page),
+      leave: resolveNextKind('leave', kind, checked, page),
+      swap: resolveNextKind('swap', kind, checked, page),
+    };
     const preferences = await page._preferencesClient.updateMine(groupId, {
-      wechatNotificationKinds: { [kind]: checked },
+      wechatNotificationKinds: nextKinds,
+      ...(checked ? { wechatNotificationsEnabled: true } : {}),
     });
     if (!current()) return;
     record({ stage: 'preference', outcome: 'saved' });
     page._wechatKinds = preferences.wechatNotificationKinds;
+    page._wechatEnabled = preferences.wechatNotificationsEnabled !== false;
     page._wechatKindStatus = {
       ...page._wechatKindStatus,
       [kind]: checked ? '本次已授权' : '已关闭',
     };
     page.setData({
       ...refreshWechatKindRows(page),
-      enabled: preferences.wechatNotificationsEnabled !== false,
       wechatKindBusy: '',
     });
     showNotificationInfo(

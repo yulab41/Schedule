@@ -425,20 +425,6 @@
   border-radius: var(--ui-radius-medium);
   box-shadow: var(--ui-shadow-card);
 }
-.settings-row {
-  display: flex;
-  min-height: 64px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.settings-copy {
-  min-width: 0;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
-}
 .settings-title {
   color: var(--ui-color-text-primary);
   font-size: var(--ui-font-size-md);

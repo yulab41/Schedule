@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-30 NOTIFICATION-KIND-SWITCH-ONLY-001 通知设置只保留按类型开关
+
+- 需求变化：用户先要求总开关与 5 个独立开关联动，讨论中询问“能否连续弹窗申请”，核实微信 `requestSubscribeMessage` 必须由用户点击触发、单次最多 3 个模板（适配层已有硬校验），随后用户决定**去掉总开关**，只保留独立开关、打开某类即独立授权。联动/三态/3+2 两步方案全部作废，未实现。
+- 行为清单：删除总开关行与其 `busy/enabled/handleToggle/toggleWechatMaster`；行开关打开时同步申请该模板一次订阅，成功后 `PUT` 完整 5 类偏好 + `wechatNotificationsEnabled:true`；关闭时只 `PUT` 完整 5 类偏好；历史总开关关闭状态按全关呈现，打开任一类只开启该类（`resolveNextKind` 单点归一）；保存中只在该行 `loading`，仅未配置模板永久禁用；删除只服务总开关的 `.settings-row/.settings-copy`。契约/API/数据库未改，无迁移。
+- 红绿与门禁：`notifications-controller.test.mjs` 30 项（含新增“历史总开关关闭归一后只开启所点类型且页面不再有总开关字段”）、`workflow-switch-feedback.test.mjs` 23 项（守卫改为断言按行 loading + 未配置才禁用，禁止全局变灰）通过；Mini 全量 1303 通过/23 跳过；typecheck/lint/format/production verify（包体 4,440,213 B、manifest `1d102623…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
+- 运行/浏览器验证：本轮只改 `apps/miniprogram/**`，`pnpm smoke:check-core` 明确输出“未涉及核心链路文件，无需浏览器冒烟记录”，未运行 `pnpm smoke:browser`。
+- 交付边界：Mini/文档范围，不触发生产部署或备份；体验版上传 + 放行待用户当次授权（见 [轮次记录](../audit/notification-kind-switches-20260930.md)）。
+
 ## 2026-09-29 MINI-SIX-FIXES-001 请假日期边界与小程序六项修复
 
 - 引入点：`git log -S 'getChinaStandardTimeBusinessDate(leave.startsAt)'` 与 `git blame -L 28,49 packages/scheduling-domain/src/leave/overlap.ts` 定位：业务日换算自 `6452fa92`，把请假窗口按 08:00 交班日解释；`52e4b7e2` 新增的原始区间分支用该（已偏移的）业务日构造 `T00:00:00+08:00` 窗口，使 2027-05-01 起的请假窗口变成 [04-30, 05-06)，从而（a）误报 04-29 全天班（04-29 08:00→04-30 08:00）冲突，（b）漏掉 05-06 当天班次。

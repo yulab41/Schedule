@@ -92,7 +92,7 @@ describe('notification parity controller', () => {
       browserNotificationsEnabled: false,
       dutyReminderHours: null,
       membershipId: 'member-1',
-      wechatNotificationsEnabled: false,
+      wechatNotificationsEnabled: true,
     });
     mocks.updateGroup.mockImplementation(async (_groupId, input) => ({ groupId, ...input }));
     mocks.updateMine.mockImplementation(async (_groupId, input) => ({
@@ -107,7 +107,7 @@ describe('notification parity controller', () => {
         swap: true,
         ...(input.wechatNotificationKinds ?? {}),
       },
-      wechatNotificationsEnabled: input.wechatNotificationsEnabled ?? false,
+      wechatNotificationsEnabled: input.wechatNotificationsEnabled ?? true,
     }));
     mocks.markAllNotificationsRead.mockResolvedValue({ count: 1 });
     mocks.markNotificationRead.mockImplementation(async (id) => ({
@@ -149,7 +149,14 @@ describe('notification parity controller', () => {
       expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith([id]);
       await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
       expect(mocks.updateMine).toHaveBeenLastCalledWith(groupId, {
-        wechatNotificationKinds: { [kind]: true },
+        wechatNotificationKinds: {
+          business: true,
+          dutyAdjustment: true,
+          dutyReminder: true,
+          leave: true,
+          swap: true,
+        },
+        wechatNotificationsEnabled: true,
       });
       const row = page.data.wechatKindRows.find((item) => item.kind === kind);
       expect(row).toMatchObject({ checked: true, statusLabel: '本次已授权' });
@@ -170,7 +177,13 @@ describe('notification parity controller', () => {
     await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
     expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
-      wechatNotificationKinds: { swap: false },
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: false,
+      },
     });
     expect(page.data.wechatKindRows.find((row) => row.kind === 'swap')).toMatchObject({
       checked: false,
@@ -203,15 +216,50 @@ describe('notification parity controller', () => {
     });
   });
 
-  it('enables receiving without triggering a native consent prompt', async () => {
+  it('normalizes a legacy master-off state and enables only the toggled kind', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
+    mocks.getMine.mockResolvedValue({
+      browserNotificationsEnabled: false,
+      dutyReminderHours: null,
+      membershipId: 'member-1',
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+      },
+      wechatNotificationsEnabled: false,
+    });
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    definition.methods.handleToggle.call(page, { detail: { checked: true } });
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
-    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: true });
+    // 历史“总开关关闭”状态按全部关闭呈现，且页面不再有总开关。
+    expect(page.data.wechatKindRows.every((row) => !row.checked)).toBe(true);
+    expect(page.data).not.toHaveProperty('enabled');
+    mocks.requestSubscriptions.mockResolvedValue([
+      { granted: true, status: 'accepted', templateId: 'swap' },
+    ]);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'swap' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
+      wechatNotificationKinds: {
+        business: false,
+        dutyAdjustment: false,
+        dutyReminder: false,
+        leave: false,
+        swap: true,
+      },
+      wechatNotificationsEnabled: true,
+    });
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'swap')).toMatchObject({
+      checked: true,
+      statusLabel: '本次已授权',
+    });
   });
 
   it('keeps a kind switch retryable when saving its preference fails', async () => {
@@ -240,7 +288,14 @@ describe('notification parity controller', () => {
     });
     await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(mocks.updateMine).toHaveBeenLastCalledWith(groupId, {
-      wechatNotificationKinds: { business: true },
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+      },
+      wechatNotificationsEnabled: true,
     });
     expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
       checked: true,
@@ -467,11 +522,18 @@ describe('notification parity controller', () => {
       'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
     ]);
     expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
-      wechatNotificationKinds: { dutyReminder: true },
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+      },
+      wechatNotificationsEnabled: true,
     });
   });
 
-  it('keeps receiving enabled and the switch off when a requested template is rejected', async () => {
+  it('keeps the other kinds and the switch state when a requested template is rejected', async () => {
     mocks.templates.mockResolvedValueOnce(['duty', 'business']);
     mocks.requestSubscriptions.mockResolvedValue([
       { granted: false, status: 'rejected', templateId: 'business' },
@@ -480,7 +542,6 @@ describe('notification parity controller', () => {
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    page.setData({ enabled: true });
     definition.methods.handleWechatKindToggle.call(page, {
       currentTarget: { dataset: { kind: 'business' } },
       detail: { checked: true },
@@ -488,7 +549,6 @@ describe('notification parity controller', () => {
     await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(mocks.requestSubscriptions).toHaveBeenCalledWith(['business']);
     expect(mocks.updateMine).not.toHaveBeenCalled();
-    expect(page.data.enabled).toBe(true);
     expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
       // 微信拒绝授权只影响本次订阅结果，接收偏好保持原状，可关闭后再开启重试。
       checked: true,
@@ -521,7 +581,6 @@ describe('notification parity controller', () => {
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    page.setData({ enabled: true });
     mocks.requestSubscriptions.mockResolvedValue([
       {
         granted: true,
@@ -582,7 +641,14 @@ describe('notification parity controller', () => {
     ]);
     await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
-      wechatNotificationKinds: { dutyReminder: true },
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+      },
+      wechatNotificationsEnabled: true,
     });
     expect(page.data.infoMessage).toBe('');
   });
@@ -629,18 +695,6 @@ describe('notification parity controller', () => {
     expect(globalThis.wx.openSetting).not.toHaveBeenCalled();
     definition.methods.handleOpenSubscriptionSettings.call(page);
     expect(globalThis.wx.openSetting).toHaveBeenCalledTimes(1);
-  });
-
-  it('closes an enabled preference without requesting a subscription', async () => {
-    const definition = await definitionFor('settings');
-    const page = pageFor(definition, 'settings');
-    definition.lifetimes.attached.call(page);
-    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    page.setData({ enabled: true });
-    definition.methods.handleToggle.call(page, { detail: { checked: false } });
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
-    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: false });
   });
 
   it('does not request subscription when the capability was disabled after loading', async () => {
@@ -704,7 +758,6 @@ describe('notification parity controller', () => {
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    page.setData({ enabled: true });
     mocks.requestSubscriptions.mockResolvedValue([
       {
         granted: false,
@@ -717,7 +770,6 @@ describe('notification parity controller', () => {
       detail: { checked: true },
     });
     await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
-    expect(page.data.enabled).toBe(true);
     expect(mocks.updateMine).not.toHaveBeenCalled();
     mocks.requestSubscriptions.mockResolvedValue([
       {

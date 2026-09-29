@@ -181,7 +181,9 @@ describe('workflow switch feedback without whole-row disabled flashing', () => {
       'utf8',
     );
     const control = source.match(/<ui-switch\b[\s\S]*?<\/ui-switch>/u)[0];
-    expect(control).toContain('loading="{{busy}}"');
-    expect(control).not.toContain('disabled="{{busy}}"');
+    // 保存中的那一类只显示 loading；其它类不做全局变灰，未配置模板才永久禁用。
+    expect(control).toContain('loading="{{wechatKindBusy === item.kind}}"');
+    expect(control).toContain('disabled="{{!item.configured}}"');
+    expect(control).not.toContain('disabled="{{wechatKindBusy');
   });
 });

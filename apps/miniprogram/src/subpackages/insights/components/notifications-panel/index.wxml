@@ -178,18 +178,9 @@
               bindpress="handleSaveMyPreferences"
             ></ui-button></view
           ><view class="settings-card"
-            ><view class="settings-row"
-              ><view class="settings-copy"
-                ><text class="settings-title">接收微信提醒</text
-                ><text class="settings-description"
-                  >接收偏好：{{enabled ? '已开启' : '已关闭'}}</text
-                ></view
-              ><ui-switch
-                checked="{{enabled}}"
-                label="接收微信提醒"
-                loading="{{busy}}"
-                bind:change="handleToggle"
-              ></ui-switch></view
+            ><text class="settings-title">微信提醒授权</text
+            ><text class="settings-description"
+              >逐类开启需要接收的提醒；打开时会申请该类订阅授权，关闭后不再接收该类微信提醒。</text
             ><view class="wechat-kind-list"
               ><view
                 wx:for="{{wechatKindRows}}"
@@ -201,7 +192,7 @@
                 ><ui-switch
                   checked="{{item.checked}}"
                   label="{{item.label}}"
-                  disabled="{{busy || wechatKindBusy !== '' || !item.configured}}"
+                  disabled="{{!item.configured}}"
                   loading="{{wechatKindBusy === item.kind}}"
                   data-kind="{{item.kind}}"
                   bind:change="handleWechatKindToggle"
@@ -210,7 +201,7 @@
             ><view class="audit-note"
               ><text class="audit-mark">⌁</text
               ><text
-                >每一类都可单独开启或关闭。打开某一类会立即申请该类微信订阅授权；关闭后服务端不再发送该类微信提醒。微信一次性模板每次授权只可发送一条提醒，可关闭后再开启重新授权。</text
+                >每一类都可单独开启或关闭，互不影响。微信一次性模板每次授权只可发送一条提醒，需要再次接收时可关闭后再开启该类提醒重新授权。</text
               ></view
             ></view
           ><ui-alert
