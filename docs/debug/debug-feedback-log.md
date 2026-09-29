@@ -9,7 +9,8 @@
 - 红绿：`packages/scheduling-domain/src/leave/overlap.test.ts` 新增日历日用例先红（expected false, received true）后绿，包内 52 项通过；`leaves.integration.test.ts` 新增 affected-shifts/提交用例（真实 MySQL）通过，工作流 88 项、手动排班 37 项、迁移 30 项、按类型微信通知新用例通过。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本地 API 3000/Web 5173 全流程通过（登录/管理员/成员/访客 vkey/访问记录，浏览器错误 0）；本地开发库先迁移到 schema 69，仅本地合成 `local-admin` 临时设为平台管理员匹配冒烟前置，跑完立即恢复为 0；`pnpm smoke:check-core` 通过。几何代理（非原生）测得我的页胶囊居中和四边等宽内边距、周期天数弹层与年月选择器按钮几何一致。
 - 既有失败（非本轮引入）：`pnpm test:api-integration:task10` 的 `calendar.integration.test.ts > excludes drafts and replaced revisions from the calendar` 在把本轮改动 `git stash` 后仍失败（回拨时钟到 2026-08-02 后替换既往排班命中“草稿包含已过日期”409），本轮未修改该测试或该守卫。
-- 体验版与生产：见本轮 [轮次记录](../audit/mini-six-fixes-20260929.md)（本轮随后执行 L4 部署与 L3 上传放行）。
+- 生产交付：应用 `5f25d946`（`fix(miniprogram): fix leave date boundary and deliver six mini fixes`）已推送并部署，实时回滚候选 `c59975c4…`，备份 `49236b11-b57e-4994-bca2-5a7b7ce2edec`（56 表、139,505,928 B、sha256 `5ee00d5a…`），schema 69，独立完整 verifier 通过，公网健康 `ready:true`。体验版 `0.1.0-p10.20260929.217`（manifest `8a432f75…`、短 SHA `5f25d94`）上传并只增放行，白名单 verify 与放行后完整 verifier 通过。见 [轮次记录](../audit/mini-six-fixes-20260929.md)。
+- 证据分层：服务器只读 SQL/脚本输出/独立 verifier/微信 CI 上传为已验证；小米 14 同构建体验版、iOS 与其他安卓未验证，未提交审核、未正式发布。
 
 ## 2026-09-28 EXTERNAL-DUTY-PREVIEW-001 未改动班次预览被拒绝
 

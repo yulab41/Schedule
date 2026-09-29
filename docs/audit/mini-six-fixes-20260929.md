@@ -36,3 +36,12 @@
 
 - 本轮用户明确授权“完成后直接上传并放行”，按 L3 体验版上传 + 追加放行执行；生产部署（L4）授权同批给出，按 runbook 备份 → 部署（含 0069 迁移）→ 验证。
 - 未提交审核、未正式发布；真机验收证据仍需用户在小米 14 体验版同构建下确认。
+
+## 生产交付（2026-09-29，用户授权 L4）
+
+- 应用检查点 `5f25d946`（`fix(miniprogram): fix leave date boundary and deliver six mini fixes`）已按 fast-forward 推送 `origin/main`。
+- 动态基线：操作前实时读取线上 `current-release` = `c59975c4…` 作为回滚候选（`git merge-base --is-ancestor` 验证为候选祖先）；未使用任何状态文档中的历史值。
+- 生产备份（可信控制 `/usr/local/lib/schedule/schedule-backup.sh`，部署前）：归档 `49236b11-b57e-4994-bca2-5a7b7ce2edec`，56 表 / 139,505,928 B / sha256 `5ee00d5a791b91542a42891d1f37e38d6eba6461484ec4f4d65cdd9b69773f16`。
+- 部署：本地 `pnpm ecs:package`（`databaseSchemaMin/Max=69`、rollback candidate `c59975c4…`）产生 `schedule-dist.tar.gz`(1,460,586 B)、`api-flat.tar.zst`(6,104,138 B)、`deploy-manifest.json`，连同同 commit 的 `ecs-update.sh`/`ecs-verify.sh` 上传到服务器临时目录；归一 LF、`bash -n` 通过后执行 `ecs-update.sh` → `发布成功：5f25d946…`（迁移 69 应用、api/web 容器重建、api 就绪探针通过）；独立 `ecs-verify.sh` 通过（含新增 69 段 `notification_preferences.wechat_notification_kinds` 校验、产物哈希、容器、迁移计数 69）。部署后回读 `current-release=5f25d946…`、`databaseSchemaMax=69`、公网 `https://hosp.schedule.eylinhome.top/api/health` 返回 `ready:true`。
+- 体验版：独占上传 lease 下动态分配 `0.1.0-p10.20260929.217`（描述含短 SHA `5f25d94`，production，manifest `8a432f758cda56b8e1b785d0c1e4a90c15afd42b72242aadcd8b6a77bacdfa62`，不可变 tag `miniprogram-trial/0.1.0-p10.20260929.217`，receipt 见 ignored `runtime/audit/miniprogram-trials/0.1.0-p10.20260929.217.json`），上传成功；随后可信控制 `schedule-client-version-allowlist ensure` 只增放行该版本并通过健康与策略验证，`verify` 再次通过，放行后完整 `ecs-verify.sh` 通过。
+- 证据分层：服务器只读 SQL、部署脚本输出、独立 verifier、微信 CI 上传均为已验证；小米 14 同构建体验版、iOS 与其他安卓仍未验证。
