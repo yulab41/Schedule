@@ -33,6 +33,7 @@ export * from './workflow-sequences.js';
 export * from './wechat.js';
 export * from './telemetry.js';
 export * from './directory.js';
+export * from './external-duty.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 

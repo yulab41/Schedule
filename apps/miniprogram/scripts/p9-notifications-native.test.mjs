@@ -24,6 +24,7 @@ describe('P9 native notifications', () => {
         'pages/notifications/index',
         'pages/exports/index',
         'pages/notification-settings/index',
+        'pages/external-duty/index',
       ],
     });
     expect(page).toContain('通知中心');

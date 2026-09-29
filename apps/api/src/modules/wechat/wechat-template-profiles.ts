@@ -101,6 +101,7 @@ export function notificationStatus(
   type: string,
   payload?: Readonly<Record<string, unknown>> | null,
 ): string {
+  if (type === 'schedule_changed' && payload?.externalDutyCheck === true) return '待处理';
   if (type.endsWith('_rejected')) return '已驳回';
   if (type.endsWith('_cancelled')) return '已取消';
   if (type.endsWith('_revoked')) return '已撤销';

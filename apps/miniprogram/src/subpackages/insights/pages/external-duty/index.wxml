@@ -1,0 +1,198 @@
+<view class="duty-page {{largeText ? 'is-large-text' : ''}}">
+  <view class="duty-header" style="{{headerStyle}}">
+    <view
+      class="duty-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多"
+      bindtap="back"
+      ><image src="/assets/icons/ui-chevron-left.svg" mode="aspectFit"
+    /></view>
+    <text class="duty-title">排班网页校对</text>
+  </view>
+  <scroll-view class="duty-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="duty-content">
+      <view class="duty-overview">
+        <view class="duty-overview-top"
+          ><view class="duty-overview-copy"
+            ><text class="duty-group">头颈外科医生</text
+            ><text class="duty-muted">一线 · 全天班</text></view
+          ><ui-button
+            variant="primary"
+            label="立即检测"
+            loading="{{busy && !confirmation}}"
+            disabled="{{busy}}"
+            bindpress="scan"
+        /></view>
+        <text class="duty-description"
+          >仅核对今天起已发布、且网页有排班的日期。同步前需你确认。</text
+        >
+        <text class="duty-checked">{{checkedLabel}} · 北京时间</text>
+      </view>
+      <view class="duty-tabs">
+        <view
+          class="duty-tab {{!showHistory ? 'is-active' : ''}}"
+          aria-role="button"
+          aria-label="待处理 {{rows.length}} 项"
+          aria-disabled="{{busy}}"
+          data-tab="pending"
+          bindtap="selectTab"
+          ><text>待处理</text><text class="duty-count">{{rows.length}}</text></view
+        >
+        <view
+          class="duty-tab {{showHistory ? 'is-active' : ''}}"
+          aria-role="button"
+          aria-label="操作记录 {{historyRows.length}} 条"
+          aria-disabled="{{busy}}"
+          data-tab="history"
+          bindtap="selectTab"
+          ><text>操作记录</text><text class="duty-count">{{historyRows.length}}</text></view
+        >
+      </view>
+      <ui-alert wx:if="{{error}}" tone="danger" title="操作未完成" message="{{error}}" />
+      <ui-alert wx:if="{{scanStatus}}" tone="warning" title="检测提示" message="{{scanStatus}}" />
+      <view wx:if="{{info && !error}}" class="duty-feedback">{{info}}</view>
+      <view wx:if="{{busy && !loaded}}" class="duty-empty"
+        ><ui-loading label="正在读取校对记录"
+      /></view>
+      <block wx:elif="{{!showHistory}}">
+        <view wx:if="{{loaded && !error && !scanStatus && rows.length === 0}}" class="duty-empty"
+          ><text class="duty-empty-title">暂无待处理差异</text
+          ><text class="duty-muted">检测范围内没有待处理差异。</text></view
+        >
+        <view wx:for="{{rows}}" wx:key="businessDate" class="duty-card">
+          <view class="duty-card-top"
+            ><text class="duty-date">{{item.businessDate}}</text
+            ><text class="duty-badge is-{{item.status}}"
+              >{{item.status === 'blocked' ? '需核对' : item.status === 'processing' ? '处理中' :
+              '待确认'}}</text
+            ></view
+          >
+          <text class="duty-source"
+            >{{item.changeSource === 'remote' ? '网页端有变化' : item.changeSource === 'local' ?
+            '本系统有变化' : '双方均有变化'}}</text
+          >
+          <view class="duty-people">
+            <view class="duty-person {{item.changeSource === 'remote' ? 'is-changed' : ''}}"
+              ><text class="duty-person-label">网页</text
+              ><text class="duty-person-name">{{item.remoteName}}</text></view
+            >
+            <view class="duty-person is-baseline"
+              ><text class="duty-person-label">发布基线</text
+              ><text class="duty-person-name">{{item.baselineName || '未确定'}}</text></view
+            >
+            <view class="duty-person {{item.changeSource === 'local' ? 'is-changed' : ''}}"
+              ><text class="duty-person-label">本系统</text
+              ><text class="duty-person-name">{{item.localName || '无排班'}}</text></view
+            >
+          </view>
+          <view wx:if="{{item.blockReason}}" class="duty-note is-danger">{{item.blockReason}}</view>
+          <view
+            wx:elif="{{item.suggestion}}"
+            class="duty-note {{item.suggestion.kind === 'blocked' ? 'is-warning' : ''}}"
+            ><text class="duty-note-title"
+              >{{item.suggestion.kind === 'swap' ? '建议换班' : item.suggestion.kind === 'duty' ?
+              '建议加扣班' : '暂无法生成建议'}}</text
+            ><text wx:if="{{item.suggestion.kind === 'swap'}}"
+              >涉及 {{item.suggestion.steps.length}} 步交换，查看完整方案后确认。</text
+            ><text wx:else>{{item.suggestion.detail}}</text></view
+          >
+          <view wx:if="{{item.status === 'processing'}}" class="duty-note"
+            >已提交处理；实际排班一致后将自动移出列表。</view
+          >
+          <view wx:if="{{item.status === 'pending'}}" class="duty-card-actions">
+            <ui-button
+              wx:if="{{item.changeSource === 'remote' && item.suggestion && item.suggestion.kind !== 'blocked'}}"
+              variant="primary"
+              label="预览建议"
+              disabled="{{busy}}"
+              data-date="{{item.businessDate}}"
+              bindpress="applySuggestion"
+            />
+            <ui-button
+              wx:if="{{item.changeSource === 'local'}}"
+              variant="primary"
+              label="同步到网页"
+              disabled="{{busy}}"
+              data-date="{{item.businessDate}}"
+              bindpress="push"
+            />
+          </view>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="duty-history-intro">查看同步进度，或将某次操作恢复为最新发布基线。</view>
+        <view wx:if="{{loaded && !error && historyRows.length === 0}}" class="duty-empty"
+          ><text class="duty-empty-title">暂无操作记录</text
+          ><text class="duty-muted">确认同步后，可在这里查看处理结果。</text></view
+        >
+        <view wx:for="{{historyRows}}" wx:key="id" class="duty-card">
+          <view class="duty-card-top"
+            ><text class="duty-date">{{item.businessDate}}</text
+            ><text class="duty-badge {{item.status === 'reverted' ? 'is-muted' : ''}}"
+              >{{item.statusLabel}}</text
+            ></view
+          >
+          <text class="duty-source"
+            >{{item.side === 'external' ? '同步到网页' : '同步到本系统'}}</text
+          >
+          <view class="duty-change"
+            ><text class="duty-before">{{item.beforeName || '空缺'}}</text
+            ><text class="duty-arrow">→</text
+            ><text class="duty-after">{{item.afterName || '空缺'}}</text></view
+          >
+          <text class="duty-muted">操作时发布基线：{{item.baselineName}}</text>
+          <view
+            wx:if="{{item.status === 'applied' || item.status === 'applying'}}"
+            class="duty-card-actions"
+            ><ui-button
+              variant="secondary"
+              label="恢复发布基线"
+              disabled="{{busy}}"
+              data-id="{{item.id}}"
+              bindpress="undo"
+          /></view>
+        </view>
+      </block>
+      <text class="duty-footer">一致日期自动隐藏 · 每分钟检测一次</text>
+    </view>
+  </scroll-view>
+  <ui-sheet
+    visible="{{confirmation !== null}}"
+    title="{{confirmation.title}}"
+    size="content"
+    close-label="{{busy ? '提交中' : '取消'}}"
+    bindclose="closeConfirmation"
+  >
+    <view wx:if="{{confirmation}}" class="duty-confirm {{largeText ? 'is-large-text' : ''}}">
+      <scroll-view class="duty-confirm-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <text class="duty-description">{{confirmation.description}}</text>
+        <view class="duty-changes">
+          <view wx:for="{{confirmation.changes}}" wx:key="date" class="duty-change-row"
+            ><text class="duty-change-date">{{item.date}}</text
+            ><view class="duty-change"
+              ><text class="duty-before">{{item.before}}</text><text class="duty-arrow">→</text
+              ><text class="duty-after">{{item.after}}</text></view
+            ></view
+          >
+        </view>
+        <view wx:if="{{confirmation.steps.length}}" class="duty-note"
+          ><text class="duty-note-title">换班步骤 · {{confirmation.steps.length}} 步</text
+          ><text wx:for="{{confirmation.steps}}" wx:key="*this">{{index + 1}}. {{item}}</text></view
+        >
+        <view wx:if="{{confirmation.conflicts.length}}" class="duty-note is-danger"
+          ><text class="duty-note-title">请先解决以下冲突</text
+          ><text wx:for="{{confirmation.conflicts}}" wx:key="*this">{{item}}</text></view
+        >
+      </scroll-view>
+      <view class="duty-confirm-actions"
+        ><ui-button label="取消" disabled="{{busy}}" bindpress="closeConfirmation" /><ui-button
+          variant="{{confirmation.endpoint === '/undo' ? 'danger' : 'primary'}}"
+          label="{{confirmation.confirmLabel}}"
+          loading="{{busy}}"
+          disabled="{{busy || !!confirmation.conflicts.length}}"
+          bindpress="confirmAction"
+      /></view>
+    </view>
+  </ui-sheet>
+</view>

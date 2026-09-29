@@ -25,12 +25,13 @@ describe('Mini workbench tool access matrix', () => {
     });
   });
 
-  it('keeps group administrators on management tools but never exposes platform accounts', () => {
+  it('keeps group administrators on management tools but never exposes platform-only tools', () => {
     for (const role of ['owner', 'administrator']) {
       const access = createWorkbenchToolAccess(group(role), capability());
       expect(access.platformAccounts).toBe(false);
+      expect(access.externalDuty).toBe(false);
       expect(visibleTools(access)).toEqual(
-        workbenchToolIds.filter((id) => id !== 'platformAccounts'),
+        workbenchToolIds.filter((id) => id !== 'platformAccounts' && id !== 'externalDuty'),
       );
     }
   });

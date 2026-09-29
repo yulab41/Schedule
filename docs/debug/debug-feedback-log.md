@@ -2,6 +2,21 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-28 EXTERNAL-DUTY-PREVIEW-001 未改动班次预览被拒绝
+
+- 引入点：`git log -S 'membershipId: shiftAssignments.actualMembershipId'` 与 `git blame -L 708,737` 定位 `a5de1931` 的换班预览裸覆盖读取。上一轮 `9715e88f` 修复扫描和 `readLocalDate`，预览又单独读空覆盖，漏用发布成员。Mini `external-duty-client.ts` 把所有 409 显示为“排班已变化”，掩盖了真正原因。
+- 生产只读基线：live `9715e88f`，10 月 12/13 日网页单侧两日交换；调用真实 `list → previewInbound → SwapService.preview` 在进入原换班预览前返回 409“本系统值班人无法唯一对应成员”。预览前后 `shift_assignments` 全内容哈希相同。脚本不创建换班、加扣班、通知或外部写入；脱敏证据在 ignored `runtime/audit/external-duty-preview/`。首次脚本因 ESM export 的 require.resolve 路径失败，改用已有部署文件绝对 import 后复现，不计失败脚本为业务证据。
+- 行为变化：`inboundTarget` 返回已核验快照的有效成员 ID；`previewInbound` 使用该值而非另查可空实际覆盖。减少一次 SELECT，空值语义与列表/执行一致；原 `SwapService.preview` 的接收者、await/错误传播、权限、冲突与班次有效值校验不变。仍拒绝真实版本/网页变化；实际覆盖非空仍优先。无 Mini、schema 或业务规则变更。
+- 红绿：`pnpm exec vitest run apps/api/src/modules/external-duty/external-duty-preview.spec.ts` 旧版 1 失败/4 通过（无实际覆盖时误拒绝）；修复后 `pnpm exec vitest run apps/api/src/modules/external-duty` 31 通过/1 数据库锁集成跳过。新测试覆盖无覆盖、有覆盖、版本变化、网页变化、原加扣班预览路径以及预览无写入。`pnpm --filter @schedule/api typecheck`、定向 ESLint、API build、任务 Prettier 与 diff 检查通过。
+- 运行/浏览器验证：`pnpm smoke:check-core` 通过，本轮无 Web 核心链路变更，不触发 `smoke:browser`。应用 `bc59dfbf`（`fix(external-duty): preview swaps with the effective published member`）已推送并生产部署，实时前驱 `9715e88f`，schema68。备份 `aa85f12d-65a2-4df0-ac74-f95fd27504d7`（56 表、137,569,576 B），服务器文件 SHA256 `50632395bbb2135c9a197d63389d0debdce183d5844c322685337e29a711d0d7` 与记录一致。独立完整 ECS verifier 通过；未配置 `ECS_PUBLIC_IP` 的公网原始 IP 主动探测跳过，不作验证声明。
+- 生产回读：同一 `list → previewInbound → SwapService.preview` 路径在 10 月 12/13 日返回成功、冲突 0、`nextStatus=pending_target`，班次全内容哈希在预览前后相同。只有只读预览，没有确认执行业务变更。部署健康检查初次 TLS EOF/502 经标准等待恢复；不绕过任何 gate。交付文档 `docs(release): record external duty preview fix delivery` 不重复部署；`.214` 无需重传，唯一下一任务为页面“立即检测 → 10 月 12 日预览建议”，小米14同构建验收保持待用户复核。
+
+## 2026-09-28 EXTERNAL-DUTY-EFFECTIVE-001 计划值误报无人值班
+
+- 证据：用户提供的校对页截图中有日期发布基线有人而“本系统”为空，另有实际值与基线不同的日期正确；截图未证明设备或构建身份。`git log -S 'name: shiftAssignments.actualMemberName'` 与 blame 指向 `a5de1931`：校对服务直接取可空的 `actualMemberName`。日历与工作流读取有效值均采用 `actualMemberName ?? plannedMemberName`，成员 ID 同理；空覆盖不代表空班。
+- 行为变化：校对扫描和确认前单日重读共用有效值回退；实际覆盖非空时仍优先，双方都空仍阻塞。未改排班、审批、外部写入接口或小程序源码。回归先红（姓名与成员 ID 均读成空）后绿；API 校对 26/26、类型、定向 lint、API 构建通过。运行/浏览器验证：`pnpm smoke:check-core` 通过；未触及 Web 核心文件，不触发 `pnpm smoke:browser`。生产运行见下项，`.214` 真机仍待复核。
+- `9715e88f` 已推送并生产部署，实时前驱 `06d420a1`，备份 `cb4d3308-5136-4221-9265-7a744ed8f349`（56 表、137,397,088 B）；独立完整 verifier 通过。校对作业 214 日期、新提醒 0；只读回读 9 月 28/30 日 `aligned`、10 月 1/2 日 `pending/local`，未输出医生姓名。交付记录消息 `docs(release): record external duty effective-value fix`，文档检查点不重复部署。唯一下一步为 `.214` 页面点击“立即检测”复核；小米14真实交互未验收。
+
 ## 2026-09-27 MINI-CALENDAR-LEFT-007 姓名行左对齐微调
 
 - 引入点：`git log -S 'is-centered'` 与 blame 指向 `17598dc8`；月格两个行类将所有组合居中，偏离用户澄清的“仅三字＋标识决定倍率，实际显示左对齐”。
@@ -3314,10 +3329,17 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - Mini全量1291通过/21跳过，production verify、dry-run和血缘通过。首轮文字守卫1项失败，恢复原已读提示、另放30天摘要后定向4/4及全量通过。[完整记录](../audit/notifications-retention-30days-20260928.md)记录日期边界、基线、命令、备份及schema66回滚限制。
 - 交付：8bb3c6e4推送部署、备份be0ed062-e891-4505-943c-9589384b6817校验通过；307隐藏，862通知/30投递原业务字段哈希一致；23用户282次只读请求全200、4–63ms、分页/未读一致。.212上传并add-only放行，身份/候选检查、独立allowlist及完整verifier通过，严格TLS公网.212/.211=200、未知426。交付文档不重复部署/备份，服务端已完成，待同构建小米14复核。
 
+### EXTERNAL-DUTY-UI-001（2026-09-28）校对页阅读与确认交互
+
+- 现象：原生按钮和10–11px文案、双滚动列表、底部记录按钮换行、纯文本确认难以核对两天及多人方案。用户要求参照其他小程序页美化。
+- 引入点：`git log -S 'wx.showModal'` / `git blame` 指向 `a5de1931` 初始页及 `06d420a1` 建议入口。改用共享tokens/按钮/sheet，单滚动区、完整方案和取消/冲突/忙碌反馈；不改API和原业务校验。
+- 验证：旧代码交互4失败/1通过；最终8/8，Mini全量1298通过/21跳过，production verify、任务类型/lint/格式/图标通过。运行/浏览器验证：Storybook+Edge/Playwright10组几何及记录/预览/取消点击通过；`pnpm smoke:check-core` 判定无Web核心变化。开发者工具WXML/WXSS局部编译成功。
+- 全仓格式6个本轮未改文件仍失败；小米14同构建未验收。状态已完成运行验证、待体验版交付与用户复核。完整记录见 `docs/audit/external-duty-ui-20260928.md`。
+
 ## 2026-09-29 换班、请假限制与统计口径统一整改（LS-01–04）
 
 - 用户批准十项实现，独占 warm/REUSE_ONLY，无安装。基线45bf7bec；引入点经log -S/blame核对：36127b02统计累计/空行，de3acab7处理人，0975b2d1提示布局，057af270清空恢复，6452fa92全天日期判断，7c783c71/162ef4c1工作流冲销恢复。
 - 删除请假清空/补位/恢复执行链，pending/approved日期禁排及事务检查；统计v2有效事件/补录基线/跨月年度去重，七指标和班种明细。完整行为及先红后绿证据见docs/audit/leave-statistics-20260929.md；无原始审计改写。
-- 运行/浏览器验证：pnpm smoke:browser 对应脚本在本地API3105/Web4175完整通过，登录、管理员、成员、访客和新版统计无浏览器错误；本地临时角色finally恢复。smoke:check-core将在最终提交前执行。
+- 运行/浏览器验证：pnpm smoke:browser 对应脚本在本地API3105/Web4175完整通过，登录、管理员、成员、访客和新版统计无浏览器错误；本地临时角色finally恢复。
 - 真实MySQL七模块148通过，补充5个恢复/跨夜边界通过。320/390px普通/大字号几何代理通过，不代表小米14。最终门禁和提交信息见轮次记录。
-- 本轮没有L4授权，未连接或修改生产；唯一下一任务是本地检查点完成后取得授权，顺序服务器部署→统计重算核对→新体验版上传及追加放行。小米14同构建待用户复核。
+- 主线/线上分叉：部署前实时读取线上release `bc59dfbf`，确认它属并行分支 `codex/doctor-duty-reconcile` 而不在main祖先线上，主线同样缺其全部外部值班代码；按仓库既有 `merge: include …` 惯例合并该分支（仅三个状态/日志文档冲突），避免部署回退已上线的外部值班校对。合并前五个既有未改文件完成纯格式提交 `c4af13ef`，完整 `pnpm verify` 全绿。

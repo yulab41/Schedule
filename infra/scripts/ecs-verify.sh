@@ -636,9 +636,38 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 66 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 67 ]; then
+  EXTERNAL_DUTY_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"external_duty_checks\"), (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"external_duty_checks\" AND column_name IN (\"business_date\",\"group_id\",\"remote_name\",\"local_name\",\"assignment_id\",\"change_source\",\"status\",\"block_reason\",\"fingerprint\",\"observed_at\",\"updated_at\")), (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=\"external_duty_checks\" AND index_name=\"external_duty_checks_status_date_idx\")"')"
+  [ "$EXTERNAL_DUTY_SCHEMA" = $'1\t11\t2' ] || {
+    echo "[verify] 错误：排班网页校对快照表或索引缺失。" >&2
+    exit 1
+  }
+fi
+
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 68 ]; then
+  EXTERNAL_DUTY_BASELINE_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"external_duty_checks\" AND column_name IN (\"baseline_name\",\"schedule_period_id\",\"assignment_version\",\"is_in_scope\")"')"
+  [ "$EXTERNAL_DUTY_BASELINE_SCHEMA" = "4" ] || {
+    echo "[verify] 错误：排班网页校对发布基线字段缺失。" >&2
+    exit 1
+  }
+  EXTERNAL_DUTY_ACTIONS_TABLE="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=\"external_duty_actions\""')"
+  [ "$EXTERNAL_DUTY_ACTIONS_TABLE" = "1" ] || {
+    echo "[verify] 错误：排班网页校对操作记录表缺失。" >&2
+    exit 1
+  }
+fi
+
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 63 ]; then
+  if [ "$schema" -ge 68 ]; then
+    [ "$tables" = "55" ] || [ "$tables" = "56" ]
+  elif [ "$schema" -ge 67 ]; then
+    # 0067 adds one backed-up table; accept the backup taken just before migration.
+    [ "$tables" = "54" ] || [ "$tables" = "55" ]
+  elif [ "$schema" -ge 63 ]; then
     # 0063 removes two backed-up legacy tables; accept the pre-migration or fresh backup.
     [ "$tables" = "54" ] || [ "$tables" = "56" ]
   elif [ "$schema" -ge 62 ]; then

@@ -75,6 +75,8 @@ import { ClientCapabilityPolicy } from './modules/client-capabilities/client-cap
 import { registerClientCapabilityRoutes } from './modules/client-capabilities/client-capability-routes.js';
 import { registerClientTelemetryRoutes } from './modules/client-telemetry/client-telemetry-routes.js';
 import { ClientTelemetryService } from './modules/client-telemetry/client-telemetry-service.js';
+import { ExternalDutyService } from './modules/external-duty/external-duty-service.js';
+import { registerExternalDutyRoutes } from './modules/external-duty/external-duty-routes.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
@@ -245,6 +247,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       async (identity) => (await platformAdminService.diagnosticsAccess(identity)).allowed,
     );
     registerPlatformAdminRoutes(app, platformAdminService);
+    registerExternalDutyRoutes(
+      app,
+      new ExternalDutyService(options.databaseClient, platformAdminUids),
+    );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

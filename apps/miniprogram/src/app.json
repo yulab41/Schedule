@@ -31,7 +31,8 @@
         "pages/insights/index",
         "pages/notifications/index",
         "pages/exports/index",
-        "pages/notification-settings/index"
+        "pages/notification-settings/index",
+        "pages/external-duty/index"
       ]
     }
   ],

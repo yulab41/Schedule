@@ -1,5 +1,11 @@
 # 页面黄金清单
 
+## 2026-09-28 排班网页校对
+
+- 原生路由：`subpackages/insights/pages/external-duty/index`。Storybook合成人名fixture直接复用页面WXSS和共享按钮/弹层样式；未创建新的设计token。
+- 经实际`index.json`核对的story ID：`miniprogram-parity-external-duty--ready-390`、`--ready-320`、`--preview`、`--conflict`、`--history`、`--restore`、`--empty`、`--error`、`--large-text`（后八项沿用相同前缀）。
+- Edge浏览器10组390/320及大字号、弹窗/空态/错误态检查通过；切换记录、打开恢复/换班预览及取消通过。证据为Web黄金代理，开发者工具局部编译通过，小米14未验证。详见[轮次记录](../../../../docs/audit/external-duty-ui-20260928.md)。
+
 本清单是 `小程序页面 → Storybook story ID → fixture → 状态 → 验收证据` 的唯一映射。P1 先盘点现有 Storybook，再填写真实 story ID；禁止猜测或创建第二套视觉真源。
 
 2026-08-27 自动验收策略：历史 P7–P10 已实现切片沿用用户确认的人工复核豁免，以自动回归、确定性构建、包边界、体验上传和生产 verifier 作为证据；2026-08-28 重建的 P10-A4 Profile 按新批准计划恢复实体 Android 最终复核。“自动 verifier 已通过”不等价于提交审核或正式发布。P9 `insights`/`externalMessages` 已按授权开启，正式审核/发布仍单独记录微信平台结果。
