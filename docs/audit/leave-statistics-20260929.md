@@ -42,9 +42,9 @@
 | LS-03 | P1   | 无效事件累计、无名空成员、班种归属错误       | v2有效统计及内部版本重算；单元/MySQL通过       |
 | LS-04 | P2   | 换班顺序、处理人空白、请假提示碰撞、统计冗余 | 三端界面与姓名补全；浏览器代理通过，手机待复核 |
 
-- 检查点拟用 `fix(scheduling): enforce leave restrictions and effective statistics`；本地运行验证完成，提交身份由该消息定位；随后正常快进推送main。没有新依赖/迁移，原始审计和既有历史结果保留。
+- 应用检查点 `52e4b7e2`（`fix(scheduling): enforce leave restrictions and effective statistics`）已正常快进推送main；本地运行验证完成。收口文档提交 `docs(audit): record leave and statistics implementation checkpoint` 不触发生产操作。没有新依赖/迁移，原始审计和既有历史结果保留。
 - `PRODUCTION_AUTHORIZATION=not-granted`；没有连接、备份、部署、重算生产或追加allowlist。当前线上 release/试用版只能由后续获授权的动态核对确定，不能沿用上一轮记录作为回滚基线。
-- 唯一下一任务：完成本地检查点后取得精确 L4 授权，按服务器备份部署 → 统计重算核对 → 新体验版动态分配上传 → 追加放行交付；最后小米14同构建复核。授权未到停止生产动作，不提审/正式发布。
+- 唯一下一任务：取得精确 L4 授权，按服务器备份部署 → 统计重算核对 → 新体验版动态分配上传 → 追加放行交付；最后小米14同构建复核。授权未到停止生产动作，不提审/正式发布。
 
 ## 最终本地门禁
 
