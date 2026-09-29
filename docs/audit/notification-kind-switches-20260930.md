@@ -24,4 +24,13 @@
 ## 交付边界
 
 - 本检查点只改 `apps/miniprogram/**` 与文档，属 Mini/文档范围：不触发生产部署、数据库备份或 release 元数据同步。
-- 要让手机看到本次改动，需要新的体验版上传 + 追加放行（放行属生产操作，需用户当次明确授权）。
+- 2026-09-30 用户当次授权后完成体验版上传 + 追加放行，见下节。
+
+## 体验版交付（2026-09-30，用户授权）
+
+- 应用检查点 `8ec20dd2`（`fix(miniprogram): keep only per-kind WeChat reminder switches`）已 fast-forward 推送 `origin/main`；候选在独占 warm 槽位冻结（`prepare-release-worktree` + `check-worktree-safety` 均 PASS）。
+- 体验版 `0.1.0-p10.20260930.218`（描述“通知设置只保留按类型微信提醒开关 8ec20dd”、production、manifest `b89fbd28d8eed0e734649b96370a90cf8f5bdf7bfaa5b0889d3eb5c210caad1e`、不可变 tag `miniprogram-trial/0.1.0-p10.20260930.218`、receipt 见 ignored `runtime/audit/miniprogram-trials/0.1.0-p10.20260930.218.json`）上传成功。
+- 放行：可信控制 `schedule-client-version-allowlist ensure 0.1.0-p10.20260930.218` 只增追加并通过健康与策略验证；`verify` 再次通过；随后完整 `ecs-verify.sh` 通过。
+- 首次完整 verifier 失败于遥测保留检查（30 天边界竞态：9→1 条记录刚跨过 30 天、下一次 15 分钟 cron 尚未清理）。执行已安装的 `schedule-privacy-retention.sh` 一次（与 cron 相同操作，本次 `telemetryDeletedRows=1`，不涉及业务数据）后计数归 0，verifier 完整通过。
+- 本检查点为 Mini/文档范围：**未**触发生产部署、数据库备份或 release 元数据同步；生产 live release 仍为 `5f25d946`（schema 69）。
+- 证据分层：微信 CI 上传回执、可信放行控制、服务器 verifier 均为已验证；小米 14 同构建体验版仍需用户真机复核。

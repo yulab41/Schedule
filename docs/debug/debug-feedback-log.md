@@ -8,7 +8,7 @@
 - 行为清单：删除总开关行与其 `busy/enabled/handleToggle/toggleWechatMaster`；行开关打开时同步申请该模板一次订阅，成功后 `PUT` 完整 5 类偏好 + `wechatNotificationsEnabled:true`；关闭时只 `PUT` 完整 5 类偏好；历史总开关关闭状态按全关呈现，打开任一类只开启该类（`resolveNextKind` 单点归一）；保存中只在该行 `loading`，仅未配置模板永久禁用；删除只服务总开关的 `.settings-row/.settings-copy`。契约/API/数据库未改，无迁移。
 - 红绿与门禁：`notifications-controller.test.mjs` 30 项（含新增“历史总开关关闭归一后只开启所点类型且页面不再有总开关字段”）、`workflow-switch-feedback.test.mjs` 23 项（守卫改为断言按行 loading + 未配置才禁用，禁止全局变灰）通过；Mini 全量 1303 通过/23 跳过；typecheck/lint/format/production verify（包体 4,440,213 B、manifest `1d102623…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
 - 运行/浏览器验证：本轮只改 `apps/miniprogram/**`，`pnpm smoke:check-core` 明确输出“未涉及核心链路文件，无需浏览器冒烟记录”，未运行 `pnpm smoke:browser`。
-- 交付边界：Mini/文档范围，不触发生产部署或备份；体验版上传 + 放行待用户当次授权（见 [轮次记录](../audit/notification-kind-switches-20260930.md)）。
+- 体验版交付（用户当次授权）：`0.1.0-p10.20260930.218`（manifest `b89fbd28…`、描述含短 SHA `8ec20dd`、production、tag `miniprogram-trial/0.1.0-p10.20260930.218`）上传成功；可信控制 `schedule-client-version-allowlist ensure` 只增放行，`verify` 与完整 `ecs-verify.sh` 通过。首次完整 verifier 失败于 30 天遥测保留竞态（9→1 条刚过期记录），运行同一已安装保留控制（telemetryDeletedRows=1，无业务数据）后归零复测通过。Mini/文档范围未触发生产部署，live release 仍 `5f25d946`/schema 69。见 [轮次记录](../audit/notification-kind-switches-20260930.md)。
 
 ## 2026-09-29 MINI-SIX-FIXES-001 请假日期边界与小程序六项修复
 
