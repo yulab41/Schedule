@@ -67,7 +67,13 @@ export function calculateMonthStatistics(input: StatisticsCalculationInput): Sta
     }
   }
   for (const workflow of input.workflowCounts) {
-    membershipIds.add(workflow.membershipId);
+    if (
+      Object.entries(workflow).some(
+        ([key, value]) => key !== 'membershipId' && typeof value === 'number' && value > 0,
+      )
+    ) {
+      membershipIds.add(workflow.membershipId);
+    }
   }
 
   const members = [...membershipIds]
@@ -186,8 +192,8 @@ function buildMemberRow(
   return {
     actualCount: actualAssignments.length,
     actualVsPlanned: buildActualVsPlanned(memberAssignments, membershipId),
-    byRole: buildRoleCounts(memberAssignments),
-    byShiftType: buildShiftTypeCounts(memberAssignments),
+    byRole: buildRoleCounts(memberAssignments, membershipId),
+    byShiftType: buildShiftTypeCounts(memberAssignments, membershipId),
     countedActualCount: countedActual.length,
     countedPlannedCount: countedPlanned.length,
     deductionCount,
@@ -234,6 +240,7 @@ function buildActualVsPlanned(
 
 function buildRoleCounts(
   assignments: readonly StatisticsAssignmentInput[],
+  membershipId?: string,
 ): readonly StatisticsRoleCount[] {
   const counts = new Map<string, { actual: number; planned: number; name: string }>();
   for (const assignment of assignments) {
@@ -242,10 +249,16 @@ function buildRoleCounts(
       name: assignment.scheduleRoleName,
       planned: 0,
     };
-    if (assignment.plannedMemberId !== null) {
+    if (
+      assignment.plannedMemberId !== null &&
+      (membershipId === undefined || assignment.plannedMemberId === membershipId)
+    ) {
       entry.planned += 1;
     }
-    if (getEffectiveActualMemberId(assignment) !== null) {
+    if (
+      getEffectiveActualMemberId(assignment) !== null &&
+      (membershipId === undefined || getEffectiveActualMemberId(assignment) === membershipId)
+    ) {
       entry.actual += 1;
     }
     counts.set(assignment.scheduleRoleId, entry);
@@ -263,6 +276,7 @@ function buildRoleCounts(
 
 function buildShiftTypeCounts(
   assignments: readonly StatisticsAssignmentInput[],
+  membershipId?: string,
 ): readonly StatisticsShiftTypeCount[] {
   const counts = new Map<string, { actual: number; planned: number; name: string }>();
   for (const assignment of assignments) {
@@ -271,10 +285,16 @@ function buildShiftTypeCounts(
       name: assignment.shiftTypeName,
       planned: 0,
     };
-    if (assignment.plannedMemberId !== null) {
+    if (
+      assignment.plannedMemberId !== null &&
+      (membershipId === undefined || assignment.plannedMemberId === membershipId)
+    ) {
       entry.planned += 1;
     }
-    if (getEffectiveActualMemberId(assignment) !== null) {
+    if (
+      getEffectiveActualMemberId(assignment) !== null &&
+      (membershipId === undefined || getEffectiveActualMemberId(assignment) === membershipId)
+    ) {
       entry.actual += 1;
     }
     counts.set(assignment.shiftTypeId, entry);

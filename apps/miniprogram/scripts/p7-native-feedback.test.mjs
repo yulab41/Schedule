@@ -367,12 +367,12 @@ describe('P7 physical-device feedback regressions', () => {
     );
     expect(leaveTemplate).toContain('leave-form-intro');
     expect(leaveTemplate).toContain('请假信息');
-    expect(leaveTemplate).toContain('请假按整天计算；提交前会检查已发布的未来班次。');
+    expect(leaveTemplate).toContain('请假按整天计算；提交前会检查已发布且尚未结束的班次。');
     expect(leaveTemplate).toContain('class="day-count-hint"');
     expect(leaveTemplate).toContain('class="affected-hint"');
     expect(leaveTemplate).toContain('class="affected-status is-{{item.tone}}"');
     expect(leaveTemplate).toContain('class="affected-warning"');
-    expect(leaveTemplate).toContain('请假期间没有已发布的未来班次。');
+    expect(leaveTemplate).toContain('请假期间没有已发布且尚未结束的班次。');
     expect(leaveTemplate).toContain('原因说明（选填）');
     expect(leaveTemplate).toContain('请填写请假原因');
     expect(leaveTemplate).toContain('提交请假');

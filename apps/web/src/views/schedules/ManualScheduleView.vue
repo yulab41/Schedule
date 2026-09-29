@@ -82,6 +82,9 @@ const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const selectedTemplateId = ref('');
 const scheduleRoleId = ref('');
 const membershipIds = ref<string[]>([]);
+const leaveBlockedIds = ref<ReadonlySet<string>>(new Set());
+const availabilityReady = ref(false);
+let availabilitySerial = 0;
 const startDate = ref(getBusinessDate());
 const cycleDays = ref(7);
 const cells = ref<TemplateCellMap>(new Map());
@@ -205,7 +208,16 @@ const rows = computed<readonly ManualGridRow[]>(() => {
   }));
 });
 const isEditing = computed(() => selectedTemplateId.value !== '');
-const canApply = computed(() => isEditing.value && applyTarget.value === undefined);
+const selectedLeaveConflict = computed(() =>
+  membershipIds.value.some((id) => leaveBlockedIds.value.has(id)),
+);
+const canApply = computed(
+  () =>
+    isEditing.value &&
+    applyTarget.value === undefined &&
+    availabilityReady.value &&
+    !selectedLeaveConflict.value,
+);
 const canClearCell = computed(() => selectedCell.value !== undefined);
 const canUndo = computed(() => undoStack.canUndo());
 const staleWarning = computed(
@@ -213,6 +225,38 @@ const staleWarning = computed(
 );
 const draftBatches = computed(() => groupScheduleDraftBatches(history.value));
 const versionMonthGroups = computed(() => groupScheduleVersionMonths(history.value));
+
+watch(
+  [() => props.group.id, scheduleRoleId, startDate, cycleDays],
+  () => {
+    void refreshAvailability();
+  },
+  { immediate: true },
+);
+async function refreshAvailability(): Promise<void> {
+  const serial = ++availabilitySerial;
+  availabilityReady.value = false;
+  leaveBlockedIds.value = new Set();
+  if (!scheduleRoleId.value) return;
+  try {
+    const end =
+      getTemplateDateColumns(startDate.value, cycleDays.value).at(-1)?.date ?? startDate.value;
+    const rows = await api.getSchedulingAvailability(
+      props.group.id,
+      scheduleRoleId.value,
+      startDate.value,
+      end,
+    );
+    if (serial !== availabilitySerial) return;
+    leaveBlockedIds.value = new Set(
+      rows.filter((row) => row.blocked).map((row) => row.membershipId),
+    );
+    availabilityReady.value = true;
+  } catch (error) {
+    if (serial === availabilitySerial)
+      errorMessage.value = toUserMessage(error, '成员可排状态检查失败，请重试。');
+  }
+}
 
 watch(startDate, () => {
   void loadHolidays();
@@ -334,6 +378,11 @@ function resetEditor(): void {
 }
 
 function toggleMember(membershipId: string): void {
+  if (
+    !membershipIds.value.includes(membershipId) &&
+    (!availabilityReady.value || leaveBlockedIds.value.has(membershipId))
+  )
+    return;
   if (membershipIds.value.includes(membershipId)) {
     pushUndo();
     membershipIds.value = membershipIds.value.filter((id) => id !== membershipId);
@@ -825,11 +874,13 @@ function navigateBackfill(): void {
 void loadData();
 void loadHolidays();
 onMounted(() => {
+  window.addEventListener('focus', refreshAvailability);
   window.addEventListener('focus', onWindowFocus);
   scheduleBusinessHandoverRefresh();
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshAvailability);
   window.removeEventListener('focus', onWindowFocus);
   if (businessHandoverRefreshTimer !== undefined) {
     window.clearTimeout(businessHandoverRefreshTimer);
@@ -884,6 +935,9 @@ function scheduleBusinessHandoverRefresh(): void {
       </div>
 
       <fieldset class="member-selector">
+        <p v-if="selectedLeaveConflict" class="leave-member-label">
+          所选成员有请假，请取消勾选或调整日期。
+        </p>
         <legend>值班人员（{{ membershipIds.length }}/{{ MAX_MANUAL_MEMBERS }}）</legend>
         <p v-if="roleMembers.length === 0" class="member-empty">
           该排班岗位还没有成员，请先在排班配置中添加。
@@ -894,11 +948,16 @@ function scheduleBusinessHandoverRefresh(): void {
             :checked="membershipIds.includes(member.membershipId)"
             :disabled="
               !membershipIds.includes(member.membershipId) &&
-              membershipIds.length >= MAX_MANUAL_MEMBERS
+              (membershipIds.length >= MAX_MANUAL_MEMBERS ||
+                !availabilityReady ||
+                leaveBlockedIds.has(member.membershipId))
             "
             @change="toggleMember(member.membershipId)"
           />
-          {{ member.realName }}
+          {{ member.realName
+          }}<span v-if="leaveBlockedIds.has(member.membershipId)" class="leave-member-label"
+            >（请假）</span
+          >
         </label>
         <label
           v-for="member in staleSelectedMembers"
@@ -1719,5 +1778,8 @@ function scheduleBusinessHandoverRefresh(): void {
   .version-row :deep(.t-button) {
     min-height: var(--ui-touch-target-minimum);
   }
+}
+.leave-member-label {
+  color: #d92d20;
 }
 </style>

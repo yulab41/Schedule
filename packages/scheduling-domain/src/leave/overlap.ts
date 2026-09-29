@@ -36,7 +36,16 @@ export function leaveOverlapsInterval(
   const leaveStartDate = getChinaStandardTimeBusinessDate(leave.startsAt);
   const leaveEndDate = getChinaStandardTimeBusinessDate(leave.endsAt);
   const intervalDate = interval.businessDate ?? getChinaStandardTimeBusinessDate(interval.startsAt);
-  return intervalDate >= leaveStartDate && intervalDate < leaveEndDate;
+  return (
+    (intervalDate >= leaveStartDate && intervalDate < leaveEndDate) ||
+    intervalsOverlap(
+      {
+        startsAt: new Date(`${leaveStartDate}T00:00:00+08:00`),
+        endsAt: new Date(`${leaveEndDate}T00:00:00+08:00`),
+      },
+      interval,
+    )
+  );
 }
 
 export function findLeaveOverlappingAssignments<

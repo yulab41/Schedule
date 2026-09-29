@@ -184,7 +184,23 @@
                 ><text class="member-name">{{memberItem.name}}</text
                 ><text>{{memberItem.countLabel}}</text><text>{{memberItem.shiftLabel}}</text
                 ><text>{{memberItem.workflowLabel}}</text
-                ><text>{{memberItem.adjustmentLabel}} · {{memberItem.comparisonLabel}}</text></view
+                ><view
+                  wx:if="{{memberItem.details.length > 0}}"
+                  class="member-detail-toggle"
+                  aria-role="button"
+                  aria-expanded="{{memberItem.expanded}}"
+                  data-id="{{memberItem.id}}"
+                  bindtap="handleMemberDetails"
+                  >班种明细 {{memberItem.expanded ? '收起' : '展开'}}</view
+                >
+                <view wx:if="{{memberItem.expanded}}" class="member-shift-details">
+                  <view wx:for="{{memberItem.details}}" wx:for-item="shiftDetail" wx:key="id" class="member-shift-detail">
+                    <text>{{shiftDetail.name}} · {{shiftDetail.difference}}</text>
+                    <view class="shift-metrics">
+                      <text wx:for="{{shiftDetail.metrics}}" wx:for-item="metric" wx:key="key">{{metric.label}} {{metric.value}}</text>
+                    </view>
+                  </view>
+                </view></view
               ></view
             ><view class="statistics-breakdowns"
               ><view class="surface-card breakdown-card"
@@ -234,12 +250,6 @@
           title="事件操作未完成"
           message="{{errorMessage}}"
         ></ui-alert
-        ><view class="privacy-note"
-          ><text class="privacy-title">数据口径与隐私</text
-          ><text
-            >事件显示类型、状态、时间、操作者姓名、对象和影响数量；原始 payload、操作编号、token
-            与完整身份标识不会写入页面状态。</text
-          ></view
         ><view class="bottom-spacer"></view
       ></view> </view
   ></scroll-view>

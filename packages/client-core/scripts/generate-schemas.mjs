@@ -67,6 +67,9 @@ import {
   schedulingConfigSchema,
   shiftTypeSchema,
   monthStatisticsSnapshotSchema,
+  monthStatisticsV2Schema,
+  yearStatisticsV2Schema,
+  schedulingAvailabilitySchema,
   notificationPageSchema,
   notificationRecordSchema,
   readAllResultSchema,
@@ -102,6 +105,9 @@ const source = await format(
   renderGeneratedSchemas({
     errorCodes: [...apiErrorCodes],
     schemas: {
+      monthStatisticsV2: sanitizeJsonSchema(z.toJSONSchema(monthStatisticsV2Schema)),
+      yearStatisticsV2: sanitizeJsonSchema(z.toJSONSchema(yearStatisticsV2Schema)),
+      schedulingAvailability: sanitizeJsonSchema(z.toJSONSchema(schedulingAvailabilitySchema)),
       guestCalendarReadModel: sanitizeJsonSchema(
         z.toJSONSchema(guestCalendarReadModelSchema),
         'guestCalendarReadModel',

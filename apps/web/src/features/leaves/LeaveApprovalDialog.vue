@@ -16,7 +16,6 @@ import {
   formatLeaveRange,
   getLeaveRejectionConfirmation,
   getLeaveTypeLabel,
-  summarizeStatisticsDelta,
 } from './leave-logic.js';
 
 const props = defineProps<{
@@ -33,7 +32,6 @@ const emit = defineEmits<{
 const api = createApiClient({ auth: localAuth });
 const visible = ref(true);
 const preview = ref<LeaveApprovalPreview>();
-const acknowledgeBlockers = ref(false);
 const errorMessage = ref<string>();
 const isLoading = ref(false);
 const isPreviewing = ref(false);
@@ -59,8 +57,6 @@ function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
   );
   return resolved.snapshot;
 }
-const blockerCount = computed(() => preview.value?.vacancies.length ?? 0);
-const hasBlockers = computed(() => blockerCount.value > 0);
 const hasAffectedAssignments = computed(() => (preview.value?.affectedAssignments.length ?? 0) > 0);
 const affectedShifts = computed(() => preview.value?.affectedShifts ?? []);
 
@@ -85,7 +81,6 @@ async function refreshPreview(): Promise<void> {
   isPreviewing.value = true;
   try {
     preview.value = await api.previewLeaveRequestApproval(props.group.id, props.request.id, {});
-    acknowledgeBlockers.value = false;
   } catch (error) {
     if (isDataConflictError(error)) {
       errorMessage.value = '排班数据已被其他操作更新，请重新生成预览。';
@@ -105,6 +100,11 @@ async function approve(): Promise<void> {
     }
   }
 
+  if (hasAffectedAssignments.value) {
+    errorMessage.value =
+      '请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。';
+    return;
+  }
   errorMessage.value = undefined;
   isApproving.value = true;
   const operationKey = `${props.group.id}:leave:approve:${props.request.id}:${props.request.version}`;
@@ -113,7 +113,6 @@ async function approve(): Promise<void> {
       props.group.id,
       props.request.id,
       resolveOperation(operationKey, {
-        ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
         expectedPeriodVersions: preview.value.periodVersions,
         expectedAssignmentVersions: preview.value.assignmentVersions,
         expectedRulesVersion: preview.value.rulesVersion,
@@ -226,7 +225,7 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
             :loading="isPreviewing"
             @click="refreshPreview"
           >
-            刷新待清空班次
+            刷新班次检查
           </t-button>
         </template>
         <p
@@ -247,32 +246,23 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
                 {{ formatAffectedAssignment(assignment) }}
               </li>
             </ul>
-            <p class="statistics-delta">
-              统计变化：{{ summarizeStatisticsDelta(preview.statisticsDelta) }}
-            </p>
             <t-alert
-              v-if="preview.workflowBlockers.length > 0"
-              theme="error"
-              :message="preview.workflowBlockers.map((blocker) => blocker.message).join('；')"
-            />
-            <t-alert
-              v-if="preview.vacancies.length > 0"
               theme="warning"
-              :message="`发现 ${preview.vacancies.length} 个待处理空缺（批准后需手动安排）。`"
+              message="请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。"
             />
-
-            <label v-if="hasBlockers" class="acknowledge-field">
-              <input v-model="acknowledgeBlockers" type="checkbox" />
-              我已知晓冲突和空缺，确认按预览结果批准该请假。
-            </label>
           </template>
 
           <div class="approval-actions">
             <t-button theme="danger" variant="outline" :loading="isRejecting" @click="reject">
               驳回
             </t-button>
-            <t-button theme="primary" :loading="isApproving" @click="approve">
-              {{ hasAffectedAssignments ? '批准并清空' : '批准' }}
+            <t-button
+              theme="primary"
+              :loading="isApproving"
+              :disabled="hasAffectedAssignments"
+              @click="approve"
+            >
+              批准
             </t-button>
           </div>
         </template>

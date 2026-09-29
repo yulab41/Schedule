@@ -1,4 +1,3 @@
-import { formatLeaveRestoration } from '@schedule/presentation-core';
 import { ClientCoreError } from '@schedule/client-core';
 import type {
   GroupSummary,
@@ -20,7 +19,6 @@ import {
   getLeaveTypeLabel,
   getTodayCalendarDate,
   resolveWorkflowOperationAttempt,
-  summarizeStatisticsDelta,
   type WorkflowOperationAttempt,
 } from '@schedule/presentation-core';
 
@@ -92,17 +90,15 @@ interface LeavePageData {
   readonly affectedShiftMessage: string;
   readonly affectedShifts: readonly LeaveShiftView[];
   readonly affectedShiftsLoading: boolean;
+  readonly affectedShiftsReady: boolean;
   readonly affectedWarningMessage: string;
-  readonly approvalAcknowledged: boolean;
   readonly approvalAlerts: readonly LeaveAlertView[];
   readonly approvalBusy: boolean;
   readonly approvalErrorMessage: string;
   readonly approvalHasAffectedAssignments: boolean;
   readonly approvalPreviewReady: boolean;
-  readonly approvalRequiresAcknowledge: boolean;
   readonly approvalShiftCount: number;
   readonly approvalShifts: readonly LeaveShiftView[];
-  readonly approvalStatistics: string;
   readonly approvalSummary: string;
   readonly approvalVisible: boolean;
   readonly canApprove: boolean;
@@ -138,6 +134,7 @@ interface LeavePageData {
 }
 
 interface LeavePageInstance {
+  _affectedSerial: number;
   _approvalPreview: LeaveApprovalPreview | undefined;
   _approvalTarget: LeaveRequest | undefined;
   _currentGroupId: string;
@@ -160,10 +157,6 @@ interface ValueEvent {
   readonly detail: { readonly value: string | readonly string[] };
 }
 
-interface CheckedEvent {
-  readonly detail: { readonly checked?: boolean; readonly value?: readonly string[] };
-}
-
 const leaveTypeOptions: readonly LeaveOption<LeaveRequestType>[] = [
   { label: '进修', value: 'training' },
   { label: '轮科', value: 'rotation' },
@@ -180,22 +173,21 @@ const initialDate = getTodayCalendarDate();
 
 export function createLeavePanelControllerDefinition(embedded = false) {
   return {
+    _affectedSerial: 0,
     data: {
       activeTab: 'mine',
       affectedShiftMessage: '',
       affectedShifts: [],
       affectedShiftsLoading: false,
+      affectedShiftsReady: false,
       affectedWarningMessage: '',
-      approvalAcknowledged: false,
       approvalAlerts: [],
       approvalBusy: false,
       approvalErrorMessage: '',
       approvalHasAffectedAssignments: false,
       approvalPreviewReady: false,
-      approvalRequiresAcknowledge: false,
       approvalShiftCount: 0,
       approvalShifts: [],
-      approvalStatistics: '',
       approvalSummary: '',
       approvalVisible: false,
       canApprove: false,
@@ -348,15 +340,12 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       this._approvalPreview = undefined;
       this._approvalTarget = target;
       this.setData({
-        approvalAcknowledged: false,
         approvalAlerts: [],
         approvalErrorMessage: '',
         approvalHasAffectedAssignments: false,
         approvalPreviewReady: false,
-        approvalRequiresAcknowledge: false,
         approvalShiftCount: 0,
         approvalShifts: [],
-        approvalStatistics: '',
         approvalSummary: `${target.memberName ?? '成员'} · ${getLeaveTypeLabel(target.leaveType)} · ${formatLeaveRange(target.startsAt, target.endsAt, target.isAllDay)}`,
         approvalVisible: true,
       });
@@ -372,11 +361,6 @@ export function createLeavePanelControllerDefinition(embedded = false) {
 
     handleRefreshApproval(this: LeavePageInstance): void {
       void loadApprovalPreview(this);
-    },
-
-    handleApprovalAcknowledge(this: LeavePageInstance, event: CheckedEvent): void {
-      const checked = event.detail.checked ?? event.detail.value?.includes('acknowledged') === true;
-      this.setData({ approvalAcknowledged: checked, approvalErrorMessage: '' });
     },
 
     handleApprove(this: LeavePageInstance): void {
@@ -458,7 +442,14 @@ async function loadLeavePageWithCapability(
 async function submitLeave(page: LeavePageInstance): Promise<void> {
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
-  if (page.data.formBusy || page._currentGroupId === '') return;
+  if (
+    page.data.formBusy ||
+    page._currentGroupId === '' ||
+    !page.data.affectedShiftsReady ||
+    page.data.affectedShiftsLoading ||
+    page.data.affectedShifts.length > 0
+  )
+    return;
   let interval: { readonly endsAt: string; readonly startsAt: string };
   try {
     interval = buildLeaveFormInterval({
@@ -510,6 +501,12 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
   if (page._currentGroupId === '') return;
+  const serial = (page._affectedSerial = (page._affectedSerial ?? 0) + 1);
+  const requestedDates = `${page.data.startDate}:${page.data.endDate}`;
+  const current = () =>
+    task.isCurrent() &&
+    serial === page._affectedSerial &&
+    requestedDates === `${page.data.startDate}:${page.data.endDate}`;
   let interval;
   try {
     interval = buildLeaveFormInterval({
@@ -517,12 +514,18 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
       startDate: page.data.startDate,
     });
   } catch {
-    page.setData({ affectedShiftMessage: '', affectedShifts: [], affectedWarningMessage: '' });
+    page.setData({
+      affectedShiftMessage: '',
+      affectedShiftsReady: false,
+      affectedShifts: [],
+      affectedWarningMessage: '',
+    });
     return;
   }
   page.setData({
     affectedShiftMessage: '',
     affectedShiftsLoading: true,
+    affectedShiftsReady: false,
     affectedWarningMessage: '',
   });
   try {
@@ -531,23 +534,26 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
       isAllDay: true,
       startsAt: interval.startsAt,
     });
-    if (!task.isCurrent()) return;
+    if (!current()) return;
     page.setData({
-      affectedShiftMessage: shifts.length === 0 ? '请假期间没有已发布的未来班次。' : '',
+      affectedShiftMessage: shifts.length === 0 ? '请假期间没有已发布且尚未结束的班次。' : '',
+      affectedShiftsReady: true,
       affectedShifts: shifts.map(createAffectedShiftView),
-      affectedWarningMessage: shifts.some((shift) => !shift.isCovered)
-        ? '可先到“换班”或“加扣班”安排替班；未安排也可以提交申请。'
-        : '',
+      affectedWarningMessage:
+        shifts.length > 0
+          ? '请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。'
+          : '',
     });
   } catch {
-    if (!task.isCurrent()) return;
+    if (!current()) return;
     page.setData({
+      affectedShiftsReady: false,
       affectedShiftMessage: '暂时无法读取受影响班次。',
       affectedShifts: [],
       affectedWarningMessage: '',
     });
   } finally {
-    if (task.isCurrent()) page.setData({ affectedShiftsLoading: false });
+    if (current()) page.setData({ affectedShiftsLoading: false });
   }
 }
 
@@ -558,7 +564,6 @@ async function loadApprovalPreview(page: LeavePageInstance): Promise<void> {
   if (target === undefined || page._currentGroupId === '') return;
   page._approvalPreview = undefined;
   page.setData({
-    approvalAcknowledged: false,
     approvalBusy: true,
     approvalErrorMessage: '',
     approvalPreviewReady: false,
@@ -594,8 +599,11 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
     if (!task.isCurrent()) return;
     return;
   }
-  if (page.data.approvalRequiresAcknowledge && !page.data.approvalAcknowledged) {
-    page.setData({ approvalErrorMessage: '请先确认我已知晓冲突和空缺，再批准并清空。' });
+  if (page.data.approvalHasAffectedAssignments) {
+    page.setData({
+      approvalErrorMessage:
+        '请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。',
+    });
     return;
   }
   const preview = page._approvalPreview;
@@ -606,7 +614,6 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
   }
   const operationKey = `${page._currentGroupId}:leave:approve:${target.id}:${target.version}`;
   const request = resolveOperation(page, operationKey, {
-    ...(page.data.approvalRequiresAcknowledge ? { acknowledgeBlockers: true } : {}),
     expectedPeriodVersions: preview.periodVersions,
     expectedAssignmentVersions: preview.assignmentVersions,
     expectedRulesVersion: preview.rulesVersion,
@@ -686,10 +693,7 @@ async function confirmRequestMutation(
 ): Promise<void> {
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
-  const message =
-    action === 'cancel'
-      ? '确定取消该请假申请吗？'
-      : '确定撤销该已批准的请假吗？仅恢复未被后续修改的空缺，已人工安排的班次将保留。';
+  const message = action === 'cancel' ? '确定取消该请假申请吗？' : '确定撤销该已批准的请假吗？';
   const confirmed = await showConfirm(message);
   if (task.isCurrent() && confirmed === 'failed') {
     page.setData({ errorMessage: '确认窗口未能打开，请再次点击操作按钮重试。' });
@@ -700,21 +704,15 @@ async function confirmRequestMutation(
   const input = resolveOperation(page, operationKey, { expectedVersion: request.version });
   page.setData({ errorMessage: '', infoMessage: '' });
   try {
-    let restorationMessage = '请假已撤销。';
     if (action === 'cancel') {
       await workflowClient.cancelLeaveRequest(page._currentGroupId, request.id, input);
     } else {
-      const result = await workflowClient.revokeLeaveRequest(
-        page._currentGroupId,
-        request.id,
-        input,
-      );
-      restorationMessage = formatLeaveRestoration(result.restoration);
+      await workflowClient.revokeLeaveRequest(page._currentGroupId, request.id, input);
     }
     if (!task.isCurrent()) return;
     page._operationAttempts.delete(operationKey);
     page.setData({
-      infoMessage: action === 'cancel' ? '请假申请已取消。' : restorationMessage,
+      infoMessage: action === 'cancel' ? '请假申请已取消。' : '请假已撤销。',
     });
     notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
@@ -737,10 +735,8 @@ function createApprovalPreviewPatch(
   | 'approvalAlerts'
   | 'approvalHasAffectedAssignments'
   | 'approvalPreviewReady'
-  | 'approvalRequiresAcknowledge'
   | 'approvalShiftCount'
   | 'approvalShifts'
-  | 'approvalStatistics'
 > {
   const alerts: LeaveAlertView[] = [];
   if (preview.workflowBlockers.length > 0) {
@@ -750,18 +746,11 @@ function createApprovalPreviewPatch(
       tone: 'danger',
     });
   }
-  if (preview.vacancies.length > 0) {
-    alerts.push({
-      id: 'vacancies',
-      message: `发现 ${preview.vacancies.length} 个待处理空缺（批准后需手动安排）。`,
-      tone: 'warning',
-    });
-  }
+
   return {
     approvalAlerts: alerts,
     approvalHasAffectedAssignments: preview.affectedAssignments.length > 0,
     approvalPreviewReady: true,
-    approvalRequiresAcknowledge: preview.vacancies.length > 0,
     approvalShiftCount: preview.affectedShiftCount,
     approvalShifts: preview.affectedAssignments.map((assignment) => ({
       detail: formatAffectedAssignment(assignment),
@@ -769,7 +758,6 @@ function createApprovalPreviewPatch(
       statusLabel: '',
       tone: 'primary',
     })),
-    approvalStatistics: summarizeStatisticsDelta(preview.statisticsDelta),
   };
 }
 
@@ -799,8 +787,8 @@ function createAffectedShiftView(shift: LeaveAffectedShift): LeaveShiftView {
   return {
     detail: `${shift.businessDate} ${shift.shiftTypeName}`,
     id: shift.assignmentId,
-    statusLabel: shift.isCovered ? '已安排' : '未安排',
-    tone: shift.isCovered ? 'success' : 'warning',
+    statusLabel: '需先调整',
+    tone: 'warning',
   };
 }
 

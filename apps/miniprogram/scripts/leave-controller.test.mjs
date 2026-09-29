@@ -7,6 +7,7 @@ const requestId = '33333333-3333-4333-8333-333333333333';
 
 describe('P7 native leave workflow controller', () => {
   let createResponses;
+  let noAffectedShifts;
   let controllerModule;
   let definition;
   let groupRole;
@@ -16,6 +17,7 @@ describe('P7 native leave workflow controller', () => {
   beforeEach(async () => {
     vi.resetModules();
     createResponses = [];
+    noAffectedShifts = false;
     groupRole = 'member';
     isDeveloperAdmin = false;
     requests = [];
@@ -98,13 +100,30 @@ describe('P7 native leave workflow controller', () => {
       {
         detail: '2026-08-26 全天班',
         id: '44444444-4444-4444-8444-444444444444',
-        statusLabel: '未安排',
+        statusLabel: '需先调整',
         tone: 'warning',
       },
     ]);
     expect(instance.data.affectedWarningMessage).toBe(
-      '可先到“换班”或“加扣班”安排替班；未安排也可以提交申请。',
+      '请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。',
     );
+  });
+
+  it('does not submit while checks are missing, in progress, failed or conflicted', async () => {
+    const instance = await loadReadyInstance();
+    for (const patch of [
+      { affectedShiftsReady: false, affectedShiftsLoading: false, affectedShifts: [] },
+      { affectedShiftsReady: true, affectedShiftsLoading: true, affectedShifts: [] },
+      {
+        affectedShiftsReady: true,
+        affectedShiftsLoading: false,
+        affectedShifts: [{ id: 'conflict' }],
+      },
+    ]) {
+      Object.assign(instance.data, patch);
+      definition.handleSubmitLeave.call(instance);
+      expect(createRequests()).toHaveLength(0);
+    }
   });
 
   it('blocks a start date before today before requesting affected shifts', async () => {
@@ -166,20 +185,16 @@ describe('P7 native leave workflow controller', () => {
       canApprove: true,
       pendingApprovalCount: 1,
     });
-    expect(instance.data.approvalAlerts.map((item) => item.tone)).toEqual(['danger', 'warning']);
+    expect(instance.data.approvalAlerts.map((item) => item.tone)).toEqual(['danger']);
     const displayedPreviewRequestCount = previewRequests().length;
 
     definition.handleApprove.call(instance);
     expect(approveRequests()).toHaveLength(0);
-    expect(instance.data.approvalErrorMessage).toContain('知晓冲突和空缺');
+    expect(instance.data.approvalErrorMessage).toContain('已发布班次');
 
-    definition.handleApprovalAcknowledge.call(instance, { detail: { checked: true } });
     definition.handleApprove.call(instance);
-    await vi.waitFor(() => expect(approveRequests()).toHaveLength(1));
+    expect(approveRequests()).toHaveLength(0);
     expect(previewRequests()).toHaveLength(displayedPreviewRequestCount);
-    expect(approveRequests()[0].header['Idempotency-Key']).toBe(
-      approveRequests()[0].data.operationId,
-    );
   });
 
   it('keeps Web-equivalent approval access for a platform admin group', async () => {
@@ -192,9 +207,11 @@ describe('P7 native leave workflow controller', () => {
   });
 
   it('reuses one frozen create operation after an ambiguous network result', async () => {
+    noAffectedShifts = true;
     createResponses.push(...Array.from({ length: 6 }, () => new Error('network unknown')));
     const instance = await loadReadyInstance();
     definition.handleOpenForm.call(instance);
+    await vi.waitFor(() => expect(instance.data.affectedShiftsReady).toBe(true));
     definition.handleReasonInput.call(instance, { detail: { value: '门诊进修' } });
 
     definition.handleSubmitLeave.call(instance);
@@ -211,9 +228,11 @@ describe('P7 native leave workflow controller', () => {
   });
 
   it('changes the create operation id after the form payload changes', async () => {
+    noAffectedShifts = true;
     createResponses.push(...Array.from({ length: 6 }, () => new Error('network unknown')));
     const instance = await loadReadyInstance();
     definition.handleOpenForm.call(instance);
+    await vi.waitFor(() => expect(instance.data.affectedShiftsReady).toBe(true));
 
     definition.handleSubmitLeave.call(instance);
     await vi.waitFor(() => expect(instance.data.formBusy).toBe(false));
@@ -270,6 +289,10 @@ describe('P7 native leave workflow controller', () => {
       return;
     }
     if (path.endsWith('/leave-requests/affected-shifts')) {
+      if (noAffectedShifts) {
+        respond(options, []);
+        return;
+      }
       respond(options, [
         {
           assignmentId: '44444444-4444-4444-8444-444444444444',

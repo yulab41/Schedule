@@ -1,3 +1,8 @@
+import {
+  publishedLeaveConflictMessage,
+  loadBlockingLeaves,
+  leaveIntersectsDateRange,
+} from './leave-availability.js';
 import { LeaveAssignmentService } from './leave-assignment-service.js';
 import { createHash, randomUUID } from 'node:crypto';
 
@@ -19,6 +24,7 @@ import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
   leaveRequests,
+  memberScheduleRoles,
   schedulePeriods,
   shiftAssignments,
   userProfiles,
@@ -58,7 +64,7 @@ export class LeaveService {
 
   public constructor(private readonly databaseClient: DatabaseClient) {
     this.services = new WorkflowServices(databaseClient);
-    this.assignments = new LeaveAssignmentService(this.services);
+    this.assignments = new LeaveAssignmentService();
   }
 
   public async submit(
@@ -117,6 +123,20 @@ export class LeaveService {
           });
         }
 
+        const affected = await this.loadAffectedAssignments(
+          transaction,
+          groupId,
+          authorization.membership.id,
+          startsAt,
+          endsAt,
+          input.isAllDay === true,
+        );
+        if (affected.length > 0)
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: publishedLeaveConflictMessage,
+          });
         const leaveRequestId = randomUUID();
         await transaction.insert(leaveRequests).values({
           endsAt,
@@ -166,6 +186,44 @@ export class LeaveService {
     });
   }
 
+  public async availability(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: { scheduleRoleId: string; startDate: string; endDate: string },
+  ): Promise<readonly { membershipId: string; blocked: boolean }[]> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await this.services.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      const members = await transaction
+        .select({ membershipId: memberScheduleRoles.membershipId })
+        .from(memberScheduleRoles)
+        .innerJoin(groupMemberships, eq(groupMemberships.id, memberScheduleRoles.membershipId))
+        .where(
+          and(
+            eq(groupMemberships.groupId, groupId),
+            eq(memberScheduleRoles.scheduleRoleId, input.scheduleRoleId),
+            isNull(memberScheduleRoles.deletedAt),
+            isNull(groupMemberships.deletedAt),
+            eq(groupMemberships.status, 'active'),
+          ),
+        );
+      const leaves = await loadBlockingLeaves(transaction, groupId);
+      const blocked = new Set(
+        leaves
+          .filter((leave) => leaveIntersectsDateRange(leave, input.startDate, input.endDate))
+          .map((leave) => leave.membershipId),
+      );
+      return members.map(({ membershipId }) => ({
+        membershipId,
+        blocked: blocked.has(membershipId),
+      }));
+    });
+  }
+
   public async affectedShifts(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -192,12 +250,7 @@ export class LeaveService {
         endsAt,
         input.isAllDay === true ? 1 : 0,
       );
-      return this.buildAffectedShiftList(
-        transaction,
-        authorization.group.id,
-        authorization.membership.id,
-        assignments,
-      );
+      return this.buildAffectedShiftList(assignments);
     });
   }
 
@@ -423,19 +476,11 @@ export class LeaveService {
     const context = await this.assignments.preview(transaction, authorization.group, leave, true);
     this.assertExpectedPeriodVersions(context.periods, input.expectedPeriodVersions);
     this.assignments.assertAssignmentVersions(context, input.expectedAssignmentVersions);
-    if (context.preview.workflowBlockers.length > 0)
+    if (context.assignments.length > 0)
       throw new ApiError({
         code: 'CONFLICT',
         statusCode: 409,
-        latestData: toLatestData({ workflowBlockers: context.preview.workflowBlockers }),
-        userMessage: context.preview.workflowBlockers.map((b) => b.message).join('；'),
-      });
-    if (context.assignments.length > 0 && input.acknowledgeBlockers !== true)
-      throw new ApiError({
-        code: 'CONFLICT',
-        statusCode: 409,
-        latestData: toLatestData({ preview: context.preview }),
-        userMessage: '批准后将清空这些班次，请确认待安排空缺。',
+        userMessage: publishedLeaveConflictMessage,
       });
     const decidedAt = new Date();
     await transaction
@@ -460,17 +505,9 @@ export class LeaveService {
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
     });
-    await this.assignments.clear(
-      transaction,
-      authorization,
-      leave,
-      context,
-      input.operationId,
-      eventId,
-    );
     await this.services.notificationWriter.append(transaction, {
       actorUserId: authorization.user.id,
-      body: '您的请假申请已批准，受影响班次已设为待安排。',
+      body: '您的请假申请已批准。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_approved',
       objectId: leave.id,
@@ -732,13 +769,10 @@ export class LeaveService {
         version: sql`${leaveRequests.version} + 1`,
       })
       .where(eq(leaveRequests.id, leaveRequest.id));
-    const restoration = await this.assignments.restore(transaction, authorization, leaveRequest);
     const revokedEventId = await this.services.eventWriter.append(transaction, {
-      affectedShiftIds: restoration.restoredAssignmentIds,
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         status: 'revoked',
-        restoration,
         version: leaveRequest.version + 1,
       }),
       beforeData: toLatestData({
@@ -757,7 +791,7 @@ export class LeaveService {
     });
     await this.services.notificationWriter.append(transaction, {
       actorUserId: authorization.user.id,
-      body: `请假已撤销，恢复 ${restoration.restoredAssignmentIds.length} 个未修改空缺；其余班次保留现状。`,
+      body: '请假已撤销。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_revoked',
       objectId: leaveRequest.id,
@@ -785,7 +819,6 @@ export class LeaveService {
       leaveRequestId: leaveRequest.id,
       operationId: input.operationId,
       status: 'revoked',
-      restoration,
     };
   }
 
@@ -822,7 +855,7 @@ export class LeaveService {
             eq(shiftAssignments.plannedMembershipId, membershipId),
           ),
           isNull(shiftAssignments.deletedAt),
-          sql`${shiftAssignments.startsAt} > ${new Date()}`,
+          sql`${shiftAssignments.endsAt} > ${new Date()}`,
         ),
       );
 
@@ -833,27 +866,13 @@ export class LeaveService {
     );
   }
 
-  private async buildAffectedShiftList(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    membershipId: string,
+  private buildAffectedShiftList(
     assignments: readonly LockedShiftAssignment[],
-  ): Promise<readonly LeaveAffectedShift[]> {
-    if (assignments.length === 0) {
-      return [];
-    }
-    const coveredAssignmentIds =
-      await this.services.workflowConflictService.findLeaveCoverageAssignmentIds(
-        transaction,
-        groupId,
-        membershipId,
-        assignments.map((assignment) => assignment.id),
-      );
-
+  ): readonly LeaveAffectedShift[] {
     return assignments.map((assignment) => ({
       assignmentId: assignment.id,
       businessDate: assignment.businessDate,
-      isCovered: coveredAssignmentIds.has(assignment.id),
+      isCovered: false,
       shiftTypeAbbreviation: assignment.shiftTypeAbbreviation,
       shiftTypeName: assignment.shiftTypeName,
     }));

@@ -7,6 +7,7 @@ import {
   createTestDatabaseClient,
   groups,
   groupMemberships,
+  leaveRequests,
   migrateDatabase,
   scheduleEvents,
   schedulePeriods,
@@ -389,6 +390,84 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       ]),
     );
   });
+
+  it.each([false, true])(
+    'blocks workflow restoration onto leave when only one side is replaced (crossMonth=%s)',
+    async (crossMonth) => {
+      const repository = new ScheduleRepository(client);
+      const first = await repository.createDraft(createDraftInput('2028-03', '2028-03-01'));
+      const secondDate = crossMonth ? '2028-04-02' : '2028-03-02';
+      const second = await repository.createDraft(
+        createDraftInput(secondDate.slice(0, 7), secondDate),
+      );
+      await client.database
+        .update(schedulePeriods)
+        .set({ status: 'published' })
+        .where(eq(schedulePeriods.id, first.id));
+      if (crossMonth)
+        await client.database
+          .update(schedulePeriods)
+          .set({ status: 'published' })
+          .where(eq(schedulePeriods.id, second.id));
+      const [left] = await client.database
+        .select()
+        .from(shiftAssignments)
+        .where(eq(shiftAssignments.schedulePeriodId, first.id));
+      const [right] = await client.database
+        .select()
+        .from(shiftAssignments)
+        .where(eq(shiftAssignments.schedulePeriodId, second.id));
+      if (!crossMonth)
+        await client.database
+          .update(shiftAssignments)
+          .set({ schedulePeriodId: first.id })
+          .where(eq(shiftAssignments.id, right!.id));
+      const requestId = randomUUID();
+      await client.database.insert(swapRequests).values({
+        id: requestId,
+        groupId,
+        initiatorAssignmentId: left!.id,
+        initiatorAssignmentVersion: left!.version,
+        initiatorMembershipId: memberId,
+        targetAssignmentId: right!.id,
+        targetAssignmentVersion: right!.version,
+        targetMembershipId: memberId,
+        workflowSequence: 1,
+        status: 'completed',
+      });
+      await client.database.insert(leaveRequests).values({
+        id: randomUUID(),
+        groupId,
+        membershipId: memberId,
+        isAllDay: 1,
+        leaveType: 'sick',
+        status: 'pending',
+        startsAt: new Date(`${secondDate}T00:00:00Z`),
+        endsAt: new Date(`${secondDate.slice(0, 8)}03T00:00:00Z`),
+      });
+      const before = await client.database.select().from(shiftAssignments);
+      const eventsBefore = await client.database.select().from(scheduleEvents);
+      await expect(
+        withTransaction(client, (transaction) =>
+          new ScheduleWorkflowInvalidationService().invalidate(transaction, {
+            actorUserId: ownerUserId,
+            groupId,
+            operationId: randomUUID(),
+            periodIds: [first.id],
+            ...(crossMonth ? {} : { assignmentIds: [left!.id] }),
+          }),
+        ),
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(await client.database.select().from(shiftAssignments)).toEqual(before);
+      expect(
+        await client.database
+          .select({ status: swapRequests.status })
+          .from(swapRequests)
+          .where(eq(swapRequests.id, requestId)),
+      ).toEqual([{ status: 'completed' }]);
+      expect(await client.database.select().from(scheduleEvents)).toEqual(eventsBefore);
+    },
+  );
 
   it('reapplies an archived date into the current month without removing current dates', async () => {
     const repository = new ScheduleRepository(client);

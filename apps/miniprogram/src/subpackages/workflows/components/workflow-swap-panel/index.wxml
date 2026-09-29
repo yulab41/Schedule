@@ -94,135 +94,6 @@
           </view>
         </view>
 
-        <view wx:if="{{incomingCount > 0}}" class="workflow-section">
-          <view class="section-heading"
-            ><view
-              ><text class="section-title">待我接受</text
-              ><text>确认双方班次后接受或驳回。</text></view
-            ><text>{{incomingCount}} 项</text></view
-          >
-          <view class="request-list">
-            <view wx:for="{{incomingRequests}}" wx:key="id" class="request-card is-featured">
-              <view class="request-card-heading"
-                ><view class="request-person"
-                  ><text>{{item.initiatorName}}</text><text>发起人</text></view
-                ><text class="status-chip is-warning">{{item.statusLabel}}</text></view
-              >
-              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
-              <view class="request-actions">
-                <view
-                  class="web-button is-outline"
-                  data-id="{{item.id}}"
-                  aria-role="button"
-                  bindtap="handleAccept"
-                  >接受</view
-                >
-                <view
-                  class="web-button is-danger-outline"
-                  data-id="{{item.id}}"
-                  aria-role="button"
-                  bindtap="handleReject"
-                  >驳回</view
-                >
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view wx:if="{{canApprove && pendingApprovalCount > 0}}" class="workflow-section">
-          <view class="section-heading"
-            ><view
-              ><text class="section-title">待管理员审批</text
-              ><text>目标成员已接受，等待最终确认。</text></view
-            ><text>{{pendingApprovalCount}} 项</text></view
-          >
-          <view class="request-list">
-            <view wx:for="{{pendingApprovals}}" wx:key="id" class="request-card is-featured">
-              <view class="request-card-heading"
-                ><view class="request-person"
-                  ><text>{{item.initiatorName}} ↔ {{item.targetName}}</text
-                  ><text>换班双方</text></view
-                ><text class="status-chip is-warning">{{item.statusLabel}}</text></view
-              >
-              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
-              <view class="request-actions">
-                <view
-                  class="web-button is-outline"
-                  data-id="{{item.id}}"
-                  aria-role="button"
-                  bindtap="handleApprove"
-                  >批准</view
-                >
-                <view
-                  class="web-button is-danger-outline"
-                  data-id="{{item.id}}"
-                  aria-role="button"
-                  bindtap="handleReject"
-                  >驳回</view
-                >
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view wx:if="{{canApprove && handledApprovalCount > 0}}" class="workflow-section">
-          <view class="section-heading"
-            ><view
-              ><text class="section-title">已受理记录</text
-              ><text>已结束记录（过去30天）；生效中保留。</text></view
-            ><text>{{handledApprovalCount}} 项</text></view
-          >
-          <view class="request-list">
-            <view wx:for="{{handledApprovals}}" wx:key="id" class="request-card is-muted">
-              <view class="request-card-heading"
-                ><view class="request-person"
-                  ><text>{{item.initiatorName}} ↔ {{item.targetName}}</text
-                  ><text>处理人 {{item.decidedByLabel}}</text></view
-                ><text
-                  class="status-chip {{item.statusTone}} {{item.statusLabel === '已取消' || item.statusLabel === '已撤销' ? 'is-neutral' : ''}}"
-                  >{{item.statusLabel}}</text
-                ></view
-              >
-              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
-            </view>
-          </view>
-        </view>
-
-        <view
-          wx:if="{{canApprove && (completedSwapCount > 0 || archivedSwapCount > 0)}}"
-          class="workflow-section"
-        >
-          <view class="section-heading"
-            ><view
-              ><text class="section-title">已生效待撤销</text
-              ><text>只能按工作流逆序撤销仍有效的换班。</text></view
-            ><text>{{completedSwapCount}} 项</text></view
-          >
-          <view wx:if="{{completedSwapCount > 0}}" class="request-list">
-            <view wx:for="{{completedSwaps}}" wx:key="id" class="request-card">
-              <view class="request-card-heading"
-                ><view class="request-person"
-                  ><text>{{item.initiatorName}} ↔ {{item.targetName}}</text
-                  ><text>已交换实际班次</text></view
-                ><text class="status-chip is-success">已生效</text></view
-              >
-              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
-              <view
-                class="web-button is-danger-outline"
-                data-id="{{item.id}}"
-                aria-role="button"
-                bindtap="handleRevoke"
-                >撤销</view
-              >
-            </view>
-          </view>
-          <view wx:if="{{archivedSwapCount > 0}}" class="native-alert is-warning"
-            ><text
-              >另有 {{archivedSwapCount}} 条因后续排班变动而失效的换班记录已自动归档。</text
-            ></view
-          >
-        </view>
-
         <view class="workflow-section">
           <view class="section-heading"
             ><view
@@ -264,6 +135,135 @@
             </view>
           </view>
         </view>
+        <view wx:if="{{incomingCount > 0}}" class="workflow-section">
+          <view class="section-heading"
+            ><view
+              ><text class="section-title">待我接受</text
+              ><text>确认双方班次后接受或驳回。</text></view
+            ><text>{{incomingCount}} 项</text></view
+          >
+          <view class="request-list">
+            <view wx:for="{{incomingRequests}}" wx:key="id" class="request-card is-featured">
+              <view class="request-card-heading"
+                ><view class="request-person"
+                  ><text>{{item.initiatorName}}</text><text>发起人</text></view
+                ><text class="status-chip is-warning">{{item.statusLabel}}</text></view
+              >
+              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
+              <view class="request-actions">
+                <view
+                  class="web-button is-outline"
+                  data-id="{{item.id}}"
+                  aria-role="button"
+                  bindtap="handleAccept"
+                  >接受</view
+                >
+                <view
+                  class="web-button is-danger-outline"
+                  data-id="{{item.id}}"
+                  aria-role="button"
+                  bindtap="handleReject"
+                  >驳回</view
+                >
+              </view>
+            </view>
+          </view>
+        </view>
+
+
+        <view wx:if="{{canApprove && pendingApprovalCount > 0}}" class="workflow-section">
+          <view class="section-heading"
+            ><view
+              ><text class="section-title">待管理员审批</text
+              ><text>目标成员已接受，等待最终确认。</text></view
+            ><text>{{pendingApprovalCount}} 项</text></view
+          >
+          <view class="request-list">
+            <view wx:for="{{pendingApprovals}}" wx:key="id" class="request-card is-featured">
+              <view class="request-card-heading"
+                ><view class="request-person"
+                  ><text>{{item.initiatorName}} ↔ {{item.targetName}}</text
+                  ><text>换班双方</text></view
+                ><text class="status-chip is-warning">{{item.statusLabel}}</text></view
+              >
+              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
+              <view class="request-actions">
+                <view
+                  class="web-button is-outline"
+                  data-id="{{item.id}}"
+                  aria-role="button"
+                  bindtap="handleApprove"
+                  >批准</view
+                >
+                <view
+                  class="web-button is-danger-outline"
+                  data-id="{{item.id}}"
+                  aria-role="button"
+                  bindtap="handleReject"
+                  >驳回</view
+                >
+              </view>
+            </view>
+          </view>
+        </view>
+
+
+        <view
+          wx:if="{{canApprove && completedSwapCount > 0}}"
+          class="workflow-section"
+        >
+          <view class="section-heading"
+            ><view
+              ><text class="section-title">已生效待撤销</text
+              ><text>只能按工作流逆序撤销仍有效的换班。</text></view
+            ><text>{{completedSwapCount}} 项</text></view
+          >
+          <view wx:if="{{completedSwapCount > 0}}" class="request-list">
+            <view wx:for="{{completedSwaps}}" wx:key="id" class="request-card">
+              <view class="request-card-heading"
+                ><view class="request-person"
+                  ><text>{{item.initiatorName}} ↔ {{item.targetName}}</text
+                  ><text>已交换实际班次</text></view
+                ><text class="status-chip is-success">已生效</text></view
+              >
+              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
+              <view
+                class="web-button is-danger-outline"
+                data-id="{{item.id}}"
+                aria-role="button"
+                bindtap="handleRevoke"
+                >撤销</view
+              >
+            </view>
+          </view>
+
+        </view>
+
+
+        <view wx:if="{{canApprove && handledApprovalCount > 0}}" class="workflow-section">
+          <view class="section-heading"
+            ><view
+              ><text class="section-title">已受理记录</text
+              ><text>已结束记录（过去30天）；生效中保留。</text></view
+            ><text>{{handledApprovalCount}} 项</text></view
+          >
+          <view class="request-list">
+            <view wx:for="{{handledApprovals}}" wx:key="id" class="request-card is-muted">
+              <view class="request-card-heading"
+                ><view class="request-person"
+                  ><text>{{item.initiatorName}} ↔ {{item.targetName}}</text
+                  ><text>处理人 {{item.decidedByLabel}}</text></view
+                ><text
+                  class="status-chip {{item.statusTone}} {{item.statusLabel === '已取消' || item.statusLabel === '已撤销' ? 'is-neutral' : ''}}"
+                  >{{item.statusLabel}}</text
+                ></view
+              >
+              <view class="request-detail"><text>班次</text><text>{{item.pairLabel}}</text></view>
+            </view>
+          </view>
+        </view>
+
+
       </view>
     </view>
   </scroll-view>

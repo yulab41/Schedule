@@ -119,3 +119,63 @@ export const statisticsRecalculateCheckResultSchema = z
 export type StatisticsRecalculateCheckResult = z.infer<
   typeof statisticsRecalculateCheckResultSchema
 >;
+
+export const statisticsMetricsV2Schema = z
+  .object({
+    plannedCount: z.number(),
+    actualCount: z.number(),
+    weekendCount: z.number(),
+    holidayCount: z.number(),
+    swapCount: z.number(),
+    overtimeCount: z.number(),
+    deductionCount: z.number(),
+  })
+  .strict();
+export type StatisticsMetricsV2 = z.infer<typeof statisticsMetricsV2Schema>;
+export const statisticsShiftTypeV2Schema = statisticsMetricsV2Schema
+  .extend({
+    shiftTypeId: z.string(),
+    shiftTypeName: z.string(),
+    countsTowardStatistics: z.boolean(),
+  })
+  .strict();
+export type StatisticsShiftTypeV2 = z.infer<typeof statisticsShiftTypeV2Schema>;
+export const statisticsMemberV2Schema = statisticsMetricsV2Schema
+  .extend({
+    membershipId: z.string(),
+    realName: z.string(),
+    byRole: z.array(statisticsRoleCountSchema),
+    byShiftType: z.array(statisticsShiftTypeV2Schema),
+  })
+  .strict();
+export type StatisticsMemberV2 = z.infer<typeof statisticsMemberV2Schema>;
+export const statisticsSummaryV2Schema = statisticsMetricsV2Schema
+  .extend({
+    members: z.array(statisticsMemberV2Schema),
+    byRole: z.array(statisticsRoleCountSchema),
+    byShiftType: z.array(statisticsShiftTypeV2Schema),
+  })
+  .strict();
+export type StatisticsSummaryV2 = z.infer<typeof statisticsSummaryV2Schema>;
+export const monthStatisticsV2Schema = z
+  .object({
+    schemaVersion: z.literal(2),
+    businessMonth: z.string(),
+    computedAt: z.string(),
+    groupId: z.string(),
+    version: z.number(),
+    summary: statisticsSummaryV2Schema,
+  })
+  .strict();
+export type MonthStatisticsV2 = z.infer<typeof monthStatisticsV2Schema>;
+export const yearStatisticsV2Schema = z
+  .object({
+    schemaVersion: z.literal(2),
+    year: z.number(),
+    summary: statisticsSummaryV2Schema,
+    months: z.array(
+      z.object({ businessMonth: z.string(), summary: statisticsSummaryV2Schema }).strict(),
+    ),
+  })
+  .strict();
+export type YearStatisticsV2 = z.infer<typeof yearStatisticsV2Schema>;

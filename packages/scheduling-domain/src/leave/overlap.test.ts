@@ -81,6 +81,27 @@ describe('leave overlap', () => {
     expect(leaveOverlapsInterval(allDayLeaveStoredAsUtcMidnight, sep2ChinaShift)).toBe(false);
   });
 
+  it('blocks an overnight shift carried from the previous business date into an all-day leave', () => {
+    const leave = {
+      startsAt: new Date('2026-10-01T00:00:00Z'),
+      endsAt: new Date('2026-10-02T00:00:00Z'),
+      isAllDay: true,
+    };
+    expect(
+      leaveOverlapsInterval(leave, {
+        businessDate: '2026-09-30',
+        startsAt: new Date('2026-09-30T12:00:00Z'),
+        endsAt: new Date('2026-10-01T01:00:00Z'),
+      }),
+    ).toBe(true);
+    expect(
+      leaveOverlapsInterval(leave, {
+        businessDate: '2026-09-30',
+        startsAt: new Date('2026-09-30T08:00:00Z'),
+        endsAt: new Date('2026-09-30T16:00:00Z'),
+      }),
+    ).toBe(false);
+  });
   it('keeps raw interval comparison for partial-day leaves', () => {
     const partialLeave = {
       endsAt: new Date('2026-09-01T12:00:00.000Z'),

@@ -1,26 +1,27 @@
 <script setup lang="ts">
 import type {
   GroupSummary,
-  MonthStatisticsSnapshot,
+  MonthStatisticsV2,
   StatisticsRecalculateCheckResult,
-  StatisticsSummary,
-  YearStatistics,
+  StatisticsSummaryV2,
+  YearStatisticsV2,
 } from '@schedule/contracts';
+import {
+  getStatisticsSummaryItems,
+  sortMembersByActualCount,
+} from '@schedule/presentation-core/statistics';
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { PrimaryTableCellParams, PrimaryTableCol, TableRowData } from 'tdesign-vue-next';
+import type { PrimaryTableCol, TableRowData } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import TemporalPicker from '../../components/TemporalPicker.vue';
 import {
-  formatNetDutyAdjustment,
   formatStatisticsMonthLabel,
-  getStatisticsSummaryItems,
   getStatisticsTableScrollHint,
   getStatisticsTableScrollState,
-  sortMembersByActualCount,
   summarizeRecalculateMismatches,
   type StatisticsTableScrollState,
 } from '../../features/statistics/statistics-logic.js';
@@ -42,11 +43,11 @@ const statisticsYear = computed({
 });
 const isLoading = ref(false);
 const errorMessage = ref<string>();
-const monthData = ref<MonthStatisticsSnapshot>();
-const yearData = ref<YearStatistics>();
+const monthData = ref<MonthStatisticsV2>();
+const yearData = ref<YearStatisticsV2>();
 const checkResult = ref<StatisticsRecalculateCheckResult>();
 
-const summary = computed<StatisticsSummary | undefined>(() =>
+const summary = computed<StatisticsSummaryV2 | undefined>(() =>
   viewMode.value === 'month' ? monthData.value?.summary : yearData.value?.summary,
 );
 const members = computed(() =>
@@ -76,55 +77,15 @@ const memberScrollThumbStyle = computed(() => ({
 }));
 let memberTableResizeObserver: ResizeObserver | undefined;
 
-function readNumber(row: Record<string, unknown>, key: string): number {
-  const value = row[key];
-  return typeof value === 'number' ? value : 0;
-}
-
-function readArrayLength(row: Record<string, unknown>, key: string): number {
-  const value = row[key];
-  return Array.isArray(value) ? value.length : 0;
-}
-
-function renderNetDutyAdjustment(
-  _h: unknown,
-  params: PrimaryTableCellParams<TableRowData>,
-): string {
-  return formatNetDutyAdjustment(readNumber(params.row, 'netDutyAdjustment'));
-}
-
-function renderActualVsPlannedCount(
-  _h: unknown,
-  params: PrimaryTableCellParams<TableRowData>,
-): string {
-  return String(readArrayLength(params.row, 'actualVsPlanned'));
-}
-
 const memberColumns: PrimaryTableCol<TableRowData>[] = [
   { colKey: 'realName', fixed: 'left', title: '成员', width: 132 },
   { align: 'right', colKey: 'plannedCount', title: '计划', width: 74 },
   { align: 'right', colKey: 'actualCount', title: '实际', width: 74 },
-  { align: 'right', colKey: 'countedActualCount', title: '计值班次', width: 92 },
   { align: 'right', colKey: 'weekendCount', title: '周末', width: 74 },
   { align: 'right', colKey: 'holidayCount', title: '节假日', width: 82 },
   { align: 'right', colKey: 'swapCount', title: '换班', width: 74 },
   { align: 'right', colKey: 'overtimeCount', title: '加班', width: 74 },
   { align: 'right', colKey: 'deductionCount', title: '扣班', width: 74 },
-  {
-    align: 'right',
-    cell: renderNetDutyAdjustment,
-    colKey: 'netDutyAdjustment',
-    title: '净值',
-    width: 74,
-  },
-  { align: 'right', colKey: 'deltaCount', title: '增减', width: 74 },
-  {
-    align: 'right',
-    cell: renderActualVsPlannedCount,
-    colKey: 'actualVsPlannedCount',
-    title: '原实对照',
-    width: 94,
-  },
 ];
 
 const roleColumns: PrimaryTableCol<TableRowData>[] = [
@@ -176,10 +137,10 @@ async function load(): Promise<void> {
   errorMessage.value = undefined;
   try {
     if (viewMode.value === 'month') {
-      monthData.value = await api.getMonthStatistics(props.group.id, businessMonth.value);
+      monthData.value = await api.getMonthStatisticsV2(props.group.id, businessMonth.value);
       yearData.value = undefined;
     } else {
-      yearData.value = await api.getYearStatistics(props.group.id, year.value);
+      yearData.value = await api.getYearStatisticsV2(props.group.id, year.value);
       monthData.value = undefined;
     }
   } catch (error) {
@@ -193,7 +154,8 @@ async function refreshSnapshot(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = undefined;
   try {
-    monthData.value = await api.refreshMonthStatistics(props.group.id, businessMonth.value);
+    await api.refreshMonthStatistics(props.group.id, businessMonth.value);
+    monthData.value = await api.getMonthStatisticsV2(props.group.id, businessMonth.value);
   } catch (error) {
     errorMessage.value = toUserMessage(error, '统计数据暂时无法加载，请稍后重试。');
   } finally {
@@ -324,6 +286,35 @@ async function runRecalculateCheck(): Promise<void> {
               table-layout="fixed"
             />
           </div>
+        </section>
+        <section v-if="shiftTypeRows.length > 1" class="statistics-card shift-details">
+          <details v-for="member in members" :key="member.membershipId">
+            <summary>{{ member.realName }} · 班种明细</summary>
+            <article v-for="shift in member.byShiftType" :key="shift.shiftTypeId">
+              <strong
+                >{{ shift.shiftTypeName
+                }}{{ shift.countsTowardStatistics ? '' : '（不计入总数）' }}</strong
+              ><span>{{
+                shift.actualCount === shift.plannedCount
+                  ? '与计划一致'
+                  : (shift.actualCount > shift.plannedCount ? '多' : '少') +
+                    Math.abs(shift.actualCount - shift.plannedCount) +
+                    '班'
+              }}</span>
+              <div class="shift-metrics">
+                <span
+                  v-for="metric in getStatisticsSummaryItems({
+                    ...shift,
+                    byRole: [],
+                    byShiftType: [],
+                    members: [],
+                  })"
+                  :key="metric.key"
+                  >{{ metric.label }} {{ metric.value }}</span
+                >
+              </div>
+            </article>
+          </details>
         </section>
         <div class="statistics-breakdowns">
           <section class="statistics-card breakdown-card">
@@ -740,5 +731,26 @@ async function runRecalculateCheck(): Promise<void> {
   .statistics-scroll-thumb {
     transition: none;
   }
+}
+.shift-details details {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.shift-details summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.shift-details article {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.shift-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+.primary-statistics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 </style>

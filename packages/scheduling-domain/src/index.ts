@@ -61,6 +61,14 @@ export function createDomainSummary(): string {
 
 export { assertBusinessDate, getBusinessDates } from './business-dates.js';
 export { createAssignmentBusinessKey } from './assignment-key.js';
+export {
+  calculateEffectiveStatistics,
+  mergeEffectiveStatistics,
+  toLegacyStatistics,
+  statisticsAlgorithmVersion,
+  type EffectiveStatistics,
+  type StatisticsContribution,
+} from './statistics/effective.js';
 export type {
   ScheduleAssignmentSnapshot,
   ScheduleHardConflict,

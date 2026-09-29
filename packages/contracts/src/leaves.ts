@@ -227,3 +227,8 @@ export const rejectedLeaveRequestResultSchema = z
   })
   .strict();
 export type RejectedLeaveRequestResult = z.infer<typeof rejectedLeaveRequestResultSchema>;
+
+export const schedulingAvailabilitySchema = z.array(
+  z.object({ membershipId: z.string(), blocked: z.boolean() }).strict(),
+);
+export type SchedulingAvailability = z.infer<typeof schedulingAvailabilitySchema>;

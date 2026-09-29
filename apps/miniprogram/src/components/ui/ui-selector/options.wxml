@@ -30,7 +30,7 @@
           ><text>{{item.leadingLabel}}</text
           ><text wx:if="{{item.weekendLabel}}" class="workflow-picker-option-weekend"
             >{{item.weekendLabel}}</text
-          ><text>{{item.trailingLabel}}</text></text
+          ><text>{{item.trailingLabel}}</text><text wx:if="{{item.annotation}}" class="workflow-picker-option-weekend">{{item.annotation}}</text></text
         >
         <view
           wx:if="{{item.actionLabel}}"

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { formatLeaveRestoration } from '@schedule/presentation-core';
-import type { LeaveRequestMutationResult } from '@schedule/contracts';
 import type {
   GroupSummary,
   LeaveAffectedShift,
@@ -47,6 +45,8 @@ const startDate = ref(todayDate.value);
 const endDate = ref(todayDate.value);
 const affectedShifts = ref<readonly LeaveAffectedShift[]>([]);
 const affectedShiftsLoading = ref(false);
+const affectedShiftsReady = ref(false);
+let affectedSerial = 0;
 const reason = ref('');
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
@@ -117,6 +117,13 @@ async function loadData(): Promise<void> {
 }
 
 async function submit(): Promise<void> {
+  if (
+    isSubmitting.value ||
+    !affectedShiftsReady.value ||
+    affectedShiftsLoading.value ||
+    affectedShifts.value.length > 0
+  )
+    return;
   errorMessage.value = undefined;
   infoMessage.value = undefined;
   let interval;
@@ -156,6 +163,8 @@ async function submit(): Promise<void> {
 }
 
 async function loadAffectedShifts(): Promise<void> {
+  const serial = ++affectedSerial;
+  affectedShiftsReady.value = false;
   if (startDate.value.length === 0 || endDate.value.length === 0) {
     affectedShifts.value = [];
     return;
@@ -173,15 +182,19 @@ async function loadAffectedShifts(): Promise<void> {
   }
   affectedShiftsLoading.value = true;
   try {
-    affectedShifts.value = await api.getLeaveAffectedShifts(props.group.id, {
+    const shifts = await api.getLeaveAffectedShifts(props.group.id, {
       endsAt: interval.endsAt,
       isAllDay: true,
       startsAt: interval.startsAt,
     });
+    if (serial !== affectedSerial) return;
+    affectedShifts.value = shifts;
+    affectedShiftsReady.value = true;
   } catch {
+    if (serial !== affectedSerial) return;
     affectedShifts.value = [];
   } finally {
-    affectedShiftsLoading.value = false;
+    if (serial === affectedSerial) affectedShiftsLoading.value = false;
   }
 }
 
@@ -209,9 +222,7 @@ async function cancelRequest(request: LeaveRequest): Promise<void> {
 }
 
 async function revokeRequest(request: LeaveRequest): Promise<void> {
-  if (
-    !window.confirm('确定撤销该已批准的请假吗？仅恢复未被后续修改的空缺，人工安排的班次将保留。')
-  ) {
+  if (!window.confirm('确定撤销该已批准的请假吗？')) {
     return;
   }
   const operationKey = `${props.group.id}:leave:revoke:${request.id}:${request.version}`;
@@ -225,7 +236,7 @@ async function revokeRequest(request: LeaveRequest): Promise<void> {
           expectedVersion: request.version,
         }),
       ),
-    (result) => formatLeaveRestoration((result as LeaveRequestMutationResult).restoration),
+    '请假已撤销。',
   );
 }
 
@@ -492,7 +503,7 @@ function onWindowFocus(): void {
       <form class="leave-form" @submit.prevent="submit">
         <fieldset>
           <legend>请假信息</legend>
-          <p class="form-intro">请假按整天计算；提交前会检查已发布的未来班次。</p>
+          <p class="form-intro">请假按整天计算；提交前会检查已发布且尚未结束的班次。</p>
           <label>
             请假类型
             <t-select v-model="leaveType" :options="leaveTypeOptions" />
@@ -528,21 +539,31 @@ function onWindowFocus(): void {
             <ul class="affected-list">
               <li v-for="shift in affectedShifts" :key="shift.assignmentId">
                 <span>{{ shift.businessDate }} {{ shift.shiftTypeName }}</span>
-                <strong :class="{ uncovered: !shift.isCovered }">
-                  {{ shift.isCovered ? '已安排' : '未安排' }}
-                </strong>
+                <strong :class="{ uncovered: !shift.isCovered }"> 需先调整 </strong>
               </li>
             </ul>
             <p v-if="uncoveredAffectedShifts.length > 0" class="affected-warning">
-              可先到“换班”或“加扣班”安排替班；未安排也可以提交申请。
+              请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。
             </p>
           </template>
-          <p v-else class="affected-hint">请假期间没有已发布的未来班次。</p>
+          <p v-else class="affected-hint">
+            {{
+              affectedShiftsReady
+                ? '请假期间没有已发布且尚未结束的班次。'
+                : '暂时无法读取受影响班次，请重试。'
+            }}
+          </p>
           <label class="reason-field">
             原因说明（选填）
             <textarea v-model="reason" maxlength="1000" placeholder="请填写请假原因" rows="3" />
           </label>
-          <t-button theme="primary" type="submit" :loading="isSubmitting">提交请假</t-button>
+          <t-button
+            theme="primary"
+            type="submit"
+            :loading="isSubmitting"
+            :disabled="affectedShiftsLoading || !affectedShiftsReady || affectedShifts.length > 0"
+            >提交请假</t-button
+          >
         </fieldset>
       </form>
     </ResponsiveSheet>
@@ -1041,5 +1062,17 @@ function onWindowFocus(): void {
   .mobile-workflow-tabs button {
     transition: none;
   }
+}
+.affected-warning {
+  display: block;
+  margin-top: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.affected-list {
+  margin-bottom: 12px;
+}
+.leave-form {
+  gap: 12px;
 }
 </style>

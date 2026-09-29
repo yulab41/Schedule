@@ -1,5 +1,6 @@
 export interface SelectorOption {
   readonly actionLabel?: string;
+  readonly annotation?: string;
   readonly checked?: boolean;
   readonly disabled?: boolean;
   readonly value: string;

@@ -1,3 +1,4 @@
+import { assertAssignmentsAvailable } from '../leaves/leave-availability.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type {
@@ -20,6 +21,7 @@ import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
   groups,
+  scheduleEvents,
   schedulePeriods,
   shiftAssignments,
   swapRequests,
@@ -738,6 +740,10 @@ export class SwapService {
       });
     }
 
+    await assertAssignmentsAvailable(transaction, authorization.group.id, [
+      { ...initiatorAssignment, actualMembershipId: initiatorMember.id },
+      { ...targetAssignment, actualMembershipId: targetMember.id },
+    ]);
     const beforeInitiator = {
       actualMemberId: initiatorAssignment.actualMembershipId,
       actualMemberName: initiatorAssignment.actualMemberName,
@@ -864,6 +870,7 @@ export class SwapService {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
       afterData: toLatestData({
         initiatorAssignmentId: context.initiatorAssignment.id,
+        initiatorMemberName: context.initiatorMember.realName,
         status,
         targetAssignmentId: context.targetAssignment.id,
       }),
@@ -974,6 +981,7 @@ export class SwapService {
       afterData: toLatestData({
         approverUserId: authorization.user.id,
         initiatorAssignmentId: context.initiatorAssignment.id,
+        initiatorMemberName: context.initiatorMember.realName,
         status: 'completed',
         targetAssignmentId: context.targetAssignment.id,
       }),
@@ -1828,11 +1836,35 @@ export class SwapService {
         : await transaction
             .select({ realName: userProfiles.realName, userId: userProfiles.userId })
             .from(userProfiles)
-            .where(
-              and(inArray(userProfiles.userId, approverUserIds), isNull(userProfiles.deletedAt)),
-            );
+            .where(inArray(userProfiles.userId, approverUserIds));
     const approverNameByUserId = new Map(
       approverProfiles.map((profile) => [profile.userId, profile.realName]),
+    );
+    const historicalMembers = await transaction
+      .select({ id: groupMemberships.id, realName: userProfiles.realName })
+      .from(groupMemberships)
+      .innerJoin(userProfiles, eq(userProfiles.userId, groupMemberships.userId))
+      .where(inArray(groupMemberships.id, membershipIds));
+    const historicalNames = new Map(historicalMembers.map((row) => [row.id, row.realName]));
+    const submittedEvents = await transaction
+      .select({ objectId: scheduleEvents.objectId, afterData: scheduleEvents.afterData })
+      .from(scheduleEvents)
+      .where(
+        and(
+          inArray(
+            scheduleEvents.objectId,
+            rows.map((row) => row.id),
+          ),
+          eq(scheduleEvents.eventType, 'swap_request_created'),
+        ),
+      );
+    const submittedNames = new Map(
+      submittedEvents.map((event) => [
+        event.objectId,
+        typeof event.afterData?.initiatorMemberName === 'string'
+          ? event.afterData.initiatorMemberName
+          : undefined,
+      ]),
     );
     const periodIds = [...new Set(assignments.map((assignment) => assignment.schedulePeriodId))];
     const periodRows =
@@ -1853,8 +1885,19 @@ export class SwapService {
       const targetAssignment = assignmentById.get(row.targetAssignmentId);
       const initiatorPeriod = periodById.get(initiatorAssignment?.schedulePeriodId ?? '');
       const targetPeriod = periodById.get(targetAssignment?.schedulePeriodId ?? '');
+      const submitterName =
+        initiatorMember?.realName?.trim() ||
+        historicalNames.get(row.initiatorMembershipId)?.trim() ||
+        submittedNames.get(row.id)?.trim() ||
+        (initiatorAssignment?.plannedMembershipId === row.initiatorMembershipId
+          ? initiatorAssignment.plannedMemberName
+          : undefined
+        )?.trim() ||
+        '已离群成员';
       const decidedByMemberName =
-        row.approverUserId === null ? undefined : approverNameByUserId.get(row.approverUserId);
+        row.approverUserId === null
+          ? submitterName
+          : approverNameByUserId.get(row.approverUserId)?.trim() || '已离群管理员';
       let isRevocable: boolean | undefined;
       let revocationBlockedReason: string | undefined;
       if (row.status === 'completed') {
@@ -1893,8 +1936,8 @@ export class SwapService {
           ? {}
           : {
               approverUserId: row.approverUserId,
-              ...(decidedByMemberName === undefined ? {} : { decidedByMemberName }),
             }),
+        decidedByMemberName,
         createdAt: row.createdAt.toISOString(),
         ...(row.decidedAt === null ? {} : { decidedAt: row.decidedAt.toISOString() }),
         groupId: row.groupId,

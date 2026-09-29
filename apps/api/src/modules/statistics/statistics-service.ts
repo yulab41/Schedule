@@ -1,14 +1,22 @@
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 import type {
   MonthStatisticsSnapshot,
+  MonthStatisticsV2,
+  YearStatisticsV2,
   StatisticsRecalculateCheckResult,
   StatisticsSummary,
   YearStatistics,
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import { statisticsRecalcChecks, statisticsSnapshots, withTransaction } from '@schedule/database';
-import { mergeMonthStatistics } from '@schedule/scheduling-domain';
+import {
+  mergeEffectiveStatistics,
+  toLegacyStatistics,
+  statisticsAlgorithmVersion,
+  type EffectiveStatistics,
+} from '@schedule/scheduling-domain';
 import { and, eq, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -51,14 +59,14 @@ export class StatisticsService {
         computedAt: result.computedAt,
         groupId,
         id: randomUUID(),
-        payload: toJsonObject(result.summary),
+        payload: toJsonObject(result.effective),
         triggeredByEventId: triggeredByEventId ?? null,
         version: 1,
       })
       .onDuplicateKeyUpdate({
         set: {
           computedAt: result.computedAt,
-          payload: toJsonObject(result.summary),
+          payload: toJsonObject(result.effective),
           triggeredByEventId: triggeredByEventId ?? null,
           version: sql`${statisticsSnapshots.version} + 1`,
         },
@@ -95,19 +103,71 @@ export class StatisticsService {
       );
       const months = await Promise.all(
         getYearMonths(year).map((businessMonth) =>
-          this.readOrComputeMonth(transaction, groupId, businessMonth),
+          this.readEffectiveMonth(transaction, groupId, businessMonth),
         ),
       );
-      const summaries = months.map((month) => month.summary);
-      const summary = mergeMonthStatistics(summaries);
-
       return {
+        year,
+        summary: toLegacyStatistics(
+          mergeEffectiveStatistics(months.map((month) => month.effective)).summary,
+        ),
         months: months.map((month) => ({
           businessMonth: month.businessMonth,
-          summary: month.summary,
+          summary: toLegacyStatistics(month.effective.summary),
         })),
-        summary,
+      };
+    });
+  }
+
+  public async getMonthV2(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    businessMonth: string,
+  ): Promise<MonthStatisticsV2> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      const month = await this.readEffectiveMonth(transaction, groupId, businessMonth);
+      return {
+        schemaVersion: 2,
+        businessMonth: month.businessMonth,
+        computedAt: month.computedAt,
+        groupId,
+        version: month.version,
+        summary: month.effective.summary,
+      };
+    });
+  }
+
+  public async getYearV2(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    year: number,
+  ): Promise<YearStatisticsV2> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      const months = await Promise.all(
+        getYearMonths(year).map((businessMonth) =>
+          this.readEffectiveMonth(transaction, groupId, businessMonth),
+        ),
+      );
+      return {
+        schemaVersion: 2,
         year,
+        summary: mergeEffectiveStatistics(months.map((month) => month.effective)).summary,
+        months: months.map((month) => ({
+          businessMonth: month.businessMonth,
+          summary: month.effective.summary,
+        })),
       };
     });
   }
@@ -176,12 +236,22 @@ export class StatisticsService {
       const snapshotSummary =
         snapshotRow === undefined
           ? undefined
-          : (snapshotRow.payload as unknown as StatisticsSummary);
+          : isCurrentPayload(snapshotRow.payload)
+            ? toLegacyStatistics((snapshotRow.payload as unknown as EffectiveStatistics).summary)
+            : undefined;
       const mismatches =
         snapshotSummary === undefined
           ? ['missing_snapshot']
           : compareSummaries(recomputed.summary, snapshotSummary);
-      const matched = mismatches.length === 0;
+      const detailsMatch =
+        snapshotRow !== undefined &&
+        isCurrentPayload(snapshotRow.payload) &&
+        isDeepStrictEqual(
+          normalizeSnapshot(snapshotRow.payload as unknown as EffectiveStatistics),
+          normalizeSnapshot(recomputed.effective),
+        );
+      const allMismatches = detailsMatch ? mismatches : [...mismatches, 'effective_details'];
+      const matched = allMismatches.length === 0;
 
       await transaction.insert(statisticsRecalcChecks).values({
         businessMonth,
@@ -189,18 +259,18 @@ export class StatisticsService {
         groupId: authorization.group.id,
         id: randomUUID(),
         matched: matched ? 1 : 0,
-        mismatchSummary: mismatches,
+        mismatchSummary: allMismatches,
         recomputedPayload: toJsonObject(recomputed.summary),
         snapshotVersion: snapshotRow?.version ?? 0,
       });
-      if (snapshotRow === undefined) {
+      if (snapshotSummary === undefined) {
         await this.refreshInTransaction(transaction, authorization.group.id, businessMonth);
       }
 
       return {
         businessMonth: businessMonth.slice(0, 7),
         matched,
-        mismatches,
+        mismatches: allMismatches,
         recomputed: recomputed.summary,
         snapshot: snapshotSummary ?? recomputed.summary,
         snapshotVersion: snapshotRow?.version ?? 1,
@@ -213,6 +283,21 @@ export class StatisticsService {
     groupId: string,
     businessMonth: string,
   ): Promise<MonthStatisticsSnapshot> {
+    const month = await this.readEffectiveMonth(transaction, groupId, businessMonth);
+    return {
+      businessMonth: month.businessMonth,
+      computedAt: month.computedAt,
+      groupId,
+      version: month.version,
+      summary: toLegacyStatistics(month.effective.summary),
+    };
+  }
+
+  private async readEffectiveMonth(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    businessMonth: string,
+  ) {
     const [row] = await transaction
       .select()
       .from(statisticsSnapshots)
@@ -223,17 +308,19 @@ export class StatisticsService {
         ),
       )
       .limit(1);
-    if (row !== undefined) {
-      return toSnapshot(row);
-    }
-
+    if (row !== undefined && isCurrentPayload(row.payload))
+      return {
+        businessMonth: businessMonth.slice(0, 7),
+        computedAt: row.computedAt.toISOString(),
+        version: row.version,
+        effective: row.payload as unknown as EffectiveStatistics,
+      };
     const computed = await this.computation.computeMonth(transaction, groupId, businessMonth);
     return {
       businessMonth: businessMonth.slice(0, 7),
       computedAt: computed.computedAt.toISOString(),
-      groupId,
-      summary: computed.summary,
       version: 0,
+      effective: computed.effective,
     };
   }
 }
@@ -243,7 +330,7 @@ function toSnapshot(row: typeof statisticsSnapshots.$inferSelect): MonthStatisti
     businessMonth: row.businessMonth.slice(0, 7),
     computedAt: row.computedAt.toISOString(),
     groupId: row.groupId,
-    summary: row.payload as unknown as StatisticsSummary,
+    summary: toLegacyStatistics((row.payload as unknown as EffectiveStatistics).summary),
     version: row.version,
   };
 }
@@ -291,4 +378,27 @@ function compareSummaries(
   }
 
   return mismatches.slice(0, 20);
+}
+
+function isCurrentPayload(payload: Record<string, unknown>): boolean {
+  return (
+    payload.algorithmVersion === statisticsAlgorithmVersion &&
+    payload.summary !== undefined &&
+    Array.isArray(payload.swaps)
+  );
+}
+
+function normalizeSnapshot(value: EffectiveStatistics): unknown {
+  const normalize = (item: unknown): unknown => {
+    if (Array.isArray(item))
+      return item.map(normalize).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    if (item !== null && typeof item === 'object')
+      return Object.fromEntries(
+        Object.entries(item)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, entry]) => [key, normalize(entry)]),
+      );
+    return item;
+  };
+  return normalize(value);
 }

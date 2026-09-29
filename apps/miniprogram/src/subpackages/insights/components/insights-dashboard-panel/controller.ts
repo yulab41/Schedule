@@ -1,10 +1,10 @@
 import { ClientCoreError, type InsightsReadClient } from '@schedule/client-core';
 import type {
   ScheduleEvent,
-  StatisticsMemberRow,
+  StatisticsMemberV2,
   StatisticsRoleCount,
   StatisticsShiftTypeCount,
-  StatisticsSummary,
+  StatisticsSummaryV2,
 } from '@schedule/contracts';
 import { addBusinessMonths } from '@schedule/presentation-core';
 import {
@@ -17,11 +17,9 @@ import {
   type EventTone,
 } from '@schedule/presentation-core/event';
 import {
-  formatNetDutyAdjustment,
   formatStatisticsPeriodLabel,
   getCompletionPercentage,
   getCurrentStatisticsMonth,
-  getMemberActualVsPlannedCount,
   getStatisticsSummaryItems,
   sortMembersByActualCount,
   type StatisticsPeriodMode,
@@ -68,8 +66,13 @@ interface BreakdownCard {
 }
 
 interface MemberStatisticsCard {
-  readonly adjustmentLabel: string;
-  readonly comparisonLabel: string;
+  readonly expanded: boolean;
+  readonly details: readonly {
+    id: string;
+    name: string;
+    difference: string;
+    metrics: readonly StatisticsSummaryItem[];
+  }[];
   readonly countLabel: string;
   readonly id: string;
   readonly name: string;
@@ -196,6 +199,14 @@ export function createInsightsDashboardPanelControllerDefinition() {
     },
 
     methods: {
+      handleMemberDetails(this: InsightsDashboardInstance, event: TapEvent): void {
+        const id = event.currentTarget.dataset.id;
+        this.setData({
+          memberRows: this.data.memberRows.map((member) =>
+            member.id === id ? { ...member, expanded: !member.expanded } : member,
+          ),
+        });
+      },
       handleBack(): void {
         wx.navigateBack({ delta: 1 });
       },
@@ -271,8 +282,8 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
     const [eventPage, statisticsResponse] = await Promise.all([
       page._insightsReadClient.listEvents(groupId, { pageSize: 50, includeOperatorName: true }),
       period.statisticsMode === 'month'
-        ? page._insightsReadClient.getMonthStatistics(groupId, period.businessMonth)
-        : page._insightsReadClient.getYearStatistics(groupId, period.statisticsYear),
+        ? page._insightsReadClient.getMonthStatisticsV2(groupId, period.businessMonth)
+        : page._insightsReadClient.getYearStatisticsV2(groupId, period.statisticsYear),
     ]);
     if (!isDashboardRequestCurrent(page, requestSerial, groupId)) return;
     page._eventCards = eventPage.events.map(toEventCard);
@@ -352,8 +363,8 @@ async function loadStatistics(page: InsightsDashboardInstance): Promise<void> {
     await requireClientCapability('insights');
     const response =
       period.statisticsMode === 'month'
-        ? await page._insightsReadClient.getMonthStatistics(groupId, period.businessMonth)
-        : await page._insightsReadClient.getYearStatistics(groupId, period.statisticsYear);
+        ? await page._insightsReadClient.getMonthStatisticsV2(groupId, period.businessMonth)
+        : await page._insightsReadClient.getYearStatisticsV2(groupId, period.statisticsYear);
     if (statisticsSerial !== page._statisticsSerial || groupId !== page.data.groupId) return;
     page.setData({
       ...toStatisticsPatch(response.summary, period),
@@ -526,7 +537,7 @@ function toEventPatch(
 }
 
 function toStatisticsPatch(
-  summary: StatisticsSummary,
+  summary: StatisticsSummaryV2,
   data: Pick<InsightsDashboardData, 'businessMonth' | 'statisticsMode' | 'statisticsYear'>,
 ): Pick<
   InsightsDashboardData,
@@ -539,7 +550,9 @@ function toStatisticsPatch(
 > {
   const summaryItems = getStatisticsSummaryItems(summary);
   return {
-    memberRows: sortMembersByActualCount(summary.members).map(toMemberStatisticsCard),
+    memberRows: sortMembersByActualCount(summary.members).map((member) =>
+      toMemberStatisticsCard(member, summary.byShiftType.length > 1),
+    ),
     primaryStatistics: summaryItems.filter((item) => item.emphasis === 'primary'),
     roleRows: summary.byRole.map(toRoleCard),
     secondaryStatistics: summaryItems.filter((item) => item.emphasis === 'secondary'),
@@ -552,11 +565,31 @@ function toStatisticsPatch(
   };
 }
 
-function toMemberStatisticsCard(member: StatisticsMemberRow): MemberStatisticsCard {
+function toMemberStatisticsCard(
+  member: StatisticsMemberV2,
+  multiShift: boolean,
+): MemberStatisticsCard {
   return {
-    adjustmentLabel: `净值 ${formatNetDutyAdjustment(member.netDutyAdjustment)} · 增减 ${formatNetDutyAdjustment(member.deltaCount)}`,
-    comparisonLabel: `原实对照 ${getMemberActualVsPlannedCount(member)}`,
-    countLabel: `计划 ${member.plannedCount} · 实际 ${member.actualCount} · 计值班次 ${member.countedActualCount}`,
+    expanded: false,
+    details: multiShift
+      ? member.byShiftType.map((shift) => ({
+          id: shift.shiftTypeId,
+          name: shift.shiftTypeName + (shift.countsTowardStatistics ? '' : '（不计入总数）'),
+          difference:
+            shift.actualCount === shift.plannedCount
+              ? '与计划一致'
+              : (shift.actualCount > shift.plannedCount ? '多' : '少') +
+                Math.abs(shift.actualCount - shift.plannedCount) +
+                '班',
+          metrics: getStatisticsSummaryItems({
+            ...shift,
+            byRole: [],
+            byShiftType: [],
+            members: [],
+          }),
+        }))
+      : [],
+    countLabel: `计划 ${member.plannedCount} · 实际 ${member.actualCount}`,
     id: member.membershipId,
     name: member.realName,
     shiftLabel: `周末 ${member.weekendCount} · 节假日 ${member.holidayCount}`,

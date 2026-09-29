@@ -1,3 +1,4 @@
+import { assertAssignmentsAvailable } from '../leaves/leave-availability.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type {
@@ -1035,6 +1036,9 @@ export class DutyAdjustmentService {
       });
     }
 
+    await assertAssignmentsAvailable(transaction, authorization.group.id, [
+      { ...context.coveredAssignment, actualMembershipId: request.deductedMembershipId },
+    ]);
     const beforeActual = {
       actualMemberId: context.coveredAssignment.actualMembershipId,
       actualMemberName: context.coveredAssignment.actualMemberName,

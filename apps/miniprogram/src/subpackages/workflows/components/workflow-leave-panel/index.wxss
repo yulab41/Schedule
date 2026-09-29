@@ -601,7 +601,10 @@ page {
 }
 
 .affected-warning {
-  margin-top: var(--ui-spacing-sm);
+  display: block;
+  margin-top: 12px;
+  white-space: normal;
+  word-break: break-word;
   padding: 10px 12px;
   box-sizing: border-box;
   color: var(--ui-color-warning);
@@ -748,3 +751,6 @@ page {
 .duty-page.is-compact .workflow-sheet-footer .form-actions {
   flex-direction: row;
 }
+
+.affected-list { margin-top: 12px; }
+.affected-block + .reason-field { margin-top: 12px; }

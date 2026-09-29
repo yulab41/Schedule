@@ -10,7 +10,7 @@ import type {
   SchedulingConfig,
 } from '@schedule/contracts';
 import { MAX_MANUAL_DAYS } from '@schedule/contracts/manual-schedule-limits';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -51,6 +51,12 @@ const errorMessage = ref<string>();
 const previewRangeFingerprint = ref<string>();
 let previewRequestVersion = 0;
 
+const availabilityReady = ref(false);
+const blockedMembers = ref<string[]>([]);
+let availabilitySerial = 0;
+const membersAvailable = computed(
+  () => availabilityReady.value && blockedMembers.value.length === 0,
+);
 const visible = ref(true);
 const blockerCount = computed(
   () => (preview.value?.conflicts.length ?? 0) + (preview.value?.vacancies.length ?? 0),
@@ -89,6 +95,7 @@ const overlappingDrafts = computed(() =>
 );
 const canConfirmApply = computed(
   () =>
+    membersAvailable.value &&
     rangeErrorMessage.value === undefined &&
     previewRangeFingerprint.value === manualApplyRangeFingerprint.value &&
     (!hasBlockers.value || acknowledgeBlockers.value) &&
@@ -97,9 +104,51 @@ const canConfirmApply = computed(
     (workflowImpacts.value.length === 0 || acknowledgeWorkflowRevocations.value),
 );
 
-watch(manualApplyRangeFingerprint, resetPreviewState);
+watch(
+  [manualApplyRangeFingerprint, () => props.group.id, () => props.template.id],
+  () => {
+    resetPreviewState();
+    void checkAvailability();
+  },
+  { immediate: true },
+);
+function refreshAvailability(): void {
+  resetPreviewState();
+  void checkAvailability();
+}
+onBeforeUnmount(() => {
+  availabilitySerial++;
+  window.removeEventListener('focus', refreshAvailability);
+});
+async function checkAvailability(): Promise<void> {
+  const serial = ++availabilitySerial;
+  availabilityReady.value = false;
+  blockedMembers.value = [];
+  if (rangeErrorMessage.value !== undefined) return;
+  try {
+    const rows = await api.getSchedulingAvailability(
+      props.group.id,
+      props.template.scheduleRoleId,
+      rangeStart.value,
+      effectiveEndDate.value,
+    );
+    if (serial !== availabilitySerial) return;
+    blockedMembers.value = rows
+      .filter(
+        (row) =>
+          row.blocked &&
+          props.template.members.some((member) => member.membershipId === row.membershipId),
+      )
+      .map((row) => row.membershipId);
+    availabilityReady.value = true;
+  } catch (error) {
+    if (serial === availabilitySerial)
+      errorMessage.value = toUserMessage(error, '成员可排状态检查失败，请重试。');
+  }
+}
 
 onMounted(() => {
+  window.addEventListener('focus', refreshAvailability);
   void loadContext();
 });
 
@@ -123,7 +172,7 @@ async function loadContext(): Promise<void> {
 }
 
 async function computePreview(): Promise<void> {
-  if (config.value === undefined) {
+  if (config.value === undefined || !membersAvailable.value) {
     return;
   }
   if (rangeErrorMessage.value !== undefined) {
@@ -168,7 +217,7 @@ async function computePreview(): Promise<void> {
 }
 
 async function apply(): Promise<void> {
-  if (config.value === undefined) {
+  if (config.value === undefined || !membersAvailable.value) {
     return;
   }
   if (rangeErrorMessage.value !== undefined) {
@@ -283,7 +332,10 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
     :cancel-btn="{ content: '关闭' }"
     :confirm-btn="{
       content: '应用模板',
-      disabled: rangeErrorMessage !== undefined || (preview !== undefined && !canConfirmApply),
+      disabled:
+        !membersAvailable ||
+        rangeErrorMessage !== undefined ||
+        (preview !== undefined && !canConfirmApply),
       loading: isApplying,
       theme: 'primary',
     }"
@@ -332,7 +384,19 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
           />
         </label>
 
-        <t-button variant="outline" :loading="isPreviewing" @click="computePreview">
+        <p v-if="!availabilityReady">正在核对成员可排状态，完成前无法生成或应用排班。</p>
+        <p v-for="id in blockedMembers" :key="id" class="leave-conflict">
+          {{
+            config?.groupMembers.find((member) => member.membershipId === id)?.realName ||
+            '模板成员'
+          }}（请假） 请调整模板成员或应用日期。
+        </p>
+        <t-button
+          variant="outline"
+          :disabled="!membersAvailable"
+          :loading="isPreviewing"
+          @click="computePreview"
+        >
           生成预览
         </t-button>
 
@@ -423,6 +487,11 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
 </template>
 
 <style scoped>
+.leave-conflict {
+  color: #d92d20;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .apply-dialog {
   display: grid;
   gap: 14px;

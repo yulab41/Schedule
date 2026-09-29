@@ -37,7 +37,7 @@
       <view wx:if="{{state === 'loading'}}" class="page-state-card">
         <view class="native-spinner"></view>
         <text class="state-title">正在加载请假数据</text>
-        <text class="state-copy">正在同步申请、审批和清空策略。</text>
+        <text class="state-copy">正在同步请假申请和审批状态。</text>
       </view>
 
       <view wx:elif="{{state === 'error'}}" class="page-state-card">
@@ -218,7 +218,7 @@
           >
           <view class="leave-form-intro">
             <text class="form-section-title">请假信息</text>
-            <text class="form-intro">请假按整天计算；提交前会检查已发布的未来班次。</text>
+            <text class="form-intro">请假按整天计算；提交前会检查已发布且尚未结束的班次。</text>
           </view>
           <view class="field-block">
             <text class="field-label">请假类型</text>
@@ -271,12 +271,12 @@
                   ><text class="affected-status is-{{item.tone}}">{{item.statusLabel}}</text></view
                 >
               </view>
-              <text wx:if="{{affectedWarningMessage}}" class="affected-warning"
-                >{{affectedWarningMessage}}</text
+              <view wx:if="{{affectedWarningMessage}}" class="affected-warning"
+                >{{affectedWarningMessage}}</view
               >
             </view>
             <text wx:else class="affected-hint"
-              >{{affectedShiftMessage || '请假期间没有已发布的未来班次。'}}</text
+              >{{affectedShiftMessage || '请假期间没有已发布且尚未结束的班次。'}}</text
             >
           </view>
           <view class="field-block reason-field">
@@ -293,9 +293,10 @@
       </scroll-view>
     <view class="workflow-sheet-footer">
       <view
-        class="web-button is-primary leave-submit {{formBusy ? 'is-disabled' : ''}}"
+        class="web-button is-primary leave-submit {{formBusy || affectedShiftsLoading || !affectedShiftsReady || affectedShifts.length > 0 ? 'is-disabled' : ''}}"
         aria-role="button"
         aria-busy="{{formBusy}}"
+        aria-disabled="{{formBusy || affectedShiftsLoading || !affectedShiftsReady || affectedShifts.length > 0}}"
         bindtap="handleSubmitLeave"
         >{{formBusy ? '正在提交' : '提交请假'}}</view
       >
@@ -330,23 +331,16 @@
               class="web-button is-outline"
               aria-role="button"
               bindtap="handleRefreshApproval"
-              >刷新待清空班次</view
+              >刷新班次检查</view
             >
-            <view wx:if="{{approvalStatistics}}" class="statistics-card"
-              >统计变化：{{approvalStatistics}}</view
-            >
+            <view wx:if="{{approvalHasAffectedAssignments}}" class="affected-warning">请假期间仍有已发布班次，暂不能提交。请先通过“换班”或“加扣班”调整班次，或联系管理员撤回相关排班发布。</view>
             <view wx:for="{{approvalShifts}}" wx:key="id" class="impact-row is-primary"
               ><text>{{item.detail}}</text></view
             >
             <view wx:for="{{approvalAlerts}}" wx:key="id" class="native-alert is-{{item.tone}}"
               ><text>{{item.message}}</text></view
             >
-            <checkbox-group bindchange="handleApprovalAcknowledge">
-              <label wx:if="{{approvalRequiresAcknowledge}}" class="acknowledge-field">
-                <checkbox value="acknowledged" checked="{{approvalAcknowledged}}" color="#1F5AA6" />
-                <text>我已知晓冲突和空缺，确认按预览结果批准该请假。</text>
-              </label>
-            </checkbox-group>
+
           </view>
         </view>
       </scroll-view>
@@ -355,8 +349,8 @@
         <view class="web-button is-danger-outline" aria-role="button" bindtap="handleReject"
           >驳回</view
         >
-        <view class="web-button is-primary" aria-role="button" bindtap="handleApprove"
-          >{{approvalHasAffectedAssignments ? '批准并清空' : '批准'}}</view
+        <view class="web-button is-primary {{approvalHasAffectedAssignments ? 'is-disabled' : ''}}" aria-role="button" aria-disabled="{{approvalHasAffectedAssignments}}" bindtap="handleApprove"
+          >批准</view
         >
       </view>
     </view>

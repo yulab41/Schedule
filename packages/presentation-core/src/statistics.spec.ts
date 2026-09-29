@@ -28,20 +28,17 @@ const summary = {
 };
 
 describe('shared statistics presentation', () => {
-  it('keeps every Web summary item and period label', () => {
+  it('shows only the seven approved summary metrics and period label', () => {
     expect(formatStatisticsPeriodLabel('month', '2026-08', 2026)).toBe('2026年8月');
     expect(formatStatisticsPeriodLabel('year', '2026-08', 2026)).toBe('2026年');
     expect(getStatisticsSummaryItems(summary).map((item) => [item.label, item.value])).toEqual([
-      ['计划班次', '10'],
-      ['实际值班', '9'],
-      ['计值班次', '8'],
-      ['周末值班', '6'],
-      ['法定节假日', '3'],
+      ['计划', '10'],
+      ['实际', '9'],
+      ['周末', '6'],
+      ['节假日', '3'],
       ['换班', '5'],
-      ['加班 / 扣班', '3 / 1'],
-      ['加扣班净值', '+2'],
-      ['请假补位', '2'],
-      ['人工调整', '4'],
+      ['加班', '3'],
+      ['扣班', '1'],
     ]);
   });
 

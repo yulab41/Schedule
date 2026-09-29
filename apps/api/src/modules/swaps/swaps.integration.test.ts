@@ -200,6 +200,7 @@ describeWithDatabase('member shift swaps', () => {
     });
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json()).toMatchObject({
+      decidedByMemberName: 'A Doctor',
       status: 'completed',
       version: 2,
     });
@@ -696,6 +697,42 @@ describeWithDatabase('member shift swaps', () => {
     expect(actuals.bSep2.actualMembershipId).toBe(context.membershipIds.b);
   });
 
+  it('blocks swap revocation that would restore a shift onto pending leave without writing events', async () => {
+    const context = await seedPublishedSchedule();
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode).toBe(201);
+    const request = created.json<SwapRequest>();
+    const leave = await app.inject({
+      method: 'POST',
+      url: `/groups/${context.groupId}/leave-requests`,
+      headers: { authorization: 'Bearer a-token' },
+      payload: {
+        startsAt: '2026-09-01T01:00:00Z',
+        endsAt: '2026-09-01T02:00:00Z',
+        leaveType: 'sick',
+        operationId: randomUUID(),
+      },
+    });
+    expect(leave.statusCode, leave.body).toBe(201);
+    const before = await readActualMembers(context);
+    const [events] = await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM schedule_events`,
+    );
+    const result = await revokeSwap('owner-token', context.groupId, request.id, {
+      expectedVersion: request.version,
+      operationId: randomUUID(),
+    });
+    expect(result.statusCode, result.body).toBe(409);
+    expect(await readActualMembers(context)).toEqual(before);
+    expect(
+      (await client.database.execute(sql`SELECT COUNT(*) AS count FROM schedule_events`))[0],
+    ).toEqual(events);
+  });
+
   it('blocks revoking a completed swap whose shifts are already past', async () => {
     const context = await seedPublishedSchedule();
     const created = await directSwap('owner-token', context.groupId, {
@@ -861,7 +898,10 @@ describeWithDatabase('member shift swaps', () => {
     });
     expect(republished.statusCode).toBe(200);
     expect(republished.json()).toMatchObject({
-      period: { id: archivedPeriod?.id, status: 'published' },
+      period: {
+        id: periodRows.find((period) => period.status === 'published')?.id,
+        status: 'published',
+      },
       workflowImpacts: [{ id: swapBody.id, kind: 'swap' }],
     });
 

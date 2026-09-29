@@ -24,6 +24,36 @@ function assignment(overrides: Partial<StatisticsAssignmentInput> = {}): Statist
 }
 
 describe('calculateMonthStatistics', () => {
+  it('does not create a nameless member from a fully cancelled workflow contribution', () => {
+    const result = calculateMonthStatistics({
+      assignments: [assignment()],
+      holidays: [],
+      memberNames: [{ membershipId: 'member-a', realName: 'A Doctor' }],
+      workflowCounts: [
+        { membershipId: 'former-member', swapCount: 0, overtimeCount: 0, deductionCount: 0 },
+      ],
+    });
+    expect(result.members.map((member) => member.membershipId)).toEqual(['member-a']);
+  });
+
+  it('attributes member shift totals to that member instead of both sides of a transfer', () => {
+    const result = calculateMonthStatistics({
+      assignments: [assignment({ actualMemberId: 'member-b', actualMemberName: 'B Doctor' })],
+      holidays: [],
+      memberNames: [
+        { membershipId: 'member-a', realName: 'A Doctor' },
+        { membershipId: 'member-b', realName: 'B Doctor' },
+      ],
+      workflowCounts: [],
+    });
+    expect(
+      result.members.find((member) => member.membershipId === 'member-a')?.byShiftType[0],
+    ).toMatchObject({ plannedCount: 1, actualCount: 0 });
+    expect(
+      result.members.find((member) => member.membershipId === 'member-b')?.byShiftType[0],
+    ).toMatchObject({ plannedCount: 0, actualCount: 1 });
+  });
+
   it('counts planned and actual duty per member with role and shift-type breakdowns', () => {
     const result = calculateMonthStatistics({
       assignments: [

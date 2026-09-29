@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const groupId = '11111111-1111-4111-8111-111111111111';
 const mocks = vi.hoisted(() => ({
   ClientCapabilityDisabledError: class ClientCapabilityDisabledError extends Error {},
-  getMonthStatistics: vi.fn(),
-  getYearStatistics: vi.fn(),
+  getMonthStatisticsV2: vi.fn(),
+  getYearStatisticsV2: vi.fn(),
   listEvents: vi.fn(),
   requireClientCapability: vi.fn(),
 }));
@@ -16,8 +16,8 @@ vi.mock('../src/app/client-capability-store.ts', () => ({
 
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
   createRuntimeInsightsReadClient: () => ({
-    getMonthStatistics: mocks.getMonthStatistics,
-    getYearStatistics: mocks.getYearStatistics,
+    getMonthStatisticsV2: mocks.getMonthStatisticsV2,
+    getYearStatisticsV2: mocks.getYearStatisticsV2,
     listEvents: mocks.listEvents,
   }),
 }));
@@ -64,14 +64,14 @@ describe('insights dashboard shared parity controller', () => {
       events: [scheduleEvent('event-1', '2026-08-25T16:30:00.000Z')],
       nextCursor: 'cursor-1',
     });
-    mocks.getMonthStatistics.mockResolvedValue({
+    mocks.getMonthStatisticsV2.mockResolvedValue({
       businessMonth: '2026-08',
       computedAt: '2026-08-26T00:00:00.000Z',
       groupId,
       summary,
       version: 1,
     });
-    mocks.getYearStatistics.mockResolvedValue({ months: [], summary, year: 2026 });
+    mocks.getYearStatisticsV2.mockResolvedValue({ months: [], summary, year: 2026 });
   });
 
   afterEach(() => {
@@ -102,15 +102,54 @@ describe('insights dashboard shared parity controller', () => {
       eventTypeLabel: '排班已发布',
       occurredAtLabel: '00:30',
     });
-    expect(page.data.primaryStatistics.map((item) => item.label)).toEqual([
-      '计划班次',
-      '实际值班',
-      '计值班次',
-    ]);
-    expect(page.data.secondaryStatistics).toHaveLength(7);
+    expect(page.data.primaryStatistics.map((item) => item.label)).toEqual(['计划', '实际']);
+    expect(page.data.secondaryStatistics).toHaveLength(5);
     expect(page.data.memberRows.map((item) => item.name)).toEqual(['A 医生', 'B 医生']);
     expect(page.data.roleRows[0]).toMatchObject({ name: '住院总', ratio: 90 });
     expect(page.data.shiftTypeRows[0]).toMatchObject({ name: '全天班', ratio: 90 });
+  });
+
+  it('expands all seven shift metrics locally, preserving rest detail and unchanged totals', async () => {
+    const detail = (shiftTypeId, counted, actual, planned) => ({
+      shiftTypeId,
+      shiftTypeName: shiftTypeId,
+      countsTowardStatistics: counted,
+      plannedCount: planned,
+      actualCount: actual,
+      weekendCount: 0,
+      holidayCount: 0,
+      swapCount: 1,
+      overtimeCount: 1,
+      deductionCount: 0,
+    });
+    const shifts = [detail('A', true, 6, 5), detail('N', true, 4, 5), detail('休', false, 2, 2)];
+    mocks.getMonthStatisticsV2.mockResolvedValueOnce({
+      schemaVersion: 2,
+      summary: {
+        ...summary,
+        byShiftType: shifts,
+        members: [{ ...member('nurse', '测试护士', 10), byShiftType: shifts }],
+      },
+    });
+    const definition = await controllerDefinition(),
+      page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    const totals = structuredClone(page.data.primaryStatistics);
+    expect(page.data.memberRows[0].expanded).toBe(false);
+    expect(page.data.memberRows[0].details.map((row) => row.difference)).toEqual([
+      '多1班',
+      '少1班',
+      '与计划一致',
+    ]);
+    expect(page.data.memberRows[0].details[2].name).toContain('不计入总数');
+    expect(page.data.memberRows[0].details.every((row) => row.metrics.length === 7)).toBe(true);
+    definition.methods.handleMemberDetails.call(page, {
+      currentTarget: { dataset: { id: 'nurse' } },
+    });
+    expect(page.data.memberRows[0].expanded).toBe(true);
+    expect(page.data.primaryStatistics).toEqual(totals);
+    expect(mocks.getMonthStatisticsV2).toHaveBeenCalledTimes(1);
   });
 
   it('loads another event cursor and switches to the shared year summary', async () => {
@@ -136,7 +175,7 @@ describe('insights dashboard shared parity controller', () => {
       currentTarget: { dataset: { mode: 'year' } },
     });
     await vi.waitFor(() => expect(page.data.statisticsBusy).toBe(false));
-    expect(mocks.getYearStatistics).toHaveBeenCalledWith(groupId, 2026);
+    expect(mocks.getYearStatisticsV2).toHaveBeenCalledWith(groupId, 2026);
     expect(page.data.statisticsPeriodLabel).toBe('2026年');
   });
 
@@ -175,7 +214,7 @@ describe('insights dashboard shared parity controller', () => {
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
 
     let resolveYear;
-    mocks.getYearStatistics.mockImplementationOnce(
+    mocks.getYearStatisticsV2.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           resolveYear = resolve;
@@ -184,12 +223,12 @@ describe('insights dashboard shared parity controller', () => {
     definition.methods.handleStatisticsMode.call(page, {
       currentTarget: { dataset: { mode: 'year' } },
     });
-    await vi.waitFor(() => expect(mocks.getYearStatistics).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.getYearStatisticsV2).toHaveBeenCalledTimes(1));
 
     definition.methods.handleStatisticsMode.call(page, {
       currentTarget: { dataset: { mode: 'month' } },
     });
-    await vi.waitFor(() => expect(mocks.getMonthStatistics).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(mocks.getMonthStatisticsV2).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(page.data.statisticsBusy).toBe(false));
     expect(page.data.statisticsPeriodLabel).toBe('2026年8月');
 
@@ -207,7 +246,7 @@ describe('insights dashboard shared parity controller', () => {
           resolveEvents = resolve;
         }),
     );
-    mocks.getMonthStatistics.mockImplementationOnce(
+    mocks.getMonthStatisticsV2.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           resolveStatistics = resolve;

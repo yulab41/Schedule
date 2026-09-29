@@ -1,3 +1,9 @@
+import {
+  assertMembersAvailableInRange,
+  assertAssignmentsAvailable,
+  loadBlockingLeaves,
+  leaveIntersectsDateRange,
+} from '../leaves/leave-availability.js';
 import { createHash } from 'node:crypto';
 
 import type {
@@ -30,7 +36,6 @@ import {
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
-  leaveRequests,
   manualScheduleCells,
   manualScheduleTemplateMembers,
   manualScheduleTemplates,
@@ -51,7 +56,7 @@ import {
   type ManualLeaveInterval,
   type ManualApplyShiftType,
 } from '@schedule/scheduling-domain';
-import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -639,6 +644,14 @@ export class ManualScheduleApplyService {
         shiftTypesForApply.map((shiftType) => [shiftType.id, shiftType] as const),
       ).values(),
     ];
+    await assertMembersAvailableInRange(
+      transaction,
+      authorization.group.id,
+      membershipIds,
+      applyStartDate,
+      applyEndDate,
+      memberNamesById,
+    );
     const approvedLeaves = await this.loadApprovedLeavesInRange(
       transaction,
       authorization.group.id,
@@ -646,6 +659,7 @@ export class ManualScheduleApplyService {
       applyEndDate,
     );
     const leaveIntervals: ManualLeaveInterval[] = approvedLeaves.map((leave) => ({
+      isAllDay: leave.isAllDay,
       endsAt: leave.endsAt,
       membershipId: leave.membershipId,
       startsAt: leave.startsAt,
@@ -665,6 +679,7 @@ export class ManualScheduleApplyService {
       shiftTypes: distinctShiftTypes,
       startDate: applyStartDate,
     });
+    await assertAssignmentsAvailable(transaction, authorization.group.id, domainResult.assignments);
     const leaveConflicts = domainResult.conflicts.filter(
       (conflict) => conflict.code === 'MEMBER_LEAVE_OVERLAP',
     );
@@ -702,8 +717,8 @@ export class ManualScheduleApplyService {
         statusCode: 409,
         userMessage:
           leaveMessages.length > 0
-            ? `检测到已批准请假：${leaveMessages.join('；')}。请调整排班后重新应用。`
-            : '应用范围包含已批准请假，请调整排班后重新应用。',
+            ? `检测到待审批或已批准请假：${leaveMessages.join('；')}。请调整排班后重新应用。`
+            : '应用范围包含待审批或已批准请假，请调整排班后重新应用。',
       });
     }
 
@@ -822,6 +837,14 @@ export class ManualScheduleApplyService {
       }
       return toManualApplyShiftType(shiftType);
     });
+    await assertMembersAvailableInRange(
+      transaction,
+      authorization.group.id,
+      input.snapshot.membershipIds,
+      input.startDate,
+      input.endDate,
+      memberNamesById,
+    );
     const approvedLeaves = await this.loadApprovedLeavesInRange(
       transaction,
       authorization.group.id,
@@ -833,6 +856,7 @@ export class ManualScheduleApplyService {
       cycleDays: input.snapshot.cycleDays,
       endDate: input.endDate,
       leaveIntervals: approvedLeaves.map((leave) => ({
+        isAllDay: leave.isAllDay,
         endsAt: leave.endsAt,
         membershipId: leave.membershipId,
         startsAt: leave.startsAt,
@@ -856,12 +880,13 @@ export class ManualScheduleApplyService {
       }),
       source: 'editor',
     };
+    await assertAssignmentsAvailable(transaction, authorization.group.id, domainResult.assignments);
     if (domainResult.conflicts.some((conflict) => conflict.code === 'MEMBER_LEAVE_OVERLAP')) {
       throw new ApiError({
         code: 'CONFLICT',
         latestData: toLatestData({ preview }),
         statusCode: 409,
-        userMessage: '应用范围包含已批准请假，请调整排班后重新预览。',
+        userMessage: '应用范围包含待审批或已批准请假，请调整排班后重新预览。',
       });
     }
 
@@ -873,29 +898,10 @@ export class ManualScheduleApplyService {
     groupId: string,
     startDate: string,
     endDate: string,
-  ): Promise<
-    readonly {
-      readonly endsAt: Date;
-      readonly membershipId: string;
-      readonly startsAt: Date;
-    }[]
-  > {
-    return transaction
-      .select({
-        endsAt: leaveRequests.endsAt,
-        membershipId: leaveRequests.membershipId,
-        startsAt: leaveRequests.startsAt,
-      })
-      .from(leaveRequests)
-      .where(
-        and(
-          eq(leaveRequests.groupId, groupId),
-          eq(leaveRequests.status, 'approved'),
-          isNull(leaveRequests.deletedAt),
-          lte(leaveRequests.startsAt, new Date(`${endDate}T16:00:00.000Z`)),
-          gte(leaveRequests.endsAt, new Date(`${startDate}T00:00:00.000Z`)),
-        ),
-      );
+  ) {
+    return (await loadBlockingLeaves(transaction, groupId)).filter((leave) =>
+      leaveIntersectsDateRange(leave, startDate, endDate),
+    );
   }
 
   private async lockTemplate(

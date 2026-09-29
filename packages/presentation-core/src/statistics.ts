@@ -1,6 +1,6 @@
 export interface StatisticsMemberRowLike {
   readonly actualCount: number;
-  readonly actualVsPlanned: readonly unknown[];
+  readonly actualVsPlanned?: readonly unknown[];
   readonly membershipId: string;
   readonly realName: string;
 }
@@ -9,14 +9,14 @@ export interface StatisticsSummaryLike {
   readonly actualCount: number;
   readonly byRole: readonly unknown[];
   readonly byShiftType: readonly unknown[];
-  readonly countedActualCount: number;
-  readonly countedPlannedCount: number;
+  readonly countedActualCount?: number;
+  readonly countedPlannedCount?: number;
   readonly deductionCount: number;
   readonly holidayCount: number;
-  readonly leaveCoverCount: number;
-  readonly manualAdjustmentCount: number;
+  readonly leaveCoverCount?: number;
+  readonly manualAdjustmentCount?: number;
   readonly members: readonly StatisticsMemberRowLike[];
-  readonly netDutyAdjustment: number;
+  readonly netDutyAdjustment?: number;
   readonly overtimeCount: number;
   readonly plannedCount: number;
   readonly swapCount: number;
@@ -83,7 +83,7 @@ export function sortMembersByActualCount<Member extends StatisticsMemberRowLike>
 }
 
 export function getMemberActualVsPlannedCount(member: StatisticsMemberRowLike): number {
-  return member.actualVsPlanned.length;
+  return member.actualVsPlanned?.length ?? 0;
 }
 
 export function summarizeRecalculateMismatches(mismatches: readonly string[]): string {
@@ -103,50 +103,17 @@ export function getStatisticsSummaryItems(
   summary: StatisticsSummaryLike,
 ): readonly StatisticsSummaryItem[] {
   return [
-    { emphasis: 'primary', key: 'planned', label: '计划班次', value: String(summary.plannedCount) },
-    { emphasis: 'primary', key: 'actual', label: '实际值班', value: String(summary.actualCount) },
-    {
-      emphasis: 'primary',
-      key: 'counted',
-      label: '计值班次',
-      value: String(summary.countedActualCount),
-    },
-    {
-      emphasis: 'secondary',
-      key: 'weekend',
-      label: '周末值班',
-      value: String(summary.weekendCount),
-    },
-    {
-      emphasis: 'secondary',
-      key: 'holiday',
-      label: '法定节假日',
-      value: String(summary.holidayCount),
-    },
+    { emphasis: 'primary', key: 'planned', label: '计划', value: String(summary.plannedCount) },
+    { emphasis: 'primary', key: 'actual', label: '实际', value: String(summary.actualCount) },
+    { emphasis: 'secondary', key: 'weekend', label: '周末', value: String(summary.weekendCount) },
+    { emphasis: 'secondary', key: 'holiday', label: '节假日', value: String(summary.holidayCount) },
     { emphasis: 'secondary', key: 'swap', label: '换班', value: String(summary.swapCount) },
+    { emphasis: 'secondary', key: 'overtime', label: '加班', value: String(summary.overtimeCount) },
     {
       emphasis: 'secondary',
-      key: 'overtime-deduction',
-      label: '加班 / 扣班',
-      value: `${summary.overtimeCount} / ${summary.deductionCount}`,
-    },
-    {
-      emphasis: 'secondary',
-      key: 'net-adjustment',
-      label: '加扣班净值',
-      value: formatNetDutyAdjustment(summary.netDutyAdjustment),
-    },
-    {
-      emphasis: 'secondary',
-      key: 'leave-cover',
-      label: '请假补位',
-      value: String(summary.leaveCoverCount),
-    },
-    {
-      emphasis: 'secondary',
-      key: 'manual-adjustment',
-      label: '人工调整',
-      value: String(summary.manualAdjustmentCount),
+      key: 'deduction',
+      label: '扣班',
+      value: String(summary.deductionCount),
     },
   ];
 }

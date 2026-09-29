@@ -164,13 +164,13 @@ describeWithDatabase('statistics snapshots', () => {
       await getMonthStatistics('a-token', context.groupId, '2026-09')
     ).json() as MonthStatisticsSnapshot;
     expect(afterSwap.version).toBeGreaterThan(firstVersion);
-    expect(afterSwap.summary.swapCount).toBe(2);
+    expect(afterSwap.summary.swapCount).toBe(1);
     expect(afterSwap.summary.actualCount).toBe(30);
     const memberA = afterSwap.summary.members.find(
       (member) => member.membershipId === context.membershipIds.a,
     );
     expect(memberA).toMatchObject({ swapCount: 1, deltaCount: 0 });
-    expect(memberA?.actualVsPlanned).toHaveLength(1);
+    expect(memberA?.actualVsPlanned).toHaveLength(0);
 
     await createDirectDutyAdjustment(context.groupId, {
       coveredAssignmentId: context.assignments.aSep3,
@@ -254,11 +254,160 @@ describeWithDatabase('statistics snapshots', () => {
     expect(year.months.filter((entry) => entry.summary.plannedCount > 0)).toHaveLength(2);
     expect(year.summary.plannedCount).toBe(30 + 31);
     expect(year.summary.actualCount).toBe(30 + 31);
-    process.stdout.write(`DEBUG_MEMBERS ${JSON.stringify(year.summary.members)}\n`);
     const memberA = year.summary.members.find(
       (member) => member.membershipId === context.membershipIds.a,
     );
     expect(memberA).toMatchObject({ plannedCount: 15 + 16, actualCount: 15 + 16 });
+  });
+
+  it('uses v2 snapshots and counts only effective requests after swap and duty revocation', async () => {
+    const context = await seedPublishedSeptember();
+    const swap = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1,
+      targetAssignmentId: context.assignments.bSep2,
+      targetMembershipId: context.membershipIds.b,
+      operationId: randomUUID(),
+    });
+    const id = swap.json().id as string;
+    await acceptSwap('b-token', context.groupId, id, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    await approveSwap('admin-token', context.groupId, id, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    const read = async () =>
+      (
+        await app.inject({
+          method: 'GET',
+          headers: { authorization: 'Bearer a-token' },
+          url: `/groups/${context.groupId}/statistics?businessMonth=2026-09&schemaVersion=2`,
+        })
+      ).json();
+    expect(await read()).toMatchObject({
+      schemaVersion: 2,
+      summary: { swapCount: 1, plannedCount: 30, actualCount: 30 },
+    });
+    expect((await read()).summary).not.toHaveProperty('manualAdjustmentCount');
+    expect((await read()).summary.members).toHaveLength(2);
+    expect(Buffer.byteLength(JSON.stringify(await read()), 'utf8')).toBeLessThan(8000);
+    expect(JSON.stringify(await read())).not.toContain('algorithmVersion');
+    await client.database.execute(
+      sql`UPDATE swap_requests SET list_hidden_at = NOW() WHERE id = ${id}`,
+    );
+    expect((await read()).summary.swapCount).toBe(1);
+    const revoked = await app.inject({
+      method: 'POST',
+      headers: { authorization: 'Bearer admin-token' },
+      url: `/groups/${context.groupId}/swaps/${id}/revoke`,
+      payload: { expectedVersion: 2, operationId: randomUUID() },
+    });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    expect((await read()).summary.swapCount).toBe(0);
+    const duty = (
+      await createDirectDutyAdjustment(context.groupId, {
+        coveredAssignmentId: context.assignments.aSep3,
+        overtimeMembershipId: context.membershipIds.b,
+        operationId: randomUUID(),
+        reason: 'test',
+      })
+    ).json();
+    expect((await read()).summary).toMatchObject({ overtimeCount: 1, deductionCount: 1 });
+    const revokeDuty = await app.inject({
+      method: 'POST',
+      headers: { authorization: 'Bearer admin-token' },
+      url: `/groups/${context.groupId}/duty-adjustments/${duty.id}/revoke`,
+      payload: { expectedVersion: duty.version, operationId: randomUUID() },
+    });
+    expect(revokeDuty.statusCode, revokeDuty.body).toBe(200);
+    expect((await read()).summary).toMatchObject({
+      swapCount: 0,
+      overtimeCount: 0,
+      deductionCount: 0,
+    });
+  });
+
+  it('invalidates legacy snapshots and normalizes historical backfill without rewriting events', async () => {
+    const context = await seedPublishedSeptember();
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET actual_membership_id = ${context.membershipIds.b}, actual_member_name = 'B Doctor', backfill_at = NOW() WHERE id = ${context.assignments.aSep1}`,
+    );
+    await client.database.execute(
+      sql`UPDATE statistics_snapshots SET payload = JSON_OBJECT('plannedCount',999,'members',JSON_ARRAY()) WHERE group_id = ${context.groupId}`,
+    );
+    const response = await app.inject({
+      method: 'GET',
+      headers: { authorization: 'Bearer a-token' },
+      url: `/groups/${context.groupId}/statistics?businessMonth=2026-09&schemaVersion=2`,
+    });
+    expect(response.statusCode).toBe(200);
+    const summary = response.json().summary;
+    expect(summary).toMatchObject({
+      plannedCount: 30,
+      actualCount: 30,
+      swapCount: 0,
+      overtimeCount: 0,
+      deductionCount: 0,
+    });
+    expect(
+      summary.members.find(
+        (member: { membershipId: string }) => member.membershipId === context.membershipIds.b,
+      ),
+    ).toMatchObject({ plannedCount: 16, actualCount: 16 });
+    expect(summary.members.every((member: { realName: string }) => member.realName.trim())).toBe(
+      true,
+    );
+    const [rows] = await client.database.execute(
+      sql`SELECT planned_membership_id AS planned FROM shift_assignments WHERE id = ${context.assignments.aSep1}`,
+    );
+    expect((rows as unknown as { planned: string }[])[0]?.planned).toBe(context.membershipIds.a);
+  });
+
+  it('deduplicates cross-month swaps and refreshes both months when backfill corrects one side', async () => {
+    const context = await seedPublishedSeptember();
+    const config = await getConfig('admin-token', context.groupId);
+    const roleId = config.roles[0]!.id;
+    expect(
+      (await generateSchedule(context.groupId, roleId, '2026-10', config.rulesVersion, 'published'))
+        .statusCode,
+    ).toBe(200);
+    const [rows] = await client.database.execute(
+      sql`SELECT id, schedule_period_id AS periodId FROM shift_assignments WHERE business_date = '2026-10-02' AND deleted_at IS NULL`,
+    );
+    const target = (rows as unknown as { id: string; periodId: string }[])[0]!;
+    const created = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1,
+      targetAssignmentId: target.id,
+      targetMembershipId: context.membershipIds.b,
+      operationId: randomUUID(),
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    expect(created.json()).toMatchObject({ status: 'completed', version: 2 });
+    const read = async (suffix: string) => {
+      const response = await app.inject({
+        method: 'GET',
+        headers: { authorization: 'Bearer a-token' },
+        url: `/groups/${context.groupId}/statistics${suffix}&schemaVersion=2`,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      return response.json();
+    };
+    expect((await read('?businessMonth=2026-09')).summary.swapCount).toBe(1);
+    expect((await read('?businessMonth=2026-10')).summary.swapCount).toBe(1);
+    expect((await read('/year?year=2026')).summary.swapCount).toBe(1);
+    vi.setSystemTime(new Date('2026-10-03T04:00:00Z'));
+    // Same actual member: baseline changes but the completed workflow is not self-healed.
+    const corrected = await app.inject({
+      method: 'PUT',
+      headers: { authorization: 'Bearer admin-token' },
+      url: `/groups/${context.groupId}/past-schedules/${target.periodId}/assignments/${target.id}`,
+      payload: { actualMembershipId: context.membershipIds.a, reason: '校正计划' },
+    });
+    expect(corrected.statusCode, corrected.body).toBe(200);
+    expect((await read('?businessMonth=2026-09')).summary.swapCount).toBe(0);
+    expect((await read('?businessMonth=2026-10')).summary.swapCount).toBe(0);
+    expect((await read('/year?year=2026')).summary.swapCount).toBe(0);
   });
 
   async function seedMembersOnly(): Promise<Context> {

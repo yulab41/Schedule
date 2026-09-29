@@ -16,7 +16,9 @@ export function registerStatisticsRoutes(
   statisticsService: StatisticsService,
 ): void {
   app.get('/groups/:groupId/statistics', { preHandler: app.authenticate }, (request) =>
-    statisticsService.getMonth(
+    (parseSchemaVersion(request) === 2
+      ? statisticsService.getMonthV2.bind(statisticsService)
+      : statisticsService.getMonth.bind(statisticsService))(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseBusinessMonthQuery(request),
@@ -24,7 +26,9 @@ export function registerStatisticsRoutes(
   );
 
   app.get('/groups/:groupId/statistics/year', { preHandler: app.authenticate }, (request) =>
-    statisticsService.getYear(
+    (parseSchemaVersion(request) === 2
+      ? statisticsService.getYearV2.bind(statisticsService)
+      : statisticsService.getYear.bind(statisticsService))(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
       parseYearQuery(request),
@@ -95,4 +99,11 @@ function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output
     });
   }
   return result.data;
+}
+
+function parseSchemaVersion(request: FastifyRequest): number | undefined {
+  return parseOrThrow(
+    z.coerce.number().int().min(2).max(2).optional(),
+    (request.query as { schemaVersion?: unknown }).schemaVersion,
+  );
 }

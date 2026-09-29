@@ -63,6 +63,29 @@ const rejectInputSchema = z
 const mutationInputSchema = rejectInputSchema;
 
 export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveService): void {
+  app.get(
+    '/groups/:groupId/scheduling-availability',
+    { preHandler: app.authenticate },
+    (request) => {
+      const query = parseOrThrow(
+        z
+          .object({
+            scheduleRoleId: z.string().uuid(),
+            startDate: z.string().date(),
+            endDate: z.string().date(),
+          })
+          .strict()
+          .refine((value) => value.startDate <= value.endDate),
+        request.query,
+      );
+      return leaveService.availability(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        query,
+      );
+    },
+  );
+
   app.post('/groups/:groupId/leave-requests', { preHandler: app.authenticate }, (request, reply) =>
     leaveService
       .submit(getAuthenticatedIdentity(request), parseGroupId(request), parseCreateInput(request))

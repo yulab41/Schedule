@@ -1,6 +1,6 @@
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import { schedulePeriods, withTransaction } from '@schedule/database';
-import { eq } from 'drizzle-orm';
+import { and, inArray, isNull } from 'drizzle-orm';
 
 import { StatisticsService } from '../modules/statistics/statistics-service.js';
 
@@ -49,7 +49,12 @@ export class StatisticsRebuildJob {
           groupId: schedulePeriods.groupId,
         })
         .from(schedulePeriods)
-        .where(eq(schedulePeriods.status, 'published')),
+        .where(
+          and(
+            inArray(schedulePeriods.status, ['published', 'past']),
+            isNull(schedulePeriods.deletedAt),
+          ),
+        ),
     );
     const filtered =
       this.options.fromMonth === undefined

@@ -1,5 +1,7 @@
 import type {
   MonthStatisticsSnapshot,
+  MonthStatisticsV2,
+  YearStatisticsV2,
   ScheduleEventDetail,
   ScheduleEventPage,
   YearStatistics,
@@ -7,6 +9,8 @@ import type {
 
 import {
   monthStatisticsSnapshotJsonSchema,
+  monthStatisticsV2JsonSchema,
+  yearStatisticsV2JsonSchema,
   scheduleEventDetailJsonSchema,
   scheduleEventPageJsonSchema,
   yearStatisticsJsonSchema,
@@ -67,6 +71,28 @@ export const yearStatisticsDecoder = lenientStatisticsDecoder(
 );
 
 export const insightsReadEndpoints = {
+  monthStatisticsV2: /* @__PURE__ */ defineClientEndpoint<
+    InsightsMonthStatisticsInput,
+    MonthStatisticsV2
+  >({
+    auth: 'bearer',
+    decoder: /* @__PURE__ */ createCompactDecoder<MonthStatisticsV2>(monthStatisticsV2JsonSchema),
+    id: 'insights.statistics-month-v2',
+    method: 'GET',
+    path: ({ businessMonth, groupId }) =>
+      `/groups/${encodeURIComponent(groupId)}/statistics?schemaVersion=2&businessMonth=${encodeURIComponent(businessMonth)}`,
+  }),
+  yearStatisticsV2: /* @__PURE__ */ defineClientEndpoint<
+    InsightsYearStatisticsInput,
+    YearStatisticsV2
+  >({
+    auth: 'bearer',
+    decoder: /* @__PURE__ */ createCompactDecoder<YearStatisticsV2>(yearStatisticsV2JsonSchema),
+    id: 'insights.statistics-year-v2',
+    method: 'GET',
+    path: ({ year, groupId }) =>
+      `/groups/${encodeURIComponent(groupId)}/statistics/year?schemaVersion=2&year=${year}`,
+  }),
   events: /* @__PURE__ */ defineClientEndpoint<InsightsEventQueryInput, ScheduleEventPage>({
     auth: 'bearer',
     decoder: scheduleEventPageDecoder,
@@ -133,6 +159,8 @@ export const insightsReadEndpoints = {
 } as const;
 
 export interface InsightsReadClient {
+  getMonthStatisticsV2(groupId: string, businessMonth: string): Promise<MonthStatisticsV2>;
+  getYearStatisticsV2(groupId: string, year: number): Promise<YearStatisticsV2>;
   getEventDetail(groupId: string, eventId: string): Promise<ScheduleEventDetail>;
   getMonthStatistics(groupId: string, businessMonth: string): Promise<MonthStatisticsSnapshot>;
   getYearStatistics(groupId: string, year: number): Promise<YearStatistics>;
@@ -144,6 +172,12 @@ export interface InsightsReadClient {
 
 export function createInsightsReadClient(transport: ClientTransport): InsightsReadClient {
   return {
+    getMonthStatisticsV2(groupId, businessMonth) {
+      return transport.request(insightsReadEndpoints.monthStatisticsV2, { groupId, businessMonth });
+    },
+    getYearStatisticsV2(groupId, year) {
+      return transport.request(insightsReadEndpoints.yearStatisticsV2, { groupId, year });
+    },
     getEventDetail(groupId, eventId) {
       return transport.request(insightsReadEndpoints.eventDetail, { eventId, groupId });
     },

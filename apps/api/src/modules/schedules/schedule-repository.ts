@@ -1,3 +1,4 @@
+import { assertAssignmentsAvailable } from '../leaves/leave-availability.js';
 import { randomUUID } from 'node:crypto';
 
 import type {
@@ -437,6 +438,14 @@ export class ScheduleRepository {
         userMessage: '草稿包含已过日期，不能替换既往排班。',
       });
     }
+    await assertAssignmentsAvailable(
+      transaction,
+      target.groupId,
+      incoming.map((assignment) => ({
+        ...assignment,
+        actualMembershipId: assignment.plannedMembershipId,
+      })),
+    );
     const before = await this.loadPeriodAssignments(transaction, current.id, true);
     const incomingDates = new Set(incoming.map((assignment) => assignment.businessDate));
     const replaced = before.filter((assignment) => incomingDates.has(assignment.businessDate));
@@ -509,9 +518,18 @@ export class ScheduleRepository {
         );
     }
     if (incoming.length > 0) {
-      await transaction
-        .insert(shiftAssignments)
-        .values(incoming.map((assignment) => cloneAssignment(assignment, current.id)));
+      await transaction.insert(shiftAssignments).values(
+        incoming.map((assignment) =>
+          cloneAssignment(
+            {
+              ...assignment,
+              actualMembershipId: assignment.plannedMembershipId,
+              actualMemberName: assignment.plannedMemberName,
+            },
+            current.id,
+          ),
+        ),
+      );
     }
     if (target.status === 'draft' || target.status === 'pending_publication') {
       await transaction
@@ -594,6 +612,16 @@ export class ScheduleRepository {
     }
     const today = getChinaStandardTimeBusinessDate(new Date());
     const targetAssignments = await this.loadPeriodAssignments(transaction, target.id);
+    await assertAssignmentsAvailable(
+      transaction,
+      target.groupId,
+      targetAssignments
+        .filter((assignment) => !isPastBusinessDate(assignment.businessDate))
+        .map((assignment) => ({
+          ...assignment,
+          actualMembershipId: assignment.plannedMembershipId,
+        })),
+    );
     const currentAssignments =
       currentPublished === undefined
         ? []

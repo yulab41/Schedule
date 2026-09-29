@@ -340,6 +340,10 @@ interface ReleaseActionEvent {
 }
 
 interface ManualPageInstance {
+  _availabilitySerial: number;
+  _availabilityKey: string;
+  _availabilityReady: boolean;
+  _availabilityBlockedIds: Set<string>;
   _matrixMeasureSerial?: number;
   _holidayRequests?: Map<number, Promise<readonly ConfirmedHolidayDate[]>>;
   createSelectorQuery?(): MiniProgramSelectorQuery;
@@ -524,6 +528,10 @@ Page({
   _isDirty: false,
   _loadSerial: 0,
   _startDateSerial: 0,
+  _availabilitySerial: 0,
+  _availabilityKey: '',
+  _availabilityReady: false,
+  _availabilityBlockedIds: new Set<string>(),
   _matrixGestureRevision: 0,
   _memberIds: [] as string[],
   _memberNames: new Map<string, string>(),
@@ -547,6 +555,8 @@ Page({
   },
 
   onUnload(this: ManualPageInstance): void {
+    this._availabilitySerial = (this._availabilitySerial ?? 0) + 1;
+    this._availabilityKey = '';
     this._matrixMeasureSerial = (this._matrixMeasureSerial ?? 0) + 1;
     this._feedbackVisible = false;
     clearInfoMessageTimer(this);
@@ -561,6 +571,9 @@ Page({
   },
 
   onShow(this: ManualPageInstance): void {
+    this._availabilitySerial = (this._availabilitySerial ?? 0) + 1;
+    this._availabilityKey = '';
+    if (this._config !== undefined) syncEditor(this, {});
     if (this._feedbackVisible === false) this.setData({ infoMessage: '' });
     this._feedbackVisible = true;
     void requireClientCapability('core').catch((error: unknown) =>
@@ -1358,11 +1371,26 @@ async function suggestStartDate(page: ManualPageInstance, roleId: string): Promi
   }
 }
 
-function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): void {
+function syncEditor(
+  page: ManualPageInstance,
+  patch: Partial<ManualPageData>,
+  preserveInteraction = false,
+): void {
   page._previewValid = false;
   page._previewRequest = undefined;
   const data = { ...page.data, ...patch };
   const role = roleForIndex(page._config, data.roleIndex);
+  const availabilityKey = [page._currentGroupId, role?.id ?? '', data.startDate, data.endDate].join(
+    ':',
+  );
+  if (page._availabilityKey !== availabilityKey) {
+    page._availabilityKey = availabilityKey;
+    page._availabilityReady = false;
+    page._availabilityBlockedIds = new Set();
+    if (role !== undefined && isBusinessDate(data.startDate) && isBusinessDate(data.endDate))
+      void loadAvailability(page, availabilityKey, role.id, data.startDate, data.endDate);
+  }
+  const leaveConflict = page._memberIds.some((id) => page._availabilityBlockedIds?.has(id));
   const shiftTypes = enabledShiftTypes(page._config);
   const activeShiftTypeId = shiftTypes.some((item) => item.id === data.activeShiftTypeId)
     ? data.activeShiftTypeId
@@ -1397,20 +1425,24 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
     0,
     templateOptions.findIndex((option) => option.value === data.selectedTemplateId),
   );
-  const matrixGestureConfig = createMatrixGestureConfig(
-    matrix,
-    resolveMaxHorizontalOffset(matrix, data.matrixViewportWidth),
-    `${data.selectedTemplateId || 'new'}:${data.cycleDays}:${page._memberIds.join(',')}:${data.startDate}`,
-    0,
-    0,
-    ++page._matrixGestureRevision,
-  );
+  const matrixGestureConfig = preserveInteraction
+    ? data.matrixGestureConfig
+    : createMatrixGestureConfig(
+        matrix,
+        resolveMaxHorizontalOffset(matrix, data.matrixViewportWidth),
+        `${data.selectedTemplateId || 'new'}:${data.cycleDays}:${page._memberIds.join(',')}:${data.startDate}`,
+        0,
+        0,
+        ++page._matrixGestureRevision,
+      );
   page.setData(
     {
       ...matrix,
       ...patch,
       activeShiftTypeId,
       canPreview:
+        page._availabilityReady &&
+        !leaveConflict &&
         data.startDateState === 'ready' &&
         withinDateRange &&
         withinLimits &&
@@ -1422,12 +1454,17 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
         withinLimits &&
         role !== undefined &&
         shiftTypes.length > 0,
-      isBusy: false,
+      isBusy: preserveInteraction ? data.isBusy : false,
+      canApplyDraft: false,
       limitNotice: !withinDateRange
         ? `结束日期不能早于开始日期，且排班范围最多 ${MAX_MANUAL_APPLY_DAYS} 天。`
-        : logicalCellCount === MAX_MANUAL_CELLS
-          ? '已达到 20 人 × 30 天 = 600 格上限。'
-          : '',
+        : leaveConflict
+          ? '所选成员有待审批或已批准请假，请取消勾选或调整排班日期。'
+          : !page._availabilityReady
+            ? '正在核对成员可排状态，核对完成前无法生成排班。'
+            : logicalCellCount === MAX_MANUAL_CELLS
+              ? '已达到 20 人 × 30 天 = 600 格上限。'
+              : '',
       logicalCellCount,
       matrixGestureConfig,
       memberCount: page._memberIds.length,
@@ -1435,6 +1472,7 @@ function syncEditor(page: ManualPageInstance, patch: Partial<ManualPageData>): v
       memberSelectOptions: createMemberOptions(page, role).map((member) => ({
         value: member.membershipId,
         label: member.realName,
+        annotation: page._availabilityBlockedIds?.has(member.membershipId) ? '（请假）' : '',
         checked: member.checked,
         disabled:
           member.disabled || (!member.checked && page._memberIds.length >= MAX_MANUAL_MEMBERS),
@@ -2431,7 +2469,9 @@ function createMemberOptions(
     checked: page._memberIds.includes(member.membershipId),
     disabled:
       !page._memberIds.includes(member.membershipId) &&
-      page._memberIds.length >= MAX_MANUAL_MEMBERS,
+      (page._memberIds.length >= MAX_MANUAL_MEMBERS ||
+        !page._availabilityReady ||
+        page._availabilityBlockedIds?.has(member.membershipId)),
     membershipId: member.membershipId,
     realName: member.realName,
   }));
@@ -2655,4 +2695,36 @@ function createStages(activeIndex: number): ManualPageData['stages'] {
 
 function toUserMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+async function loadAvailability(
+  page: ManualPageInstance,
+  key: string,
+  roleId: string,
+  startDate: string,
+  endDate: string,
+): Promise<void> {
+  const serial = (page._availabilitySerial = (page._availabilitySerial ?? 0) + 1);
+  try {
+    const rows = await manualClient.getSchedulingAvailability(
+      page._currentGroupId,
+      roleId,
+      startDate,
+      endDate,
+    );
+    if (key !== page._availabilityKey || serial !== page._availabilitySerial) return;
+    page._availabilityBlockedIds = new Set(
+      rows.filter((row) => row.blocked).map((row) => row.membershipId),
+    );
+    page._availabilityReady = true;
+    syncEditor(page, {}, true);
+  } catch (error) {
+    if (key !== page._availabilityKey || serial !== page._availabilitySerial) return;
+    page._availabilityReady = false;
+    page.setData({
+      canPreview: false,
+      limitNotice: '成员可排状态检查失败，请刷新后重试。',
+      errorMessage: toUserMessage(error, '成员可排状态检查失败，请刷新后重试。'),
+    });
+  }
 }

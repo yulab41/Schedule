@@ -29,7 +29,7 @@ describe('P5 manual schedule production limits', () => {
     expect(applyDialogSource).toContain('rangeErrorMessage.value !== undefined');
     expect(applyDialogSource).toContain(':max="maximumEndDate"');
     expect(applyDialogSource).toContain('最多 ${MAX_MANUAL_DAYS} 天');
-    expect(applyDialogSource).toContain('watch(manualApplyRangeFingerprint');
+    expect(applyDialogSource).toMatch(/watch\(\s*\[manualApplyRangeFingerprint/u);
     expect(applyDialogSource).toContain('previewRangeFingerprint.value !==');
     expect(applyDialogSource).toContain('resetPreviewState');
     expect(applyDialogSource).toContain('if (hasBlockers.value && !acknowledgeBlockers.value)');

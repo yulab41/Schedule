@@ -2,6 +2,7 @@ import type { ScheduleWorkflowImpact } from '@schedule/contracts';
 import {
   dutyAdjustments,
   groupMemberships,
+  schedulePeriods,
   shiftAssignments,
   swapRequests,
   userProfiles,
@@ -10,6 +11,7 @@ import {
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { EventWriter } from '../events/event-writer.js';
+import { assertAssignmentsAvailable } from '../leaves/leave-availability.js';
 
 import { updateShiftAssignments } from './shift-assignment-writer.js';
 
@@ -49,6 +51,41 @@ export class ScheduleWorkflowInvalidationService {
     const impacts = buildImpacts(rows);
     if (input.periodIds.length === 0) {
       return impacts;
+    }
+
+    // Replacing one side of a swap also restores the other side. Validate only
+    // assignments that remain published; removed dates cannot create a conflict.
+    const remaining = rows.assignments.filter(
+      (assignment) =>
+        assignment.endsAt > new Date() &&
+        (input.assignmentIds === undefined
+          ? !input.periodIds.includes(assignment.schedulePeriodId)
+          : !input.assignmentIds.includes(assignment.id)),
+    );
+    if (remaining.length > 0) {
+      const published = await transaction
+        .select({ id: schedulePeriods.id })
+        .from(schedulePeriods)
+        .where(
+          and(
+            inArray(schedulePeriods.id, [
+              ...new Set(remaining.map((assignment) => assignment.schedulePeriodId)),
+            ]),
+            eq(schedulePeriods.status, 'published'),
+            isNull(schedulePeriods.deletedAt),
+          ),
+        );
+      const publishedIds = new Set(published.map((period) => period.id));
+      await assertAssignmentsAvailable(
+        transaction,
+        input.groupId,
+        remaining
+          .filter((assignment) => publishedIds.has(assignment.schedulePeriodId))
+          .map((assignment) => ({
+            ...assignment,
+            actualMembershipId: assignment.plannedMembershipId,
+          })),
+      );
     }
 
     const decidedAt = new Date();

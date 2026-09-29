@@ -998,6 +998,42 @@ describeWithDatabase('paired duty adjustments', () => {
     expect(approveRejected.statusCode).toBe(409);
   });
 
+  it('blocks deduction restoration onto pending leave without writing events', async () => {
+    const context = await seedPublishedSchedule();
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    expect(created.statusCode).toBe(201);
+    const request = created.json<DutyAdjustmentRequest>();
+    const leave = await app.inject({
+      method: 'POST',
+      url: `/groups/${context.groupId}/leave-requests`,
+      headers: { authorization: 'Bearer a-token' },
+      payload: {
+        startsAt: '2026-09-01T01:00:00Z',
+        endsAt: '2026-09-01T02:00:00Z',
+        leaveType: 'sick',
+        operationId: randomUUID(),
+      },
+    });
+    expect(leave.statusCode, leave.body).toBe(201);
+    const before = await readActualMember(context.assignments.aSep1.id);
+    const [events] = await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM schedule_events`,
+    );
+    const result = await revokeDutyAdjustment('owner-token', context.groupId, request.id, {
+      expectedVersion: request.version,
+      operationId: randomUUID(),
+    });
+    expect(result.statusCode, result.body).toBe(409);
+    expect(await readActualMember(context.assignments.aSep1.id)).toEqual(before);
+    expect(
+      (await client.database.execute(sql`SELECT COUNT(*) AS count FROM schedule_events`))[0],
+    ).toEqual(events);
+  });
+
   it('revokes a completed relation with or without a reason and restores the deducted member', async () => {
     const context = await seedPublishedSchedule();
     const created = (

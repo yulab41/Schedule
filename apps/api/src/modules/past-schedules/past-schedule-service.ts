@@ -21,6 +21,7 @@ import {
   scheduleRoles,
   shiftAssignments,
   shiftTypes,
+  swapRequests,
   userProfiles,
   users,
   withTransaction,
@@ -246,33 +247,23 @@ export class PastScheduleService {
         nextAssignment.endsAt = timeRange.endsAt;
       }
 
-      const revertedToPlanned =
-        input.actualMembershipId !== undefined &&
-        assignment.plannedMembershipId !== null &&
-        input.actualMembershipId === assignment.plannedMembershipId &&
-        assignment.actualMembershipId !== assignment.plannedMembershipId;
       const hasChange =
+        nextActualMemberId !== assignment.plannedMembershipId ||
         nextActualMemberId !== assignment.actualMembershipId ||
         (input.shiftTypeId !== undefined && input.shiftTypeId !== assignment.shiftTypeId);
-      const nextBackfillAt = revertedToPlanned
-        ? null
-        : hasChange
-          ? new Date()
-          : assignment.backfillAt;
-      const nextBackfillOperatorUserId = revertedToPlanned
-        ? null
-        : hasChange
-          ? authorization.user.id
-          : assignment.backfillOperatorUserId;
-      const nextBackfillReason = revertedToPlanned
-        ? null
-        : hasChange
-          ? (input.reason ?? assignment.backfillReason)
-          : assignment.backfillReason;
+      const nextBackfillAt = hasChange ? new Date() : assignment.backfillAt;
+      const nextBackfillOperatorUserId = hasChange
+        ? authorization.user.id
+        : assignment.backfillOperatorUserId;
+      const nextBackfillReason = hasChange
+        ? (input.reason ?? assignment.backfillReason)
+        : assignment.backfillReason;
 
       await transaction
         .update(shiftAssignments)
         .set({
+          plannedMembershipId: nextAssignment.actualMemberId,
+          plannedMemberName: nextAssignment.actualMemberName,
           actualMembershipId: nextAssignment.actualMemberId,
           actualMemberName: nextAssignment.actualMemberName,
           backfillAt: nextBackfillAt,
@@ -312,11 +303,7 @@ export class PastScheduleService {
         );
       }
 
-      await this.statisticsService.refreshInTransaction(
-        transaction,
-        authorization.group.id,
-        `${assignment.businessDate.slice(0, 7)}-01`,
-      );
+      await this.refreshCorrectedStatistics(transaction, authorization.group.id, [assignment.id]);
       await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
         actorUserId: authorization.user.id,
         assignmentIds: [assignment.id],
@@ -402,7 +389,6 @@ export class PastScheduleService {
           const assignments: PastScheduleAssignment[] = [];
           const assignmentIds: string[] = [];
           const eventIds: string[] = [];
-          const businessMonths = new Set<string>();
           const mutations: BackfillMutationResult[] = [];
 
           for (const item of sortedItems) {
@@ -416,7 +402,6 @@ export class PastScheduleService {
             mutations.push(mutation);
             assignments.push(toPastScheduleAssignment(mutation.assignment));
             assignmentIds.push(mutation.assignment.id);
-            businessMonths.add(`${item.businessDate.slice(0, 7)}-01`);
           }
 
           for (const mutation of mutations) {
@@ -440,7 +425,6 @@ export class PastScheduleService {
               removal,
             );
             assignmentIds.push(mutation.assignment.id);
-            businessMonths.add(`${removal.businessDate.slice(0, 7)}-01`);
             eventIds.push(
               await this.appendBackfillEvent(
                 transaction,
@@ -452,13 +436,7 @@ export class PastScheduleService {
             );
           }
 
-          for (const businessMonth of [...businessMonths].sort()) {
-            await this.statisticsService.refreshInTransaction(
-              transaction,
-              authorization.group.id,
-              businessMonth,
-            );
-          }
+          await this.refreshCorrectedStatistics(transaction, authorization.group.id, assignmentIds);
           await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
             actorUserId: authorization.user.id,
             assignmentIds: [...new Set(assignmentIds)],
@@ -508,7 +486,8 @@ export class PastScheduleService {
       if (
         toBackfillEventState(mutation.before).actualMembershipId !==
           mutation.assignment.actualMembershipId ||
-        mutation.before?.shiftTypeId !== mutation.assignment.shiftTypeId
+        mutation.before?.shiftTypeId !== mutation.assignment.shiftTypeId ||
+        mutation.before?.plannedMembershipId !== mutation.assignment.plannedMembershipId
       ) {
         await this.appendBackfillEvent(
           transaction,
@@ -519,11 +498,9 @@ export class PastScheduleService {
         );
       }
 
-      await this.statisticsService.refreshInTransaction(
-        transaction,
-        authorization.group.id,
-        `${input.businessDate.slice(0, 7)}-01`,
-      );
+      await this.refreshCorrectedStatistics(transaction, authorization.group.id, [
+        mutation.assignment.id,
+      ]);
       await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
         actorUserId: authorization.user.id,
         assignmentIds: [mutation.assignment.id],
@@ -533,6 +510,34 @@ export class PastScheduleService {
 
       return { assignment: toPastScheduleAssignment(mutation.assignment) };
     });
+  }
+
+  private async refreshCorrectedStatistics(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    assignmentIds: readonly string[],
+  ): Promise<void> {
+    if (assignmentIds.length === 0) return;
+    const swaps = await transaction
+      .select({ a: swapRequests.initiatorAssignmentId, b: swapRequests.targetAssignmentId })
+      .from(swapRequests)
+      .where(
+        and(
+          eq(swapRequests.groupId, groupId),
+          or(
+            inArray(swapRequests.initiatorAssignmentId, [...assignmentIds]),
+            inArray(swapRequests.targetAssignmentId, [...assignmentIds]),
+          ),
+        ),
+      );
+    const relatedIds = [...new Set([...assignmentIds, ...swaps.flatMap((row) => [row.a, row.b])])];
+    const months = await transaction
+      .selectDistinct({ month: schedulePeriods.businessMonth })
+      .from(shiftAssignments)
+      .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+      .where(inArray(shiftAssignments.id, relatedIds));
+    for (const { month } of months.sort((a, b) => a.month.localeCompare(b.month)))
+      await this.statisticsService.refreshInTransaction(transaction, groupId, month);
   }
 
   private async appendBackfillEvent(
@@ -706,29 +711,22 @@ export class PastScheduleService {
     let assignmentId: string;
     if (existing !== undefined) {
       assignmentId = existing.id;
-      const revertedToPlanned =
-        existing.plannedMembershipId !== null &&
-        input.actualMembershipId === existing.plannedMembershipId &&
-        existing.actualMembershipId !== existing.plannedMembershipId;
       const hasChange =
+        input.actualMembershipId !== existing.plannedMembershipId ||
         input.actualMembershipId !== existing.actualMembershipId ||
         input.shiftTypeId !== existing.shiftTypeId;
       await transaction
         .update(shiftAssignments)
         .set({
+          plannedMembershipId: input.actualMembershipId,
+          plannedMemberName: memberName,
           actualMembershipId: input.actualMembershipId,
           actualMemberName: memberName,
-          backfillAt: revertedToPlanned ? null : hasChange ? new Date() : existing.backfillAt,
-          backfillOperatorUserId: revertedToPlanned
-            ? null
-            : hasChange
-              ? authorization.user.id
-              : existing.backfillOperatorUserId,
-          backfillReason: revertedToPlanned
-            ? null
-            : hasChange
-              ? (reason ?? existing.backfillReason)
-              : existing.backfillReason,
+          backfillAt: hasChange ? new Date() : existing.backfillAt,
+          backfillOperatorUserId: hasChange
+            ? authorization.user.id
+            : existing.backfillOperatorUserId,
+          backfillReason: hasChange ? (reason ?? existing.backfillReason) : existing.backfillReason,
           ...shiftSnapshot,
           endsAt: timeRange.endsAt,
           startsAt: timeRange.startsAt,

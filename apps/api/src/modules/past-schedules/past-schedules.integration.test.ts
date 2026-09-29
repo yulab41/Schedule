@@ -536,18 +536,20 @@ describeWithDatabase('past schedule backfill', () => {
     });
     expect(reverted.statusCode).toBe(200);
     const revertedBody = reverted.json() as { readonly assignment: PastScheduleAssignment };
-    expect(revertedBody.assignment.backfillAt).toBeUndefined();
+    expect(revertedBody.assignment.backfillAt).toBeDefined();
+    expect(revertedBody.assignment.plannedMemberId).toBe(target.plannedMemberId);
+    expect(revertedBody.assignment.actualMemberId).toBe(target.plannedMemberId);
     const [revertedTraceRows] = await client.database.execute(
       sql`SELECT backfill_at AS backfillAt FROM shift_assignments WHERE id = ${target.assignmentId}`,
     );
     expect(
       (revertedTraceRows as unknown as readonly { backfillAt: string | null }[])[0]?.backfillAt,
-    ).toBeNull();
+    ).not.toBeNull();
     const recordsAfterRevert = (await listBackfillRecords('owner-token')).json() as readonly {
       readonly assignmentId: string;
     }[];
     expect(recordsAfterRevert.some((record) => record.assignmentId === target.assignmentId)).toBe(
-      false,
+      true,
     );
 
     const forbidden = await updatePastAssignment(

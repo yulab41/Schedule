@@ -2751,8 +2751,8 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
       };
     });
     if (metrics.overflow) fail(`${width}px 统计页出现页面横向溢出。`);
-    if (metrics.primaryCount !== 3 || metrics.secondaryCount !== 7) {
-      fail(`${width}px 统计汇总未完整保留 3 项主指标和 7 项辅助指标。`);
+    if (metrics.primaryCount !== 2 || metrics.secondaryCount !== 5) {
+      fail(`${width}px 统计汇总未完整保留计划、实际和 5 项变更/日期指标。`);
     }
     if (metrics.smallControls.length > 0) {
       fail(`${width}px 统计工具栏存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
@@ -3147,6 +3147,8 @@ async function readVisitorKeyFromDatabase() {
 }
 
 function readDotEnvValue(key) {
+  // Warm worktrees inherit explicitly loaded local test configuration.
+  if (process.env[key] !== undefined) return process.env[key];
   const content = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.trim();

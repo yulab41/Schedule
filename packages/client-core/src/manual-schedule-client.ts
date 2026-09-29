@@ -1,4 +1,5 @@
 import type {
+  SchedulingAvailability,
   AppliedManualScheduleTemplateResult,
   ApplyManualScheduleTemplateRequest,
   CreateManualScheduleDraftRequest,
@@ -24,6 +25,7 @@ import {
   manualApplyPreviewJsonSchema,
   manualScheduleEditorPreviewJsonSchema,
   manualScheduleStartDateJsonSchema,
+  schedulingAvailabilityJsonSchema,
   manualScheduleTemplateJsonSchema,
   manualScheduleTemplateListJsonSchema,
   schedulingConfigJsonSchema,
@@ -128,6 +130,19 @@ const emptyResponseDecoder: CompactDecoder<void> = {
 };
 
 export const manualScheduleEndpoints = {
+  availability: /* @__PURE__ */ defineClientEndpoint<
+    { groupId: string; scheduleRoleId: string; startDate: string; endDate: string },
+    SchedulingAvailability
+  >({
+    auth: 'bearer',
+    method: 'GET',
+    id: 'manual-schedule.availability',
+    decoder: /* @__PURE__ */ createCompactDecoder<SchedulingAvailability>(
+      schedulingAvailabilityJsonSchema,
+    ),
+    path: ({ groupId, scheduleRoleId, startDate, endDate }) =>
+      `/groups/${encodeURIComponent(groupId)}/scheduling-availability?scheduleRoleId=${encodeURIComponent(scheduleRoleId)}&startDate=${startDate}&endDate=${endDate}`,
+  }),
   nextStartDate: /* @__PURE__ */ defineClientEndpoint<
     GroupInput & { roleId: string },
     ManualScheduleStartDate
@@ -226,6 +241,12 @@ export const manualScheduleEndpoints = {
 } as const;
 
 export interface ManualScheduleClient {
+  getSchedulingAvailability(
+    groupId: string,
+    scheduleRoleId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<SchedulingAvailability>;
   getNextStartDate(groupId: string, roleId: string): Promise<ManualScheduleStartDate>;
   apply(
     groupId: string,
@@ -261,6 +282,14 @@ export interface ManualScheduleClient {
 
 export function createManualScheduleClient(transport: ClientTransport): ManualScheduleClient {
   return {
+    getSchedulingAvailability(groupId, scheduleRoleId, startDate, endDate) {
+      return transport.request(manualScheduleEndpoints.availability, {
+        groupId,
+        scheduleRoleId,
+        startDate,
+        endDate,
+      });
+    },
     getNextStartDate(groupId, roleId) {
       return transport.request(manualScheduleEndpoints.nextStartDate, { groupId, roleId });
     },

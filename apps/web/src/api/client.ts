@@ -52,6 +52,9 @@ import type {
   MemberSwapSettings,
   MemberNotificationPreferences,
   MonthStatisticsSnapshot,
+  MonthStatisticsV2,
+  YearStatisticsV2,
+  SchedulingAvailability,
   NotificationPage,
   NotificationRecord,
   OrganizationOperationRequest,
@@ -162,6 +165,9 @@ import {
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
   monthStatisticsSnapshotSchema,
+  monthStatisticsV2Schema,
+  yearStatisticsV2Schema,
+  schedulingAvailabilitySchema,
   pastScheduleAssignmentListSchema,
   notificationPageSchema,
   notificationRecordSchema,
@@ -334,6 +340,14 @@ export interface ApiClient {
   getCurrentProfile(): Promise<UserProfile>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getGuestHolidays(year: number): Promise<HolidayReadModel>;
+  getMonthStatisticsV2(groupId: string, businessMonth: string): Promise<MonthStatisticsV2>;
+  getYearStatisticsV2(groupId: string, year: number): Promise<YearStatisticsV2>;
+  getSchedulingAvailability(
+    groupId: string,
+    scheduleRoleId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<SchedulingAvailability>;
   getMonthStatistics(groupId: string, businessMonth: string): Promise<MonthStatisticsSnapshot>;
   getEventDetail(groupId: string, eventId: string): Promise<ScheduleEventDetail>;
   getGroupEvents(
@@ -720,6 +734,36 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}`,
         { method: 'GET' },
         isResponseBodyFromSchema(scheduleExportJobSchema),
+      );
+    },
+    getSchedulingAvailability(groupId, scheduleRoleId, startDate, endDate) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/scheduling-availability?scheduleRoleId=${encodeURIComponent(scheduleRoleId)}&startDate=${startDate}&endDate=${endDate}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(schedulingAvailabilitySchema),
+      );
+    },
+    getMonthStatisticsV2(groupId, businessMonth) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/statistics?schemaVersion=2&businessMonth=${encodeURIComponent(businessMonth)}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(monthStatisticsV2Schema),
+      );
+    },
+    getYearStatisticsV2(groupId, year) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/statistics/year?schemaVersion=2&year=${encodeURIComponent(String(year))}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(yearStatisticsV2Schema),
       );
     },
     getMonthStatistics(groupId, businessMonth) {

@@ -1077,33 +1077,64 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(publishedCount).toEqual([{ count: 1 }]);
   });
 
-  it('blocks preview and apply when an approved leave overlaps the applied range', async () => {
-    const templateId = await createTemplate();
-    await client.database.execute(
-      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day, status)
+  it.each(['pending', 'approved'])(
+    'blocks preview and apply when a %s leave overlaps the applied range',
+    async (status) => {
+      const templateId = await createTemplate();
+      await client.database.execute(
+        sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day, status)
           VALUES (${randomUUID()}, ${groupId}, ${candidateMembershipId}, 'sick',
-                  '2026-09-01 16:00:00', '2026-09-02 15:59:59', 1, 'approved')`,
-    );
+                  '2026-09-01 16:00:00', '2026-09-02 15:59:59', 1, ${status})`,
+      );
 
-    const preview = await applyPreview(templateId, { expectedRulesVersion: rulesVersion });
-    expect(preview.statusCode).toBe(409);
-    expect(preview.json()).toMatchObject({
-      error: {
-        code: 'CONFLICT',
-        message: expect.stringContaining('Candidate Doctor'),
-      },
+      const preview = await applyPreview(templateId, { expectedRulesVersion: rulesVersion });
+      expect(preview.statusCode).toBe(409);
+      expect(preview.json()).toMatchObject({
+        error: {
+          code: 'CONFLICT',
+          message: expect.stringContaining('Candidate Doctor'),
+        },
+      });
+
+      const applied = await applyTemplate(templateId, {
+        expectedRulesVersion: rulesVersion,
+        operationId: randomUUID(),
+        publishMode: 'published',
+      });
+      expect(applied.statusCode).toBe(409);
+      const [periodCount] = await client.database.execute<{ count: number }>(
+        sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
+      );
+      expect(periodCount).toEqual([{ count: 0 }]);
+    },
+  );
+
+  it('blocks an overnight shift extending into next-day all-day leave outside the selected dates', async () => {
+    const templateId = await createTemplate([
+      { cycleDay: 1, membershipId: candidateMembershipId, shiftTypeId: allDayShiftTypeId },
+    ]);
+    await client.database
+      .execute(sql`INSERT INTO leave_requests (id,group_id,membership_id,leave_type,starts_at,ends_at,is_all_day,status)
+      VALUES (${randomUUID()},${groupId},${candidateMembershipId},'sick','2026-09-02 00:00:00','2026-09-03 00:00:00',1,'pending')`);
+    const preview = await applyPreview(templateId, {
+      expectedRulesVersion: rulesVersion,
+      endDate: '2026-09-01',
     });
-
+    expect(preview.statusCode, preview.body).toBe(409);
     const applied = await applyTemplate(templateId, {
       expectedRulesVersion: rulesVersion,
+      endDate: '2026-09-01',
       operationId: randomUUID(),
-      publishMode: 'published',
+      publishMode: 'draft',
     });
-    expect(applied.statusCode).toBe(409);
-    const [periodCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
-    );
-    expect(periodCount).toEqual([{ count: 0 }]);
+    expect(applied.statusCode, applied.body).toBe(409);
+    expect(
+      (
+        await client.database.execute(
+          sql`SELECT id FROM schedule_periods WHERE group_id = ${groupId}`,
+        )
+      )[0],
+    ).toEqual([]);
   });
 
   it('blocks preview and apply when the template start date is already past', async () => {

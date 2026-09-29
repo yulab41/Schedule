@@ -9,10 +9,14 @@ const mocks = vi.hoisted(() => ({
   draft: vi.fn(),
   holidays: vi.fn(),
   next: vi.fn(),
+  availability: vi.fn(),
 }));
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
   createRuntimeCalendarPreferencesClient: () => ({}),
-  createRuntimeManualScheduleClient: () => ({ getNextStartDate: mocks.next }),
+  createRuntimeManualScheduleClient: () => ({
+    getNextStartDate: mocks.next,
+    getSchedulingAvailability: mocks.availability,
+  }),
   createRuntimeSchedulePublicationClient: () => ({ getDraftPreview: mocks.draft }),
 }));
 vi.mock('../src/platform/workbench-read.ts', () => ({
@@ -33,6 +37,7 @@ let definition;
 beforeEach(async () => {
   vi.resetModules();
   mocks.next.mockReset();
+  mocks.availability.mockReset().mockResolvedValue([]);
   mocks.calendar.mockReset();
   mocks.draft.mockReset();
   mocks.holidays.mockReset().mockResolvedValue({ dates: [] });
@@ -149,18 +154,61 @@ describe('feedback9 manual geometry and dates', () => {
     await vi.waitFor(() => expect(p.data.startDate).toBe('2026-12-01'));
     expect(p.data.startDateState).toBe('ready');
   });
-  it('uses the selected end date and rejects reversed or over-366-day ranges', () => {
+  it('uses the selected end date and rejects reversed or over-366-day ranges', async () => {
     const p = page();
     p.handleEndDateChange({ detail: { value: '2026-11-20' } });
     expect(p.data.endDate).toBe('2026-11-20');
-    expect(p.data.limitNotice).toBe('');
+    await vi.waitFor(() => expect(p.data.limitNotice).toBe(''));
     p.handleEndDateChange({ detail: { value: '2026-10-31' } });
     expect(p.data.canSave).toBe(false);
     expect(p.data.limitNotice).toContain('最多 366 天');
     p.handleEndDateChange({ detail: { value: '2027-11-01' } });
-    expect(p.data.limitNotice).toBe('');
+    await vi.waitFor(() => expect(p.data.limitNotice).toBe(''));
     p.handleEndDateChange({ detail: { value: '2027-11-02' } });
     expect(p.data.canSave).toBe(false);
+  });
+  it('keeps saved selections, disables leave members, and restores eligibility when dates change', async () => {
+    mocks.availability
+      .mockResolvedValueOnce([{ membershipId: 'm0', blocked: true }])
+      .mockResolvedValueOnce([]);
+    const p = page();
+    p.handleEndDateChange({ detail: { value: '2026-11-20' } });
+    await vi.waitFor(() => expect(p.data.limitNotice).toContain('请假'));
+    expect(p._memberIds).toContain('m0');
+    expect(p.data.canPreview).toBe(false);
+    expect(p.data.memberSelectOptions.find((row) => row.value === 'm0')).toMatchObject({
+      annotation: '（请假）',
+      disabled: false,
+    });
+    p.handleMembersChange({ detail: { checked: false, option: { value: 'm0' } } });
+    expect(p._memberIds).not.toContain('m0');
+    expect(p.data.canPreview).toBe(true);
+    expect(p.data.memberSelectOptions.find((row) => row.value === 'm0').disabled).toBe(true);
+    p.handleMembersChange({ detail: { checked: true, option: { value: 'm0' } } });
+    expect(p._memberIds).not.toContain('m0');
+    p.handleEndDateChange({ detail: { value: '2026-11-21' } });
+    await vi.waitFor(() =>
+      expect(p.data.memberSelectOptions.find((row) => row.value === 'm0').disabled).toBe(false),
+    );
+    p.handleMembersChange({ detail: { checked: true, option: { value: 'm0' } } });
+    expect(p._memberIds).toContain('m0');
+  });
+  it('ignores an old availability result after A-B-A date changes and page unload', async () => {
+    const pending = [];
+    mocks.availability.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
+    const p = page();
+    for (const value of ['2026-11-20', '2026-11-21', '2026-11-20'])
+      p.handleEndDateChange({ detail: { value } });
+    pending[2]([{ membershipId: 'm0', blocked: true }]);
+    await Promise.resolve();
+    pending[0]([]);
+    await Promise.resolve();
+    expect(p.data.canPreview).toBe(false);
+    expect(p.data.limitNotice).toContain('请假');
+    p.onUnload();
+    pending[1]([]);
+    await Promise.resolve();
+    expect(p.data.canPreview).toBe(false);
   });
   it('does not clear a save lock or reset scroll when date holidays arrive', async () => {
     let resolve;

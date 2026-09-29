@@ -68,7 +68,7 @@ describe('statistics logic', () => {
     );
   });
 
-  it('keeps every existing summary count in a mobile-readable ledger', () => {
+  it('shows the same seven metrics as the shared Mini ledger', () => {
     const items = getStatisticsSummaryItems({
       actualCount: 9,
       byRole: [],
@@ -88,16 +88,13 @@ describe('statistics logic', () => {
     });
 
     expect(items.map((item) => [item.label, item.value])).toEqual([
-      ['计划班次', '10'],
-      ['实际值班', '9'],
-      ['计值班次', '8'],
-      ['周末值班', '6'],
-      ['法定节假日', '3'],
+      ['计划', '10'],
+      ['实际', '9'],
+      ['周末', '6'],
+      ['节假日', '3'],
       ['换班', '5'],
-      ['加班 / 扣班', '3 / 1'],
-      ['加扣班净值', '+2'],
-      ['请假补位', '2'],
-      ['人工调整', '4'],
+      ['加班', '3'],
+      ['扣班', '1'],
     ]);
   });
 

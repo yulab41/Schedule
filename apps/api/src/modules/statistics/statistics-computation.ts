@@ -4,37 +4,27 @@ import {
   holidayCalendarVersions,
   holidayDates,
   scheduleEvents,
+  swapRequests,
+  dutyAdjustments,
+  groupMemberships,
+  userProfiles,
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
 } from '@schedule/database';
 import {
-  calculateMonthStatistics,
+  calculateEffectiveStatistics,
+  toLegacyStatistics,
+  type EffectiveStatistics,
+  type StatisticsContribution,
   type StatisticsAssignmentInput,
   type StatisticsHolidayInput,
-  type StatisticsWorkflowCountInput,
 } from '@schedule/scheduling-domain';
-import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
-
-const workflowEventTypes = [
-  'swap_completed',
-  'duty_adjustment_completed',
-  'duty_adjustment_revoked',
-  'leave_cover_completed',
-  'manual_schedule_template_applied',
-  'schedule_backfill_completed',
-] as const;
-
-interface MutableWorkflowCounts {
-  deduction: number;
-  leaveCover: number;
-  manualAdjustment: number;
-  overtime: number;
-  swap: number;
-}
+import { and, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 export interface MonthStatisticsResult {
   readonly computedAt: Date;
+  readonly effective: EffectiveStatistics;
   readonly summary: StatisticsSummary;
 }
 
@@ -122,17 +112,143 @@ export class StatisticsComputation {
       isWorkday: row.isWorkday === 1,
     }));
 
-    const assignmentIds = new Set(assignments.map((assignment) => assignment.id));
-    const events = await transaction
-      .select()
-      .from(scheduleEvents)
-      .where(
-        and(
-          eq(scheduleEvents.groupId, groupId),
-          inArray(scheduleEvents.eventType, [...workflowEventTypes]),
-        ),
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+    const [swaps, duties] =
+      assignmentIds.length === 0
+        ? [[], []]
+        : await Promise.all([
+            transaction
+              .select()
+              .from(swapRequests)
+              .where(
+                and(
+                  eq(swapRequests.groupId, groupId),
+                  eq(swapRequests.status, 'completed'),
+                  isNull(swapRequests.deletedAt),
+                  or(
+                    inArray(swapRequests.initiatorAssignmentId, assignmentIds),
+                    inArray(swapRequests.targetAssignmentId, assignmentIds),
+                  ),
+                ),
+              ),
+            transaction
+              .select()
+              .from(dutyAdjustments)
+              .where(
+                and(
+                  eq(dutyAdjustments.groupId, groupId),
+                  eq(dutyAdjustments.status, 'completed'),
+                  isNull(dutyAdjustments.deletedAt),
+                  inArray(dutyAdjustments.coveredAssignmentId, assignmentIds),
+                ),
+              ),
+          ]);
+    // Include both sides of a cross-month swap when looking for baseline corrections.
+    const relatedIds = [
+      ...new Set([
+        ...assignmentIds,
+        ...swaps.flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId]),
+      ]),
+    ];
+    const backfills =
+      relatedIds.length === 0
+        ? []
+        : await transaction
+            .select({
+              affectedShiftIds: scheduleEvents.affectedShiftIds,
+              createdAt: scheduleEvents.occurredAt,
+              afterData: scheduleEvents.afterData,
+            })
+            .from(scheduleEvents)
+            .where(
+              and(
+                eq(scheduleEvents.groupId, groupId),
+                eq(scheduleEvents.eventType, 'schedule_backfill_completed'),
+                sql`JSON_OVERLAPS(${scheduleEvents.affectedShiftIds}, CAST(${JSON.stringify(relatedIds)} AS JSON))`,
+              ),
+            );
+    const relatedMarkers =
+      relatedIds.length === 0
+        ? []
+        : await transaction
+            .select({ id: shiftAssignments.id, backfillAt: shiftAssignments.backfillAt })
+            .from(shiftAssignments)
+            .where(inArray(shiftAssignments.id, relatedIds));
+    const correctedAt = new Map(
+      relatedMarkers
+        .filter((assignment) => assignment.backfillAt !== null)
+        .map((assignment) => [assignment.id, assignment.backfillAt as Date]),
+    );
+    const correctedMembers = new Map<
+      string,
+      { id: string | null; name: string | null; at: number }
+    >();
+    for (const event of backfills)
+      for (const id of event.affectedShiftIds) {
+        if ((correctedAt.get(id)?.valueOf() ?? 0) < event.createdAt.valueOf())
+          correctedAt.set(id, event.createdAt);
+        if (
+          event.afterData !== null &&
+          'actualMembershipId' in event.afterData &&
+          (correctedMembers.get(id)?.at ?? 0) <= event.createdAt.valueOf()
+        )
+          correctedMembers.set(id, {
+            id:
+              typeof event.afterData.actualMembershipId === 'string'
+                ? event.afterData.actualMembershipId
+                : null,
+            name:
+              typeof event.afterData.actualMemberName === 'string'
+                ? event.afterData.actualMemberName
+                : null,
+            at: event.createdAt.valueOf(),
+          });
+      }
+    const contributions: StatisticsContribution[] = [];
+    for (const swap of swaps) {
+      const completedAt = (swap.decidedAt ?? swap.createdAt).valueOf();
+      if (
+        [swap.initiatorAssignmentId, swap.targetAssignmentId].some(
+          (id) => (correctedAt.get(id)?.valueOf() ?? 0) >= completedAt,
+        )
+      )
+        continue;
+      contributions.push(
+        {
+          id: swap.id,
+          kind: 'swap',
+          assignmentId: swap.targetAssignmentId,
+          membershipId: swap.initiatorMembershipId,
+        },
+        {
+          id: swap.id,
+          kind: 'swap',
+          assignmentId: swap.initiatorAssignmentId,
+          membershipId: swap.targetMembershipId,
+        },
       );
-    const workflowCounts = buildWorkflowCounts(events, assignments, assignmentIds);
+    }
+    for (const duty of duties) {
+      if (
+        (correctedAt.get(duty.coveredAssignmentId)?.valueOf() ?? 0) >=
+        (duty.decidedAt ?? duty.createdAt).valueOf()
+      )
+        continue;
+      contributions.push(
+        {
+          id: duty.id,
+          kind: 'overtime',
+          assignmentId: duty.coveredAssignmentId,
+          membershipId: duty.overtimeMembershipId,
+        },
+        {
+          id: duty.id,
+          kind: 'deduction',
+          assignmentId: duty.coveredAssignmentId,
+          membershipId: duty.deductedMembershipId,
+        },
+      );
+    }
 
     const memberNames = new Map<string, string>();
     for (const assignment of assignments) {
@@ -143,17 +259,46 @@ export class StatisticsComputation {
         memberNames.set(assignment.actualMembershipId, assignment.actualMemberName);
       }
     }
+    const knownIds = [
+      ...new Set([
+        ...memberNames.keys(),
+        ...assignments
+          .flatMap((row) => [row.plannedMembershipId, row.actualMembershipId])
+          .filter((id): id is string => id !== null),
+        ...contributions.map((entry) => entry.membershipId),
+      ]),
+    ];
+    if (knownIds.length > 0) {
+      const profiles = await transaction
+        .select({ membershipId: groupMemberships.id, realName: userProfiles.realName })
+        .from(groupMemberships)
+        .innerJoin(userProfiles, eq(userProfiles.userId, groupMemberships.userId))
+        .where(inArray(groupMemberships.id, knownIds));
+      for (const profile of profiles)
+        if (profile.realName.trim()) memberNames.set(profile.membershipId, profile.realName);
+    }
     const periodById = new Map(periods.map((period) => [period.id, period]));
     const domainAssignments: StatisticsAssignmentInput[] = assignments.map((assignment) => {
       const period = periodById.get(assignment.schedulePeriodId);
+      const correction = correctedMembers.get(assignment.id);
       return {
         actualMemberId: assignment.actualMembershipId,
         actualMemberName: assignment.actualMemberName,
         businessDate: assignment.businessDate,
         countsTowardStatistics: assignment.countsTowardStatistics === 1,
         id: assignment.id,
-        plannedMemberId: assignment.plannedMembershipId,
-        plannedMemberName: assignment.plannedMemberName,
+        plannedMemberId:
+          correction !== undefined
+            ? correction.id
+            : correctedAt.has(assignment.id)
+              ? assignment.actualMembershipId
+              : assignment.plannedMembershipId,
+        plannedMemberName:
+          correction !== undefined
+            ? correction.name
+            : correctedAt.has(assignment.id)
+              ? assignment.actualMemberName
+              : assignment.plannedMemberName,
         scheduleRoleId: period?.scheduleRoleId ?? '',
         scheduleRoleName: roleNames.get(period?.scheduleRoleId ?? '') ?? '',
         shiftTypeId: assignment.shiftTypeId,
@@ -161,103 +306,18 @@ export class StatisticsComputation {
       };
     });
 
-    const summary = calculateMonthStatistics({
+    const effective = calculateEffectiveStatistics({
       assignments: domainAssignments,
       holidays,
       memberNames: [...memberNames].map(([membershipId, realName]) => ({
         membershipId,
         realName,
       })),
-      workflowCounts,
+      contributions,
     });
 
-    return { computedAt: new Date(), summary };
+    return { computedAt: new Date(), summary: toLegacyStatistics(effective.summary), effective };
   }
-}
-
-function buildWorkflowCounts(
-  events: readonly (typeof scheduleEvents.$inferSelect)[],
-  assignments: readonly (typeof shiftAssignments.$inferSelect)[],
-  assignmentIds: ReadonlySet<string>,
-): readonly StatisticsWorkflowCountInput[] {
-  const counts = new Map<string, MutableWorkflowCounts>();
-  const add = (membershipId: string, field: keyof MutableWorkflowCounts, amount: number): void => {
-    const entry = counts.get(membershipId) ?? {
-      deduction: 0,
-      leaveCover: 0,
-      manualAdjustment: 0,
-      overtime: 0,
-      swap: 0,
-    };
-    entry[field] += amount;
-    counts.set(membershipId, entry);
-  };
-
-  for (const event of events) {
-    if (!event.affectedShiftIds.some((shiftId) => assignmentIds.has(shiftId))) {
-      continue;
-    }
-    if (event.eventType === 'swap_completed') {
-      const changedShiftIds = new Set(
-        event.affectedShiftIds.filter((shiftId) => assignmentIds.has(shiftId)),
-      );
-      for (const assignment of assignments) {
-        if (changedShiftIds.has(assignment.id) && assignment.actualMembershipId !== null) {
-          add(assignment.actualMembershipId, 'swap', 1);
-        }
-      }
-    } else if (event.eventType === 'duty_adjustment_completed') {
-      const overtimeMemberId = readActualMemberId(event.afterData);
-      const deductedMemberId = event.affectedMembershipIds.find(
-        (membershipId) => membershipId !== overtimeMemberId,
-      );
-      if (overtimeMemberId !== undefined) {
-        add(overtimeMemberId, 'overtime', 1);
-      }
-      if (deductedMemberId !== undefined) {
-        add(deductedMemberId, 'deduction', 1);
-      }
-    } else if (event.eventType === 'duty_adjustment_revoked') {
-      const restoredMemberId = readActualMemberId(event.afterData);
-      const overtimeMemberId = event.affectedMembershipIds.find(
-        (membershipId) => membershipId !== restoredMemberId,
-      );
-      if (restoredMemberId !== undefined) {
-        add(restoredMemberId, 'deduction', -1);
-      }
-      if (overtimeMemberId !== undefined) {
-        add(overtimeMemberId, 'overtime', -1);
-      }
-    } else if (event.eventType === 'leave_cover_completed') {
-      for (const membershipId of event.affectedMembershipIds) {
-        add(membershipId, 'leaveCover', 1);
-      }
-    } else if (event.eventType === 'manual_schedule_template_applied') {
-      for (const membershipId of event.affectedMembershipIds) {
-        add(membershipId, 'manualAdjustment', 1);
-      }
-    } else if (event.eventType === 'schedule_backfill_completed') {
-      for (const membershipId of event.affectedMembershipIds) {
-        add(membershipId, 'manualAdjustment', 1);
-      }
-    }
-  }
-
-  return [...counts.entries()].map(([membershipId, entry]) => ({
-    deductionCount: Math.max(0, entry.deduction),
-    leaveCoverCount: Math.max(0, entry.leaveCover),
-    manualAdjustmentCount: Math.max(0, entry.manualAdjustment),
-    membershipId,
-    overtimeCount: Math.max(0, entry.overtime),
-    swapCount: Math.max(0, entry.swap),
-  }));
-}
-
-function readActualMemberId(afterData: Record<string, unknown> | null): string | undefined {
-  if (afterData === null || typeof afterData.actualMemberId !== 'string') {
-    return undefined;
-  }
-  return afterData.actualMemberId;
 }
 
 function getMonthEnd(monthStart: string): string {

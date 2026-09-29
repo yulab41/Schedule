@@ -186,12 +186,6 @@ const completedSwaps = computed(() =>
     (request) => request.status === 'completed' && request.isRevocable !== false,
   ),
 );
-const archivedSwapCount = computed(
-  () =>
-    approvals.value.filter(
-      (request) => request.status === 'completed' && request.isRevocable === false,
-    ).length,
-);
 const myPendingRequests = computed(() =>
   mySwapRequests.value.filter(
     (request) =>
@@ -734,148 +728,6 @@ function getCounterpartName(request: SwapRequest): string {
         </div>
       </div>
 
-      <section v-if="incomingRequests.length > 0" class="list-section workflow-list-section">
-        <h3>待我接受（{{ incomingRequests.length }}）</h3>
-        <table class="swap-table workflow-table">
-          <thead>
-            <tr>
-              <th>发起人</th>
-              <th>我的班次</th>
-              <th>对方班次</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="request in incomingRequests"
-              :key="request.id"
-              class="workflow-card is-actionable"
-            >
-              <td class="workflow-person" data-label="发起人">
-                {{ request.initiatorMemberName }}
-              </td>
-              <td data-label="我的班次">
-                {{ request.targetAssignment.businessDate }}
-                {{ request.targetAssignment.shiftTypeName }}
-              </td>
-              <td data-label="对方班次">
-                {{ request.initiatorAssignment.businessDate }}
-                {{ request.initiatorAssignment.shiftTypeName }}
-              </td>
-              <td class="workflow-actions-cell" data-label="操作">
-                <t-button variant="outline" @click="accept(request)">接受</t-button>
-                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section
-        v-if="canApprove && pendingApprovals.length > 0"
-        class="list-section workflow-list-section"
-      >
-        <h3>待管理员审批（{{ pendingApprovals.length }}）</h3>
-        <table class="swap-table workflow-table">
-          <thead>
-            <tr>
-              <th>发起人</th>
-              <th>目标成员</th>
-              <th>班次</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="request in pendingApprovals"
-              :key="request.id"
-              class="workflow-card is-actionable"
-            >
-              <td class="workflow-person" data-label="发起人">
-                {{ request.initiatorMemberName }}
-              </td>
-              <td data-label="目标成员">{{ request.targetMemberName }}</td>
-              <td data-label="班次">
-                {{ request.initiatorAssignment.businessDate }}
-                ↔ {{ request.targetAssignment.businessDate }}
-              </td>
-              <td class="workflow-actions-cell" data-label="操作">
-                <t-button variant="outline" @click="approve(request)">批准</t-button>
-                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section
-        v-if="canApprove && handledApprovals.length > 0"
-        class="list-section workflow-list-section"
-      >
-        <h3>已受理记录（{{ handledApprovals.length }}）</h3>
-        <table class="swap-table workflow-table">
-          <thead>
-            <tr>
-              <th>发起人</th>
-              <th>目标成员</th>
-              <th>状态</th>
-              <th>处理人</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in handledApprovals" :key="request.id" class="workflow-card">
-              <td class="workflow-person" data-label="发起人">
-                {{ request.initiatorMemberName }}
-              </td>
-              <td data-label="目标成员">{{ request.targetMemberName }}</td>
-              <td data-label="状态">
-                <span class="workflow-status-badge" :class="getWorkflowStatusTone(request.status)">
-                  {{ getSwapStatusLabel(request.status) }}
-                </span>
-              </td>
-              <td data-label="处理人">{{ request.decidedByMemberName ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section
-        v-if="canApprove && (completedSwaps.length > 0 || archivedSwapCount > 0)"
-        class="list-section workflow-list-section"
-      >
-        <h3>已生效待撤销（{{ completedSwaps.length }}）</h3>
-        <table v-if="completedSwaps.length > 0" class="swap-table workflow-table">
-          <thead>
-            <tr>
-              <th>发起人</th>
-              <th>目标成员</th>
-              <th>班次</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in completedSwaps" :key="request.id" class="workflow-card">
-              <td class="workflow-person" data-label="发起人">
-                {{ request.initiatorMemberName }}
-              </td>
-              <td data-label="目标成员">{{ request.targetMemberName }}</td>
-              <td data-label="班次">
-                {{ request.initiatorAssignment.businessDate }}
-                → {{ request.targetAssignment.businessDate }}
-              </td>
-              <td class="workflow-actions-cell" data-label="操作">
-                <t-button theme="danger" variant="text" @click="revokeSwap(request)">
-                  撤销
-                </t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="archivedSwapCount > 0" class="table-empty workflow-empty">
-          另有 {{ archivedSwapCount }} 条因后续排班变动而失效的换班记录已自动归档。
-        </p>
-      </section>
-
       <section class="list-section workflow-list-section">
         <h3>我的换班申请（{{ mySwapRequests.length }}）</h3>
         <table v-if="mySwapRequests.length > 0" class="swap-table workflow-table">
@@ -951,6 +803,144 @@ function getCounterpartName(request: SwapRequest): string {
           </tbody>
         </table>
         <p v-else class="table-empty workflow-empty">暂无换班申请。</p>
+      </section>
+      <section v-if="incomingRequests.length > 0" class="list-section workflow-list-section">
+        <h3>待我接受（{{ incomingRequests.length }}）</h3>
+        <table class="swap-table workflow-table">
+          <thead>
+            <tr>
+              <th>发起人</th>
+              <th>我的班次</th>
+              <th>对方班次</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="request in incomingRequests"
+              :key="request.id"
+              class="workflow-card is-actionable"
+            >
+              <td class="workflow-person" data-label="发起人">
+                {{ request.initiatorMemberName }}
+              </td>
+              <td data-label="我的班次">
+                {{ request.targetAssignment.businessDate }}
+                {{ request.targetAssignment.shiftTypeName }}
+              </td>
+              <td data-label="对方班次">
+                {{ request.initiatorAssignment.businessDate }}
+                {{ request.initiatorAssignment.shiftTypeName }}
+              </td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button variant="outline" @click="accept(request)">接受</t-button>
+                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        v-if="canApprove && pendingApprovals.length > 0"
+        class="list-section workflow-list-section"
+      >
+        <h3>待管理员审批（{{ pendingApprovals.length }}）</h3>
+        <table class="swap-table workflow-table">
+          <thead>
+            <tr>
+              <th>发起人</th>
+              <th>目标成员</th>
+              <th>班次</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="request in pendingApprovals"
+              :key="request.id"
+              class="workflow-card is-actionable"
+            >
+              <td class="workflow-person" data-label="发起人">
+                {{ request.initiatorMemberName }}
+              </td>
+              <td data-label="目标成员">{{ request.targetMemberName }}</td>
+              <td data-label="班次">
+                {{ request.initiatorAssignment.businessDate }}
+                ↔ {{ request.targetAssignment.businessDate }}
+              </td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button variant="outline" @click="approve(request)">批准</t-button>
+                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        v-if="canApprove && completedSwaps.length > 0"
+        class="list-section workflow-list-section"
+      >
+        <h3>已生效待撤销（{{ completedSwaps.length }}）</h3>
+        <table v-if="completedSwaps.length > 0" class="swap-table workflow-table">
+          <thead>
+            <tr>
+              <th>发起人</th>
+              <th>目标成员</th>
+              <th>班次</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in completedSwaps" :key="request.id" class="workflow-card">
+              <td class="workflow-person" data-label="发起人">
+                {{ request.initiatorMemberName }}
+              </td>
+              <td data-label="目标成员">{{ request.targetMemberName }}</td>
+              <td data-label="班次">
+                {{ request.initiatorAssignment.businessDate }}
+                → {{ request.targetAssignment.businessDate }}
+              </td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button theme="danger" variant="text" @click="revokeSwap(request)">
+                  撤销
+                </t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        v-if="canApprove && handledApprovals.length > 0"
+        class="list-section workflow-list-section"
+      >
+        <h3>已受理记录（{{ handledApprovals.length }}）</h3>
+        <table class="swap-table workflow-table">
+          <thead>
+            <tr>
+              <th>发起人</th>
+              <th>目标成员</th>
+              <th>状态</th>
+              <th>处理人</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in handledApprovals" :key="request.id" class="workflow-card">
+              <td class="workflow-person" data-label="发起人">
+                {{ request.initiatorMemberName }}
+              </td>
+              <td data-label="目标成员">{{ request.targetMemberName }}</td>
+              <td data-label="状态">
+                <span class="workflow-status-badge" :class="getWorkflowStatusTone(request.status)">
+                  {{ getSwapStatusLabel(request.status) }}
+                </span>
+              </td>
+              <td data-label="处理人">{{ request.decidedByMemberName ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
     </template>
 
