@@ -6,8 +6,11 @@ import type {
   PushConfiguration,
   UpdateGroupNotificationSettingsInput,
   UpdateMemberNotificationPreferencesInput,
+  WechatNotificationKinds,
+  WechatNotificationKindsPatch,
   WebPushSubscriptionInput,
 } from '@schedule/contracts';
+import { defaultWechatNotificationKinds } from '@schedule/contracts';
 import type { DatabaseClient } from '@schedule/database';
 import {
   notificationPreferences,
@@ -25,6 +28,20 @@ import type { PushDispatcher } from './notification-dispatcher.js';
 import { validateReminderHours } from './reminder-hours.js';
 
 const defaultDutyReminderHours: readonly number[] = [24, 2];
+
+/** 只有明确写入 false 的类型才停发；缺失字段按接收处理。 */
+function normalizeWechatNotificationKinds(
+  value: WechatNotificationKindsPatch | null | undefined,
+): WechatNotificationKinds {
+  const read = (kind: keyof WechatNotificationKinds): boolean => value?.[kind] !== false;
+  return {
+    business: read('business'),
+    dutyAdjustment: read('dutyAdjustment'),
+    dutyReminder: read('dutyReminder'),
+    leave: read('leave'),
+    swap: read('swap'),
+  };
+}
 const maximumEndpointLength = 1000;
 const maximumP256dhLength = 256;
 const maximumAuthLength = 128;
@@ -118,12 +135,14 @@ export class NotificationService {
             browserNotificationsEnabled: true,
             dutyReminderHours: null,
             membershipId: authorization.membership.id,
+            wechatNotificationKinds: defaultWechatNotificationKinds,
             wechatNotificationsEnabled: true,
           }
         : {
             browserNotificationsEnabled: row.browserNotificationsEnabled === 1,
             dutyReminderHours: row.dutyReminderHours ?? null,
             membershipId: authorization.membership.id,
+            wechatNotificationKinds: normalizeWechatNotificationKinds(row.wechatNotificationKinds),
             wechatNotificationsEnabled: row.wechatNotificationsEnabled === 1,
           };
     });
@@ -151,11 +170,15 @@ export class NotificationService {
           ? {
               browserNotificationsEnabled: true,
               dutyReminderHours: null,
+              wechatNotificationKinds: defaultWechatNotificationKinds,
               wechatNotificationsEnabled: true,
             }
           : {
               browserNotificationsEnabled: currentRow.browserNotificationsEnabled === 1,
               dutyReminderHours: currentRow.dutyReminderHours ?? null,
+              wechatNotificationKinds: normalizeWechatNotificationKinds(
+                currentRow.wechatNotificationKinds,
+              ),
               wechatNotificationsEnabled: currentRow.wechatNotificationsEnabled === 1,
             };
       const dutyReminderHours =
@@ -166,6 +189,10 @@ export class NotificationService {
         input.browserNotificationsEnabled ?? current.browserNotificationsEnabled;
       const wechatNotificationsEnabled =
         input.wechatNotificationsEnabled ?? current.wechatNotificationsEnabled;
+      const wechatNotificationKinds = normalizeWechatNotificationKinds({
+        ...current.wechatNotificationKinds,
+        ...input.wechatNotificationKinds,
+      });
 
       await transaction
         .insert(notificationPreferences)
@@ -175,6 +202,7 @@ export class NotificationService {
           id: randomUUID(),
           membershipId: authorization.membership.id,
           version: 1,
+          wechatNotificationKinds,
           wechatNotificationsEnabled: wechatNotificationsEnabled ? 1 : 0,
         })
         .onDuplicateKeyUpdate({
@@ -182,6 +210,7 @@ export class NotificationService {
             browserNotificationsEnabled: browserNotificationsEnabled ? 1 : 0,
             dutyReminderHours,
             version: sql`${notificationPreferences.version} + 1`,
+            wechatNotificationKinds,
             wechatNotificationsEnabled: wechatNotificationsEnabled ? 1 : 0,
           },
         });
@@ -190,6 +219,7 @@ export class NotificationService {
         browserNotificationsEnabled,
         dutyReminderHours,
         membershipId: authorization.membership.id,
+        wechatNotificationKinds,
         wechatNotificationsEnabled,
       };
     });

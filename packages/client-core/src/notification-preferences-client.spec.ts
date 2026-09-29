@@ -13,7 +13,21 @@ const preferences = {
   browserNotificationsEnabled: true,
   dutyReminderHours: [24, 2],
   membershipId: 'membership-1',
+  wechatNotificationKinds: {
+    business: true,
+    dutyAdjustment: true,
+    dutyReminder: true,
+    leave: true,
+    swap: true,
+  },
   wechatNotificationsEnabled: true,
+};
+const defaultWechatNotificationKinds = {
+  business: true,
+  dutyAdjustment: true,
+  dutyReminder: true,
+  leave: true,
+  swap: true,
 };
 const groupSettings = {
   dutyReminderHours: [48, 12],
@@ -86,6 +100,7 @@ describe('P9 external message notification preference boundary', () => {
         browserNotificationsEnabled: true,
         dutyReminderHours: null,
         membershipId: 'membership-1',
+        wechatNotificationKinds: defaultWechatNotificationKinds,
         wechatNotificationsEnabled: true,
       },
       success: true,

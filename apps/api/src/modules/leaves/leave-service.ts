@@ -32,10 +32,8 @@ import {
   withTransaction,
 } from '@schedule/database';
 import {
-  getChinaStandardTimeBusinessDate,
   getChinaStandardTimeCalendarDate,
   intervalsOverlap,
-  isPastBusinessDate,
   leaveOverlapsInterval,
 } from '@schedule/scheduling-domain';
 import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
@@ -736,8 +734,8 @@ export class LeaveService {
         userMessage: '只能撤销已批准的请假申请。',
       });
     }
-    const leaveStartDate = getChinaStandardTimeBusinessDate(leaveRequest.startsAt);
-    if (isPastBusinessDate(leaveStartDate)) {
+    const leaveStartDate = getChinaStandardTimeCalendarDate(leaveRequest.startsAt);
+    if (isLeaveStartBeforeChinaToday(leaveRequest.startsAt)) {
       throw new ApiError({
         code: 'CONFLICT',
         statusCode: 409,

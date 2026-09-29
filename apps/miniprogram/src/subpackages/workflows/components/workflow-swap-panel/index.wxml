@@ -372,7 +372,6 @@
       <view class="sheet-body">
         <view class="sheet-form-intro">
           <text class="form-section-title">选择双方班次</text>
-          <text class="workflow-form-hint">直接生效，无需对方同意或审批。</text>
         </view>
         <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
           ><text>{{adminErrorMessage}}</text></view

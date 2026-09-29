@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-29 MINI-SIX-FIXES-001 请假日期边界与小程序六项修复
+
+- 引入点：`git log -S 'getChinaStandardTimeBusinessDate(leave.startsAt)'` 与 `git blame -L 28,49 packages/scheduling-domain/src/leave/overlap.ts` 定位：业务日换算自 `6452fa92`，把请假窗口按 08:00 交班日解释；`52e4b7e2` 新增的原始区间分支用该（已偏移的）业务日构造 `T00:00:00+08:00` 窗口，使 2027-05-01 起的请假窗口变成 [04-30, 05-06)，从而（a）误报 04-29 全天班（04-29 08:00→04-30 08:00）冲突，（b）漏掉 05-06 当天班次。
+- 行为清单：请假自身边界改判中国日历日（`getChinaStandardTimeCalendarDate`），班次侧仍按业务日 + 原始区间兜底；同口径修正 `leaveIntersectsDateRange`、审批预览 SQL（月份下界保留业务日以覆盖跨夜顺延）、撤销守卫与冲突文案日期。跨夜顺延到请假首日 08:00 的上一业务日班次仍判冲突（语义未变）。另含：周期天数弹层复用共享 `picker-sheet.wxss`（横杠/遮罩/底部按钮）并放大数值字号；删除管理员换班与加扣班弹层的“直接生效…”胶囊；按类型微信提醒（契约 + 0069 迁移 + writer 闸门 + 5 个独立开关 + 总开关只存偏好）；事件时间轴中文对象名与影响说明；我的页操作胶囊四周等宽窄内边距并与左侧标签居中。
+- 红绿：`packages/scheduling-domain/src/leave/overlap.test.ts` 新增日历日用例先红（expected false, received true）后绿，包内 52 项通过；`leaves.integration.test.ts` 新增 affected-shifts/提交用例（真实 MySQL）通过，工作流 88 项、手动排班 37 项、迁移 30 项、按类型微信通知新用例通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本地 API 3000/Web 5173 全流程通过（登录/管理员/成员/访客 vkey/访问记录，浏览器错误 0）；本地开发库先迁移到 schema 69，仅本地合成 `local-admin` 临时设为平台管理员匹配冒烟前置，跑完立即恢复为 0；`pnpm smoke:check-core` 通过。几何代理（非原生）测得我的页胶囊居中和四边等宽内边距、周期天数弹层与年月选择器按钮几何一致。
+- 既有失败（非本轮引入）：`pnpm test:api-integration:task10` 的 `calendar.integration.test.ts > excludes drafts and replaced revisions from the calendar` 在把本轮改动 `git stash` 后仍失败（回拨时钟到 2026-08-02 后替换既往排班命中“草稿包含已过日期”409），本轮未修改该测试或该守卫。
+- 体验版与生产：见本轮 [轮次记录](../audit/mini-six-fixes-20260929.md)（本轮随后执行 L4 部署与 L3 上传放行）。
+
 ## 2026-09-28 EXTERNAL-DUTY-PREVIEW-001 未改动班次预览被拒绝
 
 - 引入点：`git log -S 'membershipId: shiftAssignments.actualMembershipId'` 与 `git blame -L 708,737` 定位 `a5de1931` 的换班预览裸覆盖读取。上一轮 `9715e88f` 修复扫描和 `readLocalDate`，预览又单独读空覆盖，漏用发布成员。Mini `external-duty-client.ts` 把所有 409 显示为“排班已变化”，掩盖了真正原因。

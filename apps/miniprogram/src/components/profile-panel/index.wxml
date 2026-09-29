@@ -195,7 +195,7 @@
             <view class="profile-detail-action">
               <text>{{bindingLabel}}</text>
               <button size="mini" wx:if="{{bindingState === 'error'}}" bindtap="handleBindingRetry">
-                <text class="profile-action-label">重试</text>
+                <view class="profile-action-label">重试</view>
               </button>
               <button
                 size="mini"
@@ -203,14 +203,14 @@
                 disabled="{{unbindSaving}}"
                 bindtap="handleUnbind"
               >
-                <text class="profile-action-label">解除绑定</text>
+                <view class="profile-action-label">解除绑定</view>
               </button>
             </view>
           </view>
           <view class="profile-detail-row is-last">
             <text class="profile-detail-label">登录密码</text>
             <button size="mini" class="profile-password-action" bindtap="handlePasswordOpen">
-              <text class="profile-action-label">修改登录密码</text>
+              <view class="profile-action-label">修改登录密码</view>
             </button>
           </view>
         </view>

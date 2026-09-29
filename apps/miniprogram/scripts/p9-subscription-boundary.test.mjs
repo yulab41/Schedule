@@ -43,16 +43,17 @@ describe('P9 external message subscription boundary', () => {
     expect(adapter).toContain('normalized.length > 3');
   });
 
-  it('uses server-configured templates for explicit batched subscription consent', () => {
+  it('uses server-configured templates for one explicit consent switch per kind', () => {
     const controller = read(
       'src/subpackages/insights/components/notifications-panel/controller.ts',
     );
 
     expect(controller).toContain('loadWechatSubscriptionConfiguration()');
-    expect(controller).toContain('requestWechatSubscriptions(templateIds)');
+    expect(controller).toContain('requestWechatSubscriptions([templateId])');
     const template = read('src/subpackages/insights/components/notifications-panel/index.wxml');
-    expect(template.match(/bindpress="handleSubscribe"/gu)).toHaveLength(1);
-    expect(template).toContain('subscriptionButtonLabel');
+    expect(template.match(/bind:change="handleWechatKindToggle"/gu)).toHaveLength(1);
+    expect(template).toContain('wechatKindRows');
+    expect(template).not.toContain('handleSubscribe');
     expect(controller).not.toContain('Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI');
   });
 });

@@ -190,18 +190,27 @@
                 loading="{{busy}}"
                 bind:change="handleToggle"
               ></ui-switch></view
-            ><view class="subscription-buttons"
-              ><ui-button
-                variant="secondary"
-                label="{{subscriptionButtonLabel}}"
-                disabled="{{busy || !templateConfigured}}"
-                bindpress="handleSubscribe"
-              ></ui-button>
-              <view wx:for="{{subscriptionResults}}" wx:key="kind" class="subscription-result"><text>{{item.label}}</text><text>{{item.statusLabel}}</text></view></view
+            ><view class="wechat-kind-list"
+              ><view
+                wx:for="{{wechatKindRows}}"
+                wx:key="kind"
+                class="wechat-kind-row"
+                ><view class="wechat-kind-copy"
+                  ><text class="wechat-kind-label">{{item.label}}</text
+                  ><text class="wechat-kind-status">{{item.statusLabel}}</text></view
+                ><ui-switch
+                  checked="{{item.checked}}"
+                  label="{{item.label}}"
+                  disabled="{{busy || wechatKindBusy !== '' || !item.configured}}"
+                  loading="{{wechatKindBusy === item.kind}}"
+                  data-kind="{{item.kind}}"
+                  bind:change="handleWechatKindToggle"
+                ></ui-switch></view
+              ></view
             ><view class="audit-note"
               ><text class="audit-mark">⌁</text
               ><text
-                >分两步授权：先申请值班提醒、排班更新和换班通知，再点击同一按钮申请加扣班和请假通知。开启接收偏好不代表微信已授权。每个一次性模板每次授权可发送一条提醒，可再次点击授权。</text
+                >每一类都可单独开启或关闭。打开某一类会立即申请该类微信订阅授权；关闭后服务端不再发送该类微信提醒。微信一次性模板每次授权只可发送一条提醒，可关闭后再开启重新授权。</text
               ></view
             ></view
           ><ui-alert

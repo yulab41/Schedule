@@ -292,6 +292,58 @@ describe.skipIf(!browserPath)(
         }
     });
 
+    it('centers the password action on its label and the right column at 390/320px and large text', async () => {
+      for (const width of [390, 320])
+        for (const large of [false, true]) {
+          await render(
+            profileFixture({
+              avatar: true,
+              avatarSyncLabel: '',
+              bindingLabel: '已绑定',
+              large,
+            }),
+            profileStyles +
+              (large ? ':root { --ui-font-size-xs:18px; --ui-font-size-sm:20px; }' : ''),
+            width,
+          );
+          const geometry = await page.evaluate(() => {
+            const button = document.querySelector('.profile-password-action');
+            const row = button.closest('.profile-detail-row');
+            const label = row.querySelector('.profile-detail-label');
+            const chip = button.querySelector('.profile-action-label');
+            const reference = document.querySelector('.profile-detail-action');
+            const labelBox = label.getBoundingClientRect();
+            const buttonBox = button.getBoundingClientRect();
+            const chipStyle = getComputedStyle(chip);
+            return {
+              centerOffset: Math.abs(
+                (labelBox.top + labelBox.bottom - buttonBox.top - buttonBox.bottom) / 2,
+              ),
+              chipPaddings: [
+                chipStyle.paddingTop,
+                chipStyle.paddingRight,
+                chipStyle.paddingBottom,
+                chipStyle.paddingLeft,
+              ],
+              height: buttonBox.height,
+              overflow: document.documentElement.scrollWidth > innerWidth,
+              rightOffset: Math.abs(buttonBox.right - reference.getBoundingClientRect().right),
+            };
+          });
+          expect(geometry.centerOffset).toBeLessThanOrEqual(1);
+          expect(geometry.rightOffset).toBeLessThanOrEqual(1);
+          // 四周等宽窄内边距：不允许上下比左右宽。
+          expect(new Set(geometry.chipPaddings).size).toBe(1);
+          expect(parseFloat(geometry.chipPaddings[0])).toBeLessThanOrEqual(10);
+          expect(geometry.height).toBeLessThanOrEqual(44);
+          expect(geometry.overflow).toBe(false);
+          observations.push({ surface: 'profile-password-row', width, large, geometry });
+          await page.screenshot({
+            path: path.join(evidenceDirectory, `profile-password-row-${width}-${large}.png`),
+          });
+        }
+    });
+
     it('renders the filter as three aligned horizontal SVG bars', async () => {
       const tree = fragment(read('src/pages/workbench/index.wxml'));
       const button = tree.querySelector('.filter-button');
@@ -472,8 +524,11 @@ describe.skipIf(!browserPath)(
           });
           expect(result.columns).toBe(12);
           expect(result.overlap).toBe(false);
-          expect(result.bottomGap).toBeLessThanOrEqual(12);
-          expect(result.touchHeight).toBeGreaterThanOrEqual(44);
+          // 窄胶囊比原先 44px 按钮盒子矮，末行居中后与卡片底边多出约 5px 仍属紧凑间距。
+          expect(result.bottomGap).toBeLessThanOrEqual(16);
+          // 胶囊按用户要求改为四周等宽窄内边距，因此高度低于 44px 触控高度。
+          expect(result.touchHeight).toBeGreaterThanOrEqual(26);
+          expect(result.touchHeight).toBeLessThanOrEqual(44);
           expect(result.letterSpacing).toBe('normal');
           expect(result.noteClipped).toBe(false);
           expect(result.overflow).toBe(false);
@@ -578,8 +633,11 @@ describe.skipIf(!browserPath)(
             // The approved native 414px screenshot has a 184px sign-out button.
             // Web's intrinsic content width is not the Mini width contract.
             expect(geometry.buttons[1].width).toBe(184);
+            // 修改登录密码胶囊按用户要求是四周等宽窄内边距，高度低于 44px；退出登录保持 44px。
+            expect(geometry.buttons[0].height).toBeGreaterThanOrEqual(26);
+            expect(geometry.buttons[0].height).toBeLessThanOrEqual(44);
+            expect(geometry.buttons[1].height).toBeGreaterThanOrEqual(44);
             for (const button of geometry.buttons) {
-              expect(button.height).toBeGreaterThanOrEqual(44);
               expect(Math.abs(button.textX)).toBeLessThanOrEqual(1);
               expect(Math.abs(button.textY)).toBeLessThanOrEqual(2);
             }

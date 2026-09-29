@@ -107,4 +107,35 @@ describe('shared picker unification', () => {
     expect(app.renderer).toBe('webview');
     expect(app).not.toHaveProperty('rendererOptions');
   });
+
+  it('shares wheel rails and the bottom action row with the cycle-days sheet', () => {
+    const partial = read('styles/picker-sheet.wxss');
+    expect(partial).toMatch(
+      /\.workflow-picker-wheel-rails\s*\{[^}]*height:\s*44px;[^}]*border-top:\s*1px solid var\(--ui-color-border\);/su,
+    );
+    expect(partial).toMatch(
+      /\.workflow-picker-actions\s*\{[^}]*gap:\s*8px;[^}]*border-top:\s*1px solid var\(--ui-color-border\);/su,
+    );
+    expect(partial).toMatch(/\.workflow-picker-button\.is-primary\s*\{[^}]*flex:\s*1\.35;/su);
+    expect(read('components/ui/ui-date-picker/index.wxss')).toContain(
+      "@import '../../../styles/picker-sheet.wxss';",
+    );
+
+    const manualStyles = read('subpackages/scheduling/pages/manual/index.wxss');
+    expect(manualStyles).toContain("@import '../../../../styles/picker-sheet.wxss';");
+    expect(manualStyles).toMatch(/\.cycle-wheel \.ui-wheel-number\s*\{[^}]*font-size:\s*30px;/su);
+    expect(manualStyles).not.toContain('.cycle-picker-actions');
+
+    const manual = read('subpackages/scheduling/pages/manual/index.wxml');
+    expect(manual).toContain('class="cycle-wheel"');
+    expect(manual).toContain('class="workflow-picker-wheel-rails"');
+    expect(manual).toContain('class="workflow-picker-wheel-mask"');
+    expect(manual).toMatch(
+      /class="workflow-picker-button is-secondary"[^>]*bindtap="handleCloseCyclePicker">取消<\/view>/u,
+    );
+    expect(manual).toMatch(
+      /class="workflow-picker-button is-primary"[^>]*bindtap="handleConfirmCyclePicker">确定<\/view>/u,
+    );
+    expect(manual).not.toContain('cycle-picker-actions');
+  });
 });

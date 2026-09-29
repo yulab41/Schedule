@@ -193,16 +193,40 @@ describe.runIf(!!evidence)('feedback15 real-template browser geometry', () => {
     notifyParsed.innerHTML = read('subpackages/insights/components/notifications-panel/index.wxml');
     const notifications = hostFor(
       simulate.load({
-        template: notifyParsed.querySelector('.subscription-buttons').outerHTML,
+        // 每类提醒都是一行独立开关；用等效尺寸的占位块渲染开关本体。
+        template: notifyParsed
+          .querySelector('.wechat-kind-list')
+          .outerHTML.replace(
+            /<ui-switch[\s\S]*?<\/ui-switch>/gu,
+            '<view style="width:44px;height:24px;border-radius:12px;background:#dfe7f0"></view>',
+          ),
         data: {
-          subscriptionButtonLabel: '继续授权剩余2类',
-          templateConfigured: true,
           busy: false,
-          subscriptionResults: [
-            { kind: 'dutyReminder', label: '值班提醒', statusLabel: '本次已授权' },
+          wechatKindBusy: '',
+          wechatKindRows: [
+            {
+              checked: true,
+              configured: true,
+              kind: 'dutyReminder',
+              label: '值班提醒',
+              statusLabel: '本次已授权',
+            },
+            {
+              checked: false,
+              configured: true,
+              kind: 'swap',
+              label: '换班通知',
+              statusLabel: '已关闭',
+            },
+            {
+              checked: false,
+              configured: false,
+              kind: 'leave',
+              label: '请假通知',
+              statusLabel: '暂未配置',
+            },
           ],
         },
-        usingComponents: { 'ui-button': button },
       }),
     );
     const browser = await chromium.launchPersistentContext(path.join(evidence, 'browser-profile'), {

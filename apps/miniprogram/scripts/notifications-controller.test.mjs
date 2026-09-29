@@ -99,6 +99,14 @@ describe('notification parity controller', () => {
       browserNotificationsEnabled: false,
       dutyReminderHours: input.dutyReminderHours ?? null,
       membershipId: 'member-1',
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+        ...(input.wechatNotificationKinds ?? {}),
+      },
       wechatNotificationsEnabled: input.wechatNotificationsEnabled ?? false,
     }));
     mocks.markAllNotificationsRead.mockResolvedValue({ count: 1 });
@@ -115,13 +123,14 @@ describe('notification parity controller', () => {
     vi.unstubAllGlobals();
   });
 
-  it('offers five independent choices and requests only the chosen template', async () => {
+  it('keeps five independent switches and requests only the toggled template', async () => {
     mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    expect(page.data.subscriptionChoices).toHaveLength(5);
+    expect(page.data.wechatKindRows).toHaveLength(5);
+    expect(page.data.wechatKindRows.every((row) => row.configured)).toBe(true);
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
     for (const [kind, id] of [
       ['dutyReminder', 'duty'],
@@ -130,66 +139,68 @@ describe('notification parity controller', () => {
       ['dutyAdjustment', 'adjustment'],
       ['leave', 'leave'],
     ]) {
-      mocks.requestSubscriptions.mockResolvedValue([{ status: 'accepted', templateId: id }]);
-      definition.methods.handleSubscribe.call(page, { currentTarget: { dataset: { kind } } });
+      mocks.requestSubscriptions.mockResolvedValue([
+        { granted: true, status: 'accepted', templateId: id },
+      ]);
+      definition.methods.handleWechatKindToggle.call(page, {
+        currentTarget: { dataset: { kind } },
+        detail: { checked: true },
+      });
       expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith([id]);
-      await vi.waitFor(() => expect(page.data.busy).toBe(false));
+      await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+      expect(mocks.updateMine).toHaveBeenLastCalledWith(groupId, {
+        wechatNotificationKinds: { [kind]: true },
+      });
+      const row = page.data.wechatKindRows.find((item) => item.kind === kind);
+      expect(row).toMatchObject({ checked: true, statusLabel: '本次已授权' });
     }
     expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(5);
   });
 
-  it('uses one button for 3 then 2 templates, retaining partial grants on second-step rejection', async () => {
+  it('disables a single kind without any WeChat request and keeps the others untouched', async () => {
     mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    mocks.requestSubscriptions.mockResolvedValueOnce([
-      { templateId: 'duty', status: 'accepted' },
-      { templateId: 'business', status: 'rejected' },
-      { templateId: 'swap', status: 'accepted' },
-    ]);
-    definition.methods.handleSubscribe.call(page);
-    expect(mocks.requestSubscriptions).toHaveBeenCalledWith(['duty', 'business', 'swap']);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.subscriptionButtonLabel).toBe('继续授权剩余2类');
-    expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
-    mocks.requestSubscriptions.mockRejectedValueOnce(new Error('offline'));
-    definition.methods.handleSubscribe.call(page);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.subscriptionButtonLabel).toBe('继续授权剩余2类');
-    mocks.requestSubscriptions.mockResolvedValueOnce([
-      { templateId: 'adjustment', status: 'rejected' },
-      { templateId: 'leave', status: 'blocked' },
-    ]);
-    definition.methods.handleSubscribe.call(page);
-    expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith(['adjustment', 'leave']);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.enabled).toBe(true);
-    expect(mocks.updateMine).toHaveBeenCalledTimes(1);
-    expect(page.data.subscriptionButtonLabel).toBe('再次授权微信通知');
-    expect(
-      page.data.subscriptionResults.filter((item) => item.statusLabel === '本次已授权'),
-    ).toHaveLength(2);
-    definition.lifetimes.detached.call(page);
-    expect(page.data.subscriptionResults).toEqual([]);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'swap' } },
+      detail: { checked: false },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
+      wechatNotificationKinds: { swap: false },
+    });
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'swap')).toMatchObject({
+      checked: false,
+      statusLabel: '已关闭',
+    });
+    expect(page.data.wechatKindRows.filter((row) => row.checked)).toHaveLength(4);
   });
 
-  it('never requests an absent or unknown template and leaves the other choices available', async () => {
+  it('never requests an absent or unknown template and leaves the other switches available', async () => {
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    expect(page.data.subscriptionChoices.filter((item) => item.configured)).toHaveLength(1);
-    definition.methods.handleSubscribe.call(page, {
+    expect(page.data.wechatKindRows.filter((row) => row.configured)).toHaveLength(1);
+    definition.methods.handleWechatKindToggle.call(page, {
       currentTarget: { dataset: { kind: 'leave' } },
+      detail: { checked: true },
     });
-    definition.methods.handleSubscribe.call(page, {
+    definition.methods.handleWechatKindToggle.call(page, {
       currentTarget: { dataset: { kind: '__proto__' } },
+      detail: { checked: true },
     });
+    await flushPromises();
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
     expect(mocks.updateMine).not.toHaveBeenCalled();
-    expect(page.data.busy).toBe(false);
+    expect(page.data.wechatKindBusy).toBe('');
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'leave')).toMatchObject({
+      checked: false,
+      statusLabel: '暂未配置',
+    });
   });
 
   it('enables receiving without triggering a native consent prompt', async () => {
@@ -203,25 +214,41 @@ describe('notification parity controller', () => {
     expect(mocks.updateMine).toHaveBeenCalledWith(groupId, { wechatNotificationsEnabled: true });
   });
 
-  it('keeps the first authorization step retryable if saving its receiving preference fails', async () => {
+  it('keeps a kind switch retryable when saving its preference fails', async () => {
     mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-    mocks.requestSubscriptions.mockResolvedValue([{ templateId: 'duty', status: 'accepted' }]);
+    mocks.requestSubscriptions.mockResolvedValue([
+      { granted: true, status: 'accepted', templateId: 'business' },
+    ]);
     mocks.updateMine.mockRejectedValueOnce(new Error('保存失败'));
-    definition.methods.handleSubscribe.call(page);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.subscriptionStep).toBe(0);
-    expect(page.data.subscriptionButtonLabel).toBe('授权微信通知');
-    definition.methods.handleSubscribe.call(page);
-    expect(mocks.requestSubscriptions).toHaveBeenLastCalledWith(['duty', 'business', 'swap']);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.subscriptionStep).toBe(1);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'business' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(page.data.feedbackTone).toBe('error');
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      // 保存失败不改写接收偏好，开关回到服务端已保存的状态。
+      checked: true,
+    });
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'business' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(mocks.updateMine).toHaveBeenLastCalledWith(groupId, {
+      wechatNotificationKinds: { business: true },
+    });
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      checked: true,
+      statusLabel: '本次已授权',
+    });
   });
 
-  it('resets two-step progress and discards an old grant after an account change on return', async () => {
+  it('discards an old grant and its row status after an account change on return', async () => {
     mocks.templates.mockResolvedValue(['duty', 'business', 'swap', 'adjustment', 'leave']);
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
@@ -233,16 +260,18 @@ describe('notification parity controller', () => {
         complete = resolve;
       }),
     );
-    definition.methods.handleSubscribe.call(page);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
     definition.pageLifetimes.hide.call(page);
     mocks.token.mockReturnValue('new-account');
     definition.pageLifetimes.show.call(page);
-    complete([{ templateId: 'duty', status: 'accepted' }]);
+    complete([{ granted: true, status: 'accepted', templateId: 'duty' }]);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     await flushPromises();
-    expect(page.data.subscriptionStep).toBe(0);
-    expect(page.data.subscriptionResults).toEqual([]);
-    expect(page.data.busy).toBe(false);
+    expect(page.data.wechatKindBusy).toBe('');
+    expect(page.data.wechatKindRows.every((row) => row.statusLabel !== '本次已授权')).toBe(true);
     expect(mocks.updateMine).not.toHaveBeenCalled();
   });
 
@@ -413,7 +442,7 @@ describe('notification parity controller', () => {
     expect(page.data.notifications.map((item) => item.id)).not.toContain('stale');
   });
 
-  it('requests the approved duty reminder subscription only after an explicit button', async () => {
+  it('requests the approved duty reminder subscription only after an explicit switch', async () => {
     mocks.requestSubscriptions.mockResolvedValue([
       {
         granted: true,
@@ -428,32 +457,43 @@ describe('notification parity controller', () => {
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
 
-    definition.methods.handleSubscribe.call(page);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
 
     expect(mocks.requestSubscriptions).toHaveBeenCalledWith([
       'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
     ]);
     expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
-      wechatNotificationsEnabled: true,
+      wechatNotificationKinds: { dutyReminder: true },
     });
   });
 
-  it('preserves enabled receiving and other native choices when a separately requested template is rejected', async () => {
+  it('keeps receiving enabled and the switch off when a requested template is rejected', async () => {
     mocks.templates.mockResolvedValueOnce(['duty', 'business']);
-    mocks.requestSubscriptions.mockResolvedValue([{ status: 'rejected', templateId: 'business' }]);
+    mocks.requestSubscriptions.mockResolvedValue([
+      { granted: false, status: 'rejected', templateId: 'business' },
+    ]);
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     page.setData({ enabled: true });
-    definition.methods.handleSubscribe.call(page, {
+    definition.methods.handleWechatKindToggle.call(page, {
       currentTarget: { dataset: { kind: 'business' } },
+      detail: { checked: true },
     });
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(mocks.requestSubscriptions).toHaveBeenCalledWith(['business']);
     expect(mocks.updateMine).not.toHaveBeenCalled();
     expect(page.data.enabled).toBe(true);
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      // 微信拒绝授权只影响本次订阅结果，接收偏好保持原状，可关闭后再开启重试。
+      checked: true,
+      statusLabel: '本次未授权',
+    });
   });
 
   it('marks the page as large text when the system font setting requests it', async () => {
@@ -476,17 +516,26 @@ describe('notification parity controller', () => {
     expect(page.data.largeText).toBe(true);
   });
 
-  it('requests again synchronously when the persisted preference is already enabled', async () => {
+  it('requests the kind subscription synchronously inside the switch tap', async () => {
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     page.setData({ enabled: true });
-    mocks.requestSubscriptions.mockResolvedValue([{ status: 'accepted' }]);
-    definition.methods.handleSubscribe.call(page);
+    mocks.requestSubscriptions.mockResolvedValue([
+      {
+        granted: true,
+        status: 'accepted',
+        templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+      },
+    ]);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
     expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.infoMessage).toBe('已完成本次微信订阅授权。');
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(page.data.infoMessage).toBe('已开启值班提醒并完成本次微信授权。');
   });
 
   it('uses a two-second capsule and replaces its lifetime for consecutive saves', async () => {
@@ -507,7 +556,7 @@ describe('notification parity controller', () => {
     expect(page.data.infoMessage).toBe('');
   });
 
-  it('saves authorization after native hide/show without replaying the old success capsule', async () => {
+  it('saves a kind authorization after native hide/show without replaying the old success capsule', async () => {
     const definition = await definitionFor('settings');
     const page = pageFor(definition, 'settings');
     definition.lifetimes.attached.call(page);
@@ -518,12 +567,23 @@ describe('notification parity controller', () => {
         resolveGrant = resolve;
       }),
     );
-    definition.methods.handleSubscribe.call(page);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
     definition.pageLifetimes.hide.call(page);
     definition.pageLifetimes.show.call(page);
-    resolveGrant([{ status: 'accepted' }]);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
-    expect(page.data.enabled).toBe(true);
+    resolveGrant([
+      {
+        granted: true,
+        status: 'accepted',
+        templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+      },
+    ]);
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(mocks.updateMine).toHaveBeenCalledWith(groupId, {
+      wechatNotificationKinds: { dutyReminder: true },
+    });
     expect(page.data.infoMessage).toBe('');
   });
 
@@ -534,9 +594,18 @@ describe('notification parity controller', () => {
       const page = pageFor(definition, 'settings');
       definition.lifetimes.attached.call(page);
       await vi.waitFor(() => expect(page.data.state).toBe('ready'));
-      mocks.requestSubscriptions.mockResolvedValue([{ status }]);
-      definition.methods.handleSubscribe.call(page);
-      await vi.waitFor(() => expect(page.data.busy).toBe(false));
+      mocks.requestSubscriptions.mockResolvedValue([
+        {
+          granted: false,
+          status,
+          templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+        },
+      ]);
+      definition.methods.handleWechatKindToggle.call(page, {
+        currentTarget: { dataset: { kind: 'dutyReminder' } },
+        detail: { checked: true },
+      });
+      await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
       expect(mocks.updateMine).not.toHaveBeenCalled();
       expect(page.data.feedbackTone).toBe('error');
       expect(page.data.infoMessage).not.toBe('');
@@ -551,8 +620,11 @@ describe('notification parity controller', () => {
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     mocks.requestSubscriptions.mockRejectedValue(new WechatSubscriptionError(20004));
-    definition.methods.handleSubscribe.call(page);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(page.data.showSubscriptionSettings).toBe(true);
     expect(globalThis.wx.openSetting).not.toHaveBeenCalled();
     definition.methods.handleOpenSubscriptionSettings.call(page);
@@ -577,10 +649,14 @@ describe('notification parity controller', () => {
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     mocks.snapshot.mockReturnValue({ global: true, externalMessages: false });
-    definition.methods.handleSubscribe.call(page);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
+    await flushPromises();
     expect(mocks.requestSubscriptions).not.toHaveBeenCalled();
     expect(page.data.state).toBe('disabled');
-    expect(page.data.busy).toBe(false);
+    expect(page.data.wechatKindBusy).toBe('');
   });
 
   it.each(['detach', 'group'])(
@@ -596,15 +672,27 @@ describe('notification parity controller', () => {
           resolveGrant = resolve;
         }),
       );
-      definition.methods.handleSubscribe.call(page);
-      definition.methods.handleSubscribe.call(page);
+      definition.methods.handleWechatKindToggle.call(page, {
+        currentTarget: { dataset: { kind: 'dutyReminder' } },
+        detail: { checked: true },
+      });
+      definition.methods.handleWechatKindToggle.call(page, {
+        currentTarget: { dataset: { kind: 'dutyReminder' } },
+        detail: { checked: true },
+      });
       expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
       if (change === 'detach') definition.lifetimes.detached.call(page);
       else {
         page.properties.groupId = otherGroupId;
         definition.observers.groupId.call(page);
       }
-      resolveGrant([{ status: 'accepted' }]);
+      resolveGrant([
+        {
+          granted: true,
+          status: 'accepted',
+          templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+        },
+      ]);
       await flushPromises();
       expect(mocks.updateMine).not.toHaveBeenCalled();
       expect(page.data.infoMessage).toBe('');
@@ -617,15 +705,33 @@ describe('notification parity controller', () => {
     definition.lifetimes.attached.call(page);
     await vi.waitFor(() => expect(page.data.state).toBe('ready'));
     page.setData({ enabled: true });
-    mocks.requestSubscriptions.mockResolvedValue([{ status: 'rejected' }]);
-    definition.methods.handleSubscribe.call(page);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    mocks.requestSubscriptions.mockResolvedValue([
+      {
+        granted: false,
+        status: 'rejected',
+        templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+      },
+    ]);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(page.data.enabled).toBe(true);
     expect(mocks.updateMine).not.toHaveBeenCalled();
-    mocks.requestSubscriptions.mockResolvedValue([{ status: 'accepted' }]);
+    mocks.requestSubscriptions.mockResolvedValue([
+      {
+        granted: true,
+        status: 'accepted',
+        templateId: 'Nmgf9k3bTIUaohtQFIMl8j_xbZAN2VDm1qnpQIL5WKI',
+      },
+    ]);
     mocks.updateMine.mockRejectedValue(new Error('保存失败'));
-    definition.methods.handleSubscribe.call(page);
-    await vi.waitFor(() => expect(page.data.busy).toBe(false));
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'dutyReminder' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
     expect(page.data.feedbackTone).toBe('error');
     expect(page.data.infoMessage).toBe('保存失败');
     expect(page.data.errorMessage).toBe('');

@@ -632,6 +632,59 @@ describeWithDatabase('leave hard conflicts and unchanged assignments', () => {
     ).toBe(201);
   });
 
+  it('keeps a China calendar-date leave on its own days when checking published conflicts', async () => {
+    const context = await seedPublishedSchedule(['a'], '2027-04');
+    // 全天班为 08:00 → 次日 08:00（中国标准时间）；显式固定 04-29 班次为 04-29 08:00 → 04-30 08:00。
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        endsAt: new Date('2027-04-30T00:00:00.000Z'),
+        startsAt: new Date('2027-04-29T00:00:00.000Z'),
+      })
+      .where(eq(shiftAssignments.businessDate, '2027-04-29'));
+
+    const affectedShifts = async (startsAt: string, endsAt: string) =>
+      (
+        await app.inject({
+          headers: { authorization: 'Bearer a-token' },
+          method: 'POST',
+          payload: { endsAt, isAllDay: true, startsAt },
+          url: `/groups/${context.groupId}/leave-requests/affected-shifts`,
+        })
+      ).json<readonly { businessDate: string }[]>();
+    const affectedDates = async (startsAt: string, endsAt: string) =>
+      (await affectedShifts(startsAt, endsAt)).map((row) => row.businessDate).sort();
+
+    // 请假 2027-05-01 ~ 2027-05-06：按中国日历日 00:00 存储，结束时间排他。
+    const mayLeave = {
+      endsAt: '2027-05-06T16:00:00.000Z',
+      startsAt: '2027-04-30T16:00:00.000Z',
+    } as const;
+    // 04-29 班次在 04-30 08:00 交班，不再属于 05-01 起的请假；只有跨夜顺延的 04-30 班次仍在。
+    expect(await affectedDates(mayLeave.startsAt, mayLeave.endsAt)).toEqual(['2027-04-30']);
+
+    // 移走跨夜顺延班次后，05-01 起的整天请假不再被任何已发布班次阻断。
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET deleted_at = CURRENT_TIMESTAMP(3)
+          WHERE schedule_period_id = ${context.periodId} AND business_date <> '2027-04-29'`,
+    );
+    expect(await affectedDates(mayLeave.startsAt, mayLeave.endsAt)).toEqual([]);
+    expect(
+      (
+        await submitLeave('a-token', context.groupId, {
+          ...mayLeave,
+          isAllDay: true,
+          leaveType: 'sick',
+        })
+      ).statusCode,
+    ).toBe(201);
+
+    // 覆盖 2027-04-30 当天的请假仍要命中 04-29 班次：它延续到 04-30 08:00。
+    expect(await affectedDates('2027-04-29T16:00:00.000Z', '2027-04-30T16:00:00.000Z')).toEqual([
+      '2027-04-29',
+    ]);
+  });
+
   it('returns private availability across year boundaries and restores it on rejection or cancellation', async () => {
     const context = await seedPublishedSchedule();
     const leave = (

@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEventDateGroups,
   buildEventNarrative,
+  describeEventImpact,
+  describeEventSubject,
   formatEventTime,
   getEventImpactCount,
+  getEventObjectLabel,
   getEventStatusLabel,
   getEventTone,
   getEventTypeLabel,
@@ -76,5 +79,41 @@ describe('shared event presentation', () => {
     ]);
     expect(groups[0]?.events.map((item) => item.id)).toEqual(['morning', 'night']);
     expect(buildEventNarrative(event())).toBe('排班已发布。');
+  });
+
+  it('describes an event subject in Chinese without leaking raw object types', () => {
+    expect(
+      describeEventSubject(
+        event({
+          affectedMembershipIds: ['member-1'],
+          affectedShiftIds: [],
+          objectType: 'leave_request',
+        }),
+      ),
+    ).toBe('请假申请 · 涉及 1 名成员');
+    expect(
+      describeEventSubject(
+        event({
+          affectedMembershipIds: ['member-1', 'member-2'],
+          affectedShiftIds: ['shift-1', 'shift-2'],
+          objectType: 'swap_request',
+        }),
+      ),
+    ).toBe('换班申请 · 涉及 2 个班次、2 名成员');
+    expect(describeEventImpact(event({ affectedMembershipIds: [], affectedShiftIds: [] }))).toBe(
+      '',
+    );
+    expect(getEventObjectLabel('swap_request')).toBe('换班申请');
+    expect(getEventObjectLabel('unknown_object')).toBeUndefined();
+    expect(
+      describeEventSubject(
+        event({
+          affectedMembershipIds: [],
+          affectedShiftIds: [],
+          eventType: 'swap_completed',
+          objectType: 'unknown_object',
+        }),
+      ),
+    ).toBe('换班已生效');
   });
 });

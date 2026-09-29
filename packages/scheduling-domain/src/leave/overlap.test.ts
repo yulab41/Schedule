@@ -146,4 +146,44 @@ describe('leave overlap', () => {
 
     expect(findLeaveOverlappingAssignments(assignments, leave)).toEqual([assignments[1]]);
   });
+
+  it('reads an all-day leave boundary as a China calendar date instead of a handover business date', () => {
+    // 请假 2027-05-01 ~ 2027-05-06 按中国日历日 00:00 存储（结束时间排他）。
+    const leave = {
+      endsAt: new Date('2027-05-06T16:00:00.000Z'),
+      isAllDay: true as const,
+      startsAt: new Date('2027-04-30T16:00:00.000Z'),
+    };
+    const previousDayAllDay = {
+      businessDate: '2027-04-29',
+      endsAt: new Date('2027-04-30T00:00:00.000Z'),
+      startsAt: new Date('2027-04-29T00:00:00.000Z'),
+    };
+    const carryingOvernight = {
+      businessDate: '2027-04-30',
+      endsAt: new Date('2027-05-01T00:00:00.000Z'),
+      startsAt: new Date('2027-04-30T00:00:00.000Z'),
+    };
+    const firstLeaveDay = {
+      businessDate: '2027-05-01',
+      endsAt: new Date('2027-05-02T00:00:00.000Z'),
+      startsAt: new Date('2027-05-01T00:00:00.000Z'),
+    };
+    const lastLeaveDay = {
+      businessDate: '2027-05-06',
+      endsAt: new Date('2027-05-07T00:00:00.000Z'),
+      startsAt: new Date('2027-05-06T00:00:00.000Z'),
+    };
+    const dayAfterLeave = {
+      businessDate: '2027-05-07',
+      endsAt: new Date('2027-05-08T00:00:00.000Z'),
+      startsAt: new Date('2027-05-07T00:00:00.000Z'),
+    };
+
+    expect(leaveOverlapsInterval(leave, previousDayAllDay)).toBe(false);
+    expect(leaveOverlapsInterval(leave, carryingOvernight)).toBe(true);
+    expect(leaveOverlapsInterval(leave, firstLeaveDay)).toBe(true);
+    expect(leaveOverlapsInterval(leave, lastLeaveDay)).toBe(true);
+    expect(leaveOverlapsInterval(leave, dayAfterLeave)).toBe(false);
+  });
 });

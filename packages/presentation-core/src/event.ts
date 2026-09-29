@@ -188,6 +188,47 @@ export function getEventImpactCount(
   return event.affectedMembershipIds.length + event.affectedShiftIds.length;
 }
 
+const eventObjectTypeLabels: Readonly<Record<string, string>> = {
+  duty_adjustment: '加扣班申请',
+  external_duty_check: '外部值班校对',
+  group: '群组',
+  group_member: '群组成员',
+  group_member_contact: '成员联系方式',
+  holiday_calendar_version: '节假日版本',
+  leave_request: '请假申请',
+  manual_schedule_template: '手动排班模板',
+  platform_user: '平台账号',
+  schedule_period: '排班版本',
+  schedule_preview: '排班预览',
+  schedule_role: '排班岗位',
+  scheduling_rules: '排班规则',
+  shift_assignment: '班次',
+  shift_type: '班种',
+  swap_request: '换班申请',
+  user_profile: '个人资料',
+};
+
+export function getEventObjectLabel(objectType: string): string | undefined {
+  return eventObjectTypeLabels[objectType];
+}
+
+export function describeEventImpact(
+  event: Pick<ScheduleEventLike, 'affectedMembershipIds' | 'affectedShiftIds'>,
+): string {
+  const parts = [
+    event.affectedShiftIds.length > 0 ? `${event.affectedShiftIds.length} 个班次` : '',
+    event.affectedMembershipIds.length > 0 ? `${event.affectedMembershipIds.length} 名成员` : '',
+  ].filter((part) => part !== '');
+  return parts.length === 0 ? '' : `涉及 ${parts.join('、')}`;
+}
+
+/** 事件页中文摘要：对象中文名 + 影响范围，未知对象回退到事件类型标签，绝不显示英文枚举。 */
+export function describeEventSubject(event: ScheduleEventLike): string {
+  const objectLabel = getEventObjectLabel(event.objectType) ?? getEventTypeLabel(event.eventType);
+  const impact = describeEventImpact(event);
+  return impact === '' ? objectLabel : `${objectLabel} · ${impact}`;
+}
+
 function getEventMarker(eventType: string): EventChangeMarker | undefined {
   switch (eventType) {
     case 'swap_completed':

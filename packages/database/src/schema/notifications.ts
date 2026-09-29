@@ -101,6 +101,14 @@ export const notificationSettings = mysqlTable('notification_settings', {
   ...auditableColumns(),
 });
 
+export interface StoredWechatNotificationKinds {
+  readonly business?: boolean;
+  readonly dutyAdjustment?: boolean;
+  readonly dutyReminder?: boolean;
+  readonly leave?: boolean;
+  readonly swap?: boolean;
+}
+
 export const notificationPreferences = mysqlTable(
   'notification_preferences',
   {
@@ -117,6 +125,10 @@ export const notificationPreferences = mysqlTable(
     })
       .default(1)
       .notNull(),
+    // NULL 表示全部类型都接收；写入后按类型覆盖。
+    wechatNotificationKinds: json(
+      'wechat_notification_kinds',
+    ).$type<StoredWechatNotificationKinds>(),
     version: int('version', { unsigned: true }).default(1).notNull(),
     ...auditableColumns(),
   },

@@ -96,7 +96,7 @@ describe('insights dashboard shared parity controller', () => {
       label: '8月26日 周三',
     });
     expect(page.data.eventGroups[0].events[0]).toMatchObject({
-      detailLabel: 'schedule_period · 影响 2 项',
+      detailLabel: '排班版本 · 涉及 1 个班次、1 名成员',
       eventStatusLabel: '已完成',
       eventTone: 'schedule',
       eventTypeLabel: '排班已发布',

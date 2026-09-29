@@ -9,8 +9,8 @@ import type {
 import { addBusinessMonths } from '@schedule/presentation-core';
 import {
   buildEventDateGroups,
+  describeEventSubject,
   formatEventTime,
-  getEventImpactCount,
   getEventStatusLabel,
   getEventTone,
   getEventTypeLabel,
@@ -505,7 +505,7 @@ function setDashboardDisabled(page: InsightsDashboardInstance, message: string):
 function toEventCard(event: ScheduleEvent): EventCard {
   return {
     actorLabel: event.operatorName?.trim() || (event.operatorUserId ? '原操作者' : '系统'),
-    detailLabel: `${event.objectType} · 影响 ${getEventImpactCount(event)} 项`,
+    detailLabel: describeEventSubject(event),
     eventStatusLabel: getEventStatusLabel(event.eventStatus),
     eventTone: getEventTone(event.eventType),
     eventTypeLabel: getEventTypeLabel(event.eventType),

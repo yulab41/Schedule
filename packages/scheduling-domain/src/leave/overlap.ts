@@ -1,4 +1,4 @@
-import { getChinaStandardTimeBusinessDate } from '../time.js';
+import { getChinaStandardTimeBusinessDate, getChinaStandardTimeCalendarDate } from '../time.js';
 
 export interface TimeIntervalInput {
   readonly endsAt: Date;
@@ -33,8 +33,10 @@ export function leaveOverlapsInterval(
     return intervalsOverlap(leave, interval);
   }
 
-  const leaveStartDate = getChinaStandardTimeBusinessDate(leave.startsAt);
-  const leaveEndDate = getChinaStandardTimeBusinessDate(leave.endsAt);
+  // 请假区间是日历日边界（中国标准时间 00:00 起算），不能用带 08:00 交接的业务日换算，
+  // 否则 5 月 1 日开始的请假会被读成 4 月 30 日，误报前一日班次冲突并漏掉最后一天。
+  const leaveStartDate = getChinaStandardTimeCalendarDate(leave.startsAt);
+  const leaveEndDate = getChinaStandardTimeCalendarDate(leave.endsAt);
   const intervalDate = interval.businessDate ?? getChinaStandardTimeBusinessDate(interval.startsAt);
   return (
     (intervalDate >= leaveStartDate && intervalDate < leaveEndDate) ||

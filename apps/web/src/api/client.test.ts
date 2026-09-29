@@ -462,6 +462,13 @@ const memberNotificationPreferences: MemberNotificationPreferences = {
   browserNotificationsEnabled: true,
   dutyReminderHours: [24],
   membershipId: 'membership-1',
+  wechatNotificationKinds: {
+    business: true,
+    dutyAdjustment: true,
+    dutyReminder: true,
+    leave: true,
+    swap: true,
+  },
   wechatNotificationsEnabled: true,
 };
 
@@ -2796,6 +2803,13 @@ describe('Web API client', () => {
 
     await expect(client.getMyNotificationPreferences(group.id)).resolves.toEqual({
       ...legacyPreferences,
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+      },
       wechatNotificationsEnabled: true,
     });
   });

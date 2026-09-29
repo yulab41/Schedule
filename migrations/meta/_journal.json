@@ -477,6 +477,13 @@
       "when": 1785542400068,
       "tag": "0068_external_duty_published_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1785542400069,
+      "tag": "0069_member_wechat_notification_kinds",
+      "breakpoints": true
     }
   ]
 }

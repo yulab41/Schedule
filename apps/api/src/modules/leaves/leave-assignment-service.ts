@@ -7,6 +7,7 @@ import {
 } from '@schedule/database';
 import {
   getChinaStandardTimeBusinessDate,
+  getChinaStandardTimeCalendarDate,
   leaveOverlapsInterval,
 } from '@schedule/scheduling-domain';
 import { and, asc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
@@ -30,11 +31,14 @@ export class LeaveAssignmentService {
     leave: Leave,
     lockRows = false,
   ): Promise<LeaveApprovalContext> {
+    // 请假边界是日历日；扫描月份窗口保留业务日下界（≤ 日历日）以覆盖跨夜顺延的上一月班次。
+    const leaveStartDate = getChinaStandardTimeCalendarDate(leave.startsAt);
+    const leaveEndDate = getChinaStandardTimeCalendarDate(leave.endsAt);
     const firstMonth = `${getChinaStandardTimeBusinessDate(leave.startsAt).slice(0, 7)}-01`;
-    const lastMonth = `${getChinaStandardTimeBusinessDate(leave.endsAt).slice(0, 7)}-01`;
+    const lastMonth = `${leaveEndDate.slice(0, 7)}-01`;
     const overlap =
       leave.isAllDay === 1
-        ? sql`(${shiftAssignments.businessDate} >= ${getChinaStandardTimeBusinessDate(leave.startsAt)} AND ${shiftAssignments.businessDate} < ${getChinaStandardTimeBusinessDate(leave.endsAt)}) OR (${shiftAssignments.endsAt} > ${new Date(`${getChinaStandardTimeBusinessDate(leave.startsAt)}T00:00:00+08:00`)} AND ${shiftAssignments.startsAt} < ${new Date(`${getChinaStandardTimeBusinessDate(leave.endsAt)}T00:00:00+08:00`)})`
+        ? sql`(${shiftAssignments.businessDate} >= ${leaveStartDate} AND ${shiftAssignments.businessDate} < ${leaveEndDate}) OR (${shiftAssignments.endsAt} > ${new Date(`${leaveStartDate}T00:00:00+08:00`)} AND ${shiftAssignments.startsAt} < ${new Date(`${leaveEndDate}T00:00:00+08:00`)})`
         : sql`${shiftAssignments.endsAt} > ${leave.startsAt} AND ${shiftAssignments.startsAt} < ${leave.endsAt}`;
     let periodQuery = transaction
       .select()

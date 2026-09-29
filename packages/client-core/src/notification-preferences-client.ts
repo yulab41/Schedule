@@ -3,6 +3,7 @@ import type {
   MemberNotificationPreferences,
   UpdateGroupNotificationSettingsInput,
   UpdateMemberNotificationPreferencesInput,
+  WechatNotificationKinds,
 } from '@schedule/contracts';
 
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
@@ -18,6 +19,32 @@ interface UpdatePreferencesInput extends GroupInput {
 
 interface UpdateGroupSettingsInput extends GroupInput {
   readonly input: UpdateGroupNotificationSettingsInput;
+}
+
+/**
+ * 与 `@schedule/contracts` 的 `wechatNotificationKinds` 契约同名。
+ * client-core 的运行时代码不能引入 contracts（会带入 Zod），因此这里保留同一份键名清单。
+ */
+const wechatNotificationKindKeys = [
+  'dutyReminder',
+  'business',
+  'swap',
+  'dutyAdjustment',
+  'leave',
+] as const;
+
+/** 旧服务端可能不返回按类型偏好；缺失字段按全部接收处理。 */
+function normalizeWechatNotificationKinds(value: unknown): WechatNotificationKinds {
+  const source = isRecord(value) ? value : {};
+  const read = (kind: keyof WechatNotificationKinds): boolean =>
+    typeof source[kind] === 'boolean' ? source[kind] === true : true;
+  return {
+    business: read('business'),
+    dutyAdjustment: read('dutyAdjustment'),
+    dutyReminder: read('dutyReminder'),
+    leave: read('leave'),
+    swap: read('swap'),
+  };
 }
 
 export const groupNotificationSettingsDecoder: CompactDecoder<GroupNotificationSettings> = {
@@ -52,7 +79,11 @@ export const memberNotificationPreferencesDecoder: CompactDecoder<MemberNotifica
     const keys = Object.keys(value).sort();
     if (
       keys.join('|') !==
+        'browserNotificationsEnabled|dutyReminderHours|membershipId|wechatNotificationKinds|wechatNotificationsEnabled' &&
+      keys.join('|') !==
         'browserNotificationsEnabled|dutyReminderHours|membershipId|wechatNotificationsEnabled' &&
+      keys.join('|') !==
+        'browserNotificationsEnabled|dutyReminderHours|membershipId|wechatNotificationKinds' &&
       keys.join('|') !== 'browserNotificationsEnabled|dutyReminderHours|membershipId'
     ) {
       return { success: false };
@@ -78,9 +109,21 @@ export const memberNotificationPreferencesDecoder: CompactDecoder<MemberNotifica
     ) {
       return { success: false };
     }
+    const rawKinds = isRecord(value.wechatNotificationKinds)
+      ? value.wechatNotificationKinds
+      : undefined;
+    if (
+      value.wechatNotificationKinds !== undefined &&
+      (rawKinds === undefined ||
+        Object.keys(rawKinds).length !== 5 ||
+        !wechatNotificationKindKeys.every((kind) => typeof rawKinds[kind] === 'boolean'))
+    ) {
+      return { success: false };
+    }
     return {
       data: {
         ...value,
+        wechatNotificationKinds: normalizeWechatNotificationKinds(rawKinds),
         wechatNotificationsEnabled: value.wechatNotificationsEnabled ?? true,
       } as MemberNotificationPreferences,
       success: true,

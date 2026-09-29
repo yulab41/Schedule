@@ -37,7 +37,10 @@ export const MAXIMUM_MATRIX_NODE_NO_GROWTH_CEILINGS = Object.freeze({
   // Re-baselined 2026-09-22: the six editor fields now use three explicit row containers so the
   // template/role row can stay 2:1 while the other rows remain 1:1 (1507 -> 1510). The 600-cell
   // matrix and its hot rendering path are unchanged; only the three required field-row hosts grew.
-  'subpackages/scheduling/pages/manual/index.wxml': 1510,
+  // Re-baselined 2026-09-29: the cycle-days sheet now reuses the swap year-month picker chrome
+  // (wheel frame + center rails + fade mask) so its action row and selected-value bar match that
+  // sheet (1510 -> 1513). The 600-cell matrix and its hot rendering path are unchanged.
+  'subpackages/scheduling/pages/manual/index.wxml': 1513,
 });
 
 const nonVisualTags = new Set(['block', 'template', 'wxs']);

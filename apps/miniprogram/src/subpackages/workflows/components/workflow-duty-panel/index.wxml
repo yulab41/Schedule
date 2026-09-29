@@ -369,7 +369,6 @@
       ><view class="sheet-body">
         <view class="sheet-form-intro">
           <text class="form-section-title">选择代值班次与成员</text>
-          <text class="workflow-form-hint">直接生效，不需要双方确认或审批；原因选填。</text>
         </view>
         <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
           ><text>{{adminErrorMessage}}</text></view

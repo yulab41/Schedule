@@ -660,6 +660,15 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 68 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 69 ]; then
+  WECHAT_NOTIFICATION_KINDS_COLUMN="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"notification_preferences\" AND column_name=\"wechat_notification_kinds\""')"
+  [ "$WECHAT_NOTIFICATION_KINDS_COLUMN" = "1" ] || {
+    echo "[verify] 错误：按类型微信提醒偏好列缺失。" >&2
+    exit 1
+  }
+fi
+
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
   if [ "$schema" -ge 68 ]; then

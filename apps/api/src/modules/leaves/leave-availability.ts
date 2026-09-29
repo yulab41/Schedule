@@ -1,7 +1,7 @@
 import { leaveRequests, type DatabaseTransaction } from '@schedule/database';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import {
-  getChinaStandardTimeBusinessDate,
+  getChinaStandardTimeCalendarDate,
   leaveOverlapsInterval,
 } from '@schedule/scheduling-domain';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -29,8 +29,8 @@ export function leaveIntersectsDateRange(
 ): boolean {
   if (leave.isAllDay === 1) {
     return (
-      getChinaStandardTimeBusinessDate(leave.startsAt) <= endDate &&
-      getChinaStandardTimeBusinessDate(leave.endsAt) > startDate
+      getChinaStandardTimeCalendarDate(leave.startsAt) <= endDate &&
+      getChinaStandardTimeCalendarDate(leave.endsAt) > startDate
     );
   }
   return (

@@ -77,11 +77,46 @@ export interface UpdateGroupNotificationSettingsInput {
   readonly dutyReminderHours: readonly number[];
 }
 
+export const wechatNotificationKindValues = [
+  'dutyReminder',
+  'business',
+  'swap',
+  'dutyAdjustment',
+  'leave',
+] as const;
+export type WechatNotificationKind = (typeof wechatNotificationKindValues)[number];
+
+export const wechatNotificationKindsSchema = z
+  .object({
+    business: z.boolean(),
+    dutyAdjustment: z.boolean(),
+    dutyReminder: z.boolean(),
+    leave: z.boolean(),
+    swap: z.boolean(),
+  })
+  .strict();
+export type WechatNotificationKinds = z.infer<typeof wechatNotificationKindsSchema>;
+/** 局部更新：只下发被切换的类型，未下发的类型保持原值。 */
+export type WechatNotificationKindsPatch = {
+  readonly [Kind in WechatNotificationKind]?: boolean | undefined;
+};
+
+export const defaultWechatNotificationKinds: WechatNotificationKinds = {
+  business: true,
+  dutyAdjustment: true,
+  dutyReminder: true,
+  leave: true,
+  swap: true,
+};
+
 export const memberNotificationPreferencesSchema = z
   .object({
     browserNotificationsEnabled: z.boolean(),
     dutyReminderHours: z.union([z.null(), z.readonly(z.array(z.number().int().min(1)))]),
     membershipId: z.string().min(1),
+    wechatNotificationKinds: wechatNotificationKindsSchema
+      .optional()
+      .default(defaultWechatNotificationKinds),
     wechatNotificationsEnabled: z.boolean().optional().default(true),
   })
   .strict();
@@ -90,6 +125,7 @@ export type MemberNotificationPreferences = z.infer<typeof memberNotificationPre
 export interface UpdateMemberNotificationPreferencesInput {
   readonly browserNotificationsEnabled?: boolean;
   readonly dutyReminderHours?: readonly number[] | null;
+  readonly wechatNotificationKinds?: WechatNotificationKindsPatch;
   readonly wechatNotificationsEnabled?: boolean;
 }
 

@@ -611,9 +611,40 @@
   }
 }
 
-.subscription-buttons {
+.wechat-kind-list {
   display: flex;
+  margin-top: 10px;
   flex-direction: column;
-  gap: 8px;
+  border-top: 1px solid var(--ui-color-border);
 }
-.subscription-result { display: flex; justify-content: space-between; gap: 12px; color: var(--ui-color-text-secondary); font-size: 13px; line-height: 22px; }
+.wechat-kind-row {
+  display: flex;
+  min-height: 50px;
+  padding: 6px 0;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.wechat-kind-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.wechat-kind-label {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.wechat-kind-status {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+.is-large-text .wechat-kind-label {
+  font-size: var(--ui-font-size-md);
+}
+.is-large-text .wechat-kind-status {
+  font-size: var(--ui-font-size-sm);
+}

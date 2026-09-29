@@ -51,6 +51,7 @@ import {
 import {
   applyManualTemplate,
   getChinaStandardTimeBusinessDate,
+  getChinaStandardTimeCalendarDate,
   type ScheduleAssignmentSnapshot,
   type ManualApplyMember,
   type ManualLeaveInterval,
@@ -691,8 +692,8 @@ export class ManualScheduleApplyService {
         .filter((leave) => conflictMembershipIds.has(leave.membershipId))
         .map((leave) => {
           const memberName = memberNamesById.get(leave.membershipId) ?? '';
-          const startDateLabel = getChinaStandardTimeBusinessDate(leave.startsAt);
-          const endDateLabel = getChinaStandardTimeBusinessDate(leave.endsAt);
+          const startDateLabel = getChinaStandardTimeCalendarDate(leave.startsAt);
+          const endDateLabel = getChinaStandardTimeCalendarDate(leave.endsAt);
           return `${memberName} 于 ${startDateLabel} 至 ${endDateLabel} 请假`;
         });
       throw new ApiError({

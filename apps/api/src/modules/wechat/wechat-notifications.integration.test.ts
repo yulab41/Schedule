@@ -506,6 +506,55 @@ describeWithDatabase('wechat notification deliveries', () => {
     expect(ownerRows[0]?.count).toBe(0);
   });
 
+  it('skips only the disabled per-kind wechat delivery and keeps the other kinds', async () => {
+    process.env.WECHAT_BUSINESS_TEMPLATE_ID = 'tpl-business';
+    process.env.WECHAT_BUSINESS_TEMPLATE_FIELDS =
+      '{"title":"thing1","summary":"thing2","occurredAt":"time3"}';
+
+    const updated = await app.inject({
+      headers: { authorization: 'Bearer member-token' },
+      method: 'PUT',
+      payload: { wechatNotificationKinds: { swap: false } },
+      url: `/groups/${groupId}/notification-preferences/mine`,
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({
+      wechatNotificationKinds: {
+        business: true,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: false,
+      },
+    });
+
+    await appendDutyReminder(memberUserId);
+    for (const notificationType of ['swap_request_created', 'leave_request_approved']) {
+      await withTransaction(client, (tx) =>
+        new NotificationWriter().append(tx, {
+          body: '应用内详情',
+          groupId,
+          notificationType,
+          payload: { businessMonth: '2026-09-01' },
+          recipientUserIds: [memberUserId],
+          title: '排班消息',
+        }),
+      );
+    }
+
+    const [rows] = (await client.database.execute(
+      sql`SELECT notification.notification_type AS notificationType
+          FROM notification_deliveries delivery
+          INNER JOIN notifications notification ON notification.id = delivery.notification_id
+          WHERE delivery.channel = 'wechat'`,
+    )) as unknown as [{ notificationType: string }[], unknown];
+    // 已开启的值班提醒与请假通知仍然入队；只有被关闭的换班通知被跳过。
+    expect(rows.map((row) => row.notificationType).sort()).toEqual([
+      'duty_reminder',
+      'leave_request_approved',
+    ]);
+  });
+
   it('marks user refusal as skipped and retries system errors', async () => {
     await appendDutyReminder(memberUserId);
     const refusing = new NotificationRetryJob(

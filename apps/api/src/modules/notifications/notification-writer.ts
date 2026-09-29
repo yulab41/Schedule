@@ -267,12 +267,17 @@ export class NotificationWriter {
       }
       const [preference] = await transaction
         .select({
+          wechatNotificationKinds: notificationPreferences.wechatNotificationKinds,
           wechatNotificationsEnabled: notificationPreferences.wechatNotificationsEnabled,
         })
         .from(notificationPreferences)
         .where(eq(notificationPreferences.membershipId, membership.id))
         .limit(1);
       if (preference !== undefined && preference.wechatNotificationsEnabled === 0) {
+        return false;
+      }
+      // 按类型偏好：只有被显式关闭的提醒类型才停发，NULL 视为全部接收。
+      if (preference?.wechatNotificationKinds?.[kind] === false) {
         return false;
       }
     }

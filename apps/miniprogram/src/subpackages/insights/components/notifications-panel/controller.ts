@@ -3,7 +3,7 @@ import {
   type NotificationPreferencesClient,
   type P9InsightsActionsClient,
 } from '@schedule/client-core';
-import type { NotificationRecord } from '@schedule/contracts';
+import type { NotificationRecord, WechatNotificationKinds } from '@schedule/contracts';
 import {
   canManageNotificationSettings,
   formatNotificationTime,
@@ -28,6 +28,7 @@ import {
 import {
   requestWechatSubscriptions,
   WechatSubscriptionError,
+  type WechatSubscriptionStatus,
 } from '../../../../platform/wechat-subscription.js';
 import {
   loadWechatSubscriptionConfiguration,
@@ -55,12 +56,49 @@ const subscriptionLabels = {
   leave: '请假通知',
 } as const;
 
-function subscriptionChoices(configuration?: WechatSubscriptionConfiguration) {
-  return (Object.keys(subscriptionLabels) as WechatSubscriptionKind[]).map((kind) => ({
-    kind,
-    label: subscriptionLabels[kind],
-    configured: !!configuration?.[kind],
-  }));
+const wechatSubscriptionKindValues = Object.keys(subscriptionLabels) as WechatSubscriptionKind[];
+
+const wechatSubscriptionStatusLabels = {
+  accepted: '本次已授权',
+  blocked: '不可用',
+  filtered: '被微信过滤',
+  rejected: '本次未授权',
+} as const;
+
+const defaultWechatKinds: WechatNotificationKinds = {
+  business: true,
+  dutyAdjustment: true,
+  dutyReminder: true,
+  leave: true,
+  swap: true,
+};
+
+interface WechatKindRow {
+  readonly checked: boolean;
+  readonly configured: boolean;
+  readonly kind: WechatSubscriptionKind;
+  readonly label: string;
+  readonly statusLabel: string;
+}
+
+/** 每一类微信提醒：中文名 + 独立开关 + 本次授权结果，未配置模板时只读提示。 */
+function createWechatKindRows(
+  kinds: WechatNotificationKinds | undefined,
+  configuration: WechatSubscriptionConfiguration | undefined,
+  statusOverrides: Readonly<Partial<Record<WechatSubscriptionKind, string>>> = {},
+): readonly WechatKindRow[] {
+  return wechatSubscriptionKindValues.map((kind) => {
+    const configured = !!configuration?.[kind];
+    const checked = configured && (kinds?.[kind] ?? true) !== false;
+    return {
+      checked,
+      configured,
+      kind,
+      label: subscriptionLabels[kind],
+      statusLabel:
+        statusOverrides[kind] ?? (configured ? (checked ? '已开启' : '已关闭') : '暂未配置'),
+    };
+  });
 }
 
 type NotificationState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
@@ -76,13 +114,8 @@ interface NotificationCard {
 }
 
 interface NotificationsPageData {
-  readonly subscriptionStep: number;
-  readonly subscriptionButtonLabel: string;
-  readonly subscriptionResults: readonly {
-    kind: WechatSubscriptionKind;
-    label: string;
-    statusLabel: string;
-  }[];
+  readonly wechatKindRows: readonly WechatKindRow[];
+  readonly wechatKindBusy: string;
   readonly actionBusyId: string;
   readonly busy: boolean;
   readonly canManageGroupSettings: boolean;
@@ -108,7 +141,6 @@ interface NotificationsPageData {
   readonly showSubscriptionSettings: boolean;
   readonly state: NotificationState;
   readonly templateConfigured: boolean;
-  readonly subscriptionChoices: ReturnType<typeof subscriptionChoices>;
   readonly unreadCount: number;
   readonly unreadCountLabel: string;
   readonly viewportClass: string;
@@ -117,6 +149,8 @@ interface NotificationsPageData {
 interface NotificationsPageInstance extends InfoMessageHost {
   _loadedOwnerToken?: string | undefined;
   _subscriptionTemplates?: WechatSubscriptionConfiguration | undefined;
+  _wechatKinds?: WechatNotificationKinds | undefined;
+  _wechatKindStatus: Partial<Record<WechatSubscriptionKind, string>>;
   readonly data: NotificationsPageData;
   readonly properties: {
     readonly embedded: boolean;
@@ -147,9 +181,8 @@ const workbenchClient = createWorkbenchReadClient();
 export function createNotificationsPanelControllerDefinition() {
   return {
     data: {
-      subscriptionStep: 0,
-      subscriptionButtonLabel: '授权微信通知',
-      subscriptionResults: [],
+      wechatKindRows: createWechatKindRows(defaultWechatKinds, undefined),
+      wechatKindBusy: '',
       actionBusyId: '',
       busy: false,
       canManageGroupSettings: false,
@@ -173,7 +206,6 @@ export function createNotificationsPanelControllerDefinition() {
       shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
       showSubscriptionSettings: false,
       state: 'loading' as NotificationState,
-      subscriptionChoices: subscriptionChoices(),
       templateConfigured: false,
       templateNotice: '正在读取微信订阅配置…',
       unreadCount: 0,
@@ -187,6 +219,7 @@ export function createNotificationsPanelControllerDefinition() {
     },
     _actionsClient: actionsClient,
     _preferencesClient: preferencesClient,
+    _wechatKindStatus: {},
     _loadedGroupId: '',
     _nextCursor: undefined,
     _requestSerial: 0,
@@ -222,22 +255,18 @@ export function createNotificationsPanelControllerDefinition() {
         invalidateNotificationRequests(this);
         this._loadedGroupId = '';
         this._nextCursor = undefined;
+        this._wechatKinds = undefined;
+        this._wechatKindStatus = {};
         this.setData({
-          subscriptionStep: 0,
-          subscriptionButtonLabel: '授权微信通知',
-          subscriptionResults: [],
+          wechatKindBusy: '',
+          wechatKindRows: createWechatKindRows(undefined, undefined),
         });
       },
     },
     pageLifetimes: {
       hide(this: NotificationsPageInstance): void {
         suspendNotificationFeedback(this);
-        if (!this.data.busy)
-          this.setData({
-            subscriptionStep: 0,
-            subscriptionButtonLabel: '授权微信通知',
-            subscriptionResults: [],
-          });
+        if (!this.data.busy) this._wechatKindStatus = {};
       },
       show(this: NotificationsPageInstance): void {
         this._feedbackHidden = false;
@@ -285,16 +314,18 @@ export function createNotificationsPanelControllerDefinition() {
         this: NotificationsPageInstance,
         event: { readonly detail: { readonly checked: boolean } },
       ): void {
-        void toggleSubscription(this, event.detail.checked);
+        void toggleWechatMaster(this, event.detail.checked);
       },
-      handleSubscribe(this: NotificationsPageInstance, event?: TapEvent): void {
-        const kind = event?.currentTarget.dataset.kind;
-        if (kind === undefined) {
-          void toggleSubscription(this, true, undefined, true);
-          return;
-        }
-        if (!Object.prototype.hasOwnProperty.call(subscriptionLabels, kind)) return;
-        void toggleSubscription(this, true, kind as WechatSubscriptionKind);
+      handleWechatKindToggle(
+        this: NotificationsPageInstance,
+        event: {
+          readonly currentTarget: { readonly dataset: { readonly kind?: string } };
+          readonly detail: { readonly checked: boolean };
+        },
+      ): void {
+        const kind = event.currentTarget.dataset.kind;
+        if (!isWechatSubscriptionKind(kind)) return;
+        void toggleWechatKind(this, kind, event.detail.checked);
       },
       handleOpenSubscriptionSettings(this: NotificationsPageInstance): void {
         if (!this.data.showSubscriptionSettings || this.data.busy) return;
@@ -429,8 +460,8 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
         if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
         page._subscriptionTemplates = templates;
         page.setData({
+          ...refreshWechatKindRows(page),
           templateConfigured: Object.values(templates).some(Boolean),
-          subscriptionChoices: subscriptionChoices(templates),
           templateNotice: '微信订阅模板尚未配置，请联系管理员。',
         });
       })
@@ -438,8 +469,8 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
         if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
         page._subscriptionTemplates = undefined;
         page.setData({
+          ...refreshWechatKindRows(page),
           templateConfigured: false,
-          subscriptionChoices: subscriptionChoices(),
           templateNotice: '微信订阅配置读取失败，请刷新重试。其他提醒设置仍可使用。',
         });
       });
@@ -450,6 +481,7 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
         : Promise.resolve(undefined),
     ]);
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
+    page._wechatKinds = preferences.wechatNotificationKinds;
     page.setData({
       canManageGroupSettings,
       enabled: preferences.wechatNotificationsEnabled !== false,
@@ -457,6 +489,7 @@ async function loadPreferences(page: NotificationsPageInstance): Promise<void> {
       myHoursInput: formatReminderHours(preferences.dutyReminderHours),
       myHoursMode: getReminderHoursMode(preferences.dutyReminderHours),
       state: 'ready',
+      ...refreshWechatKindRows(page),
     });
   } catch (error) {
     if (!isNotificationRequestCurrent(page, requestSerial, groupId)) return;
@@ -608,10 +641,8 @@ function isNotificationRequestCurrent(
 function emptyNotificationsDataPatch(): Pick<
   NotificationsPageData,
   | 'templateConfigured'
-  | 'subscriptionStep'
-  | 'subscriptionButtonLabel'
-  | 'subscriptionResults'
-  | 'subscriptionChoices'
+  | 'wechatKindRows'
+  | 'wechatKindBusy'
   | 'actionBusyId'
   | 'busy'
   | 'canManageGroupSettings'
@@ -630,11 +661,9 @@ function emptyNotificationsDataPatch(): Pick<
   | 'unreadCountLabel'
 > {
   return {
-    subscriptionStep: 0,
-    subscriptionButtonLabel: '授权微信通知',
-    subscriptionResults: [],
+    wechatKindRows: createWechatKindRows(undefined, undefined),
+    wechatKindBusy: '',
     templateConfigured: false,
-    subscriptionChoices: subscriptionChoices(),
     actionBusyId: '',
     busy: false,
     canManageGroupSettings: false,
@@ -679,11 +708,41 @@ function setNotificationsDisabled(page: NotificationsPageInstance, message: stri
   });
 }
 
-async function toggleSubscription(
+function isWechatSubscriptionKind(value: unknown): value is WechatSubscriptionKind {
+  return wechatSubscriptionKindValues.some((kind) => kind === value);
+}
+
+function describeSubscriptionStatus(status: WechatSubscriptionStatus | undefined): string {
+  switch (status) {
+    case 'accepted':
+      return wechatSubscriptionStatusLabels.accepted;
+    case 'blocked':
+      return wechatSubscriptionStatusLabels.blocked;
+    case 'filtered':
+      return wechatSubscriptionStatusLabels.filtered;
+    case 'rejected':
+      return wechatSubscriptionStatusLabels.rejected;
+    default:
+      return '结果未确认';
+  }
+}
+
+function refreshWechatKindRows(page: NotificationsPageInstance): {
+  readonly wechatKindRows: readonly WechatKindRow[];
+} {
+  return {
+    wechatKindRows: createWechatKindRows(
+      page._wechatKinds,
+      page._subscriptionTemplates,
+      page._wechatKindStatus,
+    ),
+  };
+}
+
+/** 总开关只控制接收偏好；每类是否授权由下面 5 个独立开关各自申请。 */
+async function toggleWechatMaster(
   page: NotificationsPageInstance,
   checked: boolean,
-  kind?: WechatSubscriptionKind,
-  batch = false,
 ): Promise<void> {
   if (page.data.busy || page.data.state !== 'ready') return;
   initializeRuntimeState(page);
@@ -695,8 +754,6 @@ async function toggleSubscription(
     ownerToken === getStoredWechatToken();
   const feedback = captureNotificationFeedback(page);
   const record = captureSubscriptionDiagnosticRecorder();
-  let savingPreference = false;
-  let subscriptionProgress: Partial<NotificationsPageData> = {};
   page.setData({ busy: true, errorMessage: '', infoMessage: '', showSubscriptionSettings: false });
   try {
     const capability = getClientCapabilitySnapshot();
@@ -704,79 +761,94 @@ async function toggleSubscription(
       throw new ClientCapabilityDisabledError('externalMessages');
     }
     if (!current()) return;
-    let enabled = checked;
-    if (checked && (kind || batch)) {
-      const configured = page._subscriptionTemplates;
-      const batches = [
-        ['dutyReminder', 'business', 'swap'] as const,
-        ['dutyAdjustment', 'leave'] as const,
-      ]
-        .map((kinds) => kinds.filter((value) => !!configured?.[value]))
-        .filter((kinds) => kinds.length > 0);
-      const step = page.data.subscriptionStep < batches.length ? page.data.subscriptionStep : 0;
-      const kinds: readonly WechatSubscriptionKind[] = kind ? [kind] : (batches[step] ?? []);
-      const templateIds = [
-        ...new Set(
-          kinds.map((value) => configured?.[value]).filter((value): value is string => !!value),
-        ),
-      ];
-      if (templateIds.length === 0) {
+    record({ stage: 'preference', outcome: 'started' });
+    const preferences = await page._preferencesClient.updateMine(groupId, {
+      wechatNotificationsEnabled: checked,
+    });
+    if (!current()) return;
+    record({ stage: 'preference', outcome: 'saved' });
+    page.setData({ busy: false, enabled: preferences.wechatNotificationsEnabled !== false });
+    showNotificationInfo(
+      page,
+      checked
+        ? '接收偏好已开启，可单独打开下面各类提醒的开关完成微信授权。'
+        : '微信提醒已关闭，应用内通知仍可用。',
+      feedback,
+    );
+  } catch (error) {
+    if (!current()) return;
+    record({ stage: 'preference', outcome: 'failed' });
+    if (error instanceof ClientCapabilityDisabledError) {
+      setNotificationsDisabled(page, error.message);
+      return;
+    }
+    page.setData({ busy: false });
+    showNotificationInfo(
+      page,
+      toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
+      feedback,
+      'error',
+    );
+  }
+}
+
+/** 单个类型开关：打开时申请该模板的一次订阅，关闭时只保存偏好（不发微信请求）。 */
+async function toggleWechatKind(
+  page: NotificationsPageInstance,
+  kind: WechatSubscriptionKind,
+  checked: boolean,
+): Promise<void> {
+  if (page.data.wechatKindBusy !== '' || page.data.state !== 'ready') return;
+  initializeRuntimeState(page);
+  const requestSerial = page._requestSerial;
+  const groupId = page.data.groupId;
+  const ownerToken = getStoredWechatToken();
+  const current = () =>
+    isNotificationRequestCurrent(page, requestSerial, groupId) &&
+    ownerToken === getStoredWechatToken();
+  const feedback = captureNotificationFeedback(page);
+  const record = captureSubscriptionDiagnosticRecorder();
+  const templateId = page._subscriptionTemplates?.[kind] ?? undefined;
+  page.setData({
+    errorMessage: '',
+    infoMessage: '',
+    showSubscriptionSettings: false,
+    wechatKindBusy: kind,
+  });
+  try {
+    const capability = getClientCapabilitySnapshot();
+    if (!capability.global || !capability.externalMessages) {
+      throw new ClientCapabilityDisabledError('externalMessages');
+    }
+    if (!current()) return;
+    if (checked) {
+      if (templateId === undefined || templateId.length === 0) {
         if (!current()) return;
-        page.setData({ busy: false });
-        showNotificationInfo(page, '微信订阅模板尚未配置，暂时无法开启。', feedback, 'error');
+        page.setData({ wechatKindBusy: '' });
+        showNotificationInfo(
+          page,
+          '微信订阅模板尚未配置，暂时无法开启该类提醒。',
+          feedback,
+          'error',
+        );
         return;
       }
-      const grants = await requestWechatSubscriptions(templateIds);
+      const grants = await requestWechatSubscriptions([templateId]);
       if (!current()) return;
-      if (batch) {
-        const labels = {
-          accepted: '本次已授权',
-          rejected: '本次未授权',
-          blocked: '不可用',
-          filtered: '被微信过滤',
-          unknown: '结果未确认',
+      const grant = grants.find((item) => item.templateId === templateId) ?? grants[0];
+      if (grant?.status !== 'accepted') {
+        page._wechatKindStatus = {
+          ...page._wechatKindStatus,
+          [kind]: describeSubscriptionStatus(grant?.status),
         };
-        const previous = step === 0 ? [] : page.data.subscriptionResults;
-        const results = kinds.map((value) => {
-          const index = templateIds.indexOf(configured?.[value] ?? '');
-          const grant =
-            grants.find((item) => item.templateId === configured?.[value]) ?? grants[index];
-          return {
-            kind: value,
-            label: subscriptionLabels[value],
-            statusLabel: labels[grant?.status ?? 'unknown'],
-          };
-        });
-        const unavailable =
-          step === 0
-            ? (Object.keys(subscriptionLabels) as WechatSubscriptionKind[])
-                .filter((value) => !configured?.[value])
-                .map((value) => ({
-                  kind: value,
-                  label: subscriptionLabels[value],
-                  statusLabel: '暂未配置',
-                }))
-            : [];
-        subscriptionProgress = {
-          subscriptionStep: step + 1,
-          subscriptionResults: [...previous, ...results, ...unavailable],
-          subscriptionButtonLabel:
-            step + 1 < batches.length
-              ? `继续授权剩余${batches[step + 1]!.length}类`
-              : '再次授权微信通知',
-        };
-      }
-      enabled = grants.some((grant) => grant.status === 'accepted');
-      if (!enabled) {
-        const blocked = grants.some((grant) => grant.status === 'blocked');
         page.setData({
-          ...subscriptionProgress,
-          busy: false,
-          showSubscriptionSettings: !blocked,
+          ...refreshWechatKindRows(page),
+          showSubscriptionSettings: grant?.status !== 'blocked',
+          wechatKindBusy: '',
         });
         showNotificationInfo(
           page,
-          blocked
+          grant?.status === 'blocked'
             ? '微信订阅已被系统封禁，本次订阅未完成。'
             : '本次未获订阅授权，请在微信设置中检查。',
           feedback,
@@ -785,36 +857,38 @@ async function toggleSubscription(
         return;
       }
     }
-    savingPreference = true;
     record({ stage: 'preference', outcome: 'started' });
     const preferences = await page._preferencesClient.updateMine(groupId, {
-      wechatNotificationsEnabled: enabled,
+      wechatNotificationKinds: { [kind]: checked },
     });
     if (!current()) return;
     record({ stage: 'preference', outcome: 'saved' });
+    page._wechatKinds = preferences.wechatNotificationKinds;
+    page._wechatKindStatus = {
+      ...page._wechatKindStatus,
+      [kind]: checked ? '本次已授权' : '已关闭',
+    };
     page.setData({
-      ...subscriptionProgress,
-      busy: false,
+      ...refreshWechatKindRows(page),
       enabled: preferences.wechatNotificationsEnabled !== false,
+      wechatKindBusy: '',
     });
     showNotificationInfo(
       page,
-      enabled
-        ? kind || batch
-          ? '已完成本次微信订阅授权。'
-          : '接收偏好已开启，请点击授权微信通知。'
-        : '微信提醒已关闭，应用内通知仍可用。',
+      checked
+        ? `已开启${subscriptionLabels[kind]}并完成本次微信授权。`
+        : `已关闭${subscriptionLabels[kind]}，服务端不再发送该类微信提醒。`,
       feedback,
     );
   } catch (error) {
     if (!current()) return;
-    if (savingPreference) record({ stage: 'preference', outcome: 'failed' });
+    record({ stage: 'preference', outcome: 'failed' });
     if (error instanceof ClientCapabilityDisabledError) {
       setNotificationsDisabled(page, error.message);
       return;
     }
     page.setData({
-      busy: false,
+      wechatKindBusy: '',
       showSubscriptionSettings: error instanceof WechatSubscriptionError && error.code === 20004,
     });
     showNotificationInfo(

@@ -1,3 +1,5 @@
+@import '../../../../styles/picker-sheet.wxss';
+
 page {
   width: 100%;
   height: 100%;
@@ -276,11 +278,24 @@ ui-alert {
 .template-selector {
   margin-top: 11px;
 }
-.cycle-picker-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
+/* 周期天数弹层：与换班年月选择器共用选中横杠、渐隐遮罩和底部按钮几何。 */
+.cycle-wheel {
+  position: relative;
+  height: 188px;
+  margin: 0 0 8px;
+  overflow: hidden;
+  background: var(--ui-color-surface);
+}
+
+.cycle-wheel .cycle-wheel-column {
+  display: block;
+  width: 100%;
+  height: 188px;
+}
+
+/* 只放大周期天数滚轮的数值字号，其他滚轮保持原尺寸。 */
+.cycle-wheel .ui-wheel-number {
+  font-size: 30px;
 }
 .preview-calendar-card {
   margin-top: 10px;
