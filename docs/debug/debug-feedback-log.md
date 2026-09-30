@@ -8,7 +8,7 @@
 - 行为清单：`notifications-panel/index.wxml` 删除该小标题与 `audit-note` 整块（含 `⌁` 标记）；`index.wxss` 清理无引用的 `.audit-note/.audit-mark` 规则与大字号分支；重新授权入口仍由每行状态文字承载，控制器逻辑未改。契约/API/数据库未改。
 - 红绿与门禁：`notification-shared-presentation`（改为断言不再包含“提醒节奏/audit-note”）、`p9-notification-settings-native`（改为断言「微信提醒授权」存在且无 audit-note）更新后，受影响 4 文件 42 项通过；`pnpm miniprogram:test` 1308 通过/23 跳过；typecheck/lint/format/production verify（包体 4,446,656 B、manifest `7619a5f6…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
 - 并行任务协调：本轮与 read-all 闪烁修复（`637c628e`/`939c1d5f`）改动文件重叠于同一面板但行段不同，未覆盖对方改动；状态文档把对方批次保留为“上一批次”。
-- 交付：`99c67b8b` 已推送；体验版 `0.1.0-p10.20260930.221`（manifest `aff139e9…`、production）已上传；放行待用户当次授权（放行后补记）。
+- 交付：`99c67b8b` 已推送；体验版 `0.1.0-p10.20260930.221`（manifest `aff139e9…`、production）已上传，并按用户当次授权经可信控制只增放行；`schedule-client-version-allowlist verify` 与完整 `ecs-verify.sh` 通过（首次命中 30 天遥测保留竞态：该批遥测创建于 2026-08-31 03:20–03:31，跨界窗口约 15 分钟；先运行一次已安装保留控制再跑 verifier 即通过）。Mini/文档范围未部署生产，live release 仍 `5f25d946`（schema 69）。小米 14 同构建 `.221` 待用户复核。
 
 ## 2026-09-30 NOTIFICATION-READ-ALL-FLICKER-001 点击通知时“全部已读”闪烁
 
