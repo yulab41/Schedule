@@ -7,7 +7,8 @@
 - 追加（用户指示“允许按压反馈”）：独立通知页每行“已读”按钮改为 `disabled="{{actionBusyId !== '' && actionBusyId !== item.id}}"`（只有保存中的那一行变灰），嵌入 Sheet 卡片与“全部已读”的 `hover-class` 改为固定 `is-pressed`；点击反馈只由手指触摸驱动，重复点击仍被控制器守卫吞掉。取舍：请求窗口内其它行的 `aria-disabled` 会读作“可用”，已在轮次记录登记。
 - 验证：两条回归用例先红后绿（其中一条回退模板复跑 `1 failed | 34 passed`）；`notifications-controller` 35 项、Mini 全量 1308 通过/23 跳过（基线 1306/23）、typecheck/lint/format/production verify（包体 4,447,507 B、manifest `91589cee…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-readall-flicker-20260930.md)。
 - 交付（2026-09-30 用户当次授权）：候选 `939c1d5f` 由 Node `miniprogram-ci` 上传体验版 `0.1.0-p10.20260930.220`（manifest `2d9a5e89…`、tag `miniprogram-trial/0.1.0-p10.20260930.220`、receipt 在 ignored `runtime/audit/miniprogram-trials/`）；可信控制 `schedule-client-version-allowlist ensure` 只增追加，重复 ensure 幂等，`verify` 与完整 `ecs-verify.sh`（`ECS_PUBLIC_IP=120.77.220.79`）通过。放行前后 live release 均为 `5f25d946`（schema 69）：Mini/文档范围未部署应用、未备份/迁移数据库、未提审、未正式发布。
-- 唯一下一任务与停止条件：小米 14 退出重进同构建体验版 `.220@939c1d5` 复核“点击任一通知时全部已读不再闪、按压有反馈、同一条重复点击不会发起第二次请求”；取得同构建真机证据前不写验收通过。
+- 用户真机复核（2026-09-30）：小米 14 同构建体验版 `.220@939c1d5` 按交付步骤复核后回复“通过”，本轮“点击通知时全部已读闪烁”记为已通过同构建真机验收。用户未附截图/基础库/微信版本记录，故不外推到 iOS、其他安卓或全平台；`.216`、`.218`、`.219` 等历史检查点的待复核状态不受影响。
+- 唯一下一任务与停止条件：本轮无待办，等待用户下一次反馈或新需求；未获当次授权不做生产部署、上传或提审。若要继续处理历史待复核项，按各轮次记录在小米 14 同构建下复核后再更新结论。
 
 ## 上一批次：按类型微信提醒开关 + 开关响应速度优化（2026-09-30）
 
