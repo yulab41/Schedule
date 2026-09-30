@@ -47,11 +47,11 @@
 - 运行/浏览器验证：`pnpm smoke:check-core`通过，未触及Web/契约核心链路，本轮不要求 `pnpm smoke:browser`。
 - Agent开发者工具：登录且版本门禁equal；实际调用开/关项目、刷新/打开页面、局部WXML编译、运行evaluate、清编译缓存。首页WXML编译通过。实现阶段dirty工作树的合成护士窗口读到1800行外壳、120个姓名、每行60.6667px、日期1282.6667/1283.3334px；旧合成医生为270行/270姓名、每行60.6667px。只作部分结构/几何支持。
 - 非await的早期evaluate、空节点或超时样本均弃用，不纳入前后耗时结论。工具RPC往返不是业务逻辑时间。大窗口旧护士/访客测量出现超时或空节点，不能推断具体渲染耗时；重新启动工具后出现 `wait WechatIDE authorization timeout`。用户回复工具已重启，工具内版本需要放行；`local`构建会被生产拒绝，将用新分配不可变体验版只增放行后复核真实路径，不放行local。
-- 官方API文档网页未能读取，不假称已获取其内容。开发者工具最终干净体验构建的快滚/定位/访客运行、Console/Network、帧时间、首屏与小米14：当前工具无法测量，暂未验证。无实体设备结果、无跨平台验收结论。
+- 官方API文档网页未能读取，不假称已获取其内容。实现阶段尚未取得最终干净体验构建运行；放行后的首页/定位/筛选辅助结果见下方交付收口。帧时间、首屏、小米14与匿名真实访客运行仍暂未验证，无跨平台结论。
 
 ## 同构建验收与停止条件
 
-唯一下一任务：在新体验版同构建复核日历切换。小米14用护士/医生群分别在首页与访客页执行月→列表→周→月；列表快速滚动、定位今天、翻月、筛选并核对原有姓名/标记/拨号入口，观察空白和跳动。提供同版本标签和实际反馈后才更新手机结论。连接授权恢复后补开发者工具辅助运行证据。停止条件：无手机实际证据时保持待用户复核，不提审、不正式发布。
+唯一下一任务：在`.224@c0c1463`同构建小米14复核日历切换。护士/医生群分别在首页与访客页执行月→列表→周→月；列表快速滚动、定位今天、翻月、筛选并核对姓名/标记/拨号入口（不拨号），观察空白和跳动。提供同版本标签和实际反馈后才更新手机结论。停止条件：无手机实际证据保持待用户复核，不提审、不正式发布。
 
 主目录现场：交付前发现canonical的apps/packages/tests大量跟踪文件删除，未恢复、未暂存这些变化。完整租约槽位源代码保留；采用槽位提交及正常快进推送，避免覆盖主目录。访客入口`guest-entry/index`只负责读取/扫描访客码并跳转`guest/guest`，该实际日历路径已修改；成员群组访客沿用workbench路径。下一轮主目录路由门禁必须先调查缺文件事实。
 
@@ -91,3 +91,12 @@ AST比较旧proof`b91c6cd7…`与0848a3da：149函数中仅7个批准调用点�
 | subpackages/organization/pages/qr-visitor/index.js | 122925 | 122925 |
 | app.js | 109958 | 109958 |
 | subpackages/insights/pages/visitor-access/index.js | 109174 | 109174 |
+
+## 交付收口（2026-09-30，Node + Agent开发者工具）
+
+- 业务`0848a3da`（`perf(miniprogram): defer offscreen list content and scope calendar rendering`）、血缘`c0c1463b`（`chore(release): refresh calendar performance lineage proof`）均已正常推送任务分支及main；canonical保持原HEAD和删除现场，未强制切换。收口文档检查点消息`docs(audit): close calendar list performance trial delivery`。候选冻结后仅文档前进，按release cutoff不重新绑定/上传。
+- 正式Node CI动态分配并上传`0.1.0-p10.20260930.224@c0c1463`，production/clean、tag不可变；build UTC14:59:50.292、upload UTC15:01:06.631，Manifest `7acf64720e0f56dbde0a4993b554f0adeb1bbc74dffd6560b96514a5065db082`。上传前后正式候选检查器PASS；最终版本绑定package3962852B，主包1181504B，官方上传ZIP buffer2124945B；元数据不同，不拿它重算主表Node未绑定包体差。receipt/preflight存ignored runtime/audit。
+- 用户当次要求版本放行：实时读取live release=dbe352886ff425401586da187054bdd7a488dfcc，确保未变化后用可信`ensure .224`只增追加；`verify`及完整已安装`ecs-verify.sh`通过（UTC15:05:17.324收口）。公网保留TLS域名的`.224/.223`=200，动态合法未知probe=426。首次自写探针缺platform/非法版本得400，已按正式控制语法修正；不拿400冒充426。live前后均dbe35288，未部署应用代码/迁移/数据库备份/元数据同步；控制按既有流程重建API+Web容器应用配置，旧版本保留。
+- Agent开发者工具成功打开最终槽位、刷新，两页WXML及共享WXSS局部编译通过；界面build label`.224@c0c1463`。新槽位无登录会话，微信快捷登录handler后真实首页ready；只保存路由/状态/数量，不保存身份/人员/电话/访客码。医生真实列表92行外壳/33姓名，护士672/78，护士定位后姓名108、目标内容已渲染；护士成员筛选active=1、行672→43，随后清除。通过实际测得按钮坐标点击，医生月→列表、护士列表→周→月→列表的data与界面分支均生效。group switch/filter为现有handler辅助调用，未冒充全部selector点击。初始nth-child selector实际读到month，故弃作列表点击证据。
+- 触摸滚动调用未取得能证明滚动位移/帧时间的证据，不写快滚已验收；可读取console缓冲的TypeError过滤无匹配，只限该过滤范围，不宣称全量零异常或完整Network对比。匿名访客未取得可用访客码，真实运行暂未验证；其两页共享逻辑/节点回归、全量Mini和最终WXML编译通过。不伪造访客权限或读取生产库访客密钥。手机帧时间/无感切换当前工具无法测量，暂未验证。
+- CCleaner调查：用户确认刚运行健康检查或自定义清理；仍无删除日志指向Schedule或进程归因，记录“可能但未确认”。现场1344删除及根依赖缺失保持原状，Git提交和独立warm源码完整。全部证据移入canonical ignored runtime/audit/calendar-switch-20260930；关闭本任务DevTools、释放候选后Acquire独立文档租约收口（无安装），文档提交后释放。

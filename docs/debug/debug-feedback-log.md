@@ -3413,3 +3413,5 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 基线dbe35288，独占general-6/REUSE_ONLY无安装。`git log -S 'const listPanels'`/blame定位733e3af6（三面板列表）、e94a54ca（护士排序/预设）、9ac4a301（首页可见范围）、890efd8b（访客展开全模型）。是累计规模问题，未证明最近回归或服务器延迟。行为变化：按当前模式建模；保留日期/人员外壳，仅延后屏幕外丰富内容；目标立即绘制、缺API/异常/大字号完整回退；离开列表清隐藏数据；离页/换群迟到回写守卫。
 
 回归先红后绿：旧模型/两页结构3失败后通过，换群回调1失败后通过；新增15项。最终Mini1328通过/23跳过，完整pnpm verify及production verify通过；Node护士首次节点24059→3899，非手机帧时间。运行/浏览器验证：pnpm smoke:check-core通过；本轮未触及Web/契约核心，不要求pnpm smoke:browser。Agent开发者工具部分几何已读，最终同构建运行/小米14暂未验证。详见[轮次记录](../audit/calendar-list-switch-20260930.md)。
+
+交付更新：0848a3da业务/c0c1463b血缘proof已正常推送main；proof既有测试先红后绿，44定向与图标/production verify通过。`.224@c0c1463`正式CI上传，Manifest7acf6472…，可信ensure只增放行、完整ecs verifier通过，`.224/.223`200、合法未知426，live仍dbe35288。最终Agent DevTools真实首页护士/医生ready，坐标月周列表切换、定位、筛选43行通过；匿名访客码未取得、快滚/帧时间和小米14暂未验证。主目录1344跟踪删除现场保留；用户确认运行CCleaner健康/自定义清理，但日志不能归因，不写已确认误删。
