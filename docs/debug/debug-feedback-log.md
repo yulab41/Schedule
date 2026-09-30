@@ -9,7 +9,7 @@
 - 现象：用户报告每次打开某一类开关都有延迟，怀疑在检测权限。根因：打开方向依次等待微信订阅弹窗与偏好保存 PUT，开关只在两者完成后重绘；关闭方向也要等 PUT。
 - 行为清单：点击后立即乐观重绘（含“正在申请授权…/正在保存…”），失败清预览回滚；同一页面会话内已授权的类型不再重复弹窗、反复开关瞬时生效（换群/离开页面清空记忆）；行状态文字改为可点“重新授权”入口，说明提示可勾选“总是保持以上选择”；契约/API/数据库未改。
 - 红绿与门禁：`notifications-controller.test.mjs` 33 项（新增乐观上屏+失败回滚、会话复用授权只申请一次、强制重新授权不改偏好）通过；`pnpm miniprogram:test` 1306 通过/23 跳过；typecheck/lint/format/production verify（包体 4,447,547 B、manifest `39841506…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
-- 交付：`19e16565` 已推送；体验版 `0.1.0-p10.20260930.219`（manifest `81b1e95c…`、production）已上传；放行待用户当次授权（放行后补记）。
+- 交付：`19e16565` 已推送；体验版 `0.1.0-p10.20260930.219`（manifest `81b1e95c…`、production）已上传，并按用户当次授权经可信控制只增放行；`schedule-client-version-allowlist verify` 与完整 `ecs-verify.sh` 均通过（本次遥测保留 0 条过期记录）。Mini/文档范围，未部署生产，live release 仍 `5f25d946`。小米 14 同构建 `.219` 待用户复核。
 
 - 需求变化：用户先要求总开关与 5 个独立开关联动，讨论中询问“能否连续弹窗申请”，核实微信 `requestSubscribeMessage` 必须由用户点击触发、单次最多 3 个模板（适配层已有硬校验），随后用户决定**去掉总开关**，只保留独立开关、打开某类即独立授权。联动/三态/3+2 两步方案全部作废，未实现。
 - 行为清单：删除总开关行与其 `busy/enabled/handleToggle/toggleWechatMaster`；行开关打开时同步申请该模板一次订阅，成功后 `PUT` 完整 5 类偏好 + `wechatNotificationsEnabled:true`；关闭时只 `PUT` 完整 5 类偏好；历史总开关关闭状态按全关呈现，打开任一类只开启该类（`resolveNextKind` 单点归一）；保存中只在该行 `loading`，仅未配置模板永久禁用；删除只服务总开关的 `.settings-row/.settings-copy`。契约/API/数据库未改，无迁移。
