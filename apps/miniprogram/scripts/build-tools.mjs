@@ -156,6 +156,37 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
+  // Shared helpers are fully inlined in native entries; no JSON/template/dynamic require loads these files.
+  'app/client-capability-store.ts',
+  'platform/build-info.ts',
+  'platform/calendar-change-stream.ts',
+  'platform/calendar-change-subscription.ts',
+  'platform/client-capabilities.ts',
+  'platform/client-core-calendar.ts',
+  'platform/client-update-request.ts',
+  'platform/client-update.ts',
+  'platform/diagnostics-permission-state.ts',
+  'platform/export-render-diagnostics.ts',
+  'platform/external-duty-client.ts',
+  'platform/guest-public-cache.ts',
+  'platform/member-activity-runtime.ts',
+  'platform/member-binding-qr-card.ts',
+  'platform/operation-id.ts',
+  'platform/performance-probe.ts',
+  'platform/private-storage.ts',
+  'platform/profile-account.ts',
+  'platform/runtime-config.ts',
+  'platform/secure-download.ts',
+  'platform/telemetry.ts',
+  'platform/top-overlay.ts',
+  'platform/visitor-client-context.ts',
+  'platform/visitor-qr-card.ts',
+  'platform/visitor-qr-image.ts',
+  'platform/wechat-identity.ts',
+  'platform/wechat-session-runtime.ts',
+  'platform/wechat-subscription.ts',
+  'platform/workbench-read.ts',
+  'platform/wx-request-executor.ts',
   'platform/subscription-diagnostics.ts',
   'platform/wechat-notification-client.ts',
   'platform/workbench-selection.ts',
@@ -221,6 +252,8 @@ export function isExcludedProductionSource(relativePath) {
 function isForbiddenProductionOutput(relativePath) {
   return (
     isExcludedProductionSource(relativePath) ||
+    (relativePath.endsWith('.js') &&
+      BUNDLED_ONLY_TYPESCRIPT_MODULES.has(relativePath.slice(0, -3) + '.ts')) ||
     relativePath === 'platform/diagnostics-access.js' ||
     [...REMOVED_STANDALONE_ROUTES].some((route) =>
       relativePath.startsWith(`${route.slice(0, route.lastIndexOf('/') + 1)}`),

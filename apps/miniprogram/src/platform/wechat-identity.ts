@@ -1,3 +1,4 @@
+import { notifyMemberAuthenticated } from './member-activity-runtime.js';
 import { invalidateDiagnosticsPermission } from './diagnostics-permission-state.js';
 import { runtimeConfig } from './runtime-config.js';
 import { requestClientUpdate } from './client-update-request.js';
@@ -241,9 +242,13 @@ function getWechatCode(): Promise<string> {
   });
 }
 
-export async function loginWithWechat(): Promise<WechatLoginResult> {
+export async function loginWithWechat(
+  loginSource: 'manual' | 'auto' = 'manual',
+): Promise<WechatLoginResult> {
   await requireClientCapability('core');
-  return decodeLogin(await postJson('/auth/wechat/login', { code: await getWechatCode() }));
+  return decodeLogin(
+    await postJson('/auth/wechat/login', { code: await getWechatCode(), loginSource }),
+  );
 }
 
 export async function loginWithPassword(
@@ -375,6 +380,7 @@ function persistSession(
     token: result.token,
   } satisfies StoredWechatSession);
   runtimeState.invalidated = false;
+  notifyMemberAuthenticated();
 }
 
 export function getStoredWechatToken(now = Date.now()): string | undefined {
@@ -437,7 +443,7 @@ export async function awaitWechatSessionRecovery(): Promise<string | undefined> 
   const generation = runtime.generation;
   const migration = (async (): Promise<string | undefined> => {
     // Failures deliberately retain the old owner and preferences for an explicit retry.
-    const result = await loginWithWechat();
+    const result = await loginWithWechat('auto');
     if (
       runtime.generation !== generation ||
       readStoredWechatSession(Date.now(), false)?.token !== previous.token
@@ -493,7 +499,7 @@ export async function recoverWechatSession(failedToken: string): Promise<string 
   const recoveryGeneration = runtimeState.generation;
   const recovery = (async (): Promise<string | undefined> => {
     try {
-      const result = await loginWithWechat();
+      const result = await loginWithWechat('auto');
       if (runtimeState.generation !== recoveryGeneration) return undefined;
       if (result.status !== 'authenticated') {
         clearWechatSession(true);

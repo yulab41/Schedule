@@ -1,3 +1,4 @@
+import { accountActivityEndpoints } from './account-activity-client.js';
 import type {
   PlatformAdminUserDetailsList,
   UpdatePlatformUserProfileRequest,
@@ -62,6 +63,8 @@ export const platformAccountEndpoints = {
 };
 export function createPlatformAccountClient(transport: ClientTransport) {
   return {
+    getActivity: (userId: string) =>
+      transport.request(accountActivityEndpoints.summary, { userId }),
     listDetails: () =>
       transport.request(platformAccountEndpoints.details, {}).then((result) => result.users),
     updateProfile: (userId: string, request: UpdatePlatformUserProfileRequest) =>

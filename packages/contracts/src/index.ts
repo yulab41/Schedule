@@ -20,6 +20,7 @@ export * from './holidays.js';
 export * from './statistics.js';
 export * from './exports.js';
 export * from './platform.js';
+export * from './account-activity.js';
 export * from './wechat.js';
 export * from './auth.js';
 export * from './directory.js';

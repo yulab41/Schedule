@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 
 const productionSources = [
+  new URL('../src/account-activity-client.ts', import.meta.url),
   new URL('../src/index.ts', import.meta.url),
   new URL('../src/calendar-client.ts', import.meta.url),
   new URL('../src/calendar-preferences-client.ts', import.meta.url),
@@ -55,6 +56,7 @@ describe('client-core runtime boundary', () => {
     const bundledInputs = Object.keys(result.metafile.inputs).map(normalizeBundledInput).sort();
     expect(bundledInputs).toEqual(
       [
+        'packages/client-core/src/account-activity-client.ts',
         'packages/client-core/src/calendar-client.ts',
         'packages/client-core/src/calendar-preferences-client.ts',
         'packages/client-core/src/client-capability-client.ts',

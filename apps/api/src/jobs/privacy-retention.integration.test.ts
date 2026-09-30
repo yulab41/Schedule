@@ -16,7 +16,7 @@ import { PrivacyRetentionJob } from './privacy-retention.js';
 const migrationsDirectory = fileURLToPath(new URL('../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
-const now = new Date('2026-05-01T16:00:00.000Z');
+const now = new Date('2026-03-02T16:00:00.000Z');
 const cutoff = new Date('2026-01-31T16:00:00.000Z');
 
 describeWithDatabase('privacy retention transaction', () => {

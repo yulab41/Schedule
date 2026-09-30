@@ -1,3 +1,7 @@
+import { createMemberActivityRuntime } from './platform/member-activity-runtime.js';
+import { createOperationId } from './platform/operation-id.js';
+import { getStoredWechatToken, getStoredWechatProfile } from './platform/wechat-identity.js';
+import { createRuntimeAccountOpenClient } from './platform/client-core-calendar.js';
 import { createPasswordReminderRuntime } from './platform/password-reminder-runtime.js';
 import { clearRuntimeDirectoryLaunchMarker } from './platform/runtime-diagnostics-launch.js';
 import { isTestToolsRuntimeEnabled } from './platform/runtime-environment.js';
@@ -12,6 +16,20 @@ declare function getCurrentPages(): Array<{ readonly route?: string }>;
 const clientCapabilityStore = createRuntimeClientCapabilityStore();
 const telemetryEmitter = createRuntimeMiniTelemetryEmitter(clientCapabilityStore);
 const wechatSessionRuntimeState = createWechatSessionRuntimeState();
+const memberActivityRuntime = createMemberActivityRuntime({
+  createEventId: createOperationId,
+  currentAccount: () =>
+    getStoredWechatToken() === undefined ? undefined : getStoredWechatProfile()?.id,
+  report: async (event, accountId) => {
+    if (getStoredWechatProfile()?.id === accountId)
+      await createRuntimeAccountOpenClient(
+        getStoredWechatToken,
+        () => getStoredWechatProfile()?.id === accountId,
+      ).open(event);
+  },
+  onError: () =>
+    telemetryEmitter.recordError('app', 'MINI_RUNTIME_ERROR', 'ACCOUNT_ACTIVITY_OPEN_FAILED'),
+});
 // Only lifecycle provenance is retained before authorization, never diagnostic payloads.
 const passwordReminderRuntime = createPasswordReminderRuntime();
 const diagnosticsLaunch = {
@@ -28,6 +46,7 @@ App({
     wechatSessionRuntimeState,
     diagnosticsLaunch,
     passwordReminderRuntime,
+    memberActivityRuntime,
   },
 
   onLaunch(): void {
@@ -42,6 +61,7 @@ App({
   },
 
   onShow(this: { globalData: { runtimeDiagnostics?: RuntimeDiagnosticsSlot } }): void {
+    memberActivityRuntime.onShow();
     if (diagnosticsLaunch.initialShowPending) diagnosticsLaunch.initialShowPending = false;
     else if (diagnosticsLaunch.launchObserved) diagnosticsLaunch.warmResumeObserved = true;
     if (this.globalData.runtimeDiagnostics !== undefined) {
@@ -49,6 +69,10 @@ App({
       this.globalData.runtimeDiagnostics.warmResumeObserved = diagnosticsLaunch.warmResumeObserved;
     }
     void clientCapabilityStore.refresh({ force: true });
+  },
+
+  onHide(): void {
+    memberActivityRuntime.onHide();
   },
 
   onError(error: string): void {

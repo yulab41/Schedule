@@ -25,7 +25,7 @@ import { requirePlatformAdmin } from '../platform-admin/platform-admin.js';
 
 const MAX_ACCESS_LOG_PAGE_SIZE = 100;
 const FAILED_RESOLVE_THRESHOLD = 5;
-const visitorAccessRetentionMilliseconds = 90 * 24 * 60 * 60 * 1000;
+const visitorAccessRetentionMilliseconds = 30 * 24 * 60 * 60 * 1000;
 
 export interface VisitorAccessLogServiceOptions {
   readonly now?: () => Date;

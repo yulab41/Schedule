@@ -16,6 +16,31 @@ afterEach(async () => {
 });
 
 describe('Mini capability guard', () => {
+  it('classifies only the member open POST as core and preserves all capability gates', async () => {
+    const identity = {
+      clientPlatform: 'miniprogram' as const,
+      clientVersion: CURRENT_VERSION,
+      cloudbaseUid: 'synthetic-member',
+    };
+    for (const flags of [
+      { global: true, core: true },
+      { global: false, core: true },
+      { global: true, core: false },
+    ]) {
+      const { app } = await createGuardApp(identity, flags);
+      expect((await app.inject({ method: 'POST', url: '/me/activity/opens' })).statusCode).toBe(
+        flags.global && flags.core ? 200 : 503,
+      );
+      expect((await app.inject({ method: 'GET', url: '/me/activity/opens' })).statusCode).toBe(503);
+      expect(
+        (await app.inject({ method: 'POST', url: '/me/activity/opens/other' })).statusCode,
+      ).toBe(503);
+    }
+    const anonymous = await createGuardApp(undefined, { global: true, core: true });
+    expect(
+      (await anonymous.app.inject({ method: 'POST', url: '/me/activity/opens' })).statusCode,
+    ).toBe(401);
+  });
   it('rejects retired signed and unsigned legacy Mini sessions without trusting a newer request header', async () => {
     for (const clientVersion of [LEGACY_VERSION, undefined]) {
       const { app } = await createGuardApp(
@@ -433,6 +458,9 @@ async function createGuardApp(
   registerAuthentication(app, authPort, policy);
   const mutation = vi.fn(async () => ({ ok: true }));
   const guarded = { preHandler: app.authenticate };
+  app.post('/me/activity/opens', guarded, mutation);
+  app.get('/me/activity/opens', guarded, mutation);
+  app.post('/me/activity/opens/other', guarded, mutation);
   app.get('/me/wechat/miniprogram/binding', guarded, mutation);
   app.post('/me/wechat/miniprogram/binding', guarded, mutation);
   app.get('/me/wechat/miniprogram/binding/other', guarded, mutation);

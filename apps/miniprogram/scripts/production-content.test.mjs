@@ -67,6 +67,29 @@ describe('production package boundary', () => {
       ).toBe(false);
     }
     expect(files).not.toContain('platform/diagnostics-access.js');
+    // Shared helpers are inlined by esbuild. They must not also be uploaded as orphan entries.
+    for (const directory of ['platform/', 'app/']) {
+      expect(files.filter((file) => file.startsWith(directory) && file.endsWith('.js'))).toEqual(
+        [],
+      );
+    }
+    for (const route of listRegisteredPages(
+      JSON.parse(readFileSync(path.join(SOURCE_ROOT, 'app.json'), 'utf8')),
+    )) {
+      expect(files).toContain(`${route}.js`);
+    }
+    expect(readFileSync(path.join(outputDirectory, 'pages/workbench/index.js'), 'utf8')).toContain(
+      '/calendar-change-stream',
+    );
+    expect(readFileSync(path.join(outputDirectory, 'app.js'), 'utf8')).toContain(
+      '/me/activity/opens',
+    );
+    const orphan = path.join(outputDirectory, 'platform/client-core-calendar.js');
+    mkdirSync(path.dirname(orphan), { recursive: true });
+    writeFileSync(orphan, 'exports.unused = true;\n');
+    expect(auditProductionPackageContents(outputDirectory)).toContain(
+      'forbidden production file: platform/client-core-calendar.js',
+    );
 
     const forbidden = path.join(
       outputDirectory,

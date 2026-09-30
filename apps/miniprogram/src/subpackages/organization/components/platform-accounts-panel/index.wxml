@@ -69,12 +69,17 @@
               >{{account.usernameLabel}}</view
             ><view class="password-status {{account.hasPassword ? 'is-ready' : 'is-pending'}}"
               ><view class="status-dot"></view>{{account.passwordLabel}}</view
-            ><ui-button
+            ><view class="account-actions"><ui-button variant="secondary" label="{{activityAccountId === account.id ? '收起' : '详情'}}" data-account-id="{{account.id}}" bindpress="handleToggleActivity"></ui-button><ui-button
               variant="secondary"
               label="管理"
               data-account-id="{{account.id}}"
               bindpress="handleOpenEditor"
-            ></ui-button></view
+            ></ui-button></view>
+            <view wx:if="{{activityAccountId === account.id}}" class="account-activity">
+              <ui-loading wx:if="{{activityState === 'loading'}}" label="正在加载活跃详情"></ui-loading>
+              <view wx:elif="{{activityState === 'error'}}"><text>活跃详情暂时无法加载。</text><ui-button variant="secondary" label="重试" bindpress="handleRetryActivity"></ui-button></view>
+              <view wx:else><text wx:if="{{activityState === 'empty'}}" class="activity-note">暂无统计记录</text><view wx:for="{{activityRows}}" wx:for-item="detail" wx:key="label" class="activity-field"><text>{{detail.label}}</text><text>{{detail.value}}</text></view><text class="activity-note">北京时间 · 每次进入小程序前台计一次，累计从统计起始时间计算。</text></view>
+            </view></view
         ></view>
         <view class="bottom-spacer"></view>
       </view>

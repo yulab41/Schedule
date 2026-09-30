@@ -4,6 +4,8 @@ import type { AuthPort } from './adapters/auth/auth-port.js';
 import type { DatabaseClient } from '@schedule/database';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
+import { AccountActivityService } from './modules/account-activity/account-activity-service.js';
+import { registerAccountActivityRoutes } from './modules/account-activity/account-activity-routes.js';
 import { UserService } from './modules/users/user-service.js';
 import { registerUserRoutes } from './modules/users/user-routes.js';
 import { registerGroupRoutes } from './modules/groups/group-routes.js';
@@ -130,6 +132,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     }
     const holidayAdminUids = options.holidayAdminUids ?? parseHolidayAdminUids(process.env);
     const platformAdminUids = options.platformAdminUids ?? parsePlatformAdminUids(process.env);
+    const activityService = new AccountActivityService(options.databaseClient, platformAdminUids);
+    registerAccountActivityRoutes(app, activityService);
     let wechatAuthService: WechatAuthService | undefined;
     if (options.wechatGateway !== undefined) {
       wechatAuthService = new WechatAuthService({
@@ -137,7 +141,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         gateway: options.wechatGateway,
         sessionSecret: options.wechatSessionSecret,
       });
-      registerWechatAuthRoutes(app, wechatAuthService, clientCapabilityPolicy);
+      registerWechatAuthRoutes(app, wechatAuthService, clientCapabilityPolicy, activityService);
       registerWechatIdentityUnbindRoutes(
         app,
         new WechatIdentityUnbindService({
@@ -155,6 +159,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
           sessionSecret: options.wechatSessionSecret,
         }),
         clientCapabilityPolicy,
+        activityService,
       );
     }
     const visitorAccessLogService = new VisitorAccessLogService(options.databaseClient, {

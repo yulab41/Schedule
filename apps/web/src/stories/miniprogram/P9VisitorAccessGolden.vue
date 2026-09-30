@@ -100,13 +100,13 @@ function showFeedback(message: string): void {
           <span>{{ item.month }}</span>
         </div>
       </div>
-      <p class="aggregate-note">按访问月份聚合；原始访问记录保留 90 天。</p>
+      <p class="aggregate-note">按访问月份聚合；原始访问记录保留 30 天。</p>
     </section>
 
     <section class="logs-card" aria-labelledby="logs-title">
       <header class="section-heading logs-heading">
         <div>
-          <p class="section-kicker">原始记录 · 90 天</p>
+          <p class="section-kicker">原始记录 · 30 天</p>
           <h2 id="logs-title">最近访问</h2>
         </div>
         <label class="month-select"

@@ -9,6 +9,8 @@ import type { CreateWechatAdminBindingLinkRequest } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import type { AccountActivityService } from '../account-activity/account-activity-service.js';
+import { recordSuccessfulLogin } from '../account-activity/record-login.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
@@ -23,6 +25,7 @@ export function registerWechatAdminBindingRoutes(
   app: FastifyInstance,
   service: WechatAdminBindingService,
   clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
+  activity?: AccountActivityService,
 ): void {
   app.post(
     '/platform-admin/users/:userId/wechat-miniprogram-binding-links',
@@ -61,13 +64,15 @@ export function registerWechatAdminBindingRoutes(
     );
   });
 
-  app.post('/auth/wechat/admin-bind/confirm', async (request) =>
-    service.confirm(
+  app.post('/auth/wechat/admin-bind/confirm', async (request) => {
+    const result = await service.confirm(
       parseConfirmInput(request.body),
       request.id,
       resolveMiniClientVersion(request, clientCapabilityPolicy),
-    ),
-  );
+    );
+    await recordSuccessfulLogin(activity, result.profile.id, 'wechat_binding', request.log);
+    return result;
+  });
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

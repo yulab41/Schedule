@@ -196,3 +196,5 @@ export {
   workflowEndpoints,
   type WorkflowClient,
 } from './workflow-client.js';
+
+export { createAccountOpenClient, accountActivityEndpoints } from './account-activity-client.js';

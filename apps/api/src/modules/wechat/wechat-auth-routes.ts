@@ -5,6 +5,8 @@ import {
 } from '@schedule/contracts';
 import type { FastifyInstance } from 'fastify';
 
+import type { AccountActivityService } from '../account-activity/account-activity-service.js';
+import { recordSuccessfulLogin } from '../account-activity/record-login.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { resolveMiniClientVersion } from '../client-capabilities/client-version-headers.js';
@@ -12,45 +14,46 @@ import type { WechatAuthService } from './wechat-auth-service.js';
 
 export function registerWechatAuthRoutes(
   app: FastifyInstance,
-  wechatAuthService: WechatAuthService,
+  wechatAuthService: Pick<WechatAuthService, 'login' | 'linkPassword' | 'register'>,
   clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
+  activity?: Pick<AccountActivityService, 'recordLogin'>,
 ): void {
-  app.post('/auth/wechat/login', async (request, reply) => {
+  app.post('/auth/wechat/login', async (request) => {
     const input = parseWechatLoginRequest(request.body);
-    return reply
-      .code(200)
-      .send(
-        await wechatAuthService.login(
-          input.code,
-          resolveMiniClientVersion(request, clientCapabilityPolicy),
-        ),
+    const result = await wechatAuthService.login(
+      input.code,
+      resolveMiniClientVersion(request, clientCapabilityPolicy),
+    );
+    if (result.status === 'authenticated')
+      await recordSuccessfulLogin(
+        activity,
+        result.profile.id,
+        input.loginSource === 'auto'
+          ? 'wechat_auto'
+          : input.loginSource === 'manual'
+            ? 'wechat_manual'
+            : 'wechat_unspecified',
+        request.log,
       );
+    return result;
   });
-
-  app.post('/auth/wechat/link-password', async (request, reply) => {
-    const input = parseWechatLinkPasswordRequest(request.body);
-    return reply
-      .code(200)
-      .send(
-        await wechatAuthService.linkPassword(
-          input,
-          request.id,
-          resolveMiniClientVersion(request, clientCapabilityPolicy),
-        ),
-      );
+  app.post('/auth/wechat/link-password', async (request) => {
+    const result = await wechatAuthService.linkPassword(
+      parseWechatLinkPasswordRequest(request.body),
+      request.id,
+      resolveMiniClientVersion(request, clientCapabilityPolicy),
+    );
+    await recordSuccessfulLogin(activity, result.profile.id, 'wechat_binding', request.log);
+    return result;
   });
-
   app.post('/auth/wechat/register', async (request, reply) => {
-    const input = parseWechatRegisterRequest(request.body);
-    return reply
-      .code(201)
-      .send(
-        await wechatAuthService.register(
-          input,
-          request.id,
-          resolveMiniClientVersion(request, clientCapabilityPolicy),
-        ),
-      );
+    const result = await wechatAuthService.register(
+      parseWechatRegisterRequest(request.body),
+      request.id,
+      resolveMiniClientVersion(request, clientCapabilityPolicy),
+    );
+    await recordSuccessfulLogin(activity, result.profile.id, 'wechat_binding', request.log);
+    return reply.code(201).send(result);
   });
 }
 
@@ -60,7 +63,7 @@ function parseWechatLinkPasswordRequest(value: unknown) {
   return result.data;
 }
 
-function parseWechatLoginRequest(value: unknown): { readonly code: string } {
+function parseWechatLoginRequest(value: unknown) {
   const result = wechatLoginRequestSchema.safeParse(value);
 
   if (!result.success) {

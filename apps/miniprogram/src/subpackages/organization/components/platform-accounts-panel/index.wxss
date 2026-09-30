@@ -416,3 +416,11 @@
 .is-large-text .account-row ui-button {
   flex: 0 0 auto;
 }
+
+.account-actions { display: flex; flex-direction: column; gap: 4px; }
+.account-activity { grid-column: 1 / -1; min-width: 0; padding: 12px; background: var(--ui-color-surface-muted); border-radius: var(--ui-radius-small); }
+.activity-field { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: var(--ui-font-size-sm); }
+.activity-field > text:last-child { text-align: right; overflow-wrap: anywhere; }
+.activity-note { display: block; color: var(--ui-color-text-secondary); font-size: var(--ui-font-size-xs); }
+
+.is-large-text .account-activity { flex: 1 1 100%; box-sizing: border-box; }

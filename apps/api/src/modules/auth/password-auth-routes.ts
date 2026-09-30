@@ -22,7 +22,12 @@ export function registerPasswordAuthRoutes(
 
   app.post('/auth/password/login', async (request) => {
     const input = parsePasswordLoginRequest(request.body);
-    return passwordAuthService.login(input.username, input.password);
+    return passwordAuthService.login(input.username, input.password, () => {
+      request.log.warn(
+        { code: 'ACCOUNT_ACTIVITY_LOGIN_FAILED' },
+        'Account login statistics unavailable',
+      );
+    });
   });
 
   app.get('/auth/password/status', { preHandler: app.authenticate }, async (request) =>

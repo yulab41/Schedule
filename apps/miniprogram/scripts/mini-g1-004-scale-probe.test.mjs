@@ -39,7 +39,7 @@ describe('MINI-G1-004 scale evidence (synthetic, diagnostic-only)', () => {
     const report = {
       group,
       measurementScope:
-        'templateNodes estimates static elements in the parent WXML only; excludes reused component internals and native runtime nodes. No native performance or proportional reduction claim.',
+        'templateNodes estimates static elements in the parent WXML only; includes conditional detail template tags, excludes reused component internals and native runtime nodes. No native performance or proportional reduction claim.',
       nodeCoefficients,
       platform,
     };
@@ -54,7 +54,7 @@ describe('MINI-G1-004 scale evidence (synthetic, diagnostic-only)', () => {
     expect(group.every((result) => result.contactRequestCount === 1)).toBe(true);
     expect(platform.every((result) => result.setDataCalls === platform[0].setDataCalls)).toBe(true);
     expect(group.every((result) => result.setDataCalls === group[0].setDataCalls)).toBe(true);
-    expect(nodeCoefficients).toEqual({ groupMemberRow: 6, platformAccountRow: 10 });
+    expect(nodeCoefficients).toEqual({ groupMemberRow: 6, platformAccountRow: 23 });
     expect(platform[2].readySetDataBytes).toBeGreaterThan(platform[0].readySetDataBytes);
     expect(group[2].readySetDataBytes).toBeGreaterThan(group[0].readySetDataBytes);
     expect(platform[2].responsePayloadBytes).toBeGreaterThan(platform[0].responsePayloadBytes);
@@ -338,7 +338,7 @@ function extractElementBlock(template, start) {
 
 function nodeCount(kind, count) {
   // Parent WXML estimate only: directory-entry-card internals are not traversed.
-  const nodesPerRecord = kind === 'platformAccountRow' ? 10 : 6;
+  const nodesPerRecord = kind === 'platformAccountRow' ? 23 : 6;
   return nodesPerRecord * count;
 }
 

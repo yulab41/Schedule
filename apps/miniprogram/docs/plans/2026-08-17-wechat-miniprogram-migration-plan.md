@@ -155,7 +155,7 @@ MAX_MANUAL_CELLS = 600;
 
 - `POST /guest/groups/resolve { visitorKey }` 换取 30 分钟 `Authorization: Guest <token>`；长期 key 只用于 resolve；token 绑定 group/key version/aud/签发/过期；访客码轮换立即失效；按 IP、设备线索和路由限流。
 - 完整电话须先取得成员针对群组的单独同意，记录 group、phone fingerprint、说明版本和时间。未同意/撤回只隐藏电话；号码、新群组或说明实质变化需重取；管理员不可代授权。
-- 完整访客 IP 仅群管理员/平台管理员可见，原始 90 天后只留匿名聚合。
+- 完整访客 IP 仅群管理员/平台管理员可见，原始 30 天后只留匿名聚合。
 - 订阅消息覆盖值班提醒、排班发布和请假/换班/加扣班待处理与结果。正式 AppID 获医疗长期模板资格时使用长期授权，否则使用一次性 grant；记录 accept/reject/ban/filter、模板版本、授权时间、grant 和消费状态；默认关闭；只在明确点击/相关操作后请求；模板未审批不阻塞核心 v1。
 - 导出格式扩展为 `csv | xlsx`；Web 保留 CSV，小程序默认 XLSX，通过带 Bearer 的 `wx.downloadFile`，不使用 URL token，并防公式注入。
 - `GET /client-capabilities?platform=miniprogram&version=<version>` 返回全局和 core/workflows/organization/insights/externalMessages/guest 能力，UI/API 双端强制。

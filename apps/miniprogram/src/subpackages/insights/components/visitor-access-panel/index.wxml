@@ -46,14 +46,14 @@
 
         <view class="privacy-note"
           ><text class="privacy-title">隐私保留</text
-          ><text>访问明细最多保留 90 天，随后只保留匿名月份聚合。</text></view
+          ><text>访问明细最多保留 30 天，随后只保留匿名月份聚合。</text></view
         >
 
         <view class="aggregate-card">
           <view class="card-header"
             ><view
               ><text class="card-title">近四个月访问次数</text
-              ><text class="card-subtitle">按访问月份聚合 · 原始访问记录保留 90 天</text></view
+              ><text class="card-subtitle">按访问月份聚合 · 原始访问记录保留 30 天</text></view
             ><text class="count-badge">{{aggregateCountLabel}}</text></view
           >
           <view wx:if="{{state === 'loading'}}" class="log-skeletons" aria-label="正在加载访问记录"

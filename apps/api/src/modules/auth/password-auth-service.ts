@@ -19,6 +19,7 @@ import {
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { createPasswordSessionToken } from '../../adapters/auth/wechat-auth.js';
+import { AccountActivityService } from '../account-activity/account-activity-service.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -97,7 +98,11 @@ export class PasswordAuthService {
     };
   }
 
-  public async login(username: string, password: string): Promise<PasswordAuthResponse> {
+  public async login(
+    username: string,
+    password: string,
+    onStatisticsFailure: () => void = () => console.warn('ACCOUNT_ACTIVITY_LOGIN_FAILED: password'),
+  ): Promise<PasswordAuthResponse> {
     const normalizedUsername = normalizeUsername(username);
     const [credential] = await this.databaseClient.database
       .select({
@@ -122,18 +127,24 @@ export class PasswordAuthService {
       throw invalidCredentialsError();
     }
 
+    const profile = await this.findProfile(credential.userId);
+    const token = createPasswordSessionToken(
+      { authVersion: credential.authVersion, sub: credential.userId, username: normalizedUsername },
+      this.sessionSecret,
+    );
+    try {
+      await new AccountActivityService(this.databaseClient).recordLogin(
+        credential.userId,
+        'password',
+      );
+    } catch {
+      onStatisticsFailure();
+    }
     return {
       isNewUser: false,
       mustChangePassword: isDefaultPassword(password),
-      profile: await this.findProfile(credential.userId),
-      token: createPasswordSessionToken(
-        {
-          authVersion: credential.authVersion,
-          sub: credential.userId,
-          username: normalizedUsername,
-        },
-        this.sessionSecret,
-      ),
+      profile,
+      token,
     };
   }
 

@@ -3399,3 +3399,9 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 - 真实MySQL七模块148通过，补充5个恢复/跨夜边界通过。320/390px普通/大字号几何代理通过，不代表小米14。最终门禁和提交信息见轮次记录。
 - 主线/线上分叉：部署前实时读取线上release `bc59dfbf`，确认它属并行分支 `codex/doctor-duty-reconcile` 而不在main祖先线上，主线同样缺其全部外部值班代码；按仓库既有 `merge: include …` 惯例合并该分支（仅三个状态/日志文档冲突），避免部署回退已上线的外部值班校对。合并前五个既有未改文件完成纯格式提交 `c4af13ef`，完整 `pnpm verify` 全绿。
 - 交付：`c59975c4` 已部署生产，独立verifier通过、schema68；部署前读取线上release与manifest一致，部署脚本无备份步骤，按运行手册用可信控制补做加密备份 `d18366a6-582a-4002-bcf8-caa6791477a4`（56表、138,974,408 B、sha256 `2e8b89ef…`）。统计重算116个月0失败，116快照全部v2、758成员行0无名；体验版 `.216@c59975c4` 上传（manifest `fa93ee4c…`）并按可信 `ensure` 只增放行，公网 `.216/.215=200`、未知426。
+
+## ACT-AUDIT-20260930 账号统计/访客30天与包体审查
+
+引入点：列表竞态c0ea31e97/98aa0910b（git log -S与blame定位）；构建collectTypeScriptEntryPoints为3884713b，bundled-only过滤4d8a38e9/e6ef714bc。先红后绿证据与风险见[审计记录](../audit/account-activity-retention-20260930.md)。行为变化：按需详情与成功会话统计；前台唯一事件及服务端身份事务去重；访客/回执30天；移除无入口独立输出；列表旧响应/卸载守卫。26测试清理器仅补新表DROP；无架构迁移。
+
+运行/浏览器验证：pnpm smoke:browser（2026-09-30，warm general-6，本地API3105/Web4175，schema70）七阶段全部通过、浏览器无错误；本地合成平台角色finally恢复。完整pnpm verify、真实DB独立99项、production verify和上传干跑通过。开发者工具只证明局部WXML/WXSS编译，小米14/启动性能暂未验证。

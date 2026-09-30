@@ -11,11 +11,9 @@ describe('persisted history visibility release compatibility', () => {
   });
 
   it('requires persisted visibility columns and indexes', () => {
-    expect(
-      releaseSchemaCompatibility(journal(69, '0069_member_wechat_notification_kinds')),
-    ).toEqual({
-      databaseSchemaMin: '69',
-      databaseSchemaMax: '69',
+    expect(releaseSchemaCompatibility(journal(70, '0070_account_activity'))).toEqual({
+      databaseSchemaMin: '70',
+      databaseSchemaMax: '70',
     });
   });
 
@@ -51,6 +49,8 @@ describe('persisted history visibility release compatibility', () => {
       journal(68, '0068_unknown'),
       journal(68, '0068_external_duty_published_baseline'),
       journal(69, '0069_unknown'),
+      journal(69, '0069_member_wechat_notification_kinds'),
+      journal(70, '0070_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },

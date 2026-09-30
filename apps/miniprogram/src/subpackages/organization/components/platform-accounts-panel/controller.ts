@@ -8,7 +8,10 @@ import {
   getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../../../app/client-capability-store.js';
-import type { PlatformAdminUserDetails as PlatformAdminUserAccount } from '@schedule/contracts';
+import type {
+  AccountActivitySummary,
+  PlatformAdminUserDetails as PlatformAdminUserAccount,
+} from '@schedule/contracts';
 import {
   createRuntimeOrganizationReadClient,
   createRuntimePlatformIdentityWriteClient,
@@ -62,6 +65,9 @@ interface PlatformAccountsPageData {
   readonly totalCount: number;
   readonly configuredCount: number;
   readonly pendingCount: number;
+  readonly activityAccountId: string;
+  readonly activityState: 'loading' | 'empty' | 'ready' | 'error';
+  readonly activityRows: readonly { label: string; value: string }[];
   readonly editorOpen: boolean;
   readonly selectedAccountId: string;
   readonly selectedAccountLabel: string;
@@ -84,6 +90,9 @@ interface PlatformAccountsPageInstance {
   _accountClient: PlatformAccountClient;
   _passwordOperationId: string | undefined;
   _disposed: boolean;
+  _accountsRequest: object | undefined;
+  _activityRequest: object | undefined;
+  _activityFlights: Map<string, Promise<AccountActivitySummary>>;
   _platformIdentityWriteClient: PlatformIdentityWriteClient;
   _accounts: readonly PlatformAdminUserAccount[];
   _selectedAccount: PlatformAdminUserAccount | undefined;
@@ -122,6 +131,9 @@ export function createPlatformAccountsPanelControllerDefinition() {
       totalCount: 0,
       configuredCount: 0,
       pendingCount: 0,
+      activityAccountId: '',
+      activityState: 'empty',
+      activityRows: [],
       editorOpen: false,
       selectedAccountId: '',
       selectedAccountLabel: '',
@@ -147,12 +159,27 @@ export function createPlatformAccountsPanelControllerDefinition() {
     lifetimes: {
       attached(this: PlatformAccountsPageInstance): void {
         this._disposed = false;
+        this._accountsRequest = undefined;
+        this._activityFlights = new Map();
+        this._activityRequest = undefined;
         recordMiniTelemetryBoundary('platform-accounts:controller-attached');
         applyPanelLayout(this);
         void loadAccounts(this);
       },
     },
 
+    handleToggleActivity(this: PlatformAccountsPageInstance, event: TapEvent): void {
+      const userId = event.currentTarget.dataset['accountId'];
+      if (userId === undefined || !this._accounts.some((account) => account.id === userId)) return;
+      if (this.data.activityAccountId === userId) {
+        this._activityRequest = undefined;
+        this.setData({ activityAccountId: '', activityRows: [] });
+      } else void loadActivity(this, userId);
+    },
+    handleRetryActivity(this: PlatformAccountsPageInstance): void {
+      if (this.data.activityState === 'error' && this.data.activityAccountId)
+        void loadActivity(this, this.data.activityAccountId);
+    },
     handleSecretCleanup(this: PlatformAccountsPageInstance): void {
       this._passwordOperationId = undefined;
       this.setData({ newPasswordDraft: '', passwordVisible: false });
@@ -160,6 +187,9 @@ export function createPlatformAccountsPanelControllerDefinition() {
     handleDispose(this: PlatformAccountsPageInstance): void {
       clearInfoMessageTimer(this);
       this._disposed = true;
+      this._accountsRequest = undefined;
+      this._activityRequest = undefined;
+      this._activityFlights?.clear();
       this._passwordOperationId = undefined;
       this._operationIds?.clear();
       this._accounts = [];
@@ -264,7 +294,12 @@ function applyPanelLayout(page: PlatformAccountsPageInstance): void {
 }
 
 async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {
+  if (page._disposed) return;
   initializeRuntimeState(page);
+  const request = {};
+  page._accountsRequest = request;
+  page._activityRequest = undefined;
+  page.setData({ activityAccountId: '', activityRows: [] });
   clearManagementFeedback(page);
   page.setData({
     state: 'loading',
@@ -274,8 +309,9 @@ async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {
   });
   try {
     await requireClientCapability('organization');
+    if (page._disposed || page._accountsRequest !== request) return;
     const accounts = await page._accountClient.listDetails();
-    if (page._disposed) return;
+    if (page._disposed || page._accountsRequest !== request) return;
     page._accounts = accounts;
     const selected = page._selectedAccount;
     const selectedNext =
@@ -310,6 +346,7 @@ async function loadAccounts(page: PlatformAccountsPageInstance): Promise<void> {
           }),
     });
   } catch (error) {
+    if (page._disposed || page._accountsRequest !== request) return;
     if (error instanceof ClientCoreError && error.status === 401) {
       returnToLogin(page);
       return;
@@ -595,4 +632,52 @@ function showManagementFeedback(
     managementInfo: tone === 'error' ? '' : message,
   });
   scheduleInfoMessageExpiry(page, message, () => !page._disposed);
+}
+
+async function loadActivity(page: PlatformAccountsPageInstance, userId: string): Promise<void> {
+  if (page._disposed) return;
+  const token = {};
+  page._activityRequest = token;
+  page.setData({ activityAccountId: userId, activityState: 'loading', activityRows: [] });
+  let flight = page._activityFlights.get(userId);
+  if (flight === undefined) {
+    flight = page._accountClient.getActivity(userId);
+    page._activityFlights.set(userId, flight);
+  }
+  try {
+    const activity = await flight;
+    if (page._disposed || page._activityRequest !== token) return;
+    const methods = {
+      password: '账号密码登录',
+      wechat_manual: '主动微信登录',
+      wechat_auto: '自动微信认证',
+      wechat_binding: '微信绑定登录',
+      wechat_unspecified: '微信登录（旧版来源未区分）',
+    };
+    const time = (value: string | undefined): string =>
+      value === undefined
+        ? '暂无记录'
+        : new Date(Date.parse(value) + 8 * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+    page.setData({
+      activityState: activity.startedAt === undefined ? 'empty' : 'ready',
+      activityRows: [
+        { label: '最近成功登录', value: time(activity.lastLoginAt) },
+        {
+          label: '登录方式',
+          value:
+            activity.lastLoginMethod === undefined ? '暂无记录' : methods[activity.lastLoginMethod],
+        },
+        { label: '今日登录次数', value: String(activity.todayLoginCount) },
+        { label: '最近访问', value: time(activity.lastOpenedAt) },
+        { label: '今日打开次数', value: String(activity.todayOpenCount) },
+        { label: '累计打开次数', value: String(activity.totalOpenCount) },
+        { label: '统计起始时间', value: time(activity.startedAt) },
+      ],
+    });
+  } catch {
+    if (!page._disposed && page._activityRequest === token)
+      page.setData({ activityState: 'error' });
+  } finally {
+    if (page._activityFlights.get(userId) === flight) page._activityFlights.delete(userId);
+  }
 }

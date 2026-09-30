@@ -9,10 +9,12 @@ let includeAccount = true;
 describe('P8-E native platform accounts controller', () => {
   let definition;
   let requests;
+  let activityResponse;
 
   beforeEach(async () => {
     vi.resetModules();
     requests = [];
+    activityResponse = undefined;
     authVersion = 4;
     includeAccount = true;
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
@@ -64,6 +66,10 @@ describe('P8-E native platform accounts controller', () => {
           options.success({ data: { authVersion, passwordConfigured: true }, statusCode: 200 });
           return;
         }
+        if (options.url.endsWith('/activity')) {
+          activityResponse = options;
+          return;
+        }
         throw new Error(`unexpected request ${options.method} ${options.url}`);
       }),
     });
@@ -87,6 +93,58 @@ describe('P8-E native platform accounts controller', () => {
       organizationEnabled: true,
       totalCount: 1,
     });
+  });
+
+  it('loads activity only on demand, coalesces reopening and ignores closed responses', async () => {
+    const page = await loadReadyPage(definition);
+    expect(requests.some((request) => request.url.endsWith('/activity'))).toBe(false);
+    const event = { currentTarget: { dataset: { accountId: userId } } };
+    definition.handleToggleActivity.call(page, event);
+    await vi.waitFor(() => expect(activityResponse).toBeDefined());
+    definition.handleToggleActivity.call(page, event);
+    activityResponse.success({
+      statusCode: 200,
+      data: { todayLoginCount: 0, todayOpenCount: 0, totalOpenCount: 0 },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(page.data.activityAccountId).toBe('');
+    expect(page.data.activityRows).toEqual([]);
+    await vi.waitFor(() => expect(page._activityFlights.size).toBe(0));
+    definition.handleToggleActivity.call(page, event);
+    await vi.waitFor(() =>
+      expect(requests.filter((request) => request.url.endsWith('/activity')).length).toBe(2),
+    );
+    activityResponse.success({ statusCode: 500, data: {} });
+    await vi.waitFor(() => expect(page.data.activityState).toBe('error'));
+    definition.handleRetryActivity.call(page);
+    await vi.waitFor(() =>
+      expect(requests.filter((request) => request.url.endsWith('/activity')).length).toBe(3),
+    );
+    activityResponse.success({
+      statusCode: 200,
+      data: { todayLoginCount: 0, todayOpenCount: 0, totalOpenCount: 0 },
+    });
+    await vi.waitFor(() => expect(page.data.activityState).toBe('empty'));
+    expect(page.data.activityRows).toHaveLength(7);
+  });
+
+  it('joins a pending detail request and ignores responses after disposal', async () => {
+    const page = await loadReadyPage(definition);
+    const event = { currentTarget: { dataset: { accountId: userId } } };
+    definition.handleToggleActivity.call(page, event);
+    await vi.waitFor(() => expect(activityResponse).toBeDefined());
+    definition.handleToggleActivity.call(page, event);
+    definition.handleToggleActivity.call(page, event);
+    expect(requests.filter((request) => request.url.endsWith('/activity'))).toHaveLength(1);
+    definition.handleDispose.call(page);
+    activityResponse.success({
+      statusCode: 200,
+      data: { todayLoginCount: 9, todayOpenCount: 3, totalOpenCount: 100 },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(page.data.activityRows).toEqual([]);
   });
 
   it('uses authVersion and one idempotency key for username and binding writes', async () => {
@@ -121,6 +179,32 @@ describe('P8-E native platform accounts controller', () => {
       mobilePhoneDraft: '',
     });
     expect(page._selectedAccount).toBeUndefined();
+  });
+
+  it('ignores older list responses and failed requests after disposal', async () => {
+    const page = await loadReadyPage(definition);
+    const pending = [];
+    const original = globalThis.wx.request.getMockImplementation();
+    globalThis.wx.request.mockImplementation((options) => {
+      if (options.url.endsWith('/platform-admin/users/details')) pending.push(options);
+      else original(options);
+    });
+    definition.handleRefresh.call(page);
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    definition.handleRefresh.call(page);
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    pending[1].success({ data: { users: [{ ...account(), authVersion: 8 }] }, statusCode: 200 });
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    pending[0].success({ data: { users: [{ ...account(), authVersion: 5 }] }, statusCode: 200 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(page._accounts[0].authVersion).toBe(8);
+    definition.handleRefresh.call(page);
+    await vi.waitFor(() => expect(pending).toHaveLength(3));
+    definition.handleDispose.call(page);
+    const patch = vi.spyOn(page, 'setData');
+    pending[2].fail({ errMsg: 'synthetic list failure' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(patch).not.toHaveBeenCalled();
   });
 
   it('saves global profile details and clears password input without retaining it in operation keys', async () => {

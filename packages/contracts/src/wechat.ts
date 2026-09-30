@@ -6,6 +6,7 @@ import { userProfileSchema } from './users.js';
 export const wechatLoginRequestSchema = z
   .object({
     code: z.string().min(1),
+    loginSource: z.enum(['manual', 'auto']).optional(),
   })
   .strict();
 export type WechatLoginRequest = z.infer<typeof wechatLoginRequestSchema>;

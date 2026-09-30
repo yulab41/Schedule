@@ -6,6 +6,7 @@ import {
   createGuestCalendarDisplaySettingsClient,
   type GuestCalendarDisplaySettingsClient,
   createCalendarReadClient,
+  createAccountOpenClient,
   createGroupMobilePhoneConsentClient,
   createInsightsReadClient,
   createP9InsightsActionsClient,
@@ -364,6 +365,16 @@ export function createRuntimeQrVisitorWriteClient(
 ): QrVisitorWriteClient {
   return createQrVisitorWriteClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
+  );
+}
+
+export function createRuntimeAccountOpenClient(
+  getAccessToken: () => string | undefined,
+  isCurrent: () => boolean,
+) {
+  // No automatic reauthentication from a nonessential statistics request.
+  return createAccountOpenClient(
+    createRuntimeWxJsonTransport(getAccessToken, undefined, 'core', undefined, isCurrent),
   );
 }
 

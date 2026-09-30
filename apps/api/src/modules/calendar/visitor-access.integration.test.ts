@@ -448,7 +448,29 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     }
   });
 
-  it('hides raw rows before 90 days and lets both platform-admin classes read without membership', async () => {
+  it('keeps the exact rolling 30-day query boundary and cannot reveal expired rows through an old cursor', async () => {
+    let now = new Date('2026-09-30T10:00:00.000Z');
+    const cutoff = new Date(now.valueOf() - 30 * 86400000);
+    const boundaryId = randomUUID(),
+      newerId = randomUUID(),
+      expiredId = randomUUID();
+    await client.database.execute(sql`
+      INSERT INTO visitor_access_logs (id, group_id, business_month, created_at) VALUES
+      (${boundaryId}, ${groupId}, '2026-09', ${cutoff}),
+      (${newerId}, ${groupId}, '2026-09', ${new Date(cutoff.valueOf() + 1)}),
+      (${expiredId}, ${groupId}, '2026-09', ${new Date(cutoff.valueOf() - 1)})
+    `);
+    const service = new VisitorAccessLogService(client, { now: () => now });
+    const identity = { cloudbaseUid: 'cloudbase-owner' };
+    const first = await service.listLogs(identity, groupId, undefined, 1);
+    expect(first.logs.map((row) => row.id)).toEqual([newerId]);
+    const next = await service.listLogs(identity, groupId, first.nextCursor);
+    expect(next.logs.map((row) => row.id)).toEqual([boundaryId]);
+    now = new Date(now.valueOf() + 1);
+    expect((await service.listLogs(identity, groupId, first.nextCursor)).logs).toEqual([]);
+  });
+
+  it('hides raw rows before 30 days and lets both platform-admin classes read without membership', async () => {
     const oldId = randomId();
     const retainedId = randomId();
     await client.database.execute(sql`
@@ -456,9 +478,9 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
         (id, group_id, business_month, client_ip, request_id, created_at)
       VALUES
         (${oldId}, ${groupId}, '2026-07', '203.0.113.1', ${randomId()},
-         ${new Date(Date.now() - 91 * 24 * 60 * 60 * 1000)}),
+         ${new Date(Date.now() - 31 * 24 * 60 * 60 * 1000)}),
         (${retainedId}, ${groupId}, '2026-08', '203.0.113.2', ${randomId()},
-         ${new Date(Date.now() - 89 * 24 * 60 * 60 * 1000)})
+         ${new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)})
     `);
 
     for (const token of ['owner-token', 'admin-token', 'platform-token', 'developer-token']) {
@@ -805,6 +827,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS wechat_union_accounts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS account_open_receipts`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS account_activity_summaries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);

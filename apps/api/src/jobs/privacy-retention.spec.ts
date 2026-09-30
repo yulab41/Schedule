@@ -8,12 +8,12 @@ import {
 } from './privacy-retention.js';
 
 describe('visitor access privacy retention', () => {
-  it('keeps the exact 90-day boundary and expires only earlier instants', () => {
+  it('keeps the exact 30-day boundary and expires only earlier instants', () => {
     const now = new Date('2026-08-24T00:00:00.000Z');
     const cutoff = createVisitorAccessCutoff(now);
 
-    expect(visitorAccessRetentionDays).toBe(90);
-    expect(cutoff.toISOString()).toBe('2026-05-26T00:00:00.000Z');
+    expect(visitorAccessRetentionDays).toBe(30);
+    expect(cutoff.toISOString()).toBe('2026-07-25T00:00:00.000Z');
     expect(new Date(cutoff.valueOf() - 1).valueOf()).toBeLessThan(cutoff.valueOf());
     expect(new Date(cutoff.valueOf()).valueOf()).toBe(cutoff.valueOf());
   });

@@ -29,6 +29,13 @@ describe('production privacy retention controls', () => {
     expect(verify).toContain('privacyRetentionSchedulerSha256');
   });
 
+  it('verifies rolling 30-day visitor and account receipt boundaries', async () => {
+    const verify = await read('infra/scripts/ecs-verify.sh');
+    expect(verify).toContain('visitor_access_logs WHERE created_at < TIMESTAMPADD(DAY, -30');
+    expect(verify).toContain('account_open_receipts WHERE opened_at < TIMESTAMPADD(DAY, -30');
+    expect(verify).not.toContain('TIMESTAMPADD(DAY, -90');
+  });
+
   it('uses one trusted proxy hop and privacy-safe Nginx request logging', async () => {
     const [app, nginx] = await Promise.all([
       read('apps/api/src/app.ts'),

@@ -75,6 +75,8 @@ import {
   readAllResultSchema,
   platformAdminUserAccountListSchema,
   platformAdminUserDetailsListSchema,
+  accountActivitySummarySchema,
+  accountOpenResponseSchema,
   updatePlatformUserProfileResponseSchema,
   resetPlatformUserPasswordResponseSchema,
   passwordIdentityAssignmentResponseSchema,
@@ -289,6 +291,14 @@ const source = await format(
       platformAdminUserAccountList: sanitizeJsonSchema(
         z.toJSONSchema(platformAdminUserAccountListSchema),
         'platformAdminUserAccountList',
+      ),
+      accountActivitySummary: sanitizeJsonSchema(
+        z.toJSONSchema(accountActivitySummarySchema),
+        'accountActivitySummary',
+      ),
+      accountOpenResponse: sanitizeJsonSchema(
+        z.toJSONSchema(accountOpenResponseSchema),
+        'accountOpenResponse',
       ),
       platformAdminUserDetailsList: sanitizeJsonSchema(
         z.toJSONSchema(platformAdminUserDetailsListSchema),

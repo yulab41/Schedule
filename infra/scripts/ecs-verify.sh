@@ -550,14 +550,20 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 50 ]; then
       -e "SELECT
         (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = \"visitor_access_monthly_aggregates\"),
         (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = \"visitor_access_logs\" AND index_name = \"visitor_access_logs_created_idx\"),
-        (SELECT COUNT(*) FROM visitor_access_logs WHERE created_at < TIMESTAMPADD(DAY, -90, CURRENT_TIMESTAMP(3))),
+        (SELECT COUNT(*) FROM visitor_access_logs WHERE created_at < TIMESTAMPADD(DAY, -30, CURRENT_TIMESTAMP(3))),
         (SELECT COUNT(*) FROM platform_job_runs WHERE job_name = \"privacy-retention\" AND status = \"completed\")"')"
   IFS=$'\t' read -r aggregate_table expiry_index expired_rows completed_runs <<< "$VISITOR_PRIVACY_SCHEMA"
   [ "$aggregate_table" = "1" ] && [ "$expiry_index" = "2" ] && [ "$expired_rows" = "0" ] &&
     [ "$completed_runs" -ge 1 ] || {
-    echo "[verify] 错误：访客隐私表、索引、90天边界或 retention job 无效。" >&2
+    echo "[verify] 错误：访客隐私表、索引、30天边界或 retention job 无效。" >&2
     exit 1
   }
+fi
+
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 70 ]; then
+  ACCOUNT_ACTIVITY_PRIVACY="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (\"account_activity_summaries\",\"account_open_receipts\")), (SELECT COUNT(*) FROM account_open_receipts WHERE opened_at < TIMESTAMPADD(DAY, -30, CURRENT_TIMESTAMP(3)))"')"
+  [ "$ACCOUNT_ACTIVITY_PRIVACY" = $'2\t0' ] || { echo "[verify] 账号活跃表或30天去重留存无效。" >&2; exit 1; }
 fi
 
 if [ "$CURRENT_DATABASE_SCHEMA" -ge 55 ]; then
@@ -671,7 +677,10 @@ fi
 
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 68 ]; then
+  if [ "$schema" -ge 70 ]; then
+    # 0070 summary retained in backup; raw receipts excluded, pre-migration backup remains valid.
+    [ "$tables" = "56" ] || [ "$tables" = "57" ]
+  elif [ "$schema" -ge 68 ]; then
     [ "$tables" = "55" ] || [ "$tables" = "56" ]
   elif [ "$schema" -ge 67 ]; then
     # 0067 adds one backed-up table; accept the backup taken just before migration.

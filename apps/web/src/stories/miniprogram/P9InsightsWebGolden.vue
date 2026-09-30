@@ -327,7 +327,7 @@ function showFeedback(message: string): void {
 
     <p v-if="feedback" class="feedback" role="status">{{ feedback }}</p>
     <footer class="insights-footer">
-      审计数据按权限显示 · 原始事件不可变 · 访问明细最多保留 90 天
+      审计数据按权限显示 · 原始事件不可变 · 访问明细最多保留 30 天
     </footer>
   </main>
 </template>

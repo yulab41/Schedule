@@ -18,7 +18,7 @@ const defaultBatchSize = 1000;
 const defaultMaxBatches = 100;
 const telemetryRetentionDays = 30;
 
-export const visitorAccessRetentionDays = 90;
+export const visitorAccessRetentionDays = 30;
 
 interface AuditAppender {
   append(
@@ -89,6 +89,7 @@ export class PrivacyRetentionJob {
 
     const remainingRows = await this.countRemaining(cutoff);
     const telemetry = await this.purgeTelemetry(createTelemetryCutoff(now));
+    await this.purgeOpenReceipts(cutoff);
     const result = {
       aggregateBuckets,
       batches,
@@ -105,6 +106,24 @@ export class PrivacyRetentionJob {
       throw new Error(`client telemetry retention backlog remains: ${telemetry.remainingRows}`);
     }
     return result;
+  }
+
+  private async purgeOpenReceipts(cutoff: Date): Promise<void> {
+    const [tables] = (await this.databaseClient.database.execute(
+      sql`SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'account_open_receipts'`,
+    )) as unknown as [readonly { count: number }[], unknown];
+    if (Number(tables[0]?.count ?? 0) === 0) return;
+    for (let batch = 0; batch < this.maxBatches; batch += 1) {
+      const [result] = (await this.databaseClient.database.execute(
+        sql`DELETE FROM account_open_receipts WHERE opened_at < ${cutoff} ORDER BY opened_at LIMIT ${this.batchSize}`,
+      )) as unknown as [{ affectedRows: number }, unknown];
+      if (result.affectedRows < this.batchSize) return;
+    }
+    const [rows] = (await this.databaseClient.database.execute(
+      sql`SELECT COUNT(*) AS count FROM account_open_receipts WHERE opened_at < ${cutoff}`,
+    )) as unknown as [readonly { count: number }[], unknown];
+    if (Number(rows[0]?.count ?? 0) > 0)
+      throw new Error('account open receipt retention backlog remains');
   }
 
   private async purgeTelemetry(

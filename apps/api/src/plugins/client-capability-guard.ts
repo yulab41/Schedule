@@ -110,6 +110,7 @@ export function classifyRoute(request: FastifyRequest): ClientCapabilityName | u
 }
 
 function isCoreRoute(method: string, route: string): boolean {
+  if (route === '/me/activity/opens') return method === 'POST';
   if (
     route === '/users/me' ||
     route === '/auth/password/status' ||

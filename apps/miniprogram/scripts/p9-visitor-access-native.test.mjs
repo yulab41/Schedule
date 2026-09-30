@@ -69,7 +69,7 @@ describe('P9 native visitor access insights', () => {
     expect(controller).not.toContain('wx.getStorageSync');
     expect(controller).not.toContain('console.log');
     expect(read('src/subpackages/insights/components/visitor-access-panel/index.wxml')).toContain(
-      '90 天',
+      '30 天',
     );
   });
 
