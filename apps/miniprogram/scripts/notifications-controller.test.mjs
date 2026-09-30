@@ -159,7 +159,7 @@ describe('notification parity controller', () => {
         wechatNotificationsEnabled: true,
       });
       const row = page.data.wechatKindRows.find((item) => item.kind === kind);
-      expect(row).toMatchObject({ checked: true, statusLabel: '本次已授权' });
+      expect(row).toMatchObject({ checked: true, statusLabel: '本次已授权 · 点此重新授权' });
     }
     expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(5);
   });
@@ -258,7 +258,115 @@ describe('notification parity controller', () => {
     });
     expect(page.data.wechatKindRows.find((row) => row.kind === 'swap')).toMatchObject({
       checked: true,
-      statusLabel: '本次已授权',
+      statusLabel: '本次已授权 · 点此重新授权',
+    });
+  });
+
+  it('paints the clicked switch before the save resolves and rolls it back on failure', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business']);
+    mocks.getMine.mockResolvedValue({
+      browserNotificationsEnabled: false,
+      dutyReminderHours: null,
+      membershipId: 'member-1',
+      wechatNotificationKinds: {
+        business: false,
+        dutyAdjustment: true,
+        dutyReminder: true,
+        leave: true,
+        swap: true,
+      },
+      wechatNotificationsEnabled: true,
+    });
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      checked: false,
+    });
+    mocks.requestSubscriptions.mockResolvedValue([
+      { granted: true, status: 'accepted', templateId: 'business' },
+    ]);
+    let failSave;
+    mocks.updateMine.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failSave = reject;
+        }),
+    );
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'business' } },
+      detail: { checked: true },
+    });
+    // 保存还没回来，开关已经按点击结果上屏。
+    await vi.waitFor(() =>
+      expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+        checked: true,
+      }),
+    );
+    expect(page.data.wechatKindBusy).toBe('business');
+    await vi.waitFor(() => expect(mocks.updateMine).toHaveBeenCalledTimes(1));
+    failSave(new Error('保存失败'));
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      checked: false,
+    });
+    expect(page.data.feedbackTone).toBe('error');
+  });
+
+  it('reuses the session grant so repeated open/close flips stay instant', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business']);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    mocks.requestSubscriptions.mockResolvedValue([
+      { granted: true, status: 'accepted', templateId: 'business' },
+    ]);
+    const toggle = (checked) =>
+      definition.methods.handleWechatKindToggle.call(page, {
+        currentTarget: { dataset: { kind: 'business' } },
+        detail: { checked },
+      });
+    toggle(true);
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    toggle(false);
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    toggle(true);
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    // 只有第一次打开申请了订阅授权，之后反复开关不再弹窗。
+    expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
+    expect(mocks.updateMine).toHaveBeenCalledTimes(3);
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      checked: true,
+      statusLabel: '本次已授权 · 点此重新授权',
+    });
+  });
+
+  it('forces a fresh grant from the row status without touching the preference', async () => {
+    mocks.templates.mockResolvedValue(['duty', 'business']);
+    const definition = await definitionFor('settings');
+    const page = pageFor(definition, 'settings');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    mocks.requestSubscriptions.mockResolvedValue([
+      { granted: true, status: 'accepted', templateId: 'business' },
+    ]);
+    definition.methods.handleWechatKindToggle.call(page, {
+      currentTarget: { dataset: { kind: 'business' } },
+      detail: { checked: true },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    const savesAfterToggle = mocks.updateMine.mock.calls.length;
+    definition.methods.handleWechatKindReauthorize.call(page, {
+      currentTarget: { dataset: { kind: 'business' } },
+    });
+    await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
+    expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(2);
+    expect(mocks.updateMine.mock.calls.length).toBe(savesAfterToggle);
+    expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
+      checked: true,
+      statusLabel: '本次已授权 · 点此重新授权',
     });
   });
 
@@ -299,7 +407,7 @@ describe('notification parity controller', () => {
     });
     expect(page.data.wechatKindRows.find((row) => row.kind === 'business')).toMatchObject({
       checked: true,
-      statusLabel: '本次已授权',
+      statusLabel: '本次已授权 · 点此重新授权',
     });
   });
 
@@ -594,7 +702,7 @@ describe('notification parity controller', () => {
     });
     expect(mocks.requestSubscriptions).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(page.data.wechatKindBusy).toBe(''));
-    expect(page.data.infoMessage).toBe('已开启值班提醒并完成本次微信授权。');
+    expect(page.data.infoMessage).toBe('已开启值班提醒。');
   });
 
   it('uses a two-second capsule and replaces its lifetime for consecutive saves', async () => {

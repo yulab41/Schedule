@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：通知设置只保留按类型微信提醒开关（2026-09-30）
+## 当前批次：按类型微信提醒开关 + 开关响应速度优化（2026-09-30）
 
 - 范围：仅微信小程序通知设置页 + 文档；独占 warm `runtime/wt/general-6`，REUSE_ONLY，无依赖安装；基线 `origin/main` = `2cd6e088`。
 - 已实现：删除“接收微信提醒”总开关与相关状态/处理器；只保留 5 个按类型开关，打开某类时申请该类订阅授权并下发完整 5 类偏好 + 打开服务端总闸，关闭时只写该偏好；历史“总开关关闭”状态按全关呈现，打开任一类只开启该类；保存中只在该行显示 loading，仅未配置模板的类型永久禁用。
-- 验证：`notifications-controller` 30 项、`workflow-switch-feedback` 23 项、Mini 全量 1303 通过/23 跳过、typecheck/lint/format/production verify（包体 4,440,213 B、manifest `1d102623…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-kind-switches-20260930.md)。
-- 2026-09-30 用户当次授权后已交付体验版：`0.1.0-p10.20260930.218`（manifest `b89fbd28…`、短 SHA `8ec20dd`、production）上传成功，可信控制只增放行并通过 `verify` 与完整 `ecs-verify.sh`（首次 verifier 因 30 天遥测保留竞态失败，运行同一保留控制后归零复测通过）。本检查点为 Mini/文档范围，未部署生产，live release 仍为 `5f25d946`（schema 69）。
-- 唯一下一任务：小米 14 退出重进同构建体验版 `.218@8ec20dd` 复核通知设置页只有 5 个按类型开关、逐类开关独立授权、无总开关；取得同构建真机证据前不写验收通过。
+- 追加（同日）：开关点击后**立即上屏**（乐观绘制、失败回滚）；同一页面会话内已授权的类型反复开关**不再弹窗、瞬时生效**；行状态文字改为“重新授权”入口（一次性额度用完后可手动补授权），说明提示可勾选“总是保持以上选择”。
+- 验证：`notifications-controller` 33 项、`workflow-switch-feedback` 23 项、Mini 全量 1306 通过/23 跳过、typecheck/lint/format/production verify（包体 4,447,547 B、manifest `39841506…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-kind-switches-20260930.md)。
+- 已交付体验版 `.218@8ec20dd`（只保留按类型开关）；速度优化检查点尚未上传/放行，需用户当次授权后执行。
+- 唯一下一任务：取得当次授权后上传速度优化版本 + 追加放行，并请小米 14 同构建复核“点击立即上屏、同会话反复开关不弹窗、状态文字可重新授权”。
 
 ## 上一批次：六项小程序缺陷修复 + 按类型微信提醒（2026-09-29）
 

@@ -32,6 +32,7 @@ import {
 import {
   requestWechatSubscriptions,
   WechatSubscriptionError,
+  type WechatSubscriptionGrant,
   type WechatSubscriptionStatus,
 } from '../../../../platform/wechat-subscription.js';
 import {
@@ -91,11 +92,14 @@ function createWechatKindRows(
   configuration: WechatSubscriptionConfiguration | undefined,
   statusOverrides: Readonly<Partial<Record<WechatSubscriptionKind, string>>> = {},
   enabled = true,
+  preview?: WechatKindPreview | undefined,
 ): readonly WechatKindRow[] {
   return wechatSubscriptionKindValues.map((kind) => {
     const configured = !!configuration?.[kind];
     // 旧的“接收微信提醒”总开关已移除；历史关闭状态按全部关闭呈现，打开任一类时会重新打开。
-    const checked = configured && enabled !== false && (kinds?.[kind] ?? true) !== false;
+    const stored = configured && enabled !== false && (kinds?.[kind] ?? true) !== false;
+    // 保存中的那一类先按用户点击的结果绘制，失败时清掉预览自动回滚。
+    const checked = configured && (preview?.kind === kind ? preview.checked : stored);
     return {
       checked,
       configured,
@@ -105,6 +109,11 @@ function createWechatKindRows(
         statusOverrides[kind] ?? (configured ? (checked ? '已开启' : '已关闭') : '暂未配置'),
     };
   });
+}
+
+interface WechatKindPreview {
+  readonly checked: boolean;
+  readonly kind: WechatSubscriptionKind;
 }
 
 type NotificationState = 'disabled' | 'empty' | 'error' | 'loading' | 'ready';
@@ -156,6 +165,8 @@ interface NotificationsPageInstance extends InfoMessageHost {
   _wechatKinds?: WechatNotificationKinds | undefined;
   _wechatKindStatus: Partial<Record<WechatSubscriptionKind, string>>;
   _wechatEnabled?: boolean | undefined;
+  _wechatKindGranted?: Set<WechatSubscriptionKind> | undefined;
+  _wechatKindPreview?: WechatKindPreview | undefined;
   readonly data: NotificationsPageData;
   readonly properties: {
     readonly embedded: boolean;
@@ -228,6 +239,8 @@ export function createNotificationsPanelControllerDefinition() {
     _requestSerial: 0,
     observers: {
       groupId(this: NotificationsPageInstance): void {
+        // 换群后旧的会话授权记忆不再适用。
+        this._wechatKindGranted = new Set();
         startLoad(this);
       },
     },
@@ -260,6 +273,8 @@ export function createNotificationsPanelControllerDefinition() {
         this._nextCursor = undefined;
         this._wechatKinds = undefined;
         this._wechatKindStatus = {};
+        this._wechatKindGranted = new Set();
+        this._wechatKindPreview = undefined;
         this.setData({
           wechatKindBusy: '',
           wechatKindRows: createWechatKindRows(undefined, undefined),
@@ -323,6 +338,14 @@ export function createNotificationsPanelControllerDefinition() {
         const kind = event.currentTarget.dataset.kind;
         if (!isWechatSubscriptionKind(kind)) return;
         void toggleWechatKind(this, kind, event.detail.checked);
+      },
+      handleWechatKindReauthorize(
+        this: NotificationsPageInstance,
+        event: { readonly currentTarget: { readonly dataset: { readonly kind?: string } } },
+      ): void {
+        const kind = event.currentTarget.dataset.kind;
+        if (!isWechatSubscriptionKind(kind)) return;
+        void reauthorizeWechatKind(this, kind);
       },
       handleOpenSubscriptionSettings(this: NotificationsPageInstance): void {
         if (!this.data.showSubscriptionSettings) return;
@@ -592,6 +615,10 @@ function initializeRuntimeState(page: NotificationsPageInstance): void {
   if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
   if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
   if (typeof page._nextCursor !== 'string') page._nextCursor = undefined;
+  if (!(page._wechatKindGranted instanceof Set)) page._wechatKindGranted = new Set();
+  if (typeof page._wechatKindStatus !== 'object' || page._wechatKindStatus === null) {
+    page._wechatKindStatus = {};
+  }
 }
 
 function invalidateNotificationRequests(page: NotificationsPageInstance): void {
@@ -729,6 +756,7 @@ function refreshWechatKindRows(page: NotificationsPageInstance): {
       page._subscriptionTemplates,
       page._wechatKindStatus,
       page._wechatEnabled,
+      page._wechatKindPreview,
     ),
   };
 }
@@ -746,7 +774,10 @@ function resolveNextKind(
   );
 }
 
-/** 单个类型开关：打开时申请该模板的一次订阅，关闭时只保存偏好（不发微信请求）。 */
+/**
+ * 单个类型开关：先按点击结果即时绘制（乐观更新），再申请授权/保存偏好。
+ * 同一页面会话里已授权过的类型不再重复弹窗，反复开关是瞬时的；需要新额度时可点状态文字重新授权。
+ */
 async function toggleWechatKind(
   page: NotificationsPageInstance,
   kind: WechatSubscriptionKind,
@@ -763,11 +794,19 @@ async function toggleWechatKind(
   const feedback = captureNotificationFeedback(page);
   const record = captureSubscriptionDiagnosticRecorder();
   const templateId = page._subscriptionTemplates?.[kind] ?? undefined;
+  const previousStatus = page._wechatKindStatus[kind];
+  // 先上屏：开关立刻跟手，授权弹窗与保存都在后面完成。
+  page._wechatKindPreview = { checked, kind };
+  page._wechatKindStatus = {
+    ...page._wechatKindStatus,
+    [kind]: checked ? '正在申请授权…' : '正在保存…',
+  };
   page.setData({
     errorMessage: '',
     infoMessage: '',
     showSubscriptionSettings: false,
     wechatKindBusy: kind,
+    ...refreshWechatKindRows(page),
   });
   try {
     const capability = getClientCapabilitySnapshot();
@@ -778,7 +817,7 @@ async function toggleWechatKind(
     if (checked) {
       if (templateId === undefined || templateId.length === 0) {
         if (!current()) return;
-        page.setData({ wechatKindBusy: '' });
+        clearWechatKindPreview(page, kind, previousStatus);
         showNotificationInfo(
           page,
           '微信订阅模板尚未配置，暂时无法开启该类提醒。',
@@ -787,28 +826,23 @@ async function toggleWechatKind(
         );
         return;
       }
-      const grants = await requestWechatSubscriptions([templateId]);
-      if (!current()) return;
-      const grant = grants.find((item) => item.templateId === templateId) ?? grants[0];
-      if (grant?.status !== 'accepted') {
-        page._wechatKindStatus = {
-          ...page._wechatKindStatus,
-          [kind]: describeSubscriptionStatus(grant?.status),
-        };
-        page.setData({
-          ...refreshWechatKindRows(page),
-          showSubscriptionSettings: grant?.status !== 'blocked',
-          wechatKindBusy: '',
-        });
-        showNotificationInfo(
-          page,
-          grant?.status === 'blocked'
-            ? '微信订阅已被系统封禁，本次订阅未完成。'
-            : '本次未获订阅授权，请在微信设置中检查。',
-          feedback,
-          'error',
-        );
-        return;
+      // 本会话已授权过就不再重复弹窗；一次性额度用尽时用户可点状态文字重新授权。
+      if (!page._wechatKindGranted?.has(kind)) {
+        const grant = await requestWechatKindGrant(page, kind, templateId);
+        if (!current()) return;
+        if (grant.status !== 'accepted') {
+          clearWechatKindPreview(page, kind, describeSubscriptionStatus(grant.status));
+          page.setData({ showSubscriptionSettings: grant.status !== 'blocked' });
+          showNotificationInfo(
+            page,
+            grant.status === 'blocked'
+              ? '微信订阅已被系统封禁，本次订阅未完成。'
+              : '本次未获订阅授权，请在微信设置中检查。',
+            feedback,
+            'error',
+          );
+          return;
+        }
       }
     }
     record({ stage: 'preference', outcome: 'started' });
@@ -828,9 +862,10 @@ async function toggleWechatKind(
     record({ stage: 'preference', outcome: 'saved' });
     page._wechatKinds = preferences.wechatNotificationKinds;
     page._wechatEnabled = preferences.wechatNotificationsEnabled !== false;
+    page._wechatKindPreview = undefined;
     page._wechatKindStatus = {
       ...page._wechatKindStatus,
-      [kind]: checked ? '本次已授权' : '已关闭',
+      [kind]: checked ? describeGrantedStatus(page, kind) : '已关闭',
     };
     page.setData({
       ...refreshWechatKindRows(page),
@@ -839,7 +874,7 @@ async function toggleWechatKind(
     showNotificationInfo(
       page,
       checked
-        ? `已开启${subscriptionLabels[kind]}并完成本次微信授权。`
+        ? `已开启${subscriptionLabels[kind]}。`
         : `已关闭${subscriptionLabels[kind]}，服务端不再发送该类微信提醒。`,
       feedback,
     );
@@ -850,13 +885,142 @@ async function toggleWechatKind(
       setNotificationsDisabled(page, error.message);
       return;
     }
+    clearWechatKindPreview(page, kind, previousStatus);
     page.setData({
-      wechatKindBusy: '',
       showSubscriptionSettings: error instanceof WechatSubscriptionError && error.code === 20004,
     });
     showNotificationInfo(
       page,
       toUserMessage(error, '通知设置暂时无法保存，请稍后重试。'),
+      feedback,
+      'error',
+    );
+  }
+}
+
+/** 清掉乐观预览与保存中状态；失败时用传入文案恢复该行说明。 */
+function clearWechatKindPreview(
+  page: NotificationsPageInstance,
+  kind: WechatSubscriptionKind,
+  statusLabel: string | undefined,
+): void {
+  page._wechatKindPreview = undefined;
+  const nextStatus = { ...page._wechatKindStatus };
+  if (statusLabel === undefined) delete nextStatus[kind];
+  else nextStatus[kind] = statusLabel;
+  page._wechatKindStatus = nextStatus;
+  page.setData({ ...refreshWechatKindRows(page), wechatKindBusy: '' });
+}
+
+/** 申请某一类的一次订阅：成功记入本会话，供后续瞬时开关复用。 */
+async function requestWechatKindGrant(
+  page: NotificationsPageInstance,
+  kind: WechatSubscriptionKind,
+  templateId: string,
+): Promise<WechatSubscriptionGrant> {
+  const grants = await requestWechatSubscriptions([templateId]);
+  const grant = grants.find((item) => item.templateId === templateId) ?? grants[0];
+  const resolved: WechatSubscriptionGrant = grant ?? {
+    granted: false,
+    status: 'unknown',
+    templateId,
+  };
+  if (resolved.status === 'accepted') {
+    initializeRuntimeState(page);
+    page._wechatKindGranted?.add(kind);
+  }
+  return resolved;
+}
+
+/** 已授权的行说明：明确点它可重新申请一次性额度。 */
+function describeGrantedStatus(
+  page: NotificationsPageInstance,
+  kind: WechatSubscriptionKind,
+): string {
+  return page._wechatKindGranted?.has(kind) ? '本次已授权 · 点此重新授权' : '已开启';
+}
+
+/** 点状态文字强制重新申请一次订阅额度（不改变该类的开关状态）。 */
+async function reauthorizeWechatKind(
+  page: NotificationsPageInstance,
+  kind: WechatSubscriptionKind,
+): Promise<void> {
+  if (page.data.wechatKindBusy !== '' || page.data.state !== 'ready') return;
+  initializeRuntimeState(page);
+  const templateId = page._subscriptionTemplates?.[kind] ?? undefined;
+  if (templateId === undefined || templateId.length === 0) {
+    showNotificationInfo(
+      page,
+      '微信订阅模板尚未配置，暂时无法授权该类提醒。',
+      captureNotificationFeedback(page),
+      'error',
+    );
+    return;
+  }
+  const requestSerial = page._requestSerial;
+  const groupId = page.data.groupId;
+  const ownerToken = getStoredWechatToken();
+  const current = () =>
+    isNotificationRequestCurrent(page, requestSerial, groupId) &&
+    ownerToken === getStoredWechatToken();
+  const feedback = captureNotificationFeedback(page);
+  const previousStatus = page._wechatKindStatus[kind];
+  page._wechatKindStatus = { ...page._wechatKindStatus, [kind]: '正在申请授权…' };
+  page.setData({
+    errorMessage: '',
+    infoMessage: '',
+    showSubscriptionSettings: false,
+    wechatKindBusy: kind,
+    ...refreshWechatKindRows(page),
+  });
+  try {
+    const capability = getClientCapabilitySnapshot();
+    if (!capability.global || !capability.externalMessages) {
+      throw new ClientCapabilityDisabledError('externalMessages');
+    }
+    if (!current()) return;
+    const grant = await requestWechatKindGrant(page, kind, templateId);
+    if (!current()) return;
+    page._wechatKindStatus = {
+      ...page._wechatKindStatus,
+      [kind]:
+        grant.status === 'accepted'
+          ? '本次已授权 · 点此重新授权'
+          : (previousStatus ?? describeSubscriptionStatus(grant.status)),
+    };
+    page.setData({
+      ...refreshWechatKindRows(page),
+      showSubscriptionSettings: grant.status !== 'blocked',
+      wechatKindBusy: '',
+    });
+    showNotificationInfo(
+      page,
+      grant.status === 'accepted'
+        ? `已重新授权${subscriptionLabels[kind]}，之后可再发送一条提醒。`
+        : grant.status === 'blocked'
+          ? '微信订阅已被系统封禁，本次订阅未完成。'
+          : '本次未获订阅授权，请在微信设置中检查。',
+      feedback,
+      grant.status === 'accepted' ? 'success' : 'error',
+    );
+  } catch (error) {
+    if (!current()) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setNotificationsDisabled(page, error.message);
+      return;
+    }
+    page._wechatKindStatus = {
+      ...page._wechatKindStatus,
+      [kind]: previousStatus ?? describeSubscriptionStatus('unknown'),
+    };
+    page.setData({
+      ...refreshWechatKindRows(page),
+      showSubscriptionSettings: error instanceof WechatSubscriptionError && error.code === 20004,
+      wechatKindBusy: '',
+    });
+    showNotificationInfo(
+      page,
+      toUserMessage(error, '重新授权暂时失败，请稍后重试。'),
       feedback,
       'error',
     );

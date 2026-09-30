@@ -182,13 +182,15 @@
             ><text class="settings-description"
               >逐类开启需要接收的提醒；打开时会申请该类订阅授权，关闭后不再接收该类微信提醒。</text
             ><view class="wechat-kind-list"
-              ><view
-                wx:for="{{wechatKindRows}}"
-                wx:key="kind"
-                class="wechat-kind-row"
+              ><view wx:for="{{wechatKindRows}}" wx:key="kind" class="wechat-kind-row"
                 ><view class="wechat-kind-copy"
                   ><text class="wechat-kind-label">{{item.label}}</text
-                  ><text class="wechat-kind-status">{{item.statusLabel}}</text></view
+                  ><text
+                    class="wechat-kind-status"
+                    data-kind="{{item.kind}}"
+                    bindtap="handleWechatKindReauthorize"
+                    >{{item.statusLabel}}</text
+                  ></view
                 ><ui-switch
                   checked="{{item.checked}}"
                   label="{{item.label}}"
@@ -196,12 +198,11 @@
                   loading="{{wechatKindBusy === item.kind}}"
                   data-kind="{{item.kind}}"
                   bind:change="handleWechatKindToggle"
-                ></ui-switch></view
-              ></view
+                ></ui-switch></view></view
             ><view class="audit-note"
               ><text class="audit-mark">⌁</text
               ><text
-                >每一类都可单独开启或关闭，互不影响。微信一次性模板每次授权只可发送一条提醒，需要再次接收时可关闭后再开启该类提醒重新授权。</text
+                >每一类都可单独开启或关闭，互不影响。第一次打开会弹出微信授权，同一会话内已授权后再反复开关即时生效；微信一次性模板每次授权只可发送一条提醒，额度用完后可点该行状态文字重新授权（在弹出的授权框里勾选“总是保持以上选择”可免弹窗）。</text
               ></view
             ></view
           ><ui-alert

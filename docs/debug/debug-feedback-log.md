@@ -4,6 +4,12 @@
 
 ## 2026-09-30 NOTIFICATION-KIND-SWITCH-ONLY-001 通知设置只保留按类型开关
 
+### 追加：开关响应速度优化（同日）
+
+- 现象：用户报告每次打开某一类开关都有延迟，怀疑在检测权限。根因：打开方向依次等待微信订阅弹窗与偏好保存 PUT，开关只在两者完成后重绘；关闭方向也要等 PUT。
+- 行为清单：点击后立即乐观重绘（含“正在申请授权…/正在保存…”），失败清预览回滚；同一页面会话内已授权的类型不再重复弹窗、反复开关瞬时生效（换群/离开页面清空记忆）；行状态文字改为可点“重新授权”入口，说明提示可勾选“总是保持以上选择”；契约/API/数据库未改。
+- 红绿与门禁：`notifications-controller.test.mjs` 33 项（新增乐观上屏+失败回滚、会话复用授权只申请一次、强制重新授权不改偏好）通过；`pnpm miniprogram:test` 1306 通过/23 跳过；typecheck/lint/format/production verify（包体 4,447,547 B、manifest `39841506…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
+
 - 需求变化：用户先要求总开关与 5 个独立开关联动，讨论中询问“能否连续弹窗申请”，核实微信 `requestSubscribeMessage` 必须由用户点击触发、单次最多 3 个模板（适配层已有硬校验），随后用户决定**去掉总开关**，只保留独立开关、打开某类即独立授权。联动/三态/3+2 两步方案全部作废，未实现。
 - 行为清单：删除总开关行与其 `busy/enabled/handleToggle/toggleWechatMaster`；行开关打开时同步申请该模板一次订阅，成功后 `PUT` 完整 5 类偏好 + `wechatNotificationsEnabled:true`；关闭时只 `PUT` 完整 5 类偏好；历史总开关关闭状态按全关呈现，打开任一类只开启该类（`resolveNextKind` 单点归一）；保存中只在该行 `loading`，仅未配置模板永久禁用；删除只服务总开关的 `.settings-row/.settings-copy`。契约/API/数据库未改，无迁移。
 - 红绿与门禁：`notifications-controller.test.mjs` 30 项（含新增“历史总开关关闭归一后只开启所点类型且页面不再有总开关字段”）、`workflow-switch-feedback.test.mjs` 23 项（守卫改为断言按行 loading + 未配置才禁用，禁止全局变灰）通过；Mini 全量 1303 通过/23 跳过；typecheck/lint/format/production verify（包体 4,440,213 B、manifest `1d102623…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
