@@ -11,7 +11,7 @@
 - 追加（用户当次指示“允许按压反馈”）：独立通知页每行“已读”按钮 `disabled="{{actionBusyId !== '' && actionBusyId !== item.id}}"`（只有保存中的那一行因 `loading` 变灰），嵌入 Sheet 卡片与“全部已读”的 `hover-class` 改为固定 `is-pressed`；重复点击仍被控制器守卫吞掉。取舍：`ui-button` 的 `aria-disabled` 随 `disabled || loading` 计算，请求窗口内其它行会读作“可用”而点击无效果。
 - 红绿与门禁：两条新用例均在旧模板上失败、修复后通过（`keeps the read-all controls still while a single notification is being marked`、`keeps press feedback on every notification control and only the busy row inactive`；后者回退模板复跑为 `1 failed | 34 passed`）；`notifications-controller.test.mjs` 35 项通过，`pnpm miniprogram:test` 1308 通过/23 跳过（基线 1306/23）；typecheck/lint/format/production verify（包体 4,447,507 B、manifest `91589cee…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
 - 运行/浏览器验证：本轮只改 `apps/miniprogram/**`，未运行 `pnpm smoke:browser`；开发者工具与小米 14 未运行。
-- 交付边界：Mini/文档范围，不触发生产部署或备份；体验版上传 + 只增放行按用户当次授权执行。见 [轮次记录](../audit/notification-readall-flicker-20260930.md)。
+- 交付（用户当次授权）：候选 `939c1d5f` 在独占 warm 槽位冻结并过 checker；`ci:dry-run` 后由 Node `miniprogram-ci` 上传体验版 `0.1.0-p10.20260930.220`（manifest `2d9a5e89…`、description 含短 SHA `939c1d5`、tag `miniprogram-trial/0.1.0-p10.20260930.220`、receipt 见 ignored `runtime/audit/miniprogram-trials/0.1.0-p10.20260930.220.json`）。可信控制 `schedule-client-version-allowlist ensure` 只增追加并通过健康/策略验证，重复 ensure 幂等返回“已存在…未重建容器”；随后 `verify` 与完整 `ecs-verify.sh`（`ECS_PUBLIC_IP=120.77.220.79`）通过。放行前后 live release 均为 `5f25d946`，Mini/文档范围未部署应用、未备份/迁移数据库、未提审、未正式发布。见 [轮次记录](../audit/notification-readall-flicker-20260930.md)。
 
 ## 2026-09-30 NOTIFICATION-KIND-SWITCH-ONLY-001 通知设置只保留按类型开关
 
