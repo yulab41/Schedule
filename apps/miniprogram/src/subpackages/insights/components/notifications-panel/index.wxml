@@ -24,7 +24,7 @@
           <text class="notification-sheet-hint">点按一条通知即可标记为已读</text>
         </view>
         <view
-          class="notification-sheet-read-all {{actionBusyId !== '' ? 'is-disabled' : ''}}"
+          class="notification-sheet-read-all {{actionBusyId === 'all' ? 'is-disabled' : ''}}"
           hover-class="{{actionBusyId !== '' ? 'none' : 'is-pressed'}}"
           aria-role="button"
           aria-label="全部标记为已读"
@@ -253,7 +253,7 @@
             ><ui-button
               variant="secondary"
               label="全部标为已读"
-              disabled="{{actionBusyId !== ''}}"
+              disabled="{{actionBusyId === 'all'}}"
               loading="{{actionBusyId === 'all'}}"
               bindpress="handleMarkAllRead"
             ></ui-button></view

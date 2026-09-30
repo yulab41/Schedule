@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
@@ -547,6 +551,49 @@ describe('notification parity controller', () => {
     expect(page.triggerEvent).toHaveBeenLastCalledWith('unreadchanged', { unreadCount: 0 });
   });
 
+  it('keeps the read-all controls still while a single notification is being marked', async () => {
+    mocks.listNotifications.mockResolvedValue({
+      nextCursor: undefined,
+      notifications: [notification('notice-1', false), notification('notice-2', false)],
+      unreadCount: 2,
+    });
+    const definition = await definitionFor('notifications');
+    const page = pageFor(definition, 'notifications', true);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    let resolveRead;
+    mocks.markNotificationRead.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+    definition.methods.handleMarkRead.call(page, {
+      currentTarget: { dataset: { id: 'notice-1' } },
+    });
+    await vi.waitFor(() => expect(page.data.actionBusyId).toBe('notice-1'));
+
+    // 单条已读只占用它自己的忙碌标记；“全部已读”只在该控件自己的操作进行中改变呈现。
+    const template = notificationsPanelTemplate();
+    expect(template).toContain(
+      "class=\"notification-sheet-read-all {{actionBusyId === 'all' ? 'is-disabled' : ''}}\"",
+    );
+    expect(template).not.toContain(
+      "class=\"notification-sheet-read-all {{actionBusyId !== '' ? 'is-disabled' : ''}}\"",
+    );
+    const listReadAll = template.slice(
+      template.indexOf('label="全部标为已读"'),
+      template.indexOf('bindpress="handleMarkAllRead"'),
+    );
+    expect(listReadAll).toContain('disabled="{{actionBusyId === \'all\'}}"');
+    expect(listReadAll).not.toContain('disabled="{{actionBusyId !== \'\'}}"');
+
+    resolveRead({ ...notification('notice-1', false), isRead: true });
+    await vi.waitFor(() => expect(page.data.actionBusyId).toBe(''));
+    expect(page.data.notifications.find((item) => item.id === 'notice-1').isRead).toBe(true);
+  });
+
   it('does not commit a pending notification response after detaching', async () => {
     let resolveNotifications;
     mocks.listNotifications.mockImplementationOnce(
@@ -947,6 +994,22 @@ async function definitionFor(mode) {
   const module =
     await import('../src/subpackages/insights/components/notifications-panel/controller.ts');
   return module.createNotificationsPanelControllerDefinition(mode === 'settings');
+}
+
+function notificationsPanelTemplate() {
+  return readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'src',
+      'subpackages',
+      'insights',
+      'components',
+      'notifications-panel',
+      'index.wxml',
+    ),
+    'utf8',
+  );
 }
 
 function pageFor(definition, mode, embedded = false) {

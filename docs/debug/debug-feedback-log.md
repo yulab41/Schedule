@@ -2,6 +2,17 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-30 NOTIFICATION-READ-ALL-FLICKER-001 点击通知时“全部已读”闪烁
+
+- 现象：通知中心里点击一条通知，“全部已读”按钮闪一下。
+- 引入点：`git log -S"actionBusyId !== '' ? 'is-disabled'" -- apps/miniprogram` 与 `git show 304d742f -- apps/miniprogram/src/subpackages/insights/components/notifications-panel/index.wxml` 定位到 `304d742f`（2026-08-27 嵌入通知 Sheet 的提交）首次把该绑定写入模板；控制器自 `bb5c88c8` 起就用单个 `actionBusyId` 表示任意进行中的操作。
+- 根因：单条已读会把 `actionBusyId` 设成该通知 ID，而“全部已读”的可见禁用样式绑在 `actionBusyId !== ''` 上，于是每条通知的已读请求都会让该按钮变灰再恢复（嵌入 Sheet 为 opacity .5 瞬变；独立通知页的 `ui-button` 另带 opacity 过渡与 `is-inactive` 配色，闪动更明显）。设计文档只要求覆盖单条/全部两个状态，没有定义这条忙碌外观。
+- 行为清单：嵌入 Sheet 的 `notification-sheet-read-all` 可见禁用样式改为 `actionBusyId === 'all'`；独立通知页的 `全部标为已读` 改为 `disabled="{{actionBusyId === 'all'}}"`（`loading` 原就是 `=== 'all'`）。`hover-class` 与 `aria-disabled` 有意保留 `actionBusyId !== ''`（点击仍被控制器守卫吞掉，读屏语义不变，且不引入新的按压闪烁）。控制器 `if (actionBusyId.length > 0) return;`、请求、未读计数与 `unreadchanged` 事件未改；契约/API/数据库未改。
+- 红绿与门禁：新增 `keeps the read-all controls still while a single notification is being marked` 在旧模板上失败、修复后通过；`notifications-controller.test.mjs` 34 项通过，`pnpm miniprogram:test` 1307 通过/23 跳过（基线 1306/23）；typecheck/lint/format/production verify（包体 4,447,553 B、manifest `4b5305f8…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
+- 运行/浏览器验证：本轮只改 `apps/miniprogram/**`，未运行 `pnpm smoke:browser`；开发者工具与小米 14 未运行。
+- 遗留：独立通知页每行的“已读”按钮仍是 `disabled="{{actionBusyId !== ''}}"`，点击一条会让其它行短暂变灰；改法需先决定是否允许“吞点击但仍显示按压反馈”，本轮未改。见 [轮次记录](../audit/notification-readall-flicker-20260930.md)。
+- 交付边界：Mini/文档范围，不触发生产部署或备份；体验版上传 + 放行待用户当次授权。
+
 ## 2026-09-30 NOTIFICATION-KIND-SWITCH-ONLY-001 通知设置只保留按类型开关
 
 ### 追加：开关响应速度优化（同日）
