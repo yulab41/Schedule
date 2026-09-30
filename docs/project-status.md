@@ -1,6 +1,14 @@
 # Project Status
 
-## 当前批次：点击一条「已读」后其它「已读」按钮闪烁（2026-09-30）
+## 当前批次：全部 warm 槽位恢复（2026-09-30）
+
+- 用户明确授权本地恢复全部7个注册槽位，进入固定锁文件离线维护；基线 origin/main `d888d54a`。Windows版本指纹变化是本次依赖阻断原因，不因新对话安装依赖。
+- 原 general-3 脏工作树完整保留在 ignored external-project-worktrees；原 general-4 分支已合入主线、无进程，通过官方入口释放旧租约。canonical 用户文件保留。
+- 修复非JSON维护丢失下载计数输出；经严格输入、健康与离线命令核验，可收口已完成安装而无需第二次安装。引入点 `fa10d5ba`；回归先红后绿、定向16项及 Codex guard 全量83项通过，core smoke判定未涉及应用链路。详见 [恢复记录](audit/warm-pool-recovery-20260930.md)。
+- 检查点消息：`fix(codex): preserve offline maintenance evidence and finalize completed installs`；本轮代码槽位 general-6 仍持有本轮租约，提交后释放并复验全池，不提前声称7槽全部空闲。未连接生产，未上传小程序。
+- 唯一下一任务与停止条件：完成提交/推送与全池恢复收口，再恢复已批准的账号活跃详情、访客30天留存与小程序全量审查批次；本维护批次不代表业务功能已完成。
+
+## 上一批次：点击一条「已读」后其它「已读」按钮闪烁（2026-09-30）
 
 - 范围：仅微信小程序通知面板模板 + 回归测试 + 文档；独占 warm `runtime/wt/general-6`，REUSE_ONLY，无依赖安装；基线 `origin/main` = `d8fe49bd`（含并行轮次的文案精简 `99c67b8b` 与体验版 `.221`，未覆盖对方改动）。
 - 已修复：独立通知页每行「已读」的 `disabled` 由 `actionBusyId !== '' && actionBusyId !== item.id` 改为 `actionBusyId === item.id`（与 `loading` 同条件）。原条件对“其它行”仍为真，等于继续禁用它们——上一轮按“允许按压反馈”的改写方向写反，所以现象没有消失。现在只有正在保存的那一行变灰转圈，其它行保持正常外观与按压反馈；控制器并发守卫仍在，不会发起第二次请求。契约/API/数据库未改。

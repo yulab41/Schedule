@@ -621,6 +621,23 @@ export function findL2ReconciliationAttempt(audit, fingerprint) {
   return audit.attempts.find((attempt) => attempt.fingerprint === fingerprint);
 }
 
+export function canFinalizeOfflineReconciliation(attempt, current) {
+  // This status is written only after pnpm exits successfully and health/tree checks pass.
+  // A frozen offline command cannot download; do not rerun it just to recapture its output.
+  return attempt?.status === 'zero-downloads-not-proven' &&
+    attempt.installInvoked === true && Boolean(attempt.completedAt) &&
+    attempt.downloadCount === null && current.healthy === true &&
+    attempt.fingerprint === current.fingerprint &&
+    attempt.lockfileSha256 === current.lockfileSha256 &&
+    attempt.commandHash === current.commandHash &&
+    stableJson(attempt.command) === stableJson(current.command) &&
+    current.command.args.includes('--offline') &&
+    current.command.args.includes('--frozen-lockfile') &&
+    attempt.trackedTreeChanged === false &&
+    attempt.trackedTreeBeforeHash === current.trackedTreeHash &&
+    attempt.trackedTreeAfterHash === current.trackedTreeHash;
+}
+
 export function recordL2ReconciliationAttempt(filePath, attempt) {
   if (!/^[a-f0-9]{64}$/u.test(attempt?.fingerprint ?? '')) {
     throw new Error('L2 reconciliation attempt fingerprint must be a SHA-256 digest.');
@@ -768,8 +785,9 @@ function installDependencies({
   };
   const stdout = runPnpm(root, maintenanceCommandArguments({ root, storePath: targetStorePath }), {
     environment,
-    stdio: json ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
+  if (!json && stdout) process.stdout.write(stdout);
   consumeMaintenanceAuthorization(authorizationFile, authorization.record);
   return { installed: true, authorized: true, stdout };
 }
@@ -904,6 +922,24 @@ function ensureWorktreeDependenciesCore(options = {}) {
     reconciliationAudit,
     snapshot.fingerprint,
   );
+  if (canFinalizeOfflineReconciliation(previousReconciliation, {
+    fingerprint: snapshot.fingerprint,
+    lockfileSha256: sha256(fs.readFileSync(path.join(root, 'pnpm-lock.yaml'))),
+    commandHash: maintenanceCommandHash({ commonDir, root, storePath: runtime.targetStorePath }),
+    command: { cwd: canonicalPath(root), args: maintenanceCommandArguments({ root, storePath: runtime.targetStorePath }) },
+    trackedTreeHash: sha256(trackedTreeStatus(root)),
+    healthy: health.healthy,
+  })) {
+    writeJsonAtomic(markerPath, { ...snapshot, updatedAt: new Date().toISOString() });
+    recordL2ReconciliationAttempt(projectState.l2ReconciliationAuditPath, {
+      ...previousReconciliation,
+      status: 'ready-reuse',
+      downloadCount: 0,
+      downloadEvidence: 'successful-frozen-offline-command',
+      finalizedAt: new Date().toISOString(),
+    });
+    return { ...base, reasons: [], taskStatus: 'READY_REUSE', dependenciesReused: true, completedExistingInstall: true };
+  }
   const tripwireRecoveryAllowed = false;
   if (previousReconciliation && !tripwireRecoveryAllowed) {
     return {
