@@ -6,7 +6,8 @@
 - 已修复：独立通知页每行「已读」的 `disabled` 由 `actionBusyId !== '' && actionBusyId !== item.id` 改为 `actionBusyId === item.id`（与 `loading` 同条件）。原条件对“其它行”仍为真，等于继续禁用它们——上一轮按“允许按压反馈”的改写方向写反，所以现象没有消失。现在只有正在保存的那一行变灰转圈，其它行保持正常外观与按压反馈；控制器并发守卫仍在，不会发起第二次请求。契约/API/数据库未改。
 - 引入点与机制：过度禁用源自 `1a428d73`（`304d742f` 沿用）；`ui-button` 的 `is-inactive` 把“白底 + 浅蓝描边”换成“浅灰填充 + 弱化文字 + opacity .72”，因此任一已读请求都会让其余「已读」按钮换色再恢复，即用户看到的“填充快速闪过”。
 - 验证：回归先红后绿（`1 failed | 34 passed` → `35 passed`）；Mini 全量 1308 通过/23 跳过；typecheck/lint/format/production verify（包体 4,446,633 B、manifest `d2036fe1…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-read-button-flicker-20260930.md)；上一轮的更正说明已补进 [read-all 轮次](audit/notification-readall-flicker-20260930.md)。
-- 唯一下一任务与停止条件：如需真机复核，取得当次授权后上传下一体验版并按可信控制只增放行，由小米 14 复核“点一条已读后其它按钮不再闪烁、按下去仍有反馈”；未获授权即停在已推送检查点，不提审、不正式发布。Mini/文档范围，未部署生产，live release 仍为 `5f25d946`（schema 69）。
+- 交付（2026-09-30 用户当次授权）：候选 `025eef76` 由 Node `miniprogram-ci` 上传体验版 `0.1.0-p10.20260930.222`（manifest `de82259b…`、tag `miniprogram-trial/0.1.0-p10.20260930.222`、receipt 在 ignored `runtime/audit/miniprogram-trials/`）；可信控制 `schedule-client-version-allowlist ensure` 只增追加（`.218`–`.221` 保留）且重复 ensure 幂等，`verify` 与完整 `ecs-verify.sh` 通过。放行前后 live release 均为 `5f25d946`（schema 69）：Mini/文档范围未部署应用、未备份/迁移数据库、未提审、未正式发布。
+- 唯一下一任务与停止条件：小米 14 退出重进同构建体验版 `.222@025eef7` 复核“点一条通知的「已读」后，其它「已读」按钮完全不闪、按下仍有反馈，被点的那条自己转圈”；取得同构建真机证据前不写验收通过。
 
 ## 上一批次：通知设置页文字精简（2026-09-30）
 

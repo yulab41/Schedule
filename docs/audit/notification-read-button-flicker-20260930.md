@@ -47,4 +47,26 @@
 ## 交付边界
 
 - 未部署生产、未改契约/API/数据库；Mini/文档范围检查点，不具备触发生产部署或备份的条件。
-- 体验版上传与只增放行需要当次授权，未执行。
+- 体验版上传与只增放行按用户当次授权执行，记录见下节。
+
+## 体验版交付与放行（2026-09-30，用户当次授权）
+
+- 候选：独占 warm 槽位 `runtime/wt/general-6`（REUSE_ONLY，无安装）冻结最终 clean SHA
+  `025eef769c71fa70d8e0e682d8ce34c142ea16fe`（`prepare-release-worktree.mjs --purpose upload` →
+  `check-worktree-safety.ps1 -RequireReady` 输出 `STATE=ready-clean-detached`、`RESULT=PASS`）。
+- 上传：先 `pnpm miniprogram:ci:dry-run`（production、manifest `b17b6279…`），再用仓库外上传私钥执行
+  `pnpm miniprogram:upload-experience`（Node `miniprogram-ci`，未使用开发者工具）。版本由 helper 动态分配为
+  `0.1.0-p10.20260930.222`，描述“修复点击一条已读后其它已读按钮闪烁 025eef7”，profile `production`，
+  上传 manifest `de82259b1a1455ddb4f3ef8e8de6cf111037ef55190d1463e7530e41ed5902f3`，不可变轻量 tag
+  `miniprogram-trial/0.1.0-p10.20260930.222`（远端已确认指向同一 SHA），receipt 见 ignored
+  `runtime/audit/miniprogram-trials/0.1.0-p10.20260930.222.json`；上传日志中 AppID 为 `[REDACTED]`。
+- 放行（只增）：`schedule-client-version-allowlist ensure 0.1.0-p10.20260930.222` 追加 1 个版本，
+  `.218`–`.221` 原样保留；重复执行返回“请求的版本已存在并通过验证；未重建容器。”（幂等、exit 0）。
+  随后 `schedule-client-version-allowlist verify` 与完整 `ecs-verify.sh`（`ECS_PUBLIC_IP=120.77.220.79`）
+  均通过（退出码 0，输出含 `[verify] release=5f25d946…` 与 `[verify] complete`）。
+- 生产身份：放行前后 live release 均为 `5f25d9469a6da6e88da9a244e048b0251f01b864`（schema 69）；
+  本检查点为 Mini/文档范围，未部署应用、未同步 release 元数据、未创建数据库备份、未执行迁移。
+  放行前的白名单控制/verifier 哈希与两次校验结果记录在 ignored
+  `runtime/audit/notification-read-button-flicker-20260930/allowlist-result.json`。
+- 未提交审核、未撤回、未正式发布。证据分层：微信 CI 上传回执、可信放行控制、服务器 verifier 为已验证；
+  小米 14 同构建体验版 `.222@025eef7` 仍待用户真机复核，模拟器/自动化不得替代。

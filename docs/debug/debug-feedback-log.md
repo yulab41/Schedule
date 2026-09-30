@@ -10,7 +10,7 @@
 - 行为清单：独立通知页每行「已读」改为 `disabled="{{actionBusyId === item.id}}"`（与 `loading` 同条件），只有保存中的那一行变灰并转圈，其它行保留正常外观与按压反馈；控制器并发守卫仍在，重复点击不会发起第二次请求。只改模板绑定，未改方法/请求/计数/事件，契约与 API 未改。
 - 红绿与门禁：`keeps press feedback on every notification control and only the busy row inactive` 更新后在旧模板上 `1 failed | 34 passed`，修复后 `35 passed`；`pnpm miniprogram:test` 1308 通过/23 跳过；typecheck/lint/format/production verify（包体 4,446,633 B、manifest `d2036fe1…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
 - 运行/浏览器验证：本轮只改 `apps/miniprogram/**`，未运行 `pnpm smoke:browser`；开发者工具与小米 14 未运行。
-- 交付边界：Mini/文档范围，不触发生产部署或备份；体验版上传 + 只增放行待用户当次授权。见 [轮次记录](../audit/notification-read-button-flicker-20260930.md)。
+- 交付（用户当次授权）：候选 `025eef76` 冻结并过 checker；`ci:dry-run` 后由 Node `miniprogram-ci` 上传体验版 `0.1.0-p10.20260930.222`（manifest `de82259b…`、description 含短 SHA `025eef7`、tag `miniprogram-trial/0.1.0-p10.20260930.222`、receipt 见 ignored `runtime/audit/miniprogram-trials/0.1.0-p10.20260930.222.json`）。可信控制 `schedule-client-version-allowlist ensure` 只增追加（`.218`–`.221` 保留），重复 ensure 幂等返回“已存在…未重建容器”；`verify` 与完整 `ecs-verify.sh`（`ECS_PUBLIC_IP=120.77.220.79`）通过。放行前后 live release 均为 `5f25d946`，Mini/文档范围未部署应用、未备份/迁移数据库、未提审、未正式发布。见 [轮次记录](../audit/notification-read-button-flicker-20260930.md)。
 
 ## 2026-09-30 NOTIFICATION-SETTINGS-COPY-TRIM-001 设置页去掉两处文字
 
