@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/client-core/testing';
+import { getCurrentBusinessDate } from '@schedule/presentation-core';
 import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
-const activeMonth = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
+// China midnight has crossed month, but the duty day changes at 08:00.
+const TEST_NOW = new Date('2026-09-30T16:15:00.000Z');
+const activeMonth = getCurrentBusinessDate().slice(0, 7);
 let livePages = [];
 
 describe('P6-A workbench runtime coordination', () => {
@@ -721,6 +724,9 @@ describe('P6-A workbench runtime coordination', () => {
   });
 
   it('commits the active month before starting best-effort adjacent reads and refreshes on resume', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(TEST_NOW);
+    const activeMonth = '2026-09';
     const storage = createStorage();
     let activeCalendarRequest;
     let activeHolidayRequest;
@@ -1085,6 +1091,9 @@ describe('P6-A workbench runtime coordination', () => {
   });
 
   it('cold-starts from the same-owner 24-hour snapshot when every network read fails', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(TEST_NOW);
+    const activeMonth = '2026-09';
     const now = Date.now();
     const cachedCalendar = calendar(activeMonth);
     cachedCalendar.members = cachedCalendar.members.map((member) => {

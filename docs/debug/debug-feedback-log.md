@@ -3415,3 +3415,11 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 回归先红后绿：旧模型/两页结构3失败后通过，换群回调1失败后通过；新增15项。最终Mini1328通过/23跳过，完整pnpm verify及production verify通过；Node护士首次节点24059→3899，非手机帧时间。运行/浏览器验证：pnpm smoke:check-core通过；本轮未触及Web/契约核心，不要求pnpm smoke:browser。Agent开发者工具部分几何已读，最终同构建运行/小米14暂未验证。详见[轮次记录](../audit/calendar-list-switch-20260930.md)。
 
 交付更新：0848a3da业务/c0c1463b血缘proof已正常推送main；proof既有测试先红后绿，44定向与图标/production verify通过。`.224@c0c1463`正式CI上传，Manifest7acf6472…，可信ensure只增放行、完整ecs verifier通过，`.224/.223`200、合法未知426，live仍dbe35288。最终Agent DevTools真实首页护士/医生ready，坐标月周列表切换、定位、筛选43行通过；匿名访客码未取得、快滚/帧时间和小米14暂未验证。主目录1344跟踪删除现场保留；用户确认运行CCleaner健康/自定义清理，但日志不能归因，不写已确认误删。
+
+## RECOVERY-CLOCK-001 主目录恢复与月初凌晨测试口径（2026-10-01）
+
+用户授权后，备份现场/index/旧提交图，恢复1344个缺失跟踪文件并快进最新c460520f；1939个已有跟踪路径齐全、181个保留文件不变。173个恢复文件原始哈希等于index，明确路径刷新旧状态缓存后干净；提交图缓存重建、正常fsck通过。未安装依赖，独占warm general-1完成开发验证。
+
+首轮verify的2项失败源于测试自然月和08:00值班月错位。`git log -S 'const activeMonth'`/blame：测试9e3a966c，业务日期变更528722f4。固定10月1日00:15北京时间后旧口径2失败；仅测试取月复用既有getCurrentBusinessDate，两个用例局部冻结Date并独立断言9月，保留真实计时和原断言；31通过。全suite冻结曾干扰护士用例自有假计时器，已回退该尝试。
+
+最终Mini1328通过/23跳过，根1368通过/476跳过，Codex83、文档/范围9项通过；格式/lint/build/typecheck/图标通过。运行/浏览器验证：pnpm smoke:check-core通过，Mini测试/文档范围不要求pnpm smoke:browser。没有业务/API/契约/数据库变更；完整证据、回执与未知未跟踪文件恢复限制见[恢复记录](../audit/source-recovery-20261001.md)。本轮不连接生产，不重新上传，实体日历验收仍待同构建用户证据。
