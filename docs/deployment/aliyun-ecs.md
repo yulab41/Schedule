@@ -55,7 +55,7 @@ bash "$SCRIPT_DIR/ecs-update.sh" \
 bash "$SCRIPT_DIR/ecs-verify.sh"
 ```
 
-发布前必须先备份生产数据库和当前 release。发布失败时保留上一份可用 release，不要删除其他站点的容器或配置。部署后的显式应用回滚只接受当前 manifest 中的单一审计前驱，并在回退前再做数据库备份、artifact/hash/path/schema 兼容检查；回退后完整校验失败会自动前滚原版本：
+发布前必须先备份生产数据库和当前 release。 `ecs-update.sh` 只保留应用文件和控制面，**不会代做数据库备份**。在上传/执行 updater 或 reuse-release 前，单独调用已安装的 `bash /usr/local/lib/schedule/schedule-backup.sh`，核实成功返回的 archiveId/tableCount；备份失败禁止部署。发布失败时保留上一份可用 release，不要删除其他站点的容器或配置。部署后的显式应用回滚只接受当前 manifest 中的单一审计前驱，并在回退前再做数据库备份、artifact/hash/path/schema 兼容检查；回退后完整校验失败会自动前滚原版本：
 
 ```bash
 sudo schedule-ecs-rollback <当前manifest声明的40位rollbackCandidate>

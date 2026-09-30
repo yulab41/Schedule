@@ -3405,3 +3405,5 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 引入点：列表竞态c0ea31e97/98aa0910b（git log -S与blame定位）；构建collectTypeScriptEntryPoints为3884713b，bundled-only过滤4d8a38e9/e6ef714bc。先红后绿证据与风险见[审计记录](../audit/account-activity-retention-20260930.md)。行为变化：按需详情与成功会话统计；前台唯一事件及服务端身份事务去重；访客/回执30天；移除无入口独立输出；列表旧响应/卸载守卫。26测试清理器仅补新表DROP；无架构迁移。
 
 运行/浏览器验证：pnpm smoke:browser（2026-09-30，warm general-6，本地API3105/Web4175，schema70）七阶段全部通过、浏览器无错误；本地合成平台角色finally恢复。完整pnpm verify、真实DB独立99项、production verify和上传干跑通过。开发者工具只证明局部WXML/WXSS编译，小米14/启动性能暂未验证。
+
+ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两次完整生产verifier通过。操作偏差：updater只备份应用文件，首次部署前漏建新DB备份，已有f84ddfca保留，发现后补做4f1a4747（57表），详见审计记录；不伪称迁移前新备份。DevTools最终构建账号详情page handler展开7项/收起、首页/访客ready、manual editor；selector点击未证实、无真机验收。文档同步须独立先运行数据库备份控制再复用元数据。

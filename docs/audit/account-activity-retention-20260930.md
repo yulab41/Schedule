@@ -132,8 +132,16 @@
 - 真实MySQL独立99项通过（activity7、visitor15、privacy6、WeChat26、admin-binding8、migration30、password-identity7）；并发用8连接，跨日、重复/并发、回滚、权限、切账号、过期重放、统计故障、边界游标、分批/匿名汇总覆盖。HTTP6项覆盖主/自动登录、会话恢复、失败及脱敏；Mini运行时/详情回归覆盖匿名转成员、退出/后台、关闭/重试/迟到响应。
 - 运行/浏览器验证：pnpm smoke:browser 七阶段全部通过，浏览器无错误。只使用本地合成数据，临时平台角色finally恢复。Web原核心流程兼容；提交前smoke:check-core复核。
 - production verify通过（包体预算/性能预算/确定性，Worklets0），CI上传干跑通过。桌面矩阵约0.60ms、点击0.14ms只代表Node逻辑基准；不代表微信启动、帧率或手机性能。
-- Agent开发者工具：项目打开、平台账号WXML/WXSS局部编译ok。Console/Network/冷启动/真实页面性能当前未取得可用测量，暂未验证。小米14同构建验收需用户实际证据；无全平台兼容结论。
+- Agent开发者工具：最终 `.223@3155347` 构建刷新后首页ready、平台账号列表ready/default折叠；通过原生page handler展开得到empty/7字段（该账号无历史），收起0字段；带当前群组上下文的访客页ready、手动排班editor。仅记录状态/数量，无个人信息。selector点击超时，故处理器验证不当作实际点击/视觉验收。Console/Network/冷启动/真实页面性能未取得可用测量，暂未验证。小米14同构建验收需用户实际证据；无全平台兼容结论。
 
 ## 交付与唯一下一任务
 
-本地实现及运行验证完成。检查点消息：feat(activity): add account details and 30-day visitor retention。下一任务：审查/提交/正常推送此候选，实时核对生产前驱并备份后部署schema70及既有留存任务、完整生产验证，然后官方分配新不可变体验版并只增放行保留旧版。完成交付后停止修改，等待小米14同构建账号详情/登录与前台计数/访客边界及核心路径证据；不提审、不正式发布。
+应用检查点 **31553474f9049f545d43ac80daa975480b2821d8**（feat(activity): add account details and 30-day visitor retention）正常快进推送main。生产实测前驱 **5f25d9469a6da6e88da9a244e048b0251f01b864**，schema69→70；仅同步提交代码/迁移，无本地数据库、凭据或会话上传。应用文件及前驱release由updater保留，完整独立verifier通过，30天访客/回执过期数均0，既有隐私任务runId 3f711239-e05a-4ce1-bfad-18a13822ab6d，本次访客清理0条。
+
+**操作偏差：本次应用部署前漏建新的数据库备份。** 执行者误将updater的应用文件备份当作数据库备份；不能称已满足“先新备份再迁移”。部署前已有的自动备份 f84ddfca-8ec5-4c34-a42e-880e18889166（UTC 2026-09-29 19:30:12.690，56表/139841140 B）仍保留。发现后补做数据库备份 **4f1a4747-b6ea-4bb2-ab17-e81b3176e4c2**（UTC 2026-09-30 11:40:28.913，57表/141136332 B），独立验证通过。此次迁移仅新增两张表、访客删除0条，无回滚/历史数据重算。收口文档同步前将单独再运行已安装数据库备份控制；runbook追加明确命令，避免再次依赖updater代做数据库备份。
+
+体验版 **0.1.0-p10.20260930.223@3155347** 成功上传（UTC 2026-09-30T11:39:20.771Z，production/clean/WebView，manifest **b171c2f194dccd9e3f192451f732575cd95a1729e64cf80a827745becd24d650**）。正式分配器锁内分配、不可变allocation/manifest/tag/receipt均保留；说明“账号活跃详情、访客30天、包体优化 3155347”。服务器可信ensure只增追加，verify及放行后完整ecs-verify通过；新.223=200、保留.222=200、未知9.9.9-activity-unknown=426，不删/替换旧版。
+
+版本绑定后的包体复核 **3956712 B**：main1173416、scheduling432809、organization856758、workflows533817、insights959912；与前面未绑定版本的对比相差1675 B是发布身份/描述元数据，不能混用测量口径。上传服务压缩buffer2116851 B为不同口径。候选安全检查production-clean/精确SHA/lease/version再次通过。
+
+收口文档检查点消息：**docs(audit): close account activity and 30-day retention delivery**。按已授权计划，通过内容哈希门禁复用应用产物同步生产身份，功能/体验版仍绑定3155347；最终元数据同步凭据保存在ignored运行证据中。唯一下一任务：小米14退出重进同构建.223，复核详情展开/收起、自动/主动登录与每次进前台计数、访客最近30天及首页/排班。取得实际证据前状态为待用户复核；不提审、不正式发布。
