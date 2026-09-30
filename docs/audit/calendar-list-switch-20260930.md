@@ -57,6 +57,14 @@
 
 用户回复不是主动整理、要求保留并调查。只读调查：1344个跟踪删除，apps子目录时间约22:13:07、canonical node_modules只剩.vite（22:13:36）；本轮工具记录无对应删除调用，现有进程无法归因，PowerShell历史最后更新9月28日无匹配删除、Security4663无匹配事件。维护入口仅删除租约文件，不能据此指认。尚未确定执行程序/原因，不归咎用户或推断恶意；不恢复/安装/清理主目录。缺文件清单及SHA256 `a20e28f0…` 保存在ignored canonical runtime/audit/calendar-switch-20260930。
 
+用户补充刚运行过CCleaner64，列为待证实原因。定向只读查看其portable配置/现有日志：没有指向Schedule或node_modules的Include项；进程/用户/系统TEMP与TMP均未指向Schedule。可取得日志未提供22:13删除路径或进程归因，不因用户提出猜测就写成已确认。未再次执行清理，未改清理配置。
+
+## 上传血缘收口
+
+业务检查点`0848a3da`已正常推送任务分支及main。第一次真实上传在分配前被checkpoint5285dd1源码proof拒绝，未占用版本、未调用微信上传。按`mini-trial-upload-route`正式pitfall释放原冻结租约，再Acquire实际返回general-1（REUSE_ONLY/mini bootstrap，无安装）。在新租约中单独刷新proof为当前committed首页blob`53a315b4…`，保留所有必需检查点、祖先与exact blob门禁。
+
+AST比较旧proof`b91c6cd7…`与0848a3da：149函数中仅7个批准调用点变化（onHide/onUnload/handleViewChange/activatePrimaryWorkspace/setCalendarData/createViewPatch/resetCalendarContext），其余142相同；全部导航/swiper/period commit/定位/滚动方法及另两项图标motion文件不变。不是整文件语义等价声明。现有proof回归先红后绿，6个定向文件44项通过、icon parity与production verify通过。独立检查点消息`chore(release): refresh calendar performance lineage proof`；最终候选以该提交clean SHA分配版本，业务源码仍是0848a3da。
+
 ## 最终未绑定版本产物最大20文件（字节）
 
 旧槽位快照总包3953180B，构建身份元数据不同于主表初始3955038B，下面旧列仅作实际文件排序参考，不拿它复算主表包体差；优化列来自最终production verify产物3963165B。
