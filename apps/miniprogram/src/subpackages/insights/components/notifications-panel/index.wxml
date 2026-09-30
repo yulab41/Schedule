@@ -116,7 +116,7 @@
         ></view>
         <view wx:else class="settings-content"
           ><view class="page-heading"
-            ><text class="section-eyebrow">提醒节奏</text><text class="page-title">通知设置</text
+            ><text class="page-title">通知设置</text
             ><text class="page-description"
               >站内通知始终可用；微信订阅仅在你点击对应通知的授权按钮时申请。</text
             ></view
@@ -198,13 +198,7 @@
                   loading="{{wechatKindBusy === item.kind}}"
                   data-kind="{{item.kind}}"
                   bind:change="handleWechatKindToggle"
-                ></ui-switch></view></view
-            ><view class="audit-note"
-              ><text class="audit-mark">⌁</text
-              ><text
-                >每一类都可单独开启或关闭，互不影响。第一次打开会弹出微信授权，同一会话内已授权后再反复开关即时生效；微信一次性模板每次授权只可发送一条提醒，额度用完后可点该行状态文字重新授权（在弹出的授权框里勾选“总是保持以上选择”可免弹窗）。</text
-              ></view
-            ></view
+                ></ui-switch></view></view></view
           ><ui-alert
             wx:if="{{errorMessage}}"
             tone="danger"

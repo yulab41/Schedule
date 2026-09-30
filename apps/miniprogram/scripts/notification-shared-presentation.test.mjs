@@ -38,7 +38,9 @@ describe('notification shared presentation parity', () => {
     expect(template).toContain('handleSaveGroupSettings');
     expect(template).toContain('handleSaveMyPreferences');
     expect(template).toContain('item.typeTone');
-    expect(template).toContain('提醒节奏');
+    // 设置页按用户要求去掉小标题与底部说明段落，只保留标题、字段与开关。
+    expect(template).not.toContain('提醒节奏');
+    expect(template).not.toContain('audit-note');
     expect(template).toContain('使用群组默认');
     expect(template).toContain('关闭值班提醒');
   });

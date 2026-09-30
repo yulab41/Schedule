@@ -48,3 +48,10 @@
 - 交付：应用检查点 `19e16565` 已推送 `origin/main`；体验版 `0.1.0-p10.20260930.219`（描述“微信提醒开关即时上屏与会话内复用授权 19e1656”、production、manifest `81b1e95cc9ec4b783b7d8036727afc2f002ff24cb00a31fd45bd40a87a6e14c0`、不可变 tag `miniprogram-trial/0.1.0-p10.20260930.219`）上传成功。
 - 放行（2026-09-30 用户当次授权）：可信控制 `schedule-client-version-allowlist ensure 0.1.0-p10.20260930.219` 只增追加并通过健康与策略验证，`verify` 再次通过，随后完整 `ecs-verify.sh` 通过（本次遥测保留检查 0 条过期记录，无需人工干预）。本检查点为 Mini/文档范围：未触发生产部署、数据库备份或 release 元数据同步，生产 live release 仍为 `5f25d946`（schema 69）；未提审、未正式发布。
 - 证据分层：微信 CI 上传回执、可信放行控制、服务器 verifier 均为已验证；小米 14 同构建体验版 `.219@19e16565` 仍待用户真机复核。
+
+## 设置页文字精简（2026-09-30，用户截图红框）
+
+- 用户要求去掉两处文字：页面小标题“提醒节奏”，以及「微信提醒授权」卡片底部的长说明段落。
+- 改动：`notifications-panel/index.wxml` 删除该小标题与整段 `audit-note`（含 `⌁` 标记）；`index.wxss` 清理随之无引用的 `.audit-note/.audit-mark` 规则与大字号分支。设置页现在只保留「通知设置」标题、顶部一行说明、群组/我的提醒卡片与 5 行按类型开关。
+- 可发现性：删除说明段落后，“重新授权”入口仍由每行状态文字承载（如“本次已授权 · 点此重新授权”），功能未变。
+- 测试：`notification-shared-presentation` 改为断言模板不再包含“提醒节奏/audit-note”，`p9-notification-settings-native` 改为断言「微信提醒授权」存在且无 `audit-note`；Mini 全量 1308 通过/23 跳过，`typecheck`/`lint`/`format:check`/`miniprogram:verify`（包体 4,446,656 B、manifest `7619a5f6…`）通过，`smoke:check-core` 判定未涉及核心链路。改动与并行任务的 read-all 闪烁修复（`637c628e`/`939c1d5f`）不冲突。

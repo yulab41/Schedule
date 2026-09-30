@@ -58,7 +58,8 @@ describe('P9 native notification settings', () => {
 
     expect(template).toContain('正在读取通知设置');
     expect(template).toContain('通知提醒暂未开放');
-    expect(template).toContain('每一类都可单独开启或关闭');
+    expect(template).toContain('微信提醒授权');
+    expect(template).not.toContain('audit-note');
     expect(template).toContain('订阅暂未就绪');
     expect(template).toContain('bind:change="handleWechatKindToggle"');
     expect(controller).toContain("case 'accepted':");

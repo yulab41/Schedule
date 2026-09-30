@@ -431,7 +431,6 @@
   font-weight: var(--ui-font-weight-semibold);
 }
 .settings-description,
-.audit-note,
 .template-note-copy {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
@@ -496,19 +495,6 @@
 .reminder-mode.is-off .reminder-mode-indicator {
   transform: translateX(calc(200% + 6px));
 }
-.audit-note {
-  display: flex;
-  margin-top: 14px;
-  padding-top: 12px;
-  align-items: flex-start;
-  gap: 7px;
-  border-top: 1px solid var(--ui-color-border);
-}
-.audit-mark {
-  color: var(--ui-color-primary);
-  font-size: 18px;
-  line-height: 20px;
-}
 .template-note {
   box-sizing: border-box;
   padding: 16px;
@@ -541,7 +527,6 @@
 }
 .is-large-text .page-description,
 .is-large-text .settings-description,
-.is-large-text .audit-note,
 .is-large-text .template-note-copy,
 .is-large-text .notification-body,
 .is-large-text .notification-time,
