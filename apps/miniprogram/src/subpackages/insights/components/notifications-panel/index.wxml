@@ -270,7 +270,7 @@
                 variant="secondary"
                 label="已读"
                 data-id="{{item.id}}"
-                disabled="{{actionBusyId !== '' && actionBusyId !== item.id}}"
+                disabled="{{actionBusyId === item.id}}"
                 loading="{{actionBusyId === item.id}}"
                 bindpress="handleMarkRead"
               ></ui-button></view

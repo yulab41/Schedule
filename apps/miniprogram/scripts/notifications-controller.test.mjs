@@ -603,11 +603,10 @@ describe('notification parity controller', () => {
       template.indexOf('label="已读"'),
       template.indexOf('bindpress="handleMarkRead"'),
     );
-    // 只有正在保存的那一行变灰；其它行保持可按压，重复点击仍由控制器守卫吞掉。
-    expect(listRowRead).toContain(
-      'disabled="{{actionBusyId !== \'\' && actionBusyId !== item.id}}"',
-    );
+    // 只有正在保存的那一行变灰；其它行保持正常外观与按压反馈，重复点击仍由控制器守卫吞掉。
+    expect(listRowRead).toContain('disabled="{{actionBusyId === item.id}}"');
     expect(listRowRead).toContain('loading="{{actionBusyId === item.id}}"');
+    expect(listRowRead).not.toContain("actionBusyId !== ''");
   });
 
   it('does not commit a pending notification response after detaching', async () => {

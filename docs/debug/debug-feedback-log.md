@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-09-30 NOTIFICATION-READ-BUTTON-FLICKER-001 点一条已读后其它已读按钮闪烁
+
+- 现象：通知中心里点一条通知的「已读」按钮后，其它「已读」按钮也会闪一下（浅蓝/浅灰填充快速闪过）。
+- 引入点：原始过度禁用来自 `1a428d73`（`disabled="{{actionBusyId !== ''}}"`，`304d742f` 沿用）；本轮之前那次修复 `939c1d5f` 按“允许按压反馈”改写时条件写反成 `actionBusyId !== '' && actionBusyId !== item.id`——对“其它行”仍求值为真，等于继续禁用它们，所以现象没有消失。
+- 根因机制：`ui-button` 用 `disabled || loading` 决定 `is-inactive`；`.is-inactive` 把「白底 + 浅蓝描边 `--ui-color-primary-border: #b9d8ff`」换成「浅灰填充 `--ui-color-surface-muted: #f8fafc` + 弱化文字 + opacity .72」。任一通知的已读请求都会让其余所有「已读」按钮换成这套配色再恢复，窗口长度等于一次 `markNotificationRead` 往返。
+- 行为清单：独立通知页每行「已读」改为 `disabled="{{actionBusyId === item.id}}"`（与 `loading` 同条件），只有保存中的那一行变灰并转圈，其它行保留正常外观与按压反馈；控制器并发守卫仍在，重复点击不会发起第二次请求。只改模板绑定，未改方法/请求/计数/事件，契约与 API 未改。
+- 红绿与门禁：`keeps press feedback on every notification control and only the busy row inactive` 更新后在旧模板上 `1 failed | 34 passed`，修复后 `35 passed`；`pnpm miniprogram:test` 1308 通过/23 跳过；typecheck/lint/format/production verify（包体 4,446,633 B、manifest `d2036fe1…`）通过；`smoke:check-core` 判定未涉及核心链路文件。
+- 运行/浏览器验证：本轮只改 `apps/miniprogram/**`，未运行 `pnpm smoke:browser`；开发者工具与小米 14 未运行。
+- 交付边界：Mini/文档范围，不触发生产部署或备份；体验版上传 + 只增放行待用户当次授权。见 [轮次记录](../audit/notification-read-button-flicker-20260930.md)。
+
 ## 2026-09-30 NOTIFICATION-SETTINGS-COPY-TRIM-001 设置页去掉两处文字
 
 - 需求：用户截图红框标注两处文字——页面小标题“提醒节奏”、「微信提醒授权」卡片底部整段说明——要求删除。

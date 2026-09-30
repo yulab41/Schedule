@@ -1,6 +1,14 @@
 # Project Status
 
-## 当前批次：通知设置页文字精简（2026-09-30）
+## 当前批次：点击一条「已读」后其它「已读」按钮闪烁（2026-09-30）
+
+- 范围：仅微信小程序通知面板模板 + 回归测试 + 文档；独占 warm `runtime/wt/general-6`，REUSE_ONLY，无依赖安装；基线 `origin/main` = `d8fe49bd`（含并行轮次的文案精简 `99c67b8b` 与体验版 `.221`，未覆盖对方改动）。
+- 已修复：独立通知页每行「已读」的 `disabled` 由 `actionBusyId !== '' && actionBusyId !== item.id` 改为 `actionBusyId === item.id`（与 `loading` 同条件）。原条件对“其它行”仍为真，等于继续禁用它们——上一轮按“允许按压反馈”的改写方向写反，所以现象没有消失。现在只有正在保存的那一行变灰转圈，其它行保持正常外观与按压反馈；控制器并发守卫仍在，不会发起第二次请求。契约/API/数据库未改。
+- 引入点与机制：过度禁用源自 `1a428d73`（`304d742f` 沿用）；`ui-button` 的 `is-inactive` 把“白底 + 浅蓝描边”换成“浅灰填充 + 弱化文字 + opacity .72”，因此任一已读请求都会让其余「已读」按钮换色再恢复，即用户看到的“填充快速闪过”。
+- 验证：回归先红后绿（`1 failed | 34 passed` → `35 passed`）；Mini 全量 1308 通过/23 跳过；typecheck/lint/format/production verify（包体 4,446,633 B、manifest `d2036fe1…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-read-button-flicker-20260930.md)；上一轮的更正说明已补进 [read-all 轮次](audit/notification-readall-flicker-20260930.md)。
+- 唯一下一任务与停止条件：如需真机复核，取得当次授权后上传下一体验版并按可信控制只增放行，由小米 14 复核“点一条已读后其它按钮不再闪烁、按下去仍有反馈”；未获授权即停在已推送检查点，不提审、不正式发布。Mini/文档范围，未部署生产，live release 仍为 `5f25d946`（schema 69）。
+
+## 上一批次：通知设置页文字精简（2026-09-30）
 
 - 范围：仅微信小程序通知设置面板模板/样式 + 回归测试 + 文档；独占 warm `runtime/wt/general-6`，REUSE_ONLY，无依赖安装；基线 `origin/main` = `34cb6475`。
 - 已实现（用户截图红框）：删除设置页小标题“提醒节奏”与「微信提醒授权」卡片底部整段说明，并清理无引用的 `.audit-note/.audit-mark` 样式；每行状态文字“本次已授权 · 点此重新授权”继续承载重新授权入口，功能不变。
