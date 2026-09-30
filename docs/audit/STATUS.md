@@ -4,7 +4,7 @@
 
 - 范围：首页与匿名访客共享日历路径；完整warm general-6，REUSE_ONLY、无安装，基线dbe35288。确认整月三面板人员节点和隐藏视图重复计算。仅延后屏幕外内容，保留行外壳和日期；当前视图按需建模，离页/换群断开观察，缺API/异常/大字号完整回退。
 - Node基线/复测：护士20人×30天×3月，首次节点24059→3899（-83.79%）；医生3899→1127。总包3955038→3963165B（+0.21%），分包不变。不是手机切换耗时；已滚过内容会累积，离开列表重置。
-- 最终Mini1328通过/23跳过；新增15项及先红后绿；完整pnpm verify、production verify、性能预算、确定性、上传干跑和core smoke通过。开发者工具仅取得部分合成结构/行高；最终真实页面、快滚帧时间、小米14暂未验证。证据/风险/引入点见[轮次报告](calendar-list-switch-20260930.md)。
+- 最终Mini1328通过/23跳过；新增15项及先红后绿；完整pnpm verify、production verify、性能预算、确定性、上传干跑和core smoke通过。最终开发者工具已有真实首页辅助运行证据，见下方；匿名访客、快滚帧时间、小米14暂未验证。证据/风险/引入点见[轮次报告](calendar-list-switch-20260930.md)。
 - 检查点消息 `perf(miniprogram): defer offscreen list content and scope calendar rendering`；用户当次要求工具构建放行，交付用新分配不可变体验版追加放行，保留旧版本，不部署API/Web应用。本轮主目录出现大量跟踪源码删除，保持用户现场，使用完整warm槽位交付。
 - 业务0848a3da已正常推送main；旧首页proof在版本分配前拒绝，按正式pitfall换general-1新租约独立刷新proof（7函数批准变化，其余142相同），44项/图标/production verify通过。检查点消息`chore(release): refresh calendar performance lineage proof`，不弱化门禁。主目录1344删除现场已留存；CCleaner可能原因尚未证实。
 - 已交付`.224@c0c1463`，Manifest7acf6472…，上传/候选检查通过；只增放行、`.224/.223`200、合法未知426，完整生产verifier通过，live仍dbe35288。未部署应用/迁移/备份数据库；配置按既有控制重建容器。收口文档消息`docs(audit): close calendar list performance trial delivery`。
