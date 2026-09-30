@@ -5,8 +5,8 @@
 - 用户明确授权本地恢复全部7个注册槽位，进入固定锁文件离线维护；基线 origin/main `d888d54a`。Windows版本指纹变化是本次依赖阻断原因，不因新对话安装依赖。
 - 原 general-3 脏工作树完整保留在 ignored external-project-worktrees；原 general-4 分支已合入主线、无进程，通过官方入口释放旧租约。canonical 用户文件保留。
 - 修复非JSON维护丢失下载计数输出；经严格输入、健康与离线命令核验，可收口已完成安装而无需第二次安装。引入点 `fa10d5ba`；回归先红后绿、定向16项及 Codex guard 全量83项通过，core smoke判定未涉及应用链路。详见 [恢复记录](audit/warm-pool-recovery-20260930.md)。
-- 检查点消息：`fix(codex): preserve offline maintenance evidence and finalize completed installs`；本轮代码槽位 general-6 仍持有本轮租约，提交后释放并复验全池，不提前声称7槽全部空闲。未连接生产，未上传小程序。
-- 唯一下一任务与停止条件：完成提交/推送与全池恢复收口，再恢复已批准的账号活跃详情、访客30天留存与小程序全量审查批次；本维护批次不代表业务功能已完成。
+- 修复检查点 `feeed8e8`（`fix(codex): preserve offline maintenance evidence and finalize completed installs`）已正常快进推送 main；7槽逐槽35项验证通过，释放代码租约后全池实测7/7 free/detached/clean/compatible、无租约与进程。收口文档提交消息 `docs(audit): close all warm slot recovery`，文档收口再次申请时直接复用8个共享 producer，未安装。
+- 当前维护批次已完成，收口后释放文档租约。唯一下一任务与停止条件：恢复已批准的账号活跃详情、访客30天留存与小程序全量审查批次；本维护批次不代表业务功能已完成。未连接生产，未上传小程序。
 
 ## 上一批次：点击一条「已读」后其它「已读」按钮闪烁（2026-09-30）
 

@@ -31,8 +31,11 @@
 - `node --test scripts/codex/*.test.mjs`：83/83通过；`node --check` 与 `git diff --check` 通过。
 - 实际使用非JSON维护入口恢复 icon-parity-1：输出 `Already up to date`，成功生成新指纹并通过 ReuseOnly。
 - `pnpm smoke:check-core`：未涉及应用核心链路，无需浏览器冒烟；没有声称执行小程序或实体设备验收。
-- 已完成槽位的实际 Acquire、root bootstrap、5项 pool policy 测试、Release 日志逐槽保存；最终全池收口状态将在提交并释放本轮代码槽位后补记，不把仍由本轮占用的 general-6 写成已空闲。
+- 7槽均实际完成 Acquire、root bootstrap、5项 pool policy 测试及 Release，共35项逐槽验证通过，未重新安装依赖。general-1 验证脚本同进程释放曾被进程守卫拒绝；脚本退出后通过官方 Release 正常释放，后续申请使用独立短进程避免自占用。
+- 修复提交并释放代码槽位后，全池 Status 实测：`registeredWarmSlots=7`、`availableSlots=7`、`occupiedSlots=0`、`maxNoInstallConcurrency=7`；所有槽位 free/detached/clean/compatible，无活跃进程，独立 node_modules 与 modules.yaml 均有效。
 
 ## 检查点与下一步
 
-检查点消息：`fix(codex): preserve offline maintenance evidence and finalize completed installs`。提交后正常快进推送主线并释放本轮租约，复验全池。恢复完成后，唯一业务下一批次仍为已批准的“平台账号活跃详情、访客30天留存、小程序全量审查与最小修复”，本维护批次不代表这些业务需求已实现。
+修复检查点 `feeed8e8`（`fix(codex): preserve offline maintenance evidence and finalize completed installs`）已正常快进推送 main。收口文档检查点消息为 `docs(audit): close all warm slot recovery`；文档租约再次 Acquire 直接复用全部8个共享 producer，未安装，收口后释放。
+
+全部槽位已恢复；唯一业务下一批次仍为已批准的“平台账号活跃详情、访客30天留存、小程序全量审查与最小修复”，本维护批次不代表这些业务需求已实现。原未提交配置保留在上述外部工作树，不提交、不清理。当前 L2 不操作生产、上传、放行或提审。
