@@ -132,6 +132,7 @@ export interface WorkbenchWeekPanel {
 }
 
 export interface WorkbenchListDay {
+  readonly renderDuties?: boolean;
   readonly businessDate: string;
   readonly dateLabel: string;
   readonly duties: readonly WorkbenchDuty[];
@@ -184,6 +185,7 @@ export interface WorkbenchWeekShiftGroup {
   readonly duties: readonly WorkbenchDuty[];
 }
 export interface WorkbenchDisplayOptions {
+  readonly view?: 'month' | 'week' | 'list' | 'details';
   readonly monthPreferencePending?: boolean;
   readonly nursePreset?: boolean;
   readonly effectiveMonthShiftTypeId?: string | null;
@@ -295,6 +297,8 @@ export function createWorkbenchViewModel(
   options: WorkbenchDisplayOptions = {},
 ): WorkbenchViewModel {
   const now = options.now ?? new Date();
+  const relativesFor = (view: 'month' | 'week' | 'list'): readonly WorkbenchRelativePanel[] =>
+    options.view === undefined || options.view === view ? [-1, 0, 1] : [];
   const order = new Map(calendar.shiftTypes.map((shift, index) => [shift.id, index]));
   const ranks = new Map<CalendarReadModel['assignments'][number], number>();
   const rank = (assignment: CalendarReadModel['assignments'][number]): number => {
@@ -327,10 +331,11 @@ export function createWorkbenchViewModel(
   const allDayShiftTypeIds = new Set(
     calendar.shiftTypes.filter((shiftType) => shiftType.isAllDay).map((shiftType) => shiftType.id),
   );
-  const monthAssignments = options.monthPreferencePending
-    ? []
-    : [...assignments].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition);
-  const monthPanels = ([-1, 0, 1] as const).map((relative) => {
+  const monthAssignments =
+    options.monthPreferencePending || relativesFor('month').length === 0
+      ? []
+      : [...assignments].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition);
+  const monthPanels = relativesFor('month').map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
     return {
       cells: createMonthCells(
@@ -347,7 +352,7 @@ export function createWorkbenchViewModel(
       slot: (relative + 1) as MonthSlot,
     } satisfies WorkbenchPanel;
   });
-  const weekPanels = ([-1, 0, 1] as const).map((relative) => {
+  const weekPanels = relativesFor('week').map((relative) => {
     const panelWeekStart = addWeek(weekStart, relative);
     const weekDates = getWeekDays(panelWeekStart);
     const days = weekDates.map((businessDate) => {
@@ -407,8 +412,8 @@ export function createWorkbenchViewModel(
     options.nursePreset === true,
     now,
   );
-  const allDays = buildDayList(assignments, today);
-  const listPanels = ([-1, 0, 1] as const).map((relative) => {
+  const allDays = relativesFor('list').length === 0 ? [] : buildDayList(assignments, today);
+  const listPanels = relativesFor('list').map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
     const dayList = allDays.filter(
       (entry) => getBusinessMonthOf(entry.businessDate) === panelMonth,
@@ -426,6 +431,7 @@ export function createWorkbenchViewModel(
             : entry.assignments
           ).map(duty),
           dutyCountLabel: `${entry.assignments.length} 班`,
+          renderDuties: true,
           holiday: holiday?.isOffDay === true ? holiday.holidayName : '',
           isHoliday: holiday?.isOffDay === true,
           isWorkday: holiday?.isWorkday === true,

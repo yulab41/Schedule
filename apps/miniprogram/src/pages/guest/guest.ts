@@ -1,4 +1,9 @@
 import { getCalendarNameLayout } from '../../components/calendar/calendar-name-layout.js';
+import {
+  prepareDeferredListPanels,
+  stopDeferredListRendering,
+  syncDeferredListRendering,
+} from '../../features/workbench/deferred-list-rendering.js';
 import type {
   CalendarDutyAssignment,
   ScheduleEvent,
@@ -223,11 +228,13 @@ Page({
   },
   onHide(this: GuestPage): void {
     this.visible = false;
+    stopDeferredListRendering(this);
     this.serial += 1;
     clearEvents(this);
   },
   onUnload(this: GuestPage): void {
     this.visible = false;
+    stopDeferredListRendering(this);
     this.serial += 1;
     this.visitorKey = undefined;
     this.visitId = undefined;
@@ -585,6 +592,7 @@ function continuePeriodShift(page: GuestPage, view: 'week' | 'list'): void {
   page.setData({ periodSwiperDuration: 260 }, () => startPeriodSwiper(page, view, delta));
 }
 function clearCalendar(page: GuestPage): void {
+  stopDeferredListRendering(page);
   clearEvents(page);
   page.calendar = undefined;
   page.holidays = undefined;
@@ -689,7 +697,7 @@ function applyCachedWindow(page: GuestPage, months: readonly string[]): boolean 
     dates: holidays.flatMap((value) => value.dates),
   };
   renderCalendar(page);
-  page.setData({ state: 'ready', errorMessage: '' });
+  page.setData({ state: 'ready', errorMessage: '' }, () => syncDeferredListRendering(page));
   return true;
 }
 async function resolveGuest(page: GuestPage, key: string) {
@@ -853,6 +861,7 @@ function renderCalendar(page: GuestPage): void {
     filters,
     getTodayBusinessDate(),
     {
+      view: page.data.viewMode,
       nursePreset: isNurseCalendarGroup(page.data.currentGroupName),
       effectiveMonthShiftTypeId: page.groupMonthShiftTypeId ?? null,
       monthPreferencePending: page.groupMonthShiftTypeId === undefined,
@@ -896,15 +905,41 @@ function renderCalendar(page: GuestPage): void {
   const cachedWeekHeight = page._weekHeightCache?.get(weekSignature);
   page._weekLayoutHeight =
     cachedWeekHeight ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
-  if (cachedWeekHeight === undefined) {
+  if (page.data.viewMode === 'week' && cachedWeekHeight === undefined) {
     page._weekHeightCache ??= new Map();
     page._weekHeightCache.set(weekSignature, page._weekLayoutHeight);
     if (page._weekHeightCache.size > 24)
       page._weekHeightCache.delete(page._weekHeightCache.keys().next().value!);
   }
-  page.setData({
-    ...view,
-    weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
+  const panels =
+    page.data.viewMode === 'month'
+      ? {
+          ...createMonthRing(
+            view.monthPanels.map((panel) => ({ ...panel, rowHeight: 62 })),
+            view.monthPanels.map((panel) => (panel.cells.length / 7) * 62),
+            page.monthRingSlot,
+          ),
+          gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
+          listPanels: [],
+        }
+      : page.data.viewMode === 'week'
+        ? {
+            weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
+            weekGridHeight: page._weekLayoutHeight,
+            listPanels: [],
+          }
+        : {
+            listPanels: prepareDeferredListPanels(
+              view.listPanels,
+              page.data.listPanels,
+              page.data.listScrollTarget,
+            ),
+          };
+  const patch = {
+    ...panels,
+    monthLabel: view.monthLabel,
+    selectedLabel: view.selectedLabel,
+    selectedDetails: view.selectedDetails,
     compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
     shiftCardExpansion: reconcileShiftCardExpansion(
       page.data.shiftCardExpansion,
@@ -916,13 +951,6 @@ function renderCalendar(page: GuestPage): void {
       [page.data.currentGroupId, page.data.selectedDate],
       view.selectedDetails,
     ),
-    ...createMonthRing(
-      view.monthPanels.map((panel) => ({ ...panel, rowHeight: 62 })),
-      view.monthPanels.map((panel) => (panel.cells.length / 7) * 62),
-      page.monthRingSlot,
-    ),
-    gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
-    weekGridHeight: page._weekLayoutHeight,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     filterMemberOptions: members,
     filterRoleOptions: roles,
@@ -935,7 +963,14 @@ function renderCalendar(page: GuestPage): void {
       filters.membershipIds.length +
       filters.roleIds.length +
       filters.shiftTypeIds.length,
-  });
+  };
+  const changed: Partial<Data> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (JSON.stringify(page.data[key as keyof Data]) !== JSON.stringify(value))
+      Object.assign(changed, { [key]: value });
+  }
+  if (Object.keys(changed).length === 0) syncDeferredListRendering(page);
+  else page.setData(changed, () => syncDeferredListRendering(page));
 }
 
 function clearEvents(page: GuestPage): void {

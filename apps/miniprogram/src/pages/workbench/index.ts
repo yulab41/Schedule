@@ -1,6 +1,11 @@
 import { createRuntimeAccountSecurityController } from '../../components/account-security/runtime.js';
 import type { AccountSecurityData } from '../../components/account-security/controller.js';
 import { getCalendarNameLayout } from '../../components/calendar/calendar-name-layout.js';
+import {
+  prepareDeferredListPanels,
+  stopDeferredListRendering,
+  syncDeferredListRendering,
+} from '../../features/workbench/deferred-list-rendering.js';
 import type {
   ScheduleEvent,
   CalendarChangesReadModel,
@@ -563,6 +568,7 @@ Page({
 
   onHide(this: WorkbenchPageInstance): void {
     this.isVisible = false;
+    stopDeferredListRendering(this);
     stopCalendarStream(this);
     this._calendarPreferenceSerial += 1;
     stopDutyRefresh(this);
@@ -583,6 +589,7 @@ Page({
   onUnload(this: WorkbenchPageInstance): void {
     accountSecurity.dispose.call(this);
     this.isVisible = false;
+    stopDeferredListRendering(this);
     stopCalendarStream(this);
     this._calendarPreferenceSerial += 1;
     stopDutyRefresh(this);
@@ -692,7 +699,7 @@ Page({
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
-    setCalendarData(this, {
+    applyChangedViewPatch(this, {
       ...createViewPatch(this, period, false, nextView),
       announcement:
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
@@ -1744,6 +1751,7 @@ function activatePrimaryWorkspace(
   if (workspace !== page.data.activeWorkspace) {
     page.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
     stopDutyRefresh(page);
+    stopDeferredListRendering(page);
   }
   const index = PRIMARY_WORKSPACES.indexOf(workspace);
   const workspaceMounted = page.data.workspaceMounted[workspace]
@@ -2337,6 +2345,7 @@ function setCalendarData(
   callback?: () => void,
 ): void {
   page.setData(patch, () => {
+    syncDeferredListRendering(page);
     callback?.();
   });
 }
@@ -2519,6 +2528,7 @@ function createViewPatch(
     filters,
     getTodayBusinessDate(),
     {
+      view: selectionOnly ? 'details' : viewScope,
       nursePreset: isNurseCalendarGroup(page.data.currentGroupName),
       effectiveMonthShiftTypeId: page._groupMonthShiftTypeId ?? null,
       monthPreferencePending: page._groupMonthShiftTypeId === undefined,
@@ -2587,7 +2597,7 @@ function createViewPatch(
         ]),
       ]),
   ]);
-  if (weekSignature !== page._weekLayoutSignature) {
+  if (viewScope === 'week' && weekSignature !== page._weekLayoutSignature) {
     page._weekLayoutSignature = weekSignature;
     const cached = page._weekHeightCache?.get(weekSignature);
     page._weekLayoutHeight = cached ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
@@ -2615,7 +2625,13 @@ function createViewPatch(
             weekGridHeight: page._weekLayoutHeight,
             weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
           }
-        : { listPanels: view.listPanels };
+        : {
+            listPanels: prepareDeferredListPanels(
+              view.listPanels,
+              page.data.listPanels,
+              page.data.listScrollTarget,
+            ),
+          };
   return {
     compactEvents: view.selectedDetails.reduce((count, group) => count + group.rows.length, 0) > 1,
     shiftCardExpansion: reconcileShiftCardExpansion(
@@ -2630,6 +2646,7 @@ function createViewPatch(
       view.selectedDetails,
     ),
     ...panelPatch,
+    ...(viewScope === 'list' ? {} : { listPanels: [] }),
     monthLabel: view.monthLabel,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,
@@ -3180,6 +3197,7 @@ function calendarContext(page: WorkbenchPageInstance): string {
 }
 
 function resetCalendarContext(page: WorkbenchPageInstance): void {
+  stopDeferredListRendering(page);
   stopCalendarStream(page);
   page._weekLayoutSignature = '';
   page._weekHeightCache?.clear();

@@ -3407,3 +3407,9 @@ EXPORT-14：对照9bae5beb/102/106/110冻结包，Page生命周期、首屏数�
 运行/浏览器验证：pnpm smoke:browser（2026-09-30，warm general-6，本地API3105/Web4175，schema70）七阶段全部通过、浏览器无错误；本地合成平台角色finally恢复。完整pnpm verify、真实DB独立99项、production verify和上传干跑通过。开发者工具只证明局部WXML/WXSS编译，小米14/启动性能暂未验证。
 
 ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两次完整生产verifier通过。操作偏差：updater只备份应用文件，首次部署前漏建新DB备份，已有f84ddfca保留，发现后补做4f1a4747（57表），详见审计记录；不伪称迁移前新备份。DevTools最终构建账号详情page handler展开7项/收起、首页/访客ready、manual editor；selector点击未证实、无真机验收。文档同步须独立先运行数据库备份控制再复用元数据。
+
+## CAL-LIST-20260930 日历列表切换卡顿
+
+基线dbe35288，独占general-6/REUSE_ONLY无安装。`git log -S 'const listPanels'`/blame定位733e3af6（三面板列表）、e94a54ca（护士排序/预设）、9ac4a301（首页可见范围）、890efd8b（访客展开全模型）。是累计规模问题，未证明最近回归或服务器延迟。行为变化：按当前模式建模；保留日期/人员外壳，仅延后屏幕外丰富内容；目标立即绘制、缺API/异常/大字号完整回退；离开列表清隐藏数据；离页/换群迟到回写守卫。
+
+回归先红后绿：旧模型/两页结构3失败后通过，换群回调1失败后通过；新增15项。最终Mini1328通过/23跳过，完整pnpm verify及production verify通过；Node护士首次节点24059→3899，非手机帧时间。运行/浏览器验证：pnpm smoke:check-core通过；本轮未触及Web/契约核心，不要求pnpm smoke:browser。Agent开发者工具部分几何已读，最终同构建运行/小米14暂未验证。详见[轮次记录](../audit/calendar-list-switch-20260930.md)。

@@ -83,7 +83,28 @@ interface MiniProgramNetworkTypeOptions {
   readonly success: (response: { readonly networkType?: unknown }) => void;
 }
 
+interface MiniProgramIntersectionObserver {
+  disconnect(): void;
+  relativeToViewport(margins: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  }): MiniProgramIntersectionObserver;
+  observe(
+    selector: string,
+    callback: (result: {
+      readonly intersectionRatio: number;
+      readonly dataset: { readonly panelKey?: string; readonly businessDate?: string };
+    }) => void,
+  ): void;
+}
+
 declare const wx: {
+  createIntersectionObserver?(
+    page: unknown,
+    options: { observeAll: boolean },
+  ): MiniProgramIntersectionObserver;
   nextTick(callback: () => void): void;
   getUpdateManager?(): {
     onUpdateReady(callback: () => void): void;
