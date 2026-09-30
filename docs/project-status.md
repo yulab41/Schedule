@@ -4,8 +4,8 @@
 
 - 范围：仅微信小程序通知面板模板 + 回归测试 + 文档；独占 warm `runtime/wt/general-6`，REUSE_ONLY，无依赖安装；基线 `origin/main` = `2191b136`。
 - 已修复：点击任一通知时，“全部已读”按钮不再闪动。引入点为 `304d742f`（嵌入通知 Sheet）把该控件的可见禁用样式绑到“任意操作”`actionBusyId !== ''`；现改为只在该控件自己的操作进行中生效（嵌入 Sheet `actionBusyId === 'all'`，独立通知页 `disabled="{{actionBusyId === 'all'}}"`）。控制器并发守卫、请求、未读计数与 `unreadchanged` 事件未改；契约/API/数据库未改，无迁移。
-- 有意保留：该控件 `hover-class`/`aria-disabled` 仍按 `actionBusyId !== ''`（点击仍被守卫吞掉，语义不变且不引入新的按压闪烁）。独立通知页每行“已读”按钮的同类绑定未改，原因与待决改法见轮次记录。
-- 验证：新增回归先红后绿；`notifications-controller` 34 项、Mini 全量 1307 通过/23 跳过（基线 1306/23）、typecheck/lint/format/production verify（包体 4,447,553 B、manifest `4b5305f8…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-readall-flicker-20260930.md)。
+- 追加（用户指示“允许按压反馈”）：独立通知页每行“已读”按钮改为 `disabled="{{actionBusyId !== '' && actionBusyId !== item.id}}"`（只有保存中的那一行变灰），嵌入 Sheet 卡片与“全部已读”的 `hover-class` 改为固定 `is-pressed`；点击反馈只由手指触摸驱动，重复点击仍被控制器守卫吞掉。取舍：请求窗口内其它行的 `aria-disabled` 会读作“可用”，已在轮次记录登记。
+- 验证：两条回归用例先红后绿（其中一条回退模板复跑 `1 failed | 34 passed`）；`notifications-controller` 35 项、Mini 全量 1308 通过/23 跳过（基线 1306/23）、typecheck/lint/format/production verify（包体 4,447,507 B、manifest `91589cee…`）通过；`smoke:check-core` 判定未涉及核心链路。详见 [轮次记录](audit/notification-readall-flicker-20260930.md)。
 - 唯一下一任务与停止条件：若需真机复核闪烁，取得当次授权后按 runbook 分配下一体验版号完成上传与只增放行，然后由小米 14 复核“点击通知时全部已读不再闪烁”；未获授权即停在已推送检查点，不提审、不正式发布。Mini/文档范围，未部署生产，live release 仍为 `5f25d946`（schema 69）。
 
 ## 上一批次：按类型微信提醒开关 + 开关响应速度优化（2026-09-30）

@@ -594,6 +594,22 @@ describe('notification parity controller', () => {
     expect(page.data.notifications.find((item) => item.id === 'notice-1').isRead).toBe(true);
   });
 
+  it('keeps press feedback on every notification control and only the busy row inactive', () => {
+    const template = notificationsPanelTemplate();
+
+    // 按压反馈只由手指触摸驱动，不再因为别的请求把整片可点区域关掉。
+    expect(template).not.toContain('hover-class="{{actionBusyId');
+    const listRowRead = template.slice(
+      template.indexOf('label="已读"'),
+      template.indexOf('bindpress="handleMarkRead"'),
+    );
+    // 只有正在保存的那一行变灰；其它行保持可按压，重复点击仍由控制器守卫吞掉。
+    expect(listRowRead).toContain(
+      'disabled="{{actionBusyId !== \'\' && actionBusyId !== item.id}}"',
+    );
+    expect(listRowRead).toContain('loading="{{actionBusyId === item.id}}"');
+  });
+
   it('does not commit a pending notification response after detaching', async () => {
     let resolveNotifications;
     mocks.listNotifications.mockImplementationOnce(

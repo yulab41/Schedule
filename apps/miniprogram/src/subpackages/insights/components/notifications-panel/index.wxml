@@ -25,7 +25,7 @@
         </view>
         <view
           class="notification-sheet-read-all {{actionBusyId === 'all' ? 'is-disabled' : ''}}"
-          hover-class="{{actionBusyId !== '' ? 'none' : 'is-pressed'}}"
+          hover-class="is-pressed"
           aria-role="button"
           aria-label="全部标记为已读"
           aria-disabled="{{actionBusyId !== ''}}"
@@ -39,7 +39,7 @@
             wx:for="{{notifications}}"
             wx:key="id"
             class="notification-sheet-item {{item.isRead ? 'is-read' : 'is-unread'}}"
-            hover-class="{{actionBusyId === '' ? 'is-pressed' : 'none'}}"
+            hover-class="is-pressed"
             data-id="{{item.id}}"
             aria-role="button"
             aria-label="{{item.isRead ? '已读' : '未读'}}：{{item.title}}"
@@ -276,7 +276,7 @@
                 variant="secondary"
                 label="已读"
                 data-id="{{item.id}}"
-                disabled="{{actionBusyId !== ''}}"
+                disabled="{{actionBusyId !== '' && actionBusyId !== item.id}}"
                 loading="{{actionBusyId === item.id}}"
                 bindpress="handleMarkRead"
               ></ui-button></view
