@@ -324,8 +324,16 @@ export function createWorkbenchViewModel(
   const assignments = options.nursePreset
     ? [...filtered].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition)
     : filtered;
+  const states = new Map<CalendarReadModel['assignments'][number], DutyStateView>();
+  const stateFor = (assignment: CalendarReadModel['assignments'][number]): DutyStateView => {
+    const cached = states.get(assignment);
+    if (cached !== undefined) return cached;
+    const value = getNurseDutyState(assignment, options.nursePreset === true, now);
+    states.set(assignment, value);
+    return value;
+  };
   const duty = (assignment: CalendarReadModel['assignments'][number]) =>
-    createDuty(assignment, memberById, options.nursePreset === true, now);
+    createDuty(assignment, memberById, stateFor(assignment));
   const monthLabel = formatMonthLabel(businessMonth);
   const memberById = new Map(calendar.members.map((member) => [member.membershipId, member]));
   const allDayShiftTypeIds = new Set(
@@ -410,7 +418,7 @@ export function createWorkbenchViewModel(
       ? [...new Set(assignments.map((a) => a.shiftTypeId))]
       : calendar.shiftTypes.map((shiftType) => shiftType.id),
     options.nursePreset === true,
-    now,
+    stateFor,
   );
   const allDays = relativesFor('list').length === 0 ? [] : buildDayList(assignments, today);
   const listPanels = relativesFor('list').map((relative) => {
@@ -449,11 +457,7 @@ export function createWorkbenchViewModel(
 
   return {
     nextDutyBoundary: assignments.reduce((next, assignment) => {
-      const boundary = getNurseDutyState(
-        assignment,
-        options.nursePreset === true,
-        now,
-      ).nextBoundary;
+      const boundary = stateFor(assignment).nextBoundary;
       return boundary > 0 && (next === 0 || boundary < next) ? boundary : next;
     }, 0),
     listPanels,
@@ -468,13 +472,12 @@ export function createWorkbenchViewModel(
 function createDuty(
   assignment: CalendarReadModel['assignments'][number],
   memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
-  nursePreset: boolean,
-  now: Date,
+  state: DutyStateView,
 ): WorkbenchDuty {
   const membershipId = assignment.actualMembershipId ?? assignment.plannedMembershipId ?? '';
   const member = memberById.get(membershipId);
   return {
-    ...getNurseDutyState(assignment, nursePreset, now),
+    ...state,
     details: `${assignment.shiftTypeName} · ${formatClock(assignment.startsAt)}–${formatClock(assignment.endsAt)} · ${assignment.scheduleRoleName}`,
     key: assignment.id,
     markers: createMarkerList(assignment.changeMarkers),
@@ -557,7 +560,7 @@ function createSelectedDetails(
   memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
   shiftTypeOrder: readonly string[],
   nursePreset: boolean,
-  now: Date,
+  stateFor: (assignment: CalendarReadModel['assignments'][number]) => DutyStateView,
 ): readonly WorkbenchDetail[] {
   const grouped = new Map<string, CalendarReadModel['assignments'][number][]>();
   for (const assignment of assignments) {
@@ -574,7 +577,7 @@ function createSelectedDetails(
       if (first === undefined) return [];
       return [
         {
-          ...getNurseDutyState(first, nursePreset, now),
+          ...stateFor(first),
           key: shiftTypeId,
           rows: rows.map((assignment) => createDetailRow(assignment, memberById)),
           shiftAbbreviation: first.shiftTypeAbbreviation,

@@ -1,5 +1,6 @@
 import { getCalendarNameLayout } from '../../components/calendar/calendar-name-layout.js';
 import {
+  type DeferredListPanel,
   prepareDeferredListPanels,
   stopDeferredListRendering,
   syncDeferredListRendering,
@@ -74,7 +75,7 @@ function emptyView() {
   return {
     monthPanels: [] as WorkbenchViewModel['monthPanels'],
     weekPanels: [] as WorkbenchViewModel['weekPanels'],
-    listPanels: [] as WorkbenchViewModel['listPanels'],
+    listPanels: [] as readonly DeferredListPanel[],
     selectedDetails: [] as WorkbenchViewModel['selectedDetails'],
   };
 }
@@ -298,7 +299,12 @@ Page({
     const view = event.currentTarget.dataset['view'];
     if (view !== 'month' && view !== 'week' && view !== 'list') return;
     if (view === this.data.viewMode) return;
-    this.setData({ listSwiperCurrent: 1, viewMode: view, weekSwiperCurrent: 1, filterOpen: false });
+    const transition: Partial<Data> = {
+      listSwiperCurrent: 1,
+      viewMode: view,
+      weekSwiperCurrent: 1,
+      filterOpen: false,
+    };
     this.monthRingSlot = 1;
     this.weekRingSlot = 1;
     this.weekShiftTargetSlot = undefined;
@@ -309,18 +315,19 @@ Page({
     this.periodShiftQueue = 0;
     // Switching the presentation is local when this visit already loaded the window.
     // Missing months and onShow/retry still use the normal validating read path.
-    const months = requestedMonths(this);
+    const months = requestedMonths(this, view);
     if (
       this.monthReads.size === 0 &&
       this.holidayReads.size === 0 &&
       !this.resolvingGroup &&
       !this.displaySettingsRead &&
       months.every((month) => this.monthResources.has(month)) &&
-      applyCachedWindow(this, months)
+      applyCachedWindow(this, months, view, transition)
     ) {
       this.serial++;
       return;
     }
+    renderCalendar(this, view, transition);
     void loadCalendar(this);
   },
   handleDateSelect(this: GuestPage, event: Tap): void {
@@ -632,10 +639,9 @@ function resetGuestContext(page: GuestPage): void {
 function current(page: GuestPage, serial: number): boolean {
   return page.visible && page.serial === serial;
 }
-function requestedMonths(page: GuestPage): readonly string[] {
-  const activeMonth =
-    page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
-  return page.data.viewMode === 'week'
+function requestedMonths(page: GuestPage, view: View = page.data.viewMode): readonly string[] {
+  const activeMonth = view === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+  return view === 'week'
     ? [
         ...new Set(
           [-2, -1, 0, 1, 2].flatMap((delta) =>
@@ -675,9 +681,13 @@ function readDisplaySettings(
   );
   return read;
 }
-function applyCachedWindow(page: GuestPage, months: readonly string[]): boolean {
-  const activeMonth =
-    page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+function applyCachedWindow(
+  page: GuestPage,
+  months: readonly string[],
+  view: View = page.data.viewMode,
+  transition: Partial<Data> = {},
+): boolean {
+  const activeMonth = view === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
   const active = page.monthResources.get(activeMonth);
   const years = [...new Set(months.map((value) => Number(value.slice(0, 4))))];
   const holidays = years.flatMap((year) => {
@@ -696,8 +706,7 @@ function applyCachedWindow(page: GuestPage, months: readonly string[]): boolean 
     confirmed: holidays.every((value) => value.confirmed),
     dates: holidays.flatMap((value) => value.dates),
   };
-  renderCalendar(page);
-  page.setData({ state: 'ready', errorMessage: '' }, () => syncDeferredListRendering(page));
+  renderCalendar(page, view, { ...transition, state: 'ready', errorMessage: '' });
   return true;
 }
 async function resolveGuest(page: GuestPage, key: string) {
@@ -844,8 +853,15 @@ async function loadCalendar(page: GuestPage, refreshDisplaySettings = false): Pr
     });
   }
 }
-function renderCalendar(page: GuestPage): void {
-  if (!page.calendar || !page.holidays) return;
+function renderCalendar(
+  page: GuestPage,
+  viewMode: View = page.data.viewMode,
+  transition: Partial<Data> = {},
+): void {
+  if (!page.calendar || !page.holidays) {
+    if (Object.keys(transition).length > 0) page.setData(transition);
+    return;
+  }
   const filters = {
     membershipIds: page.data.filterMembershipIds,
     roleIds: page.data.filterRoleIds,
@@ -861,7 +877,7 @@ function renderCalendar(page: GuestPage): void {
     filters,
     getTodayBusinessDate(),
     {
-      view: page.data.viewMode,
+      view: viewMode,
       nursePreset: isNurseCalendarGroup(page.data.currentGroupName),
       effectiveMonthShiftTypeId: page.groupMonthShiftTypeId ?? null,
       monthPreferencePending: page.groupMonthShiftTypeId === undefined,
@@ -905,14 +921,14 @@ function renderCalendar(page: GuestPage): void {
   const cachedWeekHeight = page._weekHeightCache?.get(weekSignature);
   page._weekLayoutHeight =
     cachedWeekHeight ?? Math.max(112, (view.weekPanels[1]?.height ?? 112) + 20);
-  if (page.data.viewMode === 'week' && cachedWeekHeight === undefined) {
+  if (viewMode === 'week' && cachedWeekHeight === undefined) {
     page._weekHeightCache ??= new Map();
     page._weekHeightCache.set(weekSignature, page._weekLayoutHeight);
     if (page._weekHeightCache.size > 24)
       page._weekHeightCache.delete(page._weekHeightCache.keys().next().value!);
   }
   const panels =
-    page.data.viewMode === 'month'
+    viewMode === 'month'
       ? {
           ...createMonthRing(
             view.monthPanels.map((panel) => ({ ...panel, rowHeight: 62 })),
@@ -920,22 +936,22 @@ function renderCalendar(page: GuestPage): void {
             page.monthRingSlot,
           ),
           gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 62,
-          listPanels: [],
         }
-      : page.data.viewMode === 'week'
+      : viewMode === 'week'
         ? {
             weekPanels: mapCalendarPeriodRing(view.weekPanels, page.weekRingSlot),
             weekGridHeight: page._weekLayoutHeight,
-            listPanels: [],
           }
         : {
             listPanels: prepareDeferredListPanels(
               view.listPanels,
-              page.data.listPanels,
+              page.data.viewMode === 'list' ? page.data.listPanels : [],
               page.data.listScrollTarget,
+              page,
             ),
           };
   const patch = {
+    ...transition,
     ...panels,
     monthLabel: view.monthLabel,
     selectedLabel: view.selectedLabel,

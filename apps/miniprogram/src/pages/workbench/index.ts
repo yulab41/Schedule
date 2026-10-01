@@ -2,6 +2,7 @@ import { createRuntimeAccountSecurityController } from '../../components/account
 import type { AccountSecurityData } from '../../components/account-security/controller.js';
 import { getCalendarNameLayout } from '../../components/calendar/calendar-name-layout.js';
 import {
+  type DeferredListPanel,
   prepareDeferredListPanels,
   stopDeferredListRendering,
   syncDeferredListRendering,
@@ -222,7 +223,7 @@ interface WorkbenchPageData extends AccountSecurityData {
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
   readonly groupMenuPortalStyle: string;
-  readonly listPanels: WorkbenchViewModel['listPanels'];
+  readonly listPanels: readonly DeferredListPanel[];
   readonly listScrollTarget: string;
   readonly listSwiperCurrent: number;
   readonly locateIconAnimating: boolean;
@@ -2628,8 +2629,9 @@ function createViewPatch(
         : {
             listPanels: prepareDeferredListPanels(
               view.listPanels,
-              page.data.listPanels,
+              page.data.viewMode === 'list' ? page.data.listPanels : [],
               page.data.listScrollTarget,
+              page,
             ),
           };
   return {
@@ -2646,7 +2648,6 @@ function createViewPatch(
       view.selectedDetails,
     ),
     ...panelPatch,
-    ...(viewScope === 'list' ? {} : { listPanels: [] }),
     monthLabel: view.monthLabel,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,
