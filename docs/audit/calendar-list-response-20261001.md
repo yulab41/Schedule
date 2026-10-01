@@ -55,4 +55,13 @@
 - 用户随后当次明确“同意只增放行并验证”；13:54–13:56按已审物理路由（两独立DNS、strict TLS/host-key）核验实时live与已安装control/manifest/source哈希后，只调用可信ensure追加`.227`。原117全部保留、总118；独立policy verify、完整已安装ECS verifier以及strict TLS公网`.227/.226/.225`200、动态未知426全部通过。live前后均dbe352886ff425401586da187054bdd7a488dfcc，MySQL容器身份未变；控制命令按既有流程重建API/Web，无应用部署、迁移、数据库备份或服务端Git身份同步。
 - 初次生产preflight错误从manifest顶层取hash字段，在任何写入前停止；与packager对照后改从`artifacts`取值，已安装脚本、独立manifest及当前源码的两hash实际相同；不是服务器控制漂移，不更新控制脚本。Node上传前HEAD根路径探针ECONNRESET，独立TLS握手证明已审IPv4路由可用，沿用原route未改变系统DNS/VPN/证书策略。
 - 开发者工具general-2文件监听器仍存活，官方close_project_window返回aborted；正式池release拒绝，保留干净候选/有效租约，不强杀工具或放宽回收门禁。独占general-3完成文档收口，Acquire/ReuseOnly/Bootstrap及文档范围6项通过、无安装，应用输入未变复用已完成门禁；收口消息`docs(audit): close nurse list response trial delivery`。未提审/正式发布。
-- 唯一下一任务/停止条件：小米14退出重进`.227@45863f7`同构建复核护士/医生/访客首次/重复月周列表、翻月、快滚、定位、筛选和电话；无真实同构建证据不写无感/验收通过。通讯录首搜诊断暂缓等待用户数据，不扩展数据库或缓存架构。
+
+## 用户完成确认（2026-10-01）
+
+交付`.227@45863f7`并请用户复核后，用户回复：“确认，切换已较前流畅，该任务完成。”沿用此前小米14体验版上下文，将本批次记为已完成；证据为用户定性反馈切换改善，不填写新实测毫秒数、不宣称完全无感。用户没有单独报告电话图标同步、快滚及各入口，也未补充截图、renderer、基础库或微信版本，这些仍是测量边界，不作为本批次继续待办或跨平台结论。
+
+本次仅更新五份状态/审计文档，独占general-3，Acquire → ReuseOnly → Bootstrap → 定向文档检查，无依赖安装。应用输入与45863f70/交付检查点1d02d543一致，复用既有构建、测试及上传证据；验收检查点消息`docs(audit): record calendar list acceptance`。本次不连接生产、不部署/备份/同步服务端身份、不重新上传体验版。
+
+验证：`pnpm exec vitest run scripts/agent-context-policy.test.mjs scripts/test-discovery-policy.test.mjs`两文件6项通过；`pnpm format:check`、`git diff --check`、`pnpm smoke:check-core`通过，未涉及Web/契约核心。逐行审查仅完成状态与证据边界变化，不改应用行为。
+
+唯一下一任务/停止条件：本批次无剩余必需工作，等待用户新指示；通讯录首搜诊断仍暂缓等待用户数据，不自动启动数据库或缓存优化。

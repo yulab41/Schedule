@@ -1,6 +1,6 @@
 # Project Status
 
-## 当前批次：护士列表响应与翻月电话图标（2026-10-01）
+## 当前批次：护士列表响应与翻月电话图标（2026-10-01，已完成）
 
 - 用户确认小米14`.226@67d2fff`首次和重复切列表均约500ms、医生不明显，护士翻月电话图标晚出现。以最新origin/main 0c5cf4fa为基线；.225/.226日历逻辑一致。独占general-2、REUSE_ONLY/Bootstrap复用，无安装，canonical已有用户文件保留。
 - 已实现：屏幕外整卡只保留日期/等高框及业务来源，删除逐人员占位传输；三月首屏按高度准备；同日同班种状态仅本次建模内复用。电话沿用生成SVG与44/20px几何，通过构建内嵌至WXSS随按钮绘制，拨号权限/数据/操作不变，无API或持久缓存改动。
@@ -8,7 +8,8 @@
 - 完整pnpm verify通过：Mini1351/23跳过、根1368/476跳过、Codex83；production verify（8191ms，预算/确定性）、图标、格式/lint/build/typecheck、干跑/lineage/core smoke通过。保留既有manual1513节点预算提示；未改变Web/契约，不要求浏览器核心冒烟。
 - 业务45863f70（`perf(miniprogram): streamline list cards and paint phone icons atomically`）已正常推送任务分支/main。干净同口径构建1827ms，总包3964483B/主包1184234B（均+727B），分包不变；由正式锁分配并Node上传`.227@45863f7`，Manifest9c890ce3…，tag/receipt/版本绑定候选检查通过。
 - 用户当次明确批准后，13:54–13:56可信ensure只增追加`.227`，117→118且全部旧版本保留；`.227/.226/.225`200、合法未知426，独立policy verify及完整生产verifier通过。实时live前后dbe35288，MySQL容器身份相同；配置控制重建API/Web，无应用部署/迁移/备份或服务端Git身份同步。收口消息`docs(audit): close nurse list response trial delivery`，独占general-3/REUSE_ONLY，文档范围复用应用门禁。
-- 开发者工具仍有本任务general-2文件监听器；官方关闭调用aborted，release被正式池策略拒绝，保留干净候选及有效租约，不强制杀工具/绕过回收检查。唯一下一任务及停止条件：小米14退出重进`.227@45863f7`同构建复核护士/医生/访客首次及重复月周列表、翻月/快滚/定位/筛选/电话；无实体证据不写无感或验收通过。通讯录首搜诊断等待用户数据，本轮暂缓；不提审/正式发布。
+- 用户完成确认（2026-10-01）：交付`.227@45863f7`后回复“确认，切换已较前流畅，该任务完成。”沿用前述小米14体验版上下文，记录为用户定性确认切换改善，本批次已完成；不据此填写实测毫秒数或“完全无感”。电话图标同步、快滚及各入口未单独反馈，基础库/微信版本/renderer未补充，保留测量边界，不作为本批次继续待办。
+- 交付时general-2曾因开发者工具文件监听器被正式release拒绝，官方关闭aborted，候选保留；本次不重试或强制回收。验收检查点消息`docs(audit): record calendar list acceptance`；独占general-3、REUSE_ONLY/Bootstrap，无安装，定向文档6项、`pnpm format:check`、`git diff --check`、`pnpm smoke:check-core`通过，复用应用证据。唯一下一任务及停止条件：本批次无剩余必需工作，等待用户新指示；通讯录首搜仍暂缓等待用户数据。本次仅文档，不连接生产或重新上传。
 
 ## 上一批次：列表末尾间距与通讯录首搜诊断（2026-10-01）
 
