@@ -3,10 +3,10 @@
 ## 当前批次：列表末尾间距与通讯录首搜诊断（2026-10-01）
 
 - 小米14`.225@f9457d5`两张截图确认首页/访客末卡间距为零；首搜等待在输入关键词后。独占general-1/61e5f18f，REUSE_ONLY无安装；基线72项/typecheck/lint/build通过，总包3963716B。
-- 间距已实现：9045dc02漏掉尾部padding，共享内容补8px；8场景桌面CSS几何先0红→8绿，末拨号按钮可见，两页Agent工具WXSS编译通过。最终Mini1344通过/23跳过，production verify/预算/确定性、格式/lint/图标、干跑/lineage/core smoke通过。工作树总包+39B，最终干净候选另核对；详见[报告](calendar-footer-directory-first-search-20261001.md)。
-- 拼音/数字确认立即请求，两模式不等待facets，晚返回保留结果；500ms防抖/30条分页/预加载保留。用户补充测试工具移除，产物未注册该路由（e6ef714b），不按旧菜单取证、不恢复入口；首搜分段待当次只读授权和可取得的运行数据。
-- 根format/lint/build/typecheck与pnpm test通过，Vitest1368/476跳过；L3独立交付间距，未连接生产，不把历史live当作当前基线。
-- 间距检查点消息`fix(miniprogram): restore calendar list footer spacing`。唯一下一任务及停止条件：独立交付间距后按当前首搜分段选择最小优化；未获生产权限不连接，无同构建手机证据不写验收通过，不提审/正式发布。
+- 间距已实现：9045dc02漏掉尾部padding，共享内容补8px；8场景桌面CSS几何先0红→8绿，末拨号按钮可见，两页Agent工具WXSS编译通过。最终Mini1344通过/23跳过，production verify/预算/确定性、格式/lint/图标、干跑/lineage/core smoke通过。干净总包+40B（3963756B）、主包1183507B，最大文件不变；详见[报告](calendar-footer-directory-first-search-20261001.md)。
+- 拼音/数字确认立即请求，两模式不等待facets，晚返回保留结果；500ms防抖/30条分页/预加载保留。生产无测试工具路由（e6ef714b），不恢复入口。用户当次批准只读：10:47–10:59核实live dbe35288、candidate配置/覆盖索引；API两种facets各7次、最大104/131ms，API/Web无搜索样本，查询摘要关闭未启用。8个EXPLAIN通过；索引命中及拼音聚合排序是计划证据，不是首搜计时。
+- 根format/lint/build/typecheck与pnpm test通过，Vitest1368/476跳过；67d2fff0已正常推送任务分支/main，干净`.226@67d2fff`Node上传成功（Manifest3851c9c1…），版本绑定检查通过。新版本只增放行待具体授权，无应用部署/迁移/备份或缓存清理。
+- 文档收口消息`docs(audit): record footer trial and readonly directory diagnosis`。唯一下一任务及停止条件：对齐用户退出重进后的两次首搜复测与服务器日志，再按实际主导阶段选补丁；`.226`间距仍待同构建手机复核。当前不写首搜已提速或验收通过，不提审/正式发布。
 
 ## 上一批次：访客列表空白与日历切换响应（2026-10-01）
 

@@ -3,10 +3,10 @@
 ## 当前批次：列表末尾间距与通讯录首搜诊断（2026-10-01）
 
 - 用户确认小米14截图来自`.225@f9457d5`，首页/访客列表末卡紧贴导航；通讯录等待发生在输入关键词后。独占general-1/61e5f18f，REUSE_ONLY，无安装，保留canonical用户文件。
-- 已实现间距：9045dc02迁移padding时漏掉底部，成员/访客共用内容补8px；桌面320/390宽×两安全区×两页8场景0→8px先红后绿，Agent工具两页WXSS编译成功。Mini全量1344通过/23既有跳过；production verify/预算/确定性、格式/lint、图标、干跑/lineage/core smoke通过。基线总包3963716B；工作树阶段+39B，最终干净候选另核对。详见[轮次报告](audit/calendar-footer-directory-first-search-20261001.md)。
-- 用户确认拼音/数字键盘确认，已排除500ms汉字自动等待；两模式确认无需等待facets。用户补充测试工具已移除，产物未注册该路由（e6ef714b）；源文件仅复用，不按旧菜单取证、不恢复入口。当前首搜分段未取得，生产只读诊断待当次授权，旧数据不作为当前结论。
-- 根format/lint/build/typecheck与pnpm test通过（Vitest1368/476跳过）；Mini/文档范围未连接生产，无部署/迁移/备份。L3上传前动态核对主线与最新已上传身份，最终版本不预先硬编码。
-- 检查点消息`fix(miniprogram): restore calendar list footer spacing`；间距独立交付，下一任务为取得当前首搜分段后选择补丁，并复核新体验版间距。无同构建实体证据不写验收通过；Mini范围不触发生产部署，不改变搜索/权限/排序或全库预加载。
+- 间距已实现：9045dc02迁移padding时漏掉底部，成员/访客共用内容补8px；桌面320/390宽×两安全区×两页8场景0→8px先红后绿，Agent工具两页WXSS编译成功。Mini全量1344通过/23既有跳过；production verify/预算/确定性、格式/lint、图标、干跑/lineage/core smoke通过。干净同口径总包3963716→3963756B（+40B）、主包1183467→1183507B，最大文件不变。详见[轮次报告](audit/calendar-footer-directory-first-search-20261001.md)。
+- 用户确认拼音/数字键盘确认，已排除500ms汉字自动等待；两模式确认无需等待facets。产物无测试工具路由（e6ef714b），不按旧菜单取证、不恢复入口。用户当次批准只读生产诊断：2026-10-01 10:47–10:59核实live dbe35288、candidate配置及覆盖索引完整；API/Web窗口只有各7次两种facets，没有搜索样本，查询摘要关闭。8个只读EXPLAIN使用现有索引，拼音候选聚合/排序需进一步实测；不据估算宣称首搜原因或提速。
+- 根format/lint/build/typecheck与pnpm test通过（Vitest1368/476跳过）。修复67d2fff0（`fix(miniprogram): restore calendar list footer spacing`）正常推送任务分支/main；独占干净候选由正式锁分配并Node上传`.226@67d2fff`，Manifest3851c9c1…，版本绑定检查通过。只增放行另待具体授权；无部署/迁移/备份，生产数据、缓存和服务配置未改。
+- 文档收口消息`docs(audit): record footer trial and readonly directory diagnosis`；general-2新独占租约REUSE_ONLY复用。唯一下一任务及停止条件：对齐用户退出重进后的两次搜索与服务器日志，取得当前首搜耗时后选择最小补丁；手机`.226`间距待同构建复核。无证据不写首搜已优化或验收通过，不提审/正式发布。
 
 ## 上一批次：访客列表空白与日历切换响应（2026-10-01）
 
