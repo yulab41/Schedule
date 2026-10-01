@@ -5,6 +5,7 @@
 - 用户确认小米14体验版.224切到列表会空白，重复切换同样发生；当前批次只修首页/访客展示边界，保持业务、请求验证、路由、样式和操作。独占general-1，5804695a基线，REUSE_ONLY/无安装；general-2独占测同一合成基线。
 - 已实现：访客视图/内容一次提交、保留有界列表状态、屏幕外紧凑行与原子补齐、首屏覆盖/纵向预热/回调合并、仅本次建模状态去重。14项回归先红后绿；Mini1342通过/23跳过（verify导出夹具超时，独立5项补跑通过），根1368/476、Codex83通过；格式/lint/build/typecheck/图标、production verify、预算/确定性/干跑/core smoke通过。总包+2407B，Node护士首次578492→128331B、重复566364→21B。详见[轮次记录](audit/calendar-view-latency-20261001.md)。
 - Agent工具编译和首页合成1800行/120姓名切换通过；访客探针超时后连接授权失效，已请求用户允许，运行与真机帧时间暂未验证。检查点消息`perf(miniprogram): make list switches atomic and trim bridge payloads`。唯一下一任务/停止条件：提交推送与新不可变体验版交付；服务端放行另按当次L4授权，新构建小米14证据前不写无感/通过，不提审/正式发布。
+- 业务68362803已正常推送任务分支/main；按正式发布规则独立刷新首页canonical proof，AST仅createViewPatch变化、其余148函数不变，17项lineage通过，不弱化门禁。检查点消息`chore(release): refresh atomic calendar switch lineage proof`；接下来冻结最终干净候选并动态分配版本。
 
 ## 上一批次：主目录文件恢复与继续开发验证（2026-10-01）
 

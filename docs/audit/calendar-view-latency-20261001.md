@@ -48,5 +48,6 @@
 - production verify、性能预算、确定性、包体和上传干跑通过；总包3961308→3963715B(+2407，约0.061%)，主包1181059→1183466，其余分包不变，最大20文件在ignored证据。手排矩阵1513节点是既有警告，未在本批修改。
 - Agent开发者工具门禁equal/登录有效：两页编译、访客WXML及共享WXSS摘要成功。`local@5804695`工作树生产构建的合成护士20×30×3：首页1800行壳/120姓名、600班次，月→列表→月→列表无中间空数组，重复patch仅290字符。此为注入合成数据的辅助证据，未读取真实访客接口或取得真机帧时间。
 - 访客合成探针超时，随后工具连接返回`wait WechatIDE authorization timeout`；暂未确认是等待方式、连接还是渲染原因，不能写运行通过。已请求用户允许连接，Node交付继续；探针早期参数/大请求错误不是产品回归证据。
-- 检查点消息：`perf(miniprogram): make list switches atomic and trim bridge payloads`。最终提交/上传身份待填；本轮未连接生产，放行需当次L4授权，不提审/正式发布。
+- 业务提交68362803 `perf(miniprogram): make list switches atomic and trim bridge payloads`已正常推送任务分支/main。canonical proof独立刷新：149函数中仅createViewPatch变化，其余148不变、无删除；17项lineage通过。检查点消息`chore(release): refresh atomic calendar switch lineage proof`，完整应用证据复用，最终干净包体/上传身份待填。
+- 本轮未连接生产，放行需当次L4授权，不提审/正式发布。
 - 唯一下一任务/停止条件：完成本批验证和新构建交付，再由小米14复核首页/访客首次及重复月周列表、快滚、翻月、定位、筛选、电话；证据不足不写极致丝滑/无感/验收通过。
