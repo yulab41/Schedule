@@ -1724,16 +1724,11 @@ page {
   border-radius: 10px;
 }
 
-.list-call-action image {
+.list-call-action::before {
+  display: block;
   width: 20px;
   height: 20px;
-}
-
-/* The phone action is the tallest row child; preserve its exact natural height. */
-.list-duty-placeholder::before {
-  display: block;
-  height: 44px;
-  flex: none;
+  background: url('/assets/icons/ui-phone-success.svg') center / contain no-repeat;
   content: '';
 }
 

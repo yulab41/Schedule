@@ -1,10 +1,6 @@
-import type { WorkbenchDuty, WorkbenchListDay, WorkbenchListPanel } from './workbench-model.js';
+import type { WorkbenchListPanel } from './workbench-model.js';
 
-export type DeferredListPanel = Omit<WorkbenchListPanel, 'days'> & {
-  readonly days: readonly (Omit<WorkbenchListDay, 'duties'> & {
-    readonly duties: readonly (WorkbenchDuty | { readonly key: string; readonly phone: boolean })[];
-  })[];
-};
+export type DeferredListPanel = WorkbenchListPanel;
 
 interface ListPage {
   readonly data: {
@@ -31,7 +27,7 @@ const observers = new WeakMap<
 >();
 const sources = new WeakMap<ListPage, { groupId: string; panels: readonly WorkbenchListPanel[] }>();
 
-/** Keep the original row shells/phone height; defer only their offscreen contents. */
+/** Keep every date and exact card height without creating offscreen personnel nodes. */
 export function prepareDeferredListPanels(
   panels: readonly WorkbenchListPanel[],
   previous: readonly DeferredListPanel[],
@@ -57,23 +53,24 @@ export function prepareDeferredListPanels(
     let height = 0;
     return {
       ...panel,
-      days: panel.days.map((day, index) => {
+      days: panel.days.map((day) => {
+        // WXSS: a row is 52px, or 44px phone + 16px padding + 1px border = 61px.
+        const rowHeight = day.duties.reduce((total, duty) => total + (duty.phone ? 61 : 52), 0);
         const renderDuties =
           !supported ||
-          index < 2 ||
-          (panel.relative === 0 && height < viewport) ||
+          height < viewport ||
           rendered.has(day.businessDate) ||
           scrollTarget === `list-day-${day.businessDate}`;
         // Lower bounds from the shared WXSS; taller rows only increase the prepared buffer.
-        height += 60 + day.duties.length * 52;
+        height += 60 + rowHeight;
         return {
           ...day,
           renderDuties,
+          // 38px heading + 22px card padding + 2px border; today uses the same total.
+          placeholderHeight: 62 + rowHeight,
           ...(page
             ? {
-                duties: renderDuties
-                  ? day.duties
-                  : day.duties.map((duty) => ({ key: duty.key, phone: !!duty.phone })),
+                duties: renderDuties ? day.duties : [],
               }
             : {}),
         };

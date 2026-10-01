@@ -40,7 +40,7 @@ it('groups the loaded window only once for the three list panels', () => {
   expect(group).toHaveBeenCalledTimes(1);
 });
 
-it('evaluates each assignment duty state once per model and refreshes across a duty boundary', () => {
+it('shares same-day shift state within a model and refreshes across a duty boundary', () => {
   const getState = vi.spyOn(nurse, 'getNurseDutyState');
   const source = calendarApiGoldenResponse.assignments[0];
   const assignments = Array.from({ length: 12 }, (_, index) => ({
@@ -65,7 +65,7 @@ it('evaluates each assignment duty state once per model and refreshes across a d
     now: new Date('2026-09-20T23:59:59Z'),
   });
   expect(before.selectedDetails[0].dutyState).toBe('before');
-  expect(getState).toHaveBeenCalledTimes(assignments.length);
+  expect(getState).toHaveBeenCalledTimes(1);
   getState.mockClear();
   const working = createWorkbenchViewModel(...args, {
     nursePreset: true,
@@ -75,5 +75,5 @@ it('evaluates each assignment duty state once per model and refreshes across a d
   expect(working.listPanels[1].days[0].duties.every((duty) => duty.dutyState === 'working')).toBe(
     true,
   );
-  expect(getState).toHaveBeenCalledTimes(assignments.length);
+  expect(getState).toHaveBeenCalledTimes(1);
 });

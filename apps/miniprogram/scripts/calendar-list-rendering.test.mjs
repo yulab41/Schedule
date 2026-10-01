@@ -67,7 +67,7 @@ it.each([false, true])(
 );
 
 it.each(['workbench/index', 'guest/guest'])(
-  '%s defers offscreen contents while keeping every date and duty row',
+  '%s defers offscreen contents while keeping every date and its height',
   (route) => {
     const source = readFileSync(new URL(`../src/pages/${route}.wxml`, import.meta.url), 'utf8');
     const list =
@@ -93,7 +93,7 @@ it.each(['workbench/index', 'guest/guest'])(
     }));
     const result = renderWxmlStructure(list, { listPanels });
     expect(result.nodeCount).toBeLessThan(5000);
-    expect(source).toContain('list-duty-placeholder');
+    expect(source).toContain('day.placeholderHeight');
     expect(source).toContain('day.renderDuties');
   },
 );

@@ -596,7 +596,9 @@
                         >
                           <view
                             class="list-day-card {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
+                            style="{{day.renderDuties ? '' : 'height:' + day.placeholderHeight + 'px'}}"
                           >
+                            <block wx:if="{{day.renderDuties}}">
                             <view
                               class="list-day-heading"
                               data-business-date="{{day.businessDate}}"
@@ -621,9 +623,8 @@
                               wx:for="{{day.duties}}"
                               wx:for-item="duty"
                               wx:key="key"
-                              class="list-duty-item {{!day.renderDuties && duty.phone ? 'list-duty-placeholder' : ''}}"
+                              class="list-duty-item"
                             >
-                              <block wx:if="{{day.renderDuties}}">
                               <view
                                 class="list-duty-accent"
                                 style="background:{{duty.shiftColor}}"
@@ -651,11 +652,9 @@
                                 aria-role="button"
                                 aria-label="联系{{duty.name}}"
                                 catchtap="handleListCall"
-                                ><image src="/assets/icons/ui-phone-success.svg" mode="aspectFit"
-                              /></view>
-                              </block>
-
+                              ></view>
                             </view>
+                            </block>
                           </view>
                         </view>
                       </view>

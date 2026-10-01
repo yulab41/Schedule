@@ -126,13 +126,14 @@ it('keeps natural full rows for large text instead of assuming phone-height plac
   expect(prepareDeferredListPanels(panels(), [])[0].days.every((x) => x.renderDuties)).toBe(true);
 });
 
-it('sends only row keys and phone-height flags for offscreen data, then restores full contacts atomically', async () => {
+it('sends only day height for offscreen data, then restores full contacts atomically', async () => {
   const p = page();
   const input = panels();
   const before = structuredClone(input);
   p.data.listPanels = prepareDeferredListPanels(input, [], '', p);
   const offscreen = p.data.listPanels[0].days[20];
-  expect(offscreen.duties).toEqual([{ key: 'duty-20', phone: false }]);
+  expect(offscreen.duties).toEqual([]);
+  expect(offscreen.placeholderHeight).toBe(114);
   expect(input).toEqual(before);
   syncDeferredListRendering(p);
   callback(intersection());

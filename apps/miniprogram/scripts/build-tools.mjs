@@ -394,7 +394,17 @@ function copyStaticFiles(sourceDirectory, outputDirectory) {
     }
     const destinationPath = path.join(outputDirectory, relativePath);
     mkdirSync(path.dirname(destinationPath), { recursive: true });
-    copyFileSync(sourcePath, destinationPath);
+    if (extension === '.wxss') {
+      // WXSS cannot fetch a packaged image URL. Embed only canonical generated icons.
+      const styles = readFileSync(sourcePath, 'utf8').replace(
+        /url\((['"]?)\/assets\/icons\/(ui-[a-z0-9-]+\.svg)\1\)/gu,
+        (_match, _quote, file) => {
+          const icon = readFileSync(path.join(sourceDirectory, 'assets', 'icons', file));
+          return `url('data:image/svg+xml;base64,${icon.toString('base64')}')`;
+        },
+      );
+      writeFileSync(destinationPath, styles, 'utf8');
+    } else copyFileSync(sourcePath, destinationPath);
   }
 }
 

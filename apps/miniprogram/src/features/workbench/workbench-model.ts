@@ -133,6 +133,7 @@ export interface WorkbenchWeekPanel {
 
 export interface WorkbenchListDay {
   readonly renderDuties?: boolean;
+  readonly placeholderHeight?: number;
   readonly businessDate: string;
   readonly dateLabel: string;
   readonly duties: readonly WorkbenchDuty[];
@@ -324,12 +325,18 @@ export function createWorkbenchViewModel(
   const assignments = options.nursePreset
     ? [...filtered].sort((a, b) => rank(a) - rank(b) || a.slotPosition - b.slotPosition)
     : filtered;
-  const states = new Map<CalendarReadModel['assignments'][number], DutyStateView>();
+  const states = new Map<string, DutyStateView>();
   const stateFor = (assignment: CalendarReadModel['assignments'][number]): DutyStateView => {
-    const cached = states.get(assignment);
+    // The preset depends only on the business date and shift labels at this captured time.
+    const key = JSON.stringify([
+      assignment.businessDate,
+      assignment.shiftTypeName,
+      assignment.shiftTypeAbbreviation,
+    ]);
+    const cached = states.get(key);
     if (cached !== undefined) return cached;
     const value = getNurseDutyState(assignment, options.nursePreset === true, now);
-    states.set(assignment, value);
+    states.set(key, value);
     return value;
   };
   const duty = (assignment: CalendarReadModel['assignments'][number]) =>

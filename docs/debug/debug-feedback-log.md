@@ -3439,3 +3439,13 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 首搜确认立即执行且不等待facets，两模式延迟facets测试通过；保留bb97145d的500ms汉字防抖，API/SQL/缓存未改。业务67d2fff0已推送并上传`.226@67d2fff`（Manifest3851c9c1…），干净同口径包体+40B；只增放行另待具体授权。用户当次批准只读，10:47–10:59实时核实live dbe35288、candidate配置和现有索引，API/Web只有facets无搜索样本，查询摘要关闭；8个只读EXPLAIN通过，计划估算不充当运行耗时，待用户复测时间对齐新日志。运行/浏览器验证：pnpm smoke:check-core通过，未触及Web/契约核心，不要求pnpm smoke:browser；Agent工具两页WXSS编译通过。详细基线、风险、验证和交付身份见[轮次报告](../audit/calendar-footer-directory-first-search-20261001.md)。
 
 后续放行（2026-10-01 11:51–11:57）：用户明确“先放行226，我再进行通讯录测试”；L4检查/实时身份与已安装控制哈希核对后，仅ensure追加`.226`。原116项逐项保留、总117，`.226/.225/.224`200、合法未知426；独立policy verify与完整生产verifier通过，live前后dbe35288。配置控制重建API/Web，无应用部署、备份/迁移或Git身份同步。下一复测构建改为`.226@67d2fff`；手机间距/首搜仍待证据，不重新上传、不提审/正式发布。记录消息`docs(audit): close footer trial allowlist verification`。
+
+## CAL-06–09 护士列表响应与电话图标（2026-10-01）
+
+小米14`.226@67d2fff`首次及重复列表切换约500ms，护士翻月电话晚显示。基线0c5cf4fa，独占general-2、REUSE_ONLY无安装。`git log -S`/blame：屏幕外逐人员占位0848a3da/68362803，按assignment状态缓存68362803，列表phone image始于c7f93d48、生成资产2eac4103。缓存切换0请求，Node逻辑护士约23ms/医生4ms；未取得当前构建原生完整耗时分解，不据此改数据库。
+
+行为变化清单：整卡等高占位保留日期锚点，屏幕前后预热恢复完整人员；三月首屏按实际电话行高度准备；同一天同班种按真实函数输入复用状态，仅一次建模有效；原SVG构建成WXSS data URI，按钮伪元素绘制。拨号处理器/联系方式权限、Page接收者、网络/异步/错误/缓存语义不变，缺API/大字号/观察失败完整回退；没有共享包重构。
+
+7项新回归旧代码先红后绿，定向49通过；完整pnpm verify（Mini1351/23跳过、根1368/476跳过、Codex83）及production verify/预算/确定性/干跑/lineage通过。运行/浏览器验证：pnpm smoke:check-core通过，无Web/契约核心变更；20组Edge/Playwright实际CSS高度差0、显著像素差0。护士初始节点3899→943、列表数据115628→39298B；不是手机耗时。Agent两页WXML/WXSS编译成功，运行探针缺新字段且连接/缓存未对齐；旧运行样本排除。新构建Console/Network、快滚/图标逐帧及小米14无感暂未验证。完整证据与风险见[轮次报告](../audit/calendar-list-response-20261001.md)。
+
+检查点消息`perf(miniprogram): streamline list cards and paint phone icons atomically`；下一任务仅提交推送、干净候选包体/上传并按当次授权边界放行后，同构建小米14复核。不提审/正式发布，通讯录首搜等待用户数据。

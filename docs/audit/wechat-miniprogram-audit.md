@@ -1229,3 +1229,7 @@ directory are not bidirectionally closed`（`ui-loading-primary/muted.svg` 由�
 ## 2026-10-01：列表末尾留白与首搜等待边界
 
 CAL-FOOTER-001：共享滚动内容漏掉尾部padding，导致成员/访客末卡贴导航；8个桌面CSS场景先0px红灯、补丁后8px通过，保持原导航/安全区及列表行为。DIR-COLD-001：用户采用拼音/数字键盘确认，已排除500ms汉字自动输入等待和facets前置等待；当前生产/手机分段待数据，不增加全库预加载或推测性SQL/缓存。两页Agent工具WXSS编译通过，修改后实体视觉和首搜提速暂未验证。引入点、基线、风险和后续证据见[轮次报告](calendar-footer-directory-first-search-20261001.md)，当前唯一下一任务见[STATUS](STATUS.md)。
+
+## 2026-10-01：护士列表节点与电话绘制（CAL-06–09）
+
+用户确认`.226@67d2fff`首次及重复切换卡顿。两页共用整卡等高占位、三月首屏准备与本次建模同日班种状态复用；电话沿用生成SVG，经构建内嵌WXSS绘制，操作/几何不变。Node护士3899→943节点、首次访客128331→51731B；7项新回归先红后绿，完整Mini1351通过/23跳过与根verify、production verify/预算/确定性/干跑通过。20组桌面CSS几何/像素差0、两页Agent WXML/WXSS编译通过；当前构建原生运行与小米14无感仍暂未验证。引入点、风险、回退与候选交付见[轮次报告](calendar-list-response-20261001.md)，唯一下一任务见[STATUS](STATUS.md)。
