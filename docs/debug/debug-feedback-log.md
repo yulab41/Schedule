@@ -3437,3 +3437,5 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 用户确认小米14`.225@f9457d5`成员/访客列表末卡贴导航，首搜为拼音/数字键盘确认。独占general-1/61e5f18f，REUSE_ONLY无安装。`git log -S 'list-panel-content'`与blame及提交差异定位9045dc02迁移滚动padding时漏掉底部16px，9fdf659a外层置零；仅共享内容补8px卡片尺度间距。实际WXSS/token的8个桌面CSS场景0px全部失败→8px全部通过；不是手机验收。
 
 首搜确认立即执行且不等待facets，两模式延迟facets测试通过；保留bb97145d的500ms汉字防抖，API/SQL/缓存未改。业务67d2fff0已推送并上传`.226@67d2fff`（Manifest3851c9c1…），干净同口径包体+40B；只增放行另待具体授权。用户当次批准只读，10:47–10:59实时核实live dbe35288、candidate配置和现有索引，API/Web只有facets无搜索样本，查询摘要关闭；8个只读EXPLAIN通过，计划估算不充当运行耗时，待用户复测时间对齐新日志。运行/浏览器验证：pnpm smoke:check-core通过，未触及Web/契约核心，不要求pnpm smoke:browser；Agent工具两页WXSS编译通过。详细基线、风险、验证和交付身份见[轮次报告](../audit/calendar-footer-directory-first-search-20261001.md)。
+
+后续放行（2026-10-01 11:51–11:57）：用户明确“先放行226，我再进行通讯录测试”；L4检查/实时身份与已安装控制哈希核对后，仅ensure追加`.226`。原116项逐项保留、总117，`.226/.225/.224`200、合法未知426；独立policy verify与完整生产verifier通过，live前后dbe35288。配置控制重建API/Web，无应用部署、备份/迁移或Git身份同步。下一复测构建改为`.226@67d2fff`；手机间距/首搜仍待证据，不重新上传、不提审/正式发布。记录消息`docs(audit): close footer trial allowlist verification`。

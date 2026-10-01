@@ -53,7 +53,7 @@
 
 业务检查点67d2fff0（`fix(miniprogram): restore calendar list footer spacing`）正常推送任务分支/main，canonical快进同步且保留原10项未跟踪用户内容。general-1正式提升为干净detached上传用途，通过准备/版本绑定两次检查；正式Node入口独占锁动态分配`0.1.0-p10.20261001.226`，描述`列表底部间距修复 67d2fff`，2026-10-01T02:50:40.687Z上传成功。Manifest3851c9c1396a96ccacf58ea033e07f7bd3b9fa1c61cb6426aa1b91983910e609；不可变tag及allocation/manifest/receipt在正式台账。测试页面为成员/访客日历列表末尾及两种通讯录确认搜索。
 
-版本绑定产物总包3964832B、主包1183808B（包含完整版本/描述等身份），不与未绑定版本的本地基线混算。上传不证明生产放行；新版本只增放行已单独询问具体L4授权，尚待答复。旧版本保留。完成后general-1正式释放，文档收口重新Acquire general-2、ReuseOnly/mini Bootstrap复用，定向文档3项通过，无安装。Mini/文档范围不部署API/Web、备份/迁移数据库或同步服务器身份。
+版本绑定产物总包3964832B、主包1183808B（包含完整版本/描述等身份），不与未绑定版本的本地基线混算。上传与生产放行分开验证；用户后续明确授权“先放行226，我再进行通讯录测试”，结果见下节。完成上传后general-1正式释放，文档收口重新Acquire general-2、ReuseOnly/mini Bootstrap复用，定向文档3项通过，无安装。Mini/文档范围不部署API/Web应用、备份/迁移数据库或同步服务器身份。
 
 文档收口行为变化仅记录已完成上传和当前只读证据、纠正待授权旧状态；四份文档格式、agent-context-policy定向3项、`pnpm smoke:check-core`及`git diff --check`通过，逐行审查不含应用/凭据/原始数据。检查点消息`docs(audit): record footer trial and readonly directory diagnosis`，原始证据在ignored轮次目录。
 
@@ -65,4 +65,13 @@
 - 源码候选生成器+合成拼音/数字、两种当前发布批次、rows/count共8个`EXPLAIN FORMAT=JSON`成功；session5s及进程8s限制。无筛选/游标/工号别名补充条件，外层投影是辅助计划，不能冒充全部真实关键词、权限或运行耗时。号码和精确/前缀别名走现有索引；拼音包含分支按批次及覆盖索引检查别名，仍需候选聚合/排序。`ALL`包含候选临时结果和仅2行校区表，不等于全表扫所有员工；计划cost/估计行数不转换成毫秒。
 - 结论：当前不能判定1–2秒的主要阶段，不能据此调整数据库参数、添加索引/缓存或下载整库。首搜分段暂未验证，保留已测试的权限、排名、分页和操作；待新请求证据再做最小优化。
 
-唯一下一任务：取得当前首搜分段证据，按实际主导阶段选择低风险优化；同时用新体验版复核两页滚动末尾。无同构建手机证据不写无感/验收通过，不提审、不正式发布。
+## `.226`只增放行（2026-10-01 11:51–11:57北京时间）
+
+- 用户当次明确授权后进入L4，守护检查通过；复核fresh origin/main=b1b9adac、上传receipt/Manifest及远端`.226`tag都绑定67d2fff0。独占general-2新租约，Acquire → ReuseOnly → mini Bootstrap → 定向8项通过，依赖复用且无安装。
+- 实时读取服务器live=dbe352886ff425401586da187054bdd7a488dfcc，与部署manifest一致；已安装allowlist/verifier均为安全的root所有普通文件，内容匹配control-plane manifest的artifacts哈希。放行控制另外逐字节匹配本地已审查源码，未使用临时脚本改生产配置。
+- 执行已安装`schedule-client-version-allowlist ensure 0.1.0-p10.20261001.226`成功，只追加1项；放行前116项、后117项，与原列表+目标逐项且顺序相等，全部旧版本保留。`.224`完整身份从上传回执重新核对为`0.1.0-p10.20260930.224`，没有把历史序号当作当天日期。
+- 独立`schedule-client-version-allowlist verify`通过；公网严格TLS探针`.226/.225/.224`均200，动态生成的合法未知版本426。随后执行已安装完整`ecs-verify.sh`，退出码0且`[verify] complete`；重建后的首个健康探针出现短暂TLS EOF，由可信控制自带等待恢复，最终健康和策略全部通过。脱敏receipt及日志留在ignored轮次目录。
+- 操作前后live相等，未部署应用代码、备份/迁移数据库或同步服务器Git身份；控制仅更新准入并按既有流程重建API/Web。未重新上传或改变`.226`的版本/SHA/Manifest，不提审、不正式发布。放行已完成，手机间距和首搜验收仍未完成。
+- 放行文档检查点消息`docs(audit): close footer trial allowlist verification`，应用证据复用；四文档格式、文档定向3项、`pnpm smoke:check-core`及`git diff --check`通过。逐行审差异，记录行为变化仅授权/放行/验证状态及下一复测构建，当前不改变搜索或其它业务。
+
+唯一下一任务：用户退出重进`.226@67d2fff`，首次及重复搜索后只反馈完成时间和等待时长，服务端按新请求对齐耗时；同时复核两页滚动末尾。无同构建手机证据不写首搜已提速、无感或验收通过，不提审、不正式发布。

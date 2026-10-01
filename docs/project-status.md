@@ -5,8 +5,8 @@
 - 用户确认小米14截图来自`.225@f9457d5`，首页/访客列表末卡紧贴导航；通讯录等待发生在输入关键词后。独占general-1/61e5f18f，REUSE_ONLY，无安装，保留canonical用户文件。
 - 间距已实现：9045dc02迁移padding时漏掉底部，成员/访客共用内容补8px；桌面320/390宽×两安全区×两页8场景0→8px先红后绿，Agent工具两页WXSS编译成功。Mini全量1344通过/23既有跳过；production verify/预算/确定性、格式/lint、图标、干跑/lineage/core smoke通过。干净同口径总包3963716→3963756B（+40B）、主包1183467→1183507B，最大文件不变。详见[轮次报告](audit/calendar-footer-directory-first-search-20261001.md)。
 - 用户确认拼音/数字键盘确认，已排除500ms汉字自动等待；两模式确认无需等待facets。产物无测试工具路由（e6ef714b），不按旧菜单取证、不恢复入口。用户当次批准只读生产诊断：2026-10-01 10:47–10:59核实live dbe35288、candidate配置及覆盖索引完整；API/Web窗口只有各7次两种facets，没有搜索样本，查询摘要关闭。8个只读EXPLAIN使用现有索引，拼音候选聚合/排序需进一步实测；不据估算宣称首搜原因或提速。
-- 根format/lint/build/typecheck与pnpm test通过（Vitest1368/476跳过）。修复67d2fff0（`fix(miniprogram): restore calendar list footer spacing`）正常推送任务分支/main；独占干净候选由正式锁分配并Node上传`.226@67d2fff`，Manifest3851c9c1…，版本绑定检查通过。只增放行另待具体授权；无部署/迁移/备份，生产数据、缓存和服务配置未改。
-- 文档收口消息`docs(audit): record footer trial and readonly directory diagnosis`；general-2新独占租约REUSE_ONLY复用。唯一下一任务及停止条件：对齐用户退出重进后的两次搜索与服务器日志，取得当前首搜耗时后选择最小补丁；手机`.226`间距待同构建复核。无证据不写首搜已优化或验收通过，不提审/正式发布。
+- 根format/lint/build/typecheck与pnpm test通过（Vitest1368/476跳过）。修复67d2fff0（`fix(miniprogram): restore calendar list footer spacing`）正常推送任务分支/main；独占干净候选由正式锁分配并Node上传`.226@67d2fff`，Manifest3851c9c1…，版本绑定检查通过。按用户本轮“先放行226”授权，11:51–11:57可信控制只增追加，116→117版本且全部旧版本保留；`.226/.225/.224`200、动态未知426，独立policy verify和完整生产verifier通过。live前后dbe35288，配置控制重建API/Web，无应用部署、备份/迁移或服务端Git身份同步。
+- 放行记录检查点消息`docs(audit): close footer trial allowlist verification`；general-2新独占租约REUSE_ONLY/Bootstrap复用，定向8项通过，无安装。唯一下一任务及停止条件：对齐用户`.226@67d2fff`退出重进后的两次搜索、完成时间与服务器日志，取得首搜耗时后选择最小补丁；同构建两页末尾间距待手机复核。无证据不写首搜已优化或验收通过，不提审/正式发布。
 
 ## 上一批次：访客列表空白与日历切换响应（2026-10-01）
 
