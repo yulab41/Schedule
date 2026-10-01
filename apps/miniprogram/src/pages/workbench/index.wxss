@@ -1341,6 +1341,7 @@ page {
 
 .list-panel-content {
   box-sizing: border-box;
+  padding-bottom: var(--ui-spacing-xs);
 }
 
 .list-calendar {

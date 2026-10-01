@@ -3431,3 +3431,9 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 首轮verify的2项失败源于测试自然月和08:00值班月错位。`git log -S 'const activeMonth'`/blame：测试9e3a966c，业务日期变更528722f4。固定10月1日00:15北京时间后旧口径2失败；仅测试取月复用既有getCurrentBusinessDate，两个用例局部冻结Date并独立断言9月，保留真实计时和原断言；31通过。全suite冻结曾干扰护士用例自有假计时器，已回退该尝试。
 
 最终Mini1328通过/23跳过，根1368通过/476跳过，Codex83、文档/范围9项通过；格式/lint/build/typecheck/图标通过。运行/浏览器验证：pnpm smoke:check-core通过，Mini测试/文档范围不要求pnpm smoke:browser。没有业务/API/契约/数据库变更；完整证据、回执与未知未跟踪文件恢复限制见[恢复记录](../audit/source-recovery-20261001.md)。本轮不连接生产，不重新上传，实体日历验收仍待同构建用户证据。
+
+## CAL-FOOTER-001 / DIR-COLD-001（2026-10-01）
+
+用户确认小米14`.225@f9457d5`成员/访客列表末卡贴导航，首搜为拼音/数字键盘确认。独占general-1/61e5f18f，REUSE_ONLY无安装。`git log -S 'list-panel-content'`与blame及提交差异定位9045dc02迁移滚动padding时漏掉底部16px，9fdf659a外层置零；仅共享内容补8px卡片尺度间距。实际WXSS/token的8个桌面CSS场景0px全部失败→8px全部通过；不是手机验收。
+
+首搜确认立即执行且不等待facets，两模式延迟facets测试通过；保留bb97145d的500ms汉字防抖，API/SQL/缓存未改。当前生产/手机分段无数据，不猜测优化。运行/浏览器验证：pnpm smoke:check-core通过，未触及Web/契约核心，不要求pnpm smoke:browser；Agent工具两页WXSS编译通过。详细基线、风险、验证和交付身份见[轮次报告](../audit/calendar-footer-directory-first-search-20261001.md)。

@@ -840,6 +840,40 @@ describe('P10 native directory controller', () => {
     expect(page.data.internalPane.facetsLoading).toBe(true);
   });
 
+  it.each(['internal', 'employee'])(
+    'starts the first confirmed %s search before facets finish and keeps its visible result',
+    async (kind) => {
+      deferFacetRequests = true;
+      const page = createPageInstance(definition, runtimeProperties());
+      definition.lifetimes.attached.call(page);
+      await vi.waitFor(() => expect(deferredFacetRequests).toHaveLength(2));
+      if (kind === 'employee') definition.methods.handleEmployeeMode.call(page);
+      const event = { currentTarget: { dataset: { directoryKind: kind } } };
+      const requestCount = listRequests().length;
+      vi.useFakeTimers();
+
+      definition.methods.handleSearchInput.call(page, { ...event, detail: { value: 'xmb' } });
+      definition.methods.handleSearch.call(page, event);
+      await flushPromises();
+
+      // No timer advancement or facet response is needed to issue and render this search.
+      expect(listRequests()).toHaveLength(requestCount + 1);
+      expect(lastRequest().url).toContain('pageSize=30');
+      const paneKey = kind === 'employee' ? 'employeePane' : 'internalPane';
+      const result = page.data[paneKey].entries;
+      expect(result.length).toBeGreaterThan(0);
+      expect(page.data[paneKey]).toMatchObject({ facetsLoading: true, searching: false });
+      for (const request of deferredFacetRequests) {
+        request.success({ data: facetsResponse, statusCode: 200 });
+      }
+      await flushPromises();
+      expect(page.data[paneKey].facetsLoading).toBe(false);
+      expect(page.data[paneKey].entries).toEqual(result);
+      expect(page.data[paneKey].hasCriteria).toBe(true);
+      expect(listRequests()).toHaveLength(requestCount + 1);
+    },
+  );
+
   it('builds only the active sheet and releases all option nodes when it closes', async () => {
     const page = createPageInstance(definition, runtimeProperties());
     definition.lifetimes.attached.call(page);

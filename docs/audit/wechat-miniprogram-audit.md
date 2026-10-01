@@ -1225,3 +1225,7 @@ directory are not bidirectionally closed`（`ui-loading-primary/muted.svg` 由�
 ## 2026-09-30：日历列表切换开销（CAL-LIST-01–03）
 
 已定位首页/匿名访客三月人员节点与隐藏视图建模，最小修复为共用屏幕范围内容补齐和按当前模式建模。Node合成护士首次节点24059→3899，医生3899→1127；全量Mini1328通过/23跳过，production verify/包体/预算/确定性通过。开发者工具只取得部分合成结构，手机切换时间与小米14无感体验暂未验证。引入点、风险、先红后绿、包体取舍及版本交付见[轮次记录](calendar-list-switch-20260930.md)，当前唯一下一任务见[STATUS](STATUS.md)。
+
+## 2026-10-01：列表末尾留白与首搜等待边界
+
+CAL-FOOTER-001：共享滚动内容漏掉尾部padding，导致成员/访客末卡贴导航；8个桌面CSS场景先0px红灯、补丁后8px通过，保持原导航/安全区及列表行为。DIR-COLD-001：用户采用拼音/数字键盘确认，已排除500ms汉字自动输入等待和facets前置等待；当前生产/手机分段待数据，不增加全库预加载或推测性SQL/缓存。两页Agent工具WXSS编译通过，修改后实体视觉和首搜提速暂未验证。引入点、基线、风险和后续证据见[轮次报告](calendar-footer-directory-first-search-20261001.md)，当前唯一下一任务见[STATUS](STATUS.md)。
