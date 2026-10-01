@@ -50,5 +50,9 @@
 - 320/390宽 × 普通/今天卡片 × 无行/有无电话/混合/20人共20组桌面CSS几何及截图比较：高度差0、显著像素差0，电话20px。初版比较夹具同时渲染了旧image和新伪元素，已纠正比较夹具；该失败不作为产品回归。
 - Agent开发者工具两页WXML/WXSS编译成功。运行探针读到旧的每人占位数据而无placeholderHeight，刷新/重开后运行连接未与当前输出对齐，导航出现automator超时；不采用这些样本作本轮前后耗时证据。完整Console/Network、当前代码运行耗时、真实访客码、手机快滚及图标逐帧：当前工具无法测量，暂未验证。
 - 完整`pnpm verify`通过：Mini195文件/1351通过、4文件/23跳过；根285文件/1368通过、38文件/476跳过；Codex83通过。`pnpm miniprogram:verify`（8191ms）覆盖production、源码/产物/包体/性能预算/确定性，全部通过，保留未改manual1513节点提示；`pnpm miniprogram:ci:dry-run`、`pnpm miniprogram:trial-lineage`、`pnpm smoke:check-core`通过。未改Web/契约核心，不要求`pnpm smoke:browser`；20组独立桌面CSS运行证据仅覆盖样式几何。
-- 干净提交/推送、同口径包体复测及不可变体验上传待完成。检查点消息`perf(miniprogram): streamline list cards and paint phone icons atomically`。本批仅Mini及文档，不连接生产；按guardrails，放行需要当次明确授权。未提审/正式发布。
-- 唯一下一任务/停止条件：完成本候选门禁与体验交付后，同构建小米14复核首次/重复月周列表、翻月、快滚、定位、筛选和电话；无真实同构建证据不写无感/验收通过。通讯录首搜诊断暂缓等待用户数据，不扩展数据库或缓存架构。
+- 业务45863f70f930cc7246d1d59cc3128782bd7ccadf（`perf(miniprogram): streamline list cards and paint phone icons atomically`）正常推送任务分支/main；干净同口径`pnpm miniprogram:build`1827ms（基线1937ms，仅一轮桌面构建），总包3963756→3964483B、主包1183507→1184234B（均+727B），四分包不变；最大三文件workbench237694、manual187330、guest161117B，最大20与完整命令留在ignored证据。
+- 正式上传锁动态分配`0.1.0-p10.20261001.227`，冻结clean production SHA45863f70、描述“护士列表轻量渲染与电话图标同步绘制 45863f7”；13:39:11 Node上传完成，Manifest `9c890ce37a10b2bf089cadde67839c5fa7fd1117fae14f6b1a247488cbb9b368`，receipt/远端不可变tag/版本绑定正式候选检查全部一致。上传可选white-ext查询一次ECONNRESET，官方SDK继续并成功返回上传，未重复上传或占用其他版本；不会把该警告写成业务Console异常。
+- 用户随后当次明确“同意只增放行并验证”；13:54–13:56按已审物理路由（两独立DNS、strict TLS/host-key）核验实时live与已安装control/manifest/source哈希后，只调用可信ensure追加`.227`。原117全部保留、总118；独立policy verify、完整已安装ECS verifier以及strict TLS公网`.227/.226/.225`200、动态未知426全部通过。live前后均dbe352886ff425401586da187054bdd7a488dfcc，MySQL容器身份未变；控制命令按既有流程重建API/Web，无应用部署、迁移、数据库备份或服务端Git身份同步。
+- 初次生产preflight错误从manifest顶层取hash字段，在任何写入前停止；与packager对照后改从`artifacts`取值，已安装脚本、独立manifest及当前源码的两hash实际相同；不是服务器控制漂移，不更新控制脚本。Node上传前HEAD根路径探针ECONNRESET，独立TLS握手证明已审IPv4路由可用，沿用原route未改变系统DNS/VPN/证书策略。
+- 开发者工具general-2文件监听器仍存活，官方close_project_window返回aborted；正式池release拒绝，保留干净候选/有效租约，不强杀工具或放宽回收门禁。独占general-3完成文档收口，Acquire/ReuseOnly/Bootstrap及文档范围6项通过、无安装，应用输入未变复用已完成门禁；收口消息`docs(audit): close nurse list response trial delivery`。未提审/正式发布。
+- 唯一下一任务/停止条件：小米14退出重进`.227@45863f7`同构建复核护士/医生/访客首次/重复月周列表、翻月、快滚、定位、筛选和电话；无真实同构建证据不写无感/验收通过。通讯录首搜诊断暂缓等待用户数据，不扩展数据库或缓存架构。

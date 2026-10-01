@@ -3449,3 +3449,5 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 7项新回归旧代码先红后绿，定向49通过；完整pnpm verify（Mini1351/23跳过、根1368/476跳过、Codex83）及production verify/预算/确定性/干跑/lineage通过。运行/浏览器验证：pnpm smoke:check-core通过，无Web/契约核心变更；20组Edge/Playwright实际CSS高度差0、显著像素差0。护士初始节点3899→943、列表数据115628→39298B；不是手机耗时。Agent两页WXML/WXSS编译成功，运行探针缺新字段且连接/缓存未对齐；旧运行样本排除。新构建Console/Network、快滚/图标逐帧及小米14无感暂未验证。完整证据与风险见[轮次报告](../audit/calendar-list-response-20261001.md)。
 
 检查点消息`perf(miniprogram): streamline list cards and paint phone icons atomically`；下一任务仅提交推送、干净候选包体/上传并按当次授权边界放行后，同构建小米14复核。不提审/正式发布，通讯录首搜等待用户数据。
+
+CAL-06–09交付：45863f70已推送任务分支/main，干净同口径包体+727B、构建1827ms；`.227@45863f7`正式Node上传（Manifest9c890ce3…）且精确tag/receipt/候选检查通过。用户当次明确批准后13:54–13:56只增放行，117旧版本逐项保留、总118；`.227/.226/.225`200、未知426，独立policy verify及完整生产verifier通过，live前后dbe35288、MySQL容器相同。无应用部署/迁移/备份或服务端身份同步。初次preflight误取manifest顶层字段，无写发生；核对packager后从artifacts正确取值，三方控制hash一致。general-2被本任务DevTools文件监听占用，正式release拒绝并保留；general-3独占文档收口，应用证据复用。收口消息`docs(audit): close nurse list response trial delivery`，当前待用户同构建小米14复核。
