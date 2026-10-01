@@ -45,9 +45,11 @@
 
 - 原子切换3项先红后绿；补齐/批处理9项先红后绿；状态去重1项先红后绿，另1项记录可比较成本。第一轮测试动态import夹具错误已修正，不能当产品回归证据；真正旧代码失败保存在red-switch/red-hydration/red-model-state日志。
 - 定向80项与新增状态/切换25项通过；格式/lint/build/typecheck/图标通过。完整verify在未改动的导出上传转换beforeAll处10s超时（其余1337通过）；关闭本轮工具窗口后独立5项通过，合计Mini1342通过/23跳过。按守护规则只重跑失败段，再续根1368通过/476跳过及Codex83项；不声称单次verify全绿。内存复核空闲38526MB，未证明超时的具体资源原因。
-- production verify、性能预算、确定性、包体和上传干跑通过；总包3961308→3963715B(+2407，约0.061%)，主包1181059→1183466，其余分包不变，最大20文件在ignored证据。手排矩阵1513节点是既有警告，未在本批修改。
+- production verify、性能预算、确定性、包体和上传干跑通过；最终干净、未绑定体验版本的同口径总包3961308→3963716B(+2408，约0.061%)，主包1181059→1183467，其余分包不变，最大20文件在ignored证据。早期脏树产物3963715B因dirty元数据比最终少1B，交付采用clean-package日志。手排矩阵1513节点是既有警告，未在本批修改。
 - Agent开发者工具门禁equal/登录有效：两页编译、访客WXML及共享WXSS摘要成功。`local@5804695`工作树生产构建的合成护士20×30×3：首页1800行壳/120姓名、600班次，月→列表→月→列表无中间空数组，重复patch仅290字符。此为注入合成数据的辅助证据，未读取真实访客接口或取得真机帧时间。
-- 访客合成探针超时，随后工具连接返回`wait WechatIDE authorization timeout`；暂未确认是等待方式、连接还是渲染原因，不能写运行通过。已请求用户允许连接，Node交付继续；探针早期参数/大请求错误不是产品回归证据。
-- 业务提交68362803 `perf(miniprogram): make list switches atomic and trim bridge payloads`已正常推送任务分支/main。canonical proof独立刷新：149函数中仅createViewPatch变化，其余148不变、无删除；17项lineage通过。检查点消息`chore(release): refresh atomic calendar switch lineage proof`，完整应用证据复用，最终干净包体/上传身份待填。
-- 本轮未连接生产，放行需当次L4授权，不提审/正式发布。
-- 唯一下一任务/停止条件：完成本批验证和新构建交付，再由小米14复核首页/访客首次及重复月周列表、快滚、翻月、定位、筛选、电话；证据不足不写极致丝滑/无感/验收通过。
+- 访客合成探针超时，随后工具连接返回`wait WechatIDE authorization timeout`；暂未确认是等待方式、连接还是渲染原因，不能写运行通过。用户报告工具卡死并手动关闭；探针早期参数/大请求错误不是产品回归证据。
+- 业务提交68362803 `perf(miniprogram): make list switches atomic and trim bridge payloads`与独立proof f9457d5d `chore(release): refresh atomic calendar switch lineage proof`已正常推送任务分支/main。149函数中仅createViewPatch变化，其余148不变、无删除；17项lineage通过，完整应用证据复用。
+- 上传身份：干净production候选`f9457d5d8b21db1a068755b7aeb2db49e5199590`在正式锁内分配`0.1.0-p10.20261001.225`，description为`日历切换无中间空白与列表轻量补齐 f9457d5`；测试页面为首页/匿名访客月周列表、滚动/定位/筛选/电话。Node `pnpm miniprogram:upload-experience`于2026-10-01T01:21:48.131Z成功，Manifest`5d53ba0b8789e5a937426e11f43f2146e8287eec196f42ef95ca3840437f9125`；远端不可变tag、receipt与上传后正式候选检查均通过。
+- 用户当次明确授权只增放行并验证；L4 inspector PASS，独立DoH/可信host key/TLS路径通过。实时live前后`dbe352886ff425401586da187054bdd7a488dfcc`；可信`ensure`追加1个版本，`verify`和完整已安装`ecs-verify.sh`前后通过（后验包含显式物理公网探测），`.225/.224`均200，控制内动态未知版本426。按既有控制重建API/Web容器，启动首轮健康探测短暂EOF后重试通过；无应用产物部署、数据库迁移/备份或服务端release身份同步，旧版本保留。
+- 文档收口检查：`pnpm exec vitest run scripts/agent-context-policy.test.mjs`3项、`pnpm smoke:check-core`与`git diff --check`均通过；检查点消息`docs(audit): close atomic calendar switch trial delivery`，不重新上传文档SHA。独占新文档租约继续REUSE_ONLY，最终释放租约并核对池状态。
+- 当前待用户复核；唯一下一任务/停止条件：小米14退出重进`.225@f9457d5`同构建复核首页/访客首次及重复月周列表、快滚、翻月、定位、筛选、电话；证据不足不写极致丝滑/无感/验收通过，不进入其他重构，不提审/正式发布。
