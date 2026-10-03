@@ -1,12 +1,13 @@
 # Project Status
 
-## 当前批次：全面审查问题逐项修复（2026-10-03，本地验证通过，待检查点交付）
+## 当前批次：全面审查问题逐项修复（2026-10-03，代码及体验版已交付，待生产授权）
 
 - 用户已确认状态文字颜色及作业成功30天/失败90天留存；FULL-09/14外部值班接口未改。详见[修复轮次](audit/full-fixes-20261003.md)。
 - 基线main/origin/main 6c153f7b；独占general-3、REUSE_ONLY/Bootstrap，安装0。访客36项、Mini全量1366通过/23既有跳过；生产包审计通过，总包减少75571B。
 - 健康/共享读取/角色事件/分批历史/通知租约/留存/流式备份及恢复已实现，隔离真实MySQL与单元51项通过；正确旧health与锁边界已验证回归红。迁移0071仅本地合成库验证，尚未部署。
 - FULL-12历史超时本轮未复现，已测Babel1268ms并增加诊断，不宣称根治。压测入口强制专用库与marker、消息关闭，补密集非空日历；完整pnpm verify通过（Mini1366/23跳过、根1388/488跳过、Codex83）；真实夹具1820排班/3月/20人/联系人/事件及load:build通过。批准颜色桌面复测一致，不代表小米14验收。
-- 唯一下一任务/停止条件：以`fix: bound caches backups and background job load`提交推送已验证检查点，按runbook上传体验版；生产/allowlist当前未授权，不连接，真机及生产缺口明确记录，不扩展外观或外部接口。
+- 修复03ff9635（`fix: bound caches backups and background job load`）已正常推送任务分支及main。独占干净候选由正式分配器分配并Node上传`.228@03ff963`；Manifest c4370eb3…，永久tag/receipt及版本绑定候选检查通过。未提审/正式发布，未连接生产；新版本allowlist尚未追加，不能宣称该体验版已可线上使用。
+- 收口文档检查点消息`docs(audit): record fixes and trial 228 delivery`，general-4新独占REUSE_ONLY/Bootstrap、无安装，复用已冻结应用证据；定向文档策略3项、仓库format:check、core smoke与diff检查通过。仅文档不触发生产部署。唯一下一任务/停止条件：等待当次生产备份、部署0071/应用、验证及仅追加新体验版allowlist的明确授权；授权前不连接，保留真机/容量/FULL-12缺口，不扩展外观或外部接口。
 
 ## 上一批次：小程序、服务器与数据库全面审查（2026-10-03，已交付审查；容量/真机缺口保留）
 
