@@ -51,6 +51,8 @@ describe('persisted history visibility release compatibility', () => {
       journal(69, '0069_unknown'),
       journal(69, '0069_member_wechat_notification_kinds'),
       journal(70, '0070_unknown'),
+      journal(71, '0071_unknown'),
+      journal(72, '0072_unknown'),
       journal(55, '0055_unknown'),
       journal(54, '0054_other'),
       { entries: [] },
@@ -58,5 +60,12 @@ describe('persisted history visibility release compatibility', () => {
     ]) {
       expect(() => releaseSchemaCompatibility(value)).toThrow();
     }
+  });
+
+  it('requires the audited notification claim columns from schema 71', () => {
+    expect(releaseSchemaCompatibility(journal(71, '0071_bounded_background_jobs'))).toEqual({
+      databaseSchemaMin: '71',
+      databaseSchemaMax: '71',
+    });
   });
 });

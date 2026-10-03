@@ -3456,6 +3456,8 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 
 ## FULL-FIXES-20261003 全面审查修复
 
+发布门禁补齐：用户2026-10-03明确批准上线后，预检发现ecs-schema-compatibility.mjs仍只登记schema70（git log -S/blame为31553474），03ff9635新增0071时遗漏发布声明。新增71/71精确分支及未知71/72拒绝测试，旧实现新增1红→新版3绿，连同release-cache共7项通过；格式/diff/core检查通过。行为只改变已审阅71迁移发布资格，不改应用或回退旧manifest；检查点`fix(release): register bounded jobs schema 71`。生产备份/部署结果随后记录。
+
 基线6c153f7b，general-3独占warm/REUSE_ONLY，无安装。实际git log -S与blame：访客9e603fdb/325f82ea/5fabb855，整库备份及日志a837586e，健康5fa3fd2b，授权8e42afb8/4e0a0d1a，事件7ac2a07a，历史4674c8bc，通知52e9e1f4/ef3d20ca，压测6619a4bd。原始输出见ignored runtime/audit/full-fixes-20261003/git-introductions.log，完整行为变化及风险见[修复轮次](../audit/full-fixes-20261003.md)。
 
 用户确认文字颜色及成功30天/失败90天留存；实现有界缓存、健康探测、共享读取锁、角色事件查询、分批后台任务与通知租约、流式认证备份/恢复、无入口产物过滤及隔离压测门禁。外部值班接口未改。旧缓存/页面保存、正确旧健康及授权/历史锁边界先红后绿；真实MySQL与单元最终51项通过。候选实现的排序规则/快照参数/日期问题在提交前修正，不误报为原生产故障。历史导出超时未复现，只增加实际阶段测量，不宣称根治。
