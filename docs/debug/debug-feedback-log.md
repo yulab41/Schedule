@@ -3456,6 +3456,8 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 
 ## FULL-FIXES-20261003 全面审查修复
 
+上线（2026-10-03下午）：用户明确批准服务器优化。迁移前先备份ea968f42-48cb-4b09-a832-601af41502b2，从实时live dbe35288部署543eeb0e/schema71；留存清60873条成功运维记录，18条后续跨界按周期处理。可信ensure只增228，118旧版本全部保留、总119，独立policy verify/ecs verifier完成，新增索引/claim字段与MySQL原容器实读核对。第一轮公网IP探测跳过，后续显式补全；辅助无Health字段模板错误已改用HTTP/重启/OOM，不误报服务故障。v3备份80d8bc65-ffc3-4aac-a3a7-d61769fd1221成功，生产恢复演练未测。收口消息`docs(audit): close server optimization deployment and trial 228`，8定向/core检查通过；文档身份随后按内容哈希复用同步，不扩大外部接口/外观或重复上传。
+
 发布门禁补齐：用户2026-10-03明确批准上线后，预检发现ecs-schema-compatibility.mjs仍只登记schema70（git log -S/blame为31553474），03ff9635新增0071时遗漏发布声明。新增71/71精确分支及未知71/72拒绝测试，旧实现新增1红→新版3绿，连同release-cache共7项通过；格式/diff/core检查通过。行为只改变已审阅71迁移发布资格，不改应用或回退旧manifest；检查点`fix(release): register bounded jobs schema 71`。生产备份/部署结果随后记录。
 
 基线6c153f7b，general-3独占warm/REUSE_ONLY，无安装。实际git log -S与blame：访客9e603fdb/325f82ea/5fabb855，整库备份及日志a837586e，健康5fa3fd2b，授权8e42afb8/4e0a0d1a，事件7ac2a07a，历史4674c8bc，通知52e9e1f4/ef3d20ca，压测6619a4bd。原始输出见ignored runtime/audit/full-fixes-20261003/git-introductions.log，完整行为变化及风险见[修复轮次](../audit/full-fixes-20261003.md)。
