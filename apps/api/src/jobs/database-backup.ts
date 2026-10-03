@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import {
   backupArchives,
@@ -6,20 +7,13 @@ import {
   type DatabaseClient,
   withTransaction,
 } from '@schedule/database';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
-import {
-  backupFormatName,
-  backupFormatVersion,
-  computeFileSha256,
-  computeTableChecksum,
-  createBackupStorageKey,
-  encryptBackupArchive,
-  shouldIncludeBackupTable,
-  type BackupArchivePayload,
-} from './backup-archive.js';
+import { createBackupStorageKey, shouldIncludeBackupTable } from './backup-archive.js';
 import { selectArchivesToDelete } from './backup-retention.js';
 import type { BackupStorage } from './backup-storage.js';
+import { encryptBackupFrames } from './backup-stream-format.js';
+import { createBackupFrames } from './backup-stream-archive.js';
 
 export interface DatabaseBackupJobOptions {
   readonly encryptionKey: Buffer;
@@ -44,136 +38,116 @@ export class DatabaseBackupJob {
   ) {}
 
   public async run(now = new Date()): Promise<DatabaseBackupRunResult> {
-    const payload = await readBackupPayload(this.databaseClient, now);
-    const envelope = encryptBackupArchive(payload, this.options.encryptionKey);
-    const content = Buffer.from(JSON.stringify(envelope), 'utf8');
-    const storageKey = createBackupStorageKey(now, payload.backupKind);
-    const sha256 = computeFileSha256(content);
-
-    await this.options.storage.write(storageKey, content);
-
+    if (!this.options.storage.writeStream)
+      throw new Error('Backup storage must support streaming writes');
+    const archiveId = randomUUID();
+    const summary = { tableCount: 0, rowCount: 0 };
+    const hash = createHash('sha256');
+    let fileSize = 0;
+    let storageKey: string | undefined;
+    let registered = false;
     try {
-      const archiveId = randomUUID();
-      await withTransaction(this.databaseClient, async (transaction) => {
-        const [latest] = await transaction
-          .select({ createdAt: backupArchives.createdAt })
-          .from(backupArchives)
-          .where(eq(backupArchives.storageKey, storageKey))
-          .limit(1);
-        if (latest === undefined) {
-          await transaction.insert(backupArchives).values({
-            backupKind: payload.backupKind,
-            createdAt: now,
-            fileSize: content.length,
-            id: archiveId,
-            rowCount: payload.totalRowCount,
-            sha256,
+      const backupKind = await this.databaseClient.database.transaction(
+        async (transaction) => {
+          const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+          const [monthlyRows] = (await transaction.execute(
+            sql`SELECT COUNT(*) AS count FROM backup_archives WHERE backup_kind='monthly' AND created_at >= ${monthStart}`,
+          )) as unknown as [{ count: number }[], unknown];
+          const kind = Number(monthlyRows[0]?.count ?? 0) > 0 ? 'daily' : 'monthly';
+          storageKey = createBackupStorageKey(now, kind).replace('.backup', `.${archiveId}.backup`);
+          const names = await listTableNames(transaction);
+          const encrypted = encryptBackupFrames(
+            createBackupFrames(transaction, names, now, summary),
+            this.options.encryptionKey,
+          );
+          await this.options.storage.writeStream!(
             storageKey,
-            tableCount: payload.tableCount,
-          });
-        }
+            (async function* () {
+              for await (const chunk of encrypted) {
+                hash.update(chunk);
+                fileSize += chunk.length;
+                yield chunk;
+              }
+            })(),
+          );
+          return kind;
+        },
+        { isolationLevel: 'repeatable read', withConsistentSnapshot: true },
+      );
+      const sha256 = hash.digest('hex');
+      const key = storageKey!;
+      await withTransaction(this.databaseClient, async (transaction) => {
+        await transaction.insert(backupArchives).values({
+          backupKind,
+          createdAt: now,
+          fileSize,
+          id: archiveId,
+          rowCount: summary.rowCount,
+          sha256,
+          storageKey: key,
+          tableCount: summary.tableCount,
+        });
       });
 
+      registered = true;
       const retention = await this.applyRetention();
       return {
         archiveId,
-        backupKind: payload.backupKind,
+        backupKind,
         deletedArchives: retention.deleted,
-        fileSize: content.length,
-        rowCount: payload.totalRowCount,
+        fileSize,
+        rowCount: summary.rowCount,
         sha256,
-        storageKey,
-        tableCount: payload.tableCount,
+        storageKey: key,
+        tableCount: summary.tableCount,
       };
     } catch (error) {
-      await this.options.storage.delete(storageKey);
+      if (storageKey && !registered) await this.options.storage.delete(storageKey);
       throw error;
     }
   }
 
   private async applyRetention(): Promise<{ readonly deleted: number }> {
-    return withTransaction(this.databaseClient, async (transaction) => {
+    const pending = await withTransaction(this.databaseClient, async (transaction) => {
       const entries = await transaction
         .select({
           backupKind: backupArchives.backupKind,
           createdAt: backupArchives.createdAt,
           id: backupArchives.id,
           storageKey: backupArchives.storageKey,
+          deletedAt: backupArchives.deletedAt,
         })
         .from(backupArchives)
-        .where(sql`${backupArchives.deletedAt} is null`);
+        .for('update');
       const decision = selectArchivesToDelete(
-        entries.map((entry) => ({
-          backupKind: entry.backupKind,
-          createdAt: entry.createdAt.toISOString(),
-          id: entry.id,
-        })),
+        entries
+          .filter((entry) => entry.deletedAt === null)
+          .map((entry) => ({
+            backupKind: entry.backupKind,
+            createdAt: entry.createdAt.toISOString(),
+            id: entry.id,
+          })),
         30,
         12,
       );
-      if (decision.archiveIdsToDelete.length === 0) {
-        return { deleted: 0 };
-      }
-
-      const keysByArchive = new Map(entries.map((entry) => [entry.id, entry.storageKey] as const));
-      for (const archiveId of decision.archiveIdsToDelete) {
-        const key = keysByArchive.get(archiveId);
-        if (key !== undefined) {
-          await this.options.storage.delete(key);
-        }
-        await transaction.delete(backupArchives).where(eq(backupArchives.id, archiveId));
-      }
-
-      return { deleted: decision.archiveIdsToDelete.length };
+      if (decision.archiveIdsToDelete.length)
+        await transaction
+          .update(backupArchives)
+          .set({ deletedAt: new Date() })
+          .where(inArray(backupArchives.id, [...decision.archiveIdsToDelete]));
+      const selected = new Set(decision.archiveIdsToDelete);
+      return entries.filter((entry) => entry.deletedAt !== null || selected.has(entry.id));
     });
-  }
-}
-
-async function readBackupPayload(
-  client: DatabaseClient,
-  now: Date,
-): Promise<
-  BackupArchivePayload & {
-    readonly backupKind: 'daily' | 'monthly';
-    readonly tableCount: number;
-    readonly totalRowCount: number;
-  }
-> {
-  return withTransaction(client, async (transaction) => {
-    const tableNames = await listTableNames(transaction);
-    const tables: Record<string, { rowCount: number; rows: unknown[]; sha256: string }> = {};
-    let totalRowCount = 0;
-
-    for (const tableName of tableNames) {
-      const [rows] = (await transaction.execute(
-        sql.raw(`SELECT * FROM \`${tableName.replaceAll('`', '``')}\``),
-      )) as unknown as [Record<string, unknown>[], unknown];
-      totalRowCount += rows.length;
-      tables[tableName] = {
-        rowCount: rows.length,
-        rows,
-        sha256: computeTableChecksum(rows),
-      };
+    let deleted = 0;
+    for (const entry of pending) {
+      await this.options.storage.delete(entry.storageKey);
+      await this.databaseClient.database
+        .delete(backupArchives)
+        .where(and(eq(backupArchives.id, entry.id), isNotNull(backupArchives.deletedAt)));
+      deleted++;
     }
-
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const [monthlyRows] = (await transaction.execute(
-      sql`SELECT COUNT(*) AS count
-          FROM backup_archives
-          WHERE backup_kind = 'monthly' AND created_at >= ${monthStart}`,
-    )) as unknown as [{ count: number }[], unknown];
-    const hasMonthlyArchive = monthlyRows[0]?.count !== undefined && monthlyRows[0].count > 0;
-
-    return {
-      backupKind: hasMonthlyArchive ? 'daily' : 'monthly',
-      createdAt: now.toISOString(),
-      format: backupFormatName,
-      formatVersion: backupFormatVersion,
-      tableCount: tableNames.length,
-      tables,
-      totalRowCount,
-    };
-  });
+    return { deleted };
+  }
 }
 
 async function listTableNames(transaction: DatabaseTransaction): Promise<readonly string[]> {
@@ -181,6 +155,7 @@ async function listTableNames(transaction: DatabaseTransaction): Promise<readonl
     sql`SELECT TABLE_NAME
         FROM information_schema.tables
         WHERE table_schema = DATABASE()
+          AND TABLE_TYPE = 'BASE TABLE'
           AND TABLE_NAME <> '__drizzle_migrations'
         ORDER BY TABLE_NAME`,
   )) as unknown as [{ TABLE_NAME: string }[], unknown];

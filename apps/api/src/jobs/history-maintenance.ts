@@ -9,7 +9,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { getChinaStandardTimeCalendarDate } from '@schedule/scheduling-domain';
-import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { expiredWorkflowListCondition } from '../modules/workflows/workflow-list-visibility.js';
 import { recordJobRun } from './job-runs.js';
@@ -45,51 +45,91 @@ export class HistoryMaintenanceJob {
     const notificationCutoff = new Date(
       `${getChinaStandardTimeCalendarDate(new Date(now.valueOf() - 30 * 86_400_000))}T00:00:00+08:00`,
     );
-    return withTransaction(this.client, async (transaction) => {
-      // Serialize with existing workflow and publication writes; no lock survives this short job.
-      const scope = await transaction
+    const result = {
+      monthStart,
+      archivedPeriods: 0,
+      workflowVisibilityChanges: 0,
+      notificationVisibilityChanges: 0,
+    };
+    let after: string | undefined;
+    for (;;) {
+      const scope = await this.client.database
         .select({ id: groups.id })
         .from(groups)
-        .where(isNull(groups.deletedAt))
+        .where(
+          and(isNull(groups.deletedAt), after === undefined ? undefined : gt(groups.id, after)),
+        )
         .orderBy(asc(groups.id))
-        .for('update');
-      const result = {
-        monthStart,
-        archivedPeriods: 0,
-        workflowVisibilityChanges: 0,
-        notificationVisibilityChanges: 0,
-      };
+        .limit(100);
+      if (!scope.length) break;
       for (const group of scope) {
-        for (const [kind, table] of [
-          ['swap', swapRequests],
-          ['duty', dutyAdjustments],
-          ['leave', leaveRequests],
-        ] as const) {
-          const expired = expiredWorkflowListCondition(kind, now);
-          const [changed] = await transaction.execute(sql`UPDATE ${table}
+        const changedGroup = await withTransaction(this.client, async (transaction) => {
+          const [active] = await transaction
+            .select({ id: groups.id })
+            .from(groups)
+            .where(and(eq(groups.id, group.id), isNull(groups.deletedAt)))
+            .limit(1)
+            .for('update');
+          const changes = { archivedPeriods: 0, workflowVisibilityChanges: 0 };
+          if (!active) return changes;
+          for (const [kind, table] of [
+            ['swap', swapRequests],
+            ['duty', dutyAdjustments],
+            ['leave', leaveRequests],
+          ] as const) {
+            const expired = expiredWorkflowListCondition(kind, now);
+            const [changed] = await transaction.execute(sql`UPDATE ${table}
             SET ${table.listHiddenAt} = CASE WHEN ${expired} THEN ${now} ELSE NULL END,
                 ${table.updatedAt} = ${table.updatedAt}
             WHERE ${table.groupId} = ${group.id} AND ${table.deletedAt} IS NULL
               AND ((${table.listHiddenAt} IS NULL AND ${expired})
                 OR (${table.listHiddenAt} IS NOT NULL AND NOT (${expired})))`);
-          result.workflowVisibilityChanges += (
-            changed as unknown as { affectedRows: number }
-          ).affectedRows;
-        }
-        const [archived] = await transaction.execute(sql`UPDATE schedule_periods
+            changes.workflowVisibilityChanges += (
+              changed as unknown as { affectedRows: number }
+            ).affectedRows;
+          }
+          const [archived] = await transaction.execute(sql`UPDATE schedule_periods
           SET status = 'past', version = version + 1
           WHERE group_id = ${group.id} AND deleted_at IS NULL
             AND status = 'published' AND business_month < ${monthStart}`);
-        result.archivedPeriods += (archived as unknown as { affectedRows: number }).affectedRows;
+          changes.archivedPeriods += (archived as unknown as { affectedRows: number }).affectedRows;
+          return changes;
+        });
+        result.archivedPeriods += changedGroup.archivedPeriods;
+        result.workflowVisibilityChanges += changedGroup.workflowVisibilityChanges;
       }
-      // Notification creation time is immutable; expiry changes display state, never read/delivery history.
-      const [hidden] = await transaction.execute(sql`UPDATE ${notifications}
-        SET ${notifications.listHiddenAt} = ${now}, ${notifications.updatedAt} = ${notifications.updatedAt}
-        WHERE ${notifications.listHiddenAt} IS NULL AND ${notifications.createdAt} < ${notificationCutoff}`);
-      result.notificationVisibilityChanges = (
-        hidden as unknown as { affectedRows: number }
-      ).affectedRows;
-      return result;
-    });
+      after = scope.at(-1)!.id;
+    }
+    // Notification creation time is immutable; expiry changes display state, never read/delivery history.
+    for (;;) {
+      const changed = await withTransaction(this.client, async (transaction) => {
+        const rows = await transaction
+          .select({ id: notifications.id })
+          .from(notifications)
+          .where(
+            and(
+              isNull(notifications.listHiddenAt),
+              lt(notifications.createdAt, notificationCutoff),
+            ),
+          )
+          .orderBy(asc(notifications.createdAt), asc(notifications.id))
+          .limit(500)
+          .for('update');
+        if (!rows.length) return 0;
+        const [hidden] = await transaction
+          .update(notifications)
+          .set({ listHiddenAt: now, updatedAt: sql`${notifications.updatedAt}` })
+          .where(
+            inArray(
+              notifications.id,
+              rows.map((row) => row.id),
+            ),
+          );
+        return hidden.affectedRows;
+      });
+      result.notificationVisibilityChanges += changed;
+      if (changed < 500) break;
+    }
+    return result;
   }
 }

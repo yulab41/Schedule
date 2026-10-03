@@ -1,7 +1,15 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { open, readFile } from 'node:fs/promises';
 
 import { type DatabaseClient, type DatabaseTransaction, withTransaction } from '@schedule/database';
-import { sql, type SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+import { streamBackupMagic } from './backup-stream-format.js';
+import {
+  insertBackupRows,
+  readBackupTableMetadata,
+  restoreStreamBackupArchive,
+} from './backup-stream-archive.js';
 
 export const backupFormatName = 'medical-schedule-backup';
 export const backupFormatVersion = 2;
@@ -132,18 +140,47 @@ export async function restoreBackupArchive(
   archiveContent: Buffer,
   encryptionKey: Buffer,
 ): Promise<RestoreBackupResult> {
+  if (archiveContent.subarray(0, streamBackupMagic.length).equals(streamBackupMagic))
+    return restoreStreamBackupArchive(
+      client,
+      (async function* () {
+        yield archiveContent;
+      })(),
+      encryptionKey,
+    );
   const envelope = JSON.parse(archiveContent.toString('utf8')) as EncryptedBackupEnvelope;
   const payload = sanitizeBackupPayloadForRestore(decryptBackupArchive(envelope, encryptionKey));
 
   return withTransaction(client, async (transaction) => {
     await transaction.execute(sql.raw('SET FOREIGN_KEY_CHECKS = 0'));
-    for (const [tableName, table] of Object.entries(payload.tables)) {
-      await insertRows(transaction, tableName, table.rows);
+    try {
+      for (const [tableName, table] of Object.entries(payload.tables)) {
+        await insertRows(transaction, tableName, table.rows);
+      }
+      const result = await verifyRestoredArchive(transaction, payload);
+      if (result.mismatches.length) throw new Error('Restored backup checksum mismatch');
+      return result;
+    } finally {
+      await transaction.execute(sql.raw('SET FOREIGN_KEY_CHECKS = 1'));
     }
-    await transaction.execute(sql.raw('SET FOREIGN_KEY_CHECKS = 1'));
-
-    return verifyRestoredArchive(transaction, payload);
   });
+}
+
+export async function restoreBackupArchiveFromFile(
+  client: DatabaseClient,
+  filename: string,
+  key: Buffer,
+): Promise<RestoreBackupResult> {
+  const handle = await open(filename, 'r'),
+    prefix = Buffer.alloc(streamBackupMagic.length);
+  try {
+    await handle.read(prefix, 0, prefix.length, 0);
+  } finally {
+    await handle.close();
+  }
+  return prefix.equals(streamBackupMagic)
+    ? restoreStreamBackupArchive(client, createReadStream(filename), key)
+    : restoreBackupArchive(client, await readFile(filename), key);
 }
 
 export async function verifyRestoredArchive(
@@ -161,7 +198,10 @@ export async function verifyRestoredArchive(
       mismatches.push(`${tableName}: expected ${expected.rowCount} rows, restored ${rows.length}`);
       continue;
     }
-    const actualChecksum = computeTableChecksum(rows);
+    const columns = Object.keys((expected.rows[0] as Record<string, unknown>) ?? {});
+    const actualChecksum = computeTableChecksum(
+      rows.map((row) => Object.fromEntries(columns.map((column) => [column, row[column]]))),
+    );
     if (actualChecksum !== expected.sha256) {
       mismatches.push(`${tableName}: checksum mismatch`);
     }
@@ -183,43 +223,8 @@ async function insertRows(
     return;
   }
 
-  const generatedColumns = await getGeneratedColumnNames(transaction, tableName);
-  const columns = Object.keys(rows[0] as Record<string, unknown>).filter(
-    (column) => !generatedColumns.has(column),
-  );
-  if (columns.length === 0) {
-    return;
-  }
-  const quotedColumns = columns.map((column) => quoteIdentifier(column)).join(', ');
-
-  for (let index = 0; index < rows.length; index += 100) {
-    const chunk = rows.slice(index, index + 100);
-    const valueRows = chunk.map((row) => {
-      const record = row as Record<string, unknown>;
-      return sql`(${sql.join(
-        columns.map((column) => sql`${toInsertValue(record[column])}`),
-        sql`, `,
-      )})`;
-    });
-    const query: SQL = sql`INSERT INTO ${sql.raw(
-      quoteIdentifier(tableName),
-    )} (${sql.raw(quotedColumns)}) VALUES ${sql.join(valueRows, sql`, `)}`;
-    await transaction.execute(query);
-  }
-}
-
-async function getGeneratedColumnNames(
-  transaction: DatabaseTransaction,
-  tableName: string,
-): Promise<ReadonlySet<string>> {
-  const [rows] = (await transaction.execute(
-    sql`SELECT COLUMN_NAME AS columnName
-        FROM information_schema.columns
-        WHERE table_schema = DATABASE()
-          AND table_name = ${tableName}
-          AND (EXTRA LIKE '%VIRTUAL GENERATED%' OR EXTRA LIKE '%STORED GENERATED%')`,
-  )) as unknown as [{ columnName: string }[], unknown];
-  return new Set(rows.map((row) => row.columnName));
+  const table = await readBackupTableMetadata(transaction, tableName);
+  await insertBackupRows(transaction, table, rows as readonly Record<string, unknown>[]);
 }
 
 async function readTableRows(
@@ -230,13 +235,6 @@ async function readTableRows(
     sql.raw(`SELECT * FROM ${quoteIdentifier(tableName)}`),
   )) as unknown as [Record<string, unknown>[], unknown];
   return rows;
-}
-
-function toInsertValue(value: unknown): unknown {
-  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
-    return JSON.stringify(value);
-  }
-  return value;
 }
 
 function quoteIdentifier(identifier: string): string {

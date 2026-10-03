@@ -1,7 +1,6 @@
-import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { restoreBackupArchive, deriveBackupKey } from '@schedule/api/backup-archive';
+import { restoreBackupArchiveFromFile, deriveBackupKey } from '@schedule/api/backup-archive';
 import {
   createDatabaseClient,
   migrateDatabase,
@@ -32,8 +31,11 @@ if (encryptionKeyValue === undefined || encryptionKeyValue.trim().length === 0) 
 const client = createDatabaseClient(databaseOptions);
 try {
   await migrateDatabase(client, migrationsDirectory);
-  const content = await readFile(backupPath);
-  const result = await restoreBackupArchive(client, content, deriveBackupKey(encryptionKeyValue));
+  const result = await restoreBackupArchiveFromFile(
+    client,
+    backupPath,
+    deriveBackupKey(encryptionKeyValue),
+  );
   if (result.mismatches.length > 0) {
     console.error(JSON.stringify({ restored: false, ...result }, null, 2));
     process.exitCode = 1;

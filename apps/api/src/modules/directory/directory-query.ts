@@ -162,7 +162,12 @@ export class DirectoryQuery {
         );
       }
       const authorization = await measureDirectoryPhase(timing, 'permissionMs', () =>
-        this.permissionService.requirePermission(transaction, identity, groupId, 'viewDirectory'),
+        this.permissionService.requireReadPermission(
+          transaction,
+          identity,
+          groupId,
+          'viewDirectory',
+        ),
       );
       const batch = await measureDirectoryPhase(timing, 'batchMs', () =>
         getPublishedBatch(transaction, directoryKind),
@@ -183,7 +188,7 @@ export class DirectoryQuery {
     directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryFacetSnapshot> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,
@@ -231,7 +236,7 @@ export class DirectoryQuery {
     directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryEntryLookupResponse> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

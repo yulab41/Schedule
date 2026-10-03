@@ -37,6 +37,8 @@ import {
 import { getStoredWechatProfile } from '../../platform/wechat-identity.js';
 import {
   clearGuestPublicCache,
+  pruneGuestPublicResources,
+  isGuestPublicResourceFresh,
   readGuestPublicCache,
   writeGuestPublicCache,
 } from '../../platform/guest-public-cache.js';
@@ -694,12 +696,19 @@ function applyCachedWindow(
     const result = page.holidayResources.get(year);
     return result === undefined ? [] : [result];
   });
-  if (!active || !page.holidayResources.has(Number(activeMonth.slice(0, 4)))) return false;
+  if (
+    !active ||
+    !isGuestPublicResourceFresh(active) ||
+    !page.holidayResources.has(Number(activeMonth.slice(0, 4))) ||
+    !holidays.every((value) => isGuestPublicResourceFresh(value))
+  )
+    return false;
   page.calendar = {
     ...active,
-    assignments: months.flatMap(
-      (businessMonth) => page.monthResources.get(businessMonth)?.assignments ?? [],
-    ),
+    assignments: months.flatMap((businessMonth) => {
+      const value = page.monthResources.get(businessMonth);
+      return value && isGuestPublicResourceFresh(value) ? value.assignments : [];
+    }),
   };
   page.holidays = {
     year: Number(activeMonth.slice(0, 4)),
@@ -736,7 +745,11 @@ function readMonth(
   refresh = false,
 ): Promise<CalendarReadModel> {
   const cached = page.monthResources.get(businessMonth);
-  if (cached && !refresh) return Promise.resolve(cached);
+  if (cached && !refresh && isGuestPublicResourceFresh(cached)) {
+    page.monthResources.delete(businessMonth);
+    page.monthResources.set(businessMonth, cached);
+    return Promise.resolve(cached);
+  }
   const pending = page.monthReads.get(businessMonth);
   if (pending) return pending;
   const generation = page.contextGeneration;
@@ -753,8 +766,15 @@ function readMonth(
     .then((result) => {
       if (result.calendar.groupId !== groupId || result.calendar.businessMonth !== businessMonth)
         throw new Error('Invalid guest calendar context');
-      if (page.contextGeneration === generation)
+      if (page.contextGeneration === generation) {
+        page.monthResources.delete(businessMonth);
         page.monthResources.set(businessMonth, result.calendar);
+        pruneGuestPublicResources(
+          page.monthResources,
+          page.holidayResources,
+          requestedMonths(page),
+        );
+      }
       return result.calendar;
     });
   page.monthReads.set(businessMonth, read);
@@ -766,12 +786,15 @@ function readMonth(
 }
 function readHolidays(page: GuestPage, year: number): Promise<HolidayReadModel> {
   const cached = page.holidayResources.get(year);
-  if (cached) return Promise.resolve(cached);
+  if (cached && isGuestPublicResourceFresh(cached)) return Promise.resolve(cached);
   const pending = page.holidayReads.get(year);
   if (pending) return pending;
   const generation = page.contextGeneration;
   const read = client.getGuestHolidays(year).then((result) => {
-    if (page.contextGeneration === generation) page.holidayResources.set(year, result);
+    if (page.contextGeneration === generation) {
+      page.holidayResources.set(year, result);
+      pruneGuestPublicResources(page.monthResources, page.holidayResources, requestedMonths(page));
+    }
     return result;
   });
   page.holidayReads.set(year, read);
@@ -811,7 +834,6 @@ async function loadCalendar(page: GuestPage, refreshDisplaySettings = false): Pr
     ]);
     if (!current(page, serial)) return;
     applyCachedWindow(page, months);
-    writeGuestPublicCache(group.groupId, page.monthResources, page.holidayResources);
     const years = [...new Set(months.map((value) => Number(value.slice(0, 4))))];
     await Promise.all([
       ...months
@@ -823,7 +845,10 @@ async function loadCalendar(page: GuestPage, refreshDisplaySettings = false): Pr
     ]);
     if (!current(page, serial)) return;
     applyCachedWindow(page, months);
-    writeGuestPublicCache(group.groupId, page.monthResources, page.holidayResources);
+    writeGuestPublicCache(group.groupId, page.monthResources, page.holidayResources, [
+      activeMonth,
+      ...months.filter((month) => month !== activeMonth),
+    ]);
   } catch (error) {
     if (!current(page, serial)) return;
     const status = (error as { status?: number })?.status;
@@ -836,6 +861,13 @@ async function loadCalendar(page: GuestPage, refreshDisplaySettings = false): Pr
       if (page.data.currentGroupId) clearGuestPublicCache(page.data.currentGroupId);
       resetGuestContext(page);
     } else if (applyCachedWindow(page, months)) {
+      if (page.resolvedGroup)
+        writeGuestPublicCache(
+          page.resolvedGroup.groupId,
+          page.monthResources,
+          page.holidayResources,
+          [page.calendar!.businessMonth, ...months],
+        );
       page.setData({ announcement: '网络暂不可用，正在显示最近一次公开排班。' });
       return;
     } else clearCalendar(page);

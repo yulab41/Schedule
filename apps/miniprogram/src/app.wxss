@@ -1,6 +1,9 @@
 @import "./styles/tokens.wxss";
 
 page {
+  --ui-color-success-text: #1c7030;
+  --ui-color-warning-text: #905300;
+  --ui-color-danger-text: #b42318;
   min-height: 100%;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-background);

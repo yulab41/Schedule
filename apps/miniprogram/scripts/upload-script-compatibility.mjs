@@ -11,6 +11,8 @@ const { getBabelHelperDepMap } = require(path.join(sdkRoot, 'dist/utils/babel_he
 
 // Use the pinned upload SDK, including its shipped helper inventory, not Node's Babel runtime.
 export async function compileUploadScript(sourceCode, filename) {
+  const started = performance.now();
+  const rssBefore = process.memoryUsage().rss;
   const result = await bableCompile(
     filename,
     { sourceCode, inputMap: false },
@@ -20,6 +22,17 @@ export async function compileUploadScript(sourceCode, filename) {
     },
   );
   const helpers = getBabelHelperDepMap();
+  if (process.env.MINI_UPLOAD_TRANSFORM_TIMING === '1')
+    console.info(
+      '[upload-transform]',
+      JSON.stringify({
+        filename,
+        sourceBytes: Buffer.byteLength(sourceCode),
+        transformMs: Math.round(performance.now() - started),
+        rssBefore,
+        rssAfter: process.memoryUsage().rss,
+      }),
+    );
   const imports = [...result.code.matchAll(/require\("([^"]+)"\)/gu)].map((match) => match[1]);
   for (const imported of imports) {
     const name = imported.split('@babel/runtime/helpers/')[1];

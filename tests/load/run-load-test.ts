@@ -12,16 +12,21 @@ import {
   userProfiles,
   users,
   type DatabaseClient,
-  type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { sql } from 'drizzle-orm';
+import { seedLoadCalendars } from './load-test-fixtures.js';
+import {
+  assertLoadTestIdentity,
+  loadTestMarker,
+  requireLoadTestDatabaseOptions,
+} from './load-test-safety.js';
 
 const { ScheduleRepository } = (await import(
   new URL('../../../apps/api/dist/modules/schedules/schedule-repository.js', import.meta.url).href
 )) as typeof import('../../apps/api/dist/modules/schedules/schedule-repository.js');
 
 const migrationsDirectory = fileURLToPath(new URL('../../../migrations', import.meta.url));
-const databaseOptions = getTestDatabaseOptions();
+const databaseOptions = requireLoadTestDatabaseOptions(process.env);
 const userIds: string[] = [];
 const groupIds: string[] = [];
 
@@ -36,16 +41,29 @@ const resolveLoadToken = (token: string): string | undefined => {
   return `load-uid-${String(index).padStart(4, '0')}`;
 };
 
-if (databaseOptions === undefined) {
-  console.error('TEST_MYSQL_* settings are required for the load test.');
-  process.exit(1);
-}
-
 const client = createDatabaseClient(databaseOptions);
 const startedAt = Date.now();
+const disabledPushDispatcher = {
+  isConfigured: false,
+  vapidPublicKey: null,
+  send: async () => {
+    throw new Error('External messages disabled in synthetic load test');
+  },
+};
+let loadApp: ReturnType<typeof createApp> | undefined;
 
 try {
+  const [identity] = (await client.database.execute(sql`SELECT DATABASE() AS db,
+    (SELECT marker FROM load_test_guard WHERE id = 1) AS marker`)) as unknown as [
+    { db: string; marker: string }[],
+    unknown,
+  ];
+  assertLoadTestIdentity(identity[0]?.db, identity[0]?.marker);
   await resetDatabase(client);
+  await client.database.execute(
+    sql`CREATE TABLE load_test_guard (id INT PRIMARY KEY, marker VARCHAR(64) NOT NULL)`,
+  );
+  await client.database.execute(sql`INSERT INTO load_test_guard VALUES (1, ${loadTestMarker})`);
   await migrateDatabase(client, migrationsDirectory);
 
   const coldStart = await measure(async () => {
@@ -53,10 +71,15 @@ try {
       authPort: createFakeAuthPort(resolveLoadToken),
       databaseClient: client,
       logger: false,
+      pushDispatcher: disabledPushDispatcher,
       platformAdminUids: new Set(['load-uid-0000']),
     });
-    const firstRequest = await measure(() => app.inject({ method: 'GET', url: '/health' }));
-    return { firstRequestMs: firstRequest.ms };
+    try {
+      const firstRequest = await measure(() => app.inject({ method: 'GET', url: '/health' }));
+      return { firstRequestMs: firstRequest.ms };
+    } finally {
+      await app.close();
+    }
   });
 
   const seed = await measure(() => seedDataset(client));
@@ -64,8 +87,10 @@ try {
     authPort: createFakeAuthPort(resolveLoadToken),
     databaseClient: client,
     logger: false,
+    pushDispatcher: disabledPushDispatcher,
     platformAdminUids: new Set(['load-uid-0000']),
   });
+  loadApp = app;
 
   const calendarScenario = await runCalendarReads(app);
   const leaveScenario = await runLeaveSubmissions(app);
@@ -93,6 +118,7 @@ try {
 
   assertAcceptance(summary);
 } finally {
+  await loadApp?.close();
   await client.close();
 }
 
@@ -121,6 +147,13 @@ async function runCalendarReads(app: ReturnType<typeof createApp>) {
     if (non200 !== 0) {
       throw new Error(`calendar load: ${non200} responses were not 200`);
     }
+    if (
+      responses.some((response) => {
+        const data = response.json() as { assignments?: readonly unknown[] };
+        return !data.assignments?.length;
+      })
+    )
+      throw new Error('calendar load: empty fixture would invalidate measurement');
     return { requests: responses.length };
   });
 }
@@ -346,7 +379,7 @@ async function runConcurrentSwapRace(app: ReturnType<typeof createApp>) {
 
 async function seedDataset(databaseClient: DatabaseClient): Promise<void> {
   const usersChunk: { cloudbaseUid: string; id: string }[] = [];
-  const profilesChunk: { id: string; realName: string; userId: string }[] = [];
+  const profilesChunk: { realName: string; userId: string }[] = [];
   const groupChunk: { groupCode: string; id: string; name: string; ownerUserId: string }[] = [];
   const membershipChunk: {
     groupId: string;
@@ -360,7 +393,6 @@ async function seedDataset(databaseClient: DatabaseClient): Promise<void> {
     userIds[index] = userId;
     usersChunk.push({ cloudbaseUid: `load-uid-${String(index).padStart(4, '0')}`, id: userId });
     profilesChunk.push({
-      id: userId,
       realName: `Load User ${String(index).padStart(4, '0')}`,
       userId,
     });
@@ -389,6 +421,7 @@ async function seedDataset(databaseClient: DatabaseClient): Promise<void> {
   await insertChunks(databaseClient, userProfiles, profilesChunk);
   await insertChunks(databaseClient, groups, groupChunk);
   await insertChunks(databaseClient, groupMemberships, membershipChunk);
+  await seedLoadCalendars(databaseClient, membershipChunk, groupIds, getNextBusinessMonth());
 
   const [counts] = (await databaseClient.database.execute(
     sql`SELECT
@@ -483,32 +516,4 @@ function assertAcceptance(summary: Record<string, unknown>): void {
   if (swaps.result.created !== 1 || swaps.result.conflicts !== 19) {
     throw new Error('acceptance: concurrent same-shift swap did not keep exactly one winner');
   }
-}
-
-function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
-  const {
-    TEST_MYSQL_DATABASE,
-    TEST_MYSQL_HOST,
-    TEST_MYSQL_PASSWORD,
-    TEST_MYSQL_PORT,
-    TEST_MYSQL_USER,
-  } = process.env;
-  const port = Number(TEST_MYSQL_PORT ?? '3307');
-  if (
-    TEST_MYSQL_DATABASE === undefined ||
-    TEST_MYSQL_PASSWORD === undefined ||
-    TEST_MYSQL_USER === undefined ||
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65_535
-  ) {
-    return undefined;
-  }
-  return {
-    database: TEST_MYSQL_DATABASE,
-    host: TEST_MYSQL_HOST ?? '127.0.0.1',
-    password: TEST_MYSQL_PASSWORD,
-    port,
-    user: TEST_MYSQL_USER,
-  };
 }

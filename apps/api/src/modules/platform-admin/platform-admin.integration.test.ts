@@ -15,12 +15,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
-import {
-  decryptBackupArchive,
-  deriveBackupKey,
-  restoreBackupArchive,
-} from '../../jobs/backup-archive.js';
+import { deriveBackupKey, restoreBackupArchive } from '../../jobs/backup-archive.js';
 import { LocalBackupStorage } from '../../jobs/backup-storage.js';
+import { decryptBackupFrames } from '../../jobs/backup-stream-format.js';
 import { DatabaseBackupJob } from '../../jobs/database-backup.js';
 import { GroupRecycleJob } from '../../jobs/group-recycle.js';
 import { recordJobRun } from '../../jobs/job-runs.js';
@@ -475,10 +472,15 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(archiveRows[0]?.count).toBe(1);
 
     const content = await new LocalBackupStorage(temporaryDirectory).read(result.storageKey);
-    const decrypted = decryptBackupArchive(JSON.parse(content.toString('utf8')), encryptionKey);
-    expect(decrypted.tables).not.toHaveProperty('visitor_access_logs');
-    expect(decrypted.tables).not.toHaveProperty('miniprogram_telemetry_events');
-    expect(decrypted.tables).toHaveProperty('user_profile_avatars');
+    const tables: string[] = [];
+    for await (const frame of decryptBackupFrames(
+      new LocalBackupStorage(temporaryDirectory).readStream(result.storageKey),
+      encryptionKey,
+    ))
+      if (frame.kind === 'table') tables.push(frame.name);
+    expect(tables).not.toContain('visitor_access_logs');
+    expect(tables).not.toContain('miniprogram_telemetry_events');
+    expect(tables).toContain('user_profile_avatars');
     const [aggregateTables] = (await client.database.execute(sql`
       SELECT COUNT(*) AS count
       FROM information_schema.tables
@@ -486,16 +488,19 @@ describeWithDatabase('platform administration and recovery', () => {
         AND table_name = 'visitor_access_monthly_aggregates'
     `)) as unknown as [readonly { count: number }[], unknown];
     if ((aggregateTables[0]?.count ?? 0) === 1) {
-      expect(decrypted.tables).toHaveProperty(
-        'visitor_access_monthly_aggregates',
-        expect.any(Object),
-      );
+      expect(tables).toContain('visitor_access_monthly_aggregates');
     } else {
-      expect(decrypted.tables).not.toHaveProperty('visitor_access_monthly_aggregates');
+      expect(tables).not.toContain('visitor_access_monthly_aggregates');
     }
-    expect(() =>
-      decryptBackupArchive(JSON.parse(content.toString('utf8')), deriveBackupKey('d'.repeat(64))),
-    ).toThrow();
+    await expect(
+      (async () => {
+        for await (const frame of decryptBackupFrames(
+          new LocalBackupStorage(temporaryDirectory).readStream(result.storageKey),
+          deriveBackupKey('d'.repeat(64)),
+        ))
+          void frame;
+      })(),
+    ).rejects.toThrow();
 
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);

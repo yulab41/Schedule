@@ -19,7 +19,10 @@ export const platformJobRuns = mysqlTable(
     startedAt: timestamp('started_at', { fsp: 3 }).defaultNow().notNull(),
     finishedAt: timestamp('finished_at', { fsp: 3 }),
   },
-  (table) => [index('platform_job_runs_name_started_idx').on(table.jobName, table.startedAt)],
+  (table) => [
+    index('platform_job_runs_name_started_idx').on(table.jobName, table.startedAt),
+    index('platform_job_runs_status_finished_idx').on(table.status, table.finishedAt, table.id),
+  ],
 );
 
 export const backupArchives = mysqlTable(

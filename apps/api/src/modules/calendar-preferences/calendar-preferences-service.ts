@@ -18,7 +18,7 @@ export class CalendarPreferencesService {
 
   public async get(identity: AuthenticatedIdentity, groupId: string): Promise<CalendarPreferences> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

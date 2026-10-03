@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import type { DatabaseClient } from '@schedule/database';
+import { createFakeAuthPort } from '@schedule/test-fixtures';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createApp } from './app.js';
 import { ApiError } from './plugins/error-handler.js';
@@ -17,6 +19,20 @@ afterEach(async () => {
 });
 
 describe('API runtime', () => {
+  it.each(['/health', '/ready'])('reports unavailable database safely at %s', async (url) => {
+    const checkReadiness = vi.fn().mockRejectedValue(new Error('private-database-password'));
+    const app = createApp({
+      authPort: createFakeAuthPort(() => undefined),
+      logger: false,
+      databaseClient: { checkReadiness } as unknown as DatabaseClient,
+    });
+    apps.push(app);
+    const response = await app.inject({ method: 'GET', url });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({ component: 'api', ready: false });
+    expect(response.body).not.toContain('private-database-password');
+    expect(checkReadiness).toHaveBeenCalledTimes(1);
+  });
   it('provides a ready endpoint without creating a database connection', async () => {
     const response = await createTestApp().inject({
       method: 'GET',

@@ -96,7 +96,7 @@ export class CalendarChangeQuery {
 
   public async authorize(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
     await withTransaction(this.databaseClient, async (transaction) => {
-      await this.permissionService.requirePermission(
+      await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

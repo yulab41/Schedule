@@ -13,6 +13,7 @@ import { HolidayAlertJob } from './holiday-alerts.js';
 import { NotificationRetryJob } from './notification-retry.js';
 import { PrivacyRetentionJob } from './privacy-retention.js';
 import { HistoryMaintenanceJob } from './history-maintenance.js';
+import { purgeExpiredJobRuns } from './job-run-retention.js';
 import { StatisticsRebuildJob } from './statistics-rebuild.js';
 import { createWechatGateway } from '../modules/wechat/wechat-gateway.js';
 import { WechatPushDispatcher } from '../modules/wechat/wechat-push-dispatcher.js';
@@ -66,6 +67,7 @@ export const jobRunners: Readonly<Record<JobName, JobRunner>> = {
   'privacy-retention': async (client) => ({
     ...(await new PrivacyRetentionJob(client).run()),
     historyMaintenance: await new HistoryMaintenanceJob(client).runIfDue(),
+    jobRunRetention: await purgeExpiredJobRuns(client),
   }),
   'statistics-rebuild': (client) => new StatisticsRebuildJob(client).run(),
 };

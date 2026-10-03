@@ -156,6 +156,26 @@ const staticExtensions = new Set([
 ]);
 
 const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
+  'components/calendar/calendar-duty-view.ts',
+  'components/calendar/calendar-name-layout.ts',
+  'components/calendar/calendar-period-pager.ts',
+  'components/calendar/calendar-week-model.ts',
+  'components/profile-panel/trend.ts',
+  'components/ui/selector-boundary.ts',
+  'components/ui/ui-selector/selector.ts',
+  'features/workbench/deferred-list-rendering.ts',
+  'features/workbench/detail-expansion.ts',
+  'features/workbench/nurse-duty-state.ts',
+  'features/workbench/panel-patch.ts',
+  'features/workbench/shift-card-expansion.ts',
+  'features/workbench/shift-event-model.ts',
+  'features/workbench/workbench-model.ts',
+  'features/workbench/workbench-tool-access.ts',
+  'subpackages/organization/components/directory-entry-card/tail-path/path-layout.ts',
+  'subpackages/organization/components/directory-panel/query-runtime.ts',
+  'subpackages/organization/components/shift-color-picker/color.ts',
+  'subpackages/scheduling/components/schedule-calendar-preview/model.ts',
+  'subpackages/workflows/components/settings-intent.ts',
   // Shared helpers are fully inlined in native entries; no JSON/template/dynamic require loads these files.
   'app/client-capability-store.ts',
   'platform/build-info.ts',
@@ -231,6 +251,10 @@ const BUNDLED_ONLY_TYPESCRIPT_MODULES = new Set([
 // Keep reusable probe sources in src/, but never copy or compile them into a production upload.
 // These are exact path boundaries; shared diagnostics used by business pages stay bundled.
 const EXCLUDED_PRODUCTION_DIRECTORIES = [
+  'components/manual-schedule/manual-schedule-cell/',
+  'components/ui/ui-chip/',
+  'components/ui/ui-picker/',
+  'components/ui/ui-radio/',
   'pages/index/',
   'pages/gesture-probe/',
   'subpackages/diagnostics/',

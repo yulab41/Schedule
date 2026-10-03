@@ -3453,3 +3453,11 @@ ACT-AUDIT交付：31553474/main/生产schema70、.223上传且只增放行；两
 CAL-06–09交付：45863f70已推送任务分支/main，干净同口径包体+727B、构建1827ms；`.227@45863f7`正式Node上传（Manifest9c890ce3…）且精确tag/receipt/候选检查通过。用户当次明确批准后13:54–13:56只增放行，117旧版本逐项保留、总118；`.227/.226/.225`200、未知426，独立policy verify及完整生产verifier通过，live前后dbe35288、MySQL容器相同。无应用部署/迁移/备份或服务端身份同步。初次preflight误取manifest顶层字段，无写发生；核对packager后从artifacts正确取值，三方控制hash一致。general-2被本任务DevTools文件监听占用，正式release拒绝并保留；general-3独占文档收口，应用证据复用。收口消息`docs(audit): close nurse list response trial delivery`，当前待用户同构建小米14复核。
 
 CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“确认，切换已较前流畅，该任务完成。”沿用小米14体验版上下文，记录用户定性确认切换改善，本批次已完成，替代上述待复核状态；无新计时，不外推完全无感。电话图标同步、快滚/各入口及renderer/基础库/微信版本未单独反馈，保留测量边界。本次仅五份文档，general-3独占REUSE_ONLY/Bootstrap无安装，复用应用证据；检查点消息`docs(audit): record calendar list acceptance`，不连接生产或重新上传。唯一下一任务为等待用户新指示，通讯录首搜仍暂缓等待数据。
+
+## FULL-FIXES-20261003 全面审查修复
+
+基线6c153f7b，general-3独占warm/REUSE_ONLY，无安装。实际git log -S与blame：访客9e603fdb/325f82ea/5fabb855，整库备份及日志a837586e，健康5fa3fd2b，授权8e42afb8/4e0a0d1a，事件7ac2a07a，历史4674c8bc，通知52e9e1f4/ef3d20ca，压测6619a4bd。原始输出见ignored runtime/audit/full-fixes-20261003/git-introductions.log，完整行为变化及风险见[修复轮次](../audit/full-fixes-20261003.md)。
+
+用户确认文字颜色及成功30天/失败90天留存；实现有界缓存、健康探测、共享读取锁、角色事件查询、分批后台任务与通知租约、流式认证备份/恢复、无入口产物过滤及隔离压测门禁。外部值班接口未改。旧缓存/页面保存、正确旧健康及授权/历史锁边界先红后绿；真实MySQL与单元最终51项通过。候选实现的排序规则/快照参数/日期问题在提交前修正，不误报为原生产故障。历史导出超时未复现，只增加实际阶段测量，不宣称根治。
+
+完整pnpm verify通过：Mini1366通过/23跳过，根1388通过/488跳过，Codex83通过；production verify、干跑、类型/lint/格式通过。运行/浏览器验证：pnpm smoke:check-core通过；无Web/契约核心变更，不要求pnpm smoke:browser。实际WXSS桌面截图颜色匹配批准值，不代替小米14；本轮尚未生产部署，迁移0071仅合成库验证。检查点消息`fix: bound caches backups and background job load`，交付身份随后独立收口。

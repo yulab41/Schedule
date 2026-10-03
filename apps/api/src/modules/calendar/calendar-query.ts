@@ -78,7 +78,7 @@ export class CalendarQuery {
     businessMonth: string,
   ): Promise<CalendarReadModel> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,
@@ -115,7 +115,7 @@ export class CalendarQuery {
     schedulePeriodId: string,
   ): Promise<CalendarReadModel> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

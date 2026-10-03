@@ -1,5 +1,5 @@
 import { drizzle, type MySql2Database } from 'drizzle-orm/mysql2';
-import { createPool } from 'mysql2';
+import { createPool, type PoolConnection } from 'mysql2';
 
 import * as schema from './schema/index.js';
 
@@ -16,6 +16,8 @@ export type ScheduleDatabase = MySql2Database<typeof schema>;
 
 export interface DatabaseClient {
   readonly database: ScheduleDatabase;
+  /** Bounded connectivity check, including time waiting for a pooled connection. */
+  checkReadiness?(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -45,9 +47,58 @@ export function createDatabaseClient(options: DatabaseConnectionOptions): Databa
     });
   });
   const promisePool = pool.promise();
+  let readiness: Promise<void> | undefined;
 
   return {
     database: drizzle(promisePool, { schema, mode: 'default' }),
+    checkReadiness: () => {
+      if (readiness) return readiness;
+      let acquiring = true;
+      readiness = new Promise<void>((resolve, reject) => {
+        let expired = false;
+        let activeConnection: PoolConnection | undefined;
+        const startedAt = Date.now();
+        const timeoutMs = 2000;
+        const timer = setTimeout(() => {
+          expired = true;
+          activeConnection?.destroy();
+          reject(new Error('Database readiness timed out'));
+        }, timeoutMs);
+        pool.getConnection((error, connection) => {
+          acquiring = false;
+          if (expired) {
+            connection?.release();
+            readiness = undefined;
+            return;
+          }
+          if (error) {
+            clearTimeout(timer);
+            reject(error);
+            return;
+          }
+          activeConnection = connection;
+          connection.query(
+            { sql: 'SELECT 1', timeout: Math.max(1, timeoutMs - (Date.now() - startedAt)) },
+            (queryError) => {
+              clearTimeout(timer);
+              if (expired) return;
+              if (queryError) {
+                connection.destroy();
+                reject(queryError);
+              } else {
+                connection.release();
+                resolve();
+              }
+            },
+          );
+        });
+      }).finally(() => {
+        // Keep the rejected probe while acquisition is still queued: health polling
+        // must not add another waiter every two seconds during a pool outage.
+        if (!acquiring) readiness = undefined;
+      });
+      return readiness;
+    },
     close: async () => promisePool.end(),
   };
 }

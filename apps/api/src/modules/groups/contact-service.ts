@@ -65,7 +65,7 @@ export class ContactService {
     options: { readonly includeEmployeeCodes?: boolean } = {},
   ): Promise<GroupMemberContact[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,
@@ -144,7 +144,7 @@ export class ContactService {
     groupId: string,
   ): Promise<GroupMobilePhoneConsent> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

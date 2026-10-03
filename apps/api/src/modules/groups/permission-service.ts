@@ -116,8 +116,8 @@ export class GroupPermissionService {
     identity: AuthenticatedIdentity,
     groupId: string,
   ): Promise<{ group: ActiveGroup; linked: boolean }> {
-    const user = await this.getActiveUserForUpdate(transaction, identity);
-    const group = await this.getActiveGroupForUpdate(transaction, groupId);
+    const user = await this.getActiveUserForUpdate(transaction, identity, 'share');
+    const group = await this.getActiveGroupForUpdate(transaction, groupId, 'share');
     const [direct] = await transaction
       .select({ id: groupMemberships.id })
       .from(groupMemberships)
@@ -130,9 +130,9 @@ export class GroupPermissionService {
         ),
       )
       .limit(1)
-      .for('update');
+      .for('share');
     if (direct !== undefined) {
-      await this.requirePermission(transaction, identity, group.id, 'viewGuestCalendar');
+      await this.requireReadPermission(transaction, identity, group.id, 'viewGuestCalendar');
       return { group, linked: false };
     }
     if ((await listLinkedGuestGroups(transaction, identity, group.id)).length === 0) {
@@ -150,10 +150,16 @@ export class GroupPermissionService {
     identity: AuthenticatedIdentity,
     groupId: string,
     permission: GroupPermission,
+    lock: 'share' | 'update' = 'update',
   ): Promise<GroupAuthorization> {
-    const user = await this.getActiveUserForUpdate(transaction, identity);
-    const group = await this.getActiveGroupForUpdate(transaction, groupId);
-    const membership = await this.getActiveMembershipForUpdate(transaction, group.id, user.id);
+    const user = await this.getActiveUserForUpdate(transaction, identity, lock);
+    const group = await this.getActiveGroupForUpdate(transaction, groupId, lock);
+    const membership = await this.getActiveMembershipForUpdate(
+      transaction,
+      group.id,
+      user.id,
+      lock,
+    );
 
     if (
       !user.isDeveloperAdmin &&
@@ -178,10 +184,22 @@ export class GroupPermissionService {
     return { group, membership, user };
   }
 
+  // Readers share authorization locks until commit, so revocation still waits for
+  // an authorized read to finish. Mutations retain the exclusive default above.
+  public requireReadPermission(
+    transaction: DatabaseTransaction,
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    permission: GroupPermission,
+  ): Promise<GroupAuthorization> {
+    return this.requirePermission(transaction, identity, groupId, permission, 'share');
+  }
+
   public async getActiveMembershipForUpdate(
     transaction: DatabaseTransaction,
     groupId: string,
     userId: string,
+    lock: 'share' | 'update' = 'update',
   ): Promise<ActiveGroupMembership> {
     const [membership] = await transaction
       .select({
@@ -202,7 +220,7 @@ export class GroupPermissionService {
         ),
       )
       .limit(1)
-      .for('update');
+      .for(lock);
 
     if (membership === undefined) {
       throw new ApiError({
@@ -281,6 +299,7 @@ export class GroupPermissionService {
   private async getActiveUserForUpdate(
     transaction: DatabaseTransaction,
     identity: AuthenticatedIdentity,
+    lock: 'share' | 'update' = 'update',
   ): Promise<ActiveGroupUser> {
     const [user] = await transaction
       .select({
@@ -299,7 +318,7 @@ export class GroupPermissionService {
         ),
       )
       .limit(1)
-      .for('update');
+      .for(lock);
 
     if (user === undefined) {
       throw new ApiError({
@@ -327,6 +346,7 @@ export class GroupPermissionService {
   private async getActiveGroupForUpdate(
     transaction: DatabaseTransaction,
     groupId: string,
+    lock: 'share' | 'update' = 'update',
   ): Promise<ActiveGroup> {
     const [group] = await transaction
       .select({
@@ -343,7 +363,7 @@ export class GroupPermissionService {
       .from(groups)
       .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
       .limit(1)
-      .for('update');
+      .for(lock);
 
     if (group === undefined) {
       throw new ApiError({

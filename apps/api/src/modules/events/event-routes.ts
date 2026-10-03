@@ -52,7 +52,7 @@ export function registerEventRoutes(
     withTransaction(databaseClient, async (transaction) => {
       const identity = getAuthenticatedIdentity(request);
       const groupId = parseGroupId(request);
-      const authorization = await permissionService.requirePermission(
+      const authorization = await permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,
@@ -71,7 +71,7 @@ export function registerEventRoutes(
     withTransaction(databaseClient, async (transaction) => {
       const identity = getAuthenticatedIdentity(request);
       const groupId = parseGroupId(request);
-      const authorization = await permissionService.requirePermission(
+      const authorization = await permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

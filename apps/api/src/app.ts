@@ -121,8 +121,20 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     app.decorate('wechatGateway', options.wechatGateway);
   }
 
-  app.get('/health', () => getApiStatus());
-  app.get('/ready', () => getApiStatus());
+  const readiness = async (_request: unknown, reply: import('fastify').FastifyReply) => {
+    try {
+      if (options.databaseClient !== undefined) {
+        if (options.databaseClient.checkReadiness === undefined)
+          throw new Error('Missing database probe');
+        await options.databaseClient.checkReadiness();
+      }
+      return getApiStatus();
+    } catch {
+      return reply.code(503).send({ ...getApiStatus(), ready: false });
+    }
+  };
+  app.get('/health', readiness);
+  app.get('/ready', readiness);
 
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
     registerAuthentication(app, options.authPort, clientCapabilityPolicy);

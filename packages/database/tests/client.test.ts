@@ -42,6 +42,19 @@ describeWithDatabase('database client session initialization', () => {
 
     expect(rows).toEqual([{ timeZone: '+00:00' }]);
   });
+  it('probes the database and recovers after a pool wait times out', async () => {
+    expect(client.checkReadiness).toBeDefined();
+    await client.checkReadiness!();
+    const occupied = [1, 2].map(() =>
+      withTransaction(client, (transaction) => transaction.execute(sql`SELECT SLEEP(2.5)`)),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const started = Date.now();
+    await expect(client.checkReadiness!()).rejects.toThrow('timed out');
+    expect(Date.now() - started).toBeLessThan(2400);
+    await Promise.all(occupied);
+    await client.checkReadiness!();
+  });
 });
 
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {

@@ -163,9 +163,7 @@ export class EventQuery {
     }
 
     if (query.scheduleRoleId !== undefined) {
-      conditions.push(
-        await this.buildRoleCondition(transaction, query.groupId, query.scheduleRoleId),
-      );
+      conditions.push(this.buildRoleCondition(query.groupId, query.scheduleRoleId));
     }
 
     if (cursor !== undefined) {
@@ -213,51 +211,25 @@ export class EventQuery {
     };
   }
 
-  private async buildRoleCondition(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    scheduleRoleId: string,
-  ): Promise<SQL> {
-    const periods = await transaction
-      .select({ id: schedulePeriods.id })
-      .from(schedulePeriods)
-      .where(
-        and(
-          eq(schedulePeriods.groupId, groupId),
-          eq(schedulePeriods.scheduleRoleId, scheduleRoleId),
-          isNull(schedulePeriods.deletedAt),
-        ),
-      );
-    const periodIds = periods.map((period) => period.id);
-    const assignments =
-      periodIds.length === 0
-        ? []
-        : await transaction
-            .select({ id: shiftAssignments.id })
-            .from(shiftAssignments)
-            .where(
-              and(
-                inArray(shiftAssignments.schedulePeriodId, periodIds),
-                isNull(shiftAssignments.deletedAt),
-              ),
-            );
-    const assignmentIds = assignments.map((assignment) => assignment.id);
-
-    if (periodIds.length === 0 && assignmentIds.length === 0) {
-      return sql`1 = 0`;
-    }
-
-    const roleConditions: SQL[] = [];
-    if (periodIds.length > 0) {
-      roleConditions.push(inArray(scheduleEvents.schedulePeriodId, periodIds));
-    }
-    for (const assignmentId of assignmentIds) {
-      roleConditions.push(
-        sql`json_contains(${scheduleEvents.affectedShiftIds}, json_quote(${assignmentId}))`,
-      );
-    }
-
-    return or(...roleConditions) ?? sql`1 = 0`;
+  private buildRoleCondition(groupId: string, scheduleRoleId: string): SQL {
+    // Expand only the shifts affected by this event; do not enumerate role history
+    // in Node or generate one JSON_CONTAINS branch for every historical shift.
+    return sql`(
+      EXISTS (SELECT 1 FROM ${schedulePeriods}
+        WHERE ${schedulePeriods.id} = ${scheduleEvents.schedulePeriodId}
+          AND ${schedulePeriods.groupId} = ${groupId}
+          AND ${schedulePeriods.scheduleRoleId} = ${scheduleRoleId}
+          AND ${schedulePeriods.deletedAt} IS NULL)
+      OR EXISTS (SELECT 1 FROM JSON_TABLE(${scheduleEvents.affectedShiftIds},
+        '$[*]' COLUMNS (shift_id VARCHAR(36) PATH '$')) AS affected
+        INNER JOIN ${shiftAssignments} ON ${shiftAssignments.id} = affected.shift_id COLLATE utf8mb4_0900_ai_ci
+          AND JSON_CONTAINS(${scheduleEvents.affectedShiftIds}, JSON_QUOTE(${shiftAssignments.id}))
+        INNER JOIN ${schedulePeriods} ON ${schedulePeriods.id} = ${shiftAssignments.schedulePeriodId}
+        WHERE ${schedulePeriods.groupId} = ${groupId}
+          AND ${schedulePeriods.scheduleRoleId} = ${scheduleRoleId}
+          AND ${schedulePeriods.deletedAt} IS NULL
+          AND ${shiftAssignments.deletedAt} IS NULL)
+    )`;
   }
 
   private async loadRelatedEvents(

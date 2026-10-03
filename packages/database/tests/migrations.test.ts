@@ -60,7 +60,7 @@ describeWithDatabase('identity and group migrations', () => {
 
     // One journal entry per applied migration, including external duty checks and
     // per-kind WeChat notification preferences and account activity statistics.
-    expect(migrations).toEqual([{ count: 70 }]);
+    expect(migrations).toEqual([{ count: 71 }]);
     expect(tables).toEqual([{ count: 59 }]);
   });
 

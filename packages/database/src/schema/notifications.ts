@@ -83,6 +83,8 @@ export const notificationDeliveries = mysqlTable(
     lastError: varchar('last_error', { length: 500 }),
     sentAt: timestamp('sent_at', { fsp: 3 }),
     externalMessageId: varchar('external_message_id', { length: 64 }),
+    claimToken: char('claim_token', { length: 36 }),
+    claimedUntil: timestamp('claimed_until', { fsp: 3 }),
     ...auditableColumns(),
   },
   (table) => [

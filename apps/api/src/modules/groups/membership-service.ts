@@ -412,7 +412,7 @@ export class MembershipService {
     groupId: string,
   ): Promise<GroupMember[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.permissionService.requireReadPermission(
         transaction,
         identity,
         groupId,

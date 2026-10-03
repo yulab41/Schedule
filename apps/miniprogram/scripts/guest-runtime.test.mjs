@@ -174,6 +174,33 @@ describe('anonymous native visitor calendar', () => {
       expect(instance.visitorKey).toBeUndefined();
     },
   );
+  it('saves each completed preload once and bounds history across repeated month visits', async () => {
+    populated = true;
+    const originalWrite = globalThis.wx.setStorageSync;
+    globalThis.wx.setStorageSync = vi.fn(originalWrite);
+    const writes = () =>
+      globalThis.wx.setStorageSync.mock.calls.filter(([name]) =>
+        name.startsWith('schedule.guest.public.v1:'),
+      ).length;
+    const instance = await page();
+    await vi.waitFor(() => expect(instance.monthReads.size).toBe(0));
+    await vi.waitFor(() => expect(writes()).toBeGreaterThan(0));
+    expect(writes()).toBe(1);
+    for (let i = 0; i < 24; i++) {
+      const previous = writes();
+      definition.handleListMonthChange.call(instance, {
+        currentTarget: { dataset: { delta: '1' } },
+      });
+      definition.handleListSwiperFinish.call(instance, { detail: { current: 2 } });
+      await vi.waitFor(() => expect(writes()).toBeGreaterThan(previous));
+      expect(writes()).toBe(previous + 1);
+      expect(instance.monthResources.size).toBeLessThanOrEqual(12);
+      expect(instance.monthResources.has(instance.data.businessMonth)).toBe(true);
+      expect(instance.calendar.businessMonth).toBe(instance.data.businessMonth);
+      expect(instance.calendar.assignments.length).toBeGreaterThan(0);
+    }
+    definition.onUnload.call(instance);
+  });
   it('reuses one visit id for every month read in a page instance and rotates it on re-entry', async () => {
     const first = await page();
     await vi.waitFor(() => expect(first.data.state).toBe('ready'));

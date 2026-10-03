@@ -26,7 +26,11 @@ export interface PushEnvironment {
 }
 
 interface WebPushLibrary {
-  sendNotification(subscription: PushSubscriptionDetails, payload: string): Promise<unknown>;
+  sendNotification(
+    subscription: PushSubscriptionDetails,
+    payload: string,
+    options?: { timeout: number },
+  ): Promise<unknown>;
   setVapidDetails(subject: string, publicKey: string, privateKey: string): void;
 }
 
@@ -57,7 +61,7 @@ export class WebPushDispatcher implements PushDispatcher {
 
   public async send(subscription: PushSubscriptionDetails, payload: PushPayload): Promise<void> {
     const library = await this.getLibrary();
-    await library.sendNotification(subscription, JSON.stringify(payload));
+    await library.sendNotification(subscription, JSON.stringify(payload), { timeout: 10000 });
   }
 
   private getLibrary(): Promise<WebPushLibrary> {
