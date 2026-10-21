@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   externalDutyChecks,
+  externalDutyBaselines,
   externalDutyActions,
   dutyAdjustments,
   groupMemberships,
@@ -10,6 +11,7 @@ import {
   memberScheduleRoles,
   platformJobRuns,
   schedulePeriods,
+  scheduleEvents,
   scheduleRoles,
   shiftAssignments,
   shiftTypes,
@@ -18,7 +20,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -34,18 +36,35 @@ const ROLE_NAME = '一线';
 const SHIFT_NAME = '全天班';
 const GROUP_NAME = '头颈外科医生';
 
+// Re-publishing a withdrawn period can reuse its assignment IDs. A withdrawal
+// after capture ends the snapshot's publication lifetime; ordinary date merges
+// preserve it for assignments they do not replace.
+const baselineInvalidated = sql<number>`EXISTS (
+  SELECT 1 FROM ${scheduleEvents}
+  WHERE ${scheduleEvents.schedulePeriodId} = ${schedulePeriods.id}
+    AND ${scheduleEvents.eventType} = 'schedule_period_withdrawn'
+    AND ${scheduleEvents.occurredAt} >= ${externalDutyBaselines.capturedAt}
+)`.mapWith(Number);
+
 function effectivePublishedAssignment<
   T extends {
     name: string | null;
     membershipId: string | null;
     plannedName: string | null;
     plannedMembershipId: string | null;
+    baselineAssignmentId: string | null;
+    baselineName: string | null;
+    baselineInvalidated: number;
   },
 >(assignment: T) {
   return {
     ...assignment,
     name: assignment.name ?? assignment.plannedName,
     membershipId: assignment.membershipId ?? assignment.plannedMembershipId,
+    baselineName:
+      assignment.baselineAssignmentId === null || assignment.baselineInvalidated === 1
+        ? assignment.plannedName
+        : assignment.baselineName,
   };
 }
 
@@ -145,7 +164,7 @@ export class ExternalDutyService {
     if (action.status === 'applying' && Date.now() - action.updatedAt.valueOf() < 30_000)
       throw conflict('网页写入仍在核验，请稍后再撤回');
     const local = await this.readLocalDate(action.groupId, action.businessDate);
-    if (local.length !== 1 || !local[0]?.plannedName)
+    if (local.length !== 1 || !local[0]?.baselineName)
       throw conflict('当前正式发布班次无法唯一确定，不能撤回');
     const remote = await this.source.read();
     const remoteName = remote.duties.get(action.businessDate);
@@ -156,12 +175,12 @@ export class ExternalDutyService {
       side: action.side,
       date: action.businessDate,
       currentName,
-      baselineName: local[0].plannedName,
+      baselineName: local[0].baselineName,
       expectedFingerprint: hash([
         actionId,
         action.status,
         local[0].periodId,
-        local[0].plannedName,
+        local[0].baselineName,
         local[0].version,
         remoteName,
         local[0]?.name ?? null,
@@ -347,11 +366,23 @@ export class ExternalDutyService {
           membershipId: shiftAssignments.actualMembershipId,
           plannedName: shiftAssignments.plannedMemberName,
           plannedMembershipId: shiftAssignments.plannedMembershipId,
+          baselineAssignmentId: externalDutyBaselines.assignmentId,
+          baselineName: externalDutyBaselines.memberName,
+          baselineInvalidated,
           version: shiftAssignments.version,
           periodId: schedulePeriods.id,
         })
         .from(shiftAssignments)
         .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+        .leftJoin(
+          externalDutyBaselines,
+          and(
+            eq(externalDutyBaselines.assignmentId, shiftAssignments.id),
+            eq(externalDutyBaselines.schedulePeriodId, schedulePeriods.id),
+            eq(externalDutyBaselines.groupId, schedulePeriods.groupId),
+            eq(externalDutyBaselines.businessDate, shiftAssignments.businessDate),
+          ),
+        )
         .where(
           and(
             eq(schedulePeriods.groupId, groupId),
@@ -460,7 +491,7 @@ export class ExternalDutyService {
         const matches = byDate.get(date) ?? [];
         const assignment = matches.length === 1 ? matches[0]! : undefined;
         const localName = assignment?.name ?? null;
-        const baselineName = assignment?.plannedName ?? null;
+        const baselineName = assignment?.baselineName ?? null;
         const reason =
           matches.length !== 1
             ? `本系统当日匹配班次数量为 ${matches.length}`
@@ -619,7 +650,7 @@ export class ExternalDutyService {
       currentLocal[0]?.id !== row.assignmentId ||
       currentLocal[0]?.version !== row.assignmentVersion ||
       currentLocal[0]?.periodId !== row.schedulePeriodId ||
-      currentLocal[0]?.plannedName !== row.baselineName ||
+      currentLocal[0]?.baselineName !== row.baselineName ||
       currentLocal[0]?.name !== row.localName
     ) {
       throw conflict('本系统排班已变化，请重新校对');
@@ -918,7 +949,7 @@ export class ExternalDutyService {
       local[0]?.id !== row.assignmentId ||
       local[0]?.version !== row.assignmentVersion ||
       local[0]?.periodId !== row.schedulePeriodId ||
-      local[0]?.plannedName !== row.baselineName ||
+      local[0]?.baselineName !== row.baselineName ||
       local[0]?.name !== row.localName
     ) {
       throw conflict('排班已变化，请重新确认');
@@ -1056,11 +1087,23 @@ export class ExternalDutyService {
         membershipId: shiftAssignments.actualMembershipId,
         plannedName: shiftAssignments.plannedMemberName,
         plannedMembershipId: shiftAssignments.plannedMembershipId,
+        baselineAssignmentId: externalDutyBaselines.assignmentId,
+        baselineName: externalDutyBaselines.memberName,
+        baselineInvalidated,
         version: shiftAssignments.version,
         periodId: schedulePeriods.id,
       })
       .from(shiftAssignments)
       .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+      .leftJoin(
+        externalDutyBaselines,
+        and(
+          eq(externalDutyBaselines.assignmentId, shiftAssignments.id),
+          eq(externalDutyBaselines.schedulePeriodId, schedulePeriods.id),
+          eq(externalDutyBaselines.groupId, schedulePeriods.groupId),
+          eq(externalDutyBaselines.businessDate, shiftAssignments.businessDate),
+        ),
+      )
       .innerJoin(scheduleRoles, eq(scheduleRoles.id, schedulePeriods.scheduleRoleId))
       .innerJoin(shiftTypes, eq(shiftTypes.id, shiftAssignments.shiftTypeId))
       .where(

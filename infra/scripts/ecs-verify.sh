@@ -675,9 +675,21 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 69 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 72 ]; then
+  EXTERNAL_DUTY_FROZEN_BASELINE_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -D "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\"external_duty_baselines\" AND column_name IN (\"assignment_id\",\"schedule_period_id\",\"group_id\",\"business_date\",\"member_name\",\"membership_id\",\"assignment_version\",\"captured_at\")"')"
+  [ "$EXTERNAL_DUTY_FROZEN_BASELINE_SCHEMA" = "8" ] || {
+    echo "[verify] 错误：网页校对的一次性排班基线快照字段缺失。" >&2
+    exit 1
+  }
+fi
+
 is_valid_backup_table_count() {
   local schema="$1" tables="$2"
-  if [ "$schema" -ge 70 ]; then
+  if [ "$schema" -ge 72 ]; then
+    # 0072 adds immutable duty baselines; accept the pre-migration or fresh backup.
+    [ "$tables" = "57" ] || [ "$tables" = "58" ]
+  elif [ "$schema" -ge 70 ]; then
     # 0070 summary retained in backup; raw receipts excluded, pre-migration backup remains valid.
     [ "$tables" = "56" ] || [ "$tables" = "57" ]
   elif [ "$schema" -ge 68 ]; then

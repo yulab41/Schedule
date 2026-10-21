@@ -92,7 +92,13 @@ describe('external duty undo', () => {
       service as unknown as { readLocalDate: () => Promise<unknown[]> },
       'readLocalDate',
     ).mockResolvedValue([
-      { id: 'new-assignment', periodId: 'new-period', plannedName: '丙', name: '丙' },
+      {
+        id: 'new-assignment',
+        periodId: 'new-period',
+        plannedName: '丙',
+        baselineName: '丙',
+        name: '丙',
+      },
     ]);
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-09-28T04:00:00.000Z'));
@@ -109,6 +115,39 @@ describe('external duty undo', () => {
     const { service, source } = fixture(true);
     await expect(service.undo(identity, actionId, 'b'.repeat(64))).rejects.toThrow('过期');
     expect(source.write).not.toHaveBeenCalled();
+  });
+
+  it('previews restoration to the reset baseline while retaining the historical action baseline', async () => {
+    const { service, action } = fixture(true);
+    vi.mocked(service.previewUndo).mockRestore();
+    vi.spyOn(
+      service as unknown as { authorize: () => Promise<string> },
+      'authorize',
+    ).mockResolvedValue('admin');
+    vi.spyOn(
+      service as unknown as { readLocalDate: () => Promise<unknown[]> },
+      'readLocalDate',
+    ).mockResolvedValue([
+      {
+        id: 'assignment',
+        periodId: 'period',
+        plannedName: '甲',
+        baselineName: '乙',
+        name: '丙',
+        version: 3,
+      },
+    ]);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-28T04:00:00Z'));
+    try {
+      await expect(service.previewUndo(identity, actionId)).resolves.toMatchObject({
+        baselineName: '乙',
+      });
+      expect(action.baselineName).toBe('甲');
+    } finally {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    }
   });
 
   it('restores the published baseline and rejects a second click', async () => {

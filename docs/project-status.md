@@ -1,6 +1,16 @@
 # Project Status
 
-## 当前批次：全面审查问题逐项修复（2026-10-03，服务器优化已上线，体验版已放行）
+## 当前批次：网页校对一次性重设发布基线（2026-10-21，本地已完成，待服务器上线）
+
+- 用户确认以当前日历实际人员重设一次、此后继续识别新变化，并确认仅服务端调整、无需重传小程序。实现/行为/证据见[轮次记录](audit/external-duty-rebaseline-20261021.md)与[实施批次](superpowers/plans/2026-10-21-external-duty-rebaseline-plan.md)。
+- 基线HEAD/成功fetch后的origin/main均55c3a9fd；独占canonical runtime/wt/general-3、Acquire→ReuseOnly→api Bootstrap全复用，安装0。C盘入口跨卷被正式池拒绝后从E盘canonical正常Acquire，未绕过守卫或新建worktree；原入口干净、用户文件未动。
+- 已实现0072不可变快照、扫描/确认/撤回共用新基线、撤回再发布失效判断及schema72/备份表数校验。原排班、历史操作、Mini页面/契约与发布身份不变；只读评审发现的同编号再发布P2已先红后绿修复并复核通过。
+- 用户重启Docker后沿用原租约Heartbeat→ReuseOnly→api Bootstrap；按源码增量重建database/test-fixtures，无安装。既有tmpfs隔离容器schedule_test恢复，实库分开验证迁移31、发布周期14、其余校对/发布/文档115，合计160全部通过/跳过0。API/数据库类型及构建、ESLint、格式、Shell/core smoke通过。
+- 首次组合157通过/3失败均已定位：旧通知保留断言遗漏0071新增NULL字段，在原HEAD/schema71复现后补完整字段期望并复评通过；迁移测试故意留下旧结构导致后续锁测试污染，改分进程且先由发布夹具重建；一个旧5秒超时按原配置隔离复测通过。保留首次失败证据，不称单次全绿；详见轮次记录。
+- 本地实现和运行验证已完成；检查点消息`fix(external-duty): freeze current roster reconciliation baseline`。提交后正常推送当前任务分支；未连接/备份/迁移/部署生产、未同步网页、未上传体验版，线上基线未改变。
+- 唯一下一任务/停止条件：等待用户当次明确授权生产备份、后端部署及0072迁移后进入L4，实时确定回滚基线并验证；本轮停止于已验证检查点交付。保持现有体验版，不分配新版本或扩大功能。
+
+## 上一批次：全面审查问题逐项修复（2026-10-03，服务器优化已上线，体验版已放行）
 
 - 用户已确认状态文字颜色及作业成功30天/失败90天留存；FULL-09/14外部值班接口未改。详见[修复轮次](audit/full-fixes-20261003.md)。
 - 基线main/origin/main 6c153f7b；独占general-3、REUSE_ONLY/Bootstrap，安装0。访客36项、Mini全量1366通过/23既有跳过；生产包审计通过，总包减少75571B。

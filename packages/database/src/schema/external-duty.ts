@@ -9,6 +9,17 @@ import {
   varchar,
 } from 'drizzle-orm/mysql-core';
 
+export const externalDutyBaselines = mysqlTable('external_duty_baselines', {
+  assignmentId: char('assignment_id', { length: 36 }).primaryKey(),
+  schedulePeriodId: char('schedule_period_id', { length: 36 }).notNull(),
+  groupId: char('group_id', { length: 36 }).notNull(),
+  businessDate: date('business_date', { mode: 'string' }).notNull(),
+  memberName: varchar('member_name', { length: 100 }),
+  membershipId: char('membership_id', { length: 36 }),
+  assignmentVersion: int('assignment_version', { unsigned: true }).notNull(),
+  capturedAt: timestamp('captured_at', { fsp: 3 }).defaultNow().notNull(),
+});
+
 export const externalDutyChecks = mysqlTable('external_duty_checks', {
   businessDate: date('business_date', { mode: 'string' }).primaryKey(),
   groupId: char('group_id', { length: 36 }).notNull(),

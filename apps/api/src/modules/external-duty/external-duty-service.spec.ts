@@ -68,7 +68,14 @@ function fixture() {
     service as unknown as { readLocalDate: () => Promise<unknown[]> },
     'readLocalDate',
   ).mockResolvedValue([
-    { id: 'assignment', name: '甲', plannedName: '乙', version: 1, periodId: 'period' },
+    {
+      id: 'assignment',
+      name: '甲',
+      plannedName: '乙',
+      baselineName: '乙',
+      version: 1,
+      periodId: 'period',
+    },
   ]);
   vi.spyOn(service, 'scan').mockResolvedValue({ checked: 1, newDifferences: 0 });
   return { action, row, source, service };
@@ -90,7 +97,14 @@ describe('external duty outbound confirmation', () => {
   it('rejects a local assignment changed and then restored to the same name', async () => {
     const { service, source } = fixture();
     vi.mocked(service['readLocalDate'] as unknown as () => Promise<unknown[]>).mockResolvedValue([
-      { id: 'assignment', name: '甲', plannedName: '乙', version: 3, periodId: 'period' },
+      {
+        id: 'assignment',
+        name: '甲',
+        plannedName: '乙',
+        baselineName: '乙',
+        version: 3,
+        periodId: 'period',
+      },
     ]);
     await expect(service.pushToExternal(identity, date, fingerprint)).rejects.toThrow(
       '本系统排班已变化',
@@ -115,6 +129,43 @@ describe('external duty outbound confirmation', () => {
     expect(row.status).toBe('pending');
     expect(action.status).toBe('applying');
     expect(service.scan).not.toHaveBeenCalled();
+  });
+
+  it('accepts the frozen baseline even when it differs from the original planned person', async () => {
+    const { service, source } = fixture();
+    vi.mocked(service['readLocalDate'] as unknown as () => Promise<unknown[]>).mockResolvedValue([
+      {
+        id: 'assignment',
+        name: '甲',
+        plannedName: '丙',
+        baselineName: '乙',
+        version: 1,
+        periodId: 'period',
+      },
+    ]);
+    source.read.mockResolvedValueOnce(snapshot('乙')).mockResolvedValueOnce(snapshot('甲'));
+    await expect(service.pushToExternal(identity, date, fingerprint)).resolves.toEqual({
+      verified: true,
+    });
+    expect(source.write).toHaveBeenCalledWith(date, '甲');
+  });
+
+  it('rejects a preview from before the baseline reset before writing', async () => {
+    const { service, source } = fixture();
+    vi.mocked(service['readLocalDate'] as unknown as () => Promise<unknown[]>).mockResolvedValue([
+      {
+        id: 'assignment',
+        name: '甲',
+        plannedName: '乙',
+        baselineName: '甲',
+        version: 1,
+        periodId: 'period',
+      },
+    ]);
+    await expect(service.pushToExternal(identity, date, fingerprint)).rejects.toThrow(
+      '本系统排班已变化',
+    );
+    expect(source.write).not.toHaveBeenCalled();
   });
 
   it('rejects a repeated confirmation after the first scan changes its state', async () => {

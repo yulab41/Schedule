@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createDatabaseClient,
   createTestDatabaseClient,
+  externalDutyBaselines,
   groups,
   groupMemberships,
   leaveRequests,
@@ -25,6 +26,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ScheduleRepository } from './schedule-repository.js';
+import { ExternalDutyService } from '../external-duty/external-duty-service.js';
 import { createApp } from '../../app.js';
 import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
 import { recoverDecember2026 } from '../../recover-december-2026.js';
@@ -161,6 +163,73 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
     ).rejects.toMatchObject({ statusCode: 409 });
     expect(await client.database.select().from(shiftAssignments)).toEqual(before);
     expect(await client.database.select().from(scheduleEvents)).toEqual(eventsBefore);
+  });
+
+  it('preserves a reset duty baseline through an untouched merge but retires it after withdrawal and re-publication', async () => {
+    await client.database
+      .update(scheduleRoles)
+      .set({ name: '一线' })
+      .where(eq(scheduleRoles.id, scheduleRoleId));
+    await client.database
+      .update(shiftTypes)
+      .set({ name: '全天班' })
+      .where(eq(shiftTypes.id, shiftTypeId));
+    const repository = new ScheduleRepository(client);
+    const draft = await repository.createDraft(createDraftInput('2026-08', '2026-08-20'));
+    await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: draft.version,
+      operationId: randomUUID(),
+      schedulePeriodId: draft.id,
+    });
+    const [assignment] = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, draft.id));
+    expect(assignment).toBeDefined();
+    await client.database
+      .update(shiftAssignments)
+      .set({ actualMemberName: 'Dr. Reset' })
+      .where(eq(shiftAssignments.id, assignment!.id));
+    await client.database.insert(externalDutyBaselines).values({
+      assignmentId: assignment!.id,
+      schedulePeriodId: draft.id,
+      groupId,
+      businessDate: '2026-08-20',
+      memberName: 'Dr. Reset',
+      membershipId: memberId,
+      assignmentVersion: assignment!.version,
+    });
+    const duty = new ExternalDutyService(client, new Set());
+    const read = () => duty['readLocalDate'](groupId, '2026-08-20');
+    expect(await read()).toMatchObject([{ id: assignment!.id, baselineName: 'Dr. Reset' }]);
+
+    const incoming = await repository.createDraft(createDraftInput('2026-08', '2026-08-21'));
+    const merged = await withTransaction(client, (tx) =>
+      repository.mergePublishedInTransaction(tx, {
+        actorUserId: ownerUserId,
+        expectedVersion: incoming.version,
+        operationId: randomUUID(),
+        schedulePeriodId: incoming.id,
+      }),
+    );
+    expect(await read()).toMatchObject([{ id: assignment!.id, baselineName: 'Dr. Reset' }]);
+    const withdrawn = await repository.withdraw({
+      actorUserId: ownerUserId,
+      expectedVersion: merged.version,
+      operationId: randomUUID(),
+      schedulePeriodId: merged.id,
+    });
+    await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: withdrawn.version,
+      operationId: randomUUID(),
+      schedulePeriodId: withdrawn.id,
+    });
+    expect(await read()).toMatchObject([{ id: assignment!.id, baselineName: 'Dr. Snapshot' }]);
+    expect(await client.database.select().from(externalDutyBaselines)).toMatchObject([
+      { memberName: 'Dr. Reset' },
+    ]);
   });
 
   it('moves draft periods through publication, replacement, and withdrawal with linked events', async () => {
@@ -940,6 +1009,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
   await client.database.execute(sql`DROP TABLE IF EXISTS external_duty_actions`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS external_duty_baselines`);
   await client.database.execute(sql`DROP TABLE IF EXISTS external_duty_checks`);
   await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);

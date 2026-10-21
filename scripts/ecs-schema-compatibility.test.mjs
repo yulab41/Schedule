@@ -68,4 +68,11 @@ describe('persisted history visibility release compatibility', () => {
       databaseSchemaMax: '71',
     });
   });
+
+  it('requires the one-time external duty baseline table from schema 72', () => {
+    expect(releaseSchemaCompatibility(journal(72, '0072_external_duty_frozen_baseline'))).toEqual({
+      databaseSchemaMin: '72',
+      databaseSchemaMax: '72',
+    });
+  });
 });

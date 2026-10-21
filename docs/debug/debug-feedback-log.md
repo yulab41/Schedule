@@ -3465,3 +3465,11 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 用户确认文字颜色及成功30天/失败90天留存；实现有界缓存、健康探测、共享读取锁、角色事件查询、分批后台任务与通知租约、流式认证备份/恢复、无入口产物过滤及隔离压测门禁。外部值班接口未改。旧缓存/页面保存、正确旧健康及授权/历史锁边界先红后绿；真实MySQL与单元最终51项通过。候选实现的排序规则/快照参数/日期问题在提交前修正，不误报为原生产故障。历史导出超时未复现，只增加实际阶段测量，不宣称根治。
 
 完整pnpm verify通过：Mini1366通过/23跳过，根1388通过/488跳过，Codex83通过；production verify、干跑、类型/lint/格式通过。运行/浏览器验证：pnpm smoke:check-core通过；无Web/契约核心变更，不要求pnpm smoke:browser。实际WXSS桌面截图颜色匹配批准值，不代替小米14；本轮尚未生产部署，迁移0071仅合成库验证。检查点消息`fix: bound caches backups and background job load`，交付身份随后独立收口。
+
+## EXTERNAL-DUTY-REBASE-001（2026-10-21，本地已完成，待服务器上线）
+
+用户明确选择按当前日历实际人员重设一次，此后继续识别变化。`git log -S 'const baselineName = assignment?.plannedName'`与`git blame -L 458,470`定位06d420a1原始发布基线设计；本轮是批准的行为调整。独占general-3，Acquire/ReuseOnly/api Bootstrap全复用、安装0。0072保存独立快照；扫描、同步前校验、撤回统一取有效快照，实际值仍用原actual??planned。新扫描回归旧基线甲/本系统变化红→新基线乙/网页变化绿；新发布回退和只读评审发现的同编号撤回再发布问题先红后绿，复评通过。普通合并保留未替换日期快照，撤回事件让旧快照失效，历史不删。
+
+定向114通过/46无MySQL跳过；API/数据库typecheck、API build、ESLint、格式及Shell校验通过。运行/浏览器验证：pnpm smoke:check-core通过；仅API/数据库及发布验证，未触及Web/契约核心，无需pnpm smoke:browser。Docker实际因Inference manager的dockerInference路径不可访问失败，未删除Socket或重置环境；新迁移和真实发布生命周期尚未实库验证。改动暂留独占warm源码，不提交/推送或上线；生产数据未重设、不上传体验版。唯一下一任务是恢复本地MySQL后完成该运行验证；详见[轮次记录](../audit/external-duty-rebaseline-20261021.md)。
+
+用户重启Docker后完成实库验证：首次组合157通过/3失败，新迁移和真实生命周期已通过；通知旧断言在原HEAD55c3a9fd/schema71复现，03ff9635新增两NULL字段而8bb3c6e4断言未适配，仅补完整原行加两NULL字段的精确期望，目标先红后绿并复评通过。迁移夹具留下旧结构导致后续锁测试污染，按分进程且发布夹具先重建处理；继承5秒超时原配置隔离后通过。最终迁移31、发布生命周期14、校对/发布/文档115，合计160通过/跳过0，首次失败日志保留。运行/浏览器验证：pnpm smoke:check-core通过，不改Web/契约核心。本地已完成，检查点`fix(external-duty): freeze current roster reconciliation baseline`提交正常推送任务分支；未连接/备份/迁移/部署生产、不重传体验版。唯一下一任务变为等待当次生产备份/部署/0072迁移授权，不能把本地基线测试写成线上数据已重设。

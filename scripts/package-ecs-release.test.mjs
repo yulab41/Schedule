@@ -170,6 +170,8 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('external_duty_checks_status_date_idx');
     expect(verifySource).toContain('EXTERNAL_DUTY_BASELINE_SCHEMA');
     expect(verifySource).toContain('EXTERNAL_DUTY_ACTIONS_TABLE');
+    expect(verifySource).toContain('EXTERNAL_DUTY_FROZEN_BASELINE_SCHEMA');
+    expect(verifySource).toContain('external_duty_baselines');
   });
 
   it('reads the schema 61 visitor QR shape as separate mysql columns', () => {

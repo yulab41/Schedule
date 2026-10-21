@@ -70,6 +70,10 @@ describe('retirement application rollback (synthetic shell behavior, not a produ
     [70, 57, true],
     [70, 55, false],
     [70, 58, false],
+    [72, 57, true],
+    [72, 58, true],
+    [72, 56, false],
+    [72, 59, false],
   ])('validates backup table count for schema %s / %s', (schema, tables, allowed) => {
     const result = run(
       `${shellFunction(verify, 'is_valid_backup_table_count')}\nif is_valid_backup_table_count "$1" "$2"; then printf allowed; else printf denied; fi`,

@@ -498,6 +498,13 @@
       "when": 1785542400071,
       "tag": "0071_bounded_background_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1785542400072,
+      "tag": "0072_external_duty_frozen_baseline",
+      "breakpoints": true
     }
   ]
 }

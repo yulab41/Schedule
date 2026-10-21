@@ -55,13 +55,13 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases', 'external_duty_checks', 'external_duty_actions', 'account_activity_summaries', 'account_open_receipts')`,
+          AND table_name IN ('users', 'user_profiles', 'user_profile_avatars', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'group_visitor_qr_assets', 'group_calendar_changes', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases', 'external_duty_checks', 'external_duty_actions', 'external_duty_baselines', 'account_activity_summaries', 'account_open_receipts')`,
     );
 
     // One journal entry per applied migration, including external duty checks and
     // per-kind WeChat notification preferences and account activity statistics.
-    expect(migrations).toEqual([{ count: 71 }]);
-    expect(tables).toEqual([{ count: 59 }]);
+    expect(migrations).toEqual([{ count: 72 }]);
+    expect(tables).toEqual([{ count: 60 }]);
   });
 
   it('backfills the 30-day notification display flag while preserving read state and delivery history', async () => {
@@ -114,13 +114,96 @@ describeWithDatabase('identity and group migrations', () => {
       ).toEqual(before);
       expect(
         (await client.database.execute(sql`SELECT * FROM notification_deliveries`))[0],
-      ).toEqual(deliveries);
+      ).toEqual(
+        (deliveries as unknown as Record<string, unknown>[]).map((delivery) => ({
+          ...delivery,
+          claim_token: null,
+          claimed_until: null,
+        })),
+      );
       const [indexes] = await client.database.execute(
         sql`SELECT COUNT(DISTINCT index_name) AS count FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='notifications' AND index_name IN ('notifications_list_visible_idx','notifications_unread_visible_idx','notifications_expiry_idx')`,
       );
       expect(indexes).toEqual([{ count: 3 }]);
     } finally {
       await rm(legacy, { recursive: true, force: true });
+    }
+  });
+
+  it('captures only current published effective duty baselines once and preserves subsequent changes', async () => {
+    const legacy = await createLegacyMigrationsDirectory(71);
+    try {
+      await migrateDatabase(client, legacy);
+      // The test client owns one connection. Freeze only its MySQL session so
+      // UTC+8 scope and the fixed external coverage are independent of wall time.
+      await client.database.execute(sql`SET timestamp = 1792598400`);
+      const owner = randomUUID();
+      const group = randomUUID();
+      const role = randomUUID();
+      const shift = randomUUID();
+      const period = randomUUID();
+      const draft = randomUUID();
+      const replaced = randomUUID();
+      await client.database.insert(users).values({ id: owner, cloudbaseUid: 'baseline-fixture' });
+      await client.database
+        .insert(groups)
+        .values({ id: group, name: '头颈外科医生', ownerUserId: owner });
+      await client.database.execute(
+        sql`INSERT INTO schedule_roles (id,group_id,name) VALUES (${role},${group},'一线')`,
+      );
+      await client.database
+        .execute(sql`INSERT INTO shift_types (id,group_id,name,abbreviation,display_order,color,text_color,start_time,end_time,crosses_midnight,is_enabled,is_all_day)
+        VALUES (${shift},${group},'全天班','全',1,'#123456','#FFFFFF','08:00','08:00',1,1,1)`);
+      for (const [id, revision, status] of [
+        [period, 1, 'published'],
+        [draft, 2, 'draft'],
+        [replaced, 3, 'replaced'],
+      ] as const) {
+        await client.database
+          .execute(sql`INSERT INTO schedule_periods (id,group_id,schedule_role_id,business_month,revision,rules_version,status)
+          VALUES (${id},${group},${role},'2026-10-01',${revision},1,${status})`);
+      }
+      const ids = Array.from({ length: 6 }, () => randomUUID());
+      for (const [index, date, periodId] of [
+        [0, '2026-10-22', period],
+        [1, '2026-10-23', period],
+        [2, '2026-10-21', period],
+        [3, '2026-10-24', draft],
+        [4, '2026-10-25', replaced],
+        [5, '2026-10-26', period],
+      ] as const) {
+        await client.database.execute(sql`INSERT INTO shift_assignments
+          (id,schedule_period_id,business_date,slot_position,shift_type_id,shift_type_name,shift_type_abbreviation,shift_type_color,shift_type_text_color,shift_type_configuration_version,shift_start_time,shift_end_time,crosses_midnight,is_all_day,counts_toward_statistics,starts_at,ends_at,planned_member_name,actual_member_name,version,deleted_at)
+          VALUES (${ids[index]},${periodId},${date},1,${shift},'全天班','全','#123456','#FFFFFF',1,'08:00','08:00',1,1,1,${date + ' 00:00:00'},${date + ' 23:59:59'},'甲',${index === 1 ? null : '乙'},2,${index === 5 ? '2026-10-01 00:00:00' : null})`);
+      }
+      const [before] = await client.database.execute(
+        sql`SELECT * FROM shift_assignments ORDER BY id`,
+      );
+      await migrateDatabase(client, migrationsDirectory);
+      const [snapshots] = await client.database.execute(
+        sql`SELECT assignment_id,member_name,assignment_version FROM external_duty_baselines ORDER BY business_date`,
+      );
+      expect(snapshots).toEqual([
+        { assignment_id: ids[0], member_name: '乙', assignment_version: 2 },
+        { assignment_id: ids[1], member_name: '甲', assignment_version: 2 },
+      ]);
+      expect(
+        (await client.database.execute(sql`SELECT * FROM shift_assignments ORDER BY id`))[0],
+      ).toEqual(before);
+      await client.database.execute(
+        sql`UPDATE shift_assignments SET actual_member_name='丙',version=3 WHERE id=${ids[0]}`,
+      );
+      await migrateDatabase(client, migrationsDirectory);
+      expect(
+        (
+          await client.database.execute(
+            sql`SELECT assignment_id,member_name,assignment_version FROM external_duty_baselines ORDER BY business_date`,
+          )
+        )[0],
+      ).toEqual(snapshots);
+    } finally {
+      await client.database.execute(sql`SET timestamp = 0`);
+      await removeLegacyMigrationsDirectory(legacy);
     }
   });
 
@@ -1535,6 +1618,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
   await client.database.execute(sql`DROP TABLE IF EXISTS external_duty_actions`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS external_duty_baselines`);
   await client.database.execute(sql`DROP TABLE IF EXISTS external_duty_checks`);
   await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);

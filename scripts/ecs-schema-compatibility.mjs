@@ -11,5 +11,8 @@ export function releaseSchemaCompatibility(journal) {
   if (entries.length === 71 && last === '0071_bounded_background_jobs') {
     return { databaseSchemaMin: '71', databaseSchemaMax: '71' };
   }
+  if (entries.length === 72 && last === '0072_external_duty_frozen_baseline') {
+    return { databaseSchemaMin: '72', databaseSchemaMax: '72' };
+  }
   throw new Error('Unreviewed migration journal; revalidate release compatibility.');
 }
