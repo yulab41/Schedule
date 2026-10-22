@@ -6,9 +6,11 @@
 - 从已推送1a2f6d0f取得独占general-3，Acquire/ReuseOnly/root Bootstrap八个producer全复用、安装0，原入口和canonical用户文件不动。成功fetch的origin/main仍55c3a9fd，本轮未连接生产。
 - Git log -S/blame定位06d420a1整期阻断和重复步骤身份，新增回归先红后绿。用户已确认390/320方向入口和完整预览，原生已接入；服务器规划、整组指纹、全组占用、事务版本和部分完成提示已实现。详见[轮次记录](audit/external-duty-directions-20261022.md)。
 - 本地校对58/路由6、Mini15项通过；首次专用MySQL停止失败，启动既有容器后实库67项通过，含三轮互换、双卡并发和扫描穿插。Agent开发者工具WXML/WXSS编译通过，非小米14验收。
-- 唯一下一批次与停止条件：按检查点消息`feat(external-duty): preview and confirm reconciliation directions`提交推送并上传干净新候选；生产备份/API部署/放行需当次授权，再由用户小米14复核，不提审或正式发布。本地已完成待上线/用户复核，不声称线上生效。
+- 唯一下一批次与停止条件：业务检查点与新体验版已交付；生产备份/API部署/放行需当次授权，再由用户小米14复核，不提审或正式发布。本地已完成待上线/用户复核，不声称线上生效。
 
 - 最终：复评无P1/P2；根格式/lint/build/typecheck/图标通过，Mini1373执行通过/23既有跳过（全量导出准备超时后原5项隔离通过），根Vitest1427/494跳过及Codex83通过。production verify/确定性/包审计/lineage/干跑/core smoke通过；详细首次失败和证据边界留在轮次记录。
+
+- 交付：e03f256c已正常推送，正式独占clean候选由锁动态分配并Node上传`.229@e03f256`，Manifest585cc6ee…，tag/receipt/版本绑定检查通过，总包3890528B/主1128469B。上传租约释放，再独占同一warm槽只记收口、八项全复用无安装；收口消息`docs(audit): record reconciliation trial 229`。唯一下一任务为当次授权生产备份、API部署及只增放行229，然后小米14同构建复核；当前无生产操作，不提审/正式发布。
 
 ## 上一批次：网页校对一次性重设发布基线（2026-10-21，已上线，待用户查看）
 

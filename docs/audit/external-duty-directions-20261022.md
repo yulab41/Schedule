@@ -32,3 +32,11 @@ checkpoint检查已完成：根格式/lint/build/typecheck/图标通过；Mini�
 成功读取guardrails、systematic-debugging、brainstorming、miniprogram-development、frontend-design、ui-design、requesting-code-review及wechatide根/initializer/compiler；实际使用Git、Node/Vitest、Playwright/Edge本地黄金、Docker专用MySQL和wechatide局部编译。writing-plans引用文件缺失，未声称使用；无CloudBase或桌面原生控制证据。
 
 本地已完成、待上线/用户复核；检查点消息`feat(external-duty): preview and confirm reconciliation directions`，当前任务分支正常提交推送后准备独占干净新体验候选。生产备份/API部署/版本放行须当次明确授权，之后用户小米14同构建复核；没有当前实体证据不写验收通过，不提审或正式发布。
+
+## 体验交付与停止点
+
+业务检查点e03f256c（feat(external-duty): preview and confirm reconciliation directions）已正常推送origin/codex/schedule-75032-49481c4ee8ee。独占clean detached候选由正式锁动态分配并Node上传`0.1.0-p10.20261022.229@e03f256`；production、dirty=false、说明“网页校对双向预览与连续换班 e03f256”，测试页为排班网页校对。上传成功时间2026-10-22 22:26:51北京时间，tag永久占用，Manifest `585cc6eeeb334f16a46520266a9c90a38c4806173b4ad6de67d48bc67c0aae9e`，canonical receipt/manifest/allocation均已保存并核对，正式版本绑定候选检查PASS。
+
+版本绑定包总3890528B/主1128469B，Zip2041640B；该值与local构建分别记录，不把版本元数据增加当作业务体积退化。Git正常fetch/push成功，fresh origin/main仍55c3a9fd。旧保存微信IPv4 TLS校验失败，改用本轮系统解析的真实IPv4，证书与servicewechat.com主机名匹配、TLS1.3通过，进程级lookup/IPv4优先且不改系统网络；上传成功，无不确定重试。
+
+上传用途租约已正式释放；为交付记录重新取得同一healthy general-3的独占root租约，八producer全复用、安装0。此收口只改文档，按相同应用输入复用检查证据；提交消息docs(audit): record reconciliation trial 229。唯一下一任务是取得当次生产备份、部署配套API和只增放行229的授权，再由用户小米14核对同构建的双向预览、连续换班和记录。未连接生产、未创建生产备份、未修改allowlist、未提审或正式发布，未声称手机验收通过；体验上传本身不证明API上线。
