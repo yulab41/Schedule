@@ -15,12 +15,18 @@ export interface SwapStep {
 }
 
 export type DutySuggestion =
-  | { readonly kind: 'duty'; readonly detail: string }
-  | { readonly kind: 'swap'; readonly detail: string; readonly steps: readonly SwapStep[] }
+  | { readonly kind: 'duty'; readonly detail: string; readonly dates: readonly string[] }
+  | {
+      readonly kind: 'swap';
+      readonly detail: string;
+      readonly dates: readonly string[];
+      readonly steps: readonly SwapStep[];
+    }
   | { readonly kind: 'blocked'; readonly detail: string };
 
 export function suggestExternalDuty(
   rows: readonly DutySuggestionRow[],
+  mode: 'automatic' | 'manual' = 'automatic',
 ): Map<string, DutySuggestion> {
   const result = new Map<string, DutySuggestion>();
   const byPeriod = new Map<string, DutySuggestionRow[]>();
@@ -28,22 +34,22 @@ export function suggestExternalDuty(
     if (!row.schedulePeriodId) continue;
     byPeriod.set(row.schedulePeriodId, [...(byPeriod.get(row.schedulePeriodId) ?? []), row]);
   }
-  for (const periodRows of byPeriod.values()) {
+  for (const periodRows of [...byPeriod.values()].flatMap(relatedDifferences)) {
     const sorted = [...periodRows].sort((a, b) => a.businessDate.localeCompare(b.businessDate));
     const pending = sorted.filter(
-      (row) => row.status === 'pending' && row.changeSource === 'remote',
+      (row) => row.status === 'pending' && (mode === 'manual' || row.changeSource === 'remote'),
     );
     if (!pending.length) continue;
     const unresolved = sorted.some(
       (row) =>
         row.remoteName !== row.localName &&
-        (row.changeSource !== 'remote' || row.status !== 'pending'),
+        ((mode === 'automatic' && row.changeSource !== 'remote') || row.status !== 'pending'),
     );
     if (unresolved || sorted.some((row) => !row.localName || !row.assignmentId)) {
       for (const row of pending)
         result.set(row.businessDate, {
           kind: 'blocked',
-          detail: '同一发布期间仍有冲突或无法唯一对应的班次，不能自动生成方案',
+          detail: '关联日期仍有冲突、正在处理或无法唯一对应的班次，请选择方向或重新校对',
         });
       continue;
     }
@@ -58,7 +64,8 @@ export function suggestExternalDuty(
       for (const row of pending)
         result.set(row.businessDate, {
           kind: 'duty',
-          detail: '本发布期间人员值班次数有增减，建议逐日加扣班',
+          dates: sorted.map((item) => item.businessDate),
+          detail: '关联日期人员值班次数有增减，建议逐日加扣班',
         });
       continue;
     }
@@ -78,9 +85,31 @@ export function suggestExternalDuty(
     for (const row of pending)
       result.set(row.businessDate, {
         kind: 'swap',
+        dates: sorted.map((item) => item.businessDate),
         detail: `${steps.length} 步换班；每步执行后重新预览剩余步骤`,
         steps,
       });
   }
   return result;
+}
+
+// Only differences that share a person can participate in the same exchange.
+// An aligned date supplies no missing person and must not enlarge the plan.
+function relatedDifferences(rows: readonly DutySuggestionRow[]): DutySuggestionRow[][] {
+  const remaining = new Set(rows.filter((row) => row.remoteName !== row.localName));
+  const components: DutySuggestionRow[][] = [];
+  for (const first of remaining) {
+    const component = [first];
+    remaining.delete(first);
+    for (const current of component) {
+      const names = new Set([current.localName, current.remoteName].filter(Boolean));
+      for (const candidate of remaining) {
+        if (!names.has(candidate.localName) && !names.has(candidate.remoteName)) continue;
+        component.push(candidate);
+        remaining.delete(candidate);
+      }
+    }
+    components.push(component);
+  }
+  return components;
 }

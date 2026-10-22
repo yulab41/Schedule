@@ -1,6 +1,16 @@
 # Project Status
 
-## 当前批次：网页校对一次性重设发布基线（2026-10-21，已上线，待用户查看）
+## 当前批次：网页校对连续换班与手动方向（2026-10-22，本地已完成待上线）
+
+- 用户要求自动判断与手动两方向并存，并明确“网页→本系统”将关联日期一起预览，自动生成完整换班方案。依据[设计](superpowers/specs/2026-10-22-external-duty-directions-design.md)及[批次计划](superpowers/plans/2026-10-22-external-duty-directions-plan.md)，不重设上一轮发布基线。
+- 从已推送1a2f6d0f取得独占general-3，Acquire/ReuseOnly/root Bootstrap八个producer全复用、安装0，原入口和canonical用户文件不动。成功fetch的origin/main仍55c3a9fd，本轮未连接生产。
+- Git log -S/blame定位06d420a1整期阻断和重复步骤身份，新增回归先红后绿。用户已确认390/320方向入口和完整预览，原生已接入；服务器规划、整组指纹、全组占用、事务版本和部分完成提示已实现。详见[轮次记录](audit/external-duty-directions-20261022.md)。
+- 本地校对58/路由6、Mini15项通过；首次专用MySQL停止失败，启动既有容器后实库67项通过，含三轮互换、双卡并发和扫描穿插。Agent开发者工具WXML/WXSS编译通过，非小米14验收。
+- 唯一下一批次与停止条件：按检查点消息`feat(external-duty): preview and confirm reconciliation directions`提交推送并上传干净新候选；生产备份/API部署/放行需当次授权，再由用户小米14复核，不提审或正式发布。本地已完成待上线/用户复核，不声称线上生效。
+
+- 最终：复评无P1/P2；根格式/lint/build/typecheck/图标通过，Mini1373执行通过/23既有跳过（全量导出准备超时后原5项隔离通过），根Vitest1427/494跳过及Codex83通过。production verify/确定性/包审计/lineage/干跑/core smoke通过；详细首次失败和证据边界留在轮次记录。
+
+## 上一批次：网页校对一次性重设发布基线（2026-10-21，已上线，待用户查看）
 
 - 用户确认以当前日历实际人员重设一次、此后继续识别新变化，并确认仅服务端调整、无需重传小程序。实现/行为/证据见[轮次记录](audit/external-duty-rebaseline-20261021.md)与[实施批次](superpowers/plans/2026-10-21-external-duty-rebaseline-plan.md)。
 - 基线HEAD/成功fetch后的origin/main均55c3a9fd；独占canonical runtime/wt/general-3、Acquire→ReuseOnly→api Bootstrap全复用，安装0。C盘入口跨卷被正式池拒绝后从E盘canonical正常Acquire，未绕过守卫或新建worktree；原入口干净、用户文件未动。

@@ -88,6 +88,14 @@
           </view>
           <view wx:if="{{item.blockReason}}" class="duty-note is-danger">{{item.blockReason}}</view>
           <view
+            wx:elif="{{item.manualSuggestion && item.manualSuggestion.kind !== 'blocked'}}"
+            class="duty-note"
+            ><text class="duty-note-title"
+              >{{item.changeSource === 'remote' && item.suggestion && item.suggestion.kind !==
+              'blocked' ? '自动建议：网页 → 本系统' : '选择方向后可生成方案'}}</text
+            ><text>{{item.manualSuggestion.detail}}</text></view
+          >
+          <view
             wx:elif="{{item.suggestion}}"
             class="duty-note {{item.suggestion.kind === 'blocked' ? 'is-warning' : ''}}"
             ><text class="duty-note-title"
@@ -100,22 +108,25 @@
           <view wx:if="{{item.status === 'processing'}}" class="duty-note"
             >已提交处理；实际排班一致后将自动移出列表。</view
           >
-          <view wx:if="{{item.status === 'pending'}}" class="duty-card-actions">
+          <view
+            wx:if="{{item.status === 'pending' && !item.blockReason && item.localName && item.baselineName}}"
+            class="duty-card-actions duty-direction-actions"
+          >
             <ui-button
-              wx:if="{{item.changeSource === 'remote' && item.suggestion && item.suggestion.kind !== 'blocked'}}"
-              variant="primary"
-              label="预览建议"
+              variant="{{item.changeSource === 'local' ? 'primary' : 'secondary'}}"
+              label="本系统 → 网页"
               disabled="{{busy}}"
               data-date="{{item.businessDate}}"
-              bindpress="applySuggestion"
+              data-direction="to_external"
+              bindpress="previewDirection"
             />
             <ui-button
-              wx:if="{{item.changeSource === 'local'}}"
-              variant="primary"
-              label="同步到网页"
+              variant="{{item.changeSource === 'remote' && item.suggestion && item.suggestion.kind !== 'blocked' ? 'primary' : 'secondary'}}"
+              label="网页 → 本系统"
               disabled="{{busy}}"
               data-date="{{item.businessDate}}"
-              bindpress="push"
+              data-direction="to_local"
+              bindpress="previewDirection"
             />
           </view>
         </view>
@@ -177,7 +188,7 @@
           >
         </view>
         <view wx:if="{{confirmation.steps.length}}" class="duty-note"
-          ><text class="duty-note-title">换班步骤 · {{confirmation.steps.length}} 步</text
+          ><text class="duty-note-title">执行步骤 · {{confirmation.steps.length}} 步</text
           ><text wx:for="{{confirmation.steps}}" wx:key="*this">{{index + 1}}. {{item}}</text></view
         >
         <view wx:if="{{confirmation.conflicts.length}}" class="duty-note is-danger"

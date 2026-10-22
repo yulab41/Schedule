@@ -15,6 +15,7 @@ export interface ExternalDutyCheck {
   readonly changeSource: 'initial' | 'remote' | 'local' | 'both';
   readonly blockReason: string | null;
   readonly fingerprint: string;
+  readonly manualSuggestion?: ExternalDutyCheck['suggestion'];
   readonly suggestion:
     | { readonly kind: 'duty'; readonly detail: string }
     | { readonly kind: 'blocked'; readonly detail: string }
@@ -28,6 +29,14 @@ export interface ExternalDutyCheck {
         }[];
       }
     | null;
+}
+
+export interface ExternalDutyDirectionPreview {
+  readonly kind: 'external' | 'swap' | 'duty';
+  readonly planFingerprint: string;
+  readonly changes: readonly { date: string; before: string; after: string }[];
+  readonly steps: readonly string[];
+  readonly conflicts: readonly { message: string }[];
 }
 
 export interface ExternalDutyCandidate {
@@ -62,11 +71,19 @@ export async function externalDutyRequest<T>(path: string, data?: unknown): Prom
     url: `${runtimeConfig.apiBaseUrl.replace(/\/$/u, '')}/platform/external-duty${path}`,
   });
   if (response.statusCode < 200 || response.statusCode >= 300) {
+    const body = response.data as { error?: { code?: unknown; message?: unknown } } | null;
+    const conflictMessage =
+      response.statusCode === 409 &&
+      body?.error?.code === 'CONFLICT' &&
+      typeof body.error.message === 'string' &&
+      body.error.message.length <= 240
+        ? body.error.message
+        : '排班已变化，请刷新后重新确认。';
     throw new Error(
       response.statusCode === 403
         ? '仅平台管理员可使用排班网页校对。'
         : response.statusCode === 409
-          ? '排班已变化，请刷新后重新确认。'
+          ? conflictMessage
           : `校对请求失败（HTTP ${response.statusCode}）。`,
     );
   }

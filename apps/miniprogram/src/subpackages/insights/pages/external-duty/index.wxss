@@ -238,6 +238,15 @@
   display: block;
   width: 100%;
 }
+.duty-direction-actions {
+  display: flex;
+  gap: 8px;
+}
+.duty-direction-actions ui-button {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
 .duty-feedback {
   padding: 12px 14px;
   border-radius: 10px;

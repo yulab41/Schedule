@@ -41,6 +41,10 @@ import {
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
+import {
+  guardAssignmentVersions,
+  type AssignmentVersion,
+} from '../workflows/assignment-version-guard.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
 import { workflowListCondition } from '../workflows/workflow-list-visibility.js';
@@ -122,6 +126,7 @@ export class DutyAdjustmentService {
     identity: AuthenticatedIdentity,
     groupId: string,
     input: CreateDirectDutyAdjustmentInput,
+    expectedVersions?: readonly AssignmentVersion[],
   ): Promise<DutyAdjustmentRequest> {
     return runAuthorizedMutation({
       databaseClient: this.databaseClient,
@@ -136,8 +141,10 @@ export class DutyAdjustmentService {
         overtimeMembershipId: input.overtimeMembershipId,
         ...(input.reason === undefined ? {} : { reason: input.reason }),
       }),
-      run: (transaction, authorization) =>
-        this.runDirectCreation(transaction, authorization, input),
+      run: async (transaction, authorization) => {
+        await guardAssignmentVersions(transaction, expectedVersions);
+        return this.runDirectCreation(transaction, authorization, input);
+      },
       scope: 'duty_adjustment_direct_create',
     });
   }

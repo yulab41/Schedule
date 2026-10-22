@@ -18,3 +18,8 @@ export const Restore: Story = { args: { state: 'restore' } };
 export const Empty: Story = { args: { state: 'empty' } };
 export const Error: Story = { args: { state: 'error' } };
 export const LargeText: Story = { args: { largeText: true } };
+export const RepeatedSwap390: Story = { args: { comparison: 'both' } };
+export const RepeatedSwap320: Story = {
+  args: { comparison: 'both' },
+  globals: { viewport: 'mobile320' },
+};

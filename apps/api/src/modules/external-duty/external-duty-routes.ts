@@ -20,6 +20,8 @@ const inbound = mutation
 const undo = z
   .object({ actionId: z.string().uuid(), expectedFingerprint: z.string().regex(/^[0-9a-f]{64}$/u) })
   .strict();
+const direction = mutation.extend({ direction: z.enum(['to_external', 'to_local']) }).strict();
+const resolve = direction.extend({ planFingerprint: z.string().regex(/^[0-9a-f]{64}$/u) }).strict();
 
 export function registerExternalDutyRoutes(
   app: FastifyInstance,
@@ -27,6 +29,12 @@ export function registerExternalDutyRoutes(
 ): void {
   app.get('/platform/external-duty', { preHandler: app.authenticate }, (request) =>
     service.list(identity(request)),
+  );
+  app.post('/platform/external-duty/resolve-preview', { preHandler: app.authenticate }, (request) =>
+    service.previewDirection(identity(request), parse(direction, request.body)),
+  );
+  app.post('/platform/external-duty/resolve-apply', { preHandler: app.authenticate }, (request) =>
+    service.applyDirection(identity(request), parse(resolve, request.body)),
   );
   app.get('/platform/external-duty/status', { preHandler: app.authenticate }, (request) =>
     service.status(identity(request)),

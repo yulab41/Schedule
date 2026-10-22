@@ -20,7 +20,18 @@ const rows = dates.map((businessDate, i) => ({
 }));
 let definition;
 let page;
-const tap = (date) => ({ currentTarget: { dataset: { date } } });
+const tap = (date, direction = 'to_local') => ({ currentTarget: { dataset: { date, direction } } });
+const directionPreview = {
+  kind: 'swap',
+  planFingerprint: 'p'.repeat(64),
+  conflicts: [],
+  changes: rows.map((row) => ({
+    date: row.businessDate,
+    before: row.localName,
+    after: row.remoteName,
+  })),
+  steps: [`${dates[0]} 与 ${dates[1]} 交换`],
+};
 
 beforeEach(async () => {
   vi.resetModules();
@@ -30,6 +41,7 @@ beforeEach(async () => {
     if (path === '/status')
       return { status: 'completed', checkedAt: '2026-09-28T15:00:00Z', coverageEnded: false };
     if (path === '/preview') return { conflicts: [], nextStatus: 'pending_target' };
+    if (path === '/resolve-preview') return structuredClone(directionPreview);
     return {};
   });
   vi.stubGlobal('Page', (value) => {
@@ -62,30 +74,30 @@ describe('external duty reviewed interactions', () => {
     expect(page.data.headerStyle).toContain('padding-right:113px');
   });
   it('previews both affected days in a sheet without executing a mutation', async () => {
-    await page.applySuggestion(tap(dates[0]));
+    await page.previewDirection(tap(dates[0]));
     expect(page.data.confirmation).toMatchObject({
       title: '换班预览',
       confirmLabel: '确认方案',
       conflicts: [],
     });
     expect(page.data.confirmation.changes.map((change) => change.date)).toEqual(dates);
-    expect(request.mock.calls.some(([path]) => path === '/apply')).toBe(false);
+    expect(request.mock.calls.some(([path]) => path === '/resolve-apply')).toBe(false);
     expect(globalThis.wx.showModal).not.toHaveBeenCalled();
   });
   it('opens the same complete plan from its second date', async () => {
-    await page.applySuggestion(tap(dates[1]));
+    await page.previewDirection(tap(dates[1]));
     expect(request).toHaveBeenCalledWith(
-      '/preview',
-      expect.objectContaining({ date: dates[0], targetAssignmentId: 'second' }),
+      '/resolve-preview',
+      expect.objectContaining({ date: dates[1], direction: 'to_local' }),
     );
     expect(page.data.confirmation.changes).toHaveLength(2);
   });
   it('cancels without writing and prevents duplicate confirm clicks', async () => {
-    await page.applySuggestion(tap(dates[0]));
+    await page.previewDirection(tap(dates[0]));
     page.closeConfirmation();
     expect(page.data.confirmation).toBeNull();
-    expect(request.mock.calls.some(([path]) => path === '/apply')).toBe(false);
-    await page.applySuggestion(tap(dates[0]));
+    expect(request.mock.calls.some(([path]) => path === '/resolve-apply')).toBe(false);
+    await page.previewDirection(tap(dates[0]));
     let resolve;
     request.mockImplementationOnce(
       () =>
@@ -95,34 +107,63 @@ describe('external duty reviewed interactions', () => {
     );
     const first = page.confirmAction();
     await page.confirmAction();
-    expect(request.mock.calls.filter(([path]) => path === '/apply')).toHaveLength(1);
+    expect(request.mock.calls.filter(([path]) => path === '/resolve-apply')).toHaveLength(1);
     resolve({});
     await first;
     expect(page.data.confirmation).toBeNull();
   });
   it('shows conflicts and does not allow confirmation', async () => {
     request.mockResolvedValueOnce({
+      ...directionPreview,
       conflicts: [{ message: '同一时间有其他班次' }],
       nextStatus: 'pending_target',
     });
-    await page.applySuggestion(tap(dates[0]));
+    await page.previewDirection(tap(dates[0]));
     expect(page.data.confirmation.conflicts).toEqual(['同一时间有其他班次']);
     await page.confirmAction();
-    expect(request.mock.calls.some(([path]) => path === '/apply')).toBe(false);
+    expect(request.mock.calls.some(([path]) => path === '/resolve-apply')).toBe(false);
   });
   it('keeps the captured preview fingerprint when confirming a website write', async () => {
-    page.push(tap(dates[0]));
-    expect(request.mock.calls.some(([path]) => path === '/push')).toBe(false);
+    request.mockResolvedValueOnce({
+      ...directionPreview,
+      kind: 'external',
+      steps: [],
+      changes: [{ date: dates[0], before: rows[0].remoteName, after: rows[0].localName }],
+    });
+    await page.previewDirection(tap(dates[0], 'to_external'));
+    expect(request.mock.calls.some(([path]) => path === '/resolve-apply')).toBe(false);
     const fingerprint = rows[0].fingerprint;
     page.data.rows[0].fingerprint = 'newer-scan';
     request.mockRejectedValueOnce(new Error('排班已变化，请重新确认'));
     await page.confirmAction();
-    expect(request).toHaveBeenCalledWith('/push', {
+    expect(request).toHaveBeenCalledWith('/resolve-apply', {
       date: dates[0],
       expectedFingerprint: fingerprint,
+      direction: 'to_external',
+      planFingerprint: directionPreview.planFingerprint,
     });
     expect(page.data.confirmation).toBeNull();
     expect(page.data.error).toBe('排班已变化，请重新确认');
+  });
+  it('allows both-source manual choice and displays server authoritative linked dates', async () => {
+    page.data.rows[0].changeSource = 'both';
+    page.data.rows[0].suggestion = { kind: 'blocked', detail: '来源不明确' };
+    request.mockResolvedValueOnce({
+      ...directionPreview,
+      changes: [...directionPreview.changes, { date: '2026-10-14', before: '丙', after: '甲' }],
+    });
+    await page.previewDirection(tap(dates[0]));
+    expect(page.data.confirmation.changes).toHaveLength(3);
+    expect(page.data.confirmation.input.planFingerprint).toBe(directionPreview.planFingerprint);
+    expect(request.mock.calls.some(([path]) => path === '/resolve-apply')).toBe(false);
+  });
+  it('refreshes records after partial failure and retains the useful error', async () => {
+    await page.previewDirection(tap(dates[0]));
+    request.mockRejectedValueOnce(new Error('已提交 1 步，后续未完成。'));
+    await page.confirmAction();
+    expect(page.data.error).toBe('已提交 1 步，后续未完成。');
+    expect(page.data.confirmation).toBeNull();
+    expect(request.mock.calls.filter(([path]) => path === '/history')).toHaveLength(2);
   });
   it('shows the latest baseline from undo preview and requires a separate confirmation', async () => {
     request.mockResolvedValueOnce({

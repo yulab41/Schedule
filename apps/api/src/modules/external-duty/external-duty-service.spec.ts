@@ -77,7 +77,10 @@ function fixture() {
       periodId: 'period',
     },
   ]);
-  vi.spyOn(service, 'scan').mockResolvedValue({ checked: 1, newDifferences: 0 });
+  vi.spyOn(service, 'scan').mockImplementation(async () => {
+    if (action.status === 'applied') row.status = 'aligned';
+    return { checked: 1, newDifferences: 0 };
+  });
   return { action, row, source, service };
 }
 
@@ -113,7 +116,11 @@ describe('external duty outbound confirmation', () => {
   });
 
   it('rechecks both sides before writing and verifies the saved value', async () => {
-    const { service, source } = fixture();
+    const { service, source, row } = fixture();
+    vi.mocked(service.scan).mockImplementationOnce(async () => {
+      expect(row.status).toBe('pending');
+      return { checked: 1, newDifferences: 0 };
+    });
     source.read.mockResolvedValueOnce(snapshot('乙')).mockResolvedValueOnce(snapshot('甲'));
     await expect(service.pushToExternal(identity, date, fingerprint)).resolves.toEqual({
       verified: true,

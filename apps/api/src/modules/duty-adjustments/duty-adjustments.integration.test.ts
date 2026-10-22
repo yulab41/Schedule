@@ -77,6 +77,27 @@ describeWithDatabase('paired duty adjustments', () => {
     }
   });
 
+  it('rejects assignment versions changed after preview inside the direct duty transaction', async () => {
+    const context = await seedPublishedSchedule();
+    const assignment = context.assignments.aSep1;
+    await client.database
+      .update(shiftAssignments)
+      .set({ version: assignment.version + 1 })
+      .where(eq(shiftAssignments.id, assignment.id));
+    await expect(
+      new DutyAdjustmentService(client).createDirect(
+        { cloudbaseUid: 'cloudbase-owner' },
+        context.groupId,
+        {
+          coveredAssignmentId: assignment.id,
+          overtimeMembershipId: context.membershipIds.b,
+          operationId: randomUUID(),
+        },
+        [{ id: assignment.id, version: assignment.version }],
+      ),
+    ).rejects.toThrow('排班已变化');
+  });
+
   it('hides closed duty adjustments older than 30 days for every client without clearing at month rollover', async () => {
     const context = await seedPublishedSchedule();
     const response = await createDutyAdjustment('a-token', context.groupId, {

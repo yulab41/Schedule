@@ -2,13 +2,14 @@ import {
   externalDutyRequest,
   type ExternalDutyCheck,
   type ExternalDutyAction,
+  type ExternalDutyDirectionPreview,
 } from '../../../../platform/external-duty-client.js';
 
 interface Confirmation {
   readonly title: string;
   readonly description: string;
   readonly confirmLabel: string;
-  readonly endpoint: '/apply' | '/push' | '/undo';
+  readonly endpoint: '/undo' | '/resolve-apply';
   readonly input: Readonly<Record<string, unknown>>;
   readonly changes: readonly { date: string; before: string; after: string }[];
   readonly steps: readonly string[];
@@ -36,7 +37,12 @@ interface DutyPageInstance {
 }
 type TapEvent = {
   readonly currentTarget: {
-    readonly dataset: { readonly date?: string; readonly id?: string; readonly tab?: string };
+    readonly dataset: {
+      readonly date?: string;
+      readonly id?: string;
+      readonly tab?: string;
+      readonly direction?: string;
+    };
   };
 };
 
@@ -120,87 +126,6 @@ Page({
       patch(this, { busy: false });
     }
   },
-  push(this: DutyPageInstance, event: TapEvent): void {
-    if (this.data.busy || this.data.confirmation) return;
-    const row = selected(this.data.rows, event);
-    if (!row) return;
-    this.setData({
-      error: '',
-      info: '',
-      confirmation: {
-        title: '写入网页',
-        confirmLabel: '确认写入',
-        endpoint: '/push',
-        description: '将本系统当前值班人同步到网页。确认时会再次检查双方排班。',
-        input: { date: row.businessDate, expectedFingerprint: row.fingerprint },
-        changes: [
-          { date: row.businessDate, before: row.remoteName, after: row.localName ?? '空缺' },
-        ],
-        steps: [],
-        conflicts: [],
-      },
-    });
-  },
-  async applySuggestion(this: DutyPageInstance, event: TapEvent): Promise<void> {
-    if (this.data.busy || this.data.confirmation) return;
-    const selectedRow = selected(this.data.rows, event);
-    if (!selectedRow?.suggestion || selectedRow.suggestion.kind === 'blocked') return;
-    const suggestion = selectedRow.suggestion;
-    const first = suggestion.kind === 'swap' ? suggestion.steps[0] : undefined;
-    const row = first
-      ? this.data.rows.find((item) => item.businessDate === first.date)
-      : selectedRow;
-    if (!row) {
-      this.setData({ error: '换班方案已更新，请立即检测后重新预览。' });
-      return;
-    }
-    patch(this, { busy: true, error: '', info: '' });
-    try {
-      const input = {
-        date: row.businessDate,
-        expectedFingerprint: row.fingerprint,
-        kind: suggestion.kind,
-        ...(first ? { targetAssignmentId: first.targetAssignmentId } : {}),
-      };
-      const preview = await externalDutyRequest<{
-        conflicts: readonly { message: string }[];
-        nextStatus: string;
-      }>('/preview', input);
-      const affected = new Set(
-        suggestion.kind === 'swap'
-          ? suggestion.steps.flatMap((step) => [step.date, step.targetDate])
-          : [row.businessDate],
-      );
-      patch(this, {
-        confirmation: {
-          title: suggestion.kind === 'swap' ? '换班预览' : '加扣班预览',
-          confirmLabel: suggestion.kind === 'swap' ? '确认方案' : '确认加扣班',
-          endpoint: '/apply',
-          input,
-          description:
-            suggestion.kind === 'swap'
-              ? '按以下顺序执行完整换班方案，每步重新校验。中途失败时请查看最新记录；实际排班一致后才会移出列表。'
-              : '将网页变化同步到本系统。提交后按现有流程处理，实际排班一致后才会从待处理列表移除。',
-          changes: this.data.rows
-            .filter((item) => affected.has(item.businessDate))
-            .map((item) => ({
-              date: item.businessDate,
-              before: item.localName ?? '空缺',
-              after: item.remoteName,
-            })),
-          steps:
-            suggestion.kind === 'swap'
-              ? suggestion.steps.map((step) => `${step.date} 与 ${step.targetDate} 交换`)
-              : [],
-          conflicts: preview.conflicts.map((item) => item.message),
-        },
-      });
-    } catch (error) {
-      patch(this, { error: message(error) });
-    } finally {
-      patch(this, { busy: false });
-    }
-  },
   async undo(this: DutyPageInstance, event: TapEvent): Promise<void> {
     if (this.data.busy || this.data.confirmation) return;
     const actionId = String(event.currentTarget.dataset.id ?? '');
@@ -238,6 +163,50 @@ Page({
       patch(this, { busy: false });
     }
   },
+  async previewDirection(this: DutyPageInstance, event: TapEvent): Promise<void> {
+    if (this.data.busy || this.data.confirmation) return;
+    const row = selected(this.data.rows, event);
+    const direction = event.currentTarget.dataset.direction;
+    if (
+      !row ||
+      row.status !== 'pending' ||
+      row.blockReason ||
+      (direction !== 'to_external' && direction !== 'to_local')
+    )
+      return;
+    const input = { date: row.businessDate, expectedFingerprint: row.fingerprint, direction };
+    patch(this, { busy: true, error: '', info: '' });
+    try {
+      const preview = await externalDutyRequest<ExternalDutyDirectionPreview>(
+        '/resolve-preview',
+        input,
+      );
+      patch(this, {
+        confirmation: {
+          title:
+            preview.kind === 'external'
+              ? '同步到网页预览'
+              : preview.kind === 'swap'
+                ? '换班预览'
+                : '加扣班预览',
+          description:
+            preview.kind === 'external'
+              ? '以本系统当前值班人为准，仅同步所选日期。确认时会再次检查双方排班。'
+              : '以网页为准，按以下顺序处理所有关联日期，每步重新校验。中途失败时请查看操作记录并重新检测；实际排班一致后才会移出列表。',
+          confirmLabel: preview.kind === 'external' ? '确认写入' : '确认方案',
+          endpoint: '/resolve-apply',
+          input: { ...input, planFingerprint: preview.planFingerprint },
+          changes: preview.changes,
+          steps: preview.steps,
+          conflicts: preview.conflicts.map((item) => item.message),
+        },
+      });
+    } catch (error) {
+      patch(this, { error: message(error) });
+    } finally {
+      patch(this, { busy: false });
+    }
+  },
   closeConfirmation(this: DutyPageInstance): void {
     if (!this.data.busy) this.setData({ confirmation: null });
   },
@@ -251,7 +220,10 @@ Page({
       await this.load();
       patch(this, { info: '操作已提交，请以最新校对结果和操作记录为准。' });
     } catch (error) {
-      patch(this, { confirmation: null, error: message(error) });
+      const errorMessage = message(error);
+      patch(this, { confirmation: null });
+      await this.load();
+      patch(this, { error: errorMessage });
     } finally {
       patch(this, { busy: false });
     }

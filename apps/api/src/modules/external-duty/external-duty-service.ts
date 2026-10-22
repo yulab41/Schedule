@@ -31,6 +31,8 @@ import { SwapService } from '../swaps/swap-service.js';
 import { ExternalDutySource } from './external-duty-source.js';
 import { classifyExternalDuty, scopedExternalDutyDates } from './classify-external-duty.js';
 import { suggestExternalDuty } from './suggest-external-duty.js';
+import { ExternalDutyResolver, type ResolveDutyInput } from './resolve-external-duty.js';
+import { activeDutyLease } from './processing-duty-lease.js';
 
 const ROLE_NAME = '一线';
 const SHIFT_NAME = '全天班';
@@ -96,7 +98,34 @@ export class ExternalDutyService {
       .from(externalDutyChecks)
       .where(and(gte(externalDutyChecks.businessDate, today), eq(externalDutyChecks.isInScope, 1)));
     const suggestions = suggestExternalDuty(all);
-    return rows.map((row) => ({ ...row, suggestion: suggestions.get(row.businessDate) ?? null }));
+    const manual = suggestExternalDuty(all, 'manual');
+    return rows.map((row) => ({
+      ...row,
+      suggestion: suggestions.get(row.businessDate) ?? null,
+      manualSuggestion: manual.get(row.businessDate) ?? null,
+    }));
+  }
+
+  private resolver() {
+    return new ExternalDutyResolver(this.client, {
+      authorize: (identity) => this.authorize(identity),
+      readLocal: (group, date) => this.readLocalDate(group, date),
+      readRemote: () => this.source.read(),
+      member: (group, date, name) => this.findMembershipId(group, date, name),
+      push: (identity, date, fingerprint) => this.pushToExternal(identity, date, fingerprint, true),
+      scan: () => this.scan(),
+    });
+  }
+
+  public previewDirection(identity: AuthenticatedIdentity, input: ResolveDutyInput) {
+    return this.resolver().preview(identity, input);
+  }
+
+  public applyDirection(
+    identity: AuthenticatedIdentity,
+    input: ResolveDutyInput & { readonly planFingerprint: string },
+  ) {
+    return this.resolver().apply(identity, input);
   }
 
   public async status(identity: AuthenticatedIdentity) {
@@ -515,8 +544,9 @@ export class ExternalDutyService {
           assignment?.version ?? null,
         ]);
         const persisted = priorByDate.get(date);
+        const hasLease = activeDutyLease(persisted);
         const previous =
-          persisted?.status === 'processing' && !processingDates.has(date)
+          persisted?.status === 'processing' && !processingDates.has(date) && !hasLease
             ? { ...persisted, status: 'pending' as const }
             : persisted;
         const { changeSource, status, newDifference } = classifyExternalDuty({
@@ -542,10 +572,10 @@ export class ExternalDutyService {
           assignmentVersion: assignment?.version ?? null,
           isInScope: 1,
           changeSource,
-          status,
+          status: hasLease ? 'processing' : status,
           blockReason: reason,
           fingerprint,
-          observedAt: new Date(),
+          observedAt: hasLease ? persisted!.observedAt : new Date(),
         } as const;
         if (!previous)
           await tx.insert(externalDutyChecks).values({ businessDate: date, ...values });
@@ -618,6 +648,7 @@ export class ExternalDutyService {
     identity: AuthenticatedIdentity,
     date: string,
     expectedFingerprint: string,
+    manualDirection = false,
   ) {
     const actorUserId = await this.authorize(identity);
     if (date < chinaToday() || date > '2027-06-30') throw conflict('日期已不在校对范围');
@@ -631,7 +662,7 @@ export class ExternalDutyService {
       row.fingerprint !== expectedFingerprint ||
       row.status !== 'pending' ||
       row.isInScope !== 1 ||
-      row.changeSource !== 'local' ||
+      (!manualDirection && row.changeSource !== 'local') ||
       !row.localName ||
       !row.baselineName ||
       !row.schedulePeriodId ||
@@ -655,9 +686,10 @@ export class ExternalDutyService {
     ) {
       throw conflict('本系统排班已变化，请重新校对');
     }
+    const claimedAt = new Date();
     const [claimed] = await this.client.database
       .update(externalDutyChecks)
-      .set({ status: 'processing' })
+      .set({ status: 'processing', observedAt: claimedAt })
       .where(
         and(
           eq(externalDutyChecks.businessDate, date),
@@ -691,18 +723,10 @@ export class ExternalDutyService {
         .where(
           and(eq(externalDutyActions.id, actionId), eq(externalDutyActions.status, 'applying')),
         );
+      await this.releaseProcessingClaim(date, claimedAt);
       await this.scan();
     } catch (error) {
-      await this.client.database
-        .update(externalDutyChecks)
-        .set({ status: 'pending' })
-        .where(
-          and(
-            eq(externalDutyChecks.businessDate, date),
-            eq(externalDutyChecks.fingerprint, expectedFingerprint),
-            eq(externalDutyChecks.status, 'processing'),
-          ),
-        );
+      await this.releaseProcessingClaim(date, claimedAt);
       throw error;
     }
     return { verified: true };
@@ -776,9 +800,10 @@ export class ExternalDutyService {
       kind,
       targetAssignmentId,
     ]);
+    const claimedAt = new Date();
     const [claimed] = await this.client.database
       .update(externalDutyChecks)
-      .set({ status: 'processing' })
+      .set({ status: 'processing', observedAt: claimedAt })
       .where(
         and(
           eq(externalDutyChecks.businessDate, date),
@@ -790,6 +815,7 @@ export class ExternalDutyService {
     try {
       if (kind === 'swap') {
         const result = await this.applySwapPlan(identity, date, target.schedulePeriodId);
+        await this.releaseProcessingClaim(date, claimedAt);
         await this.scan();
         return result;
       }
@@ -818,21 +844,26 @@ export class ExternalDutyService {
         workflowId: result.id,
         actorUserId,
       });
+      await this.releaseProcessingClaim(date, claimedAt);
       await this.scan();
       return result;
     } catch (error) {
-      await this.client.database
-        .update(externalDutyChecks)
-        .set({ status: 'pending' })
-        .where(
-          and(
-            eq(externalDutyChecks.businessDate, date),
-            eq(externalDutyChecks.fingerprint, expectedFingerprint),
-            eq(externalDutyChecks.status, 'processing'),
-          ),
-        );
+      await this.releaseProcessingClaim(date, claimedAt);
       throw error;
     }
+  }
+
+  private async releaseProcessingClaim(date: string, claimedAt: Date): Promise<void> {
+    await this.client.database
+      .update(externalDutyChecks)
+      .set({ status: 'pending' })
+      .where(
+        and(
+          eq(externalDutyChecks.businessDate, date),
+          eq(externalDutyChecks.observedAt, claimedAt),
+          eq(externalDutyChecks.status, 'processing'),
+        ),
+      );
   }
 
   private async applySwapPlan(
@@ -859,6 +890,7 @@ export class ExternalDutyService {
     if (suggestion?.kind !== 'swap' || suggestion.steps[0]?.date !== date)
       throw conflict('换班方案已变化，请重新预览');
     const rowByDate = new Map(rows.map((row) => [row.businessDate, row]));
+    const involvedRows = rows.filter((row) => suggestion.dates.includes(row.businessDate));
     const expected = new Map(rows.map((row) => [row.businessDate, row.localName]));
     const results: string[] = [];
     const actorUserId = await this.authorize(identity);
@@ -883,7 +915,7 @@ export class ExternalDutyService {
         other[0]?.name !== expected.get(step.targetDate) ||
         !current[0]?.membershipId ||
         !other[0]?.membershipId ||
-        rows.some((row) => remote.duties.get(row.businessDate) !== row.remoteName)
+        involvedRows.some((row) => remote.duties.get(row.businessDate) !== row.remoteName)
       )
         throw conflict('换班方案执行期间排班已变化，请重新校对');
       const swap = new SwapService(this.client);
@@ -894,12 +926,29 @@ export class ExternalDutyService {
         targetAssignmentId: other[0].id,
       });
       if (preview.conflicts.length) throw conflict('换班业务校验未通过，请检查原流程的冲突说明');
-      const stepOperationId = deterministicOperationId([date, schedulePeriodId, index, step]);
-      const completed = await swap.createDirect(identity, initiator.groupId, {
-        initiatorAssignmentId: current[0].id,
-        targetAssignmentId: other[0].id,
-        operationId: stepOperationId,
-      });
+      const stepOperationId = deterministicOperationId([
+        date,
+        schedulePeriodId,
+        index,
+        step,
+        current[0].version,
+        other[0].version,
+        current[0].name,
+        other[0].name,
+      ]);
+      const completed = await swap.createDirect(
+        identity,
+        initiator.groupId,
+        {
+          initiatorAssignmentId: current[0].id,
+          targetAssignmentId: other[0].id,
+          operationId: stepOperationId,
+        },
+        [
+          { id: current[0].id, version: current[0].version },
+          { id: other[0].id, version: other[0].version },
+        ],
+      );
       await this.client.database.insert(externalDutyActions).values({
         id: stepOperationId,
         businessDate: step.date,

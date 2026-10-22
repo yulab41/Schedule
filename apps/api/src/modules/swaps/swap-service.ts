@@ -43,6 +43,10 @@ import {
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
+import {
+  guardAssignmentVersions,
+  type AssignmentVersion,
+} from '../workflows/assignment-version-guard.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
 import { workflowListCondition } from '../workflows/workflow-list-visibility.js';
@@ -304,6 +308,7 @@ export class SwapService {
     identity: AuthenticatedIdentity,
     groupId: string,
     input: CreateDirectSwapInput,
+    expectedVersions?: readonly AssignmentVersion[],
   ): Promise<SwapRequest> {
     return runAuthorizedMutation({
       databaseClient: this.databaseClient,
@@ -317,8 +322,10 @@ export class SwapService {
         initiatorAssignmentId: input.initiatorAssignmentId,
         targetAssignmentId: input.targetAssignmentId,
       }),
-      run: (transaction, authorization) =>
-        this.runDirectCreation(transaction, authorization, input),
+      run: async (transaction, authorization) => {
+        await guardAssignmentVersions(transaction, expectedVersions);
+        return this.runDirectCreation(transaction, authorization, input);
+      },
       scope: 'swap_request_direct_create',
     });
   }

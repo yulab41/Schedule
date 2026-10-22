@@ -16,6 +16,7 @@ describe('multi-person external duty plan execution', () => {
 
   it('executes every step after claiming the first date and verifies each new state', async () => {
     const names = [...baseline];
+    let version = 1;
     const rows = dates.map((businessDate, index) => ({
       businessDate,
       groupId: 'group',
@@ -56,6 +57,7 @@ describe('multi-person external duty plan execution', () => {
           periodId: 'period',
           plannedName: baseline[index],
           name: names[index],
+          version,
           membershipId: `membership-${names[index]}`,
         },
       ];
@@ -85,5 +87,19 @@ describe('multi-person external duty plan execution', () => {
     expect(preview).toHaveBeenCalledTimes(2);
     expect(create).toHaveBeenCalledTimes(2);
     expect(inserts).toHaveLength(2);
+    // Another workflow restores the same names; these are new assignment versions.
+    names.splice(0, names.length, ...baseline);
+    version = 5;
+    await (
+      service as unknown as {
+        applySwapPlan: (
+          identity: AuthenticatedIdentity,
+          date: string,
+          period: string,
+        ) => Promise<unknown>;
+      }
+    ).applySwapPlan({ cloudbaseUid: 'admin' } as AuthenticatedIdentity, dates[0], 'period');
+    expect(create.mock.calls[0]![2].operationId).not.toBe(create.mock.calls[2]![2].operationId);
+    expect(create.mock.calls[1]![2].operationId).not.toBe(create.mock.calls[3]![2].operationId);
   });
 });

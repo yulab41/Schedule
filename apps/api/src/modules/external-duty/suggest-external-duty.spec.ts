@@ -39,4 +39,52 @@ describe('external duty suggestion', () => {
       suggestExternalDuty([row('2026-10-01', '甲', '乙'), conflict]).get('2026-10-01')?.kind,
     ).toBe('blocked');
   });
+
+  it('plans a repeated swap after an explicit choice of the webpage', () => {
+    const rows = [
+      { ...row('2026-10-22', '甲', '乙'), changeSource: 'both' as const },
+      row('2026-10-23', '乙', '甲'),
+    ];
+    expect(suggestExternalDuty(rows, 'manual').get('2026-10-22')).toMatchObject({
+      kind: 'swap',
+      dates: ['2026-10-22', '2026-10-23'],
+      steps: [{ date: '2026-10-22', targetDate: '2026-10-23' }],
+    });
+    expect(suggestExternalDuty(rows).get('2026-10-23')?.kind).toBe('blocked');
+  });
+
+  it('does not let an unrelated conflict block a complete swap', () => {
+    const plans = suggestExternalDuty([
+      row('2026-10-22', '甲', '乙'),
+      row('2026-10-23', '乙', '甲'),
+      { ...row('2026-10-24', '丙', '丁'), changeSource: 'both' as const },
+    ]);
+    expect(plans.get('2026-10-22')?.kind).toBe('swap');
+  });
+
+  it('includes every connected date when counts change', () => {
+    const plans = suggestExternalDuty(
+      [
+        { ...row('2026-10-22', '甲', '乙'), changeSource: 'both' as const },
+        row('2026-10-23', '乙', '丙'),
+        row('2026-10-24', '丁', '戊'),
+      ],
+      'manual',
+    );
+    expect(plans.get('2026-10-22')).toMatchObject({
+      kind: 'duty',
+      dates: ['2026-10-22', '2026-10-23'],
+    });
+  });
+
+  it('never bypasses a processing or blocked related row in manual mode', () => {
+    for (const status of ['processing', 'blocked'] as const) {
+      expect(
+        suggestExternalDuty(
+          [row('2026-10-22', '甲', '乙'), { ...row('2026-10-23', '乙', '甲'), status }],
+          'manual',
+        ).get('2026-10-22')?.kind,
+      ).toBe('blocked');
+    }
+  });
 });

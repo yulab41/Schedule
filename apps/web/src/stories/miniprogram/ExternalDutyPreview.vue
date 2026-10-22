@@ -10,15 +10,26 @@ const props = withDefaults(
   defineProps<{
     state?: 'ready' | 'empty' | 'error' | 'preview' | 'history' | 'restore' | 'conflict';
     largeText?: boolean;
+    comparison?: 'remote' | 'both';
   }>(),
-  { state: 'ready', largeText: false },
+  { state: 'ready', largeText: false, comparison: 'remote' },
 );
 const history = ref(props.state === 'history' || props.state === 'restore');
 const dialog = ref(['preview', 'restore', 'conflict'].includes(props.state));
 const restoring = ref(props.state === 'restore');
+const outbound = ref(false);
+const selectedDate = ref('');
 const rows = [
-  { date: '2026-10-12', before: '甲医生', after: '乙医生' },
-  { date: '2026-10-13', before: '乙医生', after: '甲医生' },
+  {
+    date: props.comparison === 'both' ? '2026-10-22' : '2026-10-12',
+    before: '甲医生',
+    after: '乙医生',
+  },
+  {
+    date: props.comparison === 'both' ? '2026-10-23' : '2026-10-13',
+    before: '乙医生',
+    after: '甲医生',
+  },
 ];
 const GoldenButton = defineComponent({
   props: {
@@ -50,6 +61,13 @@ const GoldenButton = defineComponent({
 });
 function open(restore = false) {
   restoring.value = restore;
+  outbound.value = false;
+  dialog.value = true;
+}
+function openDirection(toWeb: boolean, date: string) {
+  restoring.value = false;
+  outbound.value = toWeb;
+  selectedDate.value = date;
   dialog.value = true;
 }
 </script>
@@ -76,7 +94,7 @@ function open(restore = false) {
           <span class="duty-description"
             >仅核对今天起已发布、且网页有排班的日期。同步前需你确认。</span
           >
-          <span class="duty-checked">上次自动检测 09-28 23:00 · 北京时间</span>
+          <span class="duty-checked">上次自动检测 10-22 21:11 · 北京时间</span>
         </section>
         <div class="duty-tabs">
           <button class="duty-tab" :class="{ 'is-active': !history }" @click="history = false">
@@ -116,7 +134,9 @@ function open(restore = false) {
               <span class="duty-date">{{ row.date }}</span
               ><span class="duty-badge">待确认</span>
             </div>
-            <span class="duty-source">网页端有变化</span>
+            <span class="duty-source">{{
+              comparison === 'both' && row === rows[0] ? '双方均有变化' : '网页端有变化'
+            }}</span>
             <div class="duty-people">
               <div class="duty-person is-changed">
                 <span class="duty-person-label">网页</span
@@ -124,7 +144,9 @@ function open(restore = false) {
               </div>
               <div class="duty-person is-baseline">
                 <span class="duty-person-label">发布基线</span
-                ><span class="duty-person-name">{{ row.before }}</span>
+                ><span class="duty-person-name">{{
+                  comparison === 'both' && row === rows[0] ? '丙医生' : row.before
+                }}</span>
               </div>
               <div class="duty-person">
                 <span class="duty-person-label">本系统</span
@@ -132,11 +154,18 @@ function open(restore = false) {
               </div>
             </div>
             <div class="duty-note">
-              <span class="duty-note-title">建议换班</span
-              ><span>涉及 1 步交换，查看完整方案后确认。</span>
+              <span class="duty-note-title">{{
+                comparison === 'both' ? '选择方向后可生成方案' : '自动建议：网页 → 本系统'
+              }}</span
+              ><span>1 步换班；每步执行后重新预览剩余步骤</span>
             </div>
-            <div class="duty-card-actions">
-              <GoldenButton variant="primary" label="预览建议" @press="open()" />
+            <div class="duty-card-actions duty-direction-actions">
+              <GoldenButton label="本系统 → 网页" @press="openDirection(true, row.date)" />
+              <GoldenButton
+                :variant="comparison === 'both' ? 'secondary' : 'primary'"
+                label="网页 → 本系统"
+                @press="openDirection(false, row.date)"
+              />
             </div>
           </section>
         </template>
@@ -149,11 +178,13 @@ function open(restore = false) {
         class="ui-sheet__panel is-content-sized"
         style="height: auto; max-height: 90vh"
         role="dialog"
-        :aria-label="restoring ? '恢复发布基线' : '换班预览'"
+        :aria-label="restoring ? '恢复发布基线' : outbound ? '同步到网页预览' : '换班预览'"
       >
         <div class="ui-sheet__handle-region"><div class="ui-sheet__handle"></div></div>
         <div class="ui-sheet__header">
-          <span class="ui-sheet__title">{{ restoring ? '恢复发布基线' : '换班预览' }}</span
+          <span class="ui-sheet__title">{{
+            restoring ? '恢复发布基线' : outbound ? '同步到网页预览' : '换班预览'
+          }}</span
           ><button class="ui-sheet__close" @click="dialog = false">取消</button>
         </div>
         <div class="ui-sheet__content">
@@ -162,25 +193,35 @@ function open(restore = false) {
               <span class="duty-description">{{
                 restoring
                   ? '将本系统恢复为最新正式发布版本的人员，覆盖当前值。确认后仍需通过原业务校验。'
-                  : '按以下顺序执行完整换班方案，每步重新校验。中途失败时请查看最新记录；实际排班一致后才会移出列表。'
+                  : outbound
+                    ? '以本系统当前值班人为准，仅同步所选日期。确认时会再次检查双方排班。'
+                    : '以网页为准，按以下顺序处理所有关联日期，每步重新校验。中途失败时请查看操作记录并重新检测；实际排班一致后才会移出列表。'
               }}</span>
               <div class="duty-changes">
                 <div
-                  v-for="row in restoring ? rows.slice(0, 1) : rows"
+                  v-for="row in restoring
+                    ? rows.slice(0, 1)
+                    : outbound
+                      ? rows.filter((item) => item.date === selectedDate)
+                      : rows"
                   :key="row.date"
                   class="duty-change-row"
                 >
                   <span class="duty-change-date">{{ row.date }}</span>
                   <div class="duty-change">
-                    <span class="duty-before">{{ restoring ? row.after : row.before }}</span
+                    <span class="duty-before">{{
+                      restoring || outbound ? row.after : row.before
+                    }}</span
                     ><span class="duty-arrow">→</span
-                    ><span class="duty-after">{{ restoring ? row.before : row.after }}</span>
+                    ><span class="duty-after">{{
+                      restoring || outbound ? row.before : row.after
+                    }}</span>
                   </div>
                 </div>
               </div>
-              <div v-if="!restoring" class="duty-note">
-                <span class="duty-note-title">换班步骤 · 1 步</span
-                ><span>1. 2026-10-12 与 2026-10-13 交换</span>
+              <div v-if="!restoring && !outbound" class="duty-note">
+                <span class="duty-note-title">执行步骤 · 1 步</span
+                ><span>1. {{ rows[0]?.date }} 与 {{ rows[1]?.date }} 交换</span>
               </div>
               <div v-if="state === 'conflict'" class="duty-note is-danger">
                 <span class="duty-note-title">请先解决以下冲突</span><span>同一时间有其他班次</span>
@@ -189,7 +230,7 @@ function open(restore = false) {
             <div class="duty-confirm-actions">
               <GoldenButton label="取消" @press="dialog = false" /><GoldenButton
                 :variant="restoring ? 'danger' : 'primary'"
-                :label="restoring ? '确认恢复' : '确认方案'"
+                :label="restoring ? '确认恢复' : outbound ? '确认写入' : '确认方案'"
                 :disabled="state === 'conflict'"
                 @press="dialog = false"
               />

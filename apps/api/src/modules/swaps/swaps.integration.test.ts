@@ -13,6 +13,9 @@ import {
   migrateDatabase,
   schedulePeriods,
   shiftAssignments,
+  shiftTypes,
+  groups,
+  externalDutyChecks,
   type DatabaseClient,
   type DatabaseConnectionOptions,
   withTransaction,
@@ -24,6 +27,8 @@ import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { SwapService } from './swap-service.js';
+import { ExternalDutyService } from '../external-duty/external-duty-service.js';
+import type { ExternalDutySource } from '../external-duty/external-duty-source.js';
 import {
   staleWorkflowArchiveReason,
   WorkflowSelfHealingService,
@@ -71,6 +76,125 @@ describeWithDatabase('member shift swaps', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('reconciles repeated webpage swaps and rejects overlapping confirmations from either card', async () => {
+    const context = await seedPublishedSchedule();
+    await client.database
+      .update(groups)
+      .set({ name: '头颈外科医生' })
+      .where(eq(groups.id, context.groupId));
+    await client.database
+      .update(shiftTypes)
+      .set({ name: '全天班' })
+      .where(eq(shiftTypes.id, allDayShiftTypeId));
+    const duties = new Map([
+      ['2026-09-01', 'B Doctor'],
+      ['2026-09-02', 'A Doctor'],
+    ]);
+    const source = {
+      read: async () => ({ duties, people: ['A Doctor', 'B Doctor', 'C Doctor'] }),
+      write: vi.fn(async (date: string, name: string) => {
+        duties.set(date, name);
+      }),
+    };
+    const service = new ExternalDutyService(
+      client,
+      new Set(['cloudbase-owner']),
+      source as unknown as ExternalDutySource,
+    );
+    const owner = { cloudbaseUid: 'cloudbase-owner' };
+    const originalCreate = SwapService.prototype.createDirect;
+    const create = vi
+      .spyOn(SwapService.prototype, 'createDirect')
+      .mockImplementation(async function (this: SwapService, ...args) {
+        await service.scan();
+        const claims = await service.list(owner);
+        expect(claims.map((row) => row.status)).toEqual(['processing', 'processing']);
+        const result = await originalCreate.apply(this, args);
+        // A scan after the write must retain both reservations, including aligned dates.
+        await service.scan();
+        const after = await client.database.select().from(externalDutyChecks);
+        expect(after.map((row) => row.status)).toEqual(['processing', 'processing']);
+        return result;
+      });
+    const workflowIds = new Set<string>();
+    for (let round = 0; round < 3; round++) {
+      duties.set('2026-09-01', round % 2 ? 'A Doctor' : 'B Doctor');
+      duties.set('2026-09-02', round % 2 ? 'B Doctor' : 'A Doctor');
+      await service.scan();
+      const rows = await service.list(owner);
+      expect(rows).toHaveLength(2);
+      const inputs = rows.map((row) => ({
+        date: row.businessDate,
+        expectedFingerprint: row.fingerprint,
+        direction: 'to_local' as const,
+      }));
+      const previews = await Promise.all(
+        inputs.map((input) => service.previewDirection(owner, input)),
+      );
+      expect(previews[0]!.changes).toHaveLength(2);
+      expect(previews[0]!.planFingerprint).toBe(previews[1]!.planFingerprint);
+      const results = await Promise.allSettled(
+        inputs.map((input, index) =>
+          service.applyDirection(owner, {
+            ...input,
+            planFingerprint: previews[index]!.planFingerprint,
+          }),
+        ),
+      );
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+      const actual = await readActualMembers(context);
+      expect(actual.aSep1.actualMembershipId).toBe(
+        round % 2 ? context.membershipIds.a : context.membershipIds.b,
+      );
+      expect(actual.bSep2.actualMembershipId).toBe(
+        round % 2 ? context.membershipIds.b : context.membershipIds.a,
+      );
+      const actions = await service.history(owner);
+      expect(actions).toHaveLength(round + 1);
+      for (const action of actions) workflowIds.add(action.workflowId!);
+      expect(workflowIds.size).toBe(round + 1);
+      expect(await service.list(owner)).toEqual([]);
+    }
+    expect((await readPlannedMembers(context)).aSep1).toBe(context.membershipIds.a);
+    create.mockRestore();
+    duties.set('2026-09-01', 'C Doctor');
+    await service.scan();
+    const [outbound] = await service.list(owner);
+    expect(outbound!.changeSource).toBe('both');
+    const input = {
+      date: outbound!.businessDate,
+      expectedFingerprint: outbound!.fingerprint,
+      direction: 'to_external' as const,
+    };
+    const preview = await service.previewDirection(owner, input);
+    await service.applyDirection(owner, { ...input, planFingerprint: preview.planFingerprint });
+    expect(source.write).toHaveBeenCalledWith('2026-09-01', 'B Doctor');
+    expect(await service.list(owner)).toEqual([]);
+  });
+
+  it('rejects assignment versions changed after preview inside the direct swap transaction', async () => {
+    const context = await seedPublishedSchedule();
+    const a = context.assignments.aSep1;
+    const b = context.assignments.bSep2;
+    await client.database
+      .update(shiftAssignments)
+      .set({ version: a.version + 1 })
+      .where(eq(shiftAssignments.id, a.id));
+    await expect(
+      new SwapService(client).createDirect(
+        { cloudbaseUid: 'cloudbase-owner' },
+        context.groupId,
+        { initiatorAssignmentId: a.id, targetAssignmentId: b.id, operationId: randomUUID() },
+        [
+          { id: a.id, version: a.version },
+          { id: b.id, version: b.version },
+        ],
+      ),
+    ).rejects.toThrow('排班已变化');
+    expect((await readActualMembers(context)).aSep1.actualMembershipId).toBeNull();
   });
 
   it('hides only closed swaps older than 30 days for every client without clearing at month rollover', async () => {
