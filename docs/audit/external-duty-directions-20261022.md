@@ -40,3 +40,19 @@ checkpoint检查已完成：根格式/lint/build/typecheck/图标通过；Mini�
 版本绑定包总3890528B/主1128469B，Zip2041640B；该值与local构建分别记录，不把版本元数据增加当作业务体积退化。Git正常fetch/push成功，fresh origin/main仍55c3a9fd。旧保存微信IPv4 TLS校验失败，改用本轮系统解析的真实IPv4，证书与servicewechat.com主机名匹配、TLS1.3通过，进程级lookup/IPv4优先且不改系统网络；上传成功，无不确定重试。
 
 上传用途租约已正式释放；为交付记录重新取得同一healthy general-3的独占root租约，八producer全复用、安装0。此收口只改文档，按相同应用输入复用检查证据；提交消息docs(audit): record reconciliation trial 229。唯一下一任务是取得当次生产备份、部署配套API和只增放行229的授权，再由用户小米14核对同构建的双向预览、连续换班和记录。未连接生产、未创建生产备份、未修改allowlist、未提审或正式发布，未声称手机验收通过；体验上传本身不证明API上线。
+
+## 生产交付（2026-10-23）
+
+用户回复“授权”，明确批准实时身份读取、生产备份、API部署及只增放行229。独占general-3新release租约，八producer全复用、安装0，当前任务分支codex/schedule-48220-b655d5b57c02；入口和canonical用户文件保留。机器信息仅存ignored操作记录，不进入Git。
+
+fresh fetch的origin/main仍55c3a9fd；SSH已验证known_hosts唯一匹配、两独立DoH及正式域名TLS/SNI，再读取实时live/manifest为1a2f6d0faace56764b56a992db6943277f0f2984。该即时前驱在首次变更和部署前均再次一致核对，schema72/保留包验证通过。上一轮未完成清单的两个payload缓存已存在，本轮官方packager三个缓存全命中，包/脚本本地与远端SHA、LF/bash -n通过。
+
+初次完整verifier的遥测/留存综合断言失败；只读复查表1、索引3、CHECK3、过期遥测/访客/打开回执均0，已完成留存作业2949；再次完整verifier通过。没有测得最初失败瞬间的各项值，不将原因猜成已证实的某一条边界记录；没有手动清理或修改门禁。
+
+先执行已安装备份控制：archiveId21ce45a6-a04b-491d-87e5-83c448d586e9，58表/104095903B，文件流式SHA256为84abf129b03bb6b12ad7e614f651d6a6c4fa0a5a9beb10db064aef8550565095，与登记值/大小一致。既有备份保留策略淘汰1份旧归档。随后完整部署7e80336af48e608bab22a90a5eb5884352352939，schema仍72、无新迁移，前后MySQL容器ID一致；发布工具按原留存规则清11条过期成功作业、失败0，访客和遥测清理0。未复制本地数据库、会话或凭证到服务器。
+
+可信schedule-client-version-allowlist ensure仅追加0.1.0-p10.20261022.229；版本数119→120，逐项确认原119版本保留、新增集合恰为229。独立verify和完整ecs-verify.sh（显式公网IP主动探测）通过，首次容器重建期间的健康重试已恢复。新resolve-preview/resolve-apply在部署前404、部署后401，证明路由已上线且仍受登录保护；部署容器内纯匿名双日互换规划为1步/2日期，自动方向歧义继续阻断，生产业务写入0。
+
+部署前后253条基线及其253条原排班全部保留；基线完整SHA为13f717b21ef27454e314a6796131ef22c2b63582f458c846da8b29d113eb28f1，原计划完整SHA为61404d392b6b18380a7e9ed140c63baebc8a99ecd98f20df34118f4c0def67c5，前后严格一致。没有为了演示去同步网页、创建真实换班或加扣班。
+
+生产证据位于ignored runtime/audit/external-duty-deploy-20261023/。收口消息docs(audit): close reconciliation deployment and trial 229，只改文档并复用应用输入，定向文档/core smoke验证后正常提交推送；以本轮授权先新备份、再通过可信哈希复用同步最终文档release身份，完成后停止。唯一下一任务是用户小米14同构建229复核，仍不声称手机验收通过；未提审或正式发布。

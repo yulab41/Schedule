@@ -3483,3 +3483,9 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 运行/浏览器验证：pnpm smoke:check-core通过；不改Web/契约核心，无需pnpm smoke:browser。Web黄金390/320已获确认再改原生，开发者工具WXML/WXSS局部编译通过，不是小米14验收。详见[轮次记录](../audit/external-duty-directions-20261022.md)，完整检查和复评已完成：Mini1373执行通过/23既有跳过（导出准备钩子超时后原5项隔离通过），根1427/494跳过及Codex83通过；最终API补build/typecheck/lint通过。旧入口成功占用释放先红后绿，真实网页写入后立即隐藏通过，复评无P1/P2；待干净新候选，不声称线上生效。生产备份/API部署/版本放行仍需当次授权。
 
 本批业务e03f256c已正常推送，正式独占候选动态分配并Node上传`.229@e03f256`、Manifest585cc6ee…、版本绑定检查通过，非小米14验收。上传后释放原租约，再Acquire同一healthy general-3做文档收口，REUSE_ONLY八项全复用、安装0。运行/浏览器验证：沿用pnpm smoke:check-core通过，无核心链路变更。收口docs(audit): record reconciliation trial 229；应用证据按相同输入复用，只有文档检查。当前生产备份/API部署/只增放行229尚未授权，唯一下一任务是取得当次授权；未提审/正式发布。
+
+## EXTERNAL-DUTY-DIRECTION-DEPLOY-001（2026-10-23，已上线待小米14复核）
+
+用户当次授权L4，独占general-3/release Bootstrap八项复用、安装0。实时live1a2f6d0f经完整复检冻结为回退前驱，备份21ce45a6…（58表/104095903B/文件SHA通过）后完整部署7e80336a/schema72。首轮遥测/留存综合失败，仅只读复查及完整复检后继续，原始瞬间原因未测；没有手动清理或放宽门禁。MySQL容器与253基线/原排班完整校验值不变；新端点404→401、部署内匿名规划1步/2日期通过，无真实业务写入。
+
+可信ensure仅新增229、119→120原版本全保留，独立policy verify与含公网IP完整生产verifier通过。运行/浏览器验证：沿用pnpm smoke:check-core通过，无Web/契约核心改动；服务器验证不是小米14验收。收口docs(audit): close reconciliation deployment and trial 229，文档范围复用应用证据，提交推送后新备份和可信哈希复用同步最终身份；收口验证后停止，唯一下一任务为小米14同构建229复核，不提审/正式发布。详见[轮次记录](../audit/external-duty-directions-20261022.md)。
