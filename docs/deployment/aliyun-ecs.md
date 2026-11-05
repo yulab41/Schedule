@@ -1,5 +1,20 @@
 # ECS 部署与正式上线
 
+## 共享AI站点与资源边界
+
+排班与AI工具的独立域名站点由版本化nginx.prod.conf管理。AI上游使用容器内稳定主机名，部署工具从后端实际私网监听位置登记AI_TOOL_UPSTREAM_IP，原子更新生产配置并保留其他键。证书按域名分别管理。
+
+AI继续使用独立aitool账户和systemd服务。CPU上限为半核，CPU/IO权重20，软内存192MiB、硬内存384MiB、交换64MiB、任务128。Nginx总并发32、每来源16，超过限制返回429。浏览器本机媒体和扫描、安全头、现有解析限流均保留。
+
+预算属于独立的前向安全控制，应用版本回退仍保留预算。每次应用前在root专用runtime/ai-resource-profiles目录保存旧有效值，设置失败自动恢复。预算本身需要恢复时，使用对应可信ecs-update.sh的恢复模式并指定该次审计快照。
+
+```bash
+sudo bash /usr/local/lib/schedule/ecs-update.sh --apply-ai-isolation
+sudo bash /usr/local/lib/schedule/ecs-update.sh --restore-ai-isolation /opt/schedule/runtime/ai-resource-profiles/before.<audited-id>
+```
+
+部署在控制面安装前失败时，使用已校验相同候选的ecs-update.sh执行恢复。完整生产校验包含有效预算、私网监听与容器映射一致性、两个网站页面及服务器媒体边界。先完成保留现有AI引用的桥接发布，再以桥接版本为后续发布回退前驱。
+
 正式网页入口是 `https://hosp.schedule.eylinhome.top`。共享 Nginx 只按域名分流：本项目只响应这个域名，未知 Host 不返回项目首页，也不跳转到正式域名。API、MySQL 和其他站点服务不新增公网端口。
 
 ## 本地生成 release

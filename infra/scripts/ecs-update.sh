@@ -3,6 +3,116 @@
 # Usage: bash ecs-update.sh <dist-tar> <api-flat-tar-zst> <deploy-manifest>
 set -Eeuo pipefail
 
+AI_PROFILE_DIR='/opt/schedule/runtime/ai-resource-profiles'
+
+configure_ai_tool_upstream() {
+  local address file='/opt/schedule/.env.production' next count
+  address="$(ss -lntH | awk '$4 ~ /:18769$/ { print $4 }' | sort -u)"
+  address="${address%:18769}"
+  python3 -c 'import ipaddress,sys; a=ipaddress.ip_address(sys.argv[1]); assert a.version==4 and a.is_private and not a.is_unspecified and not a.is_loopback' "$address" || return 1
+  [ -f "$file" ] && [ ! -L "$file" ] && [ "$(stat -c '%u:%g/%a' "$file")" = '0:0/600' ] || return 1
+  count="$(grep -Ec '^[[:space:]]*AI_TOOL_UPSTREAM_IP[[:space:]]*=' "$file" || true)"
+  [ "$count" -le 1 ] || return 1
+  if grep -qxF "AI_TOOL_UPSTREAM_IP=$address" "$file"; then return 0; fi
+  next="$(mktemp /opt/schedule/.env.production.ai-upstream.XXXXXX)"
+  if ! awk -v upstream="$address" '
+    /^[[:space:]]*AI_TOOL_UPSTREAM_IP[[:space:]]*=/ { print "AI_TOOL_UPSTREAM_IP=" upstream; found=1; next }
+    { print }
+    END { if (!found) print "AI_TOOL_UPSTREAM_IP=" upstream }
+  ' "$file" > "$next" || ! chmod 0600 "$next" || ! chown 0:0 "$next" || ! mv -fT "$next" "$file"; then
+    rm -f -- "$next"
+    return 1
+  fi
+  echo '[deploy] Private AI upstream registered for the shared gateway'
+}
+
+restore_ai_tool_isolation() {
+  local snapshot="$1" index value
+  case "$snapshot" in "$AI_PROFILE_DIR"/before.*) ;; *) return 1 ;; esac
+  [ "$(dirname "$snapshot")" = "$AI_PROFILE_DIR" ] && [ ! -L "$AI_PROFILE_DIR" ] || return 1
+  [ "$(stat -c '%u:%g/%a' "$AI_PROFILE_DIR")" = '0:0/700' ] || return 1
+  [ -f "$snapshot" ] && [ ! -L "$snapshot" ] || return 1
+  [ "$(stat -c '%u:%g/%a' "$snapshot")" = '0:0/600' ] || return 1
+  local -a properties=() keys=(CPUQuota CPUWeight IOWeight MemoryHigh MemoryMax MemorySwapMax TasksMax)
+  mapfile -t properties < "$snapshot"
+  [ "${#properties[@]}" -eq "${#keys[@]}" ] || return 1
+  for index in "${!keys[@]}"; do
+    [[ "${properties[$index]}" = "${keys[$index]}="* ]] || return 1
+    value="${properties[$index]#*=}"
+    [[ "$value" =~ ^(infinity|[0-9]+([.][0-9]+)?%?)$ ]] || return 1
+  done
+  systemctl set-property aitool.service "${properties[@]}"
+}
+
+apply_ai_tool_isolation() {
+  systemctl is-active --quiet aitool.service || return 1
+  local group memory swap
+  group="$(systemctl show aitool.service --property=ControlGroup --value)"
+  [ "$group" = '/system.slice/aitool.service' ] || return 1
+  memory="$(systemctl show aitool.service --property=MemoryCurrent --value)"
+  swap="$(cat "/sys/fs/cgroup${group}/memory.swap.current")"
+  if [[ ! "$memory" =~ ^[0-9]+$ ]] || [[ ! "$swap" =~ ^[0-9]+$ ]] ||
+    [ "$memory" -ge 402653184 ] || [ "$swap" -ge 67108864 ]; then
+    echo '[deploy] AI resource use exceeds the proposed budget; inspect before applying.' >&2
+    return 1
+  fi
+  local quota period cpu weight io high max swap_max tasks snapshot
+  read -r quota period < <(cat "/sys/fs/cgroup${group}/cpu.max")
+  if [ "$quota" = 'max' ]; then
+    cpu='infinity'
+  else
+    [[ "$quota" =~ ^[0-9]+$ ]] && [[ "$period" =~ ^[1-9][0-9]*$ ]] || return 1
+    cpu="$(awk -v q="$quota" -v p="$period" 'BEGIN { printf "%.6g%%", q * 100 / p }')"
+  fi
+  weight="$(systemctl show aitool.service --property=CPUWeight --value)"
+  io="$(systemctl show aitool.service --property=IOWeight --value)"
+  [ "$weight" != '[not set]' ] || weight=100
+  [ "$io" != '[not set]' ] || io=100
+  high="$(systemctl show aitool.service --property=MemoryHigh --value)"
+  max="$(systemctl show aitool.service --property=MemoryMax --value)"
+  swap_max="$(systemctl show aitool.service --property=MemorySwapMax --value)"
+  tasks="$(systemctl show aitool.service --property=TasksMax --value)"
+  [[ "$weight" =~ ^[0-9]+$ ]] && [[ "$io" =~ ^[0-9]+$ ]] || return 1
+  local value
+  for value in "$high" "$max" "$swap_max" "$tasks"; do
+    [[ "$value" =~ ^(infinity|[0-9]+)$ ]] || return 1
+  done
+  [ ! -L "$AI_PROFILE_DIR" ] || return 1
+  if [ -e "$AI_PROFILE_DIR" ]; then
+    [ -d "$AI_PROFILE_DIR" ] && [ "$(stat -c '%u:%g/%a' "$AI_PROFILE_DIR")" = '0:0/700' ] || return 1
+  fi
+  install -d -m 0700 "$AI_PROFILE_DIR"
+  snapshot="$(mktemp "$AI_PROFILE_DIR/before.XXXXXX")"
+  printf '%s\n' "CPUQuota=$cpu" "CPUWeight=$weight" "IOWeight=$io" "MemoryHigh=$high" \
+    "MemoryMax=$max" "MemorySwapMax=$swap_max" "TasksMax=$tasks" > "$snapshot"
+  chmod 0600 "$snapshot"
+  # systemd persists these independent unit properties without restarting it.
+  if ! systemctl set-property aitool.service CPUQuota=50% CPUWeight=20 IOWeight=20 \
+    MemoryHigh=192M MemoryMax=384M MemorySwapMax=64M TasksMax=128; then
+    restore_ai_tool_isolation "$snapshot" || {
+      echo '[deploy] AI resource budget recovery failed; inspect the saved profile.' >&2
+      return 1
+    }
+    echo '[deploy] Previous effective AI resource budget restored after application failure.' >&2
+    return 1
+  fi
+  echo "[deploy] Independent AI resource budget applied; recovery record $(basename "$snapshot")"
+}
+
+if [ "${1:-}" = '--apply-ai-isolation' ] || [ "${1:-}" = '--restore-ai-isolation' ]; then
+  [ "$(id -u)" -eq 0 ] || exit 1
+  exec 9>/var/lock/schedule-release.lock
+  flock -n 9 || exit 1
+  if [ "$1" = '--apply-ai-isolation' ]; then
+    [ "$#" -eq 1 ] || exit 1
+    apply_ai_tool_isolation
+  else
+    [ "$#" -eq 2 ] || exit 1
+    restore_ai_tool_isolation "$2"
+  fi
+  exit 0
+fi
+
 DIST_TAR="${1:?缺少 dist 压缩包路径}"
 FLAT_TAR="${2:?缺少 api-flat 压缩包路径}"
 MANIFEST="${3:?缺少部署清单路径}"
@@ -584,6 +694,11 @@ fi
 rm -rf "$DEPLOY_DIR/runtime/api-flat/node_modules"
 mv "$DEPLOY_DIR/runtime/api-flat-new/node_modules" "$DEPLOY_DIR/runtime/api-flat/node_modules"
 rmdir "$DEPLOY_DIR/runtime/api-flat-new"
+
+if grep -q 'server_name aitool.eylinhome.top;' infra/docker/nginx.prod.conf; then
+  apply_ai_tool_isolation
+  configure_ai_tool_upstream
+fi
 
 echo "[deploy] 4/7 停止旧 API 写入并在容器内执行数据库迁移"
 compose stop api

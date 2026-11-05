@@ -134,6 +134,37 @@ domain_curl() {
   curl -fsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}$1"
 }
 
+verify_ai_gateway() {
+  if ! grep -q 'server_name aitool.eylinhome.top;' "$DEPLOY_DIR/infra/docker/nginx.prod.conf"; then
+    return 0
+  fi
+  local group quota period route status gateway listener
+  group="$(systemctl show aitool.service --property=ControlGroup --value)"
+  [ "$group" = '/system.slice/aitool.service' ] || return 1
+  systemctl is-active --quiet aitool.service || return 1
+  read -r quota period < "/sys/fs/cgroup${group}/cpu.max"
+  [[ "$quota" =~ ^[0-9]+$ ]] && [[ "$period" =~ ^[0-9]+$ ]] || return 1
+  [ "$quota" -gt 0 ] && [ "$period" -gt 0 ] && [ "$((quota * 2))" -le "$period" ] || return 1
+  [ "$(systemctl show aitool.service --property=MemoryHigh --value)" = '201326592' ] || return 1
+  [ "$(systemctl show aitool.service --property=MemoryMax --value)" = '402653184' ] || return 1
+  [ "$(systemctl show aitool.service --property=MemorySwapMax --value)" = '67108864' ] || return 1
+  [ "$(systemctl show aitool.service --property=CPUWeight --value)" = '20' ] || return 1
+  [ "$(systemctl show aitool.service --property=IOWeight --value)" = '20' ] || return 1
+  [ "$(systemctl show aitool.service --property=TasksMax --value)" = '128' ] || return 1
+  docker exec medical-schedule-prod-web-1 nginx -t >/dev/null || return 1
+  gateway="$(docker exec medical-schedule-prod-web-1 awk '$2 == "host.docker.internal" { print $1 }' /etc/hosts)" || return 1
+  listener="$(ss -lntH | awk '$4 ~ /:18769$/ { print $4 }' | sort -u)" || return 1
+  [ -n "$gateway" ] && [ "$listener" = "$gateway:18769" ] || return 1
+  for route in / /local /scan /static/scan/worker.js; do
+    curl -fsS --max-time 10 --output /dev/null --resolve 'aitool.eylinhome.top:443:127.0.0.1' \
+      "https://aitool.eylinhome.top$route" || return 1
+  done
+  status="$(curl -sS --max-time 5 --output /dev/null --write-out '%{http_code}' \
+    --resolve 'aitool.eylinhome.top:443:127.0.0.1' https://aitool.eylinhome.top/api/media/isolation-check)"
+  [ "$status" = '403' ] || return 1
+  echo '[verify] independent AI gateway and persistent resource budget verified'
+}
+
 status_for_http_host() {
   local host="$1"
   curl -sS --max-time 5 -o /dev/null -w '%{http_code}' -H "Host: $host" \
@@ -829,4 +860,5 @@ if printf '%s\n' "$WEB_LOGS" | grep -Eq \
   echo "[verify] 错误：Nginx 容器日志仍可能包含原始来源 IP 或 query。" >&2
   exit 1
 fi
+verify_ai_gateway || { echo '[verify] AI gateway or resource boundary verification failed.' >&2; exit 1; }
 echo "[verify] complete"

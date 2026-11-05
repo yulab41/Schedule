@@ -4,8 +4,8 @@
 
 - 用户授权保留AI并持续完成隔离、备份部署和生产验证。基线5ce06f0c，独占general-3/REUSE_ONLY/release八包复用、无安装。
 - [设计](superpowers/specs/2026-11-05-shared-gateway-isolation-design.md)、[计划](superpowers/plans/2026-11-05-shared-gateway-isolation-plan.md)、[记录](audit/shared-gateway-isolation-20261105.md)。先登记现有AI入口建立桥接发布，再落实完整配置与资源预算。
-- 基线AI约12MiB内存/37MiB交换，上限600MiB/1核/交换无限；短采样未证明排班慢请求归因。桥接回归先红后绿，24项通过，检查点fix(infra): register the existing shared AI gateway。
-- 下一步备份并发布桥接，随后完成隔离发布及双域名/限额/生产校验后停止。230已放行，小米14性能仍待用户证据。
+- 桥接b44ac08a已部署，备份e7549319…/58表通过，完整生产复检通过。隔离候选保留89条AI指令，补并发/超时、私网映射和持久资源预算，97项关联测试通过。
+- 检查点fix(infra): isolate AI tool resources behind the shared gateway。下一步以实时b44为前驱备份部署，完成双站点/受限负载及最终身份同步后停止；230手机性能仍待用户证据。
 ## 上一批次：网页校对连续换班与手动方向（2026-10-23已上线，待小米14复核）
 
 - 用户确认两方向按钮、网页→本系统完整关联日期预览，并于本轮明确授权生产备份/API部署/只增放行229。依据[设计](superpowers/specs/2026-10-22-external-duty-directions-design.md)及[轮次记录](audit/external-duty-directions-20261022.md)，不再重设0072基线。
