@@ -53,3 +53,13 @@
 - 完整已安装生产verifier带显式公网入口探测，健康ready及Host/IP隔离通过，但exit1停在Nginx配置哈希。保留归档/应用包、Compose及lockfile匹配Manifest；保留归档内的Nginx也匹配Manifest，服务器当前Nginx多出空行、注释和一条include，非纯换行/注释变化，引用路径线索指向证书自动续期，具体意图尚未核实。未修改该文件、部署产物或校验规则，不宣称完整生产验证通过。
 - 脱敏基线/结果/版本集合差异、独立校验日志和配置差异摘要位于ignored runtime/audit/trial230-allowlist-20261105/server/。最初只读元数据工具按错误层级取Manifest键失败，按实际artifacts层级修正后取得基线；失败未修改服务器。
 - 收口仅三份文档，复用应用证据，检查点docs(audit): record trial 230 allowlist；不重复上传、不部署文档身份。唯一下一任务：核对Nginx配置漂移来源及正确发布方式；230已可进入业务页，小米14首次打开效果仍待同构建证据。
+
+## 配置来源与版本一致性核对（香港时间2026-11-05 21:42起）
+
+- 用户询问差异是否需要修复及本地/服务器/GitHub是否应同步，本轮按只读核对执行。独占general-3/REUSE_ONLY/release Bootstrap八项复用、无安装，canonical用户文件保留。
+- fresh fetch后本地main和origin/main同为303991852cfc29a191663f32842fd780ff88e908，生产实读09b79ff1d622ba8ec93cc0f12ccc10ba989b4c1b。两提交之间API、Web、共享包、迁移和infra源码的Git差异为空，较新的提交来自Mini及交付记录。
+- 生产Nginx相比保留归档仅追加空行、独立AI工具域名注释和一个外部配置include。只读nginx -T语法通过，证实引用已加载，其中定义AI工具的独立HTTP/HTTPS站点、限流与反向代理。此前仅根据文件处于证书目录推测证书续期，现更正为共享网关额外站点接入。
+- 按ecs-verify.sh相同路径排序和逐文件哈希口径，服务器Web、API、contracts、database、scheduling-domain、infra/scripts/dist和migrations七组树哈希全部匹配当前09b79ff1发布清单。Nginx文件哈希仍不匹配，完整生产验证缺口继续保留。
+- 应修复共享入口配置管理。正式记录已确认需要的站点接入，通过发布流程更新对应清单并验证排班和AI工具两个域名。运行中的外部站点配置应纳入独立可追溯管理。服务器业务数据、证书及凭据分别按生产数据和机密规则管理。
+- 本地Git与GitHub应保持提交同步。服务器应用文件应符合所部署提交的发布清单。Mini独立上传、文档独立更新时，各发布编号可不同，通过应用内容哈希和对应发布记录证明一致性。本轮评估阶段完成后建议下一批正式纳管共享入口，不将只读核对写成配置已修复。
+- 证据位于ignored runtime/audit/nginx-alignment-20261105/server/。仅更新三份连续性文档，检查点docs(audit): clarify shared gateway configuration drift，复用应用证据并运行文档门禁。服务器配置修复和发布尚待单独实施。
