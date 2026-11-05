@@ -84,6 +84,7 @@ describe('anonymous native visitor calendar', () => {
     await enableTestClientCapabilities();
   });
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -438,6 +439,9 @@ describe('anonymous native visitor calendar', () => {
     expect(guest).not.toContain('weekPanels[1].weekOrdinalLabel');
   });
   it('keeps the guest week pager on the shared circular ring', async () => {
+    // The fixture navigates August weeks; seed its initial preload in August too.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-03T04:00:00.000Z'));
     const instance = await page();
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
     Object.assign(instance.data, {

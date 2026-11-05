@@ -1980,6 +1980,21 @@ async function planCalendarWindow(
         undefined,
     ),
   );
+  // A completely cold window has nothing to validate. Read its authoritative
+  // payloads immediately; leave the cursor untouched so the next warm read
+  // still validates every intervening change. Keep annual holiday validation
+  // when that shared cache survives independently of the month snapshots.
+  if (
+    cachedMonths.size === 0 &&
+    page.monthResources.size === 0 &&
+    page.monthCache.size === 0 &&
+    requestedMonths.every(
+      (month) =>
+        readPersistentHolidayVersion(Number(month.slice(0, 4))) === undefined &&
+        readPersistentHolidays(Number(month.slice(0, 4))) === undefined,
+    )
+  )
+    return UNAVAILABLE_CALENDAR_WINDOW_PLAN;
   let changes: CalendarChangesReadModel;
   try {
     changes = await client.getCalendarChanges(groupId, stored?.lastSeq ?? 0);

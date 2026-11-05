@@ -41,6 +41,50 @@ describe('MINI calendar incremental sync', () => {
     vi.unstubAllGlobals();
   });
 
+  it.each([undefined, { lastSeq: 5, revision: 5 }])(
+    'loads cold months without waiting for cache validation (cursor %s)',
+    async (cursor) => {
+      const storage = createStorage();
+      if (cursor !== undefined) storage.set(CURSOR_KEY, { ...cursor, savedAt: Date.now() });
+      const initialCursor = storage.get(CURSOR_KEY);
+      const requests = [];
+      const request = createRequest((options) => {
+        requests.push(options.url);
+        // An arbitrarily slow ledger must not delay a window with nothing to validate.
+        if (options.url.includes('/calendar-changes')) return true;
+        return false;
+      });
+      const instance = await startWorkbench(request, storage);
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      expect(readBusinessMonths(requests)[0]).toBe('2026-09');
+      expect(requests.filter((url) => url.includes('/calendar-changes'))).toHaveLength(0);
+      expect(storage.get(CURSOR_KEY)).toEqual(initialCursor);
+      instance.onHide?.call(instance);
+    },
+  );
+
+  it.each([1, undefined])(
+    'still validates a surviving annual cache with version %s',
+    async (version) => {
+      const storage = warmStorage([], holidayYear(2026, []));
+      storage.get(HOLIDAY_KEY)['2026'].version = version;
+      const requests = [];
+      const request = createRequest((options) => {
+        requests.push(options.url);
+        if (options.url.includes('/calendar-changes')) {
+          options.success({ data: changes(12, false, [holidayVersion(2026, 2)]), statusCode: 200 });
+          return true;
+        }
+        return false;
+      });
+      const instance = await startWorkbench(request, storage);
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      expect(requests.filter((url) => url.includes('/calendar-changes'))).toHaveLength(1);
+      expect(requests.filter((url) => url.includes('/holidays'))).toHaveLength(1);
+      instance.onHide?.call(instance);
+    },
+  );
+
   it('renders a warm cache, validates with one ledger request and refreshes only the viewed month', async () => {
     const holidays = holidayYear(2026, [holidayDate('2026-10-01', '国庆节')]);
     const storage = warmStorage(VISIBLE_WINDOW, holidays);
@@ -310,46 +354,55 @@ describe('MINI calendar incremental sync', () => {
     await new Promise((resolve) => setTimeout(resolve, 850));
     expect(storage.get(CURSOR_KEY).lastSeq).toBe(5);
   });
-  it('silently refreshes changed contacts from a stream and disposes the connection on hide', async () => {
-    const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));
-    let receive;
-    let revision = 5;
-    const abort = vi.fn();
-    const stream = vi.fn(() => ({
-      abort,
-      onChunkReceived(fn) {
-        receive = fn;
-      },
-      onHeadersReceived() {},
-    }));
-    const request = createRequest((options) => {
-      if (options.url.endsWith('/calendar-change-stream')) return stream();
-      if (options.url.includes('/calendar-changes')) {
-        options.success({
-          data: changes(revision, revision === 6, [holidayVersion(2026, 1)]),
-          statusCode: 200,
-        });
-        return true;
+  it.each([false, true])(
+    'refreshes contacts from a stream even after storage cleared: %s',
+    async (clearStorage) => {
+      const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));
+      let receive;
+      let revision = 5;
+      const abort = vi.fn();
+      const stream = vi.fn(() => ({
+        abort,
+        onChunkReceived(fn) {
+          receive = fn;
+        },
+        onHeadersReceived() {},
+      }));
+      const request = createRequest((options) => {
+        if (options.url.endsWith('/calendar-change-stream')) return stream();
+        if (options.url.includes('/calendar-changes')) {
+          options.success({
+            data: changes(revision, revision === 6, [holidayVersion(2026, 1)]),
+            statusCode: 200,
+          });
+          return true;
+        }
+        const month = readBusinessMonth(options.url);
+        if (month !== undefined && revision === 6) {
+          const updated = calendar(month);
+          delete updated.members[0].mobilePhone;
+          options.success({ data: updated, statusCode: 200 });
+          return true;
+        }
+        return false;
+      });
+      const instance = await startWorkbench(request, storage);
+      await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(1));
+      if (clearStorage) {
+        for (const key of storage.keys()) {
+          if (key.startsWith(MONTH_PREFIX) || key === CURSOR_KEY || key === HOLIDAY_KEY)
+            storage.delete(key);
+        }
       }
-      const month = readBusinessMonth(options.url);
-      if (month !== undefined && revision === 6) {
-        const updated = calendar(month);
-        delete updated.members[0].mobilePhone;
-        options.success({ data: updated, statusCode: 200 });
-        return true;
-      }
-      return false;
-    });
-    const instance = await startWorkbench(request, storage);
-    await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(1));
-    revision = 6;
-    receive({ data: Uint8Array.from('data:changed\n\n', (c) => c.charCodeAt(0)).buffer });
-    await vi.waitFor(() => expect(storage.get(CURSOR_KEY).lastSeq).toBe(6));
-    expect(instance.data.state).toBe('ready');
-    expect(instance.calendar.members[0]).not.toHaveProperty('mobilePhone');
-    definition.onHide.call(instance);
-    expect(abort).toHaveBeenCalledTimes(1);
-  });
+      revision = 6;
+      receive({ data: Uint8Array.from('data:changed\n\n', (c) => c.charCodeAt(0)).buffer });
+      await vi.waitFor(() => expect(storage.get(CURSOR_KEY).lastSeq).toBe(6));
+      expect(instance.data.state).toBe('ready');
+      expect(instance.calendar.members[0]).not.toHaveProperty('mobilePhone');
+      definition.onHide.call(instance);
+      expect(abort).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('clears persisted contacts when version validation denies group access', async () => {
     const storage = warmStorage(VISIBLE_WINDOW, holidayYear(2026, []));

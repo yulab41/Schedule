@@ -3489,3 +3489,11 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 用户当次授权L4，独占general-3/release Bootstrap八项复用、安装0。实时live1a2f6d0f经完整复检冻结为回退前驱，备份21ce45a6…（58表/104095903B/文件SHA通过）后完整部署7e80336a/schema72。首轮遥测/留存综合失败，仅只读复查及完整复检后继续，原始瞬间原因未测；没有手动清理或放宽门禁。MySQL容器与253基线/原排班完整校验值不变；新端点404→401、部署内匿名规划1步/2日期通过，无真实业务写入。
 
 可信ensure仅新增229、119→120原版本全保留，独立policy verify与含公网IP完整生产verifier通过。运行/浏览器验证：沿用pnpm smoke:check-core通过，无Web/契约核心改动；服务器验证不是小米14验收。收口docs(audit): close reconciliation deployment and trial 229，文档范围复用应用证据，提交推送后新备份和可信哈希复用同步最终身份；收口验证后停止，唯一下一任务为小米14同构建229复核，不提审/正式发布。详见[轮次记录](../audit/external-duty-directions-20261022.md)。
+
+## 2026-11-05 MINI-COLD-START-001 首次空缓存等待
+
+- 引入7470efb1，git log -S client.getCalendarChanges/blame定位planCalendarWindow无条件等待。完全无持久/内存月缓存和年度缓存时直接读权威数据，保留游标；已有年度缓存仍版本校验。慢ledger回归先红后绿。
+- 审查指出stream复用风险，清存储后实时刷新回归先红后绿，增加内存为空条件；独立复审通过。guest周测试原697795eb固定八月但预载跟当前十一月，原测试失败、仅测试Date固定后22通过；不改访客业务。
+- 定向44通过；Mini类型/ESLint/格式/production verify/包审计/确定性/图标与core smoke通过，未涉及核心Web链路。初次全Mini1370通过、2失败、28跳过，含旧导出准备超时及修订前游标测试；导出独立5通过，游标与guest测试修订后通过。最终完整门禁另见轮次报告。
+- 生产只读：09b79ff1/schema72，160排班请求26个>1s、最大5531.917ms；API/MySQL有换出页，短采样无swap增量，不能认定资源根因。未重启/改配置/部署；工具登录过期，原生/小米14暂未验证。
+- 运行/浏览器验证：pnpm smoke:check-core通过，未涉及要求smoke:browser的核心路径。详见docs/audit/calendar-cold-start-20261105.md。
