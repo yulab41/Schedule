@@ -1,12 +1,11 @@
 # Project Status
 
-## 当前批次：排班首次加载诊断与空缓存优化（2026-11-05）
+## 当前批次：共享网关纳管与AI工具隔离（2026-11-05）
 
-- 独占general-3/REUSE_ONLY、无安装，基线快进至线上09b79ff1/schema72，保留229校对及用户文件。
-- 诊断只读：160次排班请求26次>1秒、最大5.53秒；多个接口共同慢，资源根因未确认。
-- 空缓存跳过ledger等待并保留游标，年度缓存和实时流校验保留，定向17及独立复审通过。详见[轮次报告](audit/calendar-cold-start-20261105.md)。
-- 230@3367879已只增放行120→121。21:42实读Nginx新增引用实际服务独立AI工具站，纠正证书续期推测。服务器七组应用/迁移树哈希全匹配09b79ff1清单，本地/GitHub30399185一致。收口docs(audit): clarify shared gateway configuration drift。下一步正式纳管共享站点入口并受控发布验证；小米14待复核。
-
+- 用户授权保留AI并持续完成隔离、备份部署和生产验证。基线5ce06f0c，独占general-3/REUSE_ONLY/release八包复用、无安装。
+- [设计](superpowers/specs/2026-11-05-shared-gateway-isolation-design.md)、[计划](superpowers/plans/2026-11-05-shared-gateway-isolation-plan.md)、[记录](audit/shared-gateway-isolation-20261105.md)。先登记现有AI入口建立桥接发布，再落实完整配置与资源预算。
+- 基线AI约12MiB内存/37MiB交换，上限600MiB/1核/交换无限；短采样未证明排班慢请求归因。桥接回归先红后绿，24项通过，检查点fix(infra): register the existing shared AI gateway。
+- 下一步备份并发布桥接，随后完成隔离发布及双域名/限额/生产校验后停止。230已放行，小米14性能仍待用户证据。
 ## 上一批次：网页校对连续换班与手动方向（2026-10-23已上线，待小米14复核）
 
 - 用户确认两方向按钮、网页→本系统完整关联日期预览，并于本轮明确授权生产备份/API部署/只增放行229。依据[设计](superpowers/specs/2026-10-22-external-duty-directions-design.md)及[轮次记录](audit/external-duty-directions-20261022.md)，不再重设0072基线。
