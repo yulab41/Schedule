@@ -1,11 +1,12 @@
 # Project Status
 
-## 当前批次：共享网关与AI隔离（2026-11-06，权限补强）
+## 当前批次：共享网关与AI隔离（2026-11-06，已完成）
 
-- 用户授权保留AI并完成隔离、备份部署及生产校验。桥接b44ac08a、隔离2cb92de9已推送并部署，schema72/MySQL不变，121个Mini版本保留。[记录](audit/shared-gateway-isolation-20261105.md)。
-- AI独立域名/私网/账户，CPU半核、内存384MiB/交换64MiB，连接32/来源16；失败恢复与原子映射已落实，97项定向及完整生产检查通过。
-- 2cb92de9隔离部署及97项/完整生产检查通过，CPU合成负载下健康15/15、最大80ms。备份171a15d5…/58表/SHA通过。
-- 最后实查发现发布物0666/0777导致AI账户宿主机可写网关。追加安全解包、受管文件封装及权限校验，Linux夹具通过。检查点fix(infra): seal deployed artifact write permissions。下一步备份部署并确认AI账户拒写，最终身份同步后停止。
+- 用户授权的网关纳管、AI资源/私网/账户边界已完成。桥接b44ac08a、隔离2cb92de9、权限bb3c884f已推送并部署，schema72/MySQL及121版本保留。[记录](audit/shared-gateway-isolation-20261105.md)。
+- AI半核/384MiB内存/64MiB交换及连接32/来源16生效；健康负载15/15成功最大80ms。新增制品权限及安全恢复，AI实机账户不可写网关/目录、不可读凭据/使用Docker。102项及完整生产复检通过。
+- 权限发布备份60501b5b…/58表/107298511B及SHA通过。收口docs(audit): finalize shared gateway isolation verification，备份后可信哈希复用同步最终身份并验证，随后停止本批。
+- 唯一下一任务为小米14同构建230首次加载复核，手机性能仍待用户证据。
+
 ## 上一批次：网页校对连续换班与手动方向（2026-10-23已上线，待小米14复核）
 
 - 用户确认两方向按钮、网页→本系统完整关联日期预览，并于本轮明确授权生产备份/API部署/只增放行229。依据[设计](superpowers/specs/2026-10-22-external-duty-directions-design.md)及[轮次记录](audit/external-duty-directions-20261022.md)，不再重设0072基线。
