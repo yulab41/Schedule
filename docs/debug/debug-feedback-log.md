@@ -3497,3 +3497,10 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 - 定向44通过；Mini类型/ESLint/格式/production verify/包审计/确定性/图标与core smoke通过，未涉及核心Web链路。初次全Mini1370通过、2失败、28跳过，含旧导出准备超时及修订前游标测试；导出独立5通过，游标与guest测试修订后通过。最终完整门禁另见轮次报告。
 - 生产只读：09b79ff1/schema72，160排班请求26个>1s、最大5531.917ms；API/MySQL有换出页，短采样无swap增量，不能认定资源根因。未重启/改配置/部署；工具登录过期，原生/小米14暂未验证。
 - 运行/浏览器验证：pnpm smoke:check-core通过，未涉及要求smoke:browser的核心路径。详见docs/audit/calendar-cold-start-20261105.md。
+
+## 2026-11-06 RELEASE-PERMISSIONS-001 发布物跨账户可写
+
+- 机制来源07c60456普通root解包、18b5fe1f平铺ZStd解包，log -S与blame核实。本轮归档及实机证实0666/0777，实际AI UID/GID账户可写网关和目录，凭据及Docker socket拒绝，首次暴露时间未追溯。
+- 安全解包、固定受管树root所有/去go-w、权限生产校验已实现，保留执行位。真实八树无链接，拒绝根/嵌套内外链接，Linux夹具复现及外部文件保持通过。
+- 恢复陷阱预检误触发回归ERR/TERM先红后绿，首次封装提前、仅实际修改后恢复；102项关联及类型/lint/Shell语法通过，独立复审无阻塞。索引仅紧凑化空白满足12KiB门禁，旧项语义不变。
+- 运行/浏览器验证：pnpm smoke:check-core按infra范围无需浏览器核心冒烟，生产账户拒写和双站点/完整验证在发布后补录。详见docs/audit/shared-gateway-isolation-20261105.md及对应pitfall。

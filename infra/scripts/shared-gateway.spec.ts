@@ -74,7 +74,8 @@ function runBudget(overrides: Record<string, string> = {}) {
       .replaceAll(
         '/opt/schedule/runtime/ai-resource-profiles',
         join(directory, 'profiles').replaceAll('\\', '/'),
-      ),
+      )
+      .replaceAll('/opt/schedule', directory.replaceAll('\\', '/')),
   );
   const commands: Record<string, string> = {
     id: 'echo "${TEST_UID:-0}"',

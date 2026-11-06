@@ -19,6 +19,16 @@ sudo bash /usr/local/lib/schedule/ecs-update.sh --restore-ai-isolation /opt/sche
 
 ## 本地生成 release
 
+发布制品实行root所有、其他账户只读的权限边界。部署及恢复均以umask022和不继承归档权限/所有者的方式解包，随后封装固定代码树及其父目录，保留执行位。当前发布依赖为物化文件树，遇到根或嵌套符号链接停止检查。
+
+已部署的旧制品需要收紧权限时，可调用同版本可信控制的独立模式。
+
+```bash
+sudo bash /usr/local/lib/schedule/ecs-update.sh --seal-artifact-permissions
+```
+
+该模式覆盖受管代码、配置和依赖，AI独立工作目录及生产业务数据按各自规则管理。完整生产检查同时核对内容哈希与所有权/写权限。
+
 服务器不负责安装依赖或编译。Windows本地使用官方池工具Acquire取得独占健康的runtime/wt槽位，再执行ReuseOnly、bootstrap和定向检查；不得创建或接管已退役的runtime/release-worktree，也不得因新任务或SHA变化安装依赖。
 
 源码与验证完成后，按仓库release-candidate规则冻结已持有的干净槽位。结合Mini上传时使用实际租约和任务ID：

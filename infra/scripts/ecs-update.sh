@@ -2,8 +2,48 @@
 # Immutable release update: verify artifacts → backup → migrate → recreate → verify.
 # Usage: bash ecs-update.sh <dist-tar> <api-flat-tar-zst> <deploy-manifest>
 set -Eeuo pipefail
+umask 022
 
 AI_PROFILE_DIR='/opt/schedule/runtime/ai-resource-profiles'
+
+seal_deployed_artifact_permissions() {
+  local root='/opt/schedule' path relative links
+  [ -d "$root" ] && [ ! -L "$root" ] || return 1
+  local -a parents=(. apps apps/web apps/api packages packages/contracts packages/database \
+    packages/scheduling-domain infra infra/docker infra/scripts runtime runtime/api-flat releases)
+  local -a trees=(apps/web/dist apps/api/dist packages/contracts/dist packages/database/dist \
+    packages/scheduling-domain/dist infra/scripts/dist migrations runtime/api-flat/node_modules)
+  local -a files=(pnpm-lock.yaml .env.production.example infra/docker/compose.prod.yml \
+    infra/docker/nginx.prod.conf deploy-manifest.json current-release)
+  for relative in "${parents[@]}"; do
+    path="$root/$relative"
+    [ ! -L "$path" ] || return 1
+    if [ -e "$path" ]; then
+      [ -d "$path" ] || return 1
+      chown 0:0 "$path" || return 1
+      chmod go-w "$path" || return 1
+    fi
+  done
+  for relative in "${trees[@]}"; do
+    path="$root/$relative"
+    [ ! -L "$path" ] || return 1
+    if [ -e "$path" ]; then
+      [ -d "$path" ] || return 1
+      links="$(find "$path" -type l -print -quit)" || return 1
+      [ -z "$links" ] || return 1
+      chown -hR 0:0 "$path" || return 1
+      chmod -R go-w "$path" || return 1
+    fi
+  done
+  for path in "${files[@]/#/$root/}" "$root"/infra/scripts/*.sh; do
+    [ ! -L "$path" ] || return 1
+    if [ -f "$path" ]; then
+      chown 0:0 "$path" || return 1
+      chmod go-w "$path" || return 1
+    fi
+  done
+  echo '[deploy] Managed artifact ownership and write permissions sealed'
+}
 
 configure_ai_tool_upstream() {
   local address file='/opt/schedule/.env.production' next count
@@ -99,16 +139,20 @@ apply_ai_tool_isolation() {
   echo "[deploy] Independent AI resource budget applied; recovery record $(basename "$snapshot")"
 }
 
-if [ "${1:-}" = '--apply-ai-isolation' ] || [ "${1:-}" = '--restore-ai-isolation' ]; then
+if [ "${1:-}" = '--apply-ai-isolation' ] || [ "${1:-}" = '--restore-ai-isolation' ] || [ "${1:-}" = '--seal-artifact-permissions' ]; then
   [ "$(id -u)" -eq 0 ] || exit 1
+  [ -d '/opt/schedule' ] && [ ! -L '/opt/schedule' ] || exit 1
   exec 9>/var/lock/schedule-release.lock
   flock -n 9 || exit 1
   if [ "$1" = '--apply-ai-isolation' ]; then
     [ "$#" -eq 1 ] || exit 1
     apply_ai_tool_isolation
-  else
+  elif [ "$1" = '--restore-ai-isolation' ]; then
     [ "$#" -eq 2 ] || exit 1
     restore_ai_tool_isolation "$2"
+  else
+    [ "$#" -eq 1 ] || exit 1
+    seal_deployed_artifact_permissions
   fi
   exit 0
 fi
@@ -341,8 +385,10 @@ else
   flock -n 9 || { fail "另一项发布或回滚正在执行。"; exit 1; }
 fi
 
+[ -d "$DEPLOY_DIR" ] && [ ! -L "$DEPLOY_DIR" ] || { fail 'Deployment root must be a real directory.'; exit 1; }
 cd "$DEPLOY_DIR"
 validate_previous_release_identity
+seal_deployed_artifact_permissions
 if [ -f infra/docker/compose.prod.icp-test.yml ]; then
   echo "[deploy] 清理已停用的 ICP 测试 Compose override" >&2
   rm -f infra/docker/compose.prod.icp-test.yml
@@ -539,7 +585,8 @@ restore_previous() {
     assert_release_path "$DEPLOY_DIR/$relative_path" || return 1
     rm -rf "$DEPLOY_DIR/$relative_path" || return 1
   done
-  tar -xzf "$BACKUP_DIR/current-files.tar.gz" -C "$DEPLOY_DIR" || return 1
+  tar --no-same-permissions --no-same-owner -xzf "$BACKUP_DIR/current-files.tar.gz" -C "$DEPLOY_DIR" || return 1
+  seal_deployed_artifact_permissions || return 1
 }
 
 restore_system_controls() {
@@ -548,7 +595,7 @@ restore_system_controls() {
   for absolute_path in "${SYSTEM_CONTROL_PATHS[@]}"; do
     rm -rf -- "$absolute_path" || return 1
   done
-  tar -xzf "$SYSTEM_CONTROL_BACKUP" -C / || return 1
+  tar --no-same-permissions --no-same-owner -xzf "$SYSTEM_CONTROL_BACKUP" -C / || return 1
 }
 
 can_restore_previous_application() {
@@ -601,13 +648,13 @@ restore_deployment_state() {
 rollback_on_error() {
   local status=$?
   trap - EXIT ERR HUP INT TERM
-  restore_deployment_state
+  if [ "$DEPLOY_MUTATION_STARTED" = 'true' ]; then restore_deployment_state; fi
   exit "$status"
 }
 
 rollback_on_signal() {
   trap - EXIT ERR HUP INT TERM
-  restore_deployment_state
+  if [ "$DEPLOY_MUTATION_STARTED" = 'true' ]; then restore_deployment_state; fi
   exit 143
 }
 
@@ -681,19 +728,20 @@ for optional_path in \
     EXTRACT_PATHS+=("$optional_path")
   fi
 done
-tar -xzf "$DIST_TAR" -C "$DEPLOY_DIR" "${EXTRACT_PATHS[@]}"
+tar --no-same-permissions --no-same-owner -xzf "$DIST_TAR" -C "$DEPLOY_DIR" "${EXTRACT_PATHS[@]}"
 copy_retained_artifact "$MANIFEST" "$CURRENT_MANIFEST"
 
 echo "[deploy] 3/7 替换 API 平铺依赖树"
 rm -rf "$DEPLOY_DIR/runtime/api-flat-new"
 mkdir -p "$DEPLOY_DIR/runtime/api-flat-new"
-  tar --zstd -xf "$FLAT_TAR" -C "$DEPLOY_DIR/runtime/api-flat-new"
+  tar --zstd --no-same-permissions --no-same-owner -xf "$FLAT_TAR" -C "$DEPLOY_DIR/runtime/api-flat-new"
 if [ ! -d "$DEPLOY_DIR/runtime/api-flat-new/node_modules" ]; then
   fail "API runtime 压缩包缺少 node_modules。"
 fi
 rm -rf "$DEPLOY_DIR/runtime/api-flat/node_modules"
 mv "$DEPLOY_DIR/runtime/api-flat-new/node_modules" "$DEPLOY_DIR/runtime/api-flat/node_modules"
 rmdir "$DEPLOY_DIR/runtime/api-flat-new"
+seal_deployed_artifact_permissions
 
 if grep -q 'server_name aitool.eylinhome.top;' infra/docker/nginx.prod.conf; then
   apply_ai_tool_isolation

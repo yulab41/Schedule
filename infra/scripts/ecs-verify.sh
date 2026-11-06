@@ -134,6 +134,33 @@ domain_curl() {
   curl -fsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}$1"
 }
 
+verify_deployed_artifact_permissions() {
+  local relative path invalid
+  [ -d "$DEPLOY_DIR" ] && [ ! -L "$DEPLOY_DIR" ] || return 1
+  local -a parents=(. apps apps/web apps/api packages packages/contracts packages/database \
+    packages/scheduling-domain infra infra/docker infra/scripts runtime runtime/api-flat releases)
+  local -a trees=(apps/web/dist apps/api/dist packages/contracts/dist packages/database/dist \
+    packages/scheduling-domain/dist infra/scripts/dist migrations runtime/api-flat/node_modules)
+  local -a files=(pnpm-lock.yaml .env.production.example infra/docker/compose.prod.yml \
+    infra/docker/nginx.prod.conf deploy-manifest.json current-release)
+  for relative in "${parents[@]}" "${files[@]}"; do
+    path="$DEPLOY_DIR/$relative"
+    [ ! -L "$path" ] || return 1
+    if [ -e "$path" ]; then
+      invalid="$(find "$path" -maxdepth 0 \( ! -uid 0 -o ! -gid 0 -o -perm /022 \) -print -quit)" || return 1
+      [ -z "$invalid" ] || return 1
+    fi
+  done
+  for path in "${trees[@]/#/$DEPLOY_DIR/}" "$DEPLOY_DIR"/infra/scripts/*.sh; do
+    [ ! -L "$path" ] || return 1
+    if [ -e "$path" ]; then
+      invalid="$(find "$path" -xdev \( -type l -o \( \( -type d -o -type f \) \( ! -uid 0 -o ! -gid 0 -o -perm /022 \) \) \) -print -quit)" || return 1
+      [ -z "$invalid" ] || return 1
+    fi
+  done
+  echo '[verify] Managed artifacts reject cross-account writes'
+}
+
 verify_ai_gateway() {
   if ! grep -q 'server_name aitool.eylinhome.top;' "$DEPLOY_DIR/infra/docker/nginx.prod.conf"; then
     return 0
@@ -860,5 +887,6 @@ if printf '%s\n' "$WEB_LOGS" | grep -Eq \
   echo "[verify] 错误：Nginx 容器日志仍可能包含原始来源 IP 或 query。" >&2
   exit 1
 fi
+verify_deployed_artifact_permissions || { echo '[verify] Managed artifact ownership or write permissions failed.' >&2; exit 1; }
 verify_ai_gateway || { echo '[verify] AI gateway or resource boundary verification failed.' >&2; exit 1; }
 echo "[verify] complete"

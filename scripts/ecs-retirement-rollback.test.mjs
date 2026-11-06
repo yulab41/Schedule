@@ -32,6 +32,28 @@ function run(source, args = [], cwd = root) {
 }
 
 describe('retirement application rollback (synthetic shell behavior, not a production restore drill)', () => {
+  it.each(['ERR', 'TERM', 'EXIT'])(
+    'does not restore or recreate services when preflight fails on %s',
+    (failure) => {
+      const result = run(
+        `set -Eeuo pipefail
+DEPLOY_MUTATION_STARTED=false
+restore_deployment_state() { printf 'UNSAFE-RESTORE\\n'; }
+${shellFunction(update, 'rollback_on_error')}
+${shellFunction(update, 'rollback_on_signal')}
+${shellFunction(update, 'cleanup_on_exit')}
+trap rollback_on_error ERR
+trap rollback_on_signal TERM
+trap cleanup_on_exit EXIT
+case "$1" in ERR) false ;; TERM) kill -TERM "$BASHPID" ;; EXIT) exit 23 ;; esac
+`,
+        [failure],
+      );
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).not.toContain('UNSAFE-RESTORE');
+    },
+  );
+
   it.each([
     [51, 54, true],
     [52, 55, true],
@@ -213,10 +235,11 @@ compose() { printf 'compose:%s\\n' "$*" >> "$FIXTURE/calls.log"; }
 curl() { printf 'curl-mocked\\n' >> "$FIXTURE/calls.log"; }
 docker() { printf 'docker:%s\\n' "$*" >> "$FIXTURE/calls.log"; }
 restore_system_controls() { printf 'system-controls-mocked\\n' >> "$FIXTURE/calls.log"; }
+seal_deployed_artifact_permissions() { printf 'artifact-permissions-mocked\\n' >> "$FIXTURE/calls.log"; }
 tar() {
-  [ "$#" = 4 ] && [ "$1" = -xzf ] &&
-    [ "$2" = "$BACKUP_DIR/current-files.tar.gz" ] &&
-    [ "$3" = -C ] && [ "$4" = "$DEPLOY_DIR" ] || return 92
+  [ "$#" = 6 ] && [ "$1" = --no-same-permissions ] && [ "$2" = --no-same-owner ] &&
+    [ "$3" = -xzf ] && [ "$4" = "$BACKUP_DIR/current-files.tar.gz" ] &&
+    [ "$5" = -C ] && [ "$6" = "$DEPLOY_DIR" ] || return 92
   command tar "$@"
 }
 ${shellFunction(update, 'restore_previous')}
@@ -235,6 +258,7 @@ restore_deployment_state
     );
     expect(readFileSync(path.join(fixture, 'database/state.json'), 'utf8')).toBe(data);
     const calls = readFileSync(path.join(fixture, 'calls.log'), 'utf8');
+    expect(calls).toContain('artifact-permissions-mocked');
     expect(calls).toContain('compose:up -d --force-recreate api web');
     expect(calls).toContain('docker:rm -f synthetic-migration');
     expect(calls).not.toMatch(/mysql|migrate|restore.*database/u);

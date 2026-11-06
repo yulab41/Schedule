@@ -53,7 +53,15 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource).toContain("'infra/scripts/dist'");
     expect(packageSource).toContain("'@schedule/holiday-import-script'");
     expect(packageSource).toContain('infraScriptsDistTreeSha256');
-    expect(updateSource.match(/infra\/scripts\/dist/gu)).toHaveLength(4);
+    expect(updateSource.match(/EXTRACT_PATHS=\([\s\S]*?\n\)/u)?.[0]).toContain(
+      'infra/scripts/dist',
+    );
+    expect(updateSource.match(/^restore_previous\(\) \{[\s\S]*?^\}/mu)?.[0]).toContain(
+      'infra/scripts/dist',
+    );
+    expect(updateSource).toMatch(
+      /for relative_path in[\s\S]*?infra\/scripts\/dist[\s\S]*?BACKUP_ENTRIES\+=/u,
+    );
   });
 
   it('verifies the directory import artifact and declared database compatibility', () => {
