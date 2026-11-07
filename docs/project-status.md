@@ -1,10 +1,10 @@
 # Project Status
 
-## 当前批次：群组切换偏好优先级（2026-11-07，已实现待运行复核）
+## 当前批次：群组切换偏好优先级（2026-11-07，服务器已上线，待小程序交付）
 
-- 成员群组个人偏好优先，未设时采用群组默认；非成员群组采用群组默认。基线1545acba，独占general-4，REUSE_ONLY/Bootstrap，安装0。[记录](audit/group-calendar-view-20261107.md)保存实现、基线失败与验证。
-- 客户端5、工作台37、真实MySQL访客1/成员偏好2通过；类型/lint/格式/API构建/production verify/包审计/图标/core smoke通过。首次发布证明旧blob失败已修复；最终全Mini1384通过/23既有跳过，血缘17通过。
-- 用户本次授权保留另一工具/pregnancy/并继续备份部署。已补录现有12行路由，归一化完整配置与live一致；网关/权限/发布包36项通过。独占general-4、REUSE_ONLY/八producer复用。应用检查点fix(infra): preserve existing pregnancy gateway route；唯一下一任务为推送后重新冻结live前驱、备份部署配套API并完整复检。
+- 成员群组个人偏好优先、未设时用群组默认，非成员用群组默认。应用6914bf68/证明70c06dcb、全Mini1384通过/23既有跳过、实库偏好3项通过。[记录](audit/group-calendar-view-20261107.md)保存失败与完整证据。
+- 用户授权纳管既有/pregnancy/后，fdfce1f1正常推送并部署。先备份70c8e975…（58表/107414323B），大小/SHA通过；独立完整生产验证含公网IP通过，两个入口正常、pregnancy健康200，MySQL容器与schema72保留。网关/权限/发布包36项及静态门禁通过。
+- 收口消息docs(audit): close calendar preference production deployment。新独占general-4、REUSE_ONLY/八producer复用；新备份187e525f…大小/SHA通过。提交推送后以可信哈希复用同步最终发布身份并验证，本轮停止于同步通过；唯一下一任务为小程序体验版上传及同构建手机复核。
 
 ## 上一批次：共享网关与AI隔离（2026-11-06，已完成）
 
