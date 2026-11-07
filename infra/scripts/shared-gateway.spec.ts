@@ -13,6 +13,27 @@ import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('shared gateway release boundary', () => {
+  it('keeps the existing pregnancy proxy inside the AI virtual host', async () => {
+    const nginx = await readFile('infra/docker/nginx.prod.conf', 'utf8');
+    const servers = nginx.split('\nserver {');
+    const aiHost =
+      servers.find(
+        (server) =>
+          server.includes('server_name aitool.eylinhome.top;') &&
+          server.includes('listen 443 ssl;'),
+      ) ?? '';
+    const location = /location \^~ \/pregnancy\/ \{([^}]+)\}/u.exec(aiHost)?.[1];
+    expect(location).toBeDefined();
+    expect(location).toContain('proxy_pass http://host.docker.internal:18771/;');
+    expect(location).toContain('proxy_set_header Authorization $http_authorization;');
+    expect(location).toContain('client_max_body_size 70m;');
+    expect(location).toContain('proxy_request_buffering off;');
+    expect(location).toContain('proxy_read_timeout 300s;');
+    const scheduleHost =
+      servers.find((server) => server.includes('server_name hosp.schedule.eylinhome.top;')) ?? '';
+    expect(scheduleHost).not.toContain('location ^~ /pregnancy/');
+  });
+
   it('preserves the already active AI site when the next Schedule release replaces the gateway', async () => {
     const nginx = await readFile('infra/docker/nginx.prod.conf', 'utf8');
     const hasRegisteredSite =
