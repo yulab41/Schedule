@@ -2,9 +2,9 @@
 
 ## 当前批次：群组切换偏好优先级（2026-11-07，已实现待运行复核）
 
-- 成员群组个人偏好优先，未设时采用群组默认；非成员群组采用群组默认。基线1545acba，独占general-4，REUSE_ONLY/Bootstrap，安装0。[记录](audit/group-calendar-view-20261107.md)保存实现、基线失败与验证。
-- 客户端5、工作台37、真实MySQL访客1/成员偏好2通过；类型/lint/格式/API构建/production verify/包审计/图标/core smoke通过。首次全Mini1383通过/23跳过/1发布证明旧blob失败，另立证明检查点复测。
-- 应用检查点fix(calendar): honor group view defaults for linked guests。唯一下一任务为发布证明同步后完成交付；服务器备份部署等待本次授权，live未查，手机及体验版交付仍待后续同构建验证。
+- 成员群组个人偏好优先，未设时采用群组默认；非成员群组采用群组默认。基线1545acba，独占general-4，REUSE_ONLY/Bootstrap，安装0。[记录](group-calendar-view-20261107.md)保存实现、基线失败与验证。
+- 客户端5、工作台37、真实MySQL访客1/成员偏好2通过；类型/lint/格式/API构建/production verify/包审计/图标/core smoke通过。首次发布证明旧blob失败已修复；最终全Mini1384通过/23既有跳过，血缘17通过。
+- 应用6914bf68；证明检查点chore(release): refresh group preference source proof。唯一下一任务为获本次授权后备份部署配套API；live未查，体验版待上传，手机待同构建复核。
 
 ## 上一批次：共享网关与AI隔离（2026-11-06，服务端完成）
 
