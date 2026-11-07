@@ -69,3 +69,10 @@
 - 上传包、脚本、manifest逐文件SHA与LF/语法、schema72范围、live回退前驱及当前nginx与新manifest一致性均通过，再执行正式updater。API/Web重建，首两次启动健康探测502后正常ready=true，发布fdfce1f1成功。既有留存控制清15条过期成功作业，失败0；原始隐私及遥测删除0，无业务数据写入。
 - 独立完整生产verifier含公网IP主动探测通过，内容哈希、控制面、权限隔离与AI预算通过。MySQL容器身份部署前后相同；pregnancy健康入口200，实际部署的CalendarQuery包含includeView及群组默认视图读取。没有使用真实个人会话或执行排班写入，小程序手机效果仍待新体验版。
 - 收口前再备份187e525f-b959-42e3-9560-7789cd04e395，58表、107416997 B，独立大小及SHA256 7b02fe88…通过；按既有策略淘汰1份旧归档。收口文档消息docs(audit): close calendar preference production deployment；以新独占租约复用八producer及已验证应用证据，提交推送后按可信哈希复用同步最终release身份并复检，不重启应用或再迁移。本轮停止于身份同步验证通过，唯一下一任务为小程序体验版上传及同构建复核。
+
+## 体验版上传与放行，2026-11-07至08
+
+- 用户明确授权上传并放行。起点b005b078与fresh origin/main一致，独占general-4，REUSE_ONLY/release Bootstrap八producer复用。最新已上传权威receipt及远端tag均为230@3367879，生产实时b005b078、原白名单verify通过。版本尚未分配，凭证存在且位于仓库外。
+- format/lint/build/typecheck/图标及Mini全量1384通过、23既有跳过。首轮Codex工具测试82通过/1断言失败，隔离文件16项和整组83项复测通过，未改工具代码或运行真实安装。后续根Vitest1451通过/1失败/494数据库环境跳过，唯一失败为旧隐私静态测试对另一工具的proxy_add_x_forwarded_for作全文件断言。
+- 该断言来自4f1047c8，fdfce1f1纳管现存独立工具路由后暴露范围错误。测试现明确排除aitool虚拟主机，仍要求排班主机存在、默认/排班四个隐私日志、remote_addr单代理转发、禁止追加来源和日志敏感字段。业务与网关运行配置逐字保留。原断言先红，修正后隐私5项及网关19项通过，ESLint/格式/diff通过，独立只读复评通过。
+- 校验修正检查点消息test(infra): scope privacy checks to Schedule gateway。推送后按相同应用哈希及生产备份规则同步检查点身份，再冻结上传候选，完成正式分配/构建/Manifest绑定/上传及只增放行。用户原有备份部署及本次放行授权继续适用。所有失败日志保存在ignored runtime中，不称单次verify全绿。

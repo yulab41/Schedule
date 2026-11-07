@@ -4,7 +4,7 @@
 
 - 成员群组个人偏好优先、未设时用群组默认，非成员用群组默认。应用6914bf68/证明70c06dcb、全Mini1384通过/23既有跳过、实库偏好3项通过。[记录](group-calendar-view-20261107.md)保存失败与完整证据。
 - 用户授权纳管既有/pregnancy/后，fdfce1f1正常推送并部署。先备份70c8e975…（58表/107414323B），大小/SHA通过；独立完整生产验证含公网IP通过，两个入口正常、pregnancy健康200，MySQL容器与schema72保留。网关/权限/发布包36项及静态门禁通过。
-- 收口消息docs(audit): close calendar preference production deployment。新独占general-4、REUSE_ONLY/八producer复用；新备份187e525f…大小/SHA通过。提交推送后以可信哈希复用同步最终发布身份并验证，本轮停止于同步通过；唯一下一任务为小程序体验版上传及同构建手机复核。
+- 服务器收口b005b078已同步。用户授权上传放行，独占general-4/REUSE_ONLY。Mini1384通过/23跳过，Codex83复测通过。根测试发现旧隐私全文件断言误含另一工具，范围修正后隐私/网关24项通过。检查点test(infra): scope privacy checks to Schedule gateway；唯一下一任务为完成根复测、身份同步、体验上传和只增放行后交付手机复核。
 
 ## 上一批次：共享网关与AI隔离（2026-11-06，服务端完成）
 

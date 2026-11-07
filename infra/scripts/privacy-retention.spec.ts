@@ -42,12 +42,17 @@ describe('production privacy retention controls', () => {
       read('infra/docker/nginx.prod.conf'),
     ]);
 
+    const scheduleGateway = nginx
+      .split('\nserver {')
+      .filter((server) => !server.includes('server_name aitool.eylinhome.top;'))
+      .join('\nserver {');
     expect(app).toContain('trustProxy: 1');
-    expect(nginx).toContain('log_format schedule_privacy');
-    expect(nginx.match(/access_log \/dev\/stdout schedule_privacy;/gu)).toHaveLength(4);
-    expect(nginx).toContain('proxy_set_header X-Forwarded-For $remote_addr;');
-    expect(nginx).not.toContain('$proxy_add_x_forwarded_for');
-    const logFormat = /log_format schedule_privacy([\s\S]*?);/u.exec(nginx)?.[1] ?? '';
+    expect(scheduleGateway).toContain('server_name hosp.schedule.eylinhome.top;');
+    expect(scheduleGateway).toContain('log_format schedule_privacy');
+    expect(scheduleGateway.match(/access_log \/dev\/stdout schedule_privacy;/gu)).toHaveLength(4);
+    expect(scheduleGateway).toContain('proxy_set_header X-Forwarded-For $remote_addr;');
+    expect(scheduleGateway).not.toContain('$proxy_add_x_forwarded_for');
+    const logFormat = /log_format schedule_privacy([\s\S]*?);/u.exec(scheduleGateway)?.[1] ?? '';
     expect(logFormat).not.toMatch(/\$remote_addr|\$request\b|\$args|\$query_string/u);
   });
 
