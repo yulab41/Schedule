@@ -76,3 +76,9 @@
 - format/lint/build/typecheck/图标及Mini全量1384通过、23既有跳过。首轮Codex工具测试82通过/1断言失败，隔离文件16项和整组83项复测通过，未改工具代码或运行真实安装。后续根Vitest1451通过/1失败/494数据库环境跳过，唯一失败为旧隐私静态测试对另一工具的proxy_add_x_forwarded_for作全文件断言。
 - 该断言来自4f1047c8，fdfce1f1纳管现存独立工具路由后暴露范围错误。测试现明确排除aitool虚拟主机，仍要求排班主机存在、默认/排班四个隐私日志、remote_addr单代理转发、禁止追加来源和日志敏感字段。业务与网关运行配置逐字保留。原断言先红，修正后隐私5项及网关19项通过，ESLint/格式/diff通过，独立只读复评通过。
 - 校验修正检查点消息test(infra): scope privacy checks to Schedule gateway。推送后按相同应用哈希及生产备份规则同步检查点身份，再冻结上传候选，完成正式分配/构建/Manifest绑定/上传及只增放行。用户原有备份部署及本次放行授权继续适用。所有失败日志保存在ignored runtime中，不称单次verify全绿。
+- 修正6c234fb9已正常推送。新备份15b48be1-c711-4385-9339-7483d59bfe51，58表、107421570 B，独立文件大小及SHA256 bd8f5a2a…通过。三个发布缓存全命中，可信hash-identical控制将b005b078身份同步为6c234fb9，应用哈希一致，前后完整验证通过。
+- 最终根Vitest1452通过、494数据库环境跳过，295文件通过/39跳过，249.72秒。Codex83复测通过，Mini1384通过/23既有跳过。production verify（含确定性/包体/编译）、上传干跑、lineage及核心路径判断通过。仍保留既有手排1513节点预算提示。
+- 正式独占锁从远端tag及不可变本地分配账本分配0.1.0-p10.20261108.231。clean完整SHA为6c234fb961356eeac573c5e98d14482eebaf4218，production，说明“群组切换视图偏好修复 6c234fb”。00:07构建、00:10正式Node上传成功，Manifest 67cad99f9e1fe13dc78d3eac3241c6cdf1e19897660100c1483596e0afe1c147。tag、receipt、Manifest及版本绑定候选检查器上传前后均核对通过，原分配和上传记录留在canonical ignored runtime。
+- 上传采用当次解析出的公网IPv4、进程内DNS绑定及TLS/nonce预检，SDK关闭代理，Git单独沿用代理和OpenSSL。生产主包1131436 B，总包3908013 B，四分包426383/855915/528472/965807 B。没有使用开发者工具或手机证据。
+- 可信ensure只追加231，121→122，原121版本逐个保留。启动前两次SSL/502健康探测后恢复，健康及策略通过。独立allowlist verify和完整生产verifier（含公网IP）通过，严格TLS探测231/230/229均200、动态未知426，另一工具pregnancy健康200。放行前后live均6c234fb9，MySQL容器身份相同，schema72。
+- 上传工作台测试页为成员个人视图优先、清空个人设置回退群组默认、关联访客群组月/周/列表及群组往返切换。本批工程交付完成，手机体验待小米14同构建231@6c234fb复核。收口消息docs(audit): deliver group preference trial 231，新租约八producer全复用，仅记录交付，不再部署应用、迁移或同步服务器release身份。
