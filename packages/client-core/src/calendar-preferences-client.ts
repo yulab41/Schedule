@@ -86,13 +86,25 @@ export const publicGuestCalendarDisplaySettingsEndpoint = /* @__PURE__ */ define
 });
 export interface GuestCalendarDisplaySettingsClient {
   get(groupId: string): Promise<GuestCalendarDisplaySettings>;
+  getWithView(groupId: string): Promise<PublicGuestCalendarDisplaySettings>;
   getPublic(groupId: string, visitorKey: string): Promise<PublicGuestCalendarDisplaySettings>;
 }
+const guestCalendarViewSettingsEndpoint = /* @__PURE__ */ defineClientEndpoint<
+  GroupInput,
+  PublicGuestCalendarDisplaySettings
+>({
+  auth: 'bearer',
+  decoder: publicGuestCalendarDisplaySettingsEndpoint.decoder,
+  id: 'calendar.guest-view-settings',
+  method: 'GET',
+  path: ({ groupId }) => `${groupPath(groupId)}/guest-calendar/display-settings?includeView=true`,
+});
 export function createGuestCalendarDisplaySettingsClient(
   transport: ClientTransport,
 ): GuestCalendarDisplaySettingsClient {
   return {
     get: (groupId) => transport.request(guestCalendarDisplaySettingsEndpoint, { groupId }),
+    getWithView: (groupId) => transport.request(guestCalendarViewSettingsEndpoint, { groupId }),
     getPublic: (groupId, visitorKey) =>
       transport.request(publicGuestCalendarDisplaySettingsEndpoint, { groupId, visitorKey }),
   };

@@ -1,12 +1,10 @@
 # 微信小程序审计状态
 
-## 当前批次：群组切换视图偏好（2026-11-07，已实现待运行复核）
+## 当前批次：群组切换偏好优先级（2026-11-07，已实现待运行复核）
 
-- 用户要求切组采用目标群组已设视图。独占general-4，基线4540736b，Acquire/ReuseOnly/mini Bootstrap全复用、安装0。修复读取effectiveView、上下文重置与手动选择保护，详见[轮次记录](audit/group-calendar-view-20261107.md)。
-- 三种视图回归先3红/31绿再34绿。复核补充同组错误恢复与真实前台请求，先红后绿；只读复评无剩余问题。类型/受影响ESLint/格式/图标/production verify通过，最终Mini全量1381通过/23既有跳过，production verify/包审计/core smoke及连续性3项通过。
-- 检查点消息为fix(miniprogram): apply calendar view preferences on group switch。范围仅Mini及文档，停止于验证、提交、推送。唯一下一任务为同构建体验版群组切换复核，手机验收仍待证据；访客接口无视图字段，进入访客采用月视图，切组偏好读取失败先显示月视图。
-
-
+- 成员群组个人偏好优先，未设时采用群组默认；非成员群组采用群组默认。基线1545acba，独占general-4，REUSE_ONLY/Bootstrap，安装0。[记录](audit/group-calendar-view-20261107.md)保存实现、基线失败与验证。
+- 客户端5、工作台37、真实MySQL访客1/成员偏好2通过；类型/lint/格式/API构建/production verify/包审计/图标/core smoke通过。首次全Mini1383通过/23跳过/1发布证明旧blob失败，另立证明检查点复测。
+- 应用检查点fix(calendar): honor group view defaults for linked guests。唯一下一任务为发布证明同步后完成交付；服务器备份部署等待本次授权，live未查，手机及体验版交付仍待后续同构建验证。
 
 ## 上一批次：共享网关与AI隔离（2026-11-06，服务端完成）
 

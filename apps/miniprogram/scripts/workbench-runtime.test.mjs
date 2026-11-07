@@ -453,7 +453,9 @@ describe('P6-A workbench runtime coordination', () => {
     async (status) => {
       const storage = createStorage();
       const pendingGuest = [];
-      const groups = [groupSummary(), { ...groupSummary(), id: 'guest-group', role: 'guest' }];
+      const pendingGuestSettings = [];
+      const guestGroupId = '00000000-0000-4000-8000-000000000002';
+      const groups = [groupSummary(), { ...groupSummary(), id: guestGroupId, role: 'guest' }];
       const request = vi.fn((options) => {
         if (options.url.endsWith('/groups'))
           return options.success({ statusCode: 200, data: groups });
@@ -461,7 +463,11 @@ describe('P6-A workbench runtime coordination', () => {
           pendingGuest.push(options);
           return;
         }
-        if (options.url.includes('/guest-group/calendar?'))
+        if (options.url.includes('/guest-calendar/display-settings')) {
+          pendingGuestSettings.push(options);
+          return;
+        }
+        if (options.url.includes(`/${guestGroupId}/calendar?`))
           return options.success({
             statusCode: 403,
             data: { error: { code: 'FORBIDDEN', message: 'guest', requestId: 'denied' } },
@@ -484,15 +490,16 @@ describe('P6-A workbench runtime coordination', () => {
       definition.onShow.call(instance);
       await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
       definition.handleGroupSelect.call(instance, {
-        currentTarget: { dataset: { groupId: 'guest-group' } },
+        currentTarget: { dataset: { groupId: guestGroupId } },
       });
       await vi.waitFor(() => expect(pendingGuest.length).toBe(1));
-      const guestReads = request.mock.calls.filter(([o]) => o.url.includes('guest-group'));
+      await vi.waitFor(() => expect(pendingGuestSettings.length).toBe(1));
+      const guestReads = request.mock.calls.filter(([o]) => o.url.includes(guestGroupId));
       expect(
         guestReads.every(
           ([o]) =>
             o.url.includes('/guest-calendar?') ||
-            o.url.endsWith('/guest-calendar/display-settings'),
+            o.url.endsWith('/guest-calendar/display-settings?includeView=true'),
         ),
       ).toBe(true);
       definition.handleGroupSelect.call(instance, {
@@ -505,7 +512,18 @@ describe('P6-A workbench runtime coordination', () => {
         statusCode: status,
         data:
           status === 200
-            ? { calendar: { ...calendar(activeMonth), groupId: 'guest-group' }, groupName: 'late' }
+            ? { calendar: { ...calendar(activeMonth), groupId: guestGroupId }, groupName: 'late' }
+            : { error: { code: 'FORBIDDEN', message: 'revoked', requestId: 'late' } },
+      });
+      pendingGuestSettings[0].success({
+        statusCode: status,
+        data:
+          status === 200
+            ? {
+                groupId: guestGroupId,
+                groupDefaultMonthShiftTypeId: null,
+                groupDefaultView: 'list',
+              }
             : { error: { code: 'FORBIDDEN', message: 'revoked', requestId: 'late' } },
       });
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -791,9 +809,14 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.isVisible).toBe(true);
   });
 
-  it.each(['month', 'week', 'list'])(
-    'applies the target group preference %s on each group switch',
-    async (targetView) => {
+  it.each(
+    ['month', 'week', 'list'].flatMap((targetView) => [
+      { targetView, guest: false },
+      { targetView, guest: true },
+    ]),
+  )(
+    'applies the target $targetView preference with guest=$guest on each group switch',
+    async ({ targetView, guest }) => {
       const firstId = '00000000-0000-4000-8000-000000000001';
       const secondId = '00000000-0000-4000-8000-000000000002';
       const otherView = targetView === 'month' ? 'list' : 'month';
@@ -804,7 +827,19 @@ describe('P6-A workbench runtime coordination', () => {
         if (options.url.endsWith('/groups'))
           return options.success({
             statusCode: 200,
-            data: [firstId, secondId].map((id) => ({ ...groupSummary(), id })),
+            data: [
+              { ...groupSummary(), id: firstId },
+              { ...groupSummary(), id: secondId, role: guest ? 'guest' : 'member' },
+            ],
+          });
+        if (options.url.includes('/guest-calendar/display-settings'))
+          return options.success({
+            statusCode: 200,
+            data: {
+              groupId: secondId,
+              groupDefaultMonthShiftTypeId: null,
+              groupDefaultView: targetView,
+            },
           });
         if (options.url.endsWith('/calendar-preferences')) {
           const groupId = options.url.includes(firstId) ? firstId : secondId;
@@ -816,10 +851,10 @@ describe('P6-A workbench runtime coordination', () => {
               effectiveMonthShiftTypeId: null,
               effectiveView: view,
               groupDefaultMonthShiftTypeId: null,
-              groupDefaultView: view,
+              groupDefaultView: groupId === firstId ? targetView : otherView,
               groupId,
               memberDefaultMonthShiftTypeId: null,
-              memberDefaultView: null,
+              memberDefaultView: view,
               membershipId: groupId,
             },
           });
@@ -827,7 +862,11 @@ describe('P6-A workbench runtime coordination', () => {
         const month = readBusinessMonth(options.url);
         return options.success({
           statusCode: 200,
-          data: month ? calendar(month) : holidayApiGoldenResponse,
+          data: month
+            ? options.url.includes('/guest-calendar?')
+              ? { calendar: { ...calendar(month), groupId: secondId }, groupName: '访客群' }
+              : calendar(month)
+            : holidayApiGoldenResponse,
         });
       });
       vi.stubGlobal('wx', createWx(createStorage(), request));
@@ -847,8 +886,11 @@ describe('P6-A workbench runtime coordination', () => {
         currentTarget: { dataset: { view: otherView } },
       });
       const preferenceReads = () =>
-        request.mock.calls.filter(([options]) => options.url.endsWith('/calendar-preferences'))
-          .length;
+        request.mock.calls.filter(
+          ([options]) =>
+            options.url.endsWith('/calendar-preferences') ||
+            options.url.includes('/guest-calendar/display-settings'),
+        ).length;
       const readsBeforeRefresh = preferenceReads();
       definition.onHide.call(instance);
       definition.onShow.call(instance);

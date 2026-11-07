@@ -2469,11 +2469,12 @@ async function loadCalendarPreferences(
     owner === getStoredWechatProfile()?.id;
   try {
     const preferences = guest
-      ? await guestDisplaySettingsClient.get(groupId)
+      ? await guestDisplaySettingsClient.getWithView(groupId)
       : await calendarPreferencesClient.get(groupId);
     if (!current()) return;
     page._groupMonthShiftTypeId = preferences.groupDefaultMonthShiftTypeId;
-    const view = 'effectiveView' in preferences ? preferences.effectiveView : undefined;
+    const view =
+      'effectiveView' in preferences ? preferences.effectiveView : preferences.groupDefaultView;
     if (
       !page._calendarViewInitialized &&
       (view === 'month' || view === 'week' || view === 'list')

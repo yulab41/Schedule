@@ -3500,6 +3500,8 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 
 ## 2026-11-07 GVIEW-01 群组视图偏好
 
+- 第二轮按用户明确规则补齐非成员群组视图。成员effectiveView个人优先；关联访客getWithView按需includeView=true，API权限事务内左连接读取groupDefaultView，旧两字段请求沿用原形状。7842c4da只提供班种、1545acba仅补成员视图，log -S/blame核对。
+- 客户端/API实库/访客视图先红后绿，客户端5、工作台37、真实MySQL访客1及成员偏好2通过。偏好旧测试清库遗漏avatar表（f723b0db）改用现有共享resetDatabase后通过。全Mini1383通过/23跳过/1旧发布证明失败，按runbook独立同步工作台blob后复测。详情见本轮报告。
 - e94a54ca 的偏好读取只应用默认班种，log -S/blame确认；群组切换沿用旧viewMode。按目标effectiveView初始化，沿用成员偏好优先的现有规则。
 - 3种视图先红后绿，34项通过；慢响应保留手动选择。只读复核发现共用错误清理会误重置手动视图，补同组400恢复测试先红再绿，视图重置限定账号/群组/角色变化。
 - 运行/浏览器验证：pnpm smoke:check-core通过，本轮仅Mini/文档，未涉及核心Web路径。Node构建与类型/lint/定向通过，最终全量结果见docs/audit/group-calendar-view-20261107.md。手机/开发者工具运行暂未验证。

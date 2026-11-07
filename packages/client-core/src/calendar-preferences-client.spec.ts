@@ -91,6 +91,25 @@ describe('calendar preferences client boundary', () => {
     expect(calendarPreferencesEndpoints.updateMine.method).toBe('PUT');
   });
 
+  it('opts into guest view settings while retaining the legacy response boundary', async () => {
+    const value = { groupId, groupDefaultMonthShiftTypeId: null, groupDefaultView: 'list' };
+    const request = vi.fn(async (endpoint, input) => {
+      expect(endpoint.auth).toBe('bearer');
+      expect(endpoint.path(input)).toBe(
+        `/groups/${groupId}/guest-calendar/display-settings?includeView=true`,
+      );
+      expect(endpoint.decoder.safeDecode(value)).toEqual({ success: true, data: value });
+      expect(endpoint.decoder.safeDecode({ ...value, groupDefaultView: 'invalid' }).success).toBe(
+        false,
+      );
+      return value;
+    });
+    const client = createGuestCalendarDisplaySettingsClient({ request } as ClientTransport);
+    expect(await client.getWithView(groupId)).toEqual(value);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(guestCalendarDisplaySettingsDecoder.safeDecode(value).success).toBe(false);
+  });
+
   it('matches the contract and rejects extras, malformed UUIDs, views, and nullable fields', () => {
     expect(calendarPreferencesSchema.safeParse(preferences).success).toBe(true);
     expect(calendarPreferencesDecoder.safeDecode(preferences)).toEqual({

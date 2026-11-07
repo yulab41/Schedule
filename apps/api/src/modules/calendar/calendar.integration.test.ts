@@ -127,14 +127,48 @@ describeWithDatabase('current month calendar read model', () => {
     const shiftId = allDayShiftTypeId;
     await client.database
       .update(groups)
-      .set({ defaultMonthShiftTypeId: shiftId })
+      .set({ defaultMonthShiftTypeId: shiftId, defaultCalendarView: 'list' })
       .where(eq(groups.id, groupId));
     const result = await read();
     expect(result.statusCode).toBe(200);
     expect(result.headers['cache-control']).toBe('no-store');
     expect(result.json()).toEqual({ groupId, groupDefaultMonthShiftTypeId: shiftId });
+    const readWithView = () =>
+      app.inject({
+        method: 'GET',
+        headers: { authorization: 'Bearer outsider-token' },
+        url: `/groups/${groupId}/guest-calendar/display-settings?includeView=true`,
+      });
+    expect((await readWithView()).json()).toEqual({
+      groupId,
+      groupDefaultMonthShiftTypeId: shiftId,
+      groupDefaultView: 'list',
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          headers: { authorization: 'Bearer outsider-token' },
+          url: `/groups/${groupId}/guest-calendar/display-settings?includeView=false`,
+        })
+      ).json(),
+    ).toEqual({ groupId, groupDefaultMonthShiftTypeId: shiftId });
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          headers: { authorization: 'Bearer outsider-token' },
+          url: `/groups/${groupId}/guest-calendar/display-settings?includeView=invalid`,
+        })
+      ).statusCode,
+    ).toBe(400);
     await client.database.execute(sql`UPDATE shift_types SET is_enabled=0 WHERE id=${shiftId}`);
     expect((await read()).json()).toEqual({ groupId, groupDefaultMonthShiftTypeId: null });
+    expect((await readWithView()).json()).toEqual({
+      groupId,
+      groupDefaultMonthShiftTypeId: null,
+      groupDefaultView: 'list',
+    });
     const [foreignShift] = await client.database
       .select({ id: shiftTypes.id })
       .from(shiftTypes)
@@ -147,6 +181,7 @@ describeWithDatabase('current month calendar read model', () => {
     expect((await read()).json()).toEqual({ groupId, groupDefaultMonthShiftTypeId: null });
     await client.database.execute(sql`UPDATE group_visitor_links SET is_enabled=0`);
     expect((await read()).statusCode).toBe(403);
+    expect((await readWithView()).statusCode).toBe(403);
     expect(
       (
         await app.inject({

@@ -31,6 +31,9 @@ const guestCalendarQuerySchema = z
 const guestDisplaySettingsQuerySchema = z
   .object({ visitorKey: z.string().regex(/^[0-9a-f]{32}$/i) })
   .strict();
+const linkedGuestDisplaySettingsQuerySchema = z
+  .object({ includeView: z.enum(['true', 'false']).optional() })
+  .strict();
 
 const shiftEventQuerySchema = z
   .object({
@@ -103,6 +106,7 @@ export function registerCalendarRoutes(
       calendarQuery.readGuestDisplaySettings(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
+        parseOrThrow(linkedGuestDisplaySettingsQuerySchema, request.query).includeView === 'true',
       ),
   );
 

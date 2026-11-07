@@ -8,8 +8,7 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { insertDirectMembership } from '@schedule/test-fixtures';
-import { sql } from 'drizzle-orm';
+import { insertDirectMembership, resetDatabase } from '@schedule/test-fixtures';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -82,6 +81,17 @@ describeWithDatabase('calendar preferences', () => {
       effectiveView: 'list',
       groupDefaultView: 'week',
       memberDefaultView: 'list',
+    });
+
+    const resetPreference = await updateMine('member-token', groupId, {
+      defaultMonthShiftTypeId: null,
+      defaultView: null,
+    });
+    expect(resetPreference.statusCode).toBe(200);
+    expect((await getPreferences('member-token', groupId)).json()).toMatchObject({
+      effectiveView: 'week',
+      groupDefaultView: 'week',
+      memberDefaultView: null,
     });
 
     expect(
@@ -206,72 +216,4 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
     port,
     user: process.env.TEST_MYSQL_USER,
   };
-}
-
-async function resetDatabase(client: DatabaseClient): Promise<void> {
-  await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-  const tables = [
-    'directory_search_aliases',
-    'directory_contact_methods',
-    'directory_entries',
-    'directory_source_documents',
-    'directory_import_batches',
-    'directory_campuses',
-    'invite_tokens',
-    'miniprogram_telemetry_events',
-    'visitor_access_monthly_aggregates',
-    'visitor_access_logs',
-    'backup_archives',
-    'platform_job_runs',
-    'manual_schedule_cells',
-    'manual_schedule_template_members',
-    'manual_schedule_templates',
-    'duty_adjustments',
-    'workflow_sequence_allocations',
-    'notification_deliveries',
-    'notifications',
-    'notification_preferences',
-    'notification_settings',
-    'web_push_subscriptions',
-    'notification_batches',
-    'holiday_dates',
-    'holiday_calendar_versions',
-    'statistics_recalc_checks',
-    'statistics_snapshots',
-    'export_jobs',
-    'shift_assignments',
-    'schedule_periods',
-    'audit_logs',
-    'schedule_events',
-    'rotation_members',
-    'rotation_rules',
-    'shift_types',
-    'member_schedule_roles',
-    'schedule_roles',
-    'group_join_requests',
-    'guest_schedule_access_attempts',
-    'membership_claim_requests',
-    'group_code_attempts',
-    'group_member_contacts',
-    'leave_requests',
-    'swap_requests',
-    'group_visitor_links',
-    'group_memberships',
-    'roster_entries',
-    'idempotency_keys',
-    'groups',
-    'wechat_link_tokens',
-    'wechat_admin_binding_tickets',
-    'wechat_identity_detachments',
-    'wechat_union_accounts',
-    'user_password_credentials',
-    'user_auth_identities',
-    'user_profiles',
-    'users',
-    '__drizzle_migrations',
-  ] as const;
-  for (const table of tables) {
-    await client.database.execute(sql.raw(`DROP TABLE IF EXISTS \`${table}\``));
-  }
-  await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
 }

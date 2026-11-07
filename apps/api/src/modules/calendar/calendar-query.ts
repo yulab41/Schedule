@@ -194,13 +194,14 @@ export class CalendarQuery {
   public async readGuestDisplaySettings(
     identity: AuthenticatedIdentity,
     groupId: string,
-  ): Promise<GuestCalendarDisplaySettings> {
+    includeView = false,
+  ): Promise<GuestCalendarDisplaySettings | PublicGuestCalendarDisplaySettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await this.permissionService.requireGuestCalendarAccess(transaction, identity, groupId);
       const [row] = await transaction
-        .select({ id: shiftTypes.id })
+        .select({ defaultView: groups.defaultCalendarView, id: shiftTypes.id })
         .from(groups)
-        .innerJoin(
+        .leftJoin(
           shiftTypes,
           and(
             eq(shiftTypes.id, groups.defaultMonthShiftTypeId),
@@ -211,7 +212,11 @@ export class CalendarQuery {
         )
         .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
         .limit(1);
-      return { groupId, groupDefaultMonthShiftTypeId: row?.id ?? null };
+      return {
+        groupId,
+        groupDefaultMonthShiftTypeId: row?.id ?? null,
+        ...(includeView ? { groupDefaultView: row?.defaultView ?? 'month' } : {}),
+      };
     });
   }
 
