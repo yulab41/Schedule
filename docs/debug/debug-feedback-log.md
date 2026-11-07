@@ -3498,6 +3498,12 @@ CAL-06–09完成确认（2026-10-01）：`.227@45863f7`交付后用户回复“
 - 生产只读：09b79ff1/schema72，160排班请求26个>1s、最大5531.917ms；API/MySQL有换出页，短采样无swap增量，不能认定资源根因。未重启/改配置/部署；工具登录过期，原生/小米14暂未验证。
 - 运行/浏览器验证：pnpm smoke:check-core通过，未涉及要求smoke:browser的核心路径。详见docs/audit/calendar-cold-start-20261105.md。
 
+## 2026-11-07 GVIEW-01 群组视图偏好
+
+- e94a54ca 的偏好读取只应用默认班种，log -S/blame确认；群组切换沿用旧viewMode。按目标effectiveView初始化，沿用成员偏好优先的现有规则。
+- 3种视图先红后绿，34项通过；慢响应保留手动选择。只读复核发现共用错误清理会误重置手动视图，补同组400恢复测试先红再绿，视图重置限定账号/群组/角色变化。
+- 运行/浏览器验证：pnpm smoke:check-core通过，本轮仅Mini/文档，未涉及核心Web路径。Node构建与类型/lint/定向通过，最终全量结果见docs/audit/group-calendar-view-20261107.md。手机/开发者工具运行暂未验证。
+
 ## 2026-11-06 RELEASE-PERMISSIONS-001 发布物跨账户可写
 
 - 机制来源07c60456普通root解包、18b5fe1f平铺ZStd解包，log -S与blame核实。本轮归档及实机证实0666/0777，实际AI UID/GID账户可写网关和目录，凭据及Docker socket拒绝，首次暴露时间未追溯。

@@ -278,6 +278,7 @@ interface WorkbenchPageInstance {
   _weekLayoutSignature: string;
   _weekLayoutHeight: number;
   _calendarPreferenceSerial: number;
+  _calendarViewInitialized: boolean;
   _groupMonthShiftTypeId: string | null | undefined;
   _dutyTimer: ReturnType<typeof setTimeout> | undefined;
   _businessDate: string;
@@ -518,6 +519,7 @@ Page({
   _businessDateTimer: undefined,
   _groupMonthShiftTypeId: undefined,
   _calendarPreferenceSerial: 0,
+  _calendarViewInitialized: false,
   _weekLayoutSignature: '',
   _weekLayoutHeight: 112,
   _dutyTimer: undefined,
@@ -552,7 +554,7 @@ Page({
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
-    if (this.requestOwnerId !== getStoredWechatProfile()?.id) resetCalendarContext(this);
+    if (this.requestOwnerId !== getStoredWechatProfile()?.id) resetCalendarContext(this, true);
     this.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
     refreshView(this);
     syncBusinessDate(this);
@@ -621,7 +623,7 @@ Page({
     if (selectedGroup === undefined) return;
     const activeWorkspace = selectedGroup.role === 'guest' ? 'calendar' : this.data.activeWorkspace;
     this.requestSerial += 1;
-    resetCalendarContext(this);
+    resetCalendarContext(this, true);
     stopNotificationPolling(this);
     writeStoredWorkbenchGroupId(ownerId, groupId);
     this.calendar = undefined;
@@ -682,6 +684,7 @@ Page({
   handleViewChange(this: WorkbenchPageInstance, event: TapEvent): void {
     const view = event.currentTarget.dataset.view;
     if (view !== 'month' && view !== 'week' && view !== 'list') return;
+    this._calendarViewInitialized = true;
     const nextView = view as WorkbenchView;
     if (nextView === this.data.viewMode) return;
     this.setData({ shiftCardExpansion: reconcileShiftCardExpansion(undefined, [], []) });
@@ -1438,7 +1441,7 @@ async function loadWorkbench(
     return;
   }
   const ownerId = getStoredWechatProfile()?.id;
-  if (page.requestOwnerId !== ownerId) resetCalendarContext(page);
+  if (page.requestOwnerId !== ownerId) resetCalendarContext(page, true);
   page.requestOwnerId = ownerId;
   const hasLoadedData = page.calendar !== undefined && page.holidays !== undefined;
   page.setData({
@@ -1476,7 +1479,7 @@ async function loadWorkbench(
     }
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
-      resetCalendarContext(page);
+      resetCalendarContext(page, true);
       page.notificationRequestSerial += 1;
       invalidateShiftEventRequest(page);
       page.setData({
@@ -1508,7 +1511,7 @@ async function loadWorkbench(
     if (selectedGroup.role === 'guest') clearWorkbenchCalendarCache(ownerId, selectedGroup.id);
     const toolAccess = createWorkbenchToolAccess(selectedGroup, getClientCapabilitySnapshot());
     if (groupChanged) {
-      resetCalendarContext(page);
+      resetCalendarContext(page, true);
       page.notificationRequestSerial += 1;
       invalidateShiftEventRequest(page);
       page.setData({
@@ -2470,6 +2473,24 @@ async function loadCalendarPreferences(
       : await calendarPreferencesClient.get(groupId);
     if (!current()) return;
     page._groupMonthShiftTypeId = preferences.groupDefaultMonthShiftTypeId;
+    const view = 'effectiveView' in preferences ? preferences.effectiveView : undefined;
+    if (
+      !page._calendarViewInitialized &&
+      (view === 'month' || view === 'week' || view === 'list')
+    ) {
+      page._calendarViewInitialized = true;
+      const period = {
+        businessMonth: page.data.businessMonth,
+        selectedDate: page.data.selectedDate,
+        weekStart: getWeekStartDate(page.data.selectedDate),
+      };
+      setCalendarData(page, {
+        ...createViewPatch(page, period, false, view),
+        viewMode: view,
+        weekStart: period.weekStart,
+      });
+      return;
+    }
     refreshView(page);
   } catch (error) {
     if (current() && guest && getErrorStatus(error) === 403) {
@@ -3212,12 +3233,13 @@ function calendarContext(page: WorkbenchPageInstance): string {
   ]);
 }
 
-function resetCalendarContext(page: WorkbenchPageInstance): void {
+function resetCalendarContext(page: WorkbenchPageInstance, resetView = false): void {
   stopDeferredListRendering(page);
   stopCalendarStream(page);
   page._weekLayoutSignature = '';
   page._weekHeightCache?.clear();
   page._groupMonthShiftTypeId = undefined;
+  if (resetView) page._calendarViewInitialized = false;
   page._calendarPreferenceSerial += 1;
   stopDutyRefresh(page);
   page.calendar = undefined;
@@ -3239,6 +3261,7 @@ function resetCalendarContext(page: WorkbenchPageInstance): void {
   invalidateShiftEventRequest(page);
   page.setData({
     state: 'loading',
+    ...(resetView ? { viewMode: 'month' as const } : {}),
     errorMessage: '',
     offlineNotice: '',
     announcement: '',

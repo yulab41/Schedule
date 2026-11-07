@@ -1,7 +1,14 @@
 # 微信小程序审计状态
 
+## 当前批次：群组切换视图偏好（2026-11-07，已实现待运行复核）
 
-## 当前批次：共享网关与AI隔离（2026-11-06，服务端完成）
+- 用户要求切组采用目标群组已设视图。独占general-4，基线4540736b，Acquire/ReuseOnly/mini Bootstrap全复用、安装0。修复读取effectiveView、上下文重置与手动选择保护，详见[轮次记录](audit/group-calendar-view-20261107.md)。
+- 三种视图回归先3红/31绿再34绿。复核补充同组错误恢复与真实前台请求，先红后绿；只读复评无剩余问题。类型/受影响ESLint/格式/图标/production verify通过，最终Mini全量1381通过/23既有跳过，production verify/包审计/core smoke及连续性3项通过。
+- 检查点消息为fix(miniprogram): apply calendar view preferences on group switch。范围仅Mini及文档，停止于验证、提交、推送。唯一下一任务为同构建体验版群组切换复核，手机验收仍待证据；访客接口无视图字段，进入访客采用月视图，切组偏好读取失败先显示月视图。
+
+
+
+## 上一批次：共享网关与AI隔离（2026-11-06，服务端完成）
 
 - 用户授权保留AI并持续完成隔离、备份部署及生产验证。[记录](shared-gateway-isolation-20261105.md)包含设计、过程失败、复测及备份。全程独占warm、REUSE_ONLY、无安装。
 - 桥接b44ac08a、隔离2cb92de9、权限bb3c884f均已推送/部署。权限发布备份60501b5b…（58表/107298511B）及密文SHA实读通过，即时前驱2cb，schema72/MySQL容器不变，原121版本全保留，230/229/228为200、未知426。

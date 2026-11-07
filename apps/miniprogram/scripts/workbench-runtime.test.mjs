@@ -791,6 +791,89 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.isVisible).toBe(true);
   });
 
+  it.each(['month', 'week', 'list'])(
+    'applies the target group preference %s on each group switch',
+    async (targetView) => {
+      const firstId = '00000000-0000-4000-8000-000000000001';
+      const secondId = '00000000-0000-4000-8000-000000000002';
+      const otherView = targetView === 'month' ? 'list' : 'month';
+      let rejectGroups = false;
+      const request = vi.fn((options) => {
+        if (rejectGroups && options.url.endsWith('/groups'))
+          return options.success({ statusCode: 400, data: { code: 'BAD_REQUEST' } });
+        if (options.url.endsWith('/groups'))
+          return options.success({
+            statusCode: 200,
+            data: [firstId, secondId].map((id) => ({ ...groupSummary(), id })),
+          });
+        if (options.url.endsWith('/calendar-preferences')) {
+          const groupId = options.url.includes(firstId) ? firstId : secondId;
+          const view = groupId === firstId ? otherView : targetView;
+          return options.success({
+            statusCode: 200,
+            data: {
+              canManageGroupDefaults: false,
+              effectiveMonthShiftTypeId: null,
+              effectiveView: view,
+              groupDefaultMonthShiftTypeId: null,
+              groupDefaultView: view,
+              groupId,
+              memberDefaultMonthShiftTypeId: null,
+              memberDefaultView: null,
+              membershipId: groupId,
+            },
+          });
+        }
+        const month = readBusinessMonth(options.url);
+        return options.success({
+          statusCode: 200,
+          data: month ? calendar(month) : holidayApiGoldenResponse,
+        });
+      });
+      vi.stubGlobal('wx', createWx(createStorage(), request));
+      await import('../src/pages/workbench/index.ts');
+      await enableTestClientCapabilities();
+      const instance = createPageInstance(definition);
+      definition.onLoad.call(instance);
+      definition.onShow.call(instance);
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      await vi.waitFor(() => expect(instance.data.viewMode).toBe(otherView));
+      definition.handleGroupSelect.call(instance, {
+        currentTarget: { dataset: { groupId: secondId } },
+      });
+      await vi.waitFor(() => expect(instance.data.viewMode).toBe(targetView));
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      definition.handleViewChange.call(instance, {
+        currentTarget: { dataset: { view: otherView } },
+      });
+      const preferenceReads = () =>
+        request.mock.calls.filter(([options]) => options.url.endsWith('/calendar-preferences'))
+          .length;
+      const readsBeforeRefresh = preferenceReads();
+      definition.onHide.call(instance);
+      definition.onShow.call(instance);
+      await vi.waitFor(() => expect(preferenceReads()).toBeGreaterThan(readsBeforeRefresh));
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      expect(instance.data.viewMode).toBe(otherView);
+      rejectGroups = true;
+      definition.onHide.call(instance);
+      definition.onShow.call(instance);
+      await vi.waitFor(() => expect(instance.data.state).toBe('error'));
+      expect(instance.data.viewMode).toBe(otherView);
+      rejectGroups = false;
+      definition.onHide.call(instance);
+      definition.onShow.call(instance);
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      expect(instance.data.viewMode).toBe(otherView);
+      definition.handleGroupSelect.call(instance, {
+        currentTarget: { dataset: { groupId: firstId } },
+      });
+      await vi.waitFor(() => expect(instance.data.currentGroupId).toBe(firstId));
+      await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+      expect(instance.data.viewMode).toBe(otherView);
+    },
+  );
+
   it.each(['switch', 'hide'])(
     'scopes a slow group preference independently of calendar navigation (%s)',
     async (action) => {
@@ -879,6 +962,7 @@ describe('P6-A workbench runtime coordination', () => {
       definition.handleViewChange.call(instance, { currentTarget: { dataset: { view: 'week' } } });
       preferencesRequest.success({ statusCode: 200, data: response });
       await vi.waitFor(() => expect(instance._groupMonthShiftTypeId).toBe(officeId));
+      expect(instance.data.viewMode).toBe('week');
       // Only the visible branch keeps its panels patched; switching to the month
       // view rebuilds them from the same view model the preference feeds.
       definition.handleViewChange.call(instance, { currentTarget: { dataset: { view: 'month' } } });

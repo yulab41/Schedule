@@ -1,6 +1,13 @@
 # Project Status
 
-## 当前批次：共享网关与AI隔离（2026-11-06，已完成）
+## 当前批次：群组切换视图偏好（2026-11-07，已实现待运行复核）
+
+- 用户要求切组采用目标群组已设视图。独占general-4，基线4540736b，Acquire/ReuseOnly/mini Bootstrap全复用、安装0。修复读取effectiveView、上下文重置与手动选择保护，详见[轮次记录](audit/group-calendar-view-20261107.md)。
+- 三种视图回归先3红/31绿再34绿。复核补充同组错误恢复与真实前台请求，先红后绿；只读复评无剩余问题。类型/受影响ESLint/格式/图标/production verify通过，最终Mini全量1381通过/23既有跳过，production verify/包审计/core smoke及连续性3项通过。
+- 检查点消息为fix(miniprogram): apply calendar view preferences on group switch。范围仅Mini及文档，停止于验证、提交、推送。唯一下一任务为同构建体验版群组切换复核，手机验收仍待证据；访客接口无视图字段，进入访客采用月视图，切组偏好读取失败先显示月视图。
+
+
+## 上一批次：共享网关与AI隔离（2026-11-06，已完成）
 
 - 用户授权的网关纳管、AI资源/私网/账户边界已完成。桥接b44ac08a、隔离2cb92de9、权限bb3c884f已推送并部署，schema72/MySQL及121版本保留。[记录](audit/shared-gateway-isolation-20261105.md)。
 - AI半核/384MiB内存/64MiB交换及连接32/来源16生效；健康负载15/15成功最大80ms。新增制品权限及安全恢复，AI实机账户不可写网关/目录、不可读凭据/使用Docker。102项及完整生产复检通过。
@@ -155,11 +162,3 @@
 - 既有失败（非本轮引入）：`task10` 的 `calendar.integration.test.ts > excludes drafts and replaced revisions` 在基线 `git stash` 后同样 409 失败，本轮未修改该测试。
 - 2026-09-29 用户授权 L4/L3：应用检查点 `5f25d946` 已部署生产（回滚候选 `c59975c4…`、备份 `49236b11-b57e-4994-bca2-5a7b7ce2edec`：56 表/139,505,928 B、schema 69、独立 verifier 通过、公网健康 `ready:true`）；体验版 `0.1.0-p10.20260929.217`（manifest `8a432f75…`）已上传并按可信控制只增放行，验证通过。未提审、未正式发布。
 - 唯一下一任务：小米 14 退出重进同构建体验版 `.217@5f25d946` 复核六项修复（5/1 请假不再提示 4/29 冲突、周期天数弹层、管理员弹窗无胶囊、5 个微信提醒开关、事件页中文标识、我的页胶囊对齐）；取得同构建真机证据前不写验收通过。
-
-## 上一已交付检查点
-
-- 换班、请假限制与统计口径统一整改：应用 `c59975c4` 已生产部署（schema68、备份 `d18366a6-582a-4002-bcf8-caa6791477a4`）、体验版 `.216@c59975c4` 已上传并只增放行；小米 14 同构建复核仍待用户证据。详见 [轮次记录](audit/leave-statistics-20260929.md)。
-- 外部值班校对：生产 release `bc59dfbf`（前驱 `9715e88f`/`06d420a1`/`193ae653`）与体验版 `.215@1eb92e5` 已交付并由用户授权 add-only 放行，schema67/68 已迁移；本轮把它合并进 main 以消除主线与线上分叉。其交付记录见 [UI 轮次](audit/external-duty-ui-20260928.md)、[发布基线设计](superpowers/specs/2026-09-28-external-duty-published-baseline-design.md) 和调试日志 `EXTERNAL-DUTY-PREVIEW-001`；小米14同构建仍待用户复核。
-- 通知最近30天：应用 `8bb3c6e4` / 体验版 `.212` 已在上一轮部署、上传和追加放行；文档检查点 `45bf7bec`。本轮未重新验证线上身份，不能用历史记录代替实时回滚基线。见 [通知轮次](audit/notifications-retention-30days-20260928.md)。
-- 历史工作流最近30天 `.211`、联系方式 `.210`、历史显示 `.209`、日历 `.208` 等已交付记录位于 `docs/audit/` 和 Git 历史。所有缺少同构建手机证据的项目继续保持“待用户复核”；不重复历史生产操作。
-- 长期事实来源：`docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`、对应 design、`docs/agent-context/pitfall-index.json`、`docs/audit/AUDIT_MASTER_PLAN.md`。本轮是用户批准的工作流/统计整改，不进入无关后续功能。
