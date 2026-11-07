@@ -4,7 +4,7 @@
 
 - 成员群组个人偏好优先，未设时采用群组默认；非成员群组采用群组默认。基线1545acba，独占general-4，REUSE_ONLY/Bootstrap，安装0。[记录](audit/group-calendar-view-20261107.md)保存实现、基线失败与验证。
 - 客户端5、工作台37、真实MySQL访客1/成员偏好2通过；类型/lint/格式/API构建/production verify/包审计/图标/core smoke通过。首次发布证明旧blob失败已修复；最终全Mini1384通过/23既有跳过，血缘17通过。
-- 应用6914bf68；证明检查点chore(release): refresh group preference source proof。唯一下一任务为获本次授权后备份部署配套API；live未查，体验版待上传，手机待同构建复核。
+- 应用6914bf68/证明70c06dcb已推送。用户本次授权备份部署；实时live4540736b，但生产nginx多出未纳管的/pregnancy/路由，完整预检失败。70c06dcb包已备妥，备份/部署尚未执行。唯一下一任务为获准保留并纳管该路由后重新预检、备份部署；记录检查点docs(audit): record gateway drift blocking calendar deployment。
 
 ## 上一批次：共享网关与AI隔离（2026-11-06，已完成）
 

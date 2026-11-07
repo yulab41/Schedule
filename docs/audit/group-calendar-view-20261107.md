@@ -46,3 +46,13 @@
 - 检查点消息为fix(calendar): honor group view defaults for linked guests；生产备份与服务器部署已提出本次授权请求，批准前LIVE_RELEASE_VERIFIED=false。体验版尚未上传，手机证据待后续同构建复核。
 - 应用提交6914bf68。按现有runbook另立chore(release): refresh group preference source proof，记录e573f842工作台blob及两轮明确行为变更，图标/动作证据经只读复评通过。门禁与保护文件范围沿用原规则。
 - 最终全Mini1384通过、23既有跳过，197文件通过/4文件跳过，163.68秒；血缘定向17通过。Web类型检查、连续性3项及测试发现政策3项通过。此前清库与旧证明失败均保留在本记录，最后复测通过。本轮停止于提交推送，唯一下一任务为获本次授权后备份部署配套API，之后同构建体验版验证。
+
+## 生产部署预检，2026-11-07
+
+- 用户已明确授权先备份生产数据库、再部署更新。L4检查通过，独占general-4，Acquire/ReuseOnly/release Bootstrap仅增量重建client-core，工作区依赖安装0。成功fetch确认origin/main为70c06dcb，Schannel首次TLS失败后使用已记录的单进程OpenSSL路线成功。
+- 正式路由经双独立DNS、可信主机密钥及HTTPS证书/健康检查验证。预检实时live为4540736baba42ee324e06d2a9a0f3f80fc410554，作为本轮回退候选；manifest及current-release一致，保留归档存在且两个归档SHA256通过，MySQL容器运行约六周且健康。
+- 8项定向、全量format:check、git diff --check及候选安全检查通过，冻结70c06dcb。pnpm ecs:package完成API/Web及共享生产构建；构建/归档/API平铺缓存均未命中，正式打包器从现有本地缓存物化131个运行依赖、下载0。未调用依赖安装命令。
+- 完整生产预检在nginx配置哈希检查失败。只读比较确认唯一差异为aitool站点新增`location ^~ /pregnancy/`，转发既有原生服务，设置70m请求体上限、透传设备认证、关闭请求缓冲及300秒读取超时。该12行现存配置尚未纳入仓库和live manifest。
+- 当前域名健康ready=true，现有网站在运行。按生产门禁，发现配置不一致后停止外部变更，尚未执行数据库备份、上传发布物、updater或release身份同步。准备好的70c06dcb发布包留在ignored warm槽位runtime，未用于覆盖现场。
+- 已向用户请求授权，将该现有路由纳入发布配置并保留访问后继续原备份部署。唯一下一任务为取得该范围授权、完成最小纳管及验证，再重新发现实时live作为回退前驱、先备份后部署。未经重新预检不得继续使用本轮旧观察作为永久默认。
+- 记录检查点消息docs(audit): record gateway drift blocking calendar deployment。仅文档记录已完成预检事实，部署因配置漂移受阻，收口记录不触发服务器发布身份同步。候选租约已正式释放，报告使用新独占租约复用八个producer。
