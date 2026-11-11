@@ -21,7 +21,12 @@ const undo = z
   .object({ actionId: z.string().uuid(), expectedFingerprint: z.string().regex(/^[0-9a-f]{64}$/u) })
   .strict();
 const direction = mutation.extend({ direction: z.enum(['to_external', 'to_local']) }).strict();
-const resolve = direction.extend({ planFingerprint: z.string().regex(/^[0-9a-f]{64}$/u) }).strict();
+const resolve = direction
+  .extend({
+    planFingerprint: z.string().regex(/^[0-9a-f]{64}$/u),
+    initiatedById: z.string().uuid().optional(),
+  })
+  .strict();
 
 export function registerExternalDutyRoutes(
   app: FastifyInstance,
@@ -33,9 +38,13 @@ export function registerExternalDutyRoutes(
   app.post('/platform/external-duty/resolve-preview', { preHandler: app.authenticate }, (request) =>
     service.previewDirection(identity(request), parse(direction, request.body)),
   );
-  app.post('/platform/external-duty/resolve-apply', { preHandler: app.authenticate }, (request) =>
-    service.applyDirection(identity(request), parse(resolve, request.body)),
-  );
+  app.post('/platform/external-duty/resolve-apply', { preHandler: app.authenticate }, (request) => {
+    const { initiatedById, ...input } = parse(resolve, request.body);
+    return service.applyDirection(identity(request), {
+      ...input,
+      ...(initiatedById === undefined ? {} : { initiatedById }),
+    });
+  });
   app.get('/platform/external-duty/status', { preHandler: app.authenticate }, (request) =>
     service.status(identity(request)),
   );

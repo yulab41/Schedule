@@ -7,6 +7,14 @@ function source(relativePath) {
 }
 
 describe('browser smoke calendar filter gate', () => {
+  it('checks in-month backfill weekend colors rather than intentionally faded adjacent dates', () => {
+    const smoke = source('./smoke-browser.mjs');
+    const start = smoke.indexOf('async function assertBackfillCalendarColors');
+    const backfill = smoke.slice(start, smoke.indexOf('\nasync function', start + 1));
+    expect(backfill).toContain(
+      '.month-grid.invert-past-colors .day-cell.is-weekend:not(.is-outside-month) .day-number',
+    );
+  });
   it('accepts the explicit empty-month state instead of waiting for conditional selects', () => {
     const smoke = source('./smoke-browser.mjs');
     const calendarView = source('../apps/web/src/views/calendar/CalendarView.vue');

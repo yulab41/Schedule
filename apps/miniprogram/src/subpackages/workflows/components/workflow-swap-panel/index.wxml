@@ -377,6 +377,19 @@
           ><text>{{adminErrorMessage}}</text></view
         >
         <view class="field-block"
+          ><text class="field-label">发起人</text>
+          <workflow-picker
+            mode="selector"
+            title="选择发起人"
+            options="{{adminInitiatedByOptions}}"
+            selected-index="{{adminInitiatedByIndex}}"
+            display-value="{{adminInitiatedByIndex >= 0 ? adminInitiatedByOptions[adminInitiatedByIndex].label : ''}}"
+            placeholder="选择发起人"
+            disabled="{{adminBusy}}"
+            bindchange="handleAdminInitiatedByChange"
+          ></workflow-picker>
+        </view>
+        <view class="field-block"
           ><text class="field-label">成员一月份</text
           ><workflow-picker
             mode="month"

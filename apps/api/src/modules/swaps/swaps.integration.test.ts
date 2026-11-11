@@ -15,6 +15,8 @@ import {
   shiftAssignments,
   shiftTypes,
   groups,
+  users,
+  rosterEntries,
   externalDutyChecks,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -27,6 +29,8 @@ import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { SwapService } from './swap-service.js';
+import { resolveSwapInitiator } from './swap-initiator.js';
+import { GroupPermissionService } from '../groups/permission-service.js';
 import { ExternalDutyService } from '../external-duty/external-duty-service.js';
 import type { ExternalDutySource } from '../external-duty/external-duty-source.js';
 import {
@@ -69,6 +73,7 @@ describeWithDatabase('member shift swaps', () => {
 
   afterEach(async () => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     if (app !== undefined) {
       await app.close();
     }
@@ -77,6 +82,293 @@ describeWithDatabase('member shift swaps', () => {
       await client.close();
     }
   });
+
+  it('lets admins choose the actual initiator while preserving operator and swap participants', async () => {
+    const context = await seedPublishedSchedule();
+    const optionsResponse = await app.inject({
+      method: 'GET',
+      url: `/groups/${context.groupId}/swaps/initiators`,
+      headers: { authorization: 'Bearer owner-token' },
+    });
+    expect(optionsResponse.statusCode).toBe(200);
+    const options = optionsResponse.json() as {
+      id: string;
+      realName: string;
+      isCurrentUser: boolean;
+    }[];
+    const chosen = options.find((row) => row.realName === 'C Doctor')!;
+    const operator = options.find((row) => row.isCurrentUser)!;
+    expect(chosen).toBeDefined();
+    const input = {
+      initiatedById: chosen.id,
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.bSep2.id,
+      operationId: randomUUID(),
+    };
+    const result = await directSwap('owner-token', context.groupId, input);
+    expect(result.statusCode).toBe(201);
+    expect(result.json()).toMatchObject({
+      initiatorMemberName: 'A Doctor',
+      targetMemberName: 'B Doctor',
+    });
+    const [events] = await client.database.execute(
+      sql`SELECT event_type AS eventType, initiated_by_user_id AS initiatedBy, operator_user_id AS operatorId, after_data AS afterData FROM schedule_events WHERE object_id = ${result.json().id}`,
+    );
+    const rows = events as unknown as {
+      eventType: string;
+      initiatedBy: string | null;
+      operatorId: string;
+      afterData: { initiatorMemberName?: string };
+    }[];
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    for (const row of rows)
+      expect(row).toMatchObject({
+        initiatedBy: null,
+        operatorId: operator.id,
+        afterData: expect.objectContaining({ initiatedByUserId: chosen.id }),
+      });
+    const eventResponse = await app.inject({
+      method: 'GET',
+      url: `/groups/${context.groupId}/events`,
+      headers: { authorization: 'Bearer owner-token' },
+    });
+    expect(eventResponse.statusCode).toBe(200);
+    const exposedEvents = (
+      eventResponse.json().events as {
+        objectId?: string;
+        initiatedByUserId?: string;
+        operatorUserId?: string;
+      }[]
+    ).filter((event) => event.objectId === result.json().id);
+    expect(exposedEvents.length).toBe(rows.length);
+    for (const event of exposedEvents)
+      expect(event).toMatchObject({ initiatedByUserId: chosen.id, operatorUserId: operator.id });
+    expect(rows.find((row) => row.eventType === 'swap_completed')?.afterData).toMatchObject({
+      initiatorMemberName: 'C Doctor',
+    });
+    expect((await directSwap('owner-token', context.groupId, input)).json().id).toBe(
+      result.json().id,
+    );
+    expect(
+      (await directSwap('owner-token', context.groupId, { ...input, initiatedById: operator.id }))
+        .statusCode,
+    ).toBe(409);
+  });
+
+  it('restricts initiator choices to admins and rejects unavailable identities before writing', async () => {
+    const context = await seedPublishedSchedule();
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/groups/${context.groupId}/swaps/initiators`,
+          headers: { authorization: 'Bearer a-token' },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const body = {
+      initiatedById: randomUUID(),
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.bSep2.id,
+      operationId: randomUUID(),
+    };
+    expect((await directSwap('owner-token', context.groupId, body)).statusCode).toBe(400);
+    expect((await directSwap('a-token', context.groupId, body)).statusCode).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/groups/${context.groupId}/swaps`,
+          headers: { authorization: 'Bearer a-token' },
+          payload: { ...body, targetMembershipId: context.membershipIds.b },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
+
+  it('includes unclaimed roster personnel and preserves their name without inventing an account', async () => {
+    const context = await seedPublishedSchedule();
+    await client.database
+      .insert(rosterEntries)
+      .values({ id: randomUUID(), groupId: context.groupId, realName: 'Unclaimed Doctor' });
+    const options = (
+      await app.inject({
+        method: 'GET',
+        url: `/groups/${context.groupId}/swaps/initiators`,
+        headers: { authorization: 'Bearer owner-token' },
+      })
+    ).json() as { id: string; realName: string }[];
+    const selected = options.find((row) => row.realName === 'Unclaimed Doctor')!;
+    expect(selected).toBeDefined();
+    const result = await directSwap('owner-token', context.groupId, {
+      initiatedById: selected.id,
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.bSep2.id,
+      operationId: randomUUID(),
+    });
+    expect(result.statusCode).toBe(201);
+    const [events] = await client.database.execute(
+      sql`SELECT initiated_by_user_id AS initiatedBy, operator_user_id AS operatorId, after_data AS afterData FROM schedule_events WHERE object_id = ${result.json().id} AND event_type = 'swap_completed'`,
+    );
+    expect(events).toEqual([
+      expect.objectContaining({
+        initiatedBy: null,
+        operatorId: expect.any(String),
+        afterData: expect.objectContaining({
+          initiatorMemberName: 'Unclaimed Doctor',
+          initiatedById: selected.id,
+        }),
+      }),
+    ]);
+  });
+
+  it('includes active platform admins but excludes unrelated and suspended accounts', async () => {
+    const context = await seedPublishedSchedule();
+    const read = async () =>
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/groups/${context.groupId}/swaps/initiators`,
+          headers: { authorization: 'Bearer owner-token' },
+        })
+      ).json() as { id: string; realName: string }[];
+    expect(await read()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ realName: 'Outside Doctor' })]),
+    );
+    const cUserId = (await read()).find((row) => row.realName === 'C Doctor')!.id;
+    await client.database
+      .update(users)
+      .set({ isDeveloperAdmin: 1 })
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    expect(await read()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ realName: 'Outside Doctor' })]),
+    );
+    await client.database.update(users).set({ status: 'suspended' }).where(eq(users.id, cUserId));
+    expect(await read()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ realName: 'C Doctor' })]),
+    );
+    const [pending] = await client.database
+      .select({ id: rosterEntries.id })
+      .from(rosterEntries)
+      .where(
+        and(eq(rosterEntries.groupId, context.groupId), eq(rosterEntries.realName, 'C Doctor')),
+      );
+    expect(
+      (
+        await directSwap('owner-token', context.groupId, {
+          initiatedById: pending!.id,
+          initiatorAssignmentId: context.assignments.aSep1.id,
+          targetAssignmentId: context.assignments.bSep2.id,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(400);
+    await client.database
+      .update(users)
+      .set({ status: 'suspended' })
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    expect(await read()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ realName: 'Outside Doctor' })]),
+    );
+  });
+
+  it('includes configured platform administrators without a group membership', async () => {
+    const context = await seedPublishedSchedule();
+    const service = new SwapService(client, new Set(['cloudbase-outsider']));
+    const identity = { cloudbaseUid: 'cloudbase-owner' };
+    const options = await service.listInitiators(identity, context.groupId);
+    const selected = options.find((row) => row.realName === 'Outside Doctor')!;
+    expect(selected).toBeDefined();
+    await expect(
+      service.createDirect(identity, context.groupId, {
+        initiatedById: selected.id,
+        initiatorAssignmentId: context.assignments.aSep1.id,
+        targetAssignmentId: context.assignments.bSep2.id,
+        operationId: randomUUID(),
+      }),
+    ).resolves.toMatchObject({ status: 'completed' });
+  });
+
+  it('keeps a valid submission snapshot while excluding a subsequently suspended person from new submissions', async () => {
+    const context = await seedPublishedSchedule();
+    const options = (
+      await app.inject({
+        method: 'GET',
+        url: `/groups/${context.groupId}/swaps/initiators`,
+        headers: { authorization: 'Bearer owner-token' },
+      })
+    ).json() as { id: string; realName: string; isCurrentUser: boolean }[];
+    const selected = options.find((row) => row.realName === 'C Doctor')!;
+    const current = options.find((row) => row.isCurrentUser)!;
+    const otherClient = createTestDatabaseClient(databaseOptions!);
+    try {
+      await withTransaction(client, async (transaction) => {
+        const snapshot = await resolveSwapInitiator(
+          transaction,
+          context.groupId,
+          current,
+          selected.id,
+        );
+        await otherClient.database
+          .update(users)
+          .set({ status: 'suspended' })
+          .where(eq(users.id, selected.id));
+        expect(snapshot).toMatchObject({ userId: selected.id, realName: 'C Doctor' });
+      });
+      await expect(
+        withTransaction(client, (transaction) =>
+          resolveSwapInitiator(transaction, context.groupId, current, selected.id),
+        ),
+      ).rejects.toMatchObject({ statusCode: 400 });
+    } finally {
+      await otherClient.close();
+    }
+  });
+
+  it('records a third-party initiator without waiting on their unrelated authorization transaction', async () => {
+    const context = await seedPublishedSchedule();
+    await insertDirectMembership(client, {
+      groupId: context.groupId,
+      realName: 'Outside Doctor',
+      role: 'administrator',
+    });
+    const [selected] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    const competingClient = createTestDatabaseClient(databaseOptions!);
+    await client.database.execute(sql`SET SESSION innodb_lock_wait_timeout = 1`);
+    try {
+      await withTransaction(competingClient, async (transaction) => {
+        await transaction
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, selected!.id))
+          .for('update');
+        await expect(
+          new SwapService(client).createDirect(
+            { cloudbaseUid: 'cloudbase-owner' },
+            context.groupId,
+            {
+              initiatedById: selected!.id,
+              initiatorAssignmentId: context.assignments.aSep1.id,
+              targetAssignmentId: context.assignments.bSep2.id,
+              operationId: randomUUID(),
+            },
+          ),
+        ).resolves.toMatchObject({ status: 'completed' });
+        await new GroupPermissionService().requirePermission(
+          transaction,
+          { cloudbaseUid: 'cloudbase-outsider' },
+          context.groupId,
+          'manageSwaps',
+        );
+      });
+    } finally {
+      await client.database.execute(sql`SET SESSION innodb_lock_wait_timeout = DEFAULT`);
+      await competingClient.close();
+    }
+  }, 15000);
 
   it('reconciles repeated webpage swaps and rejects overlapping confirmations from either card', async () => {
     const context = await seedPublishedSchedule();
@@ -1983,6 +2275,7 @@ describeWithDatabase('member shift swaps', () => {
     token: string,
     groupId: string,
     body: {
+      readonly initiatedById?: string;
       readonly initiatorAssignmentId: string;
       readonly operationId: string;
       readonly targetAssignmentId: string;

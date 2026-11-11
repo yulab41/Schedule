@@ -23,6 +23,10 @@ let page;
 const tap = (date, direction = 'to_local') => ({ currentTarget: { dataset: { date, direction } } });
 const directionPreview = {
   kind: 'swap',
+  initiators: [
+    { id: 'admin', realName: '管理员', isCurrentUser: true },
+    { id: 'other', realName: '丙医生', isCurrentUser: false },
+  ],
   planFingerprint: 'p'.repeat(64),
   conflicts: [],
   changes: rows.map((row) => ({
@@ -68,6 +72,16 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('external duty reviewed interactions', () => {
+  it('defaults to the operator and submits the selected actual swap initiator', async () => {
+    await page.previewDirection(tap(dates[0]));
+    expect(page.data.confirmation.initiatedById).toBe('admin');
+    page.selectInitiator({ detail: { value: '1' } });
+    await page.confirmAction();
+    expect(request).toHaveBeenCalledWith(
+      '/resolve-apply',
+      expect.objectContaining({ initiatedById: 'other' }),
+    );
+  });
   it('honors the WeChat font setting and reserves space for the system capsule', () => {
     page.onLoad();
     expect(page.data.largeText).toBe(true);

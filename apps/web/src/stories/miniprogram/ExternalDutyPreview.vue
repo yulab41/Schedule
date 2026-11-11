@@ -19,6 +19,7 @@ const dialog = ref(['preview', 'restore', 'conflict'].includes(props.state));
 const restoring = ref(props.state === 'restore');
 const outbound = ref(false);
 const selectedDate = ref('');
+const initiatedBy = ref('周主任');
 const rows = [
   {
     date: props.comparison === 'both' ? '2026-10-22' : '2026-10-12',
@@ -197,6 +198,15 @@ function openDirection(toWeb: boolean, date: string) {
                     ? '以本系统当前值班人为准，仅同步所选日期。确认时会再次检查双方排班。'
                     : '以网页为准，按以下顺序处理所有关联日期，每步重新校验。中途失败时请查看操作记录并重新检测；实际排班一致后才会移出列表。'
               }}</span>
+              <label v-if="!restoring && !outbound" class="duty-initiator-golden"
+                >发起人
+                <select v-model="initiatedBy" aria-label="发起人">
+                  <option>周主任</option>
+                  <option>甲医生</option>
+                  <option>乙医生</option>
+                  <option>丙医生</option>
+                </select>
+              </label>
               <div class="duty-changes">
                 <div
                   v-for="row in restoring
@@ -241,6 +251,26 @@ function openDirection(toWeb: boolean, date: string) {
     </div>
   </main>
 </template>
+
+<style scoped>
+.duty-initiator-golden {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  color: #16202a;
+  font-size: 14px;
+}
+.duty-initiator-golden select {
+  min-height: 44px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+</style>
 
 <style>
 .golden-duty {

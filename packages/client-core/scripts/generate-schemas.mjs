@@ -82,6 +82,7 @@ import {
   passwordIdentityAssignmentResponseSchema,
   swapPreviewSchema,
   swapRequestListSchema,
+  swapInitiatorOptionListSchema,
   swapRequestSchema,
   visitorAccessAggregatePageSchema,
   visitorKeyChangedResponseSchema,
@@ -370,6 +371,10 @@ const source = await format(
       swapPreview: sanitizeJsonSchema(z.toJSONSchema(swapPreviewSchema), 'swapPreview'),
       swapRequest: sanitizeJsonSchema(z.toJSONSchema(swapRequestSchema), 'swapRequest'),
       swapRequestList: sanitizeJsonSchema(z.toJSONSchema(swapRequestListSchema), 'swapRequestList'),
+      swapInitiatorOptionList: sanitizeJsonSchema(
+        z.toJSONSchema(swapInitiatorOptionListSchema),
+        'swapInitiatorOptionList',
+      ),
       visitorKeyChangedResponse: sanitizeJsonSchema(
         z.toJSONSchema(visitorKeyChangedResponseSchema),
         'visitorKeyChangedResponse',

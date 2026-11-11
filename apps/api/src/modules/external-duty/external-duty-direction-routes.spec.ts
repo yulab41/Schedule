@@ -28,6 +28,32 @@ function fixture() {
   return { app, service };
 }
 describe('external duty direction request boundary', () => {
+  it('accepts a selected initiator only on apply, never as a forged preview parameter', async () => {
+    const { app, service } = fixture();
+    const payload = {
+      ...input,
+      planFingerprint: 'b'.repeat(64),
+      initiatedById: '55555555-5555-4555-8555-555555555551',
+    };
+    const response = await app.inject({
+      method: 'POST',
+      url: '/platform/external-duty/resolve-apply',
+      headers: { authorization: 'Bearer valid' },
+      payload,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(service.applyDirection).toHaveBeenCalledWith(expect.anything(), payload);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/platform/external-duty/resolve-preview',
+          headers: { authorization: 'Bearer valid' },
+          payload: { ...input, initiatedById: payload.initiatedById },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
   it('requires authentication on both manual routes', async () => {
     const { app, service } = fixture();
     for (const path of ['resolve-preview', 'resolve-apply']) {

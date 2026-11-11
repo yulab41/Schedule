@@ -79,10 +79,22 @@ export interface CreateSwapRequestInput extends SwapPairInput {
 }
 
 export interface CreateDirectSwapInput {
+  readonly initiatedById?: string;
   readonly initiatorAssignmentId: string;
   readonly operationId: string;
   readonly targetAssignmentId: string;
 }
+
+export const swapInitiatorOptionListSchema = z.array(
+  z
+    .object({
+      id: z.string().min(1),
+      realName: z.string().min(1),
+      isCurrentUser: z.boolean(),
+    })
+    .strict(),
+);
+export type SwapInitiatorOption = z.infer<typeof swapInitiatorOptionListSchema>[number];
 
 export const swapRequestSchema = z
   .object({

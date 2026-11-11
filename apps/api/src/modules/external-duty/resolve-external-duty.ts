@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { SwapInitiatorOption } from '@schedule/contracts';
 import {
   externalDutyActions,
   externalDutyChecks,
@@ -30,6 +31,10 @@ interface LocalDuty {
   readonly baselineName: string | null;
 }
 interface ResolvePorts {
+  readonly initiators: (
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ) => Promise<readonly SwapInitiatorOption[]>;
   readonly authorize: (identity: AuthenticatedIdentity) => Promise<string>;
   readonly readLocal: (group: string, date: string) => Promise<readonly LocalDuty[]>;
   readonly readRemote: () => Promise<ExternalDutySnapshot>;
@@ -46,6 +51,7 @@ export class ExternalDutyResolver {
   public constructor(
     private readonly client: DatabaseClient,
     private readonly ports: ResolvePorts,
+    private readonly platformAdminUids?: ReadonlySet<string>,
   ) {}
 
   private async prepare(identity: AuthenticatedIdentity, input: ResolveDutyInput) {
@@ -166,12 +172,16 @@ export class ExternalDutyResolver {
       const first = plan.swaps[0]!;
       const a = plan.items.find((item) => item.row.businessDate === first.date)!;
       const b = plan.items.find((item) => item.row.businessDate === first.targetDate)!;
-      const preview = await new SwapService(this.client).preview(identity, a.row.groupId, {
-        initiatorAssignmentId: a.local.id,
-        initiatorMembershipId: a.local.membershipId!,
-        targetAssignmentId: b.local.id,
-        targetMembershipId: b.local.membershipId!,
-      });
+      const preview = await new SwapService(this.client, this.platformAdminUids).preview(
+        identity,
+        a.row.groupId,
+        {
+          initiatorAssignmentId: a.local.id,
+          initiatorMembershipId: a.local.membershipId!,
+          targetAssignmentId: b.local.id,
+          targetMembershipId: b.local.membershipId!,
+        },
+      );
       conflicts.push(...preview.conflicts);
     } else if (plan.kind === 'duty') {
       for (const item of plan.items) {
@@ -188,6 +198,9 @@ export class ExternalDutyResolver {
     }
     return {
       kind: plan.kind,
+      ...(plan.kind === 'swap'
+        ? { initiators: await this.ports.initiators(identity, plan.items[0]!.row.groupId) }
+        : {}),
       planFingerprint: plan.planFingerprint,
       conflicts,
       changes: plan.items.map(({ row }) => ({
@@ -206,10 +219,24 @@ export class ExternalDutyResolver {
 
   public async apply(
     identity: AuthenticatedIdentity,
-    input: ResolveDutyInput & { readonly planFingerprint: string },
+    input: ResolveDutyInput & { readonly planFingerprint: string; readonly initiatedById?: string },
   ) {
     const plan = await this.prepare(identity, input);
     if (plan.planFingerprint !== input.planFingerprint) throw stale('同步方案已变化，请重新预览');
+    if (input.initiatedById !== undefined) {
+      if (
+        plan.kind !== 'swap' ||
+        !(await this.ports.initiators(identity, plan.items[0]!.row.groupId)).some(
+          (option) => option.id === input.initiatedById,
+        )
+      ) {
+        throw new ApiError({
+          code: 'VALIDATION_FAILED',
+          statusCode: 400,
+          userMessage: '所选发起人已失效或不在可选范围，请重新选择。',
+        });
+      }
+    }
     if (plan.kind === 'external')
       return this.ports.push(identity, input.date, input.expectedFingerprint);
     // Claim every related date atomically. Requests from different cards then
@@ -265,7 +292,11 @@ export class ExternalDutyResolver {
           )
             throw stale('方案执行期间排班或人员已变化，请重新校对');
         }
-        const operationId = operationUuid([plan.planFingerprint, index]);
+        const operationId = operationUuid(
+          input.initiatedById === undefined
+            ? [plan.planFingerprint, index]
+            : [plan.planFingerprint, index, input.initiatedById],
+        );
         const before = a.local.name;
         const after = b ? b.local.name : a.row.remoteName;
         const expected = [a, ...(b ? [b] : [])].map((item) => ({
@@ -274,7 +305,7 @@ export class ExternalDutyResolver {
         }));
         let workflow;
         if (b) {
-          const swap = new SwapService(this.client);
+          const swap = new SwapService(this.client, this.platformAdminUids);
           const preview = await swap.preview(identity, a.row.groupId, {
             initiatorAssignmentId: a.local.id,
             initiatorMembershipId: a.local.membershipId!,
@@ -290,6 +321,7 @@ export class ExternalDutyResolver {
               initiatorAssignmentId: a.local.id,
               targetAssignmentId: b.local.id,
               operationId,
+              ...(input.initiatedById === undefined ? {} : { initiatedById: input.initiatedById }),
             },
             expected,
           );

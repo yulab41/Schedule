@@ -4,8 +4,16 @@ import {
   type ExternalDutyAction,
   type ExternalDutyDirectionPreview,
 } from '../../../../platform/external-duty-client.js';
+import {
+  measureSelectorPlacementBoundary,
+  type SelectorPlacementBoundary,
+} from '../../../../components/ui/selector-boundary.js';
 
 interface Confirmation {
+  readonly initiators?: ExternalDutyDirectionPreview['initiators'];
+  readonly initiatorOptions?: readonly { readonly label: string; readonly value: string }[];
+  readonly initiatedById?: string;
+  readonly initiatedByIndex?: number;
   readonly title: string;
   readonly description: string;
   readonly confirmLabel: string;
@@ -16,6 +24,7 @@ interface Confirmation {
   readonly conflicts: readonly string[];
 }
 interface PageData {
+  readonly pickerBoundary: SelectorPlacementBoundary | null;
   readonly rows: readonly ExternalDutyCheck[];
   readonly historyRows: readonly (ExternalDutyAction & { statusLabel: string })[];
   readonly showHistory: boolean;
@@ -48,6 +57,7 @@ type TapEvent = {
 
 Page({
   data: {
+    pickerBoundary: null,
     rows: [],
     historyRows: [],
     showHistory: false,
@@ -183,6 +193,19 @@ Page({
       );
       patch(this, {
         confirmation: {
+          ...(preview.kind === 'swap' && preview.initiators
+            ? {
+                initiators: preview.initiators,
+                initiatorOptions: preview.initiators.map((item) => ({
+                  label: item.realName,
+                  value: item.id,
+                })),
+                initiatedByIndex: preview.initiators.findIndex((item) => item.isCurrentUser),
+                ...(preview.initiators.some((item) => item.isCurrentUser)
+                  ? { initiatedById: preview.initiators.find((item) => item.isCurrentUser)!.id }
+                  : {}),
+              }
+            : {}),
           title:
             preview.kind === 'external'
               ? '同步到网页预览'
@@ -210,12 +233,39 @@ Page({
   closeConfirmation(this: DutyPageInstance): void {
     if (!this.data.busy) this.setData({ confirmation: null });
   },
+  handlePickerRequestOpen(this: DutyPageInstance): void {
+    measureSelectorPlacementBoundary(
+      this,
+      '.duty-confirm-scroll',
+      'pickerBoundary',
+      () => !this._unloaded && this.data.confirmation !== null,
+    );
+  },
+  selectInitiator(this: DutyPageInstance, event: { detail: { value: string } }): void {
+    const confirmation = this.data.confirmation;
+    if (this.data.busy || !confirmation?.initiators) return;
+    const option = confirmation.initiators[Number(event.detail.value)];
+    if (option)
+      this.setData({
+        confirmation: {
+          ...confirmation,
+          initiatedById: option.id,
+          initiatedByIndex: Number(event.detail.value),
+        },
+      });
+  },
   async confirmAction(this: DutyPageInstance): Promise<void> {
     const confirmation = this.data.confirmation;
     if (this.data.busy || !confirmation || confirmation.conflicts.length) return;
+    if (confirmation.initiators && !confirmation.initiatedById) return;
     patch(this, { busy: true, error: '', info: '' });
     try {
-      await externalDutyRequest(confirmation.endpoint, confirmation.input);
+      await externalDutyRequest(confirmation.endpoint, {
+        ...confirmation.input,
+        ...(confirmation.initiatedById === undefined
+          ? {}
+          : { initiatedById: confirmation.initiatedById }),
+      });
       patch(this, { confirmation: null });
       await this.load();
       patch(this, { info: '操作已提交，请以最新校对结果和操作记录为准。' });

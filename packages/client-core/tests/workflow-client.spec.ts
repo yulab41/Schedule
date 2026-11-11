@@ -19,7 +19,21 @@ const operationId = '33333333-3333-4333-8333-333333333333';
 
 describe('workflow client', () => {
   it('describes every read, preview, setting, and dangerous write endpoint', () => {
-    expect(Object.keys(workflowEndpoints)).toHaveLength(36);
+    expect(Object.keys(workflowEndpoints)).toHaveLength(37);
+    expect(workflowEndpoints.swapInitiators).toMatchObject({ auth: 'bearer', method: 'GET' });
+    expect(workflowEndpoints.swapInitiators.path({ groupId })).toBe(
+      `/groups/${groupId}/swaps/initiators`,
+    );
+    expect(
+      workflowEndpoints.swapInitiators.decoder.safeDecode([
+        { id: objectId, realName: '管理员', isCurrentUser: true },
+      ]).success,
+    ).toBe(true);
+    expect(
+      workflowEndpoints.swapInitiators.decoder.safeDecode([
+        { id: objectId, realName: '管理员', isCurrentUser: 'yes' },
+      ]).success,
+    ).toBe(false);
     expect(workflowEndpoints.leaveMine.path({ groupId })).toBe(`/groups/${groupId}/leave-requests`);
     expect(
       workflowEndpoints.swapPreview.path({
@@ -84,6 +98,7 @@ describe('workflow client', () => {
         {
           groupId,
           request: {
+            initiatedById: objectId,
             initiatorAssignmentId: objectId,
             operationId,
             targetAssignmentId: objectId,
@@ -133,6 +148,7 @@ describe('workflow client', () => {
   it('preserves endpoint receivers and request counts through one shared service', async () => {
     const responses = new Map<string, unknown>([
       ['workflow.leave-mine', []],
+      ['workflow.swap-initiators', [{ id: objectId, realName: '管理员', isCurrentUser: true }]],
       ['workflow.swap-preview', { nextStatus: 'pending_target' }],
       ['workflow.duty-create', { id: objectId }],
     ]);
@@ -140,6 +156,9 @@ describe('workflow client', () => {
       request: vi.fn((endpoint) => Promise.resolve(responses.get(endpoint.id) as never)),
     };
     const client = createWorkflowClient(transport);
+    await expect(client.listSwapInitiators(groupId)).resolves.toBe(
+      responses.get('workflow.swap-initiators'),
+    );
 
     await expect(client.listMyLeaveRequests(groupId)).resolves.toBe(
       responses.get('workflow.leave-mine'),
@@ -158,7 +177,7 @@ describe('workflow client', () => {
         overtimeMembershipId: objectId,
       }),
     ).resolves.toBe(responses.get('workflow.duty-create'));
-    expect(transport.request).toHaveBeenCalledTimes(3);
+    expect(transport.request).toHaveBeenCalledTimes(4);
   });
 
   it('fails closed on malformed workflow states', () => {

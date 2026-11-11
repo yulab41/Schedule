@@ -50,6 +50,8 @@ import {
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
 import { workflowListCondition } from '../workflows/workflow-list-visibility.js';
+import { parsePlatformAdminUids } from '../platform-admin/platform-admin.js';
+import { readSwapInitiators, resolveSwapInitiator, type SwapInitiator } from './swap-initiator.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -78,7 +80,10 @@ interface SwapContext {
 export class SwapService {
   private readonly services: WorkflowServices;
 
-  public constructor(private readonly databaseClient: DatabaseClient) {
+  public constructor(
+    private readonly databaseClient: DatabaseClient,
+    private readonly platformAdminUids: ReadonlySet<string> = parsePlatformAdminUids(process.env),
+  ) {
     this.services = new WorkflowServices(databaseClient);
   }
 
@@ -319,6 +324,7 @@ export class SwapService {
       permissionService: this.services.permissionService,
       requestFingerprint: createDirectSwapFingerprint({
         groupId,
+        ...(input.initiatedById === undefined ? {} : { initiatedById: input.initiatedById }),
         initiatorAssignmentId: input.initiatorAssignmentId,
         targetAssignmentId: input.targetAssignmentId,
       }),
@@ -327,6 +333,25 @@ export class SwapService {
         return this.runDirectCreation(transaction, authorization, input);
       },
       scope: 'swap_request_direct_create',
+    });
+  }
+
+  public async listInitiators(identity: AuthenticatedIdentity, groupId: string) {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.services.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageSwaps',
+      );
+      return (
+        await readSwapInitiators(
+          transaction,
+          groupId,
+          authorization.user.id,
+          this.platformAdminUids,
+        )
+      ).map(({ id, realName, isCurrentUser }) => ({ id, realName, isCurrentUser }));
     });
   }
 
@@ -958,6 +983,13 @@ export class SwapService {
     authorization: GroupAuthorization,
     input: CreateDirectSwapInput,
   ): Promise<SwapRequest> {
+    const initiatedBy = await resolveSwapInitiator(
+      transaction,
+      authorization.group.id,
+      authorization.user,
+      input.initiatedById,
+      this.platformAdminUids,
+    );
     const context = await this.loadDirectSwapContext(
       transaction,
       authorization.group,
@@ -987,6 +1019,9 @@ export class SwapService {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
+        initiatedById: initiatedBy.id,
+        initiatedByName: initiatedBy.realName,
+        ...(initiatedBy.userId === undefined ? {} : { initiatedByUserId: initiatedBy.userId }),
         initiatorAssignmentId: context.initiatorAssignment.id,
         initiatorMemberName: context.initiatorMember.realName,
         status: 'completed',
@@ -995,7 +1030,9 @@ export class SwapService {
       eventStatus: 'completed',
       eventType: 'swap_request_created',
       groupId: authorization.group.id,
-      initiatedByUserId: authorization.user.id,
+      ...(initiatedBy.userId === authorization.user.id
+        ? { initiatedByUserId: authorization.user.id }
+        : {}),
       objectId: swapRequestId,
       objectType: 'swap_request',
       operationId: input.operationId,
@@ -1021,6 +1058,7 @@ export class SwapService {
       input.operationId,
       createdEventId,
       authorization.user.id,
+      initiatedBy,
     );
 
     await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
@@ -1379,6 +1417,7 @@ export class SwapService {
     operationId: string,
     parentEventId: string,
     approverUserId: string | null,
+    initiatedBy?: SwapInitiator,
   ): Promise<void> {
     const decidedAt = new Date();
     const beforeInitiator = toEventAssignmentData(
@@ -1439,7 +1478,9 @@ export class SwapService {
             context.targetMember.id,
             context.targetMember.realName,
           ),
-          initiatorMemberName: actorMemberName,
+          initiatorMemberName: initiatedBy?.realName ?? actorMemberName,
+          ...(initiatedBy === undefined ? {} : { initiatedById: initiatedBy.id }),
+          ...(initiatedBy?.userId === undefined ? {} : { initiatedByUserId: initiatedBy.userId }),
           targetAssignmentId: context.targetAssignment.id,
           targetAssignment: toEventAssignmentData(
             context.targetAssignment,
@@ -1450,14 +1491,18 @@ export class SwapService {
         beforeData: toLatestData({
           initiatorAssignmentId: context.initiatorAssignment.id,
           initiatorAssignment: beforeInitiator,
-          initiatorMemberName: actorMemberName,
+          initiatorMemberName: initiatedBy?.realName ?? actorMemberName,
+          ...(initiatedBy === undefined ? {} : { initiatedById: initiatedBy.id }),
+          ...(initiatedBy?.userId === undefined ? {} : { initiatedByUserId: initiatedBy.userId }),
           targetAssignmentId: context.targetAssignment.id,
           targetAssignment: beforeTarget,
         }),
         eventStatus: 'completed',
         eventType: 'swap_completed',
         groupId: context.group.id,
-        initiatedByUserId: actorUserId,
+        ...(initiatedBy === undefined || initiatedBy.userId === actorUserId
+          ? { initiatedByUserId: actorUserId }
+          : {}),
         objectId: swapRequestId,
         objectType: 'swap_request',
         operationId,
@@ -2134,6 +2179,7 @@ function createSwapPairFingerprint(input: {
 }
 
 function createDirectSwapFingerprint(input: {
+  readonly initiatedById?: string;
   readonly groupId: string;
   readonly initiatorAssignmentId: string;
   readonly targetAssignmentId: string;

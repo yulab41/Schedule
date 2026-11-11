@@ -385,3 +385,11 @@
     padding: 10px 6px;
   }
 }
+.duty-initiator {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  font-size: 14px;
+  color: #16202a;
+}

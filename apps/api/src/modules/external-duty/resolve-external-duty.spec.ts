@@ -41,7 +41,7 @@ function fixture(target = ['乙', '甲']) {
     for: async () => [],
   };
   const update = vi.fn(() => ({ set: () => ({ where: async () => [{ affectedRows: 1 }] }) }));
-  const audit = vi.fn(async () => undefined);
+  const audit = vi.fn<(input: unknown) => Promise<void>>(async () => undefined);
   const database = {
     select: () => query,
     update,
@@ -49,6 +49,10 @@ function fixture(target = ['乙', '甲']) {
     transaction: async (run: (tx: unknown) => unknown) => run(database),
   };
   const ports = {
+    initiators: vi.fn(async () => [
+      { id: 'actor', realName: '管理员', isCurrentUser: true },
+      { id: 'other', realName: '丙', isCurrentUser: false },
+    ]),
     authorize: vi.fn(async () => 'actor'),
     readLocal: vi.fn(async (_group: string, date: string) => [{ ...locals[dates.indexOf(date)]! }]),
     readRemote: vi.fn(async () => ({ duties, people: names })),
@@ -98,6 +102,34 @@ describe('explicit external duty direction', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it('offers all eligible initiators only for swaps and forwards the selected person to every step', async () => {
+    const f = fixture(['乙', '丙', '甲']);
+    const preview = await f.resolver.preview(identity, f.input);
+    expect(preview.initiators).toEqual(await f.ports.initiators());
+    await f.resolver.apply(identity, {
+      ...f.input,
+      planFingerprint: preview.planFingerprint,
+      initiatedById: 'other',
+    });
+    expect(f.swap).toHaveBeenCalledTimes(2);
+    for (const call of f.swap.mock.calls) expect(call[2]).toMatchObject({ initiatedById: 'other' });
+    for (const call of f.audit.mock.calls) expect(call[0]).toMatchObject({ actorUserId: 'actor' });
+  });
+
+  it('rejects an unavailable selected initiator before claiming dates or performing any swap', async () => {
+    const f = fixture();
+    const preview = await f.resolver.preview(identity, f.input);
+    await expect(
+      f.resolver.apply(identity, {
+        ...f.input,
+        planFingerprint: preview.planFingerprint,
+        initiatedById: 'outside',
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(f.update).not.toHaveBeenCalled();
+    expect(f.swap).not.toHaveBeenCalled();
   });
 
   it('previews the complete repeated swap without writing', async () => {

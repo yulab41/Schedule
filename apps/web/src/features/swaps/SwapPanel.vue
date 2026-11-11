@@ -7,6 +7,7 @@ import type {
   MemberSwapSettings,
   SwapPreview,
   SwapRequest,
+  SwapInitiatorOption,
 } from '@schedule/contracts';
 import {
   resolveWorkflowOperationAttempt,
@@ -42,6 +43,11 @@ const props = defineProps<{
 }>();
 
 const api = createApiClient({ auth: localAuth });
+const initiatorOptions = ref<SwapInitiatorOption[]>([]);
+const initiatedById = ref('');
+const initiatedByOptions = computed(() =>
+  initiatorOptions.value.map((item) => ({ label: item.realName, value: item.id })),
+);
 const myAssignmentMonth = ref(getCurrentBusinessMonth());
 const targetAssignmentMonth = ref(getCurrentBusinessMonth());
 const adminInitiatorMonth = ref(getCurrentBusinessMonth());
@@ -96,7 +102,12 @@ function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
   return resolved.snapshot;
 }
 
-const canApprove = computed(() => props.group.role !== 'member');
+const canApprove = computed(
+  () =>
+    props.group.isDeveloperAdmin === true ||
+    props.group.role === 'owner' ||
+    props.group.role === 'administrator',
+);
 const myCandidates = computed(() =>
   calendarForMonth(myAssignmentMonth.value) === undefined || myMembershipId.value === undefined
     ? undefined
@@ -225,17 +236,25 @@ async function loadData(): Promise<void> {
   const requestId = ++loadDataRequestId;
   const requestedGroupId = props.group.id;
   try {
-    const [nextCalendars, nextMembers, nextGroupSettings, nextMySettings, nextMine, nextApprovals] =
-      await Promise.all([
-        loadSwapMonthCalendars(getSelectedSwapMonths(), (businessMonth) =>
-          api.getCalendar(requestedGroupId, businessMonth),
-        ),
-        api.listGroupMembers(requestedGroupId),
-        api.getGroupSwapSettings(requestedGroupId),
-        api.getMySwapSettings(requestedGroupId),
-        api.listMySwapRequests(requestedGroupId),
-        canApprove.value ? api.listSwapApprovals(requestedGroupId) : Promise.resolve([]),
-      ]);
+    const [
+      nextCalendars,
+      nextMembers,
+      nextGroupSettings,
+      nextMySettings,
+      nextMine,
+      nextApprovals,
+      nextInitiators,
+    ] = await Promise.all([
+      loadSwapMonthCalendars(getSelectedSwapMonths(), (businessMonth) =>
+        api.getCalendar(requestedGroupId, businessMonth),
+      ),
+      api.listGroupMembers(requestedGroupId),
+      api.getGroupSwapSettings(requestedGroupId),
+      api.getMySwapSettings(requestedGroupId),
+      api.listMySwapRequests(requestedGroupId),
+      canApprove.value ? api.listSwapApprovals(requestedGroupId) : Promise.resolve([]),
+      canApprove.value ? api.listSwapInitiators(requestedGroupId) : Promise.resolve([]),
+    ]);
     if (requestId !== loadDataRequestId || requestedGroupId !== props.group.id) return;
     calendarsByMonth.value = nextCalendars;
     members.value = nextMembers;
@@ -243,6 +262,10 @@ async function loadData(): Promise<void> {
     mySettings.value = nextMySettings;
     mySwapRequests.value = nextMine;
     approvals.value = nextApprovals;
+    initiatorOptions.value = nextInitiators;
+    if (!nextInitiators.some((item) => item.id === initiatedById.value)) {
+      initiatedById.value = nextInitiators.find((item) => item.isCurrentUser)?.id ?? '';
+    }
     const currentUser = nextMembers.find((member) => member.isCurrentUser);
     myMembershipId.value = currentUser?.id;
   } catch (error) {
@@ -323,11 +346,17 @@ function resetForm(): void {
 }
 
 function resetAdminForm(): void {
+  initiatedById.value = initiatorOptions.value.find((item) => item.isCurrentUser)?.id ?? '';
   adminInitiatorMembershipId.value = '';
   adminInitiatorAssignmentId.value = '';
   adminTargetMembershipId.value = '';
   adminTargetAssignmentId.value = '';
   adminPreview.value = undefined;
+}
+
+function openAdminForm(): void {
+  initiatedById.value = initiatorOptions.value.find((item) => item.isCurrentUser)?.id ?? '';
+  adminFormVisible.value = true;
 }
 
 function onMyAssignmentMonthChange(): void {
@@ -513,6 +542,10 @@ async function computeAdminPreview(): Promise<void> {
 
 async function submitAdminSwap(): Promise<void> {
   adminErrorMessage.value = undefined;
+  if (!initiatorOptions.value.some((item) => item.id === initiatedById.value)) {
+    adminErrorMessage.value = '请选择发起人。';
+    return;
+  }
   if (adminPreview.value === undefined) {
     await computeAdminPreview();
     if (adminPreview.value === undefined) {
@@ -526,6 +559,7 @@ async function submitAdminSwap(): Promise<void> {
     const created = await api.createDirectSwapRequest(
       props.group.id,
       resolveOperation(operationKey, {
+        initiatedById: initiatedById.value,
         initiatorAssignmentId: adminInitiatorAssignmentId.value,
         targetAssignmentId: adminTargetAssignmentId.value,
       }),
@@ -690,7 +724,7 @@ function getCounterpartName(request: SwapRequest): string {
           id="swap-admin-create-button"
           variant="outline"
           :disabled="isLoading"
-          @click="adminFormVisible = true"
+          @click="openAdminForm"
         >
           管理员换班
         </t-button>
@@ -1030,6 +1064,16 @@ function getCounterpartName(request: SwapRequest): string {
         <fieldset>
           <legend>选择双方班次</legend>
           <p class="workflow-form-hint">直接生效，无需对方同意或审批。</p>
+          <label>
+            发起人
+            <t-select
+              v-model="initiatedById"
+              :options="initiatedByOptions"
+              :popup-props="responsiveSheetPopupProps"
+              placeholder="选择发起人"
+              :disabled="adminIsSubmitting"
+            />
+          </label>
           <label>
             成员一月份
             <TemporalPicker

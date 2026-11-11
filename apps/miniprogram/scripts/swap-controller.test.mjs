@@ -76,6 +76,7 @@ describe('P7 native swap workflow controller', () => {
       '已撤销',
     ]);
     expect(requests.some((request) => request.url.endsWith('/swaps/approvals'))).toBe(false);
+    expect(requests.some((request) => request.url.endsWith('/swaps/initiators'))).toBe(false);
   });
 
   it('loads a changed month and freezes one create payload across an ambiguous retry', async () => {
@@ -112,6 +113,8 @@ describe('P7 native swap workflow controller', () => {
   it('loads owner approval/direct states and wires settings plus displayed direct preview', async () => {
     groupRole = 'owner';
     const instance = await loadReadyInstance();
+    expect(instance.data.adminInitiatedByOptions.map((item) => item.label)).toContain('未排班人员');
+    expect(instance.data.adminInitiatedByIndex).toBe(0);
     expect(instance.data).toMatchObject({
       archivedSwapCount: 0,
       canApprove: true,
@@ -134,10 +137,12 @@ describe('P7 native swap workflow controller', () => {
     definition.handleAdminPreview.call(instance);
     await vi.waitFor(() => expect(instance.data.adminPreviewReady).toBe(true));
     const previewCount = previewRequests().length;
+    definition.handleAdminInitiatedByChange.call(instance, { detail: { value: '1' } });
     definition.handleAdminSubmit.call(instance);
     await vi.waitFor(() => expect(directRequests()).toHaveLength(1));
 
     expect(previewRequests()).toHaveLength(previewCount);
+    expect(directRequests()[0].data.initiatedById).toBe('55555555-5555-4555-8555-555555555552');
     expect(directRequests()[0].header['Idempotency-Key']).toBe(
       directRequests()[0].data.operationId,
     );
@@ -157,6 +162,19 @@ describe('P7 native swap workflow controller', () => {
     });
     expect(instance.data.adminInitiatorMemberOptions.length).toBeGreaterThan(0);
     expect(instance.data.adminTargetMemberOptions.length).toBeGreaterThan(0);
+  });
+
+  it('preserves a chosen initiator during reload and defaults a new form to the operator', async () => {
+    groupRole = 'owner';
+    const instance = await loadReadyInstance();
+    definition.handleOpenAdminForm.call(instance);
+    definition.handleAdminInitiatedByChange.call(instance, { detail: { value: '1' } });
+    definition.handleRetry.call(instance);
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    expect(instance.data.adminInitiatedByIndex).toBe(1);
+    definition.handleCloseAdminForm.call(instance);
+    definition.handleOpenAdminForm.call(instance);
+    expect(instance.data.adminInitiatedByIndex).toBe(0);
   });
 
   it('fails a swap deep link closed before network access when workflows is disabled', async () => {
@@ -217,6 +235,17 @@ describe('P7 native swap workflow controller', () => {
           realName: '陈医生',
           role: 'member',
           version: 1,
+        },
+      ]);
+      return;
+    }
+    if (path.endsWith('/swaps/initiators') && options.method === 'GET') {
+      respond(options, [
+        { id: '55555555-5555-4555-8555-555555555551', realName: '管理员', isCurrentUser: true },
+        {
+          id: '55555555-5555-4555-8555-555555555552',
+          realName: '未排班人员',
+          isCurrentUser: false,
         },
       ]);
       return;

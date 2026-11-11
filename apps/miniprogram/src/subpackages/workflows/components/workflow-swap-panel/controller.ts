@@ -75,6 +75,8 @@ interface SwapRequestView {
 }
 
 interface SwapPageData {
+  readonly adminInitiatedByOptions: readonly SelectionOption[];
+  readonly adminInitiatedByIndex: number;
   readonly adminBusy: boolean;
   readonly adminErrorMessage: string;
   readonly adminFormVisible: boolean;
@@ -140,6 +142,7 @@ interface SwapPageData {
 
 interface SwapPageInstance {
   _adminPreview: SwapPreview | undefined;
+  _defaultInitiatedById: string;
   _calendarRequestSerials: Map<string, number>;
   _calendarSerial: number;
   _calendars: Map<string, CalendarReadModel>;
@@ -186,6 +189,8 @@ export function createSwapPanelControllerDefinition(embedded = false) {
       adminInitiatorMemberIndex: -1,
       adminInitiatorMemberOptions: [],
       adminInitiatorMonth: initialMonth,
+      adminInitiatedByOptions: [],
+      adminInitiatedByIndex: -1,
       adminPreviewConflicts: [],
       adminPreviewReady: false,
       adminPreviewSummary: '',
@@ -242,6 +247,7 @@ export function createSwapPanelControllerDefinition(embedded = false) {
     } satisfies SwapPageData,
 
     _adminPreview: undefined,
+    _defaultInitiatedById: '',
     _calendarRequestSerials: new Map(),
     _calendarSerial: 0,
     _calendars: new Map(),
@@ -378,6 +384,12 @@ export function createSwapPanelControllerDefinition(embedded = false) {
       handleAdminMonthChange(this, event, 'initiator');
     },
 
+    handleAdminInitiatedByChange(this: SwapPageInstance, event: ValueEvent): void {
+      if (!this.data.canApprove || this.data.adminBusy) return;
+      const index = readSelectionIndex(event, this.data.adminInitiatedByOptions.length);
+      if (index >= 0) this.setData({ adminInitiatedByIndex: index });
+    },
+
     handleAdminTargetMonthChange(this: SwapPageInstance, event: ValueEvent): void {
       handleAdminMonthChange(this, event, 'target');
     },
@@ -501,6 +513,10 @@ async function loadSwapPageWithCapability(
     const group = resolveTargetGroup(groups, page._requestedGroupId);
     if (group === undefined) throw new Error('当前没有可使用换班功能的工作群组。');
     if (group.role === 'guest') throw new Error('访客不能发起或处理换班。');
+    const preservedInitiatedById =
+      options.preserveForms === true && page._currentGroupId === group.id
+        ? page.data.adminInitiatedByOptions[page.data.adminInitiatedByIndex]?.value
+        : undefined;
     page._currentGroupId = group.id;
     const canApprove =
       group.isDeveloperAdmin === true || group.role === 'owner' || group.role === 'administrator';
@@ -510,14 +526,16 @@ async function loadSwapPageWithCapability(
       page.data.adminInitiatorMonth,
       page.data.adminTargetMonth,
     ]);
-    const [members, calendars, groupSettings, mySettings, mine, approvals] = await Promise.all([
-      workbenchClient.getMembers(group.id),
-      Promise.all(months.map((month) => workbenchClient.getCalendar(group.id, month))),
-      workflowClient.getGroupSwapSettings(group.id),
-      workflowClient.getMySwapSettings(group.id),
-      workflowClient.listMySwapRequests(group.id),
-      canApprove ? workflowClient.listSwapApprovals(group.id) : Promise.resolve([]),
-    ]);
+    const [members, calendars, groupSettings, mySettings, mine, approvals, initiators] =
+      await Promise.all([
+        workbenchClient.getMembers(group.id),
+        Promise.all(months.map((month) => workbenchClient.getCalendar(group.id, month))),
+        workflowClient.getGroupSwapSettings(group.id),
+        workflowClient.getMySwapSettings(group.id),
+        workflowClient.listMySwapRequests(group.id),
+        canApprove ? workflowClient.listSwapApprovals(group.id) : Promise.resolve([]),
+        canApprove ? workflowClient.listSwapInitiators(group.id) : Promise.resolve([]),
+      ]);
     if (!task.isCurrent() || serial !== page._loadSerial || page._currentGroupId !== group.id) {
       return;
     }
@@ -528,8 +546,17 @@ async function loadSwapPageWithCapability(
     if (page._myMembershipId === '' && group.isDeveloperAdmin !== true) {
       throw new Error('当前账号未关联群组成员。');
     }
+    page._defaultInitiatedById = initiators.find((item) => item.isCurrentUser)?.id ?? '';
+    const selectedInitiatorIndex = initiators.findIndex(
+      (item) => item.id === preservedInitiatedById,
+    );
     page.setData({
       autoAcceptSwaps: mySettings.autoAcceptSwaps,
+      adminInitiatedByOptions: initiators.map((item) => ({ value: item.id, label: item.realName })),
+      adminInitiatedByIndex:
+        selectedInitiatorIndex >= 0
+          ? selectedInitiatorIndex
+          : initiators.findIndex((item) => item.isCurrentUser),
       canApprove,
       currentGroupName: group.name,
       currentGroupRole: formatRole(group.role),
@@ -790,6 +817,11 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
   const task = captureWorkflowControllerTask(page);
   if (!task.isCurrent()) return;
   if (!page.data.canApprove || page.data.adminBusy || page._currentGroupId === '') return;
+  const initiatedById = page.data.adminInitiatedByOptions[page.data.adminInitiatedByIndex]?.value;
+  if (!initiatedById) {
+    page.setData({ adminErrorMessage: '请选择发起人。' });
+    return;
+  }
   const pair = getAdminPair(page);
   if (pair === undefined) {
     page.setData({ adminErrorMessage: '请先选择两位不同成员及其班次。' });
@@ -801,6 +833,7 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
     if (!previewMatches(page._adminPreview, pair)) return;
   }
   const input = {
+    initiatedById,
     initiatorAssignmentId: pair.initiatorAssignmentId,
     targetAssignmentId: pair.targetAssignmentId,
   };
@@ -1171,6 +1204,9 @@ function resetRequestForm(page: SwapPageInstance): void {
 function resetAdminForm(page: SwapPageInstance): void {
   page._adminPreview = undefined;
   page.setData({
+    adminInitiatedByIndex: page.data.adminInitiatedByOptions.findIndex(
+      (item) => item.value === page._defaultInitiatedById,
+    ),
     adminBusy: false,
     adminErrorMessage: '',
     adminInitiatorAssignmentIndex: -1,

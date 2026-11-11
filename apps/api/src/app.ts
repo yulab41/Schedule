@@ -214,7 +214,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new ManualScheduleApplyService(options.databaseClient, scheduleRepository),
     );
     registerLeaveRoutes(app, new LeaveService(options.databaseClient));
-    registerSwapRoutes(app, new SwapService(options.databaseClient));
+    registerSwapRoutes(app, new SwapService(options.databaseClient, platformAdminUids));
     registerDutyAdjustmentRoutes(app, new DutyAdjustmentService(options.databaseClient));
     registerEventRoutes(app, new EventQuery(options.databaseClient), options.databaseClient);
     registerNotificationRoutes(

@@ -37,6 +37,7 @@ const createSwapInputSchema = swapPairInputSchema
 
 const directCreateSwapInputSchema = z
   .object({
+    initiatedById: uuidSchema.optional(),
     initiatorAssignmentId: uuidSchema,
     operationId: operationIdSchema.optional(),
     targetAssignmentId: uuidSchema,
@@ -71,6 +72,9 @@ const updateMySettingsSchema = z
   .strict();
 
 export function registerSwapRoutes(app: FastifyInstance, swapService: SwapService): void {
+  app.get('/groups/:groupId/swaps/initiators', { preHandler: app.authenticate }, (request) =>
+    swapService.listInitiators(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
   app.post('/groups/:groupId/swaps/preview', { preHandler: app.authenticate }, (request) =>
     swapService.preview(
       getAuthenticatedIdentity(request),
@@ -244,9 +248,10 @@ function parseCreateInput(request: FastifyRequest): CreateSwapRequestInput {
 }
 
 function parseDirectCreateInput(request: FastifyRequest): CreateDirectSwapInput {
-  const input = parseOrThrow(directCreateSwapInputSchema, request.body);
+  const { initiatedById, ...input } = parseOrThrow(directCreateSwapInputSchema, request.body);
   return {
     ...input,
+    ...(initiatedById === undefined ? {} : { initiatedById }),
     operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
   };
 }

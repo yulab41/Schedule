@@ -190,6 +190,13 @@ export function createP7WorkflowFixtureFetch(
     if (path === `/groups/${groupId}/members` && method === 'GET') {
       return json(groupMembers);
     }
+    if (path === `/groups/${groupId}/swaps/initiators` && method === 'GET') {
+      return json([
+        { id: '55555555-5555-4555-8555-555555555551', realName: '周主任', isCurrentUser: true },
+        { id: '55555555-5555-4555-8555-555555555552', realName: '林医生', isCurrentUser: false },
+        { id: '55555555-5555-4555-8555-555555555553', realName: '陈医生', isCurrentUser: false },
+      ]);
+    }
     if (path === `/groups/${groupId}/calendar-preferences` && method === 'GET') {
       return json({
         canManageGroupDefaults: options.role === 'owner',

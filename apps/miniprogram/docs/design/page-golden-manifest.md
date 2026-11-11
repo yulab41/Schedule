@@ -1,5 +1,11 @@
 # 页面黄金清单
 
+## 2026-11-11 管理员换班实际发起人
+
+- 用户确认“默认当前管理员，可选双方以外的值班人员/管理员，真实操作者另存”，并确认发起人放在管理员换班双方班次之前、网页校对确认弹层的变化列表之前。
+- 沿用 `miniprogram-parity-p7-workflow-parity--swap-direct-320`（以390×844/320×844实际截取）及 `miniprogram-parity-external-duty--preview`；fixture仅合成人名。四组Edge黄金预览无浏览器错误/横向溢出，截图在ignored runtime/audit/swap-initiator-20261111。
+- 原生两处均复用现有ui-date-picker，校对选择器传本地滚动边界；控制器与静态门禁单独验证。开发者工具登录过期，未取得本轮原生截图或小米14体验版证据，不宣称像素比较/真机验收通过。详见[轮次记录](../../../../docs/audit/swap-initiator-20261111.md)。
+
 ## 2026-09-28 排班网页校对
 
 - 原生路由：`subpackages/insights/pages/external-duty/index`。Storybook合成人名fixture直接复用页面WXSS和共享按钮/弹层样式；未创建新的设计token。

@@ -178,6 +178,21 @@
     <view wx:if="{{confirmation}}" class="duty-confirm {{largeText ? 'is-large-text' : ''}}">
       <scroll-view class="duty-confirm-scroll" scroll-y enhanced show-scrollbar="{{false}}">
         <text class="duty-description">{{confirmation.description}}</text>
+        <view wx:if="{{confirmation.initiators}}" class="duty-initiator">
+          <text class="duty-initiator-label">发起人</text>
+          <initiator-picker
+            mode="selector"
+            title="选择发起人"
+            options="{{confirmation.initiatorOptions}}"
+            selected-index="{{confirmation.initiatedByIndex}}"
+            display-value="{{confirmation.initiatedByIndex >= 0 ? confirmation.initiators[confirmation.initiatedByIndex].realName : ''}}"
+            placeholder="选择发起人"
+            placement-boundary="{{pickerBoundary}}"
+            bindpickerrequestopen="handlePickerRequestOpen"
+            disabled="{{busy}}"
+            bindchange="selectInitiator"
+          ></initiator-picker>
+        </view>
         <view class="duty-changes">
           <view wx:for="{{confirmation.changes}}" wx:key="date" class="duty-change-row"
             ><text class="duty-change-date">{{item.date}}</text
@@ -201,7 +216,7 @@
           variant="{{confirmation.endpoint === '/undo' ? 'danger' : 'primary'}}"
           label="{{confirmation.confirmLabel}}"
           loading="{{busy}}"
-          disabled="{{busy || !!confirmation.conflicts.length}}"
+          disabled="{{busy || !!confirmation.conflicts.length || (!!confirmation.initiators && !confirmation.initiatedById)}}"
           bindpress="confirmAction"
       /></view>
     </view>

@@ -329,6 +329,14 @@ function decodeCursor(cursor: string): EventCursor {
 }
 
 function toScheduleEvent(row: typeof scheduleEvents.$inferSelect): ScheduleEvent {
+  // Third-party attribution is a historical JSON snapshot, avoiding an extra
+  // user FK lock in the swap transaction while preserving the public event DTO.
+  const snapshotInitiator =
+    row.eventType === 'swap_request_created' || row.eventType === 'swap_completed'
+      ? (row.afterData as JsonObject | null)?.['initiatedByUserId']
+      : undefined;
+  const initiatedByUserId =
+    typeof snapshotInitiator === 'string' ? snapshotInitiator : row.initiatedByUserId;
   return {
     affectedMembershipIds: row.affectedMembershipIds,
     affectedShiftIds: row.affectedShiftIds,
@@ -342,7 +350,7 @@ function toScheduleEvent(row: typeof scheduleEvents.$inferSelect): ScheduleEvent
     ...(row.afterData === null ? {} : { afterData: row.afterData as JsonObject }),
     ...(row.approverUserId === null ? {} : { approverUserId: row.approverUserId }),
     ...(row.beforeData === null ? {} : { beforeData: row.beforeData as JsonObject }),
-    ...(row.initiatedByUserId === null ? {} : { initiatedByUserId: row.initiatedByUserId }),
+    ...(initiatedByUserId === null ? {} : { initiatedByUserId }),
     ...(row.objectId === null ? {} : { objectId: row.objectId }),
     ...(row.operatorUserId === null ? {} : { operatorUserId: row.operatorUserId }),
     ...(row.parentEventId === null ? {} : { parentEventId: row.parentEventId }),

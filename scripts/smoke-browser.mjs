@@ -1825,7 +1825,9 @@ async function assertBackfillCalendarColors(page) {
   await page.locator('.workbench-sidebar button', { hasText: '排班补录' }).first().click();
   await waitForBodyText(page, '排班补录', 15000, '排班补录');
   const weekendNumber = page
-    .locator('.month-grid.invert-past-colors .day-cell.is-weekend .day-number')
+    .locator(
+      '.month-grid.invert-past-colors .day-cell.is-weekend:not(.is-outside-month) .day-number',
+    )
     .first();
   await weekendNumber.waitFor({ state: 'visible', timeout: 15000 });
   const color = await weekendNumber.evaluate((element) => getComputedStyle(element).color);

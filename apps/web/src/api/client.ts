@@ -20,6 +20,7 @@ import type {
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
   CreateDirectSwapInput,
+  SwapInitiatorOption,
   CreateLeaveRequestInput,
   CreateSwapRequestInput,
   RevokeSwapRequestInput,
@@ -295,6 +296,7 @@ export interface ApiClient {
   createLeaveRequest(groupId: string, input: CreateLeaveRequestInput): Promise<LeaveRequest>;
   createSwapRequest(groupId: string, input: CreateSwapRequestInput): Promise<SwapRequest>;
   createDirectSwapRequest(groupId: string, input: CreateDirectSwapInput): Promise<SwapRequest>;
+  listSwapInitiators(groupId: string): Promise<SwapInitiatorOption[]>;
   createDirectDutyAdjustment(
     groupId: string,
     input: CreateDirectDutyAdjustmentInput,
@@ -988,6 +990,9 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
     createDirectSwapRequest(groupId, input) {
       return workflowClient.createDirectSwapRequest(groupId, input);
+    },
+    listSwapInitiators(groupId) {
+      return workflowClient.listSwapInitiators(groupId);
     },
     createManualScheduleTemplate(groupId, input) {
       return requestJson(

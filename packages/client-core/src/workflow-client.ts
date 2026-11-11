@@ -28,6 +28,7 @@ import type {
   SwapPreview,
   SwapRequest,
   SwapRequestMutationInput,
+  SwapInitiatorOption,
   UpdateGroupDutyAdjustmentSettingsInput,
   UpdateGroupSwapSettingsInput,
   UpdateMemberSwapSettingsInput,
@@ -50,6 +51,7 @@ import {
   swapPreviewJsonSchema,
   swapRequestJsonSchema,
   swapRequestListJsonSchema,
+  swapInitiatorOptionListJsonSchema,
 } from './generated/calendar-schemas.js';
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
 import { createCompactDecoder } from './json-decoder.js';
@@ -118,6 +120,15 @@ const operationId = <Request extends { readonly operationId: string }>(
 ): string => input.request.operationId;
 
 export const workflowEndpoints = {
+  swapInitiators: /* @__PURE__ */ defineClientEndpoint<GroupInput, SwapInitiatorOption[]>({
+    auth: 'bearer',
+    decoder: /* @__PURE__ */ createCompactDecoder<SwapInitiatorOption[]>(
+      swapInitiatorOptionListJsonSchema,
+    ),
+    id: 'workflow.swap-initiators',
+    method: 'GET',
+    path: ({ groupId }) => `${swapPath(groupId)}/initiators`,
+  }),
   leaveCreate: /* @__PURE__ */ defineClientEndpoint<
     GroupRequestInput<CreateLeaveRequestInput>,
     LeaveRequest
@@ -470,6 +481,7 @@ export interface WorkflowClient {
     request: CreateDirectDutyAdjustmentInput,
   ): Promise<DutyAdjustmentRequest>;
   createDirectSwapRequest(groupId: string, request: CreateDirectSwapInput): Promise<SwapRequest>;
+  listSwapInitiators(groupId: string): Promise<SwapInitiatorOption[]>;
   createDutyAdjustmentRequest(
     groupId: string,
     request: CreateDutyAdjustmentRequestInput,
@@ -583,6 +595,7 @@ export function createWorkflowClient(transport: ClientTransport): WorkflowClient
       group(workflowEndpoints.dutyDirectCreate, groupId, request),
     createDirectSwapRequest: (groupId, request) =>
       group(workflowEndpoints.swapDirectCreate, groupId, request),
+    listSwapInitiators: (groupId) => group(workflowEndpoints.swapInitiators, groupId),
     createDutyAdjustmentRequest: (groupId, request) =>
       group(workflowEndpoints.dutyCreate, groupId, request),
     createLeaveRequest: (groupId, request) =>

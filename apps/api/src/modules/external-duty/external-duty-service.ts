@@ -107,14 +107,21 @@ export class ExternalDutyService {
   }
 
   private resolver() {
-    return new ExternalDutyResolver(this.client, {
-      authorize: (identity) => this.authorize(identity),
-      readLocal: (group, date) => this.readLocalDate(group, date),
-      readRemote: () => this.source.read(),
-      member: (group, date, name) => this.findMembershipId(group, date, name),
-      push: (identity, date, fingerprint) => this.pushToExternal(identity, date, fingerprint, true),
-      scan: () => this.scan(),
-    });
+    return new ExternalDutyResolver(
+      this.client,
+      {
+        authorize: (identity) => this.authorize(identity),
+        readLocal: (group, date) => this.readLocalDate(group, date),
+        readRemote: () => this.source.read(),
+        member: (group, date, name) => this.findMembershipId(group, date, name),
+        push: (identity, date, fingerprint) =>
+          this.pushToExternal(identity, date, fingerprint, true),
+        scan: () => this.scan(),
+        initiators: (identity, groupId) =>
+          new SwapService(this.client, this.adminUids).listInitiators(identity, groupId),
+      },
+      this.adminUids,
+    );
   }
 
   public previewDirection(identity: AuthenticatedIdentity, input: ResolveDutyInput) {
@@ -123,7 +130,7 @@ export class ExternalDutyService {
 
   public applyDirection(
     identity: AuthenticatedIdentity,
-    input: ResolveDutyInput & { readonly planFingerprint: string },
+    input: ResolveDutyInput & { readonly planFingerprint: string; readonly initiatedById?: string },
   ) {
     return this.resolver().apply(identity, input);
   }

@@ -32,6 +32,7 @@ export interface ExternalDutyCheck {
 }
 
 export interface ExternalDutyDirectionPreview {
+  readonly initiators?: readonly { id: string; realName: string; isCurrentUser: boolean }[];
   readonly kind: 'external' | 'swap' | 'duty';
   readonly planFingerprint: string;
   readonly changes: readonly { date: string; before: string; after: string }[];
