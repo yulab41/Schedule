@@ -46,3 +46,14 @@
 实际读取guardrail、brainstorming、frontend-design、miniprogram-development、wechatide、systematic-debugging及requesting-code-review；实际使用Git/PowerShell/Node/pnpm/Vitest/Edge与只读评审。wechatide状态检查版本equal但loginExpired=true，未进入业务工具；无本轮开发者工具Console/Network/运行性能或小米14证据，均暂未验证。
 
 检查点消息：`feat(swaps): let administrators select the actual initiator`。当前不分配版本、不上传、不连接生产；必须先获本次生产备份/API与Web部署及体验版放行授权，避免新客户端调用尚未部署的接口。唯一下一任务为完成检查点后等待该上线授权；不提审或正式发布，不进入其它功能。
+
+## 2026-11-12 配套部署与上传放行
+
+- 用户先要求上传并放行；只读核实当前live6c234fb961356eeac573c5e98d14482eebaf4218，新候选66f6da2b包含的initiators接口线上404。说明直接放行会使页面失败后，用户另行明确授权先备份生产数据库并部署配套API/Web，再上传及只增放行。
+- fresh origin/main为66f6da2b，最新合格receipt/tag为231@6c234fb（production/clean，Manifest67cad99f…）。general-4独占REUSE_ONLY/release Bootstrap八producer复用，安装0。66上传用途候选已冻结并通过安全检查；发现仅测试修正需要新SHA后，先正常释放，再以新RUN_ID swap-trial-checks-20261112重新Acquire，不复用绑定不同SHA的用途。
+- 四个现有部署/验证/版本名单/备份控制哈希与Git匹配。首次检查名单控制的旧安装路径未找到，改读实际/usr/local/bin路径后通过；未因该失败变更控制面。生产SSH沿既有双独立DNS/known_hosts匹配的严格TLS与主机密钥物理路线，没有系统hosts/VPN/DNS修改。
+- 21:28（香港）先运行既有可信备份，archiveId e33cd8e5-9c43-4d18-884c-132e68b009b0；58表，107753514B，SHA256 eaa5e83d63f3cd740686c0d20802ff79e05aad9a5ef4ef0b823970eaf45e551e，独立文件大小/SHA通过。备份按既有策略淘汰1份旧归档，无业务数据删除。live保留包/manifest存在且已核哈希，冻结该实时live为回退前驱；MySQL容器身份先记录，部署后比较。
+- 新增发布门禁证据：format/lint/build/typecheck/图标通过；完整Mini首轮1381过/28跳过且feedback19-export-runtime beforeAll超10秒，记录后按原配置隔离5项全过，合计1386执行通过/23原有跳过。根Codex83过；Vitest首轮1455过/501数据库环境跳过/1失败，仅responsive-sheet-popup旧夹具计数7而实际8。来源af37f5e4，新增字段来自66f6da2b；把期望同步到8并继续逐项要求responsiveSheetPopupProps，无业务/UI代码修改。检查点 `test(web): include initiator in sheet popup checks`，不称单次pnpm verify全绿。
+- 上传网络当前系统返回公网IPv4，Google/Cloudflare A集合一致。首个直连地址连接重置，改用同一已核实集合另一IPv4后Node TLSv1.3证书授权通过；后续进程DNS绑定该地址、SDK清代理、Git独立保留代理。错误nonce路径返回404仅为探测路径错误，没有版本分配或真实上传。
+- 当前仍未部署/分配/上传。完成定向检查、提交推送及新候选冻结后继续既有正式流程；所有发现/日志/备份元数据在ignored runtime/audit/swap-initiator-20261112。应用改动仍为66f6da2b，后续仅测试与交付文档；真机证据仍待实际新体验版。
+- popup5项及连续性3项、定向格式/lint/diff检查与独立只读复评通过。现有122版本已实时记录，live保留包两类归档的计算SHA与当前/保留manifest逐项一致；不把仅存在文件作为回退核验。
