@@ -37,7 +37,7 @@
 - 共享client-core、网页校对、Web换班/事件/API客户端、smoke与连续性定向334通过/1数据库环境跳过。该跳过为独立external-duty-lock集成文件，不能算实库执行。
 - API及Web正式build、API/Mini类型、官方`pnpm lint`、`pnpm format:check`、生成schema检查、图标检查及`git diff --check`通过。Web仍有既有>500kB chunk提示，Mini600格手排仍有1513节点提示，不因本功能调整预算。
 - 同口径`node scripts/build.mjs --profile=production`独立构建972→908ms，仅一次本机测量，不宣称性能提升；总3906813→3918555B（+11742），主1131086→1132682B（+1596），workflows528322→531160B，insights965457→969972B。最大文件workbench/index.js238545→238944B；各包仍通过预算。两边均未绑定体验版本，不是干净发布候选。
-- 浏览器执行前确认本地Web/API原未运行，启动本轮构建及本地schedule_dev/MySQL后执行官方smoke脚本（等价`pnpm smoke:browser`）；微信mock，最终七阶段全流程无浏览器错误。临时合成local-admin标记在finally恢复并回读，自建API/Web停止，原已停止的本地dev MySQL也恢复停止。生产库从未连接。
+- 浏览器执行前确认本地Web/API原未运行，启动本轮构建及本地schedule_dev/MySQL后执行官方smoke脚本（等价`pnpm smoke:browser`）；微信mock，最终七阶段全流程无浏览器错误。临时合成local-admin标记在finally恢复并回读，自建API/Web停止，原已停止的本地dev MySQL也恢复停止。本地实现阶段未连接生产。
 - 只读评审复查了最终快照/外键/API映射，未发现剩余可操作问题。状态文件新增批次触及40KiB门禁后，仅压缩最旧已完成通知批次摘要并保留报告/验收事实，不放宽门禁。
 - core检查在暂存前通过、全部暂存后因旧检查器只读未暂存/已提交diff而找不到新记录。仅将本轮debug记录退出暂存，原文运行检查通过后重新暂存提交；不修改门禁或验证事实。
 
@@ -45,7 +45,7 @@
 
 实际读取guardrail、brainstorming、frontend-design、miniprogram-development、wechatide、systematic-debugging及requesting-code-review；实际使用Git/PowerShell/Node/pnpm/Vitest/Edge与只读评审。wechatide状态检查版本equal但loginExpired=true，未进入业务工具；无本轮开发者工具Console/Network/运行性能或小米14证据，均暂未验证。
 
-检查点消息：`feat(swaps): let administrators select the actual initiator`。当前不分配版本、不上传、不连接生产；必须先获本次生产备份/API与Web部署及体验版放行授权，避免新客户端调用尚未部署的接口。唯一下一任务为完成检查点后等待该上线授权；不提审或正式发布，不进入其它功能。
+首个本地实现检查点：`feat(swaps): let administrators select the actual initiator`。当时未分配版本、上传或连接生产，先等待配套备份/API与Web部署及体验版放行授权，避免新客户端调用尚未部署的接口。后续授权与实际交付见下节；不提审或正式发布，不进入其它功能。
 
 ## 2026-11-12 配套部署与上传放行
 
@@ -55,5 +55,19 @@
 - 21:28（香港）先运行既有可信备份，archiveId e33cd8e5-9c43-4d18-884c-132e68b009b0；58表，107753514B，SHA256 eaa5e83d63f3cd740686c0d20802ff79e05aad9a5ef4ef0b823970eaf45e551e，独立文件大小/SHA通过。备份按既有策略淘汰1份旧归档，无业务数据删除。live保留包/manifest存在且已核哈希，冻结该实时live为回退前驱；MySQL容器身份先记录，部署后比较。
 - 新增发布门禁证据：format/lint/build/typecheck/图标通过；完整Mini首轮1381过/28跳过且feedback19-export-runtime beforeAll超10秒，记录后按原配置隔离5项全过，合计1386执行通过/23原有跳过。根Codex83过；Vitest首轮1455过/501数据库环境跳过/1失败，仅responsive-sheet-popup旧夹具计数7而实际8。来源af37f5e4，新增字段来自66f6da2b；把期望同步到8并继续逐项要求responsiveSheetPopupProps，无业务/UI代码修改。检查点 `test(web): include initiator in sheet popup checks`，不称单次pnpm verify全绿。
 - 上传网络当前系统返回公网IPv4，Google/Cloudflare A集合一致。首个直连地址连接重置，改用同一已核实集合另一IPv4后Node TLSv1.3证书授权通过；后续进程DNS绑定该地址、SDK清代理、Git独立保留代理。错误nonce路径返回404仅为探测路径错误，没有版本分配或真实上传。
-- 当前仍未部署/分配/上传。完成定向检查、提交推送及新候选冻结后继续既有正式流程；所有发现/日志/备份元数据在ignored runtime/audit/swap-initiator-20261112。应用改动仍为66f6da2b，后续仅测试与交付文档；真机证据仍待实际新体验版。
+- 门禁修正提交前尚未部署/分配/上传；完成定向检查、提交推送及新候选冻结后继续正式流程。所有发现/日志/备份元数据在ignored runtime/audit/swap-initiator-20261112；应用改动仍为66f6da2b，后续仅测试与交付文档，真机证据仍待实际新体验版。
 - popup5项及连续性3项、定向格式/lint/diff检查与独立只读复评通过。现有122版本已实时记录，live保留包两类归档的计算SHA与当前/保留manifest逐项一致；不把仅存在文件作为回退核验。
+
+## 2026-11-12 正式交付233
+
+- 6a1cf06b（`test(web): include initiator in sheet popup checks`）正常快进推送；应用代码与66f6da2b一致。新用途租约冻结clean 6a1cf06b/release profile，安全检查通过。ECS构建、dist/API-flat缓存本轮未命中，正式离线平铺131包、下载0、未安装/更新工作区依赖；随后缓存正常生成。三个上传归档/manifest及两脚本的服务器SHA、LF、bash语法检查通过。
+- 21:54起按已授权流程从实时6c234fb9部署6a1cf06b，原MySQL容器未变，schema仍72，无新增迁移。初次SSL/502健康重试后ready成功；独立完整verifier（含公网IP入口与共享AI资源/其他工具）通过，新接口404→401。既有部署作业清理39条过期成功运维记录、失败0；未手动删除业务记录、执行真实换班/校对或通知。
+- 第一次正式分配232@6a1cf06，Manifest eaaea97d…；SDK在项目序列化/getrandstr请求ECONNRESET，未取得成功receipt。其remote tag/分配/Manifest永久保留，未改向/删除或复用。SDK异常退出遗留的是本任务上传锁：核对RUN_ID、owner nonce、PID37664已不存在且无相关子进程/SDK进程，仅保存审计副本后移除该owner文件和空目录；没有清除其他租约或版本记录。紧随的锁占用失败没有新分配。
+- 对当前系统DNS的两个公网IPv4执行真实getrandstr POST均HTTP200/errCode0；再用实际SDK确认nonce成功，随机串/身份未写日志。进程DNS绑定当前可用IPv4、SDK清代理、Git独立保留代理；没有更改系统网络或证书验证。源SHA未变，正式分配器选择新的未占用版本，不重用232。
+- 22:05构建、22:06正式Node上传0.1.0-p10.20261112.233成功；完整SHA 6a1cf06b464ff3519ded03c651ab1d777d724799，production/clean，说明“管理员换班选择实际发起人 6a1cf06”。Manifest 715d6d3116a5dc94c4f5f38b010ba8403e229e67d659dca63b3d0dc7684b265b，receipt及原子tag一致；版本绑定候选检查上传前后通过。主包1133080B、总3919905B，四分包427193/857940/531328/970364B，包审计通过。
+- **放行中断与恢复：** 首次可信ensure的SSH控制进程中断，API/Web停在created；确认无活动控制进程、发布/能力锁可取得且MySQL正常后，按同一已验证compose配置、两把锁及no-deps恢复API/Web启动。只关闭本任务已失联的本机SSH进程，未杀不明服务。随后独立旧策略verify通过。
+- 为防SSH中断，第二次由已核SHA/LF/语法的任务包装文件脱离SSH调用原可信ensure，全部原门禁保留；健康刚恢复后一次策略连接拒绝使JSON输入为空，原控制自动回滚。第三次仅设进程级COMPOSE_PARALLEL_LIMIT=1串行执行同一可信ensure，健康重试后完整策略验证成功、退出0。未修改可信控制或手改环境文件，未放宽JSON/版本断言或绕过锁。Kernel所查窗口无OOM，最终API/Web restart=0/OOM false；根因未声称完全定位或永久根治，期间服务重建中断已如实记录。
+- 最终只增233，支持122→123且原122逐项保留，失败232未加入。独立`allowlist verify`及完整生产verifier通过；严格TLS外部探测233/231/230均200、232及合法未知426，MySQL实例仍原ID，live6a1cf06b。所有失败/恢复/成功日志及包装文件在ignored runtime/audit/swap-initiator-20261112，不上传日志、key、会话或数据库到Git/服务器应用包。
+- 收口前按实时live6a1cf06b创建备份8ee696b7-d72d-4fa4-ae9b-6c920c0a00e0（58表/107748089B，SHA963603422e1ed6dce04c114734192f955ad09347113e0fe375cde3e36e8525a7），独立文件大小/SHA通过；e33上线前备份也确认仍存在。既有策略本次淘汰1份旧归档。新的独占warm收口租约八producer复用、安装0，仅文档复用上述应用证据。
+- 收口消息`docs(audit): deliver initiator trial 233`。按本轮明确授权，在该提交推送后以刚实读的live6a为回退前驱，核实全部应用/控制/schema/retained archive哈希相同后，通过可信reuse-release同步最终Git HEAD并核验；不重启应用、再迁移或重新上传233。最终身份及核验回执留在同一ignored目录，不能把本提交未生成的SHA写回自身。
+- 唯一下一任务：小米14退出重进233@6a1cf06，复核“管理员换班”及“排班网页校对”的换班预览中发起人默认当前管理员、可选所有有效值班人员/管理员，并在真实业务发生后核对事件中的发起人和实际操作者。当前无本轮实体设备证据，不写手机验收通过、不提审或正式发布。
