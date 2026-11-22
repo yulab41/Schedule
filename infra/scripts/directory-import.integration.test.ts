@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   activateDirectorySnapshot,
+  previewDirectorySnapshot,
   publishDirectorySnapshot,
   validateDirectoryManifest,
 } from './directory-import-core.js';
@@ -154,6 +155,59 @@ describeWithDatabase('directory snapshot import', () => {
       WHERE alias.normalized_value = 'd0001' AND entry.department_name = '手术室'
     `);
     expect(matches).toEqual([{ employeeCode: 'd0001' }]);
+  });
+
+  it('appends without rewriting historical employee aliases or accepting edits', async () => {
+    const oldRaw: Record<string, unknown> = {
+      ...createManifest('employee-legacy', '1000'),
+      directoryKind: 'employee',
+    };
+    const current = validateDirectoryManifest(oldRaw, { appendOnly: true });
+    const originalEntry = current.entries[0];
+    if (originalEntry?.legacyEmployeeAliases === undefined) {
+      throw new Error('Missing legacy aliases in fixture.');
+    }
+    const historical = {
+      ...current,
+      entries: [{ ...originalEntry, ...originalEntry.legacyEmployeeAliases }],
+    };
+    const prior = await publishDirectorySnapshot(client, historical, '8'.repeat(64));
+    const firstRaw = Array.isArray(oldRaw.entries) ? oldRaw.entries[0] : undefined;
+    const added = {
+      ...firstRaw,
+      contactName: '无号测试职工',
+      department: '手术室',
+      entryKey: 'synthetic-campus:new-employee',
+      entryKind: 'person',
+      employeeCode: 'j0644',
+      sourceLocator: 'table:r2:c1',
+      contacts: [],
+    };
+    const nextRaw = { ...oldRaw, importVersion: 'employee-append', entries: [firstRaw, added] };
+    const updated = validateDirectoryManifest(nextRaw, { appendOnly: true });
+    const unsafe = validateDirectoryManifest(
+      { ...nextRaw, entries: [{ ...firstRaw, department: '不可修改的旧科室' }, added] },
+      { appendOnly: true },
+    );
+    await expect(
+      publishDirectorySnapshot(client, unsafe, '9'.repeat(64), { appendOnly: true }),
+    ).rejects.toThrow('Append-only');
+    await expectCounts(client, { batches: 1, contacts: 1, entries: 1 });
+
+    const preview = await previewDirectorySnapshot(client, updated, { appendOnly: true });
+    expect(preview.summary).toMatchObject({ added: 1, changed: 0, removed: 0, unchanged: 1 });
+    const published = await publishDirectorySnapshot(client, updated, '9'.repeat(64), {
+      appendOnly: true,
+    });
+    expect(published.summary).toEqual(preview.summary);
+    expect(published.replacedBatchId).toBe(prior.batchId);
+    const [rows] = await client.database.execute<{ employeeCode: string; alias: string }>(sql`
+      SELECT entry.employee_code AS employeeCode, alias.normalized_value AS alias
+      FROM directory_entries AS entry
+      JOIN directory_search_aliases AS alias ON alias.entry_id = entry.id
+      WHERE entry.batch_id = ${published.batchId} AND alias.normalized_value IN ('1', '644')
+    `);
+    expect(rows).toEqual([{ employeeCode: 'j0644', alias: '644' }]);
   });
 
   it('rolls back every snapshot row when publication fails', async () => {

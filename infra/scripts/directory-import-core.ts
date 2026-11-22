@@ -93,6 +93,10 @@ export interface NormalizedDirectoryAlias {
 }
 
 export interface NormalizedDirectoryEntry {
+  readonly legacyEmployeeAliases?: {
+    readonly aliases: readonly NormalizedDirectoryAlias[];
+    readonly contentSha256: string;
+  };
   readonly entryKey: string;
   readonly sourceDocumentKey: string;
   readonly sourcePage: number;
@@ -152,6 +156,7 @@ export interface DirectoryImportPlan {
 
 export interface DirectoryImportCommand {
   readonly action: 'dry-run' | 'publish' | 'activate';
+  readonly appendOnly?: boolean;
   readonly stdin: boolean;
   readonly batchId?: string;
 }
@@ -166,7 +171,10 @@ export interface DirectoryActivationResult {
   readonly replacedBatchId: string | null;
 }
 
-export function validateDirectoryManifest(input: unknown): NormalizedDirectoryManifest {
+export function validateDirectoryManifest(
+  input: unknown,
+  options: { readonly appendOnly?: boolean } = {},
+): NormalizedDirectoryManifest {
   const root = readObject(input, 'manifest');
   const schemaVersion = readInteger(root, 'schemaVersion', 1, 1);
   if (schemaVersion !== manifestSchemaVersion) {
@@ -379,10 +387,22 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       aliases,
       searchText,
     };
+    const legacyAliases =
+      options.appendOnly && directoryKind === 'employee' && employeeCode !== undefined
+        ? buildSearchAliases(sourceAliases, manualAliases, undefined)
+        : undefined;
     return {
       entryKey,
       ...content,
       contentSha256: hashValue(content),
+      ...(legacyAliases === undefined
+        ? {}
+        : {
+            legacyEmployeeAliases: {
+              aliases: legacyAliases,
+              contentSha256: hashValue({ ...content, aliases: legacyAliases }),
+            },
+          }),
     } satisfies NormalizedDirectoryEntry;
   });
 
@@ -438,14 +458,43 @@ export function buildDirectoryImportPlan(
   };
 }
 
+export function prepareAppendOnlyEmployeeImport(
+  manifest: NormalizedDirectoryManifest,
+  currentEntries: readonly ExistingDirectoryEntry[],
+): { readonly manifest: NormalizedDirectoryManifest; readonly plan: DirectoryImportPlan } {
+  if (manifest.directoryKind !== 'employee') {
+    throw new DirectoryImportError('Append-only import requires an employee manifest.');
+  }
+  const currentDigests = new Map(
+    currentEntries.map((entry) => [entry.entryKey, entry.contentSha256] as const),
+  );
+  const entries = manifest.entries.map((entry) => {
+    const { legacyEmployeeAliases, ...current } = entry;
+    // Preserve the historical alias representation only if it matches the published digest.
+    return legacyEmployeeAliases !== undefined &&
+      legacyEmployeeAliases.contentSha256 === currentDigests.get(entry.entryKey)
+      ? { ...current, ...legacyEmployeeAliases }
+      : current;
+  });
+  const preserved = { ...manifest, entries };
+  const plan = buildDirectoryImportPlan(preserved, currentEntries);
+  if (plan.summary.changed !== 0 || plan.summary.removed !== 0) {
+    throw new DirectoryImportError('Append-only import would modify or remove existing entries.');
+  }
+  return { manifest: preserved, plan };
+}
+
 export function parseDirectoryImportArgs(values: readonly string[]): DirectoryImportCommand {
   let stdin = false;
+  let appendOnly = false;
   let dryRun = false;
   let publish = false;
   let batchId: string | undefined;
   for (const value of values) {
     if (value === '--stdin') {
       stdin = true;
+    } else if (value === '--append-only') {
+      appendOnly = true;
     } else if (value === '--dry-run') {
       dryRun = true;
     } else if (value === '--publish') {
@@ -467,36 +516,47 @@ export function parseDirectoryImportArgs(values: readonly string[]): DirectoryIm
     throw new DirectoryImportError('--dry-run and --publish require --stdin.');
   }
   if (batchId !== undefined) {
-    if (stdin || !uuidPattern.test(batchId)) {
-      throw new DirectoryImportError('--activate-batch requires one valid UUID and no stdin.');
+    if (stdin || appendOnly || !uuidPattern.test(batchId)) {
+      throw new DirectoryImportError(
+        '--activate-batch requires one valid UUID without --stdin or --append-only.',
+      );
     }
     return { action: 'activate', batchId, stdin: false };
   }
-  return { action: dryRun ? 'dry-run' : 'publish', stdin: true };
+  return {
+    action: dryRun ? 'dry-run' : 'publish',
+    stdin: true,
+    ...(appendOnly ? { appendOnly } : {}),
+  };
 }
 
 export async function previewDirectorySnapshot(
   client: DatabaseClient,
   manifest: NormalizedDirectoryManifest,
+  options: { readonly appendOnly?: boolean } = {},
 ): Promise<DirectoryImportPlan> {
   const currentEntries = await selectCurrentEntries(client.database, manifest.directoryKind);
-  return buildDirectoryImportPlan(manifest, currentEntries);
+  return options.appendOnly
+    ? prepareAppendOnlyEmployeeImport(manifest, currentEntries).plan
+    : buildDirectoryImportPlan(manifest, currentEntries);
 }
 
 export async function publishDirectorySnapshot(
   client: DatabaseClient,
-  manifest: NormalizedDirectoryManifest,
+  inputManifest: NormalizedDirectoryManifest,
   manifestSha256: string,
-  hooks: { readonly beforeCommit?: () => Promise<void> } = {},
+  options: { readonly appendOnly?: boolean; readonly beforeCommit?: () => Promise<void> } = {},
 ): Promise<DirectoryPublicationResult> {
   if (!sha256Pattern.test(manifestSha256)) {
     throw new DirectoryImportError('The manifest digest must be a lowercase SHA-256 value.');
   }
 
   return withTransaction(client, async (transaction) => {
-    const currentBatch = await selectCurrentBatch(transaction, manifest.directoryKind);
-    const currentEntries = await selectCurrentEntries(transaction, manifest.directoryKind);
-    const plan = buildDirectoryImportPlan(manifest, currentEntries);
+    const currentBatch = await selectCurrentBatch(transaction, inputManifest.directoryKind);
+    const currentEntries = await selectCurrentEntries(transaction, inputManifest.directoryKind);
+    const { manifest, plan } = options.appendOnly
+      ? prepareAppendOnlyEmployeeImport(inputManifest, currentEntries)
+      : { manifest: inputManifest, plan: buildDirectoryImportPlan(inputManifest, currentEntries) };
     const batchId = randomUUID();
     const publishedAt = new Date();
 
@@ -637,7 +697,7 @@ export async function publishDirectorySnapshot(
         warningSummary: plan.warningSummary,
       },
     });
-    await hooks.beforeCommit?.();
+    await options.beforeCommit?.();
 
     return {
       batchId,

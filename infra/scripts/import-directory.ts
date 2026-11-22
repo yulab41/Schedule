@@ -30,9 +30,10 @@ try {
     } else {
       const rawManifest = await readStandardInput();
       const manifestSha256 = createHash('sha256').update(rawManifest).digest('hex');
-      const manifest = validateDirectoryManifest(parseManifest(rawManifest));
+      const options = { appendOnly: command.appendOnly === true };
+      const manifest = validateDirectoryManifest(parseManifest(rawManifest), options);
       if (command.action === 'dry-run') {
-        const result = await previewDirectorySnapshot(database, manifest);
+        const result = await previewDirectorySnapshot(database, manifest, options);
         console.log(
           JSON.stringify({
             action: 'dry-run',
@@ -42,7 +43,7 @@ try {
           }),
         );
       } else {
-        const result = await publishDirectorySnapshot(database, manifest, manifestSha256);
+        const result = await publishDirectorySnapshot(database, manifest, manifestSha256, options);
         console.log(
           JSON.stringify({
             action: 'publish',

@@ -88,6 +88,8 @@ Get-Content manifest.json -Raw | pnpm directory:import -- --stdin --publish
 pnpm directory:import -- --activate-batch=<uuid>
 ```
 
+员工通讯录只补录时，在预演和发布命令末尾都加 `--append-only`。导入器保留与当前已发布条目校验值一致的历史工号索引，并拒绝会修改或删除现有条目的清单。
+
 生产导入应通过 SSH stdin 流式传递，不把 manifest 复制到服务器磁盘。发布事务依次写入完整快照、替换当前批次并追加不含号码的审计日志；任一步失败时全部回滚。
 
 ## 后续检索组合

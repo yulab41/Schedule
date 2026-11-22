@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   buildDirectoryImportPlan,
   parseDirectoryImportArgs,
+  prepareAppendOnlyEmployeeImport,
   validateDirectoryManifest,
 } from './directory-import-core.js';
 
@@ -146,6 +149,57 @@ describe('directory import manifest', () => {
     );
   });
 
+  it('keeps historical aliases on an append and rejects an actual edit', () => {
+    const original = createManifest();
+    original.directoryKind = 'employee';
+    const [previous] = validateDirectoryManifest(original).entries;
+    if (previous === undefined) throw new Error('Missing fixture entry.');
+    const { entryKey, contentSha256, ...content } = previous;
+    const oldAliases = content.aliases.filter(
+      (alias) => alias.aliasValue !== 'D0468' || !/^\d+$/u.test(alias.normalizedValue),
+    );
+    const previousDigest = createHash('sha256')
+      .update(JSON.stringify({ ...content, aliases: oldAliases }))
+      .digest('hex');
+    expect(previousDigest).not.toBe(contentSha256);
+    const existing = [{ entryKey, contentSha256: previousDigest }];
+
+    const append = createManifest();
+    append.directoryKind = 'employee';
+    append.entries.push({
+      ...firstEntry(append),
+      contactName: '补录测试职工',
+      contacts: [],
+      employeeCode: 'J0644',
+      entryKey: 'synthetic-campus:new-employee',
+      entryKind: 'person',
+      sourceLocator: 'table:r2:c1',
+    });
+    const candidate = validateDirectoryManifest(append, { appendOnly: true });
+    const result = prepareAppendOnlyEmployeeImport(candidate, existing);
+    expect(result.plan.summary).toMatchObject({ added: 1, changed: 0, removed: 0, unchanged: 1 });
+    expect(result.manifest.entries[0]).toMatchObject({
+      aliases: oldAliases,
+      contentSha256: previousDigest,
+    });
+    expect(result.manifest.entries[1]?.aliases).toContainEqual(
+      expect.objectContaining({ normalizedValue: '644' }),
+    );
+
+    firstEntry(append).department = '已变更科室';
+    const changed = validateDirectoryManifest(append, { appendOnly: true });
+    expect(() => prepareAppendOnlyEmployeeImport(changed, existing)).toThrow('Append-only');
+    expect(() =>
+      prepareAppendOnlyEmployeeImport(candidate, [
+        ...existing,
+        {
+          entryKey: 'synthetic-campus:missing',
+          contentSha256: 'b'.repeat(64),
+        },
+      ]),
+    ).toThrow('Append-only');
+  });
+
   const invalidManifestMutations: readonly [string, (manifest: SyntheticManifest) => void][] = [
     ['a malformed document hash', (manifest) => (firstDocument(manifest).sha256 = 'bad')],
     [
@@ -246,6 +300,11 @@ describe('directory import command arguments', () => {
       action: 'dry-run',
       stdin: true,
     });
+    expect(parseDirectoryImportArgs(['--stdin', '--dry-run', '--append-only'])).toEqual({
+      action: 'dry-run',
+      appendOnly: true,
+      stdin: true,
+    });
     expect(parseDirectoryImportArgs(['--stdin', '--publish'])).toEqual({
       action: 'publish',
       stdin: true,
@@ -265,6 +324,7 @@ describe('directory import command arguments', () => {
     ['--publish'],
     ['--stdin', '--publish', '--dry-run'],
     ['--activate-batch=not-a-uuid'],
+    ['--append-only', '--activate-batch=00000000-0000-4000-8000-000000000002'],
   ])('rejects ambiguous arguments: %j', (arguments_) => {
     expect(() => parseDirectoryImportArgs(arguments_)).toThrow();
   });
