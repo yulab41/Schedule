@@ -32,7 +32,8 @@ export interface CleanEmployeeDirectoryRecord {
 export interface EmployeeDirectoryCleaningStats {
   readonly duplicateFieldCount: number;
   readonly duplicateRecordCount: number;
-  readonly droppedWithoutValidPhoneCount: number;
+  readonly droppedWithoutIdentityCount: number;
+  readonly retainedWithoutValidPhoneCount: number;
   readonly inputRecordCount: number;
   readonly invalidFieldCount: number;
   readonly invalidFieldCounts: Readonly<Record<EmployeePhoneField, number>>;
@@ -55,10 +56,11 @@ export function cleanEmployeeDirectoryRecords(
     移动电话2: 0,
   };
   const seenRecords = new Set<string>();
+  const identitiesWithPhones = new Set<string>();
   const records: CleanEmployeeDirectoryRecord[] = [];
   let duplicateFieldCount = 0;
   let duplicateRecordCount = 0;
-  let droppedWithoutValidPhoneCount = 0;
+  let droppedWithoutIdentityCount = 0;
   let validFullPhoneCount = 0;
   let validExtensionCount = 0;
 
@@ -66,7 +68,7 @@ export function cleanEmployeeDirectoryRecords(
     const name = normalizeDisplayText(rawRecord.姓名);
     const levelPath = normalizeLevelPath(rawRecord.crawl_path, rawRecord.层级);
     if (name.length === 0 || levelPath.length === 0) {
-      droppedWithoutValidPhoneCount += 1;
+      droppedWithoutIdentityCount += 1;
       continue;
     }
 
@@ -90,11 +92,6 @@ export function cleanEmployeeDirectoryRecords(
       else validExtensionCount += 1;
     }
 
-    if (phones.length === 0) {
-      droppedWithoutValidPhoneCount += 1;
-      continue;
-    }
-
     const record: CleanEmployeeDirectoryRecord = {
       level: levelPath.join('/'),
       levelPath,
@@ -107,9 +104,9 @@ export function cleanEmployeeDirectoryRecords(
         ? { jobTitle: normalizeDisplayText(rawRecord.jobTitle) }
         : {}),
     };
+    const identityKey = employeeIdentityKey(record);
     const recordKey = JSON.stringify([
-      record.name,
-      record.level,
+      identityKey,
       record.phones.map((phone) => [phone.kind, phone.value]),
     ]);
     if (seenRecords.has(recordKey)) {
@@ -117,26 +114,37 @@ export function cleanEmployeeDirectoryRecords(
       continue;
     }
     seenRecords.add(recordKey);
+    if (phones.length > 0) identitiesWithPhones.add(identityKey);
     records.push(record);
   }
 
+  const retainedRecords = records.filter(
+    (record) => record.phones.length > 0 || !identitiesWithPhones.has(employeeIdentityKey(record)),
+  );
+
   return {
-    records,
+    records: retainedRecords,
     stats: {
       duplicateFieldCount,
-      duplicateRecordCount,
-      droppedWithoutValidPhoneCount,
+      duplicateRecordCount: duplicateRecordCount + records.length - retainedRecords.length,
+      droppedWithoutIdentityCount,
+      retainedWithoutValidPhoneCount: retainedRecords.filter((record) => record.phones.length === 0)
+        .length,
       inputRecordCount: input.length,
       invalidFieldCount: Object.values(invalidFieldCounts).reduce(
         (total, count) => total + count,
         0,
       ),
       invalidFieldCounts,
-      outputRecordCount: records.length,
+      outputRecordCount: retainedRecords.length,
       validExtensionCount,
       validFullPhoneCount,
     },
   };
+}
+
+function employeeIdentityKey(record: CleanEmployeeDirectoryRecord): string {
+  return JSON.stringify([record.name, record.level, record.employeeCode?.toLowerCase()]);
 }
 
 export function classifyPhone(value: string): CleanEmployeePhone['kind'] | undefined {

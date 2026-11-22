@@ -56,7 +56,10 @@ const campusCode = 'employee-hospital';
 const sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
 const cleanedSha256 = createHash('sha256').update(JSON.stringify(records), 'utf8').digest('hex');
 const documentKey = `employee-directory-${sourceSha256.slice(0, 16)}`;
-const entries = records.map((record, index) => toManifestEntry(record, index, documentKey));
+const keys = buildEmployeeEntryKeys(records);
+const entries = records.map((record, index) =>
+  toManifestEntry(record, index, documentKey, keys.get(record) ?? employeeEntryKey(record)),
+);
 const manifest = {
   schemaVersion: 1,
   directoryKind: 'employee',
@@ -93,25 +96,76 @@ console.error(
   }),
 );
 
+function buildEmployeeEntryKeys(
+  employeeRecords: readonly CleanEmployeeDirectoryRecord[],
+): ReadonlyMap<CleanEmployeeDirectoryRecord, string> {
+  const byLegacyKey = new Map<string, CleanEmployeeDirectoryRecord[]>();
+  for (const record of employeeRecords) {
+    const key = employeeEntryKey(record);
+    const group = byLegacyKey.get(key) ?? [];
+    group.push(record);
+    byLegacyKey.set(key, group);
+  }
+
+  const distinctKeys = new Map<CleanEmployeeDirectoryRecord, string>();
+  for (const [key, group] of byLegacyKey) {
+    if (group.length < 2) continue;
+    const withPhones = group.filter((record) => record.phones.length > 0);
+    const withoutCodes = group.filter((record) => record.employeeCode === undefined);
+    // Keep the key of the existing contact-bearing row when adding a namesake.
+    const legacyRecord =
+      withPhones.length === 1
+        ? withPhones[0]
+        : (withoutCodes[0] ??
+          group.toSorted((a, b) =>
+            (a.employeeCode ?? '').localeCompare(b.employeeCode ?? '', 'en', {
+              sensitivity: 'base',
+            }),
+          )[0]);
+    for (const record of group) {
+      distinctKeys.set(
+        record,
+        record === legacyRecord
+          ? key
+          : employeeEntryKey(
+              record,
+              record.employeeCode === undefined
+                ? 'no-code'
+                : `code:${record.employeeCode.toLowerCase()}`,
+            ),
+      );
+    }
+  }
+  return distinctKeys;
+}
+
+function employeeEntryKey(record: CleanEmployeeDirectoryRecord, code?: string): string {
+  const identity = [record.name, record.level, code]
+    .filter((part) => part !== undefined)
+    .join('\0');
+  return `employee:${createHash('sha256').update(identity, 'utf8').digest('hex')}`;
+}
+
 function toManifestEntry(
   record: CleanEmployeeDirectoryRecord,
   index: number,
   documentKey: string,
+  entryKey: string,
 ): Record<string, unknown> {
   const path = record.levelPath;
-  const entryKey = `employee:${createHash('sha256')
-    .update(`${record.name}\0${record.level}`, 'utf8')
-    .digest('hex')}`;
+  const departmentIndex =
+    record.phones.length === 0 && path.length >= 2 && path.length < 5 ? path.length - 1 : 4;
+  const department = path[departmentIndex];
   return {
     entryKey,
     sourceDocumentKey: documentKey,
     sourcePage: 1,
     sourceLocator: `jsonl:${index + 1}`,
     campusCode: 'employee-hospital',
-    ...(path[1] === undefined ? {} : { section: path[1] }),
-    ...(path[2] === undefined ? {} : { building: path[2] }),
-    ...(path[3] === undefined ? {} : { floor: path[3] }),
-    ...(path[4] === undefined ? {} : { department: path[4] }),
+    ...(path[1] === undefined || departmentIndex === 1 ? {} : { section: path[1] }),
+    ...(path[2] === undefined || departmentIndex === 2 ? {} : { building: path[2] }),
+    ...(path[3] === undefined || departmentIndex === 3 ? {} : { floor: path[3] }),
+    ...(department === undefined ? {} : { department }),
     ...(path[5] === undefined ? {} : { subunit: path[5] }),
     contactName: record.name,
     ...(record.jobTitle === undefined ? {} : { jobTitle: record.jobTitle }),

@@ -11,7 +11,7 @@ describe('employee directory cleaner', () => {
     expect(classifyPhone('138-0013-8000')).toBeUndefined();
   });
 
-  it('removes invalid fields, duplicate fields, empty contacts and duplicate records', () => {
+  it('removes invalid and duplicate fields, retaining identified employees without a phone', () => {
     const result = cleanEmployeeDirectoryRecords([
       {
         姓名: '林恩宇',
@@ -27,7 +27,8 @@ describe('employee directory cleaner', () => {
         移动电话1: '123456',
       },
       {
-        姓名: '无效人员',
+        姓名: '无电话员工',
+        employeeCode: 'h0002',
         层级: '医院/行政/办公室',
         移动电话: '12345',
         移动电话1: 'abc',
@@ -50,6 +51,13 @@ describe('employee directory cleaner', () => {
         ],
       },
       {
+        employeeCode: 'h0002',
+        level: '医院/行政/办公室',
+        levelPath: ['医院', '行政', '办公室'],
+        name: '无电话员工',
+        phones: [],
+      },
+      {
         level: '医院/临床/一科',
         levelPath: ['医院', '临床', '一科'],
         name: '张三',
@@ -59,13 +67,43 @@ describe('employee directory cleaner', () => {
     expect(result.stats).toMatchObject({
       duplicateFieldCount: 1,
       duplicateRecordCount: 1,
-      droppedWithoutValidPhoneCount: 1,
+      droppedWithoutIdentityCount: 0,
+      retainedWithoutValidPhoneCount: 1,
       inputRecordCount: 4,
       invalidFieldCount: 2,
-      outputRecordCount: 2,
+      outputRecordCount: 3,
       validExtensionCount: 2,
       validFullPhoneCount: 3,
     });
+  });
+
+  it('does not create duplicate employee entries when a contact-bearing row exists', () => {
+    const withoutPhone = { 姓名: '测试职工', 层级: '医院/手术室' };
+    const withPhone = { ...withoutPhone, 移动电话: '123456' };
+    const withoutIdentity = { 层级: '医院/手术室' };
+    for (const rows of [
+      [withPhone, withoutPhone],
+      [withoutPhone, withPhone],
+    ]) {
+      const result = cleanEmployeeDirectoryRecords([...rows, withoutIdentity]);
+      expect(result.records).toHaveLength(1);
+      expect(result.records[0]?.phones).toHaveLength(1);
+      expect(result.stats).toMatchObject({
+        droppedWithoutIdentityCount: 1,
+        retainedWithoutValidPhoneCount: 0,
+        outputRecordCount: 1,
+      });
+    }
+  });
+
+  it('keeps distinct verified codes for equal names in the same department', () => {
+    const identity = { 姓名: '同名职工', 层级: '医院/手术室' };
+    const result = cleanEmployeeDirectoryRecords([
+      { ...identity, employeeCode: 'd0001', 移动电话: '123456' },
+      { ...identity, employeeCode: 'd0002' },
+      { ...identity, employeeCode: 'd0003' },
+    ]);
+    expect(result.records.map((entry) => entry.employeeCode)).toEqual(['d0001', 'd0002', 'd0003']);
   });
 
   it('strips boundary noise from display fields while preserving meaningful punctuation', () => {

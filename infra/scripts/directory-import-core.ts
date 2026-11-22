@@ -289,7 +289,15 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
     }
     const displayOrder = readInteger(entry, 'displayOrder', 0, 1_000_000, path);
 
-    const contactInputs = readArray(entry, 'contacts', 1, maximumContactsPerEntry, path);
+    const allowsEmptyContacts =
+      directoryKind === 'employee' && entryKind === 'person' && contactName !== undefined;
+    const contactInputs = readArray(
+      entry,
+      'contacts',
+      allowsEmptyContacts ? 0 : 1,
+      maximumContactsPerEntry,
+      path,
+    );
     const seenContacts = new Set<string>();
     const contacts = contactInputs.map((contactValue, contactIndex) => {
       const contactPath = `${path}.contacts[${contactIndex}]`;

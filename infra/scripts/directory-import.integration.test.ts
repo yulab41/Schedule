@@ -127,6 +127,35 @@ describeWithDatabase('directory snapshot import', () => {
     expect(hospital.batchId).not.toBe(employee.batchId);
   });
 
+  it('publishes a searchable employee entry with no contact rows', async () => {
+    const base = createManifest('employee-without-phone', '1000');
+    const baseEntry = Array.isArray(base.entries) ? base.entries[0] : undefined;
+    const manifest = validateDirectoryManifest({
+      ...base,
+      directoryKind: 'employee',
+      entries: [
+        {
+          ...baseEntry,
+          entryKind: 'person',
+          contactName: '测试职工',
+          department: '手术室',
+          contacts: [],
+        },
+      ],
+    });
+    const result = await publishDirectorySnapshot(client, manifest, 'f'.repeat(64));
+
+    expect(result.summary).toMatchObject({ added: 1, contacts: 0, entries: 1 });
+    await expectCounts(client, { batches: 1, contacts: 0, entries: 1 });
+    const [matches] = await client.database.execute<{ employeeCode: string }>(sql`
+      SELECT entry.employee_code AS employeeCode
+      FROM directory_entries AS entry
+      JOIN directory_search_aliases AS alias ON alias.entry_id = entry.id
+      WHERE alias.normalized_value = 'd0001' AND entry.department_name = '手术室'
+    `);
+    expect(matches).toEqual([{ employeeCode: 'd0001' }]);
+  });
+
   it('rolls back every snapshot row when publication fails', async () => {
     const manifest = validateDirectoryManifest(createManifest('snapshot-failure', '1000'));
 

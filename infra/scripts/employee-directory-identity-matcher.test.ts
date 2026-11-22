@@ -25,6 +25,34 @@ describe('employee identity matching', () => {
     expect(parsed.emptyCodeSourceCount).toBe(1);
   });
 
+  it('reads a verified code and department without needing a source phone', () => {
+    const parsed = parseEmployeeIdentityText('李甲(d0001)[手术室]王乙(h0002)[门诊部]123456');
+    expect(parsed.records).toEqual([
+      { department: '手术室', employeeCode: 'd0001', name: '李甲', sourcePhone: '' },
+      { department: '门诊部', employeeCode: 'h0002', name: '王乙', sourcePhone: '123456' },
+    ]);
+  });
+
+  it('counts duplicate source rows once and preserves independently recorded codes', () => {
+    const subject = record('李甲', ['医院', '手术室']);
+    const { records } = parseEmployeeIdentityText('李甲(d0001)[手术室]123456李甲(d0001)[手术室]');
+    const result = matchEmployeeDirectoryRecords(
+      [subject, { ...subject, employeeCode: 'd0002' }],
+      records,
+    );
+    expect(result.records.map((entry) => entry.employeeCode)).toEqual(['d0001', 'd0002']);
+    expect(result.report.ambiguousCurrentRecordCount).toBe(0);
+  });
+
+  it('does not use a code from a different department for a contactless employee', () => {
+    const subject = { ...record('李甲', ['医院', '手术室']), phones: [] };
+    const result = matchEmployeeDirectoryRecords(
+      [subject],
+      [{ department: '门诊部', employeeCode: 'd0001', name: '李甲', sourcePhone: '123456' }],
+    );
+    expect(result.records[0]?.employeeCode).toBeUndefined();
+  });
+
   it('prefers department matches and maps repeated directory rows by unique name', () => {
     const result = matchEmployeeDirectoryRecords(
       [

@@ -1,7 +1,7 @@
 import type { CleanEmployeeDirectoryRecord } from './employee-directory-cleaner.js';
 
 const identityPattern =
-  /(?<name>[^()[\]]+?)\((?<employeeCode>[^()[\]]*)\)\[(?<department>[^\]]*)\](?<phone>\d+)/gu;
+  /(?<name>[^()[\]]+?)\((?<employeeCode>[^()[\]]*)\)\[(?<department>[^\]]*)\](?<phone>\d*)/gu;
 const employeeCodePattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 
 export interface EmployeeIdentityRecord {
@@ -95,8 +95,16 @@ export function matchEmployeeDirectoryRecords(
         (level) => normalizeMatchText(level) === normalizeMatchText(identity.department),
       ),
     );
-    const candidatePool = departmentCandidates.length > 0 ? departmentCandidates : candidates;
-    const preferredCandidates = candidatePool.filter((identity) =>
+    const candidatePool =
+      departmentCandidates.length > 0 || record.phones.length === 0
+        ? departmentCandidates
+        : candidates;
+    const uniqueCandidates = [
+      ...new Map(
+        candidatePool.map((identity) => [identity.employeeCode.toLowerCase(), identity]),
+      ).values(),
+    ];
+    const preferredCandidates = uniqueCandidates.filter((identity) =>
       isPreferredEmployeeCode(identity.employeeCode),
     );
     const selected =
@@ -104,17 +112,17 @@ export function matchEmployeeDirectoryRecords(
         ? preferredCandidates[0]
         : preferredCandidates.length > 1
           ? undefined
-          : candidatePool.length === 1
-            ? candidatePool[0]
+          : uniqueCandidates.length === 1
+            ? uniqueCandidates[0]
             : undefined;
 
     if (selected !== undefined) {
       if (departmentCandidates.length > 0) matchedByDepartmentCount += 1;
       else matchedByNameOnlyCount += 1;
-      return { ...record, employeeCode: selected.employeeCode };
+      return { ...record, employeeCode: record.employeeCode ?? selected.employeeCode };
     }
 
-    const reason = candidates.length === 0 ? 'not_found' : 'ambiguous';
+    const reason = candidatePool.length === 0 ? 'not_found' : 'ambiguous';
     if (reason === 'not_found') unmatchedCurrentRecordCount += 1;
     else ambiguousCurrentRecordCount += 1;
     unmatchedCurrentRecords.push({

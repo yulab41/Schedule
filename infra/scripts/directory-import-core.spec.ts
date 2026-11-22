@@ -129,6 +129,23 @@ describe('directory import manifest', () => {
     expect(entry?.contentSha256).toMatch(/^[a-f0-9]{64}$/u);
   });
 
+  it('allows an employee person without a phone while indexing their department and code', () => {
+    const manifest = createManifest();
+    manifest.directoryKind = 'employee';
+    Object.assign(firstEntry(manifest), {
+      contactName: '测试职工',
+      department: '手术室',
+      entryKind: 'person',
+      contacts: [],
+    });
+    const normalized = validateDirectoryManifest(manifest).entries[0];
+    expect(normalized?.contacts).toEqual([]);
+    expect(normalized?.searchText).toContain('手术室');
+    expect(normalized?.aliases).toContainEqual(
+      expect.objectContaining({ type: 'source', normalizedValue: 'd0468' }),
+    );
+  });
+
   const invalidManifestMutations: readonly [string, (manifest: SyntheticManifest) => void][] = [
     ['a malformed document hash', (manifest) => (firstDocument(manifest).sha256 = 'bad')],
     [
@@ -144,6 +161,7 @@ describe('directory import manifest', () => {
           entryKey: 'synthetic-campus:test-center:secondary',
         }),
     ],
+    ['a hospital entry without contacts', (manifest) => (firstEntry(manifest).contacts = [])],
     ['an invalid phone value', (manifest) => (firstContact(manifest).fullNumber = 'not-a-number')],
     [
       'an internal extension longer than six digits',
