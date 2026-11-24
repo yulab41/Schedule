@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const userId = '00000000-0000-4000-8000-000000000001';
+const activityPath = `/platform-admin/users/${userId}/activity`;
+const isActivityRequest = (request) => new URL(request.url).pathname.endsWith(activityPath);
 let authVersion = 4;
 let includeAccount = true;
 
@@ -66,7 +68,7 @@ describe('P8-E native platform accounts controller', () => {
           options.success({ data: { authVersion, passwordConfigured: true }, statusCode: 200 });
           return;
         }
-        if (options.url.endsWith('/activity')) {
+        if (isActivityRequest(options) && options.method === 'GET') {
           activityResponse = options;
           return;
         }
@@ -97,7 +99,7 @@ describe('P8-E native platform accounts controller', () => {
 
   it('loads activity only on demand, coalesces reopening and ignores closed responses', async () => {
     const page = await loadReadyPage(definition);
-    expect(requests.some((request) => request.url.endsWith('/activity'))).toBe(false);
+    expect(requests.some(isActivityRequest)).toBe(false);
     const event = { currentTarget: { dataset: { accountId: userId } } };
     definition.handleToggleActivity.call(page, event);
     await vi.waitFor(() => expect(activityResponse).toBeDefined());
@@ -112,21 +114,48 @@ describe('P8-E native platform accounts controller', () => {
     expect(page.data.activityRows).toEqual([]);
     await vi.waitFor(() => expect(page._activityFlights.size).toBe(0));
     definition.handleToggleActivity.call(page, event);
-    await vi.waitFor(() =>
-      expect(requests.filter((request) => request.url.endsWith('/activity')).length).toBe(2),
-    );
+    await vi.waitFor(() => expect(requests.filter(isActivityRequest)).toHaveLength(2));
     activityResponse.success({ statusCode: 500, data: {} });
     await vi.waitFor(() => expect(page.data.activityState).toBe('error'));
     definition.handleRetryActivity.call(page);
-    await vi.waitFor(() =>
-      expect(requests.filter((request) => request.url.endsWith('/activity')).length).toBe(3),
-    );
+    await vi.waitFor(() => expect(requests.filter(isActivityRequest)).toHaveLength(3));
     activityResponse.success({
       statusCode: 200,
       data: { todayLoginCount: 0, todayOpenCount: 0, totalOpenCount: 0 },
     });
     await vi.waitFor(() => expect(page.data.activityState).toBe('empty'));
     expect(page.data.activityRows).toHaveLength(7);
+  });
+
+  it('requests and displays both directory summaries alongside account activity', async () => {
+    const page = await loadReadyPage(definition);
+    definition.handleToggleActivity.call(page, {
+      currentTarget: { dataset: { accountId: userId } },
+    });
+    await vi.waitFor(() => expect(activityResponse).toBeDefined());
+    const url = new URL(activityResponse.url);
+    expect(url.searchParams.get('includeDirectory')).toBe('true');
+    activityResponse.success({
+      statusCode: 200,
+      data: {
+        startedAt: '2026-11-24T00:00:00.000Z',
+        todayLoginCount: 1,
+        todayOpenCount: 2,
+        totalOpenCount: 4,
+        directoryQueries: {
+          internal: { todayCount: 2, totalCount: 9, lastQueriedAt: '2026-11-24T16:03:04.000Z' },
+          employee: { todayCount: 0, totalCount: 0 },
+        },
+      },
+    });
+    await vi.waitFor(() => expect(page.data.activityState).toBe('ready'));
+    expect(page.data.activityRows).toContainEqual({ label: '今日打开次数', value: '2' });
+    expect(page.data.activityRows.slice(-4)).toEqual([
+      { label: '科室通讯录查询', value: '今日 2 次 · 累计 9 次' },
+      { label: '科室最近查询', value: '2026-11-25 00:03:04' },
+      { label: '人员通讯录查询', value: '今日 0 次 · 累计 0 次' },
+      { label: '人员最近查询', value: '暂无记录' },
+    ]);
   });
 
   it('joins a pending detail request and ignores responses after disposal', async () => {
@@ -136,7 +165,7 @@ describe('P8-E native platform accounts controller', () => {
     await vi.waitFor(() => expect(activityResponse).toBeDefined());
     definition.handleToggleActivity.call(page, event);
     definition.handleToggleActivity.call(page, event);
-    expect(requests.filter((request) => request.url.endsWith('/activity'))).toHaveLength(1);
+    expect(requests.filter(isActivityRequest)).toHaveLength(1);
     definition.handleDispose.call(page);
     activityResponse.success({
       statusCode: 200,

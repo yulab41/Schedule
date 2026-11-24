@@ -641,7 +641,7 @@ async function loadActivity(page: PlatformAccountsPageInstance, userId: string):
   page.setData({ activityAccountId: userId, activityState: 'loading', activityRows: [] });
   let flight = page._activityFlights.get(userId);
   if (flight === undefined) {
-    flight = page._accountClient.getActivity(userId);
+    flight = page._accountClient.getActivity(userId, { includeDirectory: true });
     page._activityFlights.set(userId, flight);
   }
   try {
@@ -658,6 +658,22 @@ async function loadActivity(page: PlatformAccountsPageInstance, userId: string):
       value === undefined
         ? '暂无记录'
         : new Date(Date.parse(value) + 8 * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+    const directory = activity.directoryQueries;
+    const directoryRows =
+      directory === undefined
+        ? []
+        : (
+            [
+              ['科室', directory.internal],
+              ['人员', directory.employee],
+            ] as const
+          ).flatMap(([label, query]) => [
+            {
+              label: `${label}通讯录查询`,
+              value: `今日 ${query.todayCount} 次 · 累计 ${query.totalCount} 次`,
+            },
+            { label: `${label}最近查询`, value: time(query.lastQueriedAt) },
+          ]);
     page.setData({
       activityState: activity.startedAt === undefined ? 'empty' : 'ready',
       activityRows: [
@@ -672,6 +688,7 @@ async function loadActivity(page: PlatformAccountsPageInstance, userId: string):
         { label: '今日打开次数', value: String(activity.todayOpenCount) },
         { label: '累计打开次数', value: String(activity.totalOpenCount) },
         { label: '统计起始时间', value: time(activity.startedAt) },
+        ...directoryRows,
       ],
     });
   } catch {
