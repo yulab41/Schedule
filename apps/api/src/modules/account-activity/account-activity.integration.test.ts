@@ -105,6 +105,33 @@ test('account activity transactional statistics', () => {
       todayLoginCount: 2,
     });
   });
+  it('keeps directory counters separate across concurrent queries and Beijing midnight', async () => {
+    await Promise.all([
+      service.recordLogin(memberId, 'password'),
+      service.recordDirectoryQuery(memberId, 'internal'),
+      service.recordDirectoryQuery(memberId, 'internal'),
+      service.recordDirectoryQuery(memberId, 'employee'),
+    ]);
+    expect(await service.summary(admin, memberId, true)).toMatchObject({
+      todayLoginCount: 1,
+      directoryQueries: {
+        internal: { todayCount: 2, totalCount: 2, lastQueriedAt: clock.toISOString() },
+        employee: { todayCount: 1, totalCount: 1, lastQueriedAt: clock.toISOString() },
+      },
+    });
+    const previous = clock.toISOString();
+    clock = new Date('2026-09-30T16:00:00.000Z');
+    await service.recordDirectoryQuery(memberId, 'internal');
+    await service.recordOpen(member, event(clock));
+    expect(await service.summary(admin, memberId, true)).toMatchObject({
+      todayLoginCount: 0,
+      todayOpenCount: 1,
+      directoryQueries: {
+        internal: { todayCount: 1, totalCount: 3, lastQueriedAt: clock.toISOString() },
+        employee: { todayCount: 0, totalCount: 1, lastQueriedAt: previous },
+      },
+    });
+  });
   it('attributes late retries to the original day and never lowers recent access', async () => {
     const yesterday = new Date(clock.valueOf() - 86400000);
     await service.recordOpen(member, event(clock));

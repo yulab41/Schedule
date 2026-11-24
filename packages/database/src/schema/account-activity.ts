@@ -29,6 +29,26 @@ export const accountActivitySummaries = mysqlTable('account_activity_summaries',
     'wechat_unspecified',
   ]),
   lastOpenedAt: timestamp('last_opened_at', { fsp: 3 }),
+  todayInternalDirectoryQueries: int('today_internal_directory_queries', { unsigned: true })
+    .default(0)
+    .notNull(),
+  totalInternalDirectoryQueries: bigint('total_internal_directory_queries', {
+    mode: 'number',
+    unsigned: true,
+  })
+    .default(0)
+    .notNull(),
+  lastInternalDirectoryQueryAt: timestamp('last_internal_directory_query_at', { fsp: 3 }),
+  todayEmployeeDirectoryQueries: int('today_employee_directory_queries', { unsigned: true })
+    .default(0)
+    .notNull(),
+  totalEmployeeDirectoryQueries: bigint('total_employee_directory_queries', {
+    mode: 'number',
+    unsigned: true,
+  })
+    .default(0)
+    .notNull(),
+  lastEmployeeDirectoryQueryAt: timestamp('last_employee_directory_query_at', { fsp: 3 }),
 });
 export const accountOpenReceipts = mysqlTable(
   'account_open_receipts',

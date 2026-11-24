@@ -5,7 +5,7 @@ import {
   type DirectoryEntryLookupRequest,
   type DirectoryQuery as DirectoryQueryInput,
 } from '@schedule/contracts';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest, RouteShorthandOptions } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
@@ -22,7 +22,13 @@ export function registerDirectoryRoutes(
   directoryQuery: DirectoryQuery,
   canUseDiagnostics: (identity: AuthenticatedIdentity) => Promise<boolean> = async () => false,
 ): void {
-  app.get('/groups/:groupId/directory/facets', { preHandler: app.authenticate }, (request) =>
+  const protectedRead: RouteShorthandOptions = {
+    preHandler: app.authenticate,
+    onRequest: async (_request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+    },
+  };
+  app.get('/groups/:groupId/directory/facets', protectedRead, (request) =>
     directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
   app.get(
@@ -41,9 +47,10 @@ export function registerDirectoryRoutes(
             'Directory query plan selected.',
           );
         },
+        request.method === 'GET',
       ),
   );
-  app.post('/groups/:groupId/directory/lookup', { preHandler: app.authenticate }, (request) =>
+  app.post('/groups/:groupId/directory/lookup', protectedRead, (request) =>
     directoryQuery.lookup(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
@@ -51,11 +58,8 @@ export function registerDirectoryRoutes(
     ),
   );
 
-  app.get(
-    '/groups/:groupId/employee-directory/facets',
-    { preHandler: app.authenticate },
-    (request) =>
-      directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request), 'employee'),
+  app.get('/groups/:groupId/employee-directory/facets', protectedRead, (request) =>
+    directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request), 'employee'),
   );
   app.get(
     '/groups/:groupId/employee-directory',
@@ -73,18 +77,16 @@ export function registerDirectoryRoutes(
             'Directory query plan selected.',
           );
         },
+        request.method === 'GET',
       ),
   );
-  app.post(
-    '/groups/:groupId/employee-directory/lookup',
-    { preHandler: app.authenticate },
-    (request) =>
-      directoryQuery.lookup(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseDirectoryLookupRequest(request.body).entryIds,
-        'employee',
-      ),
+  app.post('/groups/:groupId/employee-directory/lookup', protectedRead, (request) =>
+    directoryQuery.lookup(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseDirectoryLookupRequest(request.body).entryIds,
+      'employee',
+    ),
   );
 }
 

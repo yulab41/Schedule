@@ -14,5 +14,8 @@ export function releaseSchemaCompatibility(journal) {
   if (entries.length === 72 && last === '0072_external_duty_frozen_baseline') {
     return { databaseSchemaMin: '72', databaseSchemaMax: '72' };
   }
+  if (entries.length === 73 && last === '0073_directory_query_activity') {
+    return { databaseSchemaMin: '73', databaseSchemaMax: '73' };
+  }
   throw new Error('Unreviewed migration journal; revalidate release compatibility.');
 }

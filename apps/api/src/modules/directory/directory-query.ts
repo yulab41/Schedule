@@ -26,7 +26,7 @@ import { and, asc, desc, eq, gt, inArray, lt, or, sql, type SQL } from 'drizzle-
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
-import { GroupPermissionService } from '../groups/permission-service.js';
+import { canReadDirectory, GroupPermissionService } from '../groups/permission-service.js';
 import { DirectoryFacetCache } from './directory-facet-cache.js';
 import {
   measureDirectoryPhase,
@@ -104,6 +104,8 @@ interface CandidateDirectoryRow {
 export interface DirectoryQueryOptions {
   readonly candidateReadinessInspector?: (() => Promise<DirectoryCandidateReadiness>) | undefined;
   readonly configuredPlan?: DirectoryQueryPlan | undefined;
+  readonly platformAdminUids?: ReadonlySet<string>;
+  readonly recordSuccessfulQuery?: (userId: string, kind: DirectoryKind) => Promise<void>;
   readonly onCandidateUnavailable?:
     ((reason: DirectoryCandidateIndexUnavailableReason) => void) | undefined;
 }
@@ -118,7 +120,7 @@ export class DirectoryQuery {
 
   public constructor(
     private readonly databaseClient: DatabaseClient,
-    options: DirectoryQueryOptions = {},
+    private readonly options: DirectoryQueryOptions = {},
   ) {
     this.configuredPlan = options.configuredPlan ?? 'legacy';
     this.candidateIndexGuard = new DirectoryCandidateIndexGuard(
@@ -139,6 +141,7 @@ export class DirectoryQuery {
     directoryKind: DirectoryKind = 'internal',
     timing?: DirectoryServerTimingTrace,
     observePlan?: DirectoryQueryPlanObserver,
+    countQuery = true,
   ): Promise<DirectoryPage> {
     const candidateIndexAvailable =
       this.configuredPlan === 'candidate' && isCandidateDirectoryQueryShape(query)
@@ -154,32 +157,27 @@ export class DirectoryQuery {
     if (timing !== undefined) timing.directoryQueryPlan = effectivePlan;
     observePlan?.(effectivePlan);
     const transactionStartedAt = performance.now();
-    return withTransaction(this.databaseClient, async (transaction) => {
+    const { page, userId } = await withTransaction(this.databaseClient, async (transaction) => {
       if (timing !== undefined) {
         timing.databaseWaitMs = Math.max(
           0,
           Math.round((performance.now() - transactionStartedAt) * 10) / 10,
         );
       }
-      const authorization = await measureDirectoryPhase(timing, 'permissionMs', () =>
-        this.permissionService.requireReadPermission(
-          transaction,
-          identity,
-          groupId,
-          'viewDirectory',
-        ),
+      const userId = await measureDirectoryPhase(timing, 'permissionMs', () =>
+        this.requireDirectoryAccess(transaction, identity, groupId),
       );
       const batch = await measureDirectoryPhase(timing, 'batchMs', () =>
         getPublishedBatch(transaction, directoryKind),
       );
-      const canViewAdministratorEntries =
-        authorization.user.isDeveloperAdmin ||
-        authorization.membership.role === 'owner' ||
-        authorization.membership.role === 'administrator';
       const listEntries =
         effectivePlan === 'candidate' ? listDirectoryEntriesCandidate : listDirectoryEntries;
-      return listEntries(transaction, batch.id, query, canViewAdministratorEntries, timing);
+      const page = await listEntries(transaction, batch.id, query, true, timing);
+      return { page, userId };
     });
+    if (countQuery && query.cursor === undefined)
+      await this.options.recordSuccessfulQuery?.(userId, directoryKind);
+    return page;
   }
 
   public async facets(
@@ -188,44 +186,28 @@ export class DirectoryQuery {
     directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryFacetSnapshot> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requireReadPermission(
-        transaction,
-        identity,
-        groupId,
-        'viewDirectory',
-      );
+      await this.requireDirectoryAccess(transaction, identity, groupId);
       const batch = await getPublishedBatch(transaction, directoryKind);
-      const canViewAdministratorEntries =
-        authorization.user.isDeveloperAdmin ||
-        authorization.membership.role === 'owner' ||
-        authorization.membership.role === 'administrator';
-      const visibilityConditions = canViewAdministratorEntries
-        ? []
-        : [eq(directoryEntries.visibility, 'member')];
-      const visibilityKey = canViewAdministratorEntries ? 'administrator' : 'member';
-      return this.facetCache.getOrLoad(
-        `${groupId}:${directoryKind}:${batch.id}:${visibilityKey}`,
-        async () => {
-          const rows = await transaction
-            .select({
-              building: directoryEntries.buildingName,
-              campusCode: directoryCampuses.code,
-              campusDisplayOrder: directoryCampuses.displayOrder,
-              campusName: directoryCampuses.name,
-              department: directoryEntries.departmentName,
-              entryKind: directoryEntries.entryKind,
-              floor: directoryEntries.floorName,
-              section: directoryEntries.sectionName,
-              subunit: directoryEntries.subunitName,
-            })
-            .from(directoryEntries)
-            .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
-            .where(and(eq(directoryEntries.batchId, batch.id), ...visibilityConditions))
-            .orderBy(asc(directoryCampuses.displayOrder), asc(directoryEntries.displayOrder));
+      return this.facetCache.getOrLoad(`${groupId}:${directoryKind}:${batch.id}`, async () => {
+        const rows = await transaction
+          .select({
+            building: directoryEntries.buildingName,
+            campusCode: directoryCampuses.code,
+            campusDisplayOrder: directoryCampuses.displayOrder,
+            campusName: directoryCampuses.name,
+            department: directoryEntries.departmentName,
+            entryKind: directoryEntries.entryKind,
+            floor: directoryEntries.floorName,
+            section: directoryEntries.sectionName,
+            subunit: directoryEntries.subunitName,
+          })
+          .from(directoryEntries)
+          .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
+          .where(eq(directoryEntries.batchId, batch.id))
+          .orderBy(asc(directoryCampuses.displayOrder), asc(directoryEntries.displayOrder));
 
-          return buildFacetSnapshot(batch, rows);
-        },
-      );
+        return buildFacetSnapshot(batch, rows);
+      });
     });
   }
 
@@ -236,26 +218,33 @@ export class DirectoryQuery {
     directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryEntryLookupResponse> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requireReadPermission(
-        transaction,
-        identity,
-        groupId,
-        'viewDirectory',
-      );
+      await this.requireDirectoryAccess(transaction, identity, groupId);
       const batch = await getPublishedBatch(transaction, directoryKind);
-      const canViewAdministratorEntries =
-        authorization.user.isDeveloperAdmin ||
-        authorization.membership.role === 'owner' ||
-        authorization.membership.role === 'administrator';
       return {
-        entries: await lookupDirectoryEntries(
-          transaction,
-          batch.id,
-          entryIds,
-          canViewAdministratorEntries,
-        ),
+        entries: await lookupDirectoryEntries(transaction, batch.id, entryIds, true),
       };
     });
+  }
+
+  private async requireDirectoryAccess(
+    transaction: DatabaseTransaction,
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<string> {
+    const authorization = await this.permissionService.requireReadPermission(
+      transaction,
+      identity,
+      groupId,
+      'viewDirectory',
+    );
+    if (!canReadDirectory(authorization, identity, this.options.platformAdminUids)) {
+      throw new ApiError({
+        code: 'FORBIDDEN',
+        statusCode: 403,
+        userMessage: '通讯录仅向群主、群管理员和平台管理员开放。',
+      });
+    }
+    return authorization.user.id;
   }
 }
 

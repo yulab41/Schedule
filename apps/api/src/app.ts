@@ -186,7 +186,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       app,
       new GroupService(options.databaseClient),
       new MembershipService(options.databaseClient),
-      new ContactService(options.databaseClient),
+      new ContactService(options.databaseClient, platformAdminUids),
       new VisitorKeyService(options.databaseClient),
       visitorAccessLogService,
     );
@@ -244,6 +244,17 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     );
     const directoryQuery = new DirectoryQuery(options.databaseClient, {
       configuredPlan: options.directoryQueryPlan ?? 'legacy',
+      platformAdminUids,
+      recordSuccessfulQuery: async (userId, kind) => {
+        try {
+          await activityService.recordDirectoryQuery(userId, kind);
+        } catch {
+          app.log.warn(
+            { code: 'DIRECTORY_ACTIVITY_RECORD_FAILED' },
+            'Directory query count unavailable',
+          );
+        }
+      },
       onCandidateUnavailable: (reason) => {
         app.log.warn(
           {

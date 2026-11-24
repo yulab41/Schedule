@@ -30,6 +30,7 @@ const describeWithDatabase = databaseOptions === undefined ? describe.skip : des
 const directoryAuthTokens = {
   'diagnostics-target-token': 'password_00000000-0000-4000-8000-000000000001',
   'administrator-token': 'directory-administrator',
+  'platform-allowlist-token': 'directory-platform-allowlist',
   'developer-token': 'directory-developer',
   'guest-token': 'directory-guest',
   'member-token': 'directory-member',
@@ -51,7 +52,130 @@ describeWithDatabase('internal directory routes', () => {
       authPort: createFakeAuthPort(directoryAuthTokens),
       databaseClient: client,
       logger: false,
+      platformAdminUids: new Set([directoryAuthTokens['platform-allowlist-token']]),
     });
+  });
+
+  it('protects both directories and counts successful first-page queries per account', async () => {
+    const memberHeaders = { authorization: 'Bearer member-token' };
+    const adminHeaders = { authorization: 'Bearer developer-token' };
+    const groupAdminHeaders = { authorization: 'Bearer administrator-token' };
+    const root = `/groups/${groupId}`;
+    const [rows] = await client.database.execute(sql`
+      SELECT id FROM users WHERE cloudbase_uid = ${directoryAuthTokens['administrator-token']}
+    `);
+    const [{ id: groupAdminId }] = rows as unknown as [{ id: string }];
+    const activityUrl = `/platform-admin/users/${groupAdminId}/activity`;
+    const firstPage = await app.inject({
+      url: `${root}/directory?pageSize=1`,
+      headers: groupAdminHeaders,
+    });
+    expect(firstPage.statusCode).toBe(200);
+    const cursor = encodeURIComponent(firstPage.json().nextCursor);
+    expect(
+      (await app.inject({ method: 'HEAD', url: `${root}/directory`, headers: groupAdminHeaders }))
+        .statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ url: `${root}/directory?cursor=${cursor}`, headers: groupAdminHeaders }))
+        .statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ url: `${root}/directory?cursor=bad`, headers: groupAdminHeaders }))
+        .statusCode,
+    ).toBe(400);
+    expect(
+      (await app.inject({ url: `${root}/directory/facets`, headers: groupAdminHeaders }))
+        .statusCode,
+    ).toBe(200);
+
+    const entryIds = [firstPage.json().entries[0].id];
+    for (const path of ['directory', 'employee-directory']) {
+      if (path === 'employee-directory') {
+        await client.database.update(directoryImportBatches).set({ directoryKind: 'employee' });
+      }
+      const requests = [
+        { method: 'GET', url: `${root}/${path}` },
+        { method: 'GET', url: `${root}/${path}/facets` },
+        { method: 'POST', url: `${root}/${path}/lookup`, payload: { entryIds } },
+      ] as const;
+      for (const request of requests) {
+        for (const token of [
+          'owner-token',
+          'administrator-token',
+          'developer-token',
+          'platform-allowlist-token',
+        ]) {
+          const allowed = await app.inject({
+            ...request,
+            headers: { authorization: `Bearer ${token}` },
+          });
+          expect(allowed.statusCode).toBe(200);
+          expect(allowed.headers['cache-control']).toBe('no-store');
+        }
+        const denied = await app.inject({ ...request, headers: memberHeaders });
+        expect(denied.statusCode).toBe(403);
+        expect(denied.json()).toEqual({
+          error: {
+            code: 'FORBIDDEN',
+            message: '通讯录仅向群主、群管理员和平台管理员开放。',
+            requestId: expect.any(String),
+          },
+        });
+      }
+    }
+    const legacy = await app.inject({ url: activityUrl, headers: adminHeaders });
+    expect(legacy.json()).not.toHaveProperty('directoryQueries');
+    const stats = await app.inject({
+      url: `${activityUrl}?includeDirectory=true`,
+      headers: adminHeaders,
+    });
+    expect(stats.json().directoryQueries).toEqual({
+      internal: { todayCount: 2, totalCount: 2, lastQueriedAt: expect.any(String) },
+      employee: { todayCount: 1, totalCount: 1, lastQueriedAt: expect.any(String) },
+    });
+    await client.database.execute(sql`
+      UPDATE group_memberships SET role = 'member'
+      WHERE group_id = ${groupId} AND user_id = ${groupAdminId}
+    `);
+    const revoked = await app.inject({
+      url: `${root}/employee-directory/facets`,
+      headers: groupAdminHeaders,
+    });
+    expect(revoked.statusCode).toBe(403);
+    expect(
+      (await app.inject({ url: `${activityUrl}?includeDirectory=true`, headers: memberHeaders }))
+        .statusCode,
+    ).toBe(403);
+  });
+
+  it('keeps group contacts available without disclosing employee directory codes to members', async () => {
+    await client.database.update(directoryImportBatches).set({ directoryKind: 'employee' });
+    await client.database.execute(sql`
+      UPDATE users AS account
+      INNER JOIN user_profiles AS profile ON profile.user_id = account.id
+      SET account.mobile_phone = '000000000002', profile.real_name = '值班医生'
+      WHERE account.cloudbase_uid = 'directory-member'
+    `);
+    const url = `/groups/${groupId}/contacts?includeEmployeeCodes=1`;
+    const member = await app.inject({ url, headers: { authorization: 'Bearer member-token' } });
+    expect(member.statusCode).toBe(200);
+    expect(member.json()).toContainEqual(expect.objectContaining({ mobilePhone: '000000000002' }));
+    expect(
+      member
+        .json()
+        .every((contact: { employeeCodes?: string[] }) => contact.employeeCodes === undefined),
+    ).toBe(true);
+    for (const token of ['administrator-token', 'platform-allowlist-token']) {
+      const admin = await app.inject({ url, headers: { authorization: `Bearer ${token}` } });
+      expect(admin.statusCode).toBe(200);
+      expect(admin.json()).toContainEqual(
+        expect.objectContaining({
+          mobilePhone: '000000000002',
+          employeeCodes: ['A0468'],
+        }),
+      );
+    }
   });
 
   afterEach(async () => {
@@ -61,7 +185,7 @@ describeWithDatabase('internal directory routes', () => {
 
   it('keeps ordinary directory reads available but returns diagnostic timings only to the designated admin', async () => {
     for (const token of [
-      'member-token',
+      'owner-token',
       'administrator-token',
       'developer-token',
       'diagnostics-target-token',
@@ -82,8 +206,8 @@ describeWithDatabase('internal directory routes', () => {
     }
   });
 
-  it('allows active formal members and administrators while rejecting guest, outsider, and anonymous access', async () => {
-    for (const token of ['member-token', 'administrator-token', 'developer-token']) {
+  it('allows active administrators while rejecting members, guests, outsiders, and anonymous access', async () => {
+    for (const token of ['owner-token', 'administrator-token', 'developer-token']) {
       const response = await app.inject({
         headers: { authorization: `Bearer ${token}` },
         method: 'GET',
@@ -92,7 +216,7 @@ describeWithDatabase('internal directory routes', () => {
       expect(response.statusCode, response.payload).toBe(200);
     }
 
-    for (const token of ['guest-token', 'outsider-token']) {
+    for (const token of ['member-token', 'guest-token', 'outsider-token']) {
       const response = await app.inject({
         headers: { authorization: `Bearer ${token}` },
         method: 'GET',
@@ -114,38 +238,38 @@ describeWithDatabase('internal directory routes', () => {
   });
 
   it('searches Chinese, pinyin initials, employee codes, exact numbers, and number prefixes with stable cursor pages', async () => {
-    const chinese = await getDirectory('member-token', 'q=%E6%80%A5%E8%AF%8A');
+    const chinese = await getDirectory('owner-token', 'q=%E6%80%A5%E8%AF%8A');
     expect(chinese.totalCount).toBe(2);
 
-    const pinyin = await getDirectory('member-token', 'q=jzk');
+    const pinyin = await getDirectory('owner-token', 'q=jzk');
     expect(pinyin.totalCount).toBe(2);
 
     for (const query of ['D0468', 'd0468']) {
-      const employeeCode = await getDirectory('member-token', `q=${query}`);
+      const employeeCode = await getDirectory('owner-token', `q=${query}`);
       expect(employeeCode.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
     }
 
-    const withoutPrefix = await getDirectory('member-token', 'q=0468');
+    const withoutPrefix = await getDirectory('owner-token', 'q=0468');
     expect(withoutPrefix.entries.slice(0, 2).map((entry) => entry.employeeCode)).toEqual([
       'D0468',
       'A0468',
     ]);
 
-    const withoutPrefixOrZero = await getDirectory('member-token', 'q=468');
+    const withoutPrefixOrZero = await getDirectory('owner-token', 'q=468');
     expect(withoutPrefixOrZero.entries.slice(0, 2).map((entry) => entry.employeeCode)).toEqual([
       'D0468',
       'A0468',
     ]);
     expect(withoutPrefixOrZero.totalCount).toBe(3);
 
-    const extension = await getDirectory('member-token', 'q=1234');
+    const extension = await getDirectory('owner-token', 'q=1234');
     expect(extension.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
 
-    const numberPrefix = await getDirectory('member-token', 'q=0000000&pageSize=1');
+    const numberPrefix = await getDirectory('owner-token', 'q=0000000&pageSize=1');
     expect(numberPrefix.entries).toHaveLength(1);
     expect(numberPrefix.nextCursor).toEqual(expect.any(String));
     const secondPage = await getDirectory(
-      'member-token',
+      'owner-token',
       `q=0000000&pageSize=1&cursor=${encodeURIComponent(numberPrefix.nextCursor ?? '')}`,
     );
     expect(secondPage.entries).toHaveLength(1);
@@ -153,33 +277,31 @@ describeWithDatabase('internal directory routes', () => {
   });
 
   it('combines independently selected hierarchy filters without requiring parent levels', async () => {
-    const floorOnly = await getDirectory('member-token', 'floor=2%E6%A5%BC');
+    const floorOnly = await getDirectory('owner-token', 'floor=2%E6%A5%BC');
     expect(floorOnly.entries.map((entry) => entry.department)).toEqual(['检验科']);
 
     const departmentAndKind = await getDirectory(
-      'member-token',
+      'owner-token',
       'department=%E6%80%A5%E8%AF%8A%E7%A7%91&entryKind=person',
     );
     expect(departmentAndKind.entries.map((entry) => entry.contactName)).toEqual(['值班医生']);
 
-    const buildingOnly = await getDirectory('member-token', 'building=%E5%8C%BB%E6%8A%80%E6%A5%BC');
+    const buildingOnly = await getDirectory('owner-token', 'building=%E5%8C%BB%E6%8A%80%E6%A5%BC');
     expect(buildingOnly.totalCount).toBe(1);
   });
 
   it('returns role-safe filter facets and rejects malformed cursors', async () => {
-    const memberFacets = await getFacets('member-token');
     const administratorFacets = await getFacets('administrator-token');
 
-    expect(memberFacets.totalCount).toBe(3);
     expect(administratorFacets.totalCount).toBe(4);
-    expect(memberFacets.campuses.map((facet) => facet.value)).toEqual(['central', 'north']);
-    expect(memberFacets.floors).toEqual(
+    expect(administratorFacets.campuses.map((facet) => facet.value)).toEqual(['central', 'north']);
+    expect(administratorFacets.floors).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ count: 1, value: '2楼' }),
         expect.objectContaining({ count: 2, value: '3楼' }),
       ]),
     );
-    expect(memberFacets.paths).toEqual(
+    expect(administratorFacets.paths).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           building: '门诊楼',
@@ -200,11 +322,10 @@ describeWithDatabase('internal directory routes', () => {
         }),
       ]),
     );
-    expect(memberFacets.paths.some((path) => path.department === '保卫处')).toBe(false);
     expect(administratorFacets.paths.some((path) => path.department === '保卫处')).toBe(true);
 
     const invalidCursor = await app.inject({
-      headers: { authorization: 'Bearer member-token' },
+      headers: { authorization: 'Bearer administrator-token' },
       method: 'GET',
       url: `/groups/${groupId}/directory?cursor=not-a-cursor`,
     });
@@ -220,16 +341,18 @@ describeWithDatabase('internal directory routes', () => {
       payload: { entryIds },
       url: `/groups/${groupId}/directory/lookup`,
     });
-    expect(memberResponse.statusCode, memberResponse.payload).toBe(200);
-    expect(memberResponse.json().entries).toHaveLength(3);
-    expect(
-      memberResponse
-        .json()
-        .entries.some((entry: { department?: string }) => entry.department === '保卫处'),
-    ).toBe(false);
+    expect(memberResponse.statusCode).toBe(403);
+    const ownerResponse = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { entryIds },
+      url: `/groups/${groupId}/directory/lookup`,
+    });
+    expect(ownerResponse.statusCode).toBe(200);
+    expect(ownerResponse.json().entries.map((entry: { id: string }) => entry.id)).toEqual(entryIds);
 
     const malformed = await app.inject({
-      headers: { authorization: 'Bearer member-token' },
+      headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
       payload: { entryIds: [entryIds[0], entryIds[0]] },
       url: `/groups/${groupId}/directory/lookup`,
@@ -246,17 +369,17 @@ describeWithDatabase('internal directory routes', () => {
     });
     try {
       const scenarios = [
-        ['member-token', 'q=%E6%80%A5%E8%AF%8A'],
-        ['member-token', 'q=jzk'],
-        ['member-token', 'q=jizhenke'],
-        ['member-token', 'q=D0468'],
-        ['member-token', 'q=0468'],
-        ['member-token', 'q=0000000001'],
-        ['member-token', 'q=not-present'],
-        ['member-token', 'q=j'],
-        ['member-token', 'q=j&department=%E6%80%A5%E8%AF%8A%E7%A7%91'],
-        ['member-token', 'pageSize=2'],
+        ['owner-token', 'q=%E6%80%A5%E8%AF%8A'],
+        ['owner-token', 'q=jzk'],
+        ['owner-token', 'q=jizhenke'],
+        ['owner-token', 'q=D0468'],
+        ['owner-token', 'q=0468'],
+        ['owner-token', 'q=0000000001'],
+        ['owner-token', 'q=not-present'],
         ['owner-token', 'q=j'],
+        ['owner-token', 'q=j&department=%E6%80%A5%E8%AF%8A%E7%A7%91'],
+        ['owner-token', 'pageSize=2'],
+        ['member-token', 'q=j'],
         ['administrator-token', 'q=j'],
         ['developer-token', 'q=j'],
         ['guest-token', 'q=j'],
@@ -278,11 +401,11 @@ describeWithDatabase('internal directory routes', () => {
         }
       }
 
-      const canonical = await collectPageIds(app, app, 'member-token', 'q=j&pageSize=1');
-      expect(await collectPageIds(app, candidateApp, 'member-token', 'q=j&pageSize=1')).toEqual(
+      const canonical = await collectPageIds(app, app, 'owner-token', 'q=j&pageSize=1');
+      expect(await collectPageIds(app, candidateApp, 'owner-token', 'q=j&pageSize=1')).toEqual(
         canonical,
       );
-      expect(await collectPageIds(candidateApp, app, 'member-token', 'q=j&pageSize=1')).toEqual(
+      expect(await collectPageIds(candidateApp, app, 'owner-token', 'q=j&pageSize=1')).toEqual(
         canonical,
       );
       expect(new Set(canonical)).toHaveProperty('size', canonical.length);
@@ -337,8 +460,8 @@ describeWithDatabase('internal directory routes', () => {
       try {
         for (const query of buildDifferentialQueries(seed)) {
           const [legacy, candidate] = await Promise.all([
-            readAllDirectoryPages(app, groupId, 'member-token', query),
-            readAllDirectoryPages(candidateApp, groupId, 'member-token', query),
+            readAllDirectoryPages(app, groupId, 'owner-token', query),
+            readAllDirectoryPages(candidateApp, groupId, 'owner-token', query),
           ]);
           expect(candidate, `seed=${seed};query=${query}`).toEqual(legacy);
           if (usesCandidateRankPath(query)) {
@@ -679,6 +802,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
   const users: readonly SeedUser[] = [
     { id: randomUUID(), membershipRole: 'owner', uid: 'directory-owner' },
     { id: randomUUID(), membershipRole: 'member', uid: 'directory-member' },
+    { id: randomUUID(), membershipRole: 'member', uid: 'directory-platform-allowlist' },
     {
       id: randomUUID(),
       membershipRole: 'administrator',

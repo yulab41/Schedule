@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import type { PlatformAdminUserDetails as PlatformAdminUserAccount } from '@schedule/contracts';
+import type {
+  AccountActivitySummary,
+  PlatformAdminUserDetails as PlatformAdminUserAccount,
+} from '@schedule/contracts';
 import {
   resolveWorkflowOperationAttempt,
   type WorkflowOperationAttempt,
@@ -27,6 +30,38 @@ const loading = ref(true);
 const saving = ref(false);
 const modalOpen = ref(false);
 const selectedUser = ref<PlatformAdminUserAccount>();
+const directoryQueries = ref<AccountActivitySummary['directoryQueries']>();
+const directoryActivityLoading = ref(false);
+const directoryActivityError = ref<string>();
+const directoryActivityRevision = ref(0);
+const activityTime = new Intl.DateTimeFormat('zh-CN', {
+  dateStyle: 'short',
+  timeStyle: 'medium',
+  timeZone: 'Asia/Shanghai',
+});
+const directoryLabels = { internal: '科室', employee: '人员' } as const;
+
+watch(
+  [() => (modalOpen.value ? selectedUser.value?.id : undefined), directoryActivityRevision],
+  async ([userId], _previous, onCleanup) => {
+    directoryQueries.value = undefined;
+    directoryActivityError.value = undefined;
+    directoryActivityLoading.value = userId !== undefined;
+    if (userId === undefined) return;
+    let current = true;
+    onCleanup(() => {
+      current = false;
+    });
+    try {
+      const activity = await api.platformAccounts.getActivity(userId, { includeDirectory: true });
+      if (current) directoryQueries.value = activity.directoryQueries;
+    } catch (error) {
+      if (current) directoryActivityError.value = toUserMessage(error, '通讯录统计暂时无法加载。');
+    } finally {
+      if (current) directoryActivityLoading.value = false;
+    }
+  },
+);
 const username = ref('');
 const realName = ref('');
 const mobilePhone = ref('');
@@ -423,6 +458,41 @@ async function generateBindingLink(): Promise<void> {
           重新加载账号
         </button>
         <p v-if="feedback" class="platform-feedback" role="status">{{ feedback }}</p>
+        <section class="platform-directory-activity" aria-labelledby="platform-directory-title">
+          <h3 id="platform-directory-title">通讯录查询统计</h3>
+          <p v-if="directoryActivityLoading" role="status">正在加载通讯录统计…</p>
+          <div v-else-if="directoryActivityError">
+            <p role="alert">{{ directoryActivityError }}</p>
+            <button
+              class="platform-secondary-button"
+              type="button"
+              @click="directoryActivityRevision++"
+            >
+              重试
+            </button>
+          </div>
+          <p v-else-if="!directoryQueries">暂无通讯录统计。</p>
+          <template v-else>
+            <dl>
+              <div v-for="(label, kind) in directoryLabels" :key="kind">
+                <dt>{{ label }}通讯录</dt>
+                <dd>
+                  今日 {{ directoryQueries[kind].todayCount }} 次 · 累计
+                  {{ directoryQueries[kind].totalCount }} 次
+                </dd>
+                <dd>
+                  最近查询
+                  {{
+                    directoryQueries[kind].lastQueriedAt
+                      ? activityTime.format(new Date(directoryQueries[kind].lastQueriedAt))
+                      : '暂无记录'
+                  }}
+                </dd>
+              </div>
+            </dl>
+            <p>按北京时间统计每次成功的首屏查询。</p>
+          </template>
+        </section>
         <p class="platform-modal-copy">手机号同步至所有群组，群内短号与公开状态分别保留。</p>
         <label class="platform-field"
           ><span>真实姓名</span><input v-model="realName" maxlength="100"
@@ -503,6 +573,30 @@ async function generateBindingLink(): Promise<void> {
 </template>
 
 <style scoped>
+.platform-directory-activity {
+  padding: 12px;
+  border-radius: var(--ui-radius-small);
+  background: var(--ui-color-surface-muted);
+}
+
+.platform-directory-activity h3,
+.platform-directory-activity dt {
+  font-weight: 600;
+}
+
+.platform-directory-activity h3,
+.platform-directory-activity p,
+.platform-directory-activity dd {
+  margin: 0;
+}
+
+.platform-directory-activity dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+  gap: 12px;
+  margin: 8px 0;
+}
+
 .platform-admin-users {
   min-height: 100%;
   padding: 32px clamp(16px, 5vw, 64px) 72px;

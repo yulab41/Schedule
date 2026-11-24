@@ -10,11 +10,17 @@ import {
 import { defineClientEndpoint, type ClientTransport } from './endpoint.js';
 import { createCompactDecoder } from './json-decoder.js';
 const endpoints = {
-  summary: /* @__PURE__ */ defineClientEndpoint<{ userId: string }, AccountActivitySummary>({
+  summary: /* @__PURE__ */ defineClientEndpoint<
+    { userId: string; includeDirectory?: boolean },
+    AccountActivitySummary
+  >({
     id: 'account-activity.summary',
     method: 'GET',
     auth: 'bearer',
-    path: ({ userId }) => `/platform-admin/users/${encodeURIComponent(userId)}/activity`,
+    path: ({ userId, includeDirectory }) => {
+      const path = `/platform-admin/users/${encodeURIComponent(userId)}/activity`;
+      return includeDirectory === true ? `${path}?includeDirectory=true` : path;
+    },
     decoder: /* @__PURE__ */ createCompactDecoder<AccountActivitySummary>(
       accountActivitySummaryJsonSchema,
     ),

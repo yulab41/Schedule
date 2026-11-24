@@ -505,6 +505,13 @@
       "when": 1785542400072,
       "tag": "0072_external_duty_frozen_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1785542400073,
+      "tag": "0073_directory_query_activity",
+      "breakpoints": true
     }
   ]
 }

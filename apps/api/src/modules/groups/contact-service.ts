@@ -35,7 +35,7 @@ import {
   isMobilePhoneConsentEffective,
   maskMobilePhone,
 } from './mobile-phone-consent.js';
-import { GroupPermissionService } from './permission-service.js';
+import { canReadDirectory, GroupPermissionService } from './permission-service.js';
 import { readMemberEmployeeCodes } from './group-member-directory-codes.js';
 import {
   createOrganizationFingerprint,
@@ -57,7 +57,10 @@ export class ContactService {
   private readonly auditWriter = new AuditWriter();
   private readonly permissionService = new GroupPermissionService();
 
-  public constructor(private readonly databaseClient: DatabaseClient) {}
+  public constructor(
+    private readonly databaseClient: DatabaseClient,
+    private readonly platformAdminUids?: ReadonlySet<string>,
+  ) {}
 
   public async listContacts(
     identity: AuthenticatedIdentity,
@@ -116,7 +119,12 @@ export class ContactService {
             isMobilePhoneConsentEffective(authorization.group.id, contact.membershipId, contact),
         ),
       );
-      if (options.includeEmployeeCodes !== true) return visibleContacts;
+      if (
+        options.includeEmployeeCodes !== true ||
+        !canReadDirectory(authorization, identity, this.platformAdminUids)
+      ) {
+        return visibleContacts;
+      }
       const codes = await readMemberEmployeeCodes(
         transaction,
         contacts.map((contact) => ({
@@ -126,9 +134,7 @@ export class ContactService {
             ? (contact.mobilePhone ?? undefined)
             : undefined,
         })),
-        authorization.user.isDeveloperAdmin ||
-          authorization.membership.role === 'owner' ||
-          authorization.membership.role === 'administrator',
+        true,
       );
       return visibleContacts.map((contact) => {
         const employeeCodes = codes.get(contact.membershipId);

@@ -75,4 +75,10 @@ describe('persisted history visibility release compatibility', () => {
       databaseSchemaMax: '72',
     });
   });
+  it('requires directory query activity columns from schema 73', () => {
+    expect(releaseSchemaCompatibility(journal(73, '0073_directory_query_activity'))).toEqual({
+      databaseSchemaMin: '73',
+      databaseSchemaMax: '73',
+    });
+  });
 });

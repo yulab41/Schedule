@@ -2,6 +2,7 @@ import type {
   AccountActivitySummary,
   AccountLoginMethod,
   AccountOpenRequest,
+  DirectoryKind,
 } from '@schedule/contracts';
 import {
   accountActivitySummaries,
@@ -24,6 +25,14 @@ const emptySummary: AccountActivitySummary = {
   todayOpenCount: 0,
   totalOpenCount: 0,
 };
+
+function directoryQuerySummary(today: string, count: number, total: number, last: Date | null) {
+  return {
+    todayCount: last !== null && chinaActivityDay(last) === today ? count : 0,
+    totalCount: total,
+    ...(last === null ? {} : { lastQueriedAt: last.toISOString() }),
+  };
+}
 
 export class AccountActivityService {
   public constructor(
@@ -103,9 +112,42 @@ export class AccountActivityService {
     });
   }
 
+  public async recordDirectoryQuery(userId: string, kind: DirectoryKind): Promise<void> {
+    await withTransaction(this.client, async (tx) => {
+      await this.lockUser(tx, eq(users.id, userId));
+      const now = this.now();
+      const row = await this.summaryForUpdate(tx, userId, now);
+      const sameDay = (last: Date | null) =>
+        last !== null && chinaActivityDay(last) === chinaActivityDay(now);
+      await tx
+        .update(accountActivitySummaries)
+        .set(
+          kind === 'internal'
+            ? {
+                todayInternalDirectoryQueries:
+                  (sameDay(row.lastInternalDirectoryQueryAt)
+                    ? row.todayInternalDirectoryQueries
+                    : 0) + 1,
+                totalInternalDirectoryQueries: row.totalInternalDirectoryQueries + 1,
+                lastInternalDirectoryQueryAt: now,
+              }
+            : {
+                todayEmployeeDirectoryQueries:
+                  (sameDay(row.lastEmployeeDirectoryQueryAt)
+                    ? row.todayEmployeeDirectoryQueries
+                    : 0) + 1,
+                totalEmployeeDirectoryQueries: row.totalEmployeeDirectoryQueries + 1,
+                lastEmployeeDirectoryQueryAt: now,
+              },
+        )
+        .where(eq(accountActivitySummaries.userId, userId));
+    });
+  }
+
   public async summary(
     identity: AuthenticatedIdentity,
     userId: string,
+    includeDirectory = false,
   ): Promise<AccountActivitySummary> {
     return withTransaction(this.client, async (tx) => {
       await requirePlatformAdmin(tx, identity, this.admins);
@@ -121,8 +163,27 @@ export class AccountActivityService {
         .from(accountActivitySummaries)
         .where(eq(accountActivitySummaries.userId, userId))
         .limit(1);
-      if (row === undefined) return emptySummary;
-      const today = row.day === chinaActivityDay(this.now());
+      const day = chinaActivityDay(this.now());
+      const directory = includeDirectory
+        ? {
+            directoryQueries: {
+              internal: directoryQuerySummary(
+                day,
+                row?.todayInternalDirectoryQueries ?? 0,
+                row?.totalInternalDirectoryQueries ?? 0,
+                row?.lastInternalDirectoryQueryAt ?? null,
+              ),
+              employee: directoryQuerySummary(
+                day,
+                row?.todayEmployeeDirectoryQueries ?? 0,
+                row?.totalEmployeeDirectoryQueries ?? 0,
+                row?.lastEmployeeDirectoryQueryAt ?? null,
+              ),
+            },
+          }
+        : {};
+      if (row === undefined) return { ...emptySummary, ...directory };
+      const today = row.day === day;
       return {
         startedAt: row.startedAt.toISOString(),
         ...(row.lastLoginAt === null ? {} : { lastLoginAt: row.lastLoginAt.toISOString() }),
@@ -131,6 +192,7 @@ export class AccountActivityService {
         ...(row.lastOpenedAt === null ? {} : { lastOpenedAt: row.lastOpenedAt.toISOString() }),
         todayOpenCount: today ? row.todayOpenCount : 0,
         totalOpenCount: row.totalOpenCount,
+        ...directory,
       };
     });
   }

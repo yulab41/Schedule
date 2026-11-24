@@ -34,7 +34,8 @@ export function createDirectoryListTimingOptions(
   canUseDiagnostics: (identity: AuthenticatedIdentity) => Promise<boolean>,
 ): RouteShorthandOptions {
   return {
-    onRequest: async (request) => {
+    onRequest: async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
       if (!isDirectoryTimingRequested(request)) return;
       requestStart.set(request, performance.now());
     },

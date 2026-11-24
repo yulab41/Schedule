@@ -19,7 +19,11 @@ export function registerAccountActivityRoutes(
       if (!parsed.success) throw invalidRequest();
       if (request.authenticatedIdentity === null) throw invalidRequest();
       try {
-        return await service.summary(request.authenticatedIdentity, parsed.data);
+        // Published clients strictly validate the original response shape.
+        const query = request.query as { includeDirectory?: string };
+        return await (query.includeDirectory === 'true'
+          ? service.summary(request.authenticatedIdentity, parsed.data, true)
+          : service.summary(request.authenticatedIdentity, parsed.data));
       } catch (error) {
         if (error instanceof ApiError) throw error;
         request.log.warn(

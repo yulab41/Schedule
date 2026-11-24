@@ -62,6 +62,19 @@ export interface GroupAuthorization {
   readonly user: ActiveGroupUser;
 }
 
+export function canReadDirectory(
+  { user, membership }: GroupAuthorization,
+  identity: AuthenticatedIdentity,
+  platformAdminUids?: ReadonlySet<string>,
+): boolean {
+  return (
+    user.isDeveloperAdmin ||
+    platformAdminUids?.has(identity.cloudbaseUid) === true ||
+    membership.role === 'owner' ||
+    membership.role === 'administrator'
+  );
+}
+
 const permissionsByRole: Readonly<
   Record<ActiveGroupMembership['role'], readonly GroupPermission[]>
 > = {

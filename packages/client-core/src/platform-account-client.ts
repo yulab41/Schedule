@@ -63,8 +63,8 @@ export const platformAccountEndpoints = {
 };
 export function createPlatformAccountClient(transport: ClientTransport) {
   return {
-    getActivity: (userId: string) =>
-      transport.request(accountActivityEndpoints.summary, { userId }),
+    getActivity: (userId: string, options?: { readonly includeDirectory: boolean }) =>
+      transport.request(accountActivityEndpoints.summary, { userId, ...options }),
     listDetails: () =>
       transport.request(platformAccountEndpoints.details, {}).then((result) => result.users),
     updateProfile: (userId: string, request: UpdatePlatformUserProfileRequest) =>

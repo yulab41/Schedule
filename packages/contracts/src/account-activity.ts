@@ -7,6 +7,13 @@ export const accountLoginMethodSchema = z.enum([
   'wechat_unspecified',
 ]);
 export type AccountLoginMethod = z.infer<typeof accountLoginMethodSchema>;
+const directoryQueryActivitySchema = z
+  .object({
+    todayCount: z.number().int().nonnegative(),
+    totalCount: z.number().int().nonnegative(),
+    lastQueriedAt: z.string().datetime().optional(),
+  })
+  .strict();
 export const accountActivitySummarySchema = z
   .object({
     startedAt: z.string().datetime().optional(),
@@ -16,6 +23,10 @@ export const accountActivitySummarySchema = z
     lastOpenedAt: z.string().datetime().optional(),
     todayOpenCount: z.number().int().nonnegative(),
     totalOpenCount: z.number().int().nonnegative(),
+    directoryQueries: z
+      .object({ internal: directoryQueryActivitySchema, employee: directoryQueryActivitySchema })
+      .strict()
+      .optional(),
   })
   .strict();
 export type AccountActivitySummary = z.infer<typeof accountActivitySummarySchema>;
