@@ -100,12 +100,7 @@ describeWithDatabase('internal directory routes', () => {
         { method: 'POST', url: `${root}/${path}/lookup`, payload: { entryIds } },
       ] as const;
       for (const request of requests) {
-        for (const token of [
-          'owner-token',
-          'administrator-token',
-          'developer-token',
-          'platform-allowlist-token',
-        ]) {
+        for (const token of ['owner-token', 'administrator-token', 'developer-token']) {
           const allowed = await app.inject({
             ...request,
             headers: { authorization: `Bearer ${token}` },
@@ -118,7 +113,7 @@ describeWithDatabase('internal directory routes', () => {
         expect(denied.json()).toEqual({
           error: {
             code: 'FORBIDDEN',
-            message: '通讯录仅向群主、群管理员和平台管理员开放。',
+            message: '通讯录仅向群主、群管理员和后台管理员开放。',
             requestId: expect.any(String),
           },
         });
@@ -149,6 +144,32 @@ describeWithDatabase('internal directory routes', () => {
     ).toBe(403);
   });
 
+  it('rejects both directory types for members with only platform allowlist access', async () => {
+    const headers = { authorization: 'Bearer platform-allowlist-token' };
+    const accountList = await app.inject({ url: '/platform-admin/users/details', headers });
+    expect(accountList.statusCode).toBe(200);
+
+    const root = `/groups/${groupId}`;
+    for (const directory of ['directory', 'employee-directory']) {
+      if (directory === 'employee-directory') {
+        await client.database.update(directoryImportBatches).set({ directoryKind: 'employee' });
+      }
+      const requests = [
+        { method: 'GET', url: `${root}/${directory}` },
+        { method: 'GET', url: `${root}/${directory}/facets` },
+        {
+          method: 'POST',
+          url: `${root}/${directory}/lookup`,
+          payload: { entryIds: [randomUUID()] },
+        },
+      ] as const;
+      for (const request of requests) {
+        const response = await app.inject({ ...request, headers });
+        expect(response.statusCode, request.url).toBe(403);
+      }
+    }
+  });
+
   it('keeps group contacts available without disclosing employee directory codes to members', async () => {
     await client.database.update(directoryImportBatches).set({ directoryKind: 'employee' });
     await client.database.execute(sql`
@@ -158,15 +179,19 @@ describeWithDatabase('internal directory routes', () => {
       WHERE account.cloudbase_uid = 'directory-member'
     `);
     const url = `/groups/${groupId}/contacts?includeEmployeeCodes=1`;
-    const member = await app.inject({ url, headers: { authorization: 'Bearer member-token' } });
-    expect(member.statusCode).toBe(200);
-    expect(member.json()).toContainEqual(expect.objectContaining({ mobilePhone: '000000000002' }));
-    expect(
-      member
-        .json()
-        .every((contact: { employeeCodes?: string[] }) => contact.employeeCodes === undefined),
-    ).toBe(true);
-    for (const token of ['administrator-token', 'platform-allowlist-token']) {
+    for (const token of ['member-token', 'platform-allowlist-token']) {
+      const member = await app.inject({ url, headers: { authorization: `Bearer ${token}` } });
+      expect(member.statusCode).toBe(200);
+      expect(member.json()).toContainEqual(
+        expect.objectContaining({ mobilePhone: '000000000002' }),
+      );
+      expect(
+        member
+          .json()
+          .every((contact: { employeeCodes?: string[] }) => contact.employeeCodes === undefined),
+      ).toBe(true);
+    }
+    for (const token of ['administrator-token', 'developer-token']) {
       const admin = await app.inject({ url, headers: { authorization: `Bearer ${token}` } });
       expect(admin.statusCode).toBe(200);
       expect(admin.json()).toContainEqual(

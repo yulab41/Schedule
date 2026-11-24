@@ -57,10 +57,7 @@ export class ContactService {
   private readonly auditWriter = new AuditWriter();
   private readonly permissionService = new GroupPermissionService();
 
-  public constructor(
-    private readonly databaseClient: DatabaseClient,
-    private readonly platformAdminUids?: ReadonlySet<string>,
-  ) {}
+  public constructor(private readonly databaseClient: DatabaseClient) {}
 
   public async listContacts(
     identity: AuthenticatedIdentity,
@@ -119,10 +116,7 @@ export class ContactService {
             isMobilePhoneConsentEffective(authorization.group.id, contact.membershipId, contact),
         ),
       );
-      if (
-        options.includeEmployeeCodes !== true ||
-        !canReadDirectory(authorization, identity, this.platformAdminUids)
-      ) {
+      if (options.includeEmployeeCodes !== true || !canReadDirectory(authorization)) {
         return visibleContacts;
       }
       const codes = await readMemberEmployeeCodes(

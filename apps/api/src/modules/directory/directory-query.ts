@@ -104,7 +104,6 @@ interface CandidateDirectoryRow {
 export interface DirectoryQueryOptions {
   readonly candidateReadinessInspector?: (() => Promise<DirectoryCandidateReadiness>) | undefined;
   readonly configuredPlan?: DirectoryQueryPlan | undefined;
-  readonly platformAdminUids?: ReadonlySet<string>;
   readonly recordSuccessfulQuery?: (userId: string, kind: DirectoryKind) => Promise<void>;
   readonly onCandidateUnavailable?:
     ((reason: DirectoryCandidateIndexUnavailableReason) => void) | undefined;
@@ -237,11 +236,11 @@ export class DirectoryQuery {
       groupId,
       'viewDirectory',
     );
-    if (!canReadDirectory(authorization, identity, this.options.platformAdminUids)) {
+    if (!canReadDirectory(authorization)) {
       throw new ApiError({
         code: 'FORBIDDEN',
         statusCode: 403,
-        userMessage: '通讯录仅向群主、群管理员和平台管理员开放。',
+        userMessage: '通讯录仅向群主、群管理员和后台管理员开放。',
       });
     }
     return authorization.user.id;
